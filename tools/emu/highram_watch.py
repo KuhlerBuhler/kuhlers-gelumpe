@@ -53,7 +53,8 @@ KEYS = {"stop": 0x01, "play": 0x02, "tap": 0x03, "left": 0x08, "menu": 0x09, "ri
 POWER_KEY = [6, 1, 0, 0, 0]
 # Title hashes of DATA UTILITY pages of Hacktribe 2.02 (measured with --pages; Probe.title). Another build draws other titles.
 PAGES = {"export pattern": "f2355885be3d", "export all pattern": "e8c1c56e667d", "import all pattern": "65e955bfa6f4",
-         "export all sample": "250d48b7aa1b", "import sample": "7befc1679a33", "software update": "c64ccc5f80bd"}
+         "export all sample": "250d48b7aa1b", "export sample": "7198d2d0808d",
+         "import sample": "7befc1679a33", "software update": "c64ccc5f80bd"}
 MODES = {0x10: "usr", 0x11: "fiq", 0x12: "irq", 0x13: "svc", 0x17: "abt", 0x1B: "und", 0x1F: "sys"}
 
 
@@ -67,10 +68,11 @@ def region(addr):
 class HighWatch:
     """Counts every access into WATCH: per phase and (kind, region, pc) the count, the address range, the modes and SPs."""
 
-    def __init__(self, machine):
+    def __init__(self, machine, upper_only=False):
         self.m = machine
         self.A = machine.A
         self.phase = "boot"
+        self.upper_only = upper_only
         self.rows = collections.OrderedDict()      # phase -> {(kind, region, pc): [count, lo, hi, modes, sp_lo, sp_hi, lr]}
         self.low = {}                               # region -> lowest address written, over the whole run
         self.low_boot = {}
@@ -79,9 +81,15 @@ class HighWatch:
         uc = machine.uc
         # A hook on every stack write makes the run some ten times slower, so the stacks are hooked only while
         # sample_stacks() is on, and otherwise compared block by block at each phase change.
-        for lo, hi in ((WATCH[0], REGIONS[0][2]), (REGIONS[3][1], WATCH[1])):
+        writes = ((WATCH[0], REGIONS[0][2]), (REGIONS[3][1], WATCH[1]))
+        reads = READ_WATCH
+        if upper_only:
+            writes = reads = ((0xC274F000, 0xC4000000), (0xC674F000, 0xC8000000))
+        self.observed_writes = writes
+        self.observed_reads = reads
+        for lo, hi in writes:
             uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, self._access, begin=lo, end=hi - 1, user_data="w")
-        for lo, hi in READ_WATCH:
+        for lo, hi in reads:
             uc.hook_add(unicorn.UC_HOOK_MEM_READ, self._access, begin=lo, end=hi - 1, user_data="r")
         self.stack_hook = None
         self.givers = collections.OrderedDict()     # phase -> Counter of return addresses of calls to the work buffer giver
@@ -173,7 +181,8 @@ class HighWatch:
                                  modes=sorted(MODES.get(m, hex(m)) for m in modes), sp=[hex(sp_lo), hex(sp_hi)]))
             out.append(dict(phase=phase, accesses=rows))
         givers = {ph: {hex(lr - 4): n for lr, n in c.items()} for ph, c in self.givers.items()}
-        return dict(phases=out, giver_calls=givers, stack_blocks_changed=self.blocks, stack_marks=self.marks, lowest_write={REGIONS[r][0]: hex(a) for r, a in sorted(self.low.items())},
+        return dict(phases=out, upper_only=self.upper_only, observed_writes=self.observed_writes,
+                    observed_reads=self.observed_reads, giver_calls=givers, stack_blocks_changed=self.blocks, stack_marks=self.marks, lowest_write={REGIONS[r][0]: hex(a) for r, a in sorted(self.low.items())},
                     lowest_write_boot={REGIONS[r][0]: hex(a) for r, a in sorted(self.low_boot.items())})
 
 
@@ -190,7 +199,7 @@ def plain_wav(frames, rate=48000):
 
 
 class Probe:
-    def __init__(self, payload, flash, samples, wav_frames):
+    def __init__(self, payload, flash, samples, wav_frames, sample_frames=20000, extra_files=None, upper_only=False):
         self.payload = payload
         self.dev = Dev(payload, flash)
         self.m = self.dev.m
@@ -198,11 +207,13 @@ class Probe:
         img = fat32.format_image(128 * 1024 * 1024)
         vol = fat32.Volume(img)
         if samples:
-            vol.write(f"KORG/{self.root}/Sample/e2sSample.all", sampleset.build(sampleset.sized(samples, samples * 20000)))
+            vol.write(f"KORG/{self.root}/Sample/e2sSample.all", sampleset.build(sampleset.sized(samples, samples * sample_frames)))
         vol.write("/imp.wav", plain_wav(wav_frames))
+        for path, data in (extra_files or {}).items():
+            vol.write(path, data)
         vol.close()
         self.m.insert_card(SDCard(MemoryMedium(img)))
-        self.watch = HighWatch(self.m)
+        self.watch = HighWatch(self.m, upper_only=upper_only)
         self.log = []
 
     def run(self, s):
@@ -232,6 +243,54 @@ class Probe:
         self.log.append(dict(phase=name, device_s=round(self.m.time_ns / 1e9, 2), screen=self.m.screen(), asserts=len(self.m.asserts)))
         print(json.dumps(self.log[-1]), file=sys.stderr, flush=True)
 
+    def capture(self, source, stereo, duration=0.2, cursor_delta=64, start_play=0):
+        """Exercise native capture CPU paths with an explicitly modelled DSP end."""
+        self.to_main()
+        self.tap('stop', 0.2)
+        slots_before = self.slots()
+        active_before = self.active_metadata()
+        self.dev.call(0xC0083DB0, 42, 0)
+        self.run(0.2)
+        manager = self.dev.call(0xC0035AD8)
+        outer = self.m.u32(self.m.profile.screens)
+        window = self.m.u32(outer + 0x24)
+        if self.m.u32(window) != 0xC00E3AA8 or self.m.u32(window + 0x24) != manager:
+            raise ValueError('native sampling window or manager differs')
+        self.dev.call(0xC006B440, window, source)
+        self.dev.call(0xC006B3FC, window, stereo)
+        selected = (self.m.u32(manager + 0x708), self.m.u32(manager + 0x704))
+        transport = self.dev.call(0xC0030D28)
+        cursor = self.m.u32(0xC00F9C80)
+        started = self.dev.call(0xC0082F1C, transport, start_play)
+        self.run(duration)
+        # The emulator records no audio. Only the DSP end mailbox is supplied here.
+        end = cursor + cursor_delta
+        self.m.dsp_mem[0xFF903210] = end & 0xFFFF
+        self.m.dsp_mem[0xFF903212] = end >> 16
+        self.dev.call(0xC0082D40, transport)
+        self.run(0.2)
+        after = self.m.u32(0xC00F9C80)
+        state = self.m.u32(transport + 0x308)
+        completion = self.m.u32(outer + 0x30)
+        self.tap('exit', 0.3)
+        closed = self.until(lambda: self.m.u32(outer + 0x24) == 0, 2.0, 0.1)
+        idle = self.m.u32(transport + 0x308)
+        slots_after_exit = self.slots()
+        cursor_after_exit = self.m.u32(0xC00F9C80)
+        active_after = self.active_metadata()
+        discarded = (closed and idle == 0 and slots_after_exit == slots_before
+                     and cursor_after_exit == cursor and active_before == active_after)
+        result = dict(source=source, stereo=stereo, selected=list(selected), started=started,
+                      cursor_before=cursor, cursor_after=after, state=state, completion_window=completion,
+                      discarded=discarded, closed=closed, state_after_exit=idle, dsp_end_is_model=True, audio=False, dma=False,
+                      slots_before=slots_before, slots_after_exit=slots_after_exit, cursor_after_exit=cursor_after_exit,
+                      simulated_seconds=duration, modelled_cursor_delta=cursor_delta, start_play=start_play,
+                      active_before=active_before, active_after=active_after)
+        result['ok'] = (selected == (source, stereo) and started == 1 and state == 12
+                        and completion == 42 and discarded and after == end and not self.m.asserts)
+        print(json.dumps(dict(capture_result=result)), file=sys.stderr, flush=True)
+        return result
+
     def read_card(self, path):
         vol = fat32.Volume(bytes(self.m.mmc.card.medium.data))
         try:
@@ -245,6 +304,11 @@ class Probe:
         """Samples the firmware shows as in use: +11 of each record of the sample table is 1 (docs/speicherbereiche.md)."""
         meta = bytes(self.m.uc.mem_read(0xC036AD88, 1000 * 0x45C))
         return sum(1 for i in range(1000) if meta[i * 0x45C + 11] == 1)
+
+    def active_metadata(self):
+        meta = bytes(self.m.uc.mem_read(0xC036AD88, 1000 * 0x45C))
+        return {str(index): hashlib.sha256(meta[index * 0x45C:(index + 1) * 0x45C]).hexdigest()
+                for index in range(1000) if meta[index * 0x45C + 11] == 1}
 
     def poison(self):
         word = struct.pack("<I", POISON)
@@ -283,8 +347,10 @@ def main():
     ap.add_argument("--flash")
     ap.add_argument("--report")
     ap.add_argument("--samples", type=int, default=40, help="samples in e2sSample.all on the card, 20,000 frames each")
+    ap.add_argument("--sample-frames", type=int, default=20000, help="average frames per generated collection sample")
     ap.add_argument("--wav-frames", type=int, default=50_000, help="length of the WAV for IMPORT SAMPLE")
     ap.add_argument("--poison", action="store_true")
+    ap.add_argument("--capture", action="store_true", help="include sampling/resampling CPU paths with a modelled DSP end, no audio or DMA")
     ap.add_argument("--pages", action="store_true", help="only print the title hash and title rows of every DATA UTILITY page")
     ap.add_argument("--skip", default="", help="comma list of phases to leave out: play,switch,pattern,import,export,poweroff")
     a = ap.parse_args()
@@ -292,7 +358,7 @@ def main():
     payload = raw[HEADER:]
     flash = load_flash([a.flash]) if a.flash else None
     skip = set(filter(None, a.skip.split(",")))
-    p = Probe(payload, flash, a.samples, a.wav_frames)
+    p = Probe(payload, flash, a.samples, a.wav_frames, a.sample_frames)
     shots = {}
 
     p.phase("boot")
@@ -352,6 +418,12 @@ def main():
         for _ in range(3):
             p.dev.turn(1, 0.6)
         p.run(1.0)
+    captures = []
+    if a.capture:
+        for source, name in ((0, 'sampling'), (1, 'resampling')):
+            for stereo in (0, 1):
+                p.phase(name + (' stereo' if stereo else ' mono'))
+                captures.append(p.capture(source, stereo))
     flows = [
         # (phase, page, steps, skip key); steps are (key or "turnN", seconds to wait after it), measured with Hacktribe 2.02
         # IMPORT SAMPLE first: the file browser keeps the folder it was left in, and the WAV is on the card root
@@ -391,7 +463,7 @@ def main():
     for path in (f"/KORG/{p.root}/Sample/e2sSample.all", f"/KORG/{p.root}/electribe_sampler_allpattern.e2sallpat"):
         data = p.read_card(path)
         files[path] = dict(size=len(data), sha=hashlib.sha256(data).hexdigest()[:16]) if data is not None else None
-    out = dict(vsb=a.vsb, sha256=hashlib.sha256(raw).hexdigest(), poison=a.poison, samples=a.samples, log=p.log,
+    out = dict(hardware_contact=False, audio=False, dma=False, captures=captures, vsb=a.vsb, sha256=hashlib.sha256(raw).hexdigest(), poison=a.poison, samples=a.samples, sample_frames=a.sample_frames, log=p.log,
                asserts=[str(x) for x in p.m.asserts[:5]], powered=p.m.powered, slots_end=p.slots(), files=files,
                patterns_sha=hashlib.sha256(bytes(p.m.uc.mem_read(0xC08B2940, 250 * 0x4000))).hexdigest()[:16],
                watch=(p.phase("end"), p.watch.report())[1], shots=shots)
@@ -400,7 +472,8 @@ def main():
         Path(a.report).write_text(text)
     else:
         print(text)
+    return 0 if not p.m.asserts and all(row["ok"] for row in captures) else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

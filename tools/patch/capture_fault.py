@@ -41,6 +41,7 @@ capture_start_entry:
     ldr r12, [r12]
     cmp r12, #0
     cmnne r12, #1
+    cmpne r12, #1
     movne r0, #0
     bxne lr
     push {r3-r7, lr}
@@ -51,6 +52,7 @@ capture_poll_entry:
     ldr r12, [r12]
     cmp r12, #0
     cmnne r12, #1
+    cmpne r12, #1
     movne r0, #0
     bxne lr
     push {r0, r1, r4, lr}
@@ -61,6 +63,7 @@ capture_finish_entry:
     ldr r12, [r12]
     cmp r12, #0
     cmnne r12, #1
+    cmpne r12, #1
     movne r0, #0
     bxne lr
     push {r4-r11, lr}
@@ -71,6 +74,7 @@ capture_finish_read:
     ldr r12, [r12]
     cmp r12, #0
     cmnne r12, #1
+    cmpne r12, #1
     movne r0, #0
     bne 0xc004f1f4
     mul r8, r7, r8
@@ -81,6 +85,7 @@ capture_stop_record:
     ldr r12, [r12]
     cmp r12, #0
     cmnne r12, #1
+    cmpne r12, #1
     movne r0, #0
     bne 0xc0082f08
     bl 0xc004ef94
@@ -91,6 +96,7 @@ capture_stop_command:
     ldr r12, [r12]
     cmp r12, #0
     cmnne r12, #1
+    cmpne r12, #1
     mov r0, #0
     bne 0xc0082f08
     b 0xc0082ddc
@@ -100,6 +106,7 @@ capture_stop_finish:
     ldr r12, [r12]
     cmp r12, #0
     cmnne r12, #1
+    cmpne r12, #1
     movne r0, #0
     bne 0xc0082f08
     cmp r7, #1

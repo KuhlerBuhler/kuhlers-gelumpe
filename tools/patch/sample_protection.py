@@ -29,6 +29,20 @@ MUTATIONS = (
 )
 
 
+# Store, original instruction, label, row register, value register, offset, width,
+# row-pointer bias, native function, length, hash.
+STORES = (
+    (0xC007F9F0, 0xE1C321B4, 'protect_tune', 'r3', 'r2', 20, 2, 0, 0xC007F980, 0xC4,
+     '29806b8c5cdb20b4bd3a39700fe9750c8ce1539d7ec1be2090f212b250ad2dc3'),
+    (0xC007F94C, 0xE5C6500A, 'protect_level', 'r6', 'r5', 10, 1, 0, 0xC007F8A8, 0xD8,
+     'db8d91c07a4e7084e82851f96468b720d02e30e3b2d7f842c45c645e0e3c4b16'),
+    (0xC007F0EC, 0xE1C630B4, 'protect_tune_increment', 'r6', 'r3', 4, 2, 16, 0xC007F02C, 0x104,
+     'aa6fae001c46067062159225fe661e12de824de51f0e0e56256c4a3c2a68add0'),
+    (0xC007EFE8, 0xE5C65002, 'protect_level_increment', 'r6', 'r5', 2, 1, 8, 0xC007EF44, 0xE8,
+     'b2d8774a54c73ccff8492876fc90a8344b53b1a47cee6f2be5941262965e0636'),
+)
+
+
 def validate_firmware(vsb):
     parser = sample_seek.PARSER - 0xC0000000 + 0x100
     if hashlib.sha256(vsb[parser:parser + 0x8F0]).hexdigest() != '2c1b1b3abf5a7454f90f511112e8b68b653f4a93d50d210e75a61ca2a1b287e3':
@@ -41,11 +55,16 @@ def validate_firmware(vsb):
         if hashlib.sha256(vsb[off:off + length]).hexdigest() != expected:
             raise ValueError(f'native sample mutation differs: {label}')
 
+    for _, _, label, _, _, _, _, _, entry, length, expected in STORES:
+        off = entry - 0xC0000000 + 0x100
+        if hashlib.sha256(vsb[off:off + length]).hexdigest() != expected:
+            raise ValueError(f'native sample store differs: {label}')
+
 
 def source(state):
     if state & 3 or not 0 <= state <= 0x100000000 - SIZE:
         raise ValueError('word aligned protection state required')
-    return f'.equ P_STATE, {state:#x}\n' + SOURCE + wrappers()
+    return f'.equ P_STATE, {state:#x}\n' + SOURCE + wrappers() + store_wrappers()
 
 
 def wrappers():
@@ -68,6 +87,50 @@ def wrappers():
     pattern = arm.assemble(sample_seek.parser_source(0), origin=0).bytes[:sample_seek.ANCHOR_RETURN]
     result.append('protection_anchor_pattern:\n' + '\n'.join(f'.word {word:#x}' for word in struct.unpack('<8I', pattern)))
     return '\n'.join(result) + '\n'
+
+
+def store_wrappers():
+    result = []
+    for at, original, label, pointer, value, offset, width, bias, *_ in STORES:
+        shift = 32 - width * 8
+        load = 'ldrh' if width == 2 else 'ldrb'
+        saved = '\n    '.join(f'ldr {reg}, [sp, #{4 + int(reg[1:]) * 4}]'
+                              for reg in dict.fromkeys((pointer, value)) if reg in ('r2', 'r3'))
+        unbias = f'sub r0, r0, #{bias}' if bias else ''
+        result.append(f'''{label}:
+    push {{r0-r4, r12, lr}}
+    .word 0xE10F4000
+    push {{r4}}
+    ldr r0, =ST
+    ldr r0, [r0, #MODE]
+    cmp r0, #2
+    bhi {label}_store
+    mov r0, {pointer}
+    {unbias}
+    bl protection_row_index
+    orr r1, r4, #0x80
+    .word 0xE121F001
+    cmn r0, #1
+    beq {label}_store
+    {saved}
+    mov r1, {value}, lsl #{shift}
+    mov r1, r1, lsr #{shift}
+    {load} r2, [{pointer}, #{offset}]
+    cmp r1, r2
+    beq {label}_store
+    mov r1, #1
+    bl protection_bit
+{label}_store:
+    {saved}
+    .word {original:#x}
+    pop {{r4}}
+    .word 0xE121F004
+    .word 0xE128F004
+    pop {{r0-r4, r12, lr}}
+    b {at + 4:#x}
+    .pool
+''')
+    return '\n'.join(result)
 
 
 def boot_stamp():
@@ -167,6 +230,28 @@ protection_import:
     bl protection_bit
     pop {r4, pc}
 
+; r0 metadata row pointer. Returns its physical index, or -1.
+protection_row_index:
+    ldr r1, =META
+    subs r0, r0, r1
+    blo pr_invalid
+    ldr r1, =SAMPLE_COUNT * 0x45C
+    cmp r0, r1
+    bhs pr_invalid
+    mov r2, #0
+    ldr r1, =0x45C
+pr_divide:
+    cmp r0, r1
+    subhs r0, r0, r1
+    addhs r2, r2, #1
+    bhs pr_divide
+    cmp r0, #0
+    moveq r0, r2
+    bxeq lr
+pr_invalid:
+    mvn r0, #0
+    bx lr
+
 ; r0 physical row, r1 0 clean, 1 native mutation, 2 observed dirty.
 protection_bit:
     push {r4-r6, lr}
@@ -175,6 +260,11 @@ protection_bit:
     .word 0xE121F002
     ldr r5, =P_STATE
     mov r6, r1
+    cmp r6, #1
+    ldreq r2, =ST
+    moveq r3, #0
+    streq r3, [r2, #J_STATE]
+    streq r3, [r2, #J_STAGED]
     ldr r2, =SAMPLE_COUNT
     cmp r0, #500
     blo pb_revision
@@ -211,6 +301,9 @@ mark_clean:
     push {r4-r9, r12, lr}
     mov r4, r0
     mov r5, r1
+    ldr r0, [r11, #TSTATE]
+    cmp r0, #1
+    bhi mc_no
     ldr r8, =P_STATE
     ldr r0, [r8, #148]
     cmp r0, #0
@@ -226,6 +319,9 @@ mark_clean:
     .word 0xE10F9000
     orr r0, r9, #0x80
     .word 0xE121F000
+    ldr r0, [r11, #TSTATE]
+    cmp r0, #1
+    bhi mc_stale
     ldr r0, [r8, #148]
     cmp r0, #0
     bne mc_stale
@@ -359,6 +455,164 @@ ps_no:
     mov r0, #0
     pop {r4-r8, pc}
 
+; r0 ARM buffer, r1 DSP destination, r2 halfwords, r3 file lease. Resource 1 is held.
+transfer_job_ok:
+    push {r4-r8, r11, r12, lr}
+    mov r4, r0
+    mov r5, r1
+    mov r6, r2
+    mov r7, r3
+    ldr r11, =ST
+    .word 0xE10F8000
+    orr r0, r8, #0x80
+    .word 0xE121F000
+    ldr r0, =STAGE
+    cmp r4, r0
+    bne tj_no
+    ldr r0, =FILE_OWNER
+    ldr r1, [r0]
+    cmp r7, #0
+    beq tj_no
+    cmp r1, r7
+    bne tj_no
+    ldr r1, [r0, #8]
+    cmp r1, #0
+    bne tj_no
+    ldr r1, [r0, #12]
+    cmp r1, #1
+    bne tj_no
+    ldr r0, [r11, #MODE]
+    cmp r0, #1
+    bne tj_no
+    ldr r0, [r11, #TSTATE]
+    cmp r0, #0
+    bne tj_no
+    ldr r0, [r11, #J_STATE]
+    cmp r0, #1
+    bne tj_no
+    ldr r0, [r11, #J_DST]
+    cmp r0, #0
+    bne tj_no
+    ldr r0, [r11, #J_GEN]
+    ldr r1, [r11, #GEN]
+    cmp r0, r1
+    bne tj_no
+    ldr r0, [r11, #J_BASE]
+    ldr r1, [r11, #J_DONE]
+    adds r0, r0, r1
+    bcs tj_no
+    cmp r0, r5
+    bne tj_no
+    ldr r0, [r11, #J_LEN]
+    cmp r1, r0
+    bhs tj_no
+    sub r0, r0, r1
+    ldr r1, [r11, #J_STAGED]
+    cmp r1, #0
+    beq tj_no
+    cmp r1, r0
+    bhi tj_no
+    cmp r1, #CHUNK
+    bhi tj_no
+    add r1, r1, #31
+    bic r1, r1, #31
+    cmp r1, r6, lsl #1
+    bne tj_no
+    bl swap_ok
+    cmp r0, #0
+    beq tj_no
+    ldr r0, [r11, #J_SLOT]
+    bl resident
+    cmp r0, #0
+    moveq r0, #1
+    movne r0, #0
+    b tj_out
+tj_no:
+    mov r0, #0
+tj_out:
+    .word 0xE121F008
+    pop {r4-r8, r11, r12, pc}
+
+; r0 setup revision. Returns whether the fully prepared job was activated.
+job_activate:
+    push {r4-r6, lr}
+    mov r5, r0
+    .word 0xE10F4000
+    orr r0, r4, #0x80
+    .word 0xE121F000
+    ldr r0, [r11, #J_GEN]
+    ldr r1, [r11, #GEN]
+    cmp r0, r1
+    bne ja_no
+    ldr r0, =P_STATE
+    ldr r1, [r0, #148]
+    cmp r1, #0
+    bne ja_no
+    ldr r0, [r0, #128]
+    cmp r0, r5
+    bne ja_no
+    ldr r0, [r11, #MODE]
+    cmp r0, #1
+    bne ja_no
+    ldr r0, [r11, #TSTATE]
+    cmp r0, #1
+    bhi ja_no
+    bl swap_ok
+    cmp r0, #0
+    beq ja_no
+    ldr r0, [r11, #J_DST]
+    cmp r0, #0
+    bne ja_yes
+    ldr r0, [r11, #J_SLOT]
+    bl resident
+    cmp r0, #0
+    bne ja_no
+ja_yes:
+    mov r0, #1
+    str r0, [r11, #J_STATE]
+    b ja_out
+ja_no:
+    mov r0, #0
+    str r0, [r11, #J_STATE]
+ja_out:
+    .word 0xE121F004
+    pop {r4-r6, pc}
+
+; r0 slot, r1 placement revision. Called inside the allocation IRQ commit.
+allocation_ok:
+    push {r4-r6, lr}
+    mov r4, r0
+    mov r5, r1
+    ldr r0, [r11, #MODE]
+    cmp r0, #1
+    bne ao_no
+    ldr r0, [r11, #TSTATE]
+    cmp r0, #1
+    bhi ao_no
+    bl swap_ok
+    cmp r0, #0
+    beq ao_no
+    ldr r0, [r11, #J_GEN]
+    ldr r1, [r11, #GEN]
+    cmp r0, r1
+    bne ao_no
+    ldr r0, =P_STATE
+    ldr r1, [r0, #148]
+    cmp r1, #0
+    bne ao_no
+    ldr r0, [r0, #128]
+    cmp r0, r5
+    bne ao_no
+    mov r0, r4
+    bl resident
+    cmp r0, #0
+    moveq r0, #1
+    movne r0, #0
+    pop {r4-r6, pc}
+ao_no:
+    mov r0, #0
+    pop {r4-r6, pc}
+
 ; A prepared view remains valid after deleting one checked clean row.
 protection_removed:
     ldr r1, =P_STATE
@@ -373,6 +627,10 @@ protection_removed:
     bx lr
 
 protection_current:
+    ldr r0, [r11, #TSTATE]
+    cmp r0, #1
+    movhi r0, #0
+    bxhi lr
     ldr r0, [r11, #MODE]
     cmp r0, #1
     movne r0, #0

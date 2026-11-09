@@ -48,7 +48,10 @@ export const CHAINS = {
     { id: "part-update", sites: [0xC0099FFC] },
     { id: "part-bind", sites: [0xC0099D88] },
     { id: "osc-choice", sites: [0xC0040DB4] },
+    { id: "sample-name", sites: [0xC00997CC] },
     { id: "export-all-open", sites: [0xC0039FB0] },
+    { id: "metadata-read", sites: [0xC0035B3C, 0xC0035BA4, 0xC0035C08, 0xC0035CF8, 0xC0035DA8,
+      0xC0035DE8, 0xC0035E18] },
   ],
   "sample-swap-mutations": [
     { id: "delete", sites: [0xC004E558] },
@@ -59,6 +62,12 @@ export const CHAINS = {
     { id: "rename", sites: [0xC004E8C8] },
     { id: "slice", sites: [0xC004E93C] },
     { id: "restore", sites: [0xC004EFF4] },
+    { id: "tune-store", sites: [0xC007F9F0] },
+    { id: "play-level-store", sites: [0xC007F94C] },
+    { id: "tune-increment-store", sites: [0xC007F0EC] },
+    { id: "play-level-increment-store", sites: [0xC007EFE8] },
+    { id: "pcm-short-read", sites: [0xC004EF58] },
+    { id: "pcm-parser-write", sites: [0xC0036320, 0xC00363E4] },
   ],
   "sample-swap-native-dsp": [
     { id: "resource-acquire", sites: [

@@ -71,17 +71,22 @@ def cases(payload):
                         ok=actual[:4096] == intended and journal_removed and pcm_equal and not box.m.asserts,
                         header_restored=actual[:4096] == intended, journal_removed=journal_removed,
                         replacement_pcm_equal=pcm_equal, asserts=len(box.m.asserts)))
-    box = c.Box(payload, None, samples, [500], cap=1024, record_dsp=True)
-    before = bytes(box.m.uc.mem_read(c.META, c.spec.SAMPLE_COUNT * 0x45C))
-    box.m.uc.mem_write(c.spec.STATE + c.spec.OFF["TSTATE"], struct.pack("<I", 1))
-    path_at = 0xC1001000
-    box.m.uc.mem_write(path_at, f"SD:/KORG/{c.cardstore.card_folder(payload)}/Sample/e2sSample.all\0".encode())
-    status = box.dev.call(0xC00364F0, path_at)
-    unchanged = bytes(box.m.uc.mem_read(c.META, len(before))) == before
-    results.append(dict(id="faulted_library_reload_preserves_live_metadata",
-                        ok=status != 0 and unchanged and box.u32(c.spec.STATE + c.spec.OFF["TSTATE"]) == 1
-                        and not box.m.asserts, status=status, metadata_unchanged=unchanged,
-                        protocol_fault_preserved=box.u32(c.spec.STATE + c.spec.OFF["TSTATE"]) == 1))
+    transport = c.spec.sample_swap_io
+    for initial in (transport.INFLIGHT, transport.LATCHED):
+        box = c.Box(payload, None, samples, [500], cap=1024, record_dsp=True)
+        before = bytes(box.m.uc.mem_read(c.META, c.spec.SAMPLE_COUNT * 0x45C))
+        box.m.uc.mem_write(c.spec.STATE + c.spec.OFF["TSTATE"], struct.pack("<I", initial))
+        path_at = 0xC1001000
+        box.m.uc.mem_write(path_at, f"SD:/KORG/{c.cardstore.card_folder(payload)}/Sample/e2sSample.all\0".encode())
+        status = box.dev.call(0xC00364F0, path_at)
+        unchanged = bytes(box.m.uc.mem_read(c.META, len(before))) == before
+        final = box.state('TSTATE')
+        preserved = final == transport.LATCHED if initial == transport.LATCHED else final in (transport.INFLIGHT, transport.LATCHED)
+        results.append(dict(id="faulted_library_reload_preserves_live_metadata" if initial == transport.LATCHED
+                            else "inflight_library_reload_preserves_transfer_guard",
+                            ok=status != 0 and unchanged and preserved and not box.m.asserts,
+                            status=status, metadata_unchanged=unchanged, initial_state=initial, final_state=final,
+                            protocol_fault_preserved=preserved))
     return results
 
 

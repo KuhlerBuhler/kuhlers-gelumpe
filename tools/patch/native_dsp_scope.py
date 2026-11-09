@@ -17,7 +17,7 @@ interrupt control before returning.
 import hashlib
 
 import arm
-from sample_swap_io import TIMER, TIMER_HZ, DEADLINE_TICKS, POLL_BUDGET, RELEASE, validate_firmware as validate_transport
+from sample_swap_io import TIMER, TIMER_HZ, DEADLINE_TICKS, POLL_BUDGET, RELEASE, LATCHED, validate_firmware as validate_transport
 
 CONTEXT_BYTES = 96
 ACQUIRE = 0xC0000D80
@@ -60,11 +60,11 @@ def validate_firmware(vsb):
 
 def source(*, scope, fault, mode, generation, release=RELEASE, acquire=ACQUIRE,
            timer=TIMER, poll_budget=POLL_BUDGET, gate=None):
-    """`gate`, a word: when given, a transaction is bounded only while the mode word is 1 and the gate word is not 0;
-    every other acquisition keeps its native, unbounded behavior."""
+    """Initialized sample reads/writes are always bounded. Other transactions use
+    the optional MODE/INSTEP gate; uninitialized calls retain native behavior."""
     values = dict(NS_SCOPE=scope, NS_FAULT=fault, NS_MODE=mode, NS_GEN=generation,
                   NS_RELEASE=release, NS_ACQUIRE=acquire, NS_TIMER=timer, NS_HZ=TIMER_HZ,
-                  NS_DEADLINE=DEADLINE_TICKS, NS_POLLS=poll_budget)
+                  NS_DEADLINE=DEADLINE_TICKS, NS_POLLS=poll_budget, NS_LATCHED=LATCHED)
     if gate is not None:
         values['NS_GATE'] = gate
     if any(value & 3 for value in (scope, fault, mode, generation, release, acquire, timer, gate or 0)):
@@ -258,9 +258,9 @@ native_scope_abort:
     .word 0xE121F000
     ldr r0, =NS_FAULT
     ldr r1, [r0]
-    cmp r1, #0
-    bne ns_fault_latched
-    mov r1, #1
+    cmp r1, #NS_LATCHED
+    beq ns_fault_latched
+    mov r1, #NS_LATCHED
     str r1, [r0]
     ldr r0, =NS_GEN
     ldr r1, [r0]
@@ -291,27 +291,53 @@ ns_return:
     ldr r2, [r1]
     ldr r11, [r1, #-4]
     add r3, r1, #4
+    ldr r1, [r4, #52]
+    ldr r12, =0xC001424C
+    cmp r1, r12
+    beq ns_sample_error
+    ldr r12, =0xC00142D8
+    cmp r1, r12
+    movne r1, #0
+    bne ns_result_ready
+ns_sample_error:
+    mov r1, #4
+ns_result_ready:
     add r12, r4, #16
     ldmia r12, {r4-r10}
     mov sp, r3
     .word 0xE121F000
-    mov r0, #0
+    mov r0, r1
     bx r2
 .pool
 '''
 
-TAKE = r'''    push {r12, lr}
-    ldr r12, =NS_SCOPE
-    ldr r12, [r12]
-    cmn r12, #1
-    pop {r12, lr}
-    beq NS_ACQUIRE'''
-
-GATED_TAKE = r'''    push {r12, lr}
+TAKE_CHECK = r'''    push {r12, lr}
     ldr r12, =NS_SCOPE
     ldr r12, [r12]
     cmn r12, #1
     beq ns_take_native
+    ldr r12, =NS_FAULT
+    ldr r12, [r12]
+    cmp r12, #1
+    bhi ns_take_refused
+'''
+
+TAKE_END = r'''ns_take_native:
+    pop {r12, lr}
+    b NS_ACQUIRE
+ns_take_refused:
+    pop {r12, lr}
+    b native_scope_refused
+ns_take_bounded:'''
+
+TAKE = TAKE_CHECK + '    pop {r12, lr}\n    b ns_take_bounded\n' + TAKE_END
+
+GATED_TAKE = TAKE_CHECK + r'''    ldr r12, =0xC001424C
+    cmp lr, r12
+    beq ns_sample_take
+    ldr r12, =0xC00142D8
+    cmp lr, r12
+    beq ns_sample_take
     ldr r12, =NS_MODE
     ldr r12, [r12]
     cmp r12, #1
@@ -320,12 +346,10 @@ GATED_TAKE = r'''    push {r12, lr}
     ldr r12, [r12]
     cmp r12, #0
     beq ns_take_native
+ns_sample_take:
     pop {r12, lr}
     b ns_take_bounded
-ns_take_native:
-    pop {r12, lr}
-    b NS_ACQUIRE
-ns_take_bounded:'''
+''' + TAKE_END
 
 DRIVER = r'''
 native_scope_control:

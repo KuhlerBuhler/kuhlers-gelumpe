@@ -6,6 +6,7 @@ from pathlib import Path
 
 import swap_cases as c
 import arm
+import unicorn
 
 ADAPTER, SOURCE_PATH, LIB_PATH = 0xC1000000, 0xC1008000, 0xC1008100
 
@@ -36,6 +37,111 @@ def library(box, payload):
         volume.close()
 
 
+def metadata_store_cases(payload):
+    out = []
+    for entry, offset, width, value in ((0xC007F980, 20, 2, -1), (0xC007F8A8, 10, 1, 9)):
+        box = c.Box(payload, None, c.small(range(500, 506)), [500], cap=0x40000)
+        unbind(box)
+        original = library(box, payload)
+        physical = box.meta_index(500)
+        row = c.META + physical * 0x45C
+        previous = bytes(box.m.uc.mem_read(row + offset, width))
+        box.m.uc.mem_write(c.NAMES + 501 * 32 + 30,
+                           bytes(box.m.uc.mem_read(c.NAMES + 500 * 32 + 30, 2)))
+        state_call(box, 'mark_clean', 501, box.u32(c.spec.PROTECTION_REV))
+        manager, pointer, obj = 0xC100A000, 0xC100A500, 0xC100A600
+        box.m.uc.mem_write(manager + 0x3FC, struct.pack('<I', 500))
+        box.m.uc.mem_write(pointer, struct.pack('<I', obj))
+        box.m.uc.mem_write(obj + 4, struct.pack('<i', value))
+        before = state_call(box, 'can_evict', 500)
+        box.m.uc.mem_write(obj + 4, struct.pack('<i', int.from_bytes(previous, 'little', signed=True) >> (8 if width == 2 else 0)))
+        box.dev.call(entry, manager, pointer, 0)
+        identical_marked = state_call(box, 'protection_dirty', physical)
+        box.m.uc.mem_write(obj + 4, struct.pack('<i', value))
+        store = 0xC007F9F0 if width == 2 else 0xC007F94C
+        changed_selection = box.m.uc.hook_add(unicorn.UC_HOOK_CODE,
+            lambda uc, *_: uc.mem_write(manager + 0x3FC, struct.pack('<I', 502)), begin=store, end=store)
+        box.dev.call(entry, manager, pointer, 0)
+        box.m.uc.hook_del(changed_selection)
+        box.m.uc.mem_write(manager + 0x3FC, struct.pack('<I', 500))
+        changed = int.from_bytes(box.m.uc.mem_read(row + offset, width), 'little')
+        marked = state_call(box, 'protection_dirty', physical)
+        protected = state_call(box, 'can_evict', 500)
+        alias_protected = state_call(box, 'can_evict', 501)
+        box.m.uc.mem_write(obj + 4, struct.pack('<i', int.from_bytes(previous, 'little', signed=True) >> (8 if width == 2 else 0)))
+        box.dev.call(entry, manager, pointer, 0)
+        restored = bytes(box.m.uc.mem_read(row + offset, width)) == previous
+        sticky = state_call(box, 'can_evict', 500)
+        out.append(dict(id='native_' + ('tune' if width == 2 else 'level') + '_store_protects_all_aliases',
+                        ok=before == 1 and changed == ((value << (8 if width == 2 else 0)) & ((1 << (width * 8)) - 1))
+                        and identical_marked == 0 and marked == 1 and protected == alias_protected == sticky == 0 and restored
+                        and library(box, payload) == original and not box.m.asserts,
+                        before=before, changed=changed, marked_before_scan=marked, identical_marked=identical_marked,
+                        selection_change_is_model=True, evictable=protected,
+                        alias_evictable=alias_protected, restored=restored, restored_evictable=sticky))
+
+    return out
+
+
+def encoder_store_cases(payload):
+    out = []
+    for index, offset, width, name, entry in ((5, 20, 2, 'tune', 0xC007F02C),
+                                            (8, 10, 1, 'level', 0xC007EF44)):
+        box = c.Box(payload, None, c.small(range(500, 506)), [500], cap=0x40000)
+        unbind(box)
+        physical = box.meta_index(500)
+        at = c.META + physical * 0x45C + offset
+        previous = bytes(box.m.uc.mem_read(at, width))
+        original = library(box, payload)
+        manager = box.dev.call(0xC0035AD8)
+        box.dev.call(c.SWITCH_SCREEN, 38, 0)
+        box.m.uc.mem_write(manager + 0x3FC, struct.pack('<I', 500))
+        box.m.uc.mem_write(manager + 0x3F8, struct.pack('<I', index))
+        hits = []
+        box.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: hits.append(1), begin=entry, end=entry)
+        before = state_call(box, 'protection_dirty', physical)
+        box.dev.turn(1)
+        changed = bytes(box.m.uc.mem_read(at, width)) != previous
+        marked = state_call(box, 'protection_dirty', physical)
+        box.dev.call(entry, manager, -1, 0)
+        restored = bytes(box.m.uc.mem_read(at, width)) == previous
+        sticky = state_call(box, 'protection_dirty', physical)
+        out.append(dict(id='native_sample_edit_encoder_' + name + '_protects_its_row',
+                        ok=before == 0 and changed and marked == sticky == 1 and restored
+                        and len(hits) == 2 and library(box, payload) == original and not box.m.asserts,
+                        changed=changed, marked_before_scan=marked, restored=restored,
+                        sticky=sticky, native_calls=len(hits), real_encoder_forward=True,
+                        inverse_is_native_callback=True, selection_setup_is_model=True))
+    return out
+
+
+def pcm_write_cases(payload):
+    box = c.Box(payload, None, c.small(range(500, 506)), [500], cap=0x40000, record_dsp=True)
+    unbind(box)
+    physical = box.meta_index(500)
+    regions = ((c.META + physical * 0x45C, 0x45C),
+               (c.PLAYBACK + physical * 16, 16), (c.NAMES + 500 * 32, 32))
+    tables = [bytes(box.m.uc.mem_read(at, size)) for at, size in regions]
+    original = library(box, payload)
+    start, _ = box.extent(500)
+    previous = box.dsp_bytes(start, 64)
+    source = 0xC100B000
+    box.m.uc.mem_write(source, bytes((i * 13 + 71) & 255 for i in range(64)))
+    box.dev.call(0xC0014284, start, source, 32)
+    changed = box.dsp_bytes(start, 64) != previous
+    same = tables == [bytes(box.m.uc.mem_read(at, size)) for at, size in regions]
+    marked = state_call(box, 'protection_dirty', physical)
+    signature = state_call(box, 'slot_clean', 500)
+    evictable = state_call(box, 'can_evict', 500)
+    unchanged = library(box, payload) == original
+    return [dict(id='native_pcm_only_write_protects_its_physical_row',
+                 ok=changed and same and marked == 1 and evictable == 0
+                 and unchanged and not box.m.asserts,
+                 dsp_changed=changed, arm_tables_identical=same, marked_before_scan=marked,
+                 signature_clean=signature, evictable=evictable, library_unchanged=unchanged,
+                 asserts=box.m.asserts)]
+
+
 def cases(payload):
     out = []
     box = c.Box(payload, None, c.small(range(500, 506)), [500], cap=0x40000)
@@ -52,6 +158,9 @@ def cases(payload):
                     ok=baseline != 0 and before == getter == 1 and edited == 0
                     and library(box, payload) == original and not box.m.asserts,
                     baseline=baseline, before=before, getter=getter, after=edited))
+
+    out.extend(metadata_store_cases(payload))
+    out.extend(encoder_store_cases(payload))
 
     samples = {500: ('old', 20000), **c.small(range(501, 506))}
     box = c.Box(payload, None, samples, [500], cap=0x40000, record_dsp=True,
@@ -106,7 +215,8 @@ def cases(payload):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--patched', required=True, type=Path)
+    parser.add_argument('--pcm-write', action='store_true', help='probe PCM-only native writes separately')
     args = parser.parse_args()
-    report = cases(args.patched.read_bytes()[256:])
+    report = (pcm_write_cases if args.pcm_write else cases)(args.patched.read_bytes()[256:])
     print(json.dumps(report, indent=2))
     raise SystemExit(0 if report and all(row['ok'] for row in report) else 1)

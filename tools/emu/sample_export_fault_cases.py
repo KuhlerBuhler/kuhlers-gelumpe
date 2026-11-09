@@ -28,7 +28,7 @@ def case(payload, failure, guarded=True):
             box.m.uc.mem_write(site, struct.pack('<I', c.spec.redirect(0xEA000000, site, labels[label])))
     box.m.uc.mem_write(c.WORK_BUFFER, bytes([0xA5]) * 0x10000)
     if failure == 'preexisting':
-        box.m.uc.mem_write(c.spec.STATE + c.spec.OFF['TSTATE'], struct.pack('<I', 1))
+        box.m.uc.mem_write(c.spec.STATE + c.spec.OFF['TSTATE'], struct.pack('<I', native.io.LATCHED))
     generation, cursor, extent = box.state('GEN'), box.u32(c.CURSOR), box.extent(500)
     observed = dict(releases=0, closes=0, writes_after_fault=0)
 
@@ -68,7 +68,7 @@ def case(payload, failure, guarded=True):
     file_ok = (len(rows) == 1 and rows[0]['pcm_equal'] if failure == 'none' else not rows if failure == 'preexisting'
                else len(rows) == 1 and rows[0]['bytes'] == 44)
     fault = int(failure != 'none')
-    ok = ((result != 0) == bool(fault) and file_ok and box.state('TSTATE') == fault
+    ok = ((result != 0) == bool(fault) and file_ok and box.state('TSTATE') == (native.io.LATCHED if fault else 0)
           and box.state('GEN') == generation + int(failure != 'preexisting') + int(failure == 'read')
           and box.u32(c.CURSOR) == cursor and box.extent(500) == extent
           and box.u32(native.POINTER) == 0 and box.u32(native.io.SEMA) == 1 and not box.m.asserts

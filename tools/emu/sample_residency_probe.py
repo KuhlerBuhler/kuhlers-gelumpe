@@ -88,6 +88,8 @@ def probe(payload, check_eviction=False, native_publication=False, kind="pcm16",
     pcm = c.plain_wav(400)[44:] if kind == "pcm16" else c.wav_pcm(600, 400, kind)
     box = c.Box(payload, None, {500: ("Own old", 100), 600: ("Own spare", 300)},
                 [600, 600, 500] if stereo else [500, 600], record_dsp=True, extra={"/new.wav": wave.hex()})
+    if box.state('MODE') != 0:
+        return dict(ok=False, native_setup_mode=box.state('MODE'))
     uc = box.m.uc
 
     def put32(address, value):
@@ -138,9 +140,9 @@ def probe(payload, check_eviction=False, native_publication=False, kind="pcm16",
     base = (box.u32(c.CURSOR) + 31) & ~31
     put32(c.CURSOR, base + len(pcm))
     uc.mem_write(spec.STAGE, pcm)
-    transferred = box.dev.call(box.sym["transfer"], 1, spec.STAGE, base, len(pcm) // 2)
-    if transferred != 0:
-        return dict(ok=False, transferred=transferred)
+    box.dev.call(0xC004EF28, spec.STAGE, base, len(pcm) // 2)
+    if box.dsp_bytes(base, len(pcm)) != pcm:
+        return dict(ok=False, native_pcm_prepared=False)
 
     struct.pack_into("<H", descriptor, 20, key + 50)
     struct.pack_into("<I", descriptor, 56, base)

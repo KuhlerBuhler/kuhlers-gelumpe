@@ -15,13 +15,13 @@ def word(n):
 
 
 class Machine:
-    def __init__(self, stuck=None, frozen=False, tick=0, period=0xffffffff, release_error=0, origin=p.CODE_AT, state=p.STATE):
+    def __init__(self, stuck=None, frozen=False, tick=0, period=0xffffffff, release_error=0, origin=p.CODE_AT, state=p.STATE, write_guard=None):
         self.uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
         for at, size in ((0xc0000000,0x800000),(0xc274f000,0x30000),(0x60000000,0x1000),(0x01e26000,0x1000),(p.TIMER,0x1000)):
             self.uc.mem_map(at,size)
         self.state=state
         self.entry=origin
-        self.code,self.symbols = p.build_code(origin=origin,state=state,poll_budget=32)
+        self.code,self.symbols = p.build_code(origin=origin,state=state,poll_budget=32,write_guard=write_guard)
         self.uc.mem_write(origin,self.code)
         self.uc.mem_write(state,word(0))
         self.uc.mem_write(p.SEMA,word(1))
@@ -96,6 +96,83 @@ class Machine:
 
 
 class TransportTests(unittest.TestCase):
+    def test_writes_revalidate_after_acquiring_and_stale_work_releases_only_its_lease(self):
+        guard = 0xC0002000
+        for allowed in (0, 1):
+            for op in (0, 1):
+                with self.subTest(allowed=allowed, op=op):
+                    m = Machine(write_guard=guard)
+                    observed = []
+
+                    def checked(uc, address, size, data):
+                        observed.append((struct.unpack('<I', uc.mem_read(p.SEMA, 4))[0], list(m.ports)))
+                        uc.reg_write(R.UC_ARM_REG_R0, allowed)
+                        uc.reg_write(R.UC_ARM_REG_PC, uc.reg_read(R.UC_ARM_REG_LR))
+
+                    m.uc.hook_add(unicorn.UC_HOOK_CODE, checked, begin=guard, end=guard)
+                    expected = (p.OK, 32) if op == 0 or allowed else (7, 0)
+                    self.assertEqual(m.run(op=op), expected)
+                    self.assertEqual(len(observed), (2 if allowed else 1) if op else 0)
+                    self.assertTrue(all(semaphore == 0 for semaphore, ports in observed))
+                    if op:
+                        self.assertEqual(observed[0], (0, []))
+                    self.assertEqual(m.released, 1)
+                    self.assertEqual(struct.unpack('<I', m.uc.mem_read(m.state, 4))[0], p.READY)
+                    if op and not allowed:
+                        self.assertEqual(m.ports, [])
+
+    def test_a_job_cancelled_during_the_initial_wait_cannot_send_a_header(self):
+        guard = 0xC0002000
+        m = Machine(write_guard=guard)
+        live = [True]
+
+        def checked(uc, address, size, data):
+            uc.reg_write(R.UC_ARM_REG_R0, int(live[0]))
+            uc.reg_write(R.UC_ARM_REG_PC, uc.reg_read(R.UC_ARM_REG_LR))
+
+        m.uc.hook_add(unicorn.UC_HOOK_CODE, checked, begin=guard, end=guard)
+        m.uc.hook_add(unicorn.UC_HOOK_MEM_READ, lambda *_: live.__setitem__(0, False),
+                      begin=p.GPIO, end=p.GPIO)
+        self.assertEqual(m.run(), (7, 0))
+        self.assertEqual(m.header, [])
+        self.assertEqual(m.values, [])
+        self.assertEqual(m.released, 1)
+        self.assertEqual(struct.unpack('<I', m.uc.mem_read(m.state, 4))[0], p.READY)
+
+    def test_a_terminal_fault_during_the_initial_handshake_cannot_be_downgraded(self):
+        m = Machine()
+        injected = []
+
+        def latch(uc, access, address, size, value, data):
+            if not injected:
+                injected.append(True)
+                uc.mem_write(m.state, word(p.LATCHED))
+
+        m.uc.hook_add(unicorn.UC_HOOK_MEM_READ, latch, begin=p.GPIO, end=p.GPIO)
+        self.assertEqual(m.run(), (p.FAULT, 0))
+        self.assertEqual(m.header, [])
+        self.assertEqual(struct.unpack('<I', m.uc.mem_read(m.state, 4))[0], p.LATCHED)
+        self.assertEqual(m.released, 1)
+
+    def test_a_terminal_fault_stops_each_word_and_cannot_be_cleared_at_completion(self):
+        for completed in (0, 1, 16, 32):
+            with self.subTest(completed=completed):
+                m = Machine()
+                injected = []
+
+                def latch(uc, address, size, data):
+                    if len(m.header) == 7 and len(m.values) == completed and not injected:
+                        injected.append(True)
+                        uc.mem_write(m.state, word(p.LATCHED))
+
+                m.uc.hook_add(unicorn.UC_HOOK_CODE, latch,
+                              begin=m.symbols['next_word'] if completed < 32 else m.symbols['word_done'],
+                              end=m.symbols['next_word'] if completed < 32 else m.symbols['word_done'])
+                self.assertEqual(m.run(), (p.FAULT, completed))
+                self.assertEqual(len(m.values), completed)
+                self.assertEqual(struct.unpack('<I', m.uc.mem_read(m.state, 4))[0], p.LATCHED)
+                self.assertEqual(m.released, 1)
+
     def test_read_accepts_halfword_aligned_capture_spans_and_drains_the_last_group(self):
         for count in (1, 15, 16, 17, 31, 32):
             with self.subTest(count=count):
@@ -166,7 +243,7 @@ class TransportTests(unittest.TestCase):
             self.assertEqual(m.run(op=op),(p.OK,32))
             self.assertEqual(m.header,[0xab if op else 0xa9,p.DSP_MIN&0xffff,p.DSP_MIN>>16,32,2,0,0])
             self.assertEqual(m.released,1)
-            self.assertLessEqual(m.max_masked,8)
+            self.assertLessEqual(m.max_masked,40)
             self.assertEqual(bytes(m.uc.mem_read(0xc274f040,4)),b'KEEP')
             if op:self.assertEqual(m.values,[0x1234]*32)
             else:self.assertEqual(bytes(m.uc.mem_read(0xc274f000,64)),struct.pack('<32H',*range(0x1001,0x1021)))
@@ -174,6 +251,28 @@ class TransportTests(unittest.TestCase):
     def test_busy_never_touches_ports_or_releases_someone_elses_lock(self):
         m=Machine();m.uc.mem_write(p.SEMA,word(0))
         self.assertEqual(m.run(),(p.BUSY,0));self.assertEqual(m.ports,[]);self.assertEqual(m.released,0)
+
+    def test_an_inflight_owner_is_busy_rather_than_a_latched_fault(self):
+        m = Machine()
+        m.uc.mem_write(p.STATE, word(1))
+        m.uc.mem_write(p.SEMA, word(0))
+        self.assertEqual(m.run(), (p.BUSY, 0))
+        self.assertEqual(m.ports, [])
+        self.assertEqual(m.released, 0)
+        self.assertEqual(struct.unpack('<I', m.uc.mem_read(p.STATE, 4))[0], 1)
+
+    def test_an_orphaned_inflight_flag_is_latched_only_after_acquisition(self):
+        m = Machine()
+        m.uc.mem_write(p.STATE, word(1))
+        self.assertEqual(m.run(), (p.FAULT, 0))
+        self.assertEqual(m.released, 1)
+        self.assertEqual(m.ports, [])
+        self.assertEqual(struct.unpack('<I', m.uc.mem_read(p.STATE, 4))[0], 2)
+
+    def test_a_protocol_timeout_has_a_distinct_terminal_fault_value(self):
+        m = Machine('ack', frozen=True)
+        self.assertEqual(m.run()[0], p.TIMEOUT)
+        self.assertEqual(struct.unpack('<I', m.uc.mem_read(p.STATE, 4))[0], 2)
 
     def test_every_stuck_phase_is_bounded_and_header_failure_latches(self):
         for stage in ('initial','status','ack','group'):
@@ -183,7 +282,7 @@ class TransportTests(unittest.TestCase):
                 self.assertEqual(status,p.TIMEOUT,(stage,frozen));self.assertLess(done,32)
                 self.assertEqual(m.released,1)
                 fault=stage in ('ack','group')
-                self.assertEqual(struct.unpack('<I',m.uc.mem_read(p.STATE,4))[0],int(fault))
+                self.assertEqual(struct.unpack('<I',m.uc.mem_read(p.STATE,4))[0],2 if fault else 0)
                 if fault:
                     ports=list(m.ports)
                     self.assertEqual(m.run(),(p.FAULT,0));self.assertEqual(m.ports,ports)
@@ -221,7 +320,7 @@ class TransportTests(unittest.TestCase):
         m=Machine('group',frozen=True)
         self.assertEqual(m.run(cpsr=0x53),(p.TIMEOUT,16))
         self.assertEqual(m.uc.reg_read(R.UC_ARM_REG_CPSR)&0xff,0x53)
-        self.assertLessEqual(m.max_masked,8)
+        self.assertLessEqual(m.max_masked,40)
 
     def test_fault_is_checked_again_after_acquiring_ownership(self):
         m=Machine()

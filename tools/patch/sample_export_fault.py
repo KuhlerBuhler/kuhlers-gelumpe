@@ -36,6 +36,7 @@ export_sample_entry:
     ldr r12, [r12]
     cmp r12, #0
     cmnne r12, #1
+    cmpne r12, #1
     movne r0, #1
     bne 0xc0035428
     push {r4-r10, lr}
@@ -46,6 +47,7 @@ export_writer_entry:
     ldr r12, [r12]
     cmp r12, #0
     cmnne r12, #1
+    cmpne r12, #1
     movne r0, #1
     bxne lr
     push {r4-r11, lr}
@@ -56,6 +58,7 @@ export_sample_read:
     ldr r12, [r12]
     cmp r12, #0
     cmnne r12, #1
+    cmpne r12, #1
     movne r5, #1
     bne 0xc0039c58
     mov r0, r6

@@ -607,7 +607,10 @@ benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige F
   `KORG/blechtribe/` statt `KORG/hacktribe/`, Samples und Patterns liegen dort nicht von allein. Die Anleitung
   sagt deshalb: Karte sichern, vor dem Update `KORG/hacktribe/` (bei der Original-Firmware `KORG/electribe sampler/`)
   nach `KORG/blechtribe/` **kopieren, nicht umbenennen**, und die `SYSTEM.VSB` in den Ordner der Firmware legen, die
-  jetzt läuft, nicht nach blechtribe.
+  jetzt läuft. Läuft bereits BLECH mit dem umgestellten Ordner, liegt der
+  Updatepfad unter `KORG/blechtribe/System/SYSTEM.VSB`, auf dem untersuchten
+  Hacktribe-Gerät durch gelesene Pfadtexte und unveränderten nativen
+  Updatecode belegt ([Vorprüfung](messungen/2026-11-06-sample-ram-vorpruefung.md)).
 - **"Ich hab angst ...":** `POST /sd/system` legt die Kopie als Update-Datei auf die virtuelle Karte
   und die Karte ein, die eigene Datei (Hacktribe) läuft im Emulator. Gemessen im Emulator:
   DATA UTILITY, SOFTWARE UPDATE zeigt "Next Version 2.02", die Datei wird also gefunden. Die anderen Kartenordner

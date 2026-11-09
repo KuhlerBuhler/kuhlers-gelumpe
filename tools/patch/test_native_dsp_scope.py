@@ -20,12 +20,13 @@ def word(value):
 
 
 class Machine:
-    def __init__(self, *, polls=5, clock=True, step=0, start=0, irq=False):
+    def __init__(self, *, polls=5, clock=True, step=0, start=0, irq=False, gate=False):
         self.uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
         self.uc.mem_map(0xC0000000, 0x02000000)
         self.uc.mem_map(p.TIMER, 4096)
         code, self.symbols = p.build_code(CODE, scope=SCOPE, fault=FAULT, mode=MODE,
-                                          generation=GEN, release=RELEASE, acquire=ACQUIRE, poll_budget=polls)
+                                          generation=GEN, release=RELEASE, acquire=ACQUIRE, poll_budget=polls,
+                                          gate=STATE + 32 if gate else None)
         self.uc.mem_write(CODE, code)
         self.uc.mem_write(TRAP, word(0xE1A00000))
         self.put(MODE, 1)
@@ -145,6 +146,30 @@ class Machine:
         self.uc.emu_start(entry, TRAP, count=100_000)
 
 
+    def run_sample(self, acquire_site, ticks):
+        entry = acquire_site - 12
+        source = f'''push {{r11, lr}}
+        add r11, sp, #4
+        mov r0, #1
+        bl {self.symbols['native_scope_take']}
+        ''' + ''.join(f"bl {self.symbols['native_scope_tick']}\n" for _ in range(ticks)) + f'''
+        ldr r0, ={SUCCESS}
+        mov r1, #1
+        str r1, [r0]
+        mov r0, #1
+        bl {self.symbols['native_scope_close']}
+        sub sp, r11, #4
+        pop {{r11, pc}}
+        .pool'''
+        self.uc.mem_write(entry, arm.assemble(source, origin=entry).bytes)
+        self.uc.reg_write(R.UC_ARM_REG_CPSR, self.control)
+        for register, value in self.initial.items():
+            self.uc.reg_write(register, value)
+        self.uc.reg_write(R.UC_ARM_REG_SP, STACK)
+        self.uc.reg_write(R.UC_ARM_REG_LR, TRAP)
+        self.uc.emu_start(entry, TRAP, count=100_000)
+
+
 class Startup(unittest.TestCase):
     def initialize(self, m):
         self.assertIn('native_scope_init', m.symbols)
@@ -177,7 +202,7 @@ class Startup(unittest.TestCase):
                 self.assertTrue(all(masked for _, masked in writes))
 
     def test_initialization_preserves_a_live_scope_and_any_latched_fault(self):
-        for pointer, fault in ((0, 0), (0, 1), (STATE + 0x500, 0), (STATE + 0x500, 1), (0xFFFFFFFF, 1)):
+        for pointer, fault in ((0, 0), (0, 1), (STATE + 0x500, 0), (STATE + 0x500, 1), (0xFFFFFFFF, 1), (0, 2), (STATE + 0x500, 2)):
             with self.subTest(pointer=pointer, fault=fault):
                 m = Machine()
                 m.put(SCOPE, pointer)
@@ -305,7 +330,7 @@ class Recovery(unittest.TestCase):
         m.run(deep=True)
         self.assertTrue(interrupted['overwritten'])
         self.assert_returned(m)
-        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT)), (0, 1))
+        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT)), (0, 2))
 
     def test_borrowed_close_restores_the_stack_without_releasing_the_lease(self):
         for bare in (False, True):
@@ -321,7 +346,37 @@ class Recovery(unittest.TestCase):
         m.run(native=True, bare=True)
         self.assert_returned(m, released=False, available=1)
         self.assertEqual(m.acquires, [(1, -25)])
-        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT)), (0, 1))
+        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT)), (0, 2))
+
+    def test_sample_reads_and_writes_are_bounded_outside_the_swap_step(self):
+        for site in (0xC0014248, 0xC00142D4):
+            for mode in (0, 1, 2):
+                with self.subTest(site=site, mode=mode):
+                    m = Machine(polls=3, gate=True)
+                    m.put(MODE, mode)
+                    m.put(SEMA, 1)
+                    m.run_sample(site, 3)
+                    self.assert_returned(m)
+                    self.assertEqual(m.uc.reg_read(R.UC_ARM_REG_R0), 4)
+                    self.assertEqual(m.u32(SUCCESS), 0)
+                    self.assertEqual(m.u32(FAULT), 2)
+
+    def test_latched_sample_failure_refuses_before_kernel_acquisition(self):
+        for site in (0xC0014248, 0xC00142D4):
+            with self.subTest(site=site):
+                m = Machine(gate=True)
+                m.put(FAULT, 2)
+                m.run_sample(site, 0)
+                self.assert_returned(m, released=False, available=0)
+                self.assertEqual(m.uc.reg_read(R.UC_ARM_REG_R0), 4)
+                self.assertEqual(m.acquires, [])
+                self.assertEqual(m.u32(GEN), 7)
+
+    def test_scope_timeout_latches_terminal_fault_instead_of_inflight(self):
+        m = Machine(polls=3)
+        m.run(ticks=3)
+        self.assert_returned(m)
+        self.assertEqual(m.u32(FAULT), 2)
 
     def test_poll_exhaustion_exits_the_void_call_without_publishing_success(self):
         for irq in (False, True):
@@ -330,7 +385,7 @@ class Recovery(unittest.TestCase):
                 m.run(ticks=3)
                 self.assert_returned(m)
                 self.assertEqual(m.u32(SUCCESS), 0)
-                self.assertEqual((m.u32(FAULT), m.u32(MODE), m.u32(GEN)), (1, 2, 8))
+                self.assertEqual((m.u32(FAULT), m.u32(MODE), m.u32(GEN)), (2, 2, 8))
 
     def test_a_timeout_unwinds_deeper_native_frames_and_their_callee_saved_registers(self):
         m = Machine(polls=3)
@@ -358,7 +413,7 @@ class Recovery(unittest.TestCase):
                     m.run(ticks=ticks, borrowed=True)
                     self.assert_returned(m, released=False)
                     self.assertEqual(m.u32(SUCCESS), int(not failed))
-                    self.assertEqual(m.u32(FAULT), int(failed))
+                    self.assertEqual(m.u32(FAULT), 2 if failed else 0)
 
     def test_refused_acquisition_aborts_without_releasing_any_resource(self):
         for irq in (False, True):
@@ -367,7 +422,7 @@ class Recovery(unittest.TestCase):
                 m.run(refused=True)
                 self.assert_returned(m, released=False)
                 self.assertEqual(m.u32(SUCCESS), 0)
-                self.assertEqual((m.u32(FAULT), m.u32(MODE), m.u32(GEN)), (1, 2, 8))
+                self.assertEqual((m.u32(FAULT), m.u32(MODE), m.u32(GEN)), (2, 2, 8))
 
     def test_a_refused_intruder_preserves_the_active_owners_recovery_frame(self):
         m = Machine(irq=True)
@@ -375,21 +430,21 @@ class Recovery(unittest.TestCase):
         m.put(SCOPE, outer)
         m.run(refused=True)
         self.assert_returned(m, released=False, scope=outer)
-        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT)), (0, 1))
+        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT)), (0, 2))
 
     def test_the_owner_unwinds_after_a_refused_interrupt_without_a_second_fault(self):
         m = Machine()
         m.run(intruder=True, deep=True)
         self.assert_returned(m)
         self.assertEqual(m.u32(SUCCESS), 0)
-        self.assertEqual((m.u32(FAULT), m.u32(MODE), m.u32(GEN)), (1, 2, 8))
+        self.assertEqual((m.u32(FAULT), m.u32(MODE), m.u32(GEN)), (2, 2, 8))
 
     def test_deadline_exits_before_the_poll_budget(self):
         m = Machine(polls=100, step=p.DEADLINE_TICKS)
         m.run()
         self.assert_returned(m)
         self.assertEqual(m.u32(SUCCESS), 0)
-        self.assertEqual(m.u32(FAULT), 1)
+        self.assertEqual(m.u32(FAULT), 2)
 
     def test_a_timer_wrap_keeps_a_short_operation_valid(self):
         m = Machine(step=10, start=p.TIMER_HZ - 5)
@@ -402,11 +457,11 @@ class Recovery(unittest.TestCase):
         m.run(ticks=3)
         self.assert_returned(m)
         self.assertEqual(m.u32(SUCCESS), 0)
-        self.assertEqual(m.u32(FAULT), 1)
+        self.assertEqual(m.u32(FAULT), 2)
 
     def test_a_preexisting_fault_does_not_advance_the_generation_again(self):
         m = Machine()
-        m.put(FAULT, 1)
+        m.put(FAULT, 2)
         m.run()
         self.assert_returned(m)
         self.assertEqual(m.u32(SUCCESS), 0)

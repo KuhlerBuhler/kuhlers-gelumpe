@@ -16,7 +16,8 @@ import { run } from "./support/spawn.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const PATCH = read("../data/patches/sample-swap.json");
-const SITES = [0xC00364F4, 0xC0036510, 0xC0036748, 0xC0036760, 0xC00366D8, 0xC00366FC, 0xC003621C, 0xC00369F0, 0xC00836F4, 0xC002D684, 0xC005F1D4, 0xC0079A74, 0xC0099FFC, 0xC0099D88, 0xC0040DB4, 0xC0039FB0];
+const SITES = [0xC00364F4, 0xC0036510, 0xC0036748, 0xC0036760, 0xC00366D8, 0xC00366FC, 0xC003621C, 0xC00369F0, 0xC00836F4, 0xC002D684, 0xC005F1D4, 0xC0079A74, 0xC0099FFC, 0xC0099D88, 0xC0040DB4, 0xC00997CC, 0xC0039FB0,
+  0xC0035B3C, 0xC0035BA4, 0xC0035C08, 0xC0035CF8, 0xC0035DA8, 0xC0035DE8, 0xC0035E18];
 const AREAS = [[0xC01A2FD0, 0xC01A3C00], [0xC018A4C0, 0xC018AF00], [0xC0189760, 0xC0189F00],
   [0xC019A400, 0xC019C400], [0xC019C400, 0xC019E000], [0xC018BF40, 0xC018C400]];
 const file = address => address - 0xC0000000 + 0x100;
@@ -60,7 +61,7 @@ test("its code areas and loader state fit the declared space and its hooks branc
   const guards = PATCH.hooks.filter(h => h.chain === "sample-swap-native-sample");
   const mutations = PATCH.hooks.filter(h => h.chain === "sample-swap-mutations");
   assert.deepEqual(mutations.map(h => Number(h.site)), [0xC004E558, 0xC004EDF0, 0xC004E63C, 0xC004E710,
-    0xC004E7E8, 0xC004E8C8, 0xC004E93C, 0xC004EFF4]);
+    0xC004E7E8, 0xC004E8C8, 0xC004E93C, 0xC004EFF4, 0xC007F9F0, 0xC007F94C, 0xC007F0EC, 0xC007EFE8, 0xC004EF58, 0xC0036320, 0xC00363E4]);
   assert.ok(mutations.every(h => h.swallow));
   assert.deepEqual(guards.map(h => Number(h.site)), [0xC004F128, 0xC004F15C, 0xC0082DA8, 0xC0082DD8, 0xC0082E5C,
     0xC004F20C, 0xC0082F1C, 0xC0039CC4, 0xC0039B2C, 0xC0039C30]);

@@ -257,13 +257,14 @@ def part_faults(payload, flash=None):
                 begin=0xC009A000, end=0xC009A000)
     uc.hook_add(c.unicorn.UC_HOOK_CODE, lambda *_: active.__setitem__(0, True),
                 begin=c.spec.FIRMWARE['PART_UPDATE'], end=c.spec.FIRMWARE['PART_UPDATE'])
-    for fault in (0, 1):
+    for fault in (c.spec.sample_swap_io.READY, c.spec.sample_swap_io.INFLIGHT, c.spec.sample_swap_io.LATCHED):
         for target in (400, 500, 501):
             uc.mem_write(c.spec.STATE + c.spec.OFF['MODE'], struct.pack('<I', 2))
             uc.mem_write(c.spec.STATE + c.spec.OFF['TSTATE'], struct.pack('<I', fault))
             uc.mem_write(record + 8, struct.pack('<H', target))
             # a latched DSP fault holds back indexed user samples only, a factory sample still binds
-            allowed = target != 501 and (fault == 0 or not 500 <= target <= c.spec.LAST_USER)
+            allowed = target != 501 and (fault != c.spec.sample_swap_io.LATCHED
+                                        or not 500 <= target <= c.spec.LAST_USER)
             ready = box.dev.call(origin, part)
             entered.clear()
             writes.clear()

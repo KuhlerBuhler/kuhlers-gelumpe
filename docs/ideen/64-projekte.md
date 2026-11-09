@@ -1,10 +1,18 @@
 # 64. Projekte: Patterns und Samples zusammen laden
 
-Stand: 29. Oktober 2026. **Aufbau festgelegt, bisherige Ladewege teilweise im Emulator geprüft,
-gemeinsame Projektdatei nicht gebaut.** Am Gerät ist der Projektwechsel nicht geprüft.
-Es gibt noch keinen gemeinsamen Projekt-Import und keinen dafür eingebauten Firmware-Patch.
+Stand: 8. November 2026. **Neue Richtung, noch nicht ausgearbeitet:** Samples sollen als einzelne
+Audiodateien in einem Ordner liegen und von dort bei Bedarf geladen werden. Dafür soll weder eine
+Sample-`.all` noch ein gemeinsamer Container nötig sein. Die Zuordnung zu Slots, Pattern-Verweise
+und das Speichern werden später festgelegt.
 
-## Gewünscht
+Der aktuelle Sample-Swap wird zunächst mit der bestehenden `e2sSample.all` fertiggestellt.
+Der neue Ordneransatz ist keine Voraussetzung für diesen Schritt.
+
+Die folgenden Abschnitte halten den früheren Containerentwurf und die zugehörigen Untersuchungen
+fest. Dieser Aufbau wird nicht weiterverfolgt. Die gemeinsame Projektdatei wurde nicht gebaut;
+es gibt keinen eingebauten gemeinsamen Projekt-Import und keinen Gerätetest des Projektwechsels.
+
+## Früherer Projektentwurf
 
 Mehrere Projekte liegen nebeneinander auf der Karte. Ein Projekt besteht aus einem kompletten
 Pattern-Satz und dem dazu passenden Sample-Satz in einer einzigen Datei. Der Wechsel aktiviert
@@ -34,9 +42,9 @@ Ein Projekt ist erst aktiv, wenn Pattern-Bank und Sample-Index geprüft und die 
 gewählten Startpatterns im DSP bereit sind. Die ganze Sample-Bibliothek wird dabei nicht geladen.
 Das ist der gewünschte Ablauf, noch keine vorhandene Bedienung.
 
-## Festgelegt am 29.10.: Eine Datei mit drei Bereichen
+## Früherer Aufbau vom 29.10.: Eine Datei mit drei Bereichen
 
-**Festgelegt, noch nicht umgesetzt:** Die Projektdatei ist ein unkomprimierter Container.
+**Historischer Entwurf, nicht umgesetzt:** Die Projektdatei ist ein unkomprimierter Container.
 Sie braucht kein Archivformat. Zwei unveränderte Ausgangsdateien bilden zunächst die Nutzdaten;
 ein eigener kleiner Kopf beschreibt ihre Lage innerhalb der gemeinsamen Datei.
 

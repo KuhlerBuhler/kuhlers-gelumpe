@@ -2,8 +2,8 @@
 
 transfer(op, ARM pointer, DSP byte offset, halfword count) returns status in r0
 and completed halfwords in r1. r4-r11 are preserved. State is one word: zero
-is ready; every other value refuses traffic. A partial protocol timeout latches
-one until cold boot. This module installs no hooks into native void functions.
+is ready, one is in flight, two is a terminal fault. A partial protocol timeout
+latches two until cold boot. This module installs no hooks into native void functions.
 Writes require complete 32-byte groups. Reads accept halfword-aligned spans,
 drain a padded final group, and copy only the requested halfwords to ARM RAM.
 """
@@ -23,13 +23,43 @@ SEMA, RELEASE = 0xC06A2480, 0xC0000CA8
 IRQ_DEPTH, STARTED = 0xC06A2894, 0xC06A2928
 ARM_MIN, ARM_END = 0xC274F000, 0xC4000000
 DSP_MIN, DSP_END, CURSOR = 0x365EC0, 0x1C65EC0, 0xC00F9C80
-OK, INVALID, BUSY, CONTEXT, BAD_TIMER, TIMEOUT, FAULT = range(7)
+OK, INVALID, BUSY, CONTEXT, BAD_TIMER, TIMEOUT, FAULT, STALE = range(8)
+READY, INFLIGHT, LATCHED = range(3)
 TIMER_HZ, DEADLINE_TICKS, POLL_BUDGET = 150000000, 15000000, 1000000
 
 
-def build_code(origin=CODE_AT, state=STATE, poll_budget=POLL_BUDGET):
+def build_code(origin=CODE_AT, state=STATE, poll_budget=POLL_BUDGET, write_guard=None):
     if origin & 3 or state & 3 or not 0 < poll_budget <= 0xffffffff:
         raise ValueError('aligned origin/state and positive poll budget required')
+    if write_guard is not None and (write_guard & 3 or not 0 <= write_guard <= 0xFFFFFFFC):
+        raise ValueError('word aligned write guard required')
+    guard = '' if write_guard is None else f'''    bl check_write
+    cmp r0, #0
+    moveq r0, #{STALE}
+    beq release
+'''
+    commit_guard = '' if write_guard is None else '''    str r2, [sp, #4]
+    bl check_write
+    cmp r0, #0
+    ldr r2, [sp, #4]
+    beq word_stale
+'''
+    stale = '' if write_guard is None else f'''word_stale:
+    .word 0xe121f002
+    mov r0, #{STALE}
+    b release
+'''
+    check_write = '' if write_guard is None else f'''; The guard preserves r4-r11 and validates writes while resource 1 is owned.
+check_write:
+    cmp r7, #0
+    moveq r0, #1
+    bxeq lr
+    mov r0, r4
+    mov r1, r5
+    mov r2, r6
+    ldr r3, [sp, #32]
+    b {write_guard:#x}
+'''
     protected = ''
     for lo, hi in ((origin, 'end_code'), (state, str(state+4))):
         if ARM_MIN <= lo < ARM_END:
@@ -124,9 +154,9 @@ checked_range:
     beq context
     ldr r1, ={state}
     ldr r1, [r1]
-    cmp r1, #0
-    movne r0, #{FAULT}
-    bne done
+    cmp r1, #{INFLIGHT}
+    movhi r0, #{FAULT}
+    bhi done
     ldr r10, ={TIMER}
     ldr r1, [r10, #0x18]
     ldr r2, ={TIMER_HZ-1}
@@ -152,10 +182,13 @@ checked_range:
     bne done
 acquired:
     ldr r1, ={state}
-    ldr r1, [r1]
-    cmp r1, #0
+    ldr r2, [r1]
+    cmp r2, #0
+    movne r2, #{LATCHED}
+    strne r2, [r1]
     movne r0, #{FAULT}
     bne release
+{guard}
     ldr r9, ={PORT}
     ldr r11, [r10, #0x10]
     ldr r12, ={poll_budget}
@@ -165,8 +198,14 @@ acquired:
     mov r0, #1
     bl wait
     bne pre_timeout
-    mov r0, #1
-    ldr r1, ={state}
+    .word 0xe10f2000
+    orr r1, r2, #0x80
+    .word 0xe121f001
+{commit_guard}    ldr r1, ={state}
+    ldr r0, [r1]
+    cmp r0, #0
+    bne word_fault
+    mov r0, #{INFLIGHT}
     str r0, [r1]
     cmp r7, #0
     moveq r0, #0xa9
@@ -183,6 +222,7 @@ acquired:
     mov r0, #0
     .word 0xe1c900b2 ; strh r0, [r9, #2]
     .word 0xe1c900b2 ; strh r0, [r9, #2]
+    .word 0xe121f002
     mov r0, #2
     bl wait
     bne pre_timeout
@@ -192,6 +232,13 @@ next_group:
     bne pre_timeout
     mov r3, #16
 next_word:
+    .word 0xe10f2000
+    orr r1, r2, #0x80
+    .word 0xe121f001
+    ldr r1, ={state}
+    ldr r1, [r1]
+    cmp r1, #{INFLIGHT}
+    bne word_fault
     cmp r7, #0
     bne write_word
     .word 0xe1d900b0 ; ldrh r0, [r9]
@@ -211,16 +258,34 @@ write_word:
     add r8, r8, #1
     sub r6, r6, #1
 word_done:
+    .word 0xe121f002
     subs r3, r3, #1
     bne next_word
     cmp r6, #0
     bne next_group
-    mov r0, #0
+    .word 0xe10f2000
+    orr r1, r2, #0x80
+    .word 0xe121f001
     ldr r1, ={state}
+    ldr r0, [r1]
+    cmp r0, #{INFLIGHT}
+    bne word_fault
+    mov r0, #0
     str r0, [r1]
+    .word 0xe121f002
+    b release
+{stale}word_fault:
+    .word 0xe121f002
+    mov r0, #{FAULT}
     b release
 pre_timeout:
-    mov r0, #{TIMEOUT}
+    ldr r1, ={state}
+    ldr r2, [r1]
+    cmp r2, #{INFLIGHT}
+    movhi r0, #{FAULT}
+    movls r0, #{TIMEOUT}
+    moveq r2, #{LATCHED}
+    streq r2, [r1]
 release:
     mov r4, r0
     mov r0, #1
@@ -229,8 +294,13 @@ release:
     cmp r0, #0
     movne r4, #{FAULT}
     ldrne r1, ={state}
-    movne r2, #1
+    movne r2, #{LATCHED}
     strne r2, [r1]
+    ldr r1, ={state}
+    ldr r1, [r1]
+    cmp r4, #{OK}
+    cmpeq r1, #{LATCHED}
+    moveq r4, #{FAULT}
     mov r0, r4
     b done
 context:
@@ -246,6 +316,10 @@ done:
 ; r0 selects GPIO set, status ready, header acknowledgement, or GPIO clear.
 ; Z means ready; non-Z means the shared deadline or poll bound expired.
 wait:
+    ldr r1, ={state}
+    ldr r1, [r1]
+    cmp r1, #{INFLIGHT}
+    bhi wait_failed
     subs r12, r12, #1
     beq wait_failed
     ldr r1, [r10, #0x10]
@@ -289,7 +363,7 @@ wait_failed:
 wait_ready:
     cmp r0, r0
     bx lr
-.pool
+{check_write}.pool
 end_code:
 '''
     assembled = arm.assemble(source, origin=origin)

@@ -64,7 +64,13 @@ test("native and swap loaders follow the appended index entry instead of an unre
       assert.equal(result.status, 0, result.stderr || result.stdout);
       const report = JSON.parse(result.stdout);
       assert.equal(report.hardware_contact, false);
-      assert.equal(report.checks.length, 4);
+      assert.deepEqual(report.checks.map(check => check.id).sort(), [
+        "appended_replacement_native",
+        "appended_replacement_swap",
+        "interrupted_slot_recovers_before_boot_load",
+        "inflight_library_reload_preserves_transfer_guard",
+        "faulted_library_reload_preserves_live_metadata",
+      ].sort());
       assert.deepEqual(report.checks.filter(c => !c.ok), []);
       const writer = await run(emuPython(), ["tools/emu/sample_store_cases.py", "--patched", path], { timeout: 120_000 });
       assert.ifError(writer.error);

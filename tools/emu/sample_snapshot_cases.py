@@ -46,13 +46,19 @@ def relocate(box, pcm):
     staged = pcm.ljust((len(pcm) + 31) & ~31, b'\0')
     box.m.uc.mem_write(c.CURSOR, struct.pack('<I', base + len(staged)))
     box.m.uc.mem_write(c.spec.STAGE, staged)
-    transferred = box.dev.call(box.sym['transfer'], 1, c.spec.STAGE, base, len(staged) // 2)
+    if box.state('MODE') != 0:
+        raise AssertionError('replacement requires a native MODE0 collection')
+    box.dev.call(0xC004EF28, c.spec.STAGE, base, len(staged) // 2)
+    if box.dsp_bytes(base, len(staged)) != staged:
+        raise AssertionError('native replacement DSP bytes differ')
+    if box.state('TSTATE') != c.spec.sample_swap_io.READY:
+        raise AssertionError('native replacement transport is not ready')
     descriptor = bytearray(box.m.uc.mem_read(c.spec.DESC, 0x4A0))
     struct.pack_into('<H', descriptor, 20, key + 50)
     struct.pack_into('<I', descriptor, 56, base)
     published = publish_native(box, descriptor, key, base)
-    if transferred != 0 or published != 1 or box.meta_index(500) != key:
-        raise AssertionError(f'replacement transfer/publication failed: {transferred}/{published}')
+    if published != 1 or box.meta_index(500) != key:
+        raise AssertionError(f'replacement publication failed: {published}')
     box.m.dsp_mem.update(box.dsp)
 
 

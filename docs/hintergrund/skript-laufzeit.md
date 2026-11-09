@@ -16,7 +16,7 @@ Markierungen: **gemessen** (im Emulator ausgeführt und gesehen, oder am Gerät-
 
 ## Kurzfassung
 
-**Empfehlung: Bytecode-VM (Option b), nicht nativer Code.** Gründe, alle belegt: die Firmware läuft ohne MMU (kein Speicherschutz, ein wilder Schreibzugriff in RAM bricht nichts ab), ohne Watchdog (eine Endlosschleife friert die Task ein), und alle Abbruch-Vektoren zeigen in eine Endlosschleife ohne Anzeige.
+**Empfehlung: Bytecode-VM (Option b), nicht nativer Code.** Die Firmware hat keinen belegten Speicherschutz zwischen Plugins und Firmware. MMU und Datencache sind am Gerät eingeschaltet; die Domäne 0 steht auf Manager ([Messung](../messungen/2026-11-06-sample-ram-mmu.md)). Ein Watchdog wurde nicht nachgewiesen, eine Endlosschleife kann die Task einfrieren, und die Abbruch-Vektoren zeigen in eine Endlosschleife ohne Anzeige.
 Die VM prüft Felder in zwei Befehlen, begrenzt die Laufzeit mit einem Zähler und gibt einen Fehlercode zurück, statt abzustürzen. Sie kostet 972 B und 9,6 Befehle je Operation (10- bis 23-mal mehr Befehle als nativ), aber ein Takt ohne Ereignis kostet 209 Befehle und ein Snake-Schritt bei Länge 31 23136 Befehle.
 Ein Prototyp (VM, Eingangsfilter, Rahmen-Haken, API-Glue, Start-Haken, Compiler-Rückgrat) läuft im gebooteten Abbild im Emulator: Snake spielt, Fehlerskripte werden abgeschaltet und das Gerät bleibt danach wie Stock bedienbar.
 
@@ -48,7 +48,7 @@ Ein Prototyp (VM, Eingangsfilter, Rahmen-Haken, API-Glue, Start-Haken, Compiler-
 | PeriodicTask wacht mit 434,5 Hz auf (Wert mit dem falschen `SLICE`, richtig 500 Hz) und treibt fünf Softwaretimer (Nachladewerte 20, 20, 20, 20, 50); SeqTask wartet im selben Takt | gemessen |
 | UND, SWI, PABT, DABT, FIQ führen in die Endlosschleife `0xC000007C`; nur der IRQ-Vektor wird gesetzt (`0xC00001D0`, Zeit 52,1 ms); `0xC0000200(index, handler)` setzt Vektoren und hat keinen Aufrufer (Suche über alle `b`/`bl`) | gemessen + offline |
 | Die Endlosschleife `0xC000007C` wird in Boot und rund 20 s Bedienung nie erreicht | gemessen |
-| MMU und D-Cache werden von keinem ausgeführten Code eingeschaltet; die Hilfsfunktionen `0xC00016C8`, `0xC00016D8`, `0xC00016EC` haben keine Aufrufer; der zweite Lader schaltet nur den I-Cache ein | offline (Suche über `bl`/`b`/Zeiger, Abschnitt des zweiten Laders) |
+| MMU und D-Cache sind am Gerät eingeschaltet, `c1 = 0x0005107D`; die frühere Suche nur im Firmwareabbild übersah die Einrichtung im Bootloader | gemessen ([CPU-Register und Bootloader](../messungen/2026-11-06-sample-ram-mmu.md)) |
 | Kein Watchdog: kein Schreibzugriff auf `WDTCR` in Boot und Bedienung; der zweite Lader nennt `0x01C21000` nie | gemessen (Firmware), offline (Lader) |
 | Fehler in nativem Code lassen sich mit UND/PABT/DABT-Handlern plus setjmp abfangen (Ausnahmeeintritt nachgebaut) | gemessen (Modell) |
 | VM: 972 B, 29 Operationen, 9,6 Befehle je Operation (Dispatch 5), gleich der Referenz-VM; Fehlercodes Kraftstoff, Grenzen, Opcode, Division gemessen | gemessen |
@@ -231,17 +231,18 @@ ein Plugin mit Endlosschleife im Rahmen-Handler wird nach 20000 Operationen abge
 - **Hergeleitet, nicht am Gerät gemessen:** Dass Adresse `0x34` auf dem Gerät beschreibbar ist, folgt daraus, dass die Firmware dorthin schreibt
   und IRQs laufen. Wie die Hardware Adresse 0 abbildet, ist offen: der zweite Lader (AIS, Flash `0x1C`) legt seine eigene Vektortabelle nach
   `0x80000000` (gleiche Form wie die Tabelle im Abbild). Über `0xC0000200` lässt sich der Handler unabhängig davon setzen, wie die Hardware das abbildet.
-- **MMU und Caches (offline):** Kein ausgeführter Code der Firmware schaltet die MMU ein. Die Hilfsfunktionen `0xC00016C8` (I-Cache an), `0xC00016D8`
-  (D-Cache an) und `0xC00016EC` (TTB, Domänen, MMU an) haben keine Aufrufer und wurden im Start nie ausgeführt. Der zweite Lader schaltet nur den I-Cache
-  an (`mcr p15 c1`, Bit 12 bei `0x80000078`). Folge: **ohne MMU gibt es keinen Speicherschutz**, ein wilder Schreibzugriff in RAM löst keinen Abbruch aus. Abbrüche
-  kommen nur durch Fehlbefehle (UND) und Busfehler außerhalb des Speichers. Ohne MMU ist der D-Cache praktisch aus (hergeleitet), jeder Datenzugriff geht ans DDR.
+- **MMU und Caches:** Die Suche im Firmwareabbild fand keine Aufrufer der Hilfsfunktionen `0xC00016C8`, `0xC00016D8` und `0xC00016EC`.
+  Daraus folgt nicht, dass MMU und D-Cache ausgeschaltet sind. Der Bootloader richtet die Tabelle ein; am Gerät sind beide eingeschaltet.
+  `TTBR = 0x8001C000` und `DACR = 0x00000003` wurden gelesen. Die Bootloader-Tabelle legt den DDR-Bereich in Domäne 0 mit Managerrechten ab.
+  Eine getrennte Schutzdomäne für Plugins ist nicht belegt. Cache und RAM können unterschiedliche Inhalte zeigen.
+  Tabellenmodell und noch offene Prüfung der aktiven Übersetzung stehen in der [MMU-Messung](../messungen/2026-11-06-sample-ram-mmu.md).
 - **Watchdog:** In rund 24 s Emulatorzeit (Boot plus Bedienung) schreibt die Firmware nie auf `WDTCR` (`0x01C21028`, `0x01C20028`, `0x01F0C028`, `0x01F0D028`);
   der zweite Lader nennt nur den Zeitgeberblock `0x01F0D000`, nie `0x01C21000`. Es gibt also (hergeleitet, am Gerät nicht gemessen) **keinen Watchdog**: ein Plugin mit Endlosschleife friert die Task ein, bis jemand ausschaltet.
 - **Prototyp: Fehler in nativem Code abfangen (Modell).** Der Dispatcher `run_native` sichert r4 bis r11, lr und sp wie ein setjmp und setzt ein Flag. Die Handler in den
   Vektoren UND, PABT, DABT (je rund 12 Befehle plus gemeinsamer Teil) lesen das Flag: gesetzt, dann zurück in den SVC-Modus, sp
   und Register des Dispatchers wiederherstellen, `r0 = 7` zurückgeben; nicht gesetzt, dann `ldr pc, =0xC000007C` (Verhalten wie Stock). Im Emulator (der Ausnahmeeintritt wurde mit Haken nachgebaut,
   denn Unicorn vektoriert nicht von selbst) kehren Fehlbefehl, Datenabbruch lesend und schreibend und Befehlsabbruch alle sauber zurück, r4 und r11 unverändert, sp wie vorher,
-  Fehleradresse im Kontext. **Grenze:** das ist ein Modell. Was die echte Hardware ohne MMU überhaupt abbricht, ist unbelegt, und ein wilder RAM-Schreibzugriff bleibt ein stiller Schaden.
+  Fehleradresse im Kontext. **Grenze:** das ist ein Modell. Welche Zugriffe die echte Hardware mit ihrer aktiven Abbildung abbricht, ist unbelegt. Eine eigene Schutzdomäne für Plugins fehlt.
 
 ### 2.2 Vergleich
 

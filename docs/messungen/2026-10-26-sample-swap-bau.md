@@ -120,7 +120,7 @@ Entfernen nur ungeschützter Samples, der Geber-Haken.
 |---|---|
 | Ladezeiten am Gerät, RAM zu DSP gegen Karte zu DSP, mit dem Patch selbst | offen, Werkzeug vorbereitet (unten) |
 | Klang beim Entfernen: eine noch ausklingende Stimme eines entfernten Samples kann Fremdes lesen | offen; entfernt wird nur, was weder laufendes noch kommendes Pattern benutzt |
-| Namen nicht geladener Samples | die Firmware zeigt für sie ihre Platzhalter `SampleNNN`; Namen erst beim Laden |
+| Namen nicht geladener Samples | damals Platzhalter `SampleNNN`; die [Namenserweiterung](2026-11-06-sample-swap-namen.md) liest inzwischen Metadaten vorab und prüft die native Namensabfrage im Emulator |
 | Patternwechsel bei gestoppter Wiedergabe | lädt wie immer sofort, die Samples kommen danach in einigen Sekunden; keine Sperre |
 | Ein Pattern, das mit dem laufenden zusammen nicht ins Budget passt | der Platz scheitert, der Wechsel kommt ohne die fehlenden Samples, die nach dem Wechsel nachgeladen werden |
 | Last der Command-Task beim Laden während des Spielens | hergeleitet höchstens 15 ms je UI-Bild (40 ms); ob Pattern-Laden oder Stimmen das hören, ist offen |

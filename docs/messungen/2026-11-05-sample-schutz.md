@@ -130,7 +130,7 @@ bei `0xC276D000`. `cache_reset` überschreibt diesen Rest nicht. Es wird
 keine weitere PCM-Cachefläche belegt. Dies ersetzt keinen Nachweis der
 RAM-Freiheit während Sampling, Resampling oder DMA.
 
-## Gemessen: abschließende Prüfungen
+## Gemessen: Prüfungen vor den direkten Tune- und Pegelmarken
 
 Die abschließende Prüfung des unveränderten Laufzeitstands besteht:
 
@@ -155,19 +155,20 @@ Die vollständige Verifikation aller Originale und die Gerätefreigabe sind
 nicht abgeschlossen; `verified.json` bleibt unverändert. Die ausgelassenen
 Standardtests zählen nicht als Firmwareprüfung.
 
-Die statische Nachprüfung beider Originale belegt zusätzliche Live-Schreiber,
-die noch nicht in den Schutz eingebunden sind:
+Die statische Nachprüfung beider Originale belegt den folgenden zusätzlichen
+Schreibpfad, der noch nicht in den Schutz eingebunden ist. Tune und Pegel
+sind inzwischen an ihren direkten Schreibstellen geschützt, siehe unten:
 
 | Funktion | Einstieg | Schreibgrenze |
 |---|---|---|
-| Tune | `0xC007F980` | `0xC007F9F0`, Halbwort `META + 0x14` |
-| Play-Level | `0xC007F8A8` | `0xC007F94C`, Byte `META + 0x0A`; Wirkung weiterhin nicht gemessen |
 | PCM-Block schreiben | `0xC0014284` | DSP-Byteziel in `r0`, ARM-Quelle in `r1`, Halbwortanzahl in `r2`, auf 16 Bit gekürzt |
 
 Der Sample-Schreiber `0xC004EF28` ruft diese Blockfunktion auf. Kleine
 Schreibaufträge bis 15 Halbwörter werden vorher auf einen 32-Byte-Block
 ergänzt. Die Zuordnung sämtlicher Normalize- und Truncate-Abläufe zu diesen
-Schreibgrenzen ist damit noch nicht belegt.
+Schreibgrenzen ist damit noch nicht belegt. Die
+[separate PCM-Gegenprobe](2026-11-05-sample-pcm-schreibpfade.md) hält den
+reproduzierten Fehler und die Anforderungen an den Anschluss fest.
 
 Der Aufnahmeabschluss `0xC004F128` verwendet sein `r0` unmittelbar als
 physischen Tabellenindex. Eine Gleichsetzung mit dem logischen Slot war
@@ -179,10 +180,69 @@ voraus. Die genannten zusätzlichen Pfade bleiben daher ein Freigabeblocker.
 Auch
 sämtliche Time-Slice- und Aufnahmegrenzen einschließlich realem DMA sowie
 die Freigabe nach sicher zurückgenommener Bearbeitung bleiben offen.
-Die genannten acht Haken sind kein Vollständigkeitsbeweis aller Mutationen.
+Die vorhandenen Haken sind kein Vollständigkeitsbeweis aller Mutationen.
 
 Journal-I/O-Fehler, DSP-Kontext nach wartendem Ressourcenerwerb, native
 Wartebudgets und die vollständige RAM-Prüfung aller Modi bleiben eigene
 offene Aufgaben. Der dauerhafte Menü-Schreiber und die physischen
 Versionszuordnungen zum aktuellen Dateikopf sind noch nicht vollständig
-angeschlossen. Es gab keinen Gerätezugriff, Commit, Push oder Merge.
+angeschlossen. Die Tune- und Pegelergänzung erfolgte ohne Gerätezugriff, Commit, Push oder Merge.
+
+
+## Hergeleitet: direkte Tune- und Pegelschreibstellen
+
+Die nativen Setter umgehen die oben genannten Start-, Loop- und
+Deskriptorfunktionen. Beide erhalten den ausgewählten logischen Slot aus
+`r0 + 0x3FC`. `r1` zeigt auf einen Zeiger zu einem Wertobjekt; dessen Wort
+bei `+4` ist der neue UI-Wert. `r2` steuert die zusätzliche UI-Mitteilung.
+
+| Wert | Setter | Schreibstelle | Tatsächliches Ziel |
+|---|---|---|---|
+| Tune | `0xC007F980` | `0xC007F9F0` | Halbwort `r2` nach `[r3 + 0x14]` |
+| Sample-Pegel | `0xC007F8A8` | `0xC007F94C` | Byte `r5` nach `[r6 + 0x0A]` |
+
+Tune verschiebt den UI-Wert vor dem Schreiben um acht Bit nach links.
+Der Schutz vergleicht deshalb das gekürzte Halbwort, beim Pegel das
+gekürzte Byte. Identische Werte setzen keine Marke. Eine tatsächliche
+Änderung markiert die schon aufgelöste physische Zeile vor dem Schreiben.
+Der aktuelle UI-Slot wird dafür nicht noch einmal gelesen.
+
+Die Klangwirkung des Pegelbytes wurde nicht gemessen.
+Die Wrapper erhalten Register, Stack, IRQ-Zustand und Statusflags. Das ist
+beim Pegel notwendig, weil der unmittelbar folgende bedingte Sprung die
+Flags von `cmp r7, #0` vor der ursprünglichen Schreibstelle verwendet.
+Vergleich, Marke und tatsächlicher Store liegen in derselben kurzen
+IRQ-Sperre. So kann zwischen Marke und Änderung keine andere Task eine
+saubere Version bestätigen. Die Division des Tabellenzeigers liegt vor
+dieser Sperre und ist durch 999 Zeilen begrenzt. Ein
+Zeiger außerhalb der Tabelle oder zwischen zwei Zeilen setzt keine fremde
+Marke. Die vollständigen Setter-Spans werden vor dem Patchen auf beiden
+roten Originalen geprüft.
+
+## Gemessen: Gegenproben der direkten Schreibstellen
+
+Die neuen Modellfälle reproduzierten vor dem Anschluss sieben Fehler.
+Danach bestehen 24 Schutztests einschließlich der bisherigen Fälle.
+Zusätzlich geprüft sind negative Tune-Werte, gleiche gekürzte Werte,
+Modus 0 und 2, maskierte Interrupts, ungültige Zeilenzeiger und das
+Zurückdrehen auf den Ausgangswert. Register und vollständiger CPSR bleiben
+an der Fortsetzung unverändert. Eine zusätzliche zunächst zweimal
+fehlschlagende Gegenprobe prüft die gemeinsame IRQ-Sperre von Marker und
+Store sowie die vorherige unmaskierte Zeigerauflösung.
+
+Die nativen Fälle rufen beide vollständigen Setter mit erzeugten
+Wertobjekten auf. Die physische Marke wird vor dem Signaturscanner geprüft;
+damit kann der Scanner einen fehlenden Store-Hook nicht verdecken.
+Ein gezielt eingeschobener Wechsel des UI-Slots unmittelbar vor dem Store
+prüft, dass weiterhin das bereits aufgelöste Ziel geschützt wird. Dieser
+Auswahlwechsel und die zusätzliche logische Aliaszuordnung sind
+Modellannahmen. Kein Gerät und kein Audio wurden verwendet.
+
+
+## Gemessen: Prüfung der atomaren Tune- und Pegelergänzung
+
+Der unveränderte Laufzeitstand besteht `npm test` mit 1366 bestandenen und 161 ausgelassenen Tests. `npm run test:e2e` besteht mit 285 bestandenen und 1 ausgelassenen Tests. Beide Läufe haben keinen Fehler. Die Schutzmodelle umfassen 24 Fälle.
+
+Je rotem Build bestehen 35 gezielte native Checks: Patternwechsel, fünf Schutzfälle, acht Snapshotfälle und 21 Startchecks. Die vollständige Patchanwendung gelingt auf beiden Originalen, die unabhängig erzeugten Patchdateien sind identisch. Die enge Codeprüfung hat nach den Korrekturen keinen offenen Befund.
+
+Die separate `--pcm-write`-Gegenprobe schlägt auf beiden Builds weiterhin erwartungsgemäß fehl: veränderte DSP-Daten, keine Marke und erlaubte Verdrängung. Sie zählt ausdrücklich nicht zu den bestandenen Checks. Das Gesamtfeature bleibt dadurch und durch die weiteren offenen Punkte ohne Freigabe für 1.4. Kein vollständiger Releasecheck und kein Gerätetest wurden vorgenommen.

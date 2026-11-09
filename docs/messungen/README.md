@@ -15,6 +15,17 @@ Die [Speicherkarte und Schutzgrenzen](../speicherbereiche.md) führen die Ergebn
 Speicheruntersuchung zusammen. Anleitungen zum Nachvollziehen am eigenen Gerät stehen unter
 [Gerätetests](../geraetetests/README.md).
 
+- [Sample-RAM: CPU-Register und Speicherabbildung](2026-11-06-sample-ram-mmu.md)
+- [EXEC: Code vor der Bestätigung in den RAM schreiben](2026-11-06-exec-upload-cache.md)
+- [Oberer Sample-RAM: cachebewusste Probe und native Puffer](2026-11-06-sample-ram-cacheprobe.md)
+- [Oberer Sample-RAM: Muster und Leerlaufvergleich am Gerät](2026-11-06-sample-ram-cache-geraet.md)
+- [Oberer Sample-RAM: Vergleich nach USB-Lesetransfer](2026-11-06-sample-ram-usb.md)
+- [Oberer Sample-RAM: Sampling und Resampling am Gerät](2026-11-06-sample-ram-aufnahme.md)
+- [Oberer Sample-RAM: einzelner WAV-Import am Gerät](2026-11-08-sample-ram-import.md)
+- [Sample Edit: Sicherung und tatsächliches Bearbeitungsziel](2026-11-08-sample-ram-bearbeiten.md)
+- [Sample-Swap: Gesamtprüfung und offene Schutzlücken](2026-11-09-sample-swap-pruefung.md)
+- [Sample-Swap: Namen vor dem Laden der Audiodaten](2026-11-06-sample-swap-namen.md)
+
 
 ## Pattern, Parts und Global
 
@@ -96,6 +107,10 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Sample-Swap: Schutzgrenzen nachgeprüft](2026-10-31-sample-swap-schutz-review.md), Wiedergabepunkte, Aliase, Journalfehler und Timeout-Grenzen vor dem Prototyp.
 - [Sample-Swap: Schutzcode und Dateibesitz verbunden](2026-11-04-sample-swap-integration.md), gemeinsamer Ausgangsstand und verbleibende Schutzlücken.
 - [Sample-Swap: physische Belegungen schützen](2026-11-05-sample-schutz.md), Wiedergabepunkte, Aliase, native Änderungen und geprüfte Startmarken.
+- [Sample-Swap: direkte PCM-Schreibpfade](2026-11-05-sample-pcm-schreibpfade.md), veränderte DSP-Daten bei gleichen Tabellen und fehlender Schutzmarke auf beiden roten Builds.
+- [Sample-Swap: PCM-Fehler und RAM-Prüfung](2026-11-05-sample-pcm-fehler.md), begrenzte Rückgaben, abgebrochene Tauschaufträge und vorbereitete Geräteprobe.
+- [Sample-RAM: Vorprüfung am Gerät](2026-11-06-sample-ram-vorpruefung.md), lesende Erkennung des ungeeigneten Ausgangsbuilds und Abbruch vor dem Füllen.
+- [Sample-RAM: MMU und Datencache am Gerät](2026-11-06-sample-ram-cache.md), bestätigter Probeabbruch vor dem oberen RAM und erforderliche Prüfung der Speicherabbildung.
 - [Sample-Swap: Gesamtexport und geänderte Zeilen schützen](2026-10-30-sample-swap-schutz.md), Schutz des überschreibenden Öffnens und erste Verdrängungsprüfung.
 - [Sample-Swap: ungeladene Samples am OSC-Drehgeber wählen](2026-10-30-sample-swap-oszillator.md), echter Encoder-Auftrag statt direkt gesetzter Auswahl.
 - [Ganzer Flash in einem Stand](2026-10-09-flash-dump.md)

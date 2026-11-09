@@ -477,7 +477,7 @@ beschriebenen gültigen Objekte und kontrollierten Zustand.
 | `0xC004EDDC` | DSP lesen, R0 Ziel*, R1 Byteoffset, R2 count16 | synthetische PCM-Wörter exakt | [DSP](messungen/2026-10-08-dsp-audiopfade.md) |
 | `0xC004EF28` | DSP schreiben, R0 Quelle*, R1 Byteoffset, R2 count16 | PCM und unveränderte Nachbarbytes | [DSP](messungen/2026-10-08-dsp-audiopfade.md) |
 | `0xC0035B10` | WAV importieren, R0 FILE*, R1 Metadaten*, R2 Slot, R3 Pfad* | Status 0 / 0x21 / 4 wie unten | [Import](messungen/2026-10-08-usb-sample-import-offline.md) |
-| `0xC0039B2C` | WAV schreiben, R0 Dateiobjekt*, R1 zusätzlicher Kontext*, R2 ESLI*, R3 DSP-Offset, fünftes Argument Bytezahl auf Stack | RIFF/PCM exakt, 64-KiB-Blöcke | [DSP](messungen/2026-10-08-dsp-audiopfade.md) |
+| `0xC0039B2C` | WAV schreiben, R1 FILE*, R2 ESLI*, R3 DSP-Offset, fünftes Argument Bytezahl auf Stack; Eingangs-R0 für die Pufferzuordnung unbenutzt | RIFF/PCM exakt, 64-KiB-Blöcke | [DSP](messungen/2026-11-06-sample-ram-cacheprobe.md) |
 | `0xC0027D84` | SysEx-Leseantwort, R0 Antwortkontext*, R1 Kanal, R2 Funktion, R3 CPU-Daten*; Stack: Länge, 2, 0x52 | gepackte Antwort exakt, Quellbuffer unverändert | [DSP](messungen/2026-10-08-dsp-audiopfade.md) |
 
 Nachverfolgte Aufrufketten, keine zusätzliche direkte Einstiegsschnittstelle:
@@ -486,8 +486,8 @@ Wachstum über `0xC000A3B0`; DSP-Lesen über `0xC00141F8`, `0xC0014AFC`,
 `0xC001488C`; Schreiben über `0xC0014284`, `0xC0014C34`, `0xC00146B4`.
 Einzel-/Gesamtexport `0xC0039CC4`/`0xC0039E68` wurden als Aufrufer des
 WAV-Schreibers identifiziert; ohne vollständig initialisierte Objektzustände
-nicht als VSB-Test-Einstiege anbieten. Die interne Bedeutung des zweiten
-WAV-Schreiber-Kontextes ist nicht abschließend benannt.
+nicht als VSB-Test-Einstiege anbieten. Die Zuordnung des Dateizeigers zu R1
+ist durch Prolog und `f_write`-Aufrufe bestätigt, siehe [Pufferanalyse](messungen/2026-11-06-sample-ram-cacheprobe.md).
 
 ### Stubs für SD und DSP: WAV ohne Karte
 

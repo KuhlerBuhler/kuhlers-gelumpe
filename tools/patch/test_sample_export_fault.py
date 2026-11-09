@@ -23,7 +23,7 @@ class ExportFault(unittest.TestCase):
         return uc, labels
 
     def test_high_entry_refuses_before_open_and_forwards_the_native_error_mapper(self):
-        for fault in (0, 1, 0xFFFFFFFF):
+        for fault in (0, 1, 2, 0xFFFFFFFF):
             with self.subTest(fault=fault):
                 uc, labels = self.machine()
                 uc.mem_write(FAULT, struct.pack('<I', fault))
@@ -34,11 +34,11 @@ class ExportFault(unittest.TestCase):
                     uc.mem_write(at, arm.assemble(text, origin=at).bytes)
                 uc.emu_start(labels['export_sample_entry'], TRAP, count=1000)
                 self.assertEqual(uc.reg_read(R.UC_ARM_REG_SP), STACK)
-                self.assertEqual(uc.reg_read(R.UC_ARM_REG_R0), 11 if fault == 1 else 0)
-                self.assertEqual(struct.unpack('<I', uc.mem_read(DATA, 4))[0], int(fault != 1))
+                self.assertEqual(uc.reg_read(R.UC_ARM_REG_R0), 11 if fault == 2 else 0)
+                self.assertEqual(struct.unpack('<I', uc.mem_read(DATA, 4))[0], int(fault != 2))
 
     def test_failed_read_skips_pcm_and_trailer_then_releases_the_work_buffer(self):
-        for initial, during in ((0, 0), (0xFFFFFFFF, 0), (1, 0), (0, 1)):
+        for initial, during in ((0, 0), (0xFFFFFFFF, 0), (1, 0), (2, 0), (0, 1), (0, 2)):
             with self.subTest(initial=initial, during=during):
                 uc, labels = self.machine()
                 uc.mem_write(FAULT, struct.pack('<I', initial))
@@ -55,8 +55,8 @@ class ExportFault(unittest.TestCase):
                     uc.reg_write(register, value)
                 uc.emu_start(labels['export_writer_entry'], TRAP, count=1000)
                 words = struct.unpack('<3I', uc.mem_read(DATA, 12))
-                self.assertEqual(words, (0, 0, 0) if initial == 1 else (1, 0 if during else 73, 1))
-                self.assertEqual(uc.reg_read(R.UC_ARM_REG_R0), int(initial == 1 or during == 1))
+                self.assertEqual(words, (0, 0, 0) if initial == 2 else (1, 0 if during == 2 else 73, 1))
+                self.assertEqual(uc.reg_read(R.UC_ARM_REG_R0), int(initial == 2 or during == 2))
                 self.assertEqual(uc.reg_read(R.UC_ARM_REG_SP), STACK)
                 for register, value in saved.items():
                     self.assertEqual(uc.reg_read(register), value)

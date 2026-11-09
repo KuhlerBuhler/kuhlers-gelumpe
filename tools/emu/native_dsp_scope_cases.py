@@ -199,8 +199,8 @@ def session(payload, flow=None, trace_resource=False):
 
 
 def probe(payload, stall=None, transaction='command', masked=False, step=True, slow=0):
-    """`step`: the call runs as part of the swap's own step (MODE 1 and its step word set), the only time the deadline
-    bounds a native transaction. `slow`: the command status reads busy for that many polls, then ready."""
+    """Sample transfers are bounded; other calls use the swap step gate.
+    `slow` counts command-status busy polls before ready."""
     if transaction not in TARGETS:
         raise ValueError('unknown native transaction')
     if stall == 'busy-status' and transaction != 'command':
@@ -311,14 +311,14 @@ def probe(payload, stall=None, transaction='command', masked=False, step=True, s
                  fault=box.state('TSTATE'), scope=box.u32(POINTER))
     refused = any(value != 0 for value in enters)
     elapsed_ms = (box.m.time_ns - started) / 1e6
-    expected_fault = int(step and (stall is not None or masked or slow > 0))
+    bounded = step or transaction in ('read', 'write')
+    expected_fault = int(bounded and (stall is not None or masked or slow > 0))
     pcm_matches = (None if transaction not in ('read', 'write') or expected_fault else
                    all((box.u16(c.spec.STAGE + i * 2) if transaction == 'read' else box.dsp.get(io.DSP_MIN + i * 2)) == 0x4000 + i for i in range(32)))
     frame_restored = (len(frames) == 2 and frames[1]['stack'] == frames[0]['stack'] - 8
                       and frames[1]['control'] == frames[0]['control']
                       and frames[1]['saved'][1:] == frames[0]['saved'][1:]
                       and frames[1]['popped'] == [frames[0]['saved'][0], frames[0]['link']])
-    bounded = step
     if not bounded:
         # outside the swap's step the native transaction runs as in Korg's firmware: no scope, no deadline, no fault
         ok = (before['mode'] == after['mode'] == 1 and after['fault'] == 0 and after['generation'] == before['generation']
@@ -327,7 +327,7 @@ def probe(payload, stall=None, transaction='command', masked=False, step=True, s
         return dict(ok=ok, stall=stall, transaction=transaction, masked=masked, step=step, slow=slow,
                     slow_polls=polls[0], elapsed_emulator_ms=elapsed_ms, before=before, after=after,
                     transactions=len(enters), port_writes=len(writes), asserts=box.m.asserts)
-    ok = (before['mode'] == 1 and after['fault'] == expected_fault and after['generation'] == before['generation'] + expected_fault
+    ok = (before['mode'] == 1 and after['fault'] == (io.LATCHED if expected_fault else 0) and after['generation'] == before['generation'] + expected_fault
           and before['resource'] == after['resource'] == 1 and after['scope'] == 0
           and sum(value == 0 for value in enters) == len(releases) and (len(enters) > 0) == bounded
           and all(value == 0 for value in releases)

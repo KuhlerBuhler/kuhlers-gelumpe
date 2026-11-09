@@ -53,8 +53,10 @@ import ramdecl  # noqa: E402
 import sample_swap_io  # noqa: E402
 import sample_store  # noqa: E402
 import sample_import  # noqa: E402
+import sample_names  # noqa: E402
 import sample_owner  # noqa: E402
 import sample_protection  # noqa: E402
+import sample_pcm  # noqa: E402
 import native_dsp_scope  # noqa: E402
 import capture_fault  # noqa: E402
 import sample_export_fault  # noqa: E402
@@ -115,7 +117,7 @@ FIRMWARE = dict(
     PARSER=0xC0035B10, RESERVE=0xC004EDF0, DELETE=0xC004E558, POST=0xC002D5D8,
     PLAYER=0xC002FAFC, PSEL=0xC00431F0, TRANSPORT=0xC0030D28, REPEATS=0xC004A3D8,
     PART=0xC009AF20, PART_UPDATE=0xC0099FFC, VOICE_USED=0xC009115C, VOICES=0xC06916A0,
-    SAMPLE_LOADED=0xC004E3CC,
+    SAMPLE_LOADED=0xC004E3CC, NAME_LOADED=0xC0099634,
     PATPTR=0xC033E6A4, BANK=0xC08B2940, PANEL=0xC033E6F8,
     NAMES=0xC047B080, META=0xC036AD88, PLAYBACK=0xC0362EE8,
     MAP_A=0xC035738C, MAP_B=0xC035F06C, MAP_C=0xC0350644,
@@ -157,9 +159,13 @@ SITES = [
      "an accepted pattern choice releases a previously deferred swap target"),
     (0xC0040DB4, None, 0xC004E3CC, "ss_choice", True, True,
      "the OSC iterator includes indexed user samples before their PCM is loaded"),
+    (0xC00997CC, None, 0xC0099634, "ss_name", True, True,
+     "the name getter includes indexed names without claiming PCM residency"),
     (0xC0039FB0, None, 0xC009DB60, "ss_export_open", True, False,
      "EXPORT ALL SAMPLE does not rewrite e2sSample.all while the DSP holds only part of it"),
 ]
+SITES += [(site, None, FIRMWARE['F_READ'], 'names_parser_read', True, True,
+           'metadata parser reads require the full requested length') for site in sample_names.READS]
 SITES += [(site, original, calls, label, True, True, f"bounded native DSP transaction: {label}")
           for site, original, calls, label in native_dsp_scope.HOOKS]
 SITES += [(site, capture_fault.ORIGINALS.get(site), 0xC004EF94 if site == 0xC0082DA8 else None,
@@ -167,12 +173,16 @@ SITES += [(site, capture_fault.ORIGINALS.get(site), 0xC004EF94 if site == 0xC008
 SITES += [(site, sample_export_fault.ORIGINALS[site], None, label, False, True,
            f"native sample export fault propagation: {label}") for site, label in sample_export_fault.HOOKS]
 SITES += [(site, original, None, label, False, True, 'physical sample mutation protection')
-          for site, original, label, *_ in sample_protection.MUTATIONS]
+          for site, original, label, *_ in sample_protection.MUTATIONS + sample_protection.STORES]
+SITES += [(site, original, None, label, False, True, 'native PCM operation failure propagation')
+          for site, original, label in sample_pcm.HOOKS]
 
 # Native calls and the layouts they read, compared byte for byte in both red builds.
 CALLED = (
     (0xC0040D50, 0x90, "logical sample iterator through its eligibility gate"),
     (0xC004E3CC, 0x28, "native physical sample loaded predicate"),
+    (0xC0099788, 0x70, "native sample name getter"),
+    (0xC0099634, 0x5C, "native name residency predicate"),
     (0xC00369F0, 0x10, "giver"),
     (0xC004A3D8, 0x0C, "chain repeat count"),
     (0xC0079768, 0x10, "chain counter reset"),
@@ -216,7 +226,7 @@ def equs(screens):
              "ARENA_L_END": ARENA_L_END, "CHUNK": CHUNK, "BUDGET": BUDGET, "MSG": MSG, "MAIN": MAIN, "KILL": KILL,
              "FAILED": FAILED, "PROT": PROT, "PATH": PATH, "STATE_WORDS": len(FIELDS),
              "LAST_USER": LAST_USER, "SAMPLE_COUNT": SAMPLE_COUNT, "CAP_DEFAULT": CAP_DEFAULT,
-             "BUSY": sample_swap_io.BUSY, "FILE_OWNER": FILE_OWNER, "BOOT_LEASE": BOOT_LEASE,
+             "BUSY": sample_swap_io.BUSY, "STALE": sample_swap_io.STALE, "FILE_OWNER": FILE_OWNER, "BOOT_LEASE": BOOT_LEASE,
              "NATIVE_SCOPE": NATIVE_SCOPE,
              "FILE_READ": sample_owner.READ, "FILE_RECOVER": sample_owner.RECOVER, **OFF}
     return "".join(f".equ {k}, {v:#x}\n" for k, v in names.items())
@@ -260,18 +270,7 @@ sl_refuse:
     pop {r4-r11, pc}
 
 ss_library_close:
-    push {r4, lr}
-    bl F_CLOSE
-    mov r4, r0
-    cmp r4, #0
-    beq slc_done
-    ldr r0, =BOOT_LEASE
-    ldr r0, [r0]
-    cmp r0, #0
-    blne owner_uncertain
-slc_done:
-    mov r0, r4
-    pop {r4, pc}
+    b names_close
 
 ss_library_finish:
     push {r1-r3, r5, r12, lr}
@@ -283,8 +282,8 @@ ss_library_finish:
     ldr r12, =ST
     ldr r12, [r12, #TSTATE]
     cmn r12, #1
-    cmpne r12, #0
-    bne slf_fault
+    cmpne r12, #1
+    bhi slf_fault
     cmp r5, #0
     bleq owner_resolve
     b slf_release
@@ -1019,8 +1018,8 @@ part_ready:
     cmp r0, #0
     beq pr_yes
     ldr r0, [r11, #TSTATE]
-    cmp r0, #0
-    bne pr_no
+    cmp r0, #1
+    bhi pr_no
     mov r0, r4
     bl resident
     pop {r4, pc}
@@ -1088,10 +1087,10 @@ ss_step:
     bne st_ret
     str r0, [r11, #INSTEP]
     ldr r0, [r11, #TSTATE]
-    cmp r0, #0
-    movne r0, #2
-    strne r0, [r11, #MODE]
-    bne st_ret
+    cmp r0, #1
+    movhi r0, #2
+    strhi r0, [r11, #MODE]
+    bhi st_ret
     bl swap_ok
     cmp r0, #0
     bne st_context
@@ -1358,6 +1357,10 @@ so_no:
     pop {r4, pc}
 
 job_ok:
+    ldr r0, [r11, #J_STATE]
+    cmp r0, #1
+    movne r0, #0
+    bxne lr
     push {r4, lr}
     bl swap_ok
     cmp r0, #0
@@ -1717,6 +1720,7 @@ si_place:
     cmp r0, #0
     beq si_fail
     bl place
+    mov r5, r1
     ldr r1, [r11, #J_GEN]
     ldr r2, [r11, #GEN]
     cmp r1, r2
@@ -1724,17 +1728,15 @@ si_place:
     popne {r4-r8, pc}
     cmp r0, #0
     beq si_wait
-    .word 0xE10F5000
-    orr r1, r5, #0x80
-    .word 0xE121F001
-    push {r0, r5}
-    bl swap_ok
+    .word 0xE10FC000
+    orr r2, r12, #0x80
+    .word 0xE121F002
+    push {r0, r5, r12, lr}
+    mov r0, r4
+    mov r1, r5
+    bl allocation_ok
     cmp r0, #0
     beq si_reserve_stop
-    ldr r1, [r11, #J_GEN]
-    ldr r2, [r11, #GEN]
-    cmp r1, r2
-    bne si_reserve_stop
     ldr r0, [sp]
     add r1, r7, #31
     bic r1, r1, #31
@@ -1744,14 +1746,14 @@ si_place:
     cmp r1, r3
     strhi r1, [r2]
     str r0, [r11, #J_BASE]
-    pop {r0, r5}
-    .word 0xE121F005
+    pop {r0, r5, r12, lr}
+    .word 0xE121F00C
     mov r0, #0
     str r0, [r11, #J_DST]
     b job_common
 si_reserve_stop:
-    pop {r0, r5}
-    .word 0xE121F005
+    pop {r0, r5, r12, lr}
+    .word 0xE121F00C
     mov r0, #0
     b si_wait
 si_fail:
@@ -1823,6 +1825,8 @@ sp_ok:
     mov r0, #1
     str r0, [r11, #J_DST]
     str r6, [r11, #J_BASE]
+    ldr r5, =PROTECTION_REV
+    ldr r5, [r5]
     b job_common
 sp_fail:
     mov r0, r4
@@ -1857,8 +1861,8 @@ jc_zero:
     mov r0, #0
 jc_sum:
     str r0, [r11, #J_SUM]
-    mov r0, #1
-    str r0, [r11, #J_STATE]
+    mov r0, r5
+    bl job_activate
     pop {r4-r8, pc}
 
 ; r0 = DSP bytes: the lowest 32-byte aligned place in the user bank, up to its budget, that overlaps no active sample.
@@ -2017,6 +2021,8 @@ ck_out:
     add r2, r2, r5
     mov r3, r7, lsr #1
     bl transfer
+    cmp r0, #STALE
+    beq ck_end
     cmp r0, #BUSY
     moveq r0, #2
     popeq {r4-r10, pc}
@@ -2224,6 +2230,7 @@ catalogue_end:
     bl close_reader
     cmp r0, #0
     bne cat_uncertain
+    bl clear_failed
     bl catalogue_read
     cmp r0, #0
     bne cat_uncertain
@@ -2233,10 +2240,10 @@ catalogue_end:
     cmp r0, #0
     bne cat_uncertain
     ldr r0, [r11, #TSTATE]
-    cmp r0, #0
-    movne r5, #4
-    movne r0, #2
-    bne cat_mode
+    cmp r0, #1
+    movhi r5, #4
+    movhi r0, #2
+    bhi cat_mode
     ldr r0, =ss_cap
     ldr r0, [r0]
     add r0, r0, #4096
@@ -2299,6 +2306,11 @@ catalogue_read:
     mov r1, r5
     bl store_header_valid
     mov r4, r0
+    cmp r4, #0
+    bne cat_read_close
+    ldr r0, =FIL
+    bl names_read
+    mov r4, r0
 cat_read_close:
     bl close_reader
     orrs r0, r0, r4
@@ -2357,10 +2369,21 @@ place:
     push {r4-r6, lr}
     mov r4, r0
     mov r5, #500
+    ldr r6, =PROTECTION_REV
+    ldr r6, [r6]
 pl_try:
+    ldr r0, =PROTECTION_REV
+    ldr r0, [r0]
+    cmp r0, r6
+    bne pl_none
     mov r0, r4
     bl first_fit
+    ldr r1, =PROTECTION_REV
+    ldr r1, [r1]
+    cmp r1, r6
+    bne pl_none
     cmp r0, #0
+    movne r1, r6
     popne {r4-r6, pc}
     bl protection_scan
     cmp r0, #0
@@ -2373,6 +2396,7 @@ pl_try:
     bl evict_prepared
     cmp r0, #0
     beq pl_none
+    add r6, r6, #1
     b pl_try
 pl_none:
     mov r0, #0
@@ -2390,7 +2414,7 @@ def source(screens):
                                            gate=STATE + OFF["INSTEP"])
     guards = capture_fault.source(STATE + OFF["TSTATE"]) + sample_export_fault.source(STATE + OFF["TSTATE"])
     body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer + sample_owner.source(FILE_OWNER) + PUBLISH + native + guards
-    body += "\n.org PROTECTION_CODE\n" + sample_protection.source(PROTECTION) + PLACEMENT
+    body += "\n.org PROTECTION_CODE\n" + sample_protection.source(PROTECTION) + PLACEMENT + sample_pcm.source() + sample_names.source()
     return halfword(equs(screens) + f".equ transfer, {TRANSPORT:#x}\n" + body)
 
 
@@ -2417,7 +2441,8 @@ AREAS = ((CODE1, CODE1_END, "CODE1_END"), (CODE2, CODE2_END, "CODE2_END"), (CODE
 def build_code(screens):
     """(sections [(address, bytes)], symbols): swap, storage and bounded transport code."""
     code = arm.assemble(source(screens), origin=CODE1)
-    io, _ = sample_swap_io.build_code(origin=TRANSPORT, state=STATE + OFF["TSTATE"])
+    io, _ = sample_swap_io.build_code(origin=TRANSPORT, state=STATE + OFF["TSTATE"],
+                                     write_guard=code.symbols["transfer_job_ok"])
     sections = [*code.sections, (TRANSPORT, io)]
     for at, data in sections:
         hi = next(hi for lo, hi, _ in AREAS if lo <= at < hi)
@@ -2437,6 +2462,7 @@ def build_patch(vsb, build=None):
     capture_fault.validate_firmware(vsb)
     sample_export_fault.validate_firmware(vsb)
     sample_protection.validate_firmware(vsb)
+    sample_pcm.validate_firmware(vsb)
     if build not in (None, actual) or actual not in ("stock", "hacktribe"):
         raise SystemExit("only the mapped red Sampler builds, Korg's and Hacktribe, are supported")
     if struct.unpack_from("<I", vsb, file_offset(SAMPLE_COUNT_AT))[0] != SAMPLE_COUNT:
@@ -2511,6 +2537,8 @@ def build_patch(vsb, build=None):
 CALLED_SHA = {
     0xC0040D50: "2d9a97a5b5b36c713d880df09fe4d93524d9c5b80ceec907ba993356c62c52f6",
     0xC004E3CC: "c10ad0c6f7f6a269e7e8957073a340981e9ef70097015ad7ff9e70cb2962af6b",
+    0xC0099788: "3dc5f17a6b72b84f8a00583177f4b09116fcc7489f59811b459b482e65dae036",
+    0xC0099634: "ffc42ffdb811197531e92fa439b681b7aac3d5ca58b6553acbe6e8431c9471fb",
     0xC00369F0: "a7d23f74586936ec6866a848f54213f688dd8ce3dce2d848dfd0fa2fa72ac7d3",
     0xC004A3D8: "f0c285da7e342df0813bc2e614de39930ac11479aabcb5448e660a23d6431093",
     0xC0079768: "e8014e3bdef321b0885d7e7224608407c1f094f089a270441413b68f72928204",

@@ -244,7 +244,10 @@ After the download the page shows a guide with the card folder of your running s
   reads `KORG/blechtribe/` instead of `KORG/hacktribe/`, so your samples and patterns are not there on their
   own. Before the update, **copy** `KORG/hacktribe/` (on Korg's original `KORG/electribe sampler/`) to
   `KORG/blechtribe/`, **do not rename it**. Then put the `SYSTEM.VSB` into the folder of the firmware that is
-  running now, not into `blechtribe`.
+  running now. When BLECH with the changed folder is already running, the
+  update path is `KORG/blechtribe/System/SYSTEM.VSB`. Reading the path strings
+  and checking the unchanged native update code on the Hacktribe device
+  confirmed this ([measurement](messungen/2026-11-06-sample-ram-vorpruefung.md), German).
 
 Then update through DATA UTILITY, SOFTWARE UPDATE. If something goes wrong, the emergency switch (EXIT at
 power-on) is your first resort.

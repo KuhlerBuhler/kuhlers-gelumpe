@@ -14,6 +14,7 @@ SCREENS = 0xC0340000
 F = p.FIRMWARE
 PART_BASE, VOICE_BASE, VOICE_FLAGS = 0xC069EA44, 0xC06916A0, 0xC1004000
 MANAGER, TRANSPORT_OBJECT = 0xC1008000, 0xC1009000
+CODE_SECTIONS, CODE_SYMBOLS = p.build_code(SCREENS)
 
 
 def word(n):
@@ -26,8 +27,8 @@ class Swap:
         self.uc.mem_map(0xC0000000, 0x02000000)
         self.uc.mem_map(0xC2700000, 0x00200000)
         self.uc.mem_map(p.SIG, 0x1000)
-        sections, self.sym = p.build_code(SCREENS)
-        for at, data in sections:
+        self.sym = CODE_SYMBOLS.copy()
+        for at, data in CODE_SECTIONS:
             self.uc.mem_write(at, data)
         self.uc.mem_write(TRAP, word(0xE1A00000))
         # stand-ins of our own for the firmware routines the tested paths call
@@ -170,12 +171,13 @@ class AllocationBounds(unittest.TestCase):
     def test_temporary_space_shortage_can_be_retried_without_a_failed_slot(self):
         s = self.prepared(32)
         at = s.sym["place"]
+        original = bytes(s.uc.mem_read(at, 16))
         s.uc.mem_write(at, arm.assemble("mov r0, #0\nbx lr", origin=at).bytes)
         s.read_call("start_install", 601)
         failed_word = p.STATE + p.FAILED + (601 >> 5) * 4
         self.assertEqual(s.state("J_STATE"), 0)
         self.assertEqual(s.u32(failed_word) & (1 << (601 & 31)), 0)
-        s.uc.mem_write(at, arm.assemble(f"ldr r0, ={F['DSP_MIN']}\nbx lr\n.pool", origin=at).bytes)
+        s.uc.mem_write(at, original)
         s.uc.ctl_flush_tb()
         s.read_call("start_install", 601)
         self.assertEqual(s.state("J_STATE"), 1)
@@ -304,7 +306,8 @@ class CatalogueOwnership(unittest.TestCase):
         s.header = bytes(header)
         stubs = {"recover": (s.sym["store_recover"], recover),
                  "open": (F["F_OPEN"], 0), "read": (F["F_READ"], read),
-                 "close": (F["F_CLOSE"], close)}
+                 "close": (F["F_CLOSE"], close), "seek": (F['F_LSEEK'], 0),
+                 "parser": (F['PARSER'], 0x7E)}
         for name, (at, result) in stubs.items():
             s.uc.mem_write(at, arm.assemble(f"mov r0, #{result}\nbx lr", origin=at).bytes)
 
@@ -316,6 +319,8 @@ class CatalogueOwnership(unittest.TestCase):
                 if name == "read":
                     uc.mem_write(uc.reg_read(R.UC_ARM_REG_R1), s.header)
                     uc.mem_write(uc.reg_read(R.UC_ARM_REG_R3), word(4092 if short else 4096))
+                if name == 'parser':
+                    uc.mem_write(p.DESC, struct.pack('<H', 500) + b'own'.ljust(16, b'\0') + bytes(0x4A0 - 18))
 
             s.uc.hook_add(unicorn.UC_HOOK_CODE, observe, begin=at, end=at)
         s.uc.ctl_flush_tb()
@@ -324,7 +329,7 @@ class CatalogueOwnership(unittest.TestCase):
     def test_writer_invalidates_jobs_and_closes_the_reader_before_recovery(self):
         s = self.setup_writer()
         self.assertEqual(s.call("catalogue_begin"), 0)
-        self.assertEqual(s.events, ["close", "recover", "open", "read", "close"])
+        self.assertEqual(s.events, ["close", "recover", "open", "read", "seek", "parser", "close"])
         self.assertEqual(s.owner(), (1, 1, 1, p.sample_owner.RECOVER))
         self.assertEqual(s.uc.reg_read(R.UC_ARM_REG_R1), 1)
         self.assertEqual(s.state("MODE"), 2)
@@ -354,6 +359,21 @@ class CatalogueOwnership(unittest.TestCase):
         self.assertEqual(s.call("catalogue_begin"), 0)
         self.assertEqual(s.call("catalogue_end", 1, 0), 0)
         self.assertEqual(s.state("MODE"), 0)
+
+    def test_a_repaired_record_clears_its_previous_source_failure(self):
+        s = self.setup_writer()
+        s.uc.mem_write(F['PARSER'], arm.assemble('mov r0, #1\nbx lr', origin=F['PARSER']).bytes)
+        s.uc.ctl_flush_tb()
+        self.assertEqual(s.call('catalogue_begin'), 0)
+        self.assertEqual(s.call('loadable', 500), 0)
+        changed = bytearray(s.header)
+        struct.pack_into('<I', changed, 16 + 500 * 4, 8192)
+        s.header = bytes(changed)
+        s.uc.mem_write(F['PARSER'], arm.assemble('mov r0, #0x7E\nbx lr', origin=F['PARSER']).bytes)
+        s.uc.ctl_flush_tb()
+        self.assertEqual(s.call('catalogue_end', 1, 0), 0)
+        self.assertEqual(s.call('loadable', 500), 1)
+        self.assertEqual(bytes(s.uc.mem_read(F['NAMES'] + 500 * 32 + 12, 16)), b'own'.ljust(16, b'\0'))
 
     def test_another_owner_is_not_disturbed(self):
         s = self.setup_writer()
@@ -423,11 +443,11 @@ class CatalogueOwnership(unittest.TestCase):
     def test_dsp_fault_during_write_never_reenables_switching(self):
         s = self.setup_writer()
         self.assertEqual(s.call("catalogue_begin"), 0)
-        s.set_state("TSTATE", 1)
+        s.set_state("TSTATE", 2)
         self.assertNotEqual(s.call("catalogue_end", 1, 0), 0)
         self.assertEqual(s.owner(), (0, 1, 0, 0))
         self.assertEqual(s.state("MODE"), 2)
-        self.assertEqual(s.state("TSTATE"), 1)
+        self.assertEqual(s.state("TSTATE"), 2)
 
     def test_failed_completion_does_not_acknowledge_or_reopen_the_catalogue(self):
         for label, expected_file in (("store_recover", 0), ("read", 0), ("close", 2)):
@@ -445,7 +465,7 @@ class CatalogueOwnership(unittest.TestCase):
 
     def test_bypassed_or_uninitialized_or_faulted_runtime_cannot_begin_a_write(self):
         for address, value in ((p.NATIVE_SCOPE, 0xFFFFFFFF), (p.STATE, 0xFFFFFFFF),
-                               (p.STATE + p.OFF["TSTATE"], 1), (p.STATE + p.OFF["GEN"], 0xFFFFFFFF)):
+                               (p.STATE + p.OFF["TSTATE"], 2), (p.STATE + p.OFF["GEN"], 0xFFFFFFFF)):
             with self.subTest(address=address):
                 s = self.setup_writer()
                 s.uc.mem_write(address, word(value))
@@ -468,6 +488,7 @@ class CatalogueOwnership(unittest.TestCase):
 class BootOwnership(unittest.TestCase):
     def library(self, result=0, *, checked=False, close_status=None, held=False):
         s = Swap()
+        s.set_state('MODE', 0)
         s.uc.mem_write(p.FILE_OWNER, p.sample_owner.INITIAL + bytes(4))
         panel = 0xC100E000
         s.uc.mem_write(F["PANEL"], word(panel))
@@ -524,6 +545,13 @@ class BootOwnership(unittest.TestCase):
         self.assertEqual(s.call(entry), 0)
         self.assertEqual(s.u32(p.NATIVE_SCOPE), 0xFFFFFFFF)
         self.assertEqual(s.state("TSTATE"), 0xFFFFFFFF)
+
+    def test_another_inflight_transfer_does_not_turn_a_completed_library_into_failure(self):
+        s, entry = self.library()
+        at = s.sym['ss_library_finish']
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: s.set_state('TSTATE', 1), begin=at, end=at)
+        self.assertEqual(s.call(entry), 0)
+        self.assertEqual(s.owner(), (0, 1, 0, 0))
 
     def test_failed_boot_leaves_the_catalogue_uncertain(self):
         s, entry = self.library(4)
@@ -604,11 +632,11 @@ class LibraryBypass(unittest.TestCase):
                 self.assertEqual(s.state("MODE"), 2 if refused else 1)
 
     def test_exit_does_not_clear_a_transport_fault(self):
-        s, result, events = self.loader(held=True, fault=1)
+        s, result, events = self.loader(held=True, fault=2)
         self.assertEqual(result, 1)
         self.assertEqual(events, [])
         self.assertEqual(s.state("MODE"), 2)
-        self.assertEqual(s.state("TSTATE"), 1)
+        self.assertEqual(s.state("TSTATE"), 2)
 
     def test_exit_requires_a_successful_existing_reader_close(self):
         for error in (0, 1):
@@ -651,6 +679,143 @@ class SampleChoice(unittest.TestCase):
                             self.assertEqual(s.state('GEN'), 7)
 
 
+class SampleNames(unittest.TestCase):
+    def setup_close(self, *, seek_status=0, read_status=0, got=4096, valid=True):
+        s = self.setup_names()
+        self.assertEqual(s.call('owner_acquire', p.sample_owner.RECOVER), 0)
+        s.uc.mem_write(p.BOOT_LEASE, word(s.uc.reg_read(R.UC_ARM_REG_R1)))
+        s.set_state('HDRFOR', 0)
+        s.uc.mem_write(p.FIL + 12, word(0x2000000))
+        header = (b'e2s sample all\x1a\0' if valid else bytes(16)) + bytes(4096 - 16)
+        for at, status in ((F['F_LSEEK'], seek_status), (F['F_READ'], read_status), (F['F_CLOSE'], 0)):
+            s.uc.mem_write(at, arm.assemble(f'mov r0, #{status}\nbx lr', origin=at).bytes)
+        s.closed = []
+
+        def read(uc, *_):
+            self.assertEqual(uc.reg_read(R.UC_ARM_REG_CPSR) & 0x80, 0)
+            self.assertEqual(uc.reg_read(R.UC_ARM_REG_R2), 4096)
+            uc.mem_write(uc.reg_read(R.UC_ARM_REG_R1), header)
+            uc.mem_write(uc.reg_read(R.UC_ARM_REG_R3), word(got))
+
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, read, begin=F['F_READ'], end=F['F_READ'])
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: s.closed.append(True), begin=F['F_CLOSE'], end=F['F_CLOSE'])
+        s.uc.ctl_flush_tb()
+        return s, header
+
+    def test_boot_reads_an_empty_current_index_instead_of_stale_ram(self):
+        s, header = self.setup_close()
+        self.assertEqual(s.call('names_close', p.FIL, regs={R.UC_ARM_REG_R7: 0}), 0)
+        self.assertEqual(bytes(s.uc.mem_read(p.HDR, 4096)), header)
+        self.assertEqual(s.call('indexed', 501), 0)
+
+    def test_boot_index_failures_close_the_file_and_keep_the_catalogue_blocked(self):
+        for options in (dict(seek_status=1), dict(read_status=1), dict(got=4092), dict(valid=False)):
+            with self.subTest(options=options):
+                s, _ = self.setup_close(**options)
+                self.assertNotEqual(s.call('names_close', p.FIL, regs={R.UC_ARM_REG_R7: 0}), 0)
+                self.assertEqual(s.closed, [True])
+                self.assertEqual(s.state('MODE'), 2)
+                self.assertEqual(s.owner()[2], 1)
+
+    def setup_names(self, *, seek=0, parsed=0x7E, record_slot=501, change_generation=False):
+        s = Swap()
+        s.slot(501, active=False)
+        s.slot(503, active=True)
+        s.events = []
+        s.preview = b'Preview Name'.ljust(16, b'\0')
+        for at, result in ((F['F_LSEEK'], seek), (F['PARSER'], parsed)):
+            s.uc.mem_write(at, arm.assemble(f'mov r0, #{result}\nbx lr', origin=at).bytes)
+
+        def seek_call(uc, *_):
+            self.assertEqual(uc.reg_read(R.UC_ARM_REG_CPSR) & 0x80, 0)
+            s.events.append(('seek', uc.reg_read(R.UC_ARM_REG_R0), uc.reg_read(R.UC_ARM_REG_R1)))
+
+        def parse_call(uc, *_):
+            self.assertEqual(uc.reg_read(R.UC_ARM_REG_CPSR) & 0x80, 0)
+            self.assertEqual(s.state('PREP'), 1)
+            s.events.append(('parse', uc.reg_read(R.UC_ARM_REG_R0), uc.reg_read(R.UC_ARM_REG_R1)))
+            uc.mem_write(p.DESC, struct.pack('<H', record_slot) + s.preview + bytes(0x4A0 - 18))
+            if change_generation:
+                s.set_state('GEN', 8)
+
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, seek_call, begin=F['F_LSEEK'], end=F['F_LSEEK'])
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, parse_call, begin=F['PARSER'], end=F['PARSER'])
+        s.uc.ctl_flush_tb()
+        return s
+
+    def test_only_unloaded_name_bytes_change(self):
+        s = self.setup_names()
+        names = bytes(s.uc.mem_read(F['NAMES'], 1000 * 32))
+        regions = [(address, bytes(s.uc.mem_read(address, size))) for address, size in
+                   ((F['META'], 1000 * 0x45C), (F['PLAYBACK'], 1000 * 16),
+                    (F['MAP_A'], 1000 * 32), (F['MAP_B'], 1000 * 16), (F['MAP_C'], 1000 * 8))]
+        self.assertEqual(s.call('names_read', p.FIL), 0)
+        expected = bytearray(names)
+        expected[501 * 32 + 12:501 * 32 + 28] = s.preview
+        self.assertEqual(bytes(s.uc.mem_read(F['NAMES'], len(names))), expected)
+        for address, before in regions:
+            self.assertEqual(bytes(s.uc.mem_read(address, len(before))), before)
+        self.assertEqual(s.events, [('seek', p.FIL, 0x1000 + 501), ('parse', p.FIL, p.DESC)])
+        self.assertEqual(s.state('PREP'), 0)
+
+    def test_failed_or_stale_reads_publish_no_name(self):
+        for settings, status in ((dict(seek=1), 4), (dict(parsed=4), 4),
+                                 (dict(parsed=1), 0), (dict(record_slot=502), 0),
+                                 (dict(change_generation=True), 4),
+                                 (dict(parsed=1, change_generation=True), 4)):
+            with self.subTest(settings=settings):
+                s = self.setup_names(**settings)
+                before = bytes(s.uc.mem_read(F['NAMES'], 1000 * 32))
+                self.assertEqual(s.call('names_read', p.FIL), status)
+                self.assertEqual(bytes(s.uc.mem_read(F['NAMES'], len(before))), before)
+                self.assertEqual(s.state('PREP'), 0)
+
+    def test_a_newly_resident_name_wins_over_the_file_descriptor(self):
+        s = self.setup_names()
+        name = b'Live edit'.ljust(16, b'\0')
+
+        def installed(uc, *_):
+            uc.mem_write(F['META'] + 501 * 0x45C + 11, b'\1')
+            uc.mem_write(F['NAMES'] + 501 * 32 + 12, name)
+
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, installed, begin=F['PARSER'], end=F['PARSER'])
+        self.assertEqual(s.call('names_read', p.FIL), 0)
+        self.assertEqual(bytes(s.uc.mem_read(F['NAMES'] + 501 * 32 + 12, 16)), name)
+
+    def test_display_eligibility_does_not_claim_pcm_residency(self):
+        s = Swap()
+        at = 0xC0099634
+        s.uc.mem_write(at, arm.assemble('mvn r0, #0\nbx lr', origin=at).bytes)
+        for mode in (0, 1, 2, 0xFFFFFFFF):
+            for slot in (499, 501, 998, 999):
+                for indexed in (False, True):
+                    with self.subTest(mode=mode, slot=slot, indexed=indexed):
+                        s.set_state('MODE', mode)
+                        s.slot(slot, active=False, in_file=indexed)
+                        pointer = F['NAMES'] + slot * 32 + 12
+                        expected = 0 if mode == 1 and 500 <= slot <= 998 and indexed else 0xFFFFFFFF
+                        self.assertEqual(s.call('ss_name', slot + 50, regs={R.UC_ARM_REG_R4: pointer}), expected)
+                        self.assertEqual(s.call('resident', slot), 0)
+        s.set_state('MODE', 1)
+        s.slot(501, active=False)
+        s.uc.mem_write(p.FILE_OWNER + 8, word(1))
+        self.assertEqual(s.call('ss_name', 551, regs={R.UC_ARM_REG_R4: F['NAMES'] + 501 * 32 + 12}), 0xFFFFFFFF)
+
+    def test_metadata_reads_require_the_exact_requested_length(self):
+        for prep in (0, 1):
+            for status in (0, 2):
+                for got in (7, 8):
+                    with self.subTest(prep=prep, status=status, got=got):
+                        s = Swap()
+                        s.set_state('PREP', prep)
+                        s.uc.mem_write(F['F_READ'], arm.assemble(
+                            f'mov r0, #{status}\nbx lr', origin=F['F_READ']).bytes)
+                        s.uc.mem_write(p.STATE + p.OFF['GOT'], word(got))
+                        expected = status or int(prep == 1 and got != 8)
+                        self.assertEqual(s.call('names_parser_read', p.FIL, p.DESC, 8,
+                                                p.STATE + p.OFF['GOT']), expected)
+
+
 class PartPublication(unittest.TestCase):
     def setup_part(self, target=601):
         s = Swap()
@@ -683,9 +848,14 @@ class PartPublication(unittest.TestCase):
                     s.slot(601, active=active, in_file=indexed)
                 self.assertEqual(s.call("part_ready", PART_BASE), 1)
 
+    def test_another_inflight_transfer_does_not_block_a_resident_selection(self):
+        s, _ = self.setup_part(600)
+        s.set_state('TSTATE', 1)
+        self.assertEqual(s.call('part_ready', PART_BASE), 1)
+
     def test_a_transport_fault_blocks_even_a_resident_target(self):
         s, record = self.setup_part(600)
-        s.set_state("TSTATE", 1)
+        s.set_state("TSTATE", 2)
         self.assertEqual(s.call("part_ready", PART_BASE), 0)
         s.set_state("MODE", 2)
         self.assertEqual(s.call("part_ready", PART_BASE), 0)
@@ -694,7 +864,7 @@ class PartPublication(unittest.TestCase):
 
     def test_card_fault_keeps_safe_native_bindings_but_a_dsp_fault_blocks_them(self):
         for mode in (1, 2):
-            for fault in (0, 1):
+            for fault in (0, 2):
                 for target in (400, 600, 601, 0xFFFF):
                     for name, continuation in (("ss_part_update", 0xC009A000), ("ss_part_bind", 0xC0099D8C)):
                         with self.subTest(mode=mode, fault=fault, target=target, entry=name):
@@ -876,14 +1046,14 @@ class LibraryOwnership(unittest.TestCase):
     def test_reopening_a_library_does_not_clear_a_dsp_protocol_fault(self):
         s = self.setup_loader()
         s.set_state("MODE", 2)
-        s.set_state("TSTATE", 1)
+        s.set_state("TSTATE", 2)
         self.assertNotEqual(s.call("ss_fopen", s.file, s.path, 1), 0)
         self.assertEqual(s.events, [])
-        self.assertEqual(s.state("TSTATE"), 1)
+        self.assertEqual(s.state("TSTATE"), 2)
         self.assertEqual(s.state("MODE"), 2)
 
     def test_active_reload_never_publishes_an_off_window_or_a_zero_generation(self):
-        for fault in (0, 1):
+        for fault in (0, 2):
             with self.subTest(fault=fault):
                 s = self.setup_loader()
                 s.set_state("MODE", 2 if fault else 1)
@@ -984,6 +1154,14 @@ class FramePosting(unittest.TestCase):
                 self.assertEqual(s.posts, [])
                 self.assertEqual(s.state('POSTED'), 5)
 
+    def test_an_inflight_transfer_defers_without_latching_a_swap_error(self):
+        s = Swap()
+        s.set_state('TSTATE', 1)
+        s.uc.mem_write(MANAGER + 0x24, word(1))
+        s.call('ss_step')
+        self.assertEqual(s.state('MODE'), 1)
+        self.assertEqual(s.state('TSTATE'), 1)
+
 
 class Ready(unittest.TestCase):
     def test_failed_samples_still_hold_the_switch_until_resident(self):
@@ -1006,7 +1184,7 @@ class Ready(unittest.TestCase):
         s = Swap()
         s.slot(601, active=False)
         s.parts(5, [601])
-        s.set_state("TSTATE", 1)
+        s.set_state("TSTATE", 2)
         s.set_state("POSTED", 1)
         s.call("ss_step")
         self.assertEqual(s.state("MODE"), 2)
@@ -1021,7 +1199,7 @@ class Ready(unittest.TestCase):
         s.slot(601, active=True)
         s.call("ss_gate_seq", player, 5, 0)
         self.assertEqual(s.calls[-1][2], 3, "pattern changes also need DSP commands even when PCM is resident")
-        self.assertEqual(s.state("TSTATE"), 1)
+        self.assertEqual(s.state("TSTATE"), 2)
 
     def test_a_dsp_fault_refuses_factory_empty_and_resident_pattern_targets(self):
         for slots in ([7], [0xFFFF], [600]):

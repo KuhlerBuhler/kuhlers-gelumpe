@@ -35,7 +35,7 @@ def case(payload, failure, guarded=True):
         box.m.dsp_mem[cursor + at] = struct.unpack_from('<H', pcm, at)[0]
 
     if failure == 'preexisting':
-        uc.mem_write(c.spec.STATE + c.spec.OFF['TSTATE'], struct.pack('<I', 1))
+        uc.mem_write(c.spec.STATE + c.spec.OFF['TSTATE'], struct.pack('<I', native.io.LATCHED))
         uc.mem_write(c.spec.STATE + c.spec.OFF['MODE'], struct.pack('<I', 2))
     regions = [(c.META, 999 * 0x45C), (c.NAMES, 999 * 32),
                (c.spec.FIRMWARE['MAP_A'], 999 * 32),
@@ -100,7 +100,7 @@ def case(payload, failure, guarded=True):
                 and frames[1][1] == [frames[0][2][0], frames[0][3]])
     recording = box.u32(transport + 0x308)
     ok = (started == 1 and old_kept and restored and not writes_after_fault and not box.m.asserts
-          and box.state('TSTATE') == expected_fault and box.u32(native.POINTER) == 0 and box.u32(native.io.SEMA) == 1
+          and box.state('TSTATE') == (native.io.LATCHED if expected_fault else 0) and box.u32(native.POINTER) == 0 and box.u32(native.io.SEMA) == 1
           and box.state('GEN') == before_generation + int(failure in ('stop', 'end'))
           and (refused and recording == 11 and restart == 0 if expected_fault else completed and recording == 12))
     return dict(ok=ok, failure=failure, guarded=guarded, runtime_guards=installed, completed=completed, refused=refused,

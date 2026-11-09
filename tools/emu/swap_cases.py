@@ -105,6 +105,7 @@ class Box:
         self.sym = symbols(payload)
         self.dsp = {}
         self.parses = 0
+        self.metadata_parses = 0
         if record_dsp:
             original = self.m.write
 
@@ -123,7 +124,10 @@ class Box:
             for n, parts in bank.items():
                 self.set_parts(BANK + n * 0x4000, parts)
         self.m.uc.hook_add(unicorn.UC_HOOK_CODE, patterns, begin=0xC00364F0, end=0xC00364F0)
-        self.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: setattr(self, "parses", self.parses + 1),
+        def parsed(*_):
+            self.parses += 1
+            self.metadata_parses += int(self.state('PREP') == 1)
+        self.m.uc.hook_add(unicorn.UC_HOOK_CODE, parsed,
                            begin=spec.FIRMWARE["PARSER"], end=spec.FIRMWARE["PARSER"])
         if before_boot is not None:
             before_boot(self)
@@ -272,8 +276,9 @@ def case_start(payload, flash):
     cap = 0x40000
     box = Box(payload, flash, small(range(500, 510)), [500, 501], cap=cap)
     out.append(entry("start_reads_the_header_and_the_first_pattern",
-                     box.state("MODE") == 1 and box.residents() == [500, 501] and box.parses == 2 and not box.m.asserts,
-                     f"Modus {box.state('MODE')}, im DSP {box.residents()}, {box.parses} Samples gelesen; zehn in der Datei"))
+                     box.state("MODE") == 1 and box.residents() == [500, 501]
+                     and box.parses - box.metadata_parses == 2 and box.metadata_parses == 8 and not box.m.asserts,
+                     f"Modus {box.state('MODE')}, im DSP {box.residents()}, zwei PCM- und acht Metadatenlesungen"))
     held = Box(payload, flash, small(range(500, 510)), [500, 501], cap=cap, held=0x2000)
     held.until(lambda: len(held.residents()) == 10, 15.0, 0.5)
     out.append(entry("exit_at_power_on_keeps_the_firmware_load",
@@ -286,14 +291,18 @@ def case_long_set(payload, flash):
     """The real budget and a file over 50 MB: sixteen unused samples of 3 MiB and four small ones."""
     samples = {**small(range(500, 504)), **{s: (f"big{s}", 1_572_864) for s in range(510, 526)}}
     box = Box(payload, flash, samples, [500], bank={1: [501, 502]})
+    ready = box.until(lambda: box.u32(spec.BOOT_LEASE) == 0
+                      and box.u32(box.u32(box.m.profile.screens) + 0x24) == 0, 30.0, 0.2)
     size = len(sampleset.build({int(k): tuple(v) for k, v in samples.items()}))
-    started = box.state("MODE") == 1 and box.residents() == [500]
+    started = ready and box.state("MODE") == 1 and box.residents() == [500]
     box.key("play", 0.2)
+    playing = box.u32(box.u32(0xC03405BC) + 0x308) == 1
     box.choose(1)
     switched = box.until(lambda: box.running() == 1, 12.0)
     after = box.residents()
     return [entry("a_set_larger_than_the_dsp_starts_and_switches",
-                  size >= 50_000_000 and started and switched and after[:3] == [500, 501, 502] and not any(s >= 510 for s in after)
+                  size >= 50_000_000 and started and playing and switched
+                  and after[:3] == [500, 501, 502] and not any(s >= 510 for s in after)
                   and not box.m.asserts,
                   f"Datei {size} Byte, Start mit {[500] if started else 'falsch'}, gewechselt {switched}, im DSP {after}")]
 
@@ -342,6 +351,7 @@ def case_eviction(payload, flash):
     rows = []
     ok = True
     evicted = False
+    evicted_name = False
     for n in (1, 2, 3, 0, 1, 2, 3, 0):
         box.choose(n)
         hit = box.until(lambda: box.running() == n, 20.0)
@@ -350,11 +360,15 @@ def case_eviction(payload, flash):
         pcm = live and all(box.dsp_bytes(*box.extent(s)) == wav_pcm(s, FRAMES) for s in bank[n])
         if n == 3:
             evicted |= not box.resident(500) and not box.resident(501)
+            pointer = box.dev.call(0xC0099788, 500)
+            evicted_name |= (not box.resident(500) and pointer == NAMES + 500 * 32 + 12
+                             and bytes(box.m.uc.mem_read(pointer, 16)).split(b'\0', 1)[0] == b's500')
         clean, extents = box.no_overlap()
         top = max((e for _, e in extents), default=DSP_MIN)
         rows.append(dict(pattern=n, switched=hit, live=live, pcm_equal=pcm, resident=box.residents(), top=hex(top)))
         ok = ok and hit and live and pcm and clean and top <= DSP_MIN + cap
-    return [entry("the_dsp_holds_only_the_active_set", ok and evicted and not box.m.asserts, rows)]
+    return [entry("the_dsp_holds_only_the_active_set", ok and evicted and not box.m.asserts, rows),
+            entry('an_evicted_sample_keeps_its_displayed_name', evicted_name and not box.m.asserts, rows)]
 
 
 def case_part_change(payload, flash):
@@ -630,7 +644,7 @@ def case_failure_gates(payload, flash):
     out = [entry("a_temporarily_full_dsp_keeps_the_running_pattern",
                  not failed and box.state("MODE") == 1 and box.state("REQ") == 1 and box.running() == 0 and box.resident(500) and not box.resident(501) and not box.m.asserts,
                  f"Platz gescheitert {failed}, laufendes Pattern {box.running()}, Ziel geladen {box.resident(501)}")]
-    box.m.uc.mem_write(spec.STATE + spec.OFF["TSTATE"], struct.pack("<I", 1))
+    box.m.uc.mem_write(spec.STATE + spec.OFF["TSTATE"], struct.pack("<I", spec.sample_swap_io.LATCHED))
     box.choose(2)
     box.run(6.0)
     out.append(entry("a_latched_transport_fault_keeps_the_running_pattern",
@@ -771,7 +785,7 @@ def case_factory_after_fault(payload, flash):
     """A latched DSP fault holds back indexed user samples only; a part still switches to a factory sample."""
     box = Box(payload, flash, small(range(500, 506)), [500], cap=0x40000)
     part = box.dev.call(spec.FIRMWARE["PART"], 0)
-    box.m.uc.mem_write(spec.STATE + spec.OFF["TSTATE"], struct.pack("<I", 1))
+    box.m.uc.mem_write(spec.STATE + spec.OFF["TSTATE"], struct.pack("<I", spec.sample_swap_io.LATCHED))
     box.m.uc.mem_write(box.u32(part + 8) + 8, struct.pack("<H", 10))
     box.dev.call(0xC0099FFC, part)
     factory = box.u16(part + 0x34)
@@ -819,11 +833,101 @@ def case_protection(payload, flash):
     return [entry(row['id'], row['ok'], row) for row in sample_protection_cases.cases(payload)]
 
 
+def case_unloaded_names(payload, flash):
+    samples = small([500, 501, 503, 998])
+    reads, started = [], []
+
+    def observe(box):
+        def read(uc, *_):
+            if box.state('PREP') == 1:
+                file = uc.reg_read(unicorn.arm_const.UC_ARM_REG_R0)
+                reads.append((box.u32(file + 8), uc.reg_read(unicorn.arm_const.UC_ARM_REG_R2)))
+
+        def parse(*_):
+            if box.state('PREP') == 1:
+                started.append(box.residents())
+
+        box.m.uc.hook_add(unicorn.UC_HOOK_CODE, read, begin=spec.FIRMWARE['F_READ'], end=spec.FIRMWARE['F_READ'])
+        box.m.uc.hook_add(unicorn.UC_HOOK_CODE, parse, begin=spec.FIRMWARE['PARSER'], end=spec.FIRMWARE['PARSER'])
+
+    box = Box(payload, flash, samples, [500], cap=0x40000, record_dsp=True, before_boot=observe)
+
+    def displayed(slot):
+        pointer = box.dev.call(0xC0099788, slot)
+        expected = NAMES + slot * 32 + 12
+        return (bytes(box.m.uc.mem_read(pointer, 16)).split(b'\0', 1)[0].decode('ascii')
+                if pointer == expected else None)
+
+    before = [dict(slot=slot, resident=box.resident(slot), name=displayed(slot)) for slot in (501, 503, 998)]
+    library = sampleset.build(samples)
+    pcm = [(struct.unpack_from('<I', library, 16 + slot * 4)[0] + 44, FRAMES * 2) for slot in samples]
+    overlaps = [(at, size) for at, size in reads if any(at < start + count and at + size > start for start, count in pcm)]
+
+    def empty_index(empty):
+        volume = fat32.Volume(empty.m.mmc.card.medium.data)
+        try:
+            path = f'KORG/{cardstore.card_folder(payload)}/Sample/e2sSample.all'
+            data = bytearray(volume.read(path))
+            data[16:4096] = bytes(4096 - 16)
+            volume.write(path, data, overwrite=True)
+        finally:
+            volume.close()
+        empty.m.uc.mem_write(spec.HDR, library[:4096])
+
+    empty = Box(payload, flash, samples, [], cap=0x40000, before_boot=empty_index)
+    phantom_name = empty.dev.call(0xC0099788, 501)
+    return [entry('names_are_visible_before_pcm_residency',
+                  all(not row['resident'] and row['name'] == samples[row['slot']][0] for row in before)
+                  and box.residents() == [500] and not box.m.asserts, before),
+            entry('startup_reads_active_pcm_before_names_and_skips_inactive_pcm',
+                  started == [[500], [500], [500]] and reads and not overlaps and not box.m.asserts,
+                  dict(metadata_starts=started, metadata_read_requests=len(reads), pcm_overlaps=overlaps)),
+            entry('an_empty_index_with_orphaned_audio_replaces_stale_catalogue_ram',
+                  empty.state('MODE') == 1 and empty.residents() == [] and phantom_name == 0
+                  and not any(empty.m.uc.mem_read(spec.HDR + 16, 4096 - 16)) and not empty.m.asserts,
+                  dict(mode=empty.state('MODE'), resident=empty.residents(), phantom_name=phantom_name))]
+
+
+def case_name_read_failures(payload, flash):
+    rows = []
+    samples = small([500, 501, 503, 504])
+    for failure in ('read', 'short'):
+        injected = []
+
+        def observe(box):
+            def read(uc, *_):
+                if box.state('PREP') != 1:
+                    return
+                count = uc.reg_read(unicorn.arm_const.UC_ARM_REG_R2)
+                got = uc.reg_read(unicorn.arm_const.UC_ARM_REG_R3)
+                uc.mem_write(got, struct.pack('<I', 0 if failure == 'read' else count - 1))
+                uc.reg_write(unicorn.arm_const.UC_ARM_REG_R0, int(failure == 'read'))
+                uc.reg_write(unicorn.arm_const.UC_ARM_REG_PC, uc.reg_read(unicorn.arm_const.UC_ARM_REG_LR))
+                injected.append(count)
+            box.m.uc.hook_add(unicorn.UC_HOOK_CODE, read, begin=spec.FIRMWARE['F_READ'], end=spec.FIRMWARE['F_READ'])
+
+        box = Box(payload, flash, samples, [500], cap=0x40000, before_boot=observe)
+        pointer = box.dev.call(0xC0099788, 501)
+        volume = fat32.Volume(bytes(box.m.mmc.card.medium.data))
+        try:
+            unchanged = volume.read(f'KORG/{cardstore.card_folder(payload)}/Sample/e2sSample.all') == sampleset.build(samples)
+        finally:
+            volume.close()
+        owner = box.u32(spec.FILE_OWNER + 8)
+        ok = (injected and pointer == 0 and box.residents() == [500] and unchanged and not box.m.asserts
+              and (failure != 'read' or box.state('MODE') == 2 and owner == 1))
+        rows.append(entry(f'{failure}_failure_does_not_publish_an_unloaded_name', ok,
+                          dict(injected=len(injected), pointer=pointer, mode=box.state('MODE'),
+                               uncertain=owner, resident=box.residents(), library_unchanged=unchanged)))
+    return rows
+
+
 GROUPS = (case_start, case_long_set, case_gate, case_chain, case_eviction, case_part_change, case_cache, case_checksum,
           case_equal, *[(lambda i: lambda payload, flash: flow_task(payload, flash, i))(i) for i in range(len(FLOWS))],
           case_failure_gates, case_full_session, case_prefetch_targets, case_alias_eviction, case_voice_residency, case_store,
           case_file_owner, case_integrity, case_native_dsp, case_native_sample_faults, case_osc_choice,
-          case_import_kept, case_factory_after_fault, case_bad_journal, case_protection)
+          case_import_kept, case_factory_after_fault, case_bad_journal, case_protection, case_unloaded_names,
+          case_name_read_failures)
 
 
 def group_entries(payload, flash, i):

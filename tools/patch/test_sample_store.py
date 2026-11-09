@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "emu"))
 import sampleset
 
 ORIGIN, STATE, STACK, TRAP = 0xC1000000, 0xC2000000, 0xC2101000, 0xC0001000
+CODE, SYMBOLS = p.build_code(ORIGIN, STATE)
 LIBRARY = b"SD:/KORG/blechtribe/Sample/e2sSample.all"
 JOURNAL = LIBRARY[:-3] + b"txn"
 
@@ -71,8 +72,8 @@ class Machine:
         self.uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
         for at, size in ((0xC0000000, 0x100000), (ORIGIN, 0x10000), (STATE, 0x20000), (STACK - 0x1000, 0x2000)):
             self.uc.mem_map(at, size)
-        code, self.symbols = p.build_code(ORIGIN, STATE)
-        self.uc.mem_write(ORIGIN, code)
+        self.symbols = SYMBOLS.copy()
+        self.uc.mem_write(ORIGIN, CODE)
         self.path = STATE + 0x1F000
         self.uc.mem_write(self.path, LIBRARY + b"\0")
         self.files = {LIBRARY: library if isinstance(library, SparseFile) else bytearray(library)}
