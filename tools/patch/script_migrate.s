@@ -15,8 +15,9 @@
 ; PATTERN writes) while KORG/blechtribe holds none (choice 2, one folder). The blue never looks for a sample file; Hacktribe on a
 ; blue unit is the sampler build and keeps the sample rule.
 ;
-; Before the question, every start makes KORG/blechtribe and the folders BLECH reads and writes in it (mg_folders); f_mkdir of a
-; folder that is there only answers FR_EXIST and writes nothing.
+; Before the question, a start that finds no KORG/blechtribe makes it with the folders BLECH reads and writes in it (mg_folders).
+; A card that has the folder costs one f_opendir: each f_mkdir of a folder that is there costs about 4 ms in the emulator, which
+; the start before the sample loader does not get to spend.
 ; That hook runs in the start before the scheduler, where the OS sleep never returns: it only sets the question up and goes on.
 ; The frame hook (UI task) then draws it and takes EXIT or MENU (mg_blue_key); the copy runs there.
 .equ MG_ACTIVE, 0               ; 1 while the question or the copy is up (the input and frame hooks act only then)
@@ -216,10 +217,14 @@ mg_dir_exists:
     mov r0, #1
     pop {pc}
 
-; KORG, KORG/blechtribe and the folders of the build's list in it, each with f_mkdir (one that is there answers FR_EXIST).
-; r4 = the work area. Clobbers r0 to r3 and r12.
+; No KORG/blechtribe: KORG, KORG/blechtribe and the folders of the build's list in it, each with f_mkdir (one that is there
+; answers FR_EXIST). r4 = the work area. Clobbers r0 to r3 and r12.
 mg_folders:
     push {r5, lr}
+    ldr r1, =mg_new_folder
+    bl mg_dir_exists
+    cmp r0, #0
+    bne mg_folders_out
     ldr r0, =mg_korg
     ldr r12, =MG_MKDIR
     blx r12

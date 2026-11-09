@@ -8,8 +8,8 @@ KORG/blechtribe, leaves files already there as they are, and the start goes on w
 with both old folders the wheel chooses; a card that already has samples in KORG/blechtribe, and EXIT held at power-on, never
 see the question. On the blue Electribe (synth build) the question comes over the main screen when KORG/electribe holds a
 pattern backup (*.e2allpat) and KORG/blechtribe holds none (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md,
-docs/messungen/2026-11-09-blechtribe-ordner.md); each group has its blue variant. Every start makes KORG/blechtribe and its
-folders (case_folders).
+docs/messungen/2026-11-09-blechtribe-ordner.md); each group has its blue variant. A start without KORG/blechtribe makes it and
+its folders (case_folders).
 
     tools/emu/.venv/bin/python tools/emu/migrate_cases.py cases --patched NEW.VSB [--only N]
 """
@@ -352,8 +352,8 @@ def folders_of(dev):
 
 
 def case_folders(payload, flash):
-    """Every start makes KORG/blechtribe and the folders BLECH uses in it: on an empty card, and the missing ones next to a
-    folder that is there (its file kept); not with EXIT held at power-on."""
+    """A start without KORG/blechtribe makes it and the folders BLECH uses in it; a KORG/blechtribe that is there is left as it is
+    (one f_opendir, no f_mkdir: the start before the sample loader has no time for more); not with EXIT held at power-on."""
     want = set(BLUE_FOLDERS if blue(payload) else RED_FOLDERS)
     out = []
     fresh = boot(payload, {})
@@ -365,7 +365,7 @@ def case_folders(payload, flash):
     kept = volume.read("KORG/blechtribe/Plugin/mine.blech")
     volume.close()
     got = folders_of(some)
-    out.append(entry("missing_folders_added", got == want and kept == b"mine" and not some.m.asserts,
+    out.append(entry("folder_there_left_alone", got == {"Plugin"} and kept == b"mine" and not some.m.asserts,
                      f"blechtribe with Plugin only: now {sorted(got) if got is not None else None}, own file kept {kept == b'mine'}"))
     held = boot(payload, {}, held=KILL)
     out.append(entry("exit_held_makes_no_folders", folders_of(held) is None and not held.m.asserts,
