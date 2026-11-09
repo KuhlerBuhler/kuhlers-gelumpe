@@ -42,7 +42,7 @@ export function resolvePath(urlPath, extra = []) {
   for (const [prefix, dir] of [...extra, ...ROUTES]) {
     if (!(clean === prefix || clean.startsWith(prefix.endsWith("/") ? prefix : `${prefix}\0`))) continue;
     if (!prefix.endsWith("/")) return dir;
-    const base = dir.startsWith("/") ? dir : join(ROOT, dir);
+    const base = resolve(ROOT, dir);
     const file = normalize(join(base, clean.slice(prefix.length) || "index.html"));
     return file.startsWith(base) ? file : null;
   }

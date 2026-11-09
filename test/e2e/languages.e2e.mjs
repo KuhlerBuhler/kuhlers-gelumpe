@@ -61,3 +61,63 @@ test("anchors land below the navbar, also when it wraps on a phone", async () =>
     await context.close();
   }
 });
+
+test("French renders device fields, effect metadata, accessible values and the plugin guide", async () => {
+  const context = await h.browser.newContext({ locale: "fr-FR" });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", e => errors.push(e.message));
+  await page.goto(`${h.url}#baukasten`);
+  await page.locator("#cee-bk-fx-catalog li").first().waitFor();
+  assert.match(await page.locator("#cee-bk-fx-catalog li").first().innerText(), /Un écho stéréo court/);
+  await page.locator("#cee-bk-fx-catalog li").first().locator(".cee-catalog-open").click();
+  await page.locator("#cee-bk-detail-blocks .cee-knob").first().waitFor();
+  assert.match(await page.locator("#cee-bk-detail-head").innerText(), /Un écho stéréo court/);
+  assert.deepEqual(await page.locator("#cee-bk-detail-blocks .cee-bk-knob-group h5").allTextContents(), ["Mixage et niveaux", "Écho et durée", "Modulation", "Timbre", "EQ"]);
+  assert.ok((await page.locator("#cee-bk-detail-map select option:checked").allTextContents()).includes("Pavé tactile enfoncé"));
+  assert.doesNotMatch(await page.locator("#cee-bk-detail-map").innerText(), /losgelassen|gedrückt|Pegel/);
+
+  const fields = await page.evaluate(async () => {
+    const { control } = await import("/app/fields.mjs");
+    const { field } = await import("/src/map/index.mjs");
+    const make = (id, value) => control(field(id), () => value, () => {}).node;
+    const length = make("pattern.length", 1);
+    const pitch = make("part.pitch", 24);
+    return {
+      name: make("fx.name", "Test").querySelector("label").textContent,
+      lengths: [...length.querySelectorAll(".ui-segmented-option")].map(n => n.textContent),
+      pitch: pitch.querySelector("input").getAttribute("aria-valuetext"),
+      help: make("fx.stage.device", 24).querySelector(".ui-field-help")?.textContent,
+    };
+  });
+  assert.equal(fields.name, "Nom");
+  assert.deepEqual(fields.lengths, ["1 mesure", "2 mesures", "3 mesures", "4 mesures"]);
+  assert.equal(fields.pitch, "+6 demi-tons");
+  assert.match(fields.help, /Un bloc ne se remplace jamais seul/);
+
+  await page.click("#cee-tab-scripts");
+  await page.click("#cee-scripts-page-docs");
+  await page.locator("#cee-docs-article h2", { hasText: "Plugins pour l’Electribe" }).waitFor();
+  assert.equal(await page.locator("#cee-names-body table").count(), 3);
+  await page.fill("#cee-docs-search", "sauvegarde");
+  assert.ok(await page.locator("#cee-docs-article .cee-doc-section:not([hidden])").count() > 0);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+test("French release notes are shown online and offline", async () => {
+  const context = await h.browser.newContext({ locale: "fr-FR" });
+  let releases = [{ tag_name: "v1.4.2", name: "v1.4.2", body: "Foreign release body", published_at: "2026-11-01T12:00:00Z", assets: [] }];
+  await context.route("https://api.github.com/**", route => route.fulfill({ contentType: "application/json", body: JSON.stringify(releases) }));
+  const page = await context.newPage();
+  for (const online of [true, false]) {
+    if (!online) releases = [];
+    await page.goto(`${h.url}#changelog`);
+    await page.locator(".cee-release").first().waitFor();
+    assert.match(await page.locator(".cee-release").first().innerText(), /Corrections/);
+    assert.match(await page.locator(".cee-release").first().innerText(), /vérification complète/);
+    assert.doesNotMatch(await page.locator(".cee-release").first().innerText(), /Foreign release body|Behoben/);
+    if (online) await page.goto("about:blank");
+  }
+  await context.close();
+});

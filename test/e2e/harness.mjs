@@ -6,11 +6,12 @@
 import { afterEach } from "node:test";
 import { writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { startServer } from "../../tools/serve.mjs";
 import { tempDir } from "../support/lifetime.mjs";
 
-const SUPPORT = new URL("./support/", import.meta.url).pathname;
+const SUPPORT = fileURLToPath(new URL("./support/", import.meta.url));
 
 // A page left open keeps its timers running (the device page reads the LEDs four times a second), so the pages of
 // earlier tests slow the later ones down. No test hands a page on to the next one.
