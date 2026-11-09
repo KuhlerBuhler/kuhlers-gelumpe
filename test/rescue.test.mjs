@@ -360,10 +360,6 @@ test("samples: a case of the first question, also behind 'it starts but somethin
   assert.match(text(FLOW["samples:way"]), /Original.*BLECH/s, "the way back goes through Korg's original, not the Hacktribe file");
   const doc = readFileSync(new URL("docs/rettung.md", ROOT), "utf8");
   assert.match(doc, /Hacktribe aus Versehen/);
-  // red or BLECHTRIBE on blue: the patcher's file; only Hacktribe on a blue: Korg's original first, with the Sampler head
-  assert.equal(passSteps("samples:firmware", { color: "red", firmware: "hacktribe" }).id, "samples:way");
-  assert.equal(passSteps("samples:firmware", { color: "blue", firmware: "blech" }).id, "samples:way");
-  assert.equal(passSteps("samples:firmware", { color: "blue", firmware: "hacktribe" }).id, "samples:head");
   assert.equal(FLOW["samples:head"].next, "back:head");
   // the file is made, the folder follows from the one answer, and the end says BLECHTRIBE runs, not that Korg's original does
   assert.equal(FLOW["samples:way"].choices[0].set.goal, "blech");
@@ -419,4 +415,84 @@ test("the steps with MENU show the drawn keys, and Korg's download steps show th
     for (const id of [`download:update:${key}`, `download:${key}:go`]) assert.ok(FLOW[id].say.some(l => l.shot === DEVICES[key].shot), id);
   }
   assert.ok(FLOW["back:head"].say.some(l => l.shot === DEVICES.blue.shot));
+});
+
+/**
+ * Which firmware takes which head on SOFTWARE UPDATE (docs/messungen/2026-11-08-rettung-alle-ordner.md, emulator): on the
+ * red every firmware takes the Sampler head; on the blue Korg's own and BLECHTRIBE without Hacktribe take only the blue
+ * head, Hacktribe and BLECHTRIBE with Hacktribe only the Sampler head. The patcher's BLECH from Korg's original carries
+ * the head of that original (headFor in src/patcher.mjs): Sampler on the red, blue on the blue.
+ */
+const TAKES = { red: { korg: "sampler", hacktribe: "sampler", blech: "sampler", blechHt: "sampler" }, blue: { korg: "blue", hacktribe: "sampler", blech: "blue", blechHt: "sampler" } };
+
+test("samples: the patcher's way is offered only where what runs takes its file, every other way goes over Korg's file with the Sampler head", () => {
+  // [colour, what runs as answered, Hacktribe in BLECHTRIBE as answered, what really runs (null: not known), where it ends]
+  const cases = [
+    ["red", "korg", null, "korg", "samples:way"],
+    ["red", "hacktribe", null, "hacktribe", "samples:way"],
+    ["red", "blech", null, "blechHt", "samples:way"],
+    ["red", "blech", null, "blech", "samples:way"],
+    ["red", "unknown", null, null, "samples:way"],
+    ["blue", "korg", null, "korg", "samples:way"],
+    ["blue", "hacktribe", null, "hacktribe", "samples:head"],
+    ["blue", "blech", "yes", "blechHt", "samples:head"],
+    ["blue", "blech", "no", "blech", "samples:way"],
+    ["blue", "blech", "dontKnow", null, "samples:head"],
+    ["blue", "unknown", null, null, "samples:head"],
+  ];
+  for (const [color, firmware, ht, runs, end] of cases) {
+    let at = passSteps("samples:firmware", { color, firmware });
+    if (color === "blue" && firmware === "blech") {
+      assert.equal(at.id, "samples:blueHt", "a BLECHTRIBE on the blue: the app cannot tell whether Hacktribe is in it, so it asks");
+      const c = FLOW["samples:blueHt"].choices.find(c => ({ yes: "rescue.answer.blueHt", no: "rescue.answer.blueNoHt", dontKnow: "rescue.answer.dontKnow" })[ht] === c.label);
+      at = passSteps(destOf(c, at.facts), { ...at.facts, ...c.set });
+    }
+    assert.equal(at.id, end, `${color}, ${firmware}${ht ? `, ${ht}` : ""}`);
+    // the patcher's file has the head of Korg's original of that colour; it may only be offered where it is taken
+    if (end === "samples:way" && runs) assert.equal(TAKES[color][runs], color === "red" ? "sampler" : "blue", `${color} ${runs} would say Invalid File`);
+    // Korg's blue with the Sampler head is taken by every firmware with Hacktribe on the blue
+    if (end === "samples:head" && runs) assert.equal(TAKES.blue[runs], "sampler", `${runs} would say Invalid File`);
+  }
+  // the way over Korg's file says that it is about Hacktribe in BLECHTRIBE too, and only the blue gets it
+  assert.match(text(FLOW["samples:head"]), /allein oder in BLECHTRIBE/);
+  assert.match(text(FLOW["samples:blueHt"]), /auch Hacktribe/);
+});
+
+test("the folder note names only the folder that is shown", () => {
+  const shown = id => text(FLOW[id]);
+  assert.match(shown("folder:hacktribe"), /„hacktribe“ im Pfad heißt nur: Hacktribe läuft gerade/);
+  assert.doesNotMatch(shown("folder:hacktribe"), /„blechtribe“/);
+  assert.match(shown("folder:blech"), /„blechtribe“ im Pfad heißt: BLECHTRIBE läuft gerade/);
+  for (const id of ["folder:blech", "folder:korg:red", "folder:korg:blue", "folder:all:red", "folder:all:blue"]) assert.doesNotMatch(shown(id), /„hacktribe“ im Pfad/, id);
+  // after the patcher's file, what runs decides the folder: BLECHTRIBE reads KORG/blechtribe/System/, Hacktribe KORG/hacktribe/System/
+  const ready = FLOW["samples:way"].choices[0];
+  for (const [firmware, folder] of [["blech", FOLDERS[3]], ["hacktribe", FOLDERS[2]]]) {
+    const facts = { color: "red", firmware, ...ready.set };
+    const at = passSteps(destOf(ready, facts), facts).id;
+    assert.equal(at, firmware === "blech" ? "folder:blech" : "folder:hacktribe");
+    assert.equal(FLOW[at].say.find(l => l.tree).tree, folder.path);
+  }
+});
+
+test("the answer that opens the look at the card is said the way a person says it", () => {
+  assert.equal(t("rescue.answer.showCard"), "Schau dir meine SD-Karte an");
+  assert.doesNotMatch(t("rescue.answer.showCard"), /deine/);
+});
+
+test("the drawn keys of the MENU step sit where panel.mjs puts them, and no two marks touch", async () => {
+  const { keyRect } = await import("../site/app/e2-art.mjs");
+  const panel = readFileSync(new URL("site/app/panel.mjs", ROOT), "utf8");
+  // the drawing maps the panel's front (screen at 135, 175) onto 200 units: x' = 9.5 + (x - 135) * 200 / 1021
+  const scale = 200 / 1021;
+  const ids = ["editLeft", "editRight", "menu", "exit", "shift", "write"];
+  for (const id of ids) {
+    const m = panel.match(new RegExp(`button\\(B\\.${id}\\), (\\d+), (\\d+), (\\d+), (\\d+)\\)`));
+    assert.ok(m, `${id} in panel.mjs`);
+    const [x, y, w, h] = m.slice(1).map(Number);
+    const want = [9.5 + (x - 135) * scale, 21 + (y - 175) * scale, w * scale, h * scale];
+    keyRect(id).forEach((v, i) => assert.ok(Math.abs(v - want[i]) < 0.1, `${id}[${i}] ${v} vs ${want[i].toFixed(2)}`));
+  }
+  // the marks stay inside their key, so the gap between two keys keeps them apart
+  const overlap = (a, b) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
+  for (const a of ids) for (const b of ids) if (a !== b) assert.ok(!overlap(keyRect(a), keyRect(b)), `${a} and ${b} overlap`);
 });

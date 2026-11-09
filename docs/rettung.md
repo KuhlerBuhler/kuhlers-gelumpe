@@ -142,8 +142,11 @@ weil sich eine blaue mit Hacktribe vielleicht als rote meldet (offen).
   Sampler-Kopf; die Seite nimmt sie in einem Upload-Feld wie im Patcher entgegen und geht erst nach einer gültigen Datei
   weiter. Die Frage dazu lautet "Haken auch Hacktribe gesetzt?", "Weiß ich nicht" nimmt zuerst Korgs unveränderte Datei.
 - **MENU als Bild.** Wo die Seite MENU drücken lässt (Update im Menü, die Update-Frage beim Einschalten), zeigt sie die
-  Electribe als Strichzeichnung mit MENU gefüllt und den Tasten für den Weg (EDIT links und rechts) umrandet
-  (`e2Keys` in `site/app/e2-art.mjs`, Lage der Tasten aus `panel.mjs`). Bei Korgs Datei zeigt ein Bildschirmfoto von Korgs
+  Electribe als Strichzeichnung mit genau der Taste MENU gefüllt und den Tasten für den Weg (EDIT links und rechts) gestrichelt,
+  jede Markierung innerhalb ihrer Taste; die Bildunterschrift sagt, was gefüllt und was gestrichelt ist
+  (`e2Keys` in `site/app/e2-art.mjs`, Lage der sechs Tasten aus `panel.mjs` umgerechnet, `test/rescue.test.mjs` prüft beides).
+- **Der Chat folgt.** Jede neue Nachricht von Blechy scrollt mit ihren Antworten ins Bild, so weit beides passt; der Anfang
+  einer langen Nachricht bleibt unter der Leiste oben. Mit "Bewegung reduzieren" im System springt die Seite statt zu gleiten. Bei Korgs Datei zeigt ein Bildschirmfoto von Korgs
   Seite die Zeile "System Updater 2.02" ganz unten, die zur ZIP-Datei führt (`site/img/rescue/`, aufgenommen am 08.11.2026;
   ändert Korg die Seite, stimmt das Bild nicht mehr).
 - **Patterns und Samples** werden vor jedem Schreiben genannt: das Update schreibt nur die Firmware, Patterns im Gerät
@@ -181,9 +184,25 @@ dahinter belegt ist und was offen bleibt, steht in der [Messung](messungen/2026-
    und Sample-Datei nicht überschrieben wurden. Eine Frage nach einer Sicherung gibt es nicht mehr.
 2. Zurück zu BLECHTRIBE ohne Hacktribe: im Patcher bei der laufenden Firmware "Original" wählen (auch wenn Hacktribe drauf
    ist) und als Ziel BLECHTRIBE, dann Korgs Original-Datei. Die fertige `SYSTEM.VSB` kommt in den Ordner der Firmware, die jetzt
-   läuft (`KORG/hacktribe/System/`), danach weiter wie bei "Welche Firmware läuft gerade".
-3. Blau: läuft BLECHTRIBE mit Hacktribe, geht es wie bei Rot. Läuft nur Hacktribe, geht es über den Schritt der Seite, der Korgs blaue Datei
-   mit dem Sampler-Kopf speichert (`back:head`), danach BLECHTRIBE im Patcher.
+   läuft (`KORG/hacktribe/System/` oder `KORG/blechtribe/System/`), danach weiter wie bei "Welche Firmware läuft gerade". Der
+   Hinweis unter dem Pfad nennt nur den gezeigten Ordner.
+3. Ob das Update die Datei nimmt, hängt am Kopf (Tabelle unten). Die Datei aus dem Patcher trägt den Kopf von Korgs Original
+   ihrer Farbe: auf der roten den Sampler-Kopf, auf der blauen den blauen. Läuft auf der blauen Hacktribe, allein oder in
+   BLECHTRIBE, sagt das Update dazu "Invalid File"; dann geht es über den Schritt der Seite, der Korgs blaue Datei mit dem
+   Sampler-Kopf speichert (`back:head`), danach BLECHTRIBE im Patcher. Bei BLECHTRIBE auf der blauen fragt die Seite, ob Hacktribe
+   mit drin ist, die App kann das nicht lesen; "Weiß ich nicht" nimmt den Weg über `back:head`, weil fehlende Samples auf
+   Hacktribe zeigen. Passt der Kopf nicht, schreibt das Update nichts (gemessen im Emulator, alle acht Firmwares).
+
+| Farbe | Läuft | Datei aus dem Patcher (Original, Ziel BLECHTRIBE) | Weg der Seite | Stand |
+|---|---|---|---|---|
+| rot | Korgs Original, Hacktribe, BLECHTRIBE, BLECHTRIBE mit Hacktribe | genommen | Patcher | gemessen im Emulator für Korgs rote und BLECHTRIBE mit Sampler-Kopf in allen vier ([Messung](messungen/2026-11-08-rettung-alle-ordner.md)); für BLECHTRIBE aus Korgs roter hergeleitet: gleicher Kopf wie Korgs rote |
+| blau | Korgs Original | genommen | Patcher | gemessen im Emulator ([Messung](messungen/2026-10-26-blech-hacktribe-blau.md), BLECHTRIBE-Synth-Satz aus `KORG/electribe/System/`) |
+| blau | BLECHTRIBE ohne Hacktribe | genommen | Frage, dann Patcher | gemessen im Emulator für Korgs blaue unverändert; für den BLECHTRIBE-Synth-Satz hergeleitet: gleicher Kopf |
+| blau | Hacktribe | "Invalid File" | `back:head` | gemessen im Emulator (beide Messungen) |
+| blau | BLECHTRIBE mit Hacktribe | "Invalid File" | Frage, dann `back:head` | gemessen im Emulator (beide Messungen) |
+| blau | weiß nicht | je nach Firmware | `back:head` | hergeleitet |
+
+Am Gerät ist keine Zeile dieser Tabelle geprüft.
 
 Vor dem Patchen mit Hacktribe zeigt der Patcher die Warnung samt Haken (`cee-patch-ht-ack`); ohne den Haken geht Weiter,
 Patchen und Speichern nicht.
@@ -226,8 +245,8 @@ Seite den Weg über die Farbe wie bei "Invalid File". Im Menü nennt sie die Ste
 
 Danach fragt die Seite, welche Firmware läuft, und legt die Datei in deren Ordner.
 
-**Blechy schaut auf die Karte.** Wo die Seite den Zielpfad nennt (`card:*` und `nofile:folder:*`), bietet sie "Zeig mir
-deine SD-Karte" an. Gewählt wird der oberste Ordner der Karte, nicht die Datei. Die Seite sucht jede `.VSB` bis sechs
+**Blechy schaut auf die Karte.** Wo die Seite den Zielpfad nennt (`card:*` und `nofile:folder:*`), bietet sie "Schau dir
+meine SD-Karte an" an. Gewählt wird der oberste Ordner der Karte, nicht die Datei. Die Seite sucht jede `.VSB` bis sechs
 Ordner tief (ohne `._`-Dateien und Systemordner), liest nur Dateien mit genau 2.097.408 Bytes und erkennt am Kopf
 (`headOf` in `src/card-check.mjs`), ob sie für die rote (Sampler) oder die blaue ist, an der SHA-256, ob Blechy sie
 kennt. Gemeldet werden falscher Name (`SYSTEM (1).VSB`, `SYSTEM.VSB.VSB`), andere Schreibweise, falscher Ordner,
