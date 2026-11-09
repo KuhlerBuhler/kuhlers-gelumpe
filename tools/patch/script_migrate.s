@@ -11,7 +11,13 @@
 ; (f_getfree), MG_ALLOC and MG_FREE (the firmware's operator new and delete).
 ;
 ; The blue Electribe (MG_BLUE 1) has no samples and Korg's synth keeps its files in KORG/electribe: there the card hook calls
-; migrate_start, and the question comes when KORG/blechtribe is not there at all while KORG/electribe is (choice 2, one folder).
+; migrate_start, and the question comes when KORG/electribe holds a pattern backup (a file ending in .e2allpat, what EXPORT ALL
+; PATTERN writes) while KORG/blechtribe holds none (choice 2, one folder). The blue never looks for a sample file; Hacktribe on a
+; blue unit is the sampler build and keeps the sample rule.
+;
+; Before the question, a start that finds no KORG/blechtribe makes it with the folders BLECH reads and writes in it (mg_folders).
+; A card that has the folder costs one f_opendir: each f_mkdir of a folder that is there costs about 4 ms in the emulator, which
+; the start before the sample loader does not get to spend.
 ; That hook runs in the start before the scheduler, where the OS sleep never returns: it only sets the question up and goes on.
 ; The frame hook (UI task) then draws it and takes EXIT or MENU (mg_blue_key); the copy runs there.
 .equ MG_ACTIVE, 0               ; 1 while the question or the copy is up (the input and frame hooks act only then)
@@ -59,6 +65,7 @@ migrate_start:
     bne mg_out
     mov r0, #0
     str r0, [r4, #MG_ACTIVE]
+    bl mg_folders
     mov r0, #MG_BLUE
     cmp r0, #0
     bne mg_blue
@@ -121,11 +128,11 @@ mg_out:
     pop {r4-r11, pc}
 mg_blue:
     ldr r1, =mg_new_folder
-    bl mg_dir_exists
+    bl mg_allpat
     cmp r0, #0
     bne mg_out
     ldr r1, =mg_blue_folder
-    bl mg_dir_exists
+    bl mg_allpat
     cmp r0, #0
     beq mg_out
     mov r5, #4
@@ -209,6 +216,128 @@ mg_dir_exists:
     blx r12
     mov r0, #1
     pop {pc}
+
+; No KORG/blechtribe: KORG, KORG/blechtribe and the folders of the build's list in it, each with f_mkdir (one that is there
+; answers FR_EXIST). r4 = the work area. Clobbers r0 to r3 and r12.
+mg_folders:
+    push {r5, lr}
+    ldr r1, =mg_new_folder
+    bl mg_dir_exists
+    cmp r0, #0
+    bne mg_folders_out
+    ldr r0, =mg_korg
+    ldr r12, =MG_MKDIR
+    blx r12
+    ldr r0, =mg_new_folder
+    ldr r12, =MG_MKDIR
+    blx r12
+    mov r0, #MG_BLUE
+    cmp r0, #0
+    ldreq r5, =mg_red_folders
+    ldrne r5, =mg_blue_folders
+mg_folders_next:
+    ldrb r0, [r5]
+    cmp r0, #0
+    beq mg_folders_out
+    add r0, r4, #MG_DST
+    mov r1, #0
+    ldr r2, =mg_new_folder
+    bl mg_append
+    mov r1, r0
+    add r0, r4, #MG_DST
+    ldr r2, =mg_slash
+    bl mg_append
+    mov r1, r0
+    add r0, r4, #MG_DST
+    mov r2, r5
+    bl mg_append
+    add r0, r4, #MG_DST
+    ldr r12, =MG_MKDIR
+    blx r12
+mg_folders_skip:
+    ldrb r0, [r5], #1
+    cmp r0, #0
+    bne mg_folders_skip
+    b mg_folders_next
+mg_folders_out:
+    pop {r5, pc}
+
+; r1 = a folder, r4 = the work area -> r0 = 1 when a file directly in it ends in .e2allpat (any case; dot files left out).
+; Clobbers r0 to r3 and r12.
+mg_allpat:
+    push {r5-r7, lr}
+    add r0, r4, #MG_DIRS
+    ldr r12, =FS_OPENDIR
+    blx r12
+    cmp r0, #0
+    movne r0, #0
+    popne {r5-r7, pc}
+    mov r5, #0
+mg_allpat_next:
+    add r7, r4, #MG_INFO
+    add r6, r4, #MG_LFN
+    str r6, [r7, #0x18]
+    mov r0, #255
+    str r0, [r7, #0x1C]
+    mov r0, #0
+    strb r0, [r6]
+    add r0, r4, #MG_DIRS
+    mov r1, r7
+    ldr r12, =FS_READDIR
+    blx r12
+    cmp r0, #0
+    bne mg_allpat_done
+    ldrb r0, [r7, #9]
+    cmp r0, #0
+    beq mg_allpat_done
+    ldrb r0, [r7, #8]
+    tst r0, #0x10
+    bne mg_allpat_next          ; a folder
+    ldrb r0, [r6]
+    cmp r0, #0
+    addeq r6, r7, #9            ; no long name: the short one
+    ldrb r0, [r6]
+    cmp r0, #0x2E
+    beq mg_allpat_next
+    mov r0, r6
+    bl mg_is_allpat
+    cmp r0, #0
+    beq mg_allpat_next
+    mov r5, #1
+mg_allpat_done:
+    add r0, r4, #MG_DIRS
+    ldr r12, =FS_CLOSEDIR
+    blx r12
+    mov r0, r5
+    pop {r5-r7, pc}
+
+; r0 = a name -> r0 = 1 when it ends in .e2allpat, upper or lower case. Clobbers r1 to r3 and r12.
+mg_is_allpat:
+    mov r1, r0
+mg_ia_end:
+    ldrb r2, [r1], #1
+    cmp r2, #0
+    bne mg_ia_end
+    sub r1, r1, #10             ; the last 9 characters
+    cmp r1, r0
+    movlo r0, #0
+    bxlo lr
+    ldr r2, =mg_allpat_ext
+mg_ia_loop:
+    ldrb r3, [r2], #1
+    cmp r3, #0
+    moveq r0, #1
+    bxeq lr
+    ldrb r12, [r1], #1
+    cmp r12, #0x41
+    blo mg_ia_cmp
+    cmp r12, #0x5A
+    orrls r12, r12, #0x20
+mg_ia_cmp:
+    cmp r12, r3
+    beq mg_ia_loop
+    mov r0, #0
+    bx lr
 
 ; r1 = path, r4 = the work area -> r0 = 1 when the file can be opened for reading. Clobbers r0 to r3 and r12.
 mg_exists:
@@ -717,6 +846,23 @@ mg_blue_folder:
     .asciz "SD:KORG/electribe"
 mg_slash:
     .asciz "/"
+mg_korg:
+    .asciz "SD:KORG"
+mg_allpat_ext:
+    .asciz ".e2allpat"
+mg_red_folders:                 ; the folders BLECH reads and writes in KORG/blechtribe, an empty name ends the list
+    .asciz "Plugin"
+    .asciz "Presets"
+    .asciz "Gif"
+    .asciz "Doom"
+    .asciz "Sample"
+    .asciz "System"
+    .asciz ""
+mg_blue_folders:                ; the blue: no samples, no FX collection, no Doom
+    .asciz "Plugin"
+    .asciz "Gif"
+    .asciz "System"
+    .asciz ""
 mg_t_title:
     .asciz "NEW: BLECHTRIBE"
 mg_t_copy:
