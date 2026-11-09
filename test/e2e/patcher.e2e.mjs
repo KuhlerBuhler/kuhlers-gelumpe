@@ -121,25 +121,36 @@ test("patcher: Weiter and Zurück walk the four steps, Korg's firmware cards sit
   const page = await patcherPage();
   assert.equal(await page.isVisible("#cee-patch-back"), false, "no way back from the first page");
   await wizard(page, "red", "blech");
-  const cards = page.locator("#cee-patch-step-1 #cee-patch-firmware a.cee-device-card");
-  assert.deepEqual(await cards.evaluateAll(list => list.map(a => [a.dataset.device, a.href, a.target])), [
-    ["red", KORG_DOWNLOADS.red.page, "_blank"],
-    ["blue", KORG_DOWNLOADS.blue.page, "_blank"],
-  ]);
-  assert.match(await page.locator("#cee-patch-korg-red").textContent(), /System Updater bei Korg laden/, "without the licence accepted: Korg's page with its agreement");
-  assert.equal(await page.getAttribute("#cee-patch-korg-red .cee-device-card-out", "data-icon"), "popout");
+  const cards = page.locator("#cee-patch-step-1 #cee-patch-firmware .cee-device-card");
+  assert.deepEqual(await cards.evaluateAll(list => list.map(c => [c.dataset.device, c.tagName, c.getAttribute("href"), c.tabIndex, getComputedStyle(c).cursor])), [
+    ["red", "DIV", null, -1, "auto"],
+    ["blue", "DIV", null, -1, "auto"],
+  ], "the cards only show Korg's file, they are no link and no control");
+  assert.match(await page.locator("#cee-patch-korg-red").textContent(), /Nimm zuerst unten Korgs Lizenz an/);
+  assert.equal(await page.getAttribute("#cee-patch-korg-red .cee-device-card-out", "data-icon"), "download");
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "Weiter waits for the licence or a file");
+  assert.equal(await page.locator("#cee-patch-korg-hint").textContent(), "Nimm Korgs Lizenz an oder zieh deine eigene SYSTEM.VSB ins Feld, dann geht es weiter.");
+  assert.equal(await page.isVisible("#cee-patch-korg-hint"), true);
   await page.check("#cee-patch-korg-licence");
-  assert.deepEqual(await cards.evaluateAll(list => list.map(a => a.href)), [KORG_DOWNLOADS.red.file, KORG_DOWNLOADS.blue.file], "accepted, the browser links Korg's zip");
-  assert.match(await page.locator("#cee-patch-korg-red").textContent(), /Zip bei Korg laden, dann hierher ziehen/);
+  assert.equal(await page.isVisible("#cee-patch-korg-hint"), false);
+  assert.match(await page.locator("#cee-patch-korg-red").textContent(), /Weiter lädt das Zip von Korg, dann ziehst du es hierher/);
   const tone = await cards.evaluateAll(list => list.map(a => getComputedStyle(a.querySelector(".cee-e2-outline")).color));
   assert.notEqual(tone[0], tone[1], "each card draws its Electribe in the device's colour");
   assert.equal(await page.isVisible("#cee-patch-back"), true, "back to the wizard");
-  assert.equal(await page.isDisabled("#cee-patch-next"), true, "Weiter waits for a file");
+  // in the browser Weiter has Korg's zip downloaded (Korg's server does not hand it to the page) and stays on step 1
+  await page.evaluate(() => { window.__opened = []; HTMLAnchorElement.prototype.click = function () { window.__opened.push([this.href, this.target]); }; });
+  assert.equal(await page.isDisabled("#cee-patch-next"), false, "with the licence Weiter loads Korg's file");
+  await page.click("#cee-patch-next");
+  assert.deepEqual(await page.evaluate(() => window.__opened), [[KORG_DOWNLOADS.red.file, "_blank"]], "the red's zip, the one the wizard named");
+  await page.locator("#app-toasts .cee-toast", { hasText: "Dein Browser lädt das Zip von Korg" }).waitFor();
+  assert.equal(await page.isVisible("#cee-patch-step-1"), true, "the zip still has to be dropped in");
   await drop(page, await makeFirmware());
   await page.waitForFunction(() => document.querySelector("#cee-patch-file-info").textContent === "SYSTEM.VSB: Hacktribe 2.02 erkannt");
   assert.equal(await page.locator("#cee-patcher .ui-dropzone:has(#cee-patch-file)").getAttribute("data-filled"), "", "the field shows that it holds a file");
   await page.click("#cee-patch-next");
   assert.equal(await page.isVisible("#cee-patch-step-2"), true);
+  assert.equal((await page.evaluate(() => window.__opened)).length, 1, "with a file of the user's own Weiter loads nothing from Korg");
+  assert.equal(await page.locator("#cee-patch-file-info").textContent(), "SYSTEM.VSB: Hacktribe 2.02 erkannt", "the own file stays");
   assert.equal(await page.locator("#cee-patch-way [aria-current=step]").textContent(), "2Patches anwenden");
   assert.ok(await page.locator("#cee-patch-plan li").count() > 0, "the patches that go on are listed");
   assert.equal(await page.isVisible("#cee-patch-latest"), true, "the second step chooses the patches");
@@ -678,14 +689,41 @@ test("patcher: Korg's zip goes into the field as it is, and the app loads it fro
   await wizard(app, "red", "blech");
   assert.equal(await app.getAttribute("#cee-patch-korg-red", "href"), null, "in the app the card has no link to Korg's site, only the app's own download");
   assert.match(await app.locator("#cee-patch-korg-red").textContent(), /Nimm zuerst unten Korgs Lizenz an/);
+  assert.equal(await app.isDisabled("#cee-patch-next"), true, "no licence, no file: Weiter waits");
+  await app.click("#cee-patch-korg-red");
+  assert.deepEqual(await app.evaluate(() => window.__korgAsked), [], "a click on the card loads nothing");
   await app.check("#cee-patch-korg-licence");
-  assert.match(await app.locator("#cee-patch-korg-red").textContent(), /Von Korg laden und übernehmen/);
+  assert.match(await app.locator("#cee-patch-korg-red").textContent(), /Weiter lädt sie von Korg und übernimmt sie/);
   assert.equal(await app.getAttribute("#cee-patch-korg-red .cee-device-card-out", "data-icon"), "download", "the card shows a download, not a page outside");
   await app.click("#cee-patch-korg-red");
-  await app.locator("#cee-patch-file-info", { hasText: "electribe_sampler_system_v202.zip › SYSTEM.VSB" }).waitFor();
-  assert.deepEqual(await app.evaluate(() => window.__korgAsked), [["korg_firmware", { device: "red" }]]);
+  assert.deepEqual(await app.evaluate(() => window.__korgAsked), [], "not even with the licence: Weiter loads it");
   await app.click("#cee-patch-next");
+  await app.locator("#cee-patch-step-2:not([hidden])").waitFor();
+  assert.equal(await app.locator("#cee-patch-file-info").textContent(), "electribe_sampler_system_v202.zip › SYSTEM.VSB: Hacktribe 2.02 erkannt");
+  assert.deepEqual(await app.evaluate(() => window.__korgAsked), [["korg_firmware", { device: "red" }]]);
   assert.equal(await app.locator("#cee-patch-device-box").isVisible(), false, "the wizard named the Electribe, step 2 does not ask again");
+  assert.deepEqual(app.errors, []);
+});
+
+test("patcher: in the app a file of the user's own stays when Weiter is clicked with the licence accepted", async () => {
+  const vsb = await makeFirmware();
+  const app = await h.page();
+  await app.addInitScript(() => {
+    window.__GELUMPE_APP = { version: "0.0.0" };
+    window.__korgAsked = [];
+    window.__TAURI__ = { core: { invoke: async (command, args) => { window.__korgAsked.push([command, args]); throw new Error("no download in this test"); } } };
+  });
+  await app.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await app.click("#cee-tab-patcher");
+  await app.locator(".cee-patch-title").waitFor();
+  await wizard(app, "red", "blech");
+  await app.check("#cee-patch-korg-licence");
+  await app.setInputFiles("#cee-patch-file", h.file("own.VSB", vsb));
+  await app.locator("#cee-patch-file-info", { hasText: "own.VSB: Hacktribe 2.02 erkannt" }).waitFor();
+  await app.click("#cee-patch-next");
+  await app.locator("#cee-patch-step-2:not([hidden])").waitFor();
+  assert.deepEqual(await app.evaluate(() => window.__korgAsked), [], "Korg's file is not loaded over the user's own");
+  assert.equal(await app.locator("#cee-patch-file-info").textContent(), "own.VSB: Hacktribe 2.02 erkannt");
   assert.deepEqual(app.errors, []);
 });
 
