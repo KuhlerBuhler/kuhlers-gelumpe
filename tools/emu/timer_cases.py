@@ -150,6 +150,8 @@ def cases(vsb, flash=None):
 
 
 def main():
+    import lifetime
+    lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)
     p.add_argument("--flash", type=Path)

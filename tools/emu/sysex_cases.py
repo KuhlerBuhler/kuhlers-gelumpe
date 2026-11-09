@@ -909,6 +909,7 @@ def speed(payload, flash=None, sizes=(16, 256, 1024, 4096, 8192, 16384, 24576, 3
 
 def main():
     import lifetime
+    lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("what", choices=("cases", "speed", "synth"))

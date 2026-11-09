@@ -44,11 +44,12 @@
 
 Du brauchst einen Rechner (Mac, Windows oder Linux) und einen SD-Kartenleser. Einmal, für ein paar Minuten.
 
-1. **App laden** über den Knopf oben. Auf der Seite ganz unten bei "Assets": `.dmg` für Mac, `.exe` für Windows.
+1. **App laden** über den Knopf oben. Auf der Seite ganz unten bei "Assets": `.dmg` für Mac, `.exe` für Windows, `.AppImage` oder `.deb` für Linux.
    Auf dem Mac blockiert das System die App beim ersten Öffnen, weil sie nicht von Apple signiert ist. Wie du sie freigibst, steht unter [Die App laden](#die-app-laden).
 2. **SD-Karte** aus der Electribe in den Rechner stecken.
 3. **App öffnen**, links auf **Firmware Patcher**, dann die Datei `SYSTEM.VSB` von deiner Karte reinziehen.
    Du findest sie im Ordner `KORG/electribe sampler/System/` (Original) oder `KORG/hacktribe/System/` (Hacktribe) oder `KORG/electribe/System/` (blaue Electribe).
+   Hast du die Datei nicht, lädt die App Korgs Original selbst, wenn du Korgs Lizenz annimmst.
 4. **Warten**, bis die App fertig geprüft hat (ein paar Minuten), dann die neue Datei speichern.
    Die App sagt dir, wohin sie auf der Karte muss.
 5. **Karte zurück in die Electribe**, einschalten und am Gerät das Update starten. Die App zeigt dir die Tasten dazu.
@@ -60,7 +61,7 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | | Sampler (rot) Original | Synth (blau) Original | Sampler mit Hacktribe | **BLECHTRIBE** rot | **BLECHTRIBE** blau | **BLECHTRIBE** mit Hacktribe |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | Eigene Samples aufnehmen und laden | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Erweiterte Hacktribe-Oszillatorbank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Erweiterte Hacktribe-Oszillatorbank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Zusätzliche Hacktribe-MFX, IFX, Grooves und Skalen | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | FX und Grooves über die Hacktribe-Menüs importieren/exportieren | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Eigenes INIT-Pattern über Hacktribe | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
@@ -82,6 +83,7 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Schnell speichern (EXIT + WRITE), Part zurücksetzen (EXIT + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | KEY über die Pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Filter an und aus (SHIFT + Filtertaste) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Einstellungen speichern sich beim Verlassen des Menüs (AUTO SAVE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Akkorde in Pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Notenassistent | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -91,7 +93,8 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Update über USB aus der App | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 
 Hacktribe ist eine eigene Firmwarebasis. BLECHTRIBE ergänzt sie; es schaltet diese
-Hacktribe-Funktionen auf einem Korg-Original nicht automatisch frei. Die blaue BLECHTRIBE-Spalte
+Hacktribe-Funktionen auf einem Korg-Original nicht automatisch frei. Ausnahme sind die Hacktribe-Oszillatoren
+auf den freien Plätzen 422 bis 497 der roten BLECHTRIBE, immer an, ohne Schalter. Die blaue BLECHTRIBE-Spalte
 meint den Synth-Satz auf Korg 2.02. Hacktribe selbst unterstützt laut Projekt beide Hardwaretypen.
 
 **Was du bei Hacktribe abwägen musst:**
@@ -126,7 +129,7 @@ schematisch mit unserer eigenen Schrift dargestellt.
 ## Die Firmware patchen
 
 Auf der Seite "Firmware Patcher" ziehst du deine eigene `SYSTEM.VSB` rein (Korgs Original 2.02 für Sampler oder
-Synth, oder Hacktribe 2.02), wählst die Patches aus und bekommst eine neue Datei. Bevor du die
+Synth, oder Hacktribe 2.02; ohne eigene Datei lädt die App Korgs Original nach deiner Zustimmung zu Korgs Lizenz), wählst die Patches aus und bekommst eine neue Datei. Bevor du die
 runterladen kannst, bootet der Emulator sie und prüft, ob alles läuft: Hauptbildschirm, Update-Abfrage,
 Startmodi, Notschalter. Das dauert ein paar Minuten, du siehst dabei, welche Gruppe gerade dran ist.
 Danach zeigt dir die Seite, wie du die Datei aufs Gerät bekommst. Alle Patches und ihre Grenzen stehen in
@@ -296,8 +299,8 @@ Ein falscher Schreibzugriff oder eine fehlerhafte Firmware kann das Gerät häng
   DATA UTILITY, SOFTWARE UPDATE lässt sich eine andere Firmware aufspielen. Das gilt nur für diesen
   Start.
 - **Sichern, bevor du etwas änderst:** die SD-Karte (Samples, Patterns, die originale `SYSTEM.VSB`)
-  und die Global-Einstellungen. Ausschalten und WRITE speichern, was gerade im RAM steht, schalte
-  also bei einer Abweichung nicht aus.
+  und die Global-Einstellungen. Ausschalten, WRITE und mit AUTO SAVE das Verlassen von GLOBAL PARAMETERS
+  speichern, was gerade im RAM steht, schalte also bei einer Abweichung nicht aus.
 - **Zurück:** die gesicherte Original-`SYSTEM.VSB` wieder aufspielen. Wie das geübt wurde, steht in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
 - **Zurück zu Korgs Original, auch von der blauen:** Schritt für Schritt in

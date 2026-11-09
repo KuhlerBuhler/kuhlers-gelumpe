@@ -831,6 +831,7 @@ def run(base, patched, flash=None, b_type=7, jobs=None):
 
 def main():
     import lifetime
+    lifetime.load_gate()
     lifetime.exit_with_parent()      # ends with the test run that started this, also when that is killed
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("cmd", choices=["run", "cases"])

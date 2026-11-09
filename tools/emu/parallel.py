@@ -129,6 +129,12 @@ def _tracked(module, name, args):
     return result, taskcache.used() if finished else None, time.perf_counter() - start
 
 
+def _timed(module, name, args):
+    import time
+    start = time.perf_counter()
+    return _call(module, name, args), time.perf_counter() - start
+
+
 @contextlib.contextmanager
 def _without_main(on):
     """spawn starts each worker by running the script that started this process again (check.py imports every case
@@ -151,7 +157,7 @@ def _without_main(on):
             vars(main).update(hidden)
 
 
-def run_tasks(tasks, data, jobs=None, on_done=None, cache=None, on_queue=None):
+def run_tasks(tasks, data, jobs=None, on_done=None, cache=None, on_queue=None, on_metrics=None):
     """Results of [(module, function name, args)] in task order. `on_done(index, result)` is called in the order the tasks finish. Exceptions of a task are raised here, except in the cases of the patches (ENTRY_LISTS), which become a failed entry.
 
     `cache` (a name for the kind of run) keeps each finished result with the files its task used (taskcache.py) and
@@ -172,6 +178,8 @@ def run_tasks(tasks, data, jobs=None, on_done=None, cache=None, on_queue=None):
                 out[i] = result
                 if on_done:
                     on_done(i, result)
+                if on_metrics:
+                    on_metrics({"kind": "task", "task": tasks[i], "cached": True, "seconds": 0})
             else:
                 todo.append(i)
         took = taskcache.durations()
@@ -184,12 +192,20 @@ def run_tasks(tasks, data, jobs=None, on_done=None, cache=None, on_queue=None):
         if keep:
             value, deps, seconds[repr(tasks[i])] = value
             taskcache.store(keys[i], deps, value)
+            elapsed = seconds[repr(tasks[i])]
+        elif on_metrics:
+            value, elapsed = value
         out[i] = value
         if on_done:
             on_done(i, value)
+        if on_metrics:
+            on_metrics({"kind": "task", "task": tasks[i], "cached": False, "seconds": elapsed})
 
-    run = _tracked if keep else _call
+    run = _tracked if keep else _timed if on_metrics else _call
     n = workers(len(todo)) if jobs is None else max(1, min(jobs, len(todo)))
+    if on_metrics:
+        on_metrics({"kind": "pool", "cpus": os.cpu_count() or 1, "workers": n if todo else 0,
+                    "tasks": len(tasks), "cache_hits": len(tasks) - len(todo)})
     if n == 1 or not todo:
         before, shared = shared, data
         if keep:
@@ -219,7 +235,7 @@ def run_tasks(tasks, data, jobs=None, on_done=None, cache=None, on_queue=None):
     except BrokenProcessPool:
         # Workers that cannot start (a frozen build without worker support) end the pool at once: do it in this process.
         rest = [i for i in todo if out[i] is None]
-        left = run_tasks([tasks[i] for i in rest], data, 1, None, cache)
+        left = run_tasks([tasks[i] for i in rest], data, 1, None, cache, on_metrics=on_metrics)
         for i, value in zip(rest, left):
             out[i] = value
             if on_done:
