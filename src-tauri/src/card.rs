@@ -61,7 +61,7 @@ fn names(rel: &str) -> Result<Vec<&str>, String> {
 
 /// The folder in `dir` named `name`: the exact name first, else the same name in other letters (FAT does not tell them
 /// apart). Links are not followed.
-fn child(dir: &Path, name: &str) -> Option<PathBuf> {
+pub(crate) fn child(dir: &Path, name: &str) -> Option<PathBuf> {
     let mut near = None;
     for entry in fs::read_dir(dir).ok()?.flatten() {
         if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {

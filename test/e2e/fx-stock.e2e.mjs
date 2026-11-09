@@ -65,7 +65,7 @@ test("effect editor on Korg's original with BLECH: a name is written into the ru
 
   await page.click("#cee-send");
   const ok = page.locator("dialog[open] button[value=ok]");
-  const job = page.locator("#cee-area-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
+  const job = page.locator("#cee-area-fx .ui-job .cee-state").filter({ hasText: /Fertig|Fehlgeschlagen/ });
   await Promise.race([ok.waitFor().then(() => ok.click(), () => {}), job.waitFor()]);
   await job.waitFor({ timeout: 60_000 });
   assert.equal(await job.textContent(), "Fertig", await page.locator("#cee-area-fx .ui-job").textContent());
@@ -82,7 +82,7 @@ test("effect editor on Korg's original with BLECH: a name is written into the ru
 
   // and the edit is taken back, again through the pointer array's record
   await page.click("#cee-live-undo");
-  await page.locator("#cee-area-fx .ui-job .cee-status", { hasText: "Fertig" }).waitFor({ timeout: 60_000 });
+  await page.locator("#cee-area-fx .ui-job .cee-state", { hasText: "Fertig" }).waitFor({ timeout: 60_000 });
   await holds(was);
   assert.deepEqual(page.errors, []);
 });

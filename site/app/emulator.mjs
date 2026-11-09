@@ -4,6 +4,7 @@
  * service on this computer.
  */
 import { el } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { toast } from "./toast.mjs";
 import { identify, buildOf, lackOf, hasBlechSysex, firmwareName } from "../../src/firmware.mjs";
 import { devicePanel } from "./panel.mjs";
@@ -44,12 +45,6 @@ const STATE_WORDS = {
   crashed: ["error", "emu.state.crashed"],
   hung: ["warn", "emu.state.hung"],
   off: ["muted", "emu.state.off"],
-};
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
 };
 
 /**
@@ -250,7 +245,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     if (key === said) return;
     said = key;
     // The line is for screen readers only; what goes wrong is said in the toast, nothing stands above the device.
-    status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` }), ...(extra ? [" ", extra] : []));
+    status.replaceChildren(stateText(tone, word), el("span", { textContent: ` ${text}` }), ...(extra ? [" ", extra] : []));
     // A state the emulator reports by itself goes away again; it must not lie on the page's buttons. Why the firmware
     // crashed or hangs (`keep`) stays until it is closed: the person needs it to decide on a restart.
     if (!quiet && (tone === "error" || tone === "warn")) toast(text, keep ? "error" : "info");

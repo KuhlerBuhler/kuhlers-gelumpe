@@ -677,7 +677,10 @@ pub fn main() {
             kuhlers_gelumpe::card::card_list,
             kuhlers_gelumpe::card::card_read,
             kuhlers_gelumpe::card::card_exists,
-            kuhlers_gelumpe::card::card_move
+            kuhlers_gelumpe::card::card_move,
+            kuhlers_gelumpe::save::save_cards,
+            kuhlers_gelumpe::save::save_card,
+            kuhlers_gelumpe::save::save_pick
         ])
         // A second launch focuses the window of the first and leaves.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {

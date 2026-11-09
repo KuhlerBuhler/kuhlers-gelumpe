@@ -3,17 +3,12 @@
  * why it may only be read when that is the case.
  */
 import { el } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { toast } from "./toast.mjs";
 import { createMidiTransport } from "./midi.mjs";
 import { DeviceSession, electribePorts, newCarry } from "../../src/session.mjs";
 import { t } from "./i18n.mjs";
 import { createAutoConnect } from "./auto-connect.mjs";
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
-};
 
 /**
  * `usb`, `auto` and `diagnose`: the USB watch, whether to connect by itself, and how to open the MIDI report.
@@ -39,7 +34,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   const say = (tone, word, text) => {
     status.hidden = false;
     // Only screen readers read the line; on the page it is the toast, nothing stands above the device.
-    status.replaceChildren(pill(tone, word), el("span", { textContent: ` ${text}` }));
+    status.replaceChildren(stateText(tone, word), el("span", { textContent: ` ${text}` }));
     toast(text, tone === "error" ? "error" : tone === "ok" ? "ok" : "info", { stay: tone === "warn" });
   };
   const clear = () => { status.hidden = true; status.replaceChildren(); };
@@ -62,8 +57,8 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     facts.replaceChildren();
     fact(t("device.fact.channel"), String(d.channel + 1));
     fact(t("device.fact.version"), `${d.version[0]}.${d.version[1]}`);
-    fact(t("device.fact.state"), d.versionKnown ? pill("ok", t("device.fact.known")) : pill("warn", t("device.fact.unknown")));
-    fact(t("device.fact.ram"), d.ram === "blech" ? pill("ok", t("device.fact.ram.blech", { max: d.blech.maxBlock })) : d.ram === "hacktribe" ? pill("ok", t("device.fact.ram.hacktribe")) : pill("error", t("device.fact.ram.none")));
+    fact(t("device.fact.state"), d.versionKnown ? stateText("ok", t("device.fact.known")) : stateText("warn", t("device.fact.unknown")));
+    fact(t("device.fact.ram"), d.ram === "blech" ? stateText("ok", t("device.fact.ram.blech", { max: d.blech.maxBlock })) : d.ram === "hacktribe" ? stateText("ok", t("device.fact.ram.hacktribe")) : stateText("error", t("device.fact.ram.none")));
     if (d.sampler && !d.ram) {
       say("warn", t("device.state.limited"), t("device.say.noPatch"));
     } else if (!d.versionKnown) {
@@ -96,7 +91,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     decide.replaceChildren(
       el("h3", { textContent: t("device.decide.title") }),
       el("p", { className: "ui-break", textContent: session.blocked }),
-      p?.now ? el("p", {}, [pill("warn", t("device.decide.readBack")), ` ${p.now.text}`]) : null,
+      p?.now ? el("p", {}, [stateText("warn", t("device.decide.readBack")), ` ${p.now.text}`]) : null,
       el("div", { className: "actions" }, [restore, keep]),
     );
     decide.hidden = false;
@@ -413,7 +408,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
       if (session && session.port !== emulator() && !session.rehearsal && !emulator()?.running) attachRehearsal();
     },
     log(text, tone = "neutral") {
-      log.prepend(el("li", { className: "ui-row" }, [pill(tone, t({ ok: "device.log.ok", warn: "device.log.warn", error: "common.error", neutral: "device.log.info" }[tone])), el("span", { textContent: ` ${text}` })]));
+      log.prepend(el("li", { className: "ui-row" }, [stateText(tone, t({ ok: "device.log.ok", warn: "device.log.warn", error: "common.error", neutral: "device.log.info" }[tone])), el("span", { textContent: ` ${text}` })]));
     },
   };
 }

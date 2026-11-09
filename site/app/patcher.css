@@ -40,6 +40,8 @@
 .cee-patch-bar[hidden],
 .cee-patch-groups[hidden],
 .cee-patch-result[hidden],
+.cee-patch-sd[hidden],
+.cee-patch-sd-pick[hidden],
 .cee-patch-done[hidden] {
   display: none;
 }
@@ -275,6 +277,32 @@
   overflow-wrap: anywhere;
 }
 
+/* In the app: the card it found, the full place of the file on it. */
+.cee-patch-sd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+}
+
+.cee-patch-sd > * {
+  margin: 0;
+}
+
+.cee-patch-sd-pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cee-patch-sd-choice {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
 /* Korg's System Updater: the sentence and the two device cards, one block. */
 .cee-patch-korg {
   display: flex;
@@ -471,20 +499,4 @@
 
 .cee-patch-korg-card:hover .cee-device-card-out {
   color: var(--color-text-secondary);
-}
-
-/* A state in the verdict and the check list: an icon and the word in the text colour, no chip, no dot */
-.cee-patch-state {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-inline-end: var(--space-2);
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--color-text-primary);
-}
-
-.cee-patch-state .cee-icon {
-  width: var(--space-4);
-  height: var(--space-4);
 }
