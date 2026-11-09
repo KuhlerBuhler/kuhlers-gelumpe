@@ -26,6 +26,7 @@ script_card_hook:
     .word 0xE10FC000 ; mrs r12, cpsr
     push {r12, lr}
     bl menu_arm_load
+    bl migrate_folders
     ldr r0, =HOOK_RUNTIME
     bl blechy_boot
     ldr r0, =HOOK_RUNTIME
