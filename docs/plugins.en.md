@@ -2,7 +2,7 @@
 
 [Deutsche Version](plugins.md) | English version
 
-As of 2026-10-15. This page is the English edition of [plugins.md](plugins.md). The German page is the
+As of 2026-11-09. This page is the English edition of [plugins.md](plugins.md). The German page is the
 reference: it carries every measurement detail. This one keeps the facts a user needs and links to the
 German page where a detail only matters to developers. The editor itself is in German, so its button
 and menu labels appear here in German with a translation.
@@ -1319,7 +1319,7 @@ All of this ran in the real firmware (2.02 with Hacktribe) in the emulator with 
 Unicorn without firmware, **not on the device**.
 
 - Compiler, checker and reference VM in JavaScript (`src/script/`), the Plugins page with run, probe and
-  export, tests in `test/script-*.test.mjs`. Block format 2, API version 9.
+  export, tests in `test/script-*.test.mjs`. Block format 2, API version 25.
 - ARM VM (`tools/patch/script_vm.s`): all 34 opcodes, 506 comparison cases against the JS VM agree
   ([measurement](messungen/2026-10-14-skript-arm-vm.md)).
 - Input filter and frame hook (`tools/patch/script_hooks.s`): ring of 64 places, 25 Hz, a shared budget of

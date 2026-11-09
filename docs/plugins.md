@@ -2,7 +2,7 @@
 
 Deutsche Version | [English version](plugins.en.md)
 
-Stand 2026-10-20.
+Stand 2026-11-09.
 
 Ein Plugin gibt der Electribe eine neue Funktion, etwa ein Lauflicht, ein Spiel auf
 dem Display oder eine eigene Menüseite. Man lädt es über die SD-Karte aufs Gerät,
@@ -1519,7 +1519,7 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
 
 - Compiler, Prüfer und Referenz-VM in JavaScript (`src/script/`), die Seite
   Plugins mit Lauf, Probe und Export (`site/app/scripts.mjs`), Tests in
-  `test/script-*.test.mjs`. Blockformat 2, API Version 9
+  `test/script-*.test.mjs`. Blockformat 2, API Version 25
   (`data/script/contract.mjs`).
 - ARM-VM (`tools/patch/script_vm.s`): alle 34 Opcodes, 506 Vergleichsfälle gegen
   die JS-VM stimmen ([Messung](messungen/2026-10-14-skript-arm-vm.md)).

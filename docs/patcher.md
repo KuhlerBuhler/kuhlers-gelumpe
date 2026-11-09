@@ -2,7 +2,7 @@
 
 Deutsche Version | [English version](patcher.en.md)
 
-Stand 2026-10-16. Zu Idee 17 in [`docs/ideen.md`](ideen.md). Der Patcher ist gebaut,
+Stand 2026-11-09. Zu Idee 17 in [`docs/ideen.md`](ideen.md). Der Patcher ist gebaut,
 der Abschnitt "Stand" sagt, was genau und was nicht. Belege stehen in
 `docs/messungen/`; was nur hergeleitet ist, steht hier als solches da.
 
@@ -24,8 +24,9 @@ Die blaue Electribe 2 mit Synth-Firmware 2.02 hat einen eigenen Satz
 `data/patches/blech-synth.json`. Er enthält lesendes BLECH SysEx, Startbild, Theme,
 Ausschaltbild, Patternwechsel mit Bestätigung und Sync-Gruppen, TAP Motion, Notenassistent, Würfeln,
 MFX 2, Pad-Farben mit Akkorden in Pink, BLECH-Menü und Plugins mit Blechy,
-die EXIT-Shortcuts (EXIT + WRITE, EXIT + Pad), KEY PADS (KEYBOARD + Pad) und FILTER TOGGLE (SHIFT + Filtertaste). Startbild-Editor, Preset-Erweiterung, Ladeanimation
-und Doom gehören nicht dazu.
+die EXIT-Shortcuts (EXIT + WRITE, EXIT + Pad), KEY PADS (KEYBOARD + Pad) und FILTER TOGGLE (SHIFT + Filtertaste), dazu Letztes Pattern beim Einschalten, Eigenes Init-Pattern, BEAT 8,
+TOUCH SCALE RANGE 0 und die Version im Menü. Startbild-Editor, Preset-Erweiterung, Ladeanimation, Sample-Fehler, Stereo auf einem Pad,
+Hacktribe-Oszillatoren, der Effekt-Katalog, Synth-Filter und Doom gehören nicht dazu.
 Wie auf der roten liest und schreibt BLECH auf der blauen `KORG/blechtribe/` statt `KORG/electribe/` (`blechtribe-synth.json`,
 [Messung](messungen/2026-10-26-blech-hacktribe-blau.md)); die Anleitung sagt, den alten Ordner zu kopieren. Fehlt der Ordner
 beim Schreiben, legt die Firmware ihn an.
@@ -654,14 +655,16 @@ Hacktribe 2.02 mit den Sets von 1.2.0 bis 1.3.7).
 ### Korgs Firmware laden
 
 Wer keine `SYSTEM.VSB` hat, bekommt sie in Schritt 1 von Korg: erst den Haken "Ich habe Korgs Lizenzvertrag gelesen und
-nehme ihn an" (Korgs Downloadseite zeigt den Vertrag und sagt, man soll nur nach Annahme laden). Ohne Haken haben die
-Karten in der App keinen Link; im Browser öffnen sie Korgs Seite.
+nehme ihn an" (Korgs Downloadseite zeigt den Vertrag und sagt, man soll nur nach Annahme laden; der Link im Haken führt
+dorthin). Die Karten für Korgs roten und blauen Electribe zeigen nur, welche Datei kommt, sie sind weder Link noch
+Knopf. Geladen wird mit "Weiter", solange der Haken gesetzt und das Feld leer ist; eine eigene Datei im Feld wird nie
+ersetzt. Ohne Haken und ohne Datei bleibt "Weiter" aus, ein Hinweis nennt beide Wege.
 
-- **App:** mit Haken lädt die App Korgs Zip selbst von Korgs Server (`korg_firmware`, `src-tauri/src/korg.rs`) und legt
+- **App:** mit Haken lädt "Weiter" Korgs Zip selbst von Korgs Server (`korg_firmware`, `src-tauri/src/korg.rs`) und legt
   es ins Feld. Nichts geht über einen Server von uns, nichts wird gespeichert.
 - **Browser:** Korgs Server schickt keinen CORS-Kopf (gemessen am 26.10.: keine `Access-Control-Allow-Origin` auf GET,
-  `OPTIONS` mit 403), die Seite kann das Zip also nicht selbst holen. Der Haken macht aus den Karten den direkten Link
-  auf Korgs Zip, das man danach ins Feld zieht.
+  `OPTIONS` mit 403), die Seite kann das Zip also nicht selbst holen. "Weiter" startet den Download von Korgs Zip im
+  Browser und bleibt auf Schritt 1, das Zip zieht man danach ins Feld.
 - **Zip im Feld:** das Feld nimmt Korgs Zip wie es ist und nimmt `SYSTEM.VSB` heraus (`src/zip.mjs`, mit dem
   `DecompressionStream` des Browsers); gemessen an beiden Zips von Korg: die herausgenommenen Dateien haben die SHA-256
   `1d0f0689…` (rot) und `41fc5f1c…` (blau).
