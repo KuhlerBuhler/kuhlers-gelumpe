@@ -9,7 +9,7 @@ gelesen), **hergeleitet**, **offen**.
 
 | Seite | Inhalt |
 |---|---|
-| [fahrplan.md](fahrplan.md) | Welche Version was bekommen soll: 1.3.6, 1.4, 1.5 "The sample update" |
+| [fahrplan.md](fahrplan.md) | Welche Version was bekommen soll: erschienen, 1.4.5, danach, 1.5 "The sample update" |
 | [faq.md](faq.md) | Häufige Fragen, von Geht mein Gerät kaputt bis Error, No File und alten Patterns nach dem Export |
 | [tastenkombinationen.md](tastenkombinationen.md) | SHIFT-, Halte- und Einschalt-Kombinationen der Firmware |
 | [test-modus.md](test-modus.md) | Test-Modus (Gerät sieht aus wie aus) und das Gerät über USB bedienen: Tasten, Regler, Pads, Touchpad |

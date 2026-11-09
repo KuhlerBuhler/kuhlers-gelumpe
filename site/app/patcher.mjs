@@ -6,7 +6,7 @@ import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { applyPatches } from "../../src/patch.mjs";
 import { applyPatchFile, parsePatchFile, patchesFor } from "../../src/patchfile.mjs";
-import { NEWS } from "../../data/news.mjs";
+import { RELEASE_NOTES } from "../../data/release-notes.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf, hardwareOf } from "../../src/firmware.mjs";
 import { recogniseBlech } from "../../src/blech-update.mjs";
@@ -189,7 +189,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   ]);
   let cable = null;             // "red" or "blue": what the Electribe connected over USB said it is, null when none is or it cannot tell
   // Step 2 chooses what goes on the file: BLECHTRIBE of this version or any own .patch file, and on Korg's original Hacktribe as well.
-  const release = NEWS[0].version;
+  // The newest release notes are the version of the BLECH set this app carries: a release needs them (docs/development.md).
+  const release = RELEASE_NOTES[0].version;
   const useLatest = el("input", { type: "checkbox", id: "cee-patch-latest", checked: true });
   const blechInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-blech-file", accept: ".patch", disabled: true });
   const blechInfo = el("span", { className: "ui-dropzone-files", id: "cee-patch-blech-info" });
