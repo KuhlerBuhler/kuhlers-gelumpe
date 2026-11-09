@@ -2578,7 +2578,7 @@ export default {
   "rescue.search.count": "Відповідні теми: {count}",
   "rescue.search.none": "Нічого не знаходжу. Скажи інакше або подивись усі теми.",
   "rescue.search.all": "Показати всі теми",
-  "rescue.say.color.1": "Якого кольору твоя Electribe? Питаю лише один раз.",
+  "rescue.say.color.1": "Якого кольору твоя Electribe?",
   "rescue.say.colorHelp.1": "Подивись на пристрій: червона це Sampler, на ній написано «electribe sampler». Синя це Synth, на ній написано просто «electribe».",
   "rescue.device.red.hint": "Electribe 2 Sampler, на пристрої написано «electribe sampler».",
   "rescue.device.blue.hint": "Electribe 2 (Synth), на пристрої написано «electribe».",

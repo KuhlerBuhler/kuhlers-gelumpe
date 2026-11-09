@@ -2633,7 +2633,7 @@ export default {
   "rescue.search.count": "Passende Themen: {count}",
   "rescue.search.none": "Dazu finde ich nichts. Sag es anders oder schau dir alle Themen an.",
   "rescue.search.all": "Alle Themen zeigen",
-  "rescue.say.color.1": "Welche Farbe hat deine Electribe? Das frage ich nur einmal.",
+  "rescue.say.color.1": "Welche Farbe hat deine Electribe?",
   "rescue.say.colorHelp.1": "Schau auf das Gerät: Die rote ist der Sampler, auf ihr steht „electribe sampler“. Die blaue ist der Synth, auf ihr steht nur „electribe“.",
   "rescue.device.red.hint": "Electribe 2 Sampler, auf dem Gerät steht „electribe sampler“.",
   "rescue.device.blue.hint": "Electribe 2 (Synth), auf dem Gerät steht „electribe“.",

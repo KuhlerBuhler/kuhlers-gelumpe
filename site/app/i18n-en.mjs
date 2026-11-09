@@ -2578,7 +2578,7 @@ export default {
   "rescue.search.count": "Matching topics: {count}",
   "rescue.search.none": "I can't find anything for that. Put it another way or look at all topics.",
   "rescue.search.all": "Show all topics",
-  "rescue.say.color.1": "What colour is your Electribe? I only ask this once.",
+  "rescue.say.color.1": "What colour is your Electribe?",
   "rescue.say.colorHelp.1": "Look at the device: the red one is the Sampler and says “electribe sampler”. The blue one is the Synth and says just “electribe”.",
   "rescue.device.red.hint": "Electribe 2 Sampler, it says “electribe sampler” on the device.",
   "rescue.device.blue.hint": "Electribe 2 (Synth), it says “electribe” on the device.",

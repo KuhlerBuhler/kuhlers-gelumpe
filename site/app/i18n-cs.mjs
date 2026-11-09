@@ -2578,7 +2578,7 @@ export default {
   "rescue.search.count": "Témata, která sedí: {count}",
   "rescue.search.none": "K tomu nic nenacházím. Řekni to jinak nebo se podívej na všechna témata.",
   "rescue.search.all": "Ukázat všechna témata",
-  "rescue.say.color.1": "Jakou barvu má tvoje Electribe? Ptám se jen jednou.",
+  "rescue.say.color.1": "Jakou barvu má tvoje Electribe?",
   "rescue.say.colorHelp.1": "Podívej se na přístroj: červená je Sampler a stojí na ní „electribe sampler“. Modrá je Synth a stojí na ní jen „electribe“.",
   "rescue.device.red.hint": "Electribe 2 Sampler, na přístroji stojí „electribe sampler“.",
   "rescue.device.blue.hint": "Electribe 2 (Synth), na přístroji stojí „electribe“.",
