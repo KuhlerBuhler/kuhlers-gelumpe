@@ -57,6 +57,12 @@ export const CHAINS = {
     { id: "part-mode", sites: [0xC007DE08] },
     { id: "voice-mode", sites: [0xC0099E2C] },
   ],
+  "ht-osc": [
+    { id: "slot-names", sites: [0xC004E354, 0xC004F5A8] },
+    { id: "import-refusal", sites: [0xC00362A4] },
+    { id: "osc-select", sites: [0xC0040D64] },
+    { id: "voice-slot", sites: [0xC00997A4] },
+  ],
   "sequence-end": [{ id: "pattern-number", sites: [0xC005F1C4] }],
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],

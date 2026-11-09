@@ -70,11 +70,12 @@ def card_image(files=None):
 
 def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seconds=1.2):
     """A device booted to the main screen; with `adapter` on mains power (the bottom LEDs and the backlight show their normal state)."""
-    global INIT_PAGE, LAST_PAGE, STEREO_PAGE
+    global INIT_PAGE, LAST_PAGE, STEREO_PAGE, HTOSC_PAGE
     for_build(payload)
     INIT_PAGE = payload[INIT_CODE - 0xC0000000:INIT_CODE - 0xC0000000 + 4] != b"\xff" * 4
     LAST_PAGE = payload[LAST_CODE - 0xC0000000:LAST_CODE - 0xC0000000 + 4] != b"\xff" * 4
     STEREO_PAGE = payload[STEREO_CODE - 0xC0000000:STEREO_CODE - 0xC0000000 + 4] != b"\xff" * 4
+    HTOSC_PAGE = payload[HTOSC_CODE - 0xC0000000:HTOSC_CODE - 0xC0000000 + 4] != b"\xff" * 4
     dev = Dev(payload, flash, held)
     dev.m.adapter = adapter
     if card:
@@ -136,6 +137,8 @@ LAST_CODE = 0xC014FE00                                               # the patch
 LAST_PAGE = False                                                     # set by boot(): whether the copy has the patch
 STEREO_CODE = 0xC014FF00                                             # the patch stereo-pad (tools/patch/stereo_pad.py); with it FEATURES ends with STEREO 1 PAD
 STEREO_PAGE = False                                                   # set by boot(): whether the copy has the patch
+HTOSC_CODE = 0xC014F000                                              # the patch ht-osc (tools/patch/ht_osc.py); with it FEATURES has HT OSC behind STEREO 1 PAD
+HTOSC_PAGE = False                                                    # set by boot(): whether the copy has the patch
 
 
 VERSION_TEXT = 0xC014FCF0                                            # the patch blech-version (tools/patch/blech_version.mjs): the title of VERSION
@@ -153,9 +156,10 @@ def version_texts(payload):
 
 
 def feature_pages():
-    """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches, KEY PADS, FILTER
-    TOGGLE and AUTO SAVE last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
-    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"]
+    """The pages of FEATURES: the switches, LAST PATTERN, STEREO 1 PAD and HT OSC where the set has their patches, KEY PADS,
+    FILTER TOGGLE and AUTO SAVE last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    return (FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["HT OSC"] * HTOSC_PAGE
+            + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"])
 
 
 def feature_count():
@@ -579,7 +583,10 @@ def blechy_ring_cases(dev):
         for i, kind in enumerate(("frame", "display")):
             his = bits(last[i]) - bits(settled[i])
             seq = [last[i]] + [look[i] for look in looks] + [None]
-            stale = [5 * k for k in range(1, len(seq) - 1) if seq[k] != last[i] and bits(seq[k]) & his and not sending(seq[k - 1], seq[k], seq[k + 1])]
+            # only his pixels in bytes still as in his picture: the next page draws in steps (its title bar solid first, the text cut in a
+            # frame later), and that bar can cover a pixel of him in a byte that is neither his picture nor the settled page
+            kept = lambda look: {(j, b) for j, b in his if look[j] == last[i][j]}
+            stale = [5 * k for k in range(1, len(seq) - 1) if seq[k] != last[i] and kept(seq[k]) and not sending(seq[k - 1], seq[k], seq[k + 1])]
             if stale:
                 left.append(f"{key} {kind} at {stale[:4]} ms")
     add("blechy_leaves_no_trace", not left and not dev.m.asserts,
@@ -903,7 +910,7 @@ def read_settings_look(image):
             continue
         version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
         head = {1: 16, 2: 20, 3: 20}.get(version)
-        if head is None or extras & ~0x7F:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 AUTO SAVE OFF
+        if head is None or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 HT OSC OFF, bit 7 AUTO SAVE OFF
             continue
         size = head + 4 * count
         if count > (64 if version == 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -2352,7 +2359,7 @@ def last_pattern_menu_cases(payload, flash=None):
 
 KP_OFF = 16                           # bit 4 of byte 5 of the settings file: KEY PADS is off
 FT_OFF = 32                           # bit 5 of byte 5: FILTER TOGGLE is off
-AS_OFF = 64                           # bit 6 of byte 5: AUTO SAVE is off
+AS_OFF = 128                          # bit 7 of byte 5: AUTO SAVE is off
 
 
 def switch_menu_cases(payload, flash, name, title, slot, bit, from_end):

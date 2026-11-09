@@ -1150,6 +1150,7 @@ class MenuSettingsTests(unittest.TestCase):
                     machine.uc.mem_map(page, 4096)
             machine.write(symbols['LP_CODE'], 0xFFFFFFFF)       # a set without the patch last-pattern
             machine.write(symbols['SP_CODE'], 0xFFFFFFFF)       # a set without the patch stereo-pad
+            machine.write(symbols['HO_CODE'], 0xFFFFFFFF)       # a set without the patch ht-osc
             machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['menu_pc_call'], end=symbols['menu_pc_call'])
             machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['FS_OPEN'], end=symbols['FS_OPEN'])
             machine.write(symbols['HOOK_RUNTIME'] + symbols['RT_HEAD'], 0)
@@ -1210,11 +1211,20 @@ class MenuSettingsTests(unittest.TestCase):
             opened.clear()
             machine.call('menu_settings_save')
             self.assertEqual((opened[0][5], opened[0][7]), (0x3D, 0))
-            # AUTO SAVE OFF is bit 6
+            # with the patch ht-osc, HT OSC OFF is bit 6
+            for setting, byte5 in ((0, 0x7D), (1, 0x3D), (0xFFFFFFFF, 0x3D)):
+                with self.subTest(build=build_name, htosc=setting):
+                    machine.write(symbols['HO_CODE'], 0xE92D4010)
+                    machine.write(symbols['HO_SETTING'], setting)
+                    opened.clear()
+                    machine.call('menu_settings_save')
+                    self.assertEqual((opened[0][5], opened[0][7]), (byte5, 0))
+            machine.write(symbols['HO_CODE'], 0xFFFFFFFF)
+            # AUTO SAVE OFF is bit 7
             machine.write(state + symbols['M_AS'], 0)
             opened.clear()
             machine.call('menu_settings_save')
-            self.assertEqual((opened[0][5], opened[0][7]), (0x7D, 0))
+            self.assertEqual((opened[0][5], opened[0][7]), (0xBD, 0))
             machine.write(state + symbols['M_AS'], 1)
             machine.write(state + symbols['M_FT'], 1)
             machine.write(state + symbols['M_KP'], 1)

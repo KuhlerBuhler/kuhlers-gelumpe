@@ -45,7 +45,7 @@ You need a computer (Mac, Windows or Linux) and an SD card reader, once for a fe
 
 1. **Download the app** with the button above. On the release page, find "Assets": `.dmg` for Mac, `.exe` for Windows, `.AppImage` or `.deb` for Linux. macOS blocks the downloaded app at first because it is not signed by Apple. See [Get the app](#get-the-app) for how to allow it.
 2. **Put the Electribe's SD card in your computer.**
-3. **Open the app**, choose **Firmware Patcher** and drop your `SYSTEM.VSB` from the card onto the page. It is in `KORG/electribe sampler/System/` (original sampler), `KORG/hacktribe/System/` (Hacktribe) or `KORG/electribe/System/` (blue Electribe).
+3. **Open the app**, choose **Firmware Patcher** and drop your `SYSTEM.VSB` from the card onto the page. It is in `KORG/electribe sampler/System/` (original sampler), `KORG/hacktribe/System/` (Hacktribe) or `KORG/electribe/System/` (blue Electribe). Without the file, the app downloads Korg's original itself once you accept Korg's licence.
 4. **Wait for the checks to finish**, then save the new file. The app tells you where to put it on the card.
 5. **Put the card back in the Electribe**, turn it on and start the firmware update. The app shows you which buttons to press.
 
@@ -56,7 +56,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | | Red sampler original | Blue synth original | Sampler with Hacktribe | **BLECHTRIBE** red | **BLECHTRIBE** blue | **BLECHTRIBE** with Hacktribe |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | Record and load your own samples | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Extended Hacktribe oscillator bank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Extended Hacktribe oscillator bank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Extra Hacktribe MFX, IFX, grooves and scales | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Import/export effects and grooves through Hacktribe menus | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Custom INIT pattern through Hacktribe | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
@@ -87,7 +87,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Update over USB from the app | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 
-Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIBE to a Korg original does not add Hacktribe's features. The blue BLECHTRIBE column describes the Synth set on Korg 2.02. Hacktribe itself supports both hardware types.
+Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIBE to a Korg original does not add Hacktribe's features. The exception is the Hacktribe oscillators on the free slots 422 to 497 of the red BLECHTRIBE (switch HT OSC under BLECH, FEATURES). The blue BLECHTRIBE column describes the Synth set on Korg 2.02. Hacktribe itself supports both hardware types.
 
 **Hacktribe trade-offs:**
 
@@ -112,7 +112,7 @@ The normal Electribe is on the left, BLECHTRIBE on the right. The animations use
 
 ## Patch the firmware
 
-Open **Firmware Patcher**, drop your own `SYSTEM.VSB` (Korg's original 2.02 for sampler or synth, or Hacktribe 2.02) onto the page and choose the patches. Before downloading, the emulator boots the result and checks the main screen, update prompt, start modes and emergency switch. This takes a few minutes; the page shows which group is running. It then explains how to install the file on the device. All patches and their limits are in [docs/patcher.en.md](docs/patcher.en.md). To patch without the app, use `BLECH.patch` or the matching `.bsdiff` from the release as described there.
+Open **Firmware Patcher**, drop your own `SYSTEM.VSB` (Korg's original 2.02 for sampler or synth, or Hacktribe 2.02; without your own file the app downloads Korg's original after you accept Korg's licence) onto the page and choose the patches. Before downloading, the emulator boots the result and checks the main screen, update prompt, start modes and emergency switch. This takes a few minutes; the page shows which group is running. It then explains how to install the file on the device. All patches and their limits are in [docs/patcher.en.md](docs/patcher.en.md). To patch without the app, use `BLECH.patch` or the matching `.bsdiff` from the release as described there.
 
 On the sampler, BLECHTRIBE includes the BLECH menu, plugins, display and LED colours, pattern confirmation, sync groups, TAP Motion, a note assistant in KEYBOARD mode, KEYBOARD + Pad to set the KEY, SHIFT + filter key to turn the filter off and on, random melodies (SHIFT + PART ERASE), EXIT + WRITE to save, EXIT + Pad to reset a part's sound, pink chord steps, migration of your existing sample folder, Blechy, loading progress, clearer sample errors and Doom (SHIFT + TAP at power-on; [licence](docs/doom-lizenz.md), German).
 
@@ -218,7 +218,7 @@ Menü -> BLECH -> PLUGINS. The code is a subset of JavaScript, the editor compil
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
 The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
-Mandelbrot, GIF Player, Image Viewer, Lauflicht, Pulsieren and Takt-Blinker.
+Mandelbrot, GIF Player, Image Viewer, BPM Glide, Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold and Step Copy.
 
 ## The emulator
 

@@ -28,7 +28,9 @@ die Anzeige)?
 
 Das Pattern-Objekt steht in `[0xC033E6A4]`, sein Block ab +4. Offsets unten sind Block-Offsets. Hinter dem Block
 (Block-Offset 0x4000 und höher) liegt die Kopie, die die Klangerzeugung liest; der Schreiber dafür ist `0xC004B208`
-(blau `0xC0045120`) mit `(Objekt + 0x401C, x, Parameter, Wert)`. Das Global-Objekt steht in `[0xC033E6A0]`, sein Block
+(blau `0xC0045120`) mit `(Objekt + 0x401C, x, Parameter, Wert)`. Er ist ein Verteiler: mit einer 1 als erstem Wert auf dem
+Stack ruft er danach den Weg des Parameters zur Klangerzeugung (Befund aus PR #401,
+[Messung](2026-11-09-plugin-part-dsp.md)). Das Global-Objekt steht in `[0xC033E6A0]`, sein Block
 ab +4. Rot hat dieselben Adressen wie Hacktribe; die blauen stehen in `data/synth-map/live-write.json`.
 
 ## Pattern (gemessen)

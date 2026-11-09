@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for wanting to help. Pull requests go to `develop`; `main` only takes merges from `develop`.
+Thanks for wanting to help. Pull requests go to `develop`; `main` only takes the release pull request.
 
 ## Start
 
