@@ -14,43 +14,20 @@
  */
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { checkProblems as headProblems, newest } from "./ci/checks.mjs";
 
 /** This workflow's own name: its own run on the head is always still running. */
 export const SELF = "Release merge";
 export const REQUIRED = ["unit", "browser", "guard"];
 /** The one file a commit after the approval may change. */
 export const REFRESHED = "data/patches/verified.json";
-const PASSED = new Set(["success", "skipped", "neutral"]);
 const WRITERS = new Set(["admin", "maintain", "write"]);
 
 export const isRelease = pr => pr.baseRefName === "main" && /^release\/\d+\.\d+\.\d+$/.test(pr.headRefName) && !pr.isCrossRepository;
 
-/** The newest entry per key: a re-run gets a new, higher id. */
-function newest(items, key) {
-  const out = new Map();
-  for (const it of items) if (!out.has(key(it)) || out.get(key(it)).id < it.id) out.set(key(it), it);
-  return [...out.values()];
-}
-
 /** Why the checks of the head do not allow a merge yet; empty when they do. */
 export function checkProblems(runs, checks) {
-  const problems = [];
-  const own = new Set(runs.filter(r => r.name === SELF).map(r => r.check_suite_id));
-  for (const r of newest(runs.filter(r => r.name !== SELF), r => `${r.workflow_id} ${r.event}`)) {
-    if (r.status !== "completed") problems.push(`workflow "${r.name}" (${r.event}) is ${r.status}`);
-    else if (!PASSED.has(r.conclusion)) problems.push(`workflow "${r.name}" (${r.event}) ended ${r.conclusion}`);
-  }
-  const latest = newest(checks.filter(c => !own.has(c.check_suite?.id)), c => c.name);
-  for (const c of latest) {
-    if (c.status !== "completed") problems.push(`check "${c.name}" is ${c.status}`);
-    else if (!PASSED.has(c.conclusion)) problems.push(`check "${c.name}" ended ${c.conclusion}`);
-  }
-  for (const name of REQUIRED) {
-    const c = latest.find(c => c.name === name);
-    if (!c) problems.push(`required check "${name}" has not run`);
-    else if (c.status === "completed" && c.conclusion !== "success") problems.push(`required check "${name}" did not pass`);
-  }
-  return problems;
+  return headProblems(runs, checks, { self: SELF, required: REQUIRED });
 }
 
 /**

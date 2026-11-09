@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { emuPython } from "./support/emu.mjs";
+import { run as spawnRun } from "./support/spawn.mjs";
 import { PRESETS } from "../data/script/presets.mjs";
 
 const python = emuPython();
@@ -19,7 +20,9 @@ const sample = () => ({ format: "blech-performance", version: 4, method: "fixtur
     original: Array.from({ length: 3 }, () => ({ scenarios: ["idle", "playing", "playing-keyboard", "sequencer-four-note-long-ties"].map(scenario => ({ scenario, instructions: 1000, deviceNs: 2e9, transport: scenario === "idle" ? 0 : 1, asserts: [], byPatch: {} })) })),
     patched: Array.from({ length: 3 }, () => ({ scenarios: ["idle", "playing", "playing-keyboard", "sequencer-four-note-long-ties", "blech-menu", "closed-apps", "app-mandelbrot", "app-life", "app-pong", "background-plugins"].map((scenario, i) => ({ scenario, instructions: 1000, deviceNs: 2e9, transport: i > 0 && i < 4 ? 1 : 0, asserts: [], byPatch: {}, ...(scenario.startsWith("app-") ? { semantic: { frames: 50, fault: 0, frameActive: 0, initialStateSha256: "1".repeat(64), stateSha256: "2".repeat(64), framebufferSha256: "d".repeat(64), progress: {} } } : {}) })) })),
   }])) });
-const run = (baseline, candidate, phase, inherited) => spawnSync(python, ["-c", snippet], { input: JSON.stringify({ baseline, candidate, phase, inherited }), encoding: "utf8" });
+const run = (baseline, candidate, phase, inherited) => spawnRun(python, ["-c", snippet], {
+  input: JSON.stringify({ baseline, candidate, phase, inherited }), maxBuffer: 1024 * 1024,
+});
 
 const withSysex = (end = 0xc019f000) => {
   const profile = sample();
@@ -33,9 +36,9 @@ const withSysex = (end = 0xc019f000) => {
   return profile;
 };
 
-test("SysEx acceptance needs repeatable full-command evidence for both ports and identical results", () => {
+test("SysEx acceptance needs repeatable full-command evidence for both ports and identical results", async () => {
   const old = withSysex(), next = withSysex(0xc019a400);
-  assert.equal(run(old, next, "sysex").status, 0);
+  assert.equal((await run(old, next, "sysex")).status, 0);
   for (const change of [s => delete s.repeats, s => s.repeats.pop(), s => s.repeats[2].instructions++,
     s => s.resultsSha256 = "a".repeat(64), s => s.ioSha256 = "b".repeat(64),
     s => s.protocol.ports.pop(), s => s.protocol.functions.pop(), s => s.protocol.sizes.pop(),
@@ -43,23 +46,23 @@ test("SysEx acceptance needs repeatable full-command evidence for both ports and
     s => s.fileArea[0]++, s => s.firmwareSha256 = "a".repeat(64), s => s.cases = 1,
     s => { s.instructions = 10101; s.repeats.forEach(r => r.instructions = 10101); }]) {
     const bad = withSysex(0xc019a400); change(bad.builds.stock.sysex);
-    assert.notEqual(run(old, bad, "sysex").status, 0, String(change));
+    assert.notEqual((await run(old, bad, "sysex")).status, 0, String(change));
   }
 });
 
-test("loader profiles cover every current preset by name and reject missing or renamed inputs", () => {
+test("loader profiles cover every current preset by name and reject missing or renamed inputs", async () => {
   const good = sample();
-  const result = run(good, good, "baseline");
+  const result = await run(good, good, "baseline");
   assert.equal(result.status, 0, result.stderr);
   for (const change of [r => { r.plugins.pop(); r.totalInstructions -= 100; }, r => r.plugins[0].plugin = "unknown", r => r.plugins[0].plugin = r.plugins[1].plugin]) {
     const bad = sample();
     for (const row of bad.builds.stock.loader.repeats) change(row);
     Object.assign(bad.builds.stock.loader, { totalInstructions: bad.builds.stock.loader.repeats[0].totalInstructions, maxInstructions: bad.builds.stock.loader.repeats[0].totalInstructions });
-    assert.notEqual(run(bad, bad, "baseline").status, 0);
+    assert.notEqual((await run(bad, bad, "baseline")).status, 0);
   }
 });
 
-test("the app workload fits eight slots while preserving all loader and background inputs", () => {
+test("the app workload fits eight slots while preserving all loader and background inputs", async () => {
   const programs = Object.fromEntries(PRESETS.map(p => [p.id, { info: { app: ["lauflicht", "pulsieren", "bpmglide", "taktblinker", "momentmute", "gatehold", "stepcopy"].includes(p.id) ? null : { name: p.id } } }]));
   const code = `import sys,json;sys.path.insert(0,'tools/emu');from patch_performance import app_workload
 p=json.load(sys.stdin)
@@ -74,13 +77,13 @@ try: app_workload(p,8)
 except ValueError: pass
 else: raise AssertionError('missing loader input accepted')
 print(json.dumps(apps))`;
-  const result = spawnSync(python, ["-c", code], { input: JSON.stringify(programs), encoding: "utf8" });
+  const result = await spawnRun(python, ["-c", code], { input: JSON.stringify(programs), maxBuffer: 1024 * 1024 });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), ["blechclicker", "settimer", "snake", "tetris", "life", "pong", "simon", "mandelbrot"]);
 });
 
-test("profile validation requires three builds, three repeat runs and the intended transport", () => {
-  const a = sample(); assert.equal(run(a, a).status, 0);
+test("profile validation requires three builds, three repeat runs and the intended transport", async () => {
+  const a = sample(); assert.equal((await run(a, a)).status, 0);
   for (const change of [x => delete x.builds.synth, x => x.builds.stock.patched.pop(),
     x => x.builds.hacktribe.original[0].scenarios.pop(),
     x => x.builds.synth.patched[0].scenarios[1].transport = 0,
@@ -90,28 +93,28 @@ test("profile validation requires three builds, three repeat runs and the intend
     x => delete x.builds.stock.loader,
     x => x.builds.stock.loader.repeats.pop(),
     x => x.builds.stock.loader.repeats[2].totalInstructions += 1]) {
-    const bad = sample(); change(bad); assert.notEqual(run(a, bad).status, 0);
+    const bad = sample(); change(bad); assert.notEqual((await run(a, bad)).status, 0);
   }
 });
 
-test("a baseline cannot omit a required patched scene in every repeat", () => {
+test("a baseline cannot omit a required patched scene in every repeat", async () => {
   const bad = sample();
   bad.builds.stock.patched.forEach(r => r.scenarios.pop());
-  assert.notEqual(run(bad, bad).status, 0);
+  assert.notEqual((await run(bad, bad)).status, 0);
 });
 
-test("app captures require completed frames and an explicit reproducible input protocol", () => {
+test("app captures require completed frames and an explicit reproducible input protocol", async () => {
   for (const change of [x => delete x.appProtocol,
     x => x.version = 1,
     x => x.appProtocol = { warmupFrames: 8, rngSeed: 2, boundary: "frame_return" },
     x => x.builds.synth.patched.forEach(r => r.scenarios[6].semantic.frameActive = 1),
     x => x.builds.synth.patched.forEach(r => delete r.scenarios[6].semantic.stateSha256)]) {
     const a = sample(), bad = sample(); change(bad);
-    assert.notEqual(run(a, bad).status, 0);
+    assert.notEqual((await run(a, bad)).status, 0);
   }
 });
 
-test("comparison rejects unlike inputs, workloads, durations and non-reproducible runs", () => {
+test("comparison rejects unlike inputs, workloads, durations and non-reproducible runs", async () => {
   const a = sample();
   for (const change of [x => x.method = "different", x => x.programsSha256 = "d".repeat(64),
     x => x.builds.synth.inputSha256 = "e".repeat(64), x => x.seconds = 1,
@@ -119,34 +122,34 @@ test("comparison rejects unlike inputs, workloads, durations and non-reproducibl
     x => x.builds.stock.patched[2].scenarios[0].instructions += 1,
     x => x.builds.stock.patched[1].scenarios[0].byPatch.own = 1,
     x => x.builds.stock.original.forEach(r => r.scenarios[0].instructions += 1)]) {
-    const bad = sample(); change(bad); assert.notEqual(run(a, bad).status, 0);
+    const bad = sample(); change(bad); assert.notEqual((await run(a, bad)).status, 0);
   }
 });
 
-test("pad targets use original ties and enforce ordinary, code and RAM budgets", () => {
-  const a = sample(); assert.equal(run(a, a, "pad").status, 0);
+test("pad targets use original ties and enforce ordinary, code and RAM budgets", async () => {
+  const a = sample(); assert.equal((await run(a, a, "pad")).status, 0);
   for (const change of [x => x.builds.stock.patched.forEach(r => r.scenarios[3].instructions = 1051),
     x => x.builds.synth.patched.forEach(r => r.scenarios[0].instructions = 1011),
     x => x.builds.stock.footprint.ramBytes += 1025,
     x => x.builds.hacktribe.footprint.codeDataBytes += 769]) {
-    const bad = sample(); change(bad); assert.notEqual(run(a, bad, "pad").status, 0);
+    const bad = sample(); change(bad); assert.notEqual((await run(a, bad, "pad")).status, 0);
   }
 });
 
-test("missing phase evidence cannot turn into a passing optimization", () => {
+test("missing phase evidence cannot turn into a passing optimization", async () => {
   for (const phase of ["loader", "decoder", "mul", "sysex", "combined", "unknown"]) {
-    assert.notEqual(run(sample(), sample(), phase).status, 0, phase);
+    assert.notEqual((await run(sample(), sample(), phase)).status, 0, phase);
   }
 });
 
-test("MUL acceptance uses the agreed reduction and still requires matching verified vectors", () => {
+test("MUL acceptance uses the agreed reduction and still requires matching verified vectors", async () => {
   const a = sample(), b = sample();
   const evidence = { pairs: 2225, vectorsSha256: "e".repeat(64), resultsMatch: true };
   for (const build of Object.keys(a.builds)) {
     a.builds[build].mul = { ...evidence, meanInstructions: 100000 };
     b.builds[build].mul = { ...evidence, meanInstructions: 80170 };
   }
-  const accepted = run(a, b, "mul");
+  const accepted = await run(a, b, "mul");
   assert.equal(accepted.status, 0, accepted.stderr);
   assert.equal(JSON.parse(accepted.stdout).mulMinimumReductionPercent, 19.83);
   for (const change of [x => x.builds.stock.mul.meanInstructions = 80171,
@@ -157,7 +160,7 @@ test("MUL acceptance uses the agreed reduction and still requires matching verif
     x => x.builds.stock.footprint.codeDataBytes += 1,
     x => x.builds.stock.patched.forEach(r => r.scenarios[6].semantic.fault = 1)]) {
     const bad = structuredClone(b); change(bad);
-    assert.notEqual(run(a, bad, "mul").status, 0);
+    assert.notEqual((await run(a, bad, "mul")).status, 0);
   }
 });
 
@@ -253,7 +256,7 @@ const inheritance = baseline => {
     baselineDigest: createHash("sha256").update(canonical(profile)).digest("hex") };
 };
 
-test("integrated combined acceptance preserves earlier gains without demanding them twice", () => {
+test("integrated combined acceptance preserves earlier gains without demanding them twice", async () => {
   const old = withSysex(), next = withSysex(0xc019a400);
   for (const build of Object.keys(old.builds)) {
     old.builds[build].footprint = { codeDataBytes: 1000, ramBytes: 30000, occupiedBytes: 31000, largestGap: 1000 };
@@ -262,7 +265,7 @@ test("integrated combined acceptance preserves earlier gains without demanding t
     for (const run of next.builds[build].patched) for (const row of run.scenarios) row.byPatch["script-runtime"] = 97;
   }
   const accepted = inheritance(old);
-  const result = run(old, next, "combined", accepted);
+  const result = await run(old, next, "combined", accepted);
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout).inheritedPhases, ["pad", "loader", "mul"]);
   for (const change of [x => x.builds.synth.footprint.codeDataBytes++,
@@ -273,15 +276,15 @@ test("integrated combined acceptance preserves earlier gains without demanding t
     x => x.builds.stock.sysex.ioSha256 = "f".repeat(64),
     x => delete x.builds.stock.sysex]) {
     const bad = structuredClone(next); change(bad);
-    assert.notEqual(run(old, bad, "combined", accepted).status, 0, String(change));
+    assert.notEqual((await run(old, bad, "combined", accepted)).status, 0, String(change));
   }
   const different = structuredClone(old); different.builds.synth.loader.totalInstructions++;
-  assert.notEqual(run(different, next, "combined", accepted).status, 0);
+  assert.notEqual((await run(different, next, "combined", accepted)).status, 0);
   for (const change of [x => x.codeBudgetBytes++, x => x.inheritedPhases.pop(),
     x => x.evidence[0].sha256 = "0".repeat(64), x => x.baselineDigest = "0".repeat(64)]) {
     const bad = structuredClone(accepted); change(bad);
-    assert.notEqual(run(old, next, "combined", bad).status, 0, String(change));
+    assert.notEqual((await run(old, next, "combined", bad)).status, 0, String(change));
   }
-  assert.notEqual(run(old, next, "combined").status, 0);
-  assert.notEqual(run(old, next, "decoder", accepted).status, 0);
+  assert.notEqual((await run(old, next, "combined")).status, 0);
+  assert.notEqual((await run(old, next, "decoder", accepted)).status, 0);
 });
