@@ -276,7 +276,7 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
   async function connect() {
     autoConnect?.manualConnect();
     if (!midi.supported) {
-      say("error", t("device.state.impossible"), t("device.noMidi"));
+      say("error", t("device.state.impossible"), t(window.__GELUMPE_MOBILE ? "device.noMidiMobile" : "device.noMidi"));
       return;
     }
     let access;

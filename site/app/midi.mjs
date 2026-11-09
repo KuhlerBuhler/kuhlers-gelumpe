@@ -57,7 +57,8 @@ export function createMidiTransport(scope = globalThis, { sendTimeout = bytes =>
   };
   return {
     native,
-    get supported() { return native || !!scope.navigator?.requestMIDIAccess; },
+    // The Android app has no MIDI yet (src-tauri/src/mobile.rs); its WebView must not be asked either.
+    get supported() { return !scope.__GELUMPE_MOBILE && (native || !!scope.navigator?.requestMIDIAccess); },
     async requestAccess() {
       if (!native) return scope.navigator.requestMIDIAccess({ sysex: true });
       const ports = await api().invoke("midi_list");

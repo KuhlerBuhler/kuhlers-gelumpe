@@ -260,7 +260,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   const inApp = !!window.__GELUMPE_APP;
   const START_HINT = inApp
     ? t("emu.start.app")
-    : t("emu.start.page");
+    : window.__GELUMPE_MOBILE ? t("emu.start.mobile") : t("emu.start.page");
   const startButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-emu-start", textContent: t("emu.start"), hidden: true });
   /** Looks for the emulator service; false and a toast when there is none. */
   async function start() {
