@@ -109,7 +109,8 @@ def overlaps(runs, ranges, allow=()):
     return hits
 
 
-def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progress=None, quick=False, boot_flash=None, cases=None):
+def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progress=None, quick=False, boot_flash=None, cases=None,
+          shard=None, reports=None, metrics=None):
     """base and patched are whole VSB files. Returns {ok, checks, changed}. `boot_flash` is the flash the start scenarios
     boot from (default `flash`); the cases of the patches run on `flash`. `cases` (names of case modules) runs only the
     cases of these modules; an empty list is the same as `quick`.
@@ -121,10 +122,10 @@ def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progres
     (progress.py)."""
     if len(base) != HEADER + PAYLOAD or len(patched) != HEADER + PAYLOAD:
         raise ValueError("a VSB has a 0x100-byte header and a 0x200000-byte payload")
-    if taskcache.enabled():
+    if shard is not None or reports is not None or metrics is not None or taskcache.enabled():
         # each task is kept with the files it used (taskcache.py), data files included, which a key over the .py files
         # of tools/ misses; the rest of the check is quick
-        return _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash, cases)
+        return _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash, cases, shard, reports, metrics)
     kind = "check-quick" if quick or cases == [] else "check" if cases is None else "check-cases:" + ",".join(sorted(cases))
     return bootcache.cached_result(
         kind, (bytes(base), bytes(patched), bytes(flash) if flash else b"", sorted(map(tuple, allow)), sorted(map(tuple, allow_code)))
@@ -132,7 +133,8 @@ def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progres
         lambda: _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash, cases))
 
 
-def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=False, boot_flash=None, cases=None):
+def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=False, boot_flash=None, cases=None,
+           shard=None, reports=None, metrics=None):
     """base and patched are whole VSB files. Returns {ok, checks, changed}. `quick` runs only what keeps the device safe:
     the start scenarios (normal start, update offer, panel update, start modes, EXIT, DSP once, start phase), not the
     cases of the patches, which test the patches' own code, the same in every file. `cases` limits the cases to these
@@ -207,11 +209,38 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     boot = flash if boot_flash is None else boot_flash
     names = scenario_names(boot)
     tasks += [("bootmap", "scenario_task", (name,)) for name in names]
-    tracker = progress_lib.Tracker(tasks, parallel.workers(len(tasks)) if jobs is None else jobs, progress) if progress else None
-    # Each task's result is kept with the files it used (taskcache.py): a change to one case module runs only its tasks again.
-    # Both flashes are shared data and so part of every task's key.
-    done = parallel.run_tasks(tasks, {"payload": payload, "flash": flash, "boot_flash": boot, "base": base[HEADER:]}, jobs, tracker.done if tracker else None,
-                              cache="check", on_queue=tracker.queued if tracker else None)
+    data = {"payload": payload, "flash": flash, "boot_flash": boot, "base": base[HEADER:]}
+    if shard is not None or reports is not None:
+        import check_shards
+        config = {"allow": sorted(map(tuple, allow)), "allow_code": sorted(map(tuple, allow_code)), "quick": quick, "cases": cases,
+                  "runtime": taskcache.inputs("check-shard", {}), "header": base[:HEADER].hex(), "patched_header": patched[:HEADER].hex()}
+        fingerprint = check_shards.identity(data, tasks, config, check_shards.source_identity(Path(__file__).resolve().parents[2]))
+        if shard is not None:
+            if reports is not None:
+                raise ValueError("a check cannot run and join shards together")
+            index, count = shard
+            assigned = check_shards.indices(len(tasks), index, count)
+            selected = [tasks[i] for i in assigned]
+            tracker = progress_lib.Tracker(selected, parallel.workers(len(selected)) if jobs is None else jobs, progress) if progress else None
+            measured = []
+
+            def measured_task(event):
+                measured.append(event)
+                if metrics:
+                    metrics(event)
+
+            result = parallel.run_tasks(selected, data, jobs, tracker.done if tracker else None,
+                                        cache="check", on_queue=tracker.queued if tracker else None,
+                                        on_metrics=measured_task)
+            part = check_shards.report(fingerprint, tasks, index, count, result)
+            part["metrics"] = measured
+            return part
+        done = check_shards.join(fingerprint, tasks, reports, read_size=PAYLOAD)
+    else:
+        tracker = progress_lib.Tracker(tasks, parallel.workers(len(tasks)) if jobs is None else jobs, progress) if progress else None
+        done = parallel.run_tasks(tasks, data, jobs, tracker.done if tracker else None,
+                                  cache="check", on_queue=tracker.queued if tracker else None,
+                                  **({"on_metrics": metrics} if metrics else {}))
     mfx = done.pop(0) if want(has_key_hook) else []
     splash = [done.pop(0) for _ in range(BOOT_CASES)] if want(has_start_hook) else []
     menu = [c for _ in range(len(CASES_PARTS) + 1 + LOOK_PARTS if want(has_menu) else 0) for c in done.pop(0)]
@@ -327,6 +356,16 @@ def span(text):
     return int(at, 0), int(n, 0)
 
 
+def shard_number(text):
+    import check_shards
+    try:
+        index, count = map(int, text.split("/"))
+        check_shards.indices(0, index, count)
+        return index, count
+    except (TypeError, ValueError) as error:
+        raise argparse.ArgumentTypeError("a shard is I/N with 1 <= I <= N") from error
+
+
 def main():
     import lifetime
     lifetime.load_gate()
@@ -344,13 +383,17 @@ def main():
                    help="the start scenarios and only the cases of these modules, e.g. menu_cases,remote_cases; empty = --quick")
     p.add_argument("--allow-code", action="append", default=[], type=span, metavar="FILE:LEN",
                    help="start-phase code a patch replaces on purpose (docs/patcher.md rule 2), e.g. 0x2AEAC:4")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--shard", type=shard_number, metavar="I/N", help="run one deterministic partition, without a complete verdict")
+    mode.add_argument("--join", nargs="+", type=Path, metavar="RESULT", help="validate and combine every partition with these firmware inputs")
     a = p.parse_args()
     flash = load_flash(a.flash) if a.flash else bytes(hardware_flash(a.hardware)) if a.hardware else None
     result = check(a.base.read_bytes(), a.patched.read_bytes(), flash, a.allow, a.allow_code,
                    progress=progress_lib.to_stderr, quick=a.quick, boot_flash=load_flash(a.boot_flash) if a.boot_flash else None,
-                   cases=a.cases)
+                   cases=a.cases, shard=a.shard, reports=[json.loads(path.read_text()) for path in a.join] if a.join else None,
+                   metrics=lambda event: print(json.dumps({"metrics": event}), file=sys.stderr, flush=True))
     print(json.dumps(result, indent=1, ensure_ascii=False))
-    return 0 if result["ok"] else 1
+    return 0 if (result["passed"] if a.shard else result["ok"]) else 1
 
 
 if __name__ == "__main__":
