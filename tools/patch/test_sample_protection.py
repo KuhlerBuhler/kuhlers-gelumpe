@@ -599,5 +599,158 @@ class VerifiedBaseline(unittest.TestCase):
                 self.assertEqual(s.call('can_evict', 600), 0)
 
 
+class NativePcmRangeProtection(unittest.TestCase):
+    ENTRY = 0xC00146B4
+
+    def writer(self, s):
+        s.uc.mem_write(self.ENTRY, arm.assemble(
+            'push {r11, lr}\nmov r0, r0\npop {r11, pc}', origin=self.ENTRY).bytes)
+        for site, _, _, label, *_ in p.SITES:
+            if site == self.ENTRY:
+                s.uc.mem_write(site, arm.assemble(f'b {s.sym[label]}', origin=site).bytes)
+
+    def write(self, s, destination, words=16):
+        self.writer(s)
+        return s.call(self.ENTRY, 0x60000000, destination, 0xC100B000, words)
+
+    def dirty(self, s, row):
+        return (s.u32(p.PROTECTION + (row // 32) * 4) >> (row % 32)) & 1
+
+    def test_pcm_write_is_protected_before_the_native_body_without_table_changes(self):
+        s = Swap()
+        s.slot(600, base=F['DSP_MIN'], length=64)
+        alias(s, 601, 600)
+        s.slot(602, base=F['DSP_MIN'] + 64, length=64)
+        tables = [(F['META'] + 600 * 0x45C, 0x45C), (PLAYBACK + 600 * 16, 16),
+                  (F['NAMES'] + 600 * 32, 32)]
+        before = [bytes(s.uc.mem_read(at, n)) for at, n in tables]
+        observed = []
+        s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: observed.append(self.dirty(s, 600)),
+                      begin=self.ENTRY + 4, end=self.ENTRY + 4)
+        self.write(s, F['DSP_MIN'])
+        self.assertEqual(observed, [1])
+        self.assertEqual(before, [bytes(s.uc.mem_read(at, n)) for at, n in tables])
+        self.assertEqual(s.call('can_evict', 600), 0)
+        self.assertEqual(s.call('can_evict', 601), 0)
+        self.assertEqual(s.call('can_evict', 602), 1)
+
+    def test_native_group_padding_marks_every_overlapping_row_but_not_touching_rows(self):
+        for words, expected in ((16, [1, 0, 0]), (17, [1, 1, 0]),
+                                (0x10010, [1, 0, 0]), (0, [0, 0, 0])):
+            with self.subTest(words=words):
+                s = Swap()
+                for i in range(3):
+                    s.slot(600 + i, base=F['DSP_MIN'] + i * 32, length=32)
+                self.write(s, F['DSP_MIN'], words)
+                self.assertEqual([self.dirty(s, i) for i in range(600, 603)], expected)
+
+    def test_direct_word_count_does_not_pin_a_row_touching_the_exact_end(self):
+        s = Swap()
+        s.slot(600, base=F['DSP_MIN'], length=64)
+        s.slot(601, base=F['DSP_MIN'] + 64, length=64)
+        self.write(s, F['DSP_MIN'] + 30, 17)
+        self.assertEqual([self.dirty(s, row) for row in (600, 601)], [1, 0])
+
+    def test_foreign_writes_invalidate_prepared_jobs_even_in_currently_free_space(self):
+        for loaded in (False, True):
+            s = Swap()
+            if loaded:
+                s.slot(600, base=F['DSP_MIN'], length=64)
+            s.set_state('J_STATE', 1)
+            s.set_state('J_STAGED', 32)
+            revision = s.u32(p.PROTECTION_REV)
+            self.write(s, F['DSP_MIN'])
+            self.assertEqual(s.state('J_STATE'), 0)
+            self.assertEqual(s.state('J_STAGED'), 0)
+            self.assertEqual(s.u32(p.PROTECTION_REV), revision + 1)
+            self.write(s, F['DSP_MIN'])
+            self.assertEqual(s.u32(p.PROTECTION_REV), revision + 2)
+
+    def test_noop_internal_and_uninitialized_writes_do_not_invalidate_samples(self):
+        for mode, destination, words in ((1, 0xFF900A38, 16), (1, F['DSP_MIN'], 0),
+                                         (0xFFFFFFFF, F['DSP_MIN'], 16)):
+            s = Swap()
+            s.slot(600, base=F['DSP_MIN'], length=64)
+            s.set_state('MODE', mode)
+            revision = s.u32(p.PROTECTION_REV)
+            self.write(s, destination, words)
+            self.assertEqual(self.dirty(s, 600), 0)
+            self.assertEqual(s.u32(p.PROTECTION_REV), revision)
+
+    def test_native_caller_registers_stack_and_interrupt_flags_are_preserved(self):
+        for irq in (0, 0x80):
+            s = Swap()
+            s.slot(600, base=F['DSP_MIN'], length=64)
+            self.writer(s)
+            expected = {R.UC_ARM_REG_R0 + i: 0x12340000 + i for i in range(13)}
+            expected.update({R.UC_ARM_REG_R0: 0x60000000, R.UC_ARM_REG_R1: F['DSP_MIN'],
+                             R.UC_ARM_REG_R2: 0xC100B000, R.UC_ARM_REG_R3: 16,
+                             R.UC_ARM_REG_R11: p.STATE})
+            cpsr = 0xA0000013 | irq
+            s.uc.reg_write(R.UC_ARM_REG_CPSR, cpsr)
+            s.call(self.ENTRY, regs=expected)
+            self.assertEqual(s.uc.reg_read(R.UC_ARM_REG_CPSR), cpsr)
+            self.assertEqual({reg: s.uc.reg_read(reg) for reg in expected}, expected)
+            self.assertEqual(self.dirty(s, 600), 1)
+
+    def test_overflow_and_malformed_live_extents_cannot_bypass_protection(self):
+        for base, length, destination in ((F['DSP_MIN'], 64, 0xFFFFFFF0),
+                                           (0xFFFFFFF0, 64, F['DSP_MIN'])):
+            s = Swap()
+            s.slot(600, base=base, length=length)
+            self.write(s, destination)
+            self.assertEqual(self.dirty(s, 600), 1)
+
+    def test_revision_exhaustion_keeps_the_row_protected(self):
+        s = Swap()
+        s.slot(600, base=F['DSP_MIN'], length=64)
+        s.uc.mem_write(p.PROTECTION_REV, word(0xFFFFFFFF))
+        self.write(s, F['DSP_MIN'])
+        self.assertEqual(self.dirty(s, 600), 1)
+        self.assertEqual(s.call('can_evict', 600), 0)
+
+    def test_parser_exemption_requires_its_frame_revision_row_and_idle_job(self):
+        for broken in (None, 'caller', 'helper', 'parser', 'stamp', 'revision', 'slot', 'job', 'span'):
+            with self.subTest(broken=broken):
+                s = Swap()
+                s.slot(600, base=F['DSP_MIN'], length=64)
+                s.call('protection_touch', 600)
+                fp, parent, descriptor = 0xC100C000, 0xC100D000, 0xC100B000
+                parser = parent + 52
+                stamp = parser + sample_seek.FRAME
+                s.uc.mem_write(fp - 4, word(parent))
+                s.uc.mem_write(parent, word(0xC004EF8C))
+                s.uc.mem_write(parent + 48, word(0xC0036320))
+                s.uc.mem_write(stamp - 36, word(600))
+                s.uc.mem_write(stamp - 4, word(s.sym['boot_parse_done']))
+                s.uc.mem_write(stamp, word(s.u32(p.PROTECTION_REV)) + word(1))
+                s.uc.mem_write(descriptor, struct.pack('<H', 600))
+                lr, destination = 0xC0014CE0, F['DSP_MIN']
+                if broken == 'caller': lr = 0xC1001234
+                if broken == 'helper': s.uc.mem_write(parent, word(0xC1001234))
+                if broken == 'parser': s.uc.mem_write(stamp - 4, word(0xC1001234))
+                if broken == 'stamp': s.uc.mem_write(stamp + 4, word(0))
+                if broken == 'revision': s.uc.mem_write(stamp, word(s.u32(p.PROTECTION_REV) - 1))
+                if broken == 'slot': s.uc.mem_write(descriptor, struct.pack('<H', 601))
+                if broken == 'job': s.set_state('J_STATE', 1)
+                if broken == 'span': destination += 64
+                found = s.call('protection_pcm_boot_row', fp, lr, destination, 32,
+                               regs={R.UC_ARM_REG_R8: descriptor})
+                self.assertEqual(found, 600 if broken is None else 0xFFFFFFFF)
+
+    def test_the_maximum_row_scan_has_a_fixed_instruction_budget(self):
+        s = Swap()
+        for row in range(500, p.SAMPLE_COUNT):
+            s.slot(row, base=F['DSP_MIN'], length=32, in_file=False)
+        instructions = [0]
+        self.writer(s)
+        hook = s.uc.hook_add(unicorn.UC_HOOK_CODE,
+                            lambda *_: instructions.__setitem__(0, instructions[0] + 1))
+        s.call(self.ENTRY, 0x60000000, F['DSP_MIN'], 0xC100B000, 16)
+        s.uc.hook_del(hook)
+        self.assertTrue(all(self.dirty(s, row) for row in range(500, p.SAMPLE_COUNT)))
+        self.assertLess(instructions[0], 50_000)
+
+
 if __name__ == '__main__':
     unittest.main()

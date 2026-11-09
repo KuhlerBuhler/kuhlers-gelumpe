@@ -66,6 +66,7 @@ export const CHAINS = {
     { id: "play-level-store", sites: [0xC007F94C] },
     { id: "tune-increment-store", sites: [0xC007F0EC] },
     { id: "play-level-increment-store", sites: [0xC007EFE8] },
+    { id: "pcm-write-range", sites: [0xC00146B4] },
     { id: "pcm-short-read", sites: [0xC004EF58] },
     { id: "pcm-parser-write", sites: [0xC0036320, 0xC00363E4] },
   ],

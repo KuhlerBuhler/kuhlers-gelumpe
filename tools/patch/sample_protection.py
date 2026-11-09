@@ -64,7 +64,11 @@ def validate_firmware(vsb):
 def source(state):
     if state & 3 or not 0 <= state <= 0x100000000 - SIZE:
         raise ValueError('word aligned protection state required')
-    return f'.equ P_STATE, {state:#x}\n' + SOURCE + wrappers() + store_wrappers()
+    return (f'.equ P_STATE, {state:#x}\n.equ PARSER_FRAME, {sample_seek.FRAME}\n'
+            f'.equ ANCHOR_FRAME, {sample_seek.ANCHOR_FRAME}\n'
+            f'.equ ANCHOR_LR, {sample_seek.ANCHOR_CALLER_LR}\n'
+            f'.equ ANCHOR_RETURN, {sample_seek.ANCHOR_RETURN}\n'
+            + SOURCE + wrappers() + store_wrappers())
 
 
 def wrappers():
@@ -134,56 +138,247 @@ def store_wrappers():
 
 
 def boot_stamp():
-    pushed = 24
-    saved_lr = sample_seek.FRAME - 4 + pushed
-    direct = sample_seek.FRAME + pushed
-    return f'''
+    return r'''
     ldr r0, [sp, #20]
     ldr r1, =0xC00362A0
     cmp r0, r1
     bne protect_reserve_out
-    ldr r3, [sp, #{saved_lr}]
-    ldr r1, =boot_parse_done
-    cmp r3, r1
-    ldreq r0, ={direct}
-    beq protect_boot_stamp
-    ldr r0, =PARSER
-    ldr r0, [r0]
-    and r1, r0, #0xFF000000
-    cmp r1, #0xEA000000
-    bne protect_reserve_out
-    mov r0, r0, lsl #8
-    mov r0, r0, asr #6
-    ldr r1, =PARSER + 8
-    add r0, r0, r1
-    add r1, r0, #{sample_seek.ANCHOR_RETURN}
-    cmp r3, r1
-    bne protect_reserve_out
-    ldr r1, =protection_anchor_pattern
-    mov r2, #8
-protect_anchor_check:
-    ldr r3, [r0], #4
-    ldr r12, [r1], #4
-    cmp r3, r12
-    bne protect_reserve_out
-    subs r2, r2, #1
-    bne protect_anchor_check
-    ldr r0, [sp, #{direct + sample_seek.ANCHOR_CALLER_LR}]
-    ldr r1, =boot_parse_done
-    cmp r0, r1
-    bne protect_reserve_out
-    ldr r0, ={direct + sample_seek.ANCHOR_FRAME}
-protect_boot_stamp:
+    add r0, sp, #24
+    bl protection_boot_frame
+    cmp r0, #0
+    beq protect_reserve_out
     ldr r1, =P_STATE
     ldr r1, [r1, #128]
-    str r1, [sp, r0]
-    add r0, r0, #4
+    str r1, [r0]
     mov r1, #1
-    str r1, [sp, r0]
+    str r1, [r0, #4]
 '''
 
 
 SOURCE = r'''
+; r0 parser locals. Returns its verified stamp address and saved logical slot.
+protection_boot_frame:
+    push {r4-r6, lr}
+    mov r4, r0
+    ldr r1, =0xC0000000
+    cmp r4, r1
+    blo pbf_no
+    ldr r1, =0xC4000000 - PARSER_FRAME - ANCHOR_FRAME - 8
+    cmp r4, r1
+    bhi pbf_no
+    tst r4, #3
+    bne pbf_no
+    add r5, r4, #PARSER_FRAME
+    ldr r6, [r5, #-36]
+    ldr r3, [r5, #-4]
+    ldr r1, =boot_parse_done
+    cmp r3, r1
+    beq pbf_yes
+    ldr r0, =PARSER
+    ldr r0, [r0]
+    and r1, r0, #0xFF000000
+    cmp r1, #0xEA000000
+    bne pbf_no
+    mov r0, r0, lsl #8
+    mov r0, r0, asr #6
+    ldr r1, =PARSER + 8
+    add r0, r0, r1
+    add r1, r0, #ANCHOR_RETURN
+    cmp r3, r1
+    bne pbf_no
+    ldr r1, =protection_anchor_pattern
+    mov r2, #8
+pbf_anchor:
+    ldr r3, [r0], #4
+    ldr r12, [r1], #4
+    cmp r3, r12
+    bne pbf_no
+    subs r2, r2, #1
+    bne pbf_anchor
+    ldr r0, [r5, #ANCHOR_LR]
+    ldr r1, =boot_parse_done
+    cmp r0, r1
+    bne pbf_no
+    add r5, r5, #ANCHOR_FRAME
+pbf_yes:
+    mov r0, r5
+    mov r1, r6
+    pop {r4-r6, pc}
+pbf_no:
+    mov r0, #0
+    pop {r4-r6, pc}
+.pool
+
+; r0 native FP, r1 return PC, r2 DSP destination, r3 bytes. Returns a row or -1.
+protection_pcm_boot_row:
+    push {r4-r9, r12, lr}
+    mov r7, r8
+    mov r8, r2
+    mov r9, r3
+    ldr r2, =0xC0014C88
+    cmp r1, r2
+    ldrne r2, =0xC0014CE0
+    cmpne r1, r2
+    bne pcb_no
+    ldr r1, =0xC0000004
+    cmp r0, r1
+    blo pcb_no
+    ldr r1, =0xC4000000
+    cmp r0, r1
+    bhs pcb_no
+    tst r0, #3
+    bne pcb_no
+    ldr r4, [r0, #-4]
+    ldr r1, =0xC0000000
+    cmp r4, r1
+    blo pcb_no
+    ldr r1, =0xC4000000 - 52 - PARSER_FRAME - ANCHOR_FRAME - 8
+    cmp r4, r1
+    bhi pcb_no
+    tst r4, #3
+    bne pcb_no
+    ldr r0, [r4]
+    ldr r1, =0xC004EF8C
+    cmp r0, r1
+    bne pcb_no
+    ldr r0, [r4, #48]
+    ldr r1, =0xC0036320
+    cmp r0, r1
+    ldrne r1, =0xC00363E4
+    cmpne r0, r1
+    bne pcb_no
+    add r0, r4, #52
+    bl protection_boot_frame
+    cmp r0, #0
+    beq pcb_no
+    mov r6, r1
+    ldr r1, [r0, #4]
+    cmp r1, #1
+    bne pcb_no
+    ldr r1, [r0]
+    ldr r2, =P_STATE
+    ldr r2, [r2, #128]
+    cmp r1, r2
+    bne pcb_no
+    ldr r0, =ST
+    ldr r1, [r0, #J_STATE]
+    ldr r2, [r0, #J_STAGED]
+    orrs r1, r1, r2
+    bne pcb_no
+    ldr r1, =0xC0000000
+    cmp r7, r1
+    blo pcb_no
+    ldr r1, =0xC3FFFFFE
+    cmp r7, r1
+    bhi pcb_no
+    tst r7, #1
+    bne pcb_no
+    ldrh r0, [r7]
+    cmp r0, r6
+    bne pcb_no
+    bl physical
+    cmp r0, #500
+    blo pcb_no
+    ldr r1, =SAMPLE_COUNT
+    cmp r0, r1
+    bhs pcb_no
+    mov r6, r0
+    bl protection_dirty
+    cmp r0, #1
+    bne pcb_no
+    ldr r0, =0x45C
+    mul r1, r6, r0
+    ldr r0, =META
+    add r4, r0, r1
+    ldrb r0, [r4, #11]
+    cmp r0, #1
+    bne pcb_no
+    ldr r0, [r4]
+    cmp r8, r0
+    blo pcb_no
+    ldr r1, =DSP_MIN
+    cmp r0, r1
+    blo pcb_no
+    ldr r1, [r4, #4]
+    adds r1, r1, #31
+    bcs pcb_no
+    bic r1, r1, #31
+    adds r0, r0, r1
+    bcs pcb_no
+    ldr r1, =DSP_END
+    cmp r0, r1
+    bhi pcb_no
+    adds r1, r8, r9
+    bcs pcb_no
+    cmp r1, r0
+    bhi pcb_no
+    mov r0, r6
+    pop {r4-r9, r12, pc}
+pcb_no:
+    mvn r0, #0
+    pop {r4-r9, r12, pc}
+.pool
+
+; r0 DSP destination, r1 bytes, r2 qualified parser row or -1. IRQs are masked.
+protection_pcm_range:
+    push {r4-r10, lr}
+    mov r4, r0
+    adds r5, r0, r1
+    movcs r4, #0
+    mvncs r5, #0
+    ldr r0, =DSP_END
+    cmp r4, r0
+    bhs pcr_out
+    ldr r0, =DSP_MIN
+    cmp r5, r0
+    bls pcr_out
+    mov r8, r2
+    mov r9, #0
+    cmp r8, #500
+    blo pcr_invalidate
+    ldr r0, =SAMPLE_COUNT
+    cmp r8, r0
+    blo pcr_begin
+pcr_invalidate:
+    mvn r0, #0
+    mov r1, #1
+    bl protection_bit
+    mov r9, #1
+pcr_begin:
+    mov r6, #500
+    ldr r7, =META + 500 * 0x45C
+pcr_loop:
+    ldrb r0, [r7, #11]
+    cmp r0, #1
+    bne pcr_next
+    ldr r0, [r7]
+    ldr r1, [r7, #4]
+    adds r1, r0, r1
+    bcs pcr_mark
+    cmp r0, r5
+    bhs pcr_next
+    cmp r1, r4
+    bls pcr_next
+    cmp r6, r8
+    beq pcr_next
+pcr_mark:
+    mov r0, r6
+    cmp r9, #0
+    moveq r1, #1
+    movne r1, #2
+    bl protection_bit
+    mov r9, #1
+pcr_next:
+    ldr r0, =0x45C
+    add r7, r7, r0
+    add r6, r6, #1
+    ldr r0, =SAMPLE_COUNT
+    cmp r6, r0
+    blo pcr_loop
+pcr_out:
+    pop {r4-r10, pc}
+.pool
+
 protection_init:
     ldr r0, =P_STATE
     mov r1, #0

@@ -1,7 +1,8 @@
-"""Native PCM results at the sample helper and parser continuation points."""
+"""Native PCM range protection and sample/parser result propagation."""
 import hashlib
 
 HOOKS = (
+    (0xC00146B4, 0xE92D4800, 'protect_pcm_write'),
     (0xC004EF58, 0xE3A03000, 'protect_pcm_short_read'),
     (0xC0036320, 0xE085500A, 'protect_pcm_parser_write'),
     (0xC00363E4, 0xE085500A, 'protect_pcm_parser_tail'),
@@ -25,6 +26,41 @@ def source():
 
 
 SOURCE = r'''
+protect_pcm_write:
+    push {r0-r12, lr}
+    .word 0xE10F4000
+    push {r4, r5}
+    orr r0, r4, #0x80
+    .word 0xE121F000
+    ldr r11, =ST
+    ldr r0, [r11, #MODE]
+    cmp r0, #2
+    bhi pcm_write_out
+    mov r3, r3, lsl #16
+    mov r3, r3, lsr #16
+    cmp r3, #0
+    beq pcm_write_out
+    mov r3, r3, lsl #1
+    mov r2, r1
+    ldr r0, [sp, #52]
+    ldr r1, [sp, #60]
+    bl protection_pcm_boot_row
+    mov r2, r0
+    ldr r0, [sp, #12]
+    ldr r1, [sp, #20]
+    mov r1, r1, lsl #16
+    mov r1, r1, lsr #16
+    mov r1, r1, lsl #1
+    bl protection_pcm_range
+pcm_write_out:
+    pop {r4, r5}
+    .word 0xE121F004
+    .word 0xE128F004
+    pop {r0-r12, lr}
+    .word 0xE92D4800
+    b 0xC00146B8
+.pool
+
 protect_pcm_short_read:
     cmp r0, #0
     beq pcm_short_ready

@@ -61,7 +61,7 @@ test("its code areas and loader state fit the declared space and its hooks branc
   const guards = PATCH.hooks.filter(h => h.chain === "sample-swap-native-sample");
   const mutations = PATCH.hooks.filter(h => h.chain === "sample-swap-mutations");
   assert.deepEqual(mutations.map(h => Number(h.site)), [0xC004E558, 0xC004EDF0, 0xC004E63C, 0xC004E710,
-    0xC004E7E8, 0xC004E8C8, 0xC004E93C, 0xC004EFF4, 0xC007F9F0, 0xC007F94C, 0xC007F0EC, 0xC007EFE8, 0xC004EF58, 0xC0036320, 0xC00363E4]);
+    0xC004E7E8, 0xC004E8C8, 0xC004E93C, 0xC004EFF4, 0xC007F9F0, 0xC007F94C, 0xC007F0EC, 0xC007EFE8, 0xC00146B4, 0xC004EF58, 0xC0036320, 0xC00363E4]);
   assert.ok(mutations.every(h => h.swallow));
   assert.deepEqual(guards.map(h => Number(h.site)), [0xC004F128, 0xC004F15C, 0xC0082DA8, 0xC0082DD8, 0xC0082E5C,
     0xC004F20C, 0xC0082F1C, 0xC0039CC4, 0xC0039B2C, 0xC0039C30]);

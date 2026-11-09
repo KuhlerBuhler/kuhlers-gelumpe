@@ -43,6 +43,10 @@ und ist nicht durch die unterschiedlichen Konstanten 421 beziehungsweise
 274 begrenzt. Diese Konstanten gehören zu anderen Teilen der Funktion.
 Eine rein nach Funktionsnamen gewählte Ausnahme wäre unbelegt.
 
+Die anschließende [Korrektur des Bereichsschutzes](2026-11-09-sample-pcm-bereichsschutz.md)
+schließt die hier gemessene Blockschreiber-Lücke im Emulator. Die folgenden
+Fehlerwerte beschreiben den Stand vor dieser Korrektur.
+
 ## Gemessen im Emulator: gleiche Tabellen, andere PCM
 
 Die Gegenprobe benutzt erzeugte Samples und eine daraus gebaute Karte.

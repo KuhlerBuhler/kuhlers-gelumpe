@@ -8,6 +8,13 @@ Produktionspatches wurden bei dieser Prüfung nicht geändert. Erzeugte Samples
 und Kartenabbilder bleiben die Grundlage der Tests; eigene Firmwaredateien und
 vollständige Laufprotokolle liegen außerhalb des Repos.
 
+## Nachtrag: PCM-Bereichsschutz
+
+Die später geprüfte [Korrektur des PCM-Bereichsschutzes](2026-11-09-sample-pcm-bereichsschutz.md)
+schließt die unten beschriebene direkte Blockschreiber-Lücke im Emulator.
+Die folgenden roten Gegenproben dokumentieren den Stand vor dieser Korrektur.
+Besitzerprüfung, Aufnahmeveröffentlichung und die Gerätefreigabe bleiben offen.
+
 ## Korrektur zur Hacktribe-Testbasis
 
 Die zuerst verwendete Hacktribe-Datei war bereits verändert. Die 738

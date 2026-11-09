@@ -77,6 +77,12 @@ wird. Ein Startmodus ohne Hauptseite bleibt über die volle Beobachtungsdauer
 erfasst. Firmware, Startfreigaben und RAM-Besitz werden dadurch nicht geändert.
 Dies ist eine Korrektur der Emulatorbeobachtung und keine Gerätemessung.
 
+## Nachtrag: direkte PCM-Schreibzugriffe
+
+Die nach der Zusammenführung geprüfte [Korrektur des Bereichsschutzes](2026-11-09-sample-pcm-bereichsschutz.md)
+behandelt die direkte Blockschreiber-Lücke. Die folgende Bewertung hält den
+Stand unmittelbar nach der Zusammenführung fest.
+
 ## Offen: Freigabe und Gerät
 
 Die [vorherige Gesamtprüfung](2026-11-09-sample-swap-pruefung.md) bleibt

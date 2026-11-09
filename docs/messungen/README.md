@@ -25,6 +25,7 @@ Speicheruntersuchung zusammen. Anleitungen zum Nachvollziehen am eigenen Gerät 
 - [Sample Edit: Sicherung und tatsächliches Bearbeitungsziel](2026-11-08-sample-ram-bearbeiten.md)
 - [Sample-Swap: Gesamtprüfung und offene Schutzlücken](2026-11-09-sample-swap-pruefung.md)
 - [Sample-Swap: Zusammenführung der Sicherheitskorrekturen](2026-11-09-sample-swap-pr309.md)
+- [Sample-Swap: Schutz direkter PCM-Schreibzugriffe](2026-11-09-sample-pcm-bereichsschutz.md)
 - [Sample-Swap: Namen vor dem Laden der Audiodaten](2026-11-06-sample-swap-namen.md)
 
 
