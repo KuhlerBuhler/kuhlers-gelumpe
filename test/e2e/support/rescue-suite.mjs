@@ -660,10 +660,9 @@ export function rescueSuite(index, parts) {
     await answer(page, DEVICES.red.title);
     assert.match(await chatText(page), /Hacktribe bringt eigene Klänge mit/);
     await answer(page, "Ja, Hacktribe ist oder war drauf");
-    assert.match(await said(page), /Datei namens e2sSample\.all/);
-    await answer(page, "Ja, ich hab die Datei");
     await settle(page);
-    assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "KORG/blechtribe/Sample/e2sSample.all");
+    assert.match(await chatText(page), /Weg ist dabei nichts/, "the sounds are not lost");
+    assert.doesNotMatch(await chatText(page), /Ohne Kopie|nichts gesichert/);
     assert.match(await said(page), /Was läuft gerade/, "what runs, asked once");
     await answer(page, "Hacktribe");
     assert.match(await said(page), /Original.*BLECH/s, "the way back goes through Korg's original");
@@ -678,9 +677,8 @@ export function rescueSuite(index, parts) {
     await answer(page, label("samples"));
     await answer(page, DEVICES.blue.title);
     await answer(page, "Ja, Hacktribe ist oder war drauf");
-    await answer(page, "Nein, ich habe nichts gesichert");
     await settle(page);
-    assert.match(await page.locator("#cee-rescue-chat").textContent(), /Ohne Kopie kann die App sie nicht zurückholen/);
+    assert.match(await page.locator("#cee-rescue-chat").textContent(), /Weg ist dabei nichts/);
     await settle(page);
     await answer(page, "Hacktribe");
     assert.match(await chatText(page), /Läuft nur Hacktribe auf deiner blauen, geht es in zwei Schritten/);
