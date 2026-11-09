@@ -18,7 +18,7 @@
  */
 import FX from "../../data/map/fx.mjs";
 import FX_RANGES from "../../data/map/fx-ranges.mjs";
-import { number as localNumber } from "../text.mjs";
+import { number as localNumber, localize } from "../text.mjs";
 
 const round = (v, digits = 0) => Number(v.toFixed(digits));
 
@@ -84,7 +84,7 @@ export function choices(name, labels, { first = 0, domain = null } = {}) {
       if (!known.has(v)) throw new RangeError(`${value} is not a choice of ${name}`);
       return v;
     },
-    format: raw => known.get(raw) ?? `unbekannt (${raw})`,
+    format: raw => known.get(raw) ?? localize("unbekannt ({raw})", { raw }),
   };
 }
 
@@ -209,12 +209,12 @@ export const CONVERTERS = {
     name: "oscPitchCents", unit: "Cent", domain: [-63, 63],
     fromRaw: r => Math.sign(r) * (PITCH_CENTS[Math.abs(r)] ?? PITCH_CENTS[63]),
     format: (r, v) => {
-      if (Math.abs(r) > 63) return `unbekannt (${r})`;
+      if (Math.abs(r) > 63) return localize("unbekannt ({raw})", { raw: r });
       if (v === 0) return "0 Cent";
       const s = v > 0 ? "+" : "-";
       const a = Math.abs(v);
-      if (a % 1200 === 0) return `${s}${a / 1200} Okt.`;
-      if (a % 100 === 0) return `${s}${a / 100} Halbt.`;
+      if (a % 1200 === 0) return localize("{value} Okt.", { value: `${s}${a / 1200}` });
+      if (a % 100 === 0) return localize("{value} Halbt.", { value: `${s}${a / 100}` });
       return `${s}${a} Cent`;
     },
   }),
@@ -256,7 +256,7 @@ export const CONVERTERS = {
       return n;
     },
     format: r => ({ 0: "OFF", 1: "electribe LPF", 7: "electribe HPF", 12: "electribe BPF" })[r]
-      ?? `Hacktribe-Filter ${r}`,
+      ?? localize("Hacktribe-Filter {raw}", { raw: r }),
   },
 
   noteName: numeric({
@@ -287,7 +287,7 @@ export const CONVERTERS = {
       if (n === 127) return 127;
       return Math.max(0, Math.min(96, n));
     },
-    format: r => (r <= 96 ? `${r}/96` : r === 127 ? "Tie (laut Korg)" : `unbekannt (${r})`),
+    format: r => (r <= 96 ? `${r}/96` : r === 127 ? "Tie (laut Korg)" : localize("unbekannt ({raw})", { raw: r })),
   },
 
   /** Stored upside down: 127 means level 0. */
@@ -353,7 +353,7 @@ export const CONVERTERS = {
       if (n !== 0 && !FX_SOURCES.some(([raw]) => raw === n)) throw new RangeError(`${v} is not a control source`);
       return n;
     },
-    format: r => (r === 0 ? "aus" : FX_SOURCES.find(([raw]) => raw === r)?.[1] ?? `unbekannt (${r})`),
+    format: r => (r === 0 ? "aus" : FX_SOURCES.find(([raw]) => raw === r)?.[1] ?? localize("unbekannt ({raw})", { raw: r })),
   },
 
   fxChain: {
@@ -364,7 +364,7 @@ export const CONVERTERS = {
       if (!FX_CHAINS.some(([raw]) => raw === n)) throw new RangeError(`${v} is not a known target`);
       return n;
     },
-    format: r => FX_CHAINS.find(([raw]) => raw === r)?.[1] ?? `unbekannt (${r})`,
+    format: r => FX_CHAINS.find(([raw]) => raw === r)?.[1] ?? localize("unbekannt ({raw})", { raw: r }),
   },
 
   /** A unit number; its name comes from the unit table, which the page loads. */
@@ -386,6 +386,16 @@ export const CONVERTERS = {
     ...choices("modTarget", ["Pan", "Pitch", "OSC", "Filter", "Level", "IFX"]),
   },
 };
+
+// Resolve at display time: changing the language must not freeze choice labels at module load.
+for (const c of Object.values(CONVERTERS)) {
+  const format = c.format;
+  c.format = (...args) => localize(format(...args));
+  if (c.choices) {
+    const choices = c.choices;
+    Object.defineProperty(c, "choices", { get: () => choices.map(o => ({ ...o, label: localize(o.label) })) });
+  }
+}
 
 export function converter(name) {
   const c = CONVERTERS[name];

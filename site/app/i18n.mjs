@@ -8,6 +8,7 @@ import { fill, isText, useTexts } from "../../src/text.mjs";
 // table, not eleven. The names are here so the settings can list every language without loading it.
 const NAMES = { de: "Deutsch", en: "English", fr: "Français", it: "Italiano", es: "Español", nl: "Nederlands", pt: "Português", pl: "Polski", cs: "Čeština", ru: "Русский", uk: "Українська" };
 const TABLES = { de };
+const DEVICE_TEXTS = {};
 /** The languages there are, with their own names for the settings. */
 export const LANGUAGES = Object.entries(NAMES);
 
@@ -31,7 +32,11 @@ export function setLanguage(id) {
 /** Loads the table of `id` (once) and switches to it; an unknown id, or a table that does not load, means German. */
 export async function loadLanguage(id) {
   if (NAMES[id] && !TABLES[id]) {
-    try { TABLES[id] = (await import(`./i18n-${id}.mjs`)).default; } catch { /* German stays */ }
+    try {
+      const table = (await import(`./i18n-${id}.mjs`)).default;
+      if (id === "fr") DEVICE_TEXTS.fr = (await import("./i18n-fr-device.mjs")).default;
+      TABLES[id] = table;
+    } catch { /* German stays */ }
   }
   setLanguage(id);
 }
@@ -51,7 +56,13 @@ export function t(key, vars = {}) {
   return fill(TABLES[lang][key] ?? de[key] ?? key, vars);
 }
 
-useTexts(t, locale);
+/** Device metadata predates keyed app texts; preserve its German fallback and explicit translations. */
+export function localize(value, vars = {}) {
+  const source = value && typeof value === "object" ? value[lang] ?? value.de : value;
+  return fill(String(DEVICE_TEXTS[lang]?.[source] ?? source ?? ""), vars);
+}
+
+useTexts(t, locale, localize);
 
 /** Like t(), but a value may be a DOM node or a list of them: the text comes back as a flat list of strings and nodes, for append(). */
 export function tNodes(key, vars = {}) {

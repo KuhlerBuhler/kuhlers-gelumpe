@@ -8,7 +8,7 @@
  */
 import { converter } from "../../src/map/convert.mjs";
 import { typeOf, describe } from "../../src/map/index.mjs";
-import { t } from "./i18n.mjs";
+import { t, localize } from "./i18n.mjs";
 
 let seq = 0;
 const uid = prefix => `${prefix}-${++seq}`;
@@ -19,7 +19,7 @@ const el = (tag, props = {}, children = []) => {
   return node;
 };
 
-const label = f => f.label.de;
+const label = f => localize(f.label);
 
 /** Which control fits a field. */
 export function controlKind(f) {
@@ -41,7 +41,7 @@ export function controlKind(f) {
 export function control(f, read, onChange, { compact = false } = {}) {
   const kind = controlKind(f);
   const id = uid("cee-f");
-  const help = f.note ? el("p", { className: "ui-field-help", id: `${id}-help`, textContent: f.note }) : null;
+  const help = f.note ? el("p", { className: "ui-field-help", id: `${id}-help`, textContent: localize(f.note) }) : null;
 
   if (kind === "text") {
     const input = el("input", { className: "input", id, type: "text", maxLength: typeOf(f).width, spellcheck: false, autocomplete: "off" });

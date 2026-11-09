@@ -18,7 +18,7 @@ const FORBIDDEN = /\.(vsb|syx|e2sallpat|e2spat|all|wav|aif|aiff)$/i;
 // documents: COMPONENTS.md is an overview of every component, which is what
 // the editor must not publish. Of assets/blechy only the patch and the picture go out, not the sounds.
 const SKIP = new Set(["src/node.mjs", "src/webmidi.mjs"]);
-const SKIP_PATTERN = /^(site\/design\/.*\.md|assets\/blechy\/.*\.(mp3|bin)|docs\/(?!plugins\.md$).+)$/;
+const SKIP_PATTERN = /^(site\/design\/.*\.md|assets\/blechy\/.*\.(mp3|bin)|docs\/(?!plugins(?:\.(?:en|fr))?\.md$).+)$/;
 
 rmSync(DIST, { recursive: true, force: true });
 for (const [prefix, dir] of ROUTES) {
