@@ -6,6 +6,7 @@ const SOLID = new Set(["rec", "stop", "play", "pause"]);
 
 const PATHS = {
   chevronDown: ["m6 9 6 6 6-6"],
+  globe: ["M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20", "M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20", "M2 12h20"],
   x: ["M18 6 6 18", "m6 6 12 12"],
   slidersHorizontal: ["M21 4h-7", "M10 4H3", "M21 12h-9", "M8 12H3", "M21 20h-5", "M12 20H3", "M14 2v4", "M8 10v4", "M16 18v4"],
   grid: ["M3 3h7v7H3Z", "M14 3h7v7h-7Z", "M3 14h7v7H3Z", "M14 14h7v7h-7Z"],

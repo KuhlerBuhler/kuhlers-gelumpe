@@ -20,6 +20,11 @@ export const FREE_RUNS = [
     evidence: "tools/patch/script_hooks.py, MORE3_START (gemessen 2026-10-28 in allen drei Builds)",
   },
   {
+    start: 0xc014f000, end: 0xc014fc00,
+    what: "FF im Abbild vor dem Code von beat-eighth (0xC014FC00), die Fläche von ht-osc: Code, Tabelle und am Ende das Einstellungswort von HT OSC",
+    evidence: "docs/messungen/2026-11-08-ht-osc-freie-plaetze.md (gemessen 2026-11-08 in allen drei Builds)",
+  },
+  {
     start: 0xc014fe00, end: 0xc014ff00,
     what: "FF im Abbild, die Fläche von last-pattern: sein Code und am Ende das Einstellungswort von LAST PATTERN",
     evidence: "docs/messungen/2026-10-28-letztes-pattern.md (gemessen 2026-10-28 in allen drei Builds)",

@@ -51,3 +51,18 @@ export function e2Outline(label) {
     + PADS.map(p => rect(p, 1.5)).join("")
     + `</g>`);
 }
+
+/** The six keys right of the display by their place in BUTTONS, in pairs as on the panel (panel.mjs). */
+const KEYS = { editLeft: 8, editRight: 9, menu: 10, exit: 11, shift: 12, write: 13 };
+
+/** The Electribe as lines, `press` filled (the key to press) and `near` outlined (keys used on the way), for the Rettung page. */
+export function e2Keys(label, { press = [], near = [] } = {}) {
+  const node = e2Outline(label);
+  node.classList.add("cee-e2-keys");
+  const mark = cls => id => {
+    const [x, y, w, h] = BUTTONS[KEYS[id]];
+    return `<rect x="${x - 1}" y="${y - 1}" width="${w + 2}" height="${h + 2}" rx="1.5" class="${cls}"/>`;
+  };
+  node.insertAdjacentHTML("beforeend", near.map(mark("cee-e2-near")).join("") + press.map(mark("cee-e2-press")).join(""));
+  return node;
+}

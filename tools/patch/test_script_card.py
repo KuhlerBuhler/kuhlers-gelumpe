@@ -79,6 +79,8 @@ class NativeCardTests(unittest.TestCase):
         for offset in range(STATUS, STATUS + 16, 4): m.write(m.runtime + offset, 0xffffffff)
         m.fat = FakeFat(m, data, **fat)
         m.uc.mem_write(0xC01F7000, b'\xff' * 0x1000)
+        m.uc.mem_map(0xC014F000, 0x1000)
+        m.uc.mem_write(0xC014F000, b'\xff' * 0x1000)   # a set without the patch ht-osc: the settings load does not call it
         return m, built
 
     def load(self, m):

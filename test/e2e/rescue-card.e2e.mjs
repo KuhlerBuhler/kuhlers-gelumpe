@@ -89,12 +89,15 @@ async function withCard(files, { move = true } = {}) {
   return page;
 }
 
-/** No File in the menu, the folder `i` of the running firmware, then "show me your card" and the pick. */
-async function lookAtCard(page, i) {
+/** No File in the menu for the colour, Korg's file as the one put on last, the running firmware by its answer, then "show me your card" and the pick. */
+async function lookAtCard(page, colour, firmware) {
   await answer(page, CASES.find(c => c.id === "nofile").label);
+  await answer(page, colour);
   await answer(page, "Im Menü bei SOFTWARE UPDATE");
   await settle(page);
-  await page.locator("#cee-rescue-answers .cee-rescue-folder").nth(i).click();
+  await answer(page, t("rescue.last.korg"));
+  await settle(page);
+  await answer(page, firmware);
   await answer(page, "Zeig mir deine SD-Karte");
   assert.match(await said(page), /löschen tu ich nie etwas/);
   await page.click("#cee-rescue-case-card-pick");
@@ -106,7 +109,7 @@ const RED = FOLDERS[0].path;
 
 test("the card: a wrong name in the right folder becomes SYSTEM.VSB after one click, then the talk goes on", async () => {
   const page = await withCard({ "KORG/electribe sampler/System/SYSTEM (1).VSB": "sampler" });
-  const chat = await lookAtCard(page, 0);
+  const chat = await lookAtCard(page, "Rot", "Korgs Original");
   assert.match(chat, /Der Name stimmt nicht/);
   assert.match(chat, /So bring ich das in Ordnung/);
   await page.click("#cee-rescue-case-card-fix");
@@ -121,7 +124,7 @@ test("the card: a wrong name in the right folder becomes SYSTEM.VSB after one cl
 
 test("the card: the right file in the wrong folder goes over, the other Electribe's file at the place goes aside as .old", async () => {
   const page = await withCard({ "SYSTEM.VSB.VSB": "sampler", [RED]: "synth", "Downloads/notes.vsb": "junk" });
-  const chat = await lookAtCard(page, 0);
+  const chat = await lookAtCard(page, "Rot", "Korgs Original");
   for (const words of [/für die andere Electribe/, /falschen Ordner/, /Bytes groß/, /leg ich beiseite/]) assert.match(chat, words);
   await page.click("#cee-rescue-case-card-fix");
   await settle(page);
@@ -132,7 +135,7 @@ test("the card: the right file in the wrong folder goes over, the other Electrib
 
 test("the card: only the other Electribe's file, so Blechy moves nothing and says why", async () => {
   const page = await withCard({ "KORG/electribe/System/SYSTEM.VSB": "sampler" });
-  const chat = await lookAtCard(page, 1);
+  const chat = await lookAtCard(page, "Blau", "Korgs Original");
   assert.match(chat, /für die andere Electribe/);
   assert.match(chat, /Keine davon passt/);
   assert.equal(await page.locator("#cee-rescue-case-card-fix").count(), 0);
@@ -142,7 +145,7 @@ test("the card: only the other Electribe's file, so Blechy moves nothing and say
 
 test("the card: where the browser can only copy, the copy goes to the place and Blechy says the original stays", async () => {
   const page = await withCard({ "SYSTEM (1).VSB": "sampler" }, { move: false });
-  await lookAtCard(page, 0);
+  await lookAtCard(page, "Rot", "Korgs Original");
   await page.click("#cee-rescue-case-card-fix");
   await settle(page);
   assert.deepEqual(await page.evaluate(() => window.__card()), { [RED]: "sampler", "SYSTEM (1).VSB": "sampler" });
@@ -162,9 +165,12 @@ test("the card in a browser without write access: Blechy reads the folder and sa
   await page.addInitScript(() => { delete window.showDirectoryPicker; delete Window.prototype.showDirectoryPicker; });
   await page.goto(`${h.url}#rescue`);
   await answer(page, CASES.find(c => c.id === "nofile").label);
+  await answer(page, "Rot");
   await answer(page, "Im Menü bei SOFTWARE UPDATE");
   await settle(page);
-  await page.locator("#cee-rescue-answers .cee-rescue-folder").first().click();
+  await answer(page, t("rescue.last.korg"));
+  await settle(page);
+  await answer(page, "Korgs Original");
   await answer(page, "Zeig mir deine SD-Karte");
   await settle(page);
   const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.click("#cee-rescue-case-card-pick")]);

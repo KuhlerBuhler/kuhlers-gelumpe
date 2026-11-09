@@ -9,9 +9,11 @@ export const LINKS = {
   hacktribe: "https://github.com/bangcorrupt/hacktribe",
   issues: "https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues",
   instagram: "https://www.instagram.com/kuhler_buhler/",
-  korgRed: "https://www.korg.com/us/support/download/product/0/368/#software",
-  korgBlue: "https://www.korg.com/us/support/download/product/0/367/#software",
+  // the pages of the 2.02 system updates (the same ones src-tauri/src/korg.rs fetches), not the product page
+  korgRed: "https://www.korg.com/us/support/download/software/0/368/2579/",
+  korgBlue: "https://www.korg.com/us/support/download/software/0/367/2578/",
   // pages of the app itself; they open in place, not in a new tab
+  patterns: "#patterns",
   settings: "#settings",
   patcher: "#patcher",
   discord: "#discord",
@@ -22,8 +24,8 @@ export const LINKS = {
  * the update there takes, by their head (src/card-check.mjs), for Blechy's look at the card.
  */
 export const DEVICES = {
-  red: { title: "rescue.device.red", body: "red", link: "korgRed", name: "Electribe Sampler", path: "KORG/electribe sampler/System/SYSTEM.VSB", heads: ["sampler"] },
-  blue: { title: "rescue.device.blue", body: "blue", link: "korgBlue", name: "Electribe", path: "KORG/electribe/System/SYSTEM.VSB", heads: ["synth"] },
+  red: { title: "rescue.device.red", hint: "rescue.device.red.hint", body: "red", link: "korgRed", name: "Electribe Sampler", zip: "electribe_sampler_system_v202.zip", shot: "img/rescue/korg-download-red.webp", path: "KORG/electribe sampler/System/SYSTEM.VSB", heads: ["sampler"] },
+  blue: { title: "rescue.device.blue", hint: "rescue.device.blue.hint", body: "blue", link: "korgBlue", name: "Electribe", zip: "electribe_system_v202.zip", shot: "img/rescue/korg-download-blue.webp", path: "KORG/electribe/System/SYSTEM.VSB", heads: ["synth"] },
 };
 
 /**
@@ -36,6 +38,53 @@ export const FOLDERS = [
   { title: "rescue.folder.hacktribe", body: "grey", path: "KORG/hacktribe/System/SYSTEM.VSB", heads: ["sampler"] },
   { title: "rescue.folder.blech", body: "grey", path: "KORG/blechtribe/System/SYSTEM.VSB", heads: ["sampler", "synth"] },
 ];
+
+/**
+ * Facts the page carries (rescue.mjs): `set` on an answer adds one, `ask` on a node skips it when a fact is known;
+ * `toIf` { fact: { value: node } } redirects an answer by what is known before the answer's own `set`.
+ * Facts: case (the first answer), color, firmware (korg, hacktribe, blech, unknown), last (the file put on last, same
+ * values), ht, again, goal. `passIf` and `passTo` on a node: when the fact `passIf` is known, it goes on to `passTo`.
+ */
+const colorChoices = (red, blue, toIf) => Object.entries(DEVICES).map(([key, d]) => ({
+  label: d.title, hint: d.hint, to: key === "red" ? red : blue, ...(toIf ? { toIf } : {}), art: d.body, value: key, set: { color: key },
+}));
+
+/** What runs now: Korg's own, Hacktribe, BLECHTRIBE, or not known. `to` per answer, `{ to, toIf }` or a node. */
+const FIRMWARE = [
+  ["korg", "rescue.fw.korg", "rescue.fw.korg.hint"],
+  ["hacktribe", "rescue.fw.hacktribe", "rescue.fw.hacktribe.hint"],
+  ["blech", "rescue.fw.blech", "rescue.fw.blech.hint"],
+  ["unknown", "rescue.answer.dontKnow", "rescue.answer.dontKnow.hint"],
+];
+const firmwareChoices = to => FIRMWARE.map(([key, label, hint]) => {
+  const t = typeof to[key] === "string" ? { to: to[key] } : to[key];
+  return { label, hint, ...t, value: key, set: { firmware: key } };
+});
+/** The folder nodes of the card step by what runs, and the colour for Korg's own. */
+const byColor = (red, blue) => ({ to: red, toIf: { color: { red, blue } } });
+const FOLDER_NODE = { korg: byColor("folder:korg:red", "folder:korg:blue"), hacktribe: "folder:hacktribe", blech: "folder:blech", unknown: byColor("folder:all:red", "folder:all:blue") };
+/**
+ * The file put on last, asked before what runs: it marks the answer that fits there (the person still picks), "not known"
+ * goes straight to every folder.
+ */
+const LAST = [
+  ["korg", "rescue.last.korg", "rescue.last.korg.hint"],
+  ["hacktribe", "rescue.last.hacktribe", "rescue.last.hacktribe.hint"],
+  ["blech", "rescue.last.blech", "rescue.last.blech.hint"],
+];
+const lastFile = to => ({
+  mood: "idle",
+  say: ["rescue.say.last.1"],
+  known: "firmware",
+  ask: "last",
+  passIf: "firmware",
+  passTo: to,
+  choices: [
+    ...LAST.map(([key, label, hint]) => ({ label, hint, to, value: key, set: { last: key } })),
+    { label: "rescue.answer.dontKnow", hint: "rescue.last.dontKnow.hint", ...FOLDER_NODE.unknown, value: "unknown", set: { last: "unknown", firmware: "unknown" } },
+  ],
+});
+const SCAN_NODE = { korg: byColor("sd:folder:korg:red", "sd:folder:korg:blue"), hacktribe: "sd:folder:hacktribe", blech: "sd:folder:blech", unknown: "ask" };
 
 /** Where to ask: a line with links, `{name}` in its text is the link `links.name`, whose `link` is a key of LINKS. */
 const ASK = { key: "rescue.say.ask", links: { issue: { link: "issueNew", text: "rescue.link.issue" }, instagram: { link: "instagram", text: "rescue.link.instagram" } } };
@@ -64,7 +113,7 @@ const BOOT_CHECKS = ["boot:normal", "boot:normal_blank", "update_offer", "panel_
 export const TEST_AREAS = {
   menu: "rescue.area.menu", shortcut: "rescue.area.menu",
   pswitch: "rescue.area.pattern", lastpattern: "rescue.area.pattern", initpattern: "rescue.area.pattern",
-  "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples",
+  "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples", "ht-osc": "rescue.area.samples",
   splash: "rescue.area.start", loadbar: "rescue.area.start", migrate: "rescue.area.start",
   fxcard: "rescue.area.card", presets: "rescue.area.card", power_off: "rescue.area.card",
   mfx: "rescue.area.sound", ifxidle: "rescue.area.sound", synthfilter: "rescue.area.sound",
@@ -100,36 +149,74 @@ export const ENTRIES = ["error"];
 
 /** The answers to the first question: what the device shows, or that the app is where it sticks. */
 export const CASES = [
-  { id: "starts", label: "rescue.case.starts", hint: "rescue.case.starts.hint" },
+  { id: "silent", label: "rescue.case.silent", hint: "rescue.case.silent.hint" },
+  { id: "zero", label: "rescue.case.zero", hint: "rescue.case.zero.hint" },
   { id: "prompt", label: "rescue.case.prompt", hint: "rescue.case.prompt.hint" },
   { id: "invalid", label: "rescue.case.invalid", hint: "rescue.case.invalid.hint" },
   { id: "nofile", label: "rescue.case.nofile", hint: "rescue.case.nofile.hint" },
-  { id: "zero", label: "rescue.case.zero", hint: "rescue.case.zero.hint" },
-  { id: "silent", label: "rescue.case.silent", hint: "rescue.case.silent.hint" },
+  { id: "starts", label: "rescue.case.starts", hint: "rescue.case.starts.hint" },
   { id: "samples", label: "rescue.case.samples", hint: "rescue.case.samples.hint" },
-  { id: "app", label: "rescue.case.app", hint: "rescue.case.app.hint" },
   { id: "back", label: "rescue.case.back", hint: "rescue.case.back.hint" },
+  { id: "app", label: "rescue.case.app", hint: "rescue.case.app.hint" },
 ];
 
+/** Where the colour question leads, by the case that was picked: every case about the device asks the colour first, once. */
+const AFTER_COLOR = { silent: "silent", zero: "zero", prompt: "prompt", invalid: "invalid", nofile: "nofile", starts: "starts", samples: "samples", back: "back" };
+
 /**
- * The conversation. Each node: Blechy's mood, what he says (`say`, lines; `path` a file path on the card), an official
- * guide for the step if there is one (`source`), and either the answers (`choices`) or the node that follows by itself (`next`).
- * `known` names what the app already knows about the device (KNOWN in site/app/rescue.mjs): Blechy says it and marks the
- * answer whose `value` fits, the person still picks. `read` follows by itself like `next`, to `to[result]` of what the app
- * reads, or to `otherwise` when it reads nothing.
+ * The conversation. Each node: Blechy's mood, what he says (`say`, lines; `path` a file path on the card, `tree` the same as
+ * folders), an official guide for the step if there is one (`source`), and either the answers (`choices`) or the node that
+ * follows by itself (`next`). `known` names what the app already knows about the device (KNOWN in site/app/rescue.mjs):
+ * Blechy says it and marks the answer whose `value` fits, the person still picks (an `auto` fact is taken without asking).
+ * `read` follows by itself like `next`, to `to[result]` of what the app reads, or to `otherwise` when it reads nothing.
  */
 export const FLOW = {
   start: {
     mood: "wave",
-    say: ["rescue.say.start.1", "rescue.say.start.2"],
-    choices: CASES.map(c => ({ label: c.label, hint: c.hint, to: c.id, id: c.id })),
+    say: ["rescue.say.start.1", "rescue.say.start.2", "rescue.say.start.3"],
+    choices: CASES.map(c => ({ label: c.label, hint: c.hint, to: c.id === "app" ? "app" : "color", id: c.id, ...(c.id === "app" ? {} : { set: { case: c.id } }) })),
+  },
+  color: {
+    mood: "idle",
+    say: ["rescue.say.color.1"],
+    known: "hardware",
+    ask: "color",
+    choices: [...colorChoices("starts", "starts", { case: AFTER_COLOR }), { label: "rescue.answer.dontKnow", to: "color:help" }],
+  },
+  "color:help": {
+    mood: "idle",
+    say: ["rescue.say.colorHelp.1"],
+    choices: colorChoices("starts", "starts", { case: AFTER_COLOR }),
+  },
+
+  // Nothing at all: the power, then the emergency exit, then the way to Kuhler Buhler.
+  silent: {
+    mood: "idle",
+    say: ["rescue.say.silent.1", "rescue.say.silent.2"],
+    choices: [
+      { label: "rescue.answer.worksNow", to: "ok" },
+      { label: "rescue.answer.exitWorks", to: "fixed" },
+      { label: "rescue.answer.shows00", to: "zero" },
+      { label: "rescue.answer.asksUpdate", to: "prompt" },
+      { label: "rescue.answer.stillNothing", to: "dark" },
+    ],
+  },
+  dark: {
+    mood: "sad",
+    say: ["rescue.say.darkEnd.1"],
+    source: DEBRICK,
+    next: "ask",
   },
 
   // It starts, but something is off.
   starts: {
     mood: "idle",
     say: ["rescue.say.starts.1", "rescue.say.starts.2"],
-    choices: [{ label: "rescue.answer.helped", to: "fixed" }, { label: "rescue.answer.notHelped", to: "backup" }],
+    choices: [
+      { label: "rescue.answer.helped", to: "fixed" },
+      { label: "rescue.answer.notHelped", to: "backup" },
+      { label: "rescue.answer.samplesWrong", to: "samples" },
+    ],
   },
   fixed: {
     mood: "happy",
@@ -166,26 +253,23 @@ export const FLOW = {
   },
   backup: {
     mood: "idle",
-    say: ["rescue.say.backup.1", "rescue.say.backup.2"],
-    choices: [{ label: "rescue.answer.haveIt", to: "which" }, { label: "rescue.answer.dontHave", to: "nobackup" }],
+    say: ["rescue.say.backup.1", { key: "rescue.say.keeps", links: { patterns: { link: "patterns", text: "rescue.link.patterns" } } }, "rescue.say.backup.2"],
+    choices: [{ label: "rescue.answer.haveIt", to: "firmware:last" }, { label: "rescue.answer.dontHave", to: "nobackup" }],
   },
   nobackup: {
     mood: "idle",
     say: ["rescue.say.nobackup.1"],
-    next: "color:starts",
-  },
-  "color:starts": {
-    mood: "idle",
-    say: ["rescue.say.colorStarts.1"],
-    known: "hardware",
-    choices: Object.entries(DEVICES).map(([key, d]) => ({ label: d.title, to: `download:starts:${key}`, art: d.body, value: key })),
+    next: "back:firmware",
   },
 
-  which: {
+  // What runs now decides the folder on the card; asked once, "not known" puts the file in every folder.
+  "firmware:last": lastFile("firmware:file"),
+  "firmware:file": {
     mood: "idle",
-    say: ["rescue.say.which.1"],
+    say: ["rescue.say.firmware.1"],
     known: "firmware",
-    choices: FOLDERS.map((f, i) => ({ label: f.title, to: `folder:${i}`, art: f.body, value: f.path })),
+    ask: "firmware",
+    choices: firmwareChoices(FOLDER_NODE),
   },
 
   "update:menu": {
@@ -193,14 +277,28 @@ export const FLOW = {
     say: [
       "rescue.say.updateMenu.1",
       "rescue.say.updateMenu.2",
+      { keys: "menu" },
       "rescue.say.updateMenu.3",
     ],
     choices: [
-      { label: "rescue.answer.runsAgain", to: "works" },
-      { label: "rescue.answer.fails", to: "stuck" },
+      { label: "rescue.answer.runsAgain", to: "works", toIf: { goal: { blech: "updated" } } },
+      { label: "rescue.answer.fails", to: "recheck", toIf: { again: { yes: "stuck" } }, set: { again: "yes" } },
       { label: "rescue.answer.noFile", to: "nofile:menu" },
       { label: "rescue.answer.invalidFile", to: "invalid:menu" },
     ],
+  },
+  // The update did not work: once more the card, then what the device shows now.
+  recheck: {
+    mood: "idle",
+    say: ["rescue.say.recheck.1"],
+    ask: "firmware",
+    choices: firmwareChoices(SCAN_NODE),
+  },
+  "recheck:prompt": {
+    mood: "idle",
+    say: ["rescue.say.recheck.1"],
+    ask: "color",
+    choices: colorChoices("sd:card:red", "sd:card:blue"),
   },
 
   // The device asks for an update or shows 00: both go through the update prompt with Korg's own firmware.
@@ -217,30 +315,36 @@ export const FLOW = {
   reboot: {
     mood: "happy",
     say: ["rescue.say.reboot.1"],
-    choices: [{ label: "rescue.answer.runsAgain", to: "works" }, { label: "rescue.answer.asksUpdate", to: "prompt" }, { label: "rescue.answer.again00", to: "zero:card" }],
+    choices: [{ label: "rescue.answer.runsAgain", to: "ok" }, { label: "rescue.answer.asksUpdate", to: "prompt" }, { label: "rescue.answer.again00", to: "zero:card" }],
   },
   "zero:card": {
     mood: "idle",
     say: ["rescue.say.zeroCard.1"],
     next: "color:update",
   },
+  // The card did not bring a way out of 00: the panel does not talk to the board (docs/rettung.md, case 3).
+  "zero:cable": {
+    mood: "sad",
+    say: ["rescue.say.zeroCable.1"],
+    source: DEBRICK,
+    next: "ask",
+  },
   "color:update": {
     mood: "idle",
-    say: ["rescue.say.colorUpdate.1"],
+    say: ["rescue.say.color.1"],
     known: "hardware",
-    choices: [
-      { label: DEVICES.red.title, to: "download:update:red", art: DEVICES.red.body, value: "red" },
-      { label: DEVICES.blue.title, to: "hacktribe:blue", art: DEVICES.blue.body, value: "blue" },
-    ],
+    ask: "color",
+    choices: colorChoices("download:update:red", "hacktribe:blue"),
   },
   // A blue that once had Hacktribe can still take itself for a Sampler when it starts (docs/rettung.md, "Invalid File").
   "hacktribe:blue": {
     mood: "idle",
     say: ["rescue.say.hacktribeBlue.1"],
+    ask: "ht",
     choices: [
-      { label: "rescue.answer.neverHacktribe", to: "download:update:blue" },
-      { label: "rescue.answer.hadHacktribe", to: "sampler:blue" },
-      { label: "rescue.answer.dontKnow", to: "download:update:blue" },
+      { label: "rescue.answer.neverHacktribe", to: "download:update:blue", set: { ht: "no" } },
+      { label: "rescue.answer.hadHacktribe", to: "sampler:blue", set: { ht: "yes" } },
+      { label: "rescue.answer.dontKnow", to: "download:update:blue", set: { ht: "no" } },
     ],
   },
   "sampler:blue": {
@@ -254,20 +358,28 @@ export const FLOW = {
     say: [
       "rescue.say.updatePrompt.1",
       "rescue.say.updatePrompt.2",
+      { keys: "enter" },
       "rescue.say.updatePrompt.3",
     ],
     choices: [
       { label: "rescue.answer.runsAgain", to: "works" },
-      { label: "rescue.answer.fails", to: "stuck" },
+      { label: "rescue.answer.noPrompt", to: "noprompt" },
+      { label: "rescue.answer.fails", to: "recheck:prompt", toIf: { again: { yes: "stuck" } }, set: { again: "yes" } },
       { label: "rescue.answer.noFile", to: "nofile:prompt" },
       { label: "rescue.answer.invalidFile", to: "invalid:prompt" },
     ],
+  },
+  // No prompt: Hacktribe and BLECHTRIBE take both machine IDs, so the card is not their way in; the menu is, or the emergency exit.
+  noprompt: {
+    mood: "idle",
+    say: ["rescue.say.noPrompt.1", "rescue.say.noPrompt.2"],
+    choices: [{ label: "rescue.answer.reachesMenu", to: "firmware:last" }, { label: "rescue.answer.noMenu", to: "silent" }],
   },
 
   // "Error, Invalid File": the device found a file that does not fit it and wrote nothing.
   invalid: {
     mood: "happy",
-    say: ["rescue.say.invalid.1", "rescue.say.when.1"],
+    say: ["rescue.say.invalid.1", "rescue.say.invalid.2", "rescue.say.when.1"],
     choices: [{ label: "rescue.answer.atStart", to: "invalid:prompt" }, { label: "rescue.answer.inMenu", to: "invalid:menu" }],
   },
   "invalid:prompt": {
@@ -278,7 +390,7 @@ export const FLOW = {
   "invalid:menu": {
     mood: "idle",
     say: ["rescue.say.invalidMenu.1"],
-    choices: [{ label: "rescue.answer.fromPatcher", to: "invalid:patcher" }, { label: "rescue.answer.korgBack", to: "invalid:korg" }],
+    choices: [{ label: "rescue.answer.fromPatcher", to: "invalid:patcher" }, { label: "rescue.answer.korgBack", to: "back:firmware", set: { ht: "yes" } }],
   },
   "invalid:patcher": {
     mood: "idle",
@@ -289,44 +401,46 @@ export const FLOW = {
     ],
     choices: [{ label: "rescue.answer.blechRuns", to: "updated" }, { label: "rescue.answer.fails", to: "stuck" }],
   },
-  "invalid:korg": {
-    mood: "idle",
-    say: ["rescue.say.invalidKorg.1"],
-    choices: [
-      { label: DEVICES.red.title, to: "download:starts:red", art: DEVICES.red.body },
-      { label: "rescue.answer.blueNoHacktribe", to: "download:starts:blue", art: DEVICES.blue.body },
-      { label: "rescue.answer.blueHacktribe", to: "back:head", art: DEVICES.blue.body },
-    ],
-  },
 
-  // Back to Korg's original while BLECH or Hacktribe runs. `file` names the file step the page adds (site/app/rescue.mjs).
+  // Back to Korg's original while BLECH or Hacktribe runs: what runs decides whether the file is Korg's own or the one with
+  // the Sampler head (`file` is the file step the page adds, `done` where it goes on), then the folder.
   back: {
     mood: "happy",
-    say: ["rescue.say.back.1", "rescue.say.back.2"],
-    next: "back:color",
+    say: ["rescue.say.back.1", "rescue.say.back.2", { key: "rescue.say.keeps", links: { patterns: { link: "patterns", text: "rescue.link.patterns" } } }],
+    next: "back:firmware",
   },
-  "back:color": {
+  "back:firmware": {
     mood: "idle",
-    say: ["rescue.say.colorUpdate.1"],
-    known: "hardware",
-    choices: [
-      { label: DEVICES.red.title, to: "download:starts:red", art: DEVICES.red.body, value: "red" },
-      { label: DEVICES.blue.title, to: "back:blue", art: DEVICES.blue.body, value: "blue" },
-    ],
+    say: ["rescue.say.firmware.1"],
+    known: "firmware",
+    ask: "firmware",
+    choices: firmwareChoices({
+      korg: "back:already",
+      hacktribe: { to: "download:red:go", toIf: { color: { red: "download:red:go", blue: "back:head" } } },
+      blech: { to: "download:red:go", toIf: { color: { red: "download:red:go", blue: "back:blueHt" } } },
+      unknown: { to: "download:red:go", toIf: { color: { red: "download:red:go", blue: "back:blueHt" } } },
+    }),
   },
-  "back:blue": {
+  "back:already": {
+    mood: "happy",
+    say: ["rescue.say.backAlready.1"],
+    choices: [{ label: "rescue.answer.worksNow", to: "ok" }, { label: "rescue.answer.stillOdd", to: "starts" }],
+  },
+  "back:blueHt": {
     mood: "idle",
-    say: ["rescue.say.backBlue.1"],
+    say: ["rescue.say.backBlueHt.1"],
+    ask: "ht",
     choices: [
-      { label: "rescue.answer.blueSynthSet", to: "download:starts:blue" },
-      { label: "rescue.answer.runsHacktribe", to: "back:head" },
+      { label: "rescue.answer.blueNoHt", to: "download:blue:go", set: { ht: "no" } },
+      { label: "rescue.answer.blueHt", to: "back:head", set: { ht: "yes" } },
+      { label: "rescue.answer.dontKnow", to: "download:blue:go", set: { ht: "no" } },
     ],
   },
   "back:head": {
     mood: "idle",
-    say: ["rescue.say.backHead.1", { key: "rescue.say.download", vars: { name: DEVICES.blue.name }, links: { link: { link: DEVICES.blue.link, text: "rescue.link.korg" } } }, "rescue.say.backHead.2"],
+    say: ["rescue.say.backHeadWhy.1", { key: "rescue.say.download", vars: { name: DEVICES.blue.name }, links: { link: { link: DEVICES.blue.link, text: "rescue.link.korg" } } }, { key: "rescue.say.downloadFile", vars: { file: DEVICES.blue.zip } }, { shot: DEVICES.blue.shot }, "rescue.say.backHeadFile.1"],
     file: "korgBlueHead",
-    choices: [{ label: "rescue.answer.fileSaved", to: "which" }],
+    done: "firmware:last",
   },
 
   // "Error, No File": nothing where the device looks. The name, the folder System, or the folder of another firmware.
@@ -345,57 +459,87 @@ export const FLOW = {
     say: [
       "rescue.say.nofileMenu.1",
       "rescue.say.nofileMenu.name",
-      "rescue.say.nofileMenu.folder",
       "rescue.say.nofileMenu.renamed",
       "rescue.say.nofileMenu.patcher",
     ],
-    next: "nofile:which",
+    next: "nofile:last",
   },
+  "nofile:last": lastFile("nofile:which"),
   "nofile:which": {
     mood: "idle",
     say: ["rescue.say.nofileWhich.1"],
-    known: "folder",
-    choices: FOLDERS.map((f, i) => ({ label: f.title, to: `nofile:folder:${i}`, art: f.body, value: f.path })),
+    known: "firmware",
+    ask: "firmware",
+    choices: firmwareChoices(FOLDER_NODE),
   },
   "nofile:update": {
     mood: "idle",
-    say: ["rescue.say.updateMenu.1", "rescue.say.updateMenu.2", "rescue.say.updateMenu.3"],
+    say: ["rescue.say.updateMenu.1", "rescue.say.updateMenu.2", { keys: "menu" }, "rescue.say.updateMenu.3"],
     choices: [
       { label: "rescue.answer.updateRan", to: "updated" },
-      { label: "rescue.answer.againNoFile", to: "ask" },
+      { label: "rescue.answer.againNoFile", to: "recheck", toIf: { again: { yes: "ask" } }, set: { again: "yes" } },
       { label: "rescue.answer.invalidFile", to: "invalid:menu" },
     ],
   },
 
-  // Hacktribe installed by accident: the samples are gone, the way back is BLECHTRIBE without Hacktribe (docs/messungen/2026-11-06-hacktribe-samples.md).
+  // Hacktribe, or Hacktribe and BLECHTRIBE, on the device and the samples are not as they were
+  // (docs/messungen/2026-11-06-hacktribe-samples.md). The way back is BLECHTRIBE without Hacktribe.
   samples: {
     mood: "sad",
-    say: ["rescue.say.samples.1", "rescue.say.samples.2"],
-    choices: [{ label: "rescue.answer.samplesHave", to: "samples:restore" }, { label: "rescue.answer.samplesLost", to: "samples:lost" }],
+    say: ["rescue.say.samplesWhy.1", "rescue.say.samplesHt.1"],
+    choices: [
+      { label: "rescue.answer.samplesHt", to: "samples:have" },
+      { label: "rescue.answer.samplesNoHt", to: "samples:other" },
+      { label: "rescue.answer.dontKnow", to: "samples:other" },
+    ],
+  },
+  "samples:other": {
+    mood: "idle",
+    say: ["rescue.say.samplesOther.1"],
+    next: "starts",
+  },
+  "samples:have": {
+    mood: "idle",
+    say: ["rescue.say.samplesFile.2"],
+    choices: [
+      { label: "rescue.answer.samplesHave", to: "samples:restore" },
+      { label: "rescue.answer.samplesLost", to: "samples:lost" },
+      { label: "rescue.answer.dontKnow", to: "samples:lost" },
+    ],
   },
   "samples:restore": {
     mood: "happy",
     say: ["rescue.say.samplesRestore.1", { path: "KORG/blechtribe/Sample/e2sSample.all" }, "rescue.say.samplesRestore.2"],
-    next: "samples:way",
+    next: "samples:firmware",
   },
   "samples:lost": {
     mood: "sad",
     say: ["rescue.say.samplesLost.1", "rescue.say.samplesLost.2"],
-    next: "samples:way",
+    next: "samples:firmware",
   },
+  "samples:firmware": {
+    mood: "idle",
+    say: ["rescue.say.firmware.1"],
+    known: "firmware",
+    ask: "firmware",
+    choices: firmwareChoices({
+      korg: "samples:way",
+      hacktribe: { to: "samples:way", toIf: { color: { red: "samples:way", blue: "samples:head" } } },
+      blech: "samples:way",
+      unknown: { to: "samples:way", toIf: { color: { red: "samples:way", blue: "samples:head" } } },
+    }),
+  },
+  // The patcher builds BLECHTRIBE from Korg's original; its file goes to the folder of what runs now.
   "samples:way": {
     mood: "idle",
-    say: [
-      { key: "rescue.say.samplesWay.1", links: { patcher: { link: "patcher", text: "nav.patcher" } } },
-      "rescue.say.samplesWay.2",
-    ],
-    known: "hardware",
-    choices: Object.entries(DEVICES).map(([key, d]) => ({ label: d.title, to: key === "blue" ? "samples:blue" : "which", art: d.body, value: key })),
+    say: [{ key: "rescue.say.samplesWay.1", links: { patcher: { link: "patcher", text: "nav.patcher" } } }, "rescue.say.samplesFile.1"],
+    choices: [{ label: "rescue.answer.fileReady", to: "firmware:last", set: { goal: "blech" } }],
   },
-  "samples:blue": {
+  // Only Hacktribe on a blue takes a file with the Sampler head: first back to Korg's original, BLECHTRIBE after that.
+  "samples:head": {
     mood: "idle",
-    say: ["rescue.say.samplesBlue.1"],
-    choices: [{ label: "rescue.answer.samplesBlueBlech", to: "which" }, { label: "rescue.answer.samplesBlueHt", to: "back:head", art: DEVICES.blue.body }],
+    say: ["rescue.say.samplesHead.1"],
+    next: "back:head",
   },
 
   // The device runs; the app, the patcher or the patterns are where it sticks.
@@ -569,23 +713,14 @@ export const FLOW = {
     next: "ask",
   },
 
-  // Nothing at all.
-  silent: {
-    mood: "idle",
-    say: ["rescue.say.silent.1"],
-    choices: [{ label: "rescue.answer.worksNow", to: "works" }, { label: "rescue.answer.shows00", to: "zero" }, { label: "rescue.answer.asksUpdate", to: "prompt" }, { label: "rescue.answer.stillNothing", to: "dark" }],
-  },
-  dark: {
-    mood: "sad",
-    say: ["rescue.say.dark.1"],
-    source: DEBRICK,
-    next: "ask",
-  },
-
-  // How it ends.
+  // How it ends. `works` only after a file went onto the card, `ok` when the device came back without one.
   works: {
     mood: "happy",
-    say: ["rescue.say.works.1"],
+    say: ["rescue.say.works.1", { key: "rescue.say.worksAgain.1", links: { patcher: { link: "patcher", text: "nav.patcher" } } }],
+  },
+  ok: {
+    mood: "happy",
+    say: ["rescue.say.ok.1"],
   },
   updated: {
     mood: "happy",
@@ -595,11 +730,18 @@ export const FLOW = {
     mood: "happy",
     say: ["rescue.say.appFixed.1"],
   },
+  // A way did not help: what the device shows now sends it to the matching way, the last stop is Kuhler Buhler.
   stuck: {
     mood: "sad",
-    say: ["rescue.say.stuck.1"],
-    source: DEBRICK,
-    next: "ask",
+    say: ["rescue.say.stuckAsk.1"],
+    choices: [
+      { label: "rescue.answer.stays00", to: "zero:cable" },
+      { label: "rescue.case.prompt", to: "prompt" },
+      { label: "rescue.answer.noFile", to: "nofile" },
+      { label: "rescue.answer.invalidFile", to: "invalid" },
+      { label: "rescue.answer.stillNothing", to: "dark" },
+      { label: "rescue.answer.somethingElse", to: "ask" },
+    ],
   },
   ask: {
     mood: "wave",
@@ -623,36 +765,78 @@ for (const [group, then] of Object.entries(NORMAL_THEN)) {
   };
 }
 
+/** Korg's file: the exact page of the 2.02 update and the version, only said once it is clear which one is needed. */
 const download = (d, to) => ({
   mood: "idle",
-  say: [{ key: "rescue.say.download", vars: { name: d.name }, links: { link: { link: d.link, text: "rescue.link.korg" } } }],
+  say: [
+    { key: "rescue.say.download", vars: { name: d.name }, links: { link: { link: d.link, text: "rescue.link.korg" } } },
+    { key: "rescue.say.downloadFile", vars: { file: d.zip } },
+    { shot: d.shot },
+  ],
   choices: [{ label: "rescue.answer.gotIt", to }],
 });
-const card = path => ["rescue.say.card", { path }];
+const tree = path => ({ tree: path });
 /**
  * Where the file has to be, and the offer to look at the card: Blechy finds every .VSB on it and puts the right one
  * there after one click (site/app/rescue.mjs, src/card-check.mjs). An answer with `pick` opens the card; its `to` is
- * where the talk goes on after the look.
+ * where the talk goes on after the look. `note` explains why the folder has this name. The look comes first, "I checked
+ * it myself" second.
  */
-const place = (id, { path, heads }, to) => {
-  FLOW[id] = { mood: "idle", say: card(path), choices: [{ label: "rescue.answer.onCard", to }, { label: "rescue.answer.showCard", hint: "rescue.answer.showCard.hint", to: `sd:${id}` }] };
+const place = (id, { path, heads }, to, { toIf, note } = {}) => {
+  const go = toIf ? { to, toIf } : { to };
+  FLOW[id] = {
+    mood: "idle",
+    say: ["rescue.say.card", tree(path), note].filter(Boolean),
+    choices: [{ label: "rescue.answer.showCard", hint: "rescue.answer.showCard.hint", to: `sd:${id}` }, { label: "rescue.answer.onCard", ...go }],
+  };
   FLOW[`sd:${id}`] = {
     mood: "happy",
     say: ["rescue.say.sd.1", "rescue.say.sd.2"],
     card: { path, heads },
-    choices: [{ label: "rescue.answer.pickCard", to, pick: true, id: "card-pick" }, { label: "rescue.answer.onCard", to }],
+    choices: [{ label: "rescue.answer.pickCard", hint: "rescue.answer.pickCard.hint", ...go, pick: true, id: "card-pick" }, { label: "rescue.answer.onCard", ...go }],
   };
 };
 
 for (const [key, d] of Object.entries(DEVICES)) {
-  FLOW[`download:starts:${key}`] = download(d, "which");
   FLOW[`download:update:${key}`] = download(d, `card:${key}`);
-  place(`card:${key}`, d, "update:prompt");
+  FLOW[`download:${key}:go`] = download(d, "firmware:last");
+  place(`card:${key}`, d, "update:prompt", { note: "rescue.say.cardBoot" });
 }
-FOLDERS.forEach((f, i) => {
-  FLOW[`folder:${i}`] = { mood: "idle", say: card(f.path), choices: [{ label: "rescue.answer.onCard", to: "update:menu" }] };
-  place(`nofile:folder:${i}`, f, "nofile:update");
-});
+// The folder of the running firmware; the menu update reads it, whatever the update is for.
+const MENU = { toIf: { case: { nofile: "nofile:update" } }, note: "rescue.say.cardFolder" };
+const [KORG_RED, KORG_BLUE, HACKTRIBE, BLECH] = FOLDERS;
+place("folder:korg:red", KORG_RED, "update:menu", MENU);
+place("folder:korg:blue", KORG_BLUE, "update:menu", MENU);
+place("folder:hacktribe", HACKTRIBE, "update:menu", MENU);
+place("folder:blech", BLECH, "update:menu", MENU);
+// Not known what runs: Korg's folder of the colour, Hacktribe's and BLECHTRIBE's, the update reads only the one that fits.
+for (const [key, d] of Object.entries(DEVICES)) {
+  FLOW[`folder:all:${key}`] = {
+    mood: "idle",
+    say: ["rescue.say.cardAll", tree(d.path), tree(HACKTRIBE.path), tree(BLECH.path), "rescue.say.cardFolder"],
+    choices: [{ label: "rescue.answer.onCard", to: "update:menu", toIf: { case: { nofile: "nofile:update" } } }],
+  };
+}
+
+
+/** Where an answer leads: its `to`, or what `toIf` says for a fact known so far. */
+export const destOf = (choice, facts) => {
+  for (const [fact, map] of Object.entries(choice.toIf ?? {})) if (facts[fact] != null && map[facts[fact]]) return map[facts[fact]];
+  return choice.to;
+};
+
+/** The step a talk is at after passing every step that asks for a fact already known: { id, facts } (nodes: FLOW and the page's own). */
+export function passSteps(id, facts, nodes = FLOW) {
+  for (let guard = 0; guard < 8; guard++) {
+    const node = nodes[id];
+    if (node.passIf && facts[node.passIf] != null) { id = node.passTo; continue; }
+    const c = node.ask && facts[node.ask] != null ? node.choices?.find(c => c.set?.[node.ask] === facts[node.ask]) : null;
+    if (!c) break;
+    facts = { ...facts, ...c.set };
+    id = destOf(c, facts);
+  }
+  return { id, facts };
+}
 
 /** The app version whose full check runs the patches' cases on a blank flash, so saved emulator patterns no longer fail it. */
 export const CHECK_FIXED = "1.3.7";

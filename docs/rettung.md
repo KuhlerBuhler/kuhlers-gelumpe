@@ -114,10 +114,62 @@ und mit `doom.bin` unter `KORG/blechtribe/Doom/`). Der Rückweg ist kurz und lie
 4. **Nichts, keine Abfrage.** Erst Netzteil und Batterien prüfen. Kommt dann weiter keine Abfrage, hilft
    nach der Debrick-Anleitung von Hacktribe nur JTAG.
 
-Bei 2 und 3 fragt die Seite nach der Farbe: für die blaue Electribe liegt Korgs Datei unter
-`KORG/electribe/System/SYSTEM.VSB` (zweite Tabelle oben). Bei 00 lässt sie erst warten und geht den Weg über die
-Karte nur, wenn "00" stehen bleibt, so wie am Gerät am 23.10.; endet er nicht, nennt sie das Kabel. Ohne gesicherte
-Original-Datei nimmt Fall 1 ebenfalls Korgs Datei von Korgs Download-Seite.
+## Ablauf der Seite
+
+Die Seite fragt jedes Ding einmal und trägt die Antwort weiter (`set`, `ask` und `toIf` in `data/rescue.mjs`, die
+Logik in `passSteps`). Jeder Fall am Gerät beginnt mit der Farbe (rot ist der Sampler, blau der Synth; "Weiß ich nicht"
+erklärt, wo man nachsieht). Eine angesteckte blaue wird ohne Rückfrage genommen; eine rote lässt die Seite bestätigen,
+weil sich eine blaue mit Hacktribe vielleicht als rote meldet (offen).
+
+- **Welche Datei zuletzt drauf kam** kommt vor der Frage nach dem Ordner: Korgs Update-Datei, Hacktribe, BLECHTRIBE oder
+  "Weiß ich nicht". Die Antwort ist nur ein Hinweis, die nächste Frage markiert sie ("Passt zu deiner letzten Datei"),
+  entschieden wird dort. "Weiß ich nicht" führt gleich zu allen Ordnern. Weiß die App schon etwas (laufendes BLECHTRIBE,
+  Ordner der letzten Patcher-Kopie), fällt die Frage weg (`passIf` in `data/rescue.mjs`).
+- **Was läuft gerade** wird dort gefragt, wo der Ordner auf der Karte gebraucht wird: Korgs Original, Hacktribe,
+  BLECHTRIBE oder "Weiß ich nicht". Läuft BLECHTRIBE an der angesteckten Electribe, übernimmt die App die Antwort. Bei
+  "Weiß ich nicht" wandert die Datei in alle drei Ordner (Korgs Ordner der Farbe, `hacktribe`, `blechtribe`); das schadet
+  nicht, weil das Update nur den Ordner der laufenden Firmware liest (im Emulator für alle acht Firmwares gemessen, am Gerät
+  offen: [Messung](messungen/2026-11-08-rettung-alle-ordner.md)).
+- **Der Ordner heißt nach der Firmware, die jetzt läuft**, nicht nach der, die man haben will. Die Seite zeigt den Pfad
+  als Baum (`KORG`, Ordner, `System`, `SYSTEM.VSB`) und sagt das dazu. Bei der Abfrage beim Einschalten sucht die
+  Firmware immer in Korgs Ordner der Kennung.
+- **Die Karte prüfen lassen** steht vor "Habe ich selbst geprüft". Ein zweites "Klappt nicht" oder "No File" bietet die
+  Prüfung noch einmal an, erst danach folgt die Frage, was das Display zeigt, und der Kontakt. Die Prüfung braucht einen
+  Computer; am Handy steht das dabei, und der Knopf fehlt.
+- **Korgs Datei** wird erst genannt, wenn klar ist, welche gebraucht wird, mit der Seite der Datei bei Korg (2.02) und dem
+  Namen der ZIP-Datei (`electribe_sampler_system_v202.zip`, `electribe_system_v202.zip`, die Seiten stehen in
+  `src-tauri/src/korg.rs`). Eine blaue mit Hacktribe, auch BLECHTRIBE mit Hacktribe, bekommt die Datei mit dem
+  Sampler-Kopf; die Seite nimmt sie in einem Upload-Feld wie im Patcher entgegen und geht erst nach einer gültigen Datei
+  weiter. Die Frage dazu lautet "Haken auch Hacktribe gesetzt?", "Weiß ich nicht" nimmt zuerst Korgs unveränderte Datei.
+- **MENU als Bild.** Wo die Seite MENU drücken lässt (Update im Menü, die Update-Frage beim Einschalten), zeigt sie die
+  Electribe als Strichzeichnung mit MENU gefüllt und den Tasten für den Weg (EDIT links und rechts) umrandet
+  (`e2Keys` in `site/app/e2-art.mjs`, Lage der Tasten aus `panel.mjs`). Bei Korgs Datei zeigt ein Bildschirmfoto von Korgs
+  Seite die Zeile "System Updater 2.02" ganz unten, die zur ZIP-Datei führt (`site/img/rescue/`, aufgenommen am 08.11.2026;
+  ändert Korg die Seite, stimmt das Bild nicht mehr).
+- **Patterns und Samples** werden vor jedem Schreiben genannt: das Update schreibt nur die Firmware, Patterns im Gerät
+  blieben im Emulator erhalten (am Gerät offen), dazu der Link zur Pattern-Sicherung der App.
+- **Kein Ende ohne Hilfe.** "Gar nichts" nennt zuerst Netzteil und EXIT beim Einschalten (das hält BLECHTRIBEs Patches
+  heraus), "Es kommt keine Update-Frage" führt ins Menü oder zum Notausgang, "Klappt nicht" fragt nach dem Display, bei
+  00 steht das Flachbandkabel, und jeder Weg, der nicht endet, landet beim Kontakt. "Sie läuft wieder" ohne Datei sagt
+  nicht, es sei etwas zurückgespielt worden.
+- **Samples fehlen oder klingen falsch** ist ein Fall der ersten Frage und hinter "Sie startet, aber etwas spinnt" zu
+  erreichen. Ohne Hacktribe geht es zurück zur Prüfung der Firmware.
+
+Die Texte zu "No File" und "Invalid File" sagen zuerst, dass das Gerät heil ist und nur auf eine passende Datei wartet.
+
+## Fälle aus dem Hilfekanal nach dem 28.10.
+
+Gelesen bis 8.11., Stand der Meldungen, nichts davon am Gerät nachgestellt.
+
+- **Blau mit Hacktribe will BLECHTRIBE** (30.10., 3. bis 5.11.): erst "No File", dann "Invalid File", teils tagelang offen.
+  Der Weg: Karte, Firmware "Hacktribe" oder "BLECHTRIBE", Korgs Datei mit dem Sampler-Kopf über das Upload-Feld.
+- **Invalid File war nach dem Neukopieren weg** (30.10.): jetzt der erste Schritt bei Invalid File.
+- **Alle vier Ordner ausprobiert, immer "No File"** (1. bis 7.11.): die Nutzer kennen den Ordner der Startabfrage nicht.
+  Die Seite nennt je Farbe einen Ordner als Baum und erklärt, dass er nach der laufenden Firmware heißt.
+- **EXIT hilft nicht, "Update-Bootloop"** (7.11.): kein Bootloop, "No File" heißt, es liegt keine Datei im Ordner.
+- **Samples nach BLECHTRIBE weg** (30.10., 6.11.): Hacktribe war mit angehakt; der Weg "Samples fehlen" fragt danach.
+- **Ordner `System` fehlt** (26. und 28.10.): steht in jedem Kartenschritt ("fehlende Ordner legst du einfach an").
+- **USB-Update schlägt fehl** (29.10. bis 5.11.): kein Fall der Rettung; der Weg über die Karte bleibt der Normalweg.
 
 ## Hacktribe aus Versehen, Samples weg
 
