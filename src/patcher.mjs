@@ -350,9 +350,55 @@ export const choosesDevice = flow => flow.origin === "hacktribe" || (flow.origin
  * head on either Electribe; Korg's firmware running on the blue (Korg's red file turned into Hacktribe for the blue)
  * takes only the blue one (docs/messungen/2026-10-26-blech-hacktribe-blau.md).
  */
-export function headFor(flow) {
+export function headFor(flow, runs = null) {
   if (flow.origin === "hacktribe") return flow.input?.hardware === "blue" ? "sampler" : null;
-  if (flow.origin === "stock" && flow.route === "hacktribe" && flow.device === "blue") return "blue";
+  // once Hacktribe runs on the blue its update takes only the Sampler head, which Korg's red file turned into Hacktribe already has
+  if (flow.origin === "stock" && flow.route === "hacktribe" && flow.device === "blue") return runsHacktribe(runs) ? null : "blue";
+  return null;
+}
+
+/** Whether the firmware the wizard named as running (`runs`: korg, ht, blech, blechHt) carries Hacktribe. */
+export const runsHacktribe = runs => runs === "ht" || runs === "blechHt";
+
+/**
+ * The card folder SOFTWARE UPDATE of the running firmware reads, by what the wizard was told runs (docs/rettung.md, table
+ * "Welche Datei in welchen Ordner"): Korg's own reads its own folder, Hacktribe KORG/hacktribe/System/, a running BLECH
+ * KORG/blechtribe/System/ (measured on the device for the red, in the emulator for the blue).
+ */
+export function runningFolder(runs, hardware) {
+  if (runs === "blech" || runs === "blechHt") return `KORG/${BLECH_FOLDER}/System/`;
+  if (runs === "ht") return cardFolder("hacktribe");
+  return cardFolder(hardware === "blue" ? "synth" : "stock");
+}
+
+/**
+ * What the wizard offers to do with an Electribe (`hardware` red or blue) that runs `runs`: back to Korg's original, BLECH
+ * without Hacktribe, BLECH with Hacktribe, or the update of a BLECH already on it, over USB or over the SD card.
+ * `locked` names the text of a goal that is shown but cannot be taken: on the blue that runs Hacktribe, BLECH without
+ * Hacktribe would need Korg's blue code with the Sampler head, which no build of the patcher makes; the way there is
+ * back to the original first, then BLECH.
+ */
+export function goalsFor(runs, hardware) {
+  const blech = runsHacktribe(runs) && hardware === "blue" ? { id: "blech", locked: "patcher.wiz.blech.blueHt" } : { id: "blech" };
+  switch (runs) {
+    case "korg": return [{ id: "blech" }, { id: "blechHt" }];
+    case "ht": return [blech, { id: "blechHt" }, { id: "original" }];
+    case "blech": return [{ id: "updateUsb" }, { id: "updateCard" }, { id: "blechHt" }, { id: "original" }];
+    case "blechHt": return [{ id: "updateUsb" }, { id: "updateCard" }, blech, { id: "original" }];
+    default: return [];
+  }
+}
+
+/**
+ * What a taken file needs to be for the wizard's goal, as the key of the reason when it is not; null when it fits.
+ * Back to the original takes Korg's own file of that Electribe, BLECH without Hacktribe no Hacktribe file, and BLECH with
+ * Hacktribe no file of the blue, whose code Hacktribe is not made from.
+ */
+export function goalMismatch(goal, flow, hardware) {
+  if (!flow.origin) return null;
+  if (goal === "original") return flow.origin === (hardware === "blue" ? "synth" : "stock") ? null : "patcher.goal.wrong.original";
+  if (goal === "blech" && flow.origin === "hacktribe") return "patcher.goal.wrong.ht";
+  if (goal === "blechHt" && flow.origin === "synth") return "patcher.goal.wrong.blue";
   return null;
 }
 
@@ -386,7 +432,7 @@ export function step(flow, event) {
     case "options": {
       // another choice of optional patches is another copy: what was patched or checked goes, as with the device
       if (RUNNING.has(flow.phase) || !["passed", "downloaded", "failed"].includes(flow.phase)) return flow;
-      return { ...flow, phase: "ready", report: null, error: null, untested: false, steps: flow.steps.filter(s => s.id === "read" || s.id === "convert") };
+      return { ...flow, phase: "ready", report: null, error: null, untested: false, original: false, steps: flow.steps.filter(s => s.id === "read" || s.id === "convert") };
     }
     case "route": {
       // `event.input` is Korg's original again, whichever route the file was on
@@ -409,7 +455,7 @@ export function step(flow, event) {
     case "patching": {
       if (!allowed(flow).patch) return flow;
       const base = flow.steps.filter(s => s.id === "read" || s.id === "convert");
-      const head = headFor(flow);
+      const head = headFor(flow, event.runs);
       const headStep = head ? [{ id: "head", label: text(head === "blue" ? "patcher.step.headBlue" : "patcher.step.headSampler"), status: "ok", detail: head === "blue" ? "Byte 0x12 = 0x00, 0x2E = 0x23" : "Byte 0x12 = 0x53, 0x2E = 0x24" }] : [];
       return {
         ...flow, phase: "patching", report: null, error: null, untested: false,
@@ -442,6 +488,10 @@ export function step(flow, event) {
       const open = flow.steps.find(s => s.status === "todo" || s.status === "error");
       return { ...flow, phase: "failed", error: event.message, steps: open ? mark(flow.steps, open.id, "error", event.message) : flow.steps };
     }
+    case "original":
+      // back to Korg's firmware: Korg's own file of that Electribe goes on the card as it is, nothing is patched or tested
+      if (flow.phase !== "ready" || (flow.origin !== "stock" && flow.origin !== "synth") || flow.route === "hacktribe") return flow;
+      return { ...flow, phase: "passed", original: true, untested: false, report: null, error: null, steps: flow.steps.filter(s => s.id === "read") };
     case "downloaded":
       return flow.phase === "passed" || flow.phase === "downloaded" ? { ...flow, phase: "downloaded" } : flow;
     default: return flow;
