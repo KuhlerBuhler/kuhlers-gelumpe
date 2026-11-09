@@ -19,11 +19,12 @@ runs:
         cache: npm
     - uses: actions/setup-python@v5
       with:
-        python-version: "3.12"
+        python-version: "3.12.16"
     - shell: bash
       run: |
         npm ci
         python -m venv tools/emu/.venv
+        tools/emu/.venv/bin/python -c "import sys; print(sys.version)"
         tools/emu/.venv/bin/pip install -r tools/emu/requirements.txt
     - name: Fingerprinted firmware input
       shell: bash

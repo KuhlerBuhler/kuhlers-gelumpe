@@ -27,7 +27,7 @@ env:
 
 jobs:
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       firmwares: ${{ steps.matrix.outputs.firmwares }}
@@ -50,7 +50,7 @@ jobs:
   shard:
     needs: plan
     name: ${{ matrix.firmware.name }} (${{ matrix.part }}/${{ inputs.shards }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     concurrency:
       group: ${{ github.workflow }}-firmware-${{ inputs.full && github.run_id || inputs.branch }}-${{ matrix.firmware.name }}-${{ matrix.part }}
@@ -129,7 +129,7 @@ jobs:
   join:
     needs: [plan, shard]
     name: Complete ${{ matrix.firmware.name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -169,7 +169,7 @@ jobs:
   smoke:
     needs: plan
     name: ${{ matrix.firmware.kind }} ${{ matrix.firmware.name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     concurrency:
       group: ${{ github.workflow }}-firmware-${{ inputs.full && github.run_id || inputs.branch }}-${{ matrix.firmware.name }}-${{ matrix.firmware.kind }}
@@ -205,7 +205,7 @@ jobs:
   complete:
     needs: [join, smoke]
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - env:
           JOIN: ${{ needs.join.result }}

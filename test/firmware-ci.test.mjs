@@ -51,6 +51,21 @@ test("shared verification sources are part of the firmware scope", () => {
   for (const path of [".github/workflows/firmware-check.yml", ".github/actions/firmware-input/action.yml", "tools/ci/firmware-matrix.mjs"]) assert.ok(runs(path), path);
 });
 
+test("every firmware job uses the same pinned hosted runner", () => {
+  const jobs = read(".github/workflows/firmware-check.yml").split("\njobs:\n")[1];
+  const jobNames = [...jobs.matchAll(/^  ([a-z-]+):$/gm)].map(m => m[1]);
+  const runners = [...jobs.matchAll(/^    runs-on: (.+)$/gm)].map(m => m[1]);
+  assert.ok(jobNames.length > 0);
+  assert.equal(runners.length, jobNames.length);
+  assert.deepEqual([...new Set(runners)], ["ubuntu-24.04"]);
+});
+
+test("the shared environment pins Python and reports its complete build identity", () => {
+  const setup = read(".github/actions/firmware-input/action.yml");
+  assert.match(setup, /python-version: "3\.12\.16"/);
+  assert.match(setup, /tools\/emu\/\.venv\/bin\/python -c "import sys; print\(sys\.version\)"/);
+});
+
 test("PR and publication use one shared firmware execution with mandatory joins and smoke tests", () => {
   const shared = read(".github/workflows/firmware-check.yml");
   for (const caller of ["verify-patches.yml", "release.yml"]) assert.match(read(`.github/workflows/${caller}`), /uses: \.\/\.github\/workflows\/firmware-check\.yml/);
