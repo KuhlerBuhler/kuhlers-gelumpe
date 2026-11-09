@@ -338,7 +338,8 @@ it. Not a leaf: the actions of the pages (SPLASH IMPORT, DRAW and RESET, the exp
 its own runtime off would leave the device without plugins at the next start) and SYNC GROUP (a setting of the pattern).
 
 **RAM only, until WRITE.** The values act at once but live in RAM only. They reach the card with WRITE on a page of the menu
-BLECH (the file `settings.a.bin` or `settings.b.bin`), not before; after a restart the last written state applies. The
+BLECH (the file `settings.a.bin` or `settings.b.bin`), not before; after a restart the last written state applies. With AUTO SAVE,
+leaving the menu BLECH writes the file too when the settings changed since it was opened. The
 exception is SET INIT PATTERN: it lives in the firmware's Global settings, which the device saves at switch-off.
 `korg.menu.blech.write()` writes the settings file from a plugin, as WRITE does. It only asks: the write happens a moment
 later, only while the main screen or BLECH is open, and at the earliest 2 seconds after the last write, further calls before
@@ -375,7 +376,8 @@ firmware function. Measured in the emulator on hacktribe, Korg red and Korg blue
 ([measurement](messungen/2026-11-05-plugin-api20-globals.md), German); not on the device.
 
 **Saving.** There is no call for it. The firmware saves the globals when the device is switched off and on WRITE on the page
-GLOBAL PARAMETERS, as it also keeps the last pattern. A value a plugin set therefore stays over the next restart, even if the
+GLOBAL PARAMETERS, as it also keeps the last pattern. With BLECH > FEATURES > AUTO SAVE it also saves them when someone
+leaves GLOBAL PARAMETERS and the values differ from the saved state ([measurement](messungen/2026-11-09-auto-save.md), German). A value a plugin set therefore stays over the next restart, even if the
 plugin no longer runs then. A plugin that only wants to change the user's setting for a while sets it back, like the
 brightness example above.
 
@@ -980,7 +982,7 @@ page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
-| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD (table below) |
+| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD, plus AUTO SAVE (table below) |
 | PLUGINS | ENTER opens the list of the plugins (MANAGE PLUGINS) straight away; see below |
 | CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
@@ -1050,7 +1052,7 @@ column 28 of the value line on every screen, so any value wider than one or two 
 The menu therefore never uses it. What a page says goes into the value, which holds about 14 characters;
 the title holds about 18.
 
-On the page PLUGIN RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
+On the page PLUGIN RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE (with AUTO SAVE also leaving the menu after a change) saves the
 settings to `KORG/blechtribe/settings.a.bin` and `settings.b.bin`, which take turns with a generation
 number (24 to 280 bytes, tag `GSET`, version 3, then a byte with METER LOUD RAINBOW in bit 0, which a BLECH before 1.3 rejects; at most 64 entries (version 2 up to 1.3.7 held at most 16; a BLECH up to 1.3.7 does not read version 3, it takes an older version 2 file still on the card or the defaults); files of version 2 and 1 are still read and written as version 3 at the next WRITE; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches; when the list is full, the oldest entry that belongs to no loaded plugin drops out first (a plugin no longer on the card, or an older build of one), otherwise an approval drops the oldest entry of all; a marker that finds no room is missing and the plugin runs again after a restart).
 Without a file, without a card or with a damaged file the defaults apply (everything on, customization at

@@ -378,7 +378,8 @@ Gerät beim nächsten Start ohne Plugins) und SYNC GROUP (eine Einstellung des P
 
 **Nur im RAM, bis WRITE.** Die Werte gelten sofort, liegen aber nur im RAM. Auf die Karte kommen sie mit WRITE auf einer Seite
 des Menüs BLECH (die Datei `settings.a.bin` oder `settings.b.bin`), vorher nicht; nach einem Neustart gilt, was zuletzt
-geschrieben wurde. Ausnahme ist SET INIT PATTERN: es liegt in den Global-Einstellungen der Firmware, die das Gerät beim
+geschrieben wurde. Mit AUTO SAVE schreibt auch das Verlassen des Menüs BLECH die Datei, wenn sich die Einstellungen geändert haben,
+seit es geöffnet wurde. Ausnahme ist SET INIT PATTERN: es liegt in den Global-Einstellungen der Firmware, die das Gerät beim
 Ausschalten speichert. `korg.menu.blech.write()` schreibt die Einstellungsdatei aus dem Plugin, wie WRITE es tut. Es fragt nur
 an: geschrieben wird einen Moment später, nur solange der Hauptbildschirm oder BLECH offen ist, und frühestens 2 Sekunden nach
 dem letzten Schreiben, weitere Aufrufe davor bleiben eine Anfrage. Ohne Karte oder bei einem Fehler passiert nichts weiter, wie
@@ -414,7 +415,8 @@ Grenze, ohne die Funktion der Firmware zu rufen. Im Emulator gemessen auf Hacktr
 ([Messung](messungen/2026-11-05-plugin-api20-globals.md)); am Gerät nicht.
 
 **Speichern.** Dafür gibt es keinen Aufruf. Die Firmware speichert die Globals beim Ausschalten und bei WRITE auf der Seite
-GLOBAL PARAMETERS, wie sie auch das letzte Pattern behält. Ein Wert, den ein Plugin gesetzt hat, bleibt deshalb über den
+GLOBAL PARAMETERS, wie sie auch das letzte Pattern behält. Mit BLECH > FEATURES > AUTO SAVE speichert sie sie außerdem, wenn
+jemand GLOBAL PARAMETERS verlässt und die Werte vom gespeicherten Stand abweichen ([Messung](messungen/2026-11-09-auto-save.md)). Ein Wert, den ein Plugin gesetzt hat, bleibt deshalb über den
 nächsten Neustart, auch wenn das Plugin dann nicht mehr läuft. Ein Plugin, das die Einstellung des Nutzers nur vorübergehend
 ändern will, setzt sie zurück, wie das Beispiel oben mit der Helligkeit.
 
@@ -1129,7 +1131,7 @@ VERSION, die keine Gruppe ist:
 
 | Eintrag | Was dahinter liegt |
 |---|---|
-| FEATURES | die Schalter der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST und, wo der Satz den Patch last-pattern hat, LAST PATTERN, und, wo er den Patch stereo-pad hat (rot), STEREO 1 PAD (Tabelle unten) |
+| FEATURES | die Schalter der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST und, wo der Satz den Patch last-pattern hat, LAST PATTERN, und, wo er den Patch stereo-pad hat (rot), STEREO 1 PAD, dazu AUTO SAVE (Tabelle unten) |
 | PLUGINS | ENTER öffnet direkt die Liste der Plugins (MANAGE PLUGINS); siehe unten |
 | CUSTOMIZATION | DISPLAY, LED, dazu PAD COLOR, POWER SAVE und SPLASH, wo der Satz sie hat; siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
@@ -1201,7 +1203,7 @@ benutzt sie deshalb nie. Was eine Seite sagt, steht im Wert, der rund 14 Zeichen
 Titel rund 18.
 
 Auf den Seiten PLUGIN RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION und bei der Zustimmung für fremde Plugins
-speichert WRITE die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
+speichert WRITE (mit AUTO SAVE auch das Verlassen des Menüs nach einer Änderung) die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
 sich mit einer Generationsnummer abwechseln (24 bis 280 Byte: Kennung `GSET`, Version 3, ein Byte mit METER LOUD RAINBOW in Bit 0 (ein BLECH vor 1.3 verwirft eine Datei, in der es gesetzt ist), Anzahl
 erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
 erlaubten fremden Blöcke, CRC-32; höchstens 64 Einträge (bis 1.3.7 Version 2 mit höchstens 16; ein BLECH bis 1.3.7 liest Version 3 nicht, es nimmt dann eine ältere Datei der Version 2, die noch auf der Karte liegt, oder die Standardwerte);
