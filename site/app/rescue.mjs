@@ -56,12 +56,12 @@ function folderTree(path) {
 
 /** The keys a step presses, drawn on the device: `press` filled, `near` outlined, with a line under the drawing. */
 const KEY_ART = {
-  enter: { press: ["menu"], caption: "rescue.keys.enter" },
-  menu: { press: ["menu"], near: ["editLeft", "editRight"], caption: "rescue.keys.menu" },
+  enter: { press: ["menu"], caption: ["rescue.keys.enter"] },
+  menu: { press: ["menu"], near: ["editLeft", "editRight"], caption: ["rescue.keys.menu", "rescue.keys.legend"] },
 };
 const keysFigure = name => {
   const { caption, ...keys } = KEY_ART[name];
-  return el("figure", { className: "cee-rescue-figure cee-rescue-keys" }, [e2Keys(t("rescue.keys.alt"), keys), el("figcaption", { textContent: t(caption) })]);
+  return el("figure", { className: "cee-rescue-figure cee-rescue-keys" }, [e2Keys(t("rescue.keys.alt"), keys), el("figcaption", { textContent: caption.map(k => t(k)).join(" ") })]);
 };
 
 /** A picture of a page outside the app, as it looked when it was taken, with what to click on it. */
@@ -288,7 +288,7 @@ export function rescuePage(root, context = {}) {
     }));
     answers.hidden = !choices.length && !pick.length;
     back.disabled = path.length < 2;
-    chat.lastElementChild?.scrollIntoView?.({ block: "nearest" });
+    showNewest();
     clearTimeout(timer);
     learn(at, node);
     // While Blechy still has something to say, the answers wait and tests can tell (data-waiting).
@@ -301,6 +301,22 @@ export function rescuePage(root, context = {}) {
       path = [...path, to];
       render();
     }, PAUSE_MS);
+  }
+  /**
+   * Scrolls down to Blechy's newest message and the answers under it, as far as both fit; the top of the message never goes
+   * under the bar at the top (the page's scroll-padding). Smooth unless the person asked for less motion; never scrolls up.
+   */
+  function showNewest() {
+    const newest = chat.lastElementChild;
+    if (!newest?.getBoundingClientRect || !root.isConnected || !globalThis.scrollBy) return;
+    const style = getComputedStyle(document.documentElement);
+    const top = parseFloat(style.scrollPaddingTop) || 0;
+    const gap = parseFloat(getComputedStyle(chat).rowGap) || 0;
+    const end = (answers.hidden ? newest : answers).getBoundingClientRect().bottom + gap;
+    const by = Math.min(end - innerHeight, newest.getBoundingClientRect().top - top);
+    if (by <= 0) return;
+    const calm = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    scrollBy({ top: by, behavior: calm ? "auto" : "smooth" });
   }
   /** The card step as a box of its own, so it does not read like one more answer; on a phone there is no card to pick. */
   function pickBox(c) {
