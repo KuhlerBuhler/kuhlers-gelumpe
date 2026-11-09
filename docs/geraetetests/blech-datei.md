@@ -435,8 +435,7 @@ probieren, Ausgabe und Display notieren.
     2. Mit Hacktribe vergleichen, wenn eins da ist: DUAL-SAW, CHIP-NOISE, X-SAW 0, X-SAW +12, VPM-SINE 4. Erwartet: gleicher Klang.
     3. Osc Edit auf DUAL-SAW und auf X-SAW 0 drehen. Erwartet: der Klang ändert sich wie unter Hacktribe.
     4. Part 1 auf 431 (CHIP-TRI 2), WRITE, aus- und einschalten. Erwartet: Part 1 steht auf 431 und klingt gleich.
-    5. BLECH > FEATURES > HT OSC auf OFF, WRITE, aus- und einschalten. Erwartet: 422 bis 500 heißen wieder `Sample422` bis `Sample500`,
-       der Regler springt von 420 auf 501. Wieder ON, WRITE, neu starten: die Oszillatoren sind zurück.
+    5. BLECH > FEATURES ansehen. Erwartet: keine Seite HT OSC, die Oszillatoren sind immer an.
     6. Mit EXIT beim Einschalten: wie die Firmware, 422 heißt `Sample422`.
 
     Melden: ok je Schritt, sonst welcher Oszillator anders klingt oder stumm ist (mit Platznummer).

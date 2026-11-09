@@ -21,7 +21,7 @@ export const FREE_RUNS = [
   },
   {
     start: 0xc014f000, end: 0xc014fc00,
-    what: "FF im Abbild vor dem Code von beat-eighth (0xC014FC00), die Fläche von ht-osc: Code, Tabelle und am Ende das Einstellungswort von HT OSC",
+    what: "FF im Abbild vor dem Code von beat-eighth (0xC014FC00), die Fläche von ht-osc: Code und Tabelle",
     evidence: "docs/messungen/2026-11-08-ht-osc-freie-plaetze.md (gemessen 2026-11-08 in allen drei Builds)",
   },
   {
