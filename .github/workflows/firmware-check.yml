@@ -1,0 +1,213 @@
+name: Firmware check
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+      branch:
+        type: string
+        required: true
+      full:
+        type: boolean
+        required: true
+      cases:
+        type: string
+        default: all
+      shards:
+        type: number
+        default: 4
+
+permissions:
+  contents: read
+
+env:
+  GELUMPE_JOBS: "4"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      firmwares: ${{ steps.matrix.outputs.firmwares }}
+      parts: ${{ steps.matrix.outputs.parts }}
+      smokes: ${{ steps.matrix.outputs.smokes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: matrix
+        env:
+          SHARDS: ${{ inputs.shards }}
+          FULL: ${{ inputs.full }}
+          CASES: ${{ inputs.cases }}
+        run: node tools/ci/firmware-matrix.mjs "$SHARDS" "$FULL" "$CASES" >> "$GITHUB_OUTPUT"
+
+  shard:
+    needs: plan
+    name: ${{ matrix.firmware.name }} (${{ matrix.part }}/${{ inputs.shards }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-firmware-${{ inputs.full && github.run_id || inputs.branch }}-${{ matrix.firmware.name }}-${{ matrix.part }}
+      cancel-in-progress: ${{ !inputs.full && (github.event_name == 'pull_request' || github.event_name == 'push') }}
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(vars.FIRMWARE_MAX_PARALLEL || '8') }}
+      matrix:
+        firmware: ${{ fromJSON(needs.plan.outputs.firmwares) }}
+        part: ${{ fromJSON(needs.plan.outputs.parts) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: ./.github/actions/firmware-input
+        with:
+          url: ${{ secrets[matrix.firmware.secret] }}
+          sha256: ${{ matrix.firmware.sha256 }}
+          blue-head: ${{ matrix.firmware.blue_head }}
+      - name: Develop task results
+        if: ${{ !inputs.full }}
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/gelumpe/task
+            ~/.cache/gelumpe/task-time
+          key: verify-tasks-v3-${{ matrix.firmware.name }}-${{ matrix.part }}.develop.${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: verify-tasks-v3-${{ matrix.firmware.name }}-${{ matrix.part }}.develop.
+      - if: ${{ !inputs.full && github.event_name == 'pull_request' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/develop" ~/.cache/gelumpe
+          for d in task task-time; do [ ! -e ~/.cache/gelumpe/$d ] || mv ~/.cache/gelumpe/$d "$RUNNER_TEMP/develop/"; done
+      - name: Pull request task results
+        if: ${{ !inputs.full && github.event_name == 'pull_request' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/gelumpe/task
+            ~/.cache/gelumpe/task-time
+          key: verify-tasks-v3-${{ matrix.firmware.name }}-${{ matrix.part }}.pr.${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: verify-tasks-v3-${{ matrix.firmware.name }}-${{ matrix.part }}.pr.
+      - if: ${{ !inputs.full && github.event_name == 'pull_request' }}
+        run: |
+          for d in task task-time; do
+            [ -e "$RUNNER_TEMP/develop/$d" ] || continue
+            mkdir -p ~/.cache/gelumpe/$d
+            cp -Rpn "$RUNNER_TEMP/develop/$d/." ~/.cache/gelumpe/$d/
+          done
+      - name: Check assigned tasks
+        env:
+          FULL: ${{ inputs.full }}
+          CASES: ${{ inputs.cases }}
+          PART: ${{ matrix.part }}/${{ inputs.shards }}
+          GELUMPE_NODE_RESULTS: ${{ !inputs.full && 'strict' || '' }}
+        run: |
+          args=(--shard "$PART" --output "$RUNNER_TEMP/shard.json")
+          if [ "$FULL" != true ]; then args+=(--cases "$CASES"); fi
+          npm run -s verify:patches -- "${args[@]}" "$RUNNER_TEMP/SYSTEM.VSB"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.firmware.artifact }}-${{ matrix.part }}
+          path: ${{ runner.temp }}/shard.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 3
+      - if: ${{ always() && !inputs.full }}
+        run: find ~/.cache/gelumpe/task -type f -mtime +14 -delete 2>/dev/null || true
+      - if: ${{ always() && !inputs.full }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/gelumpe/task
+            ~/.cache/gelumpe/task-time
+          key: verify-tasks-v3-${{ matrix.firmware.name }}-${{ matrix.part }}.${{ github.event_name == 'push' && 'develop' || 'pr' }}.${{ github.run_id }}-${{ github.run_attempt }}
+
+  join:
+    needs: [plan, shard]
+    name: Complete ${{ matrix.firmware.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        firmware: ${{ fromJSON(needs.plan.outputs.firmwares) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: ./.github/actions/firmware-input
+        with:
+          url: ${{ secrets[matrix.firmware.secret] }}
+          sha256: ${{ matrix.firmware.sha256 }}
+          blue-head: ${{ matrix.firmware.blue_head }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ matrix.firmware.artifact }}-*
+          path: ${{ runner.temp }}/shards
+      - name: Validate complete results
+        env:
+          FULL: ${{ inputs.full }}
+          CASES: ${{ inputs.cases }}
+          GELUMPE_NODE_RESULTS: ${{ !inputs.full && 'strict' || '' }}
+        run: |
+          args=(--join-shards "$RUNNER_TEMP/shards")
+          if [ "$FULL" != true ]; then args+=(--cases "$CASES"); fi
+          npm run -s verify:patches -- "${args[@]}" "$RUNNER_TEMP/SYSTEM.VSB"
+      - if: ${{ inputs.full }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-${{ matrix.firmware.name }}
+          path: data/patches/verified.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 30
+
+  smoke:
+    needs: plan
+    name: ${{ matrix.firmware.kind }} ${{ matrix.firmware.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-firmware-${{ inputs.full && github.run_id || inputs.branch }}-${{ matrix.firmware.name }}-${{ matrix.firmware.kind }}
+      cancel-in-progress: ${{ !inputs.full && (github.event_name == 'pull_request' || github.event_name == 'push') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        firmware: ${{ fromJSON(needs.plan.outputs.smokes) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: ./.github/actions/firmware-input
+        with:
+          url: ${{ secrets[matrix.firmware.secret] }}
+          sha256: ${{ matrix.firmware.sha256 }}
+          blue-head: ${{ matrix.firmware.blue_head }}
+      - name: The editor's e2sFx.all in the emulator
+        if: matrix.firmware.kind == 'editor' && (inputs.full || inputs.cases == 'all' || contains(format(',{0},', inputs.cases), ',fx_card_cases,'))
+        env:
+          E2_EMU_REQUIRED: "1"
+          E2_VSB: ${{ runner.temp }}/SYSTEM.VSB
+        run: node --test test/emulator-fxcard.test.mjs
+      - name: The start phase ends at the main screen
+        if: matrix.firmware.kind == 'start'
+        env:
+          E2_EMU_REQUIRED: "1"
+          E2_VSB: ${{ matrix.firmware.name == 'hacktribe' && format('{0}/SYSTEM.VSB', runner.temp) || '' }}
+          E2_STOCK_VSB: ${{ matrix.firmware.name == 'red' && format('{0}/SYSTEM.VSB', runner.temp) || '' }}
+          E2_BLUE_VSB: ${{ matrix.firmware.name == 'blue' && format('{0}/SYSTEM.VSB', runner.temp) || '' }}
+        run: node --test --test-timeout=3600000 test/emulator-start-phase.test.mjs
+
+  complete:
+    needs: [join, smoke]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          JOIN: ${{ needs.join.result }}
+          SMOKE: ${{ needs.smoke.result }}
+        run: '[ "$JOIN" = success ] && [ "$SMOKE" = success ]'
