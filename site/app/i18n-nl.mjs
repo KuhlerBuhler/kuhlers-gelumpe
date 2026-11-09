@@ -1506,7 +1506,7 @@ export default {
   "patcher.done.insert": "Leg de kaart erin bij uitgeschakeld apparaat en zet het aan. Gebruik de voeding of verse batterijen.",
   "patcher.done.only": "In de map KORG/electribe/System mag alleen SYSTEM.VSB staan. BOOT.VSB, USER.VSB en PCM.VSB horen daar niet.",
   "patcher.done.update": "Op het apparaat: MENU, met EDIT ◀ naar DATA UTILITY, MENU, met EDIT ▶ naar SOFTWARE UPDATE, druk dan op MENU tot “OK. Please Reboot.” komt. Vlak ervoor staat FACTORY RESET, kies dat niet.",
-  "patcher.done.power": "Zet tussendoor niet uit. Zet daarna één keer uit en weer aan.",
+  "patcher.done.power": "Zet het apparaat tijdens de update niet uit. Zet daarna één keer uit en weer aan.",
   "patcher.done.exit.title": "Nooduitgang: ",
   "patcher.done.exit": "Houd EXIT ingedrukt bij het aanzetten, dan start het apparaat deze ene keer zonder de BLECHTRIBE-functies. Is dat niet genoeg: {rescue}.",
   "patcher.reason.noSet": "{url} is geen patchset in het formaat gelumpe-patch-set 1.",

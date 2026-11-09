@@ -244,9 +244,17 @@
   display: none;
 }
 
-/* Step 4: the download is the main action, a row of its own across the full width. */
+/* Step 4: the download is the main action, a row of its own across the full width. A width, not a flex-basis: on
+   phones the design system turns .actions into a column. */
 .cee-patch-download {
-  flex-basis: 100%;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* The buttons below it keep inside a phone's width: a long label wraps instead of pushing the page sideways. */
+.cee-patch-result > .btn {
+  max-width: 100%;
+  white-space: normal;
 }
 
 /* Step 4: where the file goes, large enough to read off while copying. */
