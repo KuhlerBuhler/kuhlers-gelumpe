@@ -78,6 +78,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Quick save (EXIT + WRITE), reset a part (EXIT + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | KEY from the pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Filter off and on (SHIFT + filter key) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Settings save themselves when you leave the menu (AUTO SAVE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Chords in pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Note assistant | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
