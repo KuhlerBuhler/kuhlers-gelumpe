@@ -283,7 +283,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const failHelp = el("p", { id: "cee-patch-fail-help", hidden: true }, tNodes("patcher.failed.rescue", { rescue: failRescue }));
   const checksBox = el("details", { className: "ui-details", id: "cee-patch-details", hidden: true }, [el("summary", { id: "cee-patch-details-title" }), el("div", { className: "ui-details-body" }, [checkList])]);
   const note = el("p", { className: "muted", id: "cee-patch-note", role: "status", hidden: true });
-  const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-download", textContent: t("common.save"), disabled: true });
+  // The main action of step 4 on its own row and large: it downloads the file, "save" alone made people look for something else.
+  const download = el("button", { type: "button", className: "btn lg cee-primary cee-patch-download", id: "cee-patch-download", textContent: t("patcher.download"), disabled: true });
   // Step 4 names where the file goes before anything is saved: big, so it can be read off while copying.
   const targetPath = el("p", { className: "cee-patch-path", id: "cee-patch-path" });
   // Before the copy goes onto the device: what to do when it does not start (in step 1 only a file is loaded, nothing can break).
@@ -299,7 +300,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     after,
   ]);
   const afraid = el("button", { type: "button", className: "btn", id: "cee-patch-afraid", textContent: t("patcher.afraid"), disabled: true });
-  const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [usbPut, download, afraid]);
+  const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [download, usbPut, afraid]);
   const done = el("section", { className: "cee-patch-done", id: "cee-patch-done", hidden: true });
 
   // The wizard in front of the way: which Electribe, which firmware runs on it, then what to do. Its answers pick
@@ -972,7 +973,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     done.replaceChildren(
       el("h2", { textContent: t("patcher.done.title") }),
       el("ol", { className: "cee-patch-guide" }, [
-        el("li", { textContent: t("patcher.done.backup") }),
+        el("li", { id: "cee-patch-guide-backup" }, tNodes("patcher.done.backup", { patterns: el("a", { className: "cee-text-link", href: "#patterns", textContent: t("rescue.link.patterns") }) })),
         moves && !asks ? copy("patcher.done.copy") : null,
         blech && hasDoom(blech) ? el("li", { id: "cee-patch-guide-doom" }, tNodes("patcher.done.doom", {
           files: DOOM_FILES.flatMap((file, i) => [i ? t("patcher.done.doom.and") : "", el("a", { className: "cee-text-link", href: file, download: file.split("/").pop(), textContent: file.split("/").pop() })]),

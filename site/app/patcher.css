@@ -244,6 +244,11 @@
   display: none;
 }
 
+/* Step 4: the download is the main action, a row of its own across the full width. */
+.cee-patch-download {
+  flex-basis: 100%;
+}
+
 /* Step 4: where the file goes, large enough to read off while copying. */
 .cee-patch-target {
   display: flex;

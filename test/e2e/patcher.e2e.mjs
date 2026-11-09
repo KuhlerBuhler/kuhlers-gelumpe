@@ -260,14 +260,16 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   assert.equal(await guide.locator("h2").textContent(), "Viel Spaß beim BLECHEN");
   const text = await guide.textContent();
   assert.match(text, /KORG\/hacktribe\/System\//);
+  assert.match(text, /MENU, mit EDIT ◀ zu DATA UTILITY, MENU, mit EDIT ▶ zu SOFTWARE UPDATE, dann MENU drücken, bis „OK\. Please Reboot\.“ kommt/, "the update step names every button");
+  assert.equal(await guide.locator("#cee-patch-guide-backup a").getAttribute("href"), "#patterns", "the backup step leads to the pattern backup");
   assert.match(await guide.locator("#cee-patch-guide-copy").textContent(), /Kopieren musst du nichts: Beim ersten Start nach dem Update fragt BLECHTRIBE, ob es deinen Ordner KORG\/hacktribe\/ nach KORG\/blechtribe\/ übernehmen soll\. MENU kopiert, EXIT startet ohne/);
   assert.match(await guide.locator("#cee-patch-guide-vsb").textContent(), /nach KORG\/hacktribe\/System\/, also in den Ordner der Firmware, die jetzt auf dem Gerät läuft, nicht nach blechtribe/);
   assert.match(await guide.locator("#cee-patch-guide-vsb").textContent(), /genau SYSTEM\.VSB heißen: Hat dein Browser sie SYSTEM \(1\)\.VSB genannt, benenn sie um\. Fehlt der Ordner System, leg ihn an, aber benenn keinen Ordner um/, "the exact file name and the folder System");
   const doom = guide.locator("#cee-patch-guide-doom");
   assert.match(await doom.textContent(), /Für Doom \(SHIFT \+ TAP beim Einschalten\): doom\.bin und doom\.wad laden und auf der Karte nach KORG\/blechtribe\/Doom\/ legen\./);
   assert.deepEqual(await doom.locator("a[download]").evaluateAll(links => links.map(a => [a.getAttribute("href"), a.getAttribute("download")])), [["third_party/doom/doom.bin", "doom.bin"], ["third_party/doom/doom.wad", "doom.wad"]]);
-  assert.match(text, /Sichere die SD-Karte/);
-  assert.ok(text.indexOf("Sichere die SD-Karte") < text.indexOf("SYSTEM.VSB") && text.indexOf("DATA UTILITY") < text.indexOf("Kopieren musst du nichts"), "backup, then the file and the update, then the question at the first start");
+  assert.match(text, /Sichere vorher die SD-Karte/);
+  assert.ok(text.indexOf("Sichere vorher die SD-Karte") < text.indexOf("SYSTEM.VSB") && text.indexOf("DATA UTILITY") < text.indexOf("Kopieren musst du nichts"), "backup, then the file and the update, then the question at the first start");
   assert.match(text, /DATA UTILITY/);
   assert.match(text, /SOFTWARE UPDATE/);
   assert.match(text, /EXIT/);
@@ -809,7 +811,7 @@ test("patcher: the test is a choice; no test needs the consent and goes straight
   assert.equal(fake.seen.check, checks, "nothing ran in the emulator");
   assert.match(await page.locator("#cee-patch-path").textContent(), /^KORG\/.+\/System\/SYSTEM\.VSB$/, "the place on the card, before anything is saved");
   assert.equal(await page.isVisible("#cee-patch-untested"), true, "the copy says it is untested");
-  assert.equal(await page.locator("#cee-patch-download").textContent(), "Speichern");
+  assert.equal(await page.locator("#cee-patch-download").textContent(), "Firmware herunterladen (SYSTEM.VSB)");
   assert.equal(await page.isDisabled("#cee-patch-download"), false);
   await page.click("#cee-patch-back");
   assert.equal(await page.isVisible("#cee-patch-test"), true, "back from the end is the test again, ready to run once more");
