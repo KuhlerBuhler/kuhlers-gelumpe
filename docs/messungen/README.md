@@ -235,6 +235,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [KEY PADS fest eingebaut: KEYBOARD + Pad setzt den KEY, das Wertefenster zeigt ihn, im Emulator](2026-11-07-key-pads-eingebaut.md)
 - [KEY PADS chromatisch: Pad 1 C bis Pad 12 B, Pads 13 bis 16 tun nichts, im Emulator](2026-11-08-key-pads-chromatisch.md)
 - [FILTER TOGGLE fest eingebaut: SHIFT + Filtertaste schaltet das Filter aus und an, mit dem Fenster der Firmware, im Emulator](2026-11-08-filter-toggle-eingebaut.md)
+- [AUTO SAVE: GLOBAL PARAMETERS und BLECH-Einstellungen speichern sich beim Verlassen, nur mit Änderung, im Emulator](2026-11-09-auto-save.md)
 - [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
 - [Notenassistent: Helligkeit nach Passung, stehen lassen und ausblenden](2026-10-19-notenassistent-helligkeit.md)
