@@ -1508,7 +1508,7 @@ export default {
   "patcher.done.insert": "Вставь карту в выключенное устройство и включи его. Возьми блок питания или свежие батарейки.",
   "patcher.done.only": "В папке KORG/electribe/System должен лежать только SYSTEM.VSB. BOOT.VSB, USER.VSB и PCM.VSB там быть не должно.",
   "patcher.done.update": "На устройстве: MENU, с EDIT ◀ к DATA UTILITY, MENU, с EDIT ▶ к SOFTWARE UPDATE, потом жми MENU, пока не появится «OK. Please Reboot.». Прямо перед этим стоит FACTORY RESET, его не выбирай.",
-  "patcher.done.power": "В промежутке не выключай. Потом один раз выключи и включи снова.",
+  "patcher.done.power": "Не выключай устройство во время обновления. Потом один раз выключи и включи снова.",
   "patcher.done.exit.title": "Аварийный выход: ",
   "patcher.done.exit": "Держи EXIT при включении, тогда устройство в этот раз запустится без функций BLECHTRIBE. Если этого мало: {rescue}.",
   "patcher.reason.noSet": "{url} - не набор патчей в формате gelumpe-patch-set 1.",

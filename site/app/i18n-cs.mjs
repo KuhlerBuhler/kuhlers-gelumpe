@@ -1508,7 +1508,7 @@ export default {
   "patcher.done.insert": "Vlož kartu do vypnutého zařízení a zapni ho. Použij zdroj nebo čerstvé baterie.",
   "patcher.done.only": "Ve složce KORG/electribe/System smí ležet jen SYSTEM.VSB. BOOT.VSB, USER.VSB a PCM.VSB tam nepatří.",
   "patcher.done.update": "Na zařízení: MENU, přes EDIT ◀ k DATA UTILITY, MENU, přes EDIT ▶ k SOFTWARE UPDATE, pak mačkej MENU, až se objeví „OK. Please Reboot.“. Hned před tím je FACTORY RESET, ten nevybírej.",
-  "patcher.done.power": "Mezitím nevypínej. Potom jednou vypni a zase zapni.",
+  "patcher.done.power": "Zařízení během aktualizace nevypínej. Potom jednou vypni a zase zapni.",
   "patcher.done.exit.title": "Nouzový východ: ",
   "patcher.done.exit": "Při zapnutí drž EXIT, pak zařízení tentokrát nastartuje bez funkcí BLECHTRIBE. Pokud to nestačí: {rescue}.",
   "patcher.reason.noSet": "{url} není sada patchů ve formátu gelumpe-patch-set 1.",

@@ -1508,7 +1508,7 @@ export default {
   "patcher.done.insert": "Insère la carte appareil éteint et allume-le. Prends l'alimentation ou des piles neuves.",
   "patcher.done.only": "Dans le dossier KORG/electribe/System, seul SYSTEM.VSB doit se trouver. BOOT.VSB, USER.VSB et PCM.VSB n'ont rien à y faire.",
   "patcher.done.update": "Sur l'appareil : MENU, avec EDIT ◀ jusqu'à DATA UTILITY, MENU, avec EDIT ▶ jusqu'à SOFTWARE UPDATE, puis appuie sur MENU jusqu'à ce que « OK. Please Reboot. » s'affiche. Juste avant se trouve FACTORY RESET, ne le choisis pas.",
-  "patcher.done.power": "N'éteins pas entre-temps. Ensuite éteins et rallume une fois.",
+  "patcher.done.power": "N'éteins pas l'appareil pendant la mise à jour. Ensuite éteins et rallume une fois.",
   "patcher.done.exit.title": "Sortie de secours : ",
   "patcher.done.exit": "Maintiens EXIT à l'allumage, l'appareil démarre alors cette fois sans les fonctions de BLECHTRIBE. Si ça ne suffit pas : {rescue}.",
   "patcher.reason.noSet": "{url} n'est pas un jeu de patchs au format gelumpe-patch-set 1.",

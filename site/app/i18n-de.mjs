@@ -1551,7 +1551,7 @@ export default {
   "patcher.done.insert": "Lege die Karte bei ausgeschaltetem Gerät ein und schalte es ein. Nimm das Netzteil oder frische Batterien.",
   "patcher.done.only": "Im Ordner KORG/electribe/System darf nur SYSTEM.VSB liegen. BOOT.VSB, USER.VSB und PCM.VSB gehören dort nicht hinein.",
   "patcher.done.update": "Am Gerät: MENU, mit EDIT ◀ zu DATA UTILITY, MENU, mit EDIT ▶ zu SOFTWARE UPDATE, dann MENU drücken, bis „OK. Please Reboot.“ kommt. Direkt vor SOFTWARE UPDATE steht FACTORY RESET, das nicht nehmen.",
-  "patcher.done.power": "Dazwischen nicht ausschalten. Danach einmal aus- und wieder einschalten.",
+  "patcher.done.power": "Schalte das Gerät während des Updates nicht aus. Danach einmal aus- und wieder einschalten.",
   "patcher.done.exit.title": "Notausgang: ",
   "patcher.done.exit": "Halte EXIT beim Einschalten gedrückt, dann startet das Gerät dieses eine Mal ohne die BLECHTRIBE-Funktionen. Wenn das nicht reicht: {rescue}.",
 
