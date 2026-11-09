@@ -84,7 +84,9 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC008A244,0xEBFFB868,'kp_check_hook'),
          # FILTER TOGGLE (script_shortcuts.s): the filter key handler's path that sets the type, mov r0, #8 (FT_BACK goes on behind it);
          # Hacktribe has its own handler (FILTER_TOGGLE_HACKTRIBE), Korg's stays unused there
-         (0xC006FDEC,0xE3A00008,'ft_select'))
+         (0xC006FDEC,0xE3A00008,'ft_select'),
+         # AUTO SAVE (script_menu.s): SWITCH_SCREEN's bl to the screen manager behind the check that the screen changes
+         (0xC0083D7C,0xEBFEA4B1,'autosave_switch_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
@@ -277,6 +279,8 @@ def runtime_profile(build):
             address, expected = 0xC0061DDC, 0xE594301C
         elif name == 'ft_select':
             address = 0xC0062F14
+        elif name == 'autosave_switch_hook':
+            address, expected = synthaddr.tr(address), 0xEBFED795   # bl 0xC002A1AC, the synth's screen manager getter
         elif name in KEY_PADS_SYNTH_WORDS:
             address, expected = KEY_PADS_SYNTH[name.replace('kp_', 'KP_').replace('_hook', '_AT').upper()], KEY_PADS_SYNTH_WORDS[name]
         else:
@@ -367,7 +371,7 @@ class BuiltHooks:
             ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts, von KEY PADS und FILTER TOGGLE.'),
             ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel und EXIT, legt KORG/blechtribe mit seinen Unterordnern an und prüft die Ordner der Karte; nur wenn blechtribe keine e2sSample.all hat, aber ein hacktribe- oder electribe-sampler-Ordner (auf der blauen: blechtribe keine .e2allpat, aber KORG/electribe), fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU.'),
             ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
-            ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE und Seitenzähler laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
+            ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE, Seitenzähler und der Bildschirmwechsel (AUTO SAVE) laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
         ]:
             if start in self.symbols and end in self.symbols:
                 spans.append((self.symbols[start],self.symbols[end],why))
@@ -380,6 +384,7 @@ class BuiltHooks:
         menu_hooks+=[dict(site=f'0x{address:08X}',kind='instruction',chain='backlight',position='before',swallow=False)
             for address in (0xC0016C98,0xC0016CE0,0xC0016D28,0xC00289F4)]
         menu_hooks+=[dict(site='0xC00161A4',kind='instruction',chain='lcd-invert',position='before',swallow=False)]
+        menu_hooks+=[dict(site='0xC0083D7C',kind='instruction',chain='screen-switch',position='before',swallow=False)]
         menu_hooks+=[dict(site='0xC006E664',kind='instruction',chain='menu-ring',position='replace',swallow=False),
             dict(site='0xC006E68C',kind='literal',chain='menu-ring',position='replace',swallow=False)]
         menu_hooks+=[dict(site='0xC0038D34',kind='instruction',chain='start',position='before',swallow=False)]

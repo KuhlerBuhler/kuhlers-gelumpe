@@ -144,7 +144,7 @@ test("only answers on the page: no evidence markers, no folds", async () => {
     await answer(page, c.label);
     await walk(page);
   }
-  assert.equal(await page.locator("#cee-rescue-chat .cee-status, #cee-rescue-chat details").count(), 0);
+  assert.equal(await page.locator("#cee-rescue-chat .cee-state, #cee-rescue-chat .cee-status, #cee-rescue-chat details").count(), 0);
   assert.doesNotMatch(await page.locator("#cee-rescue-chat").textContent(), /gemessen|offline gelesen|Woher wir das wissen/);
 });
 

@@ -54,7 +54,7 @@ async function samples() {
 
 const name = page => page.locator("#cee-sample-name");
 const tune = page => page.locator("#cee-sample-tune");
-const job = page => page.locator("#cee-sample-job .cee-status");
+const job = page => page.locator("#cee-sample-job .cee-state");
 
 async function openBlech(page) {
   await page.click("#cee-sample-list");
@@ -207,7 +207,7 @@ async function device() {
   await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
   await go(page, "device");
   await page.click("#cee-connect");
-  await page.locator(".cee-device-status .cee-status").filter({ hasNotText: "getrennt" }).waitFor();
+  await page.locator(".cee-device-status .cee-state").filter({ hasNotText: "getrennt" }).waitFor();
   await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ timeout: 15_000 });
   await page.click("#cee-tab-samples");
   return page;

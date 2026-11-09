@@ -4,6 +4,7 @@
  * exactly this text (src/script/gate.mjs).
  */
 import { el } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { icon } from "./icons.mjs";
 import { simPanel } from "./sim-panel.mjs";
 import { drawDisplay } from "./emulator.mjs";
@@ -40,12 +41,6 @@ const toBase64 = bytes => btoa(String.fromCharCode(...bytes));
 const fromBase64 = text => { try { const b = Uint8Array.from(atob(text), c => c.charCodeAt(0)); return b.length === 1024 ? b : null; } catch { return null; } };
 
 const EXIT_KEY = KEY_NAMES.find(n => n.name === "EXIT").value;
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
-};
 
 const ask = async (options, fallback) => (window.ui?.prompt ? window.ui.prompt(options) : fallback);
 
@@ -124,8 +119,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const log = el("ul", { className: "cee-script-log", id: "cee-script-log", "aria-live": "polite" });
   const ownList = el("ul", { className: "cee-catalog cee-own", id: "cee-script-own" });
   const ownEmpty = el("p", { className: "muted cee-ws-empty", id: "cee-script-own-empty", textContent: t("plugins.own.empty") });
-  const note = el("span", { className: "cee-status", id: "cee-script-readonly", hidden: true, textContent: t("plugins.readOnly") });
-  note.dataset.tone = "neutral";
+  const note = stateText("neutral", t("plugins.readOnly"), { id: "cee-script-readonly", hidden: true });
 
   const button = (id, label, onclick, extra = "") => el("button", { type: "button", className: `btn ${extra}`.trim(), id, textContent: label, onclick });
   const copy = button("cee-script-copy", t("plugins.copy"), () => copyPreset(), "sm cee-primary");
@@ -258,7 +252,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     const n = mine?.inputs?.length ?? 0;
     inputsInfo.textContent = isOwn ? (n ? t("plugins.inputs", { count: n, frame: mine.inputs.at(-1).frame }) : t("plugins.noInputs")) : "";
     const gate = isOwn ? exportGate({ source: mine.source, probe: mine.probe }) : null;
-    probeInfo.replaceChildren(...(gate ? [gate.ok ? pill(gate.confirm ? "warn" : "ok", gate.confirm ? t("plugins.linesOpen") : t("console.passed")) : pill("neutral", t("plugins.notProbedTag")), ` ${gate.reason ?? t("plugins.allRan")}`] : []));
+    probeInfo.replaceChildren(...(gate ? [gate.ok ? stateText(gate.confirm ? "warn" : "ok", gate.confirm ? t("plugins.linesOpen") : t("console.passed")) : stateText("neutral", t("plugins.notProbedTag")), ` ${gate.reason ?? t("plugins.allRan")}`] : []));
     exportButton.disabled = !ok || !gate?.ok;
     usbButton.disabled = exportButton.disabled;
     // Speichern in the navbar is the same export: a plugin of the catalog is read only, an own one needs its probe first

@@ -89,11 +89,12 @@ test("a malformed path gets a 400, and the server keeps running", async () => {
   assert.equal((await get("/")).status, 200);
 });
 
-test("the editor draws no status pills: status is plain text in the status colour (cee-status), nowhere the ui-pill box", () => {
-  const files = [join("site", "index.html"), join("site", "app.css"), ...readdirSync("site/app").map(f => join("site/app", f))];
-  for (const file of files) assert.doesNotMatch(readFileSync(file, "utf8"), /ui-pill/, `${file} uses ui-pill`);
+test("the editor draws no status pills or dots: a state is an icon and the word (cee-state), no cee-status, no ui-pill", () => {
+  const files = [join("site", "index.html"), join("site", "app.css"), join("site", "design", "root.min.css"), ...readdirSync("site/app").map(f => join("site/app", f))];
+  for (const file of files) assert.doesNotMatch(readFileSync(file, "utf8"), /ui-pill|cee-status/, `${file} uses a pill`);
   const css = readFileSync("site/app.css", "utf8");
-  const rule = /\.cee-status \{([^}]*)\}/.exec(css)[1];
-  assert.doesNotMatch(rule, /border|background|padding/, "no box around a status");
-  for (const tone of ["ok", "warn", "error", "info"]) assert.match(css, new RegExp(`\\.cee-status\\[data-tone="${tone}"\\][^{]*\\{ color: var\\(--color-status-${tone}-text\\)`));
+  const rule = /\.cee-state \{([^}]*)\}/.exec(css)[1];
+  assert.doesNotMatch(rule, /border|background|padding/, "no box around a state");
+  assert.match(rule, /color: var\(--color-text-primary\)/, "the word in the text colour, not a status colour");
+  assert.doesNotMatch(css, /\.cee-state[^{]*::before/, "no dot");
 });
