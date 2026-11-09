@@ -493,7 +493,7 @@ export const FLOW = {
     mood: "sad",
     say: ["rescue.say.samplesWhy.1", "rescue.say.samplesHt.1"],
     choices: [
-      { label: "rescue.answer.samplesHt", to: "samples:have" },
+      { label: "rescue.answer.samplesHt", to: "samples:flash" },
       { label: "rescue.answer.samplesNoHt", to: "samples:other" },
       { label: "rescue.answer.dontKnow", to: "samples:other" },
     ],
@@ -503,23 +503,10 @@ export const FLOW = {
     say: ["rescue.say.samplesOther.1"],
     next: "starts",
   },
-  "samples:have": {
-    mood: "idle",
-    say: ["rescue.say.samplesFile.2"],
-    choices: [
-      { label: "rescue.answer.samplesHave", to: "samples:restore" },
-      { label: "rescue.answer.samplesLost", to: "samples:lost" },
-      { label: "rescue.answer.dontKnow", to: "samples:lost" },
-    ],
-  },
-  "samples:restore": {
+  // The sounds stay in the device flash; Hacktribe only does not read them, a firmware without it does again.
+  "samples:flash": {
     mood: "happy",
-    say: ["rescue.say.samplesRestore.1", { path: "KORG/blechtribe/Sample/e2sSample.all" }, "rescue.say.samplesRestore.2"],
-    next: "samples:firmware",
-  },
-  "samples:lost": {
-    mood: "sad",
-    say: ["rescue.say.samplesLost.1", "rescue.say.samplesLost.2"],
+    say: ["rescue.say.samplesFlash.1"],
     next: "samples:firmware",
   },
   "samples:firmware": {

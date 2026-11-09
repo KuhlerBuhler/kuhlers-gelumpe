@@ -175,18 +175,16 @@ Gelesen bis 8.11., Stand der Meldungen, nichts davon am Gerät nachgestellt.
 
 ## Hacktribe aus Versehen, Samples weg
 
-Der Fall "Ich hab aus Versehen Hacktribe installiert" der Seite (`samples` in `data/rescue.mjs`) geht vier Schritte. Was
+Der Fall "Ich hab aus Versehen Hacktribe installiert" der Seite (`samples` in `data/rescue.mjs`) geht drei Schritte. Was
 dahinter belegt ist und was offen bleibt, steht in der [Messung](messungen/2026-11-06-hacktribe-samples.md).
 
-1. Blechy fragt, ob die `e2sSample.all` noch irgendwo liegt (Karte, `KORG/electribe sampler/Sample/`, `KORG/hacktribe/Sample/`
-   oder Sicherung auf dem Rechner). Ja: nach dem Update nach `KORG/blechtribe/Sample/e2sSample.all`, oder die Frage von
-   BLECHTRIBE beim ersten Start nach dem Kopieren des alten Ordners mit ja beantworten.
-2. Nein: die App kann sie nicht zurückholen, Blechy nennt Rechner, Cloud, Papierkorb und eine Rettungs-Software für gelöschte
-   Dateien (hergeleitet), und dass die Werks-Samples laut Hacktribe im Gerät bleiben.
-3. Zurück zu BLECHTRIBE ohne Hacktribe: im Patcher bei der laufenden Firmware "Original" wählen (auch wenn Hacktribe drauf
+1. Blechy sagt, dass nichts weg ist: die Werksklänge liegen im Flash des Geräts, eigene Samples als `e2sSample.all` im alten
+   Ordner der Karte. Hacktribe liest beides nur nicht. Mit einer Firmware ohne Hacktribe ist alles wieder da, solange Flash
+   und Sample-Datei nicht überschrieben wurden. Eine Frage nach einer Sicherung gibt es nicht mehr.
+2. Zurück zu BLECHTRIBE ohne Hacktribe: im Patcher bei der laufenden Firmware "Original" wählen (auch wenn Hacktribe drauf
    ist) und als Ziel BLECH, dann Korgs Original-Datei. Die fertige `SYSTEM.VSB` kommt in den Ordner der Firmware, die jetzt
    läuft (`KORG/hacktribe/System/`), danach weiter wie bei "Welche Firmware läuft gerade".
-4. Blau: läuft BLECHTRIBE mit Hacktribe, geht es wie bei Rot. Läuft nur Hacktribe, geht es über den Schritt der Seite, der Korgs blaue Datei
+3. Blau: läuft BLECHTRIBE mit Hacktribe, geht es wie bei Rot. Läuft nur Hacktribe, geht es über den Schritt der Seite, der Korgs blaue Datei
    mit dem Sampler-Kopf speichert (`back:head`), danach BLECH im Patcher.
 
 Vor dem Patchen mit Hacktribe zeigt der Patcher die Warnung samt Haken (`cee-patch-ht-ack`); ohne den Haken geht Weiter,
