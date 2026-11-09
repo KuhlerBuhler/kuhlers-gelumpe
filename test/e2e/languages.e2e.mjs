@@ -101,6 +101,12 @@ test("French renders device fields, effect metadata, accessible values and the p
   assert.equal(await page.locator("#cee-names-body table").count(), 3);
   await page.fill("#cee-docs-search", "sauvegarde");
   assert.ok(await page.locator("#cee-docs-article .cee-doc-section:not([hidden])").count() > 0);
+  await page.click("#cee-tab-console");
+  await page.fill("#cee-term-input", "help");
+  await page.press("#cee-term-input", "Enter");
+  await page.locator(".cee-term-line", { hasText: "KORG.screen.get()" }).waitFor();
+  assert.match(await page.locator("#cee-term-log").innerText(), /Lire l’écran sous forme de 64 lignes/);
+  assert.doesNotMatch(await page.locator("#cee-term-log").innerText(), /eine Taste drücken|Bild aufs Display/);
   assert.deepEqual(errors, []);
   await context.close();
 });

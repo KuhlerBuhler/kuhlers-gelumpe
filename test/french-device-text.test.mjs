@@ -9,6 +9,9 @@ import { GROUPS, PARAM_LABELS } from "../data/map/fx-labels.mjs";
 import { GROUPS as UNIT_GROUPS, UNITS, PARAMS, paramLabel } from "../data/fx/labels.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../data/fx/catalog.mjs";
 import { describeScreen } from "../site/app/follow.mjs";
+import { HELP, makeKorg, toDisplay } from "../src/korg.mjs";
+import { KnownRam, Snapshot, DiffResult, SearchResult } from "../src/ramsearch.mjs";
+import { describeUnits } from "../src/rehearsal.mjs";
 
 const DEVICE_NAMES = new Set(["Acid Drive", "Asobi", "Blend", "Chorus", "Drive", "Exciter", "Fader", "Flanger", "Gain", "Grain Shifter", "Lo-Fi (Decimator)", "Looper", "Mod Delay", "PD Thru", "Peak-Hold B1", "Phase", "Phaser", "Punch", "Scratch", "Tremolo", "Vinyl Break", "Wah", "One-Shot"]);
 
@@ -32,8 +35,31 @@ test("German effect parameter and unit names cannot silently return to French pa
   const placeholders = s => [...s.matchAll(/\{\w+\}/g)].map(m => m[0]).sort();
   for (const [source, translated] of Object.entries(fr)) {
     assert.ok(translated.trim(), source);
+    assert.doesNotMatch(translated, /[?\uFFFD]/, `${source}: damaged character encoding`);
     assert.deepEqual(placeholders(translated), placeholders(source), source);
   }
+});
+
+test("French console help, RAM reports, rehearsal descriptions and errors keep commands and numbers intact", async () => {
+  try {
+    await loadLanguage("fr");
+    for (const line of HELP) assert.ok(fr[line], line);
+    const korg = makeKorg({ session: () => null, emulator: { port: {} } });
+    assert.match(korg.help(), /KORG.screen.get\(\).*Lire l’écran/);
+    assert.doesNotMatch(korg.help(), /Bild aufs Display|eine Taste drücken/);
+    assert.throws(() => toDisplay(null), /screen.set accepte/);
+    const regions = new KnownRam([{ start: 0x1000, end: 0x1010, what: "Insert-Effekte 1" }]);
+    assert.equal(regions.describe(0x1000), "dans Effets d’insertion 1 (+0x0)");
+    const snapshot = new Snapshot({ from: 0x1000, to: 0x1010, read: 4, skipped: 12, mask: true });
+    assert.equal(snapshot.summary(), "Capture de 0x1000 à 0x1010 : 4 octets lus, 12 octets connus et non lus.");
+    const diff = new DiffResult({ from: 0x1000, to: 0x1010, changed: 0, compared: 16, runs: [] }, regions);
+    assert.match(diff.summary(), /Comparaison de 0x1000 à 0x1010/);
+    const search = new SearchResult({ from: 0x1000, to: 0x1010, needle: Uint8Array.of(42), matches: [], read: 16 }, regions);
+    assert.match(search.summary(), /Recherche de 1 octet \(2a\).*0 résultats/);
+    const units = describeUnits({ units: [{ ok: true, edit: { kind: "screenWrite" }, steps: [] }] });
+    assert.equal(units[0].title, "1. Écrire sur l’écran");
+    assert.equal(units[0].note, "0 messages, tous confirmés");
+  } finally { setLanguage("de"); }
 });
 
 test("field choices, formatter output and screen reader descriptions follow French without changing raw values", async () => {
@@ -53,6 +79,7 @@ test("field choices, formatter output and screen reader descriptions follow Fren
     assert.equal(describeScreen({ name: { de: "Hauptbildschirm", en: "Main screen" }, part: 0 }), "Écran principal · Partie 1");
     assert.equal(localize({ de: "Name", fr: "Un libellé explicite" }), "Un libellé explicite");
     assert.equal(localize("I_mkp2_comp"), "I_mkp2_comp");
+    assert.equal(localize("constructor"), "constructor");
     setLanguage("de");
     assert.deepEqual(onOff.choices.map(o => o.label), ["Aus", "An"]);
     assert.equal(length.format(1), "2 Takte");
