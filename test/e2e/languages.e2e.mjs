@@ -101,6 +101,12 @@ test("French renders device fields, effect metadata, accessible values and the p
   assert.equal(await page.locator("#cee-names-body table").count(), 3);
   await page.fill("#cee-docs-search", "sauvegarde");
   assert.ok(await page.locator("#cee-docs-article .cee-doc-section:not([hidden])").count() > 0);
+  await page.fill("#cee-docs-search", "korg.keyDown");
+  const reference = page.locator("#cee-docs-article .cee-doc-section:not([hidden])");
+  assert.match(await reference.first().innerText(), /korg\.keyDown/);
+  assert.ok(await reference.count() >= 1);
+  await page.fill("#cee-docs-search", "Valeurs persistantes");
+  assert.match(await page.locator("#cee-docs-article .cee-doc-section:not([hidden])").first().innerText(), /store\.a\.bin/);
   await page.click("#cee-tab-console");
   await page.fill("#cee-term-input", "help");
   await page.press("#cee-term-input", "Enter");

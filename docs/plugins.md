@@ -1,6 +1,6 @@
 # Plugins für die Electribe
 
-Deutsche Version | [English version](plugins.en.md)
+Deutsche Version | [English version](plugins.en.md) | [Français](plugins.fr.md)
 
 Stand 2026-11-09.
 
