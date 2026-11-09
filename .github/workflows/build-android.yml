@@ -4,9 +4,6 @@ name: Build Android
 
 on:
   workflow_dispatch:
-  # Temporary, to measure the build on the draft pull request; removed before review.
-  push:
-    branches: [feat/android-apk]
 
 permissions:
   contents: read
