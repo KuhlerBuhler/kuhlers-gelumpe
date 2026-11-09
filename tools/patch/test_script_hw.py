@@ -329,10 +329,11 @@ class NativeHardwareTests(unittest.TestCase):
         m,built = self.machine()
         from unicorn import UC_HOOK_CODE
         from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
-        for page in (0xC0040000,0xC0045000,0xC0048000,0xC0070000): m.uc.mem_map(page,0x1000)
+        for page in (0xC0040000,0xC0045000,0xC0048000,0xC0059000,0xC0070000): m.uc.mem_map(page,0x1000)
         m.uc.mem_map(0xC0348000,0x1000)
         m.write(0xC034886C,0xC0348100)
         m.write(0xC03487EC,0xC0348200)
+        m.write(0xC03487E4,0xC0348300)
         calls = []
         def edit(uc,address,size,_):
             sp = uc.reg_read(UC_ARM_REG_SP)
@@ -340,23 +341,37 @@ class NativeHardwareTests(unittest.TestCase):
                           *struct.unpack('<II',bytes(uc.mem_read(sp,8)))))
             uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
         def notify(uc,address,size,_):
-            calls.append(('window',uc.reg_read(UC_ARM_REG_R0),*struct.unpack('<II',bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R1),8)))))
+            to = uc.reg_read(UC_ARM_REG_R0)
+            if to == 0xC0348304: calls.append(('panel',*bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R1),2))))
+            else: calls.append(('window',to,*struct.unpack('<II',bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R1),8)))))
+            uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
+        def param(uc,address,size,_):
+            calls.append(('param',*(uc.reg_read(r) for r in (UC_ARM_REG_R0,UC_ARM_REG_R1,UC_ARM_REG_R2,UC_ARM_REG_R3))))
             uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
         m.uc.hook_add(UC_HOOK_CODE,edit,begin=0xC0048460,end=0xC0048460)
         m.uc.hook_add(UC_HOOK_CODE,notify,begin=0xC0070688,end=0xC0070688)
+        m.uc.hook_add(UC_HOOK_CODE,param,begin=0xC0059720,end=0xC0059720)
         self.midi(m,calls)
         error = contract_data()['error']['API_ARG']
         m.write(0xC06B2428,3)
         self.assertEqual(m.call('script_seq_set_part_value_glue',3,15,0xFFFFFF9C),(0,0))
-        self.assertEqual(calls,[('edit',0xC0348100,0x13,0,28,0xC1,0),('window',0xC0348204,15,0xC1),('cc',0xC0045000,4,2,2)],
-                         'pitch -100 is clamped to -63, set as its byte; the window shows it like the knob; the knob\'s CC 2 on '
-                         'the part\'s channel, the value plus 64 times two')
+        self.assertEqual(calls,[('edit',0xC0348100,0x13,0,28,0xC1,0),('window',0xC0348204,15,0xC1),('param',4,2,1,1),('cc',0xC0045000,4,2,2)],
+                         'pitch -100 is clamped to -63, set as its byte with flag 0 as the knob; the window shows it like the knob; '
+                         'the knob\'s parameter set (part + 1, id 2, value plus 64, 1); the knob\'s CC 2 on the part\'s channel, '
+                         'the value plus 64 times two')
         calls.clear()
         self.assertEqual(m.call('script_seq_set_part_value_glue',7,10,300),(0,0))
-        self.assertEqual(calls,[('edit',0xC0348100,0x17,0,19,127,0),('cc',0xC0045000,8,0xA,254)],'another part than the selected one: no window')
+        self.assertEqual(calls,[('edit',0xC0348100,0x17,0,19,127,0),('param',8,0xA,127,1),('cc',0xC0045000,8,0xA,254)],
+                         'another part than the selected one: no window')
         calls.clear()
         self.assertEqual(m.call('script_seq_set_part_value_glue',0,1,0xFFFFFFFF),(0,0))
-        self.assertEqual(calls[0][4:6],(10,0),'filter type at least 0')
+        self.assertEqual(calls,[('edit',0xC0348100,0x10,0,10,0,1)],'filter type at least 0, flag 1 as the filter keys refresh; '
+                         'another part than the selected one: no window, no message to the part panel')
+        calls.clear()
+        self.assertEqual(m.call('script_seq_set_part_value_glue',3,1,7),(0,0))
+        self.assertEqual(calls,[('edit',0xC0348100,0x13,0,10,7,1),('window',0xC0348204,10,7),('panel',0,7)],
+                         'the selected part: the message {0, type} the HPF key sends, which lights the filter LEDs')
+        calls.clear()
         calls.clear()
         self.assertEqual(m.call('script_seq_set_part_value_glue',0,28,1)[1],error)
         self.assertEqual(m.call('script_seq_set_part_value_glue',16,1,1)[1],error)
@@ -364,8 +379,8 @@ class NativeHardwareTests(unittest.TestCase):
         m.uc.mem_map(0xC0049000,0x1000)
         m.write(0xC0049EF0,0xE352003A)
         self.assertEqual(m.call('script_seq_set_part_value_glue',3,13,200),(0,0))
-        self.assertEqual(calls,[('edit',0xC0348100,0x13,0,26,58,0),('window',0xC0348204,13,58)],
-                         'IFX type stops at the top of the setter\'s own compare, through the part edit as the encoder')
+        self.assertEqual(calls,[('edit',0xC0348100,0x13,0,26,58,1),('window',0xC0348204,13,58)],
+                         'IFX type stops at the top of the setter\'s own compare, through the part edit with flag 1 as the encoder')
         calls.clear()
         m.write(0xC0049EF0,0xE1A00000)
         self.assertEqual(m.call('script_seq_set_part_value_glue',3,13,5),(0,0))
@@ -400,8 +415,8 @@ class NativeHardwareTests(unittest.TestCase):
         m.write(0xC06B2428,9)
         for value in (300,7,0xFFFFFFFF,500,5000):
             self.assertEqual(m.call('script_seq_set_part_value_glue',2,0,value),(0,0),value)
-        self.assertEqual(calls,[('edit',0x12,8,300,0),('edit',0x12,8,7,0),('edit',0x12,0x1E,0xFFFFFFFF,0),('edit',0x12,8,0,0)],
-                         'the whole slot number through the part edit; on a sliced sample (7) the slice -1 as the SAMPLE knob turned '
+        self.assertEqual(calls,[('edit',0x12,8,300,1),('edit',0x12,8,7,1),('edit',0x12,0x1E,0xFFFFFFFF,0),('edit',0x12,8,0,1)],
+                         'the whole slot number through the part edit with flag 1 as the SAMPLE knob; on a sliced sample (7) the slice -1 as the SAMPLE knob turned '
                          'up; a slot the knob skips (500, 5000 clamped to 999) is not written')
 
     def test_set_part_value_calls_the_direct_setters_and_tells_the_part_panel_as_the_keys_do(self):
@@ -413,9 +428,9 @@ class NativeHardwareTests(unittest.TestCase):
             "import {PART_FIELDS} from './data/script/contract.mjs'; console.log(JSON.stringify(PART_FIELDS.map(f => f.name)))"],cwd=ROOT))
         self.assertEqual(list(PART_SETTER_FIELDS),fields)
         pages = ['grooveDepth','grooveType','lastStep','motionMode','padVelocity','priority','scaleMode']
-        self.assertEqual(sorted(PART_SETTERS['hacktribe']),sorted(['ampEg','ifxOn','ifxType','mfxSend','sample','voiceAssign'] + pages))
+        self.assertEqual(sorted(PART_SETTERS['hacktribe']),sorted(['ampEg','filterType','ifxOn','ifxType','mfxSend','sample','voiceAssign'] + pages))
         self.assertEqual(PART_SETTERS['stock'],PART_SETTERS['hacktribe'])
-        self.assertEqual(sorted(PART_SETTERS['synth']),sorted(['ampEg','ifxOn','ifxType','mfxSend','sample','voiceAssign'] + pages))
+        self.assertEqual(sorted(PART_SETTERS['synth']),sorted(['ampEg','filterType','ifxOn','ifxType','mfxSend','sample','voiceAssign'] + pages))
         self.assertEqual(part_setter_actions('synth')['HW_SAMPLE_NEXT'],0,'no samples on the synth: the sample mode writes nothing')
         actions = part_setter_actions('hacktribe')
         table = m.symbols['part_setters']
@@ -444,16 +459,16 @@ class NativeHardwareTests(unittest.TestCase):
             self.assertEqual(m.call('script_seq_set_part_value_glue',4,at[name],value),(0,0),name)
         obj = 0xC06B2798 + 0x400C
         cc = lambda id,raw: ('cc',0xC0045000,5,id,raw)
-        self.assertEqual(calls,[(0xC00493A0,obj,4,2,1),(0xC00493A0,obj,4,3,1),(0xC00496D4,obj,4,0,1),cc(0x12,0),(0xC0049664,obj,4,1,1),
-                                (0xC0049DEC,obj,4,1,0),(0xC0059720,5,0x11,127,1),cc(0x11,254)],
-                         'clamped to the field range, (object + 0x400C, part, value, 1); IFX ON without its own report, then the '
-                         'parameter set as the key does; no LED for a part that is not selected; MFX SEND and IFX ON send the '
-                         'key\'s CC, 127 or 0')
+        self.assertEqual(calls,[(0xC00493A0,obj,4,2,1),(0xC00493A0,obj,4,3,1),(0xC00496D4,obj,4,0,0),(0xC0059720,5,0x12,0,1),cc(0x12,0),
+                                (0xC0049664,obj,4,1,1),(0xC0049DEC,obj,4,1,0),(0xC0059720,5,0x11,127,1),cc(0x11,254)],
+                         'clamped to the field range, (object + 0x400C, part, value, 1); IFX ON and MFX SEND without their own '
+                         'report, then the parameter set with 127 or 0 as the keys do; no LED for a part that is not selected; MFX '
+                         'SEND and IFX ON send the key\'s CC, 127 or 0')
         calls.clear()
         m.write(0xC06B2428,4)
         for name,value in (('mfxSend',1),('ampEg',0),('ifxOn',0)):
             self.assertEqual(m.call('script_seq_set_part_value_glue',4,at[name],value),(0,0),name)
-        self.assertEqual(calls,[(0xC00496D4,obj,4,1,1),('notify',0xC0348304,1,1),cc(0x12,254),(0xC0049664,obj,4,0,1),('notify',0xC0348304,2,0),
+        self.assertEqual(calls,[(0xC00496D4,obj,4,1,0),(0xC0059720,5,0x12,127,1),('notify',0xC0348304,1,1),cc(0x12,254),(0xC0049664,obj,4,0,1),('notify',0xC0348304,2,0),
                                 (0xC0049DEC,obj,4,0,0),(0xC0059720,5,0x11,0,1),('notify',0xC0348304,3,0),cc(0x11,0)],
                          'the selected part: the key\'s message to the part panel, which lights its LED')
 
