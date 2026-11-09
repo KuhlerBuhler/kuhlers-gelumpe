@@ -89,11 +89,13 @@ async function withCard(files, { move = true } = {}) {
   return page;
 }
 
-/** No File in the menu for the colour, the running firmware by its answer, then "show me your card" and the pick. */
+/** No File in the menu for the colour, Korg's file as the one put on last, the running firmware by its answer, then "show me your card" and the pick. */
 async function lookAtCard(page, colour, firmware) {
   await answer(page, CASES.find(c => c.id === "nofile").label);
   await answer(page, colour);
   await answer(page, "Im Menü bei SOFTWARE UPDATE");
+  await settle(page);
+  await answer(page, t("rescue.last.korg"));
   await settle(page);
   await answer(page, firmware);
   await answer(page, "Zeig mir deine SD-Karte");
@@ -165,6 +167,8 @@ test("the card in a browser without write access: Blechy reads the folder and sa
   await answer(page, CASES.find(c => c.id === "nofile").label);
   await answer(page, "Rot");
   await answer(page, "Im Menü bei SOFTWARE UPDATE");
+  await settle(page);
+  await answer(page, t("rescue.last.korg"));
   await settle(page);
   await answer(page, "Korgs Original");
   await answer(page, "Zeig mir deine SD-Karte");

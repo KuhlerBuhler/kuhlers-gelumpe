@@ -43,6 +43,8 @@ async function walk(page) {
 const said = async page => { await settle(page); return page.locator("#cee-rescue-chat .cee-rescue-say").last().textContent(); };
 const chatText = async page => { await settle(page); return page.locator("#cee-rescue-chat").textContent(); };
 const answersOf = page => page.locator("#cee-rescue-answers button").allTextContents();
+/** Answer by the label alone, where a hint of another answer holds the same word. */
+const pick = (page, text) => page.locator("#cee-rescue-answers button").filter({ has: page.locator(".cee-rescue-answer", { hasText: new RegExp(`^${text}$`) }) }).click();
 const lastPath = page => page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent();
 
 test("Rettung is an entry of the sidebar, and the navbar names the page", async () => {
@@ -100,8 +102,12 @@ test("it starts but something is off: EXIT first, then the backup or Korg's file
   assert.match(backup, /Patterns im Gerät blieben im Emulator erhalten/, "what happens to patterns is said before any write");
   assert.equal(await page.locator("#cee-rescue-chat a", { hasText: "Pattern-Sicherung in der App" }).last().getAttribute("href"), "#patterns", "and a real backup is offered");
   await answer(page, "Ja, hab ich");
+  assert.match(await said(page), /Welche Datei hast du zuletzt aufgespielt/);
+  // by its label alone: the hint of Hacktribe names BLECHTRIBE too
+  await pick(page, "BLECHTRIBE");
   assert.match(await said(page), /Was läuft gerade/);
   assert.deepEqual(await page.locator("#cee-rescue-answers .cee-rescue-answer").allTextContents(), ["Korgs Original", "Hacktribe", "BLECHTRIBE", "Weiß ich nicht"], "user terms, no product names of colours again");
+  assert.match(await page.locator("#cee-rescue-answers [data-known]").textContent(), /BLECHTRIBE/, "the file put on last is marked");
   assert.equal(await page.locator("#cee-rescue-answers .cee-rescue-folder").count(), 0);
   await answer(page, "BLECHTRIBE");
   assert.equal(await lastPath(page), FOLDERS[3].path);
@@ -468,9 +474,12 @@ test("No File in the menu: name, no renamed folder, the patcher's Electribe, the
   await settle(page);
   const chat = await page.locator("#cee-rescue-chat").textContent();
   for (const words of [/SYSTEM \(1\)\.VSB/, /Benenn keinen Ordner um/, /richtige Electribe gewählt/]) assert.match(chat, words);
+  assert.match(await said(page), /Welche Datei hast du zuletzt aufgespielt/);
+  assert.equal(await page.locator("#cee-rescue-answers [data-known]").count(), 0, "nothing connected, nothing patched: nothing is marked");
+  await pick(page, "Korgs Update-Datei");
   assert.match(await said(page), /Welche Firmware läuft jetzt/);
   assert.deepEqual(await page.locator("#cee-rescue-answers .cee-rescue-answer").allTextContents(), ["Korgs Original", "Hacktribe", "BLECHTRIBE", "Weiß ich nicht"]);
-  assert.equal(await page.locator("#cee-rescue-answers [data-known]").count(), 0, "nothing connected, nothing patched: nothing is marked");
+  assert.match(await page.locator("#cee-rescue-answers [data-known]").textContent(), /Korgs Original.*Passt zu deiner letzten Datei/, "only the answer about the last file is marked");
   await answer(page, "Hacktribe");
   assert.equal(await lastPath(page), FOLDERS[2].path);
   assert.deepEqual(await page.locator("#cee-rescue-chat .cee-rescue-tree li > span").allTextContents().then(s => s.slice(-4)), ["KORG", "hacktribe", "System", "SYSTEM.VSB"]);
@@ -485,6 +494,8 @@ test("No File twice: the second time Blechy offers the look at the card again, t
   await answer(page, label("nofile"));
   await answer(page, DEVICES.red.title);
   await answer(page, "Im Menü bei SOFTWARE UPDATE");
+  await settle(page);
+  await pick(page, "BLECHTRIBE");
   await settle(page);
   await answer(page, "BLECHTRIBE");
   await answer(page, "Habe ich selbst geprüft");
@@ -672,5 +683,46 @@ test("samples: 'it starts but something is off' leads there, a case asks for Hac
   assert.match(await chatText(page), /Läuft nur Hacktribe auf deiner blauen, geht es in zwei Schritten/);
   await settle(page);
   assert.equal(await page.locator("#cee-rescue-input").count(), 1, "then Korg's file is made for the blue with Hacktribe");
+  assert.deepEqual(page.errors, []);
+});
+
+test("No File: the file put on last comes first and marks the folder, and the MENU step shows the drawn keys and Korg's button", async () => {
+  const page = await open({ width: 390, height: 844 });
+  await page.click("#cee-rescue-case-nofile");
+  await settle(page);
+  await answer(page, DEVICES.red.title);
+  await settle(page);
+  await answer(page, t("rescue.answer.inMenu"));
+  await settle(page);
+  assert.match(await said(page), new RegExp(t("rescue.say.last.1").slice(0, 30)));
+  assert.equal((await answersOf(page)).length, 4);
+  await pick(page, t("rescue.last.hacktribe"));
+  await page.locator("#cee-rescue-answers [data-known]").waitFor();
+  assert.match(await page.locator("#cee-rescue-answers [data-known]").textContent(), new RegExp(t("rescue.known.last")));
+  // "not known" on the way back: all folders
+  await page.click("#cee-rescue-back");
+  await settle(page);
+  await answer(page, t("rescue.answer.dontKnow"));
+  await settle(page);
+  assert.equal((await page.locator("#cee-rescue-chat .cee-rescue-tree").count()) >= 3, true, "the file goes into all folders");
+  assert.deepEqual(page.errors, []);
+});
+
+test("the update steps show MENU on the drawn Electribe and the shot of Korg's download row", async () => {
+  const page = await open();
+  await page.click("#cee-rescue-case-prompt");
+  await settle(page);
+  await answer(page, DEVICES.red.title);
+  await settle(page);
+  const shot = page.locator("#cee-rescue-chat .cee-rescue-shot img").last();
+  assert.equal(await shot.getAttribute("src"), rescue.DEVICES.red.shot);
+  assert.ok(await shot.evaluate(img => img.complete && img.naturalWidth > 0 || new Promise(r => img.onload = () => r(img.naturalWidth > 0))));
+  await answer(page, t("rescue.answer.gotIt"));
+  await settle(page);
+  await answer(page, t("rescue.answer.onCard"));
+  await settle(page);
+  const keys = page.locator("#cee-rescue-chat .cee-rescue-keys").last();
+  assert.equal(await keys.locator(".cee-e2-press").count(), 1);
+  assert.equal(await keys.locator("figcaption").textContent(), t("rescue.keys.enter"));
   assert.deepEqual(page.errors, []);
 });

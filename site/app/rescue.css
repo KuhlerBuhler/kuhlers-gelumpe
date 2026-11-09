@@ -193,3 +193,41 @@
   color: var(--color-text-muted);
   white-space: pre-line;
 }
+
+/* A drawing of the keys to press, or a picture of Korg's page, with one line under it. */
+.cee-rescue-figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.cee-rescue-figure figcaption {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.cee-rescue-keys .cee-e2-outline {
+  max-width: 28rem;
+  --cee-device-tone: var(--color-text-muted);
+}
+
+.cee-e2-keys .cee-e2-press {
+  fill: var(--color-accent-primary);
+  stroke: var(--color-accent-primary);
+}
+
+.cee-e2-keys .cee-e2-near {
+  fill: none;
+  stroke: var(--color-accent-primary);
+  stroke-width: 1.2;
+}
+
+.cee-rescue-shot img {
+  display: block;
+  width: 100%;
+  max-width: 40rem;
+  height: auto;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-sm);
+}
