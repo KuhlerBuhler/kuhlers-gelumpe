@@ -1,6 +1,6 @@
 # Plugins for the Electribe
 
-[Deutsche Version](plugins.md) | English version
+[Deutsche Version](plugins.md) | English version | [Français](plugins.fr.md)
 
 As of 2026-11-09. This page is the English edition of [plugins.md](plugins.md). The German page is the
 reference: it carries every measurement detail. This one keeps the facts a user needs and links to the
