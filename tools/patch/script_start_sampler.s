@@ -26,6 +26,8 @@ script_card_hook:
     .word 0xE10FC000 ; mrs r12, cpsr
     push {r12, lr}
     bl menu_arm_load
+    ldrb r0, [r4, #0x18]        ; the loader's result, as 0xC0038D64 stored it (r4 is the command, kept by menu_arm_load)
+    bl migrate_folders
     ldr r0, =HOOK_RUNTIME
     bl blechy_boot
     ldr r0, =HOOK_RUNTIME
