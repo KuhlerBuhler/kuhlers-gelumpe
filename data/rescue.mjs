@@ -24,8 +24,8 @@ export const LINKS = {
  * the update there takes, by their head (src/card-check.mjs), for Blechy's look at the card.
  */
 export const DEVICES = {
-  red: { title: "rescue.device.red", hint: "rescue.device.red.hint", body: "red", link: "korgRed", name: "Electribe Sampler", zip: "electribe_sampler_system_v202.zip", path: "KORG/electribe sampler/System/SYSTEM.VSB", heads: ["sampler"] },
-  blue: { title: "rescue.device.blue", hint: "rescue.device.blue.hint", body: "blue", link: "korgBlue", name: "Electribe", zip: "electribe_system_v202.zip", path: "KORG/electribe/System/SYSTEM.VSB", heads: ["synth"] },
+  red: { title: "rescue.device.red", hint: "rescue.device.red.hint", body: "red", link: "korgRed", name: "Electribe Sampler", zip: "electribe_sampler_system_v202.zip", shot: "img/rescue/korg-download-red.webp", path: "KORG/electribe sampler/System/SYSTEM.VSB", heads: ["sampler"] },
+  blue: { title: "rescue.device.blue", hint: "rescue.device.blue.hint", body: "blue", link: "korgBlue", name: "Electribe", zip: "electribe_system_v202.zip", shot: "img/rescue/korg-download-blue.webp", path: "KORG/electribe/System/SYSTEM.VSB", heads: ["synth"] },
 };
 
 /**
@@ -42,7 +42,8 @@ export const FOLDERS = [
 /**
  * Facts the page carries (rescue.mjs): `set` on an answer adds one, `ask` on a node skips it when a fact is known;
  * `toIf` { fact: { value: node } } redirects an answer by what is known before the answer's own `set`.
- * Facts: case (the first answer), color, firmware (korg, hacktribe, blech, unknown), ht, again, goal.
+ * Facts: case (the first answer), color, firmware (korg, hacktribe, blech, unknown), last (the file put on last, same
+ * values), ht, again, goal. `passIf` and `passTo` on a node: when the fact `passIf` is known, it goes on to `passTo`.
  */
 const colorChoices = (red, blue, toIf) => Object.entries(DEVICES).map(([key, d]) => ({
   label: d.title, hint: d.hint, to: key === "red" ? red : blue, ...(toIf ? { toIf } : {}), art: d.body, value: key, set: { color: key },
@@ -62,6 +63,27 @@ const firmwareChoices = to => FIRMWARE.map(([key, label, hint]) => {
 /** The folder nodes of the card step by what runs, and the colour for Korg's own. */
 const byColor = (red, blue) => ({ to: red, toIf: { color: { red, blue } } });
 const FOLDER_NODE = { korg: byColor("folder:korg:red", "folder:korg:blue"), hacktribe: "folder:hacktribe", blech: "folder:blech", unknown: byColor("folder:all:red", "folder:all:blue") };
+/**
+ * The file put on last, asked before what runs: it marks the answer that fits there (the person still picks), "not known"
+ * goes straight to every folder.
+ */
+const LAST = [
+  ["korg", "rescue.last.korg", "rescue.last.korg.hint"],
+  ["hacktribe", "rescue.last.hacktribe", "rescue.last.hacktribe.hint"],
+  ["blech", "rescue.last.blech", "rescue.last.blech.hint"],
+];
+const lastFile = to => ({
+  mood: "idle",
+  say: ["rescue.say.last.1"],
+  known: "firmware",
+  ask: "last",
+  passIf: "firmware",
+  passTo: to,
+  choices: [
+    ...LAST.map(([key, label, hint]) => ({ label, hint, to, value: key, set: { last: key } })),
+    { label: "rescue.answer.dontKnow", hint: "rescue.last.dontKnow.hint", ...FOLDER_NODE.unknown, value: "unknown", set: { last: "unknown", firmware: "unknown" } },
+  ],
+});
 const SCAN_NODE = { korg: byColor("sd:folder:korg:red", "sd:folder:korg:blue"), hacktribe: "sd:folder:hacktribe", blech: "sd:folder:blech", unknown: "ask" };
 
 /** Where to ask: a line with links, `{name}` in its text is the link `links.name`, whose `link` is a key of LINKS. */
@@ -232,7 +254,7 @@ export const FLOW = {
   backup: {
     mood: "idle",
     say: ["rescue.say.backup.1", { key: "rescue.say.keeps", links: { patterns: { link: "patterns", text: "rescue.link.patterns" } } }, "rescue.say.backup.2"],
-    choices: [{ label: "rescue.answer.haveIt", to: "firmware:file" }, { label: "rescue.answer.dontHave", to: "nobackup" }],
+    choices: [{ label: "rescue.answer.haveIt", to: "firmware:last" }, { label: "rescue.answer.dontHave", to: "nobackup" }],
   },
   nobackup: {
     mood: "idle",
@@ -241,6 +263,7 @@ export const FLOW = {
   },
 
   // What runs now decides the folder on the card; asked once, "not known" puts the file in every folder.
+  "firmware:last": lastFile("firmware:file"),
   "firmware:file": {
     mood: "idle",
     say: ["rescue.say.firmware.1"],
@@ -254,6 +277,7 @@ export const FLOW = {
     say: [
       "rescue.say.updateMenu.1",
       "rescue.say.updateMenu.2",
+      { keys: "menu" },
       "rescue.say.updateMenu.3",
     ],
     choices: [
@@ -334,6 +358,7 @@ export const FLOW = {
     say: [
       "rescue.say.updatePrompt.1",
       "rescue.say.updatePrompt.2",
+      { keys: "enter" },
       "rescue.say.updatePrompt.3",
     ],
     choices: [
@@ -348,7 +373,7 @@ export const FLOW = {
   noprompt: {
     mood: "idle",
     say: ["rescue.say.noPrompt.1", "rescue.say.noPrompt.2"],
-    choices: [{ label: "rescue.answer.reachesMenu", to: "firmware:file" }, { label: "rescue.answer.noMenu", to: "silent" }],
+    choices: [{ label: "rescue.answer.reachesMenu", to: "firmware:last" }, { label: "rescue.answer.noMenu", to: "silent" }],
   },
 
   // "Error, Invalid File": the device found a file that does not fit it and wrote nothing.
@@ -413,9 +438,9 @@ export const FLOW = {
   },
   "back:head": {
     mood: "idle",
-    say: ["rescue.say.backHeadWhy.1", { key: "rescue.say.download", vars: { name: DEVICES.blue.name }, links: { link: { link: DEVICES.blue.link, text: "rescue.link.korg" } } }, { key: "rescue.say.downloadFile", vars: { file: DEVICES.blue.zip } }, "rescue.say.backHeadFile.1"],
+    say: ["rescue.say.backHeadWhy.1", { key: "rescue.say.download", vars: { name: DEVICES.blue.name }, links: { link: { link: DEVICES.blue.link, text: "rescue.link.korg" } } }, { key: "rescue.say.downloadFile", vars: { file: DEVICES.blue.zip } }, { shot: DEVICES.blue.shot }, "rescue.say.backHeadFile.1"],
     file: "korgBlueHead",
-    done: "firmware:file",
+    done: "firmware:last",
   },
 
   // "Error, No File": nothing where the device looks. The name, the folder System, or the folder of another firmware.
@@ -437,8 +462,9 @@ export const FLOW = {
       "rescue.say.nofileMenu.renamed",
       "rescue.say.nofileMenu.patcher",
     ],
-    next: "nofile:which",
+    next: "nofile:last",
   },
+  "nofile:last": lastFile("nofile:which"),
   "nofile:which": {
     mood: "idle",
     say: ["rescue.say.nofileWhich.1"],
@@ -448,7 +474,7 @@ export const FLOW = {
   },
   "nofile:update": {
     mood: "idle",
-    say: ["rescue.say.updateMenu.1", "rescue.say.updateMenu.2", "rescue.say.updateMenu.3"],
+    say: ["rescue.say.updateMenu.1", "rescue.say.updateMenu.2", { keys: "menu" }, "rescue.say.updateMenu.3"],
     choices: [
       { label: "rescue.answer.updateRan", to: "updated" },
       { label: "rescue.answer.againNoFile", to: "recheck", toIf: { again: { yes: "ask" } }, set: { again: "yes" } },
@@ -507,7 +533,7 @@ export const FLOW = {
   "samples:way": {
     mood: "idle",
     say: [{ key: "rescue.say.samplesWay.1", links: { patcher: { link: "patcher", text: "nav.patcher" } } }, "rescue.say.samplesFile.1"],
-    choices: [{ label: "rescue.answer.fileReady", to: "firmware:file", set: { goal: "blech" } }],
+    choices: [{ label: "rescue.answer.fileReady", to: "firmware:last", set: { goal: "blech" } }],
   },
   // Only Hacktribe on a blue takes a file with the Sampler head: first back to Korg's original, BLECHTRIBE after that.
   "samples:head": {
@@ -745,6 +771,7 @@ const download = (d, to) => ({
   say: [
     { key: "rescue.say.download", vars: { name: d.name }, links: { link: { link: d.link, text: "rescue.link.korg" } } },
     { key: "rescue.say.downloadFile", vars: { file: d.zip } },
+    { shot: d.shot },
   ],
   choices: [{ label: "rescue.answer.gotIt", to }],
 });
@@ -772,7 +799,7 @@ const place = (id, { path, heads }, to, { toIf, note } = {}) => {
 
 for (const [key, d] of Object.entries(DEVICES)) {
   FLOW[`download:update:${key}`] = download(d, `card:${key}`);
-  FLOW[`download:${key}:go`] = download(d, "firmware:file");
+  FLOW[`download:${key}:go`] = download(d, "firmware:last");
   place(`card:${key}`, d, "update:prompt", { note: "rescue.say.cardBoot" });
 }
 // The folder of the running firmware; the menu update reads it, whatever the update is for.
@@ -802,6 +829,7 @@ export const destOf = (choice, facts) => {
 export function passSteps(id, facts, nodes = FLOW) {
   for (let guard = 0; guard < 8; guard++) {
     const node = nodes[id];
+    if (node.passIf && facts[node.passIf] != null) { id = node.passTo; continue; }
     const c = node.ask && facts[node.ask] != null ? node.choices?.find(c => c.set?.[node.ask] === facts[node.ask]) : null;
     if (!c) break;
     facts = { ...facts, ...c.set };

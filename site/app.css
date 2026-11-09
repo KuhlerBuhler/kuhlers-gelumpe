@@ -6,8 +6,9 @@
   --cee-folded-title: 22rem;
 }
 
+/* Anchors and scrollIntoView land below the sticky navbar; main.mjs sets its real height, which grows when it wraps. */
 html {
-  scroll-padding-top: 6rem;
+  scroll-padding-top: calc(var(--cee-navbar-real, var(--cee-navbar-h)) + var(--space-8));
 }
 
 /* Thin, quiet scrollbars. WebKit (the app's web view) has no scrollbar-color yet, so it gets the
@@ -3561,3 +3562,18 @@ input[type="checkbox"]:not([role="switch"]):disabled {
 /* Samples page: one ui-row per sample of e2sSample.all, the slot number in the row's icon box. */
 .cee-sf-nr { font-variant-numeric: tabular-nums; font-size: var(--text-sm); }
 .cee-sf-row[data-state="removed"] .cee-sf-name { text-decoration: line-through; color: var(--color-text-muted); }
+
+/* The language menu at the end of the navbar (settings.mjs, languageSwitch): the menu of the mode button, opened to the left. */
+/* The touch target stays full size; it reaches into the navbar's padding so the bar keeps its height. */
+.cee-lang {
+  margin-block: calc(var(--space-1) * -1);
+}
+
+.cee-lang-button {
+  font-size: var(--text-sm);
+}
+
+.cee-lang-menu {
+  left: auto;
+  right: 0;
+}

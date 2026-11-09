@@ -121,10 +121,15 @@ Logik in `passSteps`). Jeder Fall am Gerät beginnt mit der Farbe (rot ist der S
 erklärt, wo man nachsieht). Eine angesteckte blaue wird ohne Rückfrage genommen; eine rote lässt die Seite bestätigen,
 weil sich eine blaue mit Hacktribe vielleicht als rote meldet (offen).
 
+- **Welche Datei zuletzt drauf kam** kommt vor der Frage nach dem Ordner: Korgs Update-Datei, Hacktribe, BLECHTRIBE oder
+  "Weiß ich nicht". Die Antwort ist nur ein Hinweis, die nächste Frage markiert sie ("Passt zu deiner letzten Datei"),
+  entschieden wird dort. "Weiß ich nicht" führt gleich zu allen Ordnern. Weiß die App schon etwas (laufendes BLECHTRIBE,
+  Ordner der letzten Patcher-Kopie), fällt die Frage weg (`passIf` in `data/rescue.mjs`).
 - **Was läuft gerade** wird dort gefragt, wo der Ordner auf der Karte gebraucht wird: Korgs Original, Hacktribe,
   BLECHTRIBE oder "Weiß ich nicht". Läuft BLECHTRIBE an der angesteckten Electribe, übernimmt die App die Antwort. Bei
   "Weiß ich nicht" wandert die Datei in alle drei Ordner (Korgs Ordner der Farbe, `hacktribe`, `blechtribe`); das schadet
-  nicht, weil das Update nur den Ordner der laufenden Firmware liest (hergeleitet, am Gerät nicht geprüft).
+  nicht, weil das Update nur den Ordner der laufenden Firmware liest (im Emulator für alle acht Firmwares gemessen, am Gerät
+  offen: [Messung](messungen/2026-11-08-rettung-alle-ordner.md)).
 - **Der Ordner heißt nach der Firmware, die jetzt läuft**, nicht nach der, die man haben will. Die Seite zeigt den Pfad
   als Baum (`KORG`, Ordner, `System`, `SYSTEM.VSB`) und sagt das dazu. Bei der Abfrage beim Einschalten sucht die
   Firmware immer in Korgs Ordner der Kennung.
@@ -136,6 +141,11 @@ weil sich eine blaue mit Hacktribe vielleicht als rote meldet (offen).
   `src-tauri/src/korg.rs`). Eine blaue mit Hacktribe, auch BLECHTRIBE mit Hacktribe, bekommt die Datei mit dem
   Sampler-Kopf; die Seite nimmt sie in einem Upload-Feld wie im Patcher entgegen und geht erst nach einer gültigen Datei
   weiter. Die Frage dazu lautet "Haken auch Hacktribe gesetzt?", "Weiß ich nicht" nimmt zuerst Korgs unveränderte Datei.
+- **MENU als Bild.** Wo die Seite MENU drücken lässt (Update im Menü, die Update-Frage beim Einschalten), zeigt sie die
+  Electribe als Strichzeichnung mit MENU gefüllt und den Tasten für den Weg (EDIT links und rechts) umrandet
+  (`e2Keys` in `site/app/e2-art.mjs`, Lage der Tasten aus `panel.mjs`). Bei Korgs Datei zeigt ein Bildschirmfoto von Korgs
+  Seite die Zeile "System Updater 2.02" ganz unten, die zur ZIP-Datei führt (`site/img/rescue/`, aufgenommen am 08.11.2026;
+  ändert Korg die Seite, stimmt das Bild nicht mehr).
 - **Patterns und Samples** werden vor jedem Schreiben genannt: das Update schreibt nur die Firmware, Patterns im Gerät
   blieben im Emulator erhalten (am Gerät offen), dazu der Link zur Pattern-Sicherung der App.
 - **Kein Ende ohne Hilfe.** "Gar nichts" nennt zuerst Netzteil und EXIT beim Einschalten (das hält BLECHTRIBEs Patches

@@ -485,8 +485,12 @@ test("patcher: a failed emulator check leaves no download", async () => {
     assert.equal(await page.locator("#cee-patch-run").textContent(), "Noch einmal patchen und prüfen");
     await page.locator("#cee-patch-details > summary").click();
     assert.match(await page.locator("#cee-patch-checks").textContent(), /nicht bestanden Notschalter/);
-    // the toast's "Blechy fragen" opens the Rettung page at what a red rescue path means
+    // the page itself points at the Rettung page too, not only the toast
+    assert.equal(await page.locator("#cee-patch-fail-help").isVisible(), true);
+    assert.equal(await page.locator("#cee-patch-fail-rescue").getAttribute("href"), "#rescue");
+    // the toast's "Zur Rettung" opens the Rettung page at what a red rescue path means
     const red = page.locator("#app-toasts .cee-toast", { hasText: "Die Prüfung hat einen Fehler gefunden (Notschalter" });
+    assert.equal(await red.locator(".cee-toast-help").textContent(), "Zur Rettung");
     const message = await red.locator(".cee-toast-text").textContent();
     await red.locator(".cee-toast-help").click();
     await page.locator("#cee-rescue-quote").waitFor();

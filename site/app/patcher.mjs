@@ -17,6 +17,7 @@ import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folde
 import { LOADING_ANIM_ID } from "../../src/loading-anim.mjs";
 import { storedAnimation } from "./loading-anim.mjs";
 import { testFailure } from "../../data/rescue.mjs";
+import { RESCUE_EVENT } from "./rescue.mjs";
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
@@ -74,6 +75,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let stockFile = null;         // Korg's original as dropped, and what classify made of it, to go back to on the other route
   let passed = null;            // the patched copy that passed the check
   let failure = null;           // what the last run that did not pass is about (testFailure), for Blechy
+  // An error of the patcher leads to the Rettung page by name, at the node of what failed (FLOW in data/rescue.mjs).
+  const testHelp = () => (failure ? (failure.group ? `test:${failure.group}` : "test") : null);
+  const toRescue = help => ({ helpLabel: t("patcher.toRescue"), ...(help ? { help } : {}) });
   let blech = null;             // the BLECH set (data/patches/blech.json) with its patches parsed, once loaded
   let ownPatch = null;          // a .patch the user brought instead of the set of this version: { bytes, file }
   let usbNames = null;          // the variants of the optional patch usb-name, once loaded
@@ -273,6 +277,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const bar = el("div", { className: "ui-progress cee-patch-bar", id: "cee-patch-bar", hidden: true });
   const groupList = el("ul", { className: "cee-patch-groups", id: "cee-patch-groups", hidden: true });
   const checkList = el("ul", { className: "ui-list", id: "cee-patch-checks" });
+  // a red test keeps its way to the Rettung page after the toast is gone
+  const failRescue = el("a", { className: "cee-text-link", id: "cee-patch-fail-rescue", href: "#rescue", textContent: t("nav.rescue") });
+  failRescue.addEventListener("click", () => window.dispatchEvent(new CustomEvent(RESCUE_EVENT, { detail: { message: failureLine(flow.report), to: testHelp() } })));
+  const failHelp = el("p", { id: "cee-patch-fail-help", hidden: true }, tNodes("patcher.failed.rescue", { rescue: failRescue }));
   const checksBox = el("details", { className: "ui-details", id: "cee-patch-details", hidden: true }, [el("summary", { id: "cee-patch-details-title" }), el("div", { className: "ui-details-body" }, [checkList])]);
   const note = el("p", { className: "muted", id: "cee-patch-note", role: "status", hidden: true });
   const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-download", textContent: t("common.save"), disabled: true });
@@ -364,7 +372,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const panels = [
     [usbBox, orLine, korg, drop, verdictBox],
     [htWarn, blechBox, routeBox, deviceBox, plan, synthSet, blueHacktribe],
-    [testBox, bar, note, groupList, checksBox],
+    [testBox, bar, note, groupList, failHelp, checksBox],
     [target, result, done],
   ].map((children, i) => el("div", { className: "cee-patch-panel", id: `cee-patch-step-${i + 1}`, tabIndex: -1, hidden: i > 0 }, children));
   const back = el("button", { type: "button", className: "btn", id: "cee-patch-back", textContent: t("patcher.back"), hidden: true });
@@ -519,7 +527,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     const result = passed_ ? [t("patcher.passed"), "ok"] : can.busy ? null : flow.error ? [t(flow.error), "error"] : failed ? [failed, "error"] : null;
     const key = result ? `${flow.phase}|${result[0]}` : null;
     // an error's "Blechy fragen" goes straight to what this failure means
-    if (key !== toasted) { toasted = key; if (result) toast(result[0], result[1], failure ? { help: failure.group ? `test:${failure.group}` : "test" } : {}); }
+    if (key !== toasted) { toasted = key; if (result) toast(result[0], result[1], result[1] === "error" ? toRescue(testHelp()) : {}); }
   }
 
   /** One short line for a check that ran and did not pass; the list of all checks sits behind the disclosure. */
@@ -580,7 +588,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     verdictBox.replaceChildren(...(v ? [pill(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
     verdictBox.hidden = !v;
     // A new file brings a new verdict: the toast of the old one goes, so two verdicts never stand side by side.
-    if ((v?.text ?? "") !== toldVerdict) { closeVerdict(); closeVerdict = v ? toast(v.text, v.tone === "error" ? "error" : "info", { stay: true, help: "normal:patch" }) : () => {}; }
+    if ((v?.text ?? "") !== toldVerdict) { closeVerdict(); closeVerdict = v ? toast(v.text, v.tone === "error" ? "error" : "info", { stay: true, ...toRescue("normal:patch") }) : () => {}; }
     toldVerdict = v?.text ?? "";
     routeBox.hidden = flow.origin !== "stock" || !!updating;
     htWarn.hidden = !installsHt();
@@ -618,6 +626,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
     const checks = flow.report?.checks ?? [];
     checksBox.hidden = !checks.length;
+    failHelp.hidden = !flow.report || flow.report.ok;
     document.getElementById("cee-patch-details-title").textContent = t("patcher.checks", { count: checks.length });
     checkList.replaceChildren(...checks.map(c => el("li", { className: "ui-row" }, [
       pill(c.skipped ? "info" : c.ok ? "ok" : "error", t(c.skipped ? "patcher.check.skipped" : c.ok ? "patcher.check.ok" : "patcher.check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
@@ -1015,12 +1024,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       if (flow.phase !== "ready") { usbNote.hidden = true; toast(t("patcher.usb.decide"), "info", { stay: true }); return; }
       usbNote.textContent = t("patcher.usb.checking");
       await patchAndCheck();
-      if (!passed) { usbNote.hidden = true; toast(t("patcher.usb.failed"), "error"); return; }
+      if (!passed) { usbNote.hidden = true; toast(t("patcher.usb.failed"), "error", toRescue(testHelp())); return; }
       await storeToDevice(s);
       go(3);
     } catch (e) {
       usbNote.hidden = true;
-      toast(e.message, "error");
+      toast(e.message, "error", toRescue("start"));
     } finally {
       usbGet.disabled = allowed(flow).busy;
     }
@@ -1036,7 +1045,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       await storeToDevice(s);
     } catch (e) {
       usbNote.hidden = true;
-      toast(e.message, "error");
+      toast(e.message, "error", toRescue("start"));
     } finally {
       usbPut.disabled = !allowed(flow).download || !htReady();
     }

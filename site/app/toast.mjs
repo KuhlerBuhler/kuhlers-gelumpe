@@ -44,12 +44,13 @@ function raise() {
 /**
  * @param {string} message
  * @param {"ok"|"info"|"error"} [kind]
- * @param {{stay?: boolean, action?: {label: string, run: () => void}, help?: string}} [options] stay: an info or ok toast
+ * @param {{stay?: boolean, action?: {label: string, run: () => void}, help?: string, helpLabel?: string}} [options] stay: an info or ok toast
  *   that waits to be closed, like an error; action: a button in the toast that runs and closes it; help: the node of the
- *   Rettung page (FLOW in data/rescue.mjs) an error's "Blechy fragen" opens after the quote, default the app question
+ *   Rettung page (FLOW in data/rescue.mjs) an error's "Blechy fragen" opens after the quote, default the app question;
+ *   helpLabel: another label for that button, where the way to the Rettung page is the point (the patcher)
  * @returns {() => void} closes the toast
  */
-export function toast(message, kind = "info", { stay = false, action = null, help = HELP_DEFAULT } = {}) {
+export function toast(message, kind = "info", { stay = false, action = null, help = HELP_DEFAULT, helpLabel = null } = {}) {
   if (!message) return () => {};
   mount();
   // The same words again (a background check that fails every few seconds): the open toast stays, its time starts anew.
@@ -59,7 +60,7 @@ export function toast(message, kind = "info", { stay = false, action = null, hel
   const close = el("button", { type: "button", className: "btn icon cee-toast-close", title: t("common.close") }, [icon("x")]);
   close.setAttribute("aria-label", t("common.close"));
   const act = action ? el("button", { type: "button", className: "btn sm cee-toast-action", textContent: action.label }) : null;
-  const ask = kind === "error" ? el("button", { type: "button", className: "btn sm cee-toast-help", textContent: t("toast.help") }) : null;
+  const ask = kind === "error" ? el("button", { type: "button", className: "btn sm cee-toast-help", textContent: helpLabel ?? t("toast.help") }) : null;
   const node = el("div", { className: `app-toast cee-toast${kind === "ok" ? " ok" : kind === "error" ? " err" : ""}` }, [
     el("span", { className: "cee-toast-text", textContent: message }),
     act || ask ? el("span", { className: "cee-toast-actions" }, [act, ask].filter(Boolean)) : null,
