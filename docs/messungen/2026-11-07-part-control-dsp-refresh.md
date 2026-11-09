@@ -80,7 +80,7 @@ Bei ausgewähltem Part 3 war `R0` die Mirror-Basis `0xC06B67B4` und `R1` hatte d
 
 Die beobachtete ABI eines direkten Aufrufs lautet `R0=0xC06B67B4`, `R1=Part-Index`, `R2=Code`, `R3=Refresh-Wert`; das erste Stack-Argument ist `1`. Bei `filterType` und `egOn` entspricht der Refresh-Wert dem Feldbyte. Bei `ifxOn` und `mfxSend` bleibt das Hauptbyte `0`/`1`, während der Refresh-Wert ausgeschaltet `0` und eingeschaltet `0x7F` ist.
 
-IFX ON und MFX SEND erreichen den Dispatcher im nativen Pfad zuerst ohne Refresh und danach über die Setter `17` und `18` mit aktivem Refresh. AMP EG und Filtertyp rufen den Dispatcher dagegen direkt mit aktivem Refresh auf. Plugin-Zuweisungen schreiben zuerst Feld und Mirror und rufen dann direkt den Dispatcher mit gesetztem Flag auf. Der Dispatcher aktualisiert das Mirror-Byte und ruft den spezifischen Parameterpfad auf, ohne den ausgewählten Part zu ändern.
+IFX ON und MFX SEND erreichen den Dispatcher im nativen Pfad zuerst ohne Refresh und danach über die Setter `17` und `18` mit aktivem Refresh. AMP EG und Filtertyp rufen den Dispatcher dagegen direkt mit aktivem Refresh auf. Plugin-Zuweisungen gehen den Weg des jeweiligen Bedienelements, siehe [Part-Werte aus Plugins](2026-11-09-plugin-part-dsp.md). Der Dispatcher aktualisiert das Mirror-Byte und ruft den spezifischen Parameterpfad auf, ohne den ausgewählten Part zu ändern.
 
 ## Einordnung
 

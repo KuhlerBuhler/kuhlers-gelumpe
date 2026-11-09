@@ -3,11 +3,12 @@ device. korg.seq.setPartValue sends the MIDI CC the knob, the cutoff encoder, IF
 the knob opens (also on the blue, whose part edit is measured now) and leaves the pattern object as the control does; seven more
 part values (last step, motion sequence, pad velocity, scale mode, priority, groove type and depth) and five pattern values
 (alternate 13-14 and 15-16, MFX hold, the touchpad's X and Y) become readable and writable; korg.display.popups keeps the window
-shut on a plugin's writes.
+shut on a plugin's writes. Each knob twin and the cutoff encoder's also compare what goes to the sound engine (PR #401): the
+knob's parameter set (part + 1, id, value, 1) after the part edit, and the dispatcher calls of both.
 
     PYTHONPATH=tools/patch python3 tools/emu/plugin_api24_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 
-The measurements are in docs/messungen/2026-11-08-plugin-api24-part-cc.md.
+The measurements are in docs/messungen/2026-11-08-plugin-api24-part-cc.md and docs/messungen/2026-11-09-plugin-part-dsp.md.
 """
 import argparse
 import json
@@ -21,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from tools.patch import script_hooks  # noqa: E402
 import menu_cases  # noqa: E402
 import node_json  # noqa: E402
+import plugin_api23_cases  # noqa: E402
 import plugin_edit_cases as edit  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
@@ -90,6 +92,7 @@ class World:
         self.dev.run(0.3)
         self.obj = self.dev.u32(PATTERN_PTR)
         self.mark = 0
+        self.dsp = plugin_api23_cases.Dsp(self.dev, self.build)
 
     def state(self):
         return self.dev.read(self.obj, OBJECT)
@@ -151,24 +154,29 @@ def knob_twin(w, name, index, shift=False):
     w.knob(index, 60, shift)
     w.dev.run(2.5)
     w.midi()
+    w.dsp.take()
     w.knob(index, 200, shift)
     want = w.read(0, name)
-    knob = (w.state(), w.midi(), w.dev.fb())
+    knob = (w.state(), w.midi(), w.dev.fb(), w.dsp.take())
     w.knob(index, 60, shift)
     w.dev.run(2.5)
     w.midi()
     if shift:                   # the window draws differently while SHIFT is down: the plugin writes with SHIFT held as well
         w.dev.m.press(SHIFT, True)
         w.dev.run(0.1)
+    w.dsp.take()
     w.set_part(0, name, want)
     if shift:
         w.dev.m.press(SHIFT, False)
         w.dev.run(0.3)
-    plugin = (w.state(), w.midi(), w.dev.fb())
+    plugin = (w.state(), w.midi(), w.dev.fb(), w.dsp.take())
     diff = changed(knob[0], plugin[0])
-    return entry(f"{name}_like_the_knob", not diff and knob[1] == plugin[1] and knob[1] and knob[2] == plugin[2] and not w.dev.m.asserts,
+    sound = any(c[0] == "paramSet" for c in knob[3]) and knob[3] == plugin[3]
+    return entry(f"{name}_like_the_knob", not diff and knob[1] == plugin[1] and knob[1] and knob[2] == plugin[2] and sound
+                 and not w.dev.m.asserts,
                  f"knob set {want}, plugin differs at {[(hex(i - 4), knob[0][i], plugin[0][i]) for i in diff][:6]}, MIDI knob "
-                 f"{knob[1].hex(' ')} plugin {plugin[1].hex(' ')}, screen equal {knob[2] == plugin[2]}, asserts {w.dev.m.asserts}")
+                 f"{knob[1].hex(' ')} plugin {plugin[1].hex(' ')}, screen equal {knob[2] == plugin[2]}, sound engine knob "
+                 f"{plugin_api23_cases.show(knob[3])} plugin {plugin_api23_cases.show(plugin[3])}, asserts {w.dev.m.asserts}")
 
 
 def knob_cases(w):
@@ -183,20 +191,24 @@ def cutoff_case(w):
     start = w.state()
     w.dev.run(2.5)
     w.midi()
+    w.dsp.take()
     w.dev.m.send([1, CUTOFF_ENCODER, 0, 0xFF, 0])
     w.dev.run(0.4)
     want = w.read(0, "cutoff")
-    enc = (w.state(), w.midi(), w.dev.fb())
+    enc = (w.state(), w.midi(), w.dev.fb(), w.dsp.take())
     w.dev.m.send([1, CUTOFF_ENCODER, 0, 1, 0])
     w.dev.run(2.5)
     w.midi()
+    w.dsp.take()
     w.set_part(0, "cutoff", want)
-    plugin = (w.state(), w.midi(), w.dev.fb())
+    plugin = (w.state(), w.midi(), w.dev.fb(), w.dsp.take())
     diff = changed(enc[0], plugin[0])
+    sound = any(c[0] == "paramSet" for c in enc[3]) and enc[3] == plugin[3]
     return entry("cutoff_like_the_encoder", enc[0] != start and not diff and enc[1] == plugin[1] and enc[1] and enc[2] == plugin[2]
-                 and not w.dev.m.asserts,
+                 and sound and not w.dev.m.asserts,
                  f"encoder set {want}, plugin differs at {[(hex(i - 4), enc[0][i], plugin[0][i]) for i in diff][:6]}, MIDI encoder "
-                 f"{enc[1].hex(' ')} plugin {plugin[1].hex(' ')}, screen equal {enc[2] == plugin[2]}")
+                 f"{enc[1].hex(' ')} plugin {plugin[1].hex(' ')}, screen equal {enc[2] == plugin[2]}, sound engine encoder "
+                 f"{plugin_api23_cases.show(enc[3])} plugin {plugin_api23_cases.show(plugin[3])}")
 
 
 def key_cases(w):
