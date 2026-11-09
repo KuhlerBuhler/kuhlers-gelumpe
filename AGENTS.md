@@ -53,6 +53,9 @@ E2_VSB=/path/SYSTEM.VSB E2_PATTERNS=/path/backup.e2sallpat npm run test:local   
 node --test test/docs.test.mjs   # after a change to README*, AGENTS.md or docs/
 ```
 
+Every local test entry point first waits until the machine is quiet (`tools/load-gate.mjs`, 1-minute load below
+0.8 x cores) and gives up after 20 minutes; `GELUMPE_LOAD_GATE=off` skips it, see [docs/development.md](docs/development.md).
+
 Run `npm test` and `npm run test:e2e` before you call something done. Never mark a fix as
 done without a failing test that now passes or a check in the browser or emulator. On a loaded
 machine use `GELUMPE_JOBS=2 node --test --test-concurrency=1 "test/*.test.mjs"`.
