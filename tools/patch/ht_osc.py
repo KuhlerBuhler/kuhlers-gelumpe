@@ -23,11 +23,9 @@ Five places get a call into our code:
 
 The export (0xC004EBD4) skips DSP entries, so e2sSample.all never gives the slots 421 to 496.
 
-The page HT OSC in BLECH > FEATURES writes the setting word SETTING (never written, FFFFFFFF, or 1 is on, 0 is off, kept as
-bit 6 of byte 5 of the settings file). The start fills the slots before the BLECH menu reads the settings, so the menu calls
-ho_apply (the first word of the code, CODE_AT) after it: with the setting off it clears the 76 slots again, before the
-samples of e2sSample.all are loaded. With the setting off, or EXIT held at power-on (docs/patcher.md, "Notschalter"), all
-five places do what the firmware does.
+The oscillators have no switch: the slots were always empty, so they are always on where the set has the patch. Bit 6 of
+byte 5 of the BLECH settings file, which an earlier build wrote for a page HT OSC OFF, is read as nothing. With EXIT held at
+power-on (docs/patcher.md, "Notschalter") all five places do what the firmware does.
 
     python3 tools/patch/ht_osc.py --vsb SYSTEM.VSB [--out data/patches/ht-osc.json] [--hacktribe HACKTRIBE.VSB]
 """
@@ -42,14 +40,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import arm  # noqa: E402
-import ramdecl  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
 
 CODE_AT = 0xC014F000            # FF in all three builds, in the run 0xC0148880..0xC0150000, in front of the beat-eighth code (0xC014FC00)
-CODE_END = 0xC014FBFC
-SETTING = 0xC014FBFC            # the last word of the area, FF in the file: the BLECH menu's page HT OSC writes it
+CODE_END = 0xC014FC00
 
 NAMES = 0xC047B08C              # the name table, 32 bytes per slot
 FIRST = 421                     # slot 421 = display 422
@@ -119,29 +115,12 @@ LAST = FIRST + COUNT - 1        # 496 = display 497
 def source():
     table = "\n".join("    .byte " + ", ".join(f"{b:#04x}" for b in e) for e in entries())
     return f"""
-.equ SETTING, {SETTING:#x}
 .equ PANEL, {PANEL:#x}
 .equ KILL, {KILL_SWITCH:#x}
 .equ NAMES, {NAMES:#x}
 .equ CLEAR, {CLEAR:#x}
 .equ MEMCPY, {MEMCPY:#x}
 .org {CODE_AT:#x}
-
-; called by the BLECH menu after it read the settings (CODE_AT, fixed): with the setting off the slots the start filled are
-; cleared again; r0 to r3 and r12 change
-ho_apply:
-    push {{r4, lr}}
-    ldr r0, =SETTING
-    ldr r0, [r0]
-    cmp r0, #0
-    popne {{r4, pc}}
-    ldr r0, =NAMES + {FIRST * 32 + 0x10:#x}
-    ldr r0, [r0]
-    mov r0, r0, lsr #16
-    cmp r0, #0x31
-    pophi {{r4, pc}}
-    bl ho_clear
-    pop {{r4, pc}}
 
 ; clears the slots FIRST to LAST the firmware's way; r4 the slot after them, r0 to r3 and r12 change
 ho_clear:
@@ -158,12 +137,8 @@ ho_clear_next:
     bne ho_clear_next
     pop {{r5, pc}}
 
-; Z set when the patch applies: the setting is not 0 and EXIT was not held at power-on; r12 and the flags change
+; Z set when the patch applies: EXIT was not held at power-on; r12 and the flags change
 ho_on:
-    ldr r12, =SETTING
-    ldr r12, [r12]
-    cmp r12, #0
-    beq ho_firmware
     ldr r12, =PANEL
     ldr r12, [r12]
     cmp r12, #0
@@ -173,9 +148,6 @@ ho_on:
     bxne lr
 ho_yes:
     cmp r12, r12
-    bx lr
-ho_firmware:
-    movs r12, #1
     bx lr
 
 ; replaces ldr r4, =0x1A5 in front of the clear loop of both starts: r4 the first slot the loop clears; r0 to r3 change
@@ -281,8 +253,8 @@ def build_patch(vsb):
     def was(addr, n):
         return vsb[file_offset(addr):file_offset(addr) + n]
 
-    if was(CODE_AT, CODE_END + 4 - CODE_AT) != b"\xff" * (CODE_END + 4 - CODE_AT):
-        raise SystemExit(f"{CODE_AT:#x}..{CODE_END + 4:#x} is not free in this VSB")
+    if was(CODE_AT, CODE_END - CODE_AT) != b"\xff" * (CODE_END - CODE_AT):
+        raise SystemExit(f"{CODE_AT:#x}..{CODE_END:#x} is not free in this VSB")
     sites = ((FACTORY_SITE, FACTORY_WAS, "the factory start"), (FILE_SITE, FILE_WAS, "the start from e2sSample.all"),
              (SKIP_SITE, SKIP_WAS, "the loader's refusal"), (SEL_SITE, SEL_WAS, "the OSC selector"), (VOICE_SITE, VOICE_WAS, "the voice's slot lookup"))
     for site, word, what in sites:
@@ -318,9 +290,9 @@ def build_patch(vsb):
             {"file": file_offset(FILE_SITE), "length": 4, "why": "the start from e2sSample.all names the slots, which now calls ho_fill"},
             {"file": file_offset(FACTORY_SITE), "length": 4, "why": "the factory start names the slots, which now calls ho_fill"},
             {"file": file_offset(VOICE_SITE), "length": 4, "why": "the voice's slot lookup runs when the first pattern loads at start, which now calls ho_voice"},
-            {"file": file_offset(CODE_AT), "length": len(code), "why": "ho_fill and ho_voice run with those calls; they read the setting word and the held keys"},
+            {"file": file_offset(CODE_AT), "length": len(code), "why": "ho_fill and ho_voice run with those calls; they read the held keys"},
         ],
-        "ram": [ramdecl.area(SETTING, 4, "the setting word of HT OSC: FFFFFFFF or 1 on, 0 off; the BLECH menu writes it", "tools/patch/ht_osc.py:SETTING")],
+        "ram": [],
     }
 
 

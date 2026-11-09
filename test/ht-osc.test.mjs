@@ -18,7 +18,7 @@ const PATCH = read("../data/patches/ht-osc.json");
 const ALL = read("../data/patches/blech.json").patches.map(p => read(`../${p}`));
 const STOCK_SET = selectFor(ALL, "stock").patches;
 const CODE = 0x14f100;              // file offset of 0xC014F000
-const CODE_END = 0x14fcfc;          // 0xC014FBFC, the setting word
+const CODE_END = 0x14fd00;          // 0xC014FC00, the code of beat-eighth
 const ENTRIES = 76;
 // the replaced words and the condition of the call that replaces each
 const SITES = [[0xc004f5a8, 0xe], [0xc004e354, 0xe], [0xc00362a4, 0x0], [0xc0040d64, 0xe], [0xc00997a4, 0xe]];
@@ -33,16 +33,16 @@ const skip = !stock ? "E2_STOCK_VSB not set" : false;
 const skipEmu = skip || (!local ? "emulation only runs in test:local or test:emu" : false);
 const flashArgs = flash.length ? ["--flash", ...flash] : [];
 
-test("the ht-osc patch has the v1 format, is for Korg's build only, copies nothing and declares its setting word", () => {
+test("the ht-osc patch has the v1 format, is for Korg's build only, copies nothing and has no setting word", () => {
   assert.equal(PATCH.format, PATCH_FORMAT);
   assert.equal(PATCH.id, "ht-osc");
   assert.deepEqual(PATCH.builds, ["stock"]);
   assert.deepEqual(PATCH.notNeededOn, ["hacktribe"], "Hacktribe has the oscillators already; a set skips it there");
   for (const change of PATCH.changes) assert.equal(change.copy, undefined, "nothing of the firmware is copied");
-  assert.deepEqual(PATCH.ram.map(r => [r.at, r.length]), [["0xC014FBFC", 4]]);
+  assert.deepEqual(PATCH.ram, [], "always on: no switch, no setting word");
 });
 
-test("five instructions call into our code, which ends before the setting word", () => {
+test("five instructions call into our code, which ends before the code of beat-eighth", () => {
   const [code, ...calls] = PATCH.changes;
   const n = fromHex(code.bytes).length;
   assert.ok(code.file === CODE && code.file + n <= CODE_END, `${n} bytes`);
@@ -118,7 +118,7 @@ test("applied to Korg's own firmware it changes only what it names", { skip }, a
 });
 
 describe("the Hacktribe oscillators in the emulator", { concurrency: slots }, () => {
-  test("emulate:2026-11-08/ht-osc, the whole BLECH set on Korg's build: names, card, knob, voice, pattern, export, EXIT and FEATURES page", { skip: skipEmu }, async () => {
+  test("emulate:2026-11-08/ht-osc, the whole BLECH set on Korg's build: names, card, knob, voice, pattern, export, EXIT and an old settings file", { skip: skipEmu }, async () => {
     const original = new Uint8Array(readFileSync(stock));
     const res = await applyPatches(original, STOCK_SET);
     assert.equal(res.ok, true, res.reasons.join(" "));
@@ -130,7 +130,7 @@ describe("the Hacktribe oscillators in the emulator", { concurrency: slots }, ()
       assert.ifError(run.error);
       const report = JSON.parse(run.stdout);
       assert.deepEqual(report.filter(c => !c.ok), []);
-      for (const id of ["ohne-karte-oszillatoren", "datei-eintrag-450-abgelehnt-rest-geladen", "regler-hoch", "pattern-430-nach-neustart", "export-ohne-421-bis-499", "exit-wie-firmware", "aus-start-wie-firmware"]) {
+      for (const id of ["ohne-karte-oszillatoren", "datei-eintrag-450-abgelehnt-rest-geladen", "regler-hoch", "pattern-430-nach-neustart", "export-ohne-421-bis-499", "exit-wie-firmware", "alte-einstellung-bit-6-oszillatoren"]) {
         assert.ok(report.some(c => c.id === `ht-osc:${id}`), id);
       }
       assert.equal(run.status, 0);
