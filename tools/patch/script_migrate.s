@@ -160,7 +160,11 @@ mg_blue:
 ; held at power-on) and asked nothing: KORG/blechtribe without the pattern backup while an old folder has it asks here, as in
 ; front of the loader (the backup need not be there before the samples load, and the start in front of the loader has no time
 ; for the f_open). Then the next frame hook on the main screen looks at the folders (mg_frame_later). Keeps r4 to r11.
+; r0 is the loader's result (0: the samples loaded or there was no file). Anything else is a card the loader could not read: then
+; neither the backup nor the folders, each f_open on that card takes seconds and the firmware's "Card Error" box comes that much later.
 migrate_folders:
+    cmp r0, #0
+    bxne lr
     push {r4-r11, lr}
     ldr r4, =MG_WORK
     cmp r4, #0

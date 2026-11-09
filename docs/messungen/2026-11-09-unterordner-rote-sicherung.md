@@ -18,6 +18,8 @@ blaue auch fragen, wenn im alten Ordner nur eine Pattern-Sicherung liegt, und di
 | Vor dem Sample-Lader ist für die Sicherung keine Zeit: mit `f_open` auf die Sicherung in `KORG/blechtribe` dort kam der Lader 3 ms (Sicherung da) bis 6.4 ms (nicht da, dann noch die zwei alten Ordner) später als mit develop; mit dem Lesen aller Einträge von `KORG/blechtribe` dort 7 ms später | gemessen | `early_run` aus `menu_cases.py` mit und ohne Haken, Karte mit den sechs Unterordnern, je Variante gebaut |
 | Ein `f_mkdir` vor dem Sample-Lader kostet etwa 16 ms | gemessen | Testkarte von `early_look_cases` (nur `Sample`), fünf fehlende Ordner vor dem Lader angelegt: Lader 431 statt 351 ms (Hacktribe) |
 | Mit allen sechs Unterordnern auf der Karte kommt der Sample-Lader schon mit dem Stand von develop 14 ms später (statt 12 ms mit der Testkarte, die nur `Sample` hat) | gemessen | `early_run`, develop (`2a314844`) gegen die Kopie ohne Haken: 364.8 statt 350.8 ms |
+| Im Kartenhaken steht das Ergebnis des Sample-Laders in Byte `0x18` des Befehls (`r4`): `0xC0038D64` speichert es, 0 auch ohne Sample-Datei (der Lader läuft dann nicht, `0xC0038D3C` setzt 0); eine Karte, die nicht mehr liest, gibt 4 | gemessen (4), hergeleitet (0) | Disassembly `0xC0038D34` bis `0xC0038D7C`; `loadbar:card_error_keeps_the_overlay` (Lader gibt 4) |
+| Auf so einer Karte verschieben die `f_open` im Kartenhaken die Box "Card Error" um Sekunden: ohne sie kommt sie nach 16.6 s, mit ihnen nach 20 s noch nicht | gemessen | `case_card_error` aus `loadbar_cases.py` auf rot, einmal mit `migrate_folders` als `bx lr` gebaut |
 
 ## Der Patch
 
@@ -33,6 +35,8 @@ blaue auch fragen, wenn im alten Ordner nur eine Pattern-Sicherung liegt, und di
   Sicherung gibt, ein `f_open` je Ordner: erst `KORG/hacktribe` und `KORG/electribe sampler`, `KORG/blechtribe` nur, wenn
   einer der beiden sie hat (ein fehlender Name kostet am meisten). Eine umbenannte Sicherung findet sie nicht. Die Frage und
   die Kopie sind dieselben wie für die Samples, die Kopie nimmt den ganzen alten Ordner, vorhandene Dateien bleiben.
+- **Karte kaputt:** hat der Lader nicht 0 zurückgegeben, macht `migrate_folders` nichts, dann auch keine Unterordner im
+  Rahmenhaken. Der Kartenhaken gibt dafür das Byte `0x18` des Befehls mit.
 - **Vor dem Lader** prüft die rote nur noch die Samples, wie bisher, aber ohne das `f_opendir` auf `KORG/blechtribe`.
 
 ## Emulator
