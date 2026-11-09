@@ -297,13 +297,21 @@ probieren, Ausgabe und Display notieren.
     `KORG/blechtribe/Plugin/` legen (auf einem Mac liegen dort oft auch `._Name.blech` Dateien), am Gerät im Menü, Gruppe
     PLUGINS, auf MANAGE PLUGINS ENTER drücken. EDIT blättert durch die Liste, je Plugin eine Seite: oben der Name, darunter
     der Stand. Ein nicht geladenes zeigt OFF; das Hauptrad nach oben lädt es, WRITE behält den Stand. ENTER auf einem
-    Plugin öffnet seine Seiten: DESCRIPTION, seine eigenen Seiten, REMOVE; EXIT führt zurück auf das Plugin in der Liste.
+    Plugin öffnet seine Seiten: DESCRIPTION, seine eigenen Seiten, OFF, REMOVE; EXIT führt zurück auf das Plugin in der Liste.
     Erwartet: nur echte Plugin Dateien stehen in der Liste (keine mit Punkt am Anfang), ein Plugin kommt nur einmal vor,
     DESCRIPTION zeigt die Beschreibung (das Hauptrad scrollt sie), unter dem Namen steht nach dem Laden ON, das Plugin läuft
     sofort, es hat nun mehr Seiten hinter ENTER (hat es eine App, steht sie unter GAMES oder TOOLS). Das Hauptrad nach unten
-    pausiert es (OFF), nach oben läuft es weiter. REMOVE fragt ("Enter = remove"), ein zweites ENTER entfernt es aus
-    `e2sPlugin.all` ("removed").
+    pausiert es (OFF), nach oben läuft es weiter. OFF fragt ("Enter = off"), ein zweites ENTER nimmt es aus
+    `e2sPlugin.all` ("off, file kept"), die Datei bleibt und das Plugin steht wieder als OFF in der Liste. REMOVE fragt
+    ("Enter = remove"), ein zweites ENTER nimmt es heraus und löscht seine `.blech` ("removed"); es steht nicht mehr in der
+    Liste, am Rechner fehlt die Datei. Auf der blauen bleibt die Datei ("file stays on card").
     Melden: ok, sonst Meldung und Anzeige.
+
+15a. **Viele Plugins.** 70 `.blech` (mit verschiedenen Namen im Kopf) nach `KORG/blechtribe/Plugin/` legen, MANAGE PLUGINS,
+    ENTER.
+    Erwartet: die Liste zählt 65 Seiten, die letzte heißt LIST FULL mit "64 files shown"; das Öffnen dauert nicht so lange,
+    dass das Gerät hängt (im Emulator 0,9 s). Ein Plugin weit hinten lässt sich mit dem Hauptrad laden.
+    Melden: ok, sonst Zahl der Seiten und wie lange das Öffnen dauert.
 
 16. **Fremdes Plugin.** Das Flag "geprobt" entfernen:
     `node tools/patch/probe-flag.mjs --clear eingabe.blech ausgabe.blech`, die Ausgabe nach

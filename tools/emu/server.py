@@ -24,6 +24,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -38,6 +39,16 @@ from lcd import LcdResponse, taus  # noqa: E402
 from sdcard import SDCard  # noqa: E402
 
 MISSING_UNICORN = "Unicorn fehlt in diesem Python. Einmal npm run setup:emu ausführen, dann npm start neu starten."
+
+
+def import_failure(error):
+    """The answer to an ImportError: the setup hint only when Unicorn itself is missing. Any other module is named and its
+    traceback goes to stderr (the app's ~/.gelumpe/emu.log), so a module the frozen service lacks is not taken for Unicorn."""
+    if (error.name or "").split(".")[0] == "unicorn":
+        return MISSING_UNICORN
+    traceback.print_exception(error, file=sys.stderr)
+    sys.stderr.flush()
+    return f"Dem Emulator fehlt ein Modul: {error.name or error}"
 VSB_SIZE = 0x200100
 SYNTH_FLASH_FILE = "flash-synth.bin"   # the blue Electribe's user data, kept apart from flash.bin; Hacktribe for the blue uses it too
 FLASH_SIZE = 0x1000000
@@ -721,8 +732,8 @@ def make_handler(emu, token, origins):
                     return self._fail(404, "Unbekannter Pfad.")
             except (ValueError, json.JSONDecodeError) as error:
                 return self._fail(400, str(error))
-            except ImportError:
-                return self._fail(500, MISSING_UNICORN)
+            except ImportError as error:
+                return self._fail(500, import_failure(error))
             except Exception as error:
                 return self._fail(500, f"Emulator konnte nicht starten: {error}")
             self._send(200, emu.status)
@@ -744,7 +755,7 @@ def make_handler(emu, token, origins):
                         chunk = ": keep-alive\n\n"
                     self.wfile.write(chunk.encode())
                     self.wfile.flush()
-            except (BrokenPipeError, ConnectionResetError):
+            except ConnectionError:           # the page went away: a broken pipe, a reset, or on Windows an abort
                 pass
             finally:
                 emu.unsubscribe(q)

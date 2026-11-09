@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 11;
+export const API_VERSION = 12;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -352,6 +352,7 @@ const API_LIST = [
   [64, "korg.every", [int("ms", 1, TIMERS.maxMs), int("callback", 0, 255)], "int", TIMER_USE, 10, 11],
   [65, "korg.afterSteps", [int("steps", 1, TIMERS.maxSteps), int("callback", 0, 255)], "int", TIMER_USE, 10, 11],
   [66, "korg.cancel", [int("timer", -1, TIMERS.slots * 32 - 1)], "void", TIMER_USE, 6, 11],
+  [67, "korg.padHold", [int("on", 0, 1)], "void", UI, 20, 12],
 ];
 
 /**

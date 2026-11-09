@@ -12,7 +12,7 @@
  */
 export const CHAINS = {
   "start": [
-    { id: "after-flash-mark", sites: [0xC00289D8] },
+    { id: "after-flash-mark", sites: [0xC00289D8, 0xC0025E48] },   // the second is the synth build's
     { id: "after-rescue-paths", sites: [0xC002ADAC] },
     { id: "card-mount", sites: [0xC002AE60] },
     { id: "doom-select", sites: [0xC002AE64] },

@@ -28,4 +28,11 @@ ENV GELUMPE_FLASH_DIR=/home/node/.gelumpe/flash
 USER node
 
 EXPOSE 8737 8740
+
+# Healthy means the page answers. The emulator is not part of it: it starts only when a page powers the
+# device on, and an editor nobody has opened yet is a container that works. No curl in this image, so
+# Node does the request.
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:8737/').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+
 CMD ["node", "tools/start.mjs"]

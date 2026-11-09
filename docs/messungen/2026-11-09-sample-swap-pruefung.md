@@ -8,6 +8,16 @@ Produktionspatches wurden bei dieser Prüfung nicht geändert. Erzeugte Samples
 und Kartenabbilder bleiben die Grundlage der Tests; eigene Firmwaredateien und
 vollständige Laufprotokolle liegen außerhalb des Repos.
 
+## Korrektur zur Hacktribe-Testbasis
+
+Die zuerst verwendete Hacktribe-Datei war bereits verändert. Die 738
+nativen Prüfungen gelten für diese Variante und sind kein Nachweis für das
+Hacktribe-Original. Stock und Synth stimmen mit den bekannten
+Originalsignaturen überein. Die ergänzende Prüfung der unveränderten
+Hacktribe-Basis und die Herkunftskontrolle stehen in der
+[Zusammenführung der Sicherheitskorrekturen](2026-11-09-sample-swap-pr309.md).
+Die unten beschriebenen Schutzlücken bleiben davon unabhängig offen.
+
 ## Gemessen im Emulator und in den Softwaretests
 
 | Prüfung | Ergebnis |
@@ -16,11 +26,11 @@ vollständige Laufprotokolle liegen außerhalb des Repos.
 | `npm run test:e2e` | 285 bestanden, eine übersprungen, kein Fehler |
 | Optionaler Browser-Test mit nativer Stock-Firmware, ausdrücklich aktiviert | einer bestanden, keine Auslassung |
 | Vollständige native Patchprüfung Stock | 763 Prüfungen bestanden |
-| Vollständige native Patchprüfung Hacktribe | 738 Prüfungen bestanden |
+| Vollständige native Patchprüfung mit veränderter Hacktribe-Basis | 738 Prüfungen bestanden, siehe Korrektur unten |
 | Vollständige native Patchprüfung Synth | 494 Prüfungen bestanden |
 | Python-Prüfungen der Patch-Bausteine | 532 Tests, einer übersprungen, kein Fehler |
 | Python-Prüfungen der Gerätewerkzeuge | 175 Tests, kein Fehler |
-| Python-Prüfungen des Emulators mit eigenen Originalen | 264 Tests, keine übersprungen, kein Fehler |
+| Python-Prüfungen des Emulators mit eigenen Firmwaredateien | 264 Tests, keine übersprungen, kein Fehler |
 | Native Sample-Speicherung und Sicherung nach korrigierten Testannahmen | fünf übergeordnete Tests, kein Fehler und keine Auslassung |
 
 Die drei vollständigen nativen Patchprüfungen verwenden `--cases all`. Damit

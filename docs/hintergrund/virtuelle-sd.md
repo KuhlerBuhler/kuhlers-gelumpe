@@ -95,7 +95,7 @@ Registerbelegung wie TI AM1808 MMCSD (Basis `0x01C40000`).
 | FIFO vorbereiten | `0xC0017E00` (Schreiben), `0xC0017E68` (Lesen) | MMCFIFOCTL Reset, BLEN `0x200`, NBLK |
 | Daten schreiben | `0xC0017F18` | wartet auf DXRDY (`0x200`), schreibt MMCDXR 32 Bit |
 | Daten lesen | `0xC00180F0` | wartet auf DRRDY (`0x400`), liest MMCDRR 32 Bit, 64 Byte je Aufruf |
-| Interrupt | IRQ 16, Handler `0xC0025BD0` | löscht nur das AINTC-Bit und weckt über `0xC001CFAC` die Task; MMCST0 liest erst die Task |
+| Interrupt | IRQ 16, Handler `0xC0025BD0` | löscht das AINTC-Bit und läuft über `0xC001CFAC` bis `0xC001DB60`: liest MMCST0 (offline gelesen, 2026-10-30), hebt es mit DRRDY oder DXRDY für die Task auf und setzt ihr Ereignis 5 |
 | Kartentask | `0xC001D1B0` (Schleife), `0xC001D888` (Zustandsautomat), `0xC001D2B8` (Mount), `0xC001D76C` (Auftragsarten 0 bis 9) | der FS-Code ruft nicht direkt, sondern über diesen Task |
 
 **gemessen:** Der Interrupt muss aus dem Modell kommen, sonst bleibt die

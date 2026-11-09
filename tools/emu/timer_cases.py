@@ -144,7 +144,8 @@ def cases(vsb, flash=None):
     called, ran = w.times.get(1), w.times.get(2)
     device = round(ran - called, 1) if called is not None and ran is not None else None
     plugin = (w.var("fired") - w.var("armed")) if device is not None else None
-    out.append(entry("after_1000_from_the_start", device is not None and device >= 1000 and abs(device - plugin) <= 41 and not dev.m.asserts,
+    # both moments are seen at the next 1 ms poll, so the device time may show up to one less as well
+    out.append(entry("after_1000_from_the_start", device is not None and device >= 999 and plugin >= 1000 and abs(device - plugin) <= 41 and not dev.m.asserts,
                      f"set {called} ms after power-on, ran {device} ms later, plugin clock {plugin} ms"))
 
     dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True, seconds=2.0)

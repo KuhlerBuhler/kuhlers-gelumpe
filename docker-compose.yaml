@@ -20,8 +20,15 @@
 # would put the editor on every interface without a login.
 services:
   gelumpe:
+    # Build it here, or run what the release published (docs/development.md, "Im Container"):
+    #
+    #   docker compose up --build                          builds from this folder
+    #   docker compose pull && docker compose up           runs the released image
+    #
+    # A build carries the released name too, so `docker compose up` alone takes whatever is there and
+    # `--build` is what says "build it". GELUMPE_IMAGE picks another tag, for example a version.
     build: .
-    image: kuhlers-gelumpe:latest
+    image: ${GELUMPE_IMAGE:-ghcr.io/kuhlerbuhler/kuhlers-gelumpe:latest}
     init: true
     environment:
       # The address a reverse proxy serves the page at, for example

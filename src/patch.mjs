@@ -107,9 +107,11 @@ export function selectFor(patches, build) {
  * `allow` lists the field spans for the emulator check (check.py --allow).
  * `allowCode` is what the patches say runs at start, [file, length] spans for check.py --allow-code.
  * `dependencies` are hook dependencies between the patches, reported and not refused.
+ * `refresh(kind, name, record)` says whether a preset an append patch names goes over the one of that name the file has, which an older release put there.
+ * `accept(file, length, sha256)` may take a region as it is although it is not the one the patch expects (src/blech-update.mjs).
  * @returns {Promise<{ok: boolean, bytes?: Uint8Array, reasons: string[], dependencies: string[], spans: object[], allow: number[][], allowCode: number[][]}>}
  */
-export async function applyPatches(vsb, patchList) {
+export async function applyPatches(vsb, patchList, { accept, refresh = null } = {}) {
   const reasons = [];
   const spans = [];
   const none = (why, dependencies = []) => ({ ok: false, reasons: why, dependencies, spans, allow: [], allowCode: [] });
@@ -140,7 +142,8 @@ export async function applyPatches(vsb, patchList) {
         reasons.push(`${patch.id}: 0x${at.file.toString(16)} überschneidet sich mit ${clash.patch}`);
         continue;
       }
-      if (at.expect && await sha256(vsb.subarray(at.file, end)) !== at.expect) {
+      const held = at.expect ? await sha256(vsb.subarray(at.file, end)) : null;
+      if (at.expect && held !== at.expect && !accept?.(at.file, at.bytes.length, held)) {
         reasons.push(`${patch.id}: an 0x${at.file.toString(16)} stehen andere Bytes, als der Patch erwartet`);
         continue;
       }
@@ -153,7 +156,7 @@ export async function applyPatches(vsb, patchList) {
   const allow = spans.filter(s => s.field).map(s => [s.file, s.length]);
   const allowCode = patches.flatMap(p => (p.startPhase ?? []).map(s => [s.file, s.length]));
   for (const patch of appends) {
-    const appended = appendPresets(bytes, patch);
+    const appended = appendPresets(bytes, patch, { refresh });
     if (!appended.ok) return none(appended.reasons, dependencies);
     bytes = appended.bytes;
     allow.push(...appended.allow);

@@ -95,14 +95,23 @@ blechy_follow:
     bl script_app_open
     b follow_out
 follow_away:
-    ldr r1, [r5, #SCRIPT_APPS_OPEN]
+    bl blechy_leave
+follow_out:
+    pop {r5, pc}
+.pool
+
+; Closes him when he is the open app (a plugin app that is open is none of its business); the close asks the firmware for a whole
+; new frame. The menu calls it too, the moment EDIT leaves his page and before the next page draws: without it that page drew only its
+; widgets over his last picture, and his head and feet stayed on SYNC GROUP on a blue with BLECH 1.3.3 (Discord report 26.10.).
+; Clobbers r0 to r3.
+blechy_leave:
+    ldr r1, =APP_STATE
+    ldr r1, [r1, #SCRIPT_APPS_OPEN]
     cmp r1, #0
-    beq follow_out
+    bxeq lr
     ldr r2, [r1, #SCRIPT_ENTRY_BLOB]
     ldr r3, =HOOK_POOL
     cmp r2, r3
-    bhs follow_out
-    bl script_app_close
-follow_out:
-    pop {r5, pc}
+    bxhs lr
+    b script_app_close
 .pool

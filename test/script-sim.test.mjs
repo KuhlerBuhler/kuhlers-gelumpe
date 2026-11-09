@@ -278,6 +278,27 @@ test("backlight and led hold are state in the simulated hardware", () => {
   assert.deepEqual([sim.hardware.backlight, sim.hardware.ledHold], [[1, 0, 1], 1]);
 });
 
+test("the pad hold is state in the simulated hardware and ends when the app closes", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("locks", `
+    let pads = 0;
+    korg.app("Locks", "TOOLS");
+    korg.onEvent("open", () => { korg.padHold(1); });
+    korg.onEvent("pad", (index, velocity) => { pads = pads + 1; });
+  `)).ok);
+  sim.frame();
+  assert.equal(sim.hardware.padHold, 0);
+  assert.ok(sim.openApp(0));
+  sim.frame();
+  assert.equal(sim.hardware.padHold, 1);
+  sim.post("pad", 3, 100);
+  sim.frame();
+  assert.equal(Array.from(sim.runtime.scripts[0].script.vars)[0], 1, "the plugin still gets the pad");
+  sim.post("buttonPress", 13);
+  sim.frame();
+  assert.equal(sim.hardware.padHold, 0, "EXIT closes the app and gives the pads back");
+});
+
 test("korg.menu.add puts a page in the device menu, the user's change reaches the script as a menu event", () => {
   const device = new SimDevice();
   const loaded = device.load(build("menus", `

@@ -1,0 +1,146 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "beat-eighth",
+ "name": "BEAT 8",
+ "builds": [
+  "synth"
+ ],
+ "changes": [
+  {
+   "file": 825016,
+   "bytes": "0c",
+   "expect": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+   "note": "BEAT 4 divides the ticks by 12: a step is an eighth note (1152 ticks)"
+  },
+  {
+   "file": 1375488,
+   "bytes": "5c5c3800",
+   "expect": "ad95131bc0b799c0b1af477fb14fcf26a6a9f76079e48bf090acb7e8367bfd0e",
+   "note": "the text of BEAT 4, \\\\8 as \\\\8 Tri; from its third byte the list text 8"
+  },
+  {
+   "file": 456744,
+   "bytes": "040051e3",
+   "expect": "553b7da020d98e6a75bdaf48e6c92099226b9ebdb2370b09ae73bb6ff86fd8d1",
+   "note": "the page BEAT takes values up to 4 (cmp r1, #4)"
+  },
+  {
+   "file": 456748,
+   "bytes": "0410a0a3",
+   "expect": "93dd1da2d82855ce35a4278a5f54302622c4fe35f0ed0a6df28a16d8c315b875",
+   "note": "movge r1, #4"
+  },
+  {
+   "file": 465748,
+   "bytes": "00fc14c0",
+   "expect": "a9a71d834a95e714190dcd806d3f063ac343afac18b59bd35839063e9c56c0b0",
+   "note": "the page BEAT shows \\\\8 for 4 where it showed ?"
+  },
+  {
+   "file": 179428,
+   "bytes": "030053e3",
+   "expect": "b1c090daa43dacb5e2c1f0aa7e97e3ed4deff245793a6323d243e45dada0a939",
+   "note": "export length 1: BEAT 1 to 4 read the tables (cmp r3, #3)"
+  },
+  {
+   "file": 179692,
+   "bytes": "04fc14c0",
+   "expect": "000d1769cb433badc9fe57cca6edda02b6faaa758afc589346f59e4013b52df7",
+   "note": "export length 1: steps per quarter from the table with BEAT 4"
+  },
+  {
+   "file": 179696,
+   "bytes": "08fc14c0",
+   "expect": "8ed27d6bf2382c1dc14b35bdb5d8329f09c3f3768b58899f1fe271fc79eb7ade",
+   "note": "export length 1: steps per bar from the table with BEAT 4"
+  },
+  {
+   "file": 194372,
+   "bytes": "030053e3",
+   "expect": "b1c090daa43dacb5e2c1f0aa7e97e3ed4deff245793a6323d243e45dada0a939",
+   "note": "export length 2: BEAT 1 to 4 read the tables (cmp r3, #3)"
+  },
+  {
+   "file": 194692,
+   "bytes": "04fc14c0",
+   "expect": "204f12d3720dd0610621fb2d4fb47e9a0af6ed8abcc65a4d76c710a1b7381bcb",
+   "note": "export length 2: steps per quarter from the table with BEAT 4"
+  },
+  {
+   "file": 194696,
+   "bytes": "08fc14c0",
+   "expect": "bbda6430a1b6ab0f90457db0250d157a5456cd01a8484a76baa66d3c429d0643",
+   "note": "export length 2: steps per bar from the table with BEAT 4"
+  },
+  {
+   "file": 197672,
+   "bytes": "030053e3",
+   "expect": "b1c090daa43dacb5e2c1f0aa7e97e3ed4deff245793a6323d243e45dada0a939",
+   "note": "export length 3: BEAT 1 to 4 read the tables (cmp r3, #3)"
+  },
+  {
+   "file": 197892,
+   "bytes": "04fc14c0",
+   "expect": "e2fe29dd2679f9370440e31f436bb70457ff0b7c92f5c2a3482ce96d047d5151",
+   "note": "export length 3: steps per quarter from the table with BEAT 4"
+  },
+  {
+   "file": 197896,
+   "bytes": "08fc14c0",
+   "expect": "9d0698d8dc31f917f5a4dcb9cb1c4ae45f0bd6f9ca05e2017633bfa853940246",
+   "note": "export length 3: steps per bar from the table with BEAT 4"
+  },
+  {
+   "file": 198268,
+   "bytes": "030053e3",
+   "expect": "b1c090daa43dacb5e2c1f0aa7e97e3ed4deff245793a6323d243e45dada0a939",
+   "note": "export length 4: BEAT 1 to 4 read the tables (cmp r3, #3)"
+  },
+  {
+   "file": 198592,
+   "bytes": "04fc14c0",
+   "expect": "d01af6fa702b2573088e9ca04353e40887663112f89d9e301b878899f7aa65ab",
+   "note": "export length 4: steps per quarter from the table with BEAT 4"
+  },
+  {
+   "file": 198596,
+   "bytes": "08fc14c0",
+   "expect": "1e3a4c15ae170c4adf6bd15d5de7ff53f726be32585902451a29d588c8b21420",
+   "note": "export length 4: steps per bar from the table with BEAT 4"
+  },
+  {
+   "file": 1375492,
+   "copy": {
+    "file": 598440,
+    "length": 4,
+    "expect": "edfd9f009cf0de514dfdb26fd07b2b344aee21b7068a66f8cb6b8b9925a8968f"
+   },
+   "over": [
+    {
+     "at": 3,
+     "bytes": "02"
+    }
+   ],
+   "expect": "ad95131bc0b799c0b1af477fb14fcf26a6a9f76079e48bf090acb7e8367bfd0e",
+   "note": "steps per quarter for BEAT 1 to 4: the firmware's 8, 3, 6 and 2 for eighths"
+  },
+  {
+   "file": 1375496,
+   "copy": {
+    "file": 598443,
+    "length": 4,
+    "expect": "f95f01875c502af748c222ca74dd48a3b8ab79cb71021d8d2f7c036eb2c5e5b0"
+   },
+   "over": [
+    {
+     "at": 3,
+     "bytes": "10"
+    }
+   ],
+   "expect": "ad95131bc0b799c0b1af477fb14fcf26a6a9f76079e48bf090acb7e8367bfd0e",
+   "note": "steps per bar for BEAT 1 to 4: the firmware's 16, 12, 12 and 16"
+  }
+ ],
+ "ram": []
+}

@@ -28,6 +28,8 @@ export class SimHardware {
     this.patternBlocks = new Map();
     this.backlight = [1, 1, 1];
     this.ledHold = 0;
+    /** korg.padHold: 1 while pad presses reach the plugins only, not the firmware. An app's close gives the pads back. */
+    this.padHold = 0;
     /** The leaves of the object tree by id (data/script/objects.mjs), at their factory values; `repairs` is korg.system.repairs. */
     this.objects = OBJECTS.map(o => o.factory);
     /** 0 finger up, 1 the press came and the first position has not, 2 the first position is out. */
@@ -53,6 +55,7 @@ export class SimHardware {
       "korg.part": part => { this.part = part; this.emit("partChange", part); },
       "korg.backlight": (red, green, blue) => { this.backlight = [red, green, blue]; },
       "korg.ledHold": on => { this.ledHold = on; },
+      "korg.padHold": on => { this.padHold = on; },
       "korg.mute": (part, muted) => { if (this.mutes[part] !== muted) { this.mutes[part] = muted; this.emit("mute", part, muted); } },
       "korg.seq.setStep": (part, step, note, velocity) => this.setStep(part, step, note, velocity),
       "korg.seq.setGate": (part, step, gate) => { this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.gate] = gate; },

@@ -204,7 +204,7 @@ app_open_fail:
 .pool
 
 ; Closes the open app, if any: it gets `close` and the display is the firmware's again. Called from the input filter
-; (EXIT), the frame hook (the main screen is gone) and nothing else. Preserves r4 to r11.
+; (EXIT), the frame hook (the main screen is gone) and blechy_leave (the menu leaves his page). Preserves r4 to r11.
 script_app_close:
     push {r4, lr}
     ldr r4, =APP_STATE
@@ -213,6 +213,9 @@ script_app_close:
     beq app_close_done
     mov r0, #0
     str r0, [r4, #SCRIPT_APPS_OPEN]
+    mov r4, r1                      ; the pads go back to the firmware with the app (korg.padHold)
+    bl pad_hold_set
+    mov r1, r4
     ldr r2, =UI_REDRAW
     mov r3, #1
     strb r3, [r2]

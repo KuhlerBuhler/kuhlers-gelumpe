@@ -177,13 +177,13 @@ SYNC_AT = 15                                                          # the coun
 LEVEL_BLECHY = 3                                                      # level 3 of the screen: the page of Blechy, the last of the ring
 LEVEL_SYNC = 4                                                        # level 4: the page SYNC GROUP between the Pattern menu and the Part menu
 LEVEL_PLUGIN = 5                                                      # level 5: MANAGE PLUGINS, one page a plugin
-LEVEL_PSUB = 6                                                        # level 6: the pages of one plugin: DESCRIPTION, the pages it added, REMOVE
+LEVEL_PSUB = 6                                                        # level 6: the pages of one plugin: DESCRIPTION, the pages it added, OFF, REMOVE
 LEVEL_GLOBAL = 7                                                      # level 7: PLUGIN RUNTIME, the last page of GLOBAL PARAMETERS (21/21)
 LEVEL_DU = 8                                                          # level 8: our pages of DATA UTILITY, behind the firmware's functions
 GLOBAL_PAGES = 20                                                     # the firmware's pages of GLOBAL PARAMETERS (screen 9)
 S_PSEL = 0xFB                                                         # byte: the plugin the pages of level 6 are about (the page of level 5 it was opened from)
 PLUGIN_MANAGE = 0                                                     # the one page of PLUGINS: MANAGE PLUGINS
-PLUGIN_DESCRIPTION = 0                                                # the first page of one plugin; the pages it added follow, REMOVE is the last
+PLUGIN_DESCRIPTION = 0                                                # the first page of one plugin; the pages it added follow, then OFF, REMOVE is the last
 PRESS = "press  [ Enter ]"                                            # the third line of every Data Util page
 VALUE_ROWS = range(30, 64)                                           # the pixel rows the value (and the firmware's third line) use
 TAB_ROWS = range(1, 9)                                               # the rows of the tab's text, inside the black bar
@@ -220,7 +220,7 @@ def goto_group(dev, group, page=0):
 
 def goto_plugin(dev, plugin=0, page=None):
     """The page of a plugin in MANAGE PLUGINS (level 5: its name, its state, the dial switches it), or with `page` that page of its
-    own pages (level 6: DESCRIPTION, the pages it added, REMOVE); `plugin` counted as the list counts (loaded ones first), entered fresh."""
+    own pages (level 6: DESCRIPTION, the pages it added, OFF, REMOVE); `plugin` counted as the list counts (loaded ones first), entered fresh."""
     go(dev, 8)
     dev.m.uc.mem_write(STATE + S_PSEL, bytes([plugin]))
     if page is None:
@@ -527,6 +527,42 @@ def blechy_ring_cases(dev):
             bad.append(key)
             break
     add("blechy_all_keys_run", not bad, f"no assertion over 48 keys on his page" if not bad else f"assertion at key {bad}")
+    # EDIT off his page: no frame shows a pixel of him that the next page does not have (Discord 26.10., blue with BLECH 1.3.3: his head
+    # and feet stayed on SYNC GROUP; the page drew only its widgets over his last picture for 35 ms before the full redraw came). Here EDIT
+    # right goes on to the Pattern menu and EDIT left back to the page BLECH.
+    bits = lambda fb: {(i, k) for i, b in enumerate(fb) for k in range(8) if b >> k & 1}
+
+    def sending(before, look, after):
+        """Whether `look` caught the controller in the middle of one transfer: its first bytes are already those of the next look,
+        the rest still those of the one before (a full frame goes in in order and can straddle a 5 ms look)."""
+        if after is None or look == after:
+            return False
+        cut = next(j for j in range(len(look)) if look[j] != after[j])
+        return look[cut:] == before[cut:]
+
+    left = []
+    for key in ("edit_next", "edit_prev"):
+        goto_blechy(dev)
+        dev.run(1.0)
+        last = (frame(dev), dev.fb())
+        dev.m.press(KEYS[key], True)
+        looks = []
+        for k in range(40):
+            dev.run(0.005)
+            if k == 10:
+                dev.m.press(KEYS[key], False)
+            looks.append((frame(dev), dev.fb()))
+        dev.run(0.5)
+        settled = (frame(dev), dev.fb())
+        for i, kind in enumerate(("frame", "display")):
+            his = bits(last[i]) - bits(settled[i])
+            seq = [last[i]] + [look[i] for look in looks] + [None]
+            stale = [5 * k for k in range(1, len(seq) - 1) if seq[k] != last[i] and bits(seq[k]) & his and not sending(seq[k - 1], seq[k], seq[k + 1])]
+            if stale:
+                left.append(f"{key} {kind} at {stale[:4]} ms")
+    add("blechy_leaves_no_trace", not left and not dev.m.asserts,
+        "EDIT right and left off his page: every look every 5 ms is his last picture or has none of his pixels the next page lacks"
+        + (f"; his pixels on the next page: {left}" if left else ""))
     go(dev, 8)
     return out
 
@@ -2263,7 +2299,7 @@ def early_look_cases(payload, flash=None):
     reads its settings from a hook on the loading command, before the loader. Compared with the same copy without that hook (the
     instruction put back), which arms behind the loader, and with the main screen's time, which must not get later."""
     if synthaddr.is_synth(payload):
-        return synth_start_cases(payload, flash)
+        return synth_start_cases(payload, flash) + boot_light_cases(payload, flash)
     out = []
 
     def add(name, ok, detail):
@@ -2285,6 +2321,7 @@ def early_look_cases(payload, flash=None):
 
 
 BOOT_LIGHT_SITE = 0xC00289D8          # behind the firmware's first flash read in the start: the hook that sets the colour at power-on
+BOOT_LIGHT_SYNTH = 0xC0025E48         # the same place on the blue (`cmp r0, r3`)
 BOOT_SLOT = 250                       # *GLOBALS + 250, Global byte 250 (byte 246 of the block in the flash): 0x80 plus the pins of the colour
 BOOT_FLASH = 0x2300F6                 # that byte in the flash
 DRAW_IMAGE = 0xC003F650               # the firmware's picture function; its first call in the start draws the start image
@@ -2292,8 +2329,10 @@ DRAW_IMAGE = 0xC003F650               # the firmware's picture function; its fir
 
 def boot_light_run(payload, flash, files, held=0):
     """Boots on mains power and notes every change of the backlight pins and the time of the first picture (the start image).
-    Returns (dev, pin changes [(ms, pins)], ms of the start image, pins at that moment)."""
+    Returns (dev, pin changes [(ms, pins)], ms of the start image, pins at that moment). dev.image_shown is (first, last ms) the
+    display shows a full picture (more than 2000 pixels lit) in the first 0.5 s, in 2 ms steps: the start image."""
     import unicorn
+    draw = synthaddr.tr(DRAW_IMAGE) if synthaddr.is_synth(payload) else DRAW_IMAGE
     dev = Dev(payload, flash, held)
     dev.m.adapter = True
     dev.m.insert_card(SDCard(MemoryMedium(card_image(files))))
@@ -2303,8 +2342,16 @@ def boot_light_run(payload, flash, files, held=0):
     def at_draw(uc, address, size, user):
         if "ms" not in seen:
             seen.update(ms=dev.m.time_ns / 1e6, pins=pins(dev))
-    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, at_draw, begin=DRAW_IMAGE, end=DRAW_IMAGE)
+    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, at_draw, begin=draw, end=draw)
     dev.m.uc.ctl_flush_tb()
+    shown = []
+    for step in range(1, 251):
+        dev.m.run_until(step * 0.002)
+        if sum(bin(b).count("1") for row in dev.m.fb for b in row) > 2000:
+            shown.append(step * 2)
+        elif shown:
+            break
+    dev.image_shown = (shown[0], shown[-1]) if shown else None
     dev.m.run_until(1.2)
     return dev, [(round(t / 1e6, 2), v) for t, v in dev.pin_log], seen.get("ms"), seen.get("pins")
 
@@ -2321,7 +2368,9 @@ def boot_light_cases(payload, flash=None):
     keeps them through the firmware's own light calls until the menu is armed. EXIT at power-on stays stock white, a card without a
     settings file goes back to white once the menu is armed, WRITE of another colour updates the byte."""
     import last_pattern_cases
-    if struct.unpack_from("<I", payload, BOOT_LIGHT_SITE - IMAGE)[0] == 0xE3500F49:
+    synth = synthaddr.is_synth(payload)
+    site, word = (BOOT_LIGHT_SYNTH, 0xE1500003) if synth else (BOOT_LIGHT_SITE, 0xE3500F49)
+    if struct.unpack_from("<I", payload, site - IMAGE)[0] == word:
         return []
     out = []
 
@@ -2330,7 +2379,7 @@ def boot_light_cases(payload, flash=None):
 
     red = {**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(0, (0, 0, 0), (15, 0, 0)))}
     dev = boot(payload, flash, files=red)
-    globals_at = dev.u32(POWER_SAVE_OBJECT)
+    globals_at = dev.u32(synthaddr.tr(POWER_SAVE_OBJECT) if synth else POWER_SAVE_OBJECT)
     slot = dev.read(globals_at + BOOT_SLOT, 1)[0] if globals_at else None
     kept = last_pattern_cases.switch_off(dev)
     add("kept_at_switch_off", slot == 0x88 and kept is not None and kept[BOOT_FLASH] == 0x88,
@@ -2340,16 +2389,22 @@ def boot_light_cases(payload, flash=None):
     dev, changes, image_ms, image_pins = boot_light_run(payload, kept, red)
     white = after_white(changes)                # the firmware lights red, green, blue one after the other at about 52 ms
     first_red = next((t for t, v in white if v == 0x08), None)
-    add("colour_before_the_start_image", image_ms is not None and image_pins == 0x08 and first_red is not None and first_red < image_ms,
-        f"red from {first_red} ms, start image at {image_ms} ms with pins {image_pins}, changes {changes[:6]}")
+    if synth:                                   # the blue draws its start image before the flash answers: the colour comes while it is shown
+        shown = dev.image_shown
+        add("colour_while_the_start_image", shown is not None and first_red is not None and shown[0] <= first_red < shown[1],
+            f"red from {first_red} ms, start image drawn at {image_ms} ms, on the display from {shown and shown[0]} to {shown and shown[1]} ms, changes {changes[:6]}")
+    else:
+        add("colour_before_the_start_image", image_ms is not None and image_pins == 0x08 and first_red is not None and first_red < image_ms,
+            f"red from {first_red} ms, start image at {image_ms} ms with pins {image_pins}, changes {changes[:6]}")
     add("colour_until_armed", first_red is not None and all(v == 0x08 for t, v in white if t >= first_red) and pins(dev) == 0x08 and state(dev, S_ON) == 1
         and not dev.m.asserts, f"pin changes after the white {white[:6]}, pins now {pins(dev):#x}")
     held, changes, image_ms, image_pins = boot_light_run(payload, kept, red, held=KILL)
     add("exit_held_stays_white", image_pins == GPIO_PINS and after_white(changes) == [] and pins(held) == GPIO_PINS and state(held, S_ON) != 1,
         f"start image pins {image_pins}, changes {changes[:6]}, pins now {pins(held):#x}")
     bare, changes, image_ms, image_pins = boot_light_run(payload, kept, CARD_FOLDER)
-    add("no_settings_file_back_to_white", image_pins == 0x08 and pins(bare) == GPIO_PINS and state(bare, S_ON) == 1,
-        f"start image pins {image_pins}, pins once armed {pins(bare):#x}")
+    lit = (0x08 in [v for _, v in after_white(changes)]) if synth else image_pins == 0x08
+    add("no_settings_file_back_to_white", lit and pins(bare) == GPIO_PINS and state(bare, S_ON) == 1,
+        f"start image pins {image_pins}, changes after the white {after_white(changes)[:4]}, pins once armed {pins(bare):#x}")
     dev = boot(payload, kept, files=red, adapter=True)
     set_look(dev, backlight=(0, 15, 0))
     before = dev.read(globals_at + BOOT_SLOT, 1)[0]
@@ -2357,6 +2412,50 @@ def boot_light_cases(payload, flash=None):
     after = dev.read(globals_at + BOOT_SLOT, 1)[0]
     add("write_updates_the_byte", before == 0x88 and after == 0x90 and state(dev, S_STATUS) == 1,
         f"Global byte 250 after the change {before:#x}, after WRITE {after:#x}, status {state(dev, S_STATUS)}")
+    # Device report 30.10.: HUE 15, SAT 13, BRIGHT 14 (stored 14, 13, 2) and DISPLAY INVERT on kept the start white, because all three
+    # levels are above 0. The start only has on and off per channel: a channel stays on when it is at least half of the strongest.
+    set_look(dev, backlight=(0, 0, 0))
+    goto_page(dev, PAGE_BL_R)
+    dev.turn(15, wait=0.25)
+    goto_page(dev, PAGE_BL_G)
+    dev.turn(-2, wait=0.25)
+    goto_page(dev, PAGE_BL_B)
+    dev.turn(-1, wait=0.25)
+    levels = [state(dev, S_BL_R + 4 * k) for k in range(3)]
+    press(dev, "write", wait=0.6)
+    after = dev.read(globals_at + BOOT_SLOT, 1)[0]
+    add("hsv_15_13_14_byte", levels == [14, 13, 2] and after == 0x98 and state(dev, S_BL_ON) == 0x38 and state(dev, S_STATUS) == 1,
+        f"HUE 15, SAT 13, BRIGHT 14 stores {levels}, Global byte 250 after WRITE {after:#x} (red and green), pins of the menu {state(dev, S_BL_ON):#x}")
+    rule = []
+    for colour, want in (((15, 7, 0), 0x88), ((15, 8, 0), 0x98), ((8, 8, 8), 0xB8), ((0, 0, 1), 0xA0), ((15, 1, 14), 0xA8), ((1, 15, 1), 0x90)):
+        set_look(dev, backlight=colour)
+        press(dev, "write", wait=0.6)
+        rule.append((colour, dev.read(globals_at + BOOT_SLOT, 1)[0], want))
+    add("pins_follow_the_strongest", all(got == want for _, got, want in rule), f"colour, byte, wanted: {[(c, hex(g), hex(w)) for c, g, w in rule]}")
+    his = {**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3, look_word(0, (0, 0, 0), (14, 13, 2), invert=1))}
+    mine = boot(payload, kept, files=his)
+    kept_his = last_pattern_cases.switch_off(mine)
+    if kept_his is None:
+        add("his_colour_starts_yellow", False, "no switch-off")
+        return out
+    mine, changes, image_ms, image_pins = boot_light_run(payload, kept_his, his)
+    lit = [v for t, v in after_white(changes) if v]
+    first = image_pins if not synth else (lit[0] if lit else None)
+    add("his_colour_starts_yellow", kept_his[BOOT_FLASH] == 0x98 and first == 0x18,
+        f"flash byte {kept_his[BOOT_FLASH]:#x} after the settings 14, 13, 2 with INVERT on, start image pins {image_pins}, first lit pins {first}, changes {changes[:6]}")
+    # Device 30.10.: the flash still holds 0xB8 from the build before the pin rule. The first start is white (the card cannot be read
+    # before the start image), the menu then rewrites the byte, the next switch-off saves it and the start after that is yellow.
+    old = bytearray(kept_his)
+    old[BOOT_FLASH] = 0xB8
+    stale, changes, image_ms, first_pins = boot_light_run(payload, bytes(old), his)
+    stale_lit = [v for t, v in after_white(changes) if v]
+    stale_first = first_pins if not synth else (stale_lit[0] if stale_lit else None)
+    again = boot(payload, bytes(old), files=his)
+    healed = last_pattern_cases.switch_off(again)
+    byte_now = healed[BOOT_FLASH] if healed else None
+    # the blue reads its first lit pins only after the white phase (see first above), so only the Sampler builds show the stale white
+    add("old_byte_heals_after_one_switch_off", (synth or stale_first == 0x38) and byte_now == 0x98,
+        f"flash byte 0xb8 starts with pins {stale_first}, after one switch-off the flash holds {byte_now}")
     return out
 
 

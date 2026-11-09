@@ -2,8 +2,10 @@
 """The local emulator service, run against a stand-in machine (no firmware, no Unicorn)."""
 
 import base64
+import contextlib
 import hashlib
 import http.client
+import io
 import json
 import os
 import sys
@@ -12,6 +14,7 @@ import threading
 import time
 import types
 import unittest
+import unittest.mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -210,6 +213,36 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(len(base64.b64decode(seen["display"][-1])), 1024, "the 1-bit display stays as it was")
         self.assertNotEqual(seen["shade"][0], seen["shade"][-1], "and the levels move on")
 
+    def test_a_page_that_drops_the_event_stream_leaves_no_traceback(self):
+        """Windows reports a closed browser tab as ConnectionAbortedError, other systems as a broken pipe or a reset."""
+        for error in (ConnectionAbortedError, BrokenPipeError, ConnectionResetError):
+            class Dropped:
+                @staticmethod
+                def dumps(data):
+                    raise error()
+            failed, done = [], threading.Event()
+            finish = self.server.finish_request
+
+            def finish_request(request, address):
+                try:
+                    finish(request, address)
+                except BaseException as e:            # what socketserver would print as a traceback
+                    failed.append(e)
+                    raise
+                finally:
+                    done.set()
+
+            with unittest.mock.patch.object(server_module, "json", Dropped), \
+                    unittest.mock.patch.object(self.server, "finish_request", finish_request), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=3)
+                conn.request("GET", f"/events?token={TOKEN}", headers={"Host": f"127.0.0.1:{self.port}", "Origin": ORIGIN})
+                self.assertEqual(conn.getresponse().status, 200)
+                self.assertTrue(done.wait(3))
+                conn.close()
+            self.assertEqual(self.emu.clients, [], error.__name__)
+            self.assertEqual(failed, [], error.__name__)
+
     def test_never_runs_faster_than_the_device(self):
         self.request("POST", "/firmware", body=bytes(VSB_SIZE))
         start = time.monotonic()
@@ -221,12 +254,24 @@ class ServiceTest(unittest.TestCase):
 
     def test_a_missing_unicorn_is_named_instead_of_dropping_the_request(self):
         def missing(payload, flash):
-            raise ImportError("No module named 'unicorn'")
+            raise ModuleNotFoundError("No module named 'unicorn'", name="unicorn")
         self.emu.factory = missing
         self.request("POST", "/firmware", body=bytes(VSB_SIZE))
         r, body = self.request("POST", "/start", body=b"{}")
         self.assertEqual(r.status, 500)
         self.assertIn("npm run setup:emu", body["error"])
+
+    def test_another_missing_module_is_named_not_taken_for_unicorn(self):
+        def missing(payload, flash):
+            raise ModuleNotFoundError("No module named 'build_bootstrap'", name="build_bootstrap")
+        self.emu.factory = missing
+        self.request("POST", "/firmware", body=bytes(VSB_SIZE))
+        with contextlib.redirect_stderr(io.StringIO()) as log:
+            r, body = self.request("POST", "/start", body=b"{}")
+        self.assertEqual(r.status, 500)
+        self.assertIn("build_bootstrap", body["error"])
+        self.assertNotIn("npm run setup:emu", body["error"])
+        self.assertIn("ModuleNotFoundError", log.getvalue(), "the traceback goes to the log")
 
     def wait_for(self, check, timeout=3):
         deadline = time.monotonic() + timeout

@@ -46,6 +46,8 @@ export class ScriptRuntime {
     this.open = null;
     /** Called with the entry when it becomes the owner of the display: the host clears the picture for it. */
     this.onOwn = null;
+    /** Called when the open app closes, before it gets `close`. */
+    this.onClose = null;
     this.now = now;
     this.clock = clock ?? (() => Math.floor(this.api["korg.millis"]?.() ?? now()));
     this.frameMs = frameMs;
@@ -214,6 +216,7 @@ export class ScriptRuntime {
     if (!this.open) return false;
     const entry = this.open;
     this.open = null;
+    this.onClose?.(entry);
     this.#postTo(entry, "close");
     return true;
   }

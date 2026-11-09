@@ -23,7 +23,7 @@ from machine import FLASH_SIZE, STOCK_BOOT_LIMIT_S, Machine, blank_flash_like, l
 # The user-data check (a place of firmware.py) looks at the mark at flash 0x220000.
 SPLASH = 0xC00F9854         # start image, 1024 bytes (VSB 0xF9954)
 IMAGE, IMAGE_SIZE = 0xC0000000, 0x200000
-SLICE_S = 0.02
+SLICE_S = 0.002
 
 # Held-button masks with their own start mode (0xC002882C) and what the display shows.
 START_MODES = {
@@ -92,11 +92,8 @@ def run(payload, flash, held=0, panel_version=None, seconds=1.5):
     m.held = held
     if panel_version is not None:
         m.panel_version = panel_version
-    # Korg's build comes to the main screen at any moment of the screen tick, so its slices are short: the run must end
-    # before the first tick of the main screen, which is not part of the start (Hacktribe's 20 ms slices are measured).
-    slice_s = 0.002 if m.profile.build in ("stock", "synth") else SLICE_S
     while (m.time_ns < seconds * 1e9 or (m.loading() and m.time_ns < STOCK_BOOT_LIMIT_S * 1e9)) and not m.asserts and m.powered:
-        m.run_until(m.time_ns / 1e9 + slice_s)
+        m.run_until(m.time_ns / 1e9 + SLICE_S)
         if m.screen() == 1:
             m.note("screen_1")
             break

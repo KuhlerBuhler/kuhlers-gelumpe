@@ -21,6 +21,7 @@ RSP01, RSP67, DRSP = 0x38, 0x44, 0x48
 
 ST0_DATDNE, ST0_BSYDNE, ST0_RSPDNE, ST0_TOUTRS = 0x1, 0x2, 0x4, 0x10
 ST0_DXRDY, ST0_DRRDY = 0x200, 0x400
+CHUNK = 64                   # FIFO level the firmware sets (FIFOCTL 0x5): one interrupt per 64 bytes, read or written in one go
 
 STATES = {"idle": 0, "ready": 1, "ident": 2, "stby": 3, "tran": 4, "data": 5, "rcv": 6}
 
@@ -144,6 +145,7 @@ class MMCController:
         self.tx_lba = None
         self.cur_lba = 0
         self.blocks_left = 0
+        self.chunk = False              # a 64-byte chunk is ready (read) or has room (write) and has not raised the interrupt yet
         self.slow_card = None           # a CLKRT the card cannot keep up with: reads at it go unanswered (a card unfit for that clock)
 
     # ---- registers -------------------------------------------------------------
@@ -169,6 +171,8 @@ class MMCController:
         if off == DXR:
             n = 4 if size >= 4 else size
             self.tx += (v & ((1 << (8 * n)) - 1)).to_bytes(n, "little")
+            if len(self.tx) % CHUNK == 0:
+                self.chunk = True           # room for the next chunk
             self._flush()
             return
         self.regs[off] = v
@@ -176,15 +180,23 @@ class MMCController:
             self._command(v)
 
     def irq(self):
-        """The interrupt line: asserted while an unmasked status bit is pending."""
+        """The interrupt line: asserted while an unmasked status bit is pending. Data ready (read) and room (write)
+        count once per 64-byte chunk, as the FIFO raises them when it reaches its level: a chunk that has raised the
+        line (`raised`) does not raise it again while the firmware is still taking it. Raised twice, the second
+        interrupt can come after the firmware took the chunk and sent its next command, and the handler, which
+        reads MMCST0, takes that command's answer away (the assertion at AM180xMMSDCardController.cpp line 228)."""
         if self.card is None:
             return False
         pend = self.st0
-        if self.rx:
+        if self.chunk and self.rx:
             pend |= ST0_DRRDY
-        if self.tx_lba is not None:
+        if self.chunk and self.tx_lba is not None:
             pend |= ST0_DXRDY
         return bool(pend & self.regs.get(IM, 0))
+
+    def raised(self):
+        """The interrupt controller took the line: the pending chunk has had its interrupt."""
+        self.chunk = False
 
     # ---- data phase ------------------------------------------------------------
     def _block(self):
@@ -194,6 +206,7 @@ class MMCController:
         self.cur_lba = lba
         medium = self.card.medium
         self.rx = bytearray(medium.read(lba) if lba < medium.sectors else bytes(SECTOR))
+        self.chunk = True
         self.card.sectors_read += 1
 
     def _pop(self, size):
@@ -202,6 +215,8 @@ class MMCController:
         n = 4 if size >= 4 else size
         chunk = self.rx[:n]
         del self.rx[:n]
+        if len(self.rx) % CHUNK == 0:
+            self.chunk = True               # the next chunk is up (or, with none left, nothing is pending)
         if not self.rx:
             if self.blocks_left > 1:
                 self.blocks_left -= 1
@@ -249,7 +264,7 @@ class MMCController:
             self.st0 |= ST0_TOUTRS
             return
         if idx == 12:                      # stop: whatever is still moving is dropped
-            self.rx, self.tx, self.tx_lba, self.blocks_left = bytearray(), bytearray(), None, 0
+            self.rx, self.tx, self.tx_lba, self.blocks_left, self.chunk = bytearray(), bytearray(), None, 0, False
         if kind == "none":
             self._respond("none", 0)
             self.st0 |= ST0_RSPDNE
@@ -267,5 +282,5 @@ class MMCController:
                 self.card.state = "data"
                 self._load(lba)
             else:
-                self.tx, self.tx_lba = bytearray(), lba
+                self.tx, self.tx_lba, self.chunk = bytearray(), lba, True
             self.st0 |= ST0_RSPDNE

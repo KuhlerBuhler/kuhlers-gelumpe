@@ -131,6 +131,8 @@ export function devicePanel(root, { onSession, emulator = () => null, probe, vie
     } catch (e) {
       if (session !== s) return;
       s.rehearseOn(null);
+      // Korg's original firmware in the emulator is a normal state: nobody asked for a probe here, so no toast.
+      if (e.unsupported) { rehearseState.textContent = e.message; return; }
       rehearseState.textContent = t("device.rehearse.failed", { error: e.message });
       toast(rehearseState.textContent, "error");
     }

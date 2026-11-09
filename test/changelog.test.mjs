@@ -41,3 +41,9 @@ test("the app keeps what was new and what was fixed, not the downloads, install 
   const md = "BLECH 1.3.4.\n\n**Herunterladen**\n- [App](https://example.invalid/x.dmg)\n\nAuf dem Mac einmal xattr.\n\n**Neu**\n- eins\n\n**Behoben**\n- zwei\n\n**Ohne App patchen**\n- BLECH.patch\n\nSpenden: https://example.invalid";
   assert.equal(appNotes(md), "BLECH 1.3.4.\n\n**Neu**\n- eins\n\n**Behoben**\n- zwei");
 });
+
+test("the app keeps the developer sections too", async () => {
+  const { appNotes } = await import("../tools/release-lib.mjs");
+  const md = "BLECH 1.3.7.\n\n**Neu**\n- eins\n\n**Neu für Entwickler**\n- zwei\n\n**Fixed for developers**\n- drei";
+  assert.equal(appNotes(md), md);
+});

@@ -91,7 +91,7 @@ jobs:
         id: sidecar
         with:
           path: src-tauri/binaries
-          key: sidecar-${{ runner.os }}-${{ runner.arch }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('tools/emu/**', 'tools/patch/**', 'data/patches/**', 'data/synth-map/**', 'data/script/blechy-block.hex', 'assets/blechy/*.bin') }}
+          key: sidecar-${{ runner.os }}-${{ runner.arch }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('tools/emu/**', 'tools/patch/**', 'tools/doom/**', 'data/patches/**', 'data/synth-map/**', 'data/script/blechy-block.hex', 'assets/blechy/*.bin') }}
       - run: npm run setup:emu
         if: steps.sidecar.outputs.cache-hit != 'true'
       - name: Build the app
@@ -113,19 +113,9 @@ jobs:
           for package in src-tauri/target/release/bundle/deb/*.deb; do
             dpkg-deb --field "$package" Depends | grep -E 'libasound2(t64)?'
           done
-      - name: Start the frozen emulator service once, as the app does
-        run: |
-          for bin in "src-tauri/binaries/Gelumpe Emulator-"*; do :; done
-          "$bin" --port 8791 > sidecar.log 2>&1 &
-          # Any HTTP answer counts: without the token the service says 401. Only 000 means it does not listen yet.
-          code=000
-          for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8791/ || true)
-            if [ "$code" != 000 ]; then echo "answers after $i s with $code"; break; fi
-            sleep 1
-          done
-          cat sidecar.log
-          [ "$code" != 000 ] || (echo "the service does not answer"; exit 1)
+      # Answering on its port is not enough: the 1.3.8 sidecar did that and lacked a case module, so every export check failed.
+      - name: Start the frozen emulator service as the app does and run a quick check
+        run: node tools/emu/sidecar-smoke.mjs
       - name: Collect the files
         run: |
           mkdir -p out

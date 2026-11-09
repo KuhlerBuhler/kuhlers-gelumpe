@@ -23,6 +23,17 @@ const shown = preset => {
   return r.name;
 };
 
+/** The records the menu holds for the presets of the patch, by name: [{kind, name, record}]. */
+export function appendedRecords(bytes, patch) {
+  if (!locatePresets(bytes)) return [];
+  return patch.presets.flatMap(p => {
+    const i = names(bytes, p.kind).indexOf(shown(p));
+    if (i < 0) return [];
+    const r = recordOf(bytes, p.kind, i + 1);
+    return [{ kind: p.kind, name: shown(p), record: bytes.subarray(r.file, r.file + RECORD) }];
+  });
+}
+
 /** Whether every preset of the patch is in the menu already, by name. */
 export function appendPresent(bytes, patch) {
   return Boolean(locatePresets(bytes)) && patch.presets.every(p => names(bytes, p.kind).includes(shown(p)));
@@ -33,7 +44,7 @@ export function appendPresent(bytes, patch) {
  * menu has already is left out, so applying twice adds nothing.
  * @returns {{ok: boolean, bytes?: Uint8Array, added: {kind: string, slot: number, name: string}[], allow: number[][], allowCode: number[][], reasons: string[]}}
  */
-export function appendPresets(bytes, patch) {
+export function appendPresets(bytes, patch, { refresh = null } = {}) {
   const none = reasons => ({ ok: false, added: [], allow: [], allowCode: [], reasons });
   if (patch?.format !== APPEND_FORMAT || patch.version !== 1 || !Array.isArray(patch.presets)) return none([`${patch?.id ?? "?"}: kein Patch im Format ${APPEND_FORMAT} 1`]);
   if (!locatePresets(bytes)) return none([`${patch.id}: Die Preset-Tabellen dieser Datei sind nicht erkannt.`]);
@@ -42,7 +53,19 @@ export function appendPresets(bytes, patch) {
   const added = [];
   for (const preset of patch.presets) {
     if (preset.kind !== "ifx" && preset.kind !== "mfx") return none([`${patch.id}: ${preset.name} ist kein Insert- oder Master-Preset`]);
-    if (names(out, preset.kind).includes(shown(preset))) continue;
+    const has = names(out, preset.kind).indexOf(shown(preset));
+    const at = has >= 0 ? recordOf(out, preset.kind, has + 1) : null;
+    if (at && refresh?.(preset.kind, shown(preset), out.subarray(at.file, at.file + RECORD))) {
+      const capacity = locatePresets(out)[preset.kind].capacity;
+      const records = Array.from({ length: capacity }, (_, i) => recordOf(out, preset.kind, i + 1)).map(r => out.slice(r.file, r.file + RECORD));
+      const made = fxToRecord(preset, records[0], records.slice(0, has + 1), units);
+      if (!made.ok) return none([`${patch.id}, ${preset.name}: ${made.reason}`]);
+      out = Uint8Array.from(out);
+      out.set(made.record, at.file);
+      added.push({ kind: preset.kind, slot: has + 1, name: shown(preset) });
+      continue;
+    }
+    if (has >= 0) continue;
     const slot = addPreset(out, preset.kind, 1);
     if (!slot.ok) return none(slot.reasons.map(r => `${patch.id}, ${preset.name}: ${r}`));
     const capacity = locatePresets(slot.bytes)[preset.kind].capacity;

@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { setUp, go } from "./harness.mjs";
-import { makeFirmware } from "../helpers.mjs";
+import { makeFirmware, asStock } from "../helpers.mjs";
 import { fakeService, TOKEN } from "./support/fake-emu.mjs";
 
 let h;
@@ -103,6 +103,18 @@ test("firmware chosen after connecting: the emulator starts then and the rehears
   await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ state: "attached", timeout: 15_000 });
   assert.equal(await connected(page).count(), 1);
   assert.deepEqual(page.errors, []);
+});
+
+test("Korg's original firmware in the emulator: connecting gives no error toast, the line says it plainly", async () => {
+  const page = await open({ emulator: true });
+  await page.setInputFiles("#cee-emu-vsb", h.file("stock.vsb", asStock(await makeFirmware([]))));
+  await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
+  await connect(page);
+  await page.locator("#cee-rehearse-state", { hasText: "Original-Firmware" }).waitFor({ state: "attached", timeout: 15_000 });
+  const line = await page.locator("#cee-rehearse-state").textContent();
+  assert.ok(!line.includes("Es fehlt") && !line.includes("0x52"), "no long feature list");
+  assert.equal(await page.locator("#app-toasts .cee-toast[data-kind=error]").count(), 0, "no error toast");
+  assert.equal(await connected(page).count(), 1, "the Electribe stays connected");
 });
 
 test("the power key while connected asks first; Abbrechen keeps the connection", async () => {
