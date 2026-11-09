@@ -660,8 +660,9 @@ export function rescueSuite(index, parts) {
     await answer(page, DEVICES.red.title);
     assert.match(await chatText(page), /Hacktribe bringt eigene Klänge mit/);
     await answer(page, "Ja, Hacktribe ist oder war drauf");
-    assert.match(await chatText(page), /Weg ist dabei nichts/);
     await settle(page);
+    assert.match(await chatText(page), /Weg ist dabei nichts/, "the sounds are not lost");
+    assert.doesNotMatch(await chatText(page), /Ohne Kopie|nichts gesichert/);
     assert.match(await said(page), /Was läuft gerade/, "what runs, asked once");
     await answer(page, "Hacktribe");
     assert.match(await said(page), /Original.*BLECH/s, "the way back goes through Korg's original");
@@ -692,9 +693,21 @@ export function rescueSuite(index, parts) {
     await answer(page, DEVICES.blue.title);
     await answer(page, "Ja, Hacktribe ist oder war drauf");
     await settle(page);
+    assert.match(await page.locator("#cee-rescue-chat").textContent(), /Weg ist dabei nichts/);
     await answer(page, "BLECHTRIBE");
     assert.match(await said(page), /Steckt in deinem BLECHTRIBE auch Hacktribe/);
     await answer(page, "Ja, mit Hacktribe");
+    assert.match(await chatText(page), /Läuft Hacktribe auf deiner blauen, allein oder in BLECHTRIBE, geht es in zwei Schritten/);
+    await settle(page);
+    assert.equal(await page.locator("#cee-rescue-input").count(), 1, "then Korg's file is made for the blue with BLECHTRIBE and Hacktribe");
+
+    // only Hacktribe on the blue: the same way over Korg's file, without the question
+    await page.click("#cee-rescue-again");
+    await answer(page, label("samples"));
+    await answer(page, DEVICES.blue.title);
+    await answer(page, "Ja, Hacktribe ist oder war drauf");
+    await settle(page);
+    await answer(page, "Hacktribe");
     assert.match(await chatText(page), /Läuft Hacktribe auf deiner blauen, allein oder in BLECHTRIBE, geht es in zwei Schritten/);
     await settle(page);
     assert.equal(await page.locator("#cee-rescue-input").count(), 1, "then Korg's file is made for the blue with Hacktribe");

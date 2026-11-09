@@ -2568,7 +2568,7 @@ export default {
   "rescue.area.plugin": "Плагины",
   "rescue.area.doom": "Doom",
   "rescue.say.start.3": "Для большинства способов нужен компьютер с кардридером для SD-карт. На телефоне здесь можно только читать.",
-  "rescue.say.color.1": "Какого цвета твоя Electribe? Спрашиваю только один раз.",
+  "rescue.say.color.1": "Какого цвета твоя Electribe?",
   "rescue.say.colorHelp.1": "Посмотри на устройство: красная это Sampler, на ней написано «electribe sampler». Синяя это Synth, на ней написано просто «electribe».",
   "rescue.device.red.hint": "Electribe 2 Sampler, на устройстве написано «electribe sampler».",
   "rescue.device.blue.hint": "Electribe 2 (Synth), на устройстве написано «electribe».",
