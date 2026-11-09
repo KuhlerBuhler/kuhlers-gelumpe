@@ -98,39 +98,29 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     fileInfo,
   ]);
 
-  // Korg's System Updater holds the SYSTEM.VSB. Without the licence accepted a card opens Korg's page (in the app in the
-  // browser, src-tauri/src/main.rs); with it the app loads the zip itself (korg_firmware), the browser links the zip.
+  // Korg's System Updater holds the SYSTEM.VSB. The card only shows which file comes, it is no control: the licence box
+  // below and Weiter load it. The app loads the zip itself (korg_firmware); the browser has Korg's zip downloaded and
+  // the user drops it into the field. Korg's page with its agreement is the link in the licence box.
   const native = () => globalThis.__TAURI__?.core?.invoke;
   const licence = el("input", { type: "checkbox", id: "cee-patch-korg-licence" });
   const korgCards = [["red", t("patcher.device.red")], ["blue", t("patcher.device.blue")]].map(([device, name]) => {
     const out = el("span", { className: "cee-device-card-out" });
     const say = el("span");
-    const a = el("a", { className: "cee-entry-step cee-device-card", id: `cee-patch-korg-${device}`, rel: "noopener noreferrer" }, [
+    const card = el("div", { className: "cee-entry-step cee-device-card cee-patch-korg-card", id: `cee-patch-korg-${device}` }, [
       e2Outline(name), el("span", { className: "cee-device-card-text" }, [el("strong", { textContent: name }), say]), out,
     ]);
-    a.dataset.device = device;
-    a.addEventListener("click", event => {
-      if (!licence.checked || !native()) return;
-      event.preventDefault();
-      fromKorg(device);
-    });
-    return { device, a, say, out, li: el("li", {}, [a]) };
+    card.dataset.device = device;
+    return { device, card, say, out, li: el("li", {}, [card]) };
   });
   function renderKorg() {
     for (const c of korgCards) {
-      const accepted = licence.checked;
-      // in the app Korg's file comes only through the app's own download, so without the licence the card has no link at all
-      if (native() && !accepted) c.a.removeAttribute("href");
-      else c.a.href = accepted ? KORG_DOWNLOADS[c.device].file : KORG_DOWNLOADS[c.device].page;
-      c.a.target = window.__GELUMPE_APP ? "_self" : "_blank";
-      c.a.toggleAttribute("aria-disabled", !!native() && !accepted);
-      c.say.textContent = native() && !accepted ? t("patcher.korg.needLicence") : !accepted ? t("patcher.korg.page") : native() ? t("patcher.korg.native") : t("patcher.korg.zip");
-      // the app loads the zip itself once the licence is accepted: a download, no longer a page outside
-      c.out.replaceChildren(icon(native() ? "download" : "popout"));
-      c.out.dataset.icon = native() ? "download" : "popout";
+      c.say.textContent = t(!licence.checked ? "patcher.korg.needLicence" : native() ? "patcher.korg.native" : "patcher.korg.zip");
+      c.out.replaceChildren(icon("download"));
+      c.out.dataset.icon = "download";
     }
   }
   licence.addEventListener("change", renderKorg);
+  licence.addEventListener("change", () => render());
   licence.addEventListener("change", () => {
     if (!licence.checked || !pending || !native()) return;
     const waiting = pending;
@@ -142,6 +132,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const fetchHt = el("input", { type: "checkbox", id: "cee-patch-hacktribe-fetch" });
   const fetchHtBox = el("label", { className: "cee-check", id: "cee-patch-hacktribe-fetch-box", hidden: true }, [fetchHt, el("span", {}, tNodes("patcher.korg.hacktribe", { file: el("code", { textContent: "hacktribe-2.patch" }) }))]);
   const korgLead = el("p", { className: "cee-patch-lead", id: "cee-patch-korg-lead" });
+  // Why Weiter waits on the first step: neither the licence for Korg's file nor a file of the user's own.
+  const korgHint = el("p", { className: "muted", id: "cee-patch-korg-hint", textContent: t("patcher.korg.nextHint"), hidden: true });
   const korg = el("div", { className: "cee-patch-korg", id: "cee-patch-korg" }, [
     korgLead,
     el("ul", { className: "cee-entry-steps", id: "cee-patch-firmware" }, korgCards.map(c => c.li)),
@@ -149,6 +141,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       link: el("a", { className: "cee-text-link", id: "cee-patch-korg-licence-link", href: KORG_DOWNLOADS.red.page, target: window.__GELUMPE_APP ? "_self" : "_blank", rel: "noopener noreferrer", textContent: t("patcher.korg.licence.link") }),
     }))]),
     fetchHtBox,
+    korgHint,
   ]);
   renderKorg();
   const usbGet = el("button", { type: "button", className: "btn", id: "cee-patch-usb-get", textContent: t("patcher.usb.get") });
@@ -439,7 +432,30 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     if (view > 0) go(view - 1);
     else wizGo(wiz.goal ? 2 : 0);
   });
-  next.addEventListener("click", () => { if (wiz.step === WAY && view < reach() && !allowed(flow).busy) go(view + 1); });
+  /** The Electribe whose Korg file step 1 loads: the red one for any Hacktribe, else the one the wizard named. */
+  const korgDevice = () => (patching() && needsHt() ? "red" : hwOf());
+  /** Weiter on step 1 loads Korg's file: only with the licence, and never over a file the user gave (or one waiting). */
+  const loadsKorg = () => wiz.step === WAY && view === 0 && reach() === 0 && !flow.input && !pending && !korg.hidden && licence.checked;
+
+  /** In the browser Korg's zip is downloaded as a file: Korg's server does not hand it to the page, the user drops it in. */
+  function downloadKorg(device) {
+    const a = el("a", { href: KORG_DOWNLOADS[device].file, target: window.__GELUMPE_APP ? "_self" : "_blank", rel: "noopener noreferrer" });
+    a.click();
+    toast(t("patcher.korg.started"), "info");
+  }
+
+  next.addEventListener("click", async () => {
+    if (wiz.step !== WAY || allowed(flow).busy) return;
+    if (loadsKorg()) {
+      if (!native()) { downloadKorg(korgDevice()); return; }
+      next.disabled = true;
+      await fromKorg(korgDevice());
+      render();
+      if (view < reach()) go(view + 1);
+      return;
+    }
+    if (view < reach()) go(view + 1);
+  });
 
   async function loadPatches(build = input ? buildOf(input) : "hacktribe") {
     const setUrl = build === "synth" ? BLECH_SYNTH_SET_URL : BLECH_SET_URL;
@@ -571,7 +587,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     back.hidden = wiz.step === 0;
     back.disabled = can.busy;
     next.hidden = inWiz || view === 3 || (view === 2 && reach() < 3);
-    next.disabled = can.busy || view >= reach() || (view === 1 && !htReady());
+    next.disabled = can.busy || (view >= reach() && !loadsKorg()) || (view === 1 && !htReady());
+    korgHint.hidden = inWiz || view !== 0 || reach() > 0 || !!flow.input || !!pending || korg.hidden || licence.checked;
     planList.replaceChildren(...planItems().map(p => el("li", { textContent: t(p.label) })));
     blechInput.disabled = useLatest.checked || can.busy;
     blechDrop.toggleAttribute("data-disabled", useLatest.checked);

@@ -401,3 +401,14 @@
   color: var(--color-text-danger);
   line-height: 1.6;
 }
+
+/* Step 1: Korg's file shown as a card that is no control. The licence box and Weiter load it, so the card keeps its
+   look but does not react to the pointer. */
+.cee-patch-korg-card:hover {
+  border-color: var(--color-border-muted);
+  background: var(--color-surface-panel-alt);
+}
+
+.cee-patch-korg-card:hover .cee-device-card-out {
+  color: var(--color-text-secondary);
+}
