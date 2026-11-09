@@ -202,7 +202,7 @@ test("the start page has its sections in heading order and the donate link opens
   await app.addInitScript(() => { window.__GELUMPE_APP = { version: "0.0.0" }; });
   await app.goto(h.url);
   for (const id of ["#cee-support-paypal", "#cee-support-issues", "#cee-support-instagram"]) assert.equal(await app.getAttribute(id, "target"), "_self", "in the app the navigation is caught and opened in the browser");
-  assert.equal(await app.getAttribute("#cee-patch-korg-red", "target"), "_self");
+  assert.equal(await app.getAttribute("#cee-patch-korg-licence-link", "target"), "_self", "Korg's page with its licence, the one link outside on the patcher's first step");
 });
 
 test("the app opens on the start page although its address carries the emulator link; the browser goes to the emulator", async () => {
