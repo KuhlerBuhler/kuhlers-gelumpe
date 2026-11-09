@@ -6,6 +6,9 @@ Stand 2026-11-09. Alles im Emulator mit Korgs blauer 2.02 (`41fc5f1c`), Korgs ro
 
 Marker: **gemessen** (ausgeführt), **hergeleitet** (aus Code geschlossen).
 
+Nachtrag: ein vorhandenes `KORG/blechtribe` bekommt inzwischen fehlende Unterordner, und rot und Hacktribe fragen auch nach der
+Pattern-Sicherung, siehe [fehlende Unterordner, Sicherung der roten](2026-11-09-unterordner-rote-sicherung.md).
+
 ## Belegtabelle
 
 | Behauptung | Marker | Beleg |
