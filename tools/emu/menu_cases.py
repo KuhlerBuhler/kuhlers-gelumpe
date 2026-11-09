@@ -197,7 +197,10 @@ SET_TITLE, SET_VALUE, SET_LINE3, SET_COUNTER = 0xC00857E4, 0xC0085828, 0xC008588
 
 
 def _enter(dev, level, group=0, page=0):
+    auto_save = dev.u32(STATE + 0x1FC)          # S_AS: the jump is no leaving by the player, AUTO SAVE stays out of it
+    dev.m.uc.mem_write(STATE + 0x1FC, struct.pack("<I", 0))
     go(dev, 8)
+    dev.m.uc.mem_write(STATE + 0x1FC, struct.pack("<I", auto_save))
     dev.m.uc.mem_write(STATE + S_LEVEL, struct.pack("<II", level, group))
     dev.m.uc.mem_write(STATE + S_ENTER, struct.pack("<I", page))
     go(dev, MENU)
