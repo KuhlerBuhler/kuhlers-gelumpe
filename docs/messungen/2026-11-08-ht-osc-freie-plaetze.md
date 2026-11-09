@@ -21,7 +21,7 @@ geschlossen), **offen**.
 | Die Einträge kommen aus einer Feldtabelle (Name, Kategorie, Welle, Parameter, Stufe), nicht als Block aus Hacktribe kopiert | hergeleitet | `ENTRIES` in `tools/patch/ht_osc.py` |
 | Stufen-Bytes X: -24 `c1`, -12 `d4`, -7 `e4`, 0 `00`, +7 `1c`, +12 `30`, +24 `3f`; VPM: 0.5 ergibt 0, 1, 2, 3, 4, 8, 16, 32 sich selbst | gemessen | Hacktribes Tabelle `0xC00D9AB0`, Vergleich mit `--hacktribe` |
 | Anzeige 498 bis 500 (Platz 497 bis 499) bleiben leere Sample-Plätze | Urteil | 79 Plätze, 76 Einträge; drei Stufen mehr hätten eine Familie ungleich gemacht |
-| Platz im Code: 2788 Byte (356 Byte Code, 2432 Byte Tabelle) bei `0xC014F000`, Einstellungswort `0xC014FBFC`; `0xC014F000` bis `0xC014FC00` ist `FF` in Korg rot, Korg blau und Hacktribe 2.02 | gemessen | `ht_osc.py` prüft das Gebiet vor dem Bauen; Bytevergleich der drei VSB |
+| Platz im Code: 2708 Byte (276 Byte Code, 2432 Byte Tabelle) bei `0xC014F000`; `0xC014F000` bis `0xC014FC00` ist `FF` in Korg rot, Korg blau und Hacktribe 2.02 | gemessen | `ht_osc.py` prüft das Gebiet vor dem Bauen; Bytevergleich der drei VSB |
 | Fünf Stellen rufen den Code: `0xC004F5A8` und `0xC004E354` (`ldr r4, =0x1A5`, Werksstart und Start aus `e2sSample.all`), `0xC0040D64` (`cmp r4, #0x1A4` im OSC-Auswähler `0xC0040D50`), `0xC00997A4` (`cmp r0, #0x1A4` in der Platzsuche der Stimme `0xC0099788`), `0xC00362A4` (`moveq r3, #0x24` im Import eines Samples) | gemessen (Wörter in der VSB), hergeleitet (Rolle aus dem Code) | `ht_osc.py` prüft jedes Wort vor dem Bauen |
 | Ohne Patch überspringt der Auswähler einen DSP-Eintrag über Platz 420, und die Stimme bekommt für Platz 421 bis 499 keinen Eintrag | gemessen | Probe mit DUAL-SAW auf 421 ohne die zwei Stellen: Auswähler überspringt, `0xC0099788(421)` gibt 0 |
 | OSC-Rad über den Panel-Weg: von 420 aufwärts 421, 422, ... 496, dann 500, 501; von 501 abwärts 500, 496, 495 | gemessen | Fälle `regler-hoch`, `regler-runter` |
@@ -34,18 +34,17 @@ geschlossen), **offen**.
 | EXPORT ALL SAMPLE (DATA UTILITY) schreibt keinen Eintrag für 421 bis 499, die eigenen Samples schon | gemessen | Fall `export-ohne-421-bis-499` |
 | Ein Part auf Platz 430 bleibt nach WRITE und Neustart auf 430, mit CHIP-TRI 2 dort | gemessen | Fälle `pattern-430-geschrieben`, `pattern-430-nach-neustart` |
 | Werks-Plätze 18 bis 420 und eigene Plätze 500 bis 998 bleiben unberührt | gemessen | Fälle `ohne-karte-rest-wie-firmware`, `datei-eintrag-450-abgelehnt-rest-geladen` |
-| Schalter HT OSC unter BLECH > FEATURES, Voreinstellung an; WRITE behält AUS als Bit 6 von Byte 5 der Einstellungsdatei | gemessen | Fälle `menu-seite-an`, `menu-rad-aus`, `write-bit-6-byte-5` |
-| Der Start füllt die Plätze, bevor das BLECH-Menü die Einstellungen liest; deshalb ruft das Menü nach dem Lesen `ho_apply`, das bei AUS die 76 Plätze wieder leert, bevor die Samples der Datei laden. Ein Wechsel wirkt beim nächsten Start | gemessen | Fälle `aus-start-wie-firmware` (AUS: 421 `Sample422`, 449 aus der Datei geladen), `an-start-fuellt` |
+| Kein Schalter: wo der Satz den Patch hat, sind die Oszillatoren immer da; FEATURES hat keine Seite HT OSC | gemessen | Fall `alte-einstellung-datei-gelesen` (Seitenliste ohne HT OSC) |
+| Eine Einstellungsdatei mit Bit 6 von Byte 5 (ein Zwischenstand schrieb dort HT OSC AUS) lädt weiter, das Bit wird übergangen: die Oszillatoren sind da, die übrigen Einstellungen gelten (KEY PADS OFF aus Bit 4) | gemessen | Fälle `alte-einstellung-bit-6-oszillatoren`, `alte-einstellung-datei-gelesen` |
 | EXIT beim Einschalten: alle fünf Stellen tun, was die Firmware tut | gemessen | Fall `exit-wie-firmware` |
-| Ein älteres BLECH (bis 1.4) liest eine Einstellungsdatei mit Bit 6 nicht und nimmt dann alle Voreinstellungen | hergeleitet | `menu_file_read`: dort war die Maske `0x3F` |
+| Ein älteres BLECH (bis 1.4) liest eine Einstellungsdatei mit Bit 6 nicht und nimmt dann alle Voreinstellungen; das jetzige BLECH schreibt Bit 6 nie | hergeleitet | `menu_file_read`: dort war die Maske `0x3F`; `menu_settings_save` setzt Bit 6 nicht |
 | Der Hacktribe-Satz und der blaue Satz sind mit und ohne ht-osc Byte für Byte gleich | gemessen | Satz aus `blech.json` mit und ohne den Patch gebaut, `cmp` |
 | Auf dem Hacktribe- und dem blauen Satz ruft keine der fünf Stellen in den Code, das Gebiet bleibt `FF`, der Start läuft ohne Assertion | gemessen | `ht_osc_cases.py --vsb` auf beiden Sätzen (Fall `ohne-patch-unberuehrt`) |
 | Der Sample-Editor der App schreibt nur Plätze ab 500, und die App hat keine Namensliste der Oszillatoren; dort war nichts zu ändern | hergeleitet | `src/sample-file.mjs` (`FIRST_USER`) |
 
 ## Der Patch
 
-Der Code liegt bei `0xC014F000`, vor dem Code von beat-eighth (`0xC014FC00`). Erstes Wort ist `ho_apply`, das BLECH-Menü
-ruft es nach dem Lesen der Einstellungen, wenn dort nicht `FF` steht.
+Der Code liegt bei `0xC014F000`, vor dem Code von beat-eighth (`0xC014FC00`). Das BLECH-Menü ruft ihn nicht.
 
 | Stelle | Vorher | Mit dem Patch |
 |---|---|---|
@@ -55,7 +54,7 @@ ruft es nach dem Lesen der Einstellungen, wenn dort nicht `FF` steht.
 | `0xC00997A4` Platzsuche der Stimme | `cmp r0, #0x1A4` | `ho_voice`: Einträge bis 496 |
 | `0xC00362A4` Import eines Samples | `moveq r3, #0x24`, Abbruch der Datei | `bleq ho_skip`: 421 bis 496 übersprungen, sonst wie vorher |
 
-Ist der Schalter aus oder war EXIT beim Einschalten gehalten, tut jede Stelle, was die Firmware tut. Nur für Korgs Build
+War EXIT beim Einschalten gehalten, tut jede Stelle, was die Firmware tut. Nur für Korgs Build
 (rot); Hacktribe hat die Oszillatoren schon (`notNeededOn`), die blaue Firmware ist ein anderer Build.
 
 ## Fälle (`tools/emu/ht_osc_cases.py`)
@@ -72,7 +71,14 @@ Ist der Schalter aus oder war EXIT beim Einschalten gehalten, tut jede Stelle, w
 | `case_pattern` | Part auf 430, WRITE, Neustart |
 | `case_export` | EXPORT ALL SAMPLE ohne 421 bis 499 |
 | `case_exit` | EXIT beim Einschalten wie Firmware |
-| `case_page` | Seite HT OSC, WRITE, Neustart mit AUS und wieder AN |
+| `case_old_setting` | Einstellungsdatei mit Bit 6 von Byte 5: Oszillatoren da, Datei gelesen |
+
+## Nachtrag 09.11.: kein Schalter mehr
+
+Die Seite HT OSC unter BLECH > FEATURES, das Einstellungswort `0xC014FBFC` und `ho_apply` sind entfernt. Die Plätze
+waren immer leer, die Oszillatoren stören nichts, ein Schalter ist nicht nötig. Bit 6 von Byte 5 der Einstellungsdatei
+ist frei: eine Datei, in der es gesetzt ist, lädt wie jede andere, das Bit wirkt nicht. Notschalter bleibt EXIT beim
+Einschalten.
 
 ## Offen am Gerät
 
