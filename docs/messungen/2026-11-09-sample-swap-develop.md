@@ -103,6 +103,14 @@ Fristen und Laufzeiten laufen dabei auseinander. Ein auf die Dauer des letzten
 Prüfprozesses begrenzter Leerlaufschutz hält den Rechner für die Prüfung wach.
 Der Nachweis einer einzelnen alleinigen Ursache des Zeitfehlers bleibt offen.
 
+**Gemessen nach der zweiten Zusammenführung:** Die neue Teststeuerung von
+`develop` beendet den Unit-Lauf mit 1.529 erfolgreichen und 168 übersprungenen
+Tests sowie den Browserlauf mit 324 erfolgreichen Tests ohne Auslassung. Die
+gezielte Prüfung der drei aufgelösten Konflikte besteht mit 28 Fällen. Die
+je 64 Swap-Fälle auf beiden roten Builds und die je 21 Startprüfungen auf
+allen drei Builds bestehen erneut. Die drei neu assemblierten Plugin-Laufzeiten
+sind bytegleich zu den erzeugten Dateien aus `develop`.
+
 ## Grenzen und kürzester Weg zum Gerätetest
 
 Die Seite `BLECHTRIBE -> Samples` kann vorhandene `.all`-Dateien am Rechner

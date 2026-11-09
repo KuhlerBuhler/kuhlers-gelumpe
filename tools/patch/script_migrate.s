@@ -1,25 +1,30 @@
-; First start of BLECH on a card whose KORG/blechtribe has no Sample/e2sSample.all (or is not there at all) while an old hacktribe
-; or electribe sampler folder has one (device wish 19.10.; the folder alone is no sign of samples, plugins, Doom and the settings
-; land there too): before the samples load, the display asks whether the old folder is to be copied to KORG/blechtribe. The
-; wheel, EDIT or PART < > choose between the two folders when both are there, MENU copies, EXIT starts as before (nothing is
-; written). The copy takes every file and folder (up to MG_DEPTH levels; names that start with a dot are left out) and leaves
-; every file that is already in KORG/blechtribe as it is, then the firmware loads the samples from the new folder.
+; First start of BLECH on a card whose KORG/blechtribe lacks Sample/e2sSample.all or the pattern backup
+; (electribe_sampler_allpattern.e2sallpat, what EXPORT ALL PATTERN writes directly into the folder) while an old hacktribe or
+; electribe sampler folder has what it lacks (device wish 19.10.; the folder alone is no sign of samples, plugins, Doom and the
+; settings land there too): the display asks whether the old folder is to be copied to KORG/blechtribe, for the samples before
+; they load, for the backup alone right after. The wheel, EDIT or PART < > choose between the two folders when both are there,
+; MENU copies, EXIT starts as before (nothing is written). The copy takes every file and folder (up to MG_DEPTH levels; names that
+; start with a dot are left out), so the samples and the pattern backup both, and leaves every file that is already in
+; KORG/blechtribe as it is, then the firmware loads the samples from the new folder.
 ;
-; migrate_start runs in the early hook in front of the sample loader and waits there: the input hook gives it the keys
-; (migrate_input), the frame hook draws the question and the progress (migrate_frame). Not with EXIT held at power-on. Firmware
-; addresses that come with the build (script_hooks.py): MG_WORK (the work area, RAM only), MG_MKDIR (f_mkdir), MG_GETFREE
-; (f_getfree), MG_ALLOC and MG_FREE (the firmware's operator new and delete).
+; migrate_start runs in the early hook in front of the sample loader (migrate_folders in the card hook after it) and waits there:
+; the input hook gives it the keys (migrate_input), the frame hook draws the question and the progress (migrate_frame). Not with
+; EXIT held at power-on. Firmware addresses that come with the build (script_hooks.py): MG_WORK (the work area, RAM only),
+; MG_MKDIR (f_mkdir), MG_GETFREE (f_getfree), MG_ALLOC and MG_FREE (the firmware's operator new and delete).
 ;
 ; The blue Electribe (MG_BLUE 1) has no samples and Korg's synth keeps its files in KORG/electribe: there the card hook calls
 ; migrate_start, and the question comes when KORG/electribe holds a pattern backup (a file ending in .e2allpat, what EXPORT ALL
 ; PATTERN writes) while KORG/blechtribe holds none (choice 2, one folder). The blue never looks for a sample file; Hacktribe on a
 ; blue unit is the sampler build and keeps the sample rule.
 ;
-; Before the question, a start that finds no KORG/blechtribe makes it with the folders BLECH reads and writes in it (mg_folders).
-; A card that has the folder costs one f_opendir: each f_mkdir of a folder that is there costs about 4 ms in the emulator, which
-; the start before the sample loader does not get to spend.
-; That hook runs in the start before the scheduler, where the OS sleep never returns: it only sets the question up and goes on.
-; The frame hook (UI task) then draws it and takes EXIT or MENU (mg_blue_key); the copy runs there.
+; Every start reads KORG/blechtribe once (mg_folders): a card without it gets it with the folders BLECH reads and writes in it, a
+; card with it gets the folders of that list it lacks (a folder that is there is never made again), and the same pass notes the
+; blue's pattern backup in it. On the blue mg_folders runs in migrate_start, before the question. On the red it runs in the first
+; frame hook on the main screen (mg_frame_later): the start has no time for a f_readdir of every entry, nor for the f_mkdir
+; (about 16 ms each in the emulator, once). The red's pattern backup is looked for by the name the firmware gives it, in the card
+; hook after the sample loader (migrate_folders): in front of the loader each f_open costs 3 to 5 ms the start does not have.
+; The blue's card hook runs in the start before the scheduler, where the OS sleep never returns: it only sets the question up and
+; goes on. The frame hook (UI task) then draws it and takes EXIT or MENU (mg_blue_key); the copy runs there.
 .equ MG_ACTIVE, 0               ; 1 while the question or the copy is up (the input and frame hooks act only then)
 .equ MG_CHOICE, 4               ; 0 hacktribe, 1 electribe sampler, 2 electribe (blue)
 .equ MG_HAVE, 8                 ; bit 0: KORG/hacktribe is there, bit 1: KORG/electribe sampler, bit 2: KORG/electribe (blue)
@@ -47,6 +52,10 @@
 .equ MG_SHIFT, 0xC0C            ; log2 of the card's cluster size in bytes
 .equ MG_FREE_CL, 0xC10          ; free clusters on the card (f_getfree)
 .equ MG_FS, 0xC20               ; the volume f_getfree names
+.equ MG_NEWPAT, 0xC24           ; 1: a pattern backup of the build lies directly in KORG/blechtribe (mg_folders)
+.equ MG_LATER, 0xC28            ; the red: MG_LATER_WAIT, then MG_LATER_ON (card hook, or a question), 0 once the frame hook looked
+.equ MG_LATER_WAIT, 0x574C4F46  ; "FOLW" and "FOLD", so that RAM after power-on is not taken for either
+.equ MG_LATER_ON, 0x444C4F46
 .equ MG_FR_EXIST, 8            ; FatFs: the name is taken (f_mkdir, f_open with create new)
 
 ; Called from the early hook. Keeps r4 to r11.
@@ -55,6 +64,8 @@ migrate_start:
     ldr r4, =MG_WORK
     cmp r4, #0
     beq mg_out
+    mov r0, #0
+    str r0, [r4, #MG_LATER]
     ldr r0, =PANEL
     ldr r0, [r0]
     cmp r0, #0
@@ -65,10 +76,14 @@ migrate_start:
     bne mg_out
     mov r0, #0
     str r0, [r4, #MG_ACTIVE]
-    bl mg_folders
+    mov r0, #MG_BLUE
+    cmp r0, #0
+    blne mg_folders             ; the blue: here, in the card hook after the start's own card work
     mov r0, #MG_BLUE
     cmp r0, #0
     bne mg_blue
+    ldr r0, =MG_LATER_WAIT      ; the red: the pattern backup and the folders come later (migrate_folders, mg_frame_later)
+    str r0, [r4, #MG_LATER]
     ldr r1, =mg_new_samples
     bl mg_exists
     cmp r0, #0
@@ -84,6 +99,9 @@ migrate_start:
     orrne r5, r5, #2
     cmp r5, #0
     beq mg_out
+    ldr r0, =MG_LATER_ON        ; one question a start: the card hook does not ask again for the backup
+    str r0, [r4, #MG_LATER]
+mg_red_choice:
     tst r5, #1
     moveq r0, #1
     movne r0, #0
@@ -127,8 +145,7 @@ mg_done:
 mg_out:
     pop {r4-r11, pc}
 mg_blue:
-    ldr r1, =mg_new_folder
-    bl mg_allpat
+    ldr r0, [r4, #MG_NEWPAT]    ; mg_folders looked
     cmp r0, #0
     bne mg_out
     ldr r1, =mg_blue_folder
@@ -138,6 +155,42 @@ mg_blue:
     mov r5, #4
     mov r0, #2
     b mg_have
+
+; The red: from the card hook, after the sample loader and before the plugins. When migrate_start ran this start (not with EXIT
+; held at power-on) and asked nothing: KORG/blechtribe without the pattern backup while an old folder has it asks here, as in
+; front of the loader (the backup need not be there before the samples load, and the start in front of the loader has no time
+; for the f_open). Then the next frame hook on the main screen looks at the folders (mg_frame_later). Keeps r4 to r11.
+; r0 is the loader's result (0: the samples loaded or there was no file). Anything else is a card the loader could not read: then
+; neither the backup nor the folders, each f_open on that card takes seconds and the firmware's "Card Error" box comes that much later.
+migrate_folders:
+    cmp r0, #0
+    bxne lr
+    push {r4-r11, lr}
+    ldr r4, =MG_WORK
+    cmp r4, #0
+    beq mg_out
+    ldr r0, [r4, #MG_LATER]
+    ldr r1, =MG_LATER_WAIT
+    cmp r0, r1
+    bne mg_out
+    ldr r0, =MG_LATER_ON
+    str r0, [r4, #MG_LATER]
+    mov r5, #0
+    ldr r1, =mg_hack_pat
+    bl mg_exists
+    cmp r0, #0
+    orrne r5, r5, #1
+    ldr r1, =mg_sampler_pat
+    bl mg_exists
+    cmp r0, #0
+    orrne r5, r5, #2
+    cmp r5, #0
+    beq mg_out
+    ldr r1, =mg_new_pat         ; KORG/blechtribe only when an old folder has one: a name that is not there costs the most
+    bl mg_exists
+    cmp r0, #0
+    bne mg_out
+    b mg_red_choice
 
 ; MENU: checks the room, copies, shows how it went for 1.5 s and takes the question away. r4 = the work area. Clobbers r0 to r3
 ; and r12.
@@ -202,43 +255,77 @@ mg_draw:
     blx r12
     pop {r4, pc}
 
-; r1 = path, r4 = the work area -> r0 = 1 when the folder can be opened. Clobbers r0 to r3 and r12.
-mg_dir_exists:
-    push {lr}
+; Looks at KORG/blechtribe once: makes it with KORG and every folder of the build's list when it is not there, else makes only the
+; folders of the list it lacks (many cards get the folder before BLECH, made by hand, with some folders or none). Sets MG_NEWPAT
+; when a pattern backup of the blue lies directly in it. One f_opendir and a f_readdir for each entry; f_mkdir only for a missing
+; folder (about 16 ms each in the emulator, once). r4 = the work area. Clobbers r0 to r3 and r12.
+mg_folders:
+    push {r5-r9, lr}
+    mov r5, #0                  ; bit n: name n of the list is there
+    str r5, [r4, #MG_NEWPAT]
+    mov r0, #MG_BLUE
+    cmp r0, #0
+    ldreq r8, =mg_red_folders
+    ldrne r8, =mg_blue_folders
     add r0, r4, #MG_DIRS
+    ldr r1, =mg_new_folder
     ldr r12, =FS_OPENDIR
     blx r12
     cmp r0, #0
-    movne r0, #0
-    popne {pc}
-    add r0, r4, #MG_DIRS
-    ldr r12, =FS_CLOSEDIR
-    blx r12
-    mov r0, #1
-    pop {pc}
-
-; No KORG/blechtribe: KORG, KORG/blechtribe and the folders of the build's list in it, each with f_mkdir (one that is there
-; answers FR_EXIST). r4 = the work area. Clobbers r0 to r3 and r12.
-mg_folders:
-    push {r5, lr}
-    ldr r1, =mg_new_folder
-    bl mg_dir_exists
-    cmp r0, #0
-    bne mg_folders_out
+    beq mg_folders_read
     ldr r0, =mg_korg
     ldr r12, =MG_MKDIR
     blx r12
     ldr r0, =mg_new_folder
     ldr r12, =MG_MKDIR
     blx r12
-    mov r0, #MG_BLUE
+    b mg_folders_make
+mg_folders_read:
+    bl mg_entry
     cmp r0, #0
-    ldreq r5, =mg_red_folders
-    ldrne r5, =mg_blue_folders
+    beq mg_folders_close
+    mov r6, r0                  ; the name
+    tst r1, #0x10
+    bne mg_folders_dir
+    bl mg_pat_name
+    cmp r0, #0
+    movne r0, #1
+    strne r0, [r4, #MG_NEWPAT]
+    b mg_folders_read
+mg_folders_dir:
+    mov r7, #0                  ; the index in the list
+    mov r9, r8
+mg_folders_cmp:
+    ldrb r0, [r9]
+    cmp r0, #0
+    beq mg_folders_read
+    mov r0, r6
+    mov r1, r9
+    bl mg_suffix
+    cmp r0, #2                  ; the whole name, upper or lower case
+    moveq r0, #1
+    orreq r5, r5, r0, lsl r7
+    beq mg_folders_read
+mg_folders_cmp_skip:
+    ldrb r0, [r9], #1
+    cmp r0, #0
+    bne mg_folders_cmp_skip
+    add r7, r7, #1
+    b mg_folders_cmp
+mg_folders_close:
+    add r0, r4, #MG_DIRS
+    ldr r12, =FS_CLOSEDIR
+    blx r12
+mg_folders_make:
+    mov r7, #0
+    mov r9, r8
 mg_folders_next:
-    ldrb r0, [r5]
+    ldrb r0, [r9]
     cmp r0, #0
     beq mg_folders_out
+    mov r0, #1
+    tst r5, r0, lsl r7
+    bne mg_folders_skip         ; there: left as it is
     add r0, r4, #MG_DST
     mov r1, #0
     ldr r2, =mg_new_folder
@@ -249,58 +336,71 @@ mg_folders_next:
     bl mg_append
     mov r1, r0
     add r0, r4, #MG_DST
-    mov r2, r5
+    mov r2, r9
     bl mg_append
     add r0, r4, #MG_DST
     ldr r12, =MG_MKDIR
     blx r12
 mg_folders_skip:
-    ldrb r0, [r5], #1
+    ldrb r0, [r9], #1
     cmp r0, #0
     bne mg_folders_skip
+    add r7, r7, #1
     b mg_folders_next
 mg_folders_out:
-    pop {r5, pc}
+    pop {r5-r9, pc}
 
-; r1 = a folder, r4 = the work area -> r0 = 1 when a file directly in it ends in .e2allpat (any case; dot files left out).
-; Clobbers r0 to r3 and r12.
+; The next entry of the open folder MG_DIRS; names that start with a dot (".", "..", the dot files of other computers) are left
+; out. r4 = the work area -> r0 = its name (0 at the end or on an error), r1 = its attribute. Clobbers r2, r3 and r12.
+mg_entry:
+    push {r5, r6, lr}
+mg_entry_next:
+    add r5, r4, #MG_INFO
+    add r6, r4, #MG_LFN
+    str r6, [r5, #0x18]
+    mov r0, #255
+    str r0, [r5, #0x1C]
+    mov r0, #0
+    strb r0, [r6]
+    add r0, r4, #MG_DIRS
+    mov r1, r5
+    ldr r12, =FS_READDIR
+    blx r12
+    cmp r0, #0
+    bne mg_entry_end
+    ldrb r0, [r5, #9]
+    cmp r0, #0
+    beq mg_entry_end
+    ldrb r0, [r6]
+    cmp r0, #0
+    addeq r6, r5, #9            ; no long name: the short one
+    ldrb r0, [r6]
+    cmp r0, #0x2E
+    beq mg_entry_next
+    mov r0, r6
+    ldrb r1, [r5, #8]
+    pop {r5, r6, pc}
+mg_entry_end:
+    mov r0, #0
+    pop {r5, r6, pc}
+
+; r1 = a folder, r4 = the work area -> r0 = 1 when a pattern backup of the build lies directly in it. Clobbers r1 to r3 and r12.
 mg_allpat:
-    push {r5-r7, lr}
+    push {r5, lr}
     add r0, r4, #MG_DIRS
     ldr r12, =FS_OPENDIR
     blx r12
     cmp r0, #0
     movne r0, #0
-    popne {r5-r7, pc}
+    popne {r5, pc}
     mov r5, #0
 mg_allpat_next:
-    add r7, r4, #MG_INFO
-    add r6, r4, #MG_LFN
-    str r6, [r7, #0x18]
-    mov r0, #255
-    str r0, [r7, #0x1C]
-    mov r0, #0
-    strb r0, [r6]
-    add r0, r4, #MG_DIRS
-    mov r1, r7
-    ldr r12, =FS_READDIR
-    blx r12
-    cmp r0, #0
-    bne mg_allpat_done
-    ldrb r0, [r7, #9]
+    bl mg_entry
     cmp r0, #0
     beq mg_allpat_done
-    ldrb r0, [r7, #8]
-    tst r0, #0x10
+    tst r1, #0x10
     bne mg_allpat_next          ; a folder
-    ldrb r0, [r6]
-    cmp r0, #0
-    addeq r6, r7, #9            ; no long name: the short one
-    ldrb r0, [r6]
-    cmp r0, #0x2E
-    beq mg_allpat_next
-    mov r0, r6
-    bl mg_is_allpat
+    bl mg_pat_name
     cmp r0, #0
     beq mg_allpat_next
     mov r5, #1
@@ -309,35 +409,58 @@ mg_allpat_done:
     ldr r12, =FS_CLOSEDIR
     blx r12
     mov r0, r5
-    pop {r5-r7, pc}
+    pop {r5, pc}
 
-; r0 = a name -> r0 = 1 when it ends in .e2allpat, upper or lower case. Clobbers r1 to r3 and r12.
-mg_is_allpat:
-    mov r1, r0
-mg_ia_end:
-    ldrb r2, [r1], #1
-    cmp r2, #0
-    bne mg_ia_end
-    sub r1, r1, #10             ; the last 9 characters
-    cmp r1, r0
-    movlo r0, #0
-    bxlo lr
-    ldr r2, =mg_allpat_ext
-mg_ia_loop:
+; r0 = a name -> r0 not 0 when it ends in .e2allpat, the blue's pattern backup, upper or lower case. Clobbers r1 to r3 and r12.
+mg_pat_name:
+    ldr r1, =mg_allpat_ext
+    b mg_suffix
+
+; r0 = a name, r1 = a string -> r0 = 0 when the name does not end in the string (upper and lower case alike), 1 when it does, 2 when
+; the string is the whole name. Clobbers r1 to r3 and r12.
+mg_suffix:
+    push {r4, r5, lr}
+    mov r4, r0
+    mov r2, r0
+mg_sf_name:
     ldrb r3, [r2], #1
     cmp r3, #0
-    moveq r0, #1
-    bxeq lr
-    ldrb r12, [r1], #1
+    bne mg_sf_name
+    mov r5, r1
+mg_sf_str:
+    ldrb r3, [r5], #1
+    cmp r3, #0
+    bne mg_sf_str
+    sub r5, r5, r1              ; the string's length and its zero
+    sub r2, r2, r5              ; where it starts in the name
+    cmp r2, r4
+    blo mg_sf_no
+    mov r5, r2
+mg_sf_loop:
+    ldrb r3, [r1], #1
+    cmp r3, #0
+    beq mg_sf_yes
+    cmp r3, #0x41
+    blo mg_sf_low
+    cmp r3, #0x5A
+    orrls r3, r3, #0x20
+mg_sf_low:
+    ldrb r12, [r2], #1
     cmp r12, #0x41
-    blo mg_ia_cmp
+    blo mg_sf_cmp
     cmp r12, #0x5A
     orrls r12, r12, #0x20
-mg_ia_cmp:
+mg_sf_cmp:
     cmp r12, r3
-    beq mg_ia_loop
+    beq mg_sf_loop
+mg_sf_no:
     mov r0, #0
-    bx lr
+    pop {r4, r5, pc}
+mg_sf_yes:
+    cmp r5, r4
+    moveq r0, #2
+    movne r0, #1
+    pop {r4, r5, pc}
 
 ; r1 = path, r4 = the work area -> r0 = 1 when the file can be opened for reading. Clobbers r0 to r3 and r12.
 mg_exists:
@@ -736,7 +859,7 @@ migrate_frame:
     bxeq lr
     ldr r2, [r1, #MG_ACTIVE]
     cmp r2, #1
-    bxne lr
+    bne mg_frame_later
     push {r4-r8, lr}
     mov r8, r1
     mov r0, #MG_BLUE
@@ -828,6 +951,25 @@ mg_frame_copy_fb:
     blx r12
 mg_frame_out:
     pop {r4-r8, pc}
+mg_frame_later:                 ; the red, once on the main screen, in the UI task like the writes of the settings file: the folders
+    ldr r2, [r1, #MG_LATER]
+    ldr r3, =MG_LATER_ON
+    cmp r2, r3
+    bxne lr
+    ldr r2, =SCREEN_MANAGER     ; on the main screen, after the start
+    ldr r2, [r2]
+    cmp r2, #0
+    cmnne r2, #1
+    bxeq lr
+    ldr r2, [r2, #0x2c]
+    cmp r2, #1
+    bxne lr
+    push {r4, lr}
+    mov r4, r1
+    mov r0, #0
+    str r0, [r4, #MG_LATER]
+    bl mg_folders
+    pop {r4, pc}
 .align 4
 .pool
 mg_new_folder:
@@ -850,6 +992,12 @@ mg_korg:
     .asciz "SD:KORG"
 mg_allpat_ext:
     .asciz ".e2allpat"
+mg_new_pat:                     ; the red and Hacktribe: what EXPORT ALL PATTERN writes, directly into the folder
+    .asciz "SD:KORG/blechtribe/electribe_sampler_allpattern.e2sallpat"
+mg_hack_pat:
+    .asciz "SD:KORG/hacktribe/electribe_sampler_allpattern.e2sallpat"
+mg_sampler_pat:
+    .asciz "SD:KORG/electribe sampler/electribe_sampler_allpattern.e2sallpat"
 mg_red_folders:                 ; the folders BLECH reads and writes in KORG/blechtribe, an empty name ends the list
     .asciz "Plugin"
     .asciz "Presets"

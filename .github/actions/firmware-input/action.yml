@@ -1,0 +1,43 @@
+name: Firmware check environment
+description: Set up the check and load one fingerprinted firmware input
+inputs:
+  url:
+    description: Private download URL
+    required: true
+  sha256:
+    description: Original file fingerprint
+    required: true
+  blue-head:
+    description: Fingerprint after selecting the blue Hacktribe head
+    default: ""
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12.16"
+    - shell: bash
+      run: |
+        npm ci
+        python -m venv tools/emu/.venv
+        tools/emu/.venv/bin/python -c "import sys; print(sys.version)"
+        tools/emu/.venv/bin/pip install -r tools/emu/requirements.txt
+    - name: Fingerprinted firmware input
+      shell: bash
+      env:
+        URL: ${{ inputs.url }}
+        SHA256: ${{ inputs.sha256 }}
+        BLUE_HEAD: ${{ inputs.blue-head }}
+      run: |
+        [ -n "$URL" ] || { echo "::error::firmware download secret is not set"; exit 1; }
+        curl -fsSL "$URL" -o "$RUNNER_TEMP/SYSTEM.VSB"
+        echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
+        if [ -n "$BLUE_HEAD" ]; then
+          printf '\000' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=18 conv=notrunc status=none
+          printf '\043' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=46 conv=notrunc status=none
+          echo "$BLUE_HEAD  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
+        fi

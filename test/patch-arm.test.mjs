@@ -2,9 +2,9 @@ import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
-import { availableParallelism } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { slots } from "./support/spawn.mjs";
 
 // The assembler behind the patches (tools/patch/arm.py) needs only Python. With
 // Capstone installed its lines are also disassembled, and with E2_VSB set it
@@ -58,7 +58,7 @@ const run = module => new Promise((resolve, reject) => {
   child.on("close", status => resolve({ status, err }));
 });
 
-describe("assembler: known encodings, pools, sections and refusals", { concurrency: Math.max(1, availableParallelism() - 1) }, () => {
+describe("assembler: known encodings, pools, sections and refusals", { concurrency: slots }, () => {
   test("there are Python tests to run", { skip }, () => assert.ok(modules.length > 0));
   for (const module of modules) {
     test(module, { skip }, async () => {
