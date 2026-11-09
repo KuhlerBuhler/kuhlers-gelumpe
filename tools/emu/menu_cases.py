@@ -583,7 +583,10 @@ def blechy_ring_cases(dev):
         for i, kind in enumerate(("frame", "display")):
             his = bits(last[i]) - bits(settled[i])
             seq = [last[i]] + [look[i] for look in looks] + [None]
-            stale = [5 * k for k in range(1, len(seq) - 1) if seq[k] != last[i] and bits(seq[k]) & his and not sending(seq[k - 1], seq[k], seq[k + 1])]
+            # only his pixels in bytes still as in his picture: the next page draws in steps (its title bar solid first, the text cut in a
+            # frame later), and that bar can cover a pixel of him in a byte that is neither his picture nor the settled page
+            kept = lambda look: {(j, b) for j, b in his if look[j] == last[i][j]}
+            stale = [5 * k for k in range(1, len(seq) - 1) if seq[k] != last[i] and kept(seq[k]) and not sending(seq[k - 1], seq[k], seq[k + 1])]
             if stale:
                 left.append(f"{key} {kind} at {stale[:4]} ms")
     add("blechy_leaves_no_trace", not left and not dev.m.asserts,
