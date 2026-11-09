@@ -6,6 +6,7 @@
  * und du bestätigt hast.
  */
 import { el } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { saveFile } from "./save-file.mjs";
 import { toast } from "./toast.mjs";
 import { stepEditor } from "./steps.mjs";
@@ -16,12 +17,6 @@ import { t } from "./i18n.mjs";
 
 const SLOTS = 250;
 const MAX_DEVICE_COPIES = 8;
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
-};
 
 function field(id, label, input, help) {
   return el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: id, textContent: label }), input, help ? el("p", { className: "ui-field-help", textContent: help }) : null]);
@@ -266,7 +261,7 @@ export function patternToolsPage(root, { device }) {
   /** Findings as a list; true when one of them stops the output. */
   function findingsList(findings) {
     const list = el("ul", { className: "ui-list cee-pt-findings" });
-    for (const f of findings) list.append(el("li", { className: "ui-row" }, [pill(f.severity === "error" ? "error" : "warn", f.severity === "error" ? t("common.error") : t("device.log.warn")), el("span", { textContent: ` ${t(f.text ?? f.message)}` })]));
+    for (const f of findings) list.append(el("li", { className: "ui-row" }, [stateText(f.severity === "error" ? "error" : "warn", f.severity === "error" ? t("common.error") : t("device.log.warn")), el("span", { textContent: ` ${t(f.text ?? f.message)}` })]));
     return list;
   }
 
