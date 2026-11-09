@@ -4,6 +4,7 @@
  * go; what is removed leaves no gap (src/sample-file.mjs).
  */
 import { el } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, FIRST_USER, LAST_USER } from "../../src/sample-file.mjs";
@@ -12,12 +13,6 @@ import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 
 const restart = () => t("sampleset.restart");
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
-};
 
 const size = bytes => (bytes >= 1048576 ? `${number(Number((bytes / 1048576).toFixed(1)), { useGrouping: false, minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 const seconds = s => `${s.frames && s.rate ? number(Number((s.frames / s.rate).toFixed(2)), { useGrouping: false, minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0"} s`;
@@ -90,7 +85,7 @@ export function samplesFilePage(root, { device = null } = {}) {
           s.problem ? null : el("span", { className: "ui-row-meta", textContent: `${format(s)}, ${seconds(s)}, ${size(s.length)}` }),
         ]),
         el("div", { className: "ui-row-actions" }, [
-          s.problem ? pill("error", s.problem) : s.state === "new" ? pill("ok", t("sampleset.new")) : s.state === "removed" ? pill("warn", t("sampleset.removing")) : null,
+          s.problem ? stateText("error", s.problem) : s.state === "new" ? stateText("ok", t("sampleset.new")) : s.state === "removed" ? stateText("warn", t("sampleset.removing")) : null,
           button,
         ]),
       ]);

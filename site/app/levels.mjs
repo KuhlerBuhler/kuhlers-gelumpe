@@ -6,6 +6,7 @@
  * changing it is the effect editor's job.
  */
 import { el } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { toast } from "./toast.mjs";
 import { Pattern } from "../../src/pattern.mjs";
 import { FxRecord } from "../../src/record.mjs";
@@ -13,12 +14,6 @@ import { profileKey } from "../../src/profile.mjs";
 import { readLevels, planScale, applyScale, outputLevels, judgeOutput, LEVEL_MAX } from "../../src/gain.mjs";
 import { t } from "./i18n.mjs";
 import { number as formatNumber } from "../../src/text.mjs";
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
-};
 
 const number = n => formatNumber(Math.round(n * 100) / 100 + 0, { useGrouping: false, maximumFractionDigits: 2 });
 
@@ -107,7 +102,7 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
         el("span", { className: "cee-level-name", textContent: l.id === "pattern.playLevel" ? t("levels.playLevel") : t(l.label) }),
         bar,
         el("span", { className: "cee-level-value", textContent: text }),
-        l.muted ? pill("neutral", t("levels.muted")) : null,
+        l.muted ? stateText("neutral", t("levels.muted")) : null,
       ]);
       row.dataset.changed = String(r.delta !== 0);
       rows.append(row);
@@ -146,7 +141,7 @@ export function levelsPanel(root, { session, presets, openPreset, device = {} })
       open.addEventListener("click", () => openPreset(f.slot));
       const item = el("li", { className: "ui-row" }, [
         el("span", { className: "ui-break", textContent: t("levels.fx.row", { parts: f.parts.join(", "), slot: f.slot, name: f.name, text }) }),
-        verdicts.length ? pill("warn", verdicts.some(v => v.measured) ? t("levels.fx.heard") : verdicts.some(v => v.code === "output-too-loud") ? t("levels.fx.loud") : t("levels.fx.untested")) : null,
+        verdicts.length ? stateText("warn", verdicts.some(v => v.measured) ? t("levels.fx.heard") : verdicts.some(v => v.code === "output-too-loud") ? t("levels.fx.loud") : t("levels.fx.untested")) : null,
         open,
       ]);
       item.dataset.fxSlot = String(f.slot);
