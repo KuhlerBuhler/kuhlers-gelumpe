@@ -1208,3 +1208,150 @@ test("patcher: Korg's blue file does not fit the goal BLECH + Hacktribe", async 
   assert.equal(await page.isDisabled("#cee-patch-next"), true);
   assert.deepEqual(page.errors, []);
 });
+
+/** The app's commands for saving (src-tauri/src/save.rs), answered from window.__cards and window.__pick; window.__asked keeps every call. */
+function appSave() {
+  window.__asked = [];
+  window.__cards = [];
+  window.__pick = "/Users/me/Desktop/SYSTEM.VSB";
+  window.__TAURI__ = { core: { invoke: async (command, args) => {
+    window.__asked.push([command, args?.bytes ? { ...args, bytes: args.bytes.length } : args]);
+    if (command === "save_cards") return window.__cards;
+    if (command === "save_card") return window.__cards.find(c => c.root === args.root).path;
+    if (command === "save_pick") return window.__pick;
+    return [];
+  } } };
+}
+
+async function pageWith(init) {
+  const page = await h.page();
+  await page.addInitScript(init);
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-patcher");
+  await page.locator(".cee-patch-title").waitFor();
+  return page;
+}
+
+const sdCard = (root, { systemExists = true, vsbExists = false } = {}) => ({ root, volume: root.split("/").pop(), path: `${root}/KORG/hacktribe/System/SYSTEM.VSB`, systemExists, vsbExists });
+const asked = (page, command) => page.evaluate(c => window.__asked.filter(a => a[0] === c).map(a => a[1]), command);
+
+test("patcher in the app: no card, then a card put in later shows by itself with its full path, and Speichern writes there", async () => {
+  const page = await pageWith(appSave);
+  const vsb = await makeFirmware();
+  await patched(page, vsb);
+  await closeToasts(page);
+  await page.locator("#cee-patch-sd-lead", { hasText: "Keine SD-Karte der Electribe gefunden" }).waitFor();
+  assert.equal(await page.isVisible("#cee-patch-sd-save"), false, "no card, no Speichern");
+  assert.equal(await page.isVisible("#cee-patch-sd-path"), false);
+  const download = page.locator("#cee-patch-download");
+  assert.equal(await download.textContent(), "Firmware speichern (SYSTEM.VSB) …");
+  assert.equal(await download.evaluate(b => b.classList.contains("cee-primary")), true, "without a card the dialog is the main action");
+
+  await page.evaluate(c => { window.__cards = [c]; }, sdCard("/Volumes/E2", { vsbExists: true }));
+  await page.locator("#cee-patch-sd-path", { hasText: "/Volumes/E2/KORG/hacktribe/System/SYSTEM.VSB" }).waitFor({ timeout: 5000 });
+  assert.equal(await page.locator("#cee-patch-sd-lead").textContent(), "SD-Karte der Electribe gefunden. Die Datei kommt hierhin:");
+  assert.equal(await page.locator("#cee-patch-sd-over").textContent(), "Dort liegt schon eine SYSTEM.VSB. Speichern ersetzt sie.");
+  assert.equal(await page.isVisible("#cee-patch-sd-over"), true);
+  assert.equal(await page.isVisible("#cee-patch-sd-system"), false);
+  assert.equal(await page.isVisible("#cee-patch-sd-pick"), false, "one card, nothing to pick");
+  assert.equal(await page.locator("#cee-patch-sd-save").textContent(), "Speichern");
+  assert.equal(await download.textContent(), "Woanders speichern …", "the dialog stays as the second way");
+  assert.equal(await download.evaluate(b => b.classList.contains("cee-primary")), false);
+  assert.ok((await asked(page, "save_cards")).every(a => a.target === "KORG/hacktribe/System/"), "the app looks for the folder of the firmware that runs");
+  // the note is plain text: no pill, no dot
+  assert.deepEqual(await page.locator("#cee-patch-sd-over").evaluate(p => [getComputedStyle(p).backgroundColor, getComputedStyle(p, "::before").content]), ["rgba(0, 0, 0, 0)", "none"]);
+
+  await page.click("#cee-patch-sd-save");
+  const guide = page.locator("#cee-patch-done");
+  await guide.waitFor();
+  assert.deepEqual(await asked(page, "save_card"), [{ root: "/Volumes/E2", target: "KORG/hacktribe/System/", bytes: vsb.length }]);
+  assert.match(await guide.locator("#cee-patch-guide-vsb").textContent(), /Die neue SYSTEM\.VSB liegt schon auf der Karte: \/Volumes\/E2\/KORG\/hacktribe\/System\/SYSTEM\.VSB\. Wirf die Karte richtig aus/);
+  assert.equal(await guide.locator("#cee-patch-saved").count(), 0, "the card step says where, no second line");
+  assert.doesNotMatch(await guide.textContent(), /Downloads|heruntergeladen/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher in the app: several cards are picked from, a missing System folder is named, leaving the step stops looking", async () => {
+  const page = await pageWith(appSave);
+  await page.evaluate(cards => { window.__cards = cards; }, [sdCard("/Volumes/A"), sdCard("/media/me/B", { systemExists: false })]);
+  await patched(page, await makeFirmware());
+  await closeToasts(page);
+  await page.locator("#cee-patch-sd-pick input").nth(1).waitFor();
+  assert.equal(await page.locator("#cee-patch-sd-lead").textContent(), "Mehrere Karten passen. Wähl die aus deiner Electribe:");
+  assert.equal(await page.locator("#cee-patch-sd-pick input:checked").count(), 0, "no card is taken for the user");
+  assert.equal(await page.isVisible("#cee-patch-sd-save"), false);
+  await page.locator("#cee-patch-sd-pick label", { hasText: "/media/me/B" }).click();
+  assert.equal(await page.locator("#cee-patch-sd-path").textContent(), "/media/me/B/KORG/hacktribe/System/SYSTEM.VSB");
+  assert.equal(await page.locator("#cee-patch-sd-system").textContent(), "Dort fehlt der Ordner System. Speichern legt ihn an.");
+  assert.equal(await page.isVisible("#cee-patch-sd-system"), true);
+  assert.equal(await page.isVisible("#cee-patch-sd-over"), false);
+  assert.equal(await page.isVisible("#cee-patch-sd-save"), true);
+
+  await page.click("#cee-patch-back");
+  const looked = (await asked(page, "save_cards")).length;
+  await page.waitForTimeout(4500);
+  assert.equal((await asked(page, "save_cards")).length, looked, "no look for a card off the save step");
+  await page.click("#cee-patch-next");
+  await page.waitForFunction(n => window.__asked.filter(a => a[0] === "save_cards").length > n, looked, { timeout: 5000 });
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher in the app: the save dialog names where it saved, a cancel saves nothing and the button stays", async () => {
+  const page = await pageWith(appSave);
+  await page.evaluate(() => { window.__pick = null; });
+  await patched(page, await makeFirmware());
+  await closeToasts(page);
+  await page.click("#cee-patch-download");
+  await page.locator("#cee-patch-save-note", { hasText: "Nichts gespeichert. Du kannst jederzeit nochmal speichern." }).waitFor();
+  assert.equal(await page.isVisible("#cee-patch-done"), false);
+  assert.equal(await page.isDisabled("#cee-patch-download"), false, "the button stays usable");
+  assert.equal(await page.locator(".cee-toast[data-kind=error]").count(), 0, "a cancel is no error");
+
+  await page.evaluate(() => { window.__pick = "/Users/me/Desktop/SYSTEM.VSB"; });
+  await page.click("#cee-patch-download");
+  const guide = page.locator("#cee-patch-done");
+  await guide.waitFor();
+  assert.equal(await page.isVisible("#cee-patch-save-note"), false);
+  assert.equal(await guide.locator("#cee-patch-saved").textContent(), "Gespeichert unter /Users/me/Desktop/SYSTEM.VSB");
+  assert.match(await guide.locator("#cee-patch-guide-vsb").textContent(), /^Kopiere die gespeicherte SYSTEM\.VSB nach KORG\/hacktribe\/System\//);
+  assert.deepEqual((await asked(page, "save_pick")).map(a => a.name), ["SYSTEM.VSB", "SYSTEM.VSB"]);
+  assert.doesNotMatch(await guide.textContent(), /Downloads|heruntergeladen/);
+  assert.deepEqual(page.errors, []);
+});
+
+test("patcher in the browser: the save dialog where there is one, a cancel saves nothing; without it the download as before", async () => {
+  const page = await pageWith(() => {
+    window.__abort = true;
+    window.__written = [];
+    window.showSaveFilePicker = async options => {
+      window.__written.push(options.suggestedName);
+      if (window.__abort) throw new DOMException("cancelled", "AbortError");
+      return { createWritable: async () => ({ write: async b => window.__written.push(b.length), close: async () => {} }) };
+    };
+  });
+  const vsb = await makeFirmware();
+  await patched(page, vsb);
+  await closeToasts(page);
+  assert.equal(await page.isVisible("#cee-patch-sd"), false, "the browser looks for no card");
+  assert.equal(await page.locator("#cee-patch-download").textContent(), "Firmware speichern (SYSTEM.VSB) …");
+  await page.click("#cee-patch-download");
+  await page.locator("#cee-patch-save-note", { hasText: "Nichts gespeichert" }).waitFor();
+  assert.equal(await page.isDisabled("#cee-patch-download"), false);
+  await page.evaluate(() => { window.__abort = false; });
+  await page.click("#cee-patch-download");
+  await page.locator("#cee-patch-done").waitFor();
+  assert.deepEqual(await page.evaluate(() => window.__written), ["SYSTEM.VSB", "SYSTEM.VSB", vsb.length]);
+  assert.equal(await page.locator("#cee-patch-saved").textContent(), "Die Datei ist gespeichert.");
+  assert.doesNotMatch(await page.locator("#cee-patch-done").textContent(), /Downloads|heruntergeladen/);
+
+  const plain = await patcherPage();
+  await patched(plain, vsb);
+  await closeToasts(plain);
+  assert.equal(await plain.locator("#cee-patch-download").textContent(), "Firmware herunterladen (SYSTEM.VSB)", "no dialog: the download as before");
+  const bytes = await h.download(plain, () => plain.click("#cee-patch-download"));
+  assert.equal(bytes.length, vsb.length);
+  await plain.locator("#cee-patch-done").waitFor();
+  assert.equal(await plain.locator("#cee-patch-saved").textContent(), "Die Datei ist gespeichert.");
+  assert.match(await plain.locator("#cee-patch-guide-vsb").textContent(), /^Kopiere die gespeicherte SYSTEM\.VSB/);
+  assert.deepEqual([...page.errors, ...plain.errors], []);
+});

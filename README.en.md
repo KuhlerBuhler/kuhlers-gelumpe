@@ -78,6 +78,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Quick save (EXIT + WRITE), reset a part (EXIT + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | KEY from the pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Filter off and on (SHIFT + filter key) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Settings save themselves when you leave the menu (AUTO SAVE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Chords in pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Note assistant | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -233,8 +234,8 @@ A wrong write or a faulty firmware can hang the device. So:
 - **Emergency switch:** hold EXIT while powering on. The firmware then runs without patches, and DATA
   UTILITY, SOFTWARE UPDATE lets you install a different firmware. This only applies to that one start.
 - **Back up before you change anything:** the SD card (samples, patterns, the original `SYSTEM.VSB`) and
-  the global settings. Powering off and WRITE save whatever is in RAM, so do not power off if something
-  looks wrong.
+  the global settings. Powering off, WRITE and, with AUTO SAVE, leaving GLOBAL PARAMETERS save whatever
+  is in RAM, so do not power off if something looks wrong.
 - **Way back:** put the saved original `SYSTEM.VSB` back. How that was rehearsed is in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
 - **If the device no longer starts:** the "Rettung" page in the editor (German) asks what you see and

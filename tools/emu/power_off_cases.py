@@ -115,13 +115,13 @@ def run_case(payload, flash, name):
     m.insert_card(SDCard(medium))
     dev.run(1.5)
     if kind == "edit":      # a changed Global setting that only the switch-off saves, and the BLECH settings written to the card before
-        settings = dev.u32(GLOBALS) + POWER_SAVE
-        dev.m.uc.mem_write(settings, bytes([(dev.read(settings, 1)[0] + 1) % 3]))
         menu_cases.goto_global(dev)
         dev.turn(-1, wait=0.2)
         dev.press("write", wait=0.6)
         menu_cases.go(dev, 1)
-        dev.run(0.5)
+        dev.run(1.5)                                  # AUTO SAVE's Global save on leaving shows the firmware's window for about 1 s
+        settings = dev.u32(GLOBALS) + POWER_SAVE     # changed on the main screen: AUTO SAVE saves only on leaving a page
+        dev.m.uc.mem_write(settings, bytes([(dev.read(settings, 1)[0] + 1) % 3]))
     if kind == "blechy":    # the device is on the page of Blechy, built into BLECH, and he has stopped waving
         menu_cases.goto_blechy(dev)
         dev.run(5.0)

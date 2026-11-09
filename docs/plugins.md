@@ -378,7 +378,8 @@ Gerät beim nächsten Start ohne Plugins) und SYNC GROUP (eine Einstellung des P
 
 **Nur im RAM, bis WRITE.** Die Werte gelten sofort, liegen aber nur im RAM. Auf die Karte kommen sie mit WRITE auf einer Seite
 des Menüs BLECH (die Datei `settings.a.bin` oder `settings.b.bin`), vorher nicht; nach einem Neustart gilt, was zuletzt
-geschrieben wurde. Ausnahme ist SET INIT PATTERN: es liegt in den Global-Einstellungen der Firmware, die das Gerät beim
+geschrieben wurde. Mit AUTO SAVE schreibt auch das Verlassen des Menüs BLECH die Datei, wenn sich die Einstellungen geändert haben,
+seit es geöffnet wurde. Ausnahme ist SET INIT PATTERN: es liegt in den Global-Einstellungen der Firmware, die das Gerät beim
 Ausschalten speichert. `korg.menu.blech.write()` schreibt die Einstellungsdatei aus dem Plugin, wie WRITE es tut. Es fragt nur
 an: geschrieben wird einen Moment später, nur solange der Hauptbildschirm oder BLECH offen ist, und frühestens 2 Sekunden nach
 dem letzten Schreiben, weitere Aufrufe davor bleiben eine Anfrage. Ohne Karte oder bei einem Fehler passiert nichts weiter, wie
@@ -414,7 +415,8 @@ Grenze, ohne die Funktion der Firmware zu rufen. Im Emulator gemessen auf Hacktr
 ([Messung](messungen/2026-11-05-plugin-api20-globals.md)); am Gerät nicht.
 
 **Speichern.** Dafür gibt es keinen Aufruf. Die Firmware speichert die Globals beim Ausschalten und bei WRITE auf der Seite
-GLOBAL PARAMETERS, wie sie auch das letzte Pattern behält. Ein Wert, den ein Plugin gesetzt hat, bleibt deshalb über den
+GLOBAL PARAMETERS, wie sie auch das letzte Pattern behält. Mit BLECH > FEATURES > AUTO SAVE speichert sie sie außerdem, wenn
+jemand GLOBAL PARAMETERS verlässt und die Werte vom gespeicherten Stand abweichen ([Messung](messungen/2026-11-09-auto-save.md)). Ein Wert, den ein Plugin gesetzt hat, bleibt deshalb über den
 nächsten Neustart, auch wenn das Plugin dann nicht mehr läuft. Ein Plugin, das die Einstellung des Nutzers nur vorübergehend
 ändern will, setzt sie zurück, wie das Beispiel oben mit der Helligkeit.
 
@@ -1129,7 +1131,7 @@ VERSION, die keine Gruppe ist:
 
 | Eintrag | Was dahinter liegt |
 |---|---|
-| FEATURES | die Schalter der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST und, wo der Satz den Patch last-pattern hat, LAST PATTERN, und, wo er den Patch stereo-pad hat (rot), STEREO 1 PAD (Tabelle unten) |
+| FEATURES | die Schalter der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST und, wo der Satz den Patch last-pattern hat, LAST PATTERN, und, wo er den Patch stereo-pad hat (rot), STEREO 1 PAD, dazu AUTO SAVE (Tabelle unten) |
 | PLUGINS | ENTER öffnet direkt die Liste der Plugins (MANAGE PLUGINS); siehe unten |
 | CUSTOMIZATION | DISPLAY, LED, dazu PAD COLOR, POWER SAVE und SPLASH, wo der Satz sie hat; siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
@@ -1190,6 +1192,7 @@ Die Seiten der Gruppen:
 | FEATURES, NOTE ASSIST | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Note die Pads der passenden Noten rosa, je besser sie passen, desto heller (Prim und Quinte, dann Terzen, Quarte und ein Tonleiterschritt, dann Sexten); gestoppt oder pausiert bleiben sie stehen, beim Spielen blenden sie aus, die schwachen zuerst; im CHORD-Modus (Skalen mit sieben Tönen) zeigen die Pads ebenso, welche Akkorde gut folgen ([Messung](messungen/2026-10-15-note-assistant.md), [Helligkeit und Ausblenden](messungen/2026-10-19-notenassistent-helligkeit.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
 | FEATURES, LAST PATTERN | ON, OFF | ON: beim Einschalten öffnet die Electribe das Pattern, das vor dem Ausschalten gewählt war ([Idee 76](ideen/76-letztes-pattern.md)); OFF: sie startet wie in der Firmware mit 001, die gemerkte Nummer bleibt für einen Start mit ON; gilt ab dem nächsten Einschalten, WRITE behält es (Bit 3 von Byte 5 der Einstellungsdatei heißt OFF); ohne Datei ON; EXIT beim Einschalten: 001; rot und blau, wo der Satz den Patch last-pattern hat ([Messung](messungen/2026-10-29-letztes-pattern-schalter-doom-ohne-dateien.md)) |
 | FEATURES, STEREO 1 PAD | ON, OFF | ON: ein Stereo-Sample belegt nur sein eigenes Pad und spielt dort auf einer Stimme, das Pad daneben spielt sein eigenes Sample; OFF: wie in der Firmware belegt ein Stereo-Sample auf Pad 1, 3, ... auch das nächste Pad; gilt sofort, WRITE behält es (Bit 2 von Byte 5 der Einstellungsdatei heißt OFF); ohne Datei ON; EXIT beim Einschalten: wie in der Firmware; nur wo der Satz den Patch stereo-pad hat (rot) ([Messung](messungen/2026-10-29-stereo-ein-pad.md)) |
+| FEATURES, AUTO SAVE | ON, OFF | ON: wer GLOBAL PARAMETERS (oder PLUGIN RUNTIME dahinter) verlässt und dort einen Wert geändert hat, dem speichert BLECH die Global-Werte mit demselben Auftrag wie WRITE dort (die Firmware zeigt rund eine Sekunde ihr Fenster "Writing...", wie nach WRITE); wer das BLECH-Menü verlässt und eine Einstellung geändert hat, dem schreibt es die Einstellungsdatei wie WRITE; ohne Änderung wird nichts geschrieben, Patterns bleiben bei WRITE; OFF: nur WRITE speichert, wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 7 von Byte 5 der Einstellungsdatei, ein BLECH vor 1.5 verwirft eine Datei mit diesem Bit; das Ausschalten von AUTO SAVE selbst behält erst WRITE ([Messung](messungen/2026-11-09-auto-save.md)) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY, 1 bis 250 | das Pattern, das DATA UTILITY > INITIALIZE PATTERN als Vorlage nimmt; FACTORY ist die Vorlage der Firmware; gilt sofort und bleibt über das Ausschalten (Global-Byte 247, kein WRITE nötig); nur wo der Satz den Patch init-pattern hat (rot) ([Messung](messungen/2026-10-28-init-pattern.md)) |
 
 Rückmeldungen ("saved", "no card", "imported", "2 exported" und so weiter) ersetzen den
@@ -1200,7 +1203,7 @@ benutzt sie deshalb nie. Was eine Seite sagt, steht im Wert, der rund 14 Zeichen
 Titel rund 18.
 
 Auf den Seiten PLUGIN RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION und bei der Zustimmung für fremde Plugins
-speichert WRITE die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
+speichert WRITE (mit AUTO SAVE auch das Verlassen des Menüs nach einer Änderung) die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
 sich mit einer Generationsnummer abwechseln (24 bis 280 Byte: Kennung `GSET`, Version 3, ein Byte mit METER LOUD RAINBOW in Bit 0 (ein BLECH vor 1.3 verwirft eine Datei, in der es gesetzt ist), Anzahl
 erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
 erlaubten fremden Blöcke, CRC-32; höchstens 64 Einträge (bis 1.3.7 Version 2 mit höchstens 16; ein BLECH bis 1.3.7 liest Version 3 nicht, es nimmt dann eine ältere Datei der Version 2, die noch auf der Karte liegt, oder die Standardwerte);

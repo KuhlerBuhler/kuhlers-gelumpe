@@ -5,6 +5,7 @@ import { stateText } from "./state.mjs";
 import { icon } from "./icons.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
+import { saveAs, saveWay, findCards, saveToCard, sameCards } from "./save-target.mjs";
 import { applyPatches } from "../../src/patch.mjs";
 import { applyPatchFile, parsePatchFile, patchesFor } from "../../src/patchfile.mjs";
 import { NEWS } from "../../data/news.mjs";
@@ -300,7 +301,17 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const originalHead = el("p", { className: "muted", id: "cee-patch-original-head", textContent: t("patcher.original.head"), hidden: true });
   const target = el("div", { className: "cee-patch-target", id: "cee-patch-target" }, [targetLead, targetPath, targetNot, originalHead, after]);
   const afraid = el("button", { type: "button", className: "btn", id: "cee-patch-afraid", textContent: t("patcher.afraid"), disabled: true });
-  const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [download, usbPut, afraid]);
+  // In the app: the Electribe card it finds mounted, with the full place of the file; the save dialog stays beside it.
+  const cardLead = el("p", { id: "cee-patch-sd-lead" });
+  const cardPick = el("div", { className: "cee-patch-sd-pick", id: "cee-patch-sd-pick", role: "radiogroup", hidden: true });
+  cardPick.setAttribute("aria-labelledby", "cee-patch-sd-lead");
+  const cardPath = el("p", { className: "cee-patch-path", id: "cee-patch-sd-path", hidden: true });
+  const cardOver = el("p", { className: "muted", id: "cee-patch-sd-over", textContent: t("patcher.card.overwrite"), hidden: true });
+  const cardSystem = el("p", { className: "muted", id: "cee-patch-sd-system", textContent: t("patcher.card.system"), hidden: true });
+  const cardBox = el("div", { className: "cee-patch-sd", id: "cee-patch-sd", hidden: true }, [cardLead, cardPick, cardPath, cardOver, cardSystem]);
+  const cardSave = el("button", { type: "button", className: "btn lg cee-primary cee-patch-download", id: "cee-patch-sd-save", textContent: t("patcher.card.save"), hidden: true });
+  const saveNote = el("p", { className: "muted", id: "cee-patch-save-note", role: "status", hidden: true });
+  const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [cardSave, download, usbPut, afraid]);
   const done = el("section", { className: "cee-patch-done", id: "cee-patch-done", hidden: true });
 
   // The wizard in front of the way: which Electribe, which firmware runs on it, then what to do. A card only chooses,
@@ -410,11 +421,18 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     [usbBox, orLine, updateLead, korg, drop, goalHint, verdictBox],
     [htWarn, blechBox, routeBox, deviceBox, plan, synthSet, blueHacktribe],
     [testBox, bar, note, groupList, failHelp, checksBox],
-    [target, result, done],
+    [target, cardBox, result, saveNote, done],
   ].map((children, i) => el("div", { className: "cee-patch-panel", id: `cee-patch-step-${i + 1}`, tabIndex: -1, hidden: i > 0 }, children));
   const back = el("button", { type: "button", className: "btn", id: "cee-patch-back", textContent: t("patcher.back"), hidden: true });
   const next = el("button", { type: "button", className: "btn cee-primary", id: "cee-patch-next", textContent: t("patcher.next"), disabled: true });
   let view = 0;
+  // The cards the app found for the goal's folder (src-tauri/src/save.rs), the one picked when several fit, the poll.
+  let cards = [];
+  let chosenCard = null;
+  let cardTimer = 0;
+  let scanning = false;
+  let saving = false;
+  const cardOf = () => cards.find(c => c.root === chosenCard) ?? (cards.length === 1 ? cards[0] : null);
 
   root.replaceChildren(el("div", { className: "cee-patch" }, [
     el("h1", { className: "cee-patch-title ui-sr-only", textContent: t("nav.patcher") }),
@@ -760,7 +778,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     usbPut.disabled = !can.download || !htReady();
     usbGet.disabled = can.busy;
     download.hidden = usbWay;
-    download.disabled = !can.download || !htReady();
+    download.disabled = !can.download || !htReady() || saving;
+    // in the app the card it finds comes first; it looks for one only while this step is on screen
+    const cardWay = saveWay() === "app" && !usbWay && !!can.download;
+    cardBox.hidden = !cardWay;
+    renderCards(cardWay);
+    watchCards(cardWay && !inWiz && view === 3);
     afraid.disabled = !can.test;
     // the update test runs the dropped file; it stands for the device only when it is made for the same Electribe
     afraid.hidden = !rehearsable() || !!flow.original;
@@ -1089,10 +1112,17 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     }
   }
 
-  /** The guide after the file is out: `usb` when the app wrote it to the card, else downloaded for the card. */
-  function buildDone(way = "card") {
+  /**
+   * The guide after the file is out: `usb` when the app wrote it to the card over USB, `sd` when it wrote it onto the
+   * mounted card, else saved for the card; `where` is the full path when the app knows it.
+   */
+  function buildDone(way = "card", where = null) {
     const folder = targetFolder();
     onTarget(folder);
+    const saved = way === "card" ? el("p", { id: "cee-patch-saved" }, where
+      ? tNodes("patcher.done.savedAt", { path: el("code", { textContent: where }) })
+      : [t("patcher.done.saved")]) : null;
+    const onCard = () => tNodes("patcher.done.card.vsb", { file: el("code", { textContent: "SYSTEM.VSB" }), path: el("code", { textContent: where ?? "" }) });
     const backup = el("li", { id: "cee-patch-guide-backup" }, tNodes("patcher.done.backup", { patterns: el("a", { className: "cee-text-link", href: "#patterns", textContent: t("rescue.link.patterns") }) }));
     if (flow.original) {
       // back to Korg's: the file alone in the running firmware's folder, afterwards Korg's firmware reads its own folder again
@@ -1100,9 +1130,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       const from = wiz.firmware === "ht" ? sampleFolder("hacktribe") : `KORG/${BLECH_FOLDER}/`;
       done.replaceChildren(
         el("h2", { textContent: t("patcher.done.original.title") }),
+        ...[saved].filter(Boolean),
         el("ol", { className: "cee-patch-guide" }, [
           backup,
-          el("li", { id: "cee-patch-guide-vsb" }, tNodes("patcher.done.original.vsb", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: folder }) })),
+          el("li", { id: "cee-patch-guide-vsb" }, way === "sd" ? onCard() : tNodes("patcher.done.original.vsb", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: folder }) })),
           el("li", { textContent: t("patcher.done.insert") }),
           el("li", { textContent: t("patcher.done.update") }),
           el("li", { textContent: t("patcher.done.power") }),
@@ -1123,6 +1154,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     }));
     done.replaceChildren(
       el("h2", { textContent: t("patcher.done.title") }),
+      ...[saved].filter(Boolean),
       el("ol", { className: "cee-patch-guide" }, [
         backup,
         moves && !asks ? copy("patcher.done.copy") : null,
@@ -1131,7 +1163,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
           folder: el("code", { textContent: DOOM_FOLDER }),
           licences: el("a", { className: "cee-text-link", id: "cee-patch-doom-licences", href: "third_party/doom/README.md", target: "_blank", rel: "noopener noreferrer", textContent: t("patcher.done.doom.licences") }),
         })) : null,
-        el("li", { id: "cee-patch-guide-vsb" }, tNodes(way === "usb" ? "patcher.done.usb.vsb" : moves ? "patcher.done.vsb.moved" : "patcher.done.vsb", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: folder }) })),
+        el("li", { id: "cee-patch-guide-vsb" }, way === "sd" ? onCard() : tNodes(way === "usb" ? "patcher.done.usb.vsb" : moves ? "patcher.done.vsb.moved" : "patcher.done.vsb", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: folder }) })),
         way === "usb" ? null : el("li", { textContent: t("patcher.done.insert") }),
         way !== "usb" && folder === "KORG/electribe/System/" ? el("li", { textContent: t("patcher.done.only") }) : null,
         el("li", { textContent: t("patcher.done.update") }),
@@ -1205,11 +1237,99 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     }
   });
 
-  download.addEventListener("click", () => {
-    if (!passed || !allowed(flow).download || !htReady()) return;
-    saveFile(passed, "SYSTEM.VSB");
-    dispatch({ type: "downloaded" });
-    buildDone();
+  function drawPick() {
+    const card = cardOf();
+    cardPick.replaceChildren(...(cards.length > 1 ? cards.map(c => {
+      const input = el("input", { type: "radio", name: "cee-patch-sd", value: c.root, checked: c === card });
+      input.addEventListener("change", () => { chosenCard = c.root; renderCards(true); });
+      return el("label", { className: "cee-patch-sd-choice" }, [input, el("span", { textContent: c.path })]);
+    }) : []));
+  }
+
+  function renderCards(on) {
+    const card = on ? cardOf() : null;
+    cardLead.textContent = t(!cards.length ? "patcher.card.none" : cards.length > 1 ? "patcher.card.several" : "patcher.card.found");
+    cardPick.hidden = cards.length < 2;
+    cardPath.hidden = !card;
+    cardPath.textContent = card?.path ?? "";
+    cardOver.hidden = !card?.vsbExists;
+    cardSystem.hidden = !card || card.systemExists;
+    cardSave.hidden = !card;
+    cardSave.disabled = !card || saving || !allowed(flow).download || !htReady();
+    // with a card found the dialog is the second way; without, the save button stays the main action
+    download.textContent = t(card ? "patcher.save.elsewhere" : saveWay() === "download" ? "patcher.download" : "patcher.save");
+    download.classList.toggle("cee-primary", !card);
+    download.classList.toggle("lg", !card);
+    download.classList.toggle("cee-patch-download", !card);
+  }
+
+  async function scanCards() {
+    // a tab in the back looks for nothing
+    if (scanning || !root.getClientRects().length) return;
+    scanning = true;
+    let found;
+    try { found = await findCards(targetFolder()); } catch { found = []; } finally { scanning = false; }
+    if (!cardTimer || sameCards(found, cards)) return;
+    cards = found;
+    if (!cards.some(c => c.root === chosenCard)) chosenCard = null;
+    drawPick();
+    renderCards(!cardBox.hidden);
+  }
+
+  /** Looks for the card about every 2 s while the save step is up, so a card put in later shows by itself. */
+  function watchCards(on) {
+    if (on && !cardTimer) {
+      cardTimer = setInterval(scanCards, 2000);
+      scanCards();
+    }
+    if (!on && cardTimer) {
+      clearInterval(cardTimer);
+      cardTimer = 0;
+      cards = [];
+      chosenCard = null;
+      drawPick();
+    }
+  }
+
+  download.addEventListener("click", async () => {
+    if (!passed || !allowed(flow).download || !htReady() || saving) return;
+    saveNote.hidden = true;
+    saving = true;
+    download.disabled = true;
+    try {
+      const out = await saveAs(passed, "SYSTEM.VSB", { download: saveFile });
+      if (!out.saved) {
+        saveNote.textContent = t("patcher.save.cancelled");
+        saveNote.hidden = false;
+        return;
+      }
+      dispatch({ type: "downloaded" });
+      buildDone("card", out.where);
+    } catch (e) {
+      toast(e?.message ?? String(e), "error");
+    } finally {
+      saving = false;
+      render();
+    }
+  });
+
+  cardSave.addEventListener("click", async () => {
+    const card = cardOf();
+    if (!card || !passed || !allowed(flow).download || !htReady() || saving) return;
+    saveNote.hidden = true;
+    saving = true;
+    cardSave.disabled = true;
+    try {
+      const where = await saveToCard(card, targetFolder(), passed);
+      dispatch({ type: "downloaded" });
+      buildDone("sd", where);
+    } catch (e) {
+      toast(t("patcher.card.failed", { error: e?.message ?? String(e) }), "error");
+    } finally {
+      saving = false;
+      render();
+      scanCards();
+    }
   });
 
   function showHint(folder) {

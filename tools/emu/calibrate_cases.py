@@ -1,5 +1,7 @@
 """The original contrast page with BLECHTRIBE's moving calibration picture."""
-from menu_cases import boot, go, KILL
+import struct
+
+from menu_cases import boot, go, KILL, STATE, S_AS
 
 GLOBALS = 0xC033E6A0
 DISPLAY = 0xC031B310
@@ -36,6 +38,7 @@ def cases(payload,flash=None):
     def add(name,ok,detail):
         out.append({'id':'menu:display_calibration_'+name,'ok':bool(ok),'detail':detail})
     dev=boot(payload,flash)
+    dev.m.uc.mem_write(STATE+S_AS,struct.pack('<I',0))   # AUTO SAVE off: compared with the firmware alone (EXIT held), which saves nothing on leaving
     contrast_page(dev)
     ptr=dev.u32(GLOBALS)
     before=dev.read(ptr+4,256)

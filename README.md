@@ -83,6 +83,7 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Schnell speichern (EXIT + WRITE), Part zurücksetzen (EXIT + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | KEY über die Pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Filter an und aus (SHIFT + Filtertaste) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Einstellungen speichern sich beim Verlassen des Menüs (AUTO SAVE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Akkorde in Pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Notenassistent | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -297,8 +298,8 @@ Ein falscher Schreibzugriff oder eine fehlerhafte Firmware kann das Gerät häng
   DATA UTILITY, SOFTWARE UPDATE lässt sich eine andere Firmware aufspielen. Das gilt nur für diesen
   Start.
 - **Sichern, bevor du etwas änderst:** die SD-Karte (Samples, Patterns, die originale `SYSTEM.VSB`)
-  und die Global-Einstellungen. Ausschalten und WRITE speichern, was gerade im RAM steht, schalte
-  also bei einer Abweichung nicht aus.
+  und die Global-Einstellungen. Ausschalten, WRITE und mit AUTO SAVE das Verlassen von GLOBAL PARAMETERS
+  speichern, was gerade im RAM steht, schalte also bei einer Abweichung nicht aus.
 - **Zurück:** die gesicherte Original-`SYSTEM.VSB` wieder aufspielen. Wie das geübt wurde, steht in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
 - **Wenn das Gerät nicht mehr startet:** die Seite "Rettung" im Editor fragt, was du siehst, und führt

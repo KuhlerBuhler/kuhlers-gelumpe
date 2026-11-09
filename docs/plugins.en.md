@@ -338,7 +338,8 @@ it. Not a leaf: the actions of the pages (SPLASH IMPORT, DRAW and RESET, the exp
 its own runtime off would leave the device without plugins at the next start) and SYNC GROUP (a setting of the pattern).
 
 **RAM only, until WRITE.** The values act at once but live in RAM only. They reach the card with WRITE on a page of the menu
-BLECH (the file `settings.a.bin` or `settings.b.bin`), not before; after a restart the last written state applies. The
+BLECH (the file `settings.a.bin` or `settings.b.bin`), not before; after a restart the last written state applies. With AUTO SAVE,
+leaving the menu BLECH writes the file too when the settings changed since it was opened. The
 exception is SET INIT PATTERN: it lives in the firmware's Global settings, which the device saves at switch-off.
 `korg.menu.blech.write()` writes the settings file from a plugin, as WRITE does. It only asks: the write happens a moment
 later, only while the main screen or BLECH is open, and at the earliest 2 seconds after the last write, further calls before
@@ -375,7 +376,8 @@ firmware function. Measured in the emulator on hacktribe, Korg red and Korg blue
 ([measurement](messungen/2026-11-05-plugin-api20-globals.md), German); not on the device.
 
 **Saving.** There is no call for it. The firmware saves the globals when the device is switched off and on WRITE on the page
-GLOBAL PARAMETERS, as it also keeps the last pattern. A value a plugin set therefore stays over the next restart, even if the
+GLOBAL PARAMETERS, as it also keeps the last pattern. With BLECH > FEATURES > AUTO SAVE it also saves them when someone
+leaves GLOBAL PARAMETERS and the values differ from the saved state ([measurement](messungen/2026-11-09-auto-save.md), German). A value a plugin set therefore stays over the next restart, even if the
 plugin no longer runs then. A plugin that only wants to change the user's setting for a while sets it back, like the
 brightness example above.
 
@@ -980,7 +982,7 @@ page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
-| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD (table below) |
+| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD, plus AUTO SAVE (table below) |
 | PLUGINS | ENTER opens the list of the plugins (MANAGE PLUGINS) straight away; see below |
 | CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
@@ -1041,6 +1043,7 @@ The pages of the groups:
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 | FEATURES, LAST PATTERN | ON, OFF | ON: at power-on the Electribe opens the pattern that was selected before switching off; OFF: it starts with 001 as in the firmware, the kept number stays for a start with ON; applies from the next power-on, WRITE keeps it (bit 3 of byte 5 of the settings file means OFF); without a file ON; EXIT at power-on: 001; red and blue, where the set has the patch last-pattern |
 | FEATURES, STEREO 1 PAD | ON, OFF | ON: a stereo sample takes only its own pad and plays there on one voice, the pad next to it plays its own sample; OFF: as in the firmware, a stereo sample on pad 1, 3, ... also takes the next pad; applies at once, WRITE keeps it (bit 2 of byte 5 of the settings file means OFF); ON without a file; EXIT held at power-on: as in the firmware; only where the set has the patch stereo-pad (red) ([measurement](messungen/2026-10-29-stereo-ein-pad.md)) |
+| FEATURES, AUTO SAVE | ON, OFF | ON: leaving GLOBAL PARAMETERS (or PLUGIN RUNTIME behind it) after changing a value there saves the Global values with the same request WRITE sends there (the firmware shows its "Writing..." window for about a second, as after WRITE); leaving the BLECH menu after changing a setting writes the settings file as WRITE does; nothing changed means nothing is written, patterns stay with WRITE; OFF: only WRITE saves, as in the firmware; acts at once, ON is the default (also without a file); OFF is bit 7 of byte 5 of the settings file, a BLECH before 1.5 rejects a file with that bit; switching AUTO SAVE itself off is kept by WRITE only ([measurement](messungen/2026-11-09-auto-save.md), German) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY, 1 to 250 | the pattern DATA UTILITY > INITIALIZE PATTERN takes as its template; FACTORY is the firmware's template; applies at once and stays after switching off (Global byte 247, no WRITE needed); only where the set has the patch init-pattern (red) ([measurement](messungen/2026-10-28-init-pattern.md)) |
 
 Feedback ("saved", "no card", "imported", "2 exported" and so on) replaces the value of the page until you
@@ -1049,7 +1052,7 @@ column 28 of the value line on every screen, so any value wider than one or two 
 The menu therefore never uses it. What a page says goes into the value, which holds about 14 characters;
 the title holds about 18.
 
-On the page PLUGIN RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE saves the
+On the page PLUGIN RUNTIME, the pages of FEATURES, the pages of CUSTOMIZATION, and for the approval of foreign plugins, WRITE (with AUTO SAVE also leaving the menu after a change) saves the
 settings to `KORG/blechtribe/settings.a.bin` and `settings.b.bin`, which take turns with a generation
 number (24 to 280 bytes, tag `GSET`, version 3, then a byte with METER LOUD RAINBOW in bit 0, which a BLECH before 1.3 rejects; at most 64 entries (version 2 up to 1.3.7 held at most 16; a BLECH up to 1.3.7 does not read version 3, it takes an older version 2 file still on the card or the defaults); files of version 2 and 1 are still read and written as version 3 at the next WRITE; the same list holds the inverted checksum of every plugin switched off, which an older BLECH reads as a checksum that never matches; when the list is full, the oldest entry that belongs to no loaded plugin drops out first (a plugin no longer on the card, or an older build of one), otherwise an approval drops the oldest entry of all; a marker that finds no room is missing and the plugin runs again after a restart).
 Without a file, without a card or with a damaged file the defaults apply (everything on, customization at

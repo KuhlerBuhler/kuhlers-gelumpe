@@ -107,7 +107,9 @@ case modules your change touches; CI runs the rest (see below). The blue Electri
 - Device menu paths are written as `Menü -> BLECH -> CUSTOMIZATION`, app paths by the sidebar group:
   `BLECHTRIBE -> Baukasten`.
 - The firmware writes its settings to the SD card (`KORG/blechtribe/`), not to the flash. Do not add
-  flash writes. The app sends no usage data anywhere. **The editor never gets a design system page**,
+  flash writes. AUTO SAVE only triggers the firmware's own save of the Global values into its own
+  sector, the path WRITE and power-off use; that sector is written more often, and its wear on a device
+  is not measured ([docs/messungen/2026-11-09-auto-save.md](docs/messungen/2026-11-09-auto-save.md)). The app sends no usage data anywhere. **The editor never gets a design system page**,
   no overview of all components. `test/design.test.mjs` holds that.
 - A new linter rule has a severity and a message that says what was observed. Not seen on
   hardware yet means `warn`, not `error` ([docs/linter.md](docs/linter.md)).
@@ -132,7 +134,7 @@ Docs state what holds now; before and after belong in commits and release notes.
 ## Firmware patches
 
 - **Core features are built into the firmware**, with a switch under `Menü -> BLECH -> FEATURES`
-  (Key Pads, Filter Toggle, LAST PATTERN, STEREO 1 PAD). A catalog plugin is for extras, not
+  (Key Pads, Filter Toggle, LAST PATTERN, STEREO 1 PAD, AUTO SAVE). A catalog plugin is for extras, not
   for playing features. Screens use the firmware's own look: its value window for a value, the file
   browser for a list, never a hand-drawn screen.
 - A new patch is `tools/patch/<name>.py` (builder), `data/patches/<name>.json` (and `-synth.json` for
