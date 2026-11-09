@@ -291,6 +291,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Vorschau: die Pads gehören dem angesehenen Pattern, Mutes gehen beim Wechsel mit](2026-10-29-vorschau-pads.md)
 - [Vorschau: ein gedrückter Part kommt mit Copy Part ins laufende Pattern](2026-10-30-vorschau-part-reinholen.md)
 - [Vorschau: die Pads der Parts, die im angesehenen Pattern an sind, blinken](2026-11-02-vorschau-pads-blinken.md)
+- [Vorschau: schnelles Blättern hält mit der Firmware mit, ein Neuzeichnen statt eines je Klick, im Emulator](2026-11-09-pattern-schritte.md)
 - [Part-Werte schreiben wie ein Regler, Steps kopieren und speichern (API 14)](2026-11-02-part-werte-schreiben.md)
 - [Hacktribe und die Samples: Quellen, Befunde, offene Fragen](2026-11-06-hacktribe-samples.md)
 - [Hacktribe-Oszillatoren auf den freien Plätzen 422 bis 497 der roten Firmware](2026-11-08-ht-osc-freie-plaetze.md)
