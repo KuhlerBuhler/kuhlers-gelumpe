@@ -13,7 +13,7 @@ import { recogniseBlech } from "../../src/blech-update.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
-import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim, restoreOriginal, canRestore } from "../../src/patcher.mjs";
+import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim, restoreOriginal, canRestore, runsHacktribe, runningFolder, goalsFor, goalMismatch, korgBlueForSampler } from "../../src/patcher.mjs";
 import { LOADING_ANIM_ID } from "../../src/loading-anim.mjs";
 import { storedAnimation } from "./loading-anim.mjs";
 import { testFailure } from "../../data/rescue.mjs";
@@ -31,6 +31,13 @@ const pill = (tone, word) => {
 };
 
 const tick = () => new Promise(r => setTimeout(r, 0));
+
+/** The tick on the corner of a chosen card, drawn by patcher.css only while the card is chosen. */
+const mark = () => {
+  const m = el("span", { className: "cee-patch-mark" }, [icon("check")]);
+  m.setAttribute("aria-hidden", "true");
+  return m;
+};
 
 /** What the verdict line says for a file that cannot be patched or is ready. */
 /** What the dropped file was taken for, after its name in the field. */
@@ -86,6 +93,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let knownReleases;            // data/known-releases.json, loaded when a file with BLECH is taken; null when it cannot be had
   let pending = null;          // a file with BLECH on it, waiting for Korg's own to rebuild the original from: { bytes, usb }
   let usb = null;               // the file came over USB: { fromOriginal }; null for a dropped file (then the unpatched one goes to the card too)
+  let taken = null;             // what classify made of the file taken last, to take it anew when the goal changes
 
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-file", accept: ".VSB,.vsb" });
   const fileInfo = el("span", { className: "ui-dropzone-files", id: "cee-patch-file-info" });
@@ -134,6 +142,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const korgLead = el("p", { className: "cee-patch-lead", id: "cee-patch-korg-lead" });
   // Why Weiter waits on the first step: neither the licence for Korg's file nor a file of the user's own.
   const korgHint = el("p", { className: "muted", id: "cee-patch-korg-hint", textContent: t("patcher.korg.nextHint"), hidden: true });
+  // A file that does not fit the goal the wizard named: Weiter waits, the toast said why when it came in.
+  const goalHint = el("p", { className: "muted", id: "cee-patch-goal-hint", textContent: t("patcher.goal.hint"), hidden: true });
+  // The update over the SD card: the file from the card goes into the field, nothing from Korg.
+  const updateLead = el("p", { className: "cee-patch-lead", id: "cee-patch-update-lead", hidden: true });
   const korg = el("div", { className: "cee-patch-korg", id: "cee-patch-korg" }, [
     korgLead,
     el("ul", { className: "cee-entry-steps", id: "cee-patch-firmware" }, korgCards.map(c => c.li)),
@@ -167,8 +179,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const deviceInputs = [["red", t("patcher.device.red")], ["blue", t("patcher.device.blue")]].map(([value, name]) => {
     const radio = el("input", { type: "radio", name: "cee-patch-device", value, className: "ui-sr-only" });
     radio.addEventListener("change", () => { if (radio.checked) chooseDevice(value); });
-    const card = el("label", { className: "cee-entry-step cee-device-card cee-patch-device-card" }, [
-      radio, e2Outline(name), el("span", { className: "cee-device-card-text" }, [el("strong", { textContent: name })]),
+    const card = el("label", { className: "cee-entry-step cee-device-card cee-patch-device-card cee-patch-card" }, [
+      radio, e2Outline(name), el("span", { className: "cee-device-card-text" }, [el("strong", { textContent: name })]), mark(),
     ]);
     card.dataset.device = value;
     return { value, radio, label: el("li", {}, [card]) };
@@ -204,10 +216,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   ]);
   const withHacktribe = el("input", { type: "checkbox", id: "cee-patch-hacktribe-use" });
   withHacktribe.addEventListener("change", () => chooseRoute(withHacktribe.checked ? "hacktribe" : "direct"));
-  const routeBox = el("section", { className: "cee-patch-choice", id: "cee-patch-route", hidden: true }, [
-    el("label", { className: "cee-check" }, [withHacktribe, el("span", { textContent: t("patcher.route.hacktribe") })]),
-    el("p", { className: "muted", id: "cee-patch-route-note", textContent: t("patcher.route.note") }),
-  ]);
+  const routePick = el("label", { className: "cee-check", id: "cee-patch-route-pick" }, [withHacktribe, el("span", { textContent: t("patcher.route.hacktribe") })]);
+  const routeNote = el("p", { className: "muted", id: "cee-patch-route-note", textContent: t("patcher.route.note") });
+  const routeBox = el("section", { className: "cee-patch-choice", id: "cee-patch-route", hidden: true }, [routePick, routeNote]);
   const patchInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-hacktribe-file" });
   const patchInfo = el("span", { className: "ui-dropzone-files", id: "cee-patch-hacktribe-info" });
   const patchDrop = el("label", { className: "ui-dropzone" }, [
@@ -230,20 +241,22 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     ["full", "patcher.test.full", "patcher.test.full.note"],
   ];
   let testChoice = "quick";
-  const testInputs = TESTS.map(([value, text]) => {
-    const radio = el("input", { type: "radio", name: "cee-patch-test", value, checked: value === testChoice });
+  /** A list item inside a radiogroup is only layout: role none, so the group holds its radios directly. */
+  const choiceItem = children => { const li = el("li", {}, children); li.setAttribute("role", "none"); return li; };
+  // the same cards as every choice of the patcher: the chosen one framed in the accent with a tick on its corner
+  const testInputs = TESTS.map(([value, text, sub]) => {
+    const radio = el("input", { type: "radio", name: "cee-patch-test", value, checked: value === testChoice, className: "ui-sr-only" });
     radio.addEventListener("change", () => { if (radio.checked) { testChoice = value; render(); } });
-    return { value, radio, label: el("label", { className: "ui-segmented-option" }, [radio, el("span", { textContent: t(text) })]) };
+    return { value, radio, label: choiceItem([el("label", { className: "cee-entry-step cee-patch-card" }, [radio, el("strong", { textContent: t(text) }), el("span", { textContent: t(sub) }), mark()])]) };
   });
-  const testGroup = el("div", { className: "ui-segmented", id: "cee-patch-test" }, testInputs.map(input => input.label));
+  const testGroup = el("ul", { className: "cee-entry-steps", id: "cee-patch-test" }, testInputs.map(input => input.label));
   testGroup.setAttribute("role", "radiogroup");
   testGroup.setAttribute("aria-label", t("patcher.test.title"));
-  const testNote = el("p", { className: "muted", id: "cee-patch-test-note" });
   const consent = el("input", { type: "checkbox", id: "cee-patch-consent" });
   consent.addEventListener("change", () => render());
   const consentBox = el("label", { className: "cee-patch-consent", id: "cee-patch-consent-box", hidden: true }, [consent,
     el("span", { textContent: t("patcher.consent") })]);
-  const testBox = el("div", { className: "cee-patch-test-box", id: "cee-patch-test-box" }, [el("h2", { className: "cee-patch-usb-title", textContent: t("patcher.test.title") }), testGroup, testNote, consentBox]);
+  const testBox = el("div", { className: "cee-patch-test-box", id: "cee-patch-test-box" }, [el("h2", { className: "cee-patch-usb-title", textContent: t("patcher.test.title") }), testGroup, consentBox]);
   // Hacktribe takes the samples away (docs/messungen/2026-11-06-hacktribe-samples.md): the way on waits for the box.
   const htAck = el("input", { type: "checkbox", id: "cee-patch-ht-ack" });
   htAck.addEventListener("change", () => render());
@@ -286,18 +299,17 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     untested,
     ...tNodes("patcher.after", { rescue: el("a", { className: "cee-text-link", id: "cee-patch-rescue", href: "#rescue", textContent: t("nav.rescue") }) }),
   ]);
-  const target = el("div", { className: "cee-patch-target", id: "cee-patch-target" }, [
-    el("p", { className: "cee-patch-lead", textContent: t("patcher.target") }),
-    targetPath,
-    el("p", { className: "muted", id: "cee-patch-target-not", textContent: t("patcher.target.not") }),
-    after,
-  ]);
+  const targetLead = el("p", { className: "cee-patch-lead", id: "cee-patch-target-lead" });
+  const targetNot = el("p", { className: "muted", id: "cee-patch-target-not", textContent: t("patcher.target.not") });
+  const originalHead = el("p", { className: "muted", id: "cee-patch-original-head", textContent: t("patcher.original.head"), hidden: true });
+  const target = el("div", { className: "cee-patch-target", id: "cee-patch-target" }, [targetLead, targetPath, targetNot, originalHead, after]);
   const afraid = el("button", { type: "button", className: "btn", id: "cee-patch-afraid", textContent: t("patcher.afraid"), disabled: true });
   const result = el("div", { className: "actions cee-patch-result", id: "cee-patch-result", hidden: true }, [download, usbPut, afraid]);
   const done = el("section", { className: "cee-patch-done", id: "cee-patch-done", hidden: true });
 
-  // The wizard in front of the way: which Electribe, which firmware runs on it, then what to do. Its answers pick
-  // what step 1 shows and set the route and the device the existing flow needs; a file dropped anywhere skips it.
+  // The wizard in front of the way: which Electribe, which firmware runs on it, then what to do. A card only chooses,
+  // Weiter goes on. The answers pick what step 1 shows, set the route and the device the flow needs, and take out of
+  // the later steps what they ruled out (goalsFor, goalMismatch). A file dropped without them (tests) shows everything.
   const wiz = { step: 0, device: null, firmware: null, goal: null };
   /** The step where the way begins, after the wizard's three pages. */
   const WAY = 3;
@@ -305,8 +317,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const WIZ_DEVICES = [
     ["blue", "blue", "patcher.device.blue", "patcher.wiz.synth"],
     ["red", "red", "patcher.device.red", "patcher.wiz.sampler"],
-    ["grey", "blue", "patcher.wiz.grey", "patcher.wiz.synth.first"],
-    ["black", "red", "patcher.wiz.black", "patcher.wiz.sampler.first"],
+    ["grey", "blue", "patcher.wiz.grey", "patcher.wiz.synth"],
+    ["black", "red", "patcher.wiz.black", "patcher.wiz.sampler"],
   ];
   const WIZ_FIRMWARES = {
     korg: ["patcher.wiz.fw.korg", () => "patcher.wiz.korg"],
@@ -315,46 +327,81 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     blechHt: ["patcher.wiz.fw.blechHt", () => "patcher.wiz.fw.blechHt.note"],
   };
   const hwOf = () => (WIZ_DEVICES.find(d => d[0] === wiz.device)?.[1] ?? "red");
-  const hasHt = () => wiz.firmware === "ht" || wiz.firmware === "blechHt";
-  const needsHt = () => hasHt() || wiz.goal === "blechHt";
+  /** Hacktribe runs on the Electribe now, by the wizard's second page. */
+  const hasHt = () => runsHacktribe(wiz.firmware);
+  /** The goal is BLECH with Hacktribe. */
+  const wantsHt = () => wiz.goal === "blechHt";
+  /** The goal builds BLECH from a firmware file: with or without Hacktribe. */
   const patching = () => wiz.goal === "blech" || wiz.goal === "blechHt";
-  const pickList = (id, label, items) => {
-    const ul = el("ul", { className: "cee-entry-steps", id }, items);
-    ul.setAttribute("aria-label", label);
-    return ul;
-  };
-  const wizDevices = pickList("cee-patch-wiz-devices", t("patcher.wiz.device"), WIZ_DEVICES.map(([id, , name, sub]) => {
-    const b = el("button", { type: "button", className: "cee-entry-step cee-device-card cee-patch-pick", id: `cee-patch-wiz-${id}` }, [
-      e2Outline(t(name)), el("span", { className: "cee-device-card-text" }, [el("strong", { textContent: t(name) }), el("span", { textContent: t(sub) })]),
-    ]);
-    b.dataset.device = id;
-    b.addEventListener("click", () => { wiz.device = id; wiz.firmware = null; wiz.goal = null; wizGo(1); });
-    return el("li", {}, [b]);
-  }));
-  const wizFirmwares = pickList("cee-patch-wiz-firmwares", t("patcher.wiz.firmware"), []);
-  function renderFirmwares() {
-    wizFirmwares.replaceChildren(...Object.entries(WIZ_FIRMWARES).map(([id, [name, sub]]) => {
-      const b = el("button", { type: "button", className: "cee-entry-step cee-patch-pick", id: `cee-patch-wiz-fw-${id}` }, [el("strong", { textContent: t(name) }), el("span", { textContent: t(sub()) })]);
-      b.addEventListener("click", () => { wiz.firmware = id; wiz.goal = null; wizGo(2); });
-      return el("li", {}, [b]);
-    }));
-  }
-  const wizGoals = pickList("cee-patch-wiz-goals", t("patcher.wiz.goal"), []);
+  const isOriginal = () => wiz.goal === "original";
+  const overUsb = () => wiz.goal === "updateUsb";
+  const isUpdate = () => wiz.goal === "updateUsb" || wiz.goal === "updateCard";
   const GOALS = {
-    blech: ["patcher.wiz.blech", () => (hasHt() ? "patcher.wiz.becomes.ht" : "patcher.wiz.becomes")],
-    blechHt: ["patcher.wiz.blechHt", () => "patcher.wiz.becomes.ht"],
-    update: ["patcher.wiz.update", () => "patcher.wiz.update.note"],
+    blech: ["patcher.wiz.blech", () => (hasHt() ? "patcher.wiz.blech.dropHt" : "patcher.wiz.becomes")],
+    blechHt: ["patcher.wiz.blechHt", () => (hasHt() ? "patcher.wiz.becomes.onHt" : "patcher.wiz.becomes.ht")],
+    updateUsb: ["patcher.wiz.updateUsb", () => "patcher.wiz.updateUsb.note"],
+    updateCard: ["patcher.wiz.updateCard", () => "patcher.wiz.updateCard.note"],
+    original: ["patcher.wiz.original", () => "patcher.wiz.original.note"],
   };
-  // what fits the firmware on it: the update only where BLECH runs, Hacktribe on top of Hacktribe is the same file
-  const GOALS_FOR = { korg: ["blech", "blechHt"], ht: ["blech"], blech: ["update", "blech", "blechHt"], blechHt: ["update", "blech"] };
+
+  /** A group of cards to choose one from (role radiogroup): the arrow keys move the choice, Space and Enter take it. */
+  function choiceGroup(id, label) {
+    const ul = el("ul", { className: "cee-entry-steps", id });
+    ul.setAttribute("role", "radiogroup");
+    ul.setAttribute("aria-label", label);
+    ul.addEventListener("keydown", e => {
+      const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+      if (!step) return;
+      const cards = [...ul.querySelectorAll("[role=radio]:not([aria-disabled=true])")];
+      const at = cards.indexOf(document.activeElement);
+      if (at < 0) return;
+      e.preventDefault();
+      const to = cards[(at + step + cards.length) % cards.length];
+      to.focus();
+      to.click();
+    });
+    return ul;
+  }
+  /** One card of a group: chooses `value` with `onPick`; a `locked` one says why it cannot be chosen and takes no click. */
+  function choiceCard(id, value, children, onPick, { device, locked } = {}) {
+    const b = el("button", { type: "button", className: `cee-entry-step cee-patch-pick${device ? " cee-device-card" : ""}`, id }, [...children, mark()]);
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-checked", "false");
+    b.dataset.value = value;
+    if (device) b.dataset.device = device;
+    if (locked) b.setAttribute("aria-disabled", "true");
+    b.addEventListener("click", () => { if (!locked) { onPick(value); render(); } });
+    return choiceItem([b]);
+  }
+  /** The chosen card of a group checked, and the one the Tab key lands on: the chosen one, else the first that can be chosen. */
+  function markChoices(ul, chosen) {
+    const cards = [...ul.querySelectorAll("[role=radio]")];
+    const first = cards.find(c => c.dataset.value === chosen) ?? cards.find(c => c.getAttribute("aria-disabled") !== "true");
+    for (const c of cards) {
+      c.setAttribute("aria-checked", String(c.dataset.value === chosen));
+      c.tabIndex = c === first ? 0 : -1;
+    }
+  }
+  const cardText = (name, sub) => [el("strong", { textContent: t(name) }), el("span", { textContent: t(sub) })];
+
+  const wizDevices = choiceGroup("cee-patch-wiz-devices", t("patcher.wiz.device"));
+  wizDevices.replaceChildren(...WIZ_DEVICES.map(([id, , name, sub]) => choiceCard(`cee-patch-wiz-${id}`, id,
+    [e2Outline(t(name)), el("span", { className: "cee-device-card-text" }, cardText(name, sub))],
+    value => { if (wiz.device !== value) { wiz.device = value; wiz.firmware = null; wiz.goal = null; } }, { device: id })));
+  const wizFirmwares = choiceGroup("cee-patch-wiz-firmwares", t("patcher.wiz.firmware"));
+  function renderFirmwares() {
+    wizFirmwares.replaceChildren(...Object.entries(WIZ_FIRMWARES).map(([id, [name, sub]]) => choiceCard(`cee-patch-wiz-fw-${id}`, id,
+      cardText(name, sub()), value => { if (wiz.firmware !== value) { wiz.firmware = value; wiz.goal = null; } })));
+  }
+  const wizGoals = choiceGroup("cee-patch-wiz-goals", t("patcher.wiz.goal"));
   function renderGoals() {
-    wizGoals.replaceChildren(...(GOALS_FOR[wiz.firmware] ?? []).map(id => {
+    wizGoals.replaceChildren(...goalsFor(wiz.firmware, hwOf()).map(({ id, locked }) => {
       const [name, sub] = GOALS[id];
-      const b = el("button", { type: "button", className: "cee-entry-step cee-patch-pick", id: `cee-patch-wiz-${id}` }, [el("strong", { textContent: t(name) }), el("span", { textContent: t(sub()) })]);
-      b.addEventListener("click", () => pickGoal(id));
-      return el("li", {}, [b]);
+      return choiceCard(`cee-patch-wiz-${id}`, id, cardText(name, locked ?? sub()), value => { wiz.goal = value; }, { locked });
     }));
   }
+  /** What the page of the wizard asks has an answer that can be taken. */
+  const wizChosen = () => [wiz.device, wiz.firmware, wiz.goal][wiz.step] != null;
   const wizPanels = [
     [el("h2", { className: "cee-patch-ask", textContent: t("patcher.wiz.device") }), wizDevices, el("p", { className: "muted", id: "cee-patch-wiz-card", textContent: t("patcher.wiz.card") })],
     [el("h2", { className: "cee-patch-ask", textContent: t("patcher.wiz.firmware") }), wizFirmwares],
@@ -364,7 +411,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   // One panel per step of the way; Zurück and Weiter move between them, the flow decides how far Weiter may go.
   const panels = [
-    [usbBox, orLine, korg, drop, verdictBox],
+    [usbBox, orLine, updateLead, korg, drop, goalHint, verdictBox],
     [htWarn, blechBox, routeBox, deviceBox, plan, synthSet, blueHacktribe],
     [testBox, bar, note, groupList, failHelp, checksBox],
     [target, result, done],
@@ -382,8 +429,14 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     el("div", { className: "cee-patch-nav", id: "cee-patch-nav" }, [back, next, run]),
   ]));
 
+  /** The key of why the taken file does not fit the wizard's goal, or null. */
+  const mismatch = () => (wiz.goal ? goalMismatch(wiz.goal, flow, hwOf()) : null);
+  /** The steps of the way this goal goes: back to the original has nothing to patch or test. */
+  const views = () => (isOriginal() ? [0, 3] : [0, 1, 2, 3]);
+
   /** The furthest step the flow allows: a file taken opens step 2, the patches chosen step 3 (test and run), a passed copy step 4. */
   function reach() {
+    if (mismatch()) return 0;
     const p = flow.phase;
     if (p === "passed" || p === "downloaded") return 3;
     if (p === "needs-patch") return 1;
@@ -401,6 +454,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     wiz.step = to;
     if (to === 1) renderFirmwares();
     if (to === 2) renderGoals();
+    htWizWarn.hidden = true;
     if (to === WAY) view = 0;
     render();
     const panel = to < WAY ? wizPanels[to] : panels[view];
@@ -408,31 +462,47 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     panel.scrollIntoView?.({ block: "nearest" });
   }
 
-  /** The goal sets what step 1 offers, ticks the Hacktribe download when the target needs it and fits a file already taken. */
-  function pickGoal(goal) {
-    wiz.goal = goal;
+  /** Weiter on the goal: step 1 offers what it needs, the Hacktribe download is ticked when it needs that, a file taken fits it. */
+  function pickGoal() {
     htAck.checked = false;
-    fetchHt.checked = needsHt();
+    fetchHt.checked = wantsHt();
+    // a file that went back to Korg's original under another goal is taken anew
+    if (flow.original && !isOriginal() && taken) { passed = null; dispatch({ type: "input", input: taken }); }
     wizGo(WAY);
     fitFlow();
     if (fetchHt.checked) fetchHacktribe();
   }
 
-  /** Korg's original on the route the wizard asked for, a copy with Hacktribe for the Electribe it named. */
+  /** Korg's original on the route the goal asks for, a copy with Hacktribe for the Electribe the wizard named. */
   function fitFlow() {
-    if (!patching()) return;
-    if (stockFile && flow.origin === "stock") chooseRoute(needsHt() ? "hacktribe" : "direct");
-    if (choosesDevice(flow) && !cable) chooseDevice(hwOf());
+    if (!patching() && !isOriginal()) return;
+    if (stockFile && flow.origin === "stock") chooseRoute(wantsHt() ? "hacktribe" : "direct");
+    if (patching() && choosesDevice(flow) && !cable) chooseDevice(hwOf());
+    if (isOriginal()) makeOriginal();
+  }
+
+  /** Back to Korg's firmware: Korg's own file as it is, on the blue under Hacktribe with the Sampler head its update takes. */
+  async function makeOriginal() {
+    if (flow.phase !== "ready" || mismatch()) return;
+    let bytes = input;
+    if (hwOf() === "blue" && hasHt()) {
+      const res = await korgBlueForSampler(input);
+      if (!res.ok) { toast(t("patcher.goal.wrong.original", { device: t(`patcher.device.${hwOf()}`) }), "error"); return; }
+      bytes = res.bytes;
+    }
+    passed = bytes;
+    dispatch({ type: "original" });
   }
 
   back.addEventListener("click", () => {
     if (allowed(flow).busy) return;
     if (wiz.step < WAY) { if (wiz.step > 0) wizGo(wiz.step - 1); return; }
-    if (view > 0) go(view - 1);
+    const at = views().indexOf(view);
+    if (at > 0) go(views()[at - 1]);
     else wizGo(wiz.goal ? 2 : 0);
   });
-  /** The Electribe whose Korg file step 1 loads: the red one for any Hacktribe, else the one the wizard named. */
-  const korgDevice = () => (patching() && needsHt() ? "red" : hwOf());
+  /** The Electribe whose Korg file step 1 loads: the red one for Hacktribe, else the one the wizard named. */
+  const korgDevice = () => (wantsHt() ? "red" : hwOf());
   /** Weiter on step 1 loads Korg's file: only with the licence, and never over a file the user gave (or one waiting). */
   const loadsKorg = () => wiz.step === WAY && view === 0 && reach() === 0 && !flow.input && !pending && !korg.hidden && licence.checked;
 
@@ -443,17 +513,29 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     toast(t("patcher.korg.started"), "info");
   }
 
+  /** The next step of the way, when the flow allows it. */
+  const goOn = () => {
+    const to = views()[views().indexOf(view) + 1];
+    if (to !== undefined && to <= reach()) go(to);
+  };
+
   next.addEventListener("click", async () => {
-    if (wiz.step !== WAY || allowed(flow).busy) return;
+    if (wiz.step < WAY) {
+      if (!wizChosen()) return;
+      if (wiz.step === 2) pickGoal();
+      else wizGo(wiz.step + 1);
+      return;
+    }
+    if (allowed(flow).busy) return;
     if (loadsKorg()) {
       if (!native()) { downloadKorg(korgDevice()); return; }
       next.disabled = true;
       await fromKorg(korgDevice());
       render();
-      if (view < reach()) go(view + 1);
+      goOn();
       return;
     }
-    if (view < reach()) go(view + 1);
+    goOn();
   });
 
   async function loadPatches(build = input ? buildOf(input) : "hacktribe") {
@@ -531,8 +613,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     const checking = flow.phase === "checking";
     if (checking && !clockTimer) startClock();
     if (!checking) { stopClock(); groupList.hidden = true; }
-    // an untested copy has no bar and no "bestanden": nothing ran
-    const passed_ = (flow.phase === "passed" || flow.phase === "downloaded") && !flow.untested;
+    // an untested copy has no bar and no "bestanden": nothing ran; Korg's original is no copy of the patcher at all
+    const passed_ = (flow.phase === "passed" || flow.phase === "downloaded") && !flow.untested && !flow.original;
     bar.hidden = !(can.busy || passed_);
     bar.dataset.tone = passed_ ? "ok" : "";
     if (passed_) window.ui?.setProgress(bar, 100, t("patcher.progress.label"), { valueText: t("patcher.check.ok") });
@@ -557,37 +639,55 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   function render() {
     const can = allowed(flow);
     view = Math.min(view, reach());
-    way.replaceChildren(...wayOf(flow).map((s, i) => {
+    // the way shows the steps this goal goes, numbered as they come
+    const shown = views();
+    way.replaceChildren(...wayOf(flow).flatMap((s, i) => {
+      if (!shown.includes(i)) return [];
       const state = s.state === "error" ? "error" : i === view ? "current" : i < reach() || s.state === "done" ? "done" : "todo";
-      const li = el("li", { className: "cee-patch-way-step" }, [el("span", { className: "cee-patch-way-n", textContent: state === "done" ? "✓" : String(i + 1) }), el("span", { textContent: t(s.label) })]);
+      const li = el("li", { className: "cee-patch-way-step" }, [el("span", { className: "cee-patch-way-n", textContent: state === "done" ? "✓" : String(shown.indexOf(i) + 1) }), el("span", { textContent: t(s.label) })]);
       li.dataset.state = state;
       if (state === "current") li.setAttribute("aria-current", "step");
-      return li;
+      return [li];
     }));
     const inWiz = wiz.step < WAY;
     wizPanels.forEach((p, i) => { p.hidden = wiz.step !== i; });
+    markChoices(wizDevices, wiz.device);
+    markChoices(wizFirmwares, wiz.firmware);
+    markChoices(wizGoals, wiz.goal);
     way.hidden = inWiz;
     panels.forEach((p, i) => { p.hidden = inWiz || i !== view; });
-    // step 1 shows what the goal needs; without one (a file dropped on the first page) it shows everything
+    // Step 1 shows what the goal needs: the update over USB only the device's own file, the update over the card only
+    // the field for the card's file, the others Korg's file of the Electribe that fits. Without a goal (a file dropped
+    // before the wizard) it shows everything.
     const goal = wiz.goal;
-    usbBox.hidden = !!goal && goal !== "update";
-    orLine.hidden = usbBox.hidden;
-    orLine.textContent = t(goal === "update" ? "patcher.or.update" : "patcher.or");
-    korg.hidden = goal === "update" && !pending;
-    // from Korg's original the field takes the one file that fits: blue's own, or red's for any Hacktribe
-    dropHint.textContent = patching() && !hasHt()
-      ? t("patcher.drop.hint.korg", { device: t(needsHt() ? "patcher.device.red" : `patcher.device.${hwOf()}`) })
-      : t("patcher.drop.hint");
-    for (const c of korgCards) c.li.hidden = patching() && c.device !== (needsHt() ? "red" : hwOf());
-    fetchHtBox.hidden = !patching() || !needsHt();
-    korgLead.replaceChildren(...(patching()
-      ? tNodes(needsHt() ? "patcher.start.lead.hacktribe" : "patcher.start.lead", { file: el("code", { textContent: "SYSTEM.VSB" }) })
-      : tNodes("patcher.korg.lead", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: "KORG/…/System/" }) })));
+    const usbWay = overUsb();
+    // over USB the field and Korg's file come only when the device's own file needs them (a BLECH the app does not know)
+    const usbFallback = usbWay && (!!pending || flow.input?.kind === "blech");
+    usbBox.hidden = !!goal && !usbWay;
+    orLine.hidden = !!goal;
+    updateLead.hidden = goal !== "updateCard";
+    updateLead.replaceChildren(...tNodes("patcher.update.card.lead", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: runningFolder(wiz.firmware, hwOf()) }) }));
+    drop.hidden = usbWay && !usbFallback;
+    korg.hidden = isUpdate() && !pending;
+    // from Korg's original the field takes the one file that fits: the Electribe's own, or the red's for Hacktribe;
+    // only BLECH with Hacktribe onto a Hacktribe that runs takes the user's Hacktribe file as well
+    const korgOnly = isOriginal() || (patching() && !(wantsHt() && hasHt()));
+    dropHint.textContent = korgOnly ? t("patcher.drop.hint.korg", { device: t(`patcher.device.${korgDevice()}`) })
+      : isUpdate() && !pending ? t("patcher.drop.hint.update") : t("patcher.drop.hint");
+    for (const c of korgCards) c.li.hidden = (patching() || isOriginal()) && c.device !== korgDevice();
+    fetchHtBox.hidden = !wantsHt();
+    korgLead.replaceChildren(...(isOriginal()
+      ? tNodes("patcher.original.lead", { device: t(`patcher.device.${hwOf()}`), file: el("code", { textContent: "SYSTEM.VSB" }) })
+      : patching()
+        ? tNodes(wantsHt() ? "patcher.start.lead.hacktribe" : "patcher.start.lead", { file: el("code", { textContent: "SYSTEM.VSB" }) })
+        : tNodes("patcher.korg.lead", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: "KORG/…/System/" }) })));
     back.hidden = wiz.step === 0;
     back.disabled = can.busy;
-    next.hidden = inWiz || view === 3 || (view === 2 && reach() < 3);
-    next.disabled = can.busy || (view >= reach() && !loadsKorg()) || (view === 1 && !htReady());
+    // in the wizard Weiter waits for a choice; on the way it waits for what the flow needs
+    next.hidden = !inWiz && (view === 3 || (view === 2 && reach() < 3));
+    next.disabled = inWiz ? !wizChosen() : can.busy || (view >= reach() && !loadsKorg()) || (view === 1 && !htReady());
     korgHint.hidden = inWiz || view !== 0 || reach() > 0 || !!flow.input || !!pending || korg.hidden || licence.checked;
+    goalHint.hidden = inWiz || view !== 0 || !mismatch();
     planList.replaceChildren(...planItems().map(p => el("li", { textContent: t(p.label) })));
     blechInput.disabled = useLatest.checked || can.busy;
     blechDrop.toggleAttribute("data-disabled", useLatest.checked);
@@ -608,11 +708,15 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     // A new file brings a new verdict: the toast of the old one goes, so two verdicts never stand side by side.
     if ((v?.text ?? "") !== toldVerdict) { closeVerdict(); closeVerdict = v ? toast(v.text, v.tone === "error" ? "error" : "info", { stay: true, ...toRescue("normal:patch") }) : () => {}; }
     toldVerdict = v?.text ?? "";
-    routeBox.hidden = flow.origin !== "stock" || !!updating;
+    // the goal decides whether Hacktribe goes on: then only the field for hacktribe-2.patch is left of the route
+    routeBox.hidden = flow.origin !== "stock" || !!updating || (!!goal && flow.route !== "hacktribe");
+    routePick.hidden = !!goal;
+    routeNote.hidden = !!goal;
     htWarn.hidden = !installsHt();
-    htWizWarn.hidden = wiz.step !== 2 || !(wiz.firmware === "korg" || wiz.firmware === "blech");
+    // the goal page warns only once a goal is chosen that puts Hacktribe on an Electribe that does not run it
+    htWizWarn.hidden = wiz.step !== 2 || !wantsHt() || hasHt();
     synthSet.hidden = flow.origin !== "synth";
-    blueHacktribe.hidden = flow.origin !== "synth";
+    blueHacktribe.hidden = flow.origin !== "synth" || !!goal;
     // The wizard's first page already names the Electribe: asked again only when the file came in without it,
     // or when the file or the cable says another one than the user named.
     const named = !!wiz.device && flow.device === hwOf() && !(cable && cable !== flow.device);
@@ -634,9 +738,13 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     run.disabled = !can.patch || !htReady() || (!useLatest.checked && !ownPatch) || (testChoice === "none" && !consent.checked);
     run.textContent = flow.phase === "failed" || flow.phase === "passed" || flow.phase === "downloaded" ? t("patcher.run.again") : testChoice === "none" ? t("patcher.run.untested") : t("patcher.run");
     for (const input of testInputs) { input.radio.checked = input.value === testChoice; input.radio.disabled = can.busy; }
-    testNote.textContent = t(TESTS.find(([v]) => v === testChoice)[2]);
     consentBox.hidden = testChoice !== "none";
-    targetPath.textContent = `${folderOf(flow)}SYSTEM.VSB`;
+    const folder = targetFolder();
+    targetLead.textContent = t(usbWay ? "patcher.target.usb" : "patcher.target");
+    targetPath.textContent = `${folder}SYSTEM.VSB`;
+    // a running BLECH reads its own folder; only a first BLECH must not go there
+    targetNot.hidden = folder === `KORG/${BLECH_FOLDER}/System/` || isOriginal();
+    originalHead.hidden = !(isOriginal() && hwOf() === "blue" && hasHt());
     untested.hidden = !flow.untested;
     fileInput.disabled = can.busy;
 
@@ -651,13 +759,15 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     ])));
 
     result.hidden = !can.download;
-    usbPut.hidden = !session();
+    // the way to the device is the goal's: over USB the app writes it, otherwise it is downloaded for the card
+    usbPut.hidden = goal ? !usbWay : !session();
     usbPut.disabled = !can.download || !htReady();
     usbGet.disabled = can.busy;
+    download.hidden = usbWay;
     download.disabled = !can.download || !htReady();
     afraid.disabled = !can.test;
     // the update test runs the dropped file; it stands for the device only when it is made for the same Electribe
-    afraid.hidden = !rehearsable();
+    afraid.hidden = !rehearsable() || !!flow.original;
     done.hidden = flow.phase !== "downloaded";
   }
 
@@ -833,8 +943,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     original = bytes;
     stockFile = kind.kind === "stock" && !updating ? { bytes, kind } : null;
     passed = null;
+    taken = kind;
     wiz.step = WAY;
     dispatch({ type: "input", input: kind });
+    // a file the goal ruled out stays in the field, Weiter waits and the toast says which file the goal needs
+    const wrong = mismatch();
+    if (wrong) toast(t(wrong, { device: t(`patcher.device.${korgDevice()}`) }), "error");
     fitFlow();
     await askCable();
   }
@@ -855,8 +969,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     dispatch({ type: "device", device });
   }
 
-  /** The bytes the patches go on: the input with the head the device takes (headFor). */
-  const base = () => (headFor(flow) ? withHead(input, headFor(flow)) : input);
+  /** The bytes the patches go on: the input with the head the device takes (headFor), by what runs on it now. */
+  const base = () => (headFor(flow, wiz.firmware) ? withHead(input, headFor(flow, wiz.firmware)) : input);
+
+  /** Where the file goes on the card: the folder of the firmware that runs, as the wizard was told, else the file's own. */
+  const targetFolder = () => (wiz.firmware ? runningFolder(wiz.firmware, hwOf()) : folderOf(flow));
 
   const rehearsable = () => !!original && (flow.device !== "blue" || flow.origin === "synth" || hardwareOf(original) === "blue");
 
@@ -924,7 +1041,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   /** Applies the set to the input and checks the copy in the emulator; afterwards `passed` holds it when it passed. */
   async function patchAndCheck() {
     if (!allowed(flow).patch) return;
-    dispatch({ type: "patching", patches: planItems() });
+    dispatch({ type: "patching", patches: planItems(), runs: wiz.firmware });
     passed = null;
     failure = null;
     try {
@@ -976,12 +1093,33 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     }
   }
 
-  function buildDone() {
-    const folder = folderOf(flow);
+  /** The guide after the file is out: `usb` when the app wrote it to the card, else downloaded for the card. */
+  function buildDone(way = "card") {
+    const folder = targetFolder();
     onTarget(folder);
-    const old = sampleFolder(flow.origin);
-    // Korg's firmware of the blue keeps the synth's files, which the Sampler code cannot read: nothing to copy then
-    const moves = blech?.items.some(p => p.id === "blechtribe") && !(flow.origin === "stock" && flow.device === "blue");
+    const backup = el("li", { id: "cee-patch-guide-backup" }, tNodes("patcher.done.backup", { patterns: el("a", { className: "cee-text-link", href: "#patterns", textContent: t("rescue.link.patterns") }) }));
+    if (flow.original) {
+      // back to Korg's: the file alone in the running firmware's folder, afterwards Korg's firmware reads its own folder again
+      const reads = sampleFolder(hwOf() === "blue" ? "synth" : "stock");
+      const from = wiz.firmware === "ht" ? sampleFolder("hacktribe") : `KORG/${BLECH_FOLDER}/`;
+      done.replaceChildren(
+        el("h2", { textContent: t("patcher.done.original.title") }),
+        el("ol", { className: "cee-patch-guide" }, [
+          backup,
+          el("li", { id: "cee-patch-guide-vsb" }, tNodes("patcher.done.original.vsb", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: folder }) })),
+          el("li", { textContent: t("patcher.done.insert") }),
+          el("li", { textContent: t("patcher.done.update") }),
+          el("li", { textContent: t("patcher.done.power") }),
+          el("li", { id: "cee-patch-guide-after" }, tNodes("patcher.done.original.after", { reads: el("code", { textContent: reads }), from: el("code", { textContent: from }) })),
+        ]),
+      );
+      return;
+    }
+    // the samples lie where the running firmware keeps them: under Hacktribe in its folder, even when the new file is made from Korg's
+    const old = sampleFolder(hasHt() ? "hacktribe" : flow.origin);
+    // Korg's firmware of the blue keeps the synth's files, which the Sampler code cannot read: nothing to copy then;
+    // a BLECH that runs already reads KORG/blechtribe/, nothing to copy either
+    const moves = blech?.items.some(p => p.id === "blechtribe") && !(flow.origin === "stock" && flow.device === "blue") && !(wiz.firmware === "blech" || wiz.firmware === "blechHt");
     // with the runtime the device asks at the first start and copies the folder itself (script_migrate.s)
     const asks = moves && blech.items.some(p => p.id === "script-runtime");
     const copy = (key) => el("li", { id: "cee-patch-guide-copy" }, tNodes(key, {
@@ -990,16 +1128,16 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     done.replaceChildren(
       el("h2", { textContent: t("patcher.done.title") }),
       el("ol", { className: "cee-patch-guide" }, [
-        el("li", { id: "cee-patch-guide-backup" }, tNodes("patcher.done.backup", { patterns: el("a", { className: "cee-text-link", href: "#patterns", textContent: t("rescue.link.patterns") }) })),
+        backup,
         moves && !asks ? copy("patcher.done.copy") : null,
         blech && hasDoom(blech) ? el("li", { id: "cee-patch-guide-doom" }, tNodes("patcher.done.doom", {
           files: DOOM_FILES.flatMap((file, i) => [i ? t("patcher.done.doom.and") : "", el("a", { className: "cee-text-link", href: file, download: file.split("/").pop(), textContent: file.split("/").pop() })]),
           folder: el("code", { textContent: DOOM_FOLDER }),
           licences: el("a", { className: "cee-text-link", id: "cee-patch-doom-licences", href: "third_party/doom/README.md", target: "_blank", rel: "noopener noreferrer", textContent: t("patcher.done.doom.licences") }),
         })) : null,
-        el("li", { id: "cee-patch-guide-vsb" }, tNodes(moves ? "patcher.done.vsb.moved" : "patcher.done.vsb", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: folder }) })),
-        el("li", { textContent: t("patcher.done.insert") }),
-        folder === "KORG/electribe/System/" ? el("li", { textContent: t("patcher.done.only") }) : null,
+        el("li", { id: "cee-patch-guide-vsb" }, tNodes(way === "usb" ? "patcher.done.usb.vsb" : moves ? "patcher.done.vsb.moved" : "patcher.done.vsb", { file: el("code", { textContent: "SYSTEM.VSB" }), folder: el("code", { textContent: folder }) })),
+        way === "usb" ? null : el("li", { textContent: t("patcher.done.insert") }),
+        way !== "usb" && folder === "KORG/electribe/System/" ? el("li", { textContent: t("patcher.done.only") }) : null,
         el("li", { textContent: t("patcher.done.update") }),
         el("li", { textContent: t("patcher.done.power") }),
         asks ? copy("patcher.done.copy.asks") : null,
@@ -1030,6 +1168,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     usbNote.hidden = true;
     usb = { fromOriginal: true };
     toast(t("patcher.usb.done"), "ok", { stay: true });
+    dispatch({ type: "downloaded" });
+    buildDone("usb");
   }
 
   usbGet.addEventListener("click", async () => {

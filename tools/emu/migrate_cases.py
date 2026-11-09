@@ -6,8 +6,10 @@ check.py runs `cases` on every patched copy that carries the BLECH menu. A card 
 none in KORG/blechtribe gets the question before the samples load; MENU copies every file and folder (dot files left out) to
 KORG/blechtribe, leaves files already there as they are, and the start goes on with the copied samples; EXIT writes nothing;
 with both old folders the wheel chooses; a card that already has samples in KORG/blechtribe, and EXIT held at power-on, never
-see the question. On the blue Electribe (synth build) the question comes over the main screen when KORG/electribe is there and
-KORG/blechtribe is not (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md); each group has its blue variant.
+see the question. On the blue Electribe (synth build) the question comes over the main screen when KORG/electribe holds a
+pattern backup (*.e2allpat) and KORG/blechtribe holds none (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md,
+docs/messungen/2026-11-09-blechtribe-ordner.md); each group has its blue variant. A start without KORG/blechtribe makes it and
+its folders (case_folders).
 
     tools/emu/.venv/bin/python tools/emu/migrate_cases.py cases --patched NEW.VSB [--only N]
 """
@@ -100,14 +102,19 @@ def blue(payload):
     return synthaddr.is_synth(payload)
 
 
+ALLPAT = "KORG/electribe/electribe_allpattern.e2allpat"     # where Korg's blue writes EXPORT ALL PATTERN (measured 2026-11-09)
+RED_FOLDERS = ("Plugin", "Presets", "Gif", "Doom", "Sample", "System")
+BLUE_FOLDERS = ("Plugin", "Gif", "System")
+
+
 def korg_blue(leave_out=()):
     """What Korg's synth leaves in KORG/electribe: a pattern set, an audio export, its update file and a dot file of a Mac."""
-    files = {"KORG/electribe/PatternSet/all.e2allpat": b"P" * 5000, "KORG/electribe/Audio/Take One.wav": KICK,
+    files = {ALLPAT: b"P" * 5000, "KORG/electribe/Audio/Take One.wav": KICK,
              "KORG/electribe/System/SYSTEM.VSB": b"S" * 3000, "KORG/electribe/._junk": b"mac"}
     return {k: v for k, v in files.items() if k not in leave_out}
 
 
-BLUE_NAMES = ("PatternSet/all.e2allpat", "Audio/Take One.wav", "System/SYSTEM.VSB", "._junk")
+BLUE_NAMES = ("electribe_allpattern.e2allpat", "Audio/Take One.wav", "System/SYSTEM.VSB", "._junk")
 
 
 def blue_files(dev, folder):
@@ -167,8 +174,11 @@ def blue_keys(payload):
 
 def blue_none(payload):
     out = []
-    there = boot(payload, {**korg_blue(), "KORG/blechtribe/Plugin/e2sPlugin.all": b"plugins"})
-    out.append(entry("blue_blechtribe_there_no_question", state(there)[0] != 1 and not there.m.asserts, f"state {state(there)}"))
+    there = boot(payload, {**korg_blue(), "KORG/blechtribe/electribe_allpattern.e2allpat": b"mine"})
+    out.append(entry("blue_blechtribe_backup_there_no_question", state(there)[0] != 1 and not there.m.asserts, f"state {state(there)}"))
+    plugin = boot(payload, {**korg_blue(), "KORG/blechtribe/Plugin/e2sPlugin.all": b"plugins"})
+    out.append(entry("blue_blechtribe_without_backup_asks", state(plugin)[:3] == (1, 2, 4) and not plugin.m.asserts,
+                     f"blechtribe with a plugin only: state {state(plugin)[:3]}"))
     held = boot(payload, korg_blue(), held=KILL)
     out.append(entry("blue_exit_held_no_question", state(held)[0] != 1 and blue_files(held, "blechtribe") == {} and not held.m.asserts,
                      f"EXIT held at power-on: state {state(held)}"))
@@ -194,16 +204,21 @@ def blue_full(payload):
 
 
 def blue_update_only(payload):
-    """Nothing but Korg's update file in KORG/electribe (the way BLECH came onto the blue) asks too: the copy brings
-    System/SYSTEM.VSB to KORG/blechtribe, where BLECH's own update looks."""
-    dev = boot(payload, korg_blue(leave_out=("KORG/electribe/PatternSet/all.e2allpat", "KORG/electribe/Audio/Take One.wav",
-                                             "KORG/electribe/._junk")))
+    """The question hangs on the pattern backup alone: only it in KORG/electribe asks, every other file without it does not
+    (Korg's update file, an audio export; the blue never looks for a sample file)."""
+    out = []
+    dev = boot(payload, {ALLPAT: b"P" * 5000})
     asked = state(dev)[:3]
     dev.press(MENU, 0.5)
     wait(dev)
     copied = blue_files(dev, "blechtribe")
-    return [entry("blue_update_file_only_asks_and_copies", asked == (1, 2, 4) and copied == {"System/SYSTEM.VSB": b"S" * 3000}
-                  and not dev.m.asserts, f"asked {asked}, copied {sorted(copied)}")]
+    out.append(entry("blue_backup_only_asks_and_copies", asked == (1, 2, 4) and copied == {"electribe_allpattern.e2allpat": b"P" * 5000}
+                     and not dev.m.asserts, f"asked {asked}, copied {sorted(copied)}"))
+    none = boot(payload, {**korg_blue(leave_out=(ALLPAT,)), "KORG/electribe/._x.e2allpat": b"mac",
+                          "KORG/electribe/Sample/e2sSample.all": SAMPLE})
+    out.append(entry("blue_without_backup_no_question", state(none)[0] != 1 and blue_files(none, "blechtribe") == {}
+                     and not none.m.asserts, f"update file, audio, a dot file named .e2allpat, a sample file: state {state(none)[:3]}"))
+    return out
 
 
 def case_copy(payload, flash):
@@ -303,7 +318,8 @@ def case_existing(payload, flash):
                      f"blechtribe with a plugin, no samples: asked {asked}; after MENU phase {state(dev)[4]}, samples copied "
                      f"{copied.get('Sample/e2sSample.all') == SAMPLE}, own Kick One.wav kept {copied.get('Import/Kick One.wav') == mine}, "
                      f"plugin kept {plugin == b'plugins'}"))
-    bare = {k: v for k, v in old("hacktribe").items() if not k.endswith("e2sSample.all")}
+    bare = {**{k: v for k, v in old("hacktribe").items() if not k.endswith("e2sSample.all")},
+            "KORG/hacktribe/electribe_sampler_allpattern.e2sallpat": b"P" * 5000, "KORG/hacktribe/x.e2allpat": b"P"}
     none = boot(payload, bare)
     out.append(entry("old_folder_without_samples_no_question", state(none)[0] != 1 and not none.m.asserts, f"state {state(none)}"))
     return out
@@ -325,7 +341,39 @@ def case_card_interrupt(payload, flash):
                   f"after MENU {took} s: phase {state(dev)[4]}, copied {len(copied)} of {want} files, asserts {dev.m.asserts}")]
 
 
-GROUPS = (case_copy, case_choose, case_none, case_full, case_existing, case_card_interrupt)
+def folders_of(dev):
+    volume = fat32.Volume(bytes(dev.card.medium.data))
+    try:
+        return {e.name for e in volume.listdir("KORG/blechtribe") if e.is_dir and not e.name.startswith(".")}
+    except fat32.FatError:
+        return None
+    finally:
+        volume.close()
+
+
+def case_folders(payload, flash):
+    """A start without KORG/blechtribe makes it and the folders BLECH uses in it; a KORG/blechtribe that is there is left as it is
+    (one f_opendir, no f_mkdir: the start before the sample loader has no time for more); not with EXIT held at power-on."""
+    want = set(BLUE_FOLDERS if blue(payload) else RED_FOLDERS)
+    out = []
+    fresh = boot(payload, {})
+    got = folders_of(fresh)
+    out.append(entry("fresh_card_gets_the_folders", got == want and state(fresh)[0] != 1 and not fresh.m.asserts,
+                     f"empty card: KORG/blechtribe holds {sorted(got) if got is not None else None}, want {sorted(want)}"))
+    some = boot(payload, {"KORG/blechtribe/Plugin/mine.blech": b"mine"})
+    volume = fat32.Volume(bytes(some.card.medium.data))
+    kept = volume.read("KORG/blechtribe/Plugin/mine.blech")
+    volume.close()
+    got = folders_of(some)
+    out.append(entry("folder_there_left_alone", got == {"Plugin"} and kept == b"mine" and not some.m.asserts,
+                     f"blechtribe with Plugin only: now {sorted(got) if got is not None else None}, own file kept {kept == b'mine'}"))
+    held = boot(payload, {}, held=KILL)
+    out.append(entry("exit_held_makes_no_folders", folders_of(held) is None and not held.m.asserts,
+                     f"EXIT held at power-on: KORG/blechtribe {folders_of(held)}"))
+    return out
+
+
+GROUPS = (case_copy, case_choose, case_none, case_full, case_existing, case_card_interrupt, case_folders)
 
 
 def group_entries(payload, flash, i):
