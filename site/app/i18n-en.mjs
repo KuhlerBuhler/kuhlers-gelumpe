@@ -2572,7 +2572,7 @@ export default {
   "rescue.area.plugin": "Plugins",
   "rescue.area.doom": "Doom",
   "rescue.say.start.3": "For most ways you need a computer with an SD card reader. On a phone you can only read along here.",
-  "rescue.say.color.1": "What colour is your Electribe? I only ask this once.",
+  "rescue.say.color.1": "What colour is your Electribe?",
   "rescue.say.colorHelp.1": "Look at the device: the red one is the Sampler and says “electribe sampler”. The blue one is the Synth and says just “electribe”.",
   "rescue.device.red.hint": "Electribe 2 Sampler, it says “electribe sampler” on the device.",
   "rescue.device.blue.hint": "Electribe 2 (Synth), it says “electribe” on the device.",

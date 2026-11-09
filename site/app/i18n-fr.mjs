@@ -2572,7 +2572,7 @@ export default {
   "rescue.area.plugin": "Plugins",
   "rescue.area.doom": "Doom",
   "rescue.say.start.3": "Pour la plupart des solutions, il te faut un ordinateur avec un lecteur de carte SD. Sur un téléphone, tu peux seulement lire ici.",
-  "rescue.say.color.1": "De quelle couleur est ton Electribe ? Je ne le demande qu'une fois.",
+  "rescue.say.color.1": "De quelle couleur est ton Electribe ?",
   "rescue.say.colorHelp.1": "Regarde l'appareil : la rouge est le Sampler et porte « electribe sampler ». La bleue est le Synth et porte simplement « electribe ».",
   "rescue.device.red.hint": "Electribe 2 Sampler, il y a « electribe sampler » écrit sur l'appareil.",
   "rescue.device.blue.hint": "Electribe 2 (Synth), il y a « electribe » écrit sur l'appareil.",
