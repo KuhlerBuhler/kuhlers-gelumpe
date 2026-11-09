@@ -69,6 +69,7 @@ on:
       - "src/units.mjs"
       - "tools/ci/verify-scope.mjs"
       - "tools/emu/**"
+      - "tools/load-gate.mjs"
       - "tools/patch/**"
       - "tools/verify-patches.mjs"
       - ".github/workflows/verify-patches.yml"
