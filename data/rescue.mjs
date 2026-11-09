@@ -488,7 +488,7 @@ export const FLOW = {
     mood: "sad",
     say: ["rescue.say.samplesWhy.1", "rescue.say.samplesHt.1"],
     choices: [
-      { label: "rescue.answer.samplesHt", to: "samples:have" },
+      { label: "rescue.answer.samplesHt", to: "samples:flash" },
       { label: "rescue.answer.samplesNoHt", to: "samples:other" },
       { label: "rescue.answer.dontKnow", to: "samples:other" },
     ],
@@ -498,23 +498,10 @@ export const FLOW = {
     say: ["rescue.say.samplesOther.1"],
     next: "starts",
   },
-  "samples:have": {
-    mood: "idle",
-    say: ["rescue.say.samplesFile.2"],
-    choices: [
-      { label: "rescue.answer.samplesHave", to: "samples:restore" },
-      { label: "rescue.answer.samplesLost", to: "samples:lost" },
-      { label: "rescue.answer.dontKnow", to: "samples:lost" },
-    ],
-  },
-  "samples:restore": {
+  // The sounds stay in the device flash; Hacktribe only does not read them, a firmware without it does again.
+  "samples:flash": {
     mood: "happy",
-    say: ["rescue.say.samplesRestore.1", { path: "KORG/blechtribe/Sample/e2sSample.all" }, "rescue.say.samplesRestore.2"],
-    next: "samples:firmware",
-  },
-  "samples:lost": {
-    mood: "sad",
-    say: ["rescue.say.samplesLost.1", "rescue.say.samplesLost.2"],
+    say: ["rescue.say.samplesFlash.1"],
     next: "samples:firmware",
   },
   "samples:firmware": {
@@ -525,17 +512,32 @@ export const FLOW = {
     choices: firmwareChoices({
       korg: "samples:way",
       hacktribe: { to: "samples:way", toIf: { color: { red: "samples:way", blue: "samples:head" } } },
-      blech: "samples:way",
+      blech: { to: "samples:way", toIf: { color: { red: "samples:way", blue: "samples:blueHt" } } },
       unknown: { to: "samples:way", toIf: { color: { red: "samples:way", blue: "samples:head" } } },
     }),
   },
-  // The patcher builds BLECHTRIBE from Korg's original; its file goes to the folder of what runs now.
+  // On the blue the patcher's file from Korg's original has the blue head, which only a firmware without Hacktribe takes;
+  // BLECHTRIBE with Hacktribe says "Invalid File" to it (docs/messungen/2026-11-08-rettung-alle-ordner.md). The app cannot
+  // tell which BLECHTRIBE runs, so it asks; not known takes the way for Hacktribe, which samples missing point to.
+  "samples:blueHt": {
+    mood: "idle",
+    say: ["rescue.say.samplesBlueHt.1"],
+    ask: "ht",
+    choices: [
+      { label: "rescue.answer.blueNoHt", to: "samples:way", set: { ht: "no" } },
+      { label: "rescue.answer.blueHt", to: "samples:head", set: { ht: "yes" } },
+      { label: "rescue.answer.dontKnow", to: "samples:head", set: { ht: "yes" } },
+    ],
+  },
+  // The patcher builds BLECHTRIBE from Korg's original; its file goes to the folder of what runs now. On the red every
+  // firmware takes it (Sampler head), on the blue only Korg's own and BLECHTRIBE without Hacktribe (blue head).
   "samples:way": {
     mood: "idle",
     say: [{ key: "rescue.say.samplesWay.1", links: { patcher: { link: "patcher", text: "nav.patcher" } } }, "rescue.say.samplesFile.1"],
     choices: [{ label: "rescue.answer.fileReady", to: "firmware:last", set: { goal: "blech" } }],
   },
-  // Only Hacktribe on a blue takes a file with the Sampler head: first back to Korg's original, BLECHTRIBE after that.
+  // Hacktribe on a blue, alone or in BLECHTRIBE, takes only a file with the Sampler head: first back to Korg's original,
+  // BLECHTRIBE after that.
   "samples:head": {
     mood: "idle",
     say: ["rescue.say.samplesHead.1"],
@@ -786,7 +788,7 @@ const place = (id, { path, heads }, to, { toIf, note } = {}) => {
   const go = toIf ? { to, toIf } : { to };
   FLOW[id] = {
     mood: "idle",
-    say: ["rescue.say.card", tree(path), note].filter(Boolean),
+    say: ["rescue.say.card", tree(path), ...[note].flat()].filter(Boolean),
     choices: [{ label: "rescue.answer.showCard", hint: "rescue.answer.showCard.hint", to: `sd:${id}` }, { label: "rescue.answer.onCard", ...go }],
   };
   FLOW[`sd:${id}`] = {
@@ -803,12 +805,13 @@ for (const [key, d] of Object.entries(DEVICES)) {
   place(`card:${key}`, d, "update:prompt", { note: "rescue.say.cardBoot" });
 }
 // The folder of the running firmware; the menu update reads it, whatever the update is for.
+// The second line of the note names the folder that is shown, so it never speaks of another one.
 const MENU = { toIf: { case: { nofile: "nofile:update" } }, note: "rescue.say.cardFolder" };
 const [KORG_RED, KORG_BLUE, HACKTRIBE, BLECH] = FOLDERS;
 place("folder:korg:red", KORG_RED, "update:menu", MENU);
 place("folder:korg:blue", KORG_BLUE, "update:menu", MENU);
-place("folder:hacktribe", HACKTRIBE, "update:menu", MENU);
-place("folder:blech", BLECH, "update:menu", MENU);
+place("folder:hacktribe", HACKTRIBE, "update:menu", { ...MENU, note: [MENU.note, "rescue.say.cardFolder.hacktribe"] });
+place("folder:blech", BLECH, "update:menu", { ...MENU, note: [MENU.note, "rescue.say.cardFolder.blech"] });
 // Not known what runs: Korg's folder of the colour, Hacktribe's and BLECHTRIBE's, the update reads only the one that fits.
 for (const [key, d] of Object.entries(DEVICES)) {
   FLOW[`folder:all:${key}`] = {
