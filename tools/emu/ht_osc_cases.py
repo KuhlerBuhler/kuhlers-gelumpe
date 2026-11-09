@@ -6,9 +6,9 @@ after a start without a card and after a start from e2sSample.all (the factory n
 499 stay empty sample slots); a file entry for slot 449 (display 450) is skipped while every other entry of the file loads; the
 OSC dial goes from 420 through 421..496 to the first user sample and back; the voice's slot lookup gives the entry and a note on
 slot 421 sends the DSP the messages a note on the firmware's own oscillator slot 0 sends; a pattern with slot 430 keeps it
-through WRITE and a new start; EXPORT ALL SAMPLE writes no entry for 421 to 499; EXIT held at power-on and BLECH > FEATURES >
-HT OSC turned OFF (WRITE, next start) give the firmware's empty slots again. What the DSP makes of a wave is not modelled: how
-each oscillator sounds is not checked here.
+through WRITE and a new start; EXPORT ALL SAMPLE writes no entry for 421 to 499; EXIT held at power-on gives the firmware's
+empty slots again; a settings file with bit 6 of byte 5 set (once HT OSC OFF) still gives the oscillators. There is no switch.
+What the DSP makes of a wave is not modelled: how each oscillator sounds is not checked here.
 
     tools/emu/.venv/bin/python tools/emu/ht_osc_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 """
@@ -258,47 +258,22 @@ def case_exit(payload, flash):
                   f"421 {box.name(421)}, 449 {box.name(CRAFTED)}, dial from 420 {up}")]
 
 
-def _exists(volume, path):
-    try:
-        volume.stat(path)
-        return True
-    except fat32.FatError:
-        return False
-
-
-def case_page(payload, flash):
-    """BLECH > FEATURES > HT OSC: ON without a settings file, the dial writes the setting word, WRITE keeps OFF as bit 6 of
-    byte 5, the next start leaves the slots empty and loads the entry for 449; ON again fills them at the next start."""
+def case_old_setting(payload, flash):
+    """A settings file with bit 6 of byte 5 set (an earlier build wrote it for a page HT OSC OFF): the bit is read as nothing,
+    the file still loads (KEY PADS OFF, bit 4, is read), the slots hold the oscillators and the entry for 449 is skipped."""
     if not mc.has_menu(payload):
-        return [entry("menu-seite", True, "no BLECH menu in this copy: nothing to check")]
-    files = {f"/KORG/{folder(payload)}/e2sSample.all": bank([CRAFTED] + list(USERS)), **mc.CARD_FOLDER}
-    setting = lambda dev: dev.u32(spec.SETTING)
+        return [entry("alte-einstellung", True, "no BLECH menu in this copy: nothing to check")]
+    raw = mc.settings_file_v3(2, 3, mc.look_word(), extras=0x50)
+    files = {f"/KORG/{folder(payload)}/e2sSample.all": bank([CRAFTED] + list(USERS)), **mc.CARD_FOLDER, mc.SETTINGS_PATHS[0]: raw}
     dev = mc.boot(payload, flash, files=files, adapter=True, seconds=10)
-    page = mc.feature_pages().index("HT OSC")
-    mc.goto_group(dev, mc.GROUP_FEATURES, page)
-    shown = mc.texts_of(dev), mc.counter(dev), setting(dev)
-    dev.turn(-1, wait=0.3)
-    off = mc.texts_of(dev), setting(dev)
-    out = [entry("menu-seite-an", mc.HTOSC_PAGE and shown == (("HT OSC", "ON", ""), (page, mc.feature_count()), 0xFFFFFFFF), f"{shown}"),
-           entry("menu-rad-aus", off == (("HT OSC", "OFF", ""), 0), f"{off}")]
-    mc.press(dev, "write", wait=0.6)
-    volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
-    raws = [volume.read(path) for path in mc.SETTINGS_PATHS if _exists(volume, path)]
-    volume.close()
-    newest = max(raws, key=lambda raw: struct.unpack_from("<I", raw, 8)[0]) if raws else bytes(6)
-    out.append(entry("write-bit-6-byte-5", newest[5] & 0x40, f"byte 5 of the newest settings file: {newest[5]:#x}"))
-    again = Box(payload, flash, medium=dev.m.mmc.card.medium.data)
-    mc.goto_group(again.dev, mc.GROUP_FEATURES, page)
-    after = mc.texts_of(again.dev), setting(again.dev)
-    out.append(entry("aus-start-wie-firmware", after == (("HT OSC", "OFF", ""), 0) and stock_slots(again, (421, 496, 497))
-                     and again.name(CRAFTED) == name_of(CRAFTED) and again.dev.call(VOICE_SLOT, spec.FIRST) == 0 and not again.dev.m.asserts,
-                     f"{after}, 421 {again.name(421)}, 449 {again.name(CRAFTED)}"))
-    again.dev.turn(1, wait=0.3)
-    mc.press(again.dev, "write", wait=0.6)
-    on = Box(payload, flash, medium=again.dev.m.mmc.card.medium.data)
-    out.append(entry("an-start-fuellt", on.oscillators() == spec.entries() and on.dev.u32(spec.SETTING) == 1,
-                     f"421 {on.name(421)}, setting {on.dev.u32(spec.SETTING):#x}"))
-    return out
+    got = [bytes(dev.read(NAMES + slot * 32, 32)) for slot in range(spec.FIRST, spec.LAST + 1)]
+    crafted = bytes(dev.read(NAMES + CRAFTED * 32, 16)).split(b"\0")[0].decode("latin-1")
+    pages = mc.feature_pages()
+    mc.goto_group(dev, mc.GROUP_FEATURES, pages.index("KEY PADS"))
+    kp = mc.texts_of(dev)
+    return [entry("alte-einstellung-bit-6-oszillatoren", got == spec.entries() and crafted != name_of(CRAFTED) and not dev.m.asserts,
+                  f"421 {got[0][:16].split(bytes(1))[0]!r}, 449 {crafted!r}"),
+            entry("alte-einstellung-datei-gelesen", kp == ("KEY PADS", "OFF", "") and "HT OSC" not in pages, f"{kp}, pages {pages}")]
 
 
 def case_without(payload, flash):
@@ -306,13 +281,13 @@ def case_without(payload, flash):
     and the start runs without an assertion. Run by hand on such a copy; check.py runs the groups only where has_hooks."""
     sites = (spec.FACTORY_SITE, spec.FILE_SITE, spec.SKIP_SITE, spec.SEL_SITE, spec.VOICE_SITE)
     words = [struct.unpack_from("<I", payload, at - IMAGE)[0] for at in sites]
-    area = payload[spec.CODE_AT - IMAGE:spec.CODE_END + 4 - IMAGE]
+    area = payload[spec.CODE_AT - IMAGE:spec.CODE_END - IMAGE]
     box = Box(payload, flash)
     return [entry("ohne-patch-unberuehrt", not has_hooks(payload) and set(area) == {0xFF} and not box.dev.m.asserts,
                   f"sites {[hex(w) for w in words]}, area FF {set(area) == {0xFF}}, 421 {box.name(421)!r}, 496 {box.name(496)!r}")]
 
 
-GROUPS = (case_names, case_card, case_knob, case_voice, case_pattern, case_export, case_exit, case_page)
+GROUPS = (case_names, case_card, case_knob, case_voice, case_pattern, case_export, case_exit, case_old_setting)
 
 
 def group_entries(payload, flash, i):

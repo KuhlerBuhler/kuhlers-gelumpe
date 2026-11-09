@@ -612,7 +612,7 @@ export default {
   "features.stereoPad.how": "BLECH > FEATURES > STEREO 1 PAD: ON (Vorgabe) oder OFF, OFF gibt das Paar der Firmware zurück. Gilt sofort, WRITE behält es.",
   "features.htOsc.title": "Hacktribe-Oszillatoren auf freien Plätzen",
   "features.htOsc.text": "Auf Korgs eigener Firmware liegen auf den leeren Plätzen 422 bis 497 jetzt 76 Oszillatoren aus Hacktribe: DUAL, OCT, CHIP und RING, dazu X und VPM in Stufen. Der OSC-Regler erreicht sie hinter den Werks-Samples, deine Samples ab 501 bleiben, wo sie sind.",
-  "features.htOsc.how": "BLECH > FEATURES > HT OSC: ON (Vorgabe) oder OFF, OFF lässt die Plätze leer wie bisher. Gilt ab dem nächsten Start, WRITE behält es.",
+  "features.htOsc.how": "Immer an, ohne Schalter: die Plätze waren immer leer. Mit EXIT beim Einschalten bleiben sie leer wie in der Firmware.",
   "features.beatEighth.title": "BEAT 8: Pattern doppelt so lang",
   "features.beatEighth.text": "Ein fünfter Wert 8 auf der Seite BEAT macht jeden Step zur Achtel: das Pattern läuft doppelt so lang, bei 160 BPM wie bei 80, MIDI Clock und Sync bleiben beim echten Tempo.",
   "features.beatEighth.how": "Pattern Menü > BEAT: 8 wählen, WRITE speichert es mit dem Pattern. Auf Korgs Firmware ohne BLECH läuft so ein Pattern viel zu schnell.",
