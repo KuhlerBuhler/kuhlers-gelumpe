@@ -32,6 +32,9 @@ npm run test:local   # Werksprüfungen mit eigenen Dateien, brauchen E2_VSB und 
 npm run test:all     # Unit- und Browsertests nebeneinander, mit E2_VSB auch Emulator
 ```
 
+In VS Code startet F5 `npm start` und öffnet den Editor unter http://127.0.0.1:8737 in Chrome
+(`.vscode/launch.json`, `.vscode/tasks.json`).
+
 ## Im Container
 
 `docker compose up --build` baut die Seite und den Emulator in ein Abbild und
@@ -56,18 +59,18 @@ einschaltet.
 
 Ein Release legt dasselbe Abbild auch in GitHubs Paketregister ab, für linux/amd64
 und linux/arm64 (`.github/workflows/docker-image.yml`, von `release.yml`
-aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Den
-Namen trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
+aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Seit
+dem Release 1.4.0 liegt es dort, unter beiden Architekturen; frühere Versionen
+gibt es im Paketregister nicht, das erste Abbild kam mit diesem Release. Den Namen
+trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
 `docker compose pull` und danach `docker compose up`, ohne dass du selbst baust.
-Bis zum ersten Release mit diesem Workflow gibt es das Paket noch nicht, bis
-dahin führt `docker compose pull` zu einem Fehler und `docker compose up --build`
-bleibt der Weg. `docker compose up --build` baut auch dann aus diesem Ordner, wenn
-das Abbild schon liegt; ein selbst gebautes trägt denselben Namen, ein späteres
-`pull` ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte liegt in
+`docker compose up --build` baut auch dann aus diesem Ordner, wenn das Abbild
+schon liegt; ein selbst gebautes trägt denselben Namen, ein späteres `pull`
+ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte liegt in
 keinem Abbild.
 
 Eine bestimmte Version statt `:latest` nimmt `GELUMPE_IMAGE`, etwa
-`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.3.7 docker compose pull`. Die
+`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.4.0 docker compose pull`. Die
 Variable gilt für `pull` und `up`; in einer `.env` neben `docker-compose.yaml`
 steht sie für beide. Von Hand (Actions, "Container image", mit einem Tag) lässt
 sich ein Abbild neu bauen; `:latest` wandert dabei nur mit, wenn "latest"
@@ -274,7 +277,6 @@ node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB
 | `tools/emu/` | Emulator: Maschine, Dienst, virtuelle SD, Prüfläufe |
 | `tools/patch/` | Patches (ARM-Code, Haken, Plugin-VM) und ihre Python-Tests |
 | `tools/device/` | Werkzeuge am echten Gerät: Flash lesen, LEDs, Bildschirm, FatFs-Sonde |
-| `tools/set/` | Befehlszeile für den Übergangs-Generator (`src/transition.mjs`) und die Auswertung von Pattern-Sets ([set/uebergaenge.md](set/uebergaenge.md)) |
 | `tools/release*.mjs`, `tools/set-version.mjs` | Release |
 | `tools/alsa-sysex.*` | Linux-Sender für große SysEx-Nachrichten ([alsa-sysex.md](../tools/alsa-sysex.md)) |
 | `src-tauri/` | die Desktop-App |
@@ -480,6 +482,13 @@ oder ein neues Label startet ihn neu, ein roter Check beendet ihn ohne Merge. Ge
 `--admin` und `--match-head-commit`. Ohne Label bleibt der PR offen, etwa wenn er auf einen Test am Gerät wartet;
 Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
 Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
+
+**Gemergte Branches verschwinden** (Workflow "Delete merged branch", `.github/workflows/branch-autodelete.yml`): nach
+dem Merge eines PRs aus diesem Repo löscht der Workflow dessen Branch. Nie gelöscht werden `main`, `develop`,
+`release/*` und ein Branch, auf den noch ein offener PR zielt (etwa `feature/sample-swap`, solange PRs darauf offen
+sind); über die API gelöscht würde GitHub diese PRs schließen statt umzuhängen. Ein ohne Merge geschlossener PR behält
+seinen Branch. Der Auslöser nimmt die Datei vom Ziel-Branch des PRs: für PRs nach `main` gilt er erst ab dem Release,
+das ihn dorthin bringt.
 
 **Firmware-PRs nacheinander.** Mehrere offene PRs, die dieselben Patches ändern (`data/patches/`,
 `tools/patch/`, `tools/emu/*_cases.py`), kollidieren bei jedem Merge miteinander und laufen dann kalt neu. Die

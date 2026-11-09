@@ -91,7 +91,7 @@ jobs:
         id: sidecar
         with:
           path: src-tauri/binaries
-          key: sidecar-${{ runner.os }}-${{ runner.arch }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('tools/emu/**', 'tools/patch/**', 'tools/doom/**', 'data/patches/**', 'data/synth-map/**', 'data/script/blechy-block.hex', 'assets/blechy/*.bin') }}
+          key: sidecar-${{ runner.os }}-${{ runner.arch }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('tools/emu/**', 'tools/patch/**', 'tools/doom/**', 'data/patches/**', 'data/synth-map/**', 'data/script/**', 'src/script/**', 'data/emu/**', 'assets/blechy/**') }}
       - run: npm run setup:emu
         if: steps.sidecar.outputs.cache-hit != 'true'
       - name: Build the app

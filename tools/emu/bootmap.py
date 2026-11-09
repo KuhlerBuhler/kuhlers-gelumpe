@@ -44,6 +44,7 @@ class Probe(Machine):
         super().__init__(payload, flash)
         self.blocks, self.events = {}, {}
         self.image_read = bytearray(IMAGE_SIZE)
+        self.main = False
         self.uc.hook_add(unicorn.UC_HOOK_EDGE_GENERATED, self._edge)
         check = self.profile.site("user_check")
         self.uc.hook_add(unicorn.UC_HOOK_CODE, self._user_check, begin=check, end=check)
@@ -53,13 +54,22 @@ class Probe(Machine):
         self.events.setdefault(name, round(self.time_ns / 1e6, 1))
 
     def _edge(self, uc, cur, prev, user):
-        # Fires when a block is first translated, so each block costs one call.
+        # Fires when a block is first translated, so each block costs one call. The start phase ends at the main
+        # screen, not at the end of run()'s slice: code first run after it (the script runtime's frame path, which
+        # waits for the main screen) is not start phase, nor is what it reads.
+        if self.main or self.screen() == 1:
+            if not self.main:
+                self.main = True
+                self.note("main_screen")
+            return
         self.blocks.setdefault(cur.pc, cur.size)
 
     def _user_check(self, uc, addr, size, user):
         self.note("user_mark_check")
 
     def _read(self, uc, access, addr, size, value, user):
+        if self.main:
+            return
         off = addr - IMAGE
         self.image_read[off:off + size] = b"\x01" * size
         if SPLASH <= addr < SPLASH + 1024:

@@ -29,6 +29,8 @@ export class SimDevice {
     this.ledModel = new ScriptLeds();
     this.runtime = null;
     this.hardware = new SimHardware((event, ...args) => this.runtime?.post(event, ...args));
+    this.hardware.holders = () => this.runtime?.holders() ?? [];
+    this.hardware.closeApp = () => { if (this.runtime?.open) this.runtime.closeApp(); };
     this.frames = 0;
     this.recording = null;
     this.coverage = [];
@@ -57,8 +59,8 @@ export class SimDevice {
       },
     });
     this.runtime.onOwn = () => this.display.clear();
-    // the firmware clears the pad hold when an app closes (script_app_close)
-    this.runtime.onClose = () => { this.hardware.padHold = 0; };
+    // the firmware clears the pad holds of all plugins and the passed keys when an app closes (script_app_close)
+    this.runtime.onClose = () => { for (const e of this.runtime.scripts) e.holds.pad = 0; this.hardware.syncHolds(); this.hardware.resetKeyPass(); };
   }
 
   /** Load a block and run its body; the body runs inside add(), before the script object exists, so its steps are held back for the coverage. */
@@ -100,6 +102,8 @@ export class SimDevice {
   #deliver(event, args) {
     if (event === "buttonPress" || event === "buttonRelease") args = [this.runtime.remapped(args[0]), ...args.slice(1)];
     if (event === "buttonPress" && args[0] === KEY_EXIT && this.runtime.open) { this.runtime.closeApp(); return true; }
+    this.hardware.appOpen = Boolean(this.runtime.open);
+    this.hardware.syncHolds();
     return this.runtime.post(event, ...this.hardware.input(event, ...args));
   }
 
@@ -121,6 +125,7 @@ export class SimDevice {
     this.ledModel.beginFrame();
     this.hardware.tick(FRAME_MS);
     const result = this.runtime.frame();
+    this.hardware.syncHolds();
     for (const fault of result.faults) this.#showFault(fault);
     this.ledModel.flushFrame({
       queueFree: () => 1024,

@@ -32,10 +32,16 @@
 
 .cee-patch-needs[hidden],
 .cee-patch-route[hidden],
+.cee-patch-way[hidden],
+.cee-patch-usb[hidden],
+.cee-patch-korg[hidden],
+.cee-check[hidden],
 .cee-patch-verdict[hidden],
 .cee-patch-bar[hidden],
 .cee-patch-groups[hidden],
 .cee-patch-result[hidden],
+.cee-patch-sd[hidden],
+.cee-patch-sd-pick[hidden],
 .cee-patch-done[hidden] {
   display: none;
 }
@@ -240,6 +246,19 @@
   display: none;
 }
 
+/* Step 4: the download is the main action, a row of its own across the full width. A width, not a flex-basis: on
+   phones the design system turns .actions into a column. */
+.cee-patch-download {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* The buttons below it keep inside a phone's width: a long label wraps instead of pushing the page sideways. */
+.cee-patch-result > .btn {
+  max-width: 100%;
+  white-space: normal;
+}
+
 /* Step 4: where the file goes, large enough to read off while copying. */
 .cee-patch-target {
   display: flex;
@@ -255,6 +274,32 @@
   font-family: var(--font-mono);
   font-size: var(--text-2xl);
   color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+/* In the app: the card it found, the full place of the file on it. */
+.cee-patch-sd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+}
+
+.cee-patch-sd > * {
+  margin: 0;
+}
+
+.cee-patch-sd-pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cee-patch-sd-choice {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 
@@ -290,15 +335,10 @@
   pointer-events: none;
 }
 
-/* "Für welche Electribe": the device cards as radio buttons; the chosen one in the colour of its case. */
+/* "Für welche Electribe": the device cards as radio buttons. */
 .cee-patch-device-card {
   cursor: pointer;
   padding-right: var(--space-4);
-}
-
-.cee-patch-device-card:has(input:checked) {
-  border-color: var(--cee-device-tone);
-  background: var(--color-surface-panel);
 }
 
 .cee-patch-device-card:has(input:disabled) {
@@ -309,7 +349,154 @@
   opacity: 0.45;
 }
 
-.cee-patch-device-card:has(input:focus-visible) {
+.cee-patch-device-card:has(input:focus-visible),
+.cee-patch-card:has(input:focus-visible) {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
+}
+
+/* Every choice of the patcher is a card: a click chooses, Weiter goes on. The chosen card is framed in the accent and
+   carries a filled circle with a tick on its top right corner, half over the frame. The circle is a decoration of the
+   frame, not content in the flow: the grid gap and the panel gap leave it room. */
+.cee-patch-pick,
+.cee-patch-card {
+  position: relative;
+}
+
+.cee-patch-card {
+  cursor: pointer;
+}
+
+.cee-patch-pick[aria-checked="true"],
+.cee-patch-card:has(input:checked) {
+  border-color: var(--color-accent-primary);
+  background: var(--color-surface-panel);
+}
+
+.cee-patch-mark {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  translate: 50% -50%;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-primary);
+  color: var(--color-accent-primary-contrast);
+}
+
+.cee-patch-mark svg {
+  width: var(--space-4);
+  height: var(--space-4);
+  stroke-width: 3;
+}
+
+.cee-patch-pick[aria-checked="true"] .cee-patch-mark,
+.cee-patch-card:has(input:checked) .cee-patch-mark {
+  display: flex;
+}
+
+/* A goal the earlier answers rule out: shown with why, but it takes no click. */
+.cee-patch-pick[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.cee-patch-pick[aria-disabled="true"]:hover {
+  border-color: var(--color-border-muted);
+}
+
+/* The test choice of step 3 as cards, three in a row while there is room. */
+#cee-patch-test {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+/* What the goal leaves out of a step is not shown. */
+.cee-patch-panel > [hidden] {
+  display: none;
+}
+
+/* The wizard in front of the way: one question, big choices. */
+.cee-patch-ask {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: 1.25;
+}
+
+/* Four devices: two per row, one per row on a narrow window. */
+#cee-patch-wiz-devices {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  #cee-patch-wiz-devices {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* A choice of the wizard is a button with the look of an entry card; no popout icon, so no room kept for one. */
+.cee-patch-pick {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  justify-content: flex-start;
+  align-items: stretch;
+}
+
+.cee-patch-pick.cee-device-card {
+  align-items: center;
+  padding-right: var(--space-4);
+}
+
+.cee-patch-pick strong {
+  font-size: var(--text-lg);
+}
+
+/* Hacktribe takes the samples away: the warning before it goes on the card, and its acknowledgement. */
+.cee-patch-warn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 2px solid var(--color-border-danger);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-panel-alt);
+  line-height: 1.6;
+}
+
+.cee-patch-warn > * {
+  margin: 0;
+}
+
+.cee-patch-warn[hidden],
+.cee-patch-warn-line[hidden] {
+  display: none;
+}
+
+.cee-patch-warn-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  color: var(--color-text-danger);
+}
+
+.cee-patch-warn-line {
+  margin: 0;
+  color: var(--color-text-danger);
+  line-height: 1.6;
+}
+
+/* Step 1: Korg's file shown as a card that is no control. The licence box and Weiter load it, so the card keeps its
+   look but does not react to the pointer. */
+.cee-patch-korg-card:hover {
+  border-color: var(--color-border-muted);
+  background: var(--color-surface-panel-alt);
+}
+
+.cee-patch-korg-card:hover .cee-device-card-out {
+  color: var(--color-text-secondary);
 }

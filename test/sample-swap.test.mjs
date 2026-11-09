@@ -18,7 +18,7 @@ const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "ut
 const PATCH = read("../data/patches/sample-swap.json");
 const SITES = [0xC00364F4, 0xC0036510, 0xC0036748, 0xC0036760, 0xC00366D8, 0xC00366FC, 0xC003621C, 0xC00369F0, 0xC00836F4, 0xC002D684, 0xC005F1D4, 0xC0079A74, 0xC0099FFC, 0xC0099D88, 0xC0040DB4, 0xC00997CC, 0xC0039FB0,
   0xC0035B3C, 0xC0035BA4, 0xC0035C08, 0xC0035CF8, 0xC0035DA8, 0xC0035DE8, 0xC0035E18];
-const AREAS = [[0xC01A2FD0, 0xC01A3C00], [0xC018A4C0, 0xC018AF00], [0xC0189760, 0xC0189F00],
+const AREAS = [[0xC01A2FE0, 0xC01A3C00], [0xC018A4C0, 0xC018AF00], [0xC0189760, 0xC0189F00],
   [0xC019A400, 0xC019C400], [0xC019C400, 0xC019E000], [0xC018BF40, 0xC018C400]];
 const file = address => address - 0xC0000000 + 0x100;
 
@@ -81,6 +81,17 @@ test("its code areas and loader state fit the declared space and its hooks branc
   assert.equal(state[0].bytes, "0000000000000000010000000000000000000000");
   const res = checkHooks([PATCH]);
   assert.equal(res.ok, true, res.reasons.join(" "));
+});
+
+test("the swap code stays clear of the current splash editor payload", () => {
+  const splash = read("../data/patches/splash-editor.json");
+  for (const code of PATCH.changes.slice(0, AREAS.length)) {
+    const end = code.file + code.bytes.length / 2;
+    for (const change of splash.changes.filter(c => c.bytes)) {
+      assert.ok(end <= change.file || code.file >= change.file + change.bytes.length / 2,
+        `swap code at ${code.file.toString(16)} overlaps splash-editor`);
+    }
+  }
 });
 
 test("its state is in a free run and its buffers and cache above the interrupt stack", () => {

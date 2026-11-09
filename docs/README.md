@@ -15,12 +15,10 @@ gelesen), **hergeleitet**, **offen**.
 | [test-modus.md](test-modus.md) | Test-Modus (Gerät sieht aus wie aus) und das Gerät über USB bedienen: Tasten, Regler, Pads, Touchpad |
 | [plugins.md](plugins.md) | Plugins: Sprache, Ereignisse, Funktionen, Kartenformat, das Menü BLECH, die Seite im Editor ([English](plugins.en.md)) |
 | [doom-lizenz.md](doom-lizenz.md) | Doom auf der Karte: Teile, Lizenzen, warum AGPL und GPL zusammenpassen, was noch zur Weitergabe fehlt |
+| [original-zurueck.md](original-zurueck.md) | Zurück zu Korgs Original (BLECHTRIBE oder Hacktribe wieder runter), Schritt für Schritt, rot und blau ([English](original-zurueck.en.md)) |
 | [rettung.md](rettung.md) | Die Seite Rettung: der dokumentierte Weg zurück, Ordner je Firmware, das Stoppschild |
 | [patcher.md](patcher.md) | Die Firmware patchen: Patchformat, Haken, Regeln, Notschalter, BLECH-Patchdatei ([English](patcher.en.md)) |
 | [emulator.md](emulator.md) | Der Emulator: Installation, Dienst, Karte und Flash, Boot, Prüfläufe |
-| [set/pattern-aufspielen.md](set/pattern-aufspielen.md) | Einzelne Patterns von der Karte auf die Electribe bringen |
-| [set/uebergaenge.md](set/uebergaenge.md) | Übergangs-Patterns für ein Set erzeugen |
-| [set/pattern-werkzeuge.md](set/pattern-werkzeuge.md) | Die Seite Pattern-Werkzeuge: Übergänge bauen und Parts würfeln, Ausgabe als Datei, Sicherung oder ans Gerät |
 | [geraetetests/](geraetetests/README.md) | Anleitungen, um BLECH und die Kartenfunktionen an einem eigenen Gerät zu testen |
 
 ## Wie es gebaut ist

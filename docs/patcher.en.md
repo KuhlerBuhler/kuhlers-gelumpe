@@ -2,7 +2,7 @@
 
 [Deutsche Version](patcher.md) | English version
 
-As of 2026-10-14. This page is the English edition of [patcher.md](patcher.md). The German page is the
+As of 2026-11-09. This page is the English edition of [patcher.md](patcher.md). The German page is the
 reference and carries the developer detail: the hook registry, the start sequence, the memory map and
 the measurements. This page covers what a user needs and links to the German page for the rest. The
 editor is in German, so button labels appear here in German with a translation. Evidence lives in
@@ -24,7 +24,7 @@ Built means: the code is in the repository and was checked in the emulator or in
 
 - The patch format (version 1) with field, raw and copy changes, the hook registry, and the start-phase
   exceptions (see below).
-- The **BLECH set** of six patches (next section) and the page "Patcher" with check, download, the choice
+- The **BLECH set** of many patches (next section) and the page "Patcher" with check, download, the choice
   "BLECH direct" or "with Hacktribe", and the conversion from Korg's original 2.02 to Hacktribe.
 - The patch file `BLECH.patch` and a bsdiff file for the release.
 - The check in the emulator before the export.
@@ -63,7 +63,7 @@ There are three kinds of patch:
 
 ## The BLECH set and its patches
 
-The set is `data/patches/blech.json` and holds six patches:
+The set is `data/patches/blech.json`. It holds a patch per feature (some per firmware build); the base ones are:
 
 | Patch | What it does |
 |---|---|
@@ -74,10 +74,17 @@ The set is `data/patches/blech.json` and holds six patches:
 | BLECH start image | the BLECH splash screen |
 | Theme | own fonts and symbols for the display ([background, German](hintergrund/blech-theme.md)); a data-only patch |
 
-All six apply together. The page applies them in the browser, and the result is byte for byte the one that
+All of them apply together. The page applies them in the browser, and the result is byte for byte the one that
 `tools/patch/apply.mjs --set data/patches/blech.json` produces (measured on our own files).
 
 ### Which firmware you can start from
+
+The page starts with two questions before the four steps: "Which Electribe do you have?" (blue, red, blue with
+Hacktribe, red with Hacktribe) and "What do you want?" (BLECH, BLECH + Hacktribe, or Update only; with Hacktribe
+already on it only BLECH and update). Step 1 then shows only what that path needs: for an update the USB read and the
+field for the file from the card, otherwise Korg's file for the right Electribe (always the red one for Hacktribe) and
+the field. The choice sets the route on Korg's original and the Electribe for the head; an Electribe on the cable wins.
+Dropping a file right away skips the questions and shows everything as before. Every step has a back button.
 
 - **Hacktribe 2.02** (the file from Hacktribe's package, sha256 `7cb4825c...`): the normal case.
 - **Korg's original 2.02** (sha256 `1d0f0689...`, the value Hacktribe's own patch script checks): the page
@@ -97,14 +104,16 @@ All six apply together. The page applies them in the browser, and the result is 
   device** ([measurement](messungen/2026-10-26-blech-hacktribe-blau.md), German).
 - Korg's blue 2.02 gets the synth set. Hacktribe cannot be made from it (`hacktribe-2.patch` only builds from Korg's red
   file); the page says so and points to the red file.
-- **No file at hand:** tick "Korg's licence accepted" in step 1. The app then loads Korg's zip from Korg's server
-  itself; the browser only links it (Korg's server sends no CORS header). The drop field takes Korg's zip as it is and
+- **No file at hand:** tick "Korg's licence accepted" in step 1 (the link in the box opens Korg's page with the agreement). "Next"
+  then loads Korg's file, as long as the field is empty (a file of your own is never replaced): the app loads Korg's
+  zip from Korg's server itself; the browser only starts the download of the zip and stays on step 1 for you to drop
+  it in (Korg's server sends no CORS header). The two Korg cards only show which file comes, they are no link. The drop field takes Korg's zip as it is and
   takes SYSTEM.VSB out of it.
 - Any other file is rejected.
 
 ### A file that already has BLECH
 
-A file with BLECH of release 1.3.4 or later (over USB or dropped) gets the current set straight over it, no original
+A file with BLECH of release 1.3.3 or later (over USB or dropped) gets the current set straight over it, no original
 needed, for Korg red, Korg blue and Hacktribe (red and blue head). `data/known-releases.json` (made by
 `tools/known-releases.mjs`, hashes and offsets only) lists every region those releases wrote. Each region must hold
 the original bytes or what a release wrote there, otherwise the file counts as unknown and nothing is patched. Free
@@ -115,12 +124,18 @@ its files can be updated later.
 
 Only when that refuses the file: on Korg's build the app rebuilds the original from Korg's System Updater (the bytes
 the patches write are copied from Korg's file, used only on a hash match). Hacktribe has no such fallback, its own
-changes overlap BLECH's places, so the unchanged file is needed.
+changes overlap BLECH's places, so the unchanged file is needed. A partly patched Hacktribe file of no known release
+therefore names the two ways to it: the backup of your own Hacktribe file (SHA-256 `7cb4825c...`) or Korg's 2.02 with
+`hacktribe-2.patch`. Releases before 1.3.3 are left out of `known-releases.json` on purpose: with their regions a 1.3.7
+file would no longer be unambiguous (measured on Hacktribe 2.02 with the sets of 1.2.0 to 1.3.7).
 
 **Why you bring `hacktribe-2.patch` yourself.** Hacktribe's README says that the contents of its `patch`
 directory are not open source and not covered by the GPL (checked 2026-10-14). The file is therefore neither
-in this repository nor on the page, and the page does not fetch it. You download it from Hacktribe (the page
-links it) and drop it on the page. Everything happens in the browser, nothing is uploaded. The page checks
+in this repository nor on the page. Below the licence box a second box, "Also download hacktribe-2.patch straight from Hacktribe",
+is ticked when the target needs Hacktribe; it loads the file straight from Hacktribe's repository
+(`HACKTRIBE_PATCH_RAW`, raw.githubusercontent.com, which allows CORS) onto your computer, and `convertStock` checks the
+result as for a dropped file. Without network a notice says so and the field for your own file stays. Without the box
+the page fetches nothing: you download the file from Hacktribe (the page links it) and drop it on the page. Everything happens in the browser, nothing is uploaded. The page checks
 that the file starts with `BSDIFF40`, is at most 1 MiB and builds a file of the right size, and then that the
 result has the sha256 `7cb4825c...`. Honest limit: the real `hacktribe-2.patch` is not in the repository, so
 this path was tested only with a self-made bsdiff (same tool, random data, nothing from Korg or Hacktribe).
@@ -394,12 +409,11 @@ Planned and not built:
 - Code as source text, to which the patcher assigns a place so that two patches cannot overwrite each other.
   Today every patch fixes its own addresses.
 - The jump and the emergency-switch query generated by the patcher instead of by each patch.
-- Pattern change only after confirmation; so far only a hook description in `test/fixtures/hooks-planned.json`.
 - DSP patches and a DSP check in the emulator.
 - A boot menu and a fallback firmware (a small menu of our own before Korg's first instruction, with an
   unchanged firmware in free flash). Not built, and no code for it exists in the repository.
-- Point 5 of the checks before the export for all patches, not only for the start image editor, MFX 2 and the
-  BLECH menu.
+- Point 5 of the checks before the export for all patches, not only for the start image editor, MFX 2, the
+  BLECH menu, pattern change and the load bar.
 
 Open measurements:
 

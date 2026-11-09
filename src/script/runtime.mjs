@@ -14,6 +14,12 @@ import { KEY_NAMES } from "../../data/script/names.mjs";
 
 const KEY_EXIT = KEY_NAMES.find(n => n.name === "EXIT").value;
 
+/**
+ * The calls that keep inputs from the firmware: each plugin has its own record of them, the hardware folds them (SimHardware.syncHolds).
+ * korg.display.popups lives in the same record, as on the device (HD_QUIET in the pad word).
+ */
+const HOLD_CALLS = ["korg.padHold", "korg.knobHold", "korg.keyHold", "korg.keyMask", "korg.display.popups", "korg.read.popups"];
+
 /** How many pages scripts may add to the device's menu. */
 export const MENU_ITEMS = 12;
 
@@ -86,7 +92,7 @@ export class ScriptRuntime {
       return { ok: false, error: fail(ERROR.VARS_BUDGET, render(text("script.load.slots", { name: parts.header.name, needed: parts.header.varCount, size: kib(parts.header.varCount), free, total: this.varSlots, totalSize: kib(this.varSlots) }))) };
     }
     const script = new Script(parts, verified.info);
-    const entry = { script, poolBytes, readySent: false, onStep, maxCost: {}, maxMs: {}, warnings: 0, slowest: { event: null, ms: 0 }, store: { mask: 0, values: new Int32Array(STORE.slots) },
+    const entry = { script, poolBytes, readySent: false, holds: { keys: new Uint8Array(34), knobs: 0, pad: 0, quiet: 0 }, onStep, maxCost: {}, maxMs: {}, warnings: 0, slowest: { event: null, ms: 0 }, store: { mask: 0, values: new Int32Array(STORE.slots) },
       timers: Array.from({ length: TIMERS.slots }, () => ({ kind: TIMERS.KIND.FREE, due: 0, period: 0, callback: 0, generation: 0 })) };
     const saved = this.storage?.load(parts.header.name);
     if (saved) { entry.store.mask = saved.mask >>> 0; entry.store.values.set(Array.from(saved.values).slice(0, STORE.slots)); }
@@ -133,6 +139,8 @@ export class ScriptRuntime {
       this.apps.push({ entry, script: entry.script.name, name: label, group });
       return this.apps.length - 1;
     };
+    // What a plugin keeps from the firmware is its own record; the hardware folds the records of all armed plugins.
+    for (const name of HOLD_CALLS) if (this.api[name]) api[name] = (...args) => this.api[name](entry.holds, ...args);
     // Drawing is taken from the owner of the display only (the open app, or a plugin that took it); any other script's drawing calls do nothing.
     for (const name of Object.keys(this.api)) {
       if (name.startsWith("korg.display.")) api[name] = (...args) => (this.open === entry ? this.api[name](...args) : 0);
@@ -150,6 +158,9 @@ export class ScriptRuntime {
     };
     return api;
   }
+
+  /** The hold records of the armed plugins (what each keeps from the firmware, see SimHardware). */
+  holders() { return this.scripts.filter(e => e.script.state === "armed").map(e => e.holds); }
 
   /** Takes a free timer slot of the script: its number (slot plus 8 times the slot's generation), or -1 when all are taken. */
   #timerStart(entry, kind, due, period, callback) {

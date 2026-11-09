@@ -35,6 +35,8 @@ CARD_FILE = "/KORG/blechtribe/Presets/e2sFx.all"
 MAGIC = 0x41584647
 RECORD, MOD_RECORD = 0x20C, 0x58
 GET = {"ifx": 0xC003E738, "mfx": 0xC003E750}
+COUNT = {"ifx": 0xC003EFDC, "mfx": 0xC003EFE4}
+MOD_COUNT = 72
 KIND = {"ifx": 1, "mfx": 2, "mod": 3}
 STATE = script_hooks.CARD + 0xFE0
 STATUS = {2: "loaded", 3: "no panel", 4: "EXIT held", 5: "no file", 6: "bad header", 7: "wrong build", 8: "bad entry", 9: "bad checksum", 10: "read error"}
@@ -165,6 +167,60 @@ def case_exit(payload, flash):
     return [result("exit_held", status in (0, 4) and unchanged, f"status {STATUS.get(status, status)}, records unchanged {unchanged}")]
 
 
+def case_boot_effects(payload, flash):
+    """The pattern of the start set its effects before the loader ran: the loader sends them again, so the DSP plays the records
+    of the file. The last transfers of the start are the ones selecting the same record on a start without the file sends."""
+    import preset_cases
+    from mfx_cases import DspLog, same_dsp
+
+    class Box(preset_cases.Box):
+        def __init__(self, files):
+            self.dev = Dev(bytes(payload), flash, 0)
+            self.dsp = DspLog(self.dev.m)
+            self.dev.m.insert_card(card(files))
+            self.dev.run(BOOT_S)
+
+    ab = lambda changes: [t for t in changes if t[0] == 0xAB]
+    build = 2 if build_of(payload) == "stock" else 1
+    base = Box({})
+    n = base.count("ifx")
+    out = []
+    for kind, k in (("ifx", 5), ("mfx", 5)):
+        dev = Box({CARD_FILE: collection(build, [entry(kind, 0, base.record(kind, k))])})
+        start = ab(dev.dsp.changes())
+        if kind == "ifx":
+            base.goto_ifx(k - 1, n); base.dsp.clear(); base.step_ifx(1); base.dev.run(1.0)
+        else:
+            base.set_mfx(3); base.dev.run(.5); base.dsp.clear(); base.set_mfx(k); base.dev.run(1.0)
+        tail = ab(base.dsp.changes())[-3:]
+        sent = len(tail) == 3 and any(same_dsp(start[i:i + 3], tail) for i in range(len(start) - 2))
+        out.append(result(f"boot_{kind}_sent", sent and state(dev.dev)[0] == 2 and not dev.dev.m.asserts,
+                          f"status {STATUS.get(state(dev.dev)[0])}, the record of the file reached the DSP at the start: {sent}"))
+    return out
+
+
+def case_version_text(payload, flash):
+    """BLECH > VERSION says behind the firmware what the start did with e2sFx.all, nothing without a file. The third row stays empty:
+    the firmware draws it on the row of the value. The value row on screen holds exactly the pixels of the value alone."""
+    base, before, want, good = plan(payload, flash)
+    build = 2 if build_of(payload) == "stock" else 1
+    firmware = menu_cases.BASE_NAMES[build_of(payload)]
+    out = []
+    for name, files, tag in (("none", {}, ""), ("loaded", {CARD_FILE: collection(build, good)}, " FX"),
+                             ("build", {CARD_FILE: collection(3 - build, good)}, " FX fw?"),
+                             ("checksum", {CARD_FILE: collection(build, good, crc_wrong=True)}, " FX bad")):
+        dev = boot(payload, flash, files)
+        menu_cases.goto_top(dev, menu_cases.LIST_VERSION)
+        texts = menu_cases.texts_of(dev)
+        crowded = menu_cases.page_overlap(dev)
+        menu_cases.goto_top(dev, menu_cases.LIST_VERSION)
+        extra, missing = menu_cases.value_row_leftovers(dev)
+        out.append(result(f"version_{name}", texts[1:] == (firmware + tag, "") and crowded is None and not extra and not missing and not dev.m.asserts,
+                          f"value and third row {texts[1:]}, want {(firmware + tag, '')}; {crowded}; {len(extra)} pixels beside the value, "
+                          f"{len(missing)} of it missing"))
+    return out
+
+
 def export(dev):
     """DATA UTILITY, our page EXPORT ALL EFFECTS, ENTER: the value it shows after, and the collection on the card then."""
     menu_cases.INIT_PAGE = dev.read(menu_cases.INIT_CODE, 4) != b"\xff" * 4
@@ -194,7 +250,8 @@ def entries_of(data):
 
 def case_export(payload, flash):
     """EXPORT ALL EFFECTS writes the records in RAM into the collection that was loaded, each text as it was, an entry without
-    text untouched, the CRC new; the next start loads it. Without a file, or with a file changed since the start, it writes nothing."""
+    text too, the CRC new; the next start loads it. Without a file it makes one; a file changed since the start or one the
+    start did not load stays as it is."""
     base, before, want, good = plan(payload, flash)
     build = 2 if build_of(payload) == "stock" else 1
     bare = named(before["ifx2"], NAME, 15, "NO TEXT")
@@ -207,7 +264,7 @@ def case_export(payload, flash):
     was, _ = entries_of(original)
     now, crc_ok = entries_of(written or original)
     texts = [e[3] for e in now] == [e[3] for e in was]
-    datas = [e[2] for e in now] == [edited, want["mfx"], want["mod"], bare]
+    datas = [e[2] for e in now] == [edited, want["mfx"], want["mod"], named(bare, NAME, 15, "CHANGED")]
     again = boot(payload, flash, {CARD_FILE: written or b""})
     status, loaded = state(again)
     out = [result("export_writes_ram_keeps_text", title == "EXPORT ALL EFFECTS" and value == "exported" and written is not None and len(written) == len(original)
@@ -215,9 +272,11 @@ def case_export(payload, flash):
                   f"{title!r} {value!r}, {len(written or b'')} of {len(original)} bytes, CRC {crc_ok}, texts kept {texts}, records {datas}"),
            result("export_loads_again", status == 2 and loaded == 4 and records(again, payload)["ifx"] == edited,
                   f"status {STATUS.get(status, status)}, {loaded} entries, insert 1 is the exported one: {records(again, payload)['ifx'] == edited}")]
-    empty = boot(payload, flash, {})
-    _, value, written = export(empty)
-    out.append(result("export_without_file", value == "no e2sFx.all" and written is None and not empty.m.asserts, f"{value!r}, file {written is not None}"))
+    out += export_new(payload, flash, build)
+    broken = collection(build, good, crc_wrong=True)
+    refused = boot(payload, flash, {CARD_FILE: broken})
+    _, value, written = export(refused)
+    out.append(result("export_keeps_a_file_not_loaded", value == "bad e2sFx.all" and written == broken and not refused.m.asserts, f"{value!r}, file kept {written == broken}"))
     changed = boot(payload, flash, {CARD_FILE: original})
     changed.m.uc.mem_write(STATE + 12, b"\x5a" * 4)    # FX_WANT: the CRC the loader read; another one stands for a file written since the start
     _, value, written = export(changed)
@@ -225,7 +284,35 @@ def case_export(payload, flash):
     return out
 
 
-GROUPS = (case_good, case_refused, case_exit, case_export)
+def export_new(payload, flash, build):
+    """Without a file EXPORT ALL EFFECTS makes one: every insert and master preset and every modulation type as RAM has them,
+    no text, the CRC right, in a Presets folder it makes; the next start loads all of it, and a second export writes into it."""
+    dev = boot(payload, flash, {})
+    counts = {k: min(dev.call(a), 256) for k, a in COUNT.items()}
+    edited = named(dev.read(dev.call(GET["ifx"], 1), RECORD), NAME, 15, "NEW FILE IFX")
+    dev.m.uc.mem_write(dev.call(GET["ifx"], 1), edited)
+    ram = [(1, i, dev.read(dev.call(GET["ifx"], i), RECORD)) for i in range(counts["ifx"])]
+    ram += [(2, i, dev.read(dev.call(GET["mfx"], i), RECORD)) for i in range(counts["mfx"])]
+    ram += [(3, i, dev.read(mods(payload) + i * MOD_RECORD, MOD_RECORD)) for i in range(MOD_COUNT)]
+    _, value, written = export(dev)
+    now, crc_ok = entries_of(written) if written else ([], False)
+    same = [(k, i, d) for k, i, d, _ in now] == ram and all(t == b"" for *_, t in now)
+    head = written is not None and struct.unpack_from("<IHHI", written)[:2] == (MAGIC, 1) and struct.unpack_from("<I", written, 16)[0] == build
+    out = [result("export_without_file_makes_one", value == "exported" and head and crc_ok and same and not dev.m.asserts,
+                  f"{value!r}, {len(now)} entries ({counts['ifx']} insert, {counts['mfx']} master, {MOD_COUNT} modulation), header {head}, CRC {crc_ok}, records as RAM {same}")]
+    edited2 = named(edited, NAME, 15, "SECOND EXPORT")
+    dev.m.uc.mem_write(dev.call(GET["ifx"], 1), edited2)
+    _, value2, written2 = export(dev)
+    now2, crc2 = entries_of(written2) if written2 else ([], False)
+    second = value2 == "exported" and crc2 and len(now2) == len(now) and now2[1][2] == edited2
+    again = boot(payload, flash, {CARD_FILE: written2 or b""})
+    status, loaded = state(again)
+    out.append(result("export_new_file_exports_and_loads_again", second and status == 2 and loaded == len(ram) and records(again, payload)["ifx"] == edited2,
+                      f"second export {value2!r} CRC {crc2}, start: status {STATUS.get(status, status)}, {loaded} of {len(ram)} entries"))
+    return out
+
+
+GROUPS = (case_good, case_refused, case_exit, case_export, case_boot_effects, case_version_text)
 
 
 def group_entries(payload, flash, i):

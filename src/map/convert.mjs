@@ -304,6 +304,11 @@ export const CONVERTERS = {
     fromRaw: r => r, format: r => (r === 0xffff ? "kein Sample" : String(r)),
   }),
 
+  syncGroup: numeric({
+    name: "syncGroup", unit: null, domain: [0, 999],
+    fromRaw: r => r, format: r => (r === 0 ? "aus" : String(r)),
+  }),
+
   /** Shown counting from one, stored from zero: channels. */
   oneBased: numeric({
     name: "oneBased", unit: null, domain: [0, 127],
@@ -335,7 +340,7 @@ export const CONVERTERS = {
   batteryMode: choices("batteryMode", ["Ni-MH", "Alkali"]),
   autoPowerOff: choices("autoPowerOff", ["Aus", "nach 4 Stunden"]),
   powerSave: choices("powerSave", ["Aus", "Auto", "An"]),
-  octaves: choices("octaves", ["1 Oktave", "2 Oktaven", "3 Oktaven", "4 Oktaven"], { first: 1 }),
+  octaves: choices("octaves", ["0 (nur Grundton, BLECH)", "1 Oktave", "2 Oktaven", "3 Oktaven", "4 Oktaven"]),
   clockMode: choices("clockMode", ["Intern", "Auto", "Extern USB", "Extern MIDI", "Extern Sync"]),
   midiFilter: choices("midiFilter", ["Aus", "Short", "Short + Program"]),
 

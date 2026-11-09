@@ -40,7 +40,7 @@ import { sharedProbe } from "./probe.mjs";
 import { dropdown } from "./dropdown.mjs";
 import { icon } from "./icons.mjs";
 import { watchForUpdate, showNews } from "./update.mjs";
-import { apply as applySettings, get as setting, holdAutoConnect, releaseAutoConnect, settingsButton, settingsPage } from "./settings.mjs";
+import { apply as applySettings, get as setting, holdAutoConnect, languageSwitch, releaseAutoConnect, settingsButton, settingsPage } from "./settings.mjs";
 import { toast } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { t } from "./i18n.mjs";
@@ -526,6 +526,10 @@ function boot() {
   const transport = createMidiTransport(window);
   const usb = createUsbWatch({ transport, permissions: navigator.permissions, hidden: () => document.hidden });
   usbIndicator($(".cee-navbar"), usb);
+  languageSwitch($(".cee-navbar"));
+  // The navbar wraps on narrow screens, so anchors and scrollIntoView keep clear of its real height (app.css).
+  const navBox = $(".cee-navbar");
+  new ResizeObserver(() => document.documentElement.style.setProperty("--cee-navbar-real", `${navBox.offsetHeight}px`)).observe(navBox);
   settingsPage($("#cee-settings"), window.__GELUMPE_APP, { transport, permissions: navigator.permissions, usb });
   usb.start();
   sidebarFold();
@@ -677,13 +681,16 @@ function boot() {
   popout.realDevice(areas?.current === "device");
   // The folder the patcher named for its last copy, for the Rettung page; it lasts until the app closes.
   let target = null;
-  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null, onTarget: folder => { target = folder; } });
+  // The patcher's last red test, for Blechy; it lasts until the app closes, a passed test clears it.
+  let tested = null;
+  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null, onTarget: folder => { target = folder; }, onTest: failure => { tested = failure; } });
   // A session on the emulator's port is no Electribe, so the Rettung page only asks one on a cable.
   const cabled = () => (device.session && device.session.port !== emulator?.port && !device.session.sender.disconnected ? device.session : null);
   rescuePage($("#cee-rescue"), {
     hardware: () => cabled()?.hardware?.() ?? null,
     firmware: () => (cabled()?.device?.blech ? "blech" : null),
     target: () => target,
+    test: () => tested,
     read: {
       midi: async () => midiVerdict(await collectMidi({ transport, permissions: navigator.permissions, usb: usb.state, app: window.__GELUMPE_APP, agent: navigator.userAgent }), mode),
       version: () => checkVerdict(window.__GELUMPE_APP?.version),

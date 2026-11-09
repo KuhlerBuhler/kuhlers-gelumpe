@@ -10,6 +10,10 @@ Entschieden am 29.10.: Solange ein anderes Pattern angesehen wird (`VIEW:` oder 
 Gebaut in `tools/patch/pattern_switch.py` und `tools/patch/pad_colors.py`, im Emulator geprüft mit Hacktribe, Korgs Original rot und blau.
 Am Gerät noch nicht geprüft.
 
+Seit 30.10. holt der erste Druck auf ein Pad den Part ins laufende Pattern, nicht stumm, auch wenn er in der Bank nicht stumm ist
+([Part reinholen](2026-10-30-vorschau-part-reinholen.md)). Stummschalten nur in der Ansicht gibt es damit nicht mehr, die Tabelle
+unten ist der Stand vom 29.10.
+
 ## Was vorher war (gemessen, Emulator, Hacktribe)
 
 - Ein Pad im Modus PART MUTE schaltet beim Drücken das Mute im Pattern im RAM: Byte 1 des Parts (Block `+0x801 + 0x330 * Part`, 1 heißt

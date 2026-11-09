@@ -202,7 +202,7 @@ test("the start page has its sections in heading order and the donate link opens
   await app.addInitScript(() => { window.__GELUMPE_APP = { version: "0.0.0" }; });
   await app.goto(h.url);
   for (const id of ["#cee-support-paypal", "#cee-support-issues", "#cee-support-instagram"]) assert.equal(await app.getAttribute(id, "target"), "_self", "in the app the navigation is caught and opened in the browser");
-  assert.equal(await app.getAttribute("#cee-patch-korg-red", "target"), "_self");
+  assert.equal(await app.getAttribute("#cee-patch-korg-licence-link", "target"), "_self", "Korg's page with its licence, the one link outside on the patcher's first step");
 });
 
 test("the app opens on the start page although its address carries the emulator link; the browser goes to the emulator", async () => {
@@ -277,7 +277,7 @@ test("changelogs: a new release puts a ! on the entry, opening it shows the rele
   assert.equal(await release.count(), 1);
   assert.ok(await page.locator("#cee-changelog .cee-release").count() > 1, "the carried notes stand beside it");
   assert.equal(await release.locator("h2 a").textContent(), "v1.3.0", "the version is the heading and the link to GitHub");
-  assert.equal(await release.locator(".cee-status").count(), 0, "no Aktuell: the newest stands on top anyway");
+  assert.equal(await release.locator(".cee-state").count(), 0, "no Aktuell: the newest stands on top anyway");
   const buttons = await release.locator(".cee-release-get a").allTextContents();
   assert.equal(buttons.length, 2, "one app for this system and the patch, not every file");
   assert.equal(buttons[1], "Patch herunterladen");
@@ -288,5 +288,21 @@ test("changelogs: a new release puts a ! on the entry, opening it shows the rele
   await page.reload();
   await page.locator("#cee-changelog .cee-release").first().waitFor({ state: "attached" });
   assert.equal(await page.locator("#cee-tab-changelog .cee-nav-badge").count(), 0, "seen stays seen");
+  assert.deepEqual(page.errors, []);
+});
+
+test("no page draws a status pill or dot: every state is an icon and the word in the text colour", async () => {
+  const page = await h.page();
+  await page.goto(h.url);
+  const tabs = await page.locator("#cee-areas [role=tab]").evaluateAll(l => l.map(b => b.id));
+  for (const id of tabs) {
+    await page.evaluate(tab => document.getElementById(tab).click(), id);
+    await page.waitForTimeout(200);
+    const found = await page.evaluate(() => ({
+      pills: document.querySelectorAll(".cee-status, .ui-pill").length,
+      boxed: [...document.querySelectorAll(".cee-state")].filter(s => { const c = getComputedStyle(s); return c.backgroundColor !== "rgba(0, 0, 0, 0)" || c.borderTopWidth !== "0px" || getComputedStyle(s, "::before").content !== "none" || !s.querySelector("svg"); }).length,
+    }));
+    assert.deepEqual(found, { pills: 0, boxed: 0 }, id);
+  }
   assert.deepEqual(page.errors, []);
 });

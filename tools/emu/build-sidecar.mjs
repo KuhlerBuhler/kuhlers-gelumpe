@@ -63,6 +63,8 @@ run(...command(python, [
   "--add-data", `${path("../../data/patches")}${sep}data/patches`,
   "--add-data", `${path("../../data/synth-map")}${sep}data/synth-map`,
   "--add-data", `${path("../../data/script/blechy-block.hex")}${sep}data/script`,
+  // What the cases once asked Node for (node_json.py): the app's users have no Node.
+  "--add-data", `${path("../../data/emu/node-results.json")}${sep}data/emu`,
   "--add-data", `${path("../../assets/blechy/splash.bin")}${sep}assets/blechy`,
   "--add-data", `${path("../../assets/blechy/loading.blla")}${sep}assets/blechy`,
   "--add-data", `${work}/source-hash.txt${sep}.`,

@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { applyPatches } from "../src/patch.mjs";
 import { addRelease, emptyKnown, recogniseBlech, KNOWN_FORMAT } from "../src/blech-update.mjs";
@@ -125,10 +126,10 @@ test("the loading animation in its slot is the user's: kept, replaced when one i
   for (const regions of Object.values(known.builds)) assert.ok(!regions.some(r => r[2] === "loading-anim"));
 });
 
-test("data/known-releases.json holds only hashes and offsets, for the three builds and the releases from 1.3.4 on", () => {
+test("data/known-releases.json holds only hashes and offsets, for the three builds and the releases from 1.3.3 on", () => {
   const known = JSON.parse(readFileSync(new URL("../data/known-releases.json", import.meta.url), "utf8"));
   assert.equal(known.format, KNOWN_FORMAT);
-  for (const release of ["1.3.4", "1.3.5", "1.3.6", "1.3.7"]) assert.ok(known.releases.includes(release), release);
+  for (const release of ["1.3.3", "1.3.4", "1.3.5", "1.3.6", "1.3.7"]) assert.ok(known.releases.includes(release), release);
   for (const build of ["hacktribe", "stock", "synth"]) {
     assert.ok(known.builds[build].length > 300, build);
     for (const [file, length, id, fill, original, written] of known.builds[build]) {
@@ -141,3 +142,21 @@ test("data/known-releases.json holds only hashes and offsets, for the three buil
   }
   assert.ok(readFileSync(new URL("../data/known-releases.json", import.meta.url)).length < 200_000, "stays small");
 });
+
+// A Hacktribe 2.02 file patched with a release's own set (from its git tag) must be found in data/known-releases.json.
+// 1.3.2 and older are left out of it on purpose: their regions would make 1.3.7 files ambiguous.
+const tagSet = tag => {
+  const show = path => JSON.parse(execFileSync("git", ["show", `${tag}:${path}`], { cwd: new URL("..", import.meta.url).pathname, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
+  return show("data/patches/blech.json").patches.map(show);
+};
+for (const [tag, found] of [["v1.3.3", true], ["v1.3.7", true], ["v1.3.0", false]]) {
+  test(`a Hacktribe file with BLECH ${tag} is ${found ? "" : "not "}recognised for the update`, { skip: process.env.E2_VSB ? false : "set E2_VSB" }, async t => {
+    const known = JSON.parse(readFileSync(new URL("../data/known-releases.json", import.meta.url), "utf8"));
+    let set;
+    try { set = tagSet(tag); } catch { t.skip(`no tag ${tag} in this clone`); return; }
+    const old = await applyPatches(new Uint8Array(readFileSync(process.env.E2_VSB)), set);
+    assert.equal(old.ok, true, old.reasons.join(" "));
+    const k = await recogniseBlech(old.bytes, known);
+    assert.equal(k.ok, found, k.why);
+  });
+}

@@ -193,12 +193,12 @@ def case_page(payload, flash):
     files = {f"/KORG/{folder(payload)}/e2sSample.all": bank(), **mc.CARD_FOLDER}
     setting = lambda dev: dev.u32(spec.SETTING)
     dev = mc.boot(payload, flash, files=files, adapter=True, seconds=10)
-    page = mc.feature_count() - 1
+    page = mc.feature_pages().index("STEREO 1 PAD")
     mc.goto_group(dev, mc.GROUP_FEATURES, page)
     shown = mc.texts_of(dev), mc.counter(dev), setting(dev)
     dev.turn(-1, wait=0.3)
     off = mc.texts_of(dev), setting(dev)
-    out = [entry("menu-seite-an", mc.STEREO_PAGE and shown == (("STEREO 1 PAD", "ON", ""), (page, page + 1), 0xFFFFFFFF), f"{shown}"),
+    out = [entry("menu-seite-an", mc.STEREO_PAGE and shown == (("STEREO 1 PAD", "ON", ""), (page, mc.feature_count()), 0xFFFFFFFF), f"{shown}"),
            entry("menu-rad-aus", off == (("STEREO 1 PAD", "OFF", ""), 0), f"{off}")]
     mc.press(dev, "write", wait=0.6)
     volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
@@ -233,7 +233,7 @@ def case_page_rainbow(payload, flash):
     raw[-4:] = struct.pack("<I", zlib.crc32(bytes(raw[:-4])) & 0xFFFFFFFF)
     files = {f"/KORG/{folder(payload)}/e2sSample.all": bank(), mc.SETTINGS_PATHS[0]: bytes(raw), **mc.CARD_FOLDER}
     dev = mc.boot(payload, flash, files=files, adapter=True, seconds=10)
-    page = mc.feature_count() - 1
+    page = mc.feature_pages().index("STEREO 1 PAD")
 
     def pages(d):
         mc.goto_group(d, mc.GROUP_FEATURES, page)

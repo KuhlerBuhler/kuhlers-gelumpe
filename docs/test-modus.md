@@ -30,6 +30,10 @@ Nur über USB:
 - mit `tools/device/remote_press.py`: `testmode=on` und `testmode=off`,
 - in der Konsole des Editors: `KORG.testMode(true)` und `KORG.testMode(false)`.
 
+Am Gerät ist `testmode=on` gesperrt: Am 31.10.2026 hat es eine rote Electribe eingefroren (Display blieb an, keine
+Antwort mehr über SysEx, nur Aus- und Einschalten half). `remote_press.py` verweigert es bis zum Fix, mit `--emu` geht
+es weiter. Tasten, Regler, Pads und das Touchpad über USB gingen am Gerät.
+
 Ein Plugin liest den Zustand über `korg.system.testMode` ([Plugins](plugins.md)), setzen kann es ihn nicht: ein Plugin,
 das ihn beim Start einschaltet, ließe das Gerät bei jedem Einschalten dunkel.
 

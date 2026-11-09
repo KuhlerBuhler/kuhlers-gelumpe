@@ -402,22 +402,21 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
     paintPad(face);
     onLed(p.ledRed, v => { face.red = v; paintPad(face); });
     onLed(p.ledBlue, v => { face.blue = v; paintPad(face); });
-    return holdable(b, down => {
-      send(down ? { kind: "pad", index: p.index, down, velocity: 100 } : { kind: "pad", index: p.index, down });
-      paintPad(face);
-    });
+    return holdable(b, down => send(down ? { kind: "pad", index: p.index, down, velocity: 100 } : { kind: "pad", index: p.index, down }));
   };
 
-  /** Pressed reads red like the red LED; a blue pad that is pressed reads purple. */
+  /**
+   * Only the firmware's two LEDs light a pad. Pressing it lights nothing by itself: whether a press shows is up
+   * to the firmware, and a plugin that swallows the press (korg.padHold) leaves the pad dark on the device too.
+   */
   function paintPad(face) {
-    const pressed = face.node.dataset.down === "true";
-    const red = pressed ? 1 : face.red;
-    const tone = red > LIT && face.blue > LIT ? "purple" : red > LIT ? "red" : face.blue > LIT ? "blue" : "off";
+    const { red, blue } = face;
+    const tone = red > LIT && blue > LIT ? "purple" : red > LIT ? "red" : blue > LIT ? "blue" : "off";
     face.node.dataset.tone = tone;
-    face.node.style.setProperty("--cee-e2-glow", String(Math.max(red, face.blue)));
+    face.node.style.setProperty("--cee-e2-glow", String(Math.max(red, blue)));
     face.node.style.setProperty("--cee-e2-red", String(red));
-    face.node.style.setProperty("--cee-e2-blue", String(face.blue));
-    const state = { off: null, red: pressed ? "panel.pad.pressed" : "panel.pad.red", blue: "panel.pad.blue", purple: pressed ? "panel.pad.pressedBlue" : "panel.pad.redBlue" }[tone];
+    face.node.style.setProperty("--cee-e2-blue", String(blue));
+    const state = { off: null, red: "panel.pad.red", blue: "panel.pad.blue", purple: "panel.pad.redBlue" }[tone];
     face.node.setAttribute("aria-label", state ? t(state, { name: face.name }) : face.name);
   }
 

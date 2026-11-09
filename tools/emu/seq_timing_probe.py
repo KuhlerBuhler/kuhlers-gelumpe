@@ -20,6 +20,7 @@ Nothing is written anywhere but the emulator's RAM. Times are device time with m
 """
 
 import argparse
+import contextlib
 import json
 import random
 import statistics
@@ -33,7 +34,19 @@ import machine  # noqa: E402
 from machine import UART1, load_flash  # noqa: E402
 from pswitch_cases import Box, KEYS  # noqa: E402
 
-machine.SLICE = 2000
+FINE_SLICE = 2000
+
+
+@contextlib.contextmanager
+def fine_slices():
+    """machine.SLICE = FINE_SLICE while the block runs, the old value after it. Never at import: check.py imports this
+    module (through beat_eighth_cases), and its start scenarios are measured with the default slice."""
+    old, machine.SLICE = machine.SLICE, FINE_SLICE
+    try:
+        yield
+    finally:
+        machine.SLICE = old
+
 
 LIVE = 0xC06B279C            # live pattern block (pattern offset 34 = tempo, set by 0xC004A80C)
 PATTERN_OBJ = 0xC06B2798
@@ -306,7 +319,8 @@ def main():
     ap.add_argument("--ext-bpm", type=float, default=120.0)
     ap.add_argument("--jitter-us", type=float, default=0.0)
     args = ap.parse_args()
-    out = {"clock": cmd_clock, "notes": cmd_notes, "ext": cmd_ext}[args.what](args)
+    with fine_slices():
+        out = {"clock": cmd_clock, "notes": cmd_notes, "ext": cmd_ext}[args.what](args)
     print(json.dumps(out, indent=1))
 
 

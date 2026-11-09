@@ -21,7 +21,7 @@ Steps (names from data/panel.mjs, with "_" for camel case: edit_next is editRigh
     pad5, pad5:64               a pad struck (velocity 100, or the number), pad5:down and pad5:up hold and let go
     touch=400,300               the touchpad touched at x, y (0 to 1023) and let go
     shift:down, shift:up        a key only pressed or only let go
-    testmode=on, testmode=off   the test mode
+    testmode=on, testmode=off   the test mode (on a device only testmode=off, see docs/test-modus.md)
     release                     let go of every key and pad the computer holds (the device does it itself after 10 s)
 Knobs, pads, the touchpad, a key held and the test mode need BLECHTRIBE 1.3.8; keys and the main dial also run on 1.3.7.
 """
@@ -235,6 +235,9 @@ def main():
     p.add_argument("--screen", action="store_true", help="print the display after the steps")
     p.add_argument("steps", nargs="*")
     a = p.parse_args()
+    if not a.emu and "testmode=on" in a.steps:
+        # testmode=on froze a red Electribe on 2026-10-31 (display stayed on, no SysEx answer, power cycle needed)
+        raise SystemExit("testmode=on is refused on a device until the freeze on hardware is fixed; --emu still takes it")
     dev = Blech(emulator_ask(a.emu)[0] if a.emu else mido_ask())
     names = panel_names()
     steps = [part for s in a.steps for part in command(s, names)]
