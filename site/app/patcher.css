@@ -244,6 +244,19 @@
   display: none;
 }
 
+/* Step 4: the download is the main action, a row of its own across the full width. A width, not a flex-basis: on
+   phones the design system turns .actions into a column. */
+.cee-patch-download {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* The buttons below it keep inside a phone's width: a long label wraps instead of pushing the page sideways. */
+.cee-patch-result > .btn {
+  max-width: 100%;
+  white-space: normal;
+}
+
 /* Step 4: where the file goes, large enough to read off while copying. */
 .cee-patch-target {
   display: flex;
@@ -387,4 +400,15 @@
   margin: 0;
   color: var(--color-text-danger);
   line-height: 1.6;
+}
+
+/* Step 1: Korg's file shown as a card that is no control. The licence box and Weiter load it, so the card keeps its
+   look but does not react to the pointer. */
+.cee-patch-korg-card:hover {
+  border-color: var(--color-border-muted);
+  background: var(--color-surface-panel-alt);
+}
+
+.cee-patch-korg-card:hover .cee-device-card-out {
+  color: var(--color-text-secondary);
 }

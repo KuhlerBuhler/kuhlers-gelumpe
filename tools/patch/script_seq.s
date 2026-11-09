@@ -201,9 +201,12 @@ steps_clamp:
 ; function, the mode and its argument (PART_MODES): 1 key tells the part panel's observers what the key would (its LED), 2 IFX
 ; ON also hands the value to the firmware's parameter set as the IFX ON key does, 3 top clamps to the byte at the argument (a
 ; field without a setter then goes through the part edit), 4 sample takes the whole slot number and only a slot the SAMPLE
-; knob stops on. A fourth word (PART_CC) is the MIDI CC the field's knob, encoder or key sends: after a write the value goes
-; out as that control sends it, for any part (the channel is the part's). The parameter window stays shut while the calling
-; plugin has the popups off (korg.display.popups, HD_QUIET).
+; knob stops on; mode 1 on a field without a setter (the filter type) sends the key's message after the part edit. A fourth word
+; (PART_CC) is the MIDI CC the field's knob, encoder or key sends: after a write the value goes out as that control sends it,
+; for any part (the channel is the part's). A knob's field (a CC that is not on/off, through the part edit) then also goes to
+; the parameter set (part + 1, CC id, value, 1) as the knob hands it to the sound engine; bit 10 of that word (PART_REFRESH)
+; passes flag 1 to the part edit as the encoders do, so its dispatcher refreshes the sound engine. The parameter window stays
+; shut while the calling plugin has the popups off (korg.display.popups, HD_QUIET).
 script_seq_set_part_value_glue:
     cmp r0, #16
     cmplo r1, #SCRIPT_PART_FIELD_COUNT
@@ -301,9 +304,28 @@ part_value_edit:
     mov r1, r6, lsr #8
     and r1, r1, #255
     mov r2, r5
+    mov r3, r9, lsr #10             ; flag 1 for the fields an encoder sets: the dispatcher refreshes the sound engine
+    and r3, r3, #1
     bl part_edit_window
+    cmp r7, #1
+    beq part_value_key
     cmp r7, #4
+    beq part_value_slice
+    tst r9, #0x200
     bne part_value_cc
+    ands r1, r9, #255               ; a knob's field: its parameter set (part + 1, id, value, 1) after the part edit, as the knob
+    beq part_value_cc
+    mov r2, r5
+    tst r9, #0x100                  ; signed: the byte as -63 to 63, plus 64
+    movne r2, r2, lsl #24
+    movne r2, r2, asr #24
+    addne r2, r2, #64
+    add r0, r4, #1
+    mov r3, #1
+    ldr r12, =HW_PARAM_SET
+    blx r12
+    b part_value_cc
+part_value_slice:
     ldr r12, =HW_SAMPLE_SLICED      ; a sliced sample: its slice to -1 as well, as the SAMPLE knob sets it turned up onto it
     cmp r12, #0
     beq part_value_cc
@@ -314,9 +336,10 @@ part_value_edit:
     mov r0, #0x1E
     mov r1, #0x11
     mvn r2, #0
+    mov r3, #0
     bl part_edit_window
 part_value_cc:
-    movs r12, r9
+    ands r12, r9, #255
     beq part_value_return
     ldr r12, =HW_MIDI_OBJ
     blx r12
@@ -342,17 +365,17 @@ value_ok:
     mov r1, #ERR_OK
     bx lr
 
-; r4 part, r0 the part edit's parameter, r1 the window's code, r2 the value: the part edit, then for the selected part the
+; r4 part, r0 the part edit's parameter, r1 the window's code, r2 the value, r3 the part edit's flag (1 refreshes the sound
+; engine through the dispatcher, as the encoders pass it; 0 as the knobs): the part edit, then for the selected part the
 ; parameter window unless the calling plugin keeps it shut. Clobbers r0 to r3 and r12.
 part_edit_window:
     push {r4, r5, r6, lr}
     sub sp, sp, #16
     mov r5, r1
     mov r6, r2
+    str r3, [sp, #4]
     mov r3, r0
     str r2, [sp]
-    mov r12, #0
-    str r12, [sp, #4]
     ldr r0, =HW_PART_EDITOR
     ldr r0, [r0]
     orr r1, r4, #0x10

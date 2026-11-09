@@ -1,6 +1,6 @@
 # Rettung
 
-Stand: 28. Oktober 2026. Die Seite "Rettung" im Editor führt durch den Weg zurück, wenn das
+Stand: 9. November 2026. Die Seite "Rettung" im Editor führt durch den Weg zurück, wenn das
 Gerät nach einem Update oder Patch nicht mehr richtig startet. Blechy fragt in Sprechblasen, was das
 Gerät zeigt, die Antworten sind Knöpfe; jeder Fall läuft Schritt für Schritt, das Stoppschild steht
 bei dem Fall, der es braucht. Sie sagt nur, was die Messungen und

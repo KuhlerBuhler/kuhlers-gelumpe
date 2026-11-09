@@ -141,13 +141,15 @@ PART_SETTER_FIELDS = ('sample','filterType','cutoff','resonance','egInt','modTyp
                       'pan','ifxOn','ifxType','ifxEdit','pitch','glide','voiceAssign','oscEdit','mfxSend','ampEg',
                       'lastStep','motionMode','padVelocity','scaleMode','priority','grooveType','grooveDepth')
 # 0 the call alone; 1 key: afterwards, for the selected part, the key's message (argument) to the observers of the part panel,
-# which lights the key's LED; 2 IFX ON: the setter without its own report, then the value as 127 or 0 to the firmware's parameter
-# set (argument bits 0 to 7 the parameter, 8 to 15 the key's message), as the IFX ON key does; 3 top: the value clamped to the byte
+# which lights the key's LED (the filter type has no setter: the part edit, then the message {0, type} the LPF, HPF and BPF keys
+# send); 2 on/off: the setter without its own report, then the value as 127 or 0 to the firmware's parameter set (argument bits
+# 0 to 7 the parameter, 8 to 15 the key's message), as the IFX ON and MFX SEND keys do; 3 top: the value clamped to the byte
 # at the argument, the immediate of the setter's own `cmp r2, #top` (the IFX type count minus one, which the effect catalog
 # raises), then the setter or, without one, the part edit; 4 sample: the slot clamped to 0 to the argument and taken only when the SAMPLE knob would stop on it (HW_SAMPLE_NEXT),
 # then the part edit with the whole slot number
 PART_MODES = {'plain': 0, 'key': 1, 'ifxOn': 2, 'top': 3, 'sample': 4}
-_SAMPLER_PART_SETTERS = {'voiceAssign': (0xC00493A0, 'plain', 0), 'mfxSend': (0xC00496D4, 'key', 1),
+_SAMPLER_PART_SETTERS = {'voiceAssign': (0xC00493A0, 'plain', 0), 'mfxSend': (0xC00496D4, 'ifxOn', 0x112),
+                         'filterType': (0, 'key', 0),
                          'ampEg': (0xC0049664, 'key', 2), 'ifxOn': (0xC0049DEC, 'ifxOn', 0x311),
                          'ifxType': (0, 'top', 0xC0049EF0), 'sample': (0, 'sample', 999),
                          'lastStep': (0xC0048CE8, 'plain', 0), 'motionMode': (0xC0049410, 'plain', 0),
@@ -157,7 +159,8 @@ _SAMPLER_PART_SETTERS = {'voiceAssign': (0xC00493A0, 'plain', 0), 'mfxSend': (0x
 PART_SETTERS = {
     'hacktribe': _SAMPLER_PART_SETTERS,
     'stock': _SAMPLER_PART_SETTERS,
-    'synth': {'voiceAssign': (0xC0043560, 'plain', 0), 'mfxSend': (0xC00437F0, 'key', 1), 'ampEg': (0xC0043780, 'key', 2),
+    'synth': {'voiceAssign': (0xC0043560, 'plain', 0), 'mfxSend': (0xC00437F0, 'ifxOn', 0x112), 'ampEg': (0xC0043780, 'key', 2),
+              'filterType': (0, 'key', 0),
               'ifxOn': (0xC0043F08, 'ifxOn', 0x311), 'ifxType': (0, 'top', 0xC004400C),
               'sample': (0, 'sample', 999),     # no HW_SAMPLE_NEXT: no samples, the part edit is not called
               'lastStep': (0xC0042EC4, 'plain', 0), 'motionMode': (0xC00435D0, 'plain', 0),
@@ -172,10 +175,14 @@ PART_SETTERS = {
 PART_CC = {'level': 0xA, 'pan': 0x10B, 'pitch': 0x102, 'glide': 0x3, 'oscEdit': 0x4, 'cutoff': 0x5, 'resonance': 0x6,
            'egInt': 0x107, 'modDepth': 0x8, 'modSpeed': 0x9, 'attack': 0xC, 'decay': 0xD, 'ifxEdit': 0xE, 'ifxOn': 0x211,
            'mfxSend': 0x212}
-# the firmware's functions and pointers the modes need, per build: the parameter set the IFX ON key calls (part + 1, parameter,
-# value, 1), the pointer to the part panel whose observers light the keys, the SAMPLE knob's search for the next slot it stops on
-# (slot, direction) -> slot, whether a slot holds a sliced sample (slot) -> nonzero, the MIDI object and the CC sender the knobs
-# call; 0 where a build has none (the synth has no samples)
+# the fields whose control passes flag 1 to the part edit (the SAMPLE, MOD and IFX encoders; the filter keys call its dispatcher
+# with 1 directly): the glue does the same, so the dispatcher refreshes the sound engine; bit 10 of PS_CC
+# (docs/messungen/2026-11-09-plugin-part-dsp.md)
+PART_REFRESH = ('sample', 'modType', 'ifxType', 'filterType')
+# the firmware's functions and pointers the modes need, per build: the parameter set the knobs and the IFX ON and MFX SEND keys
+# call (part + 1, parameter, value, 1), the pointer to the part panel whose observers light the keys, the SAMPLE knob's search for
+# the next slot it stops on (slot, direction) -> slot, whether a slot holds a sliced sample (slot) -> nonzero, the MIDI object and
+# the CC sender the knobs call; 0 where a build has none (the synth has no samples)
 PART_HELPERS = {
     'hacktribe': dict(HW_PARAM_SET=0xC0059720, HW_KEY_PANEL=0xC03487E4, HW_SAMPLE_NEXT=0xC0040D50, HW_SAMPLE_SLICED=0xC004E478, HW_MIDI_OBJ=0xC0045320, HW_CC=0xC00405EC),
     'stock': dict(HW_PARAM_SET=0xC0059720, HW_KEY_PANEL=0xC03487E4, HW_SAMPLE_NEXT=0xC0040D50, HW_SAMPLE_SLICED=0xC004E478, HW_MIDI_OBJ=0xC0045320, HW_CC=0xC00405EC),
@@ -194,7 +201,7 @@ def part_setter_actions(build):
     for i, name in enumerate(PART_SETTER_FIELDS):
         address, mode, arg = setters.get(name, (0, 'plain', 0))
         out[f'PS_SET_{i}'], out[f'PS_MODE_{i}'], out[f'PS_ARG_{i}'] = address, PART_MODES[mode], arg
-        out[f'PS_CC_{i}'] = PART_CC.get(name, 0)
+        out[f'PS_CC_{i}'] = PART_CC.get(name, 0) | (0x400 if name in PART_REFRESH else 0)
     return out
 
 
