@@ -913,7 +913,7 @@ class HookTests(unittest.TestCase):
             self.assertEqual(change['file'],address-RAM_BASE+0x100)
             self.assertEqual(change['expect'],hashlib.sha256(struct.pack('<I',word)).hexdigest())
             self.assertEqual(int.from_bytes(bytes.fromhex(change['bytes']),'little')>>24,0xea)
-        self.assertEqual(len(patch['hooks']),26)
+        self.assertEqual(len(patch['hooks']),27)
         self.assertEqual((patch['hooks'][3]['site'],patch['hooks'][3]['chain']),('0xC004C1B4','save'))
         self.assertEqual(patch['hooks'][0]['chain'],['key-dispatch','pattern-set'])
         self.assertEqual(patch['hooks'][0]['swallow'],True)
@@ -921,7 +921,7 @@ class HookTests(unittest.TestCase):
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
         card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('boot_light_hook','boot_light_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
-        self.assertEqual(len(patch['startPhase']),61)
+        self.assertEqual(len(patch['startPhase']),62)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]
@@ -1156,7 +1156,7 @@ class MenuSettingsTests(unittest.TestCase):
             for run, mfx, pc, na, tm in itertools.product(range(2), range(2), range(2), range(2), range(3)):
                 with self.subTest(build=build_name, run=run, mfx=mfx, pc=pc, na=na, tm=tm):
                     machine.uc.mem_write(state - 32, bytes(544))
-                    for name, value in [('M_SET_RUN', run), ('M_SET_MFX', mfx), ('M_PC', pc), ('M_NA', na), ('M_TM', tm), ('M_KP', 1), ('M_FT', 1)]:
+                    for name, value in [('M_SET_RUN', run), ('M_SET_MFX', mfx), ('M_PC', pc), ('M_NA', na), ('M_TM', tm), ('M_KP', 1), ('M_FT', 1), ('M_AS', 1)]:
                         machine.write(state + symbols[name], value)
                     for name, value in [('MX_INTENS', 9), ('MX_SAVE', 5)]:
                         machine.uc.mem_write((state + symbols[name]) & 0xffffffff, bytes([value]))
@@ -1210,6 +1210,12 @@ class MenuSettingsTests(unittest.TestCase):
             opened.clear()
             machine.call('menu_settings_save')
             self.assertEqual((opened[0][5], opened[0][7]), (0x3D, 0))
+            # AUTO SAVE OFF is bit 6
+            machine.write(state + symbols['M_AS'], 0)
+            opened.clear()
+            machine.call('menu_settings_save')
+            self.assertEqual((opened[0][5], opened[0][7]), (0x7D, 0))
+            machine.write(state + symbols['M_AS'], 1)
             machine.write(state + symbols['M_FT'], 1)
             machine.write(state + symbols['M_KP'], 1)
             machine.write(symbols['SP_CODE'], 0xFFFFFFFF)
