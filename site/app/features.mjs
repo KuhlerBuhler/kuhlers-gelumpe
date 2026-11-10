@@ -164,10 +164,12 @@ function drawFeature(canvas, src) {
     drawDisplay(canvas, bytes);
     // coloured pixels (pad colours) keep their colour, the rest is the one bit of the display
     const out = canvas.getContext("2d");
+    const shown = out.getImageData(0, 0, 128, 64);
     for (let i = 0; i < 128 * 64; i++) {
       const [r, g, b] = rgba.subarray(i * 4, i * 4 + 3);
-      if (Math.max(r, g, b) - Math.min(r, g, b) > 60) { out.fillStyle = `rgb(${r},${g},${b})`; out.fillRect(i & 127, i >> 7, 1, 1); }
+      if (Math.max(r, g, b) - Math.min(r, g, b) > 60) shown.data.set([r, g, b, 255], i * 4);
     }
+    out.putImageData(shown, 0, 0);
   };
   picture.src = src;
 }
