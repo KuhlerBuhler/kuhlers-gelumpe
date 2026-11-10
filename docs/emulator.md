@@ -36,9 +36,10 @@ Was er nicht ist:
   ausbleibende Rückkehr führen zum Fehler. Das ist keine Freigabe für
   Gerätezugriffe.
 - **Nicht nachgebildet:** an der SD-Karte Karten über 1 GiB und exFAT (CRC,
-  Schreibschutz, Fehlerfälle und SDSC siehe Virtuelle SD-Karte); bei USB ein Kabel; der Batteriestand (das Symbol zeigt immer das
-  Netzteil). Der Emulator steckt immer am Netzteil (Panel-Nachricht 7); nur beim
-  Ausschalten meldet er Batterie, weil die Firmware am Netzteil nicht ausgeht.
+  Schreibschutz, Fehlerfälle und SDSC siehe Virtuelle SD-Karte); bei USB ein Kabel;
+  der Batteriestand (das Symbol zeigt immer das Netzteil). Der Emulator steckt immer
+  am Netzteil (Panel-Nachricht 7); nur beim Ausschalten meldet er Batterie, weil die
+  Firmware am Netzteil nicht ausgeht.
 - Keine eingebauten Firmwaredaten und keine Hardwareverbindung. Der Emulator
   braucht keine Node-Laufzeit, nur Python. Was einige Fälle aus dem
   JavaScript des Repositorys brauchen (übersetzte Plugins, Feldlisten,
@@ -297,7 +298,6 @@ dem Weg.
 | Lesen mit falscher CRC | kein Kartenfehler: die Treiberfunktionen werten die CRC-Bits nie aus (`CRCRD`, `CRCWR`, `TOUTRD`), die Firmware arbeitet mit den beschädigten Bytes; bei der Sampledatei kommt später ihr eigener Fehler (Stock "Format Error", BLECH "bad WAV file") | gemessen, Treiber offline gelesen |
 | Schreiben mit falscher CRC oder abgelehnt | nichts im Treiber merkt es, FatFs findet die fehlenden Daten später: "Card Error" | gemessen |
 | Schreiben ohne Antwort | "Card Error" nach etwa 15 s | gemessen |
-| Karte ohne Dateisystem oder ohne jede Antwort, beim Start | Hauptbildschirm wie ohne BLECH, kein Kasten, nichts geschrieben, keine Ordner | gemessen |
 
 Nur die Laufwerksfunktion der Firmware wertet das Schreibschutz-Pin aus
 (`disk_status` `0xC003FEB8` setzt STA_PROTECT, `chk_mounted` macht daraus
@@ -316,10 +316,11 @@ FR_WRITE_PROTECTED; **offline gelesen**).
   Treiber stehen (Startbild). Das deckt sich mit der Rückmeldung vom 18.10.,
   ist aber am Gerät nicht gemessen.
 
-Bis 1.4.5 hing der Start mit BLECH bei einer Karte ohne Dateisystem und bei
-einer, die auf nichts antwortet: der Ladebalken fragte nach und schlief dazwischen,
-bevor der Takt des Betriebssystems läuft
-([Tote Karte beim Start](messungen/2026-11-10-tote-karte-beim-start.md)).
+**Offen:** Mit BLECH hängt der Start im Emulator bei einer Karte ohne
+Dateisystem (leere Karte ohne FAT) und bei einer Karte, die auf nichts
+antwortet; ohne BLECH (Hacktribe, Original) läuft das Gerät mit beiden weiter.
+Der erste Lesebefehl kommt, dann steht der Start. Nicht behoben, ein Fall im
+Ladebalken-Patch (Mounten wiederholen, `load_bar.py`) ist der erste Verdacht.
 
 Tests: `test_fat32.py` (FAT32-Schreiber und -Leser, mit `fsck_msdos` auf macOS),
 `test_sdcard.py` (Controller über die Register, die Fehlerfälle), `test_cardstore.py`
