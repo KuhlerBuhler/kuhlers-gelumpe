@@ -536,9 +536,11 @@ das nächste Ereignis prüft erneut. Dabei bleibt kein Runner wartend belegt. Ge
 Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
 Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
 
-Die Entscheidung liest den Code vom Standardbranch `main`. Der Workflow, `tools/automerge.mjs`
-und `tools/ci/checks.mjs` müssen deshalb zusammen auf `main` verfügbar sein. Erst dann arbeitet
-auch der Auslöser `workflow_run`; ein Merge nur nach `develop` aktiviert ihn noch nicht.
+Die Entscheidung liest den Code von `develop`, nicht vom PR: dort liegt nur gemergter Code, und es ist der Stand,
+in den die PRs gemergt werden. Vorher las sie `main`; dort fehlte `tools/automerge.mjs` bis zum nächsten Release, und
+jeder Lauf brach mit "Cannot find module" ab. Die Auslöser `workflow_run` und `check_run` nehmen die Workflow-Datei
+aber vom Standardbranch `main`. Solange dort die alte Datei liegt (bis 1.4.5), entscheidet nur `pull_request` (neuer
+Push, neues Label); der kommt meist, bevor die Prüfungen fertig sind, und der PR bleibt dann offen.
 
 **Gemergte Branches verschwinden** (Workflow "Delete merged branch", `.github/workflows/branch-autodelete.yml`): nach
 dem Merge eines PRs aus diesem Repo löscht der Workflow dessen Branch. Nie gelöscht werden `main`, `develop`,
