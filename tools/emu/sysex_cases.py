@@ -774,6 +774,115 @@ def sample_cases(payload, flash, held_only=False):
     return out
 
 
+def doom_cases(payload, flash, part=None):
+    """The Doom files (bit 29 of a FILE offset, bit 31 for doom.wad): SD:/KORG/blechtribe/Doom/doom.bin and doom.wad, the paths the Doom
+    loader opens. The real doom.bin of third_party/doom is written in blocks onto a card that has no Doom folder yet, read back over SysEx
+    and compared byte for byte on the card image; doom.wad is written past the size limit of a VSB (the whole 28 MB file would take hours
+    over the emulated DIN line, so the start of the real file and a block far behind it), read back, made anew by a block at 0. Bits 30
+    and 29 together are refused, so are offsets past the limit; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
+    import fat32
+    from sdcard import MemoryMedium, SDCard
+    BIN, WAD = spec.FILE_DOOM, spec.FILE_DOOM | spec.FILE_OTHER
+    bin_path, wad_path = "KORG/blechtribe/Doom/doom.bin", "KORG/blechtribe/Doom/doom.wad"
+    vsb = "KORG/blechtribe/System/SYSTEM.VSB"
+    program = (ROOT / "third_party/doom/doom.bin").read_bytes()
+    wad = (ROOT / "third_party/doom/doom.wad").read_bytes()
+    out = []
+
+    def device(files=None, card=True):
+        dev = Dev(payload, flash, 0)
+        if card:
+            img = fat32.format_image(64 * 1024 * 1024)
+            vol = fat32.Volume(img)
+            for name, data in (files or {}).items():
+                vol.write(name, data)
+            vol.close()
+            dev.m.insert_card(SDCard(MemoryMedium(bytearray(img))))
+        dev.run(1.0)
+        lk = Link(dev)
+        lk.find_channel()
+        return dev, lk
+
+    def on_card(dev, name):
+        try:
+            return fat32.Volume(dev.m.mmc.card.medium.data).read(name)
+        except Exception:
+            return None
+
+    def write_all(lk, selector, data, at=0):
+        """Every block of `data` from `at`; True when each BEGIN and DATA said ok and the CRC read back from the card is the block's."""
+        good = True
+        for i in range(0, len(data), spec.MAX_BLOCK):
+            block = data[i:i + spec.MAX_BLOCK]
+            b, d = lk.file_write(selector | (at + i), block)
+            good = good and bool(b and b["status"] == OK and d and d["status"] == OK and d["crc"] == zlib.crc32(block))
+        return good
+
+    def read_all(lk, selector, n, at=0):
+        parts = []
+        for i in range(0, n, spec.MAX_BLOCK):
+            r = lk.file_read(selector | (at + i), min(spec.MAX_BLOCK, n - i))
+            if not (r and r["status"] == OK and r["crc_ok"]):
+                return None
+            parts.append(r["data"])
+        return b"".join(parts)
+
+    system = bytes(range(256)) * 12
+    dev, lk = device({vsb: system, "KORG/blechtribe/System/keep.txt": b"x"})
+    if part in (None, "bin"):
+        info = lk.info()
+        out.append(entry("doom_flag", info and info["status"] == OK and info["flags"] & spec.FLAG_DOOM, f"INFO says the Doom files with bit 8: flags {info and hex(info['flags'])}"))
+        none = lk.file_read(BIN | 0, 0)
+        out.append(entry("doom_missing", none and none["status"] == spec.STATUS_FILE and none["size"] == 0, f"no doom.bin yet: status {none and none['status']}"))
+        wrote = write_all(lk, BIN, program)
+        card = on_card(dev, bin_path)
+        out.append(entry("doom_bin_write", wrote and card == program and not dev.m.asserts,
+                         f"the real doom.bin, {len(program)} bytes in {(len(program) + spec.MAX_BLOCK - 1) // spec.MAX_BLOCK} blocks, each read back from the card with its CRC: {wrote}; "
+                         f"a card without a Doom folder gets it, the file {bin_path} equals third_party/doom/doom.bin: {card == program}"))
+        size = lk.file_read(BIN | 0, 0)
+        back = read_all(lk, BIN, len(program))
+        out.append(entry("doom_bin_read_back", size and size["status"] == OK and size["size"] == len(program) and back == program,
+                         f"size {size and size['size']}, read back over SysEx equal: {back == program}"))
+    if part in (None, "wad"):
+        far = 0x300000                  # past FILE_LIMIT, the size of a VSB, that SYSTEM.VSB may not pass
+        head, tail = wad[:3 * spec.MAX_BLOCK], wad[far:far + spec.MAX_BLOCK]
+        wrote = write_all(lk, WAD, head) and write_all(lk, WAD, tail, far)
+        card = on_card(dev, wad_path)
+        size = lk.file_read(WAD | 0, 0)
+        back_head, back_tail = read_all(lk, WAD, len(head)), read_all(lk, WAD, len(tail), far)
+        out.append(entry("doom_wad_write", wrote and card is not None and card[:len(head)] == head and card[far:] == tail and size and size["size"] == far + len(tail)
+                         and back_head == head and back_tail == tail and not dev.m.asserts,
+                         f"doom.wad (bit 31 with bit 29): the start of the real file and a block at {far:#x}, past the size of a VSB, written ({wrote}) and read back equal "
+                         f"({back_head == head}, {back_tail == tail}); {len(card or b'')} bytes on the card"))
+        short = wad[:5000]
+        b, d = lk.file_write(WAD | 0, short)
+        out.append(entry("doom_wad_anew", b and d and d["status"] == OK and on_card(dev, wad_path) == short, f"a block at offset 0 makes doom.wad anew: {len(on_card(dev, wad_path) or b'')} bytes, written {len(short)}"))
+    both, _ = lk.file_write(spec.FILE_DOOM | spec.FILE_SAMPLE | 0, b"x" * 10)
+    both_read = lk.file_read(spec.FILE_DOOM | spec.FILE_SAMPLE | 0, 0)
+    beyond, _ = lk.file_write(BIN | (spec.SAMPLE_LIMIT - 5), b"x" * 10)
+    statuses = [r and r["status"] for r in (both, both_read, beyond)]
+    out.append(entry("doom_refusals", statuses == [RANGE, RANGE, RANGE] and on_card(dev, vsb) == system and on_card(dev, "KORG/blechtribe/Sample/e2sSample.all") is None,
+                     f"bits 30 and 29 together (write, read) and past the limit: {statuses}; SYSTEM.VSB unchanged, no sample file made"))
+    if part in (None, "bin"):
+        nocard, lk2 = device(card=False)
+        r = lk2.file_read(BIN | 0, 0)
+        w, d = lk2.file_write(BIN | 0, b"x" * 10)
+        status = d and d["status"]
+        out.append(entry("doom_no_card", r and r["status"] == spec.STATUS_FILE and w and w["status"] == OK and status == spec.STATUS_FILE and not nocard.m.asserts,
+                         f"without a card READ says {r and r['status']} and the DATA of a write {status}"))
+    return out
+
+
+def doom_wad_cases(payload, flash):
+    """doom_cases, the doom.wad half, a group of its own so that check.py runs the two halves side by side."""
+    return doom_cases(payload, flash, "wad")
+
+
+def doom_bin_cases(payload, flash):
+    """doom_cases, the doom.bin half."""
+    return doom_cases(payload, flash, "bin")
+
+
 def case_flash(payload, flash):
     """FLASH READ, on the flash the check was given (blank, or the user's own dump)."""
     dev, lk = boot(payload, flash)
@@ -827,7 +936,7 @@ def sample_kill_switch_cases(payload, flash):
 
 
 GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, file_cases, sample_cases, sample_kill_switch_cases,
-          case_stream)   # each its own task in check.py
+          case_stream, doom_bin_cases, doom_wad_cases)   # each its own task in check.py
 
 
 def synth_cases(payload, flash):
@@ -842,9 +951,9 @@ def synth_cases(payload, flash):
         out.append(entry("synth_main_screen", dev.m.screen() == 1 and not dev.m.asserts, f"the patched synth firmware is on screen {dev.m.screen()} (1 is the main screen)"))
         info = lk.info()
         table = table_of(payload)
-        out.append(entry("synth_info", info and info["status"] == OK and info["version"] == spec.PROTOCOL_VERSION and info["flags"] == spec.FLAGS & ~0x80
+        out.append(entry("synth_info", info and info["status"] == OK and info["version"] == spec.PROTOCOL_VERSION and info["flags"] == spec.FLAGS & ~0x80 & ~spec.FLAG_DOOM
                          and info["max_block"] == spec.MAX_BLOCK and info["max_flash"] == spec.FLASH_MAX and info["table_crc"] == zlib.crc32(table),
-                         f"INFO answered with model byte 0x23: flags {info and hex(info['flags'])}, flash block {info and info['max_flash']}, table {len(table)} bytes, CRC equal to the image's: {bool(info) and info['table_crc'] == zlib.crc32(table)}"))
+                         f"INFO answered with model byte 0x23: flags {info and hex(info['flags'])} (no sample file, no Doom), flash block {info and info['max_flash']}, table {len(table)} bytes, CRC equal to the image's: {bool(info) and info['table_crc'] == zlib.crc32(table)}"))
         bad = []
         for size in (1, 7, 524, 4096):
             r = lk.read(IMAGE + 0x40, size)
