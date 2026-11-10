@@ -16,7 +16,14 @@ before(async () => { h = await setUp(); });
 after(async () => { await h.tearDown(); });
 
 const settle = page => page.locator("#cee-rescue-answers:not([data-waiting])").waitFor({ state: "attached" });
-const answer = (page, text) => page.locator("#cee-rescue-answers button", { hasText: text }).first().click();
+/** The first question is typed, the cases come up above the field; every later one is a button. */
+async function answer(page, text) {
+  if (await page.locator("#cee-rescue-search").count()) {
+    await page.fill("#cee-rescue-search", text);
+    return page.locator("#cee-rescue-suggest [role=option]", { hasText: text }).first().click();
+  }
+  return page.locator("#cee-rescue-answers button", { hasText: text }).first().click();
+}
 const said = async page => { await settle(page); return page.locator("#cee-rescue-chat .cee-rescue-say").last().textContent(); };
 
 /**
