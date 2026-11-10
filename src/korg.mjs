@@ -4,6 +4,7 @@
  * real Electribe is refused. The real device only ever gets what a script
  * did here, replayed by the terminal after it passed (src/rehearsal.mjs).
  */
+import { localize } from "./text.mjs";
 import { BUTTONS, ENCODERS, KNOBS, PADS, TOUCH_BUTTON } from "../data/panel.mjs";
 import EXEC from "../data/exec.mjs";
 import { u32le } from "./bytes.mjs";
@@ -25,12 +26,12 @@ export function toDisplay(image) {
   let lit;
   if (typeof image === "function") lit = image;
   else if (Array.isArray(image) && typeof image[0] === "string") {
-    if (image.length > SCREEN_H) throw new RangeError(`a picture has ${SCREEN_H} rows, got ${image.length}`);
+    if (image.length > SCREEN_H) throw new RangeError(localize("a picture has {max} rows, got {count}", { max: SCREEN_H, count: image.length }));
     lit = (x, y) => /[#X1]/.test(image[y]?.[x] ?? "");
   } else if ((image instanceof Uint8Array || Array.isArray(image)) && image.length === SCREEN_W * SCREEN_H) {
     lit = (x, y) => !!image[y * SCREEN_W + x];
   } else {
-    throw new TypeError("screen.set nimmt 1024 Display-Bytes, 64 Textzeilen, 8192 Pixel oder eine Funktion (x, y) => an/aus");
+    throw new TypeError(localize("screen.set nimmt 1024 Display-Bytes, 64 Textzeilen, 8192 Pixel oder eine Funktion (x, y) => an/aus"));
   }
   const out = new Uint8Array(SCREEN_W * SCREEN_H / 8);
   for (let y = 0; y < SCREEN_H; y++) for (let x = 0; x < SCREEN_W; x++) if (lit(x, y)) out[(y >> 3) * SCREEN_W + x] |= 1 << (y & 7);
@@ -74,7 +75,7 @@ export const HELP = [
  */
 export async function ensureFirmware(session, bytes) {
   if (session.firmware) return session;
-  if (!bytes) throw new Error("Erst im Bereich Emulator die SYSTEM.VSB wählen.");
+  if (!bytes) throw new Error(localize("Erst im Bereich Emulator die SYSTEM.VSB wählen."));
   session.useFirmware(bytes, await identify(bytes), { units: session.units ?? null, profile: session.profile ?? null });
   return session;
 }
@@ -83,7 +84,7 @@ export async function ensureFirmware(session, bytes) {
 function guardsOf(s, ranges) {
   return ranges.map(([addr, length]) => {
     const from = ramToFile(addr);
-    if (!Number.isInteger(addr) || !Number.isInteger(length) || length < 1 || from < 0 || from + length > s.firmwareBytes.length) throw new RangeError(`guard 0x${Number(addr).toString(16)}: nicht in der Firmware-Datei`);
+    if (!Number.isInteger(addr) || !Number.isInteger(length) || length < 1 || from < 0 || from + length > s.firmwareBytes.length) throw new RangeError(localize("guard 0x{addr}: nicht in der Firmware-Datei", { addr: Number(addr).toString(16) }));
     return { addr, bytes: Uint8Array.from(s.firmwareBytes.subarray(from, from + length)) };
   });
 }
@@ -92,10 +93,10 @@ function guardsOf(s, ranges) {
 export function toCode(code) {
   if (code instanceof Uint8Array) return Uint8Array.from(code);
   if (code instanceof Uint32Array || (Array.isArray(code) && code.every(n => Number.isInteger(n)))) {
-    if (Array.from(code).some(n => n < 0 || n > 0xffffffff)) throw new RangeError("a word is 0 to 0xFFFFFFFF");
+    if (Array.from(code).some(n => n < 0 || n > 0xffffffff)) throw new RangeError(localize("a word is 0 to 0xFFFFFFFF"));
     return Uint8Array.from(Array.from(code).flatMap(n => u32le(n)));
   }
-  throw new TypeError("exec nimmt eine Uint8Array, ein Array aus 32-Bit-Wörtern oder eine Funktion, die eines von beiden liefert");
+  throw new TypeError(localize("exec nimmt eine Uint8Array, ein Array aus 32-Bit-Wörtern oder eine Funktion, die eines von beiden liefert"));
 }
 
 /**
@@ -105,7 +106,7 @@ export function toCode(code) {
 export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {}) {
   const live = () => {
     const s = session();
-    if (!s || s.port !== emulator.port) throw new Error("Erst im Bereich Gerät „Mit Emulator verbinden“. Das Terminal arbeitet nur mit dem Emulator.");
+    if (!s || s.port !== emulator.port) throw new Error(localize("Erst im Bereich Gerät „Mit Emulator verbinden“. Das Terminal arbeitet nur mit dem Emulator."));
     return s;
   };
   // Writes go through the gate's dry run, which needs the firmware image: the
@@ -114,7 +115,7 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
   const readRam = async (addr, length) => {
     hooks.read?.();
     const s = live();
-    if (!Number.isInteger(addr) || !Number.isInteger(length) || length < 1 || length > 0x4000) throw new RangeError("ram.read(adresse, anzahl), anzahl 1 bis 16384");
+    if (!Number.isInteger(addr) || !Number.isInteger(length) || length < 1 || length > 0x4000) throw new RangeError(localize("ram.read(adresse, anzahl), anzahl 1 bis 16384"));
     return s.exclusive(async () => {
       const run = await s.sender.run(plan({ kind: "readRam", addr, length }, { channel: s.device.channel }));
       if (!run.ok) throw run.error;
@@ -131,7 +132,7 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
   const knobs = Object.fromEntries(KNOBS.map(k => [k.id, k.index]));
   const named = (table, name, what) => {
     const index = typeof name === "number" ? name : table[name];
-    if (index === undefined || !Object.values(table).includes(index)) throw new Error(`Kein ${what} „${name}“. Namen: ${Object.keys(table).join(", ")}`);
+    if (index === undefined || !Object.values(table).includes(index)) throw new Error(localize("Kein {what} „{name}“. Namen: {names}", { what: localize(what), name, names: Object.keys(table).join(", ") }));
     return index;
   };
   // With the BLECH runtime a key goes through KORG.exec, so it can be sent to the device too; without it the emulator's panel.
@@ -141,15 +142,15 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
     const s = await withFirmware();
     const info = remoteInfo(s.firmwareBytes);
     if (info === null) return false;
-    if (message && info.message === null) throw new Error("Diese Firmware nimmt nur Tasten und das Hauptrad an, Regler, Pads und Touchpad brauchen BLECHTRIBE 1.3.8.");
+    if (message && info.message === null) throw new Error(localize("Diese Firmware nimmt nur Tasten und das Hauptrad an, Regler, Pads und Touchpad brauchen BLECHTRIBE 1.3.8."));
     const code = message ? messageStub(info.mailbox, info.message, message, info.osWait) : stub(info.mailbox, word, info.osWait);
     const res = await s.apply({ kind: "exec", code: toCode(code), at: EXEC.stubAt, guards: guardsOf(s, [[EXEC.icache.addr, EXEC.icache.length]]), invalidate: true }, { confirmed: true });
     // The stub returns 0 when the runtime did not take the command in 500 ms (switched on with EXIT held, a full queue); EXEC reports that.
-    if (!res.ok) throw new Error(`Die Laufzeit hat den Befehl nicht genommen: ${res.error?.message ?? res.gate?.reasons?.map(r => r.message).join(" ") ?? "abgelehnt"}`);
+    if (!res.ok) throw new Error(localize("Die Laufzeit hat den Befehl nicht genommen: {reason}", { reason: res.error?.message ?? res.gate?.reasons?.map(r => r.message).join(" ") ?? localize("abgelehnt") }));
     return true;
   };
   const send = async message => {
-    if (!(await remote(null, message))) throw new Error("Das geht nur mit einer Firmware mit dem BLECH-Satz (die Laufzeit nimmt den Befehl an).");
+    if (!(await remote(null, message))) throw new Error(localize("Das geht nur mit einer Firmware mit dem BLECH-Satz (die Laufzeit nimmt den Befehl an)."));
   };
   // A press that holds something down lets go of everything when a later step fails, so no key or pad stays down.
   const holding = async steps => {
@@ -162,7 +163,7 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
   };
 
   return {
-    help: () => HELP.join("\n"),
+    help: () => HELP.map(s => localize(s)).join("\n"),
     buttons: Object.keys(buttons),
     screen: {
       async set(image) {
@@ -185,7 +186,7 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
     },
     async press(name) {
       const index = typeof name === "number" ? name : buttons[name];
-      if (index === undefined) throw new Error(`Keine Taste „${name}“. Namen: ${Object.keys(buttons).join(", ")}`);
+      if (index === undefined) throw new Error(localize("Keine Taste „{name}“. Namen: {names}", { name, names: Object.keys(buttons).join(", ") }));
       live();
       if (await remote(command(KEY, index))) return `${name} gedrückt`;
       hooks.press?.("Tastendrücke ohne die Tasten der BLECH-Laufzeit");
@@ -194,7 +195,7 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
     },
     async turn(delta, encoder = 0) {
       const word = command(ENCODER, named(encoders, encoder, "Drehgeber"), delta);
-      if (!(await remote(word))) throw new Error("Drehen geht nur mit einer Firmware mit dem BLECH-Satz (die Laufzeit nimmt den Befehl an).");
+      if (!(await remote(word))) throw new Error(localize("Drehen geht nur mit einer Firmware mit dem BLECH-Satz (die Laufzeit nimmt den Befehl an)."));
       return `um ${delta} gedreht`;
     },
     async knob(name, value) {
@@ -202,7 +203,7 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
       return `${name} auf ${value}`;
     },
     async pad(n, { velocity = 100, hold = false } = {}) {
-      if (!Number.isInteger(n) || n < 1 || n > PADS.length) throw new RangeError(`Pad 1 bis ${PADS.length}`);
+      if (!Number.isInteger(n) || n < 1 || n > PADS.length) throw new RangeError(localize("Pad 1 bis {max}", { max: PADS.length }));
       const down = panel.pad(n - 1, velocity);
       await holding(velocity && !hold ? [down, panel.pad(n - 1, 0)] : [down]);
       return velocity ? `Pad ${n} ${hold ? "gedrückt" : "angeschlagen"}` : `Pad ${n} losgelassen`;
@@ -217,12 +218,12 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
       return `${name} ${down ? "gedrückt" : "losgelassen"}`;
     },
     async release() {
-      if (!(await remote(command(RELEASE)))) throw new Error("Das geht nur mit einer Firmware mit dem BLECH-Satz.");
+      if (!(await remote(command(RELEASE)))) throw new Error(localize("Das geht nur mit einer Firmware mit dem BLECH-Satz."));
       return "alles losgelassen";
     },
     async testMode(on = true) {
       const s = await withFirmware();
-      if (remoteInfo(s.firmwareBytes)?.testMode == null) throw new Error("Den Test-Modus gibt es ab BLECHTRIBE 1.3.8.");
+      if (remoteInfo(s.firmwareBytes)?.testMode == null) throw new Error(localize("Den Test-Modus gibt es ab BLECHTRIBE 1.3.8."));
       await remote(command(TEST, 0, on ? 1 : 0));
       return on ? "Test-Modus an: das Gerät sieht aus wie aus" : "Test-Modus aus";
     },

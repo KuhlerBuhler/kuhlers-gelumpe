@@ -90,7 +90,7 @@ test("the editor names the number under the caret in a key or LED position and s
   assert.equal(suggestAt("let a = 1;", 10), null);
 });
 
-for (const page of ["plugins.md", "plugins.en.md"]) test(`docs/${page} lists every name with its number`, () => {
+for (const page of ["plugins.md", "plugins.en.md", "plugins.fr.md"]) test(`docs/${page} lists every name with its number`, () => {
   const doc = readFileSync(new URL(`../docs/${page}`, import.meta.url), "utf8");
   const missing = [];
   for (const [kind, list] of [["key", KEY_NAMES], ["led", LED_NAMES.filter(n => !n.name.startsWith("PAD_"))]]) {

@@ -13,7 +13,7 @@ gelesen), **hergeleitet**, **offen**.
 | [faq.md](faq.md) | Häufige Fragen, von Geht mein Gerät kaputt bis Error, No File und alten Patterns nach dem Export |
 | [tastenkombinationen.md](tastenkombinationen.md) | SHIFT-, Halte- und Einschalt-Kombinationen der Firmware |
 | [test-modus.md](test-modus.md) | Test-Modus (Gerät sieht aus wie aus) und das Gerät über USB bedienen: Tasten, Regler, Pads, Touchpad |
-| [plugins.md](plugins.md) | Plugins: Sprache, Ereignisse, Funktionen, Kartenformat, das Menü BLECH, die Seite im Editor ([English](plugins.en.md)) |
+| [plugins.md](plugins.md) | Plugins: Sprache, Ereignisse, Funktionen, Kartenformat, das Menü BLECH, die Seite im Editor ([English](plugins.en.md), [Français](plugins.fr.md)) |
 | [doom-lizenz.md](doom-lizenz.md) | Doom auf der Karte: Teile, Lizenzen, warum AGPL und GPL zusammenpassen, was noch zur Weitergabe fehlt |
 | [original-zurueck.md](original-zurueck.md) | Zurück zu Korgs Original (BLECHTRIBE oder Hacktribe wieder runter), Schritt für Schritt, rot und blau ([English](original-zurueck.en.md)) |
 | [rettung.md](rettung.md) | Die Seite Blechy: der dokumentierte Weg zurück, Ordner je Firmware, das Stoppschild |

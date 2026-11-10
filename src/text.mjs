@@ -13,11 +13,16 @@ export const isText = value => value !== null && typeof value === "object" && ty
 
 let lookup = key => key;
 let localeOf = () => "de-DE";
+let deviceLookup = value => typeof value === "object" && value ? value.de : value;
+
+/** Localize the device map's legacy labels without changing records or technical names. */
+export const localize = (value, vars = {}) => fill(String(deviceLookup(value) ?? ""), vars);
 
 /** The page's t() and the locale of its language; replaces the German default of Node. */
-export function useTexts(t, locale) {
+export function useTexts(t, locale, deviceTexts) {
   lookup = t;
   localeOf = locale;
+  if (deviceTexts) deviceLookup = deviceTexts;
 }
 
 /** `{name}` in `template` replaced by `vars.name`; a value that is a text is rendered first. */
