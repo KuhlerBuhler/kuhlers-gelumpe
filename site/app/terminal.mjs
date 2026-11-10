@@ -15,7 +15,7 @@ import { NOTE_LIMIT } from "../../src/terminal.mjs";
 import { describeUnits } from "../../src/rehearsal.mjs";
 import { completionsAt } from "../../src/script/editor-model.mjs";
 import { toast } from "./toast.mjs";
-import { t } from "./i18n.mjs";
+import { t, localize } from "./i18n.mjs";
 
 function show(value) {
   if (value === undefined) return "";
@@ -146,7 +146,7 @@ export function terminalPanel(root, { terminal, device, scripts = null, lack = (
     line("in", `> ${code}`);
     input.value = "";
     grow();
-    if (code === "help") { line("out", [t("console.help.start"), ...HELP].join("\n")); return; }
+    if (code === "help") { line("out", [t("console.help.start"), ...HELP.map(s => localize(s))].join("\n")); return; }
     if (code === "start") {
       try { line("out", await power()); } catch (e) { line("error", e.message); }
       return;
