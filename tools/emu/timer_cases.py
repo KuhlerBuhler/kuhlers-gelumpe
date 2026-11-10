@@ -210,9 +210,10 @@ def playtakt_cases(payload, flash):
                  and sum(1 for _, _, v in playing if not v) >= 3 and sum(1 for _, _, v in blue if v) >= 1 and not m.asserts,
                  f"tempo {tempo} BPM, a beat {beat_ms:.0f} ms; PLAY on every {periods} ms over 2 s, {len(playing)} changes; "
                  f"PLAY_BLUE {len(blue)} changes in 1 s"),
-           # the firmware blinks PLAY while paused; what stays dark is at most one row round of the panel (5.5 ms, the model)
+           # the firmware blinks PLAY while paused and the plugin lights it again at the next frame, about 6 ms later; the
+           # panel shows each from its next row round (5.5 ms, the model), so what stays dark is at most two rounds
            entry("playtakt_steady_when_paused", paused_from == 255 and firmware_toggles > 0
-                 and all(dark <= panel_leds.ROUND_NS for _, _, dark in paused_dark) and (not paused or paused[-1][2] == 255) and not m.asserts,
+                 and all(dark <= 2 * panel_leds.ROUND_NS for _, _, dark in paused_dark) and (not paused or paused[-1][2] == 255) and not m.asserts,
                  f"transport {paused_transport}, firmware wrote PLAY {firmware_toggles} times in 1.5 s, dark gaps "
                  f"{[round(d / 1e6, 1) for _, _, d in paused_dark]} ms"),
            entry("playtakt_steady_after_stop", stop_from == 255 and not stop_shown and m.leds.get(PLAY_LEDS[0]) == 255 and not m.asserts,
