@@ -132,7 +132,7 @@ export function emulatorSuite(index, parts) {
     await powerOn(page, new Uint8Array(0x200100));
     await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
     await page.waitForFunction(() => document.querySelector("#cee-e2-sequencer").style.getPropertyValue("--cee-e2-glow") === "1");
-    assert.equal(await page.locator("#cee-e2-pad1").evaluate(n => n.style.getPropertyValue("--cee-e2-blue")), "1", "a pad LED is on or off, as on the device");
+    assert.equal(await page.locator("#cee-e2-pad1").evaluate(n => Number(n.style.getPropertyValue("--cee-e2-blue"))), 128 / 255, "a pad LED is the controller's linear duty cycle");
     assert.equal(await page.getAttribute("#cee-e2-pad1", "data-tone"), "blue");
     fake.seen.inputs.length = 0;
 
@@ -587,6 +587,18 @@ export function emulatorSuite(index, parts) {
     await page.waitForFunction(() => document.querySelector("#cee-e2-pad6").dataset.tone === "red");
     fake.broadcast("leds", { [0x2c + 2 * 5]: 0 });
     await page.waitForFunction(() => document.querySelector("#cee-e2-pad6").dataset.tone === "off");
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("emulator: LED changes with their device time are played on the panel, a pad shows its brightness", async () => {
+    const page = await runningPage();
+    fake.broadcast("leds", {});
+    // Pad 3 lights 10 ms into the step, goes dark for 5 ms, lights again at a quarter (power save).
+    const us = ms => ms * 1000;
+    fake.broadcast("ledtrace", { now: us(5020), first: 1, changes: [[us(5010), us(5011), 0x30, 255], [us(5014), us(5016), 0x30, 0], [us(5019), us(5022), 0x30, 64]] });
+    await page.waitForFunction(() => document.querySelector("#cee-e2-pad3").dataset.tone === "red");
+    await page.waitForFunction(() => Number(document.querySelector("#cee-e2-pad3").style.getPropertyValue("--cee-e2-glow")) === 64 / 255);
+    assert.equal(await page.getAttribute("#cee-e2-pad3", "data-tone"), "red", "a dim pad keeps its colour");
     assert.deepEqual(page.errors, []);
   });
 
