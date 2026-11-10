@@ -1398,13 +1398,21 @@ kennt COPY PART (Part Util 1/4) und CLEAR SEQUENCE, aber kein Kopieren eines Tak
 (`test/script-step-copy.test.mjs`) und im Emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, rot, blau) geprüft,
 am Gerät nicht.
 
+**PLAY-Takt** braucht API 11 und läuft im Hintergrund. Solange der Sequencer läuft, blinkt die PLAY-LED (rot und blau) im
+Tempo des Patterns: das Ereignis `beat` macht sie auf jeder Viertel an, `korg.afterSteps(2, ...)` zwei Schritte später aus,
+mit BEAT 8 also auf jeder halben Note. Bei STOP und in der Pause leuchtet sie ruhig; `korg.cancel` räumt dann den Timer ab.
+In der Pause blinkt die Firmware die PLAY-LED selbst, das Plugin setzt sie dort in jedem Rahmen wieder an: im Emulator
+bleibt sie danach höchstens einen Umlauf der LED-Matrix dunkel (5,5 ms im Modell von `tools/emu/panel_leds.py`), bei STOP
+bis zum nächsten Rahmen (40 ms). Es ist zugleich das Beispiel des Katalogs für die Timer. Im Simulator
+(`test/script-play-takt.test.mjs`) und im Emulator (`tools/emu/timer_cases.py`, Hacktribe) geprüft, am Gerät nicht.
+
 ## Die Seite Plugins im Editor
 
 Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokumentation. Der Titel in der
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold und Step Copy, Quelle
+und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold und Step Copy, Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem
