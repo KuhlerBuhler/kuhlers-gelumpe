@@ -18,7 +18,7 @@ Firmware: `hacktribe-2.02.VSB` (sha256 `7cb4825c...`), `korg-red-2.02.VSB` (`1d0
 | Insert-Effekte | 11 Presets (39 bis 49) | **als Datenpatch machbar**, über `preset-tables` und `fx-append`, DSP-Strom im Emulator gleich wie Hacktribe |
 | Master-Effekte | 4 Presets (bei Hacktribe auf Werksplätzen) | **als Datenpatch machbar**, angehängt als Plätze 33 bis 36, kein Werkspreset wird ersetzt |
 | Grooves | 37 neue (25 auf 62) | **braucht etwas ARM-Code** (Kopierhaken beim Start) oder Korg-Daten im Repo; kein DSP-Code |
-| Touch-Skalen | 35 neue (35 auf 70) | **als Datenpatch machbar**: Korgs 35 bleiben unverändert, 35 neue angehängt; eigene Akkorde je neuer Skala brauchen je 3 Befehle ARM-Code |
+| Touch-Skalen | 35 neue (35 auf 70) | **als Datenpatch machbar**: Korgs 35 bleiben unverändert, 35 neue angehängt; eigene Akkordtabellen je neuer Skala (entschieden) brauchen eine gemeinsame Methode mit 3 Befehlen ARM-Code |
 | Akkord-Sets (Nebenfund) | 2 neue (4 auf 6) | offen, nicht untersucht |
 
 Lizenz: Hacktribes Tabellen dürfen nicht kopiert werden (siehe unten). Jeder Port braucht eigene Daten aus einer
@@ -53,6 +53,8 @@ Feldtabelle wie bei `ht-osc`, nicht Hacktribes Bytes.
 | Chromatic Zeile 1 Variante 1 spielt C# F G#, Ionian Zeile 1 Variante 1 spielt D F A mit Name m: Ionians Akkorde sind leitereigen, Chromatics stehen auf jedem Halbton | gemessen | Tabellen `0xC00E0708` (Chromatic), `0xC00DECE8` (Ionian) |
 | Zeilen und Varianten je Skala: Chromatic 12/8, Ionian 7/8, Raga 1 16/6, Octave 12/6 | gemessen | RAM nach dem Start |
 | Das Pattern-Byte 41 setzt die Variante (`u32(0xC00DECE4)` +0x314); gemessen 0 zu 0, 2 zu 2, 3 zu 4, 5 zu 6, 7 zu 6, auf rot und Hacktribe gleich; auf Hacktribe mit Skala 40 liefert der Getter `0xC0055364` Chromatics Objekt | gemessen | `chord.py`, Pattern angewendet |
+| Ein festes Objekt im Image mit einer gemeinsamen Methode `ldr r0,[r0,#12]; add r0,r0,r1,lsl #6; bx lr` ersetzt Korgs Objekt: Getter und Methode liefern die eigene Tabelle, Variante aus dem Pattern, keine Asserts | gemessen | `ownchord.py`, nur im Speicher |
+| Die 35 neuen Skalen haben 5, 6, 7, 8 und 9 Stufen (5, 4, 14, 11, 1 Skalen) | gemessen | Hacktribes Stufentabelle `0xC013EC00`, nur gezählt |
 | Welcher Pad welche Zeile spielt | offen | nicht verfolgt |
 | Ein Pattern-Skalenbyte über 34 stürzt auf rot beim Anwenden bei `0xC0055BD0` ab (36 und 69 gemessen); 35, 50, 70 nicht, weil hinter der Zeigerliste zufällige Bytes stehen | gemessen | Emulator, je Wert neu gestartet |
 | Akkord-Sets: Grenze `0xC007CE34`/`38` 4 rot, 6 Hacktribe; Wert im Pattern Byte 41 (+0x2d), der die Variante der Akkordtabelle setzt | gemessen | Bytevergleich, `chord.py` |
@@ -164,7 +166,54 @@ Drei Wege für blechtribe:
    Das sind 35 kleine Kopien von Korgs Methodenmuster, also ARM-Code, kein DSP-Code. Ob ein Objekt im Image ohne den
    Aufbau beim Start reicht, ist offen. Die Akkorde selbst sind Musiklehre und frei schreibbar.
 
-Vorschlag: erst Weg 1 (verhält sich wie Hacktribe), eigene Akkorde als zweiter Schritt.
+**Entscheidung (10.11.): Weg 3.** Jede der 35 neuen Skalen bekommt eine eigene Akkordtabelle. Noch nicht gebaut.
+
+**Was der Bau braucht.**
+
+Aufbau einer Zeile (gemessen an Korgs Tabellen, Ionian, Aeolian-artige Bass Line, Raga 1):
+
+- 64 Byte je Zeile, 8 Varianten zu 8 Byte. Byte 0 Name (Index in die 22 Namen, 0 = kein Zusatz, also Dur),
+  Byte 1 oben Grundton des Akkords plus 1, Byte 1 unten Basston plus 1 bei einem Slash-Akkord, sonst 0, Byte 2
+  Notenzahl (2 bis 5), Byte 3 bis 7 Noten in Halbtönen ab dem Grundton der Skala, Rest `ff`. Beispiel Ionian Zeile 6
+  Variante 6: `M7b5`, Akkord F, Bass B. Leser: `0xC005489C` (Byte 1 oben), `0xC00548C8` (Byte 1 unten),
+  `0xC00548B0` (Name), `0xC00548EC` (Notenzahl), `0xC00548DC` (Noten).
+- Eine Zeile je Stufe, Zeile r beginnt mit Stufe r. Korgs Zeilenzahl folgt nicht immer der Stufenzahl: Major Penta
+  hat 7 Zeilen mit denselben Akkorden wie Ionian, Raga 1 hat 16 Zeilen mit Drone-Akkorden (tiefes C und G plus eine
+  Skalennote), 4th Interval 3 Zeilen. Gemessen.
+- Varianten bei Ionian, in Skalenstufen ab Stufe r (gemessen, Zählung hergeleitet): 0 = r, r+2; 1 = Dreiklang r, r+2,
+  r+4; 2 = Septakkord dazu r+6; 3 = Dreiklang mit Grundton oben (r+7); 4 = Dreiklang mit None (r+8); 5 = offen r, r+4,
+  r+6, r+9; 6 = Slash-Akkord mit 5 Noten, von Hand gewählt; 7 = offen r, r+6, r+9, r+11. Stufen über der Oktave
+  zählen plus 12. Variante 4 und 6 weichen in einzelnen Zeilen davon ab (z.B. Zeile 2 Variante 4 `7` über E), Korg hat
+  sie von Hand gesetzt.
+
+Unsere Daten (hergeleitet, keine Hacktribe- und keine Korg-Bytes): eine Feldtabelle je neuer Skala aus den Intervallen
+(die schreiben wir sowieso für die Stufentabelle). Ein Generator im Patchbauer stapelt Terzen in Skalenstufen nach dem
+Variantenmuster oben, sucht den Namen aus den Intervallen gegen die 22 Namen (passt keiner: Name 0 oder `quintal`)
+und setzt Byte 1 aus den Tonklassen. Variante 6 als Slash-Akkord bleibt eine Regel, die wir selbst festlegen (Vorschlag:
+Dreiklang auf Stufe r+4 über Stufe r). Die 35 neuen Skalen haben 5 (5 Skalen), 6 (4), 7 (14), 8 (11) und 9 (1)
+Stufen, gemessen an Hacktribes Stufentabelle; vorgeschlagen eine Zeile je Stufe.
+
+ARM-Code (gemessen im Emulator, nur im Speicher): **eine gemeinsame Methode mit 3 Befehlen, 12 Byte**, statt einer
+Kopie je Skala. Korg ruft die Methode mit dem Objekt in r0 (`ldr r3, [r0]; ldr r3, [r3, #8]; blx r3` bei
+`0xC0056160`), also kann sie die Basis aus dem Objekt lesen:
+
+    ldr r0, [r0, #12]          ; e590000c  Basis der Tabelle aus dem Objekt
+    add r0, r0, r1, lsl #6     ; e0800301  plus Zeile * 64
+    bx lr                      ; e12fff1e
+
+Dazu eine Methodentabelle (24 Byte, Einträge 0 und 1 Korgs eigene von Ionian, Eintrag 2 die neue Methode) und je
+Skala ein Objekt von 16 Byte (Methodentabelle, Zeilen, Varianten, Basis). Die Objekte liegen fest im Image, Korgs
+Aufbau beim Start (`0xC00553C4`) braucht es dafür nicht. Probe: Ionians Zeiger auf ein solches Objekt mit einer
+Testtabelle umgelenkt, Pattern mit Skala 1 und Akkord-Set 0, 1, 3 angewendet: der Getter `0xC0055364` liefert das
+neue Objekt, die Methode die Testeinträge für Zeile 0, 1 und 6 und die gesetzte Variante, keine Asserts. Gemessen. Den
+Weg über Korgs eigenen Aufrufer beim Spielen auf den Pads habe ich nicht ausgeführt (offen).
+
+Platz (hergeleitet): 244 Zeilen zu 64 Byte = 15.616 Byte, 35 Objekte = 560 Byte, Methodentabelle und Methode 36 Byte,
+zusammen rund 16,2 KB. Das freie Gebiet `0xC013C0B0` bis `0xC014F000` hat 77.648 Byte, die übrigen Skalentabellen
+(Stufen, Snap, Namen, Zeiger) brauchen davon rund 2 KB.
+
+Offen: ob Zeilenzahlen unter 7 (5- und 6-stufige Skalen) am Pad anders aussehen als bei Korg, der für Major Penta 7
+Zeilen nimmt; welcher Pad welche Zeile spielt.
 
 **Was schon da ist.** Nichts. Intervalle und Namen der Skalen sind allgemeines Musikwissen und frei als Feldtabelle
 schreibbar (hergeleitet), die Snap-Werte müssten selbst bestimmt werden.
@@ -172,7 +221,8 @@ schreibbar (hergeleitet), die Snap-Werte müssten selbst bestimmt werden.
 **Blau.** 35 Skalen, Namensliste `0xC00C3B08`; Stufen-, Snap- und Objekttabelle auf blau nicht gesucht. Offen.
 
 **Urteil: als Datenpatch machbar**, im freien Gebiet `0xC013C0B0` bis `0xC014F000`, mit 4 Literalen und 2 Grenzen,
-Korgs 35 Skalen unverändert. Leitereigene Akkorde für die neuen Skalen brauchen Weg 3, also etwas ARM-Code.
+Korgs 35 Skalen unverändert. Für die leitereigenen Akkorde der neuen Skalen (Weg 3, entschieden) kommen 12 Byte
+ARM-Code und eigene Akkordtabellen dazu, rund 16 KB.
 
 ## Akkord-Sets (Nebenfund)
 
@@ -205,6 +255,8 @@ offen.
 - Grooves: Emulator (`splash_cases.Dev`), Groove-Byte im Part über das Objekt `u32(0xC0348910)`, Pattern anwenden mit
   `0xC004A8E4(u32(0xC0691334))`, Leser beim Abspielen protokolliert.
 - Skalen: Tabellen per Literal verglichen; Pattern-Skalenbyte gesetzt, Pattern angewendet, je Wert neu gestartet.
+- Eigene Akkordtabelle: Objekt, Methodentabelle, Methode und Testtabelle bei `0xC013D000` ins Image im Speicher
+  geschrieben, Ionians Zeiger umgelenkt, gestartet, Pattern angewendet, Getter und Methode aufgerufen.
 - Akkordobjekte: nach dem Start alle 35 (rot) und 70 (Hacktribe) Objekte gelesen, Methoden disassembliert, Tabellen
   über die dritte Methode gelesen; Pattern-Byte 40 und 41 gesetzt, Pattern angewendet, Variante und Getter gelesen.
 - Freier Platz: gebaute Sets `blech.json` (rot, Hacktribe) und `blech-synth.json` (blau), Lauf von `FF`.
