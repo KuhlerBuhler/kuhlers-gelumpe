@@ -60,15 +60,16 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 
 | | Sampler (rot) Original | Synth (blau) Original | Sampler mit Hacktribe | **BLECHTRIBE** rot | **BLECHTRIBE** blau | **BLECHTRIBE** mit Hacktribe |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
-| Eigene Samples aufnehmen und laden | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Eigene Samples aufnehmen und laden | ✅ | ➖ | ✅ | ✅ | ➖ | ✅ |
 | Erweiterte Hacktribe-Oszillatorbank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Zusätzliche Hacktribe-MFX, IFX, Grooves und Skalen | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | FX und Grooves über die Hacktribe-Menüs importieren/exportieren | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Eigenes INIT-Pattern über Hacktribe | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Hacktribe-MIDI-Erweiterungen | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Unveränderte Werks-Samplebank der roten Electribe nutzen | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Eigenes INIT-Pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Hacktribe-SysEx (für den Hacktribe-Editor) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Eigene USB-Befehle für die App (RAM, Karte, Plugins) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Unveränderte Werks-Samplebank der roten Electribe nutzen | ✅ | ➖ | ❌ | ✅ | ➖ | ❌ |
 | Anpassbare Oberfläche (Startbild, Schrift, Ausschaltbild) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Ladeanimation mit Fortschritt | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Ladeanimation mit Fortschritt | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
 | Startbild selbst malen | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Synth-Filter (MS20, Acid, ...) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Effekte frei bearbeiten (App) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
@@ -84,13 +85,15 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | KEY über die Pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Filter an und aus (SHIFT + Filtertaste) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Einstellungen speichern sich beim Verlassen des Menüs (AUTO SAVE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Akkorde in Pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Akkord-Pads farbig hervorheben | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Motion Sequences ein- und ausschalten | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Notenassistent | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Würfeln (Zufallsmelodie) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Klare Meldung bei kaputten Samples | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Klare Meldung bei kaputten Samples | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
 | Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Update über USB aus der App | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Update über USB aus der App | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+
+➖ heißt: gibt es auf dem Synth nicht, weil er keine Samples lädt.
 
 Hacktribe ist eine eigene Firmwarebasis. BLECHTRIBE ergänzt sie; es schaltet diese
 Hacktribe-Funktionen auf einem Korg-Original nicht automatisch frei. Ausnahme sind die Hacktribe-Oszillatoren
