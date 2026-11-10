@@ -4,13 +4,13 @@ Stand: 28. Oktober 2026. Kurze Antworten auf Fragen, die Neue stellen. Jede Antw
 belegt ist und was offen bleibt. Marker wie überall in den Docs: **gemessen**, **offline**,
 **hergeleitet**, **offen**.
 
-## Geht mein Gerät kaputt, wenn ich BLECH aufspiele?
+## Geht mein Gerät kaputt, wenn ich BLECHTRIBE aufspiele?
 
 Kurz: Ein Fall, in dem ein Gerät durch die Software dauerhaft beschädigt wurde, ist nicht bekannt, ganz
 ausschließen kann ihn niemand. Der übliche Weg zurück ist am Gerät geübt. Ein Versprechen, dass nie etwas
 schiefgeht, geben diese Docs nicht.
 
-- **BLECH kommt wie ein Update von Korg**, über SOFTWARE UPDATE von der SD-Karte. Der Rückweg über denselben
+- **BLECHTRIBE kommt wie ein Update von Korg**, über SOFTWARE UPDATE von der SD-Karte. Der Rückweg über denselben
   Weg ist am Gerät geübt: eine Firmware aus dem Patcher hin, das Original zurück (**gemessen**, 10. Oktober,
   [Rückweg geübt](messungen/2026-10-10-rueckweg-geuebt.md)).
 - **Das Startprogramm (Bootloader) wird nie angefasst.** Der Patcher fasst es nicht an, und der Editor sperrt
@@ -44,7 +44,7 @@ Kurz: Name, Ordner oder der Ordner einer anderen Firmware. Die Seite [Rettung](r
   `SYSTEM (1).VSB`. Umbenennen. Blendet der Rechner Endungen aus, wird daraus leicht `SYSTEM.VSB.VSB`.
 - **Sie liegt im Unterordner `System`**, also `KORG/<Ordner>/System/SYSTEM.VSB`. Fehlt `System`, leg ihn an.
 - **Der Ordner der Firmware, die jetzt läuft:** `electribe sampler` (Korgs rote), `electribe` (Korgs blaue),
-  `hacktribe` oder `blechtribe`. Benenn keinen Ordner um: `blechtribe` nimmt die Firmware erst, wenn BLECH läuft.
+  `hacktribe` oder `blechtribe`. Benenn keinen Ordner um: `blechtribe` nimmt die Firmware erst, wenn BLECHTRIBE läuft.
 - **Im Patcher die richtige Electribe gewählt?** Für die rote und die blaue nennt er verschiedene Ordner. Der Patcher
   sagt am Ende, wohin die Datei gehört.
 
@@ -76,7 +76,7 @@ Die Rettung liest den MIDI-Bericht selbst und sagt, welcher Fall es ist.
 
 ## Mein Pattern-Export zeigt alte Patterns, oder es kommt nichts Neues auf die Karte
 
-Kein Fehler in BLECH ([Messung](messungen/2026-10-28-pattern-export.md), **gemessen** im Emulator):
+Kein Fehler in BLECHTRIBE ([Messung](messungen/2026-10-28-pattern-export.md), **gemessen** im Emulator):
 
 - **Erst WRITE, dann EXPORT PATTERN.** Der Export schreibt das gespeicherte Pattern, Änderungen ohne WRITE sind nicht
   in der Datei. Korgs und Hacktribes Firmware machen es genauso.

@@ -252,7 +252,7 @@ Der kalte Lauf bleibt bei etwa 6 Minuten. Flaschenhälse sind dann die Kette der
 Startbild-Fälle (30 Schritte) und die Startwege in `check.py` (Probe-Haken auf jedem
 Lesezugriff).
 
-Der volle Check einer BLECH-Kopie (`check.py` ohne `--quick`, 553 Prüfungen) und die
+Der volle Check einer BLECHTRIBE-Kopie (`check.py` ohne `--quick`, 553 Prüfungen) und die
 Menüfälle (`menu_cases.py cases`, 164 Fälle), gemessen am 28.10.2026 mit Hacktribe,
 `GELUMPE_JOBS=6`, auf einem Rechner mit 10 Kernen und Last von anderen Läufen (Lastmittel 8
 bis 24, die Zeiten schwanken entsprechend):
@@ -305,7 +305,7 @@ node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB
 | `tools/release*.mjs`, `tools/set-version.mjs` | Release |
 | `tools/alsa-sysex.*` | Linux-Sender für große SysEx-Nachrichten ([alsa-sysex.md](../tools/alsa-sysex.md)) |
 | `src-tauri/` | die Desktop-App |
-| `assets/` | App-Icon, BLECH-Startbild und -Klänge ([README](../assets/blechy/README.md)) |
+| `assets/` | App-Icon, BLECHTRIBE-Startbild und -Klänge ([README](../assets/blechy/README.md)) |
 
 Browser-Regel: alles in `src/` außer `node.mjs` läuft im Browser. Keine `node:`-Importe
 außerhalb von `src/node.mjs`, `bin/`, `tools/` und `test/`.
@@ -416,7 +416,7 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 2. Pull Request `develop` -> `main` mergen. Den Release-PR `release/X.Y.Z` -> `main` merged der Workflow "Release
    merge" selbst, sobald jemand mit Schreibrecht ihn freigegeben hat und alle Checks grün sind (siehe unten).
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
-   Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
+   Apps auf allen Systemen (`build-apps.yml`), prüft den BLECHTRIBE-Satz im Emulator auf Hacktribes, Korgs roter und blauer
    2.02 und auf Hacktribe für die blaue (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
    `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
    `main` endet nach dem ersten Schritt.
@@ -571,7 +571,7 @@ angemeldet, das Release gibt es noch nicht, `HEAD` ist `origin/develop`. Scheite
 Commit lokal: beheben und `git push origin HEAD:develop`, dann `npm run release -- --yes` erneut, es läuft
 nur noch das Release.
 
-**BLECH-Patch zum Release** (optional): `E2_VSB=<SYSTEM.VSB aus Hacktribes Paket> npm run
+**BLECHTRIBE-Patch zum Release** (optional): `E2_VSB=<SYSTEM.VSB aus Hacktribes Paket> npm run
 build:blech-patch` baut zwei Dateien nach `dist-release/`. `BLECH.patch` ist der ganze Patch-Satz im
 eigenen Format (`node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`) und
 passt auf jede Hacktribe 2.02 mit unverändertem Code, auch mit eigenen FX-Presets, Menülängen oder

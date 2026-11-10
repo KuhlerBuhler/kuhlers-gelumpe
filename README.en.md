@@ -245,7 +245,7 @@ A wrong write or a faulty firmware can hang the device. So:
 - **If the device no longer starts:** the "Rettung" page in the editor (German) asks what you see and
   walks you back along the documented recovery. The bootloader is never
   touched, beyond it only JTAG helps ([docs/rettung.md](docs/rettung.md)).
-- **Test it yourself:** the [device tests](docs/geraetetests/README.md) describe how to repeat BLECH and
+- **Test it yourself:** the [device tests](docs/geraetetests/README.md) describe how to repeat BLECHTRIBE and
   the card functions on your own device, with a warning, prerequisites, a backup and the way back.
 
 The linter checks known memory regions, message format and documented failure cases. The emulator runs
