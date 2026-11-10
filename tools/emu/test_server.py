@@ -75,6 +75,29 @@ class FakeMachine:
             self.asserts.append({"file": "AM180xSpi.cpp", "line": 55, "polled": []})
 
 
+class LightMachine(FakeMachine):
+    """Drives the display light as the firmware does: from its second step red at 5 of 16, a software PWM of 8 ms (backlight.py)."""
+
+    def __init__(self, payload, flash, assert_after=None):
+        super().__init__(payload, flash, assert_after)
+        from backlight import Backlight
+        self.backlight = Backlight()
+
+    def run_until(self, seconds):
+        start = self.time_ns
+        super().run_until(seconds)
+        if self.steps < 2 or not self.powered:
+            return
+        for at in range(start, self.time_ns, 8_000_000):
+            self.backlight.write(at, 0)
+            self.backlight.write(at + 5_500_000, 0x08)
+
+    def send(self, msg):
+        super().send(msg)
+        if not self.powered:
+            self.backlight.off(self.time_ns)
+
+
 class FlickerMachine(FakeMachine):
     """Lights pad 1 in its second step and lets it go dark for 5 ms inside its third, as the panel gets it (panel_leds.py)."""
 
@@ -218,6 +241,30 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(seen["leds"][-1], {"7": 255})
         m = self.machines[0]
         self.assertEqual((len(m.payload), m.flash), (VSB_SIZE - 0x100, None))
+
+    def test_streams_the_display_light_colour(self):
+        """Nothing known before the firmware drives the light (the page keeps its colours), then red at 5 of 16 as the eye sees it,
+        and dark once the power is gone."""
+        def factory(payload, flash):
+            m = LightMachine(payload, flash)
+            self.machines.append(m)
+            return m
+
+        self.emu.factory = factory
+        self.request("POST", "/firmware", body=bytes(VSB_SIZE))
+        self.request("POST", "/start", body=b"{}")
+        seen = self.events(lambda s: [80, 0, 0] in s.get("backlight", []))
+        self.assertIsNone(seen["backlight"][0])
+        self.assertIn([80, 0, 0], seen["backlight"])
+        self.emu.inputs.put([6, 0, 0, 0, 0])        # the firmware lets go of the power hold
+        seen = self.events(lambda s: s.get("backlight", [None])[-1] == [0, 0, 0])
+        self.assertEqual(seen["backlight"][-1], [0, 0, 0])
+
+    def test_a_machine_without_the_light_sends_none(self):
+        self.request("POST", "/firmware", body=bytes(VSB_SIZE))
+        self.request("POST", "/start", body=b"{}")
+        seen = self.events(lambda s: s.get("leds") and s.get("backlight"))
+        self.assertEqual(set(map(repr, seen["backlight"])), {"None"})
 
     def test_streams_every_led_change_with_its_device_time(self):
         """A pad dark for 5 ms inside one step of the service reaches the page as two changes with their device times; the table,

@@ -183,6 +183,7 @@ class Emulator:
             if self.shade is not None:
                 q.put(("shade", self.shade))
             q.put(("leds", dict(m.leds)))
+            q.put(("backlight", self.light(m)))
         return q
 
     def unsubscribe(self, q):
@@ -310,6 +311,13 @@ class Emulator:
     def _display(m):
         shown = m.shown() if hasattr(m, "shown") else bytes(b for row in m.fb for b in row)
         return base64.b64encode(shown).decode("ascii")
+
+    @staticmethod
+    def light(m):
+        """The display light as the eye sees it, [red, green, blue] 0 to 255, or None where the machine does not model it or the
+        firmware has not driven it yet (backlight.py); the page then draws in its own colours."""
+        light = getattr(m, "backlight", None)
+        return light.levels(m.time_ns) if light is not None else None
 
     def publish_shade(self, lcd):
         """The display as it looks, one level (0 clear to 15 dark) per pixel, row by row (lcd.py)."""
@@ -537,6 +545,8 @@ class Emulator:
     def _run(self, m):
         wall0, dev0 = time.monotonic(), m.time_ns
         last_fb, last_leds, last_report, report_ns = None, None, wall0, dev0
+        last_light = self.light(m)
+        self.publish("backlight", last_light)      # a page may still hold the colour of the last run
         trace = getattr(m, "panel_leds", None)     # every LED change with its device time (panel_leds.py); a stand-in has only the table
         led_seen = trace.count if trace is not None else 0
         status_ns = dev0
@@ -564,6 +574,7 @@ class Emulator:
                     lcd.settle(m.fb, getattr(m, "lcd_reverse", False))
                     self.publish_shade(lcd)
                     self.publish("leds", {})
+                    self.publish("backlight", self.light(m))
                     self.set_status(state="off", error=None)
                     return
                 fb = self._display(m)
@@ -579,6 +590,10 @@ class Emulator:
                     if leds != last_leds:
                         self.publish("leds", dict(leds))
                         last_leds = leds
+                light = self.light(m)
+                if light != last_light:
+                    self.publish("backlight", light)
+                    last_light = light
                 card = self.card
                 if card is not None:
                     sd = (card.sectors_read, card.sectors_written, bool(card.medium.busy()))

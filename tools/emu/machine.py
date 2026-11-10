@@ -22,6 +22,7 @@ from pathlib import Path
 
 import devicetime
 import factorybank
+from backlight import Backlight, MASK as BACKLIGHT_PINS
 from firmware import HARDWARE_MARKS, SAMPLER_USER_MARK, identify
 from panel_leds import PanelLeds
 from sdcard import IRQ as MMC_IRQ, MMCController
@@ -301,6 +302,7 @@ class Machine:
         self.dsp_uploads = []      # device time in ms of every DSP program upload, i.e. every DSP boot
         self.dsp_mem = {INPUT_LEVEL: 0, INPUT_LEVEL + 2: 0}     # nothing plugged into the input
         self.leds, self.panel_log = {}, []
+        self.backlight = Backlight()   # the display light, GPIO 6.3 to 6.5 (backlight.py)
         self.panel_leds = PanelLeds()   # every LED change with its device time (panel_leds.py)
         self.panel_count = 0       # messages to the panel; the running firmware sends LEDs ~265 per second
         self.fb = [[0] * 128 for _ in range(8)]
@@ -633,11 +635,14 @@ class Machine:
         elif reg == 0x08: w |= v
         elif reg == 0x0C: w &= ~v
         self.gpio[pair] = w & 0xFFFFFFFF
+        if pair == 3 and reg in (0x04, 0x08, 0x0C) and ((old ^ w) | v) & BACKLIGHT_PINS:
+            self.backlight.write(self.time_ns, w & BACKLIGHT_PINS)
         if pair == 1 and (old ^ w) & 0x4000:        # GPIO 2.14: flash chip select
             self.flash.select(not w & 0x4000)
         hold = pin(7, 11)[1]
         if pair == 3 and old & hold and not w & hold:   # GPIO 7.11: power hold let go
             self.powered = False
+            self.backlight.off(self.time_ns)
             self.fb = [[0] * 128 for _ in range(8)]
             self.lcd_reverse = False
             self.lcd_on = True
