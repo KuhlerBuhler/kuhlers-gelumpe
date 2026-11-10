@@ -12,16 +12,16 @@ SD-Karte. Der Rückweg ist dasselbe noch einmal mit Korgs unveränderter Datei. 
 
 | Behauptung | Marker | Beleg |
 |---|---|---|
-| Hin (Korgs blaue zu BLECH-Synth-Satz) und zurück (Korgs Datei im selben Ordner) schreiben beide nur `[0x020000, 0x220000)`, 512 Löschbefehle und 8192 Programmierungen; Bootloader, Nutzerbereich und PCM-Bank bleiben gleich | gemessen (Emulator) | [Messung 15.10.](messungen/2026-10-15-blaue-electribe.md), Abschnitt SOFTWARE UPDATE der blauen |
+| Hin (Korgs blaue zu BLECHTRIBE-Synth-Satz) und zurück (Korgs Datei im selben Ordner) schreiben beide nur `[0x020000, 0x220000)`, 512 Löschbefehle und 8192 Programmierungen; Bootloader, Nutzerbereich und PCM-Bank bleiben gleich | gemessen (Emulator) | [Messung 15.10.](messungen/2026-10-15-blaue-electribe.md), Abschnitt SOFTWARE UPDATE der blauen |
 | Nach Hin und Zurück ist der ganze 16-MiB-Flash byteweise gleich dem Stand davor | gemessen (Emulator) | dieselbe Messung |
-| BLECH-Synth-Satz liest nach der ersten Installation `KORG/blechtribe/System/SYSTEM.VSB`; Korgs unveränderte blaue Datei von dort schreibt Korgs Firmware zurück, Neustart bis zum Hauptbild | gemessen (Emulator) | [Messung 26.10.](messungen/2026-10-26-blech-hacktribe-blau.md), Abschnitt Kartenordner |
-| Läuft Hacktribe (auch mit BLECH) auf der blauen, nimmt das Update Korgs blaue Datei nur mit dem Kopf des Samplers (Byte `0x12` auf `0x53`, Byte `0x2E` auf `0x24`); unverändert sagt es "Invalid File" und schreibt nichts | gemessen (Emulator) | Messung 26.10., Tabelle Update-Wege |
-| Die Einstellungen von BLECH liegen auf der Karte (`KORG/blechtribe/`), nicht im Flash; der Patcher fasst den Bootloader nie an | offline (Code) | [Rettung](rettung.md), [Patcher](patcher.md) |
+| BLECHTRIBE-Synth-Satz liest nach der ersten Installation `KORG/blechtribe/System/SYSTEM.VSB`; Korgs unveränderte blaue Datei von dort schreibt Korgs Firmware zurück, Neustart bis zum Hauptbild | gemessen (Emulator) | [Messung 26.10.](messungen/2026-10-26-blech-hacktribe-blau.md), Abschnitt Kartenordner |
+| Läuft Hacktribe (auch mit BLECHTRIBE) auf der blauen, nimmt das Update Korgs blaue Datei nur mit dem Kopf des Samplers (Byte `0x12` auf `0x53`, Byte `0x2E` auf `0x24`); unverändert sagt es "Invalid File" und schreibt nichts | gemessen (Emulator) | Messung 26.10., Tabelle Update-Wege |
+| Die Einstellungen von BLECHTRIBE liegen auf der Karte (`KORG/blechtribe/`), nicht im Flash; der Patcher fasst den Bootloader nie an | offline (Code) | [Rettung](rettung.md), [Patcher](patcher.md) |
 | Der Weg am echten Gerät: Hin und Zurück über Korgs Update ist am 10.10. auf einem Gerät geübt, mit der roten | gemessen (Gerät, rot) | [Rückweg geübt](messungen/2026-10-10-rueckweg-geuebt.md) |
 | Derselbe Weg auf einem echten blauen Gerät, ein Stromausfall mitten im Schreiben, Korgs Update ohne Netzteil | offen | braucht einen Test am Gerät |
 
 Was die Installation also nicht ändert, und was deshalb nichts zum Zurückholen braucht: den Bootloader, den Nutzerbereich im
-Flash mit deinen Patterns, die PCM-Bank. Das gilt für den BLECH-Satz auf Korgs Synth-Firmware. Mit Hacktribe darunter ändert sich
+Flash mit deinen Patterns, die PCM-Bank. Das gilt für den BLECHTRIBE-Satz auf Korgs Synth-Firmware. Mit Hacktribe darunter ändert sich
 mehr (anderer Code, Sampler-Firmware auf blauer Hardware), aber auch dort schreibt das Update nur den Firmware-Bereich (Messung 26.10.:
 "Rest des Flashs gleich"). Ob die Werks-Patterns und Oszillatoren der blauen nach Hacktribe und zurück alle wieder da sind, ist **offen**.
 
@@ -34,7 +34,7 @@ Die Seite Blechy im Editor fragt das für dich: `Blechy -> Ich will zurück zu K
 - **Blau, Hacktribe oder BLECHTRIBE mit Hacktribe:** Korgs blaue Datei **mit Sampler-Kopf**, in `KORG/hacktribe/System/` (läuft Hacktribe) oder
   `KORG/blechtribe/System/` (läuft BLECHTRIBE). Die Seite Blechy macht die Datei aus deiner eigenen von Korg.
 
-Weißt du nicht, welche läuft: BLECH zeigt sich im Menü (`Menü -> BLECH -> VERSION`); ohne dieses Menü läuft kein BLECH.
+Weißt du nicht, welche läuft: BLECHTRIBE zeigt sich im Menü (`Menü -> BLECH -> VERSION`); ohne dieses Menü läuft kein BLECHTRIBE.
 
 ## Schritt für Schritt (blaue, BLECHTRIBE ohne Hacktribe)
 
@@ -43,7 +43,7 @@ Weißt du nicht, welche läuft: BLECH zeigt sich im Menü (`Menü -> BLECH -> VE
    Du brauchst daraus die `SYSTEM.VSB`. Die App führt dich dorthin (Blechy), der Patcher zeigt denselben Link.
 3. **Auf die Karte.** Die Datei muss genau `SYSTEM.VSB` heißen (nicht `SYSTEM (1).VSB`) und in `KORG/blechtribe/System/` liegen, fehlende Ordner anlegen.
    Leg sie dort **allein** hin: Korgs Update fragt in diesem Ordner auch nach `BOOT.VSB`, `USER.VSB` und `PCM.VSB`; was dann passiert, ist nicht gemessen.
-   In `KORG/electribe/System/` sucht eine laufende BLECH nicht, dort bekommst du "Error, No File".
+   In `KORG/electribe/System/` sucht eine laufende BLECHTRIBE nicht, dort bekommst du "Error, No File".
 4. **Netzteil anstecken.** Ohne Netzteil sagt die Electribe "Battery Low" und schreibt nichts.
 5. **Update starten.** Electribe einschalten, `DATA UTILITY`, letzte Seite `SOFTWARE UPDATE`, ENTER (Taste MENU), "Are You Sure?" bestätigen,
    "Working..." abwarten (nicht ausschalten), bei "OK. Please Reboot." aus- und wieder einschalten.

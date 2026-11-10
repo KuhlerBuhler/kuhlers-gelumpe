@@ -105,7 +105,7 @@ async function lookAtCard(page, colour, firmware) {
   await answer(page, t("rescue.last.korg"));
   await settle(page);
   await answer(page, firmware);
-  await answer(page, "Zeig mir deine SD-Karte");
+  await answer(page, "Schau dir meine SD-Karte an");
   assert.match(await said(page), /löschen tu ich nie etwas/);
   await page.click("#cee-rescue-case-card-pick");
   await settle(page);
@@ -178,7 +178,7 @@ test("the card in a browser without write access: Blechy reads the folder and sa
   await answer(page, t("rescue.last.korg"));
   await settle(page);
   await answer(page, "Korgs Original");
-  await answer(page, "Zeig mir deine SD-Karte");
+  await answer(page, "Schau dir meine SD-Karte an");
   await settle(page);
   const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.click("#cee-rescue-case-card-pick")]);
   await chooser.setFiles(dir);
