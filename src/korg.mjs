@@ -48,8 +48,8 @@ export const HELP = [
   "KORG.screen.set(bild)     Bild aufs Display: 64 Textzeilen mit # für an, 1024 Display-Bytes, 8192 Pixel oder (x, y) => an/aus",
   "KORG.screen.get()         das Display als 64 Textzeilen",
   "KORG.screen.state()       welcher Bildschirm, welche Seite, welcher Part",
-  "KORG.press(name)          eine Taste drücken und loslassen, etwa \"menu\", \"exit\", \"play\"; mit dem BLECH-Satz auch am Gerät",
-  "KORG.turn(n, rad)         das Hauptrad (oder einen Drehgeber, etwa \"cutoff\") um n Rasten drehen (negativ nach links), nur mit dem BLECH-Satz",
+  "KORG.press(name)          eine Taste drücken und loslassen, etwa \"menu\", \"exit\", \"play\"; mit dem BLECHTRIBE-Satz auch am Gerät",
+  "KORG.turn(n, rad)         das Hauptrad (oder einen Drehgeber, etwa \"cutoff\") um n Rasten drehen (negativ nach links), nur mit dem BLECHTRIBE-Satz",
   "KORG.knob(name, wert)     einen Regler auf 0 bis 255 stellen, etwa \"level\"; ab BLECHTRIBE 1.3.8, auch am Gerät",
   "KORG.pad(n, {velocity, hold})  Pad 1 bis 16 anschlagen (hold: true lässt es gedrückt, velocity 0 lässt los); ab 1.3.8",
   "KORG.touch(x, y)          das Touchpad bei x, y (0 bis 1023) berühren und loslassen; ab 1.3.8",
@@ -150,7 +150,7 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
     return true;
   };
   const send = async message => {
-    if (!(await remote(null, message))) throw new Error(localize("Das geht nur mit einer Firmware mit dem BLECH-Satz (die Laufzeit nimmt den Befehl an)."));
+    if (!(await remote(null, message))) throw new Error(localize("Das geht nur mit einer Firmware mit dem BLECHTRIBE-Satz (die Laufzeit nimmt den Befehl an)."));
   };
   // A press that holds something down lets go of everything when a later step fails, so no key or pad stays down.
   const holding = async steps => {
@@ -189,13 +189,13 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
       if (index === undefined) throw new Error(localize("Keine Taste „{name}“. Namen: {names}", { name, names: Object.keys(buttons).join(", ") }));
       live();
       if (await remote(command(KEY, index))) return `${name} gedrückt`;
-      hooks.press?.("Tastendrücke ohne die Tasten der BLECH-Laufzeit");
+      hooks.press?.("Tastendrücke ohne die Tasten der BLECHTRIBE-Laufzeit");
       await emulator.button(index);
       return `${name} gedrückt`;
     },
     async turn(delta, encoder = 0) {
       const word = command(ENCODER, named(encoders, encoder, "Drehgeber"), delta);
-      if (!(await remote(word))) throw new Error(localize("Drehen geht nur mit einer Firmware mit dem BLECH-Satz (die Laufzeit nimmt den Befehl an)."));
+      if (!(await remote(word))) throw new Error(localize("Drehen geht nur mit einer Firmware mit dem BLECHTRIBE-Satz (die Laufzeit nimmt den Befehl an)."));
       return `um ${delta} gedreht`;
     },
     async knob(name, value) {
@@ -218,7 +218,7 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
       return `${name} ${down ? "gedrückt" : "losgelassen"}`;
     },
     async release() {
-      if (!(await remote(command(RELEASE)))) throw new Error(localize("Das geht nur mit einer Firmware mit dem BLECH-Satz."));
+      if (!(await remote(command(RELEASE)))) throw new Error(localize("Das geht nur mit einer Firmware mit dem BLECHTRIBE-Satz."));
       return "alles losgelassen";
     },
     async testMode(on = true) {

@@ -44,7 +44,7 @@ Kartenleser läuft der Plan im Speicher (`applyPlan`).
 ## Der Weg übers Kabel (SysEx)
 
 **gemessen im Emulator** ([Messung](../messungen/2026-10-26-sample-datei-sysex.md)), am Gerät **nicht** gemessen. Die FILE-Befehle von
-BLECH (`0x65` FILE READ, `0x66` FILE BEGIN, `tools/patch/blech_sysex.py`) erreichten vorher nur `SYSTEM.VSB` und `ORIGINAL.BIN` im
+BLECHTRIBE (`0x65` FILE READ, `0x66` FILE BEGIN, `tools/patch/blech_sysex.py`) erreichten vorher nur `SYSTEM.VSB` und `ORIGINAL.BIN` im
 Ordner der Firmware (Bit 31 des Offsets wählt), dazu `0x67` PLUGIN BEGIN eine Plugin-Datei, mit Offset plus Länge bis `0x200100`.
 `e2sSample.all` war in keinem der Ordner `electribe sampler`, `hacktribe` und `blechtribe` erreichbar. Jetzt gilt:
 

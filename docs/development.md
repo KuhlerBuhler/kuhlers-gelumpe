@@ -252,7 +252,7 @@ Der kalte Lauf bleibt bei etwa 6 Minuten. Flaschenhälse sind dann die Kette der
 Startbild-Fälle (30 Schritte) und die Startwege in `check.py` (Probe-Haken auf jedem
 Lesezugriff).
 
-Der volle Check einer BLECH-Kopie (`check.py` ohne `--quick`, 553 Prüfungen) und die
+Der volle Check einer BLECHTRIBE-Kopie (`check.py` ohne `--quick`, 553 Prüfungen) und die
 Menüfälle (`menu_cases.py cases`, 164 Fälle), gemessen am 28.10.2026 mit Hacktribe,
 `GELUMPE_JOBS=6`, auf einem Rechner mit 10 Kernen und Last von anderen Läufen (Lastmittel 8
 bis 24, die Zeiten schwanken entsprechend):
@@ -305,7 +305,7 @@ node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB
 | `tools/release*.mjs`, `tools/set-version.mjs` | Release |
 | `tools/alsa-sysex.*` | Linux-Sender für große SysEx-Nachrichten ([alsa-sysex.md](../tools/alsa-sysex.md)) |
 | `src-tauri/` | die Desktop-App |
-| `assets/` | App-Icon, BLECH-Startbild und -Klänge ([README](../assets/blechy/README.md)) |
+| `assets/` | App-Icon, BLECHTRIBE-Startbild und -Klänge ([README](../assets/blechy/README.md)) |
 
 Browser-Regel: alles in `src/` außer `node.mjs` läuft im Browser. Keine `node:`-Importe
 außerhalb von `src/node.mjs`, `bin/`, `tools/` und `test/`.
@@ -416,10 +416,25 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 2. Pull Request `develop` -> `main` mergen. Den Release-PR `release/X.Y.Z` -> `main` merged der Workflow "Release
    merge" selbst, sobald jemand mit Schreibrecht ihn freigegeben hat und alle Checks grün sind (siehe unten).
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
-   Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
+   Apps auf allen Systemen (`build-apps.yml`), prüft den BLECHTRIBE-Satz im Emulator auf Hacktribes, Korgs roter und blauer
    2.02 und auf Hacktribe für die blaue (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
    `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
    `main` endet nach dem ersten Schritt.
+
+**Checkliste je Release.** Was mit jeder Version mitgezogen wird. "Automatisch" heißt: ein Skript schreibt es oder
+ein Test schlägt fehl, wenn es fehlt.
+
+| Was | Wie | Automatisch |
+|-----|-----|-------------|
+| Version in `package.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, `blech-version` | `node tools/set-version.mjs X.Y.Z` | Skript, Test `blech-version` |
+| Notizen `release-notes/X.Y.Z.md` und `data/release-notes.mjs` | von Hand, dann `node tools/release-notes.mjs build` | Test, Prüfschritt "due" |
+| "Neueste Version von BLECHTRIBE" im Patcher | kommt aus den neuesten Notizen | ja, Test `blech-version` |
+| `data/known-releases.json`: Dateien mit älteren Versionen lassen sich ohne Original updaten | `node tools/known-releases.mjs --hacktribe H.VSB --stock RED.VSB --synth BLUE.VSB` mit allen Tags ab `v1.3.3` und `worktree`, die drei unveränderten 2.02-Dateien vom eigenen Rechner | Test `blech-version` meldet fehlende Versionen |
+| `data/patches/verified.json` | der Workflow "Verify patches" committet sie | ja |
+| Neuigkeiten nach dem Update (`data/news.mjs`, Schlüssel `news.vXYZ.*` in allen Sprachen) | von Hand, nur bei Versionen mit Neuem für Nutzer | nein |
+| Funktionslisten in `README.md` und `README.en.md` (Plugins, Fallstricke, Rettung) | von Hand | nein |
+| [Fahrplan](fahrplan.md): die Version unter "Erschienen" eintragen, den Rest nachziehen | von Hand | nein |
+| Plugin-API-Version und neue Funktionen in [plugins.md](plugins.md) und `plugins.en.md` | mit dem Feature-PR | nein |
 
 **Format der Notizen** (`release-notes/X.Y.Z.md`): eine Datei, erst Deutsch, dann eine Zeile `## English` und darunter
 dieselben Notizen auf Englisch. Die Datei enthält nur die Notizen, keinen Download-Abschnitt und keine "Ohne App
@@ -556,7 +571,7 @@ angemeldet, das Release gibt es noch nicht, `HEAD` ist `origin/develop`. Scheite
 Commit lokal: beheben und `git push origin HEAD:develop`, dann `npm run release -- --yes` erneut, es läuft
 nur noch das Release.
 
-**BLECH-Patch zum Release** (optional): `E2_VSB=<SYSTEM.VSB aus Hacktribes Paket> npm run
+**BLECHTRIBE-Patch zum Release** (optional): `E2_VSB=<SYSTEM.VSB aus Hacktribes Paket> npm run
 build:blech-patch` baut zwei Dateien nach `dist-release/`. `BLECH.patch` ist der ganze Patch-Satz im
 eigenen Format (`node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`) und
 passt auf jede Hacktribe 2.02 mit unverändertem Code, auch mit eigenen FX-Presets, Menülängen oder

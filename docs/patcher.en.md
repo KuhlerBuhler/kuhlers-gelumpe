@@ -24,8 +24,8 @@ Built means: the code is in the repository and was checked in the emulator or in
 
 - The patch format (version 1) with field, raw and copy changes, the hook registry, and the start-phase
   exceptions (see below).
-- The **BLECH set** of many patches (next section) and the page "Patcher" with check, download, the choice
-  "BLECH direct" or "with Hacktribe", and the conversion from Korg's original 2.02 to Hacktribe.
+- The **BLECHTRIBE set** of many patches (next section) and the page "Patcher" with check, download, the choice
+  "BLECHTRIBE direct" or "with Hacktribe", and the conversion from Korg's original 2.02 to Hacktribe.
 - The patch file `BLECH.patch` and a bsdiff file for the release.
 - The check in the emulator before the export.
 - The write rule for the card, and the customization pages of the BLECH menu.
@@ -61,7 +61,7 @@ There are three kinds of patch:
 | ARM code | keys, menu entries, LEDs, touchpad routing, bug fixes, games | yes, the emulator runs the ARM | medium |
 | DSP code | new effect slots, new algorithms, a third effect over everything | no, the DSP is a dummy in the emulator | high |
 
-## The BLECH set and its patches
+## The BLECHTRIBE set and its patches
 
 The set is `data/patches/blech.json`. It holds a patch per feature (some per firmware build); the base ones are:
 
@@ -69,9 +69,9 @@ The set is `data/patches/blech.json`. It holds a patch per feature (some per fir
 |---|---|
 | Start image editor | edit the start image and store it in the flash (the storage place is derived; whether it works on the device is open) |
 | MFX 2 | a second master effect on TOUCH SCALE, switched on or off on the BLECH menu page MFX 2 (applies from the next start) |
-| Plugin runtime with BLECH menu | runs plugins from the card and adds the "BLECH" screen to the EDIT ring ([plugins](plugins.en.md)); also carries Blechy, the app built into BLECH, as the last page of the ring: his block lies in the image at `0xC0184000` and is loaded at start before the card, with or without a card, and with EXIT held at power-on he is absent |
+| Plugin runtime with BLECH menu | runs plugins from the card and adds the "BLECH" screen to the EDIT ring ([plugins](plugins.en.md)); also carries Blechy, the app built into BLECHTRIBE, as the last page of the ring: his block lies in the image at `0xC0184000` and is loaded at start before the card, with or without a card, and with EXIT held at power-on he is absent |
 | Card folder `blechtribe` | the device reads `KORG/blechtribe/` instead of `KORG/hacktribe/` (or `KORG/electribe sampler/` on Korg's original) |
-| BLECH start image | the BLECH splash screen |
+| BLECHTRIBE start image | the BLECHTRIBE splash screen |
 | Theme | own fonts and symbols for the display ([background, German](hintergrund/blech-theme.md)); a data-only patch |
 
 All of them apply together. The page applies them in the browser, and the result is byte for byte the one that
@@ -80,8 +80,8 @@ All of them apply together. The page applies them in the browser, and the result
 ### Which firmware you can start from
 
 The page starts with two questions before the four steps: "Which Electribe do you have?" (blue, red, blue with
-Hacktribe, red with Hacktribe) and "What do you want?" (BLECH, BLECH + Hacktribe, or Update only; with Hacktribe
-already on it only BLECH and update). Step 1 then shows only what that path needs: for an update the USB read and the
+Hacktribe, red with Hacktribe) and "What do you want?" (BLECHTRIBE, BLECHTRIBE + Hacktribe, or Update only; with Hacktribe
+already on it only BLECHTRIBE and update). Step 1 then shows only what that path needs: for an update the USB read and the
 field for the file from the card, otherwise Korg's file for the right Electribe (always the red one for Hacktribe) and
 the field. The choice sets the route on Korg's original and the Electribe for the head; an Electribe on the cable wins.
 Dropping a file right away skips the questions and shows everything as before. Every step has a back button.
@@ -89,11 +89,11 @@ Dropping a file right away skips the questions and shows everything as before. E
 - **Hacktribe 2.02** (the file from Hacktribe's package, sha256 `7cb4825c...`): the normal case.
 - **Korg's original 2.02** (sha256 `1d0f0689...`, the value Hacktribe's own patch script checks): the page
   offers two ways.
-  - **"BLECH direkt (kein Hacktribe-Patch nötig)"**, BLECH direct, the default: the patches go straight onto
+  - **"BLECHTRIBE direkt (kein Hacktribe-Patch nötig)"**, BLECHTRIBE direct, the default: the patches go straight onto
     Korg's file. Built and checked in the emulator, **open on the device**
     ([measurement](messungen/2026-10-14-stock-blech.md), German).
-  - **"BLECH mit Hacktribe (hacktribe-2.patch selbst mitbringen)"**, BLECH with Hacktribe: the page first
-    turns Korg's file into Hacktribe's file and then adds BLECH. You bring Hacktribe's `hacktribe-2.patch`
+  - **"BLECHTRIBE mit Hacktribe (hacktribe-2.patch selbst mitbringen)"**, BLECHTRIBE with Hacktribe: the page first
+    turns Korg's file into Hacktribe's file and then adds BLECHTRIBE. You bring Hacktribe's `hacktribe-2.patch`
     yourself.
 - **Hacktribe on the blue Electribe 2.** Hacktribe is the Sampler's code and runs on both. For every copy with
   Hacktribe, step 2 asks which Electribe it is for (preset from the file's head, or from an Electribe connected over
@@ -111,9 +111,9 @@ Dropping a file right away skips the questions and shows everything as before. E
   takes SYSTEM.VSB out of it.
 - Any other file is rejected.
 
-### A file that already has BLECH
+### A file that already has BLECHTRIBE
 
-A file with BLECH of release 1.3.3 or later (over USB or dropped) gets the current set straight over it, no original
+A file with BLECHTRIBE of release 1.3.3 or later (over USB or dropped) gets the current set straight over it, no original
 needed, for Korg red, Korg blue and Hacktribe (red and blue head). `data/known-releases.json` (made by
 `tools/known-releases.mjs`, hashes and offsets only) lists every region those releases wrote. Each region must hold
 the original bytes or what a release wrote there, otherwise the file counts as unknown and nothing is patched. Free
@@ -124,7 +124,7 @@ its files can be updated later.
 
 Only when that refuses the file: on Korg's build the app rebuilds the original from Korg's System Updater (the bytes
 the patches write are copied from Korg's file, used only on a hash match). Hacktribe has no such fallback, its own
-changes overlap BLECH's places, so the unchanged file is needed. A partly patched Hacktribe file of no known release
+changes overlap BLECHTRIBE's places, so the unchanged file is needed. A partly patched Hacktribe file of no known release
 therefore names the two ways to it: the backup of your own Hacktribe file (SHA-256 `7cb4825c...`) or Korg's 2.02 with
 `hacktribe-2.patch`. Releases before 1.3.3 are left out of `known-releases.json` on purpose: with their regions a 1.3.7
 file would no longer be unambiguous (measured on Hacktribe 2.02 with the sets of 1.2.0 to 1.3.7).
@@ -142,7 +142,7 @@ this path was tested only with a self-made bsdiff (same tool, random data, nothi
 You can test it with your own file through `E2_STOCK_VSB` and `E2_HACKTRIBE_PATCH` in
 `test/patcher.test.mjs`.
 
-**What you miss on Korg's original without Hacktribe.** Whatever Hacktribe adds that BLECH does not bring
+**What you miss on Korg's original without Hacktribe.** Whatever Hacktribe adds that BLECHTRIBE does not bring
 itself: filters for the synth, extra effects, and the SysEx commands `0x52` to `0x57` for reading and writing
 RAM. The editor's live mode needs those SysEx commands, and the effect editor needs the preset tables on the
 card. Korg's build has neither ([original in the emulator](messungen/2026-10-14-stock-emulator.md), German).
@@ -190,7 +190,7 @@ controller. FatFs has no lock, so everything the runtime writes follows these ru
 1. Read only at start, after `e2sSample.all` has loaded and with EXIT not held. Write only in the frame hook
    with the main screen open, so never during DATA UTILITY or sample loading. The BLECH menu is the exception:
    it writes only on the user's WRITE and reads the file list when the list of MANAGE PLUGINS opens and the description of a plugin when its page DESCRIPTION opens, always with
-   the menu screen open. The BLECH pages that sit in DATA UTILITY (EXPORT ALL PLUGINS) are that menu screen; the firmware's
+   the menu screen open. The BLECHTRIBE pages that sit in DATA UTILITY (EXPORT ALL PLUGINS) are that menu screen; the firmware's
    function list is closed then.
 2. Write only on an explicit request (`korg.store.save()`), with at least 50 frames (2 seconds) between two
    writes.
@@ -303,7 +303,7 @@ What can break, and what helps:
 **Open:** the rescue when the running firmware no longer starts, and whether the file under
 `KORG/electribe sampler/System/` is good for that. The "Rettung" page in the editor walks through the
 documented recovery and marks each step as measured on the device or not ([rettung.md](rettung.md), German).
-If you want to repeat BLECH on your own device, the [device tests](geraetetests/README.md) (German) give a
+If you want to repeat BLECHTRIBE on your own device, the [device tests](geraetetests/README.md) (German) give a
 warning, prerequisites, a backup and the way back.
 
 ## Patch file formats
@@ -350,7 +350,7 @@ npm run build:blech-patch -- --vsb <SYSTEM.VSB> --version 1.0.1
 | File | What for | How to apply |
 |---|---|---|
 | `BLECH.patch` | the whole set in our format: all patches with hooks, checksums and start-phase exceptions. Fits any Hacktribe 2.02 whose code and fixed data match, also with the blue Electribe's head; with `--stock` Korg's red 2.02 and with `--synth` Korg's blue 2.02 (fingerprints of their own, the blue with its own set). The release builds it with all three files | `node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`, or `applyPatchFile` in `src/patchfile.mjs` |
-| `BLECH-for-7cb4825c.bsdiff`, `BLECH-for-2b2e1c2f.bsdiff` (Hacktribe with the blue head, gives the Sampler head its updater takes), with `--stock` `BLECH-for-1d0f0689.bsdiff`, with `--synth` `BLECH-for-41fc5f1c.bsdiff` | exactly this file to BLECH as a bsdiff 4 (`BSDIFF40`, like Hacktribe's patch). The name carries the start of the sha256 of the input | `bspatch SYSTEM.VSB BLECH.VSB BLECH-for-7cb4825c.bsdiff`, without our app, only with the file that has this hash |
+| `BLECH-for-7cb4825c.bsdiff`, `BLECH-for-2b2e1c2f.bsdiff` (Hacktribe with the blue head, gives the Sampler head its updater takes), with `--stock` `BLECH-for-1d0f0689.bsdiff`, with `--synth` `BLECH-for-41fc5f1c.bsdiff` | exactly this file to BLECHTRIBE as a bsdiff 4 (`BSDIFF40`, like Hacktribe's patch). The name carries the start of the sha256 of the input | `bspatch SYSTEM.VSB BLECH.VSB BLECH-for-7cb4825c.bsdiff`, without our app, only with the file that has this hash |
 
 **Which VSB fits.** Hacktribe's file and an edited VSB differ only in data that users change. Measured on one
 of our own `SYSTEM.VSB` files against the one from the package: 2317 bytes in 1331 runs, namely FX presets,

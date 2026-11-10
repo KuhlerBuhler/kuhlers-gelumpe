@@ -16,7 +16,7 @@ export default [{
 }, {
   version: [2, 2],
   build: "stock",
-  label: "Electribe 2 Sampler 2.02, Korgs Original, mit BLECH",
+  label: "Electribe 2 Sampler 2.02, Korgs Original, mit BLECHTRIBE",
   evidence: "measure:2026-10-15/blech-sysex",
   // Code of Korg's build that no BLECH patch touches and that Hacktribe changed (0xC0026450), and the run Hacktribe's code fills (FF at Korg's).
   fingerprints: [
