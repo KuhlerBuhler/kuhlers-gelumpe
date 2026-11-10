@@ -8,6 +8,7 @@ import { stateText } from "./state.mjs";
 import { toast } from "./toast.mjs";
 import { identify, buildOf, lackOf, hasBlechSysex, firmwareName } from "../../src/firmware.mjs";
 import { devicePanel } from "./panel.mjs";
+import { LedPlayer } from "./led-trace.mjs";
 import { emuBase, parseEmuLink } from "./emu-link.mjs";
 import { t } from "./i18n.mjs";
 
@@ -226,6 +227,8 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   let booted = false;
   let generation = 0;
   const device = devicePanel(send);
+  const ledPlayer = new LedPlayer();
+  let ledFrame = 0;
 
   // The emulated DIN MIDI as a port pair, shaped like electribePorts() output,
   // so DeviceSession, planner and gate run unchanged against the firmware.
@@ -369,12 +372,20 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       if (!live(s.state) && vsb) queueMicrotask(boot);
     }
     say(tone, word, s.error || (s.state === "running" ? t("emu.running") : s.state === "off" ? t("emu.off") : ""), QUIET.has(s.state) && !s.error, null, !!s.error);
-    if (s.state !== "running") device.showLeds({}, true);
+    if (s.state !== "running") { ledPlayer.table({}); device.showLeds({}, true); }
     if (!live(s.state)) light = null;
     // A real device on the drawing is switched on; its display shows whatever the emulator does.
     if (!fake && !external) device.setPower(live(s.state));
     deviceBox.dataset.state = s.state;
     renderOffer();
+  }
+
+  function drawLedFrame(now) {
+    ledFrame = 0;
+    if (external) return;
+    const levels = ledPlayer.frame(now);
+    if (Object.keys(levels).length) device.showLeds(levels);
+    if (ledPlayer.busy) ledFrame = requestAnimationFrame(drawLedFrame);
   }
 
   function listen() {
@@ -406,7 +417,18 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       if (shaded && lastShade) drawShade(canvas, lastShade, light);
       else if (lastDisplay) drawDisplay(canvas, lastDisplay, light);
     });
-    events.addEventListener("leds", e => { if (!external && (lastState === "running" || lastState === "hung")) device.showLeds(JSON.parse(e.data), true); });
+    events.addEventListener("leds", e => {
+      if (external || !(lastState === "running" || lastState === "hung")) return;
+      const leds = JSON.parse(e.data);
+      ledPlayer.table(leds);
+      device.showLeds(leds, true);
+    });
+    // Every LED change with its device time: played at the device's pace, so a short flicker shows as on the device.
+    events.addEventListener("ledtrace", e => {
+      if (external || !(lastState === "running" || lastState === "hung")) return;
+      ledPlayer.trace(JSON.parse(e.data), performance.now());
+      if (!ledFrame) ledFrame = requestAnimationFrame(drawLedFrame);
+    });
     events.addEventListener("midi", e => {
       const hex = JSON.parse(e.data);
       port.in.onmidimessage?.({ data: Uint8Array.from(hex.match(/../g), h => parseInt(h, 16)) });
@@ -604,7 +626,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       mirrored = mirrors;
       renderOffer();
       if (!fake) device.setPower(on || lastState === "running" || lastState === "hung");
-      if (on || was) device.showLeds({}, true);
+      if (on || was) { ledPlayer.table({}); device.showLeds({}, true); }
       if (!on && lastShade) drawShade(canvas, lastShade, light);
     },
     drawBytes: bytes => drawDisplay(canvas, bytes),

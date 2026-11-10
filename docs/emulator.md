@@ -344,6 +344,59 @@ Tastverhältnis linear. Tests: `test_backlight.py`, `test_server.py`
 Emulator-Seite in `test/e2e/support/emulator-suite.mjs` und der Fall
 `look_backlight_colour_reaches_the_page` in `menu_cases.py` an der Firmware.
 
+## LEDs
+
+Die Firmware schickt jede LED als Nachricht `00 LED Wert` über UART0 ans Bedienfeld. Der Emulator schreibt jede Änderung mit ihrer
+Gerätezeit mit (`tools/emu/panel_leds.py`, `Machine.panel_leds`): wann das Panel das letzte Byte hatte und wann die LED danach
+leuchtet. Eine Nachricht, die nur den alten Wert wiederholt, zählt dort mit, ist aber keine Änderung.
+
+Bis 1.4.5 gingen kurze Wechsel unterwegs verloren (hergeleitet aus dem Code):
+
+- `Machine.leds` hält nur den letzten Wert je LED, `panel_log` die Nachrichten ohne Zeit.
+- Der Dienst sah nach jedem Schritt von 20 ms Gerätezeit auf diese Tabelle. Ein Pad, das 14 ms dunkel war, kam nie an.
+- Die Seite setzte jede Tabelle sofort, ohne Zeit, und zeigte Pads nur an oder aus.
+
+Jetzt schickt der Dienst nach jedem Schritt das Ereignis `ledtrace` mit allen Änderungen des Schritts, je
+`[Gerätezeit µs, leuchtet ab µs, LED, Wert]`. Kommt eine Seite nicht hinterher und verliert ein Ereignis, bekommt sie vor dem
+nächsten die ganze Tabelle (`leds`). Die Seite (`site/app/led-trace.mjs`) spielt die Änderungen 60 ms nach ihrer Gerätezeit in
+den Abständen des Geräts ab. Jedes gezeichnete Bild zeigt eine LED als Mittel ihrer Werte über das Bild, so wie das Auge eine
+PWM-LED sieht: 5 ms dunkel in einem Bild von 17 ms ist ein sichtbar dunkleres Bild.
+
+Das Bedienfeld selbst, nach [Panel-Controller](hintergrund/panel-controller.md):
+
+| Was | Wert | Marker |
+|---|---|---|
+| 88 LEDs in 11 Zeilen mal 8 PWM-Kanälen | Tabelle `0x8460` im Panel-Code | hergeleitet |
+| PWM rund 2 kHz (5000 Schritte bei 10 MHz), Takt des Panels 100 µs | Panel-Code | hergeleitet |
+| Helligkeit linear: Wert mal Periode durch 255, auch die Pads | Panel-Code `0x4EBC`; Pulsieren am 18.10. am Gerät flüssig | hergeleitet |
+| Eine Nachricht wirkt einen Takt nach ihrem letzten Byte, die Zeilen leuchten reihum je eine PWM-Periode, ein neuer Wert ab der nächsten Runde (5,5 ms) | | Modellannahme |
+| Ein Wert, der vor seiner Runde schon ersetzt ist, leuchtet nie | folgt aus der Annahme darüber | Modellannahme |
+| Die Seite zeigt den Tastgrad linear als Deckkraft; wie hell das Auge eine Stufe am Gerät sieht | nicht gemessen | Modellannahme |
+| `02 b` von der Firmware wirkt auf die LEDs | offen, das Modell übergeht es | offen |
+
+Pads zeigt die Seite jetzt gestuft wie die anderen LEDs; die Messung vom 16.10. (nur an oder aus) ist am 18.10. teils widerlegt
+([Pad-LED-Stufen](messungen/2026-10-16-pad-led-stufen.md)). Power Save dimmt in der Firmware, nicht im Panel: BLECH schickt auf
+Batterie ein Viertel ([Energiesparen](messungen/2026-10-18-energiesparen-leds.md)), das Modell bekommt also schon die gedimmten Werte.
+
+### Pad-Flackern beim schnellen Drehen
+
+`pswitch:pad_flicker_playing` und `pswitch:pad_flicker_stopped_unsaved` (`tools/emu/pswitch_cases.py`, `case_pad_flicker`): 20
+Klicks am Rad im Abstand von 30 ms, abspielend und gestoppt mit ungespeicherter Änderung. Gezählt werden dunkle Lücken eines Pads bis
+50 ms, so wie das Bedienfeld sie zeigt. Erlaubt sind die der Firmware (EXIT beim Einschalten) plus die zwei Neuzeichnungen, die
+der Fix lässt: die erste sofort und die nach dem Stillstand.
+
+Gemessen im Emulator (Hacktribe 2.02 mit dem BLECH-Satz, 10.11.):
+
+| Stand | abspielend | gestoppt, ungespeichert | Ergebnis |
+|---|---|---|---|
+| Firmware (EXIT gehalten) | 0 | 1 | |
+| vor dem Fix (`c2ba48fd^`) | 20, je Klick einmal | 18 | rot |
+| mit dem Fix (`c2ba48fd`) | 2 | 2 | grün |
+
+Jede Neuzeichnung der Vorschau schickt die blaue LED von Pad 1 (`0x2d`) erst 0 und rund 14 ms später wieder 255; am Bedienfeld
+sind das 11 bis 16,5 ms dunkel. Die zwei Neuzeichnungen, die der Fix lässt, flackern so noch je einmal (gemessen). Am Gerät nicht
+geprüft.
+
 ## Zeit und Takt
 
 Der Emulator rechnet 5 ns je Befehl. Eine Scheibe endet vor dem nächsten

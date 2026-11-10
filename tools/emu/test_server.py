@@ -98,6 +98,22 @@ class LightMachine(FakeMachine):
             self.backlight.off(self.time_ns)
 
 
+class FlickerMachine(FakeMachine):
+    """Lights pad 1 in its second step and lets it go dark for 5 ms inside its third, as the panel gets it (panel_leds.py)."""
+
+    def __init__(self, payload, flash, assert_after=None):
+        super().__init__(payload, flash, assert_after)
+        from panel_leds import PanelLeds
+        self.panel_leds = PanelLeds()
+
+    def run_until(self, seconds):
+        start = self.time_ns
+        super().run_until(seconds)
+        for at, v in {2: [(1_000_000, 255)], 3: [(4_000_000, 0), (9_000_000, 255)]}.get(self.steps, []):
+            self.panel_leds.message(start + at, 0x2C, v)
+        self.leds = {0x2C: self.panel_leds.value.get(0x2C, 0)}
+
+
 class ServiceTest(unittest.TestCase):
     def setUp(self, assert_after=None):
         self.machines = []
@@ -249,6 +265,41 @@ class ServiceTest(unittest.TestCase):
         self.request("POST", "/start", body=b"{}")
         seen = self.events(lambda s: s.get("leds") and s.get("backlight"))
         self.assertEqual(set(map(repr, seen["backlight"])), {"None"})
+
+    def test_streams_every_led_change_with_its_device_time(self):
+        """A pad dark for 5 ms inside one step of the service reaches the page as two changes with their device times; the table,
+        looked at once per step, never showed it."""
+        def factory(payload, flash):
+            m = FlickerMachine(payload, flash)
+            self.machines.append(m)
+            return m
+
+        self.emu.factory = factory
+        self.request("POST", "/firmware", body=bytes(VSB_SIZE))
+        self.request("POST", "/start", body=b"{}")
+        seen = self.events(lambda s: sum(len(e["changes"]) for e in s.get("ledtrace", [])) >= 3)
+        changes = [c for e in seen["ledtrace"] for c in e["changes"]]
+        self.assertEqual([(led, v) for _, _, led, v in changes], [(0x2C, 255), (0x2C, 0), (0x2C, 255)])
+        step = int(server_module.STEP_S * 1e6)
+        got = [t for t, _, _, _ in changes]
+        self.assertEqual(got[2] - got[1], 5000, "5 ms apart on the device, in microseconds")
+        self.assertEqual(got[1], 2 * step + 4000)
+        self.assertTrue(all(lit >= t for t, lit, _, _ in changes), "an LED lights only after the panel got it")
+        self.assertTrue(all(e["now"] >= e["changes"][-1][0] for e in seen["ledtrace"]))
+
+    def test_a_page_that_missed_led_changes_gets_the_whole_table_first(self):
+        q = self.emu.subscribe()
+        while not q.full():
+            q.put_nowait(("status", {}))
+        self.emu.publish("ledtrace", {"changes": [[1, 1, 0x2C, 0]]}, {})
+        self.assertIn(q, self.emu.lagging)
+        while not q.empty():
+            q.get_nowait()
+        self.emu.publish("ledtrace", {"changes": [[2, 2, 0x2C, 255]]}, {0x2C: 255})
+        self.assertEqual(q.get_nowait(), ("leds", {0x2C: 255}), "the table, so no change it missed stays wrong")
+        self.assertEqual(q.get_nowait()[0], "ledtrace")
+        self.assertNotIn(q, self.emu.lagging)
+        self.emu.unsubscribe(q)
 
     def test_streams_the_display_as_levels_besides_the_one_bit_display(self):
         self.request("POST", "/firmware", body=bytes(VSB_SIZE))
