@@ -59,7 +59,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Extended Hacktribe oscillator bank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Extra Hacktribe MFX, IFX, grooves and scales | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Import/export effects and grooves through Hacktribe menus | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Custom INIT pattern through Hacktribe | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Custom INIT pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Hacktribe MIDI extensions | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Use the red sampler's unchanged factory sample bank | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
 | Custom start image, fonts and shutdown image | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -85,7 +85,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Dice (random melodies) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Clear messages for broken samples | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Update over USB from the app | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Update over USB from the app | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 
 Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIBE to a Korg original does not add Hacktribe's features. The exception is the Hacktribe oscillators on the free slots 422 to 497 of the red BLECHTRIBE, always on, no switch. The blue BLECHTRIBE column describes the Synth set on Korg 2.02. Hacktribe itself supports both hardware types.
 
