@@ -4,7 +4,7 @@ Ab BLECHTRIBE 1.3.8 lässt sich die Electribe vom Rechner aus ganz bedienen: jed
 Regler, die 16 Pads und das Touchpad. Dazu kommt der Test-Modus: das Gerät sieht aus wie ausgeschaltet und läuft weiter.
 So kann man am Gerät testen, ohne davorzusitzen und ohne dass ein leuchtendes Gerät im Raum stört.
 
-Gemessen im Emulator mit Hacktribe 2.02, Korgs Original 2.02 rot und blau, jeweils mit dem BLECH-Satz
+Gemessen im Emulator mit Hacktribe 2.02, Korgs Original 2.02 rot und blau, jeweils mit dem BLECHTRIBE-Satz
 ([Messung](messungen/2026-10-29-test-modus-fernsteuerung.md)). **Am Gerät noch nicht geprüft.**
 
 ## Was der Test-Modus macht
@@ -39,7 +39,7 @@ das ihn beim Start einschaltet, ließe das Gerät bei jedem Einschalten dunkel.
 
 ## Fernbedienung
 
-`tools/device/remote_press.py` spricht BLECHs eigene SysEx-Befehle (READ, WRITE, EXEC). Ein kleiner Code-Schnipsel im
+`tools/device/remote_press.py` spricht BLECHTRIBEs eigene SysEx-Befehle (READ, WRITE, EXEC). Ein kleiner Code-Schnipsel im
 EXEC-Puffer legt einen Befehl in den Arbeitsbereich der Laufzeit; die Laufzeit gibt ihn im nächsten Bild (40 ms) als
 Nachricht des Panels in die Warteschlange der Firmware. Die Firmware nimmt ihn also genau so wie einen Druck am Gerät, mit
 allem, was daran hängt (Plugins, EXIT-Kurzbefehle, Tastenumleitung). Nur RAM, nichts im Flash, der Puffer bekommt nach dem
@@ -78,10 +78,10 @@ ihres Bereichs lehnen Werkzeug und Konsole ab, bevor etwas ans Gerät geht.
 
 ## Grenzen
 
-- **Die blaue Electribe** nimmt über USB keine Schreibbefehle an (BLECHs Tabelle erlaubt dort kein Schreiben, also auch kein
+- **Die blaue Electribe** nimmt über USB keine Schreibbefehle an (BLECHTRIBEs Tabelle erlaubt dort kein Schreiben, also auch kein
   EXEC). Im Emulator laufen alle Fälle auch auf der blauen; über USB geht dort nur das Lesen. **Offen.**
-- Firmware mit BLECH bis 1.3.7 nimmt nur Tasten und das Hauptrad an; das Werkzeug bricht für alles andere vor dem
+- Firmware mit BLECHTRIBE bis 1.3.7 nimmt nur Tasten und das Hauptrad an; das Werkzeug bricht für alles andere vor dem
   Schreiben ab.
-- Mit EXIT beim Einschalten ist BLECH still und die Laufzeit aus: dann geht weder die Fernbedienung noch der Test-Modus.
+- Mit EXIT beim Einschalten ist BLECHTRIBE still und die Laufzeit aus: dann geht weder die Fernbedienung noch der Test-Modus.
 - Ob das Display am Gerät beim Abschaltbefehl wirklich ganz dunkel ist, ist **offen** (im Emulator gemessen ist nur, dass
   der Befehl beim Controller ankommt).

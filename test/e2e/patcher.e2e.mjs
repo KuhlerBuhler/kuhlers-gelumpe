@@ -12,7 +12,7 @@ import { buildPatchFile } from "../../src/patchfile.mjs";
 import { addRelease, emptyKnown } from "../../src/blech-update.mjs";
 import { fixture as patchSet, COPY_TO } from "../support/patch-set.mjs";
 import { field } from "../../src/map/index.mjs";
-import { NEWS } from "../../data/news.mjs";
+import { RELEASE_NOTES } from "../../data/release-notes.mjs";
 import { samplerHead, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, SYNTH_SHA256, KORG_DOWNLOADS } from "../../src/patcher.mjs";
 import { expected, fakeFirmware, fixture, sha } from "../fixtures/bsdiff/data.mjs";
 
@@ -171,7 +171,7 @@ test("patcher: Weiter and Zurück walk the four steps, Korg's firmware cards sit
   await page.uncheck("#cee-patch-latest");
   assert.equal((await tick(page.locator("#cee-patch-latest")))[0], "none", "an unchecked one has none");
   await page.check("#cee-patch-latest");
-  assert.equal(await page.locator("label:has(#cee-patch-latest)").textContent(), `Nutze die neueste Version von BLECHTRIBE (${NEWS[0].version})`, "the full version, not only major.minor");
+  assert.equal(await page.locator("label:has(#cee-patch-latest)").textContent(), `Nutze die neueste Version von BLECHTRIBE (${RELEASE_NOTES[0].version})`, "the full version, not only major.minor");
   assert.equal(await page.isVisible("#cee-patch-run"), false, "the run is on the third step, with the test");
   await page.click("#cee-patch-back");
   assert.equal(await page.isVisible("#cee-patch-step-1"), true);
@@ -239,7 +239,7 @@ test("patcher: an older BLECH on Hacktribe that the app does not know names the 
   const some = await applyPatches(await makeFirmware(), patches.slice(0, 3));
   assert.equal(some.ok, true, some.reasons.join(" "));
   await drop(page, some.bytes);
-  const toast = page.locator("#app-toasts .cee-toast", { hasText: "BLECH vor 1.3.3 auf Hacktribe lässt sich nicht aktualisieren" });
+  const toast = page.locator("#app-toasts .cee-toast", { hasText: "BLECHTRIBE vor 1.3.3 auf Hacktribe lässt sich nicht aktualisieren" });
   await toast.waitFor();
   assert.match(await toast.textContent(), /SHA-256 beginnt mit 7cb4825c\b.*hacktribe-2\.patch/);
   assert.equal(await page.isDisabled("#cee-patch-next"), true, "nothing is patched over it");
@@ -304,7 +304,8 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   // The Rettung page knows the folder of this copy when the Electribe says No File.
   await page.goto(`${page.url().split("#")[0]}#rescue`);
   const rescueAnswer = label => page.locator("#cee-rescue-answers:not([data-waiting]) button", { hasText: label }).first().click();
-  await rescueAnswer("Da steht Error und No File");
+  await page.fill("#cee-rescue-search", "no file");
+  await page.locator("#cee-rescue-suggest [role=option]", { hasText: "Da steht Error und No File" }).click();
   await rescueAnswer("Rot");
   await rescueAnswer("Im Menü bei SOFTWARE UPDATE");
   await page.locator("#cee-rescue-answers [data-known]").waitFor();
@@ -518,9 +519,9 @@ test("patcher: a failed emulator check leaves no download", async () => {
     // the page itself points at the Rettung page too, not only the toast
     assert.equal(await page.locator("#cee-patch-fail-help").isVisible(), true);
     assert.equal(await page.locator("#cee-patch-fail-rescue").getAttribute("href"), "#rescue");
-    // the toast's "Zur Rettung" opens the Rettung page at what a red rescue path means
+    // the toast's "Frag Blechy" opens the Blechy page at what a red rescue path means
     const red = page.locator("#app-toasts .cee-toast", { hasText: "Die Prüfung hat einen Fehler gefunden (Notschalter" });
-    assert.equal(await red.locator(".cee-toast-help").textContent(), "Zur Rettung");
+    assert.equal(await red.locator(".cee-toast-help").textContent(), "Frag Blechy");
     const message = await red.locator(".cee-toast-text").textContent();
     await red.locator(".cee-toast-help").click();
     await page.locator("#cee-rescue-quote").waitFor();
@@ -532,7 +533,8 @@ test("patcher: a failed emulator check leaves no download", async () => {
     assert.match(chat, /Nimm als Eingabe eine normale Firmware/);
     // asked from the start, Blechy knows which kind of red it was
     await page.click("#cee-rescue-again");
-    await page.locator("#cee-rescue-answers button", { hasText: "Sie läuft, aber die App hakt" }).click();
+    await page.fill("#cee-rescue-search", "app hakt");
+    await page.locator("#cee-rescue-suggest [role=option]", { hasText: "Sie läuft, aber die App hakt" }).click();
     await page.locator("#cee-rescue-answers button", { hasText: "Der Test im Patcher wird rot oder läuft nicht" }).click();
     await page.locator("#cee-rescue-answers [data-known]").waitFor();
     assert.match(await page.locator("#cee-rescue-answers [data-known]").textContent(), /Start oder ein Rettungsweg/);

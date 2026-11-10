@@ -192,7 +192,7 @@ def step_copy_cases(vsb, flash, build):
         edit.poke(dev, base + 37, [bars - 1])
 
     def turn(n, steps, wait=1.0):
-        menu_cases.goto_plugin(dev, 0, n)
+        menu_cases.goto_plugin(dev, 0, n + 1)
         dev.turn(steps, wait=wait)
 
     out = []
@@ -247,6 +247,8 @@ def cases(vsb, flash=None):
 
 
 def main():
+    import lifetime
+    lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)
     p.add_argument("--flash", type=Path)

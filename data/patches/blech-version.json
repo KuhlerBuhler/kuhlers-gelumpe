@@ -10,9 +10,9 @@
  "changes": [
   {
    "file": 1375728,
-   "bytes": "424c45434820312e342e320000000000",
+   "bytes": "424c45434820312e342e350000000000",
    "expect": "5ac6a5945f16500911219129984ba8b387a06f24fe383ce4e81a73294065461b",
-   "note": "BLECH 1.4.2: BLECH > VERSION shows it"
+   "note": "BLECH 1.4.5: BLECH > VERSION shows it"
   }
  ],
  "ram": []

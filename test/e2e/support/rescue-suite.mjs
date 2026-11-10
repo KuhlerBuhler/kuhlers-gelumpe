@@ -33,8 +33,14 @@ export function rescueSuite(index, parts) {
 
   /** Until Blechy has said everything that follows by itself. */
   const settle = page => page.locator("#cee-rescue-answers:not([data-waiting])").waitFor({ state: "attached" });
-  /** Answer Blechy with the button of that text. */
-  const answer = (page, text) => page.locator("#cee-rescue-answers button", { hasText: text }).first().click();
+  /** Answer Blechy with the button of that text; the first question by typing it and picking the suggestion. */
+  async function answer(page, text) {
+    if (await page.locator("#cee-rescue-search").count()) {
+      await page.fill("#cee-rescue-search", text);
+      return page.locator("#cee-rescue-suggest [role=option]", { hasText: text }).first().click();
+    }
+    return page.locator("#cee-rescue-answers button", { hasText: text }).first().click();
+  }
   /** Every answer button until the flow ends, always the first one: one whole walk through a case. */
   async function walk(page) {
     for (let i = 0; i < 14; i++) {
@@ -50,24 +56,93 @@ export function rescueSuite(index, parts) {
   const pick = (page, text) => page.locator("#cee-rescue-answers button").filter({ has: page.locator(".cee-rescue-answer", { hasText: new RegExp(`^${text}$`) }) }).click();
   const lastPath = page => page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent();
 
-  test("Rettung is an entry of the sidebar, and the navbar names the page", async () => {
+  test("Blechy is an entry of the sidebar, and the navbar names the page", async () => {
     const page = await h.page();
     await page.goto(h.url);
     await go(page, "rescue");
-    assert.equal(await page.locator("#cee-nav-title").textContent(), "Rettung");
+    assert.equal(await page.locator("#cee-nav-title").textContent(), "Blechy");
     assert.equal(await page.locator("#cee-area-rescue").getAttribute("hidden"), null);
-    assert.equal(await page.locator("#cee-rescue h1").textContent(), "Rettung");
+    assert.equal(await page.locator("#cee-rescue h1").textContent(), "Blechy");
     assert.deepEqual(page.errors, []);
   });
 
-  test("Blechy asks first what the device shows; the cases are the answers, and a computer with a card reader is named up front", async () => {
+  test("Blechy greets and asks what is needed; a message field offers a few cases, all of them on request, and a card reader is named up front", async () => {
     const page = await open();
     assert.equal(await page.locator("#cee-rescue-chat > li").count(), 1);
     const first = await said(page);
-    assert.match(first, /Was siehst du/);
+    assert.match(first, /Moin, ich bin Blechy\. Was brauchst du denn\?/);
+    assert.doesNotMatch(first, /kriegen wir das wieder hin/);
     assert.match(first, /Computer mit SD-Kartenleser/);
     assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-blechy").count(), 1, "Blechy speaks");
-    assert.deepEqual(await page.locator("#cee-rescue-answers button .cee-rescue-answer").allTextContents(), CASES.map(c => c.label));
+    assert.equal(await page.locator("#cee-rescue-answers button.btn:not(#cee-rescue-search-all)").count(), 0, "no wall of answer buttons");
+    const field = page.locator("#cee-rescue-search");
+    assert.equal(await field.getAttribute("role"), "combobox");
+    assert.equal(await field.getAttribute("aria-controls"), "cee-rescue-suggest");
+    assert.equal(await page.locator("label[for=cee-rescue-search]").textContent(), "Was ist los?");
+    assert.deepEqual(await page.locator("#cee-rescue-suggest [role=option] .cee-rescue-answer").allTextContents(), rescue.FIRST_CASES.map(label));
+    const above = await page.locator("#cee-rescue-suggest").boundingBox();
+    assert.ok(above.y + above.height <= (await field.boundingBox()).y, "the suggestions stand above the field");
+    await page.click("#cee-rescue-search-all");
+    assert.deepEqual(await page.locator("#cee-rescue-suggest [role=option] .cee-rescue-answer").allTextContents(), CASES.map(c => c.label));
+    assert.equal(await page.locator("#cee-rescue-search-all").isVisible(), false);
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("typing loose words brings up the case above the field, a pick starts its flow", async () => {
+    const page = await open();
+    await page.fill("#cee-rescue-search", "mein gerät startet nicht");
+    const options = page.locator("#cee-rescue-suggest [role=option]");
+    assert.equal(await options.first().locator(".cee-rescue-answer").textContent(), label("silent"));
+    assert.equal(await page.locator("#cee-rescue-search").getAttribute("aria-expanded"), "true");
+    assert.equal(await page.locator("#cee-rescue-search").getAttribute("aria-activedescendant"), "cee-rescue-case-silent");
+    assert.match(await page.locator("#cee-rescue-search-status").textContent(), /Passende Themen: \d/);
+    await page.fill("#cee-rescue-search", "back to korg firmware");
+    assert.equal(await options.first().locator(".cee-rescue-answer").textContent(), label("back"));
+    await page.fill("#cee-rescue-search", "qqqq zzzz");
+    assert.equal(await options.count(), 0);
+    assert.equal(await page.locator("#cee-rescue-search-none").isVisible(), true, "a plain line says nothing fits");
+    assert.equal(await page.locator("#cee-rescue-search").getAttribute("aria-expanded"), "false");
+    await page.fill("#cee-rescue-search", "bildschirm schwarz");
+    await options.first().click();
+    assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-you").last().textContent(), label("silent"));
+    await settle(page);
+    assert.deepEqual(await page.locator("#cee-rescue-answers .cee-rescue-answer").allTextContents(), [DEVICES.red.title, DEVICES.blue.title, "Weiß ich nicht"], "the flow of the case goes on with the colour");
+    assert.equal(await page.locator("#cee-rescue-search").count(), 0);
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("the field works by keyboard: arrows move the active suggestion, Enter picks it, Escape clears", async () => {
+    const page = await open();
+    const field = page.locator("#cee-rescue-search");
+    await field.focus();
+    await page.keyboard.press("ArrowDown");
+    assert.equal(await field.getAttribute("aria-activedescendant"), `cee-rescue-case-${rescue.FIRST_CASES[0]}`);
+    await page.keyboard.press("ArrowUp");
+    assert.equal(await field.getAttribute("aria-activedescendant"), `cee-rescue-case-${rescue.FIRST_CASES.at(-1)}`, "up from the first wraps to the last");
+    await page.keyboard.type("samples weg");
+    assert.equal(await page.locator("#cee-rescue-suggest [aria-selected=true] .cee-rescue-answer").textContent(), label("samples"));
+    await page.keyboard.press("Escape");
+    assert.equal(await field.inputValue(), "");
+    assert.equal(await field.getAttribute("aria-activedescendant"), null);
+    await page.keyboard.type("00");
+    await page.keyboard.press("Enter");
+    assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-you").last().textContent(), label("zero"));
+    await settle(page);
+    await page.click("#cee-rescue-back");
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "cee-rescue-search", "back to the first question puts the cursor in the field");
+    assert.equal(await page.locator("#cee-rescue-suggest [data-before] .cee-rescue-answer").textContent(), label("zero"), "the case picked before is offered first");
+    if (axe) assert.deepEqual(await axe.severeViolations(page), []);
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("at 375px the field, the suggestions and a pick fit the width", async () => {
+    const page = await open({ width: 375, height: 812 });
+    await page.fill("#cee-rescue-search", "display zeigt 00");
+    const width = await page.evaluate(() => document.documentElement.scrollWidth);
+    assert.ok(width <= 375, `no sideways scroll, ${width}`);
+    for (const box of [await page.locator("#cee-rescue-search").boundingBox(), await page.locator("#cee-rescue-suggest").boundingBox()]) assert.ok(box.x >= 0 && box.x + box.width <= 375);
+    await page.locator("#cee-rescue-suggest [role=option]").first().click();
+    assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-you").last().textContent(), label("zero"));
     assert.deepEqual(page.errors, []);
   });
 
@@ -117,7 +192,7 @@ export function rescueSuite(index, parts) {
     assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-tree").count(), 1, "the path is shown as folders inside folders");
     assert.match(await said(page), /nach der Firmware, die jetzt auf der Electribe läuft, nicht nach der, die du haben willst/);
     const [firstAnswer, secondAnswer] = await answersOf(page);
-    assert.match(firstAnswer, /^Zeig mir deine SD-Karte/, "the look at the card comes first");
+    assert.match(firstAnswer, /^Schau dir meine SD-Karte an/, "the look at the card comes first");
     assert.match(secondAnswer, /^Habe ich selbst geprüft/, "'it is on the card' is not the same as the check");
     await answer(page, "Habe ich selbst geprüft");
     assert.match(await said(page), /SOFTWARE UPDATE.*FACTORY RESET, das nicht nehmen/s);
@@ -175,7 +250,7 @@ export function rescueSuite(index, parts) {
     assert.match(await chatText(page), /GitHub Issue/, "the end follows by itself");
     const issue = new URL(await page.locator("#cee-rescue-chat a", { hasText: "als GitHub Issue" }).last().getAttribute("href"));
     assert.equal(issue.pathname, "/KuhlerBuhler/kuhlers-gelumpe/issues/new");
-    assert.equal(issue.searchParams.get("title"), `Rettung: ${label("zero")}`);
+    assert.equal(issue.searchParams.get("title"), `Blechy: ${label("zero")}`);
     assert.match(issue.searchParams.get("body"), /- Rot: Electribe Sampler\n- Es bleibt bei 00\n- Hab ich\n- Habe ich selbst geprüft\n- Klappt nicht/, "the answers are in the issue");
     const chat = await page.locator("#cee-rescue-chat").textContent();
     assert.match(chat, /Bedienfeld/);
@@ -241,7 +316,7 @@ export function rescueSuite(index, parts) {
     await page.goto(h.url);
     await page.click("#cee-start-rescue");
     await page.locator("#cee-area-rescue:not([hidden])").waitFor();
-    assert.equal(await page.locator("#cee-nav-title").textContent(), "Rettung");
+    assert.equal(await page.locator("#cee-nav-title").textContent(), "Blechy");
     await page.click("#cee-tab-patcher");
     assert.equal(await page.getAttribute("#cee-patch-step-4 #cee-patch-rescue", "href"), "#rescue", "the patcher names it where the copy goes onto the device");
     assert.equal(await page.locator("#cee-patch-step-1 #cee-patch-rescue").count(), 0, "not where only a file is loaded");
@@ -588,12 +663,12 @@ export function rescueSuite(index, parts) {
     assert.deepEqual(page.errors, []);
   });
 
-  test("any error toast carries Blechy fragen: the page opens with the error quoted and asks what in the app sticks", async () => {
+  test("any error toast carries Frag Blechy: the page opens with the error quoted and asks what in the app sticks", async () => {
     const page = await h.page();
     await page.goto(h.url);
     await page.evaluate(() => import(new URL("app/toast.mjs", document.baseURI).href).then(m => m.toast("Etwas ist schiefgegangen.", "error")));
     const box = page.locator("#app-toasts .cee-toast", { hasText: "Etwas ist schiefgegangen." });
-    assert.equal(await box.locator(".cee-toast-help").textContent(), "Blechy fragen");
+    assert.equal(await box.locator(".cee-toast-help").textContent(), "Frag Blechy");
     await box.locator(".cee-toast-help").click();
     await page.locator("#cee-rescue-quote").waitFor();
     await box.waitFor({ state: "detached" });
@@ -660,30 +735,55 @@ export function rescueSuite(index, parts) {
     await answer(page, DEVICES.red.title);
     assert.match(await chatText(page), /Hacktribe bringt eigene Klänge mit/);
     await answer(page, "Ja, Hacktribe ist oder war drauf");
-    assert.match(await said(page), /Datei namens e2sSample\.all/);
-    await answer(page, "Ja, ich hab die Datei");
     await settle(page);
-    assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "KORG/blechtribe/Sample/e2sSample.all");
+    assert.match(await chatText(page), /Weg ist dabei nichts/, "the sounds are not lost");
+    assert.doesNotMatch(await chatText(page), /Ohne Kopie|nichts gesichert/);
     assert.match(await said(page), /Was läuft gerade/, "what runs, asked once");
     await answer(page, "Hacktribe");
     assert.match(await said(page), /Original.*BLECH/s, "the way back goes through Korg's original");
     await answer(page, "Die Datei ist fertig");
     assert.equal(await lastPath(page), FOLDERS[2].path, "the folder of the Hacktribe that runs, without asking again");
+    assert.match(await said(page), /„hacktribe“ im Pfad/);
     await answer(page, "Habe ich selbst geprüft");
     await answer(page, "Läuft wieder");
     assert.match(await said(page), /Update ist drauf/, "BLECHTRIBE was put on, not Korg's original");
     assert.deepEqual(page.errors, []);
 
+    // a BLECHTRIBE on the red: the patcher's file, into KORG/blechtribe, and the note speaks of that folder
+    await page.click("#cee-rescue-again");
+    await answer(page, label("samples"));
+    await answer(page, DEVICES.red.title);
+    await answer(page, "Ja, Hacktribe ist oder war drauf");
+    await settle(page);
+    await answer(page, "BLECHTRIBE");
+    assert.match(await said(page), /Original.*BLECH/s);
+    await answer(page, "Die Datei ist fertig");
+    assert.equal(await lastPath(page), FOLDERS[3].path);
+    assert.match(await said(page), /„blechtribe“ im Pfad heißt: BLECHTRIBE läuft gerade/);
+    assert.doesNotMatch(await said(page), /„hacktribe“ im Pfad/);
+
+    // a BLECHTRIBE on the blue: asked whether Hacktribe is in it; yes goes over Korg's file with the Sampler head
     await page.click("#cee-rescue-again");
     await answer(page, label("samples"));
     await answer(page, DEVICES.blue.title);
     await answer(page, "Ja, Hacktribe ist oder war drauf");
-    await answer(page, "Nein, ich habe nichts gesichert");
     await settle(page);
-    assert.match(await page.locator("#cee-rescue-chat").textContent(), /Ohne Kopie kann die App sie nicht zurückholen/);
+    assert.match(await page.locator("#cee-rescue-chat").textContent(), /Weg ist dabei nichts/);
+    await answer(page, "BLECHTRIBE");
+    assert.match(await said(page), /Steckt in deinem BLECHTRIBE auch Hacktribe/);
+    await answer(page, "Ja, mit Hacktribe");
+    assert.match(await chatText(page), /Läuft Hacktribe auf deiner blauen, allein oder in BLECHTRIBE, geht es in zwei Schritten/);
+    await settle(page);
+    assert.equal(await page.locator("#cee-rescue-input").count(), 1, "then Korg's file is made for the blue with BLECHTRIBE and Hacktribe");
+
+    // only Hacktribe on the blue: the same way over Korg's file, without the question
+    await page.click("#cee-rescue-again");
+    await answer(page, label("samples"));
+    await answer(page, DEVICES.blue.title);
+    await answer(page, "Ja, Hacktribe ist oder war drauf");
     await settle(page);
     await answer(page, "Hacktribe");
-    assert.match(await chatText(page), /Läuft nur Hacktribe auf deiner blauen, geht es in zwei Schritten/);
+    assert.match(await chatText(page), /Läuft Hacktribe auf deiner blauen, allein oder in BLECHTRIBE, geht es in zwei Schritten/);
     await settle(page);
     assert.equal(await page.locator("#cee-rescue-input").count(), 1, "then Korg's file is made for the blue with Hacktribe");
     assert.deepEqual(page.errors, []);
@@ -691,7 +791,7 @@ export function rescueSuite(index, parts) {
 
   test("No File: the file put on last comes first and marks the folder, and the MENU step shows the drawn keys and Korg's button", async () => {
     const page = await open({ width: 390, height: 844 });
-    await page.click("#cee-rescue-case-nofile");
+    await answer(page, label("nofile"));
     await settle(page);
     await answer(page, DEVICES.red.title);
     await settle(page);
@@ -711,9 +811,36 @@ export function rescueSuite(index, parts) {
     assert.deepEqual(page.errors, []);
   });
 
+  test("each new message scrolls into view with its answers, the top of a tall one stays under the bar", async () => {
+    for (const viewport of [{ width: 1280, height: 640 }, { width: 390, height: 844 }]) {
+      const page = await open(viewport);
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await answer(page, label("samples"));
+      await settle(page);
+      for (const text of [DEVICES.red.title, "Ja, Hacktribe ist oder war drauf", "BLECHTRIBE", "Die Datei ist fertig", "Habe ich selbst geprüft"]) {
+        await answer(page, text);
+        await settle(page);
+        const at = await page.evaluate(() => {
+          const bar = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+          const newest = document.querySelector("#cee-rescue-chat").lastElementChild.getBoundingClientRect();
+          const answers = document.querySelector("#cee-rescue-answers").getBoundingClientRect();
+          return { top: newest.top - bar, answersTop: answers.top, vh: innerHeight };
+        });
+        assert.ok(at.top >= -1, `${text}: the newest message starts under the bar (${at.top})`);
+        assert.ok(at.top <= 1 || at.answersTop < at.vh, `${text}: the answers come into view (${JSON.stringify(at)})`);
+      }
+      // the MENU step: MENU filled, EDIT left and right dashed, each mark inside its own key
+      const keys = page.locator("#cee-rescue-chat .cee-rescue-keys").last();
+      assert.deepEqual(await keys.locator(".cee-e2-press").evaluateAll(n => n.map(r => r.dataset.key)), ["menu"]);
+      assert.deepEqual(await keys.locator(".cee-e2-near").evaluateAll(n => n.map(r => r.dataset.key)), ["editLeft", "editRight"]);
+      assert.equal(await keys.locator("figcaption").textContent(), `${t("rescue.keys.menu")} ${t("rescue.keys.legend")}`);
+      assert.deepEqual(page.errors, []);
+    }
+  });
+
   test("the update steps show MENU on the drawn Electribe and the shot of Korg's download row", async () => {
     const page = await open();
-    await page.click("#cee-rescue-case-prompt");
+    await answer(page, label("prompt"));
     await settle(page);
     await answer(page, DEVICES.red.title);
     await settle(page);
@@ -726,6 +853,8 @@ export function rescueSuite(index, parts) {
     await settle(page);
     const keys = page.locator("#cee-rescue-chat .cee-rescue-keys").last();
     assert.equal(await keys.locator(".cee-e2-press").count(), 1);
+    assert.equal(await keys.locator(".cee-e2-press").getAttribute("data-key"), "menu");
+    assert.equal(await keys.locator(".cee-e2-near").count(), 0, "at the prompt only ENTER is pressed");
     assert.equal(await keys.locator("figcaption").textContent(), t("rescue.keys.enter"));
     assert.deepEqual(page.errors, []);
   });

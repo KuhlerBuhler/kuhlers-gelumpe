@@ -3,7 +3,7 @@
 Shared instructions for every agent working in this repository (Claude, Codex, others).
 Kuhler's GELUMPE is the app for BLECHTRIBE, a firmware patch for the Korg Electribe 2 (red
 Sampler and blue Synth, firmware 2.02, Korg's original or Hacktribe). It patches the user's own
-`SYSTEM.VSB` (Firmware Patcher), runs it in an emulator, brings a device back (Rettung), edits effects
+`SYSTEM.VSB` (Firmware Patcher), runs it in an emulator, brings a device back (the Blechy page, `#rescue`), edits effects
 (Baukasten), writes plugins for the device and puts changes on the device only after a linter and the
 emulator have checked them. What it does and why is in [README.md](README.md) and
 [docs/README.md](docs/README.md). Read the page that matches your task before you start; do not
@@ -52,6 +52,9 @@ npm run test:emu     # emulator tests, need E2_VSB (E2_STOCK_VSB, E2_BLUE_VSB fo
 E2_VSB=/path/SYSTEM.VSB E2_PATTERNS=/path/backup.e2sallpat npm run test:local   # own files
 node --test test/docs.test.mjs   # after a change to README*, AGENTS.md or docs/
 ```
+
+Every local test entry point first waits until the machine is quiet (`tools/load-gate.mjs`, 1-minute load below
+0.8 x cores) and gives up after 20 minutes; `GELUMPE_LOAD_GATE=off` skips it, see [docs/development.md](docs/development.md).
 
 Run `npm test` and `npm run test:e2e` before you call something done. Never mark a fix as
 done without a failing test that now passes or a check in the browser or emulator. On a loaded

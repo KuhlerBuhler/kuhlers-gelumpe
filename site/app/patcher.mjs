@@ -8,7 +8,7 @@ import { saveFile } from "./save-file.mjs";
 import { saveAs, saveWay, findCards, saveToCard, sameCards } from "./save-target.mjs";
 import { applyPatches } from "../../src/patch.mjs";
 import { applyPatchFile, parsePatchFile, patchesFor } from "../../src/patchfile.mjs";
-import { NEWS } from "../../data/news.mjs";
+import { RELEASE_NOTES } from "../../data/release-notes.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf, hardwareOf } from "../../src/firmware.mjs";
 import { recogniseBlech } from "../../src/blech-update.mjs";
@@ -191,7 +191,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   ]);
   let cable = null;             // "red" or "blue": what the Electribe connected over USB said it is, null when none is or it cannot tell
   // Step 2 chooses what goes on the file: BLECHTRIBE of this version or any own .patch file, and on Korg's original Hacktribe as well.
-  const release = NEWS[0].version;
+  // The newest release notes are the version of the BLECH set this app carries: a release needs them (docs/development.md).
+  const release = RELEASE_NOTES[0].version;
   const useLatest = el("input", { type: "checkbox", id: "cee-patch-latest", checked: true });
   const blechInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-patch-blech-file", accept: ".patch", disabled: true });
   const blechInfo = el("span", { className: "ui-dropzone-files", id: "cee-patch-blech-info" });
@@ -280,7 +281,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const bar = el("div", { className: "ui-progress cee-patch-bar", id: "cee-patch-bar", hidden: true });
   const groupList = el("ul", { className: "cee-patch-groups", id: "cee-patch-groups", hidden: true });
   const checkList = el("ul", { className: "ui-list", id: "cee-patch-checks" });
-  // a red test keeps its way to the Rettung page after the toast is gone
+  // a red test keeps its way to the Blechy page after the toast is gone
   const failRescue = el("a", { className: "cee-text-link", id: "cee-patch-fail-rescue", href: "#rescue", textContent: t("nav.rescue") });
   failRescue.addEventListener("click", () => window.dispatchEvent(new CustomEvent(RESCUE_EVENT, { detail: { message: failureLine(flow.report), to: testHelp() } })));
   const failHelp = el("p", { id: "cee-patch-fail-help", hidden: true }, tNodes("patcher.failed.rescue", { rescue: failRescue }));
@@ -639,7 +640,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     // A result is told once, as a toast; the line is only for the run itself.
     const result = passed_ ? [t("patcher.passed"), "ok"] : can.busy ? null : flow.error ? [t(flow.error), "error"] : failed ? [failed, "error"] : null;
     const key = result ? `${flow.phase}|${result[0]}` : null;
-    // an error's "Blechy fragen" goes straight to what this failure means
+    // an error's "Frag Blechy" goes straight to what this failure means
     if (key !== toasted) { toasted = key; if (result) toast(result[0], result[1], result[1] === "error" ? toRescue(testHelp()) : {}); }
   }
 

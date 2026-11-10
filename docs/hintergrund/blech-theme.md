@@ -1,4 +1,4 @@
-# BLECH Theme: eigene Schriften und Symbole fürs Display
+# BLECHTRIBE Theme: eigene Schriften und Symbole fürs Display
 
 Stand 2026-10-14. Gebaut und im Emulator geprüft, am Gerät nichts. Marker: **gemessen** (im
 Emulator), **hergeleitet**, **offen**. Der Aufbau von Schriften und Bildern in der Firmware steht in
@@ -6,7 +6,7 @@ Emulator), **hergeleitet**, **offen**. Der Aufbau von Schriften und Bildern in d
 
 ## Was es ist
 
-Der Patch `blech-theme` (`data/patches/blech-theme.json`, Teil des Satzes BLECH) tauscht die Bitmaps der
+Der Patch `blech-theme` (`data/patches/blech-theme.json`, Teil des Satzes BLECHTRIBE) tauscht die Bitmaps der
 vier Schriften und von 17 Symbolen gegen eigene Zeichnungen. Es ist ein reiner Datenpatch, kein Code:
 Zeichencodes, Vorschubweiten, Tabellen und Zeiger bleiben, deshalb verschiebt sich kein Text und kein
 Layout. Die Zeichnungen stehen als Text in `tools/patch/blech_theme_art/` (`font0.mjs` bis `font3.mjs`,
@@ -49,7 +49,7 @@ Patch weg: sie stehen schon auf dem Gerät, der Patch enthält so keine Bytes de
 
 `node tools/patch/blech_theme.mjs --check` prüft die Zeichnungen allein, ohne Firmware. Der Patch besteht aus rohen Änderungen,
 je geändertem Stück einer Glyph-Bitmap, eines Maßfelds oder eines Symbols eine, jede mit der Prüfsumme der Bytes, die sie ersetzt. Eine
-`copy`-Änderung auf sich selbst wäre kürzer, aber `patchesPresent` erkennt ein angewendetes BLECH dann nicht mehr (die
+`copy`-Änderung auf sich selbst wäre kürzer, aber `patchesPresent` erkennt ein angewendetes BLECHTRIBE dann nicht mehr (die
 Quelle hat sich ja geändert).
 
 Unberührt bleiben das Leerzeichen und der Backslash (ein Pixel, Trenner der Statusleiste), die Codes außerhalb von ASCII
@@ -62,7 +62,7 @@ Das Theme ändert Bytes, die schon beim Start gelesen werden: der Hauptbildschir
 Startmodi, Panel-Update) zeichnen mit denselben Schriften, die Batterie und das Schildchen `EDIT` mit den Symbolen
 ([Messung](../messungen/2026-10-14-display-schriften.md), Abschnitt "Was beim Start gelesen wird"). Der Patch nennt
 deshalb unter `startPhase` diese Bereiche, mit Begründung, und `check.py` lässt genau sie zu (vier Schriften, ein Symbolbereich).
-**Gemessen:** der Satz BLECH mit Theme besteht alle 68 Prüfungen von `tools/emu/check.py` (Start auf allen Wegen, Update-Abfrage,
+**Gemessen:** der Satz BLECHTRIBE mit Theme besteht alle 68 Prüfungen von `tools/emu/check.py` (Start auf allen Wegen, Update-Abfrage,
 Startmodi, Panel-Update, Notschalter, DSP-Strom).
 
 Die Notschalter-Regel (EXIT beim Einschalten) schaltet nur Code ab. Das Theme ist Daten und bleibt bei gehaltenem

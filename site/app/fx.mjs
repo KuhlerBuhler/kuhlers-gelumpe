@@ -24,7 +24,7 @@ import { presetFile, presetFileName, readPresetFile, PRESET_EXT } from "../../sr
 import { checkName, checkDetail } from "../../src/patcher.mjs";
 import { GROUPS, labelFor } from "../../data/map/fx-labels.mjs";
 import { suggestionsFor, applySuggestion } from "../../src/suggestions.mjs";
-import { t } from "./i18n.mjs";
+import { t, localize } from "./i18n.mjs";
 
 const SEVERITY = {
   fatal: ["error", "samples.severity.fatal"], silent: ["error", "levels.muted"], error: ["error", "common.error"],
@@ -234,7 +234,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       input.value = String(v);
       write(v);
     });
-    return el("div", { className: "ui-field cee-compact" }, [el("label", { className: "ui-field-label", htmlFor: id, textContent: f.label.de }), input]);
+    return el("div", { className: "ui-field cee-compact" }, [el("label", { className: "ui-field-label", htmlFor: id, textContent: localize(f.label) }), input]);
   }
 
   /** The parameters of one stage, in sections; fields nobody understands wait behind the expert toggle. */
@@ -253,13 +253,13 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
       byGroup.get(f.group ?? "other").push(f.fxChoice ? choiceField(f, read, write) : control(f, read, write, { compact: true }).node);
     }
     return GROUPS.filter(g => byGroup.get(g.id).length).map(g =>
-      el("section", { className: "cee-fxsec" }, [el("h4", { textContent: g.label }), el("div", { className: "cee-grid" }, byGroup.get(g.id))]));
+      el("section", { className: "cee-fxsec" }, [el("h4", { textContent: localize(g.label) }), el("div", { className: "cee-grid" }, byGroup.get(g.id))]));
   }
 
   function mapRows() {
     const rows = el("div", { className: "cee-fxmap" });
     const sources = META.sources.filter(s => state.kind === "mfx" || s.ifx);
-    const who = s => s.who?.[state.kind === "mfx" ? "mfx" : "ifx"] ?? s.label;
+    const who = s => localize(s.who?.[state.kind === "mfx" ? "mfx" : "ifx"] ?? s.label);
     const chains = META.chains.filter(c => !c.stage || (state.kind === "mfx" ? c.stage === "mfx" : c.stage !== "mfx"));
     const draw = () => {
       rows.replaceChildren();
@@ -269,7 +269,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
         const select = (id, options, current, label) => {
           const s = el("select", { className: "select" });
           s.setAttribute("aria-label", t("presets.map.row", { label, row: row.index + 1 }));
-          for (const o of options) s.append(el("option", { value: String(o.raw), textContent: o.label }));
+          for (const o of options) s.append(el("option", { value: String(o.raw), textContent: localize(o.label) }));
           if (!options.some(o => o.raw === current)) s.append(el("option", { value: String(current), textContent: t("presets.map.unknownValue", { value: current }) }));
           s.value = String(current);
           s.addEventListener("change", () => { set(id, Number(s.value)); if (id !== "fx.map.param") draw(); });
@@ -277,7 +277,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
         };
         const chain = META.chains.find(c => c.raw === row.chain);
         const unit = chain?.stage ? unitFor(state.units, chain.stage === "mfx" ? "mfx" : "ifx", state.rec.device(chain.stage)) : null;
-        const params = unit ? unit.params.map(p => ({ raw: p.index, label: labelFor(p.name).de })) : [{ raw: row.param, label: t("presets.map.param", { n: row.param }) }];
+        const params = unit ? unit.params.map(p => ({ raw: p.index, label: localize(labelFor(p.name)) })) : [{ raw: row.param, label: t("presets.map.param", { n: row.param }) }];
         const number = (id, word) => {
           const input = el("input", { type: "number", className: "input cee-num", min: 0, max: 127, step: 1, value: String(row[id === "fx.map.low" ? "low" : "high"]) });
           input.setAttribute("aria-label", t("presets.map.row", { label: word, row: row.index + 1 }));
@@ -352,7 +352,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
         const inputs = [];
         for (let k = a; k < bEnd; k++) {
           const input = el("input", { type: "number", className: "input cee-byte", min: 0, max: 255, value: String(state.rec.bytes[k]) });
-          input.setAttribute("aria-label", t("presets.expert.byte", { label: f.label.de, n: i + 1, byte: k - a + 1 }));
+          input.setAttribute("aria-label", t("presets.expert.byte", { label: localize(f.label), n: i + 1, byte: k - a + 1 }));
           input.addEventListener("change", () => {
             const v = Math.max(0, Math.min(255, Math.round(Number(input.value) || 0)));
             state.rec.bytes[k] = v;
@@ -361,7 +361,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
           });
           inputs.push(input);
         }
-        body.append(el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: `${f.label.de} ${levels > 1 ? i + 1 : ""}` }), el("div", { className: "cee-bytes" }, inputs)]));
+        body.append(el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: `${localize(f.label)} ${levels > 1 ? i + 1 : ""}` }), el("div", { className: "cee-bytes" }, inputs)]));
       }
     }
     details.append(body);
@@ -377,10 +377,10 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
         const id = `${prefix}-suggest-${s.id}`;
         const apply = el("button", { type: "button", className: "btn", id: `${id}-apply`, textContent: t("presets.suggest.apply") });
         apply.addEventListener("click", () => { applySuggestion(state.rec, s, state.units); edited(); renderEditor(); });
-        const values = Object.entries(s.params).map(([name, v]) => `${labelFor(name).de} ${v}`).join(", ");
+        const values = Object.entries(s.params).map(([name, v]) => `${localize(labelFor(name))} ${v}`).join(", ");
         return el("div", { className: "cee-group", id }, [
-          el("h3", { textContent: t("presets.suggest.title", { label: s.label.de }) }),
-          el("p", {}, [stateText("warn", t("presets.suggest.untested")), ` ${s.hint}`]),
+          el("h3", { textContent: t("presets.suggest.title", { label: localize(s.label) }) }),
+          el("p", {}, [stateText("warn", t("presets.suggest.untested")), ` ${localize(s.hint)}`]),
           el("p", { className: "muted cee-small", textContent: t("presets.suggest.sets", { values }) }),
           refusal ? el("p", { className: "cee-hint", id: `${id}-refusal`, textContent: refusal }) : apply,
         ]);

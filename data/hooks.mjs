@@ -143,6 +143,6 @@ export const INCOMPATIBLE = [
   {
     patches: ["splash-editor", "script-runtime"],
     sharedSites: [0xC002ADAC, 0xC0064D3C],
-    reason: "Start-Haken 0xC002ADAC oder Global-Literal 0xC0064D3C ist doppelt beansprucht. Die gemeinsame BLECH-Laufzeit bringt den Startbild-Editor als eingebautes Modul mit.",
+    reason: "Start-Haken 0xC002ADAC oder Global-Literal 0xC0064D3C ist doppelt beansprucht. Die gemeinsame BLECHTRIBE-Laufzeit bringt den Startbild-Editor als eingebautes Modul mit.",
   },
 ];

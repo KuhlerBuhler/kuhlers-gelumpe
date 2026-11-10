@@ -1,4 +1,4 @@
-# Idee 103: Rettung, Ablauf in der richtigen Reihenfolge
+# Idee 109: Rettung, Ablauf in der richtigen Reihenfolge
 
 Stand: Durchgang der Seite "Rettung" im Browser (Desktop und Handy), Vergleich mit [Rettung](../rettung.md) und den Fällen aus dem Hilfekanal bis 8. November. Der neue Ablauf ist gebaut und im Browsertest geprüft, am Gerät nichts. Zurück zu den [Ideen](../ideen.md).
 

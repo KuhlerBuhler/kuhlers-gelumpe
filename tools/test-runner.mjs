@@ -2,6 +2,7 @@
 import { spawn } from "node:child_process";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
+import { loadGate } from "./load-gate.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const EMULATOR = ["test/emulator.test.mjs", "test/emulator-session.test.mjs", "test/emulator-card.test.mjs",
@@ -61,6 +62,7 @@ export function runNode(plan, { cwd = root, executable = process.execPath, captu
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
+    await loadGate();
     const result = await runNode(planSuite(process.argv[2] ?? "unit", { args: process.argv.slice(3) }));
     if (result.error) console.error(result.error.message);
     if (result.signal) process.kill(process.pid, result.signal);

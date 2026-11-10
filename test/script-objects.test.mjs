@@ -97,8 +97,8 @@ test("the children of a branch are what error messages and the editor list", () 
   assert.deepEqual(objectChildren(INTENSITY), []);
 });
 
-test("both plugin docs list every leaf with its range", () => {
-  for (const [file, to] of [["docs/plugins.md", "bis"], ["docs/plugins.en.md", "to"]]) {
+test("all plugin docs list every leaf with its range", () => {
+  for (const [file, to] of [["docs/plugins.md", "bis"], ["docs/plugins.en.md", "to"], ["docs/plugins.fr.md", "à"]]) {
     const doc = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
     for (const o of OBJECTS) {
       const row = doc.split("\n").find(l => l.startsWith(`| \`${o.path}${o.action ? "()" : ""}\``));

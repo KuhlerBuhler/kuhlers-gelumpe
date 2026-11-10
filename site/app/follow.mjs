@@ -6,16 +6,16 @@
 import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { BUTTONS } from "../../data/panel.mjs";
-import { t } from "./i18n.mjs";
+import { t, localize } from "./i18n.mjs";
 
 const POLL_MS = 1000;
 const KEY = "cee.fx.follow";
 const button = id => BUTTONS.find(b => b.id === id).index;
 
 export function describeScreen(c) {
-  const parts = [c.name?.de ?? t("follow.screen", { mode: c.mode })];
+  const parts = [c.name ? localize(c.name) : t("follow.screen", { mode: c.mode })];
   if (c.pageName) parts.push(c.pageName);
-  if (c.overlay) parts.push(t("follow.window", { name: c.overlay.name?.de ?? c.overlay.kind }));
+  if (c.overlay) parts.push(t("follow.window", { name: c.overlay.name ? localize(c.overlay.name) : c.overlay.kind }));
   parts.push(t("follow.part", { part: c.part + 1 }));
   return parts.join(" · ");
 }
