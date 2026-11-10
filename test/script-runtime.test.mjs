@@ -182,7 +182,7 @@ test("fault-status: native script hooks in firmware leave control usable and exp
     "fremd-wartet", "fremd-fragt", "fremd-erlaubt", "fremd-bekommt-ready-nach-ja", "fremd-lauft-nach-ja-ereignisse", "fremd-fragt-nicht-wieder", "fremd-liste-voll-schiebt",
     "liste-aus-den-dateien", "liste-versteckte-dateien-fehlen", "menu-liste-ohne-about", "menu-blechy-keine-plugin-seite", "liste-vor-dem-laden-nichts", "beschreibung-seite", "beschreibung-scrollt", "beschreibung-enter-tut-nichts", "dial-oben-laedt-und-startet", "laden-speicherbild-bleibt", "stand-aus-und-an", "fremd-wartet-nach-dem-laden", "fremd-erlaubt-in-der-liste", "abgelehnt", "beschreibung-verlassen-zeichnet-neu", "liste-geladene-zuerst-nichts-doppelt", "laden-verlassen", "geladenes-laeuft", "liste-plugin-ohne-datei", "plugin-aus-behaelt-datei", "entferntes-plugin-laedt-wieder", "liste-ohne-dateien", "laden-bei-ausgeschalteten-skripten",
     "liste-mehr-als-16-dateien", "liste-datei-64-laedt", "liste-20-dateien-alle",
-    "menu-add-seiten-angelegt", "menu-add-seitentexte", "menu-add-werte-und-grenzen", "menu-add-ereignisse-erreichen-das-skript", "menu-add-keine-doppelten-seiten", "menu-add-zwoelf-seiten", "menu-add-bereich-verkehrt"]) {
+    "menu-aktiv-erste-seite-dial-schaltet", "menu-add-seiten-angelegt", "menu-add-seitentexte", "menu-add-werte-und-grenzen", "menu-add-ereignisse-erreichen-das-skript", "menu-add-keine-doppelten-seiten", "menu-add-zwoelf-seiten", "menu-add-bereich-verkehrt"]) {
     assert.ok(report.checks.some(check => check.id === id && check.ok), id);
   }
   // REMOVE deletes the file with the firmware's f_unlink; the blue Electribe 2's image has none, there the file stays and the menu says so
