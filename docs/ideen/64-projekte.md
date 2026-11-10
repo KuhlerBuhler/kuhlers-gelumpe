@@ -1,6 +1,6 @@
 # 64. Projekte: Patterns und Samples zusammen laden
 
-Stand: 25. Oktober 2026. **Recherchiert und teilweise im Emulator geprüft, nicht gebaut.**
+Stand: 10. November 2026. **Abgesagt, wird später neu geplant.** Recherchiert und teilweise im Emulator geprüft, nicht gebaut.
 Am Gerät ist nichts geprüft. Es gibt noch keinen Projekt-Import und keinen neuen Firmware-Patch.
 Die Umsetzung beginnt erst nach Zustimmung.
 

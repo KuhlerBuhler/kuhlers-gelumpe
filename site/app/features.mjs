@@ -121,9 +121,6 @@ export const FEATURES = [
     how: "features.backup.how" },
   ...[
     // from docs/ideen.md: what is planned or still being worked out, so people know what comes
-    ["projects", "features.projects.title", "features.projects.text"],
-    ["sample-swap", "features.sampleSwap.title", "features.sampleSwap.text"],
-    ["macros", "features.macros.title", "features.macros.text"],
     ["sample-editor", "features.sampleEditor.title", "features.sampleEditor.text"],
     ["waveform", "features.waveform.title", "features.waveform.text"],
     ["ratchet", "features.ratchet.title", "features.ratchet.text"],
