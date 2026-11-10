@@ -24,3 +24,13 @@ test("a level above 15 is drawn as 15", () => {
 test("the image is 128 by 64 pixels", () => {
   assert.equal(shadeImage(new Uint8Array(128 * 64), ON, OFF).length, 128 * 64 * 4);
 });
+
+test("the display light tints both colours: white keeps them, a dimmer red keeps only red at its share, dark is black", async () => {
+  const { lit } = await import("../site/app/emulator.mjs");
+  assert.deepEqual(lit(OFF, null), OFF, "no light from the emulator: the theme's colours");
+  assert.deepEqual(lit(OFF, [255, 255, 255]), OFF, "stock white");
+  assert.deepEqual(lit([255, 255, 255], [80, 0, 0]), [80, 0, 0], "red at 5 of 16");
+  assert.deepEqual(lit(ON, [0, 0, 0]), [0, 0, 0], "light off");
+  const px = shadeImage(new Uint8Array(128 * 64), lit(ON, [0, 255, 0]), lit(OFF, [0, 255, 0]));
+  assert.deepEqual([...px.slice(0, 4)], [0, 240, 0, 255], "a clear pixel in green light");
+});
