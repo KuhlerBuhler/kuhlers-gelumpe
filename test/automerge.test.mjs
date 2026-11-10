@@ -105,7 +105,7 @@ test("the workflow wakes on completed checks, reads trusted code and never polls
   for (const name of ["Test", "Verify patches", "Korg data guard", "Update pull requests", "Build apps",
     "Container image", "Release", "Discord release", "Sync develop"]) assert.ok(yml.includes(name));
   assert.match(yml, /^  check_run:\n    types: \[completed\]/m);
-  assert.match(yml, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
+  assert.match(yml, /ref: develop\b/);
   assert.match(yml, /node tools\/automerge\.mjs/);
   assert.match(yml, /GH_TOKEN: \$\{\{ secrets\.SYNC_TOKEN \}\}/);
   assert.doesNotMatch(yml, /sleep 60|while :|timeout-minutes: 150/);
