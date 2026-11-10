@@ -11,7 +11,7 @@ const H = 64;
 const OUT = new URL("../site/img/features/", import.meta.url);
 const RED = "#ff4b4b";
 const BLUE = "#4b8bff";
-const PINK = "#ff5fa8";
+const PINK = "#c34bff"; // red and blue LED together
 /** Ü, which the font lacks: the U with two dots above. */
 const EXTRA = { "Ü": [0x3c, 0x41, 0x40, 0x41, 0x3c] };
 
@@ -124,11 +124,8 @@ const ART = {
   },
   colors: p => {
     p.text("PAD COLOR", 4, 6, { s: 2 });
-    // the colours the BLECH menu offers for pads and LEDs, the last pad of each row shows RAINBOW
-    const choice = ["#ffffff", RED, "#4bff6a", BLUE, "#ffe14b", "#4bf2ff", PINK];
-    pads(p, i => choice[(i % 8 + (i < 8 ? 0 : 3)) % 7]);
-    const rainbow = [RED, "#ffe14b", "#4bff6a", "#4bf2ff", BLUE, PINK];
-    for (const y of [26, 42]) for (let c = 0; c < 12; c++) p.fill(111 + c, y, 1, 12, rainbow[Math.floor(c / 2)]);
+    // the pads have red and blue LEDs only: red, blue, and both together as purple
+    pads(p, i => [RED, RED, BLUE, BLUE, PINK, PINK, RED, BLUE, BLUE, PINK, RED, RED, PINK, BLUE, BLUE, RED][i]);
   },
   "note-assist": p => {
     p.text("KEYBOARD", 4, 8);
