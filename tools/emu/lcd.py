@@ -18,8 +18,8 @@ import os
 
 LEVELS = 16
 TAU_ON = 0.040      # seconds for a pixel going dark (measured 2026-10-13, slow-motion video)
-TAU_OFF = 0.20      # seconds for a pixel going clear: the owner's choice on 2026-10-29 (0.30 looked too slow in the
-                    # emulator), after the estimate by eye on the device on 2026-10-27; not a measurement. The 0.028 s fitted to the slow-motion video of 2026-10-13 was too low: it took the fast
+TAU_OFF = 0.17      # seconds for a pixel going clear: the owner's choice on 2026-11-10 (0.20 still a little too slow,
+                    # 0.30 before 2026-10-29), after the estimate by eye on the device on 2026-10-27; not a measurement. The 0.028 s fitted to the slow-motion video of 2026-10-13 was too low: it took the fast
                     # first part of the edge and left out the long flat rest; a walking figure drags a smear.
 WIDTH, HEIGHT = 128, 64
 

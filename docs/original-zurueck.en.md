@@ -20,12 +20,12 @@ is the same thing again with Korg's unchanged file.
 
 ## Which firmware runs?
 
-The page Rettung in the editor asks for you: `Rettung -> I want to go back to Korg's original`. By hand:
+The page Blechy in the editor asks for you: `Blechy -> I want to go back to Korg's original`. By hand:
 
 - **Red, BLECHTRIBE:** Korg's red file in `KORG/blechtribe/System/`.
 - **Blue, BLECHTRIBE without Hacktribe:** Korg's blue file, **unchanged**, in `KORG/blechtribe/System/`.
 - **Blue, Hacktribe or BLECHTRIBE with Hacktribe:** Korg's blue file **with the Sampler head** in `KORG/hacktribe/System/` (Hacktribe runs) or
-  `KORG/blechtribe/System/` (BLECHTRIBE runs). The Rettung page makes the file from your own one from Korg.
+  `KORG/blechtribe/System/` (BLECHTRIBE runs). The Blechy page makes the file from your own one from Korg.
 
 ## Step by step (blue, BLECHTRIBE without Hacktribe)
 
@@ -43,8 +43,8 @@ The page Rettung in the editor asks for you: `Rettung -> I want to go back to Ko
 
 ## Blue with Hacktribe
 
-Korg's file is refused ("Invalid File"). The Rettung page takes Korg's `SYSTEM.VSB` for the blue, checks it against Korg's 2.02 (any other file
+Korg's file is refused ("Invalid File"). The Blechy page takes Korg's `SYSTEM.VSB` for the blue, checks it against Korg's 2.02 (any other file
 is refused), changes exactly the two head bytes and saves the result as `SYSTEM.VSB`. The file stays on your computer. Then steps 1 and 3 to 6
 above, with the folder of the running firmware. Measured in the emulator, open on a device.
 
-If it sticks, see [Rettung](rettung.md) (German) or the page Rettung in the editor.
+If it sticks, see [Rettung](rettung.md) (German) or the page Blechy in the editor.

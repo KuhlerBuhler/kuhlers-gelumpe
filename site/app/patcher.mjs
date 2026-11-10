@@ -281,7 +281,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const bar = el("div", { className: "ui-progress cee-patch-bar", id: "cee-patch-bar", hidden: true });
   const groupList = el("ul", { className: "cee-patch-groups", id: "cee-patch-groups", hidden: true });
   const checkList = el("ul", { className: "ui-list", id: "cee-patch-checks" });
-  // a red test keeps its way to the Rettung page after the toast is gone
+  // a red test keeps its way to the Blechy page after the toast is gone
   const failRescue = el("a", { className: "cee-text-link", id: "cee-patch-fail-rescue", href: "#rescue", textContent: t("nav.rescue") });
   failRescue.addEventListener("click", () => window.dispatchEvent(new CustomEvent(RESCUE_EVENT, { detail: { message: failureLine(flow.report), to: testHelp() } })));
   const failHelp = el("p", { id: "cee-patch-fail-help", hidden: true }, tNodes("patcher.failed.rescue", { rescue: failRescue }));
@@ -640,7 +640,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     // A result is told once, as a toast; the line is only for the run itself.
     const result = passed_ ? [t("patcher.passed"), "ok"] : can.busy ? null : flow.error ? [t(flow.error), "error"] : failed ? [failed, "error"] : null;
     const key = result ? `${flow.phase}|${result[0]}` : null;
-    // an error's "Blechy fragen" goes straight to what this failure means
+    // an error's "Frag Blechy" goes straight to what this failure means
     if (key !== toasted) { toasted = key; if (result) toast(result[0], result[1], result[1] === "error" ? toRescue(testHelp()) : {}); }
   }
 
