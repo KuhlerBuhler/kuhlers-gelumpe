@@ -12,6 +12,7 @@ import ctypes
 import hashlib
 import json
 import math
+import os
 import pickle
 import struct
 import sys
@@ -19,6 +20,7 @@ import types
 import zlib
 from pathlib import Path
 
+import devicetime
 import factorybank
 from firmware import HARDWARE_MARKS, SAMPLER_USER_MARK, identify
 from panel_leds import PanelLeds
@@ -28,6 +30,10 @@ NS_PER_INSN = 5            # assumed: roughly 200 million instructions per secon
 SLICE = 20_000             # upper bound of instructions between interrupt checks
 MMC_IRQ_NS = 100_000        # the card interrupt is looked at once per this much device time, as the 20000-instruction slices did
 ISR_STEP = 256             # slice length while an interrupt handler runs, so the next pending one follows at once
+# Device pace (devicetime.Pace): a slice is charged by the cost of the code the slice before stopped in, with the multiplier and the
+# data cache as measured on the device (docs/messungen/2026-10-16-emulator-timing.md). GELUMPE_PACE=flat charges
+# NS_PER_INSN for every instruction, as before.
+PACE = os.environ.get("GELUMPE_PACE", "device") != "flat"
 
 AINTC = 0xFFFEE000
 GPIO = 0x01E26000
@@ -62,7 +68,8 @@ PANEL_VERSION = 0x96       # what the panel reports; the panel is hardware, so t
 
 # What a snapshot keeps (Machine.snapshot): the RAM the model maps, read in chunks, kept per non-zero page.
 SNAP_REGIONS = ((0xC0000000, 0x08000000), (0xFFFF0000, 0x10000), (0x80000000, 0x20000), (0, 0x1000))
-SNAP_SKIP = frozenset(("A", "uc", "_reg_read", "_uch", "_reg_buf", "_reg_ref", "profile", "ENTRIES"))     # the library's handles and the build's places, made again by __init__
+SNAP_SKIP = frozenset(("A", "uc", "_reg_read", "_uch", "_reg_buf", "_reg_ref", "_mem_read", "_word_buf",
+                       "_pace", "_reg_ids", "profile", "ENTRIES"))     # the library's handles and the build's places, made again by __init__
 SNAP_CHUNK = 0x100000
 PAGE = 0x1000
 ZERO_PAGE = bytes(PAGE)
@@ -239,6 +246,10 @@ class Machine:
         self._reg_read, self._uch = _lib.uclib.uc_reg_read, uc._uch
         self._reg_buf = ctypes.c_uint32()
         self._reg_ref = ctypes.byref(self._reg_buf)
+        self._mem_read = _lib.uclib.uc_mem_read
+        self._word_buf = ctypes.create_string_buffer(4)
+        self._reg_ids = [getattr(arm_const, f"UC_ARM_REG_R{i}") for i in range(13)] + [arm_const.UC_ARM_REG_SP,
+                         arm_const.UC_ARM_REG_LR, arm_const.UC_ARM_REG_PC]
         uc.ctl_set_cpu_model(arm_const.UC_CPU_ARM_926)
         uc.mem_map(0xC0000000, 0x08000000, unicorn.UC_PROT_ALL)
         uc.mem_write(0xC0000000, payload)
@@ -253,6 +264,10 @@ class Machine:
         self.recent = collections.deque(maxlen=3000)
         self.time_ns = 0
         self.insns = 0
+        self.pace = PACE           # charge slices at the device's pace (devicetime.Pace), not NS_PER_INSN flat
+        self._pace = devicetime.Pace()   # its decoded code is made again after a restore ...
+        self.walks = self._pace.walks    # ... the loops that walk through memory are part of the state
+        self.ns_per_insn = NS_PER_INSN   # the rate of the next slice (device_rate)
         self.asserts = []
         self.raw, self.enabled, self.cmr = set(), set(), {}
         self._tcfg, self._tper = {}, {}      # timer configuration as read from regs; see _wr
@@ -804,7 +819,26 @@ class Machine:
         pending interrupt is taken when it returns, as the controller does, not one slice later."""
         self.deadline = self.next_event()
         left = self.deadline - self.time_ns
-        return max(1, min(ISR_STEP if in_isr else SLICE, math.ceil(left / NS_PER_INSN) if left < math.inf else SLICE))
+        return max(1, min(ISR_STEP if in_isr else SLICE, math.ceil(left / self.ns_per_insn) if left < math.inf else SLICE))
+
+    def device_rate(self, cpsr):
+        """ns per instruction for the code at pc: NS_PER_INSN, or with `pace` the device's rate for it
+        (devicetime.Pace). Thumb code runs at NS_PER_INSN."""
+        if not self.pace or cpsr & 0x20:
+            return NS_PER_INSN
+        pc = self.reg(self.A.UC_ARM_REG_PC)
+        if self._mem_read(self._uch, pc, self._word_buf, 4):
+            return NS_PER_INSN
+        word = int.from_bytes(self._word_buf.raw, "little")
+        return self._pace.rate(pc, word, lambda n: self.reg(self._reg_ids[n]), self.time_ns, self._code)
+
+    def _code(self, at, count):
+        """`count` instruction words from `at`, fewer where the memory ends."""
+        try:
+            data = bytes(self.uc.mem_read(at, 4 * count))
+        except Exception:
+            return [int.from_bytes(self._word_buf.raw, "little")]
+        return struct.unpack(f"<{count}I", data)
 
     def waiting(self, pc):
         """True when the slice ended in a wait: wait-for-interrupt (mcr p15, 0, Rd, c7, c0, 4) just
@@ -925,16 +959,28 @@ class Machine:
         but not past limit (ns). Returns the time the slice began."""
         uc, A = self.uc, self.A
         cpsr = self.reg(A.UC_ARM_REG_CPSR)
-        count = self.slice_length(cpsr & 0x1F == 0x12)
+        in_isr = cpsr & 0x1F == 0x12
+        count = self.slice_length(in_isr)
         start, self.poll_stop, self.tx_idle = self.time_ns, False, False
+        ran = False
         if not (self.reg(A.UC_ARM_REG_PC) in self.ENTRIES and self.service()):
             pc = self.reg(A.UC_ARM_REG_PC)
             uc.emu_start(pc | (1 if cpsr & 0x20 else 0), 0, count=count)
+            ran = True
         self.insns += count
-        if self.waiting(self.reg(A.UC_ARM_REG_PC)) and self.highest() & 0x80000000:
+        pc = self.reg(A.UC_ARM_REG_PC)
+        wait = self.waiting(pc)
+        if wait and self.highest() & 0x80000000:
             self.time_ns = max(self.time_ns, min(self.next_event(), limit))
         elif not self.poll_stop:        # a stopped poll loop has already spent its time on the reads
-            self.time_ns += count * NS_PER_INSN
+            self.time_ns += round(count * self.ns_per_insn)
+        # Where a slice that ran its instructions stopped is a sample of the code that runs; it sets the rate of the next
+        # slice. Not where a slice starts, nor where a wait, a poll or a modelled routine stopped it: those are the
+        # interrupt vector, a register read or a routine's address more often than not. Nor in a handler: its slices
+        # are ISR_STEP long from the vector, so they stop at the same few places every time; it runs at the rate of
+        # the code it interrupted.
+        if ran and not in_isr and not wait and not self.poll_stop and pc not in self.ENTRIES:
+            self.ns_per_insn = self.device_rate(self.reg(A.UC_ARM_REG_CPSR))
         return start
 
     def run_until(self, seconds):

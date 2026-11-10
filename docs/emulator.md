@@ -371,7 +371,7 @@ geprüft.
 
 ## Zeit und Takt
 
-Der Emulator rechnet 5 ns je Befehl. Eine Scheibe endet vor dem nächsten
+Der Grundtakt ist 5 ns je Befehl. Eine Scheibe endet vor dem nächsten
 Timer-Takt oder UART-Byte (`slice_length`), ein wartender Prozessor springt bis
 dorthin (`run_slice`); die Firmware bekommt so 1000 Timer-Interrupts und
 25 Bildschirm-Takte je Sekunde Gerätezeit, egal wie lang `SLICE` ist.
@@ -384,11 +384,39 @@ Abfrageschleife die Antwort weg (ST0 löscht beim Lesen, Assertion Zeile 228).
 `migrate_cases.py` prüft das mit einem Blick alle 2 µs. Messung:
 [Emulator-Takt](messungen/2026-10-12-emulator-takt.md).
 
+### Gerätetakt
+
 Gegen das Gerät verglichen ([Emulator-Zeit gegen Gerätezeit](messungen/2026-10-16-emulator-timing.md),
-`tools/device/timing_probe.py`): reine Rechenschleifen laufen am Gerät in der Emulatorzeit (Faktor 1,0),
-ein abhängiges Multiply kostet 6,7 ns mehr, und ein Durchlauf über Speicher größer als der Daten-Cache
-braucht rund das Vierfache (der Emulator kennt keinen Cache). Der Grundwert bleibt deshalb bei 5 ns;
-`tools/emu/devicetime.py` rechnet eine Emulatorzeit mit diesen Zuschlägen auf eine geschätzte Gerätezeit hoch.
+`tools/device/timing_probe.py`): reine Rechenschleifen laufen am Gerät in 5 ns je Befehl, ein abhängiges
+Multiply kostet 6,7 ns mehr, Lesen 0,5 ns je Byte mehr, wenn der Daten-Cache trifft, 6,8 ns je Byte bei
+einem Durchlauf über mehr Speicher, als der Cache fasst, und 12,4 ns je Byte über den ungecachten Alias
+`0xC4000000`.
+
+Mit diesen Zuschlägen rechnet der Emulator die Zeit jeder Scheibe (`devicetime.Pace`, `Machine.device_rate`).
+Er sieht nicht jeden Speicherzugriff an, das wäre zu teuer, sondern nimmt eine Stichprobe: wo eine Scheibe
+aufhört, liegt der Code, der gerade läuft. Diese Stelle wird einmal dekodiert, als ganze Schleife, wenn ein
+Rücksprung sie umschließt, sonst bis zum Ende des Blocks, und ihr Preis je Befehl gilt für die nächste Scheibe.
+So sehen Timer-Interrupts, Bildschirm-Takte, die Echtzeit-Bremse und alle Fälle die Gerätezeit. Ein Ladezugriff,
+dessen Basisregister in einer Schleife durch den Speicher läuft, zählt als Cache-Fehlgriff, sobald zwei
+Stichproben derselben Schleife kurz nacheinander mehr als 16 KiB auseinander liegen. Die vier Schleifen der
+Messung kommen damit auf die Gerätewerte (`test_devicetime.py`). `GELUMPE_PACE=flat` schaltet zurück auf
+5 ns für jeden Befehl.
+
+**Modellannahmen**, nicht gemessen:
+
+- Der Daten-Cache fasst 16 KiB (Datenblatt des AM1808). Gemessen ist nur: 4 KiB treffen, 256 KiB nicht.
+- Der Zuschlag ist linear in den gelesenen Bytes, auch für einzelne Bytes und Halbwörter.
+- Jedes Multiply kostet den Zuschlag, auch eins, dessen Ergebnis nicht gleich gebraucht wird.
+- Schreiben, der Befehls-Cache, falsch vorhergesagte und indirekte Sprünge, Lesen von Peripherie und
+  Thumb-Code kosten nichts extra.
+- Der erste Blick auf einen Durchlauf zählt als Treffer. Eine Kopie, die kürzer als eine Scheibe läuft, rechnet
+  der Emulator deshalb zu schnell. Ein Lauf über 256 KiB kommt auf 126 statt 143 ns je Runde.
+- Ein Interrupt-Handler läuft im Preis des Codes, den er unterbricht. Seine Scheiben (`ISR_STEP`) enden jedes
+  Mal an denselben Stellen und wären keine Stichprobe.
+
+Gegen die Plugin-VM geprüft ([Gerätetakt im Emulator](messungen/2026-11-10-emulator-geraetetakt.md)): am
+Gerät 7 bis 8 ns je Emulator-Befehl, mit dem Modell 5,7 bis 6,1, flach 5. Das Modell rechnet also näher am
+Gerät, aber noch zu schnell für einen Interpreter.
 
 ### Tempo der Prüfungen
 
