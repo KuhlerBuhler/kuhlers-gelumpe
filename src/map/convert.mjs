@@ -390,10 +390,11 @@ export const CONVERTERS = {
 // Resolve at display time: changing the language must not freeze choice labels at module load.
 for (const c of Object.values(CONVERTERS)) {
   const format = c.format;
-  c.format = (...args) => localize(format(...args));
+  const text = v => (typeof v === "string" ? localize(v) : v);
+  c.format = (...args) => text(format(...args));
   if (c.choices) {
     const choices = c.choices;
-    Object.defineProperty(c, "choices", { get: () => choices.map(o => ({ ...o, label: localize(o.label) })) });
+    Object.defineProperty(c, "choices", { get: () => choices.map(o => ({ ...o, label: text(o.label) })) });
   }
 }
 
