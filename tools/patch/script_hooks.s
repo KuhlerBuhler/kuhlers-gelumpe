@@ -655,6 +655,7 @@ frame_finish:
     mov r0, r4
     bl script_display_blit
     bl display_calibrate
+    bl lcd_lab_ball
     mov r0, r4
     bl script_store_flush
     mov r0, r4
