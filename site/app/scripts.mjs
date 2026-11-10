@@ -18,6 +18,7 @@ import { compile, formatError } from "../../src/script/compiler.mjs";
 import { decodeBlob, markProbed } from "../../src/script/blob.mjs";
 import { LIMITS, BUDGET, ARCHIVE, SCRIPT_APPS } from "../../data/script/contract.mjs";
 import { PRESETS } from "../../data/script/presets.mjs";
+import { PLUGIN_PICTURES } from "../../data/script/plugin-pictures.mjs";
 import { TEMPLATES, templateSource } from "../../data/script/templates.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
 import { KNOB_NAMES } from "../../data/script/properties.mjs";
@@ -29,6 +30,7 @@ import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
 import { storePlugin } from "../../src/usb-update.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { pixelsOf } from "./splash.mjs";
+import { drawFeature } from "./features.mjs";
 import { t, locale, language } from "./i18n.mjs";
 
 /** 0/1 pixels row by row (splash.mjs) to the display's 1024 bytes: eight rows per byte, bit 0 on top. */
@@ -854,7 +856,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const THUMB_FRAMES = 40;
   const noStore = { load: () => null, save: () => {} };
 
-  /** The display of a plugin after a few frames, drawn with the LCD drawing of the emulator page; a plugin that only lights LEDs shows its pads. */
+  /** The display of a plugin after a few frames, drawn with the LCD drawing of the emulator page; a catalog plugin that
+   * leaves the display alone shows its picture (site/img/plugins, tools/plugin-art.mjs), an own one its pads. */
   function renderThumb(canvas, preset) {
     const result = compile(preset.source, { name: validName(preset.id) ? preset.id : "plugin" });
     drawDisplay(canvas, new Uint8Array(1024));
@@ -873,6 +876,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       ctx.fillRect(8 + (pad.index % 8) * 14, 18 + Math.floor(pad.index / 8) * 16, 11, 11);
     }
     ctx.globalAlpha = 1;
+    if (PRESETS.includes(preset) && PLUGIN_PICTURES.includes(preset.id)) drawFeature(canvas, `img/plugins/${preset.id}.svg`);
   }
 
   function drawThumbs() {

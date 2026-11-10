@@ -148,7 +148,7 @@ export const FEATURES = [
 ];
 
 /** A picture cut to the one bit per pixel of the display and drawn like the plugin pictures of the catalog. */
-function drawFeature(canvas, src) {
+export function drawFeature(canvas, src) {
   const picture = new Image();
   picture.onload = () => {
     const work = document.createElement("canvas");

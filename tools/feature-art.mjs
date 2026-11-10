@@ -4,6 +4,7 @@
 //   node tools/feature-art.mjs [--doom frame.bin]
 // --doom takes a frame of Doom running in the emulator (tools/doom/run_runtime.py writes frame.bin).
 import { readFileSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { FONT, FONT_FIRST, ADVANCE, GLYPH_HEIGHT } from "../data/script/font.mjs";
 
 const W = 128;
@@ -15,7 +16,7 @@ const PINK = "#ff5fa8";
 /** Ü, which the font lacks: the U with two dots above. */
 const EXTRA = { "Ü": [0x3c, 0x41, 0x40, 0x41, 0x3c] };
 
-function picture() {
+export function picture() {
   const lit = Array.from({ length: H }, () => new Array(W).fill(null));
   const dot = (x, y, colour = "#fff") => { if (x >= 0 && x < W && y >= 0 && y < H) lit[y][x] = colour; };
   const p = {
@@ -37,7 +38,7 @@ function picture() {
   return p;
 }
 
-function svg(p) {
+export function svg(p) {
   const runs = new Map();
   p.lit.forEach((row, y) => {
     for (let x = 0; x < W;) {
@@ -58,7 +59,7 @@ const pads = (p, colourOf) => {
 };
 
 /** An arrow to the right, 14 pixels long, its middle at height y. */
-const arrow = (p, x, y) => { p.fill(x, y, 10, 2); for (let i = 0; i < 6; i++) p.fill(x + 8 + i, y - 5 + i, 1, 12 - 2 * i); };
+export const arrow = (p, x, y) => { p.fill(x, y, 10, 2); for (let i = 0; i < 6; i++) p.fill(x + 8 + i, y - 5 + i, 1, 12 - 2 * i); };
 /** The power sign: a ring of radius r open at the top and a bar through the gap. */
 const power = (p, cx, cy, r) => {
   for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
@@ -310,10 +311,13 @@ function fromFrame(path) {
   return p;
 }
 
-const doom = process.argv.indexOf("--doom");
-const jobs = Object.entries(ART).map(([name, draw]) => { const p = picture(); draw(p); return [name, p]; });
-if (doom > 0) jobs.push(["doom", fromFrame(process.argv[doom + 1])]);
-for (const [name, p] of jobs) {
-  writeFileSync(new URL(`${name}.svg`, OUT), svg(p));
-  console.log(`site/img/features/${name}.svg`);
+// Run as a script it draws the Features pictures; tools/plugin-art.mjs imports the drawing from here.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const doom = process.argv.indexOf("--doom");
+  const jobs = Object.entries(ART).map(([name, draw]) => { const p = picture(); draw(p); return [name, p]; });
+  if (doom > 0) jobs.push(["doom", fromFrame(process.argv[doom + 1])]);
+  for (const [name, p] of jobs) {
+    writeFileSync(new URL(`${name}.svg`, OUT), svg(p));
+    console.log(`site/img/features/${name}.svg`);
+  }
 }
