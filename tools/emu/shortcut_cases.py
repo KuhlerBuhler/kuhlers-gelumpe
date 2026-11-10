@@ -440,6 +440,7 @@ def case_filter_toggle(payload, flash):
     step("SHIFT+HPF: electribe HPF, the first", 0, "hpf", 7)
     for box in (toggle, twin):
         box.dev.press(FILTER_KEYS["hpf"], 0.4)      # the plain key cycles as always: MS20 HPF
+        box.run(1.5)        # its window closes first: the device whose loop runs longer would redraw it into the next press's texts
     plain = toggle.ftype(0)
     step("SHIFT+LPF: MS20 LPF, its last", 0, "lpf", 2)
     step("SHIFT+HPF: MS20 HPF, its last", 0, "hpf", 8)
