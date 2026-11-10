@@ -527,8 +527,8 @@ test("a patch label follows the build where the variants differ, and a patch the
   assert.equal(render(patchLabel({ id: "blechtribe", builds: ["stock"] })), "Kartenordner blechtribe statt electribe sampler");
   assert.equal(render(patchLabel({ id: "blechtribe", builds: ["synth"] })), "Kartenordner blechtribe statt electribe");
   assert.equal(render(patchLabel({ id: "blechtribe" })), "Kartenordner blechtribe statt hacktribe");
-  assert.equal(render(patchLabel({ id: "blech-sysex", builds: ["synth"] })), "BLECH SysEx: RAM und Flash lesen");
-  assert.equal(render(patchLabel({ id: "blech-sysex", builds: ["stock"] })), "BLECH SysEx: RAM lesen und schreiben");
+  assert.equal(render(patchLabel({ id: "blech-sysex", builds: ["synth"] })), "BLECHTRIBE SysEx: RAM und Flash lesen");
+  assert.equal(render(patchLabel({ id: "blech-sysex", builds: ["stock"] })), "BLECHTRIBE SysEx: RAM lesen und schreiben");
   assert.equal(patchLabel({ id: "someone-else", name: "Etwas Eigenes" }), "Etwas Eigenes");
 });
 

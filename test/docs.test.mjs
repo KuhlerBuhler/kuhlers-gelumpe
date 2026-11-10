@@ -2,12 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // Keeps the docs fit to be read by anyone: no dead links, no personal paths,
 // no names of people or of the agents that helped, no em or en dashes.
 // README*, AGENTS.md and CLAUDE.md may say that agents work on the project.
 
-const ROOT = new URL("../", import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "dist-release", "design", "target", ".venv", "build"]);
 
 function walk(dir) {

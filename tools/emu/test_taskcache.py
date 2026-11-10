@@ -147,6 +147,29 @@ class TaskCacheTest(unittest.TestCase):
         self.assertEqual(out[1][0]["clock"], parallel.CARD_CLOCK)
         self.assertNotEqual(fat32.clock(), parallel.CARD_CLOCK, "and runs again after it")
 
+    def test_metrics_identify_real_workers_cache_hits_and_task_durations(self):
+        cold = []
+        first = parallel.run_tasks(self.tasks, self.data, 2, cache="metrics", on_metrics=cold.append)
+        pool = next(row for row in cold if row["kind"] == "pool")
+        self.assertEqual((pool["workers"], pool["tasks"], pool["cache_hits"]), (2, 2, 0))
+        executed = [row for row in cold if row["kind"] == "task"]
+        self.assertEqual(len(executed), 2)
+        self.assertTrue(all(not row["cached"] and row["seconds"] >= 0 for row in executed))
+        self.assertEqual({repr(row["task"]) for row in executed}, {repr(t) for t in self.tasks})
+        warm = []
+        self.assertEqual(parallel.run_tasks(self.tasks, self.data, 2, cache="metrics", on_metrics=warm.append), first)
+        pool = next(row for row in warm if row["kind"] == "pool")
+        self.assertEqual((pool["workers"], pool["cache_hits"]), (0, 2))
+        self.assertTrue(all(row["cached"] for row in warm if row["kind"] == "task"))
+
+    def test_metrics_measure_tasks_with_the_cache_disabled(self):
+        os.environ["GELUMPE_CACHE"] = "off"
+        metrics = []
+        out = parallel.run_tasks(self.tasks, self.data, 2, on_metrics=metrics.append)
+        self.assertEqual(len(out), 2)
+        self.assertEqual(len([row for row in metrics if row["kind"] == "task"]), 2)
+        self.assertTrue(all(row["seconds"] >= 0 for row in metrics if row["kind"] == "task"))
+
 
 if __name__ == "__main__":
     unittest.main()

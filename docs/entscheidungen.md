@@ -22,7 +22,7 @@ Was entschieden ist und warum. Gilt, bis hier etwas anderes steht.
 | Frage | Entscheidung |
 |---|---|
 | Pattern-Werkzeuge und Samples | Beide Seiten stehen nicht in der Navigation und sind auch über `#ptools` und `#samples` nicht zu erreichen. Code und Tests bleiben. Nur mit `?labs` an der Adresse erscheinen die Tabs wieder, so laufen die Browser-Tests. Warum: das Würfeln soll in die Firmware ([Idee 29](ideen/29-wuerfeln.md)). Samples umbenennen und stimmen taugt erst etwas, wenn gemessen ist, ob es dauerhaft bleibt. |
-| Sichtbare Seiten | Start, Emulator, Patcher, Presets, Modulationen, Plugins, Rettung. |
+| Sichtbare Seiten | Start, Emulator, Patcher, Presets, Modulationen, Plugins, Blechy. |
 
 ## Release und App
 

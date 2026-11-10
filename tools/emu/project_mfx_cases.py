@@ -196,6 +196,8 @@ def probe(payload, build=None):
 
 
 def main():
+    import lifetime
+    lifetime.load_gate()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--base", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)

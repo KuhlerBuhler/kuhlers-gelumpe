@@ -265,7 +265,7 @@ Tests: `test_fat32.py` (FAT32-Schreiber und -Leser, mit `fsck_msdos` auf macOS),
 Ordner, Ziehen, Neustart des Dienstes.
 `test/emulator-sample-full.test.mjs` füllt die Nutzerplätze 501 bis 999 bis an die Grenze des
 Samplespeichers (`tools/emu/sampleset.py` baut die `e2sSample.all` aus einer Formel) und prüft, dass die
-Firmware nichts in das RAM von BLECH schreibt ([Messung](messungen/2026-10-14-sample-speicher-voll.md)).
+Firmware nichts in das RAM von BLECHTRIBE schreibt ([Messung](messungen/2026-10-14-sample-speicher-voll.md)).
 `test/emulator-sample-meta.test.mjs` liest die drei Sample-Tabellen der Firmware an den Adressen der
 Gerätekarte und schreibt an einem unbenutzten Platz Name und Tune über Plan und Türsteher: gelesen,
 zurückgelesen, zurückgenommen, kein anderes Byte der Einträge verändert
@@ -639,10 +639,10 @@ meldet sie zusätzlich im Status (`firmware.build`, `firmware.folder`).
 
 | Funktion | Original | Auf der Seite |
 |---|---|---|
-| SysEx `0x52` bis `0x57`: RAM lesen und schreiben, FX-Presets, Flash lesen | wird nicht beantwortet (die Gerätesuche schon); mit BLECH gibt es dafür BLECHs eigene Befehle `0x60` bis `0x63` ([Messung](messungen/2026-10-15-blech-sysex.md)), die auch hier gehen, aber weder Flash lesen noch Code ausführen | eine Zeile im Bereich Emulator sagt, was fehlt; ohne BLECH zeigt die Seitenleiste den Grund und der Probe-Dienst und das Terminal lehnen ab, mit BLECH gehen sie |
-| Effekt-Presets an den Stellen der Gerätekarte | die Tabellen sind leer, Korg legt die Presets verstreut ab und findet sie über zwei Zeigerfelder ([Preset-Tabellen](messungen/2026-10-15-preset-tabellen.md)) | der Effekt-Editor liest sie über die Zeiger, mit dem Hinweis "Original-Firmware", schreibt in die Datei und, mit BLECH, live ins RAM des Emulators ([Messung](messungen/2026-10-15-effekt-editor-original.md)) |
+| SysEx `0x52` bis `0x57`: RAM lesen und schreiben, FX-Presets, Flash lesen | wird nicht beantwortet (die Gerätesuche schon); mit BLECHTRIBE gibt es dafür BLECHTRIBEs eigene Befehle `0x60` bis `0x63` ([Messung](messungen/2026-10-15-blech-sysex.md)), die auch hier gehen, aber weder Flash lesen noch Code ausführen | eine Zeile im Bereich Emulator sagt, was fehlt; ohne BLECHTRIBE zeigt die Seitenleiste den Grund und der Probe-Dienst und das Terminal lehnen ab, mit BLECHTRIBE gehen sie |
+| Effekt-Presets an den Stellen der Gerätekarte | die Tabellen sind leer, Korg legt die Presets verstreut ab und findet sie über zwei Zeigerfelder ([Preset-Tabellen](messungen/2026-10-15-preset-tabellen.md)) | der Effekt-Editor liest sie über die Zeiger, mit dem Hinweis "Original-Firmware", schreibt in die Datei und, mit BLECHTRIBE, live ins RAM des Emulators ([Messung](messungen/2026-10-15-effekt-editor-original.md)) |
 | Gruppen-Grooves bei `0x143C00` | fehlen | die Datei gilt nicht als bekannt (`known: false`) |
-| BLECH-Patches, Plugins | die Patches gehen auch auf das Original (Patcher: "BLECH direkt"), mit eigener Fassung des Kartenordners; Plugins brauchen das BLECH-Menü ([BLECH auf Korgs Original](messungen/2026-10-14-stock-blech.md)) | Plugin-Bereich zeigt einen Hinweis, Schreiben und Simulieren gehen weiter |
+| BLECHTRIBE-Patches, Plugins | die Patches gehen auch auf das Original (Patcher: "BLECHTRIBE direkt"), mit eigener Fassung des Kartenordners; Plugins brauchen das BLECH-Menü ([BLECHTRIBE auf Korgs Original](messungen/2026-10-14-stock-blech.md)) | Plugin-Bereich zeigt einen Hinweis, Schreiben und Simulieren gehen weiter |
 | Kartenordner | `KORG/electribe sampler/`, mit Leerzeichen | der Dienst liest den Ordner aus der Firmware (`card_folder`) |
 
 `identify` in `src/firmware.mjs` kennt das Original als Datei (`build: "stock"`, `known: false` mit dem
@@ -653,8 +653,8 @@ Grund) und erkennt von Hacktribe nur die vermessene Fassung als `known`. Die Kar
 
 - Die Prüffälle der Patches (`splash_cases.py`, `mfx_cases.py`, `menu_cases.py`, `pswitch_cases.py`, `loadbar_cases.py`, `script_cases.py`) rechnen mit
   Adressen für Pattern, Sequenzer, Menü und Skripte, die an Hacktribe gemessen sind; ihre Konstanten sind keine
-  Stellen des Profils. Auf einer mit BLECH gepatchten Kopie von Korgs Original bestehen die Fälle von `check.py`
-  (Zahlen in [BLECH auf Korgs Original](messungen/2026-10-14-stock-blech.md)), `script_cases.py` ist dort nicht
+  Stellen des Profils. Auf einer mit BLECHTRIBE gepatchten Kopie von Korgs Original bestehen die Fälle von `check.py`
+  (Zahlen in [BLECHTRIBE auf Korgs Original](messungen/2026-10-14-stock-blech.md)), `script_cases.py` ist dort nicht
   gelaufen.
 - `check.py` prüft das Original unverändert (`--base` und `--patched` dieselbe Datei) mit allen Startwegen und
   eine gepatchte Kopie des Originals gegen das Original.
@@ -677,7 +677,7 @@ ist nur verschoben. Messung und Belege:
 - Die Seite erkennt die Datei am Kopf und sagt das in einer Zeile. Editor, Effekt-Editor, Patches, Plugins und
   Samples sind für den Sampler und werden für diese Firmware nicht angeboten.
 - `check.py` und die Prüffälle des Synth-Satzes laufen gegen Korgs blaue 2.02 (Workflow "Verify patches", Job `blue`). Nicht geprüft: ein benutzter Flash, die Karte.
-- Wie der Synth seine PCM-Wellen lädt, wie die Oszillator-Tabelle auf sie zeigt und ob BLECH dort Samples von der Karte
+- Wie der Synth seine PCM-Wellen lädt, wie die Oszillator-Tabelle auf sie zeigt und ob BLECHTRIBE dort Samples von der Karte
   zu Oszillatoren machen könnte, steht in [Samples auf der blauen Electribe 2](messungen/2026-10-15-synth-samples.md). Ein Flash mit der PCM-Bank aus den WAV-Dateien der blauen Electribe baut `tools/emu/synth_pcm_flash.py` (lokal, nie ins Repository; [Messung](messungen/2026-10-15-synth-pcm-flash.md)).
   `tools/emu/synth_probe.py` ist das Werkzeug dazu (Bank lesen, Oszillator-Tabelle, Start mit einer selbstgebauten Bank,
   Stimmennachrichten, Kartenfunktionen); seine Tests laufen mit `E2_BLUE_VSB` in `npm run test:emu`.
@@ -693,9 +693,9 @@ Hardware der Emulator spielt, steht in der Kennung im Flash: die blaue `KORGelec
 - Der Dienst liest die Hardware aus dem Kopf der VSB (`E2` statt `E2S`): auch Hacktribe mit blauem Kopf läuft auf
   `flash-synth.bin` und, solange die fehlt, auf einem leeren Flash der blauen. Eine Prüfung (`POST /check`) nimmt den Flash
   der Hardware des Originals; `?hardware=blue` sagt es für eine Datei mit Sampler-Kopf, die auf der blauen laufen soll.
-- `tools/emu/hacktribe_blue_probe.py` geht jeden Update-Weg auf der blauen durch (Korgs blaue, Hacktribe, BLECH mit
+- `tools/emu/hacktribe_blue_probe.py` geht jeden Update-Weg auf der blauen durch (Korgs blaue, Hacktribe, BLECHTRIBE mit
   Hacktribe, der Weg zurück), mit beiden Köpfen; Messung:
-  [BLECH mit Hacktribe auf der blauen](messungen/2026-10-26-blech-hacktribe-blau.md).
+  [BLECHTRIBE mit Hacktribe auf der blauen](messungen/2026-10-26-blech-hacktribe-blau.md).
 
 ## Check und Tests
 

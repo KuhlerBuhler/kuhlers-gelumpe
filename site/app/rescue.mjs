@@ -1,15 +1,16 @@
 /**
- * The Rettung page: Blechy asks what the device shows and walks through the documented way back, one question at a
- * time, with the answers as buttons. What is only to read follows by itself after a second; Blechy waits only where
+ * The Blechy page (#rescue): Blechy asks what the device shows and walks through the documented way back, one question
+ * at a time, with the answers as buttons; the first answer is typed, and the cases that fit come up above the field. What is only to read follows by itself after a second; Blechy waits only where
  * the person has to do or answer something. Content: data/rescue.mjs.
  */
 import { el } from "./fields.mjs";
-import { FLOW, LINKS, BUTTONS, FOLDERS, destOf, passSteps } from "../../data/rescue.mjs";
+import { FLOW, LINKS, BUTTONS, FOLDERS, CASES, FIRST_CASES, destOf, passSteps } from "../../data/rescue.mjs";
+import { makeMatcher, casePhrases } from "../../src/blechy-match.mjs";
 import { checkName, korgBlueForSampler } from "../../src/patcher.mjs";
 import { saveFile } from "./save-file.mjs";
 import { toast } from "./toast.mjs";
 import { e2Outline, e2Keys } from "./e2-art.mjs";
-import { t, tNodes, locale } from "./i18n.mjs";
+import { t, tNodes, locale, language } from "./i18n.mjs";
 import { pickCard } from "./card-access.mjs";
 import { identify, planCard, applyPlan } from "../../src/card-check.mjs";
 import { VSB_SIZE } from "../../src/patcher.mjs";
@@ -56,12 +57,12 @@ function folderTree(path) {
 
 /** The keys a step presses, drawn on the device: `press` filled, `near` outlined, with a line under the drawing. */
 const KEY_ART = {
-  enter: { press: ["menu"], caption: "rescue.keys.enter" },
-  menu: { press: ["menu"], near: ["editLeft", "editRight"], caption: "rescue.keys.menu" },
+  enter: { press: ["menu"], caption: ["rescue.keys.enter"] },
+  menu: { press: ["menu"], near: ["editLeft", "editRight"], caption: ["rescue.keys.menu", "rescue.keys.legend"] },
 };
 const keysFigure = name => {
   const { caption, ...keys } = KEY_ART[name];
-  return el("figure", { className: "cee-rescue-figure cee-rescue-keys" }, [e2Keys(t("rescue.keys.alt"), keys), el("figcaption", { textContent: t(caption) })]);
+  return el("figure", { className: "cee-rescue-figure cee-rescue-keys" }, [e2Keys(t("rescue.keys.alt"), keys), el("figcaption", { textContent: caption.map(k => t(k)).join(" ") })]);
 };
 
 /** A picture of a page outside the app, as it looked when it was taken, with what to click on it. */
@@ -129,6 +130,15 @@ const FILES = {
     saveFile(res.bytes, "SYSTEM.VSB", { note: t("rescue.file.saved") });
     return true;
   },
+};
+
+/** The matcher, made again when the language changes so the texts as shown count too. */
+let matcher = null;
+const matchCases = query => {
+  if (matcher?.lang !== language()) {
+    matcher = { lang: language(), match: makeMatcher(casePhrases(Object.fromEntries(CASES.map(c => [c.id, [t(c.label), t(c.hint)]])))) };
+  }
+  return matcher.match(query, { limit: 5 }).map(r => r.id);
 };
 
 const within = (promise, ms) => Promise.race([promise, new Promise(resolve => setTimeout(() => resolve(null), ms))]);
@@ -270,7 +280,8 @@ export function rescuePage(root, context = {}) {
     const fits = known[at]?.value ?? last;
     const choices = node.choices ?? [];
     const pick = node.file ? [dropZone(node, at)] : [];
-    answers.replaceChildren(...pick, ...choices.map(c => {
+    if (node.search) answers.replaceChildren(askBox(choices, at));
+    else answers.replaceChildren(...pick, ...choices.map(c => {
       const mark = fits != null && c.value === fits;
       const chosenBefore = previous[at] != null && c.label === previous[at];
       if (c.pick) return pickBox(c);
@@ -287,8 +298,9 @@ export function rescuePage(root, context = {}) {
       return b;
     }));
     answers.hidden = !choices.length && !pick.length;
+    answers.classList.toggle("cee-rescue-answers-ask", !!node.search);
     back.disabled = path.length < 2;
-    chat.lastElementChild?.scrollIntoView?.({ block: "nearest" });
+    showNewest();
     clearTimeout(timer);
     learn(at, node);
     // While Blechy still has something to say, the answers wait and tests can tell (data-waiting).
@@ -301,6 +313,113 @@ export function rescuePage(root, context = {}) {
       path = [...path, to];
       render();
     }, PAUSE_MS);
+  }
+  /**
+   * The first question as a message field: what is typed brings up the cases that fit above it, as a combobox with a
+   * listbox (arrow keys move, Enter picks, Escape clears). Empty, it offers FIRST_CASES and the way to all of them.
+   */
+  function askBox(choices, at) {
+    const byId = Object.fromEntries(choices.map(c => [c.id, c]));
+    const field = el("input", {
+      type: "text", className: "input cee-rescue-field", id: "cee-rescue-search", autocomplete: "off", spellcheck: false,
+      placeholder: t("rescue.search.placeholder"), role: "combobox",
+    });
+    field.setAttribute("aria-autocomplete", "list");
+    field.setAttribute("aria-controls", "cee-rescue-suggest");
+    const list = el("ul", { className: "cee-rescue-suggest", id: "cee-rescue-suggest", role: "listbox" });
+    list.setAttribute("aria-label", t("rescue.search.list"));
+    const status = el("p", { className: "ui-sr-only", id: "cee-rescue-search-status", role: "status" });
+    const none = el("p", { className: "cee-rescue-hint", id: "cee-rescue-search-none", textContent: t("rescue.search.none"), hidden: true });
+    const all = el("button", { type: "button", className: "btn sm", id: "cee-rescue-search-all", textContent: t("rescue.search.all") });
+    let shown = [];
+    let active = -1;
+    let everything = false;
+
+    const mark = () => {
+      [...list.children].forEach((li, i) => li.setAttribute("aria-selected", String(i === active)));
+      if (active >= 0) {
+        field.setAttribute("aria-activedescendant", list.children[active].id);
+        list.children[active].scrollIntoView?.({ block: "nearest" });
+      } else field.removeAttribute("aria-activedescendant");
+    };
+    const option = c => {
+      const li = el("li", { className: "cee-rescue-option", id: `cee-rescue-case-${c.id}`, role: "option" }, [
+        el("span", { className: "cee-rescue-answer", textContent: t(c.label) }),
+        c.hint ? el("span", { className: "cee-rescue-hint", textContent: t(c.hint) }) : null,
+        previous[at] === c.label ? el("span", { className: "cee-rescue-hint cee-rescue-known", textContent: t("rescue.known.before") }) : null,
+      ]);
+      if (previous[at] === c.label) li.dataset.before = "";
+      // the field keeps the focus, so the list stays and a screen reader stays in the field
+      li.addEventListener("mousedown", e => e.preventDefault());
+      li.addEventListener("click", () => choose(c));
+      return li;
+    };
+    function update() {
+      const query = field.value.trim();
+      if (query) everything = false;
+      const before = previous[at] ? choices.find(c => c.label === previous[at])?.id : null;
+      const ids = query ? matchCases(query) : everything ? choices.map(c => c.id) : [...new Set([before, ...FIRST_CASES].filter(Boolean))];
+      shown = ids.map(id => byId[id]).filter(Boolean);
+      active = query && shown.length ? 0 : -1;
+      list.replaceChildren(...shown.map(option));
+      list.hidden = !shown.length;
+      field.setAttribute("aria-expanded", String(shown.length > 0));
+      none.hidden = !query || shown.length > 0;
+      all.hidden = everything && !query;
+      status.textContent = query ? (shown.length ? t("rescue.search.count", { count: shown.length }) : t("rescue.search.none")) : "";
+      mark();
+    }
+    field.addEventListener("input", update);
+    field.addEventListener("keydown", e => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (!shown.length) return;
+        e.preventDefault();
+        const step = e.key === "ArrowDown" ? 1 : -1;
+        active = active < 0 ? (step > 0 ? 0 : shown.length - 1) : (active + step + shown.length) % shown.length;
+        mark();
+      } else if (e.key === "Enter") {
+        const c = shown[active < 0 ? 0 : active];
+        if (!c || (active < 0 && !field.value.trim())) return;
+        e.preventDefault();
+        choose(c);
+      } else if (e.key === "Escape" && (field.value || active >= 0)) {
+        e.preventDefault();
+        field.value = "";
+        update();
+      }
+    });
+    all.addEventListener("click", () => {
+      everything = true;
+      field.value = "";
+      update();
+      field.focus({ preventScroll: true });
+    });
+    update();
+    return el("div", { className: "cee-rescue-ask", id: "cee-rescue-ask" }, [
+      list,
+      none,
+      el("label", { className: "ui-sr-only", htmlFor: "cee-rescue-search", textContent: t("rescue.search.label") }),
+      field,
+      el("div", { className: "cee-rescue-ask-more" }, [all]),
+      status,
+    ]);
+  }
+
+  /**
+   * Scrolls down to Blechy's newest message and the answers under it, as far as both fit; the top of the message never goes
+   * under the bar at the top (the page's scroll-padding). Smooth unless the person asked for less motion; never scrolls up.
+   */
+  function showNewest() {
+    const newest = chat.lastElementChild;
+    if (!newest?.getBoundingClientRect || !root.isConnected || !globalThis.scrollBy) return;
+    const style = getComputedStyle(document.documentElement);
+    const top = parseFloat(style.scrollPaddingTop) || 0;
+    const gap = parseFloat(getComputedStyle(chat).rowGap) || 0;
+    const end = (answers.hidden ? newest : answers).getBoundingClientRect().bottom + gap;
+    const by = Math.min(end - innerHeight, newest.getBoundingClientRect().top - top);
+    if (by <= 0) return;
+    const calm = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    scrollBy({ top: by, behavior: calm ? "auto" : "smooth" });
   }
   /** The card step as a box of its own, so it does not read like one more answer; on a phone there is no card to pick. */
   function pickBox(c) {
@@ -408,7 +527,7 @@ export function rescuePage(root, context = {}) {
     facts = { ...facts, ...c.set };
     path = [...path, to];
     render();
-    answers.querySelector("button")?.focus({ preventScroll: true });
+    answers.querySelector("#cee-rescue-search, button")?.focus({ preventScroll: true });
   }
   back.addEventListener("click", () => {
     if (path.length < 2) return;
@@ -422,9 +541,10 @@ export function rescuePage(root, context = {}) {
     factsBy = factsBy.slice(0, at);
     noAuto.add(at);
     render();
+    answers.querySelector("#cee-rescue-search")?.focus({ preventScroll: true });
   });
   const reset = () => { path = ["start"]; picked = []; known = []; facts = {}; factsBy = []; previous = {}; noAuto = new Set(); extra = {}; };
-  again.addEventListener("click", () => { reset(); reported = null; render(); });
+  again.addEventListener("click", () => { reset(); reported = null; render(); answers.querySelector("#cee-rescue-search")?.focus({ preventScroll: true }); });
   window.addEventListener(RESCUE_EVENT, e => {
     const { message = "", to = null } = e.detail ?? {};
     reported = String(message) || null;

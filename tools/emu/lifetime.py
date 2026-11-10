@@ -70,3 +70,19 @@ def exit_with_parent(pid=None):
         text = os.environ.get(ENV, "")
         pid = int(text) if text.isdigit() else 0
     return watch([pid], leave)
+
+
+def load_gate():
+    """Wait until the machine is quiet before a test run starts: runs tools/load-gate.mjs (the one place that knows the rule)
+    and exits with its status when it gives up. Does nothing without node, or when the gate already passed above us."""
+    import shutil
+    import subprocess
+    import sys
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "load-gate.mjs")
+    node = shutil.which("node")
+    if os.environ.get("GELUMPE_LOAD_GATE_PASSED") == "1" or not node or not os.path.exists(script):
+        return
+    status = subprocess.call([node, script])
+    if status:
+        sys.exit(status)
+    os.environ["GELUMPE_LOAD_GATE_PASSED"] = "1"

@@ -16,7 +16,14 @@ before(async () => { h = await setUp(); });
 after(async () => { await h.tearDown(); });
 
 const settle = page => page.locator("#cee-rescue-answers:not([data-waiting])").waitFor({ state: "attached" });
-const answer = (page, text) => page.locator("#cee-rescue-answers button", { hasText: text }).first().click();
+/** The first question is typed, the cases come up above the field; every later one is a button. */
+async function answer(page, text) {
+  if (await page.locator("#cee-rescue-search").count()) {
+    await page.fill("#cee-rescue-search", text);
+    return page.locator("#cee-rescue-suggest [role=option]", { hasText: text }).first().click();
+  }
+  return page.locator("#cee-rescue-answers button", { hasText: text }).first().click();
+}
 const said = async page => { await settle(page); return page.locator("#cee-rescue-chat .cee-rescue-say").last().textContent(); };
 
 /**
@@ -98,7 +105,7 @@ async function lookAtCard(page, colour, firmware) {
   await answer(page, t("rescue.last.korg"));
   await settle(page);
   await answer(page, firmware);
-  await answer(page, "Zeig mir deine SD-Karte");
+  await answer(page, "Schau dir meine SD-Karte an");
   assert.match(await said(page), /löschen tu ich nie etwas/);
   await page.click("#cee-rescue-case-card-pick");
   await settle(page);
@@ -171,7 +178,7 @@ test("the card in a browser without write access: Blechy reads the folder and sa
   await answer(page, t("rescue.last.korg"));
   await settle(page);
   await answer(page, "Korgs Original");
-  await answer(page, "Zeig mir deine SD-Karte");
+  await answer(page, "Schau dir meine SD-Karte an");
   await settle(page);
   const [chooser] = await Promise.all([page.waitForEvent("filechooser"), page.click("#cee-rescue-case-card-pick")]);
   await chooser.setFiles(dir);

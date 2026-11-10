@@ -1639,8 +1639,64 @@ def case_view_back(payload, flash):
     return out
 
 
+def fast_steps(b, steps, gap):
+    """Turns the wheel `steps` clicks, one every `gap` seconds, as a fast hand does. Returns (most clicks the UI task was behind right
+    after a click, ms from the last click until the chosen number is the last one, bytes sent to the panel from the first click until
+    0.3 s after the last, so a redraw still in the firmware's queue counts)."""
+    from machine import UART0
+    tx0, start, behind = len(b.m.uart[UART0]["tx"]), b.chosen(), 0
+    for i in range(steps):
+        b.turn(1, gap)
+        behind = max(behind, (start + i + 1 - b.chosen()) % 250)
+    t_last, target, waited = b.m.time_ns, (start + steps) % 250, None
+    while waited is None and b.m.time_ns - t_last < 3e9:
+        if b.chosen() == target:
+            waited = round((b.m.time_ns - t_last) / 1e6)
+            break
+        b.run(0.005)
+    b.run(max(0.0, 0.3 - (b.m.time_ns - t_last) / 1e9))
+    return behind, waited, len(b.m.uart[UART0]["tx"]) - tx0
+
+
+def case_fast_steps(payload, flash):
+    """A fast turned wheel keeps up as with the firmware (device report on 1.4.5: the display lagged far behind while browsing, playing
+    and stopped with an unsaved edit). The reference is the same copy with EXIT held at power-on. Each click redrew every pad of the view
+    and sent about 90 LED messages, which the firmware's sender pushes through the panel's line at its speed; now a redraw within two
+    LED ticks of the last one waits until the view stays put. docs/messungen/2026-11-09-pattern-schritte.md"""
+    out = []
+    STEPS, GAP = 20, 0.03
+    REDRAW = 450                            # bytes of one redraw of the view's pads (about 87 LED messages of 5 bytes)
+    STEP = 0x800 + 0x30
+    for scene in ("playing", "stopped_unsaved"):
+        rows = {}
+        for name, held in (("firmware", KILL), ("blech", 0)):
+            b = Box(payload, flash, held)
+            if scene == "playing":
+                play(b)
+                b.run(0.5)
+            else:
+                b.dev.press(0x15, 0.4)             # SEQUENCER: the pads show the steps, nothing runs over them
+                for st in (1, 3, 5, 7):
+                    b.pattern_bytes(STEPS, STEP + 12 * st, [1])
+                b.m.send([2, 1 if b.dev.synth else 0, 0, 200, 0])
+                b.run(0.5)
+            rows[name] = (b, *fast_steps(b, STEPS, GAP))
+        (ref, r_behind, r_wait, r_bytes), (box, behind, wait, sent) = rows["firmware"], rows["blech"]
+        due = box.dev.read(spec.VIEW_W + spec.V_DEFER + 1, 1)[0]
+        ok = behind <= max(r_behind, 1) and wait is not None and wait <= 30 and sent - r_bytes <= 4 * REDRAW and due != 1 and not box.m.asserts
+        detail = (f"{STEPS} clicks {GAP * 1000:.0f} ms apart: clicks behind at most {behind} (firmware {r_behind}), the last number chosen "
+                  f"{wait} ms after the last click (firmware {r_wait} ms), {sent} bytes to the panel (firmware {r_bytes}), a redraw still due {due == 1}")
+        if scene == "stopped_unsaved":
+            lit = sorted(n for n in range(16) if box.m.leds.get(0x2C + 2 * n, 0))
+            ok = ok and box.view() == (0, STEPS, 1) and lit == [1, 3, 5, 7]
+            detail += f", view {box.view()}, the pads show the steps of pattern {STEPS + 1}: {lit}"
+        out.append(entry(f"fast_steps_{scene}_keep_up", ok, detail))
+    return out
+
+
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
-          case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy, case_view_side, case_view_blink, case_view_back)
+          case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy, case_view_side, case_view_blink, case_view_back,
+          case_fast_steps)
 
 
 def group_entries(payload, flash, i):
@@ -1661,6 +1717,7 @@ def cases(payload, flash=None):
 
 def main():
     import lifetime
+    lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("what", choices=("cases",))
