@@ -36,8 +36,9 @@ Was er nicht ist:
   ausbleibende Rückkehr führen zum Fehler. Das ist keine Freigabe für
   Gerätezugriffe.
 - **Nicht nachgebildet:** an der SD-Karte CRC, Schreibschutz, Fehlerfälle und
-  SDSC; bei USB ein Kabel; bei der Stromversorgung Batteriestand und Netzteil
-  (das Batteriesymbol bleibt gleich).
+  SDSC; bei USB ein Kabel; der Batteriestand (das Symbol zeigt immer das
+  Netzteil). Der Emulator steckt immer am Netzteil (Panel-Nachricht 7); nur beim
+  Ausschalten meldet er Batterie, weil die Firmware am Netzteil nicht ausgeht.
 - Keine eingebauten Firmwaredaten und keine Hardwareverbindung. Der Emulator
   braucht keine Node-Laufzeit, nur Python. Was einige Fälle aus dem
   JavaScript des Repositorys brauchen (übersetzte Plugins, Feldlisten,
@@ -299,8 +300,8 @@ und kein Wechseln zwischen zwei Bildern. Was am Gerät gedimmt aussieht (etwa de
 Name des wartenden Patterns, den die Firmware alle 280 ms ein- und ausblendet),
 ist die Trägheit der Flüssigkristalle. `lcd.py` bildet sie nach, ein Verzögerungsglied
 je Bildpunkt, getrennt für das Dunkelwerden (`TAU_ON`, 0,040 s, aus einem Zeitlupenvideo)
-und das Hellwerden (`TAU_OFF`, 0,20 s, **geschätzt**: mit bloßem Auge am Gerät am 27.10.,
-am 29.10. von 0,30 auf 0,20 s gesenkt, weil es im Emulator zu träge wirkte; keine Messung; die 0,028 s aus dem Video waren zu niedrig, siehe
+und das Hellwerden (`TAU_OFF`, 0,17 s, **geschätzt**: mit bloßem Auge am Gerät am 27.10.,
+am 29.10. von 0,30 auf 0,20 s und am 10.11. auf 0,17 s gesenkt, weil es im Emulator zu träge wirkte; keine Messung; die 0,028 s aus dem Video waren zu niedrig, siehe
 [LCD-Helligkeit](messungen/2026-10-12-lcd-helligkeit.md)). Die Werte stehen nur in
 `lcd.py`.
 
