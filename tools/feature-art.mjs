@@ -11,7 +11,7 @@ const H = 64;
 const OUT = new URL("../site/img/features/", import.meta.url);
 const RED = "#ff4b4b";
 const BLUE = "#4b8bff";
-const PINK = "#ff5fa8";
+const PINK = "#c34bff"; // red and blue LED together
 /** Ü, which the font lacks: the U with two dots above. */
 const EXTRA = { "Ü": [0x3c, 0x41, 0x40, 0x41, 0x3c] };
 
@@ -124,7 +124,8 @@ const ART = {
   },
   colors: p => {
     p.text("PAD COLOR", 4, 6, { s: 2 });
-    pads(p, i => [RED, RED, RED, RED, BLUE, BLUE, BLUE, PINK, RED, RED, PINK, PINK, BLUE, BLUE, BLUE, PINK][i]);
+    // the pads have red and blue LEDs only: red, blue, and both together as purple
+    pads(p, i => [RED, RED, BLUE, BLUE, PINK, PINK, RED, BLUE, BLUE, PINK, RED, RED, PINK, BLUE, BLUE, RED][i]);
   },
   "note-assist": p => {
     p.text("KEYBOARD", 4, 8);
