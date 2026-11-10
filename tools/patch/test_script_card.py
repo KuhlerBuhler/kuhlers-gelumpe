@@ -198,6 +198,7 @@ class NativeCardTests(unittest.TestCase):
             with self.subTest(cpsr=hex(cpsr)):
                 m, _ = self.machine(archive([store(0, 7)]))
                 regs = [0x12340000 + i for i in range(13)]
+                regs[4] = 0xC0038000    # r4 is the start command: its byte 0x18 holds the sample loader's result (0 in the page mapped below)
                 for i, value in enumerate(regs): m.uc.reg_write(UC_ARM_REG_R0 + i, value)
                 sp = m.stack + 0xF0000
                 m.uc.reg_write(UC_ARM_REG_SP, sp)

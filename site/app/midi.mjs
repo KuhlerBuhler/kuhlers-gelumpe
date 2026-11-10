@@ -1,4 +1,5 @@
 import { t } from "./i18n.mjs";
+import { electribePorts } from "../../src/session.mjs";
 const ELECTRIBE = /electribe/i;
 
 /** The browser transport and the desktop's native MIDI commands share the same port shape. */
@@ -62,15 +63,17 @@ export function createMidiTransport(scope = globalThis, { sendTimeout = bytes =>
     async requestAccess() {
       if (!native) return scope.navigator.requestMIDIAccess({ sysex: true });
       const ports = await api().invoke("midi_list");
+      const byId = list => new Map(list.map(port => [port.id, port]));
+      const twice = (list, name) => list.filter(port => port.name === name).length > 1;
+      const outputs = ports.outputs.filter(port => ELECTRIBE.test(port.name));
+      for (const output of outputs) {
+        if (twice(outputs, output.name) || twice(ports.inputs, output.name)) throw new Error(t("midi.ambiguous", { name: output.name }));
+      }
       const access = { inputs: new Map(), outputs: new Map(), onstatechange: null };
-      for (const output of ports.outputs.filter(port => ELECTRIBE.test(port.name))) {
-        const inputs = ports.inputs.filter(port => port.name === output.name);
-        if (inputs.length > 1 || ports.outputs.filter(port => port.name === output.name).length > 1) {
-          throw new Error(t("midi.ambiguous", { name: output.name }));
-        }
-        if (!inputs.length) continue;
-        const entry = { inputId: inputs[0].id, outputId: output.id, access, sessionId: null, closed: true };
-        access.inputs.set(inputs[0].id, { id: inputs[0].id, name: output.name, state: "connected", onmidimessage: null });
+      // The same pairing as the browser path: Korg's driver names the ports after the jacks, Windows numbers them.
+      for (const { out: output, in: input } of electribePorts({ inputs: byId(ports.inputs), outputs: byId(outputs) })) {
+        const entry = { inputId: input.id, outputId: output.id, access, sessionId: null, closed: true };
+        access.inputs.set(input.id, { id: input.id, name: input.name, state: "connected", onmidimessage: null });
         access.outputs.set(output.id, { id: output.id, name: output.name, state: "connected", _native: entry });
       }
       return access;

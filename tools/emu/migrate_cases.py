@@ -297,7 +297,8 @@ def case_full(payload, flash):
 
 def case_existing(payload, flash):
     """KORG/blechtribe already there with a plugin and a file of the same name, but without samples: the question comes, the copy
-    goes into the folder and leaves both files as they were. An old folder without samples asks nothing."""
+    goes into the folder and leaves both files as they were. An old folder without samples and without a pattern backup asks
+    nothing."""
     if blue(payload):
         return blue_update_only(payload)
     out = []
@@ -319,9 +320,10 @@ def case_existing(payload, flash):
                      f"{copied.get('Sample/e2sSample.all') == SAMPLE}, own Kick One.wav kept {copied.get('Import/Kick One.wav') == mine}, "
                      f"plugin kept {plugin == b'plugins'}"))
     bare = {**{k: v for k, v in old("hacktribe").items() if not k.endswith("e2sSample.all")},
-            "KORG/hacktribe/electribe_sampler_allpattern.e2sallpat": b"P" * 5000, "KORG/hacktribe/x.e2allpat": b"P"}
-    none = boot(payload, bare)
-    out.append(entry("old_folder_without_samples_no_question", state(none)[0] != 1 and not none.m.asserts, f"state {state(none)}"))
+            "KORG/hacktribe/x.e2allpat": b"P", "KORG/hacktribe/._x.e2sallpat": b"mac", "KORG/hacktribe/renamed.e2sallpat": b"P"}
+    none = after_start(boot(payload, bare))
+    out.append(entry("old_folder_without_samples_or_backup_no_question", state(none)[0] != 1 and not none.m.asserts,
+                     f"no samples; a blue backup, a dot file and a renamed file ending in .e2sallpat: state {state(none)}"))
     return out
 
 
@@ -351,29 +353,102 @@ def folders_of(dev):
         volume.close()
 
 
+def after_start(dev):
+    dev.run(2.0)
+    return dev
+
+
 def case_folders(payload, flash):
-    """A start without KORG/blechtribe makes it and the folders BLECH uses in it; a KORG/blechtribe that is there is left as it is
-    (one f_opendir, no f_mkdir: the start before the sample loader has no time for more); not with EXIT held at power-on."""
+    """A start without KORG/blechtribe makes it and the folders BLECH uses in it; a KORG/blechtribe that is there gets the folders of
+    that list it lacks (many make the folder by hand before they have the firmware), and what is in it stays; not with EXIT held at
+    power-on. On the red and Hacktribe the folders come in the first frame after the start, so each card runs to the main screen."""
     want = set(BLUE_FOLDERS if blue(payload) else RED_FOLDERS)
     out = []
-    fresh = boot(payload, {})
+    fresh = after_start(boot(payload, {}))
     got = folders_of(fresh)
     out.append(entry("fresh_card_gets_the_folders", got == want and state(fresh)[0] != 1 and not fresh.m.asserts,
                      f"empty card: KORG/blechtribe holds {sorted(got) if got is not None else None}, want {sorted(want)}"))
-    some = boot(payload, {"KORG/blechtribe/Plugin/mine.blech": b"mine"})
+    bare = after_start(boot(payload, {"KORG/blechtribe/readme.txt": b"hello"}))
+    got = folders_of(bare)
+    out.append(entry("folder_without_subfolders_gets_them", got == want and state(bare)[0] != 1 and not bare.m.asserts,
+                     f"blechtribe with a file only: now {sorted(got) if got is not None else None}, want {sorted(want)}"))
+    some = after_start(boot(payload, {"KORG/blechtribe/Plugin/mine.blech": b"mine", "KORG/blechtribe/gif/own.gif": b"gif"}))
     volume = fat32.Volume(bytes(some.card.medium.data))
-    kept = volume.read("KORG/blechtribe/Plugin/mine.blech")
+    kept = volume.read("KORG/blechtribe/Plugin/mine.blech"), volume.read("KORG/blechtribe/gif/own.gif")
     volume.close()
     got = folders_of(some)
-    out.append(entry("folder_there_left_alone", got == {"Plugin"} and kept == b"mine" and not some.m.asserts,
-                     f"blechtribe with Plugin only: now {sorted(got) if got is not None else None}, own file kept {kept == b'mine'}"))
-    held = boot(payload, {}, held=KILL)
+    out.append(entry("folders_there_left_alone", got == (want - {"Gif"}) | {"gif"} and kept == (b"mine", b"gif") and not some.m.asserts,
+                     f"blechtribe with Plugin and gif (lower case): now {sorted(got) if got is not None else None}, own files kept "
+                     f"{kept == (b'mine', b'gif')}"))
+    held = after_start(boot(payload, {}, held=KILL))
     out.append(entry("exit_held_makes_no_folders", folders_of(held) is None and not held.m.asserts,
                      f"EXIT held at power-on: KORG/blechtribe {folders_of(held)}"))
+    held = after_start(boot(payload, {"KORG/blechtribe/readme.txt": b"hello"}, held=KILL))
+    out.append(entry("exit_held_adds_no_folders", folders_of(held) == set() and not held.m.asserts,
+                     f"EXIT held at power-on, blechtribe with a file only: folders {folders_of(held)}"))
     return out
 
 
-GROUPS = (case_copy, case_choose, case_none, case_full, case_existing, case_card_interrupt, case_folders)
+RED_PAT = "electribe_sampler_allpattern.e2sallpat"     # what the red and Hacktribe write with EXPORT ALL PATTERN, in the folder itself
+
+
+def pattern_of(dev, folder):
+    volume = fat32.Volume(bytes(dev.card.medium.data))
+    try:
+        return {e.name: volume.read(f"KORG/{folder}/{e.name}") for e in volume.listdir(f"KORG/{folder}")
+                if not e.is_dir and e.name.lower().endswith(".e2sallpat")}
+    except fat32.FatError:
+        return {}
+    finally:
+        volume.close()
+
+
+def case_pattern(payload, flash):
+    """The red and Hacktribe ask for the pattern backup too (the name EXPORT ALL PATTERN gives it, upper or lower case): an old folder
+    with it while KORG/blechtribe has none asks even without a sample file, and the copy takes it with the samples; the backup in
+    KORG/blechtribe asks nothing more. The backup alone asks in the card hook, after the sample loader, so those cards run on."""
+    if blue(payload):
+        return []
+    out = []
+    pat = b"P" * 5000
+    only = after_start(boot(payload, {f"KORG/hacktribe/{RED_PAT}": pat}))
+    asked = state(only)[:3]
+    only.press(MENU, 0.5)
+    wait(only)
+    got = pattern_of(only, "blechtribe")
+    out.append(entry("pattern_only_asks_and_copies", asked == (1, 0, 1) and got == {RED_PAT: pat} and state(only)[4] == 2
+                     and not only.m.asserts, f"only a backup in hacktribe: asked {asked}, copied {sorted(got)}"))
+    both = boot(payload, {**old("hacktribe"), f"KORG/hacktribe/{RED_PAT}": pat})
+    asked = state(both)[:3]
+    both.press(MENU, 0.5)
+    wait(both)
+    got, files = pattern_of(both, "blechtribe"), files_of(both, "blechtribe")
+    out.append(entry("pattern_and_samples_both_copied", asked == (1, 0, 1) and got == {RED_PAT: pat}
+                     and files.get("Sample/e2sSample.all") == SAMPLE and not both.m.asserts,
+                     f"asked {asked}, copied backup {sorted(got)}, samples {files.get('Sample/e2sSample.all') == SAMPLE}"))
+    lacks = after_start(boot(payload, {**old("electribe sampler"), f"KORG/electribe sampler/{RED_PAT}": pat,
+                                       "KORG/blechtribe/Sample/e2sSample.all": OTHER}))
+    asked = state(lacks)[:3]
+    lacks.press(MENU, 0.5)
+    wait(lacks)
+    got, files = pattern_of(lacks, "blechtribe"), files_of(lacks, "blechtribe")
+    out.append(entry("samples_there_pattern_missing_asks", asked == (1, 1, 2) and got == {RED_PAT: pat}
+                     and files.get("Sample/e2sSample.all") == OTHER and not lacks.m.asserts,
+                     f"blechtribe with samples, no backup: asked {asked}, copied backup {sorted(got)}, own samples kept "
+                     f"{files.get('Sample/e2sSample.all') == OTHER}"))
+    skip = boot(payload, {**old("hacktribe"), f"KORG/hacktribe/{RED_PAT}": pat})
+    skip.press(EXIT, 0.5)
+    wait(skip)
+    after_start(skip)
+    out.append(entry("exit_asks_once_a_start", state(skip)[0] != 1 and pattern_of(skip, "blechtribe") == {} and not skip.m.asserts,
+                     f"samples and backup, EXIT on the question: then state {state(skip)[:3]}, blechtribe backup {sorted(pattern_of(skip, 'blechtribe'))}"))
+    there = after_start(boot(payload, {f"KORG/hacktribe/{RED_PAT}": pat, f"KORG/blechtribe/{RED_PAT.upper()}": b"mine"}))
+    out.append(entry("pattern_in_blechtribe_no_question", state(there)[0] != 1 and not there.m.asserts,
+                     f"a backup in both: state {state(there)[:3]}"))
+    return out
+
+
+GROUPS = (case_copy, case_choose, case_none, case_full, case_existing, case_card_interrupt, case_folders, case_pattern)
 
 
 def group_entries(payload, flash, i):
@@ -393,6 +468,7 @@ def cases(payload, flash=None):
 
 def main():
     import lifetime
+    lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("what", choices=("cases",))

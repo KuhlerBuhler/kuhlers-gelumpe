@@ -78,6 +78,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Quick save (EXIT + WRITE), reset a part (EXIT + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | KEY from the pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Filter off and on (SHIFT + filter key) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Settings save themselves when you leave the menu (AUTO SAVE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Chords in pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Note assistant | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -93,6 +94,7 @@ Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIB
 | Drawback | What it means for you |
 |---|---|
 | Oscillators replace the factory sample bank | Your own samples use slots 501 to 999. Factory samples need conversion before loading into the user bank. |
+| Your samples are gone afterwards | Hacktribe reads its own folder, and its how-to says to delete `e2sSample.all`. Back up the `Sample` folder of your current firmware first (`KORG/electribe sampler/` or `KORG/blechtribe/`); the app asks you to confirm that with a checkbox. Already happened? The Blechy page has the case "I installed Hacktribe by accident". |
 | Existing patterns may sound different | Oscillator and effect assignments change. Listen to your patterns after switching and reassign sounds where needed. |
 | An extra firmware change | Starting from Korg's original requires a suitable Hacktribe file first. BLECHTRIBE also works directly on Korg's original. |
 
@@ -217,7 +219,8 @@ Menü -> BLECH -> PLUGINS. The code is a subset of JavaScript, the editor compil
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
 The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
-Mandelbrot, GIF Player, Image Viewer, BPM Glide, Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold and Step Copy.
+Mandelbrot, GIF Player, Image Viewer, BPM Glide, Momentary Mute, Gate Hold, Step Copy,
+Lauflicht, Pulsieren and Takt-Blinker.
 
 ## The emulator
 
@@ -233,14 +236,16 @@ A wrong write or a faulty firmware can hang the device. So:
 - **Emergency switch:** hold EXIT while powering on. The firmware then runs without patches, and DATA
   UTILITY, SOFTWARE UPDATE lets you install a different firmware. This only applies to that one start.
 - **Back up before you change anything:** the SD card (samples, patterns, the original `SYSTEM.VSB`) and
-  the global settings. Powering off and WRITE save whatever is in RAM, so do not power off if something
-  looks wrong.
+  the global settings. Powering off, WRITE and, with AUTO SAVE, leaving GLOBAL PARAMETERS save whatever
+  is in RAM, so do not power off if something looks wrong.
 - **Way back:** put the saved original `SYSTEM.VSB` back. How that was rehearsed is in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
-- **If the device no longer starts:** the "Rettung" page in the editor (German) asks what you see and
+- **Back to Korg's original, also from the blue:** step by step in
+  [docs/original-zurueck.en.md](docs/original-zurueck.en.md) and as a case on the Blechy page.
+- **If the device no longer starts:** the "Blechy" page in the editor asks what you see and
   walks you back along the documented recovery. The bootloader is never
   touched, beyond it only JTAG helps ([docs/rettung.md](docs/rettung.md)).
-- **Test it yourself:** the [device tests](docs/geraetetests/README.md) describe how to repeat BLECH and
+- **Test it yourself:** the [device tests](docs/geraetetests/README.md) describe how to repeat BLECHTRIBE and
   the card functions on your own device, with a warning, prerequisites, a backup and the way back.
 
 The linter checks known memory regions, message format and documented failure cases. The emulator runs

@@ -2,6 +2,8 @@
  * Plain German names for the building blocks (DSP units of data/units.json) and their parameters, for the Baukasten.
  * The unit's own name stays visible beside it for anyone who knows it. A unit missing here shows its own name.
  */
+import { localize } from "../../src/text.mjs";
+
 export const GROUPS = ["Hall", "Echo", "Filter", "Bewegung", "Distortion", "Dynamik", "Klang", "Spezial"];
 
 export const UNITS = {
@@ -47,7 +49,7 @@ export const PARAMS = {
 
 
 /** "off_l_delay_time" to "Off l delay time", for a parameter without a name here. */
-export const paramLabel = name => PARAMS[name] ?? name.replace(/_/g, " ").replace(/^./, c => c.toUpperCase());
+export const paramLabel = name => localize(PARAMS[name] ?? name.replace(/_/g, " ").replace(/^./, c => c.toUpperCase()));
 
 /** [German name, group] of a unit, or its own name in "Spezial". */
 export const unitLabel = (kind, id, own = "") => UNITS[kind]?.[id] ?? [own || `Baustein ${id}`, "Spezial"];

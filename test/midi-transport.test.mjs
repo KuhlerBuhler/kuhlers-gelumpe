@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createMidiTransport } from "../site/app/midi.mjs";
+import { electribePorts } from "../src/session.mjs";
 
 function fixture({ native = true, invoke, timeout } = {}) {
   const calls = [];
@@ -60,6 +61,46 @@ test("ambiguous native names are rejected without opening any port", async () =>
   const f = fixture({ invoke: () => ({ inputs: [{ id: "a", name: "electribe" }, { id: "b", name: "electribe" }], outputs: [{ id: "o", name: "electribe" }] }) });
   await assert.rejects(f.transport.requestAccess(), /eindeutig/i);
   assert.deepEqual(f.calls.map(c => c.command), ["midi_list"]);
+});
+
+const listed = (inputs, outputs) => ({ invoke: command => command === "midi_list" ? { inputs, outputs } : undefined });
+const names = (list, ...rest) => list.map((name, i) => ({ id: `${rest[0] ?? "p"}${i}`, name }));
+const pairsOf = access => [...access.outputs.values()].map(out => [out.name, [...access.inputs.values()].find(i => i.id === out._native.inputId).name]);
+
+test("native pairing: Korg driver on macOS names the ports after the jacks", async () => {
+  const f = fixture(listed(names(["electribe2 sampler PAD/KNOB"], "i"), names(["electribe2 sampler SOUND"], "o")));
+  const access = await f.transport.requestAccess();
+  assert.deepEqual(pairsOf(access), [["electribe2 sampler SOUND", "electribe2 sampler PAD/KNOB"]]);
+});
+
+test("native pairing: Windows MIDIIN2 and MIDIOUT2 jack names", async () => {
+  const f = fixture(listed(names(["MIDIIN2 (electribe2 sampler)", "electribe2 sampler"], "i"), names(["MIDIOUT2 (electribe2 sampler)", "electribe2 sampler"], "o")));
+  const access = await f.transport.requestAccess();
+  assert.deepEqual(pairsOf(access), [["electribe2 sampler", "electribe2 sampler"]]);
+});
+
+test("native pairing: the class driver's same-name ports", async () => {
+  const f = fixture(listed(names(["Electribe 3"], "i"), names(["Electribe 3"], "o")));
+  assert.deepEqual(pairsOf(await f.transport.requestAccess()), [["Electribe 3", "Electribe 3"]]);
+});
+
+test("native pairing: two devices stay two pairs, other ports are dropped", async () => {
+  const f = fixture(listed(names(["electribe2 sampler PAD/KNOB", "electribe2 synth PAD/KNOB", "IAC Bus 1"], "i"), names(["electribe2 sampler SOUND", "electribe2 synth SOUND", "IAC Bus 1"], "o")));
+  const access = await f.transport.requestAccess();
+  assert.deepEqual(pairsOf(access).sort(), [["electribe2 sampler SOUND", "electribe2 sampler PAD/KNOB"], ["electribe2 synth SOUND", "electribe2 synth PAD/KNOB"]]);
+});
+
+test("native pairing: both jacks of one device give the SOUND pair", async () => {
+  const f = fixture(listed(names(["electribe2 sampler PAD/KNOB", "electribe2 sampler SOUND"], "i"), names(["electribe2 sampler PAD/KNOB", "electribe2 sampler SOUND"], "o")));
+  assert.deepEqual(pairsOf(await f.transport.requestAccess()), [["electribe2 sampler SOUND", "electribe2 sampler SOUND"]]);
+});
+
+test("native pairing: the access still works with the browser pairing afterwards", async () => {
+  const f = fixture(listed(names(["electribe2 sampler PAD/KNOB"], "i"), names(["electribe2 sampler SOUND"], "o")));
+  const found = electribePorts(await f.transport.requestAccess());
+  assert.equal(found.length, 1);
+  await f.transport.openPort(found[0]);
+  assert.deepEqual(f.calls.find(c => c.command === "midi_open").args.inputId, "i0");
 });
 
 test("native messages preserve bytes and ignore other or closed sessions", async () => {

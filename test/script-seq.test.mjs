@@ -121,7 +121,7 @@ test("values out of range end the plugin with an argument error", () => {
 });
 
 test("the arpeggio of the plugin docs compiles and writes the chord in the pattern's key over its length", () => {
-  for (const doc of ["docs/plugins.md", "docs/plugins.en.md"]) {
+  for (const doc of ["docs/plugins.md", "docs/plugins.en.md", "docs/plugins.fr.md"]) {
     const text = readFileSync(new URL(`../${doc}`, import.meta.url), "utf8");
     const source = [...text.matchAll(/```js\n([\s\S]*?)```/g)].map(m => m[1]).find(code => code.includes("korg.seq.clearPart"));
     assert.ok(source, doc);

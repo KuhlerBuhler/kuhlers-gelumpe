@@ -108,6 +108,7 @@ export const CHAINS = {
   "data-util-screen": [{ id: "edit-slots", sites: [0xC00623C0, 0xC0062448] }],
   "menu-top-level": [{ id: "screen-switch", sites: [0xC006E8D8, 0xC0061DDC] }],
   "menu-write": [{ id: "write-key", sites: [0xC006F094] }],
+  "screen-switch": [{ id: "switch-post", sites: [0xC0083D7C, 0xC0074350] }],   // the second is the synth build's
   "menu-counter": [{ id: "page-counter", sites: [0xC008A83C, 0xC008A8A8] }],
   "led-meter": [{ id: "meter-update", sites: [0xC0088284] }],
   "backlight": [
@@ -142,6 +143,6 @@ export const INCOMPATIBLE = [
   {
     patches: ["splash-editor", "script-runtime"],
     sharedSites: [0xC002ADAC, 0xC0064D3C],
-    reason: "Start-Haken 0xC002ADAC oder Global-Literal 0xC0064D3C ist doppelt beansprucht. Die gemeinsame BLECH-Laufzeit bringt den Startbild-Editor als eingebautes Modul mit.",
+    reason: "Start-Haken 0xC002ADAC oder Global-Literal 0xC0064D3C ist doppelt beansprucht. Die gemeinsame BLECHTRIBE-Laufzeit bringt den Startbild-Editor als eingebautes Modul mit.",
   },
 ];

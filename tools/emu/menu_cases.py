@@ -153,9 +153,9 @@ def version_texts(payload):
 
 
 def feature_pages():
-    """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches, KEY PADS and FILTER
-    TOGGLE last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
-    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS", "FILTER TOGGLE"]
+    """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches, KEY PADS, FILTER
+    TOGGLE and AUTO SAVE last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"]
 
 
 def feature_count():
@@ -193,7 +193,10 @@ SET_TITLE, SET_VALUE, SET_LINE3, SET_COUNTER = 0xC00857E4, 0xC0085828, 0xC008588
 
 
 def _enter(dev, level, group=0, page=0):
+    auto_save = dev.u32(STATE + 0x1FC)          # S_AS: the jump is no leaving by the player, AUTO SAVE stays out of it
+    dev.m.uc.mem_write(STATE + 0x1FC, struct.pack("<I", 0))
     go(dev, 8)
+    dev.m.uc.mem_write(STATE + 0x1FC, struct.pack("<I", auto_save))
     dev.m.uc.mem_write(STATE + S_LEVEL, struct.pack("<II", level, group))
     dev.m.uc.mem_write(STATE + S_ENTER, struct.pack("<I", page))
     go(dev, MENU)
@@ -220,8 +223,9 @@ def goto_group(dev, group, page=0):
 
 
 def goto_plugin(dev, plugin=0, page=None):
-    """The page of a plugin in MANAGE PLUGINS (level 5: its name, its state, the dial switches it), or with `page` that page of its
-    own pages (level 6: DESCRIPTION, the pages it added, OFF, REMOVE); `plugin` counted as the list counts (loaded ones first), entered fresh."""
+    """The page of a plugin in MANAGE PLUGINS (level 5: its name and its state, the dial moves through the list), or with `page` that
+    page of its own pages (level 6: DESCRIPTION, STATE where the dial switches it, the pages it added, OFF, REMOVE); `plugin` counted
+    as the list counts (loaded ones first), entered fresh."""
     go(dev, 8)
     dev.m.uc.mem_write(STATE + S_PSEL, bytes([plugin]))
     if page is None:
@@ -906,7 +910,7 @@ def read_settings_look(image):
             continue
         version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
         head = {1: 16, 2: 20, 3: 20}.get(version)
-        if head is None or extras & ~0x7F:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 unused (the former HT OSC OFF)
+        if head is None or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 unused (the former HT OSC OFF), bit 7 AUTO SAVE OFF
             continue
         size = head + 4 * count
         if count > (64 if version == 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -1086,6 +1090,7 @@ TM_OFF_BIT = 8                        # bit 3 of the flags of the settings file:
 S_NA = 0xFC                           # the page NOTE ASSIST: 1 on (the default), 0 off
 S_KP = 0x104                          # the page KEY PADS: 1 on (the default), 0 off
 S_FT = 0x1C0                          # the page FILTER TOGGLE: 1 on (the default), 0 off
+S_AS = 0x1FC                          # the page AUTO SAVE: 1 on (the default), 0 off
 NA_SETTING = 0xC0189F00               # the word of the patch note-assistant: FFFFFFFF never written, 1 on, 0 off
 NA_OFF_BIT = 16                       # bit 4 of the flags of the settings file: NOTE ASSIST is off
 PS_SETTING = 0xC0180F10               # the word of the patch pattern-switch: FFFFFFFF never written, 1 on, 0 off
@@ -1679,6 +1684,93 @@ def splash_menu_cases(payload, flash=None):
     again.m.insert_card(SDCard(MemoryMedium(card_image(CARD_FOLDER))))
     again.run(1.2)
     add("reset_kept_after_restart", desc(again) == orig and not again.m.asserts, f"next start draws {desc(again):#x}, the VSB's image is {orig:#x}")
+    return out
+
+
+def wheel_burst(dev, delta, steps=20, gap=0.015):
+    """`steps` dial events `gap` seconds apart, as a fast turn sends them, then run until the display stays the same for 0.3 s
+    -> ms from the last event to the last change of the display (the lag)."""
+    for _ in range(steps):
+        dev.turn(delta, wait=gap)
+    last_event = dev.m.time_ns
+    shown, stable_since, changed_at = dev.fb(), dev.m.time_ns, dev.m.time_ns
+    while dev.m.time_ns - stable_since < 300e6 and dev.m.time_ns - last_event < 10e9:
+        dev.run(0.01)
+        if dev.fb() != shown:
+            shown, stable_since, changed_at = dev.fb(), dev.m.time_ns, dev.m.time_ns
+    return (changed_at - last_event) / 1e6
+
+
+WHEEL_LAG_MS = 150     # IMPORT SAMPLE of DATA UTILITY measured 60 to 70 ms with 30 files (docs/messungen/2026-11-09-menue-liste-rad.md)
+
+
+def wheel_cases(payload, flash=None):
+    """The value dial on the lists with a browser look: PLUGINS (MANAGE PLUGINS) moves through its plugins with the dial and stops at
+    the ends, SPLASH IMPORT and PLUGINS keep up with a fast turn (20 steps 15 ms apart, display settled within WHEEL_LAG_MS of the last
+    step), and SPLASH IMPORT still reads names past the 64 it keeps in its list."""
+    from splash_cases import bmp
+    import splash_editor
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:wheel_{name}", "ok": bool(ok), "detail": detail})
+
+    def blech(name):
+        block = bytearray(256)
+        struct.pack_into("<I", block, 0, 0x52435347)
+        block[36:52] = name.encode().ljust(16, b"\0")
+        return bytes(block)
+
+    names = [f"file{i:02d}" for i in range(30)]
+    dev = boot(payload, flash, files={**CARD_FOLDER, **{f"/KORG/blechtribe/Plugin/{n}.blech": blech(n) for n in names}})
+    goto_top(dev, LIST_PLUGINS)
+    press(dev, "menu", 1.5)
+    opened = (state(dev, S_LEVEL), counter(dev), texts_of(dev))
+    seen = []
+    for step in (1, 1, -1, -1):
+        dev.turn(step, wait=0.4)
+        seen.append((state(dev, S_LEVEL), counter(dev)[0], texts_of(dev)[0]))
+    add("plugin_list_moves", opened == (LEVEL_PLUGIN, (0, 30), ("file00", "OFF", "")) and seen == [(LEVEL_PLUGIN, 1, "file01"), (LEVEL_PLUGIN, 2, "file02"),
+        (LEVEL_PLUGIN, 1, "file01"), (LEVEL_PLUGIN, 0, "file00")] and not dev.m.asserts, f"opened {opened}, dial {seen}")
+    lag = wheel_burst(dev, 1)
+    up = (counter(dev)[0], texts_of(dev)[0], dev.read(STATE + 0x14C, 1)[0])
+    lag_down = wheel_burst(dev, -1)
+    add("plugin_list_fast", up == (20, "file20", 20) and counter(dev)[0] == 0 and max(lag, lag_down) <= WHEEL_LAG_MS and not dev.m.asserts,
+        f"20 steps up -> {up}, lag {lag:.0f} ms; 20 down -> {counter(dev)}, lag {lag_down:.0f} ms (bound {WHEEL_LAG_MS})")
+    dev.turn(-3, wait=0.4)
+    low = counter(dev)
+    goto_plugin(dev, 29)
+    dev.turn(2, wait=0.4)
+    add("plugin_list_stops_at_the_ends", low == (0, 30) and counter(dev) == (29, 30) and texts_of(dev)[0] == "file29", f"below the first {low}, past the last {counter(dev)}")
+    goto_plugin(dev, 0, 1)
+    page = texts_of(dev)
+    dev.turn(1, wait=0.4)
+    add("plugin_state_page", page == ("STATE", "OFF", "") and state(dev, S_LEVEL) == LEVEL_PSUB and counter(dev) == (1, 3), f"{page}, then dial up {texts_of(dev)}, counter {counter(dev)}")
+
+    pic = [[0] * 128 for _ in range(64)]
+    dev = boot(payload, flash, files={**CARD_FOLDER, **{f"/KORG/blechtribe/{n}.bmp": bmp(pic) for n in names}})
+    if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF:
+        return out
+    goto_group(dev, GROUP_SPLASH, 0)
+    lag = wheel_burst(dev, 1)
+    up = texts_of(dev)[1]
+    lag_down = wheel_burst(dev, -1)
+    add("splash_import_fast", up == "file20.bmp" and texts_of(dev)[1] == "file00.bmp" and max(lag, lag_down) <= WHEEL_LAG_MS and not dev.m.asserts,
+        f"20 steps up -> {up!r}, lag {lag:.0f} ms; 20 down -> {texts_of(dev)[1]!r}, lag {lag_down:.0f} ms (bound {WHEEL_LAG_MS})")
+    # past the 64 names kept in the list the name is read from the card, ENTER loads that file
+    other = [[1 if (x * y) % 5 == 0 else 0 for x in range(128)] for y in range(64)]
+    many = {f"/KORG/blechtribe/f{i:02d}.bmp": bmp(other if i == 66 else pic) for i in range(70)}
+    dev = boot(payload, flash, files={**CARD_FOLDER, **many})
+    goto_group(dev, GROUP_SPLASH, 0)
+    for _ in range(66):
+        dev.turn(1, wait=0.05)
+    dev.run(0.5)
+    shown = texts_of(dev)[1]
+    press(dev, "menu", 0.8)
+    from splash_cases import image_of
+    stored = dev.read(splash_editor.RECBUF + 8, 1024) == image_of(other)
+    add("splash_import_past_64", shown == "f66.bmp" and texts_of(dev)[1] == "loaded" and stored and not dev.m.asserts,
+        f"66 steps -> {shown!r}, ENTER -> {texts_of(dev)[1]!r}, image {'stored' if stored else 'not stored'}")
     return out
 
 
@@ -2354,10 +2446,11 @@ def last_pattern_menu_cases(payload, flash=None):
 
 KP_OFF = 16                           # bit 4 of byte 5 of the settings file: KEY PADS is off
 FT_OFF = 32                           # bit 5 of byte 5: FILTER TOGGLE is off
+AS_OFF = 128                          # bit 7 of byte 5: AUTO SAVE is off
 
 
 def switch_menu_cases(payload, flash, name, title, slot, bit, from_end):
-    """A switch page near the end of FEATURES (KEY PADS, FILTER TOGGLE): ON is the default (no file, a file without the bit), the
+    """A switch page near the end of FEATURES (KEY PADS, FILTER TOGGLE, AUTO SAVE): ON is the default (no file, a file without the bit), the
     dial switches it at once, WRITE keeps OFF as its bit of byte 5 of the settings file (next to the meter's bits), the next start
     reads it."""
     out = []
@@ -2409,13 +2502,131 @@ def switch_menu_cases(payload, flash, name, title, slot, bit, from_end):
 
 
 def key_pads_menu_cases(payload, flash=None):
-    """The page KEY PADS, second to last of FEATURES (bit 4 of byte 5)."""
-    return switch_menu_cases(payload, flash, "key_pads", "KEY PADS", S_KP, KP_OFF, 2)
+    """The page KEY PADS, third to last of FEATURES (bit 4 of byte 5)."""
+    return switch_menu_cases(payload, flash, "key_pads", "KEY PADS", S_KP, KP_OFF, 3)
 
 
 def filter_toggle_menu_cases(payload, flash=None):
-    """The page FILTER TOGGLE, the last of FEATURES (bit 5 of byte 5)."""
-    return switch_menu_cases(payload, flash, "filter_toggle", "FILTER TOGGLE", S_FT, FT_OFF, 1)
+    """The page FILTER TOGGLE, second to last of FEATURES (bit 5 of byte 5)."""
+    return switch_menu_cases(payload, flash, "filter_toggle", "FILTER TOGGLE", S_FT, FT_OFF, 2)
+
+
+GLOBAL_PAGE_OBJECT = 0xC0691240       # -> the object of GLOBAL PARAMETERS; SET_GLOBAL_PAGE(object, page) sets the page screen 9 opens on
+SET_GLOBAL_PAGE = 0xC007B084
+CHAIN_MODE_PAGE, CHAIN_MODE_BYTE = 18, 0x1F   # page 19/20 of GLOBAL PARAMETERS and its byte in the Global values (docs/messungen/2026-10-13)
+GLOBAL_LIVE = 0xC033E6A0              # -> the Global object, its 0x100 bytes of values at +4
+GLOBAL_FLASH = 0x230000               # the flash sector the firmware saves them to
+
+
+def global_values(dev):
+    return dev.read(dev.u32(GLOBAL_LIVE) + 4, 0x100)
+
+
+def count_erases(dev):
+    """Counts the sector erases of the flash from now on, in dev.erases."""
+    dev.erases = []
+    flash = dev.m.flash
+    erase = flash.erase
+
+    def counted(size, _erase=erase):
+        dev.erases.append(flash.addr & ~(size - 1))
+        _erase(size)
+    flash.erase = counted
+
+
+def leave_to_main(dev):
+    """EXIT until the main screen (GLOBAL PARAMETERS: 9, 8, 1; BLECH: up through its levels, then 1)."""
+    for _ in range(5):
+        if dev.m.screen() == 1:
+            break
+        press(dev, "exit", wait=0.4)
+    dev.run(0.5)
+
+
+def auto_save_cases(payload, flash=None):
+    """AUTO SAVE (issue 391): leaving GLOBAL PARAMETERS with a changed value saves the Globals as WRITE there does (one erase of
+    the sector at 0x230000), leaving BLECH with a changed setting writes the settings file as WRITE there does; no change writes
+    nothing, WRITE and then EXIT save once, and with the page OFF leaving saves nothing (stock). A start that only reads the flash
+    and the card (no switch-off, as a cut of the power) shows what was saved."""
+    out = switch_menu_cases(payload, flash, "auto_save", "AUTO SAVE", S_AS, AS_OFF, 1)
+
+    def add(case, ok, detail):
+        out.append({"id": f"menu:auto_save_{case}", "ok": bool(ok), "detail": detail})
+
+    import last_pattern_cases
+    first = boot(payload, flash, files=CARD_FOLDER)
+    kept = last_pattern_cases.switch_off(first)  # a flash whose Global sector holds the values of this start
+    if kept is None:
+        add("switch_off", False, "the device did not switch off")
+        return out
+    card = bytearray(first.m.mmc.card.medium.data)
+
+    def start(flash_image, card_image):
+        dev = Dev(payload, flash_image, 0)
+        dev.m.insert_card(SDCard(MemoryMedium(bytearray(card_image))))
+        dev.run(1.5)
+        count_erases(dev)
+        return dev
+
+    def global_page(dev):
+        go(dev, 9)
+        dev.call(SET_GLOBAL_PAGE, dev.u32(GLOBAL_PAGE_OBJECT), CHAIN_MODE_PAGE)
+        go(dev, 9)
+
+    dev = start(kept, card)
+    global_page(dev)
+    leave_to_main(dev)
+    add("global_unchanged_no_write", dev.erases == [] and not dev.m.asserts, f"erases {dev.erases}")
+
+    global_page(dev)
+    was = global_values(dev)[CHAIN_MODE_BYTE]
+    dev.turn(1, wait=0.4)
+    now = global_values(dev)[CHAIN_MODE_BYTE]
+    leave_to_main(dev)
+    saved = dev.erases == [GLOBAL_FLASH]
+    again = start(bytes(dev.m.flash.mem), dev.m.mmc.card.medium.data)
+    add("global_saved_on_leave", was != now and saved and global_values(again)[CHAIN_MODE_BYTE] == now and not dev.m.asserts,
+        f"CHAIN MODE {was} -> {now}, erases on leaving {dev.erases}, after a start without switch-off {global_values(again)[CHAIN_MODE_BYTE]}")
+
+    global_page(again)
+    again.turn(-1, wait=0.4)
+    press(again, "write", wait=1.5)
+    leave_to_main(again)
+    add("write_then_exit_saves_once", again.erases == [GLOBAL_FLASH], f"erases {again.erases}")
+
+    dev = start(kept, card)
+    before = bytes(dev.m.mmc.card.medium.data)
+    goto_group(dev, GROUP_DISPLAY, 4)
+    leave_to_main(dev)
+    add("blech_unchanged_no_write", bytes(dev.m.mmc.card.medium.data) == before and dev.erases == [], f"erases {dev.erases}")
+
+    goto_group(dev, GROUP_DISPLAY, 4)
+    inverted = state(dev, S_INVERT)
+    dev.turn(-1 if inverted else 1, wait=0.4)
+    now = state(dev, S_INVERT)
+    leave_to_main(dev)
+    files = read_settings_look(dev.m.mmc.card.medium.data)
+    newest = max(files.items(), key=lambda kv: kv[1][0])[1] if files else None
+    again = start(bytes(dev.m.flash.mem), dev.m.mmc.card.medium.data)
+    add("blech_saved_on_leave", now != inverted and newest is not None and (newest[3] >> 28 & 1) == now and state(again, S_INVERT) == now
+        and not dev.m.asserts, f"DISPLAY INVERT {inverted} -> {now}, the newest file's look {newest and hex(newest[3])}, after a start without switch-off {state(again, S_INVERT)}")
+
+    # AUTO SAVE OFF, kept with WRITE: leaving saves neither the Globals nor the settings
+    page_at = feature_pages().index("AUTO SAVE")
+    goto_group(again, GROUP_FEATURES, page_at)
+    again.turn(-1, wait=0.3)
+    press(again, "write", wait=0.6)
+    off = start(bytes(again.m.flash.mem), again.m.mmc.card.medium.data)
+    before = bytes(off.m.mmc.card.medium.data)
+    global_page(off)
+    off.turn(1, wait=0.4)
+    leave_to_main(off)
+    goto_group(off, GROUP_DISPLAY, 4)
+    off.turn(1 if state(off, S_INVERT) == 0 else -1, wait=0.4)
+    leave_to_main(off)
+    add("off_is_stock", state(off, S_AS) == 0 and off.erases == [] and bytes(off.m.mmc.card.medium.data) == before and not off.m.asserts,
+        f"AUTO SAVE {state(off, S_AS)}, erases {off.erases}, card {'changed' if bytes(off.m.mmc.card.medium.data) != before else 'unchanged'}")
+    return out
 
 
 EARLY_SITE = 0xC0038D34               # the first instruction of the command that loads e2sSample.all: the early hook of the menu
@@ -2698,18 +2909,18 @@ def synth_start_cases(payload, flash=None):
 
 def look_rest():
     """The suites look_cases runs after its own cases, in that order."""
-    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, key_pads_menu_cases, filter_toggle_menu_cases, default_level_cases, early_look_cases)
+    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, key_pads_menu_cases, filter_toggle_menu_cases, auto_save_cases, default_level_cases, early_look_cases)
 
 
 def look_parts():
     """What look_cases_task(i) runs: the look cases themselves, the suites after them, then the splash, pad colour and
     calibration cases. Each boots devices of its own, so they run side by side."""
     from calibrate_cases import cases as calibration_cases
-    return ((lambda payload, flash: look_cases(payload, flash, rest=False)), *look_rest(), splash_menu_cases, pad_colour_cases,
-            calibration_cases)
+    return ((lambda payload, flash: look_cases(payload, flash, rest=False)), *look_rest(), splash_menu_cases, wheel_cases,
+            pad_colour_cases, calibration_cases)
 
 
-LOOK_PARTS = 1 + len(look_rest()) + 3      # look_parts() without importing calibrate_cases
+LOOK_PARTS = 1 + len(look_rest()) + 4      # look_parts() without importing calibrate_cases
 
 
 def look_cases_task(i):
@@ -2725,6 +2936,8 @@ def settings_cases_task():
 
 
 def main():
+    import lifetime
+    lifetime.load_gate()
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=["cases"])
     parser.add_argument("--base", required=True)

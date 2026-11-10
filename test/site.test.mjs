@@ -82,6 +82,7 @@ test("every module the page imports is served", async () => {
 test("the server does not leave its directories", () => {
   assert.equal(resolvePath("/../package.json"), null);
   assert.equal(resolvePath("/src/../../package.json"), null);
+  assert.equal(resolvePath("/src/../src-tauri/tauri.conf.json"), null);
 });
 
 test("a malformed path gets a 400, and the server keeps running", async () => {

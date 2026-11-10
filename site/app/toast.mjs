@@ -2,7 +2,7 @@
  * The one toast of the app: a small bubble bottom right. Success and info go away by themselves, an error stays until
  * it is closed. Success and info are announced politely, errors at once (two live regions in one popover layer).
  * Infos, warnings and errors never stand in the page itself, they all come here; a screen-reader line may keep them too.
- * Every error carries "Blechy fragen": it opens the Rettung page, where Blechy quotes the error and walks through it.
+ * Every error carries "Frag Blechy": it opens the Blechy page, where Blechy quotes the error and walks through it.
  */
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
@@ -11,7 +11,7 @@ import { t } from "./i18n.mjs";
 const AUTO_MS = 5000;
 /** The event site/app/rescue.mjs listens for (RESCUE_EVENT there; not imported, so the toast stays without the page). */
 const RESCUE_EVENT = "cee-rescue";
-/** Where an error's "Blechy fragen" goes when the caller names no topic: Blechy asks what in the app sticks. */
+/** Where an error's "Frag Blechy" goes when the caller names no topic: Blechy asks what in the app sticks. */
 const HELP_DEFAULT = "app";
 const MAX = 4;
 let polite = null;
@@ -46,8 +46,8 @@ function raise() {
  * @param {"ok"|"info"|"error"} [kind]
  * @param {{stay?: boolean, action?: {label: string, run: () => void}, help?: string, helpLabel?: string}} [options] stay: an info or ok toast
  *   that waits to be closed, like an error; action: a button in the toast that runs and closes it; help: the node of the
- *   Rettung page (FLOW in data/rescue.mjs) an error's "Blechy fragen" opens after the quote, default the app question;
- *   helpLabel: another label for that button, where the way to the Rettung page is the point (the patcher)
+ *   Blechy page (FLOW in data/rescue.mjs) an error's "Frag Blechy" opens after the quote, default the app question;
+ *   helpLabel: another label for that button, where the way to the Blechy page is the point (the patcher)
  * @returns {() => void} closes the toast
  */
 export function toast(message, kind = "info", { stay = false, action = null, help = HELP_DEFAULT, helpLabel = null } = {}) {

@@ -100,15 +100,21 @@ function release(r) {
     side,
     el("div", { className: "cee-release-body" }, [
       r.name && r.name !== r.tag_name ? el("h3", { textContent: r.name }) : null,
-      ...notes(r.body),
+      ...notes(releaseBody(r)),
       get.length ? el("div", { className: "actions cee-release-get" }, get.map(d => el("a", { className: "btn", href: d.href, textContent: d.label }))) : null,
     ]),
   ]);
 }
 
-/** A version from the notes the app carries: in German for German, else in English when there is an English part. */
+/** Prefer a carried French translation even when the release was fetched from GitHub. */
+export function releaseBody(r, carriedNotes = RELEASE_NOTES) {
+  const version = r.tag_name.replace(/^v/, "");
+  return language() === "fr" ? carriedNotes.find(n => n.version === version)?.fr ?? r.body : r.body;
+}
+
+/** A version from the notes the app carries, with English and German as fallbacks. */
 function carried(n) {
-  const body = language() === "de" ? n.de : n.en ?? n.de;
+  const body = n[language()] ?? n.en ?? n.de;
   return el("article", { className: "cee-release" }, [
     el("header", { className: "cee-release-side" }, [el("h2", { textContent: `v${n.version}` })]),
     el("div", { className: "cee-release-body" }, notes(body)),
