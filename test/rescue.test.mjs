@@ -352,15 +352,12 @@ test("a reported error opens with the app's own words and goes on to the app's q
 test("samples: a case of the first question, also behind 'it starts but something is off', asked for Hacktribe, then the way to BLECHTRIBE without Hacktribe", () => {
   assert.ok(CASES.some(c => c.id === "samples"));
   assert.ok(FLOW.starts.choices.some(c => c.to === "samples"), "reachable from the case 'it starts but something is off'");
-  assert.deepEqual(FLOW.samples.choices.map(c => c.to), ["samples:have", "samples:other", "samples:other"]);
+  assert.deepEqual(FLOW.samples.choices.map(c => c.to), ["samples:flash", "samples:other", "samples:other"]);
   assert.equal(FLOW["samples:other"].next, "starts", "without Hacktribe the firmware itself is looked at first");
-  assert.deepEqual(FLOW["samples:have"].choices.map(c => c.to), ["samples:restore", "samples:lost", "samples:lost"]);
-  assert.equal(FLOW["samples:restore"].say.find(l => l.path).path, "KORG/blechtribe/Sample/e2sSample.all");
-  assert.equal(FLOW["samples:restore"].next, "samples:firmware");
-  assert.equal(FLOW["samples:lost"].next, "samples:firmware");
-  assert.match(text(FLOW["samples:lost"]), /Ohne Kopie kann die App sie nicht zurückholen/, "the loss is said plainly");
+  assert.equal(FLOW["samples:flash"].next, "samples:firmware");
+  assert.match(text(FLOW["samples:flash"]), /Speicher im Gerät.*nicht überschrieben/s, "the sounds stay in the device and come back");
+  assert.doesNotMatch(text(FLOW.samples) + text(FLOW["samples:flash"]), /Ohne Kopie|verloren/, "no talk of lost samples");
   assert.match(text(FLOW["samples:way"]), /Original.*BLECH/s, "the way back goes through Korg's original, not the Hacktribe file");
-  assert.match(text(FLOW["samples:have"]), /e2sSample\.all/);
   const doc = readFileSync(new URL("docs/rettung.md", ROOT), "utf8");
   assert.match(doc, /Hacktribe aus Versehen/);
   // red or BLECHTRIBE on blue: the patcher's file; only Hacktribe on a blue: Korg's original first, with the Sampler head
