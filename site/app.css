@@ -3553,8 +3553,10 @@ input[type="checkbox"]:not([role="switch"]):disabled {
 
 /* The language menu at the end of the navbar (settings.mjs, languageSwitch): the menu of the mode button, opened to the left. */
 /* The touch target stays full size; it reaches into the navbar's padding so the bar keeps its height. */
+/* It keeps to the right end also when the narrow navbar wraps it into a row of its own, so the menu stays on screen. */
 .cee-lang {
   margin-block: calc(var(--space-1) * -1);
+  margin-left: auto;
 }
 
 .cee-lang-button {
