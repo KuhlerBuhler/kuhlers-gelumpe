@@ -531,7 +531,9 @@ def case_power_while_loading(payload, flash):
     def run(release):
         at_release = None
         dev = WatchedDev(bytes(payload), flash, 0)
-        dev.m.insert_card(card_with(cardstore.card_folder(payload), 400, 6))
+        # 30 s of audio: the load still runs at 7 s at the device's pace too. With 6 s it was over at about 5.5 s and the
+        # firmware's own power path switched off, about 2.5 s after the main screen, not the overlay.
+        dev.m.insert_card(card_with(cardstore.card_folder(payload), 400, 30))
         dev.run(0.8)
         t0 = dev.m.time_ns / 1e9
         dev.m.inputs[pin(7, 15)] = 0

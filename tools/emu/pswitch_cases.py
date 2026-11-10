@@ -697,6 +697,7 @@ def case_sync_group(payload, flash):
                      f"part 1 was {a_mute} in the first pattern, {a_mute ^ 1} saved in the second; pressed in PART MUTE right after the switch: {mutes(pad)[0]}"))
     # The firmware drops a pad press while its command runner is busy, the pattern load among others (device report 25.10.); the patch
     # keeps it and hands it on when the load is done. A tap sent the moment the runner turns busy: press and release both fall in.
+    # The change is seen on a 10 ms grid and rounded to it, so it can read up to 10 ms before the tap that came in the same step.
     tap = Box(payload, flash)
     setup(tap)
     t_mute = mutes(tap)[0]
@@ -716,7 +717,7 @@ def case_sync_group(payload, flash):
                       begin=spec.PGATE_CONT, end=spec.PGATE_CONT)     # where the handler goes on with a pad (r4 = pressed)
     tap.m.uc.ctl_flush_tb()
     changed = tap.until_change()
-    out.append(entry("pad_during_the_load_is_kept", tap.running() == 1 and sent and changed is not None and 0 <= changed - sent[0] < 0.02
+    out.append(entry("pad_during_the_load_is_kept", tap.running() == 1 and sent and changed is not None and -0.01 < changed - sent[0] < 0.02
                      and mutes(tap)[0] == t_mute ^ 1 and calls == [1, 0] and not tap.m.asserts,
                      f"tap sent at {sent} s as the runner turned busy, the pattern changed at {changed} s; part 1 was {t_mute}, now {mutes(tap)[0]}; "
                      f"pads the handler went on with, pressed: {calls}"))
