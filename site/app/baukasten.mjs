@@ -87,7 +87,7 @@ const MAP_META = BLOCKS.get("fxRecord").meta;
 const PARAM_ORDER = ["mix", "filter", "delay", "mod", "dyn", "room", "tone", "eq", "other"];
 const KIND_WORD = { mfx: "bk.kind.mfx", ifx: "bk.kind.ifx", mod: "bk.kind.mod" };
 const SLOT_COUNT_FX = 100;
-const PAGES = [["catalog", "plugins.page.catalog", "grid"], ["editor", "plugins.page.editor", "sliders"], ["mine", "bk.mine.fx", "folder"], ["export", "bk.page.export", "download"]];
+const PAGES = [["catalog", "plugins.page.catalog", "grid"], ["editor", "plugins.page.editor", "sliders"], ["mine", "bk.mine.fx", "folder"], ["mine-mod", "bk.mine.mod", "folder"], ["export", "bk.page.export", "download"]];
 
 /** The word on a card under the title: the group of the first block, or what a modulation moves first. */
 function tagOf(preset) {
@@ -1048,8 +1048,6 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     modCatalog.hidden = id !== "mod";
     catalogTitle.textContent = id === "mod" ? t("bk.plural.mod") : t("bk.fx");
     mineTitle.textContent = id === "mod" ? t("bk.mine.mod") : t("bk.mine.fx");
-    const mineNav = document.querySelector("#cee-baukasten-page-mine span");
-    if (mineNav) mineNav.textContent = mineTitle.textContent;
     renderEditor();
     renderMine();
     renderExport();
@@ -1065,21 +1063,24 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   }
   /** Effekte or Modulationen is a choice for the catalog and a new piece; with one open it stays as it is. */
   function switchRow() {
-    tabRow.hidden = shown === "detail" || shown === "export" || (shown === "editor" && !!(shelfKind === "fx" ? fx : mod));
+    tabRow.hidden = shown === "detail" || shown === "export" || shown in MINE || (shown === "editor" && !!(shelfKind === "fx" ? fx : mod));
   }
 
-  const PAGE_NODES = { catalog: catalogPage, editor: editorPage, mine: minePage, export: exportPage, detail: detailPage };
+  // Meine Effekte and Meine Modulationen are two pages of their own, each one shelf; they share the list and its buttons.
+  const MINE = { mine: "fx", "mine-mod": "mod" };
+  const PAGE_NODES = { catalog: catalogPage, editor: editorPage, mine: minePage, "mine-mod": minePage, export: exportPage, detail: detailPage };
   const subPages = sub?.pages("baukasten", { id: "cee-baukasten-pages", label: t("bk.pages"), items: PAGES.map(([id, title, ic]) => ({ id, title: t(title), icon: ic })), pick: id => page(id) });
   function updateTrail() {
     if (!shown) return;
     const name = shelfKind === "mod" ? mod?.name : fx?.name;
     if (shown === "detail") { trail([{ text: t("plugins.page.catalog"), go: () => page("catalog") }, view.name]); return; }
-    trail(shown === "editor" ? [t("plugins.page.editor"), ...(name ? [name] : [])] : [shown === "mine" ? mineTitle.textContent : t(PAGES.find(p => p[0] === shown)[1])]);
+    trail(shown === "editor" ? [t("plugins.page.editor"), ...(name ? [name] : [])] : [shown in MINE ? mineTitle.textContent : t(PAGES.find(p => p[0] === shown)[1])]);
   }
   function page(id) {
     if (!PAGE_NODES[id]) id = "catalog";
     shown = id;
-    for (const [key, node] of Object.entries(PAGE_NODES)) node.hidden = key !== id;
+    if (id in MINE && shelfKind !== MINE[id]) shelf(MINE[id]);
+    for (const node of new Set(Object.values(PAGE_NODES))) node.hidden = node !== PAGE_NODES[id];
     subPages?.select(id === "detail" ? "catalog" : id);
     switchRow();
     navbar(id === "export" ? [exportButton] : []);
