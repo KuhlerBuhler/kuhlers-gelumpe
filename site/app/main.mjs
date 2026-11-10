@@ -12,6 +12,7 @@ import { levelsPanel } from "./levels.mjs";
 import { modulationsPage } from "./modulations.mjs";
 import { samplesPage } from "./samples.mjs";
 import { samplesFilePage } from "./sampleset.mjs";
+import { doomPage } from "./doom.mjs";
 import { createMidiTransport } from "./midi.mjs";
 import { createUsbWatch } from "./usb-watch.mjs";
 import { usbIndicator } from "./usb.mjs";
@@ -543,11 +544,12 @@ function boot() {
   let terminal = null;
   let sd = null;
   let sampleset = null;
+  let doom = null;
   // One session on the emulator's port, shared by the effect editor's probe and the terminal's rehearsal.
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
   const device = devicePanel($("#cee-device"), {
-    onSession: () => { sampleset?.sessionChanged(); restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
+    onSession: () => { sampleset?.sessionChanged(); doom?.sessionChanged(); restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
     emulator: () => emulator?.port,
     view: () => emulator,
     probe,
@@ -646,6 +648,7 @@ function boot() {
   const baukasten = baukastenPage($("#cee-baukasten"), { emulator, presets: fx, sub: options, trail: (parts, home) => nav.trail("baukasten", parts, home), navbar: nodes => nav.baukasten(nodes) });
   samplesPage($("#cee-samples"), { device, emulator, probe });
   sampleset = samplesFilePage($("#cee-sampleset"), { device });
+  doom = doomPage($("#cee-doom-files"), { device });
   let fxFirmware = null;
   let modFirmware = null;
   let plainFor = null;
