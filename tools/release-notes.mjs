@@ -8,7 +8,7 @@
  * `check` exits 1 and says what is missing when the German part or the English part (under "## English") is empty or
  * absent. `build` writes data/release-notes.mjs from every release-notes/<version>.md, newest first.
  */
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { appNotes, checkNotes, compareVersions, parseNotes } from "./release-lib.mjs";
@@ -22,7 +22,9 @@ export function notesModule(dir = NOTES_DIR) {
   const versions = readdirSync(dir).map(f => /^(\d+\.\d+\.\d+)\.md$/.exec(f)?.[1]).filter(Boolean).sort(compareVersions).reverse();
   const entries = versions.map(version => {
     const { de, en } = parseNotes(readFileSync(join(dir, `${version}.md`), "utf8"));
-    return { version, de: appNotes(de), en: en === null ? null : appNotes(en) };
+    const french = join(dir, "fr", `${version}.md`);
+    return { version, de: appNotes(de), en: en === null ? null : appNotes(en),
+      ...(existsSync(french) ? { fr: appNotes(readFileSync(french, "utf8")) } : {}) };
   });
   return `/**
  * The release notes of every version, for the app's Changelogs (site/app/changelog.mjs). Made from release-notes/ by

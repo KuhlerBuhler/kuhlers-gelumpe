@@ -10,6 +10,9 @@
  * Passing emulator results are kept per input (tools/emu/bootcache.py); GELUMPE_CACHE=off runs them again.
  */
 import { planAll, runNode } from "./test-runner.mjs";
+import { loadGate } from "./load-gate.mjs";
+
+await loadGate();
 
 const plan = planAll();
 const runSuite = async suite => ({ name: suite.name, ...await runNode(suite, { capture: true }) });

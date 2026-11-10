@@ -33,7 +33,7 @@
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-splash" data-tab="splash" aria-controls="cee-area-splash" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 5h18v14H3Z"/><path d="m3 16 5-5 4 4 3-3 6 6"/><path d="M15 9h.01"/></svg><span data-i18n="nav.splash">Design</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-sampleset" data-tab="sampleset" aria-controls="cee-area-sampleset" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12h2l2-6 4 12 3-9 2 3h5"/></svg><span data-i18n="nav.sampleset">Samples</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-console" data-tab="console" aria-controls="cee-area-console" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg><span data-i18n="nav.console">Konsole</span></button>
-          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-rescue" data-tab="rescue" aria-controls="cee-area-rescue" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0"/><path d="M8 12a4 4 0 1 0 8 0 4 4 0 1 0-8 0"/><path d="m5.6 5.6 3.6 3.6"/><path d="m14.8 14.8 3.6 3.6"/><path d="m18.4 5.6-3.6 3.6"/><path d="m9.2 14.8-3.6 3.6"/></svg><span data-i18n="nav.rescue">Rettung</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-rescue" data-tab="rescue" aria-controls="cee-area-rescue" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0"/><path d="M8 12a4 4 0 1 0 8 0 4 4 0 1 0-8 0"/><path d="m5.6 5.6 3.6 3.6"/><path d="m14.8 14.8 3.6 3.6"/><path d="m18.4 5.6-3.6 3.6"/><path d="m9.2 14.8-3.6 3.6"/></svg><span data-i18n="nav.rescue">Blechy</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-patcher" data-tab="patcher" aria-controls="cee-area-patcher" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 5h14v14H5Z"/><path d="M9 9h6v6H9Z"/><path d="M9 2v3"/><path d="M15 2v3"/><path d="M9 19v3"/><path d="M15 19v3"/><path d="M2 9h3"/><path d="M2 15h3"/><path d="M19 9h3"/><path d="M19 15h3"/></svg><span data-i18n="nav.patcher">Firmware Patcher</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-changelog" data-tab="changelog" aria-controls="cee-area-changelog" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 3h9l4 4v14H6Z"/><path d="M14 3v5h5"/><path d="M9 12h7"/><path d="M9 16h7"/></svg><span data-i18n="nav.changelog">Changelogs</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-scripts" data-tab="scripts" aria-controls="cee-area-scripts" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 7l9-4 9 4-9 4Z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg><span data-i18n="nav.scripts">Plugins</span></button>
@@ -112,9 +112,9 @@
           <div class="cee-sec" id="cee-start-trouble">
             <h2 data-i18n="start.trouble.title">Geht was schief?</h2>
             <p data-i18n="start.trouble.exit">Halt beim Einschalten EXIT gedrückt. Dann startet die Electribe ohne die Patches von BLECHTRIBE, fast wie das Original. Hast du Hacktribe drunter, bleiben dessen Funktionen.</p>
-            <p data-i18n-html="start.trouble.rescue">Zeigt sie nur noch „00“ oder startet gar nicht mehr? Die <a class="cee-text-link" href="#rescue" id="cee-start-rescue">Rettung</a> fragt dich, was du siehst, und führt dich zurück.</p>
+            <p data-i18n-html="start.trouble.rescue">Zeigt sie nur noch „00“ oder startet gar nicht mehr? <a class="cee-text-link" href="#rescue" id="cee-start-rescue">Blechy</a> fragt dich, was du siehst, und führt dich zurück.</p>
             <div class="actions">
-              <a class="btn" href="#rescue" id="cee-start-rescue-more" data-i18n="start.toRescue">Zur Rettung</a>
+              <a class="btn" href="#rescue" id="cee-start-rescue-more" data-i18n="start.toRescue">Frag Blechy</a>
             </div>
           </div>
 
@@ -283,7 +283,7 @@
 
           <div class="cee-sec" id="cee-doom-error">
             <h2 data-i18n="doom.error.title">Wenn DOOM ERROR kommt</h2>
-            <p data-i18n-html="doom.error.text">Dann fehlt eine Datei, sie ist unvollständig oder die Karte ist nicht lesbar. Ausschalten, die Dateien nochmal laden und auf die Karte kopieren, dann neu starten. Mehr dazu unter <a class="cee-text-link" href="#rescue">Rettung</a>.</p>
+            <p data-i18n-html="doom.error.text">Dann fehlt eine Datei, sie ist unvollständig oder die Karte ist nicht lesbar. Ausschalten, die Dateien nochmal laden und auf die Karte kopieren, dann neu starten. Mehr dazu bei <a class="cee-text-link" href="#rescue">Blechy</a>.</p>
             <p><a class="cee-text-link" id="cee-doom-licences" href="third_party/doom/README.md" target="_blank" rel="noopener noreferrer" data-i18n="doom.licences">Quellen und Lizenzen</a></p>
           </div>
         </section>

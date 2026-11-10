@@ -21,7 +21,7 @@ import { GROUPS as PARAM_GROUPS, labelFor } from "../../data/map/fx-labels.mjs";
 import FINDINGS from "../../data/findings.mjs";
 import { BLOCKS, field } from "../../src/map/index.mjs";
 import { REC } from "../../src/layout.mjs";
-import { t } from "./i18n.mjs";
+import { t, localize } from "./i18n.mjs";
 
 const OWN = "cee.baukasten";
 const SLOTS = "cee.baukasten.slots";
@@ -156,8 +156,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   function card(preset, { creator = preset.creator, onOpen, extra = null, id = null }) {
     return el("li", { className: "cee-catalog-card cee-bk-card", id }, [
       el("h3", {}, el("button", { type: "button", className: "cee-catalog-open", textContent: preset.name, onclick: onOpen })),
-      el("p", { className: "cee-catalog-category", textContent: tagOf(preset) }),
-      el("p", { className: "muted", textContent: preset.description ? t("bk.card.desc", { kind: t(KIND_WORD[preset.kind]), description: preset.description }) : t(KIND_WORD[preset.kind]) }),
+      el("p", { className: "cee-catalog-category", textContent: localize(tagOf(preset)) }),
+      el("p", { className: "muted", textContent: preset.description ? t("bk.card.desc", { kind: t(KIND_WORD[preset.kind]), description: localize(preset.description) }) : t(KIND_WORD[preset.kind]) }),
       creatorLine(creator, preset.creatorUrl),
       extra,
     ]);
@@ -237,13 +237,13 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       const here = all.filter(u => unitLabel(kind, u.id, u.unit)[1] === group);
       if (!here.length) return null;
       return el("section", { className: "cee-bk-group" }, [
-        el("h3", { textContent: group }),
+        el("h3", { textContent: localize(group) }),
         el("div", { className: "cee-bk-units" }, here.map(u => el("button", { type: "button", className: `btn cee-bk-unit${barred(u) ? " cee-bk-unit-risky" : ""}`, disabled: !!barred(u) && !risk.checked, title: barred(u) ?? "", onclick: () => {
           const s = fx.stages.find(x => x.stage === stage);
           Object.assign(s, { unit: u.id, unitName: u.unit, params: defaultsOf(kind, u.id) });
           palette.close();
           renderFx();
-        } }, [el("strong", { textContent: unitLabel(kind, u.id, u.unit)[0] }), el("span", { className: "muted", textContent: barred(u) ?? (stage === "ifx2" && STAGE2.get(u.id)?.verdict !== "ok" ? t("bk.untested2", { unit: u.unit }) : u.unit) })]))),
+        } }, [el("strong", { textContent: localize(unitLabel(kind, u.id, u.unit)[0]) }), el("span", { className: "muted", textContent: barred(u) ?? (stage === "ifx2" && STAGE2.get(u.id)?.verdict !== "ok" ? t("bk.untested2", { unit: u.unit }) : u.unit) })]))),
       ]);
     }).filter(Boolean));
     if (window.ui?.openDialog) window.ui.openDialog(palette); else palette.showModal?.();
@@ -282,7 +282,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
         const select = (key, options, word) => {
           const box = el("select", { className: "select", disabled: readOnly });
           box.setAttribute("aria-label", t("presets.map.row", { label: word, row: n + 1 }));
-          for (const o of options) box.append(el("option", { value: String(o.raw), textContent: o.label }));
+          for (const o of options) box.append(el("option", { value: String(o.raw), textContent: localize(o.label) }));
           if (!options.some(o => o.raw === row[key])) box.append(el("option", { value: String(row[key]), textContent: t("presets.map.unknownValue", { value: row[key] }) }));
           box.value = String(row[key]);
           box.addEventListener("change", () => { row[key] = Number(box.value); if (key === "chain") row.param = 0; if (key === "chain" || key === "source") draw(); else rings(); });
@@ -299,7 +299,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
         };
         // A control with two states (the touchpad held or not, the FX switch, play) sets one value per state.
         const states = sources.find(x => x.raw === row.source)?.states?.[kind];
-        const [off, on] = states ?? [t("presets.map.from"), t("presets.map.to")];
+        const [off, on] = states ? states.map(s => localize(s)) : [t("presets.map.from"), t("presets.map.to")];
         return el("div", { className: "cee-fxmap-row" }, [
           el("div", { className: "cee-sentence" }, [
             select("source", sources.map(x => ({ raw: x.raw, label: x.who?.[kind] ?? x.label })), t("mod.slot.source")),
@@ -331,10 +331,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
 
   /** What a row drives in the words of the editor: the block as its card names it, or the level around the effect. */
   function chainLabel(piece, chain) {
-    if (!chain?.stage) return chain?.label ?? "?";
+    if (!chain?.stage) return localize(chain?.label ?? "?");
     const stage = piece.stages.find(x => x.stage === chain.stage);
     const name = stage?.unit ? unitLabel(unitKind(stage.stage), stage.unit, stage.unitName)[0] : t("bk.empty");
-    return piece.stages.length > 1 ? t("bk.chain.n", { n: piece.stages.indexOf(stage) + 1, name }) : t("bk.chain", { name });
+    return piece.stages.length > 1 ? t("bk.chain.n", { n: piece.stages.indexOf(stage) + 1, name: localize(name) }) : t("bk.chain", { name: localize(name) });
   }
 
   /** The key of the knob a map row moves: its stage and parameter, or the level it drives. */
@@ -472,15 +472,15 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       const pick = el("button", { type: "button", className: `btn sm${s.unit ? "" : " cee-primary"}`, onclick: () => choose(s.stage) }, s.unit ? [icon("swap"), t("bk.block.other")] : [t("bk.block.pick")]);
       const card = el("div", { className: `cee-bk-block${s.unit ? "" : " cee-bk-block-empty"}`, id: `${pre}-block-${i + 1}` }, s.unit ? [
         el("div", { className: "cee-bk-block-head" }, [
-          el("h4", { textContent: label }),
-          group ? el("span", { className: "cee-bk-group-name", textContent: group }) : null,
+          el("h4", { textContent: localize(label) }),
+          group ? el("span", { className: "cee-bk-group-name", textContent: localize(group) }) : null,
           readOnly ? null : el("div", { className: "actions" }, [
             pick,
             fx.stages.length > 1 ? el("button", { type: "button", className: "btn sm", textContent: t("common.remove"), onclick: () => { Object.assign(s, { unit: 0, unitName: "nofx_thru", params: {} }); renderFx(); } }) : null,
           ]),
         ]),
         el("div", { className: "cee-bk-knob-groups" }, sections.map(([id, list]) => el("section", { className: "cee-bk-knob-group" }, [
-          el("h5", { className: "cee-bk-more", textContent: PARAM_GROUPS.find(g => g.id === id).label }),
+          el("h5", { className: "cee-bk-more", textContent: localize(PARAM_GROUPS.find(g => g.id === id).label) }),
           el("div", { className: "cee-bk-knob-row" }, list.map(one)),
         ]))),
       ] : [el("p", { className: "muted", textContent: t("bk.block.empty") }), pick]);
@@ -589,10 +589,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     } });
     detailHead.replaceChildren(
       el("h2", { className: "cee-detail-title", id: "cee-bk-detail-title", textContent: view.name }),
-      view.description ? el("p", { textContent: view.description }) : null,
+      view.description ? el("p", { textContent: localize(view.description) }) : null,
       el("dl", { className: "cee-detail-facts" }, [
         el("dt", { textContent: t("levels.kind") }), el("dd", { textContent: t(KIND_WORD[view.kind]) }),
-        el("dt", { textContent: t("samples.fact.category") }), el("dd", { textContent: tagOf(view) }),
+        el("dt", { textContent: t("samples.fact.category") }), el("dd", { textContent: localize(tagOf(view)) }),
         el("dt", { textContent: t("plugins.by") }), el("dd", {}, creatorName(view.creator, view.creatorUrl) ?? "?"),
       ]),
       el("div", { className: "actions" }, [download, usb, own]),

@@ -29,7 +29,7 @@ import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
 import { storePlugin } from "../../src/usb-update.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { pixelsOf } from "./splash.mjs";
-import { t, locale } from "./i18n.mjs";
+import { t, locale, language } from "./i18n.mjs";
 
 /** 0/1 pixels row by row (splash.mjs) to the display's 1024 bytes: eight rows per byte, bit 0 on top. */
 function displayBytes(pixels) {
@@ -705,13 +705,14 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     docsEmpty.hidden = any;
   }
   docsSearch.addEventListener("input", filterDocs);
-  const NAMES_TITLE = "Namen für Tasten und LEDs";
+  const DOCS = { de: ["../../docs/plugins.md", "Namen für Tasten und LEDs"], en: ["../../docs/plugins.en.md", "Names for keys and LEDs"], fr: ["../../docs/plugins.fr.md", "Noms des boutons et des LED"] };
+  const [docsFile, NAMES_TITLE] = DOCS[language()] ?? DOCS.en;
   async function loadDocs() {
     if (docsLoaded) return;
     docsLoaded = true;
     let text;
     try {
-      const res = await fetch(new URL("../../docs/plugins.md", import.meta.url));
+      const res = await fetch(new URL(docsFile, import.meta.url));
       if (!res.ok) throw new Error(String(res.status));
       text = await res.text();
     } catch {
@@ -730,8 +731,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       }
       if (heading && heading.level >= 2) links.push(heading);
       // The tables of the names are the live ones below; the static copies in the doc stay out of the page.
-      if (section.title === NAMES_TITLE && (node.classList.contains("cee-doc-table") || /^(Tasten|LEDs) \(/.test(node.textContent))) continue;
-      if (/^Deutsche Version/.test(node.textContent)) continue;
+      if (section.title === NAMES_TITLE && (node.classList.contains("cee-doc-table") || /^(Tasten|Buttons|Boutons|LEDs|LED) \(/.test(node.textContent))) continue;
+      if (/^(Deutsche Version|German version|Version française)/.test(node.textContent)) continue;
       section.node.append(node);
     }
     const names = docSections.find(s => s.title === NAMES_TITLE);

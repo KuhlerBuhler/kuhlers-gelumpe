@@ -15,6 +15,7 @@
  *
  * Pure of the page and of node: no DOM, no MIDI, no `node:` imports.
  */
+import { localize } from "./text.mjs";
 import { BLOCKS, TABLES, byteSpans, isUnknown } from "./map/index.mjs";
 import { fileToRam, CURRENT_PATTERN } from "./map/address.mjs";
 import { refusal, RAM_WINDOW } from "./protect.mjs";
@@ -25,12 +26,19 @@ import { GROUPS, FROM_PROTECTED, NOT_READ, AREAS, PATTERN_SLOTS } from "../data/
 export { GROUPS };
 
 const hex = n => `0x${n.toString(16).toUpperCase()}`;
-const bytesText = n => `${n} Byte`;
+const bytesText = n => n === 1 ? localize("1 Byte") : localize("{n} Byte", { n });
 const hexBytes = (bytes, max = 8) => `${Array.from(bytes.subarray(0, max), b => b.toString(16).padStart(2, "0")).join(" ")}${bytes.length > max ? " ..." : ""}`;
 
 /** The most a single read may carry: what KORG.ram.read allows. */
 export const MAX_CHUNK = 0x4000;
 export const DEFAULTS = { chunk: 0x1000, limit: 0x400000, maxMatches: 1000, maxLines: 25 };
+
+// Region names stay unmodified in the map and in saved snapshots.
+const regionLabel = what => {
+  if (what.startsWith("Zeiger: ")) return localize("Zeiger: {label}", { label: regionLabel(what.slice(8)) });
+  const indexed = /^(.*) (\d+)$/.exec(what);
+  return indexed ? `${localize(indexed[1])} ${indexed[2]}` : localize(what);
+};
 
 /** Which bytes of one block the map explains: a field that nobody understands yet stays unflagged. */
 const maskCache = new Map();
@@ -135,14 +143,14 @@ export class KnownRam {
   /** `around` in words. */
   describe(addr, length = 1) {
     const d = this.around(addr, length);
-    const via = d.mirrored ? "im vermuteten Spiegel: " : "";
-    if (d.within) return `${via}in ${d.within.what} (+${hex(d.at - d.within.start)})`;
-    if (d.touches) return `${via}an ${d.touches.what} (${hex(d.touches.start)} bis ${hex(d.touches.end)})`;
-    const gap = n => (n === 0 ? "direkt" : `${hex(n)} Byte`);
+    const via = d.mirrored ? localize("im vermuteten Spiegel: ") : "";
+    if (d.within) return localize("{via}in {region} (+{offset})", { via, region: regionLabel(d.within.what), offset: hex(d.at - d.within.start) });
+    if (d.touches) return localize("{via}an {region} ({from} bis {to})", { via, region: regionLabel(d.touches.what), from: hex(d.touches.start), to: hex(d.touches.end) });
+    const gap = n => (n === 0 ? localize("direkt") : `${hex(n)} Byte`);
     const parts = [];
-    if (d.before) parts.push(`${gap(d.at - d.before.end)} hinter ${d.before.what}`);
-    if (d.after) parts.push(`${gap(d.after.start - d.end)} vor ${d.after.what}`);
-    return `${via}${parts.join(", ") || "nichts Bekanntes in der Nähe"}`;
+    if (d.before) parts.push(localize("{gap} hinter {region}", { gap: gap(d.at - d.before.end), region: regionLabel(d.before.what) }));
+    if (d.after) parts.push(localize("{gap} vor {region}", { gap: gap(d.after.start - d.end), region: regionLabel(d.after.what) }));
+    return `${via}${parts.join(", ") || localize("nichts Bekanntes in der Nähe")}`;
   }
 }
 
@@ -163,8 +171,8 @@ export class Snapshot {
   }
 
   summary() {
-    const hid = this.mask ? `, ${bytesText(this.skipped)} bekannt und nicht gelesen` : "";
-    return `Snapshot ${hex(this.from)} bis ${hex(this.to)}: ${bytesText(this.read)} gelesen${hid}.`;
+    const hid = this.mask ? localize(", {bytes} bekannt und nicht gelesen", { bytes: bytesText(this.skipped) }) : "";
+    return localize("Snapshot {from} bis {to}: {bytes} gelesen{hidden}.", { from: hex(this.from), to: hex(this.to), bytes: bytesText(this.read), hidden: hid });
   }
 
   toJSON() { return { from: this.from, to: this.to, read: this.read, skipped: this.skipped, spans: this.spans.length }; }
@@ -180,12 +188,12 @@ export class DiffResult {
   near(run) { return this.regions.describe(run.from, run.length); }
 
   summary({ max = DEFAULTS.maxLines } = {}) {
-    const head = `Vergleich ${hex(this.from)} bis ${hex(this.to)}: ${bytesText(this.changed)} von ${this.compared} verglichenen Byte geändert, in ${this.runs.length} ${this.runs.length === 1 ? "Lauf" : "Läufen"}.`
-      + `${this.hiddenBytes ? ` ${bytesText(this.hiddenBytes)} bekannt und ausgeblendet.` : ""}`
-      + `${this.notCompared ? ` ${bytesText(this.notCompared)} nicht in beiden Snapshots.` : ""}`;
+    const head = localize("Vergleich {from} bis {to}: {changed} von {compared} verglichenen Byte geändert, in {count} {runs}.", { from: hex(this.from), to: hex(this.to), changed: bytesText(this.changed), compared: this.compared, count: this.runs.length, runs: localize(this.runs.length === 1 ? "Lauf" : "Läufen") })
+      + `${this.hiddenBytes ? localize(" {bytes} bekannt und ausgeblendet.", { bytes: bytesText(this.hiddenBytes) }) : ""}`
+      + `${this.notCompared ? localize(" {bytes} nicht in beiden Snapshots.", { bytes: bytesText(this.notCompared) }) : ""}`;
     const lines = this.runs.slice(0, max).map(r =>
-      `  ${hex(r.from)} bis ${hex(r.to)}  ${bytesText(r.length)}  ${hexBytes(r.before)} -> ${hexBytes(r.after)}  ${this.near(r)}`);
-    if (this.runs.length > max) lines.push(`  und ${this.runs.length - max} weitere Läufe`);
+      localize("  {from} bis {to}  {bytes}  {before} -> {after}  {near}", { from: hex(r.from), to: hex(r.to), bytes: bytesText(r.length), before: hexBytes(r.before), after: hexBytes(r.after), near: this.near(r) }));
+    if (this.runs.length > max) lines.push(localize("  und {count} weitere Läufe", { count: this.runs.length - max }));
     return [head, ...lines].join("\n");
   }
 
@@ -202,12 +210,12 @@ export class SearchResult {
 
   summary({ max = DEFAULTS.maxLines } = {}) {
     const n = this.matches.length;
-    const head = `Suche nach ${bytesText(this.needle.length)} (${hexBytes(this.needle, 16)}) von ${hex(this.from)} bis ${hex(this.to)}: ${n} Treffer`
-      + `${this.truncated ? " (Suche bei der Obergrenze gestoppt)" : ""}.`
-      + ` ${bytesText(this.read)} gelesen${this.skipped ? `, ${bytesText(this.skipped)} bekannt und nicht gelesen` : ""}`
-      + `${this.hiddenMatches ? `, ${this.hiddenMatches} Treffer in Bekanntem ausgeblendet` : ""}.`;
+    const head = localize("Suche nach {bytes} ({needle}) von {from} bis {to}: {count} Treffer", { bytes: bytesText(this.needle.length), needle: hexBytes(this.needle, 16), from: hex(this.from), to: hex(this.to), count: n })
+      + `${this.truncated ? localize(" (Suche bei der Obergrenze gestoppt)") : ""}.`
+      + localize(" {bytes} gelesen{hidden}", { bytes: bytesText(this.read), hidden: this.skipped ? localize(", {bytes} bekannt und nicht gelesen", { bytes: bytesText(this.skipped) }) : "" })
+      + `${this.hiddenMatches ? localize(", {count} Treffer in Bekanntem ausgeblendet", { count: this.hiddenMatches }) : ""}.`;
     const lines = this.matches.slice(0, max).map(m => `  ${hex(m.addr)}  ${this.near(m)}`);
-    if (n > max) lines.push(`  und ${n - max} weitere Treffer`);
+    if (n > max) lines.push(localize("  und {count} weitere Treffer", { count: n - max }));
     return [head, ...lines].join("\n");
   }
 
@@ -217,21 +225,21 @@ export class SearchResult {
 /** A value, bytes or text as the bytes to look for. A number is a 32 bit word, little endian, unless `width` says 1 or 2. */
 export function needleBytes(value, { width = 4 } = {}) {
   if (typeof value === "number") {
-    if (![1, 2, 4].includes(width)) throw new RangeError("width ist 1, 2 oder 4");
+    if (![1, 2, 4].includes(width)) throw new RangeError(localize("width ist 1, 2 oder 4"));
     const top = 2 ** (8 * width);
-    if (!Number.isInteger(value) || value < -top / 2 || value >= top) throw new RangeError(`${value} passt nicht in ${width} Byte`);
+    if (!Number.isInteger(value) || value < -top / 2 || value >= top) throw new RangeError(localize("{value} passt nicht in {width} Byte", { value, width }));
     const word = value < 0 ? value + top : value;
     return Uint8Array.from({ length: width }, (_, i) => Math.floor(word / 256 ** i) % 256);
   }
   if (typeof value === "string") {
-    if (!value.length || [...value].some(c => c.charCodeAt(0) > 0xff)) throw new TypeError("Text, der gesucht wird, besteht aus Zeichen bis 0xFF");
+    if (!value.length || [...value].some(c => c.charCodeAt(0) > 0xff)) throw new TypeError(localize("Text, der gesucht wird, besteht aus Zeichen bis 0xFF"));
     return Uint8Array.from(value, c => c.charCodeAt(0));
   }
   if (value instanceof Uint8Array || (Array.isArray(value) && value.every(b => Number.isInteger(b) && b >= 0 && b <= 0xff))) {
-    if (!value.length) throw new RangeError("Es gibt nichts zu suchen");
+    if (!value.length) throw new RangeError(localize("Es gibt nichts zu suchen"));
     return Uint8Array.from(value);
   }
-  throw new TypeError("search nimmt eine Zahl, einen Text, eine Uint8Array oder ein Array aus Bytes");
+  throw new TypeError(localize("search nimmt eine Zahl, einen Text, eine Uint8Array oder ein Array aus Bytes"));
 }
 
 const sleepFor = ms => new Promise(r => setTimeout(r, ms));
@@ -264,12 +272,12 @@ export function ramTools({ read, print = null, sleep = sleepFor, regions = known
     const opts = first !== null && typeof first === "object" ? { ...first } : { ...(third ?? {}), from: first, to: second };
     if (opts.to === undefined && opts.length !== undefined) opts.to = opts.from + opts.length;
     const { from, to } = opts;
-    if (!Number.isInteger(from) || !Number.isInteger(to) || to <= from) throw new RangeError(`${what}: from und to angeben, to ist das Ende ohne das Byte selbst (${what}({ from: 0xC0300000, to: 0xC0340000 }))`);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || to <= from) throw new RangeError(localize("{what}: from und to angeben, to ist das Ende ohne das Byte selbst ({what}({ from: 0xC0300000, to: 0xC0340000 }))", { what }));
     const o = { mask: true, show: [], chunk: DEFAULTS.chunk, limit: DEFAULTS.limit, pauseMs: 0, progress: true, ...opts };
-    if (!Number.isInteger(o.chunk) || o.chunk < 1 || o.chunk > MAX_CHUNK) throw new RangeError(`chunk ist 1 bis ${MAX_CHUNK}`);
-    if (to - from > o.limit) throw new RangeError(`${what}: ${bytesText(to - from)} sind mehr als limit (${bytesText(o.limit)}). Den Bereich kleiner wählen oder limit erhöhen, das Fenster hat ${bytesText(RAM_WINDOW.end - RAM_WINDOW.start)}.`);
+    if (!Number.isInteger(o.chunk) || o.chunk < 1 || o.chunk > MAX_CHUNK) throw new RangeError(localize("chunk ist 1 bis {max}", { max: MAX_CHUNK }));
+    if (to - from > o.limit) throw new RangeError(localize("{what}: {bytes} sind mehr als limit ({limit}). Den Bereich kleiner wählen oder limit erhöhen, das Fenster hat {window}.", { what, bytes: bytesText(to - from), limit: bytesText(o.limit), window: bytesText(RAM_WINDOW.end - RAM_WINDOW.start) }));
     const bad = o.show.filter(g => !(g in GROUPS));
-    if (bad.length) throw new RangeError(`show kennt ${Object.keys(GROUPS).join(", ")}, nicht ${bad.join(", ")}`);
+    if (bad.length) throw new RangeError(localize("show kennt {groups}, nicht {unknown}", { groups: Object.keys(GROUPS).join(", "), unknown: bad.join(", ") }));
     return o;
   }
 
@@ -300,7 +308,7 @@ export function ramTools({ read, print = null, sleep = sleepFor, regions = known
         skipped += n;
       } else {
         const got = await read(at, n);
-        if (got.length !== n) throw new Error(`Gelesen: ${got.length} Byte statt ${n} bei ${hex(at)}.`);
+        if (got.length !== n) throw new Error(localize("Gelesen: {count} Byte statt {expected} bei {addr}.", { count: got.length, expected: n, addr: hex(at) }));
         onRead(at, got instanceof Uint8Array ? got : Uint8Array.from(got));
         readBytes += n;
         if (o.pauseMs) await sleep(o.pauseMs);
@@ -325,13 +333,13 @@ export function ramTools({ read, print = null, sleep = sleepFor, regions = known
   }
 
   function diff(a, b, opts = {}) {
-    if (!(a instanceof Snapshot) || !(b instanceof Snapshot)) throw new TypeError("diff nimmt zwei Snapshots aus KORG.ram.snapshot");
+    if (!(a instanceof Snapshot) || !(b instanceof Snapshot)) throw new TypeError(localize("diff nimmt zwei Snapshots aus KORG.ram.snapshot"));
     const { mask = true, show = [], gap = 0 } = opts;
     const bad = show.filter(g => !(g in GROUPS));
-    if (bad.length) throw new RangeError(`show kennt ${Object.keys(GROUPS).join(", ")}, nicht ${bad.join(", ")}`);
+    if (bad.length) throw new RangeError(localize("show kennt {groups}, nicht {unknown}", { groups: Object.keys(GROUPS).join(", "), unknown: bad.join(", ") }));
     const from = Math.max(a.from, b.from);
     const to = Math.min(a.to, b.to);
-    if (from >= to) throw new RangeError("Die beiden Snapshots überlappen sich nicht");
+    if (from >= to) throw new RangeError(localize("Die beiden Snapshots überlappen sich nicht"));
     const common = [];
     for (const [s1, e1] of a.spans) for (const [s2, e2] of b.spans) {
       const s = Math.max(s1, s2, from);
@@ -376,7 +384,7 @@ export function ramTools({ read, print = null, sleep = sleepFor, regions = known
 
   async function search(value, opts = {}) {
     const needle = needleBytes(value, opts);
-    if (opts.snapshot !== undefined && !(opts.snapshot instanceof Snapshot)) throw new TypeError("snapshot ist ein Ergebnis von KORG.ram.snapshot");
+    if (opts.snapshot !== undefined && !(opts.snapshot instanceof Snapshot)) throw new TypeError(localize("snapshot ist ein Ergebnis von KORG.ram.snapshot"));
     const from0 = opts.snapshot?.from ?? opts.from;
     const to0 = opts.snapshot?.to ?? opts.to;
     const o = parse([{ ...opts, from: opts.from ?? from0, to: opts.to ?? to0 }], "search");
@@ -424,8 +432,8 @@ export function ramTools({ read, print = null, sleep = sleepFor, regions = known
   }
 
   const where = (addr, length = 1) => {
-    if (!Number.isInteger(addr) || !Number.isInteger(length) || length < 1) throw new RangeError("where(adresse, anzahl)");
-    const note = regions.hidden(addr, addr + 1)[0] ? " (erklärt, wird ausgeblendet)" : "";
+    if (!Number.isInteger(addr) || !Number.isInteger(length) || length < 1) throw new RangeError(localize("where(adresse, anzahl)"));
+    const note = regions.hidden(addr, addr + 1)[0] ? localize(" (erklärt, wird ausgeblendet)") : "";
     return `${hex(addr)}: ${regions.describe(addr, length)}${note}`;
   };
 

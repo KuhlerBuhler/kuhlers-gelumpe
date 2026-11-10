@@ -111,7 +111,7 @@ test("KORG.press runs the stub through exec with the runtime's keys and uses the
       assert.deepEqual(applied, []);
       assert.deepEqual(pressed, [0x09]);
       assert.equal(blockers.length, 1, "a panel press stays in the emulator");
-      await assert.rejects(korg.turn(1), /BLECH-Satz/);
+      await assert.rejects(korg.turn(1), /BLECHTRIBE-Satz/);
     }
   }
 });

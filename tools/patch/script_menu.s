@@ -60,6 +60,7 @@
 .equ M_BRW_SEL, 0x14C         ; the row the cursor is on
 .equ M_BRW_TOP, 0x150         ; the row shown first
 .equ M_BRW_ON, 0x154          ; byte: 0 no browser, 1 the browser with its rows, 2 the browser of an empty folder
+.equ M_SPLASH_CACHE, 0x155    ; byte: 1 while LIST_TITLES holds the .bmp names of SPLASH IMPORT and M_BRW_N their number (splash_cache)
 .equ M_BRW_VT, 0x160          ; the class of the browser's widget: the firmware's EDIT widget class with our draw slot, BRW_VT_WORDS words
 .equ M_BRW_NOTE, 0x190        ; 32 bytes: the line under the rows in the small font, empty for none
 .equ BRW_ROW, 16
@@ -1705,6 +1706,9 @@ menu_brw_class:
     mov r1, r5
     str r7, [sp, #0x4]
     bl 0xC00614FC
+    ldr r0, =MENU_STATE         ; SPLASH IMPORT reads the folder again once the screen is up
+    mov r1, #0
+    strb r1, [r0, #M_SPLASH_CACHE]
     mov r0, r4
     bl menu_show
     mov r0, r4
@@ -1748,7 +1752,7 @@ menu_show:
 ; the last of the screen, draws the rows over them with the firmware's drawing functions at the places its browser uses (the list at
 ; 0xC0085BB4, the cursor at 0xC0085B0C, the scroll bar at 0xC0085A0C): three rows in the big font, the file icon in front of the name,
 ; the name without its extension and cut as the firmware cuts it (12 characters and ".." when longer than 14), the cursor triangle on
-; the left edge, the scroll bar on the right. Keys and dial do what they did. A plugin that is not running has a blank page icon (no lines);
+; the left edge, the scroll bar on the right. Keys and dial move the cursor. A plugin that is not running has a blank page icon (no lines);
 ; what the old value line said beyond ON and OFF (ENTER=ALLOW, a fault and its line, what was done) stands under the rows in the
 ; small font. An empty folder of SPLASH IMPORT shows NO .BMP FILE where the firmware shows NO FILE.
 
@@ -1767,6 +1771,7 @@ menu_brw_fill:
     cmp r0, #22
     beq menu_brw_splash
     mov r0, #0
+    strb r0, [r5, #M_SPLASH_CACHE]
     strb r0, [r5, #M_BRW_ON]
     cmp r9, #0
     ldrne r1, =UI_REDRAW
@@ -1774,6 +1779,8 @@ menu_brw_fill:
     strbne r0, [r1]
     pop {r4, r6-r11, pc}
 menu_brw_plugins:               ; the value line goes under the rows when it says more than ON or OFF
+    mov r0, #0
+    strb r0, [r5, #M_SPLASH_CACHE]
     add r0, r5, #M_VALUE
     ldr r1, =str_on
     bl menu_brw_same
@@ -1796,10 +1803,9 @@ menu_brw_splash:                ; the value line goes under the rows only when i
     addne r0, r5, #M_BRW_NOTE
     addne r1, r5, #M_VALUE
     blne menu_copy
-    ldr r0, [r5, #M_SPLASH_SEL]
-    bl splash_pick
+    bl splash_cache             ; menu_text_splash_pick has read the folder and kept M_SPLASH_SEL within it
     mov r6, r0
-    mov r7, r1
+    ldr r7, [r5, #M_SPLASH_SEL]
     mov r8, #0
 menu_brw_rows:
     cmp r6, #0
@@ -1852,6 +1858,16 @@ menu_brw_row:
     moveq r2, #BRW_FILE
     b menu_brw_row_name
 menu_brw_row_bmp:
+    cmp r0, #SPLASH_CACHED
+    bhs menu_brw_row_card
+    mov r1, r0
+    mov r2, #BRW_FILE+BRW_NOEXT
+    strb r2, [r11]
+    add r0, r11, #1
+    mov r2, #1
+    bl splash_cached_text
+    b menu_brw_row_next
+menu_brw_row_card:              ; behind the names kept: read from the folder
     bl splash_pick
     ldr r1, =LIST_PATH+SPLASH_NAME_AT
     mov r2, #BRW_FILE+BRW_NOEXT
@@ -2254,6 +2270,8 @@ menu_texts_clear:
     beq menu_text_splash
     cmp r0, #36
     beq menu_text_prow
+    cmp r0, #52
+    beq menu_text_pstate
     cmp r0, #37
     beq menu_text_pdel
     cmp r0, #46
@@ -2418,12 +2436,19 @@ menu_text_app_value:
     bl menu_copy
     pop {r4, r5, r6, r7, pc}
 ; a plugin of MANAGE PLUGINS, r7 = its place in the list: its name, and its state under it (ON, OFF, ENTER=ALLOW or the fault and
-; its line); the dial switches it, ENTER opens its pages
+; its line); the dial moves through the list, ENTER opens its pages. STATE, the second of those pages, says the same under its
+; title; the dial switches the plugin there
+menu_text_pstate:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_pstate
+    bl menu_copy
+    b menu_text_prow_state
 menu_text_prow:
     mov r0, r7
     bl menu_psel_name
     add r0, r5, #M_TITLE
     bl menu_copy16
+menu_text_prow_state:
     mov r0, r7
     bl menu_entry
     movs r6, r0
@@ -2629,7 +2654,28 @@ menu_text_splash_status:
     bne menu_text_status_value
     b menu_text_press
 menu_text_splash_pick:          ; the name of the file the dial is on, or that the folder has none; what ENTER did goes over it.
-    ldr r0, [r5, #M_SPLASH_SEL] ; No "press  [ Enter ]": the firmware draws it on the row of the value, over the name
+    bl splash_cache             ; No "press  [ Enter ]": the firmware draws it on the row of the value, over the name
+    ldr r1, [r5, #M_SPLASH_SEL]
+    subs r2, r0, #1
+    movmi r2, #0
+    cmp r1, r2
+    movhi r1, r2
+    str r1, [r5, #M_SPLASH_SEL]
+    cmp r0, #0
+    beq menu_text_splash_none
+    cmp r1, #SPLASH_CACHED
+    bhs menu_text_splash_card   ; behind the names kept: read from the folder
+    add r0, r5, #M_VALUE
+    mov r2, #0
+    bl splash_cached_text
+    b menu_text_splash_value
+menu_text_splash_none:
+    add r0, r5, #M_VALUE
+    ldr r1, =str_splash_nofile
+    bl menu_copy
+    b menu_text_splash_value
+menu_text_splash_card:
+    mov r0, r1
     bl splash_pick
     str r1, [r5, #M_SPLASH_SEL]
     movs r6, r0
@@ -3268,9 +3314,9 @@ menu_confirm_add:
 ; SAVE, 9 SPLASH). Those five are rows of CUSTOMIZATION that open their pages; EXIT there goes back to that row. FEATURES holds the
 ; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST, LAST PATTERN, STEREO 1 PAD, KEY PADS, FILTER TOGGLE and AUTO SAVE (the main dial
 ; changes them, WRITE keeps them). ENTER on PLUGINS opens level 5 (M_LEVEL_PLUGIN) straight away, one page a plugin with its name and its
-; state, the dial switches it on and off, EXIT goes back to the row PLUGINS; the one page of the group, MANAGE PLUGINS, only shows when
-; there is no plugin or after OFF and REMOVE, ENTER there opens the list again; ENTER on a plugin opens level 6 (M_LEVEL_PSUB), the pages of that plugin: DESCRIPTION, the pages it added
-; (korg.menu.add), OFF and REMOVE. EXIT goes one level up. M_PAGE counts within the level, the counter shows only that level.
+; state, the dial moves through the list as in the firmware's file browser, EXIT goes back to the row PLUGINS; the one page of the group, MANAGE PLUGINS, only shows when
+; there is no plugin or after OFF and REMOVE, ENTER there opens the list again; ENTER on a plugin opens level 6 (M_LEVEL_PSUB), the pages of that plugin: DESCRIPTION, STATE (the dial switches
+; it on and off), the pages it added (korg.menu.add), OFF and REMOVE. EXIT goes one level up. M_PAGE counts within the level, the counter shows only that level.
 ; Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, behind BLECH, on which Blechy, the app built into BLECH, shows
 ; himself (the frame hook opens and closes him by this level). Level 4 (M_LEVEL_SYNC) is the page SYNC GROUP between the Pattern and
 ; the Part menu: a setting of the pattern in RAM, saved with WRITE as the Pattern menu's pages. Levels 7 (M_LEVEL_GLOBAL, PLUGIN
@@ -3280,7 +3326,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 46 OFF, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE; 50 was HT OSC), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 46 OFF, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 STATE; 50 was HT OSC), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -3416,23 +3462,26 @@ menu_kind_list:                 ; a plugin, and behind the last one LIST FULL wh
     mov r1, r5
     strb r5, [r4, #M_PSEL]      ; the plugin this page shows is the one DESCRIPTION, OFF, REMOVE and loading are about
     b menu_kind_done
-menu_kind_plugin:               ; DESCRIPTION, the pages the plugin added (korg.menu.add), OFF, REMOVE; not loaded: DESCRIPTION, REMOVE
+menu_kind_plugin:               ; DESCRIPTION, STATE, the pages the plugin added (korg.menu.add), OFF, REMOVE; not loaded: DESCRIPTION, STATE, REMOVE
     ldrb r1, [r4, #M_PSEL]
     cmp r5, #0
     moveq r0, #39
+    beq menu_kind_done
+    cmp r5, #1
+    moveq r0, #52
     beq menu_kind_done
     mov r0, r1
     bl menu_entry
     cmp r0, #0
     moveq r0, #37
     beq menu_kind_psel
-    sub r1, r5, #1
+    sub r1, r5, #2
     bl menu_item_nth
     cmp r0, #0
     movge r1, r0
     movge r0, #6
     bge menu_kind_done
-    add r1, r1, #1              ; r1 = the pages it added: OFF behind them, then REMOVE
+    add r1, r1, #2              ; r1 = the pages it added: OFF behind them, then REMOVE
     cmp r5, r1
     moveq r0, #46
     movne r0, #37
@@ -3574,15 +3623,15 @@ menu_count_out:
 menu_count_plugins:             ; MANAGE PLUGINS
     mov r0, #1
     pop {r4, pc}
-menu_count_plugin:              ; a plugin that is not loaded has DESCRIPTION and REMOVE, a loaded one its pages and OFF as well
+menu_count_plugin:              ; a plugin that is not loaded has DESCRIPTION, STATE and REMOVE, a loaded one its pages and OFF as well
     ldrb r0, [r4, #M_PSEL]
     bl menu_entry
     cmp r0, #0
-    moveq r0, #2
+    moveq r0, #3
     popeq {r4, pc}
     mvn r1, #0
     bl menu_item_nth
-    add r0, r1, #3
+    add r0, r1, #4
     pop {r4, pc}
 .pool
 
@@ -3991,6 +4040,7 @@ menu_list:
     mov r0, #0
     str r0, [r4, #M_IMP_N]
     str r0, [r4, #M_IMP_SEL]
+    strb r0, [r4, #M_SPLASH_CACHE]
     ldr r1, =LIST_MORE
     strb r0, [r1]
     mov r0, #1
@@ -4044,6 +4094,7 @@ splash_folder:
 splash_prefix:
     .asciz "SD:KORG/blechtribe/"
 .equ SPLASH_NAME_AT, 19         ; the length of splash_prefix: where the name starts in LIST_PATH
+.equ SPLASH_CACHED, LIST_MAX    ; the .bmp names splash_cache keeps, 16 bytes each in LIST_TITLES
 .equ SPLASH_SHOW, 11            ; characters of a name SPLASH IMPORT shows: 11 of the widest letter (m) end at column 124 (emulator)
 import_folder:
     .asciz "SD:KORG/blechtribe/Plugin"
@@ -4164,6 +4215,91 @@ splash_pick_out:
     cmp r4, r1
     movlo r1, r4
     pop {r4, r5, pc}
+.pool
+
+; -> r0 = how many .bmp files KORG/blechtribe holds. Reads the folder once while SPLASH IMPORT shows (M_SPLASH_CACHE), so a step of
+; the dial does not wait for the card: five passes over the folder per step left the display a second behind a fast dial
+; (docs/messungen/2026-11-09-menue-liste-rad.md). The first SPLASH_CACHED names go to LIST_TITLES, which only
+; the list of the plugins uses besides, and menu_list fills it again whenever that list opens: an entry is the first 15 characters
+; of the name and, in its last byte, the name's length. Clobbers r1 to r3 and r12.
+splash_cache:
+    push {r4, r5, lr}
+    ldr r4, =MENU_STATE
+    ldrb r0, [r4, #M_SPLASH_CACHE]
+    cmp r0, #0
+    ldrne r0, [r4, #M_BRW_N]
+    popne {r4, r5, pc}
+    mov r5, #0
+    ldr r0, =splash_folder
+    bl menu_dir_open
+    cmp r0, #0
+    bne splash_cache_done
+splash_cache_next:
+    ldr r0, =str_bmp
+    bl menu_dir_next
+    cmp r0, #0
+    beq splash_cache_close
+    cmp r5, #SPLASH_CACHED
+    bhs splash_cache_count
+    ldr r1, =HOOK_CARD+LIST_TITLES
+    add r1, r1, r5, lsl #4
+    mov r2, #0
+splash_cache_copy:
+    ldrb r3, [r0, r2]
+    cmp r3, #0
+    beq splash_cache_len
+    cmp r2, #15
+    strblo r3, [r1, r2]
+    add r2, r2, #1
+    b splash_cache_copy
+splash_cache_len:
+    strb r2, [r1, #15]
+splash_cache_count:
+    add r5, r5, #1
+    b splash_cache_next
+splash_cache_close:
+    ldr r0, =LIST_DIR
+    ldr r12, =FS_CLOSEDIR
+    blx r12
+splash_cache_done:
+    str r5, [r4, #M_BRW_N]
+    mov r0, #1
+    strb r0, [r4, #M_SPLASH_CACHE]
+    mov r0, r5
+    pop {r4, r5, pc}
+
+; r0 = destination, r1 = a place below SPLASH_CACHED, r2 = 0 for the value line (the whole name up to SPLASH_SHOW characters, a
+; longer one without ".bmp" and cut to SPLASH_SHOW), 1 for a row of the browser (the name without ".bmp", longer than 14 cut to 12
+; and "..", as menu_brw_cut). Clobbers r0 to r3 and r12.
+splash_cached_text:
+    ldr r3, =HOOK_CARD+LIST_TITLES
+    add r1, r3, r1, lsl #4
+    ldrb r3, [r1, #15]
+    cmp r2, #0
+    bne splash_cached_row
+    cmp r3, #SPLASH_SHOW
+    bls splash_cached_copy
+    sub r3, r3, #4
+    cmp r3, #SPLASH_SHOW
+    movhi r3, #SPLASH_SHOW
+    b splash_cached_copy
+splash_cached_row:
+    sub r3, r3, #4
+    cmp r3, #14
+    movhi r3, #12
+    movls r2, #0
+splash_cached_copy:
+    subs r3, r3, #1
+    ldrbpl r12, [r1], #1
+    strbpl r12, [r0], #1
+    bpl splash_cached_copy
+    cmp r2, #0
+    movne r12, #0x2E
+    strbne r12, [r0], #1
+    strbne r12, [r0], #1
+    mov r12, #0
+    strb r12, [r0]
+    bx lr
 .pool
 
 ; r0 = a file's index in the list -> r0 = its name, read again from the folder at its place (LIST_ORD), with LIST_PATH its path; 0 when
@@ -5004,10 +5140,15 @@ menu_slot_value:
     mov r4, r0
     mov r5, r1
     ldr r6, =MENU_STATE
+    ldr r0, [r6, #M_LEVEL]
+    cmp r0, #M_LEVEL_PLUGIN
+    beq menu_value_list
     ldr r0, [r6, #M_PAGE]
     bl menu_kind
     cmp r0, #18
     beq menu_value_pc
+    cmp r0, #52
+    beq menu_value_script
     cmp r0, #22
     beq menu_value_splash
     cmp r0, #20
@@ -5051,8 +5192,6 @@ menu_slot_value:
     beq menu_value_mg
     cmp r0, #34
     beq menu_value_ledsave
-    cmp r0, #36
-    beq menu_value_script
     cmp r0, #39
     beq menu_value_desc
     cmp r0, #40
@@ -5282,7 +5421,7 @@ menu_value_lp:
 menu_value_script:
     cmp r0, #6
     beq menu_value_item
-    cmp r0, #36
+    cmp r0, #52
     bne menu_value_done
     mov r0, r1
     bl menu_entry
@@ -5308,13 +5447,24 @@ menu_value_done:
     mov r0, r4
     bl menu_show
     pop {r4, r5, r6, pc}
-menu_value_unloaded:            ; not loaded: the dial up loads and starts it, down does nothing; the page follows it to its new place
+menu_value_unloaded:            ; not loaded: the dial up loads and starts it (M_PSEL follows it to its new place), down does nothing
     cmp r5, #0
     ble menu_value_done
     bl menu_load_psel
-    ldrb r0, [r6, #M_PSEL]
-    str r0, [r6, #M_PAGE]
-    str r0, [r6, #M_ENTER]
+    b menu_value_done
+; the list of the plugins: the dial moves the cursor as in the firmware's file browser and stops at the ends
+menu_value_list:
+    bl menu_page_count
+    ldr r1, [r6, #M_PAGE]
+    adds r1, r1, r5
+    movmi r1, #0
+    cmp r1, r0
+    subhs r1, r0, #1
+    str r1, [r6, #M_PAGE]
+    str r1, [r6, #M_ENTER]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    str r3, [r6, #M_LISTED]
     b menu_value_done
 menu_value_script_on:
     bl menu_script_on
@@ -5427,8 +5577,9 @@ menu_slot_keys:
     cmp r6, #0x09
     beq menu_keys_done
     cmp r0, #36
+    cmpne r0, #52
     bne menu_keys_save
-    mov r0, r1                  ; WRITE on a plugin that waits to be allowed allows it, on every other plugin it saves
+    mov r0, r1                  ; WRITE on a plugin (its row or STATE) that waits to be allowed allows it, on every other plugin it saves
     bl menu_entry
     cmp r0, #0
     beq menu_keys_done
@@ -5706,6 +5857,8 @@ str_pedit:
     .asciz "MANAGE PLUGINS"
 str_pdel:
     .asciz "REMOVE"
+str_pstate:
+    .asciz "STATE"
 str_noplugin:
     .asciz "No Plugin"
 str_pdel_sure:

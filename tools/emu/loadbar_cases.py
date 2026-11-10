@@ -766,6 +766,7 @@ def shots(payload, flash, png_dir):
 
 def main():
     import lifetime
+    lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("what", choices=("cases", "shots", "app"))
