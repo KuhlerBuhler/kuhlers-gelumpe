@@ -55,15 +55,16 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 
 | | Red sampler original | Blue synth original | Sampler with Hacktribe | **BLECHTRIBE** red | **BLECHTRIBE** blue | **BLECHTRIBE** with Hacktribe |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
-| Record and load your own samples | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Record and load your own samples | ✅ | ➖ | ✅ | ✅ | ➖ | ✅ |
 | Extended Hacktribe oscillator bank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Extra Hacktribe MFX, IFX, grooves and scales | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Import/export effects and grooves through Hacktribe menus | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Custom INIT pattern through Hacktribe | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Hacktribe MIDI extensions | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Use the red sampler's unchanged factory sample bank | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Custom INIT pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Hacktribe SysEx (for the Hacktribe editor) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Own USB commands for the app (RAM, card, plugins) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Use the red sampler's unchanged factory sample bank | ✅ | ➖ | ❌ | ✅ | ➖ | ❌ |
 | Custom start image, fonts and shutdown image | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Loading animation with progress | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Loading animation with progress | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
 | Draw your own start image on the device | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Synth filters (MS20, Acid, ...) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Edit effects freely in the app | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
@@ -79,13 +80,15 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | KEY from the pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Filter off and on (SHIFT + filter key) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Settings save themselves when you leave the menu (AUTO SAVE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Chords in pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Highlight chord pads in colour | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Toggle motion sequences on/off | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Note assistant | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Dice (random melodies) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Clear messages for broken samples | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Clear messages for broken samples | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
 | Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Update over USB from the app | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Update over USB from the app | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+
+➖ means: does not apply to the synth, it loads no samples.
 
 Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIBE to a Korg original does not add Hacktribe's features. The exception is the Hacktribe oscillators on the free slots 422 to 497 of the red BLECHTRIBE, always on, no switch. The blue BLECHTRIBE column describes the Synth set on Korg 2.02. Hacktribe itself supports both hardware types.
 

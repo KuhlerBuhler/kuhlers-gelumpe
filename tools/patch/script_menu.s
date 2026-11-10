@@ -197,6 +197,8 @@ menu_arm_zero:
     str r0, [r4, #M_FT]
     str r0, [r4, #M_AS]
     str r0, [r4, #M_INV]        ; DISPLAY INVERT is ON without a settings file: a light trail on dark smears less
+    mvn r0, #0
+    str r0, [r4, #M_INV_HW]     ; -1 until the settings are read: a page written while the card is read sends no polarity (menu_arm_load sets 0)
     mov r0, #0x38
     str r0, [r4, #M_BL_ON]
     sub r0, r4, #0x20
@@ -224,6 +226,9 @@ menu_arm_load:
     popeq {pc}
     bl menu_arm
     bl menu_settings_load
+    ldr r0, =MENU_STATE
+    mov r1, #0
+    str r1, [r0, #M_INV_HW]     ; the display shows normal: the next page write sends 0xA7 when the settings want it inverted
     bl objects_repair
     pop {pc}
 .pool
@@ -1558,7 +1563,8 @@ bl_pwm_pass:
 ; the data line is still low) the stock code runs `ldr r3, [fp, #-0x10]` (the display object). When the settings want the other
 ; polarity than the one sent last, the controller gets 0xA7 (display reversed: dark and clear swap) or 0xA6 (normal) here, once.
 ; Nothing else is ever sent: with the menu not armed (EXIT at power-on) the hook does nothing, otherwise it only compares
-; two words once the polarity is sent (the default is ON, so the first page write after the arm sends 0xA7). The firmware never sends either command itself.
+; two words once the polarity is sent (the default is ON, so the first page write after the settings are read sends 0xA7, none while
+; they are read: M_INV_HW is -1 from menu_arm to the end of menu_settings_load). The firmware never sends either command itself.
 lcd_invert_hook:
     ldr r2, =objects_test_mode      ; the test mode switches the display off (0xAE) and back on (0xAF), once each
     ldrb r3, [r2]
@@ -1590,6 +1596,8 @@ lcd_test_done:
     bne lcd_invert_pass
     ldr r3, [r2, #M_INV]
     ldr r1, [r2, #M_INV_HW]
+    cmn r1, #1                      ; the settings are being read (menu_arm): the default must not flash before the file says OFF
+    beq lcd_invert_pass
     cmp r3, r1
     beq lcd_invert_pass
     str r3, [r2, #M_INV_HW]
