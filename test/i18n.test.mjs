@@ -131,7 +131,7 @@ const ALLOWED = {
   // A name: the BLECHTRIBE mascot.
   "splash.mjs": ["Blechy"],
   // A heading of docs/plugins.md, found by its text.
-  "scripts.mjs": ["Namen für Tasten und LEDs"],
+  "scripts.mjs": ["Namen für Tasten und LEDs", "Names for keys and LEDs", "Noms des boutons et des LED"],
   // The file name of a saved profile picture.
   "support.mjs": ["Blechy{}"],
   // The node types of the plugin language's syntax tree.
