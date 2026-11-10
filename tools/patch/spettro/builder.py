@@ -1,4 +1,4 @@
-"""Build an opt-in add-on against the freshly assembled Hacktribe runtime.
+"""Build an opt-in add-on against the freshly assembled Sampler runtime (Hacktribe or stock).
 
 Only own instructions and hashes are emitted. Native bytes stay in the user's
 image; unchanged self-copies serve as compatibility guards in patch format v1.
@@ -16,6 +16,8 @@ from . import CONTEXT_SIZE, HERE, source
 BASE = 0xC0000000
 ORIGIN, LIMIT = 0xC0148880, 0xC014FE00
 COMMAND = 0xC002A628
+# The native routines and the DSP program are byte-identical in Korg's Sampler 2.02 and Hacktribe 2.02 (native-abi.json).
+BUILDS = ('hacktribe', 'stock')
 
 
 def sha(data):
@@ -42,8 +44,8 @@ def guarded_copy(address, length, digest, over=None):
 
 
 def build(include, blob, build_name='hacktribe'):
-    if build_name != 'hacktribe':
-        raise ValueError('Spettro currently supports only the tested Hacktribe Sampler ABI')
+    if build_name not in BUILDS:
+        raise ValueError('Spettro currently supports only the red Sampler (Hacktribe or stock)')
     runtime = runtime_build(include, build=build_name)
     s = runtime.symbols
     code = assemble(ui_definitions(s, blob) + source() + '\n' +
@@ -89,7 +91,7 @@ def build(include, blob, build_name='hacktribe'):
                     'companion identity and store in the runtime-owned plugin pool',
                     'tools/patch/script_hooks.py:POOL')]
     patch = dict(format='gelumpe-patch', version=1, id='spettro', name='Spettro (experimentell)',
-                 builds=['hacktribe'], changes=changes, ram=[], shares=shares, hooks=hooks,
+                 builds=[build_name], changes=changes, ram=[], shares=shares, hooks=hooks,
                  startPhase=[dict(file=a - BASE + 0x100, length=n,
                                   why='CommandTask und Anzeige behalten den Originalpfad; ohne geöffnete App bleibt die Analyse aus.')
                              for a, n in spans])

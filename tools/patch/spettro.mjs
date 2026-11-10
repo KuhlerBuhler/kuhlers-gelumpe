@@ -12,7 +12,7 @@ import { KEY_NAMES } from "../../data/script/names.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
 export async function buildSpettro(build = "hacktribe") {
-  if (build !== "hacktribe") throw new Error("Spettro currently supports only Hacktribe Sampler");
+  if (!["hacktribe", "stock"].includes(build)) throw new Error("Spettro currently supports only the red Sampler (Hacktribe or stock)");
   const source = await readFile(new URL("../../data/script/spettro.js", import.meta.url), "utf8");
   const plugin = compile(source, { name: "Spettro" });
   if (!plugin.ok) throw new Error(JSON.stringify(plugin.errors));
@@ -32,7 +32,8 @@ export async function buildSpettro(build = "hacktribe") {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const out = process.argv[process.argv.indexOf("--out") + 1];
   if (!process.argv.includes("--out") || !out) throw new Error("Use --out DIRECTORY for the generated patch and companion");
-  const result = await buildSpettro();
+  const build = process.argv.includes("--build") ? process.argv[process.argv.indexOf("--build") + 1] : "hacktribe";
+  const result = await buildSpettro(build);
   await mkdir(out, { recursive: true });
   await writeFile(path.join(out, "Spettro.patch.json"), JSON.stringify(result.patch, null, 2) + "\n");
   await writeFile(path.join(out, "Spettro.layout.json"), JSON.stringify(result.layout, null, 2) + "\n");

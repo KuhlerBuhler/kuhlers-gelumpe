@@ -18,12 +18,14 @@ const python = process.env.E2_EMU_PYTHON || (existsSync(venv) ? venv : "python3"
 const probe = spawnSync(python, ["-c", "import unicorn,numpy"], { encoding: "utf8" });
 const skip = probe.status === 0 ? false : "Python with Unicorn and NumPy is required for Spettro ARM checks";
 if (skip && process.env.E2_ARM_REQUIRED) throw new Error(skip);
-let cached;
-const built = () => cached ??= buildSpettro();
+const cached = {};
+const built = (build = "hacktribe") => cached[build] ??= buildSpettro(build);
+const baseBuild = process.env.E2_SPETTRO_BUILD || "hacktribe";
 
-test("Spettro derives its hooks from the current runtime and declares only Hacktribe support", { skip }, async () => {
-  const { patch, layout, blob } = await built();
-  assert.deepEqual(patch.builds, ["hacktribe"]);
+for (const build of ["hacktribe", "stock"])
+test(`Spettro derives its hooks from the current ${build} runtime and declares only that build`, { skip }, async () => {
+  const { patch, layout, blob } = await built(build);
+  assert.deepEqual(patch.builds, [build]);
   assert.deepEqual(patch.hooks.map(h => Number(h.site)), Object.values(SPETTRO_SITES));
   assert.equal(checkHooks([patch]).ok, true);
   assert.deepEqual(checkRam([patch]), []);
@@ -31,15 +33,17 @@ test("Spettro derives its hooks from the current runtime and declares only Hackt
   assert.ok(layout.codeAddress + layout.codeBytes <= 0xC014FE00);
   assert.ok(blob.length > 0);
   assert.equal(Buffer.from(blob.slice(36, 43)).toString(), "Spettro");
-  assert.ok(selectFor([patch], "stock").reasons.length);
-  await assert.rejects(buildSpettro("synth"), /only Hacktribe/);
+  assert.ok(selectFor([patch], build === "stock" ? "hacktribe" : "stock").reasons.length);
+  assert.ok(selectFor([patch], "synth").reasons.length);
+  await assert.rejects(buildSpettro("synth"), /only the red Sampler/);
 });
 
-test("Spettro never overlaps any current patch allocation except its two intended runtime instructions", { skip }, async () => {
-  const { patch } = await built();
+for (const build of ["hacktribe", "stock"])
+test(`Spettro on ${build} never overlaps any current patch allocation except its two intended runtime instructions`, { skip }, async () => {
+  const { patch } = await built(build);
   const set = JSON.parse(readFileSync(new URL("../data/patches/blech.json", import.meta.url))).patches
     .map(p => JSON.parse(readFileSync(path.join(root, p))));
-  const selected = selectFor(set, "hacktribe");
+  const selected = selectFor(set, build);
   assert.deepEqual(selected.reasons, []);
   const runtime = selected.patches.find(p => p.id === "script-runtime");
   assert.ok(runtime);
@@ -70,7 +74,7 @@ test("Spettro ARM stream, FFT and renderer match independent generated-signal re
 
 test("Spettro accepts its exact BLECH base and rejects a changed runtime", { skip: !process.env.E2_SPETTRO_BASE || skip }, async () => {
   const image = new Uint8Array(readFileSync(process.env.E2_SPETTRO_BASE));
-  const { patch } = await built();
+  const { patch } = await built(baseBuild);
   const result = await applyPatches(image, [patch]);
   assert.equal(result.ok, true, result.reasons?.join("\n"));
   const at = patch.changes.find(c => c.copy && c.over.length).file;
@@ -83,7 +87,7 @@ test("Spettro accepts its exact BLECH base and rejects a changed runtime", { ski
 });
 
 test("Spettro opens through the real plugin menu and preserves native controls", { skip: !process.env.E2_SPETTRO_BASE || skip, timeout: 180000 }, async () => {
-  const { patch, layout, blob } = await built();
+  const { patch, layout, blob } = await built(baseBuild);
   const result = await applyPatches(new Uint8Array(readFileSync(process.env.E2_SPETTRO_BASE)), [patch]);
   assert.equal(result.ok, true, result.reasons?.join("\n"));
   const folder = tempDir("gelumpe-spettro-");
