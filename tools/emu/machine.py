@@ -600,6 +600,8 @@ class Machine:
         if reg == 0x10:
             for (p, bit), level in self.inputs.items():
                 if p == pair: w = (w | bit) if level else (w & ~bit)
+            if pair == 2:                # GPIO 4.0, the lock switch of the card: high = write protected (the firmware's disk status, 0xC0016DB8)
+                w = (w | 1) if getattr(self.mmc.card, "write_protect", False) else (w & ~1)
             if pair == 3:                # GPIO 6.1, DSP handshake: toggles (assumption)
                 self.handshake ^= 2
                 w = (w & ~2) | self.handshake

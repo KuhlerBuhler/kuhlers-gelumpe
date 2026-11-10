@@ -470,7 +470,7 @@ class CardServiceTest(unittest.TestCase):
         self.assertEqual(self.request("POST", "/start", body=b"{}")[0].status, 200)
 
     def test_every_route_needs_the_token_the_page_origin_and_the_host(self):
-        for method, path in [("GET", "/sd"), ("POST", "/sd/insert"), ("POST", "/sd/eject"), ("POST", "/sd/open"), ("POST", "/sd/system")]:
+        for method, path in [("GET", "/sd"), ("POST", "/sd/insert"), ("POST", "/sd/eject"), ("POST", "/sd/card"), ("POST", "/sd/open"), ("POST", "/sd/system")]:
             self.assertEqual(self.request(method, path, token=None)[0].status, 401, (method, path))
             self.assertEqual(self.request(method, path, origin="https://example.com")[0].status, 403, (method, path))
             self.assertEqual(self.request(method, path, host="evil.example:80")[0].status, 403, (method, path))
@@ -560,6 +560,43 @@ class CardServiceTest(unittest.TestCase):
         self.assertTrue(os.access(self.card, os.W_OK))
         (self.card / "new.txt").write_text("x")
         self.assertEqual(self.request("GET", "/sd")[1]["inserted"], False)
+
+    def test_a_card_is_inserted_with_options_and_the_state_names_them(self):
+        self.boot()
+        r, body = self.request("POST", "/sd/insert", body=json.dumps({"kind": "sdsc", "writeProtect": True, "faults": [
+            {"kind": "read_crc", "lbas": {"from": 0, "to": 4}}]}).encode())
+        self.assertEqual((r.status, body["card"]["kind"], body["card"]["writeProtect"]), (200, "sdsc", True))
+        self.assertEqual(body["card"]["faults"][0]["lbas"], {"from": 0, "to": 4})
+        card = self.machines[0].card
+        self.assertEqual((card.kind, card.write_protect, len(card.faults)), ("sdsc", True, 1), "the machine has that card")
+        self.assertEqual(self.request("GET", "/sd")[1]["card"]["kind"], "sdsc")
+        self.assertIsNone(self.request("POST", "/sd/eject")[1]["card"])
+
+    def test_a_bad_option_is_refused_before_anything_is_inserted(self):
+        for bad in ({"kind": "mmc"}, {"writeProtect": 1}, {"faults": [{"kind": "melt"}]}, {"colour": "red"}, [1]):
+            r, body = self.request("POST", "/sd/insert", body=json.dumps(bad).encode())
+            self.assertEqual(r.status, 400, bad)
+        self.assertEqual(self.request("POST", "/sd/insert", body=b"{not json")[0].status, 400)
+        self.assertFalse(self.request("GET", "/sd")[1]["inserted"])
+
+    def test_the_lock_and_the_faults_change_on_the_card_that_stays_in(self):
+        self.boot()
+        self.assertEqual(self.request("POST", "/sd/card", body=b"{}")[0].status, 409, "no card in")
+        self.request("POST", "/sd/insert")
+        r, body = self.request("POST", "/sd/card", body=json.dumps({"writeProtect": True, "faults": [{"kind": "no_response", "cmds": [18]}]}).encode())
+        self.assertEqual((r.status, body["card"]["writeProtect"], body["card"]["faults"][0]["kind"]), (200, True, "no_response"))
+        self.assertEqual((self.machines[0].card.write_protect, len(self.machines[0].card.faults)), (True, 1))
+        self.assertEqual(self.request("POST", "/sd/card", body=json.dumps({"kind": "sdsc"}).encode())[0].status, 400, "a card keeps its kind")
+        r, body = self.request("POST", "/sd/card", body=json.dumps({"faults": []}).encode())
+        self.assertEqual((body["card"]["faults"], body["card"]["writeProtect"]), ([], True))
+
+    def test_a_restart_of_the_machine_keeps_the_options_of_the_card(self):
+        self.boot()
+        self.request("POST", "/sd/insert", body=json.dumps({"kind": "sdsc", "faults": [{"kind": "read_crc"}]}).encode())
+        self.request("POST", "/stop", body=b"{}")
+        self.assertEqual(self.request("POST", "/start", body=b"{}")[0].status, 200)
+        card = self.machines[-1].card
+        self.assertEqual((card.kind, [f.kind for f in card.faults]), ("sdsc", ["read_crc"]))
 
     def test_the_card_goes_into_the_machine_with_the_folder_as_its_files(self):
         (self.card / "KORG" / "hacktribe" / "Sample").joinpath("e2sSample.all").write_bytes(b"samples" * 1000)
