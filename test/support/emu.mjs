@@ -137,6 +137,13 @@ async function boot({ port, token, cards, stop: stopService }, vsbPath, { bootSe
           if (kind === "status") Object.assign(status, JSON.parse(data));
           if (kind === "display") display = Uint8Array.from(atob(JSON.parse(data)), c => c.charCodeAt(0));
           if (kind === "leds") { leds = JSON.parse(data); ledLog.push(leds); }
+          if (kind === "ledtrace") {
+            for (const [, , led, v] of JSON.parse(data).changes) {   // every change is a state the panel showed
+              leds = { ...leds, [led]: v };
+              if (!v) delete leds[led];
+              ledLog.push(leds);
+            }
+          }
           if (kind === "midi") {
             const hex = JSON.parse(data);
             midiPort.in.onmidimessage?.({ data: Uint8Array.from(hex.match(/../g), h => parseInt(h, 16)) });
@@ -175,7 +182,7 @@ async function boot({ port, token, cards, stop: stopService }, vsbPath, { bootSe
     screen: () => asciiDisplay(display),
     /** The 1024 display bytes as they came, for drawing a picture. */
     rawDisplay: () => display,
-    /** What the firmware last sent the panel for each LED (event leds), number to brightness. */
+    /** What the firmware last sent the panel for each LED (events leds and ledtrace), number to brightness. */
     leds: () => leds,
     /** How many LED states the service has published; pass it to `ledsSince` to ask what the LEDs did after this point. */
     ledMark: () => ledLog.length,

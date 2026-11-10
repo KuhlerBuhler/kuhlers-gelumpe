@@ -23,6 +23,7 @@ from pathlib import Path
 import devicetime
 import factorybank
 from firmware import HARDWARE_MARKS, SAMPLER_USER_MARK, identify
+from panel_leds import PanelLeds
 from sdcard import IRQ as MMC_IRQ, MMCController
 
 NS_PER_INSN = 5            # assumed: roughly 200 million instructions per second
@@ -300,6 +301,7 @@ class Machine:
         self.dsp_uploads = []      # device time in ms of every DSP program upload, i.e. every DSP boot
         self.dsp_mem = {INPUT_LEVEL: 0, INPUT_LEVEL + 2: 0}     # nothing plugged into the input
         self.leds, self.panel_log = {}, []
+        self.panel_leds = PanelLeds()   # every LED change with its device time (panel_leds.py)
         self.panel_count = 0       # messages to the panel; the running firmware sends LEDs ~265 per second
         self.fb = [[0] * 128 for _ in range(8)]
         self.lcd_page = self.lcd_col = 0
@@ -672,6 +674,7 @@ class Machine:
             rx.extend(bytes([0xA0]) + PANEL_ID[4:] + bytes([0xA1]) + PANEL_ID[:4])
         elif msg[0] == 0x00:
             self.leds[msg[1]] = msg[2]
+            self.panel_leds.message(self.time_ns + BYTE_NS[UART0], msg[1], msg[2])   # the last byte is out one byte time later
         if self.report_power and msg[0] != 0x80:
             # The power source follows the version handshake. Boot asks twice;
             # only the application, the second time, takes it in.
