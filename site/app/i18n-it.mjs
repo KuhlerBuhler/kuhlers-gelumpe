@@ -650,7 +650,7 @@ export default {
   "features.backup.text": "Scrivi impostazioni, plugin ed effetti come file sulla scheda, così hai una copia. Gli effetti solo sulla rossa.",
   "features.backup.how": "Menu -> DATA UTILITY -> EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS o EXPORT ALL EFFECTS.",
   "features.playPlugins.title": "Plugin per suonare dal catalogo",
-  "features.playPlugins.text": "Plugin pronti per suonare in altri modi: Gate Hold tiene ferma la nota in Gate Arp, Momentary Mute cambia i mute solo finché tieni premuto PART MUTE, altrimenti i pad suonano come in TRIGGER, Image Viewer mostra immagini dalla scheda. Step Copy copia gli step di una battuta in altre battute.",
+  "features.playPlugins.text": "Plugin pronti per suonare in altri modi: Gate Hold tiene ferma la nota in Gate Arp, Momentary Mute cambia i mute solo finché tieni premuto PART MUTE, altrimenti i pad suonano come in TRIGGER, BMP Viewer mostra immagini dalla scheda. Step Copy copia gli step di una battuta in altre battute.",
   "features.playPlugins.how": "Nell'app: BLECHTRIBE -> Plugins, scegli un plugin e mettilo sulla Electribe.",
   "features.projects.title": "Progetti",
   "features.projects.text": "Più progetti su una scheda: ognuno con i suoi pattern e sample, scelti e caricati sul dispositivo.",

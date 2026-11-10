@@ -651,7 +651,7 @@ export default {
   "features.backup.text": "Zapiš svá nastavení, pluginy a efekty jako soubory na kartu, aby byly zálohované. Efekty jen na červené.",
   "features.backup.how": "Menu -> DATA UTILITY -> EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS nebo EXPORT ALL EFFECTS.",
   "features.playPlugins.title": "Herní pluginy z katalogu",
-  "features.playPlugins.text": "Hotové pluginy pro víc možností hraní: Gate Hold drží notu v Gate Arp, Momentary Mute mění ztlumení jen při drženém PART MUTE, jinak pady hrají jako v TRIGGER, Image Viewer ukazuje obrázky z karty. Step Copy kopíruje kroky jednoho taktu do dalších taktů.",
+  "features.playPlugins.text": "Hotové pluginy pro víc možností hraní: Gate Hold drží notu v Gate Arp, Momentary Mute mění ztlumení jen při drženém PART MUTE, jinak pady hrají jako v TRIGGER, BMP Viewer ukazuje obrázky z karty. Step Copy kopíruje kroky jednoho taktu do dalších taktů.",
   "features.playPlugins.how": "V aplikaci: BLECHTRIBE -> Plugins, vyber plugin a nahraj ho do Electribe.",
   "features.projects.title": "Projekty",
   "features.projects.text": "Více projektů na jedné kartě: každý s vlastními patterny a samply, vybrané a načtené na přístroji.",
