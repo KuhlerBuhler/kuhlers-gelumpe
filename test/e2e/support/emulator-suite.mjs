@@ -590,6 +590,27 @@ export function emulatorSuite(index, parts) {
     assert.deepEqual(page.errors, []);
   });
 
+  test("emulator: the display takes the colour of the firmware's display light, without one the theme's colours", async () => {
+    const page = await runningPage();
+    fake.broadcast("display", Buffer.alloc(1024).toString("base64"));   // all pixels clear: the light shines through
+    const clear = () => pixel(page, 0, 0);
+    const shows = async (want, why) => {
+      await page.waitForFunction(w => { const d = document.querySelector("#cee-emu-lcd").getContext("2d").getImageData(0, 0, 1, 1).data; return d[0] === w[0] && d[1] === w[1] && d[2] === w[2]; }, want);
+      assert.deepEqual(await clear(), want, why);
+    };
+    await settle(300);
+    const theme = await clear();
+    fake.broadcast("backlight", [80, 0, 0]);                       // red at 5 of 16 (tools/emu/backlight.py)
+    await shows(theme.map((c, i) => Math.round(c * [80, 0, 0][i] / 255)), "a dimmer red");
+    fake.broadcast("backlight", [0, 255, 0]);
+    await shows(theme.map((c, i) => Math.round(c * [0, 255, 0][i] / 255)), "green");
+    fake.broadcast("backlight", [0, 0, 0]);
+    await shows([0, 0, 0], "the light off: dark");
+    fake.broadcast("backlight", null);
+    await shows(theme, "no light data: the theme's colours again");
+    assert.deepEqual(page.errors, []);
+  });
+
   test("emulator: REC, STOP and PLAY are symbols with a name, the keys below them are text", async () => {
     const page = await runningPage();
     for (const [id, name] of [["rec", "REC (Aufnahme)"], ["stop", "STOP"], ["play", "PLAY (Wiedergabe)"]]) {

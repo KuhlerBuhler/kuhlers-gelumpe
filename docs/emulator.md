@@ -316,6 +316,34 @@ Zeile für Zeile, 0 hell bis 15 dunkel). Das Ereignis `display` (1 Bit, `m.fb`)
 bleibt unverändert; die Seite zeichnet die Stufen zwischen den Farben
 `--cee-lcd-off` und `--cee-lcd-on`. Test: `test_lcd.py`.
 
+### Displaylicht
+
+Die Firmware treibt das Licht über drei GPIO-Pins, GPIO 6.3, 6.4 und 6.5 für
+Rot, Grün und Blau (BLECH-Menü BACKLIGHT, Plugins mit `korg.backlight` und
+`display.red/green/blue`; alles endet an diesen Pins). Stufe 0 oder 15
+ist ein fester Pin, eine Stufe dazwischen eine Software-PWM aus 16 Takten zu
+0,5 ms, also 8 ms je Periode (**offline**, 10.11.: Rot auf 5 steigt alle 8000 µs
+und bleibt 2500 µs an). Energiesparen lässt Rot und Grün abwechselnd je einmal
+in 27 ms aufleuchten. `backlight.py` rechnet je Pin den Anteil der Zeit, die er in
+seiner letzten vollen Periode an war (von steigender Flanke zu steigender Flanke),
+so wie das Auge den Mittelwert sieht; ein Pin, der sich 100 ms nicht ändert, ist
+fest an oder aus. Ausschalten macht das Licht dunkel.
+
+Der Dienst schickt das als Ereignis `backlight`, `[rot, grün, blau]` je 0 bis 255
+(Rot auf 5 von 16 ist `[80, 0, 0]`), bei jeder Änderung und beim Verbinden. Bevor
+die Firmware einen der Pins zum ersten Mal schreibt, und bei einer Maschine ohne
+Licht-Modell, ist es `null`. Die Seite multipliziert beide LCD-Farben je Kanal
+mit dem Licht: Weiß (Werkszustand) lässt die Theme-Farben, wie sie sind, ein
+gedimmtes Rot färbt die hellen Bildpunkte dunkelrot, Licht aus macht das ganze
+Display schwarz. Bei `null`, im Fake-Start ohne Firmware und beim Spiegeln eines
+echten Geräts bleiben die Theme-Farben. Ausgeschaltet blendet die Seite das
+Display ganz aus, dahinter liegt der dunkle Rahmen. Ob die Farben am Gerät genauso
+aussehen (LED-Farbort, Helligkeitskurve), ist **offen**: die Seite nimmt das
+Tastverhältnis linear. Tests: `test_backlight.py`, `test_server.py`
+(`test_streams_the_display_light_colour`), `test/lcd-shade.test.mjs`, die
+Emulator-Seite in `test/e2e/support/emulator-suite.mjs` und der Fall
+`look_backlight_colour_reaches_the_page` in `menu_cases.py` an der Firmware.
+
 ## Zeit und Takt
 
 Der Emulator rechnet 5 ns je Befehl. Eine Scheibe endet vor dem nächsten

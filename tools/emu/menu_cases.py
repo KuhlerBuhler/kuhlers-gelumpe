@@ -1464,16 +1464,20 @@ def look_cases(payload, flash=None, rest=True):
     # backlight: a level of 0 or 15 is a plain pin, a level between is a software PWM of 16 ticks
     mix = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     watch_pins(mix)
-    results, flags = {}, {}
+    results, flags, lights = {}, {}, {}
     for name, levels in (("green", (0, 15, 0)), ("red5", (5, 0, 0)), ("mix", (3, 8, 12)), ("one_of_16", (1, 14, 0))):
         set_look(mix, backlight=levels)
         mix.run(0.3)
         results[name] = duty(mix, 1.0)
         flags[name] = state(mix, S_BL_PWM)
+        lights[name] = mix.m.backlight.levels(mix.m.time_ns)   # what the emulator page draws the display in (backlight.py)
     near = lambda got, want: all(abs(got[k] - want[k]) <= 0.02 for k in "RGB")
     add("backlight_plain_pin", results["green"][0] == {"R": 0.0, "G": 1.0, "B": 0.0} and results["green"][1] == 0 and flags["green"] == 0 and flags["mix"] == 1, f"{results['green']}")
     add("backlight_pwm_duty", near(results["red5"][0], {"R": 5 / 16, "G": 0, "B": 0}) and near(results["mix"][0], {"R": 3 / 16, "G": 8 / 16, "B": 12 / 16})
         and near(results["one_of_16"][0], {"R": 1 / 16, "G": 14 / 16, "B": 0}), f"{results}")
+    drawn = lambda got, want: got is not None and all(abs(g - w * 255) <= 3 for g, w in zip(got, want))
+    add("backlight_colour_reaches_the_page", drawn(lights["green"], (0, 1, 0)) and drawn(lights["red5"], (5 / 16, 0, 0))
+        and drawn(lights["mix"], (3 / 16, 8 / 16, 12 / 16)) and drawn(lights["one_of_16"], (1 / 16, 14 / 16, 0)), f"{lights}")
     # power save: the firmware's own dimming, as without our patch (red and green for 2 of 18 ticks in turn, never blue)
     set_look(mix, backlight=(0, 0, 12))
     mix.call(POWER_CONNECT, 1)
@@ -1485,9 +1489,11 @@ def look_cases(payload, flash=None, rest=True):
     set_look(mix, backlight=(0, 0, 0))
     mix.run(0.3)
     stock = duty(mix, 1.0)
+    lights["stock"] = mix.m.backlight.levels(mix.m.time_ns)
     add("backlight_power_save_stays", abs(dimmed[0]["R"] - 0.037) < 0.02 and abs(dimmed[0]["G"] - 0.037) < 0.02 and dimmed[0]["B"] == 0 and not mix.m.asserts, f"{dimmed}")
     add("backlight_back_from_power_save", near(resumed[0], {"R": 0, "G": 0, "B": 12 / 16}), f"{resumed}")
-    add("backlight_zero_is_stock_white", stock[0] == {"R": 1.0, "G": 1.0, "B": 1.0} and stock[1] == 0 and state(mix, S_BL_PWM) == 0, f"{stock}")
+    add("backlight_zero_is_stock_white", stock[0] == {"R": 1.0, "G": 1.0, "B": 1.0} and stock[1] == 0 and state(mix, S_BL_PWM) == 0
+        and lights["stock"] == [255, 255, 255], f"{stock} {lights['stock']}")
     # INTENSITY scales every level and keeps the mix; POWER SAVE, DISPLAY LIGHT gives power save the colour at its own intensity
     # (device 18.10.), 1 to 15 lighting at 3 to 15 (device 19.10.: 1 was dark on battery)
     set_look(mix, backlight=(0, 0, 12))
