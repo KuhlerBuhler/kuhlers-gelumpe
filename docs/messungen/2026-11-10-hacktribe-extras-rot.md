@@ -16,9 +16,9 @@ Firmware: `hacktribe-2.02.VSB` (sha256 `7cb4825c...`), `korg-red-2.02.VSB` (`1d0
 | Teil | Hacktribe fügt hinzu | Urteil rot |
 |---|---|---|
 | Insert-Effekte | 11 Presets (39 bis 49) | **als Datenpatch machbar**, über `preset-tables` und `fx-append`, DSP-Strom im Emulator gleich wie Hacktribe |
-| Master-Effekte | keine neuen Plätze, 4 Werksplätze ersetzt | **als Datenpatch machbar**, die 4 als zusätzliche Plätze 33 bis 36 |
+| Master-Effekte | 4 Presets (bei Hacktribe auf Werksplätzen) | **als Datenpatch machbar**, angehängt als Plätze 33 bis 36, kein Werkspreset wird ersetzt |
 | Grooves | 37 neue (25 auf 62) | **braucht etwas ARM-Code** (Kopierhaken beim Start) oder Korg-Daten im Repo; kein DSP-Code |
-| Touch-Skalen | 35 neue (35 auf 70) | **als Datenpatch machbar**, mit zwei offenen Entscheidungen (Snap-Tabelle, RAM-Objekt je Skala) |
+| Touch-Skalen | 35 neue (35 auf 70) | **als Datenpatch machbar**: Korgs 35 bleiben unverändert, 35 neue angehängt; eigene Akkorde je neuer Skala brauchen je 3 Befehle ARM-Code |
 | Akkord-Sets (Nebenfund) | 2 neue (4 auf 6) | offen, nicht untersucht |
 
 Lizenz: Hacktribes Tabellen dürfen nicht kopiert werden (siehe unten). Jeder Port braucht eigene Daten aus einer
@@ -48,8 +48,14 @@ Feldtabelle wie bei `ht-osc`, nicht Hacktribes Bytes.
 | Vier Skalentabellen werden per Literal umgelenkt (Tabelle unten) | gemessen | Bytevergleich |
 | Die ersten 35 Einträge der Stufentabelle sind gleich; in der Snap-Tabelle ändert Hacktribe 126 der ersten 420 Byte (01 zu ff) | gemessen | Bytevergleich der Tabellen |
 | Hacktribes 35 neue Skalen zeigen alle auf Chromatics RAM-Objekt `0xC068C520` | gemessen | Zeigerliste `0xC0140000` |
+| Das RAM-Objekt je Skala ist die Akkordtabelle der Skala: 12 Byte (Methodentabelle, Zeilen, Varianten); jede Skala hat eine eigene Methodentabelle (`0xC00DD458` + 24 * Skala), deren dritte Methode `Basis + Zeile * 64` liefert; ein Eintrag ist 8 Byte: Akkordname, Flags, Notenzahl, Noten | gemessen (Bytes, Disassembly `0xC0054918`, `0xC0054888`, `0xC0056160`), hergeleitet (Rolle) | `obj.py`, `chord.py` |
+| Akkordnamen über Byte 0 eines Eintrags: Zeigerliste `0xC00DD3E0`, 22 Namen (leer, M7, add9, 7, M79, m, m7, m9, m7b5, 7sus4, dim, M7b5, dim7, 7b9, 9, drone, mM7, m79, sus4, aug, quintal, octave) | gemessen | Liste gelesen, Leser `0xC00548B0` |
+| Chromatic Zeile 1 Variante 1 spielt C# F G#, Ionian Zeile 1 Variante 1 spielt D F A mit Name m: Ionians Akkorde sind leitereigen, Chromatics stehen auf jedem Halbton | gemessen | Tabellen `0xC00E0708` (Chromatic), `0xC00DECE8` (Ionian) |
+| Zeilen und Varianten je Skala: Chromatic 12/8, Ionian 7/8, Raga 1 16/6, Octave 12/6 | gemessen | RAM nach dem Start |
+| Das Pattern-Byte 41 setzt die Variante (`u32(0xC00DECE4)` +0x314); gemessen 0 zu 0, 2 zu 2, 3 zu 4, 5 zu 6, 7 zu 6, auf rot und Hacktribe gleich; auf Hacktribe mit Skala 40 liefert der Getter `0xC0055364` Chromatics Objekt | gemessen | `chord.py`, Pattern angewendet |
+| Welcher Pad welche Zeile spielt | offen | nicht verfolgt |
 | Ein Pattern-Skalenbyte über 34 stürzt auf rot beim Anwenden bei `0xC0055BD0` ab (36 und 69 gemessen); 35, 50, 70 nicht, weil hinter der Zeigerliste zufällige Bytes stehen | gemessen | Emulator, je Wert neu gestartet |
-| Akkord-Sets: Grenze `0xC007CE34`/`38` 4 rot, 6 Hacktribe; Wert im Pattern Byte 41 (+0x2d) | gemessen (Grenze), hergeleitet (Byte) | Bytevergleich, Getter |
+| Akkord-Sets: Grenze `0xC007CE34`/`38` 4 rot, 6 Hacktribe; Wert im Pattern Byte 41 (+0x2d), der die Variante der Akkordtabelle setzt | gemessen | Bytevergleich, `chord.py` |
 | Rot hat im Set `blech.json` freien Platz `FF` von `0xC013C0B0` bis `0xC014F000` (0x12F50 Byte); kein Patch-`ram` liegt dort, `ht-osc` beginnt bei `0xC014F000` | gemessen | gebautes Set, `data/patch-ram.mjs` |
 | Im Hacktribe-Set liegen dort Hacktribes Tabellen, ein Port wäre nur rot (`notNeededOn` hacktribe) | hergeleitet | gleiche Adressen |
 | Blau: freier Platz `0xC01217F4` bis +0x2E40C; 35 Skalen, Namensliste `0xC00C3B08` (genutzt bei `0xC004B3B0`); GVST-Code bei `0xC0049134`; Groove-Grenze 24 | gemessen | Blau-Image, Disassembly |
@@ -58,7 +64,8 @@ Feldtabelle wie bei `ht-osc`, nicht Hacktribes Bytes.
 ## Insert- und Master-Effekte
 
 **Was Hacktribe hinzufügt.** 11 Insert-Presets auf 39 bis 49 (Namen oben), Menü 49. Beim Master keine neuen Plätze,
-Menü bleibt 32, vier Werkspresets sind ersetzt (Big Hall, Plate Reverb, Tap Delay Sync, Tube Drive). Gemessen.
+Menü bleibt 32, Hacktribe legt vier Presets auf Werksplätze (Big Hall, Plate Reverb, Tap Delay Sync, Tube Drive). Gemessen.
+Für blechtribe wird nichts ersetzt: die vier kommen hinten an, als Plätze 33 bis 36, alle 32 Werkspresets bleiben.
 
 **Code.** Nur Records. Die Bausteine darin (`I_mkp2_comp`, `M_hall_reverb`, `M_wet_plate_reverb` und die übrigen) sind
 in Korgs DSP-Strom vorhanden, der Strom ist in rot und Hacktribe gleich. Im Emulator schickt rot mit den 15 Records an
@@ -119,21 +126,45 @@ Zeichen gekürzt. Gemessen. Viele Namen stammen aus Ian Rings Skalenverzeichnis:
 | Stufen | `0xC00DCF70` | `0xC013EC00` | `0xC005423C` | 13 Byte je Skala: Anzahl und 12 Stufen; erste 35 gleich |
 | Snap | `0xC00DD148` | `0xC013F280` | `0xC0054508` | 12 vorzeichenbehaftete Byte je Skala; Hacktribe ändert 126 der ersten 420 |
 | Namen | `0xC00DD330` | `0xC013E000` | `0xC00545BC` | Zeigerliste, Namen bei Hacktribe ab `0xC013E400` |
-| RAM-Objekt je Skala | `0xC00DDB18` | `0xC0140000` | `0xC0055360`, `0xC005537C`, `0xC00553BC` | Zeiger nach `0xC068C4xx`; +8 klemmt die Länge, +0x314 |
+| Akkordobjekt je Skala | `0xC00DDB18` | `0xC0140000` | `0xC0055360`, `0xC005537C`, `0xC00553BC` | Zeiger nach `0xC068C4xx`; +8 Varianten, klemmt +0x314 |
 
-Gemessen. Der Skalenindex steht im Objekt `0xC068FB7C` +0x304, im Pattern Byte 40 (`data/map/pattern.mjs`
+Gemessen. Der Skalenindex steht im Objekt `0xC068BF7C` +0x304, im Pattern Byte 40 (`data/map/pattern.mjs`
 `pattern.scale`, Bereich [0,34]).
 
 **Was an der Anzahl hängt.** Menügrenze `0xC007CF24`/`28`, Setter `0xC004860C`/`10`, die vier Literale, und
 `pattern.scale` im Repo (Editor, Prüfungen). Ein Pattern mit Skala über 34 kann rot heute schon zum Absturz bringen
 (gemessen bei 36 und 69). Ein Hacktribe-Pattern mit neuer Skala ist auf rot also gefährlich, mit Port nicht mehr.
 
-**Entscheidungen, die offen sind.**
+**Snap-Tabelle (entschieden).** Hacktribe ändert auch die Snap-Richtung der 35 Werksskalen. Für blechtribe bleiben
+Korgs 35 Einträge unverändert, nur 35 neue werden angehängt.
 
-1. Snap-Tabelle: Hacktribe ändert auch die Snap-Richtung der 35 Werksskalen. Wer Hacktribes Tabelle übernimmt, ändert
-   das Spielgefühl der bestehenden Skalen. Vorschlag: Korgs 35 Einträge unverändert lassen, nur 35 neue anhängen. Offen.
-2. RAM-Objekt: Hacktribe gibt allen 35 neuen Skalen Chromatics Objekt. Was dieses Objekt steuert und ob eigene Objekte
-   nötig sind, ist nicht gemessen. Offen.
+**Akkordobjekt je Skala (gemessen).** Das RAM-Objekt ist die Akkordtabelle der Skala für das Akkordspiel auf den Pads:
+
+- Objekt 12 Byte: Zeiger auf eine eigene Methodentabelle, Anzahl Zeilen, Anzahl Varianten (8 oder 6). Gebaut beim
+  Start von `0xC00553C4`.
+- Die dritte Methode jeder Skala (z.B. `0xC0054918` für Chromatic) ist `ldr r0, =Basis; add r0, r0, r1, lsl #6; bx lr`:
+  64 Byte je Zeile, 8 Byte je Variante. Die Basis steht als Literal in der Methode, nicht im Objekt.
+- Ein Eintrag: Byte 0 Akkordname (22 Namen, M7 bis octave), Byte 1 Flags, Byte 2 Notenzahl, dahinter die Noten in
+  Halbtönen. Die Varianten einer Zeile wachsen von 2 auf bis zu 5 Noten.
+- Chromatic hat 12 Zeilen, je eine pro Halbton (Zeile 1: C# F G#). Ionian hat 7 leitereigene Zeilen (Zeile 1: D F A, m).
+- Die Variante (`u32(0xC00DECE4)` +0x314) setzt das Pattern-Byte 41 beim Anwenden, das ist das Akkord-Set unten.
+
+Folge für Hacktribes Weg (hergeleitet): die 35 neuen Skalen spielen im Akkordspiel Chromatics Akkorde, also Akkorde
+auf jedem Halbton, nicht die Akkorde der Skala. Skala, Snap und Namen sind davon nicht berührt, nur das Akkordspiel.
+Welcher Pad welche Zeile spielt, ist nicht verfolgt (offen).
+
+Drei Wege für blechtribe:
+
+1. Wie Hacktribe: alle neuen Skalen auf Chromatics Objekt. Reine Daten, Akkordspiel chromatisch. Gemessen, dass das auf
+   Hacktribe ohne Assert läuft.
+2. Jede neue Skala auf das Objekt einer Werksskala mit gleicher Stufenzahl. Reine Daten, aber die Akkorde passen nur,
+   wo die Stufen übereinstimmen. Hergeleitet, nicht gemessen.
+3. Eigene Akkordtabellen: je Skala ein Objekt (12 Byte), eine Methodentabelle (24 Byte, 3 Zeiger, zwei davon auf Korgs Methoden) und
+   eine eigene dritte Methode mit 3 Befehlen und Literal, dazu die Tabelle (Zeilen mal 64 Byte, bei 7 Zeilen 448 Byte).
+   Das sind 35 kleine Kopien von Korgs Methodenmuster, also ARM-Code, kein DSP-Code. Ob ein Objekt im Image ohne den
+   Aufbau beim Start reicht, ist offen. Die Akkorde selbst sind Musiklehre und frei schreibbar.
+
+Vorschlag: erst Weg 1 (verhält sich wie Hacktribe), eigene Akkorde als zweiter Schritt.
 
 **Was schon da ist.** Nichts. Intervalle und Namen der Skalen sind allgemeines Musikwissen und frei als Feldtabelle
 schreibbar (hergeleitet), die Snap-Werte müssten selbst bestimmt werden.
@@ -141,12 +172,13 @@ schreibbar (hergeleitet), die Snap-Werte müssten selbst bestimmt werden.
 **Blau.** 35 Skalen, Namensliste `0xC00C3B08`; Stufen-, Snap- und Objekttabelle auf blau nicht gesucht. Offen.
 
 **Urteil: als Datenpatch machbar**, im freien Gebiet `0xC013C0B0` bis `0xC014F000`, mit 4 Literalen und 2 Grenzen,
-sobald die zwei Entscheidungen oben gefallen sind.
+Korgs 35 Skalen unverändert. Leitereigene Akkorde für die neuen Skalen brauchen Weg 3, also etwas ARM-Code.
 
 ## Akkord-Sets (Nebenfund)
 
-Hacktribe hebt die Grenze der Akkord-Sets von 4 auf 6 (`0xC007CE34`/`38`, gemessen). Wo die Tabelle liegt und was die
-zwei neuen enthalten, ist nicht untersucht. Offen.
+Hacktribe hebt die Grenze der Akkord-Sets von 4 auf 6 (`0xC007CE34`/`38`, gemessen). Das Akkord-Set wählt die Variante
+in der Akkordtabelle der Skala (gemessen, siehe oben), die Tabellen haben 6 oder 8 Varianten. Die zwei neuen Sets
+wären also nur die Grenze, ohne neue Daten (hergeleitet). Wie Set 5 und 6 auf Skalen mit 6 Varianten wirken, ist offen.
 
 ## Lizenz
 
@@ -173,10 +205,12 @@ offen.
 - Grooves: Emulator (`splash_cases.Dev`), Groove-Byte im Part über das Objekt `u32(0xC0348910)`, Pattern anwenden mit
   `0xC004A8E4(u32(0xC0691334))`, Leser beim Abspielen protokolliert.
 - Skalen: Tabellen per Literal verglichen; Pattern-Skalenbyte gesetzt, Pattern angewendet, je Wert neu gestartet.
+- Akkordobjekte: nach dem Start alle 35 (rot) und 70 (Hacktribe) Objekte gelesen, Methoden disassembliert, Tabellen
+  über die dritte Methode gelesen; Pattern-Byte 40 und 41 gesetzt, Pattern angewendet, Variante und Getter gelesen.
 - Freier Platz: gebaute Sets `blech.json` (rot, Hacktribe) und `blech-synth.json` (blau), Lauf von `FF`.
 
 ## Offen am Gerät
 
 - Klang der 11 Inserts und 4 Master auf rot.
 - Ein Hacktribe-Pattern mit Groove über 24 und Skala über 34 auf rot ohne Port: was passiert am Gerät.
-- Snap-Verhalten der neuen Skalen mit Chromatics RAM-Objekt.
+- Akkordspiel der neuen Skalen mit Chromatics Akkordobjekt: welcher Pad welchen Akkord spielt.
