@@ -144,6 +144,7 @@ class Emulator:
         self.cards = cards
         self.flash_store = flash_store      # the flash file the device boots from and writes back to
         self.card = None                    # the SDCard of the running machine
+        self.card_raw = {}                  # the options (JSON) the inserted card was made with; a restart makes the card again from them
         self.card_folder = None             # KORG/<this>/ is where the loaded firmware keeps its files
         self.build, self.build_reason = None, None     # which build the loaded firmware is (firmware.py)
         self.hang_s = hang_s
@@ -225,14 +226,19 @@ class Emulator:
         card = self.card
         return bool(self.live and card is not None and card.medium.busy())
 
-    def insert_card(self, inserted):
+    def insert_card(self, inserted, options=None):
         """The card goes in or comes out, also while the Electribe runs: the firmware polls the card-detect
-        input (GPIO 4.1) and notices on its own. The change reaches the machine between two steps."""
+        input (GPIO 4.1) and notices on its own. The change reaches the machine between two steps. `options` (JSON,
+        SDCard.options) make it an old SDSC card, lock it, or arm faults; see docs/emulator.md."""
+        if inserted:
+            SDCard.options(options)         # a bad option is refused before anything is inserted
         with self.card_lock:
             if inserted:
                 self.cards.insert(self.card_folder)
-                self._card_change(lambda m: self._plug(m, SDCard(self.cards.image)))
+                self.card_raw = dict(options or {})
+                self._card_change(lambda m: self._plug(m, SDCard(self.cards.image, **SDCard.options(self.card_raw))))
             else:
+                self.card_raw = {}
                 self._card_change(lambda m: self._plug(m, None))
                 self.cards.eject()
         self.set_status(card=self.card_summary())
@@ -254,6 +260,22 @@ class Emulator:
         if not done.wait(timeout=5) and self.running:
             raise Conflict("Die Electribe hat die Karte nicht übernommen. Gleich noch einmal.")
 
+    def change_card(self, options):
+        """The lock switch and the armed faults of the card in the slot, changed while it stays there (a switch is
+        flipped on a real card too); "faults" replaces the list. The change reaches the machine between two steps."""
+        kwargs = SDCard.options(options, live=True)
+        with self.card_lock:
+            if not self.cards.inserted:
+                raise Conflict("Es ist keine Karte eingelegt.")
+            self.card_raw = {**self.card_raw, **options}
+
+            def apply(m):
+                card = self.card
+                if card is not None:
+                    for name, value in kwargs.items():
+                        setattr(card, name, value)
+            self._card_change(apply)
+
     def put_system(self, data):
         """The update file onto the card of the loaded firmware, and the card in: the way an update is tested.
         Other card folders are never touched: whoever wants the files of one firmware in the folder of another copies them."""
@@ -262,10 +284,11 @@ class Emulator:
         if len(data) != VSB_SIZE:
             raise ValueError(f"Eine VSB hat genau {VSB_SIZE} Byte, diese hat {len(data)}.")
         with self.card_lock:
+            options = self.card_raw
             if self.cards.inserted:
                 self.insert_card(False)
             self.cards.put_system(self.card_folder, data)
-            self.insert_card(True)
+            self.insert_card(True, options)
 
     def sd_state(self):
         c = self.cards
@@ -274,6 +297,7 @@ class Emulator:
         card = self.card if self.live else None
         return {"available": True, "folder": str(c.dir), "korg": self.card_folder or "hacktribe",
                 "inserted": c.inserted, "running": self.live, "busy": self.card_busy(), "error": c.sync_error,
+                "card": (card or SDCard(c.image, **SDCard.options(self.card_raw))).describe() if c.inserted else None,
                 "stats": {"read": card.sectors_read, "written": card.sectors_written} if card else None}
 
     def save_cards(self):
@@ -407,7 +431,7 @@ class Emulator:
             self.ran = (self.machine, self.firmware[0x100:])
             self.card = None
             if self.cards is not None and self.cards.inserted:
-                self.card = SDCard(self.cards.image)
+                self.card = SDCard(self.cards.image, **SDCard.options(self.card_raw))
                 self.machine.insert_card(self.card)
             self.machine.adapter = self.adapter
             self.inputs = queue.Queue()
@@ -697,9 +721,16 @@ def make_handler(emu, token, origins):
             if method == "GET" and path == "/sd":
                 return self._send(200, emu.sd_state())
             if method == "POST" and path in ("/sd/insert", "/sd/eject"):
-                if self._body(1024) is None:
+                body = self._body(65536)
+                if body is None:
                     return
-                emu.insert_card(path == "/sd/insert")
+                emu.insert_card(path == "/sd/insert", json.loads(body or b"{}") if path == "/sd/insert" else None)
+                return self._send(200, emu.sd_state())
+            if method == "POST" and path == "/sd/card":
+                body = self._body(65536)
+                if body is None:
+                    return
+                emu.change_card(json.loads(body or b"{}"))
                 return self._send(200, emu.sd_state())
             if method == "POST" and path == "/sd/system":
                 body = self._body(VSB_SIZE)

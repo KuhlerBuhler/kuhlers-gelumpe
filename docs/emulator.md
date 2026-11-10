@@ -35,10 +35,11 @@ Was er nicht ist:
   Firmwareversion; abweichende Funktionsergebnisse, Speicherfehler und
   ausbleibende Rückkehr führen zum Fehler. Das ist keine Freigabe für
   Gerätezugriffe.
-- **Nicht nachgebildet:** an der SD-Karte CRC, Schreibschutz, Fehlerfälle und
-  SDSC; bei USB ein Kabel; der Batteriestand (das Symbol zeigt immer das
-  Netzteil). Der Emulator steckt immer am Netzteil (Panel-Nachricht 7); nur beim
-  Ausschalten meldet er Batterie, weil die Firmware am Netzteil nicht ausgeht.
+- **Nicht nachgebildet:** an der SD-Karte Karten über 1 GiB und exFAT (CRC,
+  Schreibschutz, Fehlerfälle und SDSC siehe Virtuelle SD-Karte); bei USB ein Kabel;
+  der Batteriestand (das Symbol zeigt immer das Netzteil). Der Emulator steckt immer
+  am Netzteil (Panel-Nachricht 7); nur beim Ausschalten meldet er Batterie, weil die
+  Firmware am Netzteil nicht ausgeht.
 - Keine eingebauten Firmwaredaten und keine Hardwareverbindung. Der Emulator
   braucht keine Node-Laufzeit, nur Python. Was einige Fälle aus dem
   JavaScript des Repositorys brauchen (übersetzte Plugins, Feldlisten,
@@ -253,12 +254,76 @@ Firmware gerade) und in `status` die eingelegte Karte. Die Seite dazu ist
 `site/app/sdcard.mjs`: `sdcardPanel(root, emulator)`, ein Schalter "Karte
 einlegen", der Knopf "Öffnen" und eine kurze Statuszeile.
 
-Grenzen: Nicht nachgebildet sind CRC, Schreibschutz der Karte, Fehlerfälle der
-Karte und SDSC. Tempo: 64 Byte je Interrupt, rund 0,8 ms Gerätezeit je Sektor
-(etwa 640 KB/s); eine große `e2sSample.all` verlängert den Start entsprechend.
+Tempo: 64 Byte je Interrupt, rund 0,8 ms Gerätezeit je Sektor (etwa 640 KB/s,
+**geschätzt**); eine große `e2sSample.all` verlängert den Start entsprechend.
+Karten über 1 GiB und exFAT sind nicht nachgebildet. Was an Fehlerfällen
+nachgebildet ist, steht im nächsten Abschnitt.
+
+### Fehlerfälle der Karte
+
+Die Karte verhält sich wie eine echte, auch im Fehlerfall, damit sich das ohne
+Gerät testen lässt. Gewählt wird es beim Einlegen (`POST /sd/insert`, Körper
+JSON) oder an der eingelegten Karte (`POST /sd/card`, ersetzt `faults` und
+schaltet `writeProtect`, die Art bleibt); `GET /sd` nennt unter `card`, was
+gilt und wie oft ein Fehler getroffen hat. In Python: `SDCard(medium, kind=...,
+write_protect=..., never_ready=...)` und `card.fail(art, cmds=, lbas=, skip=,
+count=)`, `card.heal()`.
+
+| Option | Wirkung |
+|---|---|
+| `kind: "sdsc"` | alte Karte: keine Antwort auf CMD8, kein High-Capacity-Bit, CSD 1.0, Byteadressen |
+| `writeProtect` | Schreibschutzschalter, die Firmware liest ihn an GPIO 4.0 (hoch = geschützt) |
+| `neverReady` | das Hochfahren der Karte endet nie (ACMD41 bleibt busy) |
+| Fehler `no_response` | der Befehl bekommt keine Antwort |
+| `response_crc` | die Antwort kommt mit falscher CRC7 |
+| `read_timeout`, `read_error` | Antwort ja, Daten kommen nie (`read_error` meldet im nächsten R1 ECC_FAILED) |
+| `read_crc` | der Block kommt beschädigt, mit nicht passender CRC16 |
+| `write_crc`, `write_error` | die Karte lehnt den Block ab und speichert ihn nicht |
+
+`cmds` (Befehlsnummern) und `lbas` (Blöcke, als Liste oder `{"from","to"}`)
+grenzen einen Fehler ein, `skip` lässt die ersten Treffer durch, `count` begrenzt
+die Zahl der Treffer. CRC7 für Antworten und CRC16 für jeden Datenblock werden
+von der Karte gebildet und vom Controller geprüft; ein Fehler dreht ein Bit auf
+dem Weg.
+
+**Was die Firmware tut** (Emulator, Hacktribe, Korgs rot und BLECH darauf;
+`tools/emu/card_error_cases.py`, `test/emulator-card-errors.test.mjs`):
+
+| Fall | Firmware | Status |
+|---|---|---|
+| Lesen der Sampledatei bleibt ohne Antwort oder die Daten kommen nie, nach dem Einhängen | Kasten "Card Error" (Code 4), nach 8 bis 17 s; BLECH macht keine Ordner, schreibt nichts | gemessen |
+| Karte gesperrt, Start | kein Schreibbefehl, keine Ordner, das Gerät läuft normal | gemessen |
+| Karte gesperrt, EXPORT ALL PATTERN | Kasten "Card Write Protected" (Code 3) sofort, nichts geschrieben; mit Schalter aus schreibt derselbe Export | gemessen |
+| SDSC-Karte | hängt ein, liest und schreibt wie die SDHC (Byteadressen aus dem OCR abgeleitet), BLECH macht seine Ordner | gemessen |
+| Lesen mit falscher CRC | kein Kartenfehler: die Treiberfunktionen werten die CRC-Bits nie aus (`CRCRD`, `CRCWR`, `TOUTRD`), die Firmware arbeitet mit den beschädigten Bytes; bei der Sampledatei kommt später ihr eigener Fehler (Stock "Format Error", BLECH "bad WAV file") | gemessen, Treiber offline gelesen |
+| Schreiben mit falscher CRC oder abgelehnt | nichts im Treiber merkt es, FatFs findet die fehlenden Daten später: "Card Error" | gemessen |
+| Schreiben ohne Antwort | "Card Error" nach etwa 15 s | gemessen |
+
+Nur die Laufwerksfunktion der Firmware wertet das Schreibschutz-Pin aus
+(`disk_status` `0xC003FEB8` setzt STA_PROTECT, `chk_mounted` macht daraus
+FR_WRITE_PROTECTED; **offline gelesen**).
+
+**Modellannahmen** (nicht am Gerät gemessen):
+
+- Die Fehler-Bits stehen so im Controller: `TOUTRD`, `CRCRD` (am Ende des
+  Blocks, die Daten kommen trotzdem an), `CRCWR` (bei jedem Status-Token außer
+  "ok") und `CRCRS` (statt `RSPDNE`). Ob die echte Karte oder der AM1808 das so
+  meldet, ist offen. Die Firmware wertet `CRCRD` und `CRCWR` ohnehin nicht aus.
+- Zeitüberschreitungen melden sich sofort, nicht erst nach `MMCTOD`.
+- Die CRC16 ist eine über die 512 Byte; ein 4-Bit-Bus hat eine je Datenleitung.
+- Eine SDSC-Adresse, die kein ganzer Block ist, gibt ADDRESS_ERROR und keine Daten.
+- Ohne Antwort auf einen Lesebefehl **beim Einhängen** bleibt die Firmware im
+  Treiber stehen (Startbild). Das deckt sich mit der Rückmeldung vom 18.10.,
+  ist aber am Gerät nicht gemessen.
+
+**Offen:** Mit BLECH hängt der Start im Emulator bei einer Karte ohne
+Dateisystem (leere Karte ohne FAT) und bei einer Karte, die auf nichts
+antwortet; ohne BLECH (Hacktribe, Original) läuft das Gerät mit beiden weiter.
+Der erste Lesebefehl kommt, dann steht der Start. Nicht behoben, ein Fall im
+Ladebalken-Patch (Mounten wiederholen, `load_bar.py`) ist der erste Verdacht.
 
 Tests: `test_fat32.py` (FAT32-Schreiber und -Leser, mit `fsck_msdos` auf macOS),
-`test_sdcard.py` (Controller über die Register), `test_cardstore.py`
+`test_sdcard.py` (Controller über die Register, die Fehlerfälle), `test_cardstore.py`
 (Einlegen, Schutz, Übernahme in den Ordner, FAT16, Ordnername) und der Teil
 `CardServiceTest` in `test_server.py` laufen ohne Firmware in `npm test`.
 `test/emulator-card.test.mjs` fährt die ganze Strecke mit der Firmware
