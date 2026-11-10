@@ -160,6 +160,9 @@ export const CASES = [
   { id: "app", label: "rescue.case.app", hint: "rescue.case.app.hint" },
 ];
 
+/** The cases Blechy's field offers before anything is typed; the others come up while typing or under "show all". */
+export const FIRST_CASES = ["silent", "zero", "starts", "back"];
+
 /** Where the colour question leads, by the case that was picked: every case about the device asks the colour first, once. */
 const AFTER_COLOR = { silent: "silent", zero: "zero", prompt: "prompt", invalid: "invalid", nofile: "nofile", starts: "starts", samples: "samples", back: "back" };
 
@@ -174,6 +177,8 @@ export const FLOW = {
   start: {
     mood: "wave",
     say: ["rescue.say.start.1", "rescue.say.start.2", "rescue.say.start.3"],
+    // the answers come up under a text field as the person types (site/app/rescue.mjs), not as a wall of buttons
+    search: true,
     choices: CASES.map(c => ({ label: c.label, hint: c.hint, to: c.id === "app" ? "app" : "color", id: c.id, ...(c.id === "app" ? {} : { set: { case: c.id } }) })),
   },
   color: {

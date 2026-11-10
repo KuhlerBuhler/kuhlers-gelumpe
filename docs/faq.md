@@ -34,11 +34,11 @@ schiefgeht, geben diese Docs nicht.
 Ja. Korgs unveränderte Datei kommt wie ein normales Update zurück, die blaue mit BLECHTRIBE nimmt sie aus
 `KORG/blechtribe/System/`. Im Emulator schreibt das Update nur den Firmware-Bereich und danach ist der Flash byteweise wie vorher
 (**gemessen**, Emulator); am echten blauen Gerät ist der Weg noch **offen**. Läuft Hacktribe auf der blauen, braucht die Datei zwei
-geänderte Kopf-Bytes, die Seite Rettung macht sie. Schritt für Schritt: [Zurück zu Korgs Original](original-zurueck.md).
+geänderte Kopf-Bytes, die Seite Blechy macht sie. Schritt für Schritt: [Zurück zu Korgs Original](original-zurueck.md).
 
 ## Die Electribe sagt "Error, No File". Was ist falsch?
 
-Kurz: Name, Ordner oder der Ordner einer anderen Firmware. Die Seite [Rettung](rettung.md) im Editor geht es mit dir durch.
+Kurz: Name, Ordner oder der Ordner einer anderen Firmware. Die Seite Blechy im Editor ([Rettung](rettung.md)) geht es mit dir durch.
 
 - **Der Name ist genau `SYSTEM.VSB`.** Lädst du die Datei ein zweites Mal herunter, nennt der Browser sie oft
   `SYSTEM (1).VSB`. Umbenennen. Blendet der Rechner Endungen aus, wird daraus leicht `SYSTEM.VSB.VSB`.
@@ -60,7 +60,7 @@ Die Firmware hat eine Datei gefunden, die nicht zu ihr passt, und schreibt nicht
   halten und nimmt dann nur eine Sampler-Datei unter `KORG/electribe sampler/System/` (**hergeleitet**, ein Gerätefall
   im Discord, welcher Weg dort half, ist **offen**).
 - **Zurück zu Korgs blauer Firmware, während Hacktribe läuft:** Die Datei braucht zwei geänderte Kopf-Bytes, siehe
-  [Rettung](rettung.md#welche-datei-in-welchen-ordner). Die Seite Rettung macht die Datei aus deiner
+  [Rettung](rettung.md#welche-datei-in-welchen-ordner). Die Seite Blechy macht die Datei aus deiner
   Korg-Datei, siehe [Zurück zu Korgs Original](original-zurueck.md).
 
 ## Die App findet meine Electribe nicht
@@ -72,7 +72,7 @@ Die Firmware hat eine Datei gefunden, die nicht zu ihr passt, und schreibt nicht
 - **Gar keine Electribe im Bericht:** eingeschaltet, Datenkabel statt Ladekabel, anderer USB-Anschluss
   (**hergeleitet**).
 
-Die Rettung liest den MIDI-Bericht selbst und sagt, welcher Fall es ist.
+Blechy liest den MIDI-Bericht selbst und sagt, welcher Fall es ist.
 
 ## Mein Pattern-Export zeigt alte Patterns, oder es kommt nichts Neues auf die Karte
 

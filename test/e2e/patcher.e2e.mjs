@@ -304,7 +304,8 @@ test("patcher: patching, the emulator check, then the download and the guide", a
   // The Rettung page knows the folder of this copy when the Electribe says No File.
   await page.goto(`${page.url().split("#")[0]}#rescue`);
   const rescueAnswer = label => page.locator("#cee-rescue-answers:not([data-waiting]) button", { hasText: label }).first().click();
-  await rescueAnswer("Da steht Error und No File");
+  await page.fill("#cee-rescue-search", "no file");
+  await page.locator("#cee-rescue-suggest [role=option]", { hasText: "Da steht Error und No File" }).click();
   await rescueAnswer("Rot");
   await rescueAnswer("Im Menü bei SOFTWARE UPDATE");
   await page.locator("#cee-rescue-answers [data-known]").waitFor();
@@ -518,9 +519,9 @@ test("patcher: a failed emulator check leaves no download", async () => {
     // the page itself points at the Rettung page too, not only the toast
     assert.equal(await page.locator("#cee-patch-fail-help").isVisible(), true);
     assert.equal(await page.locator("#cee-patch-fail-rescue").getAttribute("href"), "#rescue");
-    // the toast's "Zur Rettung" opens the Rettung page at what a red rescue path means
+    // the toast's "Frag Blechy" opens the Blechy page at what a red rescue path means
     const red = page.locator("#app-toasts .cee-toast", { hasText: "Die Prüfung hat einen Fehler gefunden (Notschalter" });
-    assert.equal(await red.locator(".cee-toast-help").textContent(), "Zur Rettung");
+    assert.equal(await red.locator(".cee-toast-help").textContent(), "Frag Blechy");
     const message = await red.locator(".cee-toast-text").textContent();
     await red.locator(".cee-toast-help").click();
     await page.locator("#cee-rescue-quote").waitFor();
@@ -532,7 +533,8 @@ test("patcher: a failed emulator check leaves no download", async () => {
     assert.match(chat, /Nimm als Eingabe eine normale Firmware/);
     // asked from the start, Blechy knows which kind of red it was
     await page.click("#cee-rescue-again");
-    await page.locator("#cee-rescue-answers button", { hasText: "Sie läuft, aber die App hakt" }).click();
+    await page.fill("#cee-rescue-search", "app hakt");
+    await page.locator("#cee-rescue-suggest [role=option]", { hasText: "Sie läuft, aber die App hakt" }).click();
     await page.locator("#cee-rescue-answers button", { hasText: "Der Test im Patcher wird rot oder läuft nicht" }).click();
     await page.locator("#cee-rescue-answers [data-known]").waitFor();
     assert.match(await page.locator("#cee-rescue-answers [data-known]").textContent(), /Start oder ein Rettungsweg/);

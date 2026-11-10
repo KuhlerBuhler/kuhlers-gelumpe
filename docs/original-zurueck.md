@@ -27,12 +27,12 @@ mehr (anderer Code, Sampler-Firmware auf blauer Hardware), aber auch dort schrei
 
 ## Welche Firmware läuft gerade?
 
-Die Seite Rettung im Editor fragt das für dich: `Rettung -> Ich will zurück zu Korgs Original`. Von Hand:
+Die Seite Blechy im Editor fragt das für dich: `Blechy -> Ich will zurück zu Korgs Original`. Von Hand:
 
 - **Rot, BLECHTRIBE:** Korgs rote Datei (Sampler) in `KORG/blechtribe/System/`.
 - **Blau, BLECHTRIBE ohne Hacktribe** (im Patcher mit Korgs blauer Datei gebaut): Korgs blaue Datei, **unverändert**, in `KORG/blechtribe/System/`.
 - **Blau, Hacktribe oder BLECHTRIBE mit Hacktribe:** Korgs blaue Datei **mit Sampler-Kopf**, in `KORG/hacktribe/System/` (läuft Hacktribe) oder
-  `KORG/blechtribe/System/` (läuft BLECHTRIBE). Die Seite Rettung macht die Datei aus deiner eigenen von Korg.
+  `KORG/blechtribe/System/` (läuft BLECHTRIBE). Die Seite Blechy macht die Datei aus deiner eigenen von Korg.
 
 Weißt du nicht, welche läuft: BLECH zeigt sich im Menü (`Menü -> BLECH -> VERSION`); ohne dieses Menü läuft kein BLECH.
 
@@ -40,7 +40,7 @@ Weißt du nicht, welche läuft: BLECH zeigt sich im Menü (`Menü -> BLECH -> VE
 
 1. **Karte sichern.** Den ganzen Inhalt der SD-Karte auf den Rechner kopieren.
 2. **Korgs Firmware holen.** Bei Korg das System Update 2.02 für die Electribe (blau, nicht Sampler) laden, die Lizenz akzeptieren, die ZIP auspacken.
-   Du brauchst daraus die `SYSTEM.VSB`. Die App führt dich dorthin (Rettung), der Patcher zeigt denselben Link.
+   Du brauchst daraus die `SYSTEM.VSB`. Die App führt dich dorthin (Blechy), der Patcher zeigt denselben Link.
 3. **Auf die Karte.** Die Datei muss genau `SYSTEM.VSB` heißen (nicht `SYSTEM (1).VSB`) und in `KORG/blechtribe/System/` liegen, fehlende Ordner anlegen.
    Leg sie dort **allein** hin: Korgs Update fragt in diesem Ordner auch nach `BOOT.VSB`, `USER.VSB` und `PCM.VSB`; was dann passiert, ist nicht gemessen.
    In `KORG/electribe/System/` sucht eine laufende BLECH nicht, dort bekommst du "Error, No File".
@@ -53,14 +53,14 @@ Weißt du nicht, welche läuft: BLECH zeigt sich im Menü (`Menü -> BLECH -> VE
 
 ## Blaue mit Hacktribe
 
-Die Datei von Korg geht so nicht durch ("Invalid File"). Die Seite Rettung nimmt Korgs `SYSTEM.VSB` für die blaue, prüft sie gegen Korgs 2.02
+Die Datei von Korg geht so nicht durch ("Invalid File"). Die Seite Blechy nimmt Korgs `SYSTEM.VSB` für die blaue, prüft sie gegen Korgs 2.02
 (jede andere Datei wird abgelehnt), ändert genau die zwei Kopf-Bytes und speichert das Ergebnis als `SYSTEM.VSB`. Die Datei bleibt auf deinem
 Rechner. Dann Schritte 1 und 3 bis 6 von oben, mit dem Ordner der laufenden Firmware. Gemessen im Emulator
 ([Messung 26.10.](messungen/2026-10-26-blech-hacktribe-blau.md)), am Gerät **offen**.
 
 ## Wenn es hängt
 
-Fehlermeldungen und die Fälle "Startabfrage", "00" und "nichts" stehen in [Rettung](rettung.md) und im Editor unter Rettung.
+Fehlermeldungen und die Fälle "Startabfrage", "00" und "nichts" stehen in [Rettung](rettung.md) und im Editor bei Blechy.
 Der Bootloader bleibt unberührt, deshalb endet ein Update, das nicht durchläuft, in der Regel in der Startabfrage von Korgs Firmware und nicht
 im toten Gerät. Ganz ausschließen kann das niemand ([FAQ](faq.md)).
 
