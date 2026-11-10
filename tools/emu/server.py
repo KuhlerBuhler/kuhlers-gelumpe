@@ -162,6 +162,7 @@ class Emulator:
         self.lock = threading.Lock()
         self.card_lock = threading.RLock()  # starting the device and changing a card exclude each other
         self.clients = []
+        self.lagging = set()                # clients that lost an LED change: they get the whole table before the next one
         self.shade = None                   # the display levels last published, as the page gets them
         self.inputs = queue.Queue()
         self.midi_in = queue.Queue()
@@ -188,14 +189,21 @@ class Emulator:
         with self.lock:
             if q in self.clients:
                 self.clients.remove(q)
+            self.lagging.discard(q)
 
-    def publish(self, kind, data):
+    def publish(self, kind, data, table=None):
+        """An event to every page. A slow page skips frames; one that missed LED changes gets `table`, the whole LED table,
+        before the next ones, so it never shows a state the firmware did not send."""
         with self.lock:
             for q in self.clients:
                 try:
+                    if table is not None and q in self.lagging:
+                        q.put_nowait(("leds", table))
+                        self.lagging.discard(q)
                     q.put_nowait((kind, data))
                 except queue.Full:
-                    pass                      # a slow page skips frames
+                    if table is not None:
+                        self.lagging.add(q)
 
     def set_status(self, **changes):
         self.status = {**self.status, **changes}
@@ -511,9 +519,26 @@ class Emulator:
         self.midi_in.put(bytes(data))
         return True
 
+    def publish_trace(self, m, trace, seen):
+        """The LED changes since change `seen` as one event `ledtrace`, each with the device time in microseconds the panel got
+        it and the one it lights (panel_leds.lit_at), so the page can show them at the device's pace; nothing is merged or
+        dropped between two steps. Returns the last change sent."""
+        changes, lost = trace.since(seen)
+        if not changes:
+            return seen
+        table = {led: v for led, v in sorted(trace.value.items()) if v}
+        data = {"now": m.time_ns // 1000, "first": changes[0][0],
+                "changes": [[t // 1000, at // 1000, led, v] for _, t, at, led, v in changes]}
+        if lost:                                   # more changes in one step than the log keeps: the table first, then what is left
+            self.publish("leds", table)
+        self.publish("ledtrace", data, table)
+        return changes[-1][0]
+
     def _run(self, m):
         wall0, dev0 = time.monotonic(), m.time_ns
         last_fb, last_leds, last_report, report_ns = None, None, wall0, dev0
+        trace = getattr(m, "panel_leds", None)     # every LED change with its device time (panel_leds.py); a stand-in has only the table
+        led_seen = trace.count if trace is not None else 0
         status_ns = dev0
         alive_count, alive_ns = getattr(m, "panel_count", None), dev0
         last_sd = None
@@ -547,10 +572,13 @@ class Emulator:
                     last_fb = fb
                 if lcd.update(m.fb, m.time_ns, getattr(m, "lcd_reverse", False)):
                     self.publish_shade(lcd)
-                leds = sorted(m.leds.items())
-                if leds != last_leds:
-                    self.publish("leds", dict(leds))
-                    last_leds = leds
+                if trace is not None:
+                    led_seen = self.publish_trace(m, trace, led_seen)
+                else:
+                    leds = sorted(m.leds.items())
+                    if leds != last_leds:
+                        self.publish("leds", dict(leds))
+                        last_leds = leds
                 card = self.card
                 if card is not None:
                     sd = (card.sectors_read, card.sectors_written, bool(card.medium.busy()))
