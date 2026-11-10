@@ -59,11 +59,11 @@ lange halten.
 Dazu kommt Laden und Speichern der Backup-Dateien `.e2sallpat` ganz ohne Gerät.
 Patterns und Globals gehen über Korgs eigene Nachrichten und brauchen weder
 Hacktribe noch eine Firmware-Datei. RAM- und Firmware-Funktionen gibt es nur, wenn
-das Gerät eigene Befehle dafür kennt: BLECHs (`0x60` bis `0x63`, auch auf Korgs
+das Gerät eigene Befehle dafür kennt: BLECHTRIBEs (`0x60` bis `0x63`, auch auf Korgs
 Original) oder Hacktribes (`0x52` bis `0x57`). Ohne beide kommt Schweigen, darum wird
-bei der Gerätesuche zuerst BLECHs INFO gefragt, dann Hacktribes Lesen, und die
-Funktionen werden sonst ausgeblendet. Mit BLECH gehen auch Flash lesen (`0x64`) und Code
-ausführen (`0x6F`) über BLECH; die Firmware mit BLECH verwirft Hacktribes Befehle, außer nach
+bei der Gerätesuche zuerst BLECHTRIBEs INFO gefragt, dann Hacktribes Lesen, und die
+Funktionen werden sonst ausgeblendet. Mit BLECHTRIBE gehen auch Flash lesen (`0x64`) und Code
+ausführen (`0x6F`) über BLECHTRIBE; die Firmware mit BLECHTRIBE verwirft Hacktribes Befehle, außer nach
 EXIT beim Einschalten. Der Effekt-Editor braucht Hacktribes Preset-Tabellen, nicht nur das RAM.
 
 **Modulationsarten (Seite Modulationen).** Die Seite ändert Name, Vorgabe-Tiefe, Vorgabe-Speed,
@@ -196,12 +196,12 @@ hinzu. Messung: [Gerätesuche und Grenzen](messungen/2026-10-08-geraeteprotokoll
 
 Mit einem eigenen, getakteten ALSA-Sender wurden unter Linux bis zu 52.400
 MFX-Nutzbytes je RAM-Nachricht bestätigt. Über Hacktribes Befehle verwendet der Editor
-weiter konservativ 256 Byte. Über BLECHs Befehle ([Messung](messungen/2026-10-15-blech-sysex.md))
+weiter konservativ 256 Byte. Über BLECHTRIBEs Befehle ([Messung](messungen/2026-10-15-blech-sysex.md))
 sind es bis zu 4096 Byte je Schreib-Block und bis 32768 je Lese-Block, jeder mit
 CRC-32; der Sender bildet die Schritte des Plans (Adresse, dann Daten) auf einen Block
 ab, wiederholt einen Block mit falscher Prüfsumme zweimal und bricht dann mit der
 Meldung ab. Die Pläne, der Türsteher und die Aufzeichnungen bleiben dieselben für
-beide Wege. Auf Korgs Original mit BLECH erkennt `data/devices.mjs` das Gerät an eigenen
+beide Wege. Auf Korgs Original mit BLECHTRIBE erkennt `data/devices.mjs` das Gerät an eigenen
 Signaturen; Display und Sample-Namen sind dort schreibbar, der Effekt-Editor nicht. Das Linux-Werkzeug ist von der nativen App-Anbindung und vom Browser-Sender getrennt, siehe
 [tools/alsa-sysex.md](../tools/alsa-sysex.md).
 
@@ -246,7 +246,7 @@ Entscheidungen dabei:
   Ausführen.
   Das gilt auch für `ram.snapshot`, `ram.diff` und `ram.search` (Idee 11): ein Skript, das nur liest, ist
   probierbar und nicht sendbar.
-- **Tastendrücke** (`KORG.press`, `KORG.turn`) gehen mit dem BLECH-Satz über `KORG.exec` und damit auch ans
+- **Tastendrücke** (`KORG.press`, `KORG.turn`) gehen mit dem BLECHTRIBE-Satz über `KORG.exec` und damit auch ans
   Gerät ([Messung](messungen/2026-10-22-tasten-vom-rechner.md)); ohne ihn drückt `KORG.press` nur im Emulator.
   Ab 1.3.8 gehen so auch Regler, Pads, Touchpad, gehaltene Tasten und der Test-Modus (`KORG.knob`, `KORG.pad`,
   `KORG.touch`, `KORG.hold`, `KORG.testMode`, [Test-Modus](test-modus.md)).
@@ -263,7 +263,7 @@ leeren, Ausführen und Zurückschreiben als eine Einheit, so wie
 `tools/device/led_show.py` es von Hand macht: Firmware-Code, den der Stub aufruft,
 wird vorher gegen die Firmware-Datei verglichen, die Bytes unter dem Stub werden
 gesichert, der Stub wird geschrieben und zurückgelesen, dann Execute `0x57` auf die
-Cache-Routine und auf den Stub, danach kommen die Originalbytes zurück. Mit BLECH geht
+Cache-Routine und auf den Stub, danach kommen die Originalbytes zurück. Mit BLECHTRIBE geht
 das als EXEC `0x6F` auf den Stub, das den Cache selbst leert; die Firmware führt es nur im
 Stub-Puffer aus. Der Stub muss
 mit r0 = 1 zurückkehren, sonst kommt keine Bestätigung. Der Türsteher lässt Ausführen
@@ -317,9 +317,9 @@ diese Stufe wird getestet (`test/live.test.mjs` in Node, `test/e2e/` im Browser)
 | Step mit "An" ohne "Trigger" | Warnung | Linter |
 | keine Antwort innerhalb der Wartezeit | | Sender |
 | Zurückgelesen passt nicht | | Sender |
-| BLECH-Block mit falscher Prüfsumme, auch nach drei Versuchen | `crc` | Sender |
-| BLECH verweigert den Zugriff (Schutzliste der Firmware) | `protected`, mit dem Status des Geräts | Gerät, Sender |
-| BLECH liest nach dem Kopieren etwas anderes zurück | `verify` | Gerät, Sender |
+| BLECHTRIBE-Block mit falscher Prüfsumme, auch nach drei Versuchen | `crc` | Sender |
+| BLECHTRIBE verweigert den Zugriff (Schutzliste der Firmware) | `protected`, mit dem Status des Geräts | Gerät, Sender |
+| BLECHTRIBE liest nach dem Kopieren etwas anderes zurück | `verify` | Gerät, Sender |
 | Gerät mitten in einer Sendung abgezogen | | Sender |
 | Global-Dump mit falscher Länge oder falschem Rahmen | | Probelauf |
 

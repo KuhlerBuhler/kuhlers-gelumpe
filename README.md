@@ -136,7 +136,7 @@ Danach zeigt dir die Seite, wie du die Datei aufs Gerät bekommst. Alle Patches 
 [docs/patcher.md](docs/patcher.md). Wer ohne App patchen will, nimmt `BLECH.patch` oder die passende
 `.bsdiff`-Datei aus dem Release, das steht da auch.
 
-Was BLECH auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
+Was BLECHTRIBE auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
 LEDs, Patternwechsel erst nach Bestätigung, Sync-Gruppen, TAP Motion, den Notenassistenten im KEYBOARD-Modus, KEYBOARD + Pad setzt den KEY, SHIFT + Filtertaste schaltet das Filter aus und an, einen
 Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
 zurück, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
@@ -156,7 +156,7 @@ ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann
 ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.
 
 Warum das Ganze? Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr
-drin, als Korg jemals rausgeholt hat. Mit BLECH hab ich mir praktisch die Electribe 3 gebaut, die es
+drin, als Korg jemals rausgeholt hat. Mit BLECHTRIBE hab ich mir praktisch die Electribe 3 gebaut, die es
 nie gab.
 
 Wenn dir das was bringt, freu ich mich über eine [Spende per PayPal](https://www.paypal.me/kuhlerbuhler).
@@ -170,14 +170,14 @@ blauen Synth (Korgs Original). Du kannst
 - die Firmware deiner Electribe im **Emulator** starten und bedienen, mit Display, Tasten, Reglern
   und LEDs, ohne dass irgendwas an dein Gerät geht,
 - deine `SYSTEM.VSB` **patchen** und daraus eine neue Firmware-Datei für die SD-Karte machen
-  (BLECH, eigenes Startbild, zweiter Master-Effekt und einiges mehr),
+  (BLECHTRIBE, eigenes Startbild, zweiter Master-Effekt und einiges mehr),
 - **Plugins** schreiben, die direkt auf der Electribe laufen, zum Beispiel ein Lauflicht, ein Spiel
   auf dem Display oder eine eigene Menüseite, oder fertige aus dem Katalog nehmen. Sie liegen auf der
   Karte im Ordner `KORG/blechtribe/Plugin/` (Einzahl, nicht "Plugins"), bei der roten wie bei der blauen
   Electribe. Mit verbundenem Gerät schickt sie der Knopf "Aufs Gerät" per USB dorthin,
 - im **Baukasten** eigene Effekte und Modulationen bauen, mit echten Einheiten statt Bytes, und sie
   als `.e2fx`-Datei weitergeben oder als eine Datei für die Karte exportieren. Eine `.e2fx` öffnest du
-  unter BLECHTRIBE -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", mit geladener Firmware auch unter
+  unter BLECH -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", mit geladener Firmware auch unter
   BLECHTRIBE -> Presets -> "Preset-Datei laden",
 - Patterns bearbeiten und per Web MIDI ans Gerät schicken.
 
@@ -308,7 +308,7 @@ Ein falscher Schreibzugriff oder eine fehlerhafte Firmware kann das Gerät häng
 - **Wenn das Gerät nicht mehr startet:** die Seite "Rettung" im Editor fragt, was du siehst, und führt
   dich den dokumentierten Weg zurück. Der Bootloader bleibt tabu, dahinter
   hilft nur JTAG ([docs/rettung.md](docs/rettung.md)).
-- **Selbst testen:** die [Gerätetests](docs/geraetetests/README.md) beschreiben, wie du BLECH und die
+- **Selbst testen:** die [Gerätetests](docs/geraetetests/README.md) beschreiben, wie du BLECHTRIBE und die
   Kartenfunktionen an deinem Gerät nachvollziehst, mit Warnung, Voraussetzungen, Sicherung und
   Rückweg.
 

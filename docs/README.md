@@ -17,9 +17,9 @@ gelesen), **hergeleitet**, **offen**.
 | [doom-lizenz.md](doom-lizenz.md) | Doom auf der Karte: Teile, Lizenzen, warum AGPL und GPL zusammenpassen, was noch zur Weitergabe fehlt |
 | [original-zurueck.md](original-zurueck.md) | Zurück zu Korgs Original (BLECHTRIBE oder Hacktribe wieder runter), Schritt für Schritt, rot und blau ([English](original-zurueck.en.md)) |
 | [rettung.md](rettung.md) | Die Seite Rettung: der dokumentierte Weg zurück, Ordner je Firmware, das Stoppschild |
-| [patcher.md](patcher.md) | Die Firmware patchen: Patchformat, Haken, Regeln, Notschalter, BLECH-Patchdatei ([English](patcher.en.md)) |
+| [patcher.md](patcher.md) | Die Firmware patchen: Patchformat, Haken, Regeln, Notschalter, BLECHTRIBE-Patchdatei ([English](patcher.en.md)) |
 | [emulator.md](emulator.md) | Der Emulator: Installation, Dienst, Karte und Flash, Boot, Prüfläufe |
-| [geraetetests/](geraetetests/README.md) | Anleitungen, um BLECH und die Kartenfunktionen an einem eigenen Gerät zu testen |
+| [geraetetests/](geraetetests/README.md) | Anleitungen, um BLECHTRIBE und die Kartenfunktionen an einem eigenen Gerät zu testen |
 
 ## Wie es gebaut ist
 

@@ -239,7 +239,7 @@ test("patcher: an older BLECH on Hacktribe that the app does not know names the 
   const some = await applyPatches(await makeFirmware(), patches.slice(0, 3));
   assert.equal(some.ok, true, some.reasons.join(" "));
   await drop(page, some.bytes);
-  const toast = page.locator("#app-toasts .cee-toast", { hasText: "BLECH vor 1.3.3 auf Hacktribe lässt sich nicht aktualisieren" });
+  const toast = page.locator("#app-toasts .cee-toast", { hasText: "BLECHTRIBE vor 1.3.3 auf Hacktribe lässt sich nicht aktualisieren" });
   await toast.waitFor();
   assert.match(await toast.textContent(), /SHA-256 beginnt mit 7cb4825c\b.*hacktribe-2\.patch/);
   assert.equal(await page.isDisabled("#cee-patch-next"), true, "nothing is patched over it");
