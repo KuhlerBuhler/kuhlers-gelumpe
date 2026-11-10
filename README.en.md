@@ -60,7 +60,8 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Extra Hacktribe MFX, IFX, grooves and scales | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Import/export effects and grooves through Hacktribe menus | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Custom INIT pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Hacktribe MIDI extensions | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Hacktribe SysEx (for the Hacktribe editor) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Own USB commands for the app (RAM, card, plugins) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Use the red sampler's unchanged factory sample bank | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
 | Custom start image, fonts and shutdown image | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Loading animation with progress | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
