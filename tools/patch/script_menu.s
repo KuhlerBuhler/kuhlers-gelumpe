@@ -73,7 +73,7 @@
 .equ M_KP, 0x104              ; the page KEY PADS, 1 on (the default), 0 off (script_shortcuts.s reads it); bit 4 of byte 5 of the settings file is OFF
 .equ M_FT, 0x1C0              ; the page FILTER TOGGLE, 1 on (the default), 0 off (script_shortcuts.s reads it); bit 5 of byte 5 of the settings file is OFF
 .equ M_SNAP, 0x1F8            ; AUTO SAVE: the checksum of the settings (menu_settings_crc) when the BLECH screen was entered or last written
-.equ M_AS, 0x1FC              ; the page AUTO SAVE, 1 on (the default), 0 off; bit 6 of byte 5 of the settings file is OFF
+.equ M_AS, 0x1FC              ; the page AUTO SAVE, 1 on (the default), 0 off; bit 7 of byte 5 of the settings file is OFF
 .equ GLOBAL_LIVE, 0xC033E6A0  ; -> the Global object, the 0x100 bytes of the Global values at +4
 .equ GLOBAL_SAVED, 0xC08A2940 ; the firmware's copy of the Global values as the flash holds them (after the start and after each save)
 .equ POST_COMMAND, 0xC002D5D8 ; (command, 0, 0): posts to the firmware's command task; 0xB is the Global save WRITE posts on GLOBAL PARAMETERS
