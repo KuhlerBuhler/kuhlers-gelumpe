@@ -815,7 +815,7 @@ export function rescueSuite(index, parts) {
     for (const viewport of [{ width: 1280, height: 640 }, { width: 390, height: 844 }]) {
       const page = await open(viewport);
       await page.emulateMedia({ reducedMotion: "reduce" });
-      await page.click("#cee-rescue-case-samples");
+      await answer(page, label("samples"));
       await settle(page);
       for (const text of [DEVICES.red.title, "Ja, Hacktribe ist oder war drauf", "BLECHTRIBE", "Die Datei ist fertig", "Habe ich selbst geprüft"]) {
         await answer(page, text);
