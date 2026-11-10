@@ -124,7 +124,11 @@ const ART = {
   },
   colors: p => {
     p.text("PAD COLOR", 4, 6, { s: 2 });
-    pads(p, i => [RED, RED, RED, RED, BLUE, BLUE, BLUE, PINK, RED, RED, PINK, PINK, BLUE, BLUE, BLUE, PINK][i]);
+    // the colours the BLECH menu offers for pads and LEDs, the last pad of each row shows RAINBOW
+    const choice = ["#ffffff", RED, "#4bff6a", BLUE, "#ffe14b", "#4bf2ff", PINK];
+    pads(p, i => choice[(i % 8 + (i < 8 ? 0 : 3)) % 7]);
+    const rainbow = [RED, "#ffe14b", "#4bff6a", "#4bf2ff", BLUE, PINK];
+    for (const y of [26, 42]) for (let c = 0; c < 12; c++) p.fill(111 + c, y, 1, 12, rainbow[Math.floor(c / 2)]);
   },
   "note-assist": p => {
     p.text("KEYBOARD", 4, 8);
