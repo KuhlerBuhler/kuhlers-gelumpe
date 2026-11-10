@@ -207,6 +207,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Doom auf BLECH v21](2026-10-15-doom-v21.md)
 - [Doom als Patch des BLECH-Satzes, auf Hacktribe und Korgs Original](2026-10-15-doom-im-patcher.md)
 - [Emulator-Zeit gegen Gerätezeit: vier kleine Schleifen, Rechnen 1,0, Speicher-Durchlauf rund 4](2026-10-16-emulator-timing.md)
+- [Gerätetakt im Emulator: Cache und Multiply in der laufenden Zeit, Stichprobe je Scheibe, VM und Nachläufe von 1.4.5 nachgerechnet](2026-11-10-emulator-geraetetakt.md)
 
 - [Blaue Electribe: Ladebalken, Kartenordner und Sample-Fehler](2026-10-16-blau-ladebalken-ordner.md)
 - [BLECH-Satz für die blaue Electribe 2](2026-10-16-blech-synth.md)
