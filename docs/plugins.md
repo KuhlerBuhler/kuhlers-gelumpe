@@ -1398,13 +1398,18 @@ kennt COPY PART (Part Util 1/4) und CLEAR SEQUENCE, aber kein Kopieren eines Tak
 (`test/script-step-copy.test.mjs`) und im Emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, rot, blau) geprüft,
 am Gerät nicht.
 
+**303Pattern** (von Crank, aus dem BLECH-Discord) ist eine App unter TOOLS. Sie erzeugt aus einer von 14 Skalen ein zufälliges
+16-Schritt-Pattern mit Accent-, Slide- und Tie-Steps (der Algorithmus des Pattern303 VST), leuchtet die Pads der Steps mit Note
+und schreibt das Pattern in den Sequencer. Steps lassen sich sperren, ein neues Pattern lässt sie dann in Ruhe; der Regler setzt
+die Gate-Länge, ein Menü in der App hält Skala, Grundton, Dichte, Slide, Tie und Accent. Im Simulator durch Kompilieren geprüft, nicht am Gerät.
+
 ## Die Seite Plugins im Editor
 
 Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokumentation. Der Titel in der
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold und Step Copy, Quelle
+und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold, Step Copy und 303Pattern (TOOLS), Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem

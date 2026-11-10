@@ -1220,13 +1220,18 @@ Stock firmware: the page list measured in this project ([key combinations](taste
 (`test/script-step-copy.test.mjs`) and in the emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, red, blue), not on
 the device.
 
+**303Pattern** (by Crank, from the BLECH Discord) is an app under TOOLS. It makes a random 16 step pattern from one of 14 scales
+with accent, slide and tie steps (the algorithm of the Pattern303 VST), lights the pads of the steps with a note and writes
+the pattern into the sequencer. Steps can be locked, so a new pattern leaves them alone; the knob sets the gate length, an
+in-app menu holds scale, root, density, slide, tie and accent. Checked in the simulator by compiling, not on the device.
+
 ## The Plugins page in the editor
 
 The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold and Step Copy; source
+and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold, Step Copy and 303Pattern (TOOLS); source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
