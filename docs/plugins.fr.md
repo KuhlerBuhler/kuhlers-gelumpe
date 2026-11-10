@@ -219,7 +219,7 @@ est interdite dans le corps.
 **Valeurs de pattern** (`korg.pattern.current.…`, `korg.current.…`, `korg.patterns[i].…`) :
 `tempo` en dixièmes de BPM, `swing` de -48 à 48, `length` de 1 à 4 mesures, `beat`
 (0 doubles croches, 1 triples croches, 2 triolets de croches, 3 triolets de doubles croches,
-4 croches avec BLECH), `key` de 0 C à 11 B, `scale`, `chordSet`, `level`, `mfxType`,
+4 croches avec BLECHTRIBE), `key` de 0 C à 11 B, `scale`, `chordSet`, `level`, `mfxType`,
 `chainTo` (0 à 249, -1 sans enchaînement), `chainRepeat` (au moins 1), `gateArp` (page GATE ARP,
 0 désactivé), `syncGroup` (0 désactivé, 1 à 999, depuis l’API 21). Depuis l’API 24 :
 `alternate1314`, `alternate1516`, `mfxHold` (1 activé), `mfxPadX`, `mfxPadY`
@@ -264,7 +264,7 @@ Les actions restent des appels : dessiner, appuyer sur PLAY, inscrire une applic
 
 ### Arbre d’objets de l’Electribe (API 10, BLECHTRIBE 1.3.8)
 
-Depuis l’API 10, les réglages de l’Electribe et de BLECH sont accessibles par des chemins.
+Depuis l’API 10, les réglages de l’Electribe et de BLECHTRIBE sont accessibles par des chemins.
 Le compilateur traduit chaque lecture ou écriture en `korg.get` ou `korg.set`, avec le numéro
 de la feuille : la longueur du nom ne coûte rien sur l’appareil. Le bloc exige l’API 10
 et est refusé par un ancien firmware.
@@ -341,7 +341,7 @@ korg.onEvent("close", () => {
 });
 ```
 
-**Pages de BLECH, API 17.** Toutes les pages de CUSTOMIZATION et FEATURES ont une feuille,
+**Pages de BLECHTRIBE, API 17.** Toutes les pages de CUSTOMIZATION et FEATURES ont une feuille,
 ainsi que SET INIT PATTERN dans DATA UTILITY. Une telle feuille exige l’API 17. L’écriture
 appelle la fonction d’application de la page : réglages d’apparence pour l’écran, le rétroéclairage
 et les LED ; patch des couleurs de pads pour PAD COLOR, SELECT COLOR, OVERLAP et LED DIMMING ;
@@ -387,7 +387,7 @@ Voir le [mode de test](test-modus.md), en allemand.
 possède une feuille en camelCase, avec les valeurs stockées par le firmware :
 `korg.global.midiChannel` de 0 à 15 représente les canaux 1 à 16. Les bornes sont celles
 du menu. Les marqueurs de début et de fin, octets inchangés par les menus et emplacements
-247 à 249 utilisés par BLECH sont exclus. Nommer une feuille exige l’API 20.
+247 à 249 utilisés par BLECHTRIBE sont exclus. Nommer une feuille exige l’API 20.
 
 L’écriture appelle la même fonction que la rotation sur la page correspondante : octet,
 moteur audio, affichage et MIDI sont mis à jour ; `tempoLock` réapplique ensuite le tempo.
@@ -542,7 +542,7 @@ La colonne d’autorisation s’applique aussi à la syntaxe de propriété équ
 | `korg.keyHold(key, on)` | 1 bloque le bouton 0 à 33 pour le firmware même sans application ouverte, en conservant les événements du plugin. 0 libère seulement sa propre retenue ; les autres plugins peuvent maintenir la leur. Le relâchement suit l’appui. Retenir EXIT termine le plugin avec une erreur pour garder les applications fermables. Depuis l’API 19, modifie un bit du masque propre au plugin, `korg.keyMask`. Agit hors BLECH. Mesuré dans l’émulateur sur les trois firmwares, pas sur l’appareil. Depuis l’API 15 | Comme `korg.led` |
 | `korg.pressKey(key)` | Courte pression du bouton 0 à 33 : appui dans la file du panneau immédiatement, relâchement à la trame suivante. Un marqueur contourne réaffectation, `korg.keyHold`, application et plugins ; aucun plugin ne reçoit `buttonPress`. Une seconde pression avant le relâchement ou une file pleine perd la demande. EXIT ferme d’abord l’application, puis atteint le firmware. PLAY et STOP vérifiés dans l’émulateur sur les trois firmwares ; pas sur l’appareil. Depuis l’API 15 | Comme `korg.led` |
 | `korg.keyMask(low, high)` | Remplace le masque propre au plugin : bit n de low pour le bouton n, 0 à 31, par exemple `1 << korg.key.PLAY` ; bit n de high pour 32+n, high de 0 à 3. Retient les boutons définis, libère les autres sans modifier les autres plugins. Les événements continuent. EXIT dans le masque termine le plugin avec une erreur. Conflits détaillés ci-dessous. Mesuré dans l’émulateur sur les trois firmwares, pas sur l’appareil. Depuis l’API 19 | Comme `korg.led` |
-| `korg.keyDown(key)` | Presse le bouton 0 à 33 jusqu’à `korg.keyUp`, permettant appui long et combinaison SHIFT. Le message normal du panneau contourne réaffectation, `korg.keyHold`, `korg.passKeys`, application, raccourcis BLECH et plugins ; aucun `buttonPress` propre. Une seconde demande du même bouton n’envoie rien. EXIT ferme d’abord l’application, puis atteint le firmware. Voir la section sur les gestes physiques. Mesuré dans l’émulateur sur les trois firmwares, pas sur l’appareil. Depuis l’API 25 | Comme `korg.led` |
+| `korg.keyDown(key)` | Presse le bouton 0 à 33 jusqu’à `korg.keyUp`, permettant appui long et combinaison SHIFT. Le message normal du panneau contourne réaffectation, `korg.keyHold`, `korg.passKeys`, application, raccourcis de BLECHTRIBE et plugins ; aucun `buttonPress` propre. Une seconde demande du même bouton n’envoie rien. EXIT ferme d’abord l’application, puis atteint le firmware. Voir la section sur les gestes physiques. Mesuré dans l’émulateur sur les trois firmwares, pas sur l’appareil. Depuis l’API 25 | Comme `korg.led` |
 | `korg.keyUp(key)` | Relâche le bouton pressé par `korg.keyDown` ; ne fait rien si ce plugin ne le maintient pas | Depuis l’API 25, comme `korg.led` |
 | `korg.padDown(pad, velocity)` | Presse le pad 0 à 15 avec une vélocité de 1 à 127 jusqu’à `korg.padUp`. TRIGGER joue et sélectionne la partie, SEQUENCER bascule le pas, KEYBOARD et CHORD jouent des notes, PART MUTE maintenu bascule l’état muet. `korg.padHold` ne le bloque pas ; le plugin ne reçoit pas son propre `pad`. Mesuré dans l’émulateur sur les trois firmwares, pas sur l’appareil. Depuis l’API 25 | Comme `korg.led` |
 | `korg.padUp(pad)` | Relâche le pad pressé par `korg.padDown` | Depuis l’API 25, comme `korg.led` |
@@ -582,7 +582,7 @@ La LED ne s’allume que pour la partie sélectionnée, comme avec le bouton.
 Depuis l’API 24, l’appel envoie le même CC MIDI que le potentiomètre, l’encodeur CUTOFF
 ou le bouton IFX ON/MFX SEND, sur le canal de la partie. `ifxType` passe par l’édition de partie
 comme l’encodeur IFX, avec la même fenêtre ; il s’arrête au dernier numéro du firmware
-au lieu de reboucler : 58 sur Hacktribe, 47 sur rouge, 37 sur bleu avec BLECH. Cette borne est
+au lieu de reboucler : 58 sur Hacktribe, 47 sur rouge, 37 sur bleu avec BLECHTRIBE. Cette borne est
 lue à l’exécution : un catalogue étendu peut l’augmenter.
 
 `sample` transmet le numéro entier, de 0 à 999, par l’édition de partie comme SAMPLE,
@@ -756,7 +756,7 @@ transmettent les messages normaux du panneau par sa file. Ils reproduisent les g
 sur boutons, pads, encodeurs et pavé tactile.
 
 - Le marqueur de ces messages contourne réaffectation, `korg.keyHold`, `korg.keyMask`,
-  `korg.passKeys`, `korg.padHold`, `korg.touchLockX`, application ouverte et raccourcis BLECH.
+  `korg.passKeys`, `korg.padHold`, `korg.touchLockX`, application ouverte et raccourcis de BLECHTRIBE.
   Aucun plugin, y compris l’émetteur, ne reçoit ces événements. Ainsi, un plugin peut retenir
   les pads physiques avec `korg.padHold` et jouer ses propres frappes avec `korg.padDown`.
 - Un second appui identique n’envoie rien, ni un relâchement sans appui. À l’arrêt du plugin,
@@ -980,7 +980,7 @@ indique son nom, la ligne et l’erreur. Les autres continuent. Les codes sont d
 Les plugins arrivent par la carte SD, jamais intégrés à la VSB. Le dossier est
 `KORG/blechtribe/Plugin/`, au singulier, identique sur les modèles rouge et bleu.
 Prépare ce dossier pour une copie manuelle. Avec l’appareil connecté, la page Plugins peut
-aussi écrire le fichier par USB : commande BLECH SysEx `0x67`, PLUGIN BEGIN, nom composé
+aussi écrire le fichier par USB : commande SysEx BLECHTRIBE `0x67`, PLUGIN BEGIN, nom composé
 de lettres, chiffres, `_`, `-`, avec 16 caractères maximum. Il est ensuite accessible dans
 BLECH > PLUGINS.
 
@@ -1118,12 +1118,12 @@ pages sont détaillées ci-dessous. ABOUT n’existe plus : il n’affichait que
 | SPLASH, SPLASH RESET | ENTER abandonne l’image importée ou dessinée ; le firmware retrouve immédiatement et aux démarrages suivants son image d’origine. Résultat original back |
 | FEATURES, PATTERN CONFIRM | ON : pendant la lecture, le pattern consulté attend MENU puis démarre à la fin de la séquence. OFF : comportement du firmware sans patch de confirmation. Immédiat, ON par défaut même sans fichier ; OFF est le bit 2 des flags. MENU clignote pour VIEW:, même à l’arrêt avec modifications non enregistrées, puis reste allumé pour NEXT: jusqu’au changement. Les pads et informations OSC/Pitch montrent le pattern consulté. Les pads ont leur propre couleur ; PART MUTE règle ses états muets, emportés au changement. Le premier appui copie la partie dans le pattern en lecture par Copy Part, non muette et sans changement de pattern ; les suivants la rendent muette ou audible dans ce pattern. [Vue](messungen/2026-10-25-pattern-ansicht.md), [pads](messungen/2026-10-29-vorschau-pads.md), [copie](messungen/2026-10-30-vorschau-part-reinholen.md) |
 | Anneau, SYNC GROUP | OFF, 1 à 999, page 16/32 après CHAIN REPEAT et avant Part, étiquette Pattern ; sur les deux modèles, bleu depuis le 24 octobre. La molette modifie le groupe du pattern en RAM ; WRITE ouvre la sauvegarde du pattern. En lecture, un autre pattern du même groupe démarre en fin de séquence sans MENU, NEXT: ; hors groupe, MENU reste nécessaire. À l’arrêt, chargement immédiat dans le groupe, même avec modifications non enregistrées. Un changement dans le groupe transporte états muets, son des parties, tempo, swing, niveau, pavé MFX et HOLD, y compris au retour ; types MFX 1/MFX 2, pas, motion, longueur, beat, tonalité, gamme et accords restent ceux du nouveau pattern. Transfert en RAM seulement. OFF, groupe 0, ne transporte rien. [Bleu](messungen/2026-10-24-blau-sync-group.md), [modifications](messungen/2026-10-25-sync-ungespeichert.md) |
-| Menu Pattern, BEAT | 16, 32, 8 Tri, 16 Tri, 8. Le cinquième choix 8 donne une croche par pas : durée doublée, BEAT 8 à 160 BPM correspond à BEAT 16 à 80 BPM. Horloge MIDI et LED TAP restent au tempo réel, 12 impulsions par pas avec horloge externe. Stocké dans le pattern ; Gate Arp, export et tranches suivent le pas. Sans BLECH, Korg joue ce réglage à un pas toutes les 2 ms. Rouge et bleu. [Mesure](messungen/2026-10-29-beat-achtel.md) |
+| Menu Pattern, BEAT | 16, 32, 8 Tri, 16 Tri, 8. Le cinquième choix 8 donne une croche par pas : durée doublée, BEAT 8 à 160 BPM correspond à BEAT 16 à 80 BPM. Horloge MIDI et LED TAP restent au tempo réel, 12 impulsions par pas avec horloge externe. Stocké dans le pattern ; Gate Arp, export et tranches suivent le pas. Sans BLECHTRIBE, Korg joue ce réglage à un pas toutes les 2 ms. Rouge et bleu. [Mesure](messungen/2026-10-29-beat-achtel.md) |
 | FEATURES, TAP MOTION | OFF/ON/ONCE. ON : TAP bascule la motion enregistrée de la partie sélectionnée ; appui de plus de 0,3 s seulement pendant le maintien, puis retour à l’état initial. ONCE : une motion activée par TAP joue jusqu’à la fin du pattern et s’éteint. OFF rend TAP au tap tempo du firmware. Immédiat, ON par défaut même sans fichier. OFF bit 3, ONCE bit 5 des flags ; bit 3 prioritaire |
 | FEATURES, NOTE ASSIST | ON : en KEYBOARD, après une note, les notes adaptées brillent légèrement en rose selon leur compatibilité : unisson/quinte, puis tierces/quarte/degré de gamme, puis sixtes. Restent à l’arrêt/pause, s’estompent en lecture, les plus faibles d’abord. En CHORD, avec gammes de sept notes, indique les accords qui s’enchaînent bien. OFF rend le comportement du firmware. Immédiat, ON par défaut ; OFF bit 4 des flags |
 | FEATURES, LAST PATTERN | ON démarre sur le dernier pattern sélectionné ; OFF sur 001, sans effacer le numéro mémorisé pour un futur ON. Effet au prochain allumage, WRITE conserve ; OFF bit 3 de l’octet 5 des réglages. ON sans fichier ; EXIT au démarrage force 001. Rouge et bleu avec last-pattern |
 | FEATURES, STEREO 1 PAD | ON : sample stéréo sur son seul pad et une voix, pad voisin indépendant. OFF : comportement Korg où un stéréo sur les pads 1, 3, etc. occupe aussi le suivant. Immédiat, WRITE conserve ; OFF bit 2 de l’octet 5 ; ON sans fichier. EXIT à l’allumage restaure Korg. Rouge avec stereo-pad. [Mesure](messungen/2026-10-29-stereo-ein-pad.md) |
-| FEATURES, AUTO SAVE | ON : quitter GLOBAL PARAMETERS, ou PLUGIN RUNTIME après lui, après une modification envoie la même demande de sauvegarde Global que WRITE, avec Writing... environ une seconde. Quitter BLECH après modification écrit ses réglages comme WRITE. Sans changement, pas d’écriture. Les patterns restent soumis à WRITE. OFF : seule WRITE sauvegarde. Immédiat, ON par défaut ; OFF bit 7 de l’octet 5, fichier refusé par BLECH antérieur à 1.5. La désactivation d’AUTO SAVE elle-même exige WRITE pour être conservée. [Mesure](messungen/2026-11-09-auto-save.md) |
+| FEATURES, AUTO SAVE | ON : quitter GLOBAL PARAMETERS, ou PLUGIN RUNTIME après lui, après une modification envoie la même demande de sauvegarde Global que WRITE, avec Writing... environ une seconde. Quitter BLECH après modification écrit ses réglages comme WRITE. Sans changement, pas d’écriture. Les patterns restent soumis à WRITE. OFF : seule WRITE sauvegarde. Immédiat, ON par défaut ; OFF bit 7 de l’octet 5, fichier refusé par BLECHTRIBE antérieur à 1.5. La désactivation d’AUTO SAVE elle-même exige WRITE pour être conservée. [Mesure](messungen/2026-11-09-auto-save.md) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY ou 1 à 250 : modèle copié par INITIALIZE PATTERN ; FACTORY utilise celui du firmware. Immédiat et persistant après extinction, octet Global 247, sans WRITE. Rouge avec init-pattern. [Mesure](messungen/2026-10-28-init-pattern.md) |
 
 Les résultats, saved, no card, imported, 2 exported, remplacent la valeur jusqu’à une rotation
@@ -1135,12 +1135,12 @@ WRITE sur PLUGIN RUNTIME, FEATURES, CUSTOMIZATION et pour autoriser un plugin ex
 sauvegarde `KORG/blechtribe/settings.a.bin` et `settings.b.bin`, en générations alternées.
 AUTO SAVE le fait aussi en quittant le menu après modification. Format de 24 à 280 octets,
 marqueur `GSET`, version 3 ; bit 0 d’un octet supplémentaire pour METER LOUD RAINBOW,
-refusé par BLECH antérieur à 1.3. Maximum 64 entrées, contre 16 en version 2 jusqu’à 1.3.7.
-Un ancien BLECH jusqu’à 1.3.7 ne lit pas la version 3 et reprend un éventuel fichier 2 plus
+refusé par BLECHTRIBE antérieur à 1.3. Maximum 64 entrées, contre 16 en version 2 jusqu’à 1.3.7.
+Un ancien BLECHTRIBE jusqu’à 1.3.7 ne lit pas la version 3 et reprend un éventuel fichier 2 plus
 ancien ou les valeurs par défaut. Les formats 1 et 2 restent lisibles et deviennent 3 au
 prochain WRITE.
 
-La liste contient aussi le CRC inversé de chaque plugin désactivé ; un ancien BLECH le traite
+La liste contient aussi le CRC inversé de chaque plugin désactivé ; un ancien BLECHTRIBE le traite
 comme un CRC sans correspondance. Quand elle est pleine, l’entrée la plus ancienne sans
 plugin chargé, plugin absent ou ancienne compilation, est supprimée d’abord ; sinon une
 autorisation retire l’entrée la plus ancienne. Un marqueur qui ne trouve pas de place manque,
@@ -1162,7 +1162,7 @@ L’absence de commutateur d’image de démarrage est volontaire : elle est aff
 
 ## Blechy, dernière page de l’anneau
 
-Blechy est intégré à BLECH, pas chargé comme plugin de carte. Sa page est la dernière de
+Blechy est intégré à BLECHTRIBE, pas chargé comme plugin de carte. Sa page est la dernière de
 l’anneau EDIT, après Event et BLECH, avant Pattern : 32/32 sur rouge, 31/31 sur bleu.
 Depuis la première page Pattern, EDIT gauche y mène. Il apparaît immédiatement, sans sous-menu
 ni press Enter, sur tout l’écran ; le numéro de page est masqué.
@@ -1201,7 +1201,7 @@ ni press Enter, sur tout l’écran ; le numéro de page est masqué.
   Les autres entrées vont au firmware seul ; EDIT et EXIT ne peuvent pas être interceptés.
 - Son bloc API 6 de 15476 octets, compilé et vérifié dans le navigateur par `tools/blechy-build.mjs`,
   reste à `0xC0184000` dans l’image. Seules entrée et variables occupent le pool, 15904 octets
-  sur 128 Kio, pas le bloc. BLECH le charge avant la carte comme application cachée, entrée 0
+  sur 128 Kio, pas le bloc. BLECHTRIBE le charge avant la carte comme application cachée, entrée 0
   d’un groupe sans menu, et exécute son corps. Afficher sa page donne `open` et l’écran ;
   quitter la page donne `close`. La source reste `data/script/blechy-source.mjs`.
   Démarrage d’environ 5,4 millions d’instructions dans l’émulateur, estimé à quelques dizaines

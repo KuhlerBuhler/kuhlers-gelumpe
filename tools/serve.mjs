@@ -16,7 +16,7 @@
  */
 import { createServer, request } from "node:http";
 import { readFile, stat } from "node:fs/promises";
-import { extname, join, normalize, resolve, dirname } from "node:path";
+import { extname, join, normalize, resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ROUTES } from "./site-routes.mjs";
 
@@ -44,7 +44,7 @@ export function resolvePath(urlPath, extra = []) {
     if (!prefix.endsWith("/")) return dir;
     const base = resolve(ROOT, dir);
     const file = normalize(join(base, clean.slice(prefix.length) || "index.html"));
-    return file.startsWith(base) ? file : null;
+    return file === base || file.startsWith(base + sep) ? file : null;
   }
   return null;
 }
