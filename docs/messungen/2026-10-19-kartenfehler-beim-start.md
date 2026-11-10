@@ -37,6 +37,7 @@ IN_DATA67 Bit 31, low = gedrückt).
   `loadbar:power_key_during_the_start`.
 - **Mounten wiederholen** (`load_bar.py`, Haken an der Frage nach `e2sSample.all`): steckt eine Karte (GPIO 4.1 low), ist
   ihr Volume danach aber nicht gemountet, fragt BLECH bis zu drei Mal nach, 500 ms auseinander. Ohne Karte kostet das nichts.
+  Nachtrag 10.11.: wieder entfernt, der Schlaf dazwischen endet nie ([Tote Karte beim Start](2026-11-10-tote-karte-beim-start.md)).
 
 ## Offen
 
