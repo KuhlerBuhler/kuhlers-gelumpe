@@ -80,8 +80,8 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | KEY from the pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Filter off and on (SHIFT + filter key) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Settings save themselves when you leave the menu (AUTO SAVE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Chords in pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Highlight chord pads in colour (colour selectable) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Toggle motion sequences on/off | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Note assistant | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Dice (random melodies) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Clear messages for broken samples | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
