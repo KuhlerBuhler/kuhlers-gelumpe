@@ -15,6 +15,12 @@ export const GALLERY = [
   { id: "blech", title: "BLECH", src: "img/splash/blech.png" },
   { id: "blechy", title: "Blechy", src: "img/splash/blechy.png" },
   { id: "blechy-winkt", get title() { return t("splash.gallery.wave"); }, src: "img/splash/blechy-winkt.png" },
+  { id: "gelumpe", title: "GELUMPE", src: "img/splash/gelumpe.png" },
+  { id: "kuhler", title: "KUHLER", src: "img/splash/kuhler.png" },
+  { id: "pads", get title() { return t("splash.gallery.pads"); }, src: "img/splash/pads.png" },
+  { id: "wave", get title() { return t("splash.gallery.waveform"); }, src: "img/splash/wave.png" },
+  { id: "knob", get title() { return t("splash.gallery.knob"); }, src: "img/splash/knob.png" },
+  { id: "bars", get title() { return t("splash.gallery.bars"); }, src: "img/splash/bars.png" },
 ];
 const OWN = "cee.splash.own";
 

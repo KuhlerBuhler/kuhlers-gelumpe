@@ -1270,7 +1270,15 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 }
 
 .cee-mode {
-  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+}
+
+.cee-mode-title {
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
 }
 
 .cee-mode-button {

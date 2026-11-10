@@ -46,7 +46,7 @@ export function samplesFilePage(root, { device = null } = {}) {
   ]);
   const wavZone = dropzone(wavs, "sampleset.wav.drag", "sampleset.wav.hint");
   const actions = el("div", { className: "actions" }, [save, reset]);
-  root.replaceChildren(intro, el("div", { className: "actions" }, [fromDevice, download]), dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), wavZone, job, summary, list, actions);
+  root.replaceChildren(el("div", { className: "actions" }, [fromDevice, download]), dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), intro, wavZone, job, summary, list, actions);
 
   const taken = () => new Set([...parsed.samples.filter(s => !removed.has(s.slot)).map(s => s.slot), ...added.map(a => a.slot)]);
   const dirty = () => removed.size > 0 || added.length > 0;

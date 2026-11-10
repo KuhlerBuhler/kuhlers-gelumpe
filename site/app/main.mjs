@@ -37,8 +37,6 @@ import { Terminal } from "../../src/terminal.mjs";
 import { loadBlechSet } from "../../src/patcher.mjs";
 import { patchesPresent, selectFor } from "../../src/patch.mjs";
 import { sharedProbe } from "./probe.mjs";
-import { dropdown } from "./dropdown.mjs";
-import { icon } from "./icons.mjs";
 import { watchForUpdate, showNews } from "./update.mjs";
 import { apply as applySettings, get as setting, holdAutoConnect, languageSwitch, releaseAutoConnect, settingsButton, settingsPage } from "./settings.mjs";
 import { toast } from "./toast.mjs";
@@ -374,8 +372,8 @@ async function startAfterDisconnect(device, emulator) {
   try { toast(await emulator().powerOn(), "info"); } catch (e) { toast(e.message, "error"); }
 }
 
-/** Pages that share one navbar title: a menu switches between the emulator and the real device. */
-const MODES = { emu: "mode.emu", device: "mode.device" };
+/** Pages that share one navbar title: a switch goes between the emulator and the real device. */
+const MODES = { emu: true, device: true };
 
 /** Navbar: the title of the open page, and whether a device is connected, as words. */
 function navbar({ onMode }) {
@@ -389,15 +387,17 @@ function navbar({ onMode }) {
   let baukastenActions = [];
   const trails = {};
   const homes = {};
-  $("#cee-mode-button").append(icon("chevronDown"));
-  const menu = dropdown($("#cee-mode-button"), $("#cee-mode-menu"), { onPick: onMode });
+  // One switch: off is the emulator, on the real device. onMode answers false when the device cannot be chosen.
+  const modeSwitch = $("#cee-mode-switch");
+  modeSwitch.addEventListener("change", () => {
+    if (onMode(modeSwitch.checked ? "device" : "emu") === false) modeSwitch.checked = page === "device";
+  });
   function render() {
     const mode = page in MODES;
     $("#cee-nav-title").hidden = mode;
     $("#cee-mode").hidden = !mode;
     if (mode) {
-      $("#cee-mode-label").textContent = t(MODES[page]);
-      for (const item of $("#cee-mode-menu").querySelectorAll("[role=menuitemradio]")) item.setAttribute("aria-checked", String(item.dataset.value === page));
+      modeSwitch.checked = page === "device";
     } else {
       // A page with sub-pages shows where you are as a breadcrumb: Plugins › Dokumentation › the section you read.
       // Every crumb but the last leads back: the title to the page's start sub-page, a step with `go` to that step.
@@ -418,7 +418,7 @@ function navbar({ onMode }) {
     $("#cee-nav-state").replaceChildren(...state);
   }
   return {
-    page(id) { menu.close(); page = id; render(); },
+    page(id) { page = id; render(); },
     device(on) { device = on; render(); },
     /** The device panel's connect and disconnect button. */
     connect(node) { connectButton = node; render(); },
@@ -521,7 +521,14 @@ function boot() {
     try { localStorage.setItem("cee.mode", id); } catch { /* blocked: the choice holds until the page closes */ }
     if (id === "device") device.chosen();
   };
-  const nav = navbar({ onMode: id => { pickMode(id); if (id !== areas?.current) areas?.select(id, { focus: false }); } });
+  const nav = navbar({
+    onMode: id => {
+      // Nothing on the cable: stay on the emulator. "unknown" (MIDI not granted yet) passes, the connect button asks for it.
+      if (id === "device" && usb.state === "absent") { toast(t("mode.none"), "info"); return false; }
+      pickMode(id);
+      if (id !== areas?.current) areas?.select(id, { focus: false });
+    },
+  });
   const drawer = sidebarDrawer();
   const transport = createMidiTransport(window);
   const usb = createUsbWatch({ transport, permissions: navigator.permissions, hidden: () => document.hidden });
