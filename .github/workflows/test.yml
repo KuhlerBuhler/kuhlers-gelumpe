@@ -65,7 +65,7 @@ jobs:
       - run: npm ci
       # Every test file that names a document; the files a test reads through a helper are not Markdown (docs/messungen/*.json, images).
       - run: |
-          mapfile -t tests < <(rg -l 'docs/|\.md\b|messungen' test/*.test.mjs)
+          mapfile -t tests < <(grep -lE 'docs/|\.md\b|messungen' test/*.test.mjs)
           [ "${#tests[@]}" -gt 0 ]
           node --test --test-timeout=300000 "${tests[@]}"
 
