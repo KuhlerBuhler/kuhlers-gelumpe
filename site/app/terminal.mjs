@@ -14,8 +14,10 @@ import { HELP } from "../../src/korg.mjs";
 import { NOTE_LIMIT } from "../../src/terminal.mjs";
 import { describeUnits } from "../../src/rehearsal.mjs";
 import { completionsAt } from "../../src/script/editor-model.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { t, localize } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:plugins");
 
 function show(value) {
   if (value === undefined) return "";

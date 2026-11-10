@@ -3,7 +3,7 @@ import { e2Outline } from "./e2-art.mjs";
 import { el } from "./fields.mjs";
 import { stateText } from "./state.mjs";
 import { icon } from "./icons.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { saveAs, saveWay, findCards, saveToCard, sameCards } from "./save-target.mjs";
 import { applyPatches } from "../../src/patch.mjs";
@@ -20,6 +20,8 @@ import { LOADING_ANIM_ID } from "../../src/loading-anim.mjs";
 import { storedAnimation } from "./loading-anim.mjs";
 import { testFailure } from "../../data/rescue.mjs";
 import { RESCUE_EVENT } from "./rescue.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:install");
 
 const STYLE = new URL("./patcher.css", import.meta.url).href;
 
