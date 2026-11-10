@@ -94,7 +94,7 @@ Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIB
 | Drawback | What it means for you |
 |---|---|
 | Oscillators replace the factory sample bank | Your own samples use slots 501 to 999. Factory samples need conversion before loading into the user bank. |
-| Your samples are gone afterwards | Hacktribe reads its own folder, and its how-to says to delete `e2sSample.all`. Back up the `Sample` folder of your current firmware first (`KORG/electribe sampler/` or `KORG/blechtribe/`); the app asks you to confirm that with a checkbox. Already happened? The Rescue page has the case "I installed Hacktribe by accident". |
+| Your samples are gone afterwards | Hacktribe reads its own folder, and its how-to says to delete `e2sSample.all`. Back up the `Sample` folder of your current firmware first (`KORG/electribe sampler/` or `KORG/blechtribe/`); the app asks you to confirm that with a checkbox. Already happened? The Blechy page has the case "I installed Hacktribe by accident". |
 | Existing patterns may sound different | Oscillator and effect assignments change. Listen to your patterns after switching and reassign sounds where needed. |
 | An extra firmware change | Starting from Korg's original requires a suitable Hacktribe file first. BLECHTRIBE also works directly on Korg's original. |
 
@@ -241,8 +241,8 @@ A wrong write or a faulty firmware can hang the device. So:
 - **Way back:** put the saved original `SYSTEM.VSB` back. How that was rehearsed is in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
 - **Back to Korg's original, also from the blue:** step by step in
-  [docs/original-zurueck.en.md](docs/original-zurueck.en.md) and as a case on the Rescue page.
-- **If the device no longer starts:** the "Rettung" page in the editor (German) asks what you see and
+  [docs/original-zurueck.en.md](docs/original-zurueck.en.md) and as a case on the Blechy page.
+- **If the device no longer starts:** the "Blechy" page in the editor asks what you see and
   walks you back along the documented recovery. The bootloader is never
   touched, beyond it only JTAG helps ([docs/rettung.md](docs/rettung.md)).
 - **Test it yourself:** the [device tests](docs/geraetetests/README.md) describe how to repeat BLECHTRIBE and

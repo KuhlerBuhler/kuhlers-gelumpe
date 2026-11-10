@@ -1,8 +1,10 @@
 # Rettung
 
-Stand: 9. November 2026. Die Seite "Rettung" im Editor führt durch den Weg zurück, wenn das
-Gerät nach einem Update oder Patch nicht mehr richtig startet. Blechy fragt in Sprechblasen, was das
-Gerät zeigt, die Antworten sind Knöpfe; jeder Fall läuft Schritt für Schritt, das Stoppschild steht
+Stand: 9. November 2026. Die Seite "Blechy" im Editor (früher "Rettung", Adresse weiter `#rescue`) führt
+durch den Weg zurück, wenn das Gerät nach einem Update oder Patch nicht mehr richtig startet. Blechy fragt in
+Sprechblasen, was los ist. Die erste Antwort schreibst du in ein Feld, die passenden Fälle stehen beim Tippen
+darüber (Stichwörter in allen elf Sprachen, `src/blechy-match.mjs`, ohne Netz); danach sind die Antworten
+Knöpfe. Jeder Fall läuft Schritt für Schritt, das Stoppschild steht
 bei dem Fall, der es braucht. Sie sagt nur, was die Messungen und
 die Dokumentation belegen. Jeder Schritt trägt einen Marker: **gemessen** (am Gerät gesehen),
 **offline** (Code oder Emulator gelesen), **hergeleitet**, **offen** (nicht geprüft). Der Inhalt steht
