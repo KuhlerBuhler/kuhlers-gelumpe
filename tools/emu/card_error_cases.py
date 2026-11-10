@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Emulator cases for what the firmware does with a card that is not the plain SDHC card: one that stops answering, a
-locked one, an old SDSC card, and a card that damages the data (docs/emulator.md, "Fehlerfälle der Karte").
+locked one, an old SDSC card, a card that damages the data, and one that never mounts at the start (docs/emulator.md, "Fehlerfälle der Karte").
 
 check.py runs `cases` on every patched copy that carries the BLECH menu. The faults come from the card model
 (sdcard.py: `fail()`, `write_protect`, `kind`); a read fault names the blocks of the sample file, so the mount is not
@@ -50,12 +50,12 @@ def blue(payload):
 class Rig:
     """A device on mains power with a card in: the sample file of its folder on it (not on the blue, which has no sample loader)."""
 
-    def __init__(self, payload, files=None, held=0, **card):
+    def __init__(self, payload, files=None, held=0, image=None, **card):
         self.payload = payload
         self.folder = cardstore.card_folder(payload)
         self.dev = Dev(payload, None, held, adapter=True)
         files = {f"KORG/{self.folder}/Sample/e2sSample.all": SAMPLES} if files is None and not blue(payload) else files or {}
-        self.card = SDCard(MemoryMedium(menu_cases.card_image(files)), **card)
+        self.card = SDCard(MemoryMedium(menu_cases.card_image(files) if image is None else image), **card)
         self.dev.m.insert_card(self.card)
         self.before = set(self.tree() or ())
         self.sample_lbas = self.file_lbas(f"KORG/{self.folder}/Sample/e2sSample.all")
@@ -212,7 +212,27 @@ def case_damaged_data(payload, flash):
     return out
 
 
-GROUPS = (case_stops_answering, case_write_protect, case_sdsc, case_damaged_data)
+def case_dead_card(payload, flash):
+    """A card in the slot that never mounts: one without a filesystem (all zeros) and one that answers no command at all.
+    The start goes on to the main screen as the firmware's does (the same run with EXIT held at power-on, every patch off),
+    with the same box codes (not on the blue, whose box code is elsewhere), nothing written and no folder made (2026-11-10: the loading bar's mount retry slept before the
+    operating system's tick runs and the start hung at the start image)."""
+    out = []
+    for name, card in (("no_filesystem", {"image": bytearray(64 << 20)}),
+                       ("answers_nothing", {"files": {}, "faults": [{"kind": "no_response"}]})):
+        runs = []
+        for held in (0, spec.KILL_SWITCH):
+            rig = Rig(payload, held=held, **card)
+            runs.append((rig, rig.codes(15)))
+        (rig, seen), (_, ref) = runs
+        out.append(entry(f"dead_card_{name}", rig.screen() == MAIN_SCREEN and (blue(payload) or seen == ref) and rig.card.sectors_written == 0
+                         and rig.made() == [] and not rig.dev.m.asserts,
+                         f"screen {rig.screen()}, box codes {seen} (with EXIT held {ref}), sectors written {rig.card.sectors_written}, "
+                         f"BLECH folders made {rig.made()}"))
+    return out
+
+
+GROUPS = (case_stops_answering, case_write_protect, case_sdsc, case_damaged_data, case_dead_card)
 
 
 def group_entries(payload, flash, i):
