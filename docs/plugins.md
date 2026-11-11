@@ -224,6 +224,60 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
+### Was ein Plugin erreicht (API 26)
+
+Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
+erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
+`korg.keyDown` wie ein Finger (API 25). Die Tabelle wird aus `data/script/coverage.mjs` erzeugt
+(`node tools/plugin-coverage.mjs`), ein Test schlägt fehl, wenn ein Aufruf, ein Ereignis oder ein Blatt des Objektbaums fehlt.
+
+<!-- coverage -->
+| Bereich | Lesen | Setzen | Event |
+|---|---|---|---|
+| **Bedienfeld** | | | |
+| Tasten (REC bis IFX ON) | nein | `korg.pressKey`, `korg.keyDown`, `korg.keyUp`, `korg.remapKey`, `korg.keyHold`, `korg.keyMask`, `korg.passKeys` | `buttonPress`, `buttonRelease` |
+| Regler | `korg.read.knob` | `korg.knob`, `korg.knobHold` | `knob` |
+| Encoder | nein | `korg.encoder` | `encoder` |
+| Pads | nein | `korg.padDown`, `korg.padUp`, `korg.padHold` | `pad` |
+| Touchpad | nein | `korg.touch`, `korg.touchLockX` | `touch` |
+| Touchpad-Modus (Gate Arp, Touch Scale, Master FX, MFX 2) | nein | nein | nein |
+| Pad-Modus (TRIGGER, SEQUENCER, KEYBOARD und die anderen) | nein | nein | nein |
+| LEDs | nein | `korg.led`, `korg.ledHold` | nein |
+| Display (eigenes Bild, Fenster der Firmware) | `korg.read.popups` | `korg.display.*`, `korg.file.frame` | `open`, `close` |
+| Displaylicht | nein | `korg.backlight` | nein |
+| Welcher Bildschirm oder welches Menü offen ist | nein | nein | nein |
+| **Sequencer, Pattern, Part, Step** | | | |
+| Transport (PLAY, STOP, REC) | `korg.read.transport` | `korg.play`, `korg.stop` | `play`, `stop`, `rec` |
+| Tempo | `korg.read.tempo` | `korg.tempo` | `tempo` |
+| Gewähltes, angezeigtes und nächstes Pattern | `korg.read.pattern`, `korg.read.viewedPattern`, `korg.read.nextPattern` | `korg.pattern` | `patternChange` |
+| Gewählter Part, Mute | `korg.read.part`, `korg.read.mute` | `korg.part`, `korg.mute` | `partChange`, `mute` |
+| Step-Zähler | `korg.read.step` | nein | `step`, `beat` |
+| Werte des Patterns (Tempo bis MFX-Pad, Chain, Sync Group) | `korg.read.patternValue`, `korg.read.chainMode` | `korg.seq.setPatternValue` | nein |
+| Werte eines Parts (Sample bis Groove, mit Motion Seq an oder aus) | `korg.read.patternValue` | `korg.seq.setPartValue` | nein |
+| Steps (an, Gate, Velocity, Noten) | `korg.seq.getOn`, `korg.seq.getGate`, `korg.seq.getNote`, `korg.seq.getVelocity`, `korg.read.patternBytes` | `korg.seq.setStep`, `korg.seq.setGate`, `korg.seq.clearPart`, `korg.seq.writeSteps` | nein |
+| Pattern speichern (WRITE) | nein | nein | nein |
+| Motion-Spuren und ihre Wiedergabe | nein | nein | nein |
+| **Effekte** | | | |
+| MFX: Typ, Pad, HOLD, MFX SEND | `korg.read.patternValue` | `korg.seq.setPatternValue`, `korg.seq.setPartValue` | nein |
+| MFX-2-Typ des Patterns | nein | nein | nein |
+| IFX: an, Typ, Edit | `korg.read.patternValue` | `korg.seq.setPartValue` | nein |
+| **Klang, MIDI, Samples** | | | |
+| Ausgangspegel, Spektrum, Wellenform | nein | nein | nein |
+| Eigene MIDI-Nachrichten senden, MIDI empfangen | nein | nein | nein |
+| Name und Daten eines Samples | nein | nein | nein |
+| **System und Einstellungen** | | | |
+| Gerät, Version, Anzahl Effekte und Sample-Slots | `korg.system.device`, `korg.system.version`, `korg.system.limits.*` | nein | nein |
+| Reparaturen, Test-Modus, Auto Power Off | `korg.system.repairs`, `korg.system.testMode` | `korg.system.keepAwake` | nein |
+| GLOBAL PARAMETERS | `korg.global.*` | `korg.global.*` | nein |
+| Menü BLECH (CUSTOMIZATION, FEATURES) | `korg.menu.blech.*` | `korg.menu.blech.*` | nein |
+| Netzteil oder Batterie, Ladestand | nein | nein | nein |
+| **Dienste für Plugins** | | | |
+| Eigene Einträge im Menü BLECH | nein | `korg.menu.add` | `menu` |
+| Apps | nein | `korg.app` | `open`, `close` |
+| Gespeicherte Werte | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
+| Zeit und Timer | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
+<!-- /coverage -->
+
 ### Die Electribe als Objekte
 
 Was die Electribe gerade tut, liest und setzt ein Plugin wie eine Variable: `korg.tempo` ist das Tempo,
@@ -265,6 +319,28 @@ Rumpf.
 `sample`, `ifxOn`, `ifxType` und `ampEg` lassen sich ab API Version 23 setzen, die neuen Werte von API Version 24 gleich mit,
 die Einzelheiten stehen bei `korg.seq.setPartValue` und `korg.seq.setPatternValue`. Die Liste und woher jeder Wert kommt, steht in `data/script/contract.mjs`
 (`PATTERN_FIELDS`, `PART_FIELDS`), gemessen sind die Stellen in der Gerätekarte `data/map/pattern.mjs`. Ab API Version 8.
+
+**Motion Sequence an und aus**: `korg.parts[i].motionMode` ist die Seite MOTION SEQ des Part-Menüs, 0 aus, 1 smooth,
+2 trigger hold (ab API Version 24). Ein Plugin schaltet damit die Motion Sequence eines Parts aus, ohne die aufgenommene
+Bewegung zu löschen; mit dem alten Wert spielt sie wieder.
+
+```js
+// TAP schaltet die Motion Sequence aller Parts aus und wieder so ein, wie sie war.
+const saved = new Array(16);
+let off = 0;
+korg.onEvent("buttonPress", (key) => {
+  if (key != korg.key.TAP) return;
+  for (let i = 0; i < 16; i++) {
+    if (off == 0) {
+      saved[i] = korg.parts[i].motionMode;
+      korg.parts[i].motionMode = 0;
+    } else {
+      korg.parts[i].motionMode = saved[i];
+    }
+  }
+  off = 1 - off;
+});
+```
 
 `+=`, `-=` und die anderen zusammengesetzten Zuweisungen gehen bei allem, was sich lesen und setzen lässt,
 dazu `++` und `--`: `korg.tempo += 10;` liest das Tempo und setzt es um 1,0 BPM höher. Der Index in den
@@ -308,6 +384,11 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.system.repairs` | wie viele Werte seit dem Start geklemmt oder zurückgesetzt wurden | nein | 0 bis 2147483647 |
 | `korg.system.testMode` | ob der Test-Modus an ist: Display, Licht und alle LEDs dunkel, Auto Power Off angehalten | nein, nur über USB; nur im RAM, nach einem Neustart aus | 0 (aus) bis 1 (an) |
 | `korg.system.keepAwake()` | (ein Aufruf, kein Wert) | startet die 4 Stunden von Auto Power Off neu, wie eine Taste am Gerät | |
+| `korg.system.device` | auf welchem Gerät das Plugin läuft: 0 Hacktribe, 1 roter Sampler (Korg), 2 blauer Synth (Korg) (ab API Version 26) | nein | 0 bis 2 |
+| `korg.system.version` | Version des BLECHTRIBE-Sets als Zahl, x * 10000 + y * 100 + z, 1.5.0 ist 10500; 0, wenn das Set keine Versionsangabe hat (im Simulator des Editors 0) | nein | 0 bis 999999 |
+| `korg.system.limits.ifxTypes` | wie viele Insert-Effekte die Firmware hat, `ifxType` geht von 0 bis zu diesem Wert minus 1; die Firmware zählt sie beim Lesen, ein Effekt-Katalog erhöht sie | nein | 0 bis 255 |
+| `korg.system.limits.mfxTypes` | wie viele Master-Effekte die Firmware hat, `mfxType` geht von 0 bis zu diesem Wert minus 1; wie oben | nein | 0 bis 255 |
+| `korg.system.limits.samples` | wie viele Sample-Slots `sample` wählen kann: 1000 auf dem roten Sampler, 0 auf dem blauen Synth | nein | 0 bis 1000 |
 | `korg.menu.blech.customizations.display.red` | Rotanteil des Display-Lichts (die Seiten BACKLIGHT HUE, SAT und BRIGHT zeigen ihn als Farbton, Sättigung, Helligkeit); alle drei auf 0 ist das Weiß der Firmware | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.green` | Grünanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.blue` | Blauanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |

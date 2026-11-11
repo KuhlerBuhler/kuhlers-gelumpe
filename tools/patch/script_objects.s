@@ -2,10 +2,14 @@
 ; a value outside its range is clamped and counted, and the stored ones are checked once the menu has read its settings.
 ; In the code area at MORE3_START. A row (OBJ_ROW_SIZE bytes): offset, min, max, factory (words), base, type, apply, flags (bytes), mirror, setter (words).
 ; The bases are the order of OBJECT_BASES (test/script-objects.test.mjs holds them): 0 MENU_STATE + offset, 1 the state words below + offset,
-; 2 the absolute address offset, 3 the Global settings the firmware keeps + offset, 4 no address, offset picks a call into the patch pad-colors.
+; 2 the absolute address offset, 3 the Global settings the firmware keeps + offset, 4 no address, offset picks a call into the patch pad-colors,
+; 5 no address, read only, offset picks what the runtime knows about the device (INFO in data/script/objects.mjs).
 .equ OBJ_BASE_ABS, 2
 .equ OBJ_BASE_GLOBAL, 3
 .equ OBJ_BASE_PAD, 4
+.equ OBJ_BASE_INFO, 5
+.equ INFO_COUNT_IFX, 0xC003EFDC   ; the firmware's count of insert effects and of master effects, as fx_card.s calls them
+.equ INFO_COUNT_MFX, 0xC003EFE4
 .equ OBJ_SETTER_AT, 24            ; the Global menu's setter for the leaf on this build, 0 none (apply "setter")
 .align 4
 ; korg.get(leaf, index) -> r0 = the value; no such leaf: API_ARG. A word above the leaf's range (a setting word a patch never
@@ -18,6 +22,8 @@ script_object_get_glue:
     ldrb r1, [r4, #16]
     cmp r1, #OBJ_BASE_PAD
     beq objects_pad_get
+    cmp r1, #OBJ_BASE_INFO
+    beq objects_info_get
     ldrb r1, [r4, #17]
     cmp r1, #0
     ldrbeq r0, [r0]
@@ -43,6 +49,47 @@ objects_pad_get:
     bl menu_pc_call
     cmp r5, #3
     bleq led_dim_index              ; the patch's step -> the place in led_dim_percent the page counts by
+    b objects_get_done
+; korg.system.device, version and limits: r5 = what (INFO), the value from the build or the firmware at the time of the read
+objects_info_get:
+    ldr r5, [r4]
+    cmp r5, #1
+    movlo r0, #BUILD_DEVICE
+    blo objects_get_done
+    beq objects_info_version
+    cmp r5, #3
+    ldrlo r12, =INFO_COUNT_IFX
+    ldreq r12, =INFO_COUNT_MFX
+    ldrhi r0, =BUILD_SAMPLES
+    bhi objects_get_done
+    blx r12
+    b objects_get_done
+; "BLECH x.y.z" of the patch blech-version -> x * 10000 + y * 100 + z; 0 where the set does not have it (FF)
+objects_info_version:
+    ldr r1, =VERSION_TEXT
+    ldrb r2, [r1]
+    cmp r2, #0x42
+    movne r0, #0
+    bne objects_get_done
+    add r1, r1, #6
+    mov r0, #0
+    mov r3, #0
+    mov r5, #0
+objects_version_char:
+    ldrb r2, [r1], #1
+    sub r2, r2, #0x30
+    cmp r2, #9
+    bhi objects_version_part
+    add r3, r3, r3, lsl #2
+    add r3, r2, r3, lsl #1
+    b objects_version_char
+objects_version_part:               ; a dot or the NUL ends a number; the text is NUL padded, so a missing part reads 0
+    mov r12, #100
+    mla r0, r12, r0, r3
+    mov r3, #0
+    add r5, r5, #1
+    cmp r5, #3
+    blo objects_version_char
     b objects_get_done
 ; korg.set(leaf, index, value): clamps to the leaf's range (counted), writes, mirrors, applies; no such leaf or read only: API_ARG
 script_object_set_glue:
@@ -115,7 +162,7 @@ objects_pad_call:
     bl menu_pc_call
     b objects_set_done
 
-; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; base 4 has none)
+; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; bases 4 and 5 have none)
 objects_row:
     mov r4, #0
     cmp r0, #OBJ_COUNT
@@ -128,6 +175,8 @@ objects_row:
     cmp r1, #OBJ_BASE_ABS
     bxeq lr
     cmp r1, #OBJ_BASE_PAD
+    bxeq lr
+    cmp r1, #OBJ_BASE_INFO
     bxeq lr
     cmp r1, #OBJ_BASE_GLOBAL
     beq objects_row_global

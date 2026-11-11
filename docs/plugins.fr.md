@@ -189,6 +189,61 @@ Un cycle transmet d’abord `ready` une fois par plugin, collecte les entrées e
 `frame` en dernier. Les nouvelles entrées attendent le cycle suivant. Un nouveau plugin reçoit
 `ready` après la fin du cycle précédent.
 
+### Ce qu’un plugin atteint (API 26)
+
+Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
+informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
+valeur, il les presse avec `korg.keyDown` comme un doigt (API 25). Le tableau est produit à partir de
+`data/script/coverage.mjs` (`node tools/plugin-coverage.mjs`) ; un test échoue s’il manque un appel, un événement ou une
+feuille de l’arbre d’objets.
+
+<!-- coverage -->
+| Élément | Lire | Régler | Événement |
+|---|---|---|---|
+| **Façade** | | | |
+| Touches (REC à IFX ON) | non | `korg.pressKey`, `korg.keyDown`, `korg.keyUp`, `korg.remapKey`, `korg.keyHold`, `korg.keyMask`, `korg.passKeys` | `buttonPress`, `buttonRelease` |
+| Potentiomètres | `korg.read.knob` | `korg.knob`, `korg.knobHold` | `knob` |
+| Encodeurs | non | `korg.encoder` | `encoder` |
+| Pads | non | `korg.padDown`, `korg.padUp`, `korg.padHold` | `pad` |
+| Touchpad | non | `korg.touch`, `korg.touchLockX` | `touch` |
+| Mode du touchpad (Gate Arp, Touch Scale, Master FX, MFX 2) | non | non | non |
+| Mode des pads (TRIGGER, SEQUENCER, KEYBOARD et les autres) | non | non | non |
+| LED | non | `korg.led`, `korg.ledHold` | non |
+| Écran (image propre, fenêtres du firmware) | `korg.read.popups` | `korg.display.*`, `korg.file.frame` | `open`, `close` |
+| Rétroéclairage | non | `korg.backlight` | non |
+| Écran ou menu ouvert | non | non | non |
+| **Séquenceur, pattern, partie, pas** | | | |
+| Transport (PLAY, STOP, REC) | `korg.read.transport` | `korg.play`, `korg.stop` | `play`, `stop`, `rec` |
+| Tempo | `korg.read.tempo` | `korg.tempo` | `tempo` |
+| Pattern choisi, affiché et suivant | `korg.read.pattern`, `korg.read.viewedPattern`, `korg.read.nextPattern` | `korg.pattern` | `patternChange` |
+| Partie choisie, mute | `korg.read.part`, `korg.read.mute` | `korg.part`, `korg.mute` | `partChange`, `mute` |
+| Compteur de pas | `korg.read.step` | non | `step`, `beat` |
+| Valeurs du pattern (tempo au pad MFX, chaîne, sync group) | `korg.read.patternValue`, `korg.read.chainMode` | `korg.seq.setPatternValue` | non |
+| Valeurs d'une partie (échantillon à groove, avec motion seq on ou off) | `korg.read.patternValue` | `korg.seq.setPartValue` | non |
+| Pas (on, gate, vélocité, notes) | `korg.seq.getOn`, `korg.seq.getGate`, `korg.seq.getNote`, `korg.seq.getVelocity`, `korg.read.patternBytes` | `korg.seq.setStep`, `korg.seq.setGate`, `korg.seq.clearPart`, `korg.seq.writeSteps` | non |
+| Enregistrer le pattern (WRITE) | non | non | non |
+| Pistes de motion et leur lecture | non | non | non |
+| **Effets** | | | |
+| MFX : type, pad, HOLD, MFX SEND | `korg.read.patternValue` | `korg.seq.setPatternValue`, `korg.seq.setPartValue` | non |
+| Type MFX 2 du pattern | non | non | non |
+| IFX : on, type, edit | `korg.read.patternValue` | `korg.seq.setPartValue` | non |
+| **Son, MIDI, échantillons** | | | |
+| Niveau de sortie, spectre, forme d'onde | non | non | non |
+| Envoyer ses propres messages MIDI, recevoir du MIDI | non | non | non |
+| Nom et données d'un échantillon | non | non | non |
+| **Système et réglages** | | | |
+| Appareil, version, nombre d'effets et de slots d'échantillon | `korg.system.device`, `korg.system.version`, `korg.system.limits.*` | non | non |
+| Réparations, mode test, arrêt automatique | `korg.system.repairs`, `korg.system.testMode` | `korg.system.keepAwake` | non |
+| GLOBAL PARAMETERS | `korg.global.*` | `korg.global.*` | non |
+| Menu BLECH (CUSTOMIZATION, FEATURES) | `korg.menu.blech.*` | `korg.menu.blech.*` | non |
+| Adaptateur ou batterie, charge | non | non | non |
+| **Services pour les plugins** | | | |
+| Entrées propres dans le menu BLECH | non | `korg.menu.add` | `menu` |
+| Apps | non | `korg.app` | `open`, `close` |
+| Valeurs enregistrées | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
+| Temps et minuteurs | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
+<!-- /coverage -->
+
 ### L’Electribe sous forme d’objets
 
 Les propriétés permettent de lire et régler l’Electribe comme des variables : `korg.tempo`,
@@ -239,6 +294,28 @@ stocké dans `korg.patterns[i]` est en lecture seule. Les détails des écriture
 La liste et l’origine des champs sont dans `data/script/contract.mjs`, sous `PATTERN_FIELDS`
 et `PART_FIELDS` ; leurs positions mesurées sont dans `data/map/pattern.mjs`. Lecture depuis l’API 8.
 
+**Motion sequence activée ou désactivée** : `korg.parts[i].motionMode` est la page MOTION SEQ du menu Part,
+0 désactivé, 1 lissé, 2 maintien au déclenchement (depuis l’API 24). Un plugin coupe ainsi la motion sequence d’une partie
+sans effacer le mouvement enregistré ; l’ancienne valeur la relance.
+
+```js
+// TAP désactive la motion sequence de toutes les parties, puis la rétablit comme avant.
+const saved = new Array(16);
+let off = 0;
+korg.onEvent("buttonPress", (key) => {
+  if (key != korg.key.TAP) return;
+  for (let i = 0; i < 16; i++) {
+    if (off == 0) {
+      saved[i] = korg.parts[i].motionMode;
+      korg.parts[i].motionMode = 0;
+    } else {
+      korg.parts[i].motionMode = saved[i];
+    }
+  }
+  off = 1 - off;
+});
+```
+
 `+=`, `-=`, les autres affectations composées, `++` et `--` fonctionnent sur les propriétés
 lisibles et modifiables. `korg.tempo += 10;` lit le tempo et ajoute 1,0 BPM. Dans ces opérations,
 l’index entre crochets ne doit pas contenir d’appel de fonction. `korg.led.TAP` seul reste le
@@ -283,6 +360,11 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.system.repairs` | Nombre de valeurs corrigées depuis le démarrage | Non | 0 à 2147483647 |
 | `korg.system.testMode` | Mode de test actif : écran, rétroéclairage et LED éteints, arrêt automatique suspendu | Non, uniquement par USB ; RAM seulement, désactivé au redémarrage | 0 à 1 |
 | `korg.system.keepAwake()` | Appel, pas une valeur | Relance les 4 heures avant arrêt automatique comme un bouton physique | |
+| `korg.system.device` | appareil sur lequel tourne le plugin : 0 Hacktribe, 1 Sampler rouge (Korg), 2 Synth bleu (Korg) (depuis l’API 26) | non | 0 à 2 |
+| `korg.system.version` | version du set BLECHTRIBE en nombre, x * 10000 + y * 100 + z, 1.5.0 vaut 10500 ; 0 si le set n’a pas de version (0 dans le simulateur de l’éditeur) | non | 0 à 999999 |
+| `korg.system.limits.ifxTypes` | nombre d’effets d’insertion du firmware, `ifxType` va de 0 à cette valeur moins 1 ; le firmware les compte à la lecture, un catalogue d’effets l’augmente | non | 0 à 255 |
+| `korg.system.limits.mfxTypes` | nombre d’effets master du firmware, `mfxType` va de 0 à cette valeur moins 1 ; comme ci-dessus | non | 0 à 255 |
+| `korg.system.limits.samples` | nombre de slots d’échantillon que `sample` peut choisir : 1000 sur le Sampler rouge, 0 sur le Synth bleu | non | 0 à 1000 |
 | `korg.menu.blech.customizations.display.red` | Rouge du rétroéclairage ; BACKLIGHT HUE, SAT, BRIGHT affichent teinte, saturation, luminosité ; les trois canaux à 0 signifient blanc d’origine | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.green` | Vert du rétroéclairage | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.blue` | Bleu du rétroéclairage | Oui, comme la page | 0 à 15 |
@@ -653,8 +735,8 @@ sont faibles : `setStep` 6 unités, `setGate` 4, `clearPart` 30 ; 64 pas tiennen
 paramètres de partie. WRITE reste nécessaire pour enregistrer. Dans l’émulateur, une copie
 comprenant les 64 pas et paramètres, puis WRITE, survit à un aller-retour vers un autre pattern
 à l’octet près, dans `tools/emu/plugin_edit_cases.py`. Les notes sont stockées comme MIDI+1,
-0 signifie vide. L’absence d’enregistrement dans la motion sequence par ce chemin est une
-déduction ; l’envoi de CC depuis l’API 24 est décrit ci-dessus.
+0 signifie vide. Depuis l’API 24, `setPartValue` envoie le même CC MIDI que le potentiomètre
+(décrit ci-dessus) ; son enregistrement dans la motion sequence n’est pas mesuré.
 
 ```js
 // TAP copie la partie 1 du pattern 5 dans la partie sélectionnée : pas et paramètres.

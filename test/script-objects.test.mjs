@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { API_VERSION } from "../data/script/contract.mjs";
 import globalMap from "../data/map/global.mjs";
-import { OBJECTS, OBJECT_BY_PATH, OBJECT_BASES, objectChildren } from "../data/script/objects.mjs";
+import { OBJECTS, OBJECT_BY_PATH, OBJECT_BASES, INFO, objectChildren } from "../data/script/objects.mjs";
 import { PROPERTY_BY_PATH } from "../data/script/properties.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
 import { decodeBlob } from "../src/script/blob.mjs";
@@ -161,7 +161,7 @@ test("the range of a leaf is the range the page's dial runs through", () => {
 
 test("the bases of the table are the ones script_objects.s knows by number", () => {
   const objects = readFileSync(new URL("../tools/patch/script_objects.s", import.meta.url), "utf8");
-  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"]]) {
+  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"]]) {
     assert.equal(Number(objects.match(new RegExp(`^\\.equ ${name}, (\\d+)`, "m"))[1]), OBJECT_BASES.indexOf(base), name);
   }
 });
@@ -227,4 +227,31 @@ test("the compiler refuses a known Global value outside the menu's limits and a 
   assert.match(refused(`korg.onEvent("ready", () => { korg.global.midiChannel = 16; });`), /0.*15.*16/);
   assert.match(refused(`korg.onEvent("ready", () => { korg.global.lcdContrast = 5; });`), /18.*42/);
   assert.match(refused(`korg.onEvent("ready", () => { korg.global.metronom = 1; });`), /korg\.global\.metronom.*metronome/);
+});
+
+// API 26: what the runtime knows about the device (base "info", plan 2026-11-10-plugin-api-1.5-complete, phase 1).
+test("korg.system.device, version and limits are read only leaves of the base info and need API 26", () => {
+  const info = OBJECTS.filter(o => o.base === "info");
+  assert.deepEqual(info.map(o => o.path), ["korg.system.device", "korg.system.version", "korg.system.limits.ifxTypes",
+    "korg.system.limits.mfxTypes", "korg.system.limits.samples"]);
+  assert.deepEqual(info.map(o => o.offset), Object.values(INFO));
+  for (const o of info) {
+    assert.equal(o.write, false, o.path);
+    assert.equal(o.stored, false, o.path);
+    assert.equal(o.since, 26, o.path);
+  }
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let d = korg.system.device; });`)).header.apiVersion, 26);
+  assert.match(refused(`korg.onEvent("ready", () => { korg.system.limits.samples = 1; });`), /korg\.system\.limits\.samples/);
+  assert.deepEqual(objectChildren("korg.system.limits"), ["ifxTypes", "mfxTypes", "samples"]);
+});
+
+test("the runtime knows the build of korg.system.device and the sample slots of each build", () => {
+  const hooks = readFileSync(new URL("../tools/patch/script_hooks.py", import.meta.url), "utf8");
+  assert.match(hooks, /BUILD_DEVICES = \{'hacktribe': 0, 'stock': 1, 'synth': 2\}/);
+  assert.match(hooks, /BUILD_SAMPLES, \{0 if build == "synth" else 1000\}/);
+});
+
+test("the simulator reads the device leaves at their factory values", () => {
+  const device = run(`korg.onEvent("ready", () => { korg.store.set(0, korg.system.device); korg.store.set(1, korg.system.limits.ifxTypes); korg.store.set(2, korg.system.limits.samples); });`);
+  assert.deepEqual([0, 1, 2].map(i => stored(device, i)), [0, 73, 1000]);
 });

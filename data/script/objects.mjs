@@ -8,7 +8,8 @@
  *   base     where the value lives: "menu" MENU_STATE + offset (tools/patch/script_menu.s), "runtime" the state words of
  *            the object runtime + offset (script_objects.s), "abs" the absolute address `offset` (a setting word of a patch,
  *            in our own code area), "global" the Global settings the firmware keeps + offset (a pointer read at each access),
- *            "pad" no address: `offset` picks a call into the patch pad-colors (0 PAD COLOR, 1 SELECT COLOR, 2 OVERLAP, 3 LED DIMMING)
+ *            "pad" no address: `offset` picks a call into the patch pad-colors (0 PAD COLOR, 1 SELECT COLOR, 2 OVERLAP, 3 LED DIMMING),
+ *            "info" no address, read only: `offset` picks what the runtime knows about the device it runs on (INFO)
  *   type     "u8" one byte, "u32" one word
  *   min, max the valid range; a set outside it is clamped and counted, so is a stored value found outside it at start
  *   factory  the value when the menu starts without a settings file
@@ -24,7 +25,13 @@
 import { text } from "../../src/text.mjs";
 import globalMap from "../map/global.mjs";
 
-export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad"]);
+export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info"]);
+/**
+ * What a leaf of the base "info" reads, by its `offset` (tools/patch/script_objects.s, objects_info_get): the build the runtime
+ * was made for, the version of the set (the text of the patch blech-version), and the counts the firmware's own functions
+ * return, so an fx catalog with more types raises them. `factory` is what the editor's simulator reads.
+ */
+export const INFO = Object.freeze({ device: 0, version: 1, ifxTypes: 2, mfxTypes: 3, samples: 4 });
 export const OBJECT_TYPES = Object.freeze(["u8", "u32"]);
 export const OBJECT_APPLY = Object.freeze(["none", "look", "keepAwake", "setter"]);
 /** Bytes of one row of the runtime's table: offset, min, max, factory (words), then base, type, apply, flags (bytes), then mirror and setter (words). */
@@ -202,6 +209,28 @@ export const OBJECTS = Object.freeze([
     unit: "action", text: text("api.object.menu.write"),
   }),
   ...globalLeaves(),
+
+  // API 26: the device a plugin runs on, so it adapts its ranges instead of hardcoding them (base "info", read only)
+  leaf(48, "korg.system.device", {
+    base: "info", offset: INFO.device, type: "u32", min: 0, max: 2, factory: 0, write: false, since: 26,
+    unit: "0 hacktribe, 1 red, 2 blue", text: text("api.object.system.device"),
+  }),
+  leaf(49, "korg.system.version", {
+    base: "info", offset: INFO.version, type: "u32", min: 0, max: 999999, factory: 0, write: false, since: 26,
+    unit: "x * 10000 + y * 100 + z, 0 unknown", text: text("api.object.system.version"),
+  }),
+  leaf(50, "korg.system.limits.ifxTypes", {
+    base: "info", offset: INFO.ifxTypes, type: "u32", min: 0, max: 255, factory: 73, write: false, since: 26,
+    unit: "count", text: text("api.object.system.limits.ifxTypes"),
+  }),
+  leaf(51, "korg.system.limits.mfxTypes", {
+    base: "info", offset: INFO.mfxTypes, type: "u32", min: 0, max: 255, factory: 43, write: false, since: 26,
+    unit: "count", text: text("api.object.system.limits.mfxTypes"),
+  }),
+  leaf(52, "korg.system.limits.samples", {
+    base: "info", offset: INFO.samples, type: "u32", min: 0, max: 1000, factory: 1000, write: false, since: 26,
+    unit: "count, 0 on blue", text: text("api.object.system.limits.samples"),
+  }),
 ]);
 
 export const OBJECT_BY_PATH = new Map(OBJECTS.map(o => [o.path, o]));

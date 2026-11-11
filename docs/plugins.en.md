@@ -188,6 +188,60 @@ One cycle delivers `ready` once per plugin first, then collects the waiting inpu
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
 
+### What a plugin reaches (API 26)
+
+The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
+means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
+The table is made from `data/script/coverage.mjs` (`node tools/plugin-coverage.mjs`), a test fails when a call, an event
+or a leaf of the object tree is missing.
+
+<!-- coverage -->
+| Part | Read | Set | Event |
+|---|---|---|---|
+| **Panel** | | | |
+| Keys (REC to IFX ON) | no | `korg.pressKey`, `korg.keyDown`, `korg.keyUp`, `korg.remapKey`, `korg.keyHold`, `korg.keyMask`, `korg.passKeys` | `buttonPress`, `buttonRelease` |
+| Knobs | `korg.read.knob` | `korg.knob`, `korg.knobHold` | `knob` |
+| Encoders | no | `korg.encoder` | `encoder` |
+| Pads | no | `korg.padDown`, `korg.padUp`, `korg.padHold` | `pad` |
+| Touchpad | no | `korg.touch`, `korg.touchLockX` | `touch` |
+| Touchpad mode (Gate Arp, Touch Scale, Master FX, MFX 2) | no | no | no |
+| Pad mode (TRIGGER, SEQUENCER, KEYBOARD and the others) | no | no | no |
+| LEDs | no | `korg.led`, `korg.ledHold` | no |
+| Display (own picture, the firmware's windows) | `korg.read.popups` | `korg.display.*`, `korg.file.frame` | `open`, `close` |
+| Display light | no | `korg.backlight` | no |
+| Which screen or menu is open | no | no | no |
+| **Sequencer, pattern, part, step** | | | |
+| Transport (PLAY, STOP, REC) | `korg.read.transport` | `korg.play`, `korg.stop` | `play`, `stop`, `rec` |
+| Tempo | `korg.read.tempo` | `korg.tempo` | `tempo` |
+| Selected, viewed and next pattern | `korg.read.pattern`, `korg.read.viewedPattern`, `korg.read.nextPattern` | `korg.pattern` | `patternChange` |
+| Selected part, mute | `korg.read.part`, `korg.read.mute` | `korg.part`, `korg.mute` | `partChange`, `mute` |
+| Step counter | `korg.read.step` | no | `step`, `beat` |
+| Values of the pattern (tempo to MFX pad, chain, sync group) | `korg.read.patternValue`, `korg.read.chainMode` | `korg.seq.setPatternValue` | no |
+| Values of a part (sample to groove, with motion seq on or off) | `korg.read.patternValue` | `korg.seq.setPartValue` | no |
+| Steps (on, gate, velocity, notes) | `korg.seq.getOn`, `korg.seq.getGate`, `korg.seq.getNote`, `korg.seq.getVelocity`, `korg.read.patternBytes` | `korg.seq.setStep`, `korg.seq.setGate`, `korg.seq.clearPart`, `korg.seq.writeSteps` | no |
+| Saving the pattern (WRITE) | no | no | no |
+| Motion lanes and their playback | no | no | no |
+| **Effects** | | | |
+| MFX: type, pad, HOLD, MFX SEND | `korg.read.patternValue` | `korg.seq.setPatternValue`, `korg.seq.setPartValue` | no |
+| MFX 2 type of the pattern | no | no | no |
+| IFX: on, type, edit | `korg.read.patternValue` | `korg.seq.setPartValue` | no |
+| **Sound, MIDI, samples** | | | |
+| Output level, spectrum, waveform | no | no | no |
+| Sending own MIDI messages, receiving MIDI | no | no | no |
+| Name and data of a sample | no | no | no |
+| **System and settings** | | | |
+| Device, version, number of effects and sample slots | `korg.system.device`, `korg.system.version`, `korg.system.limits.*` | no | no |
+| Repairs, test mode, Auto Power Off | `korg.system.repairs`, `korg.system.testMode` | `korg.system.keepAwake` | no |
+| GLOBAL PARAMETERS | `korg.global.*` | `korg.global.*` | no |
+| Menu BLECH (CUSTOMIZATION, FEATURES) | `korg.menu.blech.*` | `korg.menu.blech.*` | no |
+| Adapter or battery, charge | no | no | no |
+| **Services for plugins** | | | |
+| Own entries in the menu BLECH | no | `korg.menu.add` | `menu` |
+| Apps | no | `korg.app` | `open`, `close` |
+| Stored values | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
+| Time and timers | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
+<!-- /coverage -->
+
 ### The Electribe as objects
 
 A plugin reads and sets what the Electribe is doing like a variable: `korg.tempo` is the tempo,
@@ -228,6 +282,28 @@ like `korg.tempo(…)`, `korg.tempo = …` is not allowed in the body.
 `sample`, `ifxOn`, `ifxType` and `ampEg` can be set from API version 23, the new values of API version 24 as well,
 the details are under `korg.seq.setPartValue` and `korg.seq.setPatternValue`. The list and where each value comes from is in `data/script/contract.mjs` (`PATTERN_FIELDS`,
 `PART_FIELDS`); the places are measured in the device map `data/map/pattern.mjs`. From API version 8.
+
+**Motion sequence on and off**: `korg.parts[i].motionMode` is the MOTION SEQ page of the Part menu, 0 off, 1 smooth,
+2 trigger hold (from API version 24). A plugin switches a part's motion sequence off with it without erasing the recorded
+movement; the old value plays it again.
+
+```js
+// TAP switches the motion sequence of all parts off and back on as it was.
+const saved = new Array(16);
+let off = 0;
+korg.onEvent("buttonPress", (key) => {
+  if (key != korg.key.TAP) return;
+  for (let i = 0; i < 16; i++) {
+    if (off == 0) {
+      saved[i] = korg.parts[i].motionMode;
+      korg.parts[i].motionMode = 0;
+    } else {
+      korg.parts[i].motionMode = saved[i];
+    }
+  }
+  off = 1 - off;
+});
+```
 
 `+=`, `-=` and the other compound assignments work on everything that can be read and set, and so do
 `++` and `--`: `korg.tempo += 10;` reads the tempo and sets it 1.0 BPM higher. The index in the brackets
@@ -270,6 +346,11 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.system.repairs` | how many values were clamped or reset since start | no | 0 to 2147483647 |
 | `korg.system.testMode` | whether the test mode is on: display, light and every LED dark, Auto Power Off held | no, over USB only; RAM only, off after a restart | 0 (off) to 1 (on) |
 | `korg.system.keepAwake()` | (a call, not a value) | starts the 4 hours of Auto Power Off again, as a key on the device does | |
+| `korg.system.device` | the device the plugin runs on: 0 Hacktribe, 1 red Sampler (Korg), 2 blue Synth (Korg) (from API version 26) | no | 0 to 2 |
+| `korg.system.version` | version of the BLECHTRIBE set as a number, x * 10000 + y * 100 + z, 1.5.0 is 10500; 0 when the set carries no version (0 in the editor's simulator) | no | 0 to 999999 |
+| `korg.system.limits.ifxTypes` | how many insert effects the firmware has, `ifxType` runs from 0 to this value minus 1; the firmware counts them at the read, an fx catalog raises it | no | 0 to 255 |
+| `korg.system.limits.mfxTypes` | how many master effects the firmware has, `mfxType` runs from 0 to this value minus 1; as above | no | 0 to 255 |
+| `korg.system.limits.samples` | how many sample slots `sample` can choose: 1000 on the red Sampler, 0 on the blue Synth | no | 0 to 1000 |
 | `korg.menu.blech.customizations.display.red` | Red level of the display light (the pages BACKLIGHT HUE, SAT and BRIGHT show it as hue, saturation, brightness); all three at 0 is the stock white | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.display.green` | Green level of the display light | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.display.blue` | Blue level of the display light | yes, acts at once like the page | 0 to 15 |
