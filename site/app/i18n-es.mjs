@@ -1666,6 +1666,7 @@ export default {
   "compile.knob.unknown": "No existe un mando “korg.knobs.{name}”. Existen: {knobs}.",
   "compile.prop.writeOnly": "{prop} solo se puede establecer, no leer.",
   "compile.prop.readOnly": "{prop} solo se puede leer, no establecer.",
+  "compile.deprecated": "{name} está obsoleto (API {since}) y desaparecerá en una versión posterior. Usa {use} (desde la API {useSince}); hasta entonces el plugin funciona igual.",
   "compile.index.pure": "Con += y ++ el índice no puede contener una llamada a función, escríbela antes en una variable.",
   "compile.prop.compound": "{prop} no se puede leer, así que tampoco cambiar con {op}.",
   "compile.index.where": "Los corchetes solo van justo detrás del nombre de un array.",

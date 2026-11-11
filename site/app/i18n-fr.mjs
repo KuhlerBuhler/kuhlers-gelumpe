@@ -1667,6 +1667,7 @@ export default {
   "compile.knob.unknown": "Il n'y a pas de potard « korg.knobs.{name} ». Il y a : {knobs}.",
   "compile.prop.writeOnly": "{prop} ne peut qu'être définie, pas lue.",
   "compile.prop.readOnly": "{prop} ne peut qu'être lue, pas définie.",
+  "compile.deprecated": "{name} est obsolète (API {since}) et disparaîtra dans une version ultérieure. Utilisez {use} (à partir de l'API {useSince}) ; d'ici là, le plugin fonctionne sans changement.",
   "compile.index.pure": "Avec += et ++, l'index ne doit pas contenir d'appel de fonction, écris-le d'abord dans une variable.",
   "compile.prop.compound": "{prop} ne peut pas être lue, donc pas modifiée avec {op} non plus.",
   "compile.index.where": "Les crochets ne marchent que directement derrière le nom d'un tableau.",

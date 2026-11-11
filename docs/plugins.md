@@ -229,7 +229,7 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
-### Was ein Plugin erreicht (API 34)
+### Was ein Plugin erreicht (API 35)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -311,8 +311,8 @@ Rumpf.
 | `korg.knobs.LEVEL`, `korg.knobs[i]` | letzter Wert des Reglers, bis er bewegt wurde 0 | nein | `korg.read.knob(i)` |
 | `korg.store[i]` | gespeicherter Wert von Platz 0 bis 15, sonst 0 | ja, auf die Karte mit `korg.store.save()` | `korg.store.get(i, 0)`, `korg.store.set(i, x)` |
 | `korg.led.TAP`, `korg.leds[i]` | nein | Helligkeit 0 bis 255 | `korg.led(i, x)` |
-| `korg.chainMode` | 1, wenn CHAIN MODE im Global-Menü an ist (nur dann kettet die Firmware) | nein | `korg.read.chainMode()` |
-| `korg.pattern.current.tempo` (auch `korg.current.tempo`) und die anderen Werte unten | das Pattern, das gerade läuft, mit ungespeicherten Änderungen | ja, über die Funktion der Firmware aus dem Pattern-Menü (`korg.pattern.current` ab API Version 21, `korg.current` ab 15) | `korg.read.patternValue(-1, -1, wert)`, `korg.seq.setPatternValue(wert, x)` |
+| `korg.chainMode` | 1, wenn CHAIN MODE im Global-Menü an ist (nur dann kettet die Firmware). **Veraltet seit API 35**, nimm `korg.global.chainMode` | nein | `korg.read.chainMode()` |
+| `korg.pattern.current.tempo` (auch `korg.current.tempo`, **veraltet seit API 35**) und die anderen Werte unten | das Pattern, das gerade läuft, mit ungespeicherten Änderungen | ja, über die Funktion der Firmware aus dem Pattern-Menü (`korg.pattern.current` ab API Version 21, `korg.current` ab 15) | `korg.read.patternValue(-1, -1, wert)`, `korg.seq.setPatternValue(wert, x)` |
 | `korg.patterns[i].tempo` und die anderen Werte unten | Pattern `i` (0 bis 249), so wie es gespeichert ist | nein | `korg.read.patternValue(i, -1, wert)` |
 | `korg.parts[i].cutoff` und die anderen Part-Werte unten | Part `i` (0 bis 15) im Pattern, das gerade läuft | ja (ab API Version 14; `voiceAssign` und `mfxSend` ab 21; `sample`, `ifxOn`, `ifxType` und `ampEg` ab 23; `lastStep` bis `grooveDepth` ab 24) | `korg.read.patternValue(-1, i, wert)`, `korg.seq.setPartValue(i, wert, x)` |
 
@@ -542,8 +542,8 @@ korg.onEvent("close", () => {
 });
 ```
 
-`korg.pattern.current` ist der Name des laufenden Patterns im Objektbaum; `korg.current` bleibt gültig und meint dieselben
-Werte.
+`korg.pattern.current` ist der Name des laufenden Patterns im Objektbaum; `korg.current` meint dieselben
+Werte, ist aber seit API 35 veraltet (siehe [Veraltete Aufrufe](#veraltete-aufrufe-api-35)).
 
 ### Timer (API 11, BLECHTRIBE 1.3.8)
 
@@ -638,7 +638,7 @@ Plugin mit einem Fehler.
 | `korg.read.step(part)` | Schrittzähler des Parts, 0 bis 63 | überall |
 | `korg.read.mute(part)` | 1, wenn der Part gemutet ist | überall |
 | `korg.read.knob(index)` | letzter Rohwert des Reglers `index` (0 bis 19), den die Laufzeit gesehen hat, bis dahin 0 | überall |
-| `korg.read.chainMode()` | 1, wenn CHAIN MODE im Global-Menü an ist. Ab API Version 8 | überall |
+| `korg.read.chainMode()` | 1, wenn CHAIN MODE im Global-Menü an ist. Ab API Version 8. **Veraltet seit API 35**, nimm `korg.global.chainMode` | überall |
 | `korg.read.patternValue(pattern, part, wert)` | ein Wert eines Patterns: `pattern` -1 das laufende, 0 bis 249 ein gespeichertes; `part` -1 ein Wert des Patterns, 0 bis 15 einer des Parts; `wert` die Nummer in `PATTERN_FIELDS` oder `PART_FIELDS`. Lesbarer mit den Namen oben (`korg.current.tempo`). Ab API Version 8 | überall |
 | `korg.play()` | PLAY drücken und loslassen, über den Tastenweg der Firmware | wie `korg.led` |
 | `korg.stop()` | STOP drücken und loslassen | wie `korg.led` |
@@ -1042,6 +1042,20 @@ Filter, ein Klick fügt den Namen am Cursor ein). Steht der Cursor in einer Numm
 nach Taste oder LED aussieht (`key == 11`, `korg.led(20, …)`), sagt eine Zeile unter
 dem Code, welche Taste oder LED das ist, und nach `korg.key.` oder `korg.led.` bietet
 die Vervollständigung des Editors alle Namen an (siehe „Die Seite Plugins im Editor“).
+
+### Veraltete Aufrufe (API 35)
+
+Diese Aufrufe und Eigenschaften ersetzt ein neuerer. Sie laufen weiter wie bisher, der Block bleibt derselbe. Der Editor
+markiert sie als Warnung, nennt den Ersatz in der Fehlerliste und im Tooltip. Entfernt werden sie frühestens in einer späteren
+Version, das steht dann in den Release Notes. Die Liste steht in `data/script/contract.mjs` (`DEPRECATED`).
+
+| Veraltet | Ersatz | Ersatz ab API |
+|---|---|---|
+| `korg.read.chainMode()` | `korg.global.chainMode` | 20 |
+| `korg.chainMode` | `korg.global.chainMode` | 20 |
+| `korg.current.…` (alle Werte des Patterns) | `korg.pattern.current.…` | 21 |
+
+Wer ein Plugin auch für eine Firmware vor API 21 schreibt, bleibt bei der alten Form; die Warnung hält es nicht auf.
 
 ### Grenzen
 

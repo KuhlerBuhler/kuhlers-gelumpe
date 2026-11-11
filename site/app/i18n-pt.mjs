@@ -1667,6 +1667,7 @@ export default {
   "compile.knob.unknown": "Não existe o botão “korg.knobs.{name}”. Existem: {knobs}.",
   "compile.prop.writeOnly": "{prop} só se pode definir, não ler.",
   "compile.prop.readOnly": "{prop} só se pode ler, não definir.",
+  "compile.deprecated": "{name} está obsoleto (API {since}) e desaparecerá numa versão posterior. Use {use} (a partir da API {useSince}); até lá o plugin funciona sem alterações.",
   "compile.index.pure": "Com += e ++ o índice não pode conter uma chamada de função, escreve-o primeiro numa variável.",
   "compile.prop.compound": "{prop} não se pode ler, por isso também não se pode alterar com {op}.",
   "compile.index.where": "Parênteses retos só funcionam logo a seguir ao nome de um array.",

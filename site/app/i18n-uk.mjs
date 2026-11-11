@@ -1667,6 +1667,7 @@ export default {
   "compile.knob.unknown": "Регулятора «korg.knobs.{name}» немає. Є: {knobs}.",
   "compile.prop.writeOnly": "{prop} можна лише задавати, читати не можна.",
   "compile.prop.readOnly": "{prop} можна лише читати, задавати не можна.",
+  "compile.deprecated": "{name} застаріле (API {since}) і зникне в одній з наступних версій. Використовуйте {use} (з API {useSince}); доти плагін працює без змін.",
   "compile.index.pure": "У += і ++ індекс не може містити виклик функції, спершу запиши його у змінну.",
   "compile.prop.compound": "{prop} не можна прочитати, отже, і змінювати через {op} теж.",
   "compile.index.where": "Квадратні дужки працюють лише одразу після імені масиву.",

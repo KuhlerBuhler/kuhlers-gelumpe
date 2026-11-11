@@ -193,7 +193,7 @@ One cycle delivers `ready` once per plugin first, then collects the waiting inpu
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
 
-### What a plugin reaches (API 34)
+### What a plugin reaches (API 35)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -274,8 +274,8 @@ like `korg.tempo(…)`, `korg.tempo = …` is not allowed in the body.
 | `korg.knobs.LEVEL`, `korg.knobs[i]` | last value of the knob, 0 until it moved | no | `korg.read.knob(i)` |
 | `korg.store[i]` | stored value of slot 0 to 15, otherwise 0 | yes, to the card with `korg.store.save()` | `korg.store.get(i, 0)`, `korg.store.set(i, x)` |
 | `korg.led.TAP`, `korg.leds[i]` | no | brightness 0 to 255 | `korg.led(i, x)` |
-| `korg.chainMode` | 1 when CHAIN MODE is on in the Global menu (only then does the firmware chain) | no | `korg.read.chainMode()` |
-| `korg.pattern.current.tempo` (also `korg.current.tempo`) and the other values below | the pattern that plays, with its unsaved changes | yes, through the firmware function of the Pattern menu (`korg.pattern.current` from API version 21, `korg.current` from 15) | `korg.read.patternValue(-1, -1, value)`, `korg.seq.setPatternValue(value, x)` |
+| `korg.chainMode` | 1 when CHAIN MODE is on in the Global menu (only then does the firmware chain). **Deprecated since API 35**, use `korg.global.chainMode` | no | `korg.read.chainMode()` |
+| `korg.pattern.current.tempo` (also `korg.current.tempo`, **deprecated since API 35**) and the other values below | the pattern that plays, with its unsaved changes | yes, through the firmware function of the Pattern menu (`korg.pattern.current` from API version 21, `korg.current` from 15) | `korg.read.patternValue(-1, -1, value)`, `korg.seq.setPatternValue(value, x)` |
 | `korg.patterns[i].tempo` and the other values below | pattern `i` (0 to 249) as stored | no | `korg.read.patternValue(i, -1, value)` |
 | `korg.parts[i].cutoff` and the other part values below | part `i` (0 to 15) in the pattern that plays | yes (from API version 14; `voiceAssign` and `mfxSend` from 21; `sample`, `ifxOn`, `ifxType` and `ampEg` from 23; `lastStep` to `grooveDepth` from 24) | `korg.read.patternValue(-1, i, value)`, `korg.seq.setPartValue(i, value, x)` |
 
@@ -503,8 +503,8 @@ korg.onEvent("close", () => {
 });
 ```
 
-`korg.pattern.current` is the name of the pattern that plays in the object tree; `korg.current` stays valid and means the
-same values.
+`korg.pattern.current` is the name of the pattern that plays in the object tree; `korg.current` means the
+same values but is deprecated since API 35 (see [Deprecated calls](#deprecated-calls-api-35)).
 
 ### Timers (API 11, BLECHTRIBE 1.3.8)
 
@@ -597,7 +597,7 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.read.step(part)` | step counter of the part, 0 to 63 | everywhere |
 | `korg.read.mute(part)` | 1 if the part is muted | everywhere |
 | `korg.read.knob(index)` | last raw value of knob `index` (0 to 19) that the runtime has seen, 0 until then | everywhere |
-| `korg.read.chainMode()` | 1 when CHAIN MODE is on in the Global menu. From API version 8 | everywhere |
+| `korg.read.chainMode()` | 1 when CHAIN MODE is on in the Global menu. From API version 8. **Deprecated since API 35**, use `korg.global.chainMode` | everywhere |
 | `korg.read.patternValue(pattern, part, value)` | a value of a pattern: `pattern` -1 the one that plays, 0 to 249 a stored one; `part` -1 a value of the pattern, 0 to 15 one of the part; `value` the number in `PATTERN_FIELDS` or `PART_FIELDS`. Easier to read with the names above (`korg.current.tempo`). From API version 8 | everywhere |
 | `korg.play()` | press and release PLAY, through the firmware's key path | like `korg.led` |
 | `korg.stop()` | press and release STOP | like `korg.led` |
@@ -960,6 +960,20 @@ The editor shows the same list below the code ("Namen der Tasten und LEDs", with
 the name at the cursor). If the cursor is in a number that looks like a key or an LED (`key == 11`,
 `korg.led(20, ...)`), a line below the code says which key or LED it is, and after `korg.key.` or
 `korg.led.` the editor's completion offers all names (see "The Plugins page in the editor").
+
+### Deprecated calls (API 35)
+
+A newer call or property replaces these. They keep working as before and the block stays the same. The editor marks
+them as a warning and names the replacement in the problem list and in the tooltip. They go away in a later version at the
+earliest, written in the release notes then. The list is in `data/script/contract.mjs` (`DEPRECATED`).
+
+| Deprecated | Replacement | Replacement from API |
+|---|---|---|
+| `korg.read.chainMode()` | `korg.global.chainMode` | 20 |
+| `korg.chainMode` | `korg.global.chainMode` | 20 |
+| `korg.current.…` (every value of the pattern) | `korg.pattern.current.…` | 21 |
+
+A plugin that also targets firmware before API 21 keeps the old form; the warning does not stop it.
 
 ### Limits
 

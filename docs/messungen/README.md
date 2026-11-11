@@ -191,6 +191,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 32: eine Datendatei pro Plugin auf der Karte, im Emulator](2026-11-11-plugin-api32-data-file.md)
 - [Plugin API 33: Samples lesen, Pattern speichern, Part kopieren, im Emulator](2026-11-11-plugin-api33-samples.md)
 - [Plugin API 34: Netzteil oder Batterie, Ladestand, LEDs lesen, im Emulator](2026-11-11-plugin-api34-system.md)
+- [Plugin API 35: veraltete Aufrufe und ihr Ersatz](2026-11-12-plugin-api35-veraltet.md)
 - [Firmwarepfad fuer Part-Parameter, im Emulator geprueft](2026-11-06-part-param-refresh.md)
 - [DSP-Transport bei neuen Part-Bedienungen, im Emulator geprueft](2026-11-07-part-control-dsp-refresh.md)
 - [Part-Werte aus Plugins: Parametersetzer, Auffrischen, Filter-LEDs und MFX SEND wie die Bedienelemente, im Emulator](2026-11-09-plugin-part-dsp.md)

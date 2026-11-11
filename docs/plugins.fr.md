@@ -194,7 +194,7 @@ Un cycle transmet d’abord `ready` une fois par plugin, collecte les entrées e
 `frame` en dernier. Les nouvelles entrées attendent le cycle suivant. Un nouveau plugin reçoit
 `ready` après la fin du cycle précédent.
 
-### Ce qu’un plugin atteint (API 34)
+### Ce qu’un plugin atteint (API 35)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -276,8 +276,8 @@ est interdite dans le corps.
 | `korg.knobs.LEVEL`, `korg.knobs[i]` | Dernière valeur du potentiomètre, 0 avant son premier mouvement | Non | `korg.read.knob(i)` |
 | `korg.store[i]` | Valeur enregistrée de l’emplacement 0 à 15, sinon 0 | Oui, sur la carte après `korg.store.save()` | `korg.store.get(i, 0)`, `korg.store.set(i, x)` |
 | `korg.led.TAP`, `korg.leds[i]` | Non | Luminosité de 0 à 255 | `korg.led(i, x)` |
-| `korg.chainMode` | 1 si CHAIN MODE est activé dans Global, condition nécessaire à l’enchaînement | Non | `korg.read.chainMode()` |
-| `korg.pattern.current.tempo`, aussi `korg.current.tempo`, et les valeurs décrites ci-dessous | Pattern en lecture, modifications non enregistrées comprises | Oui, via la fonction du menu Pattern ; `korg.pattern.current` depuis l’API 21, `korg.current` depuis l’API 15 | `korg.read.patternValue(-1, -1, value)`, `korg.seq.setPatternValue(value, x)` |
+| `korg.chainMode` | 1 si CHAIN MODE est activé dans Global, condition nécessaire à l’enchaînement. **Obsolète depuis l’API 35**, utilisez `korg.global.chainMode` | Non | `korg.read.chainMode()` |
+| `korg.pattern.current.tempo`, aussi `korg.current.tempo` (**obsolète depuis l’API 35**), et les valeurs décrites ci-dessous | Pattern en lecture, modifications non enregistrées comprises | Oui, via la fonction du menu Pattern ; `korg.pattern.current` depuis l’API 21, `korg.current` depuis l’API 15 | `korg.read.patternValue(-1, -1, value)`, `korg.seq.setPatternValue(value, x)` |
 | `korg.patterns[i].tempo` et les valeurs ci-dessous | Pattern enregistré `i`, de 0 à 249 | Non | `korg.read.patternValue(i, -1, value)` |
 | `korg.parts[i].cutoff` et les valeurs de partie ci-dessous | Partie `i`, de 0 à 15, du pattern en lecture | Oui depuis l’API 14 ; `voiceAssign` et `mfxSend` depuis 21 ; `sample`, `ifxOn`, `ifxType`, `ampEg` depuis 23 ; `lastStep` à `grooveDepth` depuis 24 | `korg.read.patternValue(-1, i, value)`, `korg.seq.setPartValue(i, value, x)` |
 
@@ -528,8 +528,8 @@ korg.onEvent("close", () => {
 });
 ```
 
-`korg.pattern.current` désigne le pattern en lecture dans l’arbre ; `korg.current` reste un
-synonyme des mêmes valeurs.
+`korg.pattern.current` désigne le pattern en lecture dans l’arbre ; `korg.current` est un
+synonyme des mêmes valeurs, obsolète depuis l’API 35 (voir [Appels obsolètes](#appels-obsolètes-api-35)).
 
 ### Temporisateurs (API 11, BLECHTRIBE 1.3.8)
 
@@ -627,7 +627,7 @@ La colonne d’autorisation s’applique aussi à la syntaxe de propriété équ
 | `korg.read.step(part)` | Compteur de pas de la partie, de 0 à 63 | Partout |
 | `korg.read.mute(part)` | 1 si la partie est muette | Partout |
 | `korg.read.knob(index)` | Dernière valeur brute observée du potentiomètre 0 à 19, sinon 0 | Partout |
-| `korg.read.chainMode()` | 1 si CHAIN MODE est activé dans Global. Depuis l’API 8 | Partout |
+| `korg.read.chainMode()` | 1 si CHAIN MODE est activé dans Global. Depuis l’API 8. **Obsolète depuis l’API 35**, utilisez `korg.global.chainMode` | Partout |
 | `korg.read.patternValue(pattern, part, value)` | `pattern` : -1 en lecture, 0 à 249 stocké ; `part` : -1 pour le pattern, 0 à 15 pour une partie ; `value` : numéro dans `PATTERN_FIELDS` ou `PART_FIELDS`. Les noms, comme `korg.current.tempo`, sont plus lisibles. Depuis l’API 8 | Partout |
 | `korg.play()` | Appuie puis relâche PLAY par le chemin normal du firmware | Comme `korg.led` |
 | `korg.stop()` | Appuie puis relâche STOP | Comme `korg.led` |
@@ -1052,6 +1052,21 @@ La même liste est disponible sous l’éditeur avec un filtre. Un clic insère 
 au curseur. Un nombre ressemblant à un code de bouton ou de LED, dans `key == 11` ou
 `korg.led(20, ...)`, affiche son nom sous le code. Après `korg.key.` et `korg.led.`,
 la complétion propose les constantes correspondantes.
+
+### Appels obsolètes (API 35)
+
+Un appel ou une propriété plus récente remplace ceux-ci. Ils fonctionnent comme avant et le bloc reste le même. L’éditeur les
+signale comme avertissement et indique le remplacement dans la liste des problèmes et dans l’infobulle. Ils disparaîtront au plus tôt
+dans une version ultérieure, annoncée alors dans les notes de version. La liste se trouve dans `data/script/contract.mjs`
+(`DEPRECATED`).
+
+| Obsolète | Remplacement | Remplacement depuis l’API |
+|---|---|---|
+| `korg.read.chainMode()` | `korg.global.chainMode` | 20 |
+| `korg.chainMode` | `korg.global.chainMode` | 20 |
+| `korg.current.…` (toutes les valeurs du pattern) | `korg.pattern.current.…` | 21 |
+
+Un plugin qui vise aussi un firmware antérieur à l’API 21 garde l’ancienne forme ; l’avertissement ne le bloque pas.
 
 ### Limites
 

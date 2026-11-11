@@ -1667,6 +1667,7 @@ export default {
   "compile.knob.unknown": "There is no knob “korg.knobs.{name}”. There is: {knobs}.",
   "compile.prop.writeOnly": "{prop} can only be set, not read.",
   "compile.prop.readOnly": "{prop} can only be read, not set.",
+  "compile.deprecated": "{name} is deprecated (API {since}) and goes away in a later version. Use {use} (from API {useSince}); until then the plugin runs unchanged.",
   "compile.index.pure": "With += and ++ the index must not contain a function call, write it into a variable first.",
   "compile.prop.compound": "{prop} can't be read, so it can't be changed with {op} either.",
   "compile.index.where": "Square brackets only work directly after the name of an array.",

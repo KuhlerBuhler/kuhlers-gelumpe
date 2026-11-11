@@ -1667,6 +1667,7 @@ export default {
   "compile.knob.unknown": "Регулятора «korg.knobs.{name}» нет. Есть: {knobs}.",
   "compile.prop.writeOnly": "{prop} можно только задавать, читать нельзя.",
   "compile.prop.readOnly": "{prop} можно только читать, задавать нельзя.",
+  "compile.deprecated": "{name} устарело (API {since}) и будет удалено в одной из следующих версий. Используйте {use} (с API {useSince}); до тех пор плагин работает без изменений.",
   "compile.index.pure": "В += и ++ индекс не может содержать вызов функции, сначала запиши его в переменную.",
   "compile.prop.compound": "{prop} нельзя прочитать, значит, и менять через {op} тоже.",
   "compile.index.where": "Квадратные скобки работают только сразу после имени массива.",

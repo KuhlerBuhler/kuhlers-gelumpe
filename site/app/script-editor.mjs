@@ -42,6 +42,7 @@ function infoDom(info, active = -2) {
   if (active >= 0) dom.append(node("p", "cee-script-tip-note", `${info.params[active].name}: ${t(info.params[active].range)}`));
   if (active === -2) {
     dom.append(node("p", "cee-script-tip-text", t(info.text)));
+    if (info.deprecated) dom.append(node("p", "cee-script-tip-text", info.deprecated));
     if (info.params.length) {
       const list = node("ul", "cee-script-tip-params");
       for (const p of info.params) list.append(node("li", "", `${p.name}: ${t(p.range)}`));
@@ -177,10 +178,11 @@ export function createScriptEditor(parent, { label, onInput = () => {}, onCaret 
     setReadOnly(on) { if (on !== view.state.readOnly) lock(on); },
     focus() { view.focus(); },
     setMarks(marks) { view.dispatch({ effects: setMarks.of(marks) }); },
-    /** Underline the compile errors in the text: [{ line, column, message }]. */
-    setErrors(errors) {
+    /** Underline the compile errors and the warnings in the text: [{ line, column, message }] each. */
+    setErrors(errors, warnings = []) {
       const text = view.state.doc.toString();
-      view.dispatch(setDiagnostics(view.state, errors.map(e => ({ ...errorRange(text, e), severity: "error", message: e.message }))));
+      const mark = severity => e => ({ ...errorRange(text, e), severity, message: e.message });
+      view.dispatch(setDiagnostics(view.state, [...errors.map(mark("error")), ...warnings.map(mark("warning"))]));
     },
     /** Put the caret on a compile error: its word is selected, the editor scrolls there and takes the focus. */
     jump(error) {

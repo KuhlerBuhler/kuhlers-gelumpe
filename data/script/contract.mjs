@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 34;
+export const API_VERSION = 35;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -471,6 +471,24 @@ export const ARRAY_HANDLE = Object.freeze({
 
 export const API_BY_ID = new Map(API.map(a => [a.id, a]));
 export const API_BY_NAME = new Map(API.map(a => [a.name, a]));
+
+/**
+ * Calls and properties a newer one replaces: they keep working, the compiler warns with the replacement. `since` is the API
+ * version that marks them, `use` the replacement. A key ending in "." stands for every property below it, the replacement
+ * then gets the same rest (`korg.current.tempo` -> `korg.pattern.current.tempo`). Removing one is a change of a later version.
+ */
+export const DEPRECATED = Object.freeze({
+  "korg.read.chainMode": Object.freeze({ since: 35, use: "korg.global.chainMode" }),
+  "korg.chainMode": Object.freeze({ since: 35, use: "korg.global.chainMode" }),
+  "korg.current.": Object.freeze({ since: 35, use: "korg.pattern.current." }),
+});
+
+/** The deprecation of a call or property path: { since, use } with the full replacement, or null. */
+export function deprecation(name) {
+  if (DEPRECATED[name]) return DEPRECATED[name];
+  const prefix = Object.keys(DEPRECATED).find(k => k.endsWith(".") && name.startsWith(k));
+  return prefix ? { since: DEPRECATED[prefix].since, use: DEPRECATED[prefix].use + name.slice(prefix.length) } : null;
+}
 
 const LED_API = API_BY_NAME.get("korg.led");
 const LED_COUNT = LED_API.args[0].max + 1;

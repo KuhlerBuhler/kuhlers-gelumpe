@@ -1772,12 +1772,12 @@ let last = -1;
 function arm(step) {
   pending = 0;
   active = 0;
-  const next = korg.current.chainTo;
-  if (!on || !korg.chainMode || next < 0) return;
+  const next = korg.pattern.current.chainTo;
+  if (!on || !korg.global.chainMode || next < 0) return;
   base = korg.tempo;
   target = korg.patterns[next].tempo;
-  length = korg.current.length * 16;
-  total = length * korg.current.chainRepeat;
+  length = korg.pattern.current.length * 16;
+  total = length * korg.pattern.current.chainRepeat;
   laps = 0;
   last = step;
   active = base != target ? 1 : 0;
@@ -1987,7 +1987,7 @@ korg.onEvent("touch", (x, y, first) => {
   if (!on || !gate) return;
   if (first || !holding) {
     letGo();
-    base = korg.current.gateArp;
+    base = korg.pattern.current.gateArp;
     rhythm = -1;
     korg.touchLockX(x >> 3);
     holding = 1;
@@ -2002,7 +2002,7 @@ korg.onEvent("touch", (x, y, first) => {
 // A new pattern brings its own rhythm: that one comes back on release.
 korg.onEvent("patternChange", () => {
   if (!holding) return;
-  base = korg.current.gateArp;
+  base = korg.pattern.current.gateArp;
   rhythm = -1;
 });
 
@@ -2058,7 +2058,7 @@ function run() {
   timer = -1;
   if (mode == 0) return;
   const src = from - 1;
-  let bars = korg.current.length;
+  let bars = korg.pattern.current.length;
   if (src >= bars) return;
   if (to > bars) {
     korg.seq.setPatternValue(2, to);

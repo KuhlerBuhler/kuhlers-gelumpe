@@ -1667,6 +1667,7 @@ export default {
   "compile.knob.unknown": "Er is geen knop “korg.knobs.{name}”. Er zijn: {knobs}.",
   "compile.prop.writeOnly": "{prop} kun je alleen instellen, niet lezen.",
   "compile.prop.readOnly": "{prop} kun je alleen lezen, niet instellen.",
+  "compile.deprecated": "{name} is verouderd (API {since}) en verdwijnt in een latere versie. Gebruik {use} (vanaf API {useSince}); tot dan werkt de plugin ongewijzigd.",
   "compile.index.pure": "Bij += en ++ mag de index geen functieaanroep bevatten, schrijf hem eerst in een variabele.",
   "compile.prop.compound": "{prop} kun je niet lezen, dus ook niet met {op} wijzigen.",
   "compile.index.where": "Vierkante haken werken alleen direct achter de naam van een array.",

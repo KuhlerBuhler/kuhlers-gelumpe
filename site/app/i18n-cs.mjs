@@ -1667,6 +1667,7 @@ export default {
   "compile.knob.unknown": "Potenciometr „korg.knobs.{name}“ neexistuje. Existují: {knobs}.",
   "compile.prop.writeOnly": "{prop} se dá jen nastavit, ne přečíst.",
   "compile.prop.readOnly": "{prop} se dá jen přečíst, ne nastavit.",
+  "compile.deprecated": "{name} je zastaralé (API {since}) a v pozdější verzi zmizí. Použijte {use} (od API {useSince}); do té doby plugin běží beze změny.",
   "compile.index.pure": "U += a ++ nesmí index obsahovat volání funkce, napiš ho nejdřív do proměnné.",
   "compile.prop.compound": "{prop} se nedá přečíst, takže se nedá ani změnit pomocí {op}.",
   "compile.index.where": "Hranaté závorky fungují jen hned za názvem pole.",

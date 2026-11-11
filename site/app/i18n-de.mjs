@@ -1712,6 +1712,7 @@ export default {
   "compile.knob.unknown": "Es gibt keinen Regler „korg.knobs.{name}“. Es gibt: {knobs}.",
   "compile.prop.writeOnly": "{prop} lässt sich nur setzen, nicht lesen.",
   "compile.prop.readOnly": "{prop} lässt sich nur lesen, nicht setzen.",
+  "compile.deprecated": "{name} ist veraltet (API {since}) und fällt in einer späteren Version weg. Nimm {use} (ab API {useSince}), bis dahin läuft das Plugin unverändert.",
   "compile.index.pure": "Bei += und ++ darf der Index keinen Funktionsaufruf enthalten, schreibe ihn zuerst in eine Variable.",
   "compile.prop.compound": "{prop} lässt sich nicht lesen, also auch nicht mit {op} ändern.",
   "compile.index.where": "Eckige Klammern gehen nur direkt hinter dem Namen eines Felds.",

@@ -1667,6 +1667,7 @@ export default {
   "compile.knob.unknown": "Nie ma pokrętła „korg.knobs.{name}”. Są: {knobs}.",
   "compile.prop.writeOnly": "{prop} można tylko ustawić, nie odczytać.",
   "compile.prop.readOnly": "{prop} można tylko odczytać, nie ustawić.",
+  "compile.deprecated": "{name} jest przestarzałe (API {since}) i zniknie w późniejszej wersji. Użyj {use} (od API {useSince}); do tego czasu plugin działa bez zmian.",
   "compile.index.pure": "Przy += i ++ indeks nie może zawierać wywołania funkcji, wpisz go najpierw do zmiennej.",
   "compile.prop.compound": "{prop} nie da się odczytać, więc nie da się też zmienić przez {op}.",
   "compile.index.where": "Nawiasy kwadratowe działają tylko tuż za nazwą tablicy.",

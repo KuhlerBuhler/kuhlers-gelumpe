@@ -5,7 +5,7 @@
  */
 import { text } from "../../src/text.mjs";
 import { KNOBS } from "../panel.mjs";
-import { PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PART_WRITE_SINCE, PART_FIELD_SINCE, PATTERN_FIELD_SINCE } from "./contract.mjs";
+import { API_BY_NAME, PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PART_WRITE_SINCE, PART_FIELD_SINCE, PATTERN_FIELD_SINCE, deprecation } from "./contract.mjs";
 import { OBJECTS } from "./objects.mjs";
 
 const knobName = id => id.replace(/([a-z])([A-Z0-9])/g, "$1_$2").toUpperCase();
@@ -44,3 +44,9 @@ export const PROPERTIES = Object.freeze([
 ]);
 
 export const PROPERTY_BY_PATH = new Map(PROPERTIES.map(x => [x.path, x]));
+
+/** A deprecated call or property (contract DEPRECATED) with the API version its replacement needs: { since, use, useSince } or null. */
+export function deprecated(name) {
+  const d = deprecation(name);
+  return d && { ...d, useSince: PROPERTY_BY_PATH.get(d.use)?.since ?? API_BY_NAME.get(d.use)?.since ?? 0 };
+}

@@ -10,6 +10,7 @@ const KEY_TOUCHPAD = KEY_NAMES.find(n => n.name === "TOUCHPAD").value;
 const KEY_PLAY = KEY_NAMES.find(n => n.name === "PLAY").value;
 const KEY_STOP = KEY_NAMES.find(n => n.name === "STOP").value;
 const KEY_EXIT = KEY_NAMES.find(n => n.name === "EXIT").value;
+const CHAIN_MODE = OBJECTS.findIndex(o => o.path === "korg.global.chainMode");
 const REPAIRS = OBJECTS.find(o => o.path === "korg.system.repairs").id;
 
 export class SimHardware {
@@ -27,8 +28,7 @@ export class SimHardware {
     this.steps = new Int32Array(16);
     this.mutes = new Uint8Array(16);
     this.knobs = new Int32Array(SCRIPT_KNOBS);
-    /** CHAIN MODE in Global, and the pattern blocks korg.read.patternValue reads (-1 the pattern in RAM, 0 to 249 the bank), made on first use. */
-    this.chainMode = 1;
+    /** The pattern blocks korg.read.patternValue reads (-1 the pattern in RAM, 0 to 249 the bank), made on first use. */
     this.patternBlocks = new Map();
     /** The MFX 2 table of the patch mfx-switch, one entry per pattern: 1 to 100 the type as the display numbers it, 0 the default (7). */
     this.mfx2 = new Uint8Array(250);
@@ -68,6 +68,7 @@ export class SimHardware {
     this.appOpen = false;
     /** The leaves of the object tree by id (data/script/objects.mjs), at their factory values; `repairs` is korg.system.repairs. */
     this.objects = OBJECTS.map(o => o.factory);
+    this.chainMode = 1;
     /** 0 finger up, 1 the press came and the first position has not, 2 the first position is out. */
     this.touch = 0;
     /** korg.midi: the global MIDI channel (0 to 15), the MIDI SEND FILTER (0 Off, 1 Short, 2 Short + Program), the messages sent as byte arrays, a bit per message type kept from the firmware. */
@@ -207,6 +208,10 @@ export class SimHardware {
   }
 
   /** korg.get: the value of a leaf, as the runtime's table reads it. */
+  /** CHAIN MODE in Global: korg.read.chainMode and the leaf korg.global.chainMode read the same byte, as on the device. */
+  get chainMode() { return this.objects[CHAIN_MODE]; }
+  set chainMode(value) { this.objects[CHAIN_MODE] = value; }
+
   objectGet(leaf) {
     if (!OBJECTS[leaf]) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectLeaf", { leaf })));
     if (OBJECTS[leaf].base === "motion") return this.patternBlock(-1)[this.motionModeAt()] ? 1 : 0;

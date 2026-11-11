@@ -1666,6 +1666,7 @@ export default {
   "compile.knob.unknown": "Non esiste una manopola “korg.knobs.{name}”. Esistono: {knobs}.",
   "compile.prop.writeOnly": "{prop} si può solo impostare, non leggere.",
   "compile.prop.readOnly": "{prop} si può solo leggere, non impostare.",
+  "compile.deprecated": "{name} è deprecato (API {since}) e sparirà in una versione successiva. Usa {use} (dall'API {useSince}); fino ad allora il plugin funziona invariato.",
   "compile.index.pure": "Con += e ++ l'indice non può contenere una chiamata di funzione, scrivila prima in una variabile.",
   "compile.prop.compound": "{prop} non si può leggere, quindi nemmeno cambiare con {op}.",
   "compile.index.where": "Le parentesi quadre vanno solo subito dopo il nome di un array.",

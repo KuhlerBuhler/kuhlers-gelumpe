@@ -175,7 +175,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     built = result;
     marks.error = null;
     problems.replaceChildren();
-    editor.setErrors(result.ok ? [] : result.errors);
+    editor.setErrors(result.ok ? [] : result.errors, result.ok ? result.warnings : []);
     if (!result.ok) {
       marks.error = result.errors[0]?.line ?? null;
       status.textContent = t("plugins.compileFailed");
@@ -190,6 +190,9 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       status.textContent = t("plugins.size", { size, vars: h.varCount, varMax: BUDGET.variableSlots, code: h.codeSize, codeMax: LIMITS.code, strings: h.stringCount, stringMax: LIMITS.strings, consts: h.constCount, constMax: LIMITS.consts });
       status.title = t("plugins.size.title", { size: status.textContent, max: ARCHIVE.maxBlock });
       if (size > ARCHIVE.maxBlock) problems.append(el("li", { className: "cee-script-problem-text", textContent: t("plugins.tooBig", { size, max: ARCHIVE.maxBlock }) }));
+      for (const w of result.warnings) {
+        problems.append(el("li", {}, el("button", { type: "button", className: "cee-script-problem", textContent: formatError(w), onclick: () => editor.jump(w) })));
+      }
     }
     drawGutter();
     updateActions();
