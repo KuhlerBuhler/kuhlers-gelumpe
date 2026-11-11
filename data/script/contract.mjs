@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 33;
+export const API_VERSION = 34;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -444,6 +444,7 @@ const API_LIST = [
   [125, "korg.read.sampleInfo", [int("slot", 0, SAMPLE_INFO.slots - 1), int("field", 0, SAMPLE_INFO.fields.length - 1)], "int", ALL, 4, 33],
   [126, "korg.pattern.write", [], "int", UI, 30, 33],
   [127, "korg.part.copy", [int("pattern", 0, 249), int("from", 0, 15), int("to", 0, 15)], "void", UI, 30, 33],
+  [128, "korg.read.led", [int("index", 0, 87)], "int", ALL, 4, 34],
 ];
 
 /**

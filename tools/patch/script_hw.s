@@ -483,6 +483,8 @@ hw_pop_bad_arg:
 .equ HW_LED_REFRESH, 0xC00875F4
 .equ HW_LED_HOLD_BYTE, 0xB98
 .equ HW_LED_LAST, 0x57
+.equ HW_LED_COPY, 0x88C            ; the manager's copy of what went to the panel, 8 bytes a LED, byte 2 the brightness
+.equ HW_LED_COPY_PAGE, 0x880
 
 ; r0 red, r1 green, r2 blue: 1 lights that colour of the display light, 0 darkens it. Not held against the dimming on battery.
 script_backlight_glue:
@@ -554,6 +556,20 @@ led_hold_done:
     mov r0, #0
     mov r1, #ERR_OK
     pop {r4-r6, pc}
+
+; r0 LED 0 to HW_LED_LAST -> r0 the brightness the firmware last sent for it (the LED manager's copy, 0 to 255), 0 before the
+; manager exists. LEDs a script sets with korg.led while it holds them are not in the copy.
+script_read_led_glue:
+    ldr r1, =HW_LED_MANAGER
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    moveq r0, #0
+    addne r1, r1, r0, lsl #3
+    addne r1, r1, #HW_LED_COPY_PAGE
+    ldrbne r0, [r1, #HW_LED_COPY+2-HW_LED_COPY_PAGE]
+    mov r1, #ERR_OK
+    bx lr
 
 ; r0 runtime. Gives the LEDs back when a script held them and none is left to run.
 script_led_hold_guard:

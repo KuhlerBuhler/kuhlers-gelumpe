@@ -30,7 +30,7 @@ import globalMap from "../map/global.mjs";
 
 export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info", "touchpad", "motion", "state"]);
 /** What a leaf of the base "state" reads, by its offset. */
-export const STATE_WORDS = Object.freeze({ padMode: 0, bar: 1, screen: 2 });
+export const STATE_WORDS = Object.freeze({ padMode: 0, bar: 1, screen: 2, power: 3, battery: 4 });
 /**
  * What a leaf of the base "info" reads, by its `offset` (tools/patch/script_objects.s, objects_info_get): the build the runtime
  * was made for, the version of the set (the text of the patch blech-version), and the counts the firmware's own functions
@@ -262,6 +262,16 @@ export const OBJECTS = Object.freeze([
   leaf(57, "korg.screen", {
     base: "state", offset: STATE_WORDS.screen, type: "u32", min: 0, max: 255, factory: 1, write: false, since: 29,
     unit: "1 main, 3 pattern menu, 7 part menu, 8 global, 19 step, 21 part util, 37 sample", text: text("api.object.screen"),
+  }),
+
+  // API 34: power source and battery level as the firmware's top line shows them, read only
+  leaf(58, "korg.system.power", {
+    base: "state", offset: STATE_WORDS.power, type: "u32", min: 0, max: 1, factory: 1, write: false, since: 34,
+    unit: "1 adapter, 0 battery", text: text("api.object.system.power"),
+  }),
+  leaf(59, "korg.system.battery", {
+    base: "state", offset: STATE_WORDS.battery, type: "u32", min: 0, max: 4, factory: 4, write: false, since: 34,
+    unit: "4 full, 3, 2, 1 low, 0 empty", text: text("api.object.system.battery"),
   }),
 ]);
 

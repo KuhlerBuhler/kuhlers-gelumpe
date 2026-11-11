@@ -193,7 +193,7 @@ One cycle delivers `ready` once per plugin first, then collects the waiting inpu
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
 
-### What a plugin reaches (API 33)
+### What a plugin reaches (API 34)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -212,7 +212,7 @@ or a leaf of the object tree is missing.
 | Touchpad mode (Gate Arp, Touch Scale, Master FX, MFX 2) | `korg.touchpad.mode` | `korg.touchpad.mode` | `touchpadMode` |
 | Pad mode (TRIGGER, SEQUENCER, KEYBOARD and the others) | `korg.pads.mode` | no | `padMode` |
 | Bar on the pads (1 to 4) | `korg.pads.bar` | no | no |
-| LEDs | no | `korg.led`, `korg.ledHold` | no |
+| LEDs | `korg.read.led` | `korg.led`, `korg.ledHold` | no |
 | Display (own picture, the firmware's windows) | `korg.read.popups` | `korg.display.*`, `korg.file.frame` | `open`, `close` |
 | Display light | no | `korg.backlight` | no |
 | Which screen or menu is open | `korg.screen` | no | `screen` |
@@ -243,7 +243,7 @@ or a leaf of the object tree is missing.
 | Repairs, test mode, Auto Power Off | `korg.system.repairs`, `korg.system.testMode` | `korg.system.keepAwake` | no |
 | GLOBAL PARAMETERS | `korg.global.*` | `korg.global.*` | no |
 | Menu BLECH (CUSTOMIZATION, FEATURES) | `korg.menu.blech.*` | `korg.menu.blech.*` | no |
-| Adapter or battery, charge | no | no | no |
+| Adapter or battery, charge | `korg.system.power`, `korg.system.battery` | no | no |
 | **Services for plugins** | | | |
 | Own entries in the menu BLECH | no | `korg.menu.add` | `menu` |
 | Apps | no | `korg.app` | `open`, `close` |
@@ -369,6 +369,8 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.pads.mode` | the firmware's pad mode: 0 PART MUTE, 2 PART ERASE, 3 TRIGGER, 4 SEQUENCER, 5 KEYBOARD, 6 CHORD, 7 STEP JUMP, 9 PATTERN SET (from API version 29) | no | 0 to 9 |
 | `korg.pads.bar` | which bar of a pattern longer than 16 steps the pads show, 0 to 3 for bar 1 to 4 (from API version 29) | no | 0 to 3 |
 | `korg.screen` | the number of the firmware screen that is open: 1 main screen, 3 Pattern menu, 7 Part Edit, 8 Global, 19 Step Edit, 21 Part Util, 37 Sample; the other numbers are in the [measurement](messungen/2026-11-11-plugin-api29-state-events.md) (from API version 29) | no | 0 to 255 |
+| `korg.system.power` | power source as the firmware shows it top right: 1 adapter, 0 battery (panel message 7; from API version 34, [measurement](messungen/2026-11-11-plugin-api34-system.md), German) | no | 0 to 1 |
+| `korg.system.battery` | battery level as the symbol top right: 4 full, 3, 2, 1 low (the firmware then warns about the battery), 0 empty; no meaning on the adapter (from API version 34) | no | 0 to 4 |
 | `korg.menu.blech.customizations.display.red` | Red level of the display light (the pages BACKLIGHT HUE, SAT and BRIGHT show it as hue, saturation, brightness); all three at 0 is the stock white | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.display.green` | Green level of the display light | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.display.blue` | Blue level of the display light | yes, acts at once like the page | 0 to 15 |
@@ -652,6 +654,7 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.read.sampleInfo(slot, value)` | a value of the sample in slot `slot` from the sampler's tables: `value` 0 start, 1 end, 2 loop (raw values as in the sample file, the unit is not measured), 3 tune (-128 to 127), 4 stereo (0 or 1), 5 length of the PCM data in bytes, 6 one shot (0 or 1), 7 sample rate in Hz (`SAMPLE_INFO.fields` in the contract). 0 for an empty slot, -1 on the blue synth. Since API version 33 | everywhere |
 | `korg.pattern.write()` | saves the running pattern into its place in the bank, as EXIT + WRITE: presses WRITE, and the firmware's window gets its second WRITE in the next frame. Returns 1 when the save is under way, 0 off the main screen or while a save still waits for its window. The `write` event comes as with the key. Since API version 33 | as `korg.led` |
 | `korg.part.copy(pattern, from, to)` | copies part `from` (0 to 15) of pattern `pattern` (0 to 249) onto part `to` of the running pattern, as Part Util COPY PART: sound, steps and motion, with the firmware's function. When `pattern` is the chosen pattern the part comes from the pattern in RAM (with unsaved changes), else from the bank. Since API version 33 ([measurement](messungen/2026-10-30-vorschau-part-reinholen.md), German) | as `korg.led` |
+| `korg.read.led(index)` | the brightness the firmware last sent to LED `index` (0 to 87, numbers as for `korg.led`), 0 to 255, from the LED manager's copy. LEDs a plugin sets with `korg.led` are not in it. Since API version 34 ([measurement](messungen/2026-10-14-led-zustand-ram.md), German) | everywhere |
 | `korg.seq.writeSteps(array, part, first)` | writes steps from the array into part `part` of the pattern that plays, from step `first` (0 to 63): 12 slots per step as in the pattern (on, gate, velocity, trigger, four note places, four places the runtime leaves alone), as many whole steps as the array holds and up to step 63. Each value is clamped (on and trigger 0 to 1, gate 0 to 127, velocity 1 to 127, notes 0 to 128); the on byte goes last. Returns the number of steps. From API version 14 | like `korg.led` |
 
 **Writing steps** (`tools/patch/script_seq.s`, from API version 9): `korg.seq.*` writes into the pattern in RAM, the

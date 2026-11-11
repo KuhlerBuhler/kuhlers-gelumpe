@@ -229,7 +229,7 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
-### Was ein Plugin erreicht (API 33)
+### Was ein Plugin erreicht (API 34)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -248,7 +248,7 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Touchpad-Modus (Gate Arp, Touch Scale, Master FX, MFX 2) | `korg.touchpad.mode` | `korg.touchpad.mode` | `touchpadMode` |
 | Pad-Modus (TRIGGER, SEQUENCER, KEYBOARD und die anderen) | `korg.pads.mode` | nein | `padMode` |
 | Takt auf den Pads (1 bis 4) | `korg.pads.bar` | nein | nein |
-| LEDs | nein | `korg.led`, `korg.ledHold` | nein |
+| LEDs | `korg.read.led` | `korg.led`, `korg.ledHold` | nein |
 | Display (eigenes Bild, Fenster der Firmware) | `korg.read.popups` | `korg.display.*`, `korg.file.frame` | `open`, `close` |
 | Displaylicht | nein | `korg.backlight` | nein |
 | Welcher Bildschirm oder welches Menü offen ist | `korg.screen` | nein | `screen` |
@@ -279,7 +279,7 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Reparaturen, Test-Modus, Auto Power Off | `korg.system.repairs`, `korg.system.testMode` | `korg.system.keepAwake` | nein |
 | GLOBAL PARAMETERS | `korg.global.*` | `korg.global.*` | nein |
 | Menü BLECH (CUSTOMIZATION, FEATURES) | `korg.menu.blech.*` | `korg.menu.blech.*` | nein |
-| Netzteil oder Batterie, Ladestand | nein | nein | nein |
+| Netzteil oder Batterie, Ladestand | `korg.system.power`, `korg.system.battery` | nein | nein |
 | **Dienste für Plugins** | | | |
 | Eigene Einträge im Menü BLECH | nein | `korg.menu.add` | `menu` |
 | Apps | nein | `korg.app` | `open`, `close` |
@@ -407,6 +407,8 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.pads.mode` | Pad-Modus der Firmware: 0 PART MUTE, 2 PART ERASE, 3 TRIGGER, 4 SEQUENCER, 5 KEYBOARD, 6 CHORD, 7 STEP JUMP, 9 PATTERN SET (ab API Version 29) | nein | 0 bis 9 |
 | `korg.pads.bar` | welchen Takt eines Patterns über 16 Steps die Pads zeigen, 0 bis 3 für Takt 1 bis 4 (ab API Version 29) | nein | 0 bis 3 |
 | `korg.screen` | Nummer des offenen Bildschirms der Firmware: 1 Hauptbildschirm, 3 Pattern-Menü, 7 Part Edit, 8 Global, 19 Step Edit, 21 Part Util, 37 Sample; die übrigen Nummern stehen in der [Messung](messungen/2026-11-11-plugin-api29-state-events.md) (ab API Version 29) | nein | 0 bis 255 |
+| `korg.system.power` | Stromquelle, wie die Firmware sie oben rechts zeigt: 1 Netzteil, 0 Batterie (Panel-Nachricht 7; ab API Version 34, [Messung](messungen/2026-11-11-plugin-api34-system.md)) | nein | 0 bis 1 |
+| `korg.system.battery` | Ladestand der Batterie wie das Symbol oben rechts: 4 voll, 3, 2, 1 schwach (die Firmware meldet dann die Batterie), 0 leer; am Netzteil ohne Bedeutung (ab API Version 34) | nein | 0 bis 4 |
 | `korg.menu.blech.customizations.display.red` | Rotanteil des Display-Lichts (die Seiten BACKLIGHT HUE, SAT und BRIGHT zeigen ihn als Farbton, Sättigung, Helligkeit); alle drei auf 0 ist das Weiß der Firmware | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.green` | Grünanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.blue` | Blauanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
@@ -693,6 +695,7 @@ Plugin mit einem Fehler.
 | `korg.read.sampleInfo(slot, wert)` | ein Wert des Samples in Slot `slot` aus den Tabellen des Samplers: `wert` 0 Start, 1 Ende, 2 Loop (Rohwerte wie in der Sample-Datei, die Einheit ist nicht gemessen), 3 Tune (-128 bis 127), 4 Stereo (0 oder 1), 5 Länge der PCM-Daten in Byte, 6 One-Shot (0 oder 1), 7 Samplerate in Hz (`SAMPLE_INFO.fields` im Vertrag). 0 für einen leeren Slot, -1 auf dem blauen Synth. Ab API Version 33 | überall |
 | `korg.pattern.write()` | speichert das laufende Pattern an seinen Platz in der Bank, wie EXIT + WRITE: drückt WRITE, und das Fenster der Firmware bekommt im nächsten Rahmen sein zweites WRITE. Gibt 1 zurück, wenn das Speichern läuft, 0 außerhalb des Hauptbildschirms oder solange ein Speichern noch auf sein Fenster wartet. Das Ereignis `write` kommt wie bei der Taste. Ab API Version 33 | wie `korg.led` |
 | `korg.part.copy(pattern, von, nach)` | kopiert Part `von` (0 bis 15) aus Pattern `pattern` (0 bis 249) auf Part `nach` des laufenden Patterns, wie Part Util COPY PART: Klang, Steps und Motion, mit der Funktion der Firmware. Ist `pattern` das gewählte Pattern, kommt der Part aus dem Pattern im RAM (mit ungespeicherten Änderungen), sonst aus der Bank. Ab API Version 33 ([Messung](messungen/2026-10-30-vorschau-part-reinholen.md)) | wie `korg.led` |
+| `korg.read.led(index)` | die Helligkeit, die die Firmware zuletzt an die LED `index` (0 bis 87, Nummern wie bei `korg.led`) geschickt hat, 0 bis 255, aus der Kopie des LED-Managers. LEDs, die ein Plugin mit `korg.led` setzt, stehen nicht darin. Ab API Version 34 ([Messung](messungen/2026-10-14-led-zustand-ram.md)) | überall |
 | `korg.seq.writeSteps(feld, part, erster)` | schreibt Steps aus dem Feld in Part `part` des Patterns, das läuft, ab Step `erster` (0 bis 63): je 12 Plätze ein Step wie im Pattern (an, Gate, Velocity, Trigger, vier Notenplätze, vier Plätze, die die Laufzeit stehen lässt), so viele ganze Steps wie das Feld hat und bis Step 63. Jeder Wert wird geklemmt (an und Trigger 0 bis 1, Gate 0 bis 127, Velocity 1 bis 127, Noten 0 bis 128), das An-Byte kommt zuletzt. Gibt die Zahl der Steps zurück. Ab API Version 14 | wie `korg.led` |
 
 **Steps schreiben** (`tools/patch/script_seq.s`, ab API Version 9): `korg.seq.*` schreibt in das Pattern im RAM,

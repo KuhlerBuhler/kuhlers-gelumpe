@@ -88,6 +88,7 @@ export const API_DOCS = Object.freeze({
   "korg.read.sampleInfo": text("api.korg.read.sampleInfo"),
   "korg.pattern.write": text("api.korg.pattern.write"),
   "korg.part.copy": text("api.korg.part.copy"),
+  "korg.read.led": text("api.korg.read.led"),
   "korg.seq.writeSteps": text("api.korg.seq.writeSteps"),
   "korg.seq.setPatternValue": text("api.korg.seq.setPatternValue"),
   "korg.menu.add": text("api.korg.menu.add"),

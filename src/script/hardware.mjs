@@ -33,6 +33,8 @@ export class SimHardware {
     /** The MFX 2 table of the patch mfx-switch, one entry per pattern: 1 to 100 the type as the display numbers it, 0 the default (7). */
     this.mfx2 = new Uint8Array(250);
     this.backlight = [1, 1, 1];
+    /** korg.read.led: the brightness the firmware last sent per LED (0 to 87); LEDs a plugin sets are not in it. */
+    this.firmwareLeds = new Uint8Array(88);
     this.ledHold = 0;
     /**
      * What plugins keep from the firmware is the fold of the holds of all armed plugins (`holders` gives their hold records, each
@@ -170,6 +172,7 @@ export class SimHardware {
         return n;
       },
       "korg.read.sampleInfo": (slot, field) => this.samples.get(slot)?.[SAMPLE_INFO.fields[field]] ?? 0,
+      "korg.read.led": index => this.firmwareLeds[index],
       // the simulator has no Write window: the pattern in RAM goes into its place in the bank at once
       "korg.pattern.write": () => { this.patternBlock(this.pattern).set(this.patternBlock(-1)); return 1; },
       "korg.part.copy": (pattern, from, to) => {

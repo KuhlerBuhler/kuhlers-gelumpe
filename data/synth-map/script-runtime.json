@@ -42,6 +42,8 @@
   {"from":"0xC002779C","to":"0xC00231AC","kind":"code","why":"send2(_, status, data1) for korg.midi.program: two bytes to both MIDI ports, right behind send3 in both builds. Measured in the emulator"},
   {"from":"0xC002B2D8","to":"0xC002843C","kind":"code","why":"the MIDI receive loop's call of the handler of a channel message (r0 object, r1 status, r2 data1, r3 data2) for the event midiIn: same loop in both builds (queue read, parse, handler, back to the read). Found with the message B0 07 41 into DIN in the emulator, read in both"},
   {"from":"0xC003BB00","to":"0xC0036540","kind":"code","why":"the handler of a received channel message the receive loop calls: same first instructions in both builds (push {r0-r2, r4-r8, sb, lr}, mov sb, r3, ldrb r3, [r0, #4]). Read in both, measured with B0 07 41"},
-  {"from":"0xC06913A8","to":"0xC056B644","kind":"ram","why":"the level meter smoothing state, two words of 128 times the level for korg.audio.level: the literal of the smoothing function (0xC0088220, synth 0xC0078404, same instructions). Read in both, measured"}
+  {"from":"0xC06913A8","to":"0xC056B644","kind":"ram","why":"the level meter smoothing state, two words of 128 times the level for korg.audio.level: the literal of the smoothing function (0xC0088220, synth 0xC0078404, same instructions). Read in both, measured"},
+  {"from":"0xC03405C4","to":"0xC034077C","kind":"ram","why":"pointer to the power source model for korg.system.power: the getter that allocates 0x30C bytes (sampler C00511B8, synth near C0047FC0) loads it; the model's setter stores at +0x308 in both builds (sampler C007822C, synth C006B264). Read in both"},
+  {"from":"0xC03405C8","to":"0xC0340780","kind":"ram","why":"pointer to the battery model for korg.system.battery: the getter that allocates 0x330 bytes (sampler C006EC88, synth near C0074748) loads it; the level goes to +0x328 in both builds (sampler C0077A98, synth C006AAD0). Read in both"}
  ]
 }

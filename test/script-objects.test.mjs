@@ -364,3 +364,17 @@ test("korg.part.copy copies a part of the bank, or of the pattern in RAM for the
   const ram = device.hardware.patternBlock(-1);
   assert.deepEqual([ram[at(0) + 8], ram[at(1) + 8], device.hardware.patternBlock(5)[at(3) + 8]], [77, 66, 77]);
 });
+
+// API 34: power source, battery level and the firmware's LEDs (plan 2026-11-10-plugin-api-1.5-complete, phase 9).
+test("korg.system.power, korg.system.battery and korg.read.led need API 34 and read the simulator's state", () => {
+  for (const source of [`korg.onEvent("ready", () => { let v = korg.system.power; });`, `korg.onEvent("ready", () => { let v = korg.system.battery; });`,
+    `korg.onEvent("ready", () => { let v = korg.read.led(3); });`]) {
+    assert.equal(decodeBlob(build(source)).header.apiVersion, 34, source);
+  }
+  const device = new SimDevice();
+  device.hardware.firmwareLeds[5] = 200;
+  assert.ok(device.load(build(`korg.onEvent("ready", () => { korg.store.set(0, korg.system.power); korg.store.set(1, korg.system.battery);
+  korg.store.set(2, korg.read.led(5)); korg.led(6, 255); korg.store.set(3, korg.read.led(6)); });`)).ok);
+  device.frame();
+  assert.deepEqual([0, 1, 2, 3].map(i => stored(device, i)), [1, 4, 200, 0]);
+});

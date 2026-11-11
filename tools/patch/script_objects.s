@@ -14,6 +14,8 @@
 .equ OBJ_BASE_TOUCHPAD, 6
 .equ OBJ_BASE_MOTION, 7
 .equ OBJ_BASE_STATE, 8
+.equ POWER_MODEL, 0xC03405C4       ; pointer to the power source model, +0x308 1 on the adapter (docs/messungen/2026-11-11-plugin-api34-system.md)
+.equ BATTERY_MODEL, 0xC03405C8     ; pointer to the battery model, +0x328 the level 0 to 4 its thresholds give
 .equ STATE_MODEL, 0xC0348884       ; pointer to the sequencer model, +0x344 the bar section (as dice.py MODEL)
 .equ KEY_TAP, 3
 .equ MOTION_MODE_AT, 0x807        ; a part's Motion Sequence mode in the pattern object, 0x330 a part (0 off, 1 smooth, 2 trigger hold)
@@ -100,23 +102,27 @@ objects_state_get:
     ldr r0, [r4]
     bl objects_state_word
     b objects_get_done
-; r0 = 0 the pad mode, 1 the bar section, 2 the screen number -> r0 = the firmware's word, FFFFFFFF while its object does
-; not exist (reads as the factory value). Clobbers r1.
+; r0 = a state word (STATE_WORDS) -> r0 = the firmware's word, FFFFFFFF while its object does not exist (reads as the factory
+; value). Clobbers r1, r2.
 objects_state_word:
-    cmp r0, #1
-    ldrlo r1, =HW_LED_MANAGER
-    ldreq r1, =STATE_MODEL
-    ldrhi r1, =SCREEN_MANAGER
+    ldr r1, =objects_state_words
+    add r1, r1, r0, lsl #3
+    ldr r2, [r1, #4]
+    ldr r1, [r1]
     ldr r1, [r1]
     cmp r1, #0
     cmnne r1, #1
     mvneq r0, #0
     bxeq lr
-    cmp r0, #1
-    ldrlo r0, [r1, #0xB58]
-    ldreq r0, [r1, #0x344]
-    ldrhi r0, [r1, #0x2C]
+    ldr r0, [r1, r2]
     bx lr
+; per state word: the pointer to the firmware's object, the offset of the word in it
+objects_state_words:
+    .word HW_LED_MANAGER, 0xB58     ; padMode
+    .word STATE_MODEL, 0x344        ; bar
+    .word SCREEN_MANAGER, 0x2C      ; screen
+    .word POWER_MODEL, 0x308        ; power: 1 adapter, 0 battery (panel message 7)
+    .word BATTERY_MODEL, 0x328      ; battery: 4 full to 1 low, 0 empty
 ; r0 = 1 when the selected part plays its motion, 0 when it does not or no part is selected. Clobbers r1, r2.
 objects_motion_on:
     ldr r1, =HW_PART

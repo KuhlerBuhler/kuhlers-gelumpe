@@ -194,7 +194,7 @@ Un cycle transmet d’abord `ready` une fois par plugin, collecte les entrées e
 `frame` en dernier. Les nouvelles entrées attendent le cycle suivant. Un nouveau plugin reçoit
 `ready` après la fin du cycle précédent.
 
-### Ce qu’un plugin atteint (API 33)
+### Ce qu’un plugin atteint (API 34)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -214,7 +214,7 @@ feuille de l’arbre d’objets.
 | Mode du touchpad (Gate Arp, Touch Scale, Master FX, MFX 2) | `korg.touchpad.mode` | `korg.touchpad.mode` | `touchpadMode` |
 | Mode des pads (TRIGGER, SEQUENCER, KEYBOARD et les autres) | `korg.pads.mode` | non | `padMode` |
 | Mesure sur les pads (1 à 4) | `korg.pads.bar` | non | non |
-| LED | non | `korg.led`, `korg.ledHold` | non |
+| LED | `korg.read.led` | `korg.led`, `korg.ledHold` | non |
 | Écran (image propre, fenêtres du firmware) | `korg.read.popups` | `korg.display.*`, `korg.file.frame` | `open`, `close` |
 | Rétroéclairage | non | `korg.backlight` | non |
 | Écran ou menu ouvert | `korg.screen` | non | `screen` |
@@ -245,7 +245,7 @@ feuille de l’arbre d’objets.
 | Réparations, mode test, arrêt automatique | `korg.system.repairs`, `korg.system.testMode` | `korg.system.keepAwake` | non |
 | GLOBAL PARAMETERS | `korg.global.*` | `korg.global.*` | non |
 | Menu BLECH (CUSTOMIZATION, FEATURES) | `korg.menu.blech.*` | `korg.menu.blech.*` | non |
-| Adaptateur ou batterie, charge | non | non | non |
+| Adaptateur ou batterie, charge | `korg.system.power`, `korg.system.battery` | non | non |
 | **Services pour les plugins** | | | |
 | Entrées propres dans le menu BLECH | non | `korg.menu.add` | `menu` |
 | Apps | non | `korg.app` | `open`, `close` |
@@ -383,6 +383,8 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.pads.mode` | mode des pads du firmware : 0 PART MUTE, 2 PART ERASE, 3 TRIGGER, 4 SEQUENCER, 5 KEYBOARD, 6 CHORD, 7 STEP JUMP, 9 PATTERN SET (depuis l’API 29) | Non | 0 à 9 |
 | `korg.pads.bar` | quelle mesure d’un pattern de plus de 16 pas les pads montrent, 0 à 3 pour la mesure 1 à 4 (depuis l’API 29) | Non | 0 à 3 |
 | `korg.screen` | numéro de l’écran du firmware ouvert : 1 écran principal, 3 menu Pattern, 7 Part Edit, 8 Global, 19 Step Edit, 21 Part Util, 37 Sample ; les autres numéros sont dans la [mesure](messungen/2026-11-11-plugin-api29-state-events.md) (depuis l’API 29) | Non | 0 à 255 |
+| `korg.system.power` | source d’alimentation comme le firmware l’affiche en haut à droite : 1 adaptateur, 0 piles (message de panneau 7 ; depuis l’API 34, [mesure](messungen/2026-11-11-plugin-api34-system.md), en allemand) | non | 0 à 1 |
+| `korg.system.battery` | niveau des piles comme le symbole en haut à droite : 4 plein, 3, 2, 1 faible (le firmware signale alors les piles), 0 vide ; sans objet sur adaptateur (depuis l’API 34) | non | 0 à 4 |
 | `korg.menu.blech.customizations.display.red` | Rouge du rétroéclairage ; BACKLIGHT HUE, SAT, BRIGHT affichent teinte, saturation, luminosité ; les trois canaux à 0 signifient blanc d’origine | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.green` | Vert du rétroéclairage | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.blue` | Bleu du rétroéclairage | Oui, comme la page | 0 à 15 |
@@ -688,6 +690,7 @@ exclut le corps et `save`.
 | `korg.read.sampleInfo(slot, valeur)` | une valeur de l’échantillon du slot `slot` tirée des tables de l’échantillonneur : `valeur` 0 début, 1 fin, 2 boucle (valeurs brutes comme dans le fichier d’échantillon, l’unité n’est pas mesurée), 3 tune (-128 à 127), 4 stéréo (0 ou 1), 5 longueur des données PCM en octets, 6 one shot (0 ou 1), 7 fréquence d’échantillonnage en Hz (`SAMPLE_INFO.fields` dans le contrat). 0 pour un slot vide, -1 sur le synthé bleu. Depuis l’API 33 | Partout |
 | `korg.pattern.write()` | enregistre le pattern en lecture à sa place dans la banque, comme EXIT + WRITE : appuie sur WRITE, et la fenêtre du firmware reçoit son second WRITE à la trame suivante. Renvoie 1 quand l’enregistrement est en cours, 0 hors de l’écran principal ou tant qu’un enregistrement attend encore sa fenêtre. L’événement `write` arrive comme avec la touche. Depuis l’API 33 | comme `korg.led` |
 | `korg.part.copy(pattern, de, vers)` | copie la partie `de` (0 à 15) du pattern `pattern` (0 à 249) sur la partie `vers` du pattern en lecture, comme Part Util COPY PART : son, pas et motion, avec la fonction du firmware. Si `pattern` est le pattern choisi, la partie vient du pattern en RAM (avec les changements non enregistrés), sinon de la banque. Depuis l’API 33 ([mesure](messungen/2026-10-30-vorschau-part-reinholen.md), en allemand) | comme `korg.led` |
+| `korg.read.led(index)` | la luminosité que le firmware a envoyée en dernier à la LED `index` (0 à 87, numéros comme pour `korg.led`), 0 à 255, tirée de la copie du gestionnaire de LED. Les LED qu’un plugin règle avec `korg.led` n’y figurent pas. Depuis l’API 34 ([mesure](messungen/2026-10-14-led-zustand-ram.md), en allemand) | Partout |
 | `korg.seq.writeSteps(array, part, first)` | Écrit des pas entiers à partir du pas first, 0 à 63, dans la partie du pattern en lecture. 12 éléments par pas : activation, gate, vélocité, déclenchement, quatre notes et quatre octets laissés intacts. S’arrête à la fin du tableau ou au pas 63. Limite activation/déclenchement à 0 ou 1, gate à 0 à 127, vélocité à 1 à 127, notes à 0 à 128. L’activation est écrite en dernier. Renvoie le nombre de pas. Depuis l’API 14 | Comme `korg.led` |
 
 **Écriture des paramètres de partie.** `korg.seq.setPartValue` appelle les fonctions qu’utilisent
