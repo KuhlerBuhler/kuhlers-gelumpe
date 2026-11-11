@@ -520,11 +520,12 @@ jeden offenen Pull Request, der auf ihm aufbaut und hinterherhängt (GitHubs "Up
 damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein Basis-Branch ist;
 bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
 
-Bei `develop` fasst derselbe Workflow nur PRs an, die mit `develop` kollidieren. Liegen alle Konflikte in den
-Runtime-Patches (`data/patches/script-runtime*.json`), merged er `develop` hinein, baut die drei aus den
-gemergten Quellen neu (`node tools/patch/script_runtime.mjs --build ...`) und pusht. Jeder andere Konflikt bleibt
-für einen Menschen, der Lauf zeigt eine Warnung. Ein PR, der sauber mergt, bleibt, wie er ist: er muss nicht auf
-dem Stand von `develop` sein, sonst liefen nach jedem Merge die Checks aller offenen PRs neu. Was zwei PRs erst
+Bei `develop` fasst derselbe Workflow keinen PR an. Es gibt dort nichts zu reparieren: die Runtime-Patches
+(`data/patches/script-runtime*.json`) liegen nicht mehr im Repository, sie entstehen aus `tools/patch/script_*.s`
+und den Python-Buildern. Wer sie braucht, baut sie (`tools/patch/ensure-runtime.mjs`; `npm test`, `npm start`,
+`npm run serve` und `node tools/build-site.mjs` tun das von selbst). Ein Konflikt mit `develop` ist damit ein
+Konflikt wie jeder andere und braucht einen Menschen. Ein PR, der sauber mergt, bleibt, wie er ist: er muss nicht
+auf dem Stand von `develop` sein, sonst liefen nach jedem Merge die Checks aller offenen PRs neu. Was zwei PRs erst
 zusammen kaputt machen, zeigen die Läufe auf `develop` selbst ("Test" und "Verify patches" laufen nach jedem Merge).
 
 **Feature-PRs mergen sich selbst** (Workflow "Automerge", `.github/workflows/automerge.yml`): ein PR nach `develop`
@@ -551,8 +552,8 @@ das ihn dorthin bringt.
 
 **Firmware-PRs nacheinander.** Mehrere offene PRs, die dieselben Patches ändern (`data/patches/`,
 `tools/patch/`, `tools/emu/*_cases.py`), kollidieren bei jedem Merge miteinander und laufen dann kalt neu. Die
-Runtime-Patches löst der Workflow oben selbst, alles andere nicht. Deshalb: App-Themen dürfen parallel laufen,
-Firmware-Themen, die dieselben Patches anfassen, kommen nacheinander oder als ein PR.
+Runtime-Patches sind davon ausgenommen: sie sind gebaut, nicht committet, und kollidieren deshalb nicht. Deshalb:
+App-Themen dürfen parallel laufen, Firmware-Themen, die dieselben Patches anfassen, kommen nacheinander oder als ein PR.
 
 **Release-PR mergt sich selbst** (Workflow "Release merge", `.github/workflows/release-merge.yml`,
 `tools/release-merge.mjs`): ein offener PR `release/X.Y.Z` -> `main` aus diesem Repo wird gemerged, wenn alles

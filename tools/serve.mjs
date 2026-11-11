@@ -19,6 +19,7 @@ import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ROUTES } from "./site-routes.mjs";
+import { ensureRuntimePatches } from "./patch/ensure-runtime.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const TYPES = {
@@ -131,6 +132,8 @@ export function startServer(port = 8737, {
   host = process.env.GELUMPE_HOST || "127.0.0.1",
   publicOrigin = process.env.GELUMPE_PUBLIC_ORIGIN || "",
 } = {}) {
+  // The page loads the BLECH set, which lists the runtime patches: they are built, not committed.
+  ensureRuntimePatches();
   const origin = parseOrigin(publicOrigin);
   const server = createServer(async (req, res) => {
     const pathname = req.url.split("?")[0];
