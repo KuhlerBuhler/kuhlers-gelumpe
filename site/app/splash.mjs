@@ -5,6 +5,7 @@ import { toastFor } from "./toast.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { loadingAnimSection } from "./loading-anim.mjs";
+import { pictureFileSection } from "./picture-file.mjs";
 import { icon } from "./icons.mjs";
 /** An error of this page opens Blechy at its topic (data/rescue.mjs). */
 const toast = toastFor("h:splash");
@@ -171,11 +172,11 @@ export function splashPage(root) {
     gallery.replaceChildren(...GALLERY.map(item => card(item, false)), ...readOwn().map(item => card(item, true)));
   }
 
-  // Two tabs, each its own section: the start image for the card, and the loading animation for the Patcher.
+  // Three tabs, each its own section: the start image for the card, the loading animation for the Patcher, and pictures for the BMP Viewer.
   const tabs = el("div", { className: "ui-tabs", id: "cee-design-tabs" });
   tabs.setAttribute("role", "tablist");
   tabs.setAttribute("aria-label", t("nav.splash"));
-  const panels = [["splash", t("splash.title")], ["anim", t("splash.anim.title")]].map(([id, text], i) => {
+  const panels = [["splash", t("splash.title")], ["anim", t("splash.anim.title")], ["pics", t("pics.title")]].map(([id, text], i) => {
     const tab = el("button", { type: "button", className: "ui-tab", id: `cee-design-tab-${id}`, textContent: text });
     tab.setAttribute("role", "tab");
     tab.dataset.tab = id;
@@ -213,6 +214,7 @@ export function splashPage(root) {
     ]),
   ]));
   panels[1].append(loadingAnimSection());
+  panels[2].append(pictureFileSection());
   root.replaceChildren(el("h1", { className: "ui-sr-only", textContent: t("nav.splash") }), tabs, ...panels);
   window.ui?.tabs?.(tabs, { persist: "cee.design.tab", hash: false });
 
