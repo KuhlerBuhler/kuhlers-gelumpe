@@ -8,7 +8,7 @@
  */
 import { el, control } from "./fields.mjs";
 import { stateText, setStateText } from "./state.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { field, fieldsOf, readRaw, writeRaw, typeOf, BLOCKS } from "../../src/map/index.mjs";
 import { VsbImage } from "../../src/image.mjs";
@@ -25,6 +25,8 @@ import { checkName, checkDetail } from "../../src/patcher.mjs";
 import { GROUPS, labelFor } from "../../data/map/fx-labels.mjs";
 import { suggestionsFor, applySuggestion } from "../../src/suggestions.mjs";
 import { t, localize } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:effects");
 
 const SEVERITY = {
   fatal: ["error", "samples.severity.fatal"], silent: ["error", "levels.muted"], error: ["error", "common.error"],

@@ -5,12 +5,14 @@
  */
 import { el } from "./fields.mjs";
 import { stateText } from "./state.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, FIRST_USER, LAST_USER } from "../../src/sample-file.mjs";
 import { readDeviceSamples, downloadDeviceSamples, writeDeviceChange, needsCompaction, inspectTemp, finishTemp, discardTemp, SwapInterrupted } from "../../src/usb-sample-file.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:wavs");
 
 const restart = () => t("sampleset.restart");
 
@@ -46,7 +48,7 @@ export function samplesFilePage(root, { device = null } = {}) {
   ]);
   const wavZone = dropzone(wavs, "sampleset.wav.drag", "sampleset.wav.hint");
   const actions = el("div", { className: "actions" }, [save, reset]);
-  root.replaceChildren(intro, el("div", { className: "actions" }, [fromDevice, download]), dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), wavZone, job, summary, list, actions);
+  root.replaceChildren(el("div", { className: "actions" }, [fromDevice, download]), dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), intro, wavZone, job, summary, list, actions);
 
   const taken = () => new Set([...parsed.samples.filter(s => !removed.has(s.slot)).map(s => s.slot), ...added.map(a => a.slot)]);
   const dirty = () => removed.size > 0 || added.length > 0;

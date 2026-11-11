@@ -340,7 +340,9 @@ its own runtime off would leave the device without plugins at the next start) an
 **RAM only, until WRITE.** The values act at once but live in RAM only. They reach the card with WRITE on a page of the menu
 BLECH (the file `settings.a.bin` or `settings.b.bin`), not before; after a restart the last written state applies. With AUTO SAVE,
 leaving the menu BLECH writes the file too when the settings changed since it was opened. The
-exception is SET INIT PATTERN: it lives in the firmware's Global settings, which the device saves at switch-off.
+exception is SET INIT PATTERN: it lives in the firmware's Global settings, which the device saves at switch-off. Like the pages of GLOBAL PARAMETERS, the pages of BLECH show the ORIG badge while the value is
+the stored one (the one in the settings file, the default without a file): it goes when you change the value, comes back when you turn
+back and, after WRITE, belongs to the new value. Actions and lists (EXPORT, SPLASH, PLUGINS) have none.
 `korg.menu.blech.write()` writes the settings file from a plugin, as WRITE does. It only asks: the write happens a moment
 later, only while the main screen or BLECH is open, and at the earliest 2 seconds after the last write, further calls before
 that stay one request. Without a card or on an error nothing more happens, as with WRITE in the menu. A plugin should call it
@@ -568,8 +570,8 @@ An arpeggiator that follows along writes the step that comes next in the `step` 
 block, `korg.seq.writeSteps` writes them into the pattern that plays, and `korg.seq.setPartValue` carries over the part's
 values. Saving works as above: only WRITE stores the pattern. In the emulator such a plugin copies a part with all 64 steps
 and its values, WRITE stores the pattern, and after switching to another pattern and back it is identical byte for byte
-(`tools/emu/plugin_edit_cases.py`). The note places hold the MIDI note plus 1, 0 is empty. `setPartValue` does not go
-through the knob handler, so it is not recorded into the motion sequence and not sent as MIDI CC (inferred, not measured).
+(`tools/emu/plugin_edit_cases.py`). The note places hold the MIDI note plus 1, 0 is empty. From API version 24 `setPartValue`
+sends the same MIDI CC as the knob (checked in the emulator, [measurement](messungen/2026-11-08-plugin-api24-part-cc.md), German); whether it is recorded into the motion sequence is not measured.
 
 ```js
 // TAP copies part 1 of pattern 5 into the selected part: steps and values.
@@ -982,7 +984,7 @@ page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
-| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD, plus AUTO SAVE (table below) |
+| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD, plus KEY PADS, FILTER TOGGLE and AUTO SAVE (table below) |
 | PLUGINS | ENTER opens the list of the plugins (MANAGE PLUGINS) straight away; see below |
 | CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
@@ -999,6 +1001,8 @@ The pages of FEATURES (the tag names the group "Feature"), each with the value O
 | NOTE ASSIST | ON, OFF (see below) |
 | LAST PATTERN | ON, OFF (see below) |
 | STEREO 1 PAD | ON, OFF (see below, red only) |
+| KEY PADS | ON, OFF (see below) |
+| FILTER TOGGLE | ON, OFF (see below) |
 
 There is no ABOUT group any more: it only showed the number of loaded plugins and confused people.
 
@@ -1008,8 +1012,8 @@ The pages of the groups:
 |---|---|---|
 | GLOBAL PARAMETERS, PLUGIN RUNTIME | ON, OFF | the plugins of the card on or off, applies from the next start ("OFF, RESTART" shows that it does not apply yet); Blechy is no plugin of the card and stays. Page 21/21 of GLOBAL PARAMETERS, WRITE saves the settings of the BLECH menu |
 | PLUGINS, MANAGE PLUGINS | ENTER on PLUGINS leads here without a page in between; the page MANAGE PLUGINS itself (`press  [ Enter ]`) only shows with "No Plugin" when there is nothing to show, and after OFF and REMOVE with what they report, ENTER there opens the list again | ENTER reads the folder `KORG/blechtribe/Plugin/` (up to 64 plugin files; with more, the page LIST FULL with "64 files shown" follows the last plugin, [measurement](messungen/2026-10-30-plugin-liste-64-entfernen.md)) and opens the list of all plugins, one page per plugin (the tag stays "Plugins", the counter counts them, EDIT pages through them in a circle like every other menu). Since 1.4.5 the list looks like the file browser of DATA UTILITY: three rows in the big font with a file icon in front of the name, long names cut with "..", the triangle on the left at the plugin shown, the scroll bar on the right ([measurement](messungen/2026-11-08-plugin-liste-browser.md)). It opens on the plugin shown last; EXIT leads back to the row PLUGINS (up to 1.4.5 the one page MANAGE PLUGINS was in between). The loaded plugins come first, then those of the `*.blech` files that are not loaded, each plugin once (the same name in the file's header and in the loaded block means: the same plugin). A plugin that is only in `e2sPlugin.all` and has no file is listed as loaded and has no description. Parts of the firmware (Blechy and what BLECHTRIBE brings itself) are no plugins and are never listed here, their switches are under FEATURES |
-| a plugin of the list | its row: a page with two lines means ON, a blank page OFF (also not loaded or with an error); under the rows in small print `DIV_ZERO L3`, WRITE=ALLOW or what was done | the main dial moves through the list like the file browser of IMPORT SAMPLE and stops at the first and the last, EDIT too, in a circle ([measurement](messungen/2026-11-09-menue-liste-rad.md)). Switching is on the plugin's STATE page (ENTER, then EDIT): there the main dial down pauses the plugin, up resumes it; WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error the error shows with its line; a foreign plugin waits with WRITE=ALLOW for approval (only WRITE allows it, the dial does not). A plugin that is not loaded shows OFF like one switched off: the main dial up on STATE loads it from its file and starts it (a foreign one then waits for WRITE=ALLOW, a broken block reports "rejected", with the plugins of the runtime off "runtime off"), down does nothing. A plugin loaded like this runs until power-off; it stays over restarts only with EXPORT ALL PLUGINS, which puts it into `e2sPlugin.all`. ENTER opens the plugin's pages: DESCRIPTION, STATE, its own pages, OFF and REMOVE (one that is not loaded has DESCRIPTION, STATE and REMOVE); EXIT leads back to the plugin in the list |
-| Plugin, STATE | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW or what was done | the plugin's state as under its row in the list: the main dial switches it, WRITE saves the state or allows a foreign plugin, as described above |
+| a plugin of the list | its row: a page with two lines means ON, a blank page OFF (also not loaded or with an error); under the rows in small print `DIV_ZERO L3`, WRITE=ALLOW or what was done | the main dial moves through the list like the file browser of IMPORT SAMPLE and stops at the first and the last, EDIT too, in a circle ([measurement](messungen/2026-11-09-menue-liste-rad.md)). Switching is on the ACTIVE page, the plugin's first page: ENTER on the plugin opens it and the main dial switches right away (down pauses the plugin, up resumes it), no ENTER and no EDIT needed; WRITE keeps the state over a restart (a plugin switched off does not start then, switched on it runs its start); on an error the error shows with its line; a foreign plugin waits with WRITE=ALLOW for approval (only WRITE allows it, the dial does not). A plugin that is not loaded shows OFF like one switched off: the main dial up on ACTIVE loads it from its file and starts it (a foreign one then waits for WRITE=ALLOW, a broken block reports "rejected", with the plugins of the runtime off "runtime off"), down does nothing. A plugin loaded like this runs until power-off; it stays over restarts only with EXPORT ALL PLUGINS, which puts it into `e2sPlugin.all`. ENTER opens the plugin's pages: ACTIVE, DESCRIPTION, its own pages, OFF and REMOVE (one that is not loaded has ACTIVE, DESCRIPTION and REMOVE); EXIT leads back to the plugin in the list |
+| Plugin, ACTIVE (the first page) | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW or what was done | the plugin's state as under its row in the list: the main dial switches it, WRITE saves the state or allows a foreign plugin, as described above |
 | Plugin, DESCRIPTION | the plugin's state under the description | the description from the plugin's `*.blech` file (the `//` lines at the very top of the code), as a picture over the whole screen: the name on top, the lines below, the state at the bottom. The main dial scrolls line by line, `^` and `v` show that there is more; ENTER does nothing here. Without a file or without a description it says "no description" |
 | Plugin, one page per `korg.menu.add` | the number | the settings of this plugin: the main dial changes it, the plugin gets `menu` |
 | Plugin, OFF | `press  [ Enter ]` | ENTER asks ("Enter = off"), a second ENTER takes it out: the plugin stops, `e2sPlugin.all` is written again without it (also empty when it was the last one), MANAGE PLUGINS reports "off, file kept"; the `*.blech` in the folder stays, and the plugin is listed as OFF the next time the list opens and can be loaded |
@@ -1044,6 +1048,8 @@ The pages of the groups:
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 | FEATURES, LAST PATTERN | ON, OFF | ON: at power-on the Electribe opens the pattern that was selected before switching off; OFF: it starts with 001 as in the firmware, the kept number stays for a start with ON; applies from the next power-on, WRITE keeps it (bit 3 of byte 5 of the settings file means OFF); without a file ON; EXIT at power-on: 001; red and blue, where the set has the patch last-pattern |
 | FEATURES, STEREO 1 PAD | ON, OFF | ON: a stereo sample takes only its own pad and plays there on one voice, the pad next to it plays its own sample; OFF: as in the firmware, a stereo sample on pad 1, 3, ... also takes the next pad; applies at once, WRITE keeps it (bit 2 of byte 5 of the settings file means OFF); ON without a file; EXIT held at power-on: as in the firmware; only where the set has the patch stereo-pad (red) ([measurement](messungen/2026-10-29-stereo-ein-pad.md)) |
+| FEATURES, KEY PADS | ON, OFF | ON: KEYBOARD held + pad sets the KEY (chromatic in pad order: pad 1 C to pad 12 B, pads 13 to 16 do nothing), the firmware's value window shows it; OFF: the pads as in the firmware (KEYBOARD + pad 13 silently selects part 13); applies at once, WRITE keeps it (bit 4 of byte 5 of the settings file means OFF); ON without a file; hacktribe, red and blue, checked in the emulator, not on the device ([measurement](messungen/2026-11-07-key-pads-eingebaut.md), [layout](messungen/2026-11-08-key-pads-chromatisch.md), German) |
+| FEATURES, FILTER TOGGLE | ON, OFF | ON: SHIFT + LPF, HPF or BPF turns the filter of the selected part off and on again, with the type the key had last; OFF: SHIFT + filter key as in the firmware; applies at once, WRITE keeps it (bit 5 of byte 5 of the settings file means OFF); ON without a file; hacktribe, red and blue, checked in the emulator, not on the device ([measurement](messungen/2026-11-08-filter-toggle-eingebaut.md), German) |
 | FEATURES, AUTO SAVE | ON, OFF | ON: leaving GLOBAL PARAMETERS (or PLUGIN RUNTIME behind it) after changing a value there saves the Global values with the same request WRITE sends there (the firmware shows its "Writing..." window for about a second, as after WRITE); leaving the BLECH menu after changing a setting writes the settings file as WRITE does; nothing changed means nothing is written, patterns stay with WRITE; OFF: only WRITE saves, as in the firmware; acts at once, ON is the default (also without a file); OFF is bit 7 of byte 5 of the settings file, a BLECHTRIBE before 1.5 rejects a file with that bit; switching AUTO SAVE itself off is kept by WRITE only ([measurement](messungen/2026-11-09-auto-save.md), German) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY, 1 to 250 | the pattern DATA UTILITY > INITIALIZE PATTERN takes as its template; FACTORY is the firmware's template; applies at once and stays after switching off (Global byte 247, no WRITE needed); only where the set has the patch init-pattern (red) ([measurement](messungen/2026-10-28-init-pattern.md)) |
 
@@ -1140,7 +1146,7 @@ units. Every app stays below it, the tests check that. On the device the time pe
 | Simon | GAMES | the 16 pads light a sequence (a step 0.72 s, a little shorter every fourth round, never below 0.4 s), you play it back, one more step each round; the display shows the round, the step and what to do; a wrong pad ends the game, TAP or a pad restarts | 2268 bytes | frame at most 1673 units (game over), opening 1644 |
 | Mandelbrot | GAMES | a finger on the touchpad pans, Part right and the encoder zoom in, Part left out, keys 1 and 2 set the iterations (8 to 64), TAP resets | 2436 bytes | 2135 units, 0.41 ms |
 | GIF Player | TOOLS | plays `GIF00.E2G` to `GIF99.E2G` from the card: the encoder picks the file, Part left and right halve and double the speed (25 to 400 %), TAP pauses; a missing file is said. For trying animations on the display, a frame stays at least one runtime frame (40 ms) | 972 bytes | frame 3762 units, about 0.72 ms (the picture alone 3086), above the warning line of 0.5 ms |
-| Image Viewer | TOOLS | shows the pictures of a file `GIF00.E2G` to `GIF99.E2G` one at a time, for example several BMPs that `tools/gif/gif2e2g.py` put into one file: Part right and left page forward and back, after the last picture comes the first again, the encoder picks the file. After each change the top left corner shows the number for two seconds (`2/3`, the total only once it has been through the file), TAP keeps it there or hides it. Back from the first picture to the last works only once the count is known, the runtime does not tell it beforehand | 1128 bytes | key press at most 4414 units (past the last picture: two reads and the picture), about 0.84 ms derived, above the warning line of 0.5 ms |
+| BMP Viewer | TOOLS | shows the pictures of a file `GIF00.E2G` to `GIF99.E2G` one at a time, for example several BMPs that `tools/gif/gif2e2g.py` put into one file: Part right and left page forward and back, after the last picture comes the first again, the encoder picks the file. After each change the top left corner shows the number for two seconds (`2/3`, the total only once it has been through the file), TAP keeps it there or hides it. Back from the first picture to the last works only once the count is known, the runtime does not tell it beforehand | 1128 bytes | key press at most 4414 units (past the last picture: two reads and the picture), about 0.84 ms derived, above the warning line of 0.5 ms |
 
 **Set-Timer** is meant for use in a set. Its clock is `korg.millis()`, which the runtime keeps current every frame,
 also while the app is closed. It subscribes only to `play`, the keys, `open` and `close`: closed it costs a few
@@ -1220,13 +1226,26 @@ Stock firmware: the page list measured in this project ([key combinations](taste
 (`test/script-step-copy.test.mjs`) and in the emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, red, blue), not on
 the device.
 
+**303Pattern** (by Crank, from the BLECH Discord) is an app under TOOLS. It makes a random 16 step pattern from one of 14 scales
+with accent, slide and tie steps (the algorithm of the Pattern303 VST), lights the pads of the steps with a note and writes
+the pattern into the sequencer. Steps can be locked, so a new pattern leaves them alone; the knob sets the gate length, an
+in-app menu holds scale, root, density, slide, tie and accent. Checked in the simulator by compiling, not on the device.
+
+**PLAY-Takt** uses API 11 and runs in the background. While the sequencer plays, the PLAY LED (red and blue) blinks in the
+tempo of the pattern: the event `beat` lights it on every quarter note, `korg.afterSteps(2, ...)` turns it off two steps
+later, so with BEAT 8 on every half note. On STOP and in the pause it stays lit; `korg.cancel` clears the timer then. In the
+pause the firmware blinks the PLAY LED itself, the plugin lights it again in every frame: in the emulator it then stays dark
+for at most one round of the LED matrix (5.5 ms in the model of `tools/emu/panel_leds.py`), on STOP until the next frame
+(40 ms). It is also the catalog's example of the timers. Checked in the simulator (`test/script-play-takt.test.mjs`) and in
+the emulator (`tools/emu/timer_cases.py`, Hacktribe), not on the device.
+
 ## The Plugins page in the editor
 
 The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold and Step Copy; source
+and Mandelbrot under GAMES, Set-Timer, GIF Player and BMP Viewer under TOOLS, plus Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy and 303Pattern (TOOLS); source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
