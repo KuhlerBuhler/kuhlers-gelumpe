@@ -5,11 +5,13 @@
  * presets and the terminal and shows a note where the device was.
  */
 import { el } from "./fields.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { icon } from "./icons.mjs";
 import { emulatorPanel, takeLink } from "./emulator.mjs";
 import { emuHash } from "./emu-link.mjs";
 import { t } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:emulator");
 
 const CHANNEL = "cee.emu.window";
 const BEAT_MS = 1000;

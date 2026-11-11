@@ -1114,16 +1114,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   display: none;
 }
 
-/* On the floor a name shows only while the pointer is on its Blechy, so passing names never pile up. */
-.cee-discord-blechy .cee-discord-tag {
-  position: absolute;
-  bottom: calc(100% + var(--space-1));
-  left: 50%;
-  transform: translateX(-50%);
-  visibility: hidden;
-  white-space: nowrap;
-}
-
 /* Three rows: the back ones a little higher, the front row on top. */
 .cee-discord-blechy[data-row="1"] {
   bottom: 10px;
@@ -1141,10 +1131,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 
 .cee-discord-blechy:hover {
   z-index: 4;
-}
-
-.cee-discord-blechy:hover .cee-discord-tag {
-  visibility: visible;
 }
 
 .cee-discord-people {
