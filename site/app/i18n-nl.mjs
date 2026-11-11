@@ -164,6 +164,7 @@ export default {
   "common.yes": "ja",
   "common.no": "nee",
   "common.cancel": "Annuleren",
+  "common.removeFile": "Bestand verwijderen",
   "doom.title": "Doom",
   "doom.intro": "Ja, echt. Doom draait op de rode Electribe met BLECHTRIBE, gestart vanaf de SD-kaart. Het spel is Freedoom, de vrije versie met eigen levels en graphics.",
   "doom.files.title": "1. Bestanden op de kaart",

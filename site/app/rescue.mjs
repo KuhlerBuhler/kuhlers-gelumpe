@@ -4,6 +4,7 @@
  * the person has to do or answer something. Content: data/rescue.mjs.
  */
 import { el } from "./fields.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 import { FLOW, LINKS, BUTTONS, FOLDERS, CASES, FIRST_CASES, MAX_SHOWN, destOf, passSteps } from "../../data/rescue.mjs";
 import { makeMatcher, casePhrases } from "../../src/blechy-match.mjs";
 import { checkName, korgBlueForSampler } from "../../src/patcher.mjs";
@@ -252,6 +253,7 @@ export function rescuePage(root, context = {}) {
       el("span", { className: "ui-dropzone-hint", textContent: t("rescue.drop.hint") }),
       fileInfo,
     ]);
+    const wrapped = dropzoneClear(input).node;
     input.onchange = async () => {
       const file = input.files?.[0];
       input.value = "";
@@ -268,7 +270,7 @@ export function rescuePage(root, context = {}) {
       path = [...path, node.done];
       render();
     };
-    return zone;
+    return wrapped;
   }
 
   function render() {

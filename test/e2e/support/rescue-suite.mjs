@@ -481,7 +481,7 @@ export function rescueSuite(index, parts) {
     assert.match(await zone.locator(".ui-dropzone-title").textContent(), /Korgs SYSTEM\.VSB für die blaue hierher ziehen oder auswählen/);
     assert.match(await zone.locator(".ui-dropzone-hint").textContent(), /electribe_system_v202\.zip/);
     assert.equal(await zone.locator("input[type=file]").getAttribute("accept"), ".VSB,.vsb");
-    assert.equal(await page.locator("#cee-rescue-answers button").count(), 0, "no answer that goes on without a file");
+    assert.equal(await page.locator("#cee-rescue-answers button:not(.cee-dropzone-clear)").count(), 0, "no answer that goes on without a file, the X only clears the field");
     assert.equal(await page.locator("#cee-rescue-back").isEnabled(), true);
     assert.deepEqual(page.errors, []);
   });

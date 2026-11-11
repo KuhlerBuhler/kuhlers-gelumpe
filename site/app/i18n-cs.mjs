@@ -164,6 +164,7 @@ export default {
   "common.yes": "ano",
   "common.no": "ne",
   "common.cancel": "Zrušit",
+  "common.removeFile": "Odebrat soubor",
   "doom.title": "Doom",
   "doom.intro": "Jo, opravdu. Doom běží na červené Electribe s BLECHTRIBE, spuštěný z SD karty. Hra je Freedoom, svobodná verze s vlastními levely a grafikou.",
   "doom.files.title": "1. Soubory na kartu",

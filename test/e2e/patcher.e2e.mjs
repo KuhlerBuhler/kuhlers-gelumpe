@@ -1443,3 +1443,31 @@ test("patcher in the browser: the save dialog where there is one, a cancel saves
   assert.match(await plain.locator("#cee-patch-guide-vsb").textContent(), /^Kopiere die gespeicherte SYSTEM\.VSB/);
   assert.deepEqual([...page.errors, ...plain.errors], []);
 });
+
+test("patcher: the X on the file field takes the file out again and the field takes the next one", async () => {
+  const page = await patcherPage();
+  const zone = page.locator("#cee-patcher .ui-dropzone:has(#cee-patch-file)");
+  const x = page.locator("#cee-patcher .cee-dropzone-wrap:has(#cee-patch-file) > .cee-dropzone-clear");
+  assert.equal(await zone.locator("button").count(), 0, "no button inside the label");
+  assert.equal(await x.isVisible(), false, "no file, no X");
+  let opened = 0;
+  page.on("filechooser", () => { opened++; });
+  const vsb = await makeFirmware();
+  await drop(page, vsb);
+  await page.waitForFunction(() => document.querySelector("#cee-patch-file-info").textContent === "SYSTEM.VSB: Hacktribe 2.02 erkannt");
+  await closeToasts(page);
+  assert.equal(await x.isVisible(), true, "a file in the field shows the X");
+  assert.equal(await x.getAttribute("aria-label"), "Datei entfernen");
+  assert.equal(await x.evaluate(n => n.tagName), "BUTTON");
+  assert.equal(await page.isDisabled("#cee-patch-next"), false);
+  await x.click();
+  assert.equal(await page.locator("#cee-patch-file-info").textContent(), "", "the name is gone");
+  assert.equal(await x.isVisible(), false, "the X goes with the file");
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "the flow is back at the start");
+  assert.equal(await page.locator("#cee-patch-file").evaluate(n => n.files.length), 0);
+  assert.equal(opened, 0, "the X does not open the picker");
+  await drop(page, vsb);
+  await page.waitForFunction(() => document.querySelector("#cee-patch-file-info").textContent === "SYSTEM.VSB: Hacktribe 2.02 erkannt");
+  assert.equal(await x.isVisible(), true, "the same file can be taken again");
+  assert.deepEqual(page.errors, []);
+});

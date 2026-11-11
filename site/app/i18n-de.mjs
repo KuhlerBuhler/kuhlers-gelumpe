@@ -170,6 +170,7 @@ export default {
   "common.yes": "ja",
   "common.no": "nein",
   "common.cancel": "Abbrechen",
+  "common.removeFile": "Datei entfernen",
 
   "doom.title": "Doom",
   "doom.intro": "Ja, wirklich. Doom läuft auf der roten Electribe mit BLECHTRIBE, gestartet von der SD-Karte. Das Spiel ist Freedoom, die freie Fassung mit eigenen Levels und Grafiken.",
