@@ -88,6 +88,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let ownPatch = null;          // a patch the user brought instead of the set of this version (readAnyPatch): { kind, bytes, label, ... }
   let source = "original";      // step 1: Korg's firmware loaded for the user, or "own" file
   let patchSource = "latest";   // step 2: the set of this version, or "own" patch file
+  let taking = 0;               // files being read and classified: Weiter must not load Korg's over the one that is on its way
   let downloadStarted = false;  // the browser started Korg's zip: the field for it opens
   let usbNames = null;          // the variants of the optional patch usb-name, once loaded
   let hint = null;
@@ -566,7 +567,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       else wizGo(wiz.step + 1);
       return;
     }
-    if (allowed(flow).busy) return;
+    if (allowed(flow).busy || taking) return;
     if (loadsKorg()) {
       licence.checked = true;
       if (!native()) { downloadKorg(korgDevice()); render(); return; }
@@ -736,7 +737,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     back.disabled = can.busy;
     // in the wizard Weiter waits for a choice; on the way it waits for what the flow needs
     next.hidden = !inWiz && (view === 3 || (view === 2 && reach() < 3));
-    next.disabled = inWiz ? !wizChosen() : can.busy || (view >= reach() && !loadsKorg()) || (view === 1 && !htReady());
+    next.disabled = inWiz ? !wizChosen() : can.busy || taking > 0 || (view >= reach() && !loadsKorg()) || (view === 1 && !htReady());
     korgHint.hidden = inWiz || view !== 0 || reach() > 0 || !!flow.input || !!pending || korg.hidden || licence.checked || ask;
     ownHint.hidden = inWiz || view !== 0 || !ownSource || reach() > 0 || !!flow.input || !!pending;
     goalHint.hidden = inWiz || view !== 0 || !mismatch();
@@ -853,7 +854,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   async function pick(file) {
     usb = null;
     fileInput.value = "";           // choosing the same path again, after it changed, must still fire
-    await takeFile(file.name, new Uint8Array(await file.arrayBuffer()));
+    taking++;
+    render();
+    try { await takeFile(file.name, new Uint8Array(await file.arrayBuffer())); } finally { taking--; render(); }
   }
 
   /** A dropped or downloaded file: a VSB as it is, Korg's zip with the SYSTEM.VSB taken out of it. */
