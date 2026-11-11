@@ -2033,7 +2033,7 @@ export default {
   "catalog.lauflicht.description": "Вогник біжить по падах.",
   "catalog.category.light": "Світло",
   "catalog.pulsieren.description": "Усі червоні світлодіоди падів стають то яскравішими, то темнішими.",
-  "catalog.taktblinker.description": "Світлодіод TAP блимає кожні 500 мс, при PLAY пад 1 спалахує на кожен четвертий крок. Приклад таймерів.",
+  "catalog.playtakt.description": "Поки секвенсор грає, світлодіод PLAY блимає в темпі патерну, при STOP і на паузі світить постійно. Приклад таймерів.",
   "catalog.momentmute.description": "Заглушення змінюється лише поки тримають PART MUTE: тоді пад вимикає або вмикає свою партію, а пади показують заглушення. Після відпускання пади грають як у режимі TRIGGER.",
   "catalog.momentmute.control1": "Тримати PART MUTE і натиснути пад: партія вимк. або увімк.",
   "catalog.momentmute.control2": "Меню -> BLECH -> MOMENT MUTE: 1 увімк., 0 вимк.",

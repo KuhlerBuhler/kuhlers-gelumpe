@@ -2033,7 +2033,7 @@ export default {
   "catalog.lauflicht.description": "A light runs across the pads.",
   "catalog.category.light": "Light",
   "catalog.pulsieren.description": "All red pad LEDs get brighter and darker.",
-  "catalog.taktblinker.description": "The TAP LED blinks every 500 ms, on PLAY pad 1 lights up on every fourth step. An example of the timers.",
+  "catalog.playtakt.description": "While the sequencer plays, the PLAY LED blinks in the tempo of the pattern; on STOP and pause it stays lit. An example of the timers.",
   "catalog.momentmute.description": "Mutes change only while PART MUTE is held: then a pad switches its part off or on, and the pads show the mutes. Released, the pads play as in TRIGGER mode.",
   "catalog.momentmute.control1": "Hold PART MUTE and press a pad: part off or on",
   "catalog.momentmute.control2": "Menu -> BLECH -> MOMENT MUTE: 1 on, 0 off",

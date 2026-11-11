@@ -2033,7 +2033,7 @@ export default {
   "catalog.lauflicht.description": "Uma luz percorre os pads.",
   "catalog.category.light": "Luz",
   "catalog.pulsieren.description": "Todos os LEDs vermelhos dos pads ficam mais claros e mais escuros.",
-  "catalog.taktblinker.description": "O LED TAP pisca a cada 500 ms, com PLAY o pad 1 acende a cada quarto passo. Um exemplo dos temporizadores.",
+  "catalog.playtakt.description": "Enquanto o sequenciador toca, o LED PLAY pisca no tempo do pattern; com STOP e em pausa fica aceso. Um exemplo dos temporizadores.",
   "catalog.momentmute.description": "Os silêncios só mudam enquanto PART MUTE é mantido: então um pad silencia ou liga a sua parte e os pads mostram os silêncios. Ao soltar, os pads tocam como no modo TRIGGER.",
   "catalog.momentmute.control1": "Manter PART MUTE e premir um pad: parte silenciada ou ligada",
   "catalog.momentmute.control2": "Menu -> BLECH -> MOMENT MUTE: 1 ligado, 0 desligado",
