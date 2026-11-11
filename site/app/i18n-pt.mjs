@@ -164,6 +164,7 @@ export default {
   "common.yes": "sim",
   "common.no": "não",
   "common.cancel": "Cancelar",
+  "common.removeFile": "Remover ficheiro",
   "doom.title": "Doom",
   "doom.intro": "Sim, a sério. O Doom corre na Electribe vermelha com BLECHTRIBE, arrancado do cartão SD. O jogo é o Freedoom, a versão livre com níveis e gráficos próprios.",
   "doom.files.title": "1. Ficheiros para o cartão",

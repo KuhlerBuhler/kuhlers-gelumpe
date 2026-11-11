@@ -164,6 +164,7 @@ export default {
   "common.yes": "yes",
   "common.no": "no",
   "common.cancel": "Cancel",
+  "common.removeFile": "Remove file",
   "doom.title": "Doom",
   "doom.intro": "Yes, really. Doom runs on the red Electribe with BLECHTRIBE, started from the SD card. The game is Freedoom, the free version with its own levels and graphics.",
   "doom.files.title": "1. Files onto the card",

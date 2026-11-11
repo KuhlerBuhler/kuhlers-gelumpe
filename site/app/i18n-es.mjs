@@ -163,6 +163,7 @@ export default {
   "common.yes": "sí",
   "common.no": "no",
   "common.cancel": "Cancelar",
+  "common.removeFile": "Quitar archivo",
   "doom.title": "Doom",
   "doom.intro": "Sí, de verdad. Doom funciona en la Electribe roja con BLECHTRIBE, arrancado desde la tarjeta SD. El juego es Freedoom, la versión libre con niveles y gráficos propios.",
   "doom.files.title": "1. Archivos a la tarjeta",

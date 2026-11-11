@@ -164,6 +164,7 @@ export default {
   "common.yes": "так",
   "common.no": "ні",
   "common.cancel": "Скасувати",
+  "common.removeFile": "Видалити файл",
   "doom.title": "Doom",
   "doom.intro": "Так, справді. Doom працює на червоній Electribe з BLECHTRIBE, запускається з SD-картки. Гра - Freedoom, вільна версія з власними рівнями і графікою.",
   "doom.files.title": "1. Файли на картку",

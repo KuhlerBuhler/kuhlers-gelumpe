@@ -4,6 +4,7 @@ import { el } from "./fields.mjs";
 import { stateText } from "./state.mjs";
 import { icon } from "./icons.mjs";
 import { toastFor } from "./toast.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 import { saveFile } from "./save-file.mjs";
 import { saveAs, saveWay, findCards, saveToCard, sameCards } from "./save-target.mjs";
 import { applyPatches } from "../../src/patch.mjs";
@@ -748,11 +749,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     usbName.disabled = can.busy || locked;
     usbNameNote.textContent = t(locked ? "patcher.update.locked" : "patcher.usbName.note");
     blechInfo.textContent = ownPatch ? t(ownPatch.label) : "";
+    blechDrop.toggleAttribute("data-filled", !!ownPatch);
     // The field says which file it holds and what it is; pick() empties the input, so ui.js cannot show the name.
     const found = flow.origin === "hacktribe" && flow.input?.hardware === "blue" ? t("patcher.found.hacktribeBlue") : FOUND[flow.origin] && t(FOUND[flow.origin]);
     const held = flow.input && fileName ? t("patcher.held", { file: fileName, found: found ?? t("patcher.found.none") }) : "";
     drop.toggleAttribute("data-selected", true);
-    drop.toggleAttribute("data-filled", !!held && !!flow.origin);
+    drop.toggleAttribute("data-filled", !!held);
     fileInfo.textContent = held;
     const v = verdict(flow, blech?.items ?? [], !!pending);
     verdictBox.replaceChildren(...(v ? [stateText(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
@@ -785,7 +787,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     // open on the whole Hacktribe route, so the field shows the file it took and takes another one
     patchBox.toggleAttribute("data-disabled", flow.route !== "hacktribe");
     patchInput.disabled = can.busy || flow.route !== "hacktribe";
-    patchInfo.textContent = flow.route === "hacktribe" && flow.phase !== "needs-patch" && patchName ? t("patcher.hacktribe.converted", { file: patchName }) : "";
+    const converted = flow.route === "hacktribe" && flow.phase !== "needs-patch" && !!patchName;
+    patchInfo.textContent = converted ? t("patcher.hacktribe.converted", { file: patchName }) : "";
+    patchDrop.toggleAttribute("data-filled", converted);
     run.hidden = inWiz || view !== 2;
     run.disabled = !can.patch || !htReady() || (patchSource !== "latest" && !ownPatch) || (testChoice === "none" && !consent.checked);
     run.textContent = flow.phase === "failed" || flow.phase === "passed" || flow.phase === "downloaded" ? t("patcher.run.again") : testChoice === "none" ? t("patcher.run.untested") : t("patcher.run");
@@ -1091,6 +1095,21 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   fileInput.addEventListener("change", () => {
     const file = fileInput.files?.[0];
     if (file) pick(file);
+  });
+
+  // X on the three fields: each forgets only what its own file brought in
+  dropzoneClear(fileInput, () => {
+    if (allowed(flow).busy) { render(); return; }
+    pending = null; updating = null; usb = null; input = null; original = null; stockFile = null; passed = null; taken = null;
+    fileName = ""; patchName = "";
+    htAck.checked = false;
+    dispatch({ type: "reset" });
+  });
+  dropzoneClear(blechInput, () => { ownPatch = null; render(); });
+  dropzoneClear(patchInput, () => {
+    if (!stockFile || allowed(flow).busy) { render(); return; }
+    input = stockFile.bytes; passed = null; patchName = ""; htAck.checked = false;
+    dispatch({ type: "route", route: "hacktribe", input: stockFile.kind });
   });
 
   run.addEventListener("click", () => patchAndCheck());

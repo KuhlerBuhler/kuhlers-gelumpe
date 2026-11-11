@@ -164,6 +164,7 @@ export default {
   "common.yes": "oui",
   "common.no": "non",
   "common.cancel": "Annuler",
+  "common.removeFile": "Retirer le fichier",
   "doom.title": "Doom",
   "doom.intro": "Oui, vraiment. Doom tourne sur l'Electribe rouge avec BLECHTRIBE, lancé depuis la carte SD. Le jeu est Freedoom, la version libre avec ses propres niveaux et graphismes.",
   "doom.files.title": "1. Les fichiers sur la carte",
