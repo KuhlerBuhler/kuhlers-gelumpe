@@ -1,6 +1,6 @@
 # Idee 38: Samples übers Kabel rein und raus, ohne Karte umzustecken
 
-Stand: beschlossen, Dateizugriff der Firmware im Emulator gemessen, am Gerät offen. Der Sample-Weg selbst ist nicht gebaut. Zurück zu den [Ideen](../ideen.md).
+Stand: teilweise gebaut. Samples hinzufügen und entfernen geht über USB auf der Seite `Gerät -> Samples` (rot, [Sample-Datei](../hintergrund/sample-datei.md)), im Emulator gemessen. Einzelne Samples als WAV zurückholen und die übrigen Dateien der Karte lesen ist nicht gebaut. Zurück zu den [Ideen](../ideen.md).
 
 - **Rein:** eine WAV-Datei per SysEx in den RAM, ein kleines Programm schreibt sie über die Datei-Funktionen der Firmware auf die Karte, DATA UTILITY importiert sie.
 - **Raus:** DATA UTILITY exportiert ein geladenes Sample als WAV auf die Karte, das Programm liest die Datei in den RAM, der Editor holt sie ab.
