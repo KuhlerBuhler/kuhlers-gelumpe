@@ -42,6 +42,9 @@ mod platform;
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
 #[path = "windows.rs"]
 mod platform;
+/// Keeps the device list current on macOS, see `macos::watch_devices`; call once on the main thread.
+#[cfg(target_os = "macos")]
+pub use platform::watch_devices;
 impl Driver for NativeDriver {
     fn list(&self) -> Result<Ports, String> {
         Ok(Ports {
