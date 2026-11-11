@@ -175,7 +175,7 @@ test("a new insert effect: two blocks from the palette, a name; Meine Effekte op
   assert.deepEqual(page.errors, []);
 });
 
-test("export: places per slot, a drop swaps two, the trash can empties one; Exportieren asks for the firmware, reads an e2sFx.all back", async () => {
+test("export: places per slot, a drop swaps two, the trash can empties one; Exportieren asks for the device's firmware, reads an e2sFx.all back", async () => {
   const page = await h.page();
   await open(page);
   await page.click("#cee-bk-tab-mod");
@@ -221,8 +221,12 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.click("#cee-bk-export-tab-mod");
   assert.equal(await page.locator("#cee-bk-slots-ifx").count(), 0, "Modulationen show only their places");
   await page.selectOption("#cee-bk-slot-mod-5", { label: "Filter Wobble" });
+  // The file is for the firmware on the device, which the user names; the emulator's firmware plays no part.
   await page.click("#cee-bk-collection");
-  await page.locator("#app-toasts .cee-toast", { hasText: "braucht die Seite deine Firmware" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "welche Firmware auf deiner Electribe" }).waitFor();
+  await page.click("#cee-bk-firmware-hacktribe");
+  await page.click("#cee-bk-collection");
+  await page.locator("#app-toasts .cee-toast", { hasText: "kann nur die App selbst laden" }).waitFor();
 
   const vsb = await makeFirmwareWithArrays([
     { kind: "mfx", slot: 1, record: makeRecord("mfx", { name: "Mod Delay", devices: { mfx: 0x3b } }) },
@@ -233,6 +237,13 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-tab-baukasten");
   await page.click("#cee-baukasten-page-export");
+  assert.equal(await page.isChecked("#cee-bk-firmware-hacktribe input"), true, "the choice is remembered");
+  // Korg's original named for the device, a Hacktribe file given: refused, not built for the wrong device
+  await page.click("#cee-bk-firmware-stock");
+  await page.setInputFiles("#cee-bk-firmware-file", h.file("SYSTEM.VSB", vsb));
+  await page.click("#cee-bk-collection");
+  await page.locator("#app-toasts .cee-toast", { hasText: "nicht Korgs Original" }).waitFor();
+  await page.click("#cee-bk-firmware-hacktribe");
   // A factory preset moves like an own one: Mod Delay from place 1 to place 2, as its record, not rebuilt.
   await page.click("#cee-bk-export-tab-mfx");
   await page.locator("#cee-bk-slots-mfx li[data-slot='1'] .cee-bk-slot-factory", { hasText: "Mod Delay" }).waitFor();
@@ -241,6 +252,7 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   const bytes = await h.download(page, () => page.click("#cee-bk-collection"));
   const read = parseCollection(bytes);
   assert.equal(read.ok, true, read.reason);
+  assert.equal(read.build, "hacktribe", "the build the user named");
   const moved = read.entries.find(e => e.kind === "mfx" && e.index === 1);
   assert.equal(readFx(moved.text, units).preset.name, "Mod Delay", "place 2 holds the factory preset of place 1");
   const others = read.entries.filter(e => e !== moved && !(e.kind === "mfx" && e.index === 0));
