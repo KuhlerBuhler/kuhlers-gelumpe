@@ -1220,13 +1220,21 @@ Stock firmware: the page list measured in this project ([key combinations](taste
 (`test/script-step-copy.test.mjs`) and in the emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, red, blue), not on
 the device.
 
+**PLAY-Takt** uses API 11 and runs in the background. While the sequencer plays, the PLAY LED (red and blue) blinks in the
+tempo of the pattern: the event `beat` lights it on every quarter note, `korg.afterSteps(2, ...)` turns it off two steps
+later, so with BEAT 8 on every half note. On STOP and in the pause it stays lit; `korg.cancel` clears the timer then. In the
+pause the firmware blinks the PLAY LED itself, the plugin lights it again in every frame: in the emulator it then stays dark
+for at most one round of the LED matrix (5.5 ms in the model of `tools/emu/panel_leds.py`), on STOP until the next frame
+(40 ms). It is also the catalog's example of the timers. Checked in the simulator (`test/script-play-takt.test.mjs`) and in
+the emulator (`tools/emu/timer_cases.py`, Hacktribe), not on the device.
+
 ## The Plugins page in the editor
 
 The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and BMP Viewer under TOOLS, plus Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold and Step Copy; source
+and Mandelbrot under GAMES, Set-Timer, GIF Player and BMP Viewer under TOOLS, plus Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold and Step Copy; source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and

@@ -1315,7 +1315,7 @@ Quatre pages : Catalogue, Mes plugins, Éditeur, Documentation. Le titre du fil 
 revient au catalogue.
 
 **Catalogue.** Cartes des applications GAMES et TOOLS décrites ci-dessus et des plugins
-Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold, Step Copy, dans
+Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, dans
 `data/script/presets.mjs`. Chaque carte montre l’écran après quelques trames, titre,
 catégorie, description et auteur. La carte ouvre une page avec image, description,
 catégorie, auteur, date et commandes ; téléchargement, transfert vers l’appareil et
