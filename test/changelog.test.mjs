@@ -67,3 +67,25 @@ test("the app keeps the developer sections too", async () => {
   const md = "BLECH 1.3.7.\n\n**Neu**\n- eins\n\n**Neu für Entwickler**\n- zwei\n\n**Fixed for developers**\n- drei";
   assert.equal(appNotes(md), md);
 });
+
+test("the release the person has shows its notes without the download blocks, in both languages", async () => {
+  const { withoutDownloads } = await import("../site/app/changelog.mjs");
+  const { releaseBody: published } = await import("../tools/release-lib.mjs");
+  const names = files.map(f => f.name.replace("GELUMPE_1.3.0", "Kuhlers GELUMPE_1.4.5").replace("gelumpe_1.3.0", "kuhlers-gelumpe_1.4.5"));
+  const body = published("BLECHTRIBE 1.4.5 und die App 1.4.5.\n\n**Neu**\n- eins\n\n## English\n\nBLECHTRIBE 1.4.5 and the app 1.4.5.\n\n**New**\n- one\n", "1.4.5", names);
+  assert.match(body, /Herunterladen/);
+  const bare = withoutDownloads(body);
+  assert.doesNotMatch(bare, /Herunterladen|Download|xattr|Assets|BLECH\.patch|Ohne App|without the app/);
+  assert.match(bare, /BLECHTRIBE 1\.4\.5 und die App 1\.4\.5\.\n\n\*\*Neu\*\*\n- eins/);
+  assert.match(bare, /## English\n+BLECHTRIBE 1\.4\.5 and the app 1\.4\.5\.\n\n\*\*New\*\*\n- one/);
+  assert.equal(withoutDownloads("BLECH 1.4.1.\n\n**Behoben**\n- zwei"), "BLECH 1.4.1.\n\n**Behoben**\n- zwei", "notes without a download block stay as they are");
+});
+
+test("downloads go away for the installed release and for a newer one the update button brings, never in a browser", async () => {
+  const { hasIt } = await import("../site/app/changelog.mjs");
+  assert.equal(hasIt("v1.4.5", "v1.4.5", "1.4.5"), true, "the installed version");
+  assert.equal(hasIt("v1.4.6", "v1.4.6", "1.4.5"), true, "the newest release, which the update button installs");
+  assert.equal(hasIt("v1.4.2", "v1.4.6", "1.4.5"), false, "an older release keeps its downloads");
+  assert.equal(hasIt("v1.4.7-beta", "v1.4.6", "1.4.5"), false, "a prerelease the update button does not offer");
+  assert.equal(hasIt("v1.4.5", "v1.4.5", undefined), false, "a browser has no installed version");
+});

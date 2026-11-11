@@ -654,7 +654,7 @@ export default {
   "features.backup.text": "Escribe tus ajustes, plugins y efectos como archivos en la tarjeta para tener una copia. Los efectos solo en la roja.",
   "features.backup.how": "Menú -> DATA UTILITY -> EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS o EXPORT ALL EFFECTS.",
   "features.playPlugins.title": "Plugins para tocar del catálogo",
-  "features.playPlugins.text": "Plugins listos para tocar de más formas: Gate Hold fija la nota en Gate Arp, Momentary Mute cambia los silencios solo mientras mantienes PART MUTE, si no los pads tocan como en TRIGGER, Image Viewer muestra imágenes de la tarjeta. Step Copy copia los steps de un compás a otros compases.",
+  "features.playPlugins.text": "Plugins listos para tocar de más formas: Gate Hold fija la nota en Gate Arp, Momentary Mute cambia los silencios solo mientras mantienes PART MUTE, si no los pads tocan como en TRIGGER, BMP Viewer muestra imágenes de la tarjeta. Step Copy copia los steps de un compás a otros compases.",
   "features.playPlugins.how": "En la app: BLECHTRIBE -> Plugins, elige un plugin y pásalo a la Electribe.",
   "features.sampleEditor.title": "Editor de samples en el aparato",
   "features.sampleEditor.text": "Recorta, normaliza, invierte y aplica fundidos a un sample directamente en la Electribe.",

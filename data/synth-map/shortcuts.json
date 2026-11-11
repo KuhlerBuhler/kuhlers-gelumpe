@@ -5,6 +5,12 @@
    "to": "0xC0044C64",
    "kind": "code",
    "why": "the firmware's pattern load (pattern, source, 1) the EXIT + pad shortcut calls (tools/patch/script_shortcuts.s SC_LOAD): the same function, 16 words equal (fwmap, Hacktribe 2.02 against the synth's 2.02)"
+  },
+  {
+   "from": "0xC009B5EC",
+   "to": "0xC00881D4",
+   "kind": "code",
+   "why": "the firmware's part sound setup for one part (part), the one Copy Part calls at its end (Sampler 0xC0066A58, synth 0xC005C6AC) and the EXIT + pad shortcut calls after its copy (tools/patch/script_shortcuts.s SC_PART_SOUND): read in both, and r0, r0, #0xff then b to the setup (Sampler 0xC0098BE0, synth 0xC0086060), each taking the part object, setting its sample and envelope state and freeing its voices"
   }
  ]
 }
