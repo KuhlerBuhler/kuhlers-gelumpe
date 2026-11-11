@@ -43,6 +43,7 @@ KEY_PADS_ON = script_hooks.MENU_STATE + 0x104   # M_KP: the page KEY PADS (tools
 # Per pad the KEY that KEY PADS sets, -1 none: chromatic in pad order, pad 1 C to pad 12 B; pads 13 to 16 set nothing.
 KEY_NOTES = list(range(12)) + [-1] * 4
 KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+WINDOW_ASKED = "\0window"         # marks in the drawn texts where KEY PADS sent the window message
 DRAW_TEXT = {False: 0xC003F7D0, True: 0xC003A408}   # the firmware's text draw (text, x, y, ...), Sampler and synth
 DISPATCH = 0xC002837C           # the dispatcher of panel messages, before the input filter
 SEQ_NOTIFY = 0xC0070688         # (observers, message): KEY PADS opens the parameter window with {0x5A, KEY} through it
@@ -416,6 +417,7 @@ def case_key_pads(payload, flash):
         code, value = struct.unpack("<II", bytes(uc.mem_read(uc.reg_read(UC_ARM_REG_R1), 8)))
         if code == 0x5A:
             opened.append(value)
+            texts.append(WINDOW_ASKED)
     opened = []
     at = DRAW_TEXT[box.dev.synth]
     box.m.uc.hook_add(unicorn.UC_HOOK_CODE, draw, begin=at, end=at)
@@ -433,24 +435,34 @@ def case_key_pads(payload, flash):
     box.poke(KEY_AT, 0)
     part = box.selected()
     held(KEYBOARD, True)
-    got, shown, windows = [], [], []
+    got, shown, windows, raced = [], [], [], []
     for n in range(16):
-        texts.clear()
-        opened.clear()
-        if KEY_NOTES[n] < 0:
-            box.poke(KEY_AT, 3)             # a pad without a note leaves any KEY as it is
-        box.pad(n)
+        for _ in range(2):
+            texts.clear()
+            opened.clear()
+            if KEY_NOTES[n] < 0:
+                box.poke(KEY_AT, 3)             # a pad without a note leaves any KEY as it is
+            box.pad(n)
+            seen = KEY_NAMES[KEY_NOTES[n]] in texts and "KEY" in texts if KEY_NOTES[n] >= 0 else True
+            # The synth redraws its whole main screen every ~2.4 s (the pattern number among the texts); one that lands in
+            # the frame right after the window message drops the window, the firmware's own race, on develop too at some start
+            # times. Such a pad is pressed once more and must show its window then.
+            after = texts[texts.index(WINDOW_ASKED) + 1:] if WINDOW_ASKED in texts else []
+            if seen or not any(len(t) == 3 and t.isdigit() for t in after):
+                break
+            raced.append(n)
         got.append(key())
         windows.append(list(opened))
         if KEY_NOTES[n] >= 0:
-            shown.append(KEY_NAMES[KEY_NOTES[n]] in texts and "KEY" in texts)
+            shown.append(seen)
     held(KEYBOARD, False, 0.3)
     want = [n if n >= 0 else 3 for n in KEY_NOTES]
     out.append(entry("key_pads_set_the_key", got == want and box.selected() == part and marked == [] and not box.m.asserts,
                      f"KEY after each of the 16 pads {got} (want {want}), part {box.selected()} (was {part}), KEYBOARD passed on {marked}"))
     out.append(entry("key_pads_window_shows_the_key", len(shown) == 12 and all(shown)
                      and windows == [[n] if n >= 0 else [] for n in KEY_NOTES] and not box.m.asserts,
-                     f"pads 1 to 12, window with KEY and the note: {shown}; window messages per pad {windows}"))
+                     f"pads 1 to 12, window with KEY and the note: {shown}; window messages per pad {windows}; pressed again after"
+                     f" a main screen redraw: {raced}"))
 
     box.dev.press(KEYBOARD, 0.4)
     out.append(entry("key_pads_short_press_reaches_the_firmware", marked == [1, 0] and mode() == 5 and key() == 3
