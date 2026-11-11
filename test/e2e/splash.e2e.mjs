@@ -49,12 +49,12 @@ test("Startbild: a picture becomes splash.bmp, black is drawn, the guide names t
   assert.deepEqual(page.errors, []);
 });
 
-test("Startbild: the gallery has the four pictures of the app, the standard one comes as splash.bmp, an own picture stays in this browser", async () => {
+test("Startbild: the gallery has the ten pictures of the app, the standard one comes as splash.bmp, an own picture stays in this browser", async () => {
   const page = await h.page();
   await page.goto(h.url);
   await go(page, "splash");
   const items = page.locator("#cee-splash-gallery > li");
-  assert.equal(await items.count(), 4);
+  assert.equal(await items.count(), 10);
   assert.match(await items.first().textContent(), /BLECHTRIBE\s*Standard/, "the standard picture first, to get it back after SPLASH RESET");
   const download = page.waitForEvent("download");
   await items.first().getByRole("button", { name: /herunterladen/ }).click();
@@ -67,12 +67,12 @@ test("Startbild: the gallery has the four pictures of the app, the standard one 
   await page.locator("#cee-splash-work:not([hidden])").waitFor();
   await dropPicture(page);
   await page.click("#cee-splash-keep");
-  assert.equal(await items.count(), 5);
+  assert.equal(await items.count(), 11);
   assert.match(await items.last().textContent(), /half\s*Eigenes/);
   await page.reload();
   await go(page, "splash");
-  assert.equal(await items.count(), 5, "kept across a reload");
+  assert.equal(await items.count(), 11, "kept across a reload");
   await items.last().getByRole("button", { name: "Entfernen" }).click();
-  assert.equal(await items.count(), 4);
+  assert.equal(await items.count(), 10);
   assert.deepEqual(page.errors, []);
 });
