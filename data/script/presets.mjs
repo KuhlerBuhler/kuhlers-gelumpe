@@ -2090,4 +2090,206 @@ korg.onEvent("menu", (id, value) => {
 });
 `,
   }),
+  Object.freeze({
+    id: "sysinfo",
+    title: "System Info",
+    description: text("catalog.sysinfo.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-12",
+    controls: [text("catalog.sysinfo.control1")],
+    source: `// System Info, an app under TOOLS: shows on which Electribe the plugin runs, the BLECHTRIBE version, how many insert and
+// master effects and sample slots the firmware has, and whether the device runs on the adapter or on battery, with the
+// battery level as the symbol top right shows it. All values are the firmware's own (korg.system); the screen is drawn
+// again once a second, so plugging the adapter in or out shows up while the app is open.
+korg.app("System Info", "TOOLS");
+let isOpen = 0;
+let next = 0;
+
+function digits(n) {
+  let d = 1;
+  while (n >= 10) {
+    n = n / 10;
+    d += 1;
+  }
+  return d;
+}
+
+function version(v) {
+  if (v == 0) {
+    korg.display.text("BLECH -", 2, 14);
+    return;
+  }
+  const major = v / 10000;
+  const minor = (v / 100) % 100;
+  const patch = v % 100;
+  let x = 2 + 36;
+  korg.display.textNumber("BLECH ", major, 2, 14);
+  x += digits(major) * 6;
+  korg.display.textNumber(".", minor, x, 14);
+  x += 6 + digits(minor) * 6;
+  korg.display.textNumber(".", patch, x, 14);
+}
+
+function draw() {
+  korg.display.clear();
+  const device = korg.system.device;
+  if (device == 0) korg.display.text("HACKTRIBE", 2, 2);
+  if (device == 1) korg.display.text("KORG SAMPLER (RED)", 2, 2);
+  if (device == 2) korg.display.text("KORG SYNTH (BLUE)", 2, 2);
+  version(korg.system.version);
+  korg.display.textNumber("IFX ", korg.system.limits.ifxTypes, 2, 26);
+  korg.display.textNumber("MFX ", korg.system.limits.mfxTypes, 62, 26);
+  korg.display.textNumber("SAMPLE SLOTS ", korg.system.limits.samples, 2, 38);
+  if (korg.system.power == 1) {
+    korg.display.text("POWER ADAPTER", 2, 50);
+  } else {
+    korg.display.textNumber("BATTERY ", korg.system.battery, 2, 50);
+    korg.display.text("/4", 2 + 48 + 6, 50);
+  }
+  next = korg.millis() + 1000;
+}
+
+korg.onEvent("open", () => {
+  isOpen = 1;
+  draw();
+});
+
+korg.onEvent("close", () => {
+  isOpen = 0;
+});
+
+korg.onEvent("frame", () => {
+  if (isOpen == 1 && korg.millis() >= next) draw();
+});
+`,
+  }),
+  Object.freeze({
+    id: "vumeter",
+    title: "VU Meter",
+    description: text("catalog.vumeter.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-12",
+    controls: [text("catalog.vumeter.control1")],
+    source: `// VU Meter, an app under TOOLS: two bars show the output level the way the level meter LEDs do (korg.audio.level, the
+// firmware's smoothed value, new every 40 ms), each with a mark that holds its peak for a second. Which side is left on
+// the device is not checked yet, so the bars are named 1 and 2. Only a bar that changed is drawn again.
+korg.app("VU Meter", "TOOLS");
+const WIDTH = 108;
+const shown = [-1, -1];
+const mark = [-1, -1];
+const peak = [0, 0];
+const until = [0, 0];
+
+function bar(side, level) {
+  const y = 12 + side * 26;
+  const w = level * WIDTH / 254;
+  const p = peak[side] * WIDTH / 254;
+  korg.display.clearRect(14, y, WIDTH + 1, 14);
+  if (w > 0) korg.display.rect(14, y, w, 14);
+  korg.display.rect(14 + p, y, 1, 14);
+  shown[side] = level;
+  mark[side] = peak[side];
+}
+
+function draw() {
+  korg.display.clear();
+  korg.display.text("1", 4, 15);
+  korg.display.text("2", 4, 41);
+  shown[0] = -1;
+  shown[1] = -1;
+}
+
+korg.onEvent("open", () => {
+  peak[0] = 0;
+  peak[1] = 0;
+  draw();
+});
+
+korg.onEvent("frame", () => {
+  const now = korg.millis();
+  for (let side = 0; side < 2; side++) {
+    const level = korg.audio.level(side);
+    if (level >= peak[side]) {
+      peak[side] = level;
+      until[side] = now + 1000;
+    } else if (now >= until[side]) {
+      peak[side] = level;
+    }
+    if (level != shown[side] || peak[side] != mark[side]) bar(side, level);
+  }
+});
+`,
+  }),
+  Object.freeze({
+    id: "midiecho",
+    title: "MIDI Echo",
+    description: text("catalog.midiecho.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-12",
+    controls: [text("catalog.midiecho.control1"), text("catalog.midiecho.control2")],
+    source: `// MIDI Echo: every pad press also goes out as a MIDI note on a channel of its own, pad 1 as note 36 (C1, the General MIDI
+// bass drum) up to pad 16 as note 51, with the pad's velocity, and a note off on release. A drum machine or a DAW track
+// can so follow the pads next to the notes the parts send. The page MIDI ECHO CH in the BLECH menu picks the channel, 1 to
+// 16, and 0 switches it off. The MIDI SEND FILTER in Global applies as to the firmware's own notes. A note off goes to
+// the channel its note on went to, also when the channel changed in between.
+let ch = korg.store.get(0, 0);
+let page = korg.menu.add("MIDI ECHO CH", 0, 16, ch);
+const sent = new Array(16);
+
+korg.onEvent("pad", (index, down, velocity) => {
+  if (down) {
+    if (ch == 0) return;
+    let v = velocity;
+    if (v < 1) v = 1;
+    korg.midi.noteOn(ch - 1, 36 + index, v);
+    sent[index] = ch;
+    return;
+  }
+  if (sent[index] > 0) korg.midi.noteOff(sent[index] - 1, 36 + index);
+  sent[index] = 0;
+});
+
+korg.onEvent("menu", (id, value) => {
+  if (id != page) return;
+  ch = value;
+  korg.store.set(0, ch);
+  korg.store.save();
+});
+`,
+  }),
+  Object.freeze({
+    id: "motionclear",
+    title: "Motion Clear",
+    description: text("catalog.motionclear.description"),
+    category: text("catalog.category.tools"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-12",
+    controls: [text("catalog.motionclear.control1")],
+    source: `// Motion Clear: deletes the motion sequence of the selected part from the BLECH menu, as Part Util CLEAR MOTION does
+// (korg.motion.clearPart). Turning the page CLEAR MOTION up to 3 is the confirmation: on reaching 3 the motion of the
+// selected part goes, with all parts selected the motion of every part. Turning it back below 3 arms it again, the values
+// in between do nothing. Only the pattern in RAM changes, WRITE keeps it as for any other edit.
+let page = korg.menu.add("CLEAR MOTION", 0, 3, 0);
+let armed = 1;
+
+korg.onEvent("menu", (id, value) => {
+  if (id != page) return;
+  if (value < 3) {
+    armed = 1;
+    return;
+  }
+  if (armed == 0) return;
+  armed = 0;
+  const part = korg.read.part();
+  if (part < 16) {
+    korg.motion.clearPart(part);
+    return;
+  }
+  for (let p = 0; p < 16; p++) korg.motion.clearPart(p);
+});
+`,
+  }),
 ]);
