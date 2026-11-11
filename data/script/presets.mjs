@@ -1863,37 +1863,43 @@ korg.onEvent("frame", () => {
 `,
   }),
   Object.freeze({
-    id: "taktblinker",
-    title: "Takt-Blinker",
-    description: text("catalog.taktblinker.description"),
+    id: "playtakt",
+    title: "PLAY-Takt",
+    description: text("catalog.playtakt.description"),
     category: text("catalog.category.light"),
     creator: "Kuhler Buhler",
-    added: "2026-10-29",
+    added: "2026-11-10",
     controls: [],
-    source: `// Takt-Blinker: zeigt die Timer der Plugin-API (API 11). Die TAP-LED blinkt alle 500 ms, ohne dass das Plugin
-// Rahmen zählt; bei PLAY leuchtet Pad 1 auf jeden vierten Schritt kurz auf: korg.afterSteps zählt die Schritte,
-// korg.after macht das Licht nach 100 ms wieder aus. STOP hält die Schritte an, korg.cancel räumt auf.
-let on = 0;
-let beat = -1;
+    source: `// PLAY-Takt: solange der Sequencer läuft, blinkt die PLAY-LED im Tempo des Patterns, bei STOP und Pause leuchtet sie
+// ruhig. Dabei zeigt es die Timer der Plugin-API (API 11): \`beat\` kommt auf jede Viertel und macht die LED an,
+// korg.afterSteps(2, off) macht sie zwei Schritte später wieder aus, so folgt das Blinken dem Tempo. STOP und Pause räumen
+// den Timer mit korg.cancel ab. In der Pause blinkt die Firmware die PLAY-LED selbst, das Plugin setzt sie dort in jedem
+// Rahmen wieder an.
+let dark = -1;
 
-function blink() {
-  on = 1 - on;
-  korg.led(korg.led.TAP, on * 255);
+function playLed(level) {
+  korg.led(korg.led.PLAY, level);
+  korg.led(korg.led.PLAY_BLUE, level);
 }
 
-function padOff() {
-  korg.led(korg.led.PAD_1_RED, 0);
+function off() {
+  playLed(0);
 }
 
-function nextBeat() {
-  korg.led(korg.led.PAD_1_RED, 255);
-  korg.after(100, padOff);
-  beat = korg.afterSteps(4, nextBeat);
-}
+korg.onEvent("ready", () => { if (korg.transport == 0) playLed(255); });
 
-korg.onEvent("ready", () => { korg.every(500, blink); });
-korg.onEvent("play", () => { korg.cancel(beat); beat = korg.afterSteps(4, nextBeat); });
-korg.onEvent("stop", () => { korg.cancel(beat); padOff(); });
+korg.onEvent("beat", () => {
+  korg.cancel(dark);
+  playLed(255);
+  dark = korg.afterSteps(2, off);
+});
+
+korg.onEvent("stop", () => {
+  korg.cancel(dark);
+  playLed(255);
+});
+
+korg.onEvent("frame", () => { if (korg.transport == 2) playLed(255); });
 `,
   }),
   Object.freeze({
