@@ -153,6 +153,10 @@
   display: none;
 }
 
+.cee-rescue-nav[hidden] {
+  display: none;
+}
+
 .cee-rescue-answers .btn {
   display: flex;
   flex-direction: column;

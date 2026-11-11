@@ -49,6 +49,8 @@ export function rescueSuite(index, parts) {
       await page.locator("#cee-rescue-answers button").first().click();
     }
   }
+  /** Start over where the page allows it: the start page has no such button, there is nothing to start over from. */
+  const restart = async page => { const again = page.locator("#cee-rescue-again"); if (await again.isVisible()) await again.click(); };
   const said = async page => { await settle(page); return page.locator("#cee-rescue-chat .cee-rescue-say").last().textContent(); };
   const chatText = async page => { await settle(page); return page.locator("#cee-rescue-chat").textContent(); };
   const answersOf = page => page.locator("#cee-rescue-answers button").allTextContents();
@@ -171,7 +173,7 @@ export function rescueSuite(index, parts) {
     assert.deepEqual(await page.locator("#cee-rescue-chat .cee-rescue-path").allTextContents(), ["KORG/blechtribe/Plugin/e2sPlugin.all", "KORG/blechtribe/settings.a.bin", "KORG/blechtribe/settings.b.bin"]);
     await answer(page, "Läuft jetzt");
     assert.match(await said(page), /das bleibt jetzt so/);
-    await page.click("#cee-rescue-again");
+    await restart(page);
     await answer(page, label("starts"));
     await answer(page, DEVICES.red.title);
     await answer(page, "Hilft nicht");
@@ -198,7 +200,7 @@ export function rescueSuite(index, parts) {
     assert.match(await said(page), /SOFTWARE UPDATE.*FACTORY RESET, das nicht nehmen/s);
     await answer(page, "Läuft wieder");
     assert.match(await said(page), /läuft wieder/);
-    await page.click("#cee-rescue-again");
+    await restart(page);
     assert.equal(await page.locator("#cee-rescue-chat > li").count(), 1, "Von vorn starts over");
     await answer(page, label("starts"));
     await answer(page, DEVICES.blue.title);
@@ -218,7 +220,7 @@ export function rescueSuite(index, parts) {
   test("only answers on the page: no evidence markers, no folds", async () => {
     const page = await open();
     for (const c of CASES) {
-      await page.click("#cee-rescue-again");
+      await restart(page);
       await answer(page, c.label);
       await walk(page);
     }
@@ -286,7 +288,7 @@ export function rescueSuite(index, parts) {
     const chat = await chatText(page);
     assert.match(chat, /Super, sie läuft wieder!/);
     assert.doesNotMatch(chat, /zurückgespielt/);
-    await page.click("#cee-rescue-again");
+    await restart(page);
     await answer(page, label("silent"));
     await answer(page, DEVICES.red.title);
     await answer(page, "Mit EXIT startet sie");
@@ -402,7 +404,7 @@ export function rescueSuite(index, parts) {
   test("the page text has no em or en dash and no absolute personal path", async () => {
     const page = await open();
     for (const c of CASES) {
-      await page.click("#cee-rescue-again");
+      await restart(page);
       await answer(page, c.label);
       await walk(page);
       const text = await page.locator("#cee-rescue").textContent();
@@ -703,7 +705,7 @@ export function rescueSuite(index, parts) {
     await page.click("#cee-connect");
     await page.locator("#cee-nav-state #cee-disconnect").waitFor();
     await go(page, "rescue");
-    await page.click("#cee-rescue-again");
+    await restart(page);
     await answer(page, label("starts"));
     await answer(page, "Rot");
     await answer(page, "Hilft nicht");
@@ -730,7 +732,7 @@ export function rescueSuite(index, parts) {
     assert.match(await chatText(page), /Dann liegt es vermutlich nicht an Hacktribe/);
     assert.match(await said(page), /EXIT gedrückt halten/, "without Hacktribe the firmware itself is looked at first");
 
-    await page.click("#cee-rescue-again");
+    await restart(page);
     await answer(page, label("samples"));
     await answer(page, DEVICES.red.title);
     assert.match(await chatText(page), /Hacktribe bringt eigene Klänge mit/);
@@ -750,7 +752,7 @@ export function rescueSuite(index, parts) {
     assert.deepEqual(page.errors, []);
 
     // a BLECHTRIBE on the red: the patcher's file, into KORG/blechtribe, and the note speaks of that folder
-    await page.click("#cee-rescue-again");
+    await restart(page);
     await answer(page, label("samples"));
     await answer(page, DEVICES.red.title);
     await answer(page, "Ja, Hacktribe ist oder war drauf");
@@ -763,7 +765,7 @@ export function rescueSuite(index, parts) {
     assert.doesNotMatch(await said(page), /„hacktribe“ im Pfad/);
 
     // a BLECHTRIBE on the blue: asked whether Hacktribe is in it; yes goes over Korg's file with the Sampler head
-    await page.click("#cee-rescue-again");
+    await restart(page);
     await answer(page, label("samples"));
     await answer(page, DEVICES.blue.title);
     await answer(page, "Ja, Hacktribe ist oder war drauf");
@@ -777,7 +779,7 @@ export function rescueSuite(index, parts) {
     assert.equal(await page.locator("#cee-rescue-input").count(), 1, "then Korg's file is made for the blue with BLECHTRIBE and Hacktribe");
 
     // only Hacktribe on the blue: the same way over Korg's file, without the question
-    await page.click("#cee-rescue-again");
+    await restart(page);
     await answer(page, label("samples"));
     await answer(page, DEVICES.blue.title);
     await answer(page, "Ja, Hacktribe ist oder war drauf");
@@ -856,6 +858,49 @@ export function rescueSuite(index, parts) {
     assert.equal(await keys.locator(".cee-e2-press").getAttribute("data-key"), "menu");
     assert.equal(await keys.locator(".cee-e2-near").count(), 0, "at the prompt only ENTER is pressed");
     assert.equal(await keys.locator("figcaption").textContent(), t("rescue.keys.enter"));
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("the start page has no Back and no Start over; they come with the first answer and go with the way back to the start", async () => {
+    const page = await open();
+    assert.equal(await page.locator("#cee-rescue-back").isVisible(), false);
+    assert.equal(await page.locator("#cee-rescue-again").isVisible(), false);
+    await answer(page, label("plugins"));
+    await settle(page);
+    assert.equal(await page.locator("#cee-rescue-back").isVisible(), true);
+    assert.equal(await page.locator("#cee-rescue-again").isVisible(), true);
+    await page.click("#cee-rescue-again");
+    await page.locator("#cee-rescue-search").waitFor();
+    assert.equal(await page.locator("#cee-rescue-nav").isVisible(), false);
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("the first topics follow the Discord questions, and a question about using the app is answered in the app's own words", async () => {
+    const page = await open();
+    assert.deepEqual(rescue.FIRST_CASES.slice(0, 3), ["hacktribe", "nofile", "invalid"]);
+    await answer(page, label("plugins"));
+    assert.match(await said(page), /Danach am Gerät: Menü -> BLECH -> PLUGINS/);
+    assert.deepEqual(await page.locator("#cee-rescue-chat .cee-rescue-path").allTextContents(), ["KORG/blechtribe/Plugin/"]);
+    await answer(page, t("rescue.answer.howGames"));
+    assert.match(await said(page), /Menü -> BLECH -> GAMES/);
+    await answer(page, "Hat geholfen");
+    assert.match(await said(page), /Meld dich einfach nochmal/);
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("an error of the Emulator page opens Blechy at what to do about the emulator, not at the general app question", async () => {
+    const page = await open();
+    await go(page, "emu");
+    // no emulator service runs under the test: the start button says so in a toast
+    await page.evaluate(() => { const b = document.getElementById("cee-emu-start"); b.hidden = false; b.click(); });
+    const toast = page.locator(".cee-toast.err").filter({ hasText: "Der Emulator läuft nicht" });
+    await toast.waitFor();
+    await toast.locator(".cee-toast-help").click();
+    await page.locator("#cee-rescue-quote").waitFor();
+    assert.match(await page.locator("#cee-rescue-quote").textContent(), /Der Emulator läuft nicht/);
+    assert.match(await said(page), /schließ die App und öffne sie neu/);
+    assert.deepEqual(await page.locator("#cee-rescue-chat .cee-rescue-path").allTextContents(), ["~/.gelumpe/emu.log"]);
+    assert.deepEqual(await answersOf(page), [t("rescue.answer.emuRuns"), t("rescue.answer.stillNotFound")].map(x => x));
     assert.deepEqual(page.errors, []);
   });
 }
