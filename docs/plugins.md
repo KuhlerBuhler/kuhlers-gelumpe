@@ -229,7 +229,7 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
-### Was ein Plugin erreicht (API 32)
+### Was ein Plugin erreicht (API 33)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -259,9 +259,9 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Gewählter Part, Mute | `korg.read.part`, `korg.read.mute` | `korg.part`, `korg.mute` | `partChange`, `mute` |
 | Step-Zähler | `korg.read.step` | nein | `step`, `beat` |
 | Werte des Patterns (Tempo bis MFX-Pad, Chain, Sync Group) | `korg.read.patternValue`, `korg.read.chainMode` | `korg.seq.setPatternValue` | nein |
-| Werte eines Parts (Sample bis Groove, mit Motion Seq an oder aus) | `korg.read.patternValue` | `korg.seq.setPartValue` | nein |
+| Werte eines Parts (Sample bis Groove, mit Motion Seq an oder aus) | `korg.read.patternValue` | `korg.seq.setPartValue`, `korg.part.copy` | nein |
 | Steps (an, Gate, Velocity, Noten) | `korg.seq.getOn`, `korg.seq.getGate`, `korg.seq.getNote`, `korg.seq.getVelocity`, `korg.read.patternBytes` | `korg.seq.setStep`, `korg.seq.setGate`, `korg.seq.clearPart`, `korg.seq.writeSteps` | nein |
-| Pattern speichern (WRITE) | nein | nein | `write` |
+| Pattern speichern (WRITE) | nein | `korg.pattern.write` | `write` |
 | Name des Patterns | `korg.read.patternName` | nein | nein |
 | Motion-Spuren und ihre Wiedergabe | `korg.motion.lane`, `korg.motion.destination`, `korg.motion.value`, `korg.motion.output` | `korg.motion.setValue`, `korg.motion.clearLane`, `korg.motion.clearPart`, `korg.motion.clearMfx` | nein |
 | Motion des gewählten Parts an oder aus (TAP mit dem Patch tap-motion) | `korg.motion.enabled` | `korg.motion.enabled` | nein |
@@ -273,7 +273,7 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Ausgangspegel wie die Pegelanzeige | `korg.audio.level` | nein | nein |
 | Spektrum, Wellenform | nein | nein | nein |
 | Eigene MIDI-Nachrichten senden, MIDI empfangen | nein | `korg.midi.cc`, `korg.midi.noteOn`, `korg.midi.noteOff`, `korg.midi.program`, `korg.midi.hold` | `midiIn` |
-| Name und Daten eines Samples | nein | nein | nein |
+| Name und Daten eines Samples | `korg.read.sampleName`, `korg.read.sampleInfo` | nein | nein |
 | **System und Einstellungen** | | | |
 | Gerät, Version, Anzahl Effekte und Sample-Slots | `korg.system.device`, `korg.system.version`, `korg.system.limits.*` | nein | nein |
 | Reparaturen, Test-Modus, Auto Power Off | `korg.system.repairs`, `korg.system.testMode` | `korg.system.keepAwake` | nein |
@@ -689,6 +689,10 @@ Plugin mit einem Fehler.
 | `korg.audio.level(kanal)` | der Ausgangspegel einer Seite der Pegelanzeige, `kanal` 0 oder 1, 0 bis 254: derselbe geglättete Wert, den die unteren LEDs zeigen (alle 40 ms neu), auch wenn die Anzeige aus ist oder ein Plugin die LEDs hält. Welche Seite links ist, ist am Gerät noch nicht geprüft. Ab API Version 31 ([Messung](messungen/2026-11-11-plugin-api31-audio-level.md)) | überall |
 | `korg.file.read(feld, offset)` | liest die Datendatei des Plugins (siehe [Datendatei](#datendatei)) ab Byte `offset` (0 bis 4095) ins Feld, ein Byte je Platz, so viele wie das Feld Plätze hat und die Datei reicht. Gibt die Zahl der Bytes zurück (0 ohne Datei), -1 außerhalb des Hauptbildschirms und des Menüs BLECH, ohne lesbare Karte oder solange ein anderes Plugin noch auf das Schreiben seiner Datei wartet. Ab API Version 32 ([Messung](messungen/2026-11-11-plugin-api32-data-file.md)) | wie `korg.led` |
 | `korg.file.write(feld, offset)` | schreibt das untere Byte jedes Platzes ab Byte `offset` in die Datendatei des Plugins, bis zum Ende des Felds oder der Grenze von 4096 Byte; eine Lücke hinter dem alten Ende liest sich als 0. Auf die Karte kommt die Datei wie bei `korg.store.save` erst im Hauptbildschirm oder im Menü BLECH und frühestens 2 s nach dem letzten Schreiben. Gibt die Zahl der Bytes zurück, -1 wie `korg.file.read`. Ab API Version 32 | wie `korg.led` |
+| `korg.read.sampleName(feld, slot)` | liest den Namen des Samples in Slot `slot` (0 bis 997, die Nummer am Display minus 1, wie der Part-Wert `sample`) ins Feld, ein Zeichen je Platz, bis zum ersten Nullbyte, 16 Zeichen oder dem Ende des Felds. Gibt die Zahl der Zeichen zurück (0 für einen leeren Slot), -1 auf dem blauen Synth. Ab API Version 33 ([Messung](messungen/2026-11-11-plugin-api33-samples.md)) | überall |
+| `korg.read.sampleInfo(slot, wert)` | ein Wert des Samples in Slot `slot` aus den Tabellen des Samplers: `wert` 0 Start, 1 Ende, 2 Loop (Rohwerte wie in der Sample-Datei, die Einheit ist nicht gemessen), 3 Tune (-128 bis 127), 4 Stereo (0 oder 1), 5 Länge der PCM-Daten in Byte, 6 One-Shot (0 oder 1), 7 Samplerate in Hz (`SAMPLE_INFO.fields` im Vertrag). 0 für einen leeren Slot, -1 auf dem blauen Synth. Ab API Version 33 | überall |
+| `korg.pattern.write()` | speichert das laufende Pattern an seinen Platz in der Bank, wie EXIT + WRITE: drückt WRITE, und das Fenster der Firmware bekommt im nächsten Rahmen sein zweites WRITE. Gibt 1 zurück, wenn das Speichern läuft, 0 außerhalb des Hauptbildschirms oder solange ein Speichern noch auf sein Fenster wartet. Das Ereignis `write` kommt wie bei der Taste. Ab API Version 33 | wie `korg.led` |
+| `korg.part.copy(pattern, von, nach)` | kopiert Part `von` (0 bis 15) aus Pattern `pattern` (0 bis 249) auf Part `nach` des laufenden Patterns, wie Part Util COPY PART: Klang, Steps und Motion, mit der Funktion der Firmware. Ist `pattern` das gewählte Pattern, kommt der Part aus dem Pattern im RAM (mit ungespeicherten Änderungen), sonst aus der Bank. Ab API Version 33 ([Messung](messungen/2026-10-30-vorschau-part-reinholen.md)) | wie `korg.led` |
 | `korg.seq.writeSteps(feld, part, erster)` | schreibt Steps aus dem Feld in Part `part` des Patterns, das läuft, ab Step `erster` (0 bis 63): je 12 Plätze ein Step wie im Pattern (an, Gate, Velocity, Trigger, vier Notenplätze, vier Plätze, die die Laufzeit stehen lässt), so viele ganze Steps wie das Feld hat und bis Step 63. Jeder Wert wird geklemmt (an und Trigger 0 bis 1, Gate 0 bis 127, Velocity 1 bis 127, Noten 0 bis 128), das An-Byte kommt zuletzt. Gibt die Zahl der Steps zurück. Ab API Version 14 | wie `korg.led` |
 
 **Steps schreiben** (`tools/patch/script_seq.s`, ab API Version 9): `korg.seq.*` schreibt in das Pattern im RAM,

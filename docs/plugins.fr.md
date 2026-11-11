@@ -194,7 +194,7 @@ Un cycle transmet d’abord `ready` une fois par plugin, collecte les entrées e
 `frame` en dernier. Les nouvelles entrées attendent le cycle suivant. Un nouveau plugin reçoit
 `ready` après la fin du cycle précédent.
 
-### Ce qu’un plugin atteint (API 32)
+### Ce qu’un plugin atteint (API 33)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -225,9 +225,9 @@ feuille de l’arbre d’objets.
 | Partie choisie, mute | `korg.read.part`, `korg.read.mute` | `korg.part`, `korg.mute` | `partChange`, `mute` |
 | Compteur de pas | `korg.read.step` | non | `step`, `beat` |
 | Valeurs du pattern (tempo au pad MFX, chaîne, sync group) | `korg.read.patternValue`, `korg.read.chainMode` | `korg.seq.setPatternValue` | non |
-| Valeurs d'une partie (échantillon à groove, avec motion seq on ou off) | `korg.read.patternValue` | `korg.seq.setPartValue` | non |
+| Valeurs d'une partie (échantillon à groove, avec motion seq on ou off) | `korg.read.patternValue` | `korg.seq.setPartValue`, `korg.part.copy` | non |
 | Pas (on, gate, vélocité, notes) | `korg.seq.getOn`, `korg.seq.getGate`, `korg.seq.getNote`, `korg.seq.getVelocity`, `korg.read.patternBytes` | `korg.seq.setStep`, `korg.seq.setGate`, `korg.seq.clearPart`, `korg.seq.writeSteps` | non |
-| Enregistrer le pattern (WRITE) | non | non | `write` |
+| Enregistrer le pattern (WRITE) | non | `korg.pattern.write` | `write` |
 | Nom du pattern | `korg.read.patternName` | non | non |
 | Pistes de motion et leur lecture | `korg.motion.lane`, `korg.motion.destination`, `korg.motion.value`, `korg.motion.output` | `korg.motion.setValue`, `korg.motion.clearLane`, `korg.motion.clearPart`, `korg.motion.clearMfx` | non |
 | Motion de la partie choisie on ou off (TAP avec le patch tap-motion) | `korg.motion.enabled` | `korg.motion.enabled` | non |
@@ -239,7 +239,7 @@ feuille de l’arbre d’objets.
 | Niveau de sortie comme l'indicateur de niveau | `korg.audio.level` | non | non |
 | Spectre, forme d'onde | non | non | non |
 | Envoyer ses propres messages MIDI, recevoir du MIDI | non | `korg.midi.cc`, `korg.midi.noteOn`, `korg.midi.noteOff`, `korg.midi.program`, `korg.midi.hold` | `midiIn` |
-| Nom et données d'un échantillon | non | non | non |
+| Nom et données d'un échantillon | `korg.read.sampleName`, `korg.read.sampleInfo` | non | non |
 | **Système et réglages** | | | |
 | Appareil, version, nombre d'effets et de slots d'échantillon | `korg.system.device`, `korg.system.version`, `korg.system.limits.*` | non | non |
 | Réparations, mode test, arrêt automatique | `korg.system.repairs`, `korg.system.testMode` | `korg.system.keepAwake` | non |
@@ -684,6 +684,10 @@ exclut le corps et `save`.
 | `korg.audio.level(canal)` | le niveau de sortie d’un côté de l’indicateur de niveau, `canal` 0 ou 1, 0 à 254 : la même valeur lissée que montrent les LED du bas (nouvelle toutes les 40 ms), même quand l’indicateur est éteint ou qu’un plugin tient les LED. Quel côté est à gauche n’est pas encore vérifié sur l’appareil. Depuis l’API 31 ([mesure](messungen/2026-11-11-plugin-api31-audio-level.md)) | Partout |
 | `korg.file.read(tableau, offset)` | lit le fichier de données du plugin (voir [Fichier de données](#fichier-de-données)) à partir de l’octet `offset` (0 à 4095) dans le tableau, un octet par case, autant que le tableau a de cases et que le fichier en contient. Renvoie le nombre d’octets (0 sans fichier), -1 hors de l’écran principal et du menu BLECH, sans carte lisible ou tant que le fichier d’un autre plugin attend d’être écrit. Depuis l’API 32 ([mesure](messungen/2026-11-11-plugin-api32-data-file.md)) | comme `korg.led` |
 | `korg.file.write(tableau, offset)` | écrit l’octet bas de chaque case dans le fichier de données du plugin à partir de l’octet `offset`, jusqu’à la fin du tableau ou la limite de 4096 octets ; un trou derrière l’ancienne fin se lit comme 0. Comme pour `korg.store.save`, le fichier n’arrive sur la carte qu’à l’écran principal ou dans le menu BLECH, au plus tôt 2 s après la dernière écriture. Renvoie le nombre d’octets, -1 comme `korg.file.read`. Depuis l’API 32 | comme `korg.led` |
+| `korg.read.sampleName(tableau, slot)` | lit le nom de l’échantillon du slot `slot` (0 à 997, le numéro affiché moins 1, comme la valeur de partie `sample`) dans le tableau, un caractère par case, jusqu’au premier octet nul, 16 caractères ou la fin du tableau. Renvoie le nombre de caractères (0 pour un slot vide), -1 sur le synthé bleu. Depuis l’API 33 ([mesure](messungen/2026-11-11-plugin-api33-samples.md), en allemand) | Partout |
+| `korg.read.sampleInfo(slot, valeur)` | une valeur de l’échantillon du slot `slot` tirée des tables de l’échantillonneur : `valeur` 0 début, 1 fin, 2 boucle (valeurs brutes comme dans le fichier d’échantillon, l’unité n’est pas mesurée), 3 tune (-128 à 127), 4 stéréo (0 ou 1), 5 longueur des données PCM en octets, 6 one shot (0 ou 1), 7 fréquence d’échantillonnage en Hz (`SAMPLE_INFO.fields` dans le contrat). 0 pour un slot vide, -1 sur le synthé bleu. Depuis l’API 33 | Partout |
+| `korg.pattern.write()` | enregistre le pattern en lecture à sa place dans la banque, comme EXIT + WRITE : appuie sur WRITE, et la fenêtre du firmware reçoit son second WRITE à la trame suivante. Renvoie 1 quand l’enregistrement est en cours, 0 hors de l’écran principal ou tant qu’un enregistrement attend encore sa fenêtre. L’événement `write` arrive comme avec la touche. Depuis l’API 33 | comme `korg.led` |
+| `korg.part.copy(pattern, de, vers)` | copie la partie `de` (0 à 15) du pattern `pattern` (0 à 249) sur la partie `vers` du pattern en lecture, comme Part Util COPY PART : son, pas et motion, avec la fonction du firmware. Si `pattern` est le pattern choisi, la partie vient du pattern en RAM (avec les changements non enregistrés), sinon de la banque. Depuis l’API 33 ([mesure](messungen/2026-10-30-vorschau-part-reinholen.md), en allemand) | comme `korg.led` |
 | `korg.seq.writeSteps(array, part, first)` | Écrit des pas entiers à partir du pas first, 0 à 63, dans la partie du pattern en lecture. 12 éléments par pas : activation, gate, vélocité, déclenchement, quatre notes et quatre octets laissés intacts. S’arrête à la fin du tableau ou au pas 63. Limite activation/déclenchement à 0 ou 1, gate à 0 à 127, vélocité à 1 à 127, notes à 0 à 128. L’activation est écrite en dernier. Renvoie le nombre de pas. Depuis l’API 14 | Comme `korg.led` |
 
 **Écriture des paramètres de partie.** `korg.seq.setPartValue` appelle les fonctions qu’utilisent

@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 32;
+export const API_VERSION = 33;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -328,6 +328,13 @@ export function dataFileName(name) {
   return (safe || "_") + SCRIPT_DATA_FILE.extension;
 }
 
+/**
+ * The values korg.read.sampleInfo reads from the sampler's tables (data/map/sample.mjs), by number. `start` is the start
+ * relative to the sample's audio, `loop` and `end` as in the sample file; `length` the audio in bytes, `rate` in Hz, `tune`
+ * the raw signed value, `stereo` and `oneShot` 0 or 1. `slots` is the number of sample slots (0 to slots - 1).
+ */
+export const SAMPLE_INFO = Object.freeze({ fields: Object.freeze(["start", "end", "loop", "tune", "stereo", "length", "oneShot", "rate"]), slots: 998 });
+
 const API_LIST = [
   // id, name, args, returns, events, cost (one byte), since, perItem. Display costs follow the native instruction counts in
   // Unicorn at 10 instructions to a unit, for a short call, capped at 250; the 5 ms frame budget limits real time.
@@ -432,6 +439,11 @@ const API_LIST = [
   [121, "korg.audio.level", [int("channel", 0, 1)], "int", ALL, 4, 31],
   [122, "korg.file.read", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1)], "int", UI, 250, 32, 1],
   [123, "korg.file.write", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1)], "int", UI, 250, 32, 1],
+  // samples and pattern actions (API 33): the sampler's name and playback tables (-1 on the synth), WRITE as the key does
+  [124, "korg.read.sampleName", [arr("array"), int("slot", 0, SAMPLE_INFO.slots - 1)], "int", ALL, 6, 33, 1],
+  [125, "korg.read.sampleInfo", [int("slot", 0, SAMPLE_INFO.slots - 1), int("field", 0, SAMPLE_INFO.fields.length - 1)], "int", ALL, 4, 33],
+  [126, "korg.pattern.write", [], "int", UI, 30, 33],
+  [127, "korg.part.copy", [int("pattern", 0, 249), int("from", 0, 15), int("to", 0, 15)], "void", UI, 30, 33],
 ];
 
 /**

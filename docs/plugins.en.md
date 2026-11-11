@@ -193,7 +193,7 @@ One cycle delivers `ready` once per plugin first, then collects the waiting inpu
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
 
-### What a plugin reaches (API 32)
+### What a plugin reaches (API 33)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -223,9 +223,9 @@ or a leaf of the object tree is missing.
 | Selected part, mute | `korg.read.part`, `korg.read.mute` | `korg.part`, `korg.mute` | `partChange`, `mute` |
 | Step counter | `korg.read.step` | no | `step`, `beat` |
 | Values of the pattern (tempo to MFX pad, chain, sync group) | `korg.read.patternValue`, `korg.read.chainMode` | `korg.seq.setPatternValue` | no |
-| Values of a part (sample to groove, with motion seq on or off) | `korg.read.patternValue` | `korg.seq.setPartValue` | no |
+| Values of a part (sample to groove, with motion seq on or off) | `korg.read.patternValue` | `korg.seq.setPartValue`, `korg.part.copy` | no |
 | Steps (on, gate, velocity, notes) | `korg.seq.getOn`, `korg.seq.getGate`, `korg.seq.getNote`, `korg.seq.getVelocity`, `korg.read.patternBytes` | `korg.seq.setStep`, `korg.seq.setGate`, `korg.seq.clearPart`, `korg.seq.writeSteps` | no |
-| Saving the pattern (WRITE) | no | no | `write` |
+| Saving the pattern (WRITE) | no | `korg.pattern.write` | `write` |
 | Name of the pattern | `korg.read.patternName` | no | no |
 | Motion lanes and their playback | `korg.motion.lane`, `korg.motion.destination`, `korg.motion.value`, `korg.motion.output` | `korg.motion.setValue`, `korg.motion.clearLane`, `korg.motion.clearPart`, `korg.motion.clearMfx` | no |
 | Motion of the selected part on or off (TAP with the patch tap-motion) | `korg.motion.enabled` | `korg.motion.enabled` | no |
@@ -237,7 +237,7 @@ or a leaf of the object tree is missing.
 | Output level as the level meter | `korg.audio.level` | no | no |
 | Spectrum, waveform | no | no | no |
 | Sending own MIDI messages, receiving MIDI | no | `korg.midi.cc`, `korg.midi.noteOn`, `korg.midi.noteOff`, `korg.midi.program`, `korg.midi.hold` | `midiIn` |
-| Name and data of a sample | no | no | no |
+| Name and data of a sample | `korg.read.sampleName`, `korg.read.sampleInfo` | no | no |
 | **System and settings** | | | |
 | Device, version, number of effects and sample slots | `korg.system.device`, `korg.system.version`, `korg.system.limits.*` | no | no |
 | Repairs, test mode, Auto Power Off | `korg.system.repairs`, `korg.system.testMode` | `korg.system.keepAwake` | no |
@@ -648,6 +648,10 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.audio.level(channel)` | the output level of one side of the level meter, `channel` 0 or 1, 0 to 254: the same smoothed value the bottom LEDs show (new every 40 ms), also while the meter is off or a plugin holds the LEDs. Which side is left is not yet checked on the device. Since API version 31 ([measurement](messungen/2026-11-11-plugin-api31-audio-level.md)) | everywhere |
 | `korg.file.read(array, offset)` | reads the plugin's data file (see [Data file](#data-file)) from byte `offset` (0 to 4095) into the array, one byte per slot, as many as the array has slots and the file holds. Returns the number of bytes (0 without a file), -1 outside the main screen and the BLECH menu, without a readable card or while another plugin's file still waits to be written. Since API version 32 ([measurement](messungen/2026-11-11-plugin-api32-data-file.md)) | as `korg.led` |
 | `korg.file.write(array, offset)` | writes the low byte of each slot into the plugin's data file from byte `offset`, up to the end of the array or the limit of 4096 bytes; a gap behind the old end reads as 0. As with `korg.store.save`, the file goes to the card only on the main screen or in the BLECH menu and at the earliest 2 s after the last write. Returns the number of bytes, -1 as `korg.file.read`. Since API version 32 | as `korg.led` |
+| `korg.read.sampleName(array, slot)` | reads the name of the sample in slot `slot` (0 to 997, the number on the display minus 1, as the part value `sample`) into the array, one character per slot, up to the first zero byte, 16 characters or the end of the array. Returns the number of characters (0 for an empty slot), -1 on the blue synth. Since API version 33 ([measurement](messungen/2026-11-11-plugin-api33-samples.md), German) | everywhere |
+| `korg.read.sampleInfo(slot, value)` | a value of the sample in slot `slot` from the sampler's tables: `value` 0 start, 1 end, 2 loop (raw values as in the sample file, the unit is not measured), 3 tune (-128 to 127), 4 stereo (0 or 1), 5 length of the PCM data in bytes, 6 one shot (0 or 1), 7 sample rate in Hz (`SAMPLE_INFO.fields` in the contract). 0 for an empty slot, -1 on the blue synth. Since API version 33 | everywhere |
+| `korg.pattern.write()` | saves the running pattern into its place in the bank, as EXIT + WRITE: presses WRITE, and the firmware's window gets its second WRITE in the next frame. Returns 1 when the save is under way, 0 off the main screen or while a save still waits for its window. The `write` event comes as with the key. Since API version 33 | as `korg.led` |
+| `korg.part.copy(pattern, from, to)` | copies part `from` (0 to 15) of pattern `pattern` (0 to 249) onto part `to` of the running pattern, as Part Util COPY PART: sound, steps and motion, with the firmware's function. When `pattern` is the chosen pattern the part comes from the pattern in RAM (with unsaved changes), else from the bank. Since API version 33 ([measurement](messungen/2026-10-30-vorschau-part-reinholen.md), German) | as `korg.led` |
 | `korg.seq.writeSteps(array, part, first)` | writes steps from the array into part `part` of the pattern that plays, from step `first` (0 to 63): 12 slots per step as in the pattern (on, gate, velocity, trigger, four note places, four places the runtime leaves alone), as many whole steps as the array holds and up to step 63. Each value is clamped (on and trigger 0 to 1, gate 0 to 127, velocity 1 to 127, notes 0 to 128); the on byte goes last. Returns the number of steps. From API version 14 | like `korg.led` |
 
 **Writing steps** (`tools/patch/script_seq.s`, from API version 9): `korg.seq.*` writes into the pattern in RAM, the

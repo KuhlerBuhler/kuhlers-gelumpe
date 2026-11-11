@@ -1,5 +1,5 @@
 /** The sequencer and panel state a script can read, for the simulated device. The values follow the firmware's ranges. */
-import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PATTERN_WRITES, PATTERN_PARTS, PATTERN_STEPS, PATTERN_MOTION } from "../../data/script/contract.mjs";
+import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PATTERN_WRITES, PATTERN_PARTS, PATTERN_STEPS, PATTERN_MOTION, SAMPLE_INFO } from "../../data/script/contract.mjs";
 import { ScriptFault } from "./vm.mjs";
 import { text, render } from "../text.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
@@ -75,6 +75,8 @@ export class SimHardware {
     this.midiHeld = 0;
     /** korg.audio.level: the two sides of the level meter, 0 to 254. */
     this.audioLevel = [0, 0];
+    /** korg.read.sampleName and sampleInfo: the samples by slot, { name, start, end, loop, tune, stereo, length, oneShot, rate }; an empty slot reads as "" and 0. */
+    this.samples = new Map();
   }
 
   /** A channel message out as the firmware's senders send it: 1 sent, 0 kept in by the MIDI SEND FILTER (program changes pass Short). */
@@ -162,6 +164,19 @@ export class SimHardware {
       "korg.midi.noteOff": (channel, note) => this.midiSend(0x80, channel, note, 0x40),
       "korg.midi.program": (channel, program) => this.midiSend(0xC0, channel, program),
       "korg.audio.level": channel => this.audioLevel[channel],
+      "korg.read.sampleName": (slots, slot) => {
+        const name = (this.samples.get(slot)?.name ?? "").slice(0, 16), n = Math.min(name.length, slots.length);
+        for (let i = 0; i < n; i++) slots[i] = name.charCodeAt(i) & 0xFF;
+        return n;
+      },
+      "korg.read.sampleInfo": (slot, field) => this.samples.get(slot)?.[SAMPLE_INFO.fields[field]] ?? 0,
+      // the simulator has no Write window: the pattern in RAM goes into its place in the bank at once
+      "korg.pattern.write": () => { this.patternBlock(this.pattern).set(this.patternBlock(-1)); return 1; },
+      "korg.part.copy": (pattern, from, to) => {
+        const at = part => PATTERN_PARTS.base + part * PATTERN_PARTS.stride;
+        const source = this.patternBlock(pattern === this.pattern ? -1 : pattern).slice(at(from), at(from + 1));
+        this.patternBlock(-1).set(source, at(to));
+      },
       "korg.midi.hold": (type, on) => { this.midiHeld = on ? this.midiHeld | (1 << type) : this.midiHeld & ~(1 << type); },
       "korg.motion.clearLane": lane => this.clearMotion(lane),
       "korg.motion.clearPart": part => this.clearMotionOf(part + 1),

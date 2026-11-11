@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { API_VERSION, PATTERN_MOTION } from "../data/script/contract.mjs";
+import { API_VERSION, PATTERN_MOTION, PATTERN_PARTS } from "../data/script/contract.mjs";
 import globalMap from "../data/map/global.mjs";
 import { OBJECTS, OBJECT_BY_PATH, OBJECT_BASES, INFO, objectChildren } from "../data/script/objects.mjs";
 import { PROPERTY_BY_PATH } from "../data/script/properties.mjs";
@@ -335,3 +335,32 @@ korg.onEvent("ready", () => { korg.store.set(0, korg.read.patternName(n, -1)); k
   assert.deepEqual([0, 1, 2, 3, 4].map(i => stored(device, i)), [16, 72, 101, 3, 1]);
 });
 
+
+// API 33: samples and saving the pattern (plan 2026-11-10-plugin-api-1.5-complete, phase 8).
+test("korg.read.sampleName, korg.read.sampleInfo and korg.pattern.write need API 33 and work in the simulator", () => {
+  for (const source of [`let a = [0]; korg.onEvent("ready", () => { korg.read.sampleName(a, 0); });`,
+    `korg.onEvent("ready", () => { let v = korg.read.sampleInfo(0, 7); });`, `korg.onEvent("ready", () => { korg.pattern.write(); });`, `korg.onEvent("ready", () => { korg.part.copy(0, 1, 2); });`]) {
+    assert.equal(decodeBlob(build(source)).header.apiVersion, 33, source);
+  }
+  const device = new SimDevice();
+  device.hardware.samples.set(652, { name: "Kick 909", tune: -12, rate: 48000, stereo: 1 });
+  device.hardware.patternBlock(-1).set([...Buffer.from("Saved")], 16);
+  assert.ok(device.load(build(`let n = [0, 0, 0, 0];
+korg.onEvent("ready", () => { korg.store.set(0, korg.read.sampleName(n, 652)); korg.store.set(1, n[3]);
+  korg.store.set(2, korg.read.sampleInfo(652, 3)); korg.store.set(3, korg.read.sampleInfo(652, 7)); korg.store.set(4, korg.read.sampleInfo(1, 4));
+  korg.store.set(5, korg.read.sampleName(n, 1)); korg.store.set(6, korg.pattern.write()); });`)).ok);
+  device.frame();
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => stored(device, i)), [4, 107, -12, 48000, 0, 0, 1]);
+  assert.equal(Buffer.from(device.hardware.patternBlock(device.hardware.pattern).subarray(16, 21)).toString(), "Saved");
+});
+
+test("korg.part.copy copies a part of the bank, or of the pattern in RAM for the chosen one, onto a part of the pattern in RAM", () => {
+  const device = new SimDevice();
+  const at = part => PATTERN_PARTS.base + part * PATTERN_PARTS.stride;
+  device.hardware.patternBlock(5)[at(3) + 8] = 77;
+  device.hardware.patternBlock(-1)[at(4) + 8] = 66;
+  assert.ok(device.load(build(`korg.onEvent("ready", () => { korg.part.copy(5, 3, 0); korg.part.copy(${device.hardware.pattern}, 4, 1); });`)).ok);
+  device.frame();
+  const ram = device.hardware.patternBlock(-1);
+  assert.deepEqual([ram[at(0) + 8], ram[at(1) + 8], device.hardware.patternBlock(5)[at(3) + 8]], [77, 66, 77]);
+});

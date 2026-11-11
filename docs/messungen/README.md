@@ -189,6 +189,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 31: Ausgangspegel wie die Pegelanzeige, im Emulator](2026-11-11-plugin-api31-audio-level.md)
 - [Platz und Heap für den Spettro-Worker als Dienst der Laufzeit, nur gelesen](2026-11-11-spettro-worker-platz.md)
 - [Plugin API 32: eine Datendatei pro Plugin auf der Karte, im Emulator](2026-11-11-plugin-api32-data-file.md)
+- [Plugin API 33: Samples lesen, Pattern speichern, Part kopieren, im Emulator](2026-11-11-plugin-api33-samples.md)
 - [Firmwarepfad fuer Part-Parameter, im Emulator geprueft](2026-11-06-part-param-refresh.md)
 - [DSP-Transport bei neuen Part-Bedienungen, im Emulator geprueft](2026-11-07-part-control-dsp-refresh.md)
 - [Part-Werte aus Plugins: Parametersetzer, Auffrischen, Filter-LEDs und MFX SEND wie die Bedienelemente, im Emulator](2026-11-09-plugin-part-dsp.md)
