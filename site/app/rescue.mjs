@@ -4,7 +4,7 @@
  * the person has to do or answer something. Content: data/rescue.mjs.
  */
 import { el } from "./fields.mjs";
-import { FLOW, LINKS, BUTTONS, FOLDERS, CASES, FIRST_CASES, destOf, passSteps } from "../../data/rescue.mjs";
+import { FLOW, LINKS, BUTTONS, FOLDERS, CASES, FIRST_CASES, MAX_SHOWN, destOf, passSteps } from "../../data/rescue.mjs";
 import { makeMatcher, casePhrases } from "../../src/blechy-match.mjs";
 import { checkName, korgBlueForSampler } from "../../src/patcher.mjs";
 import { saveFile } from "./save-file.mjs";
@@ -319,7 +319,7 @@ export function rescuePage(root, context = {}) {
   }
   /**
    * The first question as a message field: what is typed brings up the cases that fit above it, as a combobox with a
-   * listbox (arrow keys move, Enter picks, Escape clears). Empty, it offers FIRST_CASES and the way to all of them.
+   * listbox (arrow keys move, Enter picks, Escape clears). Empty, it offers FIRST_CASES and the way to all of them; never more than MAX_SHOWN unless all are asked for.
    */
   function askBox(choices, at) {
     const byId = Object.fromEntries(choices.map(c => [c.id, c]));
@@ -362,7 +362,7 @@ export function rescuePage(root, context = {}) {
       if (query) everything = false;
       const before = previous[at] ? choices.find(c => c.label === previous[at])?.id : null;
       const ids = query ? matchCases(query) : everything ? choices.map(c => c.id) : [...new Set([before, ...FIRST_CASES].filter(Boolean))];
-      shown = ids.map(id => byId[id]).filter(Boolean);
+      shown = ids.map(id => byId[id]).filter(Boolean).slice(0, everything && !query ? Infinity : MAX_SHOWN);
       active = query && shown.length ? 0 : -1;
       list.replaceChildren(...shown.map(option));
       list.hidden = !shown.length;

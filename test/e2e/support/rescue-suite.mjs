@@ -82,6 +82,7 @@ export function rescueSuite(index, parts) {
     assert.equal(await field.getAttribute("aria-controls"), "cee-rescue-suggest");
     assert.equal(await page.locator("label[for=cee-rescue-search]").textContent(), "Was ist los?");
     assert.deepEqual(await page.locator("#cee-rescue-suggest [role=option] .cee-rescue-answer").allTextContents(), rescue.FIRST_CASES.map(label));
+    assert.ok(rescue.FIRST_CASES.length <= rescue.MAX_SHOWN, "at most five topics before anything is typed");
     const above = await page.locator("#cee-rescue-suggest").boundingBox();
     assert.ok(above.y + above.height <= (await field.boundingBox()).y, "the suggestions stand above the field");
     await page.click("#cee-rescue-search-all");
@@ -98,6 +99,7 @@ export function rescueSuite(index, parts) {
     assert.equal(await page.locator("#cee-rescue-search").getAttribute("aria-expanded"), "true");
     assert.equal(await page.locator("#cee-rescue-search").getAttribute("aria-activedescendant"), "cee-rescue-case-silent");
     assert.match(await page.locator("#cee-rescue-search-status").textContent(), /Passende Themen: \d/);
+    assert.ok(await options.count() <= rescue.MAX_SHOWN, "typing shows at most five topics too");
     await page.fill("#cee-rescue-search", "back to korg firmware");
     assert.equal(await options.first().locator(".cee-rescue-answer").textContent(), label("back"));
     await page.fill("#cee-rescue-search", "qqqq zzzz");
