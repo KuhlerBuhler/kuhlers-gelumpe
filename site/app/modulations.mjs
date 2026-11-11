@@ -8,9 +8,11 @@ import { locateModTable, readModType, readModTypes, writeModType, MOD_FIELDS, SL
 import { lintModType, slotActive, TARGETS_KNOWN, TARGETS_UNCLEAR } from "../../src/modtable-rules.mjs";
 import { exportModTypes } from "../../src/export.mjs";
 import { checkName, checkDetail } from "../../src/patcher.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { t } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:effects");
 
 const TARGET = field("modType.target");
 

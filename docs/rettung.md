@@ -116,6 +116,34 @@ und mit `doom.bin` unter `KORG/blechtribe/Doom/`, per Kartenleser oder auf der S
 4. **Nichts, keine Abfrage.** Erst Netzteil und Batterien prüfen. Kommt dann weiter keine Abfrage, hilft
    nach der Debrick-Anleitung von Hacktribe nur JTAG.
 
+## Welche Themen die Startseite zuerst zeigt
+
+Die Startseite zeigt neun Themen vor dem Rest (`FIRST_CASES` in `data/rescue.mjs`), geordnet nach dem, was im Discord
+am häufigsten gefragt wird. Grundlage: die Nachrichten von 96 Personen aus hilfe, fehler-melden, e2-people, es2-people,
+general, blechy-chat, plugins und effekte-basteln vom 25.10. bis 10.11.2026, nur gelesen. Gezählt sind Personen je
+Thema nach Stichwörtern, nicht von Hand sortiert: **geschätzt**, die Reihenfolge ist belastbarer als die Zahlen.
+
+| Thema im Discord | Personen | Thema auf der Startseite |
+|---|---|---|
+| Hacktribe, rot oder blau, Reihenfolge, was geht verloren | 36 | Hacktribe, rot oder blau |
+| Einstieg, Installation, SD-Karte, Ordner | 14 | Wie installiere ich BLECHTRIBE |
+| "No File" beim Update | 11 | Da steht Error und No File |
+| Test im Patcher rot oder abgestürzt | 10 | Der Test im Patcher wird rot |
+| "Invalid File" beim Update | 8 | Da steht Error und Invalid File |
+| Plugins und Effekte aufs Gerät | 8 | Wie funktionieren Plugins |
+| Hängt in der Startphase | 8 | Gar nichts: dunkel oder hängt am Logo |
+| App findet die Electribe nicht, MIDI | 7 | Die App findet meine Electribe nicht |
+| Samples weg nach Hacktribe | 5 | Meine Samples fehlen |
+
+Fragen zur Bedienung der App stehen darunter und kommen beim Tippen oder unter "Alle Themen zeigen": Installation und
+Patcher, Hacktribe, Plugins, Spiele wie Tetris, eigene Effekte, Emulator, eigene Samples (WAV), Updates, Einstellungen
+speichern (WRITE) und das Startbild. Weitere Zahlen derselben Auswertung: Emulator 10 Personen, WAV und Samples laden
+10, Update per USB oder SD 6, Einstellungen speichern 5, Spiele 5.
+
+Ein Fehler der App selbst öffnet Blechy bei dem Thema seiner Seite: der Emulator bei "Der Emulator läuft nicht", die
+Seiten Plugins, Baukasten, Samples, Design und der Patcher bei ihrem Thema, die Update-Meldung beim Thema Updates
+(`toastFor` in `site/app/toast.mjs`). Alles andere landet bei der allgemeinen Frage, was in der App hakt.
+
 ## Ablauf der Seite
 
 Die Seite fragt jedes Ding einmal und trägt die Antwort weiter (`set`, `ask` und `toIf` in `data/rescue.mjs`, die

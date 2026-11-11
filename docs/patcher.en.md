@@ -104,12 +104,26 @@ Dropping a file right away skips the questions and shows everything as before. E
   device** ([measurement](messungen/2026-10-26-blech-hacktribe-blau.md), German).
 - Korg's blue 2.02 gets the synth set. Hacktribe cannot be made from it (`hacktribe-2.patch` only builds from Korg's red
   file); the page says so and points to the red file.
-- **No file at hand:** tick "Korg's licence accepted" in step 1 (the link in the box opens Korg's page with the agreement). "Next"
-  then loads Korg's file, as long as the field is empty (a file of your own is never replaced): the app loads Korg's
-  zip from Korg's server itself; the browser only starts the download of the zip and stays on step 1 for you to drop
-  it in (Korg's server sends no CORS header). The two Korg cards only show which file comes, they are no link. The drop field takes Korg's zip as it is and
-  takes SYSTEM.VSB out of it.
+- **No file at hand:** step 1 asks "Which base do you want to use?" (for BLECH and the way back): "Original firmware" is
+  preselected, "Your own firmware" shows only the field for your own `SYSTEM.VSB` or a zip with it. With "Original
+  firmware" "Next" loads Korg's file right away, with no box to tick first: the sentence under the cards says that
+  "Next" accepts Korg's licence agreement (the link in it opens Korg's page with the agreement). A file of your own is
+  never replaced: the app loads Korg's zip from Korg's server itself; the browser only starts the download of the zip
+  and stays on step 1, where the field for it appears (Korg's server sends no CORS header). The two Korg cards only
+  show which file comes, they are no link. The drop field takes Korg's zip as it is (`.zip` is accepted) and takes
+  SYSTEM.VSB out of it. The licence box stays only where the app is to load Korg's file for a file of your own (a changed
+  Korg file or one with BLECHTRIBE on it, app only).
 - Any other file is rejected.
+
+### Your own patch in step 2
+
+Step 2 asks "Which patch do you want to apply?": "Latest version" is preselected and is the set of this app, "Your own
+blech.patch" shows the field for a patch file (any extension, the format is at the start of the file). `src/anypatch.mjs`
+reads a GELUMPE `.patch` (`src/patchfile.mjs`), a patch in the JSON format `gelumpe-patch` (alone or as a list), IPS and
+IPS32, and bsdiff (`BSDIFF40`). It recognises BPS, UPS and xdelta and refuses them by name, anything else with the list
+of formats. The result has to be the length of a `SYSTEM.VSB` (`0x200100` bytes). IPS and bsdiff carry no checksums, so the
+patcher does not know which firmware they fit: the check is the test in the emulator. Tested with patches built for the
+test (`test/anypatch.test.mjs`), open: patches from the scene.
 
 ### A file that already has BLECHTRIBE
 
