@@ -68,7 +68,9 @@ impl Io {
 /// run loop the app keeps running; the client lives as long as the process.
 pub fn watch_devices() {
     match Client::new("GELUMPE devices") {
-        Ok(client) => std::mem::forget(client),
+        Ok(client) => {
+            Box::leak(Box::new(client));
+        }
         Err(e) => eprintln!("CoreMIDI-Client: {e}"),
     }
 }
