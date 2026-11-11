@@ -1199,7 +1199,10 @@ test("patcher: back to Korg's original on the red takes Korg's file as it is, sk
   await page.locator("#app-toasts .cee-toast", { hasText: "Das ist nicht Korgs Original 2.02" }).waitFor();
   await closeToasts(page);
   assert.equal(await page.isVisible("#cee-patch-goal-hint"), true);
-  assert.equal(await page.isDisabled("#cee-patch-next"), true, "the wrong file opens no step");
+  assert.match(await page.locator("#cee-patch-goal-hint").textContent(), /Das ist nicht Korgs Original 2\.02.*Weiter lädt stattdessen die richtige Datei von Korg/,
+    "the hint says why the file is wrong and that Weiter fetches the right one");
+  assert.equal(await page.isDisabled("#cee-patch-next"), false, "Weiter fetches Korg's file over the wrong one");
+  assert.equal(await page.isVisible("#cee-patch-step-2:not([hidden])"), false, "the wrong file opens no step");
   await drop(page, original);
   await page.waitForFunction(() => !document.querySelector("#cee-patch-next").disabled);
   assert.equal(await page.isVisible("#cee-patch-goal-hint"), false);
@@ -1263,7 +1266,8 @@ test("patcher: from Hacktribe to BLECH alone the red's Korg file is patched with
   await drop(page, withHacktribeRun(await makeFirmware()));
   await page.locator("#app-toasts .cee-toast", { hasText: "In dieser Datei steckt Hacktribe" }).waitFor();
   await closeToasts(page);
-  assert.equal(await page.isDisabled("#cee-patch-next"), true, "the Hacktribe file does not fit BLECH alone");
+  assert.equal(await page.isVisible("#cee-patch-step-2:not([hidden])"), false, "the Hacktribe file does not fit BLECH alone");
+  assert.match(await page.locator("#cee-patch-goal-hint").textContent(), /Weiter lädt stattdessen die richtige Datei von Korg/, "Weiter can fetch Korg's file instead");
   await patched(page, original);
   assert.equal(await page.isVisible("#cee-patch-ht-warn"), false);
   assert.equal(await page.locator("#cee-patch-path").textContent(), "KORG/hacktribe/System/SYSTEM.VSB", "the folder Hacktribe runs from");
