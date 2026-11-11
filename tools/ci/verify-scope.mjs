@@ -89,6 +89,7 @@ export const TABLE = [
   [/^tools\/patch\/doom_loader\.py$|^data\/patches\/doom-loader\.json$/, ["doom_loader_cases"]],
   [/^tools\/patch\/power_off\.py$|^data\/patches\/power-off[^/]*\.json$/, ["power_off_cases"]],
   [/^tools\/patch\/preset_tables\.py$|^data\/patches\/preset-tables[^/]*\.json$/, ["preset_cases"]],
+  [/^data\/patches\/fx-catalog\.json$/, ["preset_cases", "fx_card_cases"]],   // the catalog's effects behind the presets, and the card loader that reads the same records
 
   // the shared core: the script VM and its hooks, the patcher, the emulator and check.py itself. Listed so the
   // intent is written down; anything else not matched above is ALL as well.
