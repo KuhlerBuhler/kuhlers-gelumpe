@@ -1434,14 +1434,19 @@ def case_view_blink(payload, flash):
     box = Box(payload, flash)
     bank = viewing(box)
     rows = watch(box, 1.5)
-    together = sum(all(r[0][n] == r[0][OTHER] for n in BLINKING) for r in rows) / len(rows)   # the 16 sends of one half can straddle a sample
+    apart = [i for i, r in enumerate(rows) if any(r[0][n] != r[0][OTHER] for n in BLINKING)]
+    together = 1 - len(apart) / len(rows)
+    # the 16 sends of one half can straddle a sample, so a row may be split right at a change of pad 5 (in it or the next); how many
+    # rows that hits depends on where the edges fall on the 10 ms grid, which shifts with the start's timing
+    edge = lambda i: any(0 < j < len(rows) and rows[j][0][OTHER] != rows[j - 1][0][OTHER] for j in (i, i + 1))
+    stray = [i for i in apart if not edge(i)]
     with_menu = sum((r[0][OTHER] > 0) == (r[1] > 0) for r in rows) / len(rows)
     rate = gaps(rows, OTHER)
     out.append(entry("view_pads_of_parts_that_are_on_blink",
-                     all(values(rows, n) == [0, 255] for n in BLINKING) and values(rows, MUTED) == [0] and together >= 0.95
+                     all(values(rows, n) == [0, 255] for n in BLINKING) and values(rows, MUTED) == [0] and not stray
                      and rate and all(0.24 <= g <= 0.32 for g in rate) and with_menu >= 0.95 and not box.m.asserts,
                      f"pattern 2 viewed: red of pad 5 {values(rows, OTHER)}, pad 2 (muted in pattern 2) {values(rows, MUTED)}, all blinking pads together "
-                     f"{together:.2f}, seconds between changes {rate}, in step with MENU's LED {with_menu:.2f}"))
+                     f"{together:.2f} (apart away from a change: {len(stray)}), seconds between changes {rate}, in step with MENU's LED {with_menu:.2f}"))
     pad(box, P)
     rows = watch(box, 1.0)
     out.append(entry("view_press_brings_the_part_in_and_stops_its_blink",
