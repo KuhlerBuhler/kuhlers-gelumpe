@@ -872,7 +872,6 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     el("span", { className: "ui-dropzone-hint", textContent: t("bk.device.hint") }),
     firmwareFiles,
   ]);
-  firmwareDrop.setAttribute("data-selected", "");   // ui.js leaves the shown name and the X to this page
   firmwareInput.addEventListener("change", async () => {
     const file = firmwareInput.files?.[0];
     firmwareInput.value = "";
@@ -880,9 +879,8 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     firmwareFile = { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
     firmwareCache.clear();
     firmwareFiles.textContent = file.name;
-    firmwareDrop.setAttribute("data-filled", "");
   });
-  dropzoneClear(firmwareInput, () => { firmwareFile = null; firmwareCache.clear(); firmwareFiles.textContent = ""; });
+  const firmwareZone = dropzoneClear(firmwareInput, () => { firmwareFile = null; firmwareCache.clear(); }).node;
   const firmwareHelp = el("p", { className: "muted", id: "cee-bk-firmware-help" }, tNodes("bk.device.help", {
     link: el("a", { className: "cee-text-link", href: KORG_DOWNLOADS.red.page, target: window.__GELUMPE_APP ? "_self" : "_blank", rel: "noopener noreferrer", textContent: t("patcher.korg.licence.link") }),
   }));
@@ -918,6 +916,7 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     el("span", { className: "ui-dropzone-hint", textContent: t("bk.all.hint", { folder: COLLECTION_FOLDER }) }),
     allFiles,
   ]);
+  const allZone = dropzoneClear(allInput).node;
   allInput.addEventListener("change", async () => {
     const file = allInput.files?.[0];
     allInput.value = "";
@@ -1101,8 +1100,8 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     el("h3", { textContent: t("bk.device") }),
     firmwareSwitch,
     firmwareHelp,
-    firmwareDrop,
-    allDrop,
+    firmwareZone,
+    allZone,
     exportSwitch,
     exportLists,
   ]);

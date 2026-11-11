@@ -164,3 +164,21 @@ test("axe and phone width: no serious or critical violation, no sideways scroll"
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no sideways scroll of the page at phone width");
   assert.deepEqual(page.errors, []);
 });
+
+test("the X on the backup field clears the name and the input, and the same file can be chosen again", async () => {
+  const page = await open();
+  const x = page.locator(".cee-dropzone-wrap:has(#cee-pt-file) > .cee-dropzone-clear");
+  assert.equal(await x.isVisible(), false, "no file, no X");
+  await load(page);
+  assert.equal(await x.isVisible(), true);
+  assert.equal(await x.getAttribute("aria-label"), "Datei entfernen");
+  const names = page.locator(".ui-dropzone:has(#cee-pt-file) .ui-dropzone-files");
+  assert.equal(await names.textContent(), "set.e2sallpat");
+  await x.click();
+  assert.equal(await names.textContent(), "");
+  assert.equal(await x.isVisible(), false);
+  assert.equal(await page.locator("#cee-pt-file").evaluate(n => n.files.length), 0);
+  await load(page);
+  assert.equal(await x.isVisible(), true, "the same file again");
+  assert.deepEqual(page.errors, []);
+});

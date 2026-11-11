@@ -2838,6 +2838,18 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 }
 
 /* The X that takes a file out of an upload field (dropzone-clear.mjs): the chosen-card tick's circle, half over the corner. */
+.cee-dropzone-wrap {
+  position: relative;
+}
+
+.cee-dropzone-wrap:has(> .ui-dropzone[hidden]) {
+  display: none;
+}
+
+.cee-dropzone-wrap:has(> .cee-rescue-drop) {
+  grid-column: 1 / -1;
+}
+
 .cee-dropzone-clear {
   display: none;
   position: absolute;
@@ -2856,7 +2868,7 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   cursor: pointer;
 }
 
-.ui-dropzone[data-filled] > .cee-dropzone-clear {
+.ui-dropzone[data-filled] + .cee-dropzone-clear {
   display: flex;
 }
 

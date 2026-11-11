@@ -6,6 +6,7 @@ import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLD
 import { t, tNodes } from "./i18n.mjs";
 import { loadingAnimSection } from "./loading-anim.mjs";
 import { icon } from "./icons.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 /** An error of this page opens Blechy at its topic (data/rescue.mjs). */
 const toast = toastFor("h:splash");
 
@@ -189,13 +190,21 @@ export function splashPage(root) {
     return panel;
   });
 
+  const dropZone = dropzoneClear(fileInput, () => {
+    picture = null;
+    pictureName = "";
+    document.getElementById("cee-splash-work").hidden = true;
+    download.disabled = true;
+    keep.disabled = true;
+    render();
+  }).node;
   panels[0].append(el("section", { className: "ui-section", id: "cee-splash-section" }, [
     el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: t("splash.title") })]),
     el("p", { className: "cee-splash-lead", textContent: t("splash.lead") }),
     el("h3", { className: "cee-splash-head", textContent: t("splash.gallery") }),
     gallery,
     el("h3", { className: "cee-splash-head", textContent: t("splash.ownPicture") }),
-    drop,
+    dropZone,
     el("div", { className: "cee-splash-work", hidden: true, id: "cee-splash-work" }, [
       canvas,
       el("div", { className: "cee-splash-controls" }, [

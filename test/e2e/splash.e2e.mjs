@@ -76,3 +76,25 @@ test("Startbild: the gallery has the ten pictures of the app, the standard one c
   assert.equal(await items.count(), 10);
   assert.deepEqual(page.errors, []);
 });
+
+test("Startbild: the X on the picture field drops the pending picture and the field takes the next one", async () => {
+  const page = await h.page();
+  await page.goto(h.url);
+  await go(page, "splash");
+  const zone = page.locator(".ui-dropzone:has(#cee-splash-file)");
+  const x = page.locator(".cee-dropzone-wrap:has(#cee-splash-file) > .cee-dropzone-clear");
+  assert.equal(await zone.locator(".cee-dropzone-clear").count(), 0, "the X is a sibling of the label, not in it");
+  assert.equal(await x.isVisible(), false, "no picture, no X");
+  await dropPicture(page);
+  assert.equal(await x.isVisible(), true);
+  assert.equal(await zone.locator(".ui-dropzone-files").textContent(), "half");
+  await x.click();
+  assert.equal(await x.isVisible(), false);
+  assert.equal(await zone.locator(".ui-dropzone-files").textContent(), "");
+  assert.equal(await page.locator("#cee-splash-work").isHidden(), true, "the preview goes with the picture");
+  assert.equal(await page.locator("#cee-splash-download").isDisabled(), true);
+  assert.equal(await page.locator("#cee-splash-file").evaluate(n => n.files.length), 0);
+  await dropPicture(page);
+  assert.equal(await x.isVisible(), true, "a new picture can come in");
+  assert.deepEqual(page.errors, []);
+});
