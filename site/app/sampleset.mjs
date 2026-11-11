@@ -5,12 +5,14 @@
  */
 import { el } from "./fields.mjs";
 import { stateText } from "./state.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, FIRST_USER, LAST_USER } from "../../src/sample-file.mjs";
 import { readDeviceSamples, downloadDeviceSamples, writeDeviceChange, needsCompaction, inspectTemp, finishTemp, discardTemp, SwapInterrupted } from "../../src/usb-sample-file.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:wavs");
 
 const restart = () => t("sampleset.restart");
 
