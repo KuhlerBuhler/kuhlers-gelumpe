@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DeviceSession } from "../src/session.mjs";
-import { fetchUpdateFile, storeUpdateFile } from "../src/usb-update.mjs";
+import { fetchUpdateFile, storeUpdateFile, storeDoom } from "../src/usb-update.mjs";
 import { simPort } from "./helpers.mjs";
 
 // The update over USB (src/usb-update.mjs) against the simulation of BLECH's FILE commands (src/device.mjs), which follows the
@@ -51,4 +51,30 @@ test("without SYSTEM.VSB on the card, or without the FILE commands on the device
   await assert.rejects(fetchUpdateFile(session), /fehlt die Datei SYSTEM\.VSB/);
   const old = await device(null);
   await assert.rejects(fetchUpdateFile(old.session), /zu alt für Updates über USB/);
+});
+
+test("Doom goes onto the card as KORG/blechtribe/Doom/doom.wad and doom.bin, the wad first, the update file stays", async () => {
+  const system = fill(3000, 6);
+  const card = new Map([["SYSTEM.VSB", system], ["doom.bin", fill(90000, 7)]]);
+  const { session } = await device(card);
+  const bin = fill(70000, 8), wad = fill(0x210000, 9);
+  const seen = [];
+  await storeDoom(session, { bin, wad }, (done, total) => seen.push([done, total]));
+  assert.deepEqual(card.get("doom.wad"), wad, "past the size of a VSB");
+  assert.deepEqual(card.get("doom.bin"), bin, "an older, longer doom.bin is made anew");
+  assert.deepEqual(card.get("SYSTEM.VSB"), system);
+  assert.deepEqual(seen.at(-1), [bin.length + wad.length, bin.length + wad.length]);
+  assert.ok(seen.findIndex(([done]) => done > wad.length) > seen.findIndex(([done]) => done === wad.length), "doom.bin after the wad");
+});
+
+test("a stopped Doom send leaves no doom.bin, and a BLECHTRIBE from before the Doom files is told so", async () => {
+  const card = new Map();
+  const { session } = await device(card);
+  const stop = new AbortController();
+  const wad = fill(100000, 10);
+  await assert.rejects(storeDoom(session, { bin: fill(100, 11), wad }, done => { if (done >= 0x8000) stop.abort(); }, stop.signal));
+  assert.equal(card.has("doom.bin"), false);
+  const old = await device(new Map());
+  old.sim.doom = false;
+  await assert.rejects(storeDoom(old.session, { bin: fill(100, 12), wad: fill(100, 13) }), /kann Doom noch nicht über USB/);
 });

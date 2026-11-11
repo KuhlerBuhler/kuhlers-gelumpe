@@ -616,6 +616,47 @@ def case_card_pulled(payload, flash):
                   f"assertions {box.m.asserts}")]
 
 
+def case_card_inserted_late(payload, flash):
+    """A device that starts without a card and gets one later: the patch is on as soon as the card is in and a setting changed in the
+    BLECH menu acts at once, before anything was saved. FatFs mounts the Sampler's volume only at the first access (a WRITE or the
+    save of AUTO SAVE, which is off here), so the volume is still unmounted while the card is in; tools/patch/card_gate.py reads the
+    card switch as well (reported 11.11.: with the card in only after the start, a changed setting took effect only after saving)."""
+    import menu_cases
+    menu_cases.for_build(payload)
+    box = TBox(payload, flash, card=False)
+    start = box.mode()
+    box.tap()
+    no_card = box.mode()
+    card = SDCard(MemoryMedium(card_image()))
+    untouched = bytes(card.medium.data)
+    box.m.insert_card(card)
+    box.run(1.5)
+    volume = None if box.dev.synth else box.dev.read(box.u32(FATFS), 1)[0] if box.u32(FATFS) else 0
+    box.tap()
+    first = box.mode()
+    box.tap()
+    second = box.mode()
+    box.m.uc.mem_write(menu_cases.STATE + menu_cases.S_AS, struct.pack("<I", 0))    # leaving the menu saves nothing
+    dev = box.dev
+    menu_cases.goto_group(dev, menu_cases.GROUP_FEATURES, menu_cases.FEAT_TM)
+    dev.turn(-1, wait=0.3)
+    off = box.u32(spec.TM_SETTING)
+    menu_cases.leave_to_main(dev)
+    box.tap()
+    with_off = box.mode()
+    menu_cases.goto_group(dev, menu_cases.GROUP_FEATURES, menu_cases.FEAT_TM)
+    dev.turn(1, wait=0.3)
+    on = box.u32(spec.TM_SETTING)
+    menu_cases.leave_to_main(dev)
+    box.tap()
+    with_on = box.mode()
+    saved = bytes(box.m.mmc.card.medium.data) != untouched
+    return [entry("card_inserted_late_works_unsaved", no_card == start and volume in (None, 0) and first == (0, 0) and second == (1, 1)
+                  and off == 0 and with_off == (1, 1) and on == 1 and with_on == (0, 0) and not saved and not box.m.asserts,
+                  f"no card: TAP {start} -> {no_card}; card in (volume type byte {volume}), TAP: {first}, TAP: {second}; menu TAP MOTION OFF (word {off}), TAP: {with_off}; "
+                  f"ON (word {on}), TAP: {with_on}; the card was {'written' if saved else 'not written'}; assertions {box.m.asserts}")]
+
+
 def case_mfx_blink(payload, flash):
     """With a Master FX gesture recorded and its motion on, the TAP LED blinks without MASTER FX held: half on with the part's
     motion off, on with a short gap with it on; with the Master FX motion off, or with no gesture recorded (the byte is 1 in
@@ -683,7 +724,7 @@ def case_hold(payload, flash):
             entry("hold_with_master_fx", mfx_held != mfx_start and mfx_back == mfx_start, f"Master FX motion before {mfx_start}, held {mfx_held}, let go {mfx_back}")]
 
 
-GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app, case_once, case_touch_scale, case_card_pulled, case_mfx_blink, case_hold)
+GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app, case_once, case_touch_scale, case_card_pulled, case_card_inserted_late, case_mfx_blink, case_hold)
 
 
 def group_entries(payload, flash, i):

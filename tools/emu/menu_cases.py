@@ -177,14 +177,15 @@ SYNC_AT = 15                                                          # the coun
 LEVEL_BLECHY = 3                                                      # level 3 of the screen: the page of Blechy, the last of the ring
 LEVEL_SYNC = 4                                                        # level 4: the page SYNC GROUP between the Pattern menu and the Part menu
 LEVEL_PLUGIN = 5                                                      # level 5: MANAGE PLUGINS, one page a plugin
-LEVEL_PSUB = 6                                                        # level 6: the pages of one plugin: DESCRIPTION, the pages it added, OFF, REMOVE
+LEVEL_PSUB = 6                                                        # level 6: the pages of one plugin: ACTIVE, DESCRIPTION, the pages it added, OFF, REMOVE
 LEVEL_GLOBAL = 7                                                      # level 7: PLUGIN RUNTIME, the last page of GLOBAL PARAMETERS (21/21)
 LEVEL_DU = 8                                                          # level 8: our pages of DATA UTILITY, behind the firmware's functions
 GLOBAL_PAGES = 20                                                     # the firmware's pages of GLOBAL PARAMETERS (screen 9)
 S_PSEL = 0xFB                                                         # byte: the plugin the pages of level 6 are about (the page of level 5 it was opened from)
 S_BRW_ON = 0x154                                                      # byte: M_BRW_ON, nonzero while the page shows as the firmware's file browser
 PLUGIN_MANAGE = 0                                                     # the one page of PLUGINS: MANAGE PLUGINS
-PLUGIN_DESCRIPTION = 0                                                # the first page of one plugin; the pages it added follow, then OFF, REMOVE is the last
+PLUGIN_ACTIVE = 0                                                     # the first page of one plugin: ACTIVE, the dial switches it ON and OFF
+PLUGIN_DESCRIPTION = 1                                                # the second page; the pages it added follow, then OFF, REMOVE is the last
 PRESS = "press  [ Enter ]"                                            # the third line of every Data Util page
 VALUE_ROWS = range(30, 64)                                           # the pixel rows the value (and the firmware's third line) use
 TAB_ROWS = range(1, 9)                                               # the rows of the tab's text, inside the black bar
@@ -224,7 +225,7 @@ def goto_group(dev, group, page=0):
 
 def goto_plugin(dev, plugin=0, page=None):
     """The page of a plugin in MANAGE PLUGINS (level 5: its name and its state, the dial moves through the list), or with `page` that
-    page of its own pages (level 6: DESCRIPTION, STATE where the dial switches it, the pages it added, OFF, REMOVE); `plugin` counted
+    page of its own pages (level 6: ACTIVE where the dial switches it, DESCRIPTION, the pages it added, OFF, REMOVE); `plugin` counted
     as the list counts (loaded ones first), entered fresh."""
     go(dev, 8)
     dev.m.uc.mem_write(STATE + S_PSEL, bytes([plugin]))
@@ -275,6 +276,7 @@ def draw_texts(dev, value, line3):
     scratch = script_hooks.CARD + 0xF00
     dev.m.uc.mem_write(scratch, value.encode() + b"\0")
     dev.m.uc.mem_write(scratch + 64, line3.encode() + b"\0")
+    dev.m.uc.mem_write(widget + ORIG_FLAG, b"\0")      # the ORIG badge is not a text of the page: it would be in both frames and count as shared pixels
     dev.call(SET_VALUE, widget, scratch)
     dev.call(SET_LINE3, widget, scratch + 64)
     dev.run(0.25)
@@ -833,6 +835,114 @@ def blechy_ring_part(payload, flash=None):
     return blechy_ring_cases(boot(payload, flash))
 
 
+ORIG_X, ORIG_ROWS = range(36, 51), range(55, 62)     # where the firmware draws its ORIG badge (15 x 8 at 36, 55); the last row of the plate is left out, the theme's checker runs through it
+ORIG_FLAG = 0x49                                     # the byte of the text widget (the screen's widget at 0x24) that the firmware's draw reads
+
+
+def orig_pixels(dev):
+    """The lit pixels of the ORIG badge's place."""
+    return {(x, y) for x, y in lit(dev.fb(), ORIG_ROWS) if x in ORIG_X}
+
+
+def orig_shown(dev):
+    """True when the page shows the ORIG badge (the widget's flag is set and the badge is on the display), False when it shows none;
+    None when the flag and the display disagree."""
+    flag = dev.read(dev.u32(screen_object(dev) + MENU_WIDGET) + ORIG_FLAG, 1)[0]
+    pixels = len(orig_pixels(dev))
+    return True if flag and pixels > 20 else False if not flag and not pixels else None
+
+
+def orig_pages():
+    """(name, how to reach it) of every page of the BLECH menu that shows a setting."""
+    pages = [("PLUGIN RUNTIME", lambda dev: goto_global(dev))]
+    for group, count in ((GROUP_DISPLAY, 5), (GROUP_LED, 8), (GROUP_PADS, 3), (GROUP_PSAVE, 2), (GROUP_FEATURES, feature_count())):
+        pages += [(f"{group}:{page}", lambda dev, group=group, page=page: goto_group(dev, group, page)) for page in range(count)]
+    return pages
+
+
+def orig_cases(payload, flash=None):
+    """The ORIG badge on the pages of the BLECH menu, as the firmware shows it on its own: on the value that is stored (the file's, the
+    defaults without one), gone after the dial changed it, back when it is turned back; at the place and in the look of the
+    firmware's badge (GLOBAL PARAMETERS); a changed value kept with WRITE is the stored one afterwards; pages that show no setting
+    have no badge."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:orig_{name}", "ok": bool(ok), "detail": detail})
+
+    dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    start, changed, back, stuck = {}, {}, {}, []
+    for name, reach in orig_pages():
+        reach(dev)
+        before = texts_of(dev)
+        start[name] = orig_shown(dev)
+        for step in (1, -1):
+            dev.turn(step, wait=0.3)
+            if texts_of(dev) != before:
+                break
+        else:
+            stuck.append(name)
+            continue
+        changed[name] = orig_shown(dev)
+        dev.turn(-step, wait=0.3)
+        back[name] = (orig_shown(dev), texts_of(dev) == before)
+        if not back[name][1]:       # the colour pages are hue, saturation and brightness over three levels: a step back need not be the value before; the next page starts on a device of its own
+            dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    add("shown_on_the_stored_value", start and all(v is True for v in start.values()), f"{start}")
+    add("gone_after_a_change", changed and not any(changed.values()) and not stuck, f"changed {changed}, pages where the dial changed nothing {stuck}")
+    add("back_on_returning", back and all(shown == restored for shown, restored in back.values()) and sum(restored for _, restored in back.values()) > 20, f"(badge, the value is the one before) {back}")
+
+    # the same plate in the same place as on the firmware's own pages
+    goto_group(dev, GROUP_FEATURES, FEAT_PC)
+    ours = orig_pixels(dev)
+    go(dev, 9)
+    dev.run(0.4)
+    theirs = orig_pixels(dev)
+    add("look_of_the_firmware", ours and ours == theirs, f"ours {len(ours)} pixels, GLOBAL PARAMETERS {len(theirs)}, same {ours == theirs}")
+
+    # a changed value kept with WRITE is the stored one; the old one is a change then
+    goto_group(dev, GROUP_FEATURES, FEAT_TM)
+    dev.turn(-1, wait=0.3)
+    off = orig_shown(dev), texts_of(dev)[1]
+    press(dev, "write", wait=0.6)
+    kept = orig_shown(dev)
+    dev.turn(1, wait=0.3)
+    on = orig_shown(dev), texts_of(dev)[1]
+    dev.turn(-1, wait=0.3)
+    off_again = orig_shown(dev), texts_of(dev)[1]
+    add("write_keeps_the_new_value", off == (False, "OFF") and kept is True and on == (False, "ON") and off_again == (True, "OFF"),
+        f"changed {off}, after WRITE {kept}, back to the old value {on}, to the kept one {off_again}")
+
+    # the value a settings file holds at the start: PATTERN CONFIRM off and the display not inverted are the file's, the other pages are the defaults
+    stored = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3 | PC_OFF_BIT, look_word(0, invert=0))}, adapter=True)
+    goto_group(stored, GROUP_FEATURES, FEAT_PC)
+    file_off = texts_of(stored)[1], orig_shown(stored)
+    stored.turn(1, wait=0.3)
+    file_on = texts_of(stored)[1], orig_shown(stored)
+    stored.turn(-1, wait=0.3)
+    file_off_again = texts_of(stored)[1], orig_shown(stored)
+    goto_group(stored, GROUP_DISPLAY, 4)
+    inverted_off = texts_of(stored)[1], orig_shown(stored)
+    add("file_value_is_the_stored_one", file_off == ("OFF", True) and file_on == ("ON", False) and file_off_again == ("OFF", True) and inverted_off[1] is True and not stored.m.asserts,
+        f"PATTERN CONFIRM {file_off}, turned up {file_on}, back {file_off_again}; DISPLAY INVERT {inverted_off}")
+
+    # without a card the defaults are the stored values
+    bare = boot(payload, flash, adapter=True, card=False)
+    goto_group(bare, GROUP_FEATURES, FEAT_TM)
+    bare_page = orig_shown(bare)
+    bare.turn(-1, wait=0.3)
+    add("no_card_shows_the_defaults", bare_page is True and orig_shown(bare) is False and not bare.m.asserts, f"at the start {bare_page}, after the dial {orig_shown(bare)}")
+
+    # the pages that show no setting have none: the list of the groups, the groups themselves, VERSION
+    plain = {}
+    for name, reach in (("groups", lambda: goto_top(dev, 0)), ("plugins", lambda: goto_group(dev, GROUP_PLUGINS, 0)), ("version", lambda: goto_top(dev, LIST_VERSION)),
+                        ("sync_group", lambda: _enter(dev, LEVEL_SYNC)), ("ring", lambda: goto_ring(dev))):
+        reach()
+        plain[name] = orig_shown(dev)
+    add("not_on_pages_without_a_setting", not any(plain.values()), f"{plain}")
+    return out
+
+
 def egg_part(payload, flash=None):
     """The egg on the page VERSION (egg_cases.py) on devices of its own."""
     import egg_cases
@@ -840,7 +950,7 @@ def egg_part(payload, flash=None):
 
 
 # What cases_task(i) runs, in the order of cases(). Each boots its own device, so they run side by side.
-CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases, egg_part)
+CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases, orig_cases, egg_part)
 
 
 def cases(payload, flash=None, settings=True):
@@ -1348,9 +1458,9 @@ def look_cases(payload, flash=None, rest=True):
     rainbow_page = texts_of(dev)
     meter_level(dev, 0)
     dev.run(0.5)
-    first = leds(dev)
+    first = steady_leds(dev)     # the hue moves every tick: a read between two of the twelve channels mixes two hues
     dev.run(1.0)
-    second = leds(dev)
+    second = steady_leds(dev)
     wheel = lambda l: l[:3] * 4 == l and sorted(l[:3])[0] == 0 and sum(l[:3]) in (255, 256)      # 256: a 1 goes out as 2
     # RAINBOW with a colour on the LED pages (device 22.10.: the LED colour had no effect any more): the zones left at STOCK
     # take that colour, as bright as the level, the still meter stays on the wheel
@@ -1470,16 +1580,20 @@ def look_cases(payload, flash=None, rest=True):
     # backlight: a level of 0 or 15 is a plain pin, a level between is a software PWM of 16 ticks
     mix = boot(payload, flash, files=CARD_FOLDER, adapter=True)
     watch_pins(mix)
-    results, flags = {}, {}
+    results, flags, lights = {}, {}, {}
     for name, levels in (("green", (0, 15, 0)), ("red5", (5, 0, 0)), ("mix", (3, 8, 12)), ("one_of_16", (1, 14, 0))):
         set_look(mix, backlight=levels)
         mix.run(0.3)
         results[name] = duty(mix, 1.0)
         flags[name] = state(mix, S_BL_PWM)
+        lights[name] = mix.m.backlight.levels(mix.m.time_ns)   # what the emulator page draws the display in (backlight.py)
     near = lambda got, want: all(abs(got[k] - want[k]) <= 0.02 for k in "RGB")
     add("backlight_plain_pin", results["green"][0] == {"R": 0.0, "G": 1.0, "B": 0.0} and results["green"][1] == 0 and flags["green"] == 0 and flags["mix"] == 1, f"{results['green']}")
     add("backlight_pwm_duty", near(results["red5"][0], {"R": 5 / 16, "G": 0, "B": 0}) and near(results["mix"][0], {"R": 3 / 16, "G": 8 / 16, "B": 12 / 16})
         and near(results["one_of_16"][0], {"R": 1 / 16, "G": 14 / 16, "B": 0}), f"{results}")
+    drawn = lambda got, want: got is not None and all(abs(g - w * 255) <= 3 for g, w in zip(got, want))
+    add("backlight_colour_reaches_the_page", drawn(lights["green"], (0, 1, 0)) and drawn(lights["red5"], (5 / 16, 0, 0))
+        and drawn(lights["mix"], (3 / 16, 8 / 16, 12 / 16)) and drawn(lights["one_of_16"], (1 / 16, 14 / 16, 0)), f"{lights}")
     # power save: the firmware's own dimming, as without our patch (red and green for 2 of 18 ticks in turn, never blue)
     set_look(mix, backlight=(0, 0, 12))
     mix.call(POWER_CONNECT, 1)
@@ -1491,9 +1605,11 @@ def look_cases(payload, flash=None, rest=True):
     set_look(mix, backlight=(0, 0, 0))
     mix.run(0.3)
     stock = duty(mix, 1.0)
+    lights["stock"] = mix.m.backlight.levels(mix.m.time_ns)
     add("backlight_power_save_stays", abs(dimmed[0]["R"] - 0.037) < 0.02 and abs(dimmed[0]["G"] - 0.037) < 0.02 and dimmed[0]["B"] == 0 and not mix.m.asserts, f"{dimmed}")
     add("backlight_back_from_power_save", near(resumed[0], {"R": 0, "G": 0, "B": 12 / 16}), f"{resumed}")
-    add("backlight_zero_is_stock_white", stock[0] == {"R": 1.0, "G": 1.0, "B": 1.0} and stock[1] == 0 and state(mix, S_BL_PWM) == 0, f"{stock}")
+    add("backlight_zero_is_stock_white", stock[0] == {"R": 1.0, "G": 1.0, "B": 1.0} and stock[1] == 0 and state(mix, S_BL_PWM) == 0
+        and lights["stock"] == [255, 255, 255], f"{stock} {lights['stock']}")
     # INTENSITY scales every level and keeps the mix; POWER SAVE, DISPLAY LIGHT gives power save the colour at its own intensity
     # (device 18.10.), 1 to 15 lighting at 3 to 15 (device 19.10.: 1 was dark on battery)
     set_look(mix, backlight=(0, 0, 12))
@@ -1748,10 +1864,10 @@ def wheel_cases(payload, flash=None):
     goto_plugin(dev, 29)
     dev.turn(2, wait=0.4)
     add("plugin_list_stops_at_the_ends", low == (0, 30) and counter(dev) == (29, 30) and texts_of(dev)[0] == "file29", f"below the first {low}, past the last {counter(dev)}")
-    goto_plugin(dev, 0, 1)
+    goto_plugin(dev, 0, PLUGIN_ACTIVE)
     page = texts_of(dev)
     dev.turn(1, wait=0.4)
-    add("plugin_state_page", page == ("STATE", "OFF", "") and state(dev, S_LEVEL) == LEVEL_PSUB and counter(dev) == (1, 3), f"{page}, then dial up {texts_of(dev)}, counter {counter(dev)}")
+    add("plugin_active_page", page == ("ACTIVE", "OFF", "") and state(dev, S_LEVEL) == LEVEL_PSUB and counter(dev) == (0, 3), f"{page}, then dial up {texts_of(dev)}, counter {counter(dev)}")
 
     pic = [[0] * 128 for _ in range(64)]
     dev = boot(payload, flash, files={**CARD_FOLDER, **{f"/KORG/blechtribe/{n}.bmp": bmp(pic) for n in names}})
@@ -2730,8 +2846,11 @@ def early_look_cases(payload, flash=None):
     add("armed_before_the_loader", early.get("on") == 1 and early.get("screen") != 1 and late.get("on") != 1, f"at the loader's start: early copy armed {early.get('on')}, copy without the hook {late.get('on')}")
     add("look_applied_before_the_loader", early.get("led_eff") == 2 and tuple(early.get("led_v", b"")) == (255, 119, 0) and early.get("bl_pwm") == 1 and early.get("bl_on") == 0x08
         and early.get("pins", 0) & 0x38 in (0, 0x08) and late.get("led_eff") != 2, f"LED kind {early.get('led_eff')}, colour {tuple(early.get('led_v', b''))}, light pins {early.get('bl_on')}, PWM {early.get('bl_pwm')}; without the hook {late.get('led_eff')}")
-    add("loader_starts_at_the_same_time", abs(early["loader_ms"] - late["loader_ms"]) < 15, f"loader {early['loader_ms']:.1f} ms with the hook, {late['loader_ms']:.1f} ms without (the settings are read first now, not afterwards)")
-    add("main_screen_not_later", early["main_ms"] <= late["main_ms"] + 15 and not early["asserts"], f"main screen at {early['main_ms']:.1f} ms with the hook, {late['main_ms']:.1f} ms without")
+    # The loader waits for the early hook (menu_arm_load and migrate_start read the card): 10.2 ms at GELUMPE_PACE=flat, 17.2 ms at the
+    # device pace (measured 2026-11-10 from the hook's entry to its return; the loader then starts 4 to 5 ms later in both copies). 25 ms holds that with room for the emulator's noise. The main screen below gets the same 25 ms: the hook's 17.2 ms can reach it in full (a copy
+    # without the hook was 17.2 ms earlier on the main screen after the dead card change, 5.6 ms before it, the hooked copy the same both times).
+    add("loader_starts_at_the_same_time", abs(early["loader_ms"] - late["loader_ms"]) < 25, f"loader {early['loader_ms']:.1f} ms with the hook, {late['loader_ms']:.1f} ms without (the settings are read first now, not afterwards)")
+    add("main_screen_not_later", early["main_ms"] <= late["main_ms"] + 25 and not early["asserts"], f"main screen at {early['main_ms']:.1f} ms with the hook, {late['main_ms']:.1f} ms without")
     held = early_run(payload, flash, files, held=KILL)
     add("exit_held_stays_stock", held.get("on") != 1 and held.get("pins") == GPIO_PINS and not held["asserts"], f"armed {held.get('on'):#x}, light pins {held.get('pins'):#x}")
     return out + boot_light_cases(payload, flash)

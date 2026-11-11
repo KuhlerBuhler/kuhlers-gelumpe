@@ -12,6 +12,7 @@ import { levelsPanel } from "./levels.mjs";
 import { modulationsPage } from "./modulations.mjs";
 import { samplesPage } from "./samples.mjs";
 import { samplesFilePage } from "./sampleset.mjs";
+import { doomPage } from "./doom.mjs";
 import { createMidiTransport } from "./midi.mjs";
 import { createUsbWatch } from "./usb-watch.mjs";
 import { usbIndicator } from "./usb.mjs";
@@ -37,11 +38,9 @@ import { Terminal } from "../../src/terminal.mjs";
 import { loadBlechSet } from "../../src/patcher.mjs";
 import { patchesPresent, selectFor } from "../../src/patch.mjs";
 import { sharedProbe } from "./probe.mjs";
-import { dropdown } from "./dropdown.mjs";
-import { icon } from "./icons.mjs";
 import { watchForUpdate, showNews } from "./update.mjs";
 import { apply as applySettings, get as setting, holdAutoConnect, languageSwitch, releaseAutoConnect, settingsButton, settingsPage } from "./settings.mjs";
-import { toast } from "./toast.mjs";
+import { toast, toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { t } from "./i18n.mjs";
 
@@ -371,11 +370,11 @@ async function startAfterDisconnect(device, emulator) {
   const yes = await window.ui?.confirm({ title: t("app.disconnect.title"), text: t("app.disconnect.text"), confirmLabel: t("app.disconnect.confirm") });
   if (!yes || !device.session) return;
   await device.disconnect();
-  try { toast(await emulator().powerOn(), "info"); } catch (e) { toast(e.message, "error"); }
+  try { toast(await emulator().powerOn(), "info"); } catch (e) { toast(e.message, "error", { help: "h:emulator:fix" }); }
 }
 
-/** Pages that share one navbar title: a menu switches between the emulator and the real device. */
-const MODES = { emu: "mode.emu", device: "mode.device" };
+/** Pages that share one navbar title: a switch goes between the emulator and the real device. */
+const MODES = { emu: true, device: true };
 
 /** Navbar: the title of the open page, and whether a device is connected, as words. */
 function navbar({ onMode }) {
@@ -389,21 +388,25 @@ function navbar({ onMode }) {
   let baukastenActions = [];
   const trails = {};
   const homes = {};
-  $("#cee-mode-button").append(icon("chevronDown"));
-  const menu = dropdown($("#cee-mode-button"), $("#cee-mode-menu"), { onPick: onMode });
+  // One switch: off is the emulator, on the real device. onMode answers false when the device cannot be chosen.
+  const modeSwitch = $("#cee-mode-switch");
+  modeSwitch.addEventListener("change", () => {
+    if (onMode(modeSwitch.checked ? "device" : "emu") === false) modeSwitch.checked = page === "device";
+  });
   function render() {
     const mode = page in MODES;
     $("#cee-nav-title").hidden = mode;
     $("#cee-mode").hidden = !mode;
     if (mode) {
-      $("#cee-mode-label").textContent = t(MODES[page]);
-      for (const item of $("#cee-mode-menu").querySelectorAll("[role=menuitemradio]")) item.setAttribute("aria-checked", String(item.dataset.value === page));
+      modeSwitch.checked = page === "device";
     } else {
       // A page with sub-pages shows where you are as a breadcrumb: Plugins › Dokumentation › the section you read.
       // Every crumb but the last leads back: the title to the page's start sub-page, a step with `go` to that step.
       const parts = trails[page] ?? [];
       const tab = $(`#cee-tab-${page}`);
-      const title = parts.length && tab ? el("button", { type: "button", className: "cee-crumb-link", textContent: tab.textContent, onclick: () => (homes[page] ?? (() => tab.click()))() }) : tab?.textContent ?? "";
+      // The label only: a badge on the tab (the "!" of a new release) is no part of the page's name.
+      const name = tab?.querySelector("[data-i18n]")?.textContent ?? tab?.textContent ?? "";
+      const title = parts.length && tab ? el("button", { type: "button", className: "cee-crumb-link", textContent: name, onclick: () => (homes[page] ?? (() => tab.click()))() }) : name;
       $("#cee-nav-title").replaceChildren(title, ...parts.map((t, i) => {
         const text = typeof t === "string" ? t : t.text;
         return t.go && i < parts.length - 1
@@ -418,7 +421,7 @@ function navbar({ onMode }) {
     $("#cee-nav-state").replaceChildren(...state);
   }
   return {
-    page(id) { menu.close(); page = id; render(); },
+    page(id) { page = id; render(); },
     device(on) { device = on; render(); },
     /** The device panel's connect and disconnect button. */
     connect(node) { connectButton = node; render(); },
@@ -456,7 +459,7 @@ function sidebarDrawer() {
   };
   button.addEventListener("click", () => set(!side.hasAttribute("data-open")));
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && side.hasAttribute("data-open")) { set(false); button.focus(); }
+    if (e.key === "Escape" && side.hasAttribute("data-open")) { set(false); button.focus({ preventScroll: true }); }
   });
   // The drawer covers the menu button; a tap on the page beside it closes it.
   document.addEventListener("pointerdown", e => {
@@ -521,7 +524,14 @@ function boot() {
     try { localStorage.setItem("cee.mode", id); } catch { /* blocked: the choice holds until the page closes */ }
     if (id === "device") device.chosen();
   };
-  const nav = navbar({ onMode: id => { pickMode(id); if (id !== areas?.current) areas?.select(id, { focus: false }); } });
+  const nav = navbar({
+    onMode: id => {
+      // Nothing on the cable: stay on the emulator. "unknown" (MIDI not granted yet) passes, the connect button asks for it.
+      if (id === "device" && usb.state === "absent") { toast(t("mode.none"), "info"); return false; }
+      pickMode(id);
+      if (id !== areas?.current) areas?.select(id, { focus: false });
+    },
+  });
   const drawer = sidebarDrawer();
   const transport = createMidiTransport(window);
   const usb = createUsbWatch({ transport, permissions: navigator.permissions, hidden: () => document.hidden });
@@ -543,11 +553,12 @@ function boot() {
   let terminal = null;
   let sd = null;
   let sampleset = null;
+  let doom = null;
   // One session on the emulator's port, shared by the effect editor's probe and the terminal's rehearsal.
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
   const device = devicePanel($("#cee-device"), {
-    onSession: () => { sampleset?.sessionChanged(); restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
+    onSession: () => { sampleset?.sessionChanged(); doom?.sessionChanged(); restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
     emulator: () => emulator?.port,
     view: () => emulator,
     probe,
@@ -643,9 +654,10 @@ function boot() {
   });
   emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, onConnect: next => sd?.connect(next), onBlocked: () => startAfterDisconnect(device, () => emulator), onFirmware: () => device.firmwareChanged() });
   const modulations = modulationsPage($("#cee-mod"), { emulator });
-  const baukasten = baukastenPage($("#cee-baukasten"), { emulator, presets: fx, sub: options, trail: (parts, home) => nav.trail("baukasten", parts, home), navbar: nodes => nav.baukasten(nodes) });
+  const baukasten = baukastenPage($("#cee-baukasten"), { presets: fx, sub: options, trail: (parts, home) => nav.trail("baukasten", parts, home), navbar: nodes => nav.baukasten(nodes) });
   samplesPage($("#cee-samples"), { device, emulator, probe });
   sampleset = samplesFilePage($("#cee-sampleset"), { device });
+  doom = doomPage($("#cee-doom-files"), { device });
   let fxFirmware = null;
   let modFirmware = null;
   let plainFor = null;
@@ -746,7 +758,7 @@ function boot() {
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
 else boot();
 
-watchForUpdate($("#cee-update"), undefined, toast);
+watchForUpdate($("#cee-update"), undefined, toastFor("h:updates"));
 showNews(toast);
 
 // In the desktop app a new window goes nowhere: the donate, GitHub, Instagram and Korg links navigate in place and the app opens them in the browser (src-tauri).

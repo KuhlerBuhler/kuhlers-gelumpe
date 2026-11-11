@@ -79,8 +79,11 @@ eins im Puffer, sonst kommt alles um ein Byte verschoben an.
   ein kurzer Balken, `0x4100` ein langer, `0x6000` CLIP.
 - **Modellannahme:** Am Eingang steckt nichts, der Emulator meldet 0.
 - **Offline:** „Power Off“ kommt von der Ein/Aus-Taste (GPIO 7.15), nicht
-  von der Batterie. Woher die Firmware Batteriestand und Netzteil kennt, ist
-  offen; das Batteriesymbol bleibt im Emulator gleich.
+  von der Batterie. Ob ein Netzteil steckt, sagt der Panel-Controller mit
+  Nachricht 7 (`07 01 ...` Netzteil, `07 00 ...` Batterie, `machine.py`).
+  Der Dienst meldet immer Netzteil und beim Ausschalten Batterie, weil die
+  Firmware am Netzteil die Taste nicht beachtet. Der Batteriestand selbst ist
+  nicht nachgebildet.
 
 ## Startentscheidungen
 
@@ -128,5 +131,5 @@ Welche Nummer zu welchem Bedienelement gehört und was Typ 6 und 7 tun:
 
 - Die DSP-Seite des Briefkastens: was die CPU erwartet, damit Abläufe mit
   DSP-Antwort weiterlaufen.
-- Woher Batteriestand und Netzteil kommen.
+- Woher der Batteriestand kommt.
 - SD-Karte als Abbild aus dem eigenen Backup.

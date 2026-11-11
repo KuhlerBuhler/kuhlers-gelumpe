@@ -68,6 +68,10 @@ export const BLECH = {
   FLAG_SAMPLE: 0x80,
   /** bit 30 of a FILE offset: Sample/e2sSample.all; with bit 31 as well Sample/e2sSample.tmp */
   FILE_SAMPLE: 0x40000000,
+  /** INFO flag: the Doom files KORG/blechtribe/Doom/doom.bin and doom.wad can be read and written; never on the blue Electribe 2, whose set has no Doom loader */
+  FLAG_DOOM: 0x100,
+  /** bit 29 of a FILE offset: KORG/blechtribe/Doom/doom.bin; with bit 31 as well doom.wad. Up to SAMPLE_LIMIT, like the sample file */
+  FILE_DOOM: 0x20000000,
   /** the largest offset + length on a sample file */
   SAMPLE_LIMIT: 0x10000000,
   /** the most bytes one FILE COPY or FILE CRC works on */

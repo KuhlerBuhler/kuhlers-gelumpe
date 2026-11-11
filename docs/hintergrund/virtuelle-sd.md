@@ -63,7 +63,8 @@ Voraussetzungen, **offen** = nicht geprüft.
 | Karten bis 1 GiB mounten | gemessen | Abschnitt 7 |
 | `KORG/hacktribe` lässt sich als Datenpatch umbenennen (21 Byte) | gemessen | Abschnitt 9 |
 | Kein WAV-Import beim Start | gemessen | Abschnitt 10 |
-| SDSC (Byte-Adressierung), Karten über 1 GiB, Schreibschutz-Schalter | offen | nicht geprüft |
+| SDSC (Byte-Adressierung), Schreibschutz-Schalter | gemessen (Emulator) | [Fehlerfälle der Karte](../emulator.md#fehlerfälle-der-karte) |
+| Karten über 1 GiB | offen | nicht geprüft |
 
 ## 1. Der SD-Pfad in der Firmware
 
@@ -123,7 +124,8 @@ genügt, sie liest dann je Interrupt 64 Byte.
 - **gemessen:** Die Firmware schickt CMD8 und ACMD41 mit HCS. Das Modell
   antwortete als SDHC (OCR Bit 30), und die Firmware übergab dann den
   Blockindex als Argument (zum Beispiel `0x27E2` für LBA 10210).
-  **SDSC (Byte-Adressierung) ist nicht geprüft.** **offen**
+  SDSC (Byte-Adressierung, keine CMD8-Antwort) ist seither nachgebildet und
+  mountet (siehe Fehlerfälle der Karte im Emulator-Dokument). **gemessen**
 - **gemessen:** Das DMATRIG-Bit steht im Befehlswort für Lesen und Schreiben
   (`0x10000`), im Modell ohne Wirkung. Es wurde kein EDMA programmiert.
 
@@ -243,10 +245,11 @@ und arbeiten mit selbst erzeugten Karten.
 - **Netzteil:** Ohne Netzteil-Schalter scheitert jedes Update scheinbar
   ("Battery Low"), siehe Abschnitt 5. Der Dienst braucht dafür einen
   eigenen Schalter.
-- **Nachbildung:** Weder CRC noch Fehlerfälle (Timeout, CRC-Fehler,
-  Schreibschutz, Karte gezogen) sind modelliert. Die Firmwaretexte dazu
-  ("Card Error", "Card Write Protected", "Card Removal") sind also ungeprüft.
-- **Typen:** SDSC, Karten über 1 GiB und exFAT sind ungeprüft. FatFs
+- **Nachbildung:** CRC, Schreibschutz (GPIO 4.0), Timeouts, Lese- und
+  Schreibfehler sind im Emulator nachgebildet; was die Firmware daraus macht
+  ("Card Error", "Card Write Protected"), steht unter Fehlerfälle der Karte in
+  [../emulator.md](../emulator.md). "Card Removal" ist weiter ungeprüft.
+- **Typen:** Karten über 1 GiB und exFAT sind ungeprüft. FatFs
   unterscheidet FAT12/16/32 nur nach der Clusterzahl; ein falsch gebautes Abbild
   mountet ohne Fehlermeldung nicht.
 - **Urheberrecht:** Echte Karten enthalten Korg-Daten. Abbilder mit
