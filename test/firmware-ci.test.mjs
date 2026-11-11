@@ -2,11 +2,40 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
 import { firmwareMatrix } from "../tools/ci/firmware-matrix.mjs";
 import { workflowPaths } from "../tools/ci/verify-scope.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const read = path => readFileSync(`${root}${path}`, "utf8");
+
+test("only feature PRs into develop or release branches select cached case checks", () => {
+  const workflow = read(".github/workflows/verify-patches.yml");
+  const [, condition, body] = workflow.match(/- id: scope\n\s+if: ([^\n]+)\n([\s\S]*?)(?=\n      -)/);
+  for (const [event_name, base_ref, expected] of [
+    ["pull_request", "develop", true],
+    ["pull_request", "release/1.4.5", true],
+    ["pull_request", "release/2.0.0", true],
+    ["pull_request", "main", false],
+    ["pull_request", "release-candidate", false],
+    ["pull_request", "feature/release/1.4.5", false],
+    ["pull_request", "other", false],
+    ["push", "release/1.4.5", false],
+    ["workflow_dispatch", "release/1.4.5", false],
+  ]) {
+    assert.equal(runInNewContext(condition, {
+      github: { event_name, base_ref },
+      startsWith: (value, prefix) => value.toLowerCase().startsWith(prefix.toLowerCase()),
+    }), expected, `${event_name} into ${base_ref}`);
+  }
+  assert.match(body, /node tools\/ci\/verify-scope\.mjs/);
+  assert.match(body, /echo "full=false"/);
+  assert.match(body, /echo "cases=\$cases"/);
+  assert.match(workflow, /full: \$\{\{ steps\.scope\.outputs\.full \|\| steps\.push\.outputs\.full \|\| 'true' \}\}/);
+  assert.match(workflow, /full: \$\{\{ needs\.ref\.outputs\.full == 'true' \}\}/);
+  assert.match(read(".github/workflows/release.yml"), /full: true/);
+  assert.match(read(".github/workflows/firmware-check.yml"), /name: Develop task results\n\s+if: \$\{\{ !inputs\.full \}\}\n\s+uses: actions\/cache\/restore@v4/);
+});
 
 test("the firmware matrix retains four hardware variants for each shard", () => {
   const { firmwares, parts } = firmwareMatrix(4);
