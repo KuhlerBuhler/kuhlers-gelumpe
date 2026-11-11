@@ -597,7 +597,7 @@ Geprüft wird nur, wenn der PR den Patch-Satz (`data/patches/`), etwas, das `ver
 oder `tools/emu/` ändert (die Pfade unter `push:` im Workflow); sonst ist `patches` nach dem ersten Job grün. Was
 dann läuft, hängt von der Basis ab:
 
-- **Pull Request nach `develop`** (Feature-Branches): auf allen vier Dateien nur die Startszenarien (`check.py --quick`)
+- **Pull Request nach `develop` oder `release/*`** (Feature-Branches): auf allen vier Dateien nur die Startszenarien (`check.py --quick`)
   und die Case-Module, die zu den geänderten Dateien gehören (`verify-patches.mjs --cases`, an `check.py --cases`
   weitergereicht). Welche das sind, sagt `tools/ci/verify-scope.mjs` mit einer festen Tabelle: `tools/emu/<x>_cases.py`
   ist `<x>_cases` (plus die Module, die daraus importieren), Assembler und Patch-JSON gehen an die Cases, die sie
@@ -605,12 +605,13 @@ dann läuft, hängt von der Basis ab:
   (`script_vm.s`, `script_hooks.s`, `src/patch.mjs`, `src/hooks.mjs`, `machine.py`, `bootmap.py`, `check.py`) und jede
   Datei, die nicht in der Tabelle steht, heißt alle Case-Module. Geschrieben oder committet wird dabei nichts: ein
   Eintrag in `verified.json` heißt immer "ganz geprüft". Der Preis: bricht ein Case außerhalb der zugeordneten Module,
-  sieht man das erst am Release-PR. Die Tabelle hält `test/verify-scope.test.mjs` mit `check.py` in Einklang.
+  sieht man das erst am Release-PR nach `main` oder beim vollständigen Freigabelauf. Die Tabelle hält
+  `test/verify-scope.test.mjs` mit `check.py` in Einklang.
 - **Pull Request nach `main`** (der Release-PR aus `release/X.Y.Z` oder `develop`) und jede andere Basis: der ganze
   Check, danach committet der letzte Job die neue `verified.json` auf den Branch des Pull Requests.
 - **Push auf `develop`** (ein gemergter PR, der die Pfade ändert): alle Case-Module auf allen vier Dateien mit den
   gespeicherten Task-Ergebnissen, geschrieben wird nichts. Der Lauf hält den Task-Cache von `develop` aktuell. Jeder
-  PR-Lauf lädt den neuesten Cache von `develop` und seinen eigenen und nimmt beide zusammen: ein neuer PR startet
+  gezielte PR-Lauf nach `develop` oder `release/*` lädt den neuesten Cache von `develop` und seinen eigenen und nimmt beide zusammen: ein neuer PR startet
   nicht kalt, und nach einem Merge von `develop` in den PR fehlen die neuen Ergebnisse von `develop` nicht. Gerechnet
   werden nur die Tasks, deren Eingaben oder benutzte Dateien sich geändert haben. Ein neuer develop-Stand
   ersetzt die noch laufenden Teilläufe des alten; der neueste Stand prüft wieder alle Fallmodule.
