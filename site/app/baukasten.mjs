@@ -5,7 +5,7 @@
  * Needs no firmware until the export.
  */
 import { el } from "./fields.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { icon } from "./icons.mjs";
 import { knob } from "./fx-knob.mjs";
@@ -22,6 +22,8 @@ import FINDINGS from "../../data/findings.mjs";
 import { BLOCKS, field } from "../../src/map/index.mjs";
 import { REC } from "../../src/layout.mjs";
 import { t, localize } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:effects");
 
 const OWN = "cee.baukasten";
 const SLOTS = "cee.baukasten.slots";

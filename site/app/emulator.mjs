@@ -5,12 +5,14 @@
  */
 import { el } from "./fields.mjs";
 import { stateText } from "./state.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { identify, buildOf, lackOf, hasBlechSysex, firmwareName } from "../../src/firmware.mjs";
 import { devicePanel } from "./panel.mjs";
 import { LedPlayer } from "./led-trace.mjs";
 import { emuBase, parseEmuLink } from "./emu-link.mjs";
 import { t } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:emulator:fix");
 
 const VSB_SIZE = 0x200100;
 const STORE = "cee.emu";

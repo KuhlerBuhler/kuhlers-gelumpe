@@ -177,6 +177,7 @@ export function rescuePage(root, context = {}) {
   const answers = el("div", { className: "cee-rescue-answers", id: "cee-rescue-answers" });
   const back = el("button", { type: "button", className: "btn sm", id: "cee-rescue-back", textContent: t(BUTTONS.back) });
   const again = el("button", { type: "button", className: "btn sm", id: "cee-rescue-again", textContent: t(BUTTONS.again) });
+  const nav = el("div", { className: "actions cee-rescue-nav", id: "cee-rescue-nav" }, [back, again]);
   const input = el("input", { type: "file", id: "cee-rescue-input", className: "ui-dropzone-input", accept: ".VSB,.vsb" });
   const fileInfo = el("span", { className: "ui-dropzone-files", id: "cee-rescue-file-info" });
   let path = ["start"];
@@ -300,6 +301,8 @@ export function rescuePage(root, context = {}) {
     answers.hidden = !choices.length && !pick.length;
     answers.classList.toggle("cee-rescue-answers-ask", !!node.search);
     back.disabled = path.length < 2;
+    // On the start page there is nothing to go back to and nothing to start over.
+    nav.hidden = path.length < 2;
     showNewest();
     clearTimeout(timer);
     learn(at, node);
@@ -558,7 +561,7 @@ export function rescuePage(root, context = {}) {
     el("h1", { className: "cee-rescue-title ui-sr-only", textContent: t("nav.rescue") }),
     chat,
     answers,
-    el("div", { className: "actions cee-rescue-nav" }, [back, again]),
+    nav,
   ]));
   render();
 }
