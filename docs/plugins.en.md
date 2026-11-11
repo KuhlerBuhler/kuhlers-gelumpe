@@ -568,8 +568,8 @@ An arpeggiator that follows along writes the step that comes next in the `step` 
 block, `korg.seq.writeSteps` writes them into the pattern that plays, and `korg.seq.setPartValue` carries over the part's
 values. Saving works as above: only WRITE stores the pattern. In the emulator such a plugin copies a part with all 64 steps
 and its values, WRITE stores the pattern, and after switching to another pattern and back it is identical byte for byte
-(`tools/emu/plugin_edit_cases.py`). The note places hold the MIDI note plus 1, 0 is empty. `setPartValue` does not go
-through the knob handler, so it is not recorded into the motion sequence and not sent as MIDI CC (inferred, not measured).
+(`tools/emu/plugin_edit_cases.py`). The note places hold the MIDI note plus 1, 0 is empty. From API version 24 `setPartValue`
+sends the same MIDI CC as the knob (checked in the emulator, [measurement](messungen/2026-11-08-plugin-api24-part-cc.md), German); whether it is recorded into the motion sequence is not measured.
 
 ```js
 // TAP copies part 1 of pattern 5 into the selected part: steps and values.
@@ -982,7 +982,7 @@ page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
-| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD, plus AUTO SAVE (table below) |
+| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD, plus KEY PADS, FILTER TOGGLE and AUTO SAVE (table below) |
 | PLUGINS | ENTER opens the list of the plugins (MANAGE PLUGINS) straight away; see below |
 | CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
@@ -999,6 +999,8 @@ The pages of FEATURES (the tag names the group "Feature"), each with the value O
 | NOTE ASSIST | ON, OFF (see below) |
 | LAST PATTERN | ON, OFF (see below) |
 | STEREO 1 PAD | ON, OFF (see below, red only) |
+| KEY PADS | ON, OFF (see below) |
+| FILTER TOGGLE | ON, OFF (see below) |
 
 There is no ABOUT group any more: it only showed the number of loaded plugins and confused people.
 
@@ -1044,6 +1046,8 @@ The pages of the groups:
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 | FEATURES, LAST PATTERN | ON, OFF | ON: at power-on the Electribe opens the pattern that was selected before switching off; OFF: it starts with 001 as in the firmware, the kept number stays for a start with ON; applies from the next power-on, WRITE keeps it (bit 3 of byte 5 of the settings file means OFF); without a file ON; EXIT at power-on: 001; red and blue, where the set has the patch last-pattern |
 | FEATURES, STEREO 1 PAD | ON, OFF | ON: a stereo sample takes only its own pad and plays there on one voice, the pad next to it plays its own sample; OFF: as in the firmware, a stereo sample on pad 1, 3, ... also takes the next pad; applies at once, WRITE keeps it (bit 2 of byte 5 of the settings file means OFF); ON without a file; EXIT held at power-on: as in the firmware; only where the set has the patch stereo-pad (red) ([measurement](messungen/2026-10-29-stereo-ein-pad.md)) |
+| FEATURES, KEY PADS | ON, OFF | ON: KEYBOARD held + pad sets the KEY (chromatic in pad order: pad 1 C to pad 12 B, pads 13 to 16 do nothing), the firmware's value window shows it; OFF: the pads as in the firmware (KEYBOARD + pad 13 silently selects part 13); applies at once, WRITE keeps it (bit 4 of byte 5 of the settings file means OFF); ON without a file; hacktribe, red and blue, checked in the emulator, not on the device ([measurement](messungen/2026-11-07-key-pads-eingebaut.md), [layout](messungen/2026-11-08-key-pads-chromatisch.md), German) |
+| FEATURES, FILTER TOGGLE | ON, OFF | ON: SHIFT + LPF, HPF or BPF turns the filter of the selected part off and on again, with the type the key had last; OFF: SHIFT + filter key as in the firmware; applies at once, WRITE keeps it (bit 5 of byte 5 of the settings file means OFF); ON without a file; hacktribe, red and blue, checked in the emulator, not on the device ([measurement](messungen/2026-11-08-filter-toggle-eingebaut.md), German) |
 | FEATURES, AUTO SAVE | ON, OFF | ON: leaving GLOBAL PARAMETERS (or PLUGIN RUNTIME behind it) after changing a value there saves the Global values with the same request WRITE sends there (the firmware shows its "Writing..." window for about a second, as after WRITE); leaving the BLECH menu after changing a setting writes the settings file as WRITE does; nothing changed means nothing is written, patterns stay with WRITE; OFF: only WRITE saves, as in the firmware; acts at once, ON is the default (also without a file); OFF is bit 7 of byte 5 of the settings file, a BLECHTRIBE before 1.5 rejects a file with that bit; switching AUTO SAVE itself off is kept by WRITE only ([measurement](messungen/2026-11-09-auto-save.md), German) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY, 1 to 250 | the pattern DATA UTILITY > INITIALIZE PATTERN takes as its template; FACTORY is the firmware's template; applies at once and stays after switching off (Global byte 247, no WRITE needed); only where the set has the patch init-pattern (red) ([measurement](messungen/2026-10-28-init-pattern.md)) |
 

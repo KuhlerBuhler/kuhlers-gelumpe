@@ -16,6 +16,7 @@ gelesen), **hergeleitet**, **offen**.
 | [plugins.md](plugins.md) | Plugins: Sprache, Ereignisse, Funktionen, Kartenformat, das Menü BLECH, die Seite im Editor ([English](plugins.en.md), [Français](plugins.fr.md)) |
 | [doom-lizenz.md](doom-lizenz.md) | Doom auf der Karte: Teile, Lizenzen, warum AGPL und GPL zusammenpassen, was noch zur Weitergabe fehlt |
 | [original-zurueck.md](original-zurueck.md) | Zurück zu Korgs Original (BLECHTRIBE oder Hacktribe wieder runter), Schritt für Schritt, rot und blau ([English](original-zurueck.en.md)) |
+| [effekt-katalog.md](effekt-katalog.md) | Die Effekte und Modulationen im Katalog des Baukastens für Bass, Kick, Verzerrung und Mix, und was ein Effekt hier nicht kann |
 | [rettung.md](rettung.md) | Die Seite Blechy: der dokumentierte Weg zurück, Ordner je Firmware, das Stoppschild |
 | [patcher.md](patcher.md) | Die Firmware patchen: Patchformat, Haken, Regeln, Notschalter, BLECHTRIBE-Patchdatei ([English](patcher.en.md)) |
 | [emulator.md](emulator.md) | Der Emulator: Installation, Dienst, Karte und Flash, Boot, Prüfläufe |
