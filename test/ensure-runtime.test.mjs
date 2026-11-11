@@ -46,4 +46,9 @@ test("the files are built by whoever needs them, not committed", () => {
   for (const file of ["tools/test-runner.mjs", "tools/start.mjs", "tools/serve.mjs", "tools/build-site.mjs", "tools/emu/build-sidecar.mjs"]) {
     assert.match(readFileSync(join(root, file), "utf8"), /ensureRuntimePatches/, `${file} builds what is missing first`);
   }
+  // The image carries them too, and data/patches belongs to the container's user: the container runs as node and
+  // died on the lock file of a folder root owns (workflow Test, job docker).
+  const dockerfile = readFileSync(join(root, "Dockerfile"), "utf8");
+  assert.match(dockerfile, /node tools\/patch\/ensure-runtime\.mjs/, "the image builds the patches");
+  assert.match(dockerfile, /^\s*&& chown -R node:node .*data\/patches$/m, "data/patches belongs to node");
 });
