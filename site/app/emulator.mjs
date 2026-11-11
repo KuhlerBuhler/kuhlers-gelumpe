@@ -112,6 +112,51 @@ export function drawDisplay(canvas, bytes, light = null) {
     }
   }
   ctx.putImageData(img, 0, 0);
+  grids.get(canvas)?.colour(off);
+}
+
+/** The gap grids laid over a display canvas (pixelGrid), by that canvas. */
+const grids = new WeakMap();
+
+/**
+ * The real display has a thin gap between its pixels, in the colour of a clear pixel in the light. A second canvas over
+ * the 128 x 64 one draws only those gaps, at the screen's own resolution, so the display canvas keeps its pixels as they
+ * are. Below 3 screen pixels per display pixel there is no room for a gap, and the grid stays empty.
+ */
+export function pixelGrid(display) {
+  const grid = el("canvas", { className: "cee-lcd-grid" });
+  grid.setAttribute("aria-hidden", "true");
+  let rgb = null;
+  const draw = () => {
+    const box = display.getBoundingClientRect();
+    const scale = window.devicePixelRatio || 1;
+    const w = Math.round(box.width * scale);
+    const h = Math.round(box.height * scale);
+    if (grid.width !== w) grid.width = w;
+    if (grid.height !== h) grid.height = h;
+    const ctx = grid.getContext("2d");
+    ctx.clearRect(0, 0, w, h);
+    const cell = w / 128;
+    if (!rgb || cell < 3) return;
+    // About a seventh of a pixel, as on the real glass, and never thinner than one screen pixel.
+    const gap = Math.max(1, Math.round(cell * 0.14));
+    ctx.fillStyle = `rgb(${rgb.join(" ")})`;
+    for (let i = 1; i <= 128; i++) ctx.fillRect(Math.round(i * cell) - gap, 0, gap, h);
+    for (let i = 1; i <= 64; i++) ctx.fillRect(0, Math.round(i * (h / 64)) - gap, w, gap);
+  };
+  // A window moved to a screen of another pixel density keeps the canvas's size: the window's resize draws again then.
+  new ResizeObserver(draw).observe(display);
+  window.addEventListener("resize", draw);
+  const api = {
+    node: grid,
+    colour(next) {
+      if (rgb && next.every((c, i) => c === rgb[i])) return;
+      rgb = next;
+      draw();
+    },
+  };
+  grids.set(display, api);
+  return api;
 }
 
 /**
@@ -134,6 +179,7 @@ export function drawShade(canvas, levels, light = null) {
   const on = lit(parseColor(style.getPropertyValue("--cee-lcd-on")), light);
   const off = lit(parseColor(style.getPropertyValue("--cee-lcd-off")), light);
   ctx.putImageData(new ImageData(shadeImage(levels, on, off), 128, 64), 0, 0);
+  grids.get(canvas)?.colour(off);
 }
 
 function parseColor(value) {
@@ -511,7 +557,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
 
   const bar = el("div", { className: "cee-emu-bar" }, [status, startButton, el("div", { className: "cee-emu-file" }, [vsbInput, vsbInfo])]);
   root.replaceChildren(bar, deviceBox, where);
-  const frame = el("div", { className: "cee-lcd-frame" }, [canvas, offer]);
+  const frame = el("div", { className: "cee-lcd-frame" }, [canvas, pixelGrid(canvas).node, offer]);
   frame.addEventListener("dragover", e => { if (!offer.hidden) { e.preventDefault(); frame.dataset.drag = ""; } });
   frame.addEventListener("dragleave", () => delete frame.dataset.drag);
   frame.addEventListener("drop", e => {
