@@ -340,7 +340,9 @@ its own runtime off would leave the device without plugins at the next start) an
 **RAM only, until WRITE.** The values act at once but live in RAM only. They reach the card with WRITE on a page of the menu
 BLECH (the file `settings.a.bin` or `settings.b.bin`), not before; after a restart the last written state applies. With AUTO SAVE,
 leaving the menu BLECH writes the file too when the settings changed since it was opened. The
-exception is SET INIT PATTERN: it lives in the firmware's Global settings, which the device saves at switch-off.
+exception is SET INIT PATTERN: it lives in the firmware's Global settings, which the device saves at switch-off. Like the pages of GLOBAL PARAMETERS, the pages of BLECH show the ORIG badge while the value is
+the stored one (the one in the settings file, the default without a file): it goes when you change the value, comes back when you turn
+back and, after WRITE, belongs to the new value. Actions and lists (EXPORT, SPLASH, PLUGINS) have none.
 `korg.menu.blech.write()` writes the settings file from a plugin, as WRITE does. It only asks: the write happens a moment
 later, only while the main screen or BLECH is open, and at the earliest 2 seconds after the last write, further calls before
 that stay one request. Without a card or on an error nothing more happens, as with WRITE in the menu. A plugin should call it
