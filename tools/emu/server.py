@@ -129,9 +129,9 @@ def real_machine(payload, flash):
     return Machine(payload, flash)
 
 
-def real_check(base, patched, flash, allow, allow_code=(), boot_flash=None, progress=None, quick=False):
+def real_check(base, patched, flash, allow, allow_code=(), boot_flash=None, progress=None, quick=False, foreign=False):
     from check import check
-    return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick, boot_flash=boot_flash)
+    return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick, boot_flash=boot_flash, foreign=foreign)
 
 
 class Emulator:
@@ -490,11 +490,11 @@ class Emulator:
             self.inputs.put(panel_message({"kind": "adapter", "plugged": False})[0])
         self.inputs.put(held)
 
-    def check(self, pair, allow, allow_code=(), quick=False, hardware=None):
+    def check(self, pair, allow, allow_code=(), quick=False, hardware=None, foreign=False):
         """Export check (check.py) of the original VSB and its patched copy, sent one after the other. The start scenarios
         boot from the flash of the hardware the original runs on (by its head, or `hardware`), the user's own; the cases of
         the patches run on a blank flash of that hardware, as in CI: they expect Init patterns, not the user's.
-        One check at a time; `quick` only the start scenarios."""
+        One check at a time; `quick` only the start scenarios; `foreign` (a patch that is not ours) without the start phase check."""
         if len(pair) != 2 * VSB_SIZE:
             raise ValueError(f"Die Prüfung braucht Original und Kopie, je {VSB_SIZE} Byte.")
         if not self.checking.acquire(blocking=False):
@@ -505,7 +505,7 @@ class Emulator:
             result = self.checker(bytes(pair[:VSB_SIZE]), bytes(pair[VSB_SIZE:]), blank_for(hardware, payload), allow, allow_code,
                                   boot_flash=self.current_flash(hardware, payload),
                                   progress=lambda snapshot: setattr(self, "check_progress", {"state": "running", **snapshot}),
-                                  **({"quick": True} if quick else {}))
+                                  **({"quick": True} if quick else {}), **({"foreign": True} if foreign else {}))
             self.check_progress = {**self.check_progress, "state": "done"}
             return result
         except BaseException:
@@ -794,7 +794,8 @@ def make_handler(emu, token, origins):
                     hardware = query.get("hardware", [None])[0]
                     if hardware not in (None, "red", "blue"):
                         raise ValueError("hardware ist red oder blue.")
-                    return self._send(200, emu.check(body, spans["allow"], spans["allowCode"], quick=query.get("quick", [""])[0] == "1", hardware=hardware))
+                    return self._send(200, emu.check(body, spans["allow"], spans["allowCode"], quick=query.get("quick", [""])[0] == "1", hardware=hardware,
+                                                         foreign=query.get("foreign", [""])[0] == "1"))
                 elif path == "/input":
                     body = self._body(1024)
                     if body is None: return
