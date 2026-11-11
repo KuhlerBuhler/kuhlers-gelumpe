@@ -8,7 +8,7 @@ import { dropzoneClear } from "./dropzone-clear.mjs";
 import { saveFile } from "./save-file.mjs";
 import { saveAs, saveWay, findCards, saveToCard, sameCards } from "./save-target.mjs";
 import { applyPatches } from "../../src/patch.mjs";
-import { readAnyPatch, applyAnyPatch, itemsOf } from "../../src/anypatch.mjs";
+import { readAnyPatch, applyAnyPatch, itemsOf, isForeign } from "../../src/anypatch.mjs";
 import { RELEASE_NOTES } from "../../data/release-notes.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf, hardwareOf } from "../../src/firmware.mjs";
@@ -1155,7 +1155,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       // a copy checked before needs no run; otherwise the quick check (start and rescue paths) or the full one
       const hardware = hardwareOfFlow(flow);
       const report = (testChoice === "quick" ? await verifiedReport(from, res.bytes, await loadVerified(), hardware) : null)
-        ?? await emulator.check(from, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: testChoice === "quick", hardware });
+        ?? await emulator.check(from, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: testChoice === "quick", hardware, foreign: isForeign(ownPatch) });
       if (report.ok) passed = res.bytes;
       // a red check no group knows still is a red test: Blechy then asks which kind it was
       failure = report.ok ? null : testFailure(report) ?? { group: null };

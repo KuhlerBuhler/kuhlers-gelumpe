@@ -41,3 +41,13 @@ export function readGifFrame(file, index, slots) {
   for (let i = 0; i < SCRIPT_GIF.frameBytes; i++) slots[i] = file[at + SCRIPT_GIF.frameHeader + i];
   return Math.max(1, view.getUint16(at, true));
 }
+
+/**
+ * 128 x 64 pixels, 1 for a drawn pixel, row by row (as src/splash-bmp.mjs gives them) -> the 1024 bytes of one frame:
+ * byte (y / 8) * 128 + x, bit y % 8, set where the pixel is drawn, the way the display shows it.
+ */
+export function frameOfPixels(pixels) {
+  const out = new Uint8Array(SCRIPT_GIF.frameBytes);
+  for (let i = 0; i < pixels.length; i++) if (pixels[i]) out[(i >> 10) * 128 + (i & 127)] |= 1 << ((i >> 7) & 7);
+  return out;
+}
