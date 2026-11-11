@@ -1,11 +1,13 @@
 /** The Startbild page: any picture to splash.bmp for the card (SPLASH IMPORT in the BLECH menu). Logic: src/splash-bmp.mjs. */
 import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { loadingAnimSection } from "./loading-anim.mjs";
 import { icon } from "./icons.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:splash");
 
 const STYLE = new URL("./splash.css", import.meta.url).href;
 

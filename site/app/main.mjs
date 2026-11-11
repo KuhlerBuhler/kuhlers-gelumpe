@@ -39,7 +39,7 @@ import { patchesPresent, selectFor } from "../../src/patch.mjs";
 import { sharedProbe } from "./probe.mjs";
 import { watchForUpdate, showNews } from "./update.mjs";
 import { apply as applySettings, get as setting, holdAutoConnect, languageSwitch, releaseAutoConnect, settingsButton, settingsPage } from "./settings.mjs";
-import { toast } from "./toast.mjs";
+import { toast, toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { t } from "./i18n.mjs";
 
@@ -369,7 +369,7 @@ async function startAfterDisconnect(device, emulator) {
   const yes = await window.ui?.confirm({ title: t("app.disconnect.title"), text: t("app.disconnect.text"), confirmLabel: t("app.disconnect.confirm") });
   if (!yes || !device.session) return;
   await device.disconnect();
-  try { toast(await emulator().powerOn(), "info"); } catch (e) { toast(e.message, "error"); }
+  try { toast(await emulator().powerOn(), "info"); } catch (e) { toast(e.message, "error", { help: "h:emulator:fix" }); }
 }
 
 /** Pages that share one navbar title: a switch goes between the emulator and the real device. */
@@ -753,7 +753,7 @@ function boot() {
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
 else boot();
 
-watchForUpdate($("#cee-update"), undefined, toast);
+watchForUpdate($("#cee-update"), undefined, toastFor("h:updates"));
 showNews(toast);
 
 // In the desktop app a new window goes nowhere: the donate, GitHub, Instagram and Korg links navigate in place and the app opens them in the browser (src-tauri).
