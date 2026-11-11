@@ -5,6 +5,7 @@
 import { PatternFile, Pattern, parseSinglePattern, toSinglePattern, FileError } from "../../src/pattern.mjs";
 import { fieldsOf, field } from "../../src/map/index.mjs";
 import { control, el } from "./fields.mjs";
+import { icon } from "./icons.mjs";
 import { stepEditor } from "./steps.mjs";
 import { devicePanel } from "./device.mjs";
 import { fxPanel } from "./fx.mjs";
@@ -383,6 +384,7 @@ function navbar({ onMode }) {
   let device = false;
   let emuAction = null;
   let cardButton = null;
+  let cardStatus = null;
   let consoleAction = null;
   let pluginActions = [];
   let baukastenActions = [];
@@ -390,15 +392,21 @@ function navbar({ onMode }) {
   const homes = {};
   // One switch: off is the emulator, on the real device. onMode answers false when the device cannot be chosen.
   const modeSwitch = $("#cee-mode-switch");
+  const menu = gearMenu($("#cee-emu-gear"), $("#cee-emu-menu"));
   modeSwitch.addEventListener("change", () => {
     if (onMode(modeSwitch.checked ? "device" : "emu") === false) modeSwitch.checked = page === "device";
+    else menu.close(true);
   });
   function render() {
     const mode = page in MODES;
     $("#cee-nav-title").hidden = mode;
     $("#cee-mode").hidden = !mode;
+    $("#cee-emu-menu-box").hidden = !mode;
     if (mode) {
       modeSwitch.checked = page === "device";
+      const title = $("#cee-mode-title");
+      title.dataset.i18n = page === "device" ? "mode.device" : "mode.emu";
+      title.textContent = t(title.dataset.i18n);
     } else {
       // A page with sub-pages shows where you are as a breadcrumb: Plugins › Dokumentation › the section you read.
       // Every crumb but the last leads back: the title to the page's start sub-page, a step with `go` to that step.
@@ -417,7 +425,11 @@ function navbar({ onMode }) {
     // On the device page the navbar carries the device panel's button (it moves there from the page, so its handlers
     // stay): connect while no device is attached, disconnect with the words "Gerät verbunden" once one is.
     const link = connectButton ? [connectButton] : [];
-    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page === "scripts" ? pluginActions : page === "baukasten" ? baukastenActions : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: t("app.connected") }), ...link] : link;
+    // The emulator's card, its folder and its own window are rows of the gear menu, under the mode switch.
+    $("#cee-emu-rows").replaceChildren(...(page === "emu" ? [cardButton, emuAction].filter(Boolean) : []));
+    // The card's state line (for screen readers) stays in the bar: a live region in the shut menu would say nothing.
+    cardStatus ??= cardButton?.querySelector("#cee-sd-status") ?? null;
+    const state = page === "emu" ? [cardStatus].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page === "scripts" ? pluginActions : page === "baukasten" ? baukastenActions : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: t("app.connected") }), ...link] : link;
     $("#cee-nav-state").replaceChildren(...state);
   }
   return {
@@ -438,6 +450,31 @@ function navbar({ onMode }) {
     /** The breadcrumb after the title of `id`: the sub-page and, in the docs, the section. `home` opens the start sub-page. */
     trail(id, parts, home) { trails[id] = parts; if (home) homes[id] = home; if (id === page) render(); },
   };
+}
+
+/**
+ * The gear next to the mode title: a panel with the mode switch, the SD card, its folder and the emulator's own window.
+ * A disclosure, not role=menu, since its rows are switches and buttons; Escape and a click outside close it, and a
+ * button row closes it after it ran.
+ */
+function gearMenu(button, panel) {
+  button.append(icon("settings"));
+  const close = (refocus = false) => {
+    if (panel.hidden) return;
+    panel.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+    if (refocus) button.focus({ preventScroll: true });
+  };
+  button.addEventListener("click", () => {
+    if (!panel.hidden) { close(); return; }
+    panel.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    panel.querySelector("input, button:not([hidden])")?.focus({ preventScroll: true });
+  });
+  panel.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); close(true); } });
+  panel.addEventListener("click", e => { if (e.target.closest("button")) close(); });
+  document.addEventListener("pointerdown", e => { if (!panel.hidden && !panel.contains(e.target) && !button.contains(e.target)) close(); });
+  return { close };
 }
 
 /** The emulator's SD card in the navbar: the switch that puts it in and the button that shows its folder. */
@@ -537,6 +574,8 @@ function boot() {
   const usb = createUsbWatch({ transport, permissions: navigator.permissions, hidden: () => document.hidden });
   usbIndicator($("#cee-nav-end"), usb);
   languageSwitch($("#cee-nav-end"));
+  // The gear of the emulator sits in the right corner, after the language menu.
+  $("#cee-nav-end").append($("#cee-emu-menu-box"));
   // The navbar wraps on narrow screens, so anchors and scrollIntoView keep clear of its real height (app.css).
   const navBox = $(".cee-navbar");
   new ResizeObserver(() => document.documentElement.style.setProperty("--cee-navbar-real", `${navBox.offsetHeight}px`)).observe(navBox);

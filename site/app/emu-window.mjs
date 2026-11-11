@@ -27,7 +27,7 @@ const inApp = () => !!window.__GELUMPE_APP || location.protocol === "tauri:" || 
 /** On the main page: the button that opens the window, and the note with "Hier anzeigen" while it is open. */
 export function emulatorWindow(emulator, { place }) {
   const channel = new BroadcastChannel(CHANNEL);
-  const open = el("button", { type: "button", className: "btn sm cee-emu-pop", id: "cee-emu-pop" }, [icon("popout"), t("popout.open")]);
+  const open = el("button", { type: "button", className: "cee-mode-item cee-emu-pop", id: "cee-emu-pop" }, [icon("popout"), t("popout.open")]);
   const back = el("button", { type: "button", className: "btn", id: "cee-emu-back", textContent: t("popout.back") });
   const note = el("div", { className: "cee-emu-away", id: "cee-emu-away", hidden: true }, [
     el("p", { textContent: t("popout.away") }),

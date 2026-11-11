@@ -2,7 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { setUp } from "./harness.mjs";
+import { setUp, gear } from "./harness.mjs";
 import { fakeService, TOKEN } from "./support/fake-emu.mjs";
 import { makePatternFile } from "../helpers.mjs";
 
@@ -38,8 +38,10 @@ test("pattern backups stay in the card folder; the page inserts the card and ope
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.locator("#cee-sd-status", { hasText: "Nicht eingelegt" }).waitFor();
   assert.equal(await page.locator("#cee-emu-card input[type=file]").count(), 0);
+  await gear(page);
   await page.click("#cee-sd-open");
   await page.waitForFunction(() => !document.querySelector("#cee-sd-open").disabled);
+  await gear(page);
   await page.locator("label.ui-switch", { hasText: "Karte eingelegt" }).click();
   await page.waitForFunction(() => document.querySelector("#cee-sd-inserted").checked && !document.querySelector("#cee-sd-inserted").disabled);
   await page.locator("label.ui-switch", { hasText: "Karte eingelegt" }).click();
@@ -53,6 +55,7 @@ test("the card in the navbar is a switch and one button, nothing about folders o
   const page = await h.page();
   await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
   await page.locator("#cee-sd-status", { hasText: "Nicht eingelegt" }).waitFor();
+  await gear(page);
   await page.locator("label.ui-switch", { hasText: "Karte eingelegt" }).click();
   await page.locator("#cee-sd-status", { hasText: "Eingelegt" }).waitFor();
   const text = await page.locator("#cee-emu-card").innerText();
