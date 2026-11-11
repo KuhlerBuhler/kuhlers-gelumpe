@@ -283,7 +283,7 @@ dorthin, danach am Gerät Menü -> BLECH -> PLUGINS. Geschrieben wird in einer a
 übersetzt das in Bytecode für eine kleine VM in der Firmware. Wenn ein Plugin einen Fehler hat, wird
 nur das Plugin abgeschaltet, die Electribe läuft normal weiter. Sprache, Ereignisse und Funktionen:
 [docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: Set-Timer, BLECH Clicker,
-Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Image Viewer, BPM Glide,
+Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, BMP Viewer, BPM Glide,
 Momentary Mute, Gate Hold, Step Copy, Lauflicht, Pulsieren und Takt-Blinker.
 
 ## Der Emulator

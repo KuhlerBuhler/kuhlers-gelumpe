@@ -222,7 +222,7 @@ Menü -> BLECH -> PLUGINS. The code is a subset of JavaScript, the editor compil
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
 The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
-Mandelbrot, GIF Player, Image Viewer, BPM Glide, Momentary Mute, Gate Hold, Step Copy,
+Mandelbrot, GIF Player, BMP Viewer, BPM Glide, Momentary Mute, Gate Hold, Step Copy,
 Lauflicht, Pulsieren and Takt-Blinker.
 
 ## The emulator
