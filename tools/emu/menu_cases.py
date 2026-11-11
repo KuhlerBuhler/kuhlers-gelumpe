@@ -275,6 +275,7 @@ def draw_texts(dev, value, line3):
     scratch = script_hooks.CARD + 0xF00
     dev.m.uc.mem_write(scratch, value.encode() + b"\0")
     dev.m.uc.mem_write(scratch + 64, line3.encode() + b"\0")
+    dev.m.uc.mem_write(widget + ORIG_FLAG, b"\0")      # the ORIG badge is not a text of the page: it would be in both frames and count as shared pixels
     dev.call(SET_VALUE, widget, scratch)
     dev.call(SET_LINE3, widget, scratch + 64)
     dev.run(0.25)
