@@ -105,7 +105,7 @@ function paint(canvas, picture) {
   ctx.drawImage(picture, 0, 0);
 }
 
-/** The name of a member with picture, game and status dot, on the floor above a Blechy and in the list. */
+/** The name of a member with picture, game and status dot, in the list under the floor. */
 function tag(m) {
   const dot = el("span", { className: "cee-discord-dot" });
   dot.setAttribute("data-tone", TONE[m.status] ?? "warn");
@@ -117,10 +117,10 @@ function tag(m) {
   ]);
 }
 
-/** One member as a Blechy; his name shows while the pointer is on him. `walks` tells the floor whether he moves. */
+/** One member as a Blechy; his name is in the list under the floor, not on him. `walks` tells the floor whether he moves. */
 function blechy(m) {
   const canvas = el("canvas", { className: "cee-discord-blechy-art", width: WIDTH, height: WIDTH });
-  const node = el("li", { className: "cee-discord-blechy" }, [tag(m), canvas]);
+  const node = el("li", { className: "cee-discord-blechy" }, [canvas]);
   node.dataset.id = String(m.id);
   return {
     node, canvas, status: m.status, pose: POSE_OF[m.status] ?? "idle", walks: m.status === "online", x: 0, dir: 1, move: "",
@@ -211,7 +211,6 @@ function floor() {
         enter(m);
         continue;
       }
-      f.node.replaceChild(tag(m), f.node.firstChild);
       if (f.status === m.status) continue;
       f.status = m.status;
       f.pose = POSE_OF[m.status] ?? "idle";

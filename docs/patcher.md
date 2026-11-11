@@ -662,20 +662,33 @@ Hacktribe 2.02 mit den Sets von 1.2.0 bis 1.3.7).
 
 ### Korgs Firmware laden
 
-Wer keine `SYSTEM.VSB` hat, bekommt sie in Schritt 1 von Korg: erst den Haken "Ich habe Korgs Lizenzvertrag gelesen und
-nehme ihn an" (Korgs Downloadseite zeigt den Vertrag und sagt, man soll nur nach Annahme laden; der Link im Haken führt
-dorthin). Die Karten für Korgs roten und blauen Electribe zeigen nur, welche Datei kommt, sie sind weder Link noch
-Knopf. Geladen wird mit "Weiter", solange der Haken gesetzt und das Feld leer ist; eine eigene Datei im Feld wird nie
-ersetzt. Ohne Haken und ohne Datei bleibt "Weiter" aus, ein Hinweis nennt beide Wege.
+Schritt 1 fragt "Welche Basis willst du verwenden?" (bei BLECH und beim Weg zurück): "Original Firmware" ist
+vorgewählt, "Eigene Firmware" zeigt nur das Feld für die eigene `SYSTEM.VSB` oder ein Zip mit ihr. Bei "Original
+Firmware" lädt "Weiter" Korgs Firmware gleich, ohne Haken davor: unter den Karten steht, dass "Weiter" Korgs
+Lizenzvertrag annimmt (Korgs Downloadseite zeigt den Vertrag und sagt, man soll nur nach Annahme laden; der Link im
+Satz führt dorthin). Die Karten für Korgs roten und blauen Electribe zeigen nur, welche Datei kommt, sie sind weder
+Link noch Knopf. Eine eigene Datei im Feld wird nie ersetzt. Der Haken für den Lizenzvertrag bleibt nur dort, wo die
+App Korgs Datei zu einer eigenen Datei laden soll (eine geänderte Korg-Datei oder eine mit BLECHTRIBE darauf, nur in
+der App). Ohne diese Frage (Update-Ziele, Datei vor dem Assistenten) gilt wie früher: Haken, dann "Weiter".
 
-- **App:** mit Haken lädt "Weiter" Korgs Zip selbst von Korgs Server (`korg_firmware`, `src-tauri/src/korg.rs`) und legt
+- **App:** "Weiter" lädt Korgs Zip selbst von Korgs Server (`korg_firmware`, `src-tauri/src/korg.rs`) und legt
   es ins Feld. Nichts geht über einen Server von uns, nichts wird gespeichert.
 - **Browser:** Korgs Server schickt keinen CORS-Kopf (gemessen am 26.10.: keine `Access-Control-Allow-Origin` auf GET,
   `OPTIONS` mit 403), die Seite kann das Zip also nicht selbst holen. "Weiter" startet den Download von Korgs Zip im
-  Browser und bleibt auf Schritt 1, das Zip zieht man danach ins Feld.
+  Browser und bleibt auf Schritt 1; das Feld für das Zip erscheint, und es nimmt `.zip` an.
 - **Zip im Feld:** das Feld nimmt Korgs Zip wie es ist und nimmt `SYSTEM.VSB` heraus (`src/zip.mjs`, mit dem
   `DecompressionStream` des Browsers); gemessen an beiden Zips von Korg: die herausgenommenen Dateien haben die SHA-256
   `1d0f0689…` (rot) und `41fc5f1c…` (blau).
+
+### Eigener Patch in Schritt 2
+
+Schritt 2 fragt "Welchen Patch willst du anwenden?": "Neuste Version" ist vorgewählt und der Satz dieser App, "Eigene
+blech.patch" zeigt das Feld für eine Patch-Datei (jede Endung, das Format steht am Anfang der Datei). `src/anypatch.mjs`
+liest eine GELUMPE-`.patch` (`src/patchfile.mjs`), einen Patch im JSON-Format `gelumpe-patch` (einzeln oder als
+Liste), IPS und IPS32 sowie bsdiff (`BSDIFF40`). BPS, UPS und xdelta erkennt es und lehnt sie mit Namen ab, alles
+andere mit der Liste der Formate. Das Ergebnis muss die Länge einer `SYSTEM.VSB` haben (`0x200100` Byte). IPS und bsdiff
+bringen keine Prüfsummen mit, der Patcher weiß also nicht, auf welche Firmware sie passen: die Kontrolle ist der Test im
+Emulator. Geprüft mit selbstgebauten Patches (`test/anypatch.test.mjs`), offen: Patches aus der Szene.
 
 ### BLECHTRIBE mit Hacktribe für die blaue Electribe 2
 
