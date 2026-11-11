@@ -441,9 +441,11 @@ menu_load_look:
     bl menu_look_apply
     ldr r0, [r4, #M_BL_ON]
     bl boot_light_save
+    bl menu_orig_snap
     b menu_load_out
 menu_load_none:                 ; no settings file: the stock white, whatever colour the start took from Global byte 250
     bl boot_light_settle
+    bl menu_orig_snap           ; the defaults are what is stored then
 menu_load_out:
     pop {r4-r8, pc}
 .pool
@@ -725,6 +727,7 @@ menu_save_trust_done:
     str r8, [r4, #M_GEN]
     ldr r0, [r4, #M_BL_ON]      ; the colour the file now holds is the one the next start shows (Global byte 250)
     bl boot_light_save
+    bl menu_orig_snap
     bl menu_settings_crc
     str r0, [r4, #M_SNAP]
     mov r0, #1
@@ -737,6 +740,34 @@ menu_save_fail_r9:
     add r0, r9, #0x20
     str r0, [r4, #M_STATUS]
     pop {r4-r11, pc}
+; ORIG: the settings as the file holds them (the defaults without one), taken after the start's read and after each save: the record
+; menu_settings_write builds, SETTINGS_SIZE bytes, copied into MENU_FILE_B (free once the file is read). menu_orig_flag compares
+; the pages against it, as the firmware's own pages compare against the value stored at the start.
+menu_orig_snap:
+    push {lr}
+    bl menu_settings_crc
+    ldr r0, =MENU_FILE_A
+    ldr r1, =MENU_FILE_B
+    mov r2, #SETTINGS_SIZE
+menu_orig_copy:
+    ldr r3, [r0], #4
+    str r3, [r1], #4
+    subs r2, r2, #4
+    bne menu_orig_copy
+    pop {pc}
+; Sits in the span of the start (menu_settings_load to menu_settings_end): menu_orig_snap builds the settings record at every start, with or
+; without a settings file, and the start check allows only the code of that span to change.
+; r0, r2 arguments, r1 = offset of the entry of the patch pad-colors -> what it returns (r0, r1); 0 where the set has no such patch.
+menu_pc_call:
+    ldr r12, =PC_CODE
+    ldr r3, [r12]
+    cmn r3, #1
+    moveq r0, #0
+    bxeq lr
+    add r12, r12, r1
+    mov r1, r2
+    bx r12
+.pool
 ; Works out what the settings of the group CUSTOMIZATION do and puts them to work: the kind and the brightness of the
 ; bottom LEDs (M_LED_EFF: 0 the stock meter, 1 the meter in our colour, 2 a fixed colour; M_LED_V: red, green, blue as 0 to 255)
 ; and the backlight (pins that may light, the tables of the software PWM), then sets the backlight now.
@@ -1752,8 +1783,116 @@ menu_show:
     mov r2, #0
     str r2, [r5, #M_RAW]
     bl menu_brw_mark
+    ldr r0, [r5, #M_PAGE]       ; the firmware's ORIG badge (the text lines' widget draws it at the same place as on its own pages)
+    bl menu_kind
+    bl menu_orig_flag
+    ldr r1, [r4, #0x24]
+    strb r0, [r1, #0x49]
+    mov r0, #1
+    strb r0, [r1, #0x14]
     pop {r4, r5, pc}
 .pool
+
+; r0 = the kind of a page -> r0 = 1 when the setting the page shows is the one the file holds (menu_orig_snap), 0 when it was changed
+; or the page shows no setting. Builds the record of the settings as they are (menu_settings_crc leaves it in MENU_FILE_A) and
+; compares the bits of orig_masks for that kind: byte 5, the flags word and the look word of the record.
+menu_orig_flag:
+    push {r4, r5, lr}
+    mov r4, r0
+    ldr r5, =orig_masks
+menu_orig_find:
+    ldrb r0, [r5]
+    cmp r0, #0xFF
+    beq menu_orig_no
+    cmp r0, r4
+    addne r5, r5, #12
+    bne menu_orig_find
+    bl menu_settings_crc
+    ldr r0, =MENU_FILE_A
+    ldr r1, =MENU_FILE_B
+    ldrb r2, [r0, #5]
+    ldrb r3, [r1, #5]
+    eor r2, r2, r3
+    ldrb r3, [r5, #1]
+    ands r2, r2, r3
+    bne menu_orig_no
+    ldr r2, [r0, #12]
+    ldr r3, [r1, #12]
+    eor r2, r2, r3
+    ldr r3, [r5, #4]
+    ands r2, r2, r3
+    bne menu_orig_no
+    ldr r2, [r0, #16]
+    ldr r3, [r1, #16]
+    eor r2, r2, r3
+    ldr r3, [r5, #8]
+    ands r2, r2, r3
+    bne menu_orig_no
+    mov r0, #1
+    pop {r4, r5, pc}
+menu_orig_no:
+    mov r0, #0
+    pop {r4, r5, pc}
+.pool
+; per kind (menu_texts_fill): the kind, the bits of byte 5, then the bits of the flags word and of the look word of the settings record
+orig_masks:
+    .byte 0, 0, 0, 0                  ; PLUGIN RUNTIME: bit 0 of the flags
+    .word 0x00000001, 0
+    .byte 1, 0, 0, 0                  ; MFX 2: bit 1
+    .word 0x00000002, 0
+    .byte 7, 0, 0, 0                  ; bottom LEDs: bits 0 to 1 of the look word
+    .word 0, 0x00000003
+    .byte 8, 0, 0, 0                  ; LED HUE, SAT, BRIGHT: the three levels of the LED colour, bits 4 to 15 of the look word
+    .word 0, 0x0000FFF0
+    .byte 9, 0, 0, 0
+    .word 0, 0x0000FFF0
+    .byte 10, 0, 0, 0
+    .word 0, 0x0000FFF0
+    .byte 11, 0, 0, 0                 ; the same for the backlight, bits 16 to 27
+    .word 0, 0x0FFF0000
+    .byte 12, 0, 0, 0
+    .word 0, 0x0FFF0000
+    .byte 13, 0, 0, 0
+    .word 0, 0x0FFF0000
+    .byte 14, 0, 0, 0                 ; DISPLAY INVERT: bit 28 of the look word
+    .word 0, 0x10000000
+    .byte 18, 0, 0, 0                 ; PATTERN CONFIRM: bit 2 of the flags
+    .word 0x00000004, 0
+    .byte 20, 0, 0, 0                 ; TAP MOTION: bits 3 and 5
+    .word 0x00000028, 0
+    .byte 21, 0, 0, 0                 ; NOTE ASSIST: bit 4
+    .word 0x00000010, 0
+    .byte 24, 0, 0, 0                 ; PAD COLOR: bits 2 to 3 of the look word
+    .word 0, 0x0000000C
+    .byte 25, 0, 0, 0                 ; SELECT COLOR: bits 29 to 30
+    .word 0, 0x60000000
+    .byte 26, 0, 0, 0                 ; INTENSITY: bits 8 to 11 of the flags
+    .word 0x00000F00, 0
+    .byte 27, 0, 0, 0                 ; DISPLAY LIGHT (SAVE LIGHT): bits 12 to 15
+    .word 0x0000F000, 0
+    .byte 28, 2, 0, 0                 ; the meter's colours, colour n at bits 16 + 3n; STILL also has bit 30 and bit 1 of byte 5 (OFF)
+    .word 0x40070000, 0
+    .byte 29, 0, 0, 0
+    .word 0x00380000, 0
+    .byte 30, 0, 0, 0
+    .word 0x01C00000, 0
+    .byte 31, 1, 0, 0                 ; LOUD also has bit 0 of byte 5 (RAINBOW)
+    .word 0x0E000000, 0
+    .byte 32, 0, 0, 0                 ; OVERLAP: bits 28 to 29 of the flags
+    .word 0x30000000, 0
+    .byte 34, 0, 0, 0                 ; LED DIMMING: bits 6 to 7 and 31 of the flags, bit 31 of the look word
+    .word 0x800000C0, 0x80000000
+    .byte 44, 4, 0, 0                 ; STEREO 1 PAD: bit 2 of byte 5
+    .word 0, 0
+    .byte 45, 8, 0, 0                 ; LAST PATTERN: bit 3
+    .word 0, 0
+    .byte 48, 16, 0, 0                ; KEY PADS: bit 4
+    .word 0, 0
+    .byte 49, 32, 0, 0                ; FILTER TOGGLE: bit 5
+    .word 0, 0
+    .byte 51, 128, 0, 0               ; AUTO SAVE: bit 7
+    .word 0, 0
+    .byte 0xFF, 0, 0, 0
 
 ; ---- the list of the plugins (level 5) and SPLASH IMPORT as the firmware's file browser (DATA UTILITY, IMPORT SAMPLE: screen 39)
 ; The page keeps its header (tab, counter "n/N", EDIT and the status icons); the three text lines are handed an empty text and a widget of our own,
@@ -2629,17 +2768,6 @@ menu_text_colour:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
-
-; r0, r2 arguments, r1 = offset of the entry of the patch pad-colors -> what it returns (r0, r1); 0 where the set has no such patch.
-menu_pc_call:
-    ldr r12, =PC_CODE
-    ldr r3, [r12]
-    cmn r3, #1
-    moveq r0, #0
-    bxeq lr
-    add r12, r12, r1
-    mov r1, r2
-    bx r12
 
 ; SPLASH IMPORT (22): the dial picks a .bmp file in KORG/blechtribe, ENTER reads it into the start image; SPLASH DRAW (23): ENTER
 ; opens the editor; SPLASH RESET (35): ENTER drops the stored image, the start image of the firmware comes back

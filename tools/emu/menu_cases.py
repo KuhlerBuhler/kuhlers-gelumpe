@@ -833,8 +833,116 @@ def blechy_ring_part(payload, flash=None):
     return blechy_ring_cases(boot(payload, flash))
 
 
+ORIG_X, ORIG_ROWS = range(36, 51), range(55, 62)     # where the firmware draws its ORIG badge (15 x 8 at 36, 55); the last row of the plate is left out, the theme's checker runs through it
+ORIG_FLAG = 0x49                                     # the byte of the text widget (the screen's widget at 0x24) that the firmware's draw reads
+
+
+def orig_pixels(dev):
+    """The lit pixels of the ORIG badge's place."""
+    return {(x, y) for x, y in lit(dev.fb(), ORIG_ROWS) if x in ORIG_X}
+
+
+def orig_shown(dev):
+    """True when the page shows the ORIG badge (the widget's flag is set and the badge is on the display), False when it shows none;
+    None when the flag and the display disagree."""
+    flag = dev.read(dev.u32(screen_object(dev) + MENU_WIDGET) + ORIG_FLAG, 1)[0]
+    pixels = len(orig_pixels(dev))
+    return True if flag and pixels > 20 else False if not flag and not pixels else None
+
+
+def orig_pages():
+    """(name, how to reach it) of every page of the BLECH menu that shows a setting."""
+    pages = [("PLUGIN RUNTIME", lambda dev: goto_global(dev))]
+    for group, count in ((GROUP_DISPLAY, 5), (GROUP_LED, 8), (GROUP_PADS, 3), (GROUP_PSAVE, 2), (GROUP_FEATURES, feature_count())):
+        pages += [(f"{group}:{page}", lambda dev, group=group, page=page: goto_group(dev, group, page)) for page in range(count)]
+    return pages
+
+
+def orig_cases(payload, flash=None):
+    """The ORIG badge on the pages of the BLECH menu, as the firmware shows it on its own: on the value that is stored (the file's, the
+    defaults without one), gone after the dial changed it, back when it is turned back; at the place and in the look of the
+    firmware's badge (GLOBAL PARAMETERS); a changed value kept with WRITE is the stored one afterwards; pages that show no setting
+    have no badge."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:orig_{name}", "ok": bool(ok), "detail": detail})
+
+    dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    start, changed, back, stuck = {}, {}, {}, []
+    for name, reach in orig_pages():
+        reach(dev)
+        before = texts_of(dev)
+        start[name] = orig_shown(dev)
+        for step in (1, -1):
+            dev.turn(step, wait=0.3)
+            if texts_of(dev) != before:
+                break
+        else:
+            stuck.append(name)
+            continue
+        changed[name] = orig_shown(dev)
+        dev.turn(-step, wait=0.3)
+        back[name] = (orig_shown(dev), texts_of(dev) == before)
+        if not back[name][1]:       # the colour pages are hue, saturation and brightness over three levels: a step back need not be the value before; the next page starts on a device of its own
+            dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    add("shown_on_the_stored_value", start and all(v is True for v in start.values()), f"{start}")
+    add("gone_after_a_change", changed and not any(changed.values()) and not stuck, f"changed {changed}, pages where the dial changed nothing {stuck}")
+    add("back_on_returning", back and all(shown == restored for shown, restored in back.values()) and sum(restored for _, restored in back.values()) > 20, f"(badge, the value is the one before) {back}")
+
+    # the same plate in the same place as on the firmware's own pages
+    goto_group(dev, GROUP_FEATURES, FEAT_PC)
+    ours = orig_pixels(dev)
+    go(dev, 9)
+    dev.run(0.4)
+    theirs = orig_pixels(dev)
+    add("look_of_the_firmware", ours and ours == theirs, f"ours {len(ours)} pixels, GLOBAL PARAMETERS {len(theirs)}, same {ours == theirs}")
+
+    # a changed value kept with WRITE is the stored one; the old one is a change then
+    goto_group(dev, GROUP_FEATURES, FEAT_TM)
+    dev.turn(-1, wait=0.3)
+    off = orig_shown(dev), texts_of(dev)[1]
+    press(dev, "write", wait=0.6)
+    kept = orig_shown(dev)
+    dev.turn(1, wait=0.3)
+    on = orig_shown(dev), texts_of(dev)[1]
+    dev.turn(-1, wait=0.3)
+    off_again = orig_shown(dev), texts_of(dev)[1]
+    add("write_keeps_the_new_value", off == (False, "OFF") and kept is True and on == (False, "ON") and off_again == (True, "OFF"),
+        f"changed {off}, after WRITE {kept}, back to the old value {on}, to the kept one {off_again}")
+
+    # the value a settings file holds at the start: PATTERN CONFIRM off and the display not inverted are the file's, the other pages are the defaults
+    stored = boot(payload, flash, files={**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v2(2, 3 | PC_OFF_BIT, look_word(0, invert=0))}, adapter=True)
+    goto_group(stored, GROUP_FEATURES, FEAT_PC)
+    file_off = texts_of(stored)[1], orig_shown(stored)
+    stored.turn(1, wait=0.3)
+    file_on = texts_of(stored)[1], orig_shown(stored)
+    stored.turn(-1, wait=0.3)
+    file_off_again = texts_of(stored)[1], orig_shown(stored)
+    goto_group(stored, GROUP_DISPLAY, 4)
+    inverted_off = texts_of(stored)[1], orig_shown(stored)
+    add("file_value_is_the_stored_one", file_off == ("OFF", True) and file_on == ("ON", False) and file_off_again == ("OFF", True) and inverted_off[1] is True and not stored.m.asserts,
+        f"PATTERN CONFIRM {file_off}, turned up {file_on}, back {file_off_again}; DISPLAY INVERT {inverted_off}")
+
+    # without a card the defaults are the stored values
+    bare = boot(payload, flash, adapter=True, card=False)
+    goto_group(bare, GROUP_FEATURES, FEAT_TM)
+    bare_page = orig_shown(bare)
+    bare.turn(-1, wait=0.3)
+    add("no_card_shows_the_defaults", bare_page is True and orig_shown(bare) is False and not bare.m.asserts, f"at the start {bare_page}, after the dial {orig_shown(bare)}")
+
+    # the pages that show no setting have none: the list of the groups, the groups themselves, VERSION
+    plain = {}
+    for name, reach in (("groups", lambda: goto_top(dev, 0)), ("plugins", lambda: goto_group(dev, GROUP_PLUGINS, 0)), ("version", lambda: goto_top(dev, LIST_VERSION)),
+                        ("sync_group", lambda: _enter(dev, LEVEL_SYNC)), ("ring", lambda: goto_ring(dev))):
+        reach()
+        plain[name] = orig_shown(dev)
+    add("not_on_pages_without_a_setting", not any(plain.values()), f"{plain}")
+    return out
+
+
 # What cases_task(i) runs, in the order of cases(). Each boots its own device, so they run side by side.
-CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases)
+CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases, orig_cases)
 
 
 def cases(payload, flash=None, settings=True):
