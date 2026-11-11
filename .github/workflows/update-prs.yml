@@ -1,7 +1,10 @@
 # After every push to a base branch, the open pull requests into that branch that are behind it:
 #
-# - main and release branches: each one gets the branch merged in (GitHub's "Update branch"), so its checks run against
-#   what it will be merged into.
+# - main and release branches: one gets the branch merged in (GitHub's "Update branch"), the next one in line, so its
+#   checks run against what it will be merged into. One per run, because merging the base into every pull request that
+#   is behind starts the full CI of all of them at once, after every merge (issue #459). The merge that lands fires this
+#   workflow again and the next pull request follows, and the pull request that lands was still tested against the base
+#   with every merge before it. `all` from a manual run merges the base into every pull request that is behind.
 # - develop: only a pull request that conflicts with develop is touched. When every conflict is in the runtime patches
 #   (data/patches/script-runtime*.json), which tools/patch/script_runtime.mjs builds from the sources, the job merges
 #   develop in, builds the three again from the merged sources and pushes. Any other conflict is only logged, it needs a
@@ -10,8 +13,8 @@
 #   requests break only together shows up in the runs on develop (Test, Verify patches).
 #
 # The pushes use SYNC_TOKEN: a push with the workflow's own token starts no workflow, so the pull request would get no
-# new checks. A pull request from a fork and one whose head is itself a base branch (the sync main -> develop) are left
-# alone.
+# new checks. A pull request from a fork, a draft and one whose head is itself a base branch (the sync main -> develop)
+# are left alone; tools/ci/pr-queue.mjs picks the one that is next in line.
 name: Update pull requests
 
 on:
@@ -22,6 +25,10 @@ on:
       base:
         description: "Base branch whose pull requests to update, e.g. develop"
         required: true
+      all:
+        description: "main and release branches: update every pull request that is behind, not only the next one in line"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -37,32 +44,46 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # tools/ci/pr-queue.mjs picks the pull request, that is all this job needs from the repository.
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Merge the base into pull requests that are behind
         env:
           GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
           BASE: ${{ inputs.base || github.ref_name }}
           REPO: ${{ github.repository }}
+          ALL: ${{ inputs.all || 'false' }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
             echo "no SYNC_TOKEN: nothing is updated"; exit 0
           fi
+          # One row per pull request: number, head, sha, commits behind, draft, fork. The compare call is the only API
+          # request per pull request, it starts no workflow.
           gh pr list -R "$REPO" --base "$BASE" --state open --limit 100 \
-            --json number,headRefName,headRefOid,isCrossRepository \
-            --jq '.[] | select(.isCrossRepository | not) | [.number, .headRefName, .headRefOid] | @tsv' |
-          while IFS=$'\t' read -r n head sha; do
-            case "$head" in
-              main|develop|release/*) echo "#$n: head $head is a base branch, skipped"; continue ;;
-            esac
+            --json number,headRefName,headRefOid,isCrossRepository,isDraft \
+            --jq '.[] | [.number, .headRefName, .headRefOid, .isCrossRepository, .isDraft] | @tsv' |
+          while IFS=$'\t' read -r n head sha fork draft; do
             behind=$(gh api "repos/$REPO/compare/$sha...$BASE" --jq .ahead_by)
-            if [ "$behind" = 0 ]; then
-              echo "#$n: up to date"; continue
-            fi
+            printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$n" "$head" "$sha" "$behind" "$draft" "$fork"
+          done > "$RUNNER_TEMP/prs.tsv"
+          node tools/ci/pr-queue.mjs < "$RUNNER_TEMP/prs.tsv" > "$RUNNER_TEMP/queue.tsv"
+          if [ ! -s "$RUNNER_TEMP/queue.tsv" ]; then
+            echo "nothing behind $BASE"; exit 0
+          fi
+          # The oldest one first, and the loop stops at the first that took the merge: one merge, one CI run. A pull
+          # request that cannot be updated (a conflict) gives the next one its turn.
+          while IFS=$'\t' read -r n head sha behind; do
             if out=$(gh api -X PUT "repos/$REPO/pulls/$n/update-branch" -f expected_head_sha="$sha" 2>&1); then
               echo "#$n: $BASE merged in ($behind commits)"
+              # Whatever lands next was tested against the base with this merge in it, and landing this one fires the
+              # workflow again for the next in line. `all` merges the base into every one that is behind.
+              [ "$ALL" = true ] || break
             else
               echo "::warning::#$n ($head) is $behind commits behind $BASE and could not be updated: $out"
             fi
-          done
+          done < "$RUNNER_TEMP/queue.tsv"
 
   develop:
     if: (inputs.base || github.ref_name) == 'develop'

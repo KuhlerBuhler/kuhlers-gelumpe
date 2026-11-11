@@ -516,9 +516,14 @@ eigener Bump-PR ist nicht nötig. Der Workflow "Sync develop" holt den Merge-Com
 zurück.
 
 Nach jedem Push auf `main` oder einen `release/`-Branch holt der Workflow "Update pull requests" diesen Branch in
-jeden offenen Pull Request, der auf ihm aufbaut und hinterherhängt (GitHubs "Update branch", mit `SYNC_TOKEN`,
-damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein Basis-Branch ist;
-bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
+**einen** offenen Pull Request, der auf ihm aufbaut und hinterherhängt: den nächsten in der Reihe, also den ältesten
+hinterherhängenden, Entwürfe ausgenommen (GitHubs "Update branch", mit `SYNC_TOKEN`, damit die Checks neu laufen).
+Welcher das ist, sagt `tools/ci/pr-queue.mjs`. So startet ein Merge nicht die vollen Checks aller offenen PRs auf
+einmal: der PR, der landet, lief gegen den Stand mit allen Merges davor, und sein Merge startet den Workflow erneut
+für den nächsten. Wer mehr als einen auf einmal nachziehen will, startet den Workflow von Hand mit `all`
+(`gh workflow run update-prs.yml -f base=release/1.4.5 -f all=true`). Ausgenommen sind PRs aus Forks und solche,
+deren Kopf selbst ein Basis-Branch ist; bei einem Konflikt bleibt der PR, wie er ist, der Lauf geht zum nächsten und
+zeigt eine Warnung.
 
 Bei `develop` fasst derselbe Workflow nur PRs an, die mit `develop` kollidieren. Liegen alle Konflikte in den
 Runtime-Patches (`data/patches/script-runtime*.json`), merged er `develop` hinein, baut die drei aus den
