@@ -3,7 +3,7 @@
 
     python3 tools/gif/gif2e2g.py in.gif 3            -> GIF03.E2G, copy it to KORG/blechtribe/Gif/ on the card
     python3 tools/gif/gif2e2g.py in.gif 3 --invert --threshold 100 --out somewhere/
-    python3 tools/gif/gif2e2g.py a.bmp b.bmp c.bmp 4 -> GIF04.E2G with one frame per picture, for the Image Viewer
+    python3 tools/gif/gif2e2g.py a.bmp b.bmp c.bmp 4 -> GIF04.E2G with one frame per picture, for the BMP Viewer
 
 Format (SCRIPT_GIF in data/script/contract.mjs): "GGIF", version 1 (u16), frame count (u16), then per frame its delay in
 ms (u16), two zero bytes and 1024 bytes of display memory: byte (y // 8) * 128 + x, bit y % 8. A picture that is not

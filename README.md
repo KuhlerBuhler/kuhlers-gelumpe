@@ -142,7 +142,7 @@ Danach zeigt dir die Seite, wie du die Datei aufs Gerät bekommst. Alle Patches 
 Was BLECHTRIBE auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
 LEDs, Patternwechsel erst nach Bestätigung, Sync-Gruppen, TAP Motion, den Notenassistenten im KEYBOARD-Modus, KEYBOARD + Pad setzt den KEY, SHIFT + Filtertaste schaltet das Filter aus und an, einen
 Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
-zurück, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
+zurück (auch beim Abspielen), Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
 hacktribe- oder electribe-sampler-Ordners, Blechy als kleines Haustier, ein Startbild mit Ladebalken,
 verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten,
 zur Lizenz siehe [docs/doom-lizenz.md](docs/doom-lizenz.md)).
@@ -283,7 +283,7 @@ dorthin, danach am Gerät Menü -> BLECH -> PLUGINS. Geschrieben wird in einer a
 übersetzt das in Bytecode für eine kleine VM in der Firmware. Wenn ein Plugin einen Fehler hat, wird
 nur das Plugin abgeschaltet, die Electribe läuft normal weiter. Sprache, Ereignisse und Funktionen:
 [docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: Set-Timer, BLECH Clicker,
-Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Image Viewer, BPM Glide,
+Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, BMP Viewer, BPM Glide,
 Momentary Mute, Gate Hold, Step Copy, Lauflicht, Pulsieren und PLAY-Takt.
 
 ## Der Emulator
