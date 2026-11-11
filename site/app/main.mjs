@@ -404,7 +404,9 @@ function navbar({ onMode }) {
       // Every crumb but the last leads back: the title to the page's start sub-page, a step with `go` to that step.
       const parts = trails[page] ?? [];
       const tab = $(`#cee-tab-${page}`);
-      const title = parts.length && tab ? el("button", { type: "button", className: "cee-crumb-link", textContent: tab.textContent, onclick: () => (homes[page] ?? (() => tab.click()))() }) : tab?.textContent ?? "";
+      // The label only: a badge on the tab (the "!" of a new release) is no part of the page's name.
+      const name = tab?.querySelector("[data-i18n]")?.textContent ?? tab?.textContent ?? "";
+      const title = parts.length && tab ? el("button", { type: "button", className: "cee-crumb-link", textContent: name, onclick: () => (homes[page] ?? (() => tab.click()))() }) : name;
       $("#cee-nav-title").replaceChildren(title, ...parts.map((t, i) => {
         const text = typeof t === "string" ? t : t.text;
         return t.go && i < parts.length - 1
@@ -457,7 +459,7 @@ function sidebarDrawer() {
   };
   button.addEventListener("click", () => set(!side.hasAttribute("data-open")));
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && side.hasAttribute("data-open")) { set(false); button.focus(); }
+    if (e.key === "Escape" && side.hasAttribute("data-open")) { set(false); button.focus({ preventScroll: true }); }
   });
   // The drawer covers the menu button; a tap on the page beside it closes it.
   document.addEventListener("pointerdown", e => {

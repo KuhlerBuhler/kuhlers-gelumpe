@@ -664,7 +664,7 @@ export default {
   "features.backup.text": "Запиши свои настройки, плагины и эффекты файлами на карту, чтобы у тебя была копия. Эффекты только на красной.",
   "features.backup.how": "Меню -> DATA UTILITY -> EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS или EXPORT ALL EFFECTS.",
   "features.playPlugins.title": "Игровые плагины из каталога",
-  "features.playPlugins.text": "Готовые плагины для новых способов игры: Gate Hold держит ноту в Gate Arp, Momentary Mute меняет заглушение только при удержании PART MUTE, иначе пады играют как в TRIGGER, Image Viewer показывает картинки с карты. Step Copy копирует шаги одного такта в другие такты.",
+  "features.playPlugins.text": "Готовые плагины для новых способов игры: Gate Hold держит ноту в Gate Arp, Momentary Mute меняет заглушение только при удержании PART MUTE, иначе пады играют как в TRIGGER, BMP Viewer показывает картинки с карты. Step Copy копирует шаги одного такта в другие такты.",
   "features.playPlugins.how": "В приложении: BLECHTRIBE -> Plugins, выбери плагин и загрузи его на Electribe.",
   "features.sampleEditor.title": "Редактор сэмплов на устройстве",
   "features.sampleEditor.text": "Обрезать, нормализовать, развернуть сэмпл и сделать нарастание и затухание прямо на Electribe.",

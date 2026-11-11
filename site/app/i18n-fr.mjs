@@ -664,7 +664,7 @@ export default {
   "features.backup.text": "Écris tes réglages, plugins et effets sous forme de fichiers sur la carte pour les sauvegarder. Les effets seulement sur la rouge.",
   "features.backup.how": "Menu -> DATA UTILITY -> EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS ou EXPORT ALL EFFECTS.",
   "features.playPlugins.title": "Plugins de jeu du catalogue",
-  "features.playPlugins.text": "Des plugins prêts à l'emploi pour jouer autrement : Gate Hold garde la note en Gate Arp, Momentary Mute ne change les mutes que tant que tu tiens PART MUTE, sinon les pads jouent comme en TRIGGER, Image Viewer affiche des images de la carte. Step Copy copie les steps d'une mesure dans d'autres mesures.",
+  "features.playPlugins.text": "Des plugins prêts à l'emploi pour jouer autrement : Gate Hold garde la note en Gate Arp, Momentary Mute ne change les mutes que tant que tu tiens PART MUTE, sinon les pads jouent comme en TRIGGER, BMP Viewer affiche des images de la carte. Step Copy copie les steps d'une mesure dans d'autres mesures.",
   "features.playPlugins.how": "Dans l'app : BLECHTRIBE -> Plugins, choisis un plugin et mets-le sur l'Electribe.",
   "features.sampleEditor.title": "Éditeur de samples sur l'appareil",
   "features.sampleEditor.text": "Couper, normaliser, inverser et faire des fondus sur un sample directement sur l'Electribe.",

@@ -664,7 +664,7 @@ export default {
   "features.backup.text": "Write your settings, plugins and effects as files to the card so they are backed up. Effects are on the red only.",
   "features.backup.how": "Menu -> DATA UTILITY -> EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS or EXPORT ALL EFFECTS.",
   "features.playPlugins.title": "Play plugins from the catalog",
-  "features.playPlugins.text": "Ready-made plugins for more ways to play: Gate Hold keeps the note in Gate Arp, Momentary Mute changes mutes only while PART MUTE is held, otherwise the pads play as in TRIGGER, Image Viewer shows pictures from the card. Step Copy copies the steps of one bar into other bars.",
+  "features.playPlugins.text": "Ready-made plugins for more ways to play: Gate Hold keeps the note in Gate Arp, Momentary Mute changes mutes only while PART MUTE is held, otherwise the pads play as in TRIGGER, BMP Viewer shows pictures from the card. Step Copy copies the steps of one bar into other bars.",
   "features.playPlugins.how": "In the app: BLECHTRIBE -> Plugins, pick a plugin and put it on the Electribe.",
   "features.sampleEditor.title": "Sample editor on the device",
   "features.sampleEditor.text": "Trim, normalise, reverse and fade a sample right on the Electribe.",

@@ -664,7 +664,7 @@ export default {
   "features.backup.text": "Schrijf je instellingen, plugins en effecten als bestanden op de kaart, zodat ze bewaard zijn. Effecten alleen op de rode.",
   "features.backup.how": "Menu -> DATA UTILITY -> EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS of EXPORT ALL EFFECTS.",
   "features.playPlugins.title": "Speelplugins uit de catalogus",
-  "features.playPlugins.text": "Kant-en-klare plugins voor meer speelmogelijkheden: Gate Hold houdt de noot vast in Gate Arp, Momentary Mute verandert mutes alleen zolang je PART MUTE vasthoudt, anders spelen de pads zoals in TRIGGER, Image Viewer toont afbeeldingen van de kaart. Step Copy kopieert de steps van één maat naar andere maten.",
+  "features.playPlugins.text": "Kant-en-klare plugins voor meer speelmogelijkheden: Gate Hold houdt de noot vast in Gate Arp, Momentary Mute verandert mutes alleen zolang je PART MUTE vasthoudt, anders spelen de pads zoals in TRIGGER, BMP Viewer toont afbeeldingen van de kaart. Step Copy kopieert de steps van één maat naar andere maten.",
   "features.playPlugins.how": "In de app: BLECHTRIBE -> Plugins, kies een plugin en zet hem op de Electribe.",
   "features.sampleEditor.title": "Sample-editor op het apparaat",
   "features.sampleEditor.text": "Een sample direct op de Electribe knippen, normaliseren, omkeren en in- en uitfaden.",
