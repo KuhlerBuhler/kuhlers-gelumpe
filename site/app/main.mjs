@@ -535,8 +535,8 @@ function boot() {
   const drawer = sidebarDrawer();
   const transport = createMidiTransport(window);
   const usb = createUsbWatch({ transport, permissions: navigator.permissions, hidden: () => document.hidden });
-  usbIndicator($(".cee-navbar"), usb);
-  languageSwitch($(".cee-navbar"));
+  usbIndicator($("#cee-nav-end"), usb);
+  languageSwitch($("#cee-nav-end"));
   // The navbar wraps on narrow screens, so anchors and scrollIntoView keep clear of its real height (app.css).
   const navBox = $(".cee-navbar");
   new ResizeObserver(() => document.documentElement.style.setProperty("--cee-navbar-real", `${navBox.offsetHeight}px`)).observe(navBox);
