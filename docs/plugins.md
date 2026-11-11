@@ -380,7 +380,10 @@ Gerät beim nächsten Start ohne Plugins) und SYNC GROUP (eine Einstellung des P
 des Menüs BLECH (die Datei `settings.a.bin` oder `settings.b.bin`), vorher nicht; nach einem Neustart gilt, was zuletzt
 geschrieben wurde. Mit AUTO SAVE schreibt auch das Verlassen des Menüs BLECH die Datei, wenn sich die Einstellungen geändert haben,
 seit es geöffnet wurde. Ausnahme ist SET INIT PATTERN: es liegt in den Global-Einstellungen der Firmware, die das Gerät beim
-Ausschalten speichert. `korg.menu.blech.write()` schreibt die Einstellungsdatei aus dem Plugin, wie WRITE es tut. Es fragt nur
+Ausschalten speichert. Wie die Seiten von GLOBAL PARAMETERS zeigen die Seiten von BLECH das Schildchen ORIG, solange der Wert der
+gespeicherte ist (der in der Einstellungsdatei, ohne Datei der Standard): es verschwindet, wenn du den Wert änderst, kommt beim
+Zurückdrehen wieder und gilt nach WRITE für den neuen Wert. Aktionen und Listen (EXPORT, SPLASH, PLUGINS) haben keins.
+`korg.menu.blech.write()` schreibt die Einstellungsdatei aus dem Plugin, wie WRITE es tut. Es fragt nur
 an: geschrieben wird einen Moment später, nur solange der Hauptbildschirm oder BLECH offen ist, und frühestens 2 Sekunden nach
 dem letzten Schreiben, weitere Aufrufe davor bleiben eine Anfrage. Ohne Karte oder bei einem Fehler passiert nichts weiter, wie
 bei WRITE im Menü. Ein Plugin sollte es sparsam rufen, etwa wenn es einen Wert gesetzt hat, den der Anwender behalten soll.

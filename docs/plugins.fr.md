@@ -358,7 +358,10 @@ au pattern, et désactiver son propre moteur empêcherait les plugins au prochai
 sur une page BLECH, qui écrit `settings.a.bin` ou `settings.b.bin`. Le redémarrage retrouve
 la dernière sauvegarde. Avec AUTO SAVE, quitter BLECH écrit aussi le fichier si les réglages
 ont changé depuis son ouverture. Exception : SET INIT PATTERN est stocké dans les paramètres
-Global du firmware, enregistrés à l’extinction.
+Global du firmware, enregistrés à l’extinction. Comme les pages de GLOBAL PARAMETERS, les pages de BLECH montrent l’étiquette ORIG tant
+que la valeur est celle qui est enregistrée (celle du fichier de réglages, la valeur par défaut sans fichier) : elle disparaît quand tu
+changes la valeur, revient en tournant en arrière et, après WRITE, vaut pour la nouvelle valeur. Les actions et les listes (EXPORT,
+SPLASH, PLUGINS) n’en ont pas.
 
 `korg.menu.blech.write()` demande une sauvegarde, réalisée un peu plus tard, uniquement sur
 la page principale ou dans BLECH, au moins 2 secondes après l’écriture précédente. Plusieurs

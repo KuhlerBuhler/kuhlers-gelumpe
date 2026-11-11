@@ -135,8 +135,8 @@ def cases(vsb, flash=None):
         dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True, seconds=2.0)
         script_cases.install(dev, built, programs, [name])
         device, plugin = one_second(dev, name, programs[name])
-        # polled every millisecond, so the device time may show one more
-        out.append(entry(f"after_1000_{name}", device is not None and 1000 <= device <= 1041 and 1000 <= plugin <= 1040 and not dev.m.asserts,
+        # polled every millisecond, so the device time may show one more and, as the two moments are seen at different polls, up to one less
+        out.append(entry(f"after_1000_{name}", device is not None and 999 <= device <= 1041 and 1000 <= plugin <= 1040 and not dev.m.asserts,
                          f"device {device} ms, plugin clock {plugin} ms"))
 
     # the plugin on the card, its body runs while the device starts (with samples on the Sampler)

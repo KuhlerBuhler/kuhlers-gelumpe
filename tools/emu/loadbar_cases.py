@@ -494,7 +494,13 @@ def case_look(payload, flash):
     dev.m.send([2, 1, 0, 40, 0])
     dev.run(0.3)
     window = dev.screen()["window"]
-    out.append(entry("look_value_window", window and looked(dev), f"turning a knob opens the value window ({window:#x}), it gets the look too"))
+    seen = looked(dev)
+    for _ in range(8):      # the window redraws every 0.3 s or so: a sample between the firmware's frame and the page hook's copy is not the look yet
+        if seen:
+            break
+        dev.run(0.05)
+        seen = looked(dev)
+    out.append(entry("look_value_window", window and seen, f"turning a knob opens the value window ({window:#x}), it gets the look too"))
     dev.run(1.5)
     menu_cases.go(dev, 3)
     dev.run(0.4)

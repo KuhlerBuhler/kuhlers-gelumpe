@@ -129,8 +129,10 @@ def run_case(payload, flash, name):
     pictures = sequence_of(payload)
     # a look can come while a display frame is half sent: the upper pages already show the next picture, the lower ones still the one
     # before (at device pace, docs/messungen/2026-11-10-emulator-geraetetakt.md). Such a frame is ours too, every page is a page of a picture.
+    # The look can also come in the middle of a page: its first columns from one picture, the rest from another.
     pages = [{bytes(pic[i * 128:(i + 1) * 128]) for pic in pictures} for i in range(8)]
-    ours_pages = lambda fb: all(bytes(fb[i * 128:(i + 1) * 128]) in pages[i] for i in range(8))
+    torn = lambda page, i: any(page[:x] == a[:x] and any(page[x:] == b[x:] for b in pages[i]) for a in pages[i] for x in range(1, 128))
+    ours_pages = lambda fb: all((page := bytes(fb[i * 128:(i + 1) * 128])) in pages[i] or torn(page, i) for i in range(8))
     ops, card = traced(dev)
     card_before = sha(bytes(medium.data))
     main = dev.fb()
