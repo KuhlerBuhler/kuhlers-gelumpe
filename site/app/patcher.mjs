@@ -544,7 +544,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   /** Weiter on Korg's firmware is the acceptance of Korg's licence, the sentence under the cards says so. */
   const acceptsLicence = () => asksSource() && source === "original";
   /** Weiter on step 1 loads Korg's file: with the licence (or the acceptance by Weiter), and never over a file the user gave (or one waiting). */
-  const loadsKorg = () => wiz.step === WAY && view === 0 && reach() === 0 && !flow.input && !pending && !korg.hidden && (licence.checked || acceptsLicence());
+  const loadsKorg = () => wiz.step === WAY && view === 0 && reach() === 0 && (!flow.input || !!mismatch()) && !pending && !korg.hidden && (licence.checked || acceptsLicence());
 
   /** In the browser Korg's zip is downloaded as a file: Korg's server does not hand it to the page, the user drops it in. */
   function downloadKorg(device) {
@@ -741,6 +741,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     korgHint.hidden = inWiz || view !== 0 || reach() > 0 || !!flow.input || !!pending || korg.hidden || licence.checked || ask;
     ownHint.hidden = inWiz || view !== 0 || !ownSource || reach() > 0 || !!flow.input || !!pending;
     goalHint.hidden = inWiz || view !== 0 || !mismatch();
+    // the file in the field is the wrong one: say why, and that Weiter fetches the right one from Korg when it can
+    if (mismatch()) goalHint.textContent = `${t(mismatch(), { device: t(`patcher.device.${korgDevice()}`) })} ${t(loadsKorg() ? "patcher.goal.hintKorg" : "patcher.goal.hint")}`;
     planList.replaceChildren(...planItems().map(p => el("li", { textContent: t(p.label) })));
     blechInput.disabled = patchSource === "latest" || can.busy;
     blechDrop.hidden = patchSource === "latest";
@@ -1003,7 +1005,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     taken = kind;
     wiz.step = WAY;
     dispatch({ type: "input", input: kind });
-    // a file the goal ruled out stays in the field, Weiter waits and the toast says which file the goal needs
+    // a file the goal ruled out stays in the field; Weiter waits, or fetches Korg's file, and the toast says which file the goal needs
     const wrong = mismatch();
     if (wrong) toast(t(wrong, { device: t(`patcher.device.${korgDevice()}`) }), "error");
     fitFlow();
