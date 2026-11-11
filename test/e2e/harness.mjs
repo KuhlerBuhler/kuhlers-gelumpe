@@ -98,12 +98,11 @@ export async function pickPreset(page, slot, prefix = "cee") {
   { prefix, name });
 }
 
-/** Open a page the way a person does: the sidebar entry, or for the real device the menu in the navbar. */
+/** Open a page the way a person does: the sidebar entry, or for the real device the switch in the navbar. */
 export async function go(page, id) {
   if (id !== "device") {
     if (id === "emu" && await page.locator("#cee-mode").isVisible()) {
-      await page.click("#cee-mode-button");
-      await page.click("#cee-mode-menu [data-value=emu]");
+      await page.locator("#cee-mode-switch").uncheck({ force: true });
       return;
     }
     // Presets and Modulationen have no sidebar entry any more, only their address
@@ -112,6 +111,5 @@ export async function go(page, id) {
     return;
   }
   if (!(await page.locator("#cee-mode").isVisible())) await page.click("#cee-tab-emu");
-  await page.click("#cee-mode-button");
-  await page.click("#cee-mode-menu [data-value=device]");
+  await page.locator("#cee-mode-switch").check({ force: true });
 }

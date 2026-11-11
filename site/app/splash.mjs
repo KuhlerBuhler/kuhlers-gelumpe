@@ -1,11 +1,13 @@
 /** The Startbild page: any picture to splash.bmp for the card (SPLASH IMPORT in the BLECH menu). Logic: src/splash-bmp.mjs. */
 import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { loadingAnimSection } from "./loading-anim.mjs";
 import { icon } from "./icons.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:splash");
 
 const STYLE = new URL("./splash.css", import.meta.url).href;
 
@@ -15,6 +17,12 @@ export const GALLERY = [
   { id: "blech", title: "BLECH", src: "img/splash/blech.png" },
   { id: "blechy", title: "Blechy", src: "img/splash/blechy.png" },
   { id: "blechy-winkt", get title() { return t("splash.gallery.wave"); }, src: "img/splash/blechy-winkt.png" },
+  { id: "gelumpe", title: "GELUMPE", src: "img/splash/gelumpe.png" },
+  { id: "kuhler", title: "KUHLER", src: "img/splash/kuhler.png" },
+  { id: "pads", get title() { return t("splash.gallery.pads"); }, src: "img/splash/pads.png" },
+  { id: "wave", get title() { return t("splash.gallery.waveform"); }, src: "img/splash/wave.png" },
+  { id: "knob", get title() { return t("splash.gallery.knob"); }, src: "img/splash/knob.png" },
+  { id: "bars", get title() { return t("splash.gallery.bars"); }, src: "img/splash/bars.png" },
 ];
 const OWN = "cee.splash.own";
 

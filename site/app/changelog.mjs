@@ -35,25 +35,34 @@ function inline(text) {
   return out;
 }
 
-/** The release notes: headings, lists and paragraphs of GitHub's markdown, as DOM, never as HTML. */
+/** The release notes: headings, lists (an indented item belongs to the one above) and paragraphs of GitHub's markdown, as DOM, never as HTML. */
 export function notes(md) {
   const out = [];
   let list = null;
+  let sub = null;
   let para = [];
   const flush = () => { if (para.length) out.push(el("p", {}, inline(para.join(" ")))); para = []; };
   for (const raw of String(md ?? "").split(/\r?\n/)) {
     const line = raw.trim();
     const h = line.match(/^(#{1,6})\s+(.*)$/);
     const li = line.match(/^[-*]\s+(.*)$/);
-    if (!line) { flush(); list = null; continue; }
-    if (h) { flush(); list = null; out.push(el(h[1].length <= 2 ? "h3" : "h4", {}, inline(h[2]))); continue; }
+    if (!line) { flush(); list = null; sub = null; continue; }
+    if (h) { flush(); list = null; sub = null; out.push(el(h[1].length <= 2 ? "h3" : "h4", {}, inline(h[2]))); continue; }
     if (li) {
       flush();
+      const parent = list?.lastElementChild;
+      if (/^\s{2,}/.test(raw) && parent) {
+        if (!sub) { sub = el("ul"); parent.append(sub); }
+        sub.append(el("li", {}, inline(li[1])));
+        continue;
+      }
+      sub = null;
       if (!list) { list = el("ul"); out.push(list); }
       list.append(el("li", {}, inline(li[1])));
       continue;
     }
     list = null;
+    sub = null;
     para.push(line);
   }
   flush();
@@ -88,19 +97,45 @@ export function downloads(assets = [], system = systemOf()) {
   ].filter(Boolean);
 }
 
-function release(r) {
+// The blocks tools/release-lib.mjs (downloadBlock) puts above the notes of each language: links, install hints, the patch.
+const DOWNLOAD_BLOCK = [/^\*\*(Herunterladen|Download)\b/, /^- \*\*(Windows|Mac|Linux)\b/, /^(Auf dem Mac nach|On the Mac, after)\b/,
+  /^(Die vielen Dateien|You do not need the many files)\b/, /^\*\*(Ohne App patchen|Patch without the app)\*\*/];
+
+/** A release body without the download blocks at the top of each language, for the release the person already has. */
+export function withoutDownloads(body) {
+  return String(body ?? "").replace(/\r\n/g, "\n").split(/^(## English[ \t]*)$/m).map(part => {
+    const blocks = part.split(/\n[ \t]*\n/);
+    let at = 0;
+    while (at < blocks.length && (!blocks[at].trim() || DOWNLOAD_BLOCK.some(re => re.test(blocks[at].trim())))) at++;
+    return at ? `\n${blocks.slice(at).join("\n\n")}` : part;
+  }).join("");
+}
+
+/**
+ * True for the release the desktop app runs, and for the newest release when it is newer: the update button in the
+ * navbar brings that one. Neither needs its downloads here. A browser has no installed version and keeps them all.
+ */
+export function hasIt(tag, latest, installed = globalThis.window?.__GELUMPE_APP?.version) {
+  if (!installed) return false;
+  const same = !isNewer(tag, installed) && !isNewer(installed, tag);
+  return same || (tag === latest && isNewer(latest, installed));
+}
+
+function release(r, latest) {
   // The version is the heading and the way to the release on GitHub; the date stands beside it.
   const side = el("header", { className: "cee-release-side" }, [
     el("h2", {}, [el("a", { className: "cee-text-link", href: r.html_url, target: "_blank", rel: "noopener noreferrer", textContent: r.tag_name })]),
     el("time", { dateTime: r.published_at, textContent: date(r.published_at) }),
     r.prerelease ? stateText("warn", t("changelog.prerelease")) : null,
   ]);
-  const get = downloads(r.assets);
+  const own = hasIt(r.tag_name, latest);
+  const get = own ? [] : downloads(r.assets);
+  const body = releaseBody(r);
   return el("article", { className: "cee-release" }, [
     side,
     el("div", { className: "cee-release-body" }, [
       r.name && r.name !== r.tag_name ? el("h3", { textContent: r.name }) : null,
-      ...notes(releaseBody(r)),
+      ...notes(own ? withoutDownloads(body) : body),
       get.length ? el("div", { className: "actions cee-release-get" }, get.map(d => el("a", { className: "btn", href: d.href, textContent: d.label }))) : null,
     ]),
   ]);
@@ -128,7 +163,7 @@ export function entries(releases = [], carriedNotes = RELEASE_NOTES) {
   return all.sort((a, b) => (isNewer(a.version, b.version) ? -1 : isNewer(b.version, a.version) ? 1 : 0));
 }
 
-const show = e => (e.r ? release(e.r) : carried(e.n));
+const show = latest => e => (e.r ? release(e.r, latest) : carried(e.n));
 
 /**
  * @param {HTMLElement} root the page
@@ -155,12 +190,12 @@ export function changelogPage(root, tab, fetchImpl = globalThis.fetch) {
     } catch {}
     if (!releases?.length) {
       offline = true;
-      list.replaceChildren(el("p", {}, tNodes("changelog.alsoOn", { github: el("a", { className: "cee-text-link", href: PAGE, target: "_blank", rel: "noopener noreferrer", textContent: "GitHub" }) })), ...entries().map(show));
+      list.replaceChildren(el("p", {}, tNodes("changelog.alsoOn", { github: el("a", { className: "cee-text-link", href: PAGE, target: "_blank", rel: "noopener noreferrer", textContent: "GitHub" }) })), ...entries().map(show(null)));
       return;
     }
     const top = releases.find(r => !r.prerelease) ?? releases[0];
     latest = top.tag_name;
-    list.replaceChildren(...entries(releases).map(show));
+    list.replaceChildren(...entries(releases).map(show(latest)));
     if (!root.closest("[hidden]")) keep(latest);
     mark();
   })();
