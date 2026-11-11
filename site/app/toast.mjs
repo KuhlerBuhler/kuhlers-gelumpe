@@ -101,5 +101,11 @@ export function toast(message, kind = "info", { stay = false, action = null, hel
   return remove;
 }
 
+/**
+ * `toast` for one page of the app: its errors open Blechy at the topic `help` (a node of FLOW in data/rescue.mjs) instead
+ * of the general question, so the error is answered with what that page needs. A call may still name its own `help`.
+ */
+export const toastFor = help => (message, kind, options = {}) => toast(message, kind, { help, ...options });
+
 // The design system rejects files through this name (ui.rejectFile).
 if (typeof window !== "undefined") window.showToast = (message, tone) => toast(message, tone === "err" ? "error" : tone === "ok" ? "ok" : "info");

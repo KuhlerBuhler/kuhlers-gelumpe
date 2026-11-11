@@ -62,7 +62,7 @@ test("only answers: no evidence markers on the page, and links point at LINKS", 
 
 test("no way ends without help: every end is a device that runs again, or the way to Kuhler Buhler with the answers in a new issue", () => {
   const ends = nodes.filter(([, n]) => !n.choices && !n.next && !n.read && !n.done).map(([id]) => id).sort();
-  assert.deepEqual(ends, ["app:fixed", "ask", "cardfixed", "ok", "updated", "works"]);
+  assert.deepEqual(ends, ["app:fixed", "ask", "cardfixed", "helpdone", "ok", "updated", "works"]);
   assert.match(JSON.stringify(FLOW.ask.say), /issueNew.*instagram/);
   assert.doesNotMatch(text(FLOW.ask), /Foto vom Display/, "the dark case ends here too, its display shows nothing");
   for (const id of ["dark", "zero:cable"]) assert.equal(FLOW[id].next, "ask", id);
@@ -155,8 +155,10 @@ test("no step that asks is shown when its fact is known", () => {
   assert.ok(shown > 100, `only ${shown} states explored`);
 });
 
-test("every case about the device asks the colour once, first, and never again on any way", () => {
-  for (const c of FLOW.start.choices.filter(c => c.id !== "app")) {
+test("every case about the device asks the colour once, first, and never again on any way; a case with a topic goes straight there", () => {
+  for (const c of FLOW.start.choices) {
+    const own = CASES.find(k => k.id === c.id).to;
+    if (own) { assert.equal(c.to, own, c.id); assert.equal(c.set, undefined, c.id); continue; }
     assert.equal(c.to, "color", c.id);
     assert.equal(c.set.case, c.id);
   }

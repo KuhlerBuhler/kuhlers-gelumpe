@@ -10,7 +10,7 @@ import { simPanel } from "./sim-panel.mjs";
 import { drawDisplay } from "./emulator.mjs";
 import { PADS } from "../../data/panel.mjs";
 import { parseMarkdown } from "./markdown.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { createScriptEditor } from "./script-editor.mjs";
 import { highlightLines } from "../../src/script/highlight.mjs";
@@ -30,6 +30,8 @@ import { storePlugin } from "../../src/usb-update.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { pixelsOf } from "./splash.mjs";
 import { t, locale, language } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:plugins");
 
 /** 0/1 pixels row by row (splash.mjs) to the display's 1024 bytes: eight rows per byte, bit 0 on top. */
 function displayBytes(pixels) {
