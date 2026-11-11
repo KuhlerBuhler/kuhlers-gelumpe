@@ -672,6 +672,31 @@ test("patcher: a file for another Electribe than the wizard named asks for the d
   assert.deepEqual(page.errors, []);
 });
 
+test("patcher: Weiter right after a drop waits for the file and does not start Korg's download", async () => {
+  const original = await makeFirmware();
+  original.set([0x45, 0x32, 0], 0x10);
+  original.fill(0xff, 0x170100, 0x170140);
+  const hash = await sha256(original);
+  const page = await h.page();
+  await page.route(/\/src\/patcher\.mjs$/, async route => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, body: (await res.text()).replace(SYNTH_SHA256, hash) });
+  });
+  // a slow page: reading the file takes longer than the click
+  await page.route(/\/data\/patches\//, async route => { await new Promise(r => setTimeout(r, 700)); await route.continue(); });
+  await page.goto(`${h.url}#emu=${fake.port}:${TOKEN}`);
+  await page.click("#cee-tab-patcher");
+  await page.locator(".cee-patch-title").waitFor();
+  await page.evaluate(() => { window.__opened = 0; HTMLAnchorElement.prototype.click = function () { window.__opened++; }; });
+  await wizard(page, "red", "blech");
+  await drop(page, original);
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "Weiter waits while the file is read");
+  await page.click("#cee-patch-next");
+  assert.equal(await page.locator("#cee-patch-device-box").isVisible(), true, "the click went on to step 2 with the file");
+  assert.equal(await page.evaluate(() => window.__opened), 0, "Korg's zip was not started over the dropped file");
+  assert.deepEqual(page.errors, []);
+});
+
 test("patcher: the blue original gets its synth set and trials the copy in electribe/System", async () => {
   const original = await makeFirmware();
   original.set([0x45, 0x32, 0], 0x10);
