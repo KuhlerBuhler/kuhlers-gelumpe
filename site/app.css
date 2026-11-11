@@ -592,8 +592,18 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   width: 100%;
 }
 
-.cee-e2[data-power="off"] .cee-lcd {
+.cee-e2[data-power="off"] .cee-lcd,
+.cee-e2[data-power="off"] .cee-lcd-grid {
   visibility: hidden;
+}
+
+/* The gaps between the display's pixels (pixelGrid in emulator.mjs), over the display canvas and as large. */
+.cee-lcd-grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .cee-e2-label {
