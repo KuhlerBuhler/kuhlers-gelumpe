@@ -61,3 +61,14 @@ impl Io {
         Ok(())
     }
 }
+
+/// CoreMIDI learns about devices plugged in later only through the run loop of the thread that made the process's first
+/// client. The port lists run on short threads without a run loop, so without this the list stays as it was at the
+/// first listing (an Electribe switched on after the app started never showed). Called once on the main thread, whose
+/// run loop the app keeps running; the client lives as long as the process.
+pub fn watch_devices() {
+    match Client::new("GELUMPE devices") {
+        Ok(client) => std::mem::forget(client),
+        Err(e) => eprintln!("CoreMIDI-Client: {e}"),
+    }
+}
