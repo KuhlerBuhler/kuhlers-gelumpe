@@ -32,7 +32,7 @@ KEY_PASS = KNOB_HOLD_END         # korg.passKeys (script_hw.s:KP_PASS): the keys
 KEY_PASS_END = KEY_PASS + 16     # the keys whose press did; FF at power-on is the defaults
 TOUCH_LOCK = KEY_PASS_END        # korg.touchLockX (script_hw.s:TL_RAW): the X written into touch messages, the plugin that locks and its
 TOUCH_LOCK_END = TOUCH_LOCK + 12 # checksum; FF at power-on is no lock
-KEY_HOLD = TOUCH_LOCK_END        # korg.keyHold (script_hw.s:KY_FREE): the free keys, the keys whose press was kept, two words unused since API 19;
+KEY_HOLD = TOUCH_LOCK_END        # korg.keyHold (script_hw.s:KY_FREE): the free keys, the keys whose press was kept, the free MIDI types, a word unused;
 KEY_HOLD_END = KEY_HOLD + 24     # FF at power-on is all keys free
 PRESS_KEY = KEY_HOLD_END         # korg.pressKey (script_hw.s:PK_UP): the keys whose release goes out in the next frame, inverted, so
 PRESS_KEY_END = PRESS_KEY + 8    # FF at power-on is none
@@ -85,7 +85,9 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          # Hacktribe has its own handler (FILTER_TOGGLE_HACKTRIBE), Korg's stays unused there
          (0xC006FDEC,0xE3A00008,'ft_select'),
          # AUTO SAVE (script_menu.s): SWITCH_SCREEN's bl to the screen manager behind the check that the screen changes
-         (0xC0083D7C,0xEBFEA4B1,'autosave_switch_hook'))
+         (0xC0083D7C,0xEBFEA4B1,'autosave_switch_hook'),
+         # korg.midi (script_midi.s): the MIDI receive loop's call of the handler of a channel message
+         (0xC002B2D8,0xEB004208,'script_midi_in_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
@@ -284,6 +286,8 @@ def runtime_profile(build):
             address = 0xC0062F14
         elif name == 'autosave_switch_hook':
             address, expected = synthaddr.tr(address), 0xEBFED795   # bl 0xC002A1AC, the synth's screen manager getter
+        elif name == 'script_midi_in_hook':
+            address, expected = synthaddr.tr(address), 0xEB00383F   # bl 0xC0036540, the synth's handler of a channel message
         elif name in KEY_PADS_SYNTH_WORDS:
             address, expected = KEY_PADS_SYNTH[name.replace('kp_', 'KP_').replace('_hook', '_AT').upper()], KEY_PADS_SYNTH_WORDS[name]
         else:
@@ -409,7 +413,8 @@ class BuiltHooks:
                 chain='frame',position='after',swallow=False),dict(site='0xC0038D68',kind='instruction',
                 chain='start',position='before',swallow=False),dict(site='0xC004C1B4',kind='instruction',
                 chain='save',position='before',swallow=False),dict(site='0xC004C28C',kind='instruction',
-                chain='pattern-write',position='before',swallow=False)]+menu_hooks))
+                chain='pattern-write',position='before',swallow=False),dict(site='0xC002B2D8',kind='instruction',
+                chain='midi-in',position='before',swallow=True)]+menu_hooks))
 
     def ram_areas(self):
         layout=self.layout
@@ -429,7 +434,7 @@ class BuiltHooks:
             area(KNOB_HOLD,KNOB_HOLD_END-KNOB_HOLD,'korg.knobHold: a bit per knob that reaches the firmware, folded from the plugins\' holds; the other two words are unused since API 19','tools/patch/script_hw.s:KH_FREE'),
             area(KEY_PASS,KEY_PASS_END-KEY_PASS,'korg.passKeys: a bit per key that reaches the firmware while an app is open, and a bit per key whose press did','tools/patch/script_hw.s:KP_PASS'),
             area(TOUCH_LOCK,TOUCH_LOCK_END-TOUCH_LOCK,'korg.touchLockX: the X the input filter writes into touch messages, the plugin that locks it and the checksum of its block','tools/patch/script_hw.s:TL_RAW'),
-            area(KEY_HOLD,KEY_HOLD_END-KEY_HOLD,'korg.keyHold and korg.keyMask: a bit per key that reaches the firmware, folded from the plugins\' holds, a bit per key whose press was kept; the last two words are unused since API 19','tools/patch/script_hw.s:KY_FREE'),
+            area(KEY_HOLD,KEY_HOLD_END-KEY_HOLD,'korg.keyHold and korg.keyMask: a bit per key that reaches the firmware, folded from the plugins\' holds, a bit per key whose press was kept, a bit per MIDI message type that reaches the firmware (korg.midi.hold, script_midi.s:MIDI_FREE); the last word is unused since API 19','tools/patch/script_hw.s:KY_FREE'),
             area(PRESS_KEY,PRESS_KEY_END-PRESS_KEY,'korg.pressKey: a bit per key whose release goes to the firmware in the next frame','tools/patch/script_hw.s:PK_UP'),
             area(SIM_INPUT,SIM_INPUT_END-SIM_INPUT,'korg.keyDown, korg.padDown and korg.touch: a bit per key, the touchpad and a bit per pad a plugin holds down, the plugin that holds them and the checksum of its block','tools/patch/script_hw.s:SI_UP'),
             area(SIM_INPUT_END,MORE2_END-SIM_INPUT_END,'the rest of the third code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:SIM_INPUT_END')]+(
@@ -532,7 +537,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
         files.append('fx_card.s')
     else:
         files.append('script_fx_none.s')
-    files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_timer.s','script_led.s','script_motion.s']
+    files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_timer.s','script_led.s','script_motion.s','script_midi.s']
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
     source = constants+'\n'+read(files)
     if build == 'synth':
@@ -546,7 +551,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     actions = '\n'.join(f'.equ {name}, {value}' for name, value in profile.actions.items())
     hooks=assemble(actions+'\n'+source,origin=origin)
     linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_PAD_HOLD':hooks.symbols['script_pad_hold_glue'],'API_KORG_KNOB_HOLD':hooks.symbols['script_knob_hold_glue'],'API_KORG_KNOB':hooks.symbols['script_knob_glue'],'API_KORG_PASS_KEYS':hooks.symbols['script_pass_keys_glue'],'API_KORG_TOUCH_LOCK_X':hooks.symbols['script_touch_lock_x_glue'],'API_KORG_KEY_HOLD':hooks.symbols['script_key_hold_glue'],'API_KORG_KEY_MASK':hooks.symbols['script_key_mask_glue'],'API_KORG_PRESS_KEY':hooks.symbols['script_press_key_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['KEY_DOWN','KEY_UP','PAD_DOWN','PAD_UP','ENCODER','TOUCH']},'API_KORG_READ_PATTERN_BYTES':hooks.symbols['script_read_pattern_bytes_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],'API_KORG_FILE_FRAME':hooks.symbols['script_file_frame_glue'],'API_KORG_GET':hooks.symbols['script_object_get_glue'],'API_KORG_SET':hooks.symbols['script_object_set_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_timer_{name.lower()}_glue'] for name in ['AFTER','EVERY','AFTER_STEPS','CANCEL']},**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},'API_KORG_READ_CHAIN_MODE':hooks.symbols['script_read_chain_mode_glue'],'API_KORG_READ_VIEWED_PATTERN':hooks.symbols['script_read_viewed_pattern_glue'],'API_KORG_READ_NEXT_PATTERN':hooks.symbols['script_read_next_pattern_glue'],'API_KORG_READ_PATTERN_VALUE':hooks.symbols['script_read_pattern_value_glue'],'API_KORG_REMAP_KEY':hooks.symbols['script_remap_key_glue'],**{f'API_KORG_SEQ_{name}':hooks.symbols[f'script_seq_{name.lower()}_glue'] for name in ['SET_STEP','SET_GATE','CLEAR_PART','SET_PART_VALUE','WRITE_STEPS','SET_PATTERN_VALUE','GET_ON','GET_GATE','GET_NOTE','GET_VELOCITY']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
-        for name,label in [('CLEAR','clear'),('TEXT','text'),('NUMBER','number'),('PIXEL','pixel'),('RECT','rect'),('CLEAR_RECT','clear_rect'),('TAKE','take'),('RELEASE','release'),('BITMAP','bitmap'),('TEXT_NUMBER','text_number'),('POPUPS','popups'),('CHARS','chars')]},'API_KORG_READ_POPUPS':hooks.symbols['script_read_popups_glue'],'API_KORG_READ_PATTERN_NAME':hooks.symbols['script_read_pattern_name_glue'],**{f'API_KORG_MOTION_{name}':hooks.symbols[f'script_motion_{name.lower()}_glue'] for name in ['LANE','DESTINATION','VALUE','SET_VALUE','CLEAR_LANE','CLEAR_PART','CLEAR_MFX','OUTPUT']}}
+        for name,label in [('CLEAR','clear'),('TEXT','text'),('NUMBER','number'),('PIXEL','pixel'),('RECT','rect'),('CLEAR_RECT','clear_rect'),('TAKE','take'),('RELEASE','release'),('BITMAP','bitmap'),('TEXT_NUMBER','text_number'),('POPUPS','popups'),('CHARS','chars')]},'API_KORG_READ_POPUPS':hooks.symbols['script_read_popups_glue'],'API_KORG_READ_PATTERN_NAME':hooks.symbols['script_read_pattern_name_glue'],**{f'API_KORG_MOTION_{name}':hooks.symbols[f'script_motion_{name.lower()}_glue'] for name in ['LANE','DESTINATION','VALUE','SET_VALUE','CLEAR_LANE','CLEAR_PART','CLEAR_MFX','OUTPUT']},**{f'API_KORG_MIDI_{name}':hooks.symbols[f'script_midi_{name.lower()}_glue'] for name in ['CC','NOTE_ON','NOTE_OFF','PROGRAM','HOLD']}}
     vm=build_vm(include,origin=MORE3_START,glue=linked_glue)
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
     pool_end=POOL+vm.symbols['SCRIPT_POOL_BYTES']

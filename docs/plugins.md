@@ -179,6 +179,7 @@ zu tun ist.
 | `padMode` | `mode` | Pad-Modus geändert, der neue Wert von `korg.pads.mode`; ab API Version 29 |
 | `screen` | `number` | ein anderer Bildschirm der Firmware ist offen, der neue Wert von `korg.screen`; ab API Version 29 |
 | `write` | `pattern` | ein Pattern wird in die Bank geschrieben (WRITE, auch der Shortcut EXIT + WRITE), `pattern` sein Platz 0 bis 249, bevor die Firmware schreibt; ab API Version 29 |
+| `midiIn` | `status`, `data1`, `data2` | die Firmware hat über MIDI (DIN oder USB) eine Kanalnachricht empfangen, Status 128 bis 239 (Typ und Kanal), die Datenbytes 0 bis 127; auf jedem Kanal und vor dem MIDI RECEIVE FILTER, die Firmware bekommt sie danach, außer ein Plugin hält ihren Typ mit `korg.midi.hold`. Clock, SysEx und Echtzeitnachrichten kommen nicht; ab API Version 30 |
 | `save` | | WRITE in Global, Ausschalten |
 | `menu` | `id`, `value` | am Hauptrad wurde eine Seite gedreht, die das Plugin mit `korg.menu.add` angelegt hat |
 | `open`, `close` | | nur für Apps und für ein Plugin, das das Display nahm: `open`, wenn der Nutzer die App im Menü öffnet; `close`, wenn EXIT sie schließt (oder die Firmware den Hauptbildschirm verlässt). Sie gehen nur an dieses Plugin und kommen nie von außen |
@@ -228,7 +229,7 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
-### Was ein Plugin erreicht (API 29)
+### Was ein Plugin erreicht (API 30)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -270,7 +271,7 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | IFX: an, Typ, Edit | `korg.read.patternValue` | `korg.seq.setPartValue` | nein |
 | **Klang, MIDI, Samples** | | | |
 | Ausgangspegel, Spektrum, Wellenform | nein | nein | nein |
-| Eigene MIDI-Nachrichten senden, MIDI empfangen | nein | nein | nein |
+| Eigene MIDI-Nachrichten senden, MIDI empfangen | nein | `korg.midi.cc`, `korg.midi.noteOn`, `korg.midi.noteOff`, `korg.midi.program`, `korg.midi.hold` | `midiIn` |
 | Name und Daten eines Samples | nein | nein | nein |
 | **System und Einstellungen** | | | |
 | Gerät, Version, Anzahl Effekte und Sample-Slots | `korg.system.device`, `korg.system.version`, `korg.system.limits.*` | nein | nein |
@@ -678,6 +679,11 @@ Plugin mit einem Fehler.
 | `korg.seq.setPatternValue(wert, x)` | setzt den Wert `wert` (Nummer in `PATTERN_FIELDS`, wie bei `korg.read.patternValue` mit `part` -1) des Patterns, das läuft, auf `x`, in seinen Bereich geklemmt, über die Funktion der Firmware, die auch das Pattern-Menü nimmt: im Block steht danach dasselbe Byte wie nach dem Drehen im Menü. MFX TYPE geht auf blau nur bis 31. `syncGroup` (Wert 12, ab API Version 21) hat keine Funktion der Firmware, die Firmware kennt es nicht; der Aufruf schreibt es in den Block wie die Seite SYNC GROUP. Ab API Version 24: `alternate1314` und `alternate1516` gehen über die Funktion der Seiten ALTERNATE; `mfxHold` drückt die Taste MFX HOLD, wenn der Wert sich ändert, LED, Effekt und Touchpad stehen danach wie nach der Taste (der Wert steht erst nach dem nächsten Bild im Block); `mfxPadX` und `mfxPadY` setzen den Wert des Touchpads und schicken den MIDI-CC wie das Touchpad auf dem globalen Kanal. Der Name des Patterns lässt sich nicht setzen. Im Emulator geprüft auf Hacktribe, rot und blau ([Messung](messungen/2026-11-03-plugin-api15.md)), am Gerät noch nicht. Die Tabelle je Firmware steht in `tools/patch/script_hooks.py` (`PATTERN_SETTERS`). Ab API Version 15 | wie `korg.led` |
 | `korg.read.patternBytes(feld, pattern, offset)` | kopiert Bytes eines Patterns ins Feld, ein Byte je Platz: `pattern` -1 das im RAM, 0 bis 249 ein gespeichertes, ab `offset` (0 bis 16383) im Block von 16384 Byte, so viele wie das Feld Plätze hat und der Block reicht. Gibt die Zahl der Bytes zurück. Die Stellen stehen in `data/map/pattern.mjs`: Part `p` beginnt bei 2048 + 816 × `p`, sein Step `s` bei 48 + 12 × `s` darin. Ab API Version 14 | überall |
 | `korg.read.patternName(feld, pattern)` | kopiert die 16 Bytes des Pattern-Namens (Offset 16 im Block) ins Feld, ein Byte je Platz, wie `korg.read.patternBytes(feld, pattern, 16)` mit höchstens 16 Plätzen; `pattern` -1 das im RAM, 0 bis 249 ein gespeichertes. Gibt die Zahl der Bytes zurück. Anzeigen mit `korg.display.chars`. Ab API Version 29 | überall |
+| `korg.midi.cc(kanal, cc, wert)` | schickt einen Control Change über DIN und USB, über die Sendefunktion, die auch die Pads und Regler der Firmware nehmen: `kanal` 0 bis 15 für Kanal 1 bis 16, -1 der globale MIDI-Kanal (`korg.global.midiChannel`), `cc` und `wert` 0 bis 127. Der MIDI SEND FILTER gilt wie für die Nachrichten der Firmware: mit Short oder Short + Program geht nichts hinaus. Gibt 1 zurück, wenn gesendet, 0, wenn der Filter sie zurückhielt. Ab API Version 30 ([Messung](messungen/2026-11-11-plugin-api30-midi.md)) | wie `korg.led` |
+| `korg.midi.noteOn(kanal, note, velocity)` | schickt Note On, `velocity` 1 bis 127; Kanal und Filter wie `korg.midi.cc`. Ab API Version 30 | wie `korg.led` |
+| `korg.midi.noteOff(kanal, note)` | schickt Note Off mit Velocity 64, wie die Pads der Firmware; Kanal und Filter wie `korg.midi.cc`. Ab API Version 30 | wie `korg.led` |
+| `korg.midi.program(kanal, program)` | schickt einen Program Change, `program` 0 bis 127; nur der MIDI SEND FILTER Short + Program hält ihn zurück, wie den der Firmware. Gibt 1 oder 0 zurück wie `korg.midi.cc`. Ab API Version 30 | wie `korg.led` |
+| `korg.midi.hold(typ, an)` | hält einen Typ empfangener Nachrichten von der Firmware fern, solange `an` 1 ist: 0 Note Off, 1 Note On, 2 Poly Pressure, 3 Control Change, 4 Program Change, 5 Channel Pressure, 6 Pitch Bend. Die Plugins bekommen `midiIn` trotzdem. Wie `korg.keyHold` gilt der Typ als gehalten, solange irgendein laufendes Plugin ihn hält; ein Plugin, das endet, gibt seine frei. Ab API Version 30 | wie `korg.led` |
 | `korg.seq.writeSteps(feld, part, erster)` | schreibt Steps aus dem Feld in Part `part` des Patterns, das läuft, ab Step `erster` (0 bis 63): je 12 Plätze ein Step wie im Pattern (an, Gate, Velocity, Trigger, vier Notenplätze, vier Plätze, die die Laufzeit stehen lässt), so viele ganze Steps wie das Feld hat und bis Step 63. Jeder Wert wird geklemmt (an und Trigger 0 bis 1, Gate 0 bis 127, Velocity 1 bis 127, Noten 0 bis 128), das An-Byte kommt zuletzt. Gibt die Zahl der Steps zurück. Ab API Version 14 | wie `korg.led` |
 
 **Steps schreiben** (`tools/patch/script_seq.s`, ab API Version 9): `korg.seq.*` schreibt in das Pattern im RAM,

@@ -68,6 +68,18 @@ export class SimHardware {
     this.objects = OBJECTS.map(o => o.factory);
     /** 0 finger up, 1 the press came and the first position has not, 2 the first position is out. */
     this.touch = 0;
+    /** korg.midi: the global MIDI channel (0 to 15), the MIDI SEND FILTER (0 Off, 1 Short, 2 Short + Program), the messages sent as byte arrays, a bit per message type kept from the firmware. */
+    this.midiChannel = 0;
+    this.midiFilter = 0;
+    this.midiSent = [];
+    this.midiHeld = 0;
+  }
+
+  /** A channel message out as the firmware's senders send it: 1 sent, 0 kept in by the MIDI SEND FILTER (program changes pass Short). */
+  midiSend(status, channel, ...data) {
+    if (status === 0xC0 ? this.midiFilter === 2 : this.midiFilter !== 0) return 0;
+    this.midiSent.push([status | (channel < 0 ? this.midiChannel : channel), ...data]);
+    return 1;
   }
 
   /** Host functions for the read API entries. */
@@ -143,6 +155,11 @@ export class SimHardware {
       },
       // the simulator has no motion engine: every lane is silent
       "korg.motion.output": () => -1,
+      "korg.midi.cc": (channel, cc, value) => this.midiSend(0xB0, channel, cc, value),
+      "korg.midi.noteOn": (channel, note, velocity) => this.midiSend(0x90, channel, note, velocity),
+      "korg.midi.noteOff": (channel, note) => this.midiSend(0x80, channel, note, 0x40),
+      "korg.midi.program": (channel, program) => this.midiSend(0xC0, channel, program),
+      "korg.midi.hold": (type, on) => { this.midiHeld = on ? this.midiHeld | (1 << type) : this.midiHeld & ~(1 << type); },
       "korg.motion.clearLane": lane => this.clearMotion(lane),
       "korg.motion.clearPart": part => this.clearMotionOf(part + 1),
       "korg.motion.clearMfx": () => this.clearMotionOf(PATTERN_MOTION.mfx),

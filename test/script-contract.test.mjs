@@ -15,11 +15,11 @@ test("the shared script pool and entry layout are one declarative contract", () 
   assert.equal(BUDGET.variableSlots, BUDGET.scriptBytes / 4);
   assert.deepEqual(contract.SCRIPT_ENTRY.fields.map(f => [f.name, f.offset]), [
     ["next", 0], ["blob", 4], ["vars", 8], ["state", 12], ["fault", 16], ["offset", 20],
-    ["line", 24], ["event", 28], ["ops", 32], ["cost", 36], ["maxTicks", 40], ["maxCost", 44], ["maxEventTicks", 152], ["readySent", 260],
-    ["storeMask", 264], ["store", 268], ["timers", 332], ["holds", 428],
+    ["line", 24], ["event", 28], ["ops", 32], ["cost", 36], ["maxTicks", 40], ["maxCost", 44], ["maxEventTicks", 156], ["readySent", 268],
+    ["storeMask", 272], ["store", 276], ["timers", 340], ["holds", 436],
   ]);
   assert.equal(contract.SCRIPT_ENTRY.size, 48 + EVENTS.length * 8 + 4 + contract.STORE.slots * 4 + contract.TIMERS.slots * contract.TIMERS.recordSize + contract.HOLDS_BYTES);
-  assert.equal(contract.SCRIPT_ENTRY.size, 444);
+  assert.equal(contract.SCRIPT_ENTRY.size, 452);
   let offset = 0;
   for (const field of contract.SCRIPT_ENTRY.fields) {
     assert.equal(field.offset, offset);
@@ -99,7 +99,7 @@ test("LED state and transport budgets share one generated contract", () => {
   ]);
   assert.deepEqual(contract.SCRIPT_LED_VALID, { DESIRED: 1, DELIVERED: 2 });
   assert.equal(API.find(a => a.name === "korg.led").id, 1);
-  assert.equal(API_VERSION, 29);
+  assert.equal(API_VERSION, 30);
   const equ = Object.fromEntries([...asmInclude().matchAll(/^\.equ (\w+), (\w+)$/gm)].map(m => [m[1], Number(m[2])]));
   for (const [name, value] of Object.entries(led).filter(([, value]) => typeof value === "number")) {
     assert.equal(equ[`SCRIPT_LED_${name.replace(/([a-z])([A-Z])/g, "$1_$2").toUpperCase()}`], value);
@@ -154,7 +154,7 @@ test("opcode numbers are pinned: they are in every blob ever exported", () => {
 });
 
 test("event ids, API ids and error codes are pinned", () => {
-  assert.deepEqual(EVENTS.map(e => e.name), ["start", "ready", "frame", "buttonPress", "buttonRelease", "knob", "encoder", "pad", "touch", "step", "beat", "play", "stop", "rec", "patternChange", "partChange", "mute", "tempo", "save", "menu", "open", "close", "timer", "touchpadMode", "padMode", "screen", "write"]);
+  assert.deepEqual(EVENTS.map(e => e.name), ["start", "ready", "frame", "buttonPress", "buttonRelease", "knob", "encoder", "pad", "touch", "step", "beat", "play", "stop", "rec", "patternChange", "partChange", "mute", "tempo", "save", "menu", "open", "close", "timer", "touchpadMode", "padMode", "screen", "write", "midiIn"]);
   assert.deepEqual(Object.fromEntries(API.map(a => [a.id, a.name])), {
     1: "korg.led", 2: "korg.millis", 16: "korg.display.clear", 17: "korg.display.text", 18: "korg.display.number",
     19: "korg.display.pixel", 20: "korg.display.rect", 21: "korg.display.clearRect",
@@ -178,6 +178,7 @@ test("event ids, API ids and error codes are pinned", () => {
     106: "korg.motion.lane", 107: "korg.motion.destination", 108: "korg.motion.value", 109: "korg.motion.setValue", 110: "korg.motion.clearLane",
     111: "korg.motion.clearPart", 112: "korg.motion.clearMfx", 113: "korg.motion.output",
     114: "korg.display.chars", 115: "korg.read.patternName",
+    116: "korg.midi.cc", 117: "korg.midi.noteOn", 118: "korg.midi.noteOff", 119: "korg.midi.program", 120: "korg.midi.hold",
   });
   assert.deepEqual(ERRORS.map(e => e.code), ERRORS.map((_, i) => i));
   assert.equal(ERROR.FUEL, 1);
@@ -187,7 +188,7 @@ test("event ids, API ids and error codes are pinned", () => {
   assert.equal(ERROR.STACK, 5);
   assert.equal(ERROR.BAD_JUMP, 6);
   assert.equal(FORMAT_VERSION, 2);
-  assert.equal(API_VERSION, 29);
+  assert.equal(API_VERSION, 30);
   assert.deepEqual(API.filter(a => a.since === 2).map(a => a.name), ["korg.store.get", "korg.store.set", "korg.store.save"]);
   assert.deepEqual(API.filter(a => a.since === 3).map(a => a.name).slice(0, 2), ["korg.read.transport", "korg.read.tempo"]);
   assert.deepEqual(API.filter(a => a.since === 4).map(a => a.name), ["korg.menu.add"]);

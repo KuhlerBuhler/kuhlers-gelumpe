@@ -93,6 +93,7 @@ export const CHAINS = {
   "type-set": [{ id: "setter", sites: [0xC0048A64] }],
   "filter-key": [{ id: "selection", sites: [0xC006FCE8] }],
   "filter-type-store": [{ id: "setter", sites: [0xC00495DC] }],
+  "midi-in": [{ id: "channel-message", sites: [0xC002B2D8, 0xC002843C] }],   // the second is the synth build's
   "pattern-write": [
     { id: "entry", sites: [0xC004C28C, 0xC0046090] },   // the second is the synth build's
     { id: "staging-copy", sites: [0xC004C2BC] },

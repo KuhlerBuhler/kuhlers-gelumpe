@@ -76,6 +76,11 @@ export const API_DOCS = Object.freeze({
   "korg.seq.setPartValue": text("api.korg.seq.setPartValue"),
   "korg.read.patternBytes": text("api.korg.read.patternBytes"),
   "korg.read.patternName": text("api.korg.read.patternName"),
+  "korg.midi.cc": text("api.korg.midi.cc"),
+  "korg.midi.noteOn": text("api.korg.midi.noteOn"),
+  "korg.midi.noteOff": text("api.korg.midi.noteOff"),
+  "korg.midi.program": text("api.korg.midi.program"),
+  "korg.midi.hold": text("api.korg.midi.hold"),
   "korg.seq.writeSteps": text("api.korg.seq.writeSteps"),
   "korg.seq.setPatternValue": text("api.korg.seq.setPatternValue"),
   "korg.menu.add": text("api.korg.menu.add"),
@@ -124,6 +129,7 @@ export const EVENT_DOCS = Object.freeze({
   padMode: { text: text("api.event.padMode"), args: { mode: text("api.event.padMode.mode") } },
   screen: { text: text("api.event.screen"), args: { number: text("api.event.screen.number") } },
   write: { text: text("api.event.write"), args: { pattern: text("api.event.write.pattern") } },
+  midiIn: { text: text("api.event.midiIn"), args: { status: text("api.event.midiIn.status"), data1: text("api.event.midiIn.data1"), data2: text("api.event.midiIn.data2") } },
 });
 
 export const GROUP_DOCS = Object.freeze({

@@ -185,6 +185,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 27: MFX-2-Typ und Touchpad-Modus lesen und setzen, im Emulator](2026-11-11-plugin-api27-mfx2-touchpad.md)
 - [Plugin API 28: Motion-Spuren lesen, schreiben, löschen und Motion an/aus, im Emulator](2026-11-11-plugin-api28-motion.md)
 - [Plugin API 29: Pad-Modus, Takt, Bildschirm, WRITE-Ereignis, Pattern-Name und Zeichen aus Arrays, im Emulator](2026-11-11-plugin-api29-state-events.md)
+- [Plugin API 30: MIDI senden, midiIn und Typen halten, im Emulator](2026-11-11-plugin-api30-midi.md)
 - [Firmwarepfad fuer Part-Parameter, im Emulator geprueft](2026-11-06-part-param-refresh.md)
 - [DSP-Transport bei neuen Part-Bedienungen, im Emulator geprueft](2026-11-07-part-control-dsp-refresh.md)
 - [Part-Werte aus Plugins: Parametersetzer, Auffrischen, Filter-LEDs und MFX SEND wie die Bedienelemente, im Emulator](2026-11-09-plugin-part-dsp.md)

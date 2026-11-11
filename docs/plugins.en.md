@@ -164,6 +164,7 @@ A compile error names line and column and says what to do. The wording is German
 | `padMode` | `mode` | pad mode changed, the new value of `korg.pads.mode`; from API version 29 |
 | `screen` | `number` | another firmware screen is open, the new value of `korg.screen`; from API version 29 |
 | `write` | `pattern` | a pattern is written to the bank (WRITE, also the EXIT + WRITE shortcut), `pattern` its place 0 to 249, before the firmware writes it; from API version 29 |
+| `midiIn` | `status`, `data1`, `data2` | the firmware received a channel message over MIDI (DIN or USB), status 128 to 239 (type and channel), the data bytes 0 to 127; on every channel and before the MIDI RECEIVE FILTER, the firmware gets it afterwards unless a plugin holds its type with `korg.midi.hold`. Clock, SysEx and real time messages do not come; since API version 30 |
 | `save` | | WRITE in Global, power off |
 | `menu` | `id`, `value` | someone turned a page that the plugin created with `korg.menu.add` on the main dial |
 | `open`, `close` | | only for apps and for a plugin that took the display: `open` when the user opens the app in the menu, `close` when EXIT closes it (or the firmware leaves the main screen). They go only to this plugin and never come from outside |
@@ -192,7 +193,7 @@ One cycle delivers `ready` once per plugin first, then collects the waiting inpu
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
 
-### What a plugin reaches (API 29)
+### What a plugin reaches (API 30)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -234,7 +235,7 @@ or a leaf of the object tree is missing.
 | IFX: on, type, edit | `korg.read.patternValue` | `korg.seq.setPartValue` | no |
 | **Sound, MIDI, samples** | | | |
 | Output level, spectrum, waveform | no | no | no |
-| Sending own MIDI messages, receiving MIDI | no | no | no |
+| Sending own MIDI messages, receiving MIDI | no | `korg.midi.cc`, `korg.midi.noteOn`, `korg.midi.noteOff`, `korg.midi.program`, `korg.midi.hold` | `midiIn` |
 | Name and data of a sample | no | no | no |
 | **System and settings** | | | |
 | Device, version, number of effects and sample slots | `korg.system.device`, `korg.system.version`, `korg.system.limits.*` | no | no |
@@ -637,6 +638,11 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.seq.setPatternValue(value, x)` | sets the value `value` (its number in `PATTERN_FIELDS`, as for `korg.read.patternValue` with `part` -1) of the pattern that plays to `x`, clamped to its range, through the firmware function the Pattern menu uses: the block then holds the same byte as after turning it in the menu. MFX TYPE only goes to 31 on blue. `syncGroup` (value 12, from API version 21) has no firmware function, the firmware does not know it; the call writes it into the block as the SYNC GROUP page does. From API version 24: `alternate1314` and `alternate1516` go through the function of the ALTERNATE pages; `mfxHold` presses the MFX HOLD key when the value changes, so LED, effect and touchpad end up as after the key (the block holds the value after the next frame); `mfxPadX` and `mfxPadY` set the touchpad's value and send the MIDI CC like the touchpad, on the global channel. The pattern name cannot be set. Checked in the emulator on hacktribe, red and blue ([measurement](messungen/2026-11-03-plugin-api15.md), German), not yet on the device. The table per firmware is in `tools/patch/script_hooks.py` (`PATTERN_SETTERS`). From API version 15 | like `korg.led` |
 | `korg.read.patternBytes(array, pattern, offset)` | copies bytes of a pattern into the array, one byte per slot: `pattern` -1 the one in RAM, 0 to 249 a stored one, from `offset` (0 to 16383) in the block of 16384 bytes, as many as the array has slots and the block reaches. Returns the number of bytes. The places are in `data/map/pattern.mjs`: part `p` starts at 2048 + 816 × `p`, its step `s` at 48 + 12 × `s` within it. From API version 14 | everywhere |
 | `korg.read.patternName(array, pattern)` | copies the 16 bytes of the pattern name (offset 16 of the block) into the array, one byte per slot, as `korg.read.patternBytes(array, pattern, 16)` with at most 16 slots; `pattern` -1 the one in RAM, 0 to 249 a stored one. Returns the number of bytes. Draw it with `korg.display.chars`. From API version 29 | everywhere |
+| `korg.midi.cc(channel, cc, value)` | sends a control change over DIN and USB, through the send function the firmware's pads and knobs use: `channel` 0 to 15 for channel 1 to 16, -1 the global MIDI channel (`korg.global.midiChannel`), `cc` and `value` 0 to 127. The MIDI SEND FILTER applies as to the firmware's own messages: with Short or Short + Program nothing goes out. Returns 1 when sent, 0 when the filter kept it in. Since API version 30 ([measurement](messungen/2026-11-11-plugin-api30-midi.md)) | as `korg.led` |
+| `korg.midi.noteOn(channel, note, velocity)` | sends a note on, `velocity` 1 to 127; channel and filter as `korg.midi.cc`. Since API version 30 | as `korg.led` |
+| `korg.midi.noteOff(channel, note)` | sends a note off with velocity 64, as the firmware's pads do; channel and filter as `korg.midi.cc`. Since API version 30 | as `korg.led` |
+| `korg.midi.program(channel, program)` | sends a program change, `program` 0 to 127; only the MIDI SEND FILTER Short + Program keeps it in, as it does the firmware's. Returns 1 or 0 as `korg.midi.cc`. Since API version 30 | as `korg.led` |
+| `korg.midi.hold(type, on)` | keeps a type of received message from the firmware while `on` is 1: 0 note off, 1 note on, 2 poly pressure, 3 control change, 4 program change, 5 channel pressure, 6 pitch bend. The plugins still get `midiIn`. As with `korg.keyHold` a type is held while any running plugin holds it; a plugin that ends lets go of its own. Since API version 30 | as `korg.led` |
 | `korg.seq.writeSteps(array, part, first)` | writes steps from the array into part `part` of the pattern that plays, from step `first` (0 to 63): 12 slots per step as in the pattern (on, gate, velocity, trigger, four note places, four places the runtime leaves alone), as many whole steps as the array holds and up to step 63. Each value is clamped (on and trigger 0 to 1, gate 0 to 127, velocity 1 to 127, notes 0 to 128); the on byte goes last. Returns the number of steps. From API version 14 | like `korg.led` |
 
 **Writing steps** (`tools/patch/script_seq.s`, from API version 9): `korg.seq.*` writes into the pattern in RAM, the

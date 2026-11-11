@@ -592,16 +592,18 @@ led_guard_release:
 .equ HD_KNOBS, SCRIPT_ENTRY_HOLDS+8
 .equ HD_PAD, SCRIPT_ENTRY_HOLDS+12
 .equ HD_QUIET, 2                    ; in HD_PAD: korg.display.popups(0), bit 0 is the pad hold
+.equ HD_MIDI_SHIFT, 8               ; in HD_PAD: korg.midi.hold, bits 8 to 14 a message type each (script_midi.s)
 
 ; r0 runtime, r1 a plugin to count although it is not armed yet (the one whose body runs), or 0. Folds the holds of the armed
 ; plugins into the key words (KY_FREE), the knob word (KH_FREE) and the pad bit of the capture mask. Clobbers r0 to r3 and r12.
 holds_sync:
-    push {r4-r8, lr}
+    push {r4-r9, lr}
     mov r4, r0
     mov r8, r1
     mov r5, #0
     mov r6, #0
     mov r7, #0
+    mov r9, #0
     ldr r1, [r4, #RT_HEAD]
 holds_next:
     cmp r1, #0
@@ -619,6 +621,7 @@ holds_count:
     ldr r0, [r1, #HD_KNOBS]
     orr r7, r7, r0
     ldr r0, [r1, #HD_PAD]
+    orr r9, r9, r0
     ands r0, r0, #1
     orrne r7, r7, r0, lsl #31
 holds_skip:
@@ -634,9 +637,14 @@ holds_fold:
     bic r0, r7, #0x80000000
     mvn r0, r0
     str r0, [r1, #KH_FREE]
+    mov r0, r9, lsr #HD_MIDI_SHIFT
+    and r0, r0, #0x7F
+    mvn r0, r0
+    ldr r1, =MIDI_FREE
+    str r0, [r1]
     mov r0, r7, lsr #31
     bl pad_hold_set
-    pop {r4-r8, pc}
+    pop {r4-r9, pc}
 
 ; Folds with the running plugin counted: a hold set in its body, which runs before it is armed, works at once.
 hold_sync_caller:

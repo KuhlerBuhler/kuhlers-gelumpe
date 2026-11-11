@@ -161,6 +161,7 @@ suivent la langue choisie dans l’application. Cette langue n’étend pas le j
 | `padMode` | `mode` | mode des pads modifié, la nouvelle valeur de `korg.pads.mode` ; depuis l’API 29 |
 | `screen` | `number` | un autre écran du firmware est ouvert, la nouvelle valeur de `korg.screen` ; depuis l’API 29 |
 | `write` | `pattern` | un pattern est écrit dans la banque (WRITE, aussi le raccourci EXIT + WRITE), `pattern` sa place 0 à 249, avant que le firmware l’écrive ; depuis l’API 29 |
+| `midiIn` | `status`, `data1`, `data2` | le firmware a reçu un message de canal par MIDI (DIN ou USB), statut 128 à 239 (type et canal), octets de données 0 à 127 ; sur tous les canaux et avant le MIDI RECEIVE FILTER, le firmware le reçoit ensuite, sauf si un plugin retient son type avec `korg.midi.hold`. Clock, SysEx et messages temps réel ne viennent pas ; depuis l’API 30 |
 | `save` | | WRITE dans Global et extinction |
 | `menu` | `id`, `value` | Rotation de la molette principale sur une page créée avec `korg.menu.add` |
 | `open`, `close` | | Réservés aux applications et aux plugins ayant pris l’écran : ouverture depuis le menu, fermeture par EXIT ou départ de la page principale. Ils ne sont transmis qu’au plugin concerné |
@@ -193,7 +194,7 @@ Un cycle transmet d’abord `ready` une fois par plugin, collecte les entrées e
 `frame` en dernier. Les nouvelles entrées attendent le cycle suivant. Un nouveau plugin reçoit
 `ready` après la fin du cycle précédent.
 
-### Ce qu’un plugin atteint (API 29)
+### Ce qu’un plugin atteint (API 30)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -236,7 +237,7 @@ feuille de l’arbre d’objets.
 | IFX : on, type, edit | `korg.read.patternValue` | `korg.seq.setPartValue` | non |
 | **Son, MIDI, échantillons** | | | |
 | Niveau de sortie, spectre, forme d'onde | non | non | non |
-| Envoyer ses propres messages MIDI, recevoir du MIDI | non | non | non |
+| Envoyer ses propres messages MIDI, recevoir du MIDI | non | `korg.midi.cc`, `korg.midi.noteOn`, `korg.midi.noteOff`, `korg.midi.program`, `korg.midi.hold` | `midiIn` |
 | Nom et données d'un échantillon | non | non | non |
 | **Système et réglages** | | | |
 | Appareil, version, nombre d'effets et de slots d'échantillon | `korg.system.device`, `korg.system.version`, `korg.system.limits.*` | non | non |
@@ -673,6 +674,11 @@ exclut le corps et `save`.
 | `korg.seq.setPatternValue(value, x)` | Règle un champ de `PATTERN_FIELDS` du pattern en lecture, comme `korg.read.patternValue` avec partie -1 ; valeur limitée à sa plage et fonction du menu Pattern. Détails ci-dessous. Depuis l’API 15 | Comme `korg.led` |
 | `korg.read.patternBytes(array, pattern, offset)` | Copie les octets d’un pattern dans un tableau, un octet par élément. Pattern -1 pour la RAM, 0 à 249 pour la banque ; offset de 0 à 16383 dans un bloc de 16384 octets. Lit jusqu’à la limite du tableau ou du bloc et renvoie le nombre d’octets. Dans `data/map/pattern.mjs`, la partie p commence à 2048 + 816 × p et son pas s à 48 + 12 × s dans la partie. Depuis l’API 14 | Partout |
 | `korg.read.patternName(array, pattern)` | Copie les 16 octets du nom du pattern (offset 16 du bloc) dans le tableau, un octet par élément, comme `korg.read.patternBytes(array, pattern, 16)` avec au plus 16 éléments ; pattern -1 pour la RAM, 0 à 249 pour la banque. Renvoie le nombre d’octets. À afficher avec `korg.display.chars`. Depuis l’API 29 | Partout |
+| `korg.midi.cc(canal, cc, valeur)` | envoie un control change par DIN et USB, par la fonction d’envoi qu’utilisent les pads et potentiomètres du firmware : `canal` 0 à 15 pour les canaux 1 à 16, -1 le canal MIDI global (`korg.global.midiChannel`), `cc` et `valeur` 0 à 127. Le MIDI SEND FILTER s’applique comme aux messages du firmware : avec Short ou Short + Program rien ne sort. Renvoie 1 si envoyé, 0 si le filtre l’a retenu. Depuis l’API 30 ([mesure](messungen/2026-11-11-plugin-api30-midi.md)) | comme `korg.led` |
+| `korg.midi.noteOn(canal, note, vélocité)` | envoie un note on, `vélocité` 1 à 127 ; canal et filtre comme `korg.midi.cc`. Depuis l’API 30 | comme `korg.led` |
+| `korg.midi.noteOff(canal, note)` | envoie un note off avec vélocité 64, comme les pads du firmware ; canal et filtre comme `korg.midi.cc`. Depuis l’API 30 | comme `korg.led` |
+| `korg.midi.program(canal, program)` | envoie un program change, `program` 0 à 127 ; seul le MIDI SEND FILTER Short + Program le retient, comme celui du firmware. Renvoie 1 ou 0 comme `korg.midi.cc`. Depuis l’API 30 | comme `korg.led` |
+| `korg.midi.hold(type, on)` | tient un type de message reçu à l’écart du firmware tant que `on` vaut 1 : 0 note off, 1 note on, 2 poly pressure, 3 control change, 4 program change, 5 channel pressure, 6 pitch bend. Les plugins reçoivent quand même `midiIn`. Comme pour `korg.keyHold`, un type est retenu tant qu’un plugin en cours le retient ; un plugin qui s’arrête libère les siens. Depuis l’API 30 | comme `korg.led` |
 | `korg.seq.writeSteps(array, part, first)` | Écrit des pas entiers à partir du pas first, 0 à 63, dans la partie du pattern en lecture. 12 éléments par pas : activation, gate, vélocité, déclenchement, quatre notes et quatre octets laissés intacts. S’arrête à la fin du tableau ou au pas 63. Limite activation/déclenchement à 0 ou 1, gate à 0 à 127, vélocité à 1 à 127, notes à 0 à 128. L’activation est écrite en dernier. Renvoie le nombre de pas. Depuis l’API 14 | Comme `korg.led` |
 
 **Écriture des paramètres de partie.** `korg.seq.setPartValue` appelle les fonctions qu’utilisent

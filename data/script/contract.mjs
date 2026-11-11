@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 29;
+export const API_VERSION = 30;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -186,6 +186,7 @@ const EVENT_LIST = [
   ["padMode", ["mode"]],
   ["screen", ["number"]],
   ["write", ["pattern"]],
+  ["midiIn", ["status", "data1", "data2"]],
 ];
 
 /**
@@ -194,7 +195,7 @@ const EVENT_LIST = [
  */
 export const EVENT_ARG_SINCE = Object.freeze({ touch: Object.freeze({ first: 6 }) });
 /** The API version an event was added in, for the events newer than API 1: a handler for it needs a block of at least that version. */
-export const EVENT_SINCE = Object.freeze({ touchpadMode: 27, padMode: 29, screen: 29, write: 29 });
+export const EVENT_SINCE = Object.freeze({ touchpadMode: 27, padMode: 29, screen: 29, write: 29, midiIn: 30 });
 
 /**
  * Events. `start` is the script body itself (top-level statements), not a
@@ -407,6 +408,13 @@ const API_LIST = [
   [113, "korg.motion.output", [int("lane", 0, 23)], "int", ALL, 4, 28],
   [114, "korg.display.chars", [arr("array"), int("x", 0, 127), int("y", 0, 63), int("count", 0, 31)], "void", UI, 250, 29, 1],
   [115, "korg.read.patternName", [arr("array"), int("pattern", -1, 249)], "int", UI, 6, 29, 1],
+  // MIDI (API 30): channel messages out through the firmware's senders, under its MIDI SEND FILTER (1 sent, 0 kept in), and
+  // a bit per message type a plugin keeps from the firmware's receive handler; channel -1 is the global MIDI channel
+  [116, "korg.midi.cc", [int("channel", -1, 15), int("cc", 0, 127), int("value", 0, 127)], "int", UI, 20, 30],
+  [117, "korg.midi.noteOn", [int("channel", -1, 15), int("note", 0, 127), int("velocity", 1, 127)], "int", UI, 20, 30],
+  [118, "korg.midi.noteOff", [int("channel", -1, 15), int("note", 0, 127)], "int", UI, 20, 30],
+  [119, "korg.midi.program", [int("channel", -1, 15), int("program", 0, 127)], "int", UI, 20, 30],
+  [120, "korg.midi.hold", [int("type", 0, 6), int("on", 0, 1)], "void", UI, 20, 30],
 ];
 
 /**
