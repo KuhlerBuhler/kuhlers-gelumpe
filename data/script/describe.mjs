@@ -82,6 +82,8 @@ export const API_DOCS = Object.freeze({
   "korg.midi.program": text("api.korg.midi.program"),
   "korg.midi.hold": text("api.korg.midi.hold"),
   "korg.audio.level": text("api.korg.audio.level"),
+  "korg.file.read": text("api.korg.file.read"),
+  "korg.file.write": text("api.korg.file.write"),
   "korg.seq.writeSteps": text("api.korg.seq.writeSteps"),
   "korg.seq.setPatternValue": text("api.korg.seq.setPatternValue"),
   "korg.menu.add": text("api.korg.menu.add"),

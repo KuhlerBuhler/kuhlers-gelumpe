@@ -2087,6 +2087,8 @@ export default {
   "api.korg.midi.program": "Wysyła program change. Zatrzymuje go tylko MIDI SEND FILTER Short+Program. Zwraca 1, 0 gdy zatrzymany.",
   "api.korg.midi.hold": "Trzyma typ komunikatu z dala od firmware (0 note off, 1 note on, 2 poly pressure, 3 CC, 4 program, 5 channel pressure, 6 pitch bend); pluginy i tak dostają midiIn. 0 go oddaje.",
   "api.korg.audio.level": "Poziom wyjściowy jednej strony miernika poziomu (kanał 0 lub 1), od 0 do 254, wygładzony tak, jak pokazują go dolne diody.",
+  "api.korg.file.read": "Czyta plik danych wtyczki z karty od offset do tablicy, jeden bajt na pole. Zwraca przeczytane bajty, -1 gdy karta nie jest teraz czytelna.",
+  "api.korg.file.write": "Zapisuje niski bajt każdego pola do pliku danych wtyczki od offset (maks. 4096 bajtów), na kartę na ekranie głównym. Zwraca przyjęte bajty, -1 gdy teraz się nie da.",
   "api.korg.seq.writeSteps": "Zapisuje kroki po 12 miejsc (wł., gate, velocity, trigger, 4 nuty, 4 niezapisane) do partu part od kroku first, przycięte. Zwraca liczbę kroków.",
   "api.korg.seq.setPatternValue": "Zapisuje wartość field (od 0 do 10, jak w korg.read.patternValue z part -1) grającego patternu, przyciętą. Na urządzeniu na razie nic się nie zapisuje: settery firmware nie są zmierzone.",
   "api.korg.menu.add": "Zakłada stronę w menu BLECH i zwraca jej numer, -1 jeśli wszystkie miejsca są zajęte. Gdy użytkownik nią kręci, przychodzi zdarzenie menu.",

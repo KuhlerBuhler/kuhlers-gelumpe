@@ -2087,6 +2087,8 @@ export default {
   "api.korg.midi.program": "Pošle program change. Zadrží ho jen MIDI SEND FILTER Short+Program. Vrací 1, 0 když je zadržen.",
   "api.korg.midi.hold": "Drží typ zprávy mimo firmware (0 note off, 1 note on, 2 poly pressure, 3 CC, 4 program, 5 channel pressure, 6 pitch bend); pluginy midiIn dostanou i tak. 0 ho vrátí.",
   "api.korg.audio.level": "Výstupní úroveň jedné strany měřiče úrovně (kanál 0 nebo 1), 0 až 254, vyhlazená tak, jak ji ukazují spodní LED.",
+  "api.korg.file.read": "Čte datový soubor pluginu z karty od offset do pole, jeden bajt na pozici. Vrací přečtené bajty, -1 když karta teď nejde číst.",
+  "api.korg.file.write": "Zapíše dolní bajt každé pozice od offset do datového souboru pluginu (max. 4096 bajtů), na kartu na hlavní obrazovce. Vrací přijaté bajty, -1 když to teď nejde.",
   "api.korg.seq.writeSteps": "Zapíše záznamy kroků po 12 místech (zap., gate, velocity, trigger, 4 noty, 4 nezapsané) do partu part od kroku first, oříznuté. Vrátí počet kroků.",
   "api.korg.seq.setPatternValue": "Zapíše hodnotu field (0 až 10, jako u korg.read.patternValue s part -1) hraného patternu, oříznutou. Na zařízení se zatím nic nezapíše: settery firmwaru nejsou změřené.",
   "api.korg.menu.add": "Založí stránku v menu BLECH a vrátí její číslo, -1 pokud jsou všechna místa obsazená. Když jí uživatel otočí, přijde událost menu.",

@@ -5,7 +5,7 @@
  * pending handlers survive an overrun. Only the faulty script is switched off.
  * Timers (korg.after, korg.every, korg.afterSteps) are checked at the start of each frame, as the frame hook does.
  */
-import { BUDGET, LIMITS, ERROR, QUEUED_EVENTS, SCRIPT_ENTRY, SCRIPT_PHASE, EVENT_BY_NAME, STORE, SCRIPT_APPS, TIMERS } from "../../data/script/contract.mjs";
+import { BUDGET, LIMITS, ERROR, QUEUED_EVENTS, SCRIPT_ENTRY, SCRIPT_PHASE, EVENT_BY_NAME, STORE, SCRIPT_APPS, TIMERS, SCRIPT_DATA_FILE } from "../../data/script/contract.mjs";
 import { Script, ScriptFault } from "./vm.mjs";
 import { decodeBlob, fail } from "./blob.mjs";
 import { verifyParts } from "./verifier.mjs";
@@ -42,6 +42,8 @@ export class ScriptRuntime {
     this.api = api;
     this.storage = storage;
     this.storePending = false;
+    /** The data files of korg.file.read and korg.file.write by plugin name, as the card would hold them. */
+    this.dataFiles = new Map();
     /** The menu pages scripts added with korg.menu.add, in the order they were added; an id is the index. */
     this.menus = [];
     /** korg.remapKey: the key `from` reaches the firmware and the scripts as `to` while `entry` is armed, else null. */
@@ -107,6 +109,21 @@ export class ScriptRuntime {
     api["korg.store.get"] = (slot, fallback) => ((entry.store.mask >>> slot) & 1 ? entry.store.values[slot] : fallback);
     api["korg.store.set"] = (slot, value) => { entry.store.values[slot] = value | 0; entry.store.mask = (entry.store.mask | (1 << slot)) >>> 0; return 0; };
     api["korg.store.save"] = () => { this.storePending = true; return 0; };
+    api["korg.file.read"] = (slots, offset) => {
+      const file = this.dataFiles.get(entry.script.name) ?? new Uint8Array(0);
+      const n = Math.max(0, Math.min(slots.length, file.length - offset));
+      for (let i = 0; i < n; i++) slots[i] = file[offset + i];
+      return n;
+    };
+    api["korg.file.write"] = (slots, offset) => {
+      const old = this.dataFiles.get(entry.script.name) ?? new Uint8Array(0);
+      const n = Math.min(slots.length, SCRIPT_DATA_FILE.maxBytes - offset);
+      const file = new Uint8Array(Math.max(old.length, offset + n));
+      file.set(old);
+      for (let i = 0; i < n; i++) file[offset + i] = slots[i] & 255;
+      this.dataFiles.set(entry.script.name, file);
+      return n;
+    };
     api["korg.menu.add"] = (label, min, max, value) => {
       if (min > max) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.menuRange")));
       const name = String(label).slice(0, LIMITS.nameLength);

@@ -76,6 +76,7 @@ export const COVERAGE = Object.freeze([
   row("plugin", "Eigene Einträge im Menü BLECH", "Own entries in the menu BLECH", "Entrées propres dans le menu BLECH", [], ["korg.menu.add"], ["menu"]),
   row("plugin", "Apps", "Apps", "Apps", [], ["korg.app"], ["open", "close"]),
   row("plugin", "Gespeicherte Werte", "Stored values", "Valeurs enregistrées", ["korg.store.get"], ["korg.store.set", "korg.store.save"], ["save"]),
+  row("plugin", "Eigene Datei auf der Karte", "Own file on the card", "Fichier propre sur la carte", ["korg.file.read"], ["korg.file.write"]),
   row("plugin", "Zeit und Timer", "Time and timers", "Temps et minuteurs", ["korg.millis"], ["korg.after", "korg.every", "korg.afterSteps", "korg.cancel"],
     ["ready", "frame"]),
 ]);

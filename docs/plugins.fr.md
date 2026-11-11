@@ -194,7 +194,7 @@ Un cycle transmet d’abord `ready` une fois par plugin, collecte les entrées e
 `frame` en dernier. Les nouvelles entrées attendent le cycle suivant. Un nouveau plugin reçoit
 `ready` après la fin du cycle précédent.
 
-### Ce qu’un plugin atteint (API 31)
+### Ce qu’un plugin atteint (API 32)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -250,6 +250,7 @@ feuille de l’arbre d’objets.
 | Entrées propres dans le menu BLECH | non | `korg.menu.add` | `menu` |
 | Apps | non | `korg.app` | `open`, `close` |
 | Valeurs enregistrées | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
+| Fichier propre sur la carte | `korg.file.read` | `korg.file.write` | non |
 | Temps et minuteurs | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
 
@@ -681,6 +682,8 @@ exclut le corps et `save`.
 | `korg.midi.program(canal, program)` | envoie un program change, `program` 0 à 127 ; seul le MIDI SEND FILTER Short + Program le retient, comme celui du firmware. Renvoie 1 ou 0 comme `korg.midi.cc`. Depuis l’API 30 | comme `korg.led` |
 | `korg.midi.hold(type, on)` | tient un type de message reçu à l’écart du firmware tant que `on` vaut 1 : 0 note off, 1 note on, 2 poly pressure, 3 control change, 4 program change, 5 channel pressure, 6 pitch bend. Les plugins reçoivent quand même `midiIn`. Comme pour `korg.keyHold`, un type est retenu tant qu’un plugin en cours le retient ; un plugin qui s’arrête libère les siens. Depuis l’API 30 | comme `korg.led` |
 | `korg.audio.level(canal)` | le niveau de sortie d’un côté de l’indicateur de niveau, `canal` 0 ou 1, 0 à 254 : la même valeur lissée que montrent les LED du bas (nouvelle toutes les 40 ms), même quand l’indicateur est éteint ou qu’un plugin tient les LED. Quel côté est à gauche n’est pas encore vérifié sur l’appareil. Depuis l’API 31 ([mesure](messungen/2026-11-11-plugin-api31-audio-level.md)) | Partout |
+| `korg.file.read(tableau, offset)` | lit le fichier de données du plugin (voir [Fichier de données](#fichier-de-données)) à partir de l’octet `offset` (0 à 4095) dans le tableau, un octet par case, autant que le tableau a de cases et que le fichier en contient. Renvoie le nombre d’octets (0 sans fichier), -1 hors de l’écran principal et du menu BLECH, sans carte lisible ou tant que le fichier d’un autre plugin attend d’être écrit. Depuis l’API 32 ([mesure](messungen/2026-11-11-plugin-api32-data-file.md)) | comme `korg.led` |
+| `korg.file.write(tableau, offset)` | écrit l’octet bas de chaque case dans le fichier de données du plugin à partir de l’octet `offset`, jusqu’à la fin du tableau ou la limite de 4096 octets ; un trou derrière l’ancienne fin se lit comme 0. Comme pour `korg.store.save`, le fichier n’arrive sur la carte qu’à l’écran principal ou dans le menu BLECH, au plus tôt 2 s après la dernière écriture. Renvoie le nombre d’octets, -1 comme `korg.file.read`. Depuis l’API 32 | comme `korg.led` |
 | `korg.seq.writeSteps(array, part, first)` | Écrit des pas entiers à partir du pas first, 0 à 63, dans la partie du pattern en lecture. 12 éléments par pas : activation, gate, vélocité, déclenchement, quatre notes et quatre octets laissés intacts. S’arrête à la fin du tableau ou au pas 63. Limite activation/déclenchement à 0 ou 1, gate à 0 à 127, vélocité à 1 à 127, notes à 0 à 128. L’activation est écrite en dernier. Renvoie le nombre de pas. Depuis l’API 14 | Comme `korg.led` |
 
 **Écriture des paramètres de partie.** `korg.seq.setPartValue` appelle les fonctions qu’utilisent
@@ -1156,6 +1159,15 @@ entrées lors d’une sauvegarde. [Détails](plugins.md#dauerhafte-werte).
 principale ou dans BLECH, y compris les pages `korg.menu.add`. Un nouvel appel `save()` reste
 en attente. Un échec, carte absente ou pleine, incrémente `storeErrors` sans nouvelle tentative
 automatique. Dans le navigateur, les valeurs persistent uniquement jusqu’au rechargement de la page.
+
+### Fichier de données
+
+Chaque plugin a un fichier pour ses propres octets, `KORG/blechtribe/Plugin/Data/<nom>.bin` : le nom du plugin, chaque caractère
+autre que A à Z, a à z, 0 à 9 et `-` remplacé par `_` (`dataFileName` dans le contrat). Il fait au plus 4096 octets
+(`SCRIPT_DATA_FILE.maxBytes`) ; la limite pourra augmenter dans une version future de l’API. `korg.file.read` et `korg.file.write`
+travaillent sur une copie en RAM : le runtime garde le fichier d’un plugin à la fois dans un bloc du tas du firmware (4112 octets,
+pris au premier appel, gardé jusqu’à l’extinction). Un autre plugin n’obtient le bloc qu’une fois le fichier du précédent sur la
+carte. Ce qu’un plugin écrit avant que son fichier soit sur la carte est perdu à l’extinction.
 
 ## Menu BLECH de l’appareil
 

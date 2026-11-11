@@ -229,7 +229,7 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
-### Was ein Plugin erreicht (API 31)
+### Was ein Plugin erreicht (API 32)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -284,6 +284,7 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Eigene Einträge im Menü BLECH | nein | `korg.menu.add` | `menu` |
 | Apps | nein | `korg.app` | `open`, `close` |
 | Gespeicherte Werte | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
+| Eigene Datei auf der Karte | `korg.file.read` | `korg.file.write` | nein |
 | Zeit und Timer | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
 
@@ -686,6 +687,8 @@ Plugin mit einem Fehler.
 | `korg.midi.program(kanal, program)` | schickt einen Program Change, `program` 0 bis 127; nur der MIDI SEND FILTER Short + Program hält ihn zurück, wie den der Firmware. Gibt 1 oder 0 zurück wie `korg.midi.cc`. Ab API Version 30 | wie `korg.led` |
 | `korg.midi.hold(typ, an)` | hält einen Typ empfangener Nachrichten von der Firmware fern, solange `an` 1 ist: 0 Note Off, 1 Note On, 2 Poly Pressure, 3 Control Change, 4 Program Change, 5 Channel Pressure, 6 Pitch Bend. Die Plugins bekommen `midiIn` trotzdem. Wie `korg.keyHold` gilt der Typ als gehalten, solange irgendein laufendes Plugin ihn hält; ein Plugin, das endet, gibt seine frei. Ab API Version 30 | wie `korg.led` |
 | `korg.audio.level(kanal)` | der Ausgangspegel einer Seite der Pegelanzeige, `kanal` 0 oder 1, 0 bis 254: derselbe geglättete Wert, den die unteren LEDs zeigen (alle 40 ms neu), auch wenn die Anzeige aus ist oder ein Plugin die LEDs hält. Welche Seite links ist, ist am Gerät noch nicht geprüft. Ab API Version 31 ([Messung](messungen/2026-11-11-plugin-api31-audio-level.md)) | überall |
+| `korg.file.read(feld, offset)` | liest die Datendatei des Plugins (siehe [Datendatei](#datendatei)) ab Byte `offset` (0 bis 4095) ins Feld, ein Byte je Platz, so viele wie das Feld Plätze hat und die Datei reicht. Gibt die Zahl der Bytes zurück (0 ohne Datei), -1 außerhalb des Hauptbildschirms und des Menüs BLECH, ohne lesbare Karte oder solange ein anderes Plugin noch auf das Schreiben seiner Datei wartet. Ab API Version 32 ([Messung](messungen/2026-11-11-plugin-api32-data-file.md)) | wie `korg.led` |
+| `korg.file.write(feld, offset)` | schreibt das untere Byte jedes Platzes ab Byte `offset` in die Datendatei des Plugins, bis zum Ende des Felds oder der Grenze von 4096 Byte; eine Lücke hinter dem alten Ende liest sich als 0. Auf die Karte kommt die Datei wie bei `korg.store.save` erst im Hauptbildschirm oder im Menü BLECH und frühestens 2 s nach dem letzten Schreiben. Gibt die Zahl der Bytes zurück, -1 wie `korg.file.read`. Ab API Version 32 | wie `korg.led` |
 | `korg.seq.writeSteps(feld, part, erster)` | schreibt Steps aus dem Feld in Part `part` des Patterns, das läuft, ab Step `erster` (0 bis 63): je 12 Plätze ein Step wie im Pattern (an, Gate, Velocity, Trigger, vier Notenplätze, vier Plätze, die die Laufzeit stehen lässt), so viele ganze Steps wie das Feld hat und bis Step 63. Jeder Wert wird geklemmt (an und Trigger 0 bis 1, Gate 0 bis 127, Velocity 1 bis 127, Noten 0 bis 128), das An-Byte kommt zuletzt. Gibt die Zahl der Steps zurück. Ab API Version 14 | wie `korg.led` |
 
 **Steps schreiben** (`tools/patch/script_seq.s`, ab API Version 9): `korg.seq.*` schreibt in das Pattern im RAM,
@@ -1204,6 +1207,15 @@ nur, solange der Hauptbildschirm oder das Menü BLECH offen ist (dort liegen die
 vorgemerkt. Ein Fehlschlag (keine Karte, Karte voll) zählt im Kontrollblock
 (`storeErrors`) und wiederholt sich nicht von selbst. Im Lauf im Browser halten die
 Werte bis zum Neuladen der Seite.
+
+### Datendatei
+
+Jedes Plugin hat eine Datei für eigene Bytes, `KORG/blechtribe/Plugin/Data/<name>.bin`: der Plugin-Name, jedes Zeichen außer
+A bis Z, a bis z, 0 bis 9 und `-` als `_` (`dataFileName` im Vertrag). Sie ist höchstens 4096 Byte groß (`SCRIPT_DATA_FILE.maxBytes`);
+die Grenze kann in einer späteren API-Version wachsen. `korg.file.read` und `korg.file.write` arbeiten auf einer Kopie im
+RAM: die Laufzeit hält die Datei eines Plugins zur Zeit in einem Block vom Heap der Firmware (4112 Byte, beim ersten Aufruf
+genommen, bis zum Ausschalten behalten). Ein anderes Plugin bekommt den Block erst, wenn die Datei des vorigen auf der Karte
+steht. Was ein Plugin schreibt, bevor die Datei auf der Karte steht, geht beim Ausschalten verloren.
 
 ## Das Menü BLECH am Gerät
 

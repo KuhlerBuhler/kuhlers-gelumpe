@@ -2135,6 +2135,8 @@ export default {
   "api.korg.midi.program": "Sendet einen Program Change. Nur MIDI SEND FILTER Short+Program hält ihn zurück. Gibt 1 zurück, 0 wenn zurückgehalten.",
   "api.korg.midi.hold": "Hält einen MIDI-Typ von der Firmware fern: 0 Note Off, 1 Note On, 2 Poly Pressure, 3 CC, 4 Program, 5 Channel Pressure, 6 Pitch Bend; midiIn kommt weiter, 0 gibt ihn frei.",
   "api.korg.audio.level": "Der Ausgangspegel einer Seite der Pegelanzeige (Kanal 0 oder 1), 0 bis 254, so geglättet wie die unteren LEDs ihn zeigen.",
+  "api.korg.file.read": "Liest die Datendatei des Plugins ab offset von der Karte ins Feld, ein Byte je Platz. Gibt die gelesenen Bytes zurück, -1 wenn die Karte gerade nicht lesbar ist.",
+  "api.korg.file.write": "Schreibt das untere Byte jedes Platzes ab offset in die Datendatei des Plugins (höchstens 4096 Bytes), auf die Karte im Hauptbild. Gibt die Bytes zurück, -1 wenn es gerade nicht geht.",
   "api.korg.seq.writeSteps": "Schreibt Step-Einträge zu je 12 Plätzen (an, Gate, Velocity, Trigger, 4 Noten, 4 ungeschrieben) in Part part ab Step first, geklemmt. Gibt die Zahl der Steps zurück.",
   "api.korg.seq.setPatternValue": "Schreibt den Wert field (0 bis 10, wie bei korg.read.patternValue mit part -1) des laufenden Patterns, geklemmt. Noch schreibt er nichts: die Setter der Firmware sind nicht gemessen.",
   "api.korg.menu.add": "Legt eine Seite im Menü BLECH an und gibt ihre Nummer zurück, -1 wenn alle Plätze belegt sind. Dreht der Nutzer daran, kommt das Ereignis menu.",

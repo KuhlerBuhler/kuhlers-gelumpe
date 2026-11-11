@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 31;
+export const API_VERSION = 32;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -315,6 +315,19 @@ const arr = (name, strip) => ({ name, kind: "arr", strip });
 /** Fuel units for each slot of a bitmap's array, on top of the call's cost of 14: the ARM routine takes 63 instructions for the call, at most 28 for a lit slot and about 20 more for each band of a picture one slot wide, at 10 instructions to a unit (tools/patch/test_script_display.py counts them against these numbers). */
 const BITMAP_ITEM_COST = 3;
 
+/**
+ * The data file of a plugin for korg.file.read and korg.file.write: `SD:KORG/blechtribe/Plugin/Data/<name>.bin`, the plugin's
+ * name with every character other than A to Z, a to z, 0 to 9 and "-" as "_", at most `maxBytes` bytes. The limit may grow in a
+ * later API version.
+ */
+export const SCRIPT_DATA_FILE = Object.freeze({ maxBytes: 4096, folder: "KORG/blechtribe/Plugin/Data/", extension: ".bin" });
+
+/** The file name of a plugin's data file (SCRIPT_DATA_FILE). */
+export function dataFileName(name) {
+  const safe = String(name).slice(0, 16).replace(/[^A-Za-z0-9-]/g, "_");
+  return (safe || "_") + SCRIPT_DATA_FILE.extension;
+}
+
 const API_LIST = [
   // id, name, args, returns, events, cost (one byte), since, perItem. Display costs follow the native instruction counts in
   // Unicorn at 10 instructions to a unit, for a short call, capped at 250; the 5 ms frame budget limits real time.
@@ -417,6 +430,8 @@ const API_LIST = [
   [120, "korg.midi.hold", [int("type", 0, 6), int("on", 0, 1)], "void", UI, 20, 30],
   // the output level as the meter of the bottom LEDs shows it (API 31), 0 to 254 per side
   [121, "korg.audio.level", [int("channel", 0, 1)], "int", ALL, 4, 31],
+  [122, "korg.file.read", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1)], "int", UI, 250, 32, 1],
+  [123, "korg.file.write", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1)], "int", UI, 250, 32, 1],
 ];
 
 /**

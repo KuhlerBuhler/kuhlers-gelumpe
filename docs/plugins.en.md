@@ -193,7 +193,7 @@ One cycle delivers `ready` once per plugin first, then collects the waiting inpu
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
 
-### What a plugin reaches (API 31)
+### What a plugin reaches (API 32)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -248,6 +248,7 @@ or a leaf of the object tree is missing.
 | Own entries in the menu BLECH | no | `korg.menu.add` | `menu` |
 | Apps | no | `korg.app` | `open`, `close` |
 | Stored values | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
+| Own file on the card | `korg.file.read` | `korg.file.write` | no |
 | Time and timers | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
 
@@ -645,6 +646,8 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.midi.program(channel, program)` | sends a program change, `program` 0 to 127; only the MIDI SEND FILTER Short + Program keeps it in, as it does the firmware's. Returns 1 or 0 as `korg.midi.cc`. Since API version 30 | as `korg.led` |
 | `korg.midi.hold(type, on)` | keeps a type of received message from the firmware while `on` is 1: 0 note off, 1 note on, 2 poly pressure, 3 control change, 4 program change, 5 channel pressure, 6 pitch bend. The plugins still get `midiIn`. As with `korg.keyHold` a type is held while any running plugin holds it; a plugin that ends lets go of its own. Since API version 30 | as `korg.led` |
 | `korg.audio.level(channel)` | the output level of one side of the level meter, `channel` 0 or 1, 0 to 254: the same smoothed value the bottom LEDs show (new every 40 ms), also while the meter is off or a plugin holds the LEDs. Which side is left is not yet checked on the device. Since API version 31 ([measurement](messungen/2026-11-11-plugin-api31-audio-level.md)) | everywhere |
+| `korg.file.read(array, offset)` | reads the plugin's data file (see [Data file](#data-file)) from byte `offset` (0 to 4095) into the array, one byte per slot, as many as the array has slots and the file holds. Returns the number of bytes (0 without a file), -1 outside the main screen and the BLECH menu, without a readable card or while another plugin's file still waits to be written. Since API version 32 ([measurement](messungen/2026-11-11-plugin-api32-data-file.md)) | as `korg.led` |
+| `korg.file.write(array, offset)` | writes the low byte of each slot into the plugin's data file from byte `offset`, up to the end of the array or the limit of 4096 bytes; a gap behind the old end reads as 0. As with `korg.store.save`, the file goes to the card only on the main screen or in the BLECH menu and at the earliest 2 s after the last write. Returns the number of bytes, -1 as `korg.file.read`. Since API version 32 | as `korg.led` |
 | `korg.seq.writeSteps(array, part, first)` | writes steps from the array into part `part` of the pattern that plays, from step `first` (0 to 63): 12 slots per step as in the pattern (on, gate, velocity, trigger, four note places, four places the runtime leaves alone), as many whole steps as the array holds and up to step 63. Each value is clamped (on and trigger 0 to 1, gate 0 to 127, velocity 1 to 127, notes 0 to 128); the on byte goes last. Returns the number of steps. From API version 14 | like `korg.led` |
 
 **Writing steps** (`tools/patch/script_seq.s`, from API version 9): `korg.seq.*` writes into the pattern in RAM, the
@@ -1059,6 +1062,15 @@ Writing happens at the earliest 50 frames (2 seconds) after the last write and o
 or the BLECH menu is open (where the pages of `korg.menu.add` are); another `save()` before that stays queued. A failure (no card, card full) is counted in the control
 block (`storeErrors`) and is not repeated on its own. When running in the browser, the values last until the
 page is reloaded.
+
+### Data file
+
+Each plugin has one file for its own bytes, `KORG/blechtribe/Plugin/Data/<name>.bin`: the plugin name with every character other
+than A to Z, a to z, 0 to 9 and `-` as `_` (`dataFileName` in the contract). It holds at most 4096 bytes (`SCRIPT_DATA_FILE.maxBytes`);
+the limit may grow in a later API version. `korg.file.read` and `korg.file.write` work on a copy in RAM: the runtime keeps the
+file of one plugin at a time in a block of the firmware heap (4112 bytes, taken at the first call, kept until power-off). Another
+plugin gets the block only once the previous plugin's file is on the card. What a plugin writes before its file is on the card is
+lost at power-off.
 
 ## The BLECH menu on the device
 
