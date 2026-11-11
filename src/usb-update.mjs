@@ -76,3 +76,21 @@ export function storePlugin(session, id, bytes, onProgress) {
     return name;
   });
 }
+
+/**
+ * Doom onto the card of the connected device: `wad` as KORG/blechtribe/Doom/doom.wad, then `bin` as doom.bin beside it, where the
+ * Doom loader reads them (SHIFT + TAP at power-on). doom.bin goes last, so a send that stops halfway leaves no complete pair; both
+ * sizes are asked again at the end. `onProgress(done, total)` in bytes of both files, `signal` stops it between two blocks.
+ */
+export function storeDoom(session, { bin, wad }, onProgress, signal) {
+  return session.exclusive(async () => {
+    const model = await prepare(session);
+    const info = await session.sender.blechInfo(model);
+    // the blue Electribe 2 never says it: its set has no Doom loader
+    if (!(info.flags & BLECH.FLAG_DOOM)) throw new TextError(session.device?.model === 0x23 ? "usbdoom.blue" : "usbdoom.tooOld");
+    const total = wad.length + bin.length;
+    await session.sender.doomFileWrite(wad, model, done => onProgress?.(done, total), true, signal);
+    await session.sender.doomFileWrite(bin, model, done => onProgress?.(wad.length + done, total), false, signal);
+    if (await session.sender.doomFileSize(model, true) !== wad.length || await session.sender.doomFileSize(model) !== bin.length) throw new TextError("usbdoom.size");
+  });
+}

@@ -2,7 +2,7 @@
  * The Samples page: name and tune of a sample in RAM, sent through the same gate, rehearsal and
  * read-back as every other live edit. Logic: src/samples.mjs, src/sample-rules.mjs, src/plan.mjs.
  */
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { el } from "./fields.mjs";
 import { stateText, setStateText } from "./state.mjs";
 import { field, typeOf } from "../../src/map/index.mjs";
@@ -10,6 +10,8 @@ import { SAMPLE_COUNT } from "../../src/samples.mjs";
 import { lintSample, TUNE_SEEN } from "../../src/sample-rules.mjs";
 import { ensureFirmware } from "../../src/korg.mjs";
 import { t } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:wavs");
 
 const SEVERITY = {
   fatal: ["error", "samples.severity.fatal"], silent: ["error", "levels.muted"], error: ["error", "common.error"],

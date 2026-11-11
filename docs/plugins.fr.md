@@ -358,7 +358,10 @@ au pattern, et désactiver son propre moteur empêcherait les plugins au prochai
 sur une page BLECH, qui écrit `settings.a.bin` ou `settings.b.bin`. Le redémarrage retrouve
 la dernière sauvegarde. Avec AUTO SAVE, quitter BLECH écrit aussi le fichier si les réglages
 ont changé depuis son ouverture. Exception : SET INIT PATTERN est stocké dans les paramètres
-Global du firmware, enregistrés à l’extinction.
+Global du firmware, enregistrés à l’extinction. Comme les pages de GLOBAL PARAMETERS, les pages de BLECH montrent l’étiquette ORIG tant
+que la valeur est celle qui est enregistrée (celle du fichier de réglages, la valeur par défaut sans fichier) : elle disparaît quand tu
+changes la valeur, revient en tournant en arrière et, après WRITE, vaut pour la nouvelle valeur. Les actions et les listes (EXPORT,
+SPLASH, PLUGINS) n’en ont pas.
 
 `korg.menu.blech.write()` demande une sauvegarde, réalisée un peu plus tard, uniquement sur
 la page principale ou dans BLECH, au moins 2 secondes après l’écriture précédente. Plusieurs
@@ -1088,7 +1091,7 @@ pages sont détaillées ci-dessous. ABOUT n’existe plus : il n’affichait que
 |---|---|
 | GLOBAL PARAMETERS, PLUGIN RUNTIME | ON/OFF pour les plugins de la carte ; effet au démarrage suivant, affiché par OFF, RESTART. Blechy est intégré et reste présent. Page 21/21 ; WRITE sauvegarde les réglages BLECH |
 | PLUGINS, MANAGE PLUGINS | ENTER sur PLUGINS ouvre la liste directement. La page intermédiaire `press  [ Enter ]` n’apparaît qu’avec No Plugin ou le résultat de OFF/REMOVE ; ENTER y rouvre la liste. Lecture de `KORG/blechtribe/Plugin/`, maximum 64 fichiers ; au-delà, LIST FULL indique 64 files shown. Depuis 1.4.5, présentation du navigateur DATA UTILITY : trois lignes en grande police, icône fichier, noms longs coupés par « .. », triangle à gauche, défilement à droite. Retrouve le dernier plugin affiché. EXIT revient à PLUGINS ; jusqu’à 1.4.5, MANAGE PLUGINS constituait une page intermédiaire. Plugins chargés d’abord, puis fichiers `*.blech` non chargés, chaque nom une fois. Un plugin seulement dans `e2sPlugin.all` est chargé mais sans description. Blechy et les fonctions intégrées ne sont pas listés : leurs réglages appartiennent à FEATURES. [64 fichiers](messungen/2026-10-30-plugin-liste-64-entfernen.md), [navigateur](messungen/2026-11-08-plugin-liste-browser.md) |
-| Ligne d’un plugin | Deux lignes de pixels signifient ON, une page vide OFF, y compris non chargé ou en erreur. État en petit : DIV_ZERO L3, WRITE=ALLOW ou résultat. Molette vers le bas : pause ; vers le haut : reprise. WRITE conserve l’état au redémarrage ; un plugin réactivé y exécute son corps. Un externe attend WRITE=ALLOW, seule WRITE l’autorise. Pour un fichier non chargé, monter charge et démarre, descendre ne fait rien. Résultats possibles : rejected, runtime off, ou attente d’autorisation. Un chargement ponctuel ne survit au redémarrage qu’après EXPORT ALL PLUGINS. ENTER ouvre DESCRIPTION, pages propres, OFF, REMOVE ; sans chargement, seulement DESCRIPTION et REMOVE. EXIT revient à la liste |
+| Ligne d’un plugin | Deux lignes de pixels signifient ON, une page vide OFF, y compris non chargé ou en erreur. État en petit : DIV_ZERO L3, WRITE=ALLOW ou résultat. Molette vers le bas : pause ; vers le haut : reprise. WRITE conserve l’état au redémarrage ; un plugin réactivé y exécute son corps. Un externe attend WRITE=ALLOW, seule WRITE l’autorise. Pour un fichier non chargé, monter charge et démarre, descendre ne fait rien. Résultats possibles : rejected, runtime off, ou attente d’autorisation. Un chargement ponctuel ne survit au redémarrage qu’après EXPORT ALL PLUGINS. ENTER ouvre ACTIVE (la molette y allume et éteint tout de suite, sans ENTER ni EDIT), DESCRIPTION, pages propres, OFF, REMOVE ; sans chargement, seulement ACTIVE, DESCRIPTION et REMOVE. EXIT revient à la liste |
 | Plugin, DESCRIPTION | Description issue des commentaires `//` initiaux du fichier `*.blech`. Nom en haut, description plein écran, état en bas. Molette : ligne par ligne ; `^` et `v` indiquent la suite ; ENTER ne fait rien. Sans fichier ou description : no description |
 | Plugin, page `korg.menu.add` | Valeur numérique ; la molette modifie et transmet `menu` au plugin |
 | Plugin, OFF | ENTER demande Enter = off ; second ENTER arrête le plugin et réécrit `e2sPlugin.all` sans lui, même vide s’il était seul. Résultat off, file kept. Le `*.blech` reste, réapparaît OFF et peut être rechargé |
@@ -1229,7 +1232,7 @@ sur le matériel peut différer. Les lecteurs d’images dépassent cette borne 
 | Simon | GAMES | Les 16 pads jouent une séquence à reproduire, allongée d’un pas par tour. Durée de pas 0,72 s, raccourcie tous les quatre tours, minimum 0,4 s. L’écran indique tour, pas et action. Erreur de pad termine ; TAP ou pad relance | 2268 octets | Trame 1673 unités maximum à la fin, ouverture 1644 |
 | Mandelbrot | GAMES | Pavé pour déplacer, Part droite et encodeur pour zoomer, Part gauche pour dézoomer ; 1/2 règlent 8 à 64 itérations, TAP réinitialise | 2436 octets | 2135 unités, 0,41 ms |
 | GIF Player | TOOLS | Fichiers GIF00.E2G à GIF99.E2G de la carte ; encodeur choisit, Part gauche/droite divisent ou multiplient la vitesse par deux entre 25 et 400 %, TAP met en pause. Fichier absent signalé ; chaque image reste au moins 40 ms | 972 octets | 3762 unités par trame, environ 0,72 ms, dont image 3086 ; au-dessus de l’avertissement de 0,5 ms |
-| Image Viewer | TOOLS | Images d’un fichier E2G une par une, par exemple plusieurs BMP réunis par `tools/gif/gif2e2g.py`. Part droite/gauche avancent/reculent en boucle ; encodeur change de fichier. Numéro comme 2/3 visible deux secondes après chaque changement ; total connu après parcours du fichier. TAP garde ou masque l’indication. Recul de la première vers la dernière seulement après découverte du nombre d’images | 1128 octets | 4414 unités maximum, deux lectures et dessin au-delà de la dernière image ; environ 0,84 ms déduit, au-dessus de 0,5 ms |
+| BMP Viewer | TOOLS | Images d’un fichier E2G une par une, par exemple plusieurs BMP réunis par `tools/gif/gif2e2g.py`. Part droite/gauche avancent/reculent en boucle ; encodeur change de fichier. Numéro comme 2/3 visible deux secondes après chaque changement ; total connu après parcours du fichier. TAP garde ou masque l’indication. Recul de la première vers la dernière seulement après découverte du nombre d’images | 1128 octets | 4414 unités maximum, deux lectures et dessin au-delà de la dernière image ; environ 0,84 ms déduit, au-dessus de 0,5 ms |
 
 **Set-Timer** utilise `korg.millis()`, actualisé même application fermée. Il n’écoute que
 `play`, boutons, `open`, `close` ; fermé, quelques opérations par bouton et aucune par trame.
@@ -1315,7 +1318,7 @@ Quatre pages : Catalogue, Mes plugins, Éditeur, Documentation. Le titre du fil 
 revient au catalogue.
 
 **Catalogue.** Cartes des applications GAMES et TOOLS décrites ci-dessus et des plugins
-Lauflicht, Pulsieren, Takt-Blinker, Momentary Mute, Gate Hold, Step Copy, dans
+Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, dans
 `data/script/presets.mjs`. Chaque carte montre l’écran après quelques trames, titre,
 catégorie, description et auteur. La carte ouvre une page avec image, description,
 catégorie, auteur, date et commandes ; téléchargement, transfert vers l’appareil et

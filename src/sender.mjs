@@ -317,6 +317,39 @@ export class Sender {
     }
   }
 
+  /** A FILE offset of the Doom files (`wad`: doom.wad, else doom.bin) at `at`. */
+  doomSelector(wad, at = 0) {
+    return (P.BLECH.FILE_DOOM | (wad ? P.BLECH.FILE_OTHER : 0) | at) >>> 0;
+  }
+
+  /** The size of doom.bin (`wad`: doom.wad) on the card; 0 when there is none. */
+  async doomFileSize(model, wad = false) {
+    try {
+      return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, this.doomSelector(wad), 0, model), "blech-file-read"), this.channel, 0, model))).size;
+    } catch (e) {
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE) return 0;
+      throw e;
+    }
+  }
+
+  /**
+   * The bytes as the new doom.bin (`wad`: doom.wad): the first block makes the file anew (and the folder KORG/blechtribe/Doom when it is
+   * missing), every block is read back from the card with its CRC. `signal` (an AbortSignal) stops it between two blocks.
+   */
+  async doomFileWrite(bytes, model, onProgress, wad = false, signal) {
+    const max = this.blech.maxBlock;
+    for (let at = 0; at < bytes.length; at += max) {
+      signal?.throwIfAborted();
+      const part = bytes.subarray(at, Math.min(at + max, bytes.length));
+      const crc = P.crc32(part);
+      await this.blechAttempts("write", async () => {
+        P.parseBlechFileBegin(await this.blechExchange(P.blechFileBegin(this.channel, this.doomSelector(wad, at), part.length, crc, model), "blech-file-begin"), this.channel, model);
+        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part, model), "blech-data", part.length), this.channel, crc, model);
+      });
+      onProgress?.(at + part.length, bytes.length);
+    }
+  }
+
   /** A FILE offset of the sample file (`temp`: its temp file) at `at`. */
   sampleSelector(temp, at = 0) {
     return (P.BLECH.FILE_SAMPLE | (temp ? P.BLECH.FILE_OTHER : 0) | at) >>> 0;

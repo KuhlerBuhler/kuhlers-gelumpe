@@ -69,7 +69,7 @@ for (const [label, viewport] of [["desktop", { width: 1280, height: 800 }], ["wi
         for (let i = 0; i < d.length; i += 4) if (d[i + 3] === 255 && d[i] < 40) dark++;
         return dark > 1000;
       });
-      assert.deepEqual(await page.locator(".cee-discord-blechy .cee-discord-tag").evaluateAll(tags => tags.filter(t => getComputedStyle(t).visibility !== "hidden").length), 0, "no name stands on the floor until the pointer is there");
+      assert.equal(await page.locator(".cee-discord-blechy .cee-discord-tag").count(), 0, "no name on the floor, the names are in the list");
 
       const listed = Math.min(count, 24);
       assert.equal(await page.locator(".cee-discord-people li:visible").count(), listed);
@@ -120,7 +120,7 @@ test("the head is solid too: across the eyes, every pixel from one side of the h
   await page.context().close();
 });
 
-test("a Blechy shows his name while the pointer is on him, and now and then stops for his dance", async () => {
+test("a Blechy shows no name on hover, and now and then stops for his dance", async () => {
   const page = await open(40, { width: 1280, height: 800 });
   await page.locator(".cee-discord-blechy[data-move=dance]").first().waitFor({ timeout: 20_000 });
   const index = await page.locator(".cee-discord-blechy").evaluateAll(nodes => nodes.findIndex(n => n.dataset.move === "dance"));
@@ -129,8 +129,8 @@ test("a Blechy shows his name while the pointer is on him, and now and then stop
   await page.waitForTimeout(500);
   assert.equal(await dancer.evaluate(n => n.dataset.move === "dance" ? n.style.transform : null), at, "he stands still while he dances");
   await dancer.locator("canvas").hover({ force: true });
-  const shown = await page.locator(".cee-discord-blechy .cee-discord-tag").evaluateAll(tags => tags.filter(t => getComputedStyle(t).visibility === "visible").length);
-  assert.equal(shown, 1, "the name of the Blechy under the pointer, no other");
+  assert.equal(await page.locator(".cee-discord-blechy .cee-discord-tag").count(), 0, "hovering a Blechy shows no name");
+  assert.equal(await dancer.evaluate(n => n.title || n.querySelector("[title]")?.title || ""), "", "and no tooltip either");
   assert.deepEqual(page.errors, []);
   await page.context().close();
 });

@@ -1,6 +1,6 @@
 # Idee 61: Makros für die Bedienung
 
-Stand: Grundlagen im Emulator gemessen, Makrofunktion noch nicht gebaut. Zurück zu den [Ideen](../ideen.md).
+Stand: verworfen (10.11.2026), TAP MOTION deckt das schon ab. Grundlagen im Emulator gemessen, Makrofunktion nicht gebaut. Zurück zu den [Ideen](../ideen.md).
 
 Ein Makro nimmt Handgriffe an der Electribe auf und führt sie später wieder aus. Dazu gehören Tastenfolgen, Regler, Drehgeber, Pads, Touchpad, Part-Mutes, Part-Wechsel, Patternwechsel und die Bedienung des Sequencers. Es gilt für das ganze Gerät, nicht nur für einen Part.
 
