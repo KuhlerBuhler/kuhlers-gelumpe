@@ -75,7 +75,7 @@ export default {
 
   "mode.emu": "Emulator",
   "mode.device": "Echtes Gerät",
-  "mode.menu": "Emulator oder echtes Gerät",
+  "mode.none": "Keine Electribe verbunden. Steck sie per USB an und schalte sie ein.",
 
   "start.title": "Wat wird'n ditte hier? Korg verkuhlen or wa?",
   "start.intro.who": "Ich bin Kuhler Buhler, aka Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab, ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann. Tja, und dann war ich ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.",
@@ -327,7 +327,7 @@ export default {
   "sampleset.wav.drag": "WAVs zum Hinzufügen hierher ziehen oder ",
   "sampleset.wav.hint": "Eine oder mehrere auf einmal",
   "sampleset.reset": "Änderungen verwerfen",
-  "sampleset.intro": "Hier siehst du die Samples auf der SD-Karte, in {path}. Du kannst welche hinzufügen oder rausnehmen. Entweder liest du sie von der angesteckten Electribe (dazu muss sie verbunden sein) und schreibst die Änderung dorthin zurück, oder du öffnest die Datei von der Karte aus dem Kartenleser, speicherst sie und kopierst sie zurück. {restart}",
+  "sampleset.intro": "Die Samples auf der Karte, in {path}. Von der angesteckten Electribe lesen oder die Datei aus dem Kartenleser öffnen. {restart}",
   "sampleset.device.read": "Von der Electribe lesen",
   "sampleset.device.reading": "Samples von der Electribe lesen",
   "sampleset.device.readStep": "Lese Sample {done} von {total}",
@@ -397,6 +397,10 @@ export default {
 
   "splash.gallery.default": "Standard",
   "splash.gallery.wave": "Blechy winkt",
+  "splash.gallery.pads": "Pads",
+  "splash.gallery.waveform": "Wellenform",
+  "splash.gallery.knob": "Regler",
+  "splash.gallery.bars": "Pegel",
   "splash.loadFailed": "{src} ließ sich nicht laden.",
   "splash.drop.drag": "Bild hierher ziehen oder ",
   "splash.drop.hint": "PNG, JPG, GIF oder WebP",
