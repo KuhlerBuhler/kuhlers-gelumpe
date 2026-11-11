@@ -2086,6 +2086,7 @@ export default {
   "api.korg.midi.noteOff": "Pošle note off s velocity 64, jako pady firmwaru. Vrací 1, 0 když ho MIDI SEND FILTER zadrží.",
   "api.korg.midi.program": "Pošle program change. Zadrží ho jen MIDI SEND FILTER Short+Program. Vrací 1, 0 když je zadržen.",
   "api.korg.midi.hold": "Drží typ zprávy mimo firmware (0 note off, 1 note on, 2 poly pressure, 3 CC, 4 program, 5 channel pressure, 6 pitch bend); pluginy midiIn dostanou i tak. 0 ho vrátí.",
+  "api.korg.audio.level": "Výstupní úroveň jedné strany měřiče úrovně (kanál 0 nebo 1), 0 až 254, vyhlazená tak, jak ji ukazují spodní LED.",
   "api.korg.seq.writeSteps": "Zapíše záznamy kroků po 12 místech (zap., gate, velocity, trigger, 4 noty, 4 nezapsané) do partu part od kroku first, oříznuté. Vrátí počet kroků.",
   "api.korg.seq.setPatternValue": "Zapíše hodnotu field (0 až 10, jako u korg.read.patternValue s part -1) hraného patternu, oříznutou. Na zařízení se zatím nic nezapíše: settery firmwaru nejsou změřené.",
   "api.korg.menu.add": "Založí stránku v menu BLECH a vrátí její číslo, -1 pokud jsou všechna místa obsazená. Když jí uživatel otočí, přijde událost menu.",

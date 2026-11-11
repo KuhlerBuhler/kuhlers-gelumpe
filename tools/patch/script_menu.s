@@ -1187,7 +1187,36 @@ menu_hooks_end:
 ; switch off (Global power save with battery), it stays. Otherwise, with another look than the stock meter, the twelve
 ; channels are set the way the firmware does it (brightness into the target table, then 0xC00875F4), from the
 ; same smoothed level the meter uses (0xC0088220), so the colour follows the level.
+; The firmware smooths the level only while it shows the meter; with r1 = 0 or a plugin's LED lock the hook smooths it, so
+; korg.audio.level stays current.
 led_meter_hook:
+    cmp r1, #0
+    beq led_meter_smooth
+    ldrb r12, [r0, #0xb98]
+    cmp r12, #0
+    beq led_meter_armed
+led_meter_smooth:
+    push {r0-r3, r12, lr}
+    ldr r2, =0xC033E4F4
+    ldr r2, [r2]
+    cmp r2, #0
+    beq led_meter_smoothed
+    sub sp, sp, #8
+    ldrb r3, [r2, #0x13]
+    mov r3, r3, lsl #24
+    mov r3, r3, asr #23
+    str r3, [sp]
+    ldr r3, [r2, #0x14]
+    mov r3, r3, asr #24
+    mov r3, r3, lsl #1
+    str r3, [sp, #4]
+    mov r0, sp
+    add r1, sp, #4
+    bl 0xC0088220
+    add sp, sp, #8
+led_meter_smoothed:
+    pop {r0-r3, r12, lr}
+led_meter_armed:
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1

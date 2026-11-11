@@ -2086,6 +2086,7 @@ export default {
   "api.korg.midi.noteOff": "Envia um note off com velocity 64, como os pads do firmware. Devolve 1, 0 se o MIDI SEND FILTER o retém.",
   "api.korg.midi.program": "Envia um program change. Só o MIDI SEND FILTER Short+Program o retém. Devolve 1, 0 se retido.",
   "api.korg.midi.hold": "Afasta um tipo de mensagem do firmware (0 note off, 1 note on, 2 poly pressure, 3 CC, 4 program, 5 channel pressure, 6 pitch bend); os plugins recebem midiIn na mesma. 0 devolve-o.",
+  "api.korg.audio.level": "O nível de saída de um lado do medidor de nível (canal 0 ou 1), 0 a 254, suavizado como os LEDs inferiores o mostram.",
   "api.korg.seq.writeSteps": "Escreve passos de 12 posições cada (on, gate, velocity, trigger, 4 notas, 4 não escritas) na parte part a partir do passo first, limitados. Devolve os passos escritos.",
   "api.korg.seq.setPatternValue": "Escreve o valor field (0 a 10, como em korg.read.patternValue com part -1) do pattern que toca, limitado. No dispositivo ainda nada é escrito: os setters da firmware não estão medidos.",
   "api.korg.menu.add": "Cria uma página no menu BLECH e devolve o seu número, -1 se todas as posições estiverem ocupadas. Se o utilizador a rodar, chega o evento menu.",

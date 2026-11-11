@@ -229,7 +229,7 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
-### Was ein Plugin erreicht (API 30)
+### Was ein Plugin erreicht (API 31)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -270,7 +270,8 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | MFX-2-Typ des Patterns | `korg.read.patternValue` | `korg.seq.setPatternValue` | nein |
 | IFX: an, Typ, Edit | `korg.read.patternValue` | `korg.seq.setPartValue` | nein |
 | **Klang, MIDI, Samples** | | | |
-| Ausgangspegel, Spektrum, Wellenform | nein | nein | nein |
+| Ausgangspegel wie die Pegelanzeige | `korg.audio.level` | nein | nein |
+| Spektrum, Wellenform | nein | nein | nein |
 | Eigene MIDI-Nachrichten senden, MIDI empfangen | nein | `korg.midi.cc`, `korg.midi.noteOn`, `korg.midi.noteOff`, `korg.midi.program`, `korg.midi.hold` | `midiIn` |
 | Name und Daten eines Samples | nein | nein | nein |
 | **System und Einstellungen** | | | |
@@ -684,6 +685,7 @@ Plugin mit einem Fehler.
 | `korg.midi.noteOff(kanal, note)` | schickt Note Off mit Velocity 64, wie die Pads der Firmware; Kanal und Filter wie `korg.midi.cc`. Ab API Version 30 | wie `korg.led` |
 | `korg.midi.program(kanal, program)` | schickt einen Program Change, `program` 0 bis 127; nur der MIDI SEND FILTER Short + Program hält ihn zurück, wie den der Firmware. Gibt 1 oder 0 zurück wie `korg.midi.cc`. Ab API Version 30 | wie `korg.led` |
 | `korg.midi.hold(typ, an)` | hält einen Typ empfangener Nachrichten von der Firmware fern, solange `an` 1 ist: 0 Note Off, 1 Note On, 2 Poly Pressure, 3 Control Change, 4 Program Change, 5 Channel Pressure, 6 Pitch Bend. Die Plugins bekommen `midiIn` trotzdem. Wie `korg.keyHold` gilt der Typ als gehalten, solange irgendein laufendes Plugin ihn hält; ein Plugin, das endet, gibt seine frei. Ab API Version 30 | wie `korg.led` |
+| `korg.audio.level(kanal)` | der Ausgangspegel einer Seite der Pegelanzeige, `kanal` 0 oder 1, 0 bis 254: derselbe geglättete Wert, den die unteren LEDs zeigen (alle 40 ms neu), auch wenn die Anzeige aus ist oder ein Plugin die LEDs hält. Welche Seite links ist, ist am Gerät noch nicht geprüft. Ab API Version 31 ([Messung](messungen/2026-11-11-plugin-api31-audio-level.md)) | überall |
 | `korg.seq.writeSteps(feld, part, erster)` | schreibt Steps aus dem Feld in Part `part` des Patterns, das läuft, ab Step `erster` (0 bis 63): je 12 Plätze ein Step wie im Pattern (an, Gate, Velocity, Trigger, vier Notenplätze, vier Plätze, die die Laufzeit stehen lässt), so viele ganze Steps wie das Feld hat und bis Step 63. Jeder Wert wird geklemmt (an und Trigger 0 bis 1, Gate 0 bis 127, Velocity 1 bis 127, Noten 0 bis 128), das An-Byte kommt zuletzt. Gibt die Zahl der Steps zurück. Ab API Version 14 | wie `korg.led` |
 
 **Steps schreiben** (`tools/patch/script_seq.s`, ab API Version 9): `korg.seq.*` schreibt in das Pattern im RAM,

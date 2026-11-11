@@ -2086,6 +2086,7 @@ export default {
   "api.korg.midi.noteOff": "Stuurt een note off met velocity 64, zoals de pads van de firmware. Geeft 1 terug, 0 als de MIDI SEND FILTER hem tegenhoudt.",
   "api.korg.midi.program": "Stuurt een program change. Alleen MIDI SEND FILTER Short+Program houdt hem tegen. Geeft 1 terug, 0 als tegengehouden.",
   "api.korg.midi.hold": "Houdt een berichttype weg van de firmware (0 note off, 1 note on, 2 poly pressure, 3 CC, 4 program, 5 channel pressure, 6 pitch bend); de plugins krijgen midiIn toch. 0 geeft het terug.",
+  "api.korg.audio.level": "Het uitgangsniveau van één kant van de niveaumeter (kanaal 0 of 1), 0 tot 254, afgevlakt zoals de onderste leds het tonen.",
   "api.korg.seq.writeSteps": "Schrijft step-records van 12 plekken (aan, gate, velocity, trigger, 4 noten, 4 ongeschreven) in part part vanaf step first, begrensd. Geeft het aantal steps terug.",
   "api.korg.seq.setPatternValue": "Schrijft waarde field (0 tot 10, zoals bij korg.read.patternValue met part -1) van het spelende pattern, begrensd. Op het apparaat wordt nog niets geschreven: de setters van de firmware zijn niet gemeten.",
   "api.korg.menu.add": "Maakt een pagina in het menu BLECH aan en geeft het nummer terug, -1 als alle plekken bezet zijn. Draait de gebruiker eraan, dan komt het event menu.",

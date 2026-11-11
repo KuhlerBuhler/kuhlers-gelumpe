@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 30;
+export const API_VERSION = 31;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -415,6 +415,8 @@ const API_LIST = [
   [118, "korg.midi.noteOff", [int("channel", -1, 15), int("note", 0, 127)], "int", UI, 20, 30],
   [119, "korg.midi.program", [int("channel", -1, 15), int("program", 0, 127)], "int", UI, 20, 30],
   [120, "korg.midi.hold", [int("type", 0, 6), int("on", 0, 1)], "void", UI, 20, 30],
+  // the output level as the meter of the bottom LEDs shows it (API 31), 0 to 254 per side
+  [121, "korg.audio.level", [int("channel", 0, 1)], "int", ALL, 4, 31],
 ];
 
 /**

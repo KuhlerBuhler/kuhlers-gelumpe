@@ -193,7 +193,7 @@ One cycle delivers `ready` once per plugin first, then collects the waiting inpu
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
 
-### What a plugin reaches (API 30)
+### What a plugin reaches (API 31)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -234,7 +234,8 @@ or a leaf of the object tree is missing.
 | MFX 2 type of the pattern | `korg.read.patternValue` | `korg.seq.setPatternValue` | no |
 | IFX: on, type, edit | `korg.read.patternValue` | `korg.seq.setPartValue` | no |
 | **Sound, MIDI, samples** | | | |
-| Output level, spectrum, waveform | no | no | no |
+| Output level as the level meter | `korg.audio.level` | no | no |
+| Spectrum, waveform | no | no | no |
 | Sending own MIDI messages, receiving MIDI | no | `korg.midi.cc`, `korg.midi.noteOn`, `korg.midi.noteOff`, `korg.midi.program`, `korg.midi.hold` | `midiIn` |
 | Name and data of a sample | no | no | no |
 | **System and settings** | | | |
@@ -643,6 +644,7 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.midi.noteOff(channel, note)` | sends a note off with velocity 64, as the firmware's pads do; channel and filter as `korg.midi.cc`. Since API version 30 | as `korg.led` |
 | `korg.midi.program(channel, program)` | sends a program change, `program` 0 to 127; only the MIDI SEND FILTER Short + Program keeps it in, as it does the firmware's. Returns 1 or 0 as `korg.midi.cc`. Since API version 30 | as `korg.led` |
 | `korg.midi.hold(type, on)` | keeps a type of received message from the firmware while `on` is 1: 0 note off, 1 note on, 2 poly pressure, 3 control change, 4 program change, 5 channel pressure, 6 pitch bend. The plugins still get `midiIn`. As with `korg.keyHold` a type is held while any running plugin holds it; a plugin that ends lets go of its own. Since API version 30 | as `korg.led` |
+| `korg.audio.level(channel)` | the output level of one side of the level meter, `channel` 0 or 1, 0 to 254: the same smoothed value the bottom LEDs show (new every 40 ms), also while the meter is off or a plugin holds the LEDs. Which side is left is not yet checked on the device. Since API version 31 ([measurement](messungen/2026-11-11-plugin-api31-audio-level.md)) | everywhere |
 | `korg.seq.writeSteps(array, part, first)` | writes steps from the array into part `part` of the pattern that plays, from step `first` (0 to 63): 12 slots per step as in the pattern (on, gate, velocity, trigger, four note places, four places the runtime leaves alone), as many whole steps as the array holds and up to step 63. Each value is clamped (on and trigger 0 to 1, gate 0 to 127, velocity 1 to 127, notes 0 to 128); the on byte goes last. Returns the number of steps. From API version 14 | like `korg.led` |
 
 **Writing steps** (`tools/patch/script_seq.s`, from API version 9): `korg.seq.*` writes into the pattern in RAM, the

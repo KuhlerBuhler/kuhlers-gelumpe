@@ -2134,6 +2134,7 @@ export default {
   "api.korg.midi.noteOff": "Sendet Note Off mit Velocity 64, wie die Pads der Firmware. Gibt 1 zurück, 0 wenn der MIDI SEND FILTER sie zurückhält.",
   "api.korg.midi.program": "Sendet einen Program Change. Nur MIDI SEND FILTER Short+Program hält ihn zurück. Gibt 1 zurück, 0 wenn zurückgehalten.",
   "api.korg.midi.hold": "Hält einen MIDI-Typ von der Firmware fern: 0 Note Off, 1 Note On, 2 Poly Pressure, 3 CC, 4 Program, 5 Channel Pressure, 6 Pitch Bend; midiIn kommt weiter, 0 gibt ihn frei.",
+  "api.korg.audio.level": "Der Ausgangspegel einer Seite der Pegelanzeige (Kanal 0 oder 1), 0 bis 254, so geglättet wie die unteren LEDs ihn zeigen.",
   "api.korg.seq.writeSteps": "Schreibt Step-Einträge zu je 12 Plätzen (an, Gate, Velocity, Trigger, 4 Noten, 4 ungeschrieben) in Part part ab Step first, geklemmt. Gibt die Zahl der Steps zurück.",
   "api.korg.seq.setPatternValue": "Schreibt den Wert field (0 bis 10, wie bei korg.read.patternValue mit part -1) des laufenden Patterns, geklemmt. Noch schreibt er nichts: die Setter der Firmware sind nicht gemessen.",
   "api.korg.menu.add": "Legt eine Seite im Menü BLECH an und gibt ihre Nummer zurück, -1 wenn alle Plätze belegt sind. Dreht der Nutzer daran, kommt das Ereignis menu.",
