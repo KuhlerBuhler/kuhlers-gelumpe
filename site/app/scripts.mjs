@@ -850,7 +850,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     reading = null;
     trail(id === "editor" ? [t("plugins.page.editor"), ...(current ? [current.id] : [])] : [PAGES.find(p => p.id === id).title]);
     // Meine Plugins and the editor keep their file actions in the navbar; the file input goes along, so Öffnen works on both
-    navbar(id === "editor" ? [openNav, saveNav, open] : id === "mine" ? [newButton, openLabel, open, exportAllOwn] : []);
+    navbar(id === "editor" ? [openNav, saveNav] : id === "mine" ? [newButton, openLabel, open, exportAllOwn] : []);
     if (id === "catalog") drawThumbs();
     if (id === "docs") loadDocs();
   }

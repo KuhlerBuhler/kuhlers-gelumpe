@@ -544,7 +544,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   /** Weiter on Korg's firmware is the acceptance of Korg's licence, the sentence under the cards says so. */
   const acceptsLicence = () => asksSource() && source === "original";
   /** Weiter on step 1 loads Korg's file: with the licence (or the acceptance by Weiter), and never over a file the user gave (or one waiting). */
-  const loadsKorg = () => wiz.step === WAY && view === 0 && reach() === 0 && (!flow.input || !!mismatch()) && !pending && !korg.hidden && (licence.checked || acceptsLicence());
+  const loadsKorg = () => wiz.step === WAY && view === 0 && reach() === 0 && (!flow.input || (!!mismatch() && mismatch() !== "patcher.goal.wrong.blue")) && !pending && !korg.hidden && (licence.checked || acceptsLicence());
 
   /** In the browser Korg's zip is downloaded as a file: Korg's server does not hand it to the page, the user drops it in. */
   function downloadKorg(device) {

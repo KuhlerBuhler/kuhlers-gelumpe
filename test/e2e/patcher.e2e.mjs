@@ -1266,7 +1266,8 @@ test("patcher: from Hacktribe to BLECH alone the red's Korg file is patched with
   await drop(page, withHacktribeRun(await makeFirmware()));
   await page.locator("#app-toasts .cee-toast", { hasText: "In dieser Datei steckt Hacktribe" }).waitFor();
   await closeToasts(page);
-  assert.equal(await page.isDisabled("#cee-patch-next"), true, "the Hacktribe file does not fit BLECH alone");
+  assert.equal(await page.isVisible("#cee-patch-step-2:not([hidden])"), false, "the Hacktribe file does not fit BLECH alone");
+  assert.match(await page.locator("#cee-patch-goal-hint").textContent(), /Weiter lädt stattdessen die richtige Datei von Korg/, "Weiter can fetch Korg's file instead");
   await patched(page, original);
   assert.equal(await page.isVisible("#cee-patch-ht-warn"), false);
   assert.equal(await page.locator("#cee-patch-path").textContent(), "KORG/hacktribe/System/SYSTEM.VSB", "the folder Hacktribe runs from");
