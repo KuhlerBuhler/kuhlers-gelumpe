@@ -61,10 +61,17 @@
         <button type="button" class="btn cee-menu" id="cee-menu" aria-expanded="false" aria-controls="cee-sidebar" data-i18n="nav.menu">Menü</button>
         <strong class="cee-nav-title" id="cee-nav-title"><span data-i18n="nav.start">Start</span></strong>
         <div class="cee-mode" id="cee-mode" hidden>
-          <strong class="cee-mode-title" data-i18n="mode.emu">Emulator</strong>
-          <label class="ui-switch cee-mode-switch"><input type="checkbox" role="switch" id="cee-mode-switch"><span class="ui-switch-track" aria-hidden="true"></span><span data-i18n="mode.device">Echtes Gerät</span></label>
+          <strong class="cee-mode-title" id="cee-mode-title" data-i18n="mode.emu">Emulator</strong>
         </div>
         <div class="cee-nav-state" id="cee-nav-state" aria-live="polite"></div>
+        <div class="cee-nav-end" id="cee-nav-end"></div>
+        <div class="cee-emu-menu-box" id="cee-emu-menu-box" hidden>
+          <button type="button" class="cee-mode-button cee-emu-gear" id="cee-emu-gear" aria-expanded="false" aria-controls="cee-emu-menu" data-i18n-label="settings.title" aria-label="Einstellungen"></button>
+          <div class="cee-mode-menu cee-emu-menu" id="cee-emu-menu" hidden>
+            <label class="ui-switch cee-mode-switch cee-emu-row"><input type="checkbox" role="switch" id="cee-mode-switch"><span class="ui-switch-track" aria-hidden="true"></span><span data-i18n="mode.device">Echtes Gerät</span></label>
+            <div class="cee-emu-rows" id="cee-emu-rows"></div>
+          </div>
+        </div>
       </header>
 
       <main class="ui-page cee-main">

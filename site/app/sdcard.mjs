@@ -19,6 +19,7 @@ import { el } from "./fields.mjs";
 import { toast } from "./toast.mjs";
 import { emuBase } from "./emu-link.mjs";
 import { t } from "./i18n.mjs";
+import { icon } from "./icons.mjs";
 
 const STYLE = new URL("./sdcard.css", import.meta.url).href;
 
@@ -70,7 +71,10 @@ export function sdcardPanel(root, emulator = null, { heading = true, bar = false
   const status = el("p", { className: "muted", id: "cee-sd-status", role: "status", ariaLive: "polite" });
   const inserted = el("input", { type: "checkbox", id: "cee-sd-inserted" });
   inserted.setAttribute("role", "switch");
-  const open = el("button", { type: "button", className: bar ? "btn sm" : "btn", id: "cee-sd-open", textContent: bar ? t("sd.openCard") : t("common.open") });
+  // In the navbar it is a row of the gear menu, with the folder in front.
+  const open = bar
+    ? el("button", { type: "button", className: "cee-mode-item", id: "cee-sd-open" }, [icon("folder"), t("sd.openCard")])
+    : el("button", { type: "button", className: "btn", id: "cee-sd-open", textContent: t("common.open") });
   let shownError = "";                       // the card's own error, toasted once when it comes up
 
   // What goes wrong in the background goes to a toast that goes away again; the line only says the state of the card.
@@ -147,7 +151,7 @@ export function sdcardPanel(root, emulator = null, { heading = true, bar = false
   if (bar) {
     status.className = "ui-sr-only";
     root.replaceChildren(
-      el("label", { className: "ui-switch cee-sd-switch" }, [inserted, el("span", { className: "ui-switch-track", ariaHidden: "true" }), t("sd.cardIn")]),
+      el("label", { className: "ui-switch cee-sd-switch cee-emu-row" }, [inserted, el("span", { className: "ui-switch-track", ariaHidden: "true" }), t("sd.cardIn")]),
       open,
       status,
     );

@@ -1334,6 +1334,55 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   cursor: pointer;
 }
 
+/* The gear menu of the emulator: the mode switch, the SD card, its folder and the emulator's own window, one row each. */
+.cee-emu-menu-box {
+  position: relative;
+}
+
+.cee-emu-menu-box[hidden] {
+  display: none;
+}
+
+.cee-emu-menu {
+  left: auto;
+  right: 0;
+  min-width: 15rem;
+}
+
+.cee-emu-rows,
+.cee-emu-rows .cee-sd-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+/* On a phone the gear sits mid-bar: the panel spans the width under the navbar instead of running off the right edge. */
+@media (max-width: 40rem) {
+  .cee-emu-menu {
+    position: fixed;
+    left: var(--space-4);
+    right: var(--space-4);
+    top: calc(var(--cee-navbar-real, 4rem) + var(--space-1));
+    min-width: 0;
+  }
+}
+
+.cee-emu-row {
+  min-height: var(--control-target-min);
+  padding: var(--space-2) var(--space-3);
+}
+
+.cee-emu-menu .cee-emu-row,
+.cee-emu-menu .cee-mode-item {
+  font-size: var(--text-sm);
+}
+
+.cee-emu-menu .cee-mode-item {
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
 .cee-mode-item:hover {
   background: var(--color-surface-item-muted);
   color: var(--color-text-primary);
@@ -3529,6 +3578,15 @@ input[type="checkbox"]:not([role="switch"]):checked::after {
 input[type="checkbox"]:not([role="switch"]):disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* The end of the navbar: the USB icon and the language menu together at the right edge. One auto margin for both, since a
+   second one (.cee-nav-state) splits the free room and would put the icon in the middle of the bar. */
+.cee-nav-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-left: auto;
 }
 
 /* USB status in the navbar: the plug icon is lit while an Electribe is on the USB port. */
