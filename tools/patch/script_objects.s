@@ -4,12 +4,19 @@
 ; The bases are the order of OBJECT_BASES (test/script-objects.test.mjs holds them): 0 MENU_STATE + offset, 1 the state words below + offset,
 ; 2 the absolute address offset, 3 the Global settings the firmware keeps + offset, 4 no address, offset picks a call into the patch pad-colors,
 ; 5 no address, read only, offset picks what the runtime knows about the device (INFO in data/script/objects.mjs),
-; 6 no address: the touch pad mode, read from the firmware's touch pad object and the patch mfx-switch, set with the panel's keys.
+; 6 no address: the touch pad mode, read from the firmware's touch pad object and the patch mfx-switch, set with the panel's keys,
+; 7 no address: the motion switch of the selected part, set with one TAP of the patch tap-motion.
 .equ OBJ_BASE_ABS, 2
 .equ OBJ_BASE_GLOBAL, 3
 .equ OBJ_BASE_PAD, 4
 .equ OBJ_BASE_INFO, 5
 .equ OBJ_BASE_TOUCHPAD, 6
+.equ OBJ_BASE_MOTION, 7
+.equ KEY_TAP, 3
+.equ MOTION_MODE_AT, 0x807        ; a part's Motion Sequence mode in the pattern object, 0x330 a part (0 off, 1 smooth, 2 trigger hold)
+.equ TAP_HOOK, 0xC0042CC0         ; the key handler's word the patch tap-motion turns into a branch into its code
+.equ TAP_CODE, 0xC0188000         ; its code; tm_active is the first function: r0 = 1 while the patch is on, clobbers r0 and r12
+.equ TAP_CODE_END, 0xC0188800
 .equ KEY_GATE_ARP, 4               ; korg.key: GATE ARP, TOUCH SCALE and MASTER FX follow each other
 .equ KEY_TOUCH_SCALE, 5
 .equ KEY_MASTER_FX, 6
@@ -33,6 +40,8 @@ script_object_get_glue:
     beq objects_info_get
     cmp r1, #OBJ_BASE_TOUCHPAD
     beq objects_touchpad_get
+    cmp r1, #OBJ_BASE_MOTION
+    beq objects_motion_get
     ldrb r1, [r4, #17]
     cmp r1, #0
     ldrbeq r0, [r0]
@@ -77,6 +86,24 @@ objects_info_get:
 objects_touchpad_get:
     bl objects_touchpad_mode
     b objects_get_done
+; korg.motion.enabled: 1 when the selected part's Motion Sequence mode is not off
+objects_motion_get:
+    bl objects_motion_on
+    b objects_get_done
+; r0 = 1 when the selected part plays its motion, 0 when it does not or no part is selected. Clobbers r1, r2.
+objects_motion_on:
+    ldr r1, =HW_PART
+    ldr r1, [r1]
+    cmp r1, #15
+    movhi r0, #0
+    bxhi lr
+    ldr r2, =0x330
+    mul r0, r1, r2
+    ldr r1, =HW_PATTERN_OBJECT+MOTION_MODE_AT
+    ldrb r0, [r1, r0]
+    cmp r0, #0
+    movne r0, #1
+    bx lr
 ; r0 = the touch pad mode 0 to 4, 0xFF before the touch pad object exists (reads as the factory value). Clobbers r1, r2.
 objects_touchpad_mode:
     ldr r0, =TOUCHPAD_OBJ
@@ -142,6 +169,8 @@ script_object_set_glue:
     beq objects_pad_set
     cmp r1, #OBJ_BASE_TOUCHPAD
     beq objects_touchpad_set
+    cmp r1, #OBJ_BASE_MOTION
+    beq objects_motion_set
     ldr r12, [r4, #OBJ_SETTER_AT]   ; a Global setting goes through the firmware's own setter (Global object, value, 1), as the menu calls it
     cmp r12, #0
     bne objects_set_through
@@ -240,7 +269,35 @@ objects_touchpad_press:
     bl script_press_key_glue
     b objects_set_done
 
-; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; bases 4 to 6 have none)
+; korg.motion.enabled = r0: one press of TAP when the patch tap-motion is in the set and on and the switch differs, so its
+; memory of the part's last mode and its LED stay right. Without the patch nothing changes.
+objects_motion_set:
+    mov r5, r0
+    bl objects_motion_on
+    cmp r0, r5
+    beq objects_set_done
+    ldr r1, =TAP_HOOK
+    ldr r0, [r1]
+    mov r2, r0, lsr #24
+    cmp r2, #0xEA                   ; b, always
+    bne objects_set_done
+    mov r0, r0, lsl #8
+    add r0, r1, r0, asr #6
+    add r0, r0, #8
+    ldr r2, =TAP_CODE
+    cmp r0, r2
+    blo objects_set_done
+    ldr r2, =TAP_CODE_END
+    cmp r0, r2
+    bhs objects_set_done
+    ldr r12, =TAP_CODE
+    blx r12
+    cmp r0, #0
+    beq objects_set_done
+    mov r0, #KEY_TAP
+    b objects_touchpad_press
+
+; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; bases 4 to 7 have none)
 objects_row:
     mov r4, #0
     cmp r0, #OBJ_COUNT
@@ -257,6 +314,8 @@ objects_row:
     cmp r1, #OBJ_BASE_INFO
     bxeq lr
     cmp r1, #OBJ_BASE_TOUCHPAD
+    bxeq lr
+    cmp r1, #OBJ_BASE_MOTION
     bxeq lr
     cmp r1, #OBJ_BASE_GLOBAL
     beq objects_row_global

@@ -1,5 +1,5 @@
 /** The sequencer and panel state a script can read, for the simulated device. The values follow the firmware's ranges. */
-import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PATTERN_WRITES, PATTERN_PARTS, PATTERN_STEPS } from "../../data/script/contract.mjs";
+import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PATTERN_WRITES, PATTERN_PARTS, PATTERN_STEPS, PATTERN_MOTION } from "../../data/script/contract.mjs";
 import { ScriptFault } from "./vm.mjs";
 import { text, render } from "../text.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
@@ -133,13 +133,44 @@ export class SimHardware {
       "korg.seq.setGate": (part, step, gate) => { this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.gate] = gate; },
       "korg.get": leaf => this.objectGet(leaf),
       "korg.set": (leaf, index, value) => this.objectSet(leaf, value),
+      "korg.motion.lane": lane => this.patternBlock(-1)[PATTERN_MOTION.owner + lane],
+      "korg.motion.destination": lane => this.patternBlock(-1)[PATTERN_MOTION.destination + lane],
+      "korg.motion.value": (lane, step) => this.patternBlock(-1)[PATTERN_MOTION.values + lane * PATTERN_MOTION.steps + step] - 1,
+      "korg.motion.setValue": (lane, step, value) => {
+        const block = this.patternBlock(-1);
+        if (block[PATTERN_MOTION.owner + lane]) block[PATTERN_MOTION.values + lane * PATTERN_MOTION.steps + step] = value + 1;
+      },
+      // the simulator has no motion engine: every lane is silent
+      "korg.motion.output": () => -1,
+      "korg.motion.clearLane": lane => this.clearMotion(lane),
+      "korg.motion.clearPart": part => this.clearMotionOf(part + 1),
+      "korg.motion.clearMfx": () => this.clearMotionOf(PATTERN_MOTION.mfx),
       "korg.seq.clearPart": part => { for (let step = 0; step < PATTERN_STEPS.count; step++) this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.on] = 0; },
     };
+  }
+
+  /** A motion lane emptied as the firmware's clear_lane does: owner, destination and every value 0. */
+  clearMotion(lane) {
+    const block = this.patternBlock(-1);
+    block[PATTERN_MOTION.owner + lane] = 0;
+    block[PATTERN_MOTION.destination + lane] = 0;
+    block.fill(0, PATTERN_MOTION.values + lane * PATTERN_MOTION.steps, PATTERN_MOTION.values + (lane + 1) * PATTERN_MOTION.steps);
+  }
+
+  /** Every motion lane of an owner (1 to 16 a part, 17 the master effect), as CLEAR MOTION and CLEAR MFX MOTION. */
+  clearMotionOf(owner) {
+    for (let lane = 0; lane < PATTERN_MOTION.lanes; lane++) if (this.patternBlock(-1)[PATTERN_MOTION.owner + lane] === owner) this.clearMotion(lane);
+  }
+
+  /** The Motion Sequence mode byte of the selected part in the pattern block. */
+  motionModeAt() {
+    return PATTERN_PARTS.base + this.part * PATTERN_PARTS.stride + PATTERN_MOTION.mode;
   }
 
   /** korg.get: the value of a leaf, as the runtime's table reads it. */
   objectGet(leaf) {
     if (!OBJECTS[leaf]) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectLeaf", { leaf })));
+    if (OBJECTS[leaf].base === "motion") return this.patternBlock(-1)[this.motionModeAt()] ? 1 : 0;
     return this.objects[leaf];
   }
 
@@ -155,6 +186,11 @@ export class SimHardware {
       if (clamped === 0 || clamped === this.objects[leaf]) return;
       this.objects[leaf] = clamped;
       this.emit("touchpadMode", clamped);
+      return;
+    }
+    if (o.base === "motion") {
+      // the simulator is a set with the patch tap-motion on: one TAP switches the selected part's motion, off and back to Smooth
+      this.patternBlock(-1)[this.motionModeAt()] = clamped;
       return;
     }
     this.objects[leaf] = clamped;

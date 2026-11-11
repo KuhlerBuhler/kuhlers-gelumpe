@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { API_VERSION } from "../data/script/contract.mjs";
+import { API_VERSION, PATTERN_MOTION } from "../data/script/contract.mjs";
 import globalMap from "../data/map/global.mjs";
 import { OBJECTS, OBJECT_BY_PATH, OBJECT_BASES, INFO, objectChildren } from "../data/script/objects.mjs";
 import { PROPERTY_BY_PATH } from "../data/script/properties.mjs";
@@ -161,7 +161,7 @@ test("the range of a leaf is the range the page's dial runs through", () => {
 
 test("the bases of the table are the ones script_objects.s knows by number", () => {
   const objects = readFileSync(new URL("../tools/patch/script_objects.s", import.meta.url), "utf8");
-  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"], ["OBJ_BASE_TOUCHPAD", "touchpad"]]) {
+  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"], ["OBJ_BASE_TOUCHPAD", "touchpad"], ["OBJ_BASE_MOTION", "motion"]]) {
     assert.equal(Number(objects.match(new RegExp(`^\\.equ ${name}, (\\d+)`, "m"))[1]), OBJECT_BASES.indexOf(base), name);
   }
 });
@@ -277,4 +277,34 @@ test("the simulator keeps MFX 2 per pattern, 6 where a pattern has none", () => 
   const device = run(`korg.onEvent("ready", () => { korg.store.set(0, korg.pattern.current.mfx2Type); korg.pattern.current.mfx2Type = 12;
   korg.store.set(1, korg.current.mfx2Type); korg.store.set(2, korg.patterns[1].mfx2Type); korg.pattern.current.mfx2Type = 99; korg.store.set(3, korg.current.mfx2Type); });`);
   assert.deepEqual([0, 1, 2, 3].map(i => stored(device, i)), [6, 12, 6, 39]);
+});
+
+// API 28: the motion lanes and the motion switch (plan 2026-11-10-plugin-api-1.5-complete, phase 3).
+test("korg.motion calls and korg.motion.enabled need API 28", () => {
+  const leaf = OBJECT_BY_PATH.get("korg.motion.enabled");
+  assert.deepEqual([leaf.base, leaf.min, leaf.max, leaf.write, leaf.since], ["motion", 0, 1, true, 28]);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let on = korg.motion.enabled; });`)).header.apiVersion, 28);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { korg.motion.clearLane(korg.motion.lane(0)); });`)).header.apiVersion, 28);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { korg.led(0, 1); });`)).header.apiVersion < 28, true);
+});
+
+test("the simulator reads, writes and clears motion lanes as the pattern block holds them", () => {
+  const device = new SimDevice();
+  const block = device.hardware.patternBlock(-1);
+  block[PATTERN_MOTION.owner] = 1; block[PATTERN_MOTION.owner + 1] = 2; block[PATTERN_MOTION.owner + 2] = PATTERN_MOTION.mfx;
+  assert.ok(device.load(build(`korg.onEvent("ready", () => {
+  korg.motion.setValue(0, 3, 64); korg.store.set(0, korg.motion.value(0, 3));
+  korg.motion.setValue(1, 0, 100); korg.store.set(1, korg.motion.value(1, 0)); korg.motion.setValue(1, 0, -1); korg.store.set(2, korg.motion.value(1, 0));
+  korg.motion.clearPart(0); korg.store.set(3, korg.motion.lane(0)); korg.store.set(4, korg.motion.value(0, 3));
+  korg.store.set(5, korg.motion.lane(2)); korg.motion.clearMfx(); korg.store.set(6, korg.motion.lane(2)); korg.store.set(7, korg.motion.output(0));
+});`)).ok);
+  device.frame();
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(i => stored(device, i)), [64, 100, -1, 0, -1, 17, 0, -1]);
+});
+
+test("the simulator switches the selected part's motion with korg.motion.enabled", () => {
+  const device = run(`korg.onEvent("ready", () => { korg.store.set(0, korg.motion.enabled); korg.motion.enabled = 1; korg.store.set(1, korg.motion.enabled);
+  korg.motion.enabled = 0; korg.store.set(2, korg.motion.enabled); });`);
+  device.frame();
+  assert.deepEqual([0, 1, 2].map(i => stored(device, i)), [0, 1, 0]);
 });

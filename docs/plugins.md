@@ -225,7 +225,7 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
-### Was ein Plugin erreicht (API 27)
+### Was ein Plugin erreicht (API 28)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -257,7 +257,8 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Werte eines Parts (Sample bis Groove, mit Motion Seq an oder aus) | `korg.read.patternValue` | `korg.seq.setPartValue` | nein |
 | Steps (an, Gate, Velocity, Noten) | `korg.seq.getOn`, `korg.seq.getGate`, `korg.seq.getNote`, `korg.seq.getVelocity`, `korg.read.patternBytes` | `korg.seq.setStep`, `korg.seq.setGate`, `korg.seq.clearPart`, `korg.seq.writeSteps` | nein |
 | Pattern speichern (WRITE) | nein | nein | nein |
-| Motion-Spuren und ihre Wiedergabe | nein | nein | nein |
+| Motion-Spuren und ihre Wiedergabe | `korg.motion.lane`, `korg.motion.destination`, `korg.motion.value`, `korg.motion.output` | `korg.motion.setValue`, `korg.motion.clearLane`, `korg.motion.clearPart`, `korg.motion.clearMfx` | nein |
+| Motion des gewählten Parts an oder aus (TAP mit dem Patch tap-motion) | `korg.motion.enabled` | `korg.motion.enabled` | nein |
 | **Effekte** | | | |
 | MFX: Typ, Pad, HOLD, MFX SEND | `korg.read.patternValue` | `korg.seq.setPatternValue`, `korg.seq.setPartValue` | nein |
 | MFX-2-Typ des Patterns | `korg.read.patternValue` | `korg.seq.setPatternValue` | nein |
@@ -394,6 +395,7 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.system.limits.mfxTypes` | wie viele Master-Effekte die Firmware hat, `mfxType` geht von 0 bis zu diesem Wert minus 1; wie oben | nein | 0 bis 255 |
 | `korg.system.limits.samples` | wie viele Sample-Slots `sample` wählen kann: 1000 auf dem roten Sampler, 0 auf dem blauen Synth | nein | 0 bis 1000 |
 | `korg.touchpad.mode` | Touchpad-Modus: 0 Gate Arp, 1 Touch Scale, 2 Master FX, 3 Gate Arp + Touch Scale, 4 MFX 2 (Master FX mit dem MFX-2-Typ des Patches mfx-switch) (ab API Version 27) | ja: drückt die eine Taste, die vom jetzigen Modus dorthin führt, LEDs und Effekt stehen danach wie nach der Taste. Mit MFX 2 an: GATE ARP gibt 3, TOUCH SCALE 4, MASTER FX 2, SHIFT + TOUCH SCALE 1; 0 ist dann nicht erreichbar. Ohne MFX 2 die Tasten der Firmware; ein Modus, den kein Druck erreicht, bleibt, wie er ist | 0 bis 4 |
+| `korg.motion.enabled` | 1, wenn der gewählte Part seine Motion Sequence spielt (Modus Smooth oder Trigger Hold), 0, wenn sie aus ist (ab API Version 28) | ja: drückt einmal TAP, wenn der Patch tap-motion an ist und der Wert sich ändert, wie die Hand; der Patch merkt sich den Modus. Ohne den Patch ändert sich nichts | 0 bis 1 |
 | `korg.menu.blech.customizations.display.red` | Rotanteil des Display-Lichts (die Seiten BACKLIGHT HUE, SAT und BRIGHT zeigen ihn als Farbton, Sättigung, Helligkeit); alle drei auf 0 ist das Weiß der Firmware | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.green` | Grünanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.blue` | Blauanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
@@ -646,6 +648,14 @@ Plugin mit einem Fehler.
 | `korg.padUp(pad)` | lässt das Pad `pad` los, das `korg.padDown` angeschlagen hat. Ab API Version 25 | wie `korg.led` |
 | `korg.encoder(index, delta)` | dreht den Encoder `index` (0 VALUE, 1 SAMPLE/OSC, 2 CUTOFF, 3 MOD TYPE, 4 IFX TYPE) um `delta` Rasten (-127 bis 127, negativ nach links) für die Firmware, mit der Nachricht des Panels. 0 sendet nichts. Mit gedrücktem SHIFT (`korg.keyDown(korg.key.SHIFT)`) wirkt er wie SHIFT und Drehen. Im Emulator gemessen auf Hacktribe, rot und blau; am Gerät nicht. Ab API Version 25 | wie `korg.led` |
 | `korg.touch(x, y)` | legt einen Finger auf das Touchpad bei `x` und `y` (Rohwerte 0 bis 1023 wie die des Panels): der erste Aufruf drückt die Taste TOUCHPAD und sendet die Stelle, jeder weitere bewegt den Finger, `x` = -1 hebt ihn ab. Das Plugin bekommt keinen `touch`, `korg.touchLockX` gilt nicht für diesen Finger. Im Emulator gemessen auf Hacktribe, rot und blau, in Master FX und Touch Scale; am Gerät nicht. Ab API Version 25 | wie `korg.led` |
+| `korg.motion.lane(lane)` | liest, wem Motion-Spur `lane` (0 bis 23) des bearbeiteten Patterns gehört: 0 niemandem, 1 bis 16 Part 1 bis 16, 17 dem Master-Effekt. Die Firmware belegt bei REC die nächste freie Spur. Im Emulator gemessen auf Hacktribe, rot und blau ([Messung](messungen/2026-11-11-plugin-api28-motion.md)). Ab API Version 28 | überall |
+| `korg.motion.destination(lane)` | liest das Ziel der Spur, wie die Firmware es aufnahm, nach der Korg-Liste (10 Amp Level, also Regler 0; 15 und 16 Master FX X und Y; 19 MFX-Pad an/aus). Ab API Version 28 | überall |
+| `korg.motion.value(lane, step)` | liest den Wert der Spur bei Step `step` (0 bis 63), 0 bis 127, -1 ohne Eintrag. Die Firmware hält einen Regler halbiert, ein Regler auf 200 liest also 100. Ab API Version 28 | überall |
+| `korg.motion.setValue(lane, step, value)` | schreibt `value` (0 bis 127) in Step `step` der Spur, -1 leert den Step. Nur auf einer Spur, die jemandem gehört; auf einer freien bleibt alles, wie es ist. Ab API Version 28 | wie `korg.led` |
+| `korg.motion.clearLane(lane)` | löscht die Spur über dieselbe Funktion der Firmware, die CLEAR MOTION benutzt: die Spur ist frei, die Wiedergabe für sie still. Die anderen Spuren rücken nicht nach. Ab API Version 28 | wie `korg.led` |
+| `korg.motion.clearPart(part)` | löscht alle Spuren von Part `part` (0 bis 15), wie Part Util CLEAR MOTION. Ab API Version 28 | wie `korg.led` |
+| `korg.motion.clearMfx()` | löscht alle Spuren des Master-Effekts, wie CLEAR MFX MOTION im Pattern-Menü. Ab API Version 28 | wie `korg.led` |
+| `korg.motion.output(lane)` | liest, was die Motion-Wiedergabe gerade für die Spur sendet, 0 bis 127, -1 wenn still (gestoppt, Motion aus oder kein Eintrag). Ab API Version 28 | überall |
 | `korg.knob(index, wert)` | gibt der Firmware den Wert `wert` (0 bis 255) für den Regler `index` (0 bis 10), über ihre eigene Reglerfunktion, als hätte der Regler ihn gesendet. Zusammen mit `korg.knobHold` filtert ein Plugin einen Regler, der springt. `korg.read.knob` zeigt weiter den Wert des Panels. Im Emulator gemessen auf Hacktribe, rot und blau: gleicht der Nachricht des Reglers in Pattern, Anzeige, LEDs und MIDI ([Messung](messungen/2026-11-08-plugin-api25-panel-calls.md)); am Gerät nicht. Ab API Version 13 | wie `korg.led` |
 | `korg.remapKey(von, nach)` | die Taste `von` kommt bei der Firmware und bei den Plugins als Taste `nach` an (beide 0 bis 33, am besten Namen wie `korg.key.PART_ERASE`), solange das Plugin läuft: der Eingangsfilter schreibt den Code in der Panel-Nachricht um, bevor die Firmware sie liest, die Firmware tut also genau, was sie mit `nach` tut. Es gilt eine Umlegung für alle Plugins, die letzte zählt; dieselbe Taste zweimal hebt sie auf. EXIT lässt sich nicht umlegen. Ab API Version 8 | nur im Rumpf und in `ready` |
 | `korg.seq.setStep(part, step, note, velocity)` | schreibt Step `step` (0 bis 63) von Part `part` (0 bis 15) im Pattern, das läuft: `note` 0 bis 127 mit `velocity` 1 bis 127 schaltet ihn an, mit dieser Note auf dem ersten Notenplatz (die anderen drei leer); `note` -1 oder `velocity` 0 schaltet ihn aus. Das Gate bleibt, wie es ist. Der Trigger ist an, ab API Version 22 aus, wenn der Step davor an ist und ein TIE hat (Gate über 96), so wie die Firmware ihn beim Setzen eines TIE schreibt: dann klingt eine gebundene Kette derselben Note wie eine Note, statt bei jedem Step neu anzuschlagen ([Messung](messungen/2026-11-06-step-trigger.md)). Das Gate des Steps davor also zuerst setzen. Ab API Version 9 | wie `korg.led` |

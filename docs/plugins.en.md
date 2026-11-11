@@ -189,7 +189,7 @@ One cycle delivers `ready` once per plugin first, then collects the waiting inpu
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
 
-### What a plugin reaches (API 27)
+### What a plugin reaches (API 28)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -221,7 +221,8 @@ or a leaf of the object tree is missing.
 | Values of a part (sample to groove, with motion seq on or off) | `korg.read.patternValue` | `korg.seq.setPartValue` | no |
 | Steps (on, gate, velocity, notes) | `korg.seq.getOn`, `korg.seq.getGate`, `korg.seq.getNote`, `korg.seq.getVelocity`, `korg.read.patternBytes` | `korg.seq.setStep`, `korg.seq.setGate`, `korg.seq.clearPart`, `korg.seq.writeSteps` | no |
 | Saving the pattern (WRITE) | no | no | no |
-| Motion lanes and their playback | no | no | no |
+| Motion lanes and their playback | `korg.motion.lane`, `korg.motion.destination`, `korg.motion.value`, `korg.motion.output` | `korg.motion.setValue`, `korg.motion.clearLane`, `korg.motion.clearPart`, `korg.motion.clearMfx` | no |
+| Motion of the selected part on or off (TAP with the patch tap-motion) | `korg.motion.enabled` | `korg.motion.enabled` | no |
 | **Effects** | | | |
 | MFX: type, pad, HOLD, MFX SEND | `korg.read.patternValue` | `korg.seq.setPatternValue`, `korg.seq.setPartValue` | no |
 | MFX 2 type of the pattern | `korg.read.patternValue` | `korg.seq.setPatternValue` | no |
@@ -356,6 +357,7 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.system.limits.mfxTypes` | how many master effects the firmware has, `mfxType` runs from 0 to this value minus 1; as above | no | 0 to 255 |
 | `korg.system.limits.samples` | how many sample slots `sample` can choose: 1000 on the red Sampler, 0 on the blue Synth | no | 0 to 1000 |
 | `korg.touchpad.mode` | touch pad mode: 0 Gate Arp, 1 Touch Scale, 2 Master FX, 3 Gate Arp + Touch Scale, 4 MFX 2 (Master FX with the MFX 2 type of the patch mfx-switch) (from API version 27) | yes: presses the one key that leads there from the current mode, so LEDs and effect end up as after the key. With MFX 2 on: GATE ARP gives 3, TOUCH SCALE 4, MASTER FX 2, SHIFT + TOUCH SCALE 1; 0 cannot be reached then. Without MFX 2 the firmware's keys; a mode no press reaches stays as it is | 0 to 4 |
+| `korg.motion.enabled` | 1 when the selected part plays its motion sequence (mode Smooth or Trigger Hold), 0 when it is off (from API version 28) | yes: presses TAP once when the patch tap-motion is on and the value differs, like a hand; the patch remembers the mode. Without the patch nothing changes | 0 to 1 |
 | `korg.menu.blech.customizations.display.red` | Red level of the display light (the pages BACKLIGHT HUE, SAT and BRIGHT show it as hue, saturation, brightness); all three at 0 is the stock white | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.display.green` | Green level of the display light | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.display.blue` | Blue level of the display light | yes, acts at once like the page | 0 to 15 |
@@ -605,6 +607,14 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.padUp(pad)` | lets go of the pad `pad` that `korg.padDown` hit. From API version 25 | like `korg.led` |
 | `korg.encoder(index, delta)` | turns the encoder `index` (0 VALUE, 1 SAMPLE/OSC, 2 CUTOFF, 3 MOD TYPE, 4 IFX TYPE) by `delta` detents (-127 to 127, negative to the left) for the firmware, with the panel's message. 0 sends nothing. With SHIFT down (`korg.keyDown(korg.key.SHIFT)`) it works like SHIFT and a turn. Measured in the emulator on hacktribe, red and blue; not on the device. From API version 25 | like `korg.led` |
 | `korg.touch(x, y)` | puts a finger on the touchpad at `x` and `y` (raw values 0 to 1023 like the panel's): the first call presses the TOUCHPAD key and sends the position, every further call moves the finger, `x` = -1 lifts it. The plugin gets no `touch`, and `korg.touchLockX` does not apply to this finger. Measured in the emulator on hacktribe, red and blue, in Master FX and Touch Scale; not on the device. From API version 25 | like `korg.led` |
+| `korg.motion.lane(lane)` | reads who owns motion lane `lane` (0 to 23) of the pattern being edited: 0 nobody, 1 to 16 part 1 to 16, 17 the master effect. On REC the firmware takes the next free lane. Measured in the emulator on Hacktribe, red and blue ([measurement](messungen/2026-11-11-plugin-api28-motion.md)). From API version 28 | everywhere |
+| `korg.motion.destination(lane)` | reads the lane's destination as the firmware recorded it, by the Korg list (10 Amp Level, so knob 0; 15 and 16 Master FX X and Y; 19 MFX pad on/off). From API version 28 | everywhere |
+| `korg.motion.value(lane, step)` | reads the lane's value at step `step` (0 to 63), 0 to 127, -1 for no entry. The firmware keeps a knob halved, so a knob at 200 reads 100. From API version 28 | everywhere |
+| `korg.motion.setValue(lane, step, value)` | writes `value` (0 to 127) into step `step` of the lane, -1 empties the step. Only on a lane that has an owner; on a free one nothing changes. From API version 28 | like `korg.led` |
+| `korg.motion.clearLane(lane)` | clears the lane through the same firmware function CLEAR MOTION uses: the lane is free and its playback silent. The other lanes do not move up. From API version 28 | like `korg.led` |
+| `korg.motion.clearPart(part)` | clears every lane of part `part` (0 to 15), like Part Util CLEAR MOTION. From API version 28 | like `korg.led` |
+| `korg.motion.clearMfx()` | clears every lane of the master effect, like CLEAR MFX MOTION in the Pattern menu. From API version 28 | like `korg.led` |
+| `korg.motion.output(lane)` | reads what the motion playback sends for the lane now, 0 to 127, -1 when silent (stopped, motion off or no entry). From API version 28 | everywhere |
 | `korg.knob(index, value)` | gives the firmware the value `value` (0 to 255) for knob `index` (0 to 10), through its own knob handler, as if the knob had sent it. Together with `korg.knobHold` a plugin filters a knob that jumps. `korg.read.knob` keeps showing the panel's value. Measured in the emulator on hacktribe, red and blue: matches the knob's message in pattern, screen, LEDs and MIDI; not on the device. From API version 13 | like `korg.led` |
 | `korg.remapKey(from, to)` | the key `from` reaches the firmware and the plugins as the key `to` (both 0 to 33, best names like `korg.key.PART_ERASE`) while the plugin runs: the input filter rewrites the code in the panel message before the firmware reads it, so the firmware does exactly what it does with `to`. One remap holds for all plugins, the last one counts; the same key twice takes it back. EXIT cannot be remapped. From API version 8 | only in the body and in `ready` |
 | `korg.seq.setStep(part, step, note, velocity)` | writes step `step` (0 to 63) of part `part` (0 to 15) in the pattern that plays: `note` 0 to 127 with `velocity` 1 to 127 turns it on, with that note in the first note place (the other three empty); `note` -1 or `velocity` 0 turns it off. The gate stays as it is. The trigger is on, from API version 22 off when the step before is on with a TIE (gate above 96), as the firmware writes it when a TIE is set: then a tied chain of the same note sounds as one note instead of striking again on every step ([measurement](messungen/2026-11-06-step-trigger.md), German). Set the gate of the step before first. From API version 9 | like `korg.led` |

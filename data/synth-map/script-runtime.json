@@ -32,6 +32,9 @@
   {"from":"0xC007BFD0","to":"0xC006E954","kind":"code","why":"sets the page of the Part menu's page object: the Pattern menu's EDIT right on its last page calls it with 0, read in both"},
   {"from":"0xC0691228","to":"0xC056B508","kind":"ram","why":"the function DATA UTILITY's list opens on: its constructor loads it into +0x20, read in both"},
   {"from":"0xC0691260","to":"0xC056B540","kind":"ram","why":"-> the Pattern menu's page object, loaded by the Pattern step, read in both"},
-  {"from":"0xC03487E4","to":"0xC03484F8","kind":"ram","why":"-> the Part menu's page object (built on first use), loaded by the Pattern menu's EDIT right on its last page, read in both"}
+  {"from":"0xC03487E4","to":"0xC03484F8","kind":"ram","why":"-> the Part menu's page object (built on first use), loaded by the Pattern menu's EDIT right on its last page, read in both"},
+  {"from":"0xC0058BD4","to":"0xC004FB68","kind":"code","why":"clear_lane(lane) for korg.motion.clearLane: called by the clear-by-owner loop of both builds (red C0058CA8, synth C004FC3C); same body: engine entry +0 test, output -1, counter at red C068DE70 / synth C0568164 down, pattern part, destination and 64 values zeroed. Read in both, measured in the emulator"},
+  {"from":"0xC0058CA8","to":"0xC004FC3C","kind":"code","why":"clear the lanes of an owner (1 to 16 a part, 17 the master effect) for korg.motion.clearPart and clearMfx: Part Util CLEAR MOTION calls it with part + 1 (red C00660C8, synth C005C380) and Pattern CLEAR MFX MOTION with 17 (red C0067470, synth C005D650). Read in both, measured in the emulator"},
+  {"from":"0xC068DB0C","to":"0xC0567E04","kind":"ram","why":"the motion engine's lane table, 0x24 a lane, for korg.motion.output (+0x10 is the output word): the start of the entries clear_lane resets in both builds; lane 0's output is the mapped C068DB1C -> C0567E14 of tap-motion.json. Measured while lanes 0 to 3 play"}
  ]
 }

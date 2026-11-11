@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 27;
+export const API_VERSION = 28;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -392,6 +392,16 @@ const API_LIST = [
   [103, "korg.padUp", [int("pad", 0, 15)], "void", UI, 30, 25],
   [104, "korg.encoder", [int("index", 0, 4), int("delta", -127, 127)], "void", UI, 30, 25],
   [105, "korg.touch", [int("x", -1, 1023), int("y", 0, 1023)], "void", UI, 40, 25],
+  // the 24 motion lanes of the pattern being edited (API 28): owner and destination as the firmware recorded them, the values
+  // 0 to 127 (-1 empty), what the motion engine sends now, and clearing through the firmware's own CLEAR MOTION functions
+  [106, "korg.motion.lane", [int("lane", 0, 23)], "int", ALL, 4, 28],
+  [107, "korg.motion.destination", [int("lane", 0, 23)], "int", ALL, 4, 28],
+  [108, "korg.motion.value", [int("lane", 0, 23), int("step", 0, 63)], "int", ALL, 4, 28],
+  [109, "korg.motion.setValue", [int("lane", 0, 23), int("step", 0, 63), int("value", -1, 127)], "void", UI, 6, 28],
+  [110, "korg.motion.clearLane", [int("lane", 0, 23)], "void", UI, 40, 28],
+  [111, "korg.motion.clearPart", [int("part", 0, 15)], "void", UI, 80, 28],
+  [112, "korg.motion.clearMfx", [], "void", UI, 80, 28],
+  [113, "korg.motion.output", [int("lane", 0, 23)], "int", ALL, 4, 28],
 ];
 
 /**
@@ -548,6 +558,13 @@ export const PATTERN_FIELD_SINCE = Object.freeze({ syncGroup: 21, alternate1314:
   mfxPadY: 24, mfx2Type: 27 });
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
+/**
+ * The motion lanes in a pattern block (korg.motion, API 28; RAM offset = block offset + 4, tools/patch/script_motion.s): the
+ * owner byte of each lane (0 none, 1 to 16 a part, 17 the master effect), its destination, `steps` value bytes a lane (0 empty,
+ * else the value 0 to 127 plus 1), and `mode`, a part's Motion Sequence mode inside its PATTERN_PARTS record (0 off, 1 smooth,
+ * 2 trigger hold). docs/messungen/2026-10-15-tap-motion.md and 2026-11-11-plugin-api28-motion.md.
+ */
+export const PATTERN_MOTION = Object.freeze({ lanes: 24, steps: 64, owner: 0x100, destination: 0x118, values: 0x130, mode: 3, mfx: 17 });
 
 /**
  * The steps korg.seq.* writes, in a part of the pattern in RAM: `count` records of `stride` bytes from `base` in the part

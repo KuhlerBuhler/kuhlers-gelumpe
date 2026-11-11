@@ -190,7 +190,7 @@ Un cycle transmet d’abord `ready` une fois par plugin, collecte les entrées e
 `frame` en dernier. Les nouvelles entrées attendent le cycle suivant. Un nouveau plugin reçoit
 `ready` après la fin du cycle précédent.
 
-### Ce qu’un plugin atteint (API 27)
+### Ce qu’un plugin atteint (API 28)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -223,7 +223,8 @@ feuille de l’arbre d’objets.
 | Valeurs d'une partie (échantillon à groove, avec motion seq on ou off) | `korg.read.patternValue` | `korg.seq.setPartValue` | non |
 | Pas (on, gate, vélocité, notes) | `korg.seq.getOn`, `korg.seq.getGate`, `korg.seq.getNote`, `korg.seq.getVelocity`, `korg.read.patternBytes` | `korg.seq.setStep`, `korg.seq.setGate`, `korg.seq.clearPart`, `korg.seq.writeSteps` | non |
 | Enregistrer le pattern (WRITE) | non | non | non |
-| Pistes de motion et leur lecture | non | non | non |
+| Pistes de motion et leur lecture | `korg.motion.lane`, `korg.motion.destination`, `korg.motion.value`, `korg.motion.output` | `korg.motion.setValue`, `korg.motion.clearLane`, `korg.motion.clearPart`, `korg.motion.clearMfx` | non |
+| Motion de la partie choisie on ou off (TAP avec le patch tap-motion) | `korg.motion.enabled` | `korg.motion.enabled` | non |
 | **Effets** | | | |
 | MFX : type, pad, HOLD, MFX SEND | `korg.read.patternValue` | `korg.seq.setPatternValue`, `korg.seq.setPartValue` | non |
 | Type MFX 2 du pattern | `korg.read.patternValue` | `korg.seq.setPatternValue` | non |
@@ -370,6 +371,7 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.system.limits.mfxTypes` | nombre d’effets master du firmware, `mfxType` va de 0 à cette valeur moins 1 ; comme ci-dessus | non | 0 à 255 |
 | `korg.system.limits.samples` | nombre de slots d’échantillon que `sample` peut choisir : 1000 sur le Sampler rouge, 0 sur le Synth bleu | non | 0 à 1000 |
 | `korg.touchpad.mode` | mode du touchpad : 0 Gate Arp, 1 Touch Scale, 2 Master FX, 3 Gate Arp + Touch Scale, 4 MFX 2 (Master FX avec le type MFX 2 du patch mfx-switch) (depuis l’API 27) | Oui : appuie sur la touche qui y mène depuis le mode actuel, LED et effet sont ensuite comme après la touche. Avec MFX 2 activé : GATE ARP donne 3, TOUCH SCALE 4, MASTER FX 2, SHIFT + TOUCH SCALE 1 ; 0 n’est alors pas accessible. Sans MFX 2, les touches du firmware ; un mode qu’aucun appui n’atteint reste inchangé | 0 à 4 |
+| `korg.motion.enabled` | 1 quand la partie choisie joue sa motion sequence (mode Smooth ou Trigger Hold), 0 quand elle est coupée (depuis l’API 28) | Oui : appuie une fois sur TAP si le patch tap-motion est actif et que la valeur change, comme une main ; le patch retient le mode. Sans le patch rien ne change | 0 à 1 |
 | `korg.menu.blech.customizations.display.red` | Rouge du rétroéclairage ; BACKLIGHT HUE, SAT, BRIGHT affichent teinte, saturation, luminosité ; les trois canaux à 0 signifient blanc d’origine | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.green` | Vert du rétroéclairage | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.blue` | Bleu du rétroéclairage | Oui, comme la page | 0 à 15 |
@@ -635,6 +637,14 @@ La colonne d’autorisation s’applique aussi à la syntaxe de propriété équ
 | `korg.padUp(pad)` | Relâche le pad pressé par `korg.padDown` | Depuis l’API 25, comme `korg.led` |
 | `korg.encoder(index, delta)` | Tourne l’encodeur 0 VALUE, 1 SAMPLE/OSC, 2 CUTOFF, 3 MOD TYPE ou 4 IFX TYPE de -127 à 127 crans, négatif vers la gauche ; 0 n’envoie rien. Le message normal du panneau avec SHIFT maintenu par `korg.keyDown(korg.key.SHIFT)` agit comme SHIFT et rotation. Mesuré dans l’émulateur sur les trois firmwares, pas sur l’appareil. Depuis l’API 25 | Comme `korg.led` |
 | `korg.touch(x, y)` | Pose un doigt sur le pavé, valeurs brutes de 0 à 1023. Le premier appel presse TOUCHPAD et transmet la position ; les suivants déplacent le doigt ; X à -1 le lève. Aucun événement `touch` propre et aucun effet de `korg.touchLockX` sur ce doigt. Mesuré dans l’émulateur sur Hacktribe, rouge et bleu, en Master FX et Touch Scale ; pas sur l’appareil. Depuis l’API 25 | Comme `korg.led` |
+| `korg.motion.lane(lane)` | Lit à qui appartient la piste de motion `lane` (0 à 23) du pattern édité : 0 personne, 1 à 16 la partie 1 à 16, 17 l’effet master. Avec REC, le firmware prend la piste libre suivante. [Mesuré dans l’émulateur](messungen/2026-11-11-plugin-api28-motion.md) sur Hacktribe, rouge et bleu. Depuis l’API 28 | Partout |
+| `korg.motion.destination(lane)` | Lit la destination de la piste telle que le firmware l’a enregistrée, selon la liste Korg (10 Amp Level, donc le potentiomètre 0 ; 15 et 16 Master FX X et Y ; 19 pad MFX on/off). Depuis l’API 28 | Partout |
+| `korg.motion.value(lane, step)` | Lit la valeur de la piste au pas `step` (0 à 63), 0 à 127, -1 sans entrée. Le firmware garde un potentiomètre divisé par deux : un potentiomètre à 200 se lit 100. Depuis l’API 28 | Partout |
+| `korg.motion.setValue(lane, step, value)` | Écrit `value` (0 à 127) au pas `step` de la piste, -1 vide le pas. Seulement sur une piste qui a un propriétaire ; sur une piste libre rien ne change. Depuis l’API 28 | Comme `korg.led` |
+| `korg.motion.clearLane(lane)` | Efface la piste par la même fonction du firmware que CLEAR MOTION : la piste est libre et sa lecture muette. Les autres pistes ne remontent pas. Depuis l’API 28 | Comme `korg.led` |
+| `korg.motion.clearPart(part)` | Efface toutes les pistes de la partie `part` (0 à 15), comme Part Util CLEAR MOTION. Depuis l’API 28 | Comme `korg.led` |
+| `korg.motion.clearMfx()` | Efface toutes les pistes de l’effet master, comme CLEAR MFX MOTION dans le menu Pattern. Depuis l’API 28 | Comme `korg.led` |
+| `korg.motion.output(lane)` | Lit ce que la lecture de motion envoie maintenant pour la piste, 0 à 127, -1 en silence (arrêt, motion coupée ou sans entrée). Depuis l’API 28 | Partout |
 | `korg.knob(index, value)` | Transmet une valeur de 0 à 255 au potentiomètre 0 à 10 par son gestionnaire normal. Associé à `korg.knobHold`, permet de filtrer un potentiomètre instable. `korg.read.knob` conserve la valeur physique. Pattern, écran, LED et MIDI comparés au message physique dans l’émulateur sur les trois firmwares ; pas sur l’appareil. Depuis l’API 13 | Comme `korg.led` |
 | `korg.remapKey(from, to)` | Réaffecte un bouton vers un autre, 0 à 33, par exemple `korg.key.PART_ERASE`, avant lecture par le firmware et les plugins. Le firmware réagit comme à la cible. Une seule réaffectation globale, la dernière l’emporte ; from égal à to l’annule. EXIT ne peut pas être réaffecté. Depuis l’API 8 | Corps et `ready` uniquement |
 
