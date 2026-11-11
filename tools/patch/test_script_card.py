@@ -9,7 +9,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from tools.patch.test_script_vm import contract_data, blob, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
 if UNICORN_AVAILABLE:
-    from unicorn import UC_HOOK_CODE
+    from unicorn import UC_HOOK_CODE, UcError
     from unicorn.arm_const import *
 
 FS_OPEN, FS_READ, FS_CLOSE = 0xC009DB60, 0xC009DD74, 0xC009E3DC
@@ -79,6 +79,14 @@ class NativeCardTests(unittest.TestCase):
         for offset in range(STATUS, STATUS + 16, 4): m.write(m.runtime + offset, 0xffffffff)
         m.fat = FakeFat(m, data, **fat)
         m.uc.mem_write(0xC01F7000, b'\xff' * 0x1000)
+        # the start builds the settings record (menu_orig_snap), which asks the patches last-pattern, stereo-pad and pad-colors whether the
+        # set has them: FF is "not there", as in an image without them
+        for page in (0xC014F000, 0xC018B000):
+            try:
+                m.uc.mem_map(page, 0x1000)
+            except UcError:
+                pass
+            m.uc.mem_write(page, b'\xff' * 0x1000)
         return m, built
 
     def load(self, m):
@@ -198,6 +206,7 @@ class NativeCardTests(unittest.TestCase):
             with self.subTest(cpsr=hex(cpsr)):
                 m, _ = self.machine(archive([store(0, 7)]))
                 regs = [0x12340000 + i for i in range(13)]
+                regs[4] = 0xC0038000    # r4 is the start command: its byte 0x18 holds the sample loader's result (0 in the page mapped below)
                 for i, value in enumerate(regs): m.uc.reg_write(UC_ARM_REG_R0 + i, value)
                 sp = m.stack + 0xF0000
                 m.uc.reg_write(UC_ARM_REG_SP, sp)

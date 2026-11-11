@@ -42,90 +42,8 @@ test("the page is in the navigation and says what it needs before a file is load
   const page = await open();
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Pattern-Werkzeuge");
   assert.equal(await page.locator("#cee-pt-loaded").textContent(), "Noch keine Datei geladen.");
-  assert.equal(await page.locator("#cee-pt-t-results").textContent(), "Wähle A und B.");
   assert.equal(await page.locator("#cee-pt-d-text").textContent(), "Wähle ein Basis-Pattern.");
   assert.equal(await page.locator("#cee-pt-d-save").isDisabled(), true);
-  assert.deepEqual(page.errors, []);
-});
-
-test("transitions: A and B from a backup, a preview with the part table, names and slots", async () => {
-  const page = await open();
-  await load(page);
-  assert.equal(await page.locator("#cee-pt-a").inputValue(), "1");
-  assert.equal(await page.locator("#cee-pt-b").inputValue(), "2");
-  assert.match(await page.locator("#cee-pt-t-summary").textContent(), /^Übergang von Pattern 1 A side .* zu Pattern 2 B side .*, 2 Patterns\.$/);
-  assert.equal(await page.locator(".cee-pt-card").count(), 2);
-  assert.doesNotMatch(await page.locator("#cee-pt-t-results").textContent(), /null|undefined/);
-  // the table: A, two transitions, B
-  assert.equal(await page.locator(".cee-pt-grid tbody tr").count(), 4);
-  assert.equal(await page.locator(".cee-pt-grid tbody tr").first().locator("th").textContent(), "A");
-  // free slots above A and B, chain to is on, B's slot is filled in
-  assert.equal(await page.locator("#cee-pt-t-slot-0").inputValue(), "4");
-  assert.equal(await page.locator("#cee-pt-t-slot-1").inputValue(), "5");
-  assert.equal(await page.locator("#cee-pt-slot-b").inputValue(), "2");
-  assert.equal(await page.locator("#cee-pt-t-name-0").inputValue(), "PREB side0");
-
-  await page.fill("#cee-pt-t-name-0", "Intro Build");
-  await page.press("#cee-pt-t-name-0", "Tab");
-  assert.equal(await page.locator("#cee-pt-t-name-0").inputValue(), "Intro Build");
-  await page.fill("#cee-pt-count", "3");
-  assert.equal(await page.locator(".cee-pt-card").count(), 3);
-  assert.equal(await page.locator("#cee-pt-t-name-0").inputValue(), "PREB side0", "a new count starts the names over");
-  assert.deepEqual(page.errors, []);
-});
-
-test("transitions: a single file, a name of your own, chain to and the same bytes the generator makes", async () => {
-  const page = await open();
-  await load(page);
-  await page.fill("#cee-pt-t-name-1", "Drop In");
-  await page.press("#cee-pt-t-name-1", "Tab");
-  const bytes = await h.download(page, () => page.click("#cee-pt-t-save-1"));
-  const got = parseSinglePattern(bytes);
-  assert.equal(got.name, "Drop In");
-  assert.equal(got.raw("pattern.chainTo"), 2, "the last transition points at B");
-  const { makeTransitions } = await import("../../src/transition.mjs");
-  const expected = makeTransitions(backup.a, backup.b, { count: 2, slots: [4, 5], slotB: 2, chain: true, names: ["", "Drop In"] }).items[1].pattern;
-  assert.deepEqual(got.bytes, expected.bytes);
-  await page.locator("#app-toasts .cee-toast", { hasText: /^Gespeichert: T2_005_Drop-In\.e2spat/ }).first().waitFor();
-  assert.deepEqual(page.errors, []);
-});
-
-test("transitions: into a copy of the backup, the original and the other slots stay, an occupied slot asks first", async () => {
-  const page = await open();
-  await load(page);
-  const bytes = await h.download(page, () => page.click("#cee-pt-t-backup"));
-  const all = PatternFile.parse(bytes);
-  assert.equal(all.count, 12);
-  assert.equal(all.name(4), "PREB side0");
-  assert.equal(all.name(5), "PREB side1");
-  assert.equal(all.pattern(4).raw("pattern.chainTo"), 5);
-  assert.equal(all.pattern(5).raw("pattern.chainTo"), 2);
-  assert.deepEqual(all.pattern(1).bytes, backup.file.pattern(1).bytes);
-  assert.deepEqual(all.pattern(6).bytes, backup.file.pattern(6).bytes);
-
-  // slot 3 holds content: the copy replaces it only after a yes
-  await page.fill("#cee-pt-t-slot-0", "3");
-  await page.press("#cee-pt-t-slot-0", "Tab");
-  assert.equal(await page.locator("#cee-pt-t-slot-0").inputValue(), "3");
-  await page.click("#cee-pt-t-backup");
-  const dialog = page.locator("dialog.ui-dialog[open]");
-  await dialog.waitFor();
-  assert.match(await dialog.textContent(), /3 Kept/);
-  await dialog.getByRole("button", { name: "Abbrechen" }).click();
-  assert.equal(await page.locator("dialog.ui-dialog[open]").count(), 0);
-  const kept = await h.download(page, async () => {
-    await page.click("#cee-pt-t-backup");
-    await page.locator("dialog.ui-dialog[open]").getByRole("button", { name: "In Kopie einsetzen" }).click();
-  });
-  const replaced = PatternFile.parse(kept);
-  assert.equal(replaced.name(3), "PREB side0");
-  assert.equal(replaced.name(2), "B side");
-
-  // A or B as a target is refused with a plain sentence
-  await page.fill("#cee-pt-t-slot-1", "2");
-  await page.press("#cee-pt-t-slot-1", "Tab");
-  assert.match(await page.locator("#cee-pt-t-slots").textContent(), /Platz von A oder B/);
-  assert.equal(await page.locator("#cee-pt-t-backup").isDisabled(), true);
   assert.deepEqual(page.errors, []);
 });
 
@@ -199,7 +117,7 @@ test("dice: an empty part without sample says so, a bad file is refused with its
   assert.deepEqual(page.errors.filter(e => !/bad|resource/i.test(e)), []);
 });
 
-test("device: fetch A and B from the buffer, send a rolled pattern through the gate and a confirmation", async () => {
+test("device: fetch the base from the buffer, send a rolled pattern through the gate and a confirmation", async () => {
   const page = await h.page();
   await page.goto(`${h.url}?labs#emu=${fake.port}:${TOKEN}`);
   await page.setInputFiles("#cee-emu-vsb", `${h.dir}/system.vsb`);
@@ -208,8 +126,8 @@ test("device: fetch A and B from the buffer, send a rolled pattern through the g
   await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
   await page.click("#cee-tab-ptools");
   await page.click("#cee-pt-connect-emu");
-  await page.locator("#cee-pt-a-fetch:enabled").waitFor();
-  assert.equal(await page.locator("#cee-pt-a-fetch").isDisabled(), false);
+  await page.locator("#cee-pt-dice-base-fetch:enabled").waitFor();
+  assert.equal(await page.locator("#cee-pt-dice-base-fetch").isDisabled(), false);
   assert.equal(await page.locator("#cee-pt-d-send").isDisabled(), true, "nothing rolled yet");
 
   await page.click("#cee-pt-dice-base-fetch");
@@ -244,5 +162,23 @@ test("axe and phone width: no serious or critical violation, no sideways scroll"
   else t.diagnostic("axe not installed, accessibility scan skipped");
   await page.setViewportSize({ width: 375, height: 800 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "no sideways scroll of the page at phone width");
+  assert.deepEqual(page.errors, []);
+});
+
+test("the X on the backup field clears the name and the input, and the same file can be chosen again", async () => {
+  const page = await open();
+  const x = page.locator(".cee-dropzone-wrap:has(#cee-pt-file) > .cee-dropzone-clear");
+  assert.equal(await x.isVisible(), false, "no file, no X");
+  await load(page);
+  assert.equal(await x.isVisible(), true);
+  assert.equal(await x.getAttribute("aria-label"), "Datei entfernen");
+  const names = page.locator(".ui-dropzone:has(#cee-pt-file) .ui-dropzone-files");
+  assert.equal(await names.textContent(), "set.e2sallpat");
+  await x.click();
+  assert.equal(await names.textContent(), "");
+  assert.equal(await x.isVisible(), false);
+  assert.equal(await page.locator("#cee-pt-file").evaluate(n => n.files.length), 0);
+  await load(page);
+  assert.equal(await x.isVisible(), true, "the same file again");
   assert.deepEqual(page.errors, []);
 });

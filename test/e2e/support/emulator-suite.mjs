@@ -1,6 +1,6 @@
 import { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { setUp, go, pickPreset } from "../harness.mjs";
+import { setUp, go, gear, pickPreset } from "../harness.mjs";
 import { tempDir } from "../../support/lifetime.mjs";
 import { fakeService, TOKEN } from "./fake-emu.mjs";
 import { makeFirmware, makeRecord } from "../../helpers.mjs";
@@ -69,15 +69,17 @@ export function emulatorSuite(index, parts) {
     assert.ok(fake.seen.sd > 0, "the card state came from the linked service");
     const card = page.locator("#cee-sd-inserted");
     assert.equal(await card.isChecked(), false);
+    await gear(page);
     await page.locator("label.ui-switch", { hasText: "Karte eingelegt" }).click();
     await page.waitForFunction(() => document.querySelector("#cee-sd-inserted").checked && !document.querySelector("#cee-sd-inserted").disabled);
     await page.locator("#cee-sd-status", { hasText: "Eingelegt" }).waitFor();
     await page.click("#cee-sd-open");
     await page.waitForFunction(() => !document.querySelector("#cee-sd-open").disabled);
+    await gear(page);
     await page.locator("label.ui-switch", { hasText: "Karte eingelegt" }).click();
     await page.waitForFunction(() => !document.querySelector("#cee-sd-inserted").checked && !document.querySelector("#cee-sd-inserted").disabled);
     assert.deepEqual(fake.seen.sdCalls.slice(-3), ["/sd/insert", "/sd/open", "/sd/eject"], "insert, open and eject went to the linked service");
-    assert.equal(await page.locator("#cee-nav-state #cee-emu-card").count(), 1, "the card sits in the navbar");
+    assert.equal(await page.locator("#cee-emu-menu #cee-emu-card").count(), 1, "the card sits in the gear menu");
     assert.equal(await page.locator("#cee-area-emu #cee-emu-card").count(), 0, "nothing of it stays in the page");
     assert.deepEqual(page.errors, []);
   });
@@ -132,7 +134,7 @@ export function emulatorSuite(index, parts) {
     await powerOn(page, new Uint8Array(0x200100));
     await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor();
     await page.waitForFunction(() => document.querySelector("#cee-e2-sequencer").style.getPropertyValue("--cee-e2-glow") === "1");
-    assert.equal(await page.locator("#cee-e2-pad1").evaluate(n => n.style.getPropertyValue("--cee-e2-blue")), "1", "a pad LED is on or off, as on the device");
+    assert.equal(await page.locator("#cee-e2-pad1").evaluate(n => Number(n.style.getPropertyValue("--cee-e2-blue"))), 128 / 255, "a pad LED is the controller's linear duty cycle");
     assert.equal(await page.getAttribute("#cee-e2-pad1", "data-tone"), "blue");
     fake.seen.inputs.length = 0;
 
@@ -318,7 +320,7 @@ export function emulatorSuite(index, parts) {
     fake.seen.inputs.length = 0;
     await page.click("#cee-send");
     const ok = page.locator("dialog[open] button[value=ok]");
-    const job = page.locator("#cee-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
+    const job = page.locator("#cee-fx .ui-job .cee-state").filter({ hasText: /Fertig|Fehlgeschlagen/ });
     await Promise.race([ok.waitFor().then(() => ok.click(), () => {}), job.waitFor()]);   // a gate warning asks first
     await job.waitFor({ timeout: 15_000 });
     assert.equal(await job.textContent(), "Fertig");
@@ -361,7 +363,7 @@ export function emulatorSuite(index, parts) {
     fake.seen.midi.length = 0;
     await page.click("#cee-send");
     const ok = page.locator("dialog[open] button[value=ok]");
-    const job = page.locator("#cee-area-fx .ui-job .cee-status").filter({ hasText: /Fertig|Fehlgeschlagen/ });
+    const job = page.locator("#cee-area-fx .ui-job .cee-state").filter({ hasText: /Fertig|Fehlgeschlagen/ });
     await Promise.race([ok.waitFor().then(() => ok.click(), () => {}), job.waitFor()]);
     await job.waitFor({ timeout: 15_000 });
     assert.equal(await job.textContent(), "Fertig");
@@ -587,6 +589,39 @@ export function emulatorSuite(index, parts) {
     await page.waitForFunction(() => document.querySelector("#cee-e2-pad6").dataset.tone === "red");
     fake.broadcast("leds", { [0x2c + 2 * 5]: 0 });
     await page.waitForFunction(() => document.querySelector("#cee-e2-pad6").dataset.tone === "off");
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("emulator: the display takes the colour of the firmware's display light, without one the theme's colours", async () => {
+    const page = await runningPage();
+    fake.broadcast("display", Buffer.alloc(1024).toString("base64"));   // all pixels clear: the light shines through
+    const clear = () => pixel(page, 0, 0);
+    const shows = async (want, why) => {
+      await page.waitForFunction(w => { const d = document.querySelector("#cee-emu-lcd").getContext("2d").getImageData(0, 0, 1, 1).data; return d[0] === w[0] && d[1] === w[1] && d[2] === w[2]; }, want);
+      assert.deepEqual(await clear(), want, why);
+    };
+    await settle(300);
+    const theme = await clear();
+    fake.broadcast("backlight", [80, 0, 0]);                       // red at 5 of 16 (tools/emu/backlight.py)
+    await shows(theme.map((c, i) => Math.round(c * [80, 0, 0][i] / 255)), "a dimmer red");
+    fake.broadcast("backlight", [0, 255, 0]);
+    await shows(theme.map((c, i) => Math.round(c * [0, 255, 0][i] / 255)), "green");
+    fake.broadcast("backlight", [0, 0, 0]);
+    await shows([0, 0, 0], "the light off: dark");
+    fake.broadcast("backlight", null);
+    await shows(theme, "no light data: the theme's colours again");
+    assert.deepEqual(page.errors, []);
+  });
+
+  test("emulator: LED changes with their device time are played on the panel, a pad shows its brightness", async () => {
+    const page = await runningPage();
+    fake.broadcast("leds", {});
+    // Pad 3 lights 10 ms into the step, goes dark for 5 ms, lights again at a quarter (power save).
+    const us = ms => ms * 1000;
+    fake.broadcast("ledtrace", { now: us(5020), first: 1, changes: [[us(5010), us(5011), 0x30, 255], [us(5014), us(5016), 0x30, 0], [us(5019), us(5022), 0x30, 64]] });
+    await page.waitForFunction(() => document.querySelector("#cee-e2-pad3").dataset.tone === "red");
+    await page.waitForFunction(() => Number(document.querySelector("#cee-e2-pad3").style.getPropertyValue("--cee-e2-glow")) === 64 / 255);
+    assert.equal(await page.getAttribute("#cee-e2-pad3", "data-tone"), "red", "a dim pad keeps its colour");
     assert.deepEqual(page.errors, []);
   });
 

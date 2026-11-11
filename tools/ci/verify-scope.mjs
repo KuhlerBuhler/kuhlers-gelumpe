@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Which case modules of tools/emu/check.py a pull request into develop has to run, from the files it changes. The
+ * Which case modules of tools/emu/check.py a feature pull request has to run, from the files it changes. The
  * workflow .github/workflows/verify-patches.yml passes the answer to `verify-patches.mjs --cases`; the start scenarios
  * run always.
  *
@@ -21,15 +21,15 @@ export const ALL = "all";
 export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases",
   "note_assist_cases", "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases",
   "remote_cases", "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-  "init_pattern_cases", "stereo_pad_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases"];
+  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases"];
 
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
 const MENU_USERS = ["menu_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
-  "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "beat_eighth_cases"];
+  "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "beat_eighth_cases", "ht_osc_cases", "card_error_cases"];
 const PSWITCH_USERS = ["pswitch_cases", "tap_motion_cases", "note_assist_cases", "ifx_idle_cases", "shortcut_cases",
   "synth_filter_cases", "beat_eighth_cases"];
-const MFX_USERS = ["mfx_cases", "ifx_idle_cases", "preset_cases", "stereo_pad_cases", "touch_scale_zero_cases"];
+const MFX_USERS = ["mfx_cases", "ifx_idle_cases", "preset_cases", "stereo_pad_cases", "touch_scale_zero_cases", "ht_osc_cases"];
 
 /** [pattern, modules or ALL], first match wins. Patterns are anchored; `[^/]*` stays inside one folder. */
 export const TABLE = [
@@ -46,28 +46,44 @@ export const TABLE = [
   ...CASE_MODULES.map(m => [new RegExp(`^tools/emu/${m}\\.py$`), [m]]),
   [/^tools\/emu\/testmode_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
   [/^tools\/emu\/timer_cases\.py$/, ["remote_cases"]],         // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_edit_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api15_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api18_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api19_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/global_cases\.py$/, ["remote_cases"]],         // runs as a group of remote_cases
+  [/^tools\/emu\/pattern_parts_cases\.py$/, ["remote_cases"]],  // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api22_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api23_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api24_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api25_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/live_write_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/objects_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
+  // what the case modules get from Node (node_json.py): only groups of remote_cases ask; the writer of the file checks nothing
+  [/^tools\/emu\/node_json\.py$|^data\/emu\/node-results\.json$/, ["remote_cases"]],
+  [/^tools\/emu\/node_results\.py$/, []],
 
   // the patches and the code they build, to the cases that test them (check.py's docstring, each has_hooks)
   [/^tools\/patch\/mfx_switch\.py$|^data\/patches\/mfx-switch[^/]*\.json$/, MFX_USERS],
   [/^tools\/patch\/(splash_editor\.py|splash_synth\.mjs)$|^data\/patches\/splash-(editor|synth)[^/]*\.json$/, ["splash_cases"]],
-  [/^tools\/patch\/script_menu\.s$/, ["menu_cases", "shortcut_cases", "migrate_cases", "init_pattern_cases", "last_pattern_cases", "stereo_pad_cases"]],
+  [/^tools\/patch\/script_menu\.s$/, ["menu_cases", "shortcut_cases", "migrate_cases", "init_pattern_cases", "last_pattern_cases", "stereo_pad_cases", "ht_osc_cases"]],
   [/^tools\/patch\/blech_version\.mjs$|^data\/patches\/blech-version[^/]*\.json$/, ["menu_cases"]],
   [/^tools\/patch\/script_shortcuts\.s$/, ["shortcut_cases"]],
-  [/^tools\/patch\/script_migrate\.s$/, ["migrate_cases"]],
-  [/^tools\/patch\/script_remote\.s$/, ["remote_cases"]],
+  [/^tools\/patch\/script_migrate\.s$/, ["migrate_cases", "card_error_cases"]],
+  [/^tools\/patch\/script_remote\.s$|^tools\/patch\/script_objects\.s$/, ["remote_cases"]],
   [/^tools\/patch\/fx_card\.s$|^src\/fx-collection\.mjs$/, ["fx_card_cases"]],
   [/^tools\/patch\/pattern_switch\.py$|^data\/patches\/pattern-switch[^/]*\.json$/, ["pswitch_cases"]],
   [/^tools\/patch\/tap_motion\.py$|^data\/patches\/tap-motion[^/]*\.json$/, ["tap_motion_cases"]],
   [/^tools\/patch\/note_assist\.py$|^data\/patches\/note-assistant[^/]*\.json$/, ["note_assist_cases"]],
   [/^tools\/patch\/dice\.py$|^data\/patches\/dice[^/]*\.json$/, ["dice_cases"]],
   [/^tools\/patch\/ifx_idle\.py$|^data\/patches\/ifx-idle[^/]*\.json$/, ["ifx_idle_cases"]],
-  [/^tools\/patch\/(load_bar|loading_anim)\.py$|^data\/patches\/load-bar[^/]*\.json$/, ["loadbar_cases"]],
+  [/^tools\/patch\/(load_bar|loading_anim)\.py$|^data\/patches\/load-bar[^/]*\.json$/, ["loadbar_cases", "card_error_cases"]],
   [/^tools\/patch\/sample_errors\.py$|^data\/patches\/sample-errors[^/]*\.json$/, ["sample_error_cases"]],
   [/^tools\/patch\/synth_filters\.py$|^data\/patches\/synth-filters[^/]*\.json$/, ["synth_filter_cases"]],
   [/^tools\/patch\/blech_sysex\.(py|mjs)$|^data\/patches\/blech-sysex[^/]*\.json$/, ["sysex_cases"]],
   [/^tools\/patch\/last_pattern\.py$|^data\/patches\/last-pattern[^/]*\.json$/, ["last_pattern_cases"]],
   [/^tools\/patch\/init_pattern\.py$|^data\/patches\/init-pattern[^/]*\.json$/, ["init_pattern_cases"]],
   [/^tools\/patch\/stereo_pad\.py$|^data\/patches\/stereo-pad[^/]*\.json$/, ["stereo_pad_cases"]],
+  [/^tools\/patch\/ht_osc\.py$|^data\/patches\/ht-osc[^/]*\.json$/, ["ht_osc_cases"]],
   [/^tools\/patch\/beat_eighth\.py$|^data\/patches\/beat-eighth[^/]*\.json$/, ["beat_eighth_cases"]],
   [/^tools\/patch\/touch_scale_zero\.py$|^data\/patches\/touch-scale-zero[^/]*\.json$/, ["touch_scale_zero_cases"]],
   [/^tools\/patch\/doom_loader\.py$|^data\/patches\/doom-loader\.json$/, ["doom_loader_cases"]],

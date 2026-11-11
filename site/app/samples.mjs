@@ -2,23 +2,20 @@
  * The Samples page: name and tune of a sample in RAM, sent through the same gate, rehearsal and
  * read-back as every other live edit. Logic: src/samples.mjs, src/sample-rules.mjs, src/plan.mjs.
  */
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { el } from "./fields.mjs";
+import { stateText, setStateText } from "./state.mjs";
 import { field, typeOf } from "../../src/map/index.mjs";
 import { SAMPLE_COUNT } from "../../src/samples.mjs";
 import { lintSample, TUNE_SEEN } from "../../src/sample-rules.mjs";
 import { ensureFirmware } from "../../src/korg.mjs";
 import { t } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:wavs");
 
 const SEVERITY = {
   fatal: ["error", "samples.severity.fatal"], silent: ["error", "levels.muted"], error: ["error", "common.error"],
   warn: ["warn", "device.log.warn"], note: ["neutral", "mod.hint"],
-};
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
 };
 
 const NAME = typeOf(field("sample.name"));
@@ -151,9 +148,9 @@ export function samplesPage(root, { device, emulator, probe }) {
     const items = el("ul", { className: "ui-list" });
     for (const f of findings) {
       const [tone, word] = SEVERITY[f.severity];
-      items.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(f.text)}` })]));
+      items.append(el("li", { className: "ui-row" }, [stateText(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(f.text)}` })]));
     }
-    verdict.replaceChildren(el("h3", { textContent: t("samples.gate") }), findings.length ? items : el("p", {}, [pill("ok", t("samples.clean")), ` ${t("samples.noFindings")}`]));
+    verdict.replaceChildren(el("h3", { textContent: t("samples.gate") }), findings.length ? items : el("p", {}, [stateText("ok", t("samples.clean")), ` ${t("samples.noFindings")}`]));
   }
 
   const fact = (term, value) => [el("dt", { textContent: term }), el("dd", { textContent: value })];
@@ -218,15 +215,13 @@ export function samplesPage(root, { device, emulator, probe }) {
     const bar = el("div", { className: "ui-progress", role: "progressbar" }, [el("span", { className: "ui-progress-bar" })]);
     bar.setAttribute("aria-valuemin", "0");
     bar.setAttribute("aria-valuemax", "100");
-    const pillNode = el("span", { className: "cee-status", textContent: t("samples.job.running") });
-    pillNode.dataset.tone = "running";
+    const jobState = stateText("running", t("samples.job.running"));
     const meta = el("span", { className: "ui-job-meta" });
-    job.replaceChildren(el("div", { className: "ui-job-head" }, [el("span", { className: "ui-job-name", textContent: name }), pillNode]), bar, meta);
+    job.replaceChildren(el("div", { className: "ui-job-head" }, [el("span", { className: "ui-job-name", textContent: name }), jobState]), bar, meta);
     return {
       step(n, total) { window.ui?.setProgress(bar, Math.round((n / total) * 100), name); meta.textContent = t("samples.job.step", { n, total }); },
       done(ok, text) {
-        pillNode.textContent = ok ? t("samples.job.done") : t("samples.job.failed");
-        pillNode.dataset.tone = ok ? "ok" : "error";
+        setStateText(jobState, ok ? "ok" : "error", ok ? t("samples.job.done") : t("samples.job.failed"));
         bar.dataset.tone = ok ? "ok" : "error";
         window.ui?.setProgress(bar, 100, name, ok ? undefined : { valueText: t("samples.job.failed") });
         meta.textContent = text;
@@ -238,7 +233,7 @@ export function samplesPage(root, { device, emulator, probe }) {
     const items = el("ul", { className: "ui-list", id: "cee-sample-blocked" });
     for (const r of reasons) {
       const [tone, word] = SEVERITY[r.severity] ?? ["error", "backup.locked"];
-      items.append(el("li", { className: "ui-row" }, [pill(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(r.text ?? r.message)}` })]));
+      items.append(el("li", { className: "ui-row" }, [stateText(tone, t(word)), el("span", { className: "ui-break", textContent: ` ${t(r.text ?? r.message)}` })]));
     }
     verdict.replaceChildren(el("h3", { textContent: t("samples.blocked") }), items);
     device.log?.(t("backup.blocked", { reasons: reasons[0]?.message ?? "" }), "error");

@@ -64,7 +64,10 @@ jobs:
           cache: npm
       - run: npm ci
       # Every test file that names a document; the files a test reads through a helper are not Markdown (docs/messungen/*.json, images).
-      - run: node --test --test-timeout=300000 $(grep -lE 'docs/|\.md\b|messungen' test/*.test.mjs)
+      - run: |
+          mapfile -t tests < <(grep -lE 'docs/|\.md\b|messungen' test/*.test.mjs)
+          [ "${#tests[@]}" -gt 0 ]
+          node --test --test-timeout=300000 "${tests[@]}"
 
   unit:
     needs: [unit-part, unit-docs]
@@ -140,6 +143,12 @@ jobs:
               - 'docs/plugins.en.md'
               - 'third_party/**'
               - '.github/workflows/test.yml'
+              - '.github/workflows/firmware-check.yml'
+              - '.github/workflows/verify-patches.yml'
+              - '.github/workflows/release.yml'
+              - '.github/workflows/automerge.yml'
+              - '.github/workflows/release-merge.yml'
+              - '.github/actions/**'
             native:
               - 'src-tauri/**'
               - 'tools/emu/**'
@@ -170,16 +179,16 @@ jobs:
       - run: docker compose up --build --detach
       - name: page, emulator and card answer
         run: |
-          for i in $(seq 1 90); do curl -fsS http://127.0.0.1:8737/ >/dev/null && break; sleep 2; done
+          for _ in $(seq 1 90); do curl -fsS http://127.0.0.1:8737/ >/dev/null && break; sleep 2; done
           curl -fsS http://127.0.0.1:8737/ | grep -qi "<html"
           # The page names its emulator once that answers; until then /emu.json is null.
-          for i in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             port=$(curl -fsS http://127.0.0.1:8737/emu.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s)?.port ?? ""))')
             [ "$port" = 8740 ] && break; sleep 2
           done
           [ "$port" = 8740 ]
           curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8740/ | grep -qv "^000$"
-          for i in $(seq 1 60); do [ -d SD/card ] && break; sleep 2; done
+          for _ in $(seq 1 60); do [ -d SD/card ] && break; sleep 2; done
           ls -la SD
           [ -d SD/card ]
       - if: failure()
@@ -219,7 +228,13 @@ jobs:
           save-if: ${{ github.event_name == 'push' }}
       - name: Linux libraries
         if: runner.os == 'Linux'
+        timeout-minutes: 10
         run: |
+          # the runner's mirror list starts with azure.archive.ubuntu.com, which went down on 2026-11-11 together
+          # with archive.ubuntu.com; apt spreads requests over every mirror in the list, so list only kernel.org
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            echo http://mirrors.edge.kernel.org/ubuntu/ | sudo tee /etc/apt/apt-mirrors.txt
+          fi
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev libasound2-dev
       - run: npm ci

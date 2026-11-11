@@ -4,12 +4,13 @@
  * exactly this text (src/script/gate.mjs).
  */
 import { el } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { icon } from "./icons.mjs";
 import { simPanel } from "./sim-panel.mjs";
 import { drawDisplay } from "./emulator.mjs";
 import { PADS } from "../../data/panel.mjs";
 import { parseMarkdown } from "./markdown.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { createScriptEditor } from "./script-editor.mjs";
 import { highlightLines } from "../../src/script/highlight.mjs";
@@ -17,6 +18,7 @@ import { compile, formatError } from "../../src/script/compiler.mjs";
 import { decodeBlob, markProbed } from "../../src/script/blob.mjs";
 import { LIMITS, BUDGET, ARCHIVE, SCRIPT_APPS } from "../../data/script/contract.mjs";
 import { PRESETS } from "../../data/script/presets.mjs";
+import { PLUGIN_PICTURES } from "../../data/script/plugin-pictures.mjs";
 import { TEMPLATES, templateSource } from "../../data/script/templates.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
 import { KNOB_NAMES } from "../../data/script/properties.mjs";
@@ -28,7 +30,10 @@ import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
 import { storePlugin } from "../../src/usb-update.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { pixelsOf } from "./splash.mjs";
-import { t, locale } from "./i18n.mjs";
+import { drawFeature } from "./features.mjs";
+import { t, locale, language } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:plugins");
 
 /** 0/1 pixels row by row (splash.mjs) to the display's 1024 bytes: eight rows per byte, bit 0 on top. */
 function displayBytes(pixels) {
@@ -40,12 +45,6 @@ const toBase64 = bytes => btoa(String.fromCharCode(...bytes));
 const fromBase64 = text => { try { const b = Uint8Array.from(atob(text), c => c.charCodeAt(0)); return b.length === 1024 ? b : null; } catch { return null; } };
 
 const EXIT_KEY = KEY_NAMES.find(n => n.name === "EXIT").value;
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
-};
 
 const ask = async (options, fallback) => (window.ui?.prompt ? window.ui.prompt(options) : fallback);
 
@@ -124,8 +123,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const log = el("ul", { className: "cee-script-log", id: "cee-script-log", "aria-live": "polite" });
   const ownList = el("ul", { className: "cee-catalog cee-own", id: "cee-script-own" });
   const ownEmpty = el("p", { className: "muted cee-ws-empty", id: "cee-script-own-empty", textContent: t("plugins.own.empty") });
-  const note = el("span", { className: "cee-status", id: "cee-script-readonly", hidden: true, textContent: t("plugins.readOnly") });
-  note.dataset.tone = "neutral";
+  const note = stateText("neutral", t("plugins.readOnly"), { id: "cee-script-readonly", hidden: true });
 
   const button = (id, label, onclick, extra = "") => el("button", { type: "button", className: `btn ${extra}`.trim(), id, textContent: label, onclick });
   const copy = button("cee-script-copy", t("plugins.copy"), () => copyPreset(), "sm cee-primary");
@@ -258,7 +256,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     const n = mine?.inputs?.length ?? 0;
     inputsInfo.textContent = isOwn ? (n ? t("plugins.inputs", { count: n, frame: mine.inputs.at(-1).frame }) : t("plugins.noInputs")) : "";
     const gate = isOwn ? exportGate({ source: mine.source, probe: mine.probe }) : null;
-    probeInfo.replaceChildren(...(gate ? [gate.ok ? pill(gate.confirm ? "warn" : "ok", gate.confirm ? t("plugins.linesOpen") : t("console.passed")) : pill("neutral", t("plugins.notProbedTag")), ` ${gate.reason ?? t("plugins.allRan")}`] : []));
+    probeInfo.replaceChildren(...(gate ? [gate.ok ? stateText(gate.confirm ? "warn" : "ok", gate.confirm ? t("plugins.linesOpen") : t("console.passed")) : stateText("neutral", t("plugins.notProbedTag")), ` ${gate.reason ?? t("plugins.allRan")}`] : []));
     exportButton.disabled = !ok || !gate?.ok;
     usbButton.disabled = exportButton.disabled;
     // Speichern in the navbar is the same export: a plugin of the catalog is read only, an own one needs its probe first
@@ -711,13 +709,14 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     docsEmpty.hidden = any;
   }
   docsSearch.addEventListener("input", filterDocs);
-  const NAMES_TITLE = "Namen für Tasten und LEDs";
+  const DOCS = { de: ["../../docs/plugins.md", "Namen für Tasten und LEDs"], en: ["../../docs/plugins.en.md", "Names for keys and LEDs"], fr: ["../../docs/plugins.fr.md", "Noms des boutons et des LED"] };
+  const [docsFile, NAMES_TITLE] = DOCS[language()] ?? DOCS.en;
   async function loadDocs() {
     if (docsLoaded) return;
     docsLoaded = true;
     let text;
     try {
-      const res = await fetch(new URL("../../docs/plugins.md", import.meta.url));
+      const res = await fetch(new URL(docsFile, import.meta.url));
       if (!res.ok) throw new Error(String(res.status));
       text = await res.text();
     } catch {
@@ -736,8 +735,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       }
       if (heading && heading.level >= 2) links.push(heading);
       // The tables of the names are the live ones below; the static copies in the doc stay out of the page.
-      if (section.title === NAMES_TITLE && (node.classList.contains("cee-doc-table") || /^(Tasten|LEDs) \(/.test(node.textContent))) continue;
-      if (/^Deutsche Version/.test(node.textContent)) continue;
+      if (section.title === NAMES_TITLE && (node.classList.contains("cee-doc-table") || /^(Tasten|Buttons|Boutons|LEDs|LED) \(/.test(node.textContent))) continue;
+      if (/^(Deutsche Version|German version|Version française)/.test(node.textContent)) continue;
       section.node.append(node);
     }
     const names = docSections.find(s => s.title === NAMES_TITLE);
@@ -756,7 +755,6 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const catalog = el("ul", { className: "cee-catalog", id: "cee-catalog" }, PRESETS.map(catalogCard));
   const exportAllOwn = exportAll;
   const ownShelf = el("div", { className: "cee-plug-page cee-own-shelf", id: "cee-own-shelf" }, [
-    el("div", { className: "actions" }, [newButton, openLabel, open, exportAllOwn]),
     ownEmpty,
     ownList,
     el("p", { className: "muted", textContent: t("plugins.own.local") }),
@@ -851,7 +849,10 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     subPages?.select(id === "detail" ? "catalog" : id);
     reading = null;
     trail(id === "editor" ? [t("plugins.page.editor"), ...(current ? [current.id] : [])] : [PAGES.find(p => p.id === id).title]);
-    navbar(id === "editor" ? [openNav, saveNav] : []);
+    // Meine Plugins and the editor keep their file actions in the navbar; the file input goes along, so Öffnen works on both.
+    // In the editor the Öffnen button clicks it, so there it stays out of view and out of the accessibility tree.
+    open.hidden = id === "editor";
+    navbar(id === "editor" ? [openNav, saveNav, open] : id === "mine" ? [newButton, openLabel, open, exportAllOwn] : []);
     if (id === "catalog") drawThumbs();
     if (id === "docs") loadDocs();
   }
@@ -859,7 +860,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const THUMB_FRAMES = 40;
   const noStore = { load: () => null, save: () => {} };
 
-  /** The display of a plugin after a few frames, drawn with the LCD drawing of the emulator page; a plugin that only lights LEDs shows its pads. */
+  /** The display of a plugin after a few frames, drawn with the LCD drawing of the emulator page; a catalog plugin that
+   * leaves the display alone shows its picture (site/img/plugins, tools/plugin-art.mjs), an own one its pads. */
   function renderThumb(canvas, preset) {
     const result = compile(preset.source, { name: validName(preset.id) ? preset.id : "plugin" });
     drawDisplay(canvas, new Uint8Array(1024));
@@ -878,6 +880,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       ctx.fillRect(8 + (pad.index % 8) * 14, 18 + Math.floor(pad.index / 8) * 16, 11, 11);
     }
     ctx.globalAlpha = 1;
+    if (PRESETS.includes(preset) && PLUGIN_PICTURES.includes(preset.id)) drawFeature(canvas, `img/plugins/${preset.id}.svg`);
   }
 
   function drawThumbs() {

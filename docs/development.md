@@ -32,6 +32,9 @@ npm run test:local   # Werksprüfungen mit eigenen Dateien, brauchen E2_VSB und 
 npm run test:all     # Unit- und Browsertests nebeneinander, mit E2_VSB auch Emulator
 ```
 
+In VS Code startet F5 `npm start` und öffnet den Editor unter http://127.0.0.1:8737 in Chrome
+(`.vscode/launch.json`, `.vscode/tasks.json`).
+
 ## Im Container
 
 `docker compose up --build` baut die Seite und den Emulator in ein Abbild und
@@ -56,26 +59,22 @@ einschaltet.
 
 Ein Release legt dasselbe Abbild auch in GitHubs Paketregister ab, für linux/amd64
 und linux/arm64 (`.github/workflows/docker-image.yml`, von `release.yml`
-aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Den
-Namen trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
+aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Seit
+dem Release 1.4.0 liegt es dort, unter beiden Architekturen; frühere Versionen
+gibt es im Paketregister nicht, das erste Abbild kam mit diesem Release. Den Namen
+trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
 `docker compose pull` und danach `docker compose up`, ohne dass du selbst baust.
-Bis zum ersten Release mit diesem Workflow gibt es das Paket noch nicht, bis
-dahin führt `docker compose pull` zu einem Fehler und `docker compose up --build`
-bleibt der Weg. Ein Release startet nur Workflows, wie sie auf `main` liegen,
-und `docker-image.yml` kam über `develop`; das Paket entsteht also mit dem ersten
-Release, das diesen Stand nach `main` bringt. `docker compose up --build` baut auch
-dann aus diesem Ordner, wenn
-das Abbild schon liegt; ein selbst gebautes trägt denselben Namen, ein späteres
-`pull` ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte liegt in
+`docker compose up --build` baut auch dann aus diesem Ordner, wenn das Abbild
+schon liegt; ein selbst gebautes trägt denselben Namen, ein späteres `pull`
+ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte liegt in
 keinem Abbild.
 
 Eine bestimmte Version statt `:latest` nimmt `GELUMPE_IMAGE`, etwa
-`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.3.7 docker compose pull`. Die
+`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.4.0 docker compose pull`. Die
 Variable gilt für `pull` und `up`; in einer `.env` neben `docker-compose.yaml`
 steht sie für beide. Von Hand (Actions, "Container image", mit einem Tag) lässt
-sich ein Abbild neu bauen, sobald der Workflow auf `main` liegt; vorher steht er
-nicht in der Liste, und ein Release startet ihn nicht. `:latest` wandert dabei nur
-mit, wenn "latest" angehakt ist.
+sich ein Abbild neu bauen; `:latest` wandert dabei nur mit, wenn "latest"
+angehakt ist.
 
 ## Hinter einem Proxy
 
@@ -129,6 +128,8 @@ in zwei, die Browsertests in vier Teilen nebeneinander (`--test-shard`), die Pr�
 `browser` fassen die Teile zusammen. Ändert ein Pull Request nur Markdown oder andere
 Workflows, laufen nur die Einheitstests, die Dokumente lesen, und keine Browsertests (ausgenommen
 `DESIGN.md`, `docs/plugins*.md` und `third_party/`, die die Seite und die Tests lesen).
+
+Jeder lokale Testlauf (`npm test`, `test:e2e`, `test:all`, `test:emu`, `test:local`, `verify:patches`, `check.py`, `menu_cases.py` und die übrigen `*_cases.py`) prüft zuerst die Auslastung (`tools/load-gate.mjs`) und startet nicht, solange das 1-Minuten-Lastmittel mindestens 0,8 mal die Kernzahl beträgt oder weniger als 10 % Speicher frei sind. Er meldet das in einer Zeile, prüft alle 15 s neu und bricht nach 20 Minuten mit Fehlercode ab. `GELUMPE_LOAD_GATE=off` überspringt die Prüfung, `GELUMPE_LOAD_MAX` (Faktor der Kerne), `GELUMPE_LOAD_WAIT` (Sekunden) und `GELUMPE_LOAD_POLL` (Sekunden) stellen sie ein. In CI (`CI` gesetzt) entfällt sie, und verschachtelte Läufe warten nicht doppelt (`GELUMPE_LOAD_GATE_PASSED`). Direkt gestartetes `node --test` ist nicht abgesichert, dafür `node tools/load-gate.mjs node --test ...` voranstellen.
 
 Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt starten:
 
@@ -197,7 +198,8 @@ gemessen auf einem Rechner mit 10 Kernen, ohne Gerätezugriff. Die Maßnahmen:
   Standard: Kerne minus einer (mindestens 1), 2 bei einem Lastmittel über der Kernzahl, 1
   bei über der doppelten Kernzahl. `GELUMPE_JOBS` überschreibt das, im eingefrorenen Dienst
   läuft ein Prozess. Die Emulator-Tests starten ihre Python-Läufe über
-  `test/support/spawn.mjs`, ohne den Event-Loop zu blockieren.
+  `test/support/spawn.mjs`, ohne den Event-Loop zu blockieren. JSON-Eingaben werden darüber
+  asynchron geschrieben und der Eingabestrom danach geschlossen.
 - **Gemerkte Ergebnisse je Task.** `check.py` und `menu_cases.py cases` merken sich das
   Ergebnis jedes Tasks (eine Gruppe von Fällen oder ein Boot) mit den Dateien, die er benutzt
   hat (`tools/emu/taskcache.py`): den Quelltext jedes geladenen Moduls und jede geöffnete
@@ -216,6 +218,30 @@ gemessen auf einem Rechner mit 10 Kernen, ohne Gerätezugriff. Die Maßnahmen:
   in Gerätezeit statt in Wanduhrzeit (`settle(ms)` in `test/support/emu.mjs`).
 - **Browsertests** laufen als je drei dünne Dateien um dieselbe Suite nebeneinander.
 
+Die normalen Testbefehle benutzen `tools/test-runner.mjs`. Es laufen höchstens zwei Testdateien
+gleichzeitig; Python-Prozesse und deren Worker teilen sich den verfügbaren Kernanteil. Ein
+ausdrücklich gesetztes `GELUMPE_JOBS=1` bleibt bei einem Prozess. Höhere Werte werden auf das
+Budget begrenzt. `test:all` teilt das Budget zwischen Unit- und Browserprüfungen und führt sie
+auf einem Rechner mit nur einem Kern nacheinander aus.
+
+Die 36 Rettungsfälle liegen ebenfalls in drei dünnen Testdateien um eine gemeinsame Suite.
+Zusammen mit den fünf bereits getrennten Kartenfällen bestanden alle 41 Fälle in der lokalen
+Auswahl nach rund 110 Sekunden. Die bisherige einzelne Rettungsdatei erreichte das Zeitlimit
+von 180 Sekunden; im abschließenden Volltest brauchten ihre drei Teile jeweils ungefähr 56,
+66 und 63 Sekunden. Das Zeitlimit und die Prüfungen wurden dafür nicht verändert. Das sind
+lokale Messungen bei laufenden weiteren Aufgaben, keine Messung der CI-Gesamtdauer.
+
+Für einen Rechner, auf dem schon andere Tests laufen, lässt sich die Zahl der Testdateien und
+Python-Prozesse begrenzen:
+
+```bash
+GELUMPE_JOBS=1 node --test --test-concurrency=2 --test-timeout=300000 "test/*.test.mjs"
+node --test --test-concurrency=2 --test-timeout=180000 "test/e2e/*.e2e.mjs"
+```
+
+`GELUMPE_JOBS` gilt auch für die Pythonmodule der Assemblerprüfung. Die beiden Befehle
+nacheinander ausführen, wenn der Rechner bereits ausgelastet ist. Sie wählen keine Tests ab.
+
 | Lauf (niedrige Last) | vorher | nachher |
 |---|---|---|
 | `npm run test:local` | 1329 s | 344 s kalt, 37 s warm |
@@ -226,7 +252,7 @@ Der kalte Lauf bleibt bei etwa 6 Minuten. Flaschenhälse sind dann die Kette der
 Startbild-Fälle (30 Schritte) und die Startwege in `check.py` (Probe-Haken auf jedem
 Lesezugriff).
 
-Der volle Check einer BLECH-Kopie (`check.py` ohne `--quick`, 553 Prüfungen) und die
+Der volle Check einer BLECHTRIBE-Kopie (`check.py` ohne `--quick`, 553 Prüfungen) und die
 Menüfälle (`menu_cases.py cases`, 164 Fälle), gemessen am 28.10.2026 mit Hacktribe,
 `GELUMPE_JOBS=6`, auf einem Rechner mit 10 Kernen und Last von anderen Läufen (Lastmittel 8
 bis 24, die Zeiten schwanken entsprechend):
@@ -276,11 +302,10 @@ node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB
 | `tools/emu/` | Emulator: Maschine, Dienst, virtuelle SD, Prüfläufe |
 | `tools/patch/` | Patches (ARM-Code, Haken, Plugin-VM) und ihre Python-Tests |
 | `tools/device/` | Werkzeuge am echten Gerät: Flash lesen, LEDs, Bildschirm, FatFs-Sonde |
-| `tools/set/` | Befehlszeile für den Übergangs-Generator (`src/transition.mjs`) und die Auswertung von Pattern-Sets ([set/uebergaenge.md](set/uebergaenge.md)) |
 | `tools/release*.mjs`, `tools/set-version.mjs` | Release |
 | `tools/alsa-sysex.*` | Linux-Sender für große SysEx-Nachrichten ([alsa-sysex.md](../tools/alsa-sysex.md)) |
 | `src-tauri/` | die Desktop-App |
-| `assets/` | App-Icon, BLECH-Startbild und -Klänge ([README](../assets/blechy/README.md)) |
+| `assets/` | App-Icon, BLECHTRIBE-Startbild und -Klänge ([README](../assets/blechy/README.md)) |
 
 Browser-Regel: alles in `src/` außer `node.mjs` läuft im Browser. Keine `node:`-Importe
 außerhalb von `src/node.mjs`, `bin/`, `tools/` und `test/`.
@@ -391,10 +416,25 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
 2. Pull Request `develop` -> `main` mergen. Den Release-PR `release/X.Y.Z` -> `main` merged der Workflow "Release
    merge" selbst, sobald jemand mit Schreibrecht ihn freigegeben hat und alle Checks grün sind (siehe unten).
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
-   Apps auf allen Systemen (`build-apps.yml`), prüft den BLECH-Satz im Emulator auf Hacktribes, Korgs roter und blauer
+   Apps auf allen Systemen (`build-apps.yml`), prüft den BLECHTRIBE-Satz im Emulator auf Hacktribes, Korgs roter und blauer
    2.02 und auf Hacktribe für die blaue (`npm run verify:patches`, je ein Job), baut `BLECH.patch` und die `.bsdiff`, veröffentlicht das Release mit
    `tools/release.mjs --ci` (älteres Release gelöscht, Tags bleiben) und postet es im Discord. Jeder andere Push auf
    `main` endet nach dem ersten Schritt.
+
+**Checkliste je Release.** Was mit jeder Version mitgezogen wird. "Automatisch" heißt: ein Skript schreibt es oder
+ein Test schlägt fehl, wenn es fehlt.
+
+| Was | Wie | Automatisch |
+|-----|-----|-------------|
+| Version in `package.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, `blech-version` | `node tools/set-version.mjs X.Y.Z` | Skript, Test `blech-version` |
+| Notizen `release-notes/X.Y.Z.md` und `data/release-notes.mjs` | von Hand, dann `node tools/release-notes.mjs build` | Test, Prüfschritt "due" |
+| "Neueste Version von BLECHTRIBE" im Patcher | kommt aus den neuesten Notizen | ja, Test `blech-version` |
+| `data/known-releases.json`: Dateien mit älteren Versionen lassen sich ohne Original updaten | `node tools/known-releases.mjs --hacktribe H.VSB --stock RED.VSB --synth BLUE.VSB` mit allen Tags ab `v1.3.3` und `worktree`, die drei unveränderten 2.02-Dateien vom eigenen Rechner | Test `blech-version` meldet fehlende Versionen |
+| `data/patches/verified.json` | der Workflow "Verify patches" committet sie | ja |
+| Neuigkeiten nach dem Update (`data/news.mjs`, Schlüssel `news.vXYZ.*` in allen Sprachen) | von Hand, nur bei Versionen mit Neuem für Nutzer | nein |
+| Funktionslisten in `README.md` und `README.en.md` (Plugins, Fallstricke, Rettung) | von Hand | nein |
+| [Fahrplan](fahrplan.md): die Version unter "Erschienen" eintragen, den Rest nachziehen | von Hand | nein |
+| Plugin-API-Version und neue Funktionen in [plugins.md](plugins.md) und `plugins.en.md` | mit dem Feature-PR | nein |
 
 **Format der Notizen** (`release-notes/X.Y.Z.md`): eine Datei, erst Deutsch, dann eine Zeile `## English` und darunter
 dieselben Notizen auf Englisch. Die Datei enthält nur die Notizen, keinen Download-Abschnitt und keine "Ohne App
@@ -477,11 +517,16 @@ zusammen kaputt machen, zeigen die Läufe auf `develop` selbst ("Test" und "Veri
 
 **Feature-PRs mergen sich selbst** (Workflow "Automerge", `.github/workflows/automerge.yml`): ein PR nach `develop`
 mit dem Label `automerge` wird gemerged, sobald auf seinem Kopf-Commit `unit`, `browser`, `guard` und `patches` da
-und grün sind und kein anderer Check fehlgeschlagen ist. Der Job wartet bis dahin (bis 150 Minuten), ein neuer Push
-oder ein neues Label startet ihn neu, ein roter Check beendet ihn ohne Merge. Gemerged wird mit `SYNC_TOKEN`,
+und grün sind und kein anderer Check fehlgeschlagen ist. Ein abgeschlossener Prüfworkflow, ein neuer Push oder
+ein neues Label löst eine kurze Entscheidung aus. Noch laufende oder fehlende Prüfungen lassen den PR offen;
+das nächste Ereignis prüft erneut. Dabei bleibt kein Runner wartend belegt. Gemerged wird mit `SYNC_TOKEN`,
 `--admin` und `--match-head-commit`. Ohne Label bleibt der PR offen, etwa wenn er auf einen Test am Gerät wartet;
 Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
 Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
+
+Die Entscheidung liest den Code vom Standardbranch `main`. Der Workflow, `tools/automerge.mjs`
+und `tools/ci/checks.mjs` müssen deshalb zusammen auf `main` verfügbar sein. Erst dann arbeitet
+auch der Auslöser `workflow_run`; ein Merge nur nach `develop` aktiviert ihn noch nicht.
 
 **Gemergte Branches verschwinden** (Workflow "Delete merged branch", `.github/workflows/branch-autodelete.yml`): nach
 dem Merge eines PRs aus diesem Repo löscht der Workflow dessen Branch. Nie gelöscht werden `main`, `develop`,
@@ -526,7 +571,7 @@ angemeldet, das Release gibt es noch nicht, `HEAD` ist `origin/develop`. Scheite
 Commit lokal: beheben und `git push origin HEAD:develop`, dann `npm run release -- --yes` erneut, es läuft
 nur noch das Release.
 
-**BLECH-Patch zum Release** (optional): `E2_VSB=<SYSTEM.VSB aus Hacktribes Paket> npm run
+**BLECHTRIBE-Patch zum Release** (optional): `E2_VSB=<SYSTEM.VSB aus Hacktribes Paket> npm run
 build:blech-patch` baut zwei Dateien nach `dist-release/`. `BLECH.patch` ist der ganze Patch-Satz im
 eigenen Format (`node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`) und
 passt auf jede Hacktribe 2.02 mit unverändertem Code, auch mit eigenen FX-Presets, Menülängen oder
@@ -552,7 +597,7 @@ Geprüft wird nur, wenn der PR den Patch-Satz (`data/patches/`), etwas, das `ver
 oder `tools/emu/` ändert (die Pfade unter `push:` im Workflow); sonst ist `patches` nach dem ersten Job grün. Was
 dann läuft, hängt von der Basis ab:
 
-- **Pull Request nach `develop`** (Feature-Branches): auf allen vier Dateien nur die Startszenarien (`check.py --quick`)
+- **Pull Request nach `develop` oder `release/*`** (Feature-Branches): auf allen vier Dateien nur die Startszenarien (`check.py --quick`)
   und die Case-Module, die zu den geänderten Dateien gehören (`verify-patches.mjs --cases`, an `check.py --cases`
   weitergereicht). Welche das sind, sagt `tools/ci/verify-scope.mjs` mit einer festen Tabelle: `tools/emu/<x>_cases.py`
   ist `<x>_cases` (plus die Module, die daraus importieren), Assembler und Patch-JSON gehen an die Cases, die sie
@@ -560,14 +605,16 @@ dann läuft, hängt von der Basis ab:
   (`script_vm.s`, `script_hooks.s`, `src/patch.mjs`, `src/hooks.mjs`, `machine.py`, `bootmap.py`, `check.py`) und jede
   Datei, die nicht in der Tabelle steht, heißt alle Case-Module. Geschrieben oder committet wird dabei nichts: ein
   Eintrag in `verified.json` heißt immer "ganz geprüft". Der Preis: bricht ein Case außerhalb der zugeordneten Module,
-  sieht man das erst am Release-PR. Die Tabelle hält `test/verify-scope.test.mjs` mit `check.py` in Einklang.
+  sieht man das erst am Release-PR nach `main` oder beim vollständigen Freigabelauf. Die Tabelle hält
+  `test/verify-scope.test.mjs` mit `check.py` in Einklang.
 - **Pull Request nach `main`** (der Release-PR aus `release/X.Y.Z` oder `develop`) und jede andere Basis: der ganze
   Check, danach committet der letzte Job die neue `verified.json` auf den Branch des Pull Requests.
 - **Push auf `develop`** (ein gemergter PR, der die Pfade ändert): alle Case-Module auf allen vier Dateien mit den
   gespeicherten Task-Ergebnissen, geschrieben wird nichts. Der Lauf hält den Task-Cache von `develop` aktuell. Jeder
-  PR-Lauf lädt den neuesten Cache von `develop` und seinen eigenen und nimmt beide zusammen: ein neuer PR startet
+  gezielte PR-Lauf nach `develop` oder `release/*` lädt den neuesten Cache von `develop` und seinen eigenen und nimmt beide zusammen: ein neuer PR startet
   nicht kalt, und nach einem Merge von `develop` in den PR fehlen die neuen Ergebnisse von `develop` nicht. Gerechnet
-  werden nur die Tasks, deren Dateien sich geändert haben. Läufe auf `develop` brechen einander nicht ab, der neueste wartet.
+  werden nur die Tasks, deren Eingaben oder benutzte Dateien sich geändert haben. Ein neuer develop-Stand
+  ersetzt die noch laufenden Teilläufe des alten; der neueste Stand prüft wieder alle Fallmodule.
 
 Gepusht wird mit `SYNC_TOKEN`, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
 ersten Schritt. Ein neuer Push bricht den laufenden Check eines PRs ab. Pull Requests aus Forks haben keine Secrets:
@@ -582,6 +629,9 @@ gh workflow run verify-patches.yml -f branch=release/X.Y.Z
 Er pusht dann auf diesen Branch; für `main` und `develop`, oder wenn der Push scheitert, öffnet er stattdessen einen
 Pull Request hinein. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
 Release-Workflows hängt seinen frischen Eintrag je Datei als Artefakt `verified-<name>` an.
+Der gewählte Branch muss die gemeinsame Firmwareprüfung und ihre Werkzeuge enthalten. Ältere Releasebranches
+bekommen diese Dateien vor einer Prüfung über den neuen Workflow als eigenen Backport; der Lauf überlagert
+ihre Quellen nicht mit neueren Werkzeugen.
 
 Lokal: `npm run verify:patches -- <Korgs rote 2.02> <Korgs blaue 2.02> <Hacktribe 2.02> <Hacktribe 2.02 mit blauem
 Kopf>`: patcht jede
@@ -590,6 +640,55 @@ Datei wie die Seite, prüft sie und schreibt die Liste nur, wenn alle bestehen. 
 nach der anderen prüfen. Ein Paar, das schon mit demselben Satz drinsteht, behält sein altes Datum. `--cases
 menu_cases,remote_cases` prüft nur die Startszenarien und diese Case-Module (leer: nur die Startszenarien, `all`: alle)
 und schreibt nichts.
+
+### Verteilte Firmwareprüfung
+
+Die Workflows für Prüfung und Veröffentlichung benutzen gemeinsam
+`.github/workflows/firmware-check.yml`. Jede der vier Gerätevarianten wird standardmäßig in
+vier Teile aufgeteilt. Die Repositoryvariable `FIRMWARE_SHARDS` ändert diese Zahl;
+`FIRMWARE_MAX_PARALLEL` begrenzt die gleichzeitig laufenden Rechenjobs, standardmäßig auf acht.
+Pro Rechenjob gelten vier Python-Worker. Die besondere Startprüfung läuft daneben auf drei
+eigenen Jobs für Hacktribe, rot und blau. Die Editor-Effektsammlung bekommt zwei weitere Jobs
+für Hacktribe und rot, wenn sie zur gewählten Fallauswahl gehört. So warten diese Prüfungen
+weder auf die Hauptprüfung noch aufeinander.
+
+Die Aufgabe mit Index `i` gehört genau einem Teil. Alle Teile müssen zur selben Firmware,
+Gerätevariante, Konfiguration, Laufzeitversion und demselben Quellstand gehören. Der Abschluss
+plant die erwarteten Aufgaben aus den echten Eingaben erneut, verlangt jeden Teil genau einmal
+und wertet Start- und Ausschaltprüfungen gemeinsam aus. Erst ein vollständiges bestandenes
+Ergebnis darf einen Eintrag für `verified.json` ergeben. `--cases` schreibt weiterhin keinen.
+
+Lokal, mit einer eigenen Firmwaredatei und einem vorhandenen Ausgabeordner:
+
+```bash
+mkdir -p resultate
+for teil in 1 2 3 4; do
+  npm run -s verify:patches -- --shard "$teil/4" --output "resultate/$teil.json" SYSTEM.VSB
+done
+npm run -s verify:patches -- --join-shards resultate SYSTEM.VSB
+```
+
+Die Schleife läuft absichtlich nacheinander auf demselben Rechner. In der CI rechnet jeder Teil
+auf einem eigenen Runner. Währenddessen die Quellen nicht bearbeiten: ein anderer Quellstand
+beim Abschluss wird abgewiesen. Bei einer Teilprüfung dieselbe `--cases`-Auswahl an jeden
+Aufruf einschließlich Abschluss geben.
+
+Die Teilresultate enthalten Prüfergebnisse, Kennungen und Zeitmessungen, keine Firmware oder
+RAM-Snapshots. Die Originaldatei wird pro Job erneut aus dem Secret geladen und über die feste
+Prüfsumme geprüft. Die besondere Startprüfung behält einen Worker und ihren abgeschalteten
+Cache. Vollständige Freigabeläufe laden keinen Ergebniscache.
+Die Artefaktnamen enthalten auch die Teilezahl. Ein erneuter Lauf mit einer anderen Teilezahl
+liest dadurch keine übrig gebliebenen Ergebnisse des vorherigen Plans.
+
+`check.py` schreibt zusätzlich zu den Fortschrittsmeldungen JSON-Zeilen mit `metrics` nach
+stderr: CPU-Zahl, tatsächliche Worker, Cachetreffer und Dauer jeder Aufgabe. In den Teilergebnissen
+stehen diese Werte ebenfalls. Damit lassen sich einzelne lange Gruppen und Wartezeiten getrennt
+von der reinen Testarbeit untersuchen. Die Aufteilung ist zunächst gleichmäßig nach Aufgabenindex;
+die gemessenen Laufzeiten zeigen, welche Gruppen später feiner geteilt werden müssen.
+
+Die vollständige Prüfung dauerte vor dieser Aufteilung in betrachteten CI-Läufen ungefähr
+50 bis 55 Minuten. Für die neue Aufteilung gibt es noch keine gemessene CI-Gesamtdauer.
+Eine Schätzung ersetzt den kalten Vergleichslauf über alle vier Varianten nicht.
 
 ## Keine öffentliche Seite
 

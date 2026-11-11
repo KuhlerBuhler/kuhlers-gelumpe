@@ -1,5 +1,6 @@
 /** The Modulationen page: 72 modulation types of the loaded firmware, a firmware copy after the emulator check. Logic: src/modtable.mjs, src/export.mjs. */
 import { el, control } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { identify, firmwareAdvice } from "../../src/firmware.mjs";
 import { field, describe } from "../../src/map/index.mjs";
 import { converter } from "../../src/map/convert.mjs";
@@ -7,9 +8,11 @@ import { locateModTable, readModType, readModTypes, writeModType, MOD_FIELDS, SL
 import { lintModType, slotActive, TARGETS_KNOWN, TARGETS_UNCLEAR } from "../../src/modtable-rules.mjs";
 import { exportModTypes } from "../../src/export.mjs";
 import { checkName, checkDetail } from "../../src/patcher.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { t } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:effects");
 
 const TARGET = field("modType.target");
 
@@ -36,12 +39,6 @@ const SLOT_TEXT = {
   lo: { label: "mod.slot.lo" },
   hi: { label: "mod.slot.hi" },
   follow: { label: "mod.slot.follow" },
-};
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
 };
 
 export function modulationsPage(root, { emulator }) {
@@ -193,7 +190,7 @@ export function modulationsPage(root, { emulator }) {
     redraw = () => {
       slots.forEach(sl => sl.refreshState());
       const found = hintsOf(i);
-      hints.replaceChildren(...found.map(h => el("li", { className: "ui-row" }, [pill("warn", t("mod.hint")), el("span", { className: "ui-break", textContent: ` ${t(h.text)}` })])));
+      hints.replaceChildren(...found.map(h => el("li", { className: "ui-row" }, [stateText("warn", t("mod.hint")), el("span", { className: "ui-break", textContent: ` ${t(h.text)}` })])));
       hintBox.hidden = !found.length;
     };
     const back = el("button", { type: "button", className: "btn sm", id: "cee-mod-reset", textContent: t("mod.reset") });
@@ -219,7 +216,7 @@ export function modulationsPage(root, { emulator }) {
 
   function build() {
     list.replaceChildren(...Array.from({ length: MOD_COUNT }, (_, i) => {
-      const changed = pill("info", t("mod.changedTag"));
+      const changed = stateText("info", t("mod.changedTag"));
       changed.classList.add("cee-mod-changed");
       changed.hidden = true;
       const b = el("button", { type: "button", className: "cee-pattern-item" }, [
@@ -265,7 +262,7 @@ export function modulationsPage(root, { emulator }) {
       progress(t("mod.checking"));
       const report = await emulator.check(state.original, res.bytes, res.allow, []);
       checkList.replaceChildren(...report.checks.map(c => el("li", { className: "ui-row" }, [
-        pill(c.ok ? "ok" : "error", c.ok ? t("check.passed") : t("check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
+        stateText(c.ok ? "ok" : "error", c.ok ? t("check.passed") : t("check.failed")), el("strong", { textContent: ` ${t(checkName(c.id))}` }), el("span", { className: "ui-break muted", textContent: ` ${t(checkDetail(c.detail))}` }),
       ])));
       document.getElementById("cee-mod-details-title").textContent = t("check.all", { count: report.checks.length });
       checks.hidden = false;

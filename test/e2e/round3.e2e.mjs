@@ -9,13 +9,14 @@ after(async () => { await h.tearDown(); });
 
 const toastNow = (page, message, kind) => page.evaluate(([m, k]) => import("/app/toast.mjs").then(t => { t.toast(m, k); }), [message, kind]);
 
-test("a status label has a gap before its text, shares the line, and its dot is centered", async () => {
+test("a state has a gap before its text, shares the line, and its icon is centered, with no box and no dot", async () => {
   const page = await h.page();
   await page.goto(h.url);
-  const r = await page.evaluate(() => {
+  const r = await page.evaluate(async () => {
+    const { stateText } = await import("/app/state.mjs");
     const p = document.createElement("p");
     p.id = "probe-status";
-    p.innerHTML = '<span class="cee-status" data-tone="ok">sauber</span> Keine Befunde.';
+    p.append(stateText("ok", "sauber"), " Keine Befunde.");
     document.querySelector(".cee-main").append(p);
     p.parentElement.hidden = false;
     const label = p.firstElementChild;
@@ -25,15 +26,21 @@ test("a status label has a gap before its text, shares the line, and its dot is 
     range.setEnd(p.lastChild, 5);
     const text = range.getBoundingClientRect();
     const box = label.getBoundingClientRect();
-    const dot = getComputedStyle(label, "::before");
-    const pad = parseFloat(s.paddingTop) - parseFloat(s.paddingBottom);
-    const centered = Math.abs(parseFloat(dot.marginTop) || 0) < 1 && s.alignItems === "center" && Math.abs(pad) < 1;
-    return { display: s.display, centered, apart: text.left - box.right, sameLine: Math.abs((box.top + box.bottom) / 2 - (text.top + text.bottom) / 2) < 4 };
+    const svg = label.querySelector("svg").getBoundingClientRect();
+    const word = label.querySelector("span").getBoundingClientRect();
+    return {
+      display: s.display,
+      centered: Math.abs((svg.top + svg.bottom) / 2 - (word.top + word.bottom) / 2) < 2,
+      apart: text.left - box.right,
+      sameLine: Math.abs((box.top + box.bottom) / 2 - (text.top + text.bottom) / 2) < 4,
+      plain: [s.backgroundColor, s.borderTopWidth, getComputedStyle(label, "::before").content],
+    };
   });
   assert.equal(r.display, "inline-flex", "one inline box with the text that follows");
-  assert.equal(r.centered, true, "the dot sits in the middle of the label");
+  assert.equal(r.centered, true, "the icon sits in the middle of the word");
   assert.ok(r.apart >= 4, `a gap between the label and the text, got ${r.apart}`);
   assert.equal(r.sameLine, true, "label and text share the line");
+  assert.deepEqual(r.plain, ["rgba(0, 0, 0, 0)", "0px", "none"], "no box, no dot");
 });
 
 test("the device drawing: LEVEL and PAN are as big as ATTACK and DECAY, and the touch indicator stays a circle", async () => {

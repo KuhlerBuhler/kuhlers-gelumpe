@@ -7,6 +7,7 @@ import { icon } from "./icons.mjs";
 import { LANGUAGES, language, loadLanguage, setLanguage, systemLanguage, t, translate } from "./i18n.mjs";
 import { collectMidi, midiReport } from "./midi-report.mjs";
 import { toast } from "./toast.mjs";
+import { dropdown } from "./dropdown.mjs";
 
 const KEY = "cee.settings";
 
@@ -95,6 +96,29 @@ export function releaseAutoConnect() {
 export function settingsButton(button, open) {
   button.prepend(icon("slidersHorizontal"));
   button.addEventListener("click", open);
+}
+
+/**
+ * The language menu of the navbar: the same setting as on the settings page, reachable without knowing the language the
+ * page is in. Each language is named in its own words.
+ */
+export function languageSwitch(root) {
+  const button = el("button", { type: "button", className: "cee-mode-button cee-lang-button", id: "cee-lang-button", title: t("settings.language") }, [
+    icon("globe"), el("span", { textContent: language().toUpperCase() }), icon("chevronDown"),
+  ]);
+  for (const [name, value] of [["aria-haspopup", "menu"], ["aria-expanded", "false"], ["aria-controls", "cee-lang-menu"]]) button.setAttribute(name, value);
+  button.setAttribute("aria-label", `${language().toUpperCase()}, ${t("settings.language")}: ${LANGUAGES.find(([id]) => id === language())?.[1] ?? language()}`);
+  const menu = el("div", { className: "cee-mode-menu cee-lang-menu", id: "cee-lang-menu", role: "menu", hidden: true }, LANGUAGES.map(([id, name]) => {
+    const item = el("button", { type: "button", className: "cee-mode-item", role: "menuitemradio", lang: id, tabIndex: -1, textContent: name });
+    item.dataset.value = id;
+    item.setAttribute("aria-checked", String(id === language()));
+    return item;
+  }));
+  menu.setAttribute("aria-label", t("settings.language"));
+  const box = el("div", { className: "cee-mode cee-lang", id: "cee-lang" }, [button, menu]);
+  root.append(box);
+  dropdown(button, menu, { onPick: id => set("language", id) });
+  return box;
 }
 
 /** The settings page in the main content. */

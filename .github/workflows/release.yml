@@ -62,77 +62,46 @@ jobs:
   verify:
     needs: due
     if: needs.due.outputs.release == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: hacktribe
-            url: E2_VSB_URL
-            sha256: 7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee
-          - name: red
-            url: E2_VSB_STOCK_URL
-            sha256: 1d0f0689d5a12c8a8bde9f821f2a59adc5f6cd6012ddb201ebb192b72468a646
-          - name: blue
-            url: E2_VSB_SYNTH_URL
-            sha256: 41fc5f1c33209ef381d1c9fef21a72380bcd8d3431c9c1350a964f5c619ab8b8
-          # Hacktribe for the blue: the Hacktribe file with the blue head (bytes 0x12 and 0x2E), as Hacktribe's -e makes it
-          - name: hacktribe-blue
-            url: E2_VSB_URL
-            sha256: 7cb4825c184a7e3fa92224304be22a788c96c4b748c277e63a496baa9faae7ee
-            blue_head: 2b2e1c2f928c1faf4cc2a6580292763a5282a37f19eb9165c1bdd05db832ddbe
-    name: verify (${{ matrix.name }})
+    uses: ./.github/workflows/firmware-check.yml
+    with:
+      ref: ${{ github.sha }}
+      branch: ${{ github.ref_name }}
+      full: true
+      shards: ${{ fromJSON(vars.FIRMWARE_SHARDS || '4') }}
+    secrets: inherit
+
+  verified-pairs:
+    needs: [due, verify]
+    if: needs.due.outputs.release == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/download-artifact@v4
         with:
-          python-version: "3.12"
-      - run: npm ci
-      - run: |
-          python -m venv tools/emu/.venv
-          tools/emu/.venv/bin/pip install -r tools/emu/requirements.txt
-      - name: Korg's file
+          pattern: verified-*
+          path: ${{ runner.temp }}/verified
+      - name: The pairs in verified.json
         env:
-          URL: ${{ secrets[matrix.url] }}
-          SHA256: ${{ matrix.sha256 }}
+          RESULTS: ${{ runner.temp }}/verified
         run: |
-          [ -n "$URL" ] || { echo "::error::secret ${{ matrix.url }} is not set"; exit 1; }
-          curl -fsSL "$URL" -o "$RUNNER_TEMP/SYSTEM.VSB"
-          echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
-      - name: The blue head
-        if: matrix.blue_head
-        env:
-          SHA256: ${{ matrix.blue_head }}
-        run: |
-          printf '\000' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=18 conv=notrunc status=none
-          printf '\043' | dd of="$RUNNER_TEMP/SYSTEM.VSB" bs=1 seek=46 conv=notrunc status=none
-          echo "$SHA256  $RUNNER_TEMP/SYSTEM.VSB" | sha256sum -c
-      - run: npm run -s verify:patches -- "$RUNNER_TEMP/SYSTEM.VSB"
-      # The fresh entry (hashes only), so the run shows the exact pair.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: verified-${{ matrix.name }}
-          path: data/patches/verified.json
-          retention-days: 30
-      # The app skips its own emulator check for a pair listed in verified.json; a pair that is missing only makes
-      # patching slower, so it is a warning.
-      - name: The pair in verified.json
-        run: |
-          node -e '
-            const fs = require("fs");
-            const [fresh] = JSON.parse(fs.readFileSync("data/patches/verified.json", "utf8")).results;
-            const shipped = JSON.parse(require("child_process").execSync("git show HEAD:data/patches/verified.json", { encoding: "utf8" })).results;
-            if (!shipped.some(r => r.input === fresh.input && r.output === fresh.output && (r.hardware ?? null) === (fresh.hardware ?? null)))
-              console.log(`::warning::verified.json lacks ${fresh.input.slice(0, 8)} -> ${fresh.output.slice(0, 8)}: the app checks this file in its emulator before patching. The workflow Verify patches updates it.`);
-          '
+          node --input-type=module <<'JS'
+            import { readdirSync, readFileSync } from "node:fs";
+            import { join } from "node:path";
+            const shipped = JSON.parse(readFileSync("data/patches/verified.json", "utf8")).results;
+            for (const dir of readdirSync(process.env.RESULTS)) {
+              const fresh = JSON.parse(readFileSync(join(process.env.RESULTS, dir, "verified.json"), "utf8")).results;
+              for (const pair of fresh) if (!shipped.some(r => r.input === pair.input && r.output === pair.output && (r.hardware ?? null) === (pair.hardware ?? null))) {
+                console.log(`::warning::verified.json lacks ${pair.input.slice(0, 8)} -> ${pair.output.slice(0, 8)}: the app checks this file in its emulator before patching.`);
+              }
+            }
+          JS
 
   release:
-    needs: [due, build, verify]
+    needs: [due, build, verify, verified-pairs]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

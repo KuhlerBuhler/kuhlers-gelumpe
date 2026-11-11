@@ -21,7 +21,7 @@ use tauri::webview::{NewWindowResponse, PageLoadEvent};
 use tauri::{
     AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,
 };
-use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 /// The service this app started, if any. `quitting` keeps the watchdog from starting it again while the app ends.
 struct Service {
@@ -658,12 +658,35 @@ fn open_app(app: &tauri::App) -> Result<(), String> {
     Ok(())
 }
 
+/// Microsoft's page with the WebView2 Runtime installers (Evergreen Bootstrapper and Standalone Installer).
+const WEBVIEW2_DOWNLOAD: &str = "https://developer.microsoft.com/microsoft-edge/webview2/";
+
+/// The window failed on the WebView2 Runtime: wry's "WebView2 error: ..." (e.g. 0x80070002) or Tauri's "Could not find the webview runtime".
+fn webview2_failed(message: &str) -> bool {
+    message.contains("WebView2") || message.contains("Could not find the webview runtime")
+}
+
+/// German, then English, then the original error for support.
+fn webview2_message(error: &str) -> String {
+    format!(
+        "Die Microsoft Edge WebView2 Runtime fehlt oder ist beschädigt. Ohne sie kann das Fenster \
+         nicht öffnen. Bitte auf der Download-Seite von Microsoft die WebView2 Runtime \
+         (\"Evergreen Bootstrapper\" oder \"Evergreen Standalone Installer\" x64) installieren und \
+         die App danach neu starten.\n\n\
+         The Microsoft Edge WebView2 Runtime is missing or broken, so the window cannot open. \
+         Please install the WebView2 Runtime (\"Evergreen Bootstrapper\" or \"Evergreen Standalone \
+         Installer\" x64) from Microsoft's download page, then start the app again.\n\n\
+         {WEBVIEW2_DOWNLOAD}\n\n{error}"
+    )
+}
+
 fn main() {
     let built = tauri::Builder::default()
         .manage(MidiService::new(
             Arc::new(NativeDriver),
             MidiConfig::default(),
         ))
+        .manage(kuhlers_gelumpe::card::CardRoot::default())
         .invoke_handler(tauri::generate_handler![
             midi::midi_list,
             midi::midi_open,
@@ -672,7 +695,15 @@ fn main() {
             midi::midi_read,
             midi::midi_close,
             kuhlers_gelumpe::update::update_install,
-            kuhlers_gelumpe::korg::korg_firmware
+            kuhlers_gelumpe::korg::korg_firmware,
+            kuhlers_gelumpe::card::card_pick,
+            kuhlers_gelumpe::card::card_list,
+            kuhlers_gelumpe::card::card_read,
+            kuhlers_gelumpe::card::card_exists,
+            kuhlers_gelumpe::card::card_move,
+            kuhlers_gelumpe::save::save_cards,
+            kuhlers_gelumpe::save::save_card,
+            kuhlers_gelumpe::save::save_pick
         ])
         // A second launch focuses the window of the first and leaves.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -685,6 +716,23 @@ fn main() {
         .setup(|app| {
             if let Err(message) = open_app(app) {
                 let handle = app.handle().clone();
+                if webview2_failed(&message) {
+                    app.dialog()
+                        .message(webview2_message(&message))
+                        .title("Kuhler's GELUMPE")
+                        .kind(MessageDialogKind::Error)
+                        .buttons(MessageDialogButtons::OkCancelCustom(
+                            "Download-Seite öffnen / Open download page".into(),
+                            "Beenden / Quit".into(),
+                        ))
+                        .show(move |open| {
+                            if open {
+                                open_in_browser(WEBVIEW2_DOWNLOAD);
+                            }
+                            handle.exit(1);
+                        });
+                    return Ok(());
+                }
                 app.dialog()
                     .message(message)
                     .title("Kuhler's GELUMPE")
@@ -723,4 +771,36 @@ fn main() {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn webview2_errors_are_recognised() {
+        let reported =
+            "Das Fenster ließ sich nicht öffnen: runtime error: failed to create webview: \
+             WebView2 error: WindowsError(Error { code: HRESULT(0x80070002), message: \
+             \"Das System kann die angegebene Datei nicht finden.\" })";
+        assert!(webview2_failed(reported));
+        assert!(webview2_failed(
+            "Das Fenster ließ sich nicht öffnen: runtime error: Could not find the webview runtime, make sure it is installed"
+        ));
+    }
+
+    #[test]
+    fn other_errors_keep_the_plain_dialog() {
+        assert!(!webview2_failed("Kein freier Port: address in use"));
+        assert!(!webview2_failed("Das Fenster ließ sich nicht öffnen: runtime error: failed to create webview: WebKit error"));
+    }
+
+    #[test]
+    fn webview2_message_names_the_download_and_keeps_the_error() {
+        let text = webview2_message("raw error");
+        assert!(text.contains(WEBVIEW2_DOWNLOAD));
+        assert!(text.contains("WebView2 Runtime fehlt"));
+        assert!(text.contains("WebView2 Runtime is missing"));
+        assert!(text.ends_with("raw error"));
+    }
 }

@@ -36,7 +36,7 @@ test("both files come in through the design's upload fields, and the intro reads
   await page.goto(`${h.url}#sampleset`);
   assert.equal(await page.locator("#cee-sampleset .ui-dropzone #cee-sf-file").count(), 1);
   assert.equal(await page.locator("#cee-sf-wav").isDisabled(), true, "WAVs only once a file is open");
-  assert.equal(await page.locator("#cee-sf-wav").evaluate(i => i.closest(".ui-dropzone").hidden), true);
+  assert.equal(await page.locator("#cee-sf-wav").evaluate(i => i.closest(".cee-dropzone-wrap").hidden), true);
   assert.equal(await page.locator("#cee-sf-list").isHidden(), true, "no empty list frame before a file is open");
   assert.equal(await page.locator(".cee-sf-intro").evaluate(p => getComputedStyle(p).display), "block");
   assert.equal(await page.locator(".cee-sf-intro code").evaluate(c => getComputedStyle(c).display), "inline");
@@ -119,5 +119,5 @@ test("removing a new row drops it; remove one and add one in a single save", asy
 test("the page has no a11y blockers of its own: buttons are named, rows are a list", async () => {
   const page = await open();
   assert.equal(await page.locator("#cee-sf-list").evaluate(l => l.tagName), "UL");
-  for (const b of await page.locator("#cee-sampleset button").all()) assert.ok((await b.textContent()).trim().length > 0);
+  for (const b of await page.locator("#cee-sampleset button").all()) assert.ok(((await b.textContent()).trim() || await b.getAttribute("aria-label") || "").length > 0);
 });

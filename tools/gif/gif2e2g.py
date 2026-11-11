@@ -3,6 +3,7 @@
 
     python3 tools/gif/gif2e2g.py in.gif 3            -> GIF03.E2G, copy it to KORG/blechtribe/Gif/ on the card
     python3 tools/gif/gif2e2g.py in.gif 3 --invert --threshold 100 --out somewhere/
+    python3 tools/gif/gif2e2g.py a.bmp b.bmp c.bmp 4 -> GIF04.E2G with one frame per picture, for the BMP Viewer
 
 Format (SCRIPT_GIF in data/script/contract.mjs): "GGIF", version 1 (u16), frame count (u16), then per frame its delay in
 ms (u16), two zero bytes and 1024 bytes of display memory: byte (y // 8) * 128 + x, bit y % 8. A picture that is not
@@ -51,14 +52,21 @@ def pack(frames):
     return bytes(out)
 
 
-def convert(path, threshold=128, invert=False, delay=None):
+def frames_of(path, threshold=128, invert=False, delay=None):
     with Image.open(path) as picture:
-        return pack([(delay or f.info.get("duration") or 100, frame_bytes(f, threshold, invert)) for f in ImageSequence.Iterator(picture)])
+        return [(delay or f.info.get("duration") or 100, frame_bytes(f, threshold, invert)) for f in ImageSequence.Iterator(picture)]
+
+
+def convert(paths, threshold=128, invert=False, delay=None):
+    """One file from one or more pictures, their frames in the order given."""
+    if isinstance(paths, (str, Path)):
+        paths = [paths]
+    return pack([frame for path in paths for frame in frames_of(path, threshold, invert, delay)])
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("source")
+    p.add_argument("source", nargs="+", help="one or more pictures, their frames follow each other in the file")
     p.add_argument("number", type=int, help="file number 0 to 99, the GIF Player picks it with the encoder")
     p.add_argument("--threshold", type=int, default=128)
     p.add_argument("--invert", action="store_true", help="dark pixels are lit")

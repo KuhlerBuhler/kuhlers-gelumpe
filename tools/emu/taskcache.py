@@ -36,7 +36,8 @@ _opened = set()
 _watching = False
 _hashes = {}
 # Variables that only steer how a run is done, not what a task finds
-QUIET = frozenset(("GELUMPE_JOBS", "GELUMPE_PARENT_PID", "GELUMPE_CACHE_DIR", "GELUMPE_CACHE"))
+# GELUMPE_NODE_RESULTS=strict (node_json.py) only turns a missing answer into an error; the file it reads is listed like any other.
+QUIET = frozenset(("GELUMPE_JOBS", "GELUMPE_PARENT_PID", "GELUMPE_CACHE_DIR", "GELUMPE_CACHE", "GELUMPE_NODE_RESULTS"))
 
 
 def enabled():

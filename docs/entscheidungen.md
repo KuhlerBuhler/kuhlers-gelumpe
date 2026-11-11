@@ -15,14 +15,14 @@ Was entschieden ist und warum. Gilt, bis hier etwas anderes steht.
 | Sprache der Oberfläche | Klartext und echte Einheiten, keine Bytes. |
 | Design | Eigenes Design in `site/design/`, unter AGPL veröffentlicht. Der Editor bekommt keine Design-System-Seite. |
 | Eigene Patterns und Dateien | Der Editor hat keinen eigenständigen Datei- oder Pattern-Editor. Patterns kommen über die Karte in die Firmware und werden an der emulierten Electribe bedient. Parser und Datenprüfungen bleiben im Kern. |
-| Pattern-Werkzeuge | Die Seite Pattern-Werkzeuge ist kein Pattern-Editor: sie erzeugt aus vorhandenen Patterns Übergänge und gewürfelte Parts und gibt sie als Datei, als Kopie einer Sicherung oder durch Türsteher und Bestätigung ans Gerät. Sie liest dafür eine Sicherung oder Einzeldatei, die der Nutzer auswählt, und verändert sie nie ([Seite](set/pattern-werkzeuge.md)). Der Bereich Patterns bleibt aus der Navigation. |
+| Pattern-Werkzeuge | Die Seite Pattern-Werkzeuge ist kein Pattern-Editor: sie würfelt einen Part in eine Kopie eines vorhandenen Patterns und gibt sie als Datei, als Kopie einer Sicherung oder durch Türsteher und Bestätigung ans Gerät. Sie liest dafür eine Sicherung oder Einzeldatei, die der Nutzer auswählt, und verändert sie nie ([Idee 29](ideen/29-wuerfeln.md#bedienung-im-editor)). Der Übergangs-Generator, der hier auch lag, ist entfernt. Der Bereich Patterns bleibt aus der Navigation. |
 
 ## Navigation
 
 | Frage | Entscheidung |
 |---|---|
-| Pattern-Werkzeuge und Samples | Beide Seiten stehen nicht in der Navigation und sind auch über `#ptools` und `#samples` nicht zu erreichen. Code und Tests bleiben. Nur mit `?labs` an der Adresse erscheinen die Tabs wieder, so laufen die Browser-Tests. Warum: Übergänge braucht der Editor vorerst nicht, und das Würfeln soll in die Firmware ([Idee 29](ideen/29-wuerfeln.md)). Samples umbenennen und stimmen taugt erst etwas, wenn gemessen ist, ob es dauerhaft bleibt. |
-| Sichtbare Seiten | Start, Emulator, Patcher, Presets, Modulationen, Plugins, Rettung. |
+| Pattern-Werkzeuge und Samples | Beide Seiten stehen nicht in der Navigation und sind auch über `#ptools` und `#samples` nicht zu erreichen. Code und Tests bleiben. Nur mit `?labs` an der Adresse erscheinen die Tabs wieder, so laufen die Browser-Tests. Warum: das Würfeln soll in die Firmware ([Idee 29](ideen/29-wuerfeln.md)). Samples umbenennen und stimmen taugt erst etwas, wenn gemessen ist, ob es dauerhaft bleibt. |
+| Sichtbare Seiten | Start, Emulator, Patcher, Presets, Modulationen, Plugins, Blechy. |
 
 ## Release und App
 

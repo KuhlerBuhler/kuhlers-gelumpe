@@ -194,10 +194,11 @@ Mehr als 10 Zeilen (Verläufe: 5) werden nicht auf einmal gezeigt: die ersten N,
 verschwindet. Zweitrangige Einträge (z. B. Bezahlmodelle neben lokalen) blendet ein Schalter
 (`ui-switch`) ein, Standard ist aus. Regel 8 in [`DESIGN.md`](../../../DESIGN.md#regeln).
 
-## Status-Pille (`ui-pill`)
+## Status als Text (`cee-state`)
 
-`<span class="ui-pill" data-tone="ok|warn|error|info|running|neutral">Wort</span>`. Immer mit
-Wort, der Punkt ist nur Zusatz. `running` pulsiert (nicht bei reduzierter Bewegung).
+Keine Pille und kein Punkt. Ein Status ist ein kleines Icon und das Wort in der Textfarbe:
+`stateText(tone, wort)` aus `site/app/state.mjs`, `tone` ist `ok|warn|error|info|running|neutral`.
+Icon und Wort sagen den Zustand, nicht die Farbe.
 
 ## Chips und Filterleiste (`ui-chip`, `ui-chipgroup`, `ui-filterbar`)
 

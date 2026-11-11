@@ -69,7 +69,7 @@ async function open({ connected = true, running = true } = {}) {
   if (connected) {
     await go(page, "device");
     await page.click("#cee-connect");
-    await page.locator(".cee-device-status .cee-status").filter({ hasNotText: "getrennt" }).waitFor();
+    await page.locator(".cee-device-status .cee-state").filter({ hasNotText: "getrennt" }).waitFor();
     await page.locator("#cee-rehearse-state", { hasText: "Probe im Emulator: an" }).waitFor({ timeout: 15_000 });
   }
   await page.evaluate(() => { location.hash = "fx"; });
@@ -106,9 +106,9 @@ test("levels: the pattern's levels side by side, the heard-too-loud insert named
   const fxList = page.locator("#cee-lv-fx");
   await fxList.locator("[data-fx-slot='50']").waitFor();
   assert.match(await fxList.locator("[data-fx-slot='50']").textContent(), /Part 1: IFX 50 Quiet Pump\. output_gain 34/);
-  assert.equal(await fxList.locator("[data-fx-slot='50'] .cee-status").count(), 0, "a level in the playable range carries no warning");
+  assert.equal(await fxList.locator("[data-fx-slot='50'] .cee-state").count(), 0, "a level in the playable range carries no warning");
   assert.match(await fxList.locator("[data-fx-slot='51']").textContent(), /output_level 124/);
-  assert.match(await fxList.locator("[data-fx-slot='51'] .cee-status").textContent(), /gehört, zu laut/);
+  assert.match(await fxList.locator("[data-fx-slot='51'] .cee-state").textContent(), /gehört, zu laut/);
   assert.match(await fxList.textContent(), /Gelesen aus dem RAM/);
 
   await fxList.locator("[data-fx-slot='51'] button").click();
@@ -180,7 +180,7 @@ test("pseudo reverb: offered on a short delay, marked untested, applies its valu
   const box = page.locator("#cee-suggest-pseudoReverb");
   await box.waitFor();
   assert.match(await box.textContent(), /Vorschlag: Pseudo Reverb/);
-  assert.match(await box.locator(".cee-status").textContent(), /am Gerät ungetestet/);
+  assert.match(await box.locator(".cee-state").textContent(), /am Gerät ungetestet/);
   assert.match(await box.textContent(), /Kein echter Hall/);
   const feedback = page.locator("#cee-fx-editor .ui-field", { hasText: "Feedback" }).locator("input.ui-range");
   assert.equal(await feedback.inputValue(), "36");

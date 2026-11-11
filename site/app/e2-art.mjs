@@ -20,7 +20,8 @@ const KNOBS = [
 const BUTTONS = [
   [10, 50.5, 9, 9.5], [20, 50.5, 9, 9.5], [30, 50.5, 9.5, 9.5], [40.5, 50.5, 9, 9.5],
   [10, 62, 8.5, 5], [19, 62, 11, 5], [30.5, 62, 9.5, 5], [40.5, 62, 9, 5],
-  [57.5, 38, 9.5, 5], [67.5, 38, 9.5, 5], [57.5, 45.5, 9.5, 5], [67.5, 45.5, 9.5, 5], [57.5, 53, 9.5, 5], [67.5, 53, 9.5, 5],
+  // the six keys right of the display, from panel.mjs (x 380 and 432, y 263, 300 and 339): x' = 9.5 + (x - 135) * 200 / 1021
+  [57.5, 38.2, 9.4, 4.7], [67.7, 38.2, 9.4, 4.7], [57.5, 45.5, 9.4, 4.7], [67.7, 45.5, 9.4, 4.7], [57.5, 53.1, 9.4, 4.9], [67.7, 53.1, 9.4, 4.9],
   [98.5, 52, 9.5, 5.5], [108.5, 52, 9.5, 5.5], [118.5, 52, 9.5, 5.5], [150, 52, 9.5, 5.5], [165.5, 52, 9.5, 5.5], [181, 52, 10, 5.5],
   ...Array.from({ length: 10 }, (_, i) => [57.5 + i * 10.1, 62, 9.5, 5]),
   ...Array.from({ length: 4 }, (_, i) => [166 + i * 6.5, 62, 5, 7.5]),
@@ -50,4 +51,25 @@ export function e2Outline(label) {
     + BUTTONS.map(b => rect(b, 1)).join("")
     + PADS.map(p => rect(p, 1.5)).join("")
     + `</g>`);
+}
+
+/** The six keys right of the display by their place in BUTTONS, in pairs as on the panel (panel.mjs). */
+const KEYS = { editLeft: 8, editRight: 9, menu: 10, exit: 11, shift: 12, write: 13 };
+
+/** Where a key of the six is drawn: x, y, width, height in the drawing. */
+export const keyRect = id => BUTTONS[KEYS[id]];
+
+/**
+ * The Electribe as lines, `press` filled (the key to press) and `near` dashed (keys used on the way), for the Rettung page.
+ * Each mark stays inside its own key: the gap to the next key is less than a unit, so a larger mark would cover it too.
+ */
+export function e2Keys(label, { press = [], near = [] } = {}) {
+  const node = e2Outline(label);
+  node.classList.add("cee-e2-keys");
+  const mark = (cls, inset) => id => {
+    const [x, y, w, h] = keyRect(id).map((v, i) => +(v + (i < 2 ? inset : -2 * inset)).toFixed(2));
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" class="${cls}" data-key="${id}"/>`;
+  };
+  node.insertAdjacentHTML("beforeend", near.map(mark("cee-e2-near", 0.4)).join("") + press.map(mark("cee-e2-press", 0)).join(""));
+  return node;
 }

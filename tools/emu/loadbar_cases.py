@@ -494,7 +494,13 @@ def case_look(payload, flash):
     dev.m.send([2, 1, 0, 40, 0])
     dev.run(0.3)
     window = dev.screen()["window"]
-    out.append(entry("look_value_window", window and looked(dev), f"turning a knob opens the value window ({window:#x}), it gets the look too"))
+    seen = looked(dev)
+    for _ in range(8):      # the window redraws every 0.3 s or so: a sample between the firmware's frame and the page hook's copy is not the look yet
+        if seen:
+            break
+        dev.run(0.05)
+        seen = looked(dev)
+    out.append(entry("look_value_window", window and seen, f"turning a knob opens the value window ({window:#x}), it gets the look too"))
     dev.run(1.5)
     menu_cases.go(dev, 3)
     dev.run(0.4)
@@ -531,7 +537,9 @@ def case_power_while_loading(payload, flash):
     def run(release):
         at_release = None
         dev = WatchedDev(bytes(payload), flash, 0)
-        dev.m.insert_card(card_with(cardstore.card_folder(payload), 400, 6))
+        # 30 s of audio: the load still runs at 7 s at the device's pace too. With 6 s it was over at about 5.5 s and the
+        # firmware's own power path switched off, about 2.5 s after the main screen, not the overlay.
+        dev.m.insert_card(card_with(cardstore.card_folder(payload), 400, 30))
         dev.run(0.8)
         t0 = dev.m.time_ns / 1e9
         dev.m.inputs[pin(7, 15)] = 0
@@ -766,6 +774,7 @@ def shots(payload, flash, png_dir):
 
 def main():
     import lifetime
+    lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("what", choices=("cases", "shots", "app"))

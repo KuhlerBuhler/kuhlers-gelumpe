@@ -79,8 +79,22 @@ test("the values of a pattern have names: the pattern that plays, every stored p
     ["let t = korg.patterns[7].swing;", "let t = korg.read.patternValue(7, -1, 1);"],
     ["let t = korg.parts[2].cutoff;", "let t = korg.read.patternValue(-1, 2, 2);"],
     ["let t = korg.chainMode;", "let t = korg.read.chainMode();"],
+    ["let v = korg.viewedPattern;", "let v = korg.read.viewedPattern();"],
+    ["let n = korg.nextPattern;", "let n = korg.read.nextPattern();"],
   ]) assert.equal(blob(named), blob(call), named);
-  assert.match(error("korg.current.tempo = 1200;"), /nur lesen/);
+  for (const [named, call] of [
+    ["korg.parts[2].cutoff = 64;", "korg.seq.setPartValue(2, 2, 64);"],
+    ["korg.current.tempo = 1200;", "korg.seq.setPatternValue(0, 1200);"],
+    ["korg.current.key += 1;", "korg.seq.setPatternValue(4, korg.read.patternValue(-1, -1, 4) + 1);"],
+    ["korg.pattern.current.syncGroup = 7;", "korg.current.syncGroup = 7;"],
+    ["korg.parts[0].pitch += 1;", "korg.seq.setPartValue(0, 15, korg.read.patternValue(-1, 0, 15) + 1);"],
+  ]) assert.equal(blob(named), blob(call), named);
+  for (const [named, call] of [
+    ["korg.parts[1].sample = 3;", "korg.seq.setPartValue(1, 0, 3);"],
+    ["korg.parts[1].ifxType = 3;", "korg.seq.setPartValue(1, 13, 3);"],
+    ["korg.parts[1].ampEg = 1;", "korg.seq.setPartValue(1, 20, 1);"],
+  ]) assert.equal(blob(named).slice(16), blob(call).slice(16), `${named}: the same code, the header names API 23`);
+  assert.match(error("korg.patterns[1].tempo = 1200;"), /nur lesen/);
   assert.match(error("let t = korg.patterns[1].nope;"), /gibt es nicht/);
 
   const { SimDevice } = await import("../src/script/sim.mjs");
@@ -97,4 +111,23 @@ korg.onEvent("ready", () => {
   device.run(2);
   const v = name => loaded.script.vars[r.info.symbols[name].slot];
   assert.deepEqual([v("tempo"), v("swing"), v("bars"), v("pan"), v("next")], [1755, -10, 3, -63, -1]);
+});
+
+test("korg.viewedPattern follows the playing pattern until the display shows another, korg.nextPattern is -1 until one is confirmed", async () => {
+  const { SimDevice } = await import("../src/script/sim.mjs");
+  const r = compile(`let viewed = 0; let next = 0; let selected = 0;
+korg.onEvent("frame", () => { viewed = korg.viewedPattern; next = korg.nextPattern; selected = korg.selectedPattern; });`);
+  assert.ok(r.ok, r.errors?.map(formatError).join("\n"));
+  assert.match(error("korg.viewedPattern = 3;"), /nur lesen/);
+  assert.match(error("korg.nextPattern = 3;"), /nur lesen/);
+  const device = new SimDevice();
+  const loaded = device.load(r.blob);
+  const v = name => loaded.script.vars[r.info.symbols[name].slot];
+  device.hardware.pattern = 7;
+  device.run(1);
+  assert.deepEqual([v("viewed"), v("next"), v("selected")], [7, -1, 7]);
+  device.hardware.viewed = 12;
+  device.hardware.next = 12;
+  device.run(1);
+  assert.deepEqual([v("viewed"), v("next"), v("selected")], [12, 12, 7]);
 });

@@ -191,6 +191,19 @@ def entry(name, ok, detail):
     return {"id": f"pswitch:{name}", "ok": bool(ok), "detail": str(detail)}
 
 
+def lit_half(box, limit=1.0):
+    """Runs in steps of 10 ms until the preview's blinking pads are in their lit half (V_BLINK phase 1, V_DARK empty), so a look
+    at the pads sees their colours and mutes without the blink. Returns at once when the blink never started (FF). After waiting
+    through a dark half it runs 30 ms more: the state turns before the 16 LED messages have reached the panel."""
+    for i in range(int(round(limit / 0.01))):
+        word = box.u32(spec.VIEW_W + spec.V_BLINK)
+        if word == 0xFFFFFFFF or ((word >> 8) & 0xFF == 1 and box.u32(spec.VIEW_W + spec.V_DARK) == 0):
+            if i:
+                box.run(0.03)
+            return
+        box.run(0.01)
+
+
 # ---------------------------------------------------------------------------------------- the cases
 def case_browse(payload, flash):
     """The wheel browses while a pattern plays; nothing starts, no MIDI goes out, the lower line says VIEW:, MENU confirms."""
@@ -684,6 +697,7 @@ def case_sync_group(payload, flash):
                      f"part 1 was {a_mute} in the first pattern, {a_mute ^ 1} saved in the second; pressed in PART MUTE right after the switch: {mutes(pad)[0]}"))
     # The firmware drops a pad press while its command runner is busy, the pattern load among others (device report 25.10.); the patch
     # keeps it and hands it on when the load is done. A tap sent the moment the runner turns busy: press and release both fall in.
+    # The change is seen on a 10 ms grid and rounded to it, so it can read up to 10 ms before the tap that came in the same step.
     tap = Box(payload, flash)
     setup(tap)
     t_mute = mutes(tap)[0]
@@ -703,7 +717,7 @@ def case_sync_group(payload, flash):
                       begin=spec.PGATE_CONT, end=spec.PGATE_CONT)     # where the handler goes on with a pad (r4 = pressed)
     tap.m.uc.ctl_flush_tb()
     changed = tap.until_change()
-    out.append(entry("pad_during_the_load_is_kept", tap.running() == 1 and sent and changed is not None and 0 <= changed - sent[0] < 0.02
+    out.append(entry("pad_during_the_load_is_kept", tap.running() == 1 and sent and changed is not None and -0.01 < changed - sent[0] < 0.02
                      and mutes(tap)[0] == t_mute ^ 1 and calls == [1, 0] and not tap.m.asserts,
                      f"tap sent at {sent} s as the runner turned busy, the pattern changed at {changed} s; part 1 was {t_mute}, now {mutes(tap)[0]}; "
                      f"pads the handler went on with, pressed: {calls}"))
@@ -968,6 +982,7 @@ def case_view(payload, flash):
     mutes.m.uc.mem_write(mutes.slots + 0x4000 + 0x800 + 1, bytes([mutes.dev.read(live(mutes) + 0x800 + 1, 1)[0] ^ 1]))
     mutes.turn(1)
     mutes.run(0.5)
+    lit_half(mutes)
     other = lit(mutes)
     mutes.key("exit")
     mutes.run(0.5)
@@ -1055,6 +1070,7 @@ def case_view_pads(payload, flash):
 
     box = Box(payload, flash)
     bank, before = viewing(box)
+    lit_half(box)
     shown = (red(box), blue(box))
     pad(box, 0)
     pad(box, 1)
@@ -1085,6 +1101,7 @@ def case_view_pads(payload, flash):
     dropped = (mutes(back, live(back))[:3], red(back)[:3])
     back.turn(1)
     back.run(0.5)
+    lit_half(back)
     again = red(back)[:3]
     out.append(entry("view_exit_drops_the_mutes_set_on_the_pads",
                      dropped == ([0, 0, 0], [255, 255, 255]) and again == [255, 0, 0] and not back.m.asserts,
@@ -1210,6 +1227,7 @@ def case_view_copy(payload, flash):
 
     lit = Box(payload, flash)
     bank = viewing(lit, muted=False)
+    lit_half(lit)
     shown = lit.m.leds.get(0x2C + 2 * P, 0)
     pad(lit, P)
     got, want = part(lit, live(lit)), part(lit, bank)
@@ -1281,6 +1299,7 @@ def case_view_side(payload, flash):
 
     box = Box(payload, flash)
     bank = viewing(box)
+    lit_half(box)
     on_b = (red(box)[:3], box.u32(CELL_W) == spec.VIEW_W)
     shift_part_mute(box)
     on_a = (red(box), blue(box), box.u32(CELL_W) != spec.VIEW_W, mutes(box, live(box)), box.view())
@@ -1301,6 +1320,7 @@ def case_view_side(payload, flash):
                      f"pad 2 on the playing side: mutes in RAM {pressed[0]}, step 1 of part 2 {pressed[1]} (nothing copied), pad 2 red {pressed[2]}, "
                      f"copied parts {pressed[3]:#x}, view {pressed[4]}, banks unchanged {pressed[5]}"))
     shift_part_mute(box)
+    lit_half(box)
     back = (red(box)[:3], blue(box)[3:6], box.u32(CELL_W) == spec.VIEW_W)
     pad(box, P)
     got, want = part(box, live(box)), part(box, bank)
@@ -1324,6 +1344,7 @@ def case_view_side(payload, flash):
     ended = (turn.view(), turn.u32(CELL_W) != spec.VIEW_W)
     turn.turn(1)
     turn.run(0.5)
+    lit_half(turn)
     again = (turn.view(), turn.u32(CELL_W) == spec.VIEW_W, red(turn)[:3], blue(turn)[3:6])
     out.append(entry("view_wheel_keeps_the_side_a_new_preview_starts_on_the_viewed_pattern",
                      wheel[0] == (0, 2, 1) and wheel[1] and wheel[2] == plain_colours and wheel[3] == 0 and ended == ((0, 0, 0), True)
@@ -1353,8 +1374,371 @@ def case_view_side(payload, flash):
     return out
 
 
+def case_view_blink(payload, flash):
+    """In the preview the pads of the parts that are on in the viewed pattern blink (decision 02.11.): a press brings the part in and its
+    pad is lit steadily, the next press mutes it; a part muted in the viewed pattern stays dark until pressed. While MENU's LED blinks
+    (VIEW:) the pads blink with it, while it is lit (NEXT:) at the same rate on their own. On the playing side, in SEQUENCER, after EXIT,
+    after the switch and with EXIT held at power-on no pad blinks."""
+    out = []
+    P, MUTED, OTHER = 3, 1, 4                   # pad 4 is pressed (on in pattern 2), part 2 is muted in pattern 2, pad 5 is watched
+    BLINKING = [n for n in range(16) if n != MUTED]
+    live = lambda b: b.u32(0xC033E6A4) + 4
+    mute = lambda b, base, p: b.dev.read(base + 0x801 + 0x330 * p, 1)[0]
+    red = lambda b: [b.m.leds.get(0x2C + 2 * n, 0) for n in range(16)]
+
+    def pad(b, n):
+        b.m.send([4, n, 0, 100, 1])
+        b.run(0.1)
+        b.m.send([4, n, 0, 0, 0])
+        b.run(0.4)
+
+    def shift_part_mute(b):
+        b.dev.m.press(KEYS["shift"], True)
+        b.run(0.2)
+        b.key("part_mute")
+        b.dev.m.press(KEYS["shift"], False)
+        b.run(0.4)
+
+    def watch(b, seconds, confirmed=False):
+        """The red of every pad and MENU's LED, every 10 ms of device time; with `confirmed` only as long as the switch waits."""
+        rows = []
+        for _ in range(int(round(seconds / 0.01))):
+            b.run(0.01)
+            if confirmed and b.flags()[1] != 1:
+                break
+            rows.append((red(b), b.m.leds.get(spec.LED_MENU, 0)))
+        return rows
+
+    def values(rows, n):
+        return sorted({r[0][n] for r in rows})
+
+    def gaps(rows, n):
+        """Seconds between the changes of pad n's red (the first and last stretch left out, they are cut by the window)."""
+        at = [i for i in range(1, len(rows)) if rows[i][0][n] != rows[i - 1][0][n]]
+        return [round((b - a) * 0.01, 2) for a, b in zip(at, at[1:])]
+
+    def steady(rows):
+        return all(r[0] == rows[0][0] for r in rows)
+
+    def viewing(b):
+        """PART MUTE, pattern 1 plays, pattern 2 (part 2 muted in the bank) is browsed (VIEW:)."""
+        bank = b.slots + 0x4000
+        b.m.uc.mem_write(bank + 0x801 + 0x330 * MUTED, b"\x01")
+        b.key("part_mute")
+        play(b)
+        b.run(0.3)
+        b.turn(1)
+        b.run(0.3)
+        return bank
+
+    box = Box(payload, flash)
+    bank = viewing(box)
+    rows = watch(box, 1.5)
+    apart = [i for i, r in enumerate(rows) if any(r[0][n] != r[0][OTHER] for n in BLINKING)]
+    together = 1 - len(apart) / len(rows)
+    # the 16 sends of one half can straddle a sample, so a row may be split right at a change of pad 5 (in it or the next); how many
+    # rows that hits depends on where the edges fall on the 10 ms grid, which shifts with the start's timing
+    edge = lambda i: any(0 < j < len(rows) and rows[j][0][OTHER] != rows[j - 1][0][OTHER] for j in (i, i + 1))
+    stray = [i for i in apart if not edge(i)]
+    with_menu = sum((r[0][OTHER] > 0) == (r[1] > 0) for r in rows) / len(rows)
+    rate = gaps(rows, OTHER)
+    out.append(entry("view_pads_of_parts_that_are_on_blink",
+                     all(values(rows, n) == [0, 255] for n in BLINKING) and values(rows, MUTED) == [0] and not stray
+                     and rate and all(0.24 <= g <= 0.32 for g in rate) and with_menu >= 0.95 and not box.m.asserts,
+                     f"pattern 2 viewed: red of pad 5 {values(rows, OTHER)}, pad 2 (muted in pattern 2) {values(rows, MUTED)}, all blinking pads together "
+                     f"{together:.2f} (apart away from a change: {len(stray)}), seconds between changes {rate}, in step with MENU's LED {with_menu:.2f}"))
+    pad(box, P)
+    rows = watch(box, 1.0)
+    out.append(entry("view_press_brings_the_part_in_and_stops_its_blink",
+                     values(rows, P) == [255] and values(rows, OTHER) == [0, 255] and mute(box, live(box), P) == 0
+                     and box.u32(spec.VIEW_W + spec.V_COPY) & (1 << P) and not box.m.asserts,
+                     f"pad 4 pressed: its red {values(rows, P)}, pad 5 {values(rows, OTHER)}, part 4 muted in RAM {mute(box, live(box), P)}, "
+                     f"brought in {box.u32(spec.VIEW_W + spec.V_COPY):#x}"))
+    pad(box, P)
+    rows = watch(box, 1.0)
+    out.append(entry("view_second_press_turns_the_brought_part_off",
+                     values(rows, P) == [0] and mute(box, live(box), P) == 1 and values(rows, OTHER) == [0, 255] and not box.m.asserts,
+                     f"pad 4 again: its red {values(rows, P)}, part 4 muted in RAM {mute(box, live(box), P)}, pad 5 {values(rows, OTHER)}"))
+    pad(box, MUTED)
+    rows = watch(box, 1.0)
+    out.append(entry("view_muted_part_stays_dark_until_pressed_then_lit",
+                     values(rows, MUTED) == [255] and mute(box, live(box), MUTED) == 0 and not box.m.asserts,
+                     f"pad 2 (muted in pattern 2, dark while viewed) pressed: its red {values(rows, MUTED)}, part 2 muted in RAM {mute(box, live(box), MUTED)}"))
+    box.key("menu", 0.6)
+
+    nxt = Box(payload, flash)                   # a box of its own: 6 s of the one above end on a bar line, MENU there switches at once
+    viewing(nxt)
+    pad(nxt, P)
+    pad(nxt, P)
+    nxt.key("menu", 0.6)
+    confirmed = nxt.flags()[1]
+    rows = watch(nxt, 1.5, confirmed=True)
+    rate = gaps(rows, OTHER)
+    out.append(entry("view_confirmed_pads_blink_at_the_same_rate",
+                     confirmed == 1 and len(rows) >= 60 and {r[1] for r in rows} == {255} and values(rows, OTHER) == [0, 255]
+                     and rate and all(0.24 <= g <= 0.32 for g in rate) and values(rows, P) == [0] and not nxt.m.asserts,
+                     f"MENU (NEXT:): confirmed {confirmed}, {len(rows) * 0.01:.2f} s watched until the switch, MENU's LED {sorted({r[1] for r in rows})}, "
+                     f"pad 5 {values(rows, OTHER)}, seconds between changes {rate}, pad 4 (muted after being brought in) {values(rows, P)}"))
+    box.until_change()
+    box.run(0.5)
+    rows = watch(box, 1.0)
+    out.append(entry("view_switch_ends_the_blink",
+                     box.running() == 1 and steady(rows) and rows[0][0][OTHER] == 255 and not box.m.asserts,
+                     f"after the switch: running {box.running()}, pads steady {steady(rows)}, red {rows[0][0]}"))
+
+    side = Box(payload, flash)
+    viewing(side)
+    shift_part_mute(side)
+    a_rows = watch(side, 1.0)
+    shift_part_mute(side)
+    b_rows = watch(side, 1.0)
+    out.append(entry("view_playing_side_does_not_blink",
+                     steady(a_rows) and a_rows[0][0] == [255] * 16 and values(b_rows, OTHER) == [0, 255] and values(b_rows, MUTED) == [0]
+                     and not side.m.asserts,
+                     f"SHIFT + PART MUTE (the playing pattern's pads): steady {steady(a_rows)}, red {a_rows[0][0]}; again (the viewed pattern's): "
+                     f"pad 5 {values(b_rows, OTHER)}, pad 2 {values(b_rows, MUTED)}"))
+
+    leave = Box(payload, flash)
+    viewing(leave)
+    for _ in range(100):                        # EXIT while the blinking pads are dark: they come back lit
+        if red(leave)[OTHER] == 0:
+            break
+        leave.run(0.01)
+    dark = red(leave)[OTHER]
+    leave.key("exit")
+    rows = watch(leave, 1.0)
+    out.append(entry("view_exit_in_the_dark_half_lights_the_pads_again",
+                     dark == 0 and leave.view() == (0, 0, 0) and steady(rows) and rows[0][0] == [255] * 16 and not leave.m.asserts,
+                     f"EXIT with pad 5 dark ({dark}): view {leave.view()}, pads steady {steady(rows)}, red {rows[0][0]}"))
+
+    seq = Box(payload, flash)
+    seq.m.uc.mem_write(live(seq) + 0x800 + 0x30, b"\x01")     # an unsaved step: stopped, the wheel browses (VIEW:) as while playing
+    seq.dev.press(0x15, 0.4)
+    seq.turn(1)
+    seq.run(0.3)
+    s_rows = watch(seq, 1.0)
+    seq.key("part_mute")
+    m_rows = watch(seq, 1.0)
+    out.append(entry("view_sequencer_does_not_blink",
+                     seq.view()[1:] == (1, 1) and steady(s_rows) and values(m_rows, OTHER) == [0, 255] and not seq.m.asserts,
+                     f"stopped with an unsaved step, SEQUENCER, pattern 2 viewed: view {seq.view()}, pads steady {steady(s_rows)}; "
+                     f"PART MUTE: pad 5 {values(m_rows, OTHER)}"))
+
+    ref = Box(payload, flash, KILL)
+    viewing(ref)
+    rows = watch(ref, 1.0)
+    out.append(entry("view_blink_kill_switch_is_stock", steady(rows) and not ref.m.asserts,
+                     f"EXIT at power-on, pattern 2 browsed: pads steady {steady(rows)}, red {rows[0][0]}"))
+    return out
+
+
+def case_view_back(payload, flash):
+    """A part brought in stays marked across SHIFT + PART MUTE (decision 02.11.): on the playing side its pad blinks and the first press
+    gives the playing pattern its own part back from its bank block, unmuted; back on the viewed side its pad blinks again, as a part
+    that is on and not brought in. Turned to and fro without a press it stays brought in, its pad lit, the press mutes it. In SEQUENCER
+    the playing side's pads are the firmware's steps. docs/ideen/82-vorschau-part-reinholen.md"""
+    out = []
+    P, OTHER = 1, 4                         # part 2 is brought in (sound of part 5 in pattern 2)
+    STEP_ON = bytes([1, 0x48, 0x60, 0, 0x3D])
+    live = lambda b: b.u32(0xC033E6A4) + 4
+    part = lambda b, base: bytes(b.m.uc.mem_read(base + 0x800 + 0x330 * P, 0x330))
+    mute = lambda b: b.dev.read(live(b) + 0x801 + 0x330 * P, 1)[0]
+    red = lambda b: [b.m.leds.get(0x2C + 2 * n, 0) for n in range(16)]
+    word = lambda b, w: b.u32(spec.VIEW_W + w)
+
+    def pad(b, n):
+        b.m.send([4, n, 0, 100, 1])
+        b.run(0.1)
+        b.m.send([4, n, 0, 0, 0])
+        b.run(0.4)
+
+    def shift_part_mute(b):
+        b.dev.m.press(KEYS["shift"], True)
+        b.run(0.2)
+        b.key("part_mute")
+        b.dev.m.press(KEYS["shift"], False)
+        b.run(0.4)
+
+    def values(b, n, seconds=1.0):
+        seen = set()
+        for _ in range(int(round(seconds / 0.01))):
+            b.run(0.01)
+            seen.add(red(b)[n])
+        return sorted(seen)
+
+    def viewing(b):
+        """Part mute mode, pattern 1 plays (part 2 without steps in RAM, unsaved), pattern 2 is browsed: there part 2 is muted in the bank,
+        has steps on every sixteenth and the sound of part 5."""
+        bank = b.slots + 0x4000
+        uc = b.m.uc
+        sound = bytes(uc.mem_read(live(b) + 0x800 + 0x330 * OTHER + 2, 0x2E))
+        at = bank + 0x800 + 0x330 * P
+        uc.mem_write(at + 1, b"\x01")
+        uc.mem_write(at + 2, sound)
+        for s in range(64):
+            uc.mem_write(at + 0x30 + 12 * s, STEP_ON)
+            uc.mem_write(live(b) + 0x800 + 0x330 * P + 0x30 + 12 * s, b"\x00")
+        b.banks = bytes(uc.mem_read(b.slots, 3 * 0x4000))
+        b.key("part_mute")
+        play(b)
+        b.run(0.3)
+        b.turn(1)
+        b.run(0.5)
+        return bank
+
+    box = Box(payload, flash)
+    bank = viewing(box)
+    own = part(box, box.slots)                      # pattern 1's part 2 in its bank block
+    pad(box, P)
+    brought = [hex(i) for i in range(0x330) if part(box, live(box))[i] != part(box, bank)[i]]
+    shift_part_mute(box)
+    a_side = (values(box, P), values(box, OTHER), word(box, spec.V_COPY))
+    out.append(entry("view_playing_side_blinks_the_parts_brought_in",
+                     brought == ["0x1"] and a_side[0] == [0, 255] and a_side[1] == [255] and a_side[2] == 1 << P and not box.m.asserts,
+                     f"pad 2 on the viewed side (bytes that differ from pattern 2's part 2 {brought}), SHIFT + PART MUTE: pad 2 red {a_side[0]}, "
+                     f"pad 5 {a_side[1]}, brought in {a_side[2]:#x}"))
+    pad(box, P)
+    got = part(box, live(box))
+    back = ([hex(i) for i in range(0x330) if got[i] != own[i]], got[1], word(box, spec.V_COPY), word(box, spec.V_BACK), values(box, P),
+            box.view(), bytes(box.m.uc.mem_read(box.slots, 3 * 0x4000)) == box.banks)
+    out.append(entry("view_playing_side_press_gives_the_own_part_back",
+                     set(back[0]) <= {"0x1"} and back[1] == 0 and back[2] == 0 and back[3] == 0 and back[4] == [255] and back[5] == (0, 1, 1)
+                     and back[6] and not box.m.asserts,
+                     f"pad 2 on the playing side: bytes of part 2 that differ from pattern 1's bank part {back[0]}, mute {back[1]}, brought in "
+                     f"{back[2]:#x}, waiting {back[3]:#x}, pad 2 red {back[4]}, view {back[5]}, banks unchanged {back[6]}"))
+    pad(box, P)
+    got = part(box, live(box))
+    again = (mute(box), [hex(i) for i in range(0x330) if got[i] != own[i]])
+    out.append(entry("view_playing_side_next_press_is_the_firmwares",
+                     again[0] == 1 and set(again[1]) <= {"0x1"} and not box.m.asserts,
+                     f"pad 2 again: mute in RAM {again[0]}, bytes that differ from pattern 1's bank part {again[1]} (nothing copied)"))
+    shift_part_mute(box)
+    b_side = (values(box, P), word(box, spec.V_COPY))
+    out.append(entry("view_viewed_side_blinks_a_part_given_back",
+                     b_side[0] == [0, 255] and b_side[1] == 0 and not box.m.asserts,
+                     f"SHIFT + PART MUTE again: pad 2 red {b_side[0]} (on in the view, not brought in), brought in {b_side[1]:#x}"))
+
+    turn = Box(payload, flash)
+    bank = viewing(turn)
+    pad(turn, P)
+    shift_part_mute(turn)
+    shift_part_mute(turn)
+    kept = (values(turn, P), word(turn, spec.V_COPY))
+    pad(turn, P)
+    got, want = part(turn, live(turn)), part(turn, bank)
+    pressed = (mute(turn), [hex(i) for i in range(0x330) if got[i] != want[i]])
+    out.append(entry("view_turned_to_and_fro_keeps_the_part_brought_in",
+                     kept == ([255], 1 << P) and pressed == (1, []) and not turn.m.asserts,
+                     f"pad 2, SHIFT + PART MUTE twice: pad 2 red {kept[0]}, brought in {kept[1]:#x}; pad 2: mute in RAM {pressed[0]}, bytes that "
+                     f"differ from pattern 2's part 2 {pressed[1]} (muted in its bank as well, nothing copied again)"))
+
+    seq = Box(payload, flash)
+    viewing(seq)
+    shift_part_mute(seq)
+    seq.dev.press(0x15, 0.4)
+    step = lambda: seq.dev.read(live(seq) + 0x800 + 0x30 + 12 * OTHER, 1)[0]
+    was = step()
+    pad(seq, OTHER)
+    out.append(entry("view_playing_side_sequencer_pads_are_the_firmwares",
+                     step() != was and seq.view()[1:] == (1, 1) and not seq.m.asserts,
+                     f"playing side, SEQUENCER, pad 5: step 5 of part 1 {was} then {step()}, view {seq.view()}"))
+    return out
+
+
+def fast_steps(b, steps, gap):
+    """Turns the wheel `steps` clicks, one every `gap` seconds, as a fast hand does. Returns (most clicks the UI task was behind right
+    after a click, ms from the last click until the chosen number is the last one, bytes sent to the panel from the first click until
+    0.3 s after the last, so a redraw still in the firmware's queue counts)."""
+    from machine import UART0
+    tx0, start, behind = len(b.m.uart[UART0]["tx"]), b.chosen(), 0
+    for i in range(steps):
+        b.turn(1, gap)
+        behind = max(behind, (start + i + 1 - b.chosen()) % 250)
+    t_last, target, waited = b.m.time_ns, (start + steps) % 250, None
+    while waited is None and b.m.time_ns - t_last < 3e9:
+        if b.chosen() == target:
+            waited = round((b.m.time_ns - t_last) / 1e6)
+            break
+        b.run(0.005)
+    b.run(max(0.0, 0.3 - (b.m.time_ns - t_last) / 1e9))
+    return behind, waited, len(b.m.uart[UART0]["tx"]) - tx0
+
+
+def case_fast_steps(payload, flash):
+    """A fast turned wheel keeps up as with the firmware (device report on 1.4.5: the display lagged far behind while browsing, playing
+    and stopped with an unsaved edit). The reference is the same copy with EXIT held at power-on. Each click redrew every pad of the view
+    and sent about 90 LED messages, which the firmware's sender pushes through the panel's line at its speed; now a redraw within two
+    LED ticks of the last one waits until the view stays put. docs/messungen/2026-11-09-pattern-schritte.md"""
+    out = []
+    STEPS, GAP = 20, 0.03
+    REDRAW = 450                            # bytes of one redraw of the view's pads (about 87 LED messages of 5 bytes)
+    STEP = 0x800 + 0x30
+    for scene in ("playing", "stopped_unsaved"):
+        rows = {}
+        for name, held in (("firmware", KILL), ("blech", 0)):
+            b = Box(payload, flash, held)
+            if scene == "playing":
+                play(b)
+                b.run(0.5)
+            else:
+                b.dev.press(0x15, 0.4)             # SEQUENCER: the pads show the steps, nothing runs over them
+                for st in (1, 3, 5, 7):
+                    b.pattern_bytes(STEPS, STEP + 12 * st, [1])
+                b.m.send([2, 1 if b.dev.synth else 0, 0, 200, 0])
+                b.run(0.5)
+            rows[name] = (b, *fast_steps(b, STEPS, GAP))
+        (ref, r_behind, r_wait, r_bytes), (box, behind, wait, sent) = rows["firmware"], rows["blech"]
+        due = box.dev.read(spec.VIEW_W + spec.V_DEFER + 1, 1)[0]
+        ok = behind <= max(r_behind, 1) and wait is not None and wait <= 30 and sent - r_bytes <= 4 * REDRAW and due != 1 and not box.m.asserts
+        detail = (f"{STEPS} clicks {GAP * 1000:.0f} ms apart: clicks behind at most {behind} (firmware {r_behind}), the last number chosen "
+                  f"{wait} ms after the last click (firmware {r_wait} ms), {sent} bytes to the panel (firmware {r_bytes}), a redraw still due {due == 1}")
+        if scene == "stopped_unsaved":
+            lit = sorted(n for n in range(16) if box.m.leds.get(0x2C + 2 * n, 0))
+            ok = ok and box.view() == (0, STEPS, 1) and lit == [1, 3, 5, 7]
+            detail += f", view {box.view()}, the pads show the steps of pattern {STEPS + 1}: {lit}"
+        out.append(entry(f"fast_steps_{scene}_keep_up", ok, detail))
+    return out
+
+
+def case_pad_flicker(payload, flash):
+    """The pads do not flicker while the wheel turns fast (device report on 1.4.5: the pads flickered while browsing). Every redraw of the
+    view's pads sent pad 1's blue LED 0 and then 255 again, about 14 ms apart, so each click showed as a short dark pad. The check reads
+    the LED changes with their device time (panel_leds.py) as the panel controller lights them and counts dark gaps up to 50 ms. Allowed:
+    the firmware's own (EXIT held at power-on) and the two redraws the fix keeps, the first click at once and the one after the wheel
+    stopped. Before the fix there was one per click. docs/emulator.md (LEDs)"""
+    import panel_leds
+    out = []
+    STEPS, GAP, KEPT = 20, 0.03, 2
+    pads = set(range(0x2C, 0x4C))
+    for scene in ("playing", "stopped_unsaved"):
+        rows = {}
+        for name, held in (("firmware", KILL), ("blech", 0)):
+            b = Box(payload, flash, held)
+            if scene == "playing":
+                play(b)
+            else:                                  # as case_fast_steps: SEQUENCER, steps in pattern 21, a knob changed, so BLECH browses
+                b.dev.press(0x15, 0.4)
+                for st in (1, 3, 5, 7):
+                    b.pattern_bytes(STEPS, 0x830 + 12 * st, [1])
+                b.m.send([2, 1 if b.dev.synth else 0, 0, 200, 0])
+            b.run(0.5)
+            log, t0 = b.m.panel_leds, b.m.time_ns
+            before = dict(log.value)
+            for _ in range(STEPS):
+                b.turn(1, GAP)
+            b.run(0.3)
+            rows[name] = (b, panel_leds.blinks(log.between(t0, b.m.time_ns, pads), before))
+        (_, ref), (box, gaps) = rows["firmware"], rows["blech"]
+        ok = len(gaps) <= len(ref) + KEPT and not box.m.asserts
+        shown = ", ".join(f"LED {led:#x} {round(dark / 1e6, 1)} ms" for led, _, dark in gaps[:4])
+        out.append(entry(f"pad_flicker_{scene}", ok, f"{STEPS} clicks {GAP * 1000:.0f} ms apart: {len(gaps)} dark pad gaps up to 50 ms "
+                                                       f"(firmware {len(ref)}, allowed {len(ref) + KEPT}){': ' + shown if shown else ''}"))
+    return out
+
+
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
-          case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy, case_view_side)
+          case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy, case_view_side, case_view_blink, case_view_back,
+          case_fast_steps, case_pad_flicker)
 
 
 def group_entries(payload, flash, i):
@@ -1375,6 +1759,7 @@ def cases(payload, flash=None):
 
 def main():
     import lifetime
+    lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("what", choices=("cases",))

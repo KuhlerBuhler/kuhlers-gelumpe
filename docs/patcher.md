@@ -2,7 +2,7 @@
 
 Deutsche Version | [English version](patcher.en.md)
 
-Stand 2026-10-16. Zu Idee 17 in [`docs/ideen.md`](ideen.md). Der Patcher ist gebaut,
+Stand 2026-11-09. Zu Idee 17 in [`docs/ideen.md`](ideen.md). Der Patcher ist gebaut,
 der Abschnitt "Stand" sagt, was genau und was nicht. Belege stehen in
 `docs/messungen/`; was nur hergeleitet ist, steht hier als solches da.
 
@@ -21,15 +21,16 @@ Gebaut heißt: der Code liegt im Repository und ist im Emulator oder in
 Tests geprüft.
 
 Die blaue Electribe 2 mit Synth-Firmware 2.02 hat einen eigenen Satz
-`data/patches/blech-synth.json`. Er enthält lesendes BLECH SysEx, Startbild, Theme,
+`data/patches/blech-synth.json`. Er enthält lesendes BLECHTRIBE SysEx, Startbild, Theme,
 Ausschaltbild, Patternwechsel mit Bestätigung und Sync-Gruppen, TAP Motion, Notenassistent, Würfeln,
-MFX 2, Pad-Farben mit Akkorden in Pink, BLECH-Menü und Plugins mit Blechy
-und die EXIT-Shortcuts (EXIT + WRITE, EXIT + Pad). Startbild-Editor, Preset-Erweiterung, Ladeanimation
-und Doom gehören nicht dazu.
-Wie auf der roten liest und schreibt BLECH auf der blauen `KORG/blechtribe/` statt `KORG/electribe/` (`blechtribe-synth.json`,
+MFX 2, Pad-Farben mit Akkorden in Pink, BLECH-Menü und Plugins mit Blechy,
+die EXIT-Shortcuts (EXIT + WRITE, EXIT + Pad), KEY PADS (KEYBOARD + Pad), FILTER TOGGLE (SHIFT + Filtertaste) und AUTO SAVE, dazu Letztes Pattern beim Einschalten, Eigenes Init-Pattern, BEAT 8,
+TOUCH SCALE RANGE 0 und die Version im Menü. Startbild-Editor, Preset-Erweiterung, Ladeanimation, Sample-Fehler, Stereo auf einem Pad,
+Hacktribe-Oszillatoren, der Effekt-Katalog, Synth-Filter und Doom gehören nicht dazu.
+Wie auf der roten liest und schreibt BLECHTRIBE auf der blauen `KORG/blechtribe/` statt `KORG/electribe/` (`blechtribe-synth.json`,
 [Messung](messungen/2026-10-26-blech-hacktribe-blau.md)); die Anleitung sagt, den alten Ordner zu kopieren. Fehlt der Ordner
 beim Schreiben, legt die Firmware ihn an.
-Die Spielhilfen lassen sich im BLECH-Menü einstellen; EXIT beim Einschalten schaltet BLECH ab.
+Die Spielhilfen lassen sich im BLECH-Menü einstellen; EXIT beim Einschalten schaltet BLECHTRIBE ab.
 Patternwechsel, TAP Motion, Notenassistent und Würfeln brauchen eine Karte, die seit dem Einschalten einmal da war; wer sie danach zieht, behält die Funktionen ([Messung](messungen/2026-10-18-karte-gezogen-tap-blinkt.md)).
 Warum die übrigen Ports abgelehnt wurden und welche Prüfungen bestehen, steht in der
 [Synth-Messung](messungen/2026-10-16-blech-synth.md).
@@ -39,11 +40,11 @@ Warum die übrigen Ports abgelehnt wurden und welche Prüfungen bestehen, steht 
 | Patch-Format 1 mit Feld-, Roh- und Kopier-Änderung, `startPhase`, `hooks` | `src/patch.mjs`, `test/patch.test.mjs` |
 | Haken-Register | `src/hooks.mjs`, `data/hooks.mjs`, `test/hook-registry.test.mjs` |
 | RAM der Patches (`ram`, `shares`): Überdeckungen im Satz und mit Firmware werden gefunden | `src/ramspans.mjs`, `data/patch-ram.mjs`, `test/patch-ram.test.mjs` |
-| Patch-Satz BLECH: Startbild-Editor, MFX 2, Patternwechsel mit Bestätigung, TAP Motion, Notenassistent, Ladebalken, Sample-Fehler, Plugin-Laufzeit mit BLECH-Menü und der eingebauten App Blechy, Kartenordner blechtribe, Blech-Startbild, Theme (Schriften und Symbole), Preset-Tabellen für 128 Plätze, Blechy beim Ausschalten, eigene SysEx-Befehle fürs RAM, auf Korgs Original dazu die Synth-Filter | `data/patches/blech.json`, Code in `tools/patch/`, Anwenden mit `tools/patch/apply.mjs` |
-| Theme als Datenpatch: eigene Schriften und Symbole fürs Display, in der Startphase freigegeben | `data/patches/blech-theme.json`, `tools/patch/blech_theme.mjs`, [BLECH Theme](hintergrund/blech-theme.md) |
+| Patch-Satz BLECHTRIBE: Startbild-Editor, MFX 2, Patternwechsel mit Bestätigung, TAP Motion, Notenassistent, Ladebalken, Sample-Fehler, Plugin-Laufzeit mit BLECH-Menü und der eingebauten App Blechy, Kartenordner blechtribe, Blech-Startbild, Theme (Schriften und Symbole), Preset-Tabellen für 128 Plätze, Blechy beim Ausschalten, eigene SysEx-Befehle fürs RAM, auf Korgs Original dazu die Synth-Filter | `data/patches/blech.json`, Code in `tools/patch/`, Anwenden mit `tools/patch/apply.mjs` |
+| Theme als Datenpatch: eigene Schriften und Symbole fürs Display, in der Startphase freigegeben | `data/patches/blech-theme.json`, `tools/patch/blech_theme.mjs`, [BLECHTRIBE Theme](hintergrund/blech-theme.md) |
 | Patch-Datei `BLECH.patch` und bsdiff für das Release | `src/patchfile.mjs`, `tools/build-blech-patch.mjs`, `tools/patch/bsdiff.mjs`, `test/patch-file.test.mjs`, `test/bsdiff-build.test.mjs` |
-| BLECH direkt auf Korgs Original 2.02: Patches mit `builds`, Ordner-Variante für Korgs Build, Patch-Datei mit zweitem Fingerabdruck | `src/patch.mjs` (`selectFor`), `src/firmware.mjs` (`identifyBase`), `data/patches/blechtribe-stock.json`, `src/patchfile.mjs`, `test/patch.test.mjs`, `test/patch-file.test.mjs`, [Messung](messungen/2026-10-14-stock-blech.md) |
-| Seite Patcher mit Prüfung, Download, Wahl "BLECH direkt" oder "mit Hacktribe" und Umwandlung Korg 2.02 zu Hacktribe | `site/app/patcher.mjs`, `src/patcher.mjs`, `src/bsdiff.mjs`, `src/bzip2.mjs`, `test/patcher.test.mjs`, `test/bsdiff.test.mjs`, `test/bzip2.test.mjs` |
+| BLECHTRIBE direkt auf Korgs Original 2.02: Patches mit `builds`, Ordner-Variante für Korgs Build, Patch-Datei mit zweitem Fingerabdruck | `src/patch.mjs` (`selectFor`), `src/firmware.mjs` (`identifyBase`), `data/patches/blechtribe-stock.json`, `src/patchfile.mjs`, `test/patch.test.mjs`, `test/patch-file.test.mjs`, [Messung](messungen/2026-10-14-stock-blech.md) |
+| Seite Patcher mit Prüfung, Download, Wahl "BLECHTRIBE direkt" oder "mit Hacktribe" und Umwandlung Korg 2.02 zu Hacktribe | `site/app/patcher.mjs`, `src/patcher.mjs`, `src/bsdiff.mjs`, `src/bzip2.mjs`, `test/patcher.test.mjs`, `test/bsdiff.test.mjs`, `test/bzip2.test.mjs` |
 | Patternwechsel erst nach Bestätigung (Idee 46): beim Spielen blättert das Rad nur, MENU bestätigt, EXIT nimmt zurück | `data/patches/pattern-switch.json`, `tools/patch/pattern_switch.py`, `tools/emu/pswitch_cases.py`, [Messung](messungen/2026-10-15-patternwechsel.md) |
 | TAP Motion (Idee 39): TAP schaltet die aufgenommene Motion Sequence des gewählten Parts sofort an und aus, MASTER FX gehalten plus TAP die der Master-FX-Gesten, die TAP-Lampe zeigt den Zustand, das Tap-Tempo entfällt; Menüseite TAP MOTION in der Gruppe FEATURES des Menüs BLECH | `data/patches/tap-motion.json`, `tools/patch/tap_motion.py`, `tools/emu/tap_motion_cases.py`, [Messung](messungen/2026-10-15-tap-motion-patch.md) |
 | Notenassistent (Idee 54): im KEYBOARD-Modus leuchten gleich nach einer Note die Pads der passenden Noten rosa (rote und blaue LED zusammen), je besser die Passung desto heller (Prim und Quinte, dann Terzen, Quarte und ein Tonleiterschritt, dann Sexten); gestoppt oder pausiert bleiben sie, beim Spielen blenden sie aus; im CHORD-Modus die passenden nächsten Akkorde ([Helligkeit und Ausblenden](messungen/2026-10-19-notenassistent-helligkeit.md)); das Licht der Firmware gewinnt; beim Spielen bleibt das Pad der zuletzt gespielten Note rot, bis die nächste kommt ([gespielte Note](messungen/2026-10-22-notenassistent-spielende-note.md)); Menüseite NOTE ASSIST in der Gruppe FEATURES des Menüs BLECH, Bit 4 der Flags | `data/patches/note-assistant.json`, `tools/patch/note_assist.py`, `tools/emu/note_assist_cases.py`, [Messung](messungen/2026-10-15-note-assistant.md) |
@@ -66,16 +67,22 @@ Warum die übrigen Ports abgelehnt wurden und welche Prüfungen bestehen, steht 
 | Letztes Pattern beim Einschalten (Idee 76): die Patternwahl merkt sich ihre Nummer in Global-Byte 248, das die Firmware beim Ausschalten mitspeichert; beim Start lädt die Startfunktion dieses Pattern und die erste Wahl nimmt es auch; mit EXIT beim Einschalten 001; BLECH > FEATURES > LAST PATTERN OFF (Bit 3 von Byte 5 der Einstellungsdatei, Wort `0xC014FEFC`) lässt die erste Wahl 001 nehmen; Code bei `0xC014FE00`, Haken bei `0xC002AF40` (Startphase) und `0xC0079DC8`; rot und blau (auf der blauen setzt der Start auch die Nummer der Wahl, `0xC0583668 + 0x318`) | `data/patches/last-pattern.json`, `tools/patch/last_pattern.py`, `tools/emu/last_pattern_cases.py`, `test/last-pattern.test.mjs`, [Messung](messungen/2026-10-28-letztes-pattern.md), [Schalter](messungen/2026-10-29-letztes-pattern-schalter-doom-ohne-dateien.md) |
 | Eigenes Init-Pattern (Set Init Pattern): DATA UTILITY > INITIALIZE PATTERN kopiert das Pattern, das DATA UTILITY > SET INIT PATTERN nennt (Global-Byte 247, FACTORY ist die Vorlage der Firmware); Code bei `0xC014FD00`, Haken auf den Aufruf `0xC0036A34`, ohne Startphase; die Seite im Menü nur mit dem Patch; rot und blau | `data/patches/init-pattern.json`, `tools/patch/init_pattern.py`, `tools/patch/script_init.s`, `tools/emu/init_pattern_cases.py`, `test/init-pattern.test.mjs`, [Messung](messungen/2026-10-28-init-pattern.md) |
 | Stereo auf einem Pad: ein Stereo-Sample belegt nur seinen Part, auf jedem Part spielt es auf einer Stimme mit dem Stimmtyp, den die Firmware sonst nur auf geraden Parts nimmt (Typ 4), der nächste Part bleibt frei; drei Befehle (`0xC007DE08` Stereo-Modus, `0xC00413EC` Oszillatorwechsel, `0xC0099E2C` Modus der Stimme) rufen Code bei `0xC014FF00`, der Stereo-Modus läuft schon in der Startphase; Schalter BLECH > FEATURES > STEREO 1 PAD (Wort `0xC014FFFC`, Vorgabe ON, Bit 2 von Byte 5 der Einstellungsdatei heißt OFF), OFF oder EXIT beim Einschalten geben das Paar der Firmware; Pattern-Format unverändert; nur rot | `data/patches/stereo-pad.json`, `tools/patch/stereo_pad.py`, `tools/patch/script_menu.s`, `tools/emu/stereo_pad_cases.py`, `test/stereo-pad.test.mjs`, [Messung](messungen/2026-10-29-stereo-ein-pad.md) |
+| Hacktribe-Oszillatoren auf den freien Plätzen: 76 DSP-Einträge (DUAL, OCT, CHIP, RING je 4, X-SAW bis X-SINE je 7 Stufen, VPM-SAW bis VPM-SINE je 8 Stufen, Hacktribes Reihenfolge und Schreibweise) auf Platz 421 bis 496 (Anzeige 422 bis 497), 497 bis 499 bleiben leer; fünf Befehle (`0xC004F5A8` Werksstart, `0xC004E354` Start aus `e2sSample.all`, `0xC0040D64` OSC-Auswähler, `0xC00997A4` Platzsuche der Stimme, `0xC00362A4` Import eines Samples) rufen Code bei `0xC014F000` (2708 Byte mit Tabelle), die zwei Starts in der Startphase; ein Eintrag der Datei auf 421 bis 496 wird einzeln abgelehnt, der Rest lädt; EXPORT ALL SAMPLE schreibt diese Plätze nicht; kein Schalter, immer an, die Plätze waren immer leer (Bit 6 von Byte 5 der Einstellungsdatei ist frei, eine ältere Datei mit gesetztem Bit lädt, das Bit wird übergangen); EXIT beim Einschalten wie die Firmware; nur rot | `data/patches/ht-osc.json`, `tools/patch/ht_osc.py`, `tools/emu/ht_osc_cases.py`, `test/ht-osc.test.mjs`, [Messung](messungen/2026-11-08-ht-osc-freie-plaetze.md) |
 | BEAT 8: die Seite BEAT im Pattern Menü hat einen fünften Wert `8`, Steps als Achtel (Teiler 12 in der Tabelle `0xC00E2DDC`, im freien Byte dahinter); die Klemme der Seite bis 4, Text `\\8` statt "?", die vier Exportlängen und (rot) die Step-Zuordnung geslicter Samples kennen den Wert; Daten bei `0xC014FC00`, kein eigener Code, keine Startphase; rot und blau | `data/patches/beat-eighth.json`, `data/patches/beat-eighth-synth.json`, `tools/patch/beat_eighth.py`, `tools/emu/beat_eighth_cases.py`, `test/beat-eighth.test.mjs`, [Messung](messungen/2026-10-29-beat-achtel.md) |
 | TOUCH SCALE RANGE 0: die Seite TOUCH SCALE RANGE im Global-Menü geht bis 0 (Klemme `0xC007A940`, die Anzeige `0 Oct` bleibt die der Firmware); mit 0 spielt X überall den Grundton des Patterns in der Oktave der Tastatur (die Abbildung X auf Tonleiterstufe bei `0xC0060654` setzt bei Umfang 0 die Stufe auf eine volle Oktave, 11 Worte am Platz, Umfang 1 bis 4 unverändert); kein eigener Code, keine Startphase; rot und blau | `data/patches/touch-scale-zero.json`, `data/patches/touch-scale-zero-synth.json`, `tools/patch/touch_scale_zero.py`, `tools/emu/touch_scale_zero_cases.py`, `test/touch-scale-zero.test.mjs`, [Messung](messungen/2026-10-30-touch-scale-null.md) |
 | Version im Menü: BLECH > VERSION, die letzte Seite der Liste, zeigt die Version des Satzes (`BLECH 1.3.7`) und darunter die Firmware, für die das Menü gebaut ist; der Text steht als 16 Byte bei `0xC014FCF0` (FF in allen drei Builds, vor dem Init-Pattern-Code), nur Daten, ohne Haken und ohne Startphase; `node tools/set-version.mjs` baut beide Dateien mit jeder Version neu; rot und blau | `data/patches/blech-version.json`, `data/patches/blech-version-synth.json`, `tools/patch/blech_version.mjs`, `tools/patch/script_menu.s`, `tools/emu/menu_cases.py` (`version_page`), `test/blech-version.test.mjs` |
-| BLECH SysEx: eigene Befehle `0x60` bis `0x63` zum Lesen und Schreiben des RAM in Blöcken bis 32 KiB (dazu `0x64` Flash lesen, `0x65`/`0x66` die Update-Datei und `0x67` eine Plugin-Datei in `KORG/blechtribe/Plugin/`, mit Bit 30 im Offset die Sample-Datei `Sample/e2sSample.all` und ihre Tauschdatei, dazu `0x71` kopieren, `0x72` löschen und `0x73` CRC lesen auf diesen zwei Dateien, siehe [sample-datei.md](hintergrund/sample-datei.md)), je Block mit CRC-32 und einer Antwort mit Status, auf Hacktribe und auf Korgs Original; die Schutzliste von `data/protected.mjs` prüft die Firmware selbst (Tabelle aus `src/sysex-table.mjs`, nie von Hand), kein Flash-Schreib-Befehl, Ausführen (`0x6F`) nur im Stub-Puffer; Hacktribes `0x52` bis `0x57` verworfen, mit EXIT beim Einschalten gehen sie außer `0x56` wieder; zwei Haken (Funktionsbyte `0xC0026A8C`, Ausführer `0xC0026418`), ohne Startphase, mit EXIT beim Einschalten stumm. Die Seite nimmt sie, wenn das Gerät INFO beantwortet, sonst Hacktribes `0x52` bis `0x57` | `data/patches/blech-sysex.json`, `tools/patch/blech_sysex.py`, `tools/patch/blech_sysex.mjs`, `src/sysex-table.mjs`, `tools/emu/sysex_cases.py`, `test/blech-sysex.test.mjs`, `test/blech-session.test.mjs`, `test/emulator-sysex.test.mjs`, `test/emulator-blech-session.test.mjs`, [Messung](messungen/2026-10-15-blech-sysex.md) |
+| BLECHTRIBE SysEx: eigene Befehle `0x60` bis `0x63` zum Lesen und Schreiben des RAM in Blöcken bis 32 KiB (dazu `0x64` Flash lesen, `0x65`/`0x66` die Update-Datei und `0x67` eine Plugin-Datei in `KORG/blechtribe/Plugin/`, mit Bit 30 im Offset die Sample-Datei `Sample/e2sSample.all` und ihre Tauschdatei, dazu `0x71` kopieren, `0x72` löschen und `0x73` CRC lesen auf diesen zwei Dateien, siehe [sample-datei.md](hintergrund/sample-datei.md); mit Bit 29 die Doom-Dateien `KORG/blechtribe/Doom/doom.bin`, mit Bit 31 dazu `doom.wad`, nicht auf der blauen Electribe, [Messung](messungen/2026-11-11-doom-usb.md)), je Block mit CRC-32 und einer Antwort mit Status, auf Hacktribe und auf Korgs Original; die Schutzliste von `data/protected.mjs` prüft die Firmware selbst (Tabelle aus `src/sysex-table.mjs`, nie von Hand), kein Flash-Schreib-Befehl, Ausführen (`0x6F`) nur im Stub-Puffer; Hacktribes `0x52` bis `0x57` verworfen, mit EXIT beim Einschalten gehen sie außer `0x56` wieder; zwei Haken (Funktionsbyte `0xC0026A8C`, Ausführer `0xC0026418`), ohne Startphase, mit EXIT beim Einschalten stumm. Die Seite nimmt sie, wenn das Gerät INFO beantwortet, sonst Hacktribes `0x52` bis `0x57` | `data/patches/blech-sysex.json`, `tools/patch/blech_sysex.py`, `tools/patch/blech_sysex.mjs`, `src/sysex-table.mjs`, `tools/emu/sysex_cases.py`, `test/blech-sysex.test.mjs`, `test/blech-session.test.mjs`, `test/emulator-sysex.test.mjs`, `test/emulator-blech-session.test.mjs`, [Messung](messungen/2026-10-15-blech-sysex.md) |
 | Anpassung im BLECH-Menü: untere LEDs (METER, COLOR, OFF, Farbe) und Display-Licht (frei gemischt, Software-PWM), Einstellungen nur auf der Karte; auf der roten gilt die Farbe des Lichts schon vor dem Startbild, auf der blauen kurz danach, solange es noch steht: die Kanäle der Farbe (an, wenn mindestens halb so stark wie der stärkste) stehen in Global-Byte 250, das die Firmware mit den Globals speichert, ein Haken hinter dem ersten Lesen des Flash (`0xC00289D8`, auf der blauen `0xC0025E48`, Startphase) setzt sie, mit EXIT beim Einschalten Weiß | `tools/patch/script_menu.s`, `tools/patch/script_boot_light.s`, `tools/patch/script_start_sampler.s`, `tools/patch/script_start_synth.s`, `tools/emu/menu_cases.py` (`look_cases`, `boot_light_cases`), [Messung](messungen/2026-10-14-blech-anpassung.md), [beim Start](messungen/2026-10-29-hintergrundlicht-beim-start.md) |
-| Ordner übernehmen beim ersten Start: hat `KORG/blechtribe` keine `Sample/e2sSample.all` (oder fehlt ganz), `KORG/hacktribe` oder `KORG/electribe sampler` aber schon, fragt BLECH vor dem Sample-Laden auf dem Display, ob der Ordner kopiert werden soll (Rad, EDIT oder PART wählen zwischen beiden, MENU kopiert, EXIT startet ohne); kopiert werden alle Dateien und Unterordner bis 5 Ebenen, Namen mit Punkt am Anfang nicht, Dateien, die in `KORG/blechtribe` schon liegen, bleiben, wie sie sind; auf der blauen: fehlt `KORG/blechtribe`, ist `KORG/electribe` aber da, kommt die Frage nach dem Start über dem Hauptbildschirm; nicht mit EXIT beim Einschalten | `tools/patch/script_migrate.s`, `tools/emu/migrate_cases.py`, [Messung](messungen/2026-10-19-ordner-uebernehmen.md), [blau](messungen/2026-10-29-blau-ordner-uebernehmen.md) |
-| EXIT-Shortcuts in der Laufzeit des BLECH-Menüs: EXIT gehalten + WRITE speichert das Pattern an seinen Platz (das Write-Fenster der Firmware bekommt den zweiten WRITE), EXIT gehalten + Pad setzt den Klang eines Parts auf die Werte der Bank zurück (Pattern-Laden der Firmware `0xC004AB84`); die WRITE-LED atmet, solange das Pattern ungespeichert ist; rot und blau ([blau](messungen/2026-10-24-blau-shortcuts-akkorde.md)), nicht mit EXIT beim Einschalten | `tools/patch/script_shortcuts.s`, `tools/emu/shortcut_cases.py`, [Messung](messungen/2026-10-19-exit-shortcuts.md) |
+| Ordner übernehmen beim ersten Start: hat `KORG/blechtribe` keine `Sample/e2sSample.all` oder keine Pattern-Sicherung (`electribe_sampler_allpattern.e2sallpat`, so nennt EXPORT ALL PATTERN sie, direkt im Ordner) oder fehlt ganz, `KORG/hacktribe` oder `KORG/electribe sampler` hat aber das Fehlende, fragt BLECHTRIBE vor dem Sample-Laden auf dem Display, ob der Ordner kopiert werden soll (Rad, EDIT oder PART wählen zwischen beiden, MENU kopiert, EXIT startet ohne); kopiert werden alle Dateien und Unterordner bis 5 Ebenen, Namen mit Punkt am Anfang nicht, Dateien, die in `KORG/blechtribe` schon liegen, bleiben, wie sie sind; auf der blauen: liegt in `KORG/electribe` eine Pattern-Sicherung (`*.e2allpat`, das schreibt EXPORT ALL PATTERN), in `KORG/blechtribe` aber keine, kommt die Frage nach dem Start über dem Hauptbildschirm (nach einer Sample-Datei sucht die blaue nicht, Hacktribe auf der blauen ist die rote Firmware und behält die Sample-Regel); vorher legt ein Start ohne `KORG/blechtribe` den Ordner mit den Unterordnern an, die BLECHTRIBE darin liest und schreibt (rot und Hacktribe `Plugin`, `Presets`, `Gif`, `Doom`, `Sample`, `System`, blau `Plugin`, `Gif`, `System`), ein vorhandenes `KORG/blechtribe` bekommt die Unterordner der Liste, die ihm fehlen, was darin liegt, bleibt (rot und Hacktribe im ersten Rahmen nach dem Start); nicht mit EXIT beim Einschalten | `tools/patch/script_migrate.s`, `tools/emu/migrate_cases.py`, [Messung](messungen/2026-10-19-ordner-uebernehmen.md), [blau](messungen/2026-10-29-blau-ordner-uebernehmen.md), [Ordner und Pattern-Sicherung](messungen/2026-11-09-blechtribe-ordner.md), [fehlende Unterordner, Sicherung der roten](messungen/2026-11-09-unterordner-rote-sicherung.md) |
+| EXIT-Shortcuts in der Laufzeit des BLECH-Menüs: EXIT gehalten + WRITE speichert das Pattern an seinen Platz (das Write-Fenster der Firmware bekommt den zweiten WRITE), EXIT gehalten + Pad setzt den Klang eines Parts auf die Werte der Bank zurück (Pattern-Laden der Firmware `0xC004AB84`, danach die Klangeinrichtung des Parts für die Stimmen `0xC009B5EC`, gestoppt und beim Abspielen); die WRITE-LED atmet, solange das Pattern ungespeichert ist; rot und blau ([blau](messungen/2026-10-24-blau-shortcuts-akkorde.md)), nicht mit EXIT beim Einschalten | `tools/patch/script_shortcuts.s`, `tools/emu/shortcut_cases.py`, [Messung](messungen/2026-10-19-exit-shortcuts.md) |
+| KEY PADS in der Laufzeit des BLECH-Menüs (Idee 85, vorher das Plugin Key Pads): KEYBOARD gehalten auf dem Hauptbildschirm + Pad setzt den KEY des Patterns (chromatisch: Pad 1 C bis Pad 12 B, Pads 13 bis 16 nichts; Feld 4 über `script_seq_set_pattern_value_glue`), das Wertefenster der Firmware zeigt ihn (Nachricht `{0x5A, Ton}` an `0xC0070688`, Titel, Wert und Markierung über drei Haken in seiner Zeichenfunktion, `script_hooks.py:KEY_PADS_SAMPLER`/`KEY_PADS_SYNTH`); KEYBOARD kurz allein geht beim Loslassen an die Firmware; BLECH > FEATURES > KEY PADS OFF (Bit 4 von Byte 5 der Einstellungsdatei) lässt die Firmware den Part wählen; rot, blau und Hacktribe | `tools/patch/script_shortcuts.s`, `tools/emu/shortcut_cases.py`, `tools/emu/menu_cases.py`, [Messung](messungen/2026-11-07-key-pads-eingebaut.md), [Belegung](messungen/2026-11-08-key-pads-chromatisch.md) |
+| FILTER TOGGLE in der Laufzeit des BLECH-Menüs (Idee 81, vorher das Plugin Filter Toggle): SHIFT + LPF, HPF oder BPF schaltet das Filter des gewählten Parts aus, dieselbe Kombination wieder an mit dem letzten Typ der Taste, SHIFT + eine andere Filtertaste gibt deren letzten Typ, je Part; die Taste geht immer an die Firmware, ein Haken auf ihrem Weg, der den Typ schreibt (`mov r0, #8`), ersetzt nur den neuen Typ, so zeigt die Firmware ihr Fenster "FILTER TYPE" (rot `0xC006FDEC`, blau `0xC0062F14`, Hacktribe mit eigenem Filter-Handler `0xC01501F0`, `script_hooks.py:FILTER_TOGGLE_HACKTRIBE`); BLECH > FEATURES > FILTER TOGGLE OFF (Bit 5 von Byte 5 der Einstellungsdatei) lässt die Firmware allein; rot, blau und Hacktribe | `tools/patch/script_shortcuts.s`, `tools/emu/shortcut_cases.py`, `tools/emu/menu_cases.py`, [Messung](messungen/2026-11-08-filter-toggle-eingebaut.md) |
+| AUTO SAVE in der Laufzeit des BLECH-Menüs (Issue #391): ein Haken in `SWITCH_SCREEN` (`0xC0083D7C`, blau `0xC0074350`, das zweite `bl` auf den Bildschirm-Manager hinter der Prüfung, dass der Bildschirm wechselt) sieht jeden Wechsel; verlässt man GLOBAL PARAMETERS (Bildschirm 9) oder PLUGIN RUNTIME und die 0x100 Byte der Global-Werte weichen von der Kopie der Firmware ab, die der Flash hält (`0xC08A2940`, blau `0xC0773D00`), postet er denselben Auftrag `0xB` wie WRITE dort (`0xC002D5D8`, blau `0xC002A73C`); verlässt man das BLECH-Menü und die Prüfsumme der Einstellungen weicht von der beim Betreten ab (`M_SNAP`), schreibt er die Einstellungsdatei wie WRITE; Schalter BLECH > FEATURES > AUTO SAVE (`M_AS`, Bit 7 von Byte 5 heißt OFF); rot, blau und Hacktribe | `tools/patch/script_menu.s:autosave_leave`, `tools/emu/menu_cases.py:auto_save_cases`, [Messung](messungen/2026-11-09-auto-save.md) |
+| ORIG im BLECH-Menü: jede Seite, die eine Einstellung zeigt, setzt das Byte `+0x49` des Textfelds, das Korgs Zeichenfunktion für das Schildchen ORIG liest (Symbol 16 bei x 36, y 55); verglichen wird der Satz der Einstellungen von jetzt mit der Kopie, die nach dem Laden und nach jedem Speichern entsteht (`MENU_FILE_B`), je Seite mit den Bits der Tabelle `orig_masks`; rot, blau und Hacktribe | `tools/patch/script_menu.s:menu_orig_flag`, `tools/emu/menu_cases.py:orig_cases`, [Messung](messungen/2026-11-11-orig-und-karte-spaeter.md) |
+| Karte erst nach dem Start eingesteckt: der Wächter der Spielhilfen (`tools/patch/card_gate.py`) liest auf allen Builds den Kartenkontakt (`0x01E26070`, Bit 1), auf den Sampler-Builds gilt ein gemountetes Volume weiter; Patternwechsel, TAP Motion, Notenassistent und Würfeln gehen mit der Karte sofort an, auch vor dem ersten Speichern | `tools/patch/card_gate.py`, `tools/emu/tap_motion_cases.py:case_card_inserted_late`, [Messung](messungen/2026-11-11-orig-und-karte-spaeter.md) |
 | Das Gerät vom Rechner: der Frame-Haken nimmt ein Befehlswort (und eine Panel-Nachricht), das `KORG.exec` hinterlegt, und gibt es in die Warteschlange des Panels; damit gehen Tasten, Drehgeber, Regler, Pads und Touchpad auch ans Gerät, dazu der Test-Modus (Display, Licht, LEDs aus, Auto Power Off angehalten); rot und blau | `tools/patch/script_remote.s`, `src/remote.mjs`, `tools/emu/remote_cases.py`, `tools/emu/testmode_cases.py`, `tools/device/remote_press.py`, [Test-Modus](test-modus.md), [Messung](messungen/2026-10-29-test-modus-fernsteuerung.md) |
 | Presets und Modulationen von der Karte: `KORG/blechtribe/Presets/e2sFx.all` wird beim Start nach den Plugins gelesen, erst ganz geprüft (Kopf, Build, Einträge, Länge, CRC-32), dann gehen die Datensätze ins RAM, wohin die Getter zeigen, und die Modulationen in die Tabelle des Builds; nie in den Flash. Fehlt die Datei, ist sie beschädigt oder ist EXIT beim Einschalten gehalten, bleiben die Presets der Firmware; nur rot | `tools/patch/fx_card.s`, `src/fx-collection.mjs`, `src/fx-v2.mjs`, `tools/emu/fx_card_cases.py`, `test/emulator-fxcard.test.mjs`, [Messung](messungen/2026-10-22-sammeldatei-karte.md) |
-| Blechy eingebaut (Seite am Ende des Menü-Rings): sein Block liegt im Abbild bei `0xC0184000` und bleibt dort (der Lader legt nur Eintrag und Variablen in den Pool), BLECH lädt ihn beim Start vor der Karte, auch ohne Karte und Datei, der Rahmenhaken öffnet und schließt ihn mit der Seite (Haken: Event EDIT rechts `0xC0064430`, Pattern EDIT links `0xC0067754`), mit EXIT beim Einschalten ist er nicht da; kein Menüpunkt, nicht exportierbar, nicht abschaltbar | `tools/patch/script_builtin.s`, `data/script/blechy-block.hex` (gebaut von `tools/blechy-build.mjs`), `tools/emu/blechy_cases.py`, `tools/emu/menu_cases.py` (`blechy_ring_cases`), `tools/patch/test_script_hooks.py`, `test/emulator-blechy.test.mjs`, [Messung](messungen/2026-10-15-blechy.md) |
+| Blechy eingebaut (Seite am Ende des Menü-Rings): sein Block liegt im Abbild bei `0xC0184000` und bleibt dort (der Lader legt nur Eintrag und Variablen in den Pool), BLECHTRIBE lädt ihn beim Start vor der Karte, auch ohne Karte und Datei, der Rahmenhaken öffnet und schließt ihn mit der Seite (Haken: Event EDIT rechts `0xC0064430`, Pattern EDIT links `0xC0067754`), mit EXIT beim Einschalten ist er nicht da; kein Menüpunkt, nicht exportierbar, nicht abschaltbar | `tools/patch/script_builtin.s`, `data/script/blechy-block.hex` (gebaut von `tools/blechy-build.mjs`), `tools/emu/blechy_cases.py`, `tools/emu/menu_cases.py` (`blechy_ring_cases`), `tools/patch/test_script_hooks.py`, `test/emulator-blechy.test.mjs`, [Messung](messungen/2026-10-15-blechy.md) |
 
 Am Gerät geprüft sind zwei Dinge: der Weg mit einem Datenpatch (Startbild) hin
 und mit dem normalen Update zurück ([Rückweg geübt](messungen/2026-10-10-rueckweg-geuebt.md))
@@ -223,7 +230,7 @@ npm run build:blech-patch -- --vsb <SYSTEM.VSB> --version 1.0.1
 | Datei | Wofür | Anwenden |
 |---|---|---|
 | `BLECH.patch` | der ganze Satz in unserem Format: alle Patches mit Haken, Prüfsummen und Startphase-Ausnahmen. Passt auf jede Hacktribe 2.02, deren Code und feste Daten stimmen, auch mit dem Kopf der blauen; mit `--stock` auf Korgs rote 2.02 und mit `--synth` auf Korgs blaue 2.02 (eigene Fingerabdrücke, die blaue mit ihrem eigenen Satz `blech-synth.json`). Das Release baut sie mit allen drei Dateien | `node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`, oder in `src/patchfile.mjs` (`applyPatchFile`) |
-| `BLECH-for-7cb4825c.bsdiff`, `BLECH-for-2b2e1c2f.bsdiff` (Hacktribe mit blauem Kopf), mit `--stock` `BLECH-for-1d0f0689.bsdiff`, mit `--synth` `BLECH-for-41fc5f1c.bsdiff` | genau diese Datei zu BLECH als bsdiff 4 (`BSDIFF40`, wie Hacktribes Patch). Der Name trägt den Anfang des sha256 der Eingabe. Die für `2b2e1c2f` gibt die Kopie mit dem Kopf des Samplers, den Hacktribe auf der blauen beim Update nimmt | `bspatch SYSTEM.VSB BLECH.VSB BLECH-for-7cb4825c.bsdiff`, ohne unsere App, nur mit der Datei mit diesem Hash |
+| `BLECH-for-7cb4825c.bsdiff`, `BLECH-for-2b2e1c2f.bsdiff` (Hacktribe mit blauem Kopf), mit `--stock` `BLECH-for-1d0f0689.bsdiff`, mit `--synth` `BLECH-for-41fc5f1c.bsdiff` | genau diese Datei zu BLECHTRIBE als bsdiff 4 (`BSDIFF40`, wie Hacktribes Patch). Der Name trägt den Anfang des sha256 der Eingabe. Die für `2b2e1c2f` gibt die Kopie mit dem Kopf des Samplers, den Hacktribe auf der blauen beim Update nimmt | `bspatch SYSTEM.VSB BLECH.VSB BLECH-for-7cb4825c.bsdiff`, ohne unsere App, nur mit der Datei mit diesem Hash |
 
 **Welche VSB passt.** Hacktribes Datei und eine bearbeitete VSB unterscheiden
 sich nur in Daten, die Nutzer ändern. An einer eigenen SYSTEM.VSB gemessen, gegen
@@ -308,8 +315,8 @@ SD-Controller selbst. FatFs hat keine Sperre, deshalb gilt für alles, was
    wechseln sich mit einer Generationsnummer und einer CRC-32 ab, so bleibt bei
    einem Abbruch (Strom, Karte gezogen) die vorige Generation lesbar.
 4. Ein Fehlschlag wird gezählt und nicht wiederholt, die Firmware läuft weiter.
-5. Keine Datei wird gelöscht oder umbenannt, kein Ordner angelegt; `KORG/blechtribe/Plugin/`
-   legt der Nutzer an.
+5. Keine Datei wird gelöscht oder umbenannt. Ordner legt nur der Start an: `KORG/blechtribe` und die Unterordner, die BLECHTRIBE
+   darin braucht, soweit sie fehlen ([Messung](messungen/2026-11-09-unterordner-rote-sicherung.md)).
 
 Eine Ausnahme ist die Übernahme des alten Ordners beim ersten Start (`tools/patch/script_migrate.s`,
 [Messung](messungen/2026-10-19-ordner-uebernehmen.md)): nur auf MENU legt sie `KORG/blechtribe` mit Unterordnern an, soweit sie fehlen, und
@@ -324,7 +331,7 @@ mountet die Karte), nicht davor; ohne gemountete Karte (`FatFs[0]->fs_type == 0`
 Das BLECH Menü (`docs/messungen/2026-10-14-blech-menue.md`) ist die Ausnahme zu 1: es
 schreibt nur auf WRITE des Nutzers (`settings.a/b.bin` nach Regel 3, `e2sPlugin.all` in einem
 Vorgang) und liest die Dateiliste und `*.blech` beim Öffnen der Liste von MANAGE PLUGINS und die Beschreibung eines Plugins beim Öffnen seiner Seite DESCRIPTION, jeweils
-im UiTask bei offenem Menübildschirm. Dann ist weder DATA UTILITY noch Sample-Laden offen: die Seiten von BLECH, die in
+im UiTask bei offenem Menübildschirm. Dann ist weder DATA UTILITY noch Sample-Laden offen: die Seiten von BLECHTRIBE, die in
 DATA UTILITY stehen (EXPORT ALL PLUGINS), sind der Menübildschirm, die Funktionsliste der Firmware ist dabei geschlossen.
 
 Belege und Grenzen: `docs/messungen/2026-10-14-skript-speicher.md`. Am Gerät
@@ -363,7 +370,7 @@ Der Ladebalken und das eigene Startbild brauchen keinen Schalter: der Balken ers
 | Ort | Größe | Stand |
 |---|---|---|
 | `FF`-Blöcke im Abbild, größter `0xC01A2100` bis `0xC0200000` | 736 KiB in 6 Blöcken, 375 KiB am Stück | keine Zeiger darauf, im Emulator beim Bedienen unverändert; am Gerät läuft Code von MFX 2 ab `0xC01A5000` (`docs/messungen/2026-10-13-mfx-umschalter-geraet.md`), die Bilder der Ladeanimation liegen bei `0xC01A3D00` bis `0xC01A4A00` (in Rot, Blau und Hacktribe `FF`); der Rest des Blocks und die gerechneten Adressen sind am Gerät ungeprüft |
-| `FF` im Abbild davor, `0xC01720B0` bis `0xC01A0000` | 188 KiB | BLECH SysEx (Code `0xC0172100` bis `0xC0173000`, die Sample-Datei-Befehle `0xC017B950` bis `0xC017C190`, Tabelle `0xC0173800`; Zustand und Puffer weiter hinten, siehe die Tabelle unten), die Preset-Tabellen (Plätze `0xC0174000` bis `0xC017CC00`, Code `0xC017C000`), Patternwechsel (Code `0xC0180000` und `0xC0173480` bis `0xC0173800`, Zustand `0xC0180F00`) und Ladeanimation (Code `0xC0181000` bis `0xC0181F00`, Zustand `0xC0181F00`; ihre Bilder liegen bei `0xC01A3D00`, der Rest des Looks bei `0xC0183900` bis `0xC0184000`, seine Puffer bei `0xC018C400` bis `0xC018CE80`), dahinter Zustand und Puffer des Startbild-Editors (`0xC0182000` bis `0xC0183000`, nur RAM), der Sample-Fehler-Patch (Code `0xC0183000` bis `0xC0183700`, Zustand `0xC0183800`), der Block von Blechy (`0xC0184000`, 15476 Byte, nur gelesen, Platz bis `0xC0188000`; sie lagen zuerst bei `0xC01A4000` und kollidierten mit dem Power-Off-Bild bei `0xC01A4A00`); gemessen an der unveränderten Firmware im Emulator: nach dem Start mit Karte und einigen Tastendrücken ist dort kein Byte beschrieben (beschrieben werden nur `0xC00F9268`, `0xC00F930F` und ab `0xC013C200` 794 Byte in anderen `FF`-Blöcken), am Gerät ungeprüft; dahinter liegt TAP Motion (Code `0xC0188000` bis `0xC0188800`, Zustand `0xC0188F00`) |
+| `FF` im Abbild davor, `0xC01720B0` bis `0xC01A0000` | 188 KiB | BLECHTRIBE SysEx (Code `0xC0172100` bis `0xC0173000`, die Sample-Datei-Befehle `0xC017B950` bis `0xC017C190`, Tabelle `0xC0173800`; Zustand und Puffer weiter hinten, siehe die Tabelle unten), die Preset-Tabellen (Plätze `0xC0174000` bis `0xC017CC00`, Code `0xC017C000`), Patternwechsel (Code `0xC0180000`, `0xC0173480` bis `0xC0173800` und `0xC0177A00` bis `0xC0177C00`, Zustand `0xC0180F00`) und Ladeanimation (Code `0xC0181000` bis `0xC0181F00`, Zustand `0xC0181F00`; ihre Bilder liegen bei `0xC01A3D00`, der Rest des Looks bei `0xC0183900` bis `0xC0184000`, seine Puffer bei `0xC018C400` bis `0xC018CE80`), dahinter Zustand und Puffer des Startbild-Editors (`0xC0182000` bis `0xC0183000`, nur RAM), der Sample-Fehler-Patch (Code `0xC0183000` bis `0xC0183700`, Zustand `0xC0183800`), der Block von Blechy (`0xC0184000`, 15476 Byte, nur gelesen, Platz bis `0xC0188000`; sie lagen zuerst bei `0xC01A4000` und kollidierten mit dem Power-Off-Bild bei `0xC01A4A00`); gemessen an der unveränderten Firmware im Emulator: nach dem Start mit Karte und einigen Tastendrücken ist dort kein Byte beschrieben (beschrieben werden nur `0xC00F9268`, `0xC00F930F` und ab `0xC013C200` 794 Byte in anderen `FF`-Blöcken), am Gerät ungeprüft; dahinter liegt TAP Motion (Code `0xC0188000` bis `0xC0188800`, Zustand `0xC0188F00`) |
 | Flash `0x660017` bis `0x6B0000` | 319 KiB | `FF`, in allen Flash-Ständen gleich (`docs/messungen/2026-10-09-flash-dump.md`) |
 | Flash `0x7C0002` bis `0x7DFFFE` | 127 KiB | ebenso |
 | Flash `0xE5F013` bis `0x1000000` | 1,6 MiB | ebenso, hinter der Werks-Samplebank |
@@ -410,13 +417,18 @@ sind kein RAM und stehen auch nicht hier.
 | `0xC017C400` + 0x800 | preset-tables | Reglergedächtnis des Insert-Effekts, 16 Parts zu 128 Byte, die Firmware füllt es beim Start | `preset_tables.py:EDIT_TABLE` |
 | `0xC0180F00` + 0x40 | pattern-switch | Zustand, darin `PS_SETTING` bei +0x10 | `pattern_switch.py:STATE` |
 | `0xC0173000` + 762 | pattern-switch | Puffer der Sync Group: die Werte, die ein Patternwechsel in der Gruppe mitnimmt | `pattern_switch.py:SG_BUF` |
-| `0xC0173400` + 0x64 | pattern-switch | die Ansicht: Kopie des Zugriffsobjekts, dessen Pattern der Block der Bank ist, die angezeigte Nummer, der Index der Info-Zeile, der Bank-Platz, den die Sync Group ins Pattern gebracht hat, die Mutes, die auf den Pads des angesehenen Patterns geschaltet wurden ([Messung](messungen/2026-10-29-vorschau-pads.md)), und die Parts, die von dort ins laufende Pattern geholt werden ([Messung](messungen/2026-10-30-vorschau-part-reinholen.md); der Code dazu liegt bei `0xC0173480`, als geänderte Bytes) | `pattern_switch.py:VIEW_W` |
+| `0xC0173400` + 0x74 | pattern-switch | die Ansicht: Kopie des Zugriffsobjekts, dessen Pattern der Block der Bank ist, die angezeigte Nummer, der Index der Info-Zeile, der Bank-Platz, den die Sync Group ins Pattern gebracht hat, die Mutes, die auf den Pads des angesehenen Patterns geschaltet wurden ([Messung](messungen/2026-10-29-vorschau-pads.md)), und die Parts, die von dort ins laufende Pattern geholt werden oder ihren eigenen Part zurückbekommen ([Messung](messungen/2026-10-30-vorschau-part-reinholen.md); der Code dazu liegt bei `0xC0173480`, als geänderte Bytes), und das Blinken der Pads ([Messung](messungen/2026-11-02-vorschau-pads-blinken.md); Code bei `0xC0177A00` bis `0xC0177E00`) | `pattern_switch.py:VIEW_W` |
 | `0xC0181F00` + 0x40 | load-bar | Zustand | `load_bar.py:STATE` |
 | `0xC0182000` bis `0xC0183000` | splash-editor | Zustand 0x100, Datensatz 0x420, zwei Bilder zu 0x400, FatFs-Datei 0x2E0 | `splash_editor.py`, fünf Einträge |
 | `0xC0183800` + 0x100 | sample-errors | Zustand (Zähler, erstes übersprungenes Sample, Grund) und die zwei Zeilen des Fensters bei +0x40 und +0x60 (der Code liegt bei `0xC0183000`, 852 Byte, als geänderte Bytes) | `sample_errors.py:STATE` |
 | `0xC0188A00` + 0x340 | script-runtime | die beiden Puffer der Einstellungsdatei des BLECH-Menüs und seine Prüfsummenliste (64 Einträge), in der dritten Code-Fläche der Laufzeit bis 1.3.7 | `script_hooks.py:SETTINGS_RAM` |
 | `0xC0188D40` + 0x150 | script-runtime | Arbeitsbereich der Liste von MANAGE PLUGINS: Ordnerobjekt, Dateiinfo, langer Name, Pfad, die Stelle jeder gelisteten Datei im Ordner, das Zeichen für LIST FULL ([Messung](messungen/2026-10-30-plugin-liste-64-entfernen.md)) | `script_menu.s:LIST_WORK` |
-| `0xC0188E90` bis `0xC0188F00` | script-runtime | Reserve: der Rest der dritten Code-Fläche, leer seit dem Umzug in die Code-Fläche ab `0xC0150300` | `script_hooks.py:LIST_WORK_END` |
+| `0xC0188E90` + 12 | script-runtime | `korg.knobHold`: ein Bit je Regler, der noch bei der Firmware ankommt (FF beim Einschalten heißt alle frei), gefaltet aus den Haltemasken aller Plugins (`holds_sync`); die zwei weiteren Wörter sind seit API 19 unbenutzt | `script_hw.s:KH_FREE` |
+| `0xC0188E9C` + 16 | script-runtime | `korg.passKeys`: ein Bit je Taste, die bei offener App zur Firmware geht, gegen ihre Vorgabe gespiegelt (FF beim Einschalten heißt die Vorgabe), und ein Bit je Taste, deren Anschlag durchging | `script_hw.s:KP_PASS` |
+| `0xC0188EAC` + 12 | script-runtime | `korg.touchLockX`: das rohe X für die Firmware (FF beim Einschalten heißt keine Sperre), das Plugin, das sperrt, und die Prüfsumme seines Blocks | `script_hw.s:TL_RAW` |
+| `0xC0188EB8` + 24 | script-runtime | `korg.keyHold` und `korg.keyMask`: ein Bit je Taste, die noch zur Firmware geht (FF beim Einschalten heißt alle frei), gefaltet aus den Haltemasken aller Plugins (`holds_sync`), ein Bit je Taste, deren Anschlag zurückgehalten wurde; die letzten zwei Wörter sind seit API 19 unbenutzt | `script_hw.s:KY_FREE` |
+| `0xC0188ED0` + 8 | script-runtime | `korg.pressKey`: ein Bit je Taste, deren Loslassen noch aussteht, gelöscht (FF beim Einschalten heißt keins) | `script_hw.s:PK_UP` |
+| `0xC0188ED8` bis `0xC0188F00` | script-runtime | Reserve: der Rest der dritten Code-Fläche, leer seit dem Umzug in die Code-Fläche ab `0xC0150300` | `script_hooks.py:PRESS_KEY_END` |
 | `0xC0188F00` + 0x40 | tap-motion | Zustand, darin `TM_SETTING` bei +0, die Lampe, die Patternnummer, der gemerkte Modus je Part und für Master FX (der Code liegt bei `0xC0188000`, 0x2B0 Byte, als geänderte Bytes) | `tap_motion.py:STATE` |
 | `0xC0189F00` + 0x40 | note-assistant | Zustand, darin `NA_SETTING` bei +0, die Takte seit der letzten Note, Note und Pad, die Pads der zuletzt gespielten Note bei +0x1C (der Code liegt bei `0xC0189000`, 0x754 Byte, als geänderte Bytes) | `note_assist.py:STATE` |
 | `0xC018AF00` + 0x40 | dice | Zustand, darin `DC_SETTING` bei +0, der Zustand des Zufallszahlengebers, die Töne der Tonleiter (der Code liegt bei `0xC018A000`, 0x4A4 Byte, als geänderte Bytes) | `dice.py:STATE` |
@@ -525,7 +537,7 @@ die Regeln.
   Am Gerät gemessen für MFX 2: der Notschalter schaltet den Code-Patch ab
   (`docs/messungen/2026-10-13-mfx-umschalter-geraet.md`).
 - **Nur für diesen Start**, nichts wird gespeichert.
-- **Hacktribes Befehle:** Mit BLECH antworten Hacktribes SysEx-Befehle `0x52` bis `0x57` nur nach
+- **Hacktribes Befehle:** Mit BLECHTRIBE antworten Hacktribes SysEx-Befehle `0x52` bis `0x57` nur nach
   EXIT beim Einschalten; Werkzeuge, die sie brauchen, laufen dann so. `0x56` (Flash schreiben)
   bleibt immer gesperrt.
 - **Grenzen:** hilft nicht gegen kaputte Startdaten, DSP-Patches, kaputte
@@ -573,7 +585,7 @@ Notschalter, und tun im Start nur den Notschalter-Test, den Bildschirm-Test und 
 (erst im Hauptbildschirm setzt der Tick-Haken den Touch-Pad-Startmodus Master FX); seine Fälle führt `check.py` über
 `mfx_cases.py` aus.
 Das Theme (`blech-theme`, reine Daten) nutzt sie für die Bitmaps der Schriften und zwei Symbole, die der Hauptbildschirm und die
-Rettungsbildschirme beim Start lesen ([BLECH Theme](hintergrund/blech-theme.md)); der Notschalter hält es nicht ab, es ändert
+Rettungsbildschirme beim Start lesen ([BLECHTRIBE Theme](hintergrund/blech-theme.md)); der Notschalter hält es nicht ab, es ändert
 keinen Ablauf.
 
 ## Die Seite Patcher
@@ -582,18 +594,18 @@ Gebaut in `site/app/patcher.mjs`, die Logik ohne Seite in `src/patcher.mjs`. Wer
 benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige Firmware.
 
 - **Start:** zwei Fragen vor den vier Schritten. Erst "Welche Electribe hast du?" mit vier Karten: blau, rot, blau mit
-  Hacktribe, rot mit Hacktribe. Dann "Was willst du?": BLECH, BLECH + Hacktribe oder Nur Update; wer Hacktribe schon
-  hat, bekommt nur BLECH und Update. Danach zeigt Schritt 1 nur, was dieser Weg braucht: beim Update das Lesen über
+  Hacktribe, rot mit Hacktribe. Dann "Was willst du?": BLECHTRIBE, BLECHTRIBE + Hacktribe oder Nur Update; wer Hacktribe schon
+  hat, bekommt nur BLECHTRIBE und Update. Danach zeigt Schritt 1 nur, was dieser Weg braucht: beim Update das Lesen über
   USB und das Feld für die Datei von der Karte, sonst Korgs Datei für die passende Electribe (für Hacktribe immer die
   rote) und das Feld. Die Wahl setzt den Weg beim Korg-Original und die Electribe für den Kopf; ein Gerät am Kabel
   geht vor. Wer gleich eine Datei ablegt, überspringt die Fragen und sieht alles wie bisher. Jeder Schritt hat Zurück.
 - **Erkennung:** Original Korg 2.02 an der SHA-256 (`1d0f0689…`, derselbe Wert, den Hacktribes
   Patch-Skript prüft; gemessen an der eigenen Datei). Eine andere Datei von Korgs Build wird abgelehnt, solange sie
-  nicht schon BLECH trägt. Hacktribe 2.02 über `identify`. Ob schon BLECH drin ist, sagt `patchesPresent`
+  nicht schon BLECHTRIBE trägt. Hacktribe 2.02 über `identify`. Ob schon BLECHTRIBE drin ist, sagt `patchesPresent`
   (über die Patches, die für das Build der Datei gemacht sind): jede Änderung steht byteweise in der
-  Datei (alle: "schon BLECH", einige: "teils gepatcht", beides wird nicht noch einmal gepatcht).
-- **Zwei Wege beim roten Korg-Original:** die Seite bietet "BLECH direkt (kein Hacktribe-Patch nötig)" als Vorgabe an und
-  "BLECH mit Hacktribe (hacktribe-2.patch selbst mitbringen)" als zweiten Weg, dazu einen Satz, was Hacktribe
+  Datei (alle: "schon BLECHTRIBE", einige: "teils gepatcht", beides wird nicht noch einmal gepatcht).
+- **Zwei Wege beim roten Korg-Original:** die Seite bietet "BLECHTRIBE direkt (kein Hacktribe-Patch nötig)" als Vorgabe an und
+  "BLECHTRIBE mit Hacktribe (hacktribe-2.patch selbst mitbringen)" als zweiten Weg, dazu einen Satz, was Hacktribe
   ergänzt: Filter für den Synth, zusätzliche Effekte und SysEx zum Lesen und Schreiben im RAM, das der Live-Modus des
   Editors braucht. Der erste Weg wendet die Patches auf Korgs Datei an, der zweite macht daraus erst Hacktribes
   Datei (nächster Abschnitt). Die Wahl lässt sich umstellen, solange nichts läuft.
@@ -608,7 +620,14 @@ benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige F
 - **Gerätename:** ein Häkchen in Schritt 2 legt den Patch `usb-name` in der Fassung für das Build der Datei dazu
   (`USB_NAME_URLS` in `src/patcher.mjs`), auch auf eine mitgebrachte `BLECH.patch`. Aus per Voreinstellung, weil
   DAW-Zuordnungen am alten Portnamen hängen. Ein anderes Häkchen macht eine neue Kopie, die alte Prüfung gilt dann nicht mehr.
-- **Nach dem Download:** Anleitung mit dem Kartenordner des laufenden Systems. Hacktribe liest
+- **Speichern:** in der App sucht Schritt 4 alle 2 s die eingesteckte Karte (macOS `/Volumes/*`, Windows die
+  Laufwerksbuchstaben, Linux `/media/$USER/*` und `/run/media/$USER/*`) mit dem KORG-Ordner des Ziels
+  (`runningFolder`/`folderOf`), zeigt den vollen Pfad und schreibt mit "Speichern" nur dorthin, legt `System/` an, wenn
+  es fehlt, und sagt vorher, wenn eine SYSTEM.VSB ersetzt wird; passen mehrere Karten, wählt man eine
+  (`src-tauri/src/save.rs`, `site/app/save-target.mjs`). Daneben bleibt der Speichern-Dialog der App mit dem Namen
+  SYSTEM.VSB. Im Browser der Speichern-Dialog (`showSaveFilePicker`), wo es ihn gibt, sonst der Download. Abbrechen
+  speichert nichts und lässt den Knopf benutzbar.
+- **Nach dem Speichern:** Anleitung mit dem Kartenordner des laufenden Systems. Hacktribe liest
   `KORG/hacktribe/System/SYSTEM.VSB` (gemessen, `docs/messungen/2026-10-08-firmware-rueckweg.md`),
   die originale Firmware `KORG/electribe sampler/System/SYSTEM.VSB` (Korg Release Note 2.02,
   Seite 2: Ordner [System] unter [KORG][electribe sampler]). Dazu der Notausgang EXIT beim Einschalten.
@@ -622,11 +641,11 @@ benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige F
   DATA UTILITY, SOFTWARE UPDATE zeigt "Next Version 2.02", die Datei wird also gefunden. Die anderen Kartenordner
   fasst der Dienst nicht an: wer die Dateien von `KORG/hacktribe/` in `KORG/blechtribe/` der virtuellen Karte will,
   kopiert den Ordner selbst im Dateimanager ("Öffnen" im Feld SD-Karte). Früher kopierte der Dienst selbst und bot
-  einen Knopf "Ordner für BLECH übernehmen" an; beides ist entfernt.
+  einen Knopf "Ordner für BLECHTRIBE übernehmen" an; beides ist entfernt.
 
-### Eine Datei, auf der schon BLECH ist
+### Eine Datei, auf der schon BLECHTRIBE ist
 
-Eine Datei mit BLECH ab Version 1.3.3 (über USB oder hineingezogen) bekommt den aktuellen Satz direkt darüber, ohne
+Eine Datei mit BLECHTRIBE ab Version 1.3.3 (über USB oder hineingezogen) bekommt den aktuellen Satz direkt darüber, ohne
 Original, für Korg rot, Korg blau und Hacktribe (roter und blauer Kopf). `data/known-releases.json` (gemacht von
 `tools/known-releases.mjs`, nur Hashes und Offsets) nennt jede Stelle, die diese Versionen geschrieben haben. Jede
 Stelle muss die Originalbytes oder die Bytes einer Version halten, sonst gilt die Datei als unbekannt und es wird
@@ -637,7 +656,7 @@ gesperrt). `tools/known-releases.mjs` läuft mit dem Tag jeder Version, damit si
 
 Nur wenn das die Datei ablehnt: bei Korgs Build baut die App das Original aus Korgs System Updater nach (die Bytes, die die
 Patches schreiben, kommen aus Korgs Datei, genutzt nur bei Treffer auf den Hash). Hacktribe hat diesen Rückfall nicht, seine
-eigenen Änderungen überschneiden BLECHs Stellen, dort braucht es die unveränderte Datei. Eine teils gepatchte
+eigenen Änderungen überschneiden BLECHTRIBEs Stellen, dort braucht es die unveränderte Datei. Eine teils gepatchte
 Hacktribe-Datei, die keine bekannte Version trägt, nennt deshalb die zwei Wege dahin: die Sicherung der eigenen
 Hacktribe-Datei (SHA-256 `7cb4825c…`) oder Korgs 2.02 mit `hacktribe-2.patch`. Versionen vor 1.3.3 fehlen in
 `known-releases.json` mit Absicht: mit ihren Stellen wäre eine Datei von 1.3.7 nicht mehr eindeutig (gemessen an
@@ -645,20 +664,35 @@ Hacktribe 2.02 mit den Sets von 1.2.0 bis 1.3.7).
 
 ### Korgs Firmware laden
 
-Wer keine `SYSTEM.VSB` hat, bekommt sie in Schritt 1 von Korg: erst den Haken "Ich habe Korgs Lizenzvertrag gelesen und
-nehme ihn an" (Korgs Downloadseite zeigt den Vertrag und sagt, man soll nur nach Annahme laden). Ohne Haken haben die
-Karten in der App keinen Link; im Browser öffnen sie Korgs Seite.
+Schritt 1 fragt "Welche Basis willst du verwenden?" (bei BLECH und beim Weg zurück): "Original Firmware" ist
+vorgewählt, "Eigene Firmware" zeigt nur das Feld für die eigene `SYSTEM.VSB` oder ein Zip mit ihr. Bei "Original
+Firmware" lädt "Weiter" Korgs Firmware gleich, ohne Haken davor: unter den Karten steht, dass "Weiter" Korgs
+Lizenzvertrag annimmt (Korgs Downloadseite zeigt den Vertrag und sagt, man soll nur nach Annahme laden; der Link im
+Satz führt dorthin). Die Karten für Korgs roten und blauen Electribe zeigen nur, welche Datei kommt, sie sind weder
+Link noch Knopf. Eine eigene Datei im Feld wird nie ersetzt. Der Haken für den Lizenzvertrag bleibt nur dort, wo die
+App Korgs Datei zu einer eigenen Datei laden soll (eine geänderte Korg-Datei oder eine mit BLECHTRIBE darauf, nur in
+der App). Ohne diese Frage (Update-Ziele, Datei vor dem Assistenten) gilt wie früher: Haken, dann "Weiter".
 
-- **App:** mit Haken lädt die App Korgs Zip selbst von Korgs Server (`korg_firmware`, `src-tauri/src/korg.rs`) und legt
+- **App:** "Weiter" lädt Korgs Zip selbst von Korgs Server (`korg_firmware`, `src-tauri/src/korg.rs`) und legt
   es ins Feld. Nichts geht über einen Server von uns, nichts wird gespeichert.
 - **Browser:** Korgs Server schickt keinen CORS-Kopf (gemessen am 26.10.: keine `Access-Control-Allow-Origin` auf GET,
-  `OPTIONS` mit 403), die Seite kann das Zip also nicht selbst holen. Der Haken macht aus den Karten den direkten Link
-  auf Korgs Zip, das man danach ins Feld zieht.
+  `OPTIONS` mit 403), die Seite kann das Zip also nicht selbst holen. "Weiter" startet den Download von Korgs Zip im
+  Browser und bleibt auf Schritt 1; das Feld für das Zip erscheint, und es nimmt `.zip` an.
 - **Zip im Feld:** das Feld nimmt Korgs Zip wie es ist und nimmt `SYSTEM.VSB` heraus (`src/zip.mjs`, mit dem
   `DecompressionStream` des Browsers); gemessen an beiden Zips von Korg: die herausgenommenen Dateien haben die SHA-256
   `1d0f0689…` (rot) und `41fc5f1c…` (blau).
 
-### BLECH mit Hacktribe für die blaue Electribe 2
+### Eigener Patch in Schritt 2
+
+Schritt 2 fragt "Welchen Patch willst du anwenden?": "Neuste Version" ist vorgewählt und der Satz dieser App, "Eigene
+blech.patch" zeigt das Feld für eine Patch-Datei (jede Endung, das Format steht am Anfang der Datei). `src/anypatch.mjs`
+liest eine GELUMPE-`.patch` (`src/patchfile.mjs`), einen Patch im JSON-Format `gelumpe-patch` (einzeln oder als
+Liste), IPS und IPS32 sowie bsdiff (`BSDIFF40`). BPS, UPS und xdelta erkennt es und lehnt sie mit Namen ab, alles
+andere mit der Liste der Formate. Das Ergebnis muss die Länge einer `SYSTEM.VSB` haben (`0x200100` Byte). IPS und bsdiff
+bringen keine Prüfsummen mit, der Patcher weiß also nicht, auf welche Firmware sie passen: die Kontrolle ist der Test im
+Emulator. Geprüft mit selbstgebauten Patches (`test/anypatch.test.mjs`), offen: Patches aus der Szene.
+
+### BLECHTRIBE mit Hacktribe für die blaue Electribe 2
 
 Hacktribe ist Code des Samplers und läuft auf der roten und der blauen gleich ([Idee 65](ideen/65-blech-hacktribe-blau.md)).
 Für die blaue unterscheidet sich nur der Kopf der Datei (Byte `0x12` und `0x2E`), und der hängt an der Firmware, die beim
@@ -673,7 +707,7 @@ Update auf dem Gerät läuft (gemessen, [Messung](messungen/2026-10-26-blech-hac
 
 - **Welche Electribe:** bei jeder Kopie mit Hacktribe fragt Schritt 2 "Für welche Electribe ist die Datei?". Vorgewählt ist,
   was der Kopf der Datei sagt; ist eine Electribe per USB verbunden, gilt sie (`DeviceSession.hardware`: Modell `0x23` ist
-  Korgs blaue, sonst die Kennung im Flash bei `0x220000`, gelesen mit Hacktribes oder BLECHs Flash-Lesen). Passt die Wahl
+  Korgs blaue, sonst die Kennung im Flash bei `0x220000`, gelesen mit Hacktribes oder BLECHTRIBEs Flash-Lesen). Passt die Wahl
   nicht zur verbundenen, sagt die Seite es in einer Zeile.
 - **Aus Korgs blauer Datei** geht kein Hacktribe: `hacktribe-2.patch` baut nur aus Korgs roter Datei. Die Seite sagt das in
   Schritt 2 und nennt den Weg über die rote Datei.
@@ -686,14 +720,14 @@ Update auf dem Gerät läuft (gemessen, [Messung](messungen/2026-10-26-blech-hac
 - Gebaut und im Emulator geprüft, am Gerät offen. Was der Emulator nicht zeigt (Hintergrundlicht-Pins, Pad-LEDs, Klang
   der blauen unter Sampler-Code), steht in der Idee unter "Offene Risiken".
 
-### BLECH direkt auf Korgs Original 2.02
+### BLECHTRIBE direkt auf Korgs Original 2.02
 
-Gebaut und im Emulator geprüft, am Gerät offen. Belege und Zahlen: [BLECH auf Korgs Original 2.02](messungen/2026-10-14-stock-blech.md).
+Gebaut und im Emulator geprüft, am Gerät offen. Belege und Zahlen: [BLECHTRIBE auf Korgs Original 2.02](messungen/2026-10-14-stock-blech.md).
 
 - **Blaues Original:** Die Seite erkennt es an der gemessenen SHA-256 und lädt
   `data/patches/blech-synth.json`. Sie bietet dafür den Synth-Satz an. Der Emulator-Test legt
   ausschließlich `SYSTEM.VSB` unter `KORG/electribe/System/` ab. Weitere VSB-Dateien dort
-  verhindern den Test; sie werden nicht gelöscht. BLECH SysEx liest auf dem Synth RAM und
+  verhindern den Test; sie werden nicht gelöscht. BLECHTRIBE SysEx liest auf dem Synth RAM und
   Flash, seine Schreibbefehle sind gesperrt. Effekt-Editor und Live-Bearbeitung bleiben
   beim Sampler. Die vorhandenen Release-Dateien `BLECH.patch` und die Sampler-bsdiff-Dateien
   enthalten den Synth-Satz nicht.
@@ -703,7 +737,7 @@ Gebaut und im Emulator geprüft, am Gerät offen. Belege und Zahlen: [BLECH auf 
   Build keine Fassung, wird der ganze Satz abgelehnt, nichts wird halb angewendet; es sei denn, der Patch nennt das
   Build in `notNeededOn` (es hat die Änderung schon, die Synth-Filter auf Hacktribes Build): dann wird er dort übersprungen. Startbild-Editor, MFX 2,
   Blech-Startbild und das Power-Off-Bild sind für beide Sampler-Builds markiert; ihre erwarteten Bytes stimmen in Korgs Datei
-  (gemessen). Kartenordner, Preset-Tabellen, BLECH SysEx und Plugin-Laufzeit haben je eine
+  (gemessen). Kartenordner, Preset-Tabellen, BLECHTRIBE SysEx und Plugin-Laufzeit haben je eine
   Fassung pro Sampler-Build. Die Laufzeit unterscheidet das native MUTE-Objekt. Die Synth-Filter
   gibt es nur für Korgs Sampler-Build.
 - **Basis erkennen:** `identifyBase` in `src/firmware.mjs`. Hacktribes Datei geht durch `identify`. Korgs Build hat die
@@ -724,9 +758,9 @@ Gebaut und im Emulator geprüft, am Gerät offen. Belege und Zahlen: [BLECH auf 
   `BLECH-for-1d0f0689.bsdiff` im Ordner. Eine Datei ohne `alternates` lehnt Korgs Original mit eigenem Hinweis ab.
 - **Prüfung:** `check.py` läuft mit Korgs Datei als `--base` und der gepatchten Kopie als `--patched`. Was dort anders
   ist (Ladebalken über dem Startbild, Ladezeit, Statusbit am DSP-Port), steht unter "Prüfung gegen Korgs Build".
-- **Was fehlt:** alles, was Hacktribe hinzufügt und BLECH nicht selbst mitbringt. Der Live-Modus des Editors braucht
+- **Was fehlt:** alles, was Hacktribe hinzufügt und BLECHTRIBE nicht selbst mitbringt. Der Live-Modus des Editors braucht
   Hacktribes SysEx `0x52` bis `0x57`; das gibt es in Korgs Build nicht ([Original im Emulator](messungen/2026-10-14-stock-emulator.md)),
-  mit BLECH ersetzen es BLECHs eigene Befehle, und der Effekt-Editor liest und schreibt Korgs Presets live
+  mit BLECHTRIBE ersetzen es BLECHTRIBEs eigene Befehle, und der Effekt-Editor liest und schreibt Korgs Presets live
   ([Effekt-Editor auf Korgs Original](messungen/2026-10-15-effekt-editor-original.md)). BLECH-Menü, Plugins, MFX 2 und
   Startbild-Editor laufen im Emulator (Prüfung bestanden), am Gerät ist das offen.
 
@@ -743,7 +777,7 @@ ist gesetzt, wenn das Ziel Hacktribe braucht, und lädt die Datei direkt aus Hac
 bleibt. Ohne Haken lädt die Seite nichts: wer will, holt die Datei bei Hacktribe (die Seite verlinkt sie) und zieht
 sie auf die Seite.
 
-Ablauf: die originale Korg 2.02 wird abgelegt, die Seite erkennt sie am Hash. Wer "BLECH mit Hacktribe" wählt,
+Ablauf: die originale Korg 2.02 wird abgelegt, die Seite erkennt sie am Hash. Wer "BLECHTRIBE mit Hacktribe" wählt,
 wird nach `hacktribe-2.patch` gefragt (mit Link und dem Grund, warum sie fehlt). Dann, alles im Browser:
 
 1. Die Datei muss mit `BSDIFF40` beginnen, darf höchstens 1 MiB groß sein (die echte hat rund 18 KB) und
@@ -758,14 +792,14 @@ wird nach `hacktribe-2.patch` gefragt (mit Link und dem Grund, warum sie fehlt).
    Patch von bsdiff4 (demselben Werkzeug) vom Original zur Hacktribe-Datei, lokal, 31 ms, Ergebnis-Hash
    gleich; mit eigener Datei prüfbar über `E2_STOCK_VSB` und `E2_HACKTRIBE_PATCH` in `test/patcher.test.mjs`.
 
-Danach geht es wie bei einer Hacktribe-Datei weiter (BLECH, Prüfung, Download). Die Anleitung zeigt für
+Danach geht es wie bei einer Hacktribe-Datei weiter (BLECHTRIBE, Prüfung, Download). Die Anleitung zeigt für
 diesen Weg den Kartenordner der Original-Firmware, `KORG/electribe sampler/System/`. Die Tests nutzen
 selbstgebaute Dateien (`test/fixtures/bsdiff/make.py`, Zufallsdaten, nichts von Korg oder Hacktribe).
 
 ### Prüfung gegen Korgs Build
 
 `check.py` besteht mit Korgs Original als Basis und der gepatchten Kopie, mit leerem Flash (88 von 88) und mit dem
-eigenen Flash-Abbild (89 von 89), Zahlen und Wege in [BLECH auf Korgs Original](messungen/2026-10-14-stock-blech.md).
+eigenen Flash-Abbild (89 von 89), Zahlen und Wege in [BLECHTRIBE auf Korgs Original](messungen/2026-10-14-stock-blech.md).
 Was bei Korgs Build anders ist und wie die Prüfung damit umgeht:
 
 - **Das Startbild steht länger und trägt einen Ladebalken.** Mit leerem Flash von 0,07 bis 0,40 s (Hacktribe 0,07 bis

@@ -14,7 +14,6 @@ value, and Auto Power Off counts again. A plugin only reads the switch; with EXI
 import argparse
 import json
 import struct
-import subprocess
 import sys
 from pathlib import Path
 
@@ -24,6 +23,7 @@ sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import menu_cases  # noqa: E402
+import node_json  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
@@ -43,6 +43,11 @@ korg.onEvent("frame", () => {
   if (korg.system.testMode == 1) { korg.backlight(1, 1, 1); korg.led(9, 255); korg.ledHold(0); korg.system.keepAwake(); }
 });"""
 WRITES = 'korg.onEvent("ready", () => { korg.system.testMode = 1; });'
+
+
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    compiled()
 
 
 def entry(name, ok, detail):
@@ -155,17 +160,10 @@ def awake_cases(payload, flash):
 
 
 def compiled():
-    code = """
-import { asmInclude } from "./src/script/arm-tables.mjs";
-import { compile } from "./src/script/compiler.mjs";
-const r = compile(process.argv[1], { name: "testmode" });
-if (!r.ok) { console.error(r.errors.map(e => e.message).join("; ")); process.exit(1); }
-const w = compile(process.argv[2], { name: "writes" });
-process.stdout.write(JSON.stringify({ include: asmInclude(), programs: { testmode: { blob: Buffer.from(r.blob).toString("hex") } },
-  refused: w.ok ? null : w.errors.map(e => e.message).join("; ") }));
-"""
-    result = subprocess.run(["node", "--input-type=module", "-e", code, PROGRAM, WRITES], cwd=ROOT, capture_output=True, text=True, check=True)
-    return json.loads(result.stdout)
+    request = node_json.compiled({"testmode": PROGRAM})
+    writes = node_json.program("writes", WRITES)
+    request["refused"] = writes.get("errors")
+    return request
 
 
 def plugin_cases(payload, flash):
@@ -206,6 +204,8 @@ def cases(vsb, flash=None):
 
 
 def main():
+    import lifetime
+    lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)
     p.add_argument("--flash", type=Path)

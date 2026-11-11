@@ -75,6 +75,45 @@ class FakeMachine:
             self.asserts.append({"file": "AM180xSpi.cpp", "line": 55, "polled": []})
 
 
+class LightMachine(FakeMachine):
+    """Drives the display light as the firmware does: from its second step red at 5 of 16, a software PWM of 8 ms (backlight.py)."""
+
+    def __init__(self, payload, flash, assert_after=None):
+        super().__init__(payload, flash, assert_after)
+        from backlight import Backlight
+        self.backlight = Backlight()
+
+    def run_until(self, seconds):
+        start = self.time_ns
+        super().run_until(seconds)
+        if self.steps < 2 or not self.powered:
+            return
+        for at in range(start, self.time_ns, 8_000_000):
+            self.backlight.write(at, 0)
+            self.backlight.write(at + 5_500_000, 0x08)
+
+    def send(self, msg):
+        super().send(msg)
+        if not self.powered:
+            self.backlight.off(self.time_ns)
+
+
+class FlickerMachine(FakeMachine):
+    """Lights pad 1 in its second step and lets it go dark for 5 ms inside its third, as the panel gets it (panel_leds.py)."""
+
+    def __init__(self, payload, flash, assert_after=None):
+        super().__init__(payload, flash, assert_after)
+        from panel_leds import PanelLeds
+        self.panel_leds = PanelLeds()
+
+    def run_until(self, seconds):
+        start = self.time_ns
+        super().run_until(seconds)
+        for at, v in {2: [(1_000_000, 255)], 3: [(4_000_000, 0), (9_000_000, 255)]}.get(self.steps, []):
+            self.panel_leds.message(start + at, 0x2C, v)
+        self.leds = {0x2C: self.panel_leds.value.get(0x2C, 0)}
+
+
 class ServiceTest(unittest.TestCase):
     def setUp(self, assert_after=None):
         self.machines = []
@@ -157,6 +196,15 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(self.request("POST", "/check?allow=1:2:3", body=bytes(VSB_SIZE) + patched)[0].status, 400)
         self.assertEqual(self.request("POST", "/check", body=b"\0" * 10)[0].status, 400)
 
+    def test_a_foreign_patch_reaches_check_py_only_when_asked(self):
+        calls = []
+        self.emu.checker = lambda base, patched, flash, allow, allow_code, boot_flash=None, progress=None, **flags: calls.append(flags) or {"ok": True, "checks": []}
+        patched = bytes(VSB_SIZE - 1) + b"\x01"
+        self.request("POST", "/check", body=bytes(VSB_SIZE) + patched)
+        self.request("POST", "/check?foreign=1", body=bytes(VSB_SIZE) + patched)
+        self.request("POST", "/check?foreign=0", body=bytes(VSB_SIZE) + patched)
+        self.assertEqual(calls, [{}, {"foreign": True}, {}], "without the flag the start phase stays checked")
+
     def test_check_progress_follows_the_run_and_ends_done_or_failed(self):
         self.assertEqual(self.request("GET", "/check/progress")[1], {"state": "idle"})
         self.assertEqual(self.request("GET", "/check/progress", token=None)[0].status, 401)
@@ -202,6 +250,65 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(seen["leds"][-1], {"7": 255})
         m = self.machines[0]
         self.assertEqual((len(m.payload), m.flash), (VSB_SIZE - 0x100, None))
+
+    def test_streams_the_display_light_colour(self):
+        """Nothing known before the firmware drives the light (the page keeps its colours), then red at 5 of 16 as the eye sees it,
+        and dark once the power is gone."""
+        def factory(payload, flash):
+            m = LightMachine(payload, flash)
+            self.machines.append(m)
+            return m
+
+        self.emu.factory = factory
+        self.request("POST", "/firmware", body=bytes(VSB_SIZE))
+        self.request("POST", "/start", body=b"{}")
+        seen = self.events(lambda s: [80, 0, 0] in s.get("backlight", []))
+        self.assertIsNone(seen["backlight"][0])
+        self.assertIn([80, 0, 0], seen["backlight"])
+        self.emu.inputs.put([6, 0, 0, 0, 0])        # the firmware lets go of the power hold
+        seen = self.events(lambda s: s.get("backlight", [None])[-1] == [0, 0, 0])
+        self.assertEqual(seen["backlight"][-1], [0, 0, 0])
+
+    def test_a_machine_without_the_light_sends_none(self):
+        self.request("POST", "/firmware", body=bytes(VSB_SIZE))
+        self.request("POST", "/start", body=b"{}")
+        seen = self.events(lambda s: s.get("leds") and s.get("backlight"))
+        self.assertEqual(set(map(repr, seen["backlight"])), {"None"})
+
+    def test_streams_every_led_change_with_its_device_time(self):
+        """A pad dark for 5 ms inside one step of the service reaches the page as two changes with their device times; the table,
+        looked at once per step, never showed it."""
+        def factory(payload, flash):
+            m = FlickerMachine(payload, flash)
+            self.machines.append(m)
+            return m
+
+        self.emu.factory = factory
+        self.request("POST", "/firmware", body=bytes(VSB_SIZE))
+        self.request("POST", "/start", body=b"{}")
+        seen = self.events(lambda s: sum(len(e["changes"]) for e in s.get("ledtrace", [])) >= 3)
+        changes = [c for e in seen["ledtrace"] for c in e["changes"]]
+        self.assertEqual([(led, v) for _, _, led, v in changes], [(0x2C, 255), (0x2C, 0), (0x2C, 255)])
+        step = int(server_module.STEP_S * 1e6)
+        got = [t for t, _, _, _ in changes]
+        self.assertEqual(got[2] - got[1], 5000, "5 ms apart on the device, in microseconds")
+        self.assertEqual(got[1], 2 * step + 4000)
+        self.assertTrue(all(lit >= t for t, lit, _, _ in changes), "an LED lights only after the panel got it")
+        self.assertTrue(all(e["now"] >= e["changes"][-1][0] for e in seen["ledtrace"]))
+
+    def test_a_page_that_missed_led_changes_gets_the_whole_table_first(self):
+        q = self.emu.subscribe()
+        while not q.full():
+            q.put_nowait(("status", {}))
+        self.emu.publish("ledtrace", {"changes": [[1, 1, 0x2C, 0]]}, {})
+        self.assertIn(q, self.emu.lagging)
+        while not q.empty():
+            q.get_nowait()
+        self.emu.publish("ledtrace", {"changes": [[2, 2, 0x2C, 255]]}, {0x2C: 255})
+        self.assertEqual(q.get_nowait(), ("leds", {0x2C: 255}), "the table, so no change it missed stays wrong")
+        self.assertEqual(q.get_nowait()[0], "ledtrace")
+        self.assertNotIn(q, self.emu.lagging)
+        self.emu.unsubscribe(q)
 
     def test_streams_the_display_as_levels_besides_the_one_bit_display(self):
         self.request("POST", "/firmware", body=bytes(VSB_SIZE))
@@ -470,7 +577,7 @@ class CardServiceTest(unittest.TestCase):
         self.assertEqual(self.request("POST", "/start", body=b"{}")[0].status, 200)
 
     def test_every_route_needs_the_token_the_page_origin_and_the_host(self):
-        for method, path in [("GET", "/sd"), ("POST", "/sd/insert"), ("POST", "/sd/eject"), ("POST", "/sd/open"), ("POST", "/sd/system")]:
+        for method, path in [("GET", "/sd"), ("POST", "/sd/insert"), ("POST", "/sd/eject"), ("POST", "/sd/card"), ("POST", "/sd/open"), ("POST", "/sd/system")]:
             self.assertEqual(self.request(method, path, token=None)[0].status, 401, (method, path))
             self.assertEqual(self.request(method, path, origin="https://example.com")[0].status, 403, (method, path))
             self.assertEqual(self.request(method, path, host="evil.example:80")[0].status, 403, (method, path))
@@ -560,6 +667,43 @@ class CardServiceTest(unittest.TestCase):
         self.assertTrue(os.access(self.card, os.W_OK))
         (self.card / "new.txt").write_text("x")
         self.assertEqual(self.request("GET", "/sd")[1]["inserted"], False)
+
+    def test_a_card_is_inserted_with_options_and_the_state_names_them(self):
+        self.boot()
+        r, body = self.request("POST", "/sd/insert", body=json.dumps({"kind": "sdsc", "writeProtect": True, "faults": [
+            {"kind": "read_crc", "lbas": {"from": 0, "to": 4}}]}).encode())
+        self.assertEqual((r.status, body["card"]["kind"], body["card"]["writeProtect"]), (200, "sdsc", True))
+        self.assertEqual(body["card"]["faults"][0]["lbas"], {"from": 0, "to": 4})
+        card = self.machines[0].card
+        self.assertEqual((card.kind, card.write_protect, len(card.faults)), ("sdsc", True, 1), "the machine has that card")
+        self.assertEqual(self.request("GET", "/sd")[1]["card"]["kind"], "sdsc")
+        self.assertIsNone(self.request("POST", "/sd/eject")[1]["card"])
+
+    def test_a_bad_option_is_refused_before_anything_is_inserted(self):
+        for bad in ({"kind": "mmc"}, {"writeProtect": 1}, {"faults": [{"kind": "melt"}]}, {"colour": "red"}, [1]):
+            r, body = self.request("POST", "/sd/insert", body=json.dumps(bad).encode())
+            self.assertEqual(r.status, 400, bad)
+        self.assertEqual(self.request("POST", "/sd/insert", body=b"{not json")[0].status, 400)
+        self.assertFalse(self.request("GET", "/sd")[1]["inserted"])
+
+    def test_the_lock_and_the_faults_change_on_the_card_that_stays_in(self):
+        self.boot()
+        self.assertEqual(self.request("POST", "/sd/card", body=b"{}")[0].status, 409, "no card in")
+        self.request("POST", "/sd/insert")
+        r, body = self.request("POST", "/sd/card", body=json.dumps({"writeProtect": True, "faults": [{"kind": "no_response", "cmds": [18]}]}).encode())
+        self.assertEqual((r.status, body["card"]["writeProtect"], body["card"]["faults"][0]["kind"]), (200, True, "no_response"))
+        self.assertEqual((self.machines[0].card.write_protect, len(self.machines[0].card.faults)), (True, 1))
+        self.assertEqual(self.request("POST", "/sd/card", body=json.dumps({"kind": "sdsc"}).encode())[0].status, 400, "a card keeps its kind")
+        r, body = self.request("POST", "/sd/card", body=json.dumps({"faults": []}).encode())
+        self.assertEqual((body["card"]["faults"], body["card"]["writeProtect"]), ([], True))
+
+    def test_a_restart_of_the_machine_keeps_the_options_of_the_card(self):
+        self.boot()
+        self.request("POST", "/sd/insert", body=json.dumps({"kind": "sdsc", "faults": [{"kind": "read_crc"}]}).encode())
+        self.request("POST", "/stop", body=b"{}")
+        self.assertEqual(self.request("POST", "/start", body=b"{}")[0].status, 200)
+        card = self.machines[-1].card
+        self.assertEqual((card.kind, [f.kind for f in card.faults]), ("sdsc", ["read_crc"]))
 
     def test_the_card_goes_into_the_machine_with_the_folder_as_its_files(self):
         (self.card / "KORG" / "hacktribe" / "Sample").joinpath("e2sSample.all").write_bytes(b"samples" * 1000)

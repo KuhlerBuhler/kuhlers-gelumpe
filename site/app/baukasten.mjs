@@ -5,23 +5,26 @@
  * Needs no firmware until the export.
  */
 import { el } from "./fields.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { icon } from "./icons.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 import { knob } from "./fx-knob.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { clamp } from "./dials.mjs";
 import { parseUnits } from "../../src/units.mjs";
 import { fxText, readFx, fxFileName, fxToRecord } from "../../src/fx-v2.mjs";
-import { buildCollection, parseCollection, collectionEntry, factoryEntry, firmwarePresets, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
-import { buildOf } from "../../src/firmware.mjs";
+import { parseCollection, collectionFor, targetFirmware, firmwarePresets, TARGETS as FIRMWARES, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
+import { HACKTRIBE_PATCH_RAW, KORG_DOWNLOADS } from "../../src/patcher.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../../data/fx/catalog.mjs";
 import { GROUPS, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
 import { GROUPS as PARAM_GROUPS, labelFor } from "../../data/map/fx-labels.mjs";
 import FINDINGS from "../../data/findings.mjs";
 import { BLOCKS, field } from "../../src/map/index.mjs";
 import { REC } from "../../src/layout.mjs";
-import { t } from "./i18n.mjs";
+import { t, tNodes, localize } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:effects");
 
 const OWN = "cee.baukasten";
 const SLOTS = "cee.baukasten.slots";
@@ -35,6 +38,13 @@ const NS = "http://www.w3.org/2000/svg";
 const RISKY = "cee.baukasten.risky";
 const readRisky = () => { try { return localStorage.getItem(RISKY) === "1"; } catch { return false; } };
 const writeRisky = on => { try { if (on) localStorage.setItem(RISKY, "1"); else localStorage.removeItem(RISKY); } catch {} };
+// The firmware on the device the collection is for, as the user picked it on the export page; not the emulator's.
+const DEVICE_FIRMWARE = "cee.baukasten.firmware";
+const readDeviceFirmware = () => { try { const v = localStorage.getItem(DEVICE_FIRMWARE); return FIRMWARES.includes(v) ? v : null; } catch { return null; } };
+const writeDeviceFirmware = v => { try { localStorage.setItem(DEVICE_FIRMWARE, v); } catch {} };
+/** The names of the two firmwares and why a file does not fit, as keys the i18n check can see. */
+const DEVICE_NAME = { hacktribe: "bk.device.hacktribe", stock: "bk.device.stock" };
+const DEVICE_ERROR = { zip: "bk.device.err.zip", device: "bk.device.err.device", build: "bk.device.err.build" };
 const readOwn = () => { try { return JSON.parse(localStorage.getItem(OWN) ?? "[]"); } catch { return []; } };
 const writeOwn = list => { try { localStorage.setItem(OWN, JSON.stringify(list)); return true; } catch { return false; } };
 
@@ -87,7 +97,7 @@ const MAP_META = BLOCKS.get("fxRecord").meta;
 const PARAM_ORDER = ["mix", "filter", "delay", "mod", "dyn", "room", "tone", "eq", "other"];
 const KIND_WORD = { mfx: "bk.kind.mfx", ifx: "bk.kind.ifx", mod: "bk.kind.mod" };
 const SLOT_COUNT_FX = 100;
-const PAGES = [["catalog", "plugins.page.catalog", "grid"], ["editor", "plugins.page.editor", "sliders"], ["mine", "bk.mine.fx", "folder"], ["export", "bk.page.export", "download"]];
+const PAGES = [["catalog", "plugins.page.catalog", "grid"], ["editor", "plugins.page.editor", "sliders"], ["mine", "bk.mine.fx", "folder"], ["mine-mod", "bk.mine.mod", "folder"], ["export", "bk.page.export", "download"]];
 
 /** The word on a card under the title: the group of the first block, or what a modulation moves first. */
 function tagOf(preset) {
@@ -123,10 +133,10 @@ function ownList() {
 
 /**
  * @param {HTMLElement} root
- * @param {{emulator?: object, presets?: object, sub?: object, trail?: (parts: string[]) => void, navbar?: (nodes: Node[]) => void}} [options]
+ * @param {{presets?: object, sub?: object, trail?: (parts: string[]) => void, navbar?: (nodes: Node[]) => void}} [options]
  *   presets: the panel of the Presets page (fx.mjs), which knows the slots and writes a record live
  */
-export function baukastenPage(root, { emulator = null, presets = null, sub = null, trail: setTrail = () => {}, navbar = () => {} } = {}) {
+export function baukastenPage(root, { presets = null, sub = null, trail: setTrail = () => {}, navbar = () => {} } = {}) {
   // The title in the breadcrumb leads to the catalog, the start of the page.
   const trail = parts => setTrail(parts, () => page("catalog"));
   let raw = null;            // data/units.json as it is, for the defaults of a block
@@ -156,8 +166,8 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   function card(preset, { creator = preset.creator, onOpen, extra = null, id = null }) {
     return el("li", { className: "cee-catalog-card cee-bk-card", id }, [
       el("h3", {}, el("button", { type: "button", className: "cee-catalog-open", textContent: preset.name, onclick: onOpen })),
-      el("p", { className: "cee-catalog-category", textContent: tagOf(preset) }),
-      el("p", { className: "muted", textContent: preset.description ? t("bk.card.desc", { kind: t(KIND_WORD[preset.kind]), description: preset.description }) : t(KIND_WORD[preset.kind]) }),
+      el("p", { className: "cee-catalog-category", textContent: localize(tagOf(preset)) }),
+      el("p", { className: "muted", textContent: preset.description ? t("bk.card.desc", { kind: t(KIND_WORD[preset.kind]), description: localize(preset.description) }) : t(KIND_WORD[preset.kind]) }),
       creatorLine(creator, preset.creatorUrl),
       extra,
     ]);
@@ -237,13 +247,13 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       const here = all.filter(u => unitLabel(kind, u.id, u.unit)[1] === group);
       if (!here.length) return null;
       return el("section", { className: "cee-bk-group" }, [
-        el("h3", { textContent: group }),
+        el("h3", { textContent: localize(group) }),
         el("div", { className: "cee-bk-units" }, here.map(u => el("button", { type: "button", className: `btn cee-bk-unit${barred(u) ? " cee-bk-unit-risky" : ""}`, disabled: !!barred(u) && !risk.checked, title: barred(u) ?? "", onclick: () => {
           const s = fx.stages.find(x => x.stage === stage);
           Object.assign(s, { unit: u.id, unitName: u.unit, params: defaultsOf(kind, u.id) });
           palette.close();
           renderFx();
-        } }, [el("strong", { textContent: unitLabel(kind, u.id, u.unit)[0] }), el("span", { className: "muted", textContent: barred(u) ?? (stage === "ifx2" && STAGE2.get(u.id)?.verdict !== "ok" ? t("bk.untested2", { unit: u.unit }) : u.unit) })]))),
+        } }, [el("strong", { textContent: localize(unitLabel(kind, u.id, u.unit)[0]) }), el("span", { className: "muted", textContent: barred(u) ?? (stage === "ifx2" && STAGE2.get(u.id)?.verdict !== "ok" ? t("bk.untested2", { unit: u.unit }) : u.unit) })]))),
       ]);
     }).filter(Boolean));
     if (window.ui?.openDialog) window.ui.openDialog(palette); else palette.showModal?.();
@@ -282,7 +292,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
         const select = (key, options, word) => {
           const box = el("select", { className: "select", disabled: readOnly });
           box.setAttribute("aria-label", t("presets.map.row", { label: word, row: n + 1 }));
-          for (const o of options) box.append(el("option", { value: String(o.raw), textContent: o.label }));
+          for (const o of options) box.append(el("option", { value: String(o.raw), textContent: localize(o.label) }));
           if (!options.some(o => o.raw === row[key])) box.append(el("option", { value: String(row[key]), textContent: t("presets.map.unknownValue", { value: row[key] }) }));
           box.value = String(row[key]);
           box.addEventListener("change", () => { row[key] = Number(box.value); if (key === "chain") row.param = 0; if (key === "chain" || key === "source") draw(); else rings(); });
@@ -299,7 +309,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
         };
         // A control with two states (the touchpad held or not, the FX switch, play) sets one value per state.
         const states = sources.find(x => x.raw === row.source)?.states?.[kind];
-        const [off, on] = states ?? [t("presets.map.from"), t("presets.map.to")];
+        const [off, on] = states ? states.map(s => localize(s)) : [t("presets.map.from"), t("presets.map.to")];
         return el("div", { className: "cee-fxmap-row" }, [
           el("div", { className: "cee-sentence" }, [
             select("source", sources.map(x => ({ raw: x.raw, label: x.who?.[kind] ?? x.label })), t("mod.slot.source")),
@@ -331,10 +341,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
 
   /** What a row drives in the words of the editor: the block as its card names it, or the level around the effect. */
   function chainLabel(piece, chain) {
-    if (!chain?.stage) return chain?.label ?? "?";
+    if (!chain?.stage) return localize(chain?.label ?? "?");
     const stage = piece.stages.find(x => x.stage === chain.stage);
     const name = stage?.unit ? unitLabel(unitKind(stage.stage), stage.unit, stage.unitName)[0] : t("bk.empty");
-    return piece.stages.length > 1 ? t("bk.chain.n", { n: piece.stages.indexOf(stage) + 1, name }) : t("bk.chain", { name });
+    return piece.stages.length > 1 ? t("bk.chain.n", { n: piece.stages.indexOf(stage) + 1, name: localize(name) }) : t("bk.chain", { name: localize(name) });
   }
 
   /** The key of the knob a map row moves: its stage and parameter, or the level it drives. */
@@ -472,15 +482,15 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
       const pick = el("button", { type: "button", className: `btn sm${s.unit ? "" : " cee-primary"}`, onclick: () => choose(s.stage) }, s.unit ? [icon("swap"), t("bk.block.other")] : [t("bk.block.pick")]);
       const card = el("div", { className: `cee-bk-block${s.unit ? "" : " cee-bk-block-empty"}`, id: `${pre}-block-${i + 1}` }, s.unit ? [
         el("div", { className: "cee-bk-block-head" }, [
-          el("h4", { textContent: label }),
-          group ? el("span", { className: "cee-bk-group-name", textContent: group }) : null,
+          el("h4", { textContent: localize(label) }),
+          group ? el("span", { className: "cee-bk-group-name", textContent: localize(group) }) : null,
           readOnly ? null : el("div", { className: "actions" }, [
             pick,
             fx.stages.length > 1 ? el("button", { type: "button", className: "btn sm", textContent: t("common.remove"), onclick: () => { Object.assign(s, { unit: 0, unitName: "nofx_thru", params: {} }); renderFx(); } }) : null,
           ]),
         ]),
         el("div", { className: "cee-bk-knob-groups" }, sections.map(([id, list]) => el("section", { className: "cee-bk-knob-group" }, [
-          el("h5", { className: "cee-bk-more", textContent: PARAM_GROUPS.find(g => g.id === id).label }),
+          el("h5", { className: "cee-bk-more", textContent: localize(PARAM_GROUPS.find(g => g.id === id).label) }),
           el("div", { className: "cee-bk-knob-row" }, list.map(one)),
         ]))),
       ] : [el("p", { className: "muted", textContent: t("bk.block.empty") }), pick]);
@@ -589,10 +599,10 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     } });
     detailHead.replaceChildren(
       el("h2", { className: "cee-detail-title", id: "cee-bk-detail-title", textContent: view.name }),
-      view.description ? el("p", { textContent: view.description }) : null,
+      view.description ? el("p", { textContent: localize(view.description) }) : null,
       el("dl", { className: "cee-detail-facts" }, [
         el("dt", { textContent: t("levels.kind") }), el("dd", { textContent: t(KIND_WORD[view.kind]) }),
-        el("dt", { textContent: t("samples.fact.category") }), el("dd", { textContent: tagOf(view) }),
+        el("dt", { textContent: t("samples.fact.category") }), el("dd", { textContent: localize(tagOf(view)) }),
         el("dt", { textContent: t("plugins.by") }), el("dd", {}, creatorName(view.creator, view.creatorUrl) ?? "?"),
       ]),
       el("div", { className: "actions" }, [download, usb, own]),
@@ -840,7 +850,64 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   ]);
 
   // ---- Export ------------------------------------------------------------------------
-  // The collection for the card needs the firmware it is for: the records are made from that firmware's own.
+  // The collection for the card needs the firmware it is for: the records are made from that firmware's own, and the
+  // device refuses a file of the other build. So the user names the firmware on the device; the app loads that one
+  // itself (Korg's zip, made Hacktribe with hacktribe-2.patch, as the patcher does) or takes the file dropped here.
+  // The emulator's firmware plays no part.
+  let deviceFirmware = readDeviceFirmware();
+  let firmwareFile = null;     // {name, bytes} dropped on the export page, kept for this visit only
+  const firmwareCache = new Map();   // target -> bytes the app loaded or made
+  const native = () => globalThis.__TAURI__?.core?.invoke;
+  const firmwareTabs = FIRMWARES.map(id => {
+    const input = el("input", { type: "radio", name: "cee-bk-firmware", value: id, checked: id === deviceFirmware, onchange: () => { deviceFirmware = id; writeDeviceFirmware(id); } });
+    return el("label", { className: "ui-segmented-option", id: `cee-bk-firmware-${id}` }, [input, el("span", { textContent: t(DEVICE_NAME[id]) })]);
+  });
+  const firmwareSwitch = el("div", { className: "ui-segmented cee-bk-firmware-switch", role: "radiogroup", id: "cee-bk-firmware" }, firmwareTabs);
+  firmwareSwitch.setAttribute("aria-label", t("bk.device"));
+  const firmwareInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-bk-firmware-file", accept: ".zip,.VSB,.vsb" });
+  const firmwareFiles = el("span", { className: "ui-dropzone-files" });
+  const firmwareDrop = el("label", { className: "ui-dropzone" }, [
+    firmwareInput,
+    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t("bk.device.drop") }), t("common.pick")]),
+    el("span", { className: "ui-dropzone-hint", textContent: t("bk.device.hint") }),
+    firmwareFiles,
+  ]);
+  firmwareInput.addEventListener("change", async () => {
+    const file = firmwareInput.files?.[0];
+    firmwareInput.value = "";
+    if (!file) return;
+    firmwareFile = { name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) };
+    firmwareCache.clear();
+    firmwareFiles.textContent = file.name;
+  });
+  const firmwareZone = dropzoneClear(firmwareInput, () => { firmwareFile = null; firmwareCache.clear(); }).node;
+  const firmwareHelp = el("p", { className: "muted", id: "cee-bk-firmware-help" }, tNodes("bk.device.help", {
+    link: el("a", { className: "cee-text-link", href: KORG_DOWNLOADS.red.page, target: window.__GELUMPE_APP ? "_self" : "_blank", rel: "noopener noreferrer", textContent: t("patcher.korg.licence.link") }),
+  }));
+  const hacktribePatch = async () => {
+    const res = await fetch(HACKTRIBE_PATCH_RAW);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return new Uint8Array(await res.arrayBuffer());
+  };
+  /** The firmware for `target`: the dropped file, else Korg's zip the app loads; null after a toast that says why. */
+  async function firmwareFor(target) {
+    if (firmwareCache.has(target)) return firmwareCache.get(target);
+    const device = t(DEVICE_NAME[target]);
+    if (!firmwareFile && !native()) { toast(t("bk.device.needFile", { device }), "error"); return null; }
+    const close = firmwareFile ? () => {} : toast(t("patcher.korg.loading"), "info", { stay: true });
+    try {
+      const bytes = firmwareFile?.bytes ?? new Uint8Array(await native()("korg_firmware", { device: "red" }));
+      const got = await targetFirmware(target, bytes, { hacktribePatch });
+      close();
+      if (!got.ok) { toast(t("bk.device.failed", { device, reason: got.code ? t(DEVICE_ERROR[got.code], { device }) : got.reason }), "error"); return null; }
+      firmwareCache.set(target, got.bytes);
+      return got.bytes;
+    } catch (e) {
+      close();
+      toast(t("bk.device.failed", { device, reason: e?.message ?? e }), "error");
+      return null;
+    }
+  }
   const allInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-bk-all", accept: ".all" });
   const allFiles = el("span", { className: "ui-dropzone-files" });
   const allDrop = el("label", { className: "ui-dropzone" }, [
@@ -849,6 +916,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     el("span", { className: "ui-dropzone-hint", textContent: t("bk.all.hint", { folder: COLLECTION_FOLDER }) }),
     allFiles,
   ]);
+  const allZone = dropzoneClear(allInput).node;
   allInput.addEventListener("change", async () => {
     const file = allInput.files?.[0];
     allInput.value = "";
@@ -998,38 +1066,42 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     }));
   }
   async function exportAll() {
-    const vsb = emulator?.firmware;
     const slots = readSlots();
     const wanted = Object.entries(slots).flatMap(([kind, map]) => Object.entries(map).map(([slot, id]) => ({ kind, slot: Number(slot), id })));
     if (!wanted.length) { toast(t("bk.export.none"), "error"); return; }
-    if (!vsb) { toast(t("bk.export.firmware"), "error"); return; }
-    const build = buildOf(vsb);
-    if (build === "synth") { toast(t("bk.export.synth"), "error"); return; }
+    const target = deviceFirmware;
+    if (!target) { toast(t("bk.device.none"), "error"); return; }
     await loadUnits();
-    const entries = [];
+    const items = [];
     for (const w of wanted) {
       const from = factoryFrom(w.id);
-      if (from) {
-        const moved = factoryEntry(vsb, w.kind, from, w.slot - 1, units);
-        if (!moved.ok) { toast(t("bk.export.factory", { slot: from, reason: moved.reason }), "error"); return; }
-        entries.push(moved.entry);
-        continue;
-      }
+      if (from) { items.push({ kind: w.kind, slot: w.slot, from }); continue; }
       const text = textOf(w.id);
       if (!text) continue;
       const read = readFx(text, units);
-      const made = read.ok ? collectionEntry(read.preset, vsb, w.slot - 1, units, { risky: readRisky() }) : read;
-      if (!made.ok) { toast(t("bk.export.entry", { name: read.preset?.name ?? t("bk.export.anEntry"), reason: made.reason }), "error"); return; }
-      entries.push(made.entry);
+      if (!read.ok) { toast(t("bk.export.entry", { name: t("bk.export.anEntry"), reason: read.reason }), "error"); return; }
+      items.push({ kind: w.kind, slot: w.slot, preset: read.preset });
     }
-    saveFile(buildCollection({ build, entries }), COLLECTION_FILE, { note: t("bk.export.note", { folder: COLLECTION_FOLDER }) });
+    const vsb = await firmwareFor(target);
+    if (!vsb) return;
+    const made = collectionFor(target, vsb, items, units, { risky: readRisky() });
+    if (!made.ok) {
+      const reason = made.code ? t(DEVICE_ERROR[made.code], { device: t(DEVICE_NAME[target]) }) : made.reason;
+      toast(made.from ? t("bk.export.factory", { slot: made.from, reason }) : t("bk.export.entry", { name: made.name ?? t("bk.export.anEntry"), reason }), "error");
+      return;
+    }
+    saveFile(made.bytes, COLLECTION_FILE, { note: t("bk.export.note", { folder: COLLECTION_FOLDER }) });
   }
   const exportButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-collection" }, [icon("download"), t("bk.export")]);
   exportButton.addEventListener("click", exportAll);
   const exportPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-export" }, [
     el("h2", { className: "cee-bk-title", textContent: t("bk.export.title", { file: COLLECTION_FILE }) }),
     el("p", { className: "muted", textContent: t("bk.export.lead", { folder: COLLECTION_FOLDER }) }),
-    allDrop,
+    el("h3", { textContent: t("bk.device") }),
+    firmwareSwitch,
+    firmwareHelp,
+    firmwareZone,
+    allZone,
     exportSwitch,
     exportLists,
   ]);
@@ -1048,8 +1120,6 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
     modCatalog.hidden = id !== "mod";
     catalogTitle.textContent = id === "mod" ? t("bk.plural.mod") : t("bk.fx");
     mineTitle.textContent = id === "mod" ? t("bk.mine.mod") : t("bk.mine.fx");
-    const mineNav = document.querySelector("#cee-baukasten-page-mine span");
-    if (mineNav) mineNav.textContent = mineTitle.textContent;
     renderEditor();
     renderMine();
     renderExport();
@@ -1065,21 +1135,24 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   }
   /** Effekte or Modulationen is a choice for the catalog and a new piece; with one open it stays as it is. */
   function switchRow() {
-    tabRow.hidden = shown === "detail" || shown === "export" || (shown === "editor" && !!(shelfKind === "fx" ? fx : mod));
+    tabRow.hidden = shown === "detail" || shown === "export" || shown in MINE || (shown === "editor" && !!(shelfKind === "fx" ? fx : mod));
   }
 
-  const PAGE_NODES = { catalog: catalogPage, editor: editorPage, mine: minePage, export: exportPage, detail: detailPage };
+  // Meine Effekte and Meine Modulationen are two pages of their own, each one shelf; they share the list and its buttons.
+  const MINE = { mine: "fx", "mine-mod": "mod" };
+  const PAGE_NODES = { catalog: catalogPage, editor: editorPage, mine: minePage, "mine-mod": minePage, export: exportPage, detail: detailPage };
   const subPages = sub?.pages("baukasten", { id: "cee-baukasten-pages", label: t("bk.pages"), items: PAGES.map(([id, title, ic]) => ({ id, title: t(title), icon: ic })), pick: id => page(id) });
   function updateTrail() {
     if (!shown) return;
     const name = shelfKind === "mod" ? mod?.name : fx?.name;
     if (shown === "detail") { trail([{ text: t("plugins.page.catalog"), go: () => page("catalog") }, view.name]); return; }
-    trail(shown === "editor" ? [t("plugins.page.editor"), ...(name ? [name] : [])] : [shown === "mine" ? mineTitle.textContent : t(PAGES.find(p => p[0] === shown)[1])]);
+    trail(shown === "editor" ? [t("plugins.page.editor"), ...(name ? [name] : [])] : [shown in MINE ? mineTitle.textContent : t(PAGES.find(p => p[0] === shown)[1])]);
   }
   function page(id) {
     if (!PAGE_NODES[id]) id = "catalog";
     shown = id;
-    for (const [key, node] of Object.entries(PAGE_NODES)) node.hidden = key !== id;
+    if (id in MINE && shelfKind !== MINE[id]) shelf(MINE[id]);
+    for (const node of new Set(Object.values(PAGE_NODES))) node.hidden = node !== PAGE_NODES[id];
     subPages?.select(id === "detail" ? "catalog" : id);
     switchRow();
     navbar(id === "export" ? [exportButton] : []);
@@ -1095,7 +1168,7 @@ export function baukastenPage(root, { emulator = null, presets = null, sub = nul
   page("catalog");
   loadUnits().then(() => { renderMine(); renderExport(); }).catch(() => renderMine());
   return {
-    /** The export page follows the firmware in the emulator. */
+    /** The factory names on the export page follow the firmware in the emulator; the exported file does not. */
     update() {
       // Runs every second (main.mjs): the slots are drawn again only when the firmware's presets come or go.
       const loaded = !!presets?.presets();

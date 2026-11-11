@@ -1,29 +1,23 @@
 /**
- * Pattern-Werkzeuge: Übergänge zwischen zwei Patterns bauen (src/transition.mjs) und einen Part
- * würfeln (src/dice.mjs). Kein Pattern-Editor: die Seite liest Patterns aus einer Sicherung, einer
+ * Pattern-Werkzeuge: einen Part würfeln (src/dice.mjs). Kein Pattern-Editor: die Seite liest Patterns aus einer Sicherung, einer
  * Einzeldatei oder dem Pattern-Puffer des verbundenen Geräts, rechnet eine Vorschau und gibt das
  * Ergebnis weiter, als Datei, als Kopie der Sicherung mit neuen Patterns oder ans Gerät. Nichts
  * davon verändert die geladene Datei, und ans Gerät geht nur, was Linter und Türsteher durchlassen
  * und du bestätigt hast.
  */
 import { el } from "./fields.mjs";
+import { stateText } from "./state.mjs";
 import { saveFile } from "./save-file.mjs";
 import { toast } from "./toast.mjs";
 import { stepEditor } from "./steps.mjs";
 import { PatternFile, Pattern, parseSinglePattern, toSinglePattern, FileError, cleanName, NAME_LENGTH } from "../../src/pattern.mjs";
-import { makeTransitions, checkTransition, pickSlots, describe } from "../../src/transition.mjs";
 import { rollPart, checkRoll, SCALES, ROOTS, DEFAULTS } from "../../src/dice.mjs";
-import { summarize, isFree, NO_SAMPLE } from "../../src/pattern-set.mjs";
+import { isFree } from "../../src/pattern-set.mjs";
 import { t } from "./i18n.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 
 const SLOTS = 250;
 const MAX_DEVICE_COPIES = 8;
-
-const pill = (tone, word) => {
-  const p = el("span", { className: "cee-status", textContent: word });
-  p.dataset.tone = tone;
-  return p;
-};
 
 function field(id, label, input, help) {
   return el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: id, textContent: label }), input, help ? el("p", { className: "ui-field-help", textContent: help }) : null]);
@@ -87,15 +81,17 @@ export function patternToolsPage(root, { device }) {
   const undoSend = el("button", { type: "button", className: "btn", id: "cee-pt-undo", textContent: t("backup.sendUndo"), disabled: true });
   const connectEmu = el("button", { type: "button", className: "btn", id: "cee-pt-connect-emu", textContent: t("device.connectEmu") });
   connectEmu.addEventListener("click", () => device.connectEmulator());
+  const sourceDrop = el("label", { className: "ui-dropzone" }, [
+    input,
+    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t("backup.drop.drag") }), t("common.pick")]),
+    el("span", { className: "ui-dropzone-hint", textContent: t("backup.drop.hint") }),
+    el("span", { className: "ui-dropzone-files" }),
+  ]);
+  const sourceZone = dropzoneClear(input).node;
   const source = el("section", { className: "ui-section" }, [
     el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: t("ptools.source") })]),
     el("p", { className: "muted", textContent: t("ptools.source.lead") }),
-    el("label", { className: "ui-dropzone" }, [
-      input,
-      el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t("backup.drop.drag") }), t("common.pick")]),
-      el("span", { className: "ui-dropzone-hint", textContent: t("backup.drop.hint") }),
-      el("span", { className: "ui-dropzone-files" }),
-    ]),
+    sourceZone,
     loaded,
     el("div", { className: "actions cee-pt-device-row" }, [connectEmu, undoSend]),
     line,
@@ -113,7 +109,6 @@ export function patternToolsPage(root, { device }) {
       if (pool.file) for (let n = 1; n <= pool.file.count; n++) if (isFree(pool.file.pattern(n))) pool.free.add(n);
       loaded.textContent = (single ? t("backup.loaded.one", { file: file.name }) : t("ptools.loaded", { file: file.name, count: pool.file.count, free: pool.free.size }));
       for (const p of pickers) p.fill({ reset: true });
-      transitions.sourceChanged();
       dice.roll();
     } catch (e) {
       const message = e instanceof FileError ? e.message : t("sampleset.unreadable", { error: e.message });
@@ -245,7 +240,7 @@ export function patternToolsPage(root, { device }) {
   });
 
   /** Put patterns into a copy of the loaded backup and offer it as a download; occupied slots ask first. */
-  async function intoBackup(items, { chainA = null } = {}) {
+  async function intoBackup(items) {
     if (!pool.file) return;
     const taken = items.filter(it => !pool.free.has(it.slot));
     if (taken.length) {
@@ -259,10 +254,9 @@ export function patternToolsPage(root, { device }) {
     }
     const all = new PatternFile(pool.file.header.slice(), pool.file.blocks.map(b => b.slice()));
     for (const it of items) all.replace(it.slot, it.pattern);
-    if (chainA) all.replace(chainA.number, chainA.pattern);
     const name = `${fileStem(pool.fileName)}-neu.e2sallpat`;
     saveFile(all.toBytes(), name);
-    say((chainA ? t("ptools.saved.backupChain", { name, slots: items.map(i => i.slot).join(", "), from: chainA.number, to: items[0].slot }) : t("ptools.saved.backup", { name, slots: items.map(i => i.slot).join(", ") })), "ok");
+    say(t("ptools.saved.backup", { name, slots: items.map(i => i.slot).join(", ") }), "ok");
   }
 
   const saveSingle = (pattern, name) => { saveFile(toSinglePattern(pattern), name); say(t("ptools.saved", { name }), "ok"); };
@@ -270,165 +264,8 @@ export function patternToolsPage(root, { device }) {
   /** Findings as a list; true when one of them stops the output. */
   function findingsList(findings) {
     const list = el("ul", { className: "ui-list cee-pt-findings" });
-    for (const f of findings) list.append(el("li", { className: "ui-row" }, [pill(f.severity === "error" ? "error" : "warn", f.severity === "error" ? t("common.error") : t("device.log.warn")), el("span", { textContent: ` ${t(f.text ?? f.message)}` })]));
+    for (const f of findings) list.append(el("li", { className: "ui-row" }, [stateText(f.severity === "error" ? "error" : "warn", f.severity === "error" ? t("common.error") : t("device.log.warn")), el("span", { textContent: ` ${t(f.text ?? f.message)}` })]));
     return list;
-  }
-
-  // ---- Übergänge ----
-  const transitions = (() => {
-    const T = {
-      count: 2, direction: "auto", tempo: "ease", pad: "hold", sweep: "tail", valley: "auto", accent: "auto", arrive: "pulse",
-      thin: false, insertMotion: false, chain: true, chainA: false, slots: [], slotsTouched: false, slotB: "", names: [],
-    };
-    const results = el("div", { className: "cee-pt-results", id: "cee-pt-t-results" });
-    const pickA = picker("cee-pt-a", t("ptools.t.a"), 0, () => sourceChanged());
-    const pickB = picker("cee-pt-b", t("ptools.t.b"), 1, () => sourceChanged());
-    const opt = (id, label, options, key) => selectField(id, label, options, T[key], v => { T[key] = v; recompute(); });
-    const fields = [
-      numberField("cee-pt-count", t("ptools.t.count"), { min: 1, max: 8, value: T.count, onChange: v => { T.count = Number(v) || 0; T.slotsTouched = false; T.names = []; recompute(); } }),
-      opt("cee-pt-direction", t("ptools.t.direction"), [["auto", t("ptools.t.direction.auto")], ["blend", t("ptools.t.direction.blend")], ["down", t("ptools.t.direction.down")], ["up", t("ptools.t.direction.up")]], "direction"),
-      opt("cee-pt-tempo", t("ptools.t.tempo"), [["ease", t("ptools.t.tempo.ease")], ["ramp", t("ptools.t.tempo.ramp")], ["keep", t("ptools.t.tempo.keep")]], "tempo"),
-      opt("cee-pt-pad", t("ptools.t.pad"), [["hold", t("ptools.t.pad.hold")], ["release", t("ptools.t.pad.release")], ["corner", t("ptools.t.pad.corner")], ["none", t("ptools.t.pad.none")]], "pad"),
-      opt("cee-pt-sweep", t("backup.group.filter"), [["tail", t("ptools.t.sweep.tail")], ["run", t("ptools.t.sweep.run")], ["none", t("ptools.t.sweep.none")]], "sweep"),
-      opt("cee-pt-valley", t("ptools.t.valley"), [["auto", t("ptools.t.valley.auto")], ["none", t("common.no")]], "valley"),
-      opt("cee-pt-accent", t("ptools.t.accent"), [["auto", t("ptools.t.accent.auto")], ["none", t("ptools.t.accent.none")]], "accent"),
-      opt("cee-pt-arrive", t("ptools.t.arrive"), [["pulse", t("ptools.t.arrive.pulse")], ["all", t("ptools.t.arrive.all")]], "arrive"),
-    ];
-    const switches = [
-      switchField("cee-pt-thin", t("ptools.t.thin"), T.thin, v => { T.thin = v; recompute(); }),
-      switchField("cee-pt-insert-motion", t("ptools.t.insertMotion"), T.insertMotion, v => { T.insertMotion = v; recompute(); }),
-      switchField("cee-pt-chain", t("ptools.t.chain"), T.chain, v => { T.chain = v; recompute(); }),
-      switchField("cee-pt-chain-a", t("ptools.t.chainA"), T.chainA, v => { T.chainA = v; recompute(); }),
-    ];
-    const slotB = numberField("cee-pt-slot-b", t("ptools.t.slotB"), { min: 1, max: SLOTS, value: "", help: t("ptools.t.slotB.help"), onChange: v => { T.slotB = v; recompute(); } });
-
-    const node = el("section", { className: "ui-section" }, [
-      el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: t("ptools.t.title") })]),
-      el("p", { className: "muted", textContent: t("ptools.t.lead") }),
-      el("div", { className: "cee-grid" }, [pickA.node, pickB.node]),
-      el("div", { className: "cee-grid" }, [...fields.map(f => f.node), slotB.node]),
-      el("div", { className: "cee-grid" }, switches.map(f => f.node)),
-      results,
-    ]);
-
-    let current = null;
-
-    function sourceChanged() {
-      T.slotsTouched = false;
-      T.names = [];
-      const b = resolve(pickB.select.value);
-      T.slotB = b?.number ? String(b.number) : "";
-      slotB.input.value = T.slotB;
-      recompute();
-    }
-
-    function slotsOk(a, b, slots) {
-      const limit = pool.file ? pool.file.count : SLOTS;
-      if (slots.length !== T.count || slots.some(s => !Number.isInteger(s) || s < 1 || s > limit)) return t("ptools.t.slots.range", { limit });
-      if (new Set(slots).size !== slots.length) return t("ptools.t.slots.same");
-      if (slots.some(s => s === a.number || s === b.number)) return t("ptools.t.slots.ab");
-      return null;
-    }
-
-    function recompute() {
-      results.replaceChildren();
-      current = null;
-      const a = resolve(pickA.select.value), b = resolve(pickB.select.value);
-      if (!a || !b) { results.append(el("p", { className: "muted", textContent: t("ptools.t.pickAB") })); return; }
-      if (!Number.isInteger(T.count) || T.count < 1 || T.count > 8) { results.append(el("p", { className: "cee-error", textContent: t("ptools.t.countRange") })); return; }
-      if (!T.slotsTouched || T.slots.length !== T.count) {
-        T.slots = pool.file && a.number ? pickSlots(pool.file, T.count, a.number, [a.number, b.number].filter(Boolean)) : [];
-        T.slots = T.slots.length === T.count ? T.slots : [];
-      }
-      const slotProblem = T.slots.length ? slotsOk(a, b, T.slots) : null;
-      const useSlots = T.slots.length === T.count && !slotProblem;
-      let result;
-      try {
-        result = makeTransitions(a.pattern, b.pattern, {
-          count: T.count, direction: T.direction, tempo: T.tempo, pad: T.pad, sweep: T.sweep,
-          valley: T.valley === "none" ? "none" : undefined, accent: T.accent === "none" ? "none" : undefined, arrive: T.arrive,
-          thinBefore: T.thin ? 0.6 : null, insertMotion: T.insertMotion,
-          slots: useSlots ? T.slots : null, slotB: Number(T.slotB) || undefined, chain: T.chain && useSlots, names: T.names,
-        });
-      } catch (e) {
-        results.append(el("p", { className: "cee-error", textContent: e.message }));
-        return;
-      }
-      result.items.forEach((it, k) => { it.slot = useSlots ? T.slots[k] : null; });
-      const sa = summarize(a.pattern), sb = summarize(b.pattern);
-      const items = result.items.map(it => ({ ...it, findings: checkTransition(it.pattern, a.pattern) }));
-      current = { a, b, items, result };
-      render(a, b, sa, sb, items, result, slotProblem);
-    }
-
-    function render(a, b, sa, sb, items, result, slotProblem) {
-      const blocked = items.some(it => it.findings.some(f => f.severity === "error"));
-      const text = describe({ ...result, items }, sa, sb, a.pattern, b.pattern, a.number, b.number);
-      const head = el("p", { id: "cee-pt-t-summary", textContent: text.split("\n")[0] });
-      const fx = result.arrivalFx.length ? t("ptools.t.fx", { count: result.arrivalFx.length, slots: result.arrivalFx.join(", ") }) : t("ptools.t.noFx");
-      const detail = el("details", { className: "ui-details", id: "cee-pt-t-detail" }, [el("summary", { textContent: t("ptools.t.detail") }), el("div", { className: "ui-details-body" }, [el("pre", { className: "cee-pt-text", textContent: text })])]);
-      const cards = items.map((it, k) => {
-        const name = textField(`cee-pt-t-name-${k}`, t("mod.field.name"), { value: it.name, onChange: v => { T.names[k] = v; recompute(); }, help: t("ptools.name.help", { max: NAME_LENGTH }) });
-        const slot = numberField(`cee-pt-t-slot-${k}`, t("ptools.slot"), { min: 1, max: SLOTS, value: T.slots[k] || "", onChange: () => {} });
-        slot.input.classList.add("cee-pt-slot");
-        slot.input.addEventListener("change", () => {
-          T.slotsTouched = true;
-          T.slots = [...results.querySelectorAll(".cee-pt-slot")].map(i => Number(i.value));
-          recompute();
-        });
-        const stop = it.findings.some(f => f.severity === "error");
-        const save = el("button", { type: "button", className: "btn", id: `cee-pt-t-save-${k}`, textContent: t("ptools.saveSingle"), disabled: stop });
-        save.addEventListener("click", () => saveSingle(it.pattern, `T${it.index}${it.slot ? `_${String(it.slot).padStart(3, "0")}` : ""}_${safe(it.name)}.e2spat`));
-        const send = el("button", { type: "button", className: "btn", id: `cee-pt-t-send-${k}`, textContent: t("backup.send"), disabled: stop || !device.session });
-        send.addEventListener("click", () => sendToDevice(it.pattern, it.name));
-        return el("li", { className: "cee-pt-card" }, [
-          el("h3", { textContent: t("ptools.t.item", { n: it.index }) }),
-          el("div", { className: "cee-grid" }, [name.node, slot.node]),
-          el("ul", { className: "cee-pt-notes" }, it.notes.map(n => el("li", { textContent: n }))),
-          it.findings.length ? findingsList(it.findings) : null,
-          el("div", { className: "actions" }, [save, send]),
-        ]);
-      });
-      const intoFile = el("button", { type: "button", className: "btn cee-primary", id: "cee-pt-t-backup", textContent: t("ptools.intoBackup"), disabled: blocked || !pool.file || items.some(it => !it.slot) });
-      intoFile.addEventListener("click", () => {
-        let chainA = null;
-        if (T.chainA && a.number) {
-          const p = new Pattern(a.pattern.bytes);
-          p.setRaw("pattern.chainTo", [], items[0].slot);
-          p.setRaw("pattern.chainRepeat", [], 0);
-          chainA = { number: a.number, pattern: p };
-        }
-        intoBackup(items, { chainA });
-      });
-      const why = !pool.file ? t("ptools.t.needBackup") : items.some(it => !it.slot) ? t("ptools.t.needSlots") : "";
-      results.replaceChildren(...[
-        head,
-        slotProblem ? el("p", { className: "cee-hint", id: "cee-pt-t-slots", textContent: slotProblem }) : null,
-        partGrid([{ label: "A", pattern: a.pattern }, ...items.map(it => ({ label: t("ptools.t.item", { n: it.index }), pattern: it.pattern })), { label: "B", pattern: b.pattern }]),
-        el("p", { className: "muted", textContent: fx }),
-        detail,
-        el("ol", { className: "cee-pt-cards" }, cards),
-        el("div", { className: "actions" }, [intoFile, why ? el("span", { className: "muted", textContent: why }) : null]),
-      ].filter(Boolean));
-      if (blocked) results.prepend(el("p", { className: "cee-error", textContent: t("ptools.t.blocked") }));
-    }
-
-    return { node, sourceChanged, recompute };
-  })();
-
-  /** Audible steps per part, one row per pattern; a muted part with steps shows its count in brackets. */
-  function partGrid(rows) {
-    const table = el("table", { className: "cee-pt-grid" });
-    table.append(el("caption", { textContent: t("ptools.grid.caption") }));
-    table.append(el("thead", {}, [el("tr", {}, [el("th", { scope: "col", textContent: t("ptools.grid.pattern") }), ...Array.from({ length: 16 }, (_, i) => el("th", { scope: "col", textContent: String(i + 1) }))])]));
-    table.append(el("tbody", {}, rows.map(r => {
-      const s = summarize(r.pattern);
-      return el("tr", {}, [el("th", { scope: "row", textContent: r.label }), ...s.parts.map(x => {
-        const shown = x.on.length && x.sample !== NO_SAMPLE;
-        return el("td", { textContent: shown ? (x.audible ? String(x.on.length) : `(${x.on.length})`) : "", className: x.audible ? "cee-pt-on" : "" });
-      })]);
-    })));
-    return el("div", { className: "cee-pt-scroll" }, table);
   }
 
   // ---- Würfeln ----
@@ -454,7 +291,7 @@ export function patternToolsPage(root, { device }) {
     const seed = numberField("cee-pt-seed", t("ptools.d.seed"), { min: 0, max: 4294967295, value: D.seed, onChange: v => { D.seed = Number(v); roll(); } });
     const again = el("button", { type: "button", className: "btn", id: "cee-pt-reroll", textContent: t("ptools.d.again") });
     again.addEventListener("click", () => { D.seed = randomSeed(); seed.input.value = String(D.seed); roll(); });
-    const nameField = textField("cee-pt-d-name", t("ptools.d.name"), { placeholder: t("ptools.t.direction.auto"), help: t("ptools.d.name.help"), onChange: v => { D.name = v; roll(); } });
+    const nameField = textField("cee-pt-d-name", t("ptools.d.name"), { placeholder: t("ptools.d.name.auto"), help: t("ptools.d.name.help"), onChange: v => { D.name = v; roll(); } });
     const kind = selectField("cee-pt-kind", t("levels.kind"), [["drums", t("ptools.d.kind.drums")], ["melody", t("ptools.d.kind.melody")]], D.kind, v => { D.kind = v; syncKind(); roll(); });
     const part = selectField("cee-pt-part", t("ptools.d.part"), Array.from({ length: 16 }, (_, i) => [i, t("backup.part", { part: i + 1 })]), D.part, v => { D.part = Number(v); roll(); });
     const density = rangeField("cee-pt-density", t("ptools.d.density"), { min: 0, max: 100, value: D.density * 100, show: v => `${v} %`, onChange: v => { D.density = v / 100; roll(); } });
@@ -512,8 +349,9 @@ export function patternToolsPage(root, { device }) {
       steps.node.hidden = false;
       steps.show(D.part);
       if (pool.file && !slot.input.dataset.touched) {
-        const free = pickSlots(pool.file, 1, from.number ?? 0, []);
-        slot.input.value = String(free[0] ?? from.number ?? 1);
+        const free = [...pool.free];
+        const near = from.number ?? 0;
+        slot.input.value = String(free.find(s => s > near) ?? free[0] ?? from.number ?? 1);
       }
       showFindings();
     }
@@ -544,9 +382,8 @@ export function patternToolsPage(root, { device }) {
 
   // ---- Zusammenbau ----
   const intro = el("p", { className: "cee-pt-intro", textContent: t("ptools.intro") });
-  root.replaceChildren(intro, source, transitions.node, dice.node);
+  root.replaceChildren(intro, source, dice.node);
   for (const p of pickers) p.fill({ reset: true });
-  transitions.recompute();
   dice.roll();
 
   function sessionChanged() {
@@ -554,7 +391,6 @@ export function patternToolsPage(root, { device }) {
     for (const p of pickers) p.fetch.disabled = !s;
     undoSend.disabled = !s || !s.history.some(h => h.pattern);
     dice.syncButtons();
-    transitions.recompute();
   }
 
   return { sessionChanged };

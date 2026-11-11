@@ -3,9 +3,10 @@
  * picture per slot, edited pixel by pixel, to a BLLA file the Patcher writes. Logic: src/loading-anim.mjs.
  */
 import { el } from "./fields.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { icon } from "./icons.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 import { pixelsOf, paint, switchOf } from "./splash.mjs";
 import { drawDisplay } from "./emulator.mjs";
 import { number } from "../../src/text.mjs";
@@ -14,6 +15,8 @@ import {
   encodeAnimation, decodeAnimation, validateAnimation, costPerFrame, progressIndex, loopPicture, pixelsToFrame, frameToPixels,
   slotSource, slotsToAnimation, animationToSlots, SLOTS, MAX_BYTES, HEADER_BYTES, SPLASH_W, SPLASH_H,
 } from "../../src/loading-anim.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:splash");
 
 const KEY = "cee.loading.anim";
 const LOOP_MS = 96;     // the firmware's loop picture time (tools/patch/load_bar.py)
@@ -554,6 +557,13 @@ export function loadingAnimSection() {
     return out;
   }
 
+  const dropZone = dropzoneClear(fileInput, () => {
+    source = [];
+    own.clear();
+    pause();
+    go(0);
+    update();
+  }).node;
   fileInput.addEventListener("change", async () => {
     const picked = [...(fileInput.files ?? [])].sort(byName);
     fileInput.value = "";
@@ -602,7 +612,7 @@ export function loadingAnimSection() {
   return el("section", { className: "ui-section cee-anim", id: "cee-anim" }, [
     el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", id: "cee-anim-title", textContent: t("splash.anim.title") })]),
     el("p", { className: "cee-splash-lead", textContent: t("splash.anim.lead") }),
-    drop,
+    dropZone,
     loading,
     modeField,
     gallery,
