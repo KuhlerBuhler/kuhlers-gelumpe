@@ -144,7 +144,7 @@ LEDs, Patternwechsel erst nach Bestätigung, Sync-Gruppen, TAP Motion, den Noten
 Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
 zurück (auch beim Abspielen), Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
 hacktribe- oder electribe-sampler-Ordners, Blechy als kleines Haustier, ein Startbild mit Ladebalken,
-verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten,
+verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten, die zwei Dateien schreibt die App per USB auf die Karte,
 zur Lizenz siehe [docs/doom-lizenz.md](docs/doom-lizenz.md)).
 
 ## Für Bastler

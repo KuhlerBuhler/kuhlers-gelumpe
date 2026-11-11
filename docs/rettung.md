@@ -60,7 +60,7 @@ Einschalten (Fall 2) sucht woanders: sie richtet sich nach der Kennung des Gerä
 ## Doom
 
 SHIFT + TAP beim Einschalten startet Doom von der Karte (Patch `doom-loader`, nur mit BLECHTRIBE aus dem Patcher
-und mit `doom.bin` unter `KORG/blechtribe/Doom/`). Der Rückweg ist kurz und liegt in der Firmware:
+und mit `doom.bin` unter `KORG/blechtribe/Doom/`, per Kartenleser oder auf der Seite Doom per USB). Der Rückweg ist kurz und liegt in der Firmware:
 
 - **Ohne SHIFT + TAP** startet der normale Sampler. Das ist im Emulator geprüft, am Gerät nicht.
 - **EXIT beim Einschalten** hält alle Patches heraus, auch den Lader: der Lader springt nur bei genau
