@@ -3531,6 +3531,15 @@ input[type="checkbox"]:not([role="switch"]):disabled {
   cursor: default;
 }
 
+/* The end of the navbar: the USB icon and the language menu together at the right edge. One auto margin for both, since a
+   second one (.cee-nav-state) splits the free room and would put the icon in the middle of the bar. */
+.cee-nav-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-left: auto;
+}
+
 /* USB status in the navbar: the plug icon is lit while an Electribe is on the USB port. */
 .cee-usb {
   display: inline-flex;
