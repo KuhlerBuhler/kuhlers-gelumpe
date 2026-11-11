@@ -149,7 +149,7 @@
 .equ M_LEVEL_SYNC, 4          ; level 4: the page SYNC GROUP, between the Pattern menu (behind CHAIN REPEAT) and the Part menu, where the build has sync groups
 .equ HAS_SYNC, SYNC_GROUP_AT != 0
 .equ M_LEVEL_PLUGIN, 5        ; level 5: MANAGE PLUGINS, one page a plugin (M_PAGE is its place in the list, M_PSEL follows it)
-.equ M_LEVEL_PSUB, 6          ; level 6: the pages of one plugin, opened by ENTER on its page of MANAGE PLUGINS: DESCRIPTION, its own pages, OFF, REMOVE
+.equ M_LEVEL_PSUB, 6          ; level 6: the pages of one plugin, opened by ENTER on its page of MANAGE PLUGINS: ACTIVE, DESCRIPTION, its own pages, OFF, REMOVE
 .equ M_LEVEL_GLOBAL, 7        ; level 7: the page PLUGIN RUNTIME, shown as the last page of the firmware's GLOBAL PARAMETERS (screen 9)
 .equ M_LEVEL_DU, 8            ; level 8: our pages of DATA UTILITY, shown behind the firmware's last function (screen 15)
 .equ MENU_RING_TAIL, 1 + HAS_SYNC   ; the page of Blechy and SYNC GROUP are pages the firmware's ring does not have (BLECH is M_COUNT)
@@ -3323,8 +3323,8 @@ menu_confirm_add:
 ; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST, LAST PATTERN, STEREO 1 PAD, KEY PADS, FILTER TOGGLE and AUTO SAVE (the main dial
 ; changes them, WRITE keeps them). ENTER on PLUGINS opens level 5 (M_LEVEL_PLUGIN) straight away, one page a plugin with its name and its
 ; state, the dial moves through the list as in the firmware's file browser, EXIT goes back to the row PLUGINS; the one page of the group, MANAGE PLUGINS, only shows when
-; there is no plugin or after OFF and REMOVE, ENTER there opens the list again; ENTER on a plugin opens level 6 (M_LEVEL_PSUB), the pages of that plugin: DESCRIPTION, STATE (the dial switches
-; it on and off), the pages it added (korg.menu.add), OFF and REMOVE. EXIT goes one level up. M_PAGE counts within the level, the counter shows only that level.
+; there is no plugin or after OFF and REMOVE, ENTER there opens the list again; ENTER on a plugin opens level 6 (M_LEVEL_PSUB), the pages of that plugin: ACTIVE (the dial switches
+; it on and off), DESCRIPTION, the pages it added (korg.menu.add), OFF and REMOVE. EXIT goes one level up. M_PAGE counts within the level, the counter shows only that level.
 ; Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, behind BLECH, on which Blechy, the app built into BLECH, shows
 ; himself (the frame hook opens and closes him by this level). Level 4 (M_LEVEL_SYNC) is the page SYNC GROUP between the Pattern and
 ; the Part menu: a setting of the pattern in RAM, saved with WRITE as the Pattern menu's pages. Levels 7 (M_LEVEL_GLOBAL, PLUGIN
@@ -3470,13 +3470,13 @@ menu_kind_list:                 ; a plugin, and behind the last one LIST FULL wh
     mov r1, r5
     strb r5, [r4, #M_PSEL]      ; the plugin this page shows is the one DESCRIPTION, OFF, REMOVE and loading are about
     b menu_kind_done
-menu_kind_plugin:               ; DESCRIPTION, STATE, the pages the plugin added (korg.menu.add), OFF, REMOVE; not loaded: DESCRIPTION, STATE, REMOVE
+menu_kind_plugin:               ; ACTIVE, DESCRIPTION, the pages the plugin added (korg.menu.add), OFF, REMOVE; not loaded: ACTIVE, DESCRIPTION, REMOVE
     ldrb r1, [r4, #M_PSEL]
     cmp r5, #0
-    moveq r0, #39
+    moveq r0, #52
     beq menu_kind_done
     cmp r5, #1
-    moveq r0, #52
+    moveq r0, #39
     beq menu_kind_done
     mov r0, r1
     bl menu_entry
@@ -3631,7 +3631,7 @@ menu_count_out:
 menu_count_plugins:             ; MANAGE PLUGINS
     mov r0, #1
     pop {r4, pc}
-menu_count_plugin:              ; a plugin that is not loaded has DESCRIPTION, STATE and REMOVE, a loaded one its pages and OFF as well
+menu_count_plugin:              ; a plugin that is not loaded has ACTIVE, DESCRIPTION and REMOVE, a loaded one its pages and OFF as well
     ldrb r0, [r4, #M_PSEL]
     bl menu_entry
     cmp r0, #0
@@ -5601,7 +5601,7 @@ menu_slot_keys:
     mov r0, r5
     bl menu_confirm
     b menu_keys_done
-menu_keys_psub:                 ; ENTER on a plugin of MANAGE PLUGINS: its pages (level 6), DESCRIPTION first
+menu_keys_psub:                 ; ENTER on a plugin of MANAGE PLUGINS: its pages (level 6), ACTIVE first
     ldr r2, =MENU_STATE
     mov r0, #M_LEVEL_PSUB
     str r0, [r2, #M_LEVEL]
@@ -5866,7 +5866,7 @@ str_pedit:
 str_pdel:
     .asciz "REMOVE"
 str_pstate:
-    .asciz "STATE"
+    .asciz "ACTIVE"
 str_noplugin:
     .asciz "No Plugin"
 str_pdel_sure:

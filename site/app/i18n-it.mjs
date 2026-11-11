@@ -2020,7 +2020,7 @@ export default {
   "catalog.lauflicht.description": "Una luce corre sui pad.",
   "catalog.category.light": "Luce",
   "catalog.pulsieren.description": "Tutti i LED rossi dei pad diventano più chiari e più scuri.",
-  "catalog.taktblinker.description": "Il LED TAP lampeggia ogni 500 ms, con PLAY il pad 1 si accende a ogni quarto passo. Un esempio dei timer.",
+  "catalog.playtakt.description": "Finché il sequencer suona, il LED PLAY lampeggia al tempo del pattern; con STOP e in pausa resta acceso. Un esempio dei timer.",
   "catalog.momentmute.description": "I mute cambiano solo finché PART MUTE è tenuto premuto: allora un pad silenzia o riattiva la sua parte e i pad mostrano i mute. Rilasciato, i pad suonano come in modalità TRIGGER.",
   "catalog.momentmute.control1": "Tenere PART MUTE e premere un pad: parte muta o attiva",
   "catalog.momentmute.control2": "Menu -> BLECH -> MOMENT MUTE: 1 attivo, 0 spento",
