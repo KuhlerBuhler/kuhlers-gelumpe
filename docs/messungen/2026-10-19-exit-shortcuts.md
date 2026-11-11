@@ -31,6 +31,37 @@ das ein Pad auf seine ursprünglichen Werte zurücksetzt. EXIT hat auf dem Haupt
   Bis 30.10. nahm nur TRIGGER den Part des Pads, in PART MUTE und KEYBOARD setzte Pad 6 den gewählten Part zurück (gemessen).
 - Nicht mit EXIT beim Einschalten, nicht auf der blauen (dort nicht gemessen, `SHORTCUTS 0`). Drei Bytes vor `MENU_STATE`.
 
+## Die Stimmen spielen das alte Sample (Gerätemeldung 10.11.)
+
+Am Gerät, Testbuild 1.4.5: das Sample eines Parts gedreht (OSC), dann EXIT + Pad. Anzeige und Werte gingen zurück, nach PLAY
+spielte aber das gedrehte Sample. Beim Abspielen schien das Kürzel gar nichts zu tun.
+
+**Im Emulator gemessen (Hacktribe mit BLECH):** Der Part hat für die Stimmen ein eigenes Objekt (`0xC009AF20(Part)`), dort
+steht bei `+0x34` das Sample, das die nächste Note nimmt. Der OSC-Drehgeber schreibt das Pattern und meldet die Änderung
+(`0xC004B208`, Parameter `0x18`), die Meldung setzt `+0x34` neu (`0xC0099FFC`, `0xC0099D88`). Das Pattern-Laden `0xC004AB84`
+allein tut das nicht: beim Patternwechsel ruft erst der Aufrufer `0xC0079B78` nach dem Laden die Einrichtung aller 16 Parts
+(`0xC009B5DC`). Ohne sie blieb nach EXIT + Pad `+0x34` auf dem gedrehten Sample (0 gespeichert, 3 gedreht: das Objekt 3), die
+Note von Pad 1 nahm 3, nach PLAY die Noten des Sequencers auch, gestoppt wie beim Abspielen.
+
+**Der Fix:** Nach dem Laden ruft das Kürzel `0xC009B5EC(Part)`, die Klangeinrichtung eines Parts (`0xC0098BE0`): Sample und
+weitere Zustände ins Objekt, die Stimmen des Parts frei, beim Stereo-Paar auch der Nachbar (aus dem Code gelesen). Dieselbe Funktion ruft Copy Part der
+Firmware am Ende (`0xC0066A58`), nachdem es einen ganzen Part geschrieben hat. Die Einrichtung aller Parts mit der globalen
+Stimmenrücksetzung (`0xC009B5DC`) bleibt weg, sie würde beim Abspielen alle Parts abschneiden. Blau: `0xC00881D4`, dort ohne
+Stereo-Paar (gelesen, `data/synth-map/shortcuts.json`); rot gleich Hacktribe.
+
+Eine Sperre für das Abspielen gab es im Code nicht: auch vorher kamen beim Abspielen die Bytes zurück
+(`shortcut:exit_pad_while_playing`), nur der Klang nicht. Das erklärt hergeleitet den Eindruck, es gehe nur im Stand.
+
+Geprüft (`shortcut:exit_pad_resets_the_voice_stopped`, `..._while_playing`, `shortcut:exit_pad_resets_the_dsp_stopped`,
+`..._while_playing`): Part 1 auf Sample 0, OSC drei Schritte hoch auf 3, das Objekt folgt der Firmware auf 3; EXIT + Pad 1: das
+Objekt 0, Pad 1 und der Sequencer (nur Part 1 hat Steps) nehmen 0, das Abspielen läuft weiter. Am DSP, Zwillingsprobe ohne
+Steps: die Note von Pad 1 schickt dem Postfach `0xFF900A34` unberührt den Wert 1512, mit gedrehtem Sample 2016; nach EXIT + Pad
+1512 und keine 2016, gestoppt und beim Abspielen. Gegenprobe mit dem alten Code: alle vier Fälle schlagen fehl (Objekt 3, Noten
+3, am DSP 2016). Was der DSP aus dem Wert macht, ist nicht modelliert, nur dass er derselbe ist wie beim unberührten Gerät.
+
+Offen: am Gerät nicht gehört. Weil die Stimmen des Parts frei werden, bricht hergeleitet eine Note des Parts, die gerade klingt,
+beim Kürzel ab, wie bei Copy Part.
+
 ## Ungespeichert anzeigen (19.10., Vorschlag 1)
 
 Die WRITE-LED (`0x0B`) atmet, solange das Pattern im RAM von seinem Platz in der Bank abweicht: alle 8 Frames vergleicht BLECH
@@ -58,6 +89,7 @@ hätte. Geprüft: `shortcut:pad_state_is_not_an_edit` und `pswitch:pad_state_sav
 | PART MUTE, KEYBOARD, PART ERASE, CHORD, PATTERN SET, Part 1 und 6 bearbeitet, EXIT + Pad 6 | Part 6 zurück, Part 1 bleibt bearbeitet, gewählter Part bleibt 1 (30.10.) |
 | STEP JUMP, ebenso | Part 1 (der gewählte) zurück, Part 6 bleibt bearbeitet (30.10.) |
 | beim Abspielen EXIT + Pad 3 | Part 3 zurück, spielt weiter, gleiches Pattern |
+| Sample von Part 1 mit OSC gedreht, EXIT + Pad 1, gestoppt und beim Abspielen | Stimmen, Sequencer und DSP wieder auf dem gespeicherten Sample (10.11.) |
 | EXIT beim Einschalten | Fenster bleibt offen, nichts gespeichert, Pad setzt nichts zurück |
 
 Auf Korgs Original sind `0xC004AB84` und `0xC000985C` Byte für Byte gleich.
