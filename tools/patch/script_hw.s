@@ -212,6 +212,8 @@ script_read_pattern_value_glue:
     cmp r2, r3
     bhs hw_bad_arg
     ldr r12, [r12, r2, lsl #2]
+    cmp r12, #0x60000               ; kind 6 (mfx2): no byte of the pattern
+    beq pattern_value_mfx2
     cmn r0, #1
     ldreq r3, =HW_PATTERN_OBJECT+4
     ldrne r3, =SC_BANK
@@ -248,6 +250,56 @@ pattern_value_repeat:
 pattern_value_done:
     mov r1, #ERR_OK
     bx lr
+
+; MFX 2 of pattern r0 (-1 the running one), from the table of the patch mfx-switch after its own load (MFX2_ENTRY + 4), so the
+; table has one writer: an entry 1 to 100 is the type as the display numbers it, any other the patch's default (MFX2_ENTRY + 8).
+; -1 without the patch.
+; r0 = 1 while the patch mfx-switch is in the set and on (MFX 2 on in the menu BLECH, EXIT not held at power-on), else 0.
+; Its entry at MFX2_ENTRY + 12 answers the second part. Clobbers r1 to r3 and r12.
+mfx2_on:
+    ldr r0, =MFX2_ENTRY
+    ldr r0, [r0]
+    ldr r1, =MFX2_RECORD_ID
+    cmp r0, r1
+    movne r0, #0
+    bxne lr
+    push {r4, lr}
+    ldr r12, =MFX2_ENTRY+12
+    blx r12
+    eor r0, r0, #1
+    pop {r4, pc}
+
+pattern_value_mfx2:
+    push {r4, lr}
+    mov r4, r0
+    ldr r3, =MFX2_ENTRY
+    ldr r1, [r3]
+    ldr r2, =MFX2_RECORD_ID
+    cmp r1, r2
+    mvnne r0, #0
+    bne pattern_mfx2_out
+    cmn r4, #1
+    bne pattern_mfx2_load
+    ldr r12, =SC_PLAYER
+    blx r12
+    ldr r4, [r0, #0x318]
+pattern_mfx2_load:
+    cmp r4, #250
+    mvnhs r0, #0
+    bhs pattern_mfx2_out
+    ldr r12, =MFX2_ENTRY+4
+    blx r12
+    ldr r3, =MFX2_TABLE
+    ldrb r0, [r3, r4]
+    sub r0, r0, #1
+    cmp r0, #99
+    bls pattern_mfx2_out
+    ldr r3, =MFX2_ENTRY
+    ldr r0, [r3, #8]
+    sub r0, r0, #1
+pattern_mfx2_out:
+    mov r1, #ERR_OK
+    pop {r4, pc}
 .pool
 
 pattern_fields:
@@ -269,6 +321,7 @@ pattern_fields:
     .word SCRIPT_PATTERN_FIELD_15
     .word SCRIPT_PATTERN_FIELD_16
     .word SCRIPT_PATTERN_FIELD_17
+    .word SCRIPT_PATTERN_FIELD_18
 part_fields:
     .word SCRIPT_PART_FIELD_0
     .word SCRIPT_PART_FIELD_1

@@ -157,6 +157,7 @@ suivent la langue choisie dans l’application. Cette langue n’étend pas le j
 | `partChange` | `part` | Changement de partie |
 | `mute` | `part`, `muted` | Changement de l’état muet d’une partie |
 | `tempo` | `tenthsBpm` | Changement de tempo |
+| `touchpadMode` | `mode` | mode du touchpad modifié, la nouvelle valeur de `korg.touchpad.mode` (0 à 4), qu’une touche ou `korg.touchpad.mode` l’ait changé ; depuis l’API 27 |
 | `save` | | WRITE dans Global et extinction |
 | `menu` | `id`, `value` | Rotation de la molette principale sur une page créée avec `korg.menu.add` |
 | `open`, `close` | | Réservés aux applications et aux plugins ayant pris l’écran : ouverture depuis le menu, fermeture par EXIT ou départ de la page principale. Ils ne sont transmis qu’au plugin concerné |
@@ -189,7 +190,7 @@ Un cycle transmet d’abord `ready` une fois par plugin, collecte les entrées e
 `frame` en dernier. Les nouvelles entrées attendent le cycle suivant. Un nouveau plugin reçoit
 `ready` après la fin du cycle précédent.
 
-### Ce qu’un plugin atteint (API 26)
+### Ce qu’un plugin atteint (API 27)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -206,7 +207,7 @@ feuille de l’arbre d’objets.
 | Encodeurs | non | `korg.encoder` | `encoder` |
 | Pads | non | `korg.padDown`, `korg.padUp`, `korg.padHold` | `pad` |
 | Touchpad | non | `korg.touch`, `korg.touchLockX` | `touch` |
-| Mode du touchpad (Gate Arp, Touch Scale, Master FX, MFX 2) | non | non | non |
+| Mode du touchpad (Gate Arp, Touch Scale, Master FX, MFX 2) | `korg.touchpad.mode` | `korg.touchpad.mode` | `touchpadMode` |
 | Mode des pads (TRIGGER, SEQUENCER, KEYBOARD et les autres) | non | non | non |
 | LED | non | `korg.led`, `korg.ledHold` | non |
 | Écran (image propre, fenêtres du firmware) | `korg.read.popups` | `korg.display.*`, `korg.file.frame` | `open`, `close` |
@@ -225,7 +226,7 @@ feuille de l’arbre d’objets.
 | Pistes de motion et leur lecture | non | non | non |
 | **Effets** | | | |
 | MFX : type, pad, HOLD, MFX SEND | `korg.read.patternValue` | `korg.seq.setPatternValue`, `korg.seq.setPartValue` | non |
-| Type MFX 2 du pattern | non | non | non |
+| Type MFX 2 du pattern | `korg.read.patternValue` | `korg.seq.setPatternValue` | non |
 | IFX : on, type, edit | `korg.read.patternValue` | `korg.seq.setPartValue` | non |
 | **Son, MIDI, échantillons** | | | |
 | Niveau de sortie, spectre, forme d'onde | non | non | non |
@@ -278,7 +279,10 @@ est interdite dans le corps.
 `chainTo` (0 à 249, -1 sans enchaînement), `chainRepeat` (au moins 1), `gateArp` (page GATE ARP,
 0 désactivé), `syncGroup` (0 désactivé, 1 à 999, depuis l’API 21). Depuis l’API 24 :
 `alternate1314`, `alternate1516`, `mfxHold` (1 activé), `mfxPadX`, `mfxPadY`
-(position du pavé tactile en mode MFX, 0 à 127).
+(position du pavé tactile en mode MFX, 0 à 127). Depuis l’API 27 : `mfx2Type`, le type MFX 2 du pattern
+donné par le patch mfx-switch, de 0 à 99 (numéro affiché moins 1), 6 si le pattern n’en a pas, -1 sans le patch.
+L’écriture ne fonctionne que si MFX 2 est activé dans le menu BLECH, sinon rien ne change ; quand MFX 2 est actif,
+la valeur passe par la même fonction que la page MFX TYPE, sinon elle va dans la table du patch. WRITE l’enregistre.
 
 **Valeurs de partie** (`korg.parts[i].…`) : `sample` (emplacement), `filterType`, `cutoff`,
 `resonance`, `egInt` (-63 à 63), `modType`, `modSpeed`, `modDepth`, `attack`, `decay`, `level`,
@@ -365,6 +369,7 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.system.limits.ifxTypes` | nombre d’effets d’insertion du firmware, `ifxType` va de 0 à cette valeur moins 1 ; le firmware les compte à la lecture, un catalogue d’effets l’augmente | non | 0 à 255 |
 | `korg.system.limits.mfxTypes` | nombre d’effets master du firmware, `mfxType` va de 0 à cette valeur moins 1 ; comme ci-dessus | non | 0 à 255 |
 | `korg.system.limits.samples` | nombre de slots d’échantillon que `sample` peut choisir : 1000 sur le Sampler rouge, 0 sur le Synth bleu | non | 0 à 1000 |
+| `korg.touchpad.mode` | mode du touchpad : 0 Gate Arp, 1 Touch Scale, 2 Master FX, 3 Gate Arp + Touch Scale, 4 MFX 2 (Master FX avec le type MFX 2 du patch mfx-switch) (depuis l’API 27) | Oui : appuie sur la touche qui y mène depuis le mode actuel, LED et effet sont ensuite comme après la touche. Avec MFX 2 activé : GATE ARP donne 3, TOUCH SCALE 4, MASTER FX 2, SHIFT + TOUCH SCALE 1 ; 0 n’est alors pas accessible. Sans MFX 2, les touches du firmware ; un mode qu’aucun appui n’atteint reste inchangé | 0 à 4 |
 | `korg.menu.blech.customizations.display.red` | Rouge du rétroéclairage ; BACKLIGHT HUE, SAT, BRIGHT affichent teinte, saturation, luminosité ; les trois canaux à 0 signifient blanc d’origine | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.green` | Vert du rétroéclairage | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.blue` | Bleu du rétroéclairage | Oui, comme la page | 0 à 15 |

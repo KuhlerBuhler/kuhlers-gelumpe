@@ -175,6 +175,7 @@ zu tun ist.
 | `partChange` | `part` | Part gewechselt |
 | `mute` | `part`, `muted` | Part stumm oder nicht |
 | `tempo` | `tenthsBpm` | Tempo geändert |
+| `touchpadMode` | `mode` | Touchpad-Modus geändert, der neue Wert von `korg.touchpad.mode` (0 bis 4), ob eine Taste oder `korg.touchpad.mode` ihn geändert hat; ab API Version 27 |
 | `save` | | WRITE in Global, Ausschalten |
 | `menu` | `id`, `value` | am Hauptrad wurde eine Seite gedreht, die das Plugin mit `korg.menu.add` angelegt hat |
 | `open`, `close` | | nur für Apps und für ein Plugin, das das Display nahm: `open`, wenn der Nutzer die App im Menü öffnet; `close`, wenn EXIT sie schließt (oder die Firmware den Hauptbildschirm verlässt). Sie gehen nur an dieses Plugin und kommen nie von außen |
@@ -224,7 +225,7 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
-### Was ein Plugin erreicht (API 26)
+### Was ein Plugin erreicht (API 27)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -240,7 +241,7 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Encoder | nein | `korg.encoder` | `encoder` |
 | Pads | nein | `korg.padDown`, `korg.padUp`, `korg.padHold` | `pad` |
 | Touchpad | nein | `korg.touch`, `korg.touchLockX` | `touch` |
-| Touchpad-Modus (Gate Arp, Touch Scale, Master FX, MFX 2) | nein | nein | nein |
+| Touchpad-Modus (Gate Arp, Touch Scale, Master FX, MFX 2) | `korg.touchpad.mode` | `korg.touchpad.mode` | `touchpadMode` |
 | Pad-Modus (TRIGGER, SEQUENCER, KEYBOARD und die anderen) | nein | nein | nein |
 | LEDs | nein | `korg.led`, `korg.ledHold` | nein |
 | Display (eigenes Bild, Fenster der Firmware) | `korg.read.popups` | `korg.display.*`, `korg.file.frame` | `open`, `close` |
@@ -259,7 +260,7 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Motion-Spuren und ihre Wiedergabe | nein | nein | nein |
 | **Effekte** | | | |
 | MFX: Typ, Pad, HOLD, MFX SEND | `korg.read.patternValue` | `korg.seq.setPatternValue`, `korg.seq.setPartValue` | nein |
-| MFX-2-Typ des Patterns | nein | nein | nein |
+| MFX-2-Typ des Patterns | `korg.read.patternValue` | `korg.seq.setPatternValue` | nein |
 | IFX: an, Typ, Edit | `korg.read.patternValue` | `korg.seq.setPartValue` | nein |
 | **Klang, MIDI, Samples** | | | |
 | Ausgangspegel, Spektrum, Wellenform | nein | nein | nein |
@@ -309,7 +310,10 @@ Rumpf.
 **Werte eines Patterns** (`korg.pattern.current.…`, `korg.current.…`, `korg.patterns[i].…`): `tempo` (Zehntel BPM), `swing` (-48 bis 48), `length`
 (Takte, 1 bis 4), `beat` (0 16tel, 1 32tel, 2 8tel-Triolen, 3 16tel-Triolen, 4 8tel mit BLECHTRIBE), `key` (0 C bis 11 H), `scale`, `chordSet`,
 `level`, `mfxType`, `chainTo` (das nächste Pattern, 0 bis 249, -1 ohne Kette), `chainRepeat` (mindestens 1), `gateArp` (die Seite GATE ARP, 0 aus), `syncGroup` (0 aus, 1 bis 999; ab API Version 21), ab API Version 24
-`alternate1314` und `alternate1516` (1 an), `mfxHold` (1 an), `mfxPadX` und `mfxPadY` (das Touchpad im MFX-Modus, 0 bis 127).
+`alternate1314` und `alternate1516` (1 an), `mfxHold` (1 an), `mfxPadX` und `mfxPadY` (das Touchpad im MFX-Modus, 0 bis 127), ab API Version 27 `mfx2Type` (der MFX-2-Typ des Patterns aus dem Patch
+mfx-switch, 0 bis 99 wie die Anzeige minus 1, 6, wenn das Pattern keinen eigenen hat, -1 ohne den Patch). Setzen geht nur, wenn MFX 2 im
+BLECH-Menü an ist, sonst bleibt alles, wie es war; ist MFX 2 gerade aktiv, geht der Wert über dieselbe Funktion wie die Seite MFX TYPE,
+sonst in die Tabelle des Patches. Gespeichert wird er mit WRITE.
 **Werte eines Parts** (`korg.parts[i].…`): `sample` (Slot), `filterType`, `cutoff`, `resonance`, `egInt` (-63 bis 63),
 `modType`, `modSpeed`, `modDepth`, `attack`, `decay`, `level`, `pan` (-63 links bis 63 rechts), `ifxOn`, `ifxType`,
 `ifxEdit`, `pitch` (-63 bis 63), `glide`, `voiceAssign`, `oscEdit`, `mfxSend`, `ampEg` (1 an; ab API Version 23), ab API Version 24 `lastStep` (1 bis 15, 0 heißt 16), `motionMode` (0 aus,
@@ -389,6 +393,7 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.system.limits.ifxTypes` | wie viele Insert-Effekte die Firmware hat, `ifxType` geht von 0 bis zu diesem Wert minus 1; die Firmware zählt sie beim Lesen, ein Effekt-Katalog erhöht sie | nein | 0 bis 255 |
 | `korg.system.limits.mfxTypes` | wie viele Master-Effekte die Firmware hat, `mfxType` geht von 0 bis zu diesem Wert minus 1; wie oben | nein | 0 bis 255 |
 | `korg.system.limits.samples` | wie viele Sample-Slots `sample` wählen kann: 1000 auf dem roten Sampler, 0 auf dem blauen Synth | nein | 0 bis 1000 |
+| `korg.touchpad.mode` | Touchpad-Modus: 0 Gate Arp, 1 Touch Scale, 2 Master FX, 3 Gate Arp + Touch Scale, 4 MFX 2 (Master FX mit dem MFX-2-Typ des Patches mfx-switch) (ab API Version 27) | ja: drückt die eine Taste, die vom jetzigen Modus dorthin führt, LEDs und Effekt stehen danach wie nach der Taste. Mit MFX 2 an: GATE ARP gibt 3, TOUCH SCALE 4, MASTER FX 2, SHIFT + TOUCH SCALE 1; 0 ist dann nicht erreichbar. Ohne MFX 2 die Tasten der Firmware; ein Modus, den kein Druck erreicht, bleibt, wie er ist | 0 bis 4 |
 | `korg.menu.blech.customizations.display.red` | Rotanteil des Display-Lichts (die Seiten BACKLIGHT HUE, SAT und BRIGHT zeigen ihn als Farbton, Sättigung, Helligkeit); alle drei auf 0 ist das Weiß der Firmware | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.green` | Grünanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.blue` | Blauanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |

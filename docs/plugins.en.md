@@ -160,6 +160,7 @@ A compile error names line and column and says what to do. The wording is German
 | `partChange` | `part` | part changed |
 | `mute` | `part`, `muted` | part muted or not |
 | `tempo` | `tenthsBpm` | tempo changed |
+| `touchpadMode` | `mode` | touch pad mode changed, the new value of `korg.touchpad.mode` (0 to 4), whether a key or `korg.touchpad.mode` changed it; from API version 27 |
 | `save` | | WRITE in Global, power off |
 | `menu` | `id`, `value` | someone turned a page that the plugin created with `korg.menu.add` on the main dial |
 | `open`, `close` | | only for apps and for a plugin that took the display: `open` when the user opens the app in the menu, `close` when EXIT closes it (or the firmware leaves the main screen). They go only to this plugin and never come from outside |
@@ -188,7 +189,7 @@ One cycle delivers `ready` once per plugin first, then collects the waiting inpu
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
 
-### What a plugin reaches (API 26)
+### What a plugin reaches (API 27)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -204,7 +205,7 @@ or a leaf of the object tree is missing.
 | Encoders | no | `korg.encoder` | `encoder` |
 | Pads | no | `korg.padDown`, `korg.padUp`, `korg.padHold` | `pad` |
 | Touchpad | no | `korg.touch`, `korg.touchLockX` | `touch` |
-| Touchpad mode (Gate Arp, Touch Scale, Master FX, MFX 2) | no | no | no |
+| Touchpad mode (Gate Arp, Touch Scale, Master FX, MFX 2) | `korg.touchpad.mode` | `korg.touchpad.mode` | `touchpadMode` |
 | Pad mode (TRIGGER, SEQUENCER, KEYBOARD and the others) | no | no | no |
 | LEDs | no | `korg.led`, `korg.ledHold` | no |
 | Display (own picture, the firmware's windows) | `korg.read.popups` | `korg.display.*`, `korg.file.frame` | `open`, `close` |
@@ -223,7 +224,7 @@ or a leaf of the object tree is missing.
 | Motion lanes and their playback | no | no | no |
 | **Effects** | | | |
 | MFX: type, pad, HOLD, MFX SEND | `korg.read.patternValue` | `korg.seq.setPatternValue`, `korg.seq.setPartValue` | no |
-| MFX 2 type of the pattern | no | no | no |
+| MFX 2 type of the pattern | `korg.read.patternValue` | `korg.seq.setPatternValue` | no |
 | IFX: on, type, edit | `korg.read.patternValue` | `korg.seq.setPartValue` | no |
 | **Sound, MIDI, samples** | | | |
 | Output level, spectrum, waveform | no | no | no |
@@ -272,7 +273,10 @@ like `korg.tempo(…)`, `korg.tempo = …` is not allowed in the body.
 **Values of a pattern** (`korg.pattern.current.…`, `korg.current.…`, `korg.patterns[i].…`): `tempo` (tenths of BPM), `swing` (-48 to 48), `length`
 (bars, 1 to 4), `beat` (0 16ths, 1 32nds, 2 8th triplets, 3 16th triplets, 4 8ths with BLECHTRIBE), `key` (0 C to 11 B), `scale`, `chordSet`,
 `level`, `mfxType`, `chainTo` (the next pattern, 0 to 249, -1 without a chain), `chainRepeat` (at least 1), `gateArp` (the GATE ARP page, 0 off), `syncGroup` (0 off, 1 to 999; from API version 21), from API version 24
-`alternate1314` and `alternate1516` (1 on), `mfxHold` (1 on), `mfxPadX` and `mfxPadY` (the touchpad in MFX mode, 0 to 127).
+`alternate1314` and `alternate1516` (1 on), `mfxHold` (1 on), `mfxPadX` and `mfxPadY` (the touchpad in MFX mode, 0 to 127), from API version 27 `mfx2Type` (the pattern's MFX 2 type from the patch
+mfx-switch, 0 to 99 as the display minus 1, 6 when the pattern has none of its own, -1 without the patch). Setting it only works while MFX 2
+is on in the BLECH menu, otherwise nothing changes; while MFX 2 is active the value goes through the same function as the MFX TYPE page,
+otherwise into the patch's table. WRITE saves it.
 **Values of a part** (`korg.parts[i].…`): `sample` (slot), `filterType`, `cutoff`, `resonance`, `egInt` (-63 to 63),
 `modType`, `modSpeed`, `modDepth`, `attack`, `decay`, `level`, `pan` (-63 left to 63 right), `ifxOn`, `ifxType`,
 `ifxEdit`, `pitch` (-63 to 63), `glide`, `voiceAssign`, `oscEdit`, `mfxSend`, `ampEg` (1 on; from API version 23), from API version 24 `lastStep` (1 to 15, 0 means 16), `motionMode` (0 off,
@@ -351,6 +355,7 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.system.limits.ifxTypes` | how many insert effects the firmware has, `ifxType` runs from 0 to this value minus 1; the firmware counts them at the read, an fx catalog raises it | no | 0 to 255 |
 | `korg.system.limits.mfxTypes` | how many master effects the firmware has, `mfxType` runs from 0 to this value minus 1; as above | no | 0 to 255 |
 | `korg.system.limits.samples` | how many sample slots `sample` can choose: 1000 on the red Sampler, 0 on the blue Synth | no | 0 to 1000 |
+| `korg.touchpad.mode` | touch pad mode: 0 Gate Arp, 1 Touch Scale, 2 Master FX, 3 Gate Arp + Touch Scale, 4 MFX 2 (Master FX with the MFX 2 type of the patch mfx-switch) (from API version 27) | yes: presses the one key that leads there from the current mode, so LEDs and effect end up as after the key. With MFX 2 on: GATE ARP gives 3, TOUCH SCALE 4, MASTER FX 2, SHIFT + TOUCH SCALE 1; 0 cannot be reached then. Without MFX 2 the firmware's keys; a mode no press reaches stays as it is | 0 to 4 |
 | `korg.menu.blech.customizations.display.red` | Red level of the display light (the pages BACKLIGHT HUE, SAT and BRIGHT show it as hue, saturation, brightness); all three at 0 is the stock white | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.display.green` | Green level of the display light | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.display.blue` | Blue level of the display light | yes, acts at once like the page | 0 to 15 |

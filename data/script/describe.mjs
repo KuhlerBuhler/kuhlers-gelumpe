@@ -110,6 +110,7 @@ export const EVENT_DOCS = Object.freeze({
   open: { text: text("api.event.open"), args: {} },
   timer: { text: text("api.event.timer"), args: { callback: text("api.event.timer.callback") } },
   close: { text: text("api.event.close"), args: {} },
+  touchpadMode: { text: text("api.event.touchpadMode"), args: { mode: text("api.event.touchpadMode.mode") } },
 });
 
 export const GROUP_DOCS = Object.freeze({

@@ -3,11 +3,18 @@
 ; In the code area at MORE3_START. A row (OBJ_ROW_SIZE bytes): offset, min, max, factory (words), base, type, apply, flags (bytes), mirror, setter (words).
 ; The bases are the order of OBJECT_BASES (test/script-objects.test.mjs holds them): 0 MENU_STATE + offset, 1 the state words below + offset,
 ; 2 the absolute address offset, 3 the Global settings the firmware keeps + offset, 4 no address, offset picks a call into the patch pad-colors,
-; 5 no address, read only, offset picks what the runtime knows about the device (INFO in data/script/objects.mjs).
+; 5 no address, read only, offset picks what the runtime knows about the device (INFO in data/script/objects.mjs),
+; 6 no address: the touch pad mode, read from the firmware's touch pad object and the patch mfx-switch, set with the panel's keys.
 .equ OBJ_BASE_ABS, 2
 .equ OBJ_BASE_GLOBAL, 3
 .equ OBJ_BASE_PAD, 4
 .equ OBJ_BASE_INFO, 5
+.equ OBJ_BASE_TOUCHPAD, 6
+.equ KEY_GATE_ARP, 4               ; korg.key: GATE ARP, TOUCH SCALE and MASTER FX follow each other
+.equ KEY_TOUCH_SCALE, 5
+.equ KEY_MASTER_FX, 6
+.equ KEY_SHIFT, 10
+.equ TOUCHPAD_OBJ, 0xC06912E0     ; pointer to the touch pad object, mode at +0x334 (0 GA, 1 TS, 2 MFX, 3 both), as mfx_switch.py CTL
 .equ INFO_COUNT_IFX, 0xC003EFDC   ; the firmware's count of insert effects and of master effects, as fx_card.s calls them
 .equ INFO_COUNT_MFX, 0xC003EFE4
 .equ OBJ_SETTER_AT, 24            ; the Global menu's setter for the leaf on this build, 0 none (apply "setter")
@@ -24,6 +31,8 @@ script_object_get_glue:
     beq objects_pad_get
     cmp r1, #OBJ_BASE_INFO
     beq objects_info_get
+    cmp r1, #OBJ_BASE_TOUCHPAD
+    beq objects_touchpad_get
     ldrb r1, [r4, #17]
     cmp r1, #0
     ldrbeq r0, [r0]
@@ -64,6 +73,30 @@ objects_info_get:
     bhi objects_get_done
     blx r12
     b objects_get_done
+; korg.touchpad.mode: the firmware's mode, 4 for Master FX while the patch mfx-switch has MFX 2 active
+objects_touchpad_get:
+    bl objects_touchpad_mode
+    b objects_get_done
+; r0 = the touch pad mode 0 to 4, 0xFF before the touch pad object exists (reads as the factory value). Clobbers r1, r2.
+objects_touchpad_mode:
+    ldr r0, =TOUCHPAD_OBJ
+    ldr r0, [r0]
+    cmp r0, #0
+    moveq r0, #0xFF
+    bxeq lr
+    ldr r0, [r0, #0x334]
+    cmp r0, #2
+    bxne lr
+    ldr r1, =MFX2_ENTRY
+    ldr r1, [r1]
+    ldr r2, =MFX2_RECORD_ID
+    cmp r1, r2
+    bxne lr
+    ldr r1, =MFX2_STATE
+    ldr r1, [r1]
+    cmp r1, #1
+    moveq r0, #4
+    bx lr
 ; "BLECH x.y.z" of the patch blech-version -> x * 10000 + y * 100 + z; 0 where the set does not have it (FF)
 objects_info_version:
     ldr r1, =VERSION_TEXT
@@ -107,6 +140,8 @@ script_object_set_glue:
     ldrb r1, [r4, #16]
     cmp r1, #OBJ_BASE_PAD
     beq objects_pad_set
+    cmp r1, #OBJ_BASE_TOUCHPAD
+    beq objects_touchpad_set
     ldr r12, [r4, #OBJ_SETTER_AT]   ; a Global setting goes through the firmware's own setter (Global object, value, 1), as the menu calls it
     cmp r12, #0
     bne objects_set_through
@@ -162,7 +197,50 @@ objects_pad_call:
     bl menu_pc_call
     b objects_set_done
 
-; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; bases 4 and 5 have none)
+; korg.touchpad.mode = r0: one press of the key that leads from the current mode to r0, as a finger would, so LEDs and effect
+; end up as after the key (korg.pressKey). The firmware's table is objects_touchpad_keys; with the patch mfx-switch on, GATE ARP
+; gives 3, TOUCH SCALE 4 and MASTER FX 2 from every mode, and SHIFT + TOUCH SCALE 1. A mode no single press reaches stays as it is.
+objects_touchpad_set:
+    mov r5, r0
+    bl objects_touchpad_mode
+    cmp r0, r5
+    beq objects_set_done
+    mov r6, r0
+    bl mfx2_on
+    cmp r0, #0
+    beq objects_touchpad_firmware
+    cmp r5, #1
+    beq objects_touchpad_shift
+    subs r1, r5, #2
+    bmi objects_set_done
+    ldr r2, =objects_touchpad_patch
+    ldrb r0, [r2, r1]
+    b objects_touchpad_press
+objects_touchpad_shift:
+    mov r0, #KEY_SHIFT
+    bl script_press_key_glue
+    mov r0, #KEY_TOUCH_SCALE
+    b objects_touchpad_press
+objects_touchpad_firmware:
+    cmp r6, #3
+    bhi objects_set_done
+    ldr r2, =objects_touchpad_keys
+    add r2, r2, r6, lsl #2
+    mov r1, #0
+objects_touchpad_find:
+    ldrb r3, [r2, r1]
+    cmp r3, r5
+    addeq r0, r1, #KEY_GATE_ARP
+    beq objects_touchpad_press
+    add r1, r1, #1
+    cmp r1, #3
+    blo objects_touchpad_find
+    b objects_set_done
+objects_touchpad_press:
+    bl script_press_key_glue
+    b objects_set_done
+
+; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; bases 4 to 6 have none)
 objects_row:
     mov r4, #0
     cmp r0, #OBJ_COUNT
@@ -177,6 +255,8 @@ objects_row:
     cmp r1, #OBJ_BASE_PAD
     bxeq lr
     cmp r1, #OBJ_BASE_INFO
+    bxeq lr
+    cmp r1, #OBJ_BASE_TOUCHPAD
     bxeq lr
     cmp r1, #OBJ_BASE_GLOBAL
     beq objects_row_global
@@ -295,6 +375,16 @@ objects_write_go:
 .pool
 
 .align 4
+; the mode after GATE ARP, TOUCH SCALE and MASTER FX in the firmware, a row per mode 0 to 3 (docs/messungen/2026-10-10-mfx-umschalter.md)
+objects_touchpad_keys:
+    .byte 0, 3, 2, 0
+    .byte 3, 1, 2, 0
+    .byte 0, 1, 2, 0
+    .byte 0, 1, 2, 0
+; with the patch mfx-switch on: the key for mode 2, 3 and 4
+objects_touchpad_patch:
+    .byte KEY_MASTER_FX, KEY_GATE_ARP, KEY_TOUCH_SCALE, 0
+.align 4
 objects_bases:
     .word MENU_STATE, objects_state
 objects_state:
@@ -310,6 +400,8 @@ objects_dummy:
     .word 0                         ; the value of a Global leaf before the firmware has its Global settings
 objects_write_frame:
     .word 0                         ; the frame of the last write
+objects_touchpad_last:
+    .word 0xFFFFFFFF                ; the touch pad mode of the last frame, for the event touchpadMode (script_events_poll)
 objects_table:
 @OBJECT_ROWS@
 .align 4

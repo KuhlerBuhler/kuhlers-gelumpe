@@ -161,7 +161,7 @@ test("the range of a leaf is the range the page's dial runs through", () => {
 
 test("the bases of the table are the ones script_objects.s knows by number", () => {
   const objects = readFileSync(new URL("../tools/patch/script_objects.s", import.meta.url), "utf8");
-  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"]]) {
+  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"], ["OBJ_BASE_TOUCHPAD", "touchpad"]]) {
     assert.equal(Number(objects.match(new RegExp(`^\\.equ ${name}, (\\d+)`, "m"))[1]), OBJECT_BASES.indexOf(base), name);
   }
 });
@@ -254,4 +254,27 @@ test("the runtime knows the build of korg.system.device and the sample slots of 
 test("the simulator reads the device leaves at their factory values", () => {
   const device = run(`korg.onEvent("ready", () => { korg.store.set(0, korg.system.device); korg.store.set(1, korg.system.limits.ifxTypes); korg.store.set(2, korg.system.limits.samples); });`);
   assert.deepEqual([0, 1, 2].map(i => stored(device, i)), [0, 73, 1000]);
+});
+
+// API 27: MFX 2 of the patch mfx-switch and the touch pad mode (plan 2026-11-10-plugin-api-1.5-complete, phase 2).
+test("korg.touchpad.mode and the event touchpadMode need API 27", () => {
+  const leaf = OBJECT_BY_PATH.get("korg.touchpad.mode");
+  assert.deepEqual([leaf.base, leaf.min, leaf.max, leaf.write, leaf.since], ["touchpad", 0, 4, true, 27]);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let m = korg.touchpad.mode; });`)).header.apiVersion, 27);
+  assert.equal(decodeBlob(build(`korg.onEvent("touchpadMode", mode => { korg.store.set(0, mode); });`)).header.apiVersion, 27);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let t = korg.pattern.current.mfx2Type; });`)).header.apiVersion, 27);
+});
+
+test("the simulator sets the touch pad mode as one key press would, with MFX 2 on, and reports it", () => {
+  const device = run(`let seen = -1;
+korg.onEvent("touchpadMode", mode => { seen = mode; korg.store.set(1, mode); });
+korg.onEvent("ready", () => { korg.store.set(0, korg.touchpad.mode); korg.touchpad.mode = 4; korg.touchpad.mode = 0; korg.store.set(2, korg.touchpad.mode); });`);
+  device.frame();
+  assert.deepEqual([0, 1, 2].map(i => stored(device, i)), [2, 4, 4]);
+});
+
+test("the simulator keeps MFX 2 per pattern, 6 where a pattern has none", () => {
+  const device = run(`korg.onEvent("ready", () => { korg.store.set(0, korg.pattern.current.mfx2Type); korg.pattern.current.mfx2Type = 12;
+  korg.store.set(1, korg.current.mfx2Type); korg.store.set(2, korg.patterns[1].mfx2Type); korg.pattern.current.mfx2Type = 99; korg.store.set(3, korg.current.mfx2Type); });`);
+  assert.deepEqual([0, 1, 2, 3].map(i => stored(device, i)), [6, 12, 6, 39]);
 });

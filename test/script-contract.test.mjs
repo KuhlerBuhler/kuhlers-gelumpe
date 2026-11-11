@@ -15,11 +15,11 @@ test("the shared script pool and entry layout are one declarative contract", () 
   assert.equal(BUDGET.variableSlots, BUDGET.scriptBytes / 4);
   assert.deepEqual(contract.SCRIPT_ENTRY.fields.map(f => [f.name, f.offset]), [
     ["next", 0], ["blob", 4], ["vars", 8], ["state", 12], ["fault", 16], ["offset", 20],
-    ["line", 24], ["event", 28], ["ops", 32], ["cost", 36], ["maxTicks", 40], ["maxCost", 44], ["maxEventTicks", 136], ["readySent", 228],
-    ["storeMask", 232], ["store", 236], ["timers", 300], ["holds", 396],
+    ["line", 24], ["event", 28], ["ops", 32], ["cost", 36], ["maxTicks", 40], ["maxCost", 44], ["maxEventTicks", 140], ["readySent", 236],
+    ["storeMask", 240], ["store", 244], ["timers", 308], ["holds", 404],
   ]);
   assert.equal(contract.SCRIPT_ENTRY.size, 48 + EVENTS.length * 8 + 4 + contract.STORE.slots * 4 + contract.TIMERS.slots * contract.TIMERS.recordSize + contract.HOLDS_BYTES);
-  assert.equal(contract.SCRIPT_ENTRY.size, 412);
+  assert.equal(contract.SCRIPT_ENTRY.size, 420);
   let offset = 0;
   for (const field of contract.SCRIPT_ENTRY.fields) {
     assert.equal(field.offset, offset);
@@ -99,7 +99,7 @@ test("LED state and transport budgets share one generated contract", () => {
   ]);
   assert.deepEqual(contract.SCRIPT_LED_VALID, { DESIRED: 1, DELIVERED: 2 });
   assert.equal(API.find(a => a.name === "korg.led").id, 1);
-  assert.equal(API_VERSION, 26);
+  assert.equal(API_VERSION, 27);
   const equ = Object.fromEntries([...asmInclude().matchAll(/^\.equ (\w+), (\w+)$/gm)].map(m => [m[1], Number(m[2])]));
   for (const [name, value] of Object.entries(led).filter(([, value]) => typeof value === "number")) {
     assert.equal(equ[`SCRIPT_LED_${name.replace(/([a-z])([A-Z])/g, "$1_$2").toUpperCase()}`], value);
@@ -154,7 +154,7 @@ test("opcode numbers are pinned: they are in every blob ever exported", () => {
 });
 
 test("event ids, API ids and error codes are pinned", () => {
-  assert.deepEqual(EVENTS.map(e => e.name), ["start", "ready", "frame", "buttonPress", "buttonRelease", "knob", "encoder", "pad", "touch", "step", "beat", "play", "stop", "rec", "patternChange", "partChange", "mute", "tempo", "save", "menu", "open", "close", "timer"]);
+  assert.deepEqual(EVENTS.map(e => e.name), ["start", "ready", "frame", "buttonPress", "buttonRelease", "knob", "encoder", "pad", "touch", "step", "beat", "play", "stop", "rec", "patternChange", "partChange", "mute", "tempo", "save", "menu", "open", "close", "timer", "touchpadMode"]);
   assert.deepEqual(Object.fromEntries(API.map(a => [a.id, a.name])), {
     1: "korg.led", 2: "korg.millis", 16: "korg.display.clear", 17: "korg.display.text", 18: "korg.display.number",
     19: "korg.display.pixel", 20: "korg.display.rect", 21: "korg.display.clearRect",
@@ -184,7 +184,7 @@ test("event ids, API ids and error codes are pinned", () => {
   assert.equal(ERROR.STACK, 5);
   assert.equal(ERROR.BAD_JUMP, 6);
   assert.equal(FORMAT_VERSION, 2);
-  assert.equal(API_VERSION, 26);
+  assert.equal(API_VERSION, 27);
   assert.deepEqual(API.filter(a => a.since === 2).map(a => a.name), ["korg.store.get", "korg.store.set", "korg.store.save"]);
   assert.deepEqual(API.filter(a => a.since === 3).map(a => a.name).slice(0, 2), ["korg.read.transport", "korg.read.tempo"]);
   assert.deepEqual(API.filter(a => a.since === 4).map(a => a.name), ["korg.menu.add"]);
@@ -371,6 +371,7 @@ test("the ranges korg.seq.setPatternValue clamps to are those of the pattern map
   const { default: map } = await import("../data/map/pattern.mjs");
   const decode = { bars: v => v + 1, chain: v => v - 1 };
   for (const f of contract.PATTERN_FIELDS) {
+    if (f.kind === "mfx2") continue;   // the table of the patch mfx-switch, not the pattern block
     const entry = map.fields.find(m => m.where.offset === f.offset && m.range);
     assert.ok(entry, `${f.name} has a map entry with a range`);
     const range = entry.range.map(decode[f.kind] ?? (v => v));

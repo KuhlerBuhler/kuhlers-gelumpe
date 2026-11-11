@@ -19,7 +19,7 @@
  *   top level, once. Only an open app draws on the display (see docs/plugins.md).
  */
 import {
-  LIMITS, BUDGET, EVENT_BY_NAME, EVENTS, API_BY_NAME, QUEUED_EVENTS, APP_EVENTS, INTERNAL_EVENTS, SCRIPT_APPS, ARRAY_HANDLE, EVENT_ARG_SINCE,
+  LIMITS, BUDGET, EVENT_BY_NAME, EVENTS, API_BY_NAME, QUEUED_EVENTS, APP_EVENTS, INTERNAL_EVENTS, SCRIPT_APPS, ARRAY_HANDLE, EVENT_ARG_SINCE, EVENT_SINCE,
 } from "../../data/script/contract.mjs";
 import { NAMES } from "../../data/script/names.mjs";
 import { PROPERTY_BY_PATH, KNOB_NAMES } from "../../data/script/properties.mjs";
@@ -952,7 +952,7 @@ class Compiler {
     const handlers = this.handlers.map(h => ({ event: h.event, argc: h.argc, entry: asm.labels.get(h.entry) }));
     const parts = {
       name: this.name.slice(0, LIMITS.nameLength),
-      apiVersion: Math.max(1, this.leafSince, ...this.apiSites.map(s => s.api.since), ...this.handlers.map(h => Math.max(0, ...ARG_SINCE(h)))),
+      apiVersion: Math.max(1, this.leafSince, ...this.apiSites.map(s => s.api.since), ...this.handlers.map(h => Math.max(EVENT_SINCE[EVENTS[h.event].name] ?? 0, ...ARG_SINCE(h)))),
       entry: asm.labels.get("start"),
       code: asm.code,
       varCount: this.nextSlot,

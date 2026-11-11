@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 26;
+export const API_VERSION = 27;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -182,6 +182,7 @@ const EVENT_LIST = [
   ["open", []],
   ["close", []],
   ["timer", ["callback"]],
+  ["touchpadMode", ["mode"]],
 ];
 
 /**
@@ -189,6 +190,8 @@ const EVENT_LIST = [
  * event itself. A handler that takes such a value needs a block of at least that version; the compiler sets it.
  */
 export const EVENT_ARG_SINCE = Object.freeze({ touch: Object.freeze({ first: 6 }) });
+/** The API version an event was added in, for the events newer than API 1: a handler for it needs a block of at least that version. */
+export const EVENT_SINCE = Object.freeze({ touchpadMode: 27 });
 
 /**
  * Events. `start` is the script body itself (top-level statements), not a
@@ -444,10 +447,11 @@ export const SCRIPT_LED_VALID = Object.freeze({ DESIRED: 1, DELIVERED: 2 });
  * korg.patterns[i].* and korg.parts[i].* stand for. `field` is the index in the list: PATTERN_FIELDS with part -1,
  * PART_FIELDS with part 0 to 15. Offsets are those of data/map/pattern.mjs, a part's from 0x800 + part * 0x330. The kind
  * says how the bytes become the value: u8, s8 (signed), u16 (little endian), bars (the length byte 0 to 3 as 1 to 4),
- * chain (Chain To counted from 1 as 0 to 249, -1 for none), atLeast1 (Chain Repeat, the device shows 0 as 1).
+ * chain (Chain To counted from 1 as 0 to 249, -1 for none), atLeast1 (Chain Repeat, the device shows 0 as 1), mfx2 (no byte
+ * of the pattern: the pattern's entry in the MFX 2 table of the patch mfx-switch, 0 based like mfxType, -1 without that patch).
  * Field indices are never reused or renumbered; new fields go at the end.
  */
-export const PATTERN_FIELD_KINDS = Object.freeze(["u8", "s8", "u16", "bars", "chain", "atLeast1"]);
+export const PATTERN_FIELD_KINDS = Object.freeze(["u8", "s8", "u16", "bars", "chain", "atLeast1", "mfx2"]);
 const field = (name, offset, kind, text) => Object.freeze({ name, offset, kind, text });
 export const PATTERN_FIELDS = Object.freeze([
   field("tempo", 34, "u16", text("api.pattern.tempo")),
@@ -468,6 +472,7 @@ export const PATTERN_FIELDS = Object.freeze([
   field("mfxHold", 65, "u8", text("api.pattern.mfxHold")),
   field("mfxPadX", 62, "u8", text("api.pattern.mfxPadX")),
   field("mfxPadY", 63, "u8", text("api.pattern.mfxPadY")),
+  field("mfx2Type", 0, "mfx2", text("api.pattern.mfx2Type")),
 ]);
 export const PART_FIELDS = Object.freeze([
   field("sample", 8, "u16", text("api.part.sample")),
@@ -536,10 +541,11 @@ export const PATTERN_WRITES = Object.freeze({
   tempo: [200, 3000], swing: [-48, 48], length: [1, 4], beat: [0, 4], key: [0, 11], scale: [0, 34], chordSet: [0, 4],
   level: [0, 127], mfxType: [0, 39], chainTo: [-1, 249], chainRepeat: [0, 127], gateArp: [0, 49],
   syncGroup: [0, 999], alternate1314: [0, 1], alternate1516: [0, 1], mfxHold: [0, 1], mfxPadX: [0, 127], mfxPadY: [0, 127],
+  mfx2Type: [0, 39],
 });
 /** The PATTERN_FIELDS that came with a later API version than korg.read.patternValue: the version, by name. */
 export const PATTERN_FIELD_SINCE = Object.freeze({ syncGroup: 21, alternate1314: 24, alternate1516: 24, mfxHold: 24, mfxPadX: 24,
-  mfxPadY: 24 });
+  mfxPadY: 24, mfx2Type: 27 });
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
 

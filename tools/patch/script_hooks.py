@@ -110,8 +110,10 @@ VTABLE_OVER = ((8,'menu_slot_exit'),(12,'menu_slot_keys'),(16,'menu_slot_prev'),
 # (the second number, as korg.pressKey) when the byte at the third number of the pattern in RAM differs from the value, so MFX HOLD
 # changes as its key changes it, with LED, effect and touchpad. CC(id) sends the byte after the setter as the touchpad sends it,
 # the MIDI CC sender's id on the global channel (docs/messungen/2026-11-08-plugin-api24-part-cc.md).
+# Function 3 (API 27) is MFX 2 of the current pattern through the patch mfx-switch (pattern_value_mfx2): the second number is the
+# MFX type setter, called while MFX 2 is active so the patch's own hook stores the type, the table entry is written otherwise.
 PATTERN_SETTER_FIELDS = ('tempo','swing','length','beat','key','scale','chordSet','level','mfxType','chainTo','chainRepeat','gateArp','syncGroup',
-                         'alternate1314','alternate1516','mfxHold','mfxPadX','mfxPadY')
+                         'alternate1314','alternate1516','mfxHold','mfxPadX','mfxPadY','mfx2Type')
 ALTERNATE = lambda i: (i + 1) << 16
 CC = lambda cc: cc << 24
 _MFX_HOLD_KEY = (2, 7, 65)
@@ -121,7 +123,8 @@ _SAMPLER_SETTERS = {'tempo': (0xC004A80C, 0), 'swing': (0xC004A594, 0), 'length'
                     'mfxType': (0xC0048A64, 0x4004), 'chainTo': (0xC004A5B0, 0), 'chainRepeat': (0xC004A5D4, 0),
                     'gateArp': (0xC004A5F8, 0), 'syncGroup': _SYNC_GROUP_STORE,
                     'alternate1314': (0xC004A614, 0, ALTERNATE(0)), 'alternate1516': (0xC004A614, 0, ALTERNATE(1)),
-                    'mfxHold': _MFX_HOLD_KEY, 'mfxPadX': (0xC0048924, 0x4004, CC(0xF)), 'mfxPadY': (0xC0048984, 0x4004, CC(0x10))}
+                    'mfxHold': _MFX_HOLD_KEY, 'mfxPadX': (0xC0048924, 0x4004, CC(0xF)), 'mfxPadY': (0xC0048984, 0x4004, CC(0x10)),
+                    'mfx2Type': (3, 0xC0048A64)}
 PATTERN_SETTERS = {
     'hacktribe': _SAMPLER_SETTERS,
     'stock': _SAMPLER_SETTERS,
@@ -130,7 +133,8 @@ PATTERN_SETTERS = {
               'mfxType': (0xC0042CBC, 0x4004, 31), 'chainTo': (0xC0044690, 0), 'chainRepeat': (0xC00446B4, 0),
               'gateArp': (0xC00446D8, 0), 'syncGroup': _SYNC_GROUP_STORE,
               'alternate1314': (0xC00446F4, 0, ALTERNATE(0)), 'alternate1516': (0xC00446F4, 0, ALTERNATE(1)),
-              'mfxHold': _MFX_HOLD_KEY, 'mfxPadX': (0xC0042B7C, 0x4004, CC(0xF)), 'mfxPadY': (0xC0042BDC, 0x4004, CC(0x10))},
+              'mfxHold': _MFX_HOLD_KEY, 'mfxPadX': (0xC0042B7C, 0x4004, CC(0xF)), 'mfxPadY': (0xC0042BDC, 0x4004, CC(0x10)),
+              'mfx2Type': (3, 0xC0042CBC, 31)},
 }
 
 # korg.seq.setPartValue (script_seq.s:part_setters): per build and PART_FIELDS name the firmware's direct setter of a part
@@ -483,6 +487,9 @@ GLOBAL_SETTERS = {
 OBJECT_BASE_GLOBAL = 3
 # korg.system.device: 0 Hacktribe, 1 Korg's red Sampler, 2 Korg's blue Synth
 BUILD_DEVICES = {'hacktribe': 0, 'stock': 1, 'synth': 2}
+# The patch mfx-switch (tools/patch/mfx_switch.py, same addresses on every build): its entry block at CODE_AT (RECORD_ID, then a
+# branch to its table load, then the default type), the table at RECBUF + 8 and its state words. test_script_hooks.py checks them.
+MFX2_ENTRY, MFX2_RECORD_ID, MFX2_TABLE, MFX2_STATE = 0xC01A5000, int.from_bytes(b'MFX2', 'little'), 0xC01A5D08, 0xC01A5C00
 OBJECT_APPLY_SETTER = 3
 
 def object_rows(constants, build='hacktribe'):
@@ -513,6 +520,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
     constants += f'\n.equ MENU_SCREEN, {profile.screen}\n'
     # korg.system.device and korg.system.limits.samples (data/script/objects.mjs, INFO): the build this runtime is made for
+    constants += f'.equ MFX2_ENTRY, {MFX2_ENTRY:#x}\n.equ MFX2_RECORD_ID, {MFX2_RECORD_ID:#x}\n.equ MFX2_TABLE, {MFX2_TABLE:#x}\n.equ MFX2_STATE, {MFX2_STATE:#x}\n'
     constants += f'.equ BUILD_DEVICE, {BUILD_DEVICES[build]}\n.equ BUILD_SAMPLES, {0 if build == "synth" else 1000}\n'
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
     files = ['script_hooks.s','script_card.s','script_builtin.s','script_menu.s',

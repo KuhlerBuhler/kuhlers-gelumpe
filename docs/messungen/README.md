@@ -182,6 +182,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Rad in der Plugin-Liste, Seite STATE, schnelles Drehen in SPLASH IMPORT wie IMPORT SAMPLE, im Emulator](2026-11-09-menue-liste-rad.md)
 - [Plugin API 25: Tasten, Pads, Encoder und Touchpad wie ein Finger, korg.knob gegen den Regler, im Emulator](2026-11-08-plugin-api25-panel-calls.md)
 - [Plugin API 26: Gerät, Version, Effekt- und Sample-Zahl lesen, im Emulator](2026-11-11-plugin-api26-device-info.md)
+- [Plugin API 27: MFX-2-Typ und Touchpad-Modus lesen und setzen, im Emulator](2026-11-11-plugin-api27-mfx2-touchpad.md)
 - [Firmwarepfad fuer Part-Parameter, im Emulator geprueft](2026-11-06-part-param-refresh.md)
 - [DSP-Transport bei neuen Part-Bedienungen, im Emulator geprueft](2026-11-07-part-control-dsp-refresh.md)
 - [Part-Werte aus Plugins: Parametersetzer, Auffrischen, Filter-LEDs und MFX SEND wie die Bedienelemente, im Emulator](2026-11-09-plugin-part-dsp.md)

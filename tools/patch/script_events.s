@@ -149,6 +149,21 @@ events_store:
     str r8, [r4, #SCRIPT_CONTROL_SEQ_PART]
     str r9, [r4, #SCRIPT_CONTROL_SEQ_STEP]
     str r10, [r4, #SCRIPT_CONTROL_SEQ_MUTES]
+    bl objects_touchpad_mode
+    ldr r1, =objects_touchpad_last
+    ldr r2, [r1]
+    str r0, [r1]
+    cmp r0, #4                      ; no touch pad object yet (0xFF), or the first frame (the word starts at FFFFFFFF): no event
+    cmpls r2, #4
+    bhi events_done
+    cmp r0, r2
+    beq events_done
+    mov r2, r0
+    mov r0, r4
+    mov r1, #EV_TOUCHPAD_MODE
+    mov r3, #0
+    bl events_post
+events_done:
     pop {r4-r11, pc}
 .pool
 

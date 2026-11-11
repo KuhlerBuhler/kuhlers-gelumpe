@@ -9,7 +9,8 @@
  *            the object runtime + offset (script_objects.s), "abs" the absolute address `offset` (a setting word of a patch,
  *            in our own code area), "global" the Global settings the firmware keeps + offset (a pointer read at each access),
  *            "pad" no address: `offset` picks a call into the patch pad-colors (0 PAD COLOR, 1 SELECT COLOR, 2 OVERLAP, 3 LED DIMMING),
- *            "info" no address, read only: `offset` picks what the runtime knows about the device it runs on (INFO)
+ *            "info" no address, read only: `offset` picks what the runtime knows about the device it runs on (INFO),
+ *            "touchpad" no address: the touch pad mode, read from the firmware and the patch mfx-switch, set with one key press
  *   type     "u8" one byte, "u32" one word
  *   min, max the valid range; a set outside it is clamped and counted, so is a stored value found outside it at start
  *   factory  the value when the menu starts without a settings file
@@ -25,7 +26,7 @@
 import { text } from "../../src/text.mjs";
 import globalMap from "../map/global.mjs";
 
-export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info"]);
+export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info", "touchpad"]);
 /**
  * What a leaf of the base "info" reads, by its `offset` (tools/patch/script_objects.s, objects_info_get): the build the runtime
  * was made for, the version of the set (the text of the patch blech-version), and the counts the firmware's own functions
@@ -230,6 +231,12 @@ export const OBJECTS = Object.freeze([
   leaf(52, "korg.system.limits.samples", {
     base: "info", offset: INFO.samples, type: "u32", min: 0, max: 1000, factory: 1000, write: false, since: 26,
     unit: "count, 0 on blue", text: text("api.object.system.limits.samples"),
+  }),
+
+  // API 27: the touch pad mode; the factory value is the start mode of the patch mfx-switch
+  leaf(53, "korg.touchpad.mode", {
+    base: "touchpad", offset: 0, type: "u32", min: 0, max: 4, factory: 2, write: true, since: 27,
+    unit: "0 gate arp, 1 touch scale, 2 master fx, 3 both, 4 mfx 2", text: text("api.object.touchpad.mode"),
   }),
 ]);
 

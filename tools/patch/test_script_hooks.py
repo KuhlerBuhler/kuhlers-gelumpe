@@ -23,6 +23,23 @@ class SharedWordTests(unittest.TestCase):
             built=build(contract_data()['include'],build=name)
             self.assertEqual(load_bar.APP_PICTURE,RUNTIME+built.symbols['RT_DISPLAY'],name)
 
+    def test_mfx2_constants_match_the_patch_mfx_switch(self):
+        """mfx2Type reads and writes the table of tools/patch/mfx_switch.py through its entry at CODE_AT: id, b table_load, default, b killed (file offsets count the 0x100 byte VSB header)."""
+        import json
+        from tools.patch import script_hooks, mfx_switch
+        self.assertEqual(script_hooks.MFX2_ENTRY,mfx_switch.CODE_AT)
+        self.assertEqual(script_hooks.MFX2_RECORD_ID,mfx_switch.RECORD_ID)
+        self.assertEqual(script_hooks.MFX2_TABLE,mfx_switch.RECBUF+8)
+        self.assertEqual(script_hooks.MFX2_STATE,mfx_switch.STATE)
+        for name in ('mfx-switch.json','mfx-switch-synth.json'):
+            changes=json.loads((ROOT/'data'/'patches'/name).read_text())['changes']
+            entry=[bytes.fromhex(c['bytes']) for c in changes if c['file']==mfx_switch.CODE_AT-0xC0000000+0x100]
+            self.assertEqual(len(entry),1,name)
+            ident,load,default,killed=struct.unpack_from('<IIII',entry[0])
+            self.assertEqual(ident,mfx_switch.RECORD_ID,name)
+            self.assertEqual((load>>24,killed>>24),(0xEA,0xEA),name)
+            self.assertEqual(default,mfx_switch.DEFAULT_TYPE,name)
+
 @unittest.skipUnless(UNICORN_AVAILABLE,'Unicorn is required for native hook tests')
 class HookTests(unittest.TestCase):
     def machine(self):
@@ -210,7 +227,7 @@ class HookTests(unittest.TestCase):
         machine.write(machine.input+0x202C,1)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(entry),[1,7,1])
-        self.assertEqual(machine.read(entry+228),1)
+        self.assertEqual(machine.read(entry+236),1)
         machine.write(machine.input+0x202C,4)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(entry),[1,7,2])
@@ -339,10 +356,10 @@ class HookTests(unittest.TestCase):
         advancing[0]=False
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(imported),[0,0,0])
-        self.assertEqual(machine.read(imported+228),0)
+        self.assertEqual(machine.read(imported+236),0)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(imported),[1,0,1])
-        self.assertEqual(machine.read(imported+228),1)
+        self.assertEqual(machine.read(imported+236),1)
 
     def test_fuel_fault_does_not_stop_other_scripts(self):
         machine,_=self.machine()

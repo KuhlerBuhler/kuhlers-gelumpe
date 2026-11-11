@@ -438,6 +438,8 @@ script_seq_set_pattern_value_glue:
     beq pattern_value_store
     cmp r12, #2
     beq pattern_value_key
+    cmp r12, #3
+    beq pattern_value_mfx2_set
     push {r4, r5, r6, lr}
     ldr r4, [r3, #8]                ; top in bits 0 to 15, ALTERNATE index + 1 in 16 to 23, CC id in 24 to 31
     movs r0, r4, lsl #16
@@ -478,6 +480,48 @@ pattern_value_key:                  ; setter 2: press the key at word 1 when the
     beq value_ok
     ldr r0, [r3, #4]
     b script_press_key_glue
+; setter 3: MFX 2 of the running pattern through the patch mfx-switch, nothing without the patch, with MFX 2 off in the
+; menu BLECH or with EXIT held at power-on (mfx2_on). While MFX 2 is active the MFX type setter at word 1 runs as the MFX TYPE page calls it: the patch's hook on it stores
+; the type in its table and the effect changes. Otherwise the entry is written and marked for the next WRITE, as that hook does.
+pattern_value_mfx2_set:
+    ldr r12, [r3, #8]
+    cmp r12, #0
+    beq pattern_mfx2_top
+    cmp r1, r12
+    movgt r1, r12
+pattern_mfx2_top:
+    push {r4, r5, r6, lr}
+    mov r5, r1
+    ldr r6, [r3, #4]
+    bl mfx2_on
+    cmp r0, #0
+    beq pattern_mfx2_set_done
+    ldr r12, =MFX2_ENTRY+4
+    blx r12
+    ldr r0, =MFX2_STATE
+    ldr r0, [r0]
+    cmp r0, #1
+    bne pattern_mfx2_entry
+    ldr r0, =HW_PATTERN_OBJECT+0x4004
+    mov r1, r5
+    mov r2, #1
+    blx r6
+    b pattern_mfx2_set_done
+pattern_mfx2_entry:
+    ldr r12, =SC_PLAYER
+    blx r12
+    ldr r0, [r0, #0x318]
+    cmp r0, #250
+    bhs pattern_mfx2_set_done
+    ldr r1, =MFX2_TABLE
+    add r2, r5, #1
+    strb r2, [r1, r0]
+    ldr r1, =MFX2_STATE
+    mov r2, #1
+    str r2, [r1, #24]
+pattern_mfx2_set_done:
+    pop {r4, r5, r6, lr}
+    b value_ok
 pattern_value_store:
     ldr r0, [r3, #4]
     ldr r3, =HW_PATTERN_OBJECT+4
@@ -602,6 +646,7 @@ pattern_writes:
     .word SCRIPT_PATTERN_WRITE_15
     .word SCRIPT_PATTERN_WRITE_16
     .word SCRIPT_PATTERN_WRITE_17
+    .word SCRIPT_PATTERN_WRITE_18
 
 pattern_setters:
     .word PV_SET_0, PV_ARG_0, PV_TOP_0
@@ -622,6 +667,7 @@ pattern_setters:
     .word PV_SET_15, PV_ARG_15, PV_TOP_15
     .word PV_SET_16, PV_ARG_16, PV_TOP_16
     .word PV_SET_17, PV_ARG_17, PV_TOP_17
+    .word PV_SET_18, PV_ARG_18, PV_TOP_18
 
 ; r0 part, r1 step -> r12 the step's record. Marks the frame as one that wrote steps (SQ_AT holds its own address). Clobbers r1.
 seq_record:

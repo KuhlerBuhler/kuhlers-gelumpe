@@ -30,6 +30,8 @@ export class SimHardware {
     /** CHAIN MODE in Global, and the pattern blocks korg.read.patternValue reads (-1 the pattern in RAM, 0 to 249 the bank), made on first use. */
     this.chainMode = 1;
     this.patternBlocks = new Map();
+    /** The MFX 2 table of the patch mfx-switch, one entry per pattern: 1 to 100 the type as the display numbers it, 0 the default (7). */
+    this.mfx2 = new Uint8Array(250);
     this.backlight = [1, 1, 1];
     this.ledHold = 0;
     /**
@@ -148,6 +150,13 @@ export class SimHardware {
     if (!o.write) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectReadOnly", { path: o.path })));
     const clamped = Math.min(o.max, Math.max(o.min, value));
     if (clamped !== value) this.objects[REPAIRS] += 1;
+    if (o.base === "touchpad") {
+      // the simulator is a set with MFX 2 on: one key press reaches every mode but Gate Arp alone (0)
+      if (clamped === 0 || clamped === this.objects[leaf]) return;
+      this.objects[leaf] = clamped;
+      this.emit("touchpadMode", clamped);
+      return;
+    }
     this.objects[leaf] = clamped;
   }
 
@@ -207,6 +216,7 @@ export class SimHardware {
     const w = f && PATTERN_WRITES[f.name];
     if (!w) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectReadOnly", { path: `korg.current.${f?.name ?? field}` })));
     const v = Math.min(w[1], Math.max(w[0], value));
+    if (f.kind === "mfx2") { this.mfx2[this.pattern] = v + 1; return; }
     const block = this.patternBlock(-1);
     if (f.kind === "u16") { block[f.offset] = v & 255; block[f.offset + 1] = v >> 8 & 255; return; }
     block[f.offset] = (f.kind === "bars" ? v - 1 : f.kind === "chain" ? v + 1 : v) & 255;
@@ -270,6 +280,10 @@ export class SimHardware {
   patternValue(pattern, part, field) {
     const f = (part < 0 ? PATTERN_FIELDS : PART_FIELDS)[field];
     if (!f) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.patternValue", { field })));
+    if (f.kind === "mfx2") {
+      const entry = this.mfx2[pattern < 0 ? this.pattern : pattern] ?? 0;
+      return entry >= 1 && entry <= 100 ? entry - 1 : 6;
+    }
     const block = this.patternBlocks.get(pattern) ?? new Uint8Array(PATTERN_PARTS.bytes);
     const at = f.offset + (part < 0 ? 0 : PATTERN_PARTS.base + part * PATTERN_PARTS.stride);
     const raw = block[at];
