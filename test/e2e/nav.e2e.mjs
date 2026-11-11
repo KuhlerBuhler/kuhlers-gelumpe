@@ -49,27 +49,25 @@ test("Pattern-Werkzeuge and Samples are not offered: no tab, and #ptools and #sa
   assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Design", "Samples", "Konsole", "Blechy", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Doom", "Features", "Discord", "Pattern-Werkzeuge", "Samples"]);
 });
 
-test("the navbar title of the emulator page is a menu: emulator or real device", async () => {
+test("the navbar of the emulator page has one switch: off is the emulator, on the real device", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu`);
   assert.equal(await page.locator("#cee-nav-title").isVisible(), false);
-  assert.equal(await page.locator("#cee-mode-label").textContent(), "Emulator");
+  assert.equal(await page.locator(".cee-mode-title").textContent(), "Emulator");
+  assert.equal(await page.locator("#cee-mode-switch").isChecked(), false);
+  assert.equal(await page.locator("#cee-mode-menu").count(), 0, "no menu any more");
   assert.deepEqual(await page.locator("#cee-nav-state").getByRole("button").allTextContents(), ["SD-Karte öffnen", "Eigenes Fenster"], "the emulator page has no device state, only the SD card and the button for its own window");
   assert.equal(await page.locator("#cee-nav-state #cee-sd-inserted").count(), 1, "the card's switch beside it");
-  assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "false");
-  await page.click("#cee-mode-button");
-  assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "true");
-  await page.keyboard.press("Escape");
-  assert.equal(await page.locator("#cee-mode-menu").isVisible(), false);
-  assert.equal(await page.evaluate(() => document.activeElement.id), "cee-mode-button", "the focus goes back to the button");
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
-  assert.equal(await page.locator("#cee-mode-label").textContent(), "Echtes Gerät");
+  await page.locator("#cee-mode-switch").focus();
+  await page.keyboard.press("Space");
+  assert.equal(await page.locator("#cee-mode-switch").isChecked(), true);
   assert.equal(await page.locator("#cee-device").isVisible(), false, "with nothing to say, the area above the drawing takes no room (the connect button is in the navbar)");
   assert.equal(await page.locator("#cee-area-emu #cee-e2").isVisible(), true, "the real device is shown in the emulator's drawing");
   assert.equal(await page.getAttribute("#cee-tab-emu", "data-active"), "", "the sidebar still marks the emulator entry");
   assert.equal(await page.locator("#cee-nav-state #cee-connect").isVisible(), true, "on the device page the navbar carries the connect button instead of a not-connected text");
+  await page.keyboard.press("Space");
+  assert.equal(await page.locator("#cee-mode-switch").isChecked(), false);
+  assert.equal(await page.getAttribute("#cee-tab-emu", "data-active"), null, "off is the emulator again");
 });
 
 test("the emulator page has no options in the sidebar: the firmware goes on its display, the SD card opens from the navbar", async () => {
