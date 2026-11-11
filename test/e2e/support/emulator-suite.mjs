@@ -1,6 +1,6 @@
 import { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { setUp, go, pickPreset } from "../harness.mjs";
+import { setUp, go, gear, pickPreset } from "../harness.mjs";
 import { tempDir } from "../../support/lifetime.mjs";
 import { fakeService, TOKEN } from "./fake-emu.mjs";
 import { makeFirmware, makeRecord } from "../../helpers.mjs";
@@ -69,15 +69,17 @@ export function emulatorSuite(index, parts) {
     assert.ok(fake.seen.sd > 0, "the card state came from the linked service");
     const card = page.locator("#cee-sd-inserted");
     assert.equal(await card.isChecked(), false);
+    await gear(page);
     await page.locator("label.ui-switch", { hasText: "Karte eingelegt" }).click();
     await page.waitForFunction(() => document.querySelector("#cee-sd-inserted").checked && !document.querySelector("#cee-sd-inserted").disabled);
     await page.locator("#cee-sd-status", { hasText: "Eingelegt" }).waitFor();
     await page.click("#cee-sd-open");
     await page.waitForFunction(() => !document.querySelector("#cee-sd-open").disabled);
+    await gear(page);
     await page.locator("label.ui-switch", { hasText: "Karte eingelegt" }).click();
     await page.waitForFunction(() => !document.querySelector("#cee-sd-inserted").checked && !document.querySelector("#cee-sd-inserted").disabled);
     assert.deepEqual(fake.seen.sdCalls.slice(-3), ["/sd/insert", "/sd/open", "/sd/eject"], "insert, open and eject went to the linked service");
-    assert.equal(await page.locator("#cee-nav-state #cee-emu-card").count(), 1, "the card sits in the navbar");
+    assert.equal(await page.locator("#cee-emu-menu #cee-emu-card").count(), 1, "the card sits in the gear menu");
     assert.equal(await page.locator("#cee-area-emu #cee-emu-card").count(), 0, "nothing of it stays in the page");
     assert.deepEqual(page.errors, []);
   });
