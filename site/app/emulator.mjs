@@ -140,7 +140,7 @@ export function pixelGrid(display) {
     if (!rgb || cell < 3) return;
     // About a seventh of a pixel, as on the real glass, and never thinner than one screen pixel.
     const gap = Math.max(1, Math.round(cell * 0.14));
-    ctx.fillStyle = `rgb(${rgb.join(" ")})`;
+    ctx.fillStyle = `rgb(${rgb.join(" ")})`; // raw-ok: the unlit-pixel colour the display already read from its token
     for (let i = 1; i <= 128; i++) ctx.fillRect(Math.round(i * cell) - gap, 0, gap, h);
     for (let i = 1; i <= 64; i++) ctx.fillRect(0, Math.round(i * (h / 64)) - gap, w, gap);
   };
