@@ -6,6 +6,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { FONT, FONT_FIRST, ADVANCE, GLYPH_HEIGHT } from "../data/script/font.mjs";
+import { FONT_ART, ICON_ART } from "./patch/blech_theme_art.mjs";
+import { parseGlyph, parseIcon } from "./patch/blech_theme.mjs";
 
 const W = 128;
 const H = 64;
@@ -68,6 +70,26 @@ const power = (p, cx, cy, r) => {
   }
   p.fill(cx - 1, cy - r - 2, 3, r + 2);
 };
+
+/**
+ * Text in one of the four fonts the BLECH theme puts on the device (tools/patch/blech_theme_art.mjs), not the display font
+ * above: `baseline` is the bottom row of the capitals. A character the theme leaves to the firmware (the space) is a gap.
+ */
+const themeText = (p, text, x, baseline, font, { align = "left", colour = "#fff" } = {}) => {
+  const glyphs = [...text].map(ch => (FONT_ART[font][ch] ? parseGlyph(FONT_ART[font][ch]) : null));
+  const gap = font === 0 ? 3 : 5;
+  const width = glyphs.reduce((n, g) => n + (g ? g.xo + g.w + 1 : gap), 0) - 1;
+  let pen = align === "center" ? Math.round(x - width / 2) : align === "right" ? x - width : x;
+  for (const g of glyphs) {
+    if (!g) { pen += gap; continue; }
+    const top = baseline - g.yo - g.h + 1;
+    g.rows.forEach((row, r) => [...row].forEach((c, k) => { if (c === "#") p.fill(pen + g.xo + k, top + r, 1, 1, colour); }));
+    pen += g.xo + g.w + 1;
+  }
+  return width;
+};
+/** One of the theme's icons by the firmware's image number, its top left corner at x, y. */
+const themeIcon = (p, n, x, y) => parseIcon(ICON_ART[n]).rows.forEach((row, r) => [...row].forEach((c, k) => { if (c === "#") p.fill(x + k, y + r, 1, 1); }));
 
 const ART = {
   // the picture of every planned function on the page (group Geplant)
@@ -225,13 +247,17 @@ const ART = {
     p.text("PAD", 97, 18, { s: 2, align: "center", colour: null });
     p.text("PART RESET", 64, 50, { align: "center" });
   },
+  // drawn with the theme's own fonts and icons, so the picture shows what the patch changes
   theme: p => {
-    p.fill(4, 4, 64, 14);
-    for (let i = 0; i < 5; i++) p.clear(68 - 5 + i, 4, 5 - i, 1 + i);
-    p.text("BLECH", 8, 8, { colour: null });
+    const tab = themeText(p, "BLECH", 8, 14, 3, { colour: null }) + 10;
+    p.fill(4, 3, tab, 15);
+    for (let i = 0; i < 5; i++) p.clear(4 + tab - 5 + i, 3, 5 - i, 1 + i);
+    themeText(p, "BLECH", 8, 14, 3, { colour: null });
+    themeIcon(p, 6, 100, 6);
+    themeIcon(p, 2, 112, 6);
     p.fill(4, 18, 120, 1);
-    p.text("Aa Bb 123", 64, 28, { s: 2, align: "center" });
-    p.text("> < + - %", 64, 50, { align: "center" });
+    themeText(p, "Aa Qq 0123", 64, 34, 1, { align: "center" });
+    themeText(p, "> < + - %", 64, 53, 0, { align: "center" });
   },
   "power-off": p => {
     p.text("BYE", 64, 8, { s: 2, align: "center" });
