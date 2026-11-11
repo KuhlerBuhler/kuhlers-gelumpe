@@ -177,14 +177,15 @@ SYNC_AT = 15                                                          # the coun
 LEVEL_BLECHY = 3                                                      # level 3 of the screen: the page of Blechy, the last of the ring
 LEVEL_SYNC = 4                                                        # level 4: the page SYNC GROUP between the Pattern menu and the Part menu
 LEVEL_PLUGIN = 5                                                      # level 5: MANAGE PLUGINS, one page a plugin
-LEVEL_PSUB = 6                                                        # level 6: the pages of one plugin: DESCRIPTION, the pages it added, OFF, REMOVE
+LEVEL_PSUB = 6                                                        # level 6: the pages of one plugin: ACTIVE, DESCRIPTION, the pages it added, OFF, REMOVE
 LEVEL_GLOBAL = 7                                                      # level 7: PLUGIN RUNTIME, the last page of GLOBAL PARAMETERS (21/21)
 LEVEL_DU = 8                                                          # level 8: our pages of DATA UTILITY, behind the firmware's functions
 GLOBAL_PAGES = 20                                                     # the firmware's pages of GLOBAL PARAMETERS (screen 9)
 S_PSEL = 0xFB                                                         # byte: the plugin the pages of level 6 are about (the page of level 5 it was opened from)
 S_BRW_ON = 0x154                                                      # byte: M_BRW_ON, nonzero while the page shows as the firmware's file browser
 PLUGIN_MANAGE = 0                                                     # the one page of PLUGINS: MANAGE PLUGINS
-PLUGIN_DESCRIPTION = 0                                                # the first page of one plugin; the pages it added follow, then OFF, REMOVE is the last
+PLUGIN_ACTIVE = 0                                                     # the first page of one plugin: ACTIVE, the dial switches it ON and OFF
+PLUGIN_DESCRIPTION = 1                                                # the second page; the pages it added follow, then OFF, REMOVE is the last
 PRESS = "press  [ Enter ]"                                            # the third line of every Data Util page
 VALUE_ROWS = range(30, 64)                                           # the pixel rows the value (and the firmware's third line) use
 TAB_ROWS = range(1, 9)                                               # the rows of the tab's text, inside the black bar
@@ -224,7 +225,7 @@ def goto_group(dev, group, page=0):
 
 def goto_plugin(dev, plugin=0, page=None):
     """The page of a plugin in MANAGE PLUGINS (level 5: its name and its state, the dial moves through the list), or with `page` that
-    page of its own pages (level 6: DESCRIPTION, STATE where the dial switches it, the pages it added, OFF, REMOVE); `plugin` counted
+    page of its own pages (level 6: ACTIVE where the dial switches it, DESCRIPTION, the pages it added, OFF, REMOVE); `plugin` counted
     as the list counts (loaded ones first), entered fresh."""
     go(dev, 8)
     dev.m.uc.mem_write(STATE + S_PSEL, bytes([plugin]))
@@ -1857,10 +1858,10 @@ def wheel_cases(payload, flash=None):
     goto_plugin(dev, 29)
     dev.turn(2, wait=0.4)
     add("plugin_list_stops_at_the_ends", low == (0, 30) and counter(dev) == (29, 30) and texts_of(dev)[0] == "file29", f"below the first {low}, past the last {counter(dev)}")
-    goto_plugin(dev, 0, 1)
+    goto_plugin(dev, 0, PLUGIN_ACTIVE)
     page = texts_of(dev)
     dev.turn(1, wait=0.4)
-    add("plugin_state_page", page == ("STATE", "OFF", "") and state(dev, S_LEVEL) == LEVEL_PSUB and counter(dev) == (1, 3), f"{page}, then dial up {texts_of(dev)}, counter {counter(dev)}")
+    add("plugin_active_page", page == ("ACTIVE", "OFF", "") and state(dev, S_LEVEL) == LEVEL_PSUB and counter(dev) == (0, 3), f"{page}, then dial up {texts_of(dev)}, counter {counter(dev)}")
 
     pic = [[0] * 128 for _ in range(64)]
     dev = boot(payload, flash, files={**CARD_FOLDER, **{f"/KORG/blechtribe/{n}.bmp": bmp(pic) for n in names}})
