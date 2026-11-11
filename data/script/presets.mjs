@@ -1640,18 +1640,18 @@ korg.onEvent("buttonPress", (key) => {
   }),
   Object.freeze({
     id: "bmpviewer",
-    title: "Image Viewer",
+    title: "BMP Viewer",
     description: text("catalog.bmpviewer.description"),
     category: text("catalog.category.tools"),
     creator: "Kuhler Buhler",
     added: "2026-11-03",
     controls: [text("catalog.bmpviewer.control1"), text("catalog.bmpviewer.control2"), text("catalog.bmpviewer.control3")],
-    source: `// Image Viewer, an app under TOOLS: shows the pictures of a picture file GIF00.E2G to GIF99.E2G from KORG/blechtribe/Gif/
+    source: `// BMP Viewer, an app under TOOLS: shows the pictures of a picture file GIF00.E2G to GIF99.E2G from KORG/blechtribe/Gif/
 // on the card one at a time (tools/gif/gif2e2g.py puts several BMPs or other pictures into one file, one frame each).
 // Part right and left show the next and the previous picture, the encoder picks the file. After each change the top left
 // corner shows the number of the picture for two seconds, TAP keeps it there or hides it. Backwards past the first picture
 // goes to the last one once the viewer has been through the file and knows how many there are.
-korg.app("Image Viewer", "TOOLS");
+korg.app("BMP Viewer", "TOOLS");
 const pic = new Array(1024);
 let file = 0;
 let index = 0;

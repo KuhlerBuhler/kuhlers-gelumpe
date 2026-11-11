@@ -1,7 +1,8 @@
 /**
  * A menu button: the design system has no dropdown yet, so this is an own
  * building block (cee-mode). Arrow keys walk the items, Escape and a click
- * outside close it, and the focus goes back to the button.
+ * outside close it, and the focus goes back to the button. The button sits in the sticky navbar: a plain focus()
+ * scrolls the page towards the button (html has scroll-padding-top), so every focus here keeps the scroll position.
  */
 export function dropdown(button, menu, { onPick }) {
   const items = () => [...menu.querySelectorAll("[role^=menuitem]")];
@@ -12,14 +13,14 @@ export function dropdown(button, menu, { onPick }) {
     button.setAttribute("aria-expanded", "true");
     const list = items();
     const target = focusItem === "last" ? list.at(-1) : focusItem === "first" ? list[0] : null;
-    target?.focus();
+    target?.focus({ preventScroll: true });
   }
 
   function close(refocus = false) {
     if (!isOpen()) return;
     menu.hidden = true;
     button.setAttribute("aria-expanded", "false");
-    if (refocus) button.focus();
+    if (refocus) button.focus({ preventScroll: true });
   }
 
   button.addEventListener("click", () => (isOpen() ? close() : open("first")));
@@ -32,7 +33,7 @@ export function dropdown(button, menu, { onPick }) {
     const list = items();
     const at = list.indexOf(document.activeElement);
     const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: list.length - 1 }[e.key];
-    if (to !== undefined) { e.preventDefault(); list[(to + list.length) % list.length].focus(); return; }
+    if (to !== undefined) { e.preventDefault(); list[(to + list.length) % list.length].focus({ preventScroll: true }); return; }
     if (e.key === "Escape") { e.preventDefault(); close(true); }
     if (e.key === "Tab") close();
   });
