@@ -12,6 +12,7 @@
  *            "info" no address, read only: `offset` picks what the runtime knows about the device it runs on (INFO),
  *            "touchpad" no address: the touch pad mode, read from the firmware and the patch mfx-switch, set with one key press
  *            "motion" no address: whether the selected part plays its motion, set with one TAP press of the patch tap-motion
+ *            "state" no address, read only: `offset` picks a firmware state word read behind its pointer (STATE_WORDS)
  *   type     "u8" one byte, "u32" one word
  *   min, max the valid range; a set outside it is clamped and counted, so is a stored value found outside it at start
  *   factory  the value when the menu starts without a settings file
@@ -27,7 +28,9 @@
 import { text } from "../../src/text.mjs";
 import globalMap from "../map/global.mjs";
 
-export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info", "touchpad", "motion"]);
+export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info", "touchpad", "motion", "state"]);
+/** What a leaf of the base "state" reads, by its offset. */
+export const STATE_WORDS = Object.freeze({ padMode: 0, bar: 1, screen: 2 });
 /**
  * What a leaf of the base "info" reads, by its `offset` (tools/patch/script_objects.s, objects_info_get): the build the runtime
  * was made for, the version of the set (the text of the patch blech-version), and the counts the firmware's own functions
@@ -244,6 +247,21 @@ export const OBJECTS = Object.freeze([
   leaf(54, "korg.motion.enabled", {
     base: "motion", offset: 0, type: "u32", min: 0, max: 1, factory: 1, write: true, since: 28,
     unit: "0 off, 1 on", text: text("api.object.motion.enabled"),
+  }),
+
+  // API 29: firmware states for sequencer plugins, read only
+  leaf(55, "korg.pads.mode", {
+    base: "state", offset: STATE_WORDS.padMode, type: "u32", min: 0, max: 9, factory: 3, write: false, since: 29,
+    unit: "0 part mute, 2 part erase, 3 trigger, 4 sequencer, 5 keyboard, 6 chord, 7 step jump, 9 pattern set",
+    text: text("api.object.pads.mode"),
+  }),
+  leaf(56, "korg.pads.bar", {
+    base: "state", offset: STATE_WORDS.bar, type: "u32", min: 0, max: 3, factory: 0, write: false, since: 29,
+    unit: "0 to 3, the 16 steps the pads show", text: text("api.object.pads.bar"),
+  }),
+  leaf(57, "korg.screen", {
+    base: "state", offset: STATE_WORDS.screen, type: "u32", min: 0, max: 255, factory: 1, write: false, since: 29,
+    unit: "1 main, 3 pattern menu, 7 part menu, 8 global, 19 step, 21 part util, 37 sample", text: text("api.object.screen"),
   }),
 ]);
 

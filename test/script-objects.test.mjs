@@ -161,7 +161,7 @@ test("the range of a leaf is the range the page's dial runs through", () => {
 
 test("the bases of the table are the ones script_objects.s knows by number", () => {
   const objects = readFileSync(new URL("../tools/patch/script_objects.s", import.meta.url), "utf8");
-  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"], ["OBJ_BASE_TOUCHPAD", "touchpad"], ["OBJ_BASE_MOTION", "motion"]]) {
+  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"], ["OBJ_BASE_TOUCHPAD", "touchpad"], ["OBJ_BASE_MOTION", "motion"], ["OBJ_BASE_STATE", "state"]]) {
     assert.equal(Number(objects.match(new RegExp(`^\\.equ ${name}, (\\d+)`, "m"))[1]), OBJECT_BASES.indexOf(base), name);
   }
 });
@@ -308,3 +308,30 @@ test("the simulator switches the selected part's motion with korg.motion.enabled
   device.frame();
   assert.deepEqual([0, 1, 2].map(i => stored(device, i)), [0, 1, 0]);
 });
+
+// API 29: firmware states, the write event and the pattern name (plan 2026-11-10-plugin-api-1.5-complete, phase 4).
+test("korg.pads.mode, korg.pads.bar, korg.screen and the events padMode, screen and write need API 29", () => {
+  for (const path of ["korg.pads.mode", "korg.pads.bar", "korg.screen"]) {
+    const leaf = OBJECT_BY_PATH.get(path);
+    assert.deepEqual([leaf.base, leaf.write, leaf.stored, leaf.since], ["state", false, false, 29], path);
+    assert.match(refused(`korg.onEvent("ready", () => { ${path} = 1; });`), new RegExp(path.replace(/\./g, "\\.")));
+  }
+  for (const source of [`korg.onEvent("ready", () => { let m = korg.pads.mode + korg.pads.bar + korg.screen; });`,
+    `korg.onEvent("padMode", mode => { korg.store.set(0, mode); });`, `korg.onEvent("screen", number => { korg.store.set(0, number); });`,
+    `korg.onEvent("write", pattern => { korg.store.set(0, pattern); });`, `let a = [0, 0]; korg.onEvent("ready", () => { korg.display.chars(a, 0, 0, 2); });`,
+    `let a = [0]; korg.onEvent("ready", () => { korg.read.patternName(a, -1); });`]) {
+    assert.equal(decodeBlob(build(source)).header.apiVersion, 29, source);
+  }
+});
+
+test("the simulator reads the pattern name and the firmware states at their factory values", () => {
+  const device = new SimDevice();
+  const block = device.hardware.patternBlock(-1);
+  block.set([...Buffer.from("Hi there")], 16);
+  assert.ok(device.load(build(`let n = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+korg.onEvent("ready", () => { korg.store.set(0, korg.read.patternName(n, -1)); korg.store.set(1, n[0]); korg.store.set(2, n[7]);
+  korg.store.set(3, korg.pads.mode); korg.store.set(4, korg.screen); });`)).ok);
+  device.frame();
+  assert.deepEqual([0, 1, 2, 3, 4].map(i => stored(device, i)), [16, 72, 101, 3, 1]);
+});
+

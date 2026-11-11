@@ -5,13 +5,16 @@
 ; 2 the absolute address offset, 3 the Global settings the firmware keeps + offset, 4 no address, offset picks a call into the patch pad-colors,
 ; 5 no address, read only, offset picks what the runtime knows about the device (INFO in data/script/objects.mjs),
 ; 6 no address: the touch pad mode, read from the firmware's touch pad object and the patch mfx-switch, set with the panel's keys,
-; 7 no address: the motion switch of the selected part, set with one TAP of the patch tap-motion.
+; 7 no address: the motion switch of the selected part, set with one TAP of the patch tap-motion,
+; 8 no address, read only: offset picks a state word of the firmware (STATE_WORDS in data/script/objects.mjs).
 .equ OBJ_BASE_ABS, 2
 .equ OBJ_BASE_GLOBAL, 3
 .equ OBJ_BASE_PAD, 4
 .equ OBJ_BASE_INFO, 5
 .equ OBJ_BASE_TOUCHPAD, 6
 .equ OBJ_BASE_MOTION, 7
+.equ OBJ_BASE_STATE, 8
+.equ STATE_MODEL, 0xC0348884       ; pointer to the sequencer model, +0x344 the bar section (as dice.py MODEL)
 .equ KEY_TAP, 3
 .equ MOTION_MODE_AT, 0x807        ; a part's Motion Sequence mode in the pattern object, 0x330 a part (0 off, 1 smooth, 2 trigger hold)
 .equ TAP_HOOK, 0xC0042CC0         ; the key handler's word the patch tap-motion turns into a branch into its code
@@ -42,6 +45,8 @@ script_object_get_glue:
     beq objects_touchpad_get
     cmp r1, #OBJ_BASE_MOTION
     beq objects_motion_get
+    cmp r1, #OBJ_BASE_STATE
+    beq objects_state_get
     ldrb r1, [r4, #17]
     cmp r1, #0
     ldrbeq r0, [r0]
@@ -90,6 +95,28 @@ objects_touchpad_get:
 objects_motion_get:
     bl objects_motion_on
     b objects_get_done
+; korg.pads.mode, korg.pads.bar and korg.screen
+objects_state_get:
+    ldr r0, [r4]
+    bl objects_state_word
+    b objects_get_done
+; r0 = 0 the pad mode, 1 the bar section, 2 the screen number -> r0 = the firmware's word, FFFFFFFF while its object does
+; not exist (reads as the factory value). Clobbers r1.
+objects_state_word:
+    cmp r0, #1
+    ldrlo r1, =HW_LED_MANAGER
+    ldreq r1, =STATE_MODEL
+    ldrhi r1, =SCREEN_MANAGER
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    mvneq r0, #0
+    bxeq lr
+    cmp r0, #1
+    ldrlo r0, [r1, #0xB58]
+    ldreq r0, [r1, #0x344]
+    ldrhi r0, [r1, #0x2C]
+    bx lr
 ; r0 = 1 when the selected part plays its motion, 0 when it does not or no part is selected. Clobbers r1, r2.
 objects_motion_on:
     ldr r1, =HW_PART
@@ -297,7 +324,7 @@ objects_motion_set:
     mov r0, #KEY_TAP
     b objects_touchpad_press
 
-; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; bases 4 to 7 have none)
+; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; bases 4 to 8 have none)
 objects_row:
     mov r4, #0
     cmp r0, #OBJ_COUNT
@@ -316,6 +343,8 @@ objects_row:
     cmp r1, #OBJ_BASE_TOUCHPAD
     bxeq lr
     cmp r1, #OBJ_BASE_MOTION
+    bxeq lr
+    cmp r1, #OBJ_BASE_STATE
     bxeq lr
     cmp r1, #OBJ_BASE_GLOBAL
     beq objects_row_global
@@ -461,6 +490,10 @@ objects_write_frame:
     .word 0                         ; the frame of the last write
 objects_touchpad_last:
     .word 0xFFFFFFFF                ; the touch pad mode of the last frame, for the event touchpadMode (script_events_poll)
+objects_padmode_last:
+    .word 0xFFFFFFFF                ; the pad mode and the screen number of the last frame, for padMode and screen
+objects_screen_last:
+    .word 0xFFFFFFFF
 objects_table:
 @OBJECT_ROWS@
 .align 4

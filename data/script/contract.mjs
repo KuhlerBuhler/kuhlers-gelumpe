@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 28;
+export const API_VERSION = 29;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -183,6 +183,9 @@ const EVENT_LIST = [
   ["close", []],
   ["timer", ["callback"]],
   ["touchpadMode", ["mode"]],
+  ["padMode", ["mode"]],
+  ["screen", ["number"]],
+  ["write", ["pattern"]],
 ];
 
 /**
@@ -191,7 +194,7 @@ const EVENT_LIST = [
  */
 export const EVENT_ARG_SINCE = Object.freeze({ touch: Object.freeze({ first: 6 }) });
 /** The API version an event was added in, for the events newer than API 1: a handler for it needs a block of at least that version. */
-export const EVENT_SINCE = Object.freeze({ touchpadMode: 27 });
+export const EVENT_SINCE = Object.freeze({ touchpadMode: 27, padMode: 29, screen: 29, write: 29 });
 
 /**
  * Events. `start` is the script body itself (top-level statements), not a
@@ -402,6 +405,8 @@ const API_LIST = [
   [111, "korg.motion.clearPart", [int("part", 0, 15)], "void", UI, 80, 28],
   [112, "korg.motion.clearMfx", [], "void", UI, 80, 28],
   [113, "korg.motion.output", [int("lane", 0, 23)], "int", ALL, 4, 28],
+  [114, "korg.display.chars", [arr("array"), int("x", 0, 127), int("y", 0, 63), int("count", 0, 31)], "void", UI, 250, 29, 1],
+  [115, "korg.read.patternName", [arr("array"), int("pattern", -1, 249)], "int", UI, 6, 29, 1],
 ];
 
 /**

@@ -93,7 +93,10 @@ export const CHAINS = {
   "type-set": [{ id: "setter", sites: [0xC0048A64] }],
   "filter-key": [{ id: "selection", sites: [0xC006FCE8] }],
   "filter-type-store": [{ id: "setter", sites: [0xC00495DC] }],
-  "pattern-write": [{ id: "staging-copy", sites: [0xC004C2BC] }],
+  "pattern-write": [
+    { id: "entry", sites: [0xC004C28C, 0xC0046090] },   // the second is the synth build's
+    { id: "staging-copy", sites: [0xC004C2BC] },
+  ],
   "save": [{ id: "entry", sites: [0xC004C1B4] }],
   "seq-step": [{ id: "step", sites: [0xC00589EC] }],
   "seq-beat": [{ id: "beat", sites: [0xC005BD7C] }],

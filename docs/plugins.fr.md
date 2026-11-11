@@ -158,6 +158,9 @@ suivent la langue choisie dans l’application. Cette langue n’étend pas le j
 | `mute` | `part`, `muted` | Changement de l’état muet d’une partie |
 | `tempo` | `tenthsBpm` | Changement de tempo |
 | `touchpadMode` | `mode` | mode du touchpad modifié, la nouvelle valeur de `korg.touchpad.mode` (0 à 4), qu’une touche ou `korg.touchpad.mode` l’ait changé ; depuis l’API 27 |
+| `padMode` | `mode` | mode des pads modifié, la nouvelle valeur de `korg.pads.mode` ; depuis l’API 29 |
+| `screen` | `number` | un autre écran du firmware est ouvert, la nouvelle valeur de `korg.screen` ; depuis l’API 29 |
+| `write` | `pattern` | un pattern est écrit dans la banque (WRITE, aussi le raccourci EXIT + WRITE), `pattern` sa place 0 à 249, avant que le firmware l’écrive ; depuis l’API 29 |
 | `save` | | WRITE dans Global et extinction |
 | `menu` | `id`, `value` | Rotation de la molette principale sur une page créée avec `korg.menu.add` |
 | `open`, `close` | | Réservés aux applications et aux plugins ayant pris l’écran : ouverture depuis le menu, fermeture par EXIT ou départ de la page principale. Ils ne sont transmis qu’au plugin concerné |
@@ -190,7 +193,7 @@ Un cycle transmet d’abord `ready` une fois par plugin, collecte les entrées e
 `frame` en dernier. Les nouvelles entrées attendent le cycle suivant. Un nouveau plugin reçoit
 `ready` après la fin du cycle précédent.
 
-### Ce qu’un plugin atteint (API 28)
+### Ce qu’un plugin atteint (API 29)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -208,11 +211,12 @@ feuille de l’arbre d’objets.
 | Pads | non | `korg.padDown`, `korg.padUp`, `korg.padHold` | `pad` |
 | Touchpad | non | `korg.touch`, `korg.touchLockX` | `touch` |
 | Mode du touchpad (Gate Arp, Touch Scale, Master FX, MFX 2) | `korg.touchpad.mode` | `korg.touchpad.mode` | `touchpadMode` |
-| Mode des pads (TRIGGER, SEQUENCER, KEYBOARD et les autres) | non | non | non |
+| Mode des pads (TRIGGER, SEQUENCER, KEYBOARD et les autres) | `korg.pads.mode` | non | `padMode` |
+| Mesure sur les pads (1 à 4) | `korg.pads.bar` | non | non |
 | LED | non | `korg.led`, `korg.ledHold` | non |
 | Écran (image propre, fenêtres du firmware) | `korg.read.popups` | `korg.display.*`, `korg.file.frame` | `open`, `close` |
 | Rétroéclairage | non | `korg.backlight` | non |
-| Écran ou menu ouvert | non | non | non |
+| Écran ou menu ouvert | `korg.screen` | non | `screen` |
 | **Séquenceur, pattern, partie, pas** | | | |
 | Transport (PLAY, STOP, REC) | `korg.read.transport` | `korg.play`, `korg.stop` | `play`, `stop`, `rec` |
 | Tempo | `korg.read.tempo` | `korg.tempo` | `tempo` |
@@ -222,7 +226,8 @@ feuille de l’arbre d’objets.
 | Valeurs du pattern (tempo au pad MFX, chaîne, sync group) | `korg.read.patternValue`, `korg.read.chainMode` | `korg.seq.setPatternValue` | non |
 | Valeurs d'une partie (échantillon à groove, avec motion seq on ou off) | `korg.read.patternValue` | `korg.seq.setPartValue` | non |
 | Pas (on, gate, vélocité, notes) | `korg.seq.getOn`, `korg.seq.getGate`, `korg.seq.getNote`, `korg.seq.getVelocity`, `korg.read.patternBytes` | `korg.seq.setStep`, `korg.seq.setGate`, `korg.seq.clearPart`, `korg.seq.writeSteps` | non |
-| Enregistrer le pattern (WRITE) | non | non | non |
+| Enregistrer le pattern (WRITE) | non | non | `write` |
+| Nom du pattern | `korg.read.patternName` | non | non |
 | Pistes de motion et leur lecture | `korg.motion.lane`, `korg.motion.destination`, `korg.motion.value`, `korg.motion.output` | `korg.motion.setValue`, `korg.motion.clearLane`, `korg.motion.clearPart`, `korg.motion.clearMfx` | non |
 | Motion de la partie choisie on ou off (TAP avec le patch tap-motion) | `korg.motion.enabled` | `korg.motion.enabled` | non |
 | **Effets** | | | |
@@ -372,6 +377,9 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.system.limits.samples` | nombre de slots d’échantillon que `sample` peut choisir : 1000 sur le Sampler rouge, 0 sur le Synth bleu | non | 0 à 1000 |
 | `korg.touchpad.mode` | mode du touchpad : 0 Gate Arp, 1 Touch Scale, 2 Master FX, 3 Gate Arp + Touch Scale, 4 MFX 2 (Master FX avec le type MFX 2 du patch mfx-switch) (depuis l’API 27) | Oui : appuie sur la touche qui y mène depuis le mode actuel, LED et effet sont ensuite comme après la touche. Avec MFX 2 activé : GATE ARP donne 3, TOUCH SCALE 4, MASTER FX 2, SHIFT + TOUCH SCALE 1 ; 0 n’est alors pas accessible. Sans MFX 2, les touches du firmware ; un mode qu’aucun appui n’atteint reste inchangé | 0 à 4 |
 | `korg.motion.enabled` | 1 quand la partie choisie joue sa motion sequence (mode Smooth ou Trigger Hold), 0 quand elle est coupée (depuis l’API 28) | Oui : appuie une fois sur TAP si le patch tap-motion est actif et que la valeur change, comme une main ; le patch retient le mode. Sans le patch rien ne change | 0 à 1 |
+| `korg.pads.mode` | mode des pads du firmware : 0 PART MUTE, 2 PART ERASE, 3 TRIGGER, 4 SEQUENCER, 5 KEYBOARD, 6 CHORD, 7 STEP JUMP, 9 PATTERN SET (depuis l’API 29) | Non | 0 à 9 |
+| `korg.pads.bar` | quelle mesure d’un pattern de plus de 16 pas les pads montrent, 0 à 3 pour la mesure 1 à 4 (depuis l’API 29) | Non | 0 à 3 |
+| `korg.screen` | numéro de l’écran du firmware ouvert : 1 écran principal, 3 menu Pattern, 7 Part Edit, 8 Global, 19 Step Edit, 21 Part Util, 37 Sample ; les autres numéros sont dans la [mesure](messungen/2026-11-11-plugin-api29-state-events.md) (depuis l’API 29) | Non | 0 à 255 |
 | `korg.menu.blech.customizations.display.red` | Rouge du rétroéclairage ; BACKLIGHT HUE, SAT, BRIGHT affichent teinte, saturation, luminosité ; les trois canaux à 0 signifient blanc d’origine | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.green` | Vert du rétroéclairage | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.blue` | Bleu du rétroéclairage | Oui, comme la page | 0 à 15 |
@@ -598,6 +606,7 @@ La colonne d’autorisation s’applique aussi à la syntaxe de propriété équ
 | `korg.display.number(value, x, y)` | Affiche un nombre | Comme `korg.led` |
 | `korg.display.pixel(x, y, on)` | Règle un pixel ; `on` vaut 0 ou 1 | Comme `korg.led` |
 | `korg.display.textNumber(text, value, x, y)` | Texte suivi directement d’un nombre, sans compter les chiffres ; 6 pixels par caractère. Équivalent à `text` puis `number`. Depuis l’API 6 | Comme `korg.led` |
+| `korg.display.chars(array, x, y, count)` | Dessine l’octet bas de chaque élément comme un caractère, comme `text` dessine un texte : au plus `count` caractères (jusqu’à 31), jusqu’à la fin du tableau ou un élément dont l’octet bas vaut 0. Pour les textes qu’un plugin lit, comme `korg.read.patternName`. Depuis l’API 29 | Comme `korg.led` |
 | `korg.display.bitmap(array, x, y, width)` | Image issue d’un tableau global, X de -128 à 127, Y de -64 à 63 ; les débordements sont coupés. Format et coût ci-dessous. Depuis l’API 6 | Comme `korg.led` |
 | `korg.display.rect(x, y, width, height)` | Rectangle plein | Comme `korg.led` |
 | `korg.display.clearRect(x, y, width, height)` | Efface un rectangle | Comme `korg.led` |
@@ -663,6 +672,7 @@ exclut le corps et `save`.
 | `korg.seq.setPartValue(part, value, x)` | Règle un champ de `PART_FIELDS` dans une partie, valeur limitée à sa plage, par les fonctions du firmware ; détails ci-dessous. Syntaxe lisible : `korg.parts[i].cutoff = x`. Depuis l’API 14 | Comme `korg.led` |
 | `korg.seq.setPatternValue(value, x)` | Règle un champ de `PATTERN_FIELDS` du pattern en lecture, comme `korg.read.patternValue` avec partie -1 ; valeur limitée à sa plage et fonction du menu Pattern. Détails ci-dessous. Depuis l’API 15 | Comme `korg.led` |
 | `korg.read.patternBytes(array, pattern, offset)` | Copie les octets d’un pattern dans un tableau, un octet par élément. Pattern -1 pour la RAM, 0 à 249 pour la banque ; offset de 0 à 16383 dans un bloc de 16384 octets. Lit jusqu’à la limite du tableau ou du bloc et renvoie le nombre d’octets. Dans `data/map/pattern.mjs`, la partie p commence à 2048 + 816 × p et son pas s à 48 + 12 × s dans la partie. Depuis l’API 14 | Partout |
+| `korg.read.patternName(array, pattern)` | Copie les 16 octets du nom du pattern (offset 16 du bloc) dans le tableau, un octet par élément, comme `korg.read.patternBytes(array, pattern, 16)` avec au plus 16 éléments ; pattern -1 pour la RAM, 0 à 249 pour la banque. Renvoie le nombre d’octets. À afficher avec `korg.display.chars`. Depuis l’API 29 | Partout |
 | `korg.seq.writeSteps(array, part, first)` | Écrit des pas entiers à partir du pas first, 0 à 63, dans la partie du pattern en lecture. 12 éléments par pas : activation, gate, vélocité, déclenchement, quatre notes et quatre octets laissés intacts. S’arrête à la fin du tableau ou au pas 63. Limite activation/déclenchement à 0 ou 1, gate à 0 à 127, vélocité à 1 à 127, notes à 0 à 128. L’activation est écrite en dernier. Renvoie le nombre de pas. Depuis l’API 14 | Comme `korg.led` |
 
 **Écriture des paramètres de partie.** `korg.seq.setPartValue` appelle les fonctions qu’utilisent

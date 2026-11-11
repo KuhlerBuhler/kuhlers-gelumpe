@@ -84,7 +84,7 @@ test("the compiler passes a global array by its first slot and length and refuse
 });
 
 test("the API version of a block follows what it uses", () => {
-  assert.equal(API_VERSION, 28);
+  assert.equal(API_VERSION, 29);
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let g = korg.seq.getGate(0, 0); });"), 22, "reading a step needs API 22");
   assert.equal(apiVersionOf("korg.onEvent(\"frame\", () => { let v = korg.viewedPattern + korg.nextPattern; });"), 18, "the viewed and next pattern need API 18");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.keyMask(1 << korg.key.PLAY, 0); });"), 19, "a key mask needs API 19");
@@ -217,3 +217,15 @@ test("an array of bytes goes into the data section without code, trimmed of zero
   assert.ok(loaded.script.dispatch("ready", [], env).ok);
   assert.deepEqual(Array.from(loaded.script.vars.slice(0, 7)), [0, 5, 0, 0, 255, 0, 260]);
 });
+
+test("korg.display.chars draws the low byte of each slot as text, up to count or a 0", () => {
+  const device = opened(app({ top: "const s = [72, 105, 256 + 33, 0, 65];", open: "korg.display.chars(s, 3, 4, 9);" }));
+  const want = new Display();
+  want.text("Hi!", 3, 4);
+  assert.deepEqual(device.display.rows(), want.rows());
+  const short = opened(app({ top: "const s = [72, 105, 33];", open: "korg.display.chars(s, 3, 4, 1);" }));
+  want.clear();
+  want.text("H", 3, 4);
+  assert.deepEqual(short.display.rows(), want.rows());
+});
+

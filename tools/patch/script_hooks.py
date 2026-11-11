@@ -56,6 +56,7 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC00836FC,0xE59F000C,'script_frame_hook'),
          (0xC0038D68,0xE28D0004,'script_card_hook'),
          (0xC004C1B4,0xE92D4070,'script_save_hook'),
+         (0xC004C28C,0xE92D40F8,'script_write_hook'),
          (0xC006E8D8,0xE351000A,'menu_toplevel'),
          (0xC006F094,0xE92D4038,'menu_write'),
          (0xC008A83C,0xE3A03000,'menu_counter_new'),
@@ -355,6 +356,7 @@ class BuiltHooks:
             ('script_app_glue','script_display_take_glue','korg.app: Blechys Rumpf meldet sich an, der Eintrag steht schon da.'),
             ('frame_return','script_frame_return_end','Rahmenrückweg samt eigenen Literalen im beobachteten Startblock.'),
             ('script_save_hook','script_save_hook_end','Speicher-Haken erhält Register, meldet das Ereignis und führt den verdrängten Befehl aus.'),
+            ('script_write_hook','script_write_hook_end','Der Haken am Pattern-Schreiben erhält Register, meldet das Ereignis write mit dem Pattern und führt den verdrängten Befehl aus.'),
             ('script_early_hook','script_early_end','Der Haken vor dem Sample-Lader (erster Befehl des Ladebefehls) erhält Register und Flags, schaltet das Menü scharf und liest die Einstellungen, damit das Aussehen schon beim Laden gilt, und führt den verdrängten Befehl aus.'),
             ('boot_light_hook','boot_light_end','Die Farbe des Hintergrundlichts beim Einschalten: hinter dem ersten Lesen des Flash prüft der Haken Panel, EXIT und Panel-Update, liest 12 Byte der Globals im Flash (Marke GLED) und setzt nur die drei Pins des Lichts; die Haken der Lichtfunktionen lassen sie bis zum Scharfschalten so.'),
             ('script_card_hook','script_card_wrapper_end','Start-Wrapper erhält Register und Flags, prüft den Notschalter vor Menü und Plugins und führt den verdrängten nativen Befehl aus.'),
@@ -406,7 +408,8 @@ class BuiltHooks:
                 position='before',swallow=True),dict(site='0xC00836FC',kind='instruction',
                 chain='frame',position='after',swallow=False),dict(site='0xC0038D68',kind='instruction',
                 chain='start',position='before',swallow=False),dict(site='0xC004C1B4',kind='instruction',
-                chain='save',position='before',swallow=False)]+menu_hooks))
+                chain='save',position='before',swallow=False),dict(site='0xC004C28C',kind='instruction',
+                chain='pattern-write',position='before',swallow=False)]+menu_hooks))
 
     def ram_areas(self):
         layout=self.layout
@@ -543,7 +546,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     actions = '\n'.join(f'.equ {name}, {value}' for name, value in profile.actions.items())
     hooks=assemble(actions+'\n'+source,origin=origin)
     linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_PAD_HOLD':hooks.symbols['script_pad_hold_glue'],'API_KORG_KNOB_HOLD':hooks.symbols['script_knob_hold_glue'],'API_KORG_KNOB':hooks.symbols['script_knob_glue'],'API_KORG_PASS_KEYS':hooks.symbols['script_pass_keys_glue'],'API_KORG_TOUCH_LOCK_X':hooks.symbols['script_touch_lock_x_glue'],'API_KORG_KEY_HOLD':hooks.symbols['script_key_hold_glue'],'API_KORG_KEY_MASK':hooks.symbols['script_key_mask_glue'],'API_KORG_PRESS_KEY':hooks.symbols['script_press_key_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['KEY_DOWN','KEY_UP','PAD_DOWN','PAD_UP','ENCODER','TOUCH']},'API_KORG_READ_PATTERN_BYTES':hooks.symbols['script_read_pattern_bytes_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],'API_KORG_FILE_FRAME':hooks.symbols['script_file_frame_glue'],'API_KORG_GET':hooks.symbols['script_object_get_glue'],'API_KORG_SET':hooks.symbols['script_object_set_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_timer_{name.lower()}_glue'] for name in ['AFTER','EVERY','AFTER_STEPS','CANCEL']},**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},'API_KORG_READ_CHAIN_MODE':hooks.symbols['script_read_chain_mode_glue'],'API_KORG_READ_VIEWED_PATTERN':hooks.symbols['script_read_viewed_pattern_glue'],'API_KORG_READ_NEXT_PATTERN':hooks.symbols['script_read_next_pattern_glue'],'API_KORG_READ_PATTERN_VALUE':hooks.symbols['script_read_pattern_value_glue'],'API_KORG_REMAP_KEY':hooks.symbols['script_remap_key_glue'],**{f'API_KORG_SEQ_{name}':hooks.symbols[f'script_seq_{name.lower()}_glue'] for name in ['SET_STEP','SET_GATE','CLEAR_PART','SET_PART_VALUE','WRITE_STEPS','SET_PATTERN_VALUE','GET_ON','GET_GATE','GET_NOTE','GET_VELOCITY']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
-        for name,label in [('CLEAR','clear'),('TEXT','text'),('NUMBER','number'),('PIXEL','pixel'),('RECT','rect'),('CLEAR_RECT','clear_rect'),('TAKE','take'),('RELEASE','release'),('BITMAP','bitmap'),('TEXT_NUMBER','text_number'),('POPUPS','popups')]},'API_KORG_READ_POPUPS':hooks.symbols['script_read_popups_glue'],**{f'API_KORG_MOTION_{name}':hooks.symbols[f'script_motion_{name.lower()}_glue'] for name in ['LANE','DESTINATION','VALUE','SET_VALUE','CLEAR_LANE','CLEAR_PART','CLEAR_MFX','OUTPUT']}}
+        for name,label in [('CLEAR','clear'),('TEXT','text'),('NUMBER','number'),('PIXEL','pixel'),('RECT','rect'),('CLEAR_RECT','clear_rect'),('TAKE','take'),('RELEASE','release'),('BITMAP','bitmap'),('TEXT_NUMBER','text_number'),('POPUPS','popups'),('CHARS','chars')]},'API_KORG_READ_POPUPS':hooks.symbols['script_read_popups_glue'],'API_KORG_READ_PATTERN_NAME':hooks.symbols['script_read_pattern_name_glue'],**{f'API_KORG_MOTION_{name}':hooks.symbols[f'script_motion_{name.lower()}_glue'] for name in ['LANE','DESTINATION','VALUE','SET_VALUE','CLEAR_LANE','CLEAR_PART','CLEAR_MFX','OUTPUT']}}
     vm=build_vm(include,origin=MORE3_START,glue=linked_glue)
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
     pool_end=POOL+vm.symbols['SCRIPT_POOL_BYTES']

@@ -16,6 +16,7 @@ export const API_DOCS = Object.freeze({
   "korg.display.clearRect": text("api.korg.display.clearRect"),
   "korg.display.bitmap": text("api.korg.display.bitmap"),
   "korg.display.textNumber": text("api.korg.display.textNumber"),
+  "korg.display.chars": text("api.korg.display.chars"),
   "korg.display.take": text("api.korg.display.take"),
   "korg.display.release": text("api.korg.display.release"),
   "korg.store.get": text("api.korg.store.get"),
@@ -74,6 +75,7 @@ export const API_DOCS = Object.freeze({
   "korg.motion.output": text("api.korg.motion.output"),
   "korg.seq.setPartValue": text("api.korg.seq.setPartValue"),
   "korg.read.patternBytes": text("api.korg.read.patternBytes"),
+  "korg.read.patternName": text("api.korg.read.patternName"),
   "korg.seq.writeSteps": text("api.korg.seq.writeSteps"),
   "korg.seq.setPatternValue": text("api.korg.seq.setPatternValue"),
   "korg.menu.add": text("api.korg.menu.add"),
@@ -119,6 +121,9 @@ export const EVENT_DOCS = Object.freeze({
   timer: { text: text("api.event.timer"), args: { callback: text("api.event.timer.callback") } },
   close: { text: text("api.event.close"), args: {} },
   touchpadMode: { text: text("api.event.touchpadMode"), args: { mode: text("api.event.touchpadMode.mode") } },
+  padMode: { text: text("api.event.padMode"), args: { mode: text("api.event.padMode.mode") } },
+  screen: { text: text("api.event.screen"), args: { number: text("api.event.screen.number") } },
+  write: { text: text("api.event.write"), args: { pattern: text("api.event.write.pattern") } },
 });
 
 export const GROUP_DOCS = Object.freeze({

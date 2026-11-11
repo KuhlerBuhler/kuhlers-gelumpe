@@ -123,6 +123,7 @@ export class SimHardware {
       },
       "korg.seq.setPatternValue": (field, value) => this.setPatternValue(field, value),
       "korg.read.patternBytes": (slots, pattern, offset) => this.patternBytes(slots, pattern, offset),
+      "korg.read.patternName": (slots, pattern) => this.patternBytes(slots.subarray(0, 16), pattern, 16),
       "korg.seq.writeSteps": (slots, part, first) => this.writeSteps(slots, part, first),
       "korg.mute": (part, muted) => { if (this.mutes[part] !== muted) { this.mutes[part] = muted; this.emit("mute", part, muted); } },
       "korg.seq.getOn": (part, step) => this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.on],

@@ -218,7 +218,7 @@ function treeOptions(path) {
 }
 
 /** The first branches of the object tree, offered after `korg.` beside the flat names: `korg.menu`, `korg.system`. */
-const TREE_ROOTS = [...new Set(OBJECTS.map(o => o.path.split(".").slice(0, 2).join(".")))].map(path => ({
+const TREE_ROOTS = [...new Set(OBJECTS.map(o => o.path.split(".").slice(0, 2).join(".")))].filter(path => !OBJECT_BY_PATH.has(path)).map(path => ({
   label: path, type: "namespace", get detail() { return say("script.editor.branch"); }, info: branchInfo(path), apply: `${path}.`, retrigger: true,
 }));
 

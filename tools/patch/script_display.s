@@ -291,6 +291,48 @@ script_display_text_number_glue:
     pop {r4-r8, lr}
     b display_done
 
+; r0 array handle, r1 x, r2 y, r3 count: the low byte of each slot as a character, up to count (31 at most), the array's
+; end or a 0, drawn as korg.display.text draws its text.
+script_display_chars_glue:
+    push {lr}
+    bl display_gate
+    pop {lr}
+    bne display_denied
+    push {r4-r6, lr}
+    sub sp, sp, #32
+    ldr r12, =HOOK_RUNTIME
+    ldr r12, [r12, #RT_ENTRY]
+    ldr r12, [r12, #SCRIPT_ENTRY_VARS]
+    mov r4, r0, lsl #16
+    add r12, r12, r4, lsr #14
+    cmp r3, r0, lsr #16
+    movhi r3, r0, lsr #16
+    cmp r3, #31
+    movhi r3, #31
+    mov r5, r1
+    mov r6, r2
+    mov r4, sp
+    mov r0, #0
+chars_copy:
+    cmp r0, r3
+    beq chars_end
+    ldr r1, [r12, r0, lsl #2]
+    and r1, r1, #0xFF
+    strb r1, [r4, r0]
+    cmp r1, #0
+    beq chars_draw
+    add r0, r0, #1
+    b chars_copy
+chars_end:
+    mov r1, #0
+    strb r1, [r4, r0]
+chars_draw:
+    bl display_draw_text
+    add sp, sp, #32
+    pop {r4-r6, lr}
+    b display_done
+.pool
+
 ; r0 array handle (first slot in the low half, length in the high half, checked by the VM), r1 x, r2 y, r3 width.
 ; The slots are columns of 8 pixels, a band is `width` of them, bit 0 on top. Only lit pixels are set; what lies beyond
 ; the display is skipped. r4 slots of the band, r5 slots left, r6 width, r7 x, r8 shift (y and 7), r9 page of the band

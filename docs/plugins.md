@@ -176,6 +176,9 @@ zu tun ist.
 | `mute` | `part`, `muted` | Part stumm oder nicht |
 | `tempo` | `tenthsBpm` | Tempo geändert |
 | `touchpadMode` | `mode` | Touchpad-Modus geändert, der neue Wert von `korg.touchpad.mode` (0 bis 4), ob eine Taste oder `korg.touchpad.mode` ihn geändert hat; ab API Version 27 |
+| `padMode` | `mode` | Pad-Modus geändert, der neue Wert von `korg.pads.mode`; ab API Version 29 |
+| `screen` | `number` | ein anderer Bildschirm der Firmware ist offen, der neue Wert von `korg.screen`; ab API Version 29 |
+| `write` | `pattern` | ein Pattern wird in die Bank geschrieben (WRITE, auch der Shortcut EXIT + WRITE), `pattern` sein Platz 0 bis 249, bevor die Firmware schreibt; ab API Version 29 |
 | `save` | | WRITE in Global, Ausschalten |
 | `menu` | `id`, `value` | am Hauptrad wurde eine Seite gedreht, die das Plugin mit `korg.menu.add` angelegt hat |
 | `open`, `close` | | nur für Apps und für ein Plugin, das das Display nahm: `open`, wenn der Nutzer die App im Menü öffnet; `close`, wenn EXIT sie schließt (oder die Firmware den Hauptbildschirm verlässt). Sie gehen nur an dieses Plugin und kommen nie von außen |
@@ -225,7 +228,7 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
-### Was ein Plugin erreicht (API 28)
+### Was ein Plugin erreicht (API 29)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -242,11 +245,12 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Pads | nein | `korg.padDown`, `korg.padUp`, `korg.padHold` | `pad` |
 | Touchpad | nein | `korg.touch`, `korg.touchLockX` | `touch` |
 | Touchpad-Modus (Gate Arp, Touch Scale, Master FX, MFX 2) | `korg.touchpad.mode` | `korg.touchpad.mode` | `touchpadMode` |
-| Pad-Modus (TRIGGER, SEQUENCER, KEYBOARD und die anderen) | nein | nein | nein |
+| Pad-Modus (TRIGGER, SEQUENCER, KEYBOARD und die anderen) | `korg.pads.mode` | nein | `padMode` |
+| Takt auf den Pads (1 bis 4) | `korg.pads.bar` | nein | nein |
 | LEDs | nein | `korg.led`, `korg.ledHold` | nein |
 | Display (eigenes Bild, Fenster der Firmware) | `korg.read.popups` | `korg.display.*`, `korg.file.frame` | `open`, `close` |
 | Displaylicht | nein | `korg.backlight` | nein |
-| Welcher Bildschirm oder welches Menü offen ist | nein | nein | nein |
+| Welcher Bildschirm oder welches Menü offen ist | `korg.screen` | nein | `screen` |
 | **Sequencer, Pattern, Part, Step** | | | |
 | Transport (PLAY, STOP, REC) | `korg.read.transport` | `korg.play`, `korg.stop` | `play`, `stop`, `rec` |
 | Tempo | `korg.read.tempo` | `korg.tempo` | `tempo` |
@@ -256,7 +260,8 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Werte des Patterns (Tempo bis MFX-Pad, Chain, Sync Group) | `korg.read.patternValue`, `korg.read.chainMode` | `korg.seq.setPatternValue` | nein |
 | Werte eines Parts (Sample bis Groove, mit Motion Seq an oder aus) | `korg.read.patternValue` | `korg.seq.setPartValue` | nein |
 | Steps (an, Gate, Velocity, Noten) | `korg.seq.getOn`, `korg.seq.getGate`, `korg.seq.getNote`, `korg.seq.getVelocity`, `korg.read.patternBytes` | `korg.seq.setStep`, `korg.seq.setGate`, `korg.seq.clearPart`, `korg.seq.writeSteps` | nein |
-| Pattern speichern (WRITE) | nein | nein | nein |
+| Pattern speichern (WRITE) | nein | nein | `write` |
+| Name des Patterns | `korg.read.patternName` | nein | nein |
 | Motion-Spuren und ihre Wiedergabe | `korg.motion.lane`, `korg.motion.destination`, `korg.motion.value`, `korg.motion.output` | `korg.motion.setValue`, `korg.motion.clearLane`, `korg.motion.clearPart`, `korg.motion.clearMfx` | nein |
 | Motion des gewählten Parts an oder aus (TAP mit dem Patch tap-motion) | `korg.motion.enabled` | `korg.motion.enabled` | nein |
 | **Effekte** | | | |
@@ -396,6 +401,9 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.system.limits.samples` | wie viele Sample-Slots `sample` wählen kann: 1000 auf dem roten Sampler, 0 auf dem blauen Synth | nein | 0 bis 1000 |
 | `korg.touchpad.mode` | Touchpad-Modus: 0 Gate Arp, 1 Touch Scale, 2 Master FX, 3 Gate Arp + Touch Scale, 4 MFX 2 (Master FX mit dem MFX-2-Typ des Patches mfx-switch) (ab API Version 27) | ja: drückt die eine Taste, die vom jetzigen Modus dorthin führt, LEDs und Effekt stehen danach wie nach der Taste. Mit MFX 2 an: GATE ARP gibt 3, TOUCH SCALE 4, MASTER FX 2, SHIFT + TOUCH SCALE 1; 0 ist dann nicht erreichbar. Ohne MFX 2 die Tasten der Firmware; ein Modus, den kein Druck erreicht, bleibt, wie er ist | 0 bis 4 |
 | `korg.motion.enabled` | 1, wenn der gewählte Part seine Motion Sequence spielt (Modus Smooth oder Trigger Hold), 0, wenn sie aus ist (ab API Version 28) | ja: drückt einmal TAP, wenn der Patch tap-motion an ist und der Wert sich ändert, wie die Hand; der Patch merkt sich den Modus. Ohne den Patch ändert sich nichts | 0 bis 1 |
+| `korg.pads.mode` | Pad-Modus der Firmware: 0 PART MUTE, 2 PART ERASE, 3 TRIGGER, 4 SEQUENCER, 5 KEYBOARD, 6 CHORD, 7 STEP JUMP, 9 PATTERN SET (ab API Version 29) | nein | 0 bis 9 |
+| `korg.pads.bar` | welchen Takt eines Patterns über 16 Steps die Pads zeigen, 0 bis 3 für Takt 1 bis 4 (ab API Version 29) | nein | 0 bis 3 |
+| `korg.screen` | Nummer des offenen Bildschirms der Firmware: 1 Hauptbildschirm, 3 Pattern-Menü, 7 Part Edit, 8 Global, 19 Step Edit, 21 Part Util, 37 Sample; die übrigen Nummern stehen in der [Messung](messungen/2026-11-11-plugin-api29-state-events.md) (ab API Version 29) | nein | 0 bis 255 |
 | `korg.menu.blech.customizations.display.red` | Rotanteil des Display-Lichts (die Seiten BACKLIGHT HUE, SAT und BRIGHT zeigen ihn als Farbton, Sättigung, Helligkeit); alle drei auf 0 ist das Weiß der Firmware | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.green` | Grünanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.blue` | Blauanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
@@ -609,6 +617,7 @@ Plugin mit einem Fehler.
 | `korg.display.number(wert, x, y)` | Zahl | wie `korg.led` |
 | `korg.display.pixel(x, y, an)` | ein Pixel, `an` 0 oder 1 | wie `korg.led` |
 | `korg.display.textNumber(text, wert, x, y)` | Text und gleich dahinter die Zahl, ohne dass das Plugin Ziffern zählt; wie `text` und danach `number`, die Zahl beginnt beim Zeichen hinter dem Text (6 Pixel je Zeichen). Ab API Version 6 | wie `korg.led` |
+| `korg.display.chars(feld, x, y, anzahl)` | zeichnet das untere Byte jedes Platzes als Zeichen, wie `text` einen Text zeichnet: höchstens `anzahl` Zeichen (bis 31), bis zum Ende des Felds oder einem Platz, dessen unteres Byte 0 ist. Für Texte, die ein Plugin liest, etwa `korg.read.patternName`. Ab API Version 29 | wie `korg.led` |
 | `korg.display.bitmap(feld, x, y, breite)` | zeichnet ein Bild aus einem globalen Feld, links oben bei `x` (-128 bis 127), `y` (-64 bis 63); was über den Rand reicht, wird abgeschnitten. Aufbau und Kosten siehe unten. Ab API Version 6 | wie `korg.led` |
 | `korg.display.rect(x, y, breite, hoehe)` | gefülltes Rechteck | wie `korg.led` |
 | `korg.display.clearRect(x, y, breite, hoehe)` | Rechteck löschen | wie `korg.led` |
@@ -668,6 +677,7 @@ Plugin mit einem Fehler.
 | `korg.seq.setPartValue(part, wert, x)` | setzt den Wert `wert` (Nummer in `PART_FIELDS`, wie bei `korg.read.patternValue`) von Part `part` auf `x`, in seinen Bereich geklemmt, über die Funktion der Firmware, die auch die Regler nehmen: Pattern im RAM und Klang ändern sich wie beim Drehen. Für den gewählten Part öffnet sich das Parameterfenster wie beim Regler. `voiceAssign` und `mfxSend` (ab API Version 21) gehen über die Funktion der Firmware, die auch die Seite VOICE ASSIGN im Part-Menü und die Taste MFX SEND rufen; sie schreiben Pattern und die Kopie der Klangerzeugung auf allen drei Firmwares, ohne Parameterfenster. Ab API Version 23 (im Emulator geprüft auf Hacktribe, rot und blau, [Messung](messungen/2026-11-07-plugin-api23-part-writes.md)): `ifxOn` und `ampEg` gehen den Weg der Tasten IFX ON und AMP EG, Pattern, Kopie der Klangerzeugung und die LED der Taste stehen danach wie nach der Taste; `mfxSend` schaltet jetzt auch seine LED. Die LED leuchtet nur für den gewählten Part, wie an der Taste. Ab API Version 24 schickt der Aufruf denselben MIDI-CC wie der Regler, der Drehgeber CUTOFF oder die Taste (IFX ON, MFX SEND), auf dem Kanal des Parts. `ifxType` geht wie der Drehgeber IFX über den Part-Edit und zeigt dasselbe Fenster; er hält bei der letzten Nummer der Firmware an (mit dem BLECHTRIBE-Satz 58 auf Hacktribe, 47 auf rot, 37 auf blau; die Grenze liest der Aufruf zur Laufzeit aus der Firmware, ein fx-Katalog mit mehr Typen hebt sie mit), statt umzuspringen. `sample` nimmt die ganze Slotnummer (0 bis 999) über den Part-Edit wie der Regler SAMPLE, aber nur einen Slot, bei dem der Regler stehen bleibt; einen leeren Slot schreibt der Aufruf nicht. Auf blau gibt es keine Samples, dort schreibt `sample` nichts. Jeder Wert geht außerdem so an die Klangerzeugung wie vom Bedienelement (im Emulator auf allen drei Firmwares geprüft, Befunde aus PR #401, [Messung](messungen/2026-11-09-plugin-part-dsp.md)): die Werte der Regler und CUTOFF danach an den Parametersetzer der Firmware wie der Regler, `sample`, `modType`, `ifxType` und `filterType` mit dem Auffrischen wie die Drehgeber und Filtertasten, `mfxSend` mit 127 statt 1 wie die Taste. `filterType` schaltet für den gewählten Part die LEDs LPF, HPF und BPF wie die Taste, `modType` zeigt das Fenster des Drehgebers MOD. Ab API Version 24 setzt `sample` auf einem Sample mit Slices auch den Slice wie der Regler SAMPLE, wenn er auf das Sample hochgedreht wird (im Emulator mit einem gestellten Slice-Sample geprüft, die Karte im Emulator hat keins). Lesbarer als `korg.parts[i].cutoff = x`. Ab API Version 24 geht der Aufruf auch auf der blauen Electribe über den Part-Edit der Regler, mit Fenster. Die Werte der Seiten LAST STEP bis SCALE MODE und GROOVE im Part-Menü (ab API Version 24) gehen über die Funktion dieser Seiten und landen wie nach dem Drehen im Menü. Im Emulator geprüft ([Messung](messungen/2026-11-06-plugin-api21-pattern-parts.md), [API 24](messungen/2026-11-08-plugin-api24-part-cc.md)), am Gerät nicht. Ab API Version 14 | wie `korg.led` |
 | `korg.seq.setPatternValue(wert, x)` | setzt den Wert `wert` (Nummer in `PATTERN_FIELDS`, wie bei `korg.read.patternValue` mit `part` -1) des Patterns, das läuft, auf `x`, in seinen Bereich geklemmt, über die Funktion der Firmware, die auch das Pattern-Menü nimmt: im Block steht danach dasselbe Byte wie nach dem Drehen im Menü. MFX TYPE geht auf blau nur bis 31. `syncGroup` (Wert 12, ab API Version 21) hat keine Funktion der Firmware, die Firmware kennt es nicht; der Aufruf schreibt es in den Block wie die Seite SYNC GROUP. Ab API Version 24: `alternate1314` und `alternate1516` gehen über die Funktion der Seiten ALTERNATE; `mfxHold` drückt die Taste MFX HOLD, wenn der Wert sich ändert, LED, Effekt und Touchpad stehen danach wie nach der Taste (der Wert steht erst nach dem nächsten Bild im Block); `mfxPadX` und `mfxPadY` setzen den Wert des Touchpads und schicken den MIDI-CC wie das Touchpad auf dem globalen Kanal. Der Name des Patterns lässt sich nicht setzen. Im Emulator geprüft auf Hacktribe, rot und blau ([Messung](messungen/2026-11-03-plugin-api15.md)), am Gerät noch nicht. Die Tabelle je Firmware steht in `tools/patch/script_hooks.py` (`PATTERN_SETTERS`). Ab API Version 15 | wie `korg.led` |
 | `korg.read.patternBytes(feld, pattern, offset)` | kopiert Bytes eines Patterns ins Feld, ein Byte je Platz: `pattern` -1 das im RAM, 0 bis 249 ein gespeichertes, ab `offset` (0 bis 16383) im Block von 16384 Byte, so viele wie das Feld Plätze hat und der Block reicht. Gibt die Zahl der Bytes zurück. Die Stellen stehen in `data/map/pattern.mjs`: Part `p` beginnt bei 2048 + 816 × `p`, sein Step `s` bei 48 + 12 × `s` darin. Ab API Version 14 | überall |
+| `korg.read.patternName(feld, pattern)` | kopiert die 16 Bytes des Pattern-Namens (Offset 16 im Block) ins Feld, ein Byte je Platz, wie `korg.read.patternBytes(feld, pattern, 16)` mit höchstens 16 Plätzen; `pattern` -1 das im RAM, 0 bis 249 ein gespeichertes. Gibt die Zahl der Bytes zurück. Anzeigen mit `korg.display.chars`. Ab API Version 29 | überall |
 | `korg.seq.writeSteps(feld, part, erster)` | schreibt Steps aus dem Feld in Part `part` des Patterns, das läuft, ab Step `erster` (0 bis 63): je 12 Plätze ein Step wie im Pattern (an, Gate, Velocity, Trigger, vier Notenplätze, vier Plätze, die die Laufzeit stehen lässt), so viele ganze Steps wie das Feld hat und bis Step 63. Jeder Wert wird geklemmt (an und Trigger 0 bis 1, Gate 0 bis 127, Velocity 1 bis 127, Noten 0 bis 128), das An-Byte kommt zuletzt. Gibt die Zahl der Steps zurück. Ab API Version 14 | wie `korg.led` |
 
 **Steps schreiben** (`tools/patch/script_seq.s`, ab API Version 9): `korg.seq.*` schreibt in das Pattern im RAM,

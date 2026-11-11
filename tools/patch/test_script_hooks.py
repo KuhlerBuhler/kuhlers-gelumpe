@@ -8,6 +8,7 @@ ROOT=pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 
 from tools.patch.test_script_vm import BareMachine, contract_data, blob, UNICORN_AVAILABLE
+READY_SENT=next(f['offset'] for f in contract_data()['pool']['fields'] if f['name']=='readySent')
 try:
     from unicorn import UC_HOOK_CODE
     from unicorn.arm_const import UC_ARM_REG_CPSR, UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R4, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
@@ -227,7 +228,7 @@ class HookTests(unittest.TestCase):
         machine.write(machine.input+0x202C,1)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(entry),[1,7,1])
-        self.assertEqual(machine.read(entry+236),1)
+        self.assertEqual(machine.read(entry+READY_SENT),1)
         machine.write(machine.input+0x202C,4)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(entry),[1,7,2])
@@ -356,10 +357,10 @@ class HookTests(unittest.TestCase):
         advancing[0]=False
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(imported),[0,0,0])
-        self.assertEqual(machine.read(imported+236),0)
+        self.assertEqual(machine.read(imported+READY_SENT),0)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.variables(imported),[1,0,1])
-        self.assertEqual(machine.read(imported+236),1)
+        self.assertEqual(machine.read(imported+READY_SENT),1)
 
     def test_fuel_fault_does_not_stop_other_scripts(self):
         machine,_=self.machine()
@@ -930,15 +931,15 @@ class HookTests(unittest.TestCase):
             self.assertEqual(change['file'],address-RAM_BASE+0x100)
             self.assertEqual(change['expect'],hashlib.sha256(struct.pack('<I',word)).hexdigest())
             self.assertEqual(int.from_bytes(bytes.fromhex(change['bytes']),'little')>>24,0xea)
-        self.assertEqual(len(patch['hooks']),27)
+        self.assertEqual(len(patch['hooks']),28)
         self.assertEqual((patch['hooks'][3]['site'],patch['hooks'][3]['chain']),('0xC004C1B4','save'))
         self.assertEqual(patch['hooks'][0]['chain'],['key-dispatch','pattern-set'])
         self.assertEqual(patch['hooks'][0]['swallow'],True)
         self.assertEqual(patch['hooks'][1]['chain'],'frame')
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
-        card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('boot_light_hook','boot_light_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end')])
-        self.assertEqual(len(patch['startPhase']),62)
+        card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('boot_light_hook','boot_light_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end'),('script_write_hook','script_write_hook_end')])
+        self.assertEqual(len(patch['startPhase']),64)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]

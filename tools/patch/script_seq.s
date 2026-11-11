@@ -567,6 +567,16 @@ pattern_bytes_done:
     bx lr
 .pool
 
+; korg.read.patternName(array, pattern): the 16 bytes of the name, korg.read.patternBytes from offset 16 into at most 16 slots
+script_read_pattern_name_glue:
+    mov r12, r0, lsr #16
+    cmp r12, #16
+    movhi r0, r0, lsl #16
+    movhi r0, r0, lsr #16
+    orrhi r0, r0, #0x100000
+    mov r2, #16
+    b script_read_pattern_bytes_glue
+
 part_writes:
     .word SCRIPT_PART_WRITE_0
     .word SCRIPT_PART_WRITE_1
