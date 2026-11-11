@@ -24,8 +24,8 @@ In Vorbereitung, wird vor dem Release am Gerät getestet ([Notizen](../release-n
 
 ## Danach
 
-- Projekte: Patterns und Samples zusammen aus einem Projektordner laden ([Idee 64](ideen/64-projekte.md)).
-- Sample Swap, dazu ein gemeinsames Format wie bei der ESX, in dem alle Anpassungen in einer Datei stecken.
+- Projekte ([Idee 64](ideen/64-projekte.md)) und das gemeinsame Format wie bei der ESX (Idee 107) sind abgesagt (10.11.)
+  und werden später neu geplant.
 
 ## 1.5: "The sample update"
 
