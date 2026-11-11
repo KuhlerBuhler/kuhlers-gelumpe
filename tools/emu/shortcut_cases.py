@@ -4,7 +4,8 @@ docs/messungen/2026-10-19-exit-shortcuts.md).
 
 check.py runs `cases` on every patched copy that carries the BLECH menu, the blue Electribe's too (its places from data/synth-map/). With EXIT held on the main screen, WRITE
 saves the edited pattern into its own place (through the firmware's Write window) and a pad puts the sound of a part back to
-the values saved in the bank, the steps and the other parts left as they are. WRITE alone still only opens the window, and with
+the values saved in the bank, the steps and the other parts left as they are, and the part's voices take its saved sample again,
+stopped and while playing. WRITE alone still only opens the window, and with
 EXIT held at power-on both are the firmware's.
 
     tools/emu/.venv/bin/python tools/emu/shortcut_cases.py cases --patched NEW.VSB [--flash dump.bin] [--only N]
@@ -184,6 +185,119 @@ def case_reset(payload, flash):
                      and playing.running() == before and not playing.m.asserts,
                      f"playing, EXIT + pad 3: part 3 back {all(live[a] == saved[a] for a in at)}, still playing {playing.transport() == 1}, "
                      f"pattern {playing.running()} (was {before})"))
+    return out
+
+
+PART_OBJECT = 0xC009AF20        # (part) -> the part's object for the voices; +0x34 the sample its next note takes
+OBJECT_SAMPLE = 0x34
+NOTE_ON = 0xC00998B4            # a voice takes a note: r0 the voice, r1 the sample (pswitch_cases.case_voices)
+MAILBOX = 0xFF900A34            # the DSP's mailbox: what a note sends there (ht_osc_cases.Box.note)
+SAMPLE_AT = 8                   # the sample of a part, a half word in its record
+OSC_DIAL = [1, 1, 0, 1, 0]      # the OSC encoder one step up: the firmware's own sample change (live_write_cases.PART_INPUTS)
+
+
+class VBox(SBox):
+    """A device that sees what the voices of part 1 get: the sample in its part object, the samples of the notes the voices
+    take, and the words the DSP's mailbox gets (DspLog, the note messages as ht_osc_cases reads them)."""
+
+    def __init__(self, payload, flash=None, held=0):
+        super().__init__(payload, flash, held)
+        from mfx_cases import DspLog
+        self.log = DspLog(self.m)
+        self.notes = []
+        self.part = self.dev.call(PART_OBJECT, 0)
+        at = self.dev.a(NOTE_ON)
+        self.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: self.notes.append(uc.reg_read(UC_ARM_REG_R1)), begin=at, end=at)
+        self.m.uc.ctl_flush_tb()
+
+    def sample(self, data=None):
+        return struct.unpack_from("<H", self.live() if data is None else data, PART + SAMPLE_AT)[0]
+
+    def voice_sample(self):
+        return struct.unpack("<H", self.dev.read(self.part + OBJECT_SAMPLE, 2))[0]
+
+    def steps(self, part_one):
+        """No part has a step on, or (part_one) part 1 has all 64 on: every note the sequencer plays is part 1's, at every step."""
+        for part in range(16):
+            for step in range(64):
+                at = PART + STRIDE * part + STEPS + 12 * step
+                on = part_one and part == 0
+                self.poke(at, 1 if on else 0)
+                for i, value in enumerate((60, 100, 1, 60) if on else (), 1):
+                    self.poke(at + i, value)
+
+    def change_sample(self):
+        for _ in range(3):
+            self.m.send(OSC_DIAL)
+            self.run(0.3)
+        self.run(1.5)                   # the OSC value window closes
+
+    def reset(self):
+        self.exit_held(True)
+        self.pad(0)
+        self.exit_held(False)
+        self.run(0.5)
+
+    def hit(self):
+        """Pad 1 (TRIGGER: part 1 sounds): the samples its voice takes and the values of the mailbox's note messages."""
+        self.notes.clear()
+        self.log.clear()
+        self.pad(0)
+        words = {x[3][4] for x in self.log.xfers if x[0] == 0xAB and x[1] == MAILBOX and len(x[3]) > 4 and x[3][0] & 2 and x[3][1] == 0}
+        return list(self.notes), words
+
+    def sequenced(self, seconds=1.5):
+        """The samples of the notes the sequencer plays in `seconds`."""
+        self.notes.clear()
+        self.run(seconds)
+        return sorted(set(self.notes))
+
+
+def case_reset_voice(payload, flash):
+    """EXIT + pad after the sample of part 1 was changed with the OSC encoder: the voices get the saved sample again, stopped and
+    while playing (device report 10.11.: the display went back, PLAY still played the changed sample). Checked where the voices
+    take it: the part object, the sample of each note a voice takes (sequencer and pad), and a twin probe of the DSP: without any
+    step on, the values the mailbox gets for the note of pad 1 hold none of those only a device with the changed sample sends,
+    and all of those only an untouched device sends (the voices rotate, so values are compared, not places)."""
+    out = []
+    for playing in (False, True):
+        slug, how = ("while_playing", "playing") if playing else ("stopped", "stopped")
+        box = VBox(payload, flash)
+        box.steps(True)
+        if playing:
+            play(box)
+        saved = box.sample(box.saved())
+        box.change_sample()
+        changed = box.sample()
+        firmware_follows = box.voice_sample() == changed != saved
+        box.reset()
+        restored = box.sample() == saved and box.voice_sample() == saved
+        if not playing:
+            play(box)
+        seq = box.sequenced()
+        notes = sorted(set(box.hit()[0]))      # the sequencer's notes of part 1 come along
+        out.append(entry(f"exit_pad_resets_the_voice_{slug}", firmware_follows and restored and seq == [saved] and notes == [saved]
+                         and box.transport() == 1 and not box.m.asserts,
+                         f"{how}: saved sample {saved}, OSC encoder 3 up {changed}, part object took it {firmware_follows}; EXIT + pad 1: "
+                         f"pattern {box.sample()}, part object {box.voice_sample()}; {'sequencer goes on' if playing else 'PLAY'}, its notes "
+                         f"take {seq}; pad 1 takes {notes}; playing {box.transport() == 1}"))
+        twins = {kind: VBox(payload, flash) for kind in ("plain", "changed", "reset")}
+        for kind, twin in twins.items():
+            twin.steps(False)
+            if playing:
+                play(twin)
+            if kind != "plain":
+                twin.change_sample()
+            if kind == "reset":
+                twin.reset()
+        hits = {kind: twin.hit() for kind, twin in twins.items()}
+        only_changed = hits["changed"][1] - hits["plain"][1]
+        only_plain = hits["plain"][1] - hits["changed"][1]
+        dsp_ok = bool(only_changed) and bool(only_plain) and not hits["reset"][1] & only_changed and only_plain <= hits["reset"][1]
+        out.append(entry(f"exit_pad_resets_the_dsp_{slug}", dsp_ok and not any(t.m.asserts for t in twins.values()),
+                         f"{how}, pad 1: mailbox values only the changed twin sends {sorted(only_changed)}, only the untouched twin "
+                         f"{sorted(only_plain)}; after EXIT + pad: of the changed ones {sorted(hits['reset'][1] & only_changed)}, of the "
+                         f"untouched ones {sorted(hits['reset'][1] & only_plain)}; samples of the notes {[hits[k][0] for k in hits]}"))
     return out
 
 
@@ -487,7 +601,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):
