@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Which case modules of tools/emu/check.py a pull request into develop has to run, from the files it changes. The
+ * Which case modules of tools/emu/check.py a feature pull request has to run, from the files it changes. The
  * workflow .github/workflows/verify-patches.yml passes the answer to `verify-patches.mjs --cases`; the start scenarios
  * run always.
  *
