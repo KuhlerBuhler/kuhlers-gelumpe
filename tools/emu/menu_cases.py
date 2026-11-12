@@ -2890,10 +2890,11 @@ def default_level_cases(payload, flash=None):
 
 
 def card_later_cases(payload, flash=None):
-    """A card put in after the start, and another card for the one pulled (menu_card_watch in tools/patch/script_menu.s): the
+    """Another card for the one pulled after a start with a card (menu_card_watch in tools/patch/script_menu.s): the
     whole settings file is read as at the start, CUSTOMIZATION included (backlight, bottom LEDs, display polarity, pad colours),
     and every switch with it. Each step is compared with a device that started with that card. What the power-on runs with
-    stays (the plugin runtime and MFX 2), a card without a settings file changes nothing, nothing is written to the card."""
+    stays (the plugin runtime and MFX 2), a card without a settings file changes nothing, nothing is written to the card. After a start
+    without a card no card is read until the next start."""
     import pad_colors as PC
     out = []
 
@@ -2918,34 +2919,35 @@ def card_later_cases(payload, flash=None):
     ref_a = look(boot(payload, flash, files=files_a, adapter=True, seconds=wait))
     ref_b = look(boot(payload, flash, files=files_b, adapter=True, seconds=wait))
 
-    dev = boot(payload, flash, adapter=True, card=False, seconds=wait)
-    bare = look(dev)
+    dev = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
     eff = state(dev, S_EFF_RUN), state(dev, S_EFF_MFX)
-    card_a = SDCard(MemoryMedium(card_image(files_a)))
-    untouched = bytes(card_a.medium.data)
-    dev.m.insert_card(card_a)
-    dev.run(1.0)
-    early = look(dev)
-    dev.run(1.5)
-    got_a = look(dev)
-    kept = state(dev, S_EFF_RUN), state(dev, S_EFF_MFX)
-    add("reads_the_whole_file", bare != ref_a and got_a == ref_a and not dev.m.asserts, f"without card {bare}; card put in {got_a}; started with it {ref_a}")
-    add("waits_for_the_card_to_settle", early == bare, f"1 s after the card went in {early}; without card {bare}")
-    add("runtime_stays", kept == eff, f"plugin runtime and MFX 2 in effect before {eff}, after {kept}")
-    add("card_not_written", bytes(dev.m.mmc.card.medium.data) == untouched, "the card was " + ("not written" if bytes(dev.m.mmc.card.medium.data) == untouched else "written"))
-
     dev.m.eject_card()
     dev.run(0.5)
     pulled = look(dev)
-    dev.m.insert_card(SDCard(MemoryMedium(card_image(files_b))))
-    dev.run(2.5)
+    card_b = SDCard(MemoryMedium(card_image(files_b)))
+    untouched = bytes(card_b.medium.data)
+    dev.m.insert_card(card_b)
+    dev.run(1.0)
     got_b = look(dev)
-    add("swap_reads_the_other_card", pulled == ref_a and got_b == ref_b and not dev.m.asserts, f"pulled {pulled}; other card {got_b}; started with it {ref_b}")
+    kept = state(dev, S_EFF_RUN), state(dev, S_EFF_MFX)
+    add("swap_reads_the_other_card", ref_a != ref_b and pulled == ref_a and got_b == ref_b and not dev.m.asserts, f"pulled {pulled}; other card {got_b}; started with it {ref_b}")
+    add("runtime_stays", kept == eff, f"plugin runtime and MFX 2 in effect before {eff}, after {kept}")
+    add("card_not_written", bytes(dev.m.mmc.card.medium.data) == untouched, "the card was " + ("not written" if bytes(dev.m.mmc.card.medium.data) == untouched else "written"))
 
-    blank = boot(payload, flash, adapter=True, card=False, seconds=wait)
+    # started without a card: the first card after such a start can hang the Korg SD init on the device, so none is read until the next start
+    bare_dev = boot(payload, flash, adapter=True, card=False, seconds=wait)
+    bare = look(bare_dev)
+    bare_dev.m.insert_card(SDCard(MemoryMedium(card_image(files_a))))
+    bare_dev.run(1.0)
+    after_bare = look(bare_dev)
+    add("start_without_card_reads_none", bare != ref_a and after_bare == bare and not bare_dev.m.asserts, f"without card {bare}; card put in {after_bare}; started with it {ref_a}")
+
+    blank = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    blank.m.eject_card()
+    blank.run(0.5)
     before = look(blank)
     blank.m.insert_card(SDCard(MemoryMedium(card_image(CARD_FOLDER))))
-    blank.run(2.5)
+    blank.run(1.0)
     after = look(blank)
     add("card_without_file_keeps", before == after and not blank.m.asserts, f"before {before}, after {after}")
 
