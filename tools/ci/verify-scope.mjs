@@ -61,6 +61,8 @@ export const TABLE = [
   // what the case modules get from Node (node_json.py): only groups of remote_cases ask; the writer of the file checks nothing
   [/^tools\/emu\/node_json\.py$|^data\/emu\/node-results\.json$/, ["remote_cases"]],
   [/^tools\/emu\/node_results\.py$/, []],
+  // the DSP model (dsp_model.py): the case modules that ask it
+  [/^tools\/emu\/dsp_model\.py$/, ["shortcut_cases"]],
 
   // the patches and the code they build, to the cases that test them (check.py's docstring, each has_hooks)
   [/^tools\/patch\/mfx_switch\.py$|^data\/patches\/mfx-switch[^/]*\.json$/, MFX_USERS],

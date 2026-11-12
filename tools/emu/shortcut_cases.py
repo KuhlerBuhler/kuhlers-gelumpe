@@ -301,6 +301,33 @@ def case_reset_voice(payload, flash):
     return out
 
 
+
+def case_reset_dsp(payload, flash):
+    """EXIT + pad 1 leaves part 1 switched on at the DSP, stopped and while playing, after its note sounded and its sample was
+    changed. Asked on the DSP's side of the host port (dsp_model.py), so it holds whatever firmware routine a reset calls.
+    Device test 11.11.: a reset that switched the part off left it silent until the SAMPLE knob was turned and the sequencer
+    restarted (#506); the model cannot tell silence, only that the switch went to 0 (docs/messungen/2026-11-12-dsp-modell.md)."""
+    from dsp_model import DspModel
+    out = []
+    for playing in (False, True):
+        slug, how = ("while_playing", "playing") if playing else ("stopped", "stopped")
+        box = VBox(payload, flash)
+        dsp = DspModel.attach(box.m)
+        box.steps(True)
+        if playing:
+            play(box)
+        box.hit()
+        on_before = dsp.part_on(0)
+        box.change_sample()
+        mark = dsp.mark()
+        box.reset()
+        offs = dsp.parts_switched_off(mark)
+        out.append(entry(f"exit_pad_keeps_the_part_on_at_the_dsp_{slug}", on_before and not offs and dsp.part_on(0)
+                         and not box.m.asserts,
+                         f"{how}: part 1 on at the DSP after its note {on_before}; EXIT + pad 1 switched off parts {offs or 'none'}, "
+                         f"part 1 on afterwards {dsp.part_on(0)}"))
+    return out
+
 MODES = ((PART_MUTE, "PART MUTE", True), (KEYBOARD, "KEYBOARD", True), (PART_ERASE, "PART ERASE", True), (CHORD, "CHORD", True),
          (PATTERN_SET, "PATTERN SET", True), (STEP_JUMP, "STEP JUMP", False))
 
@@ -601,7 +628,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):
