@@ -1464,7 +1464,7 @@ def look_cases(payload, flash=None, rest=True):
     r_loud = leds(dev)
     meter_level(dev, 0)
     dev.run(0.5)
-    r_still = leds(dev)
+    r_still = steady_leds(dev)  # as `first` above: a plain read can fall between two of the twelve channels
     set_look(dev, mode=0, led=(0, 0, 0))
     add("led_meter_rainbow_keeps_the_led_colour", r_loud == loud and sorted(r_still[:3])[0] == 0 and sum(r_still[:3]) in (255, 256) and not dev.m.asserts,
         f"loud {r_loud} (the meter in that colour {loud}), still {r_still[:3]}")
