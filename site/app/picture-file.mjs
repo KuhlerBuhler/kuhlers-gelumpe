@@ -1,6 +1,6 @@
 /**
  * The Bilder tab of the Design page: several pictures (BMP, PNG, JPG, what the browser reads) into one GIFnn.E2G for the
- * plugins BMP Viewer and GIF Player, one frame per picture in name order. Logic: src/script/gif.mjs.
+ * plugins Image Viewer and GIF Player, one frame per picture in name order. Logic: src/script/gif.mjs.
  */
 import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
@@ -13,7 +13,7 @@ import { SCRIPT_GIF } from "../../data/script/contract.mjs";
 import { pixelsOf, paint, switchOf } from "./splash.mjs";
 
 const toast = toastFor("h:splash");
-/** How long the GIF Player shows each picture of such a file; the BMP Viewer pages by hand. */
+/** How long the GIF Player shows each picture of such a file; the Image Viewer pages by hand. */
 const DELAY_MS = 1000;
 const fileName = n => `GIF${String(n).padStart(2, "0")}.E2G`;
 
