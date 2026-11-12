@@ -1,7 +1,7 @@
 # Die später gesteckte Karte bringt ihre ganze Einstellungsdatei mit (12.11.)
 
 Stand 12.11.2026, nur Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Stands), am Gerät
-nichts geprüft. Wunsch von Pascal (11.11.): Karte tauschen, und die Electribe hat sofort das Setup und das Aussehen dieser Karte.
+nichts geprüft. Ziel: Karte tauschen, und die Electribe hat sofort das Setup und das Aussehen dieser Karte.
 Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergeleitet**, **offen**.
 
 ## Belegtabelle
