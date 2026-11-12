@@ -87,7 +87,9 @@
 .equ M_INV, 0x1B8
 .equ M_INV_HW, 0x1BC
 .equ M_CARD, 0x1B0            ; menu_card_watch: frames in a row the card switch showed a card, CARD_DONE once its settings are read
-.equ CARD_SETTLE, 8           ; 8 frames of 40 ms: a card that is still going in is not read
+.equ CARD_SETTLE, 50          ; 50 frames of 40 ms (2 s): the first read after a card goes in runs Korg's card init (CMD0, then
+                              ; ACMD41 until ready, up to 50000 rounds, 0xC001AE80) in this task; read 320 ms after going in, the
+                              ; device stood 15 to 60 s now and then (device 12.11.), at the start the card has had power long before
 .equ CARD_DONE, 0xFF
 .equ SD_INPUT, 0x01E26070     ; GPIO IN_DATA45: bit 1 (GPIO 4.1) is low while a card is in (tools/patch/card_gate.py)
 .equ SD_DETECT, 2
