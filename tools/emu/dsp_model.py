@@ -67,6 +67,7 @@ words 40/41 and 44/45, the neighbour 46/47 and 50/51, target and ramped value ar
 recomputes the channel's tempo-synced effect (0x17C78). Field 40 (0x28) stages a unit: its parameters, code 0x38 the unit
 number, code 0x39 the target field, which starts the loader. Codes 0x30 and 0x31 on a field mute it and clear its process
 pointers ahead of a load. IFX ON is not in the FIFO: it is the part's parameter +0x5C at the mailbox (0x7FFF on).
+The touchpad, IFX EDIT and PLAY move field codes as the preset's control map says (shortcut_cases.case_fx_map_dsp).
 
 Reads the model answers: the output peak, 0xFF9030F4 (left) and 0xFF9030F8 (right), fields +0x50/+0x54 of the output block
 0xFF9030A4. The DSP keeps max(abs(sample)) of the final stereo sum there (0xFFA01952), 1.31, saturating at 0x7FFFFFFF; the

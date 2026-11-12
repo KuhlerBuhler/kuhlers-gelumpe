@@ -64,9 +64,9 @@ Das Modell (`DspModel.attach(machine)`) hängt sich vor `machine.write` und `mac
 (`mem`, `word(adresse)`): Postfach-Kommandos schreiben ihre Slots, andere Schreibübertragungen landen unverändert an ihrer
 Adresse. Dazu den letzten Wert jedes Parameters, jede Schaltung eines Parts mit Gerätezeit, die Zahl je Kommando
 (`commands`), die FIFO-Einträge (`fifo`), das Tempo je Kanal (`tempo`) und jedes Öffnen und Schließen einer Stimme mit ihrem
-Part (`gates`), Cutoff und Resonanz je Part (`filters`), Einheit und Parameter je Effektfeld (`effects`), jedes Laden einer Einheit (`loads`). Abfragen: `part_on(p)`, `switched_off(p, since)`, `parts_switched_off(since)`, `mark()`, `voices()` (offene
+Part (`gates`), Cutoff und Resonanz je Part (`filters`), Einheit und Parameter je Effektfeld (`effects`), jedes Laden einer Einheit (`loads`), die Datenwörter der letzten Nachricht je Kommando (`last`), die drei Filterwörter je Part (`filter_words`), jeden Schreibzugriff außerhalb von Postfach und FIFO (`uploads`). Abfragen: `part_on(p)`, `switched_off(p, since)`, `parts_switched_off(since)`, `mark()`, `voices()` (offene
 Stimmen mit Part und Velocity-Gain), `voice(v)` (Part, Gate, Velocity-Gain, Note, PITCH-Versatz), `notes(part, since)`,
-`part_value(part, LEVEL | RAMP | PAN_LEFT | PAN_RIGHT)`, `filter(part)`, `effect(feld)`, `ifx(part)`, `ifx_on(part)`.
+`part_value(part, LEVEL | RAMP | PAN_LEFT | PAN_RIGHT)`, `filter(part)`, `coefficients(part)`, `effect(feld)`, `ifx(part)`, `ifx_on(part)`, `mfx_send(part)`, `command(cmd)`, `uploaded(since)`, `samples(adresse, anzahl)`.
 
 Lesen beantwortet das Modell nur für den Ausgangs-Spitzenpegel `0xFF9030F4..0xFF9030FB`: der größere Wert aus dem zuletzt
 Geschriebenen und dem Pegel, den ein Fall mit `output(links, rechts)` setzt (0 bis 1). Alle anderen Lesezugriffe liefern wie
@@ -214,6 +214,9 @@ das Ergebnis dieser Wege ändern, ohne dass ein Fall es braucht.
 - **Offen:** Bedeutung der übrigen Wörter des Part-Blocks; was `0x35`, `0x37` und `0x38` im DSP tun, und die Setter je
   Stimmentyp von `0x1F`, `0x2D` und `0x32`. Was die drei Filterwörter im DSP bedeuten, ist nicht gelesen.
   Was Ziel `0x0A` der Steuerzeilen tut, ist nicht gelesen; am DSP kommt davon nichts an.
+- **Offen:** Das DSP-Programm ist nur auf Hacktribe gelesen; rot und blau sind nur auf der CPU-Seite im Emulator gemessen.
+  Keine der Messungen hier ist am Gerät nachgeprüft.
+- **Nicht im Modell:** Antworten aus dem Sample-Speicher. Das Bild hält, was der Import schreibt; gelesen wird weiter 0.
 - **Nicht im Modell:** ein eigenes Ausgangssignal. Der Spitzenpegel kommt nur aus `output()`. Welche Stimme wann klingt, weiß das
   Modell; wie laut, rechnet der DSP in der Stimmenschleife `0xFFA0141A` und der Part-Schleife `0xFFA019DE` aus Sample-Daten,
   Velocity-Gain, Hüllkurve, Filter und Part-Pegel. Das ist Rechnen wie der DSP, nicht mehr Mitlesen. Der Versuch mit dem echten
