@@ -105,21 +105,25 @@ export function drawDisplay(canvas, bytes, light = null) {
   const img = ctx.createImageData(128, 64);
   const on = lit(parseColor(style.getPropertyValue("--cee-lcd-on")), light);
   const off = lit(parseColor(style.getPropertyValue("--cee-lcd-off")), light);
+  let dark = 0;
   for (let y = 0; y < 64; y++) {
     for (let x = 0; x < 128; x++) {
       const lit = (bytes[(y >> 3) * 128 + x] >> (y & 7)) & 1;
+      dark += lit;
       img.data.set([...(lit ? on : off), 255], (y * 128 + x) * 4);
     }
   }
   ctx.putImageData(img, 0, 0);
-  grids.get(canvas)?.colour(off);
+  grids.get(canvas)?.colour(dark * 2 > 128 * 64 ? on : off);
 }
 
 /** The gap grids laid over a display canvas (pixelGrid), by that canvas. */
 const grids = new WeakMap();
 
 /**
- * The real display has a thin gap between its pixels, in the colour of a clear pixel in the light. A second canvas over
+ * The real display has a thin gap between its pixels, in the colour of its background: the clear pixels, or the set ones
+ * when most are set (DISPLAY INVERT, the default). In the clear colour on an inverted screen the gaps would draw a light
+ * mesh over the whole dark background, which the glass does not show. A second canvas over
  * the 128 x 64 one draws only those gaps, at the screen's own resolution, so the display canvas keeps its pixels as they
  * are. Below 3 screen pixels per display pixel there is no room for a gap, and the grid stays empty.
  */
@@ -179,7 +183,9 @@ export function drawShade(canvas, levels, light = null) {
   const on = lit(parseColor(style.getPropertyValue("--cee-lcd-on")), light);
   const off = lit(parseColor(style.getPropertyValue("--cee-lcd-off")), light);
   ctx.putImageData(new ImageData(shadeImage(levels, on, off), 128, 64), 0, 0);
-  grids.get(canvas)?.colour(off);
+  let sum = 0;
+  for (let i = 0; i < 128 * 64; i++) sum += Math.min(levels[i], 15);
+  grids.get(canvas)?.colour(sum * 2 > 15 * 128 * 64 ? on : off);
 }
 
 function parseColor(value) {
