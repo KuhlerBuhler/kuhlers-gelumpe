@@ -127,6 +127,13 @@ class DspModelTest(unittest.TestCase):
         port.send([0x106, 0x30, 0, 0x2C2 + 0xA, 0x2B65, 0xD30B, 0x4D04, 0xF489, 0x18B2, 0xC000, 0x62])
         self.assertEqual(port.dsp.coefficients(0), (0x2B65D30B, 0x4D04F489, 0x18B2C000))
 
+    def test_a_note_command_keeps_its_last_words(self):
+        port = Port()
+        port.send([0x106, 0x2D, 0x43AE, 0xA14, 0])
+        port.send([0x106, 0x2D, 0x43C8, 0x6EDC, 0])
+        self.assertEqual(port.dsp.command(0x2D)[:2], [0x43C8, 0x6EDC])
+        self.assertIsNone(port.dsp.command(0x2E))
+
     def test_blue_sends_the_filter_without_a_flag(self):
         port = Port("synth")
         port.send([0x106, 0x30, 0x2A8 + 0xA, 0x7B09, 0x67E7, 0xEAA, 0xBC1])

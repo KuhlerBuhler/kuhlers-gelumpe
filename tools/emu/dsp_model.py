@@ -23,8 +23,20 @@ sends 16 words, the words behind a message are stack left-overs. Parameter N liv
     0x30  (flag, p, c hi, c lo, r hi, r lo, k hi, k lo) filter of slot p: cutoff c, resonance r, a third word k (0xFFA05308); blue: without the flag
     0x31  (n-1, start, n pairs hi, lo)      slots start.. = hi << 16 | lo
 
-The other note commands (0x1F, 0x2D to 0x2F, 0x32 to 0x39) compute generator and envelope state inside the DSP; they are counted, not
-applied. The CPU sends 0x2B, 0x2C, 0x2D and 0x30 for every sounding voice about once a millisecond.
+The other note commands compute generator, filter and part state inside the DSP; they are not applied, command() hands over
+the words each last carried (DSP handlers from the jump table 0x01F02B84, Hacktribe):
+    0x1F, 0x32  (n-1, then n pairs p, q)    a note's generator: slot p is voice word 3, q its generator state (0x1D4 + ...);
+                                            a setter per voice type (0xFFA06670, 0xFFA057B8)
+    0x2D, 0x2E  (p, v, ...)                 slot p = voice word 3; 0x2D's v is OSC EDIT * 258, sent about once a millisecond;
+                                            a setter per voice type (0xFFA05DD0, 0xFFA06474)
+    0x2F        (flag, p, ...)              as 0x30 without its filter part (0xFFA05CB2 only)
+    0x33        (n-1, then n pairs p, q)    filter state: p is the part's filter slot (+0xA, its low half the filter kind),
+                                            q a state block; set up per kind (0xFFA059F8)
+    0x34        (n-1, then n pairs p, q)    clears the part's audio state: p the part's switch, q a state block
+    0x35        (n-1, then n pairs p, q)    p the part's +0x8, q a state block (0xFFA054CC, not read further)
+    0x36        (hi, lo)                    clears the voices of the 24-bit mask hi << 16 | lo in the DSP's voice mask
+    0x37 to 0x39                            not seen with a note; 0x39 comes with a filter type change
+The CPU sends 0x2B, 0x2C, 0x2D and 0x30 for every sounding voice about once a millisecond.
 
 Voices: 24 blocks of 0x1A parameters from VOICE (0xFF900EAC), read by the DSP's voice loop (0xFFA0141A). A note copies its
 part's template (parameter 0x18 + 0x1A * part) into a free voice with command 9, sets the voice's velocity gain at +0x15 and
@@ -109,6 +121,7 @@ class DspModel:
         self.switches = []          # (device time in ms, part, value) for every write of a part switch, in order
         self.messages = 0           # mailbox messages seen
         self.commands = Counter()   # mailbox command -> messages
+        self.last = {}              # mailbox command -> the data words of its last message (command())
         self.fifo = []              # (device time in ms, channel, code, value) for every FIFO entry
         self.tempo = {}             # channel -> tempo in hundredths of BPM, as the FIFO last set it
         self.effects = {}           # field -> {"unit": loaded unit, "params": {code: value}}
@@ -208,6 +221,7 @@ class DspModel:
             return
         cmd, d = words[1], words[2:]
         self.commands[cmd] += 1
+        self.last[cmd] = list(d)
         n = d[0] + 1
         if cmd == SET_PARAMS:
             for i in range(n):
@@ -311,6 +325,11 @@ class DspModel:
         """The voices whose gate is open now: voice -> (part, velocity gain)."""
         return {v: (self.voice_part.get(v), self.params.get(VOICE + VOICE_WORDS * v + VELOCITY))
                 for v in range(VOICES) if self.params.get(VOICE + VOICE_WORDS * v)}
+
+    def command(self, cmd):
+        """The data words (after the command) of the last message with this command, or None."""
+        words = self.last.get(cmd)
+        return None if words is None else list(words)
 
     def voice(self, v):
         """What voice `v` holds now: part, gate, velocity gain, note and PITCH offset in semitones (None until sent)."""

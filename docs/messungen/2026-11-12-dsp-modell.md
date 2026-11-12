@@ -145,6 +145,28 @@ Fall: jeder Typ 0 bis 16 mit zwei Cutoff-Stellungen und einer Resonanz über den
 dann eine MIDI-Note 60. Geprüft: die drei Wörter am DSP gleich der Nachrechnung, ohne Toleranz. Grün auf Hacktribe, rot und blau
 (12.11.). Prüffall `shortcut:dsp_cutoff_follows_the_filter_type` (`case_cutoff_dsp`).
 
+## Noten-Kommandos
+
+DSP-Handler aus der Sprungtabelle `0x01F02B84` (Hacktribe, gelesen), Belegung bei einer Note auf Part 1 (gemessen, Hacktribe):
+
+| Kommando | Wörter | DSP |
+|---|---|---|
+| `0x1F`, `0x32` | Anzahl - 1, Paare (Wort 3 der Stimme, Generatorzustand `0x1D4` + ...), einmal je Note | Setter je Stimmentyp `0xFFA06670`, `0xFFA057B8` |
+| `0x2D` | (Wort 3 der Stimme, Wert, ...), etwa einmal je ms; der Wert ist OSC EDIT × 258 | Setter je Stimmentyp `0xFFA05DD0` |
+| `0x2E` | wie `0x2D` | Setter `0xFFA06474`; bei einer Note nicht gesehen |
+| `0x2F` | (Flag, Slot, ...) | wie `0x30` ohne den Filterteil (`0xFFA05CB2`, mit Flag auch für Slot + `0x6E`) |
+| `0x33` | Anzahl - 1, Paare (Filter-Slot +0xA des Parts, Zustandsblock `0x461C`), einmal je Note | Filterzustand je Filterart aufsetzen (`0xFFA059F8`, die untere Hälfte von +0xA ist die Art) |
+| `0x34` | Anzahl - 1, Paare (Schalter des Parts, `0x461B`), einmal je Note | löscht den Audiozustand des Parts (Felder `+0x4..+0x3C`, `+0x100..+0x114` des Blocks, setzt `+0x1A8 = 0x361`) |
+| `0x35` | Anzahl - 1, Paare (+0x8 des Parts, `0x461C`), einmal je Note | `0xFFA054CC`, nicht weiter gelesen |
+| `0x36` | (hi, lo), zweimal je Note | löscht die Stimmen der 24-Bit-Maske `hi << 16 \| lo` in der Stimmenmaske des DSP |
+| `0x37` bis `0x39` | bei einer Note nicht gesehen; `0x39` kommt mit einem Filtertypwechsel | nicht gelesen |
+
+Das Modell wendet sie nicht an; `DspModel.command(cmd)` gibt die Wörter der letzten Nachricht. Hüllkurve und MOD haben kein eigenes
+Kommando: mit AMP EG an steht der Level 30 ms nach dem Anschlag bei ATTACK 100 auf 1 bis 2, bei ATTACK 0 auf 4400 bis 5300; mit
+AMP EG aus ist er bei beiden ATTACK-Werten gleich (gemessen). Fall: OSC EDIT 10 und 110 (`0x2D` 2580 und 28380 für die klingende
+Stimme), ATTACK 0 und 100 mit und ohne AMP EG. Grün auf Hacktribe, rot und blau (12.11.). Prüffall
+`shortcut:dsp_note_commands_follow_the_part` (`case_note_commands_dsp`).
+
 ## Effekte gegen das Panel
 
 Modell ab dem Einschalten. Part 1: IFX TYPE +1, IFX EDIT 40 und 200, IFX ON zweimal, dann MASTER FX und das Touchpad auf zwei Stellen. Geprüft: der Start lädt
@@ -165,8 +187,8 @@ deshalb zuerst auf 64. Grün auf Hacktribe, rot und blau (12.11.). Prüffälle `
 - **Offen:** Warum der Part am Gerät stumm blieb. Der DSP-Verkehr des alten Resets, so wie ihn der Emulator sieht, erklärt es
   nicht (siehe oben). Hergeleitet: die Ursache liegt CPU-seitig oder in einem Zustand, den der Emulator anders hat als das Gerät.
   Das Modell sagt deshalb nicht "hörbar", sondern nur "abgeschaltet worden" und "zuletzt an".
-- **Offen:** Bedeutung der übrigen Wörter des Part-Blocks; `0x1F`, `0x2D` bis `0x2F` und
-  `0x32` bis `0x39` sind nur gezählt. Was die drei Filterwörter im DSP bedeuten, ist nicht gelesen.
+- **Offen:** Bedeutung der übrigen Wörter des Part-Blocks; was `0x35`, `0x37` und `0x38` im DSP tun, und die Setter je
+  Stimmentyp von `0x1F`, `0x2D` und `0x32`. Was die drei Filterwörter im DSP bedeuten, ist nicht gelesen.
   Die Steuerzeilen sind nur an Mod Delay und Overdrive gemessen; die Kurve des Touchpads für Y ist nicht gelesen.
 - **Nicht im Modell:** ein eigenes Ausgangssignal. Der Spitzenpegel kommt nur aus `output()`. Welche Stimme wann klingt, weiß das
   Modell; wie laut, rechnet der DSP in der Stimmenschleife `0xFFA0141A` und der Part-Schleife `0xFFA019DE` aus Sample-Daten,

@@ -616,6 +616,43 @@ def case_cutoff_dsp(payload, flash):
     return [entry("dsp_cutoff_follows_the_filter_type", seen == (34 if curve.sends_off else 32) and not bad and len(functions) == 7 and not w.dev.m.asserts,
                   f"34 settings, {seen} with a 0x30 at the DSP, {len(functions)} functions {functions}, off: {bad[:4]}")]
 
+def case_note_commands_dsp(payload, flash):
+    """Part 1's OSC EDIT and amp envelope at the DSP (dsp_model.py command, part_value), set through the plugin's part setter,
+    a MIDI note 60 after each: command 0x2D carries OSC EDIT * 258 for the sounding voice (OSC EDIT 10 and 110); with AMP EG on
+    the level 30 ms into the note is lower with ATTACK 100 than with ATTACK 0, with AMP EG off it is the same."""
+    from dsp_model import LEVEL, VOICE, VOICE_WORDS, DspModel
+    from plugin_api23_cases import World
+    w = World(bytes(0x100) + bytes(payload), flash)
+    dsp = DspModel.attach(w.dev.m)
+
+    def note(ms=30):
+        mark = len(dsp.gates)
+        w.dev.m.midi(bytes([0x90, 60, 100]))
+        w.dev.run(ms / 1000)
+        gates = [g for g in dsp.gates[mark:] if g[3]]
+        seen = (dsp.command(0x2D), dsp.part_value(0, LEVEL), gates[0][1] if gates else None)
+        w.dev.m.midi(bytes([0x80, 60, 0]))
+        w.dev.run(0.4)
+        return seen
+
+    osc = []
+    for value in (10, 110):
+        w.set_part(0, "oscEdit", value)
+        words, _, voice = note()
+        slot = None if voice is None else VOICE + VOICE_WORDS * voice + 3
+        osc.append((value, words and words[0] == slot and words[1]))
+    w.set_part(0, "oscEdit", 0)
+    levels = {}
+    for eg in (1, 0):
+        w.set_part(0, "ampEg", eg)
+        for attack in (0, 100):
+            w.set_part(0, "attack", attack)
+            levels[eg, attack] = note()[1]
+    ok = (all(v * 258 == got for v, got in osc) and None not in levels.values() and levels[1, 100] < levels[1, 0]
+          and levels[0, 100] == levels[0, 0] and not w.dev.m.asserts)
+    return [entry("dsp_note_commands_follow_the_part", ok,
+                  f"OSC EDIT and 0x2D {osc}, level 30 ms into the note (AMP EG, ATTACK) {levels}")]
+
 MODES = ((PART_MUTE, "PART MUTE", True), (KEYBOARD, "KEYBOARD", True), (PART_ERASE, "PART ERASE", True), (CHORD, "CHORD", True),
          (PATTERN_SET, "PATTERN SET", True), (STEP_JUMP, "STEP JUMP", False))
 
@@ -916,7 +953,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_effects_dsp, case_fx_map_dsp, case_cutoff_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_effects_dsp, case_fx_map_dsp, case_cutoff_dsp, case_note_commands_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):
