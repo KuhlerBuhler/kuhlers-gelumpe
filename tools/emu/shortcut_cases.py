@@ -328,6 +328,30 @@ def case_reset_dsp(payload, flash):
                          f"part 1 on afterwards {dsp.part_on(0)}"))
     return out
 
+
+METER_OBJECT = 0xC033E4F4       # the meter LEDs read the output peak from [this] +0x10 (left) and +0x14 (right), both builds
+
+
+def case_meter_dsp(payload, flash):
+    """The bottom LEDs follow the output peak the DSP hands back (dsp_model.py, docs/messungen/2026-11-12-pegel-leds.md): the
+    firmware reads 0xFF9030F4 every 40 ms into the meter object and sets it back to 0 at the DSP. Silent, full scale, silent
+    again, on mains power (on battery the LEDs are off)."""
+    from dsp_model import FULL_SCALE, DspModel
+    dev = menu_cases.boot(payload, flash, adapter=True)
+    dsp = DspModel.attach(dev.m)
+    seen = []
+    for level in (0, 1.0, 0):
+        dsp.output(level)
+        dev.run(1.0)
+        obj = dev.u32(METER_OBJECT)
+        seen.append(((dev.u32(obj + 0x10), dev.u32(obj + 0x14)), menu_cases.leds(dev)))
+    (quiet_peak, quiet), (loud_peak, loud), (after_peak, after) = seen
+    ok = (quiet_peak == after_peak == (0, 0) and loud_peak == (FULL_SCALE, FULL_SCALE) and loud != quiet and after == quiet
+          and loud[:3] == loud[3:6] and loud[0] > 200 and loud[1] == 0 and not dev.m.asserts)
+    return [entry("dsp_output_peak_drives_the_meter_leds", ok,
+                  f"peak in the meter object silent {quiet_peak}, full {loud_peak}, silent again {after_peak}; LEDs {quiet}, "
+                  f"{loud}, {after}")]
+
 MODES = ((PART_MUTE, "PART MUTE", True), (KEYBOARD, "KEYBOARD", True), (PART_ERASE, "PART ERASE", True), (CHORD, "CHORD", True),
          (PATTERN_SET, "PATTERN SET", True), (STEP_JUMP, "STEP JUMP", False))
 
@@ -628,7 +652,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):

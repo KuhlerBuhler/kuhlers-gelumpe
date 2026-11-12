@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dsp_model import DspModel, MAILBOX  # noqa: E402
+from dsp_model import FIFO, PEAK, DspModel, MAILBOX, slot  # noqa: E402
 from machine import DSP_CTRL, DSP_DATA, DSP_SYNC  # noqa: E402
 
 
@@ -56,13 +56,48 @@ class DspModelTest(unittest.TestCase):
         port.send([0x106, 0, 0, 0x2C2, 0])
         self.assertIsNone(port.dsp.part_on(0))
 
-    def test_other_commands_reads_and_addresses_set_nothing(self):
+    def test_reads_and_note_commands_set_no_parameter(self):
         port = Port()
-        port.send([0x106, 0x31, 0, 0x2C2, 0])
-        port.send([0x106, 0, 0, 0x2C2, 0], address=0xFF900098)
+        port.send([0x106, 0x35, 0x2CA, 0x461C])
         port.send([0x106, 0, 0, 0x2C2, 0], cmd=0xA9)
         self.assertEqual(port.dsp.params, {})
         self.assertEqual(port.dsp.messages, 1)
+        self.assertEqual(port.dsp.commands[0x35], 1)
+
+    def test_parameters_land_at_their_dsp_address(self):
+        port = Port()
+        port.send([0x106, 0, 0, 0x2C2, 1])
+        port.send([0x106, 1, 0, 0x4C3B, 0x1234, 0x5678])
+        port.send([0x106, 2, 1, 0x325, 0x7FFF, 0x10])
+        port.send([0x106, 0x31, 1, 0x4C3D, 0, 5, 0, 6])
+        self.assertEqual(slot(0x2C2), 0xFF800B08)
+        self.assertEqual(slot(0x4C3D), PEAK)
+        self.assertEqual(port.dsp.word(0xFF800B08), 1 << 16)
+        self.assertEqual(port.dsp.word(slot(0x4C3B)), 0x12345678)
+        self.assertEqual(port.dsp.word(slot(0x326)), 0x10 << 16)
+        self.assertEqual(port.dsp.word(PEAK + 4), 6)
+
+    def test_a_write_elsewhere_is_kept_as_written(self):
+        port = Port()
+        port.send([0xAAAA, 0xBBBB], address=0xFF904000, block=2)
+        self.assertEqual(port.dsp.word(0xFF904000), 0xBBBBAAAA)
+        self.assertEqual(port.dsp.messages, 0)
+
+    def test_the_fifo_carries_the_tempo(self):
+        port = Port()
+        words = [0xF0203CBE, 0xF0603CBE, 0xFF800000, 0x00203CBE]
+        port.send([h for w in words for h in (w & 0xFFFF, w >> 16)], address=FIFO[0], block=64)
+        self.assertEqual(port.dsp.tempo, {0: 15550, 1: 15550})
+        self.assertEqual([e[1:] for e in port.dsp.fifo], [(0, 0x20, 15550), (1, 0x20, 15550)])
+
+    def test_the_output_peak_is_the_larger_of_level_and_written(self):
+        port = Port()
+        self.assertEqual(port.dsp.peak(), (0, 0))
+        port.dsp.output(0.5, 1.5)
+        self.assertEqual(port.dsp.peak(), (0x40000000, 0x7FFFFFFF))
+        port.send([0x106, 0x31, 1, 0x4C3D, 0x7000, 0, 0, 0])
+        self.assertEqual(port.dsp.peak(), (0x70000000, 0x7FFFFFFF))
+        self.assertTrue(port.dsp.answers(PEAK + 6) and not port.dsp.answers(PEAK + 8))
 
     def test_the_sync_word_and_the_machine_still_get_every_write(self):
         port = Port()
