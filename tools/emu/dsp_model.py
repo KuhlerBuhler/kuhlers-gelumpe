@@ -15,10 +15,16 @@ sends 16 words, the words behind a message are stack left-overs. Parameter N liv
     0     (n-1, then n pairs p, v)          slot p = v << 16
     1     (n-1, then n triples p, hi, lo)   slot p = hi << 16 | lo
     2     (n-1, start, n values v)          slots start.. = v << 16
-    0x16  (p, a, b)                         slot p = a << 16, the word after it = b << 16
+    9     (src, dst)                        0x1A slots from src copied to dst (0xFFA0505A)
+    0x16  (n-1, then n triples p, a, b)     slot p = a << 16, slot p + 1 = b << 16
+    0x26  (n-1, then n pairs p, q)          slot p = 0, slot q = 0, slot q - 1 = slot p + 0x19 (0xFFA05172); blue: one pair
     0x31  (n-1, start, n pairs hi, lo)      slots start.. = hi << 16 | lo
 
-The other commands (notes: 9, 0x1F, 0x26, 0x2B to 0x39) are counted, not applied.
+The other note commands (0x1F, 0x2B to 0x39) compute filter and envelope state inside the DSP; they are counted, not applied.
+
+Voices: 24 blocks of 0x1A parameters from VOICE (0xFF900EAC), read by the DSP's voice loop (0xFFA0141A). A note copies its
+part's template (parameter 0x18 + 0x1A * part) into a free voice with command 9, sets the voice's velocity gain at +0x15 and
+then its gate, word 0, to 1; the note's end sets the gate to 0 with command 0x26.
 
 Parameter PART_ON[build] + 0x6D * part is the part's switch at the DSP: 1 on, 0 off; the DSP's audio loop (0xFFA019DE) skips
 a switched-off part and clears its output state. The firmware switches a part on with every note it starts (Sampler
@@ -54,6 +60,9 @@ READ, WRITE, CTRL_WORDS = 0xA9, 0xAB, 7
 PEAK = 0xFF9030F4               # output peak, left at +0, right at +4
 FULL_SCALE = 0x7FFFFFFF
 FIFO_END, FIFO_TEMPO, FIFO_CHANNELS = 62, 0x20, 33
+VOICE, VOICE_WORDS, VOICES = 0x43AB, 0x1A, 24     # voice v is the block VOICE + VOICE_WORDS * v, word 0 its gate
+TEMPLATE = 0x18                 # part p's voice template is the block TEMPLATE + VOICE_WORDS * p
+VELOCITY = 0x15                 # the voice's velocity gain, inside its block
 
 
 def slot(param):
@@ -67,7 +76,8 @@ class DspModel:
     def __init__(self, machine):
         from machine import DSP_CTRL, DSP_DATA, DSP_SYNC
         self.m = machine
-        self.part_base = PART_ON["synth" if machine.profile.build == "synth" else "sampler"]
+        self.synth = machine.profile.build == "synth"
+        self.part_base = PART_ON["synth" if self.synth else "sampler"]
         self.params = {}            # parameter -> last value
         self.mem = {}               # DSP address -> 16-bit word, as written
         self.switches = []          # (device time in ms, part, value) for every write of a part switch, in order
@@ -76,6 +86,8 @@ class DspModel:
         self.fifo = []              # (device time in ms, channel, code, value) for every FIFO entry
         self.tempo = {}             # channel -> tempo in hundredths of BPM, as the FIFO last set it
         self.level = (0, 0)         # what the DSP would see at its output, 1.31
+        self.voice_part = {}        # voice -> the part whose template it took last
+        self.gates = []             # (device time in ms, voice, part, 1 on | 0 off) for every gate write, in order
         self._ctl, self._xfer = [], None
         write, read = machine.write, getattr(machine, "dsp_read", None)
 
@@ -182,9 +194,30 @@ class DspModel:
             for i in range(min(n, (len(d) - 2) // 2)):
                 value = d[2 + 2 * i] << 16 | d[3 + 2 * i]
                 self.set_param(d[1] + i, value, value)
-        elif cmd == 0x16 and len(d) >= 3:
-            self.set_param(d[0], d[1], d[1] << 16)
-            self.put(slot(d[0]) + 4, d[2] << 16)
+        elif cmd == 9 and len(d) >= 2:
+            src, dst = d[0], d[1]
+            for i in range(VOICE_WORDS):
+                self.put(slot(dst + i), self.word(slot(src + i)))
+                if src + i in self.params:
+                    self.params[dst + i] = self.params[src + i]
+            part, k = divmod(src - TEMPLATE, VOICE_WORDS)
+            voice, j = divmod(dst - VOICE, VOICE_WORDS)
+            if k == j == 0 and 0 <= part < PARTS and 0 <= voice < VOICES:
+                self.voice_part[voice] = part
+        elif cmd == 0x16:
+            for i in range(n):
+                if 3 + 3 * i < len(d):
+                    p, a, b = d[1 + 3 * i:4 + 3 * i]
+                    self.set_param(p, a, a << 16)
+                    self.set_param(p + 1, b, b << 16)
+        elif cmd == 0x26:
+            pairs = [(d[1 + 2 * i], d[2 + 2 * i]) for i in range(n) if 2 + 2 * i < len(d)]
+            if self.synth:
+                pairs = [(d[0], d[1])]      # blue sends one pair without a count (CPU side measured, its DSP code not read)
+            for p, q in pairs:
+                self.put(slot(q - 1), self.word(slot(p + 0x19)))
+                self.set_param(p, 0, 0)
+                self.set_param(q, 0, 0)
 
     def set_param(self, param, value, word=None):
         self.params[param] = value
@@ -192,6 +225,9 @@ class DspModel:
         part, k = divmod(param - self.part_base, PART_STRIDE)
         if k == 0 and 0 <= part < PARTS:
             self.switches.append((self._now(), part, value))
+        voice, k = divmod(param - VOICE, VOICE_WORDS)
+        if k == 0 and 0 <= voice < VOICES:
+            self.gates.append((self._now(), voice, self.voice_part.get(voice), 1 if value else 0))
 
     # ---- FIFO ----------------------------------------------------------------------
     def fifo_buffer(self, words):
@@ -219,3 +255,12 @@ class DspModel:
 
     def parts_switched_off(self, since=0):
         return sorted({p for _, p, v in self.switches[since:] if v == 0})
+
+    def voices(self):
+        """The voices whose gate is open now: voice -> (part, velocity gain)."""
+        return {v: (self.voice_part.get(v), self.params.get(VOICE + VOICE_WORDS * v + VELOCITY))
+                for v in range(VOICES) if self.params.get(VOICE + VOICE_WORDS * v)}
+
+    def notes(self, part=None, since=0):
+        """Device times (ms) at which a voice opened its gate after `since` (an index into `gates`), for one part or all."""
+        return [t for t, _, p, on in self.gates[since:] if on and (part is None or p == part)]

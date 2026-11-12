@@ -77,6 +77,36 @@ class DspModelTest(unittest.TestCase):
         self.assertEqual(port.dsp.word(slot(0x326)), 0x10 << 16)
         self.assertEqual(port.dsp.word(PEAK + 4), 6)
 
+    def test_command_0x16_sets_a_parameter_and_the_next(self):
+        port = Port()
+        port.send([0x106, 0x16, 0, 0x2E4, 0x8E3, 0x354])
+        self.assertEqual(port.dsp.params, {0x2E4: 0x8E3, 0x2E5: 0x354})
+        self.assertEqual(port.dsp.word(slot(0x2E5)), 0x354 << 16)
+
+    def test_a_note_opens_a_voice_of_its_part_and_its_end_closes_it(self):
+        """Part 3's note on voice 1 and its end, as the firmware sends them (Hacktribe, sequencer)."""
+        port = Port()
+        port.send([0x106, 0, 0, 0x18 + 0x1A * 2 + 3, 0x1D4])                 # part 3's template, a word of it
+        port.send([0x106, 9, 0x18 + 0x1A * 2, 0x43C5, 1])                     # template -> voice 1
+        port.send([0x106, 0, 0, 0x43C5 + 0x15, 0x26E])                        # velocity gain
+        self.assertEqual(port.dsp.voices(), {})
+        port.send([0x106, 0, 0, 0x43C5, 1])                                    # gate
+        self.assertEqual(port.dsp.voices(), {1: (2, 0x26E)})
+        self.assertEqual(port.dsp.params[0x43C5 + 3], 0x1D4)
+        self.assertEqual(len(port.dsp.notes(2)), 1)
+        self.assertEqual(port.dsp.notes(0), [])
+        port.send([0x106, 0x26, 0, 0x43C5, 0x1DD])
+        self.assertEqual(port.dsp.voices(), {})
+        self.assertEqual([g[1:] for g in port.dsp.gates], [(1, 2, 1), (1, 2, 0)])
+
+    def test_blue_ends_a_note_without_a_count(self):
+        port = Port("synth")
+        port.send([0x106, 9, 0x18, 0x43AB, 1])
+        port.send([0x106, 0, 0, 0x43AB, 1])
+        self.assertEqual(port.dsp.voices(), {0: (0, None)})
+        port.send([0x106, 0x26, 0x43AB, 0x1B9])
+        self.assertEqual(port.dsp.voices(), {})
+
     def test_a_write_elsewhere_is_kept_as_written(self):
         port = Port()
         port.send([0xAAAA, 0xBBBB], address=0xFF904000, block=2)

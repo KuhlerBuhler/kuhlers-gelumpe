@@ -352,6 +352,34 @@ def case_meter_dsp(payload, flash):
                   f"peak in the meter object silent {quiet_peak}, full {loud_peak}, silent again {after_peak}; LEDs {quiet}, "
                   f"{loud}, {after}")]
 
+
+def case_voices_dsp(payload, flash):
+    """The voices the DSP opens follow the sequencer (dsp_model.py voices): part 1 on every step, part 3 on every 4th, played
+    1.5 s. Every note the firmware starts (NOTE_ON) opens one voice of its part at the DSP, and the note's end closes it."""
+    from dsp_model import DspModel
+    box = VBox(payload, flash)
+    dsp = DspModel.attach(box.m)
+    for part in range(16):
+        for step in range(64):
+            at = PART + STRIDE * part + STEPS + 12 * step
+            on = part == 0 or (part == 2 and step % 4 == 0)
+            box.poke(at, 1 if on else 0)
+            for i, value in enumerate((60, 100, 1, 60) if on else (), 1):
+                box.poke(at + i, value)
+    box.run(0.3)
+    mark = len(dsp.gates)
+    box.notes.clear()
+    play(box)
+    box.run(1.5)
+    one, three = len(dsp.notes(0, mark)), len(dsp.notes(2, mark))
+    opened = [g for g in dsp.gates[mark:] if g[3]]
+    closed = [g for g in dsp.gates[mark:] if not g[3]]
+    ok = (one + three == len(dsp.notes(None, mark)) == len(box.notes) and 0 < three < one
+          and len(opened) - len(closed) == len(dsp.voices()) <= 2 and not box.m.asserts)
+    return [entry("dsp_voices_follow_the_sequencer", ok,
+                  f"NOTE_ON {len(box.notes)}; voices opened for part 1 {one}, part 3 {three}, other parts "
+                  f"{len(dsp.notes(None, mark)) - one - three}; closed {len(closed)}, open now {dsp.voices()}")]
+
 MODES = ((PART_MUTE, "PART MUTE", True), (KEYBOARD, "KEYBOARD", True), (PART_ERASE, "PART ERASE", True), (CHORD, "CHORD", True),
          (PATTERN_SET, "PATTERN SET", True), (STEP_JUMP, "STEP JUMP", False))
 
@@ -652,7 +680,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):

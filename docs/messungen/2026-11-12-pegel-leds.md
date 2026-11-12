@@ -47,5 +47,6 @@ Effekts vor der Summe sieht dieser Wert nicht; eine Verstärkung danach (`+0x19C
 
 - Gerätemessung: Velocity fest, Part-Level drehen, LEDs müssen folgen; Level fest, Velocity drehen, LEDs nur über die
   Lautstärke der Note.
-- `0xFF9030EC` (`+0x48`, Kommando 1 im selben Takt) und `0xFF9030FC` (`+0x58`): Bedeutung nicht gelesen.
+- `0xFF9030FC` (`+0x58`): Bedeutung nicht gelesen. `0xFF9030EC` (`+0x48`, Kommando 1 im selben Takt) ist der Eingangspegel,
+  den `machine.py` als `INPUT_LEVEL` bedient.
 - Rot und blau: DSP-Seite nicht gelesen, CPU-Seite im Emulator gleich.
