@@ -35,20 +35,26 @@ abschaltet (#506, Gerätetest 11.11.: Part stumm).
 | Parameter `0x2C2 + 0x6D * Part + 0x23` (LEVEL, siehe oben) geht jede Millisekunde an den DSP, gleich bei Velocity 127 und 30 | gemessen |
 | Part-Schalter im DSP: die Audioschleife `0xFFA019DE` überspringt einen Part mit Schalter 0 und löscht seinen Ausgangszustand (`0xFF90186C + 0x118 * Part`, +0x100); mit 1 läuft er beim nächsten Sample wieder, nichts bleibt hängen | gelesen |
 | FIFO `0xFF900018`/`0xFF900098` (Handler `0x17FF8`): zwei Puffer zu 32 Wörtern, Eintrag = Flags << 28 \| Kanal << 22 \| Code << 16 \| Wert, Kanal 62 beendet den Puffer. Code `0x20` auf Kanal 0 bis 32 ist das Tempo in hundertstel BPM (`0xFF900004`), danach rechnet der Effekt des Kanals seine Tempo-Zeiten neu (`0x17C78`) | gelesen; Tempo 155.5 schickt `0x3CBE` an alle 33 Kanäle: gemessen |
-| Der alte Part-Reset (develop) schickt zusätzlich den Schalter aus/an, `0x31E = 0`, ein Kommando `0x39` und über das FIFO das aktuelle Tempo an alle Kanäle; alle anderen Zugriffe sind mit #506 gleich. Nichts davon hält den Part im DSP stumm | gemessen (Emulator), gelesen |
+| Effekte im FIFO: der Kanal ist ein Effektfeld ([DSP, erster Blick](../hintergrund/dsp-erster-blick.md), 2.2). Part p hat das Insert-Feld 2p (2p + 1 ist sein Nachbar), der Master-Effekt Feld 32. Codes `0` bis `0x19` sind die Parameter der Einheit. Feld 40 (`0x28`) bereitet eine Einheit vor: ihre Parameter (Rohwert << 8), Code `0x38` die Einheitennummer, Code `0x39` das Zielfeld, das den Lader startet. Vorher gehen `0x30` und `0x31` an das Zielfeld | gemessen (Emulator), gelesen |
+| Beim Start: Nachbarfelder 1, 3 … 31 bekommen Einheit 0, die Part-Felder 0, 2 … 30 Einheit 4, das Master-Feld Einheit `0x3B` und danach die Parameter 2, 11, 15, 17 und 24 | gemessen (Hacktribe) |
+| IFX TYPE +1 auf Part 1: `0x30`, `0x31` an Feld 0, Einheit 0 nach Feld 1, Einheit `0x10` nach Feld 0, sonst kein Feld. Auf Part 2 dasselbe mit Feld 2 und 3 | gemessen (Hacktribe, rot, blau) |
+| IFX EDIT schickt direkt an das Part-Feld, mehrere Codes je Drehung (Einheit `0x10`: Codes 0 und 1; nach zweimal IFX TYPE +1: Codes 1, 10 und 14) | gemessen |
+| IFX ON ist kein FIFO-Eintrag, sondern der Part-Wert `+0x5C` am Postfach (Part 1: `0x31E`), `0x7FFF` an, 0 aus | gemessen (Hacktribe, rot, blau) |
+| Touchpad im Master-FX-Modus: Feld 32, Codes 2, 11, 15 und 17 folgen X und Y; Code 24 geht beim Berühren auf `0x5800` und beim Loslassen auf 0 | gemessen (Hacktribe), Codes 2, 11, 15, 17 auch rot und blau |
+| Der alte Part-Reset (develop) schickt zusätzlich den Schalter aus/an, `0x31E = 0` (IFX ON von Part 1 aus), ein Kommando `0x39` und über das FIFO das aktuelle Tempo an alle Kanäle; alle anderen Zugriffe sind mit #506 gleich. Nichts davon hält den Part im DSP stumm | gemessen (Emulator), gelesen |
 | Kommando `0` setzt DSP-Parameter: Wort 2 = Anzahl Paare minus 1, dann Paare (Parameter, Wert). Ein Paar `0xC0011F54`, zwei Paare `0xC001203C` | gelesen (Hacktribe), gemessen |
 | Parameter `0x2C2 + 0x6D * Part` (blau `0x2A8 + 0x6D * Part`) ist der Schalter des Parts am DSP, 1 an, 0 aus | gelesen (`0xC0093A20`, `0xC0093988`, blau `0xC0081680`), gemessen |
 | Jede Note schaltet ihren Part wieder an (Sampler `0xC0093988`, ohne Prüfung des Bits in `0xC06914E8`); das Abschalten `0xC0093A20` schickt nur etwas, wenn das Bit gesetzt ist, also nach einer Note | gelesen, gemessen |
 | Nach dem Start ohne Note hat ein Part nie einen Schalterwert bekommen; das Modell meldet dann `None` | gemessen |
-| LEVEL, PAN und PART MUTE schicken beim Bedienen nichts an das Postfach; LEVEL ändert nur den Pattern-RAM, ein stummer Part schickt keine Note | gemessen (LEVEL, MUTE auf Part 1, Hacktribe) |
+| LEVEL, PAN und PART MUTE schicken beim Drehen selbst nichts an das Postfach; LEVEL und PAN reisen mit der nächsten Note und während sie klingt, ein stummer Part schickt keine Note | gemessen (LEVEL, MUTE auf Part 1, Hacktribe) |
 
 Das Modell (`DspModel.attach(machine)`) hängt sich vor `machine.write` und `machine.dsp_read`. Es hält ein Bild des DSP-Speichers
 (`mem`, `word(adresse)`): Postfach-Kommandos schreiben ihre Slots, andere Schreibübertragungen landen unverändert an ihrer
 Adresse. Dazu den letzten Wert jedes Parameters, jede Schaltung eines Parts mit Gerätezeit, die Zahl je Kommando
 (`commands`), die FIFO-Einträge (`fifo`), das Tempo je Kanal (`tempo`) und jedes Öffnen und Schließen einer Stimme mit ihrem
-Part (`gates`), Cutoff und Resonanz je Part (`filters`). Abfragen: `part_on(p)`, `switched_off(p, since)`, `parts_switched_off(since)`, `mark()`, `voices()` (offene
+Part (`gates`), Cutoff und Resonanz je Part (`filters`), Einheit und Parameter je Effektfeld (`effects`). Abfragen: `part_on(p)`, `switched_off(p, since)`, `parts_switched_off(since)`, `mark()`, `voices()` (offene
 Stimmen mit Part und Velocity-Gain), `voice(v)` (Part, Gate, Velocity-Gain, Note, PITCH-Versatz), `notes(part, since)`,
-`part_value(part, LEVEL | PAN)`, `filter(part)`.
+`part_value(part, LEVEL | PAN)`, `filter(part)`, `effect(feld)`, `ifx(part)`, `ifx_on(part)`.
 
 Lesen beantwortet das Modell nur für den Ausgangs-Spitzenpegel `0xFF9030F4..0xFF9030FB`: der größere Wert aus dem zuletzt
 Geschriebenen und dem Pegel, den ein Fall mit `output(links, rechts)` setzt (0 bis 1). Alle anderen Lesezugriffe liefern wie
@@ -82,13 +88,23 @@ Part 1: LEVEL 16 und 127, PAN 16 und 112, RESONANCE 16 und 127, PITCH 0 und 127,
 60. Geprüft: die DSP-Werte wachsen mit dem Regler, der Cutoff fällt mit dem Drehgeber, jede Stimme hält Note 60. Grün auf
 Hacktribe, rot und blau (12.11.). Prüffall `shortcut:dsp_part_values_follow_the_knobs` (`case_part_values_dsp`).
 
+## Effekte gegen das Panel
+
+Part 1: IFX TYPE +1, IFX EDIT 40 und 200, IFX ON zweimal, dann MASTER FX und das Touchpad auf zwei Stellen. Geprüft: IFX TYPE lädt
+nur Feld 0 (neue Einheit) und Feld 1 (Einheit 0), IFX EDIT ändert Parameter von Feld 0, IFX ON geht an und wieder aus, das
+Touchpad ändert Parameter des Master-Felds. Grün auf Hacktribe, rot und blau (12.11.). Prüffall
+`shortcut:dsp_effects_follow_the_panel` (`case_effects_dsp`). Die Einheiten aus dem Start sieht ein Fall nicht: das Modell hängt
+sich erst nach dem Booten an.
+
 ## Grenzen
 
 - **Offen:** Warum der Part am Gerät stumm blieb. Der DSP-Verkehr des alten Resets, so wie ihn der Emulator sieht, erklärt es
   nicht (siehe oben). Hergeleitet: die Ursache liegt CPU-seitig oder in einem Zustand, den der Emulator anders hat als das Gerät.
   Das Modell sagt deshalb nicht "hörbar", sondern nur "abgeschaltet worden" und "zuletzt an".
 - **Offen:** Bedeutung der übrigen Parameter je Part (`+0x22`, `+0x5F` und die meisten anderen); `0x1F`, `0x2D` bis `0x2F` und
-  `0x32` bis `0x39` sind nur gezählt. Der Cutoff ist ein Filterkoeffizient, keine Reglerstellung; die Umrechnung ist nicht gelesen.
+  `0x32` bis `0x39` sind nur gezählt. Der Cutoff ist ein Filterkoeffizient, keine Reglerstellung; die Umrechnung ist nicht gelesen. Welcher Effektparameter welcher
+  Code ist und wie IFX EDIT und das Touchpad auf die Codes umgerechnet werden, ist nicht gelesen; die Einheitennummer folgt
+  nicht der IFX-TYPE-Nummer am Display (4, dann `0x10`).
 - **Nicht im Modell:** ein eigenes Ausgangssignal. Der Spitzenpegel kommt nur aus `output()`. Welche Stimme wann klingt, weiß das
   Modell; wie laut, rechnet der DSP in der Stimmenschleife `0xFFA0141A` und der Part-Schleife `0xFFA019DE` aus Sample-Daten,
   Velocity-Gain, Hüllkurve, Filter und Part-Pegel. Das ist Rechnen wie der DSP, nicht mehr Mitlesen. Der Versuch mit dem echten

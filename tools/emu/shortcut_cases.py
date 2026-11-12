@@ -424,6 +424,55 @@ def case_part_values_dsp(payload, flash):
                   f"before/after the encoder {tuple(map(hex, cutoff))}, PITCH 0/127 {pitches} semitones, notes {notes}")]
 
 
+def case_effects_dsp(payload, flash):
+    """The effects at the DSP (dsp_model.py effect, ifx, ifx_on): IFX TYPE on part 1 loads a unit into part 1's field and
+    clears its neighbour, no other field; IFX EDIT changes part 1's effect parameters; IFX ON switches
+    part 1's insert effect on and off again; the touchpad in Master FX mode changes the master effect's parameters."""
+    from dsp_model import MASTER_FX, DspModel
+    from plugin_api24_cases import KNOBS
+    box = SBox(payload, flash)
+    dsp = DspModel.attach(box.m)
+    box.run(0.3)
+
+    def key(k):
+        box.m.send([0, k, 1, 0, 0])
+        box.run(0.05)
+        box.m.send([0, k, 0, 0, 0])
+        box.run(0.4)
+
+    def params(field):
+        return (dsp.effect(field) or {}).get("params", {})
+
+    box.m.send([1, 4, 0, 1, 0])
+    box.run(0.4)
+    loaded = {f: fx["unit"] for f, fx in dsp.effects.items() if fx["unit"] is not None}
+    edits = []
+    for raw in (40, 200):
+        box.m.send([2, KNOBS["ifxEdit"], 0, raw, 0])
+        box.run(0.4)
+        edits.append(params(0))
+    switch = [dsp.ifx_on(0)]
+    for _ in range(2):
+        key(0x21)
+        switch.append(dsp.ifx_on(0))
+    key(0x06)
+    pad = [params(MASTER_FX)]
+    box.m.send([0, 0x22, 1, 0, 0])
+    for x, y in ((800, 200), (200, 800)):
+        box.m.send([5, x >> 8, x & 0xFF, y >> 8, y & 0xFF])
+        box.run(0.3)
+        pad.append(params(MASTER_FX))
+    box.m.send([0, 0x22, 0, 0, 0])
+    box.run(0.3)
+    moved = sorted(k for k in pad[2] if pad[1].get(k) != pad[2][k])
+    ok = (set(loaded) == {0, 1} and loaded[0] and loaded[1] == 0 and edits[0] != edits[1]
+          and switch[1] is not None and switch[1] != switch[2] and pad[0] != pad[1] and moved and not box.m.asserts)
+    return [entry("dsp_effects_follow_the_panel", ok,
+                  f"units loaded by IFX TYPE {loaded}, IFX EDIT 40/200 changed codes "
+                  f"{sorted(k for k in edits[1] if edits[0].get(k) != edits[1][k])}, IFX ON {switch}, touchpad "
+                  f"moved master codes {moved}")]
+
+
 MODES = ((PART_MUTE, "PART MUTE", True), (KEYBOARD, "KEYBOARD", True), (PART_ERASE, "PART ERASE", True), (CHORD, "CHORD", True),
          (PATTERN_SET, "PATTERN SET", True), (STEP_JUMP, "STEP JUMP", False))
 
@@ -724,7 +773,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_effects_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dsp_model import FIFO, LEVEL, PAN, PEAK, DspModel, MAILBOX, slot  # noqa: E402
+from dsp_model import FIFO, LEVEL, MASTER_FX, PAN, PEAK, DspModel, MAILBOX, slot  # noqa: E402
 from machine import DSP_CTRL, DSP_DATA, DSP_SYNC  # noqa: E402
 
 
@@ -139,6 +139,22 @@ class DspModelTest(unittest.TestCase):
         port.send([h for w in words for h in (w & 0xFFFF, w >> 16)], address=FIFO[0], block=64)
         self.assertEqual(port.dsp.tempo, {0: 15550, 1: 15550})
         self.assertEqual([e[1:] for e in port.dsp.fifo], [(0, 0x20, 15550), (1, 0x20, 15550)])
+
+    def test_a_staged_unit_lands_in_its_field_and_takes_later_parameters(self):
+        port = Port()
+        fifo = lambda *e: [c << 22 | k << 16 | v for c, k, v in e] + [62 << 22]   # noqa: E731
+        words = fifo((0x28, 0, 0x2400), (0x28, 1, 0x2200), (0x28, 0x20, 12000), (0x28, 0x38, 0x10), (0x28, 0x39, 2),
+                     (2, 1, 0x1600), (0x20, 0x18, 0x5800))
+        port.send([h for w in words for h in (w & 0xFFFF, w >> 16)], address=FIFO[1], block=64)
+        self.assertEqual(port.dsp.ifx(1), {"unit": 0x10, "params": {0: 0x2400, 1: 0x1600}})
+        self.assertEqual(port.dsp.effect(MASTER_FX), {"unit": None, "params": {0x18: 0x5800}})
+        self.assertIsNone(port.dsp.ifx(0))
+
+    def test_ifx_on_is_a_part_value(self):
+        port = Port()
+        self.assertIsNone(port.dsp.ifx_on(0))
+        port.send([0x106, 0, 0, 0x2C2 + 0x5C, 0x7FFF])
+        self.assertTrue(port.dsp.ifx_on(0))
 
     def test_the_output_peak_is_the_larger_of_level_and_written(self):
         port = Port()

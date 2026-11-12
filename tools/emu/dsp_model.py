@@ -40,8 +40,12 @@ a switched-off part and clears its output state. The firmware switches a part on
 0xC0093988) and off in Copy Part's part sound setup (0xC0093A20, blue 0xC0081680).
 
 FIFO 0xFF900018 / 0xFF900098 (DSP handler 0x17FF8): two buffers of 32 words; a word is flags << 28 | channel << 22 |
-code << 16 | value, channel 62 ends the buffer. Code 0x20 on channels 0 to 32 is the tempo in hundredths of BPM; the DSP
-keeps it at 0xFF900004 and recomputes the channel's tempo-synced effect (0x17C78).
+code << 16 | value, channel 62 ends the buffer. A channel is an effect field: part p's insert effect is field 2p (2p + 1
+its neighbour), the master effect field 32 (0x20). Codes 0 to 0x19 are the effect's parameters (value = raw << 8 when the
+CPU loads a unit), code 0x20 on channels 0 to 32 the tempo in hundredths of BPM; the DSP keeps it at 0xFF900004 and
+recomputes the channel's tempo-synced effect (0x17C78). Field 40 (0x28) stages a unit: its parameters, code 0x38 the unit
+number, code 0x39 the target field, which starts the loader. Codes 0x30 and 0x31 on a field mute it and clear its process
+pointers ahead of a load. IFX ON is not in the FIFO: it is the part's parameter +0x5C at the mailbox (0x7FFF on).
 
 Reads the model answers: the output peak, 0xFF9030F4 (left) and 0xFF9030F8 (right), fields +0x50/+0x54 of the output block
 0xFF9030A4. The DSP keeps max(abs(sample)) of the final stereo sum there (0xFFA01952), 1.31, saturating at 0x7FFFFFFF; the
@@ -73,7 +77,9 @@ VOICE, VOICE_WORDS, VOICES = 0x43AB, 0x1A, 24     # voice v is the block VOICE +
 TEMPLATE = 0x18                 # part p's voice template is the block TEMPLATE + VOICE_WORDS * p
 VELOCITY = 0x15                 # the voice's velocity gain, inside its block
 NOTE, PITCH = 1, 2              # the voice's note and its part's PITCH offset, 1/256 semitones, inside its block
-LEVEL, PAN, FILTER = 0x23, 0x60, 0xA     # part values, offsets from the part's switch
+LEVEL, PAN, FILTER, IFX_ON = 0x23, 0x60, 0xA, 0x5C     # part values, offsets from the part's switch
+STAGING, UNIT, TARGET = 0x28, 0x38, 0x39    # FIFO field that stages a unit, its codes for the unit number and the target
+MASTER_FX, FX_PARAMS = 0x20, 0x1A           # the master effect's field; codes below FX_PARAMS are effect parameters
 
 
 def slot(param):
@@ -96,6 +102,8 @@ class DspModel:
         self.commands = Counter()   # mailbox command -> messages
         self.fifo = []              # (device time in ms, channel, code, value) for every FIFO entry
         self.tempo = {}             # channel -> tempo in hundredths of BPM, as the FIFO last set it
+        self.effects = {}           # field -> {"unit": loaded unit, "params": {code: value}}
+        self._staged = {}
         self.level = (0, 0)         # what the DSP would see at its output, 1.31
         self.voice_part = {}        # voice -> the part whose template it took last
         self.gates = []             # (device time in ms, voice, part, 1 on | 0 off) for every gate write, in order
@@ -259,6 +267,15 @@ class DspModel:
             self.fifo.append((self._now(), channel, code, value))
             if code == FIFO_TEMPO and channel < FIFO_CHANNELS:
                 self.tempo[channel] = value
+            elif channel == STAGING:
+                if code < FX_PARAMS or code == UNIT:
+                    self._staged[code] = value
+                elif code == TARGET:
+                    staged, self._staged = self._staged, {}
+                    unit = staged.pop(UNIT, None)
+                    self.effects[value] = {"unit": unit, "params": staged}
+            elif code < FX_PARAMS and channel < FIFO_CHANNELS:
+                self.effects.setdefault(channel, {"unit": None, "params": {}})["params"][code] = value
 
     # ---- what a check asks ---------------------------------------------------------
     def mark(self):
@@ -297,6 +314,20 @@ class DspModel:
     def filter(self, part):
         """(cutoff, resonance) of the part's filter as command 0x30 last set them, or None."""
         return self.filters.get(part)
+
+    def effect(self, field):
+        """The unit the CPU loaded into an effect field and its parameters as last sent ({code: value}), or None.
+        Part p's insert effect is field 2p, the master effect MASTER_FX."""
+        fx = self.effects.get(field)
+        return None if fx is None else {"unit": fx["unit"], "params": dict(fx["params"])}
+
+    def ifx(self, part):
+        return self.effect(2 * part)
+
+    def ifx_on(self, part):
+        """True or False: the part's IFX ON at the DSP; None when the firmware never sent it."""
+        value = self.part_value(part, IFX_ON)
+        return None if value is None else value != 0
 
     def notes(self, part=None, since=0):
         """Device times (ms) at which a voice opened its gate after `since` (an index into `gates`), for one part or all."""
