@@ -5,7 +5,7 @@ Stand 12. November 2026. Hacktribe 2.02 (CPU-Code und DSP-Programm aus der Firmw
 Emulatorläufe. **Am Gerät nicht gemessen.** Der DSP-Code ist nur auf Hacktribe gelesen; die Kette CPU -> Meter-Objekt -> LEDs
 ist im Emulator auf Hacktribe, rot und blau gemessen.
 
-Anschluss an [Audio-Pegel für korg.audio.level](2026-11-11-plugin-api31-audio-level.md): Die LED-Funktion `0xC0088284`
+Anschluss an die Messung Audio-Pegel für korg.audio.level (`2026-11-11-plugin-api31-audio-level.md`, auf dem Branch der Plugin-API 1.5): Die LED-Funktion `0xC0088284`
 (blau `0xC0078468`) liest alle 40 ms aus dem Objekt `[0xC033E4F4]` das Byte `+0x13` und das oberste Byte von `+0x14`.
 
 ## Ergebnis
