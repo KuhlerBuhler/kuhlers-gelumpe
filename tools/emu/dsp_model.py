@@ -43,8 +43,10 @@ a switched-off part and clears its output state. The firmware switches a part on
 
 FIFO 0xFF900018 / 0xFF900098 (DSP handler 0x17FF8): two buffers of 32 words; a word is flags << 28 | channel << 22 |
 code << 16 | value, channel 62 ends the buffer. A channel is an effect field: part p's insert effect is field 2p (2p + 1
-its neighbour), the master effect field 32 (0x20). Codes 0 to 0x19 are the effect's parameters (value = raw << 8 when the
-CPU loads a unit), code 0x20 on channels 0 to 32 the tempo in hundredths of BPM; the DSP keeps it at 0xFF900004 and
+its neighbour), the master effect field 32 (0x20). Codes below the unit's parameter count are its parameters (value = raw << 8 when
+the CPU loads a unit; DSP 0x17DC4), code 0x18 the field's input gain and 0x19 its output gain (0x17CE0: a part's slot
+words 40/41 and 44/45, the neighbour 46/47 and 50/51, target and ramped value around the effect call in the part loop
+0xFFA019DE; the output is doubled, 0x7F00 and 0x4000 are unity), code 0x20 on channels 0 to 32 the tempo in hundredths of BPM; the DSP keeps it at 0xFF900004 and
 recomputes the channel's tempo-synced effect (0x17C78). Field 40 (0x28) stages a unit: its parameters, code 0x38 the unit
 number, code 0x39 the target field, which starts the loader. Codes 0x30 and 0x31 on a field mute it and clear its process
 pointers ahead of a load. IFX ON is not in the FIFO: it is the part's parameter +0x5C at the mailbox (0x7FFF on).
@@ -83,6 +85,7 @@ LEVEL, RAMP, FILTER, IFX_ON = 0x23, 0x22, 0xA, 0x5C     # part values, offsets f
 PAN_LEFT, PAN_RIGHT = 0x5F, 0x60
 STAGING, UNIT, TARGET = 0x28, 0x38, 0x39    # FIFO field that stages a unit, its codes for the unit number and the target
 MASTER_FX, FX_PARAMS = 0x20, 0x1A           # the master effect's field; codes below FX_PARAMS are effect parameters
+FX_IN, FX_OUT = 0x18, 0x19                  # a field's input and output gain
 
 
 def slot(param):

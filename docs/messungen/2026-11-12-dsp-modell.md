@@ -43,7 +43,9 @@ abschaltet (#506, Gerätetest 11.11.: Part stumm).
 | Beim Start: Nachbarfelder 1, 3 … 31 bekommen Einheit 0, die Part-Felder 0, 2 … 30 Einheit 4, das Master-Feld Einheit `0x3B` und danach die Parameter 2, 11, 15, 17 und 24 | gemessen (Hacktribe) |
 | IFX TYPE +1 auf Part 1: `0x30`, `0x31` an Feld 0, Einheit 0 nach Feld 1, Einheit `0x10` nach Feld 0, sonst kein Feld. Auf Part 2 dasselbe mit Feld 2 und 3 | gemessen (Hacktribe, rot, blau) |
 | Einheitennummer = Gerätebyte aus `data/units.json` und Index der DSP-Deskriptoren (`0x4C30`): 4 = `I_punch`, `0x10` = `I_acid_driver`, `0x3B` = `M_mod_delay`, 0 = leer. Code n ist Parameter n der Einheit: `0x17DC4` schreibt den Wert ins Staging des Felds (`0xFF900118 + 0x34 * Feld + 2 * Code`), begrenzt ihn auf die Spanne des Parameterrecords n und ruft dessen Wandler. Beim Acid Driver sind Code 0 und 1 also `drive` und `output_level` | gelesen, Namen aus `data/units.json` |
-| Codes ab der Parameterzahl der Einheit gehen an `0x17CE0`: Code 24 (`0x18`) wird mal (1 + `0x204`/65536) zu 1.31 und landet in Wort 40 des Platzes (Nachbarfeld Wort 46), Code 25 (`0x19`) unverändert in Wort 44 (Nachbar 50); beim Master in `0xFF90311C` und `0xFF903120`. Insert-Einheiten bekommen beim Laden 24 = `0x7F00` (also 1,0) und 25 = `0x4000`; das Touchpad setzt beim Master Code 24 beim Berühren auf `0x5800` und beim Loslassen auf 0. Was die Wörter im Mischer tun, ist nicht gelesen | gelesen, gemessen |
+| Codes ab der Parameterzahl der Einheit gehen an `0x17CE0`: Code 24 (`0x18`) wird mal (1 + `0x204`/65536) zu 1.31 und landet in Wort 40 des Platzes (Nachbarfeld Wort 46), Code 25 (`0x19`) unverändert in Wort 44 (Nachbar 50); beim Master in `0xFF90311C` und `0xFF903120`. Insert-Einheiten bekommen beim Laden 24 = `0x7F00` (also 1,0) und 25 = `0x4000`; das Touchpad setzt beim Master Code 24 beim Berühren auf `0x5800` und beim Loslassen auf 0. Code 24 ist der Eingangspegel des Effekts, Code 25 sein Ausgangspegel | gelesen, gemessen |
+| Die Part-Schleife `0xFFA019DE` rechnet je Part zwei Effekte hintereinander: Signal mal Wort 41 in den Effekt aus Wort 42/43 (Zustand, Prozessfunktion), dessen Ausgang mal Wort 45 und mal 2, dann dasselbe mit Wort 47, 48/49 und 51 für das Nachbarfeld. Wort 40/44/46/50 sind die Zielwerte, 41/45/47/51 die angeglichenen Werte (`0xFFA01CF2` bis `0xFFA01D4A`). Code 24 = `0x7F00` und 25 = `0x4000` sind also beide Verstärkung 1. Beim Master öffnet das Touchpad damit den Eingang des Effekts nur, solange der Finger liegt | gelesen (Hacktribe), Lesespur im Simulator (Wort 40 bis 51 von Part 1) |
+| Cutoff: die CPU (`0xC0094A6C`) wählt je Filtertyp (20 Typen, 7 Rechenwege) eine Funktion, die aus der Cutoff-Stellung (8.8, 0 bis `0x7F00`) den Koeffizienten macht; beim Tiefpass `0xC0093EB4` eine Tabelle mit 128 Werten, linear zwischen zwei Einträgen. Je Eintrag steigt der Wert um einen Halbton (2^(1/12), über 8 Einträge 1,5874), oben flacht er ab; Stellung 0 = `0x232372`, ab `0x7F00` = `0x7B0967E7` (offen). Die Resonanz kommt aus einer Tabelle zu 128 Werten (0 bis `0x7C23C33C`) und geht als zweiter Wert mit `0x30`; ein dritter Wert aus einer zweiten Tabelle fällt mit der Resonanz von `0x7FFF` ab und geht << 14 mit (Resonanz 0: `0x1FFF` oben, gemessen) | gelesen (Hacktribe), gemessen |
 | IFX TYPE wählt ein Insert-Preset, nicht eine Einheit: die Einheit steht im Preset-Record (`fx.stage.device` in `data/map/fx.mjs`). Deshalb springt die Einheit von 4 auf `0x10`, wenn IFX TYPE um eins weitergeht | hergeleitet |
 | IFX EDIT schickt direkt an das Part-Feld, mehrere Codes je Drehung (Einheit `0x10`: Codes 0 und 1; nach zweimal IFX TYPE +1: Codes 1, 10 und 14) | gemessen |
 | IFX ON ist kein FIFO-Eintrag, sondern der Part-Wert `+0x5C` am Postfach (Part 1: `0x31E`), `0x7FFF` an, 0 aus | gemessen (Hacktribe, rot, blau) |
@@ -95,14 +97,15 @@ blau (12.11.). Prüffall `shortcut:dsp_voices_follow_the_sequencer` (`case_voice
 
 ## Part-Werte gegen die Regler
 
-Part 1: LEVEL 16 und 127, PAN 16 und 112, RESONANCE 16 und 127, PITCH 0 und 127, der CUTOFF-Drehgeber -20, nach jedem eine MIDI-Note
+Part 1: LEVEL 16 und 127, PAN 16 und 240, RESONANCE 16 und 127, PITCH 0 und 127, der CUTOFF-Drehgeber -20, nach jedem eine MIDI-Note
 60. Geprüft: die DSP-Werte wachsen mit dem Regler, der Cutoff fällt mit dem Drehgeber, jede Stimme hält Note 60. Grün auf
 Hacktribe, rot und blau (12.11.). Prüffall `shortcut:dsp_part_values_follow_the_knobs` (`case_part_values_dsp`).
 
 ## Effekte gegen das Panel
 
 Modell ab dem Einschalten. Part 1: IFX TYPE +1, IFX EDIT 40 und 200, IFX ON zweimal, dann MASTER FX und das Touchpad auf zwei Stellen. Geprüft: der Start lädt
-in jedes Part-Feld und das Master-Feld eine Einheit (4 und `0x3B`), IFX TYPE lädt nur Feld 0 (neue Einheit) und Feld 1 (Einheit 0), IFX EDIT ändert Parameter von Feld 0, IFX ON geht an und wieder aus, das
+in jedes Part-Feld und das Master-Feld eine Einheit (4 und `0x3B`), der Effekt von Part 1 steht auf Verstärkung 1 (Code 24
+`0x7F00`, 25 `0x4000`), der Eingang des Master-Effekts ist nur beim Berühren offen (0, `0x5800`, 0), IFX TYPE lädt nur Feld 0 (neue Einheit) und Feld 1 (Einheit 0), IFX EDIT ändert Parameter von Feld 0, IFX ON geht an und wieder aus, das
 Touchpad ändert Parameter des Master-Felds. Grün auf Hacktribe, rot und blau (12.11.). Prüffall
 `shortcut:dsp_effects_follow_the_panel` (`case_effects_dsp`). Der Part-Wert-Fall prüft dazu PAN auf beiden Seiten (16 und 240)
 und dass LEVEL seine Rate hat (`0x207`).
@@ -113,9 +116,9 @@ und dass LEVEL seine Rate hat (`0x207`).
   nicht (siehe oben). Hergeleitet: die Ursache liegt CPU-seitig oder in einem Zustand, den der Emulator anders hat als das Gerät.
   Das Modell sagt deshalb nicht "hörbar", sondern nur "abgeschaltet worden" und "zuletzt an".
 - **Offen:** Bedeutung der übrigen Wörter des Part-Blocks; `0x1F`, `0x2D` bis `0x2F` und
-  `0x32` bis `0x39` sind nur gezählt. Der Cutoff ist ein Filterkoeffizient, keine Reglerstellung; die Umrechnung ist nicht gelesen. Wie IFX EDIT und das Touchpad auf
-  die Codes umgerechnet werden, steht in den Steuerzeilen des Presets (`fx.map.*`), im Modell nicht nachgerechnet. Was Code 24
-  und 25 im Mischer bewirken, ist nicht gelesen.
+  `0x32` bis `0x39` sind nur gezählt. Die Cutoff-Tabellen der anderen Filtertypen und von rot und blau sind nicht gelesen.
+  Wie IFX EDIT und das Touchpad auf die Codes umgerechnet werden, steht in den Steuerzeilen des Presets (`fx.map.*`), im
+  Modell nicht nachgerechnet.
 - **Nicht im Modell:** ein eigenes Ausgangssignal. Der Spitzenpegel kommt nur aus `output()`. Welche Stimme wann klingt, weiß das
   Modell; wie laut, rechnet der DSP in der Stimmenschleife `0xFFA0141A` und der Part-Schleife `0xFFA019DE` aus Sample-Daten,
   Velocity-Gain, Hüllkurve, Filter und Part-Pegel. Das ist Rechnen wie der DSP, nicht mehr Mitlesen. Der Versuch mit dem echten
