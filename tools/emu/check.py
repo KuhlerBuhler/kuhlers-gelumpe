@@ -215,14 +215,17 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     data = {"payload": payload, "flash": flash, "boot_flash": boot, "base": base[HEADER:]}
     if shard is not None or reports is not None:
         import check_shards
+        import shard_weights
+        weights = shard_weights.weights_for(tasks)
         config = {"allow": sorted(map(tuple, allow)), "allow_code": sorted(map(tuple, allow_code)), "quick": quick, "cases": cases,
+                  "partition": {"algorithm": "lpt-v1", "weights": weights},
                   "runtime": taskcache.inputs("check-shard", {}), "header": base[:HEADER].hex(), "patched_header": patched[:HEADER].hex()}
         fingerprint = check_shards.identity(data, tasks, config, check_shards.source_identity(Path(__file__).resolve().parents[2]))
         if shard is not None:
             if reports is not None:
                 raise ValueError("a check cannot run and join shards together")
             index, count = shard
-            assigned = check_shards.indices(len(tasks), index, count)
+            assigned = check_shards.indices(len(tasks), index, count, weights=weights)
             selected = [tasks[i] for i in assigned]
             tracker = progress_lib.Tracker(selected, parallel.workers(len(selected)) if jobs is None else jobs, progress) if progress else None
             measured = []
@@ -232,13 +235,15 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
                 if metrics:
                     metrics(event)
 
+            measured_task({"kind": "partition", "algorithm": "lpt-v1", "index": index, "count": count,
+                           "tasks": len(assigned), "estimated_ms": sum(weights[i] for i in assigned)})
             result = parallel.run_tasks(selected, data, jobs, tracker.done if tracker else None,
                                         cache="check", on_queue=tracker.queued if tracker else None,
                                         on_metrics=measured_task)
-            part = check_shards.report(fingerprint, tasks, index, count, result)
+            part = check_shards.report(fingerprint, tasks, index, count, result, weights=weights)
             part["metrics"] = measured
             return part
-        done = check_shards.join(fingerprint, tasks, reports, read_size=PAYLOAD)
+        done = check_shards.join(fingerprint, tasks, reports, read_size=PAYLOAD, weights=weights)
     else:
         tracker = progress_lib.Tracker(tasks, parallel.workers(len(tasks)) if jobs is None else jobs, progress) if progress else None
         done = parallel.run_tasks(tasks, data, jobs, tracker.done if tracker else None,
