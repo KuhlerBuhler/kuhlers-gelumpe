@@ -7,6 +7,7 @@ import { sha256, buildOf } from "../../src/firmware.mjs";
 import { applyPatches, selectFor } from "../../src/patch.mjs";
 import { loadBlechSet, BLECH_SET_URL, BLECH_SYNTH_SET_URL } from "../../src/patcher.mjs";
 import { FREE_RUNS, SYNTH_FREE_RUNS } from "../../data/patch-ram.mjs";
+import { ensureRuntimePatches } from "./ensure-runtime.mjs";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const BUILDS = ["hacktribe", "stock", "synth"];
@@ -118,6 +119,8 @@ async function sourceFiles() {
 }
 
 export async function runSets(inputFile, output) {
+  // The sets list the runtime patches, which are built and not committed.
+  ensureRuntimePatches({ log: message => console.log(message) });
   const spec = JSON.parse(readFileSync(inputFile, "utf8"));
   validateInputs(spec);
   mkdirSync(output, { recursive: true });

@@ -6,6 +6,8 @@ import { checkRam, checkRamPlacement, declaredAreas, writtenAreas } from "../src
 import PROTECTED from "../data/protected.mjs";
 import { FREE_RUNS, SYNTH_FREE_RUNS, RESERVED } from "../data/patch-ram.mjs";
 
+import "./support/runtime.mjs";
+
 const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
 const SET = read("data/patches/blech.json");
 const patches = SET.patches.map(read);
