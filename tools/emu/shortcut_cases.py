@@ -49,6 +49,7 @@ SEQ_NOTIFY = 0xC0070688         # (observers, message): KEY PADS opens the param
 FILTER_TOGGLE_ON = script_hooks.MENU_STATE + 0x1C0   # M_FT: the page FILTER TOGGLE (tools/patch/script_menu.s)
 FILTER_AT = 0x80C               # the filter type of part 1 in the pattern file (live()); 0 OFF, 1 to 6 LPF, 7 to 11 HPF, 12 to 16 BPF
 FILTER_KEYS = {"lpf": 0x12, "hpf": 0x14, "bpf": 0x16}
+MFX_SEND_KEY = 0x1A
 FILTER_LEDS = (0x0C, 0x0D, 0x0E)
 FILTER_NOTIFY = 0xC004B208      # (this, part, parameter, value): the firmware's message that a parameter changed
 FILTER_PARAM = 29               # its number for the filter type
@@ -384,7 +385,8 @@ def case_part_values_dsp(payload, flash):
     """Part 1's knobs reach the DSP (dsp_model.py part_value, filter, voice): LEVEL, PAN, RESONANCE and PITCH each at a low and
     a high value (knob 0 to 255), the CUTOFF encoder turned down, a MIDI note 60 on channel 1 after each. The DSP values grow
     with the knob, PAN left keeps the left gain full and lowers the right one and PAN right the other way round, the level
-    has its ramp rate, the cutoff falls with the encoder, and every voice holds note 60."""
+    has its ramp rate, the cutoff falls with the encoder, and every voice holds note 60. The MFX SEND key switches the part's
+    send at the DSP on and off again."""
     from dsp_model import LEVEL, PAN_LEFT, PAN_RIGHT, RAMP, DspModel
     from plugin_api24_cases import CUTOFF_ENCODER, KNOBS
     box = SBox(payload, flash)
@@ -417,16 +419,23 @@ def case_part_values_dsp(payload, flash):
     box.run(0.4)
     after = note()
     cutoff = (before, (after["filter"] or (0, 0))[0])
+    sends = [dsp.mfx_send(0)]
+    for _ in range(2):
+        box.m.send([0, MFX_SEND_KEY, 1, 0, 0])
+        box.run(0.05)
+        box.m.send([0, MFX_SEND_KEY, 0, 0, 0])
+        box.run(0.4)
+        sends.append(dsp.mfx_send(0))
     notes = [v.get("note") for v in pitch] + [after["voice"].get("note")]
     pitches = [v.get("pitch") for v in pitch]
     full = 0x7FFF
     ok = (None not in level and level[0] < level[1] and high["ramp"] is not None and pan[0][0] == full > pan[0][1]
           and pan[1][1] == full > pan[1][0] and resonance[0] < resonance[1]
           and 0 < cutoff[1] < cutoff[0] and notes == [60, 60, 60] and None not in pitches and pitches[0] < pitches[1]
-          and not box.m.asserts)
+          and None not in sends[1:] and sends[1] != sends[2] and not box.m.asserts)
     return [entry("dsp_part_values_follow_the_knobs", ok,
                   f"LEVEL 16/127 at the DSP {level} (ramp rate {high['ramp']}), PAN 16/240 left, right {pan}, resonance 16/127 {tuple(map(hex, resonance))}, cutoff "
-                  f"before/after the encoder {tuple(map(hex, cutoff))}, PITCH 0/127 {pitches} semitones, notes {notes}")]
+                  f"before/after the encoder {tuple(map(hex, cutoff))}, PITCH 0/127 {pitches} semitones, notes {notes}, MFX SEND {sends}")]
 
 
 def case_effects_dsp(payload, flash):

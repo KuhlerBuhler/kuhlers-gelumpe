@@ -102,7 +102,26 @@ blau (12.11.). Prüffall `shortcut:dsp_voices_follow_the_sequencer` (`case_voice
 
 Part 1: LEVEL 16 und 127, PAN 16 und 240, RESONANCE 16 und 127, PITCH 0 und 127, der CUTOFF-Drehgeber -20, nach jedem eine MIDI-Note
 60. Geprüft: die DSP-Werte wachsen mit dem Regler, der Cutoff fällt mit dem Drehgeber, jede Stimme hält Note 60. Grün auf
-Hacktribe, rot und blau (12.11.). Prüffall `shortcut:dsp_part_values_follow_the_knobs` (`case_part_values_dsp`).
+Hacktribe, rot und blau (12.11.). Prüffall `shortcut:dsp_part_values_follow_the_knobs` (`case_part_values_dsp`); er schaltet
+dazu MFX SEND zweimal (aus, an).
+
+Jedes Feld des Parts einzeln über den Part-Setter des Plugins auf zwei Werte gesetzt, ohne Note und mit Note 60 danach
+(gemessen auf Hacktribe, rot und blau, ohne Note gleich):
+
+| Feld | am DSP |
+|---|---|
+| LEVEL | +0x23 mit der nächsten Note (Befehl 0 bzw. `0x16` mit Rate +0x22) |
+| PAN | +0x5F/+0x60 sofort (Befehl 2) |
+| IFX ON | +0x5C sofort, 0 aus, `0x7FFF` an |
+| MFX SEND | +0x63 sofort, 0 aus, `0x7FFF` an |
+| FILTER TYPE | +0xA bis +0x15 neu geladen (`0x39`, `0x31`), dazu `0x30` |
+| CUTOFF, RESONANCE, EG INT | `0x30` sofort |
+| AMP EG | an: der Level der Note startet bei 0 und läuft hoch, aus: er steht gleich auf dem Ziel |
+| PITCH | Wort 2 der Stimme (`0x2C`) |
+| OSC EDIT | nur der Wert von `0x2D`: OSC EDIT × 258 (10 → 2580, 110 → 28380) |
+| SAMPLE | Vorlage des Parts, Wörter +3, +5 und +7 bis +0xD (Hacktribe und rot; blau hat kein Sample) |
+| ATTACK, DECAY, MOD TYPE/SPEED/DEPTH, GLIDE, VOICE ASSIGN, IFX EDIT/TYPE und die Menüfelder | kein eigenes Wort im Part-Block; Hüllkurve und MOD rechnet die CPU in Level, Filter und Noten-Kommandos ein (hergeleitet), IFX geht ins Effektfeld |
+
 
 ## Filter gegen den Filtertyp
 

@@ -35,7 +35,10 @@ Part values at the DSP, part p's parameter PART_ON[build] + 0x6D * p + offset (t
 0xFF800B08 + 0x1B4 * p): the level at +0x23 (grows with the square of LEVEL, the amp EG rides on it) and the rate the DSP
 ramps to it at +0x22 (command 0x16, CPU 0xC0093AF0); the left and right gain of PAN at +0x5F and +0x60 (balance: one side
 stays 0x7FFF, CPU 0xC0090FBC); the filter at +0xA (command 0x30: cutoff follows CUTOFF, the filter EG and MOD; resonance
-follows RESONANCE).
+follows RESONANCE), and +0xA to +0x15 are loaded anew when the filter type changes; IFX ON at +0x5C and MFX SEND at +0x63,
+0 off and 0x7FFF on. With AMP EG on a note's level starts at 0. OSC EDIT reaches the DSP only as the value of command 0x2D
+(OSC EDIT * 258); attack, decay, MOD and GLIDE have no word of their own, the CPU applies them to the level, the filter and
+the note commands.
 
 Parameter PART_ON[build] + 0x6D * part is the part's switch at the DSP: 1 on, 0 off; the DSP's audio loop (0xFFA019DE) skips
 a switched-off part and clears its output state. The firmware switches a part on with every note it starts (Sampler
@@ -81,7 +84,7 @@ VOICE, VOICE_WORDS, VOICES = 0x43AB, 0x1A, 24     # voice v is the block VOICE +
 TEMPLATE = 0x18                 # part p's voice template is the block TEMPLATE + VOICE_WORDS * p
 VELOCITY = 0x15                 # the voice's velocity gain, inside its block
 NOTE, PITCH = 1, 2              # the voice's note and its part's PITCH offset, 1/256 semitones, inside its block
-LEVEL, RAMP, FILTER, IFX_ON = 0x23, 0x22, 0xA, 0x5C     # part values, offsets from the part's switch
+LEVEL, RAMP, FILTER, IFX_ON, MFX_SEND = 0x23, 0x22, 0xA, 0x5C, 0x63    # part values, offsets from the part's switch
 PAN_LEFT, PAN_RIGHT = 0x5F, 0x60
 STAGING, UNIT, TARGET = 0x28, 0x38, 0x39    # FIFO field that stages a unit, its codes for the unit number and the target
 MASTER_FX, FX_PARAMS = 0x20, 0x1A           # the master effect's field; codes below FX_PARAMS are effect parameters
@@ -337,6 +340,11 @@ class DspModel:
 
     def ifx(self, part):
         return self.effect(2 * part)
+
+    def mfx_send(self, part):
+        """True or False: the part's MFX SEND at the DSP; None when the firmware never sent it."""
+        value = self.part_value(part, MFX_SEND)
+        return None if value is None else value != 0
 
     def ifx_on(self, part):
         """True or False: the part's IFX ON at the DSP; None when the firmware never sent it."""
