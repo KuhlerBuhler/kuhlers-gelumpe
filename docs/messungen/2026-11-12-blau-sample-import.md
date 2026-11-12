@@ -59,6 +59,22 @@ Obergrenze der roten (`0x1C65EC0`). Die blaue hat eine eigene, tiefere Grenze (u
 - Zusammen wären das knapp 17 MiB, etwa 2:50 min mono bei 48 kHz. **hergeleitet**
 - Der DSP-Speicher ist flüchtig. Eigene Samples müssen bei jedem Start von der Karte neu geladen werden. **hergeleitet**
 
+## Umsetzung: Samples von der Karte als Oszillatoren
+
+Patch `data/patches/user-samples-synth.json` (Code `tools/patch/user_samples.py`, Fälle `tools/emu/user_samples_cases.py`), im Satz
+der blauen. Er nutzt nur das belegte Fenster bis `0x1365AE0`; der Zusatzbereich bleibt bis zum Gerätetest zu.
+
+- Haken am Ende der PCM-Ladung (`0xC00473D0`): der Lader liest `Sample/e2sSample.all` aus dem Ordner der Firmware in Blöcken von
+  16 KiB und schreibt die Werte über den Host-Port des DSP hinter die letzte Werkswelle (größtes `SMPR`-Ende, auf 32 Byte), 64 Byte
+  Nullen dahinter. Jedes WAV wird ein Eintrag in `SMPR`, `MSRL`, `MSPR` und `MSVS` und ein Oszillator in der Gruppe `[User]`. **gemessen (Emulator)**
+- Oszillator-Liste: Tabelle (409 auf 473 Einträge) und Part-Array (A, B, Flag je Oszillator) ziehen in freien Platz um, die Grenze
+  `0x198` gilt an 11 Prüfstellen bis `0x1D8`, an den 3 Stellen des Rads bis zum letzten geladenen Sample. Freie Einträge spielen SAW. **gelesen, gemessen (Emulator)**
+- Tonhöhe: `256 * (60 + 12 * log2(48000 / Rate))`, Wurzeltaste C4. Im Emulator weicht das Wort höchstens um 1 vom genauen Wert ab. **gemessen (Emulator)**
+- Fälle im Emulator (Korgs blaue 2.02 allein und im ganzen Satz): Werte im DSP bitgleich, Stereo gemittelt, Schleife aus `esli`,
+  ohne `esli` One-Shot, Pad spielt die Startadresse des Samples, zu groß und 8 Bit werden übersprungen und gezählt, EXIT beim
+  Einschalten und keine Datei lassen Tabellen und Liste wie bei Korg; die Startphase von `check.py --quick` ist grün. **gemessen (Emulator)**
+- Am Gerät noch nicht geprüft: Klang, Ladezeit beim Start, Pattern mit `[User]`-Oszillator auf Korgs Original. **offen**
+
 ## Offen
 
 - Wie Omnitribe auf 9 MB kam.
