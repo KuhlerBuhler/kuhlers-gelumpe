@@ -37,11 +37,11 @@ test("the native runtime patch declares its actual hooks and composes with splas
   assert.equal(runtime.version, 1);
   assert.equal(runtime.id, "script-runtime");
   assert.deepEqual(runtime.hooks.map(hook => hook.site), [
-    "0xC002837C", "0xC00836FC", "0xC0038D68", "0xC004C1B4", "0xC004C28C", "0xC002B2D8",
+    "0xC002837C", "0xC00836FC", "0xC0038D68", "0xC004C1B4", "0xC004C28C", "0xC002B2D8", "0xC002A628",
     "0xC006E8D8", "0xC006F094", "0xC008A83C", "0xC008A8A8", "0xC0064430", "0xC0067754", "0xC0067720", "0xC0065B8C", "0xC0064C20", "0xC0064C28", "0xC00623C0", "0xC0062448", "0xC0088284", "0xC0016C98", "0xC0016CE0", "0xC0016D28", "0xC00289F4", "0xC00161A4", "0xC0083D7C", "0xC006E664", "0xC006E68C", "0xC0038D34", "0xC00289D8",
   ]);
-  // two code sections (the VM, then all our code behind it, from MORE3_START) and the block of Blechy, thirty-one branches, two words, and the menu's table (copy plus its extra entry) and class table (copy)
-  assert.equal(runtime.changes.length, 39);
+  // two code sections (the VM, then all our code behind it, from MORE3_START) and the block of Blechy, thirty-two branches, two words, and the menu's table (copy plus its extra entry) and class table (copy)
+  assert.equal(runtime.changes.length, 40);
   const copies = runtime.changes.filter(change => change.copy !== undefined);
   assert.equal(copies.length, 2, "the menu copies the firmware's screen table and class table when applied, nothing of them is in the patch");
   for (const change of runtime.changes) assert.match(change.expect, /^[a-f0-9]{64}$/);

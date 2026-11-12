@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PRESETS } from "../data/script/presets.mjs";
 import { OBJECTS } from "../data/script/objects.mjs";
+import { NAMES } from "../data/script/names.mjs";
 import { PATTERN_MOTION } from "../data/script/contract.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
 import { decodeBlob } from "../src/script/blob.mjs";
@@ -53,6 +54,34 @@ test("VU Meter draws a bar as wide as the level and holds the peak mark", () => 
   assert.ok(lit(device, 38, 52, 14) >= 54 * 14, "half a bar on side 2");
   device.run(30);
   assert.equal(lit(device, 12, 26, 14), 14, "after the hold the mark sits at the level, 0");
+});
+
+test("Spettro draws a bar where the spectrum has a peak, holds it with BAR 1, stops on close and names the blue Electribe", () => {
+  const { device, hw, api } = load("spettro");
+  assert.equal(api, 31);
+  assert.ok(device.openApp(0));
+  device.run(1);
+  assert.equal(hw.audioSource, 1, "part 1 is captured");
+  assert.ok(lit(device, 27, 35) > 0, "WAIT while the window fills");
+  hw.audioStatus = 0;
+  hw.audioColumns[0][64] = 96;
+  device.run(1);
+  assert.equal(lit(device, 8, 56, 64) - lit(device, 8, 56, 65), 48, "one full bar at column 64, x 64");
+  const picture = rows(device, 0, 56);
+  device.post("buttonPress", NAMES.key.get("BAR_1").value);
+  hw.audioColumns[0][64] = 0;
+  device.run(1);
+  assert.equal(rows(device, 8, 56), picture.split("\n").slice(8).join("\n"), "BAR 1 holds the picture");
+  device.closeApp();
+  device.run(1);
+  assert.equal(hw.audioSource, 0, "closing stops the capture");
+
+  const blue = load("spettro");
+  blue.hw.audioSupported = false;
+  assert.ok(blue.device.openApp(0));
+  blue.device.run(1);
+  assert.ok(lit(blue.device, 27, 35) > 0, "NOT ON THIS UNIT");
+  assert.equal(lit(blue.device, 36, 56), 0, "no bars");
 });
 
 test("MIDI Echo sends the pads on the chosen channel only when one is set, the note off on the note on's channel", () => {

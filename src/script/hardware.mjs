@@ -1,5 +1,5 @@
 /** The sequencer and panel state a script can read, for the simulated device. The values follow the firmware's ranges. */
-import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PATTERN_WRITES, PATTERN_PARTS, PATTERN_STEPS, PATTERN_MOTION, SAMPLE_INFO } from "../../data/script/contract.mjs";
+import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PATTERN_WRITES, PATTERN_PARTS, PATTERN_STEPS, PATTERN_MOTION, SAMPLE_INFO, AUDIO_STATUS, AUDIO_SPECTRUM } from "../../data/script/contract.mjs";
 import { ScriptFault } from "./vm.mjs";
 import { text, render } from "../text.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
@@ -78,8 +78,24 @@ export class SimHardware {
     this.midiHeld = 0;
     /** korg.audio.level: the two sides of the level meter, 0 to 254. */
     this.audioLevel = [0, 0];
+    /**
+     * korg.audio.capture, spectrum and wave: the source asked for (0 none), the status the service reports for it, and what it
+     * published: per range (0 full, 1 bass) 128 columns in dB 0 to 96, and the newest 256 frames, -128 to 127. A test sets the
+     * status and the data; `audioSupported` false is the blue Electribe.
+     */
+    this.audioSupported = true;
+    this.audioSource = 0;
+    this.audioStatus = AUDIO_STATUS.wait;
+    this.audioColumns = [new Array(AUDIO_SPECTRUM.columns).fill(0), new Array(AUDIO_SPECTRUM.columns).fill(0)];
+    this.audioWave = new Array(AUDIO_SPECTRUM.wave).fill(0);
     /** korg.read.sampleName and sampleInfo: the samples by slot, { name, start, end, loop, tune, stereo, length, oneShot, rate }; an empty slot reads as "" and 0. */
     this.samples = new Map();
+  }
+
+  /** The status korg.audio.spectrum and wave return: the service's while a source is asked for, else off. */
+  audioReady() {
+    if (!this.audioSupported) return AUDIO_STATUS.unsupported;
+    return this.audioSource ? this.audioStatus : AUDIO_STATUS.off;
   }
 
   /** A channel message out as the firmware's senders send it: 1 sent, 0 kept in by the MIDI SEND FILTER (program changes pass Short). */
@@ -167,6 +183,30 @@ export class SimHardware {
       "korg.midi.noteOff": (channel, note) => this.midiSend(0x80, channel, note, 0x40),
       "korg.midi.program": (channel, program) => this.midiSend(0xC0, channel, program),
       "korg.audio.level": channel => this.audioLevel[channel],
+      "korg.audio.capture": source => {
+        if (!this.audioSupported) return AUDIO_STATUS.unsupported;
+        if (source < 1) { this.audioSource = 0; return AUDIO_STATUS.off; }
+        if (source !== this.audioSource) { this.audioSource = source; this.audioStatus = AUDIO_STATUS.wait; }
+        return this.audioStatus;
+      },
+      "korg.audio.spectrum": (slots, bins, range) => {
+        const status = this.audioReady();
+        if (status !== AUDIO_STATUS.ok) return status;
+        const n = Math.min(bins, slots.length), columns = this.audioColumns[range];
+        slots.fill(0, 0, n);
+        for (let c = 0; c < AUDIO_SPECTRUM.columns; c++) {
+          const i = (c * n) >> 7;
+          if (columns[c] > slots[i]) slots[i] = columns[c];
+        }
+        return status;
+      },
+      "korg.audio.wave": slots => {
+        const status = this.audioReady();
+        if (status !== AUDIO_STATUS.ok) return status;
+        const n = Math.min(slots.length, AUDIO_SPECTRUM.wave);
+        for (let i = 0; i < n; i++) slots[i] = this.audioWave[AUDIO_SPECTRUM.wave - n + i];
+        return status;
+      },
       "korg.read.sampleName": (slots, slot) => {
         const name = (this.samples.get(slot)?.name ?? "").slice(0, 16), n = Math.min(name.length, slots.length);
         for (let i = 0; i < n; i++) slots[i] = name.charCodeAt(i) & 0xFF;

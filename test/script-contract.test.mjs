@@ -181,7 +181,7 @@ test("event ids, API ids and error codes are pinned", () => {
     116: "korg.midi.cc", 117: "korg.midi.noteOn", 118: "korg.midi.noteOff", 119: "korg.midi.program", 120: "korg.midi.hold",
     121: "korg.audio.level", 122: "korg.file.read", 123: "korg.file.write",
     124: "korg.read.sampleName", 125: "korg.read.sampleInfo", 126: "korg.pattern.write", 127: "korg.part.copy",
-    128: "korg.read.led",
+    128: "korg.read.led", 129: "korg.audio.capture", 130: "korg.audio.spectrum", 131: "korg.audio.wave",
   });
   assert.deepEqual(ERRORS.map(e => e.code), ERRORS.map((_, i) => i));
   assert.equal(ERROR.FUEL, 1);

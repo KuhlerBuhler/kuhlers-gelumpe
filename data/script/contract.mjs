@@ -329,6 +329,15 @@ export function dataFileName(name) {
 }
 
 /**
+ * korg.audio.capture, spectrum and wave (API 31): what they return, and the sizes of what the service publishes. `columns` is the
+ * number of log-spaced columns per range from 20 Hz (to 20 kHz, bass to 2 kHz), each in dB 0 to `top` (top = a full-scale sine,
+ * 0 = 96 dB below it or quieter); `wave` the newest frames of the capture, -128 to 127. Sources: 1 to 16 a part, 17 to 24 the
+ * part pairs 1/2 to 15/16.
+ */
+export const AUDIO_STATUS = Object.freeze({ ok: 0, off: 1, busy: 2, wait: 3, gap: 4, noMemory: 5, unsupported: 6 });
+export const AUDIO_SPECTRUM = Object.freeze({ columns: 128, top: 96, wave: 256, sources: 24, parts: 16 });
+
+/**
  * The values korg.read.sampleInfo reads from the sampler's tables (data/map/sample.mjs), by number. `start` is the start
  * relative to the sample's audio, `loop` and `end` as in the sample file; `length` the audio in bytes, `rate` in Hz, `tune`
  * the raw signed value, `stereo` and `oneShot` 0 or 1. `slots` is the number of sample slots (0 to slots - 1).
@@ -437,6 +446,11 @@ const API_LIST = [
   [120, "korg.midi.hold", [int("type", 0, 6), int("on", 0, 1)], "void", UI, 20, 30],
   // the output level as the meter of the bottom LEDs shows it (API 31), 0 to 254 per side
   [121, "korg.audio.level", [int("channel", 0, 1)], "int", ALL, 4, 31],
+  // capture, spectrum and wave of a part or part pair through the native capture (API 31, Sampler only; the service is Spettro's,
+  // PR #429): status 0 ok, 1 off, 2 busy, 3 wait, 4 gap, 5 no memory, 6 not on this Electribe (AUDIO_STATUS)
+  [129, "korg.audio.capture", [int("source", -1, 24)], "int", UI, 6, 31],
+  [130, "korg.audio.spectrum", [arr("array"), int("bins", 1, 128), int("range", 0, 1)], "int", UI, 30, 31, 1],
+  [131, "korg.audio.wave", [arr("array")], "int", UI, 30, 31, 1],
   [122, "korg.file.read", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1)], "int", UI, 250, 32, 1],
   [123, "korg.file.write", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1)], "int", UI, 250, 32, 1],
   // samples and pattern actions (API 33): the sampler's name and playback tables (-1 on the synth), WRITE as the key does

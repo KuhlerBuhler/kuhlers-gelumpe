@@ -62,6 +62,7 @@ export const TABLE = [
   [/^tools\/emu\/plugin_api29_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api30_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api31_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api31_spectrum_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api32_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api33_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api34_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases

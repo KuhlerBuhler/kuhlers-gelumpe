@@ -25,7 +25,7 @@ INSTALLED_APPS = ('blechclicker', 'settimer', 'snake', 'tetris', 'life', 'pong',
 BACKGROUND_PLUGINS = ('lauflicht', 'pulsieren', 'bpmglide', 'taktblinker', 'momentmute', 'gatehold', 'stepcopy')
 FILE_APPS = ('gifplayer', 'bmpviewer')
 # Catalog plugins the loader reads but the workload neither installs nor opens.
-LOADER_ONLY = ('sysinfo', 'vumeter', 'midiecho', 'motionclear')
+LOADER_ONLY = ('sysinfo', 'vumeter', 'spettro', 'midiecho', 'motionclear')
 REPEATS = 3
 SECONDS = 2
 MUL_MIN_REDUCTION_PERCENT = 19.83

@@ -187,6 +187,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 29: Pad-Modus, Takt, Bildschirm, WRITE-Ereignis, Pattern-Name und Zeichen aus Arrays, im Emulator](2026-11-11-plugin-api29-state-events.md)
 - [Plugin API 30: MIDI senden, midiIn und Typen halten, im Emulator](2026-11-11-plugin-api30-midi.md)
 - [Plugin API 31: Ausgangspegel wie die Pegelanzeige, im Emulator](2026-11-11-plugin-api31-audio-level.md)
+- [Plugin API 31: Spektrum und Wellenform mit dem Spettro-Worker von Luigi (#429), im Emulator](2026-11-12-plugin-api31-spektrum.md)
 - [Platz und Heap für den Spettro-Worker als Dienst der Laufzeit, nur gelesen](2026-11-11-spettro-worker-platz.md)
 - [Plugin API 32: eine Datendatei pro Plugin auf der Karte, im Emulator](2026-11-11-plugin-api32-data-file.md)
 - [Plugin API 33: Samples lesen, Pattern speichern, Part kopieren, im Emulator](2026-11-11-plugin-api33-samples.md)
