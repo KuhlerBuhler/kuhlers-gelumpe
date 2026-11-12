@@ -1409,6 +1409,23 @@ am Gerät nicht.
 und schreibt das Pattern in den Sequencer. Steps lassen sich sperren, ein neues Pattern lässt sie dann in Ruhe; der Regler setzt
 die Gate-Länge, ein Menü in der App hält Skala, Grundton, Dichte, Slide, Tie und Accent. Im Simulator durch Kompilieren geprüft, nicht am Gerät.
 
+**EUCLID FLOW** (von SLTK023, aus dem BLECH-Discord) ist eine App unter TOOLS, ein euklidischer Rhythmusgenerator: Er verteilt
+eine Zahl von Schlägen so gleichmäßig wie möglich auf die Steps des Patterns (16 bis 64, nach seiner Länge), verschiebt sie um
+die Rotation und schreibt sie mit TAP in den gewählten Part, auf dem Grundton des Patterns mit Velocity 100 und Gate 96. Vorher
+schaltet er alle Steps des Parts aus. Im Katalog reagieren die Tasten nur bei offener App: die Handler einer App laufen vom Start
+an, und TAP bei geschlossener App hätte sonst den Part überschrieben. Im Simulator geprüft (`test/script-community-catalog.test.mjs`), nicht am Gerät.
+
+**LIVE RELOAD** (von handst0n3, aus dem BLECH-Discord) ist eine App unter TOOLS. SHIFT + 1 setzt die Klangwerte aller 16 Parts
+auf den gespeicherten Stand des Patterns zurück, ohne die Wiedergabe anzuhalten, SHIFT + 2 blendet die Regler-Werte (Cutoff,
+Resonance, EG Int, Attack, Decay, Level, Pan) in drei Stufen dorthin. Gelesen wird mit `korg.read.patternValue`, geschrieben mit
+`korg.seq.setPartValue`. Sample, IFX an und Typ, Voice Assign und MFX Send bleiben, wie sie sind. Ein Patternwechsel bricht ab.
+Im Simulator geprüft, laut Autor am Gerät.
+
+**RANDOM SLOT** (von handst0n3, aus dem BLECH-Discord) ist eine App unter TOOLS: ein Zufallsgenerator mit Spielautomat für einen
+Part. Die Pads wählen den Part (`korg.padHold`, solange die App offen ist), 1 würfelt Klangwerte, 2 eine Melodie über 64 Steps,
+3 und 4 ändern Klang oder Steps ein wenig. PART MUTE schaltet den Part solo und stellt die Mutes danach wieder her. Gespeichert
+wird nichts. Im Simulator geprüft, laut Autor am Gerät.
+
 **PLAY-Takt** braucht API 11 und läuft im Hintergrund. Solange der Sequencer läuft, blinkt die PLAY-LED (rot und blau) im
 Tempo des Patterns: das Ereignis `beat` macht sie auf jeder Viertel an, `korg.afterSteps(2, ...)` zwei Schritte später aus,
 mit BEAT 8 also auf jeder halben Note. Bei STOP und in der Pause leuchtet sie ruhig; `korg.cancel` räumt dann den Timer ab.
@@ -1423,7 +1440,7 @@ Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokument
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy und 303Pattern (TOOLS), Quelle
+und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD und RANDOM SLOT (TOOLS), Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem

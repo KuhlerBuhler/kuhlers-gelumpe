@@ -1230,6 +1230,23 @@ with accent, slide and tie steps (the algorithm of the Pattern303 VST), lights t
 the pattern into the sequencer. Steps can be locked, so a new pattern leaves them alone; the knob sets the gate length, an
 in-app menu holds scale, root, density, slide, tie and accent. Checked in the simulator by compiling, not on the device.
 
+**EUCLID FLOW** (by SLTK023, from the BLECH Discord) is an app under TOOLS, a Euclidean rhythm generator: it spreads a number of
+hits as evenly as possible over the steps of the pattern (16 to 64, from its length), turns them by the rotation and with TAP
+writes them into the selected part, on the pattern's key with velocity 100 and gate 96. It switches all steps of the part off
+first. In the catalog the keys act only while the app is open: the handlers of an app run from the start, and TAP with the app
+closed would otherwise have overwritten the part. Checked in the simulator (`test/script-community-catalog.test.mjs`), not on the device.
+
+**LIVE RELOAD** (by handst0n3, from the BLECH Discord) is an app under TOOLS. SHIFT + 1 brings the sound values of all 16 parts
+back to how the pattern is saved without stopping playback, SHIFT + 2 blends the knob values (cutoff, resonance, EG int, attack,
+decay, level, pan) there in three steps. It reads with `korg.read.patternValue` and writes with `korg.seq.setPartValue`. Sample,
+IFX on and type, voice assign and MFX send stay as they are. A pattern change cancels it. Checked in the simulator, on the device
+according to its author.
+
+**RANDOM SLOT** (by handst0n3, from the BLECH Discord) is an app under TOOLS: a slot machine randomizer for one part. The pads pick
+the part (`korg.padHold` while the app is open), 1 rolls sound values, 2 a melody over 64 steps, 3 and 4 change the sound or the
+steps a little. PART MUTE solos the part and brings the mutes back afterwards. Nothing is saved. Checked in the simulator, on the
+device according to its author.
+
 **PLAY-Takt** uses API 11 and runs in the background. While the sequencer plays, the PLAY LED (red and blue) blinks in the
 tempo of the pattern: the event `beat` lights it on every quarter note, `korg.afterSteps(2, ...)` turns it off two steps
 later, so with BEAT 8 on every half note. On STOP and in the pause it stays lit; `korg.cancel` clears the timer then. In the
@@ -1244,7 +1261,7 @@ The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins),
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy and 303Pattern (TOOLS); source
+and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD and RANDOM SLOT (TOOLS); source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
