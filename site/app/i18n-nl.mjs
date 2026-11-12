@@ -553,7 +553,7 @@ export default {
   "features.noteAssist.how": "KEYBOARD-modus, een noot spelen. Uitzetten bij Menu -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY met de pads",
   "features.keyPads.text": "Houd KEYBOARD vast en druk op een pad: de KEY van het pattern springt naar de toon van de pad, zoals TRANSPOSE op de oude Electribes. Kort alleen indrukken schakelt zoals altijd naar KEYBOARD-modus.",
-  "features.keyPads.how": "KEYBOARD vast + pad: pads 1 tot 12 chromatisch van C tot B, pads 13 tot 16 doen niets. Uitzetten bij Menu -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD vast + pad: pads 1 tot 12 chromatisch van C tot B, pads 13 tot 16 kiezen het octaaf van het toetsenbord (pad 14 is dat na het opstarten). Uitzetten bij Menu -> BLECH -> FEATURES -> KEY PADS.",
   "features.filterToggle.title": "Filter uit en aan",
   "features.filterToggle.text": "SHIFT + LPF, HPF of BPF zet het filter van de gekozen part uit, dezelfde combinatie zet het weer aan met het type dat die toets het laatst had. Elke part onthoudt zijn eigen types.",
   "features.filterToggle.how": "SHIFT + LPF, HPF, BPF: filter uit, weer aan met het laatste type van de toets; SHIFT + andere filtertoets: het laatste type daarvan. Uitzetten bij Menu -> BLECH -> FEATURES -> FILTER TOGGLE.",
