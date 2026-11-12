@@ -190,6 +190,21 @@ def session(payload, flow=None, trace_resource=False):
     return dict(ok=ok, checks=checks, observations=rows, boot_scoped=False)
 
 
+def model_swap_step(box, entry):
+    """Run a synthetic stalled native command as the current swap step's task."""
+    uc = box.m.uc
+    state = c.spec.STATE
+    offsets = c.spec.OFF
+    uc.mem_write(state + offsets['MODE'], struct.pack('<I', 1))
+    uc.mem_write(state + offsets['POSTED'], struct.pack('<I', 0x7FFFFFFF))
+
+    def enter(*_):
+        uc.mem_write(state + offsets['INSTEP'], struct.pack('<I', 1))
+        uc.mem_write(state + offsets['INSTEP_TASK'], struct.pack('<I', box.u32(acquire.CURRENT_TASK)))
+
+    uc.hook_add(c.unicorn.UC_HOOK_CODE, enter, begin=entry, end=entry)
+
+
 def probe(payload, stall=None, transaction='command', masked=False, step=True, slow=0):
     """Sample transfers are bounded; other calls use the swap step gate.
     `slow` counts command-status busy polls before ready."""

@@ -18,12 +18,12 @@ DSP_BASE = 0x365EC2
 
 
 class SnapshotTests(unittest.TestCase):
-    def machine(self, frames=40001, channels=1):
+    def machine(self, frames=40001, channels=1, raw=None):
         self.assertIsNotNone(snapshot, "the streaming DSP snapshot source is missing")
         m = Machine(bytes(header()) + b"old generated entry")
         m.uc.mem_map(CONTEXT, 0x12000)
         code = arm.assemble(sample_store.source(STATE) + snapshot.source(
-            CONTEXT, native=NATIVE, transfer=TRANSFER), origin=ORIGIN)
+            CONTEXT, native=NATIVE, transfer=TRANSFER, raw_descriptor=raw), origin=ORIGIN)
         m.uc.mem_write(ORIGIN, code.bytes)
         m.symbols = code.symbols
         m.pcm = bytes((i * 37 + 19) % 256 for i in range(frames * channels * 2))
@@ -82,6 +82,20 @@ class SnapshotTests(unittest.TestCase):
                 + struct.pack('<HHIIHH', 1, channels, rate, rate * channels * 2, channels * 2, 16)
                 + b'data' + word(len(pcm)) + pcm
                 + b'korg' + word(1180) + b'esli' + word(1172) + desc)
+
+    def test_raw_descriptor_keeps_runtime_mapping_separate_from_the_saved_record(self):
+        raw = CONTEXT + snapshot.SIZE
+        m = self.machine(raw=raw)
+        struct.pack_into("<H", m.desc, 20, 651)
+        struct.pack_into("<H", m.desc, 78, 601)
+        self.assertEqual(m.call("store_snapshot", m.path, 500), 0)
+        original = bytearray(m.desc)
+        struct.pack_into("<H", original, 0, 500)
+        self.assertEqual(bytes(m.uc.mem_read(raw, 1172)), original)
+        saved = m.files[LIBRARY]
+        at = struct.unpack_from("<I", saved, 2016)[0] + 44 + len(m.pcm) + 16
+        self.assertEqual(struct.unpack_from("<H", saved, at + 20)[0], 550)
+        self.assertEqual(struct.unpack_from("<H", saved, at + 78)[0], 500)
 
     def test_snapshot_appends_complete_mono_and_stereo_entries(self):
         for channels in (1, 2):

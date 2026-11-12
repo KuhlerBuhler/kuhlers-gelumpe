@@ -53,3 +53,17 @@ Patterns. Im DSP liegen die Samples des laufenden und des kommenden Patterns, de
 Wechsel auf ein Pattern, dessen Samples noch fehlen, wartet eine Runde. Beim Spielen auf dem Hauptbildschirm
 liest der Patch Nachbarn und Kettenziel in freies ARM-RAM vor; jeder andere Bildschirm und jeder Aufruf des
 Arbeitspuffers verwirft diesen Cache. Im Emulator geprüft, am Gerät offen; das Messwerkzeug liegt bereit.
+
+Beim WAV-Import hängt der rote Sampler das Sample bei STOP an die laufende
+`e2sSample.all` an. Der gewählte Slot muss auf der Karte und im DSP frei sein.
+Nach dem Import ist sein Name verfügbar, die Audiodaten lädt der Swap bei
+der Auswahl. Details zur [Menü-Gegenprobe](../messungen/2026-11-10-sample-import-karte.md).
+
+## Sampleänderungen speichern
+
+Der [Anschluss der nativen Speicherbefehle](../messungen/2026-11-11-sample-aenderungen-speichern.md)
+schreibt Sample Edit und bestätigte Aufnahmen einschließlich Resampling
+bei WRITE in denselben Slot der Bibliothek. Bestätigtes Löschen entfernt
+zuerst den Kartenindex, danach die native Zeile. Unbestätigte Aufnahmen
+werden mit EXIT verworfen. Die Speicherung läuft angehalten und ohne
+neuen Flash-Schreibweg. Der Gerätetest bleibt offen.

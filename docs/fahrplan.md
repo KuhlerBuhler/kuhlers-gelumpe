@@ -1,24 +1,30 @@
 # Fahrplan
 
-Welche Version was bekommen soll. Stand 2026-10-27. Was hier steht, ist geplant, nicht zugesagt; Einzelheiten stehen in den
-verlinkten Ideen.
+Welche Version was bekommen soll. Stand 2026-11-06. Was hier steht, ist geplant, nicht zugesagt; Einzelheiten stehen in den
+verlinkten Ideen. Was eine Version wirklich gebracht hat, steht in ihren Notizen unter `release-notes/` und in der App unter
+Changelogs.
 
-## 1.3.6: kleine Fixes
+## Erschienen
 
-- Electribe verbindet sich angesteckt von selbst, mit höchstens drei Hinweisen bei Fehlschlag.
-- MIDI-Bericht in den Einstellungen, wenn keine Electribe gefunden wird.
-- Gerätename "Electribe 3" als Häkchen im Patcher ([Idee 69](ideen/69-geraetename.md)).
-- Plugin-Doku: Tabelle der Regler, Drehgeber und Pads.
-- USB-Symbol auf dem Display, solange die Electribe an einem Rechner hängt ([Idee 67](ideen/67-usb-symbol.md)). Vorher am Gerät
-  prüfen, ob das Symbol nach dem Abziehen verschwindet.
-- Blechy läuft auf dem Gerät mit Laufanimation und gespiegelter Figur (Idee 68 in der [Ideenliste](ideen.md)).
-- Weitere kleine Fixes.
+- **1.3.6:** kleine Fixes, Autoverbinden, MIDI-Bericht, Gerätename "Electribe 3", USB-Symbol, Blechy auf dem Gerät.
+- **1.4.0:** Pattern-Vorschau beim Spielen, Patcher-Assistent, Update ohne Original, BEAT 8, Stereo-Sample auf einem Pad,
+  eigene Ladeanimation, MANAGE PLUGINS mit bis zu 64 Plugins, Plugin-API 11 und 12, Fernsteuerung über USB.
+- **1.4.1 und 1.4.2:** Fixes am vollen Test im Patcher.
 
-## 1.4
+## 1.4.5: Plugins und Rettung
 
-- Sample Swap.
-- Plugin-API deutlich erweitern, Feedback aus der Community ([Idee 74](ideen/74-plugin-api-feedback.md)).
-- Tasten bei offener App durchlassen, etwa `korg.passKeys(...)` (Idee 66 in der [Ideenliste](ideen.md)).
+In Vorbereitung, wird vor dem Release am Gerät getestet ([Notizen](../release-notes/1.4.5.md)).
+
+- Plugin-API 12 auf 25 ([Idee 74](ideen/74-plugin-api-feedback.md)), dazu Tasten bei offener App durchlassen mit
+  `korg.passKeys(...)` (Idee 66 in der [Ideenliste](ideen.md)).
+- Neue Plugins im Katalog: Momentary Mute, BMP Viewer, Gate Hold und Step Copy. Key Pads und Filter Toggle sind fest in der
+  Firmware eingebaut (BLECH > FEATURES, standardmäßig an).
+- Hacktribe-Warnung zu den Samples im Patcher, Rettungsfälle für versehentliches Hacktribe und den Weg zurück zu Korgs
+  Original ([Anleitung](original-zurueck.md)).
+
+## Danach
+
+- Sample Swap, dazu ein gemeinsames Format wie bei der ESX, in dem alle Anpassungen in einer Datei stecken.
 
 ## 1.5: "The sample update"
 

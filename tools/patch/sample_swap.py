@@ -17,12 +17,14 @@ the sample is entered into its slot, so a cache written by someone else is never
 Swapping is on when the file is larger than the user bank and EXIT did not select the native loader. Native DSP transaction
 guards initialize at library entry unless cold-start EXIT selects the native path. Resource acquisition yields with a one-second deadline. Native sample transfers and transactions in the swap's own
 task-bound step have protocol deadlines; unrelated native commands retain their original protocol waits.
-A row the user changed since the start (import, sampling, resampling, a sample edit) is never evicted: the loader's and the
+A DSP row the user changed since the start (sampling, resampling, a sample edit) is never evicted: the loader's and the
 swap's rows keep a signature (SIG), and only a row that still matches it may leave the DSP. EXPORT ALL SAMPLE is refused
 while the swap is on or failed, since the DSP then holds only part of the file.
 The blue Synth is refused: its RAM places are not mapped.
 
 Hooks (the same addresses in both builds, checked byte for byte):
+  0xC0038D50  the boot existence check: keep the library path before the loader can skip an absent file
+  0xC0038DE0  the native WAV command: write the library without allocating PCM in the DSP
   0xC00364F4  after the library loader's prologue: a latched DSP fault refuses the load before clearing sample metadata
   0xC0036510  the loader's f_open: the file's size decides whether the swap is on, the path is kept
   0xC00366D8  the loader's loop, before the seek of a slot: samples the current pattern does not use are skipped
@@ -35,7 +37,7 @@ Hooks (the same addresses in both builds, checked byte for byte):
   0xC0079A74  the chain's switch: the same for the chain target, with the repeat counter kept at its last round
   0xC0039FB0  EXPORT ALL SAMPLE's f_open: refused with FatFs' write protection while the DSP holds part of the file
 Boot recovery precedes the collection's open. The slot writer appends verified records and commits their index through a
-recovery journal; its import service is not yet bound to the normal controls. Nothing of the firmware is copied or written to flash.
+recovery journal. Native WAV import requires a stopped transport and an empty slot. Nothing is written to flash.
 """
 
 import argparse
@@ -52,7 +54,10 @@ import arm  # noqa: E402
 import ramdecl  # noqa: E402
 import sample_swap_io  # noqa: E402
 import sample_store  # noqa: E402
+import sample_snapshot  # noqa: E402
+import native_sample_persistence  # noqa: E402
 import sample_import  # noqa: E402
+import native_sample_import  # noqa: E402
 import sample_names  # noqa: E402
 import sample_owner  # noqa: E402
 import sample_protection  # noqa: E402
@@ -67,13 +72,15 @@ RAM = 0xC0000000
 
 # Code and state in FF runs of both builds that no patch of the BLECH set uses (data/patch-ram.mjs).
 CODE1, CODE1_END = 0xC01A2FE0, 0xC01A3C00
-CODE2, CODE2_END = 0xC018A4C0, 0xC018AF00
-CODE3, CODE3_END = 0xC0189760, 0xC0189F00
+CODE2, CODE2_END = 0xC018A4E0, 0xC018AF00
+CODE3, CODE3_END = 0xC0189770, 0xC0189F00
 TRANSPORT, TRANSPORT_END = 0xC018BF40, 0xC018C400
 STORE_CODE, STORE_CODE_END = 0xC019A400, 0xC019C400
 PROTECTION_CODE, PROTECTION_CODE_END = 0xC019C400, 0xC019E000
-STATE, STATE_END = 0xC0188530, 0xC0188730
+PERSISTENCE_CODE, PERSISTENCE_CODE_END = 0xC0186800, 0xC0188000
+STATE, STATE_END = 0xC0188540, 0xC0188740
 FILE_OWNER, BOOT_LEASE = STATE + 0x1E4, STATE + 0x1F4
+IMPORT_LOCK = BOOT_LEASE + 4
 # RAM above the interrupt stack, never touched by the firmware in any measured phase (docs/messungen/2026-10-22-ram-frei.md).
 HIGH, HIGH_END = 0xC274F000, 0xC4000000
 STAGE = HIGH                    # 96 KiB of file bytes for one chunk, then 16-bit PCM
@@ -87,6 +94,8 @@ PROTECTION_REV = PROTECTION + sample_protection.REV
 LIST = 0xC276D000               # active DSP extents while a place is searched
 SIG = HIGH_END - 0x1000         # per slot one word: the signature of the row as the file loaded it, 0 for none
 ARENA_U, ARENA_U_END = 0xC276F000, SIG
+PERSIST_CONTEXT = ARENA_U
+PERSIST_RAW = PERSIST_CONTEXT + sample_snapshot.SIZE
 # The firmware's work buffer (giver 0xC00369F0): borrowed only while the cache is valid.
 ARENA_L, ARENA_L_END = 0xC1010000, 0xC273AA40
 
@@ -104,7 +113,7 @@ TSTATE STAT_COUNT STAT_BYTES STAT_TICKS STAT_SRC INSTEP INSTEP_TASK""".split()
 OFF = {name: 4 * i for i, name in enumerate(FIELDS)}
 FAILED = 0xA0                   # 1024 bits, a slot that cannot be loaded
 PROT = 0x120                    # 32 half words: the live pattern's and the target's samples
-PATH = 0x160                    # the file's path as the loader opened it, 128 bytes
+PATH = 0x160                    # the current sample library path, 128 bytes
 NATIVE_SCOPE = STATE + PATH + 128
 assert 4 * len(FIELDS) <= FAILED and PATH + 128 <= STATE_END - STATE
 assert NATIVE_SCOPE + 4 == FILE_OWNER
@@ -128,6 +137,14 @@ FIRMWARE = dict(
 
 # (site, original word or None for a bl whose target must be `calls`, calls, stub, link, start phase, note)
 SITES = [
+    (0xC0038D50, None, 0xC0035440, "native_library_path", True, True,
+     "the boot path is kept even when no sample library exists"),
+    (native_sample_import.CALL, None, native_sample_import.NATIVE, "native_wav_import", True, False,
+     "WAV import appends to the library and defers PCM until selection"),
+    (0xC0039708, 0xE1A06826, None, "native_save_command", False, False,
+     "sample WRITE confirms its snapshot only after the card transaction"),
+    (0xC00395B8, None, 0xC0035994, "native_delete_command", False, False,
+     "confirmed sample deletion commits the card index before native cleanup"),
     (0xC00364F4, 0xE24DDD21, None, "ss_library", False, True,
      "a latched DSP fault refuses a library load before the native metadata reset"),
     (0xC0036510, None, 0xC009DB60, "ss_fopen", True, True,
@@ -221,7 +238,7 @@ def halfword(source):
 def equs(screens):
     names = {**FIRMWARE, "SCREENS": screens, "ST": STATE, "CODE1": CODE1, "CODE2": CODE2, "CODE3": CODE3,
              "STORE_CODE": STORE_CODE, "STAGE": STAGE, "FIL": FIL, "DESC": DESC, "DESC2": DESC2,
-             "PROTECTION_CODE": PROTECTION_CODE,
+             "PROTECTION_CODE": PROTECTION_CODE, "PERSISTENCE_CODE": PERSISTENCE_CODE,
              "PROTECTION_REV": PROTECTION_REV,
              "HDR": HDR, "DIR": DIR, "LIST": LIST, "SIG": SIG, "ARENA_U": ARENA_U, "ARENA_U_END": ARENA_U_END, "ARENA_L": ARENA_L,
              "ARENA_L_END": ARENA_L_END, "CHUNK": CHUNK, "BUDGET": BUDGET, "MSG": MSG, "MAIN": MAIN, "KILL": KILL,
@@ -305,13 +322,8 @@ slf_done:
     pop {r1-r3, r5, r12, lr}
     b 0xC0036764
 
-; Replaces the loader's bl f_open (r0 file object, r1 path, r2 mode). Off unless the file is larger than the user bank.
-ss_fopen:
-    push {r3-r11, lr}
-    mov r4, r0
-    mov r5, r1
-    mov r7, r2
-    ldr r11, =ST
+swap_reset:
+    push {r8-r10, lr}
     ldr r8, [r11, #MODE]
     cmp r8, #1
     cmpne r8, #2
@@ -345,9 +357,18 @@ fo_reset:
     bl protection_init
     bl close_reader
     cmp r0, #0
-    bne fo_fault
-fo_transport:
-    cmp r9, #0
+    ldreq r0, [r11, #TSTATE]
+    pop {r8-r10, pc}
+
+; Replaces the loader's bl f_open (r0 file object, r1 path, r2 mode). Off unless the file is larger than the user bank.
+ss_fopen:
+    push {r3-r11, lr}
+    mov r4, r0
+    mov r5, r1
+    mov r7, r2
+    ldr r11, =ST
+    bl swap_reset
+    cmp r0, #0
     bne fo_fault
     cmp r5, #0
     beq fo_fault
@@ -366,6 +387,7 @@ fo_copy:
     b fo_fault
 fo_recover:
     mov r8, #0
+    mov r9, #0
     ldr r0, =PANEL
     ldr r0, [r0]
     cmp r0, #0
@@ -376,7 +398,7 @@ fo_recover:
     bne fo_open
 fo_journal:
     mov r0, r5
-    bl store_recover
+    bl store_recover_boot
     cmp r0, #1
     bhi fo_fault
 fo_open:
@@ -390,6 +412,10 @@ fo_open:
     cmp r8, #1
     mov r8, #0
     beq fo_mode
+    cmp r9, #0
+    ldreq r0, [r4, #12]
+    cmpeq r0, #4096
+    blo fo_short
     ldr r0, =PANEL
     ldr r0, [r0]
     cmp r0, #0
@@ -407,6 +433,17 @@ fo_open:
 fo_mode:
     str r8, [r11, #MODE]
     b fo_out
+fo_short:
+    mov r0, r4
+    bl F_CLOSE
+    cmp r0, #0
+    bne fo_fault
+    mov r0, r5
+    bl store_recover
+    cmp r0, #1
+    bhi fo_fault
+    mov r9, #1
+    b fo_open
 fo_fault:
     mov r0, #2
     str r0, [r11, #MODE]
@@ -2171,9 +2208,15 @@ ck_end:
 
 
 PUBLISH = r"""
-; Returns status in r0 and an exclusive recovery token in r1 on success.
+; On success: r1 recovery token, r2 size, r3 previous mode with bit 2 set if absent.
 catalogue_begin:
+    mov r0, #0
+    b cat_begin_enter
+catalogue_begin_import:
+    mov r0, #1
+cat_begin_enter:
     push {r3-r8, r11, lr}
+    mov r8, r0
     ldr r11, =ST
     ldr r0, [r11, #MODE]
     cmp r0, #2
@@ -2197,6 +2240,7 @@ catalogue_begin:
     cmp r0, #0
     bne cat_refuse
     mov r4, r1
+    ldr r7, [r11, #MODE]
     mov r0, #2
     str r0, [r11, #MODE]
     ldr r0, [r11, #GEN]
@@ -2216,16 +2260,30 @@ catalogue_begin:
     bl close_reader
     cmp r0, #0
     bne cat_uncertain
+    mov r0, r8
     bl catalogue_read
     cmp r0, #0
     bne cat_uncertain
+    mov r2, r1
     mov r0, #0
     mov r1, r4
-    pop {r3-r8, r11, pc}
+    mov r3, r7
+    cmp r2, #0
+    orreq r3, r3, #4
+    add sp, sp, #4
+    pop {r4-r8, r11, pc}
 
-; r0 token, r1 operation status. Rechecks the durable catalogue even after a failed operation.
+; r0 token, r1 status. Native import also passes the previously empty slot (or -1) and r3 from begin.
+catalogue_end_update:
+    orr r3, r3, #8
+    b cat_end_enter
 catalogue_end:
+    mvn r3, #0
+catalogue_end_import:
+cat_end_enter:
     push {r3-r8, r11, lr}
+    mov r7, r2
+    mov r8, r3
     mov r4, r0
     mov r5, r1
     ldr r11, =ST
@@ -2236,6 +2294,12 @@ catalogue_end:
     cmp r0, #0
     bne cat_uncertain
     bl clear_failed
+    mov r0, #0
+    cmn r8, #1
+    beq cat_end_read
+    tst r8, #4
+    movne r0, #2
+cat_end_read:
     bl catalogue_read
     cmp r0, #0
     bne cat_uncertain
@@ -2249,6 +2313,8 @@ catalogue_end:
     movhi r5, #4
     movhi r0, #2
     bhi cat_mode
+    cmn r8, #1
+    bne cat_import_mode
     ldr r0, =ss_cap
     ldr r0, [r0]
     add r0, r0, #4096
@@ -2265,6 +2331,7 @@ cat_mode:
     strne r0, [r11, #MODE]
     mov r0, r5
     mov r1, #0
+    mov r2, r6
     pop {r3-r8, r11, pc}
 cat_uncertain:
     mov r0, #2
@@ -2279,9 +2346,10 @@ cat_refuse:
     pop {r3-r8, r11, pc}
 .pool
 
-; r11 state. Returns status in r0 and file size in r1. The file is closed on return.
+; r0: 0 full catalogue, 1 index only, 2 full with absence allowed. Both 1 and 2 accept a missing file.
 catalogue_read:
     push {r4-r6, lr}
+    mov r6, r0
     add r0, r11, #PATH
     bl store_recover
     cmp r0, #0
@@ -2290,6 +2358,11 @@ catalogue_read:
     add r1, r11, #PATH
     mov r2, #1
     bl F_OPEN
+    cmp r0, #4
+    bne cat_read_opened
+    cmp r6, #0
+    bne cat_read_absent
+cat_read_opened:
     cmp r0, #0
     bne cat_read_bad
     mov r0, #1
@@ -2313,6 +2386,8 @@ catalogue_read:
     mov r4, r0
     cmp r4, #0
     bne cat_read_close
+    cmp r6, #1
+    beq cat_read_close
     ldr r0, =FIL
     bl names_read
     mov r4, r0
@@ -2321,6 +2396,16 @@ cat_read_close:
     orrs r0, r0, r4
     movne r0, #1
     mov r1, r5
+    pop {r4-r6, pc}
+cat_read_absent:
+    ldr r2, =HDR
+    mov r0, #0
+    mov r1, #1024
+cat_zero_index:
+    str r0, [r2], #4
+    subs r1, r1, #1
+    bne cat_zero_index
+    mov r1, #0
     pop {r4-r6, pc}
 cat_read_bad:
     mov r0, #1
@@ -2411,6 +2496,35 @@ pl_none:
 '''
 
 
+IMPORT_COMPLETION = r"""
+; A previously empty slot can become indexed even if closing the source failed.
+cat_import_mode:
+    tst r8, #8
+    bne cat_update_mode
+    cmp r6, #0
+    beq cat_import_unchanged
+    mov r0, r7
+    bl indexed
+    cmp r0, #0
+    movne r0, #1
+    bne cat_mode
+cat_import_unchanged:
+    cmp r5, #0
+    beq cat_uncertain
+    and r0, r8, #3
+    b cat_mode
+cat_update_mode:
+    ldr r0, =ss_cap
+    ldr r0, [r0]
+    add r0, r0, #4096
+    cmp r6, r0
+    movhi r0, #1
+    andls r0, r8, #3
+    b cat_mode
+.pool
+"""
+
+
 def source(screens):
     importer = sample_import.source(state=STATE, file=FIL, descriptor=DESC, normalizer=FIL + 0x240,
                                     prep=OFF["PREP"], bits=OFF["P_BITS"], file_bytes=OFF["P_FBYTES"])
@@ -2424,10 +2538,16 @@ def source(screens):
                                         mode=STATE + OFF['MODE'], generation=STATE + OFF['GEN'],
                                         gate=STATE + OFF['INSTEP'], session=STATE + OFF['SESSION'],
                                         owner=FILE_OWNER, gate_owner=STATE + OFF['INSTEP_TASK'])
-    guards = capture_fault.source(STATE + OFF["TSTATE"]) + sample_export_fault.source(STATE + OFF["TSTATE"])
-    body = SOURCE + "\n.org STORE_CODE\n" + sample_store.source(STAGE) + importer + sample_owner.source(FILE_OWNER) + PUBLISH + native + guards
+    guards = capture_fault.source(STATE + OFF["TSTATE"], admit_import=True, protect_publication=True, card_slot=True) + sample_export_fault.source(STATE + OFF["TSTATE"])
+    main = SOURCE.replace(".org CODE2", IMPORT_COMPLETION + "\n.org CODE2")
+    main = main.replace(".org CODE3", sample_store.publication_source() + "\n.org CODE3")
+    body = main + "\n.org STORE_CODE\n" + sample_store.source(STAGE, defer_short=True, defer_publish=True) + importer + sample_owner.source(FILE_OWNER) + native + guards
     body += "\n.org PROTECTION_CODE\n" + sample_protection.source(PROTECTION) + PLACEMENT + sample_pcm.source() + sample_names.source()
     body += acquire + native_dsp_scope.source(**scope_args, part='helpers')
+    body += native_sample_import.source(native_dsp_acquire.CURRENT_TASK, IMPORT_LOCK, prepare_missing=True) + capture_fault.PUBLICATION + sample_store.short_recovery_source() + sample_store.unsealed_recovery_source()
+    body += "\n.org PERSISTENCE_CODE\n" + PUBLISH
+    body += sample_snapshot.source(PERSIST_CONTEXT, raw_descriptor=PERSIST_RAW)
+    body += native_sample_persistence.source(PERSIST_RAW)
     return halfword(equs(screens) + f".equ transfer, {TRANSPORT:#x}\n" + body)
 
 
@@ -2448,6 +2568,7 @@ def screens_of(vsb):
 AREAS = ((CODE1, CODE1_END, "CODE1_END"), (CODE2, CODE2_END, "CODE2_END"), (CODE3, CODE3_END, "CODE3_END"),
          (STORE_CODE, STORE_CODE_END, "STORE_CODE_END"),
          (PROTECTION_CODE, PROTECTION_CODE_END, "PROTECTION_CODE_END"),
+         (PERSISTENCE_CODE, PERSISTENCE_CODE_END, "PERSISTENCE_CODE_END"),
          (TRANSPORT, TRANSPORT_END, "TRANSPORT_END"))
 
 
@@ -2477,6 +2598,8 @@ def build_patch(vsb, build=None):
     sample_export_fault.validate_firmware(vsb)
     sample_protection.validate_firmware(vsb)
     sample_pcm.validate_firmware(vsb)
+    native_sample_import.validate_firmware(vsb)
+    native_sample_persistence.validate_firmware(vsb)
     if build not in (None, actual) or actual not in ("stock", "hacktribe"):
         raise SystemExit("only the mapped red Sampler builds, Korg's and Hacktribe, are supported")
     if struct.unpack_from("<I", vsb, file_offset(SAMPLE_COUNT_AT))[0] != SAMPLE_COUNT:
@@ -2522,17 +2645,17 @@ def build_patch(vsb, build=None):
         selection = stub == 'ss_selection'
         chain = "sample-swap-native-dsp" if native else "sample-swap-native-sample" if guard else "sample-swap-mutations" if mutation else "pattern-set" if selection else "sample-swap"
         hooks.append({"site": f"0x{site:08X}", "kind": "instruction", "chain": chain, "position": "after" if selection else "before",
-                      "swallow": native or guard or mutation or stub in ("ss_skip", "ss_parse", "ss_cmd", "ss_gate_chain"), "note": note})
-    initial = sample_owner.INITIAL + bytes(4)
+                      "swallow": native or guard or mutation or stub in ("native_save_command", "native_delete_command", "native_wav_import", "ss_skip", "ss_parse", "ss_cmd", "ss_gate_chain"), "note": note})
+    initial = sample_owner.INITIAL + bytes(8)
     if was(FILE_OWNER, len(initial)) != bytes([255]) * len(initial):
         raise SystemExit('the file ownership state is not free in this VSB')
     changes.append(dict(file=file_offset(FILE_OWNER), bytes=initial.hex(), expect=sha(was(FILE_OWNER, len(initial))),
-                        note='sample collection ownership and unresolved boot catalogue'))
+                        note='sample catalogue and capture admission state'))
     start.append(dict(file=file_offset(FILE_OWNER), length=len(initial),
                       why='file ownership exists before the early collection loader begins recovery'))
     ram = [ramdecl.area(STATE, FILE_OWNER - STATE, "run time state of the sample swap: mode, cache generation, the running job, failed slots, the file's path", "tools/patch/sample_swap.py:STATE"),
            ramdecl.area(HIGH, HIGH_END - HIGH, "staging buffer, file object, descriptors, header, cache index and the upper cache of the sample swap", "tools/patch/sample_swap.py:HIGH"),
-           ramdecl.area(BOOT_LEASE + 4, STATE_END - BOOT_LEASE - 4, "unused sample state room", "tools/patch/sample_swap.py:STATE_END")]
+           ramdecl.area(IMPORT_LOCK + 4, STATE_END - IMPORT_LOCK - 4, "unused sample state room", "tools/patch/sample_swap.py:STATE_END")]
     for lo, hi, name in AREAS:
         end = max(at + len(data) for at, data in sections if lo <= at < hi)
         if end < hi:

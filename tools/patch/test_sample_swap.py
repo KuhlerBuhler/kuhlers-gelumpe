@@ -326,6 +326,44 @@ class CatalogueOwnership(unittest.TestCase):
         s.uc.ctl_flush_tb()
         return s
 
+    def test_native_import_mode_follows_the_verified_target_not_the_menu_status(self):
+        for old, target, stored, status, expected, uncertain in (
+            (0, 502, False, 4, 0, 0), (1, 502, False, 4, 1, 0), (2, 502, False, 4, 2, 0),
+            (0, 502, True, 0, 1, 0), (0, 502, True, 4, 1, 0),
+            (0, 0xFFFFFFFF, False, 4, 0, 0), (0, 502, False, 0, 2, 1),
+        ):
+            with self.subTest(old=old, target=target, stored=stored, status=status):
+                s = self.setup_writer(size=16384)
+                s.set_state("MODE", old)
+                self.assertEqual(s.call("catalogue_begin_import"), 0)
+                state = s.uc.reg_read(R.UC_ARM_REG_R3)
+                self.assertEqual(state, old)
+                if stored:
+                    changed = bytearray(s.header)
+                    struct.pack_into("<I", changed, 16 + 502 * 4, 8192)
+                    s.header = bytes(changed)
+                self.assertEqual(s.call("catalogue_end_import", 1, status, target, state),
+                                 4 if uncertain else status)
+                self.assertEqual(s.state("MODE"), expected)
+                self.assertEqual(s.owner()[2], uncertain)
+
+    def test_native_import_accepts_absence_only_after_a_rejected_first_import(self):
+        for existed, status, expected, uncertain in ((False, 4, 0, 0), (False, 0, 2, 1), (True, 4, 2, 1)):
+            with self.subTest(existed=existed, status=status):
+                s = self.setup_writer(size=16384)
+                s.set_state("MODE", 0)
+                at = F["F_OPEN"]
+                absent = arm.assemble("mov r0, #4\nbx lr", origin=at).bytes
+                if not existed:
+                    s.uc.mem_write(at, absent)
+                self.assertEqual(s.call("catalogue_begin_import"), 0)
+                state = s.uc.reg_read(R.UC_ARM_REG_R3)
+                s.uc.mem_write(at, absent)
+                s.uc.ctl_flush_tb()
+                self.assertEqual(s.call("catalogue_end_import", 1, status, 502, state), 4)
+                self.assertEqual(s.state("MODE"), expected)
+                self.assertEqual(s.owner()[2], uncertain)
+
     def test_writer_invalidates_jobs_and_closes_the_reader_before_recovery(self):
         s = self.setup_writer()
         self.assertEqual(s.call("catalogue_begin"), 0)
@@ -591,14 +629,14 @@ class LibraryBypass(unittest.TestCase):
         s.set_state("FILE", 1 if close_error is not None else 0)
         s.set_state("TSTATE", fault)
         events = []
-        s.uc.mem_write(s.sym["store_recover"], arm.assemble(
-            f"mov r0, #{recovery_error}\nbx lr", origin=s.sym["store_recover"]).bytes)
+        s.uc.mem_write(s.sym["store_recover_boot"], arm.assemble(
+            f"mov r0, #{recovery_error}\nbx lr", origin=s.sym["store_recover_boot"]).bytes)
         s.uc.mem_write(F["F_OPEN"], arm.assemble("mov r0, #0\nbx lr", origin=F["F_OPEN"]).bytes)
         s.uc.mem_write(p.FIL + 12, word(p.CAP_DEFAULT + 0x2000))
         if close_error is not None:
             s.uc.mem_write(F["F_CLOSE"], arm.assemble(
                 f"mov r0, #{close_error}\nbx lr", origin=F["F_CLOSE"]).bytes)
-        for address, name in ((s.sym["store_recover"], "recover"), (F["F_OPEN"], "open"),
+        for address, name in ((s.sym["store_recover_boot"], "recover"), (F["F_OPEN"], "open"),
                               (F["F_CLOSE"], "close")):
             s.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, at, size, tag: events.append(tag),
                           name, begin=address, end=address)
@@ -1003,12 +1041,14 @@ class LibraryOwnership(unittest.TestCase):
         s.file, s.path = 0xC1002000, 0xC1001000
         s.uc.mem_write(s.path, b"SD:/own.all\0")
         s.uc.mem_write(F["PANEL"], word(0xC1003000))
-        for at, code in ((s.sym["store_recover"], "mov r0, #0\nbx lr"),
+        for at, code in ((s.sym["store_recover_boot"], "mov r0, #0\nbx lr"),
+                         (s.sym["store_recover"], "mov r0, #0\nbx lr"),
                          (F["F_CLOSE"], f"mov r0, #{close_status}\nbx lr"),
                          (F["F_OPEN"], f"ldr r3, ={size}\nstr r3, [r0, #12]\nmov r0, #0\nbx lr\n.pool")):
             s.uc.mem_write(at, arm.assemble(code, origin=at).bytes)
         s.events = []
-        for at, name in ((F["F_CLOSE"], "close"), (s.sym["store_recover"], "recover"), (F["F_OPEN"], "open")):
+        for at, name in ((F["F_CLOSE"], "close"), (s.sym["store_recover_boot"], "recover"),
+                         (s.sym["store_recover"], "repair"), (F["F_OPEN"], "open")):
             def called(uc, address, count, event):
                 s.events.append((event, s.state("GEN"), s.state("J_STATE"), s.state("FILE")))
             s.uc.hook_add(unicorn.UC_HOOK_CODE, called, name, begin=at, end=at)
@@ -1034,6 +1074,21 @@ class LibraryOwnership(unittest.TestCase):
         self.assertEqual(s.state("GEN"), 8)
         self.assertEqual(s.state("TSTATE"), 0)
         self.assertEqual(bytes(s.uc.mem_read(p.STATE + p.PATH, 12)), b"SD:/own.all\0")
+
+    def test_a_short_header_closes_the_native_handle_before_one_repair_and_reopen(self):
+        for size in (0, 4095, 4096):
+            with self.subTest(size=size):
+                s = self.setup_loader(size=size)
+                self.assertEqual(s.call("ss_fopen", s.file, s.path, 1), 0)
+                expected = ["recover", "open", "close", "repair", "open"] if size < 4096 else ["recover", "open"]
+                self.assertEqual([event[0] for event in s.events], expected)
+                self.assertEqual(s.state("MODE"), 0)
+
+    def test_a_failed_close_prevents_repair_of_a_short_header(self):
+        s = self.setup_loader(size=512, close_status=1)
+        self.assertNotEqual(s.call("ss_fopen", s.file, s.path, 1), 0)
+        self.assertEqual([event[0] for event in s.events], ["recover", "open", "close"])
+        self.assertEqual(s.state("MODE"), 2)
 
     def test_a_failed_close_refuses_the_new_load(self):
         s = self.setup_loader(close_status=1)
@@ -1757,6 +1812,49 @@ class Encoding(unittest.TestCase):
         for at, data in sections:
             area = next(a for a in p.AREAS if a[0] <= at < a[1])
             self.assertLessEqual(at + len(data), area[1])
+
+
+class CapturePublication(unittest.TestCase):
+    def test_completed_capture_retires_prepared_evictions_before_publication(self):
+        for scope, fault in ((0, 0), (0xFFFFFFFF, 0), (0, 2)):
+            with self.subTest(scope=scope, fault=fault):
+                s = Swap()
+                row = 600
+                s.slot(row, active=False, base=F["DSP_MIN"], length=0x100)
+                s.uc.mem_write(p.NATIVE_SCOPE, word(scope))
+                self.assertEqual(s.call("protection_refresh"), 1)
+                before = s.u32(p.PROTECTION_REV)
+                s.set_state("J_STATE", 1)
+                s.set_state("J_STAGED", 1)
+                s.set_state("TSTATE", fault)
+                resume, abort = 0xC004F160, 0xC004F1F4
+                meta = F["META"] + row * 0x45C
+                code = f"""ldr r2, ={meta}
+mov r1, #1
+strb r1, [r2, #11]
+bx lr
+.pool"""
+                s.uc.mem_write(resume, arm.assemble(code, origin=resume).bytes)
+                s.uc.mem_write(abort, arm.assemble("bx lr", origin=abort).bytes)
+                publication = []
+                def watch(uc, *_):
+                    publication.append((s.u32(p.PROTECTION_REV), s.state("J_STATE"), s.state("J_STAGED"),
+                                        uc.reg_read(R.UC_ARM_REG_R0), uc.reg_read(R.UC_ARM_REG_R8)))
+                s.uc.hook_add(unicorn.UC_HOOK_CODE, watch, begin=resume, end=resume)
+                end = F["DSP_MIN"] + 0x100
+                s.call("capture_finish_read", end, regs={R.UC_ARM_REG_R7: row, R.UC_ARM_REG_R8: 0x45C})
+                if fault == 2:
+                    self.assertEqual(publication, [])
+                    self.assertEqual(s.call("resident", row), 0)
+                    self.assertEqual(s.u32(p.PROTECTION_REV), before)
+                elif scope == 0xFFFFFFFF:
+                    self.assertEqual(publication, [(before, 1, 1, end, row * 0x45C)])
+                    self.assertEqual(s.call("protection_dirty", row), 0)
+                else:
+                    self.assertEqual(publication, [(before + 1, 0, 0, end, row * 0x45C)])
+                    self.assertEqual(s.call("resident", row), 1)
+                    self.assertEqual(s.call("protection_dirty", row), 1)
+                    self.assertEqual(s.call("can_evict_prepared", row), 0)
 
 
 class ChangedRows(unittest.TestCase):

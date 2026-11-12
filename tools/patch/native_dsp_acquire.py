@@ -45,7 +45,8 @@ def build_code(origin, **kwargs):
 
 SOURCE = r'''
 ; r0 resource1, r1 library-bound policy. Success owns one lease with IRQs masked.
-; A nonzero return owns none and restores entry CPSR. r4-r11 and SP are preserved.
+; r1 retains the policy. A nonzero status owns no lease and restores entry CPSR.
+; r4-r11 and SP are preserved.
 native_resource_take:
     push {r3-r11, lr}
     sub sp, sp, #56
@@ -120,6 +121,7 @@ native_resource_acquired:
     cmp r0, #0
     beq rg_stale
     mov r0, #0
+    mov r1, r9
     .word 0xE128F004
     add sp, sp, #56
     pop {r3-r11, pc}
@@ -153,6 +155,7 @@ rg_return:
     .word 0xE121F004
     .word 0xE128F004
     mov r0, r5
+    mov r1, r9
     add sp, sp, #56
     pop {r3-r11, pc}
 .pool

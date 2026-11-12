@@ -5,11 +5,14 @@
  */
 import { el } from "./fields.mjs";
 import { stateText } from "./state.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { identify, buildOf, lackOf, hasBlechSysex, firmwareName } from "../../src/firmware.mjs";
 import { devicePanel } from "./panel.mjs";
+import { LedPlayer } from "./led-trace.mjs";
 import { emuBase, parseEmuLink } from "./emu-link.mjs";
 import { t } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:emulator:fix");
 
 const VSB_SIZE = 0x200100;
 const STORE = "cee.emu";
@@ -86,13 +89,22 @@ export async function findLink(taken) {
   return taken;
 }
 
-/** The display bytes: 8 pages of 128 columns, bit 0 the top row of a page. */
-export function drawDisplay(canvas, bytes) {
+/**
+ * A colour of the display seen through the display light: `light` is [red, green, blue], each 0 to 255, the share of the
+ * time each light pin is on (tools/emu/backlight.py). White, the stock light, keeps the colour; dark makes it black.
+ * Without a light (no emulator data, a real device on the drawing) the colour stays as it is.
+ */
+export function lit(colour, light) {
+  return light ? colour.map((c, i) => Math.round(c * light[i] / 255)) : colour;
+}
+
+/** The display bytes: 8 pages of 128 columns, bit 0 the top row of a page. `light` as in lit(). */
+export function drawDisplay(canvas, bytes, light = null) {
   const ctx = canvas.getContext("2d");
   const style = getComputedStyle(canvas);
   const img = ctx.createImageData(128, 64);
-  const on = parseColor(style.getPropertyValue("--cee-lcd-on"));
-  const off = parseColor(style.getPropertyValue("--cee-lcd-off"));
+  const on = lit(parseColor(style.getPropertyValue("--cee-lcd-on")), light);
+  const off = lit(parseColor(style.getPropertyValue("--cee-lcd-off")), light);
   for (let y = 0; y < 64; y++) {
     for (let x = 0; x < 128; x++) {
       const lit = (bytes[(y >> 3) * 128 + x] >> (y & 7)) & 1;
@@ -100,6 +112,51 @@ export function drawDisplay(canvas, bytes) {
     }
   }
   ctx.putImageData(img, 0, 0);
+  grids.get(canvas)?.colour(off);
+}
+
+/** The gap grids laid over a display canvas (pixelGrid), by that canvas. */
+const grids = new WeakMap();
+
+/**
+ * The real display has a thin gap between its pixels, in the colour of a clear pixel in the light. A second canvas over
+ * the 128 x 64 one draws only those gaps, at the screen's own resolution, so the display canvas keeps its pixels as they
+ * are. Below 3 screen pixels per display pixel there is no room for a gap, and the grid stays empty.
+ */
+export function pixelGrid(display) {
+  const grid = el("canvas", { className: "cee-lcd-grid" });
+  grid.setAttribute("aria-hidden", "true");
+  let rgb = null;
+  const draw = () => {
+    const box = display.getBoundingClientRect();
+    const scale = window.devicePixelRatio || 1;
+    const w = Math.round(box.width * scale);
+    const h = Math.round(box.height * scale);
+    if (grid.width !== w) grid.width = w;
+    if (grid.height !== h) grid.height = h;
+    const ctx = grid.getContext("2d");
+    ctx.clearRect(0, 0, w, h);
+    const cell = w / 128;
+    if (!rgb || cell < 3) return;
+    // About a seventh of a pixel, as on the real glass, and never thinner than one screen pixel.
+    const gap = Math.max(1, Math.round(cell * 0.14));
+    ctx.fillStyle = `rgb(${rgb.join(" ")})`; // raw-ok: the unlit-pixel colour the display already read from its token
+    for (let i = 1; i <= 128; i++) ctx.fillRect(Math.round(i * cell) - gap, 0, gap, h);
+    for (let i = 1; i <= 64; i++) ctx.fillRect(0, Math.round(i * (h / 64)) - gap, w, gap);
+  };
+  // A window moved to a screen of another pixel density keeps the canvas's size: the window's resize draws again then.
+  new ResizeObserver(draw).observe(display);
+  window.addEventListener("resize", draw);
+  const api = {
+    node: grid,
+    colour(next) {
+      if (rgb && next.every((c, i) => c === rgb[i])) return;
+      rgb = next;
+      draw();
+    },
+  };
+  grids.set(display, api);
+  return api;
 }
 
 /**
@@ -116,12 +173,13 @@ export function shadeImage(levels, on, off) {
   return out;
 }
 
-export function drawShade(canvas, levels) {
+export function drawShade(canvas, levels, light = null) {
   const ctx = canvas.getContext("2d");
   const style = getComputedStyle(canvas);
-  const on = parseColor(style.getPropertyValue("--cee-lcd-on"));
-  const off = parseColor(style.getPropertyValue("--cee-lcd-off"));
+  const on = lit(parseColor(style.getPropertyValue("--cee-lcd-on")), light);
+  const off = lit(parseColor(style.getPropertyValue("--cee-lcd-off")), light);
   ctx.putImageData(new ImageData(shadeImage(levels, on, off), 128, 64), 0, 0);
+  grids.get(canvas)?.colour(off);
 }
 
 function parseColor(value) {
@@ -186,6 +244,8 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   let external = false;       // the drawing shows a real device; the emulator neither draws nor takes input
   let mirrored = true;        // the real device's display is drawn (it has RAM access); without, the drawing stays blank
   let lastShade = null;
+  let lastDisplay = null;     // the 1-bit display last drawn, before levels come
+  let light = null;           // the display light from the emulator, [red, green, blue] 0 to 255; null: the theme's colours
   const send = (cmd, coalesce) => {
     if (external) {
       if (cmd.kind === "power" && cmd.down) onBlocked();
@@ -215,6 +275,8 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   let booted = false;
   let generation = 0;
   const device = devicePanel(send);
+  const ledPlayer = new LedPlayer();
+  let ledFrame = 0;
 
   // The emulated DIN MIDI as a port pair, shaped like electribePorts() output,
   // so DeviceSession, planner and gate run unchanged against the firmware.
@@ -358,11 +420,20 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       if (!live(s.state) && vsb) queueMicrotask(boot);
     }
     say(tone, word, s.error || (s.state === "running" ? t("emu.running") : s.state === "off" ? t("emu.off") : ""), QUIET.has(s.state) && !s.error, null, !!s.error);
-    if (s.state !== "running") device.showLeds({}, true);
+    if (s.state !== "running") { ledPlayer.table({}); device.showLeds({}, true); }
+    if (!live(s.state)) light = null;
     // A real device on the drawing is switched on; its display shows whatever the emulator does.
     if (!fake && !external) device.setPower(live(s.state));
     deviceBox.dataset.state = s.state;
     renderOffer();
+  }
+
+  function drawLedFrame(now) {
+    ledFrame = 0;
+    if (external) return;
+    const levels = ledPlayer.frame(now);
+    if (Object.keys(levels).length) device.showLeds(levels);
+    if (ledPlayer.busy) ledFrame = requestAnimationFrame(drawLedFrame);
   }
 
   function listen() {
@@ -379,15 +450,33 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     let shaded = false;
     events.addEventListener("display", e => {
       if (shaded || external) return;
-      const b64 = JSON.parse(e.data);
-      drawDisplay(canvas, Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+      lastDisplay = Uint8Array.from(atob(JSON.parse(e.data)), c => c.charCodeAt(0));
+      drawDisplay(canvas, lastDisplay, light);
     });
     events.addEventListener("shade", e => {
       shaded = true;
       lastShade = Uint8Array.from(atob(JSON.parse(e.data)), c => c.charCodeAt(0));
-      if (!external) drawShade(canvas, lastShade);
+      if (!external) drawShade(canvas, lastShade, light);
     });
-    events.addEventListener("leds", e => { if (!external && (lastState === "running" || lastState === "hung")) device.showLeds(JSON.parse(e.data), true); });
+    // The colour of the display light, as the firmware drives its three pins (BLECH BACKLIGHT, a plugin's korg.backlight).
+    events.addEventListener("backlight", e => {
+      light = JSON.parse(e.data);
+      if (external || fake) return;
+      if (shaded && lastShade) drawShade(canvas, lastShade, light);
+      else if (lastDisplay) drawDisplay(canvas, lastDisplay, light);
+    });
+    events.addEventListener("leds", e => {
+      if (external || !(lastState === "running" || lastState === "hung")) return;
+      const leds = JSON.parse(e.data);
+      ledPlayer.table(leds);
+      device.showLeds(leds, true);
+    });
+    // Every LED change with its device time: played at the device's pace, so a short flicker shows as on the device.
+    events.addEventListener("ledtrace", e => {
+      if (external || !(lastState === "running" || lastState === "hung")) return;
+      ledPlayer.trace(JSON.parse(e.data), performance.now());
+      if (!ledFrame) ledFrame = requestAnimationFrame(drawLedFrame);
+    });
     events.addEventListener("midi", e => {
       const hex = JSON.parse(e.data);
       port.in.onmidimessage?.({ data: Uint8Array.from(hex.match(/../g), h => parseInt(h, 16)) });
@@ -468,7 +557,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
 
   const bar = el("div", { className: "cee-emu-bar" }, [status, startButton, el("div", { className: "cee-emu-file" }, [vsbInput, vsbInfo])]);
   root.replaceChildren(bar, deviceBox, where);
-  const frame = el("div", { className: "cee-lcd-frame" }, [canvas, offer]);
+  const frame = el("div", { className: "cee-lcd-frame" }, [canvas, pixelGrid(canvas).node, offer]);
   frame.addEventListener("dragover", e => { if (!offer.hidden) { e.preventDefault(); frame.dataset.drag = ""; } });
   frame.addEventListener("dragleave", () => delete frame.dataset.drag);
   frame.addEventListener("drop", e => {
@@ -585,8 +674,8 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
       mirrored = mirrors;
       renderOffer();
       if (!fake) device.setPower(on || lastState === "running" || lastState === "hung");
-      if (on || was) device.showLeds({}, true);
-      if (!on && lastShade) drawShade(canvas, lastShade);
+      if (on || was) { ledPlayer.table({}); device.showLeds({}, true); }
+      if (!on && lastShade) drawShade(canvas, lastShade, light);
     },
     drawBytes: bytes => drawDisplay(canvas, bytes),
     /** The lit LEDs of a real device, number to brightness; the ones not listed go dark. */

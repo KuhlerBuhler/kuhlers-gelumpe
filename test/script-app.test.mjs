@@ -215,9 +215,9 @@ test("take is refused for an app and while another script owns the display", () 
   assert.ok(ink(device.shown) > 0, "the taker still owns the display");
 });
 
-test("the examples in docs/plugins.md, docs/plugins.en.md and the device test compile", async () => {
+test("the examples in the German, English and French plugin guides and the device test compile", async () => {
   const { readFileSync } = await import("node:fs");
-  for (const file of ["../docs/plugins.md", "../docs/plugins.en.md", "../docs/geraetetests/blech-datei.md"]) {
+  for (const file of ["../docs/plugins.md", "../docs/plugins.en.md", "../docs/plugins.fr.md", "../docs/geraetetests/blech-datei.md"]) {
     const text = readFileSync(new URL(file, import.meta.url), "utf8");
     const examples = [...text.matchAll(/```js\n([\s\S]*?)```/g)].map(m => m[1]).filter(code => !code.includes("..."));
     assert.ok(examples.length > 0, file);

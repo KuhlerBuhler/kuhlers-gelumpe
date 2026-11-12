@@ -33,6 +33,7 @@ export const CHAINS = {
     { id: "parser-seek", sites: [0xC0035C74, 0xC0035C94, 0xC0035D68, 0xC0035DCC, 0xC0035DFC, 0xC00363C0] },
   ],
   "sample-swap": [
+    { id: "sample-library-path", sites: [0xC0038D50] },
     { id: "loader-body", sites: [0xC00364F4] },
     { id: "loader-open", sites: [0xC0036510] },
     { id: "loader-close", sites: [0xC0036748] },
@@ -43,6 +44,9 @@ export const CHAINS = {
     { id: "work-buffer", sites: [0xC00369F0] },
     { id: "ui-frame", sites: [0xC00836F4] },
     { id: "command-dispatch", sites: [0xC002D684] },
+    { id: "wav-import", sites: [0xC0038DE0] },
+    { id: "sample-write", sites: [0xC0039708] },
+    { id: "sample-delete", sites: [0xC00395B8] },
     { id: "sequence-switch", sites: [0xC005F1D4] },
     { id: "chain-switch", sites: [0xC0079A74] },
     { id: "part-update", sites: [0xC0099FFC] },
@@ -211,6 +215,6 @@ export const INCOMPATIBLE = [
   {
     patches: ["splash-editor", "script-runtime"],
     sharedSites: [0xC002ADAC, 0xC0064D3C],
-    reason: "Start-Haken 0xC002ADAC oder Global-Literal 0xC0064D3C ist doppelt beansprucht. Die gemeinsame BLECH-Laufzeit bringt den Startbild-Editor als eingebautes Modul mit.",
+    reason: "Start-Haken 0xC002ADAC oder Global-Literal 0xC0064D3C ist doppelt beansprucht. Die gemeinsame BLECHTRIBE-Laufzeit bringt den Startbild-Editor als eingebautes Modul mit.",
   },
 ];

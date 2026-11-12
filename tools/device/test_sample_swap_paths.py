@@ -139,9 +139,9 @@ class BusyRetry(unittest.TestCase):
 class MappingGuards(unittest.TestCase):
     def test_active_swap_owns_scratch_and_refuses_before_upload(self):
         import sample_swap_io
-        for mode,kind in ((mode,kind) for mode in (1,2) for kind in ('scan','probe')):
+        for at,mode,kind in ((at,mode,kind) for at in (p.old.LEGACY_SWAP_MODE,p.old.SWAP_MODE) for mode in (1,2) for kind in ('scan','probe')):
             link=self.link()
-            link.seed(0xc0188530,struct.pack('<I',mode))
+            link.seed(at,struct.pack('<I',mode))
             with patch.object(sample_swap_io,'validate_firmware'),self.assertRaisesRegex(RuntimeError,'owns the RAM'):
                 if kind=='scan': p.scan_usage(link,bytes(0x200100))
                 else:p.run(link,bytes(0x200100),p.arguments(['--slot','645','--kib','1','--stopped-confirmed']))

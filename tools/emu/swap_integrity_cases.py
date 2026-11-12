@@ -74,7 +74,8 @@ def cache_handoff(payload, flash=None):
     box = c.Box(payload, flash, c.small(range(500, 506)), [500], cap=0x40000)
     uc, arm = box.m.uc, box.m.A
     sections, _ = c.spec.build_code(c.firmware.identify(payload).screens)
-    end = max(at + len(data) for at, data in sections if c.spec.STORE_CODE <= at < c.spec.STORE_CODE_END)
+    area, limit = c.spec.PROTECTION_CODE, c.spec.PROTECTION_CODE_END
+    end = max(at + len(data) for at, data in sections if area <= at < limit)
     origin = (end + 15) & ~15
     probe = c.spec.arm.assemble(f'''
 pcm:
@@ -107,7 +108,7 @@ handoff_return:
     bx lr
 .pool
 ''', origin=origin)
-    if origin + len(probe.bytes) > c.spec.STORE_CODE_END:
+    if origin + len(probe.bytes) > limit:
         raise ValueError('handoff probe exceeds unused owned code space')
     if payload[origin - c.IMAGE:origin - c.IMAGE + len(probe.bytes)] != b'\xff' * len(probe.bytes):
         raise ValueError('handoff probe code space is occupied')
@@ -229,7 +230,8 @@ def part_faults(payload, flash=None):
     box = c.Box(payload, flash, c.small(range(500, 506)), [500], cap=0x40000)
     uc = box.m.uc
     sections, _ = c.spec.build_code(c.firmware.identify(payload).screens)
-    end = max(at + len(data) for at, data in sections if c.spec.STORE_CODE <= at < c.spec.STORE_CODE_END)
+    area, limit = c.spec.PROTECTION_CODE, c.spec.PROTECTION_CODE_END
+    end = max(at + len(data) for at, data in sections if area <= at < limit)
     origin = (end + 15) & ~15
     code = c.spec.arm.assemble(f'''
     push {{r11, lr}}
@@ -238,7 +240,7 @@ def part_faults(payload, flash=None):
     pop {{r11, pc}}
 .pool
 ''', origin=origin)
-    if (origin + len(code.bytes) > c.spec.STORE_CODE_END
+    if (origin + len(code.bytes) > limit
             or payload[origin - c.IMAGE:origin - c.IMAGE + len(code.bytes)] != b'\xff' * len(code.bytes)):
         raise ValueError('part probe has no unused owned code space')
     uc.mem_write(origin, code.bytes)

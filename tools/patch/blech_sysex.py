@@ -35,7 +35,10 @@ next update starts from (a patched file cannot be patched again; not .VSB, so no
 with the firmware's own function the update uses (0xC0035720, "KORG/blechtribe/" on the Sampler with BLECH, "KORG/electribe/"
 on the synth), so the file lands where Korg's update looks for it. A FILE BEGIN at offset 0 makes the file anew (and the folders of its path
 when one is missing, as on the blue's card), every other writes into the existing one; every block is read back from the card and its CRC sent. Offset plus length never passes
-0x200100, the size of a VSB. Status 6 is a card error (no card, no file, card full). The firmware's update writes the flash
+0x200100, the size of a VSB. Bit 29 of the offset chooses the Doom files instead: SD:/KORG/blechtribe/Doom/doom.bin (bit 31 clear)
+and doom.wad (bit 31 set), the paths the Doom loader opens (tools/doom/runtime_abi.h); they are written like the update file (offset 0
+makes the file anew, a missing folder is made) but may be as large as the sample file, and INFO says so with bit 8 of its flags, which
+the blue Electribe 2 does not set (its set has no Doom loader). Bits 30 and 29 together name no file and are refused as out of range. Status 6 is a card error (no card, no file, card full). The firmware's update writes the flash
 from that file when the user starts it; nothing here writes the flash.
 
 Every field is a 32-bit little endian word (the status too), the words are packed as every Electribe SysEx payload is
@@ -87,8 +90,8 @@ RAM = 0xC0000000
 
 CODE_AT = 0xC0172100            # free (FF) in the image, behind Hacktribe's code (ends 0xC01720B0) and clear of every other patch
 CODE_END = 0xC0173000           # the Sync Group's buffer of the pattern switch begins here (data/patches/pattern-switch.json)
-SAMPLE_AT = 0xC017B950          # sample file commands and EXEC upload publication, free (FF) behind the preset tables
-SAMPLE_END = 0xC017C190
+SAMPLE_AT = 0xC017B950          # sample file commands, free (FF) behind the preset tables
+SAMPLE_END = 0xC017C000
 TABLE_AT = 0xC0173800           # the protection table, 412 bytes today (src/sysex-table.mjs)
 TABLE_END = 0xC0174000
 STATE = 0xC0191000              # run time state, in RAM only (behind the synth filters' 0xC0190000 to 0xC0190100)
@@ -104,6 +107,7 @@ FILE_AREA_END = 0xC01A0000
 FILE_LIMIT = 0x200100           # offset plus length of a FILE command: the size of a VSB
 FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead of SYSTEM.VSB
 FILE_SAMPLE = 0x40000000        # bit 30 of a FILE offset: the sample file Sample/e2sSample.all, with bit 31 as well Sample/e2sSample.tmp
+FILE_DOOM = 0x20000000          # bit 29 of a FILE offset: the Doom program KORG/blechtribe/Doom/doom.bin, with bit 31 as well doom.wad (with bit 30 no file)
 SAMPLE_LIMIT = 0x10000000       # offset plus length of a FILE command on the sample file (256 MiB)
 COPY_MAX = 0x40000              # bytes one FILE COPY or FILE CRC works on
 COPY_CHUNK = 0x4000             # bytes the copy moves at once through BUF
@@ -121,7 +125,8 @@ REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH, REPLY_FREAD, REPLY
 REPLY_COPY, REPLY_DELETE, REPLY_CRC = 0x79, 0x7A, 0x7B
 STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY, STATUS_FILE = 0, 1, 2, 3, 4, 5, 6
 PROTOCOL_VERSION = 1
-FLAGS = 0xFF                    # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC)
+FLAGS = 0x1FF                   # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC), bit 8 the Doom files
+FLAG_DOOM = 0x100               # not on the blue Electribe 2: its set has no Doom loader (data/patches/blech-synth.json), so the files would do nothing there
 EXEC_START, EXEC_END = 0xC1000000, 0xC1000400   # the stub buffer of data/exec.mjs (stubAt, stubAt + stubSize)
 HACKTRIBE_FIRST, HACKTRIBE_FLASH_WRITE = 0x52, 0x56   # Hacktribe's commands are 0x52 to 0x57
 FLASH_MAX = 0x1000              # bytes in one FLASH READ: the sector size, the largest piece the firmware's own flash code takes at once
@@ -429,7 +434,7 @@ do_info:
     str r3, [r8]
     mov r3, #VERSION
     str r3, [r8, #4]
-    mov r3, #FLAGS
+    ldr r3, =FLAGS
     str r3, [r8, #8]
     ldr r3, =MAX_BLOCK
     str r3, [r8, #12]
@@ -641,7 +646,7 @@ do_data:
     bne data_reply
     ldr r0, [r6, #S_MODE]
     sub r0, r0, #1
-    cmp r0, #5                  ; 1 SYSTEM.VSB, 2 ORIGINAL.BIN, 3 a plugin file, 4 e2sSample.all, 5 e2sSample.tmp
+    cmp r0, #7                  ; 1 SYSTEM.VSB, 2 ORIGINAL.BIN, 3 a plugin file, 4 e2sSample.all, 5 e2sSample.tmp, 6 doom.bin, 7 doom.wad
     blo data_file
     mov r0, r8
     mov r1, r9
@@ -755,10 +760,7 @@ do_fbegin:
     ldr r10, [r6, #S_REQ + 8]
     mov r3, #0
     str r3, [r6]
-    mov r5, r8, lsr #31         ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN, with bit 30 3 e2sSample.all, 4 e2sSample.tmp (r5, the function byte, is not needed any more)
-    tst r8, #{FILE_SAMPLE}
-    addne r5, r5, #3
-    bic r8, r8, #0xC0000000
+    bl sel_file                 ; which file into r5 (the function byte is not needed any more), the offset into r8
 fbegin_checked:
     ldr r10, [r6, #S_REQ + 8]
     mov r0, #{STATUS_RANGE}
@@ -846,10 +848,8 @@ pb_named:
 do_fread:
     ldr r8, [r6, #S_REQ]
     ldr r9, [r6, #S_REQ + 4]
-    mov r11, r8, lsr #31        ; which file: 0 SYSTEM.VSB, 1 ORIGINAL.BIN, with bit 30 3 e2sSample.all, 4 e2sSample.tmp
-    tst r8, #{FILE_SAMPLE}
-    addne r11, r11, #3
-    bic r8, r8, #0xC0000000
+    bl sel_file                 ; which file, the offset into r8
+    mov r11, r5
     mov r4, #{STATUS_RANGE}
     mov r5, #0
     ldr r3, =MAX_BLOCK
@@ -954,99 +954,6 @@ frb_close:
 frb_error:
     mov r0, #{STATUS_FILE}
     pop {{r4, r5, r6, pc}}
-
-; r0 = which: FILE_PATH = the update's folder (the firmware's own function, as the update builds it) + "System/SYSTEM.VSB", or
-; "System/ORIGINAL.BIN" for 1, "Sample/e2sSample.all" for 3 and "Sample/e2sSample.tmp" for 4; for 2 the plugin file
-; SD:KORG/blechtribe/Plugin/<FILE_NAME>.blech. Keeps r4 to r11.
-file_path:
-    cmp r0, #2
-    beq plugin_path
-    push {{r4, r5, lr}}
-    mov r4, r0
-    sub sp, sp, #0x10
-    mov r0, sp
-    ldr r1, =FOLDER_ID
-    bl FOLDER
-    ldr r1, [sp]
-    ldr r0, =FILE_PATH
-    mov r2, #0x3F               ; at most 63 characters of the folder
-fp_folder:
-    ldrb r3, [r1], #1
-    cmp r3, #0
-    beq fp_tail
-    strb r3, [r0], #1
-    subs r2, r2, #1
-    bne fp_folder
-fp_tail:
-    ldr r1, =update_name
-    cmp r4, #1
-    ldreq r1, =original_name
-    cmp r4, #3
-    ldreq r1, =sample_name
-    cmp r4, #4
-    ldreq r1, =sample_tmp_name
-fp_name:
-    ldrb r3, [r1], #1
-    strb r3, [r0], #1
-    cmp r3, #0
-    bne fp_name
-    mov r0, sp
-    bl STRING_FREE
-    add sp, sp, #0x10
-    pop {{r4, r5, pc}}
-plugin_path:
-    ldr r0, =FILE_PATH
-    ldr r1, =plugin_prefix
-pp_prefix:
-    ldrb r3, [r1], #1
-    cmp r3, #0
-    strbne r3, [r0], #1
-    bne pp_prefix
-    ldr r1, =FILE_NAME
-pp_name:
-    ldrb r3, [r1], #1
-    cmp r3, #0
-    strbne r3, [r0], #1
-    bne pp_name
-    ldr r1, =plugin_suffix
-pp_suffix:
-    ldrb r3, [r1], #1
-    strb r3, [r0], #1
-    cmp r3, #0
-    bne pp_suffix
-    bx lr
-; f_mkdir of every folder on the way to the file in FILE_PATH, cut at each "/" in place; an existing one answers FR_EXIST.
-make_folders:
-    push {{r4, lr}}
-    ldr r4, =FILE_PATH
-mf_next:
-    ldrb r0, [r4], #1
-    cmp r0, #0
-    popeq {{r4, pc}}
-    cmp r0, #0x2F
-    bne mf_next
-    mov r0, #0
-    strb r0, [r4, #-1]
-    ldr r0, =FILE_PATH
-    bl FS_MKDIR
-    mov r0, #0x2F
-    strb r0, [r4, #-1]
-    b mf_next
-plugin_prefix:
-    .asciz "SD:KORG/blechtribe/Plugin/"
-plugin_suffix:
-    .asciz ".blech"
-.align 4
-update_name:
-    .asciz "System/SYSTEM.VSB"
-original_name:
-    .asciz "System/ORIGINAL.BIN"
-sample_name:
-    .asciz "Sample/e2sSample.all"
-sample_tmp_name:
-    .asciz "Sample/e2sSample.tmp"
-.align 4
-.pool
 
 ; ---- the reply -------------------------------------------------------------------------------------------------------
 ; r0 = function, r1 = the words, r2 = their length in bytes, r3 = where the message is built; r7 = the port. The words may lie
@@ -1281,6 +1188,37 @@ window_yes:
 window_no:
     mov r0, #0
     pop {{r3, r4, r5, r6, r7, r8, pc}}
+.pool
+
+; r8 = destination, r9 = length; returns the CRC in r0.
+upload_crc:
+    cmp r9, #0
+    beq upload_crc_args
+    ldr r0, =EXEC_START
+    cmp r8, r0
+    blo upload_crc_args
+    adds r1, r8, r9
+    bcs upload_crc_args
+    ldr r0, =EXEC_END
+    cmp r1, r0
+    bhi upload_crc_args
+    .word 0xEE110F10
+    and r0, r0, #5
+    cmp r0, #5
+    bne upload_drain
+    bic r0, r8, #31
+upload_clean:
+    .word 0xEE070F3A
+    add r0, r0, #32
+    cmp r0, r1
+    blo upload_clean
+upload_drain:
+    mov r0, #0
+    .word 0xEE070F9A
+upload_crc_args:
+    mov r0, r8
+    mov r1, r9
+    b crc32
 .pool
 
 ; The sample file commands sit apart from the rest, in the free run behind the preset tables' second block, so that the code above
@@ -1590,36 +1528,134 @@ fs_unlink:
 {unlink_body()}
 .pool
 
-; r8 = destination, r9 = length; returns the CRC in r0.
-upload_crc:
-    cmp r9, #0
-    beq upload_crc_args
-    ldr r0, =EXEC_START
-    cmp r8, r0
-    blo upload_crc_args
-    adds r1, r8, r9
-    bcs upload_crc_args
-    ldr r0, =EXEC_END
-    cmp r1, r0
-    bhi upload_crc_args
-    .word 0xEE110F10
-    and r0, r0, #5
+
+
+; r8 = a FILE offset with its selector bits; returns r5 = which file (0 SYSTEM.VSB, 1 ORIGINAL.BIN, 3 e2sSample.all, 4 e2sSample.tmp,
+; 5 doom.bin, 6 doom.wad) and r8 = the offset. Bits 30 and 29 together name no file: r8 = -1 then, which every range check refuses.
+; Touches nothing else.
+sel_file:
+    mov r5, r8, lsr #31
+    tst r8, #{FILE_SAMPLE}
+    addne r5, r5, #3
+    tst r8, #{FILE_DOOM}
+    addne r5, r5, #5
+    bic r8, r8, #0xE0000000
+    cmp r5, #7
+    mvnhs r8, #0
+    bx lr
+
+; The paths of the FILE commands moved here from the first section, to give it room.
+; r0 = which: FILE_PATH = the update's folder (the firmware's own function, as the update builds it) + "System/SYSTEM.VSB", or
+; "System/ORIGINAL.BIN" for 1, "Sample/e2sSample.all" for 3 and "Sample/e2sSample.tmp" for 4; for 2 the plugin file
+; SD:KORG/blechtribe/Plugin/<FILE_NAME>.blech, for 5 and 6 the path the Doom loader opens, SD:/KORG/blechtribe/Doom/doom.bin and
+; doom.wad (tools/doom/runtime_abi.h). Keeps r4 to r11.
+file_path:
+    cmp r0, #2
+    beq plugin_path
     cmp r0, #5
-    bne upload_drain
-    bic r0, r8, #31
-upload_clean:
-    .word 0xEE070F3A
-    add r0, r0, #32
-    cmp r0, r1
-    blo upload_clean
-upload_drain:
+    bhs doom_path
+    push {{r4, r5, lr}}
+    mov r4, r0
+    sub sp, sp, #0x10
+    mov r0, sp
+    ldr r1, =FOLDER_ID
+    bl FOLDER
+    ldr r1, [sp]
+    ldr r0, =FILE_PATH
+    mov r2, #0x3F               ; at most 63 characters of the folder
+fp_folder:
+    ldrb r3, [r1], #1
+    cmp r3, #0
+    beq fp_tail
+    strb r3, [r0], #1
+    subs r2, r2, #1
+    bne fp_folder
+fp_tail:
+    ldr r1, =update_name
+    cmp r4, #1
+    ldreq r1, =original_name
+    cmp r4, #3
+    ldreq r1, =sample_name
+    cmp r4, #4
+    ldreq r1, =sample_tmp_name
+fp_name:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    cmp r3, #0
+    bne fp_name
+    mov r0, sp
+    bl STRING_FREE
+    add sp, sp, #0x10
+    pop {{r4, r5, pc}}
+plugin_path:
+    ldr r0, =FILE_PATH
+    ldr r1, =plugin_prefix
+pp_prefix:
+    ldrb r3, [r1], #1
+    cmp r3, #0
+    strbne r3, [r0], #1
+    bne pp_prefix
+    ldr r1, =FILE_NAME
+pp_name:
+    ldrb r3, [r1], #1
+    cmp r3, #0
+    strbne r3, [r0], #1
+    bne pp_name
+    ldr r1, =plugin_suffix
+pp_suffix:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    cmp r3, #0
+    bne pp_suffix
+    bx lr
+doom_path:
+    ldr r1, =doom_bin_name
+    cmp r0, #6
+    ldreq r1, =doom_wad_name
+    ldr r0, =FILE_PATH
+dp_copy:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    cmp r3, #0
+    bne dp_copy
+    bx lr
+; f_mkdir of every folder on the way to the file in FILE_PATH, cut at each "/" in place; an existing one answers FR_EXIST.
+make_folders:
+    push {{r4, lr}}
+    ldr r4, =FILE_PATH
+mf_next:
+    ldrb r0, [r4], #1
+    cmp r0, #0
+    popeq {{r4, pc}}
+    cmp r0, #0x2F
+    bne mf_next
     mov r0, #0
-    .word 0xEE070F9A
-upload_crc_args:
-    mov r0, r8
-    mov r1, r9
-    b crc32
+    strb r0, [r4, #-1]
+    ldr r0, =FILE_PATH
+    bl FS_MKDIR
+    mov r0, #0x2F
+    strb r0, [r4, #-1]
+    b mf_next
+plugin_prefix:
+    .asciz "SD:KORG/blechtribe/Plugin/"
+plugin_suffix:
+    .asciz ".blech"
+.align 4
+update_name:
+    .asciz "System/SYSTEM.VSB"
+original_name:
+    .asciz "System/ORIGINAL.BIN"
+sample_name:
+    .asciz "Sample/e2sSample.all"
+sample_tmp_name:
+    .asciz "Sample/e2sSample.tmp"
+doom_bin_name:
+    .asciz "SD:/KORG/blechtribe/Doom/doom.bin"
+doom_wad_name:
+    .asciz "SD:/KORG/blechtribe/Doom/doom.wad"
+.align 4
 .pool
+
 """
 
 
@@ -1640,6 +1676,7 @@ def use_build(build, ref=None, vsb=None):
     import fwmap
     globals()["MODEL"] = 0x23
     globals()["FOLDER_ID"] = 0x123           # the id the synth's update passes to its folder function (0xC0035304 loads it)
+    globals()["FLAGS"] = FLAGS & ~FLAG_DOOM
     mapped = fwmap.FirmwareMap(fwmap.load(ref), vsb[HEADER:])
     found = {}
     for name in FIRMWARE_PLACES:
@@ -1717,7 +1754,7 @@ def build_patch(vsb, table, build):
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
              "note": "BLECH SysEx: the two hooks, the CRC-32, the packing, the range check and the commands"},
             {"file": file_offset(SAMPLE_AT), "bytes": sample_code.hex(), "expect": free(SAMPLE_AT, len(sample_code)),
-             "note": "BLECH SysEx: sample file commands and publication of EXEC uploads"},
+             "note": "BLECH SysEx: FILE COPY, FILE DELETE and FILE CRC on the sample file, the paths of the FILE commands with the Doom files, and their helpers"},
             {"file": file_offset(TABLE_AT), "bytes": bytes(table).hex(), "expect": free(TABLE_AT, len(table)),
              "note": "the protection table, cut from data/protected.mjs by src/sysex-table.mjs"},
             {"file": file_offset(CLASSIFY_HOOK), "bytes": classify.hex(), "expect": sha(was(CLASSIFY_HOOK, 4)),

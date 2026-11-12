@@ -31,8 +31,19 @@ def build_code(origin, *, fault):
     return code.bytes, code.symbols
 
 
-def source(fault):
-    return f'.equ CF_FAULT, {fault:#x}\n' + SOURCE
+def source(fault, *, admit_import=False, protect_publication=False, card_slot=False):
+    start = 'b capture_start_admitted' if admit_import else 'push {r3-r7, lr}\n    b 0xc0082f20'
+    publish = ('b capture_protect_publication' if protect_publication else
+               'mul r8, r7, r8\n    b 0xc004f160')
+    stop = ('''bl 0xc004f270
+    push {r0-r3, r12, lr}
+    bl persist_capture_slot
+    mov r5, r0
+    pop {r0-r3, r12, lr}
+    cmn r5, #1
+    b 0xc0082de4''' if card_slot else 'b 0xc0082ddc')
+    return (f'.equ CF_FAULT, {fault:#x}\n' + SOURCE.replace('@START@', start)
+            .replace('@PUBLISH@', publish).replace('@STOP_COMMAND@', stop))
 
 
 SOURCE = r'''
@@ -44,8 +55,7 @@ capture_start_entry:
     cmpne r12, #1
     movne r0, #0
     bxne lr
-    push {r3-r7, lr}
-    b 0xc0082f20
+    @START@
 
 capture_poll_entry:
     ldr r12, =CF_FAULT
@@ -77,8 +87,7 @@ capture_finish_read:
     cmpne r12, #1
     movne r0, #0
     bne 0xc004f1f4
-    mul r8, r7, r8
-    b 0xc004f160
+    @PUBLISH@
 
 capture_stop_record:
     ldr r12, =CF_FAULT
@@ -99,7 +108,7 @@ capture_stop_command:
     cmpne r12, #1
     mov r0, #0
     bne 0xc0082f08
-    b 0xc0082ddc
+    @STOP_COMMAND@
 
 capture_stop_finish:
     ldr r12, =CF_FAULT
@@ -111,5 +120,22 @@ capture_stop_finish:
     bne 0xc0082f08
     cmp r7, #1
     b 0xc0082e60
+.pool
+'''
+
+
+PUBLICATION = r'''
+; The DSP end read has succeeded; the native continuation has not changed the sample tables.
+capture_protect_publication:
+    push {r0-r3, r12, lr}
+    ldr r0, =NATIVE_SCOPE
+    ldr r0, [r0]
+    cmn r0, #1
+    movne r0, r7
+    movne r1, #1
+    blne protection_bit
+    pop {r0-r3, r12, lr}
+    mul r8, r7, r8
+    b 0xC004F160
 .pool
 '''

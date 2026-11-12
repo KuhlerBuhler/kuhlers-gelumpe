@@ -36,11 +36,13 @@ class BufferGuards(unittest.TestCase):
 
     def test_installation_preserves_the_full_declared_live_swap_code(self):
         uc, dev = self.machine(True)
-        before = bytes(uc.mem_read(swap.STORE_CODE, swap.STORE_CODE_END - swap.STORE_CODE))
+        owned = [(lo, bytes(uc.mem_read(lo, hi - lo))) for lo, hi in (
+            (swap.STORE_CODE, swap.STORE_CODE_END), (swap.PROTECTION_CODE, swap.PROTECTION_CODE_END))]
         s.Link(dev)
-        self.assertEqual(bytes(uc.mem_read(swap.STORE_CODE, len(before))), before)
-        self.assertEqual(bytes(uc.mem_read(swap.STORE_CODE_END, s.spec.FILE_AREA - swap.STORE_CODE_END)),
-                         bytes([0xD3]) * (s.spec.FILE_AREA - swap.STORE_CODE_END))
+        for lo, before in owned:
+            self.assertEqual(bytes(uc.mem_read(lo, len(before))), before, hex(lo))
+        self.assertEqual(bytes(uc.mem_read(swap.PROTECTION_CODE_END, s.spec.FILE_AREA - swap.PROTECTION_CODE_END)),
+                         bytes([0xD3]) * (s.spec.FILE_AREA - swap.PROTECTION_CODE_END))
 
     def test_live_code_can_read_its_literal_pool(self):
         uc, dev = self.machine(True)
@@ -116,7 +118,21 @@ class BufferGuards(unittest.TestCase):
                 uc, dev = self.machine(True)
                 s.Link(dev)
                 with self.assertRaisesRegex(AssertionError, 'released RAM'):
-                    self.access(uc, swap.STORE_CODE_END, write)
+                    self.access(uc, swap.PROTECTION_CODE_END, write)
+
+    def test_protection_code_retains_live_code_access_checks(self):
+        for write in (False, True):
+            with self.subTest(write=write):
+                uc, dev = self.machine(True)
+                s.Link(dev)
+                with self.assertRaisesRegex(AssertionError, 'live swap code'):
+                    self.access(uc, swap.PROTECTION_CODE, write)
+        uc, dev = self.machine(True)
+        link = s.Link(dev)
+        self.access(uc, swap.PROTECTION_CODE, origin=swap.CODE1)
+        uc.mem_write(swap.PROTECTION_CODE_END - 4, b'BAD!')
+        with self.assertRaisesRegex(AssertionError, 'live swap code changed'):
+            link.check_guards()
 
     def test_without_swap_the_original_full_tail_stays_guarded(self):
         for address in (s.spec.BUF_END, swap.STORE_CODE_END, s.spec.FILE_AREA - 4):

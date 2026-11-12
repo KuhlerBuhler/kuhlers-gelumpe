@@ -1,20 +1,29 @@
 """A streaming canonical entry from the firmware parser's descriptor and an open WAV file."""
 def source(*, state, file, descriptor, normalizer, prep, bits, file_bytes):
-    values = dict(IMP_STATE=state, IMP_FIL=file, IMP_DESC=descriptor, IMP_NORMAL=normalizer,
+    values = dict(IMP_FIL=file, IMP_DESC=descriptor, IMP_NORMAL=normalizer,
                   IMP_PREP=state + prep, IMP_BITS=state + bits, IMP_BYTES=state + file_bytes,
-                  IMP_OPEN=0xC009DB60, IMP_READ=0xC009DD74, IMP_CLOSE=0xC009E3DC,
+                  IMP_OPEN=0xC009DB60, IMP_READ=0xC009DD74,
                   IMP_SEEK=0xC009E404, IMP_PARSER=0xC0035B10, IMP_INIT=0xC004E1F4)
     return "".join(f".equ {name}, {value:#x}\n" for name, value in values.items()) + SOURCE
 
 
 SOURCE = r"""
 ; r0 source WAV path, r1 chosen slot or -1, r2 library path. Returns status in r0, chosen slot in r1.
-; Caller owns the command task, closed the swap file and dropped its cache; it refreshes the catalogue after success.
+; Caller owns the command task and the catalogue lease. FILE tracks the shared FatFs object.
 store_import:
+    mov r3, #0
+    b imp_entry
+store_import_new:
+    mov r3, #1
+imp_entry:
     push {r3-r11, lr}
     mov r4, r0
     mov r5, r1
     mov r6, r2
+    ldr r11, =ST
+    ldr r0, [r11, #FILE]
+    cmp r0, #0
+    bne imp_error
     mov r0, r6
     mov r1, r5
     bl store_select
@@ -27,6 +36,8 @@ store_import:
     bl IMP_OPEN
     cmp r0, #0
     bne imp_error
+    mov r0, #1
+    str r0, [r11, #FILE]
     ldr r0, =IMP_DESC
     bl IMP_INIT
     ldr r0, =IMP_PREP
@@ -109,22 +120,21 @@ store_import:
     str r0, [r8, #92]
     mov r0, #0
     str r0, [r8, #96]
-    mov r0, r6
     mov r1, r8
-    mov r2, r5
+    ldr r0, [sp]
+    orr r2, r5, r0, lsl #31
+    mov r0, r6
     mov r3, r9
     bl store_put
     mov r7, r0
-    ldr r0, =IMP_FIL
-    bl IMP_CLOSE
+    bl close_reader
     orrs r7, r7, r0
     bne imp_error
     mov r0, #0
     mov r1, r5
     pop {r3-r11, pc}
 imp_close_error:
-    ldr r0, =IMP_FIL
-    bl IMP_CLOSE
+    bl close_reader
 imp_error:
     mov r0, #4
     mvn r1, #0

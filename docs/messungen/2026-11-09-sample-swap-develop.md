@@ -111,6 +111,12 @@ je 64 Swap-Fälle auf beiden roten Builds und die je 21 Startprüfungen auf
 allen drei Builds bestehen erneut. Die drei neu assemblierten Plugin-Laufzeiten
 sind bytegleich zu den erzeugten Dateien aus `develop`.
 
+Die folgende Zusammenführung der Auslastungsprüfung hat nur einen Konflikt
+in der Entwicklungsdokumentation. Firmware-Patches und Patchdaten bleiben
+dabei unverändert. Die 23 gezielten Prüfungen für Auslastungsprüfung,
+Teststeuerung und Dokumente bestehen. Die Merge-Vorschau gegen den geprüften
+Stand von `develop` meldet keine Konflikte.
+
 ## Grenzen und kürzester Weg zum Gerätetest
 
 Die Seite `BLECHTRIBE -> Samples` kann vorhandene `.all`-Dateien am Rechner
@@ -120,7 +126,7 @@ Die Slots 501 bis 999 bleiben die vorhandenen Nutzerplätze. Die endliche
 Slotzahl und die Karten-/Dateisystemgrenzen verschwinden durch Swap nicht.
 Der USB-Dateiweg hat weiterhin seine eigene 256-MiB-Grenze.
 
-**Offen:** Der normale Gerätebefehl `Menü -> DATA UTILITY -> IMPORT SAMPLE`
+**Offen beim Develop-Abgleich:** Der normale Gerätebefehl `Menü -> DATA UTILITY -> IMPORT SAMPLE`
 verwendet weiterhin den nativen DSP-Import. Der vorhandene dauerhafte Dienst
 `store_import` ist noch nicht an diesen Bedienpfad angeschlossen. Eine große
 vorbereitete Datei und ein im Gerät über die DSP-Grenze hinaus importiertes
@@ -149,3 +155,6 @@ Emulatorprüfung ist keine Freigabe für Klang, echte Stimmenlaufzeit oder
 unterbrechungsfreie Live-Wechsel. Das bleibt mit normalen Samples am Gerät
 zu prüfen. Die vorhandene `verified.json` wird durch diese Teilprüfung nicht
 als vollständiger Release-Nachweis erneuert.
+
+Der spätere [WAV-Import in die Sample-Datei](2026-11-10-sample-import-karte.md)
+ist separat gemessen.

@@ -28,6 +28,15 @@ Speicheruntersuchung zusammen. Anleitungen zum Nachvollziehen am eigenen Gerät 
 - [Sample-Swap: Schutz direkter PCM-Schreibzugriffe](2026-11-09-sample-pcm-bereichsschutz.md)
 - [Sample-Swap: Besitzerprüfung nach Ressourcenwarten](2026-11-09-native-dsp-besitz.md)
 - [Sample-Swap: aktueller BLECH-Satz und große Sample-Dateien](2026-11-09-sample-swap-develop.md)
+- [WAV-Import im Gerätemenü: Zielslot, DSP und Kartenindex](2026-11-09-sample-import-menue.md)
+- [WAV-Import in die Sample-Datei, ohne sofortige DSP-Belegung](2026-11-10-sample-import-karte.md)
+- [WAV-Import: Kartenfehler und Wiederanlauf](2026-11-10-sample-import-kartenfehler.md)
+- [Sample-Journal: Wiederanlauf nach einer unvollständigen Schreibung](2026-11-10-sample-journal-wiederanlauf.md)
+- [Sample Swap auf der Grundlage von 1.4.5](2026-11-11-sample-swap-develop-final.md)
+- [Native DSP-Aufträge und die Sample-Bibliothek](2026-11-12-native-dsp-bibliotheksbindung.md)
+- [Sampleänderungen mit WRITE dauerhaft speichern](2026-11-11-sample-aenderungen-speichern.md)
+- [Sample-Datei: Wiederanlauf nach abgebrochener Erstanlage](2026-11-10-sample-datei-erstanlage.md)
+- [Aufnahmeabschluss: vorbereitete Auslagerungen verwerfen](2026-11-10-sample-aufnahme-schutz.md)
 - [Sample-Swap: Namen vor dem Laden der Audiodaten](2026-11-06-sample-swap-namen.md)
 
 
@@ -82,6 +91,7 @@ Wie das Gerät auf Nachrichten antwortet, Größen und Zeiten.
 - [SysEx: globaler Kanal und Leseobergrenze](2026-09-14-sysex-channel.md)
 - [Geräteprotokoll: Suche, RAM lesen und Pattern-Abfrage](2026-10-08-geraeteprotokoll.md)
 - [SysEx über die emulierte DIN-MIDI](2026-10-09-din-sysex.md)
+- [Doom über USB auf die Karte (Emulator)](2026-11-11-doom-usb.md)
 
 
 ## Speicher und Flash
@@ -222,6 +232,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 23: IFX ON, IFX TYPE, Sample und AMP EG schreibbar, LEDs der Part-Tasten, im Emulator](2026-11-07-plugin-api23-part-writes.md)
 - [Plugin API 24: MIDI-CC wie Regler und Tasten, Part-Edit auf blau, neue Part- und Pattern-Werte, Slices, Fensterschalter, im Emulator](2026-11-08-plugin-api24-part-cc.md)
 - [Plugin-Liste und SPLASH IMPORT als Dateibrowser der Firmware, Pixelvergleich mit IMPORT SAMPLE, im Emulator](2026-11-08-plugin-liste-browser.md)
+- [Rad in der Plugin-Liste, Seite STATE, schnelles Drehen in SPLASH IMPORT wie IMPORT SAMPLE, im Emulator](2026-11-09-menue-liste-rad.md)
 - [Plugin API 25: Tasten, Pads, Encoder und Touchpad wie ein Finger, korg.knob gegen den Regler, im Emulator](2026-11-08-plugin-api25-panel-calls.md)
 - [Firmwarepfad fuer Part-Parameter, im Emulator geprueft](2026-11-06-part-param-refresh.md)
 - [DSP-Transport bei neuen Part-Bedienungen, im Emulator geprueft](2026-11-07-part-control-dsp-refresh.md)
@@ -249,6 +260,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Doom auf BLECH v21](2026-10-15-doom-v21.md)
 - [Doom als Patch des BLECH-Satzes, auf Hacktribe und Korgs Original](2026-10-15-doom-im-patcher.md)
 - [Emulator-Zeit gegen Gerätezeit: vier kleine Schleifen, Rechnen 1,0, Speicher-Durchlauf rund 4](2026-10-16-emulator-timing.md)
+- [Gerätetakt im Emulator: Cache und Multiply in der laufenden Zeit, Stichprobe je Scheibe, VM und Nachläufe von 1.4.5 nachgerechnet](2026-11-10-emulator-geraetetakt.md)
 
 - [Blaue Electribe: Ladebalken, Kartenordner und Sample-Fehler](2026-10-16-blau-ladebalken-ordner.md)
 - [BLECH-Satz für die blaue Electribe 2](2026-10-16-blech-synth.md)
@@ -270,6 +282,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Update über USB: die Firmware-Datei über BLECH lesen und schreiben](2026-10-18-update-ueber-usb.md)
 - [Ruhender Insert-Effekt: Punch für stumme Parts](2026-10-18-ifx-ruht.md)
 - [Kartenfehler beim Start: Ladebalken weg, Power-Taste, Mounten wiederholen](2026-10-19-kartenfehler-beim-start.md)
+- [Tote Karte beim Start: kein Nachfragen mehr, der Start läuft wie ohne BLECH, im Emulator](2026-11-10-tote-karte-beim-start.md)
 - [Mandelbrot: nachgewiesene Innenflächen überspringen](2026-10-19-mandelbrot-schneller.md)
 - [Pong: kurzer Ballschweif, Life: Zeichnen und Berechnen verzahnen](2026-10-19-pong-life.md)
 - [Mandelbrot: offene Rechtecke in einer Arbeitsliste](2026-10-19-mandelbrot-arbeitsliste.md)
@@ -278,6 +291,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [KEY PADS chromatisch: Pad 1 C bis Pad 12 B, Pads 13 bis 16 tun nichts, im Emulator](2026-11-08-key-pads-chromatisch.md)
 - [FILTER TOGGLE fest eingebaut: SHIFT + Filtertaste schaltet das Filter aus und an, mit dem Fenster der Firmware, im Emulator](2026-11-08-filter-toggle-eingebaut.md)
 - [AUTO SAVE: GLOBAL PARAMETERS und BLECH-Einstellungen speichern sich beim Verlassen, nur mit Änderung, im Emulator](2026-11-09-auto-save.md)
+- [ORIG im BLECH-Menü wie auf den Seiten der Firmware; Spielhilfen mit einer erst nach dem Start eingesteckten Karte, im Emulator](2026-11-11-orig-und-karte-spaeter.md)
 - [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
 - [Notenassistent: Helligkeit nach Passung, stehen lassen und ausblenden](2026-10-19-notenassistent-helligkeit.md)
@@ -311,6 +325,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Meter: RAINBOW auch bei LOUD, im Tempo](2026-10-24-meter-loud-rainbow.md)
 - [Effekte aus dem Katalog fest in der Firmware](2026-10-23-fx-katalog-fest.md)
 - [Slap Delay und Long Delay im Insert](2026-10-25-ifx-delays.md)
+- [Neue Katalog-Effekte für Bass, Kick, Verzerrung und Mix: was der Emulator prüft und was nicht](2026-11-11-neue-effekte.md)
 - [Flash-Karte aus dem Code](2026-10-24-flash-karte.md)
 - [Der Stack bei 0xC274E000 und wer den RAM darüber nutzt](2026-10-24-ram-task-stack.md)
 - [USB: was das Gerät anbietet und was eine zweite Schnittstelle bräuchte](2026-10-24-usb.md)
@@ -334,8 +349,10 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Vorschau: die Pads gehören dem angesehenen Pattern, Mutes gehen beim Wechsel mit](2026-10-29-vorschau-pads.md)
 - [Vorschau: ein gedrückter Part kommt mit Copy Part ins laufende Pattern](2026-10-30-vorschau-part-reinholen.md)
 - [Vorschau: die Pads der Parts, die im angesehenen Pattern an sind, blinken](2026-11-02-vorschau-pads-blinken.md)
+- [Vorschau: schnelles Blättern hält mit der Firmware mit, ein Neuzeichnen statt eines je Klick, im Emulator](2026-11-09-pattern-schritte.md)
 - [Part-Werte schreiben wie ein Regler, Steps kopieren und speichern (API 14)](2026-11-02-part-werte-schreiben.md)
 - [Hacktribe und die Samples: Quellen, Befunde, offene Fragen](2026-11-06-hacktribe-samples.md)
 - [Hacktribe-Oszillatoren auf den freien Plätzen 422 bis 497 der roten Firmware](2026-11-08-ht-osc-freie-plaetze.md)
+- [Hacktribes Extra-Effekte, Grooves und Touch-Skalen auf der roten 2.02: was als Datenpatch geht](2026-11-10-hacktribe-extras-rot.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)

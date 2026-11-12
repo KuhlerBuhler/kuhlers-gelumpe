@@ -16,10 +16,10 @@ import { run } from "./support/spawn.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const PATCH = read("../data/patches/sample-swap.json");
-const SITES = [0xC00364F4, 0xC0036510, 0xC0036748, 0xC0036760, 0xC00366D8, 0xC00366FC, 0xC003621C, 0xC00369F0, 0xC00836F4, 0xC002D684, 0xC005F1D4, 0xC0079A74, 0xC0099FFC, 0xC0099D88, 0xC0040DB4, 0xC00997CC, 0xC0039FB0,
+const SITES = [0xC0038D50, 0xC0038DE0, 0xC0039708, 0xC00395B8, 0xC00364F4, 0xC0036510, 0xC0036748, 0xC0036760, 0xC00366D8, 0xC00366FC, 0xC003621C, 0xC00369F0, 0xC00836F4, 0xC002D684, 0xC005F1D4, 0xC0079A74, 0xC0099FFC, 0xC0099D88, 0xC0040DB4, 0xC00997CC, 0xC0039FB0,
   0xC0035B3C, 0xC0035BA4, 0xC0035C08, 0xC0035CF8, 0xC0035DA8, 0xC0035DE8, 0xC0035E18];
-const AREAS = [[0xC01A2FE0, 0xC01A3C00], [0xC018A4C0, 0xC018AF00], [0xC0189760, 0xC0189F00],
-  [0xC019A400, 0xC019C400], [0xC019C400, 0xC019E000], [0xC018BF40, 0xC018C400]];
+const AREAS = [[0xC01A2FE0, 0xC01A3C00], [0xC018A4E0, 0xC018AF00], [0xC0189770, 0xC0189F00],
+  [0xC019A400, 0xC019C400], [0xC019C400, 0xC019E000], [0xC0186800, 0xC0188000], [0xC018BF40, 0xC018C400]];
 const file = address => address - 0xC0000000 + 0x100;
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
@@ -77,8 +77,8 @@ test("its code areas and loader state fit the declared space and its hooks branc
   }
   const state = PATCH.changes.slice(AREAS.length + sites.length);
   assert.equal(state.length, 1);
-  assert.equal(state[0].file, file(0xC0188714));
-  assert.equal(state[0].bytes, "0000000000000000010000000000000000000000");
+  assert.equal(state[0].file, file(0xC0188724));
+  assert.equal(state[0].bytes, "000000000000000001000000000000000000000000000000");
   const res = checkHooks([PATCH]);
   assert.equal(res.ok, true, res.reasons.join(" "));
 });
@@ -95,7 +95,7 @@ test("the swap code stays clear of the current splash editor payload", () => {
 });
 
 test("its state is in a free run and its buffers and cache above the interrupt stack", () => {
-  assert.deepEqual(PATCH.ram.slice(0, 2).map(r => [r.at, r.length]), [["0xC0188530", 0x1E4], ["0xC274F000", 0xC4000000 - 0xC274F000]]);
+  assert.deepEqual(PATCH.ram.slice(0, 2).map(r => [r.at, r.length]), [["0xC0188540", 0x1E4], ["0xC274F000", 0xC4000000 - 0xC274F000]]);
 });
 
 test("it is part of the BLECH set and composes with every other patch of both red builds", async () => {

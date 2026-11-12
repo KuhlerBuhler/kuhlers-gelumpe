@@ -149,14 +149,69 @@ def cases(payload):
            for name, slot, kind in variants}
     out.append(dict(id="canonical_retargeted_formats_survive_reboot_without_export_all",
                     ok=all(pcm.values()) and not restored.m.asserts, dsp_pcm_equal=pcm))
-    return out
+    return out + source_close_cases(payload)
+
+
+def source_close_cases(payload):
+    raw = c.plain_wav(1000)
+    box = c.Box(payload, None, {500: ("first", 100)}, [500], extra={"/raw.wav": raw.hex()})
+    path = f"KORG/{c.cardstore.card_folder(payload)}/Sample/e2sSample.all"
+    box.m.uc.mem_write(LIB_PATH, ("SD:/" + path).encode() + b"\0")
+    box.m.uc.mem_write(SOURCE_PATH, b"SD:/raw.wav\0")
+
+    def library():
+        volume = c.fat32.Volume(bytes(box.m.mmc.card.medium.data))
+        try:
+            return volume.read(path)
+        finally:
+            volume.close()
+
+    failed = []
+
+    def fail_source_close(uc, *_):
+        if not failed and uc.reg_read(box.m.A.UC_ARM_REG_R0) == c.spec.FIL:
+            failed.append(True)
+            uc.reg_write(box.m.A.UC_ARM_REG_R0, 1)
+            uc.reg_write(box.m.A.UC_ARM_REG_PC, uc.reg_read(box.m.A.UC_ARM_REG_LR))
+
+    acquired = box.dev.call(box.sym["catalogue_begin"])
+    token = box.u32(c.spec.FILE_OWNER)
+    original = library()
+    occupied = box.dev.call(box.sym["store_import_new"], SOURCE_PATH, 500, LIB_PATH)
+    old_entry_unchanged = library() == original
+    close = c.spec.FIRMWARE["F_CLOSE"]
+    hook = box.m.uc.hook_add(c.unicorn.UC_HOOK_CODE, fail_source_close, begin=close, end=close)
+    try:
+        result = box.dev.call(box.sym["store_import"], SOURCE_PATH, 502, LIB_PATH)
+    finally:
+        box.m.uc.hook_del(hook)
+    state_after_close = box.state("FILE")
+    saved = library()
+    offset = struct.unpack_from("<I", saved, 16 + 502 * 4)[0]
+    persisted = offset > 0 and saved[offset + 44:offset + len(raw)] == raw[44:]
+    refused = box.dev.call(box.sym["store_import"], SOURCE_PATH, 503, LIB_PATH)
+    untouched = library() == saved
+    recovered = box.dev.call(box.sym["catalogue_end"], token, result)
+    closed = box.state("FILE") == 0
+    return [dict(id="an_append_to_an_occupied_slot_is_refused_by_the_writer",
+                 ok=acquired == 0 and occupied == 4 and old_entry_unchanged and not box.m.asserts,
+                 status=occupied, unchanged=old_entry_unchanged),
+            dict(id="a_failed_wav_close_blocks_reuse_until_catalogue_recovery",
+                 ok=acquired == 0 and failed == [True] and result == 4 and state_after_close == 2
+                 and persisted and refused == 4 and untouched and recovered == 4
+                 and closed and box.u32(c.spec.FILE_OWNER) == 0 and not box.m.asserts,
+                 acquired=acquired, failed=bool(failed), status=result, file_state=state_after_close,
+                 committed_pcm_equal=persisted, next_import=refused, unchanged=untouched,
+                 recovery_status=recovered, closed=closed, asserts=box.m.asserts)]
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--patched", required=True, type=Path)
+    parser.add_argument("--source-close", action="store_true", help="check recovery after a failed WAV close")
     args = parser.parse_args()
-    checks = cases(args.patched.read_bytes()[c.HEADER:])
+    run = source_close_cases if args.source_close else cases
+    checks = run(args.patched.read_bytes()[c.HEADER:])
     print(json.dumps(dict(hardware_contact=False, checks=checks), indent=2))
     return 0 if all(check["ok"] for check in checks) else 1
 

@@ -18,9 +18,10 @@ import hashlib
 import re
 
 import arm
-from sample_swap_io import TIMER, TIMER_HZ, DEADLINE_TICKS, POLL_BUDGET, RELEASE, LATCHED, validate_firmware as validate_transport
+from sample_swap_io import TIMER, TIMER_HZ, DEADLINE_TICKS, POLL_BUDGET, RELEASE, LATCHED, DSP_MIN, DSP_END, validate_firmware as validate_transport
 
 CONTEXT_BYTES = 144
+LIBRARY_POLICY_OFFSET = 120
 ACQUIRE = 0xC0000D80
 RESOURCE_SITES = (
     (0xc0012794, 0xc00127a4), (0xc0012800, 0xc0012820),
@@ -64,7 +65,10 @@ def source(*, scope, fault, mode, generation, release=RELEASE, acquire=ACQUIRE,
            current_task=None, owner=None, session=None, acquire_guard=None, part='all'):
     """Initialized sample reads/writes are always bounded. Other transactions use
     the optional MODE/INSTEP gate; uninitialized calls retain native behavior."""
+    policy_enabled = acquire_guard is not None and gate_owner is not None
     values = dict(NS_SCOPE=scope, NS_FAULT=fault, NS_MODE=mode, NS_GEN=generation,
+                  NS_SAMPLE_MIN=DSP_MIN, NS_SAMPLE_END=DSP_END,
+                  NS_POLICY=LIBRARY_POLICY_OFFSET, NS_STACK_POLICY=16 + LIBRARY_POLICY_OFFSET,
                   NS_RELEASE=release, NS_ACQUIRE=acquire, NS_TIMER=timer, NS_HZ=TIMER_HZ,
                   NS_DEADLINE=DEADLINE_TICKS, NS_POLLS=poll_budget, NS_LATCHED=LATCHED, NS_CONTEXT=CONTEXT_BYTES)
     fields = [('NS_CURRENT_TASK', current_task, 80), ('NS_GEN', generation, 84),
@@ -119,6 +123,12 @@ def source(*, scope, fault, mode, generation, release=RELEASE, acquire=ACQUIRE,
     .word 0xE121F00C
     .word 0xE128F00C
     bx lr'''
+    policy = '''    push {r2, r3}
+    mov r3, lr
+    bl native_scope_library_policy
+    mov r1, r0
+    pop {r2, r3}
+    mov r0, #1''' if policy_enabled else '    mov r1, #1'
     call = r'''    push {r4, lr}
     bl NS_ACQUIRE
 native_scope_acquired:
@@ -127,7 +137,7 @@ native_scope_acquired:
     bne native_scope_refused
     b native_scope_enter''' if acquire_guard is None else f'''    push {{r4, lr}}
     .word 0xE10F4000
-    mov r1, #1
+{policy}
     bl {acquire_guard}
 native_scope_acquired:
     cmp r0, #0
@@ -136,11 +146,14 @@ native_scope_acquired:
     bne native_scope_cancel
     b native_scope_enter_locked'''
     body = SOURCE.replace('@TAKE@', take).replace('@TAKE_CALL@', call).replace('@PLAIN@', plain)
+    body = body.replace('@LOCKED_POLICY@', '    str r1, [sp, #NS_STACK_POLICY]' if acquire_guard is not None else '    str r12, [sp, #NS_STACK_POLICY]')
     body = body.replace('@SNAPSHOT@', snapshots)
     body = body.replace('@TICK_TASK@', task_check + '    bxne lr' if task_check else '')
     body = body.replace('@CLOSE_TASK@', task_check + '    bne native_scope_cancel' if task_check else '')
     body = body.replace('@LEAVE_TASK@', task_check + '    bne ns_leave_out' if task_check else '')
     helper = HELPERS.replace('@IDENTITY_COUNT@', str(len(identities)))
+    helper = helper.replace('@POLICY_CHECK@', POLICY_CHECK if policy_enabled else '')
+    helper += LIBRARY_POLICY if policy_enabled else ''
     helper = helper.replace('@IDENTITY_FIELDS@', '\n'.join(f'    .word {name}\n    .word {offset}'
                                                           for name, offset in identities))
     if part not in ('all', 'core', 'helpers'):
@@ -196,6 +209,7 @@ native_scope_enter:
     str r12, [sp, #72]
     mov r12, #1
     str r12, [sp, #80]
+    str r12, [sp, #NS_STACK_POLICY]
     b ns_enter_saved
 native_scope_enter_locked:
     sub sp, sp, #NS_CONTEXT
@@ -203,6 +217,7 @@ native_scope_enter_locked:
     str r12, [sp, #72]
     mov r12, #1
     str r12, [sp, #80]
+@LOCKED_POLICY@
     b ns_enter_saved
 native_scope_enter_borrowed:
     sub sp, sp, #NS_CONTEXT
@@ -211,6 +226,8 @@ native_scope_enter_borrowed:
     str r12, [sp, #72]
     mov r12, #0
     str r12, [sp, #80]
+    mov r12, #1
+    str r12, [sp, #NS_STACK_POLICY]
     b ns_enter_saved
 native_scope_refused:
     sub sp, sp, #NS_CONTEXT
@@ -219,6 +236,7 @@ native_scope_refused:
     str r12, [sp, #72]
     mov r12, #2
     str r12, [sp, #80]
+    str r12, [sp, #NS_STACK_POLICY]
 ns_enter_saved:
     ldr r12, [sp, #72]
     orr r12, r12, #0x80
@@ -482,8 +500,66 @@ native_scope_driver_end:
 '''
 
 
+POLICY_CHECK = r'''
+    ldr r0, [r12, #NS_POLICY]
+    cmp r0, #0
+    bne ns_identity_bound
+    ldr r0, =NS_CURRENT_TASK
+    ldr r0, [r0]
+    ldr r3, [r12, #80]
+    cmp r0, r3
+    moveq r0, #1
+    movne r0, #0
+    bx lr
+ns_identity_bound:
+'''
+
+
+LIBRARY_POLICY = r'''
+; r3 is the native return site; the sample wrappers keep address/count at FP-16/FP-22.
+native_scope_library_policy:
+    ldr r0, =NS_GATE
+    ldr r0, [r0]
+    cmp r0, #0
+    beq ns_policy_native
+    ldr r0, =NS_GATE_OWNER
+    ldr r0, [r0]
+    ldr r1, =NS_CURRENT_TASK
+    ldr r1, [r1]
+    cmp r0, r1
+    beq ns_policy_bound
+ns_policy_native:
+    ldr r0, =0xC001424C
+    cmp r3, r0
+    beq ns_policy_span
+    ldr r0, =0xC00142D8
+    cmp r3, r0
+    bne ns_policy_bound
+ns_policy_span:
+    ldr r0, [r11, #-16]
+    ldr r1, [r11, #-24]
+    mov r1, r1, lsr #16
+    adds r1, r0, r1, lsl #1
+    bcs ns_policy_bound
+    ldr r2, =NS_SAMPLE_MIN
+    cmp r1, r2
+    bls ns_policy_unbound
+    ldr r2, =NS_SAMPLE_END
+    cmp r0, r2
+    blo ns_policy_bound
+ns_policy_unbound:
+    mov r0, #0
+    bx lr
+ns_policy_bound:
+    mov r0, #1
+    bx lr
+.pool
+'''
+
+
 HELPERS = r"""
 native_scope_identity:
+@POLICY_CHECK@
     ldr r1, =native_identity_fields
     mov r2, #@IDENTITY_COUNT@
 ns_identity_loop:

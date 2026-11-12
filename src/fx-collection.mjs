@@ -14,7 +14,9 @@ import { crc32 } from "./script/blob.mjs";
 import { RECORD, recordOf, locatePresets } from "./presets.mjs";
 import { TABLES } from "./map/index.mjs";
 import { locateModTable, writeModType, readModType } from "./modtable.mjs";
-import { buildOf } from "./firmware.mjs";
+import { buildOf, hardwareOf } from "./firmware.mjs";
+import { convertStock } from "./patcher.mjs";
+import { isZip, unzipEntry } from "./zip.mjs";
 import { fxText, fxToRecord, fxFromRecord, modFromType } from "./fx-v2.mjs";
 import { FxRecord } from "./record.mjs";
 import { lint } from "./rules.mjs";
@@ -164,6 +166,56 @@ export function factoryEntry(vsb, kind, from, index, units) {
   if (!at || !recordOf(vsb, kind, index + 1)) return { ok: false, reason: `Platz ${!at ? from : index + 1} gibt es in dieser Firmware nicht.` };
   const data = vsb.slice(at.file, at.file + RECORD);
   return { ok: true, entry: { kind, index, data, text: fxText(fxFromRecord(data, kind, units)) } };
+}
+
+/** What the user picks in the export as the device's firmware: Hacktribe or Korg's 2.02, both on the red sampler. */
+export const TARGETS = ["hacktribe", "stock"];
+
+/**
+ * The firmware for `target` out of a file the app got: Korg's zip or a SYSTEM.VSB. Korg's 2.02 becomes Hacktribe with
+ * hacktribe-2.patch (`hacktribePatch()`, loaded only then), as in the patcher (convertStock). Never the emulator's file:
+ * the collection is for the firmware on the device, and that one the user names.
+ * @returns {Promise<{ok: true, bytes: Uint8Array} | {ok: false, code?: "zip"|"device"|"build", reason?: string}>}
+ */
+export async function targetFirmware(target, file, { hacktribePatch = null } = {}) {
+  let vsb = file;
+  if (isZip(file)) {
+    const entry = await unzipEntry(file);
+    if (!entry) return { ok: false, code: "zip" };
+    vsb = entry.bytes;
+  }
+  if (hardwareOf(vsb) !== "red") return { ok: false, code: "device" };
+  const build = buildOf(vsb);
+  if (build === target) return { ok: true, bytes: vsb };
+  if (target === "hacktribe" && build === "stock" && hacktribePatch) {
+    const res = await convertStock(vsb, await hacktribePatch());
+    return res.ok ? { ok: true, bytes: res.bytes } : { ok: false, reason: res.reason };
+  }
+  return { ok: false, code: "build" };
+}
+
+/**
+ * e2sFx.all for the firmware the user named (`target`), made from `firmware`, a file of that very build: the header
+ * carries the target's build, the records are that firmware's. `items` are the places, `slot` 1-based, each either a
+ * factory preset moved from place `from` or a `preset`.
+ * @param {{kind: string, slot: number, from?: number, preset?: object}[]} items
+ * @returns {{ok: true, bytes: Uint8Array} | {ok: false, code?: "build", from?: number, name?: string, reason?: string}}
+ */
+export function collectionFor(target, firmware, items, units, { risky = false } = {}) {
+  if (!(target in BUILDS) || !firmware || hardwareOf(firmware) !== "red" || buildOf(firmware) !== target) return { ok: false, code: "build" };
+  const entries = [];
+  for (const item of items) {
+    if (item.from) {
+      const moved = factoryEntry(firmware, item.kind, item.from, item.slot - 1, units);
+      if (!moved.ok) return { ok: false, from: item.from, reason: moved.reason };
+      entries.push(moved.entry);
+      continue;
+    }
+    const made = collectionEntry(item.preset, firmware, item.slot - 1, units, { risky });
+    if (!made.ok) return { ok: false, name: item.preset.name, reason: made.reason };
+    entries.push(made.entry);
+  }
+  return { ok: true, bytes: buildCollection({ build: target, entries }) };
 }
 
 /**

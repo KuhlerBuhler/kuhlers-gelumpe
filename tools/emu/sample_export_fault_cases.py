@@ -46,13 +46,17 @@ def case(payload, failure, guarded=True):
     box.m.uc.hook_add(c.unicorn.UC_HOOK_CODE, closed, begin=0xC009E3DC, end=0xC009E3DC)
     box.m.uc.hook_add(c.unicorn.UC_HOOK_CODE, writing, begin=0xC009DFB8, end=0xC009DFB8)
     read = box.m.read
+    pcm_read = []
+    if failure == 'read':
+        box.m.uc.hook_add(c.unicorn.UC_HOOK_CODE, lambda *_: pcm_read.append(True),
+                         begin=0xC0039C2C, end=0xC0039C2C)
 
     def stuck(address):
-        return 0 if failure == 'read' and address == c.DSP_DATA + 2 else read(address)
+        return 0 if pcm_read and address == c.DSP_DATA + 2 else read(address)
 
     box.m.read = stuck
     if failure == 'read':
-        native.as_swap_step(box)
+        native.model_swap_step(box, 0xC0039CC4)
     result = box.dev.call(0xC0039CC4, 0xC100A000, 500)
     # The stall ends with the export. Native traffic after the fault is no longer bounded (only the swap's own step is),
     # so a DSP that stayed dead would hold up the next native transaction as in Korg's firmware.
@@ -68,7 +72,7 @@ def case(payload, failure, guarded=True):
     file_ok = (len(rows) == 1 and rows[0]['pcm_equal'] if failure == 'none' else not rows if failure == 'preexisting'
                else len(rows) == 1 and rows[0]['bytes'] == 44)
     fault = int(failure != 'none')
-    ok = ((result != 0) == bool(fault) and file_ok and box.state('TSTATE') == (native.io.LATCHED if fault else 0)
+    ok = ((result != 0) == bool(fault) and bool(pcm_read) == (failure == 'read') and file_ok and box.state('TSTATE') == (native.io.LATCHED if fault else 0)
           and box.state('GEN') == generation + int(failure != 'preexisting') + int(failure == 'read')
           and box.u32(c.CURSOR) == cursor and box.extent(500) == extent
           and box.u32(native.POINTER) == 0 and box.u32(native.io.SEMA) == 1 and not box.m.asserts

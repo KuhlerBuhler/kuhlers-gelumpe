@@ -17,6 +17,14 @@ test("native snapshots stream complete sample entries through the journalled wri
   assert.equal(result.status, 0, result.stderr);
 });
 
+test("native save and delete preserve catalogue ownership and error semantics", () => {
+  const result = spawnSync(emuPython(), ["-m", "unittest", "discover", "-s", "tools/patch", "-p", "test_native_sample_persistence.py"], {
+    encoding: "utf8", timeout: 30_000,
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test("snapshot entries survive native FatFs writes and reload with the original PCM", {
   skip: !process.env.E2_VSB && !process.env.E2_STOCK_VSB && "own red firmware not set",
 }, async () => {

@@ -79,7 +79,7 @@ def case(payload, failure, guarded=True):
 
     box.m.read, box.m.write = stalled, written
     if failure in ('stop', 'end'):
-        native.as_swap_step(box)
+        native.model_swap_step(box, CALL)
     restart = None
     try:
         box.dev.call(CALL, transport)

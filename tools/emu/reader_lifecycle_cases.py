@@ -14,7 +14,8 @@ def case(payload, close_error=False, short_header=False):
     samples = {500: ('Own reader', 100), 501: ('Other reader', 200)}
     box = c.Box(payload, None, samples, [500])
     uc = box.m.uc
-    end = max(at + len(data) for at, data in sections if c.spec.STORE_CODE <= at < c.spec.STORE_CODE_END)
+    area, limit = c.spec.PROTECTION_CODE, c.spec.PROTECTION_CODE_END
+    end = max(at + len(data) for at, data in sections if area <= at < limit)
     origin = (end + 15) & ~15
     assembled = c.spec.arm.assemble(f'''
 read_header:
@@ -51,7 +52,7 @@ close_header:
     pop {{r4, r10, r11, pc}}
 .pool
 ''', origin=origin)
-    if origin + len(assembled.bytes) > c.spec.STORE_CODE_END:
+    if origin + len(assembled.bytes) > limit:
         raise ValueError('reader probe exceeds unused owned code space')
     if any(value != 255 for value in payload[origin - c.IMAGE:origin - c.IMAGE + len(assembled.bytes)]):
         raise ValueError('reader probe code space is occupied')

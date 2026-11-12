@@ -8,6 +8,7 @@ from unicorn import arm_const as R
 import arm
 import native_dsp_scope as p
 import native_dsp_acquire as acquisition
+from sample_swap_io import DSP_MIN, DSP_END
 
 CODE, STATE, STACK, TRAP = 0xC1000000, 0xC1100000, 0xC1F00000, 0xC1200000
 RELEASE = CODE + 0x4000
@@ -21,7 +22,7 @@ def word(value):
 
 
 class Machine:
-    def __init__(self, *, polls=5, clock=True, step=0, start=0, irq=False, gate=False, guarded=False):
+    def __init__(self, *, polls=5, clock=True, step=0, start=0, irq=False, gate=False, guarded=False, gate_owner=False):
         self.uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
         self.uc.mem_map(0xC0000000, 0x02000000)
         self.uc.mem_map(p.TIMER, 4096)
@@ -31,12 +32,15 @@ class Machine:
         if guarded:
             kwargs.update(current_task=STATE + 36, session=STATE + 40, owner=STATE + 0x200,
                           acquire_guard='native_resource_take')
+        if gate_owner:
+            kwargs["gate_owner"] = STATE + 52
         source = p.source(**kwargs)
         if guarded:
             source += acquisition.source(fault=FAULT, mode=MODE, generation=GEN, gate=STATE + 32,
                                          session=STATE + 40, owner=STATE + 0x200, scope=SCOPE,
                                          current_task=STATE + 36, sema=SEMA, tick=STATE + 48,
-                                         delay=CODE + 0x4200, release=RELEASE, attempts=4, timeout_ms=5)
+                                         delay=CODE + 0x4200, release=RELEASE, attempts=4, timeout_ms=5,
+                                         gate_owner=STATE + 52 if gate_owner else None)
         assembled = arm.assemble(source, origin=CODE)
         self.symbols = assembled.symbols
         self.uc.mem_write(CODE, assembled.bytes)
@@ -194,10 +198,14 @@ class Machine:
         self.uc.emu_start(entry, TRAP, count=100_000)
 
 
-    def run_sample(self, acquire_site, ticks):
-        entry = acquire_site - 12
+    def run_sample(self, acquire_site, ticks, sample_address=None, halfwords=64):
+        if sample_address is not None:
+            self.put(STACK - 20, sample_address)
+            self.put(STACK - 28, halfwords << 16)
+        entry = acquire_site - 16
         source = f'''push {{r11, lr}}
         add r11, sp, #4
+        sub sp, sp, #24
         mov r0, #1
         bl {self.symbols['native_scope_take']}
         ''' + ''.join(f"bl {self.symbols['native_scope_tick']}\n" for _ in range(ticks)) + f'''
@@ -590,6 +598,77 @@ class AcquisitionOwnership(unittest.TestCase):
         self.assertEqual(m.u32(SCOPE), outer)
         self.assertEqual(m.u32(SEMA), 1)
         self.assertEqual(len(m.releases), 1)
+
+
+class LibraryBinding(unittest.TestCase):
+    def machine(self, own_step=False, **kwargs):
+        m = Machine(gate=True, guarded=True, gate_owner=True, **kwargs)
+        if own_step:
+            m.put(STATE + 32, 1)
+            m.put(STATE + 52, m.u32(STATE + 36))
+        return m
+
+    def test_parameter_write_ignores_a_foreign_reader_epoch(self):
+        for phase in ('native_resource_acquired', 'native_scope_tick'):
+            with self.subTest(phase=phase):
+                m = self.machine()
+                at = m.symbols[phase]
+                m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: m.put(STATE + 0x204, 1), begin=at, end=at)
+                m.run_sample(0xC00142D4, 1, sample_address=0xFF900018)
+                self.assertEqual((m.u32(SUCCESS), m.u32(FAULT), m.u32(MODE)), (1, 0, 1))
+                self.assertEqual((m.u32(SCOPE), m.u32(SEMA), len(m.releases)), (0, 1, 1))
+
+    def test_sample_data_and_owned_steps_remain_bound_to_the_library(self):
+        for own_step, address in ((False, DSP_MIN), (True, 0xFF900018)):
+            for phase in ('native_resource_acquired', 'native_scope_tick'):
+                with self.subTest(step=own_step, phase=phase):
+                    m = self.machine(own_step)
+                    at = m.symbols[phase]
+                    m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: m.put(STATE + 0x204, 1), begin=at, end=at)
+                    m.run_sample(0xC00142D4, 1, sample_address=address)
+                    self.assertEqual(m.u32(SUCCESS), 0)
+                    self.assertEqual(m.u32(FAULT), 2 if phase == 'native_scope_tick' else 0)
+                    self.assertEqual((m.u32(SCOPE), m.u32(SEMA), len(m.releases)), (0, 1, 1))
+
+    def test_parameter_writes_keep_the_deadline(self):
+        m = self.machine(step=p.DEADLINE_TICKS)
+        m.run_sample(0xC00142D4, 1, sample_address=0xFF900018)
+        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT), m.u32(SCOPE), m.u32(SEMA)), (0, 2, 0, 1))
+
+    def test_read_and_write_span_boundaries_and_overflow_keep_the_sample_binding(self):
+        spans = ((DSP_MIN - 128, False), (DSP_MIN - 126, True), (DSP_MIN, True),
+                 (DSP_END - 2, True), (DSP_END, False), (0xFFFFFF80, True))
+        for site in (0xC0014248, 0xC00142D4):
+            for address, bound in spans:
+                with self.subTest(site=site, address=address):
+                    m = self.machine()
+                    at = m.symbols['native_scope_tick']
+                    m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: m.put(STATE + 0x204, 1), begin=at, end=at)
+                    m.run_sample(site, 1, sample_address=address)
+                    self.assertEqual((m.u32(SUCCESS), m.u32(FAULT)), (0, 2) if bound else (1, 0))
+                    self.assertEqual((m.u32(SCOPE), m.u32(SEMA), len(m.releases)), (0, 1, 1))
+
+    def test_a_foreign_step_does_not_own_the_parameter_transaction(self):
+        m = self.machine()
+        m.put(STATE + 32, 1)
+        m.put(STATE + 52, 0xC06A2564)
+        at = m.symbols['native_scope_tick']
+        m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: m.put(STATE + 0x204, 1), begin=at, end=at)
+        m.run_sample(0xC00142D4, 1, sample_address=0xFF900018)
+        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT), m.u32(SCOPE), m.u32(SEMA)), (1, 0, 0, 1))
+
+    def test_parameter_writes_are_refused_with_irqs_masked(self):
+        m = self.machine(irq=True)
+        m.run_sample(0xC00142D4, 1, sample_address=0xFF900018)
+        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT), m.u32(SCOPE), m.u32(SEMA)), (0, 0, 0, 1))
+        self.assertEqual(m.releases, [])
+
+    def test_parameter_writes_keep_the_task_check_after_waiting(self):
+        m = self.machine()
+        at = m.symbols['native_resource_acquired']
+        m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: m.put(STATE + 36, 0xC06A2564), begin=at, end=at)
+        m.run_sample(0xC00142D4, 1, sample_address=0xFF900018)
+        self.assertEqual((m.u32(SUCCESS), m.u32(FAULT), m.u32(SCOPE), m.u32(SEMA)), (0, 0, 0, 1))
 
 
 if __name__ == '__main__':

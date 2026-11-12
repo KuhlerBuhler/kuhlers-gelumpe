@@ -7,9 +7,25 @@ No hooks or firmware RAM are installed by this module.
 SIZE = 0x10600
 
 
-def source(context, *, native=0xC004EBD4, transfer='transfer'):
+def source(context, *, native=0xC004EBD4, transfer='transfer', raw_descriptor=None):
     if context & 3 or not 0 <= context <= 0xFFFFFFFF - SIZE:
         raise ValueError('word aligned snapshot scratch required')
+    save_raw = ""
+    if raw_descriptor is not None:
+        if raw_descriptor & 3 or not 0 <= raw_descriptor <= 0xFFFFFFFF - 1172:
+            raise ValueError("word aligned raw descriptor required")
+        if raw_descriptor < context + SIZE and raw_descriptor + 1172 > context:
+            raise ValueError("raw descriptor overlaps snapshot scratch")
+        save_raw = f"""
+    mov r0, r5
+    ldr r1, ={raw_descriptor:#x}
+    ldr r2, =293
+snap_raw:
+    ldr r3, [r0], #4
+    str r3, [r1], #4
+    subs r2, r2, #1
+    bne snap_raw
+"""
     values = dict(SNAP_CTX=context, SNAP_STREAM=context + 8,
                   SNAP_DESC=context + 0xA0, SNAP_BUFFER=context + 0x600,
                   SNAP_NATIVE=native)
@@ -21,7 +37,7 @@ def source(context, *, native=0xC004EBD4, transfer='transfer'):
     else:
         raise ValueError('transfer address or assembly label required')
     return (''.join(f'.equ {name}, {value:#x}\n' for name, value in values.items())
-            + SOURCE.replace('SNAP_TRANSFER_CALL', target))
+            + SOURCE.replace('SNAP_TRANSFER_CALL', target).replace('@SAVE_RAW@', save_raw))
 
 
 SOURCE = r'''
@@ -62,6 +78,7 @@ snapshot_prepare:
     bl SNAP_NATIVE
     cmp r0, #1
     bne snap_bad
+    @SAVE_RAW@
     ldr r0, [sp, #4]
     strb r0, [r5]
     strb r0, [r5, #78]

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { RELEASE_NOTES } from "../data/release-notes.mjs";
 import { VERSION_FILE, VERSION_PATCHES, VERSION_WIDTH, versionPatch } from "../tools/patch/blech_version.mjs";
 
 const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
@@ -40,4 +41,17 @@ test("each set has the variant for its builds, and no other patch of it writes t
 test("a version that does not fit is refused", () => {
   assert.throws(() => versionPatch("10.100.1000"), /does not fit/);
   assert.throws(() => versionPatch("v1.2"), /not a version/);
+});
+
+test("the newest release notes are the version of package.json, so the patcher offers the right BLECHTRIBE", () => {
+  const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(RELEASE_NOTES[0].version, version, "write release-notes/<version>.md and run node tools/release-notes.mjs build");
+});
+
+test("known-releases.json knows every released version from 1.3.3 on, so files with it can be updated in place", () => {
+  const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  const known = JSON.parse(readFileSync(new URL("../data/known-releases.json", import.meta.url), "utf8")).releases;
+  const num = v => v.split(".").map(Number).reduce((a, n) => a * 1000 + n, 0);
+  const missing = RELEASE_NOTES.map(n => n.version).filter(v => num(v) >= num("1.3.3") && v !== version && !known.includes(v));
+  assert.deepEqual(missing, [], "run tools/known-releases.mjs with these tags (docs/development.md, Release)");
 });

@@ -16,6 +16,8 @@ ORIGIN, STATE, STACK, TRAP = 0xC1000000, 0xC2000000, 0xC2101000, 0xC0001000
 CODE, SYMBOLS = p.build_code(ORIGIN, STATE)
 LIBRARY = b"SD:/KORG/blechtribe/Sample/e2sSample.all"
 JOURNAL = LIBRARY[:-3] + b"txn"
+HEADER_MARK = LIBRARY[:-3] + b"txh"
+JOURNAL_MARK = LIBRARY[:-3] + b"txp"
 
 
 def word(value):
@@ -80,6 +82,7 @@ class Machine:
         if journal is not None:
             self.files[JOURNAL] = bytearray(journal)
         self.handles, self.calls, self.writes = {}, [], []
+        self.opens = []
         self.read_error = False
         self.open_error = None
         self.short_write = False
@@ -107,15 +110,16 @@ class Machine:
         result = 0
         if name == "OPEN":
             path = self.string(r[1])
-            if r[2] & 8:
-                self.files[path] = bytearray()
-            elif path not in self.files and r[2] & 16:
-                self.files[path] = bytearray()
+            self.opens.append(path)
             if self.open_error is not None:
                 result = self.open_error
-            elif path not in self.files:
+            elif path in self.files and r[2] & 4:
+                result = 8
+            elif r[2] & 8 or (path not in self.files and r[2] & (4 | 16)):
+                self.files[path] = bytearray()
+            if result == 0 and path not in self.files:
                 result = 4
-            else:
+            if result == 0:
                 self.handles[r[0]] = [path, 0, r[2]]
                 uc.mem_write(r[0] + 12, word(len(self.files[path])))
         elif name == "READ":
@@ -143,7 +147,7 @@ class Machine:
             if self.close_count == self.close_error_at:
                 result = self.close_error_status
         elif name == "UNLINK":
-            if self.unlink_error:
+            if self.unlink_error in (True, self.string(r[0])):
                 result = 1
             else:
                 self.files.pop(self.string(r[0]), None)
@@ -191,6 +195,124 @@ class Recovery(unittest.TestCase):
         self.assertEqual(machine.files[LIBRARY], old)
         self.assertEqual(machine.writes, [])
 
+    def test_boot_checks_only_for_the_journal_on_a_clean_card(self):
+        old = self.original()
+        for marker in (None, HEADER_MARK, JOURNAL_MARK):
+            with self.subTest(marker=marker):
+                machine = Machine(old)
+                if marker is not None:
+                    machine.files[marker] = bytearray()
+                self.assertEqual(machine.call("store_recover_boot", machine.path), 0)
+                self.assertEqual(machine.opens, [JOURNAL])
+                self.assertEqual(machine.files[LIBRARY], old)
+                self.assertEqual(machine.writes, [])
+                if marker is not None:
+                    self.assertIn(marker, machine.files)
+
+    def test_boot_still_recovers_a_published_journal(self):
+        old = self.original()
+        record, _ = transaction(old)
+        machine = Machine(old, record[:63])
+        machine.files[JOURNAL_MARK] = bytearray()
+        self.assertEqual(machine.call("store_recover_boot", machine.path), 0)
+        self.assertEqual(machine.opens[:2], [JOURNAL, JOURNAL_MARK])
+        self.assertEqual(machine.files, {LIBRARY: old})
+        self.assertEqual(machine.writes, [])
+
+    def test_interrupted_first_header_requires_its_marker_and_matching_bytes(self):
+        empty = b"e2s sample all\x1a\0" + bytes(4080)
+        for size in (0, 1, 512, 4095, 4096):
+            with self.subTest(size=size):
+                machine = Machine(empty[:size])
+                machine.files[HEADER_MARK] = bytearray()
+                self.assertEqual(machine.recover(), 0)
+                self.assertNotIn(HEADER_MARK, machine.files)
+                self.assertEqual(machine.files[LIBRARY], empty)
+                expected = [(LIBRARY, size, 4096 - size)] if size < 4096 else []
+                self.assertEqual(machine.writes, expected)
+        for data, mark in ((b"e2s", None), (b"foreign", b""), (b"", b"foreign")):
+            machine = Machine(data)
+            if mark is not None:
+                machine.files[HEADER_MARK] = bytearray(mark)
+                self.assertNotEqual(machine.recover(), 0)
+                self.assertEqual(machine.files[HEADER_MARK], mark)
+            else:
+                self.assertEqual(machine.recover(), 0)
+            self.assertEqual(machine.files[LIBRARY], data)
+            self.assertEqual(machine.writes, [])
+
+    def test_header_completion_can_be_retried_after_another_short_write(self):
+        empty = b"e2s sample all\x1a\0" + bytes(4080)
+        machine = Machine(empty[:512])
+        machine.files[HEADER_MARK] = bytearray()
+        machine.short_write = True
+        self.assertNotEqual(machine.recover(), 0)
+        self.assertIn(HEADER_MARK, machine.files)
+        self.assertEqual(machine.files[LIBRARY], empty[:-1])
+        machine.short_write = False
+        self.assertEqual(machine.recover(), 0)
+        self.assertNotIn(HEADER_MARK, machine.files)
+        self.assertEqual(machine.files[LIBRARY], empty)
+        self.assertEqual(machine.writes, [(LIBRARY, 512, 3583), (LIBRARY, 4095, 1)])
+
+    def test_interrupted_journal_publication_requires_its_marker(self):
+        old = self.original()
+        record, _ = transaction(old)
+        for size in (0, 1, 7, 63, 64, 512):
+            with self.subTest(size=size):
+                machine = Machine(old, record[:size])
+                machine.files[JOURNAL_MARK] = bytearray()
+                self.assertEqual(machine.recover(), 0)
+                self.assertEqual(machine.files, {LIBRARY: old})
+                self.assertEqual(machine.writes, [])
+        machine = Machine(old, b"foreign")
+        machine.files[JOURNAL_MARK] = bytearray()
+        self.assertNotEqual(machine.recover(), 0)
+        self.assertEqual(machine.files[JOURNAL], b"foreign")
+        self.assertIn(JOURNAL_MARK, machine.files)
+        self.assertEqual(machine.files[LIBRARY], old)
+
+    def test_unsealed_journal_refuses_unmarked_or_inconsistent_old_index(self):
+        old = self.original()
+        record, _ = transaction(old)
+        changed = bytearray(old)
+        struct.pack_into("<I", changed, 16 + 501 * 4, 4096)
+        for library, fragment, marker in ((old, b"", None), (changed, record[:63], b"")):
+            with self.subTest(size=len(fragment)):
+                machine = Machine(library, fragment)
+                if marker is not None:
+                    machine.files[JOURNAL_MARK] = bytearray(marker)
+                self.assertNotEqual(machine.recover(), 0)
+                self.assertEqual(machine.files[JOURNAL], fragment)
+                self.assertEqual(machine.files[LIBRARY], library)
+                self.assertEqual(machine.writes, [])
+
+    def test_marker_without_a_target_can_be_cleared(self):
+        for marker in (HEADER_MARK, JOURNAL_MARK):
+            with self.subTest(marker=marker):
+                machine = Machine(b"")
+                del machine.files[LIBRARY]
+                machine.files[marker] = bytearray()
+                self.assertEqual(machine.recover(), 0)
+                self.assertEqual(machine.files, {})
+                self.assertEqual(machine.writes, [])
+
+    def test_full_journal_cannot_replay_until_its_publication_marker_is_removed(self):
+        old = self.original()
+        payload = b"RIFF" + bytes(range(128))
+        record, new_header = transaction(old, payload)
+        machine = Machine(old + payload, record)
+        machine.files[JOURNAL_MARK] = bytearray()
+        machine.unlink_error = JOURNAL_MARK
+        self.assertNotEqual(machine.recover(), 0)
+        self.assertEqual(machine.files[LIBRARY], old + payload)
+        self.assertEqual(machine.writes, [])
+        self.assertIn(JOURNAL, machine.files)
+        self.assertIn(JOURNAL_MARK, machine.files)
+        machine.unlink_error = False
+        self.assertEqual(machine.recover(), 0)
+        self.assertEqual(machine.files, {LIBRARY: new_header + old[4096:] + payload})
+
     def test_verified_append_repairs_a_torn_index_sector(self):
         old = self.original()
         payload = b"RIFF" + bytes(range(256)) * 600
@@ -227,12 +349,47 @@ class Recovery(unittest.TestCase):
         bad[100] ^= 1
         changed = bytearray(old)
         changed[20] ^= 1
-        for library, record in ((old, bad), (changed, journal), (old, journal[:-1])):
+        for library, record in ((old, bad), (changed, journal), (changed, journal[:-1])):
             machine = Machine(library, record)
             self.assertNotEqual(machine.recover(), 0)
             self.assertEqual(machine.writes, [])
             self.assertIn(JOURNAL, machine.files)
 
+
+    def test_short_journal_is_discarded_only_with_the_verified_old_index(self):
+        old = self.original()
+        payload = b"RIFF" + bytes(range(128))
+        journal, new_header = transaction(old, payload)
+        library = old + payload
+        for length in (64, 65, 512, 4159):
+            with self.subTest(length=length):
+                machine = Machine(library, journal[:length])
+                self.assertEqual(machine.recover(), 0)
+                self.assertNotIn(JOURNAL, machine.files)
+                self.assertEqual(machine.files[LIBRARY], library)
+                self.assertEqual(machine.writes, [])
+
+        changed_prefix = bytearray(journal[:512])
+        changed_prefix[-1] ^= 1
+        cases = ((library, journal[:63]), (library, changed_prefix),
+                 (bytes(new_header) + library[4096:], journal[:512]),
+                 (library[:len(old) - 1], journal[:512]))
+        for data, fragment in cases:
+            with self.subTest(size=len(data), fragment=len(fragment)):
+                machine = Machine(data, fragment)
+                self.assertEqual(machine.recover(), 1)
+                self.assertEqual(machine.files[JOURNAL], fragment)
+                self.assertEqual(machine.files[LIBRARY], data)
+                self.assertEqual(machine.writes, [])
+
+        for failure, value in (("unlink_error", True), ("close_error_at", 2)):
+            with self.subTest(failure=failure):
+                machine = Machine(library, journal[:512])
+                setattr(machine, failure, value)
+                self.assertEqual(machine.recover(), 3)
+                self.assertEqual(machine.files[JOURNAL], journal[:512])
+                self.assertEqual(machine.files[LIBRARY], library)
+                self.assertEqual(machine.writes, [])
 
     def test_io_errors_keep_the_journal(self):
         old = self.original()
@@ -371,7 +528,7 @@ class Store(unittest.TestCase):
     def test_every_close_failure_keeps_a_recoverable_index(self):
         old = sampleset.build({500: ("old", 100), 501: ("other", 200)})
         old_index = struct.unpack_from("<I", old, 2016)[0]
-        for phase in range(1, 7):
+        for phase in range(1, 8):
             with self.subTest(close=phase):
                 machine = Machine(old)
                 machine.source = sampleset.wav(500, "new", 100)
@@ -380,19 +537,19 @@ class Store(unittest.TestCase):
                                                  500, len(machine.source)), 0)
                 self.assertEqual(machine.files[LIBRARY][4096:len(old)], old[4096:])
                 actual_index = struct.unpack_from("<I", machine.files[LIBRARY], 2016)[0]
-                self.assertEqual(actual_index, len(old) if phase >= 5 else old_index)
-                self.assertEqual(JOURNAL in machine.files, phase >= 3)
+                self.assertEqual(actual_index, len(old) if phase >= 6 else old_index)
+                self.assertEqual(JOURNAL in machine.files, phase >= 4)
                 machine.close_error_at = None
                 self.assertEqual(machine.recover(), 0)
                 recovered_index = struct.unpack_from("<I", machine.files[LIBRARY], 2016)[0]
-                self.assertEqual(recovered_index, len(old) if phase >= 3 else old_index)
+                self.assertEqual(recovered_index, len(old) if phase >= 4 else old_index)
                 self.assertNotIn(JOURNAL, machine.files)
 
     def test_failed_journal_removal_does_not_report_success(self):
         old = sampleset.build({500: ("old", 100), 501: ("other", 200)})
         machine = Machine(old)
         machine.source = sampleset.wav(500, "new", 100)
-        machine.unlink_error = True
+        machine.unlink_error = JOURNAL
         self.assertNotEqual(machine.call("store_put", machine.path, machine.descriptor,
                                          500, len(machine.source)), 0)
         self.assertIn(JOURNAL, machine.files)
@@ -430,6 +587,13 @@ class Store(unittest.TestCase):
         machine.source = sampleset.wav(500, "new", 100)
         self.assertEqual(machine.call("store_put", machine.path, machine.descriptor, 500, len(machine.source)), 0)
         self.assertEqual(machine.files[LIBRARY][4096:], machine.source)
+
+    def test_import_does_not_take_over_an_unmarked_empty_library(self):
+        machine = Machine(b"")
+        machine.source = sampleset.wav(500, "new", 100)
+        self.assertNotEqual(machine.call("store_put", machine.path, machine.descriptor, 500, len(machine.source)), 0)
+        self.assertEqual(machine.files, {LIBRARY: b""})
+        self.assertEqual(machine.writes, [])
 
     def test_invalid_sources_and_slots_never_modify_the_existing_library(self):
         old = sampleset.build({500: ("old", 100)})

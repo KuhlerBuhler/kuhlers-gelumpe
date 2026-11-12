@@ -1,9 +1,12 @@
 # 64. Projekte: Patterns und Samples zusammen laden
 
-Stand: 8. November 2026. **Neue Richtung, noch nicht ausgearbeitet:** Samples sollen als einzelne
-Audiodateien in einem Ordner liegen und von dort bei Bedarf geladen werden. Dafür soll weder eine
-Sample-`.all` noch ein gemeinsamer Container nötig sein. Die Zuordnung zu Slots, Pattern-Verweise
-und das Speichern werden später festgelegt.
+**Verworfen (10.11.2026).** Es gibt keine Projektordner mit eigener `e2sSample.all`. Samples kommen einzeln in den
+Sample-Ordner, das Gerät zeigt alle an, und Sample Swap macht beliebig viele möglich. Die Recherche unten bleibt
+als Nachschlagewerk stehen, etwa zum gezielten Speichern einzelner Patterns.
+
+Stand: 25. Oktober 2026. **Recherchiert und teilweise im Emulator geprüft, nicht gebaut.**
+Am Gerät ist nichts geprüft. Es gibt noch keinen Projekt-Import und keinen neuen Firmware-Patch.
+Die Umsetzung beginnt erst nach Zustimmung.
 
 Der aktuelle Sample-Swap wird zunächst mit der bestehenden `e2sSample.all` fertiggestellt.
 Der neue Ordneransatz ist keine Voraussetzung für diesen Schritt.

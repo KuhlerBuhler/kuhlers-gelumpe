@@ -28,9 +28,9 @@ import fat32  # noqa: E402
 import firmware  # noqa: E402
 import sample_swap as spec  # noqa: E402
 import sampleset  # noqa: E402
-from machine import DSP_DATA, Machine, load_flash  # noqa: E402
+from machine import DSP_DATA, Machine, load_flash, STOCK_BOOT_LIMIT_S  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
-from splash_cases import SWITCH_SCREEN, Dev  # noqa: E402
+from splash_cases import SWITCH_SCREEN, TICK as SCREEN_TICK, Dev  # noqa: E402
 
 IMAGE, HEADER = 0xC0000000, 0x100
 NAMES, PLAYBACK, META = 0xC047B080, 0xC0362EE8, 0xC036AD88
@@ -133,6 +133,18 @@ class Box:
             before_boot(self)
         self.dev = Dev(self.payload, flash, held=held, machine=self.m)
         self.dev.run(1.0)
+        if not self.until(lambda: self.m.screen() == 1, max(0, STOCK_BOOT_LIMIT_S - self.now())):
+            raise RuntimeError("the native sample loader did not reach the main screen")
+        ready = []
+        tick = self.dev.a(SCREEN_TICK)
+        hook = self.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: ready.append(True), begin=tick, end=tick)
+        self.m.uc.ctl_flush_tb()
+        try:
+            if not self.until(lambda: bool(ready), max(0, STOCK_BOOT_LIMIT_S - self.now())):
+                raise RuntimeError("the main screen did not start drawing after the sample load")
+        finally:
+            self.m.uc.hook_del(hook)
+            self.m.uc.ctl_flush_tb()
 
     def u32(self, addr):
         return struct.unpack("<I", bytes(self.m.uc.mem_read(addr, 4)))[0]
@@ -555,7 +567,7 @@ FLOWS = [
     ("import sample", "import sample", [("menu", 1), ("turn1", 1), ("menu", 6), ("menu", 30), ("menu", 1)], None),
     ("export all sample", "export all sample", [("menu", 1), ("menu", 1), ("menu", 60), ("menu", 1)], None),
     ("export all pattern", "export all pattern", EXPORT_PATTERNS, None),
-    ("import all pattern", "import all pattern", [("menu", 1), ("menu", 1), ("turn1", 1), ("menu", 1), ("turn2", 1), ("menu", 30), ("menu", 1)],
+    ("import all pattern", "import all pattern", [("menu", 1), ("menu", 1), ("turn1", 1), ("menu", 1), ("pattern_file", 1), ("menu", 30), ("menu", 1)],
      ("export all pattern", EXPORT_PATTERNS)),
     ("sampling and resampling", None, None, None),
 ]
@@ -567,13 +579,29 @@ def plain_wav(frames):
             + b"data" + struct.pack("<I", len(data)) + data)
 
 
-WRITERS = ("import sample", "import all pattern")   # flows that measurably write the work buffer; EXPORT ALL SAMPLE is refused
+WRITERS = ("import all pattern",)   # flows that write the native work buffer
+
+
+def pattern_file_delta(box):
+    folder = f"KORG/{cardstore.card_folder(box.payload)}"
+    volume = fat32.Volume(bytes(box.m.mmc.card.medium.data))
+    try:
+        entries = volume.listdir(folder)
+    finally:
+        volume.close()
+    patterns = [entry.name for entry in entries if not entry.is_dir and entry.name.lower().endswith(".e2sallpat")]
+    if patterns != ["electribe_sampler_allpattern.e2sallpat"]:
+        raise ValueError(f"expected one generated pattern export, found {patterns}")
+    # The native browser starts on Upper Folder and lists directories before the export.
+    return 1 + sum(entry.is_dir and not entry.name.startswith(".") for entry in entries)
 
 
 def steps_on(box, page, steps):
     found = box.data_utility(page)
     for k, wait in steps:
-        if k.startswith("turn"):
+        if k == "pattern_file":
+            box.dev.turn(pattern_file_delta(box), wait)
+        elif k.startswith("turn"):
             box.dev.turn(int(k[4:]), wait)
         else:
             box.tap(k, wait)
@@ -755,30 +783,9 @@ def case_integrity(payload, flash):
     return [entry(row['id'], row['ok'], row) for row in swap_integrity_cases.cases(payload, flash)]
 
 
-# ------------------------------------------------------------------ what only the DSP holds
-def case_import_kept(payload, flash):
-    """IMPORT SAMPLE writes only the DSP. The imported row must outlive later pattern switches: the file has no copy."""
-    bank = {0: [500], 1: [501, 502], 2: [503, 504], 3: [505]}
-    box = Box(payload, flash, small(range(500, 506)), [500], bank=bank, cap=0x60000,
-              extra={"/imp.wav": plain_wav(20000).hex()})
-    name, page, steps, _ = FLOWS[0]
-    found = steps_on(box, page, steps)
-    imported = bytes(box.m.uc.mem_read(NAMES + 500 * 32 + 12, 4)) == b"imp\0"
-    length = box.extent(500)[1]
-    box.key("play", 0.2)
-    rows = []
-    for n in (1, 2, 3, 0):
-        box.choose(n)
-        hit = box.until(lambda: box.running() == n, 20.0)
-        box.run(0.5)
-        rows.append(dict(pattern=n, switched=hit, resident=box.residents(),
-                         name=bytes(box.m.uc.mem_read(NAMES + 500 * 32 + 12, 4)).rstrip(b"\0").decode(errors="replace"),
-                         length=box.extent(500)[1] if box.resident(500) else None))
-    kept = all(r["switched"] and 500 in r["resident"] and r["name"] == "imp" and r["length"] == length for r in rows)
-    moved = any(r["switched"] and len(r["resident"]) < 6 for r in rows)
-    return [entry("an_imported_sample_survives_pattern_switches",
-                  found and imported and length == 40000 and kept and moved and not box.m.asserts,
-                  dict(found=found, imported=imported, length=length, switches=rows))]
+def case_import_menu(payload, flash):
+    import sample_import_menu_cases
+    return sample_import_menu_cases.all_cases(payload, flash)
 
 
 def case_factory_after_fault(payload, flash):
@@ -922,12 +929,67 @@ def case_name_read_failures(payload, flash):
     return rows
 
 
+def case_import_card_restart(payload, flash):
+    import sample_import_card_cases
+    return sample_import_card_cases.cases(payload, flash, ("full", "cuts"))
+
+
+def case_import_card_io(payload, flash):
+    import sample_import_card_cases
+    return sample_import_card_cases.cases(payload, flash, ("short_journal", "short_index", "unlink"))
+
+def case_import_header_publication(payload, flash):
+    import sample_import_card_cases
+    return sample_import_card_cases.cases(payload, flash, ("header_empty", "header_short"))
+
+
+def case_import_journal_publication(payload, flash):
+    import sample_import_card_cases
+    return sample_import_card_cases.cases(payload, flash, ("journal_empty", "journal_short"))
+
+def case_import_mode(payload, flash):
+    import sample_import_menu_cases
+    return [sample_import_menu_cases.rejected_case(payload, flash, missing=missing) for missing in (False, True)]
+
+def case_native_persist_edits(payload, flash):
+    import native_sample_persistence_cases as p
+    return [p.edit_case(payload, write=False, flash=flash),
+            p.edit_case(payload, write=True, flash=flash),
+            p.edit_case(payload, write=True, fail=True, flash=flash),
+            p.edit_case(payload, write=True, relocated=True, flash=flash)]
+
+
+def case_native_persist_delete(payload, flash):
+    import native_sample_persistence_cases as p
+    return [p.delete_case(payload, fail=failed, flash=flash) for failed in (False, True)] + [p.delete_case(payload, shared=True, flash=flash)]
+
+
+def case_native_persist_captures(payload, flash):
+    import native_sample_persistence_cases as p
+    return [p.capture_case(payload, source=source, stereo=stereo, flash=flash)
+            for source in (0, 1) for stereo in (0, 1)]
+
+
+def case_native_persist_capture_failures(payload, flash):
+    import native_sample_persistence_cases as p
+    return [p.capture_case(payload, write=False, flash=flash),
+            p.capture_case(payload, fail=True, flash=flash),
+            p.capture_case(payload, offloaded=True, flash=flash),
+            p.capture_case(payload, missing=True, flash=flash),
+            p.capture_case(payload, library_alias=True, flash=flash),
+            p.capture_case(payload, indirect_alias=True, flash=flash),
+            p.capture_case(payload, small_alias=True, flash=flash)]
+
+
 GROUPS = (case_start, case_long_set, case_gate, case_chain, case_eviction, case_part_change, case_cache, case_checksum,
           case_equal, *[(lambda i: lambda payload, flash: flow_task(payload, flash, i))(i) for i in range(len(FLOWS))],
           case_failure_gates, case_full_session, case_prefetch_targets, case_alias_eviction, case_voice_residency, case_store,
           case_file_owner, case_integrity, case_native_dsp, case_native_sample_faults, case_osc_choice,
-          case_import_kept, case_factory_after_fault, case_bad_journal, case_protection, case_unloaded_names,
-          case_name_read_failures)
+          case_import_menu, case_factory_after_fault, case_bad_journal, case_protection, case_unloaded_names,
+          case_name_read_failures, case_import_card_restart, case_import_card_io,
+          case_import_header_publication, case_import_journal_publication, case_import_mode,
+          case_native_persist_edits, case_native_persist_delete, case_native_persist_captures,
+          case_native_persist_capture_failures)
 
 
 def group_entries(payload, flash, i):

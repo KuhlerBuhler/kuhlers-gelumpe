@@ -13,7 +13,7 @@ API = dict(OPEN=0xC009DB60, READ=0xC009DD74, WRITE=0xC009DFB8,
 
 
 def _constants(state):
-    return dict(CTX=state, FIL=state, GOT=state + 0x240, LIB_PATH=state + 0x250,
+    return dict(CTX=state, FIL=state, GOT=state + 0x240, MARK_PTR=state + 0x244, LIB_PATH=state + 0x250,
                 JOURNAL=state + 0x300, TXN_PATH=state + 0x1340,
                 HEAD=state + 0x1400, BUFFER=state + 0x3000,
                 **{f"FS_{name}": address for name, address in API.items()})
@@ -29,16 +29,31 @@ def _render(code):
     return re.sub(r"\b(?:sr|sj|sv|sl|sw|sf|sc|sp|si|ss)_[a-z0-9_]+\b", lambda match: "store_" + match.group(), code)
 
 
-def source(state, include_writer=True):
+def source(state, include_writer=True, *, defer_short=False, defer_publish=False):
     if state & 3:
         raise ValueError("scratch must be word aligned")
     constants = _constants(state)
     equs = "".join(f".equ {name}, {value:#x}\n" for name, value in constants.items())
-    return _render(equs + SOURCE + (WRITE_SOURCE if include_writer else ""))
+    equs += ".equ MARK_HEADER, 104\n.equ MARK_JOURNAL, 112\n"
+    return _render(equs + SOURCE + (WRITE_SOURCE if include_writer else "")
+                   + ("" if defer_short else SHORT_SOURCE)
+                   + ("" if defer_publish else PUBLISH_SOURCE + UNSEALED_SOURCE))
 
 
 def writer_source():
     return _render(WRITE_SOURCE)
+
+
+def short_recovery_source():
+    return _render(SHORT_SOURCE)
+
+
+def publication_source():
+    return _render(PUBLISH_SOURCE)
+
+
+def unsealed_recovery_source():
+    return _render(UNSEALED_SOURCE)
 
 
 def build_code(origin, state):
@@ -49,11 +64,15 @@ def build_code(origin, state):
 
 
 SOURCE = r"""
-; r0 library path ending in .all. Returns 0 for no journal or completed recovery, 1 when the journal was refused before
-; anything was written (the index is as it was), 3 when the card did not answer the journal's open or writing the recovered
-; index failed.
+; r0 library path ending in .all. Returns 0 if recovered or absent, 1 if refused without changing the index, 3 on I/O error.
 store_recover:
+    mov r1, #0
+    b sr_enter
+store_recover_boot:
+    mov r1, #1
+sr_enter:
     push {r3-r11, lr}
+    mov r9, r1
     ldr r11, =CTX
     ldr r4, =LIB_PATH
     ldr r5, =TXN_PATH
@@ -83,12 +102,27 @@ sr_suffix:
     strb r1, [r0, #1]
     mov r1, #110
     strb r1, [r0, #2]
+    add r0, r0, #2
+    ldr r1, =MARK_PTR
+    str r0, [r1]
     bl store_read_journal
     cmp r0, #2
+    cmpeq r9, #1
     beq sr_ok
     cmp r0, #3
     beq sr_failed
-    cmp r0, #0
+    mov r10, r0
+    mov r9, r1
+    mov r0, #MARK_JOURNAL
+    bl store_probe_marker
+    cmp r0, #2
+    bhi sr_failed
+    mov r8, r0
+    cmp r10, #2
+    beq sr_no_journal
+    cmp r10, #4
+    beq sr_short
+    cmp r10, #0
     bne sr_bad
     bl store_validate
     cmp r0, #0
@@ -114,6 +148,9 @@ sr_copy:
     ldr r0, [r4, #28]
     str r0, [r1]
 sr_write:
+    bl store_finish_journal_marker
+    cmp r0, #0
+    bne sr_failed
     bl store_write_header
     cmp r0, #0
     bne sr_failed
@@ -126,6 +163,23 @@ sr_write:
     bne sr_failed
 sr_ok:
     mov r0, #0
+    pop {r3-r11, pc}
+sr_no_journal:
+    bl store_recover_first_header
+    b sr_finish
+sr_short:
+    mov r0, r9
+    cmp r9, #64
+    bhs sr_sealed
+    cmp r8, #0
+    bne sr_bad
+    bl store_cancel_unsealed
+    b sr_finish
+sr_sealed:
+    bl store_cancel_short_journal
+sr_finish:
+    cmp r0, #0
+    bleq store_finish_journal_marker
     pop {r3-r11, pc}
 sr_bad:
     mov r0, #1
@@ -244,7 +298,7 @@ store_header_bad:
     pop {r4-r6, pc}
 .pool
 
-; Returns 0 with the journal read, 2 for no journal, 1 for a journal that cannot be used, 3 when the card did not answer.
+; 0 complete, 1 unusable, 2 absent, 3 I/O error, 4 fragment (r1 bytes).
 store_read_journal:
     push {r4, lr}
     ldr r0, =FIL
@@ -259,16 +313,30 @@ store_read_journal:
     movne r0, #3
     popne {r4, pc}
     ldr r0, =FIL
-    ldr r0, [r0, #12]
+    ldr r4, [r0, #12]
     ldr r1, =4160
-    cmp r0, r1
-    movne r0, #1
-    bne sj_close
-    ldr r1, =JOURNAL
-    mov r2, r0
-    bl store_read
-sj_close:
+    cmp r4, r1
+    bhi sj_invalid
+    mov r0, #0
+    cmp r4, #0
+    ldrne r1, =JOURNAL
+    movne r2, r4
+    blne store_read
     bl store_close
+    cmp r0, #0
+    movne r0, #3
+    popne {r4, pc}
+    ldr r2, =4160
+    cmp r4, r2
+    mov r1, r4
+    movne r0, #4
+    pop {r4, pc}
+sj_invalid:
+    mov r0, #0
+    bl store_close
+    cmp r0, #0
+    moveq r0, #1
+    movne r0, #3
     pop {r4, pc}
 
 store_validate:
@@ -545,6 +613,22 @@ store_read:
     movne r0, #1
     pop {r4, pc}
 
+store_write:
+    push {r4, lr}
+    mov r4, r2
+    ldr r0, =FIL
+    ldr r3, =GOT
+    bl FS_WRITE
+    cmp r0, #0
+    movne r0, #1
+    popne {r4, pc}
+    ldr r0, =GOT
+    ldr r0, [r0]
+    cmp r0, r4
+    moveq r0, #0
+    movne r0, #1
+    pop {r4, pc}
+
 ; r0 an earlier error flag; closing must succeed as well.
 store_close:
     push {r4, lr}
@@ -581,14 +665,71 @@ sc_done:
 """
 
 
+SHORT_SOURCE = r"""
+; A fragment can be discarded only when the sealed journal matches the live old index.
+store_cancel_short_journal:
+    push {r4-r8, lr}
+    sub r4, r0, #64
+    ldr r0, =FIL
+    ldr r1, =LIB_PATH
+    mov r2, #1
+    bl FS_OPEN
+    cmp r0, #0
+    bne sj_io_error
+    ldr r0, =FIL
+    ldr r7, [r0, #12]
+    ldr r5, =HEAD
+    mov r1, r5
+    mov r2, #4096
+    bl store_read
+    bl store_close
+    cmp r0, #0
+    bne sj_io_error
+    ldr r6, =JOURNAL
+    ldr r0, [r6, #20]
+    cmp r7, r0
+    blo sj_conflict
+    add r6, r6, #64
+    mov r1, #0
+sj_restore:
+    ldrb r0, [r5, r1]
+    cmp r1, r4
+    bhs sj_copy_byte
+    ldrb r2, [r6, r1]
+    cmp r0, r2
+    bne sj_conflict
+sj_copy_byte:
+    strb r0, [r6, r1]
+    add r1, r1, #1
+    cmp r1, #4096
+    blo sj_restore
+    bl store_validate
+    cmp r0, #0
+    bne sj_conflict
+    ldr r0, =TXN_PATH
+    bl FS_UNLINK
+    cmp r0, #0
+    beq sj_return
+sj_io_error:
+    mov r0, #3
+sj_return:
+    pop {r4-r8, pc}
+sj_conflict:
+    mov r0, #1
+    pop {r4-r8, pc}
+.pool
+"""
+
+
 WRITE_SOURCE = r"""
 ; r0 library path, r1 {read callback, context}, r2 slot, r3 canonical entry length. Caller owns the parent directory.
-; The callback receives context, offset, destination, length and returns status, completed count in r0, r1.
+; Bit 31 of r2 requires an empty slot. The callback returns status and completed count in r0, r1.
 store_put:
     push {r3-r11, lr}
     mov r4, r0
     mov r5, r1
-    mov r6, r2
+    and r10, r2, #0x80000000
+    bic r6, r2, #0x80000000
     mov r7, r3
     cmp r5, #0
     beq sp_bad
@@ -603,6 +744,7 @@ store_delete:
     mov r6, r1
     mov r5, #0
     mov r7, #0
+    mov r10, #0
 sp_start:
     cmp r6, #500
     blo sp_bad
@@ -622,45 +764,26 @@ sp_start:
 sp_open:
     ldr r0, =FIL
     ldr r1, =LIB_PATH
-    cmp r5, #0
-    moveq r2, #3
-    movne r2, #0x13
+    mov r2, #3
     bl FS_OPEN
     cmp r0, #0
-    beq sp_opened
-    cmp r5, #0
-    bne sp_bad
+    beq sp_have_file
     cmp r0, #4
-    cmpne r0, #5
+    bne sp_no_file
+    cmp r5, #0
+    beq sp_ok
+    bl store_create_first_header
+    cmp r0, #0
+    beq sp_open
+    b sp_bad
+sp_no_file:
+    cmp r5, #0
+    cmpeq r0, #5
     beq sp_ok
     b sp_bad
-sp_opened:
+sp_have_file:
     ldr r0, =FIL
     ldr r8, [r0, #12]
-    cmp r8, #0
-    bne sp_have_file
-    ldr r1, =JOURNAL + 64
-    mov r2, #1024
-    mov r0, #0
-sp_empty:
-    str r0, [r1], #4
-    subs r2, r2, #1
-    bne sp_empty
-    ldr r1, =JOURNAL + 64
-    ldr r0, =HEADER0
-    str r0, [r1]
-    ldr r0, =HEADER1
-    str r0, [r1, #4]
-    ldr r0, =HEADER2
-    str r0, [r1, #8]
-    ldr r0, =HEADER3
-    str r0, [r1, #12]
-    mov r2, #4096
-    bl store_write
-    cmp r0, #0
-    bne sp_close_error
-    mov r8, #4096
-sp_have_file:
     cmp r8, #4096
     blo sp_close_error
     ldr r0, =FIL
@@ -678,6 +801,13 @@ sp_have_file:
     bl store_header_valid
     cmp r0, #0
     bne sp_close_error
+    cmp r10, #0
+    beq sp_replace
+    ldr r0, =JOURNAL + 80
+    ldr r0, [r0, r6, lsl #2]
+    cmp r0, #0
+    bne sp_close_error
+sp_replace:
     cmp r5, #0
     beq sp_changed
     bl store_same_source
@@ -764,9 +894,13 @@ sp_appended:
     bl store_check_library
     cmp r0, #0
     bne sp_bad
+    mov r0, #MARK_JOURNAL
+    bl store_create_marker
+    cmp r0, #0
+    bne sp_bad
     ldr r0, =FIL
     ldr r1, =TXN_PATH
-    mov r2, #0xA
+    mov r2, #6
     bl FS_OPEN
     cmp r0, #0
     bne sp_bad
@@ -785,6 +919,10 @@ sp_appended:
     bne sp_bad
     ldr r0, [r4, #60]
     cmp r0, r10
+    bne sp_bad
+    mov r0, #MARK_JOURNAL
+    bl store_remove_marker
+    cmp r0, #0
     bne sp_bad
     add r0, r4, #64
     ldr r1, =HEAD
@@ -875,22 +1013,6 @@ store_write_index:
     bl store_write
 si_close:
     bl store_close
-    pop {r4, pc}
-
-store_write:
-    push {r4, lr}
-    mov r4, r2
-    ldr r0, =FIL
-    ldr r3, =GOT
-    bl FS_WRITE
-    cmp r0, #0
-    movne r0, #1
-    popne {r4, pc}
-    ldr r0, =GOT
-    ldr r0, [r0]
-    cmp r0, r4
-    moveq r0, #0
-    movne r0, #1
     pop {r4, pc}
 
 store_source:
@@ -1089,5 +1211,277 @@ store_validate_source:
 ss_bad:
     mov r0, #1
     pop {r4, pc}
+.pool
+"""
+
+
+PUBLISH_SOURCE = r"""
+; The empty .txh and .txp files witness publication before either target is created.
+store_probe_marker:
+    mov r1, #1
+    b store_open_marker
+store_create_marker:
+    mov r1, #6
+store_open_marker:
+    push {r4-r6, lr}
+    mov r2, r1
+    ldr r4, =MARK_PTR
+    ldr r4, [r4]
+    strb r0, [r4]
+    ldr r0, =FIL
+    ldr r1, =TXN_PATH
+    mov r6, r2
+    bl FS_OPEN
+    mov r1, #110
+    strb r1, [r4]
+    cmp r0, #0
+    beq marker_opened
+    cmp r6, #1
+    beq marker_absent
+    mov r0, #3
+    pop {r4-r6, pc}
+marker_absent:
+    cmp r0, #4
+    cmpne r0, #5
+    moveq r0, #2
+    movne r0, #3
+    pop {r4-r6, pc}
+marker_opened:
+    ldr r0, =FIL
+    ldr r0, [r0, #12]
+    bl store_close
+    cmp r0, #0
+    movne r0, #3
+    pop {r4-r6, pc}
+
+store_finish_journal_marker:
+    cmp r8, #0
+    movne r0, #0
+    bxne lr
+    mov r0, #MARK_JOURNAL
+store_remove_marker:
+    push {r4, lr}
+    ldr r4, =MARK_PTR
+    ldr r4, [r4]
+    strb r0, [r4]
+    ldr r0, =TXN_PATH
+    bl FS_UNLINK
+    mov r1, #110
+    strb r1, [r4]
+    cmp r0, #0
+    movne r0, #3
+    pop {r4, pc}
+
+store_create_first_header:
+    push {r4, lr}
+    mov r0, #MARK_HEADER
+    bl store_create_marker
+    cmp r0, #0
+    popne {r4, pc}
+    ldr r0, =FIL
+    ldr r1, =LIB_PATH
+    mov r2, #6
+    bl FS_OPEN
+    cmp r0, #0
+    popne {r4, pc}
+    bl store_empty_header
+    mov r2, #4096
+    bl store_write
+    bl store_close
+    cmp r0, #0
+    popne {r4, pc}
+    bl store_check_first_header
+    cmp r0, #0
+    moveq r0, #MARK_HEADER
+    bleq store_remove_marker
+    pop {r4, pc}
+
+store_recover_first_header:
+    push {r4, lr}
+    mov r0, #MARK_HEADER
+    bl store_probe_marker
+    cmp r0, #2
+    moveq r0, #0
+    popeq {r4, pc}
+    cmp r0, #0
+    popne {r4, pc}
+    bl store_check_first_header
+    cmp r0, #2
+    moveq r0, #0
+    cmp r0, #1
+    moveq r0, r1
+    bleq store_complete_first_header
+    cmp r0, #0
+    moveq r0, #MARK_HEADER
+    bleq store_remove_marker
+    pop {r4, pc}
+
+; 0 exact header, 1 exact incomplete prefix, 2 absent, 3 unverified.
+store_check_first_header:
+    push {r4-r6, lr}
+    ldr r0, =FIL
+    ldr r1, =LIB_PATH
+    mov r2, #1
+    bl FS_OPEN
+    cmp r0, #4
+    moveq r0, #2
+    popeq {r4-r6, pc}
+    cmp r0, #0
+    bne marker_bad
+    ldr r0, =FIL
+    ldr r4, [r0, #12]
+    cmp r4, #4096
+    movhi r0, #1
+    bhi marker_close
+    mov r0, #0
+    cmp r4, #0
+    ldrne r1, =HEAD
+    movne r2, r4
+    blne store_read
+marker_close:
+    bl store_close
+    cmp r0, #0
+    bne marker_bad
+    bl store_empty_header
+    mov r0, r1
+    ldr r1, =HEAD
+    mov r2, r4
+    bl store_prefix_equal
+    cmp r0, #0
+    bne marker_bad
+    cmp r4, #4096
+    movne r0, #1
+    mov r1, r4
+    pop {r4-r6, pc}
+marker_bad:
+    mov r0, #3
+    pop {r4-r6, pc}
+
+store_empty_header:
+    ldr r1, =JOURNAL + 64
+    mov r2, #1024
+    mov r0, #0
+marker_zero:
+    str r0, [r1], #4
+    subs r2, r2, #1
+    bne marker_zero
+    ldr r1, =JOURNAL + 64
+    ldr r0, =HEADER0
+    str r0, [r1]
+    ldr r0, =HEADER1
+    str r0, [r1, #4]
+    ldr r0, =HEADER2
+    str r0, [r1, #8]
+    ldr r0, =HEADER3
+    str r0, [r1, #12]
+    bx lr
+
+store_prefix_equal:
+    cmp r2, #0
+    moveq r0, #0
+    bxeq lr
+    ldrb r3, [r0], #1
+    ldrb r12, [r1], #1
+    cmp r3, r12
+    movne r0, #1
+    bxne lr
+    sub r2, r2, #1
+    b store_prefix_equal
+.pool
+"""
+
+UNSEALED_SOURCE = r"""
+; r0 exact prefix length; JOURNAL + 64 contains the expected empty header.
+store_complete_first_header:
+    push {r4-r6, lr}
+    mov r4, r0
+    ldr r0, =FIL
+    ldr r1, =LIB_PATH
+    mov r2, #3
+    bl FS_OPEN
+    cmp r0, #0
+    bne complete_header_bad
+    ldr r0, =FIL
+    ldr r1, [r0, #12]
+    cmp r1, r4
+    movne r0, #1
+    bne complete_header_close
+    mov r1, r4
+    bl FS_SEEK
+    cmp r0, #0
+    bne complete_header_close
+    ldr r1, =JOURNAL + 64
+    add r1, r1, r4
+    rsb r2, r4, #4096
+    bl store_write
+complete_header_close:
+    bl store_close
+    cmp r0, #0
+    bleq store_check_first_header
+    cmp r0, #0
+    popeq {r4-r6, pc}
+complete_header_bad:
+    mov r0, #3
+    pop {r4-r6, pc}
+
+store_cancel_unsealed:
+    push {r4-r8, lr}
+    mov r4, r0
+    cmp r0, #12
+    movhi r0, #12
+    mov r2, r0
+    ldr r0, =marker_journal_prefix
+    ldr r1, =JOURNAL
+    bl store_prefix_equal
+    cmp r0, #0
+    bne unsealed_done
+    ldr r0, =FIL
+    ldr r1, =LIB_PATH
+    mov r2, #1
+    bl FS_OPEN
+    cmp r0, #0
+    bne unsealed_io
+    ldr r0, =FIL
+    ldr r5, [r0, #12]
+    ldr r1, =HEAD
+    mov r2, #4096
+    bl store_read
+    bl store_close
+    cmp r0, #0
+    bne unsealed_io
+    ldr r0, =HEAD
+    mov r1, r5
+    bl store_header_valid
+    cmp r0, #0
+    bne unsealed_done
+    cmp r4, #40
+    bls unsealed_remove
+    ldr r0, =HEAD
+    mov r1, #4096
+    mvn r2, #0
+    bl store_crc
+    mvn r0, r0
+    sub sp, sp, #8
+    str r0, [sp]
+    sub r2, r4, #40
+    cmp r2, #4
+    movhi r2, #4
+    mov r0, sp
+    ldr r1, =JOURNAL + 40
+    bl store_prefix_equal
+    add sp, sp, #8
+    cmp r0, #0
+    bne unsealed_done
+unsealed_remove:
+    ldr r0, =TXN_PATH
+    bl FS_UNLINK
+    cmp r0, #0
+    beq unsealed_done
+unsealed_io:
+    mov r0, #3
+unsealed_done:
+    pop {r4-r8, pc}
+marker_journal_prefix:
+    .word MAGIC0, MAGIC1, 1
 .pool
 """

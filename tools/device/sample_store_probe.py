@@ -22,7 +22,7 @@ import arm
 import sample_store
 import sampleset
 from sample_swap_paths import Link
-from sample_swap_probe import MAGIC, STUB, elapsed
+from sample_swap_probe import MAGIC, STUB, elapsed, SWAP_MODE, LEGACY_SWAP_MODE
 
 CODE, SCRATCH, SOURCE = 0xC3F00000, 0xC3E00000, 0xC3D00000
 REGIONS = ((STUB, 1024), (CODE, 0xA000), (SCRATCH, 0x20000), (SOURCE, 0x20000))
@@ -40,7 +40,7 @@ def test_path(path):
 
 def idle(link):
     word = lambda at: struct.unpack('<I', link.read(at, 4))[0]
-    if word(0xC0188530) not in (0, 0xFFFFFFFF):
+    if word(SWAP_MODE) not in (0, 0xFFFFFFFF) or word(LEGACY_SWAP_MODE) in (1, 2):
         raise ValueError('active or faulted swap owns the test RAM')
     manager = word(0xC03404C0)
     if not 0xC0200000 <= manager < 0xC4000000 or word(manager + 0x2C) != 1 or word(manager + 0x24):

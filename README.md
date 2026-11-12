@@ -60,15 +60,16 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 
 | | Sampler (rot) Original | Synth (blau) Original | Sampler mit Hacktribe | **BLECHTRIBE** rot | **BLECHTRIBE** blau | **BLECHTRIBE** mit Hacktribe |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
-| Eigene Samples aufnehmen und laden | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Eigene Samples aufnehmen und laden | ✅ | ➖ | ✅ | ✅ | ➖ | ✅ |
 | Erweiterte Hacktribe-Oszillatorbank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Zusätzliche Hacktribe-MFX, IFX, Grooves und Skalen | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | FX und Grooves über die Hacktribe-Menüs importieren/exportieren | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Eigenes INIT-Pattern über Hacktribe | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Hacktribe-MIDI-Erweiterungen | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Unveränderte Werks-Samplebank der roten Electribe nutzen | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Eigenes INIT-Pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Hacktribe-SysEx (für den Hacktribe-Editor) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Eigene USB-Befehle für die App (RAM, Karte, Plugins) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Unveränderte Werks-Samplebank der roten Electribe nutzen | ✅ | ➖ | ❌ | ✅ | ➖ | ❌ |
 | Anpassbare Oberfläche (Startbild, Schrift, Ausschaltbild) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Ladeanimation mit Fortschritt | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Ladeanimation mit Fortschritt | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
 | Startbild selbst malen | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Synth-Filter (MS20, Acid, ...) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Effekte frei bearbeiten (App) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
@@ -84,13 +85,15 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | KEY über die Pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Filter an und aus (SHIFT + Filtertaste) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Einstellungen speichern sich beim Verlassen des Menüs (AUTO SAVE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Akkorde in Pink | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| TAP Motion | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Akkord-Pads farbig hervorheben | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Motion Sequences ein- und ausschalten | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Notenassistent | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Würfeln (Zufallsmelodie) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Klare Meldung bei kaputten Samples | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Klare Meldung bei kaputten Samples | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
 | Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Update über USB aus der App | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Update über USB aus der App | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+
+➖ heißt: gibt es auf dem Synth nicht, weil er keine Samples lädt.
 
 Hacktribe ist eine eigene Firmwarebasis. BLECHTRIBE ergänzt sie; es schaltet diese
 Hacktribe-Funktionen auf einem Korg-Original nicht automatisch frei. Ausnahme sind die Hacktribe-Oszillatoren
@@ -102,6 +105,7 @@ meint den Synth-Satz auf Korg 2.02. Hacktribe selbst unterstützt laut Projekt b
 | Nachteil | Was das für dich heißt |
 |---|---|
 | Die Werks-Samplebank wird durch Oszillatoren ersetzt | Die eigenen Samples liegen auf 501 bis 999. Werks-Samples müssen für Hacktribe umgewandelt und in die eigene Bank geladen werden. |
+| Deine Samples sind danach nicht mehr da | Hacktribe liest einen eigenen Ordner, und seine Anleitung sagt, `e2sSample.all` zu löschen. Sichere vorher den `Sample`-Ordner deiner jetzigen Firmware (`KORG/electribe sampler/` oder `KORG/blechtribe/`), die App fragt das mit einem Häkchen ab. Schon passiert? Die Seite Blechy hat den Fall "Ich hab aus Versehen Hacktribe installiert". |
 | Alte Patterns können anders klingen | Oszillator- und Effektzuordnungen ändern sich. Nach dem Umstieg die eigenen Patterns durchhören und bei Bedarf neu zuordnen. |
 | Zusätzlicher Firmwarewechsel | Wer Korgs Original nutzt, braucht zuerst eine passende Hacktribe-Datei. BLECHTRIBE kann auch direkt auf dem Original bleiben. |
 
@@ -135,12 +139,12 @@ Danach zeigt dir die Seite, wie du die Datei aufs Gerät bekommst. Alle Patches 
 [docs/patcher.md](docs/patcher.md). Wer ohne App patchen will, nimmt `BLECH.patch` oder die passende
 `.bsdiff`-Datei aus dem Release, das steht da auch.
 
-Was BLECH auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
+Was BLECHTRIBE auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
 LEDs, Patternwechsel erst nach Bestätigung, Sync-Gruppen, TAP Motion, den Notenassistenten im KEYBOARD-Modus, KEYBOARD + Pad setzt den KEY, SHIFT + Filtertaste schaltet das Filter aus und an, einen
 Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
-zurück, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
+zurück (auch beim Abspielen), Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
 hacktribe- oder electribe-sampler-Ordners, Blechy als kleines Haustier, ein Startbild mit Ladebalken,
-verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten,
+verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten, die zwei Dateien schreibt die App per USB auf die Karte,
 zur Lizenz siehe [docs/doom-lizenz.md](docs/doom-lizenz.md)).
 
 ## Für Bastler
@@ -155,7 +159,7 @@ ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann
 ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.
 
 Warum das Ganze? Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr
-drin, als Korg jemals rausgeholt hat. Mit BLECH hab ich mir praktisch die Electribe 3 gebaut, die es
+drin, als Korg jemals rausgeholt hat. Mit BLECHTRIBE hab ich mir praktisch die Electribe 3 gebaut, die es
 nie gab.
 
 Wenn dir das was bringt, freu ich mich über eine [Spende per PayPal](https://www.paypal.me/kuhlerbuhler).
@@ -169,14 +173,14 @@ blauen Synth (Korgs Original). Du kannst
 - die Firmware deiner Electribe im **Emulator** starten und bedienen, mit Display, Tasten, Reglern
   und LEDs, ohne dass irgendwas an dein Gerät geht,
 - deine `SYSTEM.VSB` **patchen** und daraus eine neue Firmware-Datei für die SD-Karte machen
-  (BLECH, eigenes Startbild, zweiter Master-Effekt und einiges mehr),
+  (BLECHTRIBE, eigenes Startbild, zweiter Master-Effekt und einiges mehr),
 - **Plugins** schreiben, die direkt auf der Electribe laufen, zum Beispiel ein Lauflicht, ein Spiel
   auf dem Display oder eine eigene Menüseite, oder fertige aus dem Katalog nehmen. Sie liegen auf der
   Karte im Ordner `KORG/blechtribe/Plugin/` (Einzahl, nicht "Plugins"), bei der roten wie bei der blauen
   Electribe. Mit verbundenem Gerät schickt sie der Knopf "Aufs Gerät" per USB dorthin,
 - im **Baukasten** eigene Effekte und Modulationen bauen, mit echten Einheiten statt Bytes, und sie
   als `.e2fx`-Datei weitergeben oder als eine Datei für die Karte exportieren. Eine `.e2fx` öffnest du
-  unter BLECHTRIBE -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", mit geladener Firmware auch unter
+  unter BLECH -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", mit geladener Firmware auch unter
   BLECHTRIBE -> Presets -> "Preset-Datei laden",
 - Patterns bearbeiten und per Web MIDI ans Gerät schicken.
 
@@ -279,8 +283,8 @@ dorthin, danach am Gerät Menü -> BLECH -> PLUGINS. Geschrieben wird in einer a
 übersetzt das in Bytecode für eine kleine VM in der Firmware. Wenn ein Plugin einen Fehler hat, wird
 nur das Plugin abgeschaltet, die Electribe läuft normal weiter. Sprache, Ereignisse und Funktionen:
 [docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: Set-Timer, BLECH Clicker,
-Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Image Viewer, BPM Glide, Lauflicht, Pulsieren,
-Takt-Blinker, Momentary Mute, Gate Hold und Step Copy.
+Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, BMP Viewer, BPM Glide,
+Momentary Mute, Gate Hold, Step Copy, Lauflicht, Pulsieren und PLAY-Takt.
 
 ## Der Emulator
 
@@ -302,10 +306,12 @@ Ein falscher Schreibzugriff oder eine fehlerhafte Firmware kann das Gerät häng
   speichern, was gerade im RAM steht, schalte also bei einer Abweichung nicht aus.
 - **Zurück:** die gesicherte Original-`SYSTEM.VSB` wieder aufspielen. Wie das geübt wurde, steht in
   [docs/messungen/2026-10-10-rueckweg-geuebt.md](docs/messungen/2026-10-10-rueckweg-geuebt.md).
-- **Wenn das Gerät nicht mehr startet:** die Seite "Rettung" im Editor fragt, was du siehst, und führt
+- **Zurück zu Korgs Original, auch von der blauen:** Schritt für Schritt in
+  [docs/original-zurueck.md](docs/original-zurueck.md) und als Fall auf der Seite Blechy.
+- **Wenn das Gerät nicht mehr startet:** die Seite "Blechy" im Editor fragt, was du siehst, und führt
   dich den dokumentierten Weg zurück. Der Bootloader bleibt tabu, dahinter
   hilft nur JTAG ([docs/rettung.md](docs/rettung.md)).
-- **Selbst testen:** die [Gerätetests](docs/geraetetests/README.md) beschreiben, wie du BLECH und die
+- **Selbst testen:** die [Gerätetests](docs/geraetetests/README.md) beschreiben, wie du BLECHTRIBE und die
   Kartenfunktionen an deinem Gerät nachvollziehst, mit Warnung, Voraussetzungen, Sicherung und
   Rückweg.
 

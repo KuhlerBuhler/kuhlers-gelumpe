@@ -16,6 +16,7 @@
  * KORG.exec on a firmware with the BLECH runtime and are sent like any exec;
  * without it they are the emulator's panel and the script cannot be sent.
  */
+import { localize } from "./text.mjs";
 import { makeKorg, ensureFirmware } from "./korg.mjs";
 import { rehearse, isPassed } from "./rehearsal.mjs";
 import { SendError } from "./sender.mjs";
@@ -56,7 +57,7 @@ export class Terminal {
 
   /** Run a script in the emulator; nothing involves the device. `print` gets a script's progress lines while it runs. */
   async runDirect(code, { print = null } = {}) {
-    if (this.emulator.port.running === false) throw new Error("Der Emulator ist aus. Tippe „start“, dann läuft er.");
+    if (this.emulator.port.running === false) throw new Error(localize("Der Emulator ist aus. Tippe „start“, dann läuft er."));
     const own = this.device.session;
     const s = own && own.port === this.emulator.port ? own : await this.probe();
     const release = s.reserve?.({ wait: true }) ?? (() => {});
@@ -68,7 +69,7 @@ export class Terminal {
 
   /** Run a script in the emulator and record it. Resolves with the record; `record.sendable` says whether it may go on. */
   async rehearse(code, { print = null } = {}) {
-    if (this.emulator.port.running === false) return { ok: false, sendable: false, code, units: [], reason: "Der Emulator läuft nicht. Starte ihn im Bereich Emulator.", whyNot: "Der Emulator läuft nicht." };
+    if (this.emulator.port.running === false) return { ok: false, sendable: false, code, units: [], reason: localize("Der Emulator läuft nicht. Starte ihn im Bereich Emulator."), whyNot: localize("Der Emulator läuft nicht.") };
     const session = await this.probe();
     await ensureFirmware(session, this.emulator.baseFirmware);
     await session.idle();
@@ -87,10 +88,10 @@ export class Terminal {
 
   /** Whether `record` may go to the device now, with the reason in words when it may not. */
   canSend(record, code) {
-    if (this.mode !== "device") return { ok: false, why: "Kein echtes Gerät verbunden." };
-    if (!record?.sendable || !isPassed(record)) return { ok: false, why: record?.whyNot ?? "Keine bestandene Probe." };
-    if (code !== record.code) return { ok: false, why: "Das Skript ist geändert. Erst neu im Emulator proben." };
-    if (this.used.has(record)) return { ok: false, why: "Diese Probe ist schon gesendet. Soll es noch einmal gehen, erst neu proben." };
+    if (this.mode !== "device") return { ok: false, why: localize("Kein echtes Gerät verbunden.") };
+    if (!record?.sendable || !isPassed(record)) return { ok: false, why: record?.whyNot ?? localize("Keine bestandene Probe.") };
+    if (code !== record.code) return { ok: false, why: localize("Das Skript ist geändert. Erst neu im Emulator proben.") };
+    if (this.used.has(record)) return { ok: false, why: localize("Diese Probe ist schon gesendet. Soll es noch einmal gehen, erst neu proben.") };
     return { ok: true, why: null };
   }
 
