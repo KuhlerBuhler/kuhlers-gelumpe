@@ -49,4 +49,5 @@ Effekts vor der Summe sieht dieser Wert nicht; eine Verstärkung danach (`+0x19C
   Lautstärke der Note.
 - `0xFF9030FC` (`+0x58`): Bedeutung nicht gelesen. `0xFF9030EC` (`+0x48`, Kommando 1 im selben Takt) ist der Eingangspegel,
   den `machine.py` als `INPUT_LEVEL` bedient.
-- Rot und blau: DSP-Seite nicht gelesen, CPU-Seite im Emulator gleich.
+- Rot hat dasselbe DSP-Programm wie Hacktribe (Bootstrom Byte für Byte gleich). Blau hat ein eigenes, die Spitzenpegel-Routine
+  steht dort unverändert bei `0xFFA018C2` (verglichen 12.11., [DSP-Modell](2026-11-12-dsp-modell.md)).

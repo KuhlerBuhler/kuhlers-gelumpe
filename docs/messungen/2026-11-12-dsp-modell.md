@@ -68,9 +68,9 @@ Part (`gates`), Cutoff und Resonanz je Part (`filters`), Einheit und Parameter j
 Stimmen mit Part und Velocity-Gain), `voice(v)` (Part, Gate, Velocity-Gain, Note, PITCH-Versatz), `notes(part, since)`,
 `part_value(part, LEVEL | RAMP | PAN_LEFT | PAN_RIGHT)`, `filter(part)`, `coefficients(part)`, `effect(feld)`, `ifx(part)`, `ifx_on(part)`, `mfx_send(part)`, `command(cmd)`, `uploaded(since)`, `samples(adresse, anzahl)`.
 
-Lesen beantwortet das Modell nur für den Ausgangs-Spitzenpegel `0xFF9030F4..0xFF9030FB`: der größere Wert aus dem zuletzt
-Geschriebenen und dem Pegel, den ein Fall mit `output(links, rechts)` setzt (0 bis 1). Alle anderen Lesezugriffe liefern wie
-bisher 0.
+Lesen beantwortet das Modell für den Ausgangs-Spitzenpegel `0xFF9030F4..0xFF9030FB` (der größere Wert aus dem zuletzt
+Geschriebenen und dem Pegel, den ein Fall mit `output(links, rechts)` setzt, 0 bis 1) und für das SDRAM unter `0xFF800000`
+(Sample-Speicher): dort liefert es, was die CPU hochgeladen hat. Alle anderen Lesezugriffe liefern wie bisher 0.
 
 Ein Fall, der auch den Start sehen will, baut sein Gerät mit `SBox(payload, flash, dsp=True)` (`pswitch_cases.Box`): das
 Modell hängt sich vor dem Einschalten an, und der Start läuft wirklich, statt aus dem Boot-Cache zu kommen (`bootcache.power_on`,
@@ -202,9 +202,11 @@ zufälliges PCM, 3000 Frames):
 Der Synth (blau) hat kein IMPORT SAMPLE: DATA UTILITY bleibt auf Bildschirm 15, der Fall läuft dort nicht. Prüffall
 `shortcut:dsp_sample_import_lands_in_dsp_memory` (`case_sample_dsp`), grün auf Hacktribe und rot (12.11.).
 
-Lesen (`0xA9`) aus dem Sample-Speicher beantwortet das Modell nicht, es bleibt bei der Antwort des Emulators (0). Kein
-CPU-Weg wartet auf einen Sample-Wert; gelesen wird nur zum Kopieren (Export, `0xC004EDDC`). Eine Antwort aus dem Bild würde
-das Ergebnis dieser Wege ändern, ohne dass ein Fall es braucht.
+Lesen (`0xA9`) aus dem Sample-Speicher beantwortet das Modell aus seinem Bild. EXPORT ALL SAMPLE (DATA UTILITY, `0xC004EDDC`)
+liest jedes Sample so zurück; mit einem Sample von der Karte (Platz 501, 3000 Frames) liest die CPU `0x365EC0` und `0x367620`
+und schreibt die 6000 Bytes PCM in die Exportdatei. Ohne Antwort des Modells stehen dort nur Nullen, mit Antwort gleicht die
+Exportdatei der geladenen Byte für Byte (gemessen, Hacktribe und rot). Prüffall `shortcut:dsp_sample_export_reads_dsp_memory`
+(`case_sample_dsp`), grün auf Hacktribe und rot (12.11.); der Synth hat keine Samples.
 
 ## Grenzen
 
@@ -214,9 +216,14 @@ das Ergebnis dieser Wege ändern, ohne dass ein Fall es braucht.
 - **Offen:** Bedeutung der übrigen Wörter des Part-Blocks; was `0x35`, `0x37` und `0x38` im DSP tun, und die Setter je
   Stimmentyp von `0x1F`, `0x2D` und `0x32`. Was die drei Filterwörter im DSP bedeuten, ist nicht gelesen.
   Was Ziel `0x0A` der Steuerzeilen tut, ist nicht gelesen; am DSP kommt davon nichts an.
-- **Offen:** Das DSP-Programm ist nur auf Hacktribe gelesen; rot und blau sind nur auf der CPU-Seite im Emulator gemessen.
-  Keine der Messungen hier ist am Gerät nachgeprüft.
-- **Nicht im Modell:** Antworten aus dem Sample-Speicher. Das Bild hält, was der Import schreibt; gelesen wird weiter 0.
+- **DSP-Programm je Build** (verglichen mit `tools/dsp/dsp_extract.py`, 12.11.): rot hat Byte für Byte denselben Bootstrom wie
+  Hacktribe (`0xC00F9E10`, `0x422A0` Bytes), alles hier Gelesene gilt dort. Blau hat ein eigenes Programm (`0xC00DFB80`,
+  `0x41C74` Bytes, 154 statt 157 Blöcke): der Datenbereich `0xFF900000` (Postfach, FIFO, Stimmen, Ausgangsblock) ist gleich, der
+  Code `0xFFA00000` stimmt nach Ausrichten zu 94 % überein, liegt aber verschoben. Die Spitzenpegel-Routine (`0xFFA018C2`) und die
+  Adressregel des Postfachs (`0xFFA06FD4`) finden sich auf blau unverändert, die Stimmengeneratoren (`0xFFA02EDE`, `0xFFA06670`)
+  nicht. Blau ist nicht im Einzelnen gelesen. Keine der Messungen hier ist am Gerät nachgeprüft.
+- **Nicht im Modell:** was der DSP selbst ins SDRAM schreibt (Resampling, Aufnahme); gelesen wird dort nur, was die CPU hochlud.
+  Die Zeiger, die der DSP beim Start bei `0xFF9031C8..0xFF9031E6` ablegt und die die CPU laufend abfragt, liefern weiter 0.
 - **Nicht im Modell:** ein eigenes Ausgangssignal. Der Spitzenpegel kommt nur aus `output()`. Welche Stimme wann klingt, weiß das
   Modell; wie laut, rechnet der DSP in der Stimmenschleife `0xFFA0141A` und der Part-Schleife `0xFFA019DE` aus Sample-Daten,
   Velocity-Gain, Hüllkurve, Filter und Part-Pegel. Das ist Rechnen wie der DSP, nicht mehr Mitlesen. Der Versuch mit dem echten

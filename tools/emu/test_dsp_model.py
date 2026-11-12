@@ -152,6 +152,8 @@ class DspModelTest(unittest.TestCase):
         port.send([9, 10], address=0x365EC4, block=2)
         self.assertEqual(port.dsp.uploaded(mark), (0x365EC0, 0x365EC8))
         self.assertEqual(port.dsp.samples(0x365EC0, 4), [1, -1, 9, 10])
+        self.assertTrue(port.dsp.answers(0x365EC2) and not port.dsp.answers(0x365EC8))
+        self.assertEqual(port.dsp.read(0x365EC2), 0xFFFF)
 
     def test_the_fifo_carries_the_tempo(self):
         port = Port()

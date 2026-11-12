@@ -756,7 +756,47 @@ def case_sample_dsp(payload, flash):
         got = dsp.samples(span[0], len(want)) if span else []
         seen.append((name, screen, span and tuple(hex(a) for a in span), len(want), sum(1 for a, b in zip(got, want) if a != b)))
         out.append(span is not None and span[1] - span[0] == 2 * len(want) and got == want and not dev.m.asserts)
-    return [entry("dsp_sample_import_lands_in_dsp_memory", all(out), f"(file, screen, span, words, differing): {seen}")]
+    return [entry("dsp_sample_import_lands_in_dsp_memory", all(out), f"(file, screen, span, words, differing): {seen}"),
+            export_dsp(payload, flash)]
+
+
+def export_dsp(payload, flash):
+    """EXPORT ALL SAMPLE (DATA UTILITY) reads each sample back from the DSP (0xA9 on the sample memory): a sample loaded from
+    the card at the start comes out of the export unchanged. Without the model's answer the export holds zeros."""
+    import fat32
+    import ht_osc_cases as hc
+    import sampleset
+    from dsp_model import DspModel
+    from splash_cases import SWITCH_SCREEN, Dev
+    slot = sampleset.FIRST_USER
+    source = sampleset.build({slot: ("A", 3000)})
+    dev = Dev(payload, flash, 0)
+    dev.m.adapter = True
+    dsp = DspModel.attach(dev.m)
+    dev.m.insert_card(hc.card(payload, source))
+    dev.run(10)
+    dev.call(SWITCH_SCREEN, 14, 0)
+    dev.run(0.4)
+    menu_cases.press(dev, "menu")
+    for _ in range(10):
+        menu_cases.press(dev, "edit_next")
+    menu_cases.press(dev, "menu", wait=1.0)
+    menu_cases.press(dev, "menu", wait=1.0)
+    dev.run(30)
+    volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
+    try:
+        exported = volume.read(f"/KORG/{hc.folder(payload)}/e2sSample.all")
+    finally:
+        volume.close()
+
+    def pcm(data):
+        at = struct.unpack_from("<I", data, 16 + 4 * slot)[0]
+        d = data.find(b"data", at) if at else -1
+        return data[d + 8:d + 8 + struct.unpack_from("<I", data, d + 4)[0]] if d >= 0 else b""
+    want, got = pcm(source), pcm(exported)
+    return entry("dsp_sample_export_reads_dsp_memory", bool(want) and got == want and not dev.m.asserts,
+                 f"uploads {dsp.uploaded(0) and tuple(hex(a) for a in dsp.uploaded(0))}, bytes {len(want)} in, {len(got)} out, "
+                 f"differing {sum(1 for a, b in zip(want, got) if a != b)}")
 
 
 def case_note_commands_dsp(payload, flash):

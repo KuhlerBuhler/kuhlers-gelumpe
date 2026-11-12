@@ -73,7 +73,8 @@ Reads the model answers: the output peak, 0xFF9030F4 (left) and 0xFF9030F8 (righ
 0xFF9030A4. The DSP keeps max(abs(sample)) of the final stereo sum there (0xFFA01952), 1.31, saturating at 0x7FFFFFFF; the
 CPU reads both every 40 ms for the meter LEDs (0xC0014080) and sets them back to 0 with command 0x31. The model has no
 sound of its own: `output(left, right)` sets the level the DSP would see, and the peak words hold the larger of that level
-and what the CPU wrote. Every other read stays with machine.py (0).
+and what the CPU wrote. Reads below L1 (the SDRAM, sample memory) return what the CPU uploaded there: EXPORT ALL SAMPLE
+reads each sample back with 0xA9 (shortcut_cases.case_sample_dsp). Every other read stays with machine.py (0).
 
     from dsp_model import DspModel
     dsp = DspModel.attach(machine)
@@ -92,6 +93,7 @@ PART_ON = {"sampler": 0x2C2, "synth": 0x2A8}   # the part's switch at the DSP, p
 PART_STRIDE = 0x6D              # parameters per part
 PARTS = 16
 READ, WRITE, CTRL_WORDS = 0xA9, 0xAB, 7
+L1 = 0xFF800000                 # below: the DSP's SDRAM (sample memory), what the CPU uploaded reads back as written
 PEAK = 0xFF9030F4               # output peak, left at +0, right at +4
 FULL_SCALE = 0x7FFFFFFF
 FIFO_END, FIFO_TEMPO, FIFO_CHANNELS = 62, 0x20, 33
@@ -208,7 +210,7 @@ class DspModel:
         return (min(a for a, _ in spans), max(b for _, b in spans)) if spans else None
 
     def answers(self, addr):
-        return PEAK <= addr < PEAK + 8
+        return PEAK <= addr < PEAK + 8 or (addr < L1 and addr in self.mem)
 
     def read(self, addr):
         """The 16-bit word the DSP hands back at `addr`."""
