@@ -669,9 +669,18 @@ eigenen Jobs für Hacktribe, rot und blau. Die Editor-Effektsammlung bekommt zwe
 für Hacktribe und rot, wenn sie zur gewählten Fallauswahl gehört. So warten diese Prüfungen
 weder auf die Hauptprüfung noch aufeinander.
 
-Die Aufgabe mit Index `i` gehört genau einem Teil. Alle Teile müssen zur selben Firmware,
+Die Aufgaben werden nach ihrer geschätzten Dauer absteigend sortiert und jeweils dem bisher
+leichtesten Teil zugeordnet. Das versionierte Profil `tools/emu/shard-weights.json` enthält
+Medianzeiten eigener Testaufgaben in ganzen Millisekunden. Neue Aufgaben erhalten zunächst
+die längste bekannte Schätzung. Gleichstände werden über Aufgabenindex, Aufgabenanzahl und
+Teilenummer entschieden. So berechnet jeder Runner denselben Plan, unabhängig von seinem
+lokalen Ergebniscache. Ein fehlendes oder ungültiges Profil bricht die geteilte Prüfung ab.
+Ungeteilte Prüfungen benötigen das Profil nicht.
+
+Jede Aufgabe gehört genau einem Teil. Alle Teile müssen zur selben Firmware,
 Gerätevariante, Konfiguration, Laufzeitversion und demselben Quellstand gehören. Der Abschluss
-plant die erwarteten Aufgaben aus den echten Eingaben erneut, verlangt jeden Teil genau einmal
+bindet auch Algorithmus und Laufzeitgewichte an die Identität, plant die erwarteten Aufgaben
+aus den echten Eingaben erneut, verlangt jeden Teil genau einmal
 und wertet Start- und Ausschaltprüfungen gemeinsam aus. Erst ein vollständiges bestandenes
 Ergebnis darf einen Eintrag für `verified.json` ergeben. `--cases` schreibt weiterhin keinen.
 
@@ -700,8 +709,20 @@ liest dadurch keine übrig gebliebenen Ergebnisse des vorherigen Plans.
 `check.py` schreibt zusätzlich zu den Fortschrittsmeldungen JSON-Zeilen mit `metrics` nach
 stderr: CPU-Zahl, tatsächliche Worker, Cachetreffer und Dauer jeder Aufgabe. In den Teilergebnissen
 stehen diese Werte ebenfalls. Damit lassen sich einzelne lange Gruppen und Wartezeiten getrennt
-von der reinen Testarbeit untersuchen. Die Aufteilung ist zunächst gleichmäßig nach Aufgabenindex;
-die gemessenen Laufzeiten zeigen, welche Gruppen später feiner geteilt werden müssen.
+von der reinen Testarbeit untersuchen. Die Teilmetrik `partition` nennt zusätzlich die geschätzte
+Gesamtdauer der zugeteilten Aufgaben. Die tatsächlich gemessene Dauer kann davon abweichen.
+
+Das Profil lässt sich aus den `metrics`-Zeilen kalter Referenzläufe neu erzeugen. `QUELLSTAND`
+bezeichnet dabei die Revision, mit der die Messungen entstanden sind:
+
+```bash
+tools/emu/.venv/bin/python tools/emu/shard_weights.py --source "$QUELLSTAND" \
+  --output tools/emu/shard-weights.json messung/*/ordinary.stderr.log
+```
+
+Das Werkzeug ignoriert Cachetreffer, verwendet den Median je Modul, Funktion und Argumenten
+und schreibt die Einträge in fester Reihenfolge. Eine Profiländerung gehört wie eine Änderung
+der Verteilung in die Prüfung. Sie ändert keine Testauswahl und keine bestehenden Task-Ergebnisse.
 
 Die vollständige Prüfung dauerte vor dieser Aufteilung in betrachteten CI-Läufen ungefähr
 50 bis 55 Minuten. Für die neue Aufteilung gibt es noch keine gemessene CI-Gesamtdauer.
