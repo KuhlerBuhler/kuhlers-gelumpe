@@ -20,7 +20,8 @@ a quick or partial result is never a full check and goes into no verified.json.
 --allow is data of the map's formats that is read at start. --allow-code is an
 explicit exception to rule 2 of docs/patcher.md: start-phase code a patch
 replaces on purpose, with its reason in the patch (`startPhase`). Every
-exception is listed in the result. While it runs, check.py writes one JSON line {"progress": ...} per finished task to stderr (progress.py); stdout is only the result. A copy that carries the splash editor's start
+exception is listed in the result. Every copy, also with --quick, has to pass the DSP interface cases (dsp_cases.py): the
+start reaches the DSP, a pad and the pattern open and close voices, every transfer to the DSP is well formed. While it runs, check.py writes one JSON line {"progress": ...} per finished task to stderr (progress.py); stdout is only the result. A copy that carries the splash editor's start
 hook also has to pass its storage and kill switch cases (splash_cases.py); one with the MFX 2
 switch's key hook has to pass its switch, DSP and kill switch cases (mfx_cases.py); one with the BLECH menu has to pass the menu, settings and look
 cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py), every copy with the BLECH menu the cases of the device from the computer, of the test mode, of the plugin timers, of the plugin edits, of the live write paths, of the touchpad and key calls and of the object tree (remote_cases.py, testmode_cases.py, timer_cases.py, plugin_edit_cases.py, live_write_cases.py, plugin_api15_cases.py, objects_cases.py, plugin_api18_cases.py, plugin_api19_cases.py, global_cases.py, pattern_parts_cases.py, plugin_api22_cases.py, plugin_api23_cases.py, plugin_api24_cases.py, plugin_api25_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py); one with the BEAT 8 table entry has to pass its step, clock, menu, WRITE, Gate Arp, export, slice and REC cases (beat_eighth_cases.py); one with TOUCH SCALE RANGE 0 has to pass its menu, note, octave, key, Gate Arp and power-on cases (touch_scale_zero_cases.py); one with the Hacktribe oscillators has to pass its name, card, knob, voice, pattern, export, EXIT and FEATURES page cases (ht_osc_cases.py); every copy with the BLECH menu the cases of a card that stops answering, a locked card, an SDSC card, a card that damages data and a dead card at the start (card_error_cases.py).
@@ -137,7 +138,8 @@ def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progres
 def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=False, boot_flash=None, cases=None,
            shard=None, reports=None, metrics=None):
     """base and patched are whole VSB files. Returns {ok, checks, changed}. `quick` runs only what keeps the device safe:
-    the start scenarios (normal start, update offer, panel update, start modes, EXIT, DSP once, start phase), not the
+    the start scenarios (normal start, update offer, panel update, start modes, EXIT, DSP once, start phase) and the DSP
+    interface (dsp_cases.py), not the
     cases of the patches, which test the patches' own code, the same in every file. `cases` limits the cases to these
     modules (CASE_MODULES); an empty list is `quick`."""
     if cases is not None and not cases:
@@ -209,6 +211,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     tasks += power_off
     if want(has_presets):
         tasks.append(("preset_cases", "cases_task", ()))
+    tasks.append(("dsp_cases", "cases_task", ()))
     boot = flash if boot_flash is None else boot_flash
     names = scenario_names(boot)
     tasks += [("bootmap", "scenario_task", (name,)) for name in names]
@@ -270,6 +273,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     doom = [c for _ in range(len(DOOM_GROUPS) if want(has_doom) else 0) for c in done.pop(0)]
     power_off_done = [done.pop(0) for _ in power_off]
     presets = done.pop(0) if want(has_presets) else []
+    dsp = done.pop(0)
     ranges, report = combine(dict(zip(names, done)))
 
     def state(name):
@@ -333,6 +337,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     if power_off:
         checks.extend(combine_power_off(power_off_done))
     checks.extend(presets)
+    checks.extend(dsp)
     if cases and not quick:
         add("partial", True, "Teilprüfung: Start und Rettungswege, Tests nur aus " + ", ".join(sorted(cases)))
     if quick:

@@ -98,7 +98,7 @@ function requiredGroups(patches, build) {
     "sample-errors": "sample_error_cases", "synth-filters": "synth_filter_cases", "power-off": "power_off_cases", "blech-sysex": "sysex_cases", "preset-tables": "preset_cases",
     "last-pattern": "last_pattern_cases", "init-pattern": "init_pattern_cases", "doom-loader": "doom_loader_cases",
     "stereo-pad": "stereo_pad_cases", "ht-osc": "ht_osc_cases", "touch-scale-zero": "touch_scale_zero_cases" };
-  const groups = ["bootmap", ...patches.map(p => byId[p.id]).filter(Boolean)];
+  const groups = ["bootmap", "dsp_cases", ...patches.map(p => byId[p.id]).filter(Boolean)];
   if (patches.some(p => p.id === "script-runtime")) groups.push("shortcut_cases");
   if (patches.some(p => p.id === "script-runtime")) groups.push("migrate_cases");
   return [...new Set(groups)];

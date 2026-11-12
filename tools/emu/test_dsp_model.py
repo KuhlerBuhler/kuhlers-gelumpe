@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dsp_model import FIFO, LEVEL, MASTER_FX, PAN_RIGHT, PEAK, DspModel, MAILBOX, slot  # noqa: E402
+from dsp_model import FIFO, LEVEL, MASTER_FX, PAN_RIGHT, PEAK, WRITE, DspModel, MAILBOX, slot  # noqa: E402
 from machine import DSP_CTRL, DSP_DATA, DSP_SYNC  # noqa: E402
 
 
@@ -199,6 +199,25 @@ class DspModelTest(unittest.TestCase):
         blue.send(fifo_halves((0x28, 0x38, 0x89), (0x28, 0x39, 2), (2, 1, 0x1600)), address=FIFO[0], block=64)
         self.assertEqual(blue.dsp.ifx(1), {"unit": 0x89, "params": {1: 0x1600}})
         self.assertIsNone(blue.dsp.ifx(2))
+
+    def test_well_formed_transfers_leave_no_fault(self):
+        port = Port()
+        port.send([0x106, 0, 0, 0x2C2, 1])
+        port.send(fifo_halves((0, 0x20, 12000)), address=FIFO[0], block=64)
+        port.send([0x106, 0x3B, 0x2C2, 0])
+        self.assertEqual(port.dsp.faults, [])
+
+    def test_transfers_the_dsp_would_not_take_are_faults(self):
+        port = Port("synth")
+        port.send([0x107, 0, 0, 0x2A8, 1])                       # no header
+        port.send([0x106, 0x3A, 0x2A8, 0])                       # beyond blue's jump table
+        for w in (WRITE, MAILBOX & 0xFFFF, MAILBOX >> 16, 16, 2, 0, 0):
+            port.machine.write(DSP_CTRL, w)
+        port.machine.write(DSP_DATA, 0x106)                     # cut after one word by the next transfer
+        port.send([0x106, 0, 0, 0x2A8, 1])
+        word = 0x20 << 16 | 100                                  # one FIFO word, no end mark
+        port.send([word & 0xFFFF, word >> 16], address=FIFO[0], block=2)
+        self.assertEqual([k for _, k, _ in port.dsp.faults], ["header", "command", "short", "fifo_end"])
 
     def test_ifx_on_is_a_part_value(self):
         port = Port()

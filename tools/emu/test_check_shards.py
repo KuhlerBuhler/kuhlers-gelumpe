@@ -178,7 +178,8 @@ class CheckIntegrationTest(unittest.TestCase):
         self.addCleanup(self.source.stop)
 
     def fake_run(self, tasks, *args, **kwargs):
-        return [{"blocks": {}, "image_read": bytes(check.PAYLOAD), "events_ms": [[1, "screen_1"]],
+        return [[{"id": "dsp:stand_in", "ok": True, "detail": ""}] if t[0] == "dsp_cases" else
+                {"blocks": {}, "image_read": bytes(check.PAYLOAD), "events_ms": [[1, "screen_1"]],
                  "panel": {"mode": 0, "held": check.KILL_SWITCH}, "asserts": [], "dsp_uploads_ms": [1]} for t in tasks]
 
     def test_shards_and_unsharded_use_the_same_complete_evaluation(self):
@@ -188,7 +189,7 @@ class CheckIntegrationTest(unittest.TestCase):
             parts = [check.check(image, image, quick=True, shard=(i, 4)) for i in range(1, 5)]
             merged = check.check(image, image, quick=True, reports=json.loads(json.dumps(parts)))
         self.assertEqual(merged, ordinary)
-        self.assertEqual(sum(len(p["tasks"]) for p in parts), len(check.scenario_names(None)))
+        self.assertEqual(sum(len(p["tasks"]) for p in parts), len(check.scenario_names(None)) + 1)     # + the DSP interface cases
         self.assertTrue(all(p["format"] == "gelumpe-check-shard" for p in parts))
 
     def test_join_never_runs_tasks(self):

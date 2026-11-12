@@ -92,6 +92,7 @@ MAILBOX = 0xFF900A34
 FIFO = (0xFF900018, 0xFF900098)
 HEADER = 0x106                  # word 0 of every mailbox message
 SET_PARAMS = 0                  # command: set DSP parameters
+COMMANDS = {"sampler": 0x3C, "synth": 0x3A}     # mailbox commands the DSP's jump table takes (0xFFA04F0A, blue 0xFFA04E6A)
 PART_ON = {"sampler": 0x2C2, "synth": 0x2A8}   # the part's switch at the DSP, parameter of part 0
 PART_STRIDE = 0x6D              # parameters per part
 PARTS = 16
@@ -146,6 +147,7 @@ class DspModel:
         self.gates = []             # (device time in ms, voice, part, 1 on | 0 off) for every gate write, in order
         self.filters = {}           # part -> (cutoff, resonance), 1.31, as command 0x30 last set them
         self.filter_words = {}      # part -> all three words of the last command 0x30 (filter_curve.py computes them)
+        self.faults = []            # (device time in ms, kind, detail) for every transfer the DSP would not take as sent
         self._ctl, self._xfer = [], None
         write, read = machine.write, getattr(machine, "dsp_read", None)
 
@@ -157,6 +159,9 @@ class DspModel:
                 if len(self._ctl) == CTRL_WORDS:
                     cmd, lo, hi, count = self._ctl[:4]
                     self._ctl = []
+                    if self._xfer is not None and self._xfer[2]:
+                        self.fault("short", f"0x{self._xfer[0]:X}: {len(self._xfer[2])} of {self._xfer[1]} words")
+                        self._xfer = None
                     self._flush()
                     if cmd == WRITE:
                         self._xfer = [(hi << 16) | lo, count, []]
@@ -182,6 +187,9 @@ class DspModel:
         if model is None:
             model = machine.dsp_model = cls(machine)
         return model
+
+    def fault(self, kind, detail):
+        self.faults.append((self._now(), kind, detail))
 
     def _now(self):
         return self.m.time_ns // 1_000_000
@@ -242,8 +250,11 @@ class DspModel:
         """One mailbox message (its words as written)."""
         self.messages += 1
         if len(words) < 3 or words[0] != HEADER:
+            self.fault("header", " ".join(f"{w:X}" for w in words[:4]))
             return
         cmd, d = words[1], words[2:]
+        if cmd >= COMMANDS["synth" if self.synth else "sampler"]:
+            self.fault("command", f"0x{cmd:X}")
         self.commands[cmd] += 1
         self.last[cmd] = list(d)
         n = d[0] + 1
@@ -310,6 +321,8 @@ class DspModel:
 
     # ---- FIFO ----------------------------------------------------------------------
     def fifo_buffer(self, words):
+        if not any(w >> 22 & 0x3F == FIFO_END for w in words):
+            self.fault("fifo_end", f"{len(words)} words without channel {FIFO_END}")
         for w in words:
             channel, code, value = w >> 22 & 0x3F, w >> 16 & 0x3F, w & 0xFFFF
             if channel == FIFO_END:

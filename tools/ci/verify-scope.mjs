@@ -63,6 +63,8 @@ export const TABLE = [
   [/^tools\/emu\/node_results\.py$/, []],
   // the DSP model (dsp_model.py): the case modules that ask it
   [/^tools\/emu\/dsp_model\.py$/, ["shortcut_cases"]],
+  // the DSP interface cases run with the start scenarios on every copy
+  [/^tools\/emu\/dsp_cases\.py$/, []],
 
   // the patches and the code they build, to the cases that test them (check.py's docstring, each has_hooks)
   [/^tools\/patch\/mfx_switch\.py$|^data\/patches\/mfx-switch[^/]*\.json$/, MFX_USERS],

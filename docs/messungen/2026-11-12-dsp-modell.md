@@ -254,6 +254,25 @@ Kopplung ist im Modell (`links`), kommt aber bei keinem Prüffall vor. Das Model
 (`field_muted`) und ob `0x31` es auf Leerlauf gestellt hat (`idle`); `shortcut:dsp_effects_follow_the_panel` prüft, dass IFX TYPE
 Feld 0 vor dem Laden stumm schaltet und nach dem Start und nach IFX TYPE kein Feld stumm bleibt. Grün auf Hacktribe, rot und blau.
 
+## Schnittstelle im Patcher
+
+`tools/emu/dsp_cases.py` läuft in `check.py` bei jeder Kopie, auch mit `--quick`, also im Patcher der App und in Verify
+patches. Ein Start mit Karte, das Modell hört ab dem Einschalten mit, dann Pad 1 und einmal PLAY/STOP. Geprüft wird nur, was
+für jede Firmware gilt:
+
+| Prüffall | Erwartet |
+|---|---|
+| `dsp:start_reaches_the_dsp` | Postfach-Verkehr; jedes Part-Feld (0, 2 bis 30) und das Master-Feld (32) bekommen eine Einheit; kein Feld stumm (`0x30`); kein Part am DSP aus |
+| `dsp:pad_opens_and_closes_a_voice` | Pad 1 öffnet eine Stimme von Part 1, Loslassen schließt sie |
+| `dsp:play_opens_and_closes_voices` | das Pattern öffnet Stimmen und schließt jede wieder, nach STOP ist keine offen |
+| `dsp:transfers_are_well_formed` | jede Postfach-Nachricht hat Wort 0 `0x106` und ein Kommando, das die Sprungtabelle des Builds nimmt (unter `0x3C`, blau unter `0x3A`); keine Übertragung bricht vor ihrer Wortzahl ab; jeder FIFO-Puffer hat die Endmarke 62 |
+
+Gemessen (12.11., Emulator): grün auf Korgs 2.02 rot und blau, Hacktribe 2.02 und den BLECH-Builds von develop auf allen
+drei. Der Start lädt überall Einheit 4 in die Part-Felder und `0x3B` in den Master, Pad 1 gibt ein Gate an und aus, das
+Pattern spielt vier Noten von Part 9. Blau setzt beim Start kein Tempo im FIFO; das Tempo ist deshalb kein Prüfpunkt. Kanal
+56 (`0x38`) im FIFO kommt beim Start auf allen Builds (Codes 0 und 1, `0x7F00`); was der DSP damit tut, ist nicht gelesen,
+es gilt nicht als Fehler.
+
 ## Grenzen
 
 - **Offen:** Warum der Part am Gerät stumm blieb. Der DSP-Verkehr des alten Resets, so wie ihn der Emulator sieht, erklärt es
