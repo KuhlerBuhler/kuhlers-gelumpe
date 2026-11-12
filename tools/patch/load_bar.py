@@ -27,8 +27,10 @@ picture is marked as changed, so the display gets pages only then. The firmware'
 million instructions, which is why the overlay draws its own.
 
 With EXIT held at power-on, without a card or without e2sSample.all nothing is ever expected and every hook goes
-straight to the original. A card that is in the slot but not mounted after the start's question is asked again, up to
-RETRIES times, RETRY_MS apart (device 18.10.: a card that answered late left the start without samples or hanging). When the
+straight to the original. A card that is in the slot but not mounted after the start's question is not asked again: the
+operating system's tick (TIMER64P0, 0xC0019088) is started only after that question, so a sleep there never ends and
+the start hung with a card without a filesystem or one that answers nothing (docs/messungen/2026-11-10-tote-karte-beim-start.md).
+The start goes on as the firmware's does. When the
 loader ends with a code (a card error), the image stays with the percent where it stopped. The overlay ends when the main screen comes (or after a cap of frames).
 While the firmware's error box says "No Card." or "Card Error" (its code at ERR_CODE), the display send shows Blechy's card
 picture for that code instead of the box, until the box goes (EXIT).
@@ -72,8 +74,6 @@ STATE = 0xC0181F00              # run time state, in RAM only
 STATE_END = 0xC0181F40
 
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13, measured on the device 10.10.)
-RETRIES = 3                     # a card that is not mounted after the start's question is asked again up to 3 times,
-RETRY_MS = 500                  # 500 ms apart
 FRAME_CAP = 8000                # about 6 minutes of frames; the main screen ends it much earlier
 
 STAT_CALL = 0xC002AE60          # bl 0xC0035440, the start asks whether e2sSample.all exists
@@ -358,12 +358,6 @@ SOURCE = """
 .equ VRAM, 0xC031B310           ; the firmware's frame buffer, 8 pages of 128 bytes, bit 0 of a byte is the top row of its page
 .equ MARK, 0xC001531C           ; (x, y, x2, y2): marks a region of the frame buffer as changed
 .equ STAT, @STAT_FUNC@
-.equ FATFS, 0xC06A010C          ; FatFs volume table: first entry is the volume of the card, its byte 0 the mounted type (0 not mounted)
-.equ WAIT, 0xC0000B78           ; (ms): the operating system's sleep
-.equ SD_INPUT, 0x01E26070       ; GPIO IN_DATA45; bit 1 (GPIO 4.1) is low while a card is in the slot
-.equ SD_DETECT, 2
-.equ RETRIES, @RETRIES@
-.equ RETRY_MS, @RETRY_MS@
 .equ LOADER, @LOAD_FUNC@
 .equ SETTEXT, @PROGRESS_FUNC@
 .equ FLUSH, @FLUSH_FUNC@
@@ -453,39 +447,11 @@ SOURCE = """
 ; Reached only on the normal start, after the panel update and the start modes. A load is expected when the file is there
 ; and EXIT was not held at power-on.
 lb_stat:
-    push {r4, r5, r6, lr}
-    mov r6, r0
+    push {r4, lr}
     bl STAT
     mov r4, r0
-    mov r5, #RETRIES
-; The card's volume is not mounted after the question (a card that did not answer in time, device 18.10.): wait and ask again,
-; RETRIES times; then the start goes on as the firmware does without a card. Not with EXIT held at power-on.
-ls_try:
-    ldr r0, =FATFS
-    ldr r0, [r0]
-    cmp r0, #0
-    ldrbne r0, [r0]
-    cmpne r0, #0
-    bne ls_have
-    subs r5, r5, #1
-    bmi ls_have
-    ldr r1, =SD_INPUT           ; no card in the slot (GPIO 4.1 high): nothing to ask again
-    ldr r1, [r1]
-    tst r1, #SD_DETECT
-    bne ls_have
-    ldr r1, =PANEL
-    ldr r1, [r1]
-    cmp r1, #0
-    beq ls_have
-    ldr r1, [r1, #0x18]
-    tst r1, #KILL
-    bne ls_have
-    ldr r0, =RETRY_MS
-    bl WAIT
-    mov r0, r6
-    bl STAT
-    mov r4, r0
-    b ls_try
+; A card that is not mounted now is not asked again: the operating system's tick starts only after this question, a sleep
+; here never ends (2026-11-10). The start goes on as the firmware's does.
 ls_have:
     cmp r4, #0
     beq ls_out
@@ -512,7 +478,7 @@ ls_have:
     str r2, [r1, #S_EXPECT]
 ls_out:
     mov r0, r4
-    pop {r4, r5, r6, pc}
+    pop {r4, pc}
 
 ; ===================================================== loader
 ; Replaces the loader's call of the text update (r0, r1 are its arguments): the loader's file offset is in r4; its file
@@ -2071,7 +2037,7 @@ def source():
     text = SOURCE
     for key, value in {
         "STAT_FUNC": f"{STAT_FUNC:#x}", "LOAD_FUNC": f"{LOAD_FUNC:#x}", "PROGRESS_FUNC": f"{PROGRESS_FUNC:#x}", "FLUSH_FUNC": f"{FLUSH_FUNC:#x}",
-        "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CAP": str(FRAME_CAP), "RETRIES": str(RETRIES), "RETRY_MS": str(RETRY_MS),
+        "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CAP": str(FRAME_CAP),
         "CODE_AT": f"{CODE_AT:#x}", "TICKS": f"{TICKS:#x}", "MENU_STATE": f"{MENU_STATE:#x}", "FRAME_MS": str(FRAME_MS),
         "SLOT": f"{ANIM_SLOT:#x}", "DEFAULT": f"{ANIM_DEFAULT:#x}", "MAX_BYTES": str(loading_anim.MAX_BYTES), "PBUF": f"{ANIM_BUF:#x}",
         "VARS": f"{ANIM_VARS:#x}", "LOOP_MS": str(TICK_MS), "STALL_MS": str(STALL_MS), "F_READ": f"{READ_FUNC:#x}",

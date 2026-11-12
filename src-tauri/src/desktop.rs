@@ -713,6 +713,8 @@ pub fn main() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            midi::watch_devices();
             if let Err(message) = open_app(app) {
                 let handle = app.handle().clone();
                 if webview2_failed(&message) {

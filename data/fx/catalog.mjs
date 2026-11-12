@@ -974,6 +974,867 @@ export const FX_CATALOG = Object.freeze([
    }
   ],
   "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Bounce Gate 16",
+  "description": "Macht aus jeder Note einen kurzen Schlag auf Sechzehntel: schneller Anschlag, kurzes Abklingen. Für knackige Bässe im Bouncy Techno. Der Takt läuft mit, Noten neben dem Raster werden angeschnitten. Regler von sanft bis hart, Play setzt den Takt neu an.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 21,
+    "unitName": "I_level_mod",
+    "params": {
+     "amp_level": 127,
+     "output_gain": 36,
+     "level_mod_source": 4,
+     "level_mod_int": 8,
+     "level_mod_type": 0,
+     "saturation": 1,
+     "lfo_sync": 1,
+     "lfo_speed": 33,
+     "lfo_sync_note": 8,
+     "lfo_reset": 0,
+     "lfo_reset_phase": 18
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 74,
+    "chain": 0,
+    "param": 9,
+    "low": 0,
+    "high": 1
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 3,
+    "low": 40,
+    "high": 0
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Bounce Gate 8",
+  "description": "Wie Bounce Gate 16, aber auf Achtel: ein längerer Schlag pro Note, für Bässe, die auf den Achteln springen. Der Takt läuft mit, Noten neben dem Raster werden angeschnitten. Regler von sanft bis hart, Play setzt den Takt neu an.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 21,
+    "unitName": "I_level_mod",
+    "params": {
+     "amp_level": 127,
+     "output_gain": 36,
+     "level_mod_source": 4,
+     "level_mod_int": 8,
+     "level_mod_type": 0,
+     "saturation": 1,
+     "lfo_sync": 1,
+     "lfo_speed": 33,
+     "lfo_sync_note": 7,
+     "lfo_reset": 0,
+     "lfo_reset_phase": 18
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 74,
+    "chain": 0,
+    "param": 9,
+    "low": 0,
+    "high": 1
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 3,
+    "low": 40,
+    "high": 0
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Bass Enhancer",
+  "description": "Viel Bass dazu und trotzdem sauber: ein Tiefen-Regal hebt an, die Tiefmitten gehen etwas zurück, der Limiter dahinter hält den Pegel. Der Regler dreht den Bass auf und nimmt dabei den Eingangspegel zurück.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 7,
+    "unitName": "I_eq_4_band",
+    "params": {
+     "trim": 108,
+     "b1_type": 2,
+     "b2_type": 0,
+     "b3_type": 0,
+     "b4_type": 1,
+     "b1_frequency": 12,
+     "b1_q": 5,
+     "b1_gain": 46,
+     "b2_frequency": 22,
+     "b2_q": 5,
+     "b2_gain": 33,
+     "b3_frequency": 48,
+     "b3_q": 5,
+     "b3_gain": 36,
+     "b4_frequency": 54,
+     "b4_q": 5,
+     "b4_gain": 36
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 5,
+    "unitName": "I_limiter",
+    "params": {
+     "dry_wet": 100,
+     "envelope_select": 0,
+     "threshold": 44,
+     "attack": 10,
+     "release": 5,
+     "hold_time": 7,
+     "tubesat": 20,
+     "output_gain": 52
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 7,
+    "low": 36,
+    "high": 60
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 0,
+    "low": 118,
+    "high": 96
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Hardtekk Kick",
+  "description": "Ein Kick, der hart angezerrt wird: der Bass wird vor der Verzerrung angehoben und danach wieder aufgefüllt, ein Limiter fängt die Spitzen. Der Regler dreht die Verzerrung auf und nimmt dabei den Pegel zurück.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 15,
+    "unitName": "I_distortion",
+    "params": {
+     "dry_wet": 0,
+     "gain": 100,
+     "pre_eq_frequency": 30,
+     "pre_eq_q": 15,
+     "pre_eq_gain": 44,
+     "post_eq1_frequency": 12,
+     "post_eq1_q": 5,
+     "post_eq1_gain": 58,
+     "post_eq2_frequency": 38,
+     "post_eq2_q": 5,
+     "post_eq2_gain": 30,
+     "post_eq3_frequency": 52,
+     "post_eq3_q": 5,
+     "post_eq3_gain": 40,
+     "output_level": 17
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 5,
+    "unitName": "I_limiter",
+    "params": {
+     "dry_wet": 100,
+     "envelope_select": 0,
+     "threshold": 44,
+     "attack": 2,
+     "release": 4,
+     "hold_time": 4,
+     "tubesat": 30,
+     "output_gain": 52
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 1,
+    "low": 80,
+    "high": 125
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 14,
+    "low": 18,
+    "high": 14
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Tekk Kick Soft",
+  "description": "Der weichere Kick: Acid Drive, dahinter ein EQ, der den Bass anhebt und oben einen Klick dazugibt. Der Regler dreht den Drive auf und nimmt dabei den Pegel zurück.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 16,
+    "unitName": "I_acid_driver",
+    "params": {
+     "drive": 70,
+     "output_level": 30
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 6,
+    "unitName": "I_eq_2_band",
+    "params": {
+     "trim": 100,
+     "b1_type": 2,
+     "b2_type": 0,
+     "b1_frequency": 12,
+     "b1_q": 5,
+     "b1_gain": 48,
+     "b2_frequency": 50,
+     "b2_q": 5,
+     "b2_gain": 40
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 0,
+    "low": 40,
+    "high": 100
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 1,
+    "low": 44,
+    "high": 22
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Warm Drive",
+  "description": "Leichte Sättigung, die den Klang wärmer und dichter macht: Acid Drive mit wenig Drive, dahinter ein EQ, der den Bass anhebt und die Höhen etwas nimmt. Der Regler dreht den Drive auf und nimmt dabei den Pegel zurück.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 16,
+    "unitName": "I_acid_driver",
+    "params": {
+     "drive": 40,
+     "output_level": 42
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 6,
+    "unitName": "I_eq_2_band",
+    "params": {
+     "trim": 127,
+     "b1_type": 2,
+     "b2_type": 1,
+     "b1_frequency": 13,
+     "b1_q": 5,
+     "b1_gain": 40,
+     "b2_frequency": 52,
+     "b2_q": 5,
+     "b2_gain": 31
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 0,
+    "low": 20,
+    "high": 70
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 1,
+    "low": 50,
+    "high": 27
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Bass Drive",
+  "description": "Verzerrung, die den Bass stehen lässt: mäßig Gain, der Tiefbass wird nach der Verzerrung wieder hochgezogen, das Zischeln oben gedämpft. Der Regler dreht den Gain auf.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 15,
+    "unitName": "I_distortion",
+    "params": {
+     "dry_wet": 0,
+     "gain": 56,
+     "pre_eq_frequency": 35,
+     "pre_eq_q": 15,
+     "pre_eq_gain": 36,
+     "post_eq1_frequency": 11,
+     "post_eq1_q": 5,
+     "post_eq1_gain": 54,
+     "post_eq2_frequency": 30,
+     "post_eq2_q": 5,
+     "post_eq2_gain": 38,
+     "post_eq3_frequency": 50,
+     "post_eq3_q": 5,
+     "post_eq3_gain": 26,
+     "output_level": 16
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 1,
+    "low": 30,
+    "high": 90
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 14,
+    "low": 20,
+    "high": 14
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Scream Drive",
+  "description": "Eine Verzerrung mit kräftig angehobenen Mitten, schreit nach vorn. Für Leads und Acid-Linien. Der Regler dreht den Gain auf.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 15,
+    "unitName": "I_distortion",
+    "params": {
+     "dry_wet": 0,
+     "gain": 96,
+     "pre_eq_frequency": 36,
+     "pre_eq_q": 20,
+     "pre_eq_gain": 56,
+     "post_eq1_frequency": 16,
+     "post_eq1_q": 5,
+     "post_eq1_gain": 30,
+     "post_eq2_frequency": 44,
+     "post_eq2_q": 8,
+     "post_eq2_gain": 46,
+     "post_eq3_frequency": 54,
+     "post_eq3_q": 5,
+     "post_eq3_gain": 28,
+     "output_level": 14
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 1,
+    "low": 64,
+    "high": 110
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Tight Fuzz",
+  "description": "Ein Fuzz mit weggenommenem Bass, klingt eng und bissig statt breit. Gut auf Drums und hohen Linien. Der Regler dreht den Gain auf.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 15,
+    "unitName": "I_distortion",
+    "params": {
+     "dry_wet": 0,
+     "gain": 88,
+     "pre_eq_frequency": 35,
+     "pre_eq_q": 15,
+     "pre_eq_gain": 42,
+     "post_eq1_frequency": 15,
+     "post_eq1_q": 5,
+     "post_eq1_gain": 20,
+     "post_eq2_frequency": 42,
+     "post_eq2_q": 5,
+     "post_eq2_gain": 44,
+     "post_eq3_frequency": 53,
+     "post_eq3_q": 5,
+     "post_eq3_gain": 22,
+     "output_level": 15
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 1,
+    "low": 60,
+    "high": 110
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Bit Grinder",
+  "description": "Zerhackt die Bittiefe, rau und digital. Der Regler geht von sauber bis kaputt und nimmt dabei etwas Pegel zurück.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 9,
+    "unitName": "I_decimator",
+    "params": {
+     "dry_wet": 100,
+     "pre_lpf_sw": 0,
+     "pre_lpf": 127,
+     "hi_damp": 120,
+     "sample_freq": 127,
+     "bit_depth": 8,
+     "output_level": 90,
+     "mask_type": 0
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 5,
+    "low": 20,
+    "high": 6
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 6,
+    "low": 90,
+    "high": 75
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Alias Crush",
+  "description": "Senkt die Abtastrate: Aliasing, metallisch und hell. Der Regler dreht die Abtastrate runter.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 9,
+    "unitName": "I_decimator",
+    "params": {
+     "dry_wet": 100,
+     "pre_lpf_sw": 0,
+     "pre_lpf": 127,
+     "hi_damp": 110,
+     "sample_freq": 60,
+     "bit_depth": 20,
+     "output_level": 90,
+     "mask_type": 0
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 4,
+    "low": 110,
+    "high": 25
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Glue Comp",
+  "description": "Ein Kompressor, der Bass und Drums zusammenhält, dahinter ein Limiter als Sicherung. Der Regler dreht die Schwelle runter und gleicht den Pegel mit aus.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 2,
+    "unitName": "I_sr1_comp",
+    "params": {
+     "dry_wet": 100,
+     "envelope_select": 0,
+     "threshold": 40,
+     "ratio": 8,
+     "knee": 6,
+     "attack": 11,
+     "release": 5,
+     "hold_time": 0,
+     "tube_sat": 10,
+     "output_gain": 52
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 5,
+    "unitName": "I_limiter",
+    "params": {
+     "dry_wet": 100,
+     "envelope_select": 0,
+     "threshold": 52,
+     "attack": 0,
+     "release": 3,
+     "hold_time": 3,
+     "tubesat": 0,
+     "output_gain": 48
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 2,
+    "low": 46,
+    "high": 26
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 9,
+    "low": 50,
+    "high": 58
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Tilt EQ",
+  "description": "Kippt den Klang: links Tiefen runter und Höhen hoch (heller), rechts umgekehrt (dunkler). In der Mitte bleibt er, wie er ist.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 6,
+    "unitName": "I_eq_2_band",
+    "params": {
+     "trim": 127,
+     "b1_type": 2,
+     "b2_type": 1,
+     "b1_frequency": 18,
+     "b1_q": 5,
+     "b1_gain": 36,
+     "b2_frequency": 38,
+     "b2_q": 5,
+     "b2_gain": 36
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 5,
+    "low": 24,
+    "high": 48
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 8,
+    "low": 48,
+    "high": 24
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "Mix Clean Up",
+  "description": "Räumt eine Spur auf: nimmt das Rumpeln ganz unten und das Dröhnen in den Tiefmitten raus und gibt oben einen Hauch Luft dazu. Der Regler nimmt mehr aus den Tiefmitten.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 7,
+    "unitName": "I_eq_4_band",
+    "params": {
+     "trim": 127,
+     "b1_type": 2,
+     "b2_type": 0,
+     "b3_type": 0,
+     "b4_type": 1,
+     "b1_frequency": 5,
+     "b1_q": 5,
+     "b1_gain": 24,
+     "b2_frequency": 22,
+     "b2_q": 5,
+     "b2_gain": 34,
+     "b3_frequency": 48,
+     "b3_q": 5,
+     "b3_gain": 36,
+     "b4_frequency": 54,
+     "b4_q": 5,
+     "b4_gain": 38
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 10,
+    "low": 40,
+    "high": 26
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "mfx",
+  "name": "Master Glue",
+  "description": "Ein Kompressor auf der Summe, hält den Mix zusammen. X dreht die Schwelle runter. Ein Baustein, den Hacktribe in keinem Preset benutzt.",
+  "stages": [
+   {
+    "stage": "mfx",
+    "unit": 41,
+    "unitName": "M_sr1_comp",
+    "params": {
+     "dry_wet": 100,
+     "envelope_select": 0,
+     "threshold": 42,
+     "ratio": 8,
+     "knee": 6,
+     "attack": 11,
+     "release": 5,
+     "hold_time": 0,
+     "tube_sat": 0,
+     "output_gain": 50
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 65,
+    "chain": 10,
+    "param": 4,
+    "low": 127,
+    "high": 0
+   },
+   {
+    "source": 65,
+    "chain": 10,
+    "param": 0,
+    "low": 0,
+    "high": 127
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 2,
+    "low": 46,
+    "high": 30
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "mfx",
+  "name": "Master Tilt",
+  "description": "Kippt die ganze Summe: X nach links macht sie heller, nach rechts dunkler, um sechs Stufen. Ein Baustein, den Hacktribe in keinem Preset benutzt.",
+  "stages": [
+   {
+    "stage": "mfx",
+    "unit": 43,
+    "unitName": "M_eq_4_band",
+    "params": {
+     "dry_wet": 100,
+     "trim": 127,
+     "b1_type": 2,
+     "b2_type": 0,
+     "b3_type": 0,
+     "b4_type": 1,
+     "b1_frequency": 18,
+     "b1_q": 5,
+     "b1_gain": 36,
+     "b2_frequency": 33,
+     "b2_q": 5,
+     "b2_gain": 36,
+     "b3_frequency": 48,
+     "b3_q": 5,
+     "b3_gain": 36,
+     "b4_frequency": 38,
+     "b4_q": 5,
+     "b4_gain": 36
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 65,
+    "chain": 10,
+    "param": 4,
+    "low": 127,
+    "high": 0
+   },
+   {
+    "source": 65,
+    "chain": 10,
+    "param": 0,
+    "low": 0,
+    "high": 127
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 8,
+    "low": 30,
+    "high": 42
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 17,
+    "low": 42,
+    "high": 30
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "mfx",
+  "name": "Master Warmth",
+  "description": "Leichte Röhrensättigung auf der Summe: etwas Wärme und Dichte, ohne zu verzerren. X dreht die Sättigung auf.",
+  "stages": [
+   {
+    "stage": "mfx",
+    "unit": 47,
+    "unitName": "M_tubepre",
+    "params": {
+     "dry_wet": 100,
+     "tube1_gain": 52,
+     "tube1_sat": 20,
+     "tube2_gain": 52,
+     "tube2_sat": 30,
+     "lo_cut1": 0,
+     "hi_cut1": 127,
+     "lo_cut2": 0,
+     "hi_cut2": 127,
+     "tube1_bias": 30,
+     "tube1_phase": 0,
+     "tube2_bias": 40,
+     "output_level": 84
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 65,
+    "chain": 10,
+    "param": 4,
+    "low": 127,
+    "high": 0
+   },
+   {
+    "source": 65,
+    "chain": 10,
+    "param": 0,
+    "low": 0,
+    "high": 127
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 2,
+    "low": 20,
+    "high": 70
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 4,
+    "low": 30,
+    "high": 80
+   }
+  ],
+  "creator": "Kuhler Buhler"
  }
 ]);
 
@@ -1045,6 +1906,190 @@ export const MOD_CATALOG = Object.freeze([
     "lo": 0,
     "hi": 0,
     "follow": 0
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "mod",
+  "name": "Bounce Pluck",
+  "description": "Jede Note bekommt eine kurze Hüllkurve auf den Filter und einen kleinen Schub auf die Lautstärke: der Filter schnappt auf und gleich wieder zu. Macht lange Bässe zu kurzen Plucks. MOD. DEPTH stellt die Stärke, MOD. SPEED die Länge. Auf einen Platz der EG+-Arten legen (1 bis 6).",
+  "depth": 100,
+  "speed": 36,
+  "curve": 2,
+  "slots": [
+   {
+    "source": 0,
+    "target": 3,
+    "lo": 0,
+    "hi": 50,
+    "follow": 1
+   },
+   {
+    "source": 0,
+    "target": 8,
+    "lo": 0,
+    "hi": 24,
+    "follow": 1
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "mod",
+  "name": "Bounce Pitch",
+  "description": "Jede Note springt kurz um etwa einen Halbton nach oben und fällt zurück, dazu ein kleiner Lautstärke-Schub. Gibt dem Bass ein Federn. Auf einen Platz der EG+-Arten legen (1 bis 6).",
+  "depth": 80,
+  "speed": 26,
+  "curve": 2,
+  "slots": [
+   {
+    "source": 0,
+    "target": 1,
+    "lo": 0,
+    "hi": 16,
+    "follow": 1
+   },
+   {
+    "source": 0,
+    "target": 8,
+    "lo": 0,
+    "hi": 24,
+    "follow": 1
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "mod",
+  "name": "Kick Drop",
+  "description": "Die Tonhöhe startet hoch und fällt in Millisekunden ab, dazu ein Schub auf die Lautstärke: baut den Schlag eines Kicks. Auf einen Platz der EG+-Arten legen (1 bis 6).",
+  "depth": 100,
+  "speed": 26,
+  "curve": 2,
+  "slots": [
+   {
+    "source": 0,
+    "target": 1,
+    "lo": 0,
+    "hi": 56,
+    "follow": 1
+   },
+   {
+    "source": 0,
+    "target": 8,
+    "lo": 0,
+    "hi": 16,
+    "follow": 1
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   },
+   {
+    "source": 2,
+    "target": 0,
+    "lo": 0,
+    "hi": 0,
+    "follow": 0
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "mod",
+  "name": "Kick Click",
+  "description": "Ein sehr kurzer, hoher Pitch-Sprung am Anfang: der Klick vorn am Kick. Mit Kick Drop auf zwei Parts oder allein auf einem Kick mit eigenem Körper. Auf einen Platz der EG+-Arten legen (1 bis 6).",
+  "depth": 100,
+  "speed": 12,
+  "curve": 2,
+  "slots": [
+   {
+    "source": 0,
+    "target": 1,
+    "lo": 0,
+    "hi": 63,
+    "follow": 1
+   },
+   {
+    "source": 0,
+    "target": 8,
+    "lo": 0,
+    "hi": 28,
+    "follow": 1
    },
    {
     "source": 2,

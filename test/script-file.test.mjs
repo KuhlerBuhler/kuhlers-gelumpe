@@ -145,7 +145,7 @@ function viewer(card) {
   return { device, step: (ms = 40) => { now += ms; device.frame(); }, v: name => loaded.script.vars[r.info.symbols[name].slot] };
 }
 
-test("the Image Viewer pages through the pictures of a file with Part, shows the number for two seconds and wraps around", () => {
+test("the BMP Viewer pages through the pictures of a file with Part, shows the number for two seconds and wraps around", () => {
   const pics = [3, 5, 7].map(frameOf);
   const shows = (p, i) => Array.from(p.device.display.bytes).every((b, at) => b === pics[i][at]);
   const corner = p => Array.from(p.device.display.bytes.subarray(0, 30)).join(",");

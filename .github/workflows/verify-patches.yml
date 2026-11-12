@@ -113,12 +113,12 @@ jobs:
             echo "::notice::the pull request changes nothing the check is made of, nothing to check."
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
-      # A pull request into develop runs the start scenarios and the case modules of its changed files, and writes nothing.
+      # Feature PRs run start scenarios and cases for their changed files, and write nothing.
       - id: scope
-        if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+        if: github.event_name == 'pull_request' && (github.base_ref == 'develop' || startsWith(github.base_ref, 'release/'))
         run: |
           if [ "$(wc -l < "$RUNNER_TEMP/changed.txt")" -ge 3000 ]; then cases=all; else cases=$(node tools/ci/verify-scope.mjs < "$RUNNER_TEMP/changed.txt"); fi
-          echo "::notice::pull request into develop: start scenarios and cases '${cases:-none}', verified.json stays as it is."
+          echo "::notice::pull request into $GITHUB_BASE_REF: start scenarios and cases '${cases:-none}', verified.json stays as it is."
           echo "full=false" >> "$GITHUB_OUTPUT"
           echo "cases=$cases" >> "$GITHUB_OUTPUT"
       # A push to develop runs every case module with the kept task results, so develop's cache stays current.

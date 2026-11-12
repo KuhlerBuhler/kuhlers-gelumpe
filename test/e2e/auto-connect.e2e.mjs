@@ -1,6 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { setUp, go } from "./harness.mjs";
+import { setUp, go, gear } from "./harness.mjs";
 import { makeFirmware } from "../helpers.mjs";
 
 let h;
@@ -53,6 +53,27 @@ test("with Emulator as the mode a plugged-in Electribe is left alone; Echtes Ger
   await page.evaluate(() => window.__ceeStubReady);
   await waitState(page, "connected");
   await go(page, "emu");
+  assert.deepEqual(page.errors, []);
+});
+
+test("the real-device switch stays off and says so while no Electribe is on the cable", async () => {
+  const page = await plugged();
+  await waitState(page, "present");
+  await page.evaluate(() => window.__pull());
+  await waitState(page, "absent");
+  await page.goto(`${h.url}#emu`);
+  await page.evaluate(() => window.__ceeStubReady);
+  await gear(page);
+  await page.locator("#cee-mode-switch").check({ force: true }).catch(() => {});
+  await page.locator(".cee-toast .cee-toast-text", { hasText: "Keine Electribe verbunden." }).waitFor();
+  assert.equal(await page.locator("#cee-mode-switch").isChecked(), false, "the switch springs back");
+  assert.equal(await page.locator("#cee-area-emu").isVisible(), true, "still on the emulator");
+  assert.equal(await page.getAttribute("#cee-tab-emu", "data-active"), null);
+  await page.evaluate(() => window.__plug());
+  await waitState(page, "present");
+  await gear(page);
+  await page.locator("#cee-mode-switch").check({ force: true });
+  assert.equal(await page.locator("#cee-mode-switch").isChecked(), true, "with the Electribe back the switch holds");
   assert.deepEqual(page.errors, []);
 });
 

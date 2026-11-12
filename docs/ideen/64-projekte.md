@@ -1,5 +1,9 @@
 # 64. Projekte: Patterns und Samples zusammen laden
 
+**Verworfen (10.11.2026).** Es gibt keine Projektordner mit eigener `e2sSample.all`. Samples kommen einzeln in den
+Sample-Ordner, das Gerät zeigt alle an, und Sample Swap macht beliebig viele möglich. Die Recherche unten bleibt
+als Nachschlagewerk stehen, etwa zum gezielten Speichern einzelner Patterns.
+
 Stand: 25. Oktober 2026. **Recherchiert und teilweise im Emulator geprüft, nicht gebaut.**
 Am Gerät ist nichts geprüft. Es gibt noch keinen Projekt-Import und keinen neuen Firmware-Patch.
 Die Umsetzung beginnt erst nach Zustimmung.

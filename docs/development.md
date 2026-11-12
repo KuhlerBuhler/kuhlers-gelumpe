@@ -157,6 +157,16 @@ sie werden diese übersprungen; ebenso `E2_BLUE_VSB` (die blaue Electribe 2) fü
 Tests, die auf einem echten Flash-Abbild aufsetzen, gibt es `E2_FLASH`. In CI stellt
 `E2_ARM_REQUIRED` sicher, dass die ARM-Prüfungen laufen.
 
+`test/script-runtime.test.mjs` wendet die Laufzeit der Hacktribe auf `E2_VSB` an. Zeigt `E2_VSB` auf die rote oder
+blaue Datei, schlägt sein erster Test fehl; das ist kein Regress. Dafür `E2_VSB` auf die Hacktribe-Datei stellen und
+`E2_STOCK_VSB` und `E2_BLUE_VSB` für die anderen nehmen.
+
+Browsertests mit Animation oder Hänger-Wächter (`test/e2e/background.e2e.mjs`, `discord.e2e.mjs`) pausieren die Uhr:
+`page.clock.install({ time })` allein lässt die Zeit real weiterlaufen, und auf einem ausgelasteten Rechner löst ein
+echtes spätes Bild den Wächter aus. Mit `page.clock.pauseAt(...)` steht die Uhr zwischen den Schritten, `runFor` und
+`fastForward` bewegen sie. Chrome auf macOS gibt halbtransparente Pixel eines Canvas nach dem ersten Auslesen um einen Wert
+verschoben zurück, wenn der Kontext nicht `willReadFrequently` trägt (`site/design/bg.js` setzt es).
+
 Zwei Dokumentations-Tests halten das Repo sauber: `test/docs.test.mjs` prüft tote
 Links, absolute Benutzerpfade, Namen und Gedankenstriche in `README*`, `AGENTS.md` und
 `docs/`. `test/map.test.mjs` prüft die Belege der Gerätekarte, auch dass jede Messung,
@@ -436,7 +446,9 @@ noch nicht eingebaut.
    Notizen als `release-notes/X.Y.Z.md` (Format unten). Sie sind das, was im Release und im Discord steht. Danach
    `node tools/release-notes.mjs build`: es schreibt `data/release-notes.mjs`, daraus zeigt die App unter Changelogs
    auch die Versionen, deren Release auf GitHub schon gelöscht ist (ohne Downloads, nur Neu, Geändert, Behoben). Ein
-   Test schlägt fehl, wenn die Datei nicht zu `release-notes/` passt.
+   Test schlägt fehl, wenn die Datei nicht zu `release-notes/` passt. Die Datei `release-notes/X.Y.Z.md` gehört erst in
+   diesen Release-PR: `tools/release-notes.mjs build` nimmt jede Datei im Ordner, mit einer Datei in einem Feature-PR
+   zeigt die App unter Changelogs eine Version, die es noch nicht gibt. Bis dahin steht der Notiztext im PR-Text.
 2. Pull Request `develop` -> `main` mergen. Den Release-PR `release/X.Y.Z` -> `main` merged der Workflow "Release
    merge" selbst, sobald jemand mit Schreibrecht ihn freigegeben hat und alle Checks grün sind (siehe unten).
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
@@ -548,9 +560,11 @@ das nächste Ereignis prüft erneut. Dabei bleibt kein Runner wartend belegt. Ge
 Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
 Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
 
-Die Entscheidung liest den Code vom Standardbranch `main`. Der Workflow, `tools/automerge.mjs`
-und `tools/ci/checks.mjs` müssen deshalb zusammen auf `main` verfügbar sein. Erst dann arbeitet
-auch der Auslöser `workflow_run`; ein Merge nur nach `develop` aktiviert ihn noch nicht.
+Die Entscheidung liest den Code von `develop`, nicht vom PR: dort liegt nur gemergter Code, und es ist der Stand,
+in den die PRs gemergt werden. Vorher las sie `main`; dort fehlte `tools/automerge.mjs` bis zum nächsten Release, und
+jeder Lauf brach mit "Cannot find module" ab. Die Auslöser `workflow_run` und `check_run` nehmen die Workflow-Datei
+aber vom Standardbranch `main`. Solange dort die alte Datei liegt (bis 1.4.5), entscheidet nur `pull_request` (neuer
+Push, neues Label); der kommt meist, bevor die Prüfungen fertig sind, und der PR bleibt dann offen.
 
 **Gemergte Branches verschwinden** (Workflow "Delete merged branch", `.github/workflows/branch-autodelete.yml`): nach
 dem Merge eines PRs aus diesem Repo löscht der Workflow dessen Branch. Nie gelöscht werden `main`, `develop`,
@@ -621,7 +635,7 @@ Geprüft wird nur, wenn der PR den Patch-Satz (`data/patches/`), etwas, das `ver
 oder `tools/emu/` ändert (die Pfade unter `push:` im Workflow); sonst ist `patches` nach dem ersten Job grün. Was
 dann läuft, hängt von der Basis ab:
 
-- **Pull Request nach `develop`** (Feature-Branches): auf allen vier Dateien nur die Startszenarien (`check.py --quick`)
+- **Pull Request nach `develop` oder `release/*`** (Feature-Branches): auf allen vier Dateien nur die Startszenarien (`check.py --quick`)
   und die Case-Module, die zu den geänderten Dateien gehören (`verify-patches.mjs --cases`, an `check.py --cases`
   weitergereicht). Welche das sind, sagt `tools/ci/verify-scope.mjs` mit einer festen Tabelle: `tools/emu/<x>_cases.py`
   ist `<x>_cases` (plus die Module, die daraus importieren), Assembler und Patch-JSON gehen an die Cases, die sie
@@ -629,12 +643,13 @@ dann läuft, hängt von der Basis ab:
   (`script_vm.s`, `script_hooks.s`, `src/patch.mjs`, `src/hooks.mjs`, `machine.py`, `bootmap.py`, `check.py`) und jede
   Datei, die nicht in der Tabelle steht, heißt alle Case-Module. Geschrieben oder committet wird dabei nichts: ein
   Eintrag in `verified.json` heißt immer "ganz geprüft". Der Preis: bricht ein Case außerhalb der zugeordneten Module,
-  sieht man das erst am Release-PR. Die Tabelle hält `test/verify-scope.test.mjs` mit `check.py` in Einklang.
+  sieht man das erst am Release-PR nach `main` oder beim vollständigen Freigabelauf. Die Tabelle hält
+  `test/verify-scope.test.mjs` mit `check.py` in Einklang.
 - **Pull Request nach `main`** (der Release-PR aus `release/X.Y.Z` oder `develop`) und jede andere Basis: der ganze
   Check, danach committet der letzte Job die neue `verified.json` auf den Branch des Pull Requests.
 - **Push auf `develop`** (ein gemergter PR, der die Pfade ändert): alle Case-Module auf allen vier Dateien mit den
   gespeicherten Task-Ergebnissen, geschrieben wird nichts. Der Lauf hält den Task-Cache von `develop` aktuell. Jeder
-  PR-Lauf lädt den neuesten Cache von `develop` und seinen eigenen und nimmt beide zusammen: ein neuer PR startet
+  gezielte PR-Lauf nach `develop` oder `release/*` lädt den neuesten Cache von `develop` und seinen eigenen und nimmt beide zusammen: ein neuer PR startet
   nicht kalt, und nach einem Merge von `develop` in den PR fehlen die neuen Ergebnisse von `develop` nicht. Gerechnet
   werden nur die Tasks, deren Eingaben oder benutzte Dateien sich geändert haben. Ein neuer develop-Stand
   ersetzt die noch laufenden Teilläufe des alten; der neueste Stand prüft wieder alle Fallmodule.
@@ -650,7 +665,10 @@ gh workflow run verify-patches.yml -f branch=release/X.Y.Z
 ```
 
 Er pusht dann auf diesen Branch; für `main` und `develop`, oder wenn der Push scheitert, öffnet er stattdessen einen
-Pull Request hinein. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
+Pull Request hinein. Dieser Ausweg kann scheitern: ein Branch `verified/...`, dessen Verlauf eine Workflow-Datei neu
+anlegt, wird mit dem eigenen Token des Workflows (`github.token`) abgelehnt, und der Workflow nimmt `SYNC_TOKEN ||
+github.token`. Ohne `SYNC_TOKEN` (oder wenn er den Geltungsbereich `workflow` nicht hat) kann der Pull Request also
+ausbleiben; ob `SYNC_TOKEN` hier reicht, ist nicht getestet. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
 Release-Workflows hängt seinen frischen Eintrag je Datei als Artefakt `verified-<name>` an.
 Der gewählte Branch muss die gemeinsame Firmwareprüfung und ihre Werkzeuge enthalten. Ältere Releasebranches
 bekommen diese Dateien vor einer Prüfung über den neuen Workflow als eigenen Backport; der Lauf überlagert

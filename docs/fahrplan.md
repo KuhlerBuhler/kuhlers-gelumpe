@@ -15,16 +15,15 @@ Changelogs.
 
 In Vorbereitung, wird vor dem Release am Gerät getestet ([Notizen](../release-notes/1.4.5.md)).
 
-- Plugin-API 12 auf 21 ([Idee 74](ideen/74-plugin-api-feedback.md)), dazu Tasten bei offener App durchlassen mit
+- Plugin-API 12 auf 25 ([Idee 74](ideen/74-plugin-api-feedback.md)), dazu Tasten bei offener App durchlassen mit
   `korg.passKeys(...)` (Idee 66 in der [Ideenliste](ideen.md)).
-- Neue Plugins im Katalog: Momentary Mute, Image Viewer, Gate Hold und Step Copy. Key Pads und Filter Toggle sind fest in der
+- Neue Plugins im Katalog: Momentary Mute, BMP Viewer, Gate Hold und Step Copy. Key Pads und Filter Toggle sind fest in der
   Firmware eingebaut (BLECH > FEATURES, standardmäßig an).
 - Hacktribe-Warnung zu den Samples im Patcher, Rettungsfälle für versehentliches Hacktribe und den Weg zurück zu Korgs
   Original ([Anleitung](original-zurueck.md)).
 
 ## Danach
 
-- Projekte: Patterns und Samples zusammen aus einem Projektordner laden ([Idee 64](ideen/64-projekte.md)).
 - Sample Swap, dazu ein gemeinsames Format wie bei der ESX, in dem alle Anpassungen in einer Datei stecken.
 
 ## 1.5: "The sample update"
