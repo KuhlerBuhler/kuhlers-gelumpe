@@ -117,6 +117,7 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 - [Preset-Tabellen: wo Korg sie ablegt, was Hacktribe verschiebt, der Patch für 128 Plätze](2026-10-15-preset-tabellen.md)
 - [Die blaue Electribe 2 (Synth) im Emulator: Hauptbild, Stellen, Flash-Kennung](2026-10-15-blaue-electribe.md)
 - [Samples auf der blauen Electribe 2: PCM-Wellen, Oszillator-Tabelle, Entwurf für BLECH](2026-10-15-synth-samples.md)
+- [Eigene Samples auf der blauen Electribe 2: wo im DSP-Speicher Platz ist](2026-11-12-blau-sample-import.md)
 - [Die PCM-Bank der blauen Electribe 2 aus WAV-Dateien nachgebaut und im Emulator geprüft](2026-10-15-synth-pcm-flash.md)
 
 
