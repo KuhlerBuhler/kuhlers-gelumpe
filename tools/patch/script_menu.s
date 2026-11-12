@@ -286,7 +286,7 @@ card_watch_out:
 
 ; ---- settings file: settings.a.bin and settings.b.bin alternate, the newer valid one is read.
 ; magic, version u16 (1, 2 or 3), count u16 (the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
-; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON; byte 5: bit 0 METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 unused: it was HT OSC OFF, an older file may have it, it is read as nothing, bit 7 AUTO SAVE OFF), version 2 and 3 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
+; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON; byte 5: bit 0 METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (it was HT OSC OFF on develop for half a day before 1.4.5, no release wrote it), bit 7 AUTO SAVE OFF), version 2 and 3 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
 ; means the stock white, bit 28 the display inverted (no file or a version 1 file: inverted), bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes (both up to 16 checksums), version 3 24 to 280 bytes (up to
@@ -440,6 +440,13 @@ menu_load_meter:
     orrne r0, r0, #8
     mov r1, #24
     bl menu_pc_call
+    ldr r0, [sp]                ; bit 6 of byte 5: KNOB LEDS is OFF (the patch pad-colors keeps it, sends nothing from here)
+    ldrb r0, [r0, #5]
+    mov r0, r0, lsr #6
+    and r0, r0, #1
+    mov r2, #0
+    mov r1, #40
+    bl menu_pc_call
     pop {r0-r3}
     ldrb r1, [r0, #6]
     str r1, [r4, #M_TRUST_N]
@@ -535,7 +542,7 @@ menu_file_read:
     bne menu_read_fail
     ldrb r0, [r7, #4]
     ldrb r1, [r7, #5]
-    bics r1, r1, #0xFF          ; byte 5: only bit 0 (LOUD RAINBOW), bit 1 (STILL OFF), bit 2 (STEREO 1 PAD OFF), bit 3 (LAST PATTERN OFF), bit 4 (KEY PADS OFF), bit 5 (FILTER TOGGLE OFF), bit 6 (unused, the former HT OSC OFF: a file with it still loads) and bit 7 (AUTO SAVE OFF) may be set
+    bics r1, r1, #0xFF          ; byte 5: only bit 0 (LOUD RAINBOW), bit 1 (STILL OFF), bit 2 (STEREO 1 PAD OFF), bit 3 (LAST PATTERN OFF), bit 4 (KEY PADS OFF), bit 5 (FILTER TOGGLE OFF), bit 6 (KNOB LEDS OFF) and bit 7 (AUTO SAVE OFF) may be set
     bne menu_read_fail
     sub r0, r0, #1              ; version 1, 2 or 3
     cmp r0, #SETTINGS_VERSION-1
@@ -701,6 +708,12 @@ menu_save_lp_done:
     ldrbeq r1, [r7, #5]
     orreq r1, r1, #128
     strbeq r1, [r7, #5]
+    mov r1, #44                 ; KNOB LEDS OFF: bit 6 of byte 5 (the patch pad-colors keeps it)
+    bl menu_pc_call
+    cmp r0, #0
+    ldrbne r1, [r7, #5]
+    orrne r1, r1, #64
+    strbne r1, [r7, #5]
     ldr r0, [r4, #M_LED_MODE]
     ldr r1, [r4, #M_LED_R]
     orr r0, r0, r1, lsl #4
@@ -1945,6 +1958,8 @@ orig_masks:
     .word 0, 0
     .byte 51, 128, 0, 0               ; AUTO SAVE: bit 7
     .word 0, 0
+    .byte 53, 64, 0, 0                ; KNOB LEDS: bit 6
+    .word 0, 0
     .byte 0xFF, 0, 0, 0
 
 ; ---- the list of the plugins (level 5) and SPLASH IMPORT as the firmware's file browser (DATA UTILITY, IMPORT SAMPLE: screen 39)
@@ -2498,6 +2513,8 @@ menu_texts_clear:
     beq menu_text_ft
     cmp r0, #51
     beq menu_text_as
+    cmp r0, #53
+    beq menu_text_knob
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -2944,6 +2961,20 @@ menu_text_ft:
     ldr r1, =str_off
     cmp r2, #0
     ldrne r1, =str_on
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; KNOB LEDS: whether the LEDs behind the knobs light as the firmware wants (ON) or stay dark (OFF), in the patch pad-colors
+menu_text_knob:
+    mov r0, #3
+    bl menu_title_prefix
+    ldr r1, =str_knob
+    bl menu_copy
+    mov r1, #44
+    bl menu_pc_call
+    ldr r1, =str_on
+    cmp r0, #0
+    ldrne r1, =str_off
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
@@ -3503,7 +3534,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE; 50 was HT OSC, 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS; 50 was HT OSC, 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -3583,7 +3614,7 @@ menu_kind_group:
 menu_kind_sub:
     ldr r1, =sub_kinds
     sub r3, r3, #5
-    add r1, r1, r3, lsl #3
+    add r1, r1, r3, lsl #4
     ldrb r0, [r1, r5]
     mov r1, #0
     b menu_kind_done
@@ -3775,6 +3806,12 @@ menu_count_features:
     ldr r0, =sub_counts
     sub r1, r1, #5
     ldrb r0, [r0, r1]
+    cmp r1, #1                  ; LED without the pad colours: no KNOB LEDS (the patch pad-colors sends the LEDs)
+    bne menu_count_out
+    ldr r1, =PC_CODE
+    ldr r1, [r1]
+    cmn r1, #1
+    subeq r0, r0, #1
     b menu_count_out
 menu_count_list:
     cmp r1, #3
@@ -5401,6 +5438,8 @@ menu_slot_value:
     beq menu_value_ft
     cmp r0, #51
     beq menu_value_as
+    cmp r0, #53
+    beq menu_value_knob
     cmp r0, #24
     beq menu_value_colour
     cmp r0, #25
@@ -5620,6 +5659,17 @@ menu_value_ft:
     cmp r5, #0
     movle r1, #0
     str r1, [r6, #M_FT]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; KNOB LEDS acts at once (the patch pad-colors sends the five knob LEDs), WRITE keeps it
+menu_value_knob:
+    cmp r5, #0
+    movgt r0, #0
+    movle r0, #1
+    mov r2, #1
+    mov r1, #40
+    bl menu_pc_call
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
@@ -6270,6 +6320,8 @@ str_ft:
     .asciz "FILTER TOGGLE"
 str_as:
     .asciz "AUTO SAVE"
+str_knob:
+    .asciz "KNOB LEDS"
 str_sp:
     .asciz "STEREO 1 PAD"
 str_lp:
@@ -6294,14 +6346,14 @@ du_kinds:                       ; our pages of DATA UTILITY (menu_du_mask): EXPO
 custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD COLOR, POWER SAVE, SPLASH (groups 5 to 9)
     .byte 16, 16, 16, 16, 16
 .align 4
-sub_kinds:                      ; the kinds of the pages of DISPLAY, LED, PAD COLOR and POWER SAVE, 8 a group (device 18.10.)
-    .byte 11, 12, 13, 26, 14, 0, 0, 0   ; DISPLAY: backlight red, green, blue, INTENSITY, display invert
-    .byte 7, 8, 9, 10, 28, 29, 30, 31   ; LED: bottom LEDs, LED red, green, blue, the meter's four colours
-    .byte 24, 25, 32, 0, 0, 0, 0, 0     ; PAD COLOR: pad colour, select colour, overlap
-    .byte 27, 34, 0, 0, 0, 0, 0, 0      ; POWER SAVE: DISPLAY LIGHT, LED DIMMING (device 19.10.: SAVE LIGHT under DISPLAY said too little)
-    .byte 22, 23, 35, 0, 0, 0, 0, 0     ; SPLASH: IMPORT, DRAW, RESET (device 22.10.: three rows of their own in CUSTOMIZATION were too many)
-sub_counts:
-    .byte 5, 8, 3, 2, 3
+sub_kinds:                      ; the kinds of the pages of DISPLAY, LED, PAD COLOR and POWER SAVE, 16 a group (device 18.10.)
+    .byte 11, 12, 13, 26, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0       ; DISPLAY: backlight red, green, blue, INTENSITY, display invert
+    .byte 7, 8, 9, 10, 28, 29, 30, 31, 53, 0, 0, 0, 0, 0, 0, 0      ; LED: bottom LEDs, LED red, green, blue, the meter's four colours, KNOB LEDS
+    .byte 24, 25, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; PAD COLOR: pad colour, select colour, overlap
+    .byte 27, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0          ; POWER SAVE: DISPLAY LIGHT, LED DIMMING (device 19.10.: SAVE LIGHT under DISPLAY said too little)
+    .byte 22, 23, 35, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; SPLASH: IMPORT, DRAW, RESET (device 22.10.: three rows of their own in CUSTOMIZATION were too many)
+sub_counts:                     ; LED: KNOB LEDS, the last, only where the set has the pad colours (menu_count_features)
+    .byte 5, 9, 3, 2, 3
 led_dim_percent:                ; LED DIMMING, the steps of the dial: percent dimmed (pad_colors.py keeps the step 8 places on, 75 is 0)
     .byte 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100
 meter_palette:                  ; red, green, blue of the colours 1 to 7, then the firmware's colours of the four zones

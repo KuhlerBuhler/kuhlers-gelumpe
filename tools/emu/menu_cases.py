@@ -760,7 +760,7 @@ def page_cases(payload, flash=None):
     dev = boot(payload, flash)
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0), ("global", 0)] + [("du", page) for page in range(len(du_pages()))] + [("list", page) for page in range(LIST_COUNT)] + [(GROUP_PLUGINS, 0)]
-    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8)]
+    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8 + (custom_extra(dev) > 0))]
     pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_PSAVE, page) for page in range(2)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
     for group, page in pages:
@@ -855,7 +855,7 @@ def orig_shown(dev):
 def orig_pages():
     """(name, how to reach it) of every page of the BLECH menu that shows a setting."""
     pages = [("PLUGIN RUNTIME", lambda dev: goto_global(dev))]
-    for group, count in ((GROUP_DISPLAY, 5), (GROUP_LED, 8), (GROUP_PADS, 3), (GROUP_PSAVE, 2), (GROUP_FEATURES, feature_count())):
+    for group, count in ((GROUP_DISPLAY, 5), (GROUP_LED, 9), (GROUP_PADS, 3), (GROUP_PSAVE, 2), (GROUP_FEATURES, feature_count())):
         pages += [(f"{group}:{page}", lambda dev, group=group, page=page: goto_group(dev, group, page)) for page in range(count)]
     return pages
 
@@ -1020,7 +1020,7 @@ def read_settings_look(image):
             continue
         version, extras, count = raw[4], raw[5], struct.unpack_from("<H", raw, 6)[0]
         head = {1: 16, 2: 20, 3: 20}.get(version)
-        if head is None or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 unused (the former HT OSC OFF), bit 7 AUTO SAVE OFF
+        if head is None or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (once HT OSC OFF), bit 7 AUTO SAVE OFF
             continue
         size = head + 4 * count
         if count > (64 if version == 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -2627,6 +2627,74 @@ def filter_toggle_menu_cases(payload, flash=None):
     return switch_menu_cases(payload, flash, "filter_toggle", "FILTER TOGGLE", S_FT, FT_OFF, 2)
 
 
+def knob_leds_cases(payload, flash=None):
+    """CUSTOMIZATION, LED, KNOB LEDS (patch pad-colors, wish 12.11.): ON is stock (no file, a file without the bit), OFF sends the five
+    knob LEDs 0 to 4 dark at once while the firmware keeps its own values, a knob turned on the main screen lights none of them, ON
+    sends them again; WRITE keeps OFF as bit 6 of byte 5 next to the meter's bit 0, the next start has them dark, EXIT held at
+    power-on lights them as stock."""
+    import pad_colors as PC
+    out = []
+
+    def add(case, ok, detail):
+        out.append({"id": f"menu:knob_leds_{case}", "ok": bool(ok), "detail": detail})
+
+    wait = 10.0 if synthaddr.is_synth(payload) else 1.2       # the synth reaches its main screen after about 8 s
+    knobs = lambda d: [d.m.leds.get(led, 0) for led in range(5)]
+    # -> the LED manager (0xC0345A1C, the synth's own place there), + 0x4E + 8 * LED the brightness the firmware wants
+    manager = synthaddr.tr(0xC0345A1C) if synthaddr.is_synth(payload) else 0xC0345A1C
+    wanted = lambda d: [d.read(d.u32(manager) + 0x4E + 8 * led, 1)[0] for led in range(5)]
+    meter_file = {**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(2, 3, look_word(), extras=1)}
+    dev = boot(payload, flash, files=meter_file, adapter=True, seconds=wait)
+    if dev.u32(PC.CODE_AT) == 0xFFFFFFFF:
+        return out
+    stock = knobs(dev)
+    add("default_on", any(stock[1:]) and stock[1:] == wanted(dev)[1:], f"knob LEDs {stock}, the firmware wants {wanted(dev)}")
+
+    goto_group(dev, GROUP_LED, 8)
+    page = texts_of(dev), counter(dev)
+    dev.turn(-1, wait=0.4)
+    off = texts_of(dev), knobs(dev), wanted(dev)
+    add("page", page == (("KNOB LEDS", "ON", ""), (8, 9)), f"{page}")
+    add("off_at_once", off[0] == ("KNOB LEDS", "OFF", "") and off[1] == [0] * 5 and off[2][1:] == stock[1:] and not dev.m.asserts,
+        f"{off[0]}, sent {off[1]}, the firmware still wants {off[2]}")
+    leave_to_main(dev)
+    dev.m.send([2, 1, 0, 100, 0])
+    dev.run(0.05)
+    dev.m.send([2, 1, 0, 40, 0])
+    dev.run(0.4)
+    add("knob_turned_stays_dark", knobs(dev) == [0] * 5 and not dev.m.asserts, f"after PAN turned on the main screen {knobs(dev)}")
+    dev.run(1.5)                # the firmware's PAN window closes first, a menu key during it goes to the window
+    goto_group(dev, GROUP_LED, 8)
+    dev.turn(1, wait=0.4)
+    on = texts_of(dev), knobs(dev)
+    add("on_again", on[0] == ("KNOB LEDS", "ON", "") and on[1][1:] == stock[1:] and not dev.m.asserts, f"{on}")
+
+    dev.turn(-1, wait=0.4)
+    press(dev, "write", wait=0.6)
+    image = dev.m.mmc.card.medium.data
+    newest = max(read_settings_look(image).items(), key=lambda kv: kv[1][0])[0]
+    extras = settings_extras(image).get(newest, 0)
+    add("file_holds_off", extras == 1 | 0x40, f"byte 5 {extras:#x}")
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(image))))
+    again.run(wait + 0.8)
+    dark = knobs(again)
+    goto_group(again, GROUP_LED, 8)
+    add("start_reads_off", dark == [0] * 5 and texts_of(again)[1] == "OFF" and not again.m.asserts, f"knob LEDs {dark}, page {texts_of(again)}")
+    held = Dev(payload, flash, KILL)
+    held.m.adapter = True
+    held.m.insert_card(SDCard(MemoryMedium(bytearray(image))))
+    held.run(wait + 0.8)
+    add("exit_held_is_stock", knobs(held)[1:] == stock[1:] and not held.m.asserts, f"knob LEDs {knobs(held)}")
+    again.turn(1, wait=0.4)
+    press(again, "write", wait=0.6)
+    newest = max(read_settings_look(again.m.mmc.card.medium.data).items(), key=lambda kv: kv[1][0])[0]
+    extras = settings_extras(again.m.mmc.card.medium.data).get(newest, 0)
+    add("file_holds_on", extras == 1 and knobs(again)[1:] == stock[1:], f"byte 5 {extras:#x}, knob LEDs {knobs(again)}")
+    return out
+
+
 GLOBAL_PAGE_OBJECT = 0xC0691240       # -> the object of GLOBAL PARAMETERS; SET_GLOBAL_PAGE(object, page) sets the page screen 9 opens on
 SET_GLOBAL_PAGE = 0xC007B084
 CHAIN_MODE_PAGE, CHAIN_MODE_BYTE = 18, 0x1F   # page 19/20 of GLOBAL PARAMETERS and its byte in the Global values (docs/messungen/2026-10-13)
@@ -3093,7 +3161,7 @@ def synth_start_cases(payload, flash=None):
 
 def look_rest():
     """The suites look_cases runs after its own cases, in that order."""
-    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, key_pads_menu_cases, filter_toggle_menu_cases, auto_save_cases, default_level_cases, early_look_cases, card_later_cases)
+    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, key_pads_menu_cases, filter_toggle_menu_cases, knob_leds_cases, auto_save_cases, default_level_cases, early_look_cases, card_later_cases)
 
 
 def look_parts():
