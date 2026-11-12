@@ -552,7 +552,7 @@ export default {
   "features.noteAssist.how": "Modo KEYBOARD, toca una nota. Se desactiva en Menú -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY con los pads",
   "features.keyPads.text": "Mantén KEYBOARD y pulsa un pad: el KEY del patrón salta a la nota del pad, como TRANSPOSE en las Electribe antiguas. Una pulsación corta sola cambia al modo KEYBOARD como siempre.",
-  "features.keyPads.how": "KEYBOARD pulsado + pad: pads 1 a 12 cromáticos de C a B, pads 13 a 16 no hacen nada. Se desactiva en Menú -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD pulsado + pad: pads 1 a 12 cromáticos de C a B, pads 13 a 16 eligen la octava del teclado (pad 14 es la del arranque). Se desactiva en Menú -> BLECH -> FEATURES -> KEY PADS.",
   "features.filterToggle.title": "Filtro apagado y encendido",
   "features.filterToggle.text": "SHIFT + LPF, HPF o BPF apaga el filtro del part elegido, la misma combinación lo vuelve a encender con el tipo que esa tecla tuvo por última vez. Cada part recuerda sus tipos.",
   "features.filterToggle.how": "SHIFT + LPF, HPF, BPF: filtro apagado, de nuevo encendido con el último tipo de la tecla; SHIFT + otra tecla de filtro: su último tipo. Se desactiva en Menú -> BLECH -> FEATURES -> FILTER TOGGLE.",

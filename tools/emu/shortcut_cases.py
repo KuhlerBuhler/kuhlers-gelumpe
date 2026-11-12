@@ -25,7 +25,7 @@ import menu_cases  # noqa: E402
 import synthaddr  # noqa: E402
 import unicorn  # noqa: E402
 from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1  # noqa: E402
-from machine import load_flash  # noqa: E402
+from machine import UART1, load_flash  # noqa: E402
 from pswitch_cases import Box, play  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
 
@@ -40,8 +40,10 @@ STEPS = 0x30                    # the steps of a part start here, 12 bytes each
 KILL = menu_cases.KILL
 KEY_AT = 39                     # KEY of the pattern, 0 to 11
 KEY_PADS_ON = script_hooks.MENU_STATE + 0x104   # M_KP: the page KEY PADS (tools/patch/script_menu.s)
-# Per pad the KEY that KEY PADS sets, -1 none: chromatic in pad order, pad 1 C to pad 12 B; pads 13 to 16 set nothing.
+# Per pad the KEY that KEY PADS sets, -1 none: chromatic in pad order, pad 1 C to pad 12 B; pads 13 to 16 set the octave instead.
 KEY_NOTES = list(range(12)) + [-1] * 4
+KEY_OCTAVES = [3, 4, 5, 6]      # pads 13 to 16: the keyboard's octave (4 after the start, pad 1 then plays 60)
+OCTAVE_AT = 0x324               # the octave in the object KP_OCT_OBJ points to (tools/patch/script_hooks.py)
 KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 DRAW_TEXT = {False: 0xC003F7D0, True: 0xC003A408}   # the firmware's text draw (text, x, y, ...), Sampler and synth
 DISPATCH = 0xC002837C           # the dispatcher of panel messages, before the input filter
@@ -444,8 +446,11 @@ def case_key_pads(payload, flash):
     out = []
     box.poke(KEY_AT, 0)
     part = box.selected()
+    octave_object = (script_hooks.KEY_PADS_SYNTH if box.dev.synth else script_hooks.KEY_PADS_SAMPLER)["KP_OCT_OBJ"]
+    octave = lambda: box.u32(box.u32(octave_object) + OCTAVE_AT)  # noqa: E731
+    start_octave = octave()
     held(KEYBOARD, True, 0.25)     # 0.2 put pad 6 on the frame where the KEYBOARD window times out (blue, 12.11.)
-    got, shown, windows = [], [], []
+    got, shown, windows, octaves = [], [], [], []
     for n in range(16):
         texts.clear()
         opened.clear()
@@ -453,6 +458,7 @@ def case_key_pads(payload, flash):
             box.poke(KEY_AT, 3)             # a pad without a note leaves any KEY as it is
         box.pad(n)
         got.append(key())
+        octaves.append(octave())
         windows.append(list(opened))
         if KEY_NOTES[n] >= 0:
             shown.append(KEY_NAMES[KEY_NOTES[n]] in texts and "KEY" in texts)
@@ -464,7 +470,25 @@ def case_key_pads(payload, flash):
                      and windows == [[n] if n >= 0 else [] for n in KEY_NOTES] and not box.m.asserts,
                      f"pads 1 to 12, window with KEY and the note: {shown}; window messages per pad {windows}"))
 
+    out.append(entry("key_pads_set_the_octave", start_octave == 4 and octaves == [4] * 12 + KEY_OCTAVES and not box.m.asserts,
+                     f"octave at the start {start_octave}, after each of the 16 pads {octaves} (want 4 for pads 1 to 12, then {KEY_OCTAVES})"))
+
     box.dev.press(KEYBOARD, 0.4)
+
+    def pad_notes():
+        sent = len(box.m.uart[UART1]["tx"])
+        box.pad(0)
+        data = bytes(box.m.uart[UART1]["tx"][sent:])
+        return [data[i + 1] for i in range(len(data) - 2) if data[i] & 0xF0 == 0x90 and data[i + 2] > 0]
+    high = pad_notes()
+    passed = list(marked)
+    held(KEYBOARD, True)
+    box.pad(13)
+    held(KEYBOARD, False, 0.3)
+    low = pad_notes()
+    out.append(entry("key_pads_octave_plays", len(high) == 1 and len(low) == 1 and high[0] - low[0] == 24 and octave() == 4
+                     and marked == passed and not box.m.asserts,
+                     f"KEYBOARD mode, pad 1 after pad 16 (octave 6) {high}, after pad 14 (octave {octave()}) {low}, want 24 apart"))
     out.append(entry("key_pads_short_press_reaches_the_firmware", marked == [1, 0] and mode() == 5 and key() == 3
                      and box.dev.read(script_hooks.PRESS_KEY, 8) == b"\xff" * 8 and not box.m.asserts,
                      f"KEYBOARD passed on {marked} (want press and release), pad mode {mode()} (want 5 KEYBOARD), KEY {key()}"))

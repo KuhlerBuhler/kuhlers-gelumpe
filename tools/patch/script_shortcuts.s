@@ -204,7 +204,7 @@ sc_tick_done:
 
 ; KEY PADS (idea 85, built in since the plugin keypads): KEYBOARD held on the main screen, a pad sets the KEY of the pattern, like
 ; TRANSPOSE on the old Electribes. The pads go up chromatically in pad order: pad 1 C, pad 2 C#, ... pad 12 B; pads 13 to 16
-; set nothing (their press is still taken while KEYBOARD is held). The KEY goes through the Pattern menu's setter (field 4 of
+; set the keyboard's octave to 3, 4 (the start's), 5 and 6 through the setter KEYBOARD mode's bar keys use (KP_OCT_SET). The KEY goes through the Pattern menu's setter (field 4 of
 ; script_seq_set_pattern_value_glue), and the firmware's parameter window, the one a knob opens, shows "KEY" and the note.
 ; KEYBOARD is held away from the firmware: a short press without a pad goes on to it on release (script_press_key_glue, marked)
 ; and switches to KEYBOARD mode as always; with a pad it does not. SHIFT + KEYBOARD stays the firmware's, so does KEYBOARD while
@@ -356,6 +356,8 @@ kp_tick:
     bl script_press_key_glue
 kp_tick_key:
     ldrb r5, [r4, #KP_KEY]
+    cmp r5, #0x80               ; 0x80 + octave: pads 13 to 16
+    bhs kp_tick_octave
     subs r5, r5, #1
     bmi kp_tick_done
     mov r0, #0
@@ -381,6 +383,18 @@ kp_tick_key:
     add sp, sp, #8
 kp_tick_done:
     pop {r4, r5, r6, pc}
+kp_tick_octave:
+    mov r0, #0
+    strb r0, [r4, #KP_KEY]
+    and r1, r5, #0x7F
+    ldr r0, =KP_OCT_OBJ
+    ldr r0, [r0]
+    cmp r0, #0
+    cmnne r0, #1
+    beq kp_tick_done
+    ldr r12, =KP_OCT_SET
+    blx r12
+    b kp_tick_done
 
 ; FILTER TOGGLE (idea 81, built in since the plugin filtertoggle): SHIFT + LPF, HPF or BPF turns the filter of the selected part
 ; off, and the same combination turns it on again with the type that key had last, kept per part and key until power off; SHIFT
@@ -492,7 +506,7 @@ kp_check_hook:
 
 ; per pad the KEY it sets plus 1, 0 none
 kp_notes:
-    .byte 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0, 0, 0, 0
+    .byte 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0x83, 0x84, 0x85, 0x86   ; KEY plus 1, or 0x80 + octave
 kp_names:
     .asciz "C"
     .space 2

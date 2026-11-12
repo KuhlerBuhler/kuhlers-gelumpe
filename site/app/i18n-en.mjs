@@ -553,7 +553,7 @@ export default {
   "features.noteAssist.how": "KEYBOARD mode, play a note. Switch off under Menu -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY from the pads",
   "features.keyPads.text": "Hold KEYBOARD and press a pad: the pattern's KEY jumps to that pad's note, like TRANSPOSE on the old Electribes. A short press alone still switches to KEYBOARD mode.",
-  "features.keyPads.how": "KEYBOARD held + pad: pads 1 to 12 go chromatically from C to B, pads 13 to 16 do nothing. Switch off under Menu -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD held + pad: pads 1 to 12 go chromatically from C to B, pads 13 to 16 pick the keyboard's octave (pad 14 is the one after power-on). Switch off under Menu -> BLECH -> FEATURES -> KEY PADS.",
   "features.filterToggle.title": "Filter off and on",
   "features.filterToggle.text": "SHIFT + LPF, HPF or BPF turns the filter of the selected part off, the same combination turns it on again with the type that key had last. Every part keeps its own types.",
   "features.filterToggle.how": "SHIFT + LPF, HPF or BPF: filter off, on again with the key's last type; SHIFT + another filter key: its last type. Switch off under Menu -> BLECH -> FEATURES -> FILTER TOGGLE.",
