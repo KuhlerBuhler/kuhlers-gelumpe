@@ -105,27 +105,33 @@ export function drawDisplay(canvas, bytes, light = null) {
   const img = ctx.createImageData(128, 64);
   const on = lit(parseColor(style.getPropertyValue("--cee-lcd-on")), light);
   const off = lit(parseColor(style.getPropertyValue("--cee-lcd-off")), light);
-  let dark = 0;
   for (let y = 0; y < 64; y++) {
     for (let x = 0; x < 128; x++) {
       const lit = (bytes[(y >> 3) * 128 + x] >> (y & 7)) & 1;
-      dark += lit;
       img.data.set([...(lit ? on : off), 255], (y * 128 + x) * 4);
     }
   }
   ctx.putImageData(img, 0, 0);
-  grids.get(canvas)?.colour(dark * 2 > 128 * 64 ? on : off);
+  grids.get(canvas)?.colour(off);
 }
+
+/**
+ * The glass as built: the backlight behind, a layer of cells in front that can only be switched on (dark) or off (clear).
+ * Between the cells there is nothing to switch, so the gaps always show the backlight. A cell switched on does not block
+ * the light, it only dims it, so the gaps between dark cells are a faint mesh, not white lines. Both values are read off
+ * a photo of the real display (2026-11-12): GAP the gap as a share of the pixel pitch, GLOW how far the gap colour stands
+ * out from a dark cell towards the backlight.
+ */
+const GAP = 0.12;
+const GLOW = 0.35;
 
 /** The gap grids laid over a display canvas (pixelGrid), by that canvas. */
 const grids = new WeakMap();
 
 /**
- * The real display has a thin gap between its pixels, in the colour of its background: the clear pixels, or the set ones
- * when most are set (DISPLAY INVERT, the default). In the clear colour on an inverted screen the gaps would draw a light
- * mesh over the whole dark background, which the glass does not show. A second canvas over
+ * The real display has a thin gap between its pixels that shows the backlight (GAP, GLOW). A second canvas over
  * the 128 x 64 one draws only those gaps, at the screen's own resolution, so the display canvas keeps its pixels as they
- * are. Below 3 screen pixels per display pixel there is no room for a gap, and the grid stays empty.
+ * are. Below 3 screen pixels per display pixel the grid stays empty.
  */
 export function pixelGrid(display) {
   const grid = el("canvas", { className: "cee-lcd-grid" });
@@ -142,11 +148,14 @@ export function pixelGrid(display) {
     ctx.clearRect(0, 0, w, h);
     const cell = w / 128;
     if (!rgb || cell < 3) return;
-    // About a seventh of a pixel, as on the real glass, and never thinner than one screen pixel.
-    const gap = Math.max(1, Math.round(cell * 0.14));
+    // GAP of the pitch, at its exact place: no rounding to whole screen pixels, so every cell stays as wide as the next
+    // and a gap thinner than one screen pixel is drawn as a faint line, not a full one.
+    const gap = cell * GAP;
+    const row = h / 64;
     ctx.fillStyle = `rgb(${rgb.join(" ")})`; // raw-ok: the unlit-pixel colour the display already read from its token
-    for (let i = 1; i <= 128; i++) ctx.fillRect(Math.round(i * cell) - gap, 0, gap, h);
-    for (let i = 1; i <= 64; i++) ctx.fillRect(0, Math.round(i * (h / 64)) - gap, w, gap);
+    ctx.globalAlpha = GLOW;
+    for (let i = 1; i < 128; i++) ctx.fillRect(i * cell - gap / 2, 0, gap, h);
+    for (let i = 1; i < 64; i++) ctx.fillRect(0, i * row - gap / 2, w, gap);
   };
   // A window moved to a screen of another pixel density keeps the canvas's size: the window's resize draws again then.
   new ResizeObserver(draw).observe(display);
@@ -183,9 +192,7 @@ export function drawShade(canvas, levels, light = null) {
   const on = lit(parseColor(style.getPropertyValue("--cee-lcd-on")), light);
   const off = lit(parseColor(style.getPropertyValue("--cee-lcd-off")), light);
   ctx.putImageData(new ImageData(shadeImage(levels, on, off), 128, 64), 0, 0);
-  let sum = 0;
-  for (let i = 0; i < 128 * 64; i++) sum += Math.min(levels[i], 15);
-  grids.get(canvas)?.colour(sum * 2 > 15 * 128 * 64 ? on : off);
+  grids.get(canvas)?.colour(off);
 }
 
 function parseColor(value) {
