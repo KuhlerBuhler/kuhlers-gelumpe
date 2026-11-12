@@ -86,6 +86,11 @@
 .equ BL_DIM_FLAG, 0xC00F9310
 .equ M_INV, 0x1B8
 .equ M_INV_HW, 0x1BC
+.equ M_CARD, 0x1B0            ; menu_card_watch: frames in a row the card switch showed a card, CARD_DONE once its settings are read
+.equ CARD_SETTLE, 8           ; 8 frames of 40 ms: a card that is still going in is not read
+.equ CARD_DONE, 0xFF
+.equ SD_INPUT, 0x01E26070     ; GPIO IN_DATA45: bit 1 (GPIO 4.1) is low while a card is in (tools/patch/card_gate.py)
+.equ SD_DETECT, 2
 .equ LCD_PAGE_HOOK_BACK, 0xC00161A8
 .equ LCD_SEND, 0xC00160C4
 .equ MENU_MAX_TRUST, 64        ; the checksum list at MENU_TRUST (tools/patch/script_hooks.py:SETTINGS_RAM), 16 up to 1.3.7
@@ -229,10 +234,55 @@ menu_arm_load:
     ldr r0, =MENU_STATE
     mov r1, #0
     str r1, [r0, #M_INV_HW]     ; the display shows normal: the next page write sends 0xA7 when the settings want it inverted
+    mov r1, #CARD_DONE
+    str r1, [r0, #M_CARD]       ; a card in now is read; without one menu_card_watch sets 0 and reads the next card
     bl objects_repair
     pop {pc}
 .pool
 menu_arm_load_end:
+
+; ---- a card put in after the start, or another card for the one pulled (#479): its settings file is read as at the start, so every
+; setting and the look (backlight, bottom LEDs, pad colours, display polarity) switch at once. The card switch (GPIO 4.1, as
+; tools/patch/card_gate.py reads it) must show the card for CARD_SETTLE frames in a row first. What this power-on runs with stays:
+; the plugin runtime and MFX 2 (M_EFF_RUN, M_EFF_MFX) take a new value only at the next start, as after a change on their pages.
+; A card without a valid settings file changes nothing (menu_load_none). Called from the frame hook past the first main screen (UI task, where WRITE reads and
+; writes the card as well). Clobbers r0 to r3 and r12.
+menu_card_watch:
+    push {r4-r6, lr}
+    ldr r4, =MENU_STATE
+    ldr r0, [r4, #M_ON]
+    cmp r0, #1
+    bne card_watch_out
+    ldr r0, =SD_INPUT
+    ldr r0, [r0]
+    tst r0, #SD_DETECT
+    movne r0, #0
+    bne card_watch_store
+    ldr r0, [r4, #M_CARD]
+    cmp r0, #CARD_DONE
+    beq card_watch_out
+    add r0, r0, #1
+    cmp r0, #CARD_SETTLE
+    blo card_watch_store
+    mov r0, #CARD_DONE
+    str r0, [r4, #M_CARD]
+    ldr r5, [r4, #M_EFF_RUN]
+    ldr r6, [r4, #M_EFF_MFX]
+    bl menu_settings_load
+    str r5, [r4, #M_EFF_RUN]
+    str r6, [r4, #M_EFF_MFX]
+    ldr r12, =LCD_FLUSH_ALL     ; the blue writes a page only where it differs from the one last sent: all eight now, which sends
+    cmp r12, #0                 ; the new polarity (0 on the Sampler, its screen writes pages anyway)
+    beq card_watch_out
+    ldr r0, =MG_LCD
+    mov r1, #1
+    blx r12
+    b card_watch_out
+card_watch_store:
+    str r0, [r4, #M_CARD]
+card_watch_out:
+    pop {r4-r6, pc}
+.pool
 
 ; ---- settings file: settings.a.bin and settings.b.bin alternate, the newer valid one is read.
 ; magic, version u16 (1, 2 or 3), count u16 (the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
@@ -444,6 +494,9 @@ menu_load_look:
     bl menu_orig_snap
     b menu_load_out
 menu_load_none:                 ; no settings file: the stock white, whatever colour the start took from Global byte 250
+    ldr r0, [r4, #M_CARD]       ; a card put in later without one (menu_card_watch): what runs stays
+    cmp r0, #CARD_DONE
+    beq menu_load_out
     bl boot_light_settle
     bl menu_orig_snap           ; the defaults are what is stored then
 menu_load_out:

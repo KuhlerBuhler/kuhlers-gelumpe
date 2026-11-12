@@ -48,6 +48,8 @@ class HookTests(unittest.TestCase):
         machine.uc.mem_map(0xC0340000,4096)
         machine.uc.mem_map(0xC0345000,4096)    # the LED manager's pointer (0xC0345A1C), 0: the unsaved WRITE LED stays out
         machine.uc.mem_map(0xC0310000,0x10000)
+        machine.uc.mem_map(0x01E26000,4096)
+        machine.write(0x01E26070,2)    # the card switch (GPIO 4.1) high: no card, menu_card_watch reads nothing
         for at,size in [(0xC0690000,0x2000),(0xC06A2000,0x1000),(0xC06B2000,0x5000),(0xC06BC000,0x1000),(0xC06C2000,0x1000)]: machine.uc.mem_map(at,size)   # 0xC06A292C the OS tick count the clock reads
         machine.write(0xC033E6F8,machine.input+0x1000)
         machine.write(0xC03404C0,machine.input+0x2000)
