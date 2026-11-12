@@ -1594,6 +1594,7 @@ export default {
   "patcher.reason.noSet": "{url} is geen patchset in het formaat gelumpe-patch-set 1.",
   "patcher.reason.synthChanged": "Dit is niet Korgs ongewijzigde SYSTEM.VSB 2.02 van de blauwe Electribe 2. Pak die uit Korgs zip, niet die van de SD-kaart.",
   "patcher.reason.stockChanged": "Dit is Korgs originele firmware 2.02, maar niet het ongewijzigde bestand uit de systeemupdate (sha256 {sha}...).",
+  "patcher.reason.oldHacktribe": "Dit is een Hacktribe uit 2023 of ouder. Die heeft eigen code op de plek waar BLECH komt. Neem Korgs origineel 2.02 en de huidige hacktribe-2.patch, je patterns en samples op de kaart blijven.",
   "patcher.reason.withFetch": "{reason} De app kan Korgs origineel automatisch voor je laden.",
   "patcher.reason.notStock": "Het bestand is niet de originele Korg 2.02.",
   "patcher.reason.patchTooBig": "Het bestand is {size} byte groot, hacktribe-2.patch is ongeveer 18 KB. Dit is het verkeerde bestand.",
