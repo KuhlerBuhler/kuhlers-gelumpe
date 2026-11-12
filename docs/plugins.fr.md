@@ -1292,7 +1292,7 @@ trois firmwares, `tools/emu/plugin_catalog15_cases.py`, pas sur l’appareil.
 
 **Key Pads**, ancien plugin API 15 jusqu’au 2026-11-07, est intégré sous KEY PADS :
 KEYBOARD maintenu + pad règle chromatiquement KEY, pad 1 C, 2 C#, jusqu’à 12 B ;
-13 à 16 ne font rien. La fenêtre du firmware indique la valeur. Réglage BLECH > FEATURES >
+13 à 16 choisissent l’octave du clavier, pad 14 celle du démarrage. La fenêtre du firmware indique la valeur. Réglage BLECH > FEATURES >
 KEY PADS ; plus dans le catalogue. [Mesure](messungen/2026-11-07-key-pads-eingebaut.md),
 [ordre chromatique](messungen/2026-11-08-key-pads-chromatisch.md).
 

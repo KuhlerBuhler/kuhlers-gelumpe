@@ -553,7 +553,7 @@ export default {
   "features.noteAssist.how": "Режим KEYBOARD, сыграй ноту. Отключается в Меню -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY с пэдов",
   "features.keyPads.text": "Удерживайте KEYBOARD и нажмите пэд: KEY паттерна переходит на ноту пэда, как TRANSPOSE на старых Electribe. Короткое нажатие одной KEYBOARD как обычно переключает режим.",
-  "features.keyPads.how": "KEYBOARD удерживается + пэд: пэды с 1 по 12 хроматически от C до B, пэды с 13 по 16 ничего не делают. Отключается в Меню -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD удерживается + пэд: пэды с 1 по 12 хроматически от C до B, пэды с 13 по 16 выбирают октаву клавиатуры (пэд 14: октава после включения). Отключается в Меню -> BLECH -> FEATURES -> KEY PADS.",
   "features.filterToggle.title": "Фильтр выкл. и вкл.",
   "features.filterToggle.text": "SHIFT + LPF, HPF или BPF выключает фильтр выбранного парта, та же комбинация снова включает его с тем типом, который эта клавиша имела последним. Каждый парт помнит свои типы.",
   "features.filterToggle.how": "SHIFT + LPF, HPF, BPF: фильтр выкл., снова вкл. с последним типом клавиши; SHIFT + другая клавиша фильтра: её последний тип. Отключается в Меню -> BLECH -> FEATURES -> FILTER TOGGLE.",
