@@ -16,6 +16,7 @@ import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { startServer } from "./serve.mjs";
+import { ensureRuntimePatches } from "./patch/ensure-runtime.mjs";
 
 const port = Number(process.env.PORT || 8737);
 const emuPort = Number(process.env.EMU_PORT || 8740);
@@ -25,6 +26,8 @@ const host = process.env.GELUMPE_HOST || "127.0.0.1";
 const EMULATOR_END_MS = 15_000;
 
 const token = randomBytes(16).toString("base64url");
+// The page loads the BLECH set, which lists the runtime patches: they are built, not committed.
+ensureRuntimePatches({ log: message => console.log(message) });
 const server = await startServer(port, { host, emu: { port: emuPort, token } });
 console.log(`Editor läuft auf http://127.0.0.1:${port}/ (verbindet sich selbst mit dem Emulator)`);
 let stopping = false;
