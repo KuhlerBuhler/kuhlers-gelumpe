@@ -1137,10 +1137,11 @@ class MenuSettingsTests(unittest.TestCase):
             symbols = machine.symbols
             state = symbols['MENU_STATE']
             opened = []
+            knob = [0]                  # +44 of pad-colors: 1 when KNOB LEDS is OFF
             def glue(uc, address, size, _):
                 if address == symbols['menu_pc_call']:
                     offset = uc.reg_read(UC_ARM_REG_R1)
-                    uc.reg_write(UC_ARM_REG_R0, {20: 2, 28: 13, 4: 0x120}[offset])
+                    uc.reg_write(UC_ARM_REG_R0, {20: 2, 28: 13, 4: 0x120, 44: knob[0]}[offset])
                     uc.reg_write(UC_ARM_REG_R1, 0xdeadbeef)
                     uc.reg_write(UC_ARM_REG_R2, 0xa5a5a5a5)
                     uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
@@ -1193,6 +1194,16 @@ class MenuSettingsTests(unittest.TestCase):
                     machine.call('menu_settings_save')
                     self.assertEqual((opened[0][5], opened[0][7]), (byte5, 0))
             machine.write(symbols['LP_CODE'], 0xFFFFFFFF)
+            # KNOB LEDS OFF (pad-colors) is bit 6 of byte 5, next to METER LOUD RAINBOW (bit 0)
+            for off, loud, byte5 in ((1, 0, 0x40), (1, 8, 0x41), (0, 8, 1)):
+                with self.subTest(build=build_name, knob=off, loud=loud):
+                    knob[0] = off
+                    machine.uc.mem_write((state + symbols['MX_METER']) & 0xffffffff, bytes([1, 2, 3, loud]))
+                    opened.clear()
+                    machine.call('menu_settings_save')
+                    self.assertEqual((opened[0][5], opened[0][7]), (byte5, 0))
+            knob[0] = 0
+            machine.uc.mem_write((state + symbols['MX_METER']) & 0xffffffff, bytes([1, 2, 3, 4]))
             # both patches: STEREO 1 PAD OFF (bit 2) and LAST PATTERN OFF (bit 3) stay next to METER LOUD RAINBOW (bit 0)
             machine.write(symbols['SP_CODE'], 0xE59FC08C)
             machine.write(symbols['SP_SETTING'], 0)
