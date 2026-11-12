@@ -2821,6 +2821,71 @@ def default_level_cases(payload, flash=None):
     return out
 
 
+def card_later_cases(payload, flash=None):
+    """A card put in after the start, and another card for the one pulled (menu_card_watch in tools/patch/script_menu.s): the
+    whole settings file is read as at the start, CUSTOMIZATION included (backlight, bottom LEDs, display polarity, pad colours),
+    and every switch with it. Each step is compared with a device that started with that card. What the power-on runs with
+    stays (the plugin runtime and MFX 2), a card without a settings file changes nothing, nothing is written to the card."""
+    import pad_colors as PC
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:card_later_{name}", "ok": bool(ok), "detail": detail})
+
+    wait = 10.0 if synthaddr.is_synth(payload) else 1.2
+    pad = lambda d: (d.m.leds.get(0x2C, 0), d.m.leds.get(0x2D, 0))
+
+    def look(d):
+        return {"led": (state(d, S_LED_EFF), state(d, S_LED_V)), "light": (state(d, S_BL_ON), state(d, S_BL_PWM), pins(d)),
+                "leds": steady_leds(d), "invert": (state(d, S_INVERT), d.m.lcd_reverse), "pads": (d.u32(PC.PC_SETTING), pad(d)),
+                "switches": (state(d, S_SET_RUN), state(d, S_SET_MFX), state(d, S_PC), state(d, S_TM), state(d, S_NA), state(d, S_KP),
+                             state(d, S_FT), state(d, S_AS))}
+
+    # scripts off, MFX 2 on, TAP MOTION and NOTE ASSIST off; LED COLOR orange, a blue backlight, DISPLAY INVERT OFF, pads PINK
+    first = settings_file_v2(4, 0x2 | 0x8 | 0x10, look_word(1, (15, 7, 0), (0, 0, 15), 0) | PC.PINK << 2 | 1 << 29)
+    # scripts on, PATTERN CONFIRM off; bottom LEDs OFF, a red backlight, DISPLAY INVERT ON, pads BLUE
+    second = settings_file_v2(9, 0x1 | 0x4, look_word(2, (0, 0, 0), (15, 0, 0), 1) | PC.BLUE << 2)
+    files_a = {**CARD_FOLDER, SETTINGS_PATHS[0]: first}
+    files_b = {**CARD_FOLDER, SETTINGS_PATHS[0]: second}
+    ref_a = look(boot(payload, flash, files=files_a, adapter=True, seconds=wait))
+    ref_b = look(boot(payload, flash, files=files_b, adapter=True, seconds=wait))
+
+    dev = boot(payload, flash, adapter=True, card=False, seconds=wait)
+    bare = look(dev)
+    eff = state(dev, S_EFF_RUN), state(dev, S_EFF_MFX)
+    card_a = SDCard(MemoryMedium(card_image(files_a)))
+    untouched = bytes(card_a.medium.data)
+    dev.m.insert_card(card_a)
+    dev.run(1.0)
+    got_a = look(dev)
+    kept = state(dev, S_EFF_RUN), state(dev, S_EFF_MFX)
+    add("reads_the_whole_file", bare != ref_a and got_a == ref_a and not dev.m.asserts, f"without card {bare}; card put in {got_a}; started with it {ref_a}")
+    add("runtime_stays", kept == eff, f"plugin runtime and MFX 2 in effect before {eff}, after {kept}")
+    add("card_not_written", bytes(dev.m.mmc.card.medium.data) == untouched, "the card was " + ("not written" if bytes(dev.m.mmc.card.medium.data) == untouched else "written"))
+
+    dev.m.eject_card()
+    dev.run(0.5)
+    pulled = look(dev)
+    dev.m.insert_card(SDCard(MemoryMedium(card_image(files_b))))
+    dev.run(1.0)
+    got_b = look(dev)
+    add("swap_reads_the_other_card", pulled == ref_a and got_b == ref_b and not dev.m.asserts, f"pulled {pulled}; other card {got_b}; started with it {ref_b}")
+
+    blank = boot(payload, flash, adapter=True, card=False, seconds=wait)
+    before = look(blank)
+    blank.m.insert_card(SDCard(MemoryMedium(card_image(CARD_FOLDER))))
+    blank.run(1.0)
+    after = look(blank)
+    add("card_without_file_keeps", before == after and not blank.m.asserts, f"before {before}, after {after}")
+
+    started = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    gen = state(started, S_GEN)
+    started.m.uc.mem_write(STATE + S_LED_R, struct.pack("<I", 3))
+    started.run(1.0)
+    add("card_at_start_read_once", gen == 4 and state(started, S_LED_R) == 3 and not started.m.asserts, f"generation {gen}, a level set after the start {state(started, S_LED_R)}")
+    return out
+
+
 def early_look_cases(payload, flash=None):
     """The look (backlight colour, bottom LED colour) is set by the time the sample loader starts, not only after it ends: the menu arms and
     reads its settings from a hook on the loading command, before the loader. Compared with the same copy without that hook (the
@@ -3028,7 +3093,7 @@ def synth_start_cases(payload, flash=None):
 
 def look_rest():
     """The suites look_cases runs after its own cases, in that order."""
-    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, key_pads_menu_cases, filter_toggle_menu_cases, auto_save_cases, default_level_cases, early_look_cases)
+    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, key_pads_menu_cases, filter_toggle_menu_cases, auto_save_cases, default_level_cases, early_look_cases, card_later_cases)
 
 
 def look_parts():

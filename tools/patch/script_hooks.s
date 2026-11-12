@@ -405,6 +405,7 @@ script_frame_run:
     sub sp, sp, #4
     mov r4, r0
     bl migrate_frame
+    bl menu_card_watch
     mov r7, #0
     mov r8, #ERR_OK
     ldr r1, [r4, #RT_ARMED]
