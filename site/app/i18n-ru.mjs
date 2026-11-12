@@ -1594,6 +1594,7 @@ export default {
   "patcher.reason.noSet": "{url} - не набор патчей в формате gelumpe-patch-set 1.",
   "patcher.reason.synthChanged": "Это не неизменённая SYSTEM.VSB 2.02 от Korg для синей Electribe 2. Возьми её из zip-архива Korg, а не с SD-карты.",
   "patcher.reason.stockChanged": "Это оригинальная прошивка Korg 2.02, но не неизменённый файл из системного обновления (sha256 {sha}...).",
+  "patcher.reason.oldHacktribe": "Это Hacktribe 2023 года или старше. У него свой код там, куда ставится BLECH. Возьми оригинал Korg 2.02 и текущий hacktribe-2.patch, паттерны и сэмплы на карте останутся.",
   "patcher.reason.withFetch": "{reason} Приложение может само загрузить оригинал от Korg.",
   "patcher.reason.notStock": "Этот файл - не оригинальная Korg 2.02.",
   "patcher.reason.patchTooBig": "Файл весит {size} байт, а hacktribe-2.patch около 18 КБ. Файл не тот.",

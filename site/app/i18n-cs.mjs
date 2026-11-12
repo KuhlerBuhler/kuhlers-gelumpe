@@ -1594,6 +1594,7 @@ export default {
   "patcher.reason.noSet": "{url} není sada patchů ve formátu gelumpe-patch-set 1.",
   "patcher.reason.synthChanged": "Tohle není nezměněný SYSTEM.VSB 2.02 od Korgu pro modrou Electribe 2. Vezmi ten ze zipu od Korgu, ne z SD karty.",
   "patcher.reason.stockChanged": "Tohle je originální firmware Korgu 2.02, ale ne nezměněný soubor ze systémové aktualizace (sha256 {sha}...).",
+  "patcher.reason.oldHacktribe": "Tohle je Hacktribe z roku 2023 nebo starší. Má vlastní kód tam, kam patří BLECH. Vezmi originál Korgu 2.02 a aktuální hacktribe-2.patch, patterny a samply na kartě zůstanou.",
   "patcher.reason.withFetch": "{reason} Aplikace umí originál od Korgu stáhnout automaticky.",
   "patcher.reason.notStock": "Tento soubor není originální Korg 2.02.",
   "patcher.reason.patchTooBig": "Soubor má {size} bajtů, hacktribe-2.patch má zhruba 18 KB. To je špatný soubor.",

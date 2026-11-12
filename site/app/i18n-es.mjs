@@ -1593,6 +1593,7 @@ export default {
   "patcher.reason.noSet": "{url} no es un patch set en el formato gelumpe-patch-set 1.",
   "patcher.reason.synthChanged": "Este no es el SYSTEM.VSB 2.02 original de Korg de la Electribe 2 azul. Cógelo del zip de Korg, no de la tarjeta SD.",
   "patcher.reason.stockChanged": "Es el firmware original de Korg 2.02, pero no el archivo sin modificar de la actualización del sistema (sha256 {sha}...).",
+  "patcher.reason.oldHacktribe": "Es un Hacktribe de 2023 o anterior. Tiene su propio código donde va BLECH. Usa el original 2.02 de Korg y el hacktribe-2.patch actual, tus patterns y samples de la tarjeta se quedan.",
   "patcher.reason.withFetch": "{reason} La app puede descargar el original de Korg automáticamente.",
   "patcher.reason.notStock": "El archivo no es el Korg 2.02 original.",
   "patcher.reason.patchTooBig": "El archivo pesa {size} bytes, hacktribe-2.patch tiene unos 18 KB. Es el archivo equivocado.",

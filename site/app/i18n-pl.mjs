@@ -1594,6 +1594,7 @@ export default {
   "patcher.reason.noSet": "{url} nie jest zestawem patchy w formacie gelumpe-patch-set 1.",
   "patcher.reason.synthChanged": "To nie jest niezmieniony SYSTEM.VSB 2.02 od Korga do niebieskiej Electribe 2. Weź ten z zipa Korga, nie z karty SD.",
   "patcher.reason.stockChanged": "To oryginalny firmware Korga 2.02, ale nie niezmieniony plik z aktualizacji systemu (sha256 {sha}...).",
+  "patcher.reason.oldHacktribe": "To Hacktribe z 2023 roku lub starszy. Ma własny kod tam, gdzie trafia BLECH. Weź oryginał Korga 2.02 i aktualny hacktribe-2.patch, patterny i sample na karcie zostają.",
   "patcher.reason.withFetch": "{reason} Aplikacja może sama pobrać oryginał od Korga.",
   "patcher.reason.notStock": "Ten plik to nie oryginalny Korg 2.02.",
   "patcher.reason.patchTooBig": "Plik ma {size} bajtów, a hacktribe-2.patch ma około 18 KB. To zły plik.",
