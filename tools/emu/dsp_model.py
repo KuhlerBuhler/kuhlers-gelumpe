@@ -31,9 +31,11 @@ part's template (parameter 0x18 + 0x1A * part) into a free voice with command 9,
 then its gate, word 0, to 1; the note's end sets the gate to 0 with command 0x26. Word 1 is the note in 1/256 semitones (0x2B),
 word 2 the part's PITCH offset in the same unit (0x2C).
 
-Part values at the DSP, part p's parameter PART_ON[build] + 0x6D * p + offset: LEVEL at +0x23 (grows with the square of the
-knob), PAN at +0x60 (0 left to 0x7FFF right), the filter at +0xA (command 0x30: cutoff follows CUTOFF, the filter EG and
-MOD; resonance follows RESONANCE).
+Part values at the DSP, part p's parameter PART_ON[build] + 0x6D * p + offset (the part's block is insert slot p,
+0xFF800B08 + 0x1B4 * p): the level at +0x23 (grows with the square of LEVEL, the amp EG rides on it) and the rate the DSP
+ramps to it at +0x22 (command 0x16, CPU 0xC0093AF0); the left and right gain of PAN at +0x5F and +0x60 (balance: one side
+stays 0x7FFF, CPU 0xC0090FBC); the filter at +0xA (command 0x30: cutoff follows CUTOFF, the filter EG and MOD; resonance
+follows RESONANCE).
 
 Parameter PART_ON[build] + 0x6D * part is the part's switch at the DSP: 1 on, 0 off; the DSP's audio loop (0xFFA019DE) skips
 a switched-off part and clears its output state. The firmware switches a part on with every note it starts (Sampler
@@ -77,7 +79,8 @@ VOICE, VOICE_WORDS, VOICES = 0x43AB, 0x1A, 24     # voice v is the block VOICE +
 TEMPLATE = 0x18                 # part p's voice template is the block TEMPLATE + VOICE_WORDS * p
 VELOCITY = 0x15                 # the voice's velocity gain, inside its block
 NOTE, PITCH = 1, 2              # the voice's note and its part's PITCH offset, 1/256 semitones, inside its block
-LEVEL, PAN, FILTER, IFX_ON = 0x23, 0x60, 0xA, 0x5C     # part values, offsets from the part's switch
+LEVEL, RAMP, FILTER, IFX_ON = 0x23, 0x22, 0xA, 0x5C     # part values, offsets from the part's switch
+PAN_LEFT, PAN_RIGHT = 0x5F, 0x60
 STAGING, UNIT, TARGET = 0x28, 0x38, 0x39    # FIFO field that stages a unit, its codes for the unit number and the target
 MASTER_FX, FX_PARAMS = 0x20, 0x1A           # the master effect's field; codes below FX_PARAMS are effect parameters
 
@@ -103,6 +106,7 @@ class DspModel:
         self.fifo = []              # (device time in ms, channel, code, value) for every FIFO entry
         self.tempo = {}             # channel -> tempo in hundredths of BPM, as the FIFO last set it
         self.effects = {}           # field -> {"unit": loaded unit, "params": {code: value}}
+        self.loads = []             # (device time in ms, field, unit) for every unit the CPU loaded, in order
         self._staged = {}
         self.level = (0, 0)         # what the DSP would see at its output, 1.31
         self.voice_part = {}        # voice -> the part whose template it took last
@@ -274,6 +278,7 @@ class DspModel:
                     staged, self._staged = self._staged, {}
                     unit = staged.pop(UNIT, None)
                     self.effects[value] = {"unit": unit, "params": staged}
+                    self.loads.append((self._now(), value, unit))
             elif code < FX_PARAMS and channel < FIFO_CHANNELS:
                 self.effects.setdefault(channel, {"unit": None, "params": {}})["params"][code] = value
 
@@ -308,7 +313,7 @@ class DspModel:
                 "pitch": semis(self.params.get(block + PITCH))}
 
     def part_value(self, part, offset):
-        """The last value the part's parameter at `offset` (LEVEL, PAN, ...) got; None when the firmware never sent it."""
+        """The last value the part's parameter at `offset` (LEVEL, PAN_LEFT, ...) got; None when the firmware never sent it."""
         return self.params.get(self.part_base + PART_STRIDE * part + offset)
 
     def filter(self, part):

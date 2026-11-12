@@ -382,9 +382,10 @@ def case_voices_dsp(payload, flash):
 
 def case_part_values_dsp(payload, flash):
     """Part 1's knobs reach the DSP (dsp_model.py part_value, filter, voice): LEVEL, PAN, RESONANCE and PITCH each at a low and
-    a high value, the CUTOFF encoder turned down, a MIDI note 60 on channel 1 after each. The DSP values grow with the knob,
-    the cutoff falls with the encoder, and every voice holds note 60."""
-    from dsp_model import LEVEL, PAN, DspModel
+    a high value (knob 0 to 255), the CUTOFF encoder turned down, a MIDI note 60 on channel 1 after each. The DSP values grow
+    with the knob, PAN left keeps the left gain full and lowers the right one and PAN right the other way round, the level
+    has its ramp rate, the cutoff falls with the encoder, and every voice holds note 60."""
+    from dsp_model import LEVEL, PAN_LEFT, PAN_RIGHT, RAMP, DspModel
     from plugin_api24_cases import CUTOFF_ENCODER, KNOBS
     box = SBox(payload, flash)
     dsp = DspModel.attach(box.m)
@@ -394,7 +395,8 @@ def case_part_values_dsp(payload, flash):
         box.m.midi(bytes([0x90, 60, 100]))
         box.run(0.3)
         voices = [dsp.voice(g[1]) for g in dsp.gates[mark:] if g[3]]
-        seen = {"level": dsp.part_value(0, LEVEL), "pan": dsp.part_value(0, PAN), "filter": dsp.filter(0),
+        seen = {"level": dsp.part_value(0, LEVEL), "pan": (dsp.part_value(0, PAN_LEFT), dsp.part_value(0, PAN_RIGHT)),
+                "ramp": dsp.part_value(0, RAMP), "filter": dsp.filter(0),
                 "voice": voices[0] if voices else {}}
         box.m.midi(bytes([0x80, 60, 0]))
         box.run(0.4)
@@ -405,8 +407,9 @@ def case_part_values_dsp(payload, flash):
         box.run(0.4)
         return note()
 
-    level = (knob("level", 16)["level"], knob("level", 127)["level"])
-    pan = (knob("pan", 16)["pan"], knob("pan", 112)["pan"])
+    low, high = knob("level", 16), knob("level", 127)
+    level = (low["level"], high["level"])
+    pan = (knob("pan", 16)["pan"], knob("pan", 240)["pan"])
     resonance = tuple((knob("resonance", raw)["filter"] or (0, 0))[1] for raw in (16, 127))
     pitch = (knob("pitch", 0)["voice"], knob("pitch", 127)["voice"])
     before = (note()["filter"] or (0, 0))[0]
@@ -416,23 +419,28 @@ def case_part_values_dsp(payload, flash):
     cutoff = (before, (after["filter"] or (0, 0))[0])
     notes = [v.get("note") for v in pitch] + [after["voice"].get("note")]
     pitches = [v.get("pitch") for v in pitch]
-    ok = (None not in level + pan and level[0] < level[1] and pan[0] < pan[1] and resonance[0] < resonance[1]
+    full = 0x7FFF
+    ok = (None not in level and level[0] < level[1] and high["ramp"] is not None and pan[0][0] == full > pan[0][1]
+          and pan[1][1] == full > pan[1][0] and resonance[0] < resonance[1]
           and 0 < cutoff[1] < cutoff[0] and notes == [60, 60, 60] and None not in pitches and pitches[0] < pitches[1]
           and not box.m.asserts)
     return [entry("dsp_part_values_follow_the_knobs", ok,
-                  f"LEVEL 16/127 at the DSP {level}, PAN 16/112 {pan}, resonance 16/127 {tuple(map(hex, resonance))}, cutoff "
+                  f"LEVEL 16/127 at the DSP {level} (ramp rate {high['ramp']}), PAN 16/240 left, right {pan}, resonance 16/127 {tuple(map(hex, resonance))}, cutoff "
                   f"before/after the encoder {tuple(map(hex, cutoff))}, PITCH 0/127 {pitches} semitones, notes {notes}")]
 
 
 def case_effects_dsp(payload, flash):
-    """The effects at the DSP (dsp_model.py effect, ifx, ifx_on): IFX TYPE on part 1 loads a unit into part 1's field and
-    clears its neighbour, no other field; IFX EDIT changes part 1's effect parameters; IFX ON switches
+    """The effects at the DSP (dsp_model.py effect, ifx, ifx_on), the model listening from power-on: the start loads a unit
+    into every part's field and the master's; IFX TYPE on part 1 loads a unit into part 1's field and clears its neighbour,
+    no other field; IFX EDIT changes part 1's effect parameters; IFX ON switches
     part 1's insert effect on and off again; the touchpad in Master FX mode changes the master effect's parameters."""
-    from dsp_model import MASTER_FX, DspModel
+    from dsp_model import MASTER_FX, PARTS, DspModel
     from plugin_api24_cases import KNOBS
-    box = SBox(payload, flash)
+    box = SBox(payload, flash, dsp=True)
     dsp = DspModel.attach(box.m)
     box.run(0.3)
+    start = [(dsp.effect(f) or {}).get("unit") for f in [2 * p for p in range(PARTS)] + [MASTER_FX]]
+    mark = len(dsp.loads)
 
     def key(k):
         box.m.send([0, k, 1, 0, 0])
@@ -445,7 +453,7 @@ def case_effects_dsp(payload, flash):
 
     box.m.send([1, 4, 0, 1, 0])
     box.run(0.4)
-    loaded = {f: fx["unit"] for f, fx in dsp.effects.items() if fx["unit"] is not None}
+    loaded = {f: u for _, f, u in dsp.loads[mark:]}
     edits = []
     for raw in (40, 200):
         box.m.send([2, KNOBS["ifxEdit"], 0, raw, 0])
@@ -465,10 +473,10 @@ def case_effects_dsp(payload, flash):
     box.m.send([0, 0x22, 0, 0, 0])
     box.run(0.3)
     moved = sorted(k for k in pad[2] if pad[1].get(k) != pad[2][k])
-    ok = (set(loaded) == {0, 1} and loaded[0] and loaded[1] == 0 and edits[0] != edits[1]
+    ok = (None not in start and set(loaded) == {0, 1} and loaded[0] and loaded[1] == 0 and edits[0] != edits[1]
           and switch[1] is not None and switch[1] != switch[2] and pad[0] != pad[1] and moved and not box.m.asserts)
     return [entry("dsp_effects_follow_the_panel", ok,
-                  f"units loaded by IFX TYPE {loaded}, IFX EDIT 40/200 changed codes "
+                  f"units at the start {[hex(u) for u in start if u is not None]}, loaded by IFX TYPE {loaded}, IFX EDIT 40/200 changed codes "
                   f"{sorted(k for k in edits[1] if edits[0].get(k) != edits[1][k])}, IFX ON {switch}, touchpad "
                   f"moved master codes {moved}")]
 

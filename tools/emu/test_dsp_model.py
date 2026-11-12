@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dsp_model import FIFO, LEVEL, MASTER_FX, PAN, PEAK, DspModel, MAILBOX, slot  # noqa: E402
+from dsp_model import FIFO, LEVEL, MASTER_FX, PAN_RIGHT, PEAK, DspModel, MAILBOX, slot  # noqa: E402
 from machine import DSP_CTRL, DSP_DATA, DSP_SYNC  # noqa: E402
 
 
@@ -116,9 +116,9 @@ class DspModelTest(unittest.TestCase):
 
     def test_part_level_pan_and_filter(self):
         port = Port()
-        port.send([0x106, 0, 1, 0x2C2 + 0x6D + LEVEL, 0x97F, 0x2C2 + 0x6D + PAN, 0x3EFB])
+        port.send([0x106, 0, 1, 0x2C2 + 0x6D + LEVEL, 0x97F, 0x2C2 + 0x6D + PAN_RIGHT, 0x3EFB])
         port.send([0x106, 0x30, 0, 0x2C2 + 0x6D + 0xA, 0x7B09, 0x67E7, 0x5B56, 0x7D3B])
-        self.assertEqual((port.dsp.part_value(1, LEVEL), port.dsp.part_value(1, PAN)), (0x97F, 0x3EFB))
+        self.assertEqual((port.dsp.part_value(1, LEVEL), port.dsp.part_value(1, PAN_RIGHT)), (0x97F, 0x3EFB))
         self.assertEqual(port.dsp.filter(1), (0x7B0967E7, 0x5B567D3B))
         self.assertIsNone(port.dsp.filter(0))
 
@@ -149,6 +149,7 @@ class DspModelTest(unittest.TestCase):
         self.assertEqual(port.dsp.ifx(1), {"unit": 0x10, "params": {0: 0x2400, 1: 0x1600}})
         self.assertEqual(port.dsp.effect(MASTER_FX), {"unit": None, "params": {0x18: 0x5800}})
         self.assertIsNone(port.dsp.ifx(0))
+        self.assertEqual([e[1:] for e in port.dsp.loads], [(2, 0x10)])
 
     def test_ifx_on_is_a_part_value(self):
         port = Port()
