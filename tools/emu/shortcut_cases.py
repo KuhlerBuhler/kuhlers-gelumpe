@@ -380,6 +380,50 @@ def case_voices_dsp(payload, flash):
                   f"NOTE_ON {len(box.notes)}; voices opened for part 1 {one}, part 3 {three}, other parts "
                   f"{len(dsp.notes(None, mark)) - one - three}; closed {len(closed)}, open now {dsp.voices()}")]
 
+def case_part_values_dsp(payload, flash):
+    """Part 1's knobs reach the DSP (dsp_model.py part_value, filter, voice): LEVEL, PAN, RESONANCE and PITCH each at a low and
+    a high value, the CUTOFF encoder turned down, a MIDI note 60 on channel 1 after each. The DSP values grow with the knob,
+    the cutoff falls with the encoder, and every voice holds note 60."""
+    from dsp_model import LEVEL, PAN, DspModel
+    from plugin_api24_cases import CUTOFF_ENCODER, KNOBS
+    box = SBox(payload, flash)
+    dsp = DspModel.attach(box.m)
+
+    def note():
+        mark = len(dsp.gates)
+        box.m.midi(bytes([0x90, 60, 100]))
+        box.run(0.3)
+        voices = [dsp.voice(g[1]) for g in dsp.gates[mark:] if g[3]]
+        seen = {"level": dsp.part_value(0, LEVEL), "pan": dsp.part_value(0, PAN), "filter": dsp.filter(0),
+                "voice": voices[0] if voices else {}}
+        box.m.midi(bytes([0x80, 60, 0]))
+        box.run(0.4)
+        return seen
+
+    def knob(name, raw):
+        box.m.send([2, KNOBS[name], 0, raw, 0])
+        box.run(0.4)
+        return note()
+
+    level = (knob("level", 16)["level"], knob("level", 127)["level"])
+    pan = (knob("pan", 16)["pan"], knob("pan", 112)["pan"])
+    resonance = tuple((knob("resonance", raw)["filter"] or (0, 0))[1] for raw in (16, 127))
+    pitch = (knob("pitch", 0)["voice"], knob("pitch", 127)["voice"])
+    before = (note()["filter"] or (0, 0))[0]
+    box.m.send([1, CUTOFF_ENCODER, 0, -20 & 0xFF, 0])
+    box.run(0.4)
+    after = note()
+    cutoff = (before, (after["filter"] or (0, 0))[0])
+    notes = [v.get("note") for v in pitch] + [after["voice"].get("note")]
+    pitches = [v.get("pitch") for v in pitch]
+    ok = (None not in level + pan and level[0] < level[1] and pan[0] < pan[1] and resonance[0] < resonance[1]
+          and 0 < cutoff[1] < cutoff[0] and notes == [60, 60, 60] and None not in pitches and pitches[0] < pitches[1]
+          and not box.m.asserts)
+    return [entry("dsp_part_values_follow_the_knobs", ok,
+                  f"LEVEL 16/127 at the DSP {level}, PAN 16/112 {pan}, resonance 16/127 {tuple(map(hex, resonance))}, cutoff "
+                  f"before/after the encoder {tuple(map(hex, cutoff))}, PITCH 0/127 {pitches} semitones, notes {notes}")]
+
+
 MODES = ((PART_MUTE, "PART MUTE", True), (KEYBOARD, "KEYBOARD", True), (PART_ERASE, "PART ERASE", True), (CHORD, "CHORD", True),
          (PATTERN_SET, "PATTERN SET", True), (STEP_JUMP, "STEP JUMP", False))
 
@@ -680,7 +724,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):

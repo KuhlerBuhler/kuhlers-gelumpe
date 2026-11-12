@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dsp_model import FIFO, PEAK, DspModel, MAILBOX, slot  # noqa: E402
+from dsp_model import FIFO, LEVEL, PAN, PEAK, DspModel, MAILBOX, slot  # noqa: E402
 from machine import DSP_CTRL, DSP_DATA, DSP_SYNC  # noqa: E402
 
 
@@ -106,6 +106,26 @@ class DspModelTest(unittest.TestCase):
         self.assertEqual(port.dsp.voices(), {0: (0, None)})
         port.send([0x106, 0x26, 0x43AB, 0x1B9])
         self.assertEqual(port.dsp.voices(), {})
+
+    def test_a_voice_holds_its_note_and_pitch(self):
+        port = Port()
+        port.send([0x106, 9, 0x18, 0x43AB, 1])
+        port.send([0x106, 0x2B, 0x43AC, 0x3C00])
+        port.send([0x106, 0x2C, 0x43AC, 0x43AD, 0xF800])
+        self.assertEqual(port.dsp.voice(0), {"part": 0, "gate": False, "velocity": None, "note": 60.0, "pitch": -8.0})
+
+    def test_part_level_pan_and_filter(self):
+        port = Port()
+        port.send([0x106, 0, 1, 0x2C2 + 0x6D + LEVEL, 0x97F, 0x2C2 + 0x6D + PAN, 0x3EFB])
+        port.send([0x106, 0x30, 0, 0x2C2 + 0x6D + 0xA, 0x7B09, 0x67E7, 0x5B56, 0x7D3B])
+        self.assertEqual((port.dsp.part_value(1, LEVEL), port.dsp.part_value(1, PAN)), (0x97F, 0x3EFB))
+        self.assertEqual(port.dsp.filter(1), (0x7B0967E7, 0x5B567D3B))
+        self.assertIsNone(port.dsp.filter(0))
+
+    def test_blue_sends_the_filter_without_a_flag(self):
+        port = Port("synth")
+        port.send([0x106, 0x30, 0x2A8 + 0xA, 0x7B09, 0x67E7, 0xEAA, 0xBC1])
+        self.assertEqual(port.dsp.filter(0), (0x7B0967E7, 0x0EAA0BC1))
 
     def test_a_write_elsewhere_is_kept_as_written(self):
         port = Port()

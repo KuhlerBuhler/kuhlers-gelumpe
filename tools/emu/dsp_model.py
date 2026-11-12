@@ -18,13 +18,22 @@ sends 16 words, the words behind a message are stack left-overs. Parameter N liv
     9     (src, dst)                        0x1A slots from src copied to dst (0xFFA0505A)
     0x16  (n-1, then n triples p, a, b)     slot p = a << 16, slot p + 1 = b << 16
     0x26  (n-1, then n pairs p, q)          slot p = 0, slot q = 0, slot q - 1 = slot p + 0x19 (0xFFA05172); blue: one pair
+    0x2B  (p, v)                            slot p = v << 16; the DSP turns v + slot p + 1 into the generator's rate (0xFFA051C0)
+    0x2C  (p, q, v)                         slot q = v << 16; the same with slot p + v (0xFFA05210)
+    0x30  (flag, p, c hi, c lo, r hi, r lo) filter of slot p: cutoff c, resonance r (0xFFA05308); blue: without the flag
     0x31  (n-1, start, n pairs hi, lo)      slots start.. = hi << 16 | lo
 
-The other note commands (0x1F, 0x2B to 0x39) compute filter and envelope state inside the DSP; they are counted, not applied.
+The other note commands (0x1F, 0x2D to 0x2F, 0x32 to 0x39) compute generator and envelope state inside the DSP; they are counted, not
+applied. The CPU sends 0x2B, 0x2C, 0x2D and 0x30 for every sounding voice about once a millisecond.
 
 Voices: 24 blocks of 0x1A parameters from VOICE (0xFF900EAC), read by the DSP's voice loop (0xFFA0141A). A note copies its
 part's template (parameter 0x18 + 0x1A * part) into a free voice with command 9, sets the voice's velocity gain at +0x15 and
-then its gate, word 0, to 1; the note's end sets the gate to 0 with command 0x26.
+then its gate, word 0, to 1; the note's end sets the gate to 0 with command 0x26. Word 1 is the note in 1/256 semitones (0x2B),
+word 2 the part's PITCH offset in the same unit (0x2C).
+
+Part values at the DSP, part p's parameter PART_ON[build] + 0x6D * p + offset: LEVEL at +0x23 (grows with the square of the
+knob), PAN at +0x60 (0 left to 0x7FFF right), the filter at +0xA (command 0x30: cutoff follows CUTOFF, the filter EG and
+MOD; resonance follows RESONANCE).
 
 Parameter PART_ON[build] + 0x6D * part is the part's switch at the DSP: 1 on, 0 off; the DSP's audio loop (0xFFA019DE) skips
 a switched-off part and clears its output state. The firmware switches a part on with every note it starts (Sampler
@@ -63,6 +72,8 @@ FIFO_END, FIFO_TEMPO, FIFO_CHANNELS = 62, 0x20, 33
 VOICE, VOICE_WORDS, VOICES = 0x43AB, 0x1A, 24     # voice v is the block VOICE + VOICE_WORDS * v, word 0 its gate
 TEMPLATE = 0x18                 # part p's voice template is the block TEMPLATE + VOICE_WORDS * p
 VELOCITY = 0x15                 # the voice's velocity gain, inside its block
+NOTE, PITCH = 1, 2              # the voice's note and its part's PITCH offset, 1/256 semitones, inside its block
+LEVEL, PAN, FILTER = 0x23, 0x60, 0xA     # part values, offsets from the part's switch
 
 
 def slot(param):
@@ -88,6 +99,7 @@ class DspModel:
         self.level = (0, 0)         # what the DSP would see at its output, 1.31
         self.voice_part = {}        # voice -> the part whose template it took last
         self.gates = []             # (device time in ms, voice, part, 1 on | 0 off) for every gate write, in order
+        self.filters = {}           # part -> (cutoff, resonance), 1.31, as command 0x30 last set them
         self._ctl, self._xfer = [], None
         write, read = machine.write, getattr(machine, "dsp_read", None)
 
@@ -210,6 +222,15 @@ class DspModel:
                     p, a, b = d[1 + 3 * i:4 + 3 * i]
                     self.set_param(p, a, a << 16)
                     self.set_param(p + 1, b, b << 16)
+        elif cmd == 0x2B and len(d) >= 2:
+            self.set_param(d[0], d[1], d[1] << 16)
+        elif cmd == 0x2C and len(d) >= 3:
+            self.set_param(d[1], d[2], d[2] << 16)
+        elif cmd == 0x30:
+            p, data = (d[0], d[1:]) if self.synth else (d[1] if len(d) > 1 else None, d[2:])
+            part, k = divmod((p or 0) - self.part_base, PART_STRIDE)
+            if p is not None and k == FILTER and 0 <= part < PARTS and len(data) >= 4:
+                self.filters[part] = (data[0] << 16 | data[1], data[2] << 16 | data[3])
         elif cmd == 0x26:
             pairs = [(d[1 + 2 * i], d[2 + 2 * i]) for i in range(n) if 2 + 2 * i < len(d)]
             if self.synth:
@@ -260,6 +281,22 @@ class DspModel:
         """The voices whose gate is open now: voice -> (part, velocity gain)."""
         return {v: (self.voice_part.get(v), self.params.get(VOICE + VOICE_WORDS * v + VELOCITY))
                 for v in range(VOICES) if self.params.get(VOICE + VOICE_WORDS * v)}
+
+    def voice(self, v):
+        """What voice `v` holds now: part, gate, velocity gain, note and PITCH offset in semitones (None until sent)."""
+        block = VOICE + VOICE_WORDS * v
+        semis = lambda x: None if x is None else (x - 0x10000 if x & 0x8000 else x) / 256
+        return {"part": self.voice_part.get(v), "gate": bool(self.params.get(block)),
+                "velocity": self.params.get(block + VELOCITY), "note": semis(self.params.get(block + NOTE)),
+                "pitch": semis(self.params.get(block + PITCH))}
+
+    def part_value(self, part, offset):
+        """The last value the part's parameter at `offset` (LEVEL, PAN, ...) got; None when the firmware never sent it."""
+        return self.params.get(self.part_base + PART_STRIDE * part + offset)
+
+    def filter(self, part):
+        """(cutoff, resonance) of the part's filter as command 0x30 last set them, or None."""
+        return self.filters.get(part)
 
     def notes(self, part=None, since=0):
         """Device times (ms) at which a voice opened its gate after `since` (an index into `gates`), for one part or all."""
