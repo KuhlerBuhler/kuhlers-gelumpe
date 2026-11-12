@@ -29,7 +29,7 @@ const MENU_USERS = ["menu_cases", "shortcut_cases", "migrate_cases", "fx_card_ca
   "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "beat_eighth_cases", "ht_osc_cases", "card_error_cases"];
 const PSWITCH_USERS = ["pswitch_cases", "tap_motion_cases", "note_assist_cases", "ifx_idle_cases", "shortcut_cases",
   "synth_filter_cases", "beat_eighth_cases"];
-const MFX_USERS = ["mfx_cases", "ifx_idle_cases", "preset_cases", "stereo_pad_cases", "touch_scale_zero_cases", "ht_osc_cases"];
+const MFX_USERS = ["mfx_cases", "preset_cases", "stereo_pad_cases", "touch_scale_zero_cases", "ht_osc_cases"];
 
 /** [pattern, modules or ALL], first match wins. Patterns are anchored; `[^/]*` stays inside one folder. */
 export const TABLE = [
