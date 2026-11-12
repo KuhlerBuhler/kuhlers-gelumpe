@@ -496,11 +496,14 @@ def case_effects_dsp(payload, flash):
 
 FX_RECORD, FX_MAP_ROWS = 524, 10            # an effect preset record and its control map rows (src/layout.mjs, data/map/fx.mjs)
 IFX_DEVICE, MFX_DEVICE = 298, 446           # the unit bytes of insert stage 1 and of the master stage in a record
-HALF = lambda v, mid, top: (max(0.0, (v - mid) / (top - mid)), max(0.0, (mid - v) / mid))     # upper half, lower half
-PAD_SOURCES = {0x41: lambda x, y: 1.0, 0x42: lambda x, y: x / 1023, 0x44: lambda x, y: HALF(x, 512, 1023)[0],
-               0x45: lambda x, y: HALF(x, 512, 1023)[1], 0x46: lambda x, y: HALF(y, 512, 1023)[0],
-               0x47: lambda x, y: HALF(y, 512, 1023)[1]}
-KNOB_SOURCES = {0x42: lambda v: v / 255, 0x44: lambda v: HALF(v, 128, 255)[0], 0x45: lambda v: HALF(v, 128, 255)[1]}
+# t of a source from a 7-bit position k: the whole range, the upper half and the lower half (0 at k 63 to 64). The knob gives
+# k = raw >> 1, the pad k = (raw >> 4) << 1, so the pad tops out at 126 (measured in the emulator, IFX EDIT and pad X and Y).
+T7 = {"all": lambda k: k / 127, "up": lambda k: max(0, k - 64) / 63, "down": lambda k: max(0, 63 - k) / 63}
+PAD_K = lambda raw: (raw >> 4) << 1
+PAD_SOURCES = {0x41: lambda x, y: 1.0, 0x42: lambda x, y: T7["all"](PAD_K(x)), 0x43: lambda x, y: T7["all"](PAD_K(y)),
+               0x44: lambda x, y: T7["up"](PAD_K(x)), 0x45: lambda x, y: T7["down"](PAD_K(x)),
+               0x46: lambda x, y: T7["up"](PAD_K(y)), 0x47: lambda x, y: T7["down"](PAD_K(y))}
+KNOB_SOURCES = {0x42: lambda v: T7["all"](v >> 1), 0x44: lambda v: T7["up"](v >> 1), 0x45: lambda v: T7["down"](v >> 1)}
 
 
 def fx_record(payload, name):
@@ -521,63 +524,124 @@ def fx_expect(rows, t_of, code):
     want = {}
     for source, chain, param, low, high in rows:
         t, k = t_of(source), code(chain, param)
-        if t is not None and (k not in want or t > 0):
+        if t is not None and k is not None and (k not in want or t > 0):
             want[k] = low + (high - low) * t
     return want
 
 
 def fx_off(want, got, rest, at):
-    """Codes more than 4 of 127 from what the map says, and codes the map does not name that moved."""
+    """Codes more than half a step of 127 from what the map says, and codes the map does not name that moved."""
     bad = [(at, k, round(v, 1), None if got.get(k) is None else round(got[k] / 256, 1)) for k, v in want.items()
-           if got.get(k) is None or abs(got[k] / 256 - v) > 4]
+           if got.get(k) is None or abs(got[k] / 256 - v) > 0.5]
     return bad + [(at, k, "moved") for k in got if k not in want and got[k] != rest.get(k)]
 
 
+def fx_table(payload, first, second):
+    """The firmware's list of preset records that starts with the records `first` and `second` (IFX TYPE and MFX TYPE
+    count through it): their payload offsets, up to the first entry that is no record."""
+    a, b = (fx_record(payload, n) for n in (first, second))
+    if a is None or b is None:
+        return []
+    base = 0xC0000000
+    pair = struct.pack("<2I", base + payload.find(a), base + payload.find(b))
+    at = next((m for m in range(0, len(payload) - 7, 4) if payload[m:m + 8] == pair), None)
+    out = []
+    while at is not None and at + 4 <= len(payload):
+        rec = struct.unpack_from("<I", payload, at)[0] - base
+        if not 0 <= rec < len(payload) - FX_RECORD or payload[rec] >= 0x20 or payload[rec + 1] < 0x20:
+            break
+        out.append(rec)
+        at += 4
+    return out
+
+
 def case_fx_map_dsp(payload, flash):
-    """The touchpad and IFX EDIT move the effect codes at the DSP as the preset's control map says (data/map/fx.mjs): a row
-    (source, chain, param, low, high) sets code param to (low + (high - low) * t) * 256. Master (Mod Delay, the start MFX):
-    chain 2 is the master field, chain 7 param 5 its input gain (code 24); t from 0x41 touched, 0x42 X, 0x44/0x45 X and
-    0x46/0x47 Y above and below the middle. Insert (Overdrive, IFX TYPE +1 on part 1): chain 0 is the part's field; t from
-    IFX EDIT, 0x42 the whole knob, 0x44/0x45 above and below 128. The pad's own curve makes t a little off linear, so the case
-    allows 4 of 127."""
-    from dsp_model import FX_IN, MASTER_FX, DspModel
-    from plugin_api24_cases import KNOBS
-    box = SBox(payload, flash, dsp=True)
-    dsp = DspModel.attach(box.m)
-    box.run(0.3)
-    params = lambda field: dict((dsp.effect(field) or {}).get("params", {}))
+    """The touchpad, IFX EDIT and PLAY move the effect codes at the DSP as the preset's control map says (data/map/fx.mjs): a
+    row (source, chain, param, low, high) sets code param to (low + (high - low) * t) * 256. A preset is picked by its place
+    in the firmware's list (fx_table) through the plugin's IFX TYPE and MFX TYPE setters.
+    Insert, part 1: chain 0 is the part's first field (2p), chain 1 its second (2p + 1), chain 5 param 1 the first field's
+    output gain (code 25); t from IFX EDIT, 0x42 the whole knob, 0x44/0x45 above and below 128.
+    Master: chain 2 is the master field, chain 7 param 5 its input gain (24) and param 1 its output gain (25); chain 10
+    (and a chain 0 row) reach no code at the DSP. t from 0x41 touched, 0x42 X, 0x43 Y, 0x44/0x45 X and 0x46/0x47 Y above and
+    below the middle. 0x4A is PLAY: t is 0 before the first PLAY and 1 once it plays. t comes from a 7-bit position (T7)."""
+    from dsp_model import FX_IN, FX_OUT, MASTER_FX, DspModel
+    from plugin_api24_cases import KNOBS, World
+    w = World(bytes(0x100) + bytes(payload), flash)
+    dsp = DspModel.attach(w.dev.m)
+    w.dev.run(0.3)
+    send = w.dev.m.send
+    got = lambda fields: {(f, k): v for f in fields for k, v in (dsp.effect(f) or {}).get("params", {}).items()}
+    ifx, mfx = fx_table(payload, b"Punch", b"Overdrive"), fx_table(payload, b"Mod Delay", b"Tape Delay")
+    record = lambda table, name: next((i for i, r in enumerate(table) if payload[r + 1:r + 2 + len(name)] == name + b"\0"), None)
+    NONE = ()                                   # a row that reaches no DSP code
     out = []
 
-    box.m.send([1, 4, 0, 1, 0])
-    box.run(0.6)
-    rec = fx_record(payload, b"Overdrive") or bytes(FX_RECORD)
-    rows, unit, rest, bad = fx_rows(rec), (dsp.effect(0) or {}).get("unit"), params(0), []
-    for raw in (64, 0, 128, 192, 255, 30, 220):          # a first 0 leaves the knob value as it was
-        box.m.send([2, KNOBS["ifxEdit"], 0, raw, 0])
-        box.run(0.4)
-        bad += fx_off(fx_expect(rows, lambda s: KNOB_SOURCES.get(s, lambda v: None)(raw), lambda c, p: p if c == 0 else None),
-                      params(0), rest, raw)
-    ok = rows and unit == rec[IFX_DEVICE] and all(s in KNOB_SOURCES and c == 0 for s, c, *_ in rows) and not bad
-    out.append(entry("dsp_ifx_edit_follows_the_fx_map", ok and not box.m.asserts,
-                     f"'Overdrive' unit {rec[IFX_DEVICE]} (part 1 {unit}), map {rows}, off: {bad[:6]}"))
+    insert = lambda c, p: (0, p) if c == 0 else (1, p) if c == 1 else (0, FX_OUT) if (c, p) == (5, 1) else None
+    seen, bad, units = [], [], []
+    for name in (b"Overdrive", b"Radio EQ", b"High Pass Filter", b"Talk Filter"):
+        i = record(ifx, name)
+        rec = payload[ifx[i]:ifx[i] + FX_RECORD] if i is not None else bytes(FX_RECORD)
+        rows = fx_rows(rec)
+        w.set_part(0, "ifxType", i or 0)
+        rest = got((0, 1))
+        units.append((name.decode(), i, (dsp.effect(0) or {}).get("unit"), rec[IFX_DEVICE], (dsp.effect(1) or {}).get("unit") or 0,
+                      rec[IFX_DEVICE + 74]))
+        for raw in (64, 0, 128, 192, 255, 30, 220):          # a first 0 leaves the knob value as it was
+            send([2, KNOBS["ifxEdit"], 0, raw, 0])
+            w.dev.run(0.4)
+            bad += fx_off(fx_expect(rows, lambda s: KNOB_SOURCES.get(s, lambda v: None)(raw), insert), got((0, 1)), rest, (name, raw))
+        seen += [r for r in rows if r[0] in KNOB_SOURCES and insert(r[1], r[2]) is not None]
+        bad += [(name, r) for r in rows if r[0] not in KNOB_SOURCES or insert(r[1], r[2]) is None]
+    ok = len(seen) == 13 and all(u[2] == u[3] and u[4] == u[5] for u in units) and not bad
+    out.append(entry("dsp_ifx_edit_follows_the_fx_map", ok and not w.dev.m.asserts,
+                     f"{len(seen)} rows, units {units}, off: {bad[:6]}"))
 
-    box.m.send([0, 0x06, 1, 0, 0])
-    box.run(0.05)
-    box.m.send([0, 0x06, 0, 0, 0])
-    box.run(0.4)
-    rec = fx_record(payload, b"Mod Delay") or bytes(FX_RECORD)
-    rows, unit, rest, bad = fx_rows(rec), (dsp.effect(MASTER_FX) or {}).get("unit"), params(MASTER_FX), []
-    code = lambda chain, param: FX_IN if (chain, param) == (7, 5) else param if chain == 2 else None
-    box.m.send([0, 0x22, 1, 0, 0])
-    for x, y in ((0, 0), (1023, 0), (0, 1023), (1023, 1023), (512, 512), (256, 100), (768, 300), (50, 800)):
-        box.m.send([5, x >> 8, x & 0xFF, y >> 8, y & 0xFF])
-        box.run(0.3)
-        bad += fx_off(fx_expect(rows, lambda s: PAD_SOURCES.get(s, lambda x, y: None)(x, y), code), params(MASTER_FX), rest, (x, y))
-    box.m.send([0, 0x22, 0, 0, 0])
-    box.run(0.3)
-    ok = rows and unit == rec[MFX_DEVICE] and all(s in PAD_SOURCES and code(c, p) is not None for s, c, p, *_ in rows) and not bad
-    out.append(entry("dsp_touchpad_follows_the_fx_map", ok and not box.m.asserts,
-                     f"'Mod Delay' unit {rec[MFX_DEVICE]} (master {unit}), map {rows}, off: {bad[:6]}"))
+    def master(c, p):
+        if c == 2:
+            return MASTER_FX, p
+        if c == 7:
+            return (MASTER_FX, {5: FX_IN, 1: FX_OUT}[p]) if p in (1, 5) else None
+        return NONE if c in (0, 10) else None
+    pad = PAD_SOURCES
+    seen, bad, units = [], [], []
+    for name in (b"Mod Delay", b"Wet Reverb", b"Looper", b"XY Phaser "):
+        i = record(mfx, name)
+        rec = payload[mfx[i]:mfx[i] + FX_RECORD] if i is not None else bytes(FX_RECORD)
+        rows = fx_rows(rec)
+        w.set_pattern("mfxType", i or 0)
+        w.dev.run(0.3)
+        rest = got((MASTER_FX,))
+        units.append((name.decode(), i, (dsp.effect(MASTER_FX) or {}).get("unit"), rec[MFX_DEVICE]))
+        send([0, 0x22, 1, 0, 0])
+        for x, y in ((0, 0), (1023, 0), (0, 1023), (1023, 1023), (512, 512), (256, 100), (768, 300), (50, 800)):
+            send([5, x >> 8, x & 0xFF, y >> 8, y & 0xFF])
+            w.dev.run(0.3)
+            want = {k: v for k, v in fx_expect(rows, lambda s: pad.get(s, lambda x, y: None)(x, y), master).items() if k != NONE}
+            bad += fx_off(want, got((MASTER_FX,)), rest, (name, x, y))
+        send([0, 0x22, 0, 0, 0])
+        w.dev.run(0.4)
+        seen += [r for r in rows if r[0] in pad and master(r[1], r[2]) is not None]
+        bad += [(name, r) for r in rows if r[0] not in pad or master(r[1], r[2]) is None]
+    ok = len(seen) == 23 and all(u[2] == u[3] for u in units) and not bad
+    out.append(entry("dsp_touchpad_follows_the_fx_map", ok and not w.dev.m.asserts,
+                     f"{len(seen)} rows, units {units}, off: {bad[:6]}"))
+
+    i, j = record(ifx, b"Off Beater"), record(mfx, b"Grain Shifter")
+    rows = [(0, r) for r in fx_rows(payload[ifx[i]:ifx[i] + FX_RECORD]) if r[0] == 0x4A] if i is not None else []
+    rows += [(MASTER_FX, r) for r in fx_rows(payload[mfx[j]:mfx[j] + FX_RECORD]) if r[0] == 0x4A] if j is not None else []
+    w.set_part(0, "ifxType", i or 0)
+    w.set_pattern("mfxType", j or 0)
+    w.dev.run(0.3)
+    stopped = got((0, MASTER_FX))
+    send([0, 0x02, 1, 0, 0])
+    w.dev.run(0.05)
+    send([0, 0x02, 0, 0, 0])
+    w.dev.run(0.6)
+    playing = got((0, MASTER_FX))
+    off = [(f, r, stopped.get((f, r[2])), playing.get((f, r[2]))) for f, r in rows
+           if stopped.get((f, r[2])) != r[3] * 256 or playing.get((f, r[2])) != r[4] * 256]
+    out.append(entry("dsp_play_follows_the_fx_map", len(rows) == 2 and not off and not w.dev.m.asserts,
+                     f"'Off Beater' {i}, 'Grain Shifter' {j}, rows {rows}, off: {off}"))
     return out
 
 

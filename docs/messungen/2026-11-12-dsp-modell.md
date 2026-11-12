@@ -52,7 +52,7 @@ abschaltet (#506, Gerätetest 11.11.: Part stumm).
 | IFX EDIT schickt direkt an das Part-Feld, mehrere Codes je Drehung (Einheit `0x10`: Codes 0 und 1; nach zweimal IFX TYPE +1: Codes 1, 10 und 14) | gemessen |
 | IFX ON ist kein FIFO-Eintrag, sondern der Part-Wert `+0x5C` am Postfach (Part 1: `0x31E`), `0x7FFF` an, 0 aus | gemessen (Hacktribe, rot, blau) |
 | Touchpad im Master-FX-Modus: Feld 32, Codes 2, 11, 15 und 17 folgen X und Y; Code 24 geht beim Berühren auf `0x5800` und beim Loslassen auf 0 | gemessen (Hacktribe), Codes 2, 11, 15, 17 auch rot und blau |
-| Das macht die Steuerzeile des Presets (`fx.map.*`, Quelle, Ziel, Parameter, Von, Bis; Namen in `data/map/fx.mjs`): Code = (Von + (Bis - Von) * t) * 256. Touchpad: Quelle `0x41` berührt (t = 1), `0x42` X, `0x46`/`0x47` Y von der Mitte (Rohwert 512) nach oben und nach unten; Ziel 2 = Parameter des Master-Effekts (Parameter = Code), Ziel 7 mit Parameter 5 = Code 24, der Eingangspegel. IFX EDIT: `0x44`/`0x45` Regler über und unter der Mitte (Rohwert 128 von 255), Ziel 0 = Feld des Parts. Zwei Zeilen auf einem Code: die mit t > 0, in der Mitte stehen beide auf Von. X und der Regler sind fast linear, Y weicht bis etwa 1,3 von 127 ab (Kurve des Pads, nicht gelesen). Mod Delay (Start-MFX) und Overdrive (IFX TYPE +1) sind in allen drei Builds dieselben Sätze. Gemessen nur diese zwei Sätze; `0x43`, `0x4A` und die Ziele 1 und `0x0A` nicht | gemessen (Hacktribe, rot, blau) |
+| Das macht die Steuerzeile des Presets (`fx.map.*`, Quelle, Ziel, Parameter, Von, Bis; Namen in `data/map/fx.mjs`): Code = (Von + (Bis - Von) * t) * 256. t kommt aus einer 7-Bit-Stellung k: Regler k = Rohwert >> 1, Pad k = (Rohwert >> 4) << 1 (höchstens 126). Ganzer Weg t = k / 127, obere Hälfte (k - 64) / 63, untere (63 - k) / 63, bei k 63 und 64 beide 0. Pad: `0x41` berührt (t = 1), `0x42` X, `0x43` Y, `0x44`/`0x45` X und `0x46`/`0x47` Y obere und untere Hälfte. IFX EDIT: `0x42` ganzer Weg, `0x44`/`0x45` die Hälften. `0x4A` ist PLAY: t = 0 vor dem ersten PLAY, 1 sobald es läuft (STOP setzt es nicht zurück). Ziele beim Insert: 0 = erstes Feld des Parts (2p), 1 = zweites Feld (2p + 1, Einheit im Satz bei Byte 372), 5 mit Parameter 1 = Code 25 (Ausgangspegel) des ersten Felds. Beim Master: 2 = Parameter des Master-Effekts (Parameter = Code), 7 mit Parameter 5 = Code 24 (Eingang) und mit Parameter 1 = Code 25 (Ausgang); `0x0A` und eine Zeile mit Ziel 0 erreichen keinen Code am DSP. Zwei Zeilen auf einem Code: die mit t > 0. Gemessen an Overdrive, Radio EQ, High Pass Filter, Talk Filter, Off Beater (IFX) und Mod Delay, Wet Reverb, Looper, XY Phaser, Grain Shifter (MFX), in allen drei Builds dieselben Sätze | gemessen (Hacktribe, rot, blau) |
 | Der alte Part-Reset (develop) schickt zusätzlich den Schalter aus/an, `0x31E = 0` (IFX ON von Part 1 aus), ein Kommando `0x39` und über das FIFO das aktuelle Tempo an alle Kanäle; alle anderen Zugriffe sind mit #506 gleich. Nichts davon hält den Part im DSP stumm | gemessen (Emulator), gelesen |
 | Kommando `0` setzt DSP-Parameter: Wort 2 = Anzahl Paare minus 1, dann Paare (Parameter, Wert). Ein Paar `0xC0011F54`, zwei Paare `0xC001203C` | gelesen (Hacktribe), gemessen |
 | Parameter `0x2C2 + 0x6D * Part` (blau `0x2A8 + 0x6D * Part`) ist der Schalter des Parts am DSP, 1 an, 0 aus | gelesen (`0xC0093A20`, `0xC0093988`, blau `0xC0081680`), gemessen |
@@ -176,11 +176,14 @@ Touchpad ändert Parameter des Master-Felds. Grün auf Hacktribe, rot und blau (
 `shortcut:dsp_effects_follow_the_panel` (`case_effects_dsp`). Der Part-Wert-Fall prüft dazu PAN auf beiden Seiten (16 und 240)
 und dass LEVEL seine Rate hat (`0x207`).
 
-Steuerzeilen gegen den DSP: Part 1 IFX TYPE +1 (Overdrive), IFX EDIT auf sieben Werte; dann MASTER FX und das Pad auf acht
-Stellen (Ecken, Mitte, drei dazwischen). Erwartet wird jeder Code aus den Steuerzeilen des Satzes in der Firmware, erlaubt sind
-4 von 127; kein anderer Code des Felds bewegt sich. Ein erster Reglerwert 0 direkt nach IFX TYPE ändert nichts, der Fall dreht
-deshalb zuerst auf 64. Grün auf Hacktribe, rot und blau (12.11.). Prüffälle `shortcut:dsp_ifx_edit_follows_the_fx_map` und
-`shortcut:dsp_touchpad_follows_the_fx_map` (`case_fx_map_dsp`).
+Steuerzeilen gegen den DSP: Die Presets stehen in der Firmware in je einer Zeigerliste (IFX ab Punch, MFX ab Mod Delay);
+IFX TYPE und MFX TYPE zählen durch sie, der Fall sucht den Platz über den Namen und stellt ihn mit den Settern des Plugins.
+Part 1 mit Overdrive, Radio EQ, High Pass Filter und Talk Filter, IFX EDIT je auf sieben Werte; der Master mit Mod Delay,
+Wet Reverb, Looper und XY Phaser, das Pad je auf acht Stellen (Ecken, Mitte, drei dazwischen); dann Off Beater und Grain Shifter
+vor und nach PLAY. Erwartet wird jeder Code aus den Steuerzeilen auf einen halben Schritt von 127 genau; kein anderer Code der
+Felder bewegt sich. Ein erster Reglerwert direkt nach IFX TYPE ändert nichts, der Fall dreht deshalb zuerst auf 64. Grün auf
+Hacktribe, rot und blau (12.11.). Prüffälle `shortcut:dsp_ifx_edit_follows_the_fx_map`,
+`shortcut:dsp_touchpad_follows_the_fx_map` und `shortcut:dsp_play_follows_the_fx_map` (`case_fx_map_dsp`).
 
 ## Grenzen
 
@@ -189,7 +192,7 @@ deshalb zuerst auf 64. Grün auf Hacktribe, rot und blau (12.11.). Prüffälle `
   Das Modell sagt deshalb nicht "hörbar", sondern nur "abgeschaltet worden" und "zuletzt an".
 - **Offen:** Bedeutung der übrigen Wörter des Part-Blocks; was `0x35`, `0x37` und `0x38` im DSP tun, und die Setter je
   Stimmentyp von `0x1F`, `0x2D` und `0x32`. Was die drei Filterwörter im DSP bedeuten, ist nicht gelesen.
-  Die Steuerzeilen sind nur an Mod Delay und Overdrive gemessen; die Kurve des Touchpads für Y ist nicht gelesen.
+  Was Ziel `0x0A` der Steuerzeilen tut, ist nicht gelesen; am DSP kommt davon nichts an.
 - **Nicht im Modell:** ein eigenes Ausgangssignal. Der Spitzenpegel kommt nur aus `output()`. Welche Stimme wann klingt, weiß das
   Modell; wie laut, rechnet der DSP in der Stimmenschleife `0xFFA0141A` und der Part-Schleife `0xFFA019DE` aus Sample-Daten,
   Velocity-Gain, Hüllkurve, Filter und Part-Pegel. Das ist Rechnen wie der DSP, nicht mehr Mitlesen. Der Versuch mit dem echten
