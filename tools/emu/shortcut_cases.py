@@ -680,6 +680,85 @@ def case_cutoff_dsp(payload, flash):
     return [entry("dsp_cutoff_follows_the_filter_type", seen == (34 if curve.sends_off else 32) and not bad and len(functions) == 7 and not w.dev.m.asserts,
                   f"34 settings, {seen} with a 0x30 at the DSP, {len(functions)} functions {functions}, off: {bad[:4]}")]
 
+def import_wav(payload, flash, wav):
+    """IMPORT SAMPLE (DATA UTILITY, the file browser on the card root, destination as offered) of `wav` as /a.wav, with the DSP
+    model attached from the start -> (model, index into its uploads before the import, screen reached)."""
+    import fat32
+    import highram_watch as hw
+    from dsp_model import DspModel
+    from sdcard import MemoryMedium, SDCard
+    from splash_cases import SWITCH_SCREEN, Dev
+    img = fat32.format_image(64 * 1024 * 1024)
+    vol = fat32.Volume(img)
+    vol.write("/a.wav", wav)
+    vol.write(f"/KORG/{hw.folder(payload)}/Sample/x.txt", b"x")
+    vol.close()
+    dev = Dev(payload, flash, 0)
+    dev.m.insert_card(SDCard(MemoryMedium(img)))
+    dsp = DspModel.attach(dev.m)
+    dev.run(1.2)
+    for _ in range(40):
+        if dev.m.screen() == 1:
+            break
+        dev.run(0.5)
+    dev.run(2)
+
+    def key(k, wait):
+        dev.m.press(hw.KEYS[k], True)
+        dev.run(0.1)
+        dev.m.press(hw.KEYS[k], False)
+        dev.run(wait)
+    dev.call(SWITCH_SCREEN, 14, 0)
+    dev.run(0.4)
+    key("menu", 0.5)
+    for _ in range(8):
+        key("right", 0.25)
+    key("menu", 1.5)
+    screen = dev.m.screen()
+    dev.turn(1, 0.8)
+    since = len(dsp.uploads)
+    key("menu", 5.0)            # the file, then the destination as offered
+    key("menu", 1.0)
+    for _ in range(30):
+        if dsp.uploaded(since):
+            break
+        dev.run(1.0)
+    dev.run(1.0)
+    return dsp, since, screen, dev
+
+
+def wav_file(channels, bits, frames):
+    """(file, the 16-bit words the DSP should hold): random PCM, 24 bits cut to their upper 16, stereo interleaved."""
+    import random
+    rnd = random.Random(channels * 100 + bits)
+    values = [rnd.randint(-32768, 32767) for _ in range(frames * channels)]
+    if bits == 16:
+        data = struct.pack(f"<{len(values)}h", *values)
+    else:
+        data = b"".join(bytes([rnd.randint(0, 255)]) + struct.pack("<h", v) for v in values)
+    head = struct.pack("<IHHIIHH", 16, 1, channels, 48000, 48000 * channels * bits // 8, channels * bits // 8, bits)
+    return b"RIFF" + struct.pack("<I", 36 + len(data)) + b"WAVEfmt " + head + b"data" + struct.pack("<I", len(data)) + data, values
+
+
+def case_sample_dsp(payload, flash):
+    """IMPORT SAMPLE writes the PCM into the DSP's sample memory (command 0xAB, byte addresses; dsp_model.py uploads): a mono file
+    of 24 bits lands as its upper 16 bits, a stereo file of 16 bits as it is, left and right interleaved, at the allocation
+    cursor (on an empty card the first user slot). Both checked word for word in the model's image of the DSP memory. The synth
+    has no IMPORT SAMPLE (DATA UTILITY stays on screen 15), so the case is for the Sampler builds."""
+    from firmware import identify
+    if identify(payload).build == "synth":
+        return []
+    out, seen = [], []
+    for name, channels, bits in (("mono 24-bit", 1, 24), ("stereo 16-bit", 2, 16)):
+        wav, want = wav_file(channels, bits, 3000)
+        dsp, since, screen, dev = import_wav(payload, flash, wav)
+        span = dsp.uploaded(since)
+        got = dsp.samples(span[0], len(want)) if span else []
+        seen.append((name, screen, span and tuple(hex(a) for a in span), len(want), sum(1 for a, b in zip(got, want) if a != b)))
+        out.append(span is not None and span[1] - span[0] == 2 * len(want) and got == want and not dev.m.asserts)
+    return [entry("dsp_sample_import_lands_in_dsp_memory", all(out), f"(file, screen, span, words, differing): {seen}")]
+
+
 def case_note_commands_dsp(payload, flash):
     """Part 1's OSC EDIT and amp envelope at the DSP (dsp_model.py command, part_value), set through the plugin's part setter,
     a MIDI note 60 after each: command 0x2D carries OSC EDIT * 258 for the sounding voice (OSC EDIT 10 and 110); with AMP EG on
@@ -1017,7 +1096,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_effects_dsp, case_fx_map_dsp, case_cutoff_dsp, case_note_commands_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_effects_dsp, case_fx_map_dsp, case_cutoff_dsp, case_note_commands_dsp, case_sample_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):

@@ -185,6 +185,27 @@ Felder bewegt sich. Ein erster Reglerwert direkt nach IFX TYPE ändert nichts, d
 Hacktribe, rot und blau (12.11.). Prüffälle `shortcut:dsp_ifx_edit_follows_the_fx_map`,
 `shortcut:dsp_touchpad_follows_the_fx_map` und `shortcut:dsp_play_follows_the_fx_map` (`case_fx_map_dsp`).
 
+## Sample-Speicher
+
+IMPORT SAMPLE (DATA UTILITY, Datei auf der Karte, Ziel wie angeboten) schreibt das PCM mit Kommando `0xAB` an Byte-Adressen
+des Sample-Speichers, ab dem Zuteilungszeiger; auf einer leeren Karte ist das der erste freie Platz, `0x365EC0` auf Hacktribe
+und rot. Das Modell legt jeden Schreibzugriff außerhalb von Postfach und FIFO in seinem Speicherbild ab und führt ihn in
+`uploads`; `uploaded()` gibt die Spanne, `samples()` die Wörter mit Vorzeichen. **gemessen** (Emulator, Hacktribe und rot,
+zufälliges PCM, 3000 Frames):
+
+| Datei | Im DSP | Marker |
+|---|---|---|
+| mono, 16 Bit | Wort für Wort gleich; 2000 Frames in einem Transfer, 3000 in zwei (16 Wörter, dann 2992 ab Byte 16, überlappend) | gemessen |
+| mono, 24 Bit | die oberen 16 Bit jedes Werts, das untere Byte fällt weg | gemessen |
+| stereo, 16 Bit | links und rechts abwechselnd, 6000 Wörter | gemessen |
+
+Der Synth (blau) hat kein IMPORT SAMPLE: DATA UTILITY bleibt auf Bildschirm 15, der Fall läuft dort nicht. Prüffall
+`shortcut:dsp_sample_import_lands_in_dsp_memory` (`case_sample_dsp`), grün auf Hacktribe und rot (12.11.).
+
+Lesen (`0xA9`) aus dem Sample-Speicher beantwortet das Modell nicht, es bleibt bei der Antwort des Emulators (0). Kein
+CPU-Weg wartet auf einen Sample-Wert; gelesen wird nur zum Kopieren (Export, `0xC004EDDC`). Eine Antwort aus dem Bild würde
+das Ergebnis dieser Wege ändern, ohne dass ein Fall es braucht.
+
 ## Grenzen
 
 - **Offen:** Warum der Part am Gerät stumm blieb. Der DSP-Verkehr des alten Resets, so wie ihn der Emulator sieht, erklärt es

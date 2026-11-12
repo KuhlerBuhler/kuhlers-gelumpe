@@ -6,7 +6,9 @@ model listens to the host port (machine.py, DSP_DATA and DSP_CTRL), keeps an ima
 answers the reads it models, so a check can ask the DSP's side of a question instead of hooking one firmware routine.
 
 Host port: every transfer starts with 7 control words [0xA9 read | 0xAB write, address low, address high, count of 16-bit
-words, 2, 0, 0]; a 32-bit DSP word travels low half first.
+words, 2, 0, 0]; a 32-bit DSP word travels low half first. A write outside mailbox and FIFO lands in the image and in
+`uploads`: IMPORT SAMPLE puts its PCM there at byte addresses of the sample memory (16-bit, 24-bit files cut to their upper
+16 bits, stereo interleaved; samples(), uploaded()). Reads of the sample memory stay with the emulator's answer.
 
 Mailbox 0xFF900A34 (DSP handler 0xFFA04EC8): every write is one message, word 0 is 0x106, word 1 the command; the CPU always
 sends 16 words, the words behind a message are stack left-overs. Parameter N lives at 0xFF800000 + 4N, from 0x4000 on at
@@ -126,6 +128,7 @@ class DspModel:
         self.tempo = {}             # channel -> tempo in hundredths of BPM, as the FIFO last set it
         self.effects = {}           # field -> {"unit": loaded unit, "params": {code: value}}
         self.loads = []             # (device time in ms, field, unit) for every unit the CPU loaded, in order
+        self.uploads = []           # (device time in ms, address, 16-bit words) for every write outside mailbox and FIFO
         self._staged = {}
         self.level = (0, 0)         # what the DSP would see at its output, 1.31
         self.voice_part = {}        # voice -> the part whose template it took last
@@ -182,6 +185,7 @@ class DspModel:
         elif addr in FIFO:
             self.fifo_buffer([words[i] | words[i + 1] << 16 for i in range(0, len(words) - 1, 2)])
         else:
+            self.uploads.append((self._now(), addr, len(words)))
             for i, w in enumerate(words):
                 self.mem[addr + 2 * i] = w
 
@@ -192,6 +196,15 @@ class DspModel:
 
     def word(self, addr):
         return self.mem.get(addr, 0) | self.mem.get(addr + 2, 0) << 16
+
+    def samples(self, addr, count):
+        """`count` signed 16-bit words of the DSP memory from byte `addr` (sample memory: PCM as the importer wrote it)."""
+        return [w - 0x10000 if w & 0x8000 else w for w in (self.mem.get(addr + 2 * i, 0) for i in range(count))]
+
+    def uploaded(self, since=0):
+        """(start, end) byte span of the uploads after index `since` into `uploads`, or None."""
+        spans = [(a, a + 2 * n) for _, a, n in self.uploads[since:]]
+        return (min(a for a, _ in spans), max(b for _, b in spans)) if spans else None
 
     def answers(self, addr):
         return PEAK <= addr < PEAK + 8

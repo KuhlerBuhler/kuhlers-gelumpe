@@ -145,6 +145,14 @@ class DspModelTest(unittest.TestCase):
         self.assertEqual(port.dsp.word(0xFF904000), 0xBBBBAAAA)
         self.assertEqual(port.dsp.messages, 0)
 
+    def test_an_upload_is_logged_and_read_back_as_signed_pcm(self):
+        port = Port()
+        mark = len(port.dsp.uploads)
+        port.send([1, 0xFFFF, 0x8000, 7], address=0x365EC0, block=4)
+        port.send([9, 10], address=0x365EC4, block=2)
+        self.assertEqual(port.dsp.uploaded(mark), (0x365EC0, 0x365EC8))
+        self.assertEqual(port.dsp.samples(0x365EC0, 4), [1, -1, 9, 10])
+
     def test_the_fifo_carries_the_tempo(self):
         port = Port()
         words = [0xF0203CBE, 0xF0603CBE, 0xFF800000, 0x00203CBE]
