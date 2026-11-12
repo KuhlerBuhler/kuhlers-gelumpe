@@ -39,7 +39,7 @@ test("EUCLID FLOW leaves the pattern alone while it is closed and writes 5 hits 
   p.run(5);
   const before = Uint8Array.from(p.device.hardware.patternBlock(-1));
   p.press("TAP");
-  assert.deepEqual(Uint8Array.from(p.device.hardware.patternBlock(-1)), before, "TAP with the app closed is tap tempo, not a new rhythm");
+  assert.deepEqual(Uint8Array.from(p.device.hardware.patternBlock(-1)), before, "TAP with the app closed belongs to TAP Motion, not a new rhythm");
   assert.ok(p.device.openApp(0));
   p.run(2);
   p.press("TAP");
