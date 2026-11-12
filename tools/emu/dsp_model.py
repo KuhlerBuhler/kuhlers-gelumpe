@@ -19,10 +19,10 @@ sends 16 words, the words behind a message are stack left-overs. Parameter N liv
     2     (n-1, start, n values v)          slots start.. = v << 16
     9     (src, dst)                        0x1A slots from src copied to dst (0xFFA0505A)
     0x16  (n-1, then n triples p, a, b)     slot p = a << 16, slot p + 1 = b << 16
-    0x26  (n-1, then n pairs p, q)          slot p = 0, slot q = 0, slot q - 1 = slot p + 0x19 (0xFFA05172); blue: one pair
+    0x26  (n-1, then n pairs p, q)          slot p = 0, slot q = 0, slot q - 1 = slot p + 0x19 (0xFFA05172); blue: one pair (0xFFA050BE)
     0x2B  (p, v)                            slot p = v << 16; the DSP turns v + slot p + 1 into the generator's rate (0xFFA051C0)
     0x2C  (p, q, v)                         slot q = v << 16; the same with slot p + v (0xFFA05210)
-    0x30  (flag, p, c hi, c lo, r hi, r lo, k hi, k lo) filter of slot p: cutoff c, resonance r, a third word k (0xFFA05308); blue: without the flag
+    0x30  (flag, p, c hi, c lo, r hi, r lo, k hi, k lo) filter of slot p: cutoff c, resonance r, a third word k (0xFFA05308); blue: without the flag (0xFFA0522C)
     0x31  (n-1, start, n pairs hi, lo)      slots start.. = hi << 16 | lo
 
 The other note commands compute generator, filter and part state inside the DSP; they are not applied, command() hands over
@@ -284,7 +284,7 @@ class DspModel:
         elif cmd == 0x26:
             pairs = [(d[1 + 2 * i], d[2 + 2 * i]) for i in range(n) if 2 + 2 * i < len(d)]
             if self.synth:
-                pairs = [(d[0], d[1])]      # blue sends one pair without a count (CPU side measured, its DSP code not read)
+                pairs = [(d[0], d[1])]      # blue sends one pair without a count, its DSP handler (0xFFA050BE) takes one
             for p, q in pairs:
                 self.put(slot(q - 1), self.word(slot(p + 0x19)))
                 self.set_param(p, 0, 0)

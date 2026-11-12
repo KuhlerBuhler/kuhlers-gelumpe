@@ -24,9 +24,9 @@ abschaltet (#506, Gerätetest 11.11.: Part stumm).
 | Wort 0 ist `0x106`, Wort 1 das Kommando. Im Leerlauf kommen nur die Kommandos `1` und `0x31`, alle 40 ms, für die Pegelanzeige ([Pegel-LEDs](2026-11-12-pegel-leds.md)) | gemessen |
 | DSP-Seite: Handler `0xFFA04EC8`, Kommandos unter `0x3C` über die Sprungtabelle `0x01F02B84`. Parameter N liegt bei `0xFF800000 + 4N`, ab `0x4000` bei `0xFF8F0000 + 4N` (`0xFFA071CC`) | gelesen |
 | Kommando `0`: Slot = Wert << 16. `1`: Tripel (Parameter, hoch, tief), Slot = hoch << 16 \| tief. `2`: Block (Anzahl - 1, Start, Werte), je Slot = Wert << 16. `0x16`: Anzahl - 1, dann Tripel (Parameter p, a, b), Slot p = a << 16, Slot p + 1 = b << 16 (`0xFFA05084`). `0x31`: Block mit 32-Bit-Werten (hoch, tief) | gelesen |
-| `9` (Quelle, Ziel): kopiert 0x1A Slots (`0xFFA0505A`). `0x26`: Anzahl - 1, dann Paare (p, q): Slot p = 0, Slot q = 0, Slot q - 1 = Slot p + 0x19 (`0xFFA05172`). Blau schickt `0x26` ohne Anzahl, also ein Paar (p, q) | gelesen; blau gemessen (CPU-Seite), DSP-Code von blau nicht gelesen |
+| `9` (Quelle, Ziel): kopiert 0x1A Slots (`0xFFA0505A`). `0x26`: Anzahl - 1, dann Paare (p, q): Slot p = 0, Slot q = 0, Slot q - 1 = Slot p + 0x19 (`0xFFA05172`). Blau schickt `0x26` ohne Anzahl, also ein Paar (p, q); der blaue Handler (`0xFFA050BE`) liest auch nur ein Paar | gelesen, blau auf beiden Seiten |
 | Übrige Noten-Kommandos `0x1F`, `0x2B` bis `0x39`: rechnen Hüllkurven, Filterkoeffizienten und Filterzustand im DSP (`0x39`/`0x35` über `0xFFA05AEC`, Koeffizienten-Tabelle `0x01F02DDC`; `0x34` setzt den Filterzustand eines Parts zurück); das Modell zählt sie nur | gelesen, teilweise |
-| `0x2B` (p, v): Slot p = v << 16, dann rechnet der DSP aus v + Slot p + 1 und dem Generatortyp in Slot p + 2 den Slot p + 3 (`0xFFA051C0`, Setter `0xFFA06970`). `0x2C` (p, q, v): Slot q = v << 16, dann dasselbe mit Slot p + v nach Slot q + 2 (`0xFFA05210`). `0x30` (Flag, p, Cutoff hoch, tief, Resonanz hoch, tief): Filter-Setter `0xFFA05CB2` und `0xFFA05BF0` auf Slot p, mit Flag auch auf Slot p + 0x6E (`0xFFA05308`); blau schickt `0x30` ohne Flag | gelesen; Wortbelegung gemessen, blau gemessen (CPU-Seite) |
+| `0x2B` (p, v): Slot p = v << 16, dann rechnet der DSP aus v + Slot p + 1 und dem Generatortyp in Slot p + 2 den Slot p + 3 (`0xFFA051C0`, Setter `0xFFA06970`). `0x2C` (p, q, v): Slot q = v << 16, dann dasselbe mit Slot p + v nach Slot q + 2 (`0xFFA05210`). `0x30` (Flag, p, Cutoff hoch, tief, Resonanz hoch, tief): Filter-Setter `0xFFA05CB2` und `0xFFA05BF0` auf Slot p, mit Flag auch auf Slot p + 0x6E (`0xFFA05308`); blau schickt `0x30` ohne Flag, sein Handler (`0xFFA0522C`) hat keins und schreibt nur Slot p | gelesen; Wortbelegung gemessen, blau auf beiden Seiten |
 | Die CPU schickt `0x2B`, `0x2C`, `0x2D` und `0x30` für jede klingende Stimme etwa jede Millisekunde | gemessen (Zählung, blau) |
 | Part-Werte am DSP, Parameter Schalter + Offset (Part 1, MIDI-Note 60, Reglerwert 0 bis 255): LEVEL `+0x23`, wächst mit dem Quadrat des Reglers (16 → `0x27`, 80 → `0x3D3`, 127 → `0x97F`); PAN links `+0x5F`, rechts `+0x60` (16 → `0x7FFF`/`0x0E38`, 240 → `0x0E38`/`0x7FFF`); Filter `+0xA` über `0x30`: Cutoff folgt CUTOFF (Drehgeber -20 und noch einmal -20: `0x7B0967E7`, `0x3F6A2A85`, `0x14CD19D6`), EG INT, MOD DEPTH, ATTACK und DECAY; Resonanz folgt RESONANCE (16 → `0x0EAA0BC1`, 127 → `0x5B567D3B`) | gemessen (Hacktribe, rot, blau gleich) |
 | Der Block eines Parts am DSP (`0xFF800B08 + 0x1B4 * Part`, 109 Wörter ab dem Schalter) ist der Insert-Platz desselben Parts aus [DSP, erster Blick](../hintergrund/dsp-erster-blick.md) 2.2 | gelesen (gleiche Adressen) |
@@ -159,7 +159,11 @@ DSP-Handler aus der Sprungtabelle `0x01F02B84` (Hacktribe, gelesen), Belegung be
 | `0x34` | Anzahl - 1, Paare (Schalter des Parts, `0x461B`), einmal je Note | löscht den Audiozustand des Parts (Felder `+0x4..+0x3C`, `+0x100..+0x114` des Blocks, setzt `+0x1A8 = 0x361`) |
 | `0x35` | Anzahl - 1, Paare (+0x8 des Parts, `0x461C`), einmal je Note | `0xFFA054CC`, nicht weiter gelesen |
 | `0x36` | (hi, lo), zweimal je Note | löscht die Stimmen der 24-Bit-Maske `hi << 16 \| lo` in der Stimmenmaske des DSP |
-| `0x37` bis `0x39` | bei einer Note nicht gesehen; `0x39` kommt mit einem Filtertypwechsel | nicht gelesen |
+| `0x37` | bei einer Note nicht gesehen | Flag: setzt einen Zeiger auf einen SDRAM-Puffer (`0x01C722A0` bzw. `0x01C65EE4`), dann wählt der zweite Wert eine von 25 Arten über die Tabelle `0x01F02C74` |
+| `0x38` | bei einer Note nicht gesehen | setzt ein Wort des Handlers auf 0 |
+| `0x39` | Anzahl - 1, Paare; kommt mit einem Filtertypwechsel | je Paar `0xFFA05AEC` mit Slot p + 3 und Slot q, Art aus Slot p + 2 |
+| `0x3A` | (hi, lo) | löscht die Bits `hi << 16 \| lo` (24 Bit) in einer Maske des DSP |
+| `0x3B` | mehrere Wörter | setzt einen Zeiger und eine Länge (2 oder 4) im Handlerblock, nicht weiter gelesen |
 
 Das Modell wendet sie nicht an; `DspModel.command(cmd)` gibt die Wörter der letzten Nachricht. Hüllkurve und MOD haben kein eigenes
 Kommando: mit AMP EG an steht der Level 30 ms nach dem Anschlag bei ATTACK 100 auf 1 bis 2, bei ATTACK 0 auf 4400 bis 5300; mit
@@ -208,20 +212,43 @@ und schreibt die 6000 Bytes PCM in die Exportdatei. Ohne Antwort des Modells ste
 Exportdatei der geladenen Byte für Byte (gemessen, Hacktribe und rot). Prüffall `shortcut:dsp_sample_export_reads_dsp_memory`
 (`case_sample_dsp`), grün auf Hacktribe und rot (12.11.); der Synth hat keine Samples.
 
+## Blaues DSP-Programm
+
+Verglichen mit `tools/dsp/dsp_extract.py` (12.11.): rot hat Byte für Byte denselben Bootstrom wie Hacktribe (`0xC00F9E10`,
+`0x422A0` Bytes), alles hier Gelesene gilt dort. Blau hat ein eigenes Programm (`0xC00DFB80`, `0x41C74` Bytes, 154 statt 157
+Blöcke). Der Datenbereich `0xFF900000` (Postfach, FIFO, Stimmen, Ausgangsblock) ist gleich, der Code `0xFFA00000` stimmt nach
+Ausrichten zu 94 % überein (14 221 von 15 294 Befehlen), liegt aber verschoben. Gelesen auf blau, gegen Hacktribe:
+
+| Stelle | Hacktribe | blau | Unterschied |
+|---|---|---|---|
+| Postfach-Handler, Sprungtabelle | `0xFFA04F0A`, `0x01F02B84` | `0xFFA04E6A`, `0x01F02B84` | Grenze `0x3C` gegen `0x3A`: blau kennt `0x3A` und `0x3B` nicht, sie landen im Default (Tabelleneinträge zeigen auf einen Rücksprung) |
+| Adressregel | `0xFFA071CC` | `0xFFA06FD4` | keiner |
+| `0`, `1`, `2`, `9`, `0x16`, `0x1F`, `0x2D`, `0x2E`, `0x31` bis `0x34`, `0x36`, `0x38`, `0x39` | | | gleiche Wortfolge, gleiche Slots; nur Register und Reihenfolge anders (Befehl für Befehl verglichen) |
+| `0x21`, `0x35` | | | gleiche Wortfolge; der Zustandsblock im DSP liegt anders (andere Adressen und Felder), `0x35` ohne eine Abfrage auf Feld `+0x84` |
+| `0x26` | Anzahl - 1, Paare | ein Paar | wie gemessen |
+| `0x2B`, `0x2C` | Rate auf 0 bis `0x7FFF` begrenzt, außer Generatortyp ab `0x21` | begrenzt, außer Typ `0x21` und `0x22` | nur die Begrenzung; Slots gleich |
+| `0x2F`, `0x30` | Flag, mit Flag auch Slot p + 0x6E | kein Flag, nur Slot p | wie gemessen |
+| `0x37` | Puffer `0x01C722A0`, 25 Arten über Tabelle | Puffer `0x01371EC0`, 17 Arten, Block gerechnet (Basis + 0x118 je Art) | Rechenweg im DSP |
+| Spitzenpegel | `0xFFA01946` | `0xFFA018C2` | keiner, Ausgang `0xFF9030F4` gleich |
+| Stimmenschleife | `0xFFA0141A` | `0xFFA01406` | Zustandsblock je Part kleiner (Felder `0x0C` weiter vorn), blau bildet keine Mono-Summen (`+0xC`, `+0x1C`) und schreibt nichts nach `0xFF80004C` |
+| Generator | `0xFFA02EDE` | `0xFFA02E4E` | andere Interpolation (Ringpuffer, feinere Rechnung); nur Klang |
+| Setter `0xFFA05CB2`, `0xFFA05DD0`, `0xFFA06970` | | `0xFFA05AD2`, `0xFFA05BF0`, `0xFFA06780` | gleich |
+
+Für die Prüfungen heißt das: alle Adressen und Slots, die das Modell liest, gelten auf blau; die Unterschiede in `0x26` und
+`0x30` deckt das Modell schon ab (`synth`). Was blau sonst anders macht, liegt im Klangweg und ist nicht im Modell. Nicht
+gelesen ist der Bereich `0x01F00000` außerhalb der Sprungtabelle und die 168 Befehle, die blau am Ende des Codes mehr hat
+(ab `0xFFA0BE38`).
+
 ## Grenzen
 
 - **Offen:** Warum der Part am Gerät stumm blieb. Der DSP-Verkehr des alten Resets, so wie ihn der Emulator sieht, erklärt es
   nicht (siehe oben). Hergeleitet: die Ursache liegt CPU-seitig oder in einem Zustand, den der Emulator anders hat als das Gerät.
   Das Modell sagt deshalb nicht "hörbar", sondern nur "abgeschaltet worden" und "zuletzt an".
-- **Offen:** Bedeutung der übrigen Wörter des Part-Blocks; was `0x35`, `0x37` und `0x38` im DSP tun, und die Setter je
+- **Offen:** Bedeutung der übrigen Wörter des Part-Blocks; was `0x35`, `0x37`, `0x38` und `0x3B` im DSP bewirken, und die Setter je
   Stimmentyp von `0x1F`, `0x2D` und `0x32`. Was die drei Filterwörter im DSP bedeuten, ist nicht gelesen.
   Was Ziel `0x0A` der Steuerzeilen tut, ist nicht gelesen; am DSP kommt davon nichts an.
-- **DSP-Programm je Build** (verglichen mit `tools/dsp/dsp_extract.py`, 12.11.): rot hat Byte für Byte denselben Bootstrom wie
-  Hacktribe (`0xC00F9E10`, `0x422A0` Bytes), alles hier Gelesene gilt dort. Blau hat ein eigenes Programm (`0xC00DFB80`,
-  `0x41C74` Bytes, 154 statt 157 Blöcke): der Datenbereich `0xFF900000` (Postfach, FIFO, Stimmen, Ausgangsblock) ist gleich, der
-  Code `0xFFA00000` stimmt nach Ausrichten zu 94 % überein, liegt aber verschoben. Die Spitzenpegel-Routine (`0xFFA018C2`) und die
-  Adressregel des Postfachs (`0xFFA06FD4`) finden sich auf blau unverändert, die Stimmengeneratoren (`0xFFA02EDE`, `0xFFA06670`)
-  nicht. Blau ist nicht im Einzelnen gelesen. Keine der Messungen hier ist am Gerät nachgeprüft.
+- **DSP-Programm je Build:** rot ist Hacktribe, blau hat ein eigenes Programm (siehe [Blaues DSP-Programm](#blaues-dsp-programm)).
+  Keine der Messungen hier ist am Gerät nachgeprüft.
 - **Nicht im Modell:** was der DSP selbst ins SDRAM schreibt (Resampling, Aufnahme); gelesen wird dort nur, was die CPU hochlud.
   Die Zeiger, die der DSP beim Start bei `0xFF9031C8..0xFF9031E6` ablegt und die die CPU laufend abfragt, liefern weiter 0.
 - **Nicht im Modell:** ein eigenes Ausgangssignal. Der Spitzenpegel kommt nur aus `output()`. Welche Stimme wann klingt, weiß das
