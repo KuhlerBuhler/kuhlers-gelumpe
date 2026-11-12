@@ -444,7 +444,7 @@ def case_key_pads(payload, flash):
     out = []
     box.poke(KEY_AT, 0)
     part = box.selected()
-    held(KEYBOARD, True)
+    held(KEYBOARD, True, 0.25)     # 0.2 put pad 6 on the frame where the KEYBOARD window times out (blue, 12.11.)
     got, shown, windows = [], [], []
     for n in range(16):
         texts.clear()
