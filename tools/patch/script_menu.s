@@ -245,7 +245,7 @@ menu_arm_load_end:
 ; setting and the look (backlight, bottom LEDs, pad colours, display polarity) switch at once. The card switch (GPIO 4.1, as
 ; tools/patch/card_gate.py reads it) must show the card for CARD_SETTLE frames in a row first. What this power-on runs with stays:
 ; the plugin runtime and MFX 2 (M_EFF_RUN, M_EFF_MFX) take a new value only at the next start, as after a change on their pages.
-; A card without a valid settings file changes nothing (menu_load_none). Called from the frame hook (UI task, where WRITE reads and
+; A card without a valid settings file changes nothing (menu_load_none). Called from the frame hook past the first main screen (UI task, where WRITE reads and
 ; writes the card as well). Clobbers r0 to r3 and r12.
 menu_card_watch:
     push {r4-r6, lr}

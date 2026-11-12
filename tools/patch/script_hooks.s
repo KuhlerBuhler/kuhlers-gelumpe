@@ -405,7 +405,6 @@ script_frame_run:
     sub sp, sp, #4
     mov r4, r0
     bl migrate_frame
-    bl menu_card_watch
     mov r7, #0
     mov r8, #ERR_OK
     ldr r1, [r4, #RT_ARMED]
@@ -438,6 +437,7 @@ script_frame_guard_end:
     bne frame_return
     str r1, [r4, #RT_READY]
 frame_gate_open:
+    bl menu_card_watch           ; only past the first main screen: the start phase reads the card at menu_arm_load
     bl blechy_follow
     bl shortcut_tick
     bl remote_tick
