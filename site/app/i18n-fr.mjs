@@ -2074,6 +2074,7 @@ export default {
   "api.korg.knob": "Donne au firmware la valeur 0 à 255 comme si le potentiomètre index (0 à 10) l'avait envoyée.",
   "api.korg.passKeys": "Tant qu'une app est ouverte, 1 laisse aussi passer la touche key (0 à 33) vers le firmware, 0 la retient. REC, STOP et PLAY passent par défaut ; fermer l'app remet tout comme avant.",
   "api.korg.touchLockX": "Maintient le X du touchpad que voit le firmware à x (0 à 127, par pas de 2), -1 relâche. Le plugin reçoit toujours le vrai toucher. Prend fin quand le plugin s'arrête.",
+  "api.korg.touchLockY": "Maintient le Y du touchpad que voit le firmware à y (0 à 127, par pas de 2 en Master FX), -1 relâche. Le plugin reçoit toujours le vrai toucher. Prend fin quand le plugin s'arrête.",
   "api.korg.keyHold": "1 retient la touche key (0 à 33, pas EXIT) du firmware, même sans app ; le plugin reçoit toujours la touche. 0 la rend. Prend fin quand le plugin s'arrête.",
   "api.korg.pressKey": "Transmet au firmware un appui court sur la touche key (0 à 33) : appuyée maintenant, relâchée à l'image suivante. EXIT ferme d'abord une app ouverte. Les plugins ne le reçoivent pas comme événement.",
   "api.korg.keyMask": "Retient du firmware les touches du masque de ce plugin : le bit n de low est la touche n (0 à 31), le bit n de high la touche 32 + n. Ses autres touches sont rendues. EXIT est une erreur.",

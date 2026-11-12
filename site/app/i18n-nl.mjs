@@ -2074,6 +2074,7 @@ export default {
   "api.korg.knob": "Geeft de firmware de waarde 0 tot 255 alsof knop index (0 tot 10) hem had gestuurd.",
   "api.korg.passKeys": "Zolang een app open is, laat 1 toets key (0 tot 33) ook door naar de firmware, 0 houdt hem tegen. REC, STOP en PLAY gaan standaard door; sluiten van de app zet alles terug.",
   "api.korg.touchLockX": "Houdt de X van het touchpad die de firmware ziet op x (0 tot 127, in stappen van 2), -1 laat los. De plugin krijgt de echte aanraking nog steeds. Stopt als de plugin stopt.",
+  "api.korg.touchLockY": "Houdt de Y van het touchpad die de firmware ziet op y (0 tot 127, in Master FX in stappen van 2), -1 laat los. De plugin krijgt de echte aanraking nog steeds. Stopt als de plugin stopt.",
   "api.korg.keyHold": "1 houdt toets key (0 tot 33, niet EXIT) weg van de firmware, ook zonder app; de plugin krijgt de toets nog steeds. 0 geeft hem terug. Stopt als de plugin stopt.",
   "api.korg.pressKey": "Geeft de firmware een korte druk op toets key (0 tot 33): nu ingedrukt, in het volgende frame losgelaten. EXIT sluit eerst een open app. Plugins krijgen hem niet als gebeurtenis.",
   "api.korg.keyMask": "Houdt de toetsen van het masker van deze plugin weg van de firmware: bit n van low is toets n (0 tot 31), bit n van high toets 32 + n. Zijn andere toetsen gaan terug. EXIT is een fout.",

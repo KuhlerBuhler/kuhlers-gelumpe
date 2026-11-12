@@ -51,6 +51,8 @@ export class SimHardware {
     this.resetKeyPass();
     /** korg.touchLockX: the X the firmware sees while a finger is on the touchpad, -1 the finger's own. */
     this.touchLock = -1;
+    /** korg.touchLockY: the Y the firmware sees while a finger is on the touchpad, -1 the finger's own. */
+    this.touchLockY = -1;
     /** korg.keyHold and korg.keyMask: per key 1 when its presses reach the plugins only, also without an app. */
     this.keyHold = new Uint8Array(34);
     /** korg.pressKey: the keys plugins passed to the firmware as a short press, in order. */
@@ -136,6 +138,7 @@ export class SimHardware {
       "korg.display.popups": (holds, on) => { holds.quiet = on ? 0 : 1; },
       "korg.read.popups": holds => (holds.quiet ? 0 : 1),
       "korg.touchLockX": x => { this.touchLock = x; },
+      "korg.touchLockY": y => { this.touchLockY = y; },
       "korg.keyHold": (holds, key, on) => { this.keyExit("korg.keyHold", key); holds.keys[key] = on; this.syncHolds(holds); },
       "korg.keyMask": (holds, low, high) => {
         if ((low >>> KEY_EXIT) & 1) this.keyExit("korg.keyMask", KEY_EXIT);

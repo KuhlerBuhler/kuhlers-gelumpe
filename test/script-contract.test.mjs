@@ -182,6 +182,7 @@ test("event ids, API ids and error codes are pinned", () => {
     121: "korg.audio.level", 122: "korg.file.read", 123: "korg.file.write",
     124: "korg.read.sampleName", 125: "korg.read.sampleInfo", 126: "korg.pattern.write", 127: "korg.part.copy",
     128: "korg.read.led", 129: "korg.audio.capture", 130: "korg.audio.spectrum", 131: "korg.audio.wave",
+    132: "korg.touchLockY",
   });
   assert.deepEqual(ERRORS.map(e => e.code), ERRORS.map((_, i) => i));
   assert.equal(ERROR.FUEL, 1);
@@ -209,8 +210,8 @@ test("apps: the open and close events, the registration call and the runtime tab
   assert.deepEqual(contract.SCRIPT_APPS.groups, ["GAMES", "TOOLS"]);
   const equ = Object.fromEntries([...asmInclude().matchAll(/^\.equ (\w+), (\w+)$/gm)].map(m => [m[1], Number(m[2])]));
   assert.deepEqual([equ.EV_OPEN, equ.EV_CLOSE, equ.API_KORG_APP], [20, 21, 59]);
-  assert.deepEqual([equ.SCRIPT_APPS_MAX, equ.SCRIPT_APPS_BUILTIN, equ.SCRIPT_APPS_SLOTS, equ.SCRIPT_APPS_BUILTIN_GROUP, equ.SCRIPT_APPS_RECORD_SIZE, equ.SCRIPT_APPS_STATE_SIZE], [12, 1, 13, 2, 12, 168]);
-  assert.deepEqual([equ.SCRIPT_APPS_OPEN, equ.SCRIPT_APPS_COUNT, equ.SCRIPT_APPS_TABLE, equ.SCRIPT_APPS_GRACE, equ.SCRIPT_APPS_OPEN_GRACE], [0, 4, 8, 164, 3]);
+  assert.deepEqual([equ.SCRIPT_APPS_MAX, equ.SCRIPT_APPS_BUILTIN, equ.SCRIPT_APPS_SLOTS, equ.SCRIPT_APPS_BUILTIN_GROUP, equ.SCRIPT_APPS_RECORD_SIZE, equ.SCRIPT_APPS_STATE_SIZE], [16, 1, 17, 2, 12, 216]);
+  assert.deepEqual([equ.SCRIPT_APPS_OPEN, equ.SCRIPT_APPS_COUNT, equ.SCRIPT_APPS_TABLE, equ.SCRIPT_APPS_GRACE, equ.SCRIPT_APPS_OPEN_GRACE], [0, 4, 8, 212, 3]);
   assert.deepEqual([equ.SCRIPT_APP_ENTRY, equ.SCRIPT_APP_NAME, equ.SCRIPT_APP_GROUP, equ.SCRIPT_APP_GROUP_GAMES, equ.SCRIPT_APP_GROUP_TOOLS], [0, 4, 8, 0, 1]);
   assert.equal(contract.SCRIPT_APPS.slots, contract.SCRIPT_APPS.max + contract.SCRIPT_APPS.builtin, "one record is the app built into BLECH");
   assert.ok(contract.SCRIPT_APPS.builtinGroup >= contract.SCRIPT_APPS.groups.length, "its group is none a plugin can name");

@@ -23,7 +23,7 @@ export const COVERAGE = Object.freeze([
   row("panel", "Regler", "Knobs", "Potentiomètres", ["korg.read.knob"], ["korg.knob", "korg.knobHold"], ["knob"]),
   row("panel", "Encoder", "Encoders", "Encodeurs", [], ["korg.encoder"], ["encoder"]),
   row("panel", "Pads", "Pads", "Pads", [], ["korg.padDown", "korg.padUp", "korg.padHold"], ["pad"]),
-  row("panel", "Touchpad", "Touchpad", "Touchpad", [], ["korg.touch", "korg.touchLockX"], ["touch"]),
+  row("panel", "Touchpad", "Touchpad", "Touchpad", [], ["korg.touch", "korg.touchLockX", "korg.touchLockY"], ["touch"]),
   row("panel", "Touchpad-Modus (Gate Arp, Touch Scale, Master FX, MFX 2)", "Touchpad mode (Gate Arp, Touch Scale, Master FX, MFX 2)",
     "Mode du touchpad (Gate Arp, Touch Scale, Master FX, MFX 2)", ["korg.touchpad.mode"], ["korg.touchpad.mode"], ["touchpadMode"]),
   row("panel", "Pad-Modus (TRIGGER, SEQUENCER, KEYBOARD und die anderen)", "Pad mode (TRIGGER, SEQUENCER, KEYBOARD and the others)",

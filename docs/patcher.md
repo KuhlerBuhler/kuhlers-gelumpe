@@ -432,14 +432,16 @@ sind kein RAM und stehen auch nicht hier.
 | `0xC018AF00` + 0x40 | dice | Zustand, darin `DC_SETTING` bei +0, der Zustand des Zufallszahlengebers, die Töne der Tonleiter (der Code liegt bei `0xC018A000`, 0x4A4 Byte, als geänderte Bytes) | `dice.py:STATE` |
 | `0xC018C400` + 0x400, `0xC018C800` + 0x400, `0xC018CC00` + 0x280 | load-bar | der Look: das Bild der Firmware, das Bild mit Look, aus dem die Display-Sendung ihre Seiten nimmt, Reiter, bis zu 12 Kästen und die Quelle der Sendung (der Code liegt bei `0xC0183900`, als geänderte Bytes) | `load_bar.py:LOOK_BACK`, `LOOK_OUT`, `LOOK_NBOX` |
 | `0xC018CF00` + 0x40 | ifx-idle | Zustand: je Part die stummen Takte und ob er Punch vom Patch hat (der Code liegt bei `0xC018C000`, 0x1E4 Byte, als geänderte Bytes) | `ifx_idle.py:STATE` |
-| `0xC018D000` bis `0xC018FF00` | script-runtime | Reserve: die zweite Code-Fläche der Laufzeit bis 1.3.7, leer seit dem Umzug | `script_hooks.py:MORE_START` |
+| `0xC018D000` + 16, `0xC018D010` + 480 | script-runtime | Zustand des Spektrum-Dienstes (`korg.audio`), Menüseiten der Plugins (`korg.menu.add`) | `script_hooks.py:AUDIO_SERVICE`, `MENU_ITEMS` |
+| `0xC018D1F0` + 12 | script-runtime | `korg.touchLockY`: das rohe Y für die Firmware, wie bei `korg.touchLockX` | `script_hooks.py:TOUCH_LOCK_Y` |
+| `0xC018D1FC` bis `0xC018FF00` | script-runtime | Reserve: Rest der zweiten Code-Fläche der Laufzeit bis 1.3.7 | `script_hooks.py:TOUCH_LOCK_Y_END` |
 | `0xC0191000` + 0x100 | blech-sysex | Zustand: das erklärte Schreiben, die decodierte Anfrage, Antworten, die kurz sind | `blech_sysex.py:STATE` |
 | `0xC0191100` bis `0xC01A0000` | blech-sysex | Puffer für Nachrichten und Antworten, bis 32768 Byte Nutzdaten, die Antwort wird von hinten im selben Puffer gepackt | `blech_sysex.py:BUF` |
 | `0xC01A5C00` + 0x40, `0xC01A5D00` + 0x120 | mfx-switch | Zustand, Datensatz der Tabelle | `mfx_switch.py:STATE`, `RECBUF` |
 | `0xC01A6000` + 0x4000, `0xC01AC800` + 0x40, `0xC01ACC00` + 0x400 | load-bar | eigene Ladeanimation (von der App geschrieben, `FF` ohne), Zustand der Animation und der Lesevorgänge, das Fortschritts-Bild (Standard-Blechy bei `0xC01AA000` und der Code bei `0xC01AC000` als geänderte Bytes); auf blau bleibt der Bereich Reserve der Laufzeit | `load_bar.py:ANIM_SLOT`, `ANIM_VARS`, `ANIM_BUF` |
 | `0xC01A6000` bis `0xC01ADF00` | script-runtime (nur blau) | Reserve: die erste Code-Fläche der Laufzeit (VM und Haken) bis 1.3.7, leer seit dem Umzug; dahinter bleiben die Kopien der Bildschirmtabelle und der Menüklasse (`MENU_TABLE`) | `script_hooks.py:CODE_START` |
-| `0xC01AE000` + 166864 | script-runtime | Laufzeit: Kontrollblock, Ring, LED, Display, Regler, Apps | `script_hooks.py:RUNTIME`, `SCRIPT_RUNTIME_SIZE` |
-| `0xC01D6C00` + 480, `0xC01D6E00` + 0x200 | script-runtime | Menüeinträge, Menüzustand mit den Einstellungspuffern | `script_hooks.py:MENU_ITEMS`, `MENU_STATE` |
+| `0xC01AE000` + 166960 | script-runtime | Laufzeit: Kontrollblock, Ring, LED, Display, Regler, Apps | `script_hooks.py:RUNTIME`, `SCRIPT_RUNTIME_SIZE` |
+| `0xC01D6DE0` + 32, `0xC01D6E00` + 0x200 | script-runtime | weiterer Menüzustand, Menüzustand mit den Einstellungspuffern | `script_hooks.py:MENU_MORE`, `MENU_STATE` |
 | `0xC01D7000` + 131072 | script-runtime | Plugin-Pool | `script_hooks.py:POOL` |
 | `0xC01F7000` + 0x1000 | script-runtime | Arbeitsbereich des Kartenladers, benutzt bis +0x500 | `script_hooks.py:CARD` |
 | `0xC01F8000` + 0x7FF0 | script-runtime | Blockpuffer, die beiden Bilder des Stores liegen darin | `script_hooks.py:INPUT` |

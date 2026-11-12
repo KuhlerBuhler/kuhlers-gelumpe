@@ -2074,6 +2074,7 @@ export default {
   "api.korg.knob": "Pošle hodnotu 0 až 255 do firmwaru, jako by ji poslal potenciometr index (0 až 10).",
   "api.korg.passKeys": "Dokud je otevřená aplikace, 1 pustí klávesu key (0 až 33) i do firmwaru, 0 ji zadrží. REC, STOP a PLAY procházejí samy; zavřením aplikace se vše vrátí.",
   "api.korg.touchLockX": "Drží X touchpadu, které vidí firmware, na x (0 až 127, po krocích 2), -1 uvolní. Plugin dál dostává skutečný dotyk. Skončí, když plugin skončí.",
+  "api.korg.touchLockY": "Drží Y touchpadu, které vidí firmware, na y (0 až 127, v Master FX po krocích 2), -1 uvolní. Plugin dál dostává skutečný dotyk. Skončí, když plugin skončí.",
   "api.korg.keyHold": "1 zadrží klávesu key (0 až 33, ne EXIT) před firmwarem, i bez aplikace; plugin klávesu dál dostává. 0 ji vrátí. Skončí, když plugin skončí.",
   "api.korg.pressKey": "Předá firmwaru krátký stisk klávesy key (0 až 33): stisk teď, uvolnění v dalším snímku. EXIT nejdřív zavře otevřenou aplikaci. Pluginy ho nedostanou jako událost.",
   "api.korg.keyMask": "Zadrží před firmwarem klávesy masky tohoto pluginu: bit n z low je klávesa n (0 až 31), bit n z high klávesa 32 + n. Ostatní jeho klávesy vrátí. EXIT je chyba.",

@@ -459,6 +459,8 @@ const API_LIST = [
   [126, "korg.pattern.write", [], "int", UI, 30, 33],
   [127, "korg.part.copy", [int("pattern", 0, 249), int("from", 0, 15), int("to", 0, 15)], "void", UI, 30, 33],
   [128, "korg.read.led", [int("index", 0, 87)], "int", ALL, 4, 34],
+  // korg.touchLockX for Y (API 35)
+  [132, "korg.touchLockY", [int("y", -1, 127)], "void", UI, 20, 35],
 ];
 
 /**
@@ -665,17 +667,17 @@ export const SCRIPT_KNOBS = 20;
  * BUILTIN, which no menu lists. `max` is what plugins can declare, `slots` what the table holds.
  */
 export const SCRIPT_APPS = Object.freeze({
-  max: 12,
+  max: 16,
   builtin: 1,
-  slots: 12 + 1,
+  slots: 16 + 1,
   groups: Object.freeze(["GAMES", "TOOLS"]),
   builtinGroup: 2,
   nameLength: 15,
   recordSize: 12,
   /** Frames after an open in which the firmware may still be on its way to the main screen (its screen switch is a queued message). */
   openGrace: 3,
-  stateSize: 8 + 13 * 12 + 4,
-  fields: Object.freeze([["open", 0], ["count", 4], ["table", 8], ["grace", 8 + 13 * 12]].map(([name, offset]) => Object.freeze({ name, offset }))),
+  stateSize: 8 + 17 * 12 + 4,
+  fields: Object.freeze([["open", 0], ["count", 4], ["table", 8], ["grace", 8 + 17 * 12]].map(([name, offset]) => Object.freeze({ name, offset }))),
   recordFields: Object.freeze([["entry", 0], ["name", 4], ["group", 8]].map(([name, offset]) => Object.freeze({ name, offset }))),
 });
 

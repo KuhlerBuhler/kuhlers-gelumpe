@@ -2122,6 +2122,7 @@ export default {
   "api.korg.knob": "Gibt der Firmware den Wert 0 bis 255, als hätte ihn der Regler index (0 bis 10) gesendet.",
   "api.korg.passKeys": "Solange eine App offen ist, lässt 1 die Taste key (0 bis 33) auch zur Firmware, 0 hält sie fern. REC, STOP und PLAY gehen von sich aus durch; schließt die App, gilt wieder alles wie vorher.",
   "api.korg.touchLockX": "Hält das X des Touchpads, das die Firmware sieht, auf x (0 bis 127, in Schritten von 2), -1 lässt los. Das Plugin bekommt weiter die echte Berührung. Endet, wenn das Plugin aufhört.",
+  "api.korg.touchLockY": "Hält das Y des Touchpads, das die Firmware sieht, auf y (0 bis 127, in Master FX in Schritten von 2), -1 lässt los. Das Plugin bekommt die echte Berührung. Endet mit dem Plugin.",
   "api.korg.keyHold": "1 hält die Taste key (0 bis 33, nicht EXIT) von der Firmware fern, auch ohne App; das Plugin bekommt die Taste weiter. 0 gibt sie zurück. Endet, wenn das Plugin aufhört.",
   "api.korg.pressKey": "Gibt der Firmware einen kurzen Druck der Taste key (0 bis 33): jetzt gedrückt, im nächsten Rahmen losgelassen. EXIT schließt erst eine offene App. Plugins bekommen ihn nicht als Ereignis.",
   "api.korg.keyMask": "Hält die Tasten der Maske dieses Plugins von der Firmware fern: Bit n von low ist Taste n (0 bis 31), Bit n von high Taste 32 + n. Die übrigen gibt es zurück. EXIT ist ein Fehler.",

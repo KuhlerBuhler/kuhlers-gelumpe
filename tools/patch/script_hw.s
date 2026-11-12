@@ -893,7 +893,7 @@ hold_owner_lost:
     bx lr
 
 ; korg.touchLockX: the input filter writes a fixed X into every touch message, after the plugins got the real one
-; (touch_lock_input, called from script_input_hook), so the firmware's touchpad modes see that X while Y stays the finger's. The
+; (touch_lock_input, called from script_input_hook), so the firmware's touchpad modes see that X. The
 ; firmware takes (raw X >> 4) * 2 as its X in Master FX and Touch Scale mode (0xC004567C on hacktribe and red, 0xC003F99C on
 ; the blue) and raw X >> 3 in Gate Arp mode (measured in the emulator on all three builds), so the record holds the raw value
 ; x << 3: x rounded down to even in the first two, x itself in Gate Arp, the same X as a finger at raw x * 8. Then the plugin
@@ -906,6 +906,7 @@ hold_owner_lost:
 ; r0 x (-1 to 127, checked by the VM). Only the VM writes the record, the input filter reads one word.
 script_touch_lock_x_glue:
     ldr r2, =TOUCH_LOCK
+touch_lock_set:
     cmp r0, #0
     mvnlt r3, #0
     movge r3, r0, lsl #3
@@ -922,21 +923,40 @@ touch_lock_done:
     mov r1, #ERR_OK
     bx lr
 
-; r5 a touch message (class 5): bytes 0x0d and 0x0e are its X, high byte first. Clobbers r1.
+; korg.touchLockY: the same for bytes 0x0f and 0x10, the Y of a touch message, in its own record at TOUCH_LOCK_Y. The
+; firmware takes (raw Y >> 4) * 2 in Master FX and raw Y >> 3 in Touch Scale and Gate Arp mode (measured in the emulator on all
+; three builds): y rounded down to even in Master FX, y itself in the other two.
+script_touch_lock_y_glue:
+    ldr r2, =TOUCH_LOCK_Y
+    b touch_lock_set
+
+; r5 a touch message (class 5): bytes 0x0d and 0x0e are its X, 0x0f and 0x10 its Y, high byte first. Clobbers r1.
 touch_lock_input:
     ldr r1, =TOUCH_LOCK
     ldr r1, [r1, #TL_RAW]
     cmn r1, #1
+    strbne r1, [r5, #0x0e]
+    movne r1, r1, lsr #8
+    strbne r1, [r5, #0x0d]
+    ldr r1, =TOUCH_LOCK_Y
+    ldr r1, [r1, #TL_RAW]
+    cmn r1, #1
     bxeq lr
-    strb r1, [r5, #0x0e]
+    strb r1, [r5, #0x10]
     mov r1, r1, lsr #8
-    strb r1, [r5, #0x0d]
+    strb r1, [r5, #0x0f]
     bx lr
 
 ; r0 runtime. Ends the lock when the plugin that locked is gone from the list, no longer armed or holds another block.
 ; Clobbers r1 to r3 and r12.
 script_touch_lock_guard:
+    push {r0, lr}
     ldr r1, =TOUCH_LOCK
+    bl touch_lock_guard_one
+    pop {r0, lr}
+    ldr r1, =TOUCH_LOCK_Y
+; r0 runtime, r1 a lock record (X or Y). Clobbers r1 to r3 and r12.
+touch_lock_guard_one:
     ldr r2, [r1, #TL_RAW]
     cmn r2, #1
     bxeq lr

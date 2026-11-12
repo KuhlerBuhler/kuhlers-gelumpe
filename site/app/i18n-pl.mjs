@@ -2074,6 +2074,7 @@ export default {
   "api.korg.knob": "Przekazuje firmware wartość od 0 do 255, jakby wysłało ją pokrętło index (od 0 do 10).",
   "api.korg.passKeys": "Dopóki aplikacja jest otwarta, 1 przepuszcza klawisz key (od 0 do 33) także do firmware, 0 go zatrzymuje. REC, STOP i PLAY przechodzą domyślnie; zamknięcie aplikacji przywraca wszystko.",
   "api.korg.touchLockX": "Trzyma X touchpada widziane przez firmware na x (od 0 do 127, co 2), -1 puszcza. Plugin nadal dostaje prawdziwy dotyk. Kończy się, gdy plugin się zatrzyma.",
+  "api.korg.touchLockY": "Trzyma Y touchpada widziane przez firmware na y (od 0 do 127, w Master FX co 2), -1 puszcza. Plugin nadal dostaje prawdziwy dotyk. Kończy się, gdy plugin się zatrzyma.",
   "api.korg.keyHold": "1 zatrzymuje klawisz key (od 0 do 33, nie EXIT) przed firmware, także bez aplikacji; plugin nadal dostaje klawisz. 0 go oddaje. Kończy się, gdy plugin się zatrzyma.",
   "api.korg.pressKey": "Przekazuje firmware krótkie naciśnięcie klawisza key (od 0 do 33): wciśnięty teraz, puszczony w następnej klatce. EXIT najpierw zamyka otwartą aplikację. Pluginy nie dostają go jako zdarzenia.",
   "api.korg.keyMask": "Zatrzymuje przed firmware klawisze maski tego pluginu: bit n z low to klawisz n (od 0 do 31), bit n z high klawisz 32 + n. Jego pozostałe klawisze wracają. EXIT to błąd.",

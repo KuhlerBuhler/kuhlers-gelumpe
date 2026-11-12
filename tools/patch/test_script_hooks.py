@@ -59,6 +59,8 @@ class HookTests(unittest.TestCase):
         machine.uc.mem_write(MENU_STATE,b'\xff'*0x200)    # an unarmed menu reads FF, as in the image
         from tools.patch.script_hooks import KEY_PASS,SIM_INPUT_END
         machine.uc.mem_write(KEY_PASS,b'\xff'*(SIM_INPUT_END-KEY_PASS))    # FF as in the image: keys at their defaults, no lock, hold, press or key down
+        from tools.patch.script_hooks import TOUCH_LOCK_Y,TOUCH_LOCK_Y_END
+        machine.uc.mem_write(TOUCH_LOCK_Y,b'\xff'*(TOUCH_LOCK_Y_END-TOUCH_LOCK_Y))    # no Y lock, FF as in the image
         machine.uc.mem_map(0xC0028000,4096)
         machine.uc.mem_map(0xC0083000,4096)
         machine.write(0xC0083710,0xC031BB2C)
@@ -616,6 +618,43 @@ class HookTests(unittest.TestCase):
         self.assertEqual(machine.read(lock),0xFFFFFFFF,'a plugin that faulted lets go')
         self.drain(machine)
 
+    def test_touch_lock_y_gives_the_firmware_a_fixed_y_apart_from_the_x_lock(self):
+        machine,built=self.machine()
+        entry=self.app_script(machine)
+        self.declare(machine,built,[entry])
+        machine.write(entry+12,2)
+        from tools.patch.script_hooks import TOUCH_LOCK as lock_x, TOUCH_LOCK_Y as lock
+        firmware=0xC0028380
+        touch=[5,1,144,1,144]                       # X 400, Y 400
+        at=lambda off: bytes(machine.uc.mem_read(machine.input+0x3000+off,2))
+        self.assertEqual(machine.call('script_touch_lock_y_glue',64),(0,0))
+        self.assertEqual(machine.read(lock),64<<3)
+        self.assertEqual(machine.read(lock+4),entry,'the plugin that locked')
+        self.assertEqual(machine.read(lock_x),0xFFFFFFFF,'the X lock stays free')
+        self.assertEqual(self.input(machine,touch),firmware,'the touch still reaches the firmware')
+        self.assertEqual(at(0x0f),bytes([2,0]),'raw 512: Y 64')
+        self.assertEqual(at(0x0d),bytes([1,144]),'X stays that of the finger')
+        machine.call('script_touch_lock_y_glue',127)
+        machine.call('script_touch_lock_x_glue',10)
+        self.input(machine,touch)
+        self.assertEqual((at(0x0d),at(0x0f)),(bytes([0,80]),bytes([3,0xF8])),'both locks at once')
+        self.assertEqual([e[1:3] for e in self.drain(machine)],[(400,400)]*2,'the plugins get the real X and Y')
+        machine.call('script_touch_lock_x_glue',0xFFFFFFFF)
+        self.input(machine,[0,4,1,0,0])
+        self.assertEqual(at(0x0f),bytes([0,0]),'a key is not touched')
+        machine.call('script_touch_lock_guard',machine.runtime)
+        self.assertNotEqual(machine.read(lock),0xFFFFFFFF,'an armed owner keeps the lock')
+        self.assertEqual(machine.call('script_touch_lock_y_glue',0xFFFFFFFF),(0,0))
+        self.assertEqual(machine.read(lock),0xFFFFFFFF)
+        self.input(machine,touch)
+        self.assertEqual(at(0x0f),bytes([1,144]),'-1 lets go')
+        machine.call('script_touch_lock_y_glue',10)
+        machine.call('script_touch_lock_x_glue',10)
+        machine.write(entry+12,3)
+        machine.call('script_touch_lock_guard',machine.runtime)
+        self.assertEqual([machine.read(lock),machine.read(lock_x)],[0xFFFFFFFF]*2,'a plugin that faulted lets go of both')
+        self.drain(machine)
+
     def test_key_hold_keeps_a_key_from_the_firmware_without_an_app_and_pairs_its_release(self):
         machine,built=self.machine()
         entry=self.app_script(machine)
@@ -864,7 +903,7 @@ class HookTests(unittest.TestCase):
         machine.write(machine.runtime+88,entry)
         return machine.call('script_app_glue',machine.input+0x6000,machine.input+0x6040)
 
-    def test_korg_app_registers_each_script_once_in_a_group_and_refuses_a_thirteenth(self):
+    def test_korg_app_registers_each_script_once_in_a_group_and_refuses_a_seventeenth(self):
         machine,built=self.machine()
         base=self.apps_base(machine,built)
         self.assertEqual(self.call_glue(machine,built,'Snake','GAMES',0x1000),(0,0))
@@ -876,11 +915,11 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.call_glue(machine,built,'X','MUSIC',0x3000),(0,error))
         self.assertEqual(self.call_glue(machine,built,'','GAMES',0x3000),(0,error))
         self.assertEqual(self.call_glue(machine,built,'X','GAMESX',0x3000),(0,error),'the group is compared whole')
-        for i in range(10): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],2+i)
+        for i in range(14): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],2+i)
         from tools.patch.script_hooks import MENU_STATE
         machine.write(MENU_STATE+36,0)
         self.assertEqual(self.call_glue(machine,built,'Late','GAMES',0x5000),(0xffffffff,0))
-        self.assertEqual(machine.read(base+4),12)
+        self.assertEqual(machine.read(base+4),16)
         self.assertEqual(machine.read(MENU_STATE+36),0x37,'the import page says that no app place is left')
 
     def test_take_and_release(self):
@@ -1046,13 +1085,13 @@ class HookTests(unittest.TestCase):
         self.assertEqual((machine.read(again),machine.read(again+12),machine.read(machine.runtime+4)),(0,2,again),'one entry, started again, armed')
         self.assertEqual(machine.read(machine.runtime+96),1)
 
-    def test_the_app_limit_for_plugins_stays_twelve_with_him_in_the_table(self):
+    def test_the_app_limit_for_plugins_stays_sixteen_with_him_in_the_table(self):
         machine,built=self.machine()
         self.booted(machine,built)
         base=self.apps_base(machine,built)
-        for i in range(12): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],1+i)
+        for i in range(16): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],1+i)
         self.assertEqual(self.call_glue(machine,built,'Late','GAMES',0x5000),(0xffffffff,0))
-        self.assertEqual(machine.read(base+4),13)
+        self.assertEqual(machine.read(base+4),17)
         self.assertEqual(self.call_glue(machine,built,'Blechy','GAMES',machine.read(base+8)),(0,0),'his own call only names him')
         self.assertEqual(machine.read(base+8+8),built.symbols['SCRIPT_APPS_BUILTIN_GROUP'],'and his group stays hidden')
 

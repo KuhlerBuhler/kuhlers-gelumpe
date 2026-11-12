@@ -2074,6 +2074,7 @@ export default {
   "api.korg.knob": "Gives the firmware the value 0 to 255 as if knob index (0 to 10) had sent it.",
   "api.korg.passKeys": "While an app is open, 1 lets key key (0 to 33) reach the firmware as well, 0 keeps it from the firmware. REC, STOP and PLAY pass by default; closing the app resets all keys.",
   "api.korg.touchLockX": "Holds the touchpad X the firmware sees at x (0 to 127, in steps of 2), -1 lets go. The plugin keeps getting the real touch. Ends when the plugin stops.",
+  "api.korg.touchLockY": "Holds the touchpad Y the firmware sees at y (0 to 127, in steps of 2 in Master FX), -1 lets go. The plugin keeps getting the real touch. Ends when the plugin stops.",
   "api.korg.keyHold": "1 keeps key key (0 to 33, not EXIT) from the firmware, also without an app; the plugin still gets the key. 0 gives it back. Ends when the plugin stops.",
   "api.korg.pressKey": "Passes a short press of key key (0 to 33) to the firmware: pressed now, released in the next frame. EXIT first closes an open app. Plugins do not get it as an event.",
   "api.korg.keyMask": "Keeps the keys of this plugin's mask from the firmware: bit n of low is key n (0 to 31), bit n of high key 32 + n. Its other keys are given back. EXIT is an error.",

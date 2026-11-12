@@ -36,7 +36,7 @@
 .equ M_BL_PWM, 0xC8
 .equ M_BL_N, 0xCC
 .equ M_BL_CLR, 0xD0
-.equ MX_INTENS, -0x20          ; the 32 bytes in front of MENU_STATE (behind the menu items): byte, INTENSITY of the backlight 0 to 15
+.equ MX_INTENS, -0x20          ; the 32 bytes in front of MENU_STATE: byte, INTENSITY of the backlight 0 to 15
 .equ MX_SAVE, -0x1F            ; byte, SAVE LIGHT: 0 the firmware's own dim in power save, 1 to 15 the backlight at that intensity
 .equ MX_OVER, -0x1E            ; byte, OVERLAP of the pad colours (0 the colour that is left)
 .equ MX_METER, -0x1C           ; 4 bytes, the colours of the meter (STILL, LOW, MID, LOUD), 0 the firmware's
@@ -5991,7 +5991,7 @@ str_duplicate:
 str_pool_full:
     .asciz "memory full"
 str_apps_full:
-    .asciz "max 12 apps"
+    .asciz "max 16 apps"
 str_allow:
     .asciz "WRITE=ALLOW"
 str_fault:
