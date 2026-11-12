@@ -5,7 +5,7 @@ docs/messungen/2026-10-19-exit-shortcuts.md).
 check.py runs `cases` on every patched copy that carries the BLECH menu, the blue Electribe's too (its places from data/synth-map/). With EXIT held on the main screen, WRITE
 saves the edited pattern into its own place (through the firmware's Write window) and a pad puts the sound of a part back to
 the values saved in the bank, the steps and the other parts left as they are, and the part's voices take its saved sample again,
-stopped and while playing. WRITE alone still only opens the window, and with
+stopped and while playing, without the part being switched off at the DSP. WRITE alone still only opens the window, and with
 EXIT held at power-on both are the firmware's.
 
     tools/emu/.venv/bin/python tools/emu/shortcut_cases.py cases --patched NEW.VSB [--flash dump.bin] [--only N]
@@ -194,6 +194,7 @@ NOTE_ON = 0xC00998B4            # a voice takes a note: r0 the voice, r1 the sam
 MAILBOX = 0xFF900A34            # the DSP's mailbox: what a note sends there (ht_osc_cases.Box.note)
 SAMPLE_AT = 8                   # the sample of a part, a half word in its record
 OSC_DIAL = [1, 1, 0, 1, 0]      # the OSC encoder one step up: the firmware's own sample change (live_write_cases.PART_INPUTS)
+PART_OFF = 0xC0093A20           # (part, ...) switches a part off at the DSP; Copy Part's part sound setup calls it, the SAMPLE knob does not
 
 
 class VBox(SBox):
@@ -206,8 +207,11 @@ class VBox(SBox):
         self.log = DspLog(self.m)
         self.notes = []
         self.part = self.dev.call(PART_OBJECT, 0)
+        self.offs = []
         at = self.dev.a(NOTE_ON)
         self.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: self.notes.append(uc.reg_read(UC_ARM_REG_R1)), begin=at, end=at)
+        at = self.dev.a(PART_OFF)
+        self.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: self.offs.append(uc.reg_read(UC_ARM_REG_R0)), begin=at, end=at)
         self.m.uc.ctl_flush_tb()
 
     def sample(self, data=None):
@@ -233,10 +237,13 @@ class VBox(SBox):
         self.run(1.5)                   # the OSC value window closes
 
     def reset(self):
+        """EXIT + pad 1. Returns the parts the firmware switched off at the DSP meanwhile."""
+        self.offs.clear()
         self.exit_held(True)
         self.pad(0)
         self.exit_held(False)
         self.run(0.5)
+        return list(self.offs)
 
     def hit(self):
         """Pad 1 (TRIGGER: part 1 sounds): the samples its voice takes and the values of the mailbox's note messages."""
@@ -270,7 +277,7 @@ def case_reset_voice(payload, flash):
         box.change_sample()
         changed = box.sample()
         firmware_follows = box.voice_sample() == changed != saved
-        box.reset()
+        offs = box.reset()
         restored = box.sample() == saved and box.voice_sample() == saved
         if not playing:
             play(box)
@@ -281,6 +288,11 @@ def case_reset_voice(payload, flash):
                          f"{how}: saved sample {saved}, OSC encoder 3 up {changed}, part object took it {firmware_follows}; EXIT + pad 1: "
                          f"pattern {box.sample()}, part object {box.voice_sample()}; {'sequencer goes on' if playing else 'PLAY'}, its notes "
                          f"take {seq}; pad 1 takes {notes}; playing {box.transport() == 1}"))
+        # Device test 11.11.: with Copy Part's part sound setup the part stayed silent after EXIT + pad until the SAMPLE knob was
+        # turned and the sequencer restarted. That setup first switches the part off at the DSP (PART_OFF); the emulator does not
+        # model the DSP, so the check is that the reset does not do that, like the SAMPLE knob.
+        out.append(entry(f"exit_pad_keeps_the_part_on_{slug}", restored and not offs and not box.m.asserts,
+                         f"{how}: parts switched off at the DSP during EXIT + pad 1: {offs or 'none'}; part 1 back on its saved sample {restored}"))
         twins = {kind: VBox(payload, flash) for kind in ("plain", "changed", "reset")}
         for kind, twin in twins.items():
             twin.steps(False)
