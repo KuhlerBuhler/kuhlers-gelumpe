@@ -10,7 +10,7 @@ import { KEY_NAMES } from "../data/script/names.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
 import { decodeBlob } from "../src/script/blob.mjs";
 import { SimDevice } from "../src/script/sim.mjs";
-import { gifPath, packGif, readGifFrame } from "../src/script/gif.mjs";
+import { gifPath, packGif, readGifFrame, frameOfPixels } from "../src/script/gif.mjs";
 
 const key = name => KEY_NAMES.find(k => k.name === name).value;
 const frameOf = seed => Uint8Array.from({ length: 1024 }, (_, i) => (i * seed + seed) & 255);
@@ -37,6 +37,17 @@ test("a picture file reads back frame by frame, with the delay, 0 past the end a
   foreign[4] = 2;
   assert.equal(readGifFrame(foreign, 0, slots), -1, "another version");
   assert.equal(gifPath(7), "KORG/blechtribe/Gif/GIF07.E2G");
+});
+
+test("a picture of 128 x 64 pixels becomes one frame of display memory, column bytes eight rows high", () => {
+  const pixels = new Uint8Array(128 * 64);
+  pixels[0] = 1;                  // x 0, y 0: byte 0, bit 0
+  pixels[7 * 128 + 5] = 1;        // x 5, y 7: byte 5, bit 7
+  pixels[63 * 128 + 127] = 1;     // x 127, y 63: byte 7 * 128 + 127, bit 7
+  const frame = frameOfPixels(pixels);
+  assert.equal(frame.length, 1024);
+  assert.deepEqual([frame[0], frame[5], frame[7 * 128 + 127]], [1, 0x80, 0x80]);
+  assert.equal(frame.reduce((n, b) => n + b.toString(2).split("1").length - 1, 0), 3, "no other pixel set");
 });
 
 test("korg.file.frame needs API version 7 and an array of a whole display", () => {

@@ -44,6 +44,7 @@ import { apply as applySettings, get as setting, holdAutoConnect, languageSwitch
 import { toast, toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { t } from "./i18n.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 
 const $ = sel => document.querySelector(sel);
 
@@ -770,6 +771,7 @@ function boot() {
     areas?.select("emu");
   });
 
+  dropzoneClear($("#cee-file"), () => { $("#cee-error").hidden = true; });
   $("#cee-file").addEventListener("change", e => {
     $("#cee-error").hidden = true;
     const f = e.target.files?.[0];
