@@ -186,6 +186,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [DSP-Transport bei neuen Part-Bedienungen, im Emulator geprueft](2026-11-07-part-control-dsp-refresh.md)
 - [Part-Werte aus Plugins: Parametersetzer, Auffrischen, Filter-LEDs und MFX SEND wie die Bedienelemente, im Emulator](2026-11-09-plugin-part-dsp.md)
 - [DSP-Modell im Emulator für Prüfungen: Postfach-Nachrichten, Part-Schalter am DSP, Regressionsprüfung Part-Reset (#506)](2026-11-12-dsp-modell.md)
+- [Pegel-LEDs unten: Spitzenpegel des Stereo-Ausgangs aus dem DSP, nicht Velocity; Übersteuerung erkennbar](2026-11-12-pegel-leds.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)
 
