@@ -122,6 +122,11 @@ class DspModelTest(unittest.TestCase):
         self.assertEqual(port.dsp.filter(1), (0x7B0967E7, 0x5B567D3B))
         self.assertIsNone(port.dsp.filter(0))
 
+    def test_the_filter_keeps_all_three_words(self):
+        port = Port()
+        port.send([0x106, 0x30, 0, 0x2C2 + 0xA, 0x2B65, 0xD30B, 0x4D04, 0xF489, 0x18B2, 0xC000, 0x62])
+        self.assertEqual(port.dsp.coefficients(0), (0x2B65D30B, 0x4D04F489, 0x18B2C000))
+
     def test_blue_sends_the_filter_without_a_flag(self):
         port = Port("synth")
         port.send([0x106, 0x30, 0x2A8 + 0xA, 0x7B09, 0x67E7, 0xEAA, 0xBC1])

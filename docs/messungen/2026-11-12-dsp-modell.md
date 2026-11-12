@@ -104,6 +104,28 @@ Part 1: LEVEL 16 und 127, PAN 16 und 240, RESONANCE 16 und 127, PITCH 0 und 127,
 60. Geprüft: die DSP-Werte wachsen mit dem Regler, der Cutoff fällt mit dem Drehgeber, jede Stimme hält Note 60. Grün auf
 Hacktribe, rot und blau (12.11.). Prüffall `shortcut:dsp_part_values_follow_the_knobs` (`case_part_values_dsp`).
 
+## Filter gegen den Filtertyp
+
+`tools/emu/filter_curve.py` findet Abbilder und Sprungtabelle des Cutoff-Verteilers per Muster und lässt die gewählte
+Koeffizientenfunktion auf einem eigenen Unicorn laufen, das nur die Firmware enthält. Typ zu Funktion (Hacktribe, rot gleich,
+blau `0x124A0` tiefer): 1, 7, 12 `0xC0093EB4`; 2, 8, 13 `0xC009438C`; 3 `0xC00944F4`; 4, 14 `0xC00946B0`; 9 `0xC0094860`;
+5, 10, 15 `0xC0093F40`; 6, 11, 16 `0xC00940F8` (gelesen, Mustersuche auf allen drei Builds). `0x30` trägt alle drei Ausgabewörter
+der Funktion (gemessen). OFF schickt auf Hacktribe und rot Nullen, blau schickt kein `0x30`, der DSP behält die letzten Werte
+(gelesen: Default-Zweig `0xC0082740` ist der Rücksprung; gemessen). `0xC0094860` ruft nichts; die Aufrufe von `0xC0093440` und
+`0xC0097744` dahinter gehören zur nächsten Funktion `0xC0094A10` (gelesen).
+
+Kurvenform bei Resonanz 0 (gerechnet über alle 128 Cutoff-Stellungen): Wort 0 steigt bei `0xC0093EB4` und `0xC00944F4`, fällt bei
+`0xC009438C`, `0xC00946B0` und `0xC0094860`, bei `0xC0093F40` und `0xC00940F8` ist es nicht monoton. Wort 0 hängt bei
+`0xC00946B0`, `0xC0094860`, `0xC0093F40` und `0xC00940F8` auch von der Resonanz ab, Wort 1 bei allen außer `0xC0093EB4` auch vom
+Cutoff. Was die Wörter im DSP-Filter bedeuten, ist nicht gelesen.
+
+Die LPF-Funktion ist zusätzlich in Python nachgeschrieben (`FilterCurve.lpf`, Tabellen aus dem Literal-Pool); sie stimmt mit dem
+Lauf der Firmware-Funktion an rund 13 000 Stellungen überein, auf allen drei Builds (gemessen).
+
+Fall: jeder Typ 0 bis 16 mit zwei Cutoff-Stellungen und einer Resonanz über den Part-Setter des Plugins, Filter-EG und MOD auf 0,
+dann eine MIDI-Note 60. Geprüft: die drei Wörter am DSP gleich der Nachrechnung, ohne Toleranz. Grün auf Hacktribe, rot und blau
+(12.11.). Prüffall `shortcut:dsp_cutoff_follows_the_filter_type` (`case_cutoff_dsp`).
+
 ## Effekte gegen das Panel
 
 Modell ab dem Einschalten. Part 1: IFX TYPE +1, IFX EDIT 40 und 200, IFX ON zweimal, dann MASTER FX und das Touchpad auf zwei Stellen. Geprüft: der Start lädt
@@ -125,7 +147,7 @@ deshalb zuerst auf 64. Grün auf Hacktribe, rot und blau (12.11.). Prüffälle `
   nicht (siehe oben). Hergeleitet: die Ursache liegt CPU-seitig oder in einem Zustand, den der Emulator anders hat als das Gerät.
   Das Modell sagt deshalb nicht "hörbar", sondern nur "abgeschaltet worden" und "zuletzt an".
 - **Offen:** Bedeutung der übrigen Wörter des Part-Blocks; `0x1F`, `0x2D` bis `0x2F` und
-  `0x32` bis `0x39` sind nur gezählt. Die Kurven der sechs anderen Filterfunktionen sind nicht ausgewertet, nur zugeordnet.
+  `0x32` bis `0x39` sind nur gezählt. Was die drei Filterwörter im DSP bedeuten, ist nicht gelesen.
   Die Steuerzeilen sind nur an Mod Delay und Overdrive gemessen; die Kurve des Touchpads für Y ist nicht gelesen.
 - **Nicht im Modell:** ein eigenes Ausgangssignal. Der Spitzenpegel kommt nur aus `output()`. Welche Stimme wann klingt, weiß das
   Modell; wie laut, rechnet der DSP in der Stimmenschleife `0xFFA0141A` und der Part-Schleife `0xFFA019DE` aus Sample-Daten,

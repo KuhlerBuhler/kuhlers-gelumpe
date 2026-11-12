@@ -572,6 +572,41 @@ def case_fx_map_dsp(payload, flash):
     return out
 
 
+def case_cutoff_dsp(payload, flash):
+    """The filter words command 0x30 brings to the DSP (dsp_model.py coefficients) follow the part's filter type, CUTOFF and
+    RESONANCE as the firmware's own coefficient function computes them (filter_curve.py, run apart from the device): every type
+    0 to 16 at two cutoffs and one resonance, set through the plugin's part setter, filter EG and MOD at 0, a MIDI note 60 after
+    each. The LPF function is also computed in Python from its tables; OFF sends zeros, on blue no 0x30."""
+    from dsp_model import DspModel
+    from filter_curve import FilterCurve
+    from plugin_api23_cases import World
+    w = World(bytes(0x100) + bytes(payload), flash)
+    dsp = DspModel.attach(w.dev.m)
+    curve = FilterCurve(payload)
+    w.set_part(0, "egInt", 0)
+    w.set_part(0, "modDepth", 0)
+    bad, seen = [], 0
+    for t in range(17):
+        w.set_part(0, "filterType", t)
+        for cutoff, resonance in ((20 + 5 * t, 30 + 5 * t), (127 - 3 * t, 30 + 5 * t)):
+            w.set_part(0, "cutoff", cutoff)
+            w.set_part(0, "resonance", resonance)
+            dsp.filter_words.pop(0, None)
+            w.dev.m.midi(bytes([0x90, 60, 100]))
+            w.dev.run(0.15)
+            got = dsp.coefficients(0)
+            w.dev.m.midi(bytes([0x80, 60, 0]))
+            w.dev.run(0.1)
+            want = curve.coefficients(t, cutoff << 8, resonance << 8)
+            if curve.function(t) == curve.lpf_at and want != curve.lpf(cutoff << 8, resonance << 8):
+                bad.append(("lpf", t, cutoff, resonance))
+            seen += got is not None
+            if got != want:
+                bad.append((t, cutoff, resonance, got and tuple(map(hex, got)), tuple(map(hex, want))))
+    functions = sorted({hex(f) for f in map(curve.function, range(1, 17)) if f})
+    return [entry("dsp_cutoff_follows_the_filter_type", seen == (34 if curve.sends_off else 32) and not bad and len(functions) == 7 and not w.dev.m.asserts,
+                  f"34 settings, {seen} with a 0x30 at the DSP, {len(functions)} functions {functions}, off: {bad[:4]}")]
+
 MODES = ((PART_MUTE, "PART MUTE", True), (KEYBOARD, "KEYBOARD", True), (PART_ERASE, "PART ERASE", True), (CHORD, "CHORD", True),
          (PATTERN_SET, "PATTERN SET", True), (STEP_JUMP, "STEP JUMP", False))
 
@@ -872,7 +907,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_effects_dsp, case_fx_map_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_effects_dsp, case_fx_map_dsp, case_cutoff_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):

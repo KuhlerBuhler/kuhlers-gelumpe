@@ -20,7 +20,7 @@ sends 16 words, the words behind a message are stack left-overs. Parameter N liv
     0x26  (n-1, then n pairs p, q)          slot p = 0, slot q = 0, slot q - 1 = slot p + 0x19 (0xFFA05172); blue: one pair
     0x2B  (p, v)                            slot p = v << 16; the DSP turns v + slot p + 1 into the generator's rate (0xFFA051C0)
     0x2C  (p, q, v)                         slot q = v << 16; the same with slot p + v (0xFFA05210)
-    0x30  (flag, p, c hi, c lo, r hi, r lo) filter of slot p: cutoff c, resonance r (0xFFA05308); blue: without the flag
+    0x30  (flag, p, c hi, c lo, r hi, r lo, k hi, k lo) filter of slot p: cutoff c, resonance r, a third word k (0xFFA05308); blue: without the flag
     0x31  (n-1, start, n pairs hi, lo)      slots start.. = hi << 16 | lo
 
 The other note commands (0x1F, 0x2D to 0x2F, 0x32 to 0x39) compute generator and envelope state inside the DSP; they are counted, not
@@ -115,6 +115,7 @@ class DspModel:
         self.voice_part = {}        # voice -> the part whose template it took last
         self.gates = []             # (device time in ms, voice, part, 1 on | 0 off) for every gate write, in order
         self.filters = {}           # part -> (cutoff, resonance), 1.31, as command 0x30 last set them
+        self.filter_words = {}      # part -> all three words of the last command 0x30 (filter_curve.py computes them)
         self._ctl, self._xfer = [], None
         write, read = machine.write, getattr(machine, "dsp_read", None)
 
@@ -246,6 +247,7 @@ class DspModel:
             part, k = divmod((p or 0) - self.part_base, PART_STRIDE)
             if p is not None and k == FILTER and 0 <= part < PARTS and len(data) >= 4:
                 self.filters[part] = (data[0] << 16 | data[1], data[2] << 16 | data[3])
+                self.filter_words[part] = tuple(data[2 * i] << 16 | data[2 * i + 1] for i in range(min(3, len(data) // 2)))
         elif cmd == 0x26:
             pairs = [(d[1 + 2 * i], d[2 + 2 * i]) for i in range(n) if 2 + 2 * i < len(d)]
             if self.synth:
@@ -322,6 +324,10 @@ class DspModel:
     def filter(self, part):
         """(cutoff, resonance) of the part's filter as command 0x30 last set them, or None."""
         return self.filters.get(part)
+
+    def coefficients(self, part):
+        """The three words command 0x30 last sent for the part's filter, or None."""
+        return self.filter_words.get(part)
 
     def effect(self, field):
         """The unit the CPU loaded into an effect field and its parameters as last sent ({code: value}), or None.
