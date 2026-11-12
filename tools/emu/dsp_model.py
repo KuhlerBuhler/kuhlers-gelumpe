@@ -58,15 +58,18 @@ Parameter PART_ON[build] + 0x6D * part is the part's switch at the DSP: 1 on, 0 
 a switched-off part and clears its output state. The firmware switches a part on with every note it starts (Sampler
 0xC0093988) and off in Copy Part's part sound setup (0xC0093A20, blue 0xC0081680).
 
-FIFO 0xFF900018 / 0xFF900098 (DSP handler 0x17FF8): two buffers of 32 words; a word is flags << 28 | channel << 22 |
+FIFO 0xFF900018 / 0xFF900098 (DSP handler 0x17FF8, blue 0x18000): two buffers of 32 words; a word is flags << 28 | channel << 22 |
 code << 16 | value, channel 62 ends the buffer. A channel is an effect field: part p's insert effect is field 2p (2p + 1
 its neighbour), the master effect field 32 (0x20). Codes below the unit's parameter count are its parameters (value = raw << 8 when
 the CPU loads a unit; DSP 0x17DC4), code 0x18 the field's input gain and 0x19 its output gain (0x17CE0: a part's slot
 words 40/41 and 44/45, the neighbour 46/47 and 50/51, target and ramped value around the effect call in the part loop
 0xFFA019DE; the output is doubled, 0x7F00 and 0x4000 are unity), code 0x20 on channels 0 to 32 the tempo in hundredths of BPM; the DSP keeps it at 0xFF900004 and
 recomputes the channel's tempo-synced effect (0x17C78). Field 40 (0x28) stages a unit: its parameters, code 0x38 the unit
-number, code 0x39 the target field, which starts the loader. Codes 0x30 and 0x31 on a field mute it and clear its process
-pointers ahead of a load. IFX ON is not in the FIFO: it is the part's parameter +0x5C at the mailbox (0x7FFF on).
+number, code 0x39 the target field, which starts the loader. Code 0x30 on a field sets the part's field gain (part slot
++0x25) to 0, code 0x31 points its process pointers (+0x2B, +0x31) at the idle unit, code 0x32 restores them and the gain;
+the loader restores them after a load. Hacktribe and red mask the unit byte with 0x7F and take bit 7 as a stereo link:
+the load, 0x30 to 0x32 and the parameters then also reach the partner field (2p + 2, part p + 1); blue has no link and
+keeps the whole byte. IFX ON is not in the FIFO: it is the part's parameter +0x5C at the mailbox (0x7FFF on).
 The touchpad, IFX EDIT and PLAY move field codes as the preset's control map says (shortcut_cases.case_fx_map_dsp).
 
 Reads the model answers: the output peak, 0xFF9030F4 (left) and 0xFF9030F8 (right), fields +0x50/+0x54 of the output block
@@ -106,6 +109,8 @@ PAN_LEFT, PAN_RIGHT = 0x5F, 0x60
 STAGING, UNIT, TARGET = 0x28, 0x38, 0x39    # FIFO field that stages a unit, its codes for the unit number and the target
 MASTER_FX, FX_PARAMS = 0x20, 0x1A           # the master effect's field; codes below FX_PARAMS are effect parameters
 FX_IN, FX_OUT = 0x18, 0x19                  # a field's input and output gain
+MUTE, IDLE, RESTORE = 0x30, 0x31, 0x32       # FIFO codes: field gain to 0, process pointers to the idle unit, both back
+LINK = 0x80                                 # stereo link bit of the staged unit byte (Hacktribe and red)
 
 
 def slot(param):
@@ -131,6 +136,9 @@ class DspModel:
         self.tempo = {}             # channel -> tempo in hundredths of BPM, as the FIFO last set it
         self.effects = {}           # field -> {"unit": loaded unit, "params": {code: value}}
         self.loads = []             # (device time in ms, field, unit) for every unit the CPU loaded, in order
+        self.muted = {}             # field -> True after 0x30, False after 0x32 or a load
+        self.idle = {}              # field -> True after 0x31, False after 0x32 or a load
+        self.links = {}             # field -> partner field, from the link bit of the unit last loaded there
         self.uploads = []           # (device time in ms, address, 16-bit words) for every write outside mailbox and FIFO
         self._staged = {}
         self.level = (0, 0)         # what the DSP would see at its output, 1.31
@@ -315,10 +323,26 @@ class DspModel:
                 elif code == TARGET:
                     staged, self._staged = self._staged, {}
                     unit = staged.pop(UNIT, None)
-                    self.effects[value] = {"unit": unit, "params": staged}
-                    self.loads.append((self._now(), value, unit))
-            elif code < FX_PARAMS and channel < FIFO_CHANNELS:
-                self.effects.setdefault(channel, {"unit": None, "params": {}})["params"][code] = value
+                    link = not self.synth and unit is not None and unit & LINK
+                    if link:
+                        unit &= LINK - 1
+                    self.links.pop(value, None)
+                    for field in (value, value + 2) if link else (value,):
+                        self.effects[field] = {"unit": unit, "params": dict(staged)}
+                        self.loads.append((self._now(), field, unit))
+                        self.muted[field] = self.idle[field] = False
+                    if link:
+                        self.links[value] = value + 2
+            elif channel < FIFO_CHANNELS:
+                for field in (channel, self.links[channel]) if channel in self.links else (channel,):
+                    if code < FX_PARAMS:
+                        self.effects.setdefault(field, {"unit": None, "params": {}})["params"][code] = value
+                    elif code == MUTE:
+                        self.muted[field] = True
+                    elif code == IDLE:
+                        self.idle[field] = True
+                    elif code == RESTORE:
+                        self.muted[field] = self.idle[field] = False
 
     # ---- what a check asks ---------------------------------------------------------
     def mark(self):
@@ -372,6 +396,10 @@ class DspModel:
         Part p's insert effect is field 2p, the master effect MASTER_FX."""
         fx = self.effects.get(field)
         return None if fx is None else {"unit": fx["unit"], "params": dict(fx["params"])}
+
+    def field_muted(self, field):
+        """True while 0x30 holds the field's gain at 0, False after a load or 0x32, None when neither came."""
+        return self.muted.get(field)
 
     def ifx(self, part):
         return self.effect(2 * part)

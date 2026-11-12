@@ -441,16 +441,17 @@ def case_part_values_dsp(payload, flash):
 def case_effects_dsp(payload, flash):
     """The effects at the DSP (dsp_model.py effect, ifx, ifx_on), the model listening from power-on: the start loads a unit
     into every part's field and the master's; IFX TYPE on part 1 loads a unit into part 1's field and clears its neighbour,
-    no other field; IFX EDIT changes part 1's effect parameters; IFX ON switches
+    no other field, muting part 1's field ahead of the load and unmuting it with the load (no field stays muted); IFX EDIT changes part 1's effect parameters; IFX ON switches
     part 1's insert effect on and off again; the touchpad in Master FX mode changes the master effect's parameters and opens
     its input gain only while touched; a part's effect starts at unity gain in and out."""
-    from dsp_model import FX_IN, FX_OUT, MASTER_FX, PARTS, DspModel
+    from dsp_model import FX_IN, FX_OUT, IDLE, MASTER_FX, MUTE, PARTS, DspModel
     from plugin_api24_cases import KNOBS
     box = SBox(payload, flash, dsp=True)
     dsp = DspModel.attach(box.m)
     box.run(0.3)
     start = [(dsp.effect(f) or {}).get("unit") for f in [2 * p for p in range(PARTS)] + [MASTER_FX]]
-    mark = len(dsp.loads)
+    mark, fifo_mark = len(dsp.loads), len(dsp.fifo)
+    held = [f for f in range(2 * PARTS + 1) if dsp.field_muted(f)]
 
     def key(k):
         box.m.send([0, k, 1, 0, 0])
@@ -465,6 +466,8 @@ def case_effects_dsp(payload, flash):
     box.m.send([1, 4, 0, 1, 0])
     box.run(0.4)
     loaded = {f: u for _, f, u in dsp.loads[mark:]}
+    muted = [(c, k) for _, c, k, _ in dsp.fifo[fifo_mark:] if k in (MUTE, IDLE)]
+    held += [f for f in range(2 * PARTS + 1) if dsp.field_muted(f)]
     edits = []
     for raw in (40, 200):
         box.m.send([2, KNOBS["ifxEdit"], 0, raw, 0])
@@ -485,10 +488,11 @@ def case_effects_dsp(payload, flash):
     box.run(0.3)
     send = (pad[0].get(FX_IN), pad[2].get(FX_IN), params(MASTER_FX).get(FX_IN))
     moved = sorted(k for k in pad[2] if pad[1].get(k) != pad[2][k] and k != FX_IN)
-    ok = (None not in start and gains == (0x7F00, 0x4000) and not send[0] and send[1] and not send[2] and set(loaded) == {0, 1} and loaded[0] and loaded[1] == 0 and edits[0] != edits[1]
+    ok = (None not in start and gains == (0x7F00, 0x4000) and not send[0] and send[1] and not send[2] and set(loaded) == {0, 1} and loaded[0] and loaded[1] == 0 and (0, MUTE) in muted and not held and edits[0] != edits[1]
           and switch[1] is not None and switch[1] != switch[2] and pad[0] != pad[1] and moved and not box.m.asserts)
     return [entry("dsp_effects_follow_the_panel", ok,
-                  f"units at the start {[hex(u) for u in start if u is not None]}, loaded by IFX TYPE {loaded}, IFX EDIT 40/200 changed codes "
+                  f"units at the start {[hex(u) for u in start if u is not None]}, loaded by IFX TYPE {loaded}, muted ahead {muted}, "
+                  f"fields left muted {held}, IFX EDIT 40/200 changed codes "
                   f"{sorted(k for k in edits[1] if edits[0].get(k) != edits[1][k])}, IFX ON {switch}, touchpad "
                   f"moved master codes {moved}, part 1 effect gain in/out at the start {gains}, master input gain before, "
                   f"while and after touching {send}")]

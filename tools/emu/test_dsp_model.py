@@ -27,6 +27,11 @@ class Port:
             self.machine.write(DSP_DATA, w)
 
 
+def fifo_halves(*entries):
+    words = [c << 22 | k << 16 | v for c, k, v in entries] + [62 << 22]
+    return [h for w in words for h in (w & 0xFFFF, w >> 16)]
+
+
 class DspModelTest(unittest.TestCase):
     def test_a_parameter_message_sets_its_value(self):
         port = Port()
@@ -172,6 +177,28 @@ class DspModelTest(unittest.TestCase):
         self.assertEqual(port.dsp.effect(MASTER_FX), {"unit": None, "params": {0x18: 0x5800}})
         self.assertIsNone(port.dsp.ifx(0))
         self.assertEqual([e[1:] for e in port.dsp.loads], [(2, 0x10)])
+
+    def test_a_field_is_muted_until_its_load(self):
+        for build in ("sampler", "synth"):
+            port = Port(build)
+            port.send(fifo_halves((0, 0x30, 0), (0, 0x31, 0)), address=FIFO[0], block=64)
+            self.assertTrue(port.dsp.field_muted(0) and port.dsp.idle[0])
+            self.assertIsNone(port.dsp.field_muted(2))
+            port.send(fifo_halves((0x28, 0x38, 9), (0x28, 0x39, 0)), address=FIFO[1], block=64)
+            self.assertFalse(port.dsp.field_muted(0) or port.dsp.idle[0])
+            port.send(fifo_halves((0, 0x30, 0), (0, 0x32, 0)), address=FIFO[0], block=64)
+            self.assertFalse(port.dsp.field_muted(0))
+
+    def test_the_link_bit_loads_the_partner_field_on_hacktribe_only(self):
+        port = Port()
+        port.send(fifo_halves((0x28, 0x38, 0x89), (0x28, 0x39, 2), (2, 1, 0x1600), (2, 0x30, 0)), address=FIFO[0], block=64)
+        self.assertEqual(port.dsp.ifx(2), {"unit": 9, "params": {1: 0x1600}})
+        self.assertEqual([e[1:] for e in port.dsp.loads], [(2, 9), (4, 9)])
+        self.assertTrue(port.dsp.field_muted(4))
+        blue = Port("synth")
+        blue.send(fifo_halves((0x28, 0x38, 0x89), (0x28, 0x39, 2), (2, 1, 0x1600)), address=FIFO[0], block=64)
+        self.assertEqual(blue.dsp.ifx(1), {"unit": 0x89, "params": {1: 0x1600}})
+        self.assertIsNone(blue.dsp.ifx(2))
 
     def test_ifx_on_is_a_part_value(self):
         port = Port()

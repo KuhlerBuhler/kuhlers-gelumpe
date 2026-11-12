@@ -39,7 +39,7 @@ abschaltet (#506, Gerätetest 11.11.: Part stumm).
 | Parameter `0x2C2 + 0x6D * Part + 0x23` (LEVEL, siehe oben) geht jede Millisekunde an den DSP, gleich bei Velocity 127 und 30 | gemessen |
 | Part-Schalter im DSP: die Audioschleife `0xFFA019DE` überspringt einen Part mit Schalter 0 und löscht seinen Ausgangszustand (`0xFF90186C + 0x118 * Part`, +0x100); mit 1 läuft er beim nächsten Sample wieder, nichts bleibt hängen | gelesen |
 | FIFO `0xFF900018`/`0xFF900098` (Handler `0x17FF8`): zwei Puffer zu 32 Wörtern, Eintrag = Flags << 28 \| Kanal << 22 \| Code << 16 \| Wert, Kanal 62 beendet den Puffer. Code `0x20` auf Kanal 0 bis 32 ist das Tempo in hundertstel BPM (`0xFF900004`), danach rechnet der Effekt des Kanals seine Tempo-Zeiten neu (`0x17C78`) | gelesen; Tempo 155.5 schickt `0x3CBE` an alle 33 Kanäle: gemessen |
-| Effekte im FIFO: der Kanal ist ein Effektfeld ([DSP, erster Blick](../hintergrund/dsp-erster-blick.md), 2.2). Part p hat das Insert-Feld 2p (2p + 1 ist sein Nachbar), der Master-Effekt Feld 32. Codes `0` bis `0x19` sind die Parameter der Einheit. Feld 40 (`0x28`) bereitet eine Einheit vor: ihre Parameter (Rohwert << 8), Code `0x38` die Einheitennummer, Code `0x39` das Zielfeld, das den Lader startet. Vorher gehen `0x30` und `0x31` an das Zielfeld | gemessen (Emulator), gelesen |
+| Effekte im FIFO: der Kanal ist ein Effektfeld ([DSP, erster Blick](../hintergrund/dsp-erster-blick.md), 2.2). Part p hat das Insert-Feld 2p (2p + 1 ist sein Nachbar), der Master-Effekt Feld 32. Codes `0` bis `0x19` sind die Parameter der Einheit. Feld 40 (`0x28`) bereitet eine Einheit vor: ihre Parameter (Rohwert << 8), Code `0x38` die Einheitennummer, Code `0x39` das Zielfeld, das den Lader startet. Vorher gehen `0x30` (Feld stumm) und `0x31` (Feld leer) an das Zielfeld ([Blaues DSP-Programm](#blaues-dsp-programm)) | gemessen (Emulator), gelesen |
 | Beim Start: Nachbarfelder 1, 3 … 31 bekommen Einheit 0, die Part-Felder 0, 2 … 30 Einheit 4, das Master-Feld Einheit `0x3B` und danach die Parameter 2, 11, 15, 17 und 24 | gemessen (Hacktribe) |
 | IFX TYPE +1 auf Part 1: `0x30`, `0x31` an Feld 0, Einheit 0 nach Feld 1, Einheit `0x10` nach Feld 0, sonst kein Feld. Auf Part 2 dasselbe mit Feld 2 und 3 | gemessen (Hacktribe, rot, blau) |
 | Einheitennummer = Gerätebyte aus `data/units.json` und Index der DSP-Deskriptoren (`0x4C30`): 4 = `I_punch`, `0x10` = `I_acid_driver`, `0x3B` = `M_mod_delay`, 0 = leer. Code n ist Parameter n der Einheit: `0x17DC4` schreibt den Wert ins Staging des Felds (`0xFF900118 + 0x34 * Feld + 2 * Code`), begrenzt ihn auf die Spanne des Parameterrecords n und ruft dessen Wandler. Beim Acid Driver sind Code 0 und 1 also `drive` und `output_level` | gelesen, Namen aus `data/units.json` |
@@ -235,9 +235,24 @@ Ausrichten zu 94 % überein (14 221 von 15 294 Befehlen), liegt aber verschoben.
 | Setter `0xFFA05CB2`, `0xFFA05DD0`, `0xFFA06970` | | `0xFFA05AD2`, `0xFFA05BF0`, `0xFFA06780` | gleich |
 
 Für die Prüfungen heißt das: alle Adressen und Slots, die das Modell liest, gelten auf blau; die Unterschiede in `0x26` und
-`0x30` deckt das Modell schon ab (`synth`). Was blau sonst anders macht, liegt im Klangweg und ist nicht im Modell. Nicht
-gelesen ist der Bereich `0x01F00000` außerhalb der Sprungtabelle und die 168 Befehle, die blau am Ende des Codes mehr hat
-(ab `0xFFA0BE38`).
+`0x30` deckt das Modell schon ab (`synth`). Was blau sonst anders macht, liegt im Klangweg und ist nicht im Modell.
+
+Der Rest, gelesen auf beiden (12.11.):
+
+| Bereich | Ergebnis |
+|---|---|
+| Übriger L1-Code | Unterschiede nur DSP-intern: Feldversätze in den Routinen um `0xFFA0010C`, `0xFFA0048A`, `0xFFA00726` und in den Effekt-Mischern ab `0xFFA08998`; Hacktribe begrenzt im Generator für Typ `0x22` (`0xFFA0331E`) weich, blau nicht. Keine Adresse, die die CPU liest oder schreibt |
+| Ende des L1-Codes, nur blau (`0xFFA0BDC4` bis `0xFFA0BFE8`) | zwei Fehlerhandler (legen R0 bis R2, RETS und RETX bei `0xFF803D30` ab, dann IDLE) und Division mit Rest, mit und ohne Vorzeichen. Hacktribe ruft dieselbe Laufzeit im SDRAM (`0x01F10DCC`, `0x01F1086C` bis `0x01F108AC`, `0x01F0FE38`) |
+| SDRAM `0x01F00000` | 31 209 von 32 907 Befehlen gleich; die Unterschiede sind diese Laufzeit, Tabellen und verschobene interne Adressen. Kein Zugriff auf Postfach, FIFO, Stimmen oder Ausgangsblock, der sich unterscheidet |
+| SDRAM ab `0x4` (Effekt-Einheiten) | 36 836 von 40 065 Befehlen gleich; Zugriffe auf `0xFF90....` unterscheiden sich nur im FIFO-Handler und seinen Helfern |
+| FIFO-Handler | Hacktribe `0x17FF8`, blau `0x18000`, gleiche Codes: Ende 62, Tempo `0x20`, Kanäle unter 33, Feld 40 mit `0x38`/`0x39`, Parameter unter `0x1A`. `0x30` setzt die Feldverstärkung des Parts (Part-Slot `+0x25`) auf 0, `0x31` setzt die Prozesszeiger (`+0x2B`, `+0x31`) auf die Leer-Einheit (Deskriptor + `0x18`), `0x32` stellt beides zurück (`+0x25 = 0x7FFFFFFF`); der Lader tut das nach jedem Laden. Deskriptortabelle Hacktribe `0x4C30`, blau `0x4C74` |
+| Stereo-Kopplung, nur Hacktribe und rot | Der Lader nimmt vom Einheitenbyte Bit 7 als Kopplung (Tabelle `0xFF9007CC` + Feld) und lädt Einheit `Byte & 0x7F`. Mit Kopplung gehen Laden, `0x30` bis `0x32` und die Parameter auch an das Partnerfeld (Feld 2p + 2, Part p + 1). Blau koppelt nie und nimmt das ganze Byte |
+
+Gemessen (Emulator, Hacktribe und blau gleich): die CPU schickt `0x30` und `0x31` vor jedem Laden, nie `0x32`, und schreibt nie
+nach `0xFF9007CC`. Ein Stereo-Sample (Slot 501) auf Part 1 und dann IFX TYPE: Einheitenbyte 9 und `0xF`, ohne Bit 7. Die
+Kopplung ist im Modell (`links`), kommt aber bei keinem Prüffall vor. Das Modell führt je Feld, ob `0x30` es stumm hält
+(`field_muted`) und ob `0x31` es auf Leerlauf gestellt hat (`idle`); `shortcut:dsp_effects_follow_the_panel` prüft, dass IFX TYPE
+Feld 0 vor dem Laden stumm schaltet und nach dem Start und nach IFX TYPE kein Feld stumm bleibt. Grün auf Hacktribe, rot und blau.
 
 ## Grenzen
 
