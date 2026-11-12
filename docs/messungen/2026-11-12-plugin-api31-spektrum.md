@@ -4,7 +4,7 @@
 Sampler-Firmwares (Hacktribe, Korg rot) über einen Dienst in der Laufzeit.
 Erfassung, Ring-Leser, FFT und Spaltentabellen stammen aus Spettro von Luigi
 (GitHub reflectiveboi, PR #429). Er wollte den Worker von Anfang an als
-Schnittstelle der Firmware haben; Pascal hat die Übernahme in 1.5 freigegeben.
+Schnittstelle der Firmware haben, in 1.5 ist er das.
 Spettro selbst ist jetzt ein Plugin im Katalog, das auf diesen Aufrufen sitzt.
 
 Grundlage für Adressen und native Routinen: [Spettro](2026-11-07-spettro.md)
