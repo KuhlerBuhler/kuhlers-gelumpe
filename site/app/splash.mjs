@@ -1,11 +1,15 @@
 /** The Startbild page: any picture to splash.bmp for the card (SPLASH IMPORT in the BLECH menu). Logic: src/splash-bmp.mjs. */
 import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { loadingAnimSection } from "./loading-anim.mjs";
+import { pictureFileSection } from "./picture-file.mjs";
 import { icon } from "./icons.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:splash");
 
 const STYLE = new URL("./splash.css", import.meta.url).href;
 
@@ -15,6 +19,12 @@ export const GALLERY = [
   { id: "blech", title: "BLECH", src: "img/splash/blech.png" },
   { id: "blechy", title: "Blechy", src: "img/splash/blechy.png" },
   { id: "blechy-winkt", get title() { return t("splash.gallery.wave"); }, src: "img/splash/blechy-winkt.png" },
+  { id: "gelumpe", title: "GELUMPE", src: "img/splash/gelumpe.png" },
+  { id: "kuhler", title: "KUHLER", src: "img/splash/kuhler.png" },
+  { id: "pads", get title() { return t("splash.gallery.pads"); }, src: "img/splash/pads.png" },
+  { id: "wave", get title() { return t("splash.gallery.waveform"); }, src: "img/splash/wave.png" },
+  { id: "knob", get title() { return t("splash.gallery.knob"); }, src: "img/splash/knob.png" },
+  { id: "bars", get title() { return t("splash.gallery.bars"); }, src: "img/splash/bars.png" },
 ];
 const OWN = "cee.splash.own";
 
@@ -163,11 +173,11 @@ export function splashPage(root) {
     gallery.replaceChildren(...GALLERY.map(item => card(item, false)), ...readOwn().map(item => card(item, true)));
   }
 
-  // Two tabs, each its own section: the start image for the card, and the loading animation for the Patcher.
+  // Three tabs, each its own section: the start image for the card, the loading animation for the Patcher, and pictures for the Image Viewer.
   const tabs = el("div", { className: "ui-tabs", id: "cee-design-tabs" });
   tabs.setAttribute("role", "tablist");
   tabs.setAttribute("aria-label", t("nav.splash"));
-  const panels = [["splash", t("splash.title")], ["anim", t("splash.anim.title")]].map(([id, text], i) => {
+  const panels = [["splash", t("splash.title")], ["anim", t("splash.anim.title")], ["pics", t("pics.title")]].map(([id, text], i) => {
     const tab = el("button", { type: "button", className: "ui-tab", id: `cee-design-tab-${id}`, textContent: text });
     tab.setAttribute("role", "tab");
     tab.dataset.tab = id;
@@ -181,13 +191,21 @@ export function splashPage(root) {
     return panel;
   });
 
+  const dropZone = dropzoneClear(fileInput, () => {
+    picture = null;
+    pictureName = "";
+    document.getElementById("cee-splash-work").hidden = true;
+    download.disabled = true;
+    keep.disabled = true;
+    render();
+  }).node;
   panels[0].append(el("section", { className: "ui-section", id: "cee-splash-section" }, [
     el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: t("splash.title") })]),
     el("p", { className: "cee-splash-lead", textContent: t("splash.lead") }),
     el("h3", { className: "cee-splash-head", textContent: t("splash.gallery") }),
     gallery,
     el("h3", { className: "cee-splash-head", textContent: t("splash.ownPicture") }),
-    drop,
+    dropZone,
     el("div", { className: "cee-splash-work", hidden: true, id: "cee-splash-work" }, [
       canvas,
       el("div", { className: "cee-splash-controls" }, [
@@ -205,6 +223,7 @@ export function splashPage(root) {
     ]),
   ]));
   panels[1].append(loadingAnimSection());
+  panels[2].append(pictureFileSection());
   root.replaceChildren(el("h1", { className: "ui-sr-only", textContent: t("nav.splash") }), tabs, ...panels);
   window.ui?.tabs?.(tabs, { persist: "cee.design.tab", hash: false });
 

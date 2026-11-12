@@ -1,4 +1,9 @@
-"""Assembler guards for the card switch or the Sampler's mounted volume.
+"""Assembler guards for the card switch, on the Sampler builds also the mounted volume.
+
+The card switch (GPIO 4.1) is what tells a card inserted after the power-on: FatFs mounts the volume lazily, so a Sampler that
+started without a card keeps the volume unmounted until the first access (a WRITE in the BLECH menu), and a guard that only
+looked at the volume left the features off after the card was inserted (reported 11.11.: a setting changed in the menu took
+effect only after saving). The Sampler's guard still lets a mounted volume through as well, as it did before.
 
 A feature is on once a card has been seen since power-on: the first time the guard finds a card it writes CARD_SEEN to
 the patch's own latch word (in its RAM state, FF at power-on), and from then on the latch alone lets it through. Pulling
@@ -19,22 +24,23 @@ def source(build, off, latch):
     cmp r0, #{CARD_SEEN:#x}
     beq {seen}
 '''
-    if build == 'synth':
-        check = f'''    ldr r0, ={SD_INPUT:#x}
+    mark = f'{off}_mark'
+    volume = '' if build == 'synth' else f'''    ldr r0, =FATFS
+    ldr r0, [r0]
+    cmp r0, #0
+    beq {off}_pin
+    ldrb r0, [r0]
+    cmp r0, #0
+    bne {mark}
+{off}_pin:
+'''
+    check = f'''    ldr r0, ={SD_INPUT:#x}
     ldr r0, [r0]
     tst r0, #{SD_DETECT}
     bne {off}
 '''
-    else:
-        check = f'''    ldr r0, =FATFS
-    ldr r0, [r0]
-    cmp r0, #0
-    beq {off}
-    ldrb r0, [r0]
-    cmp r0, #0
-    beq {off}
-'''
-    return head + check + f'''    mov r0, #{CARD_SEEN:#x}
+    return head + volume + check + f'''{mark}:
+    mov r0, #{CARD_SEEN:#x}
     str r0, [r12]
 {seen}:
 '''

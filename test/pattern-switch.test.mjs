@@ -125,7 +125,7 @@ describe("the pattern switch in the emulator", { concurrency: slots }, () => {
       const report = JSON.parse(run.stdout);
       assert.deepEqual(report.filter(c => !c.ok), []);
       for (const id of ["browse_is_silent", "browse_label_is_view", "confirm_switches_at_sequence_end", "exit_takes_browse_back", "exit_takes_confirmation_back", "stopped_is_stock",
-        "stop_drops_browse", "chain_runs_while_browsing", "pad_wins_over_browse", "exit_held_is_stock", "no_card_is_stock", "setting_off_is_stock"]) {
+        "stop_drops_browse", "chain_runs_while_browsing", "pad_wins_over_browse", "exit_held_is_stock", "no_card_is_stock", "setting_off_is_stock", "pad_flicker_playing", "pad_flicker_stopped_unsaved"]) {
         assert.ok(report.some(c => c.id === `pswitch:${id}`), id);
       }
       assert.equal(run.status, 0);

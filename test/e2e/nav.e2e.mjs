@@ -1,6 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { setUp } from "./harness.mjs";
+import { setUp, gear } from "./harness.mjs";
 
 let h;
 before(async () => { h = await setUp(); });
@@ -49,35 +49,46 @@ test("Pattern-Werkzeuge and Samples are not offered: no tab, and #ptools and #sa
   assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Design", "Samples", "Konsole", "Blechy", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Doom", "Features", "Discord", "Pattern-Werkzeuge", "Samples"]);
 });
 
-test("the navbar title of the emulator page is a menu: emulator or real device", async () => {
+test("the navbar of the emulator page has one switch: off is the emulator, on the real device", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu`);
   assert.equal(await page.locator("#cee-nav-title").isVisible(), false);
-  assert.equal(await page.locator("#cee-mode-label").textContent(), "Emulator");
-  assert.deepEqual(await page.locator("#cee-nav-state").getByRole("button").allTextContents(), ["SD-Karte öffnen", "Eigenes Fenster"], "the emulator page has no device state, only the SD card and the button for its own window");
-  assert.equal(await page.locator("#cee-nav-state #cee-sd-inserted").count(), 1, "the card's switch beside it");
-  assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "false");
-  await page.click("#cee-mode-button");
-  assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "true");
-  await page.keyboard.press("Escape");
-  assert.equal(await page.locator("#cee-mode-menu").isVisible(), false);
-  assert.equal(await page.evaluate(() => document.activeElement.id), "cee-mode-button", "the focus goes back to the button");
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("ArrowDown");
+  assert.equal(await page.locator(".cee-mode-title").textContent(), "Emulator");
+  assert.equal(await page.locator("#cee-mode-switch").isChecked(), false);
+  assert.equal(await page.locator("#cee-mode-menu").count(), 0, "no menu any more");
+  assert.equal(await page.locator("#cee-emu-menu").isVisible(), false, "the gear menu starts shut");
+  assert.equal(await page.locator("#cee-nav-state").getByRole("button").count(), 0, "the emulator page has no controls of its own in the bar, they are in the gear menu");
+  await page.focus("#cee-emu-gear");
   await page.keyboard.press("Enter");
-  assert.equal(await page.locator("#cee-mode-label").textContent(), "Echtes Gerät");
+  assert.equal(await page.evaluate(() => document.activeElement.id), "cee-mode-switch", "the gear opens on the mode switch");
+  assert.deepEqual(await page.locator("#cee-emu-menu").getByRole("button").allTextContents(), ["SD-Karte öffnen", "Eigenes Fenster"], "under it the SD card's folder and the emulator's own window");
+  assert.equal(await page.locator("#cee-emu-menu #cee-sd-inserted").count(), 1, "and the card's switch");
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator("#cee-emu-menu").isVisible(), false, "Escape shuts it");
+  assert.equal(await page.evaluate(() => document.activeElement.id), "cee-emu-gear", "and gives the focus back to the gear");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Space");
+  assert.equal(await page.locator("#cee-mode-switch").isChecked(), true);
+  assert.equal(await page.locator(".cee-mode-title").textContent(), "Echtes Gerät", "the title says the mode");
+  assert.equal(await page.locator("#cee-emu-menu").isVisible(), false, "picking a mode shuts the menu");
   assert.equal(await page.locator("#cee-device").isVisible(), false, "with nothing to say, the area above the drawing takes no room (the connect button is in the navbar)");
   assert.equal(await page.locator("#cee-area-emu #cee-e2").isVisible(), true, "the real device is shown in the emulator's drawing");
   assert.equal(await page.getAttribute("#cee-tab-emu", "data-active"), "", "the sidebar still marks the emulator entry");
   assert.equal(await page.locator("#cee-nav-state #cee-connect").isVisible(), true, "on the device page the navbar carries the connect button instead of a not-connected text");
+  await page.focus("#cee-emu-gear");
+  await page.keyboard.press("Enter");
+  assert.equal(await page.locator("#cee-emu-menu").getByRole("button").count(), 0, "on the device page the menu holds only the mode switch");
+  await page.keyboard.press("Space");
+  assert.equal(await page.locator("#cee-mode-switch").isChecked(), false);
+  assert.equal(await page.getAttribute("#cee-tab-emu", "data-active"), null, "off is the emulator again");
 });
 
-test("the emulator page has no options in the sidebar: the firmware goes on its display, the SD card opens from the navbar", async () => {
+test("the emulator page has no options in the sidebar: the firmware goes on its display, the SD card opens from the gear menu", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu`);
   assert.equal(await page.locator("#cee-sub-emu").count(), 0, "nothing folds out under the entry");
-  assert.equal(await page.locator("#cee-nav-state #cee-sd-open").textContent(), "SD-Karte öffnen", "the SD card opens from the navbar");
-  assert.equal(await page.locator("#cee-nav-state #cee-sd-inserted").count(), 1, "and its switch sits next to it");
+  assert.equal(await page.locator("#cee-emu-menu #cee-sd-open").textContent(), "SD-Karte öffnen", "the SD card opens from the gear menu");
+  assert.equal(await page.locator("#cee-emu-menu #cee-sd-inserted").count(), 1, "and its switch sits above it");
   assert.equal(await page.locator(".cee-main #cee-e2-power").isVisible(), true, "the power key stays in the page");
   assert.equal(await page.locator(".cee-main #cee-emu-offer").isVisible(), true, "a switched-off device offers the firmware on its display");
   assert.match(await page.locator("#cee-emu-offer").textContent(), /SYSTEM\.VSB/);
@@ -240,11 +251,12 @@ test("the start page sends to the patcher for Korg's firmware, and to Plugins an
 test("the emulator opens in a window of its own; the page shows a note, and Hier anzeigen or closing the window brings it back", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu`);
-  await page.locator("#cee-emu-pop").waitFor();
+  await page.locator("#cee-emu-pop").waitFor({ state: "attached" });
+  await gear(page);
   // what is seen, not the attribute: a display rule can show an element that is hidden
   const shown = async () => ({ device: await page.locator("#cee-emu-device").isVisible(), note: await page.locator("#cee-emu-away").isVisible() });
   assert.deepEqual(await shown(), { device: true, note: false }, "before the window opens, only the device");
-  assert.equal(await page.locator(".cee-navbar #cee-emu-pop").isVisible(), true, "the button sits in the navbar");
+  assert.equal(await page.locator(".cee-navbar #cee-emu-menu #cee-emu-pop").isVisible(), true, "the button sits in the gear menu of the navbar");
   const [win] = await Promise.all([page.context().waitForEvent("page"), page.click("#cee-emu-pop")]);
   await win.locator("#cee-emu-device").waitFor();
   assert.deepEqual(await shown(), { device: false, note: true });
@@ -256,6 +268,7 @@ test("the emulator opens in a window of its own; the page shows a note, and Hier
   await win.waitForEvent("close", { timeout: 3000 }).catch(() => {});
   assert.equal(win.isClosed(), true, "Hier anzeigen closes the window");
 
+  await gear(page);
   const [again] = await Promise.all([page.context().waitForEvent("page"), page.click("#cee-emu-pop")]);
   await again.locator("#cee-emu-device").waitFor();
   await page.locator("#cee-emu-away").waitFor();

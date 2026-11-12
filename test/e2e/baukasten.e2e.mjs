@@ -30,11 +30,11 @@ async function open(page) {
 }
 const openCard = (page, list, name) => page.locator(`${list} li`, { hasText: name }).locator(".cee-catalog-open").click();
 
-test("Baukasten is open without firmware; four sub-pages; a card opens in the editor and saves under Meine Effekte", async () => {
+test("Baukasten is open without firmware; five sub-pages; a card opens in the editor and saves under Meine Effekte", async () => {
   const page = await h.page();
   await open(page);
   assert.equal(await page.getAttribute("#cee-tab-baukasten", "aria-disabled"), null, "no firmware needed");
-  assert.deepEqual(await page.locator("#cee-baukasten-pages button").allTextContents(), ["Katalog", "Editor", "Meine Effekte", "Export"]);
+  assert.deepEqual(await page.locator("#cee-baukasten-pages button").allTextContents(), ["Katalog", "Editor", "Meine Effekte", "Meine Modulationen", "Export"]);
   assert.deepEqual(await page.locator("#cee-bk-fx-catalog h3").allTextContents(), FX_CATALOG.map(c => c.name));
   const first = page.locator("#cee-bk-fx-catalog li").first();
   assert.equal(await first.locator(".cee-catalog-category").textContent(), "Echo", "the tag under the title");
@@ -94,6 +94,16 @@ test("Baukasten is open without firmware; four sub-pages; a card opens in the ed
   await page.click("#cee-bk-fx-save");
   await page.click("#cee-baukasten-page-mine");
   assert.equal(await page.locator("#cee-bk-mine li").count(), 1, "saving again changes the same one");
+  assert.equal(await page.locator(".cee-shelf-tabs").isVisible(), false, "Meine Effekte is a page of its own, no switch to Modulationen");
+  assert.equal(await page.getAttribute("#cee-baukasten-page-mine", "aria-current"), "");
+  await page.click("#cee-baukasten-page-mine-mod");
+  assert.equal(await page.locator("#cee-bk-mine li").count(), 0, "the effect is not under Meine Modulationen");
+  assert.equal(await page.locator("#cee-bk-mine-empty").textContent(), "Noch keine Modulation gespeichert. Nimm eine aus dem Katalog oder bau eine im Editor.");
+  assert.equal(await page.locator(".cee-bk-page:not([hidden]) .cee-bk-title").first().textContent(), "Meine Modulationen");
+  assert.equal(await page.locator(".cee-shelf-tabs").isVisible(), false);
+  assert.equal(await page.getAttribute("#cee-baukasten-page-mine-mod", "aria-current"), "");
+  assert.equal(await page.getAttribute("#cee-baukasten-page-mine", "aria-current"), null);
+  await page.click("#cee-baukasten-page-mine");
   const download = page.waitForEvent("download");
   await page.click("#cee-baukasten-page-editor");
   await page.click("#cee-bk-fx-download");
@@ -165,7 +175,7 @@ test("a new insert effect: two blocks from the palette, a name; Meine Effekte op
   assert.deepEqual(page.errors, []);
 });
 
-test("export: places per slot, a drop swaps two, the trash can empties one; Exportieren asks for the firmware, reads an e2sFx.all back", async () => {
+test("export: places per slot, a drop swaps two, the trash can empties one; Exportieren asks for the device's firmware, reads an e2sFx.all back", async () => {
   const page = await h.page();
   await open(page);
   await page.click("#cee-bk-tab-mod");
@@ -179,6 +189,11 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.locator("#cee-bk-curve button", { hasText: "Dreieck" }).click();
   assert.equal(await page.getAttribute("#cee-bk-curve button[data-value='2']", "aria-checked"), "true");
   await page.click("#cee-bk-mod-save");
+  await page.locator("#app-toasts .cee-toast", { hasText: "steht unter Meine Modulationen" }).waitFor();
+  await page.click("#cee-baukasten-page-mine-mod");
+  assert.equal(await page.locator("#cee-bk-mine li", { hasText: "Filter Wobble" }).count(), 1, "a saved modulation is under Meine Modulationen");
+  await page.click("#cee-baukasten-page-mine");
+  assert.equal(await page.locator("#cee-bk-mine li", { hasText: "Filter Wobble" }).count(), 0, "and not under Meine Effekte");
   await page.click("#cee-baukasten-page-catalog");
   await page.click("#cee-bk-tab-fx");
   await openCard(page, "#cee-bk-fx-catalog", "Short Delay");
@@ -206,8 +221,12 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.click("#cee-bk-export-tab-mod");
   assert.equal(await page.locator("#cee-bk-slots-ifx").count(), 0, "Modulationen show only their places");
   await page.selectOption("#cee-bk-slot-mod-5", { label: "Filter Wobble" });
+  // The file is for the firmware on the device, which the user names; the emulator's firmware plays no part.
   await page.click("#cee-bk-collection");
-  await page.locator("#app-toasts .cee-toast", { hasText: "braucht die Seite deine Firmware" }).waitFor();
+  await page.locator("#app-toasts .cee-toast", { hasText: "welche Firmware auf deiner Electribe" }).waitFor();
+  await page.click("#cee-bk-firmware-hacktribe");
+  await page.click("#cee-bk-collection");
+  await page.locator("#app-toasts .cee-toast", { hasText: "kann nur die App selbst laden" }).waitFor();
 
   const vsb = await makeFirmwareWithArrays([
     { kind: "mfx", slot: 1, record: makeRecord("mfx", { name: "Mod Delay", devices: { mfx: 0x3b } }) },
@@ -218,6 +237,13 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   await page.locator("#cee-emu-vsb ~ .ui-dropzone-files", { hasText: "erkannt" }).waitFor();
   await page.click("#cee-tab-baukasten");
   await page.click("#cee-baukasten-page-export");
+  assert.equal(await page.isChecked("#cee-bk-firmware-hacktribe input"), true, "the choice is remembered");
+  // Korg's original named for the device, a Hacktribe file given: refused, not built for the wrong device
+  await page.click("#cee-bk-firmware-stock");
+  await page.setInputFiles("#cee-bk-firmware-file", h.file("SYSTEM.VSB", vsb));
+  await page.click("#cee-bk-collection");
+  await page.locator("#app-toasts .cee-toast", { hasText: "nicht Korgs Original" }).waitFor();
+  await page.click("#cee-bk-firmware-hacktribe");
   // A factory preset moves like an own one: Mod Delay from place 1 to place 2, as its record, not rebuilt.
   await page.click("#cee-bk-export-tab-mfx");
   await page.locator("#cee-bk-slots-mfx li[data-slot='1'] .cee-bk-slot-factory", { hasText: "Mod Delay" }).waitFor();
@@ -226,6 +252,7 @@ test("export: places per slot, a drop swaps two, the trash can empties one; Expo
   const bytes = await h.download(page, () => page.click("#cee-bk-collection"));
   const read = parseCollection(bytes);
   assert.equal(read.ok, true, read.reason);
+  assert.equal(read.build, "hacktribe", "the build the user named");
   const moved = read.entries.find(e => e.kind === "mfx" && e.index === 1);
   assert.equal(readFx(moved.text, units).preset.name, "Mod Delay", "place 2 holds the factory preset of place 1");
   const others = read.entries.filter(e => e !== moved && !(e.kind === "mfx" && e.index === 0));

@@ -592,8 +592,18 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   width: 100%;
 }
 
-.cee-e2[data-power="off"] .cee-lcd {
+.cee-e2[data-power="off"] .cee-lcd,
+.cee-e2[data-power="off"] .cee-lcd-grid {
   visibility: hidden;
+}
+
+/* The display built like the glass (pixelGrid in emulator.mjs), over the display canvas and as large. */
+.cee-lcd-grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .cee-e2-label {
@@ -1114,16 +1124,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   display: none;
 }
 
-/* On the floor a name shows only while the pointer is on its Blechy, so passing names never pile up. */
-.cee-discord-blechy .cee-discord-tag {
-  position: absolute;
-  bottom: calc(100% + var(--space-1));
-  left: 50%;
-  transform: translateX(-50%);
-  visibility: hidden;
-  white-space: nowrap;
-}
-
 /* Three rows: the back ones a little higher, the front row on top. */
 .cee-discord-blechy[data-row="1"] {
   bottom: 10px;
@@ -1141,10 +1141,6 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 
 .cee-discord-blechy:hover {
   z-index: 4;
-}
-
-.cee-discord-blechy:hover .cee-discord-tag {
-  visibility: visible;
 }
 
 .cee-discord-people {
@@ -1270,7 +1266,15 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 }
 
 .cee-mode {
-  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+}
+
+.cee-mode-title {
+  font-size: var(--text-lg);
+  color: var(--color-text-primary);
 }
 
 .cee-mode-button {
@@ -1338,6 +1342,55 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* The gear menu of the emulator: the mode switch, the SD card, its folder and the emulator's own window, one row each. */
+.cee-emu-menu-box {
+  position: relative;
+}
+
+.cee-emu-menu-box[hidden] {
+  display: none;
+}
+
+.cee-emu-menu {
+  left: auto;
+  right: 0;
+  min-width: 15rem;
+}
+
+.cee-emu-rows,
+.cee-emu-rows .cee-sd-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+/* On a phone the gear sits mid-bar: the panel spans the width under the navbar instead of running off the right edge. */
+@media (max-width: 40rem) {
+  .cee-emu-menu {
+    position: fixed;
+    left: var(--space-4);
+    right: var(--space-4);
+    top: calc(var(--cee-navbar-real, 4rem) + var(--space-1));
+    min-width: 0;
+  }
+}
+
+.cee-emu-row {
+  min-height: var(--control-target-min);
+  padding: var(--space-2) var(--space-3);
+}
+
+.cee-emu-menu .cee-emu-row,
+.cee-emu-menu .cee-mode-item {
+  font-size: var(--text-sm);
+}
+
+.cee-emu-menu .cee-mode-item {
+  justify-content: flex-start;
+  gap: var(--space-2);
 }
 
 .cee-mode-item:hover {
@@ -2784,6 +2837,52 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
   font-size: var(--text-sm);
 }
 
+/* The X that takes a file out of an upload field (dropzone-clear.mjs): the chosen-card tick's circle, half over the corner. */
+.cee-dropzone-wrap {
+  position: relative;
+}
+
+.cee-dropzone-wrap:has(> .ui-dropzone[hidden]) {
+  display: none;
+}
+
+.cee-dropzone-wrap:has(> .cee-rescue-drop) {
+  grid-column: 1 / -1;
+}
+
+.cee-dropzone-clear {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  translate: 50% -50%;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-primary);
+  color: var(--color-accent-primary-contrast);
+  cursor: pointer;
+}
+
+.ui-dropzone[data-filled] + .cee-dropzone-clear {
+  display: flex;
+}
+
+.cee-dropzone-clear svg {
+  width: var(--space-4);
+  height: var(--space-4);
+  stroke-width: 3;
+}
+
+.cee-dropzone-clear:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
 /* Katalog and Eigene Plugins (scripts.mjs): two buttons that belong together above the cards. */
 .cee-plug-page:not([hidden]):has(> .cee-shelf-tabs) {
   display: flex;
@@ -3519,7 +3618,7 @@ input[type="checkbox"]:not([role="switch"]):checked {
   background: var(--color-accent-primary);
 }
 
-/* The tick, two borders of a turned box in the colour of the unchecked box: a filled square alone does not read as checked. */
+/* The tick, two borders of a turned box in the accent's contrast colour: the unchecked box is a faint translucent tint, so its colour as tick vanished on the accent. */
 input[type="checkbox"]:not([role="switch"]):checked::after {
   content: "";
   position: absolute;
@@ -3527,7 +3626,7 @@ input[type="checkbox"]:not([role="switch"]):checked::after {
   top: 45%;
   width: 25%;
   height: 50%;
-  border: solid var(--color-button-secondary-bg);
+  border: solid var(--color-accent-primary-contrast);
   border-width: 0 2px 2px 0; /* raw-ok: the stroke of the tick */
   transform: translate(-50%, -50%) rotate(45deg);
 }
@@ -3535,6 +3634,15 @@ input[type="checkbox"]:not([role="switch"]):checked::after {
 input[type="checkbox"]:not([role="switch"]):disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* The end of the navbar: the USB icon and the language menu together at the right edge. One auto margin for both, since a
+   second one (.cee-nav-state) splits the free room and would put the icon in the middle of the bar. */
+.cee-nav-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-left: auto;
 }
 
 /* USB status in the navbar: the plug icon is lit while an Electribe is on the USB port. */
@@ -3553,8 +3661,10 @@ input[type="checkbox"]:not([role="switch"]):disabled {
 
 /* The language menu at the end of the navbar (settings.mjs, languageSwitch): the menu of the mode button, opened to the left. */
 /* The touch target stays full size; it reaches into the navbar's padding so the bar keeps its height. */
+/* It keeps to the right end also when the narrow navbar wraps it into a row of its own, so the menu stays on screen. */
 .cee-lang {
   margin-block: calc(var(--space-1) * -1);
+  margin-left: auto;
 }
 
 .cee-lang-button {

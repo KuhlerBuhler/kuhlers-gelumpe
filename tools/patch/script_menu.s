@@ -149,7 +149,7 @@
 .equ M_LEVEL_SYNC, 4          ; level 4: the page SYNC GROUP, between the Pattern menu (behind CHAIN REPEAT) and the Part menu, where the build has sync groups
 .equ HAS_SYNC, SYNC_GROUP_AT != 0
 .equ M_LEVEL_PLUGIN, 5        ; level 5: MANAGE PLUGINS, one page a plugin (M_PAGE is its place in the list, M_PSEL follows it)
-.equ M_LEVEL_PSUB, 6          ; level 6: the pages of one plugin, opened by ENTER on its page of MANAGE PLUGINS: DESCRIPTION, its own pages, OFF, REMOVE
+.equ M_LEVEL_PSUB, 6          ; level 6: the pages of one plugin, opened by ENTER on its page of MANAGE PLUGINS: ACTIVE, DESCRIPTION, its own pages, REMOVE
 .equ M_LEVEL_GLOBAL, 7        ; level 7: the page PLUGIN RUNTIME, shown as the last page of the firmware's GLOBAL PARAMETERS (screen 9)
 .equ M_LEVEL_DU, 8            ; level 8: our pages of DATA UTILITY, shown behind the firmware's last function (screen 15)
 .equ MENU_RING_TAIL, 1 + HAS_SYNC   ; the page of Blechy and SYNC GROUP are pages the firmware's ring does not have (BLECH is M_COUNT)
@@ -197,6 +197,8 @@ menu_arm_zero:
     str r0, [r4, #M_FT]
     str r0, [r4, #M_AS]
     str r0, [r4, #M_INV]        ; DISPLAY INVERT is ON without a settings file: a light trail on dark smears less
+    mvn r0, #0
+    str r0, [r4, #M_INV_HW]     ; -1 until the settings are read: a page written while the card is read sends no polarity (menu_arm_load sets 0)
     mov r0, #0x38
     str r0, [r4, #M_BL_ON]
     sub r0, r4, #0x20
@@ -224,6 +226,9 @@ menu_arm_load:
     popeq {pc}
     bl menu_arm
     bl menu_settings_load
+    ldr r0, =MENU_STATE
+    mov r1, #0
+    str r1, [r0, #M_INV_HW]     ; the display shows normal: the next page write sends 0xA7 when the settings want it inverted
     bl objects_repair
     pop {pc}
 .pool
@@ -436,9 +441,11 @@ menu_load_look:
     bl menu_look_apply
     ldr r0, [r4, #M_BL_ON]
     bl boot_light_save
+    bl menu_orig_snap
     b menu_load_out
 menu_load_none:                 ; no settings file: the stock white, whatever colour the start took from Global byte 250
     bl boot_light_settle
+    bl menu_orig_snap           ; the defaults are what is stored then
 menu_load_out:
     pop {r4-r8, pc}
 .pool
@@ -720,6 +727,7 @@ menu_save_trust_done:
     str r8, [r4, #M_GEN]
     ldr r0, [r4, #M_BL_ON]      ; the colour the file now holds is the one the next start shows (Global byte 250)
     bl boot_light_save
+    bl menu_orig_snap
     bl menu_settings_crc
     str r0, [r4, #M_SNAP]
     mov r0, #1
@@ -732,6 +740,34 @@ menu_save_fail_r9:
     add r0, r9, #0x20
     str r0, [r4, #M_STATUS]
     pop {r4-r11, pc}
+; ORIG: the settings as the file holds them (the defaults without one), taken after the start's read and after each save: the record
+; menu_settings_write builds, SETTINGS_SIZE bytes, copied into MENU_FILE_B (free once the file is read). menu_orig_flag compares
+; the pages against it, as the firmware's own pages compare against the value stored at the start.
+menu_orig_snap:
+    push {lr}
+    bl menu_settings_crc
+    ldr r0, =MENU_FILE_A
+    ldr r1, =MENU_FILE_B
+    mov r2, #SETTINGS_SIZE
+menu_orig_copy:
+    ldr r3, [r0], #4
+    str r3, [r1], #4
+    subs r2, r2, #4
+    bne menu_orig_copy
+    pop {pc}
+; Sits in the span of the start (menu_settings_load to menu_settings_end): menu_orig_snap builds the settings record at every start, with or
+; without a settings file, and the start check allows only the code of that span to change.
+; r0, r2 arguments, r1 = offset of the entry of the patch pad-colors -> what it returns (r0, r1); 0 where the set has no such patch.
+menu_pc_call:
+    ldr r12, =PC_CODE
+    ldr r3, [r12]
+    cmn r3, #1
+    moveq r0, #0
+    bxeq lr
+    add r12, r12, r1
+    mov r1, r2
+    bx r12
+.pool
 ; Works out what the settings of the group CUSTOMIZATION do and puts them to work: the kind and the brightness of the
 ; bottom LEDs (M_LED_EFF: 0 the stock meter, 1 the meter in our colour, 2 a fixed colour; M_LED_V: red, green, blue as 0 to 255)
 ; and the backlight (pins that may light, the tables of the software PWM), then sets the backlight now.
@@ -1558,7 +1594,8 @@ bl_pwm_pass:
 ; the data line is still low) the stock code runs `ldr r3, [fp, #-0x10]` (the display object). When the settings want the other
 ; polarity than the one sent last, the controller gets 0xA7 (display reversed: dark and clear swap) or 0xA6 (normal) here, once.
 ; Nothing else is ever sent: with the menu not armed (EXIT at power-on) the hook does nothing, otherwise it only compares
-; two words once the polarity is sent (the default is ON, so the first page write after the arm sends 0xA7). The firmware never sends either command itself.
+; two words once the polarity is sent (the default is ON, so the first page write after the settings are read sends 0xA7, none while
+; they are read: M_INV_HW is -1 from menu_arm to the end of menu_settings_load). The firmware never sends either command itself.
 lcd_invert_hook:
     ldr r2, =objects_test_mode      ; the test mode switches the display off (0xAE) and back on (0xAF), once each
     ldrb r3, [r2]
@@ -1590,6 +1627,8 @@ lcd_test_done:
     bne lcd_invert_pass
     ldr r3, [r2, #M_INV]
     ldr r1, [r2, #M_INV_HW]
+    cmn r1, #1                      ; the settings are being read (menu_arm): the default must not flash before the file says OFF
+    beq lcd_invert_pass
     cmp r3, r1
     beq lcd_invert_pass
     str r3, [r2, #M_INV_HW]
@@ -1744,8 +1783,116 @@ menu_show:
     mov r2, #0
     str r2, [r5, #M_RAW]
     bl menu_brw_mark
+    ldr r0, [r5, #M_PAGE]       ; the firmware's ORIG badge (the text lines' widget draws it at the same place as on its own pages)
+    bl menu_kind
+    bl menu_orig_flag
+    ldr r1, [r4, #0x24]
+    strb r0, [r1, #0x49]
+    mov r0, #1
+    strb r0, [r1, #0x14]
     pop {r4, r5, pc}
 .pool
+
+; r0 = the kind of a page -> r0 = 1 when the setting the page shows is the one the file holds (menu_orig_snap), 0 when it was changed
+; or the page shows no setting. Builds the record of the settings as they are (menu_settings_crc leaves it in MENU_FILE_A) and
+; compares the bits of orig_masks for that kind: byte 5, the flags word and the look word of the record.
+menu_orig_flag:
+    push {r4, r5, lr}
+    mov r4, r0
+    ldr r5, =orig_masks
+menu_orig_find:
+    ldrb r0, [r5]
+    cmp r0, #0xFF
+    beq menu_orig_no
+    cmp r0, r4
+    addne r5, r5, #12
+    bne menu_orig_find
+    bl menu_settings_crc
+    ldr r0, =MENU_FILE_A
+    ldr r1, =MENU_FILE_B
+    ldrb r2, [r0, #5]
+    ldrb r3, [r1, #5]
+    eor r2, r2, r3
+    ldrb r3, [r5, #1]
+    ands r2, r2, r3
+    bne menu_orig_no
+    ldr r2, [r0, #12]
+    ldr r3, [r1, #12]
+    eor r2, r2, r3
+    ldr r3, [r5, #4]
+    ands r2, r2, r3
+    bne menu_orig_no
+    ldr r2, [r0, #16]
+    ldr r3, [r1, #16]
+    eor r2, r2, r3
+    ldr r3, [r5, #8]
+    ands r2, r2, r3
+    bne menu_orig_no
+    mov r0, #1
+    pop {r4, r5, pc}
+menu_orig_no:
+    mov r0, #0
+    pop {r4, r5, pc}
+.pool
+; per kind (menu_texts_fill): the kind, the bits of byte 5, then the bits of the flags word and of the look word of the settings record
+orig_masks:
+    .byte 0, 0, 0, 0                  ; PLUGIN RUNTIME: bit 0 of the flags
+    .word 0x00000001, 0
+    .byte 1, 0, 0, 0                  ; MFX 2: bit 1
+    .word 0x00000002, 0
+    .byte 7, 0, 0, 0                  ; bottom LEDs: bits 0 to 1 of the look word
+    .word 0, 0x00000003
+    .byte 8, 0, 0, 0                  ; LED HUE, SAT, BRIGHT: the three levels of the LED colour, bits 4 to 15 of the look word
+    .word 0, 0x0000FFF0
+    .byte 9, 0, 0, 0
+    .word 0, 0x0000FFF0
+    .byte 10, 0, 0, 0
+    .word 0, 0x0000FFF0
+    .byte 11, 0, 0, 0                 ; the same for the backlight, bits 16 to 27
+    .word 0, 0x0FFF0000
+    .byte 12, 0, 0, 0
+    .word 0, 0x0FFF0000
+    .byte 13, 0, 0, 0
+    .word 0, 0x0FFF0000
+    .byte 14, 0, 0, 0                 ; DISPLAY INVERT: bit 28 of the look word
+    .word 0, 0x10000000
+    .byte 18, 0, 0, 0                 ; PATTERN CONFIRM: bit 2 of the flags
+    .word 0x00000004, 0
+    .byte 20, 0, 0, 0                 ; TAP MOTION: bits 3 and 5
+    .word 0x00000028, 0
+    .byte 21, 0, 0, 0                 ; NOTE ASSIST: bit 4
+    .word 0x00000010, 0
+    .byte 24, 0, 0, 0                 ; PAD COLOR: bits 2 to 3 of the look word
+    .word 0, 0x0000000C
+    .byte 25, 0, 0, 0                 ; SELECT COLOR: bits 29 to 30
+    .word 0, 0x60000000
+    .byte 26, 0, 0, 0                 ; INTENSITY: bits 8 to 11 of the flags
+    .word 0x00000F00, 0
+    .byte 27, 0, 0, 0                 ; DISPLAY LIGHT (SAVE LIGHT): bits 12 to 15
+    .word 0x0000F000, 0
+    .byte 28, 2, 0, 0                 ; the meter's colours, colour n at bits 16 + 3n; STILL also has bit 30 and bit 1 of byte 5 (OFF)
+    .word 0x40070000, 0
+    .byte 29, 0, 0, 0
+    .word 0x00380000, 0
+    .byte 30, 0, 0, 0
+    .word 0x01C00000, 0
+    .byte 31, 1, 0, 0                 ; LOUD also has bit 0 of byte 5 (RAINBOW)
+    .word 0x0E000000, 0
+    .byte 32, 0, 0, 0                 ; OVERLAP: bits 28 to 29 of the flags
+    .word 0x30000000, 0
+    .byte 34, 0, 0, 0                 ; LED DIMMING: bits 6 to 7 and 31 of the flags, bit 31 of the look word
+    .word 0x800000C0, 0x80000000
+    .byte 44, 4, 0, 0                 ; STEREO 1 PAD: bit 2 of byte 5
+    .word 0, 0
+    .byte 45, 8, 0, 0                 ; LAST PATTERN: bit 3
+    .word 0, 0
+    .byte 48, 16, 0, 0                ; KEY PADS: bit 4
+    .word 0, 0
+    .byte 49, 32, 0, 0                ; FILTER TOGGLE: bit 5
+    .word 0, 0
+    .byte 51, 128, 0, 0               ; AUTO SAVE: bit 7
+    .word 0, 0
+    .byte 0xFF, 0, 0, 0
 
 ; ---- the list of the plugins (level 5) and SPLASH IMPORT as the firmware's file browser (DATA UTILITY, IMPORT SAMPLE: screen 39)
 ; The page keeps its header (tab, counter "n/N", EDIT and the status icons); the three text lines are handed an empty text and a widget of our own,
@@ -2274,8 +2421,6 @@ menu_texts_clear:
     beq menu_text_pstate
     cmp r0, #37
     beq menu_text_pdel
-    cmp r0, #46
-    beq menu_text_poff
     cmp r0, #47
     beq menu_text_full
     cmp r0, #38
@@ -2386,18 +2531,11 @@ menu_text_full:
     ldr r1, =str_list_max
     bl menu_copy
     pop {r4, r5, r6, r7, pc}
-; OFF: "press [ Enter ]"; the first ENTER asks, the second takes the plugin out of e2sPlugin.all and keeps its file (menu_delete)
-menu_text_poff:
-    add r0, r5, #M_TITLE
-    ldr r1, =str_poff
-    bl menu_copy
-    b menu_text_pdel_value
 ; REMOVE: "press [ Enter ]"; the first ENTER asks, the second removes the plugin and its file (menu_remove)
 menu_text_pdel:
     add r0, r5, #M_TITLE
     ldr r1, =str_pdel
     bl menu_copy
-menu_text_pdel_value:
     ldr r1, [r5, #M_STATUS]
     cmp r1, #0
     bne menu_text_status_value
@@ -2621,17 +2759,6 @@ menu_text_colour:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
-
-; r0, r2 arguments, r1 = offset of the entry of the patch pad-colors -> what it returns (r0, r1); 0 where the set has no such patch.
-menu_pc_call:
-    ldr r12, =PC_CODE
-    ldr r3, [r12]
-    cmn r3, #1
-    moveq r0, #0
-    bxeq lr
-    add r12, r12, r1
-    mov r1, r2
-    bx r12
 
 ; SPLASH IMPORT (22): the dial picks a .bmp file in KORG/blechtribe, ENTER reads it into the start image; SPLASH DRAW (23): ENTER
 ; opens the editor; SPLASH RESET (35): ENTER drops the stored image, the start image of the firmware comes back
@@ -2951,17 +3078,11 @@ menu_text_status_more:
     cmp r1, #0x51
     ldreq r1, =str_pdeleted
     beq menu_text_status_go
-    cmp r1, #0x55
-    ldreq r1, =str_poffed
-    beq menu_text_status_go
     cmp r1, #0x56
     ldreq r1, =str_file_stays
     beq menu_text_status_go
     cmp r1, #0x57
     ldreq r1, =str_file_moved
-    beq menu_text_status_go
-    cmp r1, #0x58
-    ldreq r1, =str_poff_sure
     beq menu_text_status_go
     cmp r1, #0x53
     ldreq r1, =str_fx_exported
@@ -3201,6 +3322,9 @@ menu_off_shift:
     add r3, r3, #1
     b menu_off_shift
 menu_off_keep:
+    ldrb r0, [r6, #HDR_FLAGS+1]     ; a block taken out (ACTIVE OFF, REMOVE) gets none: loaded again it is another entry
+    tst r0, #BLOCK_DELETED_HI
+    bne menu_off_next
     ldr r0, [r5, #SCRIPT_ENTRY_STATE]
     cmp r0, #SCRIPT_STATE_LOADED
     bne menu_off_next
@@ -3315,8 +3439,8 @@ menu_confirm_add:
 ; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST, LAST PATTERN, STEREO 1 PAD, KEY PADS, FILTER TOGGLE and AUTO SAVE (the main dial
 ; changes them, WRITE keeps them). ENTER on PLUGINS opens level 5 (M_LEVEL_PLUGIN) straight away, one page a plugin with its name and its
 ; state, the dial moves through the list as in the firmware's file browser, EXIT goes back to the row PLUGINS; the one page of the group, MANAGE PLUGINS, only shows when
-; there is no plugin or after OFF and REMOVE, ENTER there opens the list again; ENTER on a plugin opens level 6 (M_LEVEL_PSUB), the pages of that plugin: DESCRIPTION, STATE (the dial switches
-; it on and off), the pages it added (korg.menu.add), OFF and REMOVE. EXIT goes one level up. M_PAGE counts within the level, the counter shows only that level.
+; there is no plugin or after REMOVE, ENTER there opens the list again; ENTER on a plugin opens level 6 (M_LEVEL_PSUB), the pages of that plugin: ACTIVE (the dial switches
+; it on and off, off takes it out of e2sPlugin.all), DESCRIPTION, the pages it added (korg.menu.add) and REMOVE. EXIT goes one level up. M_PAGE counts within the level, the counter shows only that level.
 ; Level 3 (M_LEVEL_BLECHY) is no menu: it is the last page of the ring, behind BLECH, on which Blechy, the app built into BLECH, shows
 ; himself (the frame hook opens and closes him by this level). Level 4 (M_LEVEL_SYNC) is the page SYNC GROUP between the Pattern and
 ; the Part menu: a setting of the pattern in RAM, saved with WRITE as the Pattern menu's pages. Levels 7 (M_LEVEL_GLOBAL, PLUGIN
@@ -3326,7 +3450,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 46 OFF, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 STATE; 50 was HT OSC), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE; 50 was HT OSC, 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -3460,15 +3584,15 @@ menu_kind_list:                 ; a plugin, and behind the last one LIST FULL wh
     bhs menu_kind_done
     mov r0, #36
     mov r1, r5
-    strb r5, [r4, #M_PSEL]      ; the plugin this page shows is the one DESCRIPTION, OFF, REMOVE and loading are about
+    strb r5, [r4, #M_PSEL]      ; the plugin this page shows is the one ACTIVE, DESCRIPTION, REMOVE and loading are about
     b menu_kind_done
-menu_kind_plugin:               ; DESCRIPTION, STATE, the pages the plugin added (korg.menu.add), OFF, REMOVE; not loaded: DESCRIPTION, STATE, REMOVE
+menu_kind_plugin:               ; ACTIVE, DESCRIPTION, the pages the plugin added (korg.menu.add), REMOVE
     ldrb r1, [r4, #M_PSEL]
     cmp r5, #0
-    moveq r0, #39
+    moveq r0, #52
     beq menu_kind_done
     cmp r5, #1
-    moveq r0, #52
+    moveq r0, #39
     beq menu_kind_done
     mov r0, r1
     bl menu_entry
@@ -3481,10 +3605,7 @@ menu_kind_plugin:               ; DESCRIPTION, STATE, the pages the plugin added
     movge r1, r0
     movge r0, #6
     bge menu_kind_done
-    add r1, r1, #2              ; r1 = the pages it added: OFF behind them, then REMOVE
-    cmp r5, r1
-    moveq r0, #46
-    movne r0, #37
+    mov r0, #37                 ; REMOVE behind the pages it added
 menu_kind_psel:
     ldrb r1, [r4, #M_PSEL]
 menu_kind_done:
@@ -3623,7 +3744,7 @@ menu_count_out:
 menu_count_plugins:             ; MANAGE PLUGINS
     mov r0, #1
     pop {r4, pc}
-menu_count_plugin:              ; a plugin that is not loaded has DESCRIPTION, STATE and REMOVE, a loaded one its pages and OFF as well
+menu_count_plugin:              ; a plugin that is not loaded has ACTIVE, DESCRIPTION and REMOVE, a loaded one its pages as well
     ldrb r0, [r4, #M_PSEL]
     bl menu_entry
     cmp r0, #0
@@ -3631,7 +3752,7 @@ menu_count_plugin:              ; a plugin that is not loaded has DESCRIPTION, S
     popeq {r4, pc}
     mvn r1, #0
     bl menu_item_nth
-    add r0, r1, #4
+    add r0, r1, #3
     pop {r4, pc}
 .pool
 
@@ -3788,10 +3909,18 @@ menu_item_nth_done:
     bx lr
 .pool
 
-; r0 = script entry, r1 = the status when done: OFF (0x55) and REMOVE (0x51). A plugin that runs stops (as with STATE OFF), its block is
-; marked in RAM so the lists and EXPORT leave it out, and e2sPlugin.all is written again without it, also when none is left; the block
-; stays in the pool until the next start. Back on MANAGE PLUGINS, which shows the result. Clobbers r0 to r3 and r12.
+; r0 = script entry, r1 = the status when done: REMOVE (0x51). As menu_drop, then back on MANAGE PLUGINS, which shows the result.
+; Clobbers r0 to r3 and r12.
 menu_delete:
+    push {r4, lr}
+    bl menu_drop
+    bl menu_to_manage
+    pop {r4, pc}
+
+; r0 = script entry, r1 = the status when done (M_STATUS gets it, or the error of the write). A plugin that runs stops (as with
+; ACTIVE OFF), its block is marked in RAM so the lists and EXPORT leave it out, and e2sPlugin.all is written again without it, also
+; when none is left; the block stays in the pool until the next start. Clobbers r0 to r3 and r12.
+menu_drop:
     push {r4, r5, lr}
     mov r5, r1
     ldr r1, [r0, #SCRIPT_ENTRY_STATE]
@@ -3810,8 +3939,62 @@ menu_delete:
     cmp r0, #2
     moveq r0, r5
     str r0, [r4, #M_STATUS]
-    bl menu_to_manage
     pop {r4, r5, pc}
+.pool
+
+; ACTIVE turned up on a plugin that is not loaded: loads and starts it from its file (menu_load_psel), then writes e2sPlugin.all with
+; it, so it is on again over a restart, the way ACTIVE OFF took it out. M_STATUS: 0, or what went wrong. Clobbers r0 to r3 and r12.
+menu_pon:
+    push {r4, r5, r6, lr}
+    ldr r4, =MENU_STATE
+    ldr r5, [r4, #M_NSCRIPTS]
+    bl menu_load_psel
+    ldr r0, [r4, #M_NSCRIPTS]
+    cmp r0, r5
+    pople {r4, r5, r6, pc}
+    mov r0, #0
+    bl menu_export
+    ldr r0, [r4, #M_STATUS]
+    cmp r0, #2
+    moveq r0, #0
+    str r0, [r4, #M_STATUS]
+    pop {r4, r5, r6, pc}
+
+; ACTIVE turned down, r0 = the loaded plugin SELECT PLUGIN chose: it stops and goes out of e2sPlugin.all (menu_drop), its *.blech
+; stays on the card, and the page stays on it: M_PSEL follows it to its place among the plugins that are not loaded, so ACTIVE shows
+; OFF and the dial up loads it again. A plugin without a file (only in e2sPlugin.all) would be gone for good, so it is only switched
+; off; the settings keep it off over a restart (menu_off_sync). M_STATUS: 0, or the error of the write. Clobbers r0 to r3 and r12.
+menu_poff:
+    push {r4-r8, lr}
+    ldr r4, =MENU_STATE
+    mov r6, r0
+    ldrb r0, [r4, #M_PSEL]
+    bl menu_psel_file
+    movs r5, r0
+    bmi menu_poff_ram
+    mov r0, r6
+    mov r1, #0
+    bl menu_drop
+    ldr r6, [r4, #M_NSCRIPTS]
+    mov r7, #0
+menu_poff_place:                ; its file is the r5-th of the list: the files before it that are not loaded come before it
+    cmp r7, r5
+    bhs menu_poff_placed
+    mov r0, r7
+    bl menu_file_entry
+    cmp r0, #0
+    addeq r6, r6, #1
+    add r7, r7, #1
+    b menu_poff_place
+menu_poff_placed:
+    strb r6, [r4, #M_PSEL]
+    pop {r4-r8, pc}
+menu_poff_ram:
+    ldr r1, [r6, #SCRIPT_ENTRY_STATE]
+    cmp r1, #SCRIPT_STATE_ARMED
+    moveq r1, #SCRIPT_STATE_LOADED
+    streq r1, [r6, #SCRIPT_ENTRY_STATE]
+    pop {r4-r8, pc}
 .pool
 
 ; Back on the page MANAGE PLUGINS (level 2 of PLUGINS), the list on its first plugin the next time. Clobbers r0 and r1.
@@ -5416,8 +5599,9 @@ menu_value_lp:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
-; a plugin of MANAGE PLUGINS (kind 36, r1 its place): the dial up switches it on (loads it when it is not loaded), down off; a
-; plugin from elsewhere that waits for the user's yes gets it with WRITE only (WRITE=ALLOW), the dial leaves it waiting
+; ACTIVE of a plugin (kind 52, r1 its place): the dial up switches it on (loads it when it is not loaded), down switches it off and
+; takes it out of e2sPlugin.all (menu_poff); a plugin from elsewhere that waits for the user's yes gets it with WRITE only
+; (WRITE=ALLOW), the dial up leaves it waiting
 menu_value_script:
     cmp r0, #6
     beq menu_value_item
@@ -5428,21 +5612,18 @@ menu_value_script:
     cmp r0, #0
     beq menu_value_unloaded
     mov r6, r0
+    cmp r5, #0
+    ble menu_value_script_off
     bl menu_needs_confirm
     cmp r0, #0
     bne menu_value_done
     mov r0, r6
-    mov r12, #1
-    cmp r5, #0
-    movle r12, #0
     ldr r3, [r0, #SCRIPT_ENTRY_STATE]
     cmp r3, #SCRIPT_STATE_LOADED
-    cmpeq r12, #1
     beq menu_value_script_on
-    cmp r3, #SCRIPT_STATE_ARMED
-    cmpeq r12, #0
-    moveq r1, #SCRIPT_STATE_LOADED
-    streq r1, [r0, #SCRIPT_ENTRY_STATE]
+    b menu_value_done
+menu_value_script_off:
+    bl menu_poff
 menu_value_done:
     mov r0, r4
     bl menu_show
@@ -5450,7 +5631,7 @@ menu_value_done:
 menu_value_unloaded:            ; not loaded: the dial up loads and starts it (M_PSEL follows it to its new place), down does nothing
     cmp r5, #0
     ble menu_value_done
-    bl menu_load_psel
+    bl menu_pon
     b menu_value_done
 ; the list of the plugins: the dial moves the cursor as in the firmware's file browser and stops at the ends
 menu_value_list:
@@ -5563,8 +5744,6 @@ menu_slot_keys:
     beq menu_keys_pedit
     cmp r0, #37
     beq menu_keys_pdel
-    cmp r0, #46
-    beq menu_keys_poff
     cmp r0, #42
     cmpne r0, #43
     beq menu_keys_export
@@ -5593,7 +5772,7 @@ menu_slot_keys:
     mov r0, r5
     bl menu_confirm
     b menu_keys_done
-menu_keys_psub:                 ; ENTER on a plugin of MANAGE PLUGINS: its pages (level 6), DESCRIPTION first
+menu_keys_psub:                 ; ENTER on a plugin of MANAGE PLUGINS: its pages (level 6), ACTIVE first
     ldr r2, =MENU_STATE
     mov r0, #M_LEVEL_PSUB
     str r0, [r2, #M_LEVEL]
@@ -5633,7 +5812,7 @@ menu_keys_app:
     ldr pc, =SWITCH_SCREEN
 ; MANAGE PLUGINS: ENTER reads the files of the plugin folder and opens the list of the plugins (level 5) on the one shown last,
 ; "No Plugin" when there is none, WRITE saves as on the other pages. ENTER or WRITE on the row PLUGINS of level 1 does the same
-; (menu_keys_plugins): the page MANAGE PLUGINS only shows when there is no plugin or after OFF and REMOVE, with what they did
+; (menu_keys_plugins): the page MANAGE PLUGINS only shows when there is no plugin or after REMOVE, with what it did
 menu_keys_pedit:
     cmp r6, #0x09
     bne menu_keys_save
@@ -5671,23 +5850,6 @@ menu_keys_pdel:
     strne r0, [r2, #M_STATUS]
     bne menu_keys_done
     bl menu_remove
-    b menu_keys_done
-; OFF: the first ENTER asks, the second takes the plugin out of e2sPlugin.all, its file stays; WRITE does nothing here
-menu_keys_poff:
-    cmp r6, #0x09
-    bne menu_keys_done
-    ldr r2, =MENU_STATE
-    ldr r0, [r2, #M_STATUS]
-    cmp r0, #0x58
-    movne r0, #0x58
-    strne r0, [r2, #M_STATUS]
-    bne menu_keys_done
-    ldrb r0, [r2, #M_PSEL]
-    bl menu_entry
-    cmp r0, #0
-    beq menu_keys_done
-    mov r1, #0x55
-    bl menu_delete
     b menu_keys_done
 menu_keys_export:               ; r0 = kind: EXPORT ALL PLUGINS (3), CUSTOMIZATIONS (42), EFFECTS (43), with ENTER or WRITE
     cmp r0, #42
@@ -5858,19 +6020,13 @@ str_pedit:
 str_pdel:
     .asciz "REMOVE"
 str_pstate:
-    .asciz "STATE"
+    .asciz "ACTIVE"
 str_noplugin:
     .asciz "No Plugin"
 str_pdel_sure:
     .asciz "Enter = remove"
 str_pdeleted:
     .asciz "removed"
-str_poff:
-    .asciz "OFF"
-str_poff_sure:
-    .asciz "Enter = off"
-str_poffed:
-    .asciz "off, file kept"
 str_file_stays:
     .asciz "file stays on card"
 str_file_moved:

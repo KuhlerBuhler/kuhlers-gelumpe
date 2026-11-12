@@ -15,7 +15,7 @@ Changelogs.
 
 In Vorbereitung, wird vor dem Release am Gerät getestet ([Notizen](../release-notes/1.4.5.md)).
 
-- Plugin-API 12 auf 21 ([Idee 74](ideen/74-plugin-api-feedback.md)), dazu Tasten bei offener App durchlassen mit
+- Plugin-API 12 auf 25 ([Idee 74](ideen/74-plugin-api-feedback.md)), dazu Tasten bei offener App durchlassen mit
   `korg.passKeys(...)` (Idee 66 in der [Ideenliste](ideen.md)).
 - Neue Plugins im Katalog: Momentary Mute, Image Viewer, Gate Hold und Step Copy. Key Pads und Filter Toggle sind fest in der
   Firmware eingebaut (BLECH > FEATURES, standardmäßig an).

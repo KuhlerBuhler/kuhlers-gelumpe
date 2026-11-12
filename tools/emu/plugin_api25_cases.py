@@ -152,17 +152,24 @@ def show(k, x, y):
 
 
 def agree(a, b, settled=True):
-    """-> the fields that never matched while both worlds ran on for up to RETRIES samples, 50 ms apart."""
+    """-> the fields that never matched while both worlds ran on for up to RETRIES samples, 50 ms apart. The screen also counts
+    as the same when both worlds showed the same pictures over the samples: a blinking text keeps its own phase per world, the
+    plugin's world spends more device time per loop, so the two can blink in opposite phase and never match in one sample."""
     keys, sa, sb = differ(a, b, settled)
     first = (sa, sb)
     left = set(keys)
+    screens = ({sa["screen"]}, {sb["screen"]})
     for _ in range(RETRIES):
-        if not left:
+        if not left or left == {"screen"} and screens[0] == screens[1] and len(screens[0]) > 1:
             break
         for w in (a, b):
             w.dev.run(0.05)
         keys, sa, sb = differ(a, b, settled)
         left &= set(keys)
+        screens[0].add(sa["screen"])
+        screens[1].add(sb["screen"])
+    if "screen" in left and screens[0] == screens[1] and len(screens[0]) > 1:
+        left.discard("screen")
     return [k for k in first[0] if k in left], first[0], first[1]
 
 

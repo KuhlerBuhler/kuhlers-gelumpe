@@ -7,7 +7,7 @@ import { ensureRuntimePatches } from "./patch/ensure-runtime.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const EMULATOR = ["test/emulator.test.mjs", "test/emulator-session.test.mjs", "test/emulator-card.test.mjs",
-  "test/emulator-card-stock.test.mjs", "test/emulator-stock.test.mjs", "test/emulator-update.test.mjs",
+  "test/emulator-card-errors.test.mjs", "test/emulator-card-stock.test.mjs", "test/emulator-stock.test.mjs", "test/emulator-update.test.mjs",
   "test/emulator-blue.test.mjs", "test/emulator-modtable.test.mjs", "test/emulator-sample-full.test.mjs",
   "test/emulator-sample-meta.test.mjs", "test/emulator-blechy.test.mjs", "test/emulator-fxcard.test.mjs", "test/emu-service.test.mjs"];
 const positive = value => Number.isSafeInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;

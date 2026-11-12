@@ -67,6 +67,7 @@ Wie das Gerät auf Nachrichten antwortet, Größen und Zeiten.
 - [SysEx: globaler Kanal und Leseobergrenze](2026-09-14-sysex-channel.md)
 - [Geräteprotokoll: Suche, RAM lesen und Pattern-Abfrage](2026-10-08-geraeteprotokoll.md)
 - [SysEx über die emulierte DIN-MIDI](2026-10-09-din-sysex.md)
+- [Doom über USB auf die Karte (Emulator)](2026-11-11-doom-usb.md)
 
 
 ## Speicher und Flash
@@ -207,6 +208,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Doom auf BLECH v21](2026-10-15-doom-v21.md)
 - [Doom als Patch des BLECH-Satzes, auf Hacktribe und Korgs Original](2026-10-15-doom-im-patcher.md)
 - [Emulator-Zeit gegen Gerätezeit: vier kleine Schleifen, Rechnen 1,0, Speicher-Durchlauf rund 4](2026-10-16-emulator-timing.md)
+- [Gerätetakt im Emulator: Cache und Multiply in der laufenden Zeit, Stichprobe je Scheibe, VM und Nachläufe von 1.4.5 nachgerechnet](2026-11-10-emulator-geraetetakt.md)
 
 - [Blaue Electribe: Ladebalken, Kartenordner und Sample-Fehler](2026-10-16-blau-ladebalken-ordner.md)
 - [BLECH-Satz für die blaue Electribe 2](2026-10-16-blech-synth.md)
@@ -228,6 +230,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Update über USB: die Firmware-Datei über BLECH lesen und schreiben](2026-10-18-update-ueber-usb.md)
 - [Ruhender Insert-Effekt: Punch für stumme Parts](2026-10-18-ifx-ruht.md)
 - [Kartenfehler beim Start: Ladebalken weg, Power-Taste, Mounten wiederholen](2026-10-19-kartenfehler-beim-start.md)
+- [Tote Karte beim Start: kein Nachfragen mehr, der Start läuft wie ohne BLECH, im Emulator](2026-11-10-tote-karte-beim-start.md)
 - [Mandelbrot: nachgewiesene Innenflächen überspringen](2026-10-19-mandelbrot-schneller.md)
 - [Pong: kurzer Ballschweif, Life: Zeichnen und Berechnen verzahnen](2026-10-19-pong-life.md)
 - [Mandelbrot: offene Rechtecke in einer Arbeitsliste](2026-10-19-mandelbrot-arbeitsliste.md)
@@ -236,6 +239,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [KEY PADS chromatisch: Pad 1 C bis Pad 12 B, Pads 13 bis 16 tun nichts, im Emulator](2026-11-08-key-pads-chromatisch.md)
 - [FILTER TOGGLE fest eingebaut: SHIFT + Filtertaste schaltet das Filter aus und an, mit dem Fenster der Firmware, im Emulator](2026-11-08-filter-toggle-eingebaut.md)
 - [AUTO SAVE: GLOBAL PARAMETERS und BLECH-Einstellungen speichern sich beim Verlassen, nur mit Änderung, im Emulator](2026-11-09-auto-save.md)
+- [ORIG im BLECH-Menü wie auf den Seiten der Firmware; Spielhilfen mit einer erst nach dem Start eingesteckten Karte, im Emulator](2026-11-11-orig-und-karte-spaeter.md)
 - [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
 - [Notenassistent: Helligkeit nach Passung, stehen lassen und ausblenden](2026-10-19-notenassistent-helligkeit.md)
@@ -297,5 +301,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Part-Werte schreiben wie ein Regler, Steps kopieren und speichern (API 14)](2026-11-02-part-werte-schreiben.md)
 - [Hacktribe und die Samples: Quellen, Befunde, offene Fragen](2026-11-06-hacktribe-samples.md)
 - [Hacktribe-Oszillatoren auf den freien Plätzen 422 bis 497 der roten Firmware](2026-11-08-ht-osc-freie-plaetze.md)
+- [Hacktribes Extra-Effekte, Grooves und Touch-Skalen auf der roten 2.02: was als Datenpatch geht](2026-11-10-hacktribe-extras-rot.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)

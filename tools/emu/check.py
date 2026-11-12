@@ -20,10 +20,12 @@ a quick or partial result is never a full check and goes into no verified.json.
 --allow is data of the map's formats that is read at start. --allow-code is an
 explicit exception to rule 2 of docs/patcher.md: start-phase code a patch
 replaces on purpose, with its reason in the patch (`startPhase`). Every
-exception is listed in the result. While it runs, check.py writes one JSON line {"progress": ...} per finished task to stderr (progress.py); stdout is only the result. A copy that carries the splash editor's start
+exception is listed in the result. --foreign is for a patch that is not ours (IPS, bsdiff,
+e.g. Hacktribe on Korg's): it changes start code by nature and says nothing about it, so the start phase is not
+checked at all; every other check, the boots included, stays. While it runs, check.py writes one JSON line {"progress": ...} per finished task to stderr (progress.py); stdout is only the result. A copy that carries the splash editor's start
 hook also has to pass its storage and kill switch cases (splash_cases.py); one with the MFX 2
 switch's key hook has to pass its switch, DSP and kill switch cases (mfx_cases.py); one with the BLECH menu has to pass the menu, settings and look
-cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py), every copy with the BLECH menu the cases of the device from the computer, of the test mode, of the plugin timers, of the plugin edits, of the live write paths, of the touchpad and key calls and of the object tree (remote_cases.py, testmode_cases.py, timer_cases.py, plugin_edit_cases.py, live_write_cases.py, plugin_api15_cases.py, objects_cases.py, plugin_api18_cases.py, plugin_api19_cases.py, global_cases.py, pattern_parts_cases.py, plugin_api22_cases.py, plugin_api23_cases.py, plugin_api24_cases.py, plugin_api25_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py); one with the BEAT 8 table entry has to pass its step, clock, menu, WRITE, Gate Arp, export, slice and REC cases (beat_eighth_cases.py); one with TOUCH SCALE RANGE 0 has to pass its menu, note, octave, key, Gate Arp and power-on cases (touch_scale_zero_cases.py); one with the Hacktribe oscillators has to pass its name, card, knob, voice, pattern, export, EXIT and FEATURES page cases (ht_osc_cases.py).
+cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py), every copy with the BLECH menu the cases of the device from the computer, of the test mode, of the plugin timers, of the plugin edits, of the live write paths, of the touchpad and key calls and of the object tree (remote_cases.py, testmode_cases.py, timer_cases.py, plugin_edit_cases.py, live_write_cases.py, plugin_api15_cases.py, objects_cases.py, plugin_api18_cases.py, plugin_api19_cases.py, global_cases.py, pattern_parts_cases.py, plugin_api22_cases.py, plugin_api23_cases.py, plugin_api24_cases.py, plugin_api25_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py); one with the BEAT 8 table entry has to pass its step, clock, menu, WRITE, Gate Arp, export, slice and REC cases (beat_eighth_cases.py); one with TOUCH SCALE RANGE 0 has to pass its menu, note, octave, key, Gate Arp and power-on cases (touch_scale_zero_cases.py); one with the Hacktribe oscillators has to pass its name, card, knob, voice, pattern, export, EXIT and FEATURES page cases (ht_osc_cases.py); every copy with the BLECH menu the cases of a card that stops answering, a locked card, an SDSC card, a card that damages data and a dead card at the start (card_error_cases.py).
 """
 
 import argparse
@@ -57,6 +59,7 @@ from migrate_cases import GROUPS as MIGRATE_GROUPS, has_hooks as has_migrate
 from fx_card_cases import GROUPS as FXCARD_GROUPS, has_hooks as has_fxcard
 from remote_cases import GROUPS as REMOTE_GROUPS, has_hooks as has_remote
 from last_pattern_cases import GROUPS as LASTPATTERN_GROUPS, has_hooks as has_lastpattern
+from card_error_cases import GROUPS as CARDERROR_GROUPS, has_hooks as has_carderror
 from init_pattern_cases import GROUPS as INITPATTERN_GROUPS, has_hooks as has_initpattern
 from stereo_pad_cases import GROUPS as STEREOPAD_GROUPS, has_hooks as has_stereopad
 from ht_osc_cases import GROUPS as HTOSC_GROUPS, has_hooks as has_htosc
@@ -110,10 +113,11 @@ def overlaps(runs, ranges, allow=()):
 
 
 def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progress=None, quick=False, boot_flash=None, cases=None,
-          shard=None, reports=None, metrics=None):
+          shard=None, reports=None, metrics=None, foreign=False):
     """base and patched are whole VSB files. Returns {ok, checks, changed}. `boot_flash` is the flash the start scenarios
     boot from (default `flash`); the cases of the patches run on `flash`. `cases` (names of case modules) runs only the
-    cases of these modules; an empty list is the same as `quick`.
+    cases of these modules; an empty list is the same as `quick`. `foreign` (a patch that is not ours) leaves out the
+    start phase check.
 
     The boots it needs do not depend on each other and run side by side (parallel.py). Each task's result is kept with
     the files it used (taskcache.py), so an unchanged copy is not checked twice and a change runs only the tasks it
@@ -125,16 +129,34 @@ def check(base, patched, flash=None, allow=(), allow_code=(), jobs=None, progres
     if shard is not None or reports is not None or metrics is not None or taskcache.enabled():
         # each task is kept with the files it used (taskcache.py), data files included, which a key over the .py files
         # of tools/ misses; the rest of the check is quick
-        return _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash, cases, shard, reports, metrics)
+        return _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash, cases, shard, reports, metrics,
+                      foreign)
     kind = "check-quick" if quick or cases == [] else "check" if cases is None else "check-cases:" + ",".join(sorted(cases))
+    kind += ":foreign" if foreign else ""
     return bootcache.cached_result(
         kind, (bytes(base), bytes(patched), bytes(flash) if flash else b"", sorted(map(tuple, allow)), sorted(map(tuple, allow_code)))
         + ((bytes(boot_flash),) if boot_flash is not None else ()),
-        lambda: _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash, cases))
+        lambda: _check(base, patched, flash, allow, allow_code, jobs, progress, quick, boot_flash, cases, foreign=foreign))
+
+
+def start_phase_checks(runs, ranges, allow, allow_code, foreign=False):
+    """The start phase check and its listed exceptions. A foreign patch (not ours) gets none: it changes start code by
+    nature, and whether that copy starts the boots above already say."""
+    if foreign:
+        return []
+    code = overlaps(runs, ranges["code"], allow_code)
+    data = overlaps(runs, ranges["data"], [*allow, *allow_code])
+    checks = [{"id": "start_phase", "ok": not code and not data,
+               "detail": "keine Änderung in Code oder Daten der Startphase" if not code and not data else
+               {"code": [[f"0x{a:x}", n] for a, n in code], "data": [[f"0x{a:x}", n] for a, n in data]}}]
+    if allow_code:
+        checks.append({"id": "start_phase_exceptions", "ok": True, "detail": "ausdrücklich erlaubt, im Patch begründet: "
+                       + ", ".join(f"0x{at:x}+{n}" for at, n in allow_code)})
+    return checks
 
 
 def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=False, boot_flash=None, cases=None,
-           shard=None, reports=None, metrics=None):
+           shard=None, reports=None, metrics=None, foreign=False):
     """base and patched are whole VSB files. Returns {ok, checks, changed}. `quick` runs only what keeps the device safe:
     the start scenarios (normal start, update offer, panel update, start modes, EXIT, DSP once, start phase), not the
     cases of the patches, which test the patches' own code, the same in every file. `cases` limits the cases to these
@@ -190,6 +212,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         tasks += [("sysex_cases", "cases_task", (i,)) for i in range(len(SYSEX_GROUPS))]
     if want(has_lastpattern):
         tasks += [("last_pattern_cases", "cases_task", (i,)) for i in range(len(LASTPATTERN_GROUPS))]
+    if want(has_carderror):
+        tasks += [("card_error_cases", "cases_task", (i,)) for i in range(len(CARDERROR_GROUPS))]
     if want(has_initpattern):
         tasks += [("init_pattern_cases", "cases_task", (i,)) for i in range(len(INITPATTERN_GROUPS))]
     if want(has_stereopad):
@@ -213,6 +237,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     if shard is not None or reports is not None:
         import check_shards
         config = {"allow": sorted(map(tuple, allow)), "allow_code": sorted(map(tuple, allow_code)), "quick": quick, "cases": cases,
+                  **({"foreign": True} if foreign else {}),
                   "runtime": taskcache.inputs("check-shard", {}), "header": base[:HEADER].hex(), "patched_header": patched[:HEADER].hex()}
         fingerprint = check_shards.identity(data, tasks, config, check_shards.source_identity(Path(__file__).resolve().parents[2]))
         if shard is not None:
@@ -258,6 +283,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     synth = [c for _ in range(len(SYNTH_GROUPS) if want(has_synth) else 0) for c in done.pop(0)]
     sysex = [c for _ in range(len(SYSEX_GROUPS) if want(has_sysex) else 0) for c in done.pop(0)]
     lastpattern = [c for _ in range(len(LASTPATTERN_GROUPS) if want(has_lastpattern) else 0) for c in done.pop(0)]
+    carderror = [c for _ in range(len(CARDERROR_GROUPS) if want(has_carderror) else 0) for c in done.pop(0)]
     initpattern = [c for _ in range(len(INITPATTERN_GROUPS) if want(has_initpattern) else 0) for c in done.pop(0)]
     stereopad = [c for _ in range(len(STEREOPAD_GROUPS) if want(has_stereopad) else 0) for c in done.pop(0)]
     htosc = [c for _ in range(len(HTOSC_GROUPS) if want(has_htosc) else 0) for c in done.pop(0)]
@@ -294,14 +320,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     add("dsp_boot_once", all(len(t) == 1 for t in boots.values()),
         "das DSP-Programm wird auf jedem Startweg genau einmal geladen" if all(len(t) == 1 for t in boots.values())
         else {name: t for name, t in boots.items() if len(t) != 1})
-    code = overlaps(runs, ranges["code"], allow_code)
-    data = overlaps(runs, ranges["data"], [*allow, *allow_code])
-    add("start_phase", not code and not data,
-        "keine Änderung in Code oder Daten der Startphase" if not code and not data else
-        {"code": [[f"0x{a:x}", n] for a, n in code], "data": [[f"0x{a:x}", n] for a, n in data]})
-    if allow_code:
-        add("start_phase_exceptions", True, "ausdrücklich erlaubt, im Patch begründet: "
-            + ", ".join(f"0x{at:x}+{n}" for at, n in allow_code))
+    checks.extend(start_phase_checks(runs, ranges, allow, allow_code, foreign))
     checks.extend(splash)
     checks.extend(mfx)
     checks.extend(menu)
@@ -319,6 +338,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(synth)
     checks.extend(sysex)
     checks.extend(lastpattern)
+    checks.extend(carderror)
     checks.extend(initpattern)
     checks.extend(stereopad)
     checks.extend(htosc)
@@ -340,7 +360,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
 CASE_MODULES = ("mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases", "note_assist_cases",
                 "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
                 "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-                "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases")
+                "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases")
 
 
 def case_list(text):
@@ -383,6 +403,8 @@ def main():
                    help="the start scenarios and only the cases of these modules, e.g. menu_cases,remote_cases; empty = --quick")
     p.add_argument("--allow-code", action="append", default=[], type=span, metavar="FILE:LEN",
                    help="start-phase code a patch replaces on purpose (docs/patcher.md rule 2), e.g. 0x2AEAC:4")
+    p.add_argument("--foreign", action="store_true",
+                   help="a patch that is not ours (IPS, bsdiff): the start phase is not checked, everything else is")
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--shard", type=shard_number, metavar="I/N", help="run one deterministic partition, without a complete verdict")
     mode.add_argument("--join", nargs="+", type=Path, metavar="RESULT", help="validate and combine every partition with these firmware inputs")
@@ -391,7 +413,7 @@ def main():
     result = check(a.base.read_bytes(), a.patched.read_bytes(), flash, a.allow, a.allow_code,
                    progress=progress_lib.to_stderr, quick=a.quick, boot_flash=load_flash(a.boot_flash) if a.boot_flash else None,
                    cases=a.cases, shard=a.shard, reports=[json.loads(path.read_text()) for path in a.join] if a.join else None,
-                   metrics=lambda event: print(json.dumps({"metrics": event}), file=sys.stderr, flush=True))
+                   metrics=lambda event: print(json.dumps({"metrics": event}), file=sys.stderr, flush=True), foreign=a.foreign)
     print(json.dumps(result, indent=1, ensure_ascii=False))
     return 0 if (result["passed"] if a.shard else result["ok"]) else 1
 

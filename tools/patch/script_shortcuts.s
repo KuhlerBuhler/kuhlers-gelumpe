@@ -5,11 +5,13 @@
 ;                 but last step and mute; the steps stay). Which part: the pad's, where a pad stands for a part, a note, a chord or a
 ;                 pattern (PART MUTE, PART ERASE, TRIGGER, KEYBOARD, CHORD, PATTERN SET); the selected part where it stands for a
 ;                 step (SEQUENCER, STEP JUMP).
-;                 The firmware's pattern load (0xC004AB84) then applies the pattern in RAM onto itself, as after a pattern change.
+;                 The firmware's pattern load (0xC004AB84) then applies the pattern in RAM onto itself, as after a pattern change,
+;                 and the firmware's part sound setup (0xC009B5EC, what Copy Part calls at its end) hands the part's sample to
+;                 the voices and frees the part's voices; the load alone leaves the voices on the sample the part had before. Stopped and playing.
 ; Not with EXIT held at power-on. On the synth too, with its places from data/synth-map/ (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md). The firmware addresses SC_LEDMGR (LED manager:
 ; +0xB58 pad mode, +0xB60 selected part), SC_PLAYER (returns the player, +0x318 the running number), SC_PATPTR (the pattern in RAM,
-; its file at +4), SC_BANK (the pattern bank, 0x4000 each) and SC_LOAD ((pattern, source, 1): the firmware's pattern load) come
-; with the build (script_hooks.py).
+; its file at +4), SC_BANK (the pattern bank, 0x4000 each), SC_LOAD ((pattern, source, 1): the firmware's pattern load) and
+; SC_PART_SOUND ((part): the firmware's part sound setup for the voices) come with the build (script_hooks.py).
 .equ SC_EXIT, -0x04             ; bytes in front of MENU_STATE (behind the MX_ bytes of the menu): 1 while EXIT is held
 .equ SC_SAVE, -0x03             ; 1 to SC_WAIT: frames left for the Write window to open after EXIT + WRITE
 .equ SC_RESET, -0x02            ; 1 to 16: the part (plus 1) the next tick resets
@@ -185,6 +187,9 @@ sc_tick_copy:
     add r1, r6, #4
     mov r2, #1
     ldr r12, =SC_LOAD
+    blx r12
+    mov r0, r5                  ; the load does not set up the part's sound for the voices: without this the old sample plays
+    ldr r12, =SC_PART_SOUND
     blx r12
 sc_tick_done:
     bl kp_tick
