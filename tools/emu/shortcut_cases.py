@@ -485,6 +485,63 @@ def case_effects_dsp(payload, flash):
                   f"while and after touching {send}")]
 
 
+MFX_RECORD, MFX_MAP_ROWS = 524, 10          # an MFX preset record and its control map rows (src/layout.mjs)
+PAD_SOURCES = {65: lambda x, y: 1.0, 66: lambda x, y: x / 1023,        # touched, X
+               70: lambda x, y: max(0.0, (y - 512) / 511), 71: lambda x, y: max(0.0, (512 - y) / 512)}  # Y from the middle up, down
+
+
+def mod_delay(payload):
+    """The firmware's Mod Delay preset record (the start MFX), found by its name; None without it."""
+    at = payload.find(b"\x02Mod Delay\0")
+    return at if at >= 0 else None
+
+
+def case_touchpad_dsp(payload, flash):
+    """The touchpad in Master FX mode moves the master effect's codes as the preset's control map says: a row (source, chain,
+    param, low, high) sets code param of the master field (chain 2) or the master input gain (chain 7, param 5) to
+    (low + (high - low) * t) * 256, t from the source: 65 touched, 66 X, 70 Y above the middle, 71 Y below it. Two rows on one
+    code: the one whose t is above 0. No other code moves. The pad's own curve makes t a little off linear, so the case allows
+    4 of 127. Start preset: Mod Delay."""
+    from dsp_model import FX_IN, MASTER_FX, DspModel
+    box = SBox(payload, flash, dsp=True)
+    dsp = DspModel.attach(box.m)
+    box.run(0.3)
+    box.m.send([0, 0x06, 1, 0, 0])
+    box.run(0.05)
+    box.m.send([0, 0x06, 0, 0, 0])
+    box.run(0.4)
+    base = mod_delay(payload)
+    rec = payload[base:base + MFX_RECORD] if base is not None else bytes(MFX_RECORD)
+    rows = [tuple(rec[18 + 28 * i + k] for k in (0, 1, 2, 4, 6)) for i in range(MFX_MAP_ROWS) if rec[18 + 28 * i]]
+    rest = dict((dsp.effect(MASTER_FX) or {}).get("params", {}))
+    unit = (dsp.effect(MASTER_FX) or {}).get("unit")
+    code = lambda chain, param: FX_IN if (chain, param) == (7, 5) else param if chain == 2 else None
+    targets = {code(c, p) for _, c, p, _, _ in rows}
+    bad = []
+    box.m.send([0, 0x22, 1, 0, 0])
+    for x, y in ((0, 0), (1023, 0), (0, 1023), (1023, 1023), (512, 512), (256, 100), (768, 300), (50, 800)):
+        box.m.send([5, x >> 8, x & 0xFF, y >> 8, y & 0xFF])
+        box.run(0.3)
+        got = (dsp.effect(MASTER_FX) or {}).get("params", {})
+        want = {}
+        for source, chain, param, low, high in rows:
+            t = PAD_SOURCES.get(source, lambda x, y: None)(x, y)
+            k = code(chain, param)
+            if t is not None and (k not in want or t > 0):
+                want[k] = low + (high - low) * t
+        for k, v in want.items():
+            if got.get(k) is None or abs(got[k] / 256 - v) > 4:
+                bad.append((x, y, k, round(v, 1), None if got.get(k) is None else round(got[k] / 256, 1)))
+        bad += [(x, y, k, "moved") for k in got if k not in targets and got[k] != rest.get(k)]
+    box.m.send([0, 0x22, 0, 0, 0])
+    box.run(0.3)
+    ok = (base is not None and rows and unit == rec[446] and None not in targets and all(s in PAD_SOURCES for s, *_ in rows)
+          and not bad and not box.m.asserts)
+    return [entry("dsp_touchpad_follows_the_fx_map", ok,
+                  f"record at {base and hex(base + 0xC0000000)}, '{rec[1:16].split(bytes(1))[0].decode(errors='replace')}' unit {rec[446]} "
+                  f"(master {unit}), map {rows}, off by more than 4: {bad[:6]}")]
+
+
 MODES = ((PART_MUTE, "PART MUTE", True), (KEYBOARD, "KEYBOARD", True), (PART_ERASE, "PART ERASE", True), (CHORD, "CHORD", True),
          (PATTERN_SET, "PATTERN SET", True), (STEP_JUMP, "STEP JUMP", False))
 
@@ -785,7 +842,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_effects_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_effects_dsp, case_touchpad_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):
