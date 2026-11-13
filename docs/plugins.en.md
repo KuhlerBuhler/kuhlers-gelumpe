@@ -1269,6 +1269,12 @@ STOP puts it back. In the catalog it acts only on parts 1 to 8, whose glide it k
 (`maxParts = 8`): the original also wrote parts 9 to 16 on every step and set their glide to 0. Checked in the simulator
 (`test/script-community-catalog.test.mjs`), on the device according to its author.
 
+**Pad Finger** (by nic0crank, from the BLECH Discord, sent as Touch Pad Tester) is an app under TOOLS and uses API 15.
+While it is open it shows the raw touchpad X and Y (0 to 1023) top left and a crosshair where the finger is. TAP switches
+between LOCK (the default) and FREE, shown top right: with LOCK, `korg.touchLockX` holds the X the firmware sees where the
+finger landed, Y stays the finger's; lifting the finger, FREE or closing the app lets go. Code unchanged. Checked in the
+simulator (`test/script-community-catalog.test.mjs`), not on the device.
+
 **PLAY-Takt** uses API 11 and runs in the background. While the sequencer plays, the PLAY LED (red and blue) blinks in the
 tempo of the pattern: the event `beat` lights it on every quarter note, `korg.afterSteps(2, ...)` turns it off two steps
 later, so with BEAT 8 on every half note. On STOP and in the pause it stays lit; `korg.cancel` clears the timer then. In the
@@ -1283,7 +1289,7 @@ The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins),
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent and Easy Slides (TOOLS); source
+and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides and Pad Finger (TOOLS); source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
