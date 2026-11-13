@@ -34,6 +34,36 @@ class ShardTest(unittest.TestCase):
             with self.subTest(index=index, count=count), self.assertRaises(ValueError):
                 check_shards.indices(7, index, count)
 
+    def test_weights_spread_expensive_tasks_and_start_them_first(self):
+        weights = [100 if i % 4 == 0 else 1 for i in range(16)]
+        groups = [check_shards.indices(16, i, 4, weights=weights) for i in range(1, 5)]
+        self.assertEqual(sorted(i for group in groups for i in group), list(range(16)))
+        self.assertEqual([sum(weights[i] for i in group) for group in groups], [103] * 4)
+        for group in groups:
+            self.assertEqual([weights[i] for i in group], sorted((weights[i] for i in group), reverse=True))
+        self.assertEqual(groups, [check_shards.indices(16, i, 4, weights=weights) for i in range(1, 5)])
+
+    def test_equal_weights_keep_stable_index_ties_and_allow_empty_parts(self):
+        self.assertEqual([check_shards.indices(7, i, 3, weights=[1] * 7) for i in range(1, 4)],
+                         [[0, 3, 6], [1, 4], [2, 5]])
+        self.assertEqual(check_shards.indices(2, 4, 4, weights=[2, 1]), [])
+        self.assertEqual(check_shards.indices(0, 1, 4, weights=[]), [])
+
+    def test_invalid_weights_are_refused(self):
+        for weights in ([1], [1] * 8, [1] * 6 + [0], [1] * 6 + [-1], [1] * 6 + [True],
+                        [1] * 6 + [1.5], {i: 1 for i in range(7)}):
+            with self.subTest(weights=weights), self.assertRaises(ValueError):
+                check_shards.indices(7, 1, 3, weights=weights)
+
+    def test_weighted_reports_restore_canonical_order_and_reject_other_assignments(self):
+        weights = [100, 1, 1, 1, 100, 1, 1]
+        parts = [check_shards.report("identity", self.tasks, i, 3,
+                                    [self.results[k] for k in check_shards.indices(7, i, 3, weights=weights)],
+                                    weights=weights) for i in range(1, 4)]
+        self.assertEqual(check_shards.join("identity", self.tasks, parts[::-1], weights=weights), self.results)
+        with self.assertRaises(ValueError):
+            check_shards.join("identity", self.tasks, parts, weights=[1] * 7)
+
     def test_empty_part_is_explicit_and_completes(self):
         self.assertEqual(check_shards.join("identity", self.tasks, self.parts(9)), self.results)
 
@@ -181,6 +211,30 @@ class CheckIntegrationTest(unittest.TestCase):
         return [[{"id": "dsp:stand_in", "ok": True, "detail": ""}] if t[0] == "dsp_cases" else
                 {"blocks": {}, "image_read": bytes(check.PAYLOAD), "events_ms": [[1, "screen_1"]],
                  "panel": {"mode": 0, "held": check.KILL_SWITCH}, "asserts": [], "dsp_uploads_ms": [1]} for t in tasks]
+
+    def test_join_binds_weights_even_when_they_produce_the_same_assignments(self):
+        image = bytes(check.HEADER + check.PAYLOAD)
+        with patch("shard_weights.weights_for", side_effect=lambda tasks: [10] * len(tasks)), \
+                patch.object(check.parallel, "run_tasks", self.fake_run):
+            parts = [check.check(image, image, quick=True, shard=(i, 2)) for i in range(1, 3)]
+        with patch("shard_weights.weights_for", side_effect=lambda tasks: [20] * len(tasks)), self.assertRaises(ValueError):
+            check.check(image, image, quick=True, reports=parts)
+
+    def test_unsharded_checks_do_not_read_the_partition_profile(self):
+        image = bytes(check.HEADER + check.PAYLOAD)
+        with patch.dict(os.environ, {"GELUMPE_CACHE": "off"}), \
+                patch("shard_weights.weights_for", side_effect=AssertionError("unsharded profile read")), \
+                patch.object(check.parallel, "run_tasks", self.fake_run):
+            result = check.check(image, image, quick=True)
+        self.assertIn("quick", [entry["id"] for entry in result["checks"]])
+
+    def test_partial_metrics_describe_the_expected_partition_cost(self):
+        image = bytes(check.HEADER + check.PAYLOAD)
+        with patch("shard_weights.weights_for", side_effect=lambda tasks: [20] * len(tasks)), \
+                patch.object(check.parallel, "run_tasks", self.fake_run):
+            part = check.check(image, image, quick=True, shard=(1, 4))
+        self.assertIn({"kind": "partition", "algorithm": "lpt-v1", "index": 1, "count": 4,
+                       "tasks": len(part["tasks"]), "estimated_ms": 20 * len(part["tasks"])}, part["metrics"])
 
     def test_shards_and_unsharded_use_the_same_complete_evaluation(self):
         image = bytes(check.HEADER + check.PAYLOAD)

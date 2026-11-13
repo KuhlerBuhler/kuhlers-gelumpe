@@ -186,7 +186,10 @@ export const CASES = [
  * The cases Blechy's field offers before anything is typed; the others come up while typing or under "show all". The
  * order follows what people asked for on the Discord server (docs/rettung.md).
  */
-export const FIRST_CASES = ["hacktribe", "nofile", "invalid", "install", "check", "plugins", "notfound", "silent", "samples"];
+export const FIRST_CASES = ["hacktribe", "nofile", "invalid", "install", "check"];
+
+/** At most this many cases stand in the list at once, typed or not; "show all" lists every one. */
+export const MAX_SHOWN = 5;
 
 /** Where the colour question leads, by the case that was picked: every case about the device asks the colour first, once. */
 const AFTER_COLOR = { silent: "silent", zero: "zero", prompt: "prompt", invalid: "invalid", nofile: "nofile", starts: "starts", samples: "samples", back: "back", install: "firmware:last" };

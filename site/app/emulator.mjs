@@ -98,13 +98,29 @@ export function lit(colour, light) {
   return light ? colour.map((c, i) => Math.round(c * light[i] / 255)) : colour;
 }
 
+/**
+ * The colours of a set and a clear pixel, and of the backlight, as on the glass: of the two theme colours the lighter is
+ * the backlight, the darker is a cell switched on, and that cell only dims the light (DIM of the way to the darker
+ * colour), read off a photo of the real display (2026-11-12). Pages that show light pixels on dark just swap the two.
+ */
+function glass(style, light) {
+  const on = parseColor(style.getPropertyValue("--cee-lcd-on"));
+  const off = parseColor(style.getPropertyValue("--cee-lcd-off"));
+  const sum = c => c[0] + c[1] + c[2];
+  const back = sum(on) > sum(off) ? on : off;
+  const dim = c => (c === back ? c : c.map((v, i) => Math.round(back[i] + (v - back[i]) * DIM)));
+  return [lit(dim(on), light), lit(dim(off), light), lit(back, light)];
+}
+
+/** How far a cell switched on darkens the backlight towards the theme's dark colour. */
+const DIM = 0.6;
+
 /** The display bytes: 8 pages of 128 columns, bit 0 the top row of a page. `light` as in lit(). */
 export function drawDisplay(canvas, bytes, light = null) {
   const ctx = canvas.getContext("2d");
   const style = getComputedStyle(canvas);
   const img = ctx.createImageData(128, 64);
-  const on = lit(parseColor(style.getPropertyValue("--cee-lcd-on")), light);
-  const off = lit(parseColor(style.getPropertyValue("--cee-lcd-off")), light);
+  const [on, off, back] = glass(style, light);
   for (let y = 0; y < 64; y++) {
     for (let x = 0; x < 128; x++) {
       const lit = (bytes[(y >> 3) * 128 + x] >> (y & 7)) & 1;
@@ -112,21 +128,26 @@ export function drawDisplay(canvas, bytes, light = null) {
     }
   }
   ctx.putImageData(img, 0, 0);
-  grids.get(canvas)?.colour(off);
+  grids.get(canvas)?.colour(back);
 }
 
-/** The gap grids laid over a display canvas (pixelGrid), by that canvas. */
+/** Each cell on the glass is drawn this share of its pitch, the rest is a margin on every side that shows the backlight. */
+const CELL = 0.9;
+
+/** The glass canvases laid over a display canvas (pixelGrid), by that canvas. */
 const grids = new WeakMap();
 
 /**
- * The real display has a thin gap between its pixels, in the colour of a clear pixel in the light. A second canvas over
- * the 128 x 64 one draws only those gaps, at the screen's own resolution, so the display canvas keeps its pixels as they
- * are. Below 3 screen pixels per display pixel there is no room for a gap, and the grid stays empty.
+ * The display built like the real glass: the backlight behind, a layer of cells in front that can only be switched on
+ * (dark) or off (clear). A second canvas over the 128 x 64 one fills the backlight and draws every cell that is not
+ * clear as a square of CELL of its pitch, so a margin of the backlight shows around each one. It reads its cells from the
+ * display canvas, so that canvas keeps its pixels as they are (pop-out window, tests). Below 3 screen pixels per display
+ * pixel there is no room for a margin: the glass stays empty and the display canvas shows through.
  */
 export function pixelGrid(display) {
   const grid = el("canvas", { className: "cee-lcd-grid" });
   grid.setAttribute("aria-hidden", "true");
-  let rgb = null;
+  let back = null;
   const draw = () => {
     const box = display.getBoundingClientRect();
     const scale = window.devicePixelRatio || 1;
@@ -136,22 +157,35 @@ export function pixelGrid(display) {
     if (grid.height !== h) grid.height = h;
     const ctx = grid.getContext("2d");
     ctx.clearRect(0, 0, w, h);
-    const cell = w / 128;
-    if (!rgb || cell < 3) return;
-    // About a seventh of a pixel, as on the real glass, and never thinner than one screen pixel.
-    const gap = Math.max(1, Math.round(cell * 0.14));
-    ctx.fillStyle = `rgb(${rgb.join(" ")})`; // raw-ok: the unlit-pixel colour the display already read from its token
-    for (let i = 1; i <= 128; i++) ctx.fillRect(Math.round(i * cell) - gap, 0, gap, h);
-    for (let i = 1; i <= 64; i++) ctx.fillRect(0, Math.round(i * (h / 64)) - gap, w, gap);
+    const cw = w / 128;
+    const ch = h / 64;
+    if (!back || cw < 3) return;
+    const src = display.getContext("2d").getImageData(0, 0, 128, 64).data;
+    ctx.fillStyle = `rgb(${back.join(" ")})`; // raw-ok: the backlight colour the display already read from its tokens
+    ctx.fillRect(0, 0, w, h);
+    // No rounding to whole screen pixels: every cell stays as wide as the next, and a margin thinner than one screen
+    // pixel is drawn as a faint line, not a full one.
+    const mx = (cw * (1 - CELL)) / 2;
+    const my = (ch * (1 - CELL)) / 2;
+    let fill = "";
+    for (let y = 0; y < 64; y++) {
+      for (let x = 0; x < 128; x++) {
+        const i = (y * 128 + x) * 4;
+        if (src[i] === back[0] && src[i + 1] === back[1] && src[i + 2] === back[2]) continue;
+        const next = `rgb(${src[i]} ${src[i + 1]} ${src[i + 2]})`; // raw-ok: a cell colour read from the display canvas
+        if (next !== fill) ctx.fillStyle = fill = next;
+        ctx.fillRect(x * cw + mx, y * ch + my, cw * CELL, ch * CELL);
+      }
+    }
   };
   // A window moved to a screen of another pixel density keeps the canvas's size: the window's resize draws again then.
   new ResizeObserver(draw).observe(display);
   window.addEventListener("resize", draw);
   const api = {
     node: grid,
-    colour(next) {
-      if (rgb && next.every((c, i) => c === rgb[i])) return;
-      rgb = next;
+    /** The display canvas has a new picture; `light` the backlight colour it was drawn in. */
+    colour(light) {
+      back = light;
       draw();
     },
   };
@@ -176,10 +210,9 @@ export function shadeImage(levels, on, off) {
 export function drawShade(canvas, levels, light = null) {
   const ctx = canvas.getContext("2d");
   const style = getComputedStyle(canvas);
-  const on = lit(parseColor(style.getPropertyValue("--cee-lcd-on")), light);
-  const off = lit(parseColor(style.getPropertyValue("--cee-lcd-off")), light);
+  const [on, off, back] = glass(style, light);
   ctx.putImageData(new ImageData(shadeImage(levels, on, off), 128, 64), 0, 0);
-  grids.get(canvas)?.colour(off);
+  grids.get(canvas)?.colour(back);
 }
 
 function parseColor(value) {
@@ -594,13 +627,13 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
     lack(what = "sysex") { return build ? lackOf(build, what, { blech }) : null; },
     /** The VSB the user loaded; an export booted with bootWith() does not replace it. */
     get baseFirmware() { return base ?? vsb; },
-    /** Export check of the original and its patched copy (tools/emu/check.py), minutes. `hardware` "blue" for Sampler code on the blue (Hacktribe for the blue). `onProgress(snapshot)` hears the service's progress about once a second while it runs (GET /check/progress). */
-    check(original, patched, allow = [], allowCode = [], onProgress = null, { quick = false, hardware = null } = {}) {
+    /** Export check of the original and its patched copy (tools/emu/check.py), minutes. `hardware` "blue" for Sampler code on the blue (Hacktribe for the blue). `onProgress(snapshot)` hears the service's progress about once a second while it runs (GET /check/progress). `foreign` for a patch that is not ours: no start phase check. */
+    check(original, patched, allow = [], allowCode = [], onProgress = null, { quick = false, hardware = null, foreign = false } = {}) {
       const body = new Uint8Array(original.length + patched.length);
       body.set(original);
       body.set(patched, original.length);
       const spans = list => list.map(([at, n]) => `0x${at.toString(16)}:${n}`).join(",");
-      const query = [["allow", spans(allow)], ["allowCode", spans(allowCode)], ["quick", quick ? "1" : ""], ["hardware", hardware ?? ""]].filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join("&");
+      const query = [["allow", spans(allow)], ["allowCode", spans(allowCode)], ["quick", quick ? "1" : ""], ["hardware", hardware ?? ""], ["foreign", foreign ? "1" : ""]].filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join("&");
       const run = api(`/check${query ? `?${query}` : ""}`, body);
       if (!onProgress || !link) return run;
       let over = false;

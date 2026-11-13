@@ -597,7 +597,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   visibility: hidden;
 }
 
-/* The gaps between the display's pixels (pixelGrid in emulator.mjs), over the display canvas and as large. */
+/* The display built like the glass (pixelGrid in emulator.mjs), over the display canvas and as large. */
 .cee-lcd-grid {
   position: absolute;
   inset: 0;
@@ -2835,6 +2835,52 @@ h5.cee-doc-heading { font-size: var(--text-sm); color: var(--color-text-secondar
 .cee-emu-file .ui-dropzone-files {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+}
+
+/* The X that takes a file out of an upload field (dropzone-clear.mjs): the chosen-card tick's circle, half over the corner. */
+.cee-dropzone-wrap {
+  position: relative;
+}
+
+.cee-dropzone-wrap:has(> .ui-dropzone[hidden]) {
+  display: none;
+}
+
+.cee-dropzone-wrap:has(> .cee-rescue-drop) {
+  grid-column: 1 / -1;
+}
+
+.cee-dropzone-clear {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 0;
+  translate: 50% -50%;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-primary);
+  color: var(--color-accent-primary-contrast);
+  cursor: pointer;
+}
+
+.ui-dropzone[data-filled] + .cee-dropzone-clear {
+  display: flex;
+}
+
+.cee-dropzone-clear svg {
+  width: var(--space-4);
+  height: var(--space-4);
+  stroke-width: 3;
+}
+
+.cee-dropzone-clear:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 /* Katalog and Eigene Plugins (scripts.mjs): two buttons that belong together above the cards. */

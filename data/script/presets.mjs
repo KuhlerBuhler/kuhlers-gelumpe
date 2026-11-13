@@ -1640,18 +1640,18 @@ korg.onEvent("buttonPress", (key) => {
   }),
   Object.freeze({
     id: "bmpviewer",
-    title: "BMP Viewer",
+    title: "Image Viewer",
     description: text("catalog.bmpviewer.description"),
     category: text("catalog.category.tools"),
     creator: "Kuhler Buhler",
     added: "2026-11-03",
     controls: [text("catalog.bmpviewer.control1"), text("catalog.bmpviewer.control2"), text("catalog.bmpviewer.control3")],
-    source: `// BMP Viewer, an app under TOOLS: shows the pictures of a picture file GIF00.E2G to GIF99.E2G from KORG/blechtribe/Gif/
+    source: `// Image Viewer, an app under TOOLS: shows the pictures of a picture file GIF00.E2G to GIF99.E2G from KORG/blechtribe/Gif/
 // on the card one at a time (tools/gif/gif2e2g.py puts several BMPs or other pictures into one file, one frame each).
 // Part right and left show the next and the previous picture, the encoder picks the file. After each change the top left
 // corner shows the number of the picture for two seconds, TAP keeps it there or hides it. Backwards past the first picture
 // goes to the last one once the viewer has been through the file and knows how many there are.
-korg.app("BMP Viewer", "TOOLS");
+korg.app("Image Viewer", "TOOLS");
 const pic = new Array(1024);
 let file = 0;
 let index = 0;
@@ -2707,6 +2707,1229 @@ korg.onEvent("buttonPress", (key) => {
 korg.onEvent("step", (s) => {
   pos = s % 16;
   if (isOpen == 1 && menuOn == 0 && drawIdx == 20) drawHead();
+});
+`,
+  }),
+  Object.freeze({
+    id: "euclidflow",
+    title: "EUCLID FLOW",
+    description: text("catalog.euclidflow.description"),
+    category: text("catalog.category.tools"),
+    creator: "SLTK023",
+    added: "2026-11-12",
+    controls: [text("catalog.euclidflow.control1"), text("catalog.euclidflow.control2")],
+    source: `/*
+ * EUCLID FLOW V1
+ * Euclidean Rhythm Generator
+ * Korg Electribe 2 / BLECHTRIBE
+ * API 9 minimum
+ *
+ * From SLTK023 on the BLECH Discord. In the catalog the keys act only while the app is open (opened): the handlers of an
+ * app run from the start, and TAP with the app closed would otherwise write the rhythm into the part.
+ */
+
+korg.app("EUCLID FLOW", "TOOLS");
+
+let opened = 0;
+let part = 0;
+let hits = 5;
+let rotation = 0;
+let steps = 16;
+let velocity = 100;
+let gate = 96;
+
+// Actualise la longueur du pattern
+function updateSteps() {
+    steps = korg.current.length * 16;
+
+    if (steps < 16) steps = 16;
+    if (steps > 64) steps = 64;
+
+    if (hits > steps) hits = steps;
+    if (rotation >= steps) rotation = 0;
+}
+
+// Affichage sur l'écran de la Korg
+function draw() {
+    updateSteps();
+
+    korg.display.clear();
+
+    korg.display.text("EUCLID FLOW", 4, 2);
+
+    korg.display.text("PART", 4, 14);
+    korg.display.number(part + 1, 38, 14);
+
+    korg.display.text("HITS", 68, 14);
+    korg.display.number(hits, 100, 14);
+
+    korg.display.text("STEPS", 4, 26);
+    korg.display.number(steps, 44, 26);
+
+    korg.display.text("ROT", 68, 26);
+    korg.display.number(rotation, 96, 26);
+
+    korg.display.text("VEL", 4, 38);
+    korg.display.number(velocity, 36, 38);
+
+    korg.display.text("GATE", 68, 38);
+    korg.display.number(gate, 100, 38);
+
+    korg.display.text("EDIT = HITS", 4, 50);
+    korg.display.text("TAP = GENERATE", 4, 58);
+}
+
+// Générateur euclidien
+function generate() {
+    updateSteps();
+
+    let bucket = 0;
+
+    // Efface les déclenchements de cette piste
+    korg.seq.clearPart(part);
+
+    for (let i = 0; i < steps; i++) {
+
+        bucket += hits;
+
+        if (bucket >= steps) {
+            bucket -= steps;
+
+            let position = i + rotation;
+
+            if (position >= steps) {
+                position -= steps;
+            }
+
+            let note = 48 + korg.current.key;
+
+            korg.seq.setStep(
+                part,
+                position,
+                note,
+                velocity
+            );
+
+            korg.seq.setGate(
+                part,
+                position,
+                gate
+            );
+        }
+    }
+
+    draw();
+}
+
+// Ouverture de l'application
+korg.onEvent("open", () => {
+    opened = 1;
+    part = korg.selectedPart;
+
+    if (part > 15) {
+        part = 0;
+    }
+
+    draw();
+});
+
+korg.onEvent("close", () => {
+    opened = 0;
+});
+
+// Commandes physiques
+korg.onEvent("buttonPress", (key) => {
+    if (opened == 0) return;
+
+    // Choix de la piste
+    if (key == korg.key.PART_LEFT) {
+        part--;
+
+        if (part < 0) {
+            part = 15;
+        }
+
+        korg.part(part);
+    }
+
+    if (key == korg.key.PART_RIGHT) {
+        part++;
+
+        if (part > 15) {
+            part = 0;
+        }
+
+        korg.part(part);
+    }
+
+    // Nombre de coups
+    if (key == korg.key.EDIT_LEFT) {
+        hits--;
+
+        if (hits < 1) {
+            hits = 1;
+        }
+    }
+
+    if (key == korg.key.EDIT_RIGHT) {
+        hits++;
+
+        if (hits > steps) {
+            hits = steps;
+        }
+    }
+
+    // Rotation du rythme
+    if (key == korg.key.GATE_ARP) {
+        rotation++;
+
+        if (rotation >= steps) {
+            rotation = 0;
+        }
+    }
+
+    if (key == korg.key.MASTER_FX) {
+        rotation--;
+
+        if (rotation < 0) {
+            rotation = steps - 1;
+        }
+    }
+
+    // Génération
+    if (key == korg.key.TAP) {
+        generate();
+    }
+
+    draw();
+});`,
+  }),
+  Object.freeze({
+    id: "livereload",
+    title: "LIVE RELOAD",
+    description: text("catalog.livereload.description"),
+    category: text("catalog.category.tools"),
+    creator: "handst0n3",
+    added: "2026-11-12",
+    controls: [text("catalog.livereload.control1"), text("catalog.livereload.control2")],
+    source: `// LIVE RELOAD v0.2 by handst0n3, from the BLECH Discord: restores the sound values of all 16 parts to the saved pattern
+// without stopping playback. SHIFT + BAR 1 hard, SHIFT + BAR 2 smooth.
+korg.app("LIVE RELOAD", "TOOLS");
+
+const fields = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15, 16, 18];
+const before = new Array(240);
+const target = new Array(240);
+
+let opened = 0;
+let shiftHeld = 0;
+let running = 0;
+let stage = 0;
+let position = 0;
+let blendFrame = 0;
+let sourcePattern = -1;
+let result = 0;
+
+function isSmooth(field) {
+  return field == 2 || field == 3 || field == 4 ||
+         field == 8 || field == 9 || field == 10 || field == 11;
+}
+
+function drawScreen() {
+  if (opened == 0) return;
+  korg.display.clear();
+  korg.display.text("LIVE RELOAD V0.2", 4, 2);
+  korg.display.text("SHIFT + BAR 1: HARD", 4, 17);
+  korg.display.text("SHIFT + BAR 2: SOFT", 4, 30);
+
+  if (running == 1) korg.display.text("RESTORING...", 4, 45);
+  else if (running == 2) korg.display.text("MORPHING...", 4, 45);
+  else if (result == 1) korg.display.text("DONE", 4, 45);
+  else if (result == 2) korg.display.text("CANCELLED", 4, 45);
+  else korg.display.text("READY", 4, 45);
+}
+
+function abortReload() {
+  running = 0;
+  result = 2;
+  drawScreen();
+}
+
+function finishReload() {
+  running = 0;
+  result = 1;
+  drawScreen();
+}
+
+function beginReload(which) {
+  sourcePattern = korg.read.pattern();
+  stage = 0;
+  position = 0;
+  blendFrame = 0;
+  result = 0;
+  running = which;
+  drawScreen();
+}
+
+function hardFrame() {
+  for (let n = 0; n < 2; n += 1) {
+    if (position >= 16) break;
+
+    for (let j = 0; j < 15; j += 1) {
+      let field = fields[j];
+      let savedValue = korg.read.patternValue(
+        sourcePattern, position, field
+      );
+      let liveValue = korg.read.patternValue(
+        -1, position, field
+      );
+
+      if (liveValue != savedValue) {
+        korg.seq.setPartValue(position, field, savedValue);
+      }
+    }
+    position += 1;
+  }
+
+  if (position >= 16) finishReload();
+}
+
+function softFrame() {
+  if (stage == 0) {
+    for (let n = 0; n < 4; n += 1) {
+      if (position >= 16) break;
+
+      for (let j = 0; j < 15; j += 1) {
+        let idx = position * 15 + j;
+        let field = fields[j];
+
+        before[idx] = korg.read.patternValue(
+          -1, position, field
+        );
+        target[idx] = korg.read.patternValue(
+          sourcePattern, position, field
+        );
+      }
+      position += 1;
+    }
+
+    if (position >= 16) {
+      stage = 1;
+      blendFrame = 0;
+    }
+    return;
+  }
+
+  let group = blendFrame % 4;
+  let fraction = (blendFrame - group) / 4 + 1;
+  let firstPart = group * 4;
+
+  for (let part = firstPart; part < firstPart + 4; part += 1) {
+    for (let j = 0; j < 15; j += 1) {
+      let field = fields[j];
+      let idx = part * 15 + j;
+      let value = target[idx];
+
+      if (isSmooth(field)) {
+        value = before[idx] +
+          (target[idx] - before[idx]) * fraction / 3;
+      } else if (fraction != 3) {
+        continue;
+      }
+
+      if (korg.read.patternValue(-1, part, field) != value) {
+        korg.seq.setPartValue(part, field, value);
+      }
+    }
+  }
+
+  blendFrame += 1;
+  if (blendFrame >= 12) finishReload();
+}
+
+korg.onEvent("open", () => {
+  opened = 1;
+  shiftHeld = 0;
+  result = 0;
+  drawScreen();
+});
+
+korg.onEvent("close", () => {
+  opened = 0;
+  shiftHeld = 0;
+  running = 0;
+});
+
+korg.onEvent("patternChange", () => {
+  if (running != 0) abortReload();
+});
+
+korg.onEvent("buttonPress", (key) => {
+  if (opened == 0) return;
+
+  if (key == korg.key.SHIFT) shiftHeld = 1;
+
+  if (shiftHeld == 1 && key == korg.key.BAR_1) {
+    beginReload(1);
+  }
+
+  if (shiftHeld == 1 && key == korg.key.BAR_2) {
+    beginReload(2);
+  }
+});
+
+korg.onEvent("buttonRelease", (key) => {
+  if (key == korg.key.SHIFT) shiftHeld = 0;
+});
+
+korg.onEvent("frame", () => {
+  if (running == 0) return;
+
+  if (korg.read.pattern() != sourcePattern) {
+    abortReload();
+    return;
+  }
+
+  if (running == 1) hardFrame();
+  else softFrame();
+});
+`,
+  }),
+  Object.freeze({
+    id: "randomslot",
+    title: "RANDOM SLOT",
+    description: text("catalog.randomslot.description"),
+    category: text("catalog.category.tools"),
+    creator: "handst0n3",
+    added: "2026-11-12",
+    controls: [text("catalog.randomslot.control1"), text("catalog.randomslot.control2")],
+    source: `korg.app("RANDOM SLOT", "TOOLS");
+
+// RANDOM SLOT V0.5 by handst0n3, from the BLECH Discord
+// BLECHTRIBE API 14+
+// Single part randomizer
+// No automatic mode
+
+const soundFields = [
+  1, 2, 3, 4, 5,
+  6, 7, 8, 9, 10,
+  11, 14, 15, 16, 18
+];
+
+const soundLow = [
+  0, 0, 0, -63, 0,
+  0, 0, 0, 0, 0,
+  -63, 0, -63, 0, 0
+];
+
+const soundHigh = [
+  16, 127, 127, 63, 71,
+  127, 127, 127, 127, 127,
+  63, 127, 63, 127, 127
+];
+
+const variationFields = [
+  2, 3, 4, 6, 7, 8,
+  9, 10, 11, 14, 15, 16, 18
+];
+
+const variationLow = [
+  0, 0, -63, 0, 0, 0,
+  0, 0, -63, 0, -63, 0, 0
+];
+
+const variationHigh = [
+  127, 127, 63, 127, 127, 127,
+  127, 127, 63, 127, 63, 127, 127
+];
+
+const savedMutes = new Array(16);
+
+let opened = 0;
+let selectedPart = 0;
+let targetPart = 0;
+let soloActive = 0;
+
+let selectedMode = 1;
+let activeMode = 0;
+
+let spinFrame = 0;
+let workIndex = 0;
+let finished = 0;
+
+let reelA = 0;
+let reelB = 1;
+let reelC = 2;
+
+let sourcePattern = -1;
+let seed = 1234567;
+let frameCounter = 0;
+
+// RANDOM ENGINE
+
+function rnd(maximum) {
+  seed = (
+    seed * 1664525 + 1013904223
+  ) & 2147483647;
+
+  if (maximum <= 1) return 0;
+  return seed % maximum;
+}
+
+function between(a, b) {
+  return a + rnd(b - a + 1);
+}
+
+function clamp(value, a, b) {
+  if (value < a) return a;
+  if (value > b) return b;
+  return value;
+}
+
+// DISPLAY
+
+function outline(x, y, w, h) {
+  korg.display.rect(x, y, w, 1);
+  korg.display.rect(x, y + h - 1, w, 1);
+  korg.display.rect(x, y, 1, h);
+  korg.display.rect(x + w - 1, y, 1, h);
+}
+
+function drawStar(x, y) {
+  korg.display.rect(x + 9, y, 2, 4);
+  korg.display.rect(x + 8, y + 4, 4, 2);
+  korg.display.rect(x + 3, y + 6, 14, 2);
+  korg.display.rect(x + 5, y + 8, 10, 2);
+  korg.display.rect(x + 6, y + 10, 8, 2);
+  korg.display.rect(x + 4, y + 12, 4, 2);
+  korg.display.rect(x + 12, y + 12, 4, 2);
+  korg.display.rect(x + 3, y + 14, 3, 2);
+  korg.display.rect(x + 14, y + 14, 3, 2);
+}
+
+function drawCherry(x, y) {
+  korg.display.rect(x + 9, y, 2, 5);
+  korg.display.rect(x + 5, y + 4, 5, 2);
+  korg.display.rect(x + 10, y + 4, 5, 2);
+  korg.display.rect(x + 3, y + 8, 6, 6);
+  korg.display.rect(x + 11, y + 8, 6, 6);
+  korg.display.rect(x + 4, y + 7, 4, 1);
+  korg.display.rect(x + 12, y + 7, 4, 1);
+}
+
+function drawBell(x, y) {
+  korg.display.rect(x + 8, y + 1, 4, 2);
+  korg.display.rect(x + 5, y + 3, 10, 2);
+  korg.display.rect(x + 4, y + 5, 12, 6);
+  korg.display.rect(x + 2, y + 11, 16, 2);
+  korg.display.rect(x + 7, y + 13, 6, 2);
+  korg.display.rect(x + 8, y + 15, 4, 1);
+}
+
+function drawMoney(x, y) {
+  outline(x + 1, y + 3, 19, 12);
+  outline(x + 4, y + 5, 13, 8);
+  korg.display.rect(x + 7, y + 8, 6, 3);
+  korg.display.pixel(x + 3, y + 6, 1);
+  korg.display.pixel(x + 17, y + 12, 1);
+}
+
+function drawJackpot(x, y) {
+  korg.display.text("777", x + 1, y + 4);
+  korg.display.rect(x + 1, y + 14, 19, 1);
+}
+
+function drawSymbol(kind, x, y) {
+  if (kind == 0) drawStar(x, y);
+  else if (kind == 1) drawCherry(x, y);
+  else if (kind == 2) drawBell(x, y);
+  else if (kind == 3) drawMoney(x, y);
+  else drawJackpot(x, y);
+}
+
+function spinReels() {
+  reelA = rnd(5);
+  reelB = rnd(5);
+  reelC = rnd(5);
+}
+
+function drawScreen() {
+  if (opened == 0) return;
+
+  korg.display.clear();
+  korg.display.text("RANDOM SLOT", 30, 2);
+
+  outline(4, 13, 38, 23);
+  outline(45, 13, 38, 23);
+  outline(86, 13, 38, 23);
+
+  drawSymbol(reelA, 13, 16);
+  drawSymbol(reelB, 54, 16);
+  drawSymbol(reelC, 95, 16);
+
+  if (selectedMode == 1) {
+    korg.display.text("SOUND", 4, 39);
+  } else if (selectedMode == 2) {
+    korg.display.text("MELODY", 4, 39);
+  } else if (selectedMode == 3) {
+    korg.display.text("S-VAR", 4, 39);
+  } else {
+    korg.display.text("P-VAR", 4, 39);
+  }
+
+  korg.display.text("P:", 52, 39);
+  korg.display.number(selectedPart + 1, 66, 39);
+
+  if (soloActive == 1) {
+    korg.display.text("SOLO", 96, 39);
+  }
+
+  if (activeMode != 0) {
+    korg.display.text("SPINNING", 4, 54);
+  } else if (finished == 1) {
+    korg.display.text("DONE - READY", 4, 54);
+  } else {
+    korg.display.text("BAR 1-4 TO SPIN", 4, 54);
+  }
+}
+
+// SOLO MODE
+
+function soloOn() {
+  if (soloActive == 1) return;
+
+  for (let i = 0; i < 16; i += 1) {
+    savedMutes[i] = korg.read.mute(i);
+  }
+
+  soloActive = 1;
+
+  for (let i = 0; i < 16; i += 1) {
+    if (i == selectedPart) {
+      korg.mute(i, 0);
+    } else {
+      korg.mute(i, 1);
+    }
+  }
+
+  drawScreen();
+}
+
+function soloOff() {
+  if (soloActive == 0) return;
+
+  soloActive = 0;
+
+  for (let i = 0; i < 16; i += 1) {
+    korg.mute(i, savedMutes[i]);
+  }
+
+  drawScreen();
+}
+
+function toggleSolo() {
+  if (soloActive == 0) soloOn();
+  else soloOff();
+}
+
+function selectPart(part) {
+  if (part < 0 || part > 15) return;
+
+  selectedPart = part;
+
+  if (soloActive == 1) {
+    for (let i = 0; i < 16; i += 1) {
+      if (i == selectedPart) {
+        korg.mute(i, 0);
+      } else {
+        korg.mute(i, 1);
+      }
+    }
+  }
+
+  drawScreen();
+}
+
+// SOUND RANDOM
+
+function randomSoundField(part, slot) {
+  let value = between(
+    soundLow[slot],
+    soundHigh[slot]
+  );
+
+  korg.seq.setPartValue(
+    part,
+    soundFields[slot],
+    value
+  );
+}
+
+// SOUND VARIATION
+
+function randomSoundVariation(part) {
+  let slot = rnd(13);
+  let field = variationFields[slot];
+
+  let current = korg.read.patternValue(
+    -1, part, field
+  );
+
+  let change = between(-7, 7);
+
+  let value = clamp(
+    current + change,
+    variationLow[slot],
+    variationHigh[slot]
+  );
+
+  if (value != current) {
+    korg.seq.setPartValue(
+      part, field, value
+    );
+  }
+}
+
+// MELODY RANDOM
+
+function randomMelodyChunk(part, firstStep) {
+  for (let i = 0; i < 8; i += 1) {
+    let step = firstStep + i;
+
+    if (rnd(100) < 60) {
+      let note = between(36, 84);
+      let velocity = between(55, 127);
+      let gate = between(25, 95);
+
+      korg.seq.setGate(part, step, gate);
+
+      korg.seq.setStep(
+        part, step, note, velocity
+      );
+    } else {
+      korg.seq.setStep(part, step, -1, 0);
+    }
+  }
+}
+
+// PATTERN VARIATION
+
+function randomPatternVariation(part) {
+  let step = rnd(64);
+
+  if (rnd(100) < 30) {
+    korg.seq.setStep(
+      part,
+      step,
+      between(48, 76),
+      between(65, 110)
+    );
+  } else {
+    korg.seq.setGate(
+      part,
+      step,
+      between(35, 96)
+    );
+  }
+}
+
+// START RANDOMIZATION
+
+function startSpin(mode) {
+  if (opened == 0) return;
+  if (activeMode != 0) return;
+
+  selectedMode = mode;
+  activeMode = mode;
+
+  targetPart = selectedPart;
+  sourcePattern = korg.read.pattern();
+
+  spinFrame = 0;
+  workIndex = 0;
+  finished = 0;
+
+  seed = (
+    seed +
+    frameCounter * 7919 +
+    mode * 1237 +
+    selectedPart * 311
+  ) & 2147483647;
+
+  if (seed == 0) seed = 1234567;
+
+  spinReels();
+  drawScreen();
+}
+
+// SPIN PROCESS
+
+function performSpin() {
+  if (activeMode == 0) return;
+
+  if (korg.read.pattern() != sourcePattern) {
+    activeMode = 0;
+    finished = 0;
+    drawScreen();
+    return;
+  }
+
+  spinFrame += 1;
+
+  if (spinFrame % 2 == 0) {
+    spinReels();
+    drawScreen();
+  }
+
+  if (spinFrame <= 8) return;
+
+  // BAR 1 : SOUND RANDOM
+
+  if (activeMode == 1) {
+    for (let i = 0; i < 3; i += 1) {
+      if (workIndex < 15) {
+        randomSoundField(
+          targetPart,
+          workIndex
+        );
+        workIndex += 1;
+      }
+    }
+  }
+
+  // BAR 2 : MELODY RANDOM
+
+  if (activeMode == 2) {
+    if (workIndex < 64) {
+      randomMelodyChunk(
+        targetPart,
+        workIndex
+      );
+      workIndex += 8;
+    }
+  }
+
+  // BAR 3 : SOUND VARIATION
+
+  if (activeMode == 3) {
+    if (workIndex < 2) {
+      randomSoundVariation(targetPart);
+      workIndex += 1;
+    }
+  }
+
+  // BAR 4 : PATTERN VARIATION
+
+  if (activeMode == 4) {
+    if (workIndex < 2) {
+      randomPatternVariation(targetPart);
+      workIndex += 1;
+    }
+  }
+
+  if (spinFrame >= 24) {
+    activeMode = 0;
+    finished = 1;
+    drawScreen();
+  }
+}
+
+// EVENTS
+
+korg.onEvent("open", () => {
+  opened = 1;
+  activeMode = 0;
+  finished = 0;
+
+  let part = korg.read.part();
+
+  if (part >= 0 && part < 16) {
+    selectedPart = part;
+  } else {
+    selectedPart = 0;
+  }
+
+  korg.padHold(1);
+  drawScreen();
+});
+
+korg.onEvent("close", () => {
+  soloOff();
+
+  opened = 0;
+  activeMode = 0;
+
+  korg.padHold(0);
+});
+
+korg.onEvent("patternChange", () => {
+  activeMode = 0;
+  finished = 0;
+  soloActive = 0;
+  drawScreen();
+});
+
+korg.onEvent("buttonPress", (key) => {
+  if (opened == 0) return;
+
+  if (key == korg.key.PART_MUTE) {
+    toggleSolo();
+  }
+
+  if (key == korg.key.BAR_1) {
+    startSpin(1);
+  }
+
+  if (key == korg.key.BAR_2) {
+    startSpin(2);
+  }
+
+  if (key == korg.key.BAR_3) {
+    startSpin(3);
+  }
+
+  if (key == korg.key.BAR_4) {
+    startSpin(4);
+  }
+});
+
+korg.onEvent("pad", (index, down, velocity) => {
+  if (opened == 0) return;
+  if (down == 0) return;
+
+  selectPart(index);
+});
+
+korg.onEvent("frame", () => {
+  frameCounter += 1;
+
+  if (activeMode != 0) {
+    performSpin();
+  }
+});
+`,
+  }),
+  Object.freeze({
+    id: "betteraccent",
+    title: "Better Accent",
+    description: text("catalog.betteraccent.description"),
+    category: text("catalog.category.tools"),
+    creator: "alarykko",
+    added: "2026-11-13",
+    controls: [text("catalog.betteraccent.control1"), text("catalog.betteraccent.control2")],
+    source: `// BETTER ACCENT v2 by alarykko, from the BLECH Discord, inspired by the TD-3-MO: a step with velocity above 96 is an
+// accent and opens the filter through EG INT, DECAY and LEVEL. SHIFT + EG INT, DECAY or LEVEL set the accent values of
+// the selected part. It acts on parts 1 to 7 only (maxParts = 7): with all 16 the step handler tripped the watchdog.
+const baseEgInt = new Array(8);
+const baseDecay = new Array(8);
+const baseLevel = new Array(8);
+//const baseGlide = new Array(8);
+const egIntAccAmount = new Array(8);
+const decayAccAmount = new Array(8);
+const levelAccAmount = new Array(8);
+//const glideOnTies = 40;
+
+
+
+const maxParts = 7;
+const defaultVelocity = 96;
+const stepCount = 64;
+
+
+const levelKnobIndex = 0;
+//const pitchGlideKnobIndex = 2;
+const egIntKnobIndex = 4;
+const decayKnobIndex = 8;
+
+
+let shiftPress = 0;
+let lastMillis = 0;
+
+
+
+
+//setta le basi
+function setNewBases(){
+  for(let part = 0; part < maxParts; part++){
+    baseEgInt[part] = korg.parts[part].egInt;
+    baseDecay[part] = korg.parts[part].decay;
+    baseLevel[part] = korg.parts[part].level;
+    //baseGlide[part] = korg.parts[part].glide;
+  }
+}
+
+
+function restoreBases(){
+  for(let part = 0; part < maxParts; part++){
+    korg.parts[part].egInt = baseEgInt[part];
+    korg.parts[part].decay = baseDecay[part];
+    korg.parts[part].level = baseLevel[part];
+    //korg.parts[part].glide = baseGlide[part];
+  }
+}
+
+function setAccentedAmounts(){
+  for(let part = 0; part < maxParts; part++){
+    egIntAccAmount[part] = korg.parts[part].egInt;
+    decayAccAmount[part] = korg.parts[part].decay;
+    levelAccAmount[part] = korg.parts[part].level;
+  }
+}
+
+
+
+function applyAccent(){
+
+  
+
+  for(let part = 0; part < maxParts; part++){
+
+    const currentStep = korg.read.step(part);
+    const previousStep = ((currentStep - 1) % stepCount + stepCount) % stepCount;
+    const isStepOn = korg.seq.getOn(part, currentStep);
+    const stepVelocity = korg.seq.getVelocity(part, currentStep);
+    const currentGate = korg.seq.getGate(part, currentStep);
+    const previousGate = korg.seq.getGate(part, previousStep);
+
+    //
+    if(isStepOn == 1 && stepVelocity > defaultVelocity){ 
+      korg.parts[part].egInt = egIntAccAmount[part];
+      korg.parts[part].decay = decayAccAmount[part];
+      korg.parts[part].level = levelAccAmount[part];
+    }
+    else if (isStepOn == 1 && stepVelocity <= defaultVelocity){
+      korg.parts[part].egInt = baseEgInt[part];
+      korg.parts[part].decay = baseDecay[part]; 
+      korg.parts[part].level = baseLevel[part];
+    }
+    /*
+    if (currentGate > 96  || previousGate > 96)   {
+      korg.parts[part].glide = baseGlide[part] + glideOnTies; 
+    }
+    else korg.parts[part].glide = baseGlide[part];
+    */
+  }
+}
+
+
+
+
+
+korg.onEvent("ready", () => {
+    setNewBases();
+    setAccentedAmounts();
+    korg.display.popups(0);
+});
+
+korg.onEvent("patternChange", () => {
+    setNewBases();
+    setAccentedAmounts();
+});
+
+korg.onEvent("buttonPress", (key) => {
+    
+    if(key == korg.key.SHIFT){ 
+      shiftPress = 1;
+      korg.knobHold(egIntKnobIndex, 1);
+      korg.knobHold(decayKnobIndex, 1);
+      korg.knobHold(levelKnobIndex, 1);
+    }
+
+    if(key == korg.key.STOP){
+      restoreBases();
+    } 
+
+});
+
+
+korg.onEvent("buttonRelease", (key) => {
+
+    if(key == korg.key.SHIFT){
+      shiftPress = 0;
+      korg.knobHold(egIntKnobIndex, 0);
+      korg.knobHold(decayKnobIndex, 0);
+      korg.knobHold(levelKnobIndex, 0);
+    }
+});
+
+
+korg.onEvent("frame", () => {
+    if( (korg.millis() - lastMillis) > 50){
+      korg.display.release();
+    }
+    
+});
+
+
+
+
+korg.onEvent("step", () => {
+
+    applyAccent();
+    
+});
+
+
+korg.onEvent("knob", (index, value) => {
+    let currentPart = korg.read.part();
+
+
+    //Aggiorna tutti i valori per gli step accentati/TIEati
+    if(index == egIntKnobIndex && shiftPress == 0 && (currentPart >= 0) && (currentPart <= maxParts)) baseEgInt[currentPart] = (value/2)-63;
+    if(index == decayKnobIndex && shiftPress == 0 && (currentPart >= 0) && (currentPart <= maxParts)) baseDecay[currentPart] = value/2;
+    if(index == levelKnobIndex && shiftPress == 0 && (currentPart >= 0) && (currentPart <= maxParts)) baseLevel[currentPart] = value/2;
+    //if(index == pitchGlideKnobIndex && shiftPress == 1) baseGlide[currentPart] = (value/2);
+    
+
+
+    //Aggiorna e mostra i valori per gli step accentati
+    if(index == egIntKnobIndex && shiftPress == 1 && (currentPart >= 0) && (currentPart <= maxParts)){
+      egIntAccAmount[currentPart] = (value/2)-64;
+      korg.display.take();
+      korg.display.clear();
+      lastMillis = korg.millis();
+      korg.display.text("AccentEgInt",10,22);
+      korg.display.number(egIntAccAmount[currentPart],10, 32);
+      
+      
+    }
+
+    if(index == decayKnobIndex && shiftPress == 1 && (currentPart >= 0) && (currentPart <= maxParts)){
+      decayAccAmount[currentPart] = value/2;
+      korg.display.take();
+      korg.display.clear();
+      lastMillis = korg.millis();
+      korg.display.text("AccentDecay",10,22);
+      korg.display.number(decayAccAmount[currentPart],10,32);
+      
+      
+    }
+    
+    if(index == levelKnobIndex && shiftPress == 1 && (currentPart >= 0) && (currentPart <= maxParts)){
+      levelAccAmount[currentPart] = value/2;
+      korg.display.take();
+      korg.display.clear();
+      lastMillis = korg.millis();
+      korg.display.text("AccentLevel",10,22);
+      korg.display.number(levelAccAmount[currentPart],10,32);
+      
+      
+    }
+    
+});
+`,
+  }),
+  Object.freeze({
+    id: "easyslides",
+    title: "Easy Slides",
+    description: text("catalog.easyslides.description"),
+    category: text("catalog.category.tools"),
+    creator: "alarykko",
+    added: "2026-11-13",
+    controls: [text("catalog.easyslides.control1"), text("catalog.easyslides.control2")],
+    source: `// EASY SLIDES v1 by alarykko, from the BLECH Discord: a TIE step (gate above 96) and the step after it get more glide,
+// so the two notes slide. SHIFT + PITCH/GLIDE sets the base glide of the selected part. In the catalog the glide acts
+// only on the parts whose glide it saved, 1 to 8 (maxParts), and STOP puts those back: the original also wrote parts 9
+// to 16 on every step and set their glide to 0.
+//Ancora da sistemare, implementare migliore logica per far si che glide rimanga attivo sia nello step con TIE e quello successivo così da dare il tempo alla nota di slideare
+
+const baseGlide = new Array(16);
+const pitchGlideKnobIndex = 2;
+const maxParts = 8;
+const glideOnTies = 35;
+let shiftPressed = 0;
+
+
+//Per evitare argomenti fuori da quelli ammessi
+function limitUnsigned (value){
+  if(value > 127) return 127;
+  if(value < 0) return 0;
+  return value;
+}
+
+
+function setNewBases(){
+  for(let part = 0; part < maxParts; part++){
+      baseGlide[part] = korg.parts[part].glide;
+  }
+}
+
+
+
+function applySlide() {
+  const stepCount = 64;
+  
+  //per ogni parte
+  for (let part = 0; part < maxParts; part++) {
+
+    const currentStep = korg.read.step(part);
+    const previousStep = ((currentStep - 1) % stepCount + stepCount) % stepCount;
+    const currentNote = korg.seq.getNote(part, currentStep, 1);
+    const previousNote = korg.seq.getNote(part, previousStep, 1);
+    
+    
+    //se lo step è tie oppure quello prima è tie applica il glide, in questo modo si da il tempo alla frequenza di glideare
+    if (korg.seq.getGate(part, currentStep) > 96  || korg.seq.getGate(part, previousStep) > 96)   {
+      korg.parts[part].glide = limitUnsigned(baseGlide[part] + glideOnTies); 
+    }
+    else korg.parts[part].glide = baseGlide[part];
+  }
+}
+
+
+
+
+
+
+korg.onEvent("ready", () => {
+    
+    //registra i baseGlide all'accensione
+    setNewBases();
+    korg.display.popups(0);
+    
+});
+
+korg.onEvent("patternChange", () => {
+    setNewBases();
+});
+
+
+korg.onEvent("buttonPress", (key) => {
+     
+    //restora i glide correnti ai base, per evitare che se pausato proprio durante un accent cambino i baseGlide
+    if(key == korg.key.STOP){
+      for(let part = 0; part < maxParts; part++){
+        korg.parts[part].glide = baseGlide[part];
+      }
+    }
+
+    //semplice flag per shift premuto
+    if(key == korg.key.SHIFT) shiftPressed = 1;
+    
+});
+
+
+
+korg.onEvent("buttonRelease", (key) => {
+
+  //idem come sopra con patate  
+  if(key == korg.key.SHIFT) shiftPressed = 0;
+    
+});
+
+
+korg.onEvent("step", () => {
+
+    //applica lo slide ad ogni step
+    applySlide();
+
+});
+
+//aggiorna i baseGlide quando giri il knob pitch tenendo premuto shift
+korg.onEvent("knob", (index, value) => {
+    
+    let part = korg.read.part();    
+    if(index == pitchGlideKnobIndex && shiftPressed == 1) baseGlide[part] = (value/2);
+    
 });
 `,
   }),
