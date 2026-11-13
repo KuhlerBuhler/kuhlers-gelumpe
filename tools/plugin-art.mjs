@@ -105,6 +105,27 @@ const PLUGIN_ART = {
     }
     arrow(p, 57, 27);
   },
+  // a step above velocity 96 plays with its own EG INT, DECAY and LEVEL: a taller, longer envelope on the lit pads
+  betteraccent: p => {
+    p.text("ACCENT", 4, 3);
+    p.text("VEL > 96", 124, 3, { align: "right" });
+    [0, 1, 0, 0, 1, 0, 0, 1].forEach((accent, k) => {
+      const x = 6 + k * 15, h = accent ? 24 : 10;
+      for (let i = 0; i < 13; i++) p.fill(x + i, 38 - Math.round(h * Math.exp(-i / (accent ? 6 : 2.5))), 1, 2);
+      if (accent) p.fill(x, 46, 12, 12, RED); else p.frame(x, 46, 12, 12);
+    });
+  },
+  // a TIE step and the step after it get more glide: the two notes slide into each other
+  easyslides: p => {
+    p.text("SLIDE", 4, 3);
+    p.text("TIE", 124, 3, { align: "right" });
+    p.fill(6, 44, 30, 3);
+    for (let i = 0; i < 40; i++) p.fill(36 + i, 44 - Math.round(24 * (1 - Math.cos((i / 39) * Math.PI)) / 2), 1, 3);
+    p.fill(76, 20, 46, 3);
+    p.frame(6, 52, 12, 10);
+    p.fill(36, 52, 40, 10, RED);
+    p.frame(90, 52, 12, 10);
+  },
 };
 
 mkdirSync(OUT, { recursive: true });

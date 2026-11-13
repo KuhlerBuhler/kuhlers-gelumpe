@@ -1248,6 +1248,19 @@ the part (`korg.padHold` while the app is open), 1 rolls sound values, 2 a melod
 steps a little. PART MUTE solos the part and brings the mutes back afterwards. Nothing is saved. Checked in the simulator, on the
 device according to its author.
 
+**Better Accent** (by alarykko, from the BLECH Discord, inspired by the TD-3-MO) runs in the background under TOOLS. A step with
+velocity above 96 is an accent: on `step` it writes the accent values of EG INT, DECAY and LEVEL for that part, on a step below
+the normal ones. SHIFT + EG INT, DECAY or LEVEL sets the accent values of the selected part (`korg.knobHold` keeps the three
+knobs from the firmware then), without SHIFT it keeps track of the normal values. STOP puts the normal values back. It acts on
+parts 1 to 7 only (`maxParts = 7`): with all 16 the step handler tripped the watchdog according to its author. A WRITE during
+an accent saves the accent values. Checked in the simulator, on the device according to its author.
+
+**Easy Slides** (by alarykko, from the BLECH Discord) runs in the background under TOOLS: a TIE step (gate above 96) and the step
+after it get 35 more glide, so the two notes slide into each other. SHIFT + PITCH/GLIDE sets the base glide of the selected part,
+STOP puts it back. In the catalog it acts only on parts 1 to 8, whose glide it keeps at the start and on a pattern change
+(`maxParts = 8`): the original also wrote parts 9 to 16 on every step and set their glide to 0. Checked in the simulator
+(`test/script-community-catalog.test.mjs`), on the device according to its author.
+
 **PLAY-Takt** uses API 11 and runs in the background. While the sequencer plays, the PLAY LED (red and blue) blinks in the
 tempo of the pattern: the event `beat` lights it on every quarter note, `korg.afterSteps(2, ...)` turns it off two steps
 later, so with BEAT 8 on every half note. On STOP and in the pause it stays lit; `korg.cancel` clears the timer then. In the
@@ -1262,7 +1275,7 @@ The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins),
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
 **Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD and RANDOM SLOT (TOOLS); source
+and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent and Easy Slides (TOOLS); source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
