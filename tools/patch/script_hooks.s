@@ -235,7 +235,7 @@ input_mask_held:
     ldr r2, =APP_STATE
     ldr r2, [r2]
     cmp r2, #0
-    beq input_mask_go
+    beq input_mask_free
     cmp r6, #0
     bne input_mask_app
     bl script_key_pass
@@ -243,6 +243,12 @@ input_mask_held:
     bne input_mask_go
 input_mask_app:
     orr r1, r1, #1
+    b input_mask_go
+input_mask_free:                ; no app open: a key the firmware gets is noted, so its release follows an app opened meanwhile
+    cmp r6, #0
+    bne input_mask_go
+    tst r1, #1
+    bleq key_pass_note
 input_mask_go:
     cmp r6, #4
     beq input_mask_pad

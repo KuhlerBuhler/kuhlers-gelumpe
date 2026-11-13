@@ -1,4 +1,5 @@
-"""Emulator cases of plugin API 14: korg.passKeys lets an open app choose the keys that reach the firmware,
+"""Emulator cases of plugin API 14: korg.passKeys lets an open app choose the keys that reach the firmware
+(and korg.display.take with SHIFT held still lets SHIFT's release through),
 korg.seq.setPartValue edits a part as a knob does (pattern, sound engine, parameter window), korg.read.patternBytes and
 korg.seq.writeSteps copy a part of a stored pattern into the one that plays, and the copy survives WRITE and a reload.
 
@@ -28,6 +29,8 @@ TRANSPORT = 0xC06BC318
 MUTE = 0xC06B2F9D               # a part's mute byte, 0x330 per part
 PART_AT = lambda part: 0x800 + 0x330 * part     # noqa: E731
 STEP_AT = lambda part, step: PART_AT(part) + 0x30 + 12 * step   # noqa: E731
+SHIFT = 10                     # the SHIFT key's number in the panel messages
+SHIFT_OBJ = 0xC0040F04         # returns the object that holds the SHIFT flag at +0x358
 APP_PAGE = 1                   # the page of the app in TOOLS, behind Blechy
 SOURCE, TARGET, COMMAND = 5, 7, 9     # the stored pattern copied from, the part copied into, the pattern whose byte starts a step
 
@@ -40,6 +43,18 @@ PROGRAMS = {
 korg.onEvent("open", () => { korg.passKeys(korg.key.PART_MUTE, 1); korg.passKeys(korg.key.PLAY, 0); });""",
     "nokeys": """korg.app("Keys", "TOOLS");
 korg.onEvent("open", () => { });""",
+    # no app: SHIFT pressed takes the display, a frame counter gives it back (alarykko, 13.11.)
+    "taker": """let owned = 0;
+let t = 0;
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.SHIFT && owned == 0) owned = korg.display.take();
+});
+korg.onEvent("frame", () => {
+  if (owned != 1) return;
+  korg.display.rect(0, 0, 128, 64);
+  t = t + 1;
+  if (t > 40) { korg.display.release(); owned = 2; }
+});""",
     # the filter type byte of part 0 of pattern COMMAND says which edit to make, once each
     "edit": f"""let done = 0;
 korg.onEvent("frame", () => {{
@@ -163,6 +178,33 @@ def keys_cases(vsb, flash, programs):
     return out
 
 
+def shift_held(dev):
+    """The firmware's SHIFT flag (+0x358 of the object SHIFT_OBJ returns, tools/patch/dice.py), 0 when it is up."""
+    return dev.u32(dev.call(SHIFT_OBJ) + 0x358)
+
+
+def take_cases(vsb, flash, programs):
+    """korg.display.take() while SHIFT is held, SHIFT let go while the plugin owns the display, then korg.display.release():
+    the firmware has to see SHIFT go up, and the LCD has to show the main screen again as it was before."""
+    dev = boot(vsb, flash, programs, "taker")
+    dev.run(0.5)
+    before = dev.fb()
+    dev.m.send([0, SHIFT, 1, 0, 0])
+    dev.run(0.2)
+    held = shift_held(dev)
+    owner = dev.u32(menu_cases.apps_open_address())
+    taken = dev.fb()
+    dev.m.send([0, SHIFT, 0, 0, 0])
+    dev.run(0.2)
+    up = shift_held(dev)
+    dev.run(2.0)
+    back = dev.u32(menu_cases.apps_open_address())
+    return [entry("take_lets_the_shift_release_reach_the_firmware", held != 0 and owner != 0 and up == 0 and not dev.m.asserts,
+                  f"SHIFT flag held {held}, after the release while taken {up}, owner {owner:#x}"),
+            entry("release_redraws_the_main_screen", back == 0 and taken != before and dev.fb() == before and shift_held(dev) == 0,
+                  f"owner after release {back:#x}, picture shown {taken != before}, main screen back {dev.fb() == before}")]
+
+
 def edit_cases(vsb, flash, built):
     out = []
     # the firmware's own knob: LEVEL of part 0 to a value, then the plugin sets the same value in another device
@@ -256,7 +298,7 @@ def cases(vsb, flash=None):
     menu_cases.for_build(payload)
     request = compiled({k: v for k, v in PROGRAMS.items() if k != "edit"})
     built = script_hooks.build(request["include"], build=identify(payload).build)
-    return (keys_cases(vsb, flash, request["programs"]) + edit_cases(vsb, flash, built)
+    return (keys_cases(vsb, flash, request["programs"]) + take_cases(vsb, flash, request["programs"]) + edit_cases(vsb, flash, built)
             + copy_cases(vsb, flash, request["programs"], built))
 
 
