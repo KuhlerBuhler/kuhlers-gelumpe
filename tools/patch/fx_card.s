@@ -3,6 +3,8 @@
 ; build, each entry, length, CRC-32) and writes nothing; only a file that passed is read again and its records go
 ; into RAM, where the firmware's getters find them. Nothing is written to the flash. No card, no file, a broken file
 ; or EXIT held at power-on: the presets of the firmware stay.
+; An insert or master entry may name any slot up to 100, also one past the menu: with the preset tables each of the first
+; 100 slots has a record of its own, so the menu grows in RAM to the highest slot the file fills (fx_grow). Never shorter.
 .equ FX_GET_IFX, 0xC003E738
 .equ FX_GET_MFX, 0xC003E750
 .equ FX_COUNT_IFX, 0xC003EFDC
@@ -35,6 +37,12 @@
 .equ FX_BAD_ENTRY, 8
 .equ FX_BAD_CHECKSUM, 9
 .equ FX_READ_ERROR, 10
+.equ FX_SLOTS, 100              ; slots with a record of their own once the preset tables are in (preset_tables.py OLD_SLOTS)
+.equ FX_CLAMP_IFX, 0xC003E73C   ; the getters' clamp, cmp r0, #127 with the preset tables
+.equ FX_CLAMP_MFX, 0xC003E754
+.equ FX_CMP_127, 0xE350007F
+.equ FX_KNOB_RESET, 0xC00980AC  ; the insert knob memory: every part's row back to 0x40
+.equ FX_KNOB_STORE, 0xC009816C  ; r0 part: its insert knob value into its row, at its insert type
 
 ; -> r1 = the text behind the firmware in BLECH > VERSION, what the start did with e2sFx.all; 0 when it found no file. Clobbers r2.
 fx_status_text:
@@ -56,6 +64,9 @@ fx_status_text:
 
 fx_card_load:
     push {r4-r11, lr}
+    mov r0, #0                  ; [sp] the insert slots the file fills, [sp, #4] the master slots
+    push {r0}
+    push {r0}
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL
     ldr r9, =HOOK_INPUT
@@ -155,7 +166,20 @@ fx_entry:
     blx r12
     ldr r1, [r4, #FX_INDEX]
     cmp r1, r0
+    blo fx_entry_slots
+    cmp r1, #FX_SLOTS
     bhs fx_bad_entry
+    bl fx_can_grow
+    cmp r0, #0
+    bne fx_bad_entry
+    ldr r1, [r4, #FX_INDEX]
+fx_entry_slots:
+    ldr r0, [r4, #FX_KIND]
+    sub r0, r0, #1
+    add r1, r1, #1
+    ldr r2, [sp, r0, lsl #2]
+    cmp r1, r2
+    strhi r1, [sp, r0, lsl #2]
     b fx_entry_size
 fx_entry_mod:
     cmp r3, #FX_MOD_RECORD
@@ -230,7 +254,12 @@ fx_entries_done:
     b fx_pass
 fx_done_ok:
     cmp r8, #0
-    blne fx_reapply
+    beq fx_done_status
+    ldr r0, [sp]
+    ldr r1, [sp, #4]
+    bl fx_grow
+    bl fx_reapply
+fx_done_status:
     mov r0, #FX_OK
     b fx_status
 fx_no_panel:
@@ -262,7 +291,119 @@ fx_status:
     ldr r0, [r5, #CARD_OPEN]
     cmp r0, #0
     blne card_close
+    add sp, sp, #8
     pop {r4-r11, pc}
+.pool
+
+; The menu lengths, as the firmware has them in its code: the address (bit 1 set for the master menu, bit 0 for a site that
+; holds the last index instead of the count) and the instruction without its low byte (docs/messungen/2026-09-14-fx-ram-write.md;
+; 0xC0098084 is the row length of the knob memory, preset_tables.py). The same in Hacktribe's and Korg's build.
+fx_sites:
+    .word 0xC003EFDC, 0xE3A00000, 0xC0098150, 0xD3A03000, 0xC0098194, 0xE3A01000, 0xC00980EC, 0xD3A03000
+    .word 0xC009809C, 0xE3530000, 0xC009811C, 0xE3A02000, 0xC0098138, 0xE3530000, 0xC0098084, 0xE3A02000
+    .word 0xC0048F81, 0xE3500000, 0xC0049EF1, 0xE3520000, 0xC004A1F9, 0xE3520000, 0xC009814D, 0xD3510000
+    .word 0xC0098189, 0xE3520000, 0xC00980E9, 0xE3550000, 0xC003EFE6, 0xE3A00000, 0
+
+; -> r0 0 when the menus can grow past their length: the preset tables are in (both clamps 127) and every site of fx_sites
+; holds the instruction and the length the firmware has. Anything else (another build, a firmware without the tables) and a
+; slot past the menu stays refused.
+fx_can_grow:
+    push {r4-r6, lr}
+    ldr r2, =FX_CMP_127
+    ldr r1, =FX_CLAMP_IFX
+    ldr r0, [r1]
+    cmp r0, r2
+    ldreq r1, =FX_CLAMP_MFX
+    ldreq r0, [r1]
+    cmpeq r0, r2
+    bne fx_can_grow_no
+    ldr r12, =FX_COUNT_IFX
+    blx r12
+    mov r5, r0
+    ldr r12, =FX_COUNT_MFX
+    blx r12
+    mov r6, r0
+    ldr r4, =fx_sites
+fx_can_grow_site:
+    ldr r0, [r4], #4
+    cmp r0, #0
+    beq fx_can_grow_yes
+    ldr r1, [r4], #4
+    tst r0, #2
+    moveq r2, r5
+    movne r2, r6
+    tst r0, #1
+    subne r2, r2, #1
+    bic r0, r0, #3
+    ldr r3, [r0]
+    bic r12, r3, #0xFF
+    cmp r12, r1
+    bne fx_can_grow_no
+    and r3, r3, #0xFF
+    cmp r3, r2
+    beq fx_can_grow_site
+fx_can_grow_no:
+    mov r0, #1
+    pop {r4-r6, pc}
+fx_can_grow_yes:
+    mov r0, #0
+    pop {r4-r6, pc}
+
+; r0 the insert slots the file fills, r1 the master slots: a menu shorter than that gets that length at every site, in RAM
+; only (gone at power-off, the next start reads the file again). The code changed is cleaned out of the data cache and the
+; instruction cache cleared before the firmware runs it again; then every part's row of the insert knob memory, whose
+; length is the menu's, is laid out again and gets the part's knob value back.
+fx_grow:
+    push {r4-r8, lr}
+    mov r7, r0
+    mov r8, r1
+    ldr r12, =FX_COUNT_IFX
+    blx r12
+    cmp r7, r0
+    movls r7, #0
+    ldr r12, =FX_COUNT_MFX
+    blx r12
+    cmp r8, r0
+    movls r8, #0
+    orrs r0, r7, r8
+    beq fx_grow_done
+    bl fx_can_grow
+    cmp r0, #0
+    bne fx_grow_done
+    ldr r4, =fx_sites
+fx_grow_site:
+    ldr r0, [r4], #8
+    cmp r0, #0
+    beq fx_grow_written
+    tst r0, #2
+    moveq r1, r7
+    movne r1, r8
+    cmp r1, #0
+    beq fx_grow_site
+    tst r0, #1
+    subne r1, r1, #1
+    bic r0, r0, #3
+    strb r1, [r0]
+    .word 0xEE070F3A            ; mcr p15, 0, r0, c7, c10, 1: clean the data cache line of r0
+    b fx_grow_site
+fx_grow_written:
+    mov r0, #0
+    .word 0xEE070F9A            ; mcr p15, 0, r0, c7, c10, 4: drain the write buffer
+    .word 0xEE070F15            ; mcr p15, 0, r0, c7, c5, 0: clear the instruction cache
+    cmp r7, #0
+    beq fx_grow_done
+    ldr r12, =FX_KNOB_RESET
+    blx r12
+    mov r5, #0
+fx_grow_knob:
+    mov r0, r5
+    ldr r12, =FX_KNOB_STORE
+    blx r12
+    add r5, r5, #1
+    cmp r5, #16
+    blo fx_grow_knob
+fx_grow_done:
+    pop {r4-r8, pc}
 .pool
 
 ; The pattern of the start set its effects before the loader ran, from the records of the firmware. Each type goes to the next
