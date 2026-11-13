@@ -1,4 +1,4 @@
-"""Card gating: the synth's detect pin or the Sampler's mounted volume, latched once a card was seen."""
+"""Card gating: the detect pin on every build, on the Sampler builds also the mounted volume, latched once a card was seen."""
 import struct
 import unittest
 
@@ -38,9 +38,15 @@ class CardGate(unittest.TestCase):
 
     def test_sampler_keeps_its_mounted_volume_rule(self):
         for build in ('stock', 'hacktribe'):
-            self.assertEqual(self.run_gate(build, pointer=0), (0, 0xFFFFFFFF))
-            self.assertEqual(self.run_gate(build, pointer=0x30000), (0, 0xFFFFFFFF))
-            self.assertEqual(self.run_gate(build, pointer=0x30000, mounted=1), (1, card_gate.CARD_SEEN))
+            self.assertEqual(self.run_gate(build, detect=2, pointer=0), (0, 0xFFFFFFFF))
+            self.assertEqual(self.run_gate(build, detect=2, pointer=0x30000), (0, 0xFFFFFFFF))
+            self.assertEqual(self.run_gate(build, detect=2, pointer=0x30000, mounted=1), (1, card_gate.CARD_SEEN))
+
+    def test_sampler_detects_a_card_inserted_after_the_start(self):
+        """FatFs mounts lazily: a Sampler that started without a card has no mounted volume until the first access."""
+        for build in ('stock', 'hacktribe'):
+            self.assertEqual(self.run_gate(build, detect=0, pointer=0), (1, card_gate.CARD_SEEN))
+            self.assertEqual(self.run_gate(build, detect=0, pointer=0x30000, mounted=0), (1, card_gate.CARD_SEEN))
 
     def test_a_card_seen_once_keeps_the_feature_on_after_it_is_pulled(self):
         for build in ('synth', 'stock', 'hacktribe'):

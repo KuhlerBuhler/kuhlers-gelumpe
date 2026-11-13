@@ -67,6 +67,7 @@ Wie das Gerät auf Nachrichten antwortet, Größen und Zeiten.
 - [SysEx: globaler Kanal und Leseobergrenze](2026-09-14-sysex-channel.md)
 - [Geräteprotokoll: Suche, RAM lesen und Pattern-Abfrage](2026-10-08-geraeteprotokoll.md)
 - [SysEx über die emulierte DIN-MIDI](2026-10-09-din-sysex.md)
+- [Doom über USB auf die Karte (Emulator)](2026-11-11-doom-usb.md)
 
 
 ## Speicher und Flash
@@ -221,6 +222,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Doom auf BLECH v21](2026-10-15-doom-v21.md)
 - [Doom als Patch des BLECH-Satzes, auf Hacktribe und Korgs Original](2026-10-15-doom-im-patcher.md)
 - [Emulator-Zeit gegen Gerätezeit: vier kleine Schleifen, Rechnen 1,0, Speicher-Durchlauf rund 4](2026-10-16-emulator-timing.md)
+- [Gerätetakt im Emulator: Cache und Multiply in der laufenden Zeit, Stichprobe je Scheibe, VM und Nachläufe von 1.4.5 nachgerechnet](2026-11-10-emulator-geraetetakt.md)
 
 - [Blaue Electribe: Ladebalken, Kartenordner und Sample-Fehler](2026-10-16-blau-ladebalken-ordner.md)
 - [BLECH-Satz für die blaue Electribe 2](2026-10-16-blech-synth.md)
@@ -242,14 +244,20 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Update über USB: die Firmware-Datei über BLECH lesen und schreiben](2026-10-18-update-ueber-usb.md)
 - [Ruhender Insert-Effekt: Punch für stumme Parts](2026-10-18-ifx-ruht.md)
 - [Kartenfehler beim Start: Ladebalken weg, Power-Taste, Mounten wiederholen](2026-10-19-kartenfehler-beim-start.md)
+- [Tote Karte beim Start: kein Nachfragen mehr, der Start läuft wie ohne BLECH, im Emulator](2026-11-10-tote-karte-beim-start.md)
 - [Mandelbrot: nachgewiesene Innenflächen überspringen](2026-10-19-mandelbrot-schneller.md)
 - [Pong: kurzer Ballschweif, Life: Zeichnen und Berechnen verzahnen](2026-10-19-pong-life.md)
 - [Mandelbrot: offene Rechtecke in einer Arbeitsliste](2026-10-19-mandelbrot-arbeitsliste.md)
 - [EXIT-Shortcuts: speichern und Part zurücksetzen](2026-10-19-exit-shortcuts.md)
 - [KEY PADS fest eingebaut: KEYBOARD + Pad setzt den KEY, das Wertefenster zeigt ihn, im Emulator](2026-11-07-key-pads-eingebaut.md)
 - [KEY PADS chromatisch: Pad 1 C bis Pad 12 B, Pads 13 bis 16 tun nichts, im Emulator](2026-11-08-key-pads-chromatisch.md)
+- [KEY PADS Oktave: Pads 13 bis 16 setzen die Oktave der Tastatur 3 bis 6, im Emulator](2026-11-12-key-pads-oktave.md)
 - [FILTER TOGGLE fest eingebaut: SHIFT + Filtertaste schaltet das Filter aus und an, mit dem Fenster der Firmware, im Emulator](2026-11-08-filter-toggle-eingebaut.md)
 - [AUTO SAVE: GLOBAL PARAMETERS und BLECH-Einstellungen speichern sich beim Verlassen, nur mit Änderung, im Emulator](2026-11-09-auto-save.md)
+- [ORIG im BLECH-Menü wie auf den Seiten der Firmware; Spielhilfen mit einer erst nach dem Start eingesteckten Karte, im Emulator](2026-11-11-orig-und-karte-spaeter.md)
+- [Die später gesteckte Karte bringt ihre ganze Einstellungsdatei mit, auch beim Kartentausch, im Emulator](2026-11-12-karte-spaeter-einstellungen.md)
+- [BLECH-Einstellungen ohne Karte im Flash: zwei Sektoren im Wechsel, die Karte gewinnt beim Start, beim Einstecken fragt das Display SAVE TO FLASH?, im Emulator](2026-11-13-einstellungen-flash.md)
+- [KNOB LEDS: die LEDs hinter den Reglern aus, im Emulator](2026-11-12-knopf-leds.md)
 - [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
 - [Notenassistent: Helligkeit nach Passung, stehen lassen und ausblenden](2026-10-19-notenassistent-helligkeit.md)

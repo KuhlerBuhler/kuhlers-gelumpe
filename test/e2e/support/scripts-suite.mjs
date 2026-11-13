@@ -68,7 +68,7 @@ export function scriptsSuite(index, parts) {
   };
 
   const KLICKER = readFileSync(new URL("../../fixtures/scripts/klicker.js", import.meta.url), "utf8");
-  const TITLES = ["BLECH Clicker", "Set-Timer", "Snake", "Tetris", "Game of Life", "Pong", "Simon", "Mandelbrot", "GIF Player", "Image Viewer", "BPM Glide", "Lauflicht", "Pulsieren", "Takt-Blinker", "Momentary Mute", "Gate Hold", "Step Copy"];
+  const TITLES = ["BLECH Clicker", "Set-Timer", "Snake", "Tetris", "Game of Life", "Pong", "Simon", "Mandelbrot", "GIF Player", "Image Viewer", "BPM Glide", "Lauflicht", "Pulsieren", "PLAY-Takt", "Momentary Mute", "Gate Hold", "Step Copy", "303Pattern", "EUCLID FLOW", "LIVE RELOAD", "RANDOM SLOT", "Better Accent", "Easy Slides"];
 
   /** A plugin of the catalog taken as an own one, the way a person does it: its page, then Als eigenes Plugin öffnen. */
   async function makeOwn(page, from = "snake") {

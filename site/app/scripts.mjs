@@ -10,7 +10,7 @@ import { simPanel } from "./sim-panel.mjs";
 import { drawDisplay } from "./emulator.mjs";
 import { PADS } from "../../data/panel.mjs";
 import { parseMarkdown } from "./markdown.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { createScriptEditor } from "./script-editor.mjs";
 import { highlightLines } from "../../src/script/highlight.mjs";
@@ -18,6 +18,7 @@ import { compile, formatError } from "../../src/script/compiler.mjs";
 import { decodeBlob, markProbed } from "../../src/script/blob.mjs";
 import { LIMITS, BUDGET, ARCHIVE, SCRIPT_APPS } from "../../data/script/contract.mjs";
 import { PRESETS } from "../../data/script/presets.mjs";
+import { PLUGIN_PICTURES } from "../../data/script/plugin-pictures.mjs";
 import { TEMPLATES, templateSource } from "../../data/script/templates.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
 import { KNOB_NAMES } from "../../data/script/properties.mjs";
@@ -29,7 +30,10 @@ import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
 import { storePlugin } from "../../src/usb-update.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { pixelsOf } from "./splash.mjs";
+import { drawFeature } from "./features.mjs";
 import { t, locale, language } from "./i18n.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:plugins");
 
 /** 0/1 pixels row by row (splash.mjs) to the display's 1024 bytes: eight rows per byte, bit 0 on top. */
 function displayBytes(pixels) {
@@ -754,7 +758,6 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const catalog = el("ul", { className: "cee-catalog", id: "cee-catalog" }, PRESETS.map(catalogCard));
   const exportAllOwn = exportAll;
   const ownShelf = el("div", { className: "cee-plug-page cee-own-shelf", id: "cee-own-shelf" }, [
-    el("div", { className: "actions" }, [newButton, openLabel, open, exportAllOwn]),
     ownEmpty,
     ownList,
     el("p", { className: "muted", textContent: t("plugins.own.local") }),
@@ -849,7 +852,10 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     subPages?.select(id === "detail" ? "catalog" : id);
     reading = null;
     trail(id === "editor" ? [t("plugins.page.editor"), ...(current ? [current.id] : [])] : [PAGES.find(p => p.id === id).title]);
-    navbar(id === "editor" ? [openNav, saveNav] : []);
+    // Meine Plugins and the editor keep their file actions in the navbar; the file input goes along, so Öffnen works on both.
+    // In the editor the Öffnen button clicks it, so there it stays out of view and out of the accessibility tree.
+    open.hidden = id === "editor";
+    navbar(id === "editor" ? [openNav, saveNav, open] : id === "mine" ? [newButton, openLabel, open, exportAllOwn] : []);
     if (id === "catalog") drawThumbs();
     if (id === "docs") loadDocs();
   }
@@ -857,7 +863,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const THUMB_FRAMES = 40;
   const noStore = { load: () => null, save: () => {} };
 
-  /** The display of a plugin after a few frames, drawn with the LCD drawing of the emulator page; a plugin that only lights LEDs shows its pads. */
+  /** The display of a plugin after a few frames, drawn with the LCD drawing of the emulator page; a catalog plugin that
+   * leaves the display alone shows its picture (site/img/plugins, tools/plugin-art.mjs), an own one its pads. */
   function renderThumb(canvas, preset) {
     const result = compile(preset.source, { name: validName(preset.id) ? preset.id : "plugin" });
     drawDisplay(canvas, new Uint8Array(1024));
@@ -876,6 +883,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       ctx.fillRect(8 + (pad.index % 8) * 14, 18 + Math.floor(pad.index / 8) * 16, 11, 11);
     }
     ctx.globalAlpha = 1;
+    if (PRESETS.includes(preset) && PLUGIN_PICTURES.includes(preset.id)) drawFeature(canvas, `img/plugins/${preset.id}.svg`);
   }
 
   function drawThumbs() {

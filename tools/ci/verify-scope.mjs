@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Which case modules of tools/emu/check.py a pull request into develop has to run, from the files it changes. The
+ * Which case modules of tools/emu/check.py a feature pull request has to run, from the files it changes. The
  * workflow .github/workflows/verify-patches.yml passes the answer to `verify-patches.mjs --cases`; the start scenarios
  * run always.
  *
@@ -21,12 +21,12 @@ export const ALL = "all";
 export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases",
   "note_assist_cases", "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases",
   "remote_cases", "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases"];
+  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases"];
 
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
 const MENU_USERS = ["menu_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
-  "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "beat_eighth_cases", "ht_osc_cases"];
+  "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "beat_eighth_cases", "ht_osc_cases", "card_error_cases"];
 const PSWITCH_USERS = ["pswitch_cases", "tap_motion_cases", "note_assist_cases", "ifx_idle_cases", "shortcut_cases",
   "synth_filter_cases", "beat_eighth_cases"];
 const MFX_USERS = ["mfx_cases", "ifx_idle_cases", "preset_cases", "stereo_pad_cases", "touch_scale_zero_cases", "ht_osc_cases"];
@@ -80,7 +80,7 @@ export const TABLE = [
   [/^tools\/patch\/script_menu\.s$/, ["menu_cases", "shortcut_cases", "migrate_cases", "init_pattern_cases", "last_pattern_cases", "stereo_pad_cases", "ht_osc_cases"]],
   [/^tools\/patch\/blech_version\.mjs$|^data\/patches\/blech-version[^/]*\.json$/, ["menu_cases"]],
   [/^tools\/patch\/script_shortcuts\.s$/, ["shortcut_cases"]],
-  [/^tools\/patch\/script_migrate\.s$/, ["migrate_cases"]],
+  [/^tools\/patch\/script_migrate\.s$/, ["migrate_cases", "card_error_cases"]],
   [/^tools\/patch\/script_remote\.s$|^tools\/patch\/script_objects\.s$/, ["remote_cases"]],
   [/^tools\/patch\/fx_card\.s$|^src\/fx-collection\.mjs$/, ["fx_card_cases"]],
   [/^tools\/patch\/pattern_switch\.py$|^data\/patches\/pattern-switch[^/]*\.json$/, ["pswitch_cases"]],
@@ -88,7 +88,7 @@ export const TABLE = [
   [/^tools\/patch\/note_assist\.py$|^data\/patches\/note-assistant[^/]*\.json$/, ["note_assist_cases"]],
   [/^tools\/patch\/dice\.py$|^data\/patches\/dice[^/]*\.json$/, ["dice_cases"]],
   [/^tools\/patch\/ifx_idle\.py$|^data\/patches\/ifx-idle[^/]*\.json$/, ["ifx_idle_cases"]],
-  [/^tools\/patch\/(load_bar|loading_anim)\.py$|^data\/patches\/load-bar[^/]*\.json$/, ["loadbar_cases"]],
+  [/^tools\/patch\/(load_bar|loading_anim)\.py$|^data\/patches\/load-bar[^/]*\.json$/, ["loadbar_cases", "card_error_cases"]],
   [/^tools\/patch\/sample_errors\.py$|^data\/patches\/sample-errors[^/]*\.json$/, ["sample_error_cases"]],
   [/^tools\/patch\/synth_filters\.py$|^data\/patches\/synth-filters[^/]*\.json$/, ["synth_filter_cases"]],
   [/^tools\/patch\/blech_sysex\.(py|mjs)$|^data\/patches\/blech-sysex[^/]*\.json$/, ["sysex_cases"]],

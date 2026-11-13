@@ -24,7 +24,7 @@ Five places get a call into our code:
 The export (0xC004EBD4) skips DSP entries, so e2sSample.all never gives the slots 421 to 496.
 
 The oscillators have no switch: the slots were always empty, so they are always on where the set has the patch. Bit 6 of
-byte 5 of the BLECH settings file, which an earlier build wrote for a page HT OSC OFF, is read as nothing. With EXIT held at
+byte 5 of the BLECH settings file, which an earlier build wrote for a page HT OSC OFF, does nothing here (it is KNOB LEDS OFF now). With EXIT held at
 power-on (docs/patcher.md, "Notschalter") all five places do what the firmware does.
 
     python3 tools/patch/ht_osc.py --vsb SYSTEM.VSB [--out data/patches/ht-osc.json] [--hacktribe HACKTRIBE.VSB]

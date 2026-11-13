@@ -9,7 +9,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from tools.patch.test_script_vm import contract_data, blob, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
 if UNICORN_AVAILABLE:
-    from unicorn import UC_HOOK_CODE
+    from unicorn import UC_HOOK_CODE, UcError
     from unicorn.arm_const import *
 
 FS_OPEN, FS_READ, FS_CLOSE = 0xC009DB60, 0xC009DD74, 0xC009E3DC
@@ -79,6 +79,18 @@ class NativeCardTests(unittest.TestCase):
         for offset in range(STATUS, STATUS + 16, 4): m.write(m.runtime + offset, 0xffffffff)
         m.fat = FakeFat(m, data, **fat)
         m.uc.mem_write(0xC01F7000, b'\xff' * 0x1000)
+        # the start builds the settings record (menu_orig_snap), which asks the patches last-pattern, stereo-pad and pad-colors whether the
+        # set has them: FF is "not there", as in an image without them
+        for page in (0xC014F000, 0xC018B000):
+            try:
+                m.uc.mem_map(page, 0x1000)
+            except UcError:
+                pass
+            m.uc.mem_write(page, b'\xff' * 0x1000)
+        # without a card the start reads the settings copies in the flash (FLASH_GET 0xC0029A40, FLASH_READ 0xC0029A74): both
+        # return 0 here (mov r0, #0; bx lr), so no copy is found and the defaults stay
+        m.uc.mem_map(0xC0029000, 0x1000)
+        for at in (0xC0029A40, 0xC0029A74): m.uc.mem_write(at, struct.pack('<2I', 0xE3A00000, 0xE12FFF1E))
         return m, built
 
     def load(self, m):

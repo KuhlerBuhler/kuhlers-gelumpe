@@ -129,9 +129,9 @@ def real_machine(payload, flash):
     return Machine(payload, flash)
 
 
-def real_check(base, patched, flash, allow, allow_code=(), boot_flash=None, progress=None, quick=False):
+def real_check(base, patched, flash, allow, allow_code=(), boot_flash=None, progress=None, quick=False, foreign=False):
     from check import check
-    return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick, boot_flash=boot_flash)
+    return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick, boot_flash=boot_flash, foreign=foreign)
 
 
 class Emulator:
@@ -144,6 +144,7 @@ class Emulator:
         self.cards = cards
         self.flash_store = flash_store      # the flash file the device boots from and writes back to
         self.card = None                    # the SDCard of the running machine
+        self.card_raw = {}                  # the options (JSON) the inserted card was made with; a restart makes the card again from them
         self.card_folder = None             # KORG/<this>/ is where the loaded firmware keeps its files
         self.build, self.build_reason = None, None     # which build the loaded firmware is (firmware.py)
         self.hang_s = hang_s
@@ -161,6 +162,7 @@ class Emulator:
         self.lock = threading.Lock()
         self.card_lock = threading.RLock()  # starting the device and changing a card exclude each other
         self.clients = []
+        self.lagging = set()                # clients that lost an LED change: they get the whole table before the next one
         self.shade = None                   # the display levels last published, as the page gets them
         self.inputs = queue.Queue()
         self.midi_in = queue.Queue()
@@ -181,20 +183,28 @@ class Emulator:
             if self.shade is not None:
                 q.put(("shade", self.shade))
             q.put(("leds", dict(m.leds)))
+            q.put(("backlight", self.light(m)))
         return q
 
     def unsubscribe(self, q):
         with self.lock:
             if q in self.clients:
                 self.clients.remove(q)
+            self.lagging.discard(q)
 
-    def publish(self, kind, data):
+    def publish(self, kind, data, table=None):
+        """An event to every page. A slow page skips frames; one that missed LED changes gets `table`, the whole LED table,
+        before the next ones, so it never shows a state the firmware did not send."""
         with self.lock:
             for q in self.clients:
                 try:
+                    if table is not None and q in self.lagging:
+                        q.put_nowait(("leds", table))
+                        self.lagging.discard(q)
                     q.put_nowait((kind, data))
                 except queue.Full:
-                    pass                      # a slow page skips frames
+                    if table is not None:
+                        self.lagging.add(q)
 
     def set_status(self, **changes):
         self.status = {**self.status, **changes}
@@ -216,14 +226,19 @@ class Emulator:
         card = self.card
         return bool(self.live and card is not None and card.medium.busy())
 
-    def insert_card(self, inserted):
+    def insert_card(self, inserted, options=None):
         """The card goes in or comes out, also while the Electribe runs: the firmware polls the card-detect
-        input (GPIO 4.1) and notices on its own. The change reaches the machine between two steps."""
+        input (GPIO 4.1) and notices on its own. The change reaches the machine between two steps. `options` (JSON,
+        SDCard.options) make it an old SDSC card, lock it, or arm faults; see docs/emulator.md."""
+        if inserted:
+            SDCard.options(options)         # a bad option is refused before anything is inserted
         with self.card_lock:
             if inserted:
                 self.cards.insert(self.card_folder)
-                self._card_change(lambda m: self._plug(m, SDCard(self.cards.image)))
+                self.card_raw = dict(options or {})
+                self._card_change(lambda m: self._plug(m, SDCard(self.cards.image, **SDCard.options(self.card_raw))))
             else:
+                self.card_raw = {}
                 self._card_change(lambda m: self._plug(m, None))
                 self.cards.eject()
         self.set_status(card=self.card_summary())
@@ -245,6 +260,22 @@ class Emulator:
         if not done.wait(timeout=5) and self.running:
             raise Conflict("Die Electribe hat die Karte nicht übernommen. Gleich noch einmal.")
 
+    def change_card(self, options):
+        """The lock switch and the armed faults of the card in the slot, changed while it stays there (a switch is
+        flipped on a real card too); "faults" replaces the list. The change reaches the machine between two steps."""
+        kwargs = SDCard.options(options, live=True)
+        with self.card_lock:
+            if not self.cards.inserted:
+                raise Conflict("Es ist keine Karte eingelegt.")
+            self.card_raw = {**self.card_raw, **options}
+
+            def apply(m):
+                card = self.card
+                if card is not None:
+                    for name, value in kwargs.items():
+                        setattr(card, name, value)
+            self._card_change(apply)
+
     def put_system(self, data):
         """The update file onto the card of the loaded firmware, and the card in: the way an update is tested.
         Other card folders are never touched: whoever wants the files of one firmware in the folder of another copies them."""
@@ -253,10 +284,11 @@ class Emulator:
         if len(data) != VSB_SIZE:
             raise ValueError(f"Eine VSB hat genau {VSB_SIZE} Byte, diese hat {len(data)}.")
         with self.card_lock:
+            options = self.card_raw
             if self.cards.inserted:
                 self.insert_card(False)
             self.cards.put_system(self.card_folder, data)
-            self.insert_card(True)
+            self.insert_card(True, options)
 
     def sd_state(self):
         c = self.cards
@@ -265,6 +297,7 @@ class Emulator:
         card = self.card if self.live else None
         return {"available": True, "folder": str(c.dir), "korg": self.card_folder or "hacktribe",
                 "inserted": c.inserted, "running": self.live, "busy": self.card_busy(), "error": c.sync_error,
+                "card": (card or SDCard(c.image, **SDCard.options(self.card_raw))).describe() if c.inserted else None,
                 "stats": {"read": card.sectors_read, "written": card.sectors_written} if card else None}
 
     def save_cards(self):
@@ -278,6 +311,13 @@ class Emulator:
     def _display(m):
         shown = m.shown() if hasattr(m, "shown") else bytes(b for row in m.fb for b in row)
         return base64.b64encode(shown).decode("ascii")
+
+    @staticmethod
+    def light(m):
+        """The display light as the eye sees it, [red, green, blue] 0 to 255, or None where the machine does not model it or the
+        firmware has not driven it yet (backlight.py); the page then draws in its own colours."""
+        light = getattr(m, "backlight", None)
+        return light.levels(m.time_ns) if light is not None else None
 
     def publish_shade(self, lcd):
         """The display as it looks, one level (0 clear to 15 dark) per pixel, row by row (lcd.py)."""
@@ -391,7 +431,7 @@ class Emulator:
             self.ran = (self.machine, self.firmware[0x100:])
             self.card = None
             if self.cards is not None and self.cards.inserted:
-                self.card = SDCard(self.cards.image)
+                self.card = SDCard(self.cards.image, **SDCard.options(self.card_raw))
                 self.machine.insert_card(self.card)
             self.machine.adapter = self.adapter
             self.inputs = queue.Queue()
@@ -450,11 +490,11 @@ class Emulator:
             self.inputs.put(panel_message({"kind": "adapter", "plugged": False})[0])
         self.inputs.put(held)
 
-    def check(self, pair, allow, allow_code=(), quick=False, hardware=None):
+    def check(self, pair, allow, allow_code=(), quick=False, hardware=None, foreign=False):
         """Export check (check.py) of the original VSB and its patched copy, sent one after the other. The start scenarios
         boot from the flash of the hardware the original runs on (by its head, or `hardware`), the user's own; the cases of
         the patches run on a blank flash of that hardware, as in CI: they expect Init patterns, not the user's.
-        One check at a time; `quick` only the start scenarios."""
+        One check at a time; `quick` only the start scenarios; `foreign` (a patch that is not ours) without the start phase check."""
         if len(pair) != 2 * VSB_SIZE:
             raise ValueError(f"Die Prüfung braucht Original und Kopie, je {VSB_SIZE} Byte.")
         if not self.checking.acquire(blocking=False):
@@ -465,7 +505,7 @@ class Emulator:
             result = self.checker(bytes(pair[:VSB_SIZE]), bytes(pair[VSB_SIZE:]), blank_for(hardware, payload), allow, allow_code,
                                   boot_flash=self.current_flash(hardware, payload),
                                   progress=lambda snapshot: setattr(self, "check_progress", {"state": "running", **snapshot}),
-                                  **({"quick": True} if quick else {}))
+                                  **({"quick": True} if quick else {}), **({"foreign": True} if foreign else {}))
             self.check_progress = {**self.check_progress, "state": "done"}
             return result
         except BaseException:
@@ -487,9 +527,28 @@ class Emulator:
         self.midi_in.put(bytes(data))
         return True
 
+    def publish_trace(self, m, trace, seen):
+        """The LED changes since change `seen` as one event `ledtrace`, each with the device time in microseconds the panel got
+        it and the one it lights (panel_leds.lit_at), so the page can show them at the device's pace; nothing is merged or
+        dropped between two steps. Returns the last change sent."""
+        changes, lost = trace.since(seen)
+        if not changes:
+            return seen
+        table = {led: v for led, v in sorted(trace.value.items()) if v}
+        data = {"now": m.time_ns // 1000, "first": changes[0][0],
+                "changes": [[t // 1000, at // 1000, led, v] for _, t, at, led, v in changes]}
+        if lost:                                   # more changes in one step than the log keeps: the table first, then what is left
+            self.publish("leds", table)
+        self.publish("ledtrace", data, table)
+        return changes[-1][0]
+
     def _run(self, m):
         wall0, dev0 = time.monotonic(), m.time_ns
         last_fb, last_leds, last_report, report_ns = None, None, wall0, dev0
+        last_light = self.light(m)
+        self.publish("backlight", last_light)      # a page may still hold the colour of the last run
+        trace = getattr(m, "panel_leds", None)     # every LED change with its device time (panel_leds.py); a stand-in has only the table
+        led_seen = trace.count if trace is not None else 0
         status_ns = dev0
         alive_count, alive_ns = getattr(m, "panel_count", None), dev0
         last_sd = None
@@ -515,6 +574,7 @@ class Emulator:
                     lcd.settle(m.fb, getattr(m, "lcd_reverse", False))
                     self.publish_shade(lcd)
                     self.publish("leds", {})
+                    self.publish("backlight", self.light(m))
                     self.set_status(state="off", error=None)
                     return
                 fb = self._display(m)
@@ -523,10 +583,17 @@ class Emulator:
                     last_fb = fb
                 if lcd.update(m.fb, m.time_ns, getattr(m, "lcd_reverse", False)):
                     self.publish_shade(lcd)
-                leds = sorted(m.leds.items())
-                if leds != last_leds:
-                    self.publish("leds", dict(leds))
-                    last_leds = leds
+                if trace is not None:
+                    led_seen = self.publish_trace(m, trace, led_seen)
+                else:
+                    leds = sorted(m.leds.items())
+                    if leds != last_leds:
+                        self.publish("leds", dict(leds))
+                        last_leds = leds
+                light = self.light(m)
+                if light != last_light:
+                    self.publish("backlight", light)
+                    last_light = light
                 card = self.card
                 if card is not None:
                     sd = (card.sectors_read, card.sectors_written, bool(card.medium.busy()))
@@ -654,9 +721,16 @@ def make_handler(emu, token, origins):
             if method == "GET" and path == "/sd":
                 return self._send(200, emu.sd_state())
             if method == "POST" and path in ("/sd/insert", "/sd/eject"):
-                if self._body(1024) is None:
+                body = self._body(65536)
+                if body is None:
                     return
-                emu.insert_card(path == "/sd/insert")
+                emu.insert_card(path == "/sd/insert", json.loads(body or b"{}") if path == "/sd/insert" else None)
+                return self._send(200, emu.sd_state())
+            if method == "POST" and path == "/sd/card":
+                body = self._body(65536)
+                if body is None:
+                    return
+                emu.change_card(json.loads(body or b"{}"))
                 return self._send(200, emu.sd_state())
             if method == "POST" and path == "/sd/system":
                 body = self._body(VSB_SIZE)
@@ -720,7 +794,8 @@ def make_handler(emu, token, origins):
                     hardware = query.get("hardware", [None])[0]
                     if hardware not in (None, "red", "blue"):
                         raise ValueError("hardware ist red oder blue.")
-                    return self._send(200, emu.check(body, spans["allow"], spans["allowCode"], quick=query.get("quick", [""])[0] == "1", hardware=hardware))
+                    return self._send(200, emu.check(body, spans["allow"], spans["allowCode"], quick=query.get("quick", [""])[0] == "1", hardware=hardware,
+                                                         foreign=query.get("foreign", [""])[0] == "1"))
                 elif path == "/input":
                     body = self._body(1024)
                     if body is None: return
