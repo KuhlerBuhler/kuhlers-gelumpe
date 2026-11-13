@@ -6,8 +6,8 @@ import { compile, formatError } from "../src/script/compiler.mjs";
 import { SimDevice } from "../src/script/sim.mjs";
 import { KEY_NAMES } from "../data/script/names.mjs";
 
-// EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent and Easy Slides came in from the BLECH Discord; these tests hold what
-// the catalog takes them for.
+// EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides and Pad Finger came in from the BLECH Discord; these tests
+// hold what the catalog takes them for.
 const key = name => KEY_NAMES.find(k => k.name === name).value;
 const field = name => PART_FIELDS.findIndex(f => f.name === name);
 
@@ -130,5 +130,40 @@ test("Easy Slides glides TIE steps of parts 1 to 8, leaves the glide of parts 9 
   for (let part = 8; part < 16; part++) assert.deepEqual([...seen[part]], [40], `part ${part + 1} keeps its glide`);
   p.press("STOP");
   assert.deepEqual(Array.from({ length: 16 }, (_, part) => glide(part)), Array(16).fill(40));
+  assert.deepEqual(p.faults, []);
+});
+
+test("Pad Finger shows the touch, holds the firmware's X with LOCK and lets go on lift, with FREE and on EXIT", () => {
+  const p = plugin("padfinger");
+  assert.equal(p.device.apps.length, 1);
+  assert.equal(p.device.apps[0].group, "TOOLS");
+  const touch = (x, y) => { p.device.post("buttonPress", key("TOUCHPAD")); p.device.post("touch", x, y); p.run(2); };
+  const lift = () => { p.device.post("buttonRelease", key("TOUCHPAD")); p.run(2); };
+  touch(500, 500);
+  assert.equal(p.device.hardware.touchLock, -1, "closed, the app leaves the touchpad alone");
+  lift();
+  assert.ok(p.device.openApp(0));
+  p.run(2);
+  assert.ok(p.device.display.bytes.some(b => b), "it draws when it opens");
+  touch(800, 300);
+  assert.equal(p.device.hardware.touchLock, 800 >> 3, "LOCK holds the X where the finger landed");
+  p.device.post("touch", 100, 300);
+  p.run(2);
+  assert.equal(p.device.hardware.touchLock, 800 >> 3, "moving the finger keeps the held X");
+  lift();
+  assert.equal(p.device.hardware.touchLock, -1, "lifting lets go");
+  touch(640, 300);
+  assert.equal(p.device.hardware.touchLock, 640 >> 3);
+  p.press("TAP");
+  assert.equal(p.device.hardware.touchLock, -1, "FREE lets go");
+  lift();
+  touch(400, 300);
+  assert.equal(p.device.hardware.touchLock, -1, "FREE holds nothing");
+  lift();
+  p.press("TAP");
+  touch(256, 300);
+  assert.equal(p.device.hardware.touchLock, 256 >> 3, "LOCK again");
+  p.press("EXIT");
+  assert.equal(p.device.hardware.touchLock, -1, "closing the app lets go");
   assert.deepEqual(p.faults, []);
 });
