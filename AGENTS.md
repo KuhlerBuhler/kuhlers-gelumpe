@@ -145,7 +145,8 @@ Docs state what holds now; before and after belong in commits and release notes.
   the blue), an entry in the set `data/patches/blech.json` or `blech-synth.json`, cases in
   `tools/emu/<name>_cases.py`, a row in the table of [docs/patcher.md](docs/patcher.md) and a
   measurement in `docs/messungen/`. Add the case module to `tools/ci/verify-scope.mjs`;
-  `test/verify-scope.test.mjs` fails otherwise.
+  `test/verify-scope.test.mjs` fails otherwise. Give the case module's id prefix an area in
+  `TEST_AREAS` (`data/rescue.mjs`); `test/rescue.test.mjs` fails otherwise.
 - The runtime patches (`data/patches/script-runtime*.json`) are built, not committed: `npm test`,
   `npm start`, `npm run serve`, `build:site`, `build:sidecar`, `check_sets.mjs` and `verify-patches.mjs`
   build what is missing or older than the sources (`tools/patch/ensure-runtime.mjs`); by hand
@@ -188,6 +189,8 @@ Docs state what holds now; before and after belong in commits and release notes.
   attribution lines.
 - A pull request that may go in once CI is green gets the label `automerge` (`gh pr create ... --label automerge`):
   the workflow Automerge merges it when `unit`, `browser`, `guard` and `patches` pass. Do not poll CI or merge by hand.
+  The label only acts on pull requests to `develop`; one to `release/X.Y.Z` is merged by hand once every check is
+  green: `gh pr merge <n> --merge --admin --match-head-commit <sha>`.
   Leave the label off when the change waits for a device or listening test.
 - On a pull request to `develop`, Verify patches runs `check.py --quick` plus the case modules that
   `tools/ci/verify-scope.mjs` maps to the changed files, on all four originals. The full check runs on

@@ -68,7 +68,7 @@ TO FLASH und MENU auf der Frage lösen sie, ebenso eine Karte mit denselben Wert
 zeichnet `menu_ask_frame` im Frame-Hook wie die Frage der Migration (eigener Puffer, in den Bildspeicher der Firmware kopiert,
 neu markiert); `menu_ask_input` vor der Eingabe der Firmware merkt EXIT oder MENU im Byte `0x157` und verwirft alle Eingaben bis
 Typ 5. Ist die Karte 8 Frames weg (`M_CARD` `0x80 + n`), löst das die Frage, und mit Sperre liest `menu_settings_load` nur den
-Flash (`M_CARD` = `0xFE`), ohne Karte. `menu_flash_save` ruft die Schreibfunktion der Firmware (rot und HT `0xC0029AB8`, blau `0xC0026E24`), die unter
+Flash (`M_CARD` = `0xFD`, `CARD_PULL`; `0xFE` ist seit #518 `CARD_NEVER`), ohne Karte. `menu_flash_save` ruft die Schreibfunktion der Firmware (rot und HT `0xC0029AB8`, blau `0xC0026E24`), die unter
 ihrer Sperre den Sektor liest, löscht und neu schreibt, wie der Startbild-Editor bei WRITE.
 
 ## Messwerte
@@ -90,6 +90,9 @@ Am Gerät (13.11.) ist der Bereich nicht gelesen: der Flash hängt an SPI1 und i
 
 ## Offen
 
+- Nicht geprüft: ob andere Kartenzugriffe (EXPORT ALL CUSTOMIZATIONS, Plugin-Seiten) nach einem Start ohne Karte eine
+  später gesteckte Karte anfassen. Umgestellt ist nur WRITE der Einstellungen; ein Kartenzugriff nach so einem Start kann
+  Korgs Karten-Init hängen lassen (#518).
 - Am Gerät ist nichts geprüft: Löschzeit eines Sektors (der UI-Task steht so lange, im Emulator ohne Zeit), Lebensdauer.
   Zwei Sektoren im Wechsel, höchstens ein Schreiben je Sekunde Ruhe nach einer Änderung (hergeleitet).
 - Das Einstecken kann einen Sektor löschen (offene Änderungen ohne Karte seit dem Ziehen), bevor die Frage kommt. Ohne das gäbe

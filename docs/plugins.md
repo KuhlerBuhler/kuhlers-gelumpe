@@ -98,6 +98,11 @@ zeigt und das Display niemand besitzt. Die Funktion gibt 1 zurück, wenn es klap
 sonst 0. Danach zeichnet das Plugin, bis es `korg.display.release()` ruft oder der
 Nutzer EXIT drückt (das Plugin bekommt dann `close`). Eine App nimmt das Display nicht,
 sie wird im Menü geöffnet. Nicht im Rumpf: dort gibt es kein Display.
+Eine Taste, die beim `korg.display.take()` gehalten ist, bleibt bei der Firmware: ihr
+Loslassen kommt dort an, während das Plugin das Display besitzt, SHIFT oder PART MUTE
+bleiben also nicht hängen (gemessen im Emulator auf Hacktribe, rot und blau,
+`take_lets_key_releases_reach_the_firmware`). Anders als EXIT setzt
+`korg.display.release()` `korg.passKeys` und `korg.padHold` nicht auf die Vorgaben zurück.
 
 ```js
 // Ein Hinweis auf dem Display, solange PLAY gehalten wird.
@@ -1319,7 +1324,7 @@ Die Seiten der Gruppen:
 | Plugin, je `korg.menu.add` eine Seite | die Zahl | die Einstellungen dieses Plugins: das Hauptrad ändert sie, das Plugin bekommt `menu` |
 | Plugin, REMOVE | `press  [ Enter ]` | ENTER fragt ("Enter = remove"), ein zweites ENTER nimmt es aus `e2sPlugin.all` wie ACTIVE OFF und löscht danach die `*.blech` des Plugins von der Karte (`f_unlink` der Firmware): es steht nicht mehr in der Liste, MANAGE PLUGINS meldet "removed". Bei einem Plugin, das nur eine Datei ist, wird nur die Datei gelöscht, bei einem nur in `e2sPlugin.all` nur diese neu geschrieben. Die blaue Electribe hat kein `f_unlink`: dort bleibt die Datei, MANAGE PLUGINS meldet "file stays on card". Hat sich der Ordner seit dem Öffnen der Liste geändert, wird nichts gelöscht ("folder changed") ([Messung](messungen/2026-10-30-plugin-liste-64-entfernen.md)) |
 | DATA UTILITY, EXPORT ALL CUSTOMIZATIONS | (leer, `press  [ Enter ]`; der Titel heißt "EXPORT ALL CUSTOM", der ganze Name passt nicht in die Zeile) | ENTER oder WRITE schreibt die Anpassung als `KORG/blechtribe/e2sCustom.all`: derselbe Satz wie die Einstellungsdatei, ohne die Liste der Prüfsummen der Plugins, und meldet "exported". Beim Start liest noch nichts diese Datei; kopiert über `settings.a.bin` liest sie der Einstellungslader, und die Anpassung ist zurück |
-| DATA UTILITY, EXPORT ALL EFFECTS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt die Presets und Modulationstypen, wie die Firmware sie gerade im RAM hält, zurück in die Sammeldatei `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX und Modulation aus dem Baukasten): jeder Eintrag bleibt an seinem Platz, mit seinem `.e2fx`-Text, den der Editor zurückliest; die Prüfsumme wird neu. Gibt es keine Sammeldatei, legt es eine an (Einträge ohne Text, die lässt der Baukasten beim Laden aus). Eine vorhandene Datei nur, wenn sie beim Einschalten geladen wurde: "bad e2sFx.all", wenn sie seitdem eine andere oder kaputt ist, dann wird nichts geschrieben. Nur auf der roten (die blaue hat keine Sammeldatei) |
+| DATA UTILITY, EXPORT ALL EFFECTS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt die Presets und Modulationstypen, wie die Firmware sie gerade im RAM hält, zurück in die Sammeldatei `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX und Modulation aus dem Baukasten): jeder Eintrag bleibt an seinem Platz, mit seinem `.e2fx`-Text, den der Editor zurückliest; die Prüfsumme wird neu. Gibt es keine Sammeldatei, legt es eine an (Einträge ohne Text, die lässt der Baukasten beim Laden aus). Eine vorhandene Datei nur, wenn sie beim Einschalten geladen wurde: "bad e2sFx.all", wenn sie seitdem eine andere oder kaputt ist, dann wird nichts geschrieben. Rot und blau (Korgs 2.02 mit dem BLECH-Satz) |
 | DATA UTILITY, EXPORT ALL PLUGINS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt, und speichert danach die Einstellungen mit (ausgeschaltete Plugins bleiben aus) |
 | GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | öffnet die Seiten des Display-Lichts; EXIT führt zurück auf DISPLAY |

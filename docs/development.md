@@ -135,13 +135,25 @@ Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt sta
 
 ```bash
 GELUMPE_JOBS=2 node --test --test-concurrency=1 "test/*.test.mjs"
-node --test --test-concurrency=1 --test-timeout=180000 "test/e2e/*.e2e.mjs"
+node --test --test-concurrency=1 --test-timeout=300000 "test/e2e/*.e2e.mjs"
 ```
 
 Die Befehle nacheinander ausführen. `GELUMPE_JOBS` setzt sowohl die Python-Läufe je
 Testdatei als auch die Worker eines Emulator-Pools. Mit `1` laufen sie jeweils einzeln;
 ohne gültige positive ganze Zahl nutzt der Node-Teststarter die Hälfte der CPU-Kerne,
 mindestens zwei.
+
+`--test-timeout` gilt je Datei: `patcher.e2e.mjs` allein braucht in CI rund 160 s, deshalb 300 s.
+
+Die Python-Tests unter `tools/patch/` sind `unittest`, `pytest` ist nicht in der Umgebung:
+
+```bash
+cd tools/patch && PYTHONPATH=. ../emu/.venv/bin/python -m unittest test_script_hooks test_script_objects test_card_gate test_script_card
+```
+
+Die Unit-VM dieser Tests hat nur Code und RAM, keine GPIO-Seite und keinen Flash. Ruft die Laufzeit beim Start
+Firmware-Funktionen oder Register (Kartenschalter, `FLASH_GET` `0xC0029A40`, `FLASH_READ` `0xC0029A74`), braucht der
+Test eine gemappte Seite oder einen Stub (Beispiel `test_script_card.py`).
 
 Eigene Dateien:
 
@@ -246,7 +258,7 @@ Python-Prozesse begrenzen:
 
 ```bash
 GELUMPE_JOBS=1 node --test --test-concurrency=2 --test-timeout=300000 "test/*.test.mjs"
-node --test --test-concurrency=2 --test-timeout=180000 "test/e2e/*.e2e.mjs"
+node --test --test-concurrency=2 --test-timeout=300000 "test/e2e/*.e2e.mjs"
 ```
 
 `GELUMPE_JOBS` gilt auch für die Pythonmodule der Assemblerprüfung. Die beiden Befehle
@@ -292,6 +304,11 @@ Der optionale ARM-Emulator ist ein eigenes Python-Werkzeug (`tools/emu/`, GPL-2.
 [NOTICE](../NOTICE)). Installation, Dienst, Karte und Flash stehen in
 [emulator.md](emulator.md).
 
+Code in einem Haken verschiebt die Phase aller späteren Bilder. Ein zeitkritischer Fall kann deshalb auf nur einem Build
+rot werden. Erst den Build ohne die Änderung prüfen: ist der grün und reicht eine etwas längere Wartezeit, die Wartezeit
+erweitern und begründen. LEDs, die sich bewegen (Regenbogen-Meter), mit `steady_leds()` lesen, nie mit einem einzelnen
+`leds()`.
+
 ## Patcher
 
 Der Patcher baut aus Patch-Dateien eine geänderte SYSTEM.VSB. Format, Haken, Prüfungen und
@@ -300,6 +317,9 @@ Notschalter stehen in [patcher.md](patcher.md). Von der Befehlszeile:
 ```bash
 node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB
 ```
+
+Der eigene Assembler `tools/patch/arm.py` kennt bei Speicherzugriffen nur `ldr`, `ldrb`, `str` und `strb`, kein
+`ldrh`/`strh`: Zustandsfelder der Laufzeit daher als Wort oder Byte anlegen.
 
 ## Werkzeuge nach Ordner
 
@@ -749,6 +769,9 @@ Die Teilresultate enthalten Prüfergebnisse, Kennungen und Zeitmessungen, keine 
 RAM-Snapshots. Die Originaldatei wird pro Job erneut aus dem Secret geladen und über die feste
 Prüfsumme geprüft. Die besondere Startprüfung behält einen Worker und ihren abgeschalteten
 Cache. Vollständige Freigabeläufe laden keinen Ergebniscache.
+Ein roter Teil nennt im Log nur die Zahl der Fehler je Modul (etwa "1 fail in menu_cases") und lädt kein
+Artefakt hoch. Den Fall findet man, indem man die Aufgaben dieses Teils lokal auf demselben Original laufen lässt,
+ein Modul nach dem anderen mit `PYTHONPATH=tools/patch`, nach dem Blick auf die Last.
 Die Artefaktnamen enthalten auch die Teilezahl. Ein erneuter Lauf mit einer anderen Teilezahl
 liest dadurch keine übrig gebliebenen Ergebnisse des vorherigen Plans.
 

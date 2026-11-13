@@ -90,6 +90,10 @@ korg.onEvent("frame", () => { frames += 1; if (frames >= 3) { frames = 0; step()
 display. The function returns 1 on success, otherwise 0. Then the plugin draws until it calls
 `korg.display.release()` or the user presses EXIT (the plugin then gets `close`). An app does not take the
 display, it is opened from the menu. Not in the body: there is no display there.
+A key held when `korg.display.take()` succeeds stays with the firmware: its release reaches the firmware
+while the plugin owns the display, so SHIFT or PART MUTE held across a take does not stay stuck (measured in
+the emulator on Hacktribe, red and blue, `take_lets_key_releases_reach_the_firmware`). Unlike EXIT,
+`korg.display.release()` does not put `korg.passKeys` and `korg.padHold` back to their defaults.
 
 ```js
 // A note on the display while PLAY is held.
@@ -1169,7 +1173,7 @@ The pages of the groups:
 | Plugin, one page per `korg.menu.add` | the number | the settings of this plugin: the main dial changes it, the plugin gets `menu` |
 | Plugin, REMOVE | `press  [ Enter ]` | ENTER asks ("Enter = remove"), a second ENTER takes it out of `e2sPlugin.all` like ACTIVE OFF and then deletes the plugin's `*.blech` from the card (the firmware's `f_unlink`): it is no longer listed, MANAGE PLUGINS reports "removed". For a plugin that is only a file only the file is deleted, for one only in `e2sPlugin.all` only that file is written again. The blue Electribe has no `f_unlink`: there the file stays and MANAGE PLUGINS reports "file stays on card". When the folder changed since the list was opened, nothing is deleted ("folder changed") ([measurement](messungen/2026-10-30-plugin-liste-64-entfernen.md)) |
 | DATA UTILITY, EXPORT ALL CUSTOMIZATIONS | (empty, `press  [ Enter ]`; the title reads "EXPORT ALL CUSTOM", the whole name does not fit the row) | ENTER or WRITE writes the customization as `KORG/blechtribe/e2sCustom.all`: the same record as the settings file, without the list of plugin checksums, and reports "exported". Nothing reads this file at start yet; copied over `settings.a.bin` the settings loader reads it and the customization is back |
-| DATA UTILITY, EXPORT ALL EFFECTS | (empty, `press  [ Enter ]`) | ENTER or WRITE writes the presets and modulation types as the firmware holds them in RAM now back into the collection `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX and modulation from the Baukasten): every entry stays in its place with its `.e2fx` text, which the editor reads back; the checksum is made new. Without a collection file it makes one (entries without text, which the Baukasten skips on load). An existing file only when it was loaded at power-on: "bad e2sFx.all" when it is another or a broken one since, and then nothing is written. Red only (the blue one has no collection file) |
+| DATA UTILITY, EXPORT ALL EFFECTS | (empty, `press  [ Enter ]`) | ENTER or WRITE writes the presets and modulation types as the firmware holds them in RAM now back into the collection `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX and modulation from the Baukasten): every entry stays in its place with its `.e2fx` text, which the editor reads back; the checksum is made new. Without a collection file it makes one (entries without text, which the Baukasten skips on load). An existing file only when it was loaded at power-on: "bad e2sFx.all" when it is another or a broken one since, and then nothing is written. Red and blue (Korg's 2.02 with the BLECH set) |
 | DATA UTILITY, EXPORT ALL PLUGINS | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them, then saves the settings too (plugins switched off stay off) |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | opens the pages of the display light; EXIT goes back to DISPLAY |

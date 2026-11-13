@@ -54,15 +54,17 @@ Obergrenze der roten (`0x1C65EC0`). Die blaue hat eine eigene, tiefere Grenze (u
 
 - **Sicherer Platz:** im PCM-Fenster hinter den Werkswellen, rund 5,4 MiB. Dort liegen auch die Werkswellen, der DSP spielt
   von dort. **Urteil**
-- **Möglicher Zusatzplatz:** `0x1381354` bis `0x1F00000`, rund 11,5 MiB. Nur nach einem Gerätetest, der eine Welle von
-  dort hörbar macht und die Effekte (Delay, Reverb, Looper) dabei unverändert lässt. **Urteil**
+- **Möglicher Zusatzplatz:** `0x1381354` bis `0x1F00000`, rund 11,5 MiB. Erst im DSP-Modell des Emulators (#508)
+  prüfen, sobald es Sample-Daten aus dem SDRAM liest: eine Welle hinter den Werkswellen und eine bei `0x1400000`, beide
+  Stimmen lesen ihre Daten, die Effektpuffer ab `0x1365AE0` (Delay, Reverb, Looper) bleiben unberührt; danach einmal am
+  Gerät gegenhören (Tester mit blauer). **Urteil**
 - Zusammen wären das knapp 17 MiB, etwa 2:50 min mono bei 48 kHz. **hergeleitet**
 - Der DSP-Speicher ist flüchtig. Eigene Samples müssen bei jedem Start von der Karte neu geladen werden. **hergeleitet**
 
 ## Umsetzung: Samples von der Karte als Oszillatoren
 
 Patch `data/patches/user-samples-synth.json` (Code `tools/patch/user_samples.py`, Fälle `tools/emu/user_samples_cases.py`), im Satz
-der blauen. Er nutzt nur das belegte Fenster bis `0x1365AE0`; der Zusatzbereich bleibt bis zum Gerätetest zu.
+der blauen. Er nutzt nur das belegte Fenster bis `0x1365AE0`; der Zusatzbereich bleibt bis zu dieser Prüfung zu.
 
 - Haken am Ende der PCM-Ladung (`0xC00473D0`): der Lader liest `Sample/e2sSample.all` aus dem Ordner der Firmware in Blöcken von
   16 KiB und schreibt die Werte über den Host-Port des DSP hinter die letzte Werkswelle (größtes `SMPR`-Ende, auf 32 Byte), 64 Byte
@@ -92,5 +94,3 @@ der blauen. Er nutzt nur das belegte Fenster bis `0x1365AE0`; der Zusatzbereich 
 - Wie Omnitribe auf 9 MB kam.
 - Ob eine Stimme der blauen außerhalb des 16-MiB-Fensters spielt.
 - Größe der echten Werksbank der blauen (Ende der Werkswellen am Gerät).
-- Wie ein Pattern den Oszillator speichert, falls die Oszillator-Liste verlängert wird
-  ([2026-10-15](2026-10-15-synth-samples.md#2-die-oszillator-tabelle)).
