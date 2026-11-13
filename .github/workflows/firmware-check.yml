@@ -52,9 +52,6 @@ jobs:
     name: ${{ matrix.firmware.name }} (${{ matrix.part }}/${{ inputs.shards }})
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    concurrency:
-      group: ${{ github.workflow }}-firmware-${{ inputs.full && github.run_id || inputs.branch }}-${{ matrix.firmware.name }}-${{ matrix.part }}
-      cancel-in-progress: ${{ !inputs.full && (github.event_name == 'pull_request' || github.event_name == 'push') }}
     strategy:
       fail-fast: false
       max-parallel: ${{ fromJSON(vars.FIRMWARE_MAX_PARALLEL || (inputs.full && '16' || '8')) }}
@@ -171,9 +168,6 @@ jobs:
     name: ${{ matrix.firmware.kind }} ${{ matrix.firmware.name }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    concurrency:
-      group: ${{ github.workflow }}-firmware-${{ inputs.full && github.run_id || inputs.branch }}-${{ matrix.firmware.name }}-${{ matrix.firmware.kind }}
-      cancel-in-progress: ${{ !inputs.full && (github.event_name == 'pull_request' || github.event_name == 'push') }}
     strategy:
       fail-fast: false
       matrix:

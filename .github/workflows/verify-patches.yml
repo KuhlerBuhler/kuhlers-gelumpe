@@ -60,6 +60,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: >-
+    verify-patches-${{ github.event_name }}-${{
+      (github.event_name == 'pull_request' || github.event_name == 'push') && github.run_attempt == 1 &&
+      (github.event.pull_request.number || github.ref) || format('manual-{0}-{1}', github.run_id, github.run_attempt)
+    }}
+  cancel-in-progress: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && github.run_attempt == 1 }}
+
 jobs:
   # The commit all jobs check, so a push to the branch during the hour cannot mix two patch sets.
   ref:
