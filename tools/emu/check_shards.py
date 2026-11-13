@@ -2,6 +2,7 @@
 """Transport independent check tasks and require every partition before combining them."""
 
 import hashlib
+import heapq
 import json
 import subprocess
 
@@ -9,10 +10,21 @@ FORMAT = "gelumpe-check-shard"
 VERSION = 1
 
 
-def indices(total, index, count):
+def indices(total, index, count, weights=None):
     if type(index) is not int or type(count) is not int or not 1 <= count <= 64 or not 1 <= index <= count:
         raise ValueError("a shard is I/N with 1 <= I <= N <= 64")
-    return list(range(index - 1, total, count))
+    if weights is None:
+        return list(range(index - 1, total, count))
+    if (not isinstance(weights, (tuple, list)) or len(weights) != total
+            or any(type(value) is not int or value <= 0 for value in weights)):
+        raise ValueError("a partition needs one positive integer weight per task")
+    groups = [[] for _ in range(count)]
+    pool = [(0, 0, i) for i in range(count)]
+    for task in sorted(range(total), key=lambda i: (-weights[i], i)):
+        load, size, part = heapq.heappop(pool)
+        groups[part].append(task)
+        heapq.heappush(pool, (load + weights[task], size + 1, part))
+    return groups[index - 1]
 
 
 def _json(value):
@@ -105,8 +117,8 @@ def _passed(task, result):
     return all(e["ok"] for e in entries)
 
 
-def report(fingerprint, tasks, index, count, results):
-    assigned = indices(len(tasks), index, count)
+def report(fingerprint, tasks, index, count, results, *, weights=None):
+    assigned = indices(len(tasks), index, count, weights=weights)
     if len(results) != len(assigned):
         raise ValueError("a shard needs exactly its assigned results")
     passed = all(_passed(tasks[i], r) for i, r in zip(assigned, results))
@@ -115,7 +127,7 @@ def report(fingerprint, tasks, index, count, results):
             "passed": passed}
 
 
-def join(fingerprint, tasks, reports, read_size=None):
+def join(fingerprint, tasks, reports, read_size=None, *, weights=None):
     if not reports:
         raise ValueError("no shard results")
     out, seen, count = [None] * len(tasks), set(), None
@@ -130,7 +142,7 @@ def join(fingerprint, tasks, reports, read_size=None):
         if not isinstance(shard, dict):
             raise ValueError("missing shard partition")
         index, total = shard.get("index"), shard.get("count")
-        assigned = indices(len(tasks), index, total)
+        assigned = indices(len(tasks), index, total, weights=weights)
         if count is None:
             count = total
         if total != count or index in seen:

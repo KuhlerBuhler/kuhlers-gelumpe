@@ -1,0 +1,2410 @@
+{
+  "format": "gelumpe-shard-weights",
+  "version": 1,
+  "source": "0918cbdec331d8bfc904eb390062c6e8e15b548f",
+  "tasks": [
+    {
+      "task": [
+        "beat_eighth_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 21738,
+      "samples": 4
+    },
+    {
+      "task": [
+        "beat_eighth_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 9500,
+      "samples": 4
+    },
+    {
+      "task": [
+        "beat_eighth_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 4760,
+      "samples": 4
+    },
+    {
+      "task": [
+        "beat_eighth_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 3933,
+      "samples": 4
+    },
+    {
+      "task": [
+        "beat_eighth_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 19022,
+      "samples": 4
+    },
+    {
+      "task": [
+        "beat_eighth_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 1292,
+      "samples": 4
+    },
+    {
+      "task": [
+        "beat_eighth_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 1271,
+      "samples": 4
+    },
+    {
+      "task": [
+        "beat_eighth_cases",
+        "cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 19677,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "held_00000080"
+        ]
+      ],
+      "milliseconds": 2205,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "held_00000400"
+        ]
+      ],
+      "milliseconds": 3547,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "held_00140000"
+        ]
+      ],
+      "milliseconds": 2574,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "held_0a000000"
+        ]
+      ],
+      "milliseconds": 1665,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "held_0c000000"
+        ]
+      ],
+      "milliseconds": 1564,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "held_14000000"
+        ]
+      ],
+      "milliseconds": 2310,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "held_18000000"
+        ]
+      ],
+      "milliseconds": 2344,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "held_24000000"
+        ]
+      ],
+      "milliseconds": 2263,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "held_28000000"
+        ]
+      ],
+      "milliseconds": 2273,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "held_48000000"
+        ]
+      ],
+      "milliseconds": 2255,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "held_88000000"
+        ]
+      ],
+      "milliseconds": 2306,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "kill_switch"
+        ]
+      ],
+      "milliseconds": 3379,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "normal"
+        ]
+      ],
+      "milliseconds": 4287,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "normal_blank"
+        ]
+      ],
+      "milliseconds": 3138,
+      "samples": 1
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "panel_update"
+        ]
+      ],
+      "milliseconds": 39479,
+      "samples": 4
+    },
+    {
+      "task": [
+        "bootmap",
+        "scenario_task",
+        [
+          "update_offer"
+        ]
+      ],
+      "milliseconds": 2516,
+      "samples": 4
+    },
+    {
+      "task": [
+        "card_error_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 8054,
+      "samples": 4
+    },
+    {
+      "task": [
+        "card_error_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 13063,
+      "samples": 4
+    },
+    {
+      "task": [
+        "card_error_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 7383,
+      "samples": 4
+    },
+    {
+      "task": [
+        "card_error_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 23860,
+      "samples": 4
+    },
+    {
+      "task": [
+        "card_error_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 26089,
+      "samples": 4
+    },
+    {
+      "task": [
+        "dice_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 4581,
+      "samples": 4
+    },
+    {
+      "task": [
+        "dice_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 60419,
+      "samples": 4
+    },
+    {
+      "task": [
+        "dice_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 7208,
+      "samples": 4
+    },
+    {
+      "task": [
+        "dice_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 9009,
+      "samples": 4
+    },
+    {
+      "task": [
+        "dice_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 2124,
+      "samples": 4
+    },
+    {
+      "task": [
+        "dice_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 12771,
+      "samples": 4
+    },
+    {
+      "task": [
+        "dice_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 2955,
+      "samples": 4
+    },
+    {
+      "task": [
+        "dice_cases",
+        "cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 7561,
+      "samples": 4
+    },
+    {
+      "task": [
+        "doom_loader_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 3853,
+      "samples": 3
+    },
+    {
+      "task": [
+        "doom_loader_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 2841,
+      "samples": 3
+    },
+    {
+      "task": [
+        "fx_card_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 4554,
+      "samples": 3
+    },
+    {
+      "task": [
+        "fx_card_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 13787,
+      "samples": 3
+    },
+    {
+      "task": [
+        "fx_card_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 4387,
+      "samples": 3
+    },
+    {
+      "task": [
+        "fx_card_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 19849,
+      "samples": 3
+    },
+    {
+      "task": [
+        "fx_card_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 8929,
+      "samples": 3
+    },
+    {
+      "task": [
+        "fx_card_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 15863,
+      "samples": 3
+    },
+    {
+      "task": [
+        "ht_osc_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 3222,
+      "samples": 1
+    },
+    {
+      "task": [
+        "ht_osc_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 19934,
+      "samples": 1
+    },
+    {
+      "task": [
+        "ht_osc_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 20502,
+      "samples": 1
+    },
+    {
+      "task": [
+        "ht_osc_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 4872,
+      "samples": 1
+    },
+    {
+      "task": [
+        "ht_osc_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 8782,
+      "samples": 1
+    },
+    {
+      "task": [
+        "ht_osc_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 11437,
+      "samples": 1
+    },
+    {
+      "task": [
+        "ht_osc_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 3531,
+      "samples": 1
+    },
+    {
+      "task": [
+        "ht_osc_cases",
+        "cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 3851,
+      "samples": 1
+    },
+    {
+      "task": [
+        "init_pattern_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 1748,
+      "samples": 4
+    },
+    {
+      "task": [
+        "init_pattern_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 8653,
+      "samples": 4
+    },
+    {
+      "task": [
+        "last_pattern_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 18667,
+      "samples": 4
+    },
+    {
+      "task": [
+        "last_pattern_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 13404,
+      "samples": 4
+    },
+    {
+      "task": [
+        "loadbar_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 40942,
+      "samples": 3
+    },
+    {
+      "task": [
+        "loadbar_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 13006,
+      "samples": 3
+    },
+    {
+      "task": [
+        "loadbar_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 17253,
+      "samples": 3
+    },
+    {
+      "task": [
+        "loadbar_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 5320,
+      "samples": 3
+    },
+    {
+      "task": [
+        "loadbar_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 57301,
+      "samples": 3
+    },
+    {
+      "task": [
+        "loadbar_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 5486,
+      "samples": 3
+    },
+    {
+      "task": [
+        "loadbar_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 23872,
+      "samples": 3
+    },
+    {
+      "task": [
+        "loadbar_cases",
+        "cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 11057,
+      "samples": 3
+    },
+    {
+      "task": [
+        "loadbar_cases",
+        "cases_task",
+        [
+          8
+        ]
+      ],
+      "milliseconds": 26877,
+      "samples": 3
+    },
+    {
+      "task": [
+        "menu_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 7767,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 38383,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 21906,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 31283,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 3768,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 31508,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 64540,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          10
+        ]
+      ],
+      "milliseconds": 38448,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          11
+        ]
+      ],
+      "milliseconds": 17167,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          12
+        ]
+      ],
+      "milliseconds": 9510,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          13
+        ]
+      ],
+      "milliseconds": 23902,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          14
+        ]
+      ],
+      "milliseconds": 6958,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 13098,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 13504,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 16598,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 11310,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 10231,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 8654,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 8403,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          8
+        ]
+      ],
+      "milliseconds": 23309,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "look_cases_task",
+        [
+          9
+        ]
+      ],
+      "milliseconds": 14169,
+      "samples": 4
+    },
+    {
+      "task": [
+        "menu_cases",
+        "settings_cases_task",
+        []
+      ],
+      "milliseconds": 32670,
+      "samples": 4
+    },
+    {
+      "task": [
+        "mfx_cases",
+        "switch_cases_task",
+        []
+      ],
+      "milliseconds": 22296,
+      "samples": 4
+    },
+    {
+      "task": [
+        "migrate_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 5224,
+      "samples": 4
+    },
+    {
+      "task": [
+        "migrate_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 2469,
+      "samples": 4
+    },
+    {
+      "task": [
+        "migrate_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 4294,
+      "samples": 4
+    },
+    {
+      "task": [
+        "migrate_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 5667,
+      "samples": 4
+    },
+    {
+      "task": [
+        "migrate_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 4683,
+      "samples": 4
+    },
+    {
+      "task": [
+        "migrate_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 3612,
+      "samples": 4
+    },
+    {
+      "task": [
+        "migrate_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 8247,
+      "samples": 4
+    },
+    {
+      "task": [
+        "migrate_cases",
+        "cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 13397,
+      "samples": 4
+    },
+    {
+      "task": [
+        "note_assist_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 18887,
+      "samples": 4
+    },
+    {
+      "task": [
+        "note_assist_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 39097,
+      "samples": 4
+    },
+    {
+      "task": [
+        "note_assist_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 9613,
+      "samples": 4
+    },
+    {
+      "task": [
+        "note_assist_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 3289,
+      "samples": 4
+    },
+    {
+      "task": [
+        "note_assist_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 24023,
+      "samples": 4
+    },
+    {
+      "task": [
+        "note_assist_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 46608,
+      "samples": 4
+    },
+    {
+      "task": [
+        "note_assist_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 20213,
+      "samples": 4
+    },
+    {
+      "task": [
+        "note_assist_cases",
+        "cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 26265,
+      "samples": 4
+    },
+    {
+      "task": [
+        "note_assist_cases",
+        "cases_task",
+        [
+          8
+        ]
+      ],
+      "milliseconds": 2241,
+      "samples": 4
+    },
+    {
+      "task": [
+        "power_off_cases",
+        "run_task",
+        [
+          "blechy"
+        ]
+      ],
+      "milliseconds": 3387,
+      "samples": 4
+    },
+    {
+      "task": [
+        "power_off_cases",
+        "run_task",
+        [
+          "edit"
+        ]
+      ],
+      "milliseconds": 2997,
+      "samples": 4
+    },
+    {
+      "task": [
+        "power_off_cases",
+        "run_task",
+        [
+          "edit_stock"
+        ]
+      ],
+      "milliseconds": 3058,
+      "samples": 4
+    },
+    {
+      "task": [
+        "power_off_cases",
+        "run_task",
+        [
+          "exit"
+        ]
+      ],
+      "milliseconds": 1854,
+      "samples": 4
+    },
+    {
+      "task": [
+        "power_off_cases",
+        "run_task",
+        [
+          "exit_stock"
+        ]
+      ],
+      "milliseconds": 1919,
+      "samples": 4
+    },
+    {
+      "task": [
+        "power_off_cases",
+        "run_task",
+        [
+          "mains"
+        ]
+      ],
+      "milliseconds": 2243,
+      "samples": 4
+    },
+    {
+      "task": [
+        "power_off_cases",
+        "run_task",
+        [
+          "plain"
+        ]
+      ],
+      "milliseconds": 1834,
+      "samples": 4
+    },
+    {
+      "task": [
+        "power_off_cases",
+        "run_task",
+        [
+          "plain_stock"
+        ]
+      ],
+      "milliseconds": 1836,
+      "samples": 4
+    },
+    {
+      "task": [
+        "preset_cases",
+        "cases_task",
+        []
+      ],
+      "milliseconds": 23543,
+      "samples": 3
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 9853,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          10
+        ]
+      ],
+      "milliseconds": 15833,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          11
+        ]
+      ],
+      "milliseconds": 32162,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          12
+        ]
+      ],
+      "milliseconds": 25209,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          13
+        ]
+      ],
+      "milliseconds": 10584,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          14
+        ]
+      ],
+      "milliseconds": 18938,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          15
+        ]
+      ],
+      "milliseconds": 15133,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          16
+        ]
+      ],
+      "milliseconds": 18209,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          17
+        ]
+      ],
+      "milliseconds": 13996,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          18
+        ]
+      ],
+      "milliseconds": 33154,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          19
+        ]
+      ],
+      "milliseconds": 15840,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 15867,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          20
+        ]
+      ],
+      "milliseconds": 12790,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          21
+        ]
+      ],
+      "milliseconds": 13290,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 7572,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 6633,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 8838,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 17878,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 17548,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 4637,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          8
+        ]
+      ],
+      "milliseconds": 10026,
+      "samples": 4
+    },
+    {
+      "task": [
+        "pswitch_cases",
+        "cases_task",
+        [
+          9
+        ]
+      ],
+      "milliseconds": 10026,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 4000,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          10
+        ]
+      ],
+      "milliseconds": 6135,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          11
+        ]
+      ],
+      "milliseconds": 73287,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          12
+        ]
+      ],
+      "milliseconds": 23235,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          13
+        ]
+      ],
+      "milliseconds": 6149,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          14
+        ]
+      ],
+      "milliseconds": 44252,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          15
+        ]
+      ],
+      "milliseconds": 128376,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          16
+        ]
+      ],
+      "milliseconds": 105018,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 15492,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 14075,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 16346,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 19259,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 17034,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 39993,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 11569,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          8
+        ]
+      ],
+      "milliseconds": 39380,
+      "samples": 4
+    },
+    {
+      "task": [
+        "remote_cases",
+        "cases_task",
+        [
+          9
+        ]
+      ],
+      "milliseconds": 16799,
+      "samples": 4
+    },
+    {
+      "task": [
+        "sample_error_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 5667,
+      "samples": 3
+    },
+    {
+      "task": [
+        "sample_error_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 17828,
+      "samples": 3
+    },
+    {
+      "task": [
+        "sample_error_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 3784,
+      "samples": 3
+    },
+    {
+      "task": [
+        "sample_error_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 5566,
+      "samples": 3
+    },
+    {
+      "task": [
+        "sample_error_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 5431,
+      "samples": 3
+    },
+    {
+      "task": [
+        "sample_error_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 3740,
+      "samples": 3
+    },
+    {
+      "task": [
+        "sample_error_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 13218,
+      "samples": 3
+    },
+    {
+      "task": [
+        "shortcut_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 5220,
+      "samples": 4
+    },
+    {
+      "task": [
+        "shortcut_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 6500,
+      "samples": 4
+    },
+    {
+      "task": [
+        "shortcut_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 12577,
+      "samples": 4
+    },
+    {
+      "task": [
+        "shortcut_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 59407,
+      "samples": 4
+    },
+    {
+      "task": [
+        "shortcut_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 2574,
+      "samples": 4
+    },
+    {
+      "task": [
+        "shortcut_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 4312,
+      "samples": 4
+    },
+    {
+      "task": [
+        "shortcut_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 3267,
+      "samples": 4
+    },
+    {
+      "task": [
+        "shortcut_cases",
+        "cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 9814,
+      "samples": 4
+    },
+    {
+      "task": [
+        "shortcut_cases",
+        "cases_task",
+        [
+          8
+        ]
+      ],
+      "milliseconds": 33142,
+      "samples": 4
+    },
+    {
+      "task": [
+        "splash_cases",
+        "boot_case_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 754,
+      "samples": 3
+    },
+    {
+      "task": [
+        "splash_cases",
+        "boot_case_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 963,
+      "samples": 3
+    },
+    {
+      "task": [
+        "splash_cases",
+        "boot_case_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 1049,
+      "samples": 3
+    },
+    {
+      "task": [
+        "splash_cases",
+        "boot_case_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 1031,
+      "samples": 3
+    },
+    {
+      "task": [
+        "splash_cases",
+        "boot_case_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 1014,
+      "samples": 3
+    },
+    {
+      "task": [
+        "splash_cases",
+        "boot_case_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 1041,
+      "samples": 3
+    },
+    {
+      "task": [
+        "splash_cases",
+        "boot_case_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 759,
+      "samples": 3
+    },
+    {
+      "task": [
+        "splash_cases",
+        "boot_case_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 1020,
+      "samples": 3
+    },
+    {
+      "task": [
+        "splash_cases",
+        "boot_case_task",
+        [
+          8
+        ]
+      ],
+      "milliseconds": 4622,
+      "samples": 3
+    },
+    {
+      "task": [
+        "stereo_pad_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 5277,
+      "samples": 3
+    },
+    {
+      "task": [
+        "stereo_pad_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 4619,
+      "samples": 3
+    },
+    {
+      "task": [
+        "stereo_pad_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 8628,
+      "samples": 3
+    },
+    {
+      "task": [
+        "stereo_pad_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 7783,
+      "samples": 3
+    },
+    {
+      "task": [
+        "synth_filter_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 29807,
+      "samples": 1
+    },
+    {
+      "task": [
+        "synth_filter_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 30439,
+      "samples": 1
+    },
+    {
+      "task": [
+        "synth_filter_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 32406,
+      "samples": 1
+    },
+    {
+      "task": [
+        "synth_filter_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 10379,
+      "samples": 1
+    },
+    {
+      "task": [
+        "synth_filter_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 27091,
+      "samples": 1
+    },
+    {
+      "task": [
+        "synth_filter_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 11431,
+      "samples": 1
+    },
+    {
+      "task": [
+        "synth_filter_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 36334,
+      "samples": 1
+    },
+    {
+      "task": [
+        "sysex_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 72722,
+      "samples": 4
+    },
+    {
+      "task": [
+        "sysex_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 7070,
+      "samples": 4
+    },
+    {
+      "task": [
+        "sysex_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 9153,
+      "samples": 4
+    },
+    {
+      "task": [
+        "sysex_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 3579,
+      "samples": 4
+    },
+    {
+      "task": [
+        "sysex_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 56669,
+      "samples": 4
+    },
+    {
+      "task": [
+        "sysex_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 11683,
+      "samples": 4
+    },
+    {
+      "task": [
+        "sysex_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 184373,
+      "samples": 4
+    },
+    {
+      "task": [
+        "sysex_cases",
+        "cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 12756,
+      "samples": 4
+    },
+    {
+      "task": [
+        "sysex_cases",
+        "cases_task",
+        [
+          8
+        ]
+      ],
+      "milliseconds": 124300,
+      "samples": 4
+    },
+    {
+      "task": [
+        "sysex_cases",
+        "cases_task",
+        [
+          9
+        ]
+      ],
+      "milliseconds": 38736,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 41253,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          10
+        ]
+      ],
+      "milliseconds": 4741,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          11
+        ]
+      ],
+      "milliseconds": 10970,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          12
+        ]
+      ],
+      "milliseconds": 3795,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 13943,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 14940,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 2386,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 22044,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 57172,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          6
+        ]
+      ],
+      "milliseconds": 7468,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          7
+        ]
+      ],
+      "milliseconds": 23338,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          8
+        ]
+      ],
+      "milliseconds": 3930,
+      "samples": 4
+    },
+    {
+      "task": [
+        "tap_motion_cases",
+        "cases_task",
+        [
+          9
+        ]
+      ],
+      "milliseconds": 2727,
+      "samples": 4
+    },
+    {
+      "task": [
+        "touch_scale_zero_cases",
+        "cases_task",
+        [
+          0
+        ]
+      ],
+      "milliseconds": 5123,
+      "samples": 4
+    },
+    {
+      "task": [
+        "touch_scale_zero_cases",
+        "cases_task",
+        [
+          1
+        ]
+      ],
+      "milliseconds": 11628,
+      "samples": 4
+    },
+    {
+      "task": [
+        "touch_scale_zero_cases",
+        "cases_task",
+        [
+          2
+        ]
+      ],
+      "milliseconds": 4083,
+      "samples": 4
+    },
+    {
+      "task": [
+        "touch_scale_zero_cases",
+        "cases_task",
+        [
+          3
+        ]
+      ],
+      "milliseconds": 3763,
+      "samples": 4
+    },
+    {
+      "task": [
+        "touch_scale_zero_cases",
+        "cases_task",
+        [
+          4
+        ]
+      ],
+      "milliseconds": 7113,
+      "samples": 4
+    },
+    {
+      "task": [
+        "touch_scale_zero_cases",
+        "cases_task",
+        [
+          5
+        ]
+      ],
+      "milliseconds": 2461,
+      "samples": 4
+    }
+  ]
+}
