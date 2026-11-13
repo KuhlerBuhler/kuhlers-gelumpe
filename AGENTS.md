@@ -107,8 +107,9 @@ case modules your change touches; CI runs the rest (see below). The blue Electri
 - Device menu paths are written as `Menü -> BLECH -> CUSTOMIZATION`, app paths by the sidebar group:
   `BLECHTRIBE -> Baukasten`.
 - The firmware writes its settings to the SD card (`KORG/blechtribe/`). The one exception is a device
-  without a card: the BLECH settings then go to the two flash sectors `0x7FD000` and `0x7FE000`, and a
-  card settings file always wins
+  without a card: the BLECH settings then go to the two flash sectors `0x7FD000` and `0x7FE000`, a
+  card settings file wins at start, and a card put in while running is written there only after MENU on its
+  "SAVE TO FLASH?" prompt
   ([docs/messungen/2026-11-13-einstellungen-flash.md](docs/messungen/2026-11-13-einstellungen-flash.md)).
   Do not add other flash writes. AUTO SAVE only triggers the firmware's own save of the Global values into its own
   sector, the path WRITE and power-off use; that sector is written more often, and its wear on a device

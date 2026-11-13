@@ -11,9 +11,17 @@ Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergele
 - Ohne Karte geht jede Änderung in den BLECH-Menüs (FEATURES, CUSTOMIZATION, PLUGINS) von selbst in den Flash. WRITE ohne
   Karte schreibt sofort und zeigt `saved in flash`.
 - Mit Karte schreibt WRITE und AUTO SAVE wie bisher die Datei auf der Karte, der Flash bleibt.
-- Kartentausch (#505): die Werte der Karte gelten sofort, aber nur im RAM. Der Flash bleibt, bis
-  `Menü -> BLECH -> CUSTOMIZATION -> SAVE TO FLASH` (letzte Zeile, ENTER oder WRITE) sie fest übernimmt.
-- Neustart ohne SAVE TO FLASH: Karte steckt, die Karte gilt; keine Karte, der Flash gilt.
+- Karte im Betrieb einstecken (#505, auch das erste Einstecken nach einem Start ohne Karte): die Werte der Karte gelten sofort
+  im RAM, danach fragt das Display `CARD SETTINGS` / `SAVE TO FLASH?` / `MENU: SAVE` / `EXIT: ONLY FOR NOW`. MENU schreibt sie in
+  den Flash, EXIT lässt sie nur im RAM. Solange die Frage steht, nimmt sie alle Tasten, Pads, Regler und das Touchpad (wie die
+  Frage der Migration).
+- Karte ungespeichert wieder ziehen (8 Frames ohne Karte, dann gilt sie als gezogen): die Kopie im Flash gilt wieder. Nach MENU
+  bleibt alles, wie es ist. Das gilt auch für eine Karte, die schon beim Start steckte.
+- Vor dem Lesen der Karte schreibt das Einstecken offene Änderungen ohne Karte in den Flash, und ein Gerät ohne Kopie im Flash
+  bekommt eine, damit es beim Ziehen etwas gibt, wohin es zurückgeht. Hat die Karte dieselben Werte wie der Flash, kommt keine
+  Frage.
+- `Menü -> BLECH -> CUSTOMIZATION -> SAVE TO FLASH` (letzte Zeile, ENTER oder WRITE) schreibt jederzeit, was gerade gilt.
+- Neustart: Karte steckt, die Karte gilt; keine Karte, der Flash gilt.
 
 ## Belegtabelle
 
@@ -24,8 +32,13 @@ Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergele
 | Der nächste Start ohne Karte liest den Flash; eine zweite Änderung geht in Sektor `0x7FE000` (Generation 2), `0x7FD000` bleibt Byte für Byte | `restart_reads_flash` | gemessen |
 | Ein halb geschriebener Satz (ein Byte im neueren Sektor gekippt) fällt auf den älteren zurück; beide Sektoren gelöscht gibt den Standard | `torn_copy_falls_back` | gemessen |
 | Karte mit Datei gewinnt beim Start, der Flash wird dabei und nach WRITE nicht angefasst, WRITE schreibt die Karte; eine Karte ohne Datei nimmt den Flash | `card_wins` | gemessen |
-| Kartentausch: die Werte der Karte gelten, der Flash bleibt, auch nach Ziehen der Karte und einer Änderung ohne Karte; der nächste Start ohne Karte hat die alten Flash-Werte | `hot_swap_keeps_flash` | gemessen |
-| SAVE TO FLASH übernimmt die Werte der Karte (Generation 3 in `0x7FD000`), der nächste Start ohne Karte hat sie | `save_to_flash` | gemessen |
+| Karte im Betrieb: die Werte der Karte gelten sofort, das Display fragt (Bit 17 von `M_FL`, Pixel der zwei Titelzeilen), der Flash bleibt; EXIT löst die Frage, die Werte bleiben; Ziehen bringt die Werte des Flash zurück, eine Änderung danach geht wieder in den Flash (Generation 3) | `hot_swap_asks_exit_keeps_ram` | gemessen |
+| MENU auf der Frage schreibt die Werte der Karte (Generation 3 in `0x7FD000`, kein anderer Sektor), Ziehen ändert nichts, der nächste Start ohne Karte hat sie | `hot_swap_menu_saves` | gemessen |
+| Karte beim Start: keine Frage; gezogen gelten die Werte des Flash, der Flash wird nicht angefasst | `start_card_pulled_reverts` | gemessen |
+| Karte mit denselben Werten wie der Flash: keine Frage, keine Sperre, nichts geschrieben | `same_settings_no_question` | gemessen |
+| Ohne Kopie im Flash schreibt das erste Einstecken die Werte ohne Karte (Generation 1 in `0x7FD000`), ehe die Karte gelesen wird; nach EXIT und Ziehen gelten sie wieder | `first_card_keeps_flash_copy` | gemessen |
+| Karte ziehen und eine andere stecken (#505, [Messung](2026-11-12-karte-spaeter-einstellungen.md)): beim Ziehen gelten jetzt wieder die Werte ohne Karte statt der Werte der ersten Karte, die zweite Karte wird wie bisher ganz gelesen | `card_later_cases`, `swap_reads_the_other_card` (Erwartung beim Ziehen geändert) | gemessen |
+| SAVE TO FLASH (nach EXIT auf der Frage) übernimmt die Werte der Karte (Generation 3 in `0x7FD000`), der nächste Start ohne Karte hat sie | `save_to_flash` | gemessen |
 | WRITE ohne Karte zeigt `saved in flash` und legt einen gültigen Satz in `0x7FD000` | `settings_cases`, `menu:settings_without_card` | gemessen |
 | Rot und Hacktribe: `[0x7F0000, 0x7FF000)` hat keinen Schreiber in der Firmware und liegt in keinem Bereich, den ein Update schreibt | [Flash-Karte](2026-10-24-flash-karte.md) | offline gelesen |
 | Blau (Korg 2.02, sha256 `41fc5f1c...`): alle Aufrufer der Schreibfunktion `0xC0026E24` schreiben `0x230000` (Globals), `0x240000 + n * 0x4000` (Pattern), `0x7EF000`, `0x7FF000` und über `0xC0027000` die Update-Bereiche 0 (bis `0x20000`), 2 (bis `0x200000`), `0x22` (bis Bereich `0x7E`, also unter `0x7E0000`) und `0x80` (genau `0x800000`); der Sektorschreiber `0xC0019EA4` wird nur aus `0xC0026E24` gerufen. `0x7FD000` und `0x7FE000` schreibt nichts davon | Disassembly mit capstone, jeder `bl`/`b` auf beide Adressen mit den Befehlen davor | offline gelesen |
@@ -45,7 +58,14 @@ CRCs und den Satz selbst wie eine Datei (`menu_record_check`) und nimmt die neue
 25 Frames (1 s) die Prüfsumme der Einstellungen (`menu_settings_crc`) mit der des Flash. Schreibt erst, wenn die Änderung bei der
 nächsten Prüfung noch dieselbe ist: ein Regler, der gerade gedreht wird, löst nicht jede Sekunde ein Löschen aus. Die Sperre
 `FL_HOLD` (Bit 16 von `M_FL`, Wort `0x114` im Menüzustand) setzt jede Karte, deren Datei gelesen wurde (Start oder Tausch); SAVE
-TO FLASH löst sie. `menu_flash_save` ruft die Schreibfunktion der Firmware (rot und HT `0xC0029AB8`, blau `0xC0026E24`), die unter
+TO FLASH und MENU auf der Frage lösen sie, ebenso eine Karte mit denselben Werten wie der Flash.
+
+`menu_card_watch` zählt beim Einstecken wie bisher 8 Frames, schreibt ohne Sperre erst offene Änderungen in den Flash
+(`menu_flash_sync`), liest dann die Karte und setzt `FL_ASK` (Bit 17), wenn ihre Prüfsumme nicht die des Flash ist. Die Frage
+zeichnet `menu_ask_frame` im Frame-Hook wie die Frage der Migration (eigener Puffer, in den Bildspeicher der Firmware kopiert,
+neu markiert); `menu_ask_input` vor der Eingabe der Firmware merkt EXIT oder MENU im Byte `0x157` und verwirft alle Eingaben bis
+Typ 5. Ist die Karte 8 Frames weg (`M_CARD` `0x80 + n`), löst das die Frage, und mit Sperre liest `menu_settings_load` nur den
+Flash (`M_CARD` = `0xFE`), ohne Karte. `menu_flash_save` ruft die Schreibfunktion der Firmware (rot und HT `0xC0029AB8`, blau `0xC0026E24`), die unter
 ihrer Sperre den Sektor liest, löscht und neu schreibt, wie der Startbild-Editor bei WRITE.
 
 ## Messwerte
@@ -59,7 +79,7 @@ Erste Änderung bis zur Löschung (`change_written`, Zeit des Drehs gegen Zeit d
 | blau | 12303 ms | 13425 ms | 1,1 s |
 
 Der Abstand liegt zwischen einer und zwei Prüfungen (je 1 s), je nachdem wo im Takt der Prüfung gedreht wird (hergeleitet).
-Alle sechs Fälle in `flash_settings_cases` sind auf allen drei Builds grün, ebenso `settings_cases` (20), `page_cases` (3)
+Alle zehn Fälle in `flash_settings_cases` sind auf allen drei Builds grün, ebenso `settings_cases` (20), `page_cases` (3)
 und `splash_menu_cases` (gemessen). In keinem Lauf wurde ein anderer Sektor als `0x7FD000` oder `0x7FE000` gelöscht.
 
 Am Gerät (13.11.) ist der Bereich nicht gelesen: der Flash hängt an SPI1 und ist nicht in den Adressraum gelegt, lesen geht nur
@@ -67,13 +87,18 @@ Am Gerät (13.11.) ist der Bereich nicht gelesen: der Flash hängt an SPI1 und i
 
 ## Offen
 
-- **Nur BLECH-Einstellungen oder mehr?** Gesichert wird nur, was `settings.a.bin` hält (FEATURES, CUSTOMIZATION, die erlaubten
-  Plugins). Plugins, Effekte, Samples und Patterns liegen weiter nur auf der Karte (Patterns und Globals der Firmware ohnehin im
-  Flash). Noch zu entscheiden.
 - Am Gerät ist nichts geprüft: Löschzeit eines Sektors (der UI-Task steht so lange, im Emulator ohne Zeit), Lebensdauer.
   Zwei Sektoren im Wechsel, höchstens ein Schreiben je Sekunde Ruhe nach einer Änderung (hergeleitet).
-- Ändert man nach einem Kartentausch und gezogener Karte etwas, bleibt das nur im RAM (Sperre). Alternative wäre, beim Ziehen
-  auf die Werte des Flash zurückzugehen. So gebaut, weil der Flash nach einem Tausch erst mit SAVE TO FLASH wechseln soll.
+- Das Einstecken kann einen Sektor löschen (offene Änderungen ohne Karte, oder ein Gerät ohne Kopie im Flash), bevor die Frage
+  kommt. Ohne das gäbe es beim Ziehen nichts, wohin es zurückgeht.
+- Gibt es beim Ziehen keine gültige Kopie im Flash (beide Sektoren kaputt), bleiben die Werte der Karte im RAM und die Sperre
+  steht, bis SAVE TO FLASH (hergeleitet aus `menu_load_pulled`, nicht als Fall gemessen).
+- Die Frage nimmt alle Eingaben, auch Pads; ein laufendes Pattern spielt weiter, lässt sich aber erst nach EXIT oder MENU
+  bedienen.
+- Zu den gesicherten Werten gehören auch die erlaubten Plugins (Prüfsummen in `settings.a.bin`). Plugins, Effekte, Samples und
+  Patterns selbst liegen weiter nur auf der Karte.
+- Nach dem Zurückgehen beim Ziehen steht das Wort der Pad-Farbe auf dem ausgeschriebenen Standard (16) statt auf `FFFFFFFF`
+  (nie geschrieben); die Pads sehen gleich aus (gemessen in `swap_reads_the_other_card`).
 - AUTO SAVE OFF hält das Schreiben in den Flash nicht auf: "jede Änderung sofort" ist wörtlich umgesetzt.
 - Ein Update von Korg, das `0x7F` anfasst, ist für rot und HT gelesen (keins), für die blaue über die Längen der Update-Bereiche
   hergeleitet, nicht mit einer echten Update-Datei gemessen.
