@@ -57,7 +57,7 @@ jobs:
       cancel-in-progress: ${{ !inputs.full && (github.event_name == 'pull_request' || github.event_name == 'push') }}
     strategy:
       fail-fast: false
-      max-parallel: ${{ fromJSON(vars.FIRMWARE_MAX_PARALLEL || '8') }}
+      max-parallel: ${{ fromJSON(vars.FIRMWARE_MAX_PARALLEL || (inputs.full && '16' || '8')) }}
       matrix:
         firmware: ${{ fromJSON(needs.plan.outputs.firmwares) }}
         part: ${{ fromJSON(needs.plan.outputs.parts) }}

@@ -51,6 +51,7 @@ SEQ_NOTIFY = 0xC0070688         # (observers, message): KEY PADS opens the param
 FILTER_TOGGLE_ON = script_hooks.MENU_STATE + 0x1C0   # M_FT: the page FILTER TOGGLE (tools/patch/script_menu.s)
 FILTER_AT = 0x80C               # the filter type of part 1 in the pattern file (live()); 0 OFF, 1 to 6 LPF, 7 to 11 HPF, 12 to 16 BPF
 FILTER_KEYS = {"lpf": 0x12, "hpf": 0x14, "bpf": 0x16}
+MFX_SEND_KEY = 0x1A
 FILTER_LEDS = (0x0C, 0x0D, 0x0E)
 FILTER_NOTIFY = 0xC004B208      # (this, part, parameter, value): the firmware's message that a parameter changed
 FILTER_PARAM = 29               # its number for the filter type
@@ -314,6 +315,544 @@ def case_reset_voice(payload, flash):
                          f"untouched ones {sorted(hits['reset'][1] & only_plain)}; samples of the notes {[hits[k][0] for k in hits]}"))
     return out
 
+
+
+def case_reset_dsp(payload, flash):
+    """EXIT + pad 1 leaves part 1 switched on at the DSP, stopped and while playing, after its note sounded and its sample was
+    changed. Asked on the DSP's side of the host port (dsp_model.py), so it holds whatever firmware routine a reset calls.
+    Device test 11.11.: a reset that switched the part off left it silent until the SAMPLE knob was turned and the sequencer
+    restarted (#506); the model cannot tell silence, only that the switch went to 0 (docs/messungen/2026-11-12-dsp-modell.md)."""
+    from dsp_model import DspModel
+    out = []
+    for playing in (False, True):
+        slug, how = ("while_playing", "playing") if playing else ("stopped", "stopped")
+        box = VBox(payload, flash)
+        dsp = DspModel.attach(box.m)
+        box.steps(True)
+        if playing:
+            play(box)
+        box.hit()
+        on_before = dsp.part_on(0)
+        box.change_sample()
+        mark = dsp.mark()
+        box.reset()
+        offs = dsp.parts_switched_off(mark)
+        out.append(entry(f"exit_pad_keeps_the_part_on_at_the_dsp_{slug}", on_before and not offs and dsp.part_on(0)
+                         and not box.m.asserts,
+                         f"{how}: part 1 on at the DSP after its note {on_before}; EXIT + pad 1 switched off parts {offs or 'none'}, "
+                         f"part 1 on afterwards {dsp.part_on(0)}"))
+    return out
+
+
+METER_OBJECT = 0xC033E4F4       # the meter LEDs read the output peak from [this] +0x10 (left) and +0x14 (right), both builds
+
+
+def case_meter_dsp(payload, flash):
+    """The bottom LEDs follow the output peak the DSP hands back (dsp_model.py, docs/messungen/2026-11-12-pegel-leds.md): the
+    firmware reads 0xFF9030F4 every 40 ms into the meter object and sets it back to 0 at the DSP. Silent, full scale, silent
+    again, on mains power (on battery the LEDs are off)."""
+    from dsp_model import FULL_SCALE, DspModel
+    dev = menu_cases.boot(payload, flash, adapter=True)
+    dsp = DspModel.attach(dev.m)
+    seen = []
+    for level in (0, 1.0, 0):
+        dsp.output(level)
+        dev.run(1.0)
+        obj = dev.u32(METER_OBJECT)
+        seen.append(((dev.u32(obj + 0x10), dev.u32(obj + 0x14)), menu_cases.leds(dev)))
+    (quiet_peak, quiet), (loud_peak, loud), (after_peak, after) = seen
+    ok = (quiet_peak == after_peak == (0, 0) and loud_peak == (FULL_SCALE, FULL_SCALE) and loud != quiet and after == quiet
+          and loud[:3] == loud[3:6] and loud[0] > 200 and loud[1] == 0 and not dev.m.asserts)
+    return [entry("dsp_output_peak_drives_the_meter_leds", ok,
+                  f"peak in the meter object silent {quiet_peak}, full {loud_peak}, silent again {after_peak}; LEDs {quiet}, "
+                  f"{loud}, {after}")]
+
+
+def case_voices_dsp(payload, flash):
+    """The voices the DSP opens follow the sequencer (dsp_model.py voices): part 1 on every step, part 3 on every 4th, played
+    1.5 s. Every note the firmware starts (NOTE_ON) opens one voice of its part at the DSP, and the note's end closes it."""
+    from dsp_model import DspModel
+    box = VBox(payload, flash)
+    dsp = DspModel.attach(box.m)
+    for part in range(16):
+        for step in range(64):
+            at = PART + STRIDE * part + STEPS + 12 * step
+            on = part == 0 or (part == 2 and step % 4 == 0)
+            box.poke(at, 1 if on else 0)
+            for i, value in enumerate((60, 100, 1, 60) if on else (), 1):
+                box.poke(at + i, value)
+    box.run(0.3)
+    mark = len(dsp.gates)
+    box.notes.clear()
+    play(box)
+    box.run(1.5)
+    one, three = len(dsp.notes(0, mark)), len(dsp.notes(2, mark))
+    opened = [g for g in dsp.gates[mark:] if g[3]]
+    closed = [g for g in dsp.gates[mark:] if not g[3]]
+    ok = (one + three == len(dsp.notes(None, mark)) == len(box.notes) and 0 < three < one
+          and len(opened) - len(closed) == len(dsp.voices()) <= 2 and not box.m.asserts)
+    return [entry("dsp_voices_follow_the_sequencer", ok,
+                  f"NOTE_ON {len(box.notes)}; voices opened for part 1 {one}, part 3 {three}, other parts "
+                  f"{len(dsp.notes(None, mark)) - one - three}; closed {len(closed)}, open now {dsp.voices()}")]
+
+def case_part_values_dsp(payload, flash):
+    """Part 1's knobs reach the DSP (dsp_model.py part_value, filter, voice): LEVEL, PAN, RESONANCE and PITCH each at a low and
+    a high value (knob 0 to 255), the CUTOFF encoder turned down, a MIDI note 60 on channel 1 after each. The DSP values grow
+    with the knob, PAN left keeps the left gain full and lowers the right one and PAN right the other way round, the level
+    has its ramp rate, the cutoff falls with the encoder, and every voice holds note 60. The MFX SEND key switches the part's
+    send at the DSP on and off again."""
+    from dsp_model import LEVEL, PAN_LEFT, PAN_RIGHT, RAMP, DspModel
+    from plugin_api24_cases import CUTOFF_ENCODER, KNOBS
+    box = SBox(payload, flash)
+    dsp = DspModel.attach(box.m)
+
+    def note():
+        mark = len(dsp.gates)
+        box.m.midi(bytes([0x90, 60, 100]))
+        box.run(0.3)
+        voices = [dsp.voice(g[1]) for g in dsp.gates[mark:] if g[3]]
+        seen = {"level": dsp.part_value(0, LEVEL), "pan": (dsp.part_value(0, PAN_LEFT), dsp.part_value(0, PAN_RIGHT)),
+                "ramp": dsp.part_value(0, RAMP), "filter": dsp.filter(0),
+                "voice": voices[0] if voices else {}}
+        box.m.midi(bytes([0x80, 60, 0]))
+        box.run(0.4)
+        return seen
+
+    def knob(name, raw):
+        box.m.send([2, KNOBS[name], 0, raw, 0])
+        box.run(0.4)
+        return note()
+
+    low, high = knob("level", 16), knob("level", 127)
+    level = (low["level"], high["level"])
+    pan = (knob("pan", 16)["pan"], knob("pan", 240)["pan"])
+    resonance = tuple((knob("resonance", raw)["filter"] or (0, 0))[1] for raw in (16, 127))
+    pitch = (knob("pitch", 0)["voice"], knob("pitch", 127)["voice"])
+    before = (note()["filter"] or (0, 0))[0]
+    box.m.send([1, CUTOFF_ENCODER, 0, -20 & 0xFF, 0])
+    box.run(0.4)
+    after = note()
+    cutoff = (before, (after["filter"] or (0, 0))[0])
+    sends = [dsp.mfx_send(0)]
+    for _ in range(2):
+        box.m.send([0, MFX_SEND_KEY, 1, 0, 0])
+        box.run(0.05)
+        box.m.send([0, MFX_SEND_KEY, 0, 0, 0])
+        box.run(0.4)
+        sends.append(dsp.mfx_send(0))
+    notes = [v.get("note") for v in pitch] + [after["voice"].get("note")]
+    pitches = [v.get("pitch") for v in pitch]
+    full = 0x7FFF
+    ok = (None not in level and level[0] < level[1] and high["ramp"] is not None and pan[0][0] == full > pan[0][1]
+          and pan[1][1] == full > pan[1][0] and resonance[0] < resonance[1]
+          and 0 < cutoff[1] < cutoff[0] and notes == [60, 60, 60] and None not in pitches and pitches[0] < pitches[1]
+          and None not in sends[1:] and sends[1] != sends[2] and not box.m.asserts)
+    return [entry("dsp_part_values_follow_the_knobs", ok,
+                  f"LEVEL 16/127 at the DSP {level} (ramp rate {high['ramp']}), PAN 16/240 left, right {pan}, resonance 16/127 {tuple(map(hex, resonance))}, cutoff "
+                  f"before/after the encoder {tuple(map(hex, cutoff))}, PITCH 0/127 {pitches} semitones, notes {notes}, MFX SEND {sends}")]
+
+
+def case_effects_dsp(payload, flash):
+    """The effects at the DSP (dsp_model.py effect, ifx, ifx_on), the model listening from power-on: the start loads a unit
+    into every part's field and the master's; IFX TYPE on part 1 loads a unit into part 1's field and clears its neighbour,
+    no other field, muting part 1's field ahead of the load and unmuting it with the load (no field stays muted); IFX EDIT changes part 1's effect parameters; IFX ON switches
+    part 1's insert effect on and off again; the touchpad in Master FX mode changes the master effect's parameters and opens
+    its input gain only while touched; a part's effect starts at unity gain in and out."""
+    from dsp_model import FX_IN, FX_OUT, IDLE, MASTER_FX, MUTE, PARTS, DspModel
+    from plugin_api24_cases import KNOBS
+    box = SBox(payload, flash, dsp=True)
+    dsp = DspModel.attach(box.m)
+    box.run(0.3)
+    start = [(dsp.effect(f) or {}).get("unit") for f in [2 * p for p in range(PARTS)] + [MASTER_FX]]
+    mark, fifo_mark = len(dsp.loads), len(dsp.fifo)
+    held = [f for f in range(2 * PARTS + 1) if dsp.field_muted(f)]
+
+    def key(k):
+        box.m.send([0, k, 1, 0, 0])
+        box.run(0.05)
+        box.m.send([0, k, 0, 0, 0])
+        box.run(0.4)
+
+    def params(field):
+        return (dsp.effect(field) or {}).get("params", {})
+
+    gains = tuple(params(0).get(c) for c in (FX_IN, FX_OUT))
+    box.m.send([1, 4, 0, 1, 0])
+    box.run(0.4)
+    loaded = {f: u for _, f, u in dsp.loads[mark:]}
+    muted = [(c, k) for _, c, k, _ in dsp.fifo[fifo_mark:] if k in (MUTE, IDLE)]
+    held += [f for f in range(2 * PARTS + 1) if dsp.field_muted(f)]
+    edits = []
+    for raw in (40, 200):
+        box.m.send([2, KNOBS["ifxEdit"], 0, raw, 0])
+        box.run(0.4)
+        edits.append(params(0))
+    switch = [dsp.ifx_on(0)]
+    for _ in range(2):
+        key(0x21)
+        switch.append(dsp.ifx_on(0))
+    key(0x06)
+    pad = [params(MASTER_FX)]
+    box.m.send([0, 0x22, 1, 0, 0])
+    for x, y in ((800, 200), (200, 800)):
+        box.m.send([5, x >> 8, x & 0xFF, y >> 8, y & 0xFF])
+        box.run(0.3)
+        pad.append(params(MASTER_FX))
+    box.m.send([0, 0x22, 0, 0, 0])
+    box.run(0.3)
+    send = (pad[0].get(FX_IN), pad[2].get(FX_IN), params(MASTER_FX).get(FX_IN))
+    moved = sorted(k for k in pad[2] if pad[1].get(k) != pad[2][k] and k != FX_IN)
+    ok = (None not in start and gains == (0x7F00, 0x4000) and not send[0] and send[1] and not send[2] and set(loaded) == {0, 1} and loaded[0] and loaded[1] == 0 and (0, MUTE) in muted and not held and edits[0] != edits[1]
+          and switch[1] is not None and switch[1] != switch[2] and pad[0] != pad[1] and moved and not box.m.asserts)
+    return [entry("dsp_effects_follow_the_panel", ok,
+                  f"units at the start {[hex(u) for u in start if u is not None]}, loaded by IFX TYPE {loaded}, muted ahead {muted}, "
+                  f"fields left muted {held}, IFX EDIT 40/200 changed codes "
+                  f"{sorted(k for k in edits[1] if edits[0].get(k) != edits[1][k])}, IFX ON {switch}, touchpad "
+                  f"moved master codes {moved}, part 1 effect gain in/out at the start {gains}, master input gain before, "
+                  f"while and after touching {send}")]
+
+
+FX_RECORD, FX_MAP_ROWS = 524, 10            # an effect preset record and its control map rows (src/layout.mjs, data/map/fx.mjs)
+IFX_DEVICE, MFX_DEVICE = 298, 446           # the unit bytes of insert stage 1 and of the master stage in a record
+# t of a source from a 7-bit position k: the whole range, the upper half and the lower half (0 at k 63 to 64). The knob gives
+# k = raw >> 1, the pad k = (raw >> 4) << 1, so the pad tops out at 126 (measured in the emulator, IFX EDIT and pad X and Y).
+T7 = {"all": lambda k: k / 127, "up": lambda k: max(0, k - 64) / 63, "down": lambda k: max(0, 63 - k) / 63}
+PAD_K = lambda raw: (raw >> 4) << 1
+PAD_SOURCES = {0x41: lambda x, y: 1.0, 0x42: lambda x, y: T7["all"](PAD_K(x)), 0x43: lambda x, y: T7["all"](PAD_K(y)),
+               0x44: lambda x, y: T7["up"](PAD_K(x)), 0x45: lambda x, y: T7["down"](PAD_K(x)),
+               0x46: lambda x, y: T7["up"](PAD_K(y)), 0x47: lambda x, y: T7["down"](PAD_K(y))}
+KNOB_SOURCES = {0x42: lambda v: T7["all"](v >> 1), 0x44: lambda v: T7["up"](v >> 1), 0x45: lambda v: T7["down"](v >> 1)}
+
+
+def fx_record(payload, name):
+    """The firmware's preset record of that name (byte 0 below 0x20, then the name), or None."""
+    hit = payload.find(name + b"\0")
+    while hit >= 1 and payload[hit - 1] >= 0x20:
+        hit = payload.find(name + b"\0", hit + 1)
+    return payload[hit - 1:hit - 1 + FX_RECORD] if hit >= 1 else None
+
+
+def fx_rows(rec):
+    """The switched-on control map rows of a record: (source, chain, param, low, high)."""
+    return [tuple(rec[18 + 28 * i + k] for k in (0, 1, 2, 4, 6)) for i in range(FX_MAP_ROWS) if rec[18 + 28 * i]]
+
+
+def fx_expect(rows, t_of, code):
+    """Code -> (low + (high - low) * t) of the rows, t from t_of(source); of two rows on one code the one whose t is above 0."""
+    want = {}
+    for source, chain, param, low, high in rows:
+        t, k = t_of(source), code(chain, param)
+        if t is not None and k is not None and (k not in want or t > 0):
+            want[k] = low + (high - low) * t
+    return want
+
+
+def fx_off(want, got, rest, at):
+    """Codes more than half a step of 127 from what the map says, and codes the map does not name that moved."""
+    bad = [(at, k, round(v, 1), None if got.get(k) is None else round(got[k] / 256, 1)) for k, v in want.items()
+           if got.get(k) is None or abs(got[k] / 256 - v) > 0.5]
+    return bad + [(at, k, "moved") for k in got if k not in want and got[k] != rest.get(k)]
+
+
+def fx_table(payload, first, second):
+    """The firmware's list of preset records that starts with the records `first` and `second` (IFX TYPE and MFX TYPE
+    count through it): their payload offsets, up to the first entry that is no record."""
+    a, b = (fx_record(payload, n) for n in (first, second))
+    if a is None or b is None:
+        return []
+    base = 0xC0000000
+    pair = struct.pack("<2I", base + payload.find(a), base + payload.find(b))
+    at = next((m for m in range(0, len(payload) - 7, 4) if payload[m:m + 8] == pair), None)
+    out = []
+    while at is not None and at + 4 <= len(payload):
+        rec = struct.unpack_from("<I", payload, at)[0] - base
+        if not 0 <= rec < len(payload) - FX_RECORD or payload[rec] >= 0x20 or payload[rec + 1] < 0x20:
+            break
+        out.append(rec)
+        at += 4
+    return out
+
+
+def case_fx_map_dsp(payload, flash):
+    """The touchpad, IFX EDIT and PLAY move the effect codes at the DSP as the preset's control map says (data/map/fx.mjs): a
+    row (source, chain, param, low, high) sets code param to (low + (high - low) * t) * 256. A preset is picked by its place
+    in the firmware's list (fx_table) through the plugin's IFX TYPE and MFX TYPE setters.
+    Insert, part 1: chain 0 is the part's first field (2p), chain 1 its second (2p + 1), chain 5 param 1 the first field's
+    output gain (code 25); t from IFX EDIT, 0x42 the whole knob, 0x44/0x45 above and below 128.
+    Master: chain 2 is the master field, chain 7 param 5 its input gain (24) and param 1 its output gain (25); chain 10
+    (and a chain 0 row) reach no code at the DSP. t from 0x41 touched, 0x42 X, 0x43 Y, 0x44/0x45 X and 0x46/0x47 Y above and
+    below the middle. 0x4A is PLAY: t is 0 before the first PLAY and 1 once it plays. t comes from a 7-bit position (T7)."""
+    from dsp_model import FX_IN, FX_OUT, MASTER_FX, DspModel
+    from plugin_api24_cases import KNOBS, World
+    w = World(bytes(0x100) + bytes(payload), flash)
+    dsp = DspModel.attach(w.dev.m)
+    w.dev.run(0.3)
+    send = w.dev.m.send
+    got = lambda fields: {(f, k): v for f in fields for k, v in (dsp.effect(f) or {}).get("params", {}).items()}
+    ifx, mfx = fx_table(payload, b"Punch", b"Overdrive"), fx_table(payload, b"Mod Delay", b"Tape Delay")
+    record = lambda table, name: next((i for i, r in enumerate(table) if payload[r + 1:r + 2 + len(name)] == name + b"\0"), None)
+    NONE = ()                                   # a row that reaches no DSP code
+    out = []
+
+    insert = lambda c, p: (0, p) if c == 0 else (1, p) if c == 1 else (0, FX_OUT) if (c, p) == (5, 1) else None
+    seen, bad, units = [], [], []
+    for name in (b"Overdrive", b"Radio EQ", b"High Pass Filter", b"Talk Filter"):
+        i = record(ifx, name)
+        rec = payload[ifx[i]:ifx[i] + FX_RECORD] if i is not None else bytes(FX_RECORD)
+        rows = fx_rows(rec)
+        w.set_part(0, "ifxType", i or 0)
+        rest = got((0, 1))
+        units.append((name.decode(), i, (dsp.effect(0) or {}).get("unit"), rec[IFX_DEVICE], (dsp.effect(1) or {}).get("unit") or 0,
+                      rec[IFX_DEVICE + 74]))
+        for raw in (64, 0, 128, 192, 255, 30, 220):          # a first 0 leaves the knob value as it was
+            send([2, KNOBS["ifxEdit"], 0, raw, 0])
+            w.dev.run(0.4)
+            bad += fx_off(fx_expect(rows, lambda s: KNOB_SOURCES.get(s, lambda v: None)(raw), insert), got((0, 1)), rest, (name, raw))
+        seen += [r for r in rows if r[0] in KNOB_SOURCES and insert(r[1], r[2]) is not None]
+        bad += [(name, r) for r in rows if r[0] not in KNOB_SOURCES or insert(r[1], r[2]) is None]
+    ok = len(seen) == 13 and all(u[2] == u[3] and u[4] == u[5] for u in units) and not bad
+    out.append(entry("dsp_ifx_edit_follows_the_fx_map", ok and not w.dev.m.asserts,
+                     f"{len(seen)} rows, units {units}, off: {bad[:6]}"))
+
+    def master(c, p):
+        if c == 2:
+            return MASTER_FX, p
+        if c == 7:
+            return (MASTER_FX, {5: FX_IN, 1: FX_OUT}[p]) if p in (1, 5) else None
+        return NONE if c in (0, 10) else None
+    pad = PAD_SOURCES
+    seen, bad, units = [], [], []
+    for name in (b"Mod Delay", b"Wet Reverb", b"Looper", b"XY Phaser "):
+        i = record(mfx, name)
+        rec = payload[mfx[i]:mfx[i] + FX_RECORD] if i is not None else bytes(FX_RECORD)
+        rows = fx_rows(rec)
+        w.set_pattern("mfxType", i or 0)
+        w.dev.run(0.3)
+        rest = got((MASTER_FX,))
+        units.append((name.decode(), i, (dsp.effect(MASTER_FX) or {}).get("unit"), rec[MFX_DEVICE]))
+        send([0, 0x22, 1, 0, 0])
+        for x, y in ((0, 0), (1023, 0), (0, 1023), (1023, 1023), (512, 512), (256, 100), (768, 300), (50, 800)):
+            send([5, x >> 8, x & 0xFF, y >> 8, y & 0xFF])
+            w.dev.run(0.3)
+            want = {k: v for k, v in fx_expect(rows, lambda s: pad.get(s, lambda x, y: None)(x, y), master).items() if k != NONE}
+            bad += fx_off(want, got((MASTER_FX,)), rest, (name, x, y))
+        send([0, 0x22, 0, 0, 0])
+        w.dev.run(0.4)
+        seen += [r for r in rows if r[0] in pad and master(r[1], r[2]) is not None]
+        bad += [(name, r) for r in rows if r[0] not in pad or master(r[1], r[2]) is None]
+    ok = len(seen) == 23 and all(u[2] == u[3] for u in units) and not bad
+    out.append(entry("dsp_touchpad_follows_the_fx_map", ok and not w.dev.m.asserts,
+                     f"{len(seen)} rows, units {units}, off: {bad[:6]}"))
+
+    i, j = record(ifx, b"Off Beater"), record(mfx, b"Grain Shifter")
+    rows = [(0, r) for r in fx_rows(payload[ifx[i]:ifx[i] + FX_RECORD]) if r[0] == 0x4A] if i is not None else []
+    rows += [(MASTER_FX, r) for r in fx_rows(payload[mfx[j]:mfx[j] + FX_RECORD]) if r[0] == 0x4A] if j is not None else []
+    w.set_part(0, "ifxType", i or 0)
+    w.set_pattern("mfxType", j or 0)
+    w.dev.run(0.3)
+    stopped = got((0, MASTER_FX))
+    send([0, 0x02, 1, 0, 0])
+    w.dev.run(0.05)
+    send([0, 0x02, 0, 0, 0])
+    w.dev.run(0.6)
+    playing = got((0, MASTER_FX))
+    off = [(f, r, stopped.get((f, r[2])), playing.get((f, r[2]))) for f, r in rows
+           if stopped.get((f, r[2])) != r[3] * 256 or playing.get((f, r[2])) != r[4] * 256]
+    out.append(entry("dsp_play_follows_the_fx_map", len(rows) == 2 and not off and not w.dev.m.asserts,
+                     f"'Off Beater' {i}, 'Grain Shifter' {j}, rows {rows}, off: {off}"))
+    return out
+
+
+def case_cutoff_dsp(payload, flash):
+    """The filter words command 0x30 brings to the DSP (dsp_model.py coefficients) follow the part's filter type, CUTOFF and
+    RESONANCE as the firmware's own coefficient function computes them (filter_curve.py, run apart from the device): every type
+    0 to 16 at two cutoffs and one resonance, set through the plugin's part setter, filter EG and MOD at 0, a MIDI note 60 after
+    each. The LPF function is also computed in Python from its tables; OFF sends zeros, on blue no 0x30."""
+    from dsp_model import DspModel
+    from filter_curve import FilterCurve
+    from plugin_api23_cases import World
+    w = World(bytes(0x100) + bytes(payload), flash)
+    dsp = DspModel.attach(w.dev.m)
+    curve = FilterCurve(payload)
+    w.set_part(0, "egInt", 0)
+    w.set_part(0, "modDepth", 0)
+    bad, seen = [], 0
+    for t in range(17):
+        w.set_part(0, "filterType", t)
+        for cutoff, resonance in ((20 + 5 * t, 30 + 5 * t), (127 - 3 * t, 30 + 5 * t)):
+            w.set_part(0, "cutoff", cutoff)
+            w.set_part(0, "resonance", resonance)
+            dsp.filter_words.pop(0, None)
+            w.dev.m.midi(bytes([0x90, 60, 100]))
+            w.dev.run(0.15)
+            got = dsp.coefficients(0)
+            w.dev.m.midi(bytes([0x80, 60, 0]))
+            w.dev.run(0.1)
+            want = curve.coefficients(t, cutoff << 8, resonance << 8)
+            if curve.function(t) == curve.lpf_at and want != curve.lpf(cutoff << 8, resonance << 8):
+                bad.append(("lpf", t, cutoff, resonance))
+            seen += got is not None
+            if got != want:
+                bad.append((t, cutoff, resonance, got and tuple(map(hex, got)), tuple(map(hex, want))))
+    functions = sorted({hex(f) for f in map(curve.function, range(1, 17)) if f})
+    return [entry("dsp_cutoff_follows_the_filter_type", seen == (34 if curve.sends_off else 32) and not bad and len(functions) == 7 and not w.dev.m.asserts,
+                  f"34 settings, {seen} with a 0x30 at the DSP, {len(functions)} functions {functions}, off: {bad[:4]}")]
+
+def import_wav(payload, flash, wav):
+    """IMPORT SAMPLE (DATA UTILITY, the file browser on the card root, destination as offered) of `wav` as /a.wav, with the DSP
+    model attached from the start -> (model, index into its uploads before the import, screen reached)."""
+    import fat32
+    import highram_watch as hw
+    from dsp_model import DspModel
+    from sdcard import MemoryMedium, SDCard
+    from splash_cases import SWITCH_SCREEN, Dev
+    img = fat32.format_image(64 * 1024 * 1024)
+    vol = fat32.Volume(img)
+    vol.write("/a.wav", wav)
+    vol.write(f"/KORG/{hw.folder(payload)}/Sample/x.txt", b"x")
+    vol.close()
+    dev = Dev(payload, flash, 0)
+    dev.m.insert_card(SDCard(MemoryMedium(img)))
+    dsp = DspModel.attach(dev.m)
+    dev.run(1.2)
+    for _ in range(40):
+        if dev.m.screen() == 1:
+            break
+        dev.run(0.5)
+    dev.run(2)
+
+    def key(k, wait):
+        dev.m.press(hw.KEYS[k], True)
+        dev.run(0.1)
+        dev.m.press(hw.KEYS[k], False)
+        dev.run(wait)
+    dev.call(SWITCH_SCREEN, 14, 0)
+    dev.run(0.4)
+    key("menu", 0.5)
+    for _ in range(8):
+        key("right", 0.25)
+    key("menu", 1.5)
+    screen = dev.m.screen()
+    dev.turn(1, 0.8)
+    since = len(dsp.uploads)
+    key("menu", 5.0)            # the file, then the destination as offered
+    key("menu", 1.0)
+    for _ in range(30):
+        if dsp.uploaded(since):
+            break
+        dev.run(1.0)
+    dev.run(1.0)
+    return dsp, since, screen, dev
+
+
+def wav_file(channels, bits, frames):
+    """(file, the 16-bit words the DSP should hold): random PCM, 24 bits cut to their upper 16, stereo interleaved."""
+    import random
+    rnd = random.Random(channels * 100 + bits)
+    values = [rnd.randint(-32768, 32767) for _ in range(frames * channels)]
+    if bits == 16:
+        data = struct.pack(f"<{len(values)}h", *values)
+    else:
+        data = b"".join(bytes([rnd.randint(0, 255)]) + struct.pack("<h", v) for v in values)
+    head = struct.pack("<IHHIIHH", 16, 1, channels, 48000, 48000 * channels * bits // 8, channels * bits // 8, bits)
+    return b"RIFF" + struct.pack("<I", 36 + len(data)) + b"WAVEfmt " + head + b"data" + struct.pack("<I", len(data)) + data, values
+
+
+def case_sample_dsp(payload, flash):
+    """IMPORT SAMPLE writes the PCM into the DSP's sample memory (command 0xAB, byte addresses; dsp_model.py uploads): a mono file
+    of 24 bits lands as its upper 16 bits, a stereo file of 16 bits as it is, left and right interleaved, at the allocation
+    cursor (on an empty card the first user slot). Both checked word for word in the model's image of the DSP memory. The synth
+    has no IMPORT SAMPLE (DATA UTILITY stays on screen 15), so the case is for the Sampler builds."""
+    from firmware import identify
+    if identify(payload).build == "synth":
+        return []
+    out, seen = [], []
+    for name, channels, bits in (("mono 24-bit", 1, 24), ("stereo 16-bit", 2, 16)):
+        wav, want = wav_file(channels, bits, 3000)
+        dsp, since, screen, dev = import_wav(payload, flash, wav)
+        span = dsp.uploaded(since)
+        got = dsp.samples(span[0], len(want)) if span else []
+        seen.append((name, screen, span and tuple(hex(a) for a in span), len(want), sum(1 for a, b in zip(got, want) if a != b)))
+        out.append(span is not None and span[1] - span[0] == 2 * len(want) and got == want and not dev.m.asserts)
+    return [entry("dsp_sample_import_lands_in_dsp_memory", all(out), f"(file, screen, span, words, differing): {seen}"),
+            export_dsp(payload, flash)]
+
+
+def export_dsp(payload, flash):
+    """EXPORT ALL SAMPLE (DATA UTILITY) reads each sample back from the DSP (0xA9 on the sample memory): a sample loaded from
+    the card at the start comes out of the export unchanged. Without the model's answer the export holds zeros."""
+    import fat32
+    import ht_osc_cases as hc
+    import sampleset
+    from dsp_model import DspModel
+    from splash_cases import SWITCH_SCREEN, Dev
+    slot = sampleset.FIRST_USER
+    source = sampleset.build({slot: ("A", 3000)})
+    dev = Dev(payload, flash, 0)
+    dev.m.adapter = True
+    dsp = DspModel.attach(dev.m)
+    dev.m.insert_card(hc.card(payload, source))
+    dev.run(10)
+    dev.call(SWITCH_SCREEN, 14, 0)
+    dev.run(0.4)
+    menu_cases.press(dev, "menu")
+    for _ in range(10):
+        menu_cases.press(dev, "edit_next")
+    menu_cases.press(dev, "menu", wait=1.0)
+    menu_cases.press(dev, "menu", wait=1.0)
+    dev.run(30)
+    volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
+    try:
+        exported = volume.read(f"/KORG/{hc.folder(payload)}/e2sSample.all")
+    finally:
+        volume.close()
+
+    def pcm(data):
+        at = struct.unpack_from("<I", data, 16 + 4 * slot)[0]
+        d = data.find(b"data", at) if at else -1
+        return data[d + 8:d + 8 + struct.unpack_from("<I", data, d + 4)[0]] if d >= 0 else b""
+    want, got = pcm(source), pcm(exported)
+    return entry("dsp_sample_export_reads_dsp_memory", bool(want) and got == want and not dev.m.asserts,
+                 f"uploads {dsp.uploaded(0) and tuple(hex(a) for a in dsp.uploaded(0))}, bytes {len(want)} in, {len(got)} out, "
+                 f"differing {sum(1 for a, b in zip(want, got) if a != b)}")
+
+
+def case_note_commands_dsp(payload, flash):
+    """Part 1's OSC EDIT and amp envelope at the DSP (dsp_model.py command, part_value), set through the plugin's part setter,
+    a MIDI note 60 after each: command 0x2D carries OSC EDIT * 258 for the sounding voice (OSC EDIT 10 and 110); with AMP EG on
+    the level 30 ms into the note is lower with ATTACK 100 than with ATTACK 0, with AMP EG off it is the same."""
+    from dsp_model import LEVEL, VOICE, VOICE_WORDS, DspModel
+    from plugin_api23_cases import World
+    w = World(bytes(0x100) + bytes(payload), flash)
+    dsp = DspModel.attach(w.dev.m)
+
+    def note(ms=30):
+        mark = len(dsp.gates)
+        w.dev.m.midi(bytes([0x90, 60, 100]))
+        w.dev.run(ms / 1000)
+        gates = [g for g in dsp.gates[mark:] if g[3]]
+        seen = (dsp.command(0x2D), dsp.part_value(0, LEVEL), gates[0][1] if gates else None)
+        w.dev.m.midi(bytes([0x80, 60, 0]))
+        w.dev.run(0.4)
+        return seen
+
+    osc = []
+    for value in (10, 110):
+        w.set_part(0, "oscEdit", value)
+        words, _, voice = note()
+        slot = None if voice is None else VOICE + VOICE_WORDS * voice + 3
+        osc.append((value, words and words[0] == slot and words[1]))
+    w.set_part(0, "oscEdit", 0)
+    levels = {}
+    for eg in (1, 0):
+        w.set_part(0, "ampEg", eg)
+        for attack in (0, 100):
+            w.set_part(0, "attack", attack)
+            levels[eg, attack] = note()[1]
+    ok = (all(v * 258 == got for v, got in osc) and None not in levels.values() and levels[1, 100] < levels[1, 0]
+          and levels[0, 100] == levels[0, 0] and not w.dev.m.asserts)
+    return [entry("dsp_note_commands_follow_the_part", ok,
+                  f"OSC EDIT and 0x2D {osc}, level 30 ms into the note (AMP EG, ATTACK) {levels}")]
 
 MODES = ((PART_MUTE, "PART MUTE", True), (KEYBOARD, "KEYBOARD", True), (PART_ERASE, "PART ERASE", True), (CHORD, "CHORD", True),
          (PATTERN_SET, "PATTERN SET", True), (STEP_JUMP, "STEP JUMP", False))
@@ -637,7 +1176,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_effects_dsp, case_fx_map_dsp, case_cutoff_dsp, case_note_commands_dsp, case_sample_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):

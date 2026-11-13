@@ -41,6 +41,7 @@ NAMES = {
     "doom_loader_cases": "Doom-Lader",
     "card_error_cases": "Kartenfehler",
     "preset_cases": "Presets",
+    "dsp_cases": "DSP-Schnittstelle",
 }
 
 

@@ -732,11 +732,19 @@ def sample_cases(payload, flash, held_only=False):
     out.append(entry("sample_crc", c1 and c2 and c1["status"] == OK and c1["length"] == len(want) and c1["crc"] == zlib.crc32(want) and c2["crc"] == zlib.crc32(new[4096:4096 + 12345]),
                      f"FILE CRC reads the card and answers the CRC-32 of {c1 and c1['length']} bytes without sending them: {bool(c1) and c1['crc'] == zlib.crc32(want)}"))
     if MODEL == 0x23:
-        # the blue Electribe 2's image has no f_unlink: DELETE says 6, the files stay, and INFO does not claim the sample file commands
+        # the blue Electribe 2's image has no f_unlink: DELETE leaves the file empty, and the swap runs the same way on top of that
         info = lk.info()
         d1 = lk.file_delete(ALL)
-        out.append(entry("sample_synth_no_delete", d1 and d1["status"] == spec.STATUS_FILE and on_card(dev, sample) == new and info and not info["flags"] & 0x80 and not dev.m.asserts,
-                         f"the synth's FatFs has no unlink: DELETE says {d1 and d1['status']}, the sample file stays ({on_card(dev, sample) == new}), the INFO flags {info and hex(info['flags'])} do not carry bit 7"))
+        emptied = on_card(dev, sample)
+        back = lk.file_copy(TMP | 0, ALL | 0, len(want))
+        done = lk.file_delete(TMP)
+        again = lk.file_delete(TMP)
+        out.append(entry("sample_synth_swap", info and info["flags"] & 0x80 and d1 and d1["status"] == OK and emptied == b"" and back and back["status"] == OK
+                         and back["crc"] == zlib.crc32(want) and done and done["status"] == OK and again and again["status"] == OK
+                         and on_card(dev, sample) == want and on_card(dev, temp) == b"" and not dev.m.asserts,
+                         f"the synth's FatFs has no unlink: INFO flags {info and hex(info['flags'])} carry bit 7, DELETE empties the sample file ({d1 and d1['status']}, "
+                         f"{None if emptied is None else len(emptied)} bytes), the temp file is copied back ({back and back['status']}) and emptied ({done and done['status']}, "
+                         f"once more {again and again['status']}): the sample file equals the compacted one ({on_card(dev, sample) == want}), an empty temp file stays"))
         return out
     # the way back: delete the old, copy the temp file back, delete the temp file
     d1 = lk.file_delete(ALL)
@@ -951,9 +959,9 @@ def synth_cases(payload, flash):
         out.append(entry("synth_main_screen", dev.m.screen() == 1 and not dev.m.asserts, f"the patched synth firmware is on screen {dev.m.screen()} (1 is the main screen)"))
         info = lk.info()
         table = table_of(payload)
-        out.append(entry("synth_info", info and info["status"] == OK and info["version"] == spec.PROTOCOL_VERSION and info["flags"] == spec.FLAGS & ~0x80 & ~spec.FLAG_DOOM
+        out.append(entry("synth_info", info and info["status"] == OK and info["version"] == spec.PROTOCOL_VERSION and info["flags"] == spec.FLAGS & ~spec.FLAG_DOOM
                          and info["max_block"] == spec.MAX_BLOCK and info["max_flash"] == spec.FLASH_MAX and info["table_crc"] == zlib.crc32(table),
-                         f"INFO answered with model byte 0x23: flags {info and hex(info['flags'])} (no sample file, no Doom), flash block {info and info['max_flash']}, table {len(table)} bytes, CRC equal to the image's: {bool(info) and info['table_crc'] == zlib.crc32(table)}"))
+                         f"INFO answered with model byte 0x23: flags {info and hex(info['flags'])} (no Doom), flash block {info and info['max_flash']}, table {len(table)} bytes, CRC equal to the image's: {bool(info) and info['table_crc'] == zlib.crc32(table)}"))
         bad = []
         for size in (1, 7, 524, 4096):
             r = lk.read(IMAGE + 0x40, size)

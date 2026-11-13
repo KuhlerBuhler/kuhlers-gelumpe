@@ -117,6 +117,7 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 - [Preset-Tabellen: wo Korg sie ablegt, was Hacktribe verschiebt, der Patch für 128 Plätze](2026-10-15-preset-tabellen.md)
 - [Die blaue Electribe 2 (Synth) im Emulator: Hauptbild, Stellen, Flash-Kennung](2026-10-15-blaue-electribe.md)
 - [Samples auf der blauen Electribe 2: PCM-Wellen, Oszillator-Tabelle, Entwurf für BLECH](2026-10-15-synth-samples.md)
+- [Eigene Samples auf der blauen Electribe 2: wo im DSP-Speicher Platz ist](2026-11-12-blau-sample-import.md)
 - [Die PCM-Bank der blauen Electribe 2 aus WAV-Dateien nachgebaut und im Emulator geprüft](2026-10-15-synth-pcm-flash.md)
 
 
@@ -185,6 +186,9 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Firmwarepfad fuer Part-Parameter, im Emulator geprueft](2026-11-06-part-param-refresh.md)
 - [DSP-Transport bei neuen Part-Bedienungen, im Emulator geprueft](2026-11-07-part-control-dsp-refresh.md)
 - [Part-Werte aus Plugins: Parametersetzer, Auffrischen, Filter-LEDs und MFX SEND wie die Bedienelemente, im Emulator](2026-11-09-plugin-part-dsp.md)
+- [DSP-Modell im Emulator für Prüfungen: Postfach-Nachrichten, Part-Schalter am DSP, Regressionsprüfung Part-Reset (#506)](2026-11-12-dsp-modell.md)
+- [Pegel-LEDs unten: Spitzenpegel des Stereo-Ausgangs aus dem DSP, nicht Velocity; Übersteuerung erkennbar](2026-11-12-pegel-leds.md)
+- [Echter DSP-Code im Blackfin-Simulator: Init und Audioschleife laufen, Noten bleiben still, Weg geparkt](2026-11-12-dsp-im-simulator.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)
 
