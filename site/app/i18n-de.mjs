@@ -2890,6 +2890,7 @@ export default {
   "rescue.help.emulatorFix.3": "Öffnest du die Seite im Browser aus dem Quelltext, startest du den Emulator selbst mit npm start.",
   "rescue.help.wavs.1": "Im Bereich {samples} siehst du die Samples auf der SD-Karte. WAV-Dateien ziehst du dort hinein, die App macht daraus Samples für die Electribe. Sie nimmt nur WAVs im PCM-Format.",
   "rescue.help.wavs.2": "Die Electribe lädt Samples nur beim Start: nach dem Kopieren auf die Karte neu starten.",
+  "rescue.help.wavs.3": "Auf der blauen Electribe gehen eigene Samples mit BLECHTRIBE: oben auf der Seite „blau“ wählen, die App macht die WAVs 16 Bit mono. Höchstens 64 und rund eine Minute bei 48 kHz, sie liegen in der Oszillator-Gruppe [User].",
   "rescue.help.updates.1": "Der Normalweg ist die SD-Karte: Im {patcher} die neue Datei bauen, als SYSTEM.VSB in den Ordner der laufenden Firmware legen und am Gerät das Update starten.",
   "rescue.help.updates.2": "Läuft schon ein neueres BLECHTRIBE, geht es auch per USB: Electribe verbinden, im Patcher den USB-Weg nehmen. Steht dort, dein BLECHTRIBE sei zu alt, mach dieses eine Update noch mit der SD-Karte.",
   "rescue.help.updates.3": "Die App selbst meldet in der Seitenleiste „Neue Version verfügbar“. Was sich geändert hat, steht unter Changelogs.",

@@ -2834,6 +2834,7 @@ export default {
   "rescue.help.emulatorFix.3": "Pokud otevřeš stránku v prohlížeči ze zdrojového kódu, spustíš emulátor sám příkazem npm start.",
   "rescue.help.wavs.1": "V oblasti {samples} vidíš samply na SD kartě. Přetáhneš tam soubory WAV a aplikace z nich udělá samply pro Electribe. Bere jen WAV ve formátu PCM.",
   "rescue.help.wavs.2": "Electribe načítá samply jen při startu: po zkopírování na kartu ji restartuj.",
+  "rescue.help.wavs.3": "Na modré Electribe fungují vlastní samply s BLECHTRIBE: nahoře na stránce zvol „modrá“, aplikace udělá z WAVů 16 bitů mono. Nejvýš 64 a zhruba minuta při 48 kHz, jsou ve skupině oscilátorů [User].",
   "rescue.help.updates.1": "Běžná cesta je SD karta: postav nový soubor v {patcher}, dej ho jako SYSTEM.VSB do složky běžícího firmwaru a spusť aktualizaci v přístroji.",
   "rescue.help.updates.2": "Pokud už běží novější BLECHTRIBE, jde to i přes USB: připoj Electribe a v patcheru zvol cestu USB. Pokud tam stojí, že tvoje BLECHTRIBE je příliš staré, udělej tuhle jednu aktualizaci přes SD kartu.",
   "rescue.help.updates.3": "Aplikace sama v postranním panelu hlásí „Je dostupná nová verze“. Co se změnilo, najdeš v Changelogs.",

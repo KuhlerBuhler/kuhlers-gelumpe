@@ -2834,6 +2834,7 @@ export default {
   "rescue.help.emulatorFix.3": "If you open the page in the browser from the source code, you start the emulator yourself with npm start.",
   "rescue.help.wavs.1": "In the {samples} area you see the samples on the SD card. You drag WAV files in there and the app turns them into samples for the Electribe. It only takes WAVs in PCM format.",
   "rescue.help.wavs.2": "The Electribe only loads samples at start: restart it after copying to the card.",
+  "rescue.help.wavs.3": "On the blue Electribe your own samples work with BLECHTRIBE: choose “blue” at the top of the page and the app makes the WAVs 16-bit mono. At most 64 and about a minute at 48 kHz, they are in the oscillator group [User].",
   "rescue.help.updates.1": "The normal way is the SD card: build the new file in the {patcher}, put it as SYSTEM.VSB in the folder of the running firmware and start the update on the device.",
   "rescue.help.updates.2": "If a newer BLECHTRIBE already runs, it also works over USB: connect the Electribe and take the USB way in the patcher. If it says your BLECHTRIBE is too old, do this one update with the SD card.",
   "rescue.help.updates.3": "The app itself shows \"New version available\" in the sidebar. What changed is under Changelogs.",

@@ -837,7 +837,7 @@ FLOW["h:emulator:fix"] = {
   say: ["rescue.help.emulatorFix.1", "rescue.help.emulatorFix.2", { path: "~/.gelumpe/emu.log" }, "rescue.help.emulatorFix.3"],
   choices: [{ label: "rescue.answer.emuRuns", to: "app:fixed" }, { label: "rescue.answer.stillNotFound", to: "check:report" }],
 };
-help("wavs", "idle", [{ key: "rescue.help.wavs.1", links: pageLink("samples", "nav.sampleset") }, "rescue.help.wavs.2"], [viaColor("rescue.case.samples", "samples")]);
+help("wavs", "idle", [{ key: "rescue.help.wavs.1", links: pageLink("samples", "nav.sampleset") }, "rescue.help.wavs.2", "rescue.help.wavs.3"], [viaColor("rescue.case.samples", "samples")]);
 help("updates", "idle", [
   { key: "rescue.help.updates.1", links: pageLink("patcher", "nav.patcher") },
   "rescue.help.updates.2",
