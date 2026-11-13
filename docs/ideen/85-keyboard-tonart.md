@@ -8,7 +8,7 @@ ohne Plugin auf der Karte; das Wertefenster der Firmware zeigt den neuen KEY; Sc
 im Emulator geprüft (Hacktribe, rot, blau), am Gerät nichts.** Messung in
 [2026-11-07-key-pads-eingebaut.md](../messungen/2026-11-07-key-pads-eingebaut.md). Das Plugin Key Pads (API 15, Stand
 2026-11-03) ist damit aus dem Katalog genommen. Seit 2026-11-08 liegen die Töne chromatisch auf den Pads (Pad 1 C bis Pad 12 B,
-Pads 13 bis 16 tun nichts, [Messung](../messungen/2026-11-08-key-pads-chromatisch.md)). Die Abschnitte zu API 14 und zum Plugin unten sind der Stand davor. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
+Pads 13 bis 16 taten nichts, [Messung](../messungen/2026-11-08-key-pads-chromatisch.md)). Seit 2026-11-12 wählen Pads 13 bis 16 die Oktave der Tastatur 3 bis 6 ([Messung](../messungen/2026-11-12-key-pads-oktave.md)). Die Abschnitte zu API 14 und zum Plugin unten sind der Stand davor. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
 
 ## Was es schon gibt
 

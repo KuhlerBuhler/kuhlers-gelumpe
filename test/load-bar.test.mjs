@@ -11,6 +11,8 @@ import { checkHooks } from "../src/hooks.mjs";
 import { identify } from "../src/firmware.mjs";
 
 // The loading animation (docs/ideen/41-startbild-ausbauen.md, tools/art/loading).
+import "./support/runtime.mjs";
+
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const PATCH = read("../data/patches/load-bar.json");
 const SPLASH_DATA = read("../assets/blechy/splash.json");

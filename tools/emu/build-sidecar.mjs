@@ -14,6 +14,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync
 import { fileURLToPath } from "node:url";
 import { pythonEnv, targetTriple } from "./python-env.mjs";
 import { clearCfgInFile } from "./pe-flags.mjs";
+import { ensureRuntimePatches } from "../patch/ensure-runtime.mjs";
 
 const path = rel => fileURLToPath(new URL(rel, import.meta.url));
 const win = process.platform === "win32";
@@ -36,6 +37,9 @@ if (!triple) {
   console.error("Zieltriple unbekannt: rustc fehlt. TAURI_TARGET_TRIPLE setzen.");
   process.exit(1);
 }
+
+// data/patches is added to the bundle below, and the set lists the runtime patches: they are built, not committed.
+ensureRuntimePatches({ log: message => console.log(message) });
 
 const work = path("../../build/sidecar");
 rmSync(work, { recursive: true, force: true });
