@@ -90,6 +90,8 @@ export const TABLE = [
   [/^tools\/patch\/ht_osc\.py$|^data\/patches\/ht-osc[^/]*\.json$/, ["ht_osc_cases"]],
   [/^tools\/patch\/beat_eighth\.py$|^data\/patches\/beat-eighth[^/]*\.json$/, ["beat_eighth_cases"]],
   [/^tools\/patch\/touch_scale_zero\.py$|^data\/patches\/touch-scale-zero[^/]*\.json$/, ["touch_scale_zero_cases"]],
+  // the DSP stream check runs with the start scenarios on every copy
+  [/^tools\/patch\/stage2_memory\.py$|^data\/patches\/stage2-memory[^/]*\.json$|^tools\/emu\/stage2_memory_check\.py$/, []],
   [/^tools\/patch\/doom_loader\.py$|^data\/patches\/doom-loader\.json$/, ["doom_loader_cases"]],
   [/^tools\/patch\/power_off\.py$|^data\/patches\/power-off[^/]*\.json$/, ["power_off_cases"]],
   [/^tools\/patch\/user_samples\.py$|^data\/patches\/user-samples[^/]*\.json$/, ["user_samples_cases"]],

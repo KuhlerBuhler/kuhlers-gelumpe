@@ -1501,6 +1501,7 @@ export default {
   "patcher.patch.sysex": "BLECHTRIBE SysEx: čtení a zápis RAM",
   "patcher.patch.sysexSynth": "BLECHTRIBE SysEx: čtení RAM a flash",
   "patcher.patch.ifxIdle": "Klidový insert efekt",
+  "patcher.patch.stage2Memory": "Paměť pro 2. stupeň insert efektu",
   "patcher.patch.loadingAnim": "Vlastní animace načítání",
   "patcher.patch.version": "Verze BLECHTRIBE v menu (BLECH > VERSION)",
   "patcher.usbName": "Název zařízení: Electribe 3",
