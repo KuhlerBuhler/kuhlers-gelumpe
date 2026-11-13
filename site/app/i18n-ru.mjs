@@ -2056,7 +2056,7 @@ export default {
   "catalog.lauflicht.description": "Огонёк бежит по падам.",
   "catalog.category.light": "Свет",
   "catalog.pulsieren.description": "Все красные светодиоды падов становятся то ярче, то темнее.",
-  "catalog.playtakt.description": "Пока секвенсор играет, светодиод PLAY мигает в темпе паттерна, при STOP и на паузе горит постоянно. Пример таймеров.",
+  "catalog.playtakt.description": "Пока секвенсор играет, светодиод PLAY коротко мигает в темпе паттерна, при STOP он погашен, на паузе горит постоянно. Пример таймеров.",
   "catalog.momentmute.description": "Заглушение меняется только пока удерживается PART MUTE: тогда пад выключает или включает свою партию, а пады показывают заглушение. После отпускания пады играют как в режиме TRIGGER.",
   "catalog.momentmute.control1": "Держать PART MUTE и нажать пад: партия выкл. или вкл.",
   "catalog.momentmute.control2": "Меню -> BLECH -> MOMENT MUTE: 1 вкл., 0 выкл.",

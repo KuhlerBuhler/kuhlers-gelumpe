@@ -171,7 +171,7 @@ def tap(dev, key):
 
 def playtakt_cases(payload, flash):
     """PLAY-Takt from the catalog: PLAY, 2 s playing at the pattern's tempo, PLAY again (pause) for 1.5 s, PLAY, then STOP
-    for 1 s. The panel's side of the LEDs (panel_leds.py) says what the PLAY LED shows."""
+    for 1 s: blinks while playing, lit in the pause, off when stopped. The panel's side of the LEDs (panel_leds.py) says what the PLAY LED shows."""
     request = compiled_playtakt()
     built = script_hooks.build(request["include"], build=identify(payload).build)
     dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True, seconds=2.0)
@@ -205,7 +205,7 @@ def playtakt_cases(payload, flash):
     tap(dev, STOP)
     dev.run(0.2)
     stop_shown, _, stop_from = window(1.0)
-    out = [entry("playtakt_lit_when_stopped", stopped == [255, 255] and not m.asserts, f"PLAY and PLAY_BLUE {stopped} after the start"),
+    out = [entry("playtakt_off_when_stopped", stopped == [0, 0] and not m.asserts, f"PLAY and PLAY_BLUE {stopped} after the start"),
            entry("playtakt_blinks_on_the_beat", len(ons) >= 3 and beat_ms and all(abs(p - beat_ms) <= 45 for p in periods)
                  and sum(1 for _, _, v in playing if not v) >= 3 and sum(1 for _, _, v in blue if v) >= 1 and not m.asserts,
                  f"tempo {tempo} BPM, a beat {beat_ms:.0f} ms; PLAY on every {periods} ms over 2 s, {len(playing)} changes; "
@@ -216,7 +216,7 @@ def playtakt_cases(payload, flash):
                  and all(dark <= 2 * panel_leds.ROUND_NS for _, _, dark in paused_dark) and (not paused or paused[-1][2] == 255) and not m.asserts,
                  f"transport {paused_transport}, firmware wrote PLAY {firmware_toggles} times in 1.5 s, dark gaps "
                  f"{[round(d / 1e6, 1) for _, _, d in paused_dark]} ms"),
-           entry("playtakt_steady_after_stop", stop_from == 255 and not stop_shown and m.leds.get(PLAY_LEDS[0]) == 255 and not m.asserts,
+           entry("playtakt_off_after_stop", stop_from == 0 and not any(v for _, _, v in stop_shown) and m.leds.get(PLAY_LEDS[0], 0) == 0 and not m.asserts,
                  f"PLAY {stop_from} 0.2 s after STOP, {len(stop_shown)} changes in the second after")]
     return out
 

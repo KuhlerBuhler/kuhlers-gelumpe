@@ -1933,11 +1933,11 @@ korg.onEvent("frame", () => {
     creator: "Kuhler Buhler",
     added: "2026-11-10",
     controls: [],
-    source: `// PLAY-Takt: solange der Sequencer läuft, blinkt die PLAY-LED im Tempo des Patterns, bei STOP und Pause leuchtet sie
-// ruhig. Dabei zeigt es die Timer der Plugin-API (API 11): \`beat\` kommt auf jede Viertel und macht die LED an,
-// korg.afterSteps(2, off) macht sie zwei Schritte später wieder aus, so folgt das Blinken dem Tempo. STOP und Pause räumen
-// den Timer mit korg.cancel ab. In der Pause blinkt die Firmware die PLAY-LED selbst, das Plugin setzt sie dort in jedem
-// Rahmen wieder an.
+    source: `// PLAY-Takt: solange der Sequencer läuft, blinkt die PLAY-LED kurz im Tempo des Patterns, bei STOP ist sie aus, in der
+// Pause leuchtet sie ruhig. Dabei zeigt es die Timer der Plugin-API (API 11): \`beat\` kommt auf jede Viertel und macht die
+// LED an, korg.afterSteps(1, off) macht sie einen Schritt später wieder aus, so folgt das Blinken dem Tempo. STOP und Pause
+// räumen den Timer mit korg.cancel ab. Bei STOP und in der Pause schreibt die Firmware die PLAY-LED selbst, das Plugin setzt
+// sie dort in jedem Rahmen wieder.
 let dark = -1;
 
 function playLed(level) {
@@ -1949,20 +1949,23 @@ function off() {
   playLed(0);
 }
 
-korg.onEvent("ready", () => { if (korg.transport == 0) playLed(255); });
+korg.onEvent("ready", () => { if (korg.transport == 0) off(); });
 
 korg.onEvent("beat", () => {
   korg.cancel(dark);
   playLed(255);
-  dark = korg.afterSteps(2, off);
+  dark = korg.afterSteps(1, off);
 });
 
 korg.onEvent("stop", () => {
   korg.cancel(dark);
-  playLed(255);
+  playLed(korg.transport == 2 ? 255 : 0);
 });
 
-korg.onEvent("frame", () => { if (korg.transport == 2) playLed(255); });
+korg.onEvent("frame", () => {
+  if (korg.transport == 2) playLed(255);
+  if (korg.transport == 0) off();
+});
 `,
   }),
   Object.freeze({
