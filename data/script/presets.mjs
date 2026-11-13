@@ -1752,68 +1752,131 @@ korg.onEvent("buttonPress", (key) => {
     category: text("catalog.category.tools"),
     creator: "KrImZoR",
     added: "2026-10-25",
-    controls: [text("catalog.bpmglide.control1")],
-    source: `// BPM Glide, an idea of KrImZoR: while the pattern that plays chains on to another one (Chain To, with CHAIN MODE on in
-// Global), the tempo glides from where it started to the stored tempo of the next pattern, over the time the pattern plays:
-// its length times Chain Repeat. The last step reaches the new tempo, so the switch itself does not jump. STOP gives the
-// pattern its own tempo back. The page BPM GLIDE in the BLECH menu switches it on (1) and off (0).
-let on = korg.store.get(0, 1);
-let page = korg.menu.add("BPM GLIDE", 0, 1, on);
+    controls: [text("catalog.bpmglide.control1"), text("catalog.bpmglide.control2")],
+    source: `// BPM Glide, an idea of KrImZoR: the tempo glides to the stored tempo of the pattern that comes next, so the change does
+// not jump. Two pages in the BLECH menu switch the two ways on (1) and off (0):
+// GLIDE CHAIN: while the pattern that plays chains on to another one (Chain To, with CHAIN MODE on in Global), the tempo
+// glides from where it started over the time the pattern plays: its length times Chain Repeat. The last step reaches the new
+// tempo. STOP gives the pattern its own tempo back.
+// GLIDE SWITCH: once MENU confirms a pattern turned to on the dial while playing (NEXT:), the tempo glides from where it is
+// to that pattern's tempo over the steps left until the sequence end, where the firmware switches: confirmed at the half,
+// it takes the other half. A confirmed pattern wins over the chain, EXIT takes it back (the chain glides on, or the tempo
+// returns to where it was), STOP applies it like the firmware does, with its tempo.
+let chainOn = korg.store.get(0, 1);
+let switchOn = korg.store.get(1, 1);
+let chainPage = korg.menu.add("GLIDE CHAIN", 0, 1, chainOn);
+let switchPage = korg.menu.add("GLIDE SWITCH", 0, 1, switchOn);
 let pending = 1;
-let active = 0;
-let base = 0;
-let target = 0;
 let length = 16;
-let total = 16;
 let laps = 0;
 let last = -1;
+let chain = 0;
+let base = 0;
+let target = 0;
+let total = 16;
+let chainLap = 0;
+let next = -1;
+let landed = 0;
+let from = 0;
+let to = 0;
+let first = 0;
+let span = 16;
+let switchLap = 0;
+
+function setTempo(tempo) {
+  if (tempo != korg.tempo) korg.tempo = tempo;
+}
 
 // Reads the chain of the pattern in RAM once it has been loaded: the first step after PLAY or a pattern change.
 function arm(step) {
   pending = 0;
-  active = 0;
-  const next = korg.current.chainTo;
-  if (!on || !korg.chainMode || next < 0) return;
-  base = korg.tempo;
-  target = korg.patterns[next].tempo;
+  chain = 0;
   length = korg.current.length * 16;
+  const after = korg.current.chainTo;
+  if (!chainOn || !korg.chainMode || after < 0) return;
+  base = korg.tempo;
+  target = korg.patterns[after].tempo;
   total = length * korg.current.chainRepeat;
-  laps = 0;
-  last = step;
-  active = base != target ? 1 : 0;
+  chainLap = laps;
+  chain = base != target ? 1 : 0;
 }
 
-function glide(step) {
-  if (step < last) laps += 1;
-  last = step;
-  let done = laps * length + step + 1;
+function glideChain(step) {
+  let done = (laps - chainLap) * length + step + 1;
   if (done > total) done = total;
-  const tempo = base + (target - base) * done / total;
-  if (tempo != korg.tempo) korg.tempo = tempo;
+  setTempo(base + (target - base) * done / total);
 }
 
-function giveBack() {
-  if (active && korg.tempo != base) korg.tempo = base;
-  active = 0;
+function dropSwitch() {
+  if (!chain) setTempo(from);
+  next = -1;
+}
+
+// The confirmed pattern as the firmware holds it for the sequence end. A new number starts the glide from the tempo now,
+// spread over this step and the ones left in the pattern.
+function follow(step, wrapped) {
+  const n = korg.nextPattern;
+  if (n >= 0) {
+    if (n == next) return;
+    next = n;
+    landed = 0;
+    from = korg.tempo;
+    to = korg.patterns[n].tempo;
+    first = step;
+    span = length - step;
+    if (span < 1) span = 1;
+    switchLap = laps;
+  } else if (next >= 0 && !landed) {
+    if (wrapped) landed = 1;
+    else dropSwitch();
+  }
+}
+
+function glideSwitch(step) {
+  let done = laps == switchLap ? step - first + 1 : span;
+  if (done > span) done = span;
+  setTempo(from + (to - from) * done / span);
 }
 
 korg.onEvent("play", () => { pending = 1; });
-korg.onEvent("patternChange", () => { pending = 1; });
+korg.onEvent("patternChange", () => {
+  pending = 1;
+  next = -1;
+  landed = 0;
+});
 korg.onEvent("step", (step) => {
+  const wrapped = last >= 0 && step < last ? 1 : 0;
+  laps += wrapped;
+  last = step;
   if (pending) arm(step);
-  if (active) glide(step);
+  if (switchOn) follow(step, wrapped);
+  if (next >= 0) glideSwitch(step);
+  else if (chain) glideChain(step);
 });
 korg.onEvent("stop", () => {
-  giveBack();
+  if (next >= 0) setTempo(to);
+  else if (chain) setTempo(base);
+  chain = 0;
+  next = -1;
+  landed = 0;
+  last = -1;
   pending = 1;
 });
 korg.onEvent("menu", (id, value) => {
-  if (id != page) return;
-  on = value;
-  korg.store.set(0, on);
+  if (id == chainPage) {
+    chainOn = value;
+    korg.store.set(0, chainOn);
+    if (!chainOn && chain && next < 0) setTempo(base);
+    chain = 0;
+    pending = 1;
+  } else if (id == switchPage) {
+    switchOn = value;
+    korg.store.set(1, switchOn);
+    if (!switchOn && next >= 0) dropSwitch();
+  } else {
+    return;
+  }
   korg.store.save();
-  if (!on) giveBack();
-  pending = 1;
 });
 `,
   }),
