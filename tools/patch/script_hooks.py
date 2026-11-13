@@ -307,7 +307,9 @@ def runtime_profile(build):
         # frame buffer, as Korg's PCM loader does for its bar (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md)
         # LCD_FLUSH_ALL (MG_LCD, 1): every page sent, also where it equals the copy last sent, as the display's start does (0xC00117F4)
         MG_WORK=0xC0190100, MG_MKDIR=0xC008B510, FS_UNLINK=0, MG_GETFREE=0xC008B3B4, MG_ALLOC=0xC0026240, MG_FREE=0xC0026248,
-        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, LCD_FLUSH_ALL=0xC001185C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=3, US_STATE=0xC0133000, FT_BACK=0xC0062F18, **KEY_PADS_SYNTH, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, LCD_FLUSH_ALL=0xC001185C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=7, US_STATE=0xC0133000, FT_BACK=0xC0062F18,
+        # the collection on the card (fx_card.s): Korg's red modulation table, at the synth's address (data/synth-map/preset-tables.json)
+        FX_BUILD=3, FX_MODS=synthaddr.tr(0xC00D81EC), **KEY_PADS_SYNTH, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():
@@ -520,10 +522,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
     files = ['script_hooks.s','script_card.s','script_builtin.s','script_menu.s',
              'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s','script_egg.s']
-    if build != 'synth':
-        files.append('fx_card.s')
-    else:
-        files.append('script_fx_none.s')
+    files.append('fx_card.s')
     files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_timer.s','script_led.s']
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
     source = constants+'\n'+read(files)

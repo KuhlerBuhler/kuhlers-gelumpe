@@ -5,9 +5,7 @@
  "name": "Effekte aus dem Katalog",
  "builds": [
   "hacktribe",
-  "stock"
- ],
- "notNeededOn": [
+  "stock",
   "synth"
  ],
  "ram": [],

@@ -51,7 +51,7 @@ def has_menu(payload):
 def for_build(payload):
     global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT
     synth = synthaddr.is_synth(payload)
-    FX_EXPORT = not synth              # EXPORT ALL EFFECTS: only the Sampler builds have the collection on the card
+    FX_EXPORT = b"SD:KORG/blechtribe/Presets/e2sFx.all" in payload   # EXPORT ALL EFFECTS comes with the loader of the collection (fx_card.s)
     DU_FUNCS = 11 if synth else 14     # the functions of DATA UTILITY's list (screen 15), the blue has no sample functions
     SYNC_GROUP = True                  # the page SYNC GROUP is in the ring on both (the synth since 24.10.)
     MENU = 37 if synth else 45
@@ -167,7 +167,7 @@ FX_EXPORT = True
 
 def du_pages():
     """Our pages of DATA UTILITY, behind the firmware's functions: EXPORT ALL CUSTOMIZATIONS (its title is cut to fit), EXPORT ALL
-    PLUGINS, EXPORT ALL EFFECTS on the Sampler builds, and SET INIT PATTERN where the set has the patch."""
+    PLUGINS, EXPORT ALL EFFECTS where the runtime has the collection on the card, and SET INIT PATTERN where the set has the patch."""
     return ["EXPORT ALL CUSTOM", "EXPORT ALL PLUGINS"] + ["EXPORT ALL EFFECTS"] * FX_EXPORT + ["SET INIT PATTERN"] * INIT_PAGE
 TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads", "Power", "Splash", "Pattern", "Global"]
 FIRMWARE_TAB = "Data Util"                                            # the firmware's own label, already at the edge of its box: ours has to look the same, not have room to spare

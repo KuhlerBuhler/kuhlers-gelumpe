@@ -249,7 +249,7 @@ describe("the patch", () => {
     assert.deepEqual(Uint8Array.from(fromHex(synth.changes.find(c => c.file === TABLE).bytes)), table.bytes);
     const paths = read("data/patches/blech-synth.json").patches;
     assert.ok(paths.includes("data/patches/blech-sysex-synth.json"));
-    for (const path of paths) assert.deepEqual(read(path).builds, ["synth"]);
+    for (const path of paths) assert.ok(read(path).builds.includes("synth"), path);
     assert.ok(!paths.some(p => /sample-errors|synth-filters/.test(p)));
     assert.ok(!SET.patches.includes("data/patches/blech-sysex-synth.json"), "the Sampler's set has no variant for the synth, it would refuse the set");
     assert.deepEqual(checkHooks([synth]).reasons, []);

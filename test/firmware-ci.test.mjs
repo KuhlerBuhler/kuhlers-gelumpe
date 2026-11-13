@@ -65,7 +65,7 @@ test("a rerun with fewer parts selects only its own count and hardware artifacts
 test("start and editor checks occupy independent jobs with the original hardware and case coverage", () => {
   const kinds = options => firmwareMatrix(4, options).smokes.map(f => [f.name, f.kind]);
   const starts = [["hacktribe", "start"], ["red", "start"], ["blue", "start"]];
-  const full = [...starts, ["hacktribe", "editor"], ["red", "editor"]];
+  const full = [...starts, ["hacktribe", "editor"], ["red", "editor"], ["blue", "editor"]];
   assert.deepEqual(kinds(), full);
   assert.deepEqual(kinds({ full: false, cases: "" }), starts);
   assert.deepEqual(kinds({ full: false, cases: "remote_cases,menu_cases" }), starts);

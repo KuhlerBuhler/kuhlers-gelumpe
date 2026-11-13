@@ -8,27 +8,34 @@ import { VsbImage } from "../src/image.mjs";
 import { readUnits } from "../src/node.mjs";
 import { exportPresets } from "../src/export.mjs";
 import { makeFirmwareWithArrays, makeRecord } from "./helpers.mjs";
+import { SAMPLER_OF_SYNTH } from "../data/synth-sites.mjs";
 
 readUnits();
 
 const word = (bytes, ram, value) => new DataView(bytes.buffer).setUint32(ramToFile(ram), value, true);
 const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
 const NAME = ["Punch", "Overdrive", "Distortion", "Decimator"];
+const SYNTH_OF = new Map([...SAMPLER_OF_SYNTH].map(([synth, sampler]) => [sampler, synth]));
+const fileToRam = f => f - 0x100 + RAM_BASE;
 
 /**
  * An image with the structure of Korg's own build and none of its bytes: two getters, two pointer arrays of 100 whose
  * records are scattered, menu lengths, and records that name a unit the map knows (a Punch is device 0x01 in stage 1).
  * `patched` makes it what the BLECH patch preset-tables leaves: arrays of 128, clamps of 127, extra entries aliasing entry 0.
+ * `synth` gives it the blue Electribe 2's head and puts getters and menu lengths at the blue's places (data/synth-map/).
  */
-function image({ ifx = 4, mfx = 3, patched = false, scattered = true } = {}) {
+function image({ ifx = 4, mfx = 3, patched = false, scattered = true, synth = false } = {}) {
   const bytes = new Uint8Array(0x200100).fill(0xff);
+  const at = ram => (synth ? SYNTH_OF.get(ram) : ram);
+  const atFile = file => ramToFile(at(fileToRam(file)));
+  if (synth) bytes.set([0x45, 0x32, 0], 0x10);
   const arrays = { ifx: patched ? 0xc017c000 : 0xc00ee000, mfx: patched ? 0xc017c200 : 0xc00ee200 };
   const base = { ifx: 0xc00a8000, mfx: 0xc00c0000 };
   const slots = patched ? 128 : 100;
   for (const kind of ["ifx", "mfx"]) {
     const g = POINTER_TABLES.get(`presets.${kind}`).getter;
-    word(bytes, g.literal, arrays[kind]);
-    word(bytes, g.clamp, 0x23a00000 | (slots - 1));
+    word(bytes, at(g.literal), arrays[kind]);
+    word(bytes, at(g.clamp), 0x23a00000 | (slots - 1));
     for (let i = 0; i < slots; i++) {
       const own = i < 100 ? base[kind] + (scattered ? (i * 7 % 100) : i) * RECORD : arrays[kind];     // beyond 100 alias entry 0 (set below)
       word(bytes, arrays[kind] + 4 * i, own);
@@ -42,10 +49,10 @@ function image({ ifx = 4, mfx = 3, patched = false, scattered = true } = {}) {
       if (name) { bytes[at + 0x12a] = kind === "ifx" ? 0x01 : 0x01; bytes[at + 0x20b] = i; }
     }
   }
-  for (const s of field("menu.ifxCount").sites) bytes[s.file] = s.value === "count" ? ifx : ifx - 1;
-  new DataView(bytes.buffer).setUint32(0x98184, 0xe3a02000 | ifx, true);
+  for (const s of field("menu.ifxCount").sites) bytes[atFile(s.file)] = s.value === "count" ? ifx : ifx - 1;
+  new DataView(bytes.buffer).setUint32(atFile(0x98184), 0xe3a02000 | ifx, true);
   const f = field("menu.mfxCount");
-  new DataView(bytes.buffer).setUint32(f.where.offset, f.instruction.expected & 0xffffff00 | mfx, true);
+  new DataView(bytes.buffer).setUint32(atFile(f.where.offset), f.instruction.expected & 0xffffff00 | mfx, true);
   return bytes;
 }
 
@@ -176,15 +183,33 @@ test("an edited firmware is exported when only presets and menu lengths changed,
   assert.equal((await exportPresets(original, broken)).ok, false, "menu length places that disagree");
 });
 
+test("the blue Electribe 2 has the getters and menu lengths at its own places: found, and an added preset raises them there", () => {
+  const blue = image({ synth: true, patched: true });
+  assert.deepEqual(locatePresets(blue), { ifx: { array: 0xc017c000, capacity: 128 }, mfx: { array: 0xc017c200, capacity: 128 } });
+  assert.deepEqual(presetRoom(blue, "ifx"), { capacity: 128, count: 4, agreed: true, patched: true });
+  const added = addPreset(blue, "ifx", 2);
+  assert.equal(added.ok, true, added.reasons.join(" "));
+  assert.deepEqual(presetRoom(added.bytes, "ifx"), { capacity: 128, count: 5, agreed: true, patched: true });
+  const row = ramToFile(SYNTH_OF.get(fileToRam(0x98184)));
+  assert.equal(added.bytes[row], 5, "the row length of the knob memory at the blue's place");
+  const touched = [...added.bytes].flatMap((b, i) => (b !== blue[i] ? [i] : []));
+  const sampler = [...field("menu.ifxCount").sites.map(s => s.file), 0x98184];
+  assert.deepEqual(touched.filter(i => sampler.includes(i)), [], "nothing is written at the Sampler's places");
+  const wrong = image({ patched: true });
+  wrong.set([0x45, 0x32, 0], 0x10);
+  assert.equal(locatePresets(wrong), null, "a blue head with the getters at the Sampler's places is not a firmware we know");
+});
+
 test("the map and the patch agree on where the arrays and the reserve are", () => {
-  for (const [file, build] of [["data/patches/preset-tables.json", "hacktribe"], ["data/patches/preset-tables-stock.json", "stock"]]) {
+  for (const [file, build] of [["data/patches/preset-tables.json", "hacktribe"], ["data/patches/preset-tables-stock.json", "stock"], ["data/patches/preset-tables-synth.json", "synth"]]) {
     const patch = read(file);
+    const place = ram => (build === "synth" ? SYNTH_OF.get(ram) : ram);
     assert.deepEqual(patch.builds, [build]);
     for (const kind of ["ifx", "mfx"]) {
       const t = POINTER_TABLES.get(`presets.${kind}`);
       const blech = t.arrays.find(a => a.build === "blech");
       assert.ok(patch.changes.some(c => c.file === ramToFile(blech.ram) && c.copy?.file === ramToFile(t.arrays.find(a => a.build === build).ram)), `${kind}: the array is copied from the ${build} array`);
-      assert.ok(patch.changes.some(c => c.file === ramToFile(t.getter.literal) && Buffer.from(c.bytes, "hex").readUInt32LE() === blech.ram), `${kind}: the getter's literal`);
+      assert.ok(patch.changes.some(c => c.file === ramToFile(place(t.getter.literal)) && Buffer.from(c.bytes, "hex").readUInt32LE() === blech.ram), `${kind}: the getter's literal`);
       const room = patch.ram.find(r => Number(r.at) === t.reserve.ram);
       assert.equal(room.length, t.reserve.slots * RECORD, `${kind}: room for the reserve records`);
       assert.equal(t.reserve.first, 101);
