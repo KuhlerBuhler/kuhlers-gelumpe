@@ -90,6 +90,8 @@
 .equ CARD_SETTLE, 8           ; 8 frames of 40 ms: a card that is still going in is not read
 .equ CARD_DONE, 0xFF
 .equ CARD_NEVER, 0xFE         ; started without a card: no card is read until the next start (the first card after such a start can hang the Korg SD init)
+.equ CARD_GONE, 0x80          ; CARD_GONE + n: the card read (CARD_DONE) has been out for n frames; out for CARD_SETTLE frames it is pulled
+.equ CARD_PULL, 0xFD          ; menu_settings_load from menu_card_watch for a pulled card: the copy in the flash, no card read
 .equ SD_INPUT, 0x01E26070     ; GPIO IN_DATA45: bit 1 (GPIO 4.1) is low while a card is in (tools/patch/card_gate.py)
 .equ SD_DETECT, 2
 ; The settings in the flash, for a device without a card (menu_flash_read, menu_flash_save, menu_flash_watch): the record of
@@ -100,6 +102,8 @@
 .equ M_FL_CRC, 0x1B4          ; menu_settings_crc of what the flash holds (of the defaults at a start without a copy)
 .equ M_FL_SEEN, 0x156         ; byte: the low byte of menu_settings_crc at the last check, a change is written once it held for a check
 .equ FL_HOLD, 0x10000         ; the settings came from a card: nothing goes to the flash by itself until SAVE TO FLASH
+.equ FL_ASK, 0x20000          ; the question "SAVE TO FLASH?" of a card put in after the start is on the display (menu_ask_frame)
+.equ M_FL_KEY, 0x157          ; byte: the key that answered the question, set by menu_ask_input: 1 EXIT, 2 MENU
 .equ FL_PERIOD, 25            ; frames of 40 ms between two checks
 .equ FLASH_SET_A, 0x7FD000
 .equ FLASH_SET_B, 0x7FE000
@@ -263,10 +267,14 @@ menu_arm_load_end:
 ; setting and the look (backlight, bottom LEDs, pad colours, display polarity) switch at once. The card switch (GPIO 4.1, as
 ; tools/patch/card_gate.py reads it) must show the card for CARD_SETTLE frames in a row first. What this power-on runs with stays:
 ; the plugin runtime and MFX 2 (M_EFF_RUN, M_EFF_MFX) take a new value only at the next start, as after a change on their pages.
-; A card without a valid settings file changes nothing (menu_load_none). Called from the frame hook past the first main screen (UI task, where WRITE reads and
+; A card without a valid settings file changes nothing (menu_load_none). Settings from a card stay out of the flash (FL_HOLD) and
+; the display asks "SAVE TO FLASH?" (menu_ask_frame): MENU writes them, EXIT keeps them for this power-on only. Before the card is
+; read, the settings that ran without a card go to the flash when it does not hold them yet (menu_flash_sync). A card whose settings
+; are held and that is out for CARD_SETTLE frames brings back the copy in the flash (CARD_PULL), what ran before the card came.
+; Called from the frame hook past the first main screen (UI task, where WRITE reads and
 ; writes the card as well). Clobbers r0 to r3 and r12.
 menu_card_watch:
-    push {r4-r6, lr}
+    push {r4-r8, lr}
     ldr r4, =MENU_STATE
     ldr r0, [r4, #M_ON]
     cmp r0, #1
@@ -277,21 +285,76 @@ menu_card_watch:
     ldr r0, =SD_INPUT
     ldr r0, [r0]
     tst r0, #SD_DETECT
-    movne r0, #0
-    bne card_watch_store
+    bne card_watch_gone
     ldr r0, [r4, #M_CARD]
     cmp r0, #CARD_DONE
     beq card_watch_out
+    cmp r0, #CARD_GONE          ; back before it counted as pulled: the same card, nothing changes
+    movhs r0, #CARD_DONE
+    bhs card_watch_store
     add r0, r0, #1
     cmp r0, #CARD_SETTLE
     blo card_watch_store
     mov r0, #CARD_DONE
     str r0, [r4, #M_CARD]
+    mov r7, #0
+    ldr r0, [r4, #M_FL]
+    tst r0, #FL_HOLD
+    bne card_watch_read
+    bl menu_flash_sync          ; the settings without a card are in the flash now, what a pull of this card brings back
+    ldr r7, [r4, #M_FL_CRC]
+card_watch_read:
     ldr r5, [r4, #M_EFF_RUN]
     ldr r6, [r4, #M_EFF_MFX]
     bl menu_settings_load
     str r5, [r4, #M_EFF_RUN]
     str r6, [r4, #M_EFF_MFX]
+    cmp r0, #0
+    beq card_watch_flush
+    ldr r1, [r4, #M_FL]
+    ldr r0, [r4, #M_FL_CRC]     ; the card's settings
+    cmp r7, #0                  ; r7 = 0: they came after another card's, the flash holds neither
+    orreq r1, r1, #FL_ASK
+    beq card_watch_ask
+    cmp r0, r7
+    biceq r1, r1, #FL_HOLD      ; the same as the flash holds: nothing to ask
+    orrne r1, r1, #FL_ASK
+card_watch_ask:
+    mov r0, #0
+    strb r0, [r4, #M_FL_KEY]
+    str r1, [r4, #M_FL]
+    b card_watch_flush
+card_watch_gone:
+    ldr r0, [r4, #M_CARD]
+    cmp r0, #CARD_DONE
+    moveq r0, #CARD_GONE
+    cmp r0, #CARD_GONE
+    movlo r0, #0
+    blo card_watch_store
+    add r0, r0, #1
+    cmp r0, #CARD_GONE + CARD_SETTLE
+    blo card_watch_store
+    mov r0, #0
+    str r0, [r4, #M_CARD]
+    ldr r0, [r4, #M_FL]
+    tst r0, #FL_ASK             ; the question goes with the card
+    bic r1, r0, #FL_ASK
+    str r1, [r4, #M_FL]
+    ldrne r1, =UI_REDRAW
+    movne r2, #1
+    strbne r2, [r1]
+    tst r0, #FL_HOLD
+    beq card_watch_out
+    mov r0, #CARD_PULL
+    str r0, [r4, #M_CARD]
+    ldr r5, [r4, #M_EFF_RUN]
+    ldr r6, [r4, #M_EFF_MFX]
+    bl menu_settings_load       ; the copy in the flash; without one what runs stays and stays held
+    str r5, [r4, #M_EFF_RUN]
+    str r6, [r4, #M_EFF_MFX]
+    mov r0, #0
+    str r0, [r4, #M_CARD]
+card_watch_flush:
     ldr r12, =LCD_FLUSH_ALL     ; the blue writes a page only where it differs from the one last sent: all eight now, which sends
     cmp r12, #0                 ; the new polarity (0 on the Sampler, its screen writes pages anyway)
     beq card_watch_out
@@ -302,7 +365,7 @@ menu_card_watch:
 card_watch_store:
     str r0, [r4, #M_CARD]
 card_watch_out:
-    pop {r4-r6, pc}
+    pop {r4-r8, pc}
 .pool
 
 ; ---- settings file: settings.a.bin and settings.b.bin alternate, the newer valid one is read.
@@ -322,7 +385,9 @@ menu_settings_load:
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL
     ldr r0, [r4, #M_CARD]       ; the start: the generation of the flash's copy is known even when the card wins, so SAVE TO FLASH
-    cmp r0, #CARD_DONE          ; later overwrites the older copy
+    cmp r0, #CARD_PULL          ; later overwrites the older copy
+    beq menu_load_pulled
+    cmp r0, #CARD_DONE
     blne menu_flash_read
     ldr r0, =settings_path_a
     ldr r1, =MENU_FILE_A
@@ -538,6 +603,13 @@ menu_load_none:                 ; no settings file: the copy in the flash, else 
     mov r7, #0
     bl boot_light_settle
     bl menu_orig_snap           ; the defaults are what is stored then
+    b menu_load_flash_mark
+menu_load_pulled:               ; a held card pulled (menu_card_watch): the copy in the flash again, no card is read
+    bl menu_flash_read
+    cmp r0, #0
+    beq menu_load_out
+    mov r7, #0
+    b menu_load_apply
 menu_load_flash_mark:           ; what runs now is what the flash holds (r7 = 0), or it came from a card and stays out of the flash (r7 = 1)
     bl menu_settings_crc
     str r0, [r4, #M_FL_CRC]
@@ -1051,6 +1123,118 @@ menu_flash_watch:
     bl menu_flash_save
 flash_watch_out:
     pop {r4, pc}
+.pool
+
+; A card goes in after a time without one (menu_card_watch, FL_HOLD clear): a change menu_flash_watch has not written yet is written
+; now, and a flash without a copy gets one, so pulling the card brings back what ran before it. r4 = MENU_STATE. Clobbers r0 to r3, r12.
+menu_flash_sync:
+    push {r4, lr}
+    bl menu_settings_crc
+    ldr r1, [r4, #M_FL_CRC]
+    cmp r0, r1
+    bne menu_flash_sync_write
+    ldr r0, [r4, #M_FL]
+    mov r0, r0, lsl #16
+    cmp r0, #0                  ; generation 0: the flash holds no copy yet
+    bne menu_flash_sync_out
+menu_flash_sync_write:
+    bl menu_flash_save
+menu_flash_sync_out:
+    pop {r4, pc}
+
+; ---- the question of a card put in after the start (FL_ASK): over every screen, "SAVE TO FLASH?" in the look of the firmware's
+; menus (as the question of script_migrate.s). MENU writes the card's settings to the flash (menu_flash_save_status, FL_HOLD ends),
+; EXIT takes the question away and the settings run until the card is pulled or the power goes off. From the frame hook behind
+; menu_flash_watch (UI task). Keeps r4 to r11.
+menu_ask_frame:
+    push {r4-r8, lr}
+    ldr r8, =MENU_STATE
+    ldr r0, [r8, #M_ON]
+    cmp r0, #1
+    bne menu_ask_out
+    ldr r0, [r8, #M_FL]
+    tst r0, #FL_ASK
+    beq menu_ask_out
+    ldrb r1, [r8, #M_FL_KEY]
+    cmp r1, #0
+    beq menu_ask_draw
+    mov r2, #0
+    strb r2, [r8, #M_FL_KEY]
+    bic r0, r0, #FL_ASK
+    str r0, [r8, #M_FL]
+    cmp r1, #2
+    bleq menu_flash_save_status
+    ldr r1, =UI_REDRAW          ; the firmware draws its own screen again
+    mov r2, #1
+    strb r2, [r1]
+    b menu_ask_out
+menu_ask_draw:
+    bl display_clear
+    ldr r4, =str_ask_title
+    mov r5, #4                  ; 4 pixels from the sides, 2 from top and bottom, as the firmware's menus
+    mov r6, #2
+    bl display_draw_text
+    ldr r4, =str_save_flash_q
+    mov r5, #4
+    mov r6, #20
+    bl display_draw_text
+    ldr r4, =str_ask_menu
+    mov r5, #4
+    mov r6, #45
+    bl display_draw_text
+    ldr r4, =str_ask_exit
+    mov r5, #4
+    mov r6, #55
+    bl display_draw_text
+    ldr r0, =DISPLAY_FB
+    ldr r1, =MG_VRAM
+    mov r2, #1024
+menu_ask_copy:
+    subs r2, r2, #4
+    ldr r3, [r0, r2]
+    str r3, [r1, r2]
+    bne menu_ask_copy
+    mov r0, #0
+    mov r1, #0
+    mov r2, #127
+    mov r3, #63
+    ldr r12, =MG_MARK
+    blx r12
+menu_ask_out:
+    pop {r4-r8, pc}
+.pool
+
+; r0 = the panel message (type at +0x0C). While the question is up every key, the wheel, the knobs, the pads and the touch pad are
+; taken (r0 = 1) and EXIT or MENU noted for menu_ask_frame, as script_migrate.s does. Clobbers r0 to r3.
+menu_ask_input:
+    ldr r1, =MENU_STATE
+    ldr r2, [r1, #M_ON]
+    cmp r2, #1
+    bne menu_ask_in_pass        ; the menu not armed yet: its state reads FF as in the image
+    ldr r2, [r1, #M_FL]
+    tst r2, #FL_ASK
+    beq menu_ask_in_pass
+    ldrb r2, [r0, #0x0c]
+    cmp r2, #5
+    bhi menu_ask_in_pass        ; power key and mains: as always
+    cmp r2, #0
+    bne menu_ask_in_take
+    ldrb r3, [r0, #0x0e]
+    cmp r3, #0
+    beq menu_ask_in_take
+    ldrb r3, [r0, #0x0d]
+    cmp r3, #0x0D
+    moveq r2, #1
+    cmp r3, #0x09
+    moveq r2, #2
+    cmp r2, #0
+    strbne r2, [r1, #M_FL_KEY]
+menu_ask_in_take:
+    mov r0, #1
+    bx lr
+menu_ask_in_pass:
+    mov r0, #0
+    bx lr
 .pool
 ; ORIG: the settings as the file holds them (the defaults without one), taken after the start's read and after each save: the record
 ; menu_settings_write builds, SETTINGS_SIZE bytes, copied into MENU_FILE_B (free once the file is read). menu_orig_flag compares
@@ -6509,6 +6693,14 @@ str_save_flash:
     .asciz "SAVE TO FLASH"
 str_flash_saved:
     .asciz "saved in flash"
+str_ask_title:                  ; the question of a card put in after the start (menu_ask_frame)
+    .asciz "CARD SETTINGS"
+str_save_flash_q:
+    .asciz "SAVE TO FLASH?"
+str_ask_menu:
+    .asciz "MENU: SAVE"
+str_ask_exit:
+    .asciz "EXIT: ONLY FOR NOW"
 str_nocard:
     .asciz "no card"
 str_protected:
