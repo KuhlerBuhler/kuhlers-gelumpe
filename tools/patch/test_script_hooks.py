@@ -3,6 +3,7 @@ import struct
 import unittest
 import pathlib
 import sys
+from functools import lru_cache
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
@@ -14,6 +15,12 @@ try:
     from unicorn.arm_const import UC_ARM_REG_CPSR, UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R4, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
 except ModuleNotFoundError:
     pass
+
+@lru_cache(None)
+def hook_runtime():
+    """One build per process: a build takes seconds and the machines of about 100 tests only read it."""
+    from tools.patch.script_hooks import build
+    return build(contract_data()['include'])
 
 class SharedWordTests(unittest.TestCase):
     def test_load_bar_reads_the_app_picture_where_it_is(self):
@@ -44,8 +51,7 @@ class SharedWordTests(unittest.TestCase):
 @unittest.skipUnless(UNICORN_AVAILABLE,'Unicorn is required for native hook tests')
 class HookTests(unittest.TestCase):
     def machine(self):
-        from tools.patch.script_hooks import build
-        built = build(contract_data()['include'])
+        built = hook_runtime()
         machine = BareMachine(built.vm)
         machine.runtime = built.layout['runtime']
         machine.arena = built.layout['pool']
