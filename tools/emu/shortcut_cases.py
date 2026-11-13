@@ -5,7 +5,7 @@ docs/messungen/2026-10-19-exit-shortcuts.md).
 check.py runs `cases` on every patched copy that carries the BLECH menu, the blue Electribe's too (its places from data/synth-map/). With EXIT held on the main screen, WRITE
 saves the edited pattern into its own place (through the firmware's Write window) and a pad puts the sound of a part back to
 the values saved in the bank, the steps and the other parts left as they are, and the part's voices take its saved sample again,
-stopped and while playing. WRITE alone still only opens the window, and with
+stopped and while playing, without the part being switched off at the DSP. WRITE alone still only opens the window, and with
 EXIT held at power-on both are the firmware's.
 
     tools/emu/.venv/bin/python tools/emu/shortcut_cases.py cases --patched NEW.VSB [--flash dump.bin] [--only N]
@@ -25,7 +25,7 @@ import menu_cases  # noqa: E402
 import synthaddr  # noqa: E402
 import unicorn  # noqa: E402
 from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1  # noqa: E402
-from machine import load_flash  # noqa: E402
+from machine import UART1, load_flash  # noqa: E402
 from pswitch_cases import Box, play  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
 
@@ -40,8 +40,10 @@ STEPS = 0x30                    # the steps of a part start here, 12 bytes each
 KILL = menu_cases.KILL
 KEY_AT = 39                     # KEY of the pattern, 0 to 11
 KEY_PADS_ON = script_hooks.MENU_STATE + 0x104   # M_KP: the page KEY PADS (tools/patch/script_menu.s)
-# Per pad the KEY that KEY PADS sets, -1 none: chromatic in pad order, pad 1 C to pad 12 B; pads 13 to 16 set nothing.
+# Per pad the KEY that KEY PADS sets, -1 none: chromatic in pad order, pad 1 C to pad 12 B; pads 13 to 16 set the octave instead.
 KEY_NOTES = list(range(12)) + [-1] * 4
+KEY_OCTAVES = [3, 4, 5, 6]      # pads 13 to 16: the keyboard's octave (4 after the start, pad 1 then plays 60)
+OCTAVE_AT = 0x324               # the octave in the object KP_OCT_OBJ points to (tools/patch/script_hooks.py)
 KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 DRAW_TEXT = {False: 0xC003F7D0, True: 0xC003A408}   # the firmware's text draw (text, x, y, ...), Sampler and synth
 DISPATCH = 0xC002837C           # the dispatcher of panel messages, before the input filter
@@ -194,6 +196,7 @@ NOTE_ON = 0xC00998B4            # a voice takes a note: r0 the voice, r1 the sam
 MAILBOX = 0xFF900A34            # the DSP's mailbox: what a note sends there (ht_osc_cases.Box.note)
 SAMPLE_AT = 8                   # the sample of a part, a half word in its record
 OSC_DIAL = [1, 1, 0, 1, 0]      # the OSC encoder one step up: the firmware's own sample change (live_write_cases.PART_INPUTS)
+PART_OFF = 0xC0093A20           # (part, ...) switches a part off at the DSP; Copy Part's part sound setup calls it, the SAMPLE knob does not
 
 
 class VBox(SBox):
@@ -206,8 +209,11 @@ class VBox(SBox):
         self.log = DspLog(self.m)
         self.notes = []
         self.part = self.dev.call(PART_OBJECT, 0)
+        self.offs = []
         at = self.dev.a(NOTE_ON)
         self.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: self.notes.append(uc.reg_read(UC_ARM_REG_R1)), begin=at, end=at)
+        at = self.dev.a(PART_OFF)
+        self.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: self.offs.append(uc.reg_read(UC_ARM_REG_R0)), begin=at, end=at)
         self.m.uc.ctl_flush_tb()
 
     def sample(self, data=None):
@@ -233,10 +239,13 @@ class VBox(SBox):
         self.run(1.5)                   # the OSC value window closes
 
     def reset(self):
+        """EXIT + pad 1. Returns the parts the firmware switched off at the DSP meanwhile."""
+        self.offs.clear()
         self.exit_held(True)
         self.pad(0)
         self.exit_held(False)
         self.run(0.5)
+        return list(self.offs)
 
     def hit(self):
         """Pad 1 (TRIGGER: part 1 sounds): the samples its voice takes and the values of the mailbox's note messages."""
@@ -270,7 +279,7 @@ def case_reset_voice(payload, flash):
         box.change_sample()
         changed = box.sample()
         firmware_follows = box.voice_sample() == changed != saved
-        box.reset()
+        offs = box.reset()
         restored = box.sample() == saved and box.voice_sample() == saved
         if not playing:
             play(box)
@@ -281,6 +290,11 @@ def case_reset_voice(payload, flash):
                          f"{how}: saved sample {saved}, OSC encoder 3 up {changed}, part object took it {firmware_follows}; EXIT + pad 1: "
                          f"pattern {box.sample()}, part object {box.voice_sample()}; {'sequencer goes on' if playing else 'PLAY'}, its notes "
                          f"take {seq}; pad 1 takes {notes}; playing {box.transport() == 1}"))
+        # Device test 11.11.: with Copy Part's part sound setup the part stayed silent after EXIT + pad until the SAMPLE knob was
+        # turned and the sequencer restarted. That setup first switches the part off at the DSP (PART_OFF); the emulator does not
+        # model the DSP, so the check is that the reset does not do that, like the SAMPLE knob.
+        out.append(entry(f"exit_pad_keeps_the_part_on_{slug}", restored and not offs and not box.m.asserts,
+                         f"{how}: parts switched off at the DSP during EXIT + pad 1: {offs or 'none'}; part 1 back on its saved sample {restored}"))
         twins = {kind: VBox(payload, flash) for kind in ("plain", "changed", "reset")}
         for kind, twin in twins.items():
             twin.steps(False)
@@ -432,8 +446,11 @@ def case_key_pads(payload, flash):
     out = []
     box.poke(KEY_AT, 0)
     part = box.selected()
-    held(KEYBOARD, True)
-    got, shown, windows = [], [], []
+    octave_object = (script_hooks.KEY_PADS_SYNTH if box.dev.synth else script_hooks.KEY_PADS_SAMPLER)["KP_OCT_OBJ"]
+    octave = lambda: box.u32(box.u32(octave_object) + OCTAVE_AT)  # noqa: E731
+    start_octave = octave()
+    held(KEYBOARD, True, 0.25)     # 0.2 put pad 6 on the frame where the KEYBOARD window times out (blue, 12.11.)
+    got, shown, windows, octaves = [], [], [], []
     for n in range(16):
         texts.clear()
         opened.clear()
@@ -441,6 +458,7 @@ def case_key_pads(payload, flash):
             box.poke(KEY_AT, 3)             # a pad without a note leaves any KEY as it is
         box.pad(n)
         got.append(key())
+        octaves.append(octave())
         windows.append(list(opened))
         if KEY_NOTES[n] >= 0:
             shown.append(KEY_NAMES[KEY_NOTES[n]] in texts and "KEY" in texts)
@@ -452,7 +470,25 @@ def case_key_pads(payload, flash):
                      and windows == [[n] if n >= 0 else [] for n in KEY_NOTES] and not box.m.asserts,
                      f"pads 1 to 12, window with KEY and the note: {shown}; window messages per pad {windows}"))
 
+    out.append(entry("key_pads_set_the_octave", start_octave == 4 and octaves == [4] * 12 + KEY_OCTAVES and not box.m.asserts,
+                     f"octave at the start {start_octave}, after each of the 16 pads {octaves} (want 4 for pads 1 to 12, then {KEY_OCTAVES})"))
+
     box.dev.press(KEYBOARD, 0.4)
+
+    def pad_notes():
+        sent = len(box.m.uart[UART1]["tx"])
+        box.pad(0)
+        data = bytes(box.m.uart[UART1]["tx"][sent:])
+        return [data[i + 1] for i in range(len(data) - 2) if data[i] & 0xF0 == 0x90 and data[i + 2] > 0]
+    high = pad_notes()
+    passed = list(marked)
+    held(KEYBOARD, True)
+    box.pad(13)
+    held(KEYBOARD, False, 0.3)
+    low = pad_notes()
+    out.append(entry("key_pads_octave_plays", len(high) == 1 and len(low) == 1 and high[0] - low[0] == 24 and octave() == 4
+                     and marked == passed and not box.m.asserts,
+                     f"KEYBOARD mode, pad 1 after pad 16 (octave 6) {high}, after pad 14 (octave {octave()}) {low}, want 24 apart"))
     out.append(entry("key_pads_short_press_reaches_the_firmware", marked == [1, 0] and mode() == 5 and key() == 3
                      and box.dev.read(script_hooks.PRESS_KEY, 8) == b"\xff" * 8 and not box.m.asserts,
                      f"KEYBOARD passed on {marked} (want press and release), pad mode {mode()} (want 5 KEYBOARD), KEY {key()}"))

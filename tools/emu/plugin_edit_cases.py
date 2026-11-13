@@ -1,4 +1,5 @@
-"""Emulator cases of plugin API 14: korg.passKeys lets an open app choose the keys that reach the firmware,
+"""Emulator cases of plugin API 14: korg.passKeys lets an open app choose the keys that reach the firmware
+(and korg.display.take with a key held, SHIFT or any other, still lets its release through),
 korg.seq.setPartValue edits a part as a knob does (pattern, sound engine, parameter window), korg.read.patternBytes and
 korg.seq.writeSteps copy a part of a stored pattern into the one that plays, and the copy survives WRITE and a reload.
 
@@ -28,6 +29,8 @@ TRANSPORT = 0xC06BC318
 MUTE = 0xC06B2F9D               # a part's mute byte, 0x330 per part
 PART_AT = lambda part: 0x800 + 0x330 * part     # noqa: E731
 STEP_AT = lambda part, step: PART_AT(part) + 0x30 + 12 * step   # noqa: E731
+SHIFT_OBJ = 0xC0040F04         # returns the object that holds a held word per key (SHIFT at +0x358)
+TAKE_KEYS = [10, 3, 16, 19, 33]  # SHIFT, TAP, PART MUTE, TRIGGER and key 33, held across a take
 APP_PAGE = 1                   # the page of the app in TOOLS, behind Blechy
 SOURCE, TARGET, COMMAND = 5, 7, 9     # the stored pattern copied from, the part copied into, the pattern whose byte starts a step
 
@@ -40,6 +43,18 @@ PROGRAMS = {
 korg.onEvent("open", () => { korg.passKeys(korg.key.PART_MUTE, 1); korg.passKeys(korg.key.PLAY, 0); });""",
     "nokeys": """korg.app("Keys", "TOOLS");
 korg.onEvent("open", () => { });""",
+    # no app: any key but EXIT pressed takes the display, a frame counter gives it back (alarykko, 13.11.)
+    "taker": """let owned = 0;
+let t = 0;
+korg.onEvent("buttonPress", (key) => {
+  if (key != korg.key.EXIT && owned == 0) { owned = korg.display.take(); t = 0; }
+});
+korg.onEvent("frame", () => {
+  if (owned != 1) return;
+  korg.display.rect(0, 0, 128, 64);
+  t = t + 1;
+  if (t > 40) { korg.display.release(); owned = 0; }
+});""",
     # the filter type byte of part 0 of pattern COMMAND says which edit to make, once each
     "edit": f"""let done = 0;
 korg.onEvent("frame", () => {{
@@ -163,6 +178,42 @@ def keys_cases(vsb, flash, programs):
     return out
 
 
+def key_held(dev, key):
+    """The firmware's held word of a key, 0 when it is up: the object SHIFT_OBJ returns keeps one per key at +0x308 + 8 * key
+    (SHIFT at +0x358, as tools/patch/dice.py reads it; measured by pressing each key and diffing the object)."""
+    return dev.u32(dev.call(SHIFT_OBJ) + 0x308 + 8 * key)
+
+
+def take_cases(vsb, flash, programs):
+    """korg.display.take() while a key is held, the key let go while the plugin owns the display, then korg.display.release():
+    the firmware has to see the key go up (it kept SHIFT held, alarykko 13.11.), and the LCD has to show the main screen
+    again as it was before. A fresh device per key, so one key left held cannot change the next."""
+    seen, taken_all, redrawn, asserts = [], True, True, []
+    for key in TAKE_KEYS:
+        dev = boot(vsb, flash, programs, "taker")
+        dev.run(0.5)
+        before = dev.fb()
+        dev.m.send([0, key, 1, 0, 0])
+        dev.run(0.2)
+        held = key_held(dev, key)
+        owner = dev.u32(menu_cases.apps_open_address())
+        taken = dev.fb()
+        dev.m.send([0, key, 0, 0, 0])
+        dev.run(0.2)
+        up = key_held(dev, key)
+        dev.run(2.0)
+        back = dev.u32(menu_cases.apps_open_address())
+        seen.append((key, held, up))
+        taken_all = taken_all and owner != 0 and back == 0
+        redrawn = redrawn and taken != before and dev.fb() == before
+        asserts += dev.m.asserts
+    stuck = [key for key, held, up in seen if held == 0 or up != 0]
+    return [entry("take_lets_key_releases_reach_the_firmware", taken_all and not stuck and not asserts,
+                  f"keys stuck {stuck}, (key, held word, after the release while taken) {seen}"),
+            entry("release_redraws_the_main_screen", taken_all and redrawn,
+                  f"taken and given back each time {taken_all}, main screen back each time {redrawn}")]
+
+
 def edit_cases(vsb, flash, built):
     out = []
     # the firmware's own knob: LEVEL of part 0 to a value, then the plugin sets the same value in another device
@@ -256,7 +307,7 @@ def cases(vsb, flash=None):
     menu_cases.for_build(payload)
     request = compiled({k: v for k, v in PROGRAMS.items() if k != "edit"})
     built = script_hooks.build(request["include"], build=identify(payload).build)
-    return (keys_cases(vsb, flash, request["programs"]) + edit_cases(vsb, flash, built)
+    return (keys_cases(vsb, flash, request["programs"]) + take_cases(vsb, flash, request["programs"]) + edit_cases(vsb, flash, built)
             + copy_cases(vsb, flash, request["programs"], built))
 
 

@@ -87,6 +87,10 @@ class NativeCardTests(unittest.TestCase):
             except UcError:
                 pass
             m.uc.mem_write(page, b'\xff' * 0x1000)
+        # without a card the start reads the settings copies in the flash (FLASH_GET 0xC0029A40, FLASH_READ 0xC0029A74): both
+        # return 0 here (mov r0, #0; bx lr), so no copy is found and the defaults stay
+        m.uc.mem_map(0xC0029000, 0x1000)
+        for at in (0xC0029A40, 0xC0029A74): m.uc.mem_write(at, struct.pack('<2I', 0xE3A00000, 0xE12FFF1E))
         return m, built
 
     def load(self, m):
