@@ -2945,7 +2945,7 @@ menu_texts_clear:
     beq menu_text_ip
     cmp r0, #41
     beq menu_text_version
-    cmp r0, #53
+    cmp r0, #55
     beq menu_text_us
     cmp r0, #42
     beq menu_text_export
@@ -2989,7 +2989,7 @@ menu_text_version:
     movne r0, r4
     blne menu_copy
     pop {r4, r5, r6, r7, pc}
-; USER SAMPLES (53): what the start did with Sample/e2sSample.all, "2 LOADED", "2 OK 1 SKIPPED" with samples left out (too large for
+; USER SAMPLES (55): what the start did with Sample/e2sSample.all, "2 LOADED", "2 OK 1 SKIPPED" with samples left out (too large for
 ; the room or not 16-bit PCM), or "bad sample file". Only shown when the start found the file (menu_us_on).
 menu_text_us:
     add r0, r5, #M_TITLE
@@ -4088,7 +4088,7 @@ menu_kind:
     bne menu_kind_rows
     bl menu_us_on
     cmp r0, #0
-    movne r0, #53
+    movne r0, #55
     movne r1, #0
     bne menu_kind_done
 menu_kind_rows:
@@ -6377,7 +6377,7 @@ menu_slot_keys:
     beq menu_keys_export
     cmp r0, #39
     cmpne r0, #41
-    cmpne r0, #53
+    cmpne r0, #55
     beq menu_keys_done
     cmp r0, #36
     cmpeq r6, #0x09
