@@ -99,6 +99,8 @@ test("the workflow starts on every workflow that runs on a pull request and call
     .map(t => t.match(/^name: (.*)$/m)[1]).filter(n => n !== SELF);
   assert.deepEqual(onPr.filter(n => !listed.includes(n)), []);
   for (const n of listed) assert.ok(readdirSync(dir).some(f => readFileSync(new URL(f, dir), "utf8").includes(`name: ${n}\n`)), n);
+  // only runs on a release branch can change a release pull request; without the filter every finished workflow started a run
+  assert.match(yml, /types: \[completed\]\n {4}branches: \["release\/\*\*"\]/);
   assert.match(yml, /GH_TOKEN: \$\{\{ secrets\.SYNC_TOKEN \}\}/);
   assert.match(yml, /node tools\/release-merge\.mjs/);
 });
