@@ -556,13 +556,19 @@ Der Export gibt eine Datei erst heraus, wenn im Emulator:
    Notschalter,
 4. mit falscher Panel-Version der Panel-Update-Weg kommt,
 5. die gepatchten Funktionen in festen Bedienabläufen ohne Assertion laufen,
-6. keine Änderung in einem gesperrten Bereich liegt.
+6. keine Änderung in einem gesperrten Bereich liegt,
+7. die Schnittstelle zum DSP hält: der Start lädt jedem Part und dem Master einen Effekt,
+   kein Feld bleibt stumm, kein Part aus, Pad 1 und das Pattern öffnen und schließen
+   Stimmen, jede Übertragung an den DSP ist vollständig.
 
 Gebaut ist davon heute: Export mit Firmware-Erkennung und Booten der Kopie
 im Emulator, Bedienabläufe per Panel-Nachricht und Prüfung von
 Display und RAM, gehaltene Tasten beim Start (`machine.py --held`), die
 Startphase als Bereiche (`bootmap.py`) und die Punkte 1 bis 4 und 6 als
-`tools/emu/check.py`, auf der Seite Patcher (siehe unten). Der Download
+`tools/emu/check.py`, auf der Seite Patcher (siehe unten). Punkt 7 ist
+`tools/emu/dsp_cases.py` mit dem DSP-Modell (`tools/emu/dsp_model.py`); er läuft bei jeder
+Kopie mit, auch in der Kurzprüfung, weil er für jede Firmware gilt, nicht nur für einen Patch
+(`docs/messungen/2026-11-12-dsp-modell.md`, "Schnittstelle im Patcher"). Der Download
 kommt erst nach bestandener Prüfung (`allowed` in `src/patcher.mjs`). Punkt 5
 hängt am einzelnen Patch und ist teils gebaut: für den Startbild-Editor
 (`splash_cases.py`), MFX 2 (`mfx_cases.py`), das BLECH-Menü (`menu_cases.py`), den Patternwechsel (`pswitch_cases.py`), den Ladebalken (`loadbar_cases.py`), die Sample-Fehler (`sample_error_cases.py`) und das Power-Off-Bild (`power_off_cases.py`),
