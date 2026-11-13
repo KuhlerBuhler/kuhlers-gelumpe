@@ -18,7 +18,7 @@ ESLI = 1172
 FIXED = 1232                            # file bytes a sample adds to its PCM: RIFF/fmt/data headers and the korg chunk
 
 
-def esli(index, name, frames, rate=48000, width=2):
+def esli(index, name, frames, rate=48000, width=2, stereo=False):
     """The 1172-byte sample record. Fields as measured against the firmware's own export
     (docs/messungen/2026-10-07-sample-metadaten-ram.md); everything not named is zero."""
     data = frames * width
@@ -30,11 +30,13 @@ def esli(index, name, frames, rate=48000, width=2):
     out[25], out[27] = 0x7F, 1
     struct.pack_into("<H", out, 34, 0x42E6)             # playback period
     struct.pack_into("<H", out, 36, 0xFFFF)
-    struct.pack_into("<I", out, 44, max(data - 2, 0))   # loop
-    struct.pack_into("<I", out, 48, max(data - 2, 0))   # end
+    end = max(data - (4 if stereo else 2), 0)
+    struct.pack_into("<I", out, 44, end)              # loop
+    struct.pack_into("<I", out, 48, end)              # end
     out[52] = 1                                         # one shot
     struct.pack_into("<I", out, 60, data)
     out[64], out[67] = 1, 1
+    out[65] = int(stereo)
     struct.pack_into("<H", out, 68, 0x04B0)
     struct.pack_into("<I", out, 72, rate)
     struct.pack_into("<H", out, 78, index)
@@ -81,7 +83,7 @@ def wav(index, name, frames, rate=48000, kind="pcm16"):
     data = pcm(frames, index) if kind == "pcm16" else audio(frames, index, tag, channels, bits)
     width = channels * bits // 8
     fmt = struct.pack("<HHIIHH", tag, channels, rate, rate * width, width, bits)
-    korg = b"esli" + struct.pack("<I", ESLI) + esli(index, name, frames, rate, width if literal else 2)
+    korg = b"esli" + struct.pack("<I", ESLI) + esli(index, name, frames, rate, width if literal else channels * 2, channels == 2)
     body = (b"WAVE" + b"fmt " + struct.pack("<I", 16) + fmt + b"data" + struct.pack("<I", len(data)) + data
             + b"korg" + struct.pack("<I", len(korg)) + korg)
     return b"RIFF" + struct.pack("<I", len(body)) + body

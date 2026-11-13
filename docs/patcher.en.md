@@ -67,6 +67,7 @@ The set is `data/patches/blech.json`. It holds a patch per feature (some per fir
 
 | Patch | What it does |
 |---|---|
+| Sample swap | On the red Sampler, a large `e2sSample.all` stays on the card and samples load as needed. With playback stopped, WAV import adds a free slot to the file. The sample name is available before the audio is loaded. Works with the original 2.02 firmware and Hacktribe; tested in the emulator. |
 | Start image editor | edit the start image and store it in the flash (the storage place is derived; whether it works on the device is open) |
 | MFX 2 | a second master effect on TOUCH SCALE, switched on or off on the BLECH menu page MFX 2 (applies from the next start) |
 | Plugin runtime with BLECH menu | runs plugins from the card and adds the "BLECH" screen to the EDIT ring ([plugins](plugins.en.md)); also carries Blechy, the app built into BLECHTRIBE, as the last page of the ring: his block lies in the image at `0xC0184000` and is loaded at start before the card, with or without a card, and with EXIT held at power-on he is absent |
@@ -288,7 +289,10 @@ After the download the page shows a guide with the card folder of your running s
   reads `KORG/blechtribe/` instead of `KORG/hacktribe/`, so your samples and patterns are not there on their
   own. Before the update, **copy** `KORG/hacktribe/` (on Korg's original `KORG/electribe sampler/`) to
   `KORG/blechtribe/`, **do not rename it**. Then put the `SYSTEM.VSB` into the folder of the firmware that is
-  running now, not into `blechtribe`.
+  running now. When BLECH with the changed folder is already running, the
+  update path is `KORG/blechtribe/System/SYSTEM.VSB`. Reading the path strings
+  and checking the unchanged native update code on the Hacktribe device
+  confirmed this ([measurement](messungen/2026-11-06-sample-ram-vorpruefung.md), German).
 
 Then update through DATA UTILITY, SOFTWARE UPDATE. If something goes wrong, the emergency switch (EXIT at
 power-on) is your first resort.

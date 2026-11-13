@@ -15,6 +15,30 @@ Die [Speicherkarte und Schutzgrenzen](../speicherbereiche.md) führen die Ergebn
 Speicheruntersuchung zusammen. Anleitungen zum Nachvollziehen am eigenen Gerät stehen unter
 [Gerätetests](../geraetetests/README.md).
 
+- [Sample-RAM: CPU-Register und Speicherabbildung](2026-11-06-sample-ram-mmu.md)
+- [EXEC: Code vor der Bestätigung in den RAM schreiben](2026-11-06-exec-upload-cache.md)
+- [Oberer Sample-RAM: cachebewusste Probe und native Puffer](2026-11-06-sample-ram-cacheprobe.md)
+- [Oberer Sample-RAM: Muster und Leerlaufvergleich am Gerät](2026-11-06-sample-ram-cache-geraet.md)
+- [Oberer Sample-RAM: Vergleich nach USB-Lesetransfer](2026-11-06-sample-ram-usb.md)
+- [Oberer Sample-RAM: Sampling und Resampling am Gerät](2026-11-06-sample-ram-aufnahme.md)
+- [Oberer Sample-RAM: einzelner WAV-Import am Gerät](2026-11-08-sample-ram-import.md)
+- [Sample Edit: Sicherung und tatsächliches Bearbeitungsziel](2026-11-08-sample-ram-bearbeiten.md)
+- [Sample-Swap: Gesamtprüfung und offene Schutzlücken](2026-11-09-sample-swap-pruefung.md)
+- [Sample-Swap: Zusammenführung der Sicherheitskorrekturen](2026-11-09-sample-swap-pr309.md)
+- [Sample-Swap: Schutz direkter PCM-Schreibzugriffe](2026-11-09-sample-pcm-bereichsschutz.md)
+- [Sample-Swap: Besitzerprüfung nach Ressourcenwarten](2026-11-09-native-dsp-besitz.md)
+- [Sample-Swap: aktueller BLECH-Satz und große Sample-Dateien](2026-11-09-sample-swap-develop.md)
+- [WAV-Import im Gerätemenü: Zielslot, DSP und Kartenindex](2026-11-09-sample-import-menue.md)
+- [WAV-Import in die Sample-Datei, ohne sofortige DSP-Belegung](2026-11-10-sample-import-karte.md)
+- [WAV-Import: Kartenfehler und Wiederanlauf](2026-11-10-sample-import-kartenfehler.md)
+- [Sample-Journal: Wiederanlauf nach einer unvollständigen Schreibung](2026-11-10-sample-journal-wiederanlauf.md)
+- [Sample Swap auf der Grundlage von 1.4.5](2026-11-11-sample-swap-develop-final.md)
+- [Native DSP-Aufträge und die Sample-Bibliothek](2026-11-12-native-dsp-bibliotheksbindung.md)
+- [Sampleänderungen mit WRITE dauerhaft speichern](2026-11-11-sample-aenderungen-speichern.md)
+- [Sample-Datei: Wiederanlauf nach abgebrochener Erstanlage](2026-11-10-sample-datei-erstanlage.md)
+- [Aufnahmeabschluss: vorbereitete Auslagerungen verwerfen](2026-11-10-sample-aufnahme-schutz.md)
+- [Sample-Swap: Namen vor dem Laden der Audiodaten](2026-11-06-sample-swap-namen.md)
+
 
 ## Pattern, Parts und Global
 
@@ -82,6 +106,34 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Task-Stacks, Heap und Arbeitsbuffer, offline gemessen](2026-10-08-systemspeicher-offline.md)
 - [DSP-Audiopfade und Ausführungsgrenzen, offline](2026-10-08-dsp-audiopfade.md)
 - [USB-Sampleimport ohne SD: Offline-Machbarkeit](2026-10-08-usb-sample-import-offline.md)
+- [Sample-Swap: Ladepfad, Platzverwaltung und noch fehlende Gerätetests](2026-10-25-sample-swap.md)
+- [Sample-Swap: RAM-Besitz und ein begrenzter DSP-Transfer](2026-10-25-sample-swap-timeout.md)
+- [Sample-Swap: der Bau](2026-10-26-sample-swap-bau.md)
+- [Sample-Swap: begrenzter Transfer am Gerät](2026-10-27-sample-swap-transfer.md)
+- [Sample-Swap: Fehlerpfade für 1.4](2026-10-27-sample-swap-1-4.md)
+- [Sample-Swap: Stimmen, Part-Auswahl und Moduswechsel](2026-10-28-sample-swap-stimmen.md)
+- [Sample-Sammlung: einen Slot dauerhaft speichern](2026-10-27-sample-store.md)
+- [Sample-Swap: Abgleich mit develop und dynamischer Projekt-RAM](2026-10-29-sample-swap-develop.md), getrennte Besitzplanung und zusammengeführte Prüfgruppen.
+- [Sample-Swap: Veröffentlichung und Cache-Deskriptor korrigiert](2026-10-29-sample-swap-korrektur.md), gezielte Fehlerfälle vor und nach der Korrektur.
+- [Sample-Swap: Alte Kopien nach einer Pufferübergabe stoppen](2026-10-29-sample-swap-puffer.md), Übergaben vor und während PCM- und Deskriptorkopien.
+- [Sample-Swap: EXIT und Part-Auswahl bei Fehlern](2026-10-29-sample-swap-exit-parts.md), festgehaltener EXIT-Rückweg und sichere Auswahl im Kartenfehlermodus.
+- [Sample-Swap: native Wartepfade und erneute Ladeaufträge](2026-10-29-sample-swap-wartepfade.md), eingebaute Timeouts, Fehlerweitergabe, verlorene Benachrichtigung und neue Zielwahl.
+- [Sample-Swap: belegten Code im SysEx-Prüfaufbau erhalten](2026-10-30-sample-swap-sysex-pruefpuffer.md), Kontrollmuster nur im freien Rest und Schreibschutz des laufenden Codes.
+- [Sample-Swap: Prüfung des Feature-Diffs](2026-10-29-sample-swap-review.md), drei hohe und drei mittlere Befunde, Freigabe offen.
+- [Sample-Datei: Leserabschluss und exklusiver Dateibesitz](2026-10-29-sample-dateibesitz.md)
+- [Sample-Speicherung: native Bestätigungen und Tabellen](2026-10-30-sample-speichergrenzen.md), Sample-WRITE, Aufnahmebestätigung, Import ohne Kartenschreiben und alter NOR-Spiegel.
+- [Einzelnes Sample aus dem DSP dauerhaft speichern](2026-10-30-sample-snapshot.md), linearer Mono-/Stereo-Rückleser und unveränderte Einträge ohne erneutes Anhängen.
+- [Sample-Datei: gemeinsamer Schreibzugriff und erneutes Indexlesen](2026-10-31-sample-dateibesitz.md), Dateisperre, Cache-Abbruch und bestätigter Index nach Erfolg und Fehler.
+- [Sample-Swap: Schutzgrenzen nachgeprüft](2026-10-31-sample-swap-schutz-review.md), Wiedergabepunkte, Aliase, Journalfehler und Timeout-Grenzen vor dem Prototyp.
+- [Sample-Swap: Schutzcode und Dateibesitz verbunden](2026-11-04-sample-swap-integration.md), gemeinsamer Ausgangsstand und verbleibende Schutzlücken.
+- [Sample-Swap: physische Belegungen schützen](2026-11-05-sample-schutz.md), Wiedergabepunkte, Aliase, native Änderungen und geprüfte Startmarken.
+- [Sample-Swap: direkte PCM-Schreibpfade](2026-11-05-sample-pcm-schreibpfade.md), veränderte DSP-Daten bei gleichen Tabellen und fehlender Schutzmarke auf beiden roten Builds.
+- [Sample-Swap: PCM-Fehler und RAM-Prüfung](2026-11-05-sample-pcm-fehler.md), begrenzte Rückgaben, abgebrochene Tauschaufträge und vorbereitete Geräteprobe.
+- [Sample-RAM: Vorprüfung am Gerät](2026-11-06-sample-ram-vorpruefung.md), lesende Erkennung des ungeeigneten Ausgangsbuilds und Abbruch vor dem Füllen.
+- [Sample-RAM: MMU und Datencache am Gerät](2026-11-06-sample-ram-cache.md), bestätigter Probeabbruch vor dem oberen RAM und erforderliche Prüfung der Speicherabbildung.
+- [Sample-Swap: Gesamtexport und geänderte Zeilen schützen](2026-10-30-sample-swap-schutz.md), Schutz des überschreibenden Öffnens und erste Verdrängungsprüfung.
+- [Sample-Swap: ungeladene Samples am OSC-Drehgeber wählen](2026-10-30-sample-swap-oszillator.md), echter Encoder-Auftrag statt direkt gesetzter Auswahl.
+- [Sample-Swap: Schutz der Daten im DSP und auf der Karte](2026-10-30-sample-swap-schutz.md), Gesamtexport, geänderte Samples, Frist der DSP-Aufrufe und defektes Journal, jeweils vor und nach der Korrektur.
 - [Ganzer Flash in einem Stand](2026-10-09-flash-dump.md)
 - [Menüzustand im RAM: welcher Bildschirm, welche Seite](2026-10-09-menuezustand.md)
 - [LED-Zustand im RAM: wo die Firmware merkt, was leuchtet](2026-10-14-led-zustand-ram.md)

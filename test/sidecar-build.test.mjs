@@ -12,11 +12,11 @@ const read = rel => readFileSync(`${root}${rel}`, "utf8");
 
 /** The repository folder a sys.path expression of a module in tools/emu names, e.g. ROOT / "tools" / "doom". */
 function folderOf(expr) {
-  const m = /^(ROOT|Path\(__file__\)(?:\.resolve\(\))?\.(?:parent|parents\[(\d)\]))((?:\s*\/\s*"[^"]+")*)$/.exec(expr.trim());
+  const m = /^(ROOT|Path\(__file__\)(?:\.resolve\(\))?\.(?:parent|parents\[(\d)\]))((?:\s*\/\s*(?:"[^"]+"|'[^']+'))*)$/.exec(expr.trim());
   if (!m) return null;
   const up = m[1] === "ROOT" ? 2 : m[2] === undefined ? 0 : Number(m[2]);
   const base = m[1] === "ROOT" ? "." : posix.normalize(`${emu}/${"../".repeat(up)}`);
-  const parts = [...m[3].matchAll(/"([^"]+)"/g)].map(p => p[1]);
+  const parts = [...m[3].matchAll(/"([^"]+)"|'([^']+)'/g)].map(p => p[1] ?? p[2]);
   return posix.normalize(posix.join(base, ...parts)).replace(/\/$/, "");
 }
 
@@ -49,6 +49,10 @@ test("the folder test reads the forms the case modules use", () => {
   assert.equal(folderOf("Path(__file__).parent"), "tools/emu");
   assert.equal(folderOf('Path(__file__).resolve().parents[1] / "patch"'), "tools/patch");
   assert.equal(folderOf("Path(__file__).resolve().parents[2]"), ".");
+  assert.equal(folderOf("Path(__file__).resolve().parents[1] / 'device'"), "tools/device");
+  assert.equal(folderOf("ROOT / 'tools' / \"device\""), "tools/device");
+  assert.equal(folderOf("ROOT / 'tools\""), null);
+  assert.equal(folderOf("ROOT / missing"), null);
 });
 
 test("build-sidecar bundles the answers the cases once got from Node, where node_json.py looks for them", () => {

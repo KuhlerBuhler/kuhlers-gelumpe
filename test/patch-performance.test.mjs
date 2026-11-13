@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { emuPython } from "./support/emu.mjs";
-import { run as spawnRun } from "./support/spawn.mjs";
+import { run as spawnChecked } from "./support/spawn.mjs";
 import { PRESETS } from "../data/script/presets.mjs";
 
 const python = emuPython();
@@ -20,9 +20,12 @@ const sample = () => ({ format: "blech-performance", version: 4, method: "fixtur
     original: Array.from({ length: 3 }, () => ({ scenarios: ["idle", "playing", "playing-keyboard", "sequencer-four-note-long-ties"].map(scenario => ({ scenario, instructions: 1000, deviceNs: 2e9, transport: scenario === "idle" ? 0 : 1, asserts: [], byPatch: {} })) })),
     patched: Array.from({ length: 3 }, () => ({ scenarios: ["idle", "playing", "playing-keyboard", "sequencer-four-note-long-ties", "blech-menu", "closed-apps", "app-mandelbrot", "app-life", "app-pong", "background-plugins"].map((scenario, i) => ({ scenario, instructions: 1000, deviceNs: 2e9, transport: i > 0 && i < 4 ? 1 : 0, asserts: [], byPatch: {}, ...(scenario.startsWith("app-") ? { semantic: { frames: 50, fault: 0, frameActive: 0, initialStateSha256: "1".repeat(64), stateSha256: "2".repeat(64), framebufferSha256: "d".repeat(64), progress: {} } } : {}) })) })),
   }])) });
-const run = (baseline, candidate, phase, inherited) => spawnRun(python, ["-c", snippet], {
-  input: JSON.stringify({ baseline, candidate, phase, inherited }), maxBuffer: 1024 * 1024,
-});
+const run = async (baseline, candidate, phase, inherited) => {
+  const result = await spawnChecked(python, ["-c", snippet], { input: JSON.stringify({ baseline, candidate, phase, inherited }), timeout: 30_000, maxBuffer: 1024 * 1024 });
+  assert.ifError(result.error);
+  assert.notEqual(result.status, null, `comparison terminated by ${result.signal}`);
+  return result;
+};
 
 const withSysex = (end = 0xc019f000) => {
   const profile = sample();
@@ -77,7 +80,7 @@ try: app_workload(p,8)
 except ValueError: pass
 else: raise AssertionError('missing loader input accepted')
 print(json.dumps(apps))`;
-  const result = await spawnRun(python, ["-c", code], { input: JSON.stringify(programs), maxBuffer: 1024 * 1024 });
+  const result = await spawnChecked(python, ["-c", code], { input: JSON.stringify(programs), timeout: 30_000, maxBuffer: 1024 * 1024 });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), ["blechclicker", "settimer", "snake", "tetris", "life", "pong", "simon", "mandelbrot"]);
 });

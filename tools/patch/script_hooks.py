@@ -10,7 +10,7 @@ from .ramdecl import area, share
 from .script_vm import build as build_vm
 
 BLECHY_BLOCK = 0xC0184000
-BLECHY_BLOCK_END = 0xC0188000
+BLECHY_BLOCK_END = 0xC0186800
 BLECHY_FILE = Path(getattr(sys, '_MEIPASS', '') or Path(__file__).resolve().parents[2]) / 'data' / 'script' / 'blechy-block.hex'   # frozen: unpacked next to the code
 CODE_START = 0xC01A6000         # the first code area, now a reserve: only the menu copies at its end (MENU_TABLE) are written; on
                                 # the Sampler the loading animation (tools/patch/load_bar.py:ANIM_SLOT) uses it up to MENU_TABLE

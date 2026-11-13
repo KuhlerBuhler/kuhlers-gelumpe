@@ -5,6 +5,9 @@ says how it went. They work on Korg's original with BLECH too, which has none of
 they are written here from the protocol up, nothing of Hacktribe's code is used. The message is Korg's frame,
 F0 42 3n 00 01 24 <function> <7-bit packed words> F7, with n the global channel.
 
+RAM writes wholly inside the first KiB EXEC workspace clean their 32-byte D-cache lines when MMU and D-cache are on,
+then drain the write buffer before computing the readback CRC. Other destinations receive no cache maintenance.
+
     function  from the host                                      answer function
     0x60      INFO: nothing                                      0x68
     0x61      READ: address, length                              0x69  status, address, length, CRC-32, the bytes
@@ -87,8 +90,8 @@ RAM = 0xC0000000
 
 CODE_AT = 0xC0172100            # free (FF) in the image, behind Hacktribe's code (ends 0xC01720B0) and clear of every other patch
 CODE_END = 0xC0173000           # the Sync Group's buffer of the pattern switch begins here (data/patches/pattern-switch.json)
-SAMPLE_AT = 0xC017B950          # the sample file commands: free (FF) behind the second block of the preset tables, ends before 0xC017C190
-SAMPLE_END = 0xC017C190
+SAMPLE_AT = 0xC017B950          # sample file commands, free (FF) behind the preset tables
+SAMPLE_END = 0xC017C000
 TABLE_AT = 0xC0173800           # the protection table, 412 bytes today (src/sysex-table.mjs)
 TABLE_END = 0xC0174000
 STATE = 0xC0191000              # run time state, in RAM only (behind the synth filters' 0xC0190000 to 0xC0190100)
@@ -656,9 +659,7 @@ do_data:
     ldr r1, =BUF
     mov r2, r9
     bl memcpy
-    mov r0, r8
-    mov r1, r9
-    bl crc32
+    bl upload_crc
     mov r11, r0
     cmp r11, r10
     moveq r4, #{STATUS_OK}
@@ -1189,6 +1190,37 @@ window_no:
     pop {{r3, r4, r5, r6, r7, r8, pc}}
 .pool
 
+; r8 = destination, r9 = length; returns the CRC in r0.
+upload_crc:
+    cmp r9, #0
+    beq upload_crc_args
+    ldr r0, =EXEC_START
+    cmp r8, r0
+    blo upload_crc_args
+    adds r1, r8, r9
+    bcs upload_crc_args
+    ldr r0, =EXEC_END
+    cmp r1, r0
+    bhi upload_crc_args
+    .word 0xEE110F10
+    and r0, r0, #5
+    cmp r0, #5
+    bne upload_drain
+    bic r0, r8, #31
+upload_clean:
+    .word 0xEE070F3A
+    add r0, r0, #32
+    cmp r0, r1
+    blo upload_clean
+upload_drain:
+    mov r0, #0
+    .word 0xEE070F9A
+upload_crc_args:
+    mov r0, r8
+    mov r1, r9
+    b crc32
+.pool
+
 ; The sample file commands sit apart from the rest, in the free run behind the preset tables' second block, so that the code above
 ; keeps its room (the Sync Group's buffer of the pattern switch starts at 0xC0173000).
 .org {SAMPLE_AT:#x}
@@ -1496,6 +1528,8 @@ fs_unlink:
 {unlink_body()}
 .pool
 
+
+
 ; r8 = a FILE offset with its selector bits; returns r5 = which file (0 SYSTEM.VSB, 1 ORIGINAL.BIN, 3 e2sSample.all, 4 e2sSample.tmp,
 ; 5 doom.bin, 6 doom.wad) and r8 = the offset. Bits 30 and 29 together name no file: r8 = -1 then, which every range check refuses.
 ; Touches nothing else.
@@ -1720,7 +1754,7 @@ def build_patch(vsb, table, build):
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
              "note": "BLECH SysEx: the two hooks, the CRC-32, the packing, the range check and the commands"},
             {"file": file_offset(SAMPLE_AT), "bytes": sample_code.hex(), "expect": free(SAMPLE_AT, len(sample_code)),
-             "note": "BLECH SysEx: FILE COPY, FILE DELETE and FILE CRC on the sample file, the paths of the FILE commands with the Doom files, and what they use"},
+             "note": "BLECH SysEx: FILE COPY, FILE DELETE and FILE CRC on the sample file, the paths of the FILE commands with the Doom files, and their helpers"},
             {"file": file_offset(TABLE_AT), "bytes": bytes(table).hex(), "expect": free(TABLE_AT, len(table)),
              "note": "the protection table, cut from data/protected.mjs by src/sysex-table.mjs"},
             {"file": file_offset(CLASSIFY_HOOK), "bytes": classify.hex(), "expect": sha(was(CLASSIFY_HOOK, 4)),

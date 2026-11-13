@@ -38,7 +38,7 @@ test("effect editor on Korg's original with BLECH: a name is written into the ru
   await page.locator("#cee-emu-status", { hasText: "läuft" }).waitFor({ timeout: 60_000 });
   await go(page, "fx");
   await page.locator("#cee-fx-slot").waitFor({ timeout: 30_000 });
-  assert.match(await page.locator("#cee-vsb-identity").textContent(), /live ins RAM geht mit BLECH/);
+  await page.locator("#cee-tab-fx[aria-disabled='false']").waitFor({ state: "attached" });
 
   // The firmware has to be up before BLECH answers; a read that did not come from the emulator is tried again.
   const source = page.locator("#cee-fx-source");

@@ -20,7 +20,7 @@ export const ALL = "all";
 /** The case modules check.py runs (CASE_MODULES there; test/verify-scope.test.mjs keeps both the same). */
 export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases",
   "note_assist_cases", "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases",
-  "remote_cases", "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
+  "remote_cases", "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "swap_cases", "last_pattern_cases",
   "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases"];
 
 // The case modules other case modules import helpers from: a change there runs the importers too
@@ -42,6 +42,10 @@ export const TABLE = [
   [/^tools\/emu\/menu_cases\.py$/, MENU_USERS],
   [/^tools\/emu\/pswitch_cases\.py$/, PSWITCH_USERS],
   [/^tools\/emu\/mfx_cases\.py$/, MFX_USERS],
+  [/^tools\/emu\/swap_cases\.py$/, ["swap_cases", "sysex_cases"]],
+  [/^tools\/emu\/sample_import_(card|menu)_cases\.py$/, ["swap_cases"]],
+  [/^tools\/emu\/native_sample_persistence_cases\.py$/, ["swap_cases"]],
+  [/^tools\/patch\/native_sample_persistence\.py$/, ["swap_cases"]],
   [/^tools\/emu\/tap_motion_cases\.py$/, ["tap_motion_cases", "beat_eighth_cases"]],
   ...CASE_MODULES.map(m => [new RegExp(`^tools/emu/${m}\\.py$`), [m]]),
   [/^tools\/emu\/testmode_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases

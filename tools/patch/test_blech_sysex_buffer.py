@@ -16,6 +16,87 @@ from tools.patch.sysex_fixture import NativeSysex, TARGET_END, exercise, generat
 
 @unittest.skipUnless(find_spec('unicorn'), 'Unicorn not installed')
 class SysexBufferTests(unittest.TestCase):
+    def cache_machine(self, build='hacktribe', control=0x5107D):
+        import unicorn
+        machine = NativeSysex(build=build)
+        b = machine.spec
+        machine.uc.mem_map(b.EXEC_START + 0x4000000, 0x1000)
+        events, pending = [], {}
+        def store(uc, access, address, size, value, _):
+            if control & 5 != 5:
+                uc.mem_write(address + 0x4000000, (value & ((1 << (size*8))-1)).to_bytes(size, 'little'))
+        def cache(uc, address, size, _):
+            word = struct.unpack('<I', uc.mem_read(address, 4))[0]
+            if word == 0xEE110F10:
+                uc.reg_write(machine.a.UC_ARM_REG_R0, control)
+                uc.reg_write(machine.a.UC_ARM_REG_PC, address + 4)
+            elif word == 0xEE070F3A:
+                line = uc.reg_read(machine.a.UC_ARM_REG_R0)
+                self.assertTrue(b.EXEC_START <= line < b.EXEC_END and line & 31 == 0)
+                pending[line] = bytes(uc.mem_read(line, 32))
+                events.append(('clean', line))
+                uc.reg_write(machine.a.UC_ARM_REG_PC, address + 4)
+            elif word == 0xEE070F9A:
+                for line, data in pending.items():
+                    uc.mem_write(line + 0x4000000, data)
+                pending.clear()
+                events.append(('drain', 0))
+                uc.reg_write(machine.a.UC_ARM_REG_PC, address + 4)
+            elif word & 0x0F100010 == 0x0E000010 and (word >> 8) & 15 == 15:
+                self.fail('WRITE DATA must not change CP15 configuration')
+        machine.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, store, begin=b.EXEC_START, end=b.EXEC_END-1)
+        for start, end in ((b.CODE_AT, b.CODE_END), (b.SAMPLE_AT, b.SAMPLE_END)):
+            machine.uc.hook_add(unicorn.UC_HOOK_CODE, cache, begin=start, end=end-1)
+        return machine, events, pending
+
+    def test_exec_uploads_are_published_before_the_write_ack(self):
+        for build in ('hacktribe', 'stock'):
+            m, events, pending = self.cache_machine(build)
+            b = m.spec
+            for offset, count in ((0, 1024), (5, 64), (1023, 1), (1, 31)):
+                with self.subTest(build=build, offset=offset, count=count):
+                    initial = payload(1024)
+                    m.uc.mem_write(b.EXEC_START, initial)
+                    m.uc.mem_write(b.EXEC_START + 0x4000000, initial)
+                    events.clear()
+                    data, start = b'E' * count, b.EXEC_START + offset
+                    self.assertEqual(struct.unpack_from('<I', m.words(b.FUNC_BEGIN, start, count, zlib.crc32(data)))[0], b.STATUS_OK)
+                    self.assertEqual(struct.unpack('<4I', m.request(b.FUNC_DATA, data)), (b.STATUS_OK, start, count, zlib.crc32(data)))
+                    self.assertEqual(bytes(m.uc.mem_read(start + 0x4000000, count)), data,
+                                     'WRITE ACK must include physical publication of EXEC bytes')
+                    self.assertEqual(events, [('clean', address) for address in range(start & ~31, start + count, 32)] + [('drain', 0)])
+                    self.assertEqual(pending, {})
+            m.check_guards()
+
+    def test_exec_publication_excludes_other_ram_files_and_rejected_writes(self):
+        m, events, pending = self.cache_machine()
+        b, data = m.spec, b'own generated data'
+        for start in (0xC3000000,):
+            m.words(b.FUNC_BEGIN, start, len(data), zlib.crc32(data))
+            self.assertEqual(struct.unpack_from('<I', m.request(b.FUNC_DATA, data))[0], b.STATUS_OK)
+            self.assertEqual(events, [])
+        m.words(b.FUNC_FBEGIN, 0, len(data), zlib.crc32(data))
+        self.assertEqual(struct.unpack_from('<I', m.request(b.FUNC_DATA, data))[0], b.STATUS_OK)
+        self.assertEqual(events, [])
+        m.words(b.FUNC_BEGIN, b.EXEC_START, len(data), zlib.crc32(data) ^ 1)
+        self.assertEqual(struct.unpack_from('<I', m.request(b.FUNC_DATA, data))[0], b.STATUS_BAD_CRC)
+        self.assertEqual(events, [])
+        for start, length in ((b.EXEC_START - 1, 2), (b.EXEC_END, 1)):
+            self.assertEqual(struct.unpack_from('<I', m.words(b.FUNC_BEGIN, start, length, 0))[0], b.STATUS_REFUSED)
+        self.assertEqual(events, [])
+        self.assertEqual(pending, {})
+        synth, synth_events, _ = self.cache_machine('synth')
+        self.assertEqual(struct.unpack_from('<I', synth.words(synth.spec.FUNC_BEGIN, b.EXEC_START, 32, 0))[0], b.STATUS_REFUSED)
+        self.assertEqual(synth_events, [])
+
+    def test_disabled_cache_skips_cleaning_old_lines_and_drains_exec_writes(self):
+        for control in (0, 1, 4):
+            m, events, pending = self.cache_machine(control=control)
+            b, data = m.spec, b'own code bytes'
+            m.words(b.FUNC_BEGIN, b.EXEC_START + 3, len(data), zlib.crc32(data))
+            self.assertEqual(struct.unpack_from('<I', m.request(b.FUNC_DATA, data))[0], b.STATUS_OK)
+            self.assertEqual(events, [('drain', 0)])
+            self.assertEqual(pending, {})
     def test_current_protocol_matrix_on_both_native_ports(self):
         machine = NativeSysex()
         result = exercise(machine)
