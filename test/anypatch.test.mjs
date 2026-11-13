@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readAnyPatch, applyAnyPatch, itemsOf, OWN_ID } from "../src/anypatch.mjs";
+import { readAnyPatch, applyAnyPatch, itemsOf, isForeign, OWN_ID } from "../src/anypatch.mjs";
 import { VSB_SIZE } from "../src/patcher.mjs";
 import { sha256 } from "../src/firmware.mjs";
 import { render } from "../src/text.mjs";
@@ -86,4 +86,14 @@ test("what is no patch gets a clear error: empty, unknown, a format that is name
   await assert.rejects(readAnyPatch(ascii("BPS1....")), e => e.text.key === "patcher.any.unsupported" && e.text.vars.format === "BPS");
   await assert.rejects(readAnyPatch(Uint8Array.of(0xd6, 0xc3, 0xc4, 0, 0)), e => e.text.vars.format === "xdelta");
   assert.match((await readAnyPatch(ascii("PATCH")).catch(e => e)).message, /IPS-Patch ist abgeschnitten/);
+});
+
+test("IPS and bsdiff are foreign patches, our own patch files and JSON are not, so only ours keep the start phase check", async () => {
+  assert.equal(isForeign(await readAnyPatch(ips([[FREE, [1]]]))), true);
+  assert.equal(isForeign(await readAnyPatch(ips([[FREE, [1]]], { wide: true }))), true);
+  assert.equal(isForeign(await readAnyPatch(fixture("./patch/edit.patch"))), true);
+  const json = { format: "gelumpe-patch", version: 1, id: "raw", name: "Raw", changes: [] };
+  assert.equal(isForeign(await readAnyPatch(new TextEncoder().encode(JSON.stringify(json)))), false);
+  assert.equal(isForeign({ kind: "gelumpe" }), false);
+  assert.equal(isForeign(null), false, "the set of this version is ours");
 });

@@ -58,11 +58,11 @@ const filled = page => page.locator("#cee-anim-slot-picture").isVisible();
 const lcdShot = page => page.locator("#cee-anim-preview").evaluate(c => c.toDataURL());
 const same = (a, b) => a.every((x, i) => x === b[i]);
 
-test("Design: two tabs, Startbild and Ladeanimation; the gallery stands with 100 empty slots from the start", async () => {
+test("Design: three tabs, Startbild, Ladeanimation and Image Viewer; the gallery stands with 100 empty slots from the start", async () => {
   const page = await h.page();
   await page.goto(h.url);
   await go(page, "splash");
-  assert.deepEqual(await page.locator("#cee-design-tabs [role=tab]").allTextContents(), ["Startbild", "Ladeanimation"]);
+  assert.deepEqual(await page.locator("#cee-design-tabs [role=tab]").allTextContents(), ["Startbild", "Ladeanimation", "Image Viewer"]);
   assert.equal(await page.locator("#cee-design-panel-splash").isVisible(), true, "Startbild first");
   await page.click("#cee-design-tab-anim");
   assert.equal(await page.locator("#cee-design-panel-anim .ui-section-title").textContent(), "Ladeanimation");

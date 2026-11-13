@@ -57,7 +57,7 @@ jobs:
       cancel-in-progress: ${{ !inputs.full && (github.event_name == 'pull_request' || github.event_name == 'push') }}
     strategy:
       fail-fast: false
-      max-parallel: ${{ fromJSON(vars.FIRMWARE_MAX_PARALLEL || '8') }}
+      max-parallel: ${{ fromJSON(vars.FIRMWARE_MAX_PARALLEL || (inputs.full && '16' || '8')) }}
       matrix:
         firmware: ${{ fromJSON(needs.plan.outputs.firmwares) }}
         part: ${{ fromJSON(needs.plan.outputs.parts) }}
@@ -187,6 +187,9 @@ jobs:
           url: ${{ secrets[matrix.firmware.secret] }}
           sha256: ${{ matrix.firmware.sha256 }}
           blue-head: ${{ matrix.firmware.blue_head }}
+      # Both tests load blech.json, which names the runtime patches; they are built, not committed
+      # (tools/patch/ensure-runtime.mjs), and node --test alone does not build them.
+      - run: node tools/patch/ensure-runtime.mjs
       - name: The editor's e2sFx.all in the emulator
         if: matrix.firmware.kind == 'editor' && (inputs.full || inputs.cases == 'all' || contains(format(',{0},', inputs.cases), ',fx_card_cases,'))
         env:

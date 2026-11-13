@@ -8,6 +8,7 @@ import { el } from "./fields.mjs";
 import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { icon } from "./icons.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 import { knob } from "./fx-knob.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { clamp } from "./dials.mjs";
@@ -879,6 +880,7 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     firmwareCache.clear();
     firmwareFiles.textContent = file.name;
   });
+  const firmwareZone = dropzoneClear(firmwareInput, () => { firmwareFile = null; firmwareCache.clear(); }).node;
   const firmwareHelp = el("p", { className: "muted", id: "cee-bk-firmware-help" }, tNodes("bk.device.help", {
     link: el("a", { className: "cee-text-link", href: KORG_DOWNLOADS.red.page, target: window.__GELUMPE_APP ? "_self" : "_blank", rel: "noopener noreferrer", textContent: t("patcher.korg.licence.link") }),
   }));
@@ -914,6 +916,7 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     el("span", { className: "ui-dropzone-hint", textContent: t("bk.all.hint", { folder: COLLECTION_FOLDER }) }),
     allFiles,
   ]);
+  const allZone = dropzoneClear(allInput).node;
   allInput.addEventListener("change", async () => {
     const file = allInput.files?.[0];
     allInput.value = "";
@@ -1097,8 +1100,8 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     el("h3", { textContent: t("bk.device") }),
     firmwareSwitch,
     firmwareHelp,
-    firmwareDrop,
-    allDrop,
+    firmwareZone,
+    allZone,
     exportSwitch,
     exportLists,
   ]);

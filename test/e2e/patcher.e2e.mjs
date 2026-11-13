@@ -1199,7 +1199,10 @@ test("patcher: back to Korg's original on the red takes Korg's file as it is, sk
   await page.locator("#app-toasts .cee-toast", { hasText: "Das ist nicht Korgs Original 2.02" }).waitFor();
   await closeToasts(page);
   assert.equal(await page.isVisible("#cee-patch-goal-hint"), true);
-  assert.equal(await page.isDisabled("#cee-patch-next"), true, "the wrong file opens no step");
+  assert.match(await page.locator("#cee-patch-goal-hint").textContent(), /Das ist nicht Korgs Original 2\.02.*Weiter lädt stattdessen die richtige Datei von Korg/,
+    "the hint says why the file is wrong and that Weiter fetches the right one");
+  assert.equal(await page.isDisabled("#cee-patch-next"), false, "Weiter fetches Korg's file over the wrong one");
+  assert.equal(await page.isVisible("#cee-patch-step-2:not([hidden])"), false, "the wrong file opens no step");
   await drop(page, original);
   await page.waitForFunction(() => !document.querySelector("#cee-patch-next").disabled);
   assert.equal(await page.isVisible("#cee-patch-goal-hint"), false);
@@ -1263,7 +1266,8 @@ test("patcher: from Hacktribe to BLECH alone the red's Korg file is patched with
   await drop(page, withHacktribeRun(await makeFirmware()));
   await page.locator("#app-toasts .cee-toast", { hasText: "In dieser Datei steckt Hacktribe" }).waitFor();
   await closeToasts(page);
-  assert.equal(await page.isDisabled("#cee-patch-next"), true, "the Hacktribe file does not fit BLECH alone");
+  assert.equal(await page.isVisible("#cee-patch-step-2:not([hidden])"), false, "the Hacktribe file does not fit BLECH alone");
+  assert.match(await page.locator("#cee-patch-goal-hint").textContent(), /Weiter lädt stattdessen die richtige Datei von Korg/, "Weiter can fetch Korg's file instead");
   await patched(page, original);
   assert.equal(await page.isVisible("#cee-patch-ht-warn"), false);
   assert.equal(await page.locator("#cee-patch-path").textContent(), "KORG/hacktribe/System/SYSTEM.VSB", "the folder Hacktribe runs from");
@@ -1438,4 +1442,32 @@ test("patcher in the browser: the save dialog where there is one, a cancel saves
   assert.equal(await plain.locator("#cee-patch-saved").textContent(), "Die Datei ist gespeichert.");
   assert.match(await plain.locator("#cee-patch-guide-vsb").textContent(), /^Kopiere die gespeicherte SYSTEM\.VSB/);
   assert.deepEqual([...page.errors, ...plain.errors], []);
+});
+
+test("patcher: the X on the file field takes the file out again and the field takes the next one", async () => {
+  const page = await patcherPage();
+  const zone = page.locator("#cee-patcher .ui-dropzone:has(#cee-patch-file)");
+  const x = page.locator("#cee-patcher .cee-dropzone-wrap:has(#cee-patch-file) > .cee-dropzone-clear");
+  assert.equal(await zone.locator("button").count(), 0, "no button inside the label");
+  assert.equal(await x.isVisible(), false, "no file, no X");
+  let opened = 0;
+  page.on("filechooser", () => { opened++; });
+  const vsb = await makeFirmware();
+  await drop(page, vsb);
+  await page.waitForFunction(() => document.querySelector("#cee-patch-file-info").textContent === "SYSTEM.VSB: Hacktribe 2.02 erkannt");
+  await closeToasts(page);
+  assert.equal(await x.isVisible(), true, "a file in the field shows the X");
+  assert.equal(await x.getAttribute("aria-label"), "Datei entfernen");
+  assert.equal(await x.evaluate(n => n.tagName), "BUTTON");
+  assert.equal(await page.isDisabled("#cee-patch-next"), false);
+  await x.click();
+  assert.equal(await page.locator("#cee-patch-file-info").textContent(), "", "the name is gone");
+  assert.equal(await x.isVisible(), false, "the X goes with the file");
+  assert.equal(await page.isDisabled("#cee-patch-next"), true, "the flow is back at the start");
+  assert.equal(await page.locator("#cee-patch-file").evaluate(n => n.files.length), 0);
+  assert.equal(opened, 0, "the X does not open the picker");
+  await drop(page, vsb);
+  await page.waitForFunction(() => document.querySelector("#cee-patch-file-info").textContent === "SYSTEM.VSB: Hacktribe 2.02 erkannt");
+  assert.equal(await x.isVisible(), true, "the same file can be taken again");
+  assert.deepEqual(page.errors, []);
 });

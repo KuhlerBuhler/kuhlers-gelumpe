@@ -755,7 +755,6 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const catalog = el("ul", { className: "cee-catalog", id: "cee-catalog" }, PRESETS.map(catalogCard));
   const exportAllOwn = exportAll;
   const ownShelf = el("div", { className: "cee-plug-page cee-own-shelf", id: "cee-own-shelf" }, [
-    el("div", { className: "actions" }, [newButton, openLabel, open, exportAllOwn]),
     ownEmpty,
     ownList,
     el("p", { className: "muted", textContent: t("plugins.own.local") }),
@@ -850,7 +849,10 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     subPages?.select(id === "detail" ? "catalog" : id);
     reading = null;
     trail(id === "editor" ? [t("plugins.page.editor"), ...(current ? [current.id] : [])] : [PAGES.find(p => p.id === id).title]);
-    navbar(id === "editor" ? [openNav, saveNav] : []);
+    // Meine Plugins and the editor keep their file actions in the navbar; the file input goes along, so Öffnen works on both.
+    // In the editor the Öffnen button clicks it, so there it stays out of view and out of the accessibility tree.
+    open.hidden = id === "editor";
+    navbar(id === "editor" ? [openNav, saveNav, open] : id === "mine" ? [newButton, openLabel, open, exportAllOwn] : []);
     if (id === "catalog") drawThumbs();
     if (id === "docs") loadDocs();
   }

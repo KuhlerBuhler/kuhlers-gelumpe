@@ -62,6 +62,33 @@ Steps: die Note von Pad 1 schickt dem Postfach `0xFF900A34` unberührt den Wert 
 Offen: am Gerät nicht gehört. Weil die Stimmen des Parts frei werden, bricht hergeleitet eine Note des Parts, die gerade klingt,
 beim Kürzel ab, wie bei Copy Part.
 
+## Der Part bleibt stumm (Gerätetest 11.11.)
+
+Am Gerät, Testbuild 1.4.5 mit dem Fix oben: nach EXIT + Pad stand Pitch richtig zurück, der Part blieb aber stumm, bis im Sample
+Edit am SAMPLE-Rad gedreht und Stop/Start gedrückt wurde.
+
+**Aus dem Code gelesen (Hacktribe 2.02, rot gleich):** Die Klangeinrichtung von Copy Part (`0xC0098BE0`) ruft als Erstes
+`0xC0098AD0`, und die schaltet den Part am DSP ab: `0xC0093A20(Part, Stereo)` löscht das Bit des Parts in `0xC06914E8` und schreibt
+0 in den DSP-Parameter `0x2C2 + 0x6D * Part` (`0xC00127B0`), dazu Byte 0 des Part-Objekts auf 0. Wieder an schaltet ihn
+`0xC0093988` (Bit setzen, Parameter 1), nur aus der Noteneinrichtung `0xC0098604` für den Notentyp 0. Weder der Patternwechsel
+(`0xC009B5DC`) noch das SAMPLE-Rad rufen `0xC0098AD0`: das Rad läuft über `0xC009A588(Part)` in den Sample-Handler
+`0xC0099FFC(Objekt)` (im Emulator gemessen: OSC drehen ruft nur ihn, darin `0xC0099D88`), der setzt das Sample ins Objekt und
+richtet nur bei einem Wechsel mono/stereo das Paar neu ein (`0xC0098B20`, ohne Abschalten).
+
+Im Emulator klingt der Part trotzdem: jede Note schickt den Parameter wieder auf 1 (gemessen, gestoppt und beim Abspielen). Den
+DSP modelliert der Emulator nicht. Dass das Abschalten am Gerät die Stille macht, ist hergeleitet: es ist der einzige Schritt, den
+der Fix oben neu brachte und den weder Patternwechsel noch SAMPLE-Rad machen.
+
+**Der Fix:** Nach dem Laden ruft das Kürzel den Sample-Handler der Firmware mit dem Part-Objekt, `0xC0099FFC(0xC009AF20(Part))`,
+also dasselbe wie ein Dreh am SAMPLE-Rad, statt der Klangeinrichtung von Copy Part. Blau hat keinen Sample-Handler: dort die
+Einrichtung je Part aus dem Patternwechsel `0xC0087C84(0xC0087B60(Part))` (Oszillator ins Objekt), auch ohne das Abschalten
+`0xC0081680` (gelesen, `data/synth-map/shortcuts.json`). Die Stimmen des Parts werden, ausser beim Wechsel mono/stereo, nicht mehr freigegeben, eine klingende Note
+läuft also aus.
+
+Geprüft (`shortcut:exit_pad_keeps_the_part_on_stopped`, `..._while_playing`): während EXIT + Pad 1 wird `0xC0093A20` (blau
+`0xC0081680`) nicht gerufen, die vier Fälle oben bleiben grün. Gegenprobe mit dem alten Code: beide neuen Fälle schlagen fehl
+(Part 0 abgeschaltet). Am Gerät noch nicht gehört.
+
 ## Ungespeichert anzeigen (19.10., Vorschlag 1)
 
 Die WRITE-LED (`0x0B`) atmet, solange das Pattern im RAM von seinem Platz in der Bank abweicht: alle 8 Frames vergleicht BLECH

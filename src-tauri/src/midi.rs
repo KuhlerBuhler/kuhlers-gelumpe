@@ -1,5 +1,11 @@
+#[cfg(desktop)]
+mod backend;
+#[cfg(mobile)]
+#[path = "midi/none.rs"]
 mod backend;
 mod service;
+#[cfg(target_os = "macos")]
+pub use backend::watch_devices;
 pub use backend::NativeDriver;
 pub use service::*;
 
