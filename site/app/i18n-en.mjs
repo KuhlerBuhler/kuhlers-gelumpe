@@ -1483,6 +1483,7 @@ export default {
   "patcher.patch.ifxIdle": "Idle insert effect",
   "patcher.patch.loadingAnim": "Own loading animation",
   "patcher.patch.version": "BLECHTRIBE version in the menu (BLECH > VERSION)",
+  "patcher.patch.updateGuard": "SOFTWARE UPDATE refuses an incomplete SYSTEM.VSB",
   "patcher.usbName": "Device name: Electribe 3",
   "patcher.usbName.note": "Your computer then shows the Electribe as Electribe 3. DAW mappings tied to the old port name have to be linked again. Windows may keep the old name until you remove the device once in Device Manager.",
   "patcher.blech.wrong": "{file} can't be read as a patch: {error}",
