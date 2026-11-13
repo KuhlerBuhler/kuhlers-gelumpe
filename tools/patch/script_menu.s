@@ -89,6 +89,7 @@
 .equ M_CARD, 0x1B0            ; menu_card_watch: frames in a row the card switch showed a card, CARD_DONE once its settings are read
 .equ CARD_SETTLE, 8           ; 8 frames of 40 ms: a card that is still going in is not read
 .equ CARD_DONE, 0xFF
+.equ CARD_NEVER, 0xFE         ; started without a card: no card is read until the next start (the first card after such a start can hang the Korg SD init)
 .equ SD_INPUT, 0x01E26070     ; GPIO IN_DATA45: bit 1 (GPIO 4.1) is low while a card is in (tools/patch/card_gate.py)
 .equ SD_DETECT, 2
 .equ LCD_PAGE_HOOK_BACK, 0xC00161A8
@@ -234,14 +235,18 @@ menu_arm_load:
     ldr r0, =MENU_STATE
     mov r1, #0
     str r1, [r0, #M_INV_HW]     ; the display shows normal: the next page write sends 0xA7 when the settings want it inverted
-    mov r1, #CARD_DONE
-    str r1, [r0, #M_CARD]       ; a card in now is read; without one menu_card_watch sets 0 and reads the next card
+    ldr r2, =SD_INPUT
+    ldr r2, [r2]
+    tst r2, #SD_DETECT
+    moveq r1, #CARD_DONE        ; a card in now is read; menu_card_watch reads the next one after it is pulled
+    movne r1, #CARD_NEVER       ; no card at the start: menu_card_watch reads none
+    str r1, [r0, #M_CARD]
     bl objects_repair
     pop {pc}
 .pool
 menu_arm_load_end:
 
-; ---- a card put in after the start, or another card for the one pulled (#479): its settings file is read as at the start, so every
+; ---- another card for the one pulled (#479), after a start with a card: its settings file is read as at the start, so every
 ; setting and the look (backlight, bottom LEDs, pad colours, display polarity) switch at once. The card switch (GPIO 4.1, as
 ; tools/patch/card_gate.py reads it) must show the card for CARD_SETTLE frames in a row first. What this power-on runs with stays:
 ; the plugin runtime and MFX 2 (M_EFF_RUN, M_EFF_MFX) take a new value only at the next start, as after a change on their pages.
@@ -253,6 +258,9 @@ menu_card_watch:
     ldr r0, [r4, #M_ON]
     cmp r0, #1
     bne card_watch_out
+    ldr r0, [r4, #M_CARD]
+    cmp r0, #CARD_NEVER
+    beq card_watch_out
     ldr r0, =SD_INPUT
     ldr r0, [r0]
     tst r0, #SD_DETECT
