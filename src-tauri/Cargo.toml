@@ -5,6 +5,11 @@ description = "Kuhler's GELUMPE"
 edition = "2021"
 license = "AGPL-3.0-only"
 
+# Android loads the app as a library (src/mobile.rs); the desktop app is the binary (src/main.rs).
+[lib]
+name = "kuhlers_gelumpe"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -13,10 +18,15 @@ tauri = { version = "2", features = [] }
 getrandom = "0.3"
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
-midir = "0.10.3"
 tauri-plugin-dialog = "2"
-tauri-plugin-single-instance = "2"
 ureq = { version = "2", default-features = false, features = ["tls"] }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+midir = "0.10.3"
+tauri-plugin-single-instance = "2"
+
+[target.'cfg(target_os = "android")'.dependencies]
+tauri-plugin-fs = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 coremidi = "0.9.2"

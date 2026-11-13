@@ -15,6 +15,18 @@ export const NAME_MAX = 15;
 const MAGIC = "e2s sample all\x1a\0";
 const WAV_FORMATS = new Set([16, 24]);
 
+/**
+ * The blue Electribe 2 with the user samples patch (tools/patch/user_samples.py) loads at most 64 samples of the same file at
+ * every start, in slot order, as 16-bit mono at their own rate, into the DSP's PCM window behind the factory waves. It takes
+ * 16 bit only (24 is skipped), averages stereo, and skips one that does not fit and goes on with the next.
+ */
+export const BLUE_MAX = 64;
+/** The room behind the factory waves: the window's end 0x1365AE0 minus 0xE03E60, where the waves end in the emulator's
+ * rebuild (docs/messungen/2026-11-12-blau-sample-import.md). The device computes it from its own tables, so it is an estimate. */
+export const BLUE_ROOM = 0x1365ae0 - 0xe03e60;
+/** What one sample of `bytes` 16-bit mono bytes takes in the window: the values and 64 bytes of zeros, on 32 bytes. */
+export const blueCost = bytes => (bytes + 0x5f) & ~0x1f;
+
 /** A problem with the sample file or a WAV; `key` and `vars` are a text (src/text.mjs). */
 export class SampleFileError extends TextError {}
 
@@ -49,7 +61,9 @@ function describe(bytes, start, limit) {
   const frames = Math.floor(c.data.size / Math.max(1, channels * (bits >> 3)));
   let name = "";
   if (c.korg && c.korg.size >= 4 + 4 + 18 && tag(bytes, c.korg.at) === "esli") name = ascii(bytes, c.korg.at + 8 + 2, 16);
-  return { tagNo, channels, rate, bits, frames, name, esli: c.korg && tag(bytes, c.korg.at) === "esli" ? c.korg.at + 8 : null };
+  // the layout the firmware writes and the blue's loader reads: fmt of 16 bytes first, data right behind it
+  const layout = tag(bytes, start + 12) === "fmt " && u32(bytes, start + 16) === 16 && tag(bytes, start + 36) === "data";
+  return { tagNo, channels, rate, bits, frames, name, layout, dataSize: c.data.size, esli: c.korg && tag(bytes, c.korg.at) === "esli" ? c.korg.at + 8 : null };
 }
 
 /**
@@ -74,7 +88,7 @@ export function parseSampleFile(bytes) {
       const length = 8 + u32(bytes, e.offset + 4);
       if (e.offset + length > bytes.length) return { ...base, length: bytes.length - e.offset, problem: render(text("samplefile.cut")) };
       const d = describe(bytes, e.offset, e.offset + length);
-      return { ...base, length: Math.min(length, next - e.offset), name: d.name, rate: d.rate, channels: d.channels, bits: d.bits, frames: d.frames, problem: null };
+      return { ...base, length: Math.min(length, next - e.offset), name: d.name, rate: d.rate, channels: d.channels, bits: d.bits, frames: d.frames, tagNo: d.tagNo, layout: d.layout, dataSize: d.dataSize, problem: null };
     } catch (error) { return { ...base, length: Math.max(0, next - e.offset), problem: error.message }; }
   });
   return { size: bytes.length, samples };
@@ -126,7 +140,7 @@ export async function parseRemote(read, size, onProgress) {
       const record = await read(korgAt, 8 + 8 + 18);
       if (tag(record, 0) === "korg" && tag(record, 8) === "esli") name = ascii(record, 8 + 8 + 2, 16);
     }
-    samples.push({ ...base, length, name, rate: u32(head, 24), channels, bits, frames: Math.floor(dataSize / Math.max(1, channels * (bits >> 3))), problem: null });
+    samples.push({ ...base, length, name, rate: u32(head, 24), channels, bits, frames: Math.floor(dataSize / Math.max(1, channels * (bits >> 3))), tagNo: u16(head, 20), layout, dataSize, problem: null });
   }
   onProgress?.(entries.length, entries.length);
   return { size, samples, header };
@@ -146,7 +160,7 @@ export const cleanSampleName = text => text.replace(/[^\x20-\x7e]/g, "").trim().
  * brings is kept and only gets the slot and the name; without one the record is the one tools/emu/sampleset.py builds.
  * The loader of the firmware takes PCM with 1 or 2 channels at 16 or 24 bit (docs/messungen/2026-10-15-sample-fehler.md).
  */
-export function entryFromWav(wav, slot, name) {
+export function entryFromWav(wav, slot, name, { blue = false } = {}) {
   const c = wavChunks(wav);
   if (!c.fmt || c.fmt.size < 16 || !c.data) throw new SampleFileError("samplefile.chunks");
   const d = describe(wav, 0, wav.length);
@@ -154,7 +168,12 @@ export function entryFromWav(wav, slot, name) {
   if (!WAV_FORMATS.has(d.bits)) throw new SampleFileError("samplefile.bits", { bits: d.bits });
   if (d.channels < 1 || d.channels > 2) throw new SampleFileError("samplefile.channels", { channels: d.channels });
   if (!d.frames) throw new SampleFileError("samplefile.noAudio");
-  const pcm = wav.subarray(c.data.at, c.data.at + c.data.size);
+  let pcm = wav.subarray(c.data.at, c.data.at + c.data.size);
+  if (blue && (d.channels !== 1 || d.bits !== 16)) {
+    pcm = toMono16(pcm, d.channels, d.bits, d.frames);
+    d.channels = 1;
+    d.bits = 16;
+  }
   const record = new Uint8Array(ESLI);
   const kept = d.esli !== null && c.korg.size >= 8 + ESLI;
   if (kept) record.set(wav.subarray(d.esli, d.esli + ESLI));
@@ -174,12 +193,14 @@ export function entryFromWav(wav, slot, name) {
     put32(record, 72, d.rate);
     if (d.channels === 2) record[65] = 1;
   }
+  if (blue) record[65] = 0;
   put16(record, 0, slot);
   put16(record, 78, slot);
   record.fill(0, 2, 18);
   for (let i = 0; i < Math.min(name.length, NAME_MAX); i++) record[2 + i] = name.charCodeAt(i);
   const fmt = new Uint8Array(16);
   fmt.set(wav.subarray(c.fmt.at, c.fmt.at + 16));
+  if (blue) { put16(fmt, 2, 1); put32(fmt, 8, d.rate * 2); put16(fmt, 12, 2); put16(fmt, 14, 16); }
   const korgBody = 4 + 4 + ESLI;
   const body = 4 + (8 + 16) + (8 + pcm.length + (pcm.length & 1)) + (8 + korgBody);
   const out = new Uint8Array(8 + body);
@@ -235,4 +256,46 @@ export function applyPlan(file, plan) {
   for (const k of plan.keeps) out.set(file.subarray(k.from, k.from + k.length), k.to);
   for (const a of plan.appends) out.set(a.bytes, a.at);
   return out;
+}
+
+/**
+ * 16-bit mono out of 16 or 24-bit PCM with 1 or 2 channels: 24 bit keeps its top 16 bits, stereo becomes (left + right) / 2
+ * rounded down, as the blue's loader averages it.
+ */
+export function toMono16(pcm, channels, bits, frames) {
+  const width = bits >> 3;
+  const out = new Uint8Array(frames * 2);
+  const value = at => (bits === 24 ? (pcm[at + 1] | (pcm[at + 2] << 8)) << 16 >> 16 : (pcm[at] | (pcm[at + 1] << 8)) << 16 >> 16);
+  for (let i = 0; i < frames; i++) {
+    const at = i * channels * width;
+    const v = channels === 2 ? (value(at) + value(at + width)) >> 1 : value(at);
+    out[2 * i] = v & 255;
+    out[2 * i + 1] = (v >> 8) & 255;
+  }
+  return out;
+}
+
+/**
+ * What the blue Electribe 2 makes of the samples of a file at its next start: in slot order, each loaded or skipped with
+ * a reason ("format": not 16-bit PCM laid out as the firmware writes it; "room": does not fit; "max": 64 are loaded),
+ * and the room the loaded ones take. Mirrors the loader of tools/patch/user_samples.py.
+ * @param {{ slot: number, problem: string|null, tagNo?: number, layout?: boolean, bits: number, channels: number, rate: number, dataSize?: number }[]} samples
+ * @param {number} [room]
+ * @returns {{ used: number, room: number, loaded: number, skip: Map<number, "format"|"room"|"max"> }}
+ */
+export function blueLoad(samples, room = BLUE_ROOM) {
+  const skip = new Map();
+  let used = 0;
+  let loaded = 0;
+  for (const s of [...samples].sort((a, b) => a.slot - b.slot)) {
+    if (loaded >= BLUE_MAX) { skip.set(s.slot, "max"); continue; }
+    const ok = !s.problem && (s.tagNo ?? 1) === 1 && s.layout !== false && s.bits === 16 && (s.channels === 1 || s.channels === 2) && s.rate >= 1000 && s.rate <= 192000;
+    const bytes = ok ? Math.floor((s.dataSize ?? s.frames * s.channels * 2) / s.channels) & ~1 : 0;
+    if (!ok || bytes < 4) { skip.set(s.slot, "format"); continue; }
+    const cost = blueCost(bytes);
+    if (used + cost > room) { skip.set(s.slot, "room"); continue; }
+    used += cost;
+    loaded++;
+  }
+  return { used, room, loaded, skip };
 }

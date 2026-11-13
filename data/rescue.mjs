@@ -118,13 +118,14 @@ const BOOT_CHECKS = ["boot:normal", "boot:normal_blank", "update_offer", "panel_
 export const TEST_AREAS = {
   menu: "rescue.area.menu", shortcut: "rescue.area.menu",
   pswitch: "rescue.area.pattern", lastpattern: "rescue.area.pattern", initpattern: "rescue.area.pattern",
-  "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples", "ht-osc": "rescue.area.samples",
+  "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples", "ht-osc": "rescue.area.samples", usersamples: "rescue.area.samples",
   splash: "rescue.area.start", loadbar: "rescue.area.start", migrate: "rescue.area.start",
   fxcard: "rescue.area.card", cardfault: "rescue.area.card", presets: "rescue.area.card", power_off: "rescue.area.card",
   mfx: "rescue.area.sound", ifxidle: "rescue.area.sound", synthfilter: "rescue.area.sound",
   tapmotion: "rescue.area.play", noteassist: "rescue.area.play", dice: "rescue.area.play", beateighth: "rescue.area.play", touchscalezero: "rescue.area.play",
   remote: "rescue.area.midi", sysex: "rescue.area.midi",
   plugin_edit: "rescue.area.plugin", plugin_api15: "rescue.area.plugin", plugin_api18: "rescue.area.plugin", plugin_api19: "rescue.area.plugin", plugin_api22: "rescue.area.plugin", plugin_api23: "rescue.area.plugin", plugin_api24: "rescue.area.plugin", plugin_api25: "rescue.area.plugin", plugin_api35: "rescue.area.plugin", plugin_api26: "rescue.area.plugin", plugin_api27: "rescue.area.plugin", plugin_api28: "rescue.area.plugin", plugin_api29: "rescue.area.plugin", plugin_api30: "rescue.area.plugin", plugin_api31: "rescue.area.plugin", plugin_api31_spectrum: "rescue.area.plugin", plugin_api32: "rescue.area.plugin", plugin_api33: "rescue.area.plugin", plugin_api34: "rescue.area.plugin", plugin_catalog_api: "rescue.area.plugin", plugin_catalog15: "rescue.area.plugin", timers: "rescue.area.plugin", objects: "rescue.area.plugin", live_write: "rescue.area.plugin", global: "rescue.area.plugin", pattern_parts: "rescue.area.plugin", testmode: "rescue.area.plugin",
+  dsp: "rescue.area.play",
   doom: "rescue.area.doom",
 };
 
@@ -837,7 +838,7 @@ FLOW["h:emulator:fix"] = {
   say: ["rescue.help.emulatorFix.1", "rescue.help.emulatorFix.2", { path: "~/.gelumpe/emu.log" }, "rescue.help.emulatorFix.3"],
   choices: [{ label: "rescue.answer.emuRuns", to: "app:fixed" }, { label: "rescue.answer.stillNotFound", to: "check:report" }],
 };
-help("wavs", "idle", [{ key: "rescue.help.wavs.1", links: pageLink("samples", "nav.sampleset") }, "rescue.help.wavs.2"], [viaColor("rescue.case.samples", "samples")]);
+help("wavs", "idle", [{ key: "rescue.help.wavs.1", links: pageLink("samples", "nav.sampleset") }, "rescue.help.wavs.2", "rescue.help.wavs.3"], [viaColor("rescue.case.samples", "samples")]);
 help("updates", "idle", [
   { key: "rescue.help.updates.1", links: pageLink("patcher", "nav.patcher") },
   "rescue.help.updates.2",

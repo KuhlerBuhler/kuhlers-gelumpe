@@ -21,7 +21,7 @@ export const ALL = "all";
 export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases",
   "note_assist_cases", "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases",
   "remote_cases", "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases"];
+  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases", "user_samples_cases"];
 
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
@@ -29,7 +29,7 @@ const MENU_USERS = ["menu_cases", "shortcut_cases", "migrate_cases", "fx_card_ca
   "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "beat_eighth_cases", "ht_osc_cases", "card_error_cases"];
 const PSWITCH_USERS = ["pswitch_cases", "tap_motion_cases", "note_assist_cases", "ifx_idle_cases", "shortcut_cases",
   "synth_filter_cases", "beat_eighth_cases"];
-const MFX_USERS = ["mfx_cases", "ifx_idle_cases", "preset_cases", "stereo_pad_cases", "touch_scale_zero_cases", "ht_osc_cases"];
+const MFX_USERS = ["mfx_cases", "preset_cases", "stereo_pad_cases", "touch_scale_zero_cases", "ht_osc_cases"];
 
 /** [pattern, modules or ALL], first match wins. Patterns are anchored; `[^/]*` stays inside one folder. */
 export const TABLE = [
@@ -73,6 +73,10 @@ export const TABLE = [
   // what the case modules get from Node (node_json.py): only groups of remote_cases ask; the writer of the file checks nothing
   [/^tools\/emu\/node_json\.py$|^data\/emu\/node-results\.json$/, ["remote_cases"]],
   [/^tools\/emu\/node_results\.py$/, []],
+  // the DSP model (dsp_model.py): the case modules that ask it
+  [/^tools\/emu\/dsp_model\.py$/, ["shortcut_cases"]],
+  // the DSP interface cases run with the start scenarios on every copy
+  [/^tools\/emu\/dsp_cases\.py$/, []],
 
   // the patches and the code they build, to the cases that test them (check.py's docstring, each has_hooks)
   [/^tools\/patch\/mfx_switch\.py$|^data\/patches\/mfx-switch[^/]*\.json$/, MFX_USERS],
@@ -100,6 +104,7 @@ export const TABLE = [
   [/^tools\/patch\/touch_scale_zero\.py$|^data\/patches\/touch-scale-zero[^/]*\.json$/, ["touch_scale_zero_cases"]],
   [/^tools\/patch\/doom_loader\.py$|^data\/patches\/doom-loader\.json$/, ["doom_loader_cases"]],
   [/^tools\/patch\/power_off\.py$|^data\/patches\/power-off[^/]*\.json$/, ["power_off_cases"]],
+  [/^tools\/patch\/user_samples\.py$|^data\/patches\/user-samples[^/]*\.json$/, ["user_samples_cases"]],
   [/^tools\/patch\/preset_tables\.py$|^data\/patches\/preset-tables[^/]*\.json$/, ["preset_cases"]],
   [/^data\/patches\/fx-catalog\.json$/, ["preset_cases", "fx_card_cases"]],   // the catalog's effects behind the presets, and the card loader that reads the same records
 

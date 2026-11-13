@@ -96,6 +96,10 @@ export const CHAINS = {
   "filter-key": [{ id: "selection", sites: [0xC006FCE8] }],
   "filter-type-store": [{ id: "setter", sites: [0xC00495DC] }],
   "midi-in": [{ id: "channel-message", sites: [0xC002B2D8, 0xC002843C] }],   // the second is the synth build's
+  "pcm-loaded": [{ id: "end", sites: [0xC00473D0] }],                // the synth's PCM load returns its result (user-samples)
+  "osc-next-group": [{ id: "scan", sites: [0xC003B93C] }],          // the synth's oscillator list: next group, previous group, the knob's step
+  "osc-prev-group": [{ id: "wrap", sites: [0xC003BA3C] }],
+  "osc-step": [{ id: "wrap", sites: [0xC003BB3C] }],
   "pattern-write": [
     { id: "entry", sites: [0xC004C28C, 0xC0046090] },   // the second is the synth build's
     { id: "staging-copy", sites: [0xC004C2BC] },
