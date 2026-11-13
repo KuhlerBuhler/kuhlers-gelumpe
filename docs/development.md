@@ -703,6 +703,13 @@ vier Teile aufgeteilt. Die Repositoryvariable `FIRMWARE_SHARDS` ändert diese Za
 `FIRMWARE_MAX_PARALLEL` legt eine ausdrückliche Obergrenze für die gleichzeitig laufenden
 Rechenjobs fest. Ohne diese Vorgabe laufen vollständige Prüfungen mit bis zu 16 parallelen
 Teilen, gecachte PR- und Develop-Prüfungen weiterhin mit bis zu acht.
+Ein neuer automatischer Lauf von `Verify patches` beendet den älteren Lauf derselben PR
+beziehungsweise desselben Push-Branches. PR- und Push-Ereignisse haben getrennte Gruppen.
+Andere PRs, manuell gestartete Prüfungen und manuell wiederholte Läufe bleiben unabhängig.
+Der aufrufende Workflow steuert den Abbruch des gesamten Laufs; die gemeinsamen
+Firmwarejobs haben keine zusätzlichen Abbruchgruppen.
+Die Regel greift ab der Workflowfassung, die sie enthält; bereits vorher gestartete Läufe
+werden dadurch nicht nachträglich beendet.
 Pro Rechenjob gelten vier Python-Worker. Die besondere Startprüfung läuft daneben auf drei
 eigenen Jobs für Hacktribe, rot und blau. Die Editor-Effektsammlung bekommt zwei weitere Jobs
 für Hacktribe und rot, wenn sie zur gewählten Fallauswahl gehört. So warten diese Prüfungen
