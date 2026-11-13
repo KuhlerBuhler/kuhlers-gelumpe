@@ -4,7 +4,9 @@
 # approval or a draft means no merge. A Verify patches run that may still push a new verified.json is such a run; its
 # commit is the only one that may come after the approval.
 #
-# It decides again whenever a workflow on a pull request finishes and whenever a review comes in. workflow_run uses this
+# It decides again whenever a workflow on a release branch finishes and whenever a review comes in. Runs on other
+# branches cannot change a release pull request, so they start nothing (before, every finished workflow of every
+# branch started a run here, a few hundred a day). workflow_run uses this
 # file as it is on main, so it only starts once the file is in main; the review event uses it from the release branch.
 # The merge uses SYNC_TOKEN (a token of an admin): a merge with the workflow's own token would start no Release run.
 # Without the secret nothing is merged.
@@ -14,6 +16,7 @@ on:
   workflow_run:
     workflows: [Test, Verify patches, Korg data guard, Build apps, Update pull requests, Automerge]
     types: [completed]
+    branches: ["release/**"]
   pull_request_review:
     types: [submitted]
   workflow_dispatch:

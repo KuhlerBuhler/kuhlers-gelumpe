@@ -573,7 +573,8 @@ zutrifft:
   danach eine neue `verified.json` pusht, wird gewartet: der Push startet neue Checks, und erst wenn die auch durch
   sind, wird gemerged.
 
-Geprüft wird jedes Mal, wenn ein Workflow eines PRs fertig wird oder ein Review kommt; von Hand mit
+Geprüft wird jedes Mal, wenn ein Workflow auf einem `release/*`-Branch fertig wird oder ein Review kommt (Läufe auf
+anderen Branches starten nichts); von Hand mit
 `gh workflow run release-merge.yml`. Gemerged wird mit `SYNC_TOKEN` und `--match-head-commit`, also nur der Commit,
 der geprüft wurde; mit dem eigenen Token des Workflows würde der Merge kein Release starten. Ohne das Secret wird
 nichts gemerged. Was fehlt, steht im Log des Laufs. Lokal ohne Merge: `GITHUB_REPOSITORY=KuhlerBuhler/kuhlers-gelumpe
