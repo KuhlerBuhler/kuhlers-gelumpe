@@ -168,8 +168,12 @@ function completeReference(downloaded, folder, input) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [mode, ...args] = process.argv.slice(2);
-  if (mode === "shard") shardReference(...args);
-  else if (mode === "smoke") smokeReference(...args);
-  else if (mode === "join") completeReference(...args);
-  else throw new Error("expected shard, smoke or join");
+  if (mode === "--shard") {
+    const [part, input, folder] = args;
+    shardReference(folder, part, input);
+  } else if (mode === "smoke") smokeReference(...args);
+  else if (mode === "--join-shards") {
+    const [downloaded, input, folder] = args;
+    completeReference(downloaded, folder, input);
+  } else throw new Error("expected --shard, smoke or --join-shards");
 }

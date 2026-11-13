@@ -102,7 +102,8 @@ jobs:
       - name: Cold and warm task reference
         env:
           PART: ${{ matrix.part }}/${{ inputs.shards }}
-        run: node tools/ci/cache-reference.mjs shard "$RUNNER_TEMP/reference" "$PART" "$RUNNER_TEMP/SYSTEM.VSB"
+          GELUMPE_NODE_RESULTS: ${{ !inputs.full && 'strict' || '' }}
+        run: node tools/ci/cache-reference.mjs --shard "$PART" "$RUNNER_TEMP/SYSTEM.VSB" "$RUNNER_TEMP/reference"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.firmware.artifact }}-${{ matrix.part }}
@@ -136,7 +137,8 @@ jobs:
       - name: Validate both complete references
         env:
           REFERENCE_SHARDS: ${{ inputs.shards }}
-        run: node tools/ci/cache-reference.mjs join "$RUNNER_TEMP/shards" "$RUNNER_TEMP/complete" "$RUNNER_TEMP/SYSTEM.VSB"
+          GELUMPE_NODE_RESULTS: ${{ !inputs.full && 'strict' || '' }}
+        run: node tools/ci/cache-reference.mjs --join-shards "$RUNNER_TEMP/shards" "$RUNNER_TEMP/SYSTEM.VSB" "$RUNNER_TEMP/complete"
       - uses: actions/upload-artifact@v4
         with:
           name: reference-complete-${{ matrix.firmware.name }}
