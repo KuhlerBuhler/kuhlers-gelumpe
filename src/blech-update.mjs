@@ -52,7 +52,8 @@ export async function addRelease(known, release, build, base, patches) {
   regions.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   const catalog = (known.catalog[build] ??= {});
   for (const patch of patches.filter(p => p?.format === APPEND_FORMAT)) {
-    for (const { kind, name, record } of appendedRecords(res.bytes, patch)) {
+    for (const { kind, name, record, hacktribe } of appendedRecords(res.bytes, patch)) {
+      if (hacktribe && build === "hacktribe") continue;
       const hashes = (catalog[`${kind}|${name}`] ??= []);
       const hash = recordHash(record);
       if (!hashes.includes(hash)) hashes.push(hash);
