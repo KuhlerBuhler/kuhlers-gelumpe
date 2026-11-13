@@ -298,6 +298,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Effekte aus dem Katalog fest in der Firmware](2026-10-23-fx-katalog-fest.md)
 - [Slap Delay und Long Delay im Insert](2026-10-25-ifx-delays.md)
 - [Neue Katalog-Effekte für Bass, Kick, Verzerrung und Mix: was der Emulator prüft und was nicht](2026-11-11-neue-effekte.md)
+- [Stufe 1 und Stufe 2 im DSP-Simulator: alle 400 Paare](2026-11-13-stufe2-simulation.md)
 - [Flash-Karte aus dem Code](2026-10-24-flash-karte.md)
 - [Der Stack bei 0xC274E000 und wer den RAM darüber nutzt](2026-10-24-ram-task-stack.md)
 - [USB: was das Gerät anbietet und was eine zweite Schnittstelle bräuchte](2026-10-24-usb.md)

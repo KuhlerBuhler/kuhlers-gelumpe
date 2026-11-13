@@ -92,6 +92,9 @@ function rangeOf(kind, unit, name) {
 const STAGE2 = new Map(FINDINGS.filter(f => f.kind === "stage2").map(f => [f.unit, f]));
 const SOLO = new Map(FINDINGS.filter(f => f.kind === "stage1NeedsSolo").map(f => [f.unit, f]));
 const STAGE2_WORD = { fatal: "bk.stage2.fatal", silent: "bk.stage2.silent" };
+/** Pairs that failed in the DSP simulation (data/findings.mjs), by "first.unit"; the word when choosing stage 2, then stage 1. */
+const PAIR = new Map(FINDINGS.filter(f => f.kind === "stage2Pair").map(f => [`${f.first}.${f.unit}`, f]));
+const PAIR_WORD = { fatal: ["bk.pair2.fatal", "bk.pair1.fatal"], silent: ["bk.pair2.silent", "bk.pair1.silent"] };
 const MAP_META = BLOCKS.get("fxRecord").meta;
 
 const PARAM_ORDER = ["mix", "filter", "delay", "mod", "dyn", "room", "tone", "eq", "other"];
@@ -234,6 +237,8 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
       if (stage === "ifx2" && STAGE2_WORD[STAGE2.get(u.id)?.verdict]) return t(STAGE2_WORD[STAGE2.get(u.id).verdict]);
       if (stage === "ifx2" && SOLO.has(other?.unit)) return t("bk.solo1");
       if (stage === "ifx1" && other?.unit && SOLO.has(u.id)) return t("bk.solo");
+      const pair = other?.unit ? PAIR.get(stage === "ifx2" ? `${other.unit}.${u.id}` : `${u.id}.${other.unit}`) : null;
+      if (pair) return t(PAIR_WORD[pair.verdict][stage === "ifx2" ? 0 : 1], { unit: localize(unitLabel(kind, other.unit, other.unitName)[0]) });
       return null;
     };
     // The user may lift the bar for a test on purpose; it stays on in this browser until switched off.

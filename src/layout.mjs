@@ -120,6 +120,9 @@ export const CHAINS = Object.fromEntries(FX_META.chains.map(x => [x.raw, { name:
  */
 export const STAGE2 = Object.fromEntries(findings("stage2").map(f => [f.unit, { verdict: f.verdict, note: f.note }]));
 
+/** Stage 1 and stage 2 pairs that failed in the DSP simulation, by "first.unit" (decimal), each {verdict, note}. */
+export const STAGE2_PAIRS = Object.fromEntries(findings("stage2Pair").map(f => [`${f.first}.${f.unit}`, { verdict: f.verdict, note: f.note }]));
+
 /** Chains Korg itself builds, so they are safe beyond any doubt. */
 export const FACTORY_CHAINS = finding("factoryChains").chains;
 
