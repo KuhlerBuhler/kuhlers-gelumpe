@@ -89,8 +89,8 @@ RAM = 0xC0000000
 
 CODE_AT = 0xC0172100            # free (FF) in the image, behind Hacktribe's code (ends 0xC01720B0) and clear of every other patch
 CODE_END = 0xC0173000           # the Sync Group's buffer of the pattern switch begins here (data/patches/pattern-switch.json)
-SAMPLE_AT = 0xC017B950          # the sample file commands: free (FF) behind the second block of the preset tables, ends before 0xC017C190
-SAMPLE_END = 0xC017C190
+SAMPLE_AT = 0xC017B950          # the sample file commands: free (FF) behind the second block of the preset tables, ends where preset-tables starts
+SAMPLE_END = 0xC017C000          # preset-tables writes from here (its change at file 0x17c100)
 TABLE_AT = 0xC0173800           # the protection table, 412 bytes today (src/sysex-table.mjs)
 TABLE_END = 0xC0174000
 STATE = 0xC0191000              # run time state, in RAM only (behind the synth filters' 0xC0190000 to 0xC0190100)
