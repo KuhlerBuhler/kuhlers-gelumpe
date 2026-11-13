@@ -376,6 +376,9 @@ export default {
 
   "save.done": "„{name}“ gespeichert, im Ordner Downloads.",
   "save.doneNote": "„{name}“ gespeichert, im Ordner Downloads. {note}",
+  "save.doneMobile": "„{name}“ gespeichert.",
+  "save.doneMobileNote": "„{name}“ gespeichert. {note}",
+  "save.failed": "„{name}“ ließ sich nicht speichern: {error}",
 
   "editor.tooManyArgs": "Mehr Argumente, als der Aufruf nimmt.",
   "editor.returns": "Gibt {type} zurück.",
@@ -767,6 +770,7 @@ export default {
   "device.disconnected.emu": "Der Emulator ist nicht mehr verbunden.",
   "device.state.impossible": "nicht möglich",
   "device.noMidi": "Dieser Browser kann nicht mit der Electribe reden. Nimm die App oder Chrome oder Edge am Rechner. Safari geht nicht.",
+  "device.noMidiMobile": "Die Android-App redet noch nicht mit der Electribe. Patchen, Patterns und der Editor gehen mit Dateien.",
   "device.midiFailed": "Die MIDI-Verbindung konnte nicht geöffnet werden. {error}",
   "device.midiDenied": "Der Zugriff auf MIDI wurde abgelehnt. Ohne ihn erreicht die App die Electribe nicht. Lade die Seite neu und klick bei der Frage auf Erlauben.",
   "device.unplugged.quarantined": "Die Electribe wurde abgesteckt oder die MIDI-Verbindung ist unterbrochen. Der MIDI-Port wird noch freigegeben. Warte kurz, bevor du neu verbindest. Was gerade übertragen wurde, ist vielleicht nicht ganz angekommen.{detail}",
@@ -1367,6 +1371,7 @@ export default {
   "emu.start": "Emulator starten",
   "emu.start.app": "Der Emulator der App startet gerade nicht. Die App versucht es weiter; hilft das nicht, schließ sie und öffne sie neu. Was er meldet, steht in ~/.gelumpe/emu.log.",
   "emu.start.page": "Der Emulator läuft nicht. In der App GELUMPE startet er von selbst; wer die Seite aus dem Quelltext startet, nimmt npm start.",
+  "emu.start.mobile": "Die Android-App hat keinen Emulator. Der läuft in der App am Rechner.",
   "emu.file.saved": " (vom letzten Mal)",
   "emu.file.synth": "{name}: Firmware der blauen Electribe 2 (Synth), erkannt{when}. Presets und Modulationen gibt es für sie nicht.",
   "emu.file.stock": "{name}: Korgs Original-Firmware 2.02, erkannt{when}.",

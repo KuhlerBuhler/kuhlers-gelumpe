@@ -413,6 +413,30 @@ Die App prüft beim Start und alle paar Stunden das neueste Release und zeigt ob
 verfügbar", ein Klick öffnet die Release-Seite. Solange das Repo nicht öffentlich ist, bleibt der
 Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signaturschlüssel.
 
+### Android (Entwurf)
+
+Dieselbe Seite als APK, noch ohne MIDI und ohne Emulator. Der Rust-Teil startet dort aus der
+Bibliothek (`src-tauri/src/mobile.rs`), die Desktop-App bleibt das Binary (`src-tauri/src/desktop.rs`).
+Die Seite erkennt die App an `window.__GELUMPE_MOBILE`: MIDI gilt als nicht vorhanden, Speichern geht
+über den Speichern-Dialog des Systems (`file_save`, Plugin fs für die content-URI). Das Android-Projekt
+liegt in `src-tauri/gen/android/`, `src-tauri/tauri.android.conf.json` lässt den Sidecar weg.
+
+Bauen: Android SDK und NDK (zum Beispiel per Homebrew `android-commandlinetools`), JDK 17,
+`rustup target add aarch64-linux-android`, dann mit `ANDROID_HOME`, `NDK_HOME` und `JAVA_HOME`:
+
+```bash
+cargo tauri android build --debug --apk --target aarch64
+```
+
+Die APK liegt unter `src-tauri/gen/android/app/build/outputs/apk/universal/debug/`. Auf GitHub baut
+der Workflow "Build Android" (von Hand starten) dieselbe Debug-APK als Artefakt.
+
+Signieren für ein Release: ein eigener Keystore, der nie ins Repo kommt. Der Build liest
+`src-tauri/gen/android/keystore.properties` (in `.gitignore`) mit `storeFile`, `keyAlias` und
+`password`. Für CI gehören der Keystore (Base64) und das Passwort als Secrets ins Repo, der Workflow
+schreibt daraus die Datei, bevor er `cargo tauri android build --apk` ohne `--debug` startet. Das ist
+noch nicht eingebaut.
+
 ## Release
 
 **Der normale Weg läuft in GitHub** (Workflow "Release", `.github/workflows/release.yml`):
