@@ -66,6 +66,10 @@ input_power_no:
     cmp r0, #0
     ldr r0, [sp, #8]
     bne input_drop
+    bl menu_ask_input            ; the question "SAVE TO FLASH?" of a card put in after the start takes the keys
+    cmp r0, #0
+    ldr r0, [sp, #8]
+    bne input_drop
     ldr r4, =HOOK_RUNTIME
     ldr r1, [r4, #RT_ARMED]
     cmp r1, #1
@@ -438,6 +442,8 @@ script_frame_guard_end:
     str r1, [r4, #RT_READY]
 frame_gate_open:
     bl menu_card_watch           ; only past the first main screen: the start phase reads the card at menu_arm_load
+    bl menu_flash_watch          ; without a card a change of the settings goes to the flash
+    bl menu_ask_frame            ; the question of a card put in after the start
     bl blechy_follow
     bl shortcut_tick
     bl remote_tick
