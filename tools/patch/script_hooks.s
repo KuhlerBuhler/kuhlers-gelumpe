@@ -438,6 +438,7 @@ script_frame_guard_end:
     str r1, [r4, #RT_READY]
 frame_gate_open:
     bl menu_card_watch           ; only past the first main screen: the start phase reads the card at menu_arm_load
+    bl menu_flash_watch          ; without a card a change of the settings goes to the flash
     bl blechy_follow
     bl shortcut_tick
     bl remote_tick
