@@ -535,8 +535,9 @@ zusammen kaputt machen, zeigen die Läufe auf `develop` selbst ("Test" und "Veri
 
 **Feature-PRs mergen sich selbst** (Workflow "Automerge", `.github/workflows/automerge.yml`): ein PR nach `develop`
 mit dem Label `automerge` wird gemerged, sobald auf seinem Kopf-Commit `unit`, `browser`, `guard` und `patches` da
-und grün sind und kein anderer Check fehlgeschlagen ist. Ein abgeschlossener Prüfworkflow, ein neuer Push oder
-ein neues Label löst eine kurze Entscheidung aus. Noch laufende oder fehlende Prüfungen lassen den PR offen;
+und grün sind und kein anderer Check fehlgeschlagen ist. Ein abgeschlossener Prüfworkflow auf dem Branch eines PRs nach `develop`, ein neuer Push oder
+ein neues Label löst eine kurze Entscheidung aus (Läufe auf `main`, `develop`, `release/*`, Tags und Branches ohne
+PR nach `develop` starten nichts). Noch laufende oder fehlende Prüfungen lassen den PR offen;
 das nächste Ereignis prüft erneut. Dabei bleibt kein Runner wartend belegt. Gemerged wird mit `SYNC_TOKEN`,
 `--admin` und `--match-head-commit`. Ohne Label bleibt der PR offen, etwa wenn er auf einen Test am Gerät wartet;
 Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
