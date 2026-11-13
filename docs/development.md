@@ -645,8 +645,15 @@ ersten Schritt. Ein neuer Push bricht den laufenden Check eines PRs ab. Pull Req
 Von Hand, für einen beliebigen Branch:
 
 ```bash
-gh workflow run verify-patches.yml -f branch=release/X.Y.Z
+gh workflow run verify-patches.yml --ref release/X.Y.Z -f branch=release/X.Y.Z
 ```
+
+`--ref` wählt die [Fassung des Workflows](https://cli.github.com/manual/gh_workflow_run),
+`branch` den zu prüfenden Branch. Für einen vollständigen Lauf auf develop also beide auf
+`develop` setzen. Ohne `--ref` stammt die Workflowfassung vom Standardbranch main,
+auch wenn `branch` einen anderen Quellstand nennt. Die lokal eingebundene gemeinsame
+[Firmwareprüfung](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows#calling-a-reusable-workflow)
+kommt aus derselben Workflowrevision.
 
 Er pusht dann auf diesen Branch; für `main` und `develop`, oder wenn der Push scheitert, öffnet er stattdessen einen
 Pull Request hinein. Dieser Ausweg kann scheitern: ein Branch `verified/...`, dessen Verlauf eine Workflow-Datei neu
@@ -671,15 +678,33 @@ und schreibt nichts.
 Die Workflows für Prüfung und Veröffentlichung benutzen gemeinsam
 `.github/workflows/firmware-check.yml`. Jede der vier Gerätevarianten wird standardmäßig in
 vier Teile aufgeteilt. Die Repositoryvariable `FIRMWARE_SHARDS` ändert diese Zahl;
-`FIRMWARE_MAX_PARALLEL` begrenzt die gleichzeitig laufenden Rechenjobs, standardmäßig auf acht.
+`FIRMWARE_MAX_PARALLEL` legt eine ausdrückliche Obergrenze für die gleichzeitig laufenden
+Rechenjobs fest. Ohne diese Vorgabe laufen vollständige Prüfungen mit bis zu 16 parallelen
+Teilen, gecachte PR- und Develop-Prüfungen weiterhin mit bis zu acht.
+Ein neuer automatischer Lauf von `Verify patches` beendet den älteren Lauf derselben PR
+beziehungsweise desselben Push-Branches. PR- und Push-Ereignisse haben getrennte Gruppen.
+Andere PRs, manuell gestartete Prüfungen und manuell wiederholte Läufe bleiben unabhängig.
+Der aufrufende Workflow steuert den Abbruch des gesamten Laufs; die gemeinsamen
+Firmwarejobs haben keine zusätzlichen Abbruchgruppen.
+Die Regel greift ab der Workflowfassung, die sie enthält; bereits vorher gestartete Läufe
+werden dadurch nicht nachträglich beendet.
 Pro Rechenjob gelten vier Python-Worker. Die besondere Startprüfung läuft daneben auf drei
 eigenen Jobs für Hacktribe, rot und blau. Die Editor-Effektsammlung bekommt zwei weitere Jobs
 für Hacktribe und rot, wenn sie zur gewählten Fallauswahl gehört. So warten diese Prüfungen
 weder auf die Hauptprüfung noch aufeinander.
 
-Die Aufgabe mit Index `i` gehört genau einem Teil. Alle Teile müssen zur selben Firmware,
+Die Aufgaben werden nach ihrer geschätzten Dauer absteigend sortiert und jeweils dem bisher
+leichtesten Teil zugeordnet. Das versionierte Profil `tools/emu/shard-weights.json` enthält
+Medianzeiten eigener Testaufgaben in ganzen Millisekunden. Neue Aufgaben erhalten zunächst
+die längste bekannte Schätzung. Gleichstände werden über Aufgabenindex, Aufgabenanzahl und
+Teilenummer entschieden. So berechnet jeder Runner denselben Plan, unabhängig von seinem
+lokalen Ergebniscache. Ein fehlendes oder ungültiges Profil bricht die geteilte Prüfung ab.
+Ungeteilte Prüfungen benötigen das Profil nicht.
+
+Jede Aufgabe gehört genau einem Teil. Alle Teile müssen zur selben Firmware,
 Gerätevariante, Konfiguration, Laufzeitversion und demselben Quellstand gehören. Der Abschluss
-plant die erwarteten Aufgaben aus den echten Eingaben erneut, verlangt jeden Teil genau einmal
+bindet auch Algorithmus und Laufzeitgewichte an die Identität, plant die erwarteten Aufgaben
+aus den echten Eingaben erneut, verlangt jeden Teil genau einmal
 und wertet Start- und Ausschaltprüfungen gemeinsam aus. Erst ein vollständiges bestandenes
 Ergebnis darf einen Eintrag für `verified.json` ergeben. `--cases` schreibt weiterhin keinen.
 
@@ -708,12 +733,29 @@ liest dadurch keine übrig gebliebenen Ergebnisse des vorherigen Plans.
 `check.py` schreibt zusätzlich zu den Fortschrittsmeldungen JSON-Zeilen mit `metrics` nach
 stderr: CPU-Zahl, tatsächliche Worker, Cachetreffer und Dauer jeder Aufgabe. In den Teilergebnissen
 stehen diese Werte ebenfalls. Damit lassen sich einzelne lange Gruppen und Wartezeiten getrennt
-von der reinen Testarbeit untersuchen. Die Aufteilung ist zunächst gleichmäßig nach Aufgabenindex;
-die gemessenen Laufzeiten zeigen, welche Gruppen später feiner geteilt werden müssen.
+von der reinen Testarbeit untersuchen. Die Teilmetrik `partition` nennt zusätzlich die geschätzte
+Gesamtdauer der zugeteilten Aufgaben. Die tatsächlich gemessene Dauer kann davon abweichen.
 
-Die vollständige Prüfung dauerte vor dieser Aufteilung in betrachteten CI-Läufen ungefähr
-50 bis 55 Minuten. Für die neue Aufteilung gibt es noch keine gemessene CI-Gesamtdauer.
-Eine Schätzung ersetzt den kalten Vergleichslauf über alle vier Varianten nicht.
+Das Profil lässt sich aus den `metrics`-Zeilen kalter Referenzläufe neu erzeugen. `QUELLSTAND`
+bezeichnet dabei die Revision, mit der die Messungen entstanden sind:
+
+```bash
+tools/emu/.venv/bin/python tools/emu/shard_weights.py --source "$QUELLSTAND" \
+  --output tools/emu/shard-weights.json messung/*/ordinary.stderr.log
+```
+
+Das Werkzeug ignoriert Cachetreffer, verwendet den Median je Modul, Funktion und Argumenten
+und schreibt die Einträge in fester Reihenfolge. Eine Profiländerung gehört wie eine Änderung
+der Verteilung in die Prüfung. Sie ändert keine Testauswahl und keine bestehenden Task-Ergebnisse.
+
+Gemessen am 12. und 13. November 2026 auf einem festen Quellstand: Drei kalte vollständige
+Firmwarepipelines mit acht parallelen Teilen dauerten 25:49, 27:58 und 26:49 Minuten.
+Ein [kalter Pilotlauf mit 16 parallelen Teilen](https://github.com/KuhlerBuhler/kuhlers-gelumpe/actions/runs/43392968102)
+bestand in 15:45 Minuten, mit denselben 4276 Prüfungen, Eingaben und Ausgaben und ohne
+Ergebniscachetreffer. Diese Firmwarepipeline umfasst alle vier Varianten, die fünf Zusatzjobs
+und den strengen Abschluss. Die allgemeine Unit- und Browserpipeline läuft getrennt.
+Die Werte beschreiben diesen festen Prüfstand mit einem einzelnen Pilotlauf. Ein Laufzeitlimit
+für spätere Änderungen oder mehrere gleichzeitig offene PRs lässt sich daraus nicht ableiten.
 
 ## Keine öffentliche Seite
 
