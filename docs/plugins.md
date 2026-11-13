@@ -1337,13 +1337,21 @@ Das sind Messungen der JavaScript-Referenz, keine Gerätezeiten. Die Arbeitsreih
 später sichtbar machen ([Messung](messungen/2026-10-19-mandelbrot-arbeitsliste.md)). Die Zoomstufe geht bis 7,
 tiefer reichen die 14 Bit nicht.
 
-**BPM Glide** (Idee: [KrImZoR](https://www.instagram.com/krimzor_live)) ist keine App, sondern läuft im Hintergrund.
-Kettet das laufende Pattern weiter (Chain To, CHAIN MODE an), gleitet das Tempo vom Tempo beim Start zum gespeicherten
-Tempo des nächsten Patterns, verteilt über Länge mal Chain Repeat; der letzte Schritt erreicht das neue Tempo, der
-Wechsel springt also nicht. Es liest die Kette beim ersten Schritt nach PLAY oder einem Patternwechsel, weil die Firmware
-das neue Pattern erst dann im RAM hat. STOP setzt das Tempo zurück, mit dem das Pattern gestartet ist. Die Seite
-BPM GLIDE im Menü BLECH schaltet es an (1) und aus (0), `korg.store` behält die Einstellung. Weil `korg.tempo` das
-Tempo des Patterns im RAM setzt, gilt es bis STOP als ungespeicherte Änderung. Im Simulator geprüft
+**BPM Glide** (Idee: [KrImZoR](https://www.instagram.com/krimzor_live)) braucht API 18 und läuft im Hintergrund.
+Es gleitet das Tempo zum gespeicherten Tempo des Patterns, das als nächstes kommt, so dass der Wechsel nicht springt. Zwei
+Seiten im Menü BLECH schalten die beiden Wege an (1) und aus (0), beide sind an, `korg.store` behält die Einstellung.
+GLIDE CHAIN: kettet das laufende Pattern weiter (Chain To, CHAIN MODE an), gleitet das Tempo vom Tempo beim Start zum
+gespeicherten Tempo des nächsten Patterns, verteilt über Länge mal Chain Repeat; der letzte Schritt erreicht das neue Tempo.
+Es liest die Kette beim ersten Schritt nach PLAY oder einem Patternwechsel, weil die Firmware das neue Pattern erst dann im
+RAM hat. STOP setzt das Tempo zurück, mit dem das Pattern gestartet ist. GLIDE SWITCH: bestätigt MENU beim Spielen ein
+Pattern, das am Rad gewählt ist (unten `NEXT:`), gleitet das Tempo vom Tempo in diesem Moment zum gespeicherten Tempo dieses
+Patterns, verteilt über den Schritt der Bestätigung und die Schritte bis zum Sequenzende, wo die Firmware wechselt: bei
+Schritt 1 bestätigt über das ganze Pattern, in der Mitte über die zweite Hälfte. Das Plugin sieht die Bestätigung über
+`korg.nextPattern` (API 18) bei jedem Schritt; Blättern allein (`VIEW:`) zählt nicht, mit PATTERN CONFIRM OFF gibt es
+nichts zu sehen. Ein bestätigtes Pattern gewinnt über die Kette, wie bei der Firmware. Nimmt EXIT die Bestätigung zurück,
+gleitet die Kette weiter, ohne Kette geht das Tempo auf den Stand vor der Bestätigung zurück. Eine neue Bestätigung startet
+von vorn vom Tempo in dem Moment. STOP wendet ein bestätigtes Pattern wie die Firmware gleich an, mit seinem Tempo. Weil
+`korg.tempo` das Tempo des Patterns im RAM setzt, gilt es bis STOP als ungespeicherte Änderung. Im Simulator geprüft
 (`test/script-bpm-glide.test.mjs`), am Gerät nicht.
 
 **Momentary Mute** (Wunsch aus der Community nach dem Vorbild des Korg ESX, [Idee 91](ideen/91-moment-mute.md)) braucht
