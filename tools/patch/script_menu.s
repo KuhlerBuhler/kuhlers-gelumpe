@@ -796,7 +796,12 @@ menu_settings_save:
     ldr r0, =SD_INPUT           ; no card: the flash takes them (M_STATUS 0x45 written, 0x46 not), unless they came from a card (FL_HOLD),
     ldr r0, [r0]                ; then the card's error stays, SAVE TO FLASH takes them on purpose
     tst r0, #SD_DETECT
-    beq menu_settings_save_card
+    bne menu_save_no_card
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_CARD]
+    cmp r0, #CARD_NEVER         ; a card put in after a start without one is never touched (#518): the flash, as without a card
+    bne menu_settings_save_card
+menu_save_no_card:
     ldr r0, =MENU_STATE
     ldr r0, [r0, #M_FL]
     tst r0, #FL_HOLD
@@ -1100,7 +1105,11 @@ menu_flash_watch:
     ldr r0, =SD_INPUT
     ldr r0, [r0]
     tst r0, #SD_DETECT
-    beq flash_watch_out         ; a card in: the card keeps the settings (WRITE, AUTO SAVE)
+    bne flash_watch_no_card
+    ldr r0, [r4, #M_CARD]
+    cmp r0, #CARD_NEVER         ; a card put in after a start without one is not read (#518): the flash keeps the settings
+    bne flash_watch_out         ; a card in: the card keeps the settings (WRITE, AUTO SAVE)
+flash_watch_no_card:
     ldr r0, [r4, #M_FL]
     tst r0, #FL_HOLD
     bne flash_watch_out

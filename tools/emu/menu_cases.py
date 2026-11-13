@@ -3190,8 +3190,9 @@ def changed_sectors(before, after):
 def flash_settings_cases(payload, flash=None):
     """The BLECH settings in the flash for a device without a card (menu_flash_read, menu_flash_save, menu_flash_watch in
     tools/patch/script_menu.s): without a card a change goes to the flash by itself and the next start without a card reads it;
-    a card with a settings file wins at the start; a card put in while running applies its settings at once and asks
-    "SAVE TO FLASH?" (MENU writes them, EXIT keeps them in RAM only), pulled without saving the flash copy runs again;
+    a card with a settings file wins at the start; after a start with a card, a card put in for the pulled one applies its
+    settings at once and asks "SAVE TO FLASH?" (MENU writes them, EXIT keeps them in RAM only), pulled without saving the flash
+    copy runs again; after a start without a card no card is read (#518);
     SAVE TO FLASH (the last row of CUSTOMIZATION) also writes; a torn copy falls back to the other one. The flash is only ever erased and written in the
     two sectors FLASH_SET_A and FLASH_SET_B."""
     out = []
@@ -3300,32 +3301,40 @@ def flash_settings_cases(payload, flash=None):
         dev.run(1.0)
         return before
 
-    # 5. hot swap: started from the flash, a card with a file put in: its settings run at once and the display asks "SAVE TO FLASH?";
-    # EXIT keeps them for now and the flash stays; pulled, the copy in the flash runs again; a change after that goes to the flash
-    swap = start(second)
-    erased = watch(swap)
-    before = put_in(swap, files)
-    q = switches(swap), asked(swap), held_bit(swap), title_px(swap), lcd(swap) != before
-    on_q = lcd(swap)
-    press(swap, "exit", wait=0.6)
-    ex = switches(swap), asked(swap), held_bit(swap), lcd(swap) != on_q
-    kept_flash = bytes(swap.m.flash.mem) == second and not erased
-    swap.m.eject_card()
-    swap.run(1.0)
-    pulled = switches(swap), held_bit(swap)
-    goto_group(swap, GROUP_FEATURES, FEAT_TM)
-    swap.turn(1, wait=0.3)
-    swap.run(3.0)
-    later = flags(bytes(swap.m.flash.mem), FLASH_SET_A)
-    add("hot_swap_asks_exit_keeps_ram", q[:3] == ((1, 1), 1, 1) and q[3] > 20 and q[4] and ex[:3] == ((1, 1), 0, 1) and ex[3] and kept_flash
-        and pulled == ((0, 0), 0) and later is not None and later[0] == 3 and not later[1] & TM_OFF_BIT and not swap.m.asserts,
-        f"card in: switches {q[0]} ask {q[1]} hold {q[2]}, {q[3]} pixels of the question, display changed {q[4]}; after EXIT {ex}; flash "
-        f"{'unchanged' if kept_flash else 'written'} while the card was in (erases {erased}); pulled {pulled}; a change after it: copy A {later}")
+    def swap(dev, card_files):
+        """Pull the card the device started with (its settings go back to the flash's), then put in one with `card_files`."""
+        dev.m.eject_card()
+        dev.run(1.0)
+        return switches(dev), put_in(dev, card_files)
+
+    # 5. swap after a start with a card: pulled, the flash's settings run again; another card put in: its settings run at once and the
+    # display asks "SAVE TO FLASH?"; EXIT keeps them for now and the flash stays; pulled, the copy in the flash runs again; a change
+    # after that goes to the flash
+    sw = start(second, files)
+    erased = watch(sw)
+    first_pull, before = swap(sw, files)
+    q = switches(sw), asked(sw), held_bit(sw), title_px(sw), lcd(sw) != before
+    on_q = lcd(sw)
+    press(sw, "exit", wait=0.6)
+    ex = switches(sw), asked(sw), held_bit(sw), lcd(sw) != on_q
+    kept_flash = bytes(sw.m.flash.mem) == second and not erased
+    sw.m.eject_card()
+    sw.run(1.0)
+    pulled = switches(sw), held_bit(sw)
+    goto_group(sw, GROUP_FEATURES, FEAT_TM)
+    sw.turn(1, wait=0.3)
+    sw.run(3.0)
+    later = flags(bytes(sw.m.flash.mem), FLASH_SET_A)
+    add("hot_swap_asks_exit_keeps_ram", first_pull == (0, 0) and q[:3] == ((1, 1), 1, 1) and q[3] > 20 and q[4] and ex[:3] == ((1, 1), 0, 1) and ex[3]
+        and kept_flash and pulled == ((0, 0), 0) and later is not None and later[0] == 3 and not later[1] & TM_OFF_BIT and not sw.m.asserts,
+        f"first card pulled {first_pull}; card in: switches {q[0]} ask {q[1]} hold {q[2]}, {q[3]} pixels of the question, display changed {q[4]}; "
+        f"after EXIT {ex}; flash {'unchanged' if kept_flash else 'written'} while the card was in (erases {erased}); pulled {pulled}; "
+        f"a change after it: copy A {later}")
 
     # 6. MENU on the question writes the card's settings to the flash (generation 3 in A); pulled, they stay; the next start without a card has them
-    yes = start(second)
+    yes = start(second, files)
     erased = watch(yes)
-    put_in(yes, files)
+    swap(yes, files)
     shown = asked(yes)
     press(yes, "menu", wait=0.6)
     after_menu = asked(yes), held_bit(yes)
@@ -3349,33 +3358,40 @@ def flash_settings_cases(payload, flash=None):
         and bytes(boot_card.m.flash.mem) == second and not erased and not boot_card.m.asserts,
         f"start with the card {at_start}, pulled {switches(boot_card)} hold {held_bit(boot_card)}, erases {erased}")
 
-    # 8. a card whose settings are what the flash holds: no question, nothing held, nothing written
+    # 8. a card put in whose settings are what the flash holds: no question, nothing held, nothing written
     same_files = {**CARD_FOLDER, SETTINGS_PATHS[0]: flash_record(second, FLASH_SET_B)[1]}
-    same = start(second)
+    same = start(second, files)
     erased = watch(same)
-    put_in(same, same_files)
+    swap(same, same_files)
     add("same_settings_no_question", switches(same) == (0, 0) and asked(same) == 0 and held_bit(same) == 0 and not erased and not same.m.asserts,
         f"switches {switches(same)}, ask {asked(same)}, hold {held_bit(same)}, erases {erased}")
 
-    # 9. a device that never wrote a copy: the first card put in writes the settings it ran without a card (generation 1 in A) before
-    # the card's are read, so pulling the card brings them back
-    fresh = start(erased_blank)
-    erased = watch(fresh)
-    put_in(fresh, files)
-    first_q = asked(fresh)
-    press(fresh, "exit", wait=0.6)
-    fresh_rec = flags(bytes(fresh.m.flash.mem), FLASH_SET_A)
-    fresh.m.eject_card()
-    fresh.run(1.0)
-    add("first_card_keeps_flash_copy", first_q == 1 and fresh_rec is not None and fresh_rec[0] == 1 and [e[:2] for e in erased] == ours[:1]
-        and switches(fresh) == (1, 1) and not fresh.m.asserts,
-        f"asked {first_q}, copy A {fresh_rec}, erases {erased}, pulled {switches(fresh)}")
+    # 9. started without a card: a card put in is not read until the next start (#518), no question; a change still goes to the flash
+    bare = start(second)
+    erased = watch(bare)
+    ignored_card = SDCard(MemoryMedium(card_image(files)))
+    untouched = bytes(ignored_card.medium.data)
+    bare.m.insert_card(ignored_card)
+    bare.run(1.0)
+    ignored = switches(bare), asked(bare), held_bit(bare)
+    goto_group(bare, GROUP_FEATURES, FEAT_TM)
+    bare.turn(1, wait=0.3)
+    bare.run(3.0)
+    bare_rec = flags(bytes(bare.m.flash.mem), FLASH_SET_A)
+    bare.turn(-1, wait=0.3)
+    press(bare, "write", wait=0.6)
+    wrote = texts_of(bare)
+    bare_b = flags(bytes(bare.m.flash.mem), FLASH_SET_B)
+    card_same = bytes(bare.m.mmc.card.medium.data) == untouched
+    add("cardless_start_ignores_card", ignored == ((0, 0), 0, 0) and bare_rec is not None and bare_rec[0] == 3 and not bare_rec[1] & TM_OFF_BIT
+        and bare_b is not None and bare_b[0] == 4 and bare_b[1] & TM_OFF_BIT and "saved in flash" in wrote and card_same
+        and [e[:2] for e in erased] == [ours[0], ours[1]] and not bare.m.asserts,
+        f"card put in: switches/ask/hold {ignored}; a change: copy A {bare_rec}; WRITE {wrote}, copy B {bare_b}; card "
+        f"{'untouched' if card_same else 'written'}; erases {erased}")
 
     # 10. SAVE TO FLASH (the last row of CUSTOMIZATION) takes what runs into the flash, the next start without a card has it
-    take = start(second)
+    take = start(second, files)
     erased = watch(take)
-    put_in(take, files)
-    press(take, "exit", wait=0.6)
     goto_group(take, GROUP_CUSTOM, 0)
     rows = counter(take)
     goto_group(take, GROUP_CUSTOM, rows[1] - 1)
