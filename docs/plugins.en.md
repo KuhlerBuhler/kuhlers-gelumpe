@@ -1275,6 +1275,14 @@ between LOCK (the default) and FREE, shown top right: with LOCK, `korg.touchLock
 finger landed, Y stays the finger's; lifting the finger, FREE or closing the app lets go. Code unchanged. Checked in the
 simulator (`test/script-community-catalog.test.mjs`), not on the device.
 
+**Blechy Run** is an app under GAMES and uses API 6: an endless runner with Blechy, the mascot, as a small picture
+(20 x 24 pixels, from the calm and walk sprites in `assets/blechy/sprites`, with crosses for eyes when hit). Blocks of three
+sizes come in from the right, any key except PLAY, STOP and REC, a pad or the touchpad makes him jump. Every 2 s it gets a
+little faster, up to the top speed after about a minute. A hit shows GAME OVER and the score; the best one stays on the card
+with `korg.store` (slot 0) and shows top left as HI. After a short pause the same keys start the next run, EXIT leaves the
+game. The pads keep playing the Electribe meanwhile. Checked in the simulator (`test/script-community-catalog.test.mjs`), not
+on the device.
+
 **PLAY-Takt** uses API 11 and runs in the background. While the sequencer plays, the PLAY LED (red and blue) blinks in the
 tempo of the pattern: the event `beat` lights it on every quarter note, `korg.afterSteps(2, ...)` turns it off two steps
 later, so with BEAT 8 on every half note. On STOP and in the pause it stays lit; `korg.cancel` clears the timer then. In the
@@ -1288,8 +1296,8 @@ the emulator (`tools/emu/timer_cases.py`, Hacktribe), not on the device.
 The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
-**Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides and Pad Finger (TOOLS); source
+**Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
+Mandelbrot and Blechy Run under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides and Pad Finger (TOOLS); source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and
