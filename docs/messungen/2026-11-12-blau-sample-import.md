@@ -73,6 +73,9 @@ der blauen. Er nutzt nur das belegte Fenster bis `0x1365AE0`; der Zusatzbereich 
 - Fälle im Emulator (Korgs blaue 2.02 allein und im ganzen Satz): Werte im DSP bitgleich, Stereo gemittelt, Schleife aus `esli`,
   ohne `esli` One-Shot, Pad spielt die Startadresse des Samples, zu groß und 8 Bit werden übersprungen und gezählt, EXIT beim
   Einschalten und keine Datei lassen Tabellen und Liste wie bei Korg; die Startphase von `check.py --quick` ist grün. **gemessen (Emulator)**
+- Zähler im Menü: die Runtime liest den Zustand des Laders (`0xC0133000`: geladen, übersprungen, Ergebnis) und zeigt ihn als Zeile
+  USER SAMPLES vor VERSION in der BLECH-Liste, nur wenn beim Start eine Datei da war. Fälle `usersamples:menu_*` (zwei geladen, eins
+  übersprungen; alle geladen; kaputte Datei; dieselbe Adresse in Patch und Runtime), dazu ohne Datei vier Zeilen wie bisher. **gemessen (Emulator)**
 - Am Gerät noch nicht geprüft: Klang, Ladezeit beim Start, Pattern mit `[User]`-Oszillator auf Korgs Original. **offen**
 
 ## Offen

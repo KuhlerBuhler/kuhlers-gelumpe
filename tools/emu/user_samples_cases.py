@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2])
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -190,7 +191,37 @@ def case_off(payload, flash):
     return out
 
 
-GROUPS = (case_load, case_play, case_reject, case_off)
+def case_menu(payload, flash):
+    """BLECH > USER SAMPLES, in front of VERSION: what the start loaded and left out; a bad file says so; without a file there is no
+    row (menu_cases checks that list). Only where the copy has the BLECH menu."""
+    import menu_cases as mc
+    from splash_cases import Dev
+    from tools.patch import script_hooks
+    if not mc.has_menu(payload):
+        return []
+    mc.for_build(payload)
+    out = []
+    files = [wav(SINE[:64], 48000, bits=8), wav(SINE, 48000, 1, ("A", 0, 0, 7998, 0)), wav(SINE, 48000, 1, ("B", 0, 0, 7998, 0))]
+    for name, data, want in (("menu_counts", sample_file(files), "2 OK 1 SKIPPED"), ("menu_all_loaded", sample_file(files[1:]), "2 LOADED"),
+                             ("menu_bad_file", b"not a sample file" + bytes(4096), "bad sample file")):
+        dev = Dev(payload, machine=boot(payload, flash, data).m)
+        mc.goto_top(dev, mc.LIST_VERSION)
+        row = (mc.state(dev, mc.S_PAGE), mc.counter(dev), mc.texts_of(dev))
+        mc.press(dev, "menu", wait=0.4)
+        mc.press(dev, "write", wait=0.4)
+        dev.turn(1, wait=0.2)
+        after = (mc.state(dev, mc.S_LEVEL), mc.state(dev, mc.S_PAGE), mc.texts_of(dev))
+        mc.goto_top(dev, mc.LIST_VERSION + 1)
+        version = mc.texts_of(dev)[:2]
+        ok = (row == (mc.LIST_VERSION, (mc.LIST_VERSION, mc.LIST_COUNT + 1), ("USER SAMPLES", want, "")) and after == (1, mc.LIST_VERSION, row[2])
+              and version == mc.version_texts(payload) and not dev.m.asserts)
+        out.append(entry(name, ok, f"row {row}, after ENTER, WRITE and the dial {after}, the next row {version}"))
+    same = script_hooks.runtime_profile("synth").actions["US_STATE"] == spec.STATE
+    out.append(entry("menu_state_address", same, f"the runtime reads {script_hooks.runtime_profile('synth').actions['US_STATE']:#x}, the patch writes {spec.STATE:#x}"))
+    return out
+
+
+GROUPS = (case_load, case_play, case_reject, case_off, case_menu)
 
 
 def group_entries(payload, flash, i):

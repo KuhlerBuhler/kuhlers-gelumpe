@@ -114,6 +114,13 @@
 .equ SP_CODE, 0xC014FF00
 .equ SP_SETTING, 0xC014FFFC     ; FFFFFFFF (never written) or 1 is on, 0 is off; bit 2 of byte 5 of the settings file is OFF
 .equ VERSION_TEXT, 0xC014FCF0   ; the patch blech-version (tools/patch/blech_version.mjs): "BLECH 1.3.7", NUL padded, FF where the set does not have it
+; USER SAMPLES: the state of the patch user-samples (tools/patch/user_samples.py, US_STATE from the build profile, 0 where the build has
+; no such patch): samples loaded, samples left out, and the result of the start; FF where the set does not have the patch
+.equ US_LOADED, 0x00
+.equ US_REJECTED, 0x04
+.equ US_STATUS, 0x14
+.equ US_BAD, 4                  ; ST_NOTALL: the file is there but not a sample file
+.equ US_OK, 5                   ; ST_OK
 .equ SPLASH_IMPORT, 0xC01A2500 ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
 .equ SPLASH_DRAW, 0xC01A2504
 .equ SPLASH_RESET, 0xC01A2508
@@ -2433,6 +2440,8 @@ menu_texts_clear:
     beq menu_text_ip
     cmp r0, #41
     beq menu_text_version
+    cmp r0, #53
+    beq menu_text_us
     cmp r0, #42
     beq menu_text_export
     cmp r0, #43
@@ -2471,6 +2480,50 @@ menu_text_version:
     movne r0, r4
     blne menu_copy
     pop {r4, r5, r6, r7, pc}
+; USER SAMPLES (53): what the start did with Sample/e2sSample.all, "2 LOADED", "2 OK 1 SKIPPED" with samples left out (too large for
+; the room or not 16-bit PCM), or "bad sample file". Only shown when the start found the file (menu_us_on).
+menu_text_us:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_us
+    bl menu_copy
+    ldr r6, =US_STATE
+    add r0, r5, #M_VALUE
+    ldr r1, [r6, #US_STATUS]
+    cmp r1, #US_OK
+    beq menu_text_us_ok
+    ldr r1, =str_us_bad
+    bl menu_copy
+    pop {r4, r5, r6, r7, pc}
+menu_text_us_ok:
+    ldr r1, [r6, #US_LOADED]
+    bl menu_dec
+    ldr r1, [r6, #US_REJECTED]
+    cmp r1, #0
+    ldreq r1, =str_us_loaded
+    beq menu_text_us_end
+    push {r1}
+    ldr r1, =str_us_ok
+    bl menu_copy
+    pop {r1}
+    bl menu_dec
+    ldr r1, =str_us_skipped
+menu_text_us_end:
+    bl menu_copy
+    pop {r4, r5, r6, r7, pc}
+; -> r0 = 1 when the list has the row USER SAMPLES: the build has the patch's state (US_STATE) and the start found a sample file there
+; (loaded it, or found it was not one). Without the file, with EXIT at power-on or without the patch (FF) there is no row. Clobbers r1.
+menu_us_on:
+    ldr r1, =US_STATE
+    cmp r1, #0
+    moveq r0, #0
+    bxeq lr
+    ldr r0, [r1, #US_STATUS]
+    cmp r0, #US_OK
+    cmpne r0, #US_BAD
+    moveq r0, #1
+    movne r0, #0
+    bx lr
+.pool
 ; the page BLECH in the ring and the groups of the list look like Data Util: the name as the title, "press  [ Enter ]" under it
 menu_text_ring:
     add r0, r5, #M_TITLE
@@ -3505,6 +3558,15 @@ menu_kind:
     moveq r0, #41
     moveq r1, #0
     beq menu_kind_done
+    sub r0, r0, #1              ; USER SAMPLES in front of it, where the start found a sample file
+    cmp r5, r0
+    bne menu_kind_rows
+    bl menu_us_on
+    cmp r0, #0
+    movne r0, #53
+    movne r1, #0
+    bne menu_kind_done
+menu_kind_rows:
     sub r5, r5, #3
     mov r0, #0
     bl app_count
@@ -3712,6 +3774,8 @@ menu_count_level1:
     bl app_count
     cmp r0, #0
     addne r4, r4, #1
+    bl menu_us_on               ; and USER SAMPLES on the blue when the start found a sample file
+    add r4, r4, r0
     mov r0, r4
     pop {r4, pc}
 menu_count_group:
@@ -5706,6 +5770,7 @@ menu_slot_keys:
     beq menu_keys_export
     cmp r0, #39
     cmpne r0, #41
+    cmpne r0, #53
     beq menu_keys_done
     cmp r0, #36
     cmpeq r6, #0x09
@@ -6199,6 +6264,16 @@ str_as:
     .asciz "AUTO SAVE"
 str_sp:
     .asciz "STEREO 1 PAD"
+str_us:
+    .asciz "USER SAMPLES"
+str_us_loaded:
+    .asciz " LOADED"
+str_us_ok:
+    .asciz " OK "
+str_us_skipped:
+    .asciz " SKIPPED"
+str_us_bad:
+    .asciz "bad sample file"
 str_lp:
     .asciz "LAST PATTERN"
 str_mg:
