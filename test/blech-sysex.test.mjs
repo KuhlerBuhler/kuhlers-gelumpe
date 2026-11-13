@@ -232,10 +232,10 @@ describe("the patch", () => {
   });
 
   test("the constants of the builder are the ones of the editor", () => {
-    const run = spawnSync("python3", ["-c", "import sys, json; sys.path.insert(0, 'tools/patch'); import blech_sysex as b; print(json.dumps([b.FUNC_INFO, b.FUNC_READ, b.FUNC_BEGIN, b.FUNC_DATA, b.REPLY_INFO, b.REPLY_READ, b.REPLY_BEGIN, b.REPLY_DATA, b.STATUS_OK, b.STATUS_BAD_CRC, b.STATUS_REFUSED, b.STATUS_RANGE, b.STATUS_VERIFY, b.PROTOCOL_VERSION, b.MAX_BLOCK, b.FLAGS, b.FUNC_FLASH, b.REPLY_FLASH, b.STATUS_FLASH, b.FLASH_MAX, b.FLASH_LIMIT, b.FUNC_PBEGIN, b.NAME_MAX, b.FUNC_EXEC, b.REPLY_EXEC, b.EXEC_START, b.EXEC_END, b.FLAG_DOOM, b.FILE_DOOM, b.FILE_SAMPLE, b.SAMPLE_LIMIT]))"], { cwd: root, encoding: "utf8" });
+    const run = spawnSync("python3", ["-c", "import sys, json; sys.path.insert(0, 'tools/patch'); import blech_sysex as b; print(json.dumps([b.FUNC_INFO, b.FUNC_READ, b.FUNC_BEGIN, b.FUNC_DATA, b.REPLY_INFO, b.REPLY_READ, b.REPLY_BEGIN, b.REPLY_DATA, b.STATUS_OK, b.STATUS_BAD_CRC, b.STATUS_REFUSED, b.STATUS_RANGE, b.STATUS_VERIFY, b.PROTOCOL_VERSION, b.MAX_BLOCK, b.FLAGS, b.FUNC_FLASH, b.REPLY_FLASH, b.STATUS_FLASH, b.FLASH_MAX, b.FLASH_LIMIT, b.FUNC_PBEGIN, b.NAME_MAX, b.FUNC_EXEC, b.REPLY_EXEC, b.EXEC_START, b.EXEC_END, b.FLAG_DOOM, b.FILE_DOOM, b.FILE_SAMPLE, b.SAMPLE_LIMIT, b.FILE_FX]))"], { cwd: root, encoding: "utf8" });
     assert.equal(run.status, 0, run.stderr);
     const { STATUS } = BLECH;
-    assert.deepEqual(JSON.parse(run.stdout), [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, STATUS.OK, STATUS.BAD_CRC, STATUS.REFUSED, STATUS.RANGE, STATUS.VERIFY, BLECH.VERSION, 0x8000, 0x1ff, BLECH.FLASH, BLECH.R_FLASH, STATUS.FLASH, 0x1000, 0x1000000, BLECH.PLUGIN_BEGIN, BLECH.NAME_MAX, BLECH.EXEC, BLECH.R_EXEC, EXEC.stubAt, EXEC.stubAt + EXEC.stubSize, BLECH.FLAG_DOOM, BLECH.FILE_DOOM, BLECH.FILE_SAMPLE, BLECH.SAMPLE_LIMIT]);
+    assert.deepEqual(JSON.parse(run.stdout), [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, STATUS.OK, STATUS.BAD_CRC, STATUS.REFUSED, STATUS.RANGE, STATUS.VERIFY, BLECH.VERSION, 0x8000, 0x1ff, BLECH.FLASH, BLECH.R_FLASH, STATUS.FLASH, 0x1000, 0x1000000, BLECH.PLUGIN_BEGIN, BLECH.NAME_MAX, BLECH.EXEC, BLECH.R_EXEC, EXEC.stubAt, EXEC.stubAt + EXEC.stubSize, BLECH.FLAG_DOOM, BLECH.FILE_DOOM, BLECH.FILE_SAMPLE, BLECH.SAMPLE_LIMIT, BLECH.FILE_FX]);
   });
 
   test("the synth gets read commands with a table that refuses every RAM write, in its own set", () => {
@@ -311,4 +311,16 @@ describe("the firmware's rule is the editor's rule", () => {
       for (const v of vectors(build)) assert.equal(sim.blechStatus(v.op, v.addr, v.length), v.status, `${v.op} ${v.addr.toString(16)} ${v.length}`);
     });
   }
+});
+
+test("FILE READ with bits 30 and 29 reads e2sFx.all in the simulation; FILE BEGIN on it is out of range", async () => {
+  const { SimDevice, FX_FILE, SAMPLE_FILE } = await import("../src/device.mjs");
+  const { blechFileRead, blechFileBegin, parseBlechFileRead, parseBlechFileBegin } = await import("../src/protocol.mjs");
+  const fx = Uint8Array.from({ length: 5000 }, (_, i) => (i * 131) & 255);
+  const sim = new SimDevice({ blech: true, card: new Map([[FX_FILE, fx], [SAMPLE_FILE, new Uint8Array(10)]]) });
+  const read = parseBlechFileRead(sim.handle(blechFileRead(9, BLECH.FILE_FX | 4000, 2000)), 9, 2000);
+  assert.deepEqual([read.offset, read.size, read.bytes], [4000, 5000, fx.slice(4000)]);
+  assert.throws(() => parseBlechFileBegin(sim.handle(blechFileBegin(9, BLECH.FILE_FX | 0, 10, 0)), 9), e => e instanceof BlechError && e.status === BLECH.STATUS.RANGE);
+  assert.throws(() => parseBlechFileRead(sim.handle(blechFileRead(9, (BLECH.FILE_FX | BLECH.FILE_OTHER) >>> 0, 10)), 9, 10), e => e instanceof BlechError && e.status === BLECH.STATUS.RANGE);
+  assert.equal(sim.card.get(FX_FILE), fx);
 });

@@ -84,6 +84,8 @@ export const DOOM_BIN = "doom.bin";
 export const DOOM_WAD = "doom.wad";
 /** Which Doom file a FILE offset names: bit 29 for doom.bin, bits 29 and 31 for doom.wad; null for the others. */
 const doomFileName = offset => (offset & BLECH.FILE_DOOM && !(offset & BLECH.FILE_SAMPLE) ? (offset & BLECH.FILE_OTHER ? DOOM_WAD : DOOM_BIN) : null);
+/** The name the effect collection has in the card map of the simulation (KORG/blechtribe/Presets/ on the card). */
+export const FX_FILE = "e2sFx.all";
 
 export class SimDevice {
   /**
@@ -314,10 +316,11 @@ export class SimDevice {
    */
   fileCommand(cmd, payload) {
     const word = i => readU32le(payload, i * 4);
-    const name = offset => sampleFileName(offset) ?? (this.doom ? doomFileName(offset) : null) ?? (offset & BLECH.FILE_OTHER ? "ORIGINAL.BIN" : "SYSTEM.VSB");
-    // bits 30 and 29 together name no file: the firmware makes the offset -1, which every range check refuses
+    // bits 30 and 29 name e2sFx.all, which is only read; with bit 31 as well no file: the firmware makes the offset -1, which every range check refuses
     const both = offset => this.doom && offset & BLECH.FILE_DOOM && offset & BLECH.FILE_SAMPLE;
-    const limit = offset => (both(offset) ? -1 : sampleFileName(offset) || (this.doom && doomFileName(offset)) ? BLECH.SAMPLE_LIMIT : BLECH.FILE_LIMIT);
+    const fx = offset => both(offset) && !(offset & BLECH.FILE_OTHER);
+    const name = offset => (fx(offset) ? FX_FILE : null) ?? sampleFileName(offset) ?? (this.doom ? doomFileName(offset) : null) ?? (offset & BLECH.FILE_OTHER ? "ORIGINAL.BIN" : "SYSTEM.VSB");
+    const limit = offset => (fx(offset) && cmd === BLECH.FILE_READ ? BLECH.SAMPLE_LIMIT : both(offset) ? -1 : sampleFileName(offset) || (this.doom && doomFileName(offset)) ? BLECH.SAMPLE_LIMIT : BLECH.FILE_LIMIT);
     const plain = offset => offset & ~(BLECH.FILE_OTHER | BLECH.FILE_SAMPLE | (this.doom ? BLECH.FILE_DOOM : 0));
     if (cmd === BLECH.FILE_READ) {
       const offset = plain(word(0)) >>> 0;
