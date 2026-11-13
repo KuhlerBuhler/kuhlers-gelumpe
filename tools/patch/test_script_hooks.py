@@ -48,6 +48,8 @@ class HookTests(unittest.TestCase):
         machine.uc.mem_map(0xC0340000,4096)
         machine.uc.mem_map(0xC0345000,4096)    # the LED manager's pointer (0xC0345A1C), 0: the unsaved WRITE LED stays out
         machine.uc.mem_map(0xC0310000,0x10000)
+        machine.uc.mem_map(0x01E26000,4096)
+        machine.write(0x01E26070,2)    # the card switch (GPIO 4.1) high: no card, menu_card_watch reads nothing
         for at,size in [(0xC0690000,0x2000),(0xC06A2000,0x1000),(0xC06B2000,0x5000),(0xC06BC000,0x1000),(0xC06C2000,0x1000)]: machine.uc.mem_map(at,size)   # 0xC06A292C the OS tick count the clock reads
         machine.write(0xC033E6F8,machine.input+0x1000)
         machine.write(0xC03404C0,machine.input+0x2000)
@@ -1135,10 +1137,11 @@ class MenuSettingsTests(unittest.TestCase):
             symbols = machine.symbols
             state = symbols['MENU_STATE']
             opened = []
+            knob = [0]                  # +44 of pad-colors: 1 when KNOB LEDS is OFF
             def glue(uc, address, size, _):
                 if address == symbols['menu_pc_call']:
                     offset = uc.reg_read(UC_ARM_REG_R1)
-                    uc.reg_write(UC_ARM_REG_R0, {20: 2, 28: 13, 4: 0x120}[offset])
+                    uc.reg_write(UC_ARM_REG_R0, {20: 2, 28: 13, 4: 0x120, 44: knob[0]}[offset])
                     uc.reg_write(UC_ARM_REG_R1, 0xdeadbeef)
                     uc.reg_write(UC_ARM_REG_R2, 0xa5a5a5a5)
                     uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
@@ -1191,6 +1194,16 @@ class MenuSettingsTests(unittest.TestCase):
                     machine.call('menu_settings_save')
                     self.assertEqual((opened[0][5], opened[0][7]), (byte5, 0))
             machine.write(symbols['LP_CODE'], 0xFFFFFFFF)
+            # KNOB LEDS OFF (pad-colors) is bit 6 of byte 5, next to METER LOUD RAINBOW (bit 0)
+            for off, loud, byte5 in ((1, 0, 0x40), (1, 8, 0x41), (0, 8, 1)):
+                with self.subTest(build=build_name, knob=off, loud=loud):
+                    knob[0] = off
+                    machine.uc.mem_write((state + symbols['MX_METER']) & 0xffffffff, bytes([1, 2, 3, loud]))
+                    opened.clear()
+                    machine.call('menu_settings_save')
+                    self.assertEqual((opened[0][5], opened[0][7]), (byte5, 0))
+            knob[0] = 0
+            machine.uc.mem_write((state + symbols['MX_METER']) & 0xffffffff, bytes([1, 2, 3, 4]))
             # both patches: STEREO 1 PAD OFF (bit 2) and LAST PATTERN OFF (bit 3) stay next to METER LOUD RAINBOW (bit 0)
             machine.write(symbols['SP_CODE'], 0xE59FC08C)
             machine.write(symbols['SP_SETTING'], 0)

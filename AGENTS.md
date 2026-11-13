@@ -142,9 +142,11 @@ Docs state what holds now; before and after belong in commits and release notes.
   `tools/emu/<name>_cases.py`, a row in the table of [docs/patcher.md](docs/patcher.md) and a
   measurement in `docs/messungen/`. Add the case module to `tools/ci/verify-scope.mjs`;
   `test/verify-scope.test.mjs` fails otherwise.
-- After a change to `tools/patch/script_*.s` or `data/script/contract.mjs`, rebuild the runtime patch
-  for all three builds: `node tools/patch/script_runtime.mjs --build hacktribe`, `--build stock`,
-  `--build synth`. Other patches have their builder next to them in `tools/patch/`.
+- The runtime patches (`data/patches/script-runtime*.json`) are built, not committed: `npm test`,
+  `npm start`, `npm run serve`, `build:site`, `build:sidecar`, `check_sets.mjs` and `verify-patches.mjs`
+  build what is missing or older than the sources (`tools/patch/ensure-runtime.mjs`); by hand
+  `node tools/patch/ensure-runtime.mjs --force`. Never commit them. Other patches keep their file in
+  `data/patches/` and have their builder next to them in `tools/patch/`.
 - Runtime code lives in MORE3 (`tools/patch/script_hooks.py`). New RAM goes into an area declared in
   `ram_areas()` or the patch's `ram` list; `test/patch-ram.test.mjs` fails when two patches claim the
   same RAM. A word inside a block that is already in use collides silently, check the block first.
@@ -187,8 +189,7 @@ Docs state what holds now; before and after belong in commits and release notes.
   `tools/ci/verify-scope.mjs` maps to the changed files, on all four originals. The full check runs on
   the release pull request.
 - A branch does not have to be current with develop to be merged; merge develop in only when you need its changes.
-  Never rebase or force-push a shared branch. Leave a conflict that is only in `data/patches/script-runtime*.json`
-  alone: the workflow Update pull requests rebuilds those.
+  Never rebase or force-push a shared branch.
 - Firmware changes that touch the same patches (`data/patches/`, `tools/patch/`, `tools/emu/*_cases.py`) go one
   after the other or in one pull request, not in parallel. App changes may run in parallel.
 - A release: `node tools/set-version.mjs X.Y.Z`, notes in `release-notes/X.Y.Z.md` (German, then
