@@ -3608,4 +3608,329 @@ korg.onEvent("frame", () => {
 });
 `,
   }),
+  Object.freeze({
+    id: "betteraccent",
+    title: "Better Accent",
+    description: text("catalog.betteraccent.description"),
+    category: text("catalog.category.tools"),
+    creator: "alarykko",
+    added: "2026-11-13",
+    controls: [text("catalog.betteraccent.control1"), text("catalog.betteraccent.control2")],
+    source: `// BETTER ACCENT v2 by alarykko, from the BLECH Discord, inspired by the TD-3-MO: a step with velocity above 96 is an
+// accent and opens the filter through EG INT, DECAY and LEVEL. SHIFT + EG INT, DECAY or LEVEL set the accent values of
+// the selected part. It acts on parts 1 to 7 only (maxParts = 7): with all 16 the step handler tripped the watchdog.
+const baseEgInt = new Array(8);
+const baseDecay = new Array(8);
+const baseLevel = new Array(8);
+//const baseGlide = new Array(8);
+const egIntAccAmount = new Array(8);
+const decayAccAmount = new Array(8);
+const levelAccAmount = new Array(8);
+//const glideOnTies = 40;
+
+
+
+const maxParts = 7;
+const defaultVelocity = 96;
+const stepCount = 64;
+
+
+const levelKnobIndex = 0;
+//const pitchGlideKnobIndex = 2;
+const egIntKnobIndex = 4;
+const decayKnobIndex = 8;
+
+
+let shiftPress = 0;
+let lastMillis = 0;
+
+
+
+
+//setta le basi
+function setNewBases(){
+  for(let part = 0; part < maxParts; part++){
+    baseEgInt[part] = korg.parts[part].egInt;
+    baseDecay[part] = korg.parts[part].decay;
+    baseLevel[part] = korg.parts[part].level;
+    //baseGlide[part] = korg.parts[part].glide;
+  }
+}
+
+
+function restoreBases(){
+  for(let part = 0; part < maxParts; part++){
+    korg.parts[part].egInt = baseEgInt[part];
+    korg.parts[part].decay = baseDecay[part];
+    korg.parts[part].level = baseLevel[part];
+    //korg.parts[part].glide = baseGlide[part];
+  }
+}
+
+function setAccentedAmounts(){
+  for(let part = 0; part < maxParts; part++){
+    egIntAccAmount[part] = korg.parts[part].egInt;
+    decayAccAmount[part] = korg.parts[part].decay;
+    levelAccAmount[part] = korg.parts[part].level;
+  }
+}
+
+
+
+function applyAccent(){
+
+  
+
+  for(let part = 0; part < maxParts; part++){
+
+    const currentStep = korg.read.step(part);
+    const previousStep = ((currentStep - 1) % stepCount + stepCount) % stepCount;
+    const isStepOn = korg.seq.getOn(part, currentStep);
+    const stepVelocity = korg.seq.getVelocity(part, currentStep);
+    const currentGate = korg.seq.getGate(part, currentStep);
+    const previousGate = korg.seq.getGate(part, previousStep);
+
+    //
+    if(isStepOn == 1 && stepVelocity > defaultVelocity){ 
+      korg.parts[part].egInt = egIntAccAmount[part];
+      korg.parts[part].decay = decayAccAmount[part];
+      korg.parts[part].level = levelAccAmount[part];
+    }
+    else if (isStepOn == 1 && stepVelocity <= defaultVelocity){
+      korg.parts[part].egInt = baseEgInt[part];
+      korg.parts[part].decay = baseDecay[part]; 
+      korg.parts[part].level = baseLevel[part];
+    }
+    /*
+    if (currentGate > 96  || previousGate > 96)   {
+      korg.parts[part].glide = baseGlide[part] + glideOnTies; 
+    }
+    else korg.parts[part].glide = baseGlide[part];
+    */
+  }
+}
+
+
+
+
+
+korg.onEvent("ready", () => {
+    setNewBases();
+    setAccentedAmounts();
+    korg.display.popups(0);
+});
+
+korg.onEvent("patternChange", () => {
+    setNewBases();
+    setAccentedAmounts();
+});
+
+korg.onEvent("buttonPress", (key) => {
+    
+    if(key == korg.key.SHIFT){ 
+      shiftPress = 1;
+      korg.knobHold(egIntKnobIndex, 1);
+      korg.knobHold(decayKnobIndex, 1);
+      korg.knobHold(levelKnobIndex, 1);
+    }
+
+    if(key == korg.key.STOP){
+      restoreBases();
+    } 
+
+});
+
+
+korg.onEvent("buttonRelease", (key) => {
+
+    if(key == korg.key.SHIFT){
+      shiftPress = 0;
+      korg.knobHold(egIntKnobIndex, 0);
+      korg.knobHold(decayKnobIndex, 0);
+      korg.knobHold(levelKnobIndex, 0);
+    }
+});
+
+
+korg.onEvent("frame", () => {
+    if( (korg.millis() - lastMillis) > 50){
+      korg.display.release();
+    }
+    
+});
+
+
+
+
+korg.onEvent("step", () => {
+
+    applyAccent();
+    
+});
+
+
+korg.onEvent("knob", (index, value) => {
+    let currentPart = korg.read.part();
+
+
+    //Aggiorna tutti i valori per gli step accentati/TIEati
+    if(index == egIntKnobIndex && shiftPress == 0 && (currentPart >= 0) && (currentPart <= maxParts)) baseEgInt[currentPart] = (value/2)-63;
+    if(index == decayKnobIndex && shiftPress == 0 && (currentPart >= 0) && (currentPart <= maxParts)) baseDecay[currentPart] = value/2;
+    if(index == levelKnobIndex && shiftPress == 0 && (currentPart >= 0) && (currentPart <= maxParts)) baseLevel[currentPart] = value/2;
+    //if(index == pitchGlideKnobIndex && shiftPress == 1) baseGlide[currentPart] = (value/2);
+    
+
+
+    //Aggiorna e mostra i valori per gli step accentati
+    if(index == egIntKnobIndex && shiftPress == 1 && (currentPart >= 0) && (currentPart <= maxParts)){
+      egIntAccAmount[currentPart] = (value/2)-64;
+      korg.display.take();
+      korg.display.clear();
+      lastMillis = korg.millis();
+      korg.display.text("AccentEgInt",10,22);
+      korg.display.number(egIntAccAmount[currentPart],10, 32);
+      
+      
+    }
+
+    if(index == decayKnobIndex && shiftPress == 1 && (currentPart >= 0) && (currentPart <= maxParts)){
+      decayAccAmount[currentPart] = value/2;
+      korg.display.take();
+      korg.display.clear();
+      lastMillis = korg.millis();
+      korg.display.text("AccentDecay",10,22);
+      korg.display.number(decayAccAmount[currentPart],10,32);
+      
+      
+    }
+    
+    if(index == levelKnobIndex && shiftPress == 1 && (currentPart >= 0) && (currentPart <= maxParts)){
+      levelAccAmount[currentPart] = value/2;
+      korg.display.take();
+      korg.display.clear();
+      lastMillis = korg.millis();
+      korg.display.text("AccentLevel",10,22);
+      korg.display.number(levelAccAmount[currentPart],10,32);
+      
+      
+    }
+    
+});
+`,
+  }),
+  Object.freeze({
+    id: "easyslides",
+    title: "Easy Slides",
+    description: text("catalog.easyslides.description"),
+    category: text("catalog.category.tools"),
+    creator: "alarykko",
+    added: "2026-11-13",
+    controls: [text("catalog.easyslides.control1"), text("catalog.easyslides.control2")],
+    source: `// EASY SLIDES v1 by alarykko, from the BLECH Discord: a TIE step (gate above 96) and the step after it get more glide,
+// so the two notes slide. SHIFT + PITCH/GLIDE sets the base glide of the selected part. In the catalog the glide acts
+// only on the parts whose glide it saved, 1 to 8 (maxParts), and STOP puts those back: the original also wrote parts 9
+// to 16 on every step and set their glide to 0.
+//Ancora da sistemare, implementare migliore logica per far si che glide rimanga attivo sia nello step con TIE e quello successivo così da dare il tempo alla nota di slideare
+
+const baseGlide = new Array(16);
+const pitchGlideKnobIndex = 2;
+const maxParts = 8;
+const glideOnTies = 35;
+let shiftPressed = 0;
+
+
+//Per evitare argomenti fuori da quelli ammessi
+function limitUnsigned (value){
+  if(value > 127) return 127;
+  if(value < 0) return 0;
+  return value;
+}
+
+
+function setNewBases(){
+  for(let part = 0; part < maxParts; part++){
+      baseGlide[part] = korg.parts[part].glide;
+  }
+}
+
+
+
+function applySlide() {
+  const stepCount = 64;
+  
+  //per ogni parte
+  for (let part = 0; part < maxParts; part++) {
+
+    const currentStep = korg.read.step(part);
+    const previousStep = ((currentStep - 1) % stepCount + stepCount) % stepCount;
+    const currentNote = korg.seq.getNote(part, currentStep, 1);
+    const previousNote = korg.seq.getNote(part, previousStep, 1);
+    
+    
+    //se lo step è tie oppure quello prima è tie applica il glide, in questo modo si da il tempo alla frequenza di glideare
+    if (korg.seq.getGate(part, currentStep) > 96  || korg.seq.getGate(part, previousStep) > 96)   {
+      korg.parts[part].glide = limitUnsigned(baseGlide[part] + glideOnTies); 
+    }
+    else korg.parts[part].glide = baseGlide[part];
+  }
+}
+
+
+
+
+
+
+korg.onEvent("ready", () => {
+    
+    //registra i baseGlide all'accensione
+    setNewBases();
+    korg.display.popups(0);
+    
+});
+
+korg.onEvent("patternChange", () => {
+    setNewBases();
+});
+
+
+korg.onEvent("buttonPress", (key) => {
+     
+    //restora i glide correnti ai base, per evitare che se pausato proprio durante un accent cambino i baseGlide
+    if(key == korg.key.STOP){
+      for(let part = 0; part < maxParts; part++){
+        korg.parts[part].glide = baseGlide[part];
+      }
+    }
+
+    //semplice flag per shift premuto
+    if(key == korg.key.SHIFT) shiftPressed = 1;
+    
+});
+
+
+
+korg.onEvent("buttonRelease", (key) => {
+
+  //idem come sopra con patate  
+  if(key == korg.key.SHIFT) shiftPressed = 0;
+    
+});
+
+
+korg.onEvent("step", () => {
+
+    //applica lo slide ad ogni step
+    applySlide();
+
+});
+
+//aggiorna i baseGlide quando giri il knob pitch tenendo premuto shift
+korg.onEvent("knob", (index, value) => {
+    
+    let part = korg.read.part();    
+    if(index == pitchGlideKnobIndex && shiftPressed == 1) baseGlide[part] = (value/2);
+    
+});
+`,
+  }),
 ]);
