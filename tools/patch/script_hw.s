@@ -722,7 +722,8 @@ script_knob_glue:
 ; (input_mask in script_hooks.s); a plugin picks the keys that reach the firmware as well. The record at KEY_PASS holds a
 ; word for keys 0 to 31 and one for 32 and 33, each bit the key's pass bit XOR its default (1 for REC, STOP and PLAY) and
 ; inverted, so the FF of the power-on is the defaults; then two words with a bit clear for a key whose press reached the
-; firmware while an app was open, so its release follows. The app's close puts the defaults back (script_app_close).
+; firmware (noted with and without an app open, key_pass_note), so its release follows. The app's close puts the defaults
+; back (script_app_close).
 .equ KP_PASS, 0
 .equ KP_HELD, 8
 .equ KP_DEFAULT, 7
@@ -785,6 +786,27 @@ key_pass_store:
     str r1, [r12, #KP_HELD]
 key_pass_done:
     pop {r1, r4}
+    bx lr
+
+; r5 the panel message of a key that reaches the firmware while no app is open: a press clears its bit in the held words, a
+; release sets it. An app opened (or korg.display.take) while the key is held then still lets its release through
+; (script_key_pass), else the firmware keeps the key held until it is pressed again. Clobbers r0, r2, r3 and r12.
+key_pass_note:
+    ldrb r2, [r5, #0x0d]
+    cmp r2, #34
+    bxhs lr
+    ldr r12, =KEY_PASS
+    cmp r2, #32
+    addhs r12, r12, #4
+    subhs r2, r2, #32
+    mov r3, #1
+    mov r3, r3, lsl r2
+    ldr r0, [r12, #KP_HELD]
+    ldrb r2, [r5, #0x0e]
+    cmp r2, #0
+    orreq r0, r0, r3
+    bicne r0, r0, r3
+    str r0, [r12, #KP_HELD]
     bx lr
 
 ; Puts the keys back to their defaults when an app closes. Clobbers r0 and r2.

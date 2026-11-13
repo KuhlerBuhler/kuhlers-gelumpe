@@ -516,15 +516,21 @@ eigener Bump-PR ist nicht nötig. Der Workflow "Sync develop" holt den Merge-Com
 zurück.
 
 Nach jedem Push auf `main` oder einen `release/`-Branch holt der Workflow "Update pull requests" diesen Branch in
-jeden offenen Pull Request, der auf ihm aufbaut und hinterherhängt (GitHubs "Update branch", mit `SYNC_TOKEN`,
-damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein Basis-Branch ist;
-bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
+**einen** offenen Pull Request, der auf ihm aufbaut und hinterherhängt: den nächsten in der Reihe, also den ältesten
+hinterherhängenden, Entwürfe ausgenommen (GitHubs "Update branch", mit `SYNC_TOKEN`, damit die Checks neu laufen).
+Welcher das ist, sagt `tools/ci/pr-queue.mjs`. So startet ein Merge nicht die vollen Checks aller offenen PRs auf
+einmal: der PR, der landet, lief gegen den Stand mit allen Merges davor, und sein Merge startet den Workflow erneut
+für den nächsten. Wer mehr als einen auf einmal nachziehen will, startet den Workflow von Hand mit `all`
+(`gh workflow run update-prs.yml -f base=release/1.4.5 -f all=true`). Ausgenommen sind PRs aus Forks und solche,
+deren Kopf selbst ein Basis-Branch ist; bei einem Konflikt bleibt der PR, wie er ist, der Lauf geht zum nächsten und
+zeigt eine Warnung.
 
-Bei `develop` fasst derselbe Workflow nur PRs an, die mit `develop` kollidieren. Liegen alle Konflikte in den
-Runtime-Patches (`data/patches/script-runtime*.json`), merged er `develop` hinein, baut die drei aus den
-gemergten Quellen neu (`node tools/patch/script_runtime.mjs --build ...`) und pusht. Jeder andere Konflikt bleibt
-für einen Menschen, der Lauf zeigt eine Warnung. Ein PR, der sauber mergt, bleibt, wie er ist: er muss nicht auf
-dem Stand von `develop` sein, sonst liefen nach jedem Merge die Checks aller offenen PRs neu. Was zwei PRs erst
+Bei `develop` fasst derselbe Workflow keinen PR an. Es gibt dort nichts zu reparieren: die Runtime-Patches
+(`data/patches/script-runtime*.json`) liegen nicht mehr im Repository, sie entstehen aus `tools/patch/script_*.s`
+und den Python-Buildern. Wer sie braucht, baut sie (`tools/patch/ensure-runtime.mjs`; `npm test`, `npm start`,
+`npm run serve` und `node tools/build-site.mjs` tun das von selbst). Ein Konflikt mit `develop` ist damit ein
+Konflikt wie jeder andere und braucht einen Menschen. Ein PR, der sauber mergt, bleibt, wie er ist: er muss nicht
+auf dem Stand von `develop` sein, sonst liefen nach jedem Merge die Checks aller offenen PRs neu. Was zwei PRs erst
 zusammen kaputt machen, zeigen die Läufe auf `develop` selbst ("Test" und "Verify patches" laufen nach jedem Merge).
 
 **Feature-PRs mergen sich selbst** (Workflow "Automerge", `.github/workflows/automerge.yml`): ein PR nach `develop`
@@ -551,8 +557,8 @@ das ihn dorthin bringt.
 
 **Firmware-PRs nacheinander.** Mehrere offene PRs, die dieselben Patches ändern (`data/patches/`,
 `tools/patch/`, `tools/emu/*_cases.py`), kollidieren bei jedem Merge miteinander und laufen dann kalt neu. Die
-Runtime-Patches löst der Workflow oben selbst, alles andere nicht. Deshalb: App-Themen dürfen parallel laufen,
-Firmware-Themen, die dieselben Patches anfassen, kommen nacheinander oder als ein PR.
+Runtime-Patches sind davon ausgenommen: sie sind gebaut, nicht committet, und kollidieren deshalb nicht. Deshalb:
+App-Themen dürfen parallel laufen, Firmware-Themen, die dieselben Patches anfassen, kommen nacheinander oder als ein PR.
 
 **Release-PR mergt sich selbst** (Workflow "Release merge", `.github/workflows/release-merge.yml`,
 `tools/release-merge.mjs`): ein offener PR `release/X.Y.Z` -> `main` aus diesem Repo wird gemerged, wenn alles
@@ -669,9 +675,18 @@ eigenen Jobs für Hacktribe, rot und blau. Die Editor-Effektsammlung bekommt zwe
 für Hacktribe und rot, wenn sie zur gewählten Fallauswahl gehört. So warten diese Prüfungen
 weder auf die Hauptprüfung noch aufeinander.
 
-Die Aufgabe mit Index `i` gehört genau einem Teil. Alle Teile müssen zur selben Firmware,
+Die Aufgaben werden nach ihrer geschätzten Dauer absteigend sortiert und jeweils dem bisher
+leichtesten Teil zugeordnet. Das versionierte Profil `tools/emu/shard-weights.json` enthält
+Medianzeiten eigener Testaufgaben in ganzen Millisekunden. Neue Aufgaben erhalten zunächst
+die längste bekannte Schätzung. Gleichstände werden über Aufgabenindex, Aufgabenanzahl und
+Teilenummer entschieden. So berechnet jeder Runner denselben Plan, unabhängig von seinem
+lokalen Ergebniscache. Ein fehlendes oder ungültiges Profil bricht die geteilte Prüfung ab.
+Ungeteilte Prüfungen benötigen das Profil nicht.
+
+Jede Aufgabe gehört genau einem Teil. Alle Teile müssen zur selben Firmware,
 Gerätevariante, Konfiguration, Laufzeitversion und demselben Quellstand gehören. Der Abschluss
-plant die erwarteten Aufgaben aus den echten Eingaben erneut, verlangt jeden Teil genau einmal
+bindet auch Algorithmus und Laufzeitgewichte an die Identität, plant die erwarteten Aufgaben
+aus den echten Eingaben erneut, verlangt jeden Teil genau einmal
 und wertet Start- und Ausschaltprüfungen gemeinsam aus. Erst ein vollständiges bestandenes
 Ergebnis darf einen Eintrag für `verified.json` ergeben. `--cases` schreibt weiterhin keinen.
 
@@ -700,8 +715,20 @@ liest dadurch keine übrig gebliebenen Ergebnisse des vorherigen Plans.
 `check.py` schreibt zusätzlich zu den Fortschrittsmeldungen JSON-Zeilen mit `metrics` nach
 stderr: CPU-Zahl, tatsächliche Worker, Cachetreffer und Dauer jeder Aufgabe. In den Teilergebnissen
 stehen diese Werte ebenfalls. Damit lassen sich einzelne lange Gruppen und Wartezeiten getrennt
-von der reinen Testarbeit untersuchen. Die Aufteilung ist zunächst gleichmäßig nach Aufgabenindex;
-die gemessenen Laufzeiten zeigen, welche Gruppen später feiner geteilt werden müssen.
+von der reinen Testarbeit untersuchen. Die Teilmetrik `partition` nennt zusätzlich die geschätzte
+Gesamtdauer der zugeteilten Aufgaben. Die tatsächlich gemessene Dauer kann davon abweichen.
+
+Das Profil lässt sich aus den `metrics`-Zeilen kalter Referenzläufe neu erzeugen. `QUELLSTAND`
+bezeichnet dabei die Revision, mit der die Messungen entstanden sind:
+
+```bash
+tools/emu/.venv/bin/python tools/emu/shard_weights.py --source "$QUELLSTAND" \
+  --output tools/emu/shard-weights.json messung/*/ordinary.stderr.log
+```
+
+Das Werkzeug ignoriert Cachetreffer, verwendet den Median je Modul, Funktion und Argumenten
+und schreibt die Einträge in fester Reihenfolge. Eine Profiländerung gehört wie eine Änderung
+der Verteilung in die Prüfung. Sie ändert keine Testauswahl und keine bestehenden Task-Ergebnisse.
 
 Die vollständige Prüfung dauerte vor dieser Aufteilung in betrachteten CI-Läufen ungefähr
 50 bis 55 Minuten. Für die neue Aufteilung gibt es noch keine gemessene CI-Gesamtdauer.

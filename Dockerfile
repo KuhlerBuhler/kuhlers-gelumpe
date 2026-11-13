@@ -16,9 +16,14 @@ COPY . .
 
 # The page is plain files, so no npm ci is needed. The emulator gets its own
 # venv from the project's setup, the pinned Unicorn included.
+# The runtime patches are built, not committed (tools/patch/ensure-runtime.mjs, AGENTS.md).
+# They are built here, after the venv, so a container starts without writing into
+# /app; data/patches belongs to node as well, because a rebuild after a source change
+# writes its lock and the new file there.
 RUN npm run setup:emu \
+ && node tools/patch/ensure-runtime.mjs \
  && mkdir -p /home/node/.gelumpe /SD \
- && chown -R node:node /home/node/.gelumpe /SD tools/emu/.venv
+ && chown -R node:node /home/node/.gelumpe /SD tools/emu/.venv data/patches
 
 # The card sits in /SD, a folder the host can open (docker-compose.yaml binds ./SD there);
 # the flash stays under HOME.

@@ -91,10 +91,13 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
+# KP_OCT_SET (object, octave) is the keyboard octave's setter that KEYBOARD mode's bar keys call, on the object in KP_OCT_OBJ.
 KEY_PADS_SAMPLER = dict(KP_TITLE_AT=0xC008A1C8, KP_TITLE_FN=0xC0078744, KP_VALUE_AT=0xC008A1F4, KP_VALUE_FN=0xC0078E2C,
-                        KP_CHECK_AT=0xC008A244, KP_CHECK_FN=0xC00783EC, KP_WINDOW=0xC03487EC)
+                        KP_CHECK_AT=0xC008A244, KP_CHECK_FN=0xC00783EC, KP_WINDOW=0xC03487EC,
+                        KP_OCT_SET=0xC00818E0, KP_OCT_OBJ=0xC06912E0)
 KEY_PADS_SYNTH = dict(KP_TITLE_AT=0xC0079AD8, KP_TITLE_FN=0xC006B404, KP_VALUE_AT=0xC0079B04, KP_VALUE_FN=0xC006B864,
-                      KP_CHECK_AT=0xC0079B5C, KP_CHECK_FN=0xC006B454, KP_WINDOW=0xC0348500)
+                      KP_CHECK_AT=0xC0079B5C, KP_CHECK_FN=0xC006B454, KP_WINDOW=0xC0348500,
+                      KP_OCT_SET=0xC00723EC, KP_OCT_OBJ=0xC056B58C)
 KEY_PADS_SYNTH_WORDS = {'kp_title_hook': 0xEBFFC649, 'kp_value_hook': 0xEBFFC756, 'kp_check_hook': 0xEBFFC63C}
 # Words that change to a plain value instead of a branch: the screen factory's bound and its table literal.
 WORDS = ((0xC006E664,0xE350002C,0xE350002D),
@@ -259,9 +262,9 @@ def runtime_profile(build):
                                               HW_MUTE_OBJECT=0xC06CA798 if build == 'stock' else 0xC06CA760,
                                               POWER_HOLD_MASK=0x08000000, SHORTCUTS=1, REMOTE=1, HW_ENCODER=0xC00419B4,
                                               SC_LEDMGR=0xC0345A1C, SC_PLAYER=0xC002FAFC, SC_PATPTR=0xC033E6A4,
-                                              SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84, SC_PART_SOUND=0xC009B5EC, SC_LEDSEND=0xC00875F4,
+                                              SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84, SC_PART_OBJ=0xC009AF20, SC_PART_SOUND=0xC0099FFC, SC_LEDSEND=0xC00875F4,
                                               MG_WORK=0xC0190100, MG_MKDIR=0xC009EB00, FS_UNLINK=0xC009E9B8, MG_GETFREE=0xC009E85C, MG_ALLOC=0xC0028DCC, MG_FREE=0xC0028DD4,
-                                              MG_VRAM=0xC031B310, MG_MARK=0xC001531C, MG_BLUE=0, MG_LCD=0, MG_FLUSH=0, SYNC_GROUP_AT=0x3B80,
+                                              MG_VRAM=0xC031B310, MG_MARK=0xC001531C, MG_BLUE=0, MG_LCD=0, MG_FLUSH=0, LCD_FLUSH_ALL=0, SYNC_GROUP_AT=0x3B80,
                                               # the collection on the card (fx_card.s): which build it is for, and the modulation table this build reads
                                               FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC,
                                               BUILD_BASE=4 if build == 'stock' else 0,
@@ -298,12 +301,13 @@ def runtime_profile(build):
         HW_PART_EDIT=0xC0042700, HW_PART_EDITOR=0xC0348570, HW_PARAM_WINDOW=0xC0348500,
         POWER_HOLD_MASK=0, SHORTCUTS=1, REMOTE=1, HW_ENCODER=0,
         SC_LEDMGR=synthaddr.tr(0xC0345A1C), SC_PLAYER=synthaddr.tr(0xC002FAFC), SC_PATPTR=synthaddr.tr(0xC033E6A4),
-        SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_PART_SOUND=synthaddr.tr(0xC009B5EC), SC_LEDSEND=synthaddr.tr(0xC00875F4),
+        SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_PART_OBJ=synthaddr.tr(0xC009AF20), SC_PART_SOUND=synthaddr.tr(0xC0099FFC), SC_LEDSEND=synthaddr.tr(0xC00875F4),
         # the folder copy of the first start: f_mkdir, f_getfree, new, delete and the mark of a changed region are the Sampler's
         # functions, 16 masked words equal (fwmap); the frame buffer has the same address; MG_FLUSH (MG_LCD, 2 or 3, 0) sends the
         # frame buffer, as Korg's PCM loader does for its bar (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md)
+        # LCD_FLUSH_ALL (MG_LCD, 1): every page sent, also where it equals the copy last sent, as the display's start does (0xC00117F4)
         MG_WORK=0xC0190100, MG_MKDIR=0xC008B510, FS_UNLINK=0, MG_GETFREE=0xC008B3B4, MG_ALLOC=0xC0026240, MG_FREE=0xC0026248,
-        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=3, FT_BACK=0xC0062F18, **KEY_PADS_SYNTH, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, LCD_FLUSH_ALL=0xC001185C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=3, FT_BACK=0xC0062F18, **KEY_PADS_SYNTH, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():

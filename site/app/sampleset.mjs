@@ -10,6 +10,7 @@ import { saveFile } from "./save-file.mjs";
 import { parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, FIRST_USER, LAST_USER } from "../../src/sample-file.mjs";
 import { readDeviceSamples, downloadDeviceSamples, writeDeviceChange, needsCompaction, inspectTemp, finishTemp, discardTemp, SwapInterrupted } from "../../src/usb-sample-file.mjs";
 import { t, tNodes } from "./i18n.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 import { number } from "../../src/text.mjs";
 /** An error of this page opens Blechy at its topic (data/rescue.mjs). */
 const toast = toastFor("h:wavs");
@@ -28,12 +29,15 @@ export function samplesFilePage(root, { device = null } = {}) {
   let removed = new Set();
   let added = [];
   // Both files come in through the design's upload field (ui-dropzone): click to pick or drop on it.
-  const dropzone = (input, drag, hint) => el("label", { className: "ui-dropzone" }, [
-    input,
-    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t(drag) }), t("common.pick")]),
-    el("span", { className: "ui-dropzone-hint", textContent: t(hint) }),
-    el("span", { className: "ui-dropzone-files" }),
-  ]);
+  const dropzone = (input, drag, hint, onClear) => {
+    el("label", { className: "ui-dropzone" }, [
+      input,
+      el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t(drag) }), t("common.pick")]),
+      el("span", { className: "ui-dropzone-hint", textContent: t(hint) }),
+      el("span", { className: "ui-dropzone-files" }),
+    ]);
+    return dropzoneClear(input, onClear).node;
+  };
   const pick = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-file", accept: ".all,.ALL" });
   const wavs = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-wav", accept: ".wav,.WAV,audio/wav", multiple: true, disabled: true });
   const fromDevice = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-device", textContent: t("sampleset.device.read"), disabled: true, onclick: () => loadFromDevice() });
@@ -46,7 +50,7 @@ export function samplesFilePage(root, { device = null } = {}) {
   const intro = el("p", { className: "cee-sf-intro" }, [
     ...tNodes("sampleset.intro", { path: el("code", { textContent: "KORG/…/Sample/e2sSample.all" }), restart: restart() }),
   ]);
-  const wavZone = dropzone(wavs, "sampleset.wav.drag", "sampleset.wav.hint");
+  const wavZone = dropzone(wavs, "sampleset.wav.drag", "sampleset.wav.hint", () => { added = []; render(); });
   const actions = el("div", { className: "actions" }, [save, reset]);
   root.replaceChildren(el("div", { className: "actions" }, [fromDevice, download]), dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), intro, wavZone, job, summary, list, actions);
 

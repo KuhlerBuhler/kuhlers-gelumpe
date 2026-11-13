@@ -7,10 +7,16 @@
    "why": "the firmware's pattern load (pattern, source, 1) the EXIT + pad shortcut calls (tools/patch/script_shortcuts.s SC_LOAD): the same function, 16 words equal (fwmap, Hacktribe 2.02 against the synth's 2.02)"
   },
   {
-   "from": "0xC009B5EC",
-   "to": "0xC00881D4",
+   "from": "0xC0099FFC",
+   "to": "0xC0087C84",
    "kind": "code",
-   "why": "the firmware's part sound setup for one part (part), the one Copy Part calls at its end (Sampler 0xC0066A58, synth 0xC005C6AC) and the EXIT + pad shortcut calls after its copy (tools/patch/script_shortcuts.s SC_PART_SOUND): read in both, and r0, r0, #0xff then b to the setup (Sampler 0xC0098BE0, synth 0xC0086060), each taking the part object, setting its sample and envelope state and freeing its voices"
+   "why": "what the EXIT + pad shortcut calls after its copy with the part object (tools/patch/script_shortcuts.s SC_PART_SOUND). Sampler: the firmware's handler for a changed sample of a part (what the SAMPLE knob runs, through 0xC009A588), sample into the object (0xC0099D88) and, for a stereo change, the pair's voices. The synth has no such handler: its per part setup of the pattern change (the loop at 0xC008609C), oscillator into the object (0xC007F958) and the part's state from the pattern. Neither switches the part off at the DSP (Sampler 0xC0093A20, synth 0xC0081680), which the part sound setup of Copy Part does first (Sampler 0xC0098BE0, synth 0xC0086060). Read in both"
+  },
+  {
+   "from": "0xC0093A20",
+   "to": "0xC0081680",
+   "kind": "code",
+   "why": "switches a part off at the DSP (part, ...): clears the part's bit (Sampler 0xC06914E8, synth 0xC056B750) and writes 0 to its DSP parameter 0x6D * part plus 0x2C2 (synth 0x2A8). The part sound setup of Copy Part calls it first; tools/emu/shortcut_cases.py checks that EXIT + pad does not. Read in both; the synth has no stereo pair branch"
   }
  ]
 }

@@ -4,10 +4,11 @@ import { el } from "./fields.mjs";
 import { stateText } from "./state.mjs";
 import { icon } from "./icons.mjs";
 import { toastFor } from "./toast.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 import { saveFile } from "./save-file.mjs";
 import { saveAs, saveWay, findCards, saveToCard, sameCards } from "./save-target.mjs";
 import { applyPatches } from "../../src/patch.mjs";
-import { readAnyPatch, applyAnyPatch, itemsOf } from "../../src/anypatch.mjs";
+import { readAnyPatch, applyAnyPatch, itemsOf, isForeign } from "../../src/anypatch.mjs";
 import { RELEASE_NOTES } from "../../data/release-notes.mjs";
 import { fetchUpdateFile, storeUpdateFile } from "../../src/usb-update.mjs";
 import { buildOf, hardwareOf } from "../../src/firmware.mjs";
@@ -544,7 +545,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   /** Weiter on Korg's firmware is the acceptance of Korg's licence, the sentence under the cards says so. */
   const acceptsLicence = () => asksSource() && source === "original";
   /** Weiter on step 1 loads Korg's file: with the licence (or the acceptance by Weiter), and never over a file the user gave (or one waiting). */
-  const loadsKorg = () => wiz.step === WAY && view === 0 && reach() === 0 && !flow.input && !pending && !korg.hidden && (licence.checked || acceptsLicence());
+  const loadsKorg = () => wiz.step === WAY && view === 0 && reach() === 0 && (!flow.input || (!!mismatch() && mismatch() !== "patcher.goal.wrong.blue")) && !pending && !korg.hidden && (licence.checked || acceptsLicence());
 
   /** In the browser Korg's zip is downloaded as a file: Korg's server does not hand it to the page, the user drops it in. */
   function downloadKorg(device) {
@@ -741,6 +742,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     korgHint.hidden = inWiz || view !== 0 || reach() > 0 || !!flow.input || !!pending || korg.hidden || licence.checked || ask;
     ownHint.hidden = inWiz || view !== 0 || !ownSource || reach() > 0 || !!flow.input || !!pending;
     goalHint.hidden = inWiz || view !== 0 || !mismatch();
+    // the file in the field is the wrong one: say why, and that Weiter fetches the right one from Korg when it can
+    if (mismatch()) goalHint.textContent = `${t(mismatch(), { device: t(`patcher.device.${korgDevice()}`) })} ${t(loadsKorg() ? "patcher.goal.hintKorg" : "patcher.goal.hint")}`;
     planList.replaceChildren(...planItems().map(p => el("li", { textContent: t(p.label) })));
     blechInput.disabled = patchSource === "latest" || can.busy;
     blechDrop.hidden = patchSource === "latest";
@@ -748,11 +751,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     usbName.disabled = can.busy || locked;
     usbNameNote.textContent = t(locked ? "patcher.update.locked" : "patcher.usbName.note");
     blechInfo.textContent = ownPatch ? t(ownPatch.label) : "";
+    blechDrop.toggleAttribute("data-filled", !!ownPatch);
     // The field says which file it holds and what it is; pick() empties the input, so ui.js cannot show the name.
     const found = flow.origin === "hacktribe" && flow.input?.hardware === "blue" ? t("patcher.found.hacktribeBlue") : FOUND[flow.origin] && t(FOUND[flow.origin]);
     const held = flow.input && fileName ? t("patcher.held", { file: fileName, found: found ?? t("patcher.found.none") }) : "";
     drop.toggleAttribute("data-selected", true);
-    drop.toggleAttribute("data-filled", !!held && !!flow.origin);
+    drop.toggleAttribute("data-filled", !!held);
     fileInfo.textContent = held;
     const v = verdict(flow, blech?.items ?? [], !!pending);
     verdictBox.replaceChildren(...(v ? [stateText(v.tone, v.word), el("span", { textContent: ` ${v.text}` }), ...(v.link ? [" ", el("a", { className: "cee-text-link", href: v.link[1], target: "_blank", rel: "noopener noreferrer", textContent: v.link[0] })] : [])] : []));
@@ -785,7 +789,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     // open on the whole Hacktribe route, so the field shows the file it took and takes another one
     patchBox.toggleAttribute("data-disabled", flow.route !== "hacktribe");
     patchInput.disabled = can.busy || flow.route !== "hacktribe";
-    patchInfo.textContent = flow.route === "hacktribe" && flow.phase !== "needs-patch" && patchName ? t("patcher.hacktribe.converted", { file: patchName }) : "";
+    const converted = flow.route === "hacktribe" && flow.phase !== "needs-patch" && !!patchName;
+    patchInfo.textContent = converted ? t("patcher.hacktribe.converted", { file: patchName }) : "";
+    patchDrop.toggleAttribute("data-filled", converted);
     run.hidden = inWiz || view !== 2;
     run.disabled = !can.patch || !htReady() || (patchSource !== "latest" && !ownPatch) || (testChoice === "none" && !consent.checked);
     run.textContent = flow.phase === "failed" || flow.phase === "passed" || flow.phase === "downloaded" ? t("patcher.run.again") : testChoice === "none" ? t("patcher.run.untested") : t("patcher.run");
@@ -1003,7 +1009,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     taken = kind;
     wiz.step = WAY;
     dispatch({ type: "input", input: kind });
-    // a file the goal ruled out stays in the field, Weiter waits and the toast says which file the goal needs
+    // a file the goal ruled out stays in the field; Weiter waits, or fetches Korg's file, and the toast says which file the goal needs
     const wrong = mismatch();
     if (wrong) toast(t(wrong, { device: t(`patcher.device.${korgDevice()}`) }), "error");
     fitFlow();
@@ -1093,6 +1099,21 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     if (file) pick(file);
   });
 
+  // X on the three fields: each forgets only what its own file brought in
+  dropzoneClear(fileInput, () => {
+    if (allowed(flow).busy) { render(); return; }
+    pending = null; updating = null; usb = null; input = null; original = null; stockFile = null; passed = null; taken = null;
+    fileName = ""; patchName = "";
+    htAck.checked = false;
+    dispatch({ type: "reset" });
+  });
+  dropzoneClear(blechInput, () => { ownPatch = null; render(); });
+  dropzoneClear(patchInput, () => {
+    if (!stockFile || allowed(flow).busy) { render(); return; }
+    input = stockFile.bytes; passed = null; patchName = ""; htAck.checked = false;
+    dispatch({ type: "route", route: "hacktribe", input: stockFile.kind });
+  });
+
   run.addEventListener("click", () => patchAndCheck());
 
   /** Applies the set to the input and checks the copy in the emulator; afterwards `passed` holds it when it passed. */
@@ -1136,7 +1157,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       // a copy checked before needs no run; otherwise the quick check (start and rescue paths) or the full one
       const hardware = hardwareOfFlow(flow);
       const report = (testChoice === "quick" ? await verifiedReport(from, res.bytes, await loadVerified(), hardware) : null)
-        ?? await emulator.check(from, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: testChoice === "quick", hardware });
+        ?? await emulator.check(from, res.bytes, res.allow, res.allowCode, snapshot => { latest = snapshot; showProgress(); }, { quick: testChoice === "quick", hardware, foreign: isForeign(ownPatch) });
       if (report.ok) passed = res.bytes;
       // a red check no group knows still is a red test: Blechy then asks which kind it was
       failure = report.ok ? null : testFailure(report) ?? { group: null };
