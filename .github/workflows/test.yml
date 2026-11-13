@@ -103,7 +103,8 @@ jobs:
       # The runner image ships Chrome and the tests drive that one (channel "chrome"),
       # so there is no browser download to cache or to limit to Chromium.
       - run: node tools/patch/ensure-runtime.mjs
-      - run: node --test --test-timeout=180000 --test-shard=${{ matrix.part }}/4 "test/e2e/*.e2e.mjs"
+      # The limit holds per file; patcher.e2e.mjs (40 tests) passed every test and still ran past 180 s.
+      - run: node --test --test-timeout=300000 --test-shard=${{ matrix.part }}/4 "test/e2e/*.e2e.mjs"
 
   browser:
     needs: [changes, browser-part]
