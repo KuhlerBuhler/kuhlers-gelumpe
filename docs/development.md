@@ -643,8 +643,15 @@ ersten Schritt. Ein neuer Push bricht den laufenden Check eines PRs ab. Pull Req
 Von Hand, für einen beliebigen Branch:
 
 ```bash
-gh workflow run verify-patches.yml -f branch=release/X.Y.Z
+gh workflow run verify-patches.yml --ref release/X.Y.Z -f branch=release/X.Y.Z
 ```
+
+`--ref` wählt die [Fassung des Workflows](https://cli.github.com/manual/gh_workflow_run),
+`branch` den zu prüfenden Branch. Für einen vollständigen Lauf auf develop also beide auf
+`develop` setzen. Ohne `--ref` stammt die Workflowfassung vom Standardbranch main,
+auch wenn `branch` einen anderen Quellstand nennt. Die lokal eingebundene gemeinsame
+[Firmwareprüfung](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows#calling-a-reusable-workflow)
+kommt aus derselben Workflowrevision.
 
 Er pusht dann auf diesen Branch; für `main` und `develop`, oder wenn der Push scheitert, öffnet er stattdessen einen
 Pull Request hinein. Dieser Ausweg kann scheitern: ein Branch `verified/...`, dessen Verlauf eine Workflow-Datei neu
@@ -669,7 +676,9 @@ und schreibt nichts.
 Die Workflows für Prüfung und Veröffentlichung benutzen gemeinsam
 `.github/workflows/firmware-check.yml`. Jede der vier Gerätevarianten wird standardmäßig in
 vier Teile aufgeteilt. Die Repositoryvariable `FIRMWARE_SHARDS` ändert diese Zahl;
-`FIRMWARE_MAX_PARALLEL` begrenzt die gleichzeitig laufenden Rechenjobs, standardmäßig auf acht.
+`FIRMWARE_MAX_PARALLEL` legt eine ausdrückliche Obergrenze für die gleichzeitig laufenden
+Rechenjobs fest. Ohne diese Vorgabe laufen vollständige Prüfungen mit bis zu 16 parallelen
+Teilen, gecachte PR- und Develop-Prüfungen weiterhin mit bis zu acht.
 Pro Rechenjob gelten vier Python-Worker. Die besondere Startprüfung läuft daneben auf drei
 eigenen Jobs für Hacktribe, rot und blau. Die Editor-Effektsammlung bekommt zwei weitere Jobs
 für Hacktribe und rot, wenn sie zur gewählten Fallauswahl gehört. So warten diese Prüfungen
@@ -730,9 +739,14 @@ Das Werkzeug ignoriert Cachetreffer, verwendet den Median je Modul, Funktion und
 und schreibt die Einträge in fester Reihenfolge. Eine Profiländerung gehört wie eine Änderung
 der Verteilung in die Prüfung. Sie ändert keine Testauswahl und keine bestehenden Task-Ergebnisse.
 
-Die vollständige Prüfung dauerte vor dieser Aufteilung in betrachteten CI-Läufen ungefähr
-50 bis 55 Minuten. Für die neue Aufteilung gibt es noch keine gemessene CI-Gesamtdauer.
-Eine Schätzung ersetzt den kalten Vergleichslauf über alle vier Varianten nicht.
+Gemessen am 12. und 13. November 2026 auf einem festen Quellstand: Drei kalte vollständige
+Firmwarepipelines mit acht parallelen Teilen dauerten 25:49, 27:58 und 26:49 Minuten.
+Ein [kalter Pilotlauf mit 16 parallelen Teilen](https://github.com/KuhlerBuhler/kuhlers-gelumpe/actions/runs/43392968102)
+bestand in 15:45 Minuten, mit denselben 4276 Prüfungen, Eingaben und Ausgaben und ohne
+Ergebniscachetreffer. Diese Firmwarepipeline umfasst alle vier Varianten, die fünf Zusatzjobs
+und den strengen Abschluss. Die allgemeine Unit- und Browserpipeline läuft getrennt.
+Die Werte beschreiben diesen festen Prüfstand mit einem einzelnen Pilotlauf. Ein Laufzeitlimit
+für spätere Änderungen oder mehrere gleichzeitig offene PRs lässt sich daraus nicht ableiten.
 
 ## Keine öffentliche Seite
 
