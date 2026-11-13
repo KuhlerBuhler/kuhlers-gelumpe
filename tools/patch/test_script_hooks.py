@@ -1151,6 +1151,7 @@ class MenuSettingsTests(unittest.TestCase):
             for page in (symbols['FS_OPEN'] & ~4095, symbols['MENU_FILE_A'] & ~4095, symbols['LP_CODE'] & ~4095):
                 if not any(a <= page <= b for a, b, _ in machine.uc.mem_regions()):
                     machine.uc.mem_map(page, 4096)
+            machine.uc.mem_map(0x01E26000, 4096)                # the card switch (GPIO 4.1) low: a card is in, the save goes to the file
             machine.write(symbols['LP_CODE'], 0xFFFFFFFF)       # a set without the patch last-pattern
             machine.write(symbols['SP_CODE'], 0xFFFFFFFF)       # a set without the patch stereo-pad
             machine.uc.hook_add(UC_HOOK_CODE, glue, begin=symbols['menu_pc_call'], end=symbols['menu_pc_call'])

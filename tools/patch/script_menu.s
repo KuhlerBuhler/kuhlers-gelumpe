@@ -91,6 +91,19 @@
 .equ CARD_DONE, 0xFF
 .equ SD_INPUT, 0x01E26070     ; GPIO IN_DATA45: bit 1 (GPIO 4.1) is low while a card is in (tools/patch/card_gate.py)
 .equ SD_DETECT, 2
+; The settings in the flash, for a device without a card (menu_flash_read, menu_flash_save, menu_flash_watch): the record of
+; settings.a.bin (version 3), behind it the word FLASH_TAG << 16 | generation and the CRC-32 of record and word, in one of two 4 KiB
+; sectors by the parity of the generation (odd FLASH_SET_A, even FLASH_SET_B), so a torn write leaves the other copy whole.
+; Both sectors have no writer in the firmware and lie outside every range an update writes (docs/messungen/2026-11-13-einstellungen-flash.md).
+.equ M_FL, 0x114              ; bits 0 to 15 the generation of the newest copy in the flash, bit 16 FL_HOLD, bits 24 to 31 frames to the next check
+.equ M_FL_CRC, 0x1B4          ; menu_settings_crc of what the flash holds (of the defaults at a start without a copy)
+.equ M_FL_SEEN, 0x156         ; byte: the low byte of menu_settings_crc at the last check, a change is written once it held for a check
+.equ FL_HOLD, 0x10000         ; the settings came from a card: nothing goes to the flash by itself until SAVE TO FLASH
+.equ FL_PERIOD, 25            ; frames of 40 ms between two checks
+.equ FLASH_SET_A, 0x7FD000
+.equ FLASH_SET_B, 0x7FE000
+.equ FLASH_SET_LEN, 0x120     ; SETTINGS_MAX and the 8 bytes behind it, the size of MENU_FILE_A
+.equ FLASH_TAG, 0x4C46        ; "FL"
 .equ LCD_PAGE_HOOK_BACK, 0xC00161A8
 .equ LCD_SEND, 0xC00160C4
 .equ MENU_MAX_TRUST, 64        ; the checksum list at MENU_TRUST (tools/patch/script_hooks.py:SETTINGS_RAM), 16 up to 1.3.7
@@ -300,6 +313,9 @@ menu_settings_load:
     bne menu_load_out
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL
+    ldr r0, [r4, #M_CARD]       ; the start: the generation of the flash's copy is known even when the card wins, so SAVE TO FLASH
+    cmp r0, #CARD_DONE          ; later overwrites the older copy
+    blne menu_flash_read
     ldr r0, =settings_path_a
     ldr r1, =MENU_FILE_A
     bl menu_file_read
@@ -311,6 +327,7 @@ menu_settings_load:
     ldr r0, =MENU_FILE_A
     cmp r7, #0
     beq menu_load_b
+    mov r7, #1                  ; r7 = 1: the settings come from the card, 0 from the flash
     cmp r8, #0
     beq menu_load_apply
     ldr r1, [r0, #8]
@@ -322,6 +339,7 @@ menu_settings_load:
 menu_load_b:
     cmp r8, #0
     beq menu_load_none
+    mov r7, #1
     ldr r0, =MENU_FILE_B
 menu_load_apply:
     ldr r1, [r0, #8]
@@ -499,15 +517,117 @@ menu_load_look:
     ldr r0, [r4, #M_BL_ON]
     bl boot_light_save
     bl menu_orig_snap
-    b menu_load_out
-menu_load_none:                 ; no settings file: the stock white, whatever colour the start took from Global byte 250
+    b menu_load_flash_mark
+menu_load_none:                 ; no settings file: the copy in the flash, else the stock white, whatever colour the start took from Global byte 250
     ldr r0, [r4, #M_CARD]       ; a card put in later without one (menu_card_watch): what runs stays
     cmp r0, #CARD_DONE
+    moveq r0, #0
     beq menu_load_out
+    bl menu_flash_read          ; only at the start: a card put in later never brings the flash's copy back
+    cmp r0, #0
+    movne r7, #0
+    bne menu_load_apply
+    mov r7, #0
     bl boot_light_settle
     bl menu_orig_snap           ; the defaults are what is stored then
+menu_load_flash_mark:           ; what runs now is what the flash holds (r7 = 0), or it came from a card and stays out of the flash (r7 = 1)
+    bl menu_settings_crc
+    str r0, [r4, #M_FL_CRC]
+    strb r0, [r4, #M_FL_SEEN]
+    ldr r0, [r4, #M_FL]
+    cmp r7, #0
+    orrne r0, r0, #FL_HOLD
+    str r0, [r4, #M_FL]
+    mov r0, #1
 menu_load_out:
     pop {r4-r8, pc}
+.pool
+
+; Reads both copies of the settings in the flash into MENU_FILE_A and MENU_FILE_B -> r0 = the newer valid one, 0 for none; M_FL
+; takes its generation. r5 = card scratch (the checksum), r4 = MENU_STATE. Only at the start (the span of menu_settings_load).
+menu_flash_read:
+    push {r6-r8, lr}
+    bl FLASH_GET
+    ldr r1, =MENU_FILE_A
+    ldr r2, =FLASH_SET_A
+    mov r3, #FLASH_SET_LEN
+    bl FLASH_READ
+    bl FLASH_GET
+    ldr r1, =MENU_FILE_B
+    ldr r2, =FLASH_SET_B
+    mov r3, #FLASH_SET_LEN
+    bl FLASH_READ
+    ldr r0, =MENU_FILE_A
+    bl menu_flash_check
+    mov r7, r0
+    ldr r0, =MENU_FILE_B
+    bl menu_flash_check
+    mov r8, r0
+    ldr r6, =MENU_FILE_A
+    cmp r7, #0
+    beq menu_flash_read_b
+    cmp r8, #0
+    beq menu_flash_read_take
+    sub r0, r8, r7              ; both valid: the newer by the 16-bit generation, counted round
+    mov r0, r0, lsl #16
+    cmp r0, #0
+    ble menu_flash_read_take
+menu_flash_read_b:
+    cmp r8, #0
+    moveq r0, #0
+    beq menu_flash_read_out
+    mov r7, r8
+    ldr r6, =MENU_FILE_B
+menu_flash_read_take:
+    mov r7, r7, lsl #16
+    mov r7, r7, lsr #16
+    str r7, [r4, #M_FL]
+    mov r0, r6
+menu_flash_read_out:
+    pop {r6-r8, pc}
+
+; r0 = a copy of FLASH_SET_LEN bytes from the flash -> r0 = 0x10000 | its generation when it is a whole record of version 3 with
+; tag and checksum, 0 otherwise (erased flash, a torn write). r5 = card scratch. Keeps r4 to r11.
+menu_flash_check:
+    push {r4, r6, r7, lr}
+    mov r7, r0
+    ldrb r0, [r7, #4]
+    cmp r0, #SETTINGS_VERSION
+    bne menu_flash_check_fail
+    ldrb r0, [r7, #6]
+    ldrb r1, [r7, #7]
+    orr r0, r0, r1, lsl #8
+    cmp r0, #MENU_MAX_TRUST
+    bhi menu_flash_check_fail
+    mov r6, #SETTINGS_SIZE
+    add r6, r6, r0, lsl #2      ; the record with its CRC
+    ldr r0, [r7, r6]
+    mov r0, r0, lsr #16
+    ldr r1, =FLASH_TAG
+    cmp r0, r1
+    bne menu_flash_check_fail
+    mov r0, r7
+    add r1, r6, #4
+    mvn r2, #0
+    bl VM_CRC_UPDATE
+    mvn r2, r2
+    add r1, r6, #4
+    ldr r1, [r7, r1]
+    cmp r2, r1
+    bne menu_flash_check_fail
+    mov r0, r7
+    mov r1, r6
+    bl menu_record_check        ; the record itself as a settings file is checked
+    cmp r0, #0
+    beq menu_flash_check_fail
+    ldr r0, [r7, r6]
+    mov r0, r0, lsl #16
+    mov r0, r0, lsr #16
+    orr r0, r0, #0x10000
+    pop {r4, r6, r7, pc}
+menu_flash_check_fail:
+    mov r0, #0
+    pop {r4, r6, r7, pc}
 .pool
 
 ; r0 = path, r1 = buffer of SETTINGS_MAX bytes, r5 = card scratch, r6 = file object -> r0 = 1 when the file is a valid settings file
@@ -534,6 +654,13 @@ menu_file_read:
     cmp r4, #0
     bne menu_read_fail
     ldr r4, [r5, #CARD_BR]
+    b menu_record_body
+; r0 = a settings record in RAM, r1 = its length (the CRC included), r5 = card scratch -> r0 = 1 when it is valid as a settings file
+menu_record_check:
+    push {r4, r7, lr}
+    mov r7, r0
+    mov r4, r1
+menu_record_body:
     cmp r4, #SETTINGS_SIZE_V1
     blo menu_read_fail
     ldr r0, [r7]
@@ -586,10 +713,20 @@ menu_settings_crc:
     mov r0, #2
     b menu_settings_write
 menu_settings_save:
+    ldr r0, =SD_INPUT           ; no card: the flash takes them (M_STATUS 0x45 written, 0x46 not), unless they came from a card (FL_HOLD),
+    ldr r0, [r0]                ; then the card's error stays, SAVE TO FLASH takes them on purpose
+    tst r0, #SD_DETECT
+    beq menu_settings_save_card
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_FL]
+    tst r0, #FL_HOLD
+    beq menu_flash_save_status
+menu_settings_save_card:
     mov r0, #0
 ; r0 = 1: EXPORT ALL CUSTOMIZATIONS, the same record without the plugin checksums as KORG/blechtribe/e2sCustom.all; the
 ; generation stays, M_STATUS 0x53 when written. Nothing reads that file yet: copied over settings.a.bin it is read as settings.
 ; r0 = 2 (menu_settings_crc): writes nothing and returns the CRC of the record without generation and plugin checksums.
+; r0 = 3 (menu_flash_save): writes nothing, builds the whole record with the generation as it is -> r0 = its length with the CRC.
 menu_settings_write:
     push {r4-r11, lr}
     mov r11, r0
@@ -617,8 +754,9 @@ menu_settings_write:
     mov r0, #0                  ; byte 7 below takes r0
 menu_save_sp_done:
     ldr r9, [r4, #M_TRUST_N]
-    cmp r11, #0
-    movne r9, #0
+    cmp r11, #1
+    cmpne r11, #2
+    moveq r9, #0
     strb r9, [r7, #6]
     strb r0, [r7, #7]
     ldr r8, [r4, #M_GEN]
@@ -761,6 +899,9 @@ menu_save_trust_done:
     str r0, [r7, r10]
     cmp r11, #2
     popeq {r4-r11, pc}
+    cmp r11, #3
+    addeq r0, r10, #4
+    popeq {r4-r11, pc}
     add r10, r10, #4
     ldr r1, =settings_path_a
     tst r8, #1
@@ -806,6 +947,103 @@ menu_save_fail_r9:
     add r0, r9, #0x20
     str r0, [r4, #M_STATUS]
     pop {r4-r11, pc}
+
+; menu_flash_save for a key (WRITE without a card, SAVE TO FLASH): M_STATUS 0x45 written, 0x46 the flash write failed.
+menu_flash_save_status:
+    push {r4, lr}
+    bl menu_flash_save
+    cmp r0, #0
+    moveq r0, #0x46
+    movne r0, #0x45
+    ldr r1, =MENU_STATE
+    str r0, [r1, #M_STATUS]
+    pop {r4, pc}
+; Writes the settings as they run as the next generation to the sector the newer copy is not in -> r0 = 1 written, 0 not.
+; Written, FL_HOLD ends and the flash's copy is what the pages compare with (menu_orig_snap) and the next start reads. UI task
+; only (frame hook, keys), as the splash editor's WRITE: the firmware's flash write takes its lock, erases the 4 KiB sector and
+; writes it again. Writes nowhere but FLASH_SET_A and FLASH_SET_B.
+menu_flash_save:
+    push {r4-r8, lr}
+    ldr r4, =MENU_STATE
+    mov r0, #3
+    bl menu_settings_write      ; the record at MENU_FILE_A, r0 its length with the CRC (at most SETTINGS_MAX)
+    mov r6, r0
+    ldr r7, =MENU_FILE_A
+    ldr r8, [r4, #M_FL]
+    add r8, r8, #1
+    mov r8, r8, lsl #16
+    mov r8, r8, lsr #16
+    ldr r0, =FLASH_TAG
+    orr r0, r8, r0, lsl #16
+    str r0, [r7, r6]
+    mov r0, r7
+    add r1, r6, #4
+    mvn r2, #0
+    bl VM_CRC_UPDATE
+    mvn r2, r2
+    add r1, r6, #4
+    str r2, [r7, r1]
+    bl FLASH_GET
+    tst r8, #1
+    ldrne r1, =FLASH_SET_A
+    ldreq r1, =FLASH_SET_B
+    add r2, r6, #8
+    mov r3, r7
+    bl FLASH_WRITE
+    cmp r0, #0
+    beq menu_flash_save_out
+    ldr r0, [r4, #M_FL]         ; the new generation, FL_HOLD cleared, the frame count kept
+    and r0, r0, #0xFF000000
+    orr r8, r8, r0
+    str r8, [r4, #M_FL]
+    ldr r0, [r4, #M_BL_ON]      ; the colour the copy now holds is the one the next start shows (Global byte 250)
+    bl boot_light_save
+    bl menu_orig_snap
+    bl menu_settings_crc
+    str r0, [r4, #M_FL_CRC]
+    strb r0, [r4, #M_FL_SEEN]
+    str r0, [r4, #M_SNAP]
+    mov r0, #1
+menu_flash_save_out:
+    pop {r4-r8, pc}
+.pool
+
+; ---- without a card every change of the settings goes to the flash: called from the frame hook behind menu_card_watch (UI task).
+; Every FL_PERIOD frames, with no card in and FL_HOLD clear, the settings are compared with what the flash holds; a change that is
+; still the same at the next check (a dial at rest) is written, 1 to 2 s after the last turn. Clobbers r0 to r3 and r12.
+menu_flash_watch:
+    push {r4, lr}
+    ldr r4, =MENU_STATE
+    ldr r0, [r4, #M_ON]
+    cmp r0, #1
+    bne flash_watch_out
+    ldr r0, =SD_INPUT
+    ldr r0, [r0]
+    tst r0, #SD_DETECT
+    beq flash_watch_out         ; a card in: the card keeps the settings (WRITE, AUTO SAVE)
+    ldr r0, [r4, #M_FL]
+    tst r0, #FL_HOLD
+    bne flash_watch_out
+    add r0, r0, #0x01000000
+    cmp r0, #FL_PERIOD << 24
+    strlo r0, [r4, #M_FL]
+    blo flash_watch_out
+    bic r0, r0, #0xFF000000
+    str r0, [r4, #M_FL]
+    bl menu_settings_crc
+    ldr r1, [r4, #M_FL_CRC]
+    cmp r0, r1
+    strbeq r0, [r4, #M_FL_SEEN]
+    beq flash_watch_out
+    ldrb r1, [r4, #M_FL_SEEN]
+    strb r0, [r4, #M_FL_SEEN]
+    and r0, r0, #0xFF
+    cmp r1, r0
+    bne flash_watch_out
+    bl menu_flash_save
+flash_watch_out:
+    pop {r4, pc}
+.pool
 ; ORIG: the settings as the file holds them (the defaults without one), taken after the start's read and after each save: the record
 ; menu_settings_write builds, SETTINGS_SIZE bytes, copied into MENU_FILE_B (free once the file is read). menu_orig_flag compares
 ; the pages against it, as the firmware's own pages compare against the value stored at the start.
@@ -2515,6 +2753,8 @@ menu_texts_clear:
     beq menu_text_as
     cmp r0, #53
     beq menu_text_knob
+    cmp r0, #54
+    beq menu_text_flash
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -2563,6 +2803,15 @@ menu_text_export:
     cmp r0, #43
     ldreq r1, =str_export_fx
     add r0, r5, #M_TITLE
+    bl menu_copy
+    ldr r1, [r5, #M_STATUS]
+    cmp r1, #0
+    bne menu_text_status_value
+    b menu_text_press
+; SAVE TO FLASH (kind 54), "press  [ Enter ]" or what ENTER did
+menu_text_flash:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_save_flash
     bl menu_copy
     ldr r1, [r5, #M_STATUS]
     cmp r1, #0
@@ -3153,6 +3402,9 @@ menu_text_status_more:
     cmp r1, #0x44
     ldreq r1, =str_splash_reset_done
     beq menu_text_status_go
+    cmp r1, #0x45
+    ldreq r1, =str_flash_saved
+    beq menu_text_status_go
     cmp r1, #0x25
     ldreq r1, =str_nofolder
     beq menu_text_status_go
@@ -3534,7 +3786,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS; 50 was HT OSC, 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 54 SAVE TO FLASH; 50 was HT OSC, 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -3605,6 +3857,12 @@ menu_kind_group:
     bhs menu_kind_sub
     cmp r3, #3
     bne menu_kind_apps
+    bl menu_page_count          ; SAVE TO FLASH is the last row
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #54
+    moveq r1, #0
+    beq menu_kind_done
     ldr r1, =custom_kinds
     ldrb r0, [r1, r5]
     cmp r0, #16
@@ -3789,7 +4047,7 @@ menu_count_group:
     beq menu_count_plugins
     cmp r1, #3
     bne menu_count_features
-    mov r0, #2                  ; DISPLAY and LED
+    mov r0, #3                  ; DISPLAY, LED and SAVE TO FLASH (the last row)
     ldr r1, =PC_CODE
     ldr r1, [r1]
     cmn r1, #1
@@ -5834,6 +6092,8 @@ menu_slot_keys:
     beq menu_keys_app
     cmp r0, #3
     beq menu_keys_export
+    cmp r0, #54
+    beq menu_keys_flash
     cmp r0, #19
     cmpne r0, #33
     beq menu_keys_done
@@ -5964,6 +6224,9 @@ menu_keys_export:               ; r0 = kind: EXPORT ALL PLUGINS (3), CUSTOMIZATI
     b menu_keys_done
 menu_keys_export_custom:
     bl menu_export_custom
+    b menu_keys_done
+menu_keys_flash:                ; SAVE TO FLASH, ENTER or WRITE: the settings as they run go to the flash, also the ones a card brought
+    bl menu_flash_save_status
     b menu_keys_done
 menu_keys_export_fx:
     bl menu_export_fx
@@ -6234,6 +6497,10 @@ str_off_restart:
     .asciz "OFF, RESTART"
 str_saved:
     .asciz "saved"
+str_save_flash:
+    .asciz "SAVE TO FLASH"
+str_flash_saved:
+    .asciz "saved in flash"
 str_nocard:
     .asciz "no card"
 str_protected:
