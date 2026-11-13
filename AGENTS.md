@@ -106,8 +106,11 @@ case modules your change touches; CI runs the rest (see below). The blue Electri
   its `data-i18n` key. `test/i18n.test.mjs` fails on hard-coded text and on a key missing in any language.
 - Device menu paths are written as `Menü -> BLECH -> CUSTOMIZATION`, app paths by the sidebar group:
   `BLECHTRIBE -> Baukasten`.
-- The firmware writes its settings to the SD card (`KORG/blechtribe/`), not to the flash. Do not add
-  flash writes. AUTO SAVE only triggers the firmware's own save of the Global values into its own
+- The firmware writes its settings to the SD card (`KORG/blechtribe/`). The one exception is a device
+  without a card: the BLECH settings then go to the two flash sectors `0x7FD000` and `0x7FE000`, and a
+  card settings file always wins
+  ([docs/messungen/2026-11-13-einstellungen-flash.md](docs/messungen/2026-11-13-einstellungen-flash.md)).
+  Do not add other flash writes. AUTO SAVE only triggers the firmware's own save of the Global values into its own
   sector, the path WRITE and power-off use; that sector is written more often, and its wear on a device
   is not measured ([docs/messungen/2026-11-09-auto-save.md](docs/messungen/2026-11-09-auto-save.md)). The app sends no usage data anywhere. **The editor never gets a design system page**,
   no overview of all components. `test/design.test.mjs` holds that.
