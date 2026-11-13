@@ -319,7 +319,7 @@ Plugin-Variablen im RAM überstehen kein Ausschalten. Für einen "Korg Klicker"-
 
 | Bereich | Größe | Risiko |
 |---|---|---|
-| `0x7F1000` bis `0x7FEFFF` | 56 KiB | niedrig, Empfehlung (`0x7F0000` hat der Startbild-Editor, `0x7FF000` ist die XY-Kalibrierung) |
+| `0x7F1000` bis `0x7FCFFF` | 48 KiB | niedrig, Empfehlung (`0x7F0000` hat der Startbild-Editor, `0x7FD000` und `0x7FE000` die BLECH-Einstellungen ohne Karte, [Messung](../messungen/2026-11-13-einstellungen-flash.md), `0x7FF000` ist die XY-Kalibrierung) |
 | `0x7E0000` bis `0x7EEFFF` | 60 KiB | niedrig (`0x7E8000` hat MFX 2, `0x7EF000` die Panel-Kennung) |
 | `0xE60000` bis `0xFFFFFF` | 1,6 MiB | mittel (Update-Weg `0x80`) |
 | `0x221000` bis `0x22FFFF`, `0x231000` bis `0x23FFFF` | je 60 KiB | mittel (Update-Bereich `0x22` = `0x220000` bis `0x6B0000`) |
