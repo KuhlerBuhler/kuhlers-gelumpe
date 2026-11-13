@@ -6,7 +6,8 @@ import { compile, formatError } from "../src/script/compiler.mjs";
 import { SimDevice } from "../src/script/sim.mjs";
 import { KEY_NAMES } from "../data/script/names.mjs";
 
-// EUCLID FLOW, LIVE RELOAD and RANDOM SLOT came in from the BLECH Discord; these tests hold what the catalog takes them for.
+// EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent and Easy Slides came in from the BLECH Discord; these tests hold what
+// the catalog takes them for.
 const key = name => KEY_NAMES.find(k => k.name === name).value;
 const field = name => PART_FIELDS.findIndex(f => f.name === name);
 
@@ -80,5 +81,54 @@ test("RANDOM SLOT solos the picked part with PART MUTE and brings the mutes back
     p.press(bar);
     p.run(30);
   }
+  assert.deepEqual(p.faults, []);
+});
+
+/** Steps 0 to 15 of a part on, with the velocity and gate a step function gives. */
+function fill(api, part, velocity, gate) {
+  for (let s = 0; s < 16; s++) {
+    api["korg.seq.setStep"](part, s, 60, velocity(s));
+    api["korg.seq.setGate"](part, s, gate(s));
+  }
+}
+
+test("Better Accent plays steps above velocity 96 with the accent values of parts 1 to 7 and STOP puts the normal ones back", () => {
+  const p = plugin("betteraccent");
+  for (const part of [0, 7]) fill(p.api, part, s => (s === 8 ? 120 : 90), () => 60);
+  p.run(2);
+  assert.equal(p.device.apps.length, 0, "a background plugin");
+  p.device.post("buttonPress", key("SHIFT"));
+  p.device.post("knob", 4, 200);
+  p.run(1);
+  p.device.post("buttonRelease", key("SHIFT"));
+  p.run(1);
+  const egInt = part => p.api["korg.read.patternValue"](-1, part, field("egInt"));
+  assert.equal(egInt(0), 0, "SHIFT holds the knob from the firmware");
+  p.press("PLAY");
+  const seen = { 0: new Set(), 7: new Set() };
+  for (let i = 0; i < 300; i++) { p.run(1); seen[0].add(egInt(0)); seen[7].add(egInt(7)); }
+  assert.deepEqual([...seen[0]].sort((a, b) => a - b), [0, 36], "the accent step opens EG INT, the others stay normal");
+  assert.deepEqual([...seen[7]], [0], "part 8 is beyond maxParts = 7");
+  p.press("STOP");
+  assert.equal(egInt(0), 0);
+  assert.deepEqual(p.faults, []);
+});
+
+test("Easy Slides glides TIE steps of parts 1 to 8, leaves the glide of parts 9 to 16 alone and STOP puts it back", () => {
+  const p = plugin("easyslides");
+  for (let part = 0; part < 16; part++) {
+    p.api["korg.seq.setPartValue"](part, field("glide"), 40);
+    fill(p.api, part, () => 90, s => (s === 4 ? 127 : 60));
+  }
+  p.run(2);
+  assert.equal(p.device.apps.length, 0, "a background plugin");
+  const glide = part => p.api["korg.read.patternValue"](-1, part, field("glide"));
+  p.press("PLAY");
+  const seen = Array.from({ length: 16 }, () => new Set());
+  for (let i = 0; i < 300; i++) { p.run(1); for (let part = 0; part < 16; part++) seen[part].add(glide(part)); }
+  for (let part = 0; part < 8; part++) assert.deepEqual([...seen[part]].sort((a, b) => a - b), [40, 75], `part ${part + 1}`);
+  for (let part = 8; part < 16; part++) assert.deepEqual([...seen[part]], [40], `part ${part + 1} keeps its glide`);
+  p.press("STOP");
+  assert.deepEqual(Array.from({ length: 16 }, (_, part) => glide(part)), Array(16).fill(40));
   assert.deepEqual(p.faults, []);
 });

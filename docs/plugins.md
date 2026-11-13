@@ -1427,6 +1427,19 @@ Part. Die Pads wählen den Part (`korg.padHold`, solange die App offen ist), 1 w
 3 und 4 ändern Klang oder Steps ein wenig. PART MUTE schaltet den Part solo und stellt die Mutes danach wieder her. Gespeichert
 wird nichts. Im Simulator geprüft, laut Autor am Gerät.
 
+**Better Accent** (von alarykko, aus dem BLECH-Discord, nach dem TD-3-MO) läuft im Hintergrund unter TOOLS. Ein Step mit
+Velocity über 96 ist ein Accent: beim `step` schreibt es für diesen Part die Accent-Werte von EG INT, DECAY und LEVEL, bei
+einem Step darunter die normalen. SHIFT + EG INT, DECAY oder LEVEL setzt die Accent-Werte des gewählten Parts
+(`korg.knobHold` hält die drei Regler dann von der Firmware fern), ohne SHIFT merkt es sich die normalen Werte. STOP stellt
+die normalen Werte wieder her. Es wirkt nur auf die Parts 1 bis 7 (`maxParts = 7`): mit allen 16 lief der Step-Handler laut
+Autor in den Watchdog. Ein WRITE während eines Accents speichert die Accent-Werte. Im Simulator geprüft, laut Autor am Gerät.
+
+**Easy Slides** (von alarykko, aus dem BLECH-Discord) läuft im Hintergrund unter TOOLS: ein TIE-Step (Gate über 96) und der
+Step danach bekommen 35 mehr Glide, die zwei Noten gleiten ineinander. SHIFT + PITCH/GLIDE setzt das Grund-Glide des
+gewählten Parts, STOP stellt es wieder her. Im Katalog wirkt es nur auf die Parts 1 bis 8, deren Glide es sich beim Start und
+bei einem Patternwechsel merkt (`maxParts = 8`): das Original schrieb bei jedem Step auch die Parts 9 bis 16 und setzte
+deren Glide auf 0. Im Simulator geprüft (`test/script-community-catalog.test.mjs`), laut Autor am Gerät.
+
 **PLAY-Takt** braucht API 11 und läuft im Hintergrund. Solange der Sequencer läuft, blinkt die PLAY-LED (rot und blau) im
 Tempo des Patterns: das Ereignis `beat` macht sie auf jeder Viertel an, `korg.afterSteps(2, ...)` zwei Schritte später aus,
 mit BEAT 8 also auf jeder halben Note. Bei STOP und in der Pause leuchtet sie ruhig; `korg.cancel` räumt dann den Timer ab.
@@ -1441,7 +1454,7 @@ Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokument
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD und RANDOM SLOT (TOOLS), Quelle
+und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent und Easy Slides (TOOLS), Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem
