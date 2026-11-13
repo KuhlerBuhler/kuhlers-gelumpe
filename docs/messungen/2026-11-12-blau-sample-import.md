@@ -76,6 +76,15 @@ der blauen. Er nutzt nur das belegte Fenster bis `0x1365AE0`; der Zusatzbereich 
 - Zähler im Menü: die Runtime liest den Zustand des Laders (`0xC0133000`: geladen, übersprungen, Ergebnis) und zeigt ihn als Zeile
   USER SAMPLES vor VERSION in der BLECH-Liste, nur wenn beim Start eine Datei da war. Fälle `usersamples:menu_*` (zwei geladen, eins
   übersprungen; alle geladen; kaputte Datei; dieselbe Adresse in Patch und Runtime), dazu ohne Datei vier Zeilen wie bisher. **gemessen (Emulator)**
+- Pattern: das Objekt hält den Oszillator von Part 1 als u16 an `+0x80C` (Pattern-Block ab `+4`). WRITE speichert `409` (erster
+  `[User]`-Platz), nach einem Neustart mit derselben Karte steht dort wieder `409` und das Pad spielt dasselbe Sample. Ohne die Datei
+  oder mit EXIT beim Einschalten bleibt die Nummer stehen, der Eintrag ist ein freier und spielt SAW; ein Schritt am Rad geht auf
+  einen gültigen Oszillator. Fälle `usersamples:pattern_*`. **gemessen (Emulator)**
+- Dasselbe Pattern auf Korgs Original: die Prüfstellen (`cmp #0x198`, z. B. `0xC0086BEC`) weisen den Platz ab, die Wellen-Abfrage
+  gibt dann keinen gültigen Eintrag; kein Absturz, keine Assertion, der Part startet keine PCM-Welle, ein Schritt am Rad geht auf 1.
+  Was der Part dann hörbar macht, sagt der Emulator nicht. **gelesen, gemessen (Emulator, Skript, nicht in den Fällen: die laufen nur auf gepatchten Kopien)**
+- Samples werden nur beim Start geladen: eine andere Karte (auch nach dem Stecken im Betrieb) bringt ihre Samples erst nach einem
+  Neustart. Die Plätze zählen in der Reihenfolge der Datei; wer die Datei umsortiert, ändert, welches Sample ein Pattern spielt. **hergeleitet**
 - Am Gerät noch nicht geprüft: Klang, Ladezeit beim Start, Pattern mit `[User]`-Oszillator auf Korgs Original. **offen**
 
 ## Offen

@@ -221,7 +221,57 @@ def case_menu(payload, flash):
     return out
 
 
-GROUPS = (case_load, case_play, case_reject, case_off, case_menu)
+PATTERN_PTR = 0xC033E6A4         # -> the pattern object (the synth has it at the Sampler's address)
+PART_OSC = 0x80C                 # the object + this: part 1's oscillator, u16 (the pattern block starts at +4)
+
+
+def saved_with_user_osc(payload, flash, data):
+    """Part 1 on the first [User] oscillator, WRITE twice: the flash after the pattern is stored, and where the sample lies."""
+    from splash_cases import Dev
+    import menu_cases as mc
+    p = boot(payload, flash, data)
+    p.select_osc(spec.OSC_COUNT)
+    p.run(2.0)       # the OSC value popup closes first; WRITE while it shows stores nothing
+    chosen = p.u16(p.u32(PATTERN_PTR) + PART_OSC)
+    start = p.chain(record(p, spec.OSC_COUNT)["wave"])["smpr"][0]
+    dev = Dev(payload, machine=p.m)
+    mc.press(dev, "write", wait=0.6)
+    mc.press(dev, "write", wait=3.0)
+    return bytes(p.m.flash.mem), chosen, start
+
+
+def restarted(payload, saved, data, held=0):
+    """A new start on the stored flash: part 1's oscillator, what a pad plays, and the oscillator one encoder step on."""
+    p = sp.Probe(payload, saved, card=card(data))
+    p.m.held = held
+    p.run_to(4.0)
+    osc = p.u16(p.u32(PATTERN_PTR) + PART_OSC)
+    played = p.press_pad()["call"]
+    name = record(p, osc)["name"]
+    p.encoder_osc(1)
+    p.run(1.0)
+    return p, osc, played, name, p.u16(p.u32(PATTERN_PTR) + PART_OSC)
+
+
+def case_pattern(payload, flash):
+    """A pattern with a [User] oscillator, written and started again: with the same card it plays the same sample; without the
+    file, or with EXIT held at power-on, the stored number stays and the part plays SAW (a free record), nothing breaks."""
+    data = sample_file([wav(SINE, 48000, 1, ("PATTERN", 0, 0, 7998, 0))])
+    saved, chosen, start = saved_with_user_osc(payload, flash, data)
+    out = [entry("pattern_stores_user_osc", chosen == spec.OSC_COUNT, f"part 1 on {chosen} before WRITE")]
+    p, osc, played, name, step = restarted(payload, saved, data)
+    out.append(entry("pattern_same_sample_after_restart", osc == spec.OSC_COUNT and played is not None and played["start"] == start
+                     and name == "PATTERN" and not p.m.asserts,
+                     f"part 1 on {osc} ({name}), the voice starts at {played and hex(played['start'])}, the sample at {start:#x}"))
+    for label, data_again, held in (("no_file", None, 0), ("exit", data, KILL)):
+        p, osc, played, name, step = restarted(payload, saved, data_again, held)
+        out.append(entry(f"pattern_{label}_plays_saw", osc == spec.OSC_COUNT and name == "SAW" and played is None and step <= spec.OSC_LAST
+                         and not p.m.asserts,
+                         f"part 1 on {osc} ({name}), PCM voice {played}, one encoder step on: {step}"))
+    return out
+
+
+GROUPS = (case_load, case_play, case_reject, case_off, case_menu, case_pattern)
 
 
 def group_entries(payload, flash, i):
