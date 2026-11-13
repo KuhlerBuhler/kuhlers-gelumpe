@@ -1,0 +1,59 @@
+# Builds a debug APK of the Android app (no MIDI yet, no emulator), started by hand. docs/development.md, "Android".
+# Debug only: a release APK needs the signing keystore as a secret, which this workflow does not use yet.
+name: Build Android
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TAURI_CLI_VERSION: 2.12.4
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: android
+      - run: npm ci
+      # Tauri's own prebuilt cargo-tauri, as in build-apps.yml.
+      - name: Tauri CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          archive="cargo-tauri-x86_64-unknown-linux-gnu.tgz"
+          prebuilt() {
+            gh release download "tauri-cli-v$TAURI_CLI_VERSION" --repo tauri-apps/tauri --pattern "$archive" --dir "$RUNNER_TEMP/tauri-cli" &&
+              mkdir -p "$RUNNER_TEMP/tauri-cli/bin" &&
+              tar xzf "$RUNNER_TEMP/tauri-cli/$archive" -C "$RUNNER_TEMP/tauri-cli/bin" &&
+              mv "$RUNNER_TEMP"/tauri-cli/bin/cargo-tauri* ~/.cargo/bin/
+          }
+          prebuilt || cargo install tauri-cli --version "$TAURI_CLI_VERSION" --locked
+          cargo tauri --version
+      # The runner brings the Android SDK and NDK; Gradle fetches the SDK platform the project names when it is missing.
+      # Only arm64: the phones and tablets with USB OTG that a later MIDI build is for.
+      - name: Build the APK
+        run: NDK_HOME="$ANDROID_NDK_LATEST_HOME" cargo tauri android build --debug --apk --target aarch64 --ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gelumpe-android-debug
+          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+          if-no-files-found: error
+          retention-days: 14

@@ -4,10 +4,13 @@
  "id": "blech-synth",
  "name": "BLECH für die blaue Electribe 2 (Synth)",
  "patches": [
+  "data/patches/splash-editor-synth.json",
   "data/patches/blech-sysex-synth.json",
   "data/patches/blechtribe-synth.json",
   "data/patches/splash-synth.json",
   "data/patches/blech-theme-synth.json",
+  "data/patches/preset-tables-synth.json",
+  "data/patches/fx-catalog.json",
   "data/patches/power-off-synth.json",
   "data/patches/last-pattern-synth.json",
   "data/patches/init-pattern-synth.json",
@@ -20,6 +23,7 @@
   "data/patches/dice-synth.json",
   "data/patches/mfx-switch-synth.json",
   "data/patches/pad-colors-synth.json",
-  "data/patches/script-runtime-synth.json"
+  "data/patches/script-runtime-synth.json",
+  "data/patches/user-samples-synth.json"
  ]
 }

@@ -216,7 +216,7 @@ probieren, Ausgabe und Display notieren.
    Auf der blauen: SYNC GROUP 16/31, BLECH 30/31, Blechy 31/31.
    In Global (MENU auf "Global") auf der ersten Seite EDIT links: PLUGIN RUNTIME ("Global 21/21"), EDIT rechts wieder die
    erste Seite (TRIGGER MODE, "1/21"). In Data Util (MENU auf "Data Util") auf der ersten Funktion EDIT links:
-   SET INIT PATTERN ("Data Util 18/18", auf der blauen 14/14), mit EDIT links weiter EXPORT ALL EFFECTS (17/18, nur rot),
+   SET INIT PATTERN ("Data Util 18/18", auf der blauen 14/14), mit EDIT links weiter EXPORT ALL EFFECTS (17/18 auf der roten, auch auf der blauen),
    EXPORT ALL PLUGINS (16/18), EXPORT ALL CUSTOM (15/18), dann SOFTWARE UPDATE (14/18). EXPORT ALL CUSTOM schreibt
    `KORG/blechtribe/e2sCustom.all`, EXPORT ALL EFFECTS schreibt `KORG/blechtribe/Presets/e2sFx.all` neu (der Editor liest
    sie danach mit allen Einträgen und Texten). EXIT auf diesen Seiten geht auf "Global" bzw. "Data Util" zurück.
@@ -297,12 +297,12 @@ probieren, Ausgabe und Display notieren.
     `KORG/blechtribe/Plugin/` legen (auf einem Mac liegen dort oft auch `._Name.blech` Dateien), am Gerät im Menü auf
     PLUGINS ENTER drücken (die Liste öffnet direkt, ohne die Seite MANAGE PLUGINS dazwischen). EDIT blättert durch die Liste, je Plugin eine Seite: oben der Name, darunter
     der Stand. Ein nicht geladenes zeigt OFF; das Hauptrad nach oben lädt es, WRITE behält den Stand. ENTER auf einem
-    Plugin öffnet seine Seiten: DESCRIPTION, seine eigenen Seiten, OFF, REMOVE; EXIT führt zurück auf das Plugin in der Liste.
+    Plugin öffnet seine Seiten: ACTIVE, DESCRIPTION, seine eigenen Seiten, REMOVE; EXIT führt zurück auf das Plugin in der Liste.
     Erwartet: nur echte Plugin Dateien stehen in der Liste (keine mit Punkt am Anfang), ein Plugin kommt nur einmal vor,
     DESCRIPTION zeigt die Beschreibung (das Hauptrad scrollt sie), unter dem Namen steht nach dem Laden ON, das Plugin läuft
-    sofort, es hat nun mehr Seiten hinter ENTER (hat es eine App, steht sie unter GAMES oder TOOLS). Das Hauptrad nach unten
-    pausiert es (OFF), nach oben läuft es weiter. OFF fragt ("Enter = off"), ein zweites ENTER nimmt es aus
-    `e2sPlugin.all` ("off, file kept"), die Datei bleibt und das Plugin steht wieder als OFF in der Liste. REMOVE fragt
+    sofort, es hat nun mehr Seiten hinter ENTER (hat es eine App, steht sie unter GAMES oder TOOLS). Das Hauptrad nach unten auf
+    ACTIVE nimmt es aus `e2sPlugin.all` (Seite bleibt offen, zeigt OFF), die Datei bleibt und das Plugin steht als OFF in
+    der Liste; nach Neustart läuft es nicht. Nach oben lädt es wieder, nach Neustart läuft es. REMOVE fragt
     ("Enter = remove"), ein zweites ENTER nimmt es heraus und löscht seine `.blech` ("removed"); es steht nicht mehr in der
     Liste, am Rechner fehlt die Datei. Auf der blauen bleibt die Datei ("file stays on card").
     Melden: ok, sonst Meldung und Anzeige.

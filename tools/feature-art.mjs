@@ -224,6 +224,13 @@ const ART = {
       else { p.frame(x, y, 58, 16); p.text(name, x + 29, y + 1, { s: 2, align: "center" }); }
     });
   },
+  "user-samples": p => {
+    p.text("OSC", 4, 3, { s: 2 });
+    p.text("[User]", 124, 7, { align: "right" });
+    p.fill(4, 22, 120, 16);
+    p.text("MyKick", 64, 23, { s: 2, align: "center", colour: null });
+    p.text("FROM CARD AT START", 64, 48, { align: "center" });
+  },
   "beat-eighth": p => {
     p.text("BEAT", 4, 3, { s: 2 });
     let x = 4;

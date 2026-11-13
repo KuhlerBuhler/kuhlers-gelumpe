@@ -135,13 +135,25 @@ Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt sta
 
 ```bash
 GELUMPE_JOBS=2 node --test --test-concurrency=1 "test/*.test.mjs"
-node --test --test-concurrency=1 --test-timeout=180000 "test/e2e/*.e2e.mjs"
+node --test --test-concurrency=1 --test-timeout=300000 "test/e2e/*.e2e.mjs"
 ```
 
 Die Befehle nacheinander ausführen. `GELUMPE_JOBS` setzt sowohl die Python-Läufe je
 Testdatei als auch die Worker eines Emulator-Pools. Mit `1` laufen sie jeweils einzeln;
 ohne gültige positive ganze Zahl nutzt der Node-Teststarter die Hälfte der CPU-Kerne,
 mindestens zwei.
+
+`--test-timeout` gilt je Datei: `patcher.e2e.mjs` allein braucht in CI rund 160 s, deshalb 300 s.
+
+Die Python-Tests unter `tools/patch/` sind `unittest`, `pytest` ist nicht in der Umgebung:
+
+```bash
+cd tools/patch && PYTHONPATH=. ../emu/.venv/bin/python -m unittest test_script_hooks test_script_objects test_card_gate test_script_card
+```
+
+Die Unit-VM dieser Tests hat nur Code und RAM, keine GPIO-Seite und keinen Flash. Ruft die Laufzeit beim Start
+Firmware-Funktionen oder Register (Kartenschalter, `FLASH_GET` `0xC0029A40`, `FLASH_READ` `0xC0029A74`), braucht der
+Test eine gemappte Seite oder einen Stub (Beispiel `test_script_card.py`).
 
 Eigene Dateien:
 
@@ -156,6 +168,16 @@ nicht mit null ausgeführten Tests besteht. `npm run test:emu` braucht nur `E2_V
 sie werden diese übersprungen; ebenso `E2_BLUE_VSB` (die blaue Electribe 2) für `test/emulator-blue.test.mjs`. Für
 Tests, die auf einem echten Flash-Abbild aufsetzen, gibt es `E2_FLASH`. In CI stellt
 `E2_ARM_REQUIRED` sicher, dass die ARM-Prüfungen laufen.
+
+`test/script-runtime.test.mjs` wendet die Laufzeit der Hacktribe auf `E2_VSB` an. Zeigt `E2_VSB` auf die rote oder
+blaue Datei, schlägt sein erster Test fehl; das ist kein Regress. Dafür `E2_VSB` auf die Hacktribe-Datei stellen und
+`E2_STOCK_VSB` und `E2_BLUE_VSB` für die anderen nehmen.
+
+Browsertests mit Animation oder Hänger-Wächter (`test/e2e/background.e2e.mjs`, `discord.e2e.mjs`) pausieren die Uhr:
+`page.clock.install({ time })` allein lässt die Zeit real weiterlaufen, und auf einem ausgelasteten Rechner löst ein
+echtes spätes Bild den Wächter aus. Mit `page.clock.pauseAt(...)` steht die Uhr zwischen den Schritten, `runFor` und
+`fastForward` bewegen sie. Chrome auf macOS gibt halbtransparente Pixel eines Canvas nach dem ersten Auslesen um einen Wert
+verschoben zurück, wenn der Kontext nicht `willReadFrequently` trägt (`site/design/bg.js` setzt es).
 
 Zwei Dokumentations-Tests halten das Repo sauber: `test/docs.test.mjs` prüft tote
 Links, absolute Benutzerpfade, Namen und Gedankenstriche in `README*`, `AGENTS.md` und
@@ -236,7 +258,7 @@ Python-Prozesse begrenzen:
 
 ```bash
 GELUMPE_JOBS=1 node --test --test-concurrency=2 --test-timeout=300000 "test/*.test.mjs"
-node --test --test-concurrency=2 --test-timeout=180000 "test/e2e/*.e2e.mjs"
+node --test --test-concurrency=2 --test-timeout=300000 "test/e2e/*.e2e.mjs"
 ```
 
 `GELUMPE_JOBS` gilt auch für die Pythonmodule der Assemblerprüfung. Die beiden Befehle
@@ -282,6 +304,11 @@ Der optionale ARM-Emulator ist ein eigenes Python-Werkzeug (`tools/emu/`, GPL-2.
 [NOTICE](../NOTICE)). Installation, Dienst, Karte und Flash stehen in
 [emulator.md](emulator.md).
 
+Code in einem Haken verschiebt die Phase aller späteren Bilder. Ein zeitkritischer Fall kann deshalb auf nur einem Build
+rot werden. Erst den Build ohne die Änderung prüfen: ist der grün und reicht eine etwas längere Wartezeit, die Wartezeit
+erweitern und begründen. LEDs, die sich bewegen (Regenbogen-Meter), mit `steady_leds()` lesen, nie mit einem einzelnen
+`leds()`.
+
 ## Patcher
 
 Der Patcher baut aus Patch-Dateien eine geänderte SYSTEM.VSB. Format, Haken, Prüfungen und
@@ -290,6 +317,9 @@ Notschalter stehen in [patcher.md](patcher.md). Von der Befehlszeile:
 ```bash
 node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB
 ```
+
+Der eigene Assembler `tools/patch/arm.py` kennt bei Speicherzugriffen nur `ldr`, `ldrb`, `str` und `strb`, kein
+`ldrh`/`strh`: Zustandsfelder der Laufzeit daher als Wort oder Byte anlegen.
 
 ## Werkzeuge nach Ordner
 
@@ -403,6 +433,30 @@ Die App prüft beim Start und alle paar Stunden das neueste Release und zeigt ob
 verfügbar", ein Klick öffnet die Release-Seite. Solange das Repo nicht öffentlich ist, bleibt der
 Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signaturschlüssel.
 
+### Android (Entwurf)
+
+Dieselbe Seite als APK, noch ohne MIDI und ohne Emulator. Der Rust-Teil startet dort aus der
+Bibliothek (`src-tauri/src/mobile.rs`), die Desktop-App bleibt das Binary (`src-tauri/src/desktop.rs`).
+Die Seite erkennt die App an `window.__GELUMPE_MOBILE`: MIDI gilt als nicht vorhanden, Speichern geht
+über den Speichern-Dialog des Systems (`file_save`, Plugin fs für die content-URI). Das Android-Projekt
+liegt in `src-tauri/gen/android/`, `src-tauri/tauri.android.conf.json` lässt den Sidecar weg.
+
+Bauen: Android SDK und NDK (zum Beispiel per Homebrew `android-commandlinetools`), JDK 17,
+`rustup target add aarch64-linux-android`, dann mit `ANDROID_HOME`, `NDK_HOME` und `JAVA_HOME`:
+
+```bash
+cargo tauri android build --debug --apk --target aarch64
+```
+
+Die APK liegt unter `src-tauri/gen/android/app/build/outputs/apk/universal/debug/`. Auf GitHub baut
+der Workflow "Build Android" (von Hand starten) dieselbe Debug-APK als Artefakt.
+
+Signieren für ein Release: ein eigener Keystore, der nie ins Repo kommt. Der Build liest
+`src-tauri/gen/android/keystore.properties` (in `.gitignore`) mit `storeFile`, `keyAlias` und
+`password`. Für CI gehören der Keystore (Base64) und das Passwort als Secrets ins Repo, der Workflow
+schreibt daraus die Datei, bevor er `cargo tauri android build --apk` ohne `--debug` startet. Das ist
+noch nicht eingebaut.
+
 ## Release
 
 **Der normale Weg läuft in GitHub** (Workflow "Release", `.github/workflows/release.yml`):
@@ -412,7 +466,9 @@ Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signatursch
    Notizen als `release-notes/X.Y.Z.md` (Format unten). Sie sind das, was im Release und im Discord steht. Danach
    `node tools/release-notes.mjs build`: es schreibt `data/release-notes.mjs`, daraus zeigt die App unter Changelogs
    auch die Versionen, deren Release auf GitHub schon gelöscht ist (ohne Downloads, nur Neu, Geändert, Behoben). Ein
-   Test schlägt fehl, wenn die Datei nicht zu `release-notes/` passt.
+   Test schlägt fehl, wenn die Datei nicht zu `release-notes/` passt. Die Datei `release-notes/X.Y.Z.md` gehört erst in
+   diesen Release-PR: `tools/release-notes.mjs build` nimmt jede Datei im Ordner, mit einer Datei in einem Feature-PR
+   zeigt die App unter Changelogs eine Version, die es noch nicht gibt. Bis dahin steht der Notiztext im PR-Text.
 2. Pull Request `develop` -> `main` mergen. Den Release-PR `release/X.Y.Z` -> `main` merged der Workflow "Release
    merge" selbst, sobald jemand mit Schreibrecht ihn freigegeben hat und alle Checks grün sind (siehe unten).
 3. Der Merge startet den Workflow. Steht in `package.json` eine Version ohne Tag und gibt es ihre Notizen, baut er die
@@ -504,15 +560,21 @@ eigener Bump-PR ist nicht nötig. Der Workflow "Sync develop" holt den Merge-Com
 zurück.
 
 Nach jedem Push auf `main` oder einen `release/`-Branch holt der Workflow "Update pull requests" diesen Branch in
-jeden offenen Pull Request, der auf ihm aufbaut und hinterherhängt (GitHubs "Update branch", mit `SYNC_TOKEN`,
-damit die Checks neu laufen). Ausgenommen sind PRs aus Forks und solche, deren Kopf selbst ein Basis-Branch ist;
-bei einem Konflikt bleibt der PR, wie er ist, und der Lauf zeigt eine Warnung.
+**einen** offenen Pull Request, der auf ihm aufbaut und hinterherhängt: den nächsten in der Reihe, also den ältesten
+hinterherhängenden, Entwürfe ausgenommen (GitHubs "Update branch", mit `SYNC_TOKEN`, damit die Checks neu laufen).
+Welcher das ist, sagt `tools/ci/pr-queue.mjs`. So startet ein Merge nicht die vollen Checks aller offenen PRs auf
+einmal: der PR, der landet, lief gegen den Stand mit allen Merges davor, und sein Merge startet den Workflow erneut
+für den nächsten. Wer mehr als einen auf einmal nachziehen will, startet den Workflow von Hand mit `all`
+(`gh workflow run update-prs.yml -f base=release/1.4.5 -f all=true`). Ausgenommen sind PRs aus Forks und solche,
+deren Kopf selbst ein Basis-Branch ist; bei einem Konflikt bleibt der PR, wie er ist, der Lauf geht zum nächsten und
+zeigt eine Warnung.
 
-Bei `develop` fasst derselbe Workflow nur PRs an, die mit `develop` kollidieren. Liegen alle Konflikte in den
-Runtime-Patches (`data/patches/script-runtime*.json`), merged er `develop` hinein, baut die drei aus den
-gemergten Quellen neu (`node tools/patch/script_runtime.mjs --build ...`) und pusht. Jeder andere Konflikt bleibt
-für einen Menschen, der Lauf zeigt eine Warnung. Ein PR, der sauber mergt, bleibt, wie er ist: er muss nicht auf
-dem Stand von `develop` sein, sonst liefen nach jedem Merge die Checks aller offenen PRs neu. Was zwei PRs erst
+Bei `develop` fasst derselbe Workflow keinen PR an. Es gibt dort nichts zu reparieren: die Runtime-Patches
+(`data/patches/script-runtime*.json`) liegen nicht mehr im Repository, sie entstehen aus `tools/patch/script_*.s`
+und den Python-Buildern. Wer sie braucht, baut sie (`tools/patch/ensure-runtime.mjs`; `npm test`, `npm start`,
+`npm run serve` und `node tools/build-site.mjs` tun das von selbst). Ein Konflikt mit `develop` ist damit ein
+Konflikt wie jeder andere und braucht einen Menschen. Ein PR, der sauber mergt, bleibt, wie er ist: er muss nicht
+auf dem Stand von `develop` sein, sonst liefen nach jedem Merge die Checks aller offenen PRs neu. Was zwei PRs erst
 zusammen kaputt machen, zeigen die Läufe auf `develop` selbst ("Test" und "Verify patches" laufen nach jedem Merge).
 
 **Feature-PRs mergen sich selbst** (Workflow "Automerge", `.github/workflows/automerge.yml`): ein PR nach `develop`
@@ -525,9 +587,11 @@ das nächste Ereignis prüft erneut. Dabei bleibt kein Runner wartend belegt. Ge
 Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
 Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
 
-Die Entscheidung liest den Code vom Standardbranch `main`. Der Workflow, `tools/automerge.mjs`
-und `tools/ci/checks.mjs` müssen deshalb zusammen auf `main` verfügbar sein. Erst dann arbeitet
-auch der Auslöser `workflow_run`; ein Merge nur nach `develop` aktiviert ihn noch nicht.
+Die Entscheidung liest den Code von `develop`, nicht vom PR: dort liegt nur gemergter Code, und es ist der Stand,
+in den die PRs gemergt werden. Vorher las sie `main`; dort fehlte `tools/automerge.mjs` bis zum nächsten Release, und
+jeder Lauf brach mit "Cannot find module" ab. Die Auslöser `workflow_run` und `check_run` nehmen die Workflow-Datei
+aber vom Standardbranch `main`. Solange dort die alte Datei liegt (bis 1.4.5), entscheidet nur `pull_request` (neuer
+Push, neues Label); der kommt meist, bevor die Prüfungen fertig sind, und der PR bleibt dann offen.
 
 **Gemergte Branches verschwinden** (Workflow "Delete merged branch", `.github/workflows/branch-autodelete.yml`): nach
 dem Merge eines PRs aus diesem Repo löscht der Workflow dessen Branch. Nie gelöscht werden `main`, `develop`,
@@ -538,8 +602,8 @@ das ihn dorthin bringt.
 
 **Firmware-PRs nacheinander.** Mehrere offene PRs, die dieselben Patches ändern (`data/patches/`,
 `tools/patch/`, `tools/emu/*_cases.py`), kollidieren bei jedem Merge miteinander und laufen dann kalt neu. Die
-Runtime-Patches löst der Workflow oben selbst, alles andere nicht. Deshalb: App-Themen dürfen parallel laufen,
-Firmware-Themen, die dieselben Patches anfassen, kommen nacheinander oder als ein PR.
+Runtime-Patches sind davon ausgenommen: sie sind gebaut, nicht committet, und kollidieren deshalb nicht. Deshalb:
+App-Themen dürfen parallel laufen, Firmware-Themen, die dieselben Patches anfassen, kommen nacheinander oder als ein PR.
 
 **Release-PR mergt sich selbst** (Workflow "Release merge", `.github/workflows/release-merge.yml`,
 `tools/release-merge.mjs`): ein offener PR `release/X.Y.Z` -> `main` aus diesem Repo wird gemerged, wenn alles
@@ -625,11 +689,21 @@ ersten Schritt. Ein neuer Push bricht den laufenden Check eines PRs ab. Pull Req
 Von Hand, für einen beliebigen Branch:
 
 ```bash
-gh workflow run verify-patches.yml -f branch=release/X.Y.Z
+gh workflow run verify-patches.yml --ref release/X.Y.Z -f branch=release/X.Y.Z
 ```
 
+`--ref` wählt die [Fassung des Workflows](https://cli.github.com/manual/gh_workflow_run),
+`branch` den zu prüfenden Branch. Für einen vollständigen Lauf auf develop also beide auf
+`develop` setzen. Ohne `--ref` stammt die Workflowfassung vom Standardbranch main,
+auch wenn `branch` einen anderen Quellstand nennt. Die lokal eingebundene gemeinsame
+[Firmwareprüfung](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows#calling-a-reusable-workflow)
+kommt aus derselben Workflowrevision.
+
 Er pusht dann auf diesen Branch; für `main` und `develop`, oder wenn der Push scheitert, öffnet er stattdessen einen
-Pull Request hinein. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
+Pull Request hinein. Dieser Ausweg kann scheitern: ein Branch `verified/...`, dessen Verlauf eine Workflow-Datei neu
+anlegt, wird mit dem eigenen Token des Workflows (`github.token`) abgelehnt, und der Workflow nimmt `SYNC_TOKEN ||
+github.token`. Ohne `SYNC_TOKEN` (oder wenn er den Geltungsbereich `workflow` nicht hat) kann der Pull Request also
+ausbleiben; ob `SYNC_TOKEN` hier reicht, ist nicht getestet. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
 Release-Workflows hängt seinen frischen Eintrag je Datei als Artefakt `verified-<name>` an.
 Der gewählte Branch muss die gemeinsame Firmwareprüfung und ihre Werkzeuge enthalten. Ältere Releasebranches
 bekommen diese Dateien vor einer Prüfung über den neuen Workflow als eigenen Backport; der Lauf überlagert
@@ -648,15 +722,33 @@ und schreibt nichts.
 Die Workflows für Prüfung und Veröffentlichung benutzen gemeinsam
 `.github/workflows/firmware-check.yml`. Jede der vier Gerätevarianten wird standardmäßig in
 vier Teile aufgeteilt. Die Repositoryvariable `FIRMWARE_SHARDS` ändert diese Zahl;
-`FIRMWARE_MAX_PARALLEL` begrenzt die gleichzeitig laufenden Rechenjobs, standardmäßig auf acht.
+`FIRMWARE_MAX_PARALLEL` legt eine ausdrückliche Obergrenze für die gleichzeitig laufenden
+Rechenjobs fest. Ohne diese Vorgabe laufen vollständige Prüfungen mit bis zu 16 parallelen
+Teilen, gecachte PR- und Develop-Prüfungen weiterhin mit bis zu acht.
+Ein neuer automatischer Lauf von `Verify patches` beendet den älteren Lauf derselben PR
+beziehungsweise desselben Push-Branches. PR- und Push-Ereignisse haben getrennte Gruppen.
+Andere PRs, manuell gestartete Prüfungen und manuell wiederholte Läufe bleiben unabhängig.
+Der aufrufende Workflow steuert den Abbruch des gesamten Laufs; die gemeinsamen
+Firmwarejobs haben keine zusätzlichen Abbruchgruppen.
+Die Regel greift ab der Workflowfassung, die sie enthält; bereits vorher gestartete Läufe
+werden dadurch nicht nachträglich beendet.
 Pro Rechenjob gelten vier Python-Worker. Die besondere Startprüfung läuft daneben auf drei
 eigenen Jobs für Hacktribe, rot und blau. Die Editor-Effektsammlung bekommt zwei weitere Jobs
 für Hacktribe und rot, wenn sie zur gewählten Fallauswahl gehört. So warten diese Prüfungen
 weder auf die Hauptprüfung noch aufeinander.
 
-Die Aufgabe mit Index `i` gehört genau einem Teil. Alle Teile müssen zur selben Firmware,
+Die Aufgaben werden nach ihrer geschätzten Dauer absteigend sortiert und jeweils dem bisher
+leichtesten Teil zugeordnet. Das versionierte Profil `tools/emu/shard-weights.json` enthält
+Medianzeiten eigener Testaufgaben in ganzen Millisekunden. Neue Aufgaben erhalten zunächst
+die längste bekannte Schätzung. Gleichstände werden über Aufgabenindex, Aufgabenanzahl und
+Teilenummer entschieden. So berechnet jeder Runner denselben Plan, unabhängig von seinem
+lokalen Ergebniscache. Ein fehlendes oder ungültiges Profil bricht die geteilte Prüfung ab.
+Ungeteilte Prüfungen benötigen das Profil nicht.
+
+Jede Aufgabe gehört genau einem Teil. Alle Teile müssen zur selben Firmware,
 Gerätevariante, Konfiguration, Laufzeitversion und demselben Quellstand gehören. Der Abschluss
-plant die erwarteten Aufgaben aus den echten Eingaben erneut, verlangt jeden Teil genau einmal
+bindet auch Algorithmus und Laufzeitgewichte an die Identität, plant die erwarteten Aufgaben
+aus den echten Eingaben erneut, verlangt jeden Teil genau einmal
 und wertet Start- und Ausschaltprüfungen gemeinsam aus. Erst ein vollständiges bestandenes
 Ergebnis darf einen Eintrag für `verified.json` ergeben. `--cases` schreibt weiterhin keinen.
 
@@ -679,18 +771,38 @@ Die Teilresultate enthalten Prüfergebnisse, Kennungen und Zeitmessungen, keine 
 RAM-Snapshots. Die Originaldatei wird pro Job erneut aus dem Secret geladen und über die feste
 Prüfsumme geprüft. Die besondere Startprüfung behält einen Worker und ihren abgeschalteten
 Cache. Vollständige Freigabeläufe laden keinen Ergebniscache.
+Ein roter Teil nennt im Log nur die Zahl der Fehler je Modul (etwa "1 fail in menu_cases") und lädt kein
+Artefakt hoch. Den Fall findet man, indem man die Aufgaben dieses Teils lokal auf demselben Original laufen lässt,
+ein Modul nach dem anderen mit `PYTHONPATH=tools/patch`, nach dem Blick auf die Last.
 Die Artefaktnamen enthalten auch die Teilezahl. Ein erneuter Lauf mit einer anderen Teilezahl
 liest dadurch keine übrig gebliebenen Ergebnisse des vorherigen Plans.
 
 `check.py` schreibt zusätzlich zu den Fortschrittsmeldungen JSON-Zeilen mit `metrics` nach
 stderr: CPU-Zahl, tatsächliche Worker, Cachetreffer und Dauer jeder Aufgabe. In den Teilergebnissen
 stehen diese Werte ebenfalls. Damit lassen sich einzelne lange Gruppen und Wartezeiten getrennt
-von der reinen Testarbeit untersuchen. Die Aufteilung ist zunächst gleichmäßig nach Aufgabenindex;
-die gemessenen Laufzeiten zeigen, welche Gruppen später feiner geteilt werden müssen.
+von der reinen Testarbeit untersuchen. Die Teilmetrik `partition` nennt zusätzlich die geschätzte
+Gesamtdauer der zugeteilten Aufgaben. Die tatsächlich gemessene Dauer kann davon abweichen.
 
-Die vollständige Prüfung dauerte vor dieser Aufteilung in betrachteten CI-Läufen ungefähr
-50 bis 55 Minuten. Für die neue Aufteilung gibt es noch keine gemessene CI-Gesamtdauer.
-Eine Schätzung ersetzt den kalten Vergleichslauf über alle vier Varianten nicht.
+Das Profil lässt sich aus den `metrics`-Zeilen kalter Referenzläufe neu erzeugen. `QUELLSTAND`
+bezeichnet dabei die Revision, mit der die Messungen entstanden sind:
+
+```bash
+tools/emu/.venv/bin/python tools/emu/shard_weights.py --source "$QUELLSTAND" \
+  --output tools/emu/shard-weights.json messung/*/ordinary.stderr.log
+```
+
+Das Werkzeug ignoriert Cachetreffer, verwendet den Median je Modul, Funktion und Argumenten
+und schreibt die Einträge in fester Reihenfolge. Eine Profiländerung gehört wie eine Änderung
+der Verteilung in die Prüfung. Sie ändert keine Testauswahl und keine bestehenden Task-Ergebnisse.
+
+Gemessen am 12. und 13. November 2026 auf einem festen Quellstand: Drei kalte vollständige
+Firmwarepipelines mit acht parallelen Teilen dauerten 25:49, 27:58 und 26:49 Minuten.
+Ein [kalter Pilotlauf mit 16 parallelen Teilen](https://github.com/KuhlerBuhler/kuhlers-gelumpe/actions/runs/43392968102)
+bestand in 15:45 Minuten, mit denselben 4276 Prüfungen, Eingaben und Ausgaben und ohne
+Ergebniscachetreffer. Diese Firmwarepipeline umfasst alle vier Varianten, die fünf Zusatzjobs
+und den strengen Abschluss. Die allgemeine Unit- und Browserpipeline läuft getrennt.
+Die Werte beschreiben diesen festen Prüfstand mit einem einzelnen Pilotlauf. Ein Laufzeitlimit
+für spätere Änderungen oder mehrere gleichzeitig offene PRs lässt sich daraus nicht ableiten.
 
 ## Keine öffentliche Seite
 

@@ -12,7 +12,9 @@ Reihe (Pads 9 bis 16) C D E F G A B C, obere Reihe die schwarzen Tasten darüber
 Pads 1, 4 und 8 tun nichts. Das Wertefenster der Firmware zeigt "KEY" und den Ton, wie beim Drehen eines Werts.
 KEYBOARD kurz allein geht beim Loslassen an die Firmware und schaltet wie immer den Modus. SHIFT + KEYBOARD und alles bei
 offener App, im Menü oder auf anderen Bildschirmen bleibt bei der Firmware. BLECH > FEATURES > KEY PADS (letzte Seite)
-schaltet es aus, WRITE behält das in Bit 4 von Byte 5 der Einstellungsdatei.
+schaltet es aus, WRITE behält das in Bit 4 von Byte 5 der Einstellungsdatei. Vor dem Scharfschalten des Menüs (EXIT beim
+Einschalten) liest `MENU_STATE` überall FF, der Schalter würde als ON gelesen und jeden Pad-Druck schlucken; darum prüft
+`kp_input` zuerst `M_ON` (`tools/patch/script_shortcuts.s`).
 
 ## Wie es gebaut ist
 
@@ -53,6 +55,10 @@ Hacktribe, rot und blau:
 
 ## Grenzen
 
+- Korgs blaue 2.02 zeichnet ihren Hauptbildschirm etwa alle 2,4 s ganz neu. Fällt das in das Bild direkt nach der Anfrage
+  des Wertefensters, fällt das Fenster weg, der Wert ist trotzdem gesetzt (gemessen im Emulator, auch auf develop vor #400).
+  Auf einer blauen kann das KEY-Fenster daher selten einen Pad-Druck auslassen. `shortcut_cases.py` drückt das Pad dann noch
+  einmal; Fälle, die auf der blauen ein Fenster der Firmware erwarten, sollten das genauso machen.
 - Ein BLECH vor dieser Version lehnt eine Einstellungsdatei mit Bit 4 in Byte 5 ab und startet mit den Vorgaben, wie bei
   den früheren Bits (hergeleitet aus `menu_load`).
 - Im Objektbaum der Plugin-API (`korg.object`) gibt es noch keinen Eintrag für KEY PADS; dafür bräuchte es eine neue

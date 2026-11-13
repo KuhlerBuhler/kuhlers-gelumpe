@@ -66,6 +66,10 @@ input_power_no:
     cmp r0, #0
     ldr r0, [sp, #8]
     bne input_drop
+    bl menu_ask_input            ; the question "SAVE TO FLASH?" of a card put in after the start takes the keys
+    cmp r0, #0
+    ldr r0, [sp, #8]
+    bne input_drop
     ldr r4, =HOOK_RUNTIME
     ldr r1, [r4, #RT_ARMED]
     cmp r1, #1
@@ -231,7 +235,7 @@ input_mask_held:
     ldr r2, =APP_STATE
     ldr r2, [r2]
     cmp r2, #0
-    beq input_mask_go
+    beq input_mask_free
     cmp r6, #0
     bne input_mask_app
     bl script_key_pass
@@ -239,6 +243,12 @@ input_mask_held:
     bne input_mask_go
 input_mask_app:
     orr r1, r1, #1
+    b input_mask_go
+input_mask_free:                ; no app open: a key the firmware gets is noted, so its release follows an app opened meanwhile
+    cmp r6, #0
+    bne input_mask_go
+    tst r1, #1
+    bleq key_pass_note
 input_mask_go:
     cmp r6, #4
     beq input_mask_pad
@@ -437,6 +447,9 @@ script_frame_guard_end:
     bne frame_return
     str r1, [r4, #RT_READY]
 frame_gate_open:
+    bl menu_card_watch           ; only past the first main screen: the start phase reads the card at menu_arm_load
+    bl menu_flash_watch          ; without a card a change of the settings goes to the flash
+    bl menu_ask_frame            ; the question of a card put in after the start
     bl blechy_follow
     bl shortcut_tick
     bl remote_tick
@@ -653,10 +666,14 @@ frame_finish:
     mov r0, r4
     bl script_sim_input_guard
     mov r0, r4
+    bl egg_frame
+    mov r0, r4
     bl script_display_blit
     bl display_calibrate
     mov r0, r4
     bl script_store_flush
+    mov r0, r4
+    bl script_data_flush
     mov r0, r4
     bl objects_write_flush
     bl script_seq_flush

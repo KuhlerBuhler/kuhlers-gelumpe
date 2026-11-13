@@ -6,12 +6,16 @@
 ;                 pattern (PART MUTE, PART ERASE, TRIGGER, KEYBOARD, CHORD, PATTERN SET); the selected part where it stands for a
 ;                 step (SEQUENCER, STEP JUMP).
 ;                 The firmware's pattern load (0xC004AB84) then applies the pattern in RAM onto itself, as after a pattern change,
-;                 and the firmware's part sound setup (0xC009B5EC, what Copy Part calls at its end) hands the part's sample to
-;                 the voices and frees the part's voices; the load alone leaves the voices on the sample the part had before. Stopped and playing.
+;                 and the firmware's handler for a changed sample of a part (0xC0099FFC, what the SAMPLE knob runs) hands the part's
+;                 sample to the voices; the load alone leaves the voices on the sample the part had before. Not the part sound setup
+;                 of Copy Part (0xC009B5EC): it also switches the part off at the DSP, and on the device the part stayed silent
+;                 (device test 11.11.). Stopped and playing.
 ; Not with EXIT held at power-on. On the synth too, with its places from data/synth-map/ (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md). The firmware addresses SC_LEDMGR (LED manager:
 ; +0xB58 pad mode, +0xB60 selected part), SC_PLAYER (returns the player, +0x318 the running number), SC_PATPTR (the pattern in RAM,
 ; its file at +4), SC_BANK (the pattern bank, 0x4000 each), SC_LOAD ((pattern, source, 1): the firmware's pattern load) and
-; SC_PART_SOUND ((part): the firmware's part sound setup for the voices) come with the build (script_hooks.py).
+; SC_PART_OBJ ((part): the part's object for the voices) and SC_PART_SOUND ((part object): the firmware's handler for a changed
+; sample of a part; the synth, which has no such handler, its per part setup of the pattern change) come with the build
+; (script_hooks.py).
 .equ SC_EXIT, -0x04             ; bytes in front of MENU_STATE (behind the MX_ bytes of the menu): 1 while EXIT is held
 .equ SC_SAVE, -0x03             ; 1 to SC_WAIT: frames left for the Write window to open after EXIT + WRITE
 .equ SC_RESET, -0x02            ; 1 to 16: the part (plus 1) the next tick resets
@@ -189,6 +193,8 @@ sc_tick_copy:
     ldr r12, =SC_LOAD
     blx r12
     mov r0, r5                  ; the load does not set up the part's sound for the voices: without this the old sample plays
+    ldr r12, =SC_PART_OBJ
+    blx r12
     ldr r12, =SC_PART_SOUND
     blx r12
 sc_tick_done:
@@ -198,7 +204,7 @@ sc_tick_done:
 
 ; KEY PADS (idea 85, built in since the plugin keypads): KEYBOARD held on the main screen, a pad sets the KEY of the pattern, like
 ; TRANSPOSE on the old Electribes. The pads go up chromatically in pad order: pad 1 C, pad 2 C#, ... pad 12 B; pads 13 to 16
-; set nothing (their press is still taken while KEYBOARD is held). The KEY goes through the Pattern menu's setter (field 4 of
+; set the keyboard's octave to 3, 4 (the start's), 5 and 6 through the setter KEYBOARD mode's bar keys use (KP_OCT_SET). The KEY goes through the Pattern menu's setter (field 4 of
 ; script_seq_set_pattern_value_glue), and the firmware's parameter window, the one a knob opens, shows "KEY" and the note.
 ; KEYBOARD is held away from the firmware: a short press without a pad goes on to it on release (script_press_key_glue, marked)
 ; and switches to KEYBOARD mode as always; with a pad it does not. SHIFT + KEYBOARD stays the firmware's, so does KEYBOARD while
@@ -350,6 +356,8 @@ kp_tick:
     bl script_press_key_glue
 kp_tick_key:
     ldrb r5, [r4, #KP_KEY]
+    cmp r5, #0x80               ; 0x80 + octave: pads 13 to 16
+    bhs kp_tick_octave
     subs r5, r5, #1
     bmi kp_tick_done
     mov r0, #0
@@ -375,6 +383,18 @@ kp_tick_key:
     add sp, sp, #8
 kp_tick_done:
     pop {r4, r5, r6, pc}
+kp_tick_octave:
+    mov r0, #0
+    strb r0, [r4, #KP_KEY]
+    and r1, r5, #0x7F
+    ldr r0, =KP_OCT_OBJ
+    ldr r0, [r0]
+    cmp r0, #0
+    cmnne r0, #1
+    beq kp_tick_done
+    ldr r12, =KP_OCT_SET
+    blx r12
+    b kp_tick_done
 
 ; FILTER TOGGLE (idea 81, built in since the plugin filtertoggle): SHIFT + LPF, HPF or BPF turns the filter of the selected part
 ; off, and the same combination turns it on again with the type that key had last, kept per part and key until power off; SHIFT
@@ -486,7 +506,7 @@ kp_check_hook:
 
 ; per pad the KEY it sets plus 1, 0 none
 kp_notes:
-    .byte 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0, 0, 0, 0
+    .byte 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0x83, 0x84, 0x85, 0x86   ; KEY plus 1, or 0x80 + octave
 kp_names:
     .asciz "C"
     .space 2
@@ -614,6 +634,58 @@ sc_un_write:
     blx r12
 sc_un_out:
     pop {r4-r7, pc}
+; korg.pattern.write (API 33): EXIT + WRITE for a plugin. On the main screen presses WRITE and lets shortcut_tick give the Write
+; window its second WRITE. -> r0 1 when the save is under way, 0 off the main screen or while a save waits for its window.
+script_pattern_write_glue:
+    push {r4, lr}
+    mov r0, #0
+    mov r1, #SHORTCUTS
+    cmp r1, #0
+    beq sc_write_glue_done
+    ldr r4, =MENU_STATE
+    ldrb r1, [r4, #SC_SAVE]
+    cmp r1, #0
+    bne sc_write_glue_done
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    beq sc_write_glue_done
+    ldr r1, [r1, #0x2c]
+    cmp r1, #1
+    bne sc_write_glue_done
+    mov r1, #SC_WAIT
+    strb r1, [r4, #SC_SAVE]
+    mov r0, #SC_KEY_WRITE
+    mov r1, #1
+    ldr r12, =HW_PANEL_KEY
+    blx r12
+    mov r0, #SC_KEY_WRITE
+    mov r1, #0
+    ldr r12, =HW_PANEL_KEY
+    blx r12
+    mov r0, #1
+sc_write_glue_done:
+    mov r1, #ERR_OK
+    pop {r4, pc}
+; korg.part.copy(pattern, from, to) (API 33): the firmware's Copy Part of Part Util (docs/messungen/2026-10-30-vorschau-part-reinholen.md).
+; It reads +0x40 to +0x42 of its object (source pattern, source part, target part) and, on the synth, the target part in r1; from
+; the pattern in RAM when the source is the chosen number, else from the bank. UI task as the page COPY PART.
+.equ PART_COPY, 0xC00667D4
+script_part_copy_glue:
+    push {r4, lr}
+    sub sp, sp, #0x48
+    strb r0, [sp, #0x40]
+    strb r1, [sp, #0x41]
+    strb r2, [sp, #0x42]
+    mov r0, sp
+    mov r1, r2
+    ldr r12, =PART_COPY
+    blx r12
+    add sp, sp, #0x48
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {r4, pc}
 .align 4
 shortcut_pool:
 .pool

@@ -19,10 +19,10 @@
  *   top level, once. Only an open app draws on the display (see docs/plugins.md).
  */
 import {
-  LIMITS, BUDGET, EVENT_BY_NAME, EVENTS, API_BY_NAME, QUEUED_EVENTS, APP_EVENTS, INTERNAL_EVENTS, SCRIPT_APPS, ARRAY_HANDLE, EVENT_ARG_SINCE,
+  LIMITS, BUDGET, EVENT_BY_NAME, EVENTS, API_BY_NAME, QUEUED_EVENTS, APP_EVENTS, INTERNAL_EVENTS, SCRIPT_APPS, ARRAY_HANDLE, EVENT_ARG_SINCE, EVENT_SINCE,
 } from "../../data/script/contract.mjs";
 import { NAMES } from "../../data/script/names.mjs";
-import { PROPERTY_BY_PATH, KNOB_NAMES } from "../../data/script/properties.mjs";
+import { PROPERTY_BY_PATH, KNOB_NAMES, deprecated } from "../../data/script/properties.mjs";
 import { objectChildren, isObjectBranch, OBJECT_BY_PATH } from "../../data/script/objects.mjs";
 import { encodeBlob, decodeBlob, lineAt } from "./blob.mjs";
 import { assemble } from "./asm.mjs";
@@ -98,6 +98,7 @@ class Compiler {
     this.nextSlot = 0;
     this.globals = new Map();
     this.funcs = new Map();
+    this.warnings = new Map();
     this.handlers = [];
     this.fns = [];
     this.pending = [];
@@ -455,14 +456,24 @@ class Compiler {
     return spec.map(a => (a === "index" ? index : a === "value" ? value : { type: "Num", value: a, line: at.line, col: at.col }));
   }
 
+  /** A warning at `n` when `name` is deprecated (contract DEPRECATED), once per place: a property's call does not warn again. */
+  deprecated(name, n) {
+    const d = deprecated(name);
+    const key = `${n.line}:${n.col}`;
+    if (!d || this.warnings.has(key)) return;
+    this.warnings.set(key, { line: n.line, column: n.col, text: text("compile.deprecated", { name, ...d }) });
+  }
+
   readProperty({ prop, index }, n, fn) {
     if (!prop.read) throw err(n, text("compile.prop.writeOnly", { prop: this.propertyName(prop) }));
+    this.deprecated(prop.path, n);
     this.leafSince = Math.max(this.leafSince, prop.since);
     return this.call(callNode(prop.read[0], this.propertyArgs(prop.read[1], index, null, n), n), fn);
   }
 
   writeProperty({ prop, index }, n, fn) {
     if (!prop.write) throw err(n.target, text("compile.prop.readOnly", { prop: this.propertyName(prop) }));
+    this.deprecated(prop.path, n.target);
     this.leafSince = Math.max(this.leafSince, prop.writeSince);
     let value = n.value;
     const [min, max] = prop.range ?? [];
@@ -512,6 +523,7 @@ class Compiler {
     }
     const api = API_BY_NAME.get(name);
     if (!api) throw err(n, text("compile.call.unknown", { name }));
+    this.deprecated(name, n);
     if (TIMER_CALLS.has(name) && n.args.length === api.args.length) return this.timerCall(n, api, fn);
     if (n.args.length !== api.args.length) throw err(n, text(api.args.length === 1 ? "compile.api.argc.one" : "compile.api.argc.many", { name, count: api.args.length, list: api.args.map(a => a.name).join(", "), given: n.args.length }));
     n.args.forEach((a, i) => {
@@ -952,7 +964,7 @@ class Compiler {
     const handlers = this.handlers.map(h => ({ event: h.event, argc: h.argc, entry: asm.labels.get(h.entry) }));
     const parts = {
       name: this.name.slice(0, LIMITS.nameLength),
-      apiVersion: Math.max(1, this.leafSince, ...this.apiSites.map(s => s.api.since), ...this.handlers.map(h => Math.max(0, ...ARG_SINCE(h)))),
+      apiVersion: Math.max(1, this.leafSince, ...this.apiSites.map(s => s.api.since), ...this.handlers.map(h => Math.max(EVENT_SINCE[EVENTS[h.event].name] ?? 0, ...ARG_SINCE(h)))),
       entry: asm.labels.get("start"),
       code: asm.code,
       varCount: this.nextSlot,
@@ -978,6 +990,7 @@ class Compiler {
     return {
       ok: true,
       blob,
+      warnings: [...this.warnings.values()].map(w => ({ ...w, get message() { return render(this.text); } })),
       info: {
         name: parts.name,
         size: blob.length,
@@ -998,6 +1011,7 @@ class Compiler {
 /**
  * Compile a script. On success `blob` is the bytes to load or export and
  * `info` describes it (symbols maps global names to their variable slots).
+ * `warnings` lists the uses of deprecated calls and properties (line, column, `text`, `message`), the block works anyway.
  * On failure `errors` holds one entry: line, column, the message as a text of
  * the table (`text`, src/text.mjs) and rendered in the current language (`message`).
  * `slotsAvailable` is a preliminary variable-slot limit, derived by default

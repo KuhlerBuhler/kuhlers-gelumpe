@@ -47,5 +47,17 @@ class SourceHashTest(unittest.TestCase):
                 self.hash()
 
 
+class PowerOnTest(unittest.TestCase):
+    def test_a_machine_with_the_dsp_model_boots_for_real(self):
+        m = mock.Mock(time_ns=0, dsp_model=object())
+        with mock.patch.object(bootcache, "_power_on_key") as key, mock.patch.object(bootcache, "read") as read:
+            bootcache.power_on(m, 2.0)
+        key.assert_not_called()
+        read.assert_not_called()
+        m.finish_boot.assert_called_once_with()
+        m.run_until.assert_called_once_with(2.0)
+        m.restore.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

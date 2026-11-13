@@ -14,7 +14,7 @@ import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs
 import { clamp } from "./dials.mjs";
 import { parseUnits } from "../../src/units.mjs";
 import { fxText, readFx, fxFileName, fxToRecord } from "../../src/fx-v2.mjs";
-import { parseCollection, collectionFor, targetFirmware, firmwarePresets, TARGETS as FIRMWARES, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
+import { parseCollection, collectionFor, targetFirmware, targetHardware, firmwarePresets, TARGETS as FIRMWARES, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
 import { HACKTRIBE_PATCH_RAW, KORG_DOWNLOADS } from "../../src/patcher.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../../data/fx/catalog.mjs";
 import { GROUPS, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
@@ -42,8 +42,8 @@ const writeRisky = on => { try { if (on) localStorage.setItem(RISKY, "1"); else 
 const DEVICE_FIRMWARE = "cee.baukasten.firmware";
 const readDeviceFirmware = () => { try { const v = localStorage.getItem(DEVICE_FIRMWARE); return FIRMWARES.includes(v) ? v : null; } catch { return null; } };
 const writeDeviceFirmware = v => { try { localStorage.setItem(DEVICE_FIRMWARE, v); } catch {} };
-/** The names of the two firmwares and why a file does not fit, as keys the i18n check can see. */
-const DEVICE_NAME = { hacktribe: "bk.device.hacktribe", stock: "bk.device.stock" };
+/** The names of the firmwares and why a file does not fit, as keys the i18n check can see. */
+const DEVICE_NAME = { hacktribe: "bk.device.hacktribe", stock: "bk.device.stock", synth: "bk.device.synth" };
 const DEVICE_ERROR = { zip: "bk.device.err.zip", device: "bk.device.err.device", build: "bk.device.err.build" };
 const readOwn = () => { try { return JSON.parse(localStorage.getItem(OWN) ?? "[]"); } catch { return []; } };
 const writeOwn = list => { try { localStorage.setItem(OWN, JSON.stringify(list)); return true; } catch { return false; } };
@@ -92,6 +92,9 @@ function rangeOf(kind, unit, name) {
 const STAGE2 = new Map(FINDINGS.filter(f => f.kind === "stage2").map(f => [f.unit, f]));
 const SOLO = new Map(FINDINGS.filter(f => f.kind === "stage1NeedsSolo").map(f => [f.unit, f]));
 const STAGE2_WORD = { fatal: "bk.stage2.fatal", silent: "bk.stage2.silent" };
+/** Pairs that failed in the DSP simulation (data/findings.mjs), by "first.unit"; the word when choosing stage 2, then stage 1. */
+const PAIR = new Map(FINDINGS.filter(f => f.kind === "stage2Pair").map(f => [`${f.first}.${f.unit}`, f]));
+const PAIR_WORD = { fatal: ["bk.pair2.fatal", "bk.pair1.fatal"], silent: ["bk.pair2.silent", "bk.pair1.silent"] };
 const MAP_META = BLOCKS.get("fxRecord").meta;
 
 const PARAM_ORDER = ["mix", "filter", "delay", "mod", "dyn", "room", "tone", "eq", "other"];
@@ -234,6 +237,8 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
       if (stage === "ifx2" && STAGE2_WORD[STAGE2.get(u.id)?.verdict]) return t(STAGE2_WORD[STAGE2.get(u.id).verdict]);
       if (stage === "ifx2" && SOLO.has(other?.unit)) return t("bk.solo1");
       if (stage === "ifx1" && other?.unit && SOLO.has(u.id)) return t("bk.solo");
+      const pair = other?.unit ? PAIR.get(stage === "ifx2" ? `${other.unit}.${u.id}` : `${u.id}.${other.unit}`) : null;
+      if (pair) return t(PAIR_WORD[pair.verdict][stage === "ifx2" ? 0 : 1], { unit: localize(unitLabel(kind, other.unit, other.unitName)[0]) });
       return null;
     };
     // The user may lift the bar for a test on purpose; it stays on in this browser until switched off.
@@ -896,7 +901,7 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     if (!firmwareFile && !native()) { toast(t("bk.device.needFile", { device }), "error"); return null; }
     const close = firmwareFile ? () => {} : toast(t("patcher.korg.loading"), "info", { stay: true });
     try {
-      const bytes = firmwareFile?.bytes ?? new Uint8Array(await native()("korg_firmware", { device: "red" }));
+      const bytes = firmwareFile?.bytes ?? new Uint8Array(await native()("korg_firmware", { device: targetHardware(target) }));
       const got = await targetFirmware(target, bytes, { hacktribePatch });
       close();
       if (!got.ok) { toast(t("bk.device.failed", { device, reason: got.code ? t(DEVICE_ERROR[got.code], { device }) : got.reason }), "error"); return null; }

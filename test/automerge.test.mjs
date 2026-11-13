@@ -105,7 +105,7 @@ test("the workflow wakes on completed checks, reads trusted code and never polls
   for (const name of ["Test", "Verify patches", "Korg data guard", "Update pull requests", "Build apps",
     "Container image", "Release", "Discord release", "Sync develop"]) assert.ok(yml.includes(name));
   assert.match(yml, /^  check_run:\n    types: \[completed\]/m);
-  assert.match(yml, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
+  assert.match(yml, /ref: develop\b/);
   // runs that cannot touch a pull request into develop start nothing
   assert.match(yml, /types: \[completed\]\n {4}branches-ignore: \[main, develop, "release\/\*\*", "v\[0-9\]\*"\]/);
   assert.match(yml, /github\.event_name == 'workflow_run' && contains\(github\.event\.workflow_run\.pull_requests\.\*\.base\.ref, 'develop'\)/);

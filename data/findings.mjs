@@ -15,10 +15,23 @@ const RING = "measure:2026-09-21/ring-mod-chain";
 const LEVEL_MOD = "measure:2026-09-21/level-mod";
 const LOUD = "measure:2026-09-21/loudness";
 const MOD_STAGE2 = "measure:2026-10-15/modulation-stufe2";
+const SIM = "derived:docs/messungen/2026-11-13-stufe2-simulation.md";
+const PAIR_REPORT = "measure:2026-11-13/stufe2-simulation";
 
 const stage2 = (unit, verdict, note, evidence) => ({
   id: `stage2.${unit.toString(16).padStart(2, "0")}`, kind: "stage2", unit, verdict, note, source: "measured", evidence,
 });
+
+/**
+ * Pairs of stage 1 and stage 2 that went wrong when the device's own DSP code ran them in a simulator, one entry per pair.
+ * Only pairs the measured stage2 and stage1NeedsSolo findings leave open. fatal: the DSP crashed; silent: stage 2 wrote
+ * outside its own memory, which on the device took the sound away or crashed it.
+ */
+const PAIR_NOTE = { fatal: "DSP crashed in the simulation", silent: "stage 2 wrote outside its memory in the simulation" };
+const pairs = (unit, verdict, firsts) => firsts.map(first => ({
+  id: `stage2Pair.${first.toString(16).padStart(2, "0")}.${unit.toString(16).padStart(2, "0")}`,
+  kind: "stage2Pair", first, unit, verdict, note: PAIR_NOTE[verdict], source: "derived", evidence: SIM,
+}));
 
 export default [
   stage2(0x01, "silent", "mkp2_comp: runs, passes no audio", SWEEP),
@@ -34,6 +47,23 @@ export default [
   stage2(0x10, "ok", "acid driver, and Korg uses it itself", CHAINS),
   stage2(0x16, "silent", "ring mod: runs, passes no audio (heard 2026-09-21)", RING),
   stage2(0x18, "fatal", "short delay: kills sound device-wide, needs a restart", CHAINS),
+
+  ...pairs(0x03, "fatal", [0x12]),
+  ...pairs(0x05, "fatal", [0x01, 0x08, 0x11, 0x12, 0x13, 0x18]),
+  ...[0x07, 0x0f].map(first => ({
+    ...pairs(0x05, "fatal", [first])[0], note: "DSP glitched on the device (user report 2026-11-13)", source: "measured", evidence: PAIR_REPORT,
+  })),
+  ...pairs(0x06, "fatal", [0x11, 0x12]),
+  ...pairs(0x07, "fatal", [0x11, 0x12]),
+  ...pairs(0x0a, "fatal", [0x01, 0x0f, 0x11, 0x12, 0x18]),
+  ...pairs(0x0f, "fatal", [0x11, 0x12]),
+  ...pairs(0x11, "fatal", [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x0a, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x18]),
+  ...pairs(0x12, "fatal", [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x0a, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x18]),
+  ...pairs(0x13, "fatal", [0x01, 0x07, 0x08, 0x0f, 0x11, 0x12, 0x13, 0x18]),
+  ...pairs(0x13, "silent", [0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x0a, 0x10, 0x14, 0x15]),
+  ...pairs(0x14, "fatal", [0x01, 0x0f, 0x11, 0x12]),
+  ...pairs(0x15, "fatal", [0x07, 0x11, 0x12, 0x13, 0x18]),
+  ...pairs(0x15, "silent", [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x08, 0x0a, 0x0f, 0x10, 0x14, 0x15]),
 
   { id: "stage1Solo.09", kind: "stage1NeedsSolo", unit: 0x09, note: "decimator crashed with 0x0a behind it; alone it runs", source: "measured", evidence: CHAINS },
   { id: "stage1Solo.16", kind: "stage1NeedsSolo", unit: 0x16, note: "ring mod with any second stage behind it plays nothing", verdict: "silent", source: "measured", evidence: RING },

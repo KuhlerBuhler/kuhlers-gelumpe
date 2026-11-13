@@ -23,6 +23,14 @@ test("a unit that goes quiet in stage two is reported as silent, not fatal", () 
   assert.equal(found.severity, "silent");
 });
 
+test("a pair that failed in the DSP simulation is flagged, the same second stage behind another first one is not", () => {
+  const crash = lint(makeRecord("ifx", { devices: { ifx1: 0x07, ifx2: 0x05 } }), { units }).find(f => f.code === "stage2-pair");
+  assert.equal(crash?.severity, "fatal");
+  const memory = lint(makeRecord("ifx", { devices: { ifx1: 0x0a, ifx2: 0x15 } }), { units }).find(f => f.code === "stage2-pair");
+  assert.equal(memory?.severity, "silent");
+  assert.equal(has(makeRecord("ifx", { devices: { ifx1: 0x0a, ifx2: 0x05 } }), "stage2-pair"), false);
+});
+
 test("proven combinations pass", () => {
   for (const [first, second] of [[0x10, 0x06], [0x0a, 0x0a], [0x0a, 0x10]]) {
     const r = makeRecord("ifx", { devices: { ifx1: first, ifx2: second } });
@@ -30,6 +38,7 @@ test("proven combinations pass", () => {
     assert.equal(has(r, "stage2-silent"), false);
     assert.equal(has(r, "stage2-untested"), false);
     assert.equal(has(r, "stage1-needs-solo"), false);
+    assert.equal(has(r, "stage2-pair"), false);
   }
 });
 

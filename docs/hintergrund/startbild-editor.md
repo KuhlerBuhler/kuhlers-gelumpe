@@ -4,6 +4,8 @@ Stand 2026-10-10, Speicherort geändert am 15.10.
 
 **Stand 16.10.:** der Editor speichert wieder in den Flash (Sektor `0x7F0000`), damit das eigene Bild ab dem ersten Bild beim Start steht. Vom 15. bis 16.10. lag es auf der Karte ([Startbild auf der Karte](../messungen/2026-10-15-startbild-karte.md)); dabei war das Display bis zum Einhängen der Karte weiß. Bilder, die in dieser Zeit auf der Karte gespeichert wurden, liest die Firmware nicht mehr: einmal neu zeichnen und WRITE.
 
+**Stand 13.11.:** ab 1.5 ist der Editor auch im Satz der blauen, mit demselben Sektor `0x7F0000`; im Emulator geprüft, am Gerät nicht ([Startbild-Editor auf der blauen](../messungen/2026-11-13-startbild-editor-blau.md)).
+
 Wie das Startbild im Gerät liegt, wie man es im Menü Global zeichnet, im Flash
 speichert und beim Start wieder lädt. Hier steht, was dazu gemessen, gelesen und
 hergeleitet wurde und was offen ist (Idee 35 in [ideen.md](../ideen.md)).

@@ -121,7 +121,8 @@ test("the collection holds each entry's data and its v2 text; any damage, the wr
   new DataView(other.buffer).setUint32(16, 9, true);
   assert.equal(parseCollection(other).ok, false, "an unknown build");
   assert.match(parseCollection(file, { counts: { ifx: 100, mfx: 0 } }).reason, /Platz 1/);
-  assert.throws(() => buildCollection({ build: "synth", entries: [] }));
+  assert.equal(parseCollection(buildCollection({ build: "synth", entries: [] })).build, "synth", "the blue's own build number");
+  assert.throws(() => buildCollection({ build: "blue", entries: [] }));
   assert.throws(() => buildCollection({ build: "stock", entries: [{ kind: "mfx", index: 0, data: new Uint8Array(10), text: "" }] }));
 });
 
@@ -205,9 +206,12 @@ test("the Türsteher stands before the card too: a block that crashes in stage 2
   assert.match(made.reason, /freigeben/, "and it says how to let it through anyway");
   const freed = collectionEntry(crash, vsb, 0, units, { risky: true });
   assert.equal(freed.ok, true, `freed on purpose it goes into the file: ${freed.reason}`);
+  // These two glitched on the device (stage2Pair in data/findings.mjs); release/1.4.6 rebuilds them without the pair.
+  const pending = new Set(["Bass Enhancer", "Hardtekk Kick"]);
   for (const item of FX_CATALOG) {
     const entry = collectionEntry(item, vsb, 0, units);
-    assert.equal(entry.ok, true, `${item.name}: ${entry.reason}`);
+    if (pending.has(item.name)) assert.match(entry.reason ?? "", /on the device/, `${item.name}: refused for the measured pair`);
+    else assert.equal(entry.ok, true, `${item.name}: ${entry.reason}`);
   }
 });
 
@@ -242,7 +246,7 @@ test("a map row gets its from/to pair in all six copies, the donor's old range d
 // Distortion output_level (factory 11) and Master Pumper output_gain_adjust (factory 24) are allowed slightly above factory:
 // a listening test on the device (31.10.) found the factory-level catalog effects a bit too quiet.
 const LEVEL_CAPS = {
-  ifx: { 0x0f: { output_level: 20 }, 0x10: { output_level: 65 }, 0x18: { fb_depth: 45, wet_level: 120 } },
+  ifx: { 0x0f: { output_level: 20 }, 0x10: { output_level: 65 }, 0x15: { output_gain: 36 }, 0x18: { fb_depth: 45, wet_level: 120 } },
   mfx: { 0x3c: { feedback: 72, output_level: 53 }, 0x35: { output_gain_adjust: 26 } },
 };
 

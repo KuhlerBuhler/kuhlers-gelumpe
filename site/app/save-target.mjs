@@ -6,6 +6,8 @@
 
 /** "app", "picker" or "download": how `scope` (the window) can save a file. */
 export function saveWay(scope = globalThis) {
+  // The Android app has no card paths: saveFile takes the system's save dialog there (src-tauri/src/mobile.rs).
+  if (scope.__GELUMPE_MOBILE) return "download";
   if (scope.__TAURI__?.core?.invoke) return "app";
   if (typeof scope.showSaveFilePicker === "function") return "picker";
   return "download";
@@ -42,7 +44,7 @@ export async function saveAs(bytes, name, { scope = globalThis, download }) {
 
 /** The mounted cards with the KORG folder of `target` ("KORG/<folder>/System/"), only in the app. */
 export async function findCards(target, scope = globalThis) {
-  const invoke = scope.__TAURI__?.core?.invoke;
+  const invoke = scope.__GELUMPE_MOBILE ? null : scope.__TAURI__?.core?.invoke;
   return invoke ? invoke("save_cards", { target }) : [];
 }
 
