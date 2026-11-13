@@ -99,32 +99,17 @@ jobs:
             mkdir -p ~/.cache/gelumpe/$d
             cp -Rpn "$RUNNER_TEMP/develop/$d/." ~/.cache/gelumpe/$d/
           done
-      - name: Check assigned tasks
+      - name: Cold and warm task reference
         env:
-          FULL: ${{ inputs.full }}
-          CASES: ${{ inputs.cases }}
           PART: ${{ matrix.part }}/${{ inputs.shards }}
-          GELUMPE_NODE_RESULTS: ${{ !inputs.full && 'strict' || '' }}
-        run: |
-          args=(--shard "$PART" --output "$RUNNER_TEMP/shard.json")
-          if [ "$FULL" != true ]; then args+=(--cases "$CASES"); fi
-          npm run -s verify:patches -- "${args[@]}" "$RUNNER_TEMP/SYSTEM.VSB"
+        run: node tools/ci/cache-reference.mjs shard "$RUNNER_TEMP/reference" "$PART" "$RUNNER_TEMP/SYSTEM.VSB"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.firmware.artifact }}-${{ matrix.part }}
-          path: ${{ runner.temp }}/shard.json
+          path: ${{ runner.temp }}/reference/*.json
           if-no-files-found: error
+          retention-days: 7
           overwrite: true
-          retention-days: 3
-      - if: ${{ always() && !inputs.full }}
-        run: find ~/.cache/gelumpe/task -type f -mtime +14 -delete 2>/dev/null || true
-      - if: ${{ always() && !inputs.full }}
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.cache/gelumpe/task
-            ~/.cache/gelumpe/task-time
-          key: verify-tasks-v3-${{ matrix.firmware.name }}-${{ matrix.part }}.${{ github.event_name == 'push' && 'develop' || 'pr' }}.${{ github.run_id }}-${{ github.run_attempt }}
 
   join:
     needs: [plan, shard]
@@ -148,23 +133,17 @@ jobs:
         with:
           pattern: ${{ matrix.firmware.artifact }}-*
           path: ${{ runner.temp }}/shards
-      - name: Validate complete results
+      - name: Validate both complete references
         env:
-          FULL: ${{ inputs.full }}
-          CASES: ${{ inputs.cases }}
-          GELUMPE_NODE_RESULTS: ${{ !inputs.full && 'strict' || '' }}
-        run: |
-          args=(--join-shards "$RUNNER_TEMP/shards")
-          if [ "$FULL" != true ]; then args+=(--cases "$CASES"); fi
-          npm run -s verify:patches -- "${args[@]}" "$RUNNER_TEMP/SYSTEM.VSB"
-      - if: ${{ inputs.full }}
-        uses: actions/upload-artifact@v4
+          REFERENCE_SHARDS: ${{ inputs.shards }}
+        run: node tools/ci/cache-reference.mjs join "$RUNNER_TEMP/shards" "$RUNNER_TEMP/complete" "$RUNNER_TEMP/SYSTEM.VSB"
+      - uses: actions/upload-artifact@v4
         with:
-          name: verified-${{ matrix.firmware.name }}
-          path: data/patches/verified.json
+          name: reference-complete-${{ matrix.firmware.name }}
+          path: ${{ runner.temp }}/complete/measurement.json
           if-no-files-found: error
+          retention-days: 7
           overwrite: true
-          retention-days: 30
 
   smoke:
     needs: plan
@@ -192,7 +171,7 @@ jobs:
         env:
           E2_EMU_REQUIRED: "1"
           E2_VSB: ${{ runner.temp }}/SYSTEM.VSB
-        run: node --test test/emulator-fxcard.test.mjs
+        run: node tools/ci/cache-reference.mjs smoke "$RUNNER_TEMP/reference" test/emulator-fxcard.test.mjs editor "$RUNNER_TEMP/SYSTEM.VSB"
       - name: The start phase ends at the main screen
         if: matrix.firmware.kind == 'start'
         env:
@@ -200,7 +179,15 @@ jobs:
           E2_VSB: ${{ matrix.firmware.name == 'hacktribe' && format('{0}/SYSTEM.VSB', runner.temp) || '' }}
           E2_STOCK_VSB: ${{ matrix.firmware.name == 'red' && format('{0}/SYSTEM.VSB', runner.temp) || '' }}
           E2_BLUE_VSB: ${{ matrix.firmware.name == 'blue' && format('{0}/SYSTEM.VSB', runner.temp) || '' }}
-        run: node --test --test-timeout=3600000 test/emulator-start-phase.test.mjs
+        run: node tools/ci/cache-reference.mjs smoke "$RUNNER_TEMP/reference" test/emulator-start-phase.test.mjs start "$RUNNER_TEMP/SYSTEM.VSB"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reference-smoke-${{ matrix.firmware.kind }}-${{ matrix.firmware.name }}
+          path: ${{ runner.temp }}/reference/measurement.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
 
   complete:
     needs: [join, smoke]

@@ -1,7 +1,5 @@
-# Patch verification runs the selected cases on develop and every case for full checks.
-# All four hardware variants use the shared sharded emulator workflow. Only full checks
-# write verified.json; unchanged UI pull requests still report the patches gate immediately.
 name: Verify patches
+run-name: Cold and warm reference (${{ github.ref_name }})
 
 on:
   pull_request:
@@ -159,63 +157,3 @@ jobs:
           if [ "$RUN" = false ]; then echo "nothing to check"; exit 0; fi
           [ "$VERIFY" != skipped ] || { echo "::error::no check ran (a pull request from a fork has no secrets): a person checks and merges it."; exit 1; }
           [ "$VERIFY" = success ]
-
-  join:
-    needs: [ref, verify]
-    if: needs.ref.outputs.full == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.ref.outputs.sha }}
-          token: ${{ secrets.SYNC_TOKEN || github.token }}
-      # The joining tool from this workflow's own commit: the checked branch may be older than --results.
-      - uses: actions/checkout@v4
-        with:
-          path: .verify-tool
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: verified-*
-          path: ${{ runner.temp }}/verified
-      - run: |
-          cp data/patches/verified.json .verify-tool/data/patches/verified.json
-          node .verify-tool/tools/verify-patches.mjs --results "$RUNNER_TEMP"/verified/*/verified.json
-          cp .verify-tool/data/patches/verified.json data/patches/verified.json
-          rm -rf .verify-tool
-      - name: Commit
-        env:
-          GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
-          BRANCH: ${{ needs.ref.outputs.branch }}
-          EVENT: ${{ github.event_name }}
-        run: |
-          { echo '```json'; cat data/patches/verified.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          if git diff --quiet -- data/patches/verified.json; then
-            echo "::notice::verified.json on $BRANCH already holds all pairs, nothing to commit."
-            exit 0
-          fi
-          git diff -- data/patches/verified.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore(patches): refresh verified.json" -m "Checked by the workflow Verify patches, run $GITHUB_RUN_ID." -- data/patches/verified.json
-          if [ "$BRANCH" != main ] && [ "$BRANCH" != develop ]; then
-            if git push origin "HEAD:refs/heads/$BRANCH"; then
-              echo "::notice::pushed the new verified.json to $BRANCH."
-              exit 0
-            fi
-            if [ "$EVENT" = pull_request ]; then
-              echo "::warning::$BRANCH moved on during the check; the run for its new head checks again."
-              exit 0
-            fi
-          fi
-          head="verified/$BRANCH-$GITHUB_RUN_ID"
-          git push origin "HEAD:refs/heads/$head"
-          gh pr create --base "$BRANCH" --head "$head" --title "chore(patches): refresh verified.json" \
-            --body "The emulator check of the patch set passed on all three of Korg's 2.02 files (workflow Verify patches, run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). This updates the pairs the app skips its own check for."
