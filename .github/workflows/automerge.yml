@@ -1,10 +1,14 @@
 # Checks the current labelled develop pull requests once after a check completes.
+# Only a finished run on the head of a pull request into develop can make one ready: runs on main, develop, release
+# branches and tags start nothing, and a run on any other branch only goes on when that branch has a pull request into
+# develop (before, every finished workflow of every branch started a run here).
 name: Automerge
 
 on:
   workflow_run:
     workflows: [Test, Verify patches, Korg data guard, Update pull requests, Build apps, Release, Container image, Discord release, Sync develop]
     types: [completed]
+    branches-ignore: [main, develop, "release/**", "v[0-9]*"]
   check_run:
     types: [completed]
   pull_request:
@@ -25,8 +29,10 @@ concurrency:
 jobs:
   automerge:
     if: >-
-      github.event_name != 'pull_request' ||
-      (contains(github.event.pull_request.labels.*.name, 'automerge') &&
+      (github.event_name != 'pull_request' && github.event_name != 'workflow_run') ||
+      (github.event_name == 'workflow_run' && contains(github.event.workflow_run.pull_requests.*.base.ref, 'develop')) ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'automerge') &&
        !github.event.pull_request.draft &&
        github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
