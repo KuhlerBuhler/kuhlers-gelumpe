@@ -9,6 +9,24 @@ Firmware stecken: es gibt keine neuen Bausteine, ein Effekt ist eine Einstellung
 Menüs kommen und dem DSP ihre Werte schicken ([Messung](messungen/2026-11-11-neue-effekte.md)). Die Werte sind aus den
 Werkspresets derselben Bausteine hergeleitet. Wenn dir einer zu laut, zu leise oder anders vorkommt, ist das der Hörtest, der noch fehlt.
 
+## Gleiche Plätze auf Korgs 2.02 und Hacktribe
+
+Ab 1.4.6 haben beide roten Firmwares dieselben Insert-Plätze: 1 bis 38 Korgs Werkspresets, 39 bis 49 Hacktribes eigene
+Inserts (Lag, KP2 Comp, LP Drive, LP Drive Res, HP Drive, HP Res Drive, BP Drive, BP Drive Res, 9/32 Delay, 3/32 Delay,
+1/12 Delay), ab 50 der Katalog. Hacktribe behält auf 39 bis 49 seine eigenen Presets. Korgs 2.02 bekommt dort Nachbauten
+aus dem Katalog: dieselben Bausteine, dieselben Notenwerte, die übrigen Werte bewusst leicht anders gesetzt (Hacktribes
+Bytes kommen nicht ins Projekt), im Klang nah dran. Master-Effekte: Hacktribe hat keine über Korgs 32 hinaus, es tauscht nur
+vier Werksplätze (10, 11, 21, 32); der Katalog beginnt auf beiden bei 33. Ein Patch-Update einer schon gepatchten Datei
+ordnet die Katalog-Plätze genauso neu. Patterns, die einen Katalog-Insert auf Korgs 2.02 nutzen, zeigen danach auf einen
+anderen Effekt; sie werden nicht umgeschrieben.
+
+## Laut
+
+| Name | Art | Was er tut |
+|---|---|---|
+| Loud Distortion | Insert | Gain 64, Ausgangspegel 20 (Grenze des Katalogs für den Verzerrer, Werkspreset 11). Regler: Verzerrung. |
+| ULTRA LOUD | Insert, zwei Stufen | Gain 127 und Ausgangspegel 20, dahinter ein Limiter: Röhrensättigung 127, Ausgangspegel 90 (Lautstärke sperrt der Linter nie, er warnt nur: über 90 `output-too-loud`, von 61 bis 90 `output-above-usable`, "nicht gehört"; 90 ist also die Grenze der Regeln). Regler: Gain 96 bis 127. |
+
 ## Bässe, die springen
 
 Das Problem: die Hüllkurve des Verstärkers klingt zu lang aus und setzt zu langsam ein, die Bassline schiebt statt zu springen. Die
