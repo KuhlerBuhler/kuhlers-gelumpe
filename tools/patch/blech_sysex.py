@@ -178,7 +178,18 @@ CRC_WORDS = ", ".join(f"{w:#010x}" for w in crc_nibbles())
 
 def unlink_body():
     if FS_UNLINK is None:
-        return "    mov r0, #1\n    bx lr"
+        # the synth's FatFs has no f_unlink: the file is made anew and closed, so it is left empty (size 0, which the editor
+        # reads as no file); a missing one is made empty, a missing folder is status 6
+        return """    push {r4, lr}
+    mov r1, r0
+    ldr r0, =FILE_FIL
+    mov r2, #0x0A               ; FA_CREATE_ALWAYS | FA_WRITE
+    bl FS_OPEN
+    cmp r0, #0
+    popne {r4, pc}
+    ldr r0, =FILE_FIL
+    bl FS_CLOSE
+    pop {r4, pc}"""
     return f"    b {FS_UNLINK:#x}"
 
 
@@ -1375,8 +1386,9 @@ copy_reply:
 .pool
 
 ; FILE DELETE: a FILE offset with its selector bits (one of the two sample files, the offset is ignored). Deletes that file with the
-; firmware's own f_unlink. Answers status and the word asked. Status 2 for a selector that is no sample file, 6 when the card says no
-; (a missing file counts).
+; firmware's own f_unlink; on the synth, which has none, the file is left empty (size 0, as the editor reads a missing file). Answers
+; status and the word asked. Status 2 for a selector that is no sample file, 6 when the card says no (a missing file counts, except on
+; the synth, where it is made empty).
 do_fdelete:
     mov r4, #{STATUS_REFUSED}
     ldr r0, [r6, #S_REQ]
@@ -1658,8 +1670,7 @@ def use_build(build, ref=None, vsb=None):
         if not mapped.same_code(FS_UNLINK):
             raise fwmap.Unmapped("not the same code")
     except fwmap.Unmapped:
-        globals()["FS_UNLINK"] = None            # compiled out of the synth's FatFs: no FILE DELETE, no sample file flag
-        globals()["FLAGS"] = FLAGS & ~0x80
+        globals()["FS_UNLINK"] = None            # compiled out of the synth's FatFs: FILE DELETE leaves the file empty instead
     return found
 
 
