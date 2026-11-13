@@ -1164,12 +1164,20 @@ needs more than the rest of a frame is continued in the next one. The first pict
 the full picture takes about 3400 frames (a little over two minutes, counted in the emulator); every input starts again at
 the coarse pass. Zoom goes up to 7, deeper than that the 14 bits do not reach.
 
-**BPM Glide** (idea: [KrImZoR](https://www.instagram.com/krimzor_live)) is no app, it runs in the background. While
-the playing pattern chains on (Chain To, CHAIN MODE on), the tempo glides from the tempo at the start to the stored tempo of
-the next pattern, spread over length times Chain Repeat; the last step reaches the new tempo, so the switch does not jump.
-It reads the chain at the first step after PLAY or a pattern change, because only then does the firmware have the new
-pattern in RAM. STOP sets back the tempo the pattern started with. The page BPM GLIDE in the BLECH menu switches it on (1)
-and off (0), `korg.store` keeps the setting. Because `korg.tempo` sets the tempo of the pattern in RAM, it counts as an
+**BPM Glide** (idea: [KrImZoR](https://www.instagram.com/krimzor_live)) needs API 18 and runs in the background. It
+glides the tempo to the stored tempo of the pattern that comes next, so the change does not jump. Two pages in the BLECH
+menu switch the two ways on (1) and off (0), both are on, `korg.store` keeps the setting. GLIDE CHAIN: while the playing
+pattern chains on (Chain To, CHAIN MODE on), the tempo glides from the tempo at the start to the stored tempo of the next
+pattern, spread over length times Chain Repeat; the last step reaches the new tempo. It reads the chain at the first step
+after PLAY or a pattern change, because only then does the firmware have the new pattern in RAM. STOP sets back the tempo
+the pattern started with. GLIDE SWITCH: once MENU confirms a pattern picked on the dial while playing (`NEXT:` below), the
+tempo glides from the tempo at that moment to that pattern's stored tempo, spread over the step of the confirmation and the
+steps left until the sequence end, where the firmware switches: confirmed at step 1 over the whole pattern, at the half
+over the second half. The plugin sees the confirmation through `korg.nextPattern` (API 18) at every step; browsing alone
+(`VIEW:`) does not count, and with PATTERN CONFIRM OFF there is nothing to see. A confirmed pattern wins over the chain, as
+in the firmware. When EXIT takes the confirmation back, the chain glides on; without a chain the tempo goes back to where it
+was before the confirmation. A new confirmation starts again from the tempo at that moment. STOP applies a confirmed pattern
+at once like the firmware, with its tempo. Because `korg.tempo` sets the tempo of the pattern in RAM, it counts as an
 unsaved change until STOP. Checked in the simulator (`test/script-bpm-glide.test.mjs`), not on the device.
 
 **Momentary Mute** (a wish from the community, modelled on the Korg ESX, [idea 91](ideen/91-moment-mute.md)) needs API 15
