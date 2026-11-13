@@ -262,6 +262,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [ORIG im BLECH-Menü wie auf den Seiten der Firmware; Spielhilfen mit einer erst nach dem Start eingesteckten Karte, im Emulator](2026-11-11-orig-und-karte-spaeter.md)
 - [Die später gesteckte Karte bringt ihre ganze Einstellungsdatei mit, auch beim Kartentausch, im Emulator](2026-11-12-karte-spaeter-einstellungen.md)
 - [BLECH-Einstellungen ohne Karte im Flash: zwei Sektoren im Wechsel, die Karte gewinnt beim Start, beim Einstecken fragt das Display SAVE TO FLASH?, im Emulator](2026-11-13-einstellungen-flash.md)
+- [Startbild-Editor auf der blauen: SPLASH IMPORT, DRAW und RESET, Bild im Flash-Sektor 0x7F0000, im Emulator](2026-11-13-startbild-editor-blau.md)
 - [KNOB LEDS: die LEDs hinter den Reglern aus, im Emulator](2026-11-12-knopf-leds.md)
 - [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)

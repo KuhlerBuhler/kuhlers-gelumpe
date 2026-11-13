@@ -24,7 +24,7 @@ from sdcard import MemoryMedium, SDCard  # noqa: E402
 import fat32  # noqa: E402
 import synthaddr  # noqa: E402
 import firmware  # noqa: E402
-from splash_cases import Dev, SWITCH_SCREEN  # noqa: E402
+from splash_cases import Dev, SWITCH_SCREEN, has_start_hook  # noqa: E402
 from unicorn import arm_const  # noqa: E402
 
 HEADER = 0x100
@@ -1246,7 +1246,7 @@ def pins(dev):
 
 def custom_extra(dev):
     """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR and POWER SAVE where the set has the pad colours, SPLASH where it
-    also has the splash editor (the blue Electribe has the pad colours only)."""
+    also has the splash editor."""
     import pad_colors
     import splash_editor
     if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
@@ -1740,8 +1740,9 @@ def splash_menu_cases(payload, flash=None):
     lit_rows = {y for y in range(10, 62) for x in range(3, 120) if (bare.fb()[(y // 8) * 128 + x] >> (y % 8)) & 1}
     add("browser_empty", bare.read(STATE + S_BRW_ON, 1)[0] == 2 and lit_rows and max(lit_rows) - min(lit_rows) < 10,
         f"browser {bare.read(STATE + S_BRW_ON, 1)[0]}, rows lit between the edges {sorted(lit_rows)}")
-    differ = browser_against_import_sample(payload, flash)
-    add("browser_like_import_sample", differ == 0, f"{differ} pixels differ from the firmware's IMPORT SAMPLE (rows 10 to 63)")
+    if not synthaddr.is_synth(payload):      # the blue Electribe's DATA UTILITY has no IMPORT SAMPLE to hold it against
+        differ = browser_against_import_sample(payload, flash)
+        add("browser_like_import_sample", differ == 0, f"{differ} pixels differ from the firmware's IMPORT SAMPLE (rows 10 to 63)")
 
     # the list: only .bmp files, no names starting with a dot (macOS ._ files), the dial walks them and stops at the ends, ENTER takes
     # the one shown; a name like Windows gives a second download
@@ -3064,7 +3065,9 @@ def boot_light_cases(payload, flash=None):
     dev, changes, image_ms, image_pins = boot_light_run(payload, kept, red)
     white = after_white(changes)                # the firmware lights red, green, blue one after the other at about 52 ms
     first_red = next((t for t, v in white if v == 0x08), None)
-    if synth:                                   # the blue draws its start image before the flash answers: the colour comes while it is shown
+    # Korg's blue draws its start image before the flash answers, so the colour comes while it is shown; with the splash editor
+    # the image comes from the editor's start hook behind the flash read, as on the red, so the colour comes first there too
+    if synth and not has_start_hook(payload):
         shown = dev.image_shown
         add("colour_while_the_start_image", shown is not None and first_red is not None and shown[0] <= first_red < shown[1],
             f"red from {first_red} ms, start image drawn at {image_ms} ms, on the display from {shown and shown[0]} to {shown and shown[1]} ms, changes {changes[:6]}")

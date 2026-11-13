@@ -4,6 +4,7 @@
  "id": "blech-synth",
  "name": "BLECH für die blaue Electribe 2 (Synth)",
  "patches": [
+  "data/patches/splash-editor-synth.json",
   "data/patches/blech-sysex-synth.json",
   "data/patches/blechtribe-synth.json",
   "data/patches/splash-synth.json",
