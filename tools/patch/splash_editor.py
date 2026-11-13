@@ -14,8 +14,8 @@ user's VSB when the patch is applied (a `copy` change, src/patch.mjs).
 
     python3 tools/patch/splash_editor.py --vsb SYSTEM.VSB [--out data/patches/splash-editor.json]
 
-reads the VSB only for the checksums of the bytes the patch replaces. Only the Sampler builds (Hacktribe and
-Korg's own 2.02) carry the editor; the blue Electribe gets the start image as a data patch. Design
+reads the VSB only for the checksums of the bytes the patch replaces. All three builds carry the editor, the blue
+Electribe with `--build synth` (data/patches/splash-editor-synth.json, in its set from 1.5). Design
 and measurements: docs/hintergrund/startbild-editor.md and
 docs/messungen/2026-10-10-startbild-editor.md. Every address is a RAM address of
 the measured build; the file offset in the VSB is address - 0xC0000000 + 0x100.
