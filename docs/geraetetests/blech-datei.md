@@ -216,7 +216,7 @@ probieren, Ausgabe und Display notieren.
    Auf der blauen: SYNC GROUP 16/31, BLECH 30/31, Blechy 31/31.
    In Global (MENU auf "Global") auf der ersten Seite EDIT links: PLUGIN RUNTIME ("Global 21/21"), EDIT rechts wieder die
    erste Seite (TRIGGER MODE, "1/21"). In Data Util (MENU auf "Data Util") auf der ersten Funktion EDIT links:
-   SET INIT PATTERN ("Data Util 18/18", auf der blauen 14/14), mit EDIT links weiter EXPORT ALL EFFECTS (17/18, nur rot),
+   SET INIT PATTERN ("Data Util 18/18", auf der blauen 14/14), mit EDIT links weiter EXPORT ALL EFFECTS (17/18 auf der roten, auch auf der blauen),
    EXPORT ALL PLUGINS (16/18), EXPORT ALL CUSTOM (15/18), dann SOFTWARE UPDATE (14/18). EXPORT ALL CUSTOM schreibt
    `KORG/blechtribe/e2sCustom.all`, EXPORT ALL EFFECTS schreibt `KORG/blechtribe/Presets/e2sFx.all` neu (der Editor liest
    sie danach mit allen Einträgen und Texten). EXIT auf diesen Seiten geht auf "Global" bzw. "Data Util" zurück.
