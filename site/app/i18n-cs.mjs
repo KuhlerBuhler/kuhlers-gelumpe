@@ -1483,6 +1483,7 @@ export default {
   "patcher.patch.ifxIdle": "Klidový insert efekt",
   "patcher.patch.loadingAnim": "Vlastní animace načítání",
   "patcher.patch.version": "Verze BLECHTRIBE v menu (BLECH > VERSION)",
+  "patcher.patch.updateGuard": "SOFTWARE UPDATE odmítne neúplný SYSTEM.VSB",
   "patcher.usbName": "Název zařízení: Electribe 3",
   "patcher.usbName.note": "Počítač pak zobrazí Electribe jako Electribe 3. Přiřazení v DAW navázaná na starý název portu musíš propojit znovu. Windows může ponechat starý název, dokud zařízení jednou neodebereš ve Správci zařízení.",
   "patcher.blech.wrong": "{file} nejde přečíst jako patch: {error}",

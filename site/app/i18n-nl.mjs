@@ -1483,6 +1483,7 @@ export default {
   "patcher.patch.ifxIdle": "Rustend inserteffect",
   "patcher.patch.loadingAnim": "Eigen laadanimatie",
   "patcher.patch.version": "BLECHTRIBE-versie in het menu (BLECH > VERSION)",
+  "patcher.patch.updateGuard": "SOFTWARE UPDATE weigert een onvolledige SYSTEM.VSB",
   "patcher.usbName": "Apparaatnaam: Electribe 3",
   "patcher.usbName.note": "De computer toont de Electribe dan als Electribe 3. DAW-koppelingen die aan de oude poortnaam hangen, moet je opnieuw koppelen. Windows kan de oude naam houden tot je het apparaat één keer verwijdert in Apparaatbeheer.",
   "patcher.blech.wrong": "{file} is niet als patch te lezen: {error}",

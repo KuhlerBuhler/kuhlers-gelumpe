@@ -96,6 +96,7 @@ Startphase, Startmodi, Notschalter, Firmware als Datei und der Weg zurück.
 - [Firmware-Rückweg: geprüfte Quellen und getrennte Verfahren](2026-10-08-firmware-rueckweg.md)
 - [Geänderte Firmware als Datei, im Emulator gebootet](2026-10-09-firmware-export.md)
 - [Rückweg geübt: eigene Firmware hin, Original zurück](2026-10-10-rueckweg-geuebt.md)
+- [SOFTWARE UPDATE prüft die Dateigröße: eine abgeschnittene SYSTEM.VSB wird nicht geflasht, im Emulator](2026-11-13-update-schutz.md)
 
 
 ## Emulator
