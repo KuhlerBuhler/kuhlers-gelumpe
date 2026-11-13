@@ -16,7 +16,7 @@
  *   note    cosmetic
  */
 import {
-  REC, SOURCES, CHAINS, STAGE2, STAGE1_NEEDS_SOLO, MFX_DEVICE_RANGE,
+  REC, SOURCES, CHAINS, STAGE2, STAGE2_PAIRS, STAGE1_NEEDS_SOLO, MFX_DEVICE_RANGE,
   MFX_MUTE, ENUM_PARAMS, LOUDNESS, OFF_AT, PLAY_ROW_RESYNCS,
 } from "./layout.mjs";
 import { unitFor, hex } from "./units.mjs";
@@ -127,6 +127,11 @@ function checkStages(record, units, add) {
       add("fatal", "stage2-fatal", "ifx2", "lint.stage2.known", { unit: hex(second), note: known.note });
     } else if (known.verdict === "silent") {
       add("silent", "stage2-silent", "ifx2", "lint.stage2.known", { unit: hex(second), note: known.note });
+    }
+
+    const pair = STAGE2_PAIRS[`${record.device("ifx1")}.${second}`];
+    if (pair) {
+      add(pair.verdict, "stage2-pair", "ifx2", "lint.stage2.pair", { first: hex(record.device("ifx1")), unit: hex(second), note: pair.note });
     }
 
     const solo = STAGE1_NEEDS_SOLO[record.device("ifx1")];
