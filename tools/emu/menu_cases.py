@@ -943,8 +943,14 @@ def orig_cases(payload, flash=None):
     return out
 
 
+def egg_part(payload, flash=None):
+    """The egg on the page VERSION (egg_cases.py) on devices of its own."""
+    import egg_cases
+    return egg_cases.cases(payload, flash)
+
+
 # What cases_task(i) runs, in the order of cases(). Each boots its own device, so they run side by side.
-CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases, orig_cases)
+CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases, orig_cases, egg_part)
 
 
 def cases(payload, flash=None, settings=True):

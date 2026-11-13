@@ -576,6 +576,10 @@ script_led_hold_guard:
     ldr r1, [r0, #SCRIPT_CONTROL_LED_HOLD]
     cmp r1, #0
     bxeq lr
+    ldr r1, =EGG_WORK           ; the egg on the page VERSION holds them while its show runs (script_egg.s)
+    ldrb r1, [r1, #M_EGG]
+    cmp r1, #1
+    bxeq lr
     ldr r1, [r0, #RT_HEAD]
 led_guard_entry:
     cmp r1, #0
