@@ -121,7 +121,8 @@ test("the collection holds each entry's data and its v2 text; any damage, the wr
   new DataView(other.buffer).setUint32(16, 9, true);
   assert.equal(parseCollection(other).ok, false, "an unknown build");
   assert.match(parseCollection(file, { counts: { ifx: 100, mfx: 0 } }).reason, /Platz 1/);
-  assert.throws(() => buildCollection({ build: "synth", entries: [] }));
+  assert.equal(parseCollection(buildCollection({ build: "synth", entries: [] })).build, "synth", "the blue's own build number");
+  assert.throws(() => buildCollection({ build: "blue", entries: [] }));
   assert.throws(() => buildCollection({ build: "stock", entries: [{ kind: "mfx", index: 0, data: new Uint8Array(10), text: "" }] }));
 });
 
