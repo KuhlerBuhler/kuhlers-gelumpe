@@ -1617,26 +1617,18 @@ export const FX_CATALOG = Object.freeze([
   "stages": [
    {
     "stage": "ifx1",
-    "unit": 7,
-    "unitName": "I_eq_4_band",
+    "unit": 6,
+    "unitName": "I_eq_2_band",
     "params": {
      "trim": 108,
      "b1_type": 2,
      "b2_type": 0,
-     "b3_type": 0,
-     "b4_type": 1,
      "b1_frequency": 12,
      "b1_q": 5,
      "b1_gain": 46,
      "b2_frequency": 22,
      "b2_q": 5,
-     "b2_gain": 33,
-     "b3_frequency": 48,
-     "b3_q": 5,
-     "b3_gain": 36,
-     "b4_frequency": 54,
-     "b4_q": 5,
-     "b4_gain": 36
+     "b2_gain": 33
     }
    },
    {
@@ -1659,7 +1651,7 @@ export const FX_CATALOG = Object.freeze([
    {
     "source": 66,
     "chain": 0,
-    "param": 7,
+    "param": 5,
     "low": 36,
     "high": 60
    },
@@ -1676,7 +1668,7 @@ export const FX_CATALOG = Object.freeze([
  {
   "kind": "ifx",
   "name": "Hardtekk Kick",
-  "description": "Ein Kick, der hart angezerrt wird: der Bass wird vor der Verzerrung angehoben und danach wieder aufgefüllt, ein Limiter fängt die Spitzen. Der Regler dreht die Verzerrung auf und nimmt dabei den Pegel zurück.",
+  "description": "Ein Kick, der hart angezerrt wird: der Bass wird vor der Verzerrung angehoben und danach wieder aufgefüllt. Der Regler dreht die Verzerrung auf und nimmt dabei den Pegel zurück.",
   "stages": [
    {
     "stage": "ifx1",
@@ -1702,18 +1694,9 @@ export const FX_CATALOG = Object.freeze([
    },
    {
     "stage": "ifx2",
-    "unit": 5,
-    "unitName": "I_limiter",
-    "params": {
-     "dry_wet": 100,
-     "envelope_select": 0,
-     "threshold": 44,
-     "attack": 2,
-     "release": 4,
-     "hold_time": 4,
-     "tubesat": 30,
-     "output_gain": 52
-    }
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
    }
   ],
   "map": [
@@ -2209,28 +2192,15 @@ export const FX_CATALOG = Object.freeze([
  {
   "kind": "ifx",
   "name": "ULTRA LOUD",
-  "description": "Volle Verzerrung (Gain 127) mit dem höchsten Ausgangspegel, den der Katalog erlaubt, dahinter ein Limiter mit Röhrensättigung voll und dem höchsten Ausgangspegel, den der Linter noch nicht als zu laut meldet; er fängt die Spitzen, bevor es hart clippt. Der Regler nimmt die Verzerrung etwas zurück.",
+  "description": "Volle Verzerrung (Acid Drive, Drive 127), dahinter ein Limiter mit Röhrensättigung voll und dem höchsten Ausgangspegel, den der Linter noch nicht als zu laut meldet; er fängt die Spitzen, bevor es hart clippt. Der Regler nimmt die Verzerrung etwas zurück.",
   "stages": [
    {
     "stage": "ifx1",
-    "unit": 15,
-    "unitName": "I_distortion",
+    "unit": 16,
+    "unitName": "I_acid_driver",
     "params": {
-     "dry_wet": 0,
-     "gain": 127,
-     "pre_eq_frequency": 35,
-     "pre_eq_q": 15,
-     "pre_eq_gain": 48,
-     "post_eq1_frequency": 16,
-     "post_eq1_q": 5,
-     "post_eq1_gain": 36,
-     "post_eq2_frequency": 43,
-     "post_eq2_q": 5,
-     "post_eq2_gain": 42,
-     "post_eq3_frequency": 53,
-     "post_eq3_q": 5,
-     "post_eq3_gain": 25,
-     "output_level": 20
+     "drive": 127,
+     "output_level": 30
     }
    },
    {
@@ -2253,7 +2223,7 @@ export const FX_CATALOG = Object.freeze([
    {
     "source": 66,
     "chain": 0,
-    "param": 1,
+    "param": 0,
     "low": 96,
     "high": 127
    }
