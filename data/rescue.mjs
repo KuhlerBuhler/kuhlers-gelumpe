@@ -118,7 +118,7 @@ const BOOT_CHECKS = ["boot:normal", "boot:normal_blank", "update_offer", "panel_
 export const TEST_AREAS = {
   menu: "rescue.area.menu", shortcut: "rescue.area.menu",
   pswitch: "rescue.area.pattern", lastpattern: "rescue.area.pattern", initpattern: "rescue.area.pattern",
-  "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples", "ht-osc": "rescue.area.samples",
+  "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples", "ht-osc": "rescue.area.samples", usersamples: "rescue.area.samples",
   splash: "rescue.area.start", loadbar: "rescue.area.start", migrate: "rescue.area.start",
   fxcard: "rescue.area.card", cardfault: "rescue.area.card", presets: "rescue.area.card", power_off: "rescue.area.card",
   mfx: "rescue.area.sound", ifxidle: "rescue.area.sound", synthfilter: "rescue.area.sound",
@@ -838,7 +838,7 @@ FLOW["h:emulator:fix"] = {
   say: ["rescue.help.emulatorFix.1", "rescue.help.emulatorFix.2", { path: "~/.gelumpe/emu.log" }, "rescue.help.emulatorFix.3"],
   choices: [{ label: "rescue.answer.emuRuns", to: "app:fixed" }, { label: "rescue.answer.stillNotFound", to: "check:report" }],
 };
-help("wavs", "idle", [{ key: "rescue.help.wavs.1", links: pageLink("samples", "nav.sampleset") }, "rescue.help.wavs.2"], [viaColor("rescue.case.samples", "samples")]);
+help("wavs", "idle", [{ key: "rescue.help.wavs.1", links: pageLink("samples", "nav.sampleset") }, "rescue.help.wavs.2", "rescue.help.wavs.3"], [viaColor("rescue.case.samples", "samples")]);
 help("updates", "idle", [
   { key: "rescue.help.updates.1", links: pageLink("patcher", "nav.patcher") },
   "rescue.help.updates.2",

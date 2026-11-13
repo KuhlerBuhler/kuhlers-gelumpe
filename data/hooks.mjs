@@ -93,6 +93,10 @@ export const CHAINS = {
   "type-set": [{ id: "setter", sites: [0xC0048A64] }],
   "filter-key": [{ id: "selection", sites: [0xC006FCE8] }],
   "filter-type-store": [{ id: "setter", sites: [0xC00495DC] }],
+  "pcm-loaded": [{ id: "end", sites: [0xC00473D0] }],                // the synth's PCM load returns its result (user-samples)
+  "osc-next-group": [{ id: "scan", sites: [0xC003B93C] }],          // the synth's oscillator list: next group, previous group, the knob's step
+  "osc-prev-group": [{ id: "wrap", sites: [0xC003BA3C] }],
+  "osc-step": [{ id: "wrap", sites: [0xC003BB3C] }],
   "pattern-write": [{ id: "staging-copy", sites: [0xC004C2BC] }],
   "save": [{ id: "entry", sites: [0xC004C1B4] }],
   "seq-step": [{ id: "step", sites: [0xC00589EC] }],

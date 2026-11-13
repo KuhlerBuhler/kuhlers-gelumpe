@@ -21,7 +21,7 @@ export const ALL = "all";
 export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases",
   "note_assist_cases", "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases",
   "remote_cases", "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases"];
+  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases", "user_samples_cases"];
 
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
@@ -92,6 +92,7 @@ export const TABLE = [
   [/^tools\/patch\/touch_scale_zero\.py$|^data\/patches\/touch-scale-zero[^/]*\.json$/, ["touch_scale_zero_cases"]],
   [/^tools\/patch\/doom_loader\.py$|^data\/patches\/doom-loader\.json$/, ["doom_loader_cases"]],
   [/^tools\/patch\/power_off\.py$|^data\/patches\/power-off[^/]*\.json$/, ["power_off_cases"]],
+  [/^tools\/patch\/user_samples\.py$|^data\/patches\/user-samples[^/]*\.json$/, ["user_samples_cases"]],
   [/^tools\/patch\/preset_tables\.py$|^data\/patches\/preset-tables[^/]*\.json$/, ["preset_cases"]],
   [/^data\/patches\/fx-catalog\.json$/, ["preset_cases", "fx_card_cases"]],   // the catalog's effects behind the presets, and the card loader that reads the same records
 
