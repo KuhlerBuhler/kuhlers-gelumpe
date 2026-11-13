@@ -2740,7 +2740,7 @@ let gate = 96;
 
 // Actualise la longueur du pattern
 function updateSteps() {
-    steps = korg.current.length * 16;
+    steps = korg.pattern.current.length * 16;
 
     if (steps < 16) steps = 16;
     if (steps > 64) steps = 64;
@@ -2801,7 +2801,7 @@ function generate() {
                 position -= steps;
             }
 
-            let note = 48 + korg.current.key;
+            let note = 48 + korg.pattern.current.key;
 
             korg.seq.setStep(
                 part,
