@@ -1597,26 +1597,18 @@
    "stages": [
     {
      "stage": "ifx1",
-     "unit": 7,
-     "unitName": "I_eq_4_band",
+     "unit": 6,
+     "unitName": "I_eq_2_band",
      "params": {
       "trim": 108,
       "b1_type": 2,
       "b2_type": 0,
-      "b3_type": 0,
-      "b4_type": 1,
       "b1_frequency": 12,
       "b1_q": 5,
       "b1_gain": 46,
       "b2_frequency": 22,
       "b2_q": 5,
-      "b2_gain": 33,
-      "b3_frequency": 48,
-      "b3_q": 5,
-      "b3_gain": 36,
-      "b4_frequency": 54,
-      "b4_q": 5,
-      "b4_gain": 36
+      "b2_gain": 33
      }
     },
     {
@@ -1639,7 +1631,7 @@
     {
      "source": 66,
      "chain": 0,
-     "param": 7,
+     "param": 5,
      "low": 36,
      "high": 60
     },
@@ -1681,18 +1673,9 @@
     },
     {
      "stage": "ifx2",
-     "unit": 5,
-     "unitName": "I_limiter",
-     "params": {
-      "dry_wet": 100,
-      "envelope_select": 0,
-      "threshold": 44,
-      "attack": 2,
-      "release": 4,
-      "hold_time": 4,
-      "tubesat": 30,
-      "output_gain": 52
-     }
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
     }
    ],
    "map": [
@@ -2181,24 +2164,11 @@
    "stages": [
     {
      "stage": "ifx1",
-     "unit": 15,
-     "unitName": "I_distortion",
+     "unit": 16,
+     "unitName": "I_acid_driver",
      "params": {
-      "dry_wet": 0,
-      "gain": 127,
-      "pre_eq_frequency": 35,
-      "pre_eq_q": 15,
-      "pre_eq_gain": 48,
-      "post_eq1_frequency": 16,
-      "post_eq1_q": 5,
-      "post_eq1_gain": 36,
-      "post_eq2_frequency": 43,
-      "post_eq2_q": 5,
-      "post_eq2_gain": 42,
-      "post_eq3_frequency": 53,
-      "post_eq3_q": 5,
-      "post_eq3_gain": 25,
-      "output_level": 20
+      "drive": 127,
+      "output_level": 30
      }
     },
     {
@@ -2221,7 +2191,7 @@
     {
      "source": 66,
      "chain": 0,
-     "param": 1,
+     "param": 0,
      "low": 96,
      "high": 127
     }
@@ -2701,141 +2671,6 @@
      }
     ]
    },
-   "0x07": {
-    "unit": "I_eq_4_band",
-    "params": [
-     {
-      "name": "trim",
-      "type": "Int8ul",
-      "default": "0x7F"
-     },
-     {
-      "name": "b1_type",
-      "type": "Int8ul",
-      "default": "0x2"
-     },
-     {
-      "name": "b2_type",
-      "type": "Int8ul",
-      "default": "0x0"
-     },
-     {
-      "name": "b3_type",
-      "type": "Int8ul",
-      "default": "0x0"
-     },
-     {
-      "name": "b4_type",
-      "type": "Int8ul",
-      "default": "0x1"
-     },
-     {
-      "name": "b1_frequency",
-      "type": "Int8ul",
-      "default": "0x10"
-     },
-     {
-      "name": "b1_q",
-      "type": "Int8ul",
-      "default": "0x5"
-     },
-     {
-      "name": "b1_gain",
-      "type": "Int8ul",
-      "default": "0x24"
-     },
-     {
-      "name": "b2_frequency",
-      "type": "Int8ul",
-      "default": "0x21"
-     },
-     {
-      "name": "b2_q",
-      "type": "Int8ul",
-      "default": "0x5"
-     },
-     {
-      "name": "b2_gain",
-      "type": "Int8ul",
-      "default": "0x24"
-     },
-     {
-      "name": "b3_frequency",
-      "type": "Int8ul",
-      "default": "0x30"
-     },
-     {
-      "name": "b3_q",
-      "type": "Int8ul",
-      "default": "0x5"
-     },
-     {
-      "name": "b3_gain",
-      "type": "Int8ul",
-      "default": "0x24"
-     },
-     {
-      "name": "b4_frequency",
-      "type": "Int8ul",
-      "default": "0x34"
-     },
-     {
-      "name": "b4_q",
-      "type": "Int8ul",
-      "default": "0x5"
-     },
-     {
-      "name": "b4_gain",
-      "type": "Int8ul",
-      "default": "0x24"
-     }
-    ]
-   },
-   "0x05": {
-    "unit": "I_limiter",
-    "params": [
-     {
-      "name": "dry_wet",
-      "type": "Int8ul",
-      "default": "0x64"
-     },
-     {
-      "name": "envelope_select",
-      "type": "Int8ul",
-      "default": "0x0"
-     },
-     {
-      "name": "threshold",
-      "type": "Int8ul",
-      "default": "0x30"
-     },
-     {
-      "name": "attack",
-      "type": "Int8ul",
-      "default": "0xA"
-     },
-     {
-      "name": "release",
-      "type": "Int8ul",
-      "default": "0x3"
-     },
-     {
-      "name": "hold_time",
-      "type": "Int8ul",
-      "default": "0x3"
-     },
-     {
-      "name": "tubesat",
-      "type": "Int8ul",
-      "default": "0x64"
-     },
-     {
-      "name": "output_gain",
-      "type": "Int8ul",
-      "default": "0x40"
-     }
-    ]
-   },
    "0x06": {
     "unit": "I_eq_2_band",
     "params": [
@@ -2883,6 +2718,51 @@
       "name": "b2_gain",
       "type": "Int8ul",
       "default": "0x24"
+     }
+    ]
+   },
+   "0x05": {
+    "unit": "I_limiter",
+    "params": [
+     {
+      "name": "dry_wet",
+      "type": "Int8ul",
+      "default": "0x64"
+     },
+     {
+      "name": "envelope_select",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "threshold",
+      "type": "Int8ul",
+      "default": "0x30"
+     },
+     {
+      "name": "attack",
+      "type": "Int8ul",
+      "default": "0xA"
+     },
+     {
+      "name": "release",
+      "type": "Int8ul",
+      "default": "0x3"
+     },
+     {
+      "name": "hold_time",
+      "type": "Int8ul",
+      "default": "0x3"
+     },
+     {
+      "name": "tubesat",
+      "type": "Int8ul",
+      "default": "0x64"
+     },
+     {
+      "name": "output_gain",
+      "type": "Int8ul",
+      "default": "0x40"
      }
     ]
    },
@@ -2983,6 +2863,96 @@
       "name": "output_gain",
       "type": "Int8ul",
       "default": "0x36"
+     }
+    ]
+   },
+   "0x07": {
+    "unit": "I_eq_4_band",
+    "params": [
+     {
+      "name": "trim",
+      "type": "Int8ul",
+      "default": "0x7F"
+     },
+     {
+      "name": "b1_type",
+      "type": "Int8ul",
+      "default": "0x2"
+     },
+     {
+      "name": "b2_type",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "b3_type",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "b4_type",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "b1_frequency",
+      "type": "Int8ul",
+      "default": "0x10"
+     },
+     {
+      "name": "b1_q",
+      "type": "Int8ul",
+      "default": "0x5"
+     },
+     {
+      "name": "b1_gain",
+      "type": "Int8ul",
+      "default": "0x24"
+     },
+     {
+      "name": "b2_frequency",
+      "type": "Int8ul",
+      "default": "0x21"
+     },
+     {
+      "name": "b2_q",
+      "type": "Int8ul",
+      "default": "0x5"
+     },
+     {
+      "name": "b2_gain",
+      "type": "Int8ul",
+      "default": "0x24"
+     },
+     {
+      "name": "b3_frequency",
+      "type": "Int8ul",
+      "default": "0x30"
+     },
+     {
+      "name": "b3_q",
+      "type": "Int8ul",
+      "default": "0x5"
+     },
+     {
+      "name": "b3_gain",
+      "type": "Int8ul",
+      "default": "0x24"
+     },
+     {
+      "name": "b4_frequency",
+      "type": "Int8ul",
+      "default": "0x34"
+     },
+     {
+      "name": "b4_q",
+      "type": "Int8ul",
+      "default": "0x5"
+     },
+     {
+      "name": "b4_gain",
+      "type": "Int8ul",
+      "default": "0x24"
      }
     ]
    }

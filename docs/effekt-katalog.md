@@ -25,7 +25,7 @@ anderen Effekt; sie werden nicht umgeschrieben.
 | Name | Art | Was er tut |
 |---|---|---|
 | Loud Distortion | Insert | Gain 64, Ausgangspegel 20 (Grenze des Katalogs für den Verzerrer, Werkspreset 11). Regler: Verzerrung. |
-| ULTRA LOUD | Insert, zwei Stufen | Gain 127 und Ausgangspegel 20, dahinter ein Limiter: Röhrensättigung 127, Ausgangspegel 90 (Lautstärke sperrt der Linter nie, er warnt nur: über 90 `output-too-loud`, von 61 bis 90 `output-above-usable`, "nicht gehört"; 90 ist also die Grenze der Regeln). Regler: Gain 96 bis 127. |
+| ULTRA LOUD | Insert, zwei Stufen | Acid Drive mit Drive 127 und Ausgangspegel 30, dahinter ein Limiter: Röhrensättigung 127, Ausgangspegel 90 (Lautstärke sperrt der Linter nie, er warnt nur: über 90 `output-too-loud`, von 61 bis 90 `output-above-usable`, "nicht gehört"; 90 ist also die Grenze der Regeln). Regler: Drive 96 bis 127. Bis 1.4.6 vor dem Release mit Distortion statt Acid Drive: Distortion vor Limiter stürzt ab ([Nachtrag](messungen/2026-11-11-neue-effekte.md)). |
 
 ## Bässe, die springen
 
@@ -47,14 +47,14 @@ die Zeit der Hüllkurve (MOD. SPEED) kommt vom Platz, den du überschreibst.
 
 | Name | Art | Was er tut |
 |---|---|---|
-| Bass Enhancer | Insert, zwei Stufen | EQ mit Tiefen-Regal und etwas weniger Tiefmitten, dahinter ein Limiter. Regler: mehr Bass, weniger Eingangspegel. |
+| Bass Enhancer | Insert, zwei Stufen | EQ (2 Bänder) mit Tiefen-Regal und etwas weniger Tiefmitten, dahinter ein Limiter. Regler: mehr Bass, weniger Eingangspegel. |
 | Glue Comp | Insert, zwei Stufen | Kompressor (SR1) mit Limiter dahinter. Regler: Schwelle runter, Pegel ausgleichen. |
 
 ## Kicks
 
 | Name | Art | Was er tut |
 |---|---|---|
-| Hardtekk Kick | Insert, zwei Stufen | Hart verzerrt: Bass vor der Verzerrung hoch, danach wieder aufgefüllt, Limiter dahinter. |
+| Hardtekk Kick | Insert, eine Stufe | Hart verzerrt: Bass vor der Verzerrung hoch, danach wieder aufgefüllt. Ohne Limiter: Distortion vor Limiter stürzt ab. |
 | Tekk Kick Soft | Insert, zwei Stufen | Acid Drive mit EQ dahinter (Bass hoch, Klick oben). Weicher. |
 | Kick Drop | Modulation | Die Tonhöhe startet hoch und fällt in Millisekunden ab, dazu ein Lautstärke-Schub. |
 | Kick Click | Modulation | Ein sehr kurzer, hoher Pitch-Sprung vorn: der Klick. |
