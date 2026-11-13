@@ -1440,6 +1440,12 @@ gewählten Parts, STOP stellt es wieder her. Im Katalog wirkt es nur auf die Par
 bei einem Patternwechsel merkt (`maxParts = 8`): das Original schrieb bei jedem Step auch die Parts 9 bis 16 und setzte
 deren Glide auf 0. Im Simulator geprüft (`test/script-community-catalog.test.mjs`), laut Autor am Gerät.
 
+**Pad Finger** (von nic0crank, aus dem BLECH-Discord, geschickt als Touch Pad Tester) ist eine App unter TOOLS und braucht
+API 15. Solange sie offen ist, zeigt sie oben links X und Y des Touchpads (Rohwerte 0 bis 1023) und ein Fadenkreuz, wo der
+Finger liegt. TAP schaltet zwischen LOCK (Vorgabe) und FREE, oben rechts angezeigt: mit LOCK hält `korg.touchLockX` das X,
+das die Firmware sieht, dort, wo der Finger aufsetzt, Y bleibt das des Fingers; Finger heben, FREE oder die App schließen
+lässt los. Code unverändert. Im Simulator geprüft (`test/script-community-catalog.test.mjs`), nicht am Gerät.
+
 **PLAY-Takt** braucht API 11 und läuft im Hintergrund. Solange der Sequencer läuft, blinkt die PLAY-LED (rot und blau) im
 Tempo des Patterns: das Ereignis `beat` macht sie auf jeder Viertel an, `korg.afterSteps(2, ...)` zwei Schritte später aus,
 mit BEAT 8 also auf jeder halben Note. Bei STOP und in der Pause leuchtet sie ruhig; `korg.cancel` räumt dann den Timer ab.
@@ -1454,7 +1460,7 @@ Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokument
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent und Easy Slides (TOOLS), Quelle
+und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides und Pad Finger (TOOLS), Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem
