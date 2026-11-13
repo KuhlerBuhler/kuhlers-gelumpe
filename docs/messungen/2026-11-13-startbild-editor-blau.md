@@ -36,6 +36,15 @@ ab Spalte 9 nach rechts wachsend. Die rote löscht 61 und 62 in Seite 7. Ohne di
 Fall jedes Bild der VSB nach drei Bildern als "anderes Bild". Über einem gespeicherten Bild, das dort
 schon dunkel ist, ändert er nichts.
 
+## Hintergrundfarbe beim Start
+
+**Gemessen** (Emulator, ganzer blauer Satz): Korgs blaue zeichnet ihr Startbild, bevor der Flash antwortet, die
+gespeicherte Farbe kam deshalb erst, während das Bild schon stand. Mit dem Editor zeichnet dessen Start-Haken das
+Bild hinter dem Lesen des Flash: Rot ab 56,15 ms, Bild bei 56,39 ms. Die blaue verhält sich damit wie die rote,
+`menu_cases.boot_light_cases` prüft auf der blauen mit Editor jetzt "Farbe vor dem Startbild".
+`splash_cases.has_start_hook` erkennt den Haken auf der blauen jetzt an ihrer Adresse; vorher lief `check.py`
+die Startbild-Fälle auf der blauen gar nicht.
+
 ## Fälle
 
 `tools/emu/splash_cases.py` `cases` und `run` liefen auf Korgs blauer 2.02 mit dem Editor allein und mit

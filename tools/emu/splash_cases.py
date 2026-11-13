@@ -75,12 +75,13 @@ def other_image(payload):
 
 
 def has_start_hook(payload):
-    """True when the call after the rescue paths goes into the splash editor's start code."""
-    word = struct.unpack_from("<I", payload, START_HOOK - IMAGE)[0]
+    """True when the call after the rescue paths goes into the splash editor's start code (on the blue at its own address)."""
+    at = synthaddr.tr(START_HOOK) if synthaddr.is_synth(payload) else START_HOOK
+    word = struct.unpack_from("<I", payload, at - IMAGE)[0]
     if word >> 24 != 0xEB:
         return False
     off = (word & 0xFFFFFF) | (0xFF000000 if word & 0x800000 else 0)
-    return spec.START_AT <= START_HOOK + 8 + (off << 2) < spec.START_END
+    return spec.START_AT <= (at + 8 + (off << 2)) & 0xFFFFFFFF < spec.START_END
 
 
 # ---- a device to drive -----------------------------------------------------------------
