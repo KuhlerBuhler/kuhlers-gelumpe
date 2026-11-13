@@ -1,0 +1,61 @@
+{
+  "date": "2026-11-09",
+  "baseCommit": "80c2f75729e73e80243f4d2e74f1a4c1ce82d3c7",
+  "previousBaseCommit": "972996a016d280451160a1037e41e631e73d13bc",
+  "environment": {
+    "os": "Windows",
+    "node": "25.9.0",
+    "python": "3.12",
+    "unicorn": "2.1.4",
+    "numpy": "2.5.4"
+  },
+  "ownCode": {
+    "bytes": 6316,
+    "sha256": "88c499db5ca60dc7b5d2d1c92069371909e5950e61104b51c5ef116acde56b26"
+  },
+  "companionSha256": "d518b078c01a9541ab989c2218ffff140fc1943de574ee73816ecd5cea7aa309",
+  "runtimeSites": {
+    "command": "0xC002A628",
+    "display": "0xC015A4B8",
+    "input": "0xC0153C94"
+  },
+  "spettroChecks": {
+    "nodePassed": 5,
+    "armAndNumericalPassed": 37,
+    "menu": "real firmware and VM; generated DSP capture; includes PLAY/STOP"
+  },
+  "documentation": {
+    "passed": 9,
+    "note": "Existing root-path conversion adjusted only in a temporary copy of the documentation test for Windows"
+  },
+  "fullUnitRun": {
+    "passed": 1388,
+    "failed": 22,
+    "skipped": 177,
+    "failuresOnlyOnThisBranch": 0,
+    "note": "Every failing test name also fails on a clean checkout of the base commit on the same machine"
+  },
+  "browser": {
+    "passing": false,
+    "note": "Not validated on Windows; the existing harness serves its support modules from wrong paths there"
+  },
+  "fullFirmwareCheck": {
+    "ok": true,
+    "checks": 1044,
+    "base": "the owner's own SYSTEM.VSB as installed before (Hacktribe 2.02 with an older BLECH release)",
+    "patched": "current BLECH set of the base commit plus Spettro",
+    "flash": "blank simulated red flash"
+  },
+  "hardware": {
+    "build": "80c2f757 port",
+    "installed": true,
+    "confirmationDate": "2026-11-09",
+    "checklistPassed": ["boot and menu", "curve follows CUTOFF and RESONANCE, sound unchanged", "BAR 1 to 4", "PART and Trigger pads", "PLAY/STOP with the app open", "curve falls after the sound", "EXIT and reopen", "several minutes on a full pattern without glitches"],
+    "fullLoadAndLatencyMeasured": false,
+    "previousPortReportedWorking": true
+  },
+  "korgGuard": {
+    "ok": true,
+    "generatedPatchAndPlugin": true
+  }
+}

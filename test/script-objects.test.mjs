@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { API_VERSION } from "../data/script/contract.mjs";
+import { API_VERSION, PATTERN_MOTION, PATTERN_PARTS } from "../data/script/contract.mjs";
 import globalMap from "../data/map/global.mjs";
-import { OBJECTS, OBJECT_BY_PATH, OBJECT_BASES, objectChildren } from "../data/script/objects.mjs";
+import { OBJECTS, OBJECT_BY_PATH, OBJECT_BASES, INFO, objectChildren } from "../data/script/objects.mjs";
 import { PROPERTY_BY_PATH } from "../data/script/properties.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
 import { decodeBlob } from "../src/script/blob.mjs";
@@ -161,7 +161,7 @@ test("the range of a leaf is the range the page's dial runs through", () => {
 
 test("the bases of the table are the ones script_objects.s knows by number", () => {
   const objects = readFileSync(new URL("../tools/patch/script_objects.s", import.meta.url), "utf8");
-  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"]]) {
+  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"], ["OBJ_BASE_TOUCHPAD", "touchpad"], ["OBJ_BASE_MOTION", "motion"], ["OBJ_BASE_STATE", "state"]]) {
     assert.equal(Number(objects.match(new RegExp(`^\\.equ ${name}, (\\d+)`, "m"))[1]), OBJECT_BASES.indexOf(base), name);
   }
 });
@@ -227,4 +227,154 @@ test("the compiler refuses a known Global value outside the menu's limits and a 
   assert.match(refused(`korg.onEvent("ready", () => { korg.global.midiChannel = 16; });`), /0.*15.*16/);
   assert.match(refused(`korg.onEvent("ready", () => { korg.global.lcdContrast = 5; });`), /18.*42/);
   assert.match(refused(`korg.onEvent("ready", () => { korg.global.metronom = 1; });`), /korg\.global\.metronom.*metronome/);
+});
+
+// API 26: what the runtime knows about the device (base "info", plan 2026-11-10-plugin-api-1.5-complete, phase 1).
+test("korg.system.device, version and limits are read only leaves of the base info and need API 26", () => {
+  const info = OBJECTS.filter(o => o.base === "info");
+  assert.deepEqual(info.map(o => o.path), ["korg.system.device", "korg.system.version", "korg.system.limits.ifxTypes",
+    "korg.system.limits.mfxTypes", "korg.system.limits.samples"]);
+  assert.deepEqual(info.map(o => o.offset), Object.values(INFO));
+  for (const o of info) {
+    assert.equal(o.write, false, o.path);
+    assert.equal(o.stored, false, o.path);
+    assert.equal(o.since, 26, o.path);
+  }
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let d = korg.system.device; });`)).header.apiVersion, 26);
+  assert.match(refused(`korg.onEvent("ready", () => { korg.system.limits.samples = 1; });`), /korg\.system\.limits\.samples/);
+  assert.deepEqual(objectChildren("korg.system.limits"), ["ifxTypes", "mfxTypes", "samples"]);
+});
+
+test("the runtime knows the build of korg.system.device and the sample slots of each build", () => {
+  const hooks = readFileSync(new URL("../tools/patch/script_hooks.py", import.meta.url), "utf8");
+  assert.match(hooks, /BUILD_DEVICES = \{'hacktribe': 0, 'stock': 1, 'synth': 2\}/);
+  assert.match(hooks, /BUILD_SAMPLES, \{0 if build == "synth" else 1000\}/);
+});
+
+test("the simulator reads the device leaves at their factory values", () => {
+  const device = run(`korg.onEvent("ready", () => { korg.store.set(0, korg.system.device); korg.store.set(1, korg.system.limits.ifxTypes); korg.store.set(2, korg.system.limits.samples); });`);
+  assert.deepEqual([0, 1, 2].map(i => stored(device, i)), [0, 73, 1000]);
+});
+
+// API 27: MFX 2 of the patch mfx-switch and the touch pad mode (plan 2026-11-10-plugin-api-1.5-complete, phase 2).
+test("korg.touchpad.mode and the event touchpadMode need API 27", () => {
+  const leaf = OBJECT_BY_PATH.get("korg.touchpad.mode");
+  assert.deepEqual([leaf.base, leaf.min, leaf.max, leaf.write, leaf.since], ["touchpad", 0, 4, true, 27]);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let m = korg.touchpad.mode; });`)).header.apiVersion, 27);
+  assert.equal(decodeBlob(build(`korg.onEvent("touchpadMode", mode => { korg.store.set(0, mode); });`)).header.apiVersion, 27);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let t = korg.pattern.current.mfx2Type; });`)).header.apiVersion, 27);
+});
+
+test("the simulator sets the touch pad mode as one key press would, with MFX 2 on, and reports it", () => {
+  const device = run(`let seen = -1;
+korg.onEvent("touchpadMode", mode => { seen = mode; korg.store.set(1, mode); });
+korg.onEvent("ready", () => { korg.store.set(0, korg.touchpad.mode); korg.touchpad.mode = 4; korg.touchpad.mode = 0; korg.store.set(2, korg.touchpad.mode); });`);
+  device.frame();
+  assert.deepEqual([0, 1, 2].map(i => stored(device, i)), [2, 4, 4]);
+});
+
+test("the simulator keeps MFX 2 per pattern, 6 where a pattern has none", () => {
+  const device = run(`korg.onEvent("ready", () => { korg.store.set(0, korg.pattern.current.mfx2Type); korg.pattern.current.mfx2Type = 12;
+  korg.store.set(1, korg.current.mfx2Type); korg.store.set(2, korg.patterns[1].mfx2Type); korg.pattern.current.mfx2Type = 99; korg.store.set(3, korg.current.mfx2Type); });`);
+  assert.deepEqual([0, 1, 2, 3].map(i => stored(device, i)), [6, 12, 6, 39]);
+});
+
+// API 28: the motion lanes and the motion switch (plan 2026-11-10-plugin-api-1.5-complete, phase 3).
+test("korg.motion calls and korg.motion.enabled need API 28", () => {
+  const leaf = OBJECT_BY_PATH.get("korg.motion.enabled");
+  assert.deepEqual([leaf.base, leaf.min, leaf.max, leaf.write, leaf.since], ["motion", 0, 1, true, 28]);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let on = korg.motion.enabled; });`)).header.apiVersion, 28);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { korg.motion.clearLane(korg.motion.lane(0)); });`)).header.apiVersion, 28);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { korg.led(0, 1); });`)).header.apiVersion < 28, true);
+});
+
+test("the simulator reads, writes and clears motion lanes as the pattern block holds them", () => {
+  const device = new SimDevice();
+  const block = device.hardware.patternBlock(-1);
+  block[PATTERN_MOTION.owner] = 1; block[PATTERN_MOTION.owner + 1] = 2; block[PATTERN_MOTION.owner + 2] = PATTERN_MOTION.mfx;
+  assert.ok(device.load(build(`korg.onEvent("ready", () => {
+  korg.motion.setValue(0, 3, 64); korg.store.set(0, korg.motion.value(0, 3));
+  korg.motion.setValue(1, 0, 100); korg.store.set(1, korg.motion.value(1, 0)); korg.motion.setValue(1, 0, -1); korg.store.set(2, korg.motion.value(1, 0));
+  korg.motion.clearPart(0); korg.store.set(3, korg.motion.lane(0)); korg.store.set(4, korg.motion.value(0, 3));
+  korg.store.set(5, korg.motion.lane(2)); korg.motion.clearMfx(); korg.store.set(6, korg.motion.lane(2)); korg.store.set(7, korg.motion.output(0));
+});`)).ok);
+  device.frame();
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(i => stored(device, i)), [64, 100, -1, 0, -1, 17, 0, -1]);
+});
+
+test("the simulator switches the selected part's motion with korg.motion.enabled", () => {
+  const device = run(`korg.onEvent("ready", () => { korg.store.set(0, korg.motion.enabled); korg.motion.enabled = 1; korg.store.set(1, korg.motion.enabled);
+  korg.motion.enabled = 0; korg.store.set(2, korg.motion.enabled); });`);
+  device.frame();
+  assert.deepEqual([0, 1, 2].map(i => stored(device, i)), [0, 1, 0]);
+});
+
+// API 29: firmware states, the write event and the pattern name (plan 2026-11-10-plugin-api-1.5-complete, phase 4).
+test("korg.pads.mode, korg.pads.bar, korg.screen and the events padMode, screen and write need API 29", () => {
+  for (const path of ["korg.pads.mode", "korg.pads.bar", "korg.screen"]) {
+    const leaf = OBJECT_BY_PATH.get(path);
+    assert.deepEqual([leaf.base, leaf.write, leaf.stored, leaf.since], ["state", false, false, 29], path);
+    assert.match(refused(`korg.onEvent("ready", () => { ${path} = 1; });`), new RegExp(path.replace(/\./g, "\\.")));
+  }
+  for (const source of [`korg.onEvent("ready", () => { let m = korg.pads.mode + korg.pads.bar + korg.screen; });`,
+    `korg.onEvent("padMode", mode => { korg.store.set(0, mode); });`, `korg.onEvent("screen", number => { korg.store.set(0, number); });`,
+    `korg.onEvent("write", pattern => { korg.store.set(0, pattern); });`, `let a = [0, 0]; korg.onEvent("ready", () => { korg.display.chars(a, 0, 0, 2); });`,
+    `let a = [0]; korg.onEvent("ready", () => { korg.read.patternName(a, -1); });`]) {
+    assert.equal(decodeBlob(build(source)).header.apiVersion, 29, source);
+  }
+});
+
+test("the simulator reads the pattern name and the firmware states at their factory values", () => {
+  const device = new SimDevice();
+  const block = device.hardware.patternBlock(-1);
+  block.set([...Buffer.from("Hi there")], 16);
+  assert.ok(device.load(build(`let n = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+korg.onEvent("ready", () => { korg.store.set(0, korg.read.patternName(n, -1)); korg.store.set(1, n[0]); korg.store.set(2, n[7]);
+  korg.store.set(3, korg.pads.mode); korg.store.set(4, korg.screen); });`)).ok);
+  device.frame();
+  assert.deepEqual([0, 1, 2, 3, 4].map(i => stored(device, i)), [16, 72, 101, 3, 1]);
+});
+
+
+// API 33: samples and saving the pattern (plan 2026-11-10-plugin-api-1.5-complete, phase 8).
+test("korg.read.sampleName, korg.read.sampleInfo and korg.pattern.write need API 33 and work in the simulator", () => {
+  for (const source of [`let a = [0]; korg.onEvent("ready", () => { korg.read.sampleName(a, 0); });`,
+    `korg.onEvent("ready", () => { let v = korg.read.sampleInfo(0, 7); });`, `korg.onEvent("ready", () => { korg.pattern.write(); });`, `korg.onEvent("ready", () => { korg.part.copy(0, 1, 2); });`]) {
+    assert.equal(decodeBlob(build(source)).header.apiVersion, 33, source);
+  }
+  const device = new SimDevice();
+  device.hardware.samples.set(652, { name: "Kick 909", tune: -12, rate: 48000, stereo: 1 });
+  device.hardware.patternBlock(-1).set([...Buffer.from("Saved")], 16);
+  assert.ok(device.load(build(`let n = [0, 0, 0, 0];
+korg.onEvent("ready", () => { korg.store.set(0, korg.read.sampleName(n, 652)); korg.store.set(1, n[3]);
+  korg.store.set(2, korg.read.sampleInfo(652, 3)); korg.store.set(3, korg.read.sampleInfo(652, 7)); korg.store.set(4, korg.read.sampleInfo(1, 4));
+  korg.store.set(5, korg.read.sampleName(n, 1)); korg.store.set(6, korg.pattern.write()); });`)).ok);
+  device.frame();
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => stored(device, i)), [4, 107, -12, 48000, 0, 0, 1]);
+  assert.equal(Buffer.from(device.hardware.patternBlock(device.hardware.pattern).subarray(16, 21)).toString(), "Saved");
+});
+
+test("korg.part.copy copies a part of the bank, or of the pattern in RAM for the chosen one, onto a part of the pattern in RAM", () => {
+  const device = new SimDevice();
+  const at = part => PATTERN_PARTS.base + part * PATTERN_PARTS.stride;
+  device.hardware.patternBlock(5)[at(3) + 8] = 77;
+  device.hardware.patternBlock(-1)[at(4) + 8] = 66;
+  assert.ok(device.load(build(`korg.onEvent("ready", () => { korg.part.copy(5, 3, 0); korg.part.copy(${device.hardware.pattern}, 4, 1); });`)).ok);
+  device.frame();
+  const ram = device.hardware.patternBlock(-1);
+  assert.deepEqual([ram[at(0) + 8], ram[at(1) + 8], device.hardware.patternBlock(5)[at(3) + 8]], [77, 66, 77]);
+});
+
+// API 34: power source, battery level and the firmware's LEDs (plan 2026-11-10-plugin-api-1.5-complete, phase 9).
+test("korg.system.power, korg.system.battery and korg.read.led need API 34 and read the simulator's state", () => {
+  for (const source of [`korg.onEvent("ready", () => { let v = korg.system.power; });`, `korg.onEvent("ready", () => { let v = korg.system.battery; });`,
+    `korg.onEvent("ready", () => { let v = korg.read.led(3); });`]) {
+    assert.equal(decodeBlob(build(source)).header.apiVersion, 34, source);
+  }
+  const device = new SimDevice();
+  device.hardware.firmwareLeds[5] = 200;
+  assert.ok(device.load(build(`korg.onEvent("ready", () => { korg.store.set(0, korg.system.power); korg.store.set(1, korg.system.battery);
+  korg.store.set(2, korg.read.led(5)); korg.led(6, 255); korg.store.set(3, korg.read.led(6)); });`)).ok);
+  device.frame();
+  assert.deepEqual([0, 1, 2, 3].map(i => stored(device, i)), [1, 4, 200, 0]);
 });

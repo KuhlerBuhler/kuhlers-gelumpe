@@ -634,6 +634,58 @@ sc_un_write:
     blx r12
 sc_un_out:
     pop {r4-r7, pc}
+; korg.pattern.write (API 33): EXIT + WRITE for a plugin. On the main screen presses WRITE and lets shortcut_tick give the Write
+; window its second WRITE. -> r0 1 when the save is under way, 0 off the main screen or while a save waits for its window.
+script_pattern_write_glue:
+    push {r4, lr}
+    mov r0, #0
+    mov r1, #SHORTCUTS
+    cmp r1, #0
+    beq sc_write_glue_done
+    ldr r4, =MENU_STATE
+    ldrb r1, [r4, #SC_SAVE]
+    cmp r1, #0
+    bne sc_write_glue_done
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    beq sc_write_glue_done
+    ldr r1, [r1, #0x2c]
+    cmp r1, #1
+    bne sc_write_glue_done
+    mov r1, #SC_WAIT
+    strb r1, [r4, #SC_SAVE]
+    mov r0, #SC_KEY_WRITE
+    mov r1, #1
+    ldr r12, =HW_PANEL_KEY
+    blx r12
+    mov r0, #SC_KEY_WRITE
+    mov r1, #0
+    ldr r12, =HW_PANEL_KEY
+    blx r12
+    mov r0, #1
+sc_write_glue_done:
+    mov r1, #ERR_OK
+    pop {r4, pc}
+; korg.part.copy(pattern, from, to) (API 33): the firmware's Copy Part of Part Util (docs/messungen/2026-10-30-vorschau-part-reinholen.md).
+; It reads +0x40 to +0x42 of its object (source pattern, source part, target part) and, on the synth, the target part in r1; from
+; the pattern in RAM when the source is the chosen number, else from the bank. UI task as the page COPY PART.
+.equ PART_COPY, 0xC00667D4
+script_part_copy_glue:
+    push {r4, lr}
+    sub sp, sp, #0x48
+    strb r0, [sp, #0x40]
+    strb r1, [sp, #0x41]
+    strb r2, [sp, #0x42]
+    mov r0, sp
+    mov r1, r2
+    ldr r12, =PART_COPY
+    blx r12
+    add sp, sp, #0x48
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {r4, pc}
 .align 4
 shortcut_pool:
 .pool

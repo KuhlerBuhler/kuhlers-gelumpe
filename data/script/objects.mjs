@@ -8,7 +8,11 @@
  *   base     where the value lives: "menu" MENU_STATE + offset (tools/patch/script_menu.s), "runtime" the state words of
  *            the object runtime + offset (script_objects.s), "abs" the absolute address `offset` (a setting word of a patch,
  *            in our own code area), "global" the Global settings the firmware keeps + offset (a pointer read at each access),
- *            "pad" no address: `offset` picks a call into the patch pad-colors (0 PAD COLOR, 1 SELECT COLOR, 2 OVERLAP, 3 LED DIMMING)
+ *            "pad" no address: `offset` picks a call into the patch pad-colors (0 PAD COLOR, 1 SELECT COLOR, 2 OVERLAP, 3 LED DIMMING),
+ *            "info" no address, read only: `offset` picks what the runtime knows about the device it runs on (INFO),
+ *            "touchpad" no address: the touch pad mode, read from the firmware and the patch mfx-switch, set with one key press
+ *            "motion" no address: whether the selected part plays its motion, set with one TAP press of the patch tap-motion
+ *            "state" no address, read only: `offset` picks a firmware state word read behind its pointer (STATE_WORDS)
  *   type     "u8" one byte, "u32" one word
  *   min, max the valid range; a set outside it is clamped and counted, so is a stored value found outside it at start
  *   factory  the value when the menu starts without a settings file
@@ -24,7 +28,15 @@
 import { text } from "../../src/text.mjs";
 import globalMap from "../map/global.mjs";
 
-export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad"]);
+export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info", "touchpad", "motion", "state"]);
+/** What a leaf of the base "state" reads, by its offset. */
+export const STATE_WORDS = Object.freeze({ padMode: 0, bar: 1, screen: 2, power: 3, battery: 4 });
+/**
+ * What a leaf of the base "info" reads, by its `offset` (tools/patch/script_objects.s, objects_info_get): the build the runtime
+ * was made for, the version of the set (the text of the patch blech-version), and the counts the firmware's own functions
+ * return, so an fx catalog with more types raises them. `factory` is what the editor's simulator reads.
+ */
+export const INFO = Object.freeze({ device: 0, version: 1, ifxTypes: 2, mfxTypes: 3, samples: 4 });
 export const OBJECT_TYPES = Object.freeze(["u8", "u32"]);
 export const OBJECT_APPLY = Object.freeze(["none", "look", "keepAwake", "setter"]);
 /** Bytes of one row of the runtime's table: offset, min, max, factory (words), then base, type, apply, flags (bytes), then mirror and setter (words). */
@@ -202,6 +214,65 @@ export const OBJECTS = Object.freeze([
     unit: "action", text: text("api.object.menu.write"),
   }),
   ...globalLeaves(),
+
+  // API 26: the device a plugin runs on, so it adapts its ranges instead of hardcoding them (base "info", read only)
+  leaf(48, "korg.system.device", {
+    base: "info", offset: INFO.device, type: "u32", min: 0, max: 2, factory: 0, write: false, since: 26,
+    unit: "0 hacktribe, 1 red, 2 blue", text: text("api.object.system.device"),
+  }),
+  leaf(49, "korg.system.version", {
+    base: "info", offset: INFO.version, type: "u32", min: 0, max: 999999, factory: 0, write: false, since: 26,
+    unit: "x * 10000 + y * 100 + z, 0 unknown", text: text("api.object.system.version"),
+  }),
+  leaf(50, "korg.system.limits.ifxTypes", {
+    base: "info", offset: INFO.ifxTypes, type: "u32", min: 0, max: 255, factory: 73, write: false, since: 26,
+    unit: "count", text: text("api.object.system.limits.ifxTypes"),
+  }),
+  leaf(51, "korg.system.limits.mfxTypes", {
+    base: "info", offset: INFO.mfxTypes, type: "u32", min: 0, max: 255, factory: 43, write: false, since: 26,
+    unit: "count", text: text("api.object.system.limits.mfxTypes"),
+  }),
+  leaf(52, "korg.system.limits.samples", {
+    base: "info", offset: INFO.samples, type: "u32", min: 0, max: 1000, factory: 1000, write: false, since: 26,
+    unit: "count, 0 on blue", text: text("api.object.system.limits.samples"),
+  }),
+
+  // API 27: the touch pad mode; the factory value is the start mode of the patch mfx-switch
+  leaf(53, "korg.touchpad.mode", {
+    base: "touchpad", offset: 0, type: "u32", min: 0, max: 4, factory: 2, write: true, since: 27,
+    unit: "0 gate arp, 1 touch scale, 2 master fx, 3 both, 4 mfx 2", text: text("api.object.touchpad.mode"),
+  }),
+
+  // API 28: the motion switch of the selected part, as TAP switches it with the patch tap-motion
+  leaf(54, "korg.motion.enabled", {
+    base: "motion", offset: 0, type: "u32", min: 0, max: 1, factory: 1, write: true, since: 28,
+    unit: "0 off, 1 on", text: text("api.object.motion.enabled"),
+  }),
+
+  // API 29: firmware states for sequencer plugins, read only
+  leaf(55, "korg.pads.mode", {
+    base: "state", offset: STATE_WORDS.padMode, type: "u32", min: 0, max: 9, factory: 3, write: false, since: 29,
+    unit: "0 part mute, 2 part erase, 3 trigger, 4 sequencer, 5 keyboard, 6 chord, 7 step jump, 9 pattern set",
+    text: text("api.object.pads.mode"),
+  }),
+  leaf(56, "korg.pads.bar", {
+    base: "state", offset: STATE_WORDS.bar, type: "u32", min: 0, max: 3, factory: 0, write: false, since: 29,
+    unit: "0 to 3, the 16 steps the pads show", text: text("api.object.pads.bar"),
+  }),
+  leaf(57, "korg.screen", {
+    base: "state", offset: STATE_WORDS.screen, type: "u32", min: 0, max: 255, factory: 1, write: false, since: 29,
+    unit: "1 main, 3 pattern menu, 7 part menu, 8 global, 19 step, 21 part util, 37 sample", text: text("api.object.screen"),
+  }),
+
+  // API 34: power source and battery level as the firmware's top line shows them, read only
+  leaf(58, "korg.system.power", {
+    base: "state", offset: STATE_WORDS.power, type: "u32", min: 0, max: 1, factory: 1, write: false, since: 34,
+    unit: "1 adapter, 0 battery", text: text("api.object.system.power"),
+  }),
+  leaf(59, "korg.system.battery", {
+    base: "state", offset: STATE_WORDS.battery, type: "u32", min: 0, max: 4, factory: 4, write: false, since: 34,
+    unit: "4 full, 3, 2, 1 low, 0 empty", text: text("api.object.system.battery"),
+  }),
 ]);
 
 export const OBJECT_BY_PATH = new Map(OBJECTS.map(o => [o.path, o]));

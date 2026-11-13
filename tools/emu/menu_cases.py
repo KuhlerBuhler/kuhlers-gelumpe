@@ -363,7 +363,7 @@ def value_row_leftovers(dev):
     return shown - alone, alone - shown
 
 
-APPS_STATE_SIZE = 168                                                # SCRIPT_APPS.stateSize in data/script/contract.mjs: the table of apps ends the runtime
+APPS_STATE_SIZE = 216                                                # SCRIPT_APPS.stateSize in data/script/contract.mjs: the table of apps ends the runtime
 
 
 def apps_open_address():

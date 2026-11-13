@@ -212,6 +212,8 @@ script_read_pattern_value_glue:
     cmp r2, r3
     bhs hw_bad_arg
     ldr r12, [r12, r2, lsl #2]
+    cmp r12, #0x60000               ; kind 6 (mfx2): no byte of the pattern
+    beq pattern_value_mfx2
     cmn r0, #1
     ldreq r3, =HW_PATTERN_OBJECT+4
     ldrne r3, =SC_BANK
@@ -248,6 +250,56 @@ pattern_value_repeat:
 pattern_value_done:
     mov r1, #ERR_OK
     bx lr
+
+; MFX 2 of pattern r0 (-1 the running one), from the table of the patch mfx-switch after its own load (MFX2_ENTRY + 4), so the
+; table has one writer: an entry 1 to 100 is the type as the display numbers it, any other the patch's default (MFX2_ENTRY + 8).
+; -1 without the patch.
+; r0 = 1 while the patch mfx-switch is in the set and on (MFX 2 on in the menu BLECH, EXIT not held at power-on), else 0.
+; Its entry at MFX2_ENTRY + 12 answers the second part. Clobbers r1 to r3 and r12.
+mfx2_on:
+    ldr r0, =MFX2_ENTRY
+    ldr r0, [r0]
+    ldr r1, =MFX2_RECORD_ID
+    cmp r0, r1
+    movne r0, #0
+    bxne lr
+    push {r4, lr}
+    ldr r12, =MFX2_ENTRY+12
+    blx r12
+    eor r0, r0, #1
+    pop {r4, pc}
+
+pattern_value_mfx2:
+    push {r4, lr}
+    mov r4, r0
+    ldr r3, =MFX2_ENTRY
+    ldr r1, [r3]
+    ldr r2, =MFX2_RECORD_ID
+    cmp r1, r2
+    mvnne r0, #0
+    bne pattern_mfx2_out
+    cmn r4, #1
+    bne pattern_mfx2_load
+    ldr r12, =SC_PLAYER
+    blx r12
+    ldr r4, [r0, #0x318]
+pattern_mfx2_load:
+    cmp r4, #250
+    mvnhs r0, #0
+    bhs pattern_mfx2_out
+    ldr r12, =MFX2_ENTRY+4
+    blx r12
+    ldr r3, =MFX2_TABLE
+    ldrb r0, [r3, r4]
+    sub r0, r0, #1
+    cmp r0, #99
+    bls pattern_mfx2_out
+    ldr r3, =MFX2_ENTRY
+    ldr r0, [r3, #8]
+    sub r0, r0, #1
+pattern_mfx2_out:
+    mov r1, #ERR_OK
+    pop {r4, pc}
 .pool
 
 pattern_fields:
@@ -269,6 +321,7 @@ pattern_fields:
     .word SCRIPT_PATTERN_FIELD_15
     .word SCRIPT_PATTERN_FIELD_16
     .word SCRIPT_PATTERN_FIELD_17
+    .word SCRIPT_PATTERN_FIELD_18
 part_fields:
     .word SCRIPT_PART_FIELD_0
     .word SCRIPT_PART_FIELD_1
@@ -430,6 +483,8 @@ hw_pop_bad_arg:
 .equ HW_LED_REFRESH, 0xC00875F4
 .equ HW_LED_HOLD_BYTE, 0xB98
 .equ HW_LED_LAST, 0x57
+.equ HW_LED_COPY, 0x88C            ; the manager's copy of what went to the panel, 8 bytes a LED, byte 2 the brightness
+.equ HW_LED_COPY_PAGE, 0x880
 
 ; r0 red, r1 green, r2 blue: 1 lights that colour of the display light, 0 darkens it. Not held against the dimming on battery.
 script_backlight_glue:
@@ -502,6 +557,20 @@ led_hold_done:
     mov r1, #ERR_OK
     pop {r4-r6, pc}
 
+; r0 LED 0 to HW_LED_LAST -> r0 the brightness the firmware last sent for it (the LED manager's copy, 0 to 255), 0 before the
+; manager exists. LEDs a script sets with korg.led while it holds them are not in the copy.
+script_read_led_glue:
+    ldr r1, =HW_LED_MANAGER
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    moveq r0, #0
+    addne r1, r1, r0, lsl #3
+    addne r1, r1, #HW_LED_COPY_PAGE
+    ldrbne r0, [r1, #HW_LED_COPY+2-HW_LED_COPY_PAGE]
+    mov r1, #ERR_OK
+    bx lr
+
 ; r0 runtime. Gives the LEDs back when a script held them and none is left to run.
 script_led_hold_guard:
     ldr r1, [r0, #SCRIPT_CONTROL_LED_HOLD]
@@ -543,16 +612,18 @@ led_guard_release:
 .equ HD_KNOBS, SCRIPT_ENTRY_HOLDS+8
 .equ HD_PAD, SCRIPT_ENTRY_HOLDS+12
 .equ HD_QUIET, 2                    ; in HD_PAD: korg.display.popups(0), bit 0 is the pad hold
+.equ HD_MIDI_SHIFT, 8               ; in HD_PAD: korg.midi.hold, bits 8 to 14 a message type each (script_midi.s)
 
 ; r0 runtime, r1 a plugin to count although it is not armed yet (the one whose body runs), or 0. Folds the holds of the armed
 ; plugins into the key words (KY_FREE), the knob word (KH_FREE) and the pad bit of the capture mask. Clobbers r0 to r3 and r12.
 holds_sync:
-    push {r4-r8, lr}
+    push {r4-r9, lr}
     mov r4, r0
     mov r8, r1
     mov r5, #0
     mov r6, #0
     mov r7, #0
+    mov r9, #0
     ldr r1, [r4, #RT_HEAD]
 holds_next:
     cmp r1, #0
@@ -570,6 +641,7 @@ holds_count:
     ldr r0, [r1, #HD_KNOBS]
     orr r7, r7, r0
     ldr r0, [r1, #HD_PAD]
+    orr r9, r9, r0
     ands r0, r0, #1
     orrne r7, r7, r0, lsl #31
 holds_skip:
@@ -585,9 +657,14 @@ holds_fold:
     bic r0, r7, #0x80000000
     mvn r0, r0
     str r0, [r1, #KH_FREE]
+    mov r0, r9, lsr #HD_MIDI_SHIFT
+    and r0, r0, #0x7F
+    mvn r0, r0
+    ldr r1, =MIDI_FREE
+    str r0, [r1]
     mov r0, r7, lsr #31
     bl pad_hold_set
-    pop {r4-r8, pc}
+    pop {r4-r9, pc}
 
 ; Folds with the running plugin counted: a hold set in its body, which runs before it is armed, works at once.
 hold_sync_caller:
@@ -842,7 +919,7 @@ hold_owner_lost:
     bx lr
 
 ; korg.touchLockX: the input filter writes a fixed X into every touch message, after the plugins got the real one
-; (touch_lock_input, called from script_input_hook), so the firmware's touchpad modes see that X while Y stays the finger's. The
+; (touch_lock_input, called from script_input_hook), so the firmware's touchpad modes see that X. The
 ; firmware takes (raw X >> 4) * 2 as its X in Master FX and Touch Scale mode (0xC004567C on hacktribe and red, 0xC003F99C on
 ; the blue) and raw X >> 3 in Gate Arp mode (measured in the emulator on all three builds), so the record holds the raw value
 ; x << 3: x rounded down to even in the first two, x itself in Gate Arp, the same X as a finger at raw x * 8. Then the plugin
@@ -855,6 +932,7 @@ hold_owner_lost:
 ; r0 x (-1 to 127, checked by the VM). Only the VM writes the record, the input filter reads one word.
 script_touch_lock_x_glue:
     ldr r2, =TOUCH_LOCK
+touch_lock_set:
     cmp r0, #0
     mvnlt r3, #0
     movge r3, r0, lsl #3
@@ -871,21 +949,40 @@ touch_lock_done:
     mov r1, #ERR_OK
     bx lr
 
-; r5 a touch message (class 5): bytes 0x0d and 0x0e are its X, high byte first. Clobbers r1.
+; korg.touchLockY: the same for bytes 0x0f and 0x10, the Y of a touch message, in its own record at TOUCH_LOCK_Y. The
+; firmware takes (raw Y >> 4) * 2 in Master FX and raw Y >> 3 in Touch Scale and Gate Arp mode (measured in the emulator on all
+; three builds): y rounded down to even in Master FX, y itself in the other two.
+script_touch_lock_y_glue:
+    ldr r2, =TOUCH_LOCK_Y
+    b touch_lock_set
+
+; r5 a touch message (class 5): bytes 0x0d and 0x0e are its X, 0x0f and 0x10 its Y, high byte first. Clobbers r1.
 touch_lock_input:
     ldr r1, =TOUCH_LOCK
     ldr r1, [r1, #TL_RAW]
     cmn r1, #1
+    strbne r1, [r5, #0x0e]
+    movne r1, r1, lsr #8
+    strbne r1, [r5, #0x0d]
+    ldr r1, =TOUCH_LOCK_Y
+    ldr r1, [r1, #TL_RAW]
+    cmn r1, #1
     bxeq lr
-    strb r1, [r5, #0x0e]
+    strb r1, [r5, #0x10]
     mov r1, r1, lsr #8
-    strb r1, [r5, #0x0d]
+    strb r1, [r5, #0x0f]
     bx lr
 
 ; r0 runtime. Ends the lock when the plugin that locked is gone from the list, no longer armed or holds another block.
 ; Clobbers r1 to r3 and r12.
 script_touch_lock_guard:
+    push {r0, lr}
     ldr r1, =TOUCH_LOCK
+    bl touch_lock_guard_one
+    pop {r0, lr}
+    ldr r1, =TOUCH_LOCK_Y
+; r0 runtime, r1 a lock record (X or Y). Clobbers r1 to r3 and r12.
+touch_lock_guard_one:
     ldr r2, [r1, #TL_RAW]
     cmn r2, #1
     bxeq lr

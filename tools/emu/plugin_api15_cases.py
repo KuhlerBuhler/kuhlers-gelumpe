@@ -41,7 +41,8 @@ VALUES = {"tempo": 1234, "swing": -20, "length": 3, "beat": 2, "key": 5, "scale"
           "mfxPadX": 50, "mfxPadY": 60}
 FIELDS = node_json.run(
     "import {PATTERN_FIELDS, PATTERN_WRITES} from './data/script/contract.mjs';"
-    "console.log(JSON.stringify(PATTERN_FIELDS.map(f => [f.name, f.offset, f.kind, PATTERN_WRITES[f.name]])))")
+    "console.log(JSON.stringify(PATTERN_FIELDS.filter(f => f.kind !== 'mfx2')"   # mfx2Type (last) is the patch's table, plugin_api27_cases
+    ".map(f => [f.name, f.offset, f.kind, PATTERN_WRITES[f.name]])))")
 SET_FIRST = 8
 
 PROGRAM = f"""let tx = -1; let plays = 0; let done = 0;
