@@ -1,0 +1,9 @@
+{
+ "entries": [
+  {"from": "0xC00309E0", "to": "0xC002D7C8", "kind": "code", "why": "bl f_read of the 0x100 byte header on the version page of SOFTWARE UPDATE, the function that opens '/SYSTEM.VSB' (pool 0xC002D924) and compares 'SYSTEM'; mov r2, #0x100 in front of both"},
+  {"from": "0xC003A968", "to": "0xC00353B4", "kind": "code", "why": "bl f_read of the header in the update offered at power-on, the function with the '/SYSTEM.VSB' pool at 0xC00354B4; mov r2, #0x100 in front of both"},
+  {"from": "0xC003A9FC", "to": "0xC0035448", "kind": "code", "why": "bl f_read of the image (r2 = r5, the size from the header) in the same function, followed by the flash write of block 2 (0xC0029CBC, synth 0xC0027000)"},
+  {"from": "0xC003AD4C", "to": "0xC003579C", "kind": "code", "why": "bl f_read of the header in the update of DATA UTILITY, the function with the '/SYSTEM.VSB' pool at 0xC00358DC; mov r2, #0x100 in front of both"},
+  {"from": "0xC003AE24", "to": "0xC0035874", "kind": "code", "why": "bl f_read of the image (r2 = r5) in the same function, followed by the flash write of block 2"}
+ ]
+}
