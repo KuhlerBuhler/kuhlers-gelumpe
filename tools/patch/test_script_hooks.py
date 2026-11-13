@@ -563,6 +563,19 @@ class HookTests(unittest.TestCase):
         self.assertEqual([machine.read(record),machine.read(record+4)],[0xFFFFFFFF,0xFFFFFFFF],'closing the app resets the keys')
         self.drain(machine)
 
+    def test_key_release_reaches_firmware_when_display_is_taken_while_key_is_down(self):
+        machine,built=self.machine()
+        entry=self.app_script(machine)
+        machine.write(machine.runtime+88,entry)
+        manager=machine.read(0xC03404C0)
+        machine.write(manager+0x2c,1)
+        key=lambda code,down: [0,code,down,0,0]
+        firmware=0xC0028380
+        self.assertEqual(self.input(machine,key(10,1)),firmware,'SHIFT press reaches the firmware before display takeover')
+        self.assertEqual(machine.call('script_display_take_glue'),(1,0))
+        self.assertEqual(self.input(machine,key(10,0)),firmware,'SHIFT release follows its press after display takeover')
+        self.assertEqual([event[0] for event in self.drain(machine)],[3,4],'the plugin still receives both key events')
+
     def test_touch_lock_x_gives_the_firmware_a_fixed_x_and_the_plugins_the_real_one(self):
         machine,built=self.machine()
         entry=self.app_script(machine)

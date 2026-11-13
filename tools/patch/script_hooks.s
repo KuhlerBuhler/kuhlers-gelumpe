@@ -7,6 +7,7 @@
 ; reaches no plugin, so a plugin's press never comes back to it as an event.
 .equ PK_MARK, 0xB7
 .equ PK_MARK_WORD, 0xB7000000
+.equ KEY_PASS_ROUTE, 8
 
 script_input_hook:
     push {r0-r12, lr}
@@ -228,16 +229,15 @@ input_mask:
     bne input_drop
 input_mask_held:
     ldr r1, [r4, #RT_CAPTURE_MASK]
+    cmp r6, #0
+    bne input_mask_go
+    bl script_key_pass
+    cmp r0, #0
+    bne input_mask_go
     ldr r2, =APP_STATE
     ldr r2, [r2]
     cmp r2, #0
     beq input_mask_go
-    cmp r6, #0
-    bne input_mask_app
-    bl script_key_pass
-    cmp r0, #0
-    bne input_mask_go
-input_mask_app:
     orr r1, r1, #1
 input_mask_go:
     cmp r6, #4
@@ -249,6 +249,23 @@ input_mask_bit:
     mov r2, r2, lsl r6
     tst r1, r2
     beq input_pass
+    cmp r6, #0
+    bne input_drop
+    ldrb r2, [r5, #0x0e]
+    cmp r2, #0
+    beq input_drop
+    ldrb r2, [r5, #0x0d]
+    cmp r2, #34
+    bhs input_drop
+    ldr r3, =KEY_PASS
+    cmp r2, #32
+    addhs r3, r3, #4
+    subhs r2, r2, #32
+    mov r0, #1
+    mov r0, r0, lsl r2
+    ldr r2, [r3, #KEY_PASS_ROUTE]
+    orr r2, r2, r0
+    str r2, [r3, #KEY_PASS_ROUTE]
 input_drop:
     pop {r12, lr}
     .word 0xE12FF00C ; msr cpsr_cxsf, r12

@@ -718,9 +718,10 @@ script_knob_glue:
 ; (input_mask in script_hooks.s); a plugin picks the keys that reach the firmware as well. The record at KEY_PASS holds a
 ; word for keys 0 to 31 and one for 32 and 33, each bit the key's pass bit XOR its default (1 for REC, STOP and PLAY) and
 ; inverted, so the FF of the power-on is the defaults; then two words with a bit clear for a key whose press reached the
-; firmware while an app was open, so its release follows. The app's close puts the defaults back (script_app_close).
+; firmware, including before a plugin takes the display, so its release follows. The app's close puts the defaults back
+; (script_app_close).
 .equ KP_PASS, 0
-.equ KP_HELD, 8
+.equ KP_ROUTE, KEY_PASS_ROUTE
 .equ KP_DEFAULT, 7
 
 ; r0 key (0 to 33), r1 1 to let it reach the firmware, 0 to keep it. Only the VM writes the pass words, the input filter reads them.
@@ -759,13 +760,19 @@ script_key_pass:
     addhs r12, r12, #4
     subhs r2, r2, #32
     movhs r4, #0
+    mov r3, #1
+    mov r3, r3, lsl r2
+    ldr r0, =APP_STATE
+    ldr r0, [r0]
+    cmp r0, #0
+    moveq r0, r3
+    beq key_pass_policy_ready
     ldr r0, [r12, #KP_PASS]
     eor r0, r0, r4
     mvn r0, r0
-    mov r3, #1
-    mov r3, r3, lsl r2
     and r0, r0, r3
-    ldr r1, [r12, #KP_HELD]
+key_pass_policy_ready:
+    ldr r1, [r12, #KP_ROUTE]
     ldrb r4, [r5, #0x0e]
     cmp r4, #0
     beq key_pass_release
@@ -778,7 +785,7 @@ key_pass_release:
     orreq r0, r0, r3
     orr r1, r1, r3
 key_pass_store:
-    str r1, [r12, #KP_HELD]
+    str r1, [r12, #KP_ROUTE]
 key_pass_done:
     pop {r1, r4}
     bx lr
