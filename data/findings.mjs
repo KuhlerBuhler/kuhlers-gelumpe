@@ -16,6 +16,7 @@ const LEVEL_MOD = "measure:2026-09-21/level-mod";
 const LOUD = "measure:2026-09-21/loudness";
 const MOD_STAGE2 = "measure:2026-10-15/modulation-stufe2";
 const SIM = "derived:docs/messungen/2026-11-13-stufe2-simulation.md";
+const PAIR_REPORT = "measure:2026-11-13/stufe2-simulation";
 
 const stage2 = (unit, verdict, note, evidence) => ({
   id: `stage2.${unit.toString(16).padStart(2, "0")}`, kind: "stage2", unit, verdict, note, source: "measured", evidence,
@@ -48,7 +49,10 @@ export default [
   stage2(0x18, "fatal", "short delay: kills sound device-wide, needs a restart", CHAINS),
 
   ...pairs(0x03, "fatal", [0x12]),
-  ...pairs(0x05, "fatal", [0x01, 0x07, 0x08, 0x0f, 0x11, 0x12, 0x13, 0x18]),
+  ...pairs(0x05, "fatal", [0x01, 0x08, 0x11, 0x12, 0x13, 0x18]),
+  ...[0x07, 0x0f].map(first => ({
+    ...pairs(0x05, "fatal", [first])[0], note: "DSP glitched on the device (user report 2026-11-13)", source: "measured", evidence: PAIR_REPORT,
+  })),
   ...pairs(0x06, "fatal", [0x11, 0x12]),
   ...pairs(0x07, "fatal", [0x11, 0x12]),
   ...pairs(0x0a, "fatal", [0x01, 0x0f, 0x11, 0x12, 0x18]),

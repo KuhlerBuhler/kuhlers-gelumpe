@@ -28,7 +28,11 @@ Bewertet wird je Paar:
 | `0x0a` vor `0x16` | stumm | fremder Speicher |
 | `0x0a` vor `0x01`, `0x0a` vor `0x08` | läuft, kein Ton | Absturz |
 | `0x0a` vor `0x02` | Absturz | **läuft** |
+| `0x07` vor `0x05`, `0x0f` vor `0x05` | Störgeräusche, Gerät gerät aus dem Tritt (Nutzerbericht 13.11.) | Absturz |
 | `0x0a` vor `0x03` bis `0x07`, `0x0a`, `0x10`; `0x15` vor `0x0a`; `0x10` vor `0x06`; `0x02` vor `0x10`; `0x09` vor `0x00` | läuft | läuft |
+
+Die zwei Paare mit dem Limiter kamen nach der Simulation als Nutzerbericht vom Gerät (1.4.6 aus develop, Katalog-Effekte
+Bass Enhancer und Hardtekk Kick). Sie stehen in `data/findings.mjs` deshalb als gemessen, mit Verweis auf dieses Dokument.
 
 Ein Paar am Gerät wird nicht erkannt (`0x0a` vor `0x02`). "Fremder Speicher" heißt am Gerät mal Absturz, mal kein Ton. Was
 die Simulation durchlässt, ist also nicht sicher, nur nicht auffällig.
@@ -71,12 +75,13 @@ die Simulation durchlässt, ist also nicht sicher, nur nicht auffällig.
 Stufe 2 schon gemessen abstürzen oder stumm bleiben (`0x01`, `0x02`, `0x08`, `0x09`, `0x16`, `0x18`), und Stufe 1 `0x09` und
 `0x16` stehen dort schon. Der Baukasten sperrt die Paare wie die gemessenen, der Türsteher meldet sie (`stage2-pair`).
 
-Zwei Katalog-Effekte fallen darunter: Bass Enhancer (`0x07` vor `0x05`) und Hardtekk Kick (`0x0f` vor `0x05`). Beide sind
-am Gerät noch nicht geprüft ([Neue Effekte](2026-11-11-neue-effekte.md), offen Punkt 3).
+Zwei Katalog-Effekte fielen darunter: Bass Enhancer (`0x07` vor `0x05`) und Hardtekk Kick (`0x0f` vor `0x05`). Beide
+glitchten am Gerät und sind in 1.4.6 umgebaut, ebenso ULTRA LOUD (`0x0f` vor `0x05`), siehe
+[Neue Effekte, Nachtrag](2026-11-11-neue-effekte.md).
 
 ## Am Gerät zu prüfen
 
-1. Bass Enhancer und Hardtekk Kick.
-2. `0x07` vor `0x05`, `0x01` vor `0x0a`, `0x18` vor `0x0a` (Absturz erwartet).
+1. Die umgebauten Bass Enhancer, Hardtekk Kick und ULTRA LOUD (laufen erwartet).
+2. `0x01` vor `0x0a`, `0x18` vor `0x0a` (Absturz erwartet).
 3. `0x0a` vor `0x11`, `0x0a` vor `0x13`, `0x0a` vor `0x15` (Absturz oder kein Ton erwartet).
 4. `0x0a` vor `0x14`, `0x0a` vor `0x0f`, `0x03` vor `0x05` (laufen erwartet).
