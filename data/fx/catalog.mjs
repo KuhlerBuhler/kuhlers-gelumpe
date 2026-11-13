@@ -81,6 +81,545 @@ export const FX_CATALOG = Object.freeze([
  },
  {
   "kind": "ifx",
+  "name": "Lag",
+  "description": "Nach Hacktribes Lag: nur das Echo, ohne das trockene Signal, der Part kommt etwas später. Der Regler stellt die Verzögerung.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 24,
+    "unitName": "I_short_delay",
+    "params": {
+     "dry_level": 0,
+     "wet_level": 124,
+     "input_trim": 125,
+     "tempo_sync": 0,
+     "off_time_ratio": 63,
+     "off_delay_time": 20,
+     "on_time_ratio": 17,
+     "on_syncnote": 16,
+     "fb_depth": 0,
+     "high_damp": 2,
+     "low_damp": 0,
+     "delay_lag": 0
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 5,
+    "low": 0,
+    "high": 60
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "ifx",
+  "name": "KP2 Comp",
+  "description": "Nach Hacktribes KP2 Comp: der Kompressor aus dem Kaoss Pad 2. Der Regler drückt stärker und nimmt dabei den Pegel zurück.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 1,
+    "unitName": "I_mkp2_comp",
+    "params": {
+     "dry_wet": 100,
+     "envelope_select": 0,
+     "sensitivity": 96,
+     "attack": 12,
+     "output_level": 15,
+     "trim": 98,
+     "pre_leq_gain": 8,
+     "pre_leq_frequency": 0,
+     "pre_heq_gain": 8,
+     "pre_heq_frequency": 0
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 2,
+    "low": 0,
+    "high": 124
+   },
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 4,
+    "low": 122,
+    "high": 10
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "ifx",
+  "name": "LP Drive",
+  "description": "Nach Hacktribes LP Drive: ein Tiefpass, dahinter der Acid-Verzerrer. Der Regler fährt die Filterfrequenz.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 10,
+    "unitName": "I_filter",
+    "params": {
+     "dry_wet": 100,
+     "output_select": 2,
+     "frequency": 125,
+     "resonance": 0
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 16,
+    "unitName": "I_acid_driver",
+    "params": {
+     "drive": 122,
+     "output_level": 11
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 2,
+    "low": 2,
+    "high": 125
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "ifx",
+  "name": "LP Drive Res",
+  "description": "Nach Hacktribes LP Drive Res: ein Tiefpass mit Resonanz, dahinter der Acid-Verzerrer. Der Regler fährt die Filterfrequenz.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 10,
+    "unitName": "I_filter",
+    "params": {
+     "dry_wet": 100,
+     "output_select": 2,
+     "frequency": 125,
+     "resonance": 78
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 16,
+    "unitName": "I_acid_driver",
+    "params": {
+     "drive": 122,
+     "output_level": 11
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 2,
+    "low": 2,
+    "high": 125
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "ifx",
+  "name": "HP Drive",
+  "description": "Nach Hacktribes HP Drive: ein Hochpass, dahinter der Acid-Verzerrer. Der Regler fährt die Filterfrequenz.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 10,
+    "unitName": "I_filter",
+    "params": {
+     "dry_wet": 100,
+     "output_select": 4,
+     "frequency": 125,
+     "resonance": 0
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 16,
+    "unitName": "I_acid_driver",
+    "params": {
+     "drive": 122,
+     "output_level": 11
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 2,
+    "low": 2,
+    "high": 125
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "ifx",
+  "name": "HP Res Drive",
+  "description": "Nach Hacktribes HP Res Drive: ein Hochpass mit Resonanz, dahinter der Acid-Verzerrer. Der Regler fährt die Filterfrequenz.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 10,
+    "unitName": "I_filter",
+    "params": {
+     "dry_wet": 100,
+     "output_select": 4,
+     "frequency": 125,
+     "resonance": 78
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 16,
+    "unitName": "I_acid_driver",
+    "params": {
+     "drive": 122,
+     "output_level": 11
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 2,
+    "low": 2,
+    "high": 125
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "ifx",
+  "name": "BP Drive",
+  "description": "Nach Hacktribes BP Drive: ein Bandpass, dahinter der Acid-Verzerrer. Der Regler fährt die Filterfrequenz.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 10,
+    "unitName": "I_filter",
+    "params": {
+     "dry_wet": 100,
+     "output_select": 3,
+     "frequency": 125,
+     "resonance": 0
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 16,
+    "unitName": "I_acid_driver",
+    "params": {
+     "drive": 122,
+     "output_level": 11
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 2,
+    "low": 2,
+    "high": 125
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "ifx",
+  "name": "BP Drive Res",
+  "description": "Nach Hacktribes BP Drive Res: ein Bandpass mit Resonanz, dahinter der Acid-Verzerrer. Der Regler fährt die Filterfrequenz.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 10,
+    "unitName": "I_filter",
+    "params": {
+     "dry_wet": 100,
+     "output_select": 3,
+     "frequency": 125,
+     "resonance": 78
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 16,
+    "unitName": "I_acid_driver",
+    "params": {
+     "drive": 122,
+     "output_level": 11
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 2,
+    "low": 2,
+    "high": 125
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "ifx",
+  "name": "9/32 Delay",
+  "description": "Nach Hacktribes 9/32 Delay: Echo auf neun Zweiunddreißigstel, viele Wiederholungen. Regler links nimmt das Echo raus, rechts mehr Wiederholungen, die zugleich dunkler und dünner werden.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 24,
+    "unitName": "I_short_delay",
+    "params": {
+     "dry_level": 127,
+     "wet_level": 116,
+     "input_trim": 127,
+     "tempo_sync": 1,
+     "off_time_ratio": 61,
+     "off_delay_time": 28,
+     "on_time_ratio": 62,
+     "on_syncnote": 7,
+     "fb_depth": 118,
+     "high_damp": 32,
+     "low_damp": 3,
+     "delay_lag": 15
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 69,
+    "chain": 0,
+    "param": 1,
+    "low": 100,
+    "high": 0
+   },
+   {
+    "source": 69,
+    "chain": 0,
+    "param": 8,
+    "low": 27,
+    "high": 9
+   },
+   {
+    "source": 68,
+    "chain": 0,
+    "param": 8,
+    "low": 27,
+    "high": 120
+   },
+   {
+    "source": 68,
+    "chain": 0,
+    "param": 1,
+    "low": 100,
+    "high": 100
+   },
+   {
+    "source": 68,
+    "chain": 0,
+    "param": 9,
+    "low": 0,
+    "high": 92
+   },
+   {
+    "source": 68,
+    "chain": 0,
+    "param": 10,
+    "low": 3,
+    "high": 22
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "ifx",
+  "name": "3/32 Delay",
+  "description": "Nach Hacktribes 3/32 Delay: Echo auf drei Zweiunddreißigstel. Regler links nimmt das Echo raus, rechts mehr Wiederholungen, die zugleich dunkler und dünner werden.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 24,
+    "unitName": "I_short_delay",
+    "params": {
+     "dry_level": 127,
+     "wet_level": 116,
+     "input_trim": 127,
+     "tempo_sync": 1,
+     "off_time_ratio": 61,
+     "off_delay_time": 28,
+     "on_time_ratio": 62,
+     "on_syncnote": 60,
+     "fb_depth": 78,
+     "high_damp": 32,
+     "low_damp": 3,
+     "delay_lag": 15
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 69,
+    "chain": 0,
+    "param": 1,
+    "low": 100,
+    "high": 0
+   },
+   {
+    "source": 69,
+    "chain": 0,
+    "param": 8,
+    "low": 27,
+    "high": 9
+   },
+   {
+    "source": 68,
+    "chain": 0,
+    "param": 8,
+    "low": 27,
+    "high": 120
+   },
+   {
+    "source": 68,
+    "chain": 0,
+    "param": 1,
+    "low": 100,
+    "high": 100
+   },
+   {
+    "source": 68,
+    "chain": 0,
+    "param": 9,
+    "low": 0,
+    "high": 92
+   },
+   {
+    "source": 68,
+    "chain": 0,
+    "param": 10,
+    "low": 3,
+    "high": 22
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "ifx",
+  "name": "1/12 Delay",
+  "description": "Nach Hacktribes 1/12 Delay: Echo auf Achteltriolen. Regler links nimmt das Echo raus, rechts mehr Wiederholungen.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 24,
+    "unitName": "I_short_delay",
+    "params": {
+     "dry_level": 127,
+     "wet_level": 116,
+     "input_trim": 127,
+     "tempo_sync": 1,
+     "off_time_ratio": 61,
+     "off_delay_time": 28,
+     "on_time_ratio": 35,
+     "on_syncnote": 4,
+     "fb_depth": 92,
+     "high_damp": 60,
+     "low_damp": 18,
+     "delay_lag": 15
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
+   }
+  ],
+  "map": [
+   {
+    "source": 69,
+    "chain": 0,
+    "param": 1,
+    "low": 100,
+    "high": 0
+   },
+   {
+    "source": 69,
+    "chain": 0,
+    "param": 8,
+    "low": 27,
+    "high": 9
+   },
+   {
+    "source": 68,
+    "chain": 0,
+    "param": 8,
+    "low": 27,
+    "high": 120
+   },
+   {
+    "source": 68,
+    "chain": 0,
+    "param": 1,
+    "low": 100,
+    "high": 100
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "ifx",
   "name": "1/6 Delay",
   "description": "Echo auf Vierteltriolen. Regler links nimmt das Echo raus, rechts mehr Wiederholungen.",
   "stages": [
@@ -418,7 +957,7 @@ export const FX_CATALOG = Object.freeze([
  {
   "kind": "ifx",
   "name": "Loud Distortion",
-  "description": "Weniger Verzerrung als das Werkspreset (Gain 64 statt 100), der Ausgangspegel knapp darüber (18 statt 11). Der Regler dreht die Verzerrung.",
+  "description": "Weniger Verzerrung als das Werkspreset (Gain 64 statt 100), der Ausgangspegel deutlich darüber (20 statt 11). Der Regler dreht die Verzerrung.",
   "stages": [
    {
     "stage": "ifx1",
@@ -439,7 +978,7 @@ export const FX_CATALOG = Object.freeze([
      "post_eq3_frequency": 53,
      "post_eq3_q": 5,
      "post_eq3_gain": 25,
-     "output_level": 18
+     "output_level": 20
     }
    },
    {
@@ -1663,6 +2202,60 @@ export const FX_CATALOG = Object.freeze([
     "param": 10,
     "low": 40,
     "high": 26
+   }
+  ],
+  "creator": "Kuhler Buhler"
+ },
+ {
+  "kind": "ifx",
+  "name": "ULTRA LOUD",
+  "description": "Volle Verzerrung (Gain 127) mit dem höchsten Ausgangspegel, den der Katalog erlaubt, dahinter ein Limiter mit Röhrensättigung voll und dem höchsten Ausgangspegel, den der Linter noch nicht als zu laut meldet; er fängt die Spitzen, bevor es hart clippt. Der Regler nimmt die Verzerrung etwas zurück.",
+  "stages": [
+   {
+    "stage": "ifx1",
+    "unit": 15,
+    "unitName": "I_distortion",
+    "params": {
+     "dry_wet": 0,
+     "gain": 127,
+     "pre_eq_frequency": 35,
+     "pre_eq_q": 15,
+     "pre_eq_gain": 48,
+     "post_eq1_frequency": 16,
+     "post_eq1_q": 5,
+     "post_eq1_gain": 36,
+     "post_eq2_frequency": 43,
+     "post_eq2_q": 5,
+     "post_eq2_gain": 42,
+     "post_eq3_frequency": 53,
+     "post_eq3_q": 5,
+     "post_eq3_gain": 25,
+     "output_level": 20
+    }
+   },
+   {
+    "stage": "ifx2",
+    "unit": 5,
+    "unitName": "I_limiter",
+    "params": {
+     "dry_wet": 100,
+     "envelope_select": 0,
+     "threshold": 40,
+     "attack": 1,
+     "release": 4,
+     "hold_time": 4,
+     "tubesat": 127,
+     "output_gain": 90
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 66,
+    "chain": 0,
+    "param": 1,
+    "low": 96,
+    "high": 127
    }
   ],
   "creator": "Kuhler Buhler"
