@@ -173,7 +173,7 @@ class PadGeometryTests(unittest.TestCase):
                 if build=='synth':
                     self.assertEqual(code,old_code)
                 else:
-                    self.assertLessEqual(len(code),2684+768)
+                    self.assertLessEqual(len(code),2684+808)    # + 40 for KNOB LEDS (12.11.)
                 self.assertLessEqual(at+len(code),pad_colors.CODE_END)
         finally:
             pad_colors.use_build('hacktribe')

@@ -173,7 +173,7 @@ export function splashPage(root) {
     gallery.replaceChildren(...GALLERY.map(item => card(item, false)), ...readOwn().map(item => card(item, true)));
   }
 
-  // Three tabs, each its own section: the start image for the card, the loading animation for the Patcher, and pictures for the BMP Viewer.
+  // Three tabs, each its own section: the start image for the card, the loading animation for the Patcher, and pictures for the Image Viewer.
   const tabs = el("div", { className: "ui-tabs", id: "cee-design-tabs" });
   tabs.setAttribute("role", "tablist");
   tabs.setAttribute("aria-label", t("nav.splash"));

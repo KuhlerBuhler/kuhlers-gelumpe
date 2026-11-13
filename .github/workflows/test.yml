@@ -46,6 +46,9 @@ jobs:
       - if: matrix.part == 1
         run: npx --yes @google/design.md@0.4.0 lint DESIGN.md
       - run: python3 -m pip install -r tools/emu/requirements.txt
+      # The runtime patches are built, not committed (tools/patch/ensure-runtime.mjs); a sharded run does not go
+      # through tools/test-runner.mjs, which builds them otherwise. Python 3 comes with the runner image.
+      - run: node tools/patch/ensure-runtime.mjs
       # npm run test:ci with the part: an option after the file pattern would not reach node --test.
       - run: node --test --test-timeout=300000 --test-shard=${{ matrix.part }}/2 "test/*.test.mjs"
         env:
@@ -99,6 +102,7 @@ jobs:
       - run: npm ci
       # The runner image ships Chrome and the tests drive that one (channel "chrome"),
       # so there is no browser download to cache or to limit to Chromium.
+      - run: node tools/patch/ensure-runtime.mjs
       - run: node --test --test-timeout=180000 --test-shard=${{ matrix.part }}/4 "test/e2e/*.e2e.mjs"
 
   browser:
