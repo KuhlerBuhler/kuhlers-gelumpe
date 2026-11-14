@@ -21,7 +21,7 @@ Zustand bis `0x84` Bytes (`0x11`). Fast jedes Paar schreibt also in den Nachbarn
 
 ## Patch
 
-`tools/patch/stage2_memory.py`, im BLECH-Set als `stage2-memory`. Fünf Befehle der Schleife, die Länge von Heap 1 und ein Block im Startstrom:
+`tools/patch/stage2_memory.py`, im BLECH-Set als `stage2-memory`. Sechs Befehle der Schleife, ein Befehl im IFX-Handler, die Länge von Heap 1 und ein Block im Startstrom:
 
 | Adresse | vorher | nachher |
 |---|---|---|
@@ -29,7 +29,9 @@ Zustand bis `0x84` Bytes (`0x11`). Fast jedes Paar schreibt also in den Nachbarn
 | `0x01F0C16A` | `R3 = 0x70` | `R3 = 0x4A74` (Zustand Stufe 2 minus Zustand Stufe 1) |
 | `0x01F0C178` | `R2 = R1 + R2` | `R2 = R5 + R2` |
 | `0x01F0C1CC` | `[I0++] = R6` (0) | `[I0++] = R0` (Puffer des Parts) |
+| `0x01F0C1DA` | `[I0++] = R6` (0) | `[I0++] = R0` (Schreibzeiger der Verzögerung im Puffer des Parts) |
 | `0x01F0C1EC` | `R4 = 0x1B4` | `R4 = 0xB4` |
+| `0x00018B00` | `R2 = 0x48` | `JUMP.S 0x18B14` (IFX-Handler lässt die Koeffizienten von Stufe 2 stehen) |
 | `0x01F02448` | Heap 1: `0x39FF` Bytes | `0x1D20` Bytes (Heap-Tabelle: Basis, Länge, Nummer) |
 | Startblock 145 (Datei `0x130918`) | füllt `0xFF900CD0` bis `0xFF903FF0` mit Nullen (`0x3320`) | bis `0xFF908000` (`0x7330`), Prüfbyte des Kopfs `0x0D` zu `0x5D` |
 
@@ -38,7 +40,13 @@ Danach:
 - Zustand Stufe 2: `0xFF906320 + 0x118 * Part`. Stufe 1 hat `0xA0` Bytes bis zu den Mixer-Wörtern.
 - Koeffizienten Stufe 2: `0xFF9074D4 + 0xB4 * Part`, bis zum Ende von Bank B (`0xFF908000`). Stufe 1 behält die ganzen
   `0xA0` Bytes des Part-Blocks.
-- SDRAM Stufe 2: der Puffer des Parts.
+- SDRAM Stufe 2: der Puffer des Parts, Anfang und Schreibzeiger. Ohne `0x01F0C1DA` lief der Schreibzeiger ab SDRAM 0
+  durch den DSP-Code.
+- IFX-Handler: setzt die CPU einen Baustein (FIFO-Feld `2 * Part + Stufe`), schreibt der Handler bei ungeraden Parts
+  (Feld-Bit 1, Pads 2 bis 16) den Koeffizienten-Zeiger neu, Stufe 1 auf ihren alten Wert, Stufe 2 auf Part-Block `+ 0x120`,
+  also auf die ungepatchte Stelle in den Koeffizienten von Stufe 1. Ohne `0x00018B00` stürzte `0x0a` vor `0x11` auf dem
+  Gerät auf allen geraden Pads ab und auf den ungeraden nicht. Mit dem Sprung behält Stufe 2 den Zeiger aus der
+  Schleife, `0x0a` vor `0x11` läuft auf Pad 8 (Gerät, 14.11., Firmware `e208d391`).
 - Heap 1: `0xFF904600` bis `0xFF906320` statt bis zum Ende von Bank B.
 - Beim Start steht in Bank B ab `0xFF900CD0` bis zum Ende überall 0.
 
@@ -135,6 +143,11 @@ Befunde, die der Patch behebt, tragen in `data/findings.mjs` `fixedBy: "stage2-m
 `0x08`, `0x09`, `0x18`, der Decimator `0x09` in Stufe 1 und alle Paare außer Delay hinter Delay (erste Stufe `0x11`,
 `0x12`, `0x16` oder `0x18`, zweite `0x11`, `0x12` oder `0x18`). Gesperrt bleiben diese Delay-Paare und `0x16` in beiden
 Stufen.
+
+`0x0a` vor `0x12` und `0x0a` vor `0x09` stürzten am Gerät mit Firmware `ef02f1d2` ab, die `0x00018B00` noch nicht hatte;
+`0x0a` vor `0x11` stürzte dort nur auf geraden Pads ab. Mit Firmware `ffc395bd` (mit `0x00018B00`) liefen am Gerät
+`0x0a` vor `0x01`, `0x09`, `0x11`, `0x12`, `0x18` und `0x09` vor `0x0a` auf einem geraden und einem ungeraden Pad ohne
+Absturz (2026-11-14).
 
 Die App gibt die behobenen Befunde frei, solange die Firmware den Patch trägt. Mit gelesener Firmware prüft
 `hasStage2Memory` das erste Wort des Patches (Datei `0x12A8D6`), ohne gelesene Firmware gilt der Patch als vorhanden.
