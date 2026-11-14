@@ -786,8 +786,8 @@ def doom_cases(payload, flash, part=None):
     """The Doom files (bit 29 of a FILE offset, bit 31 for doom.wad): SD:/KORG/blechtribe/Doom/doom.bin and doom.wad, the paths the Doom
     loader opens. The real doom.bin of third_party/doom is written in blocks onto a card that has no Doom folder yet, read back over SysEx
     and compared byte for byte on the card image; doom.wad is written past the size limit of a VSB (the whole 28 MB file would take hours
-    over the emulated DIN line, so the start of the real file and a block far behind it), read back, made anew by a block at 0. Bits 30
-    and 29 together are refused, so are offsets past the limit; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
+    over the emulated DIN line, so the start of the real file and a block far behind it), read back, made anew by a block at 0. A write
+    with bits 30 and 29 (e2sFx.all, fx_read_cases) and a read with bits 31, 30 and 29 are refused, so are offsets past the limit; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
     import fat32
     from sdcard import MemoryMedium, SDCard
     BIN, WAD = spec.FILE_DOOM, spec.FILE_DOOM | spec.FILE_OTHER
@@ -866,11 +866,11 @@ def doom_cases(payload, flash, part=None):
         b, d = lk.file_write(WAD | 0, short)
         out.append(entry("doom_wad_anew", b and d and d["status"] == OK and on_card(dev, wad_path) == short, f"a block at offset 0 makes doom.wad anew: {len(on_card(dev, wad_path) or b'')} bytes, written {len(short)}"))
     both, _ = lk.file_write(spec.FILE_DOOM | spec.FILE_SAMPLE | 0, b"x" * 10)
-    both_read = lk.file_read(spec.FILE_DOOM | spec.FILE_SAMPLE | 0, 0)
+    both_read = lk.file_read(spec.FILE_DOOM | spec.FILE_SAMPLE | spec.FILE_OTHER | 0, 0)
     beyond, _ = lk.file_write(BIN | (spec.SAMPLE_LIMIT - 5), b"x" * 10)
     statuses = [r and r["status"] for r in (both, both_read, beyond)]
     out.append(entry("doom_refusals", statuses == [RANGE, RANGE, RANGE] and on_card(dev, vsb) == system and on_card(dev, "KORG/blechtribe/Sample/e2sSample.all") is None,
-                     f"bits 30 and 29 together (write, read) and past the limit: {statuses}; SYSTEM.VSB unchanged, no sample file made"))
+                     f"bits 30 and 29 written, bits 31, 30 and 29 read and past the limit: {statuses}; SYSTEM.VSB unchanged, no sample file made"))
     if part in (None, "bin"):
         nocard, lk2 = device(card=False)
         r = lk2.file_read(BIN | 0, 0)
@@ -938,13 +938,57 @@ def case_stream(payload, flash):
     return out
 
 
+def fx_read_cases(payload, flash):
+    """FILE READ with bits 30 and 29: the effect collection SD:KORG/blechtribe/Presets/e2sFx.all, read in blocks and compared byte
+    for byte with the card; a read past its end gives the rest. FILE BEGIN with the same bits is refused and leaves the file as it
+    was; without the file the read says STATUS_FILE."""
+    import fat32
+    from sdcard import MemoryMedium, SDCard
+    FX = spec.FILE_SAMPLE | spec.FILE_DOOM
+    fx_path = "KORG/blechtribe/Presets/e2sFx.all"
+    data = bytes((i * 131 ^ i >> 5) & 255 for i in range(spec.MAX_BLOCK * 2 + 777))
+    out = []
+
+    def device(files):
+        dev = Dev(payload, flash, 0)
+        img = fat32.format_image(64 * 1024 * 1024)
+        vol = fat32.Volume(img)
+        for name, body in files.items():
+            vol.write(name, body)
+        vol.close()
+        dev.m.insert_card(SDCard(MemoryMedium(bytearray(img))))
+        dev.run(1.0)
+        lk = Link(dev)
+        lk.find_channel()
+        return dev, lk
+
+    dev, lk = device({fx_path: data})
+    size = lk.file_read(FX | 0, 0)
+    parts = [lk.file_read(FX | at, min(spec.MAX_BLOCK, len(data) - at)) for at in range(0, len(data), spec.MAX_BLOCK)]
+    back = b"".join(r["data"] for r in parts if r and r["status"] == OK and r["crc_ok"])
+    out.append(entry("fx_read", size and size["status"] == OK and size["size"] == len(data) and back == data and not dev.m.asserts,
+                     f"e2sFx.all of {len(data)} bytes: size {size and size['size']}, read back in {len(parts)} blocks equal: {back == data}"))
+    tail = lk.file_read(FX | (len(data) - 100), 4096)
+    out.append(entry("fx_read_tail", tail and tail["status"] == OK and tail["length"] == 100 and tail["data"] == data[-100:] and tail["crc_ok"],
+                     f"a read past the end gives the last {tail and tail['length']} bytes"))
+    b, _ = lk.file_write(FX | 0, b"x" * 10)
+    card = fat32.Volume(dev.m.mmc.card.medium.data).read(fx_path)
+    out.append(entry("fx_write_refused", b and b["status"] == RANGE and card == data,
+                     f"FILE BEGIN with bits 30 and 29: status {b and b['status']}, the file unchanged: {card == data}"))
+    dev2, lk2 = device({})
+    none = lk2.file_read(FX | 0, 0)
+    out.append(entry("fx_missing", none and none["status"] == spec.STATUS_FILE and none["size"] == 0 and not dev2.m.asserts,
+                     f"no e2sFx.all on the card: status {none and none['status']}"))
+    return out
+
+
 def sample_kill_switch_cases(payload, flash):
     """sample_cases with EXIT held at power-on, a group of its own: each of its four requests waits 120 s for no answer."""
     return sample_cases(payload, flash, held_only=True)
 
 
 GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, file_cases, sample_cases, sample_kill_switch_cases,
-          case_stream, doom_bin_cases, doom_wad_cases)   # each its own task in check.py
+          case_stream, doom_bin_cases, doom_wad_cases, fx_read_cases)   # each its own task in check.py
 
 
 def synth_cases(payload, flash):

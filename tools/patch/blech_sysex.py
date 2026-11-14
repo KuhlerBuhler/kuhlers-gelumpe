@@ -35,7 +35,9 @@ when one is missing, as on the blue's card), every other writes into the existin
 0x200100, the size of a VSB. Bit 29 of the offset chooses the Doom files instead: SD:/KORG/blechtribe/Doom/doom.bin (bit 31 clear)
 and doom.wad (bit 31 set), the paths the Doom loader opens (tools/doom/runtime_abi.h); they are written like the update file (offset 0
 makes the file anew, a missing folder is made) but may be as large as the sample file, and INFO says so with bit 8 of its flags, which
-the blue Electribe 2 does not set (its set has no Doom loader). Bits 30 and 29 together name no file and are refused as out of range. Status 6 is a card error (no card, no file, card full). The firmware's update writes the flash
+the blue Electribe 2 does not set (its set has no Doom loader). Bits 30 and 29 together name the effect collection
+SD:KORG/blechtribe/Presets/e2sFx.all, which FILE READ reads up to the sample file's limit and FILE BEGIN refuses as out of range
+(a firmware from before answers out of range to both); with bit 31 as well they name no file. Status 6 is a card error (no card, no file, card full). The firmware's update writes the flash
 from that file when the user starts it; nothing here writes the flash.
 
 Every field is a 32-bit little endian word (the status too), the words are packed as every Electribe SysEx payload is
@@ -87,8 +89,8 @@ RAM = 0xC0000000
 
 CODE_AT = 0xC0172100            # free (FF) in the image, behind Hacktribe's code (ends 0xC01720B0) and clear of every other patch
 CODE_END = 0xC0173000           # the Sync Group's buffer of the pattern switch begins here (data/patches/pattern-switch.json)
-SAMPLE_AT = 0xC017B950          # the sample file commands: free (FF) behind the second block of the preset tables, ends before 0xC017C190
-SAMPLE_END = 0xC017C190
+SAMPLE_AT = 0xC017B950          # the sample file commands: free (FF) behind the second block of the preset tables, ends where preset-tables starts
+SAMPLE_END = 0xC017C000          # preset-tables writes from here (its change at file 0x17c100)
 TABLE_AT = 0xC0173800           # the protection table, 412 bytes today (src/sysex-table.mjs)
 TABLE_END = 0xC0174000
 STATE = 0xC0191000              # run time state, in RAM only (behind the synth filters' 0xC0190000 to 0xC0190100)
@@ -104,7 +106,8 @@ FILE_AREA_END = 0xC01A0000
 FILE_LIMIT = 0x200100           # offset plus length of a FILE command: the size of a VSB
 FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead of SYSTEM.VSB
 FILE_SAMPLE = 0x40000000        # bit 30 of a FILE offset: the sample file Sample/e2sSample.all, with bit 31 as well Sample/e2sSample.tmp
-FILE_DOOM = 0x20000000          # bit 29 of a FILE offset: the Doom program KORG/blechtribe/Doom/doom.bin, with bit 31 as well doom.wad (with bit 30 no file)
+FILE_FX = 0x60000000            # bits 30 and 29 of a FILE offset: the effect collection KORG/blechtribe/Presets/e2sFx.all, read only
+FILE_DOOM = 0x20000000          # bit 29 of a FILE offset: the Doom program KORG/blechtribe/Doom/doom.bin, with bit 31 as well doom.wad (with bit 30 e2sFx.all)
 SAMPLE_LIMIT = 0x10000000       # offset plus length of a FILE command on the sample file (256 MiB)
 COPY_MAX = 0x40000              # bytes one FILE COPY or FILE CRC works on
 COPY_CHUNK = 0x4000             # bytes the copy moves at once through BUF
@@ -771,6 +774,8 @@ do_fbegin:
     mov r3, #0
     str r3, [r6]
     bl sel_file                 ; which file into r5 (the function byte is not needed any more), the offset into r8
+    cmp r5, #8                  ; e2sFx.all is only read: no range
+    mvneq r8, #0
 fbegin_checked:
     ldr r10, [r6, #S_REQ + 8]
     mov r0, #{STATUS_RANGE}
@@ -1199,6 +1204,29 @@ window_no:
     mov r0, #0
     pop {{r3, r4, r5, r6, r7, r8, pc}}
 .pool
+; file_path for 5, 6 and 8: the fixed paths of the Doom files and of e2sFx.all into FILE_PATH. Here because the sample section
+; below is full (on the synth to the last byte).
+doom_path:
+    ldr r1, =doom_bin_name
+    cmp r0, #6
+    ldreq r1, =doom_wad_name
+    cmp r0, #8
+    ldreq r1, =fx_name
+    ldr r0, =FILE_PATH
+dp_copy:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    cmp r3, #0
+    bne dp_copy
+    bx lr
+.pool
+doom_bin_name:
+    .asciz "SD:/KORG/blechtribe/Doom/doom.bin"
+doom_wad_name:
+    .asciz "SD:/KORG/blechtribe/Doom/doom.wad"
+fx_name:
+    .asciz "SD:KORG/blechtribe/Presets/e2sFx.all"
+.align 4
 
 ; The sample file commands sit apart from the rest, in the free run behind the preset tables' second block, so that the code above
 ; keeps its room (the Sync Group's buffer of the pattern switch starts at 0xC0173000).
@@ -1509,8 +1537,8 @@ fs_unlink:
 .pool
 
 ; r8 = a FILE offset with its selector bits; returns r5 = which file (0 SYSTEM.VSB, 1 ORIGINAL.BIN, 3 e2sSample.all, 4 e2sSample.tmp,
-; 5 doom.bin, 6 doom.wad) and r8 = the offset. Bits 30 and 29 together name no file: r8 = -1 then, which every range check refuses.
-; Touches nothing else.
+; 5 doom.bin, 6 doom.wad, 8 e2sFx.all) and r8 = the offset. Bits 30 and 29 name e2sFx.all, with bit 31 as well no file: r8 = -1
+; then, which every range check refuses. Touches nothing else.
 sel_file:
     mov r5, r8, lsr #31
     tst r8, #{FILE_SAMPLE}
@@ -1518,7 +1546,7 @@ sel_file:
     tst r8, #{FILE_DOOM}
     addne r5, r5, #5
     bic r8, r8, #0xE0000000
-    cmp r5, #7
+    cmp r5, #9
     mvnhs r8, #0
     bx lr
 
@@ -1526,7 +1554,8 @@ sel_file:
 ; r0 = which: FILE_PATH = the update's folder (the firmware's own function, as the update builds it) + "System/SYSTEM.VSB", or
 ; "System/ORIGINAL.BIN" for 1, "Sample/e2sSample.all" for 3 and "Sample/e2sSample.tmp" for 4; for 2 the plugin file
 ; SD:KORG/blechtribe/Plugin/<FILE_NAME>.blech, for 5 and 6 the path the Doom loader opens, SD:/KORG/blechtribe/Doom/doom.bin and
-; doom.wad (tools/doom/runtime_abi.h). Keeps r4 to r11.
+; doom.wad (tools/doom/runtime_abi.h), for 8 the effect collection the start loads, SD:KORG/blechtribe/Presets/e2sFx.all
+; (tools/patch/fx_card.s). Keeps r4 to r11.
 file_path:
     cmp r0, #2
     beq plugin_path
@@ -1586,17 +1615,6 @@ pp_suffix:
     cmp r3, #0
     bne pp_suffix
     bx lr
-doom_path:
-    ldr r1, =doom_bin_name
-    cmp r0, #6
-    ldreq r1, =doom_wad_name
-    ldr r0, =FILE_PATH
-dp_copy:
-    ldrb r3, [r1], #1
-    strb r3, [r0], #1
-    cmp r3, #0
-    bne dp_copy
-    bx lr
 ; f_mkdir of every folder on the way to the file in FILE_PATH, cut at each "/" in place; an existing one answers FR_EXIST.
 make_folders:
     push {{r4, lr}}
@@ -1627,10 +1645,6 @@ sample_name:
     .asciz "Sample/e2sSample.all"
 sample_tmp_name:
     .asciz "Sample/e2sSample.tmp"
-doom_bin_name:
-    .asciz "SD:/KORG/blechtribe/Doom/doom.bin"
-doom_wad_name:
-    .asciz "SD:/KORG/blechtribe/Doom/doom.wad"
 .align 4
 .pool
 

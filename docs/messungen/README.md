@@ -69,6 +69,7 @@ Wie das Gerät auf Nachrichten antwortet, Größen und Zeiten.
 - [Geräteprotokoll: Suche, RAM lesen und Pattern-Abfrage](2026-10-08-geraeteprotokoll.md)
 - [SysEx über die emulierte DIN-MIDI](2026-10-09-din-sysex.md)
 - [Doom über USB auf die Karte (Emulator)](2026-11-11-doom-usb.md)
+- [e2sFx.all über USB lesen (Emulator)](2026-11-14-fx-datei-lesen.md)
 
 
 ## Speicher und Flash
