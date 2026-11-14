@@ -35,6 +35,51 @@ pf_path:
     .asciz "KORG/blechtribe/Patterns/"
 .align 4
 
+; ---- IMPORT PATTERN and IMPORT ALL PATTERN open in the Patterns folder (red and Hacktribe)
+; Korg's file browser is one object ([0xC03405CC]) that keeps its folder, a std::string at +0x18, from one import to the next.
+; The import's browser step 0xC00313B8 opens that folder (+8 of the browser's vtable, 0xC003D978) when the import starts and
+; again after each MENU on a folder or on Upper Folder. Its ldr r0, [r6] in front of that call is sent here: when the folder is
+; still the one the last open read (same string and length, so nothing was walked since), the import starts anew and the folder
+; becomes SD:/KORG/blechtribe/Patterns. A walk changes the string, so it is left as it is. A card without the folder: the open
+; fails with FR_NO_PATH and Korg's browser goes back to SD: on its own. Not after IMPORT SAMPLE's browser moved the folder (it
+; shares the object but not this step): then the import opens where that browser was.
+.equ PB_AT, 0xC0031400          ; ldr r0, [r6]: the browser object, in front of its open
+.equ PB_ASSIGN, 0xC00A26C0      ; std::string::assign(this, const char *), as Korg's browser takes SD: with it
+.equ PB_PTR, 4                  ; in KNOB_HOLD, the two words unused since API 19: the folder string of the last open
+.equ PB_LEN, 8                  ; and its length; FF from power-on, so the first import after it opens in Patterns too
+
+pat_browse_hook:
+    push {r4-r7, lr}
+    ldr r5, [r6]
+    add r4, r5, #0x18
+    ldr r7, =KNOB_HOLD
+    ldr r0, [r4]
+    ldr r1, [r0, #-12]          ; the length, in front of the characters (Korg's std::string keeps it there)
+    ldr r2, [r7, #PB_PTR]
+    ldr r3, [r7, #PB_LEN]
+    cmn r2, #1
+    beq pb_fresh
+    cmp r0, r2
+    cmpeq r1, r3
+    bne pb_note
+pb_fresh:
+    mov r0, r4
+    ldr r1, =pb_path
+    ldr r12, =PB_ASSIGN
+    blx r12
+pb_note:
+    ldr r0, [r4]
+    ldr r1, [r0, #-12]
+    str r0, [r7, #PB_PTR]
+    str r1, [r7, #PB_LEN]
+    pop {r4-r7, lr}
+    ldr r0, [r6]
+    ldr pc, =PB_AT+4
+.pool
+pb_path:
+    .asciz "SD:/KORG/blechtribe/Patterns"
+.align 4
+
 ; ---- the backup in the Patterns folder at power-on (red and Hacktribe): KORG/blechtribe/Patterns/
 ; electribe_sampler_allpattern.e2sallpat, the name EXPORT ALL PATTERN gives it, is read in the card hook, after the sample loader
 ; and before the first pattern selection loads the edit buffer (Emulator: card hook 576 ms, selection 597 ms), so the pattern the

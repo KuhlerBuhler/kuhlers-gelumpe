@@ -103,7 +103,9 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC002A628,0xEB000C85,'audio_command_hook'),
          # the Patterns folder (script_patterns.s): EXPORT PATTERN's and EXPORT ALL PATTERN's bl 0xC0035720 (the folder string)
          (0xC00371B0,0xEBFFF95A,'pat_export_hook'),
-         (0xC002E084,0xEB001DA5,'pat_export_all_hook'))
+         (0xC002E084,0xEB001DA5,'pat_export_all_hook'),
+         # IMPORT PATTERN's and IMPORT ALL PATTERN's browser step: ldr r0, [r6] in front of the browser's open (the folder)
+         (0xC0031400,0xE5960000,'pat_browse_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
@@ -293,7 +295,7 @@ def runtime_profile(build):
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
-        if name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook'):
+        if name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook'):
             continue
         if name == 'boot_light_hook':
             address, expected = 0xC0025E48, 0xE1500003

@@ -1,6 +1,6 @@
 """Emulator cases of the Patterns folder (tools/patch/script_patterns.s, plan 2026-11-14-patterns-ordner): EXPORT PATTERN and
 EXPORT ALL PATTERN of DATA UTILITY write into KORG/blechtribe/Patterns, a card without that folder gets it, and IMPORT PATTERN's
-browser still starts at the card's root (it is Korg's own folder browser, Patterns is reached through it). At power-on the backup
+and IMPORT ALL PATTERN's browser opens there (the card's root when the folder is missing). At power-on the backup
 in that folder goes into the pattern bank: only the patterns that differ are written to the flash, one without its frame is left
 out, a shorter file changes only its own patterns, EXIT held at power-on reads nothing, and the pattern the device opens is the
 file's. Red and Hacktribe only; on the blue neither is built yet, the groups report that and pass.
@@ -80,21 +80,33 @@ def case_export(payload, flash):
 
 
 def case_import_browser(payload, flash):
-    """IMPORT PATTERN opens Korg's browser at SD:, one MENU deeper is KORG: the folder Patterns is reached through it."""
+    """IMPORT PATTERN and IMPORT ALL PATTERN open Korg's browser in Patterns. A walk is Korg's own (Upper Folder goes to SD:, the
+    browser counts its levels itself and the start skipped them), leaving the import and starting it again opens Patterns again,
+    and a card without the folder gets Korg's own way back to SD:."""
     if not redirected(payload):
         return [entry("import_not_in_this_build", True, "the blue keeps the firmware's export folder")]
-    import unicorn
-    dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True)
-    opened = []
 
-    def hook(uc, address, size, data):
-        opened.append(dev.read(uc.reg_read(unicorn.arm_const.UC_ARM_REG_R1), 64).split(b"\0")[0].decode("latin-1"))
+    def walk(files, keys):
+        dev = menu_cases.boot(payload, flash, files=files, adapter=True)
+        opened = []
+        dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, a, s, d: opened.append(
+            dev.read(uc.reg_read(unicorn.arm_const.UC_ARM_REG_R1), 64).split(b"\0")[0].decode("latin-1")),
+            begin=0xC009E660, end=0xC009E660)                                           # f_opendir
+        menu_cases.go(dev, DATA_UTIL)
+        for key in keys:
+            menu_cases.press(dev, key, wait=0.8)
+        return dev, opened
 
-    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, hook, begin=0xC009E660, end=0xC009E660)   # f_opendir
-    menu_cases.go(dev, DATA_UTIL)
-    for key in ("menu", "edit_next", "edit_next", "menu", "menu", "menu"):
-        menu_cases.press(dev, key, wait=0.8)
-    return [entry("import_browser_starts_at_the_root", opened[:2] == ["SD:", "SD:/KORG"] and not dev.m.asserts, opened)]
+    patterns = "SD:/KORG/blechtribe/Patterns"
+    with_folder = {**menu_cases.CARD_FOLDER, f"{FOLDER}/001_Init Pattern.e2spat": bytes(SINGLE_SIZE)}
+    # IMPORT PATTERN (3/18): Patterns, Upper Folder, out of the import and into it again
+    dev, opened = walk(with_folder, ("menu", "edit_next", "edit_next", "menu", "menu", "menu", "exit", "exit", "menu", "menu", "menu"))
+    out = [entry("import_opens_patterns_and_again_after_leaving", opened == [patterns, "SD:", patterns] and not dev.m.asserts, opened)]
+    dev, opened = walk(with_folder, ("menu", "edit_next", "edit_next", "edit_next", "menu"))
+    out.append(entry("import_all_opens_patterns", opened == [patterns] and not dev.m.asserts, opened))
+    dev, opened = walk(menu_cases.CARD_FOLDER, ("menu", "edit_next", "edit_next", "edit_next", "menu"))
+    out.append(entry("import_without_the_folder_opens_the_root", opened == [patterns, "SD:"] and not dev.m.asserts, opened))
+    return out
 
 
 def backup(bank, count):
