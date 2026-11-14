@@ -2107,7 +2107,7 @@ export default {
   "catalog.lauflicht.description": "Ein Licht läuft über die Pads.",
   "catalog.category.light": "Licht",
   "catalog.pulsieren.description": "Alle roten Pad-LEDs werden heller und dunkler.",
-  "catalog.playtakt.description": "Solange der Sequencer läuft, blinkt die PLAY-LED kurz im Tempo des Patterns, bei STOP ist sie aus, in der Pause leuchtet sie ruhig. Beispiel für die Timer.",
+  "catalog.playtakt.description": "Solange der Sequencer läuft, blinkt die STOP-LED kurz im Tempo des Patterns, bei STOP und in der Pause ist sie aus. Die PLAY-LED bleibt der Firmware. Beispiel für die Timer.",
   "catalog.momentmute.description": "Mutes ändern sich nur, solange PART MUTE gehalten wird: dann schaltet ein Pad seinen Part stumm oder an, und die Pads zeigen die Mutes. Losgelassen spielen die Pads wie im Modus TRIGGER.",
   "catalog.momentmute.control1": "PART MUTE halten und Pad drücken: Part stumm oder an",
   "catalog.momentmute.control2": "Menü -> BLECH -> MOMENT MUTE: 1 an, 0 aus",

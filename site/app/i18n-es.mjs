@@ -2058,7 +2058,7 @@ export default {
   "catalog.lauflicht.description": "Una luz corre por los pads.",
   "catalog.category.light": "Luz",
   "catalog.pulsieren.description": "Todos los LED rojos de los pads se hacen más claros y más oscuros.",
-  "catalog.playtakt.description": "Mientras el secuenciador suena, el LED PLAY parpadea brevemente al tempo del patrón; con STOP está apagado y en pausa queda encendido. Un ejemplo de los temporizadores.",
+  "catalog.playtakt.description": "Mientras el secuenciador suena, el LED STOP parpadea brevemente al tempo del patrón; con STOP y en pausa está apagado. El LED PLAY queda en manos del firmware. Un ejemplo de los temporizadores.",
   "catalog.momentmute.description": "Los silencios solo cambian mientras se mantiene PART MUTE: entonces un pad silencia o activa su parte y los pads muestran los silencios. Al soltarlo, los pads tocan como en el modo TRIGGER.",
   "catalog.momentmute.control1": "Mantener PART MUTE y pulsar un pad: parte silenciada o activa",
   "catalog.momentmute.control2": "Menú -> BLECH -> MOMENT MUTE: 1 activado, 0 desactivado",
