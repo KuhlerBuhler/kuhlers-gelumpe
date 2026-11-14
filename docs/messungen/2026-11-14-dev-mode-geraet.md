@@ -1,7 +1,8 @@
 # DEV MODE am Gerät: Testplan
 
 Stand 14. November 2026. **Noch nichts am Gerät gelaufen.** Rot, Basis Hacktribe `163d1d8d` (ORIGINAL.BIN der Karte).
-Was im Emulator gemessen ist und welche Bereiche gesperrt bleiben: `2026-11-14-dev-mode-sperrbereiche.md`.
+Was im Emulator gemessen ist und welche Bereiche gesperrt bleiben: `2026-11-14-dev-mode-sperrbereiche.md`; Eingaben über
+USB (Schritte 10 bis 12): `2026-11-14-dev-mode-eingabe.md`.
 
 Regeln für jeden Schritt:
 
@@ -42,6 +43,9 @@ Regeln für jeden Schritt:
 | 7 | `hot_patch.py --revert out/hot-patch/hot-patch-<sha8>.json` | **braucht Freigabe** | READ der geschriebenen Bereiche gleich Basis; Seite heißt wieder `DEV MODE` | offen |
 | 8 | Aus- und einschalten; INFO; `--dry-run` gegen die Basis | am Gerät, dann READ | Flag `0x400` aus, Seite zeigt OFF, READ gleich Basis | offen |
 | 9 | DEV MODE an, WRITE BEGIN auf die Schutztabelle `0xC0173800` (nur BEGIN, Skript unten) | **braucht Freigabe** | BEGIN abgelehnt, nichts geschrieben | offen |
+| 10 | DEV MODE an; `remote_press.py --dry-run menu` und `remote_press.py --screen` | READ | Ausgabe `Weg: DEV MODE (WRITE in die Mailbox, kein EXEC)`, Display wird gelesen | offen |
+| 11 | `remote_press.py menu +1 exit`, dann `level=200 pad5 touch=400,300` | **braucht Freigabe** | Seite wechselt wie am Panel, Pad 5 klingt, Pegel und Touch wirken; kein EXEC, Gerät läuft weiter | offen |
+| 12 | DEV MODE aus; `remote_press.py --dry-run menu` | READ | Weg `EXEC-Stub`, ins Postfach wird nichts geschrieben | offen |
 
 Erwartet: Gruppen über 1 KiB zeigen die Warnung "not atomic". Läuft der Sequencer, schreibt das Tool nicht (Wort
 `0xC06BC318`). Stürzt das Gerät ab: aus und ein, danach läuft wieder die Firmware der Karte, nichts im Flash ist geändert.

@@ -73,6 +73,7 @@ Wie das Gerät auf Nachrichten antwortet, Größen und Zeiten.
 - [e2sFx.all über USB lesen (Emulator)](2026-11-14-fx-datei-lesen.md)
 - [DEV MODE: was im Firmware-Abbild gesperrt bleibt, Host-Tool hot_patch.py (Emulator)](2026-11-14-dev-mode-sperrbereiche.md)
 - [DEV MODE am Gerät: Testplan](2026-11-14-dev-mode-geraet.md)
+- [DEV MODE: Eingaben über USB ohne EXEC, Postfach der Laufzeit (Emulator)](2026-11-14-dev-mode-eingabe.md)
 
 
 ## Speicher und Flash

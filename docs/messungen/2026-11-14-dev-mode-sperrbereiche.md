@@ -66,6 +66,8 @@ Vergleicht das laufende Abbild (Basis) mit einem neuen und schreibt nur, was ohn
 | Journal `out/hot-patch/hot-patch-<sha8>.json` mit Basis-Bytes; `--revert` schreibt sie zurück, letzte Gruppe zuerst | gebaut, Emulator `sysex_cases.py hotpatch` |
 | Kein Kartenschreiben, kein EXEC, keine Tasten; `--dry-run` liest nur | gebaut |
 
+Tasten, Regler, Pads und Touch über USB mit DEV MODE (`tools/device/remote_press.py`, ohne EXEC): `2026-11-14-dev-mode-eingabe.md`.
+
 ## Offen
 
 - Gerätetest (Plan Phase 4, Schritte in `2026-11-14-dev-mode-geraet.md`): Schalter, Schreiben ins Abbild, gesperrte Bereiche, Ausschalten.
