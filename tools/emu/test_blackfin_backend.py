@@ -43,7 +43,7 @@ class Failures(unittest.TestCase):
     def test_a_worker_that_stops_reading_cannot_block_a_large_write(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'worker'
-            path.write_text("#!/usr/bin/env python3\nimport os,struct,time\nos.write(1,struct.pack('<II',0,5)+b'BFIN2')\ntime.sleep(30)\n")
+            path.write_text("#!/usr/bin/env python3\nimport os,struct,time\nos.write(1,struct.pack('<II',0,5)+b'BFIN3')\ntime.sleep(30)\n")
             path.chmod(0o755)
             with BlackfinBackend(path, timeout=3) as backend:
                 backend.timeout = .1
@@ -53,7 +53,7 @@ class Failures(unittest.TestCase):
     def test_a_crashed_worker_is_a_failure_and_cannot_continue(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'worker'
-            path.write_text("#!/usr/bin/env python3\nimport os,struct\nos.write(1,struct.pack('<II',0,5)+b'BFIN2')\nos.read(0,12)\nos._exit(139)\n")
+            path.write_text("#!/usr/bin/env python3\nimport os,struct\nos.write(1,struct.pack('<II',0,5)+b'BFIN3')\nos.read(0,12)\nos._exit(139)\n")
             path.chmod(0o755)
             with BlackfinBackend(path, timeout=3) as backend:
                 with self.assertRaisesRegex(BackendError, 'exited before answering'):
@@ -98,12 +98,52 @@ class Execution(unittest.TestCase):
                 self.assertEqual(self.backend.read(DATA, 8), struct.pack('<II', before, after))
                 self.assertEqual(self.backend.register(1), after)
 
+    def test_parallel_signbits_store_reads_the_original_destination_register(self):
+        cases = ((5, 0, 0x02000000, 5), (5, 1, 0x200, 5), (5, 2, 0x02000000, 5),
+                 (5, 0, 0, 31), (5, 0, 0xFFFFFFFF, 31), (5, 1, 0x8000, 0),
+                 (6, 0, 0x0200000000, 0xFFFD), (6, 1, 0x0200000000, 0xFFFD),
+                 (6, 0, 0, 31), (6, 1, 0x8000000000, 0xFFF8))
+        for opcode, operation, value, expected in cases:
+            with self.subTest(opcode=opcode, operation=operation, value=value):
+                instruction = 0xC6000000 | (1 << 27) | (opcode << 16) | (operation << 14) | (1 << 9) | 3
+                self.backend.write(ENTRY, struct.pack('<6H', instruction >> 16, instruction & 65535,
+                                                     0x9301, 0, 0xB041, 0x2000))
+                self.backend.set_register(1, 0xAABBF75F)
+                if opcode == 5:
+                    self.backend.set_register(3, value)
+                else:
+                    self.backend.set_register(32+operation*2, value >> 32)
+                    self.backend.set_register(33+operation*2, value & 0xFFFFFFFF)
+                self.backend.set_register(8, DATA)
+                self.backend.set_register(53, ENTRY)
+                self.backend.run(10)
+                self.assertEqual(self.backend.read(DATA, 8), struct.pack('<II', 0xAABBF75F, 0xAABB0000 | expected))
+
     def test_run_stops_at_a_requested_pc(self):
         self.backend.write(ENTRY, program())
         self.backend.set_register(53, ENTRY)
         result = self.backend.run(100, until=ENTRY + 16)
         self.assertEqual(result['steps'], 5)
         self.assertTrue(result['reached'])
+
+    def test_core_timer_observes_all_modeled_instruction_cycles(self):
+        with BlackfinBackend(WORKER, operating=True) as backend:
+            backend.write(ENTRY, struct.pack('<H', 0x2000))
+            backend.set_register(53, ENTRY)
+            backend.set_register(48, 0x32)
+            self.assertEqual(backend.run(1, until=ENTRY)['steps'], 0)
+            for address, value in ((0xFFE03008, 0), (0xFFE0300C, 10000), (0xFFE03000, 3)):
+                backend.write(address, struct.pack('<I', value))
+            before = backend.register(44)
+            result = backend.run(100)
+            cycles = (backend.register(44) - before) & 0xFFFFFFFF
+            remaining, = struct.unpack('<I', backend.read(0xFFE0300C, 4))
+            self.assertEqual(result['steps'], 100)
+            self.assertGreater(cycles, 100)
+            self.assertEqual(10000 - remaining, cycles)
+            backend.run(100)
+            after, = struct.unpack('<I', backend.read(0xFFE0300C, 4))
+            self.assertEqual(remaining - after, cycles)
 
     def test_illegal_instruction_raises_and_invalidates_the_backend(self):
         self.backend.write(ENTRY, b'\xff\x00')

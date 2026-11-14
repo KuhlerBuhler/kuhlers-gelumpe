@@ -8,6 +8,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'emu'))
 from blackfin_backend import BlackfinPort, BackendError
+from blackfin_rom import SysControl
 from dsp_extract import STREAM_RAM, STREAM_LEN, file_offset
 
 
@@ -16,19 +17,23 @@ def main():
     parser.add_argument('--vsb', required=True, type=Path)
     parser.add_argument('--worker', required=True, type=Path)
     parser.add_argument('--virtual', action='store_true', help='instruction-only diagnostic without interrupt hardware')
+    parser.add_argument('--boot-steps', type=int, default=250000000, help='bounded native instruction budget, at most 500000000')
     args = parser.parse_args()
     vsb = args.vsb.read_bytes()
     stream = vsb[file_offset(STREAM_RAM):file_offset(STREAM_RAM)+STREAM_LEN]
+    rom = SysControl()
     try:
-        with BlackfinPort(args.worker, operating=not args.virtual, timeout=15) as port:
+        with BlackfinPort(args.worker, operating=not args.virtual, timeout=15, rom=rom,
+                          boot_steps=args.boot_steps) as port:
             port.boot(stream)
             port.wait_ready()
             report = dict(mode='reset-entry', full_boot=False, initialization=port.boot_report,
+                          rom_model=rom.report(),
                           note='An initialization response alone does not prove full DSP operation')
         print(json.dumps(dict(ok=True, **report), indent=2))
         return 0
     except (BackendError, ValueError) as error:
-        print(json.dumps(dict(ok=False, error=str(error), full_boot=False), indent=2))
+        print(json.dumps(dict(ok=False, error=str(error), full_boot=False, rom_model=rom.report()), indent=2))
         return 1
 
 

@@ -33,11 +33,12 @@ class _ROMCall(Exception):
 
 
 class BlackfinBackend:
-    def __init__(self, worker, *, timeout=5, operating=False):
+    def __init__(self, worker, *, timeout=5, operating=False, rom=None):
         if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
             raise ValueError('a finite positive Blackfin deadline is required')
         self.process = None
         self.timeout = timeout
+        self.rom = rom
         self._stderr = tempfile.TemporaryFile()
         self._selector = selectors.DefaultSelector()
         self._deadline = time.monotonic() + timeout
@@ -48,7 +49,7 @@ class BlackfinBackend:
             os.set_blocking(self.process.stdin.fileno(), False)
             os.set_blocking(self.process.stdout.fileno(), False)
             self._selector.register(self.process.stdout, selectors.EVENT_READ)
-            if self._response() != b'BFIN2':
+            if self._response() != b'BFIN3':
                 raise BackendError('invalid Blackfin worker handshake')
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
@@ -144,11 +145,25 @@ class BlackfinBackend:
     def run(self, steps, *, until=0xFFFFFFFF):
         if not 1 <= steps <= 1000000 or not 0 <= until <= 0xFFFFFFFF:
             raise ValueError('invalid Blackfin execution budget')
-        try:
-            count, pc = struct.unpack('<II', self._request(5, steps, until, extra=8))
-        except _ROMCall as error:
-            self.close()
-            raise BackendError(str(error)) from error
+        count, calls, pc = 0, 0, 0
+        while count < steps:
+            try:
+                executed, pc = struct.unpack('<II', self._request(5, steps-count, until, extra=8))
+                count += executed
+                break
+            except _ROMCall as error:
+                count += error.steps
+                try:
+                    if self.rom is None:
+                        raise BackendError('no ROM model selected')
+                    if calls >= 64:
+                        raise BackendError('Blackfin ROM service budget exceeded')
+                    self.rom.handle(self, error.registers)
+                    calls += 1
+                    pc = self.register(53)
+                except (BackendError, ValueError) as failure:
+                    self.close()
+                    raise BackendError(f'{failure}: {error}') from failure
         return dict(steps=count, pc=pc, reached=pc == until)
 
     def close(self):
@@ -205,12 +220,16 @@ def boot_blocks(data):
 class BlackfinPort:
     """Explicit experimental DSP endpoint. Unready or failed sessions never read as zero."""
     def __init__(self, worker, *, ready_address=0xFF9031D8, boot_steps=1000000,
-                 timeout=5, operating=False):
+                 timeout=5, operating=False, rom=None, boot_timeout=300):
         BlackfinBackend._span(ready_address, 4)
-        if ready_address & 3 or not isinstance(boot_steps, int) or not 1 <= boot_steps <= 10000000:
+        if ready_address & 3 or not isinstance(boot_steps, int) or not 1 <= boot_steps <= 500000000:
             raise ValueError('aligned readiness word and bounded initialization budget required')
+        if not isinstance(boot_timeout, (int, float)) or not math.isfinite(boot_timeout) or boot_timeout <= 0:
+            raise ValueError('a finite positive native startup deadline is required')
         self.worker, self.timeout, self.operating = worker, timeout, operating
+        self.rom = rom
         self.ready_address, self.boot_steps = ready_address, boot_steps
+        self.boot_timeout = boot_timeout
         self.backend = None
         self.loaded = self.initialized = False
         self.words, self.transfer = [], None
@@ -220,7 +239,7 @@ class BlackfinPort:
     def boot(self, stream):
         self.close()
         blocks = boot_blocks(stream)
-        self.backend = BlackfinBackend(self.worker, timeout=self.timeout, operating=self.operating)
+        self.backend = BlackfinBackend(self.worker, timeout=self.timeout, operating=self.operating, rom=self.rom)
         try:
             for flags, target, size, argument, data in blocks:
                 if flags & (0x800 | 0x1000):
@@ -256,8 +275,11 @@ class BlackfinPort:
     def wait_ready(self):
         self._require_loaded()
         steps = 0
+        deadline = time.monotonic() + self.boot_timeout
         try:
             while steps < self.boot_steps and not self.initialized:
+                if time.monotonic() >= deadline:
+                    raise BackendError('Blackfin native startup deadline exceeded')
                 count = self.service(min(10000, self.boot_steps-steps))['steps']
                 if count <= 0:
                     raise BackendError('Blackfin initialization made no execution progress')
