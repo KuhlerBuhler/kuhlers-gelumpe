@@ -321,7 +321,7 @@ def power_on(m, seconds):
     def run():
         m.finish_boot()
         m.run_until(m.time_ns / 1e9 + seconds)
-    key = _power_on_key(m, repr(float(seconds)))
+    key = None if (getattr(m, "dsp_model", None) is not None or getattr(m, "dsp_backend", None) is not None) else _power_on_key(m, repr(float(seconds)))
     if key is None:
         return run()
     blob = read("power-on", key)
