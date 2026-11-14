@@ -60,6 +60,8 @@ RESET_ENTRY = 0xC01A2508        # b splash_reset, for the BLECH menu; r0 = 0 res
 TICK_HOOK = 0xC006F178          # first instruction of the screen manager's tick, ldrb r3, [r0, #0x4c]
 TICK_WORD = 0xE5D0304C
 IMPORT_PATH = "SD:KORG/blechtribe/splash.bmp"
+MEDIA_PATH = "SD:KORG/blechtribe/Media/splash.bmp"   # the card's start image: read at start (splash_sync), written by IMPORT and WRITE
+SYNC_ENTRY = 0xC01A250C         # b splash_sync, for the script runtime's start hook: Media/splash.bmp into flash when it differs
 
 # ---- firmware facts (measured, see the research doc) ---------------------------
 ORIG_VTABLE = 0xC00E33F8        # class of Global screen 9
@@ -99,6 +101,8 @@ SOURCE = f"""
 .equ FS_OPEN, 0xC009DB60
 .equ FS_READ, 0xC009DD74
 .equ FS_CLOSE, 0xC009E3DC
+.equ FS_WRITE, 0xC009DFB8
+.equ FS_MKDIR, 0xC009EB00
 .equ S_MAGIC, 0
 .equ S_MODE, 4                  ; 1 while the editor is open
 .equ S_CUR, 8                   ; cursor, y * 128 + x
@@ -113,6 +117,7 @@ SOURCE = f"""
 .equ S_VCAP, 0x2C
 .equ S_PAINT, 0x30              ; the colour MENU last gave a pixel (0 or 1): held, MENU paints it under the moving cursor
 .equ S_ORIG, 0x34               ; the start image of the VSB (image 13's data pointer as the firmware had it), for SPLASH RESET
+.equ S_SYNC, 0x38               ; 1: Media/splash.bmp differs from the start image shown and is in EDIT, the next tick stores it (splash_sync)
 .equ S_WIDGET, 0x40
 .equ KEYS, 0xC06BCA70           ; the UI task's key states, 8 bytes per key, the word is not 0 while the key is held
 .equ KEY_MENU, 0x09
@@ -267,6 +272,17 @@ splash_tick:
     ldr r2, =MAGIC
     cmp r1, r2
     bne tick_out
+    ldr r1, [r12, #S_SYNC]          ; the card's start image into flash, in this task like WRITE (the flash write is not done
+    cmp r1, #1                      ; in the start hook that read it)
+    bne tick_mode
+    ldr r1, [r12, #S_MODE]
+    cmp r1, #1
+    beq tick_mode
+    mov r1, #0
+    str r1, [r12, #S_SYNC]
+    bl save_image
+    ldr r12, =STATE
+tick_mode:
     ldr r1, [r12, #S_MODE]          ; editor open: the firmware's wish to redraw the whole page (set after VALUE) is dropped,
     cmp r1, #1                      ; so the page never shows over the image (it flickered for a tick, device 17.10.)
     bne tick_pending
@@ -310,6 +326,7 @@ tick_out:
     b splash_import             ; IMPORT_ENTRY, called by the BLECH menu
     b splash_draw               ; DRAW_ENTRY, jumped to by the BLECH menu
     b splash_reset              ; RESET_ENTRY, called by the BLECH menu
+    b splash_sync               ; SYNC_ENTRY, called by the script runtime's start hook
 
 ; Checks the replaced slots start with: the state was set up at start and EXIT was
 ; not held. Otherwise the original slot runs, with every argument as it came.
@@ -358,6 +375,8 @@ slot_keys:
     bne orig3
     push {{r0, r1, r2, lr}}
     bl save_image
+    cmp r0, #0
+    blne media_write
     pop {{r0, r1, r2, lr}}
     b orig3
 
@@ -765,12 +784,143 @@ reset_out:
 ; ---- the start image from the card: r0 = the path of a BMP file (the menu's SPLASH IMPORT passes the one its dial is on; below
 ; 0x10000, as from a caller that passes none, KORG/blechtribe/splash.bmp), 128 x 64 pixels, 1 bit per pixel, not compressed.
 ; The darker of the two colours is drawn. Stored in flash like WRITE in the editor and drawn from the next start on.
+; Then written to Media/splash.bmp as well, the card's copy (media_write, its failure is not reported).
 ; r0 = 0 stored, 1 no file, 2 not such a BMP (nothing stored), 3 the flash write failed.
 splash_import:
-    push {{r4, r5, r6, r7, r8, lr}}
+    push {{r4, lr}}
     cmp r0, #0x10000
-    ldrlo r1, =import_path
-    movhs r1, r0
+    ldrlo r0, =import_path
+    bl imp_parse
+    cmp r0, #0
+    bne imp_done
+    bl save_image
+    cmp r0, #0
+    moveq r0, #3
+    beq imp_done
+    bl media_write
+    mov r0, #0
+imp_done:
+    pop {{r4, pc}}
+
+; ---- at start, from the script runtime's start hook (the card is readable from then on): Media/splash.bmp is read into EDIT and,
+; when it differs from the start image the flash gave, stored by the next tick (splash_tick, S_SYNC). Nothing without the set-up
+; state (EXIT held at power-on, panel update), a file or a valid BMP.
+splash_sync:
+    push {{r4, lr}}
+    ldr r12, =STATE
+    ldr r0, [r12, #S_MAGIC]
+    ldr r1, =MAGIC
+    cmp r0, r1
+    bne sync_out
+    ldr r0, =media_path
+    bl imp_parse
+    cmp r0, #0
+    bne sync_out
+    ldr r0, =DESC13
+    ldr r0, [r0]
+    ldr r1, =EDIT
+    mov r2, #{IMAGE_BYTES}
+sync_cmp:
+    ldrb r3, [r0], #1
+    ldrb r12, [r1], #1
+    cmp r3, r12
+    bne sync_differs
+    subs r2, r2, #1
+    bne sync_cmp
+    b sync_out
+sync_differs:
+    ldr r12, =STATE
+    mov r0, #1
+    str r0, [r12, #S_SYNC]
+sync_out:
+    pop {{r4, pc}}
+
+; ---- the image in EDIT as Media/splash.bmp: 128 x 64, 1 bit, index 1 black, rows from the bottom, as splash_import reads it.
+; A missing folder is made. r0 = 0 written, else not 0.
+media_write:
+    push {{r4, r5, r6, r7, r8, lr}}
+    sub sp, sp, #16
+    ldr r4, =FIL
+    mov r0, r4
+    ldr r1, =media_path
+    mov r2, #0x0A               ; FA_CREATE_ALWAYS | FA_WRITE
+    bl FS_OPEN
+    cmp r0, #5                  ; FR_NO_PATH
+    bne mw_opened
+    ldr r0, =blech_folder
+    bl FS_MKDIR
+    ldr r0, =media_folder
+    bl FS_MKDIR
+    mov r0, r4
+    ldr r1, =media_path
+    mov r2, #0x0A
+    bl FS_OPEN
+mw_opened:
+    cmp r0, #0
+    bne mw_out
+    ldr r1, =bmp_header
+    mov r2, #62
+    bl mw_put
+    movs r5, r0
+    bne mw_close
+    mov r6, #63                 ; y, the bottom row first
+mw_row:
+    and r7, r6, #7
+    rsb r7, r7, #7
+    ldr r8, =EDIT
+    mov r0, r6, lsr #3
+    add r8, r8, r0, lsl #7
+    mov r2, #0
+mw_byte:
+    mov r3, #0
+    mov r1, #8
+mw_bit:
+    ldrb r0, [r8], #1
+    mov r0, r0, lsr r7
+    and r0, r0, #1
+    orr r3, r0, r3, lsl #1
+    subs r1, r1, #1
+    bne mw_bit
+    strb r3, [sp, r2]
+    add r2, r2, #1
+    cmp r2, #16
+    blo mw_byte
+    mov r1, sp
+    mov r2, #16
+    bl mw_put
+    movs r5, r0
+    bne mw_close
+    subs r6, r6, #1
+    bpl mw_row
+mw_close:
+    mov r0, r4
+    bl FS_CLOSE
+    orr r0, r0, r5
+mw_out:
+    add sp, sp, #16
+    pop {{r4, r5, r6, r7, r8, pc}}
+
+; r1 = from, r2 = bytes -> r0 = 0 when all of them were written to FIL
+mw_put:
+    push {{r4, lr}}
+    mov r4, r2
+    ldr r0, =FIL
+    ldr r3, =BR
+    bl FS_WRITE
+    cmp r0, #0
+    bne mw_put_out
+    ldr r0, =BR
+    ldr r0, [r0]
+    cmp r0, r4
+    movne r0, #1
+    moveq r0, #0
+mw_put_out:
+    pop {{r4, pc}}
+
+; r0 = the path of a BMP file -> r0 = 0 its image is in EDIT, 1 no file, 2 not a 128 x 64 BMP with 1 bit. The file is closed again.
+imp_parse:
+    push {{r4, r5, r6, r7, r8, lr}}
+    mov r1, r0
     ldr r4, =FIL
     ldr r5, =RECBUF
     mov r0, r4
@@ -890,10 +1040,7 @@ imp_next:
     add r6, r6, #1
     cmp r6, #64
     blo imp_row
-    bl save_image
-    cmp r0, #0
-    moveq r0, #3
-    movne r0, #0
+    mov r0, #0
     b imp_close
 imp_bad:
     mov r0, #2
@@ -965,6 +1112,18 @@ title:
     .asciz "SPLASH SCREEN"
 import_path:
     .asciz "{IMPORT_PATH}"
+media_path:
+    .asciz "{MEDIA_PATH}"
+blech_folder:
+    .asciz "SD:KORG/blechtribe"
+media_folder:
+    .asciz "SD:KORG/blechtribe/Media"
+.align 4
+bmp_header:                     ; 62 bytes: file header, info header (128 x 64, 1 bit, 1024 bytes of pixels), white and black
+    .byte 0x42, 0x4D, 0x3E, 0x04, 0, 0, 0, 0, 0, 0, 0x3E, 0, 0, 0
+    .byte 40, 0, 0, 0, 128, 0, 0, 0, 64, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0x04, 0, 0
+    .byte 0x13, 0x0B, 0, 0, 0x13, 0x0B, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0
+    .byte 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0
 .align 4
 widget_vtable:
     .word widget_stub, widget_stub, widget_draw, widget_stub, widget_stub, widget_stub, widget_stub, widget_stub
@@ -1062,7 +1221,7 @@ def build_patch(vsb, build="hacktribe"):
     use_build(build)
     sections, symbols = build_code()
     (a_at, a_code), (b_at, b_code) = sections
-    if b_at != IMPORT_ENTRY or DRAW_ENTRY != IMPORT_ENTRY + 4:
+    if b_at != IMPORT_ENTRY or DRAW_ENTRY != IMPORT_ENTRY + 4 or symbols.get("splash_sync") is None or SYNC_ENTRY != RESET_ENTRY + 4:
         raise SystemExit("the import entry is not at the start of the editor section")
     if a_at + len(a_code) > START_END:
         raise SystemExit(f"start code is {len(a_code):#x} bytes, room for {START_END - START_AT:#x}")
