@@ -79,10 +79,14 @@ ihrer Sperre den Sektor liest, löscht und neu schreibt, wie der Startbild-Edito
 Alle elf Fälle in `flash_settings_cases` sind auf allen drei Builds grün, ebenso `settings_cases` (20), `page_cases` (3)
 und `splash_menu_cases` (gemessen). In keinem Lauf wurde ein anderer Sektor als `0x7FD000` oder `0x7FE000` gelöscht.
 
-Am Gerät (13.11.) ist der Bereich nicht gelesen: der Flash hängt an SPI1 und ist nicht in den Adressraum gelegt, lesen geht nur
-über die Lesefunktion der Firmware (EXEC), und das ist eine Änderung am Gerät (offen).
+Der Flash hängt an SPI1 und ist nicht in den Adressraum gelegt. Am Gerät (14.11.) hat BLECH FLASH READ (`0x64`, ohne EXEC)
+`0x7FD000` und `0x7FE000` in zwei Läufen mit gleichem sha256 als lauter FF gelesen (gemessen).
 
 ## Offen
+
+- Die Schreibfunktion `0xC0029AB8` aus einem EXEC-Stub aufzurufen, um ein Löschen zu timen, hat das rote Gerät abstürzen lassen
+  (Display rot und stehend, kein Assert-Text), im Emulator lief derselbe Stub durch; `0x7F0000` bis `0x800000` war danach
+  unverändert (gemessen 14.11.). Die Löschzeit wird darum nur über den eigenen Speicherweg der Firmware gemessen.
 
 - Am Gerät ist nichts geprüft: Löschzeit eines Sektors (der UI-Task steht so lange, im Emulator ohne Zeit), Lebensdauer.
   Zwei Sektoren im Wechsel, höchstens ein Schreiben je Verlassen des BLECH-Menüs mit einer Änderung (hergeleitet).
@@ -94,6 +98,7 @@ Am Gerät (13.11.) ist der Bereich nicht gelesen: der Flash hängt an SPI1 und i
   bedienen.
 - Zu den gesicherten Werten gehören auch die erlaubten Plugins (Prüfsummen in `settings.a.bin`). Plugins, Effekte, Samples und
   Patterns selbst liegen weiter nur auf der Karte.
-- AUTO SAVE OFF hält das Schreiben in den Flash nicht auf: "jede Änderung sofort" ist wörtlich umgesetzt.
+- Mit AUTO SAVE OFF schreibt ohne Karte erst WRITE in den Flash, Verlassen des Menüs schreibt nichts
+  (`auto_save_off_waits_for_write`).
 - Ein Update von Korg, das `0x7F` anfasst, ist für rot und HT gelesen (keins), für die blaue über die Längen der Update-Bereiche
   hergeleitet, nicht mit einer echten Update-Datei gemessen.
