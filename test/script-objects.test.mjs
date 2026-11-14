@@ -378,3 +378,15 @@ test("korg.system.power, korg.system.battery and korg.read.led need API 34 and r
   device.frame();
   assert.deepEqual([0, 1, 2, 3].map(i => stored(device, i)), [1, 4, 200, 0]);
 });
+
+// API 36: the page KNOB LEDS as a leaf of base "pad", offset 4 (tools/patch/script_objects.s objects_pad_get, objects_pad_knob).
+test("korg.menu.blech.customizations.led.knobLeds needs API 36, starts on, reads 0 or 1 and clamps", () => {
+  const KNOB = "korg.menu.blech.customizations.led.knobLeds";
+  const leaf = OBJECT_BY_PATH.get(KNOB);
+  assert.deepEqual([leaf.id, leaf.base, leaf.offset, leaf.min, leaf.max, leaf.factory, leaf.write, leaf.stored, leaf.since],
+    [60, "pad", 4, 0, 1, 1, true, false, 36]);
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let v = ${KNOB}; });`)).header.apiVersion, 36);
+  const device = run(`let v = 5; korg.onEvent("ready", () => { korg.store.set(0, ${KNOB}); ${KNOB} = 0; korg.store.set(1, ${KNOB});
+  ${KNOB} = v; korg.store.set(2, ${KNOB}); korg.store.set(3, korg.system.repairs); });`);
+  assert.deepEqual([0, 1, 2, 3].map(i => stored(device, i)), [1, 0, 1, 1]);
+});

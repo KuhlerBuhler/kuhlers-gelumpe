@@ -2308,6 +2308,7 @@ export default {
   "api.object.led.meter.low": "Kleur van METER LOW: 0 standaard, 1 tot 7 wit, rood, groen, blauw, geel, cyaan, roze.",
   "api.object.led.meter.mid": "Kleur van METER MID: 0 standaard, 1 tot 7 wit, rood, groen, blauw, geel, cyaan, roze.",
   "api.object.led.meter.loud": "Kleur van METER LOUD: 0 standaard, 1 tot 7 wit, rood, groen, blauw, geel, cyaan, roze, 8 regenboog.",
+  "api.object.led.knobLeds": "KNOB LEDS: 1 de LEDs achter de vijf knoppen branden zoals in de firmware, 0 ze blijven donker. Werkt meteen.",
   "api.object.padColor.part": "PAD COLOR, de kleur van de verlichte pads: 0 rood, 1 blauw, 2 roze. Nooit gelijk aan SELECT COLOR: een schrijfactie die ze gelijk zou maken wisselt ze om.",
   "api.object.padColor.select": "SELECT COLOR, de kleur van de gekozen pad: 0 rood, 1 blauw, 2 roze. Nooit gelijk aan PAD COLOR: een schrijfactie die ze gelijk zou maken wisselt ze om.",
   "api.object.padColor.overlap": "OVERLAP, de kleur van een pad die brandt en gekozen is: 0 de kleur die overblijft, 1 rood, 2 blauw, 3 roze.",

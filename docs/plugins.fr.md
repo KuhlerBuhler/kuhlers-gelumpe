@@ -200,7 +200,7 @@ Blechy reçoit le touchpad et sa touche). Dans tous les menus du firmware
 (Pattern, Global, Part Edit, Step Edit et les autres), les plugins reçoivent les
 entrées comme sur l’écran principal.
 
-### Ce qu’un plugin atteint (API 35)
+### Ce qu’un plugin atteint (API 36)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -403,6 +403,7 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.menu.blech.customizations.led.meter.low` | METER LOW : 0 origine, 1 à 7 comme ci-dessus | Oui, comme la page | 0 à 7 |
 | `korg.menu.blech.customizations.led.meter.mid` | METER MID : 0 origine, 1 à 7 comme ci-dessus | Oui, comme la page | 0 à 7 |
 | `korg.menu.blech.customizations.led.meter.loud` | METER LOUD : 0 origine, 1 à 7 comme ci-dessus, 8 arc-en-ciel | Oui, comme la page | 0 à 8 |
+| `korg.menu.blech.customizations.led.knobLeds` | KNOB LEDS : 1 les LED derrière VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE et IFX TYPE s’allument comme dans le firmware, 0 elles restent éteintes ; sans le patch pad-colors dans le jeu, lit 1 et une écriture ne fait rien (depuis l’API 36, [mesure](messungen/2026-11-12-knopf-leds.md), en allemand) | Oui, comme la page | 0 à 1 |
 | `korg.menu.blech.customizations.padColor.part` | PAD COLOR : 0 rouge, 1 bleu, 2 rose ; toujours différent de SELECT COLOR ; une égalité permute les deux | Oui, comme la page | 0 à 2 |
 | `korg.menu.blech.customizations.padColor.select` | SELECT COLOR : mêmes couleurs et règle que PAD COLOR | Oui, comme la page | 0 à 2 |
 | `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, couleur d’un pad allumé et sélectionné : 0 couleur restante, 1 rouge, 2 bleu, 3 rose | Oui, comme la page | 0 à 3 |

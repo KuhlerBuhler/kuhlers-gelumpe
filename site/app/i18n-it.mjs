@@ -2307,6 +2307,7 @@ export default {
   "api.object.led.meter.low": "Colore di METER LOW: 0 fabbrica, da 1 a 7 bianco, rosso, verde, blu, giallo, ciano, rosa.",
   "api.object.led.meter.mid": "Colore di METER MID: 0 fabbrica, da 1 a 7 bianco, rosso, verde, blu, giallo, ciano, rosa.",
   "api.object.led.meter.loud": "Colore di METER LOUD: 0 fabbrica, da 1 a 7 bianco, rosso, verde, blu, giallo, ciano, rosa, 8 arcobaleno.",
+  "api.object.led.knobLeds": "KNOB LEDS: 1 i LED dietro le cinque manopole si accendono come nel firmware, 0 restano spenti. Agisce subito.",
   "api.object.padColor.part": "PAD COLOR, il colore dei pad accesi: 0 rosso, 1 blu, 2 rosa. Non è mai uguale a SELECT COLOR: una scrittura che li renderebbe uguali li scambia.",
   "api.object.padColor.select": "SELECT COLOR, il colore del pad scelto: 0 rosso, 1 blu, 2 rosa. Non è mai uguale a PAD COLOR: una scrittura che li renderebbe uguali li scambia.",
   "api.object.padColor.overlap": "OVERLAP, il colore di un pad acceso e scelto: 0 il colore che resta, 1 rosso, 2 blu, 3 rosa.",

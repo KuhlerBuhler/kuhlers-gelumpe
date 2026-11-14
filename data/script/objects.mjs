@@ -8,7 +8,7 @@
  *   base     where the value lives: "menu" MENU_STATE + offset (tools/patch/script_menu.s), "runtime" the state words of
  *            the object runtime + offset (script_objects.s), "abs" the absolute address `offset` (a setting word of a patch,
  *            in our own code area), "global" the Global settings the firmware keeps + offset (a pointer read at each access),
- *            "pad" no address: `offset` picks a call into the patch pad-colors (0 PAD COLOR, 1 SELECT COLOR, 2 OVERLAP, 3 LED DIMMING),
+ *            "pad" no address: `offset` picks a call into the patch pad-colors (0 PAD COLOR, 1 SELECT COLOR, 2 OVERLAP, 3 LED DIMMING, 4 KNOB LEDS),
  *            "info" no address, read only: `offset` picks what the runtime knows about the device it runs on (INFO),
  *            "touchpad" no address: the touch pad mode, read from the firmware and the patch mfx-switch, set with one key press
  *            "motion" no address: whether the selected part plays its motion, set with one TAP press of the patch tap-motion
@@ -272,6 +272,12 @@ export const OBJECTS = Object.freeze([
   leaf(59, "korg.system.battery", {
     base: "state", offset: STATE_WORDS.battery, type: "u32", min: 0, max: 4, factory: 4, write: false, since: 34,
     unit: "4 full, 3, 2, 1 low, 0 empty", text: text("api.object.system.battery"),
+  }),
+
+  // API 36: the page KNOB LEDS, in the patch pad-colors like the pad colours; a write sends the five knob LEDs at once
+  leaf(60, "korg.menu.blech.customizations.led.knobLeds", {
+    base: "pad", offset: 4, type: "u8", min: 0, max: 1, factory: 1, write: true, since: 36,
+    unit: "0 off, 1 on", text: text("api.object.led.knobLeds"),
   }),
 ]);
 

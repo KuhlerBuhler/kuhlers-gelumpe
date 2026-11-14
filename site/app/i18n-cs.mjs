@@ -2308,6 +2308,7 @@ export default {
   "api.object.led.meter.low": "Barva METER LOW: 0 tovární, 1 až 7 bílá, červená, zelená, modrá, žlutá, azurová, růžová.",
   "api.object.led.meter.mid": "Barva METER MID: 0 tovární, 1 až 7 bílá, červená, zelená, modrá, žlutá, azurová, růžová.",
   "api.object.led.meter.loud": "Barva METER LOUD: 0 tovární, 1 až 7 bílá, červená, zelená, modrá, žlutá, azurová, růžová, 8 duha.",
+  "api.object.led.knobLeds": "KNOB LEDS: 1 LED za pěti knoflíky svítí jako ve firmwaru, 0 zůstávají zhasnuté. Platí hned.",
   "api.object.padColor.part": "PAD COLOR, barva rozsvícených padů: 0 červená, 1 modrá, 2 růžová. Nikdy není stejná jako SELECT COLOR: zápis, který by je vyrovnal, je vymění.",
   "api.object.padColor.select": "SELECT COLOR, barva vybraného padu: 0 červená, 1 modrá, 2 růžová. Nikdy není stejná jako PAD COLOR: zápis, který by je vyrovnal, je vymění.",
   "api.object.padColor.overlap": "OVERLAP, barva padu, který svítí a je vybraný: 0 barva, která zbude, 1 červená, 2 modrá, 3 růžová.",
