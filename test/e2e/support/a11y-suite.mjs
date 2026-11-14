@@ -46,14 +46,21 @@ export function a11ySuite(index, parts) {
     await page.waitForFunction(() => document.querySelector("#cee-e2-sequencer").style.getPropertyValue("--cee-e2-glow") === "1");
   }
 
-  test("axe: start page, emulator (off, with options open, running), no serious or critical violation", async () => {
+  test("axe: start page, emulator (off, with options open, running), the hub, no serious or critical violation", async () => {
     const page = await open();
     await page.click("#cee-tab-start");
     assert.deepEqual(await severeViolations(page), [], "start");
+    await page.click("#cee-start-about");
+    assert.deepEqual(await severeViolations(page), [], "about");
     await page.click("#cee-tab-emu");
     assert.deepEqual(await severeViolations(page), [], "emulator off");
     await powerOn(page);
     assert.deepEqual(await severeViolations(page), [], "emulator running, a lit key and a blue pad");
+    // with a firmware in the emulator the start page is the hub
+    await page.click("#cee-tab-start");
+    await page.waitForFunction(() => document.querySelector("#cee-start-page").dataset.view === "hub");
+    await page.click("#cee-start-guide > summary");
+    assert.deepEqual(await severeViolations(page), [], "start hub, install guide open");
     assert.deepEqual(page.errors, []);
   });
 

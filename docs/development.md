@@ -340,6 +340,29 @@ Der eigene Assembler `tools/patch/arm.py` kennt bei Speicherzugriffen nur `ldr`,
 Browser-Regel: alles in `src/` außer `node.mjs` läuft im Browser. Keine `node:`-Importe
 außerhalb von `src/node.mjs`, `bin/`, `tools/` und `test/`.
 
+## Startseite
+
+`site/app/start.mjs` entscheidet, welche der zwei Ansichten aus `index.html` die Startseite zeigt. Beide stehen
+fest im HTML (mit `data-i18n`) und werden per `hidden` umgeschaltet:
+
+- **Willkommen** (`#cee-start-welcome`) für einen ersten Besuch: was BLECHTRIBE ist, Installieren und Ausprobieren,
+  die Installationsschritte, Hilfe. Hängt eine Electribe ohne BLECHTRIBE dran, sagt eine Zeile das (rot oder blau,
+  Korg-Version).
+- **Schaltzentrale** (`#cee-start-hub`), sobald BLECHTRIBE auf dem Gerät ist, eine Firmware im Emulator liegt oder
+  der Merker `cee.start.done` in `localStorage` steht. Der Patcher setzt ihn beim Speichern oder Senden. Beim ersten
+  Start ohne Merker zählen Spuren aus 1.4.x einmal mit (`cee.area` außer `start`, `cee.changelog.seen`,
+  `cee.scripts.v1`).
+
+Die Schaltzentrale liest vom Gerät nur: erst die BLECHTRIBE-Version (16 Bytes RAM an `0xC014FCF0`, Patch
+`blech-version`), dann rot oder blau (Flash). Jeder Lesevorgang wartet höchstens `READ_WAIT` (8 s), danach steht
+"Version unbekannt". Die Version wird mit `RELEASE_NOTES[0].version` verglichen: älter gibt den Update-Hinweis und
+die Update-Karte zuerst, gleich "Aktuell", neuer "Neuer als diese App". "Neu in dieser Version" sind die ersten drei
+Punkte aus `RELEASE_NOTES[0]`. Die Installationsschritte gibt es nur einmal im DOM: in der Schaltzentrale wandern sie
+in die eingeklappte "Installationsanleitung".
+
+Tests: `test/start-view.test.mjs` (Entscheidung, Versionen, Merker), `test/e2e/start.e2e.mjs` (beide Ansichten,
+Gerät mit älterer, gleicher und neuerer Version).
+
 ## Die App
 
 Eine Desktop-App (Tauri v2) um dieselbe Seite. Sie startet den Emulator-Dienst selbst
