@@ -38,6 +38,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Blechy, the repository's GitHub App: what its token pushes, opens or merges starts the workflows it should, and
+      # it shows up as Blechy, not as a person. Without the secrets (a fork) the token stays empty and nothing is done.
+      - uses: actions/create-github-app-token@v2
+        id: app
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.BLECHY_APP_ID }}
+          private-key: ${{ secrets.BLECHY_APP_KEY }}
       - uses: actions/checkout@v4
         with:
           ref: develop                # merged code only, and the merge logic that belongs to the PRs it merges
@@ -47,9 +55,9 @@ jobs:
           node-version: 22
       - name: Merge ready pull requests
         env:
-          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
-            echo "no SYNC_TOKEN: nothing is merged"; exit 0
+            echo "no Blechy token: nothing is merged"; exit 0
           fi
           node tools/automerge.mjs

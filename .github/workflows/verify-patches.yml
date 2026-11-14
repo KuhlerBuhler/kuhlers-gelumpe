@@ -178,10 +178,18 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      # Blechy, the repository's GitHub App: what its token pushes, opens or merges starts the workflows it should, and
+      # it shows up as Blechy, not as a person. Without the secrets (a fork) the token stays empty and nothing is done.
+      - uses: actions/create-github-app-token@v2
+        id: app
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.BLECHY_APP_ID }}
+          private-key: ${{ secrets.BLECHY_APP_KEY }}
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.ref.outputs.sha }}
-          token: ${{ secrets.SYNC_TOKEN || github.token }}
+          token: ${{ steps.app.outputs.token || github.token }}
       # The joining tool from this workflow's own commit: the checked branch may be older than --results.
       - uses: actions/checkout@v4
         with:
@@ -201,7 +209,7 @@ jobs:
           rm -rf .verify-tool
       - name: Commit
         env:
-          GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
           BRANCH: ${{ needs.ref.outputs.branch }}
           EVENT: ${{ github.event_name }}
         run: |
@@ -211,8 +219,8 @@ jobs:
             exit 0
           fi
           git diff -- data/patches/verified.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "blechy[bot]"
+          git config user.email "356464826+blechy[bot]@users.noreply.github.com"
           git commit -m "chore(patches): refresh verified.json" -m "Checked by the workflow Verify patches, run $GITHUB_RUN_ID." -- data/patches/verified.json
           if [ "$BRANCH" != main ] && [ "$BRANCH" != develop ]; then
             if git push origin "HEAD:refs/heads/$BRANCH"; then

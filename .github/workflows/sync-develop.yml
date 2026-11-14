@@ -1,8 +1,9 @@
 # After every push to main (a release commit, a merged PR), develop gets main's commits, so the two never drift apart.
 # The workflow opens a pull request main -> develop. When main brings nothing but the version bump of a release (only
 # "version" lines in the four version files) and the required checks pass, it merges the pull request itself. Anything
-# else stays open for a person. develop needs one approving review; the merge uses SYNC_TOKEN (a token of an admin,
-# branch protection does not bind admins). Without it the pull request stays open.
+# else stays open for a person. The pull request and the merge use the token of Blechy (the repository's GitHub App,
+# allowed to merge pull requests past the rules of develop), so the pull request gets its checks. Without the app's
+# secrets nothing is opened or merged.
 name: Sync develop
 
 on:
@@ -24,6 +25,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      # Blechy, the repository's GitHub App: what its token pushes, opens or merges starts the workflows it should, and
+      # it shows up as Blechy, not as a person. Without the secrets (a fork) the token stays empty and nothing is done.
+      - uses: actions/create-github-app-token@v2
+        id: app
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.BLECHY_APP_ID }}
+          private-key: ${{ secrets.BLECHY_APP_KEY }}
       - uses: actions/checkout@v4
         with:
           ref: develop
@@ -31,8 +40,11 @@ jobs:
       - name: Pull request main -> develop
         id: pr
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "no Blechy token: no pull request"; exit 0
+          fi
           git fetch origin main
           if git merge-base --is-ancestor origin/main HEAD; then
             echo "develop already has main"; exit 0
@@ -61,17 +73,13 @@ jobs:
       - name: Merge once the checks pass
         if: steps.bump.outputs.only == '1'
         env:
-          GH_TOKEN: ${{ github.token }}
-          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           N: ${{ steps.pr.outputs.number }}
         run: |
-          if [ -z "$SYNC_TOKEN" ]; then
-            echo "no SYNC_TOKEN: pull request #$N stays open"; exit 0
-          fi
           # The checks of main's push run count for the pull request (same commit); give them a moment to show up.
           for i in $(seq 1 20); do
             [ "$(gh pr checks "$N" --required 2>/dev/null | grep -cE '^(unit|browser|guard)[[:space:]]')" -ge 3 ] && break
             sleep 15
           done
           gh pr checks "$N" --required --watch --interval 30
-          GH_TOKEN="$SYNC_TOKEN" gh pr merge "$N" --merge --admin
+          gh pr merge "$N" --merge --admin

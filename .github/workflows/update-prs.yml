@@ -12,7 +12,7 @@
 #   with develop, and merging develop into every open pull request after each merge would start all their checks again.
 #   What two pull requests break only together shows up in the runs on develop (Test, Verify patches).
 #
-# The pushes use SYNC_TOKEN: a push with the workflow's own token starts no workflow, so the pull request would get no
+# The pushes use the token of Blechy (the repository's GitHub App): a push with the workflow's own token starts no workflow, so the pull request would get no
 # new checks. A pull request from a fork, a draft and one whose head is itself a base branch (the sync main -> develop)
 # are left alone; tools/ci/pr-queue.mjs picks the one that is next in line.
 name: Update pull requests
@@ -44,6 +44,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Blechy, the repository's GitHub App: what its token pushes, opens or merges starts the workflows it should, and
+      # it shows up as Blechy, not as a person. Without the secrets (a fork) the token stays empty and nothing is done.
+      - uses: actions/create-github-app-token@v2
+        id: app
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.BLECHY_APP_ID }}
+          private-key: ${{ secrets.BLECHY_APP_KEY }}
       # tools/ci/pr-queue.mjs picks the pull request, that is all this job needs from the repository.
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,13 +59,13 @@ jobs:
           node-version: 22
       - name: Merge the base into pull requests that are behind
         env:
-          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           BASE: ${{ inputs.base || github.ref_name }}
           REPO: ${{ github.repository }}
           ALL: ${{ inputs.all || 'false' }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
-            echo "no SYNC_TOKEN: nothing is updated"; exit 0
+            echo "no Blechy token: nothing is updated"; exit 0
           fi
           # One row per pull request: number, head, sha, commits behind, draft, fork. The compare call is the only API
           # request per pull request, it starts no workflow.

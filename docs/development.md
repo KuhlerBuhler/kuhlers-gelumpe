@@ -559,9 +559,15 @@ Pull Request `develop` -> `main`, den du danach öffnest (`gh pr create --base m
 eigener Bump-PR ist nicht nötig. Der Workflow "Sync develop" holt den Merge-Commit danach nach `develop`
 zurück.
 
+Was die Workflows pushen, als Pull Request öffnen oder mergen, läuft über die GitHub App Blechy (Secrets
+`BLECHY_APP_ID` und `BLECHY_APP_KEY`; Rechte: Contents, Pull requests und Workflows schreiben, Actions und Checks
+lesen). Anders als mit `github.token` starten ihre Pushes und Pull Requests die Workflows, und sie tragen keinen
+Personennamen. In den Regeln für `develop` und `main` darf die App Pull Requests an den Regeln vorbei mergen
+(`--admin`), direkt pushen darf sie dort nicht.
+
 Nach jedem Push auf `main` oder einen `release/`-Branch holt der Workflow "Update pull requests" diesen Branch in
 **einen** offenen Pull Request, der auf ihm aufbaut und hinterherhängt: den nächsten in der Reihe, also den ältesten
-hinterherhängenden, Entwürfe ausgenommen (GitHubs "Update branch", mit `SYNC_TOKEN`, damit die Checks neu laufen).
+hinterherhängenden, Entwürfe ausgenommen (GitHubs "Update branch", mit dem Token der App Blechy, damit die Checks neu laufen).
 Welcher das ist, sagt `tools/ci/pr-queue.mjs`. So startet ein Merge nicht die vollen Checks aller offenen PRs auf
 einmal: der PR, der landet, lief gegen den Stand mit allen Merges davor, und sein Merge startet den Workflow erneut
 für den nächsten. Wer mehr als einen auf einmal nachziehen will, startet den Workflow von Hand mit `all`
@@ -582,7 +588,7 @@ mit dem Label `automerge` wird gemerged, sobald auf seinem Kopf-Commit `unit`, `
 und grün sind und kein anderer Check fehlgeschlagen ist. Ein abgeschlossener Prüfworkflow auf dem Branch eines PRs nach `develop`, ein neuer Push oder
 ein neues Label löst eine kurze Entscheidung aus (Läufe auf `main`, `develop`, `release/*`, Tags und Branches ohne
 PR nach `develop` starten nichts). Noch laufende oder fehlende Prüfungen lassen den PR offen;
-das nächste Ereignis prüft erneut. Dabei bleibt kein Runner wartend belegt. Gemerged wird mit `SYNC_TOKEN`,
+das nächste Ereignis prüft erneut. Dabei bleibt kein Runner wartend belegt. Gemerged wird mit dem Token von Blechy,
 `--admin` und `--match-head-commit`. Ohne Label bleibt der PR offen, etwa wenn er auf einen Test am Gerät wartet;
 Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
 Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
@@ -620,8 +626,8 @@ zutrifft:
 
 Geprüft wird jedes Mal, wenn ein Workflow auf einem `release/*`-Branch fertig wird oder ein Review kommt (Läufe auf
 anderen Branches starten nichts); von Hand mit
-`gh workflow run release-merge.yml`. Gemerged wird mit `SYNC_TOKEN` und `--match-head-commit`, also nur der Commit,
-der geprüft wurde; mit dem eigenen Token des Workflows würde der Merge kein Release starten. Ohne das Secret wird
+`gh workflow run release-merge.yml`. Gemerged wird mit dem Token von Blechy und `--match-head-commit`, also nur der Commit,
+der geprüft wurde; mit dem eigenen Token des Workflows würde der Merge kein Release starten. Ohne die Secrets der App wird
 nichts gemerged. Was fehlt, steht im Log des Laufs. Lokal ohne Merge: `GITHUB_REPOSITORY=KuhlerBuhler/kuhlers-gelumpe
 node tools/release-merge.mjs --dry-run`. Der Auslöser `workflow_run` nimmt die Datei, wie sie auf `main` liegt: der
 Workflow merged also erst ab dem Release, das ihn nach `main` bringt.
@@ -682,7 +688,7 @@ dann läuft, hängt von der Basis ab:
   werden nur die Tasks, deren Eingaben oder benutzte Dateien sich geändert haben. Ein neuer develop-Stand
   ersetzt die noch laufenden Teilläufe des alten; der neueste Stand prüft wieder alle Fallmodule.
 
-Gepusht wird mit `SYNC_TOKEN`, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
+Gepusht wird mit dem Token von Blechy, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
 ersten Schritt. Ein neuer Push bricht den laufenden Check eines PRs ab. Pull Requests aus Forks haben keine Secrets:
 `patches` wird dort rot, ein Mensch merged sie. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
 
@@ -701,9 +707,9 @@ kommt aus derselben Workflowrevision.
 
 Er pusht dann auf diesen Branch; für `main` und `develop`, oder wenn der Push scheitert, öffnet er stattdessen einen
 Pull Request hinein. Dieser Ausweg kann scheitern: ein Branch `verified/...`, dessen Verlauf eine Workflow-Datei neu
-anlegt, wird mit dem eigenen Token des Workflows (`github.token`) abgelehnt, und der Workflow nimmt `SYNC_TOKEN ||
-github.token`. Ohne `SYNC_TOKEN` (oder wenn er den Geltungsbereich `workflow` nicht hat) kann der Pull Request also
-ausbleiben; ob `SYNC_TOKEN` hier reicht, ist nicht getestet. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
+anlegt, wird mit dem eigenen Token des Workflows (`github.token`) abgelehnt, deshalb nimmt der Workflow das Token
+von Blechy (Recht Workflows: write) und nur ohne die Secrets der App `github.token`; dann kann der Pull Request
+ausbleiben. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
 Release-Workflows hängt seinen frischen Eintrag je Datei als Artefakt `verified-<name>` an.
 Der gewählte Branch muss die gemeinsame Firmwareprüfung und ihre Werkzeuge enthalten. Ältere Releasebranches
 bekommen diese Dateien vor einer Prüfung über den neuen Workflow als eigenen Backport; der Lauf überlagert
