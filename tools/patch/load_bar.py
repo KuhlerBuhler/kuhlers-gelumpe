@@ -511,6 +511,8 @@ lb_patterns:
     str r2, [r12, #S_PAT]
     str r2, [r12, #S_MODE]
     str r2, [r12, #S_EXPECT]
+    ldr r12, =VARS               ; the backup is read: the overlay draws from now on (anim_start cleared it, no loader sets it)
+    str r2, [r12, #A_READY]
     bx lr
 lpb_on:
     cmn r0, #1
