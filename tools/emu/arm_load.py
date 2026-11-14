@@ -49,13 +49,15 @@ def main():
     uc.hook_add(unicorn.UC_HOOK_BLOCK, block)
     results = []
 
-    def measure(scene, seconds=2.0):
+    def measure(scene, seconds=2.0, each=None):
         st["pages"].clear()
         uc.ctl_flush_tb()
         slices = []
         t0 = m.time_ns
         st["on"] = True
         while m.time_ns - t0 < seconds * 1e9:
+            if each:
+                each(len(slices))
             n0, s0 = st["n"], m.time_ns
             dev.run(SLICE)
             slices.append((st["n"] - n0) * NS / (m.time_ns - s0) * 100)
@@ -107,6 +109,12 @@ def main():
     dev.press(0x15, .3)
     dev.press(2, .4)
     measure("sequencer-four-note-long-ties")
+
+    def edit(i):                # a step edit every 100 ms while it plays: the tie cache (tools/patch/pad_colors.py) starts over
+        if i % 10 == 0:
+            step = 1 + i // 10 % 16
+            uc.mem_write(pattern + 0x830 + step * 12 + 1, bytes([126 + i // 10 % 2]))
+    measure("sequencer-long-ties-editing", each=edit)
     dev.press(1, .3)
     Path(out).write_text(json.dumps(results, indent=1))
 

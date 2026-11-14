@@ -160,7 +160,7 @@ class PadGeometryTests(unittest.TestCase):
                       lambda u,access,at,size,value,data: writes.append((at,size)))
         m.run(16)
         self.assertTrue(writes)
-        self.assertTrue(all(0xC03FF000-40 <= at and at+size <= 0xC03FF000 for at,size in writes),writes)
+        self.assertTrue(all(0xC03FF000-56 <= at and at+size <= 0xC03FF000 for at,size in writes),writes)   # 36 saved, 8 local, 12 in pch_cache
 
     def test_committed_code_is_current_and_both_builds_fit_their_budget(self):
         try:
@@ -171,10 +171,64 @@ class PadGeometryTests(unittest.TestCase):
                 at,code,_ = pad_colors.build_code()
                 self.assertEqual(at,pad_colors.CODE_AT)
                 self.assertEqual(code,old_code,build)
-                self.assertLessEqual(len(code),2684+808)    # + 40 for KNOB LEDS (12.11.)
+                self.assertLessEqual(len(code),2684+808+256)    # + 40 for KNOB LEDS (12.11.), + 256 for the tie cache (14.11.)
                 self.assertLessEqual(at+len(code),pad_colors.CODE_END)
         finally:
             pad_colors.use_build('hacktribe')
+
+    def cache_pass(self, m):
+        m.uc.mem_write(pad_colors.STATE + pad_colors.S_CPASS, b'\x01')      # what pc_tail does on entry
+
+    def test_tie_cache_keeps_results_within_a_pass_and_forgets_them_on_every_input(self):
+        m = PadMachine()
+        m.uc.mem_write(pad_colors.STATE, b'\xff'*(pad_colors.STATE_END-pad_colors.STATE))
+        steps = [[1,127,100,1,61,65,68,73,0,0,0,0] for _ in range(64)]
+        m.steps(steps)
+
+        def check(steps, voice=2, label=None):
+            for section in range(4):
+                for again in range(2):
+                    self.cache_pass(m)
+                    for pad in range(16):
+                        got, cost = m.run(section*16+pad)
+                        self.assertEqual(got, geometry(steps, voice, section*16+pad), (label, section, again, pad))
+                        if again and pad:
+                            self.assertLessEqual(cost, 100, (label, section, pad))    # a kept result, no tie walk (a miss costs 600 and more)
+        check(steps, label='first')
+        for i, byte, value in ((20, 1, 126), (21, 0, 0), (40, 4, 0), (40, 5, 72), (63, 3, 0)):
+            steps[i][byte] = value
+            m.steps(steps)
+            check(steps, label=(i, byte, value))
+        m.steps(steps, 1)
+        check(steps, 1, 'voice assign')
+        other = [[1,127,100,1,61,0,0,0,0,0,0,0] for _ in range(64)]
+        m.steps(other, 2, 5)
+        check(other, label='part')
+        viewed, accessor = 0xC0330000, 0xC0340000
+        m.uc.mem_write(viewed + 0x804 + 5*0x330 + 2, bytes([2]))
+        m.uc.mem_write(viewed + 0x804 + 5*0x330 + 0x30, b''.join(bytes(s) for s in steps))
+        m.write(accessor + 4, viewed)
+        m.write(accessor, 0)
+        m.write(0xC0691388, accessor)
+        m.write(m.PATTERN + 0x4000 + 0xC, 0)
+        self.cache_pass(m)
+        self.assertEqual(m.run(16)[0], 2)          # the viewed pattern's own colour comes before any kept result
+
+    def test_tie_cache_is_not_used_outside_a_pass(self):
+        m = PadMachine()
+        m.uc.mem_write(pad_colors.STATE, b'\xff'*(pad_colors.STATE_END-pad_colors.STATE))
+        steps = [[1,127,100,1,61,65,68,73,0,0,0,0] for _ in range(64)]
+        m.steps(steps)
+        self.cache_pass(m)
+        m.run(16)
+        m.uc.mem_write(pad_colors.STATE + pad_colors.S_CPASS, b'\x00')    # pc_tail left
+        steps[16][4:8] = [61, 0, 0, 0]
+        m.steps(steps)
+        self.assertEqual(m.run(16)[0], geometry(steps, 2, 16))
+        state = bytes(m.uc.mem_read(pad_colors.STATE, pad_colors.STATE_END-pad_colors.STATE))
+        for i in range(64):
+            m.run(i)
+        self.assertEqual(state, bytes(m.uc.mem_read(pad_colors.STATE, pad_colors.STATE_END-pad_colors.STATE)))
 
     def test_geometry_matches_independent_reference_at_boundaries_and_edits(self):
         m = PadMachine()
