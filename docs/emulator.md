@@ -18,6 +18,10 @@ Mit ausdrücklich gesetztem SPORT-Prüftakt erreicht die rote Originalfirmware
 ihre native Audioverarbeitung. Eine vollständige Kopplung an den ARM-Verkehr
 besteht noch nicht. Aufbau und Grenzen:
 [Blackfin: SPORT0 und der native Audiotakt](messungen/2026-11-14-blackfin-sport0.md).
+Ein eigener [HOSTDP-FIFO-Prüfpfad](messungen/2026-11-14-blackfin-host-fifo.md)
+überträgt Daten über DMA1 und die originalen DSP-Interrupt-Handler.
+Seine gemeinsame Zeit mit dem ARM ist noch nicht angeschlossen;
+die bisherige Kompatibilitätsauswahl bleibt Vorgabe.
 
 Der Emulator ist ein eigenständiges Python-Programm. Er führt die Firmware der
 Electribe, also eine eigene `SYSTEM.VSB`, mit Unicorn aus und bildet dazu

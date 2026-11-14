@@ -41,6 +41,22 @@ def patch_sources(source):
         elif text.count(new) != 1:
             raise ValueError('unexpected GNU SIGNBITS implementation')
     file.write_text(text)
+    file = source / 'sim/bfin/dv-bfin_dmac.c'
+    text = file.read_text()
+    declaration = 'int blech_bfin_hostdp_dma_enabled (struct hw *);\n\n'
+    if declaration not in text:
+        text = text.replace('struct bfin_dmac\n', declaration + 'struct bfin_dmac\n', 1)
+    old = '      if (idx >= dmac->pmap_count)\n'
+    new = ('      if (idx == 1)\n'
+           '        {\n'
+           '          struct hw *host = hw_tree_find_device (me, "/core/bfin_hostdp");\n'
+           '          if (host && blech_bfin_hostdp_dma_enabled (host)) return host;\n'
+           '        }\n' + old)
+    if new not in text:
+        if text.count(old) != 1:
+            raise ValueError('unexpected GNU peripheral DMA lookup')
+        text = text.replace(old, new)
+    file.write_text(text)
     file = source / 'sim/bfin/dv-bfin_sic.c'
     text = file.read_text()
     text = text.replace('  bu32 base;\n', '  bu32 base, system_lines;\n')
@@ -148,6 +164,17 @@ def patch_sources(source):
     shutil.copyfile(ROOT / 'tools/dsp/blackfin_sport.c', source / 'sim/bfin/dv-bfin_sport.c')
     file = source / 'sim/bfin/dv-bfin_dma.c'
     text = file.read_text()
+    if '  struct hw *host_owner;\n' not in text:
+        text = text.replace('  struct hw *hw_peer;\n', '  struct hw *hw_peer;\n  struct hw *host_owner;\n', 1)
+    start = text.index('bfin_dma_io_write_buffer (')
+    stop = text.index('\nstatic unsigned\nbfin_dma_io_read_buffer', start)
+    region = text[start:stop]
+    ownership = ('  if (mmr_off != mmr_offset(irq_status)\n'
+                 '      && (!bfin_dma_running (dma) || mmr_off == mmr_offset(config)))\n'
+                 '    dma->host_owner = NULL;\n\n')
+    if ownership not in region:
+        region = region.replace('  switch (mmr_off)\n', ownership + '  switch (mmr_off)\n', 1)
+    text = text[:start] + region + text[stop:]
     start = text.index('bfin_dma_process_desc (')
     stop = text.index('\nstatic int\nbfin_dma_finish_x', start)
     region = text[start:stop]
@@ -239,6 +266,7 @@ def build(directory, jobs=4):
                              'deferred SIGNBITS half-register writes',
                              'bounded execution inside the event loop',
                              'BF52x HOSTDP registers and interrupt sources',
+                             'HOSTDP FIFO and DMA1 descriptor/data transport',
                              'SPORT0 stereo DMA FIFOs and explicit test clock',
                              'DMA completion status and interrupt acknowledgment',
                              'BF52x SIC aggregate levels and CEC level-sensitive interrupts',
