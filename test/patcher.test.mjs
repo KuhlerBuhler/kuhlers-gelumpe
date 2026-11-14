@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { classify, convertStock, samplerHead, withHead, headFor, runsHacktribe, runningFolder, goalsFor, goalMismatch, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE, USB_NAME_URLS, optionFor, patchLabel, restoreOriginal, canRestore, KNOWN_ORIGINALS } from "../src/patcher.mjs";
+import { classify, convertStock, samplerHead, withHead, headFor, runsHacktribe, runningFolder, goalsFor, goalMismatch, folderOf, choosesDevice, hardwareOfFlow, HACKTRIBE_BLUE_SHA256, cardFolder, sampleFolder, loadBlechSet, itemsFor, hasDoom, DOOM_FILES, DOOM_FOLDER, BLECH_SET_URL, BLECH_FOLDER, checkName, checkDetail, checkProgress, clock, CHECK_HOLD, newFlow, step, allowed, verifiedReport, VERIFIED_URL, STOCK_SHA256, HACKTRIBE_SHA256, HACKTRIBE_PATCH_URL, VSB_SIZE, USB_NAME_URLS, optionFor, patchLabel, restoreOriginal, canRestore, KNOWN_ORIGINALS, oldHacktribe } from "../src/patcher.mjs";
 import { applyPatches, splashPatch, patchesPresent, SPLASH_W, SPLASH_H } from "../src/patch.mjs";
 import { sha256 } from "../src/firmware.mjs";
 import { render, isText } from "../src/text.mjs";
@@ -28,6 +28,17 @@ test("a Hacktribe file without the patches is ready to be patched", async () => 
   const res = await classify(vsb, await ours(vsb));
   assert.equal(res.kind, "hacktribe");
   assert.deepEqual(res.present, []);
+});
+
+test("a Hacktribe of 2023 or older, with its own code where BLECH's starts, sends the app to Korg's red original", async () => {
+  const vsb = await makeFirmware();
+  assert.equal(oldHacktribe(vsb), false);
+  const old = Uint8Array.from(vsb);
+  old.set([0x80, 0x00, 0x2d, 0xe9], 0x180100);     // push {r7}, the first word of Hacktribe 3e000ecc there
+  assert.equal(oldHacktribe(old), true);
+  const res = await classify(old, await ours(old));
+  assert.deepEqual([res.kind, res.changed], ["unknown", "stock"]);
+  assert.match(render(res.reasons[0]), /Hacktribe von 2023 oder älter/);
 });
 
 test("a file that already carries every patch is BLECH, one with some of them is partial", async () => {
@@ -108,7 +119,7 @@ test("itemsFor: the items of a set that apply to a build, one per id", () => {
   const set = { items: [{ id: "a" }, { id: "f" }, { id: "f" }], patches: [{ id: "a", builds: ["hacktribe", "stock"] }, { id: "f", builds: ["hacktribe"] }, { id: "f", builds: ["stock"] }] };
   assert.deepEqual(itemsFor(set, "hacktribe"), [set.items[0], set.items[1]]);
   assert.deepEqual(itemsFor(set, "stock"), [set.items[0], set.items[2]]);
-  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "ht-osc", "beat-eighth", "touch-scale-zero", "blech-version", "doom-loader", "blech-sysex"]);
+  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "ht-osc", "beat-eighth", "touch-scale-zero", "update-guard", "blech-version", "doom-loader", "blech-sysex"]);
   assert.equal(itemsFor(BLECH_SET, "stock").length, itemsFor(BLECH_SET, "hacktribe").length + 2, "the synth filters and the Hacktribe oscillators are for Korg's build only");
 });
 

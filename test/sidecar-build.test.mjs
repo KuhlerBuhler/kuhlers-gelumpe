@@ -58,3 +58,11 @@ test("build-sidecar bundles the answers the cases once got from Node, where node
   assert.match(helper, /^FILE = DATA \/ "data" \/ "emu" \/ "node-results\.json"$/m);
   assert.match(build, /"--add-data", `\$\{path\("\.\.\/\.\.\/data\/emu\/node-results\.json"\)\}\$\{sep\}data\/emu`/);
 });
+
+test("build-sidecar bundles the assembler sources the runtime build reads next to its modules", () => {
+  const build = read(`${emu}/build-sidecar.mjs`);
+  assert.match(build, /readdirSync\(path\("\.\.\/patch"\)\)\.filter\(f => \/\\\.s\$\/\.test\(f\)\)\.flatMap\(f => \["--add-data", `\$\{path\(`\.\.\/patch\/\$\{f\}`\)\}\$\{sep\}tools\/patch`\]\)/);
+  for (const [file, read_] of [["script_vm.py", /Path\(__file__\)\.with_suffix\('\.s'\)\.read_text\(\)/], ["script_hooks.py", /Path\(__file__\)\.with_name\(name\)\.read_text\(\)/]]) {
+    assert.match(read(`tools/patch/${file}`), read_, `${file} reads its .s next to itself; the bundle puts it in tools/patch`);
+  }
+});

@@ -216,6 +216,7 @@ def case_write(payload, flash):
         box.dev.press(0x0E, 1.0)
         if not box.dirty():
             break
+    box.run(0.5)        # the bank in RAM is copied before the flash write ends; a turn while it runs is lost
     written = slot()
     box.turn(1)
     box.run(0.5)

@@ -89,11 +89,11 @@ def traced(dev):
         ops["erase"].append((flash.addr & ~(size - 1), size))
         return erase(size)
 
-    def byte_(b):
+    def byte_(b, *now):
         if flash.cmd == 0x02 and flash.wel and len(flash.buf) >= 3:
             ops["program"].update(struct.pack("<IB", flash.addr, b))
             ops["bytes"] += 1
-        return byte(b)
+        return byte(b, *now)
 
     def write_(lba, block):
         card.append((lba, sha(bytes(block))))
@@ -163,13 +163,18 @@ def run_task(name):
 def shows_picture(run):
     """The display goes from the main screen to the picture within 100 ms and then stays on it until the power is gone. One frame of the
     firmware's box may come in between: the window paints when it opens, at a time the display frame (every 40 ms) does not wait for.
-    The picture may also be the first thing a look sees, when the first display frame came before the first look."""
+    The picture may also be the first thing a look sees, when the first display frame came before the first look.
+    After the dark end one more frame of the box may come: the save after the wait is the firmware's and takes the flash's
+    erase and program time (machine.FLASH_BUSY_NS), long enough for a display frame of the box it keeps painting."""
     labels = [k for _, k in run["timeline"]]
     first = run["first_ours_ms"]
     if labels[:1] == ["main"]:
         labels = labels[1:]
     if labels[:1] and labels[0].startswith("fb:"):
         labels = labels[1:]
+    tail = run["timeline"][-2:]
+    if len(labels) > 3 and labels[-3] == "blank" and labels[-2].startswith("fb:") and labels[-1] == "blank" and tail[0][0] >= spec.DARK_AT:
+        labels = labels[:-2]
     return labels == ["ours", "blank"] and first is not None and first <= 100
 
 

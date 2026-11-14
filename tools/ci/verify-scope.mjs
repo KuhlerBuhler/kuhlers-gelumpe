@@ -21,7 +21,7 @@ export const ALL = "all";
 export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases",
   "note_assist_cases", "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases",
   "remote_cases", "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases"];
+  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases"];
 
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
@@ -58,6 +58,8 @@ export const TABLE = [
   [/^tools\/emu\/plugin_api25_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/live_write_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/objects_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
+  [/^tools\/emu\/catalog_app_cases\.py$/, ["remote_cases"]],  // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_catalog15_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   // what the case modules get from Node (node_json.py): only groups of remote_cases ask; the writer of the file checks nothing
   [/^tools\/emu\/node_json\.py$|^data\/emu\/node-results\.json$/, ["remote_cases"]],
   [/^tools\/emu\/node_results\.py$/, []],
@@ -86,9 +88,11 @@ export const TABLE = [
   [/^tools\/patch\/ht_osc\.py$|^data\/patches\/ht-osc[^/]*\.json$/, ["ht_osc_cases"]],
   [/^tools\/patch\/beat_eighth\.py$|^data\/patches\/beat-eighth[^/]*\.json$/, ["beat_eighth_cases"]],
   [/^tools\/patch\/touch_scale_zero\.py$|^data\/patches\/touch-scale-zero[^/]*\.json$/, ["touch_scale_zero_cases"]],
+  [/^tools\/patch\/update_guard\.py$|^data\/patches\/update-guard[^/]*\.json$|^data\/synth-map\/update-guard\.json$/, ["update_guard_cases"]],
   [/^tools\/patch\/doom_loader\.py$|^data\/patches\/doom-loader\.json$/, ["doom_loader_cases"]],
   [/^tools\/patch\/power_off\.py$|^data\/patches\/power-off[^/]*\.json$/, ["power_off_cases"]],
   [/^tools\/patch\/preset_tables\.py$|^data\/patches\/preset-tables[^/]*\.json$/, ["preset_cases"]],
+  [/^data\/patches\/fx-catalog\.json$/, ["preset_cases", "fx_card_cases"]],   // the catalog's effects behind the presets, and the card loader that reads the same records
 
   // the shared core: the script VM and its hooks, the patcher, the emulator and check.py itself. Listed so the
   // intent is written down; anything else not matched above is ALL as well.

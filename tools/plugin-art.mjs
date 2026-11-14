@@ -50,11 +50,11 @@ const PLUGIN_ART = {
       p.frame(x, y, 12, 12, 1);
     }
   },
-  // PLAY-Takt: the PLAY LED blinks on every quarter note while the pattern plays
+  // STOP-Takt: the STOP LED blinks on every quarter note while the pattern plays
   playtakt: p => {
-    p.text("PLAY LED", 4, 3);
+    p.text("STOP LED", 4, 3);
     p.frame(8, 20, 36, 26, 2);
-    for (let i = 0; i < 9; i++) p.fill(21 + i, 24 + i, 1, 18 - 2 * i);
+    p.fill(20, 27, 12, 12);
     for (const [x, y, w, h] of [[2, 32, 4, 2], [46, 32, 4, 2], [25, 14, 2, 4], [25, 48, 2, 4], [4, 16, 3, 2], [45, 16, 3, 2], [4, 48, 3, 2], [45, 48, 3, 2]]) p.fill(x, y, w, h);
     [1, 2, 3, 4].forEach((n, k) => {
       const x = 58 + k * 17;
@@ -104,6 +104,27 @@ const PLUGIN_ART = {
       p.text(label, bx + 25, 48, { align: "center" });
     }
     arrow(p, 57, 27);
+  },
+  // a step above velocity 96 plays with its own EG INT, DECAY and LEVEL: a taller, longer envelope on the lit pads
+  betteraccent: p => {
+    p.text("ACCENT", 4, 3);
+    p.text("VEL > 96", 124, 3, { align: "right" });
+    [0, 1, 0, 0, 1, 0, 0, 1].forEach((accent, k) => {
+      const x = 6 + k * 15, h = accent ? 24 : 10;
+      for (let i = 0; i < 13; i++) p.fill(x + i, 38 - Math.round(h * Math.exp(-i / (accent ? 6 : 2.5))), 1, 2);
+      if (accent) p.fill(x, 46, 12, 12, RED); else p.frame(x, 46, 12, 12);
+    });
+  },
+  // a TIE step and the step after it get more glide: the two notes slide into each other
+  easyslides: p => {
+    p.text("SLIDE", 4, 3);
+    p.text("TIE", 124, 3, { align: "right" });
+    p.fill(6, 44, 30, 3);
+    for (let i = 0; i < 40; i++) p.fill(36 + i, 44 - Math.round(24 * (1 - Math.cos((i / 39) * Math.PI)) / 2), 1, 3);
+    p.fill(76, 20, 46, 3);
+    p.frame(6, 52, 12, 10);
+    p.fill(36, 52, 40, 10, RED);
+    p.frame(90, 52, 12, 10);
   },
 };
 

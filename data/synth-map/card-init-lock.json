@@ -1,0 +1,10 @@
+{
+ "entries": [
+  {
+   "from": "0xC031BEEC",
+   "to": "0xC031BEEC",
+   "kind": "ram",
+   "why": "the init lock of Korg's SD driver (tools/patch/script_menu.s SD_INIT_LOCK): on the Sampler set to 1 by 0xC001DB18, read by 0xC001DB3C, cleared by 0xC001DB60; the synth's three functions at 0xC0019440, 0xC0019464 and 0xC0019488 are the same code with the same literal 0xC031BEEC (read in both images). Emulator: never-ready card sets it on both builds"
+  }
+ ]
+}
