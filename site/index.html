@@ -78,9 +78,34 @@
 
       <main class="ui-page cee-main">
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-start" aria-labelledby="cee-tab-start" tabindex="0" hidden>
-        <section class="cee-home" id="cee-start-page" data-no-reveal>
+        <div class="cee-start" id="cee-start-page">
+        <section class="cee-home cee-start-view" id="cee-start-welcome" data-no-reveal>
           <div class="cee-sec">
-            <h1 class="cee-home-title" data-i18n="start.title">Hol mehr aus deiner Electribe 2 raus</h1>
+            <div class="cee-start-hero">
+            <div class="cee-start-hero-text">
+              <h1 class="cee-home-title" data-i18n="start.title">Hol mehr aus deiner Electribe 2 raus</h1>
+              <p class="cee-start-lead" data-i18n="start.lead">BLECHTRIBE ist eine neue Firmware für die Electribe 2, den roten Sampler und die blaue Synth. Diese App patcht sie auf deine eigene Firmware und bringt sie aufs Gerät.</p>
+              <p class="cee-start-found" id="cee-start-found" hidden></p>
+              <div class="actions">
+                <a class="btn cee-primary" href="#patcher" id="cee-start-patch" data-i18n="start.install.go">BLECHTRIBE installieren</a>
+                <a class="btn" href="#emu" id="cee-start-try" data-i18n="start.try">Erst im Emulator ausprobieren</a>
+              </div>
+            </div>
+            <img class="cee-start-blechy" src="img/blechy/wave.png" alt="" width="43" height="55">
+            </div>
+          </div>
+
+          <div class="cee-sec">
+            <h2 data-i18n="start.features.title">Was kann BLECHTRIBE?</h2>
+            <ul class="cee-entry-steps" id="cee-start-cards">
+              <li><a class="cee-entry-step" href="#baukasten" id="cee-start-card-fx"><strong data-i18n="start.card.fx">Neue Effekte und Presets</strong><span data-i18n="start.card.fx.hint">Eigene Effekte und Modulationen bauen, aus fertigen oder aus Bausteinen.</span></a></li>
+              <li><a class="cee-entry-step" href="#scripts" id="cee-start-card-plugins"><strong data-i18n="start.card.plugins">Plugins und Spiele</strong><span data-i18n="start.card.plugins.hint">Erweiterungen und Spiele aus dem Katalog, oder bau dein eigenes.</span></a></li>
+              <li><a class="cee-entry-step" href="#splash" id="cee-start-card-design"><strong data-i18n="start.card.design">Eigenes Startbild</strong><span data-i18n="start.card.design.hint">Startbild und Ladeanimation fürs Display selbst gestalten.</span></a></li>
+              <li><a class="cee-entry-step" href="#emu" id="cee-start-card-emu"><strong data-i18n="start.card.emu">Emulator im Rechner</strong><span data-i18n="start.card.emu.hint">Eine Electribe im Browser: Firmware testen, Presets bauen, Plugins ausprobieren, ganz ohne Gerät.</span></a></li>
+            </ul>
+            <div class="actions">
+              <a class="btn" href="#features" id="cee-start-more" data-i18n="start.features.more">Alle Features ansehen</a>
+            </div>
           </div>
 
           <div class="cee-sec" id="cee-start-entry">
@@ -104,9 +129,6 @@
                 <p data-i18n-html="start.install.step4.text">Unter <a class="cee-text-link" href="#scripts">Plugins</a> holst du dir Erweiterungen und Spiele aufs Gerät, im <a class="cee-text-link" href="#baukasten">Baukasten</a> baust du eigene Effekte und Modulationen. Und läuft BLECHTRIBE erstmal, kannst du dieselbe Firmware auch in den <a class="cee-text-link" href="#emu" id="cee-start-emu">Emulator</a> laden: neue Presets machen, Plugins bauen und testen, ganz ohne Gerät.</p>
               </li>
             </ol>
-            <div class="actions">
-              <a class="btn cee-primary" href="#patcher" id="cee-start-patch" data-i18n="start.toPatcher">Zum Firmware Patcher</a>
-            </div>
           </div>
 
           <div class="cee-sec" id="cee-start-trouble">
@@ -119,28 +141,13 @@
           </div>
 
           <div class="cee-sec">
-            <h2 data-i18n="start.features.title">Was kann BLECHTRIBE?</h2>
-            <p id="cee-start-features" data-i18n="start.features.text">BLECHTRIBE bringt einen ganzen Haufen neuer Funktionen und Verbesserungen auf die Electribe, viele davon hat sich die Community gewünscht. Die volle Liste mit Bildern und wie du drankommst steht unter Features.</p>
-            <div class="actions">
-              <a class="btn" href="#features" id="cee-start-more" data-i18n="start.features.more">Alle Features ansehen</a>
-            </div>
-          </div>
-
-          <div class="cee-sec">
-            <h2 data-i18n="start.explore.title">Erkunden</h2>
-            <ul class="cee-entry-steps" id="cee-start-explore">
-              <li><a class="cee-entry-step" href="#scripts" id="cee-start-plugins"><strong data-i18n="start.explore.plugins">Plugins ansehen</strong><span data-i18n="start.explore.plugins.hint">Erweiterungen und Spiele aus dem Katalog, oder bau dein eigenes.</span></a></li>
-              <li><a class="cee-entry-step" href="#baukasten" id="cee-start-presets"><strong data-i18n="start.explore.baukasten">Baukasten öffnen</strong><span data-i18n="start.explore.baukasten.hint">Eigene Effekte und Modulationen bauen, aus fertigen oder aus Bausteinen.</span></a></li>
-            </ul>
-          </div>
-
-          <div class="cee-sec">
             <h2 data-i18n="start.donate.title">Spenden</h2>
             <p data-i18n-html="start.donate.text">Kostet nix. Wenn dir das was bringt: <a class="cee-text-link" id="cee-donate-start" href="#support">So kannst du das Projekt unterstützen</a>, mit einer Spende, einem Bug-Report, einem Plugin oder einem Profilbild mit Blechy.</p>
-            <p><a class="cee-text-link" id="cee-start-about" href="#about" data-i18n="nav.about">Über das Projekt</a></p>
+            <p data-i18n-html="start.about">Wer baut das und warum? Steht auf der Seite <a class="cee-text-link" id="cee-start-about" href="#about">Über das Projekt</a>.</p>
           </div>
           <p class="cee-home-foot" data-i18n="start.foot">Viel Spaß beim Verkuhlen.</p>
         </section>
+        </div>
       </div>
 
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-emu" aria-labelledby="cee-tab-emu" tabindex="0" hidden>

@@ -1552,6 +1552,58 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   color: var(--color-text-muted);
 }
 
+/* The start page (start.mjs) shows one of its two views, the welcome or the hub. */
+.cee-start-view[hidden] {
+  display: none;
+}
+
+/* Welcome: title, one sentence and the way to install beside Blechy, in the first screen. */
+.cee-start-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.cee-start-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 44rem;
+}
+
+.cee-start-lead {
+  color: var(--color-text-secondary);
+  font-size: var(--text-lg);
+}
+
+.cee-start-found {
+  white-space: normal;
+}
+
+.cee-start-found[hidden] {
+  display: none;
+}
+
+.cee-start-blechy {
+  flex: none;
+  width: calc(43px * 4);
+  height: auto;
+  border-radius: var(--radius-md);
+  image-rendering: pixelated;
+}
+
+@media (max-width: 720px) {
+  .cee-start-hero {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+  }
+
+  .cee-start-blechy {
+    width: calc(43px * 2);
+  }
+}
+
 @media (max-width: 60rem) {
   .cee-app {
     grid-template-columns: minmax(0, 1fr);

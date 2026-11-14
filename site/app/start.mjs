@@ -3,6 +3,8 @@
  * has BLECHTRIBE sees the hub (device and emulator state, next steps). The decision is a pure function; the page
  * listens to the device session and the emulator and switches at most once while they load.
  */
+import { t } from "./i18n.mjs";
+import { setStateText } from "./state.mjs";
 
 /** Where the patch blech-version keeps "BLECH x.y.z", NUL padded to 16 bytes (tools/patch/blech_version.mjs). */
 export const VERSION_AT = 0xC014FCF0;
@@ -97,6 +99,21 @@ export function deviceFacts(session) {
   return known;
 }
 
+/** Korg's version as the Electribe shows it: [2, 2] is 2.02. */
+export const korgVersion = version => `${version[0]}.${String(version[1]).padStart(2, "0")}`;
+
+/** The welcome's line for an Electribe without BLECHTRIBE: found, with red or blue and Korg's version once read. */
+function paintFound(line, state, session) {
+  line.hidden = !state.found;
+  if (!state.found) return;
+  line.classList.add("cee-state");
+  const say = hardware => setStateText(line, "info", hardware
+    ? t("start.found.detail", { hardware: t(hardware === "blue" ? "start.hw.blue" : "start.hw.red"), version: korgVersion(session.device.version) })
+    : t("start.found"));
+  say(null);
+  deviceFacts(session).then(f => { if (!line.hidden && f.hardware) say(f.hardware); });
+}
+
 /**
  * The start page. `session()` gives the Electribe on the cable (never the emulator's port), `emulator()` the emulator
  * panel. Call `sessionChanged()` when the session changes and `firmwareChanged()` when the emulator's firmware may have.
@@ -106,6 +123,7 @@ export function startPage(root, { storage = null, session = () => null, emulator
   let seen = seenBefore(storage);
   let shown = null;
   const views = { welcome: root.querySelector("#cee-start-welcome"), hub: root.querySelector("#cee-start-hub") };
+  const found = root.querySelector("#cee-start-found");
   const render = () => {
     const s = session();
     const device = s && !s.sender?.disconnected ? s.device : null;
@@ -117,6 +135,7 @@ export function startPage(root, { storage = null, session = () => null, emulator
       root.dataset.view = shown;
       for (const [id, node] of Object.entries(views)) if (node) node.hidden = id !== shown;
     }
+    if (found) paintFound(found, state, s);
     paint(state, { session: device ? s : null, emulator: emulator() });
     return state;
   };

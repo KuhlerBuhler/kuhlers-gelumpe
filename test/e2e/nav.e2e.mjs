@@ -238,11 +238,10 @@ test("the drawing sits at the same height on the emulator page and on the real d
   assert.equal(await top("#device"), await top("#emu"));
 });
 
-test("the start page has its sections in heading order and the donate link opens outside the app", async () => {
+test("the welcome has its sections in heading order and the donate link opens outside the app", async () => {
   const page = await h.page();
   await page.goto(h.url);
-  assert.deepEqual(await page.locator("#cee-start-page h2").allTextContents(), ["Wie installiere ich BLECHTRIBE?", "Geht was schief?", "Was kann BLECHTRIBE?", "Erkunden", "Spenden"]);
-  assert.match(await page.locator("#cee-start-features").textContent(), /volle Liste/, "the start page says there is a lot and points to Features");
+  assert.deepEqual(await page.locator("#cee-start-welcome h2").allTextContents(), ["Was kann BLECHTRIBE?", "Wie installiere ich BLECHTRIBE?", "Geht was schief?", "Spenden"]);
   assert.equal(await page.getAttribute("#cee-start-rescue-more", "href"), "#rescue", "Geht was schief? has its button to the rescue page");
   assert.equal(await page.getAttribute("#cee-start-more", "href"), "#features", "the button leads to the page of all functions");
   await page.click("#cee-start-more");
@@ -306,13 +305,21 @@ test("the settings page names the app's version in the app, and has no such line
   assert.equal(await app.locator("#cee-version").textContent(), "App-Version 1.2.0");
 });
 
-test("the start page sends to the patcher for Korg's firmware, and to Plugins and the Baukasten under Erkunden", async () => {
+test("the welcome: install and try first in the first screen, four cards to what BLECHTRIBE does, Korg's firmware from the patcher", async () => {
   const page = await h.page();
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(h.url);
+  assert.equal(await page.locator("#cee-start-welcome").isVisible(), true, "nothing connected, no firmware, first visit: the welcome");
+  for (const id of ["#cee-start-patch", "#cee-start-try"]) {
+    const box = await page.locator(id).boundingBox();
+    assert.ok(box.y + box.height <= 800, `${id} is in the first screen`);
+  }
+  assert.deepEqual([await page.getAttribute("#cee-start-patch", "href"), await page.getAttribute("#cee-start-try", "href")], ["#patcher", "#emu"]);
+  assert.deepEqual(await page.locator("#cee-start-cards a").evaluateAll(list => list.map(a => a.getAttribute("href"))), ["#baukasten", "#scripts", "#splash", "#emu"]);
   assert.equal(await page.getAttribute("#cee-start-step-firmware", "href"), "#patcher");
+  assert.equal(await page.locator("#cee-start-found").isVisible(), false, "no Electribe found, no line");
   assert.equal(await page.locator("#cee-start-page .cee-device-card").count(), 0, "Korg's cards live on the patcher");
-  const explore = page.locator("#cee-start-explore a");
-  assert.deepEqual(await explore.evaluateAll(list => list.map(a => a.getAttribute("href"))), ["#scripts", "#baukasten"]);
+  assert.deepEqual(page.errors, []);
 });
 
 test("the emulator opens in a window of its own; the page shows a note, and Hier anzeigen or closing the window brings it back", async () => {
