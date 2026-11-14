@@ -1,6 +1,7 @@
 """Emulator cases of plugin API 33: korg.read.sampleName reads the name the firmware shows for the part's sample, korg.read.sampleInfo
 the values of the sampler's tables (both -1 on the blue synth), korg.pattern.write saves the running pattern into its place as
-EXIT + WRITE does, korg.part.copy copies a part as Part Util COPY PART.
+EXIT + WRITE does (through the firmware's Write window, without it while korg.display.popups is 0), korg.part.copy copies a part
+as Part Util COPY PART.
 
     python3 tools/emu/plugin_api33_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 
@@ -22,7 +23,7 @@ import plugin_edit_cases as edit  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
-from shortcut_cases import PART, STEPS, STRIDE, SBox  # noqa: E402
+from shortcut_cases import PART, STEPS, STRIDE, WINDOW, SBox  # noqa: E402
 
 NAMES, PLAY, META, META_SIZE = 0xC047B08C, 0xC0362EE8, 0xC036AD88, 0x45C
 SLOT = 900                      # a slot the case fills with values of its own
@@ -42,6 +43,9 @@ korg.onEvent("ready", () => {{
     "saver": """let first = -9; let again = -9; let wrote = -9;
 korg.onEvent("write", pattern => { wrote = pattern; });
 korg.onEvent("ready", () => { first = korg.pattern.write(); again = korg.pattern.write(); });""",
+    "quietsaver": """let first = -9; let again = -9; let wrote = -9;
+korg.onEvent("write", pattern => { wrote = pattern; });
+korg.onEvent("ready", () => { korg.display.popups = 0; first = korg.pattern.write(); again = korg.pattern.write(); });""",
     "copier": """korg.onEvent("ready", () => { korg.part.copy(1, 3, 0); });""",
 }
 
@@ -111,10 +115,16 @@ def info_cases(vsb, flash):
 
 
 def changed(r):
-    """Changes three sound bytes of part 1 in RAM (shortcut_cases.edit) so the pattern differs from its place in the bank."""
+    """Changes three sound bytes of part 1 in RAM (shortcut_cases.edit) so the pattern differs from its place in the bank, and
+    notes every screen the firmware switches to from then on (the number at +0x2C of the screen manager) in r.screens."""
     import shortcut_cases
+    import unicorn
     shortcut_cases.edit(r.box, 0)
     r.edited = r.box.live() != r.box.saved()
+    r.screens = []
+    at = r.box.u32(r.box.m.profile.screens) + 0x2C
+    r.box.m.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, lambda uc, access, addr, size, value, data: r.screens.append(value),
+                        begin=at, end=at + 3)
 
 
 def write_cases(vsb, flash):
@@ -125,8 +135,28 @@ def write_cases(vsb, flash):
     v, box = r.vars(), r.box
     ok = (r.edited and (v["first"], v["again"]) == (1, 0) and v["wrote"] == box.running() and box.live() == box.saved()
           and box.screen() == 1 and [box.saved(n) for n in (1, 2)] == others and not r.dev.m.asserts)
-    return [entry("pattern_write_saves", ok, f"build {r.build}: edited {r.edited}, (first, again) {(v['first'], v['again'])}, "
-                  f"write event {v['wrote']} (running {box.running()}), saved {box.live() == box.saved()}, screen {box.screen()}")]
+    window = WINDOW in r.screens
+    return [entry("pattern_write_saves", ok and window, f"build {r.build}: edited {r.edited}, (first, again) {(v['first'], v['again'])}, "
+                  f"write event {v['wrote']} (running {box.running()}), saved {box.live() == box.saved()}, screen {box.screen()}, "
+                  f"screens on the way {r.screens}")]
+
+
+def quiet_write_cases(vsb, flash):
+    """korg.display.popups = 0, then korg.pattern.write: the same save without the Write window (no switch to screen 18), 1 and a
+    second call 0, the write event; a new start from the flash the save wrote has the edited pattern in its place."""
+    r = Run(vsb, flash, "quietsaver", before=changed)
+    others = [r.box.saved(n) for n in (1, 2)]
+    r.dev.run(1.5)
+    v, box = r.vars(), r.box
+    live = box.live()
+    ok = (r.edited and (v["first"], v["again"]) == (1, 0) and v["wrote"] == box.running() and live == box.saved()
+          and box.screen() == 1 and [box.saved(n) for n in (1, 2)] == others and not r.dev.m.asserts)
+    again = SBox(vsb[0x100:], bytes(box.m.flash.mem))
+    kept = again.saved(box.running()) == live
+    return [entry("pattern_write_quiet", ok and WINDOW not in r.screens and kept,
+                  f"build {r.build}: edited {r.edited}, (first, again) {(v['first'], v['again'])}, write event {v['wrote']} "
+                  f"(running {box.running()}), saved {live == box.saved()}, screen {box.screen()}, screens on the way {r.screens}, "
+                  f"in its place after a new start {kept}")]
 
 
 def marked(r):
@@ -153,7 +183,7 @@ def copy_cases(vsb, flash):
 
 
 def cases(vsb, flash=None):
-    return name_cases(vsb, flash) + info_cases(vsb, flash) + write_cases(vsb, flash) + copy_cases(vsb, flash)
+    return name_cases(vsb, flash) + info_cases(vsb, flash) + write_cases(vsb, flash) + quiet_write_cases(vsb, flash) + copy_cases(vsb, flash)
 
 
 def main():

@@ -22,6 +22,11 @@ Firmware selbst hat?
 - `korg.pattern.write()` macht, was EXIT + WRITE macht (`tools/patch/script_shortcuts.s`, Messung
   `2026-10-19-exit-shortcuts.md`): WRITE drücken, `shortcut_tick` gibt dem Fenster der Firmware das zweite WRITE. Nur auf dem
   Hauptbildschirm; solange ein Speichern noch auf sein Fenster wartet, gibt der Aufruf 0. (gelesen, eigener Code)
+- Mit `korg.display.popups = 0` kein Fenster (entschieden 14.11.): das zweite WRITE im Fenster 0x12 landet in `0xC006852C` (blau
+  `0xC005E5B8`), das ruft `POST_COMMAND` (`0xC002D5D8`, blau `0xC002A73C`) mit Befehl 8, der Nummer aus `+0x24` des Fensters und 0.
+  Die CommandTask führt Befehl 8 in `0xC0038304` aus (blau `0xC00343E0`), das ruft die Schreibfunktion `0xC004C28C` (blau
+  `0xC0046090`). Der Aufruf schickt ohne Fenster denselben Befehl mit der laufenden Nummer. Danach gibt er 1 s lang 0, wie
+  während des Wartens auf das Fenster. (gemessen: Trace im Emulator, Hacktribe, rot, blau: `POST_COMMAND(8, 0, 0)` aus dem Fenster)
 - `korg.part.copy(pattern, von, nach)` ruft Copy Part der Firmware (`0xC00667D4`, blau `0xC005C49C`) mit einem Objekt auf dem
   Stapel: +0x40 Quell-Pattern, +0x41 Quell-Part, +0x42 Ziel-Part, der Ziel-Part zusätzlich in r1 (Messung
   `2026-10-30-vorschau-part-reinholen.md`, dort ruft die Vorschau dieselbe Funktion so). (gelesen)
@@ -36,7 +41,9 @@ Firmware selbst hat?
 | Blau: `sampleName` und alle acht Werte von `sampleInfo` geben -1 | gemessen |
 | `pattern.write` nach einer Änderung von Part 1: erster Aufruf 1, zweiter gleich danach 0, das Ereignis `write` kommt mit der laufenden Nummer, danach ist die Bank gleich dem RAM, Bildschirm 1, andere Plätze unverändert | gemessen (Hacktribe, rot, blau) |
 | `part.copy(1, 3, 0)` mit geändertem Part 4 von Pattern 2 in der Bank: alle 0x330 Byte von Part 1 im RAM gleich der Quelle, die anderen Parts unverändert | gemessen (Hacktribe, rot, blau) |
-| EXIT + WRITE und WRITE allein verhalten sich wie vorher (`shortcut_cases.case_save`) | gemessen (Hacktribe) |
+| EXIT + WRITE und WRITE allein verhalten sich wie vorher (`shortcut_cases.case_save`) | gemessen (Hacktribe, blau 14.11.) |
+| `pattern.write` mit Popups an: der Bildschirm geht über das Fenster 18 zurück auf 1 (`pattern_write_saves`) | gemessen (Hacktribe, rot, blau) |
+| `pattern.write` mit `korg.display.popups = 0`: kein Wechsel des Bildschirms, erster Aufruf 1, zweiter 0, Ereignis `write`, Bank gleich RAM, andere Plätze unverändert; ein neuer Start aus dem geschriebenen Flash hat das geänderte Pattern an seinem Platz (`pattern_write_quiet`). Vor dem Fix: Fenster 18 trotz Popups aus | gemessen (Hacktribe, rot, blau) |
 
 ## Pattern-Name schreiben
 
