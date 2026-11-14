@@ -760,7 +760,7 @@ def page_cases(payload, flash=None):
     dev = boot(payload, flash)
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0), ("global", 0)] + [("du", page) for page in range(len(du_pages()))] + [("list", page) for page in range(LIST_COUNT)] + [(GROUP_PLUGINS, 0)]
-    pages += [(GROUP_CUSTOM, page) for page in (0, 1, 2 + custom_extra(dev))] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8 + (custom_extra(dev) > 0))]
+    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8 + (custom_extra(dev) > 0))]
     pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_PSAVE, page) for page in range(2)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
     for group, page in pages:
@@ -1694,7 +1694,7 @@ def splash_menu_cases(payload, flash=None):
     dev = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic)})
     if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF:
         goto_group(dev, GROUP_CUSTOM, 0)
-        add("no_pages_without_the_editor", counter(dev) is not None and counter(dev)[1] == 3 + custom_extra(dev), f"counter {counter(dev)}")
+        add("no_pages_without_the_editor", counter(dev) is not None and counter(dev)[1] == 2 + custom_extra(dev), f"counter {counter(dev)}")
         return out
     goto_group(dev, GROUP_CUSTOM, CUSTOM_SPLASH)
     row = texts_of(dev)
@@ -3188,12 +3188,13 @@ def changed_sectors(before, after):
 
 
 def flash_settings_cases(payload, flash=None):
-    """The BLECH settings in the flash for a device without a card (menu_flash_read, menu_flash_save, menu_flash_watch in
-    tools/patch/script_menu.s): without a card a change goes to the flash by itself and the next start without a card reads it;
+    """The BLECH settings in the flash for a device without a card (menu_flash_read, menu_flash_save, autosave_leave in
+    tools/patch/script_menu.s): without a card a change goes to the flash when the BLECH screen is left (AUTO SAVE, the default) or by
+    WRITE, and the next start without a card reads it;
     a card with a settings file wins at the start; after a start with a card, a card put in for the pulled one applies its
     settings at once and asks "SAVE TO FLASH?" (MENU writes them, EXIT keeps them in RAM only), pulled without saving the flash
     copy runs again; after a start without a card no card is read (#518);
-    SAVE TO FLASH (the last row of CUSTOMIZATION) also writes; a torn copy falls back to the other one. The flash is only ever erased and written in the
+    CUSTOMIZATION has no row SAVE TO FLASH; a torn copy falls back to the other one. The flash is only ever erased and written in the
     two sectors FLASH_SET_A and FLASH_SET_B."""
     out = []
 
@@ -3225,21 +3226,25 @@ def flash_settings_cases(payload, flash=None):
         rec = flash_record(image, at)
         return None if rec is None else (rec[0], struct.unpack_from("<I", rec[1], 12)[0])
 
-    # 1. no card: TAP MOTION OFF on its page goes to the flash by itself, once, into sector A (generation 1)
+    # 1. no card: TAP MOTION OFF on its page stays out of the flash while the BLECH screen is open; leaving it writes it, once, into
+    # sector A (generation 1)
     dev = boot(payload, flash, adapter=True, card=False, seconds=wait)
     blank = bytes(dev.m.flash.mem)
     erased = watch(dev)
     goto_group(dev, GROUP_FEATURES, FEAT_TM)
     dev.turn(-1, wait=0)
-    turned = round(dev.m.time_ns / 1e6)
     dev.run(3.0)
+    in_menu = list(erased)
+    leave_to_main(dev)
     first = bytes(dev.m.flash.mem)
     dev.run(3.0)
     settled = bytes(dev.m.flash.mem)
     got = flags(first, FLASH_SET_A)
-    add("change_written", switches(dev) == (0, 1) and got is not None and got[0] == 1 and got[1] & TM_OFF_BIT and flags(first, FLASH_SET_B) is None
-        and changed_sectors(blank, first) == [hex(FLASH_SET_A)] and settled == first and [e[:2] for e in erased] == ours[:1] and not dev.m.asserts,
-        f"switches {switches(dev)}, copy A {got}, B {flags(first, FLASH_SET_B)}, sectors changed {changed_sectors(blank, first)}, erases {erased} (dial at {turned} ms)")
+    add("change_written_on_leave", in_menu == [] and switches(dev) == (0, 1) and got is not None and got[0] == 1 and got[1] & TM_OFF_BIT
+        and flags(first, FLASH_SET_B) is None and changed_sectors(blank, first) == [hex(FLASH_SET_A)] and settled == first
+        and [e[:2] for e in erased] == ours[:1] and not dev.m.asserts,
+        f"erases while in the menu {in_menu}; switches {switches(dev)}, copy A {got}, B {flags(first, FLASH_SET_B)}, sectors changed "
+        f"{changed_sectors(blank, first)}, erases {erased}")
 
     # 2. the next start without a card reads it; a second change goes to sector B (generation 2), A stays
     again = start(first)
@@ -3247,7 +3252,7 @@ def flash_settings_cases(payload, flash=None):
     erased = watch(again)
     goto_group(again, GROUP_FEATURES, FEAT_NA)
     again.turn(-1, wait=0.3)
-    again.run(3.0)
+    leave_to_main(again)
     second = bytes(again.m.flash.mem)
     third = start(second)
     add("restart_reads_flash", kept == ((0, 1), 0) and switches(third) == (0, 0) and flags(second, FLASH_SET_B) is not None and flags(second, FLASH_SET_B)[0] == 2
@@ -3323,7 +3328,7 @@ def flash_settings_cases(payload, flash=None):
     pulled = switches(sw), held_bit(sw)
     goto_group(sw, GROUP_FEATURES, FEAT_TM)
     sw.turn(1, wait=0.3)
-    sw.run(3.0)
+    leave_to_main(sw)
     later = flags(bytes(sw.m.flash.mem), FLASH_SET_A)
     add("hot_swap_asks_exit_keeps_ram", first_pull == (0, 0) and q[:3] == ((1, 1), 1, 1) and q[3] > 20 and q[4] and ex[:3] == ((1, 1), 0, 1) and ex[3]
         and kept_flash and pulled == ((0, 0), 0) and later is not None and later[0] == 3 and not later[1] & TM_OFF_BIT and not sw.m.asserts,
@@ -3376,8 +3381,9 @@ def flash_settings_cases(payload, flash=None):
     ignored = switches(bare), asked(bare), held_bit(bare)
     goto_group(bare, GROUP_FEATURES, FEAT_TM)
     bare.turn(1, wait=0.3)
-    bare.run(3.0)
+    leave_to_main(bare)
     bare_rec = flags(bytes(bare.m.flash.mem), FLASH_SET_A)
+    goto_group(bare, GROUP_FEATURES, FEAT_TM)
     bare.turn(-1, wait=0.3)
     press(bare, "write", wait=0.6)
     wrote = texts_of(bare)
@@ -3389,22 +3395,32 @@ def flash_settings_cases(payload, flash=None):
         f"card put in: switches/ask/hold {ignored}; a change: copy A {bare_rec}; WRITE {wrote}, copy B {bare_b}; card "
         f"{'untouched' if card_same else 'written'}; erases {erased}")
 
-    # 10. SAVE TO FLASH (the last row of CUSTOMIZATION) takes what runs into the flash, the next start without a card has it
+    # 10. CUSTOMIZATION has no row SAVE TO FLASH (Pascal 14.11.): the flash takes the settings by itself without a card, by WRITE
+    # without a card or by MENU on the question of a swapped card; after a start with a card going through the rows writes nothing
     take = start(second, files)
     erased = watch(take)
     goto_group(take, GROUP_CUSTOM, 0)
     rows = counter(take)
-    goto_group(take, GROUP_CUSTOM, rows[1] - 1)
-    page = texts_of(take)
-    press(take, "menu", wait=0.6)
-    said = texts_of(take)
-    saved = bytes(take.m.flash.mem)
-    took = flags(saved, FLASH_SET_A)
-    taken = start(saved)
-    add("save_to_flash", page == ("SAVE TO FLASH", "", "press  [ Enter ]") and said[:2] == ("SAVE TO FLASH", "saved in flash") and took is not None and took[0] == 3
-        and not took[1] & (TM_OFF_BIT | NA_OFF_BIT) and switches(taken) == (1, 1) and [e[:2] for e in erased] == ours[:1]
-        and changed_sectors(second, saved) == [hex(FLASH_SET_A)] and not take.m.asserts,
-        f"rows {rows}, page {page}, after ENTER {said}, copy A {took}, erases {erased}, next start without a card {switches(taken)}")
+    titles = []
+    for row in range(rows[1] if rows else 0):
+        goto_group(take, GROUP_CUSTOM, row)
+        titles.append(texts_of(take)[0])
+    add("no_save_to_flash_row", rows is not None and titles and "SAVE TO FLASH" not in titles and erased == []
+        and bytes(take.m.flash.mem) == second and not take.m.asserts, f"rows {rows}, titles {titles}, erases {erased}")
+
+    # 11. AUTO SAVE OFF without a card: leaving writes nothing, as with a card; WRITE still goes to the flash
+    off = start(second)
+    erased = watch(off)
+    off.m.uc.mem_write(STATE + S_AS, struct.pack("<I", 0))
+    goto_group(off, GROUP_FEATURES, FEAT_TM)
+    off.turn(1, wait=0.3)
+    leave_to_main(off)
+    left = list(erased)
+    goto_group(off, GROUP_FEATURES, FEAT_TM)
+    press(off, "write", wait=0.6)
+    off_a = flags(bytes(off.m.flash.mem), FLASH_SET_A)
+    add("auto_save_off_waits_for_write", left == [] and [e[:2] for e in erased] == ours[:1] and off_a is not None and off_a[0] == 3
+        and not off_a[1] & TM_OFF_BIT and not off.m.asserts, f"erases on leaving {left}, after WRITE {erased}, copy A {off_a}")
     return out
 
 
