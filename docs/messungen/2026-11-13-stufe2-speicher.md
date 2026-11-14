@@ -145,8 +145,9 @@ Befunde, die der Patch behebt, tragen in `data/findings.mjs` `fixedBy: "stage2-m
 Stufen.
 
 `0x0a` vor `0x12` und `0x0a` vor `0x09` stürzten am Gerät mit Firmware `ef02f1d2` ab, die `0x00018B00` noch nicht hatte;
-`0x0a` vor `0x11` stürzte dort nur auf geraden Pads ab, mit der Änderung nicht mehr. `0x12` und `0x09` sind mit ihr am
-Gerät noch nicht nachgeprüft.
+`0x0a` vor `0x11` stürzte dort nur auf geraden Pads ab. Mit Firmware `ffc395bd` (mit `0x00018B00`) liefen am Gerät
+`0x0a` vor `0x01`, `0x09`, `0x11`, `0x12`, `0x18` und `0x09` vor `0x0a` auf einem geraden und einem ungeraden Pad ohne
+Absturz (2026-11-14).
 
 Die App gibt die behobenen Befunde frei, solange die Firmware den Patch trägt. Mit gelesener Firmware prüft
 `hasStage2Memory` das erste Wort des Patches (Datei `0x12A8D6`), ohne gelesene Firmware gilt der Patch als vorhanden.
