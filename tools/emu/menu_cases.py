@@ -1207,6 +1207,8 @@ NA_OFF_BIT = 16                       # bit 4 of the flags of the settings file:
 PS_SETTING = 0xC0180F10               # the word of the patch pattern-switch: FFFFFFFF never written, 1 on, 0 off
 PC_OFF_BIT = 4                        # bit 2 of the flags of the settings file: the confirmation is off
 S_INVERT, S_INVERT_SENT = 0x1B8, 0x1BC
+S_CARD = 0x1B0                        # M_CARD of tools/patch/script_menu.s
+SD_INIT_LOCK = 0xC031BEEC             # Korg's SD init lock, the same address in the synth
 INVERT_BIT = 1 << 28
 S_LED_MODE, S_LED_R, S_LED_G, S_LED_B, S_BL_R, S_BL_G, S_BL_B, S_LED_EFF, S_LED_V, S_BL_ON, S_BL_PWM = 0xA0, 0xA4, 0xA8, 0xAC, 0xB0, 0xB4, 0xB8, 0xBC, 0xC0, 0xC4, 0xC8
 LED_FIRST, LED_COUNT = 0x4C, 12
@@ -2951,6 +2953,44 @@ def card_later_cases(payload, flash=None):
     blank.run(1.0)
     after = look(blank)
     add("card_without_file_keeps", before == after and not blank.m.asserts, f"before {before}, after {after}")
+
+    # a card still powering up when it is read: Korg's SD init runs out of ACMD41 rounds and locks every later init ("No Card.")
+    # until a card interrupt (docs/messungen/2026-11-14-karte-init-sperre.md). The menu clears the lock and reads it once more.
+    def busy_card(d):
+        d.m.eject_card()
+        d.run(0.5)
+        card = SDCard(MemoryMedium(card_image(files_b)), never_ready=True)
+        d.m.insert_card(card)
+        for _ in range(160):
+            d.run(0.25)
+            if d.u32(SD_INIT_LOCK):
+                break
+        return card
+
+    healed = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    card = busy_card(healed)
+    locked = healed.u32(SD_INIT_LOCK), state(healed, S_CARD), look(healed)
+    card.never_ready = False
+    healed.run(4.0)
+    add("locked_card_read_again", locked[0] == 1 and locked[1] >= 0x100 and locked[2] == ref_a and look(healed) == ref_b
+        and healed.u32(SD_INIT_LOCK) == 0 and state(healed, S_CARD) == 0xFF and not healed.m.asserts,
+        f"locked {locked[0]}, card state {locked[1]:#x}; read again {look(healed)}; started with it {ref_b}")
+
+    stuck = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    busy_card(stuck)
+    for _ in range(80):
+        stuck.run(0.25)
+        if state(stuck, S_CARD) == 0xFC:
+            break
+    first = state(stuck, S_CARD)
+    stuck.run(5.0)
+    add("busy_card_read_once_more_only", first == 0xFC and state(stuck, S_CARD) == 0xFC and stuck.u32(SD_INIT_LOCK) == 1
+        and look(stuck) == ref_a and not stuck.m.asserts, f"card state {first:#x}, 5 s later {state(stuck, S_CARD):#x}, lock {stuck.u32(SD_INIT_LOCK)}")
+    stuck.m.eject_card()
+    stuck.run(0.5)
+    stuck.m.insert_card(SDCard(MemoryMedium(card_image(files_b))))
+    stuck.run(1.5)
+    add("stuck_card_swapped_reads", look(stuck) == ref_b and stuck.u32(SD_INIT_LOCK) == 0 and not stuck.m.asserts, f"other card {look(stuck)}; started with it {ref_b}")
 
     started = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
     gen = state(started, S_GEN)
