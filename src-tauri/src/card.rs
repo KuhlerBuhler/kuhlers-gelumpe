@@ -188,7 +188,12 @@ const MEDIA_LIMIT: usize = 64 << 10;
 pub fn write(root: &Path, rel: &str, bytes: &[u8]) -> Result<(), String> {
     let parts = names(rel)?;
     let media: Vec<&str> = MEDIA.split('/').collect();
-    if parts.len() != media.len() + 1 || !parts.iter().zip(&media).all(|(a, b)| a.eq_ignore_ascii_case(b)) {
+    if parts.len() != media.len() + 1
+        || !parts
+            .iter()
+            .zip(&media)
+            .all(|(a, b)| a.eq_ignore_ascii_case(b))
+    {
         return Err(format!("{rel} liegt nicht im Ordner {MEDIA}."));
     }
     if bytes.len() > MEDIA_LIMIT {
@@ -433,14 +438,25 @@ mod tests {
     fn write_puts_media_files_and_nothing_else() {
         let root = card();
         write(&root, "KORG/blechtribe/Media/splash.bmp", b"one").unwrap();
-        assert_eq!(fs::read(root.join("KORG/blechtribe/Media/splash.bmp")).unwrap(), b"one");
+        assert_eq!(
+            fs::read(root.join("KORG/blechtribe/Media/splash.bmp")).unwrap(),
+            b"one"
+        );
         write(&root, "korg/BLECHTRIBE/media/splash.bmp", b"two").unwrap();
-        assert_eq!(fs::read(root.join("KORG/blechtribe/Media/splash.bmp")).unwrap(), b"two");
+        assert_eq!(
+            fs::read(root.join("KORG/blechtribe/Media/splash.bmp")).unwrap(),
+            b"two"
+        );
         assert!(write(&root, "KORG/blechtribe/settings.bin", b"x").is_err());
         assert!(write(&root, "KORG/blechtribe/Media/sub/a.bmp", b"x").is_err());
         assert!(write(&root, "KORG/blechtribe/Media/../x.bmp", b"x").is_err());
         assert!(write(&root, "KORG/electribe sampler/System/SYSTEM.VSB", b"x").is_err());
-        assert!(write(&root, "KORG/blechtribe/Media/big.blla", &vec![0u8; MEDIA_LIMIT + 1]).is_err());
+        assert!(write(
+            &root,
+            "KORG/blechtribe/Media/big.blla",
+            &vec![0u8; MEDIA_LIMIT + 1]
+        )
+        .is_err());
         fs::create_dir_all(root.join("KORG/blechtribe/Media/dir.bmp")).unwrap();
         assert!(write(&root, "KORG/blechtribe/Media/dir.bmp", b"x").is_err());
         let _ = fs::remove_dir_all(&root);
