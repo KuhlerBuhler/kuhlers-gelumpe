@@ -1,0 +1,38 @@
+{
+ "what": "new code over FF and the branch to it: both hot, one group, FF range first, the word last",
+ "base": {
+  "0xc0150000": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "0xc0100000": "0000a0e1"
+ },
+ "new": {
+  "0xc0150000": "04e02de50000a0e30000a0e30000a0e30000a0e30000a0e30000a0e304f09de4",
+  "0xc0100000": "fe3f01eb"
+ },
+ "expect": {
+  "rows": [
+   [
+    "0xc0100000",
+    "0xc0100004",
+    "hot"
+   ],
+   [
+    "0xc0150000",
+    "0xc0150020",
+    "hot"
+   ]
+  ],
+  "groups": [
+   [
+    "0xc0150000",
+    "0xc0100000"
+   ]
+  ],
+  "warnings": 0
+ },
+ "context": {
+  "dsp": [
+   "0xc0400000",
+   "0xc0400000"
+  ]
+ }
+}

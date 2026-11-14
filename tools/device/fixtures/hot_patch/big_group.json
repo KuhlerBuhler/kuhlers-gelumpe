@@ -1,0 +1,31 @@
+{
+ "what": "a group over one block: warning, still hot",
+ "block": 16,
+ "base": {
+  "0xc0150000": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+ },
+ "new": {
+  "0xc0150000": "04e02de50000a0e30000a0e30000a0e30000a0e30000a0e30000a0e304f09de4"
+ },
+ "expect": {
+  "rows": [
+   [
+    "0xc0150000",
+    "0xc0150020",
+    "hot"
+   ]
+  ],
+  "groups": [
+   [
+    "0xc0150000"
+   ]
+  ],
+  "warnings": 1
+ },
+ "context": {
+  "dsp": [
+   "0xc0400000",
+   "0xc0400000"
+  ]
+ }
+}

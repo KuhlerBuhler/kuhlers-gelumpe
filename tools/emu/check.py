@@ -429,6 +429,7 @@ def main():
     mode = p.add_mutually_exclusive_group()
     mode.add_argument("--shard", type=shard_number, metavar="I/N", help="run one deterministic partition, without a complete verdict")
     mode.add_argument("--join", nargs="+", type=Path, metavar="RESULT", help="validate and combine every partition with these firmware inputs")
+    p.add_argument("--report", type=Path, help="also write the result with the VSB's sha256 here (tools/device/hot_patch.py --checked)")
     a = p.parse_args()
     flash = load_flash(a.flash) if a.flash else bytes(hardware_flash(a.hardware)) if a.hardware else None
     result = check(a.base.read_bytes(), a.patched.read_bytes(), flash, a.allow, a.allow_code,
@@ -436,6 +437,10 @@ def main():
                    cases=a.cases, shard=a.shard, reports=[json.loads(path.read_text()) for path in a.join] if a.join else None,
                    metrics=lambda event: print(json.dumps({"metrics": event}), file=sys.stderr, flush=True), foreign=a.foreign)
     print(json.dumps(result, indent=1, ensure_ascii=False))
+    if a.report:
+        import hashlib
+        a.report.write_text(json.dumps({"vsb_sha256": hashlib.sha256(a.patched.read_bytes()).hexdigest(), "ok": bool(result.get("ok")),
+                                        "quick": bool(a.quick), "partial": bool(a.cases or a.shard), "result": result}, indent=1, ensure_ascii=False))
     return 0 if (result["passed"] if a.shard else result["ok"]) else 1
 
 

@@ -51,6 +51,21 @@ Quelle sind die Konstanten des SysEx-Patches und drei Spuren aus dem Emulator, e
 Die Liste geht als `devClosed` in `data/protected.mjs`, der Editor nutzt dieselbe Regel (`src/protect.mjs refusal(…, {devMode})`),
 und die Vektoren in `test/support/sysex-vectors.mjs` prüfen sie im Emulator gegen die Firmware (`sysex_cases.py --only 11`).
 
+## Host-Tool `tools/device/hot_patch.py`
+
+Vergleicht das laufende Abbild (Basis) mit einem neuen und schreibt nur, was ohne SOFTWARE UPDATE geht.
+
+| Befund | Marker |
+|---|---|
+| Das neue Abbild braucht einen Prüfbericht (`tools/emu/check.py --report`) mit passendem sha256, sonst läuft der volle Check; `--allow-quick` nur mit Hinweis in der Ausgabe | gebaut, `test_hot_patch.py` |
+| Basis: SYSTEM.VSB von der Karte (FILE READ), `--base` oder `--chain <Journal>`; vor dem Schreiben per READ gegen das laufende Abbild geprüft (`--proof full` ganzes Abbild, `near` 4-KiB-Blöcke um die Änderungen) | gebaut |
+| Nach dem Start schreibt die Firmware rund 186 KB im Abbild selbst (ht und rot, Emulator 5 s), darunter etwa 450 Byte `.data` bei `0xC00F8EA0..0xC00F94F1`, `0xC00F9D8C`, `0xC0162894`, `0xC0163134`, die nicht in der Spur nach dem Start stehen. Das Tool bootet Basis und neues Abbild im Emulator und zählt diese Bytes zu den Daten | gemessen |
+| Einteilung je Bereich: gesperrt, DSP-Programm, Startphase (`bootmap.py`), Daten (RAM-Bereiche der Patches, Schreibspur, Startwerte) und abweichende Live-Bytes = volles Update; schon geschrieben = übersprungen; sonst hot | gebaut, `test_hot_patch.py` |
+| Gruppen: zeigt ein neues Wort (B/BL oder Zeiger) in einen anderen geänderten Bereich, sind beide eine Gruppe; Reihenfolge Code über FF zuerst, einzelne Wörter zuletzt; über einem Block (1 KiB) Warnung "nicht atomar" | gebaut |
+| Läuft der Sequencer (`0xC06BC318` != 0), schreibt das Tool nicht | gebaut |
+| Journal `out/hot-patch/hot-patch-<sha8>.json` mit Basis-Bytes; `--revert` schreibt sie zurück, letzte Gruppe zuerst | gebaut, Emulator `sysex_cases.py hotpatch` |
+| Kein Kartenschreiben, kein EXEC, keine Tasten; `--dry-run` liest nur | gebaut |
+
 ## Offen
 
 - Gerätetest (Plan Phase 4): Schalter, Schreiben ins Abbild, gesperrte Bereiche, Ausschalten.

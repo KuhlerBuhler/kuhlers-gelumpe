@@ -10,6 +10,8 @@ SysEx and the panel unaffected, and with EXIT held at power-on no answer at all.
 
     tools/emu/.venv/bin/python tools/emu/sysex_cases.py cases --patched NEW.VSB [--flash dump.bin] [--vectors vectors.json]
     tools/emu/.venv/bin/python tools/emu/sysex_cases.py speed --patched NEW.VSB [--flash dump.bin]
+    tools/emu/.venv/bin/python tools/emu/sysex_cases.py hotpatch --patched HT.VSB        # tools/device/hot_patch.py, DEV MODE
+    tools/emu/.venv/bin/python tools/emu/sysex_cases.py hotpatch-full --patched HT.VSB
 """
 
 import argparse
@@ -1173,12 +1175,91 @@ def speed(payload, flash=None, sizes=(16, 256, 1024, 4096, 8192, 16384, 24576, 3
     return rows
 
 
+def hot_setup(payload, flash=None):
+    """A booted Sampler with DEV MODE switched on at its page, tools/device/hot_patch.py's Blech over the DIN link, the context
+    of the test images (cached under out/hot-patch) and the three images of make_hot_fixtures.py."""
+    sys.path.insert(0, str(ROOT / "tools" / "device"))
+    import hot_patch as hp
+    import make_hot_fixtures
+    import menu_cases as mc
+    from remote_press import Blech
+    raw = bytes(0x100) + bytes(payload)
+    images = make_hot_fixtures.fixtures(raw)
+    dev = mc.boot(payload, flash)
+    lk = Link(dev)
+    mc.goto_top(dev, mc.LIST_DEV)
+    dev.turn(1, wait=0.3)
+
+    def ask(message):
+        replies, _ = lk.exchange(bytes(message), wait=10.0)
+        if not replies:
+            raise SystemExit("emulator: no answer")
+        return list(replies[0])
+    return hp, mc, dev, Blech(ask), raw, images
+
+
+def hotpatch_report(raw):
+    """What check.py --report says of a test image; the cases build their images themselves and check only the hot patch."""
+    import hashlib
+    return {"vsb_sha256": hashlib.sha256(raw).hexdigest(), "ok": True, "quick": False, "partial": False}
+
+
+def hotpatch_cases(payload, flash=None):
+    """hot_patch.py against the emulator: the title of DEV MODE written hot shows on the LCD, --revert brings the base back."""
+    import tempfile
+    hp, mc, dev, blech, raw, images = hot_setup(payload, flash)
+    new = images["ht-text.VSB"]
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"hotpatch:{name}", "ok": bool(ok), "detail": str(detail)})
+    tmp = Path(tempfile.mkdtemp())
+    log = []
+    assert hp.accept_report(hotpatch_report(new), new) is None
+    ctx = hp.Context.measure(raw[0x100:], new[0x100:], "ht", say=log.append)
+    p, journal = hp.run(blech, raw, tmp / "base.VSB", new, tmp / "ht-text.VSB", ctx, proof="near", journals=tmp, say=log.append)
+    rows = [(r["start"], r["end"], r["cls"]) for r in p["rows"]]
+    mc.goto_top(dev, mc.LIST_VERSION)
+    mc.goto_top(dev, mc.LIST_DEV)
+    shown = mc.texts_of(dev)
+    add("text_written_hot", journal and [c for _, _, c in rows] == ["hot"] and shown[:2] == ("HOT MODE", "ON") and not dev.m.asserts,
+        f"rows {[(hex(a), hex(b), c) for a, b, c in rows]}, LCD {shown}")
+    hp.revert(blech, journal, say=log.append)
+    back = all(blech.read(a, b - a) == raw[0x100 + a - hp.IMAGE:0x100 + b - hp.IMAGE] for a, b, _ in rows)
+    mc.goto_top(dev, mc.LIST_VERSION)
+    mc.goto_top(dev, mc.LIST_DEV)
+    add("revert_reads_base", back and mc.texts_of(dev)[0] == "DEV MODE" and not dev.m.asserts, f"READ equals base: {back}, LCD {mc.texts_of(dev)}")
+    return out
+
+
+def hotpatch_full_cases(payload, flash=None):
+    """hot_patch.py against the emulator: a start-phase byte and a DSP byte are reported full update, nothing is written."""
+    import tempfile
+    hp, mc, dev, blech, raw, images = hot_setup(payload, flash)
+    out, writes = [], []
+    real_write = blech.write
+    blech.write = lambda a, data, verify=True: (writes.append(a), real_write(a, data, verify))
+    for name, reason in (("ht-start.VSB", "start phase"), ("ht-dsp.VSB", "DSP")):
+        new = images[name]
+        changed = hp.diff(raw[0x100:], new[0x100:])
+        before = [bytes(dev.m.uc.mem_read(a, b - a)) for a, b in changed]   # the firmware rewrites other image bytes itself while it runs
+        ctx = hp.Context.measure(raw[0x100:], new[0x100:], "ht", say=lambda *_: None)
+        tmp = Path(tempfile.mkdtemp())
+        p, journal = hp.run(blech, raw, tmp / "base.VSB", new, tmp / name, ctx, proof="near", journals=tmp, say=lambda *_: None)
+        after = [bytes(dev.m.uc.mem_read(a, b - a)) for a, b in changed]
+        reasons = [r["reason"] for r in p["full"]]
+        out.append({"id": f"hotpatch:{name.split('.')[0]}_is_full_update", "ok": bool(p["full"]) and all(reason in r for r in reasons)
+                    and journal is None and before == after and not writes and not p["groups"],
+                    "detail": f"full {reasons}, journal {journal}, WRITE calls {len(writes)}, changed range unchanged {before == after}"})
+    return out
+
+
 def main():
     import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("what", choices=("cases", "speed", "synth"))
+    p.add_argument("what", choices=("cases", "speed", "synth", "hotpatch", "hotpatch-full"))
     p.add_argument("--patched", required=True, type=Path)
     p.add_argument("--flash", nargs="*", default=[], type=Path)
     p.add_argument("--vectors", type=Path, help="ranges and what src/protect.mjs says about them, JSON")
@@ -1190,6 +1271,10 @@ def main():
     if a.what == "speed":
         print(json.dumps(speed(payload, flash), indent=1))
         return 0
+    if a.what in ("hotpatch", "hotpatch-full"):
+        entries = (hotpatch_cases if a.what == "hotpatch" else hotpatch_full_cases)(payload, flash)
+        print(json.dumps(entries, indent=1))
+        return 0 if all(e["ok"] for e in entries) else 1
     if a.what == "synth":
         import machine
         entries = synth_cases(payload, flash or bytes(machine.blank_flash(b"KORGelec2USR")))
