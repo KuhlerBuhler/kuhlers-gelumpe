@@ -17,6 +17,14 @@ const LOUD = "measure:2026-09-21/loudness";
 const MOD_STAGE2 = "measure:2026-10-15/modulation-stufe2";
 const SIM = "derived:docs/messungen/2026-11-13-stufe2-simulation.md";
 const PAIR_REPORT = "measure:2026-11-13/stufe2-simulation";
+/**
+ * fixedBy: the firmware patch that removes the cause (stage 2 sharing memory with stage 1, the mixer words or the DSP
+ * code). With it the simulation ran these without a crash or a foreign write (docs/messungen/2026-11-13-stufe2-speicher.md).
+ */
+const FIX = { fixedBy: "stage2-memory" };
+/** Units with a delay line: two in one effect still share the part's buffer with the patch. */
+const DELAY_FIRST = new Set([0x11, 0x12, 0x16, 0x18]);
+const DELAY_SECOND = new Set([0x11, 0x12, 0x18]);
 
 const stage2 = (unit, verdict, note, evidence) => ({
   id: `stage2.${unit.toString(16).padStart(2, "0")}`, kind: "stage2", unit, verdict, note, source: "measured", evidence,
@@ -31,22 +39,23 @@ const PAIR_NOTE = { fatal: "DSP crashed in the simulation", silent: "stage 2 wro
 const pairs = (unit, verdict, firsts) => firsts.map(first => ({
   id: `stage2Pair.${first.toString(16).padStart(2, "0")}.${unit.toString(16).padStart(2, "0")}`,
   kind: "stage2Pair", first, unit, verdict, note: PAIR_NOTE[verdict], source: "derived", evidence: SIM,
+  ...(DELAY_FIRST.has(first) && DELAY_SECOND.has(unit) ? {} : FIX),
 }));
 
 export default [
-  stage2(0x01, "silent", "mkp2_comp: runs, passes no audio", SWEEP),
-  stage2(0x02, "fatal", "sr1_comp: crash", SWEEP),
+  { ...stage2(0x01, "silent", "mkp2_comp: runs, passes no audio", SWEEP), ...FIX },
+  { ...stage2(0x02, "fatal", "sr1_comp: crash", SWEEP), ...FIX },
   stage2(0x03, "ok", "cheap_comp", SWEEP),
   stage2(0x04, "ok", "punch", SWEEP),
   stage2(0x05, "ok", "limiter", SWEEP),
   stage2(0x06, "ok", "eq_2_band, and Korg uses it itself", SWEEP),
   stage2(0x07, "ok", "eq_4_band", SWEEP),
-  stage2(0x08, "silent", "exciter: runs, passes no audio", SWEEP),
-  stage2(0x09, "fatal", "decimator: crash", SWEEP),
+  { ...stage2(0x08, "silent", "exciter: runs, passes no audio", SWEEP), ...FIX },
+  { ...stage2(0x09, "fatal", "decimator: crash", SWEEP), ...FIX },
   stage2(0x0a, "ok", "filter, and Korg uses it itself", CHAINS),
   stage2(0x10, "ok", "acid driver, and Korg uses it itself", CHAINS),
   stage2(0x16, "silent", "ring mod: runs, passes no audio (heard 2026-09-21)", RING),
-  stage2(0x18, "fatal", "short delay: kills sound device-wide, needs a restart", CHAINS),
+  { ...stage2(0x18, "fatal", "short delay: kills sound device-wide, needs a restart", CHAINS), ...FIX },
 
   ...pairs(0x03, "fatal", [0x12]),
   ...pairs(0x05, "fatal", [0x01, 0x08, 0x11, 0x12, 0x13, 0x18]),
@@ -65,7 +74,7 @@ export default [
   ...pairs(0x15, "fatal", [0x07, 0x11, 0x12, 0x13, 0x18]),
   ...pairs(0x15, "silent", [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x08, 0x0a, 0x0f, 0x10, 0x14, 0x15]),
 
-  { id: "stage1Solo.09", kind: "stage1NeedsSolo", unit: 0x09, note: "decimator crashed with 0x0a behind it; alone it runs", source: "measured", evidence: CHAINS },
+  { id: "stage1Solo.09", kind: "stage1NeedsSolo", unit: 0x09, note: "decimator crashed with 0x0a behind it; alone it runs", source: "measured", evidence: CHAINS, ...FIX },
   { id: "stage1Solo.16", kind: "stage1NeedsSolo", unit: 0x16, note: "ring mod with any second stage behind it plays nothing", verdict: "silent", source: "measured", evidence: RING },
 
   { id: "stageBlockShared", kind: "stageBlock", note: "every factory stage block of one position is the same apart from the device byte, the byte after it and the parameter values; a building block no preset carries goes into that block with only the device byte changed (src/fx-v2.mjs)", source: "measured", evidence: "factory-check:stage-block-shared" },

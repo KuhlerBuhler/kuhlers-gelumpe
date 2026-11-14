@@ -51,16 +51,17 @@ test("the result passes the linter without a finding", () => {
   assert.deepEqual(found.map(f => f.code), []);
 });
 
-test("short delay in stage 2 is fatal, and the suggestion refuses to go there", async () => {
+test("short delay in stage 2 is fatal without the stage2-memory patch, and the suggestion stays in stage 1", async () => {
   const record = delay({ ifx1: 0x0a, ifx2: 0x18 });
-  const found = lint(record, { units }).find(f => f.code === "stage2-fatal");
+  const found = lint(record, { units, stage2Memory: false }).find(f => f.code === "stage2-fatal");
   assert.equal(found.severity, "fatal");
-  assert.match(refusal(record, reverb), /Stufe 2/);
-  assert.throws(() => applySuggestion(record, reverb, units), /Stufe 2/);
+  assert.equal(lint(record, { units }).some(f => f.code === "stage2-fatal"), false, "free on a patched firmware");
+  assert.match(refusal(record, reverb), /Stufe 1/);
+  assert.throws(() => applySuggestion(record, reverb, units), /Stufe 1/);
 
-  // The gate reads the same rule, so a send of that record is blocked as fatal.
+  // The gate reads the same rule, so a send of that record to an unpatched firmware is blocked as fatal.
   const edit = { kind: "fxRecord", table: "ifx", slot: 60, bytes: record.bytes, before: null };
-  const gated = await lintCheck(edit, { units, profile: null });
+  const gated = await lintCheck(edit, { units, profile: null, stage2Memory: false });
   assert.equal(gated.find(f => f.code === "stage2-fatal").severity, "fatal");
 });
 

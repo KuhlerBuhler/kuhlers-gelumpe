@@ -38,6 +38,10 @@ const isSynth = bytes => bytes.length > 0x12 && bytes[0x10] === 0x45 && bytes[0x
 /** The Electribe a file is made for, by its head: Hacktribe for the blue carries the blue head (tools/emu/firmware.py, hardware_of_head). */
 export const hardwareOf = bytes => (isSynth(bytes) ? "blue" : "red");
 
+/** The first word data/patches/stage2-memory.json writes, at its file offset; test/stage2-unlock.test.mjs keeps both equal. */
+export const STAGE2_MEMORY_MARK = { file: 1222870, bytes: [0x22, 0xe1, 0x28, 0x5c] };
+export const hasStage2Memory = bytes => STAGE2_MEMORY_MARK.bytes.every((b, i) => bytes?.[STAGE2_MEMORY_MARK.file + i] === b);
+
 /** CRC-32 of the run in Hacktribe 2.02 (`7cb4825c`); the same in every Hacktribe file, BLECH never writes there. */
 const HACKTRIBE_RUN_CRC = 0x12224d92;
 

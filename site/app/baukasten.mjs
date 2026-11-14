@@ -89,12 +89,14 @@ function rangeOf(kind, unit, name) {
   }
 }
 
+// Findings the stage2-memory patch removes are left out: the built effects are for current blechtribe firmware.
+const OPEN = FINDINGS.filter(f => !f.fixedBy);
 /** What a building block does behind another one in an insert effect, as measured (data/findings.mjs). */
-const STAGE2 = new Map(FINDINGS.filter(f => f.kind === "stage2").map(f => [f.unit, f]));
-const SOLO = new Map(FINDINGS.filter(f => f.kind === "stage1NeedsSolo").map(f => [f.unit, f]));
+const STAGE2 = new Map(FINDINGS.filter(f => f.kind === "stage2").map(f => [f.unit, f.fixedBy ? { ...f, verdict: "ok" } : f]));
+const SOLO = new Map(OPEN.filter(f => f.kind === "stage1NeedsSolo").map(f => [f.unit, f]));
 const STAGE2_WORD = { fatal: "bk.stage2.fatal", silent: "bk.stage2.silent" };
 /** Pairs that failed in the DSP simulation (data/findings.mjs), by "first.unit"; the word when choosing stage 2, then stage 1. */
-const PAIR = new Map(FINDINGS.filter(f => f.kind === "stage2Pair").map(f => [`${f.first}.${f.unit}`, f]));
+const PAIR = new Map(OPEN.filter(f => f.kind === "stage2Pair").map(f => [`${f.first}.${f.unit}`, f]));
 const PAIR_WORD = { fatal: ["bk.pair2.fatal", "bk.pair1.fatal"], silent: ["bk.pair2.silent", "bk.pair1.silent"] };
 const MAP_META = BLOCKS.get("fxRecord").meta;
 

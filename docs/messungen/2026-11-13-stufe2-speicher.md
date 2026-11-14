@@ -131,8 +131,14 @@ richtig".
 
 ## Sperren im Baukasten
 
-`data/findings.mjs` bleibt in diesem Stand unverändert. Die Sperren gelten für jede Firmware, auch für Blau, ältere
-Versionen und Effekte, die geteilt werden. Lockern geht erst nach dem Gerätetest, und nur für Firmware mit `stage2-memory`.
+Befunde, die der Patch behebt, tragen in `data/findings.mjs` `fixedBy: "stage2-memory"`: Stufe 2 mit `0x01`, `0x02`,
+`0x08`, `0x09`, `0x18`, der Decimator `0x09` in Stufe 1 und alle Paare außer Delay hinter Delay (erste Stufe `0x11`,
+`0x12`, `0x16` oder `0x18`, zweite `0x11`, `0x12` oder `0x18`). Gesperrt bleiben diese Delay-Paare und `0x16` in beiden
+Stufen.
+
+Die App gibt die behobenen Befunde frei, solange die Firmware den Patch trägt. Mit gelesener Firmware prüft
+`hasStage2Memory` das erste Wort des Patches (Datei `0x12A8D6`), ohne gelesene Firmware gilt der Patch als vorhanden.
+Die Kartendatei `e2sFx.all` gibt sie auf Rot frei, der Baukasten immer. Blau trägt den Patch nicht und bleibt gesperrt.
 
 ## Blau
 
