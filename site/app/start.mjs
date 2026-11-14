@@ -237,7 +237,8 @@ function paintNews(hub) {
 
 /**
  * The start page. `session()` gives the Electribe on the cable (never the emulator's port), `emulator()` the emulator
- * panel. Call `sessionChanged()` when the session changes and `firmwareChanged()` when the emulator's firmware may have.
+ * panel. Call `sessionChanged()` when the session changes, `firmwareChanged()` when the emulator's firmware may have,
+ * and `opened()` when the page comes into view.
  * The view starts from the merker, so a returning visitor does not see the welcome flash by while things load.
  */
 export function startPage(root, { storage = null, session = () => null, emulator = () => null, paint = () => {} } = {}) {
@@ -267,10 +268,12 @@ export function startPage(root, { storage = null, session = () => null, emulator
         else entryNext?.parentNode ? entryNext.before(entry) : views.welcome?.append(entry);
       }
     }
-    if (found) paintFound(found, state, s);
+    // The device is read (RAM and flash) only while the page is in view, not on every plug-in on another page.
+    const visible = !root.closest("[hidden]");
+    if (found && visible) paintFound(found, state, s);
     current = device ? s : null;
     const fw = emulator()?.firmware ?? null;
-    if (views.hub && shown === "hub" && (painted?.session !== current || painted?.fw !== fw)) {
+    if (views.hub && visible && shown === "hub" && (painted?.session !== current || painted?.fw !== fw)) {
       painted = { session: current, fw };
       paintDevice(views.hub, current, () => current);
       paintEmulator(views.hub, fw);
@@ -282,6 +285,8 @@ export function startPage(root, { storage = null, session = () => null, emulator
   return {
     sessionChanged: render,
     firmwareChanged: render,
+    /** The start page came into view. */
+    opened: render,
     /** The patcher saved a file or sent it to the Electribe. */
     done() { seen = true; markDone(storage); render(); },
     get view() { return shown; },

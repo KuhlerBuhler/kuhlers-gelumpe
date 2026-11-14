@@ -684,6 +684,7 @@ function boot() {
       if (id === "console") terminal?.update();
       if (id === "changelog") changelog.opened();
       if (id === "discord") discord.opened();
+      if (id === "start") start?.opened();
     },
   }) : null;
   $("#cee-areas").addEventListener("click", e => { if (e.target.closest("[role=tab]")) drawer.close(); });
