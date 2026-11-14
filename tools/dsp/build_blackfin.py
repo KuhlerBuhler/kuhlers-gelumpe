@@ -96,7 +96,7 @@ def patch_sources(source):
            '      if (!level) return;\n'
            '    }\n'
            '  _cec_raise (cec->cpu, cec, my_port);\n')
-    if new not in text:
+    if '  if (my_port >= IVG7 && my_port <= IVG15)\n' not in text:
         if text.count(old) != 1:
             raise ValueError('unexpected GNU CEC interrupt input implementation')
         text = text.replace(old, new)
@@ -113,12 +113,49 @@ def patch_sources(source):
         if text.count(at) != 1:
             raise ValueError('unexpected GNU Blackfin execution engine')
         text = text.replace(at, '\n' + guard + at)
-    check = '      blech_bfin_check (sd, cpu);\n'
-    if check not in text:
-        at = '      step_once (cpu);\n'
-        if text.count(at) != 1:
-            raise ValueError('unexpected GNU Blackfin instruction loop')
-        text = text.replace(at, check + at)
+    start = text.index('void\nsim_engine_run (')
+    stop = text.index('/* Cover function of sim_state_free', start)
+    text = text[:start] + ('void\nsim_engine_run (SIM_DESC sd, int next_cpu_nr, int nr_cpus, int siggnal)\n'
+                          '{\n  blech_bfin_engine (sd, STATE_CPU (sd, 0));\n}\n\n') + text[stop:]
+    file.write_text(text)
+    file = source / 'sim/bfin/bfin-sim.c'
+    text = file.read_text()
+    text = text.replace('static void\ncycles_inc (', 'void\ncycles_inc (')
+    text = text.replace('  cycles_inc (cpu, CYCLE_DELAY);', '')
+    start = text.index('      /* Timewarp !  */') if '      /* Timewarp !  */' in text else -1
+    if start >= 0:
+        stop = text.index('\n    }', start)
+        text = text[:start] + ('      if (STATE_ENVIRONMENT (sd) == OPERATING_ENVIRONMENT && cec_is_supervisor_mode (cpu))\n'
+                              '        blech_bfin_idle (sd);\n      CYCLE_DELAY = 1;') + text[stop:]
+    declaration = '\nextern void blech_bfin_idle (SIM_DESC);\n'
+    if declaration not in text:
+        at = text.index('\n', text.index('#include "sim-main.h"')) + 1
+        text = text[:at] + declaration + text[at:]
+    file.write_text(text)
+    file = source / 'sim/bfin/dv-bfin_sic.c'
+    text = file.read_text()
+    declaration = '\nextern void blech_bfin_wake_level (SIM_DESC, bool);\n'
+    if declaration not in text:
+        at = text.index('\n', text.index('#include "sim-main.h"')) + 1
+        text = text[:at] + declaration + text[at:]
+    wake = ('  blech_bfin_wake_level (hw_system (me),\n'
+            '    (sic->bf52x.isr0 & sic->bf52x.iwr0) || (sic->bf52x.isr1 & sic->bf52x.iwr1));\n')
+    at = text.index('bfin_sic_52x_forward_interrupts (struct hw *me, struct bfin_sic *sic)\n{')
+    if wake not in text[at:]:
+        end = text.index('  sic->system_lines = levels;', at)
+        text = text[:end] + wake + text[end:]
+    file.write_text(text)
+    file = source / 'sim/bfin/dv-bfin_cec.c'
+    text = file.read_text()
+    declaration = '\nextern void blech_bfin_wake (SIM_DESC);\n'
+    if declaration not in text:
+        at = text.index('\n', text.index('#include "sim-main.h"')) + 1
+        text = text[:at] + declaration + text[at:]
+    wake = '  if (level && my_port <= IVG_IVTMR) blech_bfin_wake (hw_system (me));\n'
+    at = text.index('bfin_cec_port_event (')
+    if wake not in text[at:]:
+        end = text.index('  _cec_raise (cec->cpu, cec, my_port);', at)
+        text = text[:end] + wake + text[end:]
     file.write_text(text)
     file = source / 'sim/bfin/machs.c'
     text = file.read_text()
@@ -265,6 +302,7 @@ def build(directory, jobs=4):
                              'deferred DSP32ALU add/sub result writes',
                              'deferred SIGNBITS half-register writes',
                              'bounded execution inside the event loop',
+                             'persistent cycle slices, native IDLE and independent IWR wakeup',
                              'BF52x HOSTDP registers and interrupt sources',
                              'HOSTDP FIFO and DMA1 descriptor/data transport',
                              'SPORT0 stereo DMA FIFOs and explicit test clock',

@@ -136,7 +136,7 @@ Die Auswahl `fifo` verwendet ausschließlich den neuen Buszugang. Ein
 Fehler führt zum Abbruch, nicht zum Wechsel in die Kompatibilitätsauswahl.
 
 Ohne gemeinsame Modellzeit ist `fifo` ein eigenständiger DSP-Prüfpfad.
-`Machine` verweigert seinen ARM-Anschluss derzeit ausdrücklich. Damit
+Im hier geprüften FIFO-Zwischenstand verweigert `Machine` seinen ARM-Anschluss ausdrücklich. Damit
 können die alte GPIO-Annahme und der neue Datenpfad nicht versehentlich
 als vollständige native Kopplung gelten.
 
@@ -148,3 +148,5 @@ als vollständige native Kopplung gelten.
 - Aktives lesendes `DMA FINISH`, Burst-Timing, aktiviertes Bus-Timeout und andere Datenformate werden ausdrücklich abgewiesen.
 - Die aus Host-Aufträgen erzeugten DMA-MMR-Werte sind hergeleitet und wurden nicht am Gerät rückgelesen.
 - Noch kein Audio-, Durchsatz-, Stimmenende- oder vollständiger Effekt-Nachweis. Kein Gerät wurde angesprochen.
+
+Die [gemeinsame ARM-/DSP-Modellzeit mit GPIO](2026-11-14-blackfin-modellzeit.md) setzt diese Untersuchung fort.
