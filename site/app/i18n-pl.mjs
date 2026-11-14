@@ -2059,7 +2059,7 @@ export default {
   "catalog.lauflicht.description": "Światło biegnie po padach.",
   "catalog.category.light": "Światło",
   "catalog.pulsieren.description": "Wszystkie czerwone diody LED padów jaśnieją i ciemnieją.",
-  "catalog.playtakt.description": "Dopóki sekwencer gra, dioda PLAY krótko miga w tempie patternu, przy STOP jest zgaszona, w pauzie świeci stale. Przykład timerów.",
+  "catalog.playtakt.description": "Dopóki sekwencer gra, dioda STOP krótko miga w tempie patternu, przy STOP i w pauzie jest zgaszona. Diodą PLAY nadal steruje firmware. Przykład timerów.",
   "catalog.momentmute.description": "Wyciszenia zmieniają się tylko, dopóki PART MUTE jest przytrzymany: wtedy pad wycisza lub włącza swoją partię, a pady pokazują wyciszenia. Po puszczeniu pady grają jak w trybie TRIGGER.",
   "catalog.momentmute.control1": "Przytrzymaj PART MUTE i naciśnij pad: partia wył. lub wł.",
   "catalog.momentmute.control2": "Menu -> BLECH -> MOMENT MUTE: 1 wł., 0 wył.",

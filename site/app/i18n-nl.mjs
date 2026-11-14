@@ -2059,7 +2059,7 @@ export default {
   "catalog.lauflicht.description": "Een licht loopt over de pads.",
   "catalog.category.light": "Licht",
   "catalog.pulsieren.description": "Alle rode pad-LED's worden lichter en donkerder.",
-  "catalog.playtakt.description": "Zolang de sequencer speelt, knippert de PLAY-LED kort in het tempo van het pattern; bij STOP is hij uit, bij pauze blijft hij branden. Een voorbeeld van de timers.",
+  "catalog.playtakt.description": "Zolang de sequencer speelt, knippert de STOP-LED kort in het tempo van het pattern; bij STOP en bij pauze is hij uit. De PLAY-LED blijft van de firmware. Een voorbeeld van de timers.",
   "catalog.momentmute.description": "Mutes veranderen alleen zolang PART MUTE wordt vastgehouden: dan zet een pad zijn part uit of aan en tonen de pads de mutes. Losgelaten spelen de pads zoals in de modus TRIGGER.",
   "catalog.momentmute.control1": "PART MUTE vasthouden en een pad indrukken: part uit of aan",
   "catalog.momentmute.control2": "Menu -> BLECH -> MOMENT MUTE: 1 aan, 0 uit",

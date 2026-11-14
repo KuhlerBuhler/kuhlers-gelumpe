@@ -2059,7 +2059,7 @@ export default {
   "catalog.lauflicht.description": "Světlo běží po padech.",
   "catalog.category.light": "Světlo",
   "catalog.pulsieren.description": "Všechny červené LED padů se zesvětlují a ztmavují.",
-  "catalog.playtakt.description": "Dokud sekvencer hraje, LED PLAY krátce bliká v tempu patternu, při STOP nesvítí, v pauze svítí trvale. Příklad časovačů.",
+  "catalog.playtakt.description": "Dokud sekvencer hraje, LED STOP krátce bliká v tempu patternu, při STOP a v pauze nesvítí. LED PLAY dál řídí firmware. Příklad časovačů.",
   "catalog.momentmute.description": "Ztlumení se mění jen při drženém PART MUTE: pad pak vypne nebo zapne svůj part a pady ukazují ztlumení. Po uvolnění pady hrají jako v režimu TRIGGER.",
   "catalog.momentmute.control1": "Držet PART MUTE a stisknout pad: part vyp. nebo zap.",
   "catalog.momentmute.control2": "Menu -> BLECH -> MOMENT MUTE: 1 zap., 0 vyp.",
