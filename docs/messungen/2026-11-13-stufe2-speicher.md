@@ -21,7 +21,7 @@ Zustand bis `0x84` Bytes (`0x11`). Fast jedes Paar schreibt also in den Nachbarn
 
 ## Patch
 
-`tools/patch/stage2_memory.py`, im BLECH-Set als `stage2-memory`. Fünf Befehle der Schleife, die Länge von Heap 1 und ein Block im Startstrom:
+`tools/patch/stage2_memory.py`, im BLECH-Set als `stage2-memory`. Sechs Befehle der Schleife, ein Befehl im IFX-Handler, die Länge von Heap 1 und ein Block im Startstrom:
 
 | Adresse | vorher | nachher |
 |---|---|---|
@@ -29,7 +29,9 @@ Zustand bis `0x84` Bytes (`0x11`). Fast jedes Paar schreibt also in den Nachbarn
 | `0x01F0C16A` | `R3 = 0x70` | `R3 = 0x4A74` (Zustand Stufe 2 minus Zustand Stufe 1) |
 | `0x01F0C178` | `R2 = R1 + R2` | `R2 = R5 + R2` |
 | `0x01F0C1CC` | `[I0++] = R6` (0) | `[I0++] = R0` (Puffer des Parts) |
+| `0x01F0C1DA` | `[I0++] = R6` (0) | `[I0++] = R0` (Schreibzeiger der Verzögerung im Puffer des Parts) |
 | `0x01F0C1EC` | `R4 = 0x1B4` | `R4 = 0xB4` |
+| `0x00018B00` | `R2 = 0x48` | `JUMP.S 0x18B14` (IFX-Handler lässt die Koeffizienten von Stufe 2 stehen) |
 | `0x01F02448` | Heap 1: `0x39FF` Bytes | `0x1D20` Bytes (Heap-Tabelle: Basis, Länge, Nummer) |
 | Startblock 145 (Datei `0x130918`) | füllt `0xFF900CD0` bis `0xFF903FF0` mit Nullen (`0x3320`) | bis `0xFF908000` (`0x7330`), Prüfbyte des Kopfs `0x0D` zu `0x5D` |
 
@@ -38,7 +40,13 @@ Danach:
 - Zustand Stufe 2: `0xFF906320 + 0x118 * Part`. Stufe 1 hat `0xA0` Bytes bis zu den Mixer-Wörtern.
 - Koeffizienten Stufe 2: `0xFF9074D4 + 0xB4 * Part`, bis zum Ende von Bank B (`0xFF908000`). Stufe 1 behält die ganzen
   `0xA0` Bytes des Part-Blocks.
-- SDRAM Stufe 2: der Puffer des Parts.
+- SDRAM Stufe 2: der Puffer des Parts, Anfang und Schreibzeiger. Ohne `0x01F0C1DA` lief der Schreibzeiger ab SDRAM 0
+  durch den DSP-Code.
+- IFX-Handler: setzt die CPU einen Baustein (FIFO-Feld `2 * Part + Stufe`), schreibt der Handler bei ungeraden Parts
+  (Feld-Bit 1, Pads 2 bis 16) den Koeffizienten-Zeiger neu, Stufe 1 auf ihren alten Wert, Stufe 2 auf Part-Block `+ 0x120`,
+  also auf die ungepatchte Stelle in den Koeffizienten von Stufe 1. Ohne `0x00018B00` stürzte `0x0a` vor `0x11` auf dem
+  Gerät auf allen geraden Pads ab und auf den ungeraden nicht. Mit dem Sprung behält Stufe 2 den Zeiger aus der
+  Schleife, `0x0a` vor `0x11` läuft auf Pad 8 (Gerät, 14.11., Firmware `e208d391`).
 - Heap 1: `0xFF904600` bis `0xFF906320` statt bis zum Ende von Bank B.
 - Beim Start steht in Bank B ab `0xFF900CD0` bis zum Ende überall 0.
 

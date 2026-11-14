@@ -1,4 +1,4 @@
-"""Builds the stage 2 memory patch: five instructions, the heap 1 length and one boot block of the DSP program of the red builds (Hacktribe and Korg's 2.02),
+"""Builds the stage 2 memory patch: seven instructions, the heap 1 length and one boot block of the DSP program of the red builds (Hacktribe and Korg's 2.02),
 docs/messungen/2026-11-13-stufe2-speicher.md.
 
 An insert effect has two stages, each one an effect unit of the DSP. At start the DSP fills one argument block per part
@@ -63,8 +63,13 @@ SITES = (
      "R2 = R5 + R2, stage 2 coefficients from the state base (was R1 + R2, behind stage 1's coefficients)"),
     (0x01F0C1CC, "069e", "009e",
      "[I0++] = R0, stage 2 gets the part's SDRAM buffer (was R6, 0)"),
+    (0x01F0C1DA, "04cc0c02b4a3069e", "04cc0c02b4a3009e",
+     "[I0++] = R0, stage 2's delay pointer starts in that buffer (was R6, 0, the DSP program)"),
     (0x01F0C1EC, "24e1b401", "24e1" + COEF2_STRIDE.to_bytes(2, "little").hex(),
      "R4 = 0xB4, stage 2 coefficient stride (was 0x1B4, the part block)"),
+    (0x00018B00, "22e14800", "0a200000",
+     "JUMP.S 0x18B14, the IFX unit handler keeps stage 2's coefficients (was R2 = 0x48: on odd parts it set them back "
+     "to the part block + 0x120, the unpatched place)"),
     (0x01F02448, HEAP1_LEN.to_bytes(4, "little").hex(), HEAP1_NEW.to_bytes(4, "little").hex(),
      "heap 1 length, the heap ends where stage 2 starts (was 0x39FF, the rest of bank B)"),
 )

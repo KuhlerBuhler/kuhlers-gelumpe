@@ -33,10 +33,22 @@
    "note": "DSP 0x01f0c1cc: [I0++] = R0, stage 2 gets the part's SDRAM buffer (was R6, 0)"
   },
   {
+   "file": 1222986,
+   "bytes": "04cc0c02b4a3009e",
+   "expect": "e4a70b6615e992167d2f1e367d0e7d490835faed775cc00856ba991fa10454c4",
+   "note": "DSP 0x01f0c1da: [I0++] = R0, stage 2's delay pointer starts in that buffer (was R6, 0, the DSP program)"
+  },
+  {
    "file": 1223004,
    "bytes": "24e1b400",
    "expect": "03faf05eac24fe4068f794e41fc37cadee0fd402562551ea454337a91839a4f4",
    "note": "DSP 0x01f0c1ec: R4 = 0xB4, stage 2 coefficient stride (was 0x1B4, the part block)"
+  },
+  {
+   "file": 1125220,
+   "bytes": "0a200000",
+   "expect": "5a05b73f950be9169aa53d839efa6b6bf091f4a8e089a7b1150f8302700e7325",
+   "note": "DSP 0x00018b00: JUMP.S 0x18B14, the IFX unit handler keeps stage 2's coefficients (was R2 = 0x48: on odd parts it set them back to the part block + 0x120, the unpatched place)"
   },
   {
    "file": 1183868,
