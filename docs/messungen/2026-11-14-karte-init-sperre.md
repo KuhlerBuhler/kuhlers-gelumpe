@@ -14,7 +14,7 @@ Die Karte war im Betrieb zum Mac gezogen und wieder gesteckt worden. Danach zeig
 | Blau: dasselbe Wort, Setzen/Lesen/Löschen bei `0xC0019440`/`0xC0019464`/`0xC0019488` | Disassembly Korg 2.02 blau | offline gelesen |
 | Der Interrupt kommt nur als Antwort auf einen Befehl. Ohne Init kein Befehl, also bleibt die Sperre: jeder weitere Mount scheitert sofort, auch nach Ziehen und Stecken einer guten Karte | Emulator: Karte, die nie fertig wird, stecken, Sperre nach ~6,5 s; danach gute Karte stecken: Sperre bleibt, `fs_type` 0 (BLECH-Stand vor dem Fix, HT) | gemessen |
 | Ohne Fix hilft am Gerät nur ein Neustart | aus den zwei Zeilen darüber | hergeleitet |
-| Die Sperre am Gerät von außen löschen ging nicht: BLECH WRITE auf `0xC031BEEC` lehnt die Schutztabelle ab (Status 2), nichts geschrieben | WRITE-Versuch 14.11. mit Pascals OK | gemessen |
+| Die Sperre am Gerät von außen löschen ging nicht: BLECH WRITE auf `0xC031BEEC` lehnt die Schutztabelle ab (Status 2), nichts geschrieben | WRITE-Versuch 14.11. | gemessen |
 | Das erklärt auch die Beobachtung aus #518, dass ein Wiederholen in Software nicht half: die Wiederholungen liefen in die Sperre | aus der Sperre | hergeleitet |
 
 ## Fix in `menu_card_watch` (`tools/patch/script_menu.s`)
@@ -34,6 +34,6 @@ Die Karte war im Betrieb zum Mac gezogen und wieder gesteckt worden. Danach zeig
 | Karte beim ersten Lesen noch nicht fertig, danach fertig: das zweite Lesen nach 2 s liest die Einstellungsdatei, Sperre 0 | `tools/emu/menu_cases.py:card_later_cases`, `locked_card_read_again`, HT/rot/blau | gemessen |
 | Karte bleibt nicht fertig: genau ein zweiter Versuch, dann `CARD_STUCK`, keine weiteren | `busy_card_read_once_more_only`, HT/rot/blau | gemessen |
 | Danach eine andere Karte stecken liest sie | `stuck_card_swapped_reads`, HT/rot/blau | gemessen |
-| Am Gerät 14.11.: nach einem Neustart (BLECH-Stand vor dem Fix) wieder Kartenfehler, nach dem nächsten Neustart (Update) gemountet (init 1, `fs_type` 3, Sperre 0) | Bericht Pascal, READ danach | gemessen |
+| Am Gerät 14.11.: nach einem Neustart (BLECH-Stand vor dem Fix) wieder Kartenfehler, nach dem nächsten Neustart (Update) gemountet (init 1, `fs_type` 3, Sperre 0) | Beobachtung am Gerät, READ danach | gemessen |
 | Karte beim Einschalten busy: Start sperrt (Emulator ~6 s), mit dem Fix 2 s nach dem Hauptscreen gelesen, sobald die Karte fertig ist | `card_busy_at_start_read_after`, HT/rot/blau | gemessen |
 | Ob 2 s am Gerät reichen, hängt davon ab, wie lange die Karte busy bleibt (am 12.11. nach einem Start ohne Karte 18 s, das ist `CARD_NEVER`). Ziehen und Stecken hilft immer | | offen |
