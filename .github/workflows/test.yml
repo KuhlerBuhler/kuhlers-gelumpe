@@ -66,6 +66,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Some of the selected tests read the runtime patches, which are built, not committed (see unit-part).
+      - run: node tools/patch/ensure-runtime.mjs
       # Every test file that names a document; the files a test reads through a helper are not Markdown (docs/messungen/*.json, images).
       - run: |
           mapfile -t tests < <(grep -lE 'docs/|\.md\b|messungen' test/*.test.mjs)
