@@ -50,6 +50,8 @@ export function a11ySuite(index, parts) {
     const page = await open();
     await page.click("#cee-tab-start");
     assert.deepEqual(await severeViolations(page), [], "start");
+    await page.click("#cee-start-about");
+    assert.deepEqual(await severeViolations(page), [], "about");
     await page.click("#cee-tab-emu");
     assert.deepEqual(await severeViolations(page), [], "emulator off");
     await powerOn(page);

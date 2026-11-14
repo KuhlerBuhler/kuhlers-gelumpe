@@ -550,6 +550,7 @@ function boot() {
   const discord = discordPage($("#cee-discord"));
   settingsButton($("#cee-settings-button"), () => { areas?.select("settings"); drawer.close(); });
   $("#cee-donate").addEventListener("click", () => drawer.close());
+  $("#cee-about-link").addEventListener("click", () => drawer.close());
   const emu = takeLink();
   let areas = null;
   // Picking the mode that is open already changes nothing; ui.tabs would show the empty device panel instead of the drawing.
@@ -644,6 +645,7 @@ function boot() {
       options.page(id);
       $("#cee-settings-button").toggleAttribute("aria-current", id === "settings");
       $("#cee-donate").toggleAttribute("aria-current", id === "support");
+      $("#cee-about-link").toggleAttribute("aria-current", id === "about");
       $("#cee-tab-emu").toggleAttribute("data-active", id === "device");
       $("#cee-device").hidden = id !== "device";
       if (id === "device") { $("#cee-area-emu").hidden = false; $("#cee-area-device").hidden = true; }

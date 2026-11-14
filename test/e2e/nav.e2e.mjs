@@ -216,6 +216,25 @@ test("the start page has its sections in heading order and the donate link opens
   assert.equal(await app.getAttribute("#cee-patch-korg-licence-link", "target"), "_self", "Korg's page with its licence, the one link outside on the patcher's first step");
 });
 
+test("the personal intro lives on the hidden about page, reached from the start page and the sidebar", async () => {
+  const page = await h.page();
+  await page.goto(h.url);
+  assert.equal(await page.locator("#cee-start-page").getByText("Entwicklungspsychose").count(), 0, "the intro left the start page");
+  assert.equal(await page.locator("#cee-tab-about").isVisible(), false, "no entry in the list");
+  await page.click("#cee-start-about");
+  await page.waitForFunction(() => document.querySelector("#cee-areas [aria-selected='true']")?.dataset.tab === "about");
+  assert.equal(await page.locator("#cee-nav-title").textContent(), "Über das Projekt");
+  assert.equal(await page.locator("#cee-about-page h1").textContent(), "Wat wird'n ditte hier? Korg verkuhlen or wa?");
+  assert.equal(await page.locator("#cee-about-link").getAttribute("aria-current"), "", "the sidebar link marks the open page");
+  await page.click("#cee-tab-start");
+  await page.click("#cee-about-link");
+  await page.waitForFunction(() => document.querySelector("#cee-areas [aria-selected='true']")?.dataset.tab === "about");
+  await page.goto(`${h.url}#about`);
+  await page.reload();
+  assert.equal(await selectedTab(page), "about", "the address opens it too");
+  assert.deepEqual(page.errors, []);
+});
+
 test("the app opens on the start page although its address carries the emulator link; the browser goes to the emulator", async () => {
   const app = await h.page();
   await app.addInitScript(() => { window.__GELUMPE_APP = { version: "1.2.0" }; });

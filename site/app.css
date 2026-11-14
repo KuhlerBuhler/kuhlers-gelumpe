@@ -2508,6 +2508,8 @@ select,
 .cee-settings-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .cee-settings-button { justify-content: flex-start; gap: var(--space-2); }
 .cee-donate { justify-content: center; text-decoration: none; }
+/* The about page has no entry in the list: a quiet link under the donate button. */
+.cee-about-link { align-self: center; margin-top: calc(var(--space-3) * -1); font-size: var(--text-sm); }
 .cee-settings-button .cee-icon { flex: none; }
 .cee-midi { margin-top: var(--space-6); gap: var(--space-3); }
 .cee-midi-report { white-space: pre-wrap; overflow-wrap: anywhere; }
