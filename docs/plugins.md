@@ -1463,12 +1463,12 @@ den nächsten Lauf, EXIT verlässt das Spiel. Die Pads spielen dabei weiter die 
 (`test/script-community-catalog.test.mjs`), nicht am Gerät.
 
 **PLAY-Takt** braucht API 11 und läuft im Hintergrund. Solange der Sequencer läuft, blinkt die PLAY-LED (rot und blau) im
-Tempo des Patterns: das Ereignis `beat` macht sie auf jeder Viertel an, `korg.afterSteps(2, ...)` zwei Schritte später aus,
-mit BEAT 8 also auf jeder halben Note. Bei STOP und in der Pause leuchtet sie ruhig; `korg.cancel` räumt dann den Timer ab.
-In der Pause blinkt die Firmware die PLAY-LED selbst, das Plugin setzt sie dort in jedem Rahmen wieder an: im Emulator
-bleibt sie danach höchstens einen Umlauf der LED-Matrix dunkel (5,5 ms im Modell von `tools/emu/panel_leds.py`), bei STOP
-bis zum nächsten Rahmen (40 ms). Es ist zugleich das Beispiel des Katalogs für die Timer. Im Simulator
-(`test/script-play-takt.test.mjs`) und im Emulator (`tools/emu/timer_cases.py`, Hacktribe) geprüft, am Gerät nicht.
+Tempo des Patterns: das Ereignis `beat` macht sie auf jeder Viertel an, `korg.afterSteps(1, ...)` einen Schritt später aus,
+mit BEAT 8 also auf jeder halben Note kurz. Bei STOP ist sie aus, in der Pause leuchtet sie ruhig; `korg.cancel` räumt dann
+den Timer ab. Bei STOP und in der Pause schreibt die Firmware die PLAY-LED selbst, das Plugin setzt sie dort in jedem Rahmen
+wieder: in der Pause bleibt sie im Emulator höchstens einen Umlauf der LED-Matrix dunkel (5,5 ms im Modell von
+`tools/emu/panel_leds.py`), nach STOP zeigt sie dort kein Leuchten. Es ist zugleich das Beispiel des Katalogs für die Timer. Im Simulator
+(`test/script-play-takt.test.mjs`) und im Emulator (`tools/emu/timer_cases.py`, Hacktribe und Rot) geprüft, am Gerät nicht.
 
 ## Die Seite Plugins im Editor
 

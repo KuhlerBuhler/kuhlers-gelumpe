@@ -22,10 +22,11 @@ function plugin() {
   return { device, hw: device.hardware, watch };
 }
 
-test("PLAY-Takt: stopped, the PLAY LED is lit", () => {
+test("PLAY-Takt: stopped, the PLAY LED is off", () => {
   const p = plugin();
-  assert.deepEqual([p.device.leds[PLAY], p.device.leds[PLAY_BLUE]], [255, 255]);
-  assert.ok(p.watch(50).every(v => v === 255), "it stays lit");
+  p.device.leds[PLAY] = 255;
+  assert.ok(p.watch(50).every(v => v === 0), "the plugin keeps it off");
+  assert.equal(p.device.leds[PLAY_BLUE], 0);
 });
 
 test("PLAY-Takt: playing, the PLAY LED blinks on the beat and follows the tempo", () => {
@@ -39,20 +40,24 @@ test("PLAY-Takt: playing, the PLAY LED blinks on the beat and follows the tempo"
   };
   // 120 BPM: a beat is 500 ms, 12.5 frames of 40 ms
   assert.ok(ons(120).every(d => d === 12 || d === 13), "on every beat at 120 BPM");
+  // short: one step of the four in a beat, 125 ms at 120 BPM, about 3 frames
+  const seen = p.watch(100);
+  const lit = seen.reduce((runs, v, i) => (v === 255 ? (seen[i - 1] === 255 ? runs.with(-1, runs.at(-1) + 1) : [...runs, 1]) : runs), []).slice(1, -1);
+  assert.ok(lit.length >= 3 && lit.every(n => n >= 2 && n <= 4), `lit for one step: ${lit}`);
   assert.equal(p.device.leds[PLAY_BLUE], p.device.leds[PLAY], "both LEDs of PLAY together");
   p.hw.tempo = 600;
   assert.ok(ons(60).every(d => d === 25), "on every beat at 60 BPM: 1000 ms, 25 frames");
   assert.deepEqual(p.device.status().scripts.map(s => s.fault ?? null), [null]);
 });
 
-test("PLAY-Takt: STOP and pause leave the PLAY LED lit, PLAY again blinks again", () => {
+test("PLAY-Takt: STOP turns the PLAY LED off, pause leaves it lit, PLAY again blinks again", () => {
   const p = plugin();
   p.hw.api()["korg.play"]();
   let last = 255;
   for (let i = 0; i < 40 && !(last === 0 && p.device.leds[PLAY] === 255); i++) { last = p.device.leds[PLAY]; p.device.run(1); }
   assert.equal(p.device.leds[PLAY], 255, "a beat just lit it, its timer to go dark is pending");
   p.hw.api()["korg.stop"]();
-  assert.ok(p.watch(60).every(v => v === 255), "lit after STOP");
+  assert.ok(p.watch(60).every(v => v === 0), "off after STOP");
   p.hw.api()["korg.play"]();
   assert.ok(p.watch(40).includes(0), "blinks again after PLAY");
   // the firmware's pause: transport 2, its stop event; the firmware's own blink of PLAY is the emulator's case
