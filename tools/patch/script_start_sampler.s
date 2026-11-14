@@ -13,6 +13,7 @@ script_early_hook:
     push {r12, lr}
     bl menu_arm_load
     bl migrate_start
+    bl pat_boot_arm
     pop {r12, lr}
     .word 0xE12FF00C ; msr cpsr_cxsf, r12
     pop {r0-r12, lr}
@@ -28,6 +29,7 @@ script_card_hook:
     bl menu_arm_load
     ldrb r0, [r4, #0x18]        ; the loader's result, as 0xC0038D64 stored it (r4 is the command, kept by menu_arm_load)
     bl migrate_folders
+    bl pat_boot_load
     ldr r0, =HOOK_RUNTIME
     bl blechy_boot
     ldr r0, =HOOK_RUNTIME

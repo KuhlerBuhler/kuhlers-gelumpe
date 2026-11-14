@@ -34,3 +34,143 @@ pf_dir:
 pf_path:
     .asciz "KORG/blechtribe/Patterns/"
 .align 4
+
+; ---- the backup in the Patterns folder at power-on (red and Hacktribe): KORG/blechtribe/Patterns/
+; electribe_sampler_allpattern.e2sallpat, the name EXPORT ALL PATTERN gives it, is read in the card hook, after the sample loader
+; and before the first pattern selection loads the edit buffer (Emulator: card hook 576 ms, selection 597 ms), so the pattern the
+; device opens is the one of the file. Every pattern of the file is compared with its slot in RAM (the firmware read all 250 from
+; the flash at about 80 ms); one that differs and has its frame (PTST at 0, PTED at 15356) goes through the firmware's own pattern
+; write 0xC004C28C, which copies it into the slot and writes its 16 KiB to the flash. A pattern that is the same writes nothing, so
+; the file can stay on the card: the next start writes nothing again. A shorter file (fewer patterns) changes only the ones it has.
+; Not with EXIT held at power-on, not after a start without a card (CARD_NEVER), once a start: the early hook arms it (pat_boot_arm).
+.equ PL_ARMED, 0xC2C            ; in MG_WORK, behind the folder copy's words: PL_ARM_WORD from the early hook until the card hook
+.equ PL_ARM_WORD, 0x4C544150    ; "PATL", so that RAM after power-on is not taken for it
+.equ PL_BLOCK, 0x4000
+.equ PL_HEAD, 0x100             ; the file header, "KORG" at 0
+.equ PL_GLOBALS, 4              ; the globals area behind it, 0x10000 bytes, read over in blocks
+.equ PL_COUNT, 250
+.equ PL_END_AT, 15356
+.equ PL_BANK, 0xC00263E0        ; the pattern bank object, as 0xC004C28C gets it
+.equ PL_SLOT, 0xC004A350        ; (bank, n): the RAM slot of pattern n
+.equ PL_WRITE, 0xC004C28C       ; (_, n, source, copy): copies source into the slot, writes the slot to the flash, 0 when written
+.equ PL_MAGIC, 0x47524F4B       ; "KORG"
+.equ PL_START, 0x54535450       ; "PTST"
+.equ PL_END, 0x44455450         ; "PTED"
+
+; From the early hook. Clobbers r0, r1.
+pat_boot_arm:
+    ldr r0, =MG_WORK
+    ldr r1, =PL_ARM_WORD
+    str r1, [r0, #PL_ARMED]
+    bx lr
+
+; From the card hook. Keeps r4 to r11.
+pat_boot_load:
+    push {r4-r11, lr}
+    ldr r4, =MG_WORK
+    ldr r0, [r4, #PL_ARMED]
+    mov r1, #0
+    str r1, [r4, #PL_ARMED]
+    ldr r1, =PL_ARM_WORD
+    cmp r0, r1
+    bne pl_out
+    ldr r0, =PANEL
+    ldr r0, [r0]
+    cmp r0, #0
+    cmnne r0, #1
+    beq pl_out
+    ldr r0, [r0, #0x18]
+    tst r0, #KILL_MASK
+    bne pl_out
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_CARD]
+    cmp r0, #CARD_NEVER
+    beq pl_out
+    ldr r5, =HOOK_CARD
+    add r6, r5, #CARD_FIL
+    mov r0, r6
+    ldr r1, =pl_path
+    mov r2, #1
+    ldr r12, =FS_OPEN
+    blx r12
+    cmp r0, #0
+    bne pl_out
+    mov r0, #PL_BLOCK
+    ldr r12, =MG_ALLOC
+    blx r12
+    movs r7, r0
+    beq pl_close
+    mov r1, #PL_HEAD
+    bl card_read
+    cmp r0, #0
+    bne pl_free
+    ldr r0, [r7]
+    ldr r1, =PL_MAGIC
+    cmp r0, r1
+    bne pl_free
+    mov r8, #PL_GLOBALS
+pl_globals:
+    mov r0, r7
+    mov r1, #PL_BLOCK
+    bl card_read
+    cmp r0, #0
+    bne pl_free
+    subs r8, r8, #1
+    bne pl_globals              ; r8 is 0 now: the first pattern
+pl_next:
+    cmp r8, #PL_COUNT
+    bhs pl_free
+    mov r0, r7
+    mov r1, #PL_BLOCK
+    bl card_read
+    cmp r0, #0
+    bne pl_free                 ; the end of a shorter file, or a read that failed: the patterns so far are in
+    ldr r0, [r7]
+    ldr r1, =PL_START
+    cmp r0, r1
+    bne pl_skip
+    ldr r0, =PL_END_AT
+    ldr r0, [r7, r0]
+    ldr r1, =PL_END
+    cmp r0, r1
+    bne pl_skip
+    ldr r12, =PL_BANK
+    blx r12
+    mov r1, r8
+    ldr r12, =PL_SLOT
+    blx r12
+    mov r1, #0
+pl_compare:
+    ldr r2, [r7, r1]
+    ldr r3, [r0, r1]
+    cmp r2, r3
+    bne pl_write
+    add r1, r1, #4
+    cmp r1, #PL_BLOCK
+    blo pl_compare
+    b pl_skip
+pl_write:
+    mov r0, #0
+    mov r1, r8
+    mov r2, r7
+    mov r3, #1
+    ldr r12, =PL_WRITE
+    blx r12
+pl_skip:
+    add r8, r8, #1
+    b pl_next
+pl_free:
+    mov r0, r7
+    ldr r12, =MG_FREE
+    blx r12
+pl_close:
+    mov r0, r6
+    ldr r12, =FS_CLOSE
+    blx r12
+pl_out:
+    pop {r4-r11, pc}
+.pool
+pl_path:
+    .asciz "SD:KORG/blechtribe/Patterns/electribe_sampler_allpattern.e2sallpat"
+.align 4
+pat_boot_end:
