@@ -358,6 +358,16 @@ wird nicht angefasst, der Start meldet das. Test: `test/emulator-flash.test.mjs`
 (`npm run test:emu`) importiert eine selbstgebaute Sicherung, startet den Dienst neu und
 findet das Pattern im neuen Export.
 
+Eine blaue Firmware (Synth) erkennt auf dem gelöschten Sampler-Flash (`machine.blank_flash()`
+ohne Synth-Kennung) fremde Hardware und bleibt auf einem unbekannten Bildschirm stehen. Fälle für
+die blaue nehmen deshalb `machine.hardware_flash("blue")` (so `flash_with` in
+`tools/emu/splash_cases.py`).
+
+Seiten aus `korg.menu.add` gibt es nur, wenn das Plugin beim Start von der Karte kam
+(`edit.boot`). Die Seiten eines Plugins zählen 0 DESCRIPTION, 1 STATE, ab 2 die eigenen. Vor
+Pad-Drücken das Menü BLECH verlassen (`menu_cases.leave_to_main`), dort bekommen Plugins keine
+Eingaben (Beispiel: `tools/emu/plugin_catalog_api_cases.py`).
+
 ## Display
 
 Die Firmware schaltet jeden Bildpunkt nur an oder aus; es gibt keinen Grau-Befehl

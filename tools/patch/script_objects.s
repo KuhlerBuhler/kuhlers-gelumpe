@@ -63,7 +63,7 @@ objects_bad_get:
     mov r0, #0
     mov r1, #ERR_API_ARG
     pop {r4, r5, pc}
-; PAD COLOR, SELECT COLOR, OVERLAP and LED DIMMING live in the patch pad-colors (menu_pc_call: 0 where the set has no such patch)
+; PAD COLOR, SELECT COLOR, OVERLAP, LED DIMMING and KNOB LEDS live in the patch pad-colors (menu_pc_call: 0 where the set has no such patch)
 objects_pad_get:
     ldr r5, [r4]
     add r0, r5, #24                 ; the kind of PAD COLOR (24) or SELECT COLOR (25) for the entry +32
@@ -71,9 +71,13 @@ objects_pad_get:
     movlo r1, #32
     moveq r1, #20
     movhi r1, #28
+    cmp r5, #4
+    moveq r1, #44
     bl menu_pc_call
     cmp r5, #3
     bleq led_dim_index              ; the patch's step -> the place in led_dim_percent the page counts by
+    cmp r5, #4
+    eoreq r0, r0, #1                ; KNOB LEDS: the entry says 1 for OFF, the leaf 1 for ON
     b objects_get_done
 ; korg.system.device, version and limits: r5 = what (INFO), the value from the build or the firmware at the time of the read
 objects_info_get:
@@ -243,6 +247,8 @@ objects_pad_set:
     cmp r1, #2
     blo objects_pad_colour
     beq objects_pad_over
+    cmp r1, #4
+    beq objects_pad_knob
     add r0, r0, #4                  ; LED DIMMING: the page's place -> the patch's step (the step 0 is 75 percent)
     cmp r0, #12
     subhs r0, r0, #12
@@ -250,6 +256,11 @@ objects_pad_set:
     b objects_pad_call
 objects_pad_over:
     mov r1, #16
+    b objects_pad_call
+objects_pad_knob:
+    eor r0, r0, #1                  ; KNOB LEDS: 1 OFF for the entry, r2 = 1 sends the five knob LEDs now as the page does
+    mov r2, #1
+    mov r1, #40
     b objects_pad_call
 objects_pad_colour:
     mov r2, r0                      ; the colour; the entry swaps PAD and SELECT where the write would make them the same
