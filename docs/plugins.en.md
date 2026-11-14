@@ -197,6 +197,11 @@ One cycle delivers `ready` once per plugin first, then collects the waiting inpu
 last. Inputs that arrive later wait in the ring for the next cycle. New plugins get `ready` when the rest of
 the previous cycle is done.
 
+While the BLECH menu is open, pads, keys and encoders go straight to the
+firmware and no plugin gets an event (only Blechy's page gets the touchpad and
+its key). In all firmware menus (Pattern, Global, Part Edit, Step Edit and the
+rest) plugins get input as on the main screen.
+
 ### What a plugin reaches (API 35)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
