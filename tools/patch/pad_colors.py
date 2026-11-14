@@ -1048,7 +1048,7 @@ def source():
     sampler = globals().get("_SAMPLER_ADDRESSES", {})
     place = lambda name: sampler.get(name, globals()[name])
     text = SOURCE
-    for key, value in chord_source(BUILD != "synth").items():
+    for key, value in chord_source().items():
         text = text.replace(f"@{key}@", value)
     for key, value in {"KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}", "S_SETTING": S_SETTING,
                        "S_SENT": S_SENT, "SENDER": f"{place('SENDER'):#x}", "S_DIM": f"{S_DIM:#x}", "DIM_BODY": f"{place('DIM_BODY'):#x}",
@@ -1065,23 +1065,10 @@ def source():
     return text
 
 
-def chord_source(local):
+def chord_source():
     """One bounded calculation; no result survives a sender call."""
     parts = dict.fromkeys(("CHORD_STACK", "CHORD_LOCAL", "CHORD_SHARE", "CHORD_UNSTACK",
                            "CHORD_EQUAL", "CHORD_RATIOS"), "")
-    parts["CHORD_START"] = "    moveq r10, #1\n    beq pch_note_next"
-    parts["CHORD_FRACTION"] = """    add r12, r3, r5
-    add r12, r12, #1
-    add r0, r5, #1
-    mov r0, r0, lsl #8
-    mov r4, #0
-pch_div:
-    cmp r0, r12
-    subhs r0, r0, r12
-    addhs r4, r4, #1
-    bhs pch_div"""
-    if not local:
-        return parts
     parts.update(CHORD_STACK="    sub sp, sp, #4",
                  CHORD_UNSTACK="    add sp, sp, #4",
                  CHORD_LOCAL="    mov r0, #1\n    str r0, [sp, #PCH_UNIFORM]")

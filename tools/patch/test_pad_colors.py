@@ -162,7 +162,7 @@ class PadGeometryTests(unittest.TestCase):
         self.assertTrue(writes)
         self.assertTrue(all(0xC03FF000-40 <= at and at+size <= 0xC03FF000 for at,size in writes),writes)
 
-    def test_synth_code_is_unchanged_and_sampler_fits_its_budget(self):
+    def test_committed_code_is_current_and_both_builds_fit_their_budget(self):
         try:
             for build,name in [('hacktribe','pad-colors'),('synth','pad-colors-synth')]:
                 old = json.loads((ROOT/f'data/patches/{name}.json').read_text())
@@ -170,10 +170,8 @@ class PadGeometryTests(unittest.TestCase):
                 pad_colors.use_build(build)
                 at,code,_ = pad_colors.build_code()
                 self.assertEqual(at,pad_colors.CODE_AT)
-                if build=='synth':
-                    self.assertEqual(code,old_code)
-                else:
-                    self.assertLessEqual(len(code),2684+808)    # + 40 for KNOB LEDS (12.11.)
+                self.assertEqual(code,old_code,build)
+                self.assertLessEqual(len(code),2684+808)    # + 40 for KNOB LEDS (12.11.)
                 self.assertLessEqual(at+len(code),pad_colors.CODE_END)
         finally:
             pad_colors.use_build('hacktribe')
