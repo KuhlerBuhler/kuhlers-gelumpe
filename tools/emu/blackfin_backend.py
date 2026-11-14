@@ -49,8 +49,8 @@ class BlackfinBackend:
             os.set_blocking(self.process.stdin.fileno(), False)
             os.set_blocking(self.process.stdout.fileno(), False)
             self._selector.register(self.process.stdout, selectors.EVENT_READ)
-            if self._response() != b'BFIN3':
-                raise BackendError('invalid Blackfin worker handshake')
+            if self._response() != b'BFIN4':
+                raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN4')
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
             self.close()
@@ -141,6 +141,11 @@ class BlackfinBackend:
         if not 0 <= number <= 53 or not 0 <= value <= 0xFFFFFFFF:
             raise ValueError('invalid Blackfin register/value')
         self._request(4, number, value)
+
+    def host_event(self, event):
+        if not isinstance(event, int) or not 0 <= event <= 0xFFFFFFFF:
+            raise ValueError('invalid HOSTDP event')
+        self._request(6, event, 0)
 
     def run(self, steps, *, until=0xFFFFFFFF):
         if not 1 <= steps <= 1000000 or not 0 <= until <= 0xFFFFFFFF:
