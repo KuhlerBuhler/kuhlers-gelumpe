@@ -1277,6 +1277,11 @@ def build_patch(vsb, build="hacktribe"):
             {"file": file_offset(SPLASH_CALL), "length": 4, "why": "the start image call before the rescue paths is dropped"},
             {"file": file_offset(a_at), "length": len(a_code), "why": "splash_start and what it calls: flash read, CRC, draw; splash_tick, which before the magic word is set only compares it and hands over"},
             {"file": file_offset(TICK_HOOK), "length": 4, "why": "the screen manager's tick runs from the start and now enters splash_tick first"},
+            {"file": file_offset(SYNC_ENTRY), "length": 4, "why": "the script runtime's start hook calls splash_sync through this branch"},
+            {"file": file_offset(symbols["splash_sync"]), "length": symbols["media_write"] - symbols["splash_sync"],
+             "why": "splash_sync reads Media/splash.bmp at start and compares it with the stored image"},
+            {"file": file_offset(symbols["imp_parse"]), "length": b_at + len(b_code) - symbols["imp_parse"],
+             "why": "the import's BMP reader that splash_sync uses, with the card paths and literals behind it"},
         ],
         "ram": [
             ramdecl.area(STATE, STATE_SIZE, "run time state of the start code and the editor", "tools/patch/splash_editor.py:STATE"),

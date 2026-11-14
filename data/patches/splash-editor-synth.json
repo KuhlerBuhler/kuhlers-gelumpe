@@ -142,6 +142,21 @@
    "file": 402672,
    "length": 4,
    "why": "the screen manager's tick runs from the start and now enters splash_tick first"
+  },
+  {
+   "file": 1713676,
+   "length": 4,
+   "why": "the script runtime's start hook calls splash_sync through this branch"
+  },
+  {
+   "file": 1715596,
+   "length": 100,
+   "why": "splash_sync reads Media/splash.bmp at start and compares it with the stored image"
+  },
+  {
+   "file": 1715968,
+   "length": 1064,
+   "why": "the import's BMP reader that splash_sync uses, with the card paths and literals behind it"
   }
  ],
  "ram": [
