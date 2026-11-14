@@ -143,7 +143,10 @@ export const CHAINS = {
   ],
   "led-tick-body": [{ id: "before-loop", sites: [0xC008774C] }],
   "led-tick-end": [{ id: "tick-end", sites: [0xC00877D4] }],
-  "led-send": [{ id: "sender", sites: [0xC00876A8] }],
+  "led-send": [
+    { id: "compare", sites: [0xC0087608] },   // meter_dedupe_hook (script_menu.s): the meter LEDs send only a change
+    { id: "sender", sites: [0xC00876A8] },
+  ],
   "mode-key": [{ id: "mode-keys", sites: [0xC006FEDC] }],
   "led-timer": [{ id: "callback", sites: [0xC0089D90] }],
 };

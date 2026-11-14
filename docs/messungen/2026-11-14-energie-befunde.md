@@ -126,3 +126,43 @@ B = Stichprobe des Worts beim IRQ-Eintritt an der 2-kHz-Kante (Vorwert 0 oder 1)
 - **Urteil: den DSP nach STOP schlafen zu legen entfällt auf Rot** (entschieden 14.11., Variante B wird ebenfalls nicht
   verfolgt). Nutzen wäre nur mit Gerätemessung zu klären: Strom im Stand gegen DSP im Reset und DSP-Auslastung über einen
   Test-Stream mit Zähler in der Idle-Schleife.
+
+## Umgesetzt: Pegel-LEDs nur bei Änderung (14.11.)
+
+Die Sendefunktion des LED-Managers `0xC00875F4` (Blau `0xC00776B0`) soll ohne Zwang (r2 = 0) nur senden, wenn sich etwas
+geändert hat. Ihr Vergleich nimmt aber das Modusbyte des Sollwerts (`0x4D+8L`) für die gesendete Helligkeit (`0x88E+8L`)
+(gelesen). Für die zwölf Pegel-LEDs (`0x4C` bis `0x57`, Modus 1) sendet sie deshalb fast immer, nur nach Helligkeit 1 nie
+wieder; daher kommt die Regel "nie 1" im Look der Lastanzeige. Die Pegelfunktion `0xC0088284` ruft sie alle 40 ms für jede
+LED, also rund 300 Panelnachrichten je Sekunde im Leerlauf, auch wenn die Leiste still steht.
+
+`meter_dedupe_hook` (`tools/patch/script_menu.s`) sitzt hinter der Sperrprüfung auf `cmp r2, #0` (`0xC0087608`, Blau
+`0xC00776C4`) und merkt sich je Pegel-LED Helligkeit und Modus der letzten Nachricht in `METER_SENT` (48 Byte hinter
+`DATA_FILE`, FF beim Einschalten passt zu nichts). Gleicher Wert ohne Zwang: zurück ohne Nachricht. Anderer Wert oder Zwang
+(Sperre frei, Testmodus, `korg.led`-Auffrischung): Wort neu, dann der Sendepfad selbst, also auch Helligkeit 1. Die
+Abdunklung durch Korgs Power Save (`[Manager+0xB78]`) zählt als Helligkeit 0. Andere LEDs, das unscharfe Menü (EXIT beim
+Einschalten) und der Ladebildschirm (Bildschirm 0) gehen unverändert weiter.
+Was der Ladebildschirm oder ein Plugin mit `korg.led` an eine Pegel-LED schickt, vergisst das gemerkte Wort (FF), damit
+die nächste Nachricht der Firmware wieder rausgeht und die Leiste nicht auf dem fremden Wert stehen bleibt.
+
+Warum der Ladebildschirm ausgenommen ist (gemessen im Emulator, Hacktribe und Rot): mit Entprellen auch dort brauchte der
+Sample-Lader beim Start 51 ms länger (368 bis 1563 ms statt bis 1511 ms), der Hauptbildschirm kam 53 ms später
+(`menu:early_look_main_screen_not_later` rot). Der Lader fragt die Karte in einer Schleife ab und kommt früher wieder an die
+Reihe, solange die UART-Interrupts der Panelnachrichten kommen. Ohne Entprellen auf dem Ladebildschirm: 1540,6 ms
+(Hacktribe) und 1541,0 ms (Rot) wie in Phase 2. Am Gerät nicht gemessen; ob Kartenarbeit auf anderen Bildschirmen
+(Pattern schreiben, Sample-Tausch) ohne die Leerlauf-Nachrichten ebenso etwas länger dauert, ist offen. Die Tastenlatenz
+(PLAY bis zur ersten LED-Nachricht) wurde dabei 1 ms kürzer.
+
+Gemessen mit `tools/emu/arm_load.py` (Stand Phase 2 gegen Phase 3, `blech.json` bzw. `blech-synth.json`, je 2 s):
+
+| Szene | Panelnachrichten/s (Hacktribe, Rot, Blau) | Last in Punkten |
+|---|---|---|
+| idle | 298,5 / 304,0 / 304,5 -> 0 / 0 / 0 | -0,18 / -0,18 / -0,18 |
+| playing | 341 / 341,5 / 339,8 -> 41,3 je Build | -0,18 / -0,18 / -0,19 |
+| playing-keyboard | 401,5 / 401,5 / 401 -> 101 / 101 / 100,5 | -0,18 / -0,18 / -0,20 |
+| sequencer-four-note-long-ties | 485,5 / 485 / 485,5 -> 185,5 / 185 / 185,5 | -0,18 / -0,18 / -0,20 |
+
+Die Pegel-LEDs senden beim Spielen weiter (41 Nachrichten je Sekunde), nur ein gleicher Wert entfällt. Firmware-Assertions 0.
+`test_meter_dedupe_sends_only_a_change` in `tools/patch/test_script_hooks.py` prüft Gleich, Änderung, Modus, Zwang,
+Helligkeit 1, Power Save, Nachbar-LEDs und das unscharfe Menü. `tools/emu/meter_led_cases.py` prüft dasselbe am
+gebooteten Gerät im Emulator (Leerlauf ohne Pegelnachricht, Änderung einmal, Zwang, Helligkeit 1, EXIT beim Einschalten wie
+vorher). Am Gerät nicht geprüft.

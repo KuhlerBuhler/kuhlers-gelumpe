@@ -113,6 +113,24 @@ class NativeLedTests(unittest.TestCase):
         self.assertGreater(len(trace),25)
         self.assertEqual(m.uc.reg_read(UC_ARM_REG_SP),m.stack+0xF0000)
 
+    def test_meter_led_send_forgets_the_dedupe_word(self):
+        """A plugin's LED sent to a meter LED (0x4C to 0x57) sets its word of meter_dedupe_hook to FF, so the firmware's next
+        send of that LED goes out again and overwrites it, as before the dedupe; other LEDs (0x57 is the last a plugin can send) and a refused send leave it."""
+        from tools.patch.script_hooks import METER_SENT
+        m,_=self.machine()
+        word=lambda led:m.read(METER_SENT+4*(led-0x4C))
+        for led in range(0x4C,0x58):m.write(METER_SENT+4*(led-0x4C),0x10164)
+        self.assertEqual(m.call('script_led_try_send',0x4B,9)[0],1)
+        self.assertEqual(m.call('script_led_try_send',0x10,9)[0],1)
+        self.assertEqual([word(led) for led in range(0x4C,0x58)],[0x10164]*12)
+        for led in (0x4C,0x50,0x57):
+            self.assertEqual(m.call('script_led_try_send',led,9)[0],1)
+            self.assertEqual(word(led),0xFFFFFFFF)
+        self.assertEqual(word(0x51),0x10164)
+        m.write(0xC06A24C0,0)
+        self.assertEqual(m.call('script_led_try_send',0x51,9)[0],0)
+        self.assertEqual(word(0x51),0x10164)
+
     def test_fifo_consistency_and_kick_only_on_empty(self):
         m,_=self.machine()
         self.half(m,0xC033E65C,1)

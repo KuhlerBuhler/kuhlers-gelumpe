@@ -978,7 +978,7 @@ class HookTests(unittest.TestCase):
             self.assertEqual(change['file'],address-RAM_BASE+0x100)
             self.assertEqual(change['expect'],hashlib.sha256(struct.pack('<I',word)).hexdigest())
             self.assertEqual(int.from_bytes(bytes.fromhex(change['bytes']),'little')>>24,0xea)
-        self.assertEqual(len(patch['hooks']),30)
+        self.assertEqual(len(patch['hooks']),31)
         self.assertEqual((patch['hooks'][3]['site'],patch['hooks'][3]['chain']),('0xC004C1B4','save'))
         self.assertEqual(patch['hooks'][0]['chain'],['key-dispatch','pattern-set'])
         self.assertEqual(patch['hooks'][0]['swallow'],True)
@@ -986,7 +986,7 @@ class HookTests(unittest.TestCase):
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
         card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('boot_light_hook','boot_light_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end'),('script_write_hook','script_write_hook_end')])
-        self.assertEqual(len(patch['startPhase']),67)
+        self.assertEqual(len(patch['startPhase']),68)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]
@@ -1179,6 +1179,88 @@ class HookTests(unittest.TestCase):
         self.page(machine,0x2D,0)
         self.assertEqual(self.input(machine,[0,34,1,0,0]),0xC0028380)
         self.assertEqual(self.drain(machine),[],'the other pages of the menu show the plugins nothing, as before')
+
+    def test_meter_dedupe_sends_only_a_change(self):
+        """meter_dedupe_hook at 0xC0087608: an unforced send of a meter LED (0x4C to 0x57) whose brightness and second message byte
+        equal the last one returns from the send function, a change or a forced send goes the send path with r3 = LED + 9, any
+        other LED, an unarmed menu and the loading screen go on at 0xC008760C with the flags of cmp r2, #0; the loading screen
+        forgets the LED's word."""
+        from tools.patch.script_hooks import MENU_STATE, METER_SENT
+        machine,_ = self.machine()
+        machine.uc.mem_map(0xC0087000,4096)
+        manager = machine.input+0x6000
+        machine.uc.mem_write(manager,bytes(0xC00))
+        machine.uc.mem_write(METER_SENT,b'\xff'*48)
+        def send(led,force,bright,mode=1):
+            machine.uc.mem_write(manager+0x4E+8*led,bytes([bright,mode]))
+            frame = machine.stack+0xF0000
+            machine.uc.mem_write(frame,struct.pack('<4I',0x33,manager,0x55,machine.stop))
+            for reg,value in ((UC_ARM_REG_R0,manager),(UC_ARM_REG_R1,led),(UC_ARM_REG_R2,force),(UC_ARM_REG_R3,0),(UC_ARM_REG_R4,manager)):
+                machine.uc.reg_write(reg,value)
+            machine.uc.reg_write(UC_ARM_REG_SP,frame)
+            machine.uc.reg_write(UC_ARM_REG_CPSR,0x60000013)
+            stops = [machine.uc.hook_add(UC_HOOK_CODE,lambda uc,*_:uc.emu_stop(),begin=at,end=at) for at in (0xC008760C,0xC008764C,machine.stop)]
+            try:
+                machine.uc.emu_start(machine.symbols['meter_dedupe_hook'],machine.stop,count=200)
+            finally:
+                for stop in stops: machine.uc.hook_del(stop)
+            pc = machine.uc.reg_read(UC_ARM_REG_PC)
+            self.assertEqual(machine.uc.reg_read(UC_ARM_REG_R4),manager)
+            self.assertEqual(machine.uc.reg_read(UC_ARM_REG_R1),led)
+            if pc==0xC008760C:
+                self.assertEqual(bool(machine.uc.reg_read(UC_ARM_REG_CPSR)&0x40000000),force==0)
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_SP),frame)
+                return 'pass'
+            if pc==0xC008764C:
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_R3),led+9)
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_SP),frame)
+                return 'send'
+            self.assertEqual(pc,machine.stop)
+            self.assertEqual(machine.uc.reg_read(UC_ARM_REG_SP),frame+16)
+            return 'skip'
+        word = lambda led: machine.read(METER_SENT+4*(led-0x4C))
+        self.assertEqual(send(0x50,0,100),'pass')    # unarmed (FF): the firmware's way, nothing kept
+        self.assertEqual(send(0x50,1,100),'pass')
+        self.assertEqual(word(0x50),0xFFFFFFFF)
+        machine.write(MENU_STATE,1)
+        screens = machine.read(0xC03404C0)
+        machine.write(screens+0x2C,0)                # the loading screen: the firmware's way
+        self.assertEqual(send(0x50,0,100),'pass')
+        machine.write(0xC03404C0,0)                  # no screen manager yet
+        self.assertEqual(send(0x50,0,100),'pass')
+        machine.write(0xC03404C0,0xFFFFFFFF)
+        self.assertEqual(send(0x50,0,100),'pass')
+        machine.write(0xC03404C0,screens)
+        machine.write(screens+0x2C,1)                # the main screen
+        self.assertEqual(word(0x50),0xFFFFFFFF)
+        self.assertEqual(send(0x10,0,100),'pass')    # not a meter LED
+        self.assertEqual(send(0x4B,0,100),'pass')
+        self.assertEqual(send(0x58,0,100),'pass')
+        self.assertEqual(send(0x50,0,100),'send')
+        self.assertEqual(word(0x50),0x10000|1<<8|100)
+        self.assertEqual(send(0x50,0,100),'skip')
+        self.assertEqual(send(0x51,0,100),'send')    # each LED has its own word
+        self.assertEqual(send(0x50,0,101),'send')
+        self.assertEqual(send(0x50,0,101,2),'send')  # the mode counts too
+        self.assertEqual(send(0x50,0,101,2),'skip')
+        self.assertEqual(send(0x50,1,101,2),'send')  # forced: always
+        self.assertEqual(send(0x50,0,1),'send')      # brightness 1 goes out (Korg's compare would keep it back)
+        self.assertEqual(send(0x50,0,1),'skip')
+        machine.uc.mem_write(manager+0xb78,b'\x01')  # the firmware's power save darkens the meter: brightness 0 is sent once
+        self.assertEqual(send(0x50,0,1),'send')
+        self.assertEqual(word(0x50),0x10000|1<<8)
+        self.assertEqual(send(0x50,0,77),'skip')
+        machine.uc.mem_write(manager+0xb78,b'\x00')
+        self.assertEqual(send(0x50,0,77),'send')
+        self.assertEqual(send(0x57,0,0),'send')
+        self.assertEqual(send(0x57,0,0),'skip')
+        self.assertEqual(send(0x4C,0,0),'send')
+        machine.write(screens+0x2C,0)                # a send on the loading screen goes out unchecked and forgets the word,
+        self.assertEqual(send(0x4C,0,50),'pass')     # so back on a screen the same value as before goes out again
+        self.assertEqual(word(0x4C),0xFFFFFFFF)
+        self.assertEqual(word(0x57),0x10000|1<<8)
+        machine.write(screens+0x2C,1)
+        self.assertEqual(send(0x4C,0,0),'send')
 
 
 @unittest.skipUnless(UNICORN_AVAILABLE, 'Unicorn is required for native settings tests')
