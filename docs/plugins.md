@@ -1462,13 +1462,13 @@ bleibt mit `korg.store` (Platz 0) auf der Karte und steht oben links als HI. Nac
 den nächsten Lauf, EXIT verlässt das Spiel. Die Pads spielen dabei weiter die Electribe. Im Simulator geprüft
 (`test/script-community-catalog.test.mjs`), nicht am Gerät.
 
-**PLAY-Takt** braucht API 11 und läuft im Hintergrund. Solange der Sequencer läuft, blinkt die PLAY-LED (rot und blau) im
-Tempo des Patterns: das Ereignis `beat` macht sie auf jeder Viertel an, `korg.afterSteps(1, ...)` einen Schritt später aus,
-mit BEAT 8 also auf jeder halben Note kurz. Bei STOP ist sie aus, in der Pause leuchtet sie ruhig; `korg.cancel` räumt dann
-den Timer ab. Bei STOP und in der Pause schreibt die Firmware die PLAY-LED selbst, das Plugin setzt sie dort in jedem Rahmen
-wieder: in der Pause bleibt sie im Emulator höchstens einen Umlauf der LED-Matrix dunkel (5,5 ms im Modell von
-`tools/emu/panel_leds.py`), nach STOP zeigt sie dort kein Leuchten. Es ist zugleich das Beispiel des Katalogs für die Timer. Im Simulator
-(`test/script-play-takt.test.mjs`) und im Emulator (`tools/emu/timer_cases.py`, Hacktribe und Rot) geprüft, am Gerät nicht.
+**STOP-Takt** braucht API 11 und läuft im Hintergrund. Solange der Sequencer läuft, blinkt die STOP-LED im Tempo des
+Patterns: das Ereignis `beat` macht sie auf jeder Viertel an, `korg.afterSteps(1, ...)` einen Schritt später aus, mit
+BEAT 8 also auf jeder halben Note kurz. Bei STOP und in der Pause ist sie aus; `korg.cancel` räumt dann den Timer ab. Die
+PLAY-LED fasst das Plugin nicht an, sie zeigt wie in der Firmware Spielen und Pause. Die Firmware schreibt die STOP-LED im
+Emulator nie. Die Kennung im Katalog bleibt `playtakt` (bis 1.4.5 hieß das Plugin PLAY-Takt und blinkte auf PLAY). Es ist
+zugleich das Beispiel des Katalogs für die Timer. Im Simulator (`test/script-play-takt.test.mjs`) und im Emulator
+(`tools/emu/timer_cases.py`, Hacktribe, Rot und Blau, gegen denselben Ablauf ohne Plugin) geprüft, am Gerät nicht.
 
 ## Die Seite Plugins im Editor
 
@@ -1476,7 +1476,7 @@ Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokument
 Brotkrumenleiste führt immer zurück zum Katalog.
 
 **Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
-Mandelbrot und Blechy Run unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides und Pad Finger (TOOLS), Quelle
+Mandelbrot und Blechy Run unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, STOP-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides und Pad Finger (TOOLS), Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem

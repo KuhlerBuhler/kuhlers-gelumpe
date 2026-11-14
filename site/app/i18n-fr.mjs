@@ -2059,7 +2059,7 @@ export default {
   "catalog.lauflicht.description": "Une lumière court sur les pads.",
   "catalog.category.light": "Lumière",
   "catalog.pulsieren.description": "Toutes les LED rouges des pads s'éclairent et s'assombrissent.",
-  "catalog.playtakt.description": "Tant que le séquenceur joue, la LED PLAY clignote brièvement au tempo du pattern ; à l'arrêt (STOP) elle est éteinte, en pause elle reste allumée. Un exemple des minuteurs.",
+  "catalog.playtakt.description": "Tant que le séquenceur joue, la LED STOP clignote brièvement au tempo du pattern ; à l'arrêt (STOP) et en pause elle est éteinte. La LED PLAY reste gérée par le firmware. Un exemple des minuteurs.",
   "catalog.momentmute.description": "Les mutes ne changent que tant que PART MUTE est maintenu : un pad coupe ou rétablit alors sa partie et les pads montrent les mutes. Relâché, les pads jouent comme en mode TRIGGER.",
   "catalog.momentmute.control1": "Maintenir PART MUTE et appuyer sur un pad : partie coupée ou rétablie",
   "catalog.momentmute.control2": "Menu -> BLECH -> MOMENT MUTE : 1 activé, 0 désactivé",
