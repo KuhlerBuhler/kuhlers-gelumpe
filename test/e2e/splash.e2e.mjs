@@ -45,7 +45,9 @@ test("Startbild: a picture becomes splash.bmp, black is drawn, the guide names t
   // top row, bottom-up file: the last row of pixel data; left 64 pixels drawn (bit 1), right 64 empty
   const top = bytes.subarray(62 + 63 * 16, 62 + 64 * 16);
   assert.deepEqual([...top], [...Array(8).fill(0xff), ...Array(8).fill(0)]);
+  assert.match(await page.locator("#cee-splash-steps").textContent(), /KORG\/blechtribe\/Media\//, "the file goes to the Media folder");
   assert.match(await page.locator("#cee-splash-steps").textContent(), /SPLASH IMPORT/);
+  assert.equal(await page.locator("#cee-splash-write").isEnabled(), true, "and can go straight to the card");
   assert.deepEqual(page.errors, []);
 });
 

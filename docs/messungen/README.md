@@ -267,6 +267,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Die später gesteckte Karte bringt ihre ganze Einstellungsdatei mit, auch beim Kartentausch, im Emulator](2026-11-12-karte-spaeter-einstellungen.md)
 - [BLECH-Einstellungen ohne Karte im Flash: zwei Sektoren im Wechsel, die Karte gewinnt beim Start, beim Einstecken fragt das Display SAVE TO FLASH?, im Emulator](2026-11-13-einstellungen-flash.md)
 - [Startbild-Editor auf der blauen: SPLASH IMPORT, DRAW und RESET, Bild im Flash-Sektor 0x7F0000, im Emulator](2026-11-13-startbild-editor-blau.md)
+- [Media-Ordner: Startbild und Ladeanimation von der Karte, Einstellung in Byte 14 der BLLA-Datei, im Emulator](2026-11-14-media-ordner.md)
 - [KNOB LEDS: die LEDs hinter den Reglern aus, im Emulator](2026-11-12-knopf-leds.md)
 - [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)

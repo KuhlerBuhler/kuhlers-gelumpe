@@ -4,6 +4,8 @@ Stand 2026-10-10, Speicherort geändert am 15.10.
 
 **Stand 16.10.:** der Editor speichert wieder in den Flash (Sektor `0x7F0000`), damit das eigene Bild ab dem ersten Bild beim Start steht. Vom 15. bis 16.10. lag es auf der Karte ([Startbild auf der Karte](../messungen/2026-10-15-startbild-karte.md)); dabei war das Display bis zum Einhängen der Karte weiß. Bilder, die in dieser Zeit auf der Karte gespeichert wurden, liest die Firmware nicht mehr: einmal neu zeichnen und WRITE.
 
+**Stand 14.11.:** ab 1.5 gleicht die Firmware das Bild mit der Karte ab. Der Start zeigt weiter das Bild aus dem Flash. Danach liest `splash_sync` (Eintrag `0xC01A250C`, aus den Start-Haken der Script-Laufzeit: auf Hacktribe und rot nach dem Lesen der Ladeanimation, auf der blauen nach `migrate_start`) `KORG/blechtribe/Media/splash.bmp` und vergleicht es mit dem gezeigten Bild. Weicht es ab, schreibt der UI-Tick es in den Flash (`save_image`), zu sehen ist es also ab dem Start danach. Ohne Datei oder mit einer, die IMPORT ablehnt, bleibt der Flash, wie er ist. SPLASH IMPORT und SPLASH DRAW -> WRITE schreiben nach dem Flash auch `Media/splash.bmp` (`media_write`: BMP mit 62 Byte Kopf, legt fehlende Ordner an), damit der nächste Start nichts zurückdreht. IMPORT listet zuerst `Media/`, ohne den Ordner den alten Ordner `KORG/blechtribe`. Emulator-Fälle: `tools/emu/splash_cases.py` (`media_steps`, `import_steps`) und `tools/emu/menu_cases.py` (`import_lists_media`).
+
 **Stand 13.11.:** ab 1.5 ist der Editor auch im Satz der blauen, mit demselben Sektor `0x7F0000`; im Emulator geprüft, am Gerät nicht ([Startbild-Editor auf der blauen](../messungen/2026-11-13-startbild-editor-blau.md)).
 
 Wie das Startbild im Gerät liegt, wie man es im Menü Global zeichnet, im Flash

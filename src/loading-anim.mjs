@@ -9,7 +9,10 @@
  *   6     u16 N, progress pictures (at least 1, picture 0 included)
  *   8     u16 M, loop pictures
  *   10    u16 offset of the list table
- *   12    u32 size of the file
+ *   12    u16 size of the file (at most MAX_BYTES)
+ *   14    u8 flags, the device's settings of the animation (BLECH menu, app): bit 0 no loop, bit 1 no animation (the
+ *         firmware's window), bit 2 Blechy instead of this file
+ *   15    unused (0)
  *   16    picture 0, 1024 bytes
  *   table N - 1 + M u16 offsets of the lists: progress 1 to N - 1, then loop 0 to M - 1
  *   list  u16 run count, then runs: u16 head (bits 0-9 offset, bits 10-15 length - 1), length bytes
@@ -19,13 +22,15 @@
  * when it plays from a percent on) and never chain, so the loop needs no buffer of its own and leaves the progress
  * picture untouched.
  */
-import { pixelsToSplash, splashToPixels, toHex, PATCH_FORMAT, SPLASH_W, SPLASH_H } from "./patch.mjs";
+import { pixelsToSplash, splashToPixels, SPLASH_W, SPLASH_H } from "./patch.mjs";
 
 export const MAGIC = "BLLA";
 export const VERSION = 1;
 export const MAX_BYTES = 16384;
 export const FRAME_BYTES = 1024;
 export const HEADER_BYTES = 16;
+export const FLAGS_AT = 14;
+export const FLAG_NO_LOOP = 1, FLAG_OFF = 2, FLAG_BLECHY = 4;
 const RUN_MAX = 64;
 
 function diffRuns(prev, next) {
@@ -99,11 +104,24 @@ export function encodeAnimation(frames) {
   v.setUint16(6, n, true);
   v.setUint16(8, m, true);
   v.setUint16(10, table, true);
-  v.setUint32(12, size, true);
+  v.setUint16(12, size, true);
+  bytes[FLAGS_AT] = frames.flags ?? 0;
   bytes.set(frames.progress[0], HEADER_BYTES);
   let at = table + 2 * parts.length;
   parts.forEach((l, i) => { v.setUint16(table + 2 * i, at, true); bytes.set(l, at); at += l.length; });
   return { bytes, size };
+}
+
+/** Byte 14 of a file: FLAG_NO_LOOP, FLAG_OFF, FLAG_BLECHY. */
+export function animationFlags(bytes) {
+  return bytes[FLAGS_AT];
+}
+
+/** A copy of the file with byte 14 set to `flags`, as the BLECH menu writes it. */
+export function withAnimationFlags(bytes, flags) {
+  const out = Uint8Array.from(bytes);
+  out[FLAGS_AT] = flags;
+  return out;
 }
 
 /** The checks the firmware makes before the first picture. Returns null when the file is good, else the reason. */
@@ -113,7 +131,7 @@ export function validateAnimation(bytes) {
   if (bytes[4] !== VERSION) return `version ${bytes[4]}`;
   if (bytes[5] > 100) return `loop from ${bytes[5]} percent`;
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const n = v.getUint16(6, true), m = v.getUint16(8, true), table = v.getUint16(10, true), size = v.getUint32(12, true);
+  const n = v.getUint16(6, true), m = v.getUint16(8, true), table = v.getUint16(10, true), size = v.getUint16(12, true);
   if (size > MAX_BYTES) return `${size} bytes, more than ${MAX_BYTES}`;
   if (size > bytes.length) return "the file is shorter than its size";
   if (n < 1) return "no progress picture";
@@ -281,22 +299,4 @@ export function animationToSlots({ progress, loop = [], loopFrom = 0 }) {
   }
   loop.slice(0, SLOTS - from).forEach((f, j) => { slots[from + j] = f.slice(); });
   return { slots, loopFrom: from };
-}
-
-export const LOADING_ANIM_ID = "loading-anim";
-
-/**
- * A custom animation as a patch, the way the start image is one (splashPatch): the map field `loadingAnim` is the slot
- * load-bar reads (tools/patch/load_bar.py:ANIM_SLOT), the file at its start, FF behind it. Made for load-bar's builds;
- * only worth applying on top of load-bar (src/patcher.mjs, withLoadingAnim). Throws on a file the firmware would reject.
- */
-export function loadingAnimPatch(bytes, name = "Eigene Ladeanimation") {
-  const bad = validateAnimation(bytes);
-  if (bad) throw new Error(`loading animation: ${bad}`);
-  const slot = new Uint8Array(MAX_BYTES).fill(0xff);
-  slot.set(bytes.subarray(0, new DataView(bytes.buffer, bytes.byteOffset).getUint32(12, true)));
-  return {
-    format: PATCH_FORMAT, version: 1, id: LOADING_ANIM_ID, name, builds: ["hacktribe", "stock"],
-    changes: [{ field: "loadingAnim", bytes: toHex(slot) }],
-  };
 }

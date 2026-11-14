@@ -847,7 +847,7 @@ help("updates", "idle", [
 help("write", "idle", ["rescue.help.write.1", "rescue.help.write.2"]);
 help("splash", "idle", [
   { key: "rescue.help.splash.1", links: pageLink("splash", "nav.splash") },
-  { path: "KORG/blechtribe/" },
+  { path: "KORG/blechtribe/Media/" },
   "rescue.help.splash.2",
 ]);
 FLOW.helpdone = { mood: "happy", say: ["rescue.help.done.1"] };

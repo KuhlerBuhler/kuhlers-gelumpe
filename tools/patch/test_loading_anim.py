@@ -70,11 +70,19 @@ class LoadingAnim(unittest.TestCase):
         self.assertIn("past byte 1023", loading_anim.validate(bytes(bad)))
         self.assertEqual(loading_anim.validate(self.blob[:-3]), "the file is shorter than its size")
         cut = bytearray(self.blob[:-3])
-        struct.pack_into("<I", cut, 12, len(cut))
+        struct.pack_into("<H", cut, 12, len(cut))
         self.assertIn("outside the file", loading_anim.validate(bytes(cut)))
         big = bytearray(self.blob)
-        struct.pack_into("<I", big, 12, loading_anim.MAX_BYTES + 1)
+        struct.pack_into("<H", big, 12, loading_anim.MAX_BYTES + 1)
         self.assertIn("more than", loading_anim.validate(bytes(big)))
+
+    def test_flags_in_byte_14(self):
+        self.assertEqual(loading_anim.flags(self.blob), 0)
+        for value in (loading_anim.NO_LOOP, loading_anim.OFF, loading_anim.BLECHY, 7):
+            flagged = loading_anim.with_flags(self.blob, value)
+            self.assertEqual(loading_anim.flags(flagged), value)
+            self.assertIsNone(loading_anim.validate(flagged))
+            self.assertEqual(loading_anim.decode(flagged), loading_anim.decode(self.blob))
 
 
 class DefaultBlechy(unittest.TestCase):

@@ -50,15 +50,18 @@ test("the patch carries our own code and a few words, never a firmware table", (
 });
 
 test("the spans the patch asks to run at start are inside its changes and name a reason", () => {
-  assert.equal(PATCH.startPhase.length, 4);           // the two calls, the start code, the screen tick hook
+  assert.equal(PATCH.startPhase.length, 7);           // the two calls, the start code, the screen tick hook, splash_sync's entry, itself and the BMP reader
   for (const span of PATCH.startPhase) {
     assert.ok(span.why.length > 10);
     const inside = PATCH.changes.some(c => span.file >= c.file && span.file + span.length <= c.file + (c.bytes ? c.bytes.length / 2 : c.copy.length));
     assert.ok(inside, `0x${span.file.toString(16)} is not written by the patch`);
   }
-  // Nothing of the editor itself is on the list: that code must not run before the main screen.
+  // Of the editor section only splash_sync and the BMP reader it shares with IMPORT are on the list: the editor must not run before the
+  // main screen.
   const editor = PATCH.changes.find(c => c.note.startsWith("editor"));
-  assert.ok(!PATCH.startPhase.some(s => s.file >= editor.file && s.file < editor.file + editor.bytes.length / 2));
+  const inEditor = PATCH.startPhase.filter(s => s.file >= editor.file && s.file < editor.file + editor.bytes.length / 2);
+  assert.equal(inEditor.length, 3);
+  assert.ok(inEditor.every(s => /splash_sync/.test(s.why)), inEditor.map(s => s.why).join("; "));
 });
 
 test("the start code never calls the DSP boot", () => {
@@ -136,7 +139,7 @@ test("applied to the own firmware it changes only what it names and the copy is 
     const same = Buffer.compare(copied.subarray(4 * word, 4 * word + 4), source.subarray(4 * word, 4 * word + 4)) === 0;
     assert.equal(same, !slots.includes(word), `vtable word ${word}`);
   }
-  assert.deepEqual(res.allowCode.length, 4);
+  assert.deepEqual(res.allowCode.length, 7);
 });
 
 describe("the splash editor in the emulator", { concurrency: slots }, () => {
