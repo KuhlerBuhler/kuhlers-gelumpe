@@ -33,15 +33,16 @@ function makePort(id, name, type) {
  * @param {number} [opts.latencyMs] how long a reply takes to come back
  * @param {boolean} [opts.hacktribe] answers Hacktribe's commands 0x52 to 0x57
  * @param {boolean|number} [opts.blech] answers BLECH's own commands
+ * @param {Uint8Array} [opts.flash] the flash the flash reads answer from; without it they get no answer
  * @param {object} [opts.target] where to install; defaults to globalThis.navigator
  */
-export function installWebMidiStub({ image = null, channel = 9, latencyMs = 2, target = null, pattern = null, hacktribe = true, blech = false, card = null } = {}) {
+export function installWebMidiStub({ image = null, channel = 9, latencyMs = 2, target = null, pattern = null, hacktribe = true, blech = false, card = null, flash = null } = {}) {
   const nav = target || globalThis.navigator;
   if (!nav) throw new Error("no navigator to install on");
 
   // The simulation writes into its image. Give it a copy, or every dry run
   // would quietly edit the firmware the user loaded.
-  const device = new SimDevice({ image: image ? new VsbImage(image.bytes) : null, channel, pattern, hacktribe, blech, card });
+  const device = new SimDevice({ image: image ? new VsbImage(image.bytes) : null, channel, pattern, hacktribe, blech, card, flash });
   const input = makePort("sim-in", PORT_NAME, "input");
   const output = makePort("sim-out", PORT_NAME, "output");
   input.onmidimessage = null;
