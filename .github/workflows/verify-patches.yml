@@ -232,6 +232,23 @@ jobs:
               exit 0
             fi
           fi
+          # An open refresh pull request takes the new file as one more commit, instead of a new pull request per run.
+          # The merge keeps this run's tree (the branch now plus the new verified.json), so the push is a fast-forward.
+          open=$(gh pr list --base "$BRANCH" --state open --json number,headRefName \
+            --jq "[.[] | select(.headRefName | startswith(\"verified/$BRANCH-\"))] | sort_by(.number) | last // empty | \"\(.number) \(.headRefName)\"")
+          if [ -n "$open" ]; then
+            read -r number head <<< "$open"
+            git fetch --quiet origin "refs/heads/$head"
+            git merge --quiet -s ours --allow-unrelated-histories -m "chore(patches): refresh verified.json" \
+              -m "Checked by the workflow Verify patches, run $GITHUB_RUN_ID." FETCH_HEAD
+            if git push origin "HEAD:refs/heads/$head"; then
+              gh pr comment "$number" --body "Run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID passed too; its verified.json is on this branch now."
+              echo "::notice::added the new verified.json to pull request $number."
+              exit 0
+            fi
+            echo "::warning::$head moved on during the check; opening a new pull request instead."
+            git reset --quiet --hard HEAD^1
+          fi
           head="verified/$BRANCH-$GITHUB_RUN_ID"
           git push origin "HEAD:refs/heads/$head"
           gh pr create --base "$BRANCH" --head "$head" --title "chore(patches): refresh verified.json" \
