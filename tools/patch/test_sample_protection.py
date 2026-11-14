@@ -431,11 +431,11 @@ class ProtectionBudget(unittest.TestCase):
         s.set_state('INSTEP', 1)
         s.set_state('T0', 0)
         s.uc.mem_write(F['TIMER'] + 0x10, word(p.BUDGET))
-        self.assertEqual(s.call('place', 32), F['DSP_MIN'])
+        self.assertEqual(s.call('place', 32), (F['DSP_MIN'] + p.DSP_GUARD))
 
     def test_a_deferred_scan_runs_before_another_slow_card_parse(self):
         s = Swap()
-        s.slot(500, base=F['DSP_MIN'], length=256)
+        s.slot(500, base=(F['DSP_MIN'] + p.DSP_GUARD), length=256)
         s.uc.mem_write(s.sym['ss_cap'], word(256))
         s.uc.mem_map(F['TIMER'], 4096)
         s.set_state('INSTEP', 1)
@@ -466,7 +466,7 @@ class ProtectionBudget(unittest.TestCase):
     def test_many_evictions_share_one_signature_scan(self):
         s = Swap()
         for slot in range(500, 504):
-            s.slot(slot, base=F['DSP_MIN'] + (slot - 500) * 32, length=32)
+            s.slot(slot, base=(F['DSP_MIN'] + p.DSP_GUARD) + (slot - 500) * 32, length=32)
         s.uc.mem_write(s.sym['ss_cap'], word(128))
         hashes, masks = [], []
 
@@ -481,14 +481,14 @@ class ProtectionBudget(unittest.TestCase):
         at = s.sym['slot_sig']
         s.uc.hook_add(unicorn.UC_HOOK_CODE, signature, begin=at, end=at)
         s.uc.hook_add(unicorn.UC_HOOK_CODE, remove, begin=F['DELETE'], end=F['DELETE'])
-        self.assertEqual(s.call('place', 128), F['DSP_MIN'])
+        self.assertEqual(s.call('place', 128), (F['DSP_MIN'] + p.DSP_GUARD))
         self.assertEqual(hashes, list(range(500, 504)))
         self.assertEqual(masks, [0] * 4)
 
     def test_all_499_user_rows_yield_and_resume_without_rehashing(self):
         s = Swap()
         for slot in range(500, 999):
-            s.slot(slot, base=F['DSP_MIN'] + (slot - 500) * 32, length=32)
+            s.slot(slot, base=(F['DSP_MIN'] + p.DSP_GUARD) + (slot - 500) * 32, length=32)
         s.uc.mem_map(F['TIMER'], 4096)
         s.set_state('INSTEP', 1)
         ticks, seen, masked = [0], [], []

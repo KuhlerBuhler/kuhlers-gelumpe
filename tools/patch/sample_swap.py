@@ -99,7 +99,8 @@ PERSIST_RAW = PERSIST_CONTEXT + sample_snapshot.SIZE
 # The firmware's work buffer (giver 0xC00369F0): borrowed only while the cache is valid.
 ARENA_L, ARENA_L_END = 0xC1010000, 0xC273AA40
 
-CAP_DEFAULT = 0x1900000         # the DSP user bank above the factory samples, 0x365EC0 to 0x1C65EC0
+DSP_GUARD = 32
+CAP_DEFAULT = 0x1900000 - DSP_GUARD
 CHUNK = 0x10000                 # DSP bytes per chunk, the transport's largest call
 BUDGET = 150_000_000 // 1000 * 15  # timer 3 ticks (150 MHz) one command task step may work for: 15 ms
 MSG = 0x7E                      # the step's command number; the firmware's table ends at 44
@@ -244,6 +245,7 @@ def equs(screens):
              "ARENA_L_END": ARENA_L_END, "CHUNK": CHUNK, "BUDGET": BUDGET, "MSG": MSG, "MAIN": MAIN, "KILL": KILL,
              "FAILED": FAILED, "PROT": PROT, "PATH": PATH, "STATE_WORDS": len(FIELDS),
              "LAST_USER": LAST_USER, "SAMPLE_COUNT": SAMPLE_COUNT, "CAP_DEFAULT": CAP_DEFAULT,
+             "DSP_GUARD": DSP_GUARD,
              "BUSY": sample_swap_io.BUSY, "STALE": sample_swap_io.STALE, "FILE_OWNER": FILE_OWNER, "BOOT_LEASE": BOOT_LEASE,
              "NATIVE_SCOPE": NATIVE_SCOPE,
              "FILE_READ": sample_owner.READ, "FILE_RECOVER": sample_owner.RECOVER, **OFF}
@@ -432,6 +434,8 @@ fo_open:
     mov r8, #1
 fo_mode:
     str r8, [r11, #MODE]
+    cmp r8, #1
+    bleq boot_pool
     b fo_out
 fo_short:
     mov r0, r4
@@ -1907,69 +1911,6 @@ jc_sum:
     bl job_activate
     pop {r4-r8, pc}
 
-; r0 = DSP bytes: the lowest 32-byte aligned place in the user bank, up to its budget, that overlaps no active sample.
-first_fit:
-    push {r4-r10, lr}
-    mov r4, r0
-    ldr r5, =LIST
-    mov r6, r5
-    ldr r7, =META
-    mov r8, #0
-    ldr r10, =DSP_MIN
-ff_scan:
-    ldrb r0, [r7, #11]
-    cmp r0, #1
-    bne ff_next
-    ldr r0, [r7]
-    cmp r0, r10
-    blo ff_next
-    ldr r1, [r7, #4]
-    add r1, r0, r1
-    stmia r6!, {r0, r1}
-ff_next:
-    ldr r0, =0x45C
-    add r7, r7, r0
-    add r8, r8, #1
-    ldr r0, =SAMPLE_COUNT
-    cmp r8, r0
-    blo ff_scan
-    ldr r9, =ss_cap
-    ldr r9, [r9]
-    add r9, r9, r10
-    ldr r0, =DSP_END
-    cmp r9, r0
-    movhi r9, r0
-    mov r7, r10
-    mov r10, r5
-    b ff_check
-ff_cand:
-    cmp r10, r6
-    bhs ff_none
-    ldr r7, [r10, #4]
-    add r10, r10, #8
-    add r7, r7, #31
-    bic r7, r7, #31
-ff_check:
-    add r8, r7, r4
-    cmp r8, r9
-    bhi ff_cand
-    mov r0, r5
-ff_over:
-    cmp r0, r6
-    bhs ff_found
-    ldmia r0!, {r1, r2}
-    cmp r1, r8
-    bhs ff_over
-    cmp r2, r7
-    bls ff_over
-    b ff_cand
-ff_found:
-    mov r0, r7
-    pop {r4-r10, pc}
-ff_none:
-    mov r0, #0
-    pop {r4-r10, pc}
-
 ; One chunk of the running job. r0 = 0 go on, 1 the job ended, 2 stop this step (the port is busy, or a fault).
 chunk:
     push {r4-r10, lr}
@@ -2496,6 +2437,85 @@ pl_none:
 '''
 
 
+FIRST_FIT = r"""
+boot_pool:
+    ldr r0, =CURSOR
+    ldr r1, [r0]
+    ldr r2, =DSP_MIN + DSP_GUARD
+    cmp r1, r2
+    strlo r2, [r0]
+    bx lr
+
+; r0 = DSP bytes: the lowest 32-byte aligned place in the user bank, up to its budget, that overlaps no active sample.
+first_fit:
+    push {r4-r10, lr}
+    mov r4, r0
+    ldr r5, =LIST
+    mov r6, r5
+    ldr r7, =META
+    mov r8, #0
+    ldr r10, =DSP_MIN
+ff_scan:
+    ldrb r0, [r7, #11]
+    cmp r0, #1
+    bne ff_next
+    ldr r0, [r7]
+    cmp r0, r10
+    blo ff_next
+    ldr r1, [r7, #4]
+    add r1, r0, r1
+    stmia r6!, {r0, r1}
+ff_next:
+    ldr r0, =0x45C
+    add r7, r7, r0
+    add r8, r8, #1
+    ldr r0, =SAMPLE_COUNT
+    cmp r8, r0
+    blo ff_scan
+    add r10, r10, #DSP_GUARD
+    ldr r9, =ss_cap
+    ldr r9, [r9]
+    ldr r0, =CAP_DEFAULT
+    cmp r9, r0
+    movhi r9, r0
+    add r9, r9, r10
+    mov r7, r10
+    mov r10, r5
+    b ff_check
+ff_cand:
+    cmp r10, r6
+    bhs ff_none
+    ldr r7, [r10, #4]
+    add r10, r10, #8
+    add r7, r7, #31
+    bic r7, r7, #31
+    ldr r0, =DSP_MIN
+    cmp r7, r0
+    bls ff_cand
+ff_check:
+    add r8, r7, r4
+    cmp r8, r9
+    bhi ff_cand
+    mov r0, r5
+ff_over:
+    cmp r0, r6
+    bhs ff_found
+    ldmia r0!, {r1, r2}
+    cmp r1, r8
+    bhs ff_over
+    cmp r2, r7
+    bls ff_over
+    b ff_cand
+ff_found:
+    mov r0, r7
+    pop {r4-r10, pc}
+ff_none:
+    mov r0, #0
+    pop {r4-r10, pc}
+.pool
+"""
+
+
 IMPORT_COMPLETION = r"""
 ; A previously empty slot can become indexed even if closing the source failed.
 cat_import_mode:
@@ -2542,6 +2562,7 @@ def source(screens):
     main = SOURCE.replace(".org CODE2", IMPORT_COMPLETION + "\n.org CODE2")
     main = main.replace(".org CODE3", sample_store.publication_source() + "\n.org CODE3")
     body = main + "\n.org STORE_CODE\n" + sample_store.source(STAGE, defer_short=True, defer_publish=True) + importer + sample_owner.source(FILE_OWNER) + native + guards
+    body += "\n.pool\n" + FIRST_FIT
     body += "\n.org PROTECTION_CODE\n" + sample_protection.source(PROTECTION) + PLACEMENT + sample_pcm.source() + sample_names.source()
     body += acquire + native_dsp_scope.source(**scope_args, part='helpers')
     body += native_sample_import.source(native_dsp_acquire.CURRENT_TASK, IMPORT_LOCK, prepare_missing=True) + capture_fault.PUBLICATION + sample_store.short_recovery_source() + sample_store.unsealed_recovery_source()

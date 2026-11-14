@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-only
+"""Check PCM relocation and voice sample bindings in the executed native DSP."""
+import argparse
+import hashlib
+import json
+import math
+from pathlib import Path
+import struct
+import time
+
+from blackfin_backend import BlackfinPort, BackendError
+from blackfin_rom import SysControl
+from firmware import identify
+from machine import blank_flash
+from swap_cases import Box, DSP_MIN, wav_pcm
+import sample_swap as spec
+
+
+SAMPLES = {500: ('native500', 2000), 501: ('native501', 1000), 502: ('native502', 2000)}
+CAP = 6144
+POOL_MIN = DSP_MIN + spec.DSP_GUARD
+VOICE = 0xFF900EAC
+
+
+def verify_patch_code(payload, screens):
+    for address, expected in spec.build_code(screens)[0]:
+        at = address - 0xC0000000
+        if payload[at:at + len(expected)] != expected:
+            raise ValueError(f'sample swap code differs at {address:#x}; rebuild the candidate with the current sources')
+
+
+def bound_session(machine, deadline):
+    run_slice = machine.run_slice
+
+    def bounded_slice(*args, **kwargs):
+        if time.monotonic() >= deadline:
+            raise BackendError('native sample swap session deadline exceeded')
+        return run_slice(*args, **kwargs)
+    machine.run_slice = bounded_slice
+
+
+def cases(payload, worker, *, core_hz, wall_timeout=1200):
+    if not isinstance(wall_timeout, (int, float)) or not math.isfinite(wall_timeout) or not 1 <= wall_timeout <= 1800:
+        raise ValueError('a finite session deadline between 1 and 1800 seconds is required')
+    profile = identify(payload)
+    if profile.build not in ('stock', 'hacktribe'):
+        raise ValueError('sample swap currently supports the two red firmware builds')
+    verify_patch_code(payload, profile.screens)
+    deadline = time.monotonic() + wall_timeout
+    report = dict(ok=False, hardware_contact=False, samples=[], checks={},
+                  verification_scope='startup, PCM transport, residency and voice sample address',
+                  sample_playback_end_verified=False)
+    box = None
+    with BlackfinPort(worker, operating=True, timeout=15, rom=SysControl(),
+                      sport=dict(core_hz=core_hz, input='lcg'), host_transport='fifo') as port:
+        def observe(box):
+            bound_session(box.m, deadline)
+
+        try:
+            box = Box(payload, blank_flash(), SAMPLES, [500] + [0] * 15, cap=CAP,
+                      before_boot=observe, dsp_backend=port)
+
+            def inspect(slot, phase):
+                start, size = box.extent(slot)
+                actual = box.dsp_bytes(start, size)
+                expected = wav_pcm(slot, SAMPLES[slot][1])
+                row = dict(slot=slot, phase=phase, time_ns=box.m.time_ns,
+                           start=start, bytes=size, resident=box.resident(slot),
+                           in_pool=POOL_MIN <= start and start + size <= POOL_MIN + CAP,
+                           pcm_equal=actual == expected,
+                           actual_sha256=hashlib.sha256(actual).hexdigest(),
+                           expected_sha256=hashlib.sha256(expected).hexdigest())
+                report['samples'].append(row)
+                return row
+
+            initial = inspect(500, 'start')
+            initial_residents = box.residents(SAMPLES)
+            part = box.dev.call(spec.FIRMWARE['PART'], 0)
+            record = box.u32(part + 8)
+            inspect(500, 'before_selection')
+            selected = []
+            for slot in (501, 502):
+                box.m.send([1, 1, 0, 1, 0])
+                settled = box.until(lambda: box.u16(record + 8) == slot and box.u16(part + 0x34) == slot, 3)
+                selected.append(settled)
+                if not settled:
+                    raise BackendError(f'sample {slot} did not finish loading and selection')
+                inspect(slot, 'selected')
+
+            final = {slot: inspect(slot, 'after_eviction') for slot in (501, 502)}
+            before = struct.unpack('<624I', port.backend.read(VOICE, 24 * 26 * 4))
+            port.backend.watch_memory(final[502]['start'], final[502]['bytes'])
+            box.m.send([4, 0, 0, 100, 1])
+            box.run(.02)
+            active = struct.unpack('<624I', port.backend.read(VOICE, 24 * 26 * 4))
+            early_accesses = port.backend.memory_accesses()
+            opened = [i for i in range(24) if before[i * 26] == 0 and active[i * 26] != 0]
+            box.run(.12)
+            later = struct.unpack('<624I', port.backend.read(VOICE, 24 * 26 * 4))
+            later_accesses = port.backend.memory_accesses()
+            voice_index = opened[0] if len(opened) == 1 else None
+            voice = active[voice_index * 26:voice_index * 26 + 26] if voice_index is not None else None
+            ended = later[voice_index * 26] if voice_index is not None else None
+            clock = port.backend.clock_status()
+            expected_cycles = (int(box.m.time_ns) - port._clock_origin_ns) * core_hz // 1000000000
+            checks = dict(native_initialization=port.initialized,
+                          native_clock=clock['cycles'] == expected_cycles,
+                          swap_active=box.state('MODE') == 1,
+                          initially_only_current_sample=initial['resident'] and initial_residents == [500],
+                          selected=all(selected),
+                          pcm=all(row['pcm_equal'] for row in report['samples']),
+                          final_resident_pcm=all(row['pcm_equal'] for row in final.values()),
+                          pool=all(row['in_pool'] for row in report['samples']),
+                          no_sample_overlap=(final[501]['start'] + final[501]['bytes'] <= final[502]['start']
+                                             or final[502]['start'] + final[502]['bytes'] <= final[501]['start']),
+                          unused_sample_evicted=not box.resident(500),
+                          other_samples_resident=box.resident(501) and box.resident(502),
+                          voice_uses_relocated_sample=voice is not None and voice[10] == final[502]['start'],
+                          no_arm_assertions=not box.m.asserts,
+                          no_dsp_exception=port.backend.register(47) == 0)
+            report.update(ok=all(checks.values()), checks=checks, clock=clock,
+                          opened_voices=opened, voice_index=voice_index,
+                          gate_cleared_without_release=ended == 0,
+                          sample_accesses_early=early_accesses, sample_accesses_later=later_accesses,
+                          voice_gate=voice[0] if voice is not None else None,
+                          voice_sample=voice[10] if voice is not None else None, voice_gate_later=ended,
+                          arm_time_ns=box.m.time_ns, assertions=box.m.asserts)
+        except (BackendError, ValueError, RuntimeError) as error:
+            report['error'] = str(error)
+            if box is not None:
+                report['arm_time_ns'] = box.m.time_ns
+    return report
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--patched', type=Path, required=True)
+    parser.add_argument('--worker', type=Path, required=True)
+    parser.add_argument('--core-hz', type=int, required=True)
+    parser.add_argument('--wall-timeout', type=float, default=1200)
+    args = parser.parse_args()
+    try:
+        raw = args.patched.read_bytes()
+        if len(raw) != 0x200100:
+            raise ValueError('expected a complete SYSTEM.VSB')
+        report = cases(raw[0x100:], args.worker, core_hz=args.core_hz, wall_timeout=args.wall_timeout)
+    except (OSError, BackendError, ValueError) as error:
+        report = dict(ok=False, hardware_contact=False, error=str(error))
+    print(json.dumps(report, indent=2))
+    return 0 if report['ok'] else 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

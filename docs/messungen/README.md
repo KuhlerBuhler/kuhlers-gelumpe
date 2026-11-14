@@ -363,3 +363,14 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Blackfin: SPORT0 und der native Audiotakt](2026-11-14-blackfin-sport0.md)
 - [Blackfin: HOSTDP-FIFO und DMA1](2026-11-14-blackfin-host-fifo.md)
 - [Blackfin: gemeinsame ARM-/DSP-Modellzeit und GPIO](2026-11-14-blackfin-modellzeit.md)
+
+## DSP-Grundlagen der nativen Gegenprobe
+
+- [Echter DSP-Code im Simulator: Stand und Grenze](2026-11-12-dsp-im-simulator.md)
+- [DSP-Modell im Emulator, für Prüfungen](2026-11-12-dsp-modell.md)
+- [Stufe 1 und Stufe 2 im DSP-Simulator: alle Paare](2026-11-13-stufe2-simulation.md)
+- [Eigener Speicher für Stufe 2: warum Paare abstürzen und der Patch dagegen](2026-11-13-stufe2-speicher.md)
+- [Pegelanzeigen](2026-11-12-pegel-leds.md)
+- [Blackfin: Datenzugriffe von Kern und DMA beobachten](2026-11-14-blackfin-speicherzugriffe.md)
+- [Blackfin: Grenzen und Deskriptoren der Speicher-DMA](2026-11-14-blackfin-dma-grenzen.md)
+- [Sample-Swap mit ausgeführtem DSP-Code](2026-11-14-sample-swap-nativer-dsp.md)

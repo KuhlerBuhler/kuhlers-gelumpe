@@ -98,9 +98,9 @@ class Box:
     `bank` {pattern: part samples} the bank blocks."""
 
     def __init__(self, payload, flash, samples, live, bank=None, cap=None, held=0, record_dsp=False, extra=None,
-                 before_boot=None):
+                 before_boot=None, dsp_backend=None):
         self.payload = with_cap(payload, cap)
-        self.m = Machine(self.payload, flash)
+        self.m = Machine(self.payload, flash, dsp_backend=dsp_backend)
         self.m.insert_card(card(payload, samples, extra))
         self.sym = symbols(payload)
         self.dsp = {}
@@ -188,6 +188,8 @@ class Box:
         return self.u32(entry) != 0 and self.u32(entry + 12) == self.state("GEN")
 
     def dsp_bytes(self, base, length):
+        if self.m.dsp_backend is not None:
+            return self.m.dsp_backend.backend.read(base, length)
         return b"".join(struct.pack("<H", self.dsp.get(base + i, 0)) for i in range(0, length, 2))
 
     def running(self):
@@ -378,7 +380,7 @@ def case_eviction(payload, flash):
         clean, extents = box.no_overlap()
         top = max((e for _, e in extents), default=DSP_MIN)
         rows.append(dict(pattern=n, switched=hit, live=live, pcm_equal=pcm, resident=box.residents(), top=hex(top)))
-        ok = ok and hit and live and pcm and clean and top <= DSP_MIN + cap
+        ok = ok and hit and live and pcm and clean and top <= DSP_MIN + spec.DSP_GUARD + cap
     return [entry("the_dsp_holds_only_the_active_set", ok and evicted and not box.m.asserts, rows),
             entry('an_evicted_sample_keeps_its_displayed_name', evicted_name and not box.m.asserts, rows)]
 

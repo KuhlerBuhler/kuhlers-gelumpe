@@ -118,6 +118,43 @@ class CacheRanges(unittest.TestCase):
 
 
 class AllocationBounds(unittest.TestCase):
+    def test_empty_pool_keeps_one_aligned_block_above_the_factory_boundary(self):
+        s = Swap()
+        self.assertEqual(s.call("first_fit", 32), F["DSP_MIN"] + 32)
+
+    def test_legacy_extent_crossing_the_new_floor_is_still_occupied(self):
+        s = Swap()
+        s.slot(600, base=F["DSP_MIN"], length=97)
+        self.assertEqual(s.call("first_fit", 32), F["DSP_MIN"] + 128)
+
+    def test_empty_legacy_extent_cannot_move_a_candidate_below_the_floor(self):
+        s = Swap()
+        s.slot(599, base=F["DSP_MIN"], length=0)
+        s.slot(600, base=F["DSP_MIN"] + 32, length=F["DSP_END"] - F["DSP_MIN"] - 32)
+        self.assertEqual(s.call("first_fit", 32), 0)
+
+    def test_empty_legacy_extent_does_not_extend_the_usable_budget(self):
+        s = Swap()
+        s.slot(599, base=F["DSP_MIN"], length=0)
+        s.slot(600, base=F["DSP_MIN"] + 32, length=64)
+        s.uc.mem_write(s.sym["ss_cap"], word(64))
+        self.assertEqual(s.call("first_fit", 96), 0)
+
+    def test_default_budget_fits_exactly_below_the_physical_end(self):
+        s = Swap()
+        available = F["DSP_END"] - F["DSP_MIN"] - 32
+        self.assertEqual(s.call("first_fit", available), F["DSP_MIN"] + 32)
+        self.assertEqual(s.call("first_fit", available + 32), 0)
+
+    def test_custom_budget_counts_usable_bytes_and_cannot_wrap(self):
+        s = Swap()
+        s.uc.mem_write(s.sym["ss_cap"], word(64))
+        self.assertEqual(s.call("first_fit", 64), F["DSP_MIN"] + 32)
+        self.assertEqual(s.call("first_fit", 96), 0)
+        s.uc.mem_write(s.sym["ss_cap"], word(0xFFFFFFFF))
+        self.assertEqual(s.call("first_fit", 32), F["DSP_MIN"] + 32)
+        self.assertEqual(s.call("first_fit", F["DSP_END"] - F["DSP_MIN"]), 0)
+
     def prepared(self, length):
         s = Swap()
         for name, value in dict(P_LEN=length, P_BITS=16, CGEN=7, CPTR=p.ARENA_U).items():
@@ -1036,6 +1073,26 @@ class Resident(unittest.TestCase):
 
 
 class LibraryOwnership(unittest.TestCase):
+    def test_large_library_moves_the_native_boot_cursor_above_the_guard(self):
+        s = self.setup_loader()
+        s.uc.mem_write(F["CURSOR"], word(F["DSP_MIN"]))
+        self.assertEqual(s.call("ss_fopen", s.file, s.path, 1), 0)
+        self.assertEqual(s.state("MODE"), 1)
+        self.assertEqual(s.u32(F["CURSOR"]), F["DSP_MIN"] + 32)
+
+    def test_large_library_does_not_lower_a_higher_native_boot_cursor(self):
+        s = self.setup_loader()
+        s.uc.mem_write(F["CURSOR"], word(F["DSP_MIN"] + 128))
+        self.assertEqual(s.call("ss_fopen", s.file, s.path, 1), 0)
+        self.assertEqual(s.u32(F["CURSOR"]), F["DSP_MIN"] + 128)
+
+    def test_small_library_keeps_the_native_boot_cursor(self):
+        s = self.setup_loader(size=4096)
+        s.uc.mem_write(F["CURSOR"], word(F["DSP_MIN"]))
+        self.assertEqual(s.call("ss_fopen", s.file, s.path, 1), 0)
+        self.assertEqual(s.state("MODE"), 0)
+        self.assertEqual(s.u32(F["CURSOR"]), F["DSP_MIN"])
+
     def setup_loader(self, size=p.CAP_DEFAULT + 4097, close_status=0):
         s = Swap()
         s.file, s.path = 0xC1002000, 0xC1001000
@@ -1372,7 +1429,7 @@ class Place(unittest.TestCase):
         s = Swap()
         after = F["META"] + 999 * 0x45c
         s.uc.mem_write(after, word(F["DSP_MIN"]) + word(0x100) + b'\0\0\0\1')
-        self.assertEqual(s.call("first_fit", 0x100), F["DSP_MIN"])
+        self.assertEqual(s.call("first_fit", 0x100), F["DSP_MIN"] + p.DSP_GUARD)
 
     def test_the_lowest_aligned_place_that_overlaps_nothing(self):
         s = Swap()
@@ -1387,7 +1444,7 @@ class Place(unittest.TestCase):
 
     def test_moves_out_a_sample_the_two_patterns_do_not_use(self):
         s = Swap()
-        lo = F["DSP_MIN"]
+        lo = F["DSP_MIN"] + p.DSP_GUARD
         s.uc.mem_write(s.sym["ss_cap"], word(0x200))
         s.slot(600, base=lo, length=0x100)
         s.slot(601, base=lo + 0x100, length=0x100)
