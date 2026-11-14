@@ -2,8 +2,8 @@
    design/root.min.css werden hier nicht umdefiniert. */
 :root {
   --cee-navbar-h: var(--space-16);
-  /* Room the folded sidebar's title and toggle take in the navbar row. */
-  --cee-folded-title: 22rem;
+  /* Room the folded sidebar's toggle takes in the navbar row: the navbar's own inset, the toggle, a gap. */
+  --cee-folded-title: calc(var(--space-6) + var(--space-10) + var(--space-3));
 }
 
 /* Anchors and scrollIntoView land below the sticky navbar; main.mjs sets its real height, which grows when it wraps. */
@@ -855,7 +855,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   min-height: 100vh;
 }
 
-/* Folded, the sidebar is no column any more: title and toggle float in the top left, in the navbar row. */
+/* Folded, the sidebar is no column any more: the toggle floats in the top left, in the navbar row. */
 .cee-app[data-collapsed] {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -876,6 +876,11 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 }
 
 .cee-app[data-collapsed] .cee-side-body {
+  display: none;
+}
+
+/* Folded, only the toggle stays: the title is gone for the eye, the tab order and screen readers alike. */
+.cee-app[data-collapsed] .cee-brand {
   display: none;
 }
 
@@ -1562,9 +1567,15 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
     visibility: hidden;
   }
 
+  /* The drawer slides in and out; it only turns invisible once it is out. */
+  .cee-sidebar {
+    transition: transform var(--dur-slow) var(--ease-out), visibility 0s linear var(--dur-slow);
+  }
+
   .cee-sidebar[data-open] {
     transform: none;
     visibility: visible;
+    transition: transform var(--dur-slow) var(--ease-out), visibility 0s;
   }
 
   .cee-menu {

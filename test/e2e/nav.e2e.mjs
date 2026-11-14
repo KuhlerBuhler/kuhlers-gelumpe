@@ -159,11 +159,59 @@ test("the page title and the sidebar toggle share one centre line in the navbar,
     const mid = s => { const r = document.querySelector(s).getBoundingClientRect(); return r.top + r.height / 2; };
     return { bar: mid(".cee-navbar"), title: mid("#cee-nav-title"), toggle: mid("#cee-collapse"), brand: mid("#cee-brand") };
   });
-  for (const state of ["expanded", "folded"]) {
-    if (state === "folded") { await page.click("#cee-collapse"); await page.waitForTimeout(300); }
-    const c = await centres();
-    for (const key of ["title", "toggle", "brand"]) assert.ok(Math.abs(c[key] - c.bar) <= 1, `${state}: ${key} at ${c[key]}, navbar centre ${c.bar}`);
-  }
+  const c = await centres();
+  for (const key of ["title", "toggle", "brand"]) assert.ok(Math.abs(c[key] - c.bar) <= 1, `expanded: ${key} at ${c[key]}, navbar centre ${c.bar}`);
+  await page.click("#cee-collapse");
+  await page.waitForFunction(() => ![".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition))));
+  const f = await centres();
+  for (const key of ["title", "toggle"]) assert.ok(Math.abs(f[key] - f.bar) <= 1, `folded: ${key} at ${f[key]}, navbar centre ${f.bar}`);
+  const edge = await page.evaluate(() => ({
+    toggle: document.querySelector("#cee-collapse").getBoundingClientRect().left,
+    inset: parseFloat(getComputedStyle(document.querySelector(".cee-navbar")).paddingRight),
+    title: document.querySelector("#cee-nav-title").getBoundingClientRect().left,
+    toggleRight: document.querySelector("#cee-collapse").getBoundingClientRect().right,
+  }));
+  assert.equal(edge.toggle, edge.inset, "folded, the toggle sits at the left edge, in the navbar's own inset");
+  assert.ok(edge.title > edge.toggleRight && edge.title - edge.toggleRight <= 24, `the title follows right after the toggle (${edge.title - edge.toggleRight}px)`);
+});
+
+test("folded, the title is gone for eye and keyboard; the fold animates, but not with reduced motion or a remembered fold", async () => {
+  const page = await h.page();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${h.url}#rescue`);
+  await page.click("#cee-collapse");
+  assert.ok(await page.evaluate(() => [".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition)))), "folding moves");
+  await page.waitForFunction(() => document.querySelector(".cee-app").hasAttribute("data-collapsed") && ![".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition))));
+  assert.equal(await page.locator("#cee-brand").isVisible(), false);
+  await page.locator("#cee-collapse").focus();
+  await page.keyboard.press("Shift+Tab");
+  assert.notEqual(await page.evaluate(() => document.activeElement?.id), "cee-brand", "the folded title takes no focus");
+  assert.equal(await page.locator("#cee-collapse").getAttribute("aria-expanded"), "false");
+  await page.reload();
+  assert.equal(await page.evaluate(() => document.querySelector(".cee-app").hasAttribute("data-collapsed")), true, "the fold is remembered");
+  assert.equal(await page.evaluate(() => [".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition)))), false, "a remembered fold stands without moving");
+  await page.click("#cee-collapse");
+  await page.waitForFunction(() => !document.querySelector(".cee-app").hasAttribute("data-collapsed") && ![".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition))));
+  assert.equal(await page.locator("#cee-brand").isVisible(), true, "unfolded, the title is back");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.click("#cee-collapse");
+  assert.equal(await page.evaluate(() => document.querySelector(".cee-app").hasAttribute("data-collapsed")), true, "with reduced motion it folds at once");
+  assert.equal(await page.evaluate(() => [".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition)))), false, "and nothing moves");
+  assert.deepEqual(page.errors, []);
+});
+
+test("the drawer slides in under 60rem and Esc still closes it", async () => {
+  const page = await h.page();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(h.url);
+  await page.click("#cee-menu");
+  assert.match(await page.locator("#cee-sidebar").evaluate(n => getComputedStyle(n).transitionProperty), /transform/, "the drawer slides");
+  await page.waitForFunction(() => !document.querySelector("#cee-sidebar").getAnimations().length);
+  assert.equal(await page.locator("#cee-sidebar").evaluate(n => n.getBoundingClientRect().left), 0, "open, it stands at the left edge");
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator("#cee-sidebar").getAttribute("data-open"), null);
+  await page.waitForFunction(() => getComputedStyle(document.querySelector("#cee-sidebar")).visibility === "hidden");
+  assert.deepEqual(page.errors, []);
 });
 
 test("the device drawing fits its box: no sideways scrollbar under the electribe, at any window size", async () => {

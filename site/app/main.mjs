@@ -40,7 +40,7 @@ import { loadBlechSet } from "../../src/patcher.mjs";
 import { patchesPresent, selectFor } from "../../src/patch.mjs";
 import { sharedProbe } from "./probe.mjs";
 import { watchForUpdate, showNews } from "./update.mjs";
-import { apply as applySettings, get as setting, holdAutoConnect, languageSwitch, releaseAutoConnect, settingsButton, settingsPage } from "./settings.mjs";
+import { apply as applySettings, get as setting, holdAutoConnect, languageSwitch, reducedMotion, releaseAutoConnect, settingsButton, settingsPage } from "./settings.mjs";
 import { toast, toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { t } from "./i18n.mjs";
@@ -510,13 +510,40 @@ function sidebarDrawer() {
 function sidebarFold() {
   const app = $(".cee-app");
   const button = $("#cee-collapse");
+  const right = $(".cee-right");
+  const fading = [$("#cee-brand"), $("#cee-side-body")];
+  const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const ms = name => parseFloat(token(name)) || 0;
+  let busy = null;
   const set = fold => {
     app.toggleAttribute("data-collapsed", fold);
     button.setAttribute("aria-expanded", String(!fold));
     try { localStorage.setItem("cee.fold", fold ? "1" : "0"); } catch {}
   };
+  // Page and toggle glide from where they stood to where the new layout puts them (the layout switches at once,
+  // only transforms run); the title and the list fade out before folding and in after unfolding.
+  const animate = async fold => {
+    const easing = token("--ease-out") || "ease-out";
+    const from = { page: right.getBoundingClientRect().left, toggle: button.getBoundingClientRect().left };
+    if (fold) await Promise.all(fading.map(n => n.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms("--dur-fast"), easing, fill: "forwards" }).finished));
+    set(fold);
+    for (const n of fading) n.getAnimations().forEach(a => a.cancel());
+    const glide = (node, dx) => dx && node.animate([{ transform: `translateX(${dx}px)` }, { transform: "none" }], { duration: ms("--dur-slow"), easing }).finished;
+    await Promise.all([
+      glide(right, from.page - right.getBoundingClientRect().left),
+      // Folded, the sidebar is just the toggle's box and would clip the toggle sliding out of it: the box moves.
+      glide(fold ? $("#cee-sidebar") : button, from.toggle - button.getBoundingClientRect().left),
+      ...(fold ? [] : fading.map(n => n.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms("--dur-slow"), easing }).finished)),
+    ]);
+  };
+  // A remembered fold stands from the first frame, without moving.
   try { if (localStorage.getItem("cee.fold") === "1") set(true); } catch {}
-  button.addEventListener("click", () => set(!app.hasAttribute("data-collapsed")));
+  button.addEventListener("click", () => {
+    const fold = !app.hasAttribute("data-collapsed");
+    if (busy) return;
+    if (reducedMotion()) { set(fold); return; }
+    busy = animate(fold).catch(() => set(fold)).finally(() => { busy = null; });
+  });
 }
 
 /**
