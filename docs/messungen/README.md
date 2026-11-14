@@ -59,6 +59,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [SPLASH IMPORT: Name ohne Zeile darüber, lange Namen gekürzt, VERSION mit Effektstatus in einer Zeile, im Emulator](2026-11-08-splash-import-wertzeile.md)
 - [Eigene Insert- und Master-Effekte auf der blauen Electribe 2: was es kostet](2026-11-08-blau-eigene-effekte.md)
 - [Eigene Insert- und Master-Effekte auf der blauen Electribe 2: Katalog, e2sFx.all, Export und Editor, im Emulator](2026-11-08-blau-effekte-port.md)
+- [Effekte und Modulationen vom Gerät lesen, für den Export von e2sFx.all](2026-11-14-effekte-vom-geraet.md)
 
 
 ## SysEx und Transport

@@ -96,6 +96,43 @@ export async function pointersMatch(bytes, readRam) {
   return true;
 }
 
+/**
+ * What locatePresets, recordOf and menuLength read, copied out of a running device's RAM into `image`, an image of the
+ * device's build with nothing else in it (src/device-fx.mjs): the getters' literal and clamp, both pointer arrays, every
+ * record they point at and the places of the menu lengths, which BLECH's card loader grows in RAM (tools/patch/fx_card.s).
+ * Only reads go out; `read(addr, length)` reads RAM. False when the getters are not where they were measured.
+ */
+export async function readPresetsLive(image, read) {
+  const put = async (ram, length) => {
+    const from = (ram & ~3) >>> 0;
+    const to = ((ram + length + 3) & ~3) >>> 0;
+    image.set(await read(from, to - from), ramToFile(from));
+  };
+  for (const kind of ["ifx", "mfx"]) {
+    await put(ramPlace(image, GETTER[kind].literal), 4);
+    await put(ramPlace(image, GETTER[kind].clamp), 4);
+    const array = u32(image, ramToFile(ramPlace(image, GETTER[kind].literal)));
+    const top = clampOf(image, kind);
+    if (top === null || top < 1 || array < RAM_BASE || array % 4 || array + 4 * (top + 1) > RAM_BASE + IMAGE - 0x100) return false;
+    await put(array, 4 * (top + 1));
+  }
+  const where = locatePresets(image);
+  if (!where) return false;
+  // Hacktribe keeps its records in two tables, Korg's build scatters them: neighbours are read in one go.
+  const starts = [...new Set(["ifx", "mfx"].flatMap(kind => Array.from({ length: where[kind].capacity }, (_, i) => recordOf(image, kind, i + 1).ram)))].sort((a, b) => a - b);
+  for (let i = 0; i < starts.length;) {
+    let end = starts[i] + RECORD;
+    let j = i + 1;
+    while (j < starts.length && starts[j] <= end) end = Math.max(end, starts[j++] + RECORD);
+    await put(starts[i], end - starts[i]);
+    i = j;
+  }
+  for (const s of menuField(image, "ifx").sites) await put(fileToRam(s.file), 1);
+  await put(fileToRam(placeOf(image, IFX_ROW)), 4);
+  await put(fileToRam(menuField(image, "mfx").where.offset), 4);
+  return true;
+}
+
 /** What the menu offers now. The insert length is stored in several places; `agreed` says whether they match. */
 export function menuLength(bytes, kind) {
   if (kind === "mfx") return { value: readRaw(bytes, menuField(bytes, "mfx")), agreed: true };

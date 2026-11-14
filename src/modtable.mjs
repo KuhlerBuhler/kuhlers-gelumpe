@@ -54,6 +54,17 @@ function plausible(bytes, file) {
 }
 
 /**
+ * The table at `file` as locateModTable gives it, when its bytes are 72 entries the firmware could use; for an image whose
+ * code is not there to point at it, such as the RAM of a running device (src/device-fx.mjs), where the build says which copy it reads.
+ * @returns {{ok: true, file: number, ram: number, place: string, readers: number[]} | {ok: false, reasons: string[]}}
+ */
+export function modTableAt(bytes, file) {
+  if (!plausible(bytes, file)) return { ok: false, reasons: ["Die Tabelle mit den Modulationen ist an ihrer Stelle nicht zu finden."] };
+  const place = [TABLE.id, ...TABLE.locate.others].find(id => TABLES.get(id).file === file) ?? "other";
+  return { ok: true, file, ram: fileToRam(file), place, readers: [] };
+}
+
+/**
  * The copy of the table this image reads: the one whose entry 0 has its names
  * pointed at from the code (aligned words before the DSP stream).
  * @param {Uint8Array} bytes a whole SYSTEM.VSB
