@@ -13,7 +13,15 @@ const VIEWPORTS = [{ width: 1280, height: 900 }, { width: 860, height: 900 }, { 
 
 /** How a person reaches each page; the scripts entry has five pages of its own. */
 const PAGES = [
-  ["start", page => page.click("#cee-tab-start")],
+  // a firmware is in the emulator, so the start page is the hub
+  ["start", async page => { await page.click("#cee-tab-start"); await page.waitForFunction(() => document.querySelector("#cee-start-page").dataset.view === "hub"); }],
+  ["start guide", page => page.click("#cee-start-guide > summary")],
+  // the welcome as a first visit sees it, its install steps back in place
+  ["start welcome", page => page.evaluate(() => {
+    document.querySelector("#cee-start-hub").hidden = true;
+    document.querySelector("#cee-start-welcome").hidden = false;
+    document.querySelector("#cee-start-trouble").before(document.querySelector("#cee-start-entry"));
+  })],
   ["emu", page => page.click("#cee-tab-emu")],
   ["device", page => go(page, "device")],
   ["console", page => page.click("#cee-tab-console")],

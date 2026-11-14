@@ -62,10 +62,12 @@ test("device facts: one read each per session, the version only with BLECH's RAM
   };
   assert.deepEqual(await deviceFacts(session), { hardware: "red", version: "1.4.6" });
   assert.deepEqual(await deviceFacts(session), { hardware: "red", version: "1.4.6" });
-  assert.deepEqual(reads, ["hw", [VERSION_AT, 16]], "cached per session");
+  assert.deepEqual(reads, [[VERSION_AT, 16], "hw"], "the version first, cached per session");
   const hacktribe = { device: { ram: "hacktribe", blech: null }, hardware: async () => "blue", readRamBlock: async () => { throw new Error("not asked"); } };
   assert.deepEqual(await deviceFacts(hacktribe), { hardware: "blue", version: null });
   const failing = { device: { ram: "blech", blech: {} }, hardware: async () => { throw new Error("timeout"); }, readRamBlock: async () => { throw new Error("timeout"); } };
   assert.deepEqual(await deviceFacts(failing), { hardware: null, version: null });
   assert.deepEqual(await deviceFacts(null), { hardware: null, version: null });
+  const stuck = { device: { ram: "blech", blech: {} }, hardware: () => new Promise(() => {}), readRamBlock: async () => text("BLECH 1.4.6") };
+  assert.deepEqual(await deviceFacts(stuck, 20), { hardware: null, version: "1.4.6" }, "a read that does not come back is unknown after the wait");
 });

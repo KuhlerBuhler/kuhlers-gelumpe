@@ -318,7 +318,7 @@ test("the welcome: install and try first in the first screen, four cards to what
   assert.deepEqual(await page.locator("#cee-start-cards a").evaluateAll(list => list.map(a => a.getAttribute("href"))), ["#baukasten", "#scripts", "#splash", "#emu"]);
   assert.equal(await page.getAttribute("#cee-start-step-firmware", "href"), "#patcher");
   assert.equal(await page.locator("#cee-start-found").isVisible(), false, "no Electribe found, no line");
-  assert.equal(await page.locator("#cee-start-page .cee-device-card").count(), 0, "Korg's cards live on the patcher");
+  assert.equal(await page.locator("#cee-start-welcome .cee-device-card").count(), 0, "Korg's cards live on the patcher");
   assert.deepEqual(page.errors, []);
 });
 

@@ -3,12 +3,18 @@
  * has BLECHTRIBE sees the hub (device and emulator state, next steps). The decision is a pure function; the page
  * listens to the device session and the emulator and switches at most once while they load.
  */
-import { t } from "./i18n.mjs";
+import { t, language } from "./i18n.mjs";
 import { setStateText } from "./state.mjs";
+import { e2Outline } from "./e2-art.mjs";
+import { firmwareName, hardwareOf } from "../../src/firmware.mjs";
+import { RELEASE_NOTES } from "../../data/release-notes.mjs";
 
 /** Where the patch blech-version keeps "BLECH x.y.z", NUL padded to 16 bytes (tools/patch/blech_version.mjs). */
 export const VERSION_AT = 0xC014FCF0;
 export const VERSION_LENGTH = 16;
+
+/** The BLECHTRIBE version this app patches: the newest release notes. */
+export const APP_VERSION = RELEASE_NOTES[0]?.version ?? null;
 
 /** The merker: "1" once BLECHTRIBE was patched, installed, connected or loaded into the emulator in this browser. */
 export const DONE_KEY = "cee.start.done";
@@ -80,23 +86,35 @@ export function markDone(storage) {
   try { storage?.setItem(DONE_KEY, "1"); } catch { /* blocked: the page still knows */ }
 }
 
+/** How long the start page waits for one read before it says "unknown"; the read itself goes on. */
+export const READ_WAIT = 8000;
+
+const within = (promise, ms) => Promise.race([promise, new Promise(done => setTimeout(done, ms, null))]);
+
 /**
- * What a session tells about the Electribe, read once per session: red or blue (a flash read) and the BLECHTRIBE
- * version (a RAM read). Only reads; a failed or slow read gives null, never an error.
+ * What a session tells about the Electribe, read once per session: the BLECHTRIBE version (a RAM read) first, then red or
+ * blue (a flash read, slow on some sets). Each a promise of its own, so one does not wait for the other to be shown.
+ * Only reads; a failed or slow read gives null, never an error.
  */
-const facts = new WeakMap();
-export function deviceFacts(session) {
-  if (!session?.device) return Promise.resolve({ hardware: null, version: null });
-  let known = facts.get(session);
+const reads = new WeakMap();
+export function deviceReads(session, wait = READ_WAIT) {
+  if (!session?.device) return { hardware: Promise.resolve(null), version: Promise.resolve(null) };
+  let known = reads.get(session);
   if (!known) {
-    const hardware = Promise.resolve().then(() => session.hardware?.()).catch(() => null).then(h => h ?? null);
     const version = session.device.ram === "blech"
-      ? Promise.resolve().then(() => session.readRamBlock(VERSION_AT, VERSION_LENGTH)).then(parseBlechVersion, () => null)
+      ? within(Promise.resolve().then(() => session.readRamBlock(VERSION_AT, VERSION_LENGTH)).then(parseBlechVersion, () => null), wait)
       : Promise.resolve(null);
-    known = Promise.all([hardware, version]).then(([h, v]) => ({ hardware: h, version: v }));
-    facts.set(session, known);
+    const hardware = within(Promise.resolve().then(() => session.hardware?.()).catch(() => null).then(h => h ?? null), wait);
+    known = { hardware, version };
+    reads.set(session, known);
   }
   return known;
+}
+
+/** Both reads of deviceReads() together. */
+export async function deviceFacts(session, wait) {
+  const { hardware, version } = deviceReads(session, wait);
+  return { hardware: await hardware, version: await version };
 }
 
 /** Korg's version as the Electribe shows it: [2, 2] is 2.02. */
@@ -111,7 +129,110 @@ function paintFound(line, state, session) {
     ? t("start.found.detail", { hardware: t(hardware === "blue" ? "start.hw.blue" : "start.hw.red"), version: korgVersion(session.device.version) })
     : t("start.found"));
   say(null);
-  deviceFacts(session).then(f => { if (!line.hidden && f.hardware) say(f.hardware); });
+  deviceReads(session).hardware.then(hardware => { if (!line.hidden && hardware) say(hardware); });
+}
+
+/** The first points of a release's notes as plain text, in the page's language, else English, else German. */
+export function newsOf(note, lang = language(), count = 3) {
+  const md = note?.[lang] ?? note?.en ?? note?.de ?? "";
+  return md.split("\n").filter(line => line.startsWith("- ")).slice(0, count)
+    .map(line => line.slice(2).replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\*\*|`/g, "").trim());
+}
+
+/** The tone and word of the device's BLECHTRIBE against this app (updateState). */
+const VERSION_SAYS = {
+  update: ["warn", () => t("start.hub.update", { version: APP_VERSION })],
+  current: ["ok", () => t("start.hub.current")],
+  newer: ["info", () => t("start.hub.newer")],
+  unknown: ["info", () => t("start.hub.unknown")],
+};
+
+const stateLine = (node, tone, word) => {
+  node.classList.add("cee-state");
+  node.hidden = false;
+  setStateText(node, tone, word);
+};
+
+/** The Electribe drawn in lines at the front of a card, in the colour of `data-device`. */
+function outline(card, label) {
+  const art = e2Outline(label);
+  const old = card.querySelector(".cee-e2-outline");
+  if (old) old.replaceWith(art); else card.prepend(art);
+}
+
+/** The hub's update card, first of the next steps: an update when one is due, BLECHTRIBE when the device has none. */
+function paintUpdate(hub, kind) {
+  const item = hub.querySelector("#cee-start-next-update");
+  if (!item) return;
+  item.hidden = !kind;
+  if (!kind) return;
+  item.querySelector("#cee-start-update-title").textContent = kind === "update" ? t("start.card.update", { version: APP_VERSION }) : t("start.card.install");
+  item.querySelector("#cee-start-update-hint").textContent = kind === "update" ? t("start.card.update.hint") : t("start.card.install.hint");
+}
+
+/** The hub's device card: connected or how to connect, red or blue, Korg's and BLECHTRIBE's version against this app. */
+function paintDevice(hub, session, current) {
+  const card = hub.querySelector("#cee-start-device");
+  if (!card) return;
+  const [name, state, facts, version] = ["name", "state", "facts", "version"].map(id => card.querySelector(`#cee-start-device-${id}`));
+  const look = hardware => {
+    card.dataset.device = hardware ?? "grey";
+    name.textContent = hardware ? t("start.hub.device.hw", { hardware: t(hardware === "blue" ? "start.hw.blue" : "start.hw.red") }) : t("start.hub.device");
+    outline(card, name.textContent);
+  };
+  look(null);
+  if (!session) {
+    stateLine(state, "neutral", t("start.hub.none"));
+    facts.hidden = false;
+    facts.textContent = t("start.hub.connect");
+    version.hidden = true;
+    paintUpdate(hub, null);
+    return;
+  }
+  const korg = t("start.hub.korg", { version: korgVersion(session.device.version) });
+  stateLine(state, "ok", t("start.hub.connected"));
+  facts.hidden = false;
+  facts.textContent = korg;
+  version.hidden = true;
+  const blech = !!session.device.blech;
+  paintUpdate(hub, blech ? null : "install");
+  if (!blech) stateLine(version, "info", t("start.hub.noBlech"));
+  const reads = deviceReads(session);
+  reads.hardware.then(hardware => { if (current() === session) look(hardware); });
+  if (!blech) return;
+  reads.version.then(found => {
+    if (current() !== session) return;
+    if (found) facts.textContent = `${korg}, ${t("start.hub.blech", { version: found })}`;
+    const due = updateState(found, APP_VERSION);
+    const [tone, say] = VERSION_SAYS[due];
+    stateLine(version, tone, say());
+    paintUpdate(hub, due === "update" ? "update" : null);
+  });
+}
+
+/** The hub's emulator card: whether a firmware is loaded, which one, and the way there. */
+function paintEmulator(hub, firmware) {
+  const card = hub.querySelector("#cee-start-emu-card");
+  if (!card) return;
+  const [state, name, go] = ["state", "name", "go"].map(id => card.querySelector(`#cee-start-emu-${id}`));
+  let label = null;
+  try { label = firmware ? firmwareName(firmware) : null; } catch { label = null; }
+  card.dataset.device = firmware ? hardwareOf(firmware) : "grey";
+  outline(card, t("start.hub.emu"));
+  stateLine(state, firmware ? "ok" : "neutral", t(firmware ? "start.hub.emu.loaded" : "start.hub.emu.none"));
+  name.hidden = !label;
+  name.textContent = label ?? "";
+  go.textContent = t(firmware ? "start.hub.emu.open" : "start.hub.emu.load");
+}
+
+/** The hub's "new in this version" from the newest release notes; without points the block stays away. */
+function paintNews(hub) {
+  const box = hub?.querySelector("#cee-start-news");
+  if (!box) return;
+  const points = newsOf(RELEASE_NOTES[0]);
+  box.hidden = !points.length;
+  box.querySelector("#cee-start-news-version").textContent = t("start.news.version", { version: APP_VERSION });
+  box.querySelector("#cee-start-news-list").replaceChildren(...points.map(text => Object.assign(document.createElement("li"), { textContent: text })));
 }
 
 /**
@@ -124,6 +245,13 @@ export function startPage(root, { storage = null, session = () => null, emulator
   let shown = null;
   const views = { welcome: root.querySelector("#cee-start-welcome"), hub: root.querySelector("#cee-start-hub") };
   const found = root.querySelector("#cee-start-found");
+  // The install steps belong to the welcome; in the hub they fold into "Install guide".
+  const entry = root.querySelector("#cee-start-entry");
+  const entryNext = entry?.nextElementSibling ?? null;
+  const guide = root.querySelector("#cee-start-guide");
+  paintNews(views.hub);
+  let painted = null;
+  let current = null;
   const render = () => {
     const s = session();
     const device = s && !s.sender?.disconnected ? s.device : null;
@@ -134,8 +262,19 @@ export function startPage(root, { storage = null, session = () => null, emulator
       shown = state.view;
       root.dataset.view = shown;
       for (const [id, node] of Object.entries(views)) if (node) node.hidden = id !== shown;
+      if (entry && guide) {
+        if (shown === "hub") guide.append(entry);
+        else entryNext?.parentNode ? entryNext.before(entry) : views.welcome?.append(entry);
+      }
     }
     if (found) paintFound(found, state, s);
+    current = device ? s : null;
+    const fw = emulator()?.firmware ?? null;
+    if (views.hub && shown === "hub" && (painted?.session !== current || painted?.fw !== fw)) {
+      painted = { session: current, fw };
+      paintDevice(views.hub, current, () => current);
+      paintEmulator(views.hub, fw);
+    }
     paint(state, { session: device ? s : null, emulator: emulator() });
     return state;
   };

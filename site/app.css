@@ -1557,6 +1557,39 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   display: none;
 }
 
+/* The hub's state: the Electribe and the emulator side by side, no room kept for an arrow. */
+.cee-start-status {
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+}
+
+#cee-start-next {
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+.cee-start-status .cee-device-card {
+  padding-right: var(--space-4);
+}
+
+.cee-start-status .cee-state[hidden],
+#cee-start-news[hidden] {
+  display: none;
+}
+
+/* The install steps of the welcome, folded in the hub. */
+.cee-start-guide > summary {
+  cursor: pointer;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.cee-start-guide > summary:hover {
+  color: var(--color-accent-primary);
+}
+
+.cee-start-guide[open] > summary {
+  margin-bottom: var(--space-5);
+}
+
 /* Welcome: title, one sentence and the way to install beside Blechy, in the first screen. */
 .cee-start-hero {
   display: flex;
