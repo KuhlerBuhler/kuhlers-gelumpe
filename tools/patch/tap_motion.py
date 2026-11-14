@@ -138,6 +138,7 @@ SOURCE = """
 .equ S_HOLD, @S_HOLD@           ; byte: what the TAP being held switched (part 0 to 15, 16 the Master FX lanes), FF nothing
 .equ S_HOLDT, @S_HOLDT@         ; byte: the LED ticks (40 ms) it has been held, up to 255
 .equ HOLD_TICKS, @HOLD_TICKS@
+.equ HOLD_WAIT, 0x40            ; in S_HOLD: TAP went down, no frame has seen its key word yet (S_HOLDT does not count)
 .equ KEY_TAP, 3
 .equ BLINK_TICKS, @BLINK_TICKS@
 .equ BLINK_HALF, @BLINK_HALF@
@@ -253,7 +254,8 @@ tm_toggle:
 tt_target:
     bl tm_switch
     ldr r12, =STATE
-    strb r6, [r12, #S_HOLD]
+    orr r0, r6, #HOLD_WAIT
+    strb r0, [r12, #S_HOLD]
     mov r0, #0
     strb r0, [r12, #S_HOLDT]
 tt_none:
@@ -337,10 +339,19 @@ tm_hold:
     push {r6, lr}
     ldr r12, =STATE
     ldrb r6, [r12, #S_HOLD]
-    cmp r6, #16
-    bhi tmh_out
     ldr r0, =KEYS
     ldr r0, [r0, #8 * KEY_TAP]
+    cmp r6, #0xFF
+    beq tmh_out
+    tst r6, #HOLD_WAIT          ; TAP's hook runs before the key word is set: the hold starts once a frame saw TAP down
+    beq tmh_seen
+    cmp r0, #0
+    bicne r6, r6, #HOLD_WAIT
+    strbne r6, [r12, #S_HOLD]
+    b tmh_out
+tmh_seen:
+    cmp r6, #16
+    bhi tmh_out
     cmp r0, #0
     bne tmh_out                 ; still held
     mov r0, #0xFF

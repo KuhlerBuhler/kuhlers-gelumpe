@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ALL, CASE_MODULES, TABLE, scope, scopeOf } from "../tools/ci/verify-scope.mjs";
 
@@ -56,4 +56,17 @@ test("files the workflow does not run for add nothing, tests of the tools add no
   assert.deepEqual(scope(["docs/development.md", "test/dice.test.mjs", "data/patches/verified.json", "site/app/main.mjs"]), []);
   assert.deepEqual(scope(["tools/emu/test_lcd.py", "tools/patch/test_script_vm.py"]), []);
   assert.deepEqual(scope(["docs/development.md", "tools/patch/script_remote.s"]), ["remote_cases"]);
+});
+
+test("every emulator case file has a runner", () => {
+  // research callers, run by hand only (their docstrings say so)
+  const research = ["macro_cases", "project_cases"];
+  const files = readdirSync(`${root}tools/emu`).filter(f => /^\w+_cases\.py$/.test(f) && !f.startsWith("test_")).map(f => f.slice(0, -3));
+  const emu = readdirSync(`${root}tools/emu`).filter(f => f.endsWith(".py")).map(f => [f.slice(0, -3), read(`tools/emu/${f}`)]);
+  const tests = readdirSync(`${root}test`).filter(f => f.endsWith(".mjs")).map(f => read(`test/${f}`)).join("\n");
+  const runner = m => CASE_MODULES.includes(m)
+    || emu.some(([o, src]) => o !== m && new RegExp(`^\\s*(from ${m} import|import ${m}\\b)|"${m}"`, "m").test(src))
+    || tests.includes(`tools/emu/${m}.py"`);
+  const orphans = files.filter(m => !research.includes(m) && !runner(m));
+  assert.deepEqual(orphans, []);
 });

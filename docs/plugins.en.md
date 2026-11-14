@@ -1325,12 +1325,20 @@ needs more than the rest of a frame is continued in the next one. The first pict
 the full picture takes about 3400 frames (a little over two minutes, counted in the emulator); every input starts again at
 the coarse pass. Zoom goes up to 7, deeper than that the 14 bits do not reach.
 
-**BPM Glide** (idea: [KrImZoR](https://www.instagram.com/krimzor_live)) is no app, it runs in the background. While
-the playing pattern chains on (Chain To, CHAIN MODE on), the tempo glides from the tempo at the start to the stored tempo of
-the next pattern, spread over length times Chain Repeat; the last step reaches the new tempo, so the switch does not jump.
-It reads the chain at the first step after PLAY or a pattern change, because only then does the firmware have the new
-pattern in RAM. STOP sets back the tempo the pattern started with. The page BPM GLIDE in the BLECH menu switches it on (1)
-and off (0), `korg.store` keeps the setting. Because `korg.tempo` sets the tempo of the pattern in RAM, it counts as an
+**BPM Glide** (idea: [KrImZoR](https://www.instagram.com/krimzor_live)) needs API 18 and runs in the background. It
+glides the tempo to the stored tempo of the pattern that comes next, so the change does not jump. Two pages in the BLECH
+menu switch the two ways on (1) and off (0), both are on, `korg.store` keeps the setting. GLIDE CHAIN: while the playing
+pattern chains on (Chain To, CHAIN MODE on), the tempo glides from the tempo at the start to the stored tempo of the next
+pattern, spread over length times Chain Repeat; the last step reaches the new tempo. It reads the chain at the first step
+after PLAY or a pattern change, because only then does the firmware have the new pattern in RAM. STOP sets back the tempo
+the pattern started with. GLIDE SWITCH: once MENU confirms a pattern picked on the dial while playing (`NEXT:` below), the
+tempo glides from the tempo at that moment to that pattern's stored tempo, spread over the step of the confirmation and the
+steps left until the sequence end, where the firmware switches: confirmed at step 1 over the whole pattern, at the half
+over the second half. The plugin sees the confirmation through `korg.nextPattern` (API 18) at every step; browsing alone
+(`VIEW:`) does not count, and with PATTERN CONFIRM OFF there is nothing to see. A confirmed pattern wins over the chain, as
+in the firmware. When EXIT takes the confirmation back, the chain glides on; without a chain the tempo goes back to where it
+was before the confirmation. A new confirmation starts again from the tempo at that moment. STOP applies a confirmed pattern
+at once like the firmware, with its tempo. Because `korg.tempo` sets the tempo of the pattern in RAM, it counts as an
 unsaved change until STOP. Checked in the simulator (`test/script-bpm-glide.test.mjs`), not on the device.
 
 **Momentary Mute** (a wish from the community, modelled on the Korg ESX, [idea 91](ideen/91-moment-mute.md)) needs API 15
@@ -1422,21 +1430,35 @@ STOP puts it back. In the catalog it acts only on parts 1 to 8, whose glide it k
 (`maxParts = 8`): the original also wrote parts 9 to 16 on every step and set their glide to 0. Checked in the simulator
 (`test/script-community-catalog.test.mjs`), on the device according to its author.
 
-**PLAY-Takt** uses API 11 and runs in the background. While the sequencer plays, the PLAY LED (red and blue) blinks in the
-tempo of the pattern: the event `beat` lights it on every quarter note, `korg.afterSteps(2, ...)` turns it off two steps
-later, so with BEAT 8 on every half note. On STOP and in the pause it stays lit; `korg.cancel` clears the timer then. In the
-pause the firmware blinks the PLAY LED itself, the plugin lights it again in every frame: in the emulator it then stays dark
-for at most one round of the LED matrix (5.5 ms in the model of `tools/emu/panel_leds.py`), on STOP until the next frame
-(40 ms). It is also the catalog's example of the timers. Checked in the simulator (`test/script-play-takt.test.mjs`) and in
-the emulator (`tools/emu/timer_cases.py`, Hacktribe), not on the device.
+**Pad Finger** (by nic0crank, from the BLECH Discord, sent as Touch Pad Tester) is an app under TOOLS and uses API 15.
+While it is open it shows the raw touchpad X and Y (0 to 1023) top left and a crosshair where the finger is. TAP switches
+between LOCK (the default) and FREE, shown top right: with LOCK, `korg.touchLockX` holds the X the firmware sees where the
+finger landed, Y stays the finger's; lifting the finger, FREE or closing the app lets go. Code unchanged. Checked in the
+simulator (`test/script-community-catalog.test.mjs`), not on the device.
+
+**Blechy Run** is an app under GAMES and uses API 6: an endless runner with Blechy, the mascot, as a small picture
+(20 x 24 pixels, from the calm and walk sprites in `assets/blechy/sprites`, with crosses for eyes when hit). Blocks of three
+sizes come in from the right, any key except PLAY, STOP and REC, a pad or the touchpad makes him jump. Every 2 s it gets a
+little faster, up to the top speed after about a minute. A hit shows GAME OVER and the score; the best one stays on the card
+with `korg.store` (slot 0) and shows top left as HI. After a short pause the same keys start the next run, EXIT leaves the
+game. The pads keep playing the Electribe meanwhile. Checked in the simulator (`test/script-community-catalog.test.mjs`), not
+on the device.
+
+**STOP-Takt** uses API 11 and runs in the background. While the sequencer plays, the STOP LED blinks in the tempo of the
+pattern: the event `beat` lights it on every quarter note, `korg.afterSteps(1, ...)` turns it off one step later, so with
+BEAT 8 briefly on every half note. On STOP and in the pause it is off; `korg.cancel` clears the timer then. The plugin does
+not touch the PLAY LED, it shows play and pause as in the firmware. The firmware never writes the STOP LED in the emulator.
+The catalog id stays `playtakt` (up to 1.4.5 the plugin was called PLAY-Takt and blinked on PLAY). It is also the catalog's
+example of the timers. Checked in the simulator (`test/script-play-takt.test.mjs`) and in the emulator
+(`tools/emu/timer_cases.py`, Hacktribe, red and blue, against the same steps without the plugin), not on the device.
 
 ## The Plugins page in the editor
 
 The Plugins entry has four pages: Katalog (catalog), Meine Plugins (my plugins), Editor and Dokumentation
 (documentation). The title in the breadcrumb always leads back to the catalog.
 
-**Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-and Mandelbrot under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent and Easy Slides (TOOLS); source
+**Catalog:** the plugins of the app as cards (the apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
+Mandelbrot and Blechy Run under GAMES, Set-Timer, GIF Player and Image Viewer under TOOLS, plus Lauflicht, Pulsieren, STOP-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides and Pad Finger (TOOLS); source
 `data/script/presets.mjs`). Each card shows the plugin's display after a few frames, below it title, category,
 description and maker. The whole card leads to the plugin's page: the picture top left, beside it title, description and details (category, maker, date, controls), with
 download, to the device and "Als eigenes Plugin öffnen" (open as your own). Below, "Vorschau" (preview) and

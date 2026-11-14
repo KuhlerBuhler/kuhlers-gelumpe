@@ -50,11 +50,11 @@ const PLUGIN_ART = {
       p.frame(x, y, 12, 12, 1);
     }
   },
-  // PLAY-Takt: the PLAY LED blinks on every quarter note while the pattern plays
+  // STOP-Takt: the STOP LED blinks on every quarter note while the pattern plays
   playtakt: p => {
-    p.text("PLAY LED", 4, 3);
+    p.text("STOP LED", 4, 3);
     p.frame(8, 20, 36, 26, 2);
-    for (let i = 0; i < 9; i++) p.fill(21 + i, 24 + i, 1, 18 - 2 * i);
+    p.fill(20, 27, 12, 12);
     for (const [x, y, w, h] of [[2, 32, 4, 2], [46, 32, 4, 2], [25, 14, 2, 4], [25, 48, 2, 4], [4, 16, 3, 2], [45, 16, 3, 2], [4, 48, 3, 2], [45, 48, 3, 2]]) p.fill(x, y, w, h);
     [1, 2, 3, 4].forEach((n, k) => {
       const x = 58 + k * 17;

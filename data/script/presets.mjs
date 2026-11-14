@@ -1752,68 +1752,131 @@ korg.onEvent("buttonPress", (key) => {
     category: text("catalog.category.tools"),
     creator: "KrImZoR",
     added: "2026-10-25",
-    controls: [text("catalog.bpmglide.control1")],
-    source: `// BPM Glide, an idea of KrImZoR: while the pattern that plays chains on to another one (Chain To, with CHAIN MODE on in
-// Global), the tempo glides from where it started to the stored tempo of the next pattern, over the time the pattern plays:
-// its length times Chain Repeat. The last step reaches the new tempo, so the switch itself does not jump. STOP gives the
-// pattern its own tempo back. The page BPM GLIDE in the BLECH menu switches it on (1) and off (0).
-let on = korg.store.get(0, 1);
-let page = korg.menu.add("BPM GLIDE", 0, 1, on);
+    controls: [text("catalog.bpmglide.control1"), text("catalog.bpmglide.control2")],
+    source: `// BPM Glide, an idea of KrImZoR: the tempo glides to the stored tempo of the pattern that comes next, so the change does
+// not jump. Two pages in the BLECH menu switch the two ways on (1) and off (0):
+// GLIDE CHAIN: while the pattern that plays chains on to another one (Chain To, with CHAIN MODE on in Global), the tempo
+// glides from where it started over the time the pattern plays: its length times Chain Repeat. The last step reaches the new
+// tempo. STOP gives the pattern its own tempo back.
+// GLIDE SWITCH: once MENU confirms a pattern turned to on the dial while playing (NEXT:), the tempo glides from where it is
+// to that pattern's tempo over the steps left until the sequence end, where the firmware switches: confirmed at the half,
+// it takes the other half. A confirmed pattern wins over the chain, EXIT takes it back (the chain glides on, or the tempo
+// returns to where it was), STOP applies it like the firmware does, with its tempo.
+let chainOn = korg.store.get(0, 1);
+let switchOn = korg.store.get(1, 1);
+let chainPage = korg.menu.add("GLIDE CHAIN", 0, 1, chainOn);
+let switchPage = korg.menu.add("GLIDE SWITCH", 0, 1, switchOn);
 let pending = 1;
-let active = 0;
-let base = 0;
-let target = 0;
 let length = 16;
-let total = 16;
 let laps = 0;
 let last = -1;
+let chain = 0;
+let base = 0;
+let target = 0;
+let total = 16;
+let chainLap = 0;
+let next = -1;
+let landed = 0;
+let from = 0;
+let to = 0;
+let first = 0;
+let span = 16;
+let switchLap = 0;
+
+function setTempo(tempo) {
+  if (tempo != korg.tempo) korg.tempo = tempo;
+}
 
 // Reads the chain of the pattern in RAM once it has been loaded: the first step after PLAY or a pattern change.
 function arm(step) {
   pending = 0;
-  active = 0;
-  const next = korg.pattern.current.chainTo;
-  if (!on || !korg.global.chainMode || next < 0) return;
-  base = korg.tempo;
-  target = korg.patterns[next].tempo;
+  chain = 0;
   length = korg.pattern.current.length * 16;
+  const after = korg.pattern.current.chainTo;
+  if (!chainOn || !korg.global.chainMode || after < 0) return;
+  base = korg.tempo;
+  target = korg.patterns[after].tempo;
   total = length * korg.pattern.current.chainRepeat;
-  laps = 0;
-  last = step;
-  active = base != target ? 1 : 0;
+  chainLap = laps;
+  chain = base != target ? 1 : 0;
 }
 
-function glide(step) {
-  if (step < last) laps += 1;
-  last = step;
-  let done = laps * length + step + 1;
+function glideChain(step) {
+  let done = (laps - chainLap) * length + step + 1;
   if (done > total) done = total;
-  const tempo = base + (target - base) * done / total;
-  if (tempo != korg.tempo) korg.tempo = tempo;
+  setTempo(base + (target - base) * done / total);
 }
 
-function giveBack() {
-  if (active && korg.tempo != base) korg.tempo = base;
-  active = 0;
+function dropSwitch() {
+  if (!chain) setTempo(from);
+  next = -1;
+}
+
+// The confirmed pattern as the firmware holds it for the sequence end. A new number starts the glide from the tempo now,
+// spread over this step and the ones left in the pattern.
+function follow(step, wrapped) {
+  const n = korg.nextPattern;
+  if (n >= 0) {
+    if (n == next) return;
+    next = n;
+    landed = 0;
+    from = korg.tempo;
+    to = korg.patterns[n].tempo;
+    first = step;
+    span = length - step;
+    if (span < 1) span = 1;
+    switchLap = laps;
+  } else if (next >= 0 && !landed) {
+    if (wrapped) landed = 1;
+    else dropSwitch();
+  }
+}
+
+function glideSwitch(step) {
+  let done = laps == switchLap ? step - first + 1 : span;
+  if (done > span) done = span;
+  setTempo(from + (to - from) * done / span);
 }
 
 korg.onEvent("play", () => { pending = 1; });
-korg.onEvent("patternChange", () => { pending = 1; });
+korg.onEvent("patternChange", () => {
+  pending = 1;
+  next = -1;
+  landed = 0;
+});
 korg.onEvent("step", (step) => {
+  const wrapped = last >= 0 && step < last ? 1 : 0;
+  laps += wrapped;
+  last = step;
   if (pending) arm(step);
-  if (active) glide(step);
+  if (switchOn) follow(step, wrapped);
+  if (next >= 0) glideSwitch(step);
+  else if (chain) glideChain(step);
 });
 korg.onEvent("stop", () => {
-  giveBack();
+  if (next >= 0) setTempo(to);
+  else if (chain) setTempo(base);
+  chain = 0;
+  next = -1;
+  landed = 0;
+  last = -1;
   pending = 1;
 });
 korg.onEvent("menu", (id, value) => {
-  if (id != page) return;
-  on = value;
-  korg.store.set(0, on);
+  if (id == chainPage) {
+    chainOn = value;
+    korg.store.set(0, chainOn);
+    if (!chainOn && chain && next < 0) setTempo(base);
+    chain = 0;
+    pending = 1;
+  } else if (id == switchPage) {
+    switchOn = value;
+    korg.store.set(1, switchOn);
+    if (!switchOn && next >= 0) dropSwitch();
+  } else {
+    return;
+  }
   korg.store.save();
-  if (!on) giveBack();
-  pending = 1;
 });
 `,
   }),
@@ -1864,42 +1927,35 @@ korg.onEvent("frame", () => {
   }),
   Object.freeze({
     id: "playtakt",
-    title: "PLAY-Takt",
+    title: "STOP-Takt",
     description: text("catalog.playtakt.description"),
     category: text("catalog.category.light"),
     creator: "Kuhler Buhler",
     added: "2026-11-10",
     controls: [],
-    source: `// PLAY-Takt: solange der Sequencer läuft, blinkt die PLAY-LED im Tempo des Patterns, bei STOP und Pause leuchtet sie
-// ruhig. Dabei zeigt es die Timer der Plugin-API (API 11): \`beat\` kommt auf jede Viertel und macht die LED an,
-// korg.afterSteps(2, off) macht sie zwei Schritte später wieder aus, so folgt das Blinken dem Tempo. STOP und Pause räumen
-// den Timer mit korg.cancel ab. In der Pause blinkt die Firmware die PLAY-LED selbst, das Plugin setzt sie dort in jedem
-// Rahmen wieder an.
+    source: `// STOP-Takt: solange der Sequencer läuft, blinkt die STOP-LED kurz im Tempo des Patterns, bei STOP und in der Pause ist
+// sie aus. Die PLAY-LED fasst das Plugin nicht an, sie gehört ganz der Firmware und zeigt weiter Spielen und Pause. Dabei
+// zeigt es die Timer der Plugin-API (API 11): \`beat\` kommt auf jede Viertel und macht die LED an, korg.afterSteps(1, off)
+// macht sie einen Schritt später wieder aus, so folgt das Blinken dem Tempo. STOP und Pause räumen den Timer mit
+// korg.cancel ab.
 let dark = -1;
 
-function playLed(level) {
-  korg.led(korg.led.PLAY, level);
-  korg.led(korg.led.PLAY_BLUE, level);
-}
-
 function off() {
-  playLed(0);
+  korg.led(korg.led.STOP, 0);
 }
 
-korg.onEvent("ready", () => { if (korg.transport == 0) playLed(255); });
+korg.onEvent("ready", () => { off(); });
 
 korg.onEvent("beat", () => {
   korg.cancel(dark);
-  playLed(255);
-  dark = korg.afterSteps(2, off);
+  korg.led(korg.led.STOP, 255);
+  dark = korg.afterSteps(1, off);
 });
 
 korg.onEvent("stop", () => {
   korg.cancel(dark);
-  playLed(255);
+  off();
 });
-
-korg.onEvent("frame", () => { if (korg.transport == 2) playLed(255); });
 `,
   }),
   Object.freeze({
@@ -3930,6 +3986,325 @@ korg.onEvent("knob", (index, value) => {
     let part = korg.read.part();    
     if(index == pitchGlideKnobIndex && shiftPressed == 1) baseGlide[part] = (value/2);
     
+});
+`,
+  }),
+  Object.freeze({
+    id: "padfinger",
+    title: "Pad Finger",
+    description: text("catalog.padfinger.description"),
+    category: text("catalog.category.tools"),
+    creator: "nic0crank",
+    added: "2026-11-13",
+    controls: [text("catalog.padfinger.control1"), text("catalog.padfinger.control2")],
+    source: `korg.app("Pad Finger", "TOOLS");
+// PAD FINGER (Touch Pad Tester) by nic0crank, from the BLECH Discord: shows the touchpad X and Y (raw, 0 to 1023) and
+// a crosshair where the finger is. TAP switches LOCK and FREE: with LOCK the firmware sees the X where the finger landed
+// (korg.touchLockX), Y stays the finger's; lifting the finger, FREE or closing the app lets go.
+
+let isOpen = 0;
+let touching = 0;
+let locked = 0;
+let lock = 1;
+let rx = 0;
+let ry = 0;
+let px = 0;
+let py = 0;
+let dirty = 1;
+
+function release() {
+  if (locked) {
+    korg.touchLockX(-1);
+    locked = 0;
+  }
+  touching = 0;
+  dirty = 1;
+}
+
+function draw() {
+  korg.display.clear();
+  if (touching) {
+    korg.display.rect(0, py, 128, 1);
+    korg.display.rect(px, 0, 1, 64);
+  }
+  korg.display.clearRect(0, 0, 48, 16);
+  korg.display.textNumber("X ", rx, 0, 0);
+  korg.display.textNumber("Y ", ry, 0, 8);
+  korg.display.clearRect(98, 0, 30, 8);
+  if (lock) korg.display.text("LOCK", 100, 0);
+  else korg.display.text("FREE", 100, 0);
+}
+
+korg.onEvent("open", () => {
+  isOpen = 1;
+  dirty = 1;
+});
+
+korg.onEvent("close", () => {
+  isOpen = 0;
+  release();
+});
+
+korg.onEvent("buttonPress", (key) => {
+  if (!isOpen) return;
+  if (key == korg.key.TAP) {
+    lock = 1 - lock;
+    if (!lock) release();
+    dirty = 1;
+  }
+});
+
+korg.onEvent("buttonRelease", (key) => {
+  if (key == korg.key.TOUCHPAD) release();
+});
+
+// Pad X/Y run 0-1023, Y counts upward: 1023 / 8 = 127 columns, 1023 / 16 = 63 rows.
+korg.onEvent("touch", (x, y, first) => {
+  if (!isOpen) return;
+  rx = x;
+  ry = y;
+  px = x >> 3;
+  if (px > 127) px = 127;
+  py = 63 - (y >> 4);
+  if (py < 0) py = 0;
+  if (py > 63) py = 63;
+  if (first || !touching) {
+    touching = 1;
+    if (lock) {
+      korg.touchLockX(px);
+      locked = 1;
+    }
+  }
+  dirty = 1;
+});
+
+korg.onEvent("frame", () => {
+  if (!dirty) return;
+  dirty = 0;
+  draw();
+});
+`,
+  }),
+  Object.freeze({
+    id: "blechyrun",
+    title: "Blechy Run",
+    description: text("catalog.blechyrun.description"),
+    category: text("catalog.category.games"),
+    creator: "Kuhler Buhler",
+    added: "2026-11-13",
+    controls: [text("catalog.blechyrun.control1"), text("catalog.blechyrun.control2")],
+    source: `korg.app("Blechy Run", "GAMES");
+// BLECHY RUN, an endless runner under GAMES. Blechy, the BLECH mascot, runs along the ground and blocks come in from the
+// right. Any key (not PLAY, STOP or REC), a pad or a tap on the touchpad makes him jump. The run gets faster over time;
+// touching a block ends it with GAME OVER and the score, the best score stays on the card (korg.store slot 0). The same
+// keys start the next run, EXIT leaves. The pads keep playing the Electribe while the app is open.
+// The pictures are the calm and the walk sprite of assets/blechy/sprites made small, 20 x 24 pixels, three strips of
+// column bytes for korg.display.bitmap; HIT is the calm one with crosses for eyes. Positions and speeds count in 1/16 pixel.
+const RUN1 = [0, 0, 240, 236, 30, 94, 31, 231, 7, 231, 22, 86, 20, 224, 8, 8, 8, 0, 0, 0, 64, 32, 28, 255, 252, 253, 253, 249, 248, 248, 248, 253, 253, 253, 254, 252, 252, 60, 0, 0, 0, 0, 0, 0, 3, 135, 143, 255, 31, 31, 31, 31, 255, 143, 135, 3, 0, 0, 0, 0];
+const RUN2 = [0, 0, 240, 236, 30, 94, 31, 231, 7, 231, 22, 86, 20, 224, 8, 8, 8, 0, 0, 0, 64, 32, 28, 255, 252, 253, 253, 249, 248, 248, 248, 253, 253, 253, 254, 252, 252, 60, 0, 0, 0, 0, 0, 128, 131, 199, 47, 31, 31, 31, 31, 31, 31, 47, 199, 131, 128, 0, 0, 0];
+const HIT = [0, 0, 240, 28, 174, 78, 175, 23, 7, 23, 166, 70, 164, 16, 8, 8, 8, 0, 0, 0, 64, 32, 28, 255, 252, 252, 252, 249, 248, 249, 248, 252, 252, 253, 254, 252, 252, 60, 0, 0, 0, 0, 0, 0, 3, 135, 143, 255, 31, 31, 31, 31, 255, 143, 135, 3, 0, 0, 0, 0];
+
+const GROUND = 60;
+const BX = 8;
+const TOP = GROUND - 24;
+const JUMP = 92;
+const GRAVITY = 12;
+const MAXSPEED = 112;
+const N = 3;
+const ox = new Array(N);
+const ow = new Array(N);
+const oh = new Array(N);
+
+// 0 waits for the first jump, 1 runs, 2 game over; keys and pads reach the handlers while the app is closed too
+let isOpen = 0;
+let state = 0;
+let height = 0;
+let vy = 0;
+let speed = 48;
+let dist = 0;
+let score = 0;
+let best = korg.store.get(0, 0);
+let newBest = 0;
+let next = 0;
+let frames = 0;
+let wait = 0;
+let dirty = 0;
+let shown = 0;
+let seed = 12345;
+
+function rnd() {
+  seed = seed * 1103515245 + 12345;
+  return (seed >> 16) & 0x7fff;
+}
+
+function reset() {
+  for (let i = 0; i < N; i++) ow[i] = 0;
+  height = 0;
+  vy = 0;
+  speed = 48;
+  dist = 0;
+  score = 0;
+  newBest = 0;
+  next = 64 * 16;
+  frames = 0;
+}
+
+function spawn() {
+  for (let i = 0; i < N; i++) {
+    if (ow[i] == 0) {
+      const kind = rnd() % 3;
+      ox[i] = 128 * 16;
+      if (kind == 0) { ow[i] = 4; oh[i] = 10; }
+      else if (kind == 1) { ow[i] = 6; oh[i] = 14; }
+      else { ow[i] = 12; oh[i] = 7; }
+      // room to land before the next one: about 22 frames of running, plus up to 63 pixels
+      next = speed * 22 + (rnd() % 64) * 16;
+      return;
+    }
+  }
+}
+
+function jump() {
+  if (state == 0) {
+    seed += korg.millis();
+    reset();
+    state = 1;
+    dirty = 1;
+  } else if (state == 2) {
+    if (wait > 0) return;
+    reset();
+    state = 1;
+    dirty = 1;
+    return;
+  }
+  if (height == 0) vy = JUMP;
+}
+
+function over() {
+  state = 2;
+  dirty = 1;
+  wait = 15;
+  if (score > best) {
+    best = score;
+    newBest = 1;
+    korg.store.set(0, best);
+    korg.store.save();
+  }
+}
+
+function step() {
+  frames += 1;
+  if (vy != 0 || height > 0) {
+    height += vy;
+    vy -= GRAVITY;
+    if (height <= 0) {
+      height = 0;
+      vy = 0;
+    }
+  }
+  dist += speed;
+  score = dist >> 7;
+  if (frames % 50 == 0 && speed < MAXSPEED) speed += 2;
+  next -= speed;
+  if (next <= 0) spawn();
+  for (let i = 0; i < N; i++) {
+    if (ow[i] == 0) continue;
+    ox[i] -= speed;
+    const x = ox[i] >> 4;
+    if (x + ow[i] <= 0) {
+      ow[i] = 0;
+      continue;
+    }
+    if (x < BX + 18 && x + ow[i] > BX + 4 && (height >> 4) < oh[i]) over();
+  }
+}
+
+function digits(n) {
+  let d = 1;
+  while (n >= 10) {
+    n = n / 10;
+    d += 1;
+  }
+  return d;
+}
+
+// The field below the score line: ground, blocks and Blechy (at his highest his top is at y 11).
+function field() {
+  korg.display.clearRect(0, 10, 128, 54);
+  korg.display.rect(0, GROUND, 128, 1);
+  const off = (dist >> 4) & 31;
+  for (let x = 31 - off; x < 128; x += 32) {
+    korg.display.rect(x, GROUND + 2, 2, 1);
+    if (x + 17 < 128) korg.display.pixel(x + 17, GROUND + 3, 1);
+  }
+  for (let i = 0; i < N; i++) {
+    if (ow[i] == 0) continue;
+    let x = ox[i] >> 4;
+    let w = ow[i];
+    if (x < 0) {
+      w += x;
+      x = 0;
+    }
+    if (x < 128) korg.display.rect(x, GROUND - oh[i], w, oh[i]);
+  }
+  const y = TOP - (height >> 4);
+  if (state == 2) korg.display.bitmap(HIT, BX, y, 20);
+  else if (height > 0 || state == 0 || (frames & 4) == 0) korg.display.bitmap(RUN1, BX, y, 20);
+  else korg.display.bitmap(RUN2, BX, y, 20);
+}
+
+// The score top right, drawn again only when it changed.
+function scoreText() {
+  shown = score;
+  korg.display.clearRect(64, 2, 64, 7);
+  korg.display.number(score, 124 - 6 * digits(score), 2);
+}
+
+function draw() {
+  korg.display.clear();
+  korg.display.textNumber("HI ", best, 4, 2);
+  scoreText();
+  field();
+  if (state == 0) korg.display.text("JUMP: KEY OR PAD", 16, 16);
+  if (state == 2) {
+    korg.display.text("GAME OVER", 37, 16);
+    if (newBest) korg.display.text("NEW BEST", 40, 26);
+  }
+}
+
+korg.onEvent("open", () => {
+  isOpen = 1;
+  state = 0;
+  reset();
+  draw();
+});
+
+korg.onEvent("close", () => {
+  isOpen = 0;
+  state = 0;
+});
+
+korg.onEvent("buttonPress", (key) => {
+  if (!isOpen) return;
+  if (key != korg.key.PLAY && key != korg.key.STOP && key != korg.key.REC) jump();
+});
+
+korg.onEvent("pad", (index, down) => {
+  if (isOpen && down) jump();
+});
+
+// While it runs the field is drawn every frame and the score when it changed; GAME OVER and the start draw the whole
+// display once.
+korg.onEvent("frame", () => {
+  if (state == 1) step();
+  else if (wait > 0) wait -= 1;
+  if (dirty) {
+    dirty = 0;
+    draw();
+  } else if (state == 1) {
+    field();
+    if (score != shown) scoreText();
+  }
 });
 `,
   }),
