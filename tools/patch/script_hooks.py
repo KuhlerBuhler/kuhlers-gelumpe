@@ -50,6 +50,8 @@ SIM_INPUT_END = SIM_INPUT + 20   # the plugin that holds it and its checksum; FF
 EGG_WORK = SIM_INPUT_END         # the egg on the page VERSION (script_egg.s:M_EGG), zeroed when the menu is armed (menu_arm); FF before,
 EGG_WORK_END = EGG_WORK + 20     # which the egg reads as off. MENU_STATE is full. Nothing left as a reserve
 assert EGG_WORK_END == MORE2_END
+METER_SENT = DATA_FILE_END       # the meter LEDs (script_menu.s:meter_dedupe_hook): per LED the brightness and mode last sent, bit 16 set;
+METER_SENT_END = METER_SENT + 48 # FF at power-on matches nothing
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 RUNTIME = 0xC01AE000
@@ -77,6 +79,7 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC0016D28,0xE92D4800,'bl_set_blue'),
          (0xC00289F4,0xE92D4070,'bl_pwm_hook'),
          (0xC0088284,0xE5D03B98,'led_meter_hook'),
+         (0xC0087608,0xE3520000,'meter_dedupe_hook'),
          (0xC00161A4,0xE51B3010,'lcd_invert_hook'),
          (0xC0064430,0xE92D4038,'menu_event_right'),
          (0xC0067754,0xE3A0000A,'menu_pattern_left'),
@@ -394,7 +397,7 @@ class BuiltHooks:
             ('blechy_boot','blechy_boot_end','Blechy, die eingebaute App, wird vor dem Kartenlader geladen, startet und schaltet die Laufzeit scharf, auch ohne Karte; mit EXIT beim Einschalten ist das Menü unscharf und die Funktion kehrt sofort zurück.'),
             ('menu_needs_confirm','menu_confirm','Der Kartenlader fragt für jedes geladene Plugin, ob es erst auf eine Zustimmung wartet; ohne Plugins läuft das nicht.'),
             ('menu_recount','menu_recount_end','Nach dem Laden zählt das Menü die Plugins und stellt die Seitenzahl ein.'),
-            ('led_meter_hook','look_hooks_end','Die Haken der Anpassung (untere LEDs, Hintergrundlicht, Software-PWM, Display umkehren) geben die Firmware sofort zurück, wenn das Menü nicht scharf ist oder die Firmware das Licht für Power Save dimmt.'),
+            ('led_meter_hook','look_hooks_end','Die Haken der Anpassung (untere LEDs, Hintergrundlicht, Software-PWM, Display umkehren, Senden der Pegel-LEDs nur bei Änderung) geben die Firmware sofort zurück, wenn das Menü nicht scharf ist oder die Firmware das Licht für Power Save dimmt.'),
             ('shortcut_input','shortcut_tick','Die EXIT-Shortcuts, KEY PADS und FILTER TOGGLE im Eingangsfilter: prüfen Panel und EXIT beim Einschalten, merken sich EXIT und SHIFT und lassen jede Meldung durch, solange weder EXIT noch KEYBOARD (KEY PADS an) auf dem Hauptbildschirm gehalten wird; ein Pad, dessen Anschlag KEY PADS nahm, behält auch sein Loslassen.'),
             ('kp_input','kp_tick','KEY PADS und FILTER TOGGLE im Eingangsfilter: mit scharfem Menü liest es jede Panel-Meldung schon vor dem Hauptbildschirm und lässt sie durch, solange KEYBOARD nicht gehalten wird; eine Filtertaste geht immer durch, FILTER TOGGLE merkt sich nur, ob SHIFT dabei gehalten war.'),
             ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts, von KEY PADS und FILTER TOGGLE.'),
@@ -411,6 +414,7 @@ class BuiltHooks:
             (0xC0064430,'menu-ring',False),(0xC0067754,'menu-ring',False),(0xC0067720,'menu-ring',False),(0xC0065B8C,'menu-ring',False),
             (0xC0064C20,'global-screen',False),(0xC0064C28,'global-screen',False),(0xC00623C0,'data-util-screen',False),(0xC0062448,'data-util-screen',False)]]
         menu_hooks+=[dict(site='0xC0088284',kind='instruction',chain='led-meter',position='before',swallow=True)]
+        menu_hooks+=[dict(site='0xC0087608',kind='instruction',chain='led-send',position='before',swallow=True)]
         menu_hooks+=[dict(site=f'0x{address:08X}',kind='instruction',chain='backlight',position='before',swallow=False)
             for address in (0xC0016C98,0xC0016CE0,0xC0016D28,0xC00289F4)]
         menu_hooks+=[dict(site='0xC00161A4',kind='instruction',chain='lcd-invert',position='before',swallow=False)]
@@ -454,7 +458,8 @@ class BuiltHooks:
             area(MENU_ITEMS,MENU_ITEMS_END-MENU_ITEMS,'pages of the plugins in the BLECH menu, 12 entries of 40 bytes','tools/patch/script_hooks.py:MENU_ITEMS'),
             area(TOUCH_LOCK_Y,TOUCH_LOCK_Y_END-TOUCH_LOCK_Y,'korg.touchLockY: the Y the input filter writes into touch messages, the plugin that locks it and the checksum of its block','tools/patch/script_hw.s:TL_RAW'),
             area(DATA_FILE,DATA_FILE_END-DATA_FILE,'korg.file.read and korg.file.write: the heap block that holds one plugin\'s data file, its size, the flag of a write that waits for the card and the frame of the last write','tools/patch/script_data.s:DF_BLOCK'),
-            area(DATA_FILE_END,MORE_END-DATA_FILE_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:DATA_FILE_END'),
+            area(METER_SENT,METER_SENT_END-METER_SENT,'the meter LEDs: per LED the brightness and mode last sent to the panel, so the LED manager sends only a change','tools/patch/script_menu.s:meter_dedupe_hook'),
+            area(METER_SENT_END,MORE_END-METER_SENT_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:METER_SENT_END'),
             area(SETTINGS_RAM,SETTINGS_RAM_END-SETTINGS_RAM,'the two buffers of the settings file of the BLECH menu and its checksum list (allowed plugins, plugins switched off)','tools/patch/script_hooks.py:SETTINGS_RAM'),
             area(LIST_WORK,LIST_WORK_END-LIST_WORK,'work area of the list of MANAGE PLUGINS: folder object, file info, long name, path, the place of each listed file in the folder, the flag of more files than the list holds','tools/patch/script_menu.s:LIST_WORK'),
             area(KNOB_HOLD,KNOB_HOLD_END-KNOB_HOLD,'korg.knobHold: a bit per knob that reaches the firmware, folded from the plugins\' holds; the other two words are unused since API 19','tools/patch/script_hw.s:KH_FREE'),
@@ -551,7 +556,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += '\n'+ '\n'.join(f'.equ VM_{name.upper()}, {vm.symbols[name]}' for name in ['script_run_event','script_runtime_init','script_load_block','script_load_block_ex'])
     constants += f'\n.equ VM_CRC_UPDATE, {vm.symbols["crc_update"]}'
     constants += ''.join(f'\n.equ {name.upper()}, {vm.symbols[name]}' for name in ['script_font','script_error_names'])
-    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
+    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ METER_SENT, {METER_SENT}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
     constants += f'\n.equ MENU_SCREEN, {profile.screen}\n'
     # korg.system.device and korg.system.limits.samples (data/script/objects.mjs, INFO): the build this runtime is made for
     constants += f'.equ MFX2_ENTRY, {MFX2_ENTRY:#x}\n.equ MFX2_RECORD_ID, {MFX2_RECORD_ID:#x}\n.equ MFX2_TABLE, {MFX2_TABLE:#x}\n.equ MFX2_STATE, {MFX2_STATE:#x}\n'
@@ -587,7 +592,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     (first_at,first),=hooks.sections
     if first_at!=origin or origin+len(first)>MORE3_END:
         raise ValueError(f'the code area runs over: {first_at:#x} + {len(first):#x} (limit {MORE3_END:#x})')
-    if runtime_end>MENU_MORE or DATA_FILE_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
+    if runtime_end>MENU_MORE or METER_SENT_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
         raise ValueError(f'script code, runtime or pool exceeds its reserved area: runtime end {runtime_end:#x} (limit {MENU_MORE:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
     if s['SETTINGS_MAX']>0x120 or SETTINGS_RAM+0x240+4*s['MENU_MAX_TRUST']>SETTINGS_RAM_END:
