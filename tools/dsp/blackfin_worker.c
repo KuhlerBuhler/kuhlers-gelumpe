@@ -21,6 +21,8 @@ extern int blech_bfin_hostdp_event(SIM_DESC, unsigned);
 extern int blech_bfin_hostdp_bus(SIM_DESC, unsigned, uint32_t *);
 extern int blech_bfin_sport_config(SIM_DESC, uint32_t, uint32_t, uint32_t, uint32_t);
 extern int blech_bfin_sport_report(SIM_DESC, uint32_t *);
+extern int blech_bfin_memory_window(uint32_t, uint32_t);
+extern void blech_bfin_memory_report(uint64_t *, uint32_t *);
 
 /* Little-endian requests: opcode, address/register/budget, byte count/value/PC. */
 #define LIMIT (1024 * 1024)
@@ -80,7 +82,7 @@ int main(int argc, char **argv) {
     default_callback.init(&default_callback);
     SIM_DESC sd = sim_open(SIM_OPEN_DEBUG, &default_callback, NULL, args);
     if (!sd || sim_create_inferior(sd, NULL, empty, empty) != SIM_RC_OK) return 3;
-    answer(0, "BFIN7", 5);
+    answer(0, "BFIN8", 5);
     while (get32(&op) && get32(&address) && get32(&count)) {
         if (op == 0) break;
         if (op == 1 || op == 2) {
@@ -90,6 +92,18 @@ int main(int argc, char **argv) {
                                  : sim_write(sd, address, buffer, count);
             if (n != count) { answer(1, NULL, 0); break; }
             answer(0, buffer, op == 1 ? count : 0);
+        } else if (op == 16) {
+            if (!blech_bfin_memory_window(address, count)) { answer(1, NULL, 0); break; }
+            answer(0, NULL, 0);
+        } else if (op == 17) {
+            uint64_t counts[8];
+            uint32_t locations[16];
+            if (address || count) { answer(1, NULL, 0); break; }
+            blech_bfin_memory_report(counts, locations);
+            answer(0, NULL, 0);
+            for (unsigned i = 0; i < 8; ++i) { put32(counts[i]); put32(counts[i] >> 32); }
+            for (unsigned i = 0; i < 16; ++i) put32(locations[i]);
+            fflush(reply);
         } else if (op == 14) {
             if (address || count) { answer(1, NULL, 0); break; }
             uint64_t ticks = blech_bfin_time();

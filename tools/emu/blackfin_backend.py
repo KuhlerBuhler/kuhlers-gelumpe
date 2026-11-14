@@ -50,8 +50,8 @@ class BlackfinBackend:
             os.set_blocking(self.process.stdin.fileno(), False)
             os.set_blocking(self.process.stdout.fileno(), False)
             self._selector.register(self.process.stdout, selectors.EVENT_READ)
-            if self._response() != b'BFIN7':
-                raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN7')
+            if self._response() != b'BFIN8':
+                raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN8')
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
             self.close()
@@ -127,6 +127,18 @@ class BlackfinBackend:
     def read(self, address, size):
         self._span(address, size)
         return self._request(1, address, size)
+
+    def watch_memory(self, address, size):
+        if (not isinstance(address, int) or not isinstance(size, int) or not 0 <= size <= 0xFFFFFFFF
+                or not 0 <= address <= 0xFFFFFFFF or address + size > 1 << 32):
+            raise ValueError('invalid Blackfin memory observation window')
+        self._request(16, address, size)
+
+    def memory_accesses(self):
+        values = struct.unpack('<8Q16I', self._request(17, 0, 0, extra=128))
+        return {kind: dict(accesses=values[2 * i], bytes=values[2 * i + 1],
+                           **dict(zip(('address', 'origin', 'descriptor', 'width'), values[8 + 4 * i:12 + 4 * i])))
+                for i, kind in enumerate(('cpu_read', 'cpu_write', 'dma_read', 'dma_write'))}
 
     def write(self, address, data):
         data = bytes(data)

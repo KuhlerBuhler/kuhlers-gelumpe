@@ -104,7 +104,8 @@ def patch_sources(source):
     file = source / 'sim/bfin/interp.c'
     text = file.read_text()
     begin, end = '/* BLECH_GUARD_BEGIN */\n', '/* BLECH_GUARD_END */\n'
-    guard = begin + (ROOT / 'tools/dsp/blackfin_guard.c.inc').read_text() + '\n' + end
+    guard = (begin + (ROOT / 'tools/dsp/blackfin_guard.c.inc').read_text() + '\n'
+             + (ROOT / 'tools/dsp/blackfin_memory.c.inc').read_text() + '\n' + end)
     if begin in text:
         a, b = text.index(begin), text.index(end) + len(end)
         text = text[:a] + guard + text[b:]
@@ -117,6 +118,43 @@ def patch_sources(source):
     stop = text.index('/* Cover function of sim_state_free', start)
     text = text[:start] + ('void\nsim_engine_run (SIM_DESC sd, int next_cpu_nr, int nr_cpus, int siggnal)\n'
                           '{\n  blech_bfin_engine (sd, STATE_CPU (sd, 0));\n}\n\n') + text[stop:]
+    file.write_text(text)
+
+    file = source / 'sim/bfin/bfin-sim.h'
+    text = file.read_text()
+    old_declaration = 'void blech_bfin_memory_access (unsigned, bu32, unsigned, bu32, bu32);\n\n'
+    declaration = ('int blech_bfin_memory_window (bu32, bu32);\n'
+                   'void blech_bfin_memory_report (bu64 *, bu32 *);\n' + old_declaration)
+    if declaration not in text:
+        text = text.replace(old_declaration, declaration)
+    if declaration not in text:
+        text = text.replace('#define __PUT_MEM', declaration + '#define __PUT_MEM', 1)
+    text = text.replace('  blech_bfin_memory_access (1, __taddr, __bytes, PCREG, 0);',
+                        '  if (__cnt > 0) blech_bfin_memory_access (1, __taddr, __cnt, PCREG, 0);')
+    text = text.replace('  if (!inst) blech_bfin_memory_access (0, __taddr, __bytes, PCREG, 0);',
+                        '  if (!inst && __cnt > 0) blech_bfin_memory_access (0, __taddr, __cnt, PCREG, 0);')
+    for marker, call in (
+            ('  BFIN_TRACE_CORE (cpu, __taddr, __bytes, write_map, __v);',
+             '  if (__cnt > 0) blech_bfin_memory_access (1, __taddr, __cnt, PCREG, 0);'),
+            ('  BFIN_TRACE_CORE (cpu, __taddr, __bytes, map, __ret);',
+             '  if (!inst && __cnt > 0) blech_bfin_memory_access (0, __taddr, __cnt, PCREG, 0);')):
+        if call not in text:
+            if text.count(marker) != 1:
+                raise ValueError('unexpected GNU Blackfin CPU memory access implementation')
+            text = text.replace(marker, call + ' \\\n' + marker)
+    file.write_text(text)
+
+    file = source / 'sim/bfin/dv-bfin_dma.c'
+    text = file.read_text()
+    for indent, kind, operation in ((6, 3, 'write'), (6, 2, 'read'), (2, 2, 'read'), (2, 3, 'write')):
+        data = 'buf' if indent == 6 else 'dest' if operation == 'read' else 'source'
+        size = 'ret' if operation == 'write' and indent == 6 else 'nr_bytes'
+        marker = ' ' * indent + f'ret = sim_{operation} (hw_system (me), dma->curr_addr, {data}, {size});'
+        call = ' ' * indent + f'blech_bfin_memory_access ({kind}, dma->curr_addr, ret, dma->base, dma->curr_desc_ptr);'
+        if '\n' + call + '\n' not in text:
+            if text.count('\n' + marker + '\n') != 1:
+                raise ValueError('unexpected GNU Blackfin DMA buffer access implementation')
+            text = text.replace('\n' + marker + '\n', '\n' + marker + '\n' + call + '\n')
     file.write_text(text)
     file = source / 'sim/bfin/bfin-sim.c'
     text = file.read_text()
@@ -305,6 +343,7 @@ def build(directory, jobs=4):
                              'persistent cycle slices, native IDLE and independent IWR wakeup',
                              'BF52x HOSTDP registers and interrupt sources',
                              'HOSTDP FIFO and DMA1 descriptor/data transport',
+                             'CPU and DMA data access observation windows',
                              'SPORT0 stereo DMA FIFOs and explicit test clock',
                              'DMA completion status and interrupt acknowledgment',
                              'BF52x SIC aggregate levels and CEC level-sensitive interrupts',

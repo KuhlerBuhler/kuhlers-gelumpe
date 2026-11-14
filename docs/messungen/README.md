@@ -340,3 +340,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Blackfin: SPORT0 und der native Audiotakt](2026-11-14-blackfin-sport0.md)
 - [Blackfin: HOSTDP-FIFO und DMA1](2026-11-14-blackfin-host-fifo.md)
 - [Blackfin: gemeinsame ARM-/DSP-Modellzeit und GPIO](2026-11-14-blackfin-modellzeit.md)
+- [Blackfin: Datenzugriffe von Kern und DMA beobachten](2026-11-14-blackfin-speicherzugriffe.md)
