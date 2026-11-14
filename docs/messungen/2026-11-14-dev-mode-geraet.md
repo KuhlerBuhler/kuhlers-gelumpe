@@ -1,6 +1,6 @@
 # DEV MODE am Gerät: Testplan
 
-Stand 14. November 2026. **Noch nichts am Gerät gelaufen.** Rot, Basis Hacktribe `163d1d8d` (ORIGINAL.BIN der Karte).
+Stand 14. November 2026. Am Gerät gelaufen: Schritte 1, 2, 4, 5a, 5b, 7, 8, 9 (Ergebnisse unten); Schritt 6 offen. Rot, Basis Hacktribe `163d1d8d` (ORIGINAL.BIN der Karte).
 Was im Emulator gemessen ist und welche Bereiche gesperrt bleiben: `2026-11-14-dev-mode-sperrbereiche.md`.
 
 Regeln für jeden Schritt:
@@ -64,4 +64,22 @@ print(f"flags {b.flags:#x}, BEGIN func {func:#x}, status {body[:4].hex()}, uncha
 
 ## Ergebnisse
 
-Noch keine. Hier je Schritt Datum, Firmware-sha256 und Ausgabe eintragen.
+14. November 2026, rot, Firmware `c5aa9ee0` (Hacktribe `163d1d8d` + blech.json), Host `linux`.
+
+| # | Ergebnis |
+|---|---|
+| 1 | INFO `0x7ff`: `0x200` und `0x400` gesetzt, DEV MODE war schon an (am Gerät eingeschaltet). "DEV MODE is off" nicht geprüft |
+| 4 | `--proof full` bricht ab: das Gerät hat 33 Bereiche (41693 Byte) anders als die Basis, alle Laufzeitdaten, die der Emulator in 5 s nicht schreibt: Vektor-Zeiger `0xC0000034` (`0xC0001560`), `.data` bei `0xC00F9068`, `0xC00F9314`, `0xC00F9C80`, Settings-Liste ab `0xC0188A18`, `0xC0190140..0xC01907A0`, Einzelbytes `0xC01B21A6..0xC01B2A7D`, `0xC01DB984..0xC01E45E0`, `0xC01F7000..0xC01FC400`. Mit `--proof near`: 4096 Byte bewiesen, eine Zeile `0xc015b358..0xc015b35c 4 hot`, keine `full`-Zeile. Wie erwartet |
+| 5a | Freigabe erteilt. `--yes --proof near`: 4 Byte in 1 Gruppe geschrieben, Journal `hot-patch-88176b69.json`. READ `0xC015B358`: `HOT MODE`, INFO weiter `0x7ff`, Gerät läuft. Display per `remote_press.py --screen` (BLECH, Liste, Zeile vor VERSION): Titel `HOT MODE`, Wert `ON`, ohne Neustart |
+| 5b | Freigabe erteilt. Muster in freien FF-Bereich `0xC0165000` (Basis und Gerät FF, nicht gesperrt, keine Daten), Sequencer gestoppt: 1 KiB WRITE 11 ms, 2 KiB 17 ms, Rücklesen gleich, danach FF zurück, Gerät läuft. 32 KiB: ALSA auf `linux` sendet die SysEx nicht (`MidiOutAlsa::sendMessage` Fehler). 4 KiB: keine Antwort auf WRITE DATA; Bereich danach FF, nichts geschrieben, Gerät antwortet weiter, Korg zeigt ein Fenster "Error" (EXIT schließt es). Grenze liegt auf dem Weg Host/USB, nicht gemessen ob am Gerät; das Tool schreibt 1 KiB je Block |
+| 7 | Freigabe erteilt. `--revert`: "reverted 1 ranges", READ `0xC015B358` wieder `DEV MODE`, Display nach Verlassen und Betreten der Seite `DEV MODE ON` (der Titel wird beim Betreten kopiert) |
+| 9 | Freigabe erteilt. DEV MODE an, BEGIN auf `0xC0173800`: Status 2, abgelehnt, Bytes unverändert |
+| 2 | Freigabe erteilt. DEV MODE per Rad -1 aus (`remote_press`), Display `OFF`, `DEV_FLAG` `ffffffff`, INFO `0x3ff`. BEGIN auf `0xC0100000`: Status 2, abgelehnt, Bytes unverändert |
+| 8 | Aus und ein am Gerät. INFO `0x3ff`, `DEV_FLAG` `ffffffff`, `0xC015B358` `DEV MODE`, READ `0xC015B000..0xC015C000` gleich Basis, `0xC0165000` 32 KiB FF. `--dry-run` bricht mit "DEV MODE is off" ab (damit auch Schritt 1) |
+| 6 | offen, Testbild fehlt |
+
+Gefunden und behoben: `--proof full` passt so nicht zum echten Gerät (Bereiche oben gehören zu den Daten), `near` ist
+jetzt der Standard. Auf `linux` scheiterte der Emulator-Teil von `hot_patch.py` in den Worker-Prozessen: spawn führt das
+Skript dort erneut aus, und dessen `sys.path.insert(0, tools/device)` stellte `tools/device/backlight.py` vor
+`tools/emu/backlight.py`. Das Skript hängt seine Pfade jetzt hinten an; auf `linux` laufen beide Bilder durch, die
+Context-Dateien sind byte-gleich mit denen vom Mac.
