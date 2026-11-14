@@ -100,7 +100,10 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          # korg.midi (script_midi.s): the MIDI receive loop's call of the handler of a channel message
          (0xC002B2D8,0xEB004208,'script_midi_in_hook'),
          # korg.audio (script_audio_service.s): CommandTask's call of its command handler, bl 0xC002D844; the synth has no capture
-         (0xC002A628,0xEB000C85,'audio_command_hook'))
+         (0xC002A628,0xEB000C85,'audio_command_hook'),
+         # the Patterns folder (script_patterns.s): EXPORT PATTERN's and EXPORT ALL PATTERN's bl 0xC0035720 (the folder string)
+         (0xC00371B0,0xEBFFF95A,'pat_export_hook'),
+         (0xC002E084,0xEB001DA5,'pat_export_all_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
@@ -290,7 +293,7 @@ def runtime_profile(build):
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
-        if name in ('script_early_hook', 'audio_command_hook'):
+        if name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook'):
             continue
         if name == 'boot_light_hook':
             address, expected = 0xC0025E48, 0xE1500003
@@ -559,7 +562,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
              'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s','script_egg.s']
     files.append('fx_card.s')
     if build != 'synth':
-        files += ['script_sample.s','script_audio_service.s']
+        files += ['script_sample.s','script_audio_service.s','script_patterns.s']
     else:
         files += ['script_sample_none.s','script_audio_service_none.s']
     files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_timer.s','script_led.s','script_motion.s','script_midi.s','script_audio.s','script_data.s']
