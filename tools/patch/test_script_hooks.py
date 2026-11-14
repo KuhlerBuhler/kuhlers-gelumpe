@@ -1181,9 +1181,10 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.drain(machine),[],'the other pages of the menu show the plugins nothing, as before')
 
     def test_meter_dedupe_sends_only_a_change(self):
-        """meter_dedupe_hook at 0xC0087608: an unforced send of a meter LED (0x4C to 0x57) whose brightness and mode equal the
-        last one returns from the send function, a change or a forced send goes the send path with r3 = LED + 9, any other
-        LED, an unarmed menu and the loading screen go on at 0xC008760C with the flags of cmp r2, #0."""
+        """meter_dedupe_hook at 0xC0087608: an unforced send of a meter LED (0x4C to 0x57) whose brightness and second message byte
+        equal the last one returns from the send function, a change or a forced send goes the send path with r3 = LED + 9, any
+        other LED, an unarmed menu and the loading screen go on at 0xC008760C with the flags of cmp r2, #0; the loading screen
+        forgets the LED's word."""
         from tools.patch.script_hooks import MENU_STATE, METER_SENT
         machine,_ = self.machine()
         machine.uc.mem_map(0xC0087000,4096)
@@ -1253,6 +1254,12 @@ class HookTests(unittest.TestCase):
         self.assertEqual(send(0x50,0,77),'send')
         self.assertEqual(send(0x57,0,0),'send')
         self.assertEqual(send(0x57,0,0),'skip')
+        self.assertEqual(send(0x4C,0,0),'send')
+        machine.write(screens+0x2C,0)                # a send on the loading screen goes out unchecked and forgets the word,
+        self.assertEqual(send(0x4C,0,50),'pass')     # so back on a screen the same value as before goes out again
+        self.assertEqual(word(0x4C),0xFFFFFFFF)
+        self.assertEqual(word(0x57),0x10000|1<<8)
+        machine.write(screens+0x2C,1)
         self.assertEqual(send(0x4C,0,0),'send')
 
 

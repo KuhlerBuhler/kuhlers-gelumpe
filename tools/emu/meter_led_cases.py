@@ -1,7 +1,7 @@
 """Emulator cases of the meter LEDs (meter_dedupe_hook, tools/patch/script_menu.s): the LED manager's send function 0xC00875F4
 sends the twelve meter LEDs (0x4C to 0x57) only when brightness or mode changed. Idle, the panel gets no meter message; a changed
 brightness goes out once, an equal one not again; a forced send (lock released, test mode, korg.led refresh) always goes out.
-With EXIT held at power-on the firmware sends as before, about 300 meter messages a second.
+A meter LED the loading screen or a plugin's korg.led wrote goes out again at the firmware's next send. With EXIT held at power-on the firmware sends as before, about 300 meter messages a second.
 
     python3 tools/emu/meter_led_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 
@@ -17,7 +17,10 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
+from tools.patch import script_hooks  # noqa: E402
 import menu_cases  # noqa: E402
+import plugin_edit_cases as edit  # noqa: E402
+import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
 
@@ -25,7 +28,13 @@ LED_MANAGER, LED_SEND = 0xC0345A1C, 0xC00875F4   # (manager, led, force)
 METER_UPDATE = 0xC0088284                        # the firmware's meter, every 40 ms; paused while a case calls the send function
 METER = range(0x4C, 0x58)
 WANTED = 0x4E                                    # + 8 * LED: the brightness the firmware wants, mode behind it
+PROGRAMS = {"meterled": 'korg.onEvent("ready", () => { korg.led(0x50, 77); });'}
 IDLE_MAX = 5                                     # meter messages a second the idle device may still send (before: about 300)
+
+
+def node_requests():
+    """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
+    edit.compiled(PROGRAMS)
 
 
 def entry(name, ok, detail):
@@ -95,9 +104,17 @@ def cases(vsb, flash=None):
     one, other = r.send(led, 0, 1), r.send(0x51, 0, 200)
     out.append(entry("brightness_one_and_neighbour", one == [(led, 1)] and other == [(0x51, 200)] and not r.dev.m.asserts,
                      f"build {r.build}: brightness 1 sent {one}, LED 0x51 with 200 sent {other}"))
+    again = r.send(led, 0, 200)
+    request = edit.compiled(PROGRAMS)
+    script_cases.install(r.dev, script_hooks.build(request["include"], build=r.build), request["programs"], ["meterled"])
+    r.dev.run(0.5)                                  # the plugin's LED goes out with its next frame
+    plugin = list(r.sent)
+    back = r.send(led, 0, 200)
+    out.append(entry("resend_after_plugin_led", plugin[-1:] == [(led, 77)] and back == [(led, 200)] and not r.dev.m.asserts,
+                     f"build {r.build}: firmware 200 sent {again}, korg.led sent {plugin}, firmware 200 again sent {back}"))
     stock = Run(payload, flash, held=menu_cases.KILL)
     rate = stock.idle()
-    out.append(entry("exit_at_power_on_as_before", rate > 100 and not stock.dev.m.asserts,
+    out.append(entry("exit_at_power_on_as_before", rate >= 250 and not stock.dev.m.asserts,
                      f"build {stock.build}: EXIT held at power-on, {rate:.1f} meter messages a second idle"))
     return out
 

@@ -141,6 +141,8 @@ LED, also rund 300 Panelnachrichten je Sekunde im Leerlauf, auch wenn die Leiste
 (Sperre frei, Testmodus, `korg.led`-Auffrischung): Wort neu, dann der Sendepfad selbst, also auch Helligkeit 1. Die
 Abdunklung durch Korgs Power Save (`[Manager+0xB78]`) zählt als Helligkeit 0. Andere LEDs, das unscharfe Menü (EXIT beim
 Einschalten) und der Ladebildschirm (Bildschirm 0) gehen unverändert weiter.
+Was der Ladebildschirm oder ein Plugin mit `korg.led` an eine Pegel-LED schickt, vergisst das gemerkte Wort (FF), damit
+die nächste Nachricht der Firmware wieder rausgeht und die Leiste nicht auf dem fremden Wert stehen bleibt.
 
 Warum der Ladebildschirm ausgenommen ist (gemessen im Emulator, Hacktribe und Rot): mit Entprellen auch dort brauchte der
 Sample-Lader beim Start 51 ms länger (368 bis 1563 ms statt bis 1511 ms), der Hauptbildschirm kam 53 ms später

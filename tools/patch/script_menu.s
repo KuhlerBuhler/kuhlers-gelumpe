@@ -1892,7 +1892,8 @@ led_meter_mod3:
     bhs led_meter_mod3
     ldrb r3, [r8, r0]
     cmp r3, #1                  ; never 1: 0xC00875F4 compares what it sent last with the message's mode byte (1 for these LEDs),
-    moveq r3, #2                ; so after a 1 it sends nothing more and the channel sticks (emulator 22.10., the rainbow)
+    moveq r3, #2                ; so after a 1 it sends nothing more and the channel sticks (emulator 22.10., the rainbow); meter_dedupe_hook
+    ; fixes that, but passes on the loading screen and with EXIT held at power-on, so the rule stays
     add r0, r4, r5, lsl #3
     strb r3, [r0, #0x2ae]
     mov r0, r4
@@ -2207,12 +2208,14 @@ lcd_invert_pass:
 .pool
 ; 0xC0087608, in the LED manager's send function 0xC00875F4 (r0 = r4 manager, r1 LED, r2 force) behind the check of the lock
 ; a plugin holds: `cmp r2, #0`. For the twelve meter LEDs (0x4C to 0x57) the message goes out only when what the panel would
-; get changed: brightness (0 while the firmware's power save darkens them, [manager+0xb78]) and mode, kept per LED in
-; METER_SENT with bit 16 set (FF at power-on matches nothing). Korg's own comparison takes the mode byte for the sent
-; brightness and so sends nearly every time, about 22 times a second per LED. A forced send (lock released, test mode,
-; korg.led refresh) always goes out and refreshes the word. With the menu not armed (EXIT at power-on) nothing changes, nor
-; while there is no screen yet or the loading screen (0) is up: the sample loader at the start polls the card and is
-; scheduled again sooner while the panel's UART interrupts come, so without them it took 51 ms longer in the emulator.
+; get changed: brightness (0 while the firmware's power save darkens them, [manager+0xb78]) and the message's second byte
+; (manager + 0x4F + 8 * LED), kept per LED in METER_SENT with bit 16 set (FF matches nothing). Korg's own comparison takes
+; the wanted value's mode byte for the sent brightness and so sends nearly every time, about 22 times a second per LED. A
+; forced send (lock released, test mode, korg.led refresh) always goes out and refreshes the word. With the menu not armed
+; (EXIT at power-on) nothing changes, nor while there is no screen yet or the loading screen (0) is up: the sample loader at
+; the start polls the card and is scheduled again sooner while the panel's UART interrupts come, so without them it took
+; 51 ms longer in the emulator. Those sends go out unchecked and forget the LED's word, as does a plugin's korg.led on it
+; (script_led_try_send), so the next send after them goes out again. The send path from 0xC008764C reads r1, r3 and r4 only.
 meter_dedupe_hook:
     sub r12, r1, #0x4c
     cmp r12, #11
@@ -2225,10 +2228,10 @@ meter_dedupe_hook:
     ldr r0, [r0]
     cmp r0, #0
     cmnne r0, #1
-    beq meter_dedupe_pass
+    beq meter_dedupe_forget
     ldr r0, [r0, #0x2c]
     cmp r0, #0
-    beq meter_dedupe_pass
+    beq meter_dedupe_forget
     add r3, r4, r1, lsl #3
     ldrb r0, [r4, #0xb78]
     cmp r0, #0
@@ -2248,6 +2251,10 @@ meter_dedupe_send:
     str r0, [r3]
     add r3, r1, #9              ; the send path reads r3 = LED + 9
     ldr pc, =0xC008764C
+meter_dedupe_forget:
+    ldr r0, =METER_SENT
+    mvn r3, #0                  ; r3 is set again at 0xC008760C
+    str r3, [r0, r12, lsl #2]
 meter_dedupe_pass:
     cmp r2, #0
     ldr pc, =0xC008760C
