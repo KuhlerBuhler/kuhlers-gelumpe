@@ -1,0 +1,32 @@
+{
+ "what": "a closed region (SysEx code): full update",
+ "context": {
+  "closed": [
+   [
+    "0xc0172100",
+    "0xc0173000"
+   ]
+  ],
+  "dsp": [
+   "0xc0400000",
+   "0xc0400000"
+  ]
+ },
+ "base": {
+  "0xc0172200": "00"
+ },
+ "new": {
+  "0xc0172200": "01"
+ },
+ "expect": {
+  "rows": [
+   [
+    "0xc0172200",
+    "0xc0172204",
+    "full"
+   ]
+  ],
+  "groups": [],
+  "warnings": 0
+ }
+}
