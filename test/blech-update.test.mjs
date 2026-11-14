@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { applyPatches } from "../src/patch.mjs";
 import { addRelease, emptyKnown, recogniseBlech, KNOWN_FORMAT } from "../src/blech-update.mjs";
 import { sha256 } from "../src/firmware.mjs";
-import { encodeAnimation, loadingAnimPatch, FRAME_BYTES } from "../src/loading-anim.mjs";
+import { encodeAnimation, FRAME_BYTES, MAX_BYTES } from "../src/loading-anim.mjs";
 import { field } from "../src/map/index.mjs";
 import { asStock, makeFirmware } from "./helpers.mjs";
 
@@ -104,7 +104,14 @@ test("the loading animation in its slot is the user's: kept, replaced when one i
   await addRelease(known, "1.0", "hacktribe", base, old);
   await addRelease(known, "1.1", "hacktribe", base, now);
   const [mine, other] = [animation(3), animation(5)];
-  const withAnimation = async (bytes, a) => (a ? (await applyPatches(bytes, [loadingAnimPatch(a)])).bytes : bytes);
+  // the slot as app versions before 1.5 wrote it: the file at its start, FF behind it
+  const withAnimation = async (bytes, a) => {
+    if (!a) return bytes;
+    const out = Uint8Array.from(bytes);
+    out.fill(0xff, SLOT, SLOT + MAX_BYTES);
+    out.set(a, SLOT);
+    return out;
+  };
   const direct = async a => withAnimation((await applyPatches(base, now)).bytes, a);
   const file = await direct(mine);
   const rec = await recogniseBlech(file, known);

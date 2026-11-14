@@ -7,12 +7,28 @@
 ; the look (backlight colour, bottom LEDs, display polarity) holds from about 350 ms on and through the samples loading, not only after
 ; them. Reading the card earlier, behind that question in the start task (0xC002AE68, about 123 ms), was tried and does not work: the
 ; first file open there waits for the card driver forever (measured, docs/messungen/2026-10-16-blech-look-frueh.md).
+; MEDIA_LOAD: tools/patch/load_bar.py:MEDIA_CODE
+.equ MEDIA_LOAD, 0xC01AD000
+; SPLASH_SYNC: tools/patch/splash_editor.py:SYNC_ENTRY
+.equ SPLASH_SYNC, 0xC01A250C
 script_early_hook:
     push {r0-r12, lr}
     .word 0xE10FC000 ; mrs r12, cpsr
     push {r12, lr}
     bl menu_arm_load
     bl migrate_start
+    ldr r12, =MEDIA_LOAD        ; the loading animation from the card (tools/patch/load_bar.py:media_load), after the migration
+    ldr r0, [r12]               ; moved the old folders; FF when the patch load-bar is not in the set
+    cmn r0, #1
+    beq early_media_done
+    ldr r0, =HOOK_CARD+CARD_FIL
+    ldr r1, =HOOK_CARD+CARD_BR
+    blx r12
+early_media_done:
+    ldr r12, =SPLASH_SYNC       ; the start image from the card (tools/patch/splash_editor.py:splash_sync): Media/splash.bmp
+    ldr r0, [r12]               ; into flash when it differs; FF when the patch splash-editor is not in the set
+    cmn r0, #1
+    blxne r12
     pop {r12, lr}
     .word 0xE12FF00C ; msr cpsr_cxsf, r12
     pop {r0-r12, lr}
