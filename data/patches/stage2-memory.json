@@ -10,13 +10,13 @@
  "changes": [
   {
    "file": 1222870,
-   "bytes": "22e1542d",
+   "bytes": "22e1285c",
    "expect": "f2224dcc50661ff76266aab6811c138217bc2e1964a78a55b9da5100c8d199b1",
    "note": "DSP 0x01f0c166: R2 = stage 2 coefficients - stage 1 state (was 0x50)"
   },
   {
    "file": 1222874,
-   "bytes": "23e15437",
+   "bytes": "23e1744a",
    "expect": "8bf0ae9f6390c31fbf0a2abafb931bdd57ab9cabf64f9e48d8b412e740481f11",
    "note": "DSP 0x01f0c16a: R3 = stage 2 state - stage 1 state (was 0x70)"
   },
@@ -34,9 +34,15 @@
   },
   {
    "file": 1223004,
-   "bytes": "24e1a000",
+   "bytes": "24e1b400",
    "expect": "03faf05eac24fe4068f794e41fc37cadee0fd402562551ea454337a91839a4f4",
-   "note": "DSP 0x01f0c1ec: R4 = 0xA0, stage 2 coefficient stride (was 0x1B4, the part block)"
+   "note": "DSP 0x01f0c1ec: R4 = 0xB4, stage 2 coefficient stride (was 0x1B4, the part block)"
+  },
+  {
+   "file": 1183868,
+   "bytes": "201d0000",
+   "expect": "eed9ded321f40035e83a0ad24e896746122c96b91644b590a448b66c3f957b7c",
+   "note": "DSP 0x01f02448: heap 1 length, the heap ends where stage 2 starts (was 0x39FF, the rest of bank B)"
   }
  ],
  "startPhase": [],

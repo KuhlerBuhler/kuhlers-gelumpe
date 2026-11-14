@@ -1,4 +1,4 @@
-"""Builds the stage 2 memory patch: five instructions of the DSP program of the red builds (Hacktribe and Korg's 2.02),
+"""Builds the stage 2 memory patch: five instructions and the heap 1 length of the DSP program of the red builds (Hacktribe and Korg's 2.02),
 docs/messungen/2026-11-13-stufe2-speicher.md.
 
 An insert effect has two stages, each one an effect unit of the DSP. At start the DSP fills one argument block per part
@@ -10,13 +10,20 @@ mixer words or, with a delay line in stage 2, into the DSP program.
 
 Patched:
 
-    stage 2 coefficients   0xFF904600 + 0xA0 * part; stage 1 keeps the part's whole 0xA0 bytes
-    stage 2 state          0xFF905000 + 0x118 * part; stage 1 keeps 0xA0 bytes up to the mixer words
+    stage 2 state          0xFF906320 + 0x118 * part
+    stage 2 coefficients   0xFF9074D4 + 0xB4 * part, up to the end of L1 data bank B (0xFF908000); stage 1 keeps
+                           the part's whole 0xA0 bytes
     stage 2 delay memory   the part's SDRAM buffer
+    heap 1                 0xFF904600 + 0x1D20 instead of 0x39FF bytes, so it ends where stage 2 starts
 
-0xFF904600..0xFF906180 is L1 data bank B above the DSP's stack (0xFF904000..0xFF9045FF). The DSP sets only bank A's
-upper half as cache (DMEM_CONTROL 0x100B), no boot block loads there (build_patch checks it), and the simulator saw no
-write there in 400 pairs.
+Unit 0x15 keeps a pointer to the word 0xC8 below its coefficients (in stage 1 the part block + 8), reads it every frame
+and writes the same value back. The 0xB4 stride and the 0x34 bytes between the state and the coefficients make that
+word, for every part, one no stage 2 unit uses: 0x14 bytes behind the coefficients two parts down, the gap, or the
+unused end of part 15's state (units use up to 0x84 bytes of it).
+
+Bank B from 0xFF904600 is the DSP's heap 1 (heap table at 0x01F02440: base, length, id); the RTOS takes its task stacks
+and control blocks from it. Read on the device in idle, the heap is used up to 0xFF9054E0 (0xEC0 bytes); the shorter
+heap leaves it 0x1D20. The simulator harness skips the RTOS start, so it never shows the heap.
 
 Two limits stay: a unit with a delay line takes the whole buffer (0x2EE00 bytes), so two of them in one insert effect
 share it; unit 0x16 reads four tempo resources the DSP sets for stage 1 only. Those pairs stay locked in
@@ -37,9 +44,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "dsp"))
 import dsp_extract  # noqa: E402
 
 STATE1 = 0xFF9018AC                     # stage 1 state of part 0, R5 of the loop; the new stage 2 areas are offsets from it
-COEF2, STATE2 = 0xFF904600, 0xFF905000
-COEF2_STRIDE, STATE_STRIDE, PARTS = 0xA0, 0x118, 16
-TAKEN = (COEF2, STATE2 + STATE_STRIDE * PARTS)
+STATE2, COEF2 = 0xFF906320, 0xFF9074D4
+COEF2_STRIDE, STATE_STRIDE, PARTS, COEF_USED, STATE_USED = 0xB4, 0x118, 16, 0xA0, 0x84
+COEF_BACK = 0xC8                        # unit 0x15 reads and rewrites the word this far below its coefficients
+TAKEN = (STATE2, COEF2 + COEF2_STRIDE * (PARTS - 1) + COEF_USED)
+HEAP1, HEAP1_LEN = 0xFF904600, 0x39FF          # heap table entry at 0x01F02444: base, length, id 1
+HEAP1_NEW = STATE2 - HEAP1
 
 # DSP address, instruction before, instruction after, what it does
 SITES = (
@@ -52,7 +62,9 @@ SITES = (
     (0x01F0C1CC, "069e", "009e",
      "[I0++] = R0, stage 2 gets the part's SDRAM buffer (was R6, 0)"),
     (0x01F0C1EC, "24e1b401", "24e1" + COEF2_STRIDE.to_bytes(2, "little").hex(),
-     "R4 = 0xA0, stage 2 coefficient stride (was 0x1B4, the part block)"),
+     "R4 = 0xB4, stage 2 coefficient stride (was 0x1B4, the part block)"),
+    (0x01F02448, HEAP1_LEN.to_bytes(4, "little").hex(), HEAP1_NEW.to_bytes(4, "little").hex(),
+     "heap 1 length, the heap ends where stage 2 starts (was 0x39FF, the rest of bank B)"),
 )
 
 
@@ -75,8 +87,16 @@ def sites(vsb):
     return out
 
 
+def free_word(addr):
+    """True when addr is in no part's used stage 2 state or coefficients, and inside the stage 2 area."""
+    used = [(STATE2 + STATE_STRIDE * k, STATE_USED) for k in range(PARTS)] + [(COEF2 + COEF2_STRIDE * k, COEF_USED) for k in range(PARTS)]
+    return TAKEN[0] <= addr < TAKEN[1] and not any(lo <= addr < lo + n for lo, n in used)
+
+
 def build_patch(vsb):
-    assert COEF2 + COEF2_STRIDE * PARTS <= STATE2 and STATE2 - STATE1 < 0x8000
+    assert STATE2 + STATE_STRIDE * PARTS <= COEF2 and COEF2 - STATE1 < 0x8000 and TAKEN[1] == 0xFF908000
+    assert all(free_word(COEF2 + COEF2_STRIDE * k - COEF_BACK) for k in range(PARTS))
+    assert dsp_extract.vsb_offset(vsb, 0x01F02444) is not None and vsb[dsp_extract.vsb_offset(vsb, 0x01F02444):][:4] == HEAP1.to_bytes(4, "little")
     for _, _, flags, target, count, _, _ in dsp_extract.parse(vsb):
         if not flags & dsp_extract.F_IGNORE and count and target < TAKEN[1] and TAKEN[0] < target + count:
             raise SystemExit(f"a boot block loads {target:#x}..{target + count:#x}, inside the memory the patch takes")

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Static check of the DSP stream of a patched copy (tools/patch/stage2_memory.py,
 docs/messungen/2026-11-13-stufe2-speicher.md). The emulator stubs the DSP upload, so the DSP program never runs in a boot;
-check.py takes the stream as it is in the original, or with exactly the five instructions of the stage 2 memory patch.
+check.py takes the stream as it is in the original, or with exactly the changes of the stage 2 memory patch.
 
     tools/emu/.venv/bin/python tools/emu/stage2_memory_check.py --base ORIGINAL.VSB --patched PATCHED.VSB
 """
@@ -28,8 +28,8 @@ def dsp_stream(base, patched, span):
     for at, _, new, _ in found:
         expected[at:at + len(new)] = new
     if bytes(expected[span]) != patched[span]:
-        return False, "der DSP-Strom ist anders geändert als durch die fünf Befehle von stage2-memory"
-    return True, "der DSP-Strom trägt genau die fünf Befehle von stage2-memory (Speicher für Stufe 2), sonst unverändert"
+        return False, "der DSP-Strom ist anders geändert als durch stage2-memory"
+    return True, "der DSP-Strom trägt genau die Änderungen von stage2-memory (Speicher für Stufe 2, kürzerer Heap 1), sonst unverändert"
 
 
 def main():
