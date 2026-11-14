@@ -204,3 +204,49 @@ test("KORG.knob, pad, touch, hold and testMode go through exec on a 1.3.8 runtim
   await assert.rejects(old.korg.testMode(true), /1\.3\.8/);
   assert.equal(old.applied.length, 0);
 });
+
+test("remote_press.py with DEV MODE on: WRITE into the mailbox, READ of the done counter, no EXEC and no stub buffer", () => {
+  const run = spawnSync("python3", ["-c", `import sys, struct; sys.path.insert(0, "tools/device")
+import remote_press as r
+MAILBOX, MESSAGE_AT = ${MAILBOX}, ${MESSAGE_AT}
+class Fake:
+    """READ and WRITE on a dict; the frame hook takes a marked word at once (key: two frames, still one count)."""
+    def __init__(self, flags, takes=True):
+        self.flags, self.takes, self.mem, self.writes, self.execs = flags, takes, {}, [], 0
+    def read(self, addr, n):
+        return bytes(self.mem.get(addr + i, 0) for i in range(n))
+    def write(self, addr, data, verify=True):
+        self.writes.append((addr, bytes(data), verify))
+        for i, b in enumerate(data):
+            self.mem[addr + i] = b
+        w = struct.unpack("<I", self.read(MAILBOX, 4))[0]
+        if self.takes and addr == MAILBOX and w >> 24 == 0xA5:
+            self.write_raw(MAILBOX, 0)
+            self.write_raw(MAILBOX + 8, struct.unpack("<I", self.read(MAILBOX + 8, 4))[0] + 1)
+    def write_raw(self, addr, value):
+        for i, b in enumerate(struct.pack("<I", value)):
+            self.mem[addr + i] = b
+    def execute(self, addr):
+        self.execs += 1
+found = (MAILBOX, MESSAGE_AT, 0xC0000000, r.OS_WAIT)
+on = Fake(r.READ_FLAG | r.WRITE_FLAG | r.EXEC_FLAG | r.DEV_ON_FLAG)
+assert r.via_mailbox(on, found) and not r.via_mailbox(on, found, force_exec=True)
+assert not r.via_mailbox(Fake(r.READ_FLAG | r.WRITE_FLAG | r.EXEC_FLAG), found), "DEV MODE off: the stub"
+assert not r.via_mailbox(on, (MAILBOX, None, None, r.OS_WAIT)), "a runtime without RMT2: the stub"
+assert not r.via_mailbox(Fake(r.READ_FLAG | r.DEV_ON_FLAG), found), "no WRITE"
+run = r.mailbox_runner(on, found, wait=0.2, poll=0)
+names = r.panel_names()
+for step in ["menu", "+2", "level=200", "pad5", "touch=400,300"]:
+    for _, w, m in r.command(step, names):
+        assert run(w, m), step
+assert on.execs == 0
+assert {a for a, _, _ in on.writes} == {MAILBOX, MESSAGE_AT}, [hex(a) for a, _, _ in on.writes]
+assert all(not v for a, _, v in on.writes if a == MAILBOX), "the command word takes status 5"
+assert struct.unpack("<I", on.read(MAILBOX + 8, 4))[0] == 1 + 1 + 1 + 2 + 3
+assert on.read(MESSAGE_AT, 8) == bytes([0, 0x22, 0, 0, 0, 0, 0, 0]), "the last message: touch let go"
+off = Fake(on.flags, takes=False)
+run = r.mailbox_runner(off, found, wait=0.05, poll=0)
+assert not run(r.word(r.KEY, 9)) and off.read(MAILBOX, 4) == bytes(4), "not taken: the word is taken back"
+print("ok")`], { cwd: root, encoding: "utf8" });
+  assert.equal(run.stdout.trim(), "ok", run.stderr);
+});

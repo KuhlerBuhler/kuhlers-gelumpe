@@ -1,16 +1,20 @@
 """Operate an Electribe with the BLECH runtime from a computer over USB: every key, the encoders, the knobs, the pads, the
 touchpad and the test mode, and read back where it is and what the display shows.
 
-RAM only: a stub of 76 or 104 bytes (src/remote.mjs) goes to the EXEC buffer at 0xC1000000 and runs once per step through
-BLECH's own SysEx commands (WRITE and EXEC, tools/patch/blech_sysex.py); it leaves a command word (and a panel message) for
-the runtime's frame hook (tools/patch/script_remote.s), which hands it to the firmware as a message from the panel. The
-original bytes of the buffer are put back at the end. Stops before anything is written when the firmware has no BLECH
-EXEC (the blue Electribe refuses writes) or no runtime with the keys from the computer.
+RAM only, two ways to the runtime's frame hook (tools/patch/script_remote.s), which hands a command word (and a panel message)
+to the firmware as a message from the panel:
+  DEV MODE on (INFO flag 0x400, Menü -> BLECH -> DEV MODE): BLECH WRITE puts the message and the command word straight into the
+  runtime's mailbox, READ watches its done counter. No code runs, no EXEC (docs/messungen/2026-11-14-dev-mode-eingabe.md).
+  Otherwise: a stub of 76 or 104 bytes (src/remote.mjs) goes to the EXEC buffer at 0xC1000000 and runs once per step through
+  BLECH WRITE and EXEC (tools/patch/blech_sysex.py); the original bytes of the buffer are put back at the end.
+Stops before anything is written when the firmware has neither way (the blue Electribe refuses writes) or no runtime with the
+keys from the computer.
 
     python3 remote_press.py --emu VSB menu edit_next +1 exit     # against the local emulator
     python3 remote_press.py --dry-run menu                       # device on USB: checks only, writes nothing
     python3 remote_press.py menu edit_next +1 +1 exit            # device on USB: the steps, then where it is
     python3 remote_press.py --screen                             # where it is and the display, nothing written
+    python3 remote_press.py --exec menu                          # the EXEC stub even with DEV MODE on
     python3 remote_press.py testmode=on                          # display, light and LEDs off, Auto Power Off held
 
 Steps (names from data/panel.mjs, with "_" for camel case: edit_next is editRight, mod_depth is modDepth):
@@ -29,6 +33,7 @@ import argparse
 import re
 import struct
 import sys
+import time
 import zlib
 from pathlib import Path
 
@@ -44,7 +49,8 @@ MARK, KEY, ENCODER, MESSAGE, TEST, RELEASE = 0xA5000000, 1, 2, 3, 4, 5
 TOUCH = 0x22
 OS_WAIT = 0xC0000B78
 INFO, READ, WRITE_BEGIN, WRITE_DATA, EXEC = 0x60, 0x61, 0x62, 0x63, 0x6F
-READ_FLAG, WRITE_FLAG, EXEC_FLAG = 1, 2, 0x40
+READ_FLAG, WRITE_FLAG, EXEC_FLAG, DEV_ON_FLAG = 1, 2, 0x40, 0x400
+STATUS_VERIFY = 5
 
 
 class Blech:
@@ -82,6 +88,7 @@ class Blech:
         return out
 
     def write(self, addr, data, verify=True):
+        """verify=False takes status 5 (read back differs) as written: for a word the runtime may take between copy and read back."""
         if self.flags & WRITE_FLAG == 0:
             raise SystemExit("this firmware's BLECH refuses writes (the blue Electribe); nothing written")
         crc = zlib.crc32(data)
@@ -90,6 +97,8 @@ class Blech:
             raise SystemExit(f"WRITE BEGIN {addr:#x} refused: {body[:4].hex()}")
         func, body = self.talk(WRITE_DATA, data)
         status, _, count, back = struct.unpack_from("<4I", body)
+        if not verify and func == 0x6B and status == STATUS_VERIFY and count == len(data):
+            return
         if func != 0x6B or status or count != len(data) or back != crc:
             raise SystemExit(f"WRITE DATA {addr:#x}: status {status}")
 
@@ -228,11 +237,41 @@ def display(dev):
                      for y in range(0, 64, 2))
 
 
+def via_mailbox(dev, found, force_exec=False):
+    """True when the steps go by WRITE into the mailbox: DEV MODE on, a runtime with RMT2, and not --exec."""
+    return not force_exec and bool(dev.flags & DEV_ON_FLAG) and bool(dev.flags & WRITE_FLAG) and found is not None and found[1] is not None
+
+
+def mailbox_runner(dev, found, wait=1.0, poll=0.02):
+    """run(word, message) for DEV MODE: the message (if any) and then the command word by WRITE, the done counter by READ.
+    1 frame for a dial turn or a message, 2 for a key (pressed, let go). After `wait` without the counter moving the word is taken
+    back (WRITE 0), as the stub does; a word the runtime took meanwhile is left alone."""
+    mailbox, message_at = found[0], found[1]
+    done = lambda: struct.unpack("<I", dev.read(mailbox + 8, 4))[0]
+
+    def run(w, message=None):
+        before = done()
+        if message:
+            dev.write(message_at, bytes(message).ljust(8, b"\0"))
+            w = word(MESSAGE)
+        dev.write(mailbox, struct.pack("<I", w), verify=False)
+        end = time.monotonic() + wait
+        while time.monotonic() < end:
+            if (done() - before) & 0xFFFFFFFF:
+                return True
+            time.sleep(poll)
+        if struct.unpack("<I", dev.read(mailbox, 4))[0] == w:
+            dev.write(mailbox, bytes(4), verify=False)
+        return (done() - before) & 0xFFFFFFFF == 1
+    return run
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--emu", metavar="VSB")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--screen", action="store_true", help="print the display after the steps")
+    p.add_argument("--exec", action="store_true", help="the EXEC stub even with DEV MODE on")
     p.add_argument("steps", nargs="*")
     a = p.parse_args()
     if not a.emu and "testmode=on" in a.steps:
@@ -244,24 +283,28 @@ def main():
     print("vorher:", where(dev))
     found = None
     if steps:
-        if dev.flags & (WRITE_FLAG | EXEC_FLAG) != WRITE_FLAG | EXEC_FLAG:
-            raise SystemExit("this firmware's BLECH has no WRITE and EXEC (the blue Electribe refuses both); nothing written")
         found = remote_of(dev)
         if found is None:
             raise SystemExit("no BLECH runtime with the keys from the computer on this device; nothing written")
         mailbox, message_at, test_at, os_wait = found
+        mailboxed = via_mailbox(dev, found, a.exec)
+        if not mailboxed and dev.flags & (WRITE_FLAG | EXEC_FLAG) != WRITE_FLAG | EXEC_FLAG:
+            raise SystemExit("this firmware's BLECH has no WRITE and EXEC (the blue Electribe refuses both); nothing written")
         if message_at is None and any(m is not None or w & 0xFF in (TEST, RELEASE) for _, w, m in steps):
             raise SystemExit("this runtime takes keys and the main dial only (knobs, pads, touchpad and test mode need 1.3.8); nothing written")
         done = lambda: struct.unpack("<I", dev.read(mailbox + 8, 4))[0]
-        original = dev.read(STUB_AT, len(message_stub(0, 0, [0] * 5)))
-        print(f"Befehlswort bei {mailbox:#x}, {len(steps)} Schritt(e)")
+        original = None if mailboxed else dev.read(STUB_AT, len(message_stub(0, 0, [0] * 5)))
+        print(f"Befehlswort bei {mailbox:#x}, {len(steps)} Schritt(e), Weg: " + ("DEV MODE (WRITE in die Mailbox, kein EXEC)" if mailboxed else "EXEC-Stub"))
         if a.dry_run:
             print("dry run: nothing written")
             return 0
-        def run(w, message=None):
-            before = done()
-            dev.write(STUB_AT, message_stub(mailbox, message_at, message, os_wait) if message else stub(mailbox, w, os_wait), verify=False)
-            return dev.execute(STUB_AT) == 1 and (done() - before) & 0xFFFFFFFF == 1
+        if mailboxed:
+            run = mailbox_runner(dev, found)
+        else:
+            def run(w, message=None):
+                before = done()
+                dev.write(STUB_AT, message_stub(mailbox, message_at, message, os_wait) if message else stub(mailbox, w, os_wait), verify=False)
+                return dev.execute(STUB_AT) == 1 and (done() - before) & 0xFFFFFFFF == 1
 
         finished = False
         try:
@@ -277,8 +320,9 @@ def main():
                     print("alles losgelassen" if run(word(RELEASE)) else "Loslassen NICHT ausgeführt (das Gerät lässt nach 10 s selbst los)")
                 except SystemExit as failure:
                     print(f"Loslassen fehlgeschlagen ({failure}); das Gerät lässt nach 10 s selbst los")
-            dev.write(STUB_AT, original)
-            print("Originalbytes im Stub-Puffer zurück")
+            if original is not None:
+                dev.write(STUB_AT, original)
+                print("Originalbytes im Stub-Puffer zurück")
     found = found or remote_of(dev)
     if found and found[2] is not None:
         print("Test-Modus:", "an" if dev.read(found[2], 1)[0] == 1 else "aus")

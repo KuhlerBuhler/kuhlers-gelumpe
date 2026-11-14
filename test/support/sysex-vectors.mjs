@@ -20,6 +20,8 @@ export function sysexVectors(build = "hacktribe", { devMode = false } = {}) {
   for (const d of declared.filter((_, i) => i % 97 === 0)) spots.push(d.start, d.start - 1, d.end - 1);
   if (devMode) {
     for (const r of PROTECTED.devClosed[build] ?? []) spots.push(r.start - 4, r.start, r.end - 4, r.end);
+    const box = PROTECTED.remoteMailbox;
+    spots.push(box.start, box.start + 0x20, box.start + 0x28, box.end - 4);   // message, command word, done counter, last word
     for (let i = 0; i < 40; i++) spots.push(0xc0000000 + next(0x200000));
   }
   for (let i = 0; i < 40; i++) spots.push(0xc0000000 + next(0x8000000));

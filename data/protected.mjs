@@ -161,6 +161,14 @@ export default {
       why: "Gemessen nur FF und in allen Ständen gleich.",
       evidence: "measure:2026-10-09/flash-dump",
     },
-  ],  /** Closed with DEV MODE on, by build (hacktribe: the ht traces, stock: the red ones). */
+  ],
+  /**
+   * The runtime's remote mailbox (tools/patch/script_remote.s: RM_MSG_AT, RM_AT with the command word and the done counter in
+   * the card work area): it lies inside the firmware image, so with DEV MODE on a plain WRITE reaches it and the frame hook hands
+   * the command to the firmware as panel input (tools/device/remote_press.py, no EXEC). No closed region may cover it
+   * (test/dev-mode.test.mjs); with DEV MODE off and on the synth the image refuses it like any other write.
+   */
+  remoteMailbox: { start: 0xc01f7fa0, end: 0xc01f7fcc, evidence: "measure:2026-11-14/dev-mode-eingabe" },
+  /** Closed with DEV MODE on, by build (hacktribe: the ht traces, stock: the red ones). */
   devClosed: { hacktribe: DEV_CLOSED.ht, stock: DEV_CLOSED.red },
 };

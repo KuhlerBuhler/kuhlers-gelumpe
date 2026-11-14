@@ -1087,8 +1087,82 @@ def case_dev_mode(payload, flash, vectors=None):
     return out
 
 
+def dev_input_cases(payload, flash=None):
+    """User input over USB with DEV MODE (tools/device/remote_press.py, docs/messungen/2026-11-14-dev-mode-eingabe.md): DEV MODE
+    switched on at its menu page, then remote_press puts keys, the main dial and panel messages into the runtime's mailbox by BLECH
+    WRITE only, and the device ends where the same steps on the panel leave it; EXEC never runs. With DEV MODE off the mailbox
+    WRITE is refused and remote_press stays on the EXEC stub."""
+    sys.path.insert(0, str(ROOT / "tools" / "device"))
+    import menu_cases as mc
+    import remote_cases as rc
+    import remote_press as rp
+    if not mc.has_menu(payload) or mc.LIST_DEV is None:
+        return []
+
+    def device(dev_mode):
+        dev = mc.boot(payload, flash)
+        if dev_mode:
+            mc.goto_top(dev, mc.LIST_DEV)
+            dev.turn(1, wait=0.3)
+        mc.go(dev, 1)
+        lk = Link(dev)
+
+        def ask(message):
+            replies, _ = lk.exchange(bytes(message), wait=10.0)
+            if not replies:
+                raise SystemExit("emulator: no answer")
+            return list(replies[0])
+        blech = rp.Blech(ask)
+        execs = []
+        real = blech.execute
+        blech.execute = lambda addr: (execs.append(addr), real(addr))[1]
+        return dev, blech, execs
+
+    out = []
+    keys = [(rc.KEY, rc.MENU, 0), (rc.KEY, rc.EDIT_NEXT, 0), (rc.ENCODER, 0, 1), (rc.ENCODER, 0, 1), (rc.ENCODER, 0, -1), (rc.KEY, rc.EXIT, 0)]
+    panel_dev = device(True)[0]
+    want = rc.panel(panel_dev, keys)
+    dev, blech, execs = device(True)
+    found = rp.remote_of(blech)
+    chosen = rp.via_mailbox(blech, found)
+    run = rp.mailbox_runner(blech, found, wait=20.0, poll=0)
+    ran, got = [], []
+    for kind, index, value in keys:
+        ran.append(run(rp.word(kind, index, value)))
+        dev.run(0.2)
+        got.append(rc.where(dev))
+    out.append(entry("dev_input_keys_like_the_panel", chosen and all(ran) and got == want and not execs and not dev.m.asserts,
+                     f"INFO flags {blech.flags:#x}, mailbox {found and hex(found[0])}, chosen {chosen}; done {ran}; mailbox {got}, panel {want}; EXEC calls {execs}"))
+
+    rc.watch_dispatch(dev)
+    names = rp.panel_names()
+    sent, ok = [], []
+    for step in ("level=200", "cutoff-3", "pad5", "touch=400,300", "shift:down", "shift:up"):
+        for _, w, message in rp.command(step, names):
+            ok.append(run(w, message))
+            if message:
+                sent.append(list(message))
+    dev.run(0.3)
+    panel_like = [m for m in dev.dispatched if m != [1, 2, 0, 0xFD, 0]]   # the encoder goes as a command word, not a message
+    out.append(entry("dev_input_messages_reach_the_dispatcher", all(ok) and panel_like == sent and not execs and dev.u32(rc.MAILBOX) == 0 and not dev.m.asserts,
+                     f"done {ok}; dispatched {dev.dispatched}, sent {sent}; command word after {dev.u32(rc.MAILBOX):#x}"))
+
+    off, blech_off, _ = device(False)
+    count = off.u32(rc.MAILBOX + 8)
+    refused = None
+    try:
+        blech_off.write(rc.MAILBOX, struct.pack("<I", rp.word(rp.KEY, rc.MENU)), verify=False)
+    except SystemExit as e:
+        refused = str(e)
+    off.run(0.3)
+    out.append(entry("dev_input_off_refused", refused and "refused" in refused and not rp.via_mailbox(blech_off, rp.remote_of(blech_off))
+                     and off.u32(rc.MAILBOX + 8) == count and off.u32(rc.MAILBOX) != rp.word(rp.KEY, rc.MENU),
+                     f"DEV MODE off: INFO flags {blech_off.flags:#x}, mailbox WRITE: {refused}; remote_press takes the EXEC stub"))
+    return out
+
+
 GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, file_cases, sample_cases, sample_kill_switch_cases,
-          case_stream, doom_bin_cases, doom_wad_cases, fx_read_cases, case_dev_mode)   # each its own task in check.py
+          case_stream, doom_bin_cases, doom_wad_cases, fx_read_cases, case_dev_mode, dev_input_cases)   # each its own task in check.py
 VECTOR_GROUPS = (case_protocol, case_dev_mode)
 
 

@@ -119,3 +119,35 @@ describe("src/protect.mjs with DEV MODE", () => {
     assert.ok(dev.some(v => v.op === "write" && v.status === BLECH.STATUS.OK && v.addr >= IMAGE[0] && v.addr + v.length <= IMAGE[1]), "some image writes pass");
   });
 });
+
+describe("the remote mailbox: user input over USB with DEV MODE", () => {
+  const box = PROTECTED.remoteMailbox;
+  const write = (addr, length) => ({ space: "ram", op: "write", addr, length });
+
+  test("is where script_remote.s keeps the message, the command word and the done counter", () => {
+    const card = Number(readFileSync(join(root, "tools/patch/script_hooks.py"), "utf8").match(/^CARD = (0x\w+)/m)[1]);
+    const s = readFileSync(join(root, "tools/patch/script_remote.s"), "utf8");
+    const equ = name => Number(s.match(new RegExp(`^\\.equ ${name}, (\\w+)`, "m"))[1]);
+    assert.equal(box.start, card + equ("RM_MSG_AT"));
+    assert.equal(box.end, card + equ("RM_AT") + equ("RM_SIZE"));
+  });
+
+  for (const build of ["hacktribe", "stock"]) {
+    test(`${build}: the message and the command word are written with DEV MODE on and refused with it off`, () => {
+      for (const [addr, length] of [[box.start, 8], [box.end - 12, 4], [box.end - 4, 4]]) {
+        assert.equal(refusal(write(addr, length), { devMode: true, build }), null, `${addr.toString(16)}`);
+        assert.equal(refusal(write(addr, length), { build }).region.id, "firmware-image", `${addr.toString(16)}`);
+      }
+      assert.equal(devClosedRegions(build).find(r => r.start < box.end && r.end > box.start), undefined, "no closed region covers the mailbox");
+    });
+  }
+
+  test("the synth refuses it even with the flag", () => {
+    assert.equal(refusal(write(box.start, 8), { devMode: true, build: "synth" }).region.id, "firmware-image");
+  });
+
+  test("the DEV vectors ask the firmware about the mailbox, the plain ones expect a refusal there", () => {
+    const at = v => v.op === "write" && v.addr === box.start && v.length === 4;
+    assert.equal(sysexVectors("hacktribe", { devMode: true }).find(at).status, BLECH.STATUS.OK);
+  });
+});
