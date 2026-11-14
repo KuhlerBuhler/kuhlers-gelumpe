@@ -114,11 +114,20 @@ def info_cases(vsb, flash):
     return [entry("sample_info", got == want and not r.dev.m.asserts, f"build {r.build}: fields 0 to 7 {got}, want {want}")]
 
 
-def changed(r):
-    """Changes three sound bytes of part 1 in RAM (shortcut_cases.edit) so the pattern differs from its place in the bank, and
-    notes every screen the firmware switches to from then on (the number at +0x2C of the screen manager) in r.screens."""
+OTHER_PATTERN = 5                # a running pattern other than the first one (the wheel, stopped, as a player would choose it)
+BANK = range(16)                # the places of the bank in RAM
+
+
+def changed(r, pattern=0):
+    """Chooses `pattern` with the wheel, keeps the places of the bank in r.bank before the program can save, changes three sound
+    bytes of part 1 in RAM (shortcut_cases.edit) so the pattern differs from its place in the bank, and notes every screen the
+    firmware switches to from then on (the number at +0x2C of the screen manager) in r.screens."""
     import shortcut_cases
     import unicorn
+    if pattern:
+        r.box.turn(pattern)
+        r.box.run(1.0)
+    r.bank = [r.box.saved(n) for n in BANK]
     shortcut_cases.edit(r.box, 0)
     r.edited = r.box.live() != r.box.saved()
     r.screens = []
@@ -127,36 +136,43 @@ def changed(r):
                         begin=at, end=at + 3)
 
 
-def write_cases(vsb, flash):
+def untouched(r):
+    """The places of the bank other than the running pattern's are as before the program started."""
+    return [n for n in BANK if n != r.box.running() and r.box.saved(n) != r.bank[n]] == []
+
+
+def write_cases(vsb, flash, pattern=0):
     """korg.pattern.write on the main screen: 1, a second call while the save waits 0, the write event, the bank equals RAM."""
-    r = Run(vsb, flash, "saver", before=changed)
-    others = [r.box.saved(n) for n in (1, 2)]
+    r = Run(vsb, flash, "saver", before=lambda r: changed(r, pattern))
     r.dev.run(1.0)
     v, box = r.vars(), r.box
-    ok = (r.edited and (v["first"], v["again"]) == (1, 0) and v["wrote"] == box.running() and box.live() == box.saved()
-          and box.screen() == 1 and [box.saved(n) for n in (1, 2)] == others and not r.dev.m.asserts)
+    others = untouched(r)
+    ok = (r.edited and (v["first"], v["again"]) == (1, 0) and v["wrote"] == box.running() == pattern and box.live() == box.saved()
+          and box.screen() == 1 and others and not r.dev.m.asserts)
     window = WINDOW in r.screens
-    return [entry("pattern_write_saves", ok and window, f"build {r.build}: edited {r.edited}, (first, again) {(v['first'], v['again'])}, "
-                  f"write event {v['wrote']} (running {box.running()}), saved {box.live() == box.saved()}, screen {box.screen()}, "
-                  f"screens on the way {r.screens}")]
+    name = "pattern_write_saves" + (f"_pattern_{pattern + 1}" if pattern else "")
+    return [entry(name, ok and window, f"build {r.build}: edited {r.edited}, (first, again) {(v['first'], v['again'])}, "
+                  f"write event {v['wrote']} (running {box.running()}, chosen {pattern}), saved {box.live() == box.saved()}, "
+                  f"other places untouched {others}, screen {box.screen()}, screens on the way {r.screens}")]
 
 
-def quiet_write_cases(vsb, flash):
+def quiet_write_cases(vsb, flash, pattern=0):
     """korg.display.popups = 0, then korg.pattern.write: the same save without the Write window (no switch to screen 18), 1 and a
     second call 0, the write event; a new start from the flash the save wrote has the edited pattern in its place."""
-    r = Run(vsb, flash, "quietsaver", before=changed)
-    others = [r.box.saved(n) for n in (1, 2)]
+    r = Run(vsb, flash, "quietsaver", before=lambda r: changed(r, pattern))
     r.dev.run(1.5)
     v, box = r.vars(), r.box
     live = box.live()
-    ok = (r.edited and (v["first"], v["again"]) == (1, 0) and v["wrote"] == box.running() and live == box.saved()
-          and box.screen() == 1 and [box.saved(n) for n in (1, 2)] == others and not r.dev.m.asserts)
+    others = untouched(r)
+    ok = (r.edited and (v["first"], v["again"]) == (1, 0) and v["wrote"] == box.running() == pattern and live == box.saved()
+          and box.screen() == 1 and others and not r.dev.m.asserts)
     again = SBox(vsb[0x100:], bytes(box.m.flash.mem))
     kept = again.saved(box.running()) == live
-    return [entry("pattern_write_quiet", ok and WINDOW not in r.screens and kept,
+    name = "pattern_write_quiet" + (f"_pattern_{pattern + 1}" if pattern else "")
+    return [entry(name, ok and WINDOW not in r.screens and kept,
                   f"build {r.build}: edited {r.edited}, (first, again) {(v['first'], v['again'])}, write event {v['wrote']} "
-                  f"(running {box.running()}), saved {live == box.saved()}, screen {box.screen()}, screens on the way {r.screens}, "
-                  f"in its place after a new start {kept}")]
+                  f"(running {box.running()}, chosen {pattern}), saved {live == box.saved()}, other places untouched {others}, "
+                  f"screen {box.screen()}, screens on the way {r.screens}, in its place after a new start {kept}")]
 
 
 def marked(r):
@@ -183,7 +199,8 @@ def copy_cases(vsb, flash):
 
 
 def cases(vsb, flash=None):
-    return name_cases(vsb, flash) + info_cases(vsb, flash) + write_cases(vsb, flash) + quiet_write_cases(vsb, flash) + copy_cases(vsb, flash)
+    return (name_cases(vsb, flash) + info_cases(vsb, flash) + write_cases(vsb, flash) + quiet_write_cases(vsb, flash)
+            + write_cases(vsb, flash, OTHER_PATTERN) + quiet_write_cases(vsb, flash, OTHER_PATTERN) + copy_cases(vsb, flash))
 
 
 def main():

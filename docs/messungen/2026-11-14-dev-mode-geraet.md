@@ -1,6 +1,6 @@
 # DEV MODE am Gerät: Testplan
 
-Stand 14. November 2026. Am Gerät gelaufen: Schritte 1, 2, 4, 5a, 5b, 7, 8, 9 (Ergebnisse unten); Schritt 6 offen. Rot, Basis Hacktribe `163d1d8d` (ORIGINAL.BIN der Karte).
+Stand 14. November 2026. Am Gerät gelaufen: alle Schritte (Ergebnisse unten). Rot, Basis Hacktribe `163d1d8d` (ORIGINAL.BIN der Karte).
 Was im Emulator gemessen ist und welche Bereiche gesperrt bleiben: `2026-11-14-dev-mode-sperrbereiche.md`.
 
 Regeln für jeden Schritt:
@@ -23,8 +23,9 @@ Regeln für jeden Schritt:
    python3 tools/emu/check.py --base ORIGINAL.BIN --patched out/devmode/ht-text.VSB --report out/devmode/ht-text.report.json
    ```
 
-   `ht-text.VSB` ändert nur den Titel der Seite `DEV MODE` in `HOT MODE`. Für Schritt 6 (Code) gibt es noch kein Testbild,
-   es wird vor dem Test gebaut und geprüft (offen).
+   `ht-text.VSB` ändert nur den Titel der Seite `DEV MODE` in `HOT MODE`. `ht-code.VSB` (Schritt 6) tauscht in
+   `menu_text_dev` `ldreq`/`ldrne`, die Seite zeigt dann `OFF`, solange DEV MODE an ist: Laufzeitcode, kein Text.
+   Prüfen wie `ht-text.VSB` (`--report out/devmode/ht-code.report.json`).
 4. Die Electribe hängt am Host `linux`; `tools/device/` und `tools/patch/blech_sysex.py` dorthin kopieren, die Befehle laufen
    dort.
 
@@ -38,7 +39,7 @@ Regeln für jeden Schritt:
 | 4 | `hot_patch.py --dry-run --new ht-text.VSB --checked ht-text.report.json` | READ | Basis-Beweis über das ganze Abbild bestanden, Tabelle mit einem `hot`-Bereich (der Titel), keine `full`-Zeile | offen |
 | 5a | Dasselbe ohne `--dry-run`, Sequencer gestoppt, Blöcke 1 KiB | **braucht Freigabe** | Seite heißt `HOT MODE`, ohne Neustart; Journal in `out/hot-patch/` | offen |
 | 5b | Ein 32-KiB-Block in freien FF-Bereich (Adresse vorher aus dem Abbild wählen), Antwortzeit von WRITE DATA messen | **braucht Freigabe** | Antwort kommt, Gerät läuft weiter; Zeit notieren (IRQ/FIQ während der Kopie maskiert) | offen |
-| 6 | Code-Änderung in einer Laufzeitfunktion einer Seite schreiben; Seite öffnen; 1 Minute ein Pattern spielen | **braucht Freigabe** | Seite zeigt die Änderung, kein Absturz, Ton ohne Aussetzer | offen (Testbild fehlt) |
+| 6 | Code-Änderung in einer Laufzeitfunktion einer Seite schreiben; Seite öffnen; 1 Minute ein Pattern spielen | **braucht Freigabe** | Seite zeigt die Änderung, kein Absturz, Ton ohne Aussetzer | offen |
 | 7 | `hot_patch.py --revert out/hot-patch/hot-patch-<sha8>.json` | **braucht Freigabe** | READ der geschriebenen Bereiche gleich Basis; Seite heißt wieder `DEV MODE` | offen |
 | 8 | Aus- und einschalten; INFO; `--dry-run` gegen die Basis | am Gerät, dann READ | Flag `0x400` aus, Seite zeigt OFF, READ gleich Basis | offen |
 | 9 | DEV MODE an, WRITE BEGIN auf die Schutztabelle `0xC0173800` (nur BEGIN, Skript unten) | **braucht Freigabe** | BEGIN abgelehnt, nichts geschrieben | offen |
@@ -76,7 +77,7 @@ print(f"flags {b.flags:#x}, BEGIN func {func:#x}, status {body[:4].hex()}, uncha
 | 9 | Freigabe erteilt. DEV MODE an, BEGIN auf `0xC0173800`: Status 2, abgelehnt, Bytes unverändert |
 | 2 | Freigabe erteilt. DEV MODE per Rad -1 aus (`remote_press`), Display `OFF`, `DEV_FLAG` `ffffffff`, INFO `0x3ff`. BEGIN auf `0xC0100000`: Status 2, abgelehnt, Bytes unverändert |
 | 8 | Aus und ein am Gerät. INFO `0x3ff`, `DEV_FLAG` `ffffffff`, `0xC015B358` `DEV MODE`, READ `0xC015B000..0xC015C000` gleich Basis, `0xC0165000` 32 KiB FF. `--dry-run` bricht mit "DEV MODE is off" ab (damit auch Schritt 1) |
-| 6 | offen, Testbild fehlt |
+| 6 | Freigabe erteilt. `ht-code.VSB` (sha `16ab3f52`, `check.py --quick` 19/19), im Emulator zeigt die Seite `ON` bei aus und `OFF` bei an. `--yes --allow-quick`: 8 Byte in 1 Gruppe (`0xC0157A74`, `0xC0157A78`), Rücklesen gleich, INFO `0x7ff`. Display auf der Seite: `DEV MODE` / `OFF` bei `DEV_FLAG` `DEVM`, ohne Neustart. 1 Minute Pattern gespielt: klang normal, kein Absturz. `--revert`: 1 Bereich, READ `0xC0157A70` = `000050e398109f0598109f15` (Basis), nach Verlassen und Betreten der Seite wieder `ON` |
 
 Gefunden und behoben: `--proof full` passt so nicht zum echten Gerät (Bereiche oben gehören zu den Daten), `near` ist
 jetzt der Standard. Auf `linux` scheiterte der Emulator-Teil von `hot_patch.py` in den Worker-Prozessen: spawn führt das
