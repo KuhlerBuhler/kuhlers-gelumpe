@@ -2736,7 +2736,7 @@ export default {
   "rescue.say.export.1": "Často se tu sejdou dvě věci, ani jedna není chyba zařízení.",
   "rescue.say.export.write": "Zaprvé: EXPORT PATTERN zapíše uložený pattern. Co jsi změnil, ale neuložil přes WRITE, v souboru není. Takže nejdřív WRITE, pak EXPORT PATTERN.",
   "rescue.say.export.folder": "Zadruhé: s BLECHTRIBE končí tvoje exporty v téhle složce. Starou složku BLECHTRIBE při prvním startu jen zkopíroval sem, ta zůstává se starými patterny. Proto importuj jen odsud:",
-  "rescue.say.export.blue": "Na modré Electribe BLECHTRIBE starou složku nekopíruje. Tvoje exporty stejně leží tady, staré patterny zůstávají v KORG/electribe.",
+  "rescue.say.export.blue": "Na modré Electribe BLECHTRIBE starou složku nekopíruje a exporty jdou přímo do KORG/blechtribe, bez Patterns. Staré patterny zůstávají v KORG/electribe.",
   "rescue.say.export.date": "A nediv se datu: Electribe nemá hodiny, její soubory mají vždycky 01.01.2014. Nový export se stejným názvem nahradí starý soubor, na počítači pak složka vypadá stejně.",
   "rescue.say.check.1": "Když kontrola zčervená, na tvoje zařízení se nic nedostane, takže se nic nerozbije. Podívám se, jakou verzi aplikace máš.",
   "rescue.say.checkOld.1": "Tvoje aplikace je starší než 1.3.7. Tam plná kontrola selže, když jsou v emulátoru uložené patterny. Přejmenuj tenhle soubor, třeba na flash-alt.bin, a spusť kontrolu znovu:",

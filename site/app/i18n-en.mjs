@@ -2736,7 +2736,7 @@ export default {
   "rescue.say.export.1": "Two things often come together here, neither is a fault in the device.",
   "rescue.say.export.write": "First: EXPORT PATTERN writes the saved pattern. What you changed but didn't save with WRITE isn't in the file. So first WRITE, then EXPORT PATTERN.",
   "rescue.say.export.folder": "Second: with BLECHTRIBE your exports end up in this folder. On its first start BLECHTRIBE only copied the old folder here, it stays put with the old patterns. So only import from here:",
-  "rescue.say.export.blue": "On the blue Electribe, BLECHTRIBE doesn't copy the old folder. Your exports are still here, the old patterns stay in KORG/electribe.",
+  "rescue.say.export.blue": "On the blue Electribe, BLECHTRIBE doesn't copy the old folder, and exports go straight into KORG/blechtribe, without Patterns. The old patterns stay in KORG/electribe.",
   "rescue.say.export.date": "And don't be surprised by the date: the Electribe has no clock, its files always carry 01.01.2014. A new export with the same name replaces the old file, so on the computer the folder looks the same.",
   "rescue.say.check.1": "If the check turns red, nothing goes onto your device, so nothing breaks. Let me check which version of the app you have.",
   "rescue.say.checkOld.1": "Your app is older than 1.3.7. There the full check fails when patterns are saved in the emulator. Rename this file, for example to flash-alt.bin, and start the check again:",
