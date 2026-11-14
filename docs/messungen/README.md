@@ -341,3 +341,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Blackfin: HOSTDP-FIFO und DMA1](2026-11-14-blackfin-host-fifo.md)
 - [Blackfin: gemeinsame ARM-/DSP-Modellzeit und GPIO](2026-11-14-blackfin-modellzeit.md)
 - [Blackfin: Datenzugriffe von Kern und DMA beobachten](2026-11-14-blackfin-speicherzugriffe.md)
+- [Blackfin: Grenzen und Deskriptoren der Speicher-DMA](2026-11-14-blackfin-dma-grenzen.md)

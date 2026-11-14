@@ -127,7 +127,6 @@ class Sport(unittest.TestCase):
             self.backend.write(descriptor, struct.pack('<IIHHI', next_descriptor, target, 0x768B, 16, 0))
         self.write(RXDMA, 0x30000, 4)
         self.write(RXDMA + 8, 0x760B)
-        self.assertEqual(self.read(RXDMA + 0x20, 4), 0x30000)
         self.backend.run(805)
         state, values = 1, []
         for _ in range(32):
@@ -136,6 +135,7 @@ class Sport(unittest.TestCase):
         for target, words in ((0x20000, values[:16]), (0x20100, values[16:])):
             self.assertEqual(self.backend.read(target, 64), struct.pack('<16I', *words))
         self.assertEqual(self.backend.sport_status()['rx_words'], 32)
+        self.assertEqual(self.read(RXDMA + 0x20, 4), 0x3000C)
 
     def test_descriptor_cannot_hide_an_unsupported_transfer_width(self):
         self.setup_rx()
@@ -198,6 +198,18 @@ class Sport(unittest.TestCase):
         self.assertEqual(stats['tx_frames'], 4)
         self.assertEqual(stats['tx_words'], 16)
         self.assertEqual(self.read(TXDMA + 0x28) & 9, 1)
+
+    def test_tx_dma_unmapped_memory_is_an_error_instead_of_fifo_backpressure(self):
+        self.clock()
+        self.write(SPORT, 0x4400)
+        self.write(SPORT + 4, 0x31F)
+        self.write(TXDMA + 4, 0x10000000, 4)
+        self.write(TXDMA + 0x10, 16)
+        self.write(TXDMA + 0x14, 4)
+        self.write(TXDMA + 8, 0x89)
+        self.write(SPORT, 0x4401)
+        with self.assertRaisesRegex(BackendError, 'DMA data read'):
+            self.backend.run(20)
 
     def run_dma_interrupt(self, ack_after):
         entry, main, handler, counter = 0x12000, 0x12100, 0x12200, 0x12300

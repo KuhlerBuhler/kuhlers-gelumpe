@@ -17,6 +17,10 @@ Registerbasis des Kanals und zusätzlich der aktuelle Deskriptorzeiger.
 Das erneute Setzen des Fensters löscht die Zähler; Länge null schaltet es aus.
 Die Abfrage verändert weder Speicher noch Modellzeit.
 
+Ab `BFIN9` hält der Beobachter den Anfang des aktiven Deskriptors getrennt vom
+Hardwarezeiger `CURR_DESC_PTR`. Dessen korrigierte Antwort und die Gegenproben
+stehen unter [DMA-Grenzen und Deskriptoren](2026-11-14-blackfin-dma-grenzen.md).
+
 Sechs gezielte Prüfungen mit erzeugten Programmen bestehen:
 
 - Ein Kernprogramm schreibt und liest ein Wort, das ein kleineres Fenster überlappt.

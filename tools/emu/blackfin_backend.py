@@ -50,8 +50,8 @@ class BlackfinBackend:
             os.set_blocking(self.process.stdin.fileno(), False)
             os.set_blocking(self.process.stdout.fileno(), False)
             self._selector.register(self.process.stdout, selectors.EVENT_READ)
-            if self._response() != b'BFIN8':
-                raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN8')
+            if self._response() != b'BFIN9':
+                raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN9')
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
             self.close()

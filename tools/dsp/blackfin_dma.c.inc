@@ -7,6 +7,38 @@ void blech_bfin_dma_host_stop (struct hw *, struct hw *, bool);
 void blech_bfin_dma_host_check (struct hw *, struct hw *, bool);
 void blech_bfin_dma_host_release (struct hw *, struct hw *);
 
+static unsigned
+blech_bfin_dma_remaining (const struct bfin_dma *dma)
+{
+  return dma->irq_status & DMA_RUN ? (dma->curr_x_count ? dma->curr_x_count : 65536U) : 0;
+}
+
+static unsigned
+blech_bfin_dma_peer_bytes (struct hw *me, struct bfin_dma *dma, unsigned bytes, bool read)
+{
+  struct bfin_dma *master;
+  unsigned remaining = blech_bfin_dma_remaining (dma);
+  if (!remaining || !bytes)
+    return 0;
+  if (!(dma->peripheral_map & CTYPE) || !dma->dma_master)
+    hw_abort (me, "unsupported DMA peer transfer");
+  master = hw_data (dma->dma_master);
+  if (!(master->peripheral_map & CTYPE)
+      || (dma->config & WDSIZE) == WDSIZE
+      || (master->config & WDSIZE) == WDSIZE
+      || dma->ele_size != master->ele_size)
+    hw_abort (me, "MDMA word sizes do not match");
+  if ((read && ((dma->config & WNR) || !(master->config & WNR)))
+      || (!read && (!(dma->config & WNR) || (master->config & WNR))))
+    hw_abort (me, "invalid MDMA direction");
+  if (bytes % dma->ele_size || (dma->curr_addr & (dma->ele_size - 1))
+      || (master->curr_addr & (master->ele_size - 1)))
+    hw_abort (me, "unaligned MDMA transfer");
+  if (dma->x_modify < 0)
+    remaining = 1;
+  return min (bytes, remaining * dma->ele_size);
+}
+
 void
 blech_bfin_dma_request (struct hw *me)
 {

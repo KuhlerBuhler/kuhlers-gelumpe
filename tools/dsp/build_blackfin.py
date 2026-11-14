@@ -146,11 +146,13 @@ def patch_sources(source):
 
     file = source / 'sim/bfin/dv-bfin_dma.c'
     text = file.read_text()
+    text = text.replace('dma->base, dma->curr_desc_ptr);',
+                        'dma->base, dma->active_desc_ptr);')
     for indent, kind, operation in ((6, 3, 'write'), (6, 2, 'read'), (2, 2, 'read'), (2, 3, 'write')):
         data = 'buf' if indent == 6 else 'dest' if operation == 'read' else 'source'
         size = 'ret' if operation == 'write' and indent == 6 else 'nr_bytes'
         marker = ' ' * indent + f'ret = sim_{operation} (hw_system (me), dma->curr_addr, {data}, {size});'
-        call = ' ' * indent + f'blech_bfin_memory_access ({kind}, dma->curr_addr, ret, dma->base, dma->curr_desc_ptr);'
+        call = ' ' * indent + f'blech_bfin_memory_access ({kind}, dma->curr_addr, ret, dma->base, dma->active_desc_ptr);'
         if '\n' + call + '\n' not in text:
             if text.count('\n' + marker + '\n') != 1:
                 raise ValueError('unexpected GNU Blackfin DMA buffer access implementation')
@@ -250,34 +252,93 @@ def patch_sources(source):
     if ownership not in region:
         region = region.replace('  switch (mmr_off)\n', ownership + '  switch (mmr_off)\n', 1)
     text = text[:start] + region + text[stop:]
-    start = text.index('bfin_dma_process_desc (')
-    stop = text.index('\nstatic int\nbfin_dma_finish_x', start)
-    region = text[start:stop]
-    width = region.index('  switch (dma->config & WDSIZE)')
-    flows = region.index('  switch (dma->config & DMAFLOW)')
-    if width < flows:
-        decoding = region[width:flows]
-        region = region[:width] + region[flows:]
-        at = region.index('  dma->curr_desc_ptr =')
-        region = region[:at] + decoding + region[at:]
-    declaration = '  bu32 descriptor = dma->next_desc_ptr;\n  bool large_descriptor = (dma->config & DMAFLOW) == DMAFLOW_LARGE;\n'
-    if declaration not in region:
-        region = region.replace('  bu8 ndsize =', declaration + '  bu8 ndsize =', 1)
-    region = region.replace('  dma->curr_desc_ptr = dma->next_desc_ptr;',
-                            '  dma->curr_desc_ptr = large_descriptor ? descriptor : dma->next_desc_ptr;')
-    text = text[:start] + region + text[stop:]
+    if '  bu32 active_desc_ptr;\n' not in text:
+        text = text.replace('  struct hw *host_owner;\n',
+                            '  struct hw *host_owner;\n  bu32 active_desc_ptr;\n', 1)
+    begin, end = '/* BLECH_DMA_DESCRIPTOR_BEGIN */', '/* BLECH_DMA_DESCRIPTOR_END */'
+    if begin in text:
+        start = text.index(begin)
+        stop = text.index(end, start) + len(end)
+    else:
+        start = text.index('static void\nbfin_dma_process_desc (')
+        stop = text.index('\nstatic int\nbfin_dma_finish_x', start)
+    descriptor = (ROOT / 'tools/dsp/blackfin_dma_desc.c.inc').read_text().rstrip()
+    text = text[:start] + begin + '\n' + descriptor + '\n' + end + '\n\n' + text[stop:].lstrip('\n')
     old = '  if (dma->config & DI_EN)\n    hw_port_event (me, 0, 1);\n'
-    new = '  dma->irq_status |= DMA_DONE;\n' + old
+    previous = '  dma->irq_status |= DMA_DONE;\n' + old
+    new = ('  if (!(dma->config & DMA2D) || (dma->config & DI_SEL) || dma->curr_y_count == 1)\n'
+           '    {\n'
+           '      dma->irq_status |= DMA_DONE;\n'
+           '      if (dma->config & DI_EN)\n'
+           '        hw_port_event (me, 0, 1);\n'
+           '    }\n')
     if new not in text:
-        if text.count(old) != 1:
+        if text.count(previous) == 1:
+            text = text.replace(previous, new)
+        elif text.count(old) == 1:
+            text = text.replace(old, new)
+        else:
             raise ValueError('unexpected GNU DMA completion implementation')
-        text = text.replace(old, new)
     old = '      dv_w1c_2 (value16p, value, DMA_DONE | DMA_ERR);\n'
     new = old + '      hw_port_event (me, 0, (dma->config & DI_EN) && (dma->irq_status & (DMA_DONE | DMA_ERR)));\n'
     if new not in text:
         if text.count(old) != 1:
             raise ValueError('unexpected GNU DMA interrupt acknowledgment')
         text = text.replace(old, new)
+    text = text.replace('(dma->config & DMA2D) && dma->curr_y_count > 1',
+                        '(dma->config & DMA2D) && dma->curr_y_count != 1')
+    declaration = ('static unsigned blech_bfin_dma_remaining (const struct bfin_dma *);\n'
+                   'static unsigned blech_bfin_dma_peer_bytes (struct hw *, struct bfin_dma *, unsigned, bool);\n\n')
+    if declaration not in text:
+        marker = 'static void bfin_dma_hw_event_callback (struct hw *, void *);'
+        if text.count(marker) != 1:
+            raise ValueError('unexpected GNU DMA callback declaration')
+        text = text.replace(marker, declaration + marker)
+    start = text.index('bfin_dma_hw_event_callback (struct hw *me, void *data)')
+    stop = text.index('\nstatic unsigned\nbfin_dma_io_write_buffer', start)
+    region = text[start:stop]
+    if '  if (!bfin_dma_running (dma))\n    return;' not in region:
+        region = region.replace('  dma->handler = NULL;\n',
+                                '  dma->handler = NULL;\n  if (!bfin_dma_running (dma))\n    return;\n', 1)
+    region = region.replace('dma->curr_x_count * dma->ele_size',
+                            'blech_bfin_dma_remaining (dma) * dma->ele_size')
+    region = region.replace('  unsigned ret, nr_bytes, ele_count;',
+                            '  unsigned ret, nr_bytes, ele_count, expected;')
+    if '      expected = ret;' not in region:
+        marker = '      ret = sim_write (hw_system (me), dma->curr_addr, buf, ret);'
+        if region.count(marker) != 1:
+            raise ValueError('unexpected GNU DMA destination write')
+        region = region.replace(marker, '      expected = ret;\n' + marker)
+    for kind, name, expected in ((3, 'write', 'expected'), (2, 'read', 'nr_bytes')):
+        marker = f'      blech_bfin_memory_access ({kind}, dma->curr_addr, ret, dma->base, dma->active_desc_ptr);'
+        check = (f'      if (ret != {expected})\n'
+                 f'        hw_abort (me, "DMA data {name} failed at %#x", dma->curr_addr);')
+        if check not in region:
+            if region.count(marker) != 1:
+                raise ValueError('unexpected GNU DMA data observation')
+            region = region.replace(marker, marker + '\n' + check)
+    text = text[:start] + region + text[stop:]
+    for name, read in (('read', 'true'), ('write', 'false')):
+        start = text.index(f'bfin_dma_dma_{name}_buffer (')
+        stop = text.index('\n  return ret;\n}', start) + len('\n  return ret;\n}')
+        region = text[start:stop]
+        region = region.replace('!bfin_dma_enabled (dma) && !bfin_dma_running (dma)',
+                                '!bfin_dma_enabled (dma) || !bfin_dma_running (dma)')
+        marker = f'  nr_bytes = blech_bfin_dma_peer_bytes (me, dma, nr_bytes, {read});'
+        if marker not in region:
+            old = '  /* XXX: handle x_modify ...  */'
+            if region.count(old) != 1:
+                raise ValueError('unexpected GNU DMA peer buffer implementation')
+            region = region.replace(old, marker + '\n  if (!nr_bytes)\n    return 0;')
+        kind = 2 if name == 'read' else 3
+        marker = f'  blech_bfin_memory_access ({kind}, dma->curr_addr, ret, dma->base, dma->active_desc_ptr);'
+        check = ('  if (ret != nr_bytes)\n'
+                 f'    hw_abort (me, "DMA data {name} failed at %#x", dma->curr_addr);')
+        if check not in region:
+            if region.count(marker) != 1:
+                raise ValueError('unexpected GNU DMA peer data observation')
+            region = region.replace(marker, marker + '\n' + check)
+        text = text[:start] + region + text[stop:]
     begin, end = '/* BLECH_SPORT_DMA_BEGIN */\n', '/* BLECH_SPORT_DMA_END */\n'
     extension = begin + (ROOT / 'tools/dsp/blackfin_dma.c.inc').read_text() + '\n' + end
     if begin in text:
@@ -344,6 +405,8 @@ def build(directory, jobs=4):
                              'BF52x HOSTDP registers and interrupt sources',
                              'HOSTDP FIFO and DMA1 descriptor/data transport',
                              'CPU and DMA data access observation windows',
+                             'MDMA row and descriptor bounds, signed strides and 65536-element counts',
+                             'DMA descriptor cursor, linked channel disable and explicit memory bus errors',
                              'SPORT0 stereo DMA FIFOs and explicit test clock',
                              'DMA completion status and interrupt acknowledgment',
                              'BF52x SIC aggregate levels and CEC level-sensitive interrupts',
