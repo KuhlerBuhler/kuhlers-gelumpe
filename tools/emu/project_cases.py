@@ -96,9 +96,9 @@ class ResearchDevice:
             self.spi.append(dict(kind="erase", at=self.m.flash.addr & ~(size - 1), length=size))
             return original_erase(size)
 
-        def byte(value):
+        def byte(value, *now):
             flash = self.m.flash
-            result = original_byte(value)
+            result = original_byte(value, *now)
             if flash.cmd == 0x02 and len(flash.buf) == 3 and flash.wel:
                 self.spi.append(dict(kind="program", at=flash.addr, length=256))
             return result

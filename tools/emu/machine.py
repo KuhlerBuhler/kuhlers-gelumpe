@@ -58,6 +58,8 @@ DSP_SYNC = 0x2C            # a one-word write to the control port that no transf
 #   tx_full         UART send loop: the byte did not fit the queue, retried up to 100000 times; ends the slice
 #   screens         pointer to the screen manager: +0x2C number of the current screen
 FLASH_SIZE = 0x1000000
+# typical busy times of a SPI NOR erase and page program (datasheet class values, not measured on the device): 4 KiB, 32 KiB, 64 KiB
+FLASH_BUSY_NS = {0x1000: 45_000_000, 0x8000: 150_000_000, 0x10000: 200_000_000, "program": 700_000}
 FIRMWARE_AT = 0x20000      # flash offset of the firmware image (SOFTWARE UPDATE writes [0x20000, 0x220000), measured 2026-10-10)
 USER_MARK = 0x220000       # flash offset the firmware checks at start; without the mark it offers the update
 MAIN_SCREEN = 1            # the screen the firmware shows once it has started
@@ -179,7 +181,13 @@ class SysexReader:
 
 
 class Flash:
-    """Serial NOR flash on SPI1, selected while GPIO 2.14 is low."""
+    """Serial NOR flash on SPI1, selected while GPIO 2.14 is low.
+
+    An erase or a page program keeps the chip busy (status bit 0, WIP) for FLASH_BUSY_NS after it starts, as a real chip
+    does, and a page program clears the write enable as an erase does. While busy the chip takes no command but the status
+    read. The firmware's driver polls the status with a 1 us delay (0xC001673C) between polls, at most 10,000 or 4,000,000
+    times (0xC001E940 and its two callers on red/HT, read 2026-11-14), so the calling task keeps the CPU. The times are
+    typical datasheet values for a SPI NOR of this size, not measured on the device."""
 
     def __init__(self, image, mark=SAMPLER_USER_MARK):
         self.mem = bytearray(image) if image else blank_flash(mark)
@@ -190,21 +198,36 @@ class Flash:
         self.wel = False
         self.dirty = False          # erased or programmed since the host last saved it
         self.commands = collections.Counter()
+        self.now = 0                # device time (ns) of the last select or byte, set by the machine
+        self.busy_until = 0         # end of the running erase or program
+        self.programmed = False     # a page program took data since the last select
 
-    def select(self, on):
+    def busy(self):
+        return self.now < self.busy_until
+
+    def select(self, on, now=0):
+        self.now = now
+        if not on and self.programmed:      # a page program starts when the chip is let go
+            self.busy_until = now + FLASH_BUSY_NS["program"]
+            self.wel = False
         self.selected = on
-        self.cmd, self.buf = None, []
+        self.cmd, self.buf, self.programmed = None, [], False
 
-    def byte(self, b):
+    def byte(self, b, now=0):
+        self.now = now
         if self.cmd is None:
             self.cmd = b
             self.commands[b] += 1
+            if self.busy() and b != 0x05:
+                self.cmd = -1               # busy: every command but the status read is ignored
+                return 0xFF
             if b == 0x06: self.wel = True
             if b == 0x04: self.wel = False
             return 0xFF
         self.buf.append(b)
         c, n = self.cmd, len(self.buf)
-        if c == 0x05: return 0x02 if self.wel else 0x00
+        if c == -1: return 0xFF
+        if c == 0x05: return (0x02 if self.wel else 0x00) | (0x01 if self.busy() else 0x00)
         if c == 0x9F: return (0x01, 0x20, 0x18)[min(n - 1, 2)]
         if n == 3:
             self.addr = int.from_bytes(bytes(self.buf), "big")
@@ -219,6 +242,7 @@ class Flash:
         if n > 3 and c == 0x02 and self.wel:
             self.mem[self.addr] &= b
             self.dirty = True
+            self.programmed = True
             self.addr = (self.addr & ~0xFF) | ((self.addr + 1) & 0xFF)
         return 0xFF
 
@@ -227,6 +251,7 @@ class Flash:
         self.mem[start:start + size] = b"\xff" * size
         self.dirty = True
         self.wel = False
+        self.busy_until = self.now + FLASH_BUSY_NS[size]
 
 
 class Machine:
@@ -560,7 +585,7 @@ class Machine:
                 self.lcd(v & 0xFF)
             if len(s["wire"]) >= 2:
                 s["buf"], s["full"] = s["wire"].popleft(), True
-            s["wire"].append(self.flash.byte(v & 0xFF) if base == SPI1 and self.flash.selected else 0)
+            s["wire"].append(self.flash.byte(v & 0xFF, self.time_ns) if base == SPI1 and self.flash.selected else 0)
             return True
         base = a & ~0xFF
         if base in self.uart:
@@ -638,7 +663,7 @@ class Machine:
         if pair == 3 and reg in (0x04, 0x08, 0x0C) and ((old ^ w) | v) & BACKLIGHT_PINS:
             self.backlight.write(self.time_ns, w & BACKLIGHT_PINS)
         if pair == 1 and (old ^ w) & 0x4000:        # GPIO 2.14: flash chip select
-            self.flash.select(not w & 0x4000)
+            self.flash.select(not w & 0x4000, self.time_ns)
         hold = pin(7, 11)[1]
         if pair == 3 and old & hold and not w & hold:   # GPIO 7.11: power hold let go
             self.powered = False
