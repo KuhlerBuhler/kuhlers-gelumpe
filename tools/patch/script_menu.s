@@ -598,7 +598,7 @@ menu_load_meter:
     and r0, r0, #3
     mov r1, #16
     bl menu_pc_call
-    ldr r0, [sp]                ; LED DIMMING (POWER SAVE): bits 6 and 7 and 31 of these flags, bit 31 of the look word (version 2 and 3)
+    ldr r0, [sp]                ; LED DIMMING (POWER SAVE): bits 6 and 7 and 31 of these flags, bit 31 of the look word (version 2 to 4)
     ldr r1, [r0, #12]
     ldrb r3, [r0, #4]
     cmp r3, #1

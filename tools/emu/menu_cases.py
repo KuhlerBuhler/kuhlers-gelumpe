@@ -3613,7 +3613,8 @@ def settings_v4_cases(payload, flash=None):
         return dev.read(MX_FLAGS2, 1)[0]
 
     def write(dev, value=None):
-        """WRITE from the page TAP MOTION, MX_FLAGS2 set to `value` first -> the newest file on the card as (version, byte 7, generation, count)."""
+        """WRITE from the page TAP MOTION, MX_FLAGS2 set to `value` first -> the newest file on the card as (version, byte 7, generation,
+        count, whole: length and CRC right as read_settings_look checks them)."""
         goto_group(dev, GROUP_FEATURES, FEAT_TM)
         if value is not None:
             dev.m.uc.mem_write(MX_FLAGS2, bytes([value]))
@@ -3621,33 +3622,36 @@ def settings_v4_cases(payload, flash=None):
         dev.run(3.0)
         files = [r for r in settings_raw(dev.m.mmc.card.medium.data).values() if len(r) >= 24 and r[:4] == b"GSET"]
         r = max(files, key=lambda r: struct.unpack_from("<I", r, 8)[0])
-        return r[4], r[7], struct.unpack_from("<I", r, 8)[0], r[6]
+        gen = struct.unpack_from("<I", r, 8)[0]
+        whole = any(v[0] == gen for v in read_settings_look(dev.m.mmc.card.medium.data).values())
+        return r[4], r[7], gen, r[6], whole
 
     v3 = start(settings_file_v3(5, TM_OFF_BIT, look))
     got3 = flags2(v3), state(v3, S_TM), state(v3, S_GEN)
     w3 = write(v3)
-    add("v3_read_and_written_as_v3", got3 == (0, 0, 5) and w3 == (3, 0, 6, 0) and not v3.m.asserts,
+    add("v3_read_and_written_as_v3", got3 == (0, 0, 5) and w3 == (3, 0, 6, 0, True) and not v3.m.asserts,
         f"after the start (byte 7, TAP MOTION, generation) {got3}, WRITE wrote (version, byte 7, generation, count) {w3}")
 
     trusted = tuple(0x1000 + i for i in range(40))
     v4 = start(settings_file_v4(9, TM_OFF_BIT, look, 0xFF, trusted=trusted))
     got4 = flags2(v4), state(v4, S_TM), state(v4, S_GEN), state(v4, 44)
     w4 = write(v4)
-    add("v4_bits_and_count", got4 == (FLAGS2_KNOWN, 0, 9, 40) and w4 == (4, FLAGS2_KNOWN, 10, 40) and not v4.m.asserts,
+    add("v4_bits_and_count", got4 == (FLAGS2_KNOWN, 0, 9, 40) and w4 == (4, FLAGS2_KNOWN, 10, 40, True) and not v4.m.asserts,
         f"byte 7 0xFF with 40 checksums: after the start (byte 7, TAP MOTION, generation, count) {got4}, WRITE wrote {w4}")
 
     cleared = start(settings_file_v4(3, 0, look, 2))
     got_c = flags2(cleared)
     wc = write(cleared, 0)
-    add("cleared_bits_write_v3", got_c == 2 and wc == (3, 0, 4, 0) and not cleared.m.asserts,
+    add("cleared_bits_write_v3", got_c == 2 and wc == (3, 0, 4, 0, True) and not cleared.m.asserts,
         f"byte 7 2 read as {got_c}, cleared and WRITE wrote {wc}")
 
     torn = start(settings_file_v4(3, TM_OFF_BIT, look, 1, bad_crc=True))
     raw3 = struct.pack("<IBBBBIII", 0x54455347, 3, 0, 0, 1, 3, TM_OFF_BIT, look)
     high = start(raw3 + struct.pack("<I", zlib.crc32(raw3) & 0xFFFFFFFF))
-    add("refused_files_keep_defaults", (flags2(torn), state(torn, S_TM)) == (0, 1) and (flags2(high), state(high, S_TM)) == (0, 1)
-        and not torn.m.asserts and not high.m.asserts,
-        f"v4 with a wrong CRC (byte 7, TAP MOTION) {(flags2(torn), state(torn, S_TM))}, v3 with byte 7 = 1 {(flags2(high), state(high, S_TM))}")
+    over = start(settings_file_v4(3, TM_OFF_BIT, look, 1, trusted=tuple(range(65))))     # 65 checksums: past the limit of version 3 and 4
+    refused = [(flags2(d), state(d, S_TM)) for d in (torn, high, over)]
+    add("refused_files_keep_defaults", refused == [(0, 1)] * 3 and not any(d.m.asserts for d in (torn, high, over)),
+        f"(byte 7, TAP MOTION) for v4 with a wrong CRC, v3 with byte 7 = 1, v4 with 65 checksums: {refused}")
 
     base = bytes(boot(payload, flash, adapter=True, card=False, seconds=wait).m.flash.mem)
     rec4 = settings_file_v4(1, TM_OFF_BIT, look, 2)   # the whole file, its own CRC included
@@ -3657,6 +3661,19 @@ def settings_v4_cases(payload, flash=None):
     add("flash_copies_read", (flags2(from_flash), state(from_flash, S_TM)) == (2, 0) and (flags2(from_v3), state(from_v3, S_TM)) == (0, 0)
         and not from_flash.m.asserts and not from_v3.m.asserts,
         f"v4 copy (byte 7, TAP MOTION) {(flags2(from_flash), state(from_flash, S_TM))}, v3 copy {(flags2(from_v3), state(from_v3, S_TM))}")
+
+    # without a card WRITE goes to the flash: with a bit in byte 7 a version 4 copy, which the next start without a card reads
+    bare = boot(payload, flash, adapter=True, card=False, seconds=wait)
+    goto_group(bare, GROUP_FEATURES, FEAT_TM)
+    bare.m.uc.mem_write(MX_FLAGS2, bytes([FLAGS2_IDLE_SAVE := 2]))
+    press(bare, "write", wait=0.6)
+    bare.run(3.0)
+    image = bytes(bare.m.flash.mem)
+    rec = flash_record(image, FLASH_SET_A) or flash_record(image, FLASH_SET_B)
+    back = start(None, image, card=False)
+    add("flash_write_v4_read_back", rec is not None and rec[1][4] == 4 and rec[1][7] == FLAGS2_IDLE_SAVE and flags2(back) == FLAGS2_IDLE_SAVE
+        and not bare.m.asserts and not back.m.asserts,
+        f"copy {None if rec is None else (rec[0], rec[1][4], rec[1][7])} (generation, version, byte 7), next start byte 7 {flags2(back)}")
     return out
 
 
