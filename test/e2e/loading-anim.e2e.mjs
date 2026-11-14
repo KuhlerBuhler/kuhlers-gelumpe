@@ -2,7 +2,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { setUp, go } from "./harness.mjs";
-import { decodeAnimation, encodeAnimation, frameToPixels, MAX_BYTES, FRAME_BYTES } from "../../src/loading-anim.mjs";
+import { decodeAnimation, encodeAnimation, frameToPixels, animationFlags, MAX_BYTES, FRAME_BYTES, FLAG_OFF, FLAG_BLECHY } from "../../src/loading-anim.mjs";
 
 let h;
 before(async () => { h = await setUp(); });
@@ -51,8 +51,8 @@ const stored = async page => {
 };
 const saved = async page => decodeAnimation(await stored(page));
 const slotText = page => page.locator("#cee-anim-slot-text").textContent();
-const stateText = page => page.locator("#cee-anim-state").textContent();
-const canSave = async page => (await page.locator("#cee-anim-use").isVisible()) && !(await page.locator("#cee-anim-use").isDisabled());
+/** Download keeps the file in this browser too, so the tests read it back from there. */
+const keep = async page => { await Promise.all([page.waitForEvent("download"), page.click("#cee-anim-download")]); };
 const toSlot = async (page, s) => { await page.locator("#cee-anim-progress").fill(String(s)); };
 const filled = page => page.locator("#cee-anim-slot-picture").isVisible();
 const lcdShot = page => page.locator("#cee-anim-preview").evaluate(c => c.toDataURL());
@@ -72,7 +72,7 @@ test("Design: three tabs, Startbild, Ladeanimation and Image Viewer; the gallery
   assert.equal(await page.locator("#cee-anim-slot-drop .lucide-plus").count(), 1);
   assert.equal(await page.locator("#cee-anim-edit").isVisible(), true, "the pen also on an empty slot");
   assert.equal(await page.locator("#cee-anim-prev").isDisabled(), true);
-  assert.equal(await page.locator("#cee-anim-use").isVisible(), false, "nothing to save without pictures");
+  assert.equal(await page.locator("#cee-anim-save").isHidden(), true, "nothing to write without pictures");
   assert.equal(await page.locator("#cee-anim-size-field").isHidden(), true);
   assert.equal(await page.locator("#cee-anim-mode-field").isHidden(), true, "no stretch or repeat without an import");
   assert.equal(await page.locator(".cee-lcd-frame #cee-anim-preview.cee-lcd").count(), 1, "the preview is drawn as the device display");
@@ -96,15 +96,13 @@ test("Design: a GIF with fewer than 100 frames is stretched over the slots by de
   await toSlot(page, 66);
   assert.match(await slotText(page), /ffmpeg-moving 3$/);
   assert.match(await page.locator("#cee-anim-size-text").textContent(), /^\d+,\d von 16 KB$/);
-  assert.match(await stateText(page), /Änderungen noch nicht gespeichert/);
-  await page.click("#cee-anim-use");
+  await keep(page);
   const anim = await saved(page);
   assert.equal(anim.progress.length, 100, "one progress picture per slot");
   assert.equal(same(anim.progress[32], anim.progress[0]), true, "slots 1 to 32 keep picture 1");
   assert.equal(same(anim.progress[33], anim.progress[32]), false, "picture 2 from slot 33 on");
   assert.equal(same(anim.progress[99], anim.progress[66]), true);
-  assert.match(await stateText(page), /deine Animation.*Gespeichert\./);
-  assert.equal(await canSave(page), false);
+  assert.equal(await page.locator("#cee-anim-state").textContent(), "Die Datei heißt loading.blla und liegt auf der Karte in KORG/blechtribe/Media.");
   assert.deepEqual(page.errors, []);
 });
 
@@ -122,13 +120,11 @@ test("Design: Wiederholen plays the GIF again and again, slot n takes frame n % 
   await toSlot(page, 98);
   assert.match(await slotText(page), /ffmpeg-moving 3$/, "98 % 3 = 2");
   assert.notEqual(await page.locator("#cee-anim-size-text").textContent(), stretched, "the meter shows what the repeats cost");
-  await page.click("#cee-anim-use");
+  await keep(page);
   const anim = await saved(page);
   assert.equal(same(anim.progress[3], anim.progress[0]), true);
   assert.equal(same(anim.progress[1], anim.progress[0]), false);
   assert.equal(same(anim.progress[4], anim.progress[1]), true);
-  await page.locator("#cee-anim-mode-stretch").check({ force: true });
-  assert.match(await stateText(page), /noch nicht gespeichert/, "back to stretch is a change");
   assert.deepEqual(page.errors, []);
 });
 
@@ -161,7 +157,7 @@ test("Design: a single picture into one slot by its plus, and emptied again", as
   assert.equal(await slotText(page), "Bild 3 von 100, 2 %. only");
   assert.equal(await page.locator("dialog.ui-dialog[open]").count(), 0, "one slot does not ask");
   assert.equal(await page.locator("#cee-anim-mode-field").isHidden(), true);
-  await page.click("#cee-anim-use");
+  await keep(page);
   const anim = await saved(page);
   assert.equal(anim.progress[1].every(b => b === 0xff), true, "slots 0 and 1 blank");
   assert.equal(anim.progress[2].every(b => b === 0xff), false);
@@ -248,7 +244,7 @@ test("Design: the editor draws with the pen and takes away with the eraser, an e
   await page.click("#cee-anim-editor-apply");
   await page.locator("#cee-anim-slot-picture:not([hidden])").waitFor();
   assert.equal(await slotText(page), "Bild 1 von 100, 0 %. Bild 1");
-  await page.click("#cee-anim-use");
+  await keep(page);
   let px = frameToPixels((await saved(page)).progress[0]);
   assert.equal(px[20 * 128 + 10], 1, "drawn");
   assert.equal(px[20 * 128 + 60], 1, "the whole stroke");
@@ -260,7 +256,7 @@ test("Design: the editor draws with the pen and takes away with the eraser, an e
   await page.locator("#cee-anim-tool-eraser").check({ force: true });
   await stroke(page, 30, 40, 20);
   await page.click("#cee-anim-editor-apply");
-  await page.click("#cee-anim-use");
+  await keep(page);
   px = frameToPixels((await saved(page)).progress[0]);
   assert.equal(px[20 * 128 + 35], 0, "erased");
   assert.equal(px[20 * 128 + 10], 1, "the rest stays");
@@ -270,7 +266,8 @@ test("Design: the editor draws with the pen and takes away with the eraser, an e
   await dialog.waitFor();
   await stroke(page, 0, 127, 50);
   await dialog.getByRole("button", { name: "Abbrechen" }).click();
-  assert.equal(await canSave(page), false, "nothing changed");
+  await keep(page);
+  assert.equal(frameToPixels((await saved(page)).progress[0])[50 * 128 + 64], 0, "nothing changed");
   assert.deepEqual(page.errors, []);
 });
 
@@ -278,13 +275,12 @@ test("Design: invert turns the whole animation and the preview", async () => {
   const page = await designPage();
   await dropPictures(page, [["a.png", 10], ["b.png", 100]]);
   await page.locator("#cee-anim-slot-picture:not([hidden])").waitFor();
-  await page.click("#cee-anim-use");
+  await keep(page);
   const plain = await saved(page);
   const before = await lcdShot(page);
   await page.locator("#cee-anim-invert").setChecked(true, { force: true });
   assert.notEqual(await lcdShot(page), before, "the preview follows");
-  assert.match(await stateText(page), /noch nicht gespeichert/);
-  await page.click("#cee-anim-use");
+  await keep(page);
   const turned = await saved(page);
   assert.equal(turned.progress[0].every((b, i) => b === (plain.progress[0][i] ^ 0xff)), true);
   assert.equal(turned.progress[99].every((b, i) => b === (plain.progress[99][i] ^ 0xff)), true);
@@ -304,7 +300,7 @@ test("Design: the waiting loop takes the slots from its percent on and comes bac
   await page.locator("#cee-anim-loop").setChecked(true, { force: true });
   assert.equal(await page.locator("#cee-anim-loop-percent").inputValue(), "95");
   assert.match(await slotText(page), /Teil der Warte-Schleife\.$/);
-  await page.click("#cee-anim-use");
+  await keep(page);
   const anim = await saved(page);
   assert.equal(anim.loop.length, 2);
   assert.equal(anim.loopFrom, 95);
@@ -313,7 +309,6 @@ test("Design: the waiting loop takes the slots from its percent on and comes bac
   await page.locator("#cee-anim-slot-picture:not([hidden])").waitFor();
   assert.equal(await page.locator("#cee-anim-loop").isChecked(), true);
   assert.equal(await page.locator("#cee-anim-loop-percent").inputValue(), "95");
-  assert.equal(await canSave(page), false, "what comes back is what is saved");
   // the file keeps the loop pictures, not the gaps between them: they come back in a row from the loop's percent
   await toSlot(page, 96);
   assert.equal(await filled(page), true);
@@ -333,7 +328,7 @@ test("Design: an older file with the loop on a stall (byte 5 = 0) shows 95 % and
   await page.locator("#cee-anim-slot-picture:not([hidden])").waitFor();
   assert.equal(await page.locator("#cee-anim-loop").isChecked(), true);
   assert.equal(await page.locator("#cee-anim-loop-percent").inputValue(), "95");
-  await page.click("#cee-anim-use");
+  await keep(page);
   assert.equal((await saved(page)).loopFrom, 95);
   assert.deepEqual(page.errors, []);
 });
@@ -344,26 +339,26 @@ test("Design: an animation over 16 KB is refused inline with its most expensive 
   await dropPictures(page, Array.from({ length: 24 }, (_, i) => [`f-${String(i).padStart(2, "0")}.png`, i % 2 ? "black" : "white"]));
   await page.locator("#cee-anim-slot-picture:not([hidden])").waitFor();
   assert.match(await page.locator("#cee-anim-size-text").textContent(), /^2\d,\d von 16 KB$/);
-  assert.equal(await page.locator("#cee-anim-use").isDisabled(), true, "too big is not taken");
+  assert.equal(await page.locator("#cee-anim-download").isDisabled(), true, "too big is not taken");
   const why = await page.locator("#cee-anim-too-big").textContent();
   assert.match(why, /zu groß/);
   assert.match(why, /f-\d\d \(1,0 KB\)/, "names the most expensive pictures");
   await page.click("#cee-anim-thin");
   const size = await page.locator("#cee-anim-size-text").textContent();
   assert.ok(Number(size.split(" ")[0].replace(",", ".")) * 1024 <= MAX_BYTES, size);
-  assert.equal(await page.locator("#cee-anim-use").isDisabled(), false);
+  assert.equal(await page.locator("#cee-anim-download").isDisabled(), false);
   assert.equal(await page.locator("#cee-anim-too-big").isVisible(), false);
-  await page.click("#cee-anim-use");
+  await keep(page);
   assert.ok((await stored(page)).length <= MAX_BYTES);
   assert.deepEqual(page.errors, []);
 });
 
-test("Design: the default comes back, also after a reload; unsaved work is asked for first", async () => {
+test("Design: Leeren empties the page, also after a reload; unsaved work is asked for first", async () => {
   const page = await designPage();
-  assert.equal(await page.locator("#cee-anim-reset").isVisible(), false, "nothing to restore without an own animation");
+  assert.equal(await page.locator("#cee-anim-reset").isVisible(), false, "nothing to clear without an own animation");
   await dropPictures(page, [["a.png", 10], ["b.png", 100]]);
   await page.locator("#cee-anim-slot-picture:not([hidden])").waitFor();
-  await page.click("#cee-anim-use");
+  await keep(page);
   assert.notEqual(await stored(page), null);
   await page.locator("#cee-anim-invert").setChecked(true, { force: true });
   await page.click("#cee-anim-reset");
@@ -372,16 +367,14 @@ test("Design: the default comes back, also after a reload; unsaved work is asked
   await dialog.getByRole("button", { name: "Abbrechen" }).click();
   assert.notEqual(await stored(page), null);
   await page.click("#cee-anim-reset");
-  await dialog.getByRole("button", { name: "Standard wiederherstellen" }).click();
+  await dialog.getByRole("button", { name: "Leeren" }).click();
   await page.locator("#cee-anim-slot-drop:not([hidden])").waitFor();
   assert.equal(await stored(page), null);
-  assert.match(await stateText(page), /Blechy/);
   assert.equal(await page.locator("#cee-anim-reset").isVisible(), false);
-  assert.equal(await page.locator("#cee-anim-use").isVisible(), false);
+  assert.equal(await page.locator("#cee-anim-save").isHidden(), true);
   await page.reload();
   await go(page, "splash");
-  await page.locator("#cee-anim-state").waitFor();
-  assert.match(await stateText(page), /Blechy/);
+  await page.locator("#cee-anim-slot-text:not(:empty)").waitFor();
   assert.equal(await page.locator("#cee-anim-slot-drop").isVisible(), true);
   assert.deepEqual(page.errors, []);
 });
@@ -390,7 +383,7 @@ test("Design: a saved animation without changes is reset without asking", async 
   const page = await designPage();
   await dropPictures(page, [["a.png", 10], ["b.png", 100]]);
   await page.locator("#cee-anim-slot-picture:not([hidden])").waitFor();
-  await page.click("#cee-anim-use");
+  await keep(page);
   await page.click("#cee-anim-reset");
   assert.equal(await stored(page), null);
   assert.equal(await page.locator("dialog.ui-dialog[open]").count(), 0);
@@ -403,5 +396,25 @@ test("Design: a file that is no picture is told, not taken", async () => {
   await page.locator("#app-toasts .cee-toast", { hasText: "broken.gif" }).waitFor();
   assert.equal(await page.locator("#cee-anim-slot-drop").isVisible(), true);
   assert.equal(await page.locator("#cee-anim-loading").isHidden(), true, "the loading bar goes away");
+  assert.deepEqual(page.errors, []);
+});
+
+test("Design: Beim Start sets byte 14 of the file and comes back after a reload", async () => {
+  const page = await designPage();
+  await dropPictures(page, [["a.png", 10], ["b.png", 100]]);
+  await page.locator("#cee-anim-slot-picture:not([hidden])").waitFor();
+  assert.equal(await page.locator("#cee-anim-start-card").isChecked(), true, "this animation first");
+  await keep(page);
+  assert.equal(animationFlags(await stored(page)), 0);
+  for (const [mode, flag] of [["blechy", FLAG_BLECHY], ["off", FLAG_OFF]]) {
+    await page.locator(`#cee-anim-start-${mode}`).check({ force: true });
+    await keep(page);
+    assert.equal(animationFlags(await stored(page)), flag, mode);
+  }
+  await page.reload();
+  await go(page, "splash");
+  await page.locator("#cee-anim-slot-picture:not([hidden])").waitFor();
+  assert.equal(await page.locator("#cee-anim-start-off").isChecked(), true);
+  assert.equal(await page.locator("#cee-anim-write").isVisible(), true);
   assert.deepEqual(page.errors, []);
 });

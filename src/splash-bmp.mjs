@@ -7,7 +7,7 @@ import { SPLASH_W, SPLASH_H } from "./patch.mjs";
 
 export { SPLASH_W, SPLASH_H };
 export const SPLASH_FILE = "splash.bmp";
-export const SPLASH_FOLDER = "KORG/blechtribe/";
+export const SPLASH_FOLDER = "KORG/blechtribe/Media/";
 
 /**
  * Brightness 0 (black) to 255 (white), one value per pixel, row by row, to 1 for a drawn pixel and 0 for an empty one.

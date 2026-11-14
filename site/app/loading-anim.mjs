@@ -1,6 +1,7 @@
 /**
  * The loading animation on the Design page: 100 slots, slot n for n percent, filled from a GIF, several pictures or one
- * picture per slot, edited pixel by pixel, to a BLLA file the Patcher writes. Logic: src/loading-anim.mjs.
+ * picture per slot, edited pixel by pixel, to the BLLA file the firmware reads from the card's Media folder
+ * (loading.blla). Logic: src/loading-anim.mjs.
  */
 import { el } from "./fields.mjs";
 import { toastFor } from "./toast.mjs";
@@ -9,16 +10,23 @@ import { icon } from "./icons.mjs";
 import { dropzoneClear } from "./dropzone-clear.mjs";
 import { pixelsOf, paint, switchOf } from "./splash.mjs";
 import { drawDisplay } from "./emulator.mjs";
+import { writeMedia, MEDIA_FOLDER } from "./card-access.mjs";
+import { saveFile } from "./save-file.mjs";
 import { number } from "../../src/text.mjs";
 import { decodeGif } from "../../src/gif.mjs";
 import {
   encodeAnimation, decodeAnimation, validateAnimation, costPerFrame, progressIndex, loopPicture, pixelsToFrame, frameToPixels,
-  slotSource, slotsToAnimation, animationToSlots, SLOTS, MAX_BYTES, HEADER_BYTES, SPLASH_W, SPLASH_H,
+  slotSource, slotsToAnimation, animationToSlots, animationFlags, SLOTS, MAX_BYTES, HEADER_BYTES, SPLASH_W, SPLASH_H,
+  FLAG_OFF, FLAG_BLECHY,
 } from "../../src/loading-anim.mjs";
 /** An error of this page opens Blechy at its topic (data/rescue.mjs). */
 const toast = toastFor("h:splash");
 
 const KEY = "cee.loading.anim";
+/** The file the firmware reads from the Media folder (tools/patch/load_bar.py). */
+const FILE = "loading.blla";
+/** What plays at the start, byte 14 of the file; the BLECH menu changes the same byte. */
+const START = { card: 0, blechy: FLAG_BLECHY, off: FLAG_OFF };
 const LOOP_MS = 96;     // the firmware's loop picture time (tools/patch/load_bar.py)
 const FRAME_MS = 50;    // load_bar.FRAME_MS: at most one new picture every 50 ms, so one slot per 50 ms
 const HOLD_MS = 2000;   // the preview stands this long at 100 % before it starts again, the loop playing
@@ -27,7 +35,7 @@ const LOOP_FROM = 95;   // the loop's start percent when it is switched on
 const readStored = () => { try { return localStorage.getItem(KEY) || ""; } catch { return ""; } };
 const toBase64 = bytes => btoa(String.fromCharCode(...bytes));
 
-/** The animation kept for the Patcher, as the file the firmware reads, or null for the default. */
+/** The animation last written or downloaded in this browser, as the file the firmware reads, or null. */
 export function storedAnimation() {
   try {
     const text = readStored();
@@ -219,14 +227,18 @@ export function loadingAnimSection() {
     tooBigText,
   ], { id: "cee-anim-size-field" });
 
-  const use = el("button", { type: "button", className: "btn cee-primary", id: "cee-anim-use", textContent: t("splash.anim.use"), hidden: true });
+  // what plays at the start: this animation, Blechy, or nothing
+  const startMode = segmented("cee-anim-start", [["card", t("splash.anim.start.card")], ["blechy", t("splash.anim.start.blechy")], ["off", t("splash.anim.start.off")]], t("splash.anim.start"));
+  const startHelp = el("p", { className: "ui-field-help", id: "cee-anim-start-help", textContent: t("splash.anim.start.help") });
+  startMode.node.setAttribute("aria-describedby", startHelp.id);
+  for (const input of startMode.inputs) input.addEventListener("change", () => update());
+  const startField = field(el("span", { className: "ui-field-label", textContent: t("splash.anim.start") }), [startMode.node, startHelp], { id: "cee-anim-start-field" });
+
+  const write = el("button", { type: "button", className: "btn cee-primary", id: "cee-anim-write" }, [icon("folder"), t("splash.anim.write")]);
+  const download = el("button", { type: "button", className: "btn", id: "cee-anim-download" }, [icon("download"), t("splash.anim.download")]);
   const reset = el("button", { type: "button", className: "btn", id: "cee-anim-reset", textContent: t("splash.anim.reset"), hidden: true });
-  // one plain line: what the Patcher takes, whether the changes are saved, and the way to the Patcher
-  const stateText = el("span", { id: "cee-anim-state-text" });
-  stateText.setAttribute("aria-live", "polite");
-  const patcherLink = el("a", { className: "cee-text-link", id: "cee-anim-patcher-link", href: "#patcher", textContent: t("splash.anim.toPatcher") });
-  const state = el("p", { className: "ui-field-help", id: "cee-anim-state" }, [stateText, " ", patcherLink]);
-  const save = el("div", { className: "cee-anim-save" }, [el("div", { className: "cee-anim-actions" }, [use, reset]), state]);
+  const state = el("p", { className: "ui-field-help", id: "cee-anim-state", textContent: t("splash.anim.where", { folder: MEDIA_FOLDER, file: FILE }) });
+  const save = el("div", { className: "cee-anim-save", hidden: true }, [startField, el("div", { className: "cee-anim-actions" }, [write, download, reset]), state]);
 
   // (g) Der Editor: pen and eraser on the 128 x 64 pixels of one slot
   const tool = segmented("cee-anim-tool", [["pen", t("splash.anim.tool.pen"), "pencil"], ["eraser", t("splash.anim.tool.eraser"), "eraser"]], t("splash.anim.tool"));
@@ -273,6 +285,7 @@ export function loadingAnimSection() {
       return cache.get(item);
     });
     anim = slotsToAnimation(frames, { loopFrom: loopSwitch.input.checked ? loopFrom() : 0, invert: invert.input.checked });
+    anim.flags = START[startMode.value()] ?? 0;
   }
 
   /** The slider's fill and value after a value set by code, which fires no input event. */
@@ -464,7 +477,7 @@ export function loadingAnimSection() {
       tooBig = bytes > MAX_BYTES;
       sizeText.textContent = t("splash.anim.size", { size: kb(bytes), max: MAX_KB });
       window.ui?.setMeter?.(meter, Math.min(100, bytes * 100 / MAX_BYTES), { label: t("splash.anim.size.label"), valueText: sizeText.textContent, tone: tooBig ? "error" : undefined, warnAt: 90 });
-      use.setAttribute("aria-describedby", tooBig ? "cee-anim-too-big cee-anim-state" : "cee-anim-state");
+      for (const b of [write, download]) b.setAttribute("aria-describedby", tooBig ? "cee-anim-too-big cee-anim-state" : "cee-anim-state");
       thin.hidden = !tooBig || progressSlots().length < 3;
       tooBigText.hidden = !tooBig;
       if (tooBig) {
@@ -486,14 +499,11 @@ export function loadingAnimSection() {
   const progressSlots = () => Array.from({ length: loopCut() }, (_, s) => s).filter(s => frames[s]);
 
   function showSave() {
-    const kept = storedAnimation();
-    const inPatcher = kept ? t("splash.anim.state.own", { size: kb(kept.length) }) : t("splash.anim.state.default");
     const filled = frames.some(Boolean);
-    stateText.textContent = filled ? `${inPatcher} ${t(dirty ? "splash.anim.unsaved" : "splash.anim.saved")}` : inPatcher;
-    reset.hidden = !kept;
-    use.hidden = !filled;
-    // saving is only offered for something new that fits
-    use.disabled = tooBig || !dirty;
+    save.hidden = !filled;
+    reset.hidden = !filled && !storedAnimation();
+    // a file that does not fit cannot go to the card
+    write.disabled = download.disabled = tooBig;
   }
 
   thin.addEventListener("click", () => {
@@ -502,19 +512,32 @@ export function loadingAnimSection() {
     update();
   });
 
-  use.addEventListener("click", () => {
+  /** The file to write, kept in this browser too so the page comes back with it; null after telling what is wrong. */
+  function fileBytes() {
     const { bytes } = encodeAnimation(anim);
     const bad = validateAnimation(bytes);
-    if (bad) { toast(t("splash.anim.invalid", { reason: bad }), "error"); return; }
-    try {
-      localStorage.setItem(KEY, toBase64(bytes));
-    } catch {
-      toast(t("splash.noStorage"), "error");
-      return;
-    }
+    if (bad) { toast(t("splash.anim.invalid", { reason: bad }), "error"); return null; }
+    try { localStorage.setItem(KEY, toBase64(bytes)); } catch { /* the file still goes out, only the page forgets it */ }
     dirty = false;
     showSave();
-    toast(t("splash.anim.used"), "ok");
+    return bytes;
+  }
+  const downloadFile = bytes => saveFile(bytes, FILE, { note: t("splash.anim.downloadNote", { folder: MEDIA_FOLDER }) });
+
+  write.addEventListener("click", async () => {
+    const bytes = fileBytes();
+    if (!bytes) return;
+    try {
+      const done = await writeMedia(FILE, bytes);
+      if (done === "written") toast(t("splash.anim.written", { folder: MEDIA_FOLDER, file: FILE }), "ok");
+      else if (done === "readonly") { toast(t("splash.anim.readonly", { folder: MEDIA_FOLDER }), "info"); downloadFile(bytes); }
+    } catch (e) {
+      toast(t("splash.anim.writeFailed", { error: e?.message ?? String(e) }), "error");
+    }
+  });
+  download.addEventListener("click", () => {
+    const bytes = fileBytes();
+    if (bytes) downloadFile(bytes);
   });
 
   reset.addEventListener("click", async () => {
@@ -527,6 +550,7 @@ export function loadingAnimSection() {
     own.clear();
     loopSwitch.input.checked = false;
     invert.input.checked = false;
+    startMode.inputs[0].checked = true;
     files.textContent = "";
     pause();
     go(0);
@@ -604,6 +628,9 @@ export function loadingAnimSection() {
     const back = animationToSlots(decodeAnimation(kept));
     source = back.slots.map((f, s) => (f ? { name: t("splash.anim.frame", { n: s + 1 }), pixels: frameToPixels(f) } : null));
     if (back.loopFrom) { loopSwitch.input.checked = true; percent.value = String(back.loopFrom); }
+    const flags = animationFlags(kept);
+    const mode = Object.entries(START).find(([, f]) => f && flags & f)?.[0] ?? "card";
+    for (const input of startMode.inputs) input.checked = input.value === mode;
   }
   showPlay();
   // the page builds the section before it is in the document: the first drawing waits for the colours of the display
