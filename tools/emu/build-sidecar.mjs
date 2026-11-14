@@ -77,6 +77,8 @@ run(...command(python, [
   // Blechy's sprites and the display font: the power-off and card-error pictures are drawn from them when a check builds them.
   "--add-data", `${path("../../assets/blechy/sprites")}${sep}assets/blechy/sprites`,
   "--add-data", `${path("../../data/script/font.mjs")}${sep}data/script`,
+  // The runtime's assembler sources: a case that builds its own runtime (script_hooks.build) reads them next to the modules.
+  ...readdirSync(path("../patch")).filter(f => /\.s$/.test(f)).flatMap(f => ["--add-data", `${path(`../patch/${f}`)}${sep}tools/patch`]),
   path("server.py"),
 ]));
 

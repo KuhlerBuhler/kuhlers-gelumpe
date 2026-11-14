@@ -23,7 +23,7 @@ CORE = ('idle', 'playing', 'playing-keyboard', 'sequencer-four-note-long-ties')
 APPS = ('mandelbrot', 'life', 'pong')
 INSTALLED_APPS = ('blechclicker', 'settimer', 'snake', 'tetris', 'life', 'pong', 'simon', 'mandelbrot')
 BACKGROUND_PLUGINS = ('lauflicht', 'pulsieren', 'bpmglide', 'playtakt', 'momentmute', 'gatehold', 'stepcopy')
-FILE_APPS = ('gifplayer', 'bmpviewer', 'pattern303', 'euclidflow', 'livereload', 'randomslot', 'betteraccent', 'easyslides')
+FILE_APPS = ('gifplayer', 'bmpviewer', 'pattern303', 'euclidflow', 'livereload', 'randomslot', 'betteraccent', 'easyslides', 'padfinger', 'blechyrun')
 # Catalog plugins the loader reads but the workload neither installs nor opens.
 LOADER_ONLY = ('sysinfo', 'vumeter', 'spettro', 'midiecho', 'motionclear')
 REPEATS = 3

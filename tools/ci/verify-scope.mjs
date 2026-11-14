@@ -21,7 +21,7 @@ export const ALL = "all";
 export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases",
   "note_assist_cases", "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases",
   "remote_cases", "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases", "user_samples_cases", "dev_mode_cases"];
+  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases", "user_samples_cases", "dev_mode_cases"];
 
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
@@ -71,6 +71,8 @@ export const TABLE = [
   [/^tools\/emu\/plugin_catalog_api_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/live_write_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/objects_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
+  [/^tools\/emu\/catalog_app_cases\.py$/, ["remote_cases"]],  // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_catalog15_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   // what the case modules get from Node (node_json.py): only groups of remote_cases ask; the writer of the file checks nothing
   [/^tools\/emu\/node_json\.py$|^data\/emu\/node-results\.json$/, ["remote_cases"]],
   [/^tools\/emu\/node_results\.py$/, []],
@@ -106,6 +108,7 @@ export const TABLE = [
   [/^tools\/patch\/touch_scale_zero\.py$|^data\/patches\/touch-scale-zero[^/]*\.json$/, ["touch_scale_zero_cases"]],
   // the DSP stream check runs with the start scenarios on every copy
   [/^tools\/patch\/stage2_memory\.py$|^data\/patches\/stage2-memory[^/]*\.json$|^tools\/emu\/stage2_memory_check\.py$/, []],
+  [/^tools\/patch\/update_guard\.py$|^data\/patches\/update-guard[^/]*\.json$|^data\/synth-map\/update-guard\.json$/, ["update_guard_cases"]],
   [/^tools\/patch\/doom_loader\.py$|^data\/patches\/doom-loader\.json$/, ["doom_loader_cases"]],
   [/^tools\/patch\/power_off\.py$|^data\/patches\/power-off[^/]*\.json$/, ["power_off_cases"]],
   [/^tools\/patch\/user_samples\.py$|^data\/patches\/user-samples[^/]*\.json$/, ["user_samples_cases"]],
