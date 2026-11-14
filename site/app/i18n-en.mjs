@@ -2308,6 +2308,7 @@ export default {
   "api.object.led.meter.low": "Color of METER LOW: 0 stock, 1 to 7 white, red, green, blue, yellow, cyan, pink.",
   "api.object.led.meter.mid": "Color of METER MID: 0 stock, 1 to 7 white, red, green, blue, yellow, cyan, pink.",
   "api.object.led.meter.loud": "Color of METER LOUD: 0 stock, 1 to 7 white, red, green, blue, yellow, cyan, pink, 8 rainbow.",
+  "api.object.led.knobLeds": "KNOB LEDS: 1 the LEDs behind the five knobs light as the firmware wants, 0 they stay dark. Acts at once.",
   "api.object.padColor.part": "PAD COLOR, the color of the lit pads: 0 red, 1 blue, 2 pink. It is never the same as SELECT COLOR: a write that would make them equal swaps the two.",
   "api.object.padColor.select": "SELECT COLOR, the color of the selected pad: 0 red, 1 blue, 2 pink. It is never the same as PAD COLOR: a write that would make them equal swaps the two.",
   "api.object.padColor.overlap": "OVERLAP, the color of a pad that is lit and selected: 0 the color that is left, 1 red, 2 blue, 3 pink.",

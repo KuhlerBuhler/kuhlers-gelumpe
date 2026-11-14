@@ -240,7 +240,7 @@ das Touchpad und ihre Taste). In allen Menüs der Firmware (Pattern, Global, Par
 Edit, Step Edit und die übrigen) bekommen Plugins die Eingaben wie auf dem
 Hauptbildschirm.
 
-### Was ein Plugin erreicht (API 35)
+### Was ein Plugin erreicht (API 36)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -432,6 +432,7 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.menu.blech.customizations.led.meter.low` | Farbe von METER LOW: 0 Firmware, 1 bis 7 wie oben | ja, wirkt sofort wie die Seite | 0 bis 7 |
 | `korg.menu.blech.customizations.led.meter.mid` | Farbe von METER MID: 0 Firmware, 1 bis 7 wie oben | ja, wirkt sofort wie die Seite | 0 bis 7 |
 | `korg.menu.blech.customizations.led.meter.loud` | Farbe von METER LOUD: 0 Firmware, 1 bis 7 wie oben, 8 Regenbogen | ja, wirkt sofort wie die Seite | 0 bis 8 |
+| `korg.menu.blech.customizations.led.knobLeds` | KNOB LEDS: 1 die LEDs hinter VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE und IFX TYPE leuchten wie in der Firmware, 0 sie bleiben dunkel; ohne den Patch pad-colors im Satz liest es 1 und Schreiben tut nichts (ab API Version 36, [Messung](messungen/2026-11-12-knopf-leds.md)) | ja, wirkt sofort wie die Seite | 0 bis 1 |
 | `korg.menu.blech.customizations.padColor.part` | PAD COLOR: 0 rot, 1 blau, 2 rosa; nie gleich SELECT COLOR, ein Schreiben, das beide gleich machen würde, vertauscht sie | ja, wirkt sofort wie die Seite | 0 bis 2 |
 | `korg.menu.blech.customizations.padColor.select` | SELECT COLOR: 0 rot, 1 blau, 2 rosa; Regel wie bei PAD COLOR | ja, wirkt sofort wie die Seite | 0 bis 2 |
 | `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, Farbe eines Pads, das leuchtet und gewählt ist: 0 die Farbe, die bleibt, 1 rot, 2 blau, 3 rosa | ja, wirkt sofort wie die Seite | 0 bis 3 |

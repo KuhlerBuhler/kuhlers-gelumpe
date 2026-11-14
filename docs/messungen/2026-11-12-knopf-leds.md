@@ -42,6 +42,23 @@ Der blaue Build nimmt dieselben Stellen über `data/synth-map/` (Sendefunktion, 
 
 `page_cases`, `orig_cases` und `pad_colour_cases` laufen mit der neuen Seite weiter grün (Hacktribe, rot, blau).
 
+## Plugin-Blatt (API 36)
+
+Stand 14.11.2026, nur Emulator. `korg.menu.blech.customizations.led.knobLeds` (Blatt 60, Basis `pad`, Offset 4): Lesen
+ruft +44 und dreht das Ergebnis um (1 ON, 0 OFF; FF nie geschrieben liest 1), Schreiben ruft +40 mit dem umgedrehten Wert
+und r1 = 1 wie die Seite (`objects_pad_get`, `objects_pad_knob` in `tools/patch/script_objects.s`). Ohne pad-colors im
+Satz liest es 1 und Schreiben tut nichts (hergeleitet aus `menu_pc_call`, kein Satz ohne den Patch geprüft).
+
+`tools/emu/plugin_api36_cases.py`, je Hacktribe, rot und blau, alle 5 Fälle grün (gemessen):
+
+| Fall | Ergebnis |
+|---|---|
+| `reads_on_at_start` | liest 1, LEDs `[255, 255, 255, 255, 255]` |
+| `off_at_once` | 0 geschrieben: liest 0, sofort `[0, 0, 0, 0, 0]` geschickt, Sollwert der Firmware bleibt |
+| `page_shows_off` | Seite `KNOB LEDS` / `OFF` |
+| `on_again` | 1 geschrieben: liest 1, Sollwert wieder geschickt |
+| `page_shows_on` | Seite `KNOB LEDS` / `ON` |
+
 ## Offen
 
 - Am Gerät nicht geprüft: ob die LEDs mit OFF wirklich dunkel bleiben und mit ON wieder angehen, auch nach Power Save.

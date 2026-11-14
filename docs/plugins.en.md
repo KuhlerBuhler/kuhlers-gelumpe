@@ -202,7 +202,7 @@ firmware and no plugin gets an event (only Blechy's page gets the touchpad and
 its key). In all firmware menus (Pattern, Global, Part Edit, Step Edit and the
 rest) plugins get input as on the main screen.
 
-### What a plugin reaches (API 35)
+### What a plugin reaches (API 36)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -392,6 +392,7 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.menu.blech.customizations.led.meter.low` | color of METER LOW: 0 stock, 1 to 7 as above | yes, acts at once like the page | 0 to 7 |
 | `korg.menu.blech.customizations.led.meter.mid` | color of METER MID: 0 stock, 1 to 7 as above | yes, acts at once like the page | 0 to 7 |
 | `korg.menu.blech.customizations.led.meter.loud` | color of METER LOUD: 0 stock, 1 to 7 as above, 8 rainbow | yes, acts at once like the page | 0 to 8 |
+| `korg.menu.blech.customizations.led.knobLeds` | KNOB LEDS: 1 the LEDs behind VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE and IFX TYPE light as in the firmware, 0 they stay dark; without the patch pad-colors in the set it reads 1 and a write does nothing (from API version 36, [measurement](messungen/2026-11-12-knopf-leds.md), German) | yes, acts at once like the page | 0 to 1 |
 | `korg.menu.blech.customizations.padColor.part` | PAD COLOR: 0 red, 1 blue, 2 pink; never the same as SELECT COLOR, a write that would make them equal swaps the two | yes, acts at once like the page | 0 to 2 |
 | `korg.menu.blech.customizations.padColor.select` | SELECT COLOR: 0 red, 1 blue, 2 pink; same rule as PAD COLOR | yes, acts at once like the page | 0 to 2 |
 | `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, color of a pad that is lit and selected: 0 the color that is left, 1 red, 2 blue, 3 pink | yes, acts at once like the page | 0 to 3 |
