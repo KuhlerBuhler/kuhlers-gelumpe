@@ -18,6 +18,44 @@ def header(flags, address=0x1000, size=0, argument=0):
 
 
 class Stream(unittest.TestCase):
+    def test_compatibility_transport_remains_the_explicit_default(self):
+        port = BlackfinPort('unused')
+        self.assertEqual(getattr(port, 'host_transport', None), 'compatibility')
+
+    def test_unknown_transport_never_falls_back_to_compatibility(self):
+        with self.assertRaises(ValueError):
+            BlackfinPort('unused', host_transport='automatic')
+
+    def test_native_fifo_requires_interrupt_hardware(self):
+        with self.assertRaises(ValueError):
+            BlackfinPort('unused', host_transport='fifo', operating=False)
+
+    def test_fifo_mode_routes_bus_access_without_direct_ram_copies(self):
+        port = BlackfinPort('unused', host_transport='fifo', operating=True)
+        port.backend = Mock()
+        port.backend.process.poll.return_value = None
+        port.loaded = True
+        port.service = Mock()
+        port.backend.host_status.return_value = 0x8C
+        port.backend.host_read.return_value = 0xBEEF
+        self.assertEqual(port.status(), 0x8C)
+        port.control(0xAB)
+        port.write_word(0x1234)
+        self.assertEqual(port.read_word(), 0xBEEF)
+        port.backend.host_control.assert_called_once_with(0xAB)
+        port.backend.host_write.assert_called_once_with(0x1234)
+        port.backend.read.assert_not_called()
+        port.backend.write.assert_not_called()
+        port.backend.host_status.side_effect = BackendError('native FIFO failed')
+        with self.assertRaisesRegex(BackendError, 'native FIFO failed'):
+            port.status()
+        self.assertEqual(port.host_transport, 'fifo')
+
+    def test_arm_cannot_accidentally_attach_fifo_mode_without_clock_coupling(self):
+        from machine import Machine
+        with self.assertRaisesRegex(ValueError, 'clock'):
+            Machine(bytes(32), dsp_backend=SimpleNamespace(host_transport='fifo'))
+
     def test_normal_fill_init_and_final_blocks_preserve_their_meaning(self):
         data = header(0x800, size=2) + b'ab' + header(0x100, size=4096, argument=0x12345678)
         data += header(0x8000, size=2) + b'cd'

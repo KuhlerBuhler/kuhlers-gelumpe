@@ -49,8 +49,8 @@ class BlackfinBackend:
             os.set_blocking(self.process.stdin.fileno(), False)
             os.set_blocking(self.process.stdout.fileno(), False)
             self._selector.register(self.process.stdout, selectors.EVENT_READ)
-            if self._response() != b'BFIN5':
-                raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN5')
+            if self._response() != b'BFIN6':
+                raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN6')
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
             self.close()
@@ -147,6 +147,23 @@ class BlackfinBackend:
             raise ValueError('invalid HOSTDP event')
         self._request(6, event, 0)
 
+    def host_status(self):
+        return struct.unpack('<I', self._request(9, 0, 0, extra=4))[0]
+
+    def host_control(self, word):
+        self._host_word(10, word)
+
+    def host_write(self, word):
+        self._host_word(11, word)
+
+    def host_read(self):
+        return struct.unpack('<I', self._request(12, 0, 0, extra=4))[0]
+
+    def _host_word(self, operation, word):
+        if not isinstance(word, int) or not 0 <= word <= 65535:
+            raise ValueError('invalid 16-bit HOSTDP bus word')
+        self._request(operation, 0, word)
+
     def configure_sport(self, *, core_hz, input='silence', seed=1):
         if not isinstance(core_hz, int) or not 48000 <= core_hz <= 2000000000:
             raise ValueError('invalid SPORT0 test core frequency')
@@ -239,12 +256,16 @@ def boot_blocks(data):
 class BlackfinPort:
     """Explicit experimental DSP endpoint. Unready or failed sessions never read as zero."""
     def __init__(self, worker, *, ready_address=0xFF9031D8, boot_steps=1000000,
-                 timeout=5, operating=False, rom=None, boot_timeout=300, sport=None):
+                 timeout=5, operating=False, rom=None, boot_timeout=300, sport=None,
+                 host_transport='compatibility'):
         BlackfinBackend._span(ready_address, 4)
         if ready_address & 3 or not isinstance(boot_steps, int) or not 1 <= boot_steps <= 500000000:
             raise ValueError('aligned readiness word and bounded initialization budget required')
         if not isinstance(boot_timeout, (int, float)) or not math.isfinite(boot_timeout) or boot_timeout <= 0:
             raise ValueError('a finite positive native startup deadline is required')
+        if host_transport not in ('compatibility', 'fifo') or (host_transport == 'fifo' and not operating):
+            raise ValueError('FIFO transport requires operating mode; select compatibility or fifo explicitly')
+        self.host_transport = host_transport
         self.worker, self.timeout, self.operating = worker, timeout, operating
         self.rom = rom
         self.sport = sport
@@ -310,6 +331,7 @@ class BlackfinPort:
             self.boot_report = dict(steps=steps, pc=self.backend.register(53),
                                     ready_address=self.ready_address, before=self._initial_word.hex(), after=value.hex(),
                                     ready=self.initialized, operating=self.operating,
+                                    host_transport=self.host_transport,
                                     registers={name: self.backend.register(number) for name, number in
                                                (('R0', 0), ('P0', 8), ('P1', 9), ('SP', 14),
                                                 ('SEQSTAT', 47), ('RETI', 49), ('RETX', 50))})
@@ -327,11 +349,16 @@ class BlackfinPort:
     def status(self):
         self._require_loaded()
         self.service()
+        if self.host_transport == 'fifo':
+            return self.backend.host_status()
         # Endpoint transport readiness, not calibrated DSP BUSY timing.
         return 0x85
 
     def control(self, value):
         self._require_loaded()
+        if self.host_transport == 'fifo':
+            self.backend.host_control(value)
+            return
         value &= 65535
         if not self.words and value == 0x2C:
             return
@@ -356,6 +383,10 @@ class BlackfinPort:
 
     def write_word(self, value):
         self._require_loaded()
+        if self.host_transport == 'fifo':
+            self.backend.host_write(value)
+            self.service()
+            return
         transfer = self.transfer
         if transfer is None or not transfer['left'] or transfer['command'] != 0xAB:
             self._abort('Blackfin host write without a write transfer')
@@ -367,6 +398,9 @@ class BlackfinPort:
 
     def read_word(self):
         self._require_loaded()
+        if self.host_transport == 'fifo':
+            self.service()
+            return self.backend.host_read()
         transfer = self.transfer
         if transfer is None or not transfer['left'] or transfer['command'] != 0xA9:
             self._abort('Blackfin host read without a read transfer')

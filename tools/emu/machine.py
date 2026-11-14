@@ -233,6 +233,8 @@ class Machine:
     def __init__(self, payload, flash=None, profile=None, *, dsp_backend=None):
         """`profile` is the build's Profile (firmware.py); without it the payload is looked at, and a payload that
         is not a Sampler 2.02 build the emulator knows raises firmware.ProfileError."""
+        if getattr(dsp_backend, 'host_transport', None) == 'fifo':
+            raise ValueError('native HOSTDP FIFO transport requires ARM/DSP clock coupling')
         self.dsp_backend = dsp_backend
         self.profile = profile or identify(payload)
         p = self.profile
