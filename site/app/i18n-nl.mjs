@@ -128,6 +128,7 @@ export default {
   "start.hub.current": "Actueel",
   "start.hub.newer": "Nieuwer dan deze app",
   "start.hub.unknown": "Versie onbekend",
+  "start.hub.reading": "Versie wordt gelezen",
   "start.hub.emu": "Emulator",
   "start.hub.emu.loaded": "Firmware geladen",
   "start.hub.emu.none": "Geen firmware geladen",

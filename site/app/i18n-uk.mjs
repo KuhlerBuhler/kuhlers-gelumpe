@@ -128,6 +128,7 @@ export default {
   "start.hub.current": "Актуально",
   "start.hub.newer": "Новіша за цей застосунок",
   "start.hub.unknown": "Версія невідома",
+  "start.hub.reading": "Читаю версію",
   "start.hub.emu": "Емулятор",
   "start.hub.emu.loaded": "Прошивку завантажено",
   "start.hub.emu.none": "Прошивку не завантажено",

@@ -1580,10 +1580,16 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   cursor: pointer;
   color: var(--color-text-primary);
   font-weight: 600;
+  padding-block: var(--space-2);
 }
 
 .cee-start-guide > summary:hover {
   color: var(--color-accent-primary);
+}
+
+.cee-start-guide > summary:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 .cee-start-guide[open] > summary {

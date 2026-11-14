@@ -128,6 +128,7 @@ export default {
   "start.hub.current": "Aktuální",
   "start.hub.newer": "Novější než tato aplikace",
   "start.hub.unknown": "Verze neznámá",
+  "start.hub.reading": "Čtu verzi",
   "start.hub.emu": "Emulátor",
   "start.hub.emu.loaded": "Firmware nahraný",
   "start.hub.emu.none": "Žádný firmware nenahraný",

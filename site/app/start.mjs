@@ -196,7 +196,7 @@ function paintDevice(hub, session, current) {
   version.hidden = true;
   const blech = !!session.device.blech;
   paintUpdate(hub, blech ? null : "install");
-  if (!blech) stateLine(version, "info", t("start.hub.noBlech"));
+  stateLine(version, blech ? "running" : "info", t(blech ? "start.hub.reading" : "start.hub.noBlech"));
   const reads = deviceReads(session);
   reads.hardware.then(hardware => { if (current() === session) look(hardware); });
   if (!blech) return;
