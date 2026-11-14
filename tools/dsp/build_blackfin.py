@@ -24,6 +24,23 @@ def patch_sources(source):
     start = text.index('#define SIGNEXTEND(v, n)')
     end = text.index('\n\n', start)
     text = text[:start] + '#define SIGNEXTEND(v, n) (((bs32)((bu32)(v) << (32 - (n)))) >> (32 - (n)))' + text[end:]
+    for expression in ('add32 (cpu, DREG (src0), DREG (src1), 1, s)',
+                       'sub32 (cpu, DREG (src0), DREG (src1), 1, s, 0)'):
+        old = f'SET_DREG (dst0, {expression});'
+        new = f'STORE (DREG (dst0), {expression});'
+        if text.count(old) == 1:
+            text = text.replace(old, new)
+        elif text.count(new) != 1:
+            raise ValueError('unexpected GNU DSP32ALU arithmetic implementation')
+    file.write_text(text)
+    file = source / 'sim/bfin/machs.c'
+    text = file.read_text()
+    old = 'if (bfrom->sirev == sirev)\n'
+    new = 'if (bfrom->sirev == sirev && bfrom->len != 0)\n'
+    if text.count(old) == 1:
+        text = text.replace(old, new)
+    elif text.count(new) != 1:
+        raise ValueError('unexpected GNU boot ROM mapping implementation')
     file.write_text(text)
     file = source / 'sim/Makefile.in'
     text = file.read_text().replace(r'\1/;p}', r'\1/;p;}')
@@ -78,7 +95,9 @@ def build(directory, jobs=4):
          str(ROOT / 'tools/dsp/blackfin_worker.c'), *(str(output / f) for f in libraries),
          *extra, '-o', str(worker)], name='worker-build.log')
     manifest = dict(version=VERSION, url=URL, sourceSHA256=SHA256,
-                    patches=['32-bit SIGNEXTEND', 'BSD sed module generation'],
+                    patches=['32-bit SIGNEXTEND', 'BSD sed module generation',
+                             'deferred DSP32ALU add/sub result writes',
+                             'do not map empty built-in ROM images'],
                     workerSHA256=hashlib.sha256(worker.read_bytes()).hexdigest(),
                     bridgeSHA256=hashlib.sha256((ROOT / 'tools/dsp/blackfin_worker.c').read_bytes()).hexdigest())
     (directory / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')

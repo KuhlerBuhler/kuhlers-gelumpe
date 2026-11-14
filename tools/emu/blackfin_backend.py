@@ -10,10 +10,26 @@ import tempfile
 import time
 
 LIMIT = 1 << 20
+REGISTER_NAMES = ([f'R{i}' for i in range(8)] + [f'P{i}' for i in range(6)] + ['SP', 'FP']
+                  + [f'{kind}{i}' for kind in ('I', 'M', 'B', 'L') for i in range(4)]
+                  + ['A0.X', 'A0.W', 'A1.X', 'A1.W', 'ASTAT', 'RETS', 'LC0', 'LT0', 'LB0',
+                     'LC1', 'LT1', 'LB1', 'CYCLES', 'CYCLES2', 'USP', 'SEQSTAT', 'SYSCFG',
+                     'RETI', 'RETX', 'RETN', 'RETE', 'PC'])
 
 
 class BackendError(RuntimeError):
     pass
+
+
+class _ROMCall(Exception):
+    def __init__(self, data):
+        self.steps, self.caller, *values = struct.unpack('<56I', data)
+        self.registers = dict(zip(REGISTER_NAMES, values))
+
+    def __str__(self):
+        values = ' '.join(f'{name}=0x{value:08x}' for name, value in self.registers.items())
+        return (f'unsupported Blackfin on-chip ROM call; no ROM code is executed: '
+                f'caller=0x{self.caller:08x} {values}')
 
 
 class BlackfinBackend:
@@ -32,7 +48,7 @@ class BlackfinBackend:
             os.set_blocking(self.process.stdin.fileno(), False)
             os.set_blocking(self.process.stdout.fileno(), False)
             self._selector.register(self.process.stdout, selectors.EVENT_READ)
-            if self._response() != b'BFIN1':
+            if self._response() != b'BFIN2':
                 raise BackendError('invalid Blackfin worker handshake')
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
@@ -40,6 +56,8 @@ class BlackfinBackend:
             raise BackendError(f'Blackfin worker: {error}{detail}') from error
 
     def _diagnostic(self):
+        if self._stderr.closed:
+            return ''
         self._stderr.seek(0, os.SEEK_END)
         self._stderr.seek(max(0, self._stderr.tell() - 2048))
         data = self._stderr.read().decode('utf8', errors='replace').strip()
@@ -76,8 +94,12 @@ class BlackfinBackend:
             data.extend(chunk)
         return bytes(data)
 
-    def _response(self):
+    def _response(self, *, rom=False):
         status, count = struct.unpack('<II', self._receive(8))
+        if status == 3:
+            if not rom or count != 4 * 56:
+                raise BackendError('invalid Blackfin ROM diagnostic')
+            raise _ROMCall(self._receive(count))
         if status or count > LIMIT:
             raise BackendError(f'Blackfin worker failed with status {status}')
         return self._receive(count)
@@ -88,7 +110,7 @@ class BlackfinBackend:
         self._deadline = time.monotonic() + self.timeout
         try:
             self._send(struct.pack('<III', op, address, count) + data)
-            response = self._response()
+            response = self._response(rom=op == 5)
             return self._receive(extra) if extra else response
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
@@ -122,7 +144,11 @@ class BlackfinBackend:
     def run(self, steps, *, until=0xFFFFFFFF):
         if not 1 <= steps <= 1000000 or not 0 <= until <= 0xFFFFFFFF:
             raise ValueError('invalid Blackfin execution budget')
-        count, pc = struct.unpack('<II', self._request(5, steps, until, extra=8))
+        try:
+            count, pc = struct.unpack('<II', self._request(5, steps, until, extra=8))
+        except _ROMCall as error:
+            self.close()
+            raise BackendError(str(error)) from error
         return dict(steps=count, pc=pc, reached=pc == until)
 
     def close(self):
@@ -204,8 +230,8 @@ class BlackfinPort:
                     chunk = (struct.pack('<I', argument)*((count+3)//4))[:count] if flags & 0x100 else data[offset:offset+count]
                     self.backend.write(target+offset, chunk)
             self._initial_word = self.backend.read(self.ready_address, 4)
-            self.backend.set_register(53, 0xFFA00000)
             self.loaded = True
+            self.backend.set_register(53, 0xFFA00000)
             self.service(16)
         except (ValueError, BackendError):
             self.close()
@@ -232,7 +258,10 @@ class BlackfinPort:
         steps = 0
         try:
             while steps < self.boot_steps and not self.initialized:
-                steps += self.service(min(10000, self.boot_steps-steps))['steps']
+                count = self.service(min(10000, self.boot_steps-steps))['steps']
+                if count <= 0:
+                    raise BackendError('Blackfin initialization made no execution progress')
+                steps += count
             value = self.backend.read(self.ready_address, 4)
             self.boot_report = dict(steps=steps, pc=self.backend.register(53),
                                     ready_address=self.ready_address, before=self._initial_word.hex(), after=value.hex(),

@@ -2,8 +2,9 @@
 import struct
 import unittest
 from types import SimpleNamespace
+from unittest.mock import Mock
 
-from blackfin_backend import BackendError, boot_blocks
+from blackfin_backend import BackendError, BlackfinPort, boot_blocks
 from dsp_model import DspModel
 
 
@@ -57,6 +58,17 @@ class Stream(unittest.TestCase):
         self.assertEqual(registers[0], 0)
         self.assertNotIn(15, registers)
         self.assertEqual(machine.dsp_uploads, [])
+
+    def test_initialization_cannot_wait_forever_without_executing_a_step(self):
+        port = BlackfinPort.__new__(BlackfinPort)
+        port._require_loaded = Mock()
+        port.initialized, port.boot_steps = False, 100
+        port.close = Mock()
+        port.service = Mock(side_effect=[dict(steps=0), AssertionError('initialization loop repeated without progress')])
+        with self.assertRaisesRegex(BackendError, 'progress'):
+            port.wait_ready()
+        port.close.assert_called_once()
+        port.service.assert_called_once()
 
 
 if __name__ == '__main__':
