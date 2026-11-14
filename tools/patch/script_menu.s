@@ -46,6 +46,10 @@
 .equ METER_OFF, 9              ; METER STILL only: the still meter stays dark (bit 1 of byte 5 of the settings file)
 .equ METER_RAINBOW, 8          ; METER STILL and LOUD: the colours turn round the wheel (STILL bit 30 of the settings flags, LOUD bit 0 of byte 5)
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
+.equ MX_FLAGS2, -0x15          ; byte, byte 7 of a version 4 settings file (FLAGS2_*), 0 without one
+.equ FLAGS2_LOAD_METER, 1      ; LOAD METER on (CUSTOMIZATION)
+.equ FLAGS2_IDLE_SAVE, 2       ; IDLE POWER SAVE on (CUSTOMIZATION)
+.equ FLAGS2_KNOWN, 3           ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
 .equ M_SPLASH_SEL, 0x100      ; the page SPLASH IMPORT: the place of the .bmp file it shows among those in KORG/blechtribe
@@ -101,7 +105,7 @@
 .equ SD_INPUT, 0x01E26070     ; GPIO IN_DATA45: bit 1 (GPIO 4.1) is low while a card is in (tools/patch/card_gate.py)
 .equ SD_DETECT, 2
 ; The settings in the flash, for a device without a card (menu_flash_read, menu_flash_save; written when the BLECH screen is left, autosave_leave): the record of
-; settings.a.bin (version 3), behind it the word FLASH_TAG << 16 | generation and the CRC-32 of record and word, in one of two 4 KiB
+; settings.a.bin (version 3 or 4), behind it the word FLASH_TAG << 16 | generation and the CRC-32 of record and word, in one of two 4 KiB
 ; sectors by the parity of the generation (odd FLASH_SET_A, even FLASH_SET_B), so a torn write leaves the other copy whole.
 ; Both sectors have no writer in the firmware and lie outside every range an update writes (docs/messungen/2026-11-13-einstellungen-flash.md).
 .equ M_FL, 0x114              ; bits 0 to 15 the generation of the newest copy in the flash, bit 16 FL_HOLD
@@ -124,7 +128,7 @@
 .equ SETTINGS_SIZE, 24
 .equ SETTINGS_SIZE_V1, 20
 .equ SETTINGS_MAX, 24+4*MENU_MAX_TRUST    ; the size of each settings buffer, MENU_FILE_A and MENU_FILE_B
-.equ SETTINGS_VERSION, 3
+.equ SETTINGS_VERSION, 4      ; the newest version read; written only when byte 7 is not 0, else version 3 (a BLECH up to 1.4.6 reads that)
 .equ M_STATE_WORDS, 128
 .equ SWITCH_SCREEN, 0xC0083D28
 .equ PC_CODE, 0xC018B000        ; the patch pad-colors (tools/patch/pad_colors.py), FF where the set does not have it; its entries:
@@ -439,12 +443,13 @@ card_watch_out:
 .pool
 
 ; ---- settings file: settings.a.bin and settings.b.bin alternate, the newer valid one is read.
-; magic, version u16 (1, 2 or 3), count u16 (the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
-; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON; byte 5: bit 0 METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (it was HT OSC OFF on develop for half a day before 1.4.5, no release wrote it), bit 7 AUTO SAVE OFF), version 2 and 3 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
+; magic, version u16 (1, 2, 3 or 4), count u16 (version 4: byte 6 alone, byte 7 the second flag byte FLAGS2_*; the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
+; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON; byte 5: bit 0 METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (it was HT OSC OFF on develop for half a day before 1.4.5, no release wrote it), bit 7 AUTO SAVE OFF), version 2 to 4 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
 ; means the stock white, bit 28 the display inverted (no file or a version 1 file: inverted), bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes (both up to 16 checksums), version 3 24 to 280 bytes (up to
-; 64, MENU_MAX_TRUST). Always written as version 3, versions 1 and 2 are still read; a BLECH up to 1.3.7 does not read version 3.
+; 64, MENU_MAX_TRUST), version 4 the same as 3. Written as version 3 while byte 7 is 0, as version 4 otherwise; versions 1 to 4 are
+; read. A BLECH up to 1.3.7 does not read version 3, one up to 1.4.6 not version 4 (it takes the other copy or the defaults).
 ; Called from the card hook wrapper after menu_arm, before the script loader reads M_EFF_RUN.
 menu_settings_load:
     push {r4-r8, lr}
@@ -487,6 +492,12 @@ menu_load_b:
 menu_load_apply:
     ldr r1, [r0, #8]
     str r1, [r4, #M_GEN]
+    ldrb r1, [r0, #4]           ; byte 7 of version 4: the second flag byte; older versions have none
+    cmp r1, #4
+    ldrbhs r1, [r0, #7]
+    movlo r1, #0
+    and r1, r1, #FLAGS2_KNOWN
+    strb r1, [r4, #MX_FLAGS2]
     ldr r1, [r0, #12]
     and r2, r1, #1
     str r2, [r4, #M_SET_RUN]
@@ -735,16 +746,18 @@ menu_flash_read_take:
 menu_flash_read_out:
     pop {r6-r8, pc}
 
-; r0 = a copy of FLASH_SET_LEN bytes from the flash -> r0 = 0x10000 | its generation when it is a whole record of version 3 with
-; tag and checksum, 0 otherwise (erased flash, a torn write). r5 = card scratch. Keeps r4 to r11.
+; r0 = a copy of FLASH_SET_LEN bytes from the flash -> r0 = 0x10000 | its generation when it is a whole record of version 3 or 4
+; with tag and checksum, 0 otherwise (erased flash, a torn write). r5 = card scratch. Keeps r4 to r11.
 menu_flash_check:
     push {r4, r6, r7, lr}
     mov r7, r0
     ldrb r0, [r7, #4]
-    cmp r0, #SETTINGS_VERSION
-    bne menu_flash_check_fail
+    sub r0, r0, #3
+    cmp r0, #1
+    bhi menu_flash_check_fail
+    ldrb r1, [r7, #7]           ; version 3: the high byte of the count; version 4: the second flag byte, the count is byte 6 alone
+    moveq r1, #0
     ldrb r0, [r7, #6]
-    ldrb r1, [r7, #7]
     orr r0, r0, r1, lsl #8
     cmp r0, #MENU_MAX_TRUST
     bhi menu_flash_check_fail
@@ -820,17 +833,19 @@ menu_record_body:
     ldrb r1, [r7, #5]
     bics r1, r1, #0xFF          ; byte 5: only bit 0 (LOUD RAINBOW), bit 1 (STILL OFF), bit 2 (STEREO 1 PAD OFF), bit 3 (LAST PATTERN OFF), bit 4 (KEY PADS OFF), bit 5 (FILTER TOGGLE OFF), bit 6 (KNOB LEDS OFF) and bit 7 (AUTO SAVE OFF) may be set
     bne menu_read_fail
-    sub r0, r0, #1              ; version 1, 2 or 3
+    sub r0, r0, #1              ; version 1, 2, 3 or 4
     cmp r0, #SETTINGS_VERSION-1
     bhi menu_read_fail
     cmp r0, #0
     moveq r2, #SETTINGS_SIZE_V1
     movne r2, #SETTINGS_SIZE
-    cmp r0, #SETTINGS_VERSION-1
-    moveq r3, #MENU_MAX_TRUST
-    movne r3, #MENU_MAX_TRUST_V2
-    ldrb r0, [r7, #6]
+    cmp r0, #2                  ; version 3 and 4: up to 64 checksums
+    movhs r3, #MENU_MAX_TRUST
+    movlo r3, #MENU_MAX_TRUST_V2
     ldrb r1, [r7, #7]
+    cmp r0, #3                  ; version 4: byte 7 is the second flag byte, the count is byte 6 alone
+    movhs r1, #0
+    ldrb r0, [r7, #6]
     orr r0, r0, r1, lsl #8
     cmp r0, r3
     bhi menu_read_fail
@@ -892,8 +907,6 @@ menu_settings_write:
     ldr r7, =MENU_FILE_A
     ldr r0, =SETTINGS_MAGIC
     str r0, [r7]
-    mov r0, #SETTINGS_VERSION
-    strb r0, [r7, #4]
     mov r0, #0
     strb r0, [r7, #5]
     ldr r1, =SP_CODE
@@ -905,14 +918,18 @@ menu_settings_write:
     cmp r1, #0
     moveq r0, #4
     strbeq r0, [r7, #5]
-    mov r0, #0                  ; byte 7 below takes r0
 menu_save_sp_done:
     ldr r9, [r4, #M_TRUST_N]
     cmp r11, #1
     cmpne r11, #2
     moveq r9, #0
     strb r9, [r7, #6]
+    ldrb r0, [r4, #MX_FLAGS2]
     strb r0, [r7, #7]
+    cmp r0, #0                  ; version 4 only with a bit in byte 7: without one the record is a version 3 file
+    moveq r0, #3
+    movne r0, #4
+    strb r0, [r7, #4]
     ldr r8, [r4, #M_GEN]
     cmp r11, #0
     addeq r8, r8, #1
