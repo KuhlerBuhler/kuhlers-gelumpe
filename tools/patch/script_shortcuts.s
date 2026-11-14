@@ -17,13 +17,16 @@
 ; sample of a part; the synth, which has no such handler, its per part setup of the pattern change) come with the build
 ; (script_hooks.py).
 .equ SC_EXIT, -0x04             ; bytes in front of MENU_STATE (behind the MX_ bytes of the menu): 1 while EXIT is held
-.equ SC_SAVE, -0x03             ; 1 to SC_WAIT: frames left for the Write window to open after EXIT + WRITE
+.equ SC_SAVE, -0x03             ; 1 to SC_WAIT: frames left for the Write window to open after EXIT + WRITE; SC_QUIET plus 1 to
+                                ; SC_WAIT: frames left after korg.pattern.write saved without the window (popups off)
 .equ SC_RESET, -0x02            ; 1 to 16: the part (plus 1) the next tick resets
 .equ SC_DIRTY, -0x01            ; 1 while the pattern in RAM differs from its place in the bank (sc_unsaved)
 .equ SC_KEY_EXIT, 0x0D
 .equ SC_KEY_WRITE, 0x0E
 .equ SC_WINDOW, 18              ; the firmware's Write window (screen 0x12)
 .equ SC_WAIT, 25                ; one second
+.equ SC_QUIET, 0x80
+.equ SC_COMMAND_WRITE, 8        ; the command the Write window's WRITE posts (number, 0): the save of a pattern
 .equ SC_SEQUENCER, 4            ; pad modes where a pad is a step (0 PART MUTE, 2 PART ERASE, 3 TRIGGER, 5 KEYBOARD, 6 CHORD,
 .equ SC_STEP_JUMP, 7            ; 9 PATTERN SET: a pad is its part)
 .equ SC_PART_AT, 0x800          ; part 0 in a pattern file
@@ -133,6 +136,14 @@ shortcut_tick:
     beq sc_tick_done
     ldr r4, =MENU_STATE
     ldrb r0, [r4, #SC_SAVE]
+    tst r0, #SC_QUIET
+    beq sc_tick_window
+    sub r0, r0, #1
+    cmp r0, #SC_QUIET
+    movls r0, #0
+    strb r0, [r4, #SC_SAVE]
+    b sc_tick_reset
+sc_tick_window:
     sub r0, r0, #1
     cmp r0, #SC_WAIT
     bhs sc_tick_reset
@@ -635,7 +646,9 @@ sc_un_write:
 sc_un_out:
     pop {r4-r7, pc}
 ; korg.pattern.write (API 33): EXIT + WRITE for a plugin. On the main screen presses WRITE and lets shortcut_tick give the Write
-; window its second WRITE. -> r0 1 when the save is under way, 0 off the main screen or while a save waits for its window.
+; window its second WRITE. With korg.display.popups off it posts what that second WRITE posts (SC_COMMAND_WRITE with the running
+; pattern, POST_COMMAND) and no window opens (decided 14.11.). -> r0 1 when the save is under way, 0 off the main screen or while a
+; save waits for its window or is a second old.
 script_pattern_write_glue:
     push {r4, lr}
     mov r0, #0
@@ -654,6 +667,8 @@ script_pattern_write_glue:
     ldr r1, [r1, #0x2c]
     cmp r1, #1
     bne sc_write_glue_done
+    bl popups_quiet
+    bne sc_write_glue_quiet
     mov r1, #SC_WAIT
     strb r1, [r4, #SC_SAVE]
     mov r0, #SC_KEY_WRITE
@@ -663,6 +678,21 @@ script_pattern_write_glue:
     mov r0, #SC_KEY_WRITE
     mov r1, #0
     ldr r12, =HW_PANEL_KEY
+    blx r12
+    mov r0, #1
+    b sc_write_glue_done
+sc_write_glue_quiet:
+    ldr r12, =SC_PLAYER
+    blx r12
+    ldr r1, [r0, #0x318]
+    mov r0, #0
+    cmp r1, #250
+    bhs sc_write_glue_done
+    mov r0, #SC_QUIET + SC_WAIT
+    strb r0, [r4, #SC_SAVE]
+    mov r0, #SC_COMMAND_WRITE
+    mov r2, #0
+    ldr r12, =POST_COMMAND
     blx r12
     mov r0, #1
 sc_write_glue_done:
