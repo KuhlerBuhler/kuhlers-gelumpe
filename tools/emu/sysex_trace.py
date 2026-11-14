@@ -265,8 +265,10 @@ DECLARED = ("import {allowedRegions} from './src/plan.mjs'; const b = process.ar
 
 
 def node_requests():
-    """None kept in data/emu/node-results.json: declared() reads src/plan.mjs, which many changes touch, and this tool for
-    the developer runs from a checkout with Node."""
+    """Every answer this module asks Node for (node_json.py): the DEV MODE cases of sysex_cases.py call closed_regions(),
+    which asks declared() for each build."""
+    for build in ("ht", "red", "blue"):
+        declared(build)
 
 
 def declared(build):
