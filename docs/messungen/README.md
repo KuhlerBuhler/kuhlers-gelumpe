@@ -71,6 +71,8 @@ Wie das Gerät auf Nachrichten antwortet, Größen und Zeiten.
 - [SysEx über die emulierte DIN-MIDI](2026-10-09-din-sysex.md)
 - [Doom über USB auf die Karte (Emulator)](2026-11-11-doom-usb.md)
 - [e2sFx.all über USB lesen (Emulator)](2026-11-14-fx-datei-lesen.md)
+- [DEV MODE: was im Firmware-Abbild gesperrt bleibt, Host-Tool hot_patch.py (Emulator)](2026-11-14-dev-mode-sperrbereiche.md)
+- [DEV MODE am Gerät: Testplan](2026-11-14-dev-mode-geraet.md)
 
 
 ## Speicher und Flash
