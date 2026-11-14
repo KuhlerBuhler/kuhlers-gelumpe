@@ -274,6 +274,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Die Ansicht des nächsten Patterns: Pads und Info-Texte](2026-10-25-pattern-ansicht.md)
 - [Test-Modus und Fernbedienung aller Bedienelemente über die Warteschlange des Panels](2026-10-29-test-modus-fernsteuerung.md)
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)
+- [Karte im Betrieb getauscht: neue Karte wird mit 12,5 MHz identifiziert](2026-11-14-karte-tausch-takt.md)
 - [Grundlagen für native Bedienmakros](2026-10-25-makro-grundlagen.md)
 - [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
 - [Meter: RAINBOW auch bei LOUD, im Tempo](2026-10-24-meter-loud-rainbow.md)
