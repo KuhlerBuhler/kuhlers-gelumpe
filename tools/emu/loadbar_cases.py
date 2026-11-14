@@ -406,9 +406,10 @@ def case_card_error(payload, flash):
                      f"the loader returned {ended[0][1] if ended else None} at {round(ended[0][0], 2) if ended else None} s, the overlay state is then {expect:#x} (1: still drawn), "
                      f"done {done:#x}; the picture stays at {sorted({index(k) for k in after})} over {len(after)} looks after it, not done"))
     # the firmware's box "Card Error" comes with the main screen a few seconds later; the overlay is over by then and the
-    # display shows Blechy's card picture instead of the box, until EXIT
+    # display shows Blechy's card picture instead of the box, until EXIT. Each file the start opens on the dead card waits 4 s
+    # (plugins, effects, the Patterns backup), so the box comes at about 21 s
     picture = spec.card_frame(4)
-    while dev.u32(spec.ERR_CODE) != 4 and dev.m.time_ns / 1e9 < 20:
+    while dev.u32(spec.ERR_CODE) != 4 and dev.m.time_ns / 1e9 < 30:
         dev.run(0.1)
     dev.run(0.2)
     boxed_over = dev.u32(spec.STATE) == 2

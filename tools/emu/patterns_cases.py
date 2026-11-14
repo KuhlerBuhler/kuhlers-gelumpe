@@ -2,8 +2,8 @@
 EXPORT ALL PATTERN of DATA UTILITY write into KORG/blechtribe/Patterns, a card without that folder gets it, and IMPORT PATTERN's
 and IMPORT ALL PATTERN's browser opens there (the card's root when the folder is missing). At power-on the backup
 in that folder goes into the pattern bank: only the patterns that differ are written to the flash, one without its frame is left
-out, a shorter file changes only its own patterns, EXIT held at power-on reads nothing, and the pattern the device opens is the
-file's. Red and Hacktribe only; on the blue neither is built yet, the groups report that and pass.
+out, a shorter file changes only its own patterns, EXIT held at power-on reads nothing, the pattern the device opens is the
+file's, and the loading animation counts the backup (behind the samples, or on its own without them). Red and Hacktribe only; on the blue neither is built yet, the groups report that and pass.
 
 The groups run inside migrate_cases (GROUPS there), which check.py runs on every BLECH set.
 
@@ -164,7 +164,51 @@ def case_boot_load(payload, flash):
     return out
 
 
-GROUPS = (case_export, case_import_browser, case_boot_load)
+LB_STATE = 0xC0181F00           # tools/patch/load_bar.py STATE: S_EXPECT 0, S_DONE 12, S_DRAWN 24, S_PAT 40, S_PPOS 44, S_PSIZE 48
+LB_SHOWN = 0xC01AC800 + 44      # its ANIM_VARS P_SHOWN: the progress shown, permille
+
+
+def case_boot_progress(payload, flash):
+    """The loading animation counts the backup: behind the samples (the bar does not reach the end with them), and on its own
+    when there is no e2sSample.all (the animation starts with the backup). Either way it ends at 100 when the backup is done,
+    and the main screen ends it."""
+    if not redirected(payload):
+        return [entry("boot_progress_not_in_this_build", True, "the blue reads no backup at power-on")]
+    import cardstore
+    import sampleset
+    menu_cases.for_build(payload)
+    plain, _ = start(payload, menu_cases.CARD_FOLDER, seconds=1.2)
+    bank = plain.read(BANK, 250 * BLOCK)
+    out = []
+    for name, samples in (("with_samples", 20), ("without_samples", 0)):
+        image = fat32.format_image(64 * 1024 * 1024)
+        volume = fat32.Volume(image)
+        if samples:
+            volume.write(f"KORG/{cardstore.card_folder(payload)}/Sample/e2sSample.all", sampleset.build(sampleset.sized(samples, 4 * 48000)))
+        volume.write(BACKUP.lstrip("/"), backup(changed(bank, (0, 120, 249)), 250))
+        volume.close()
+        dev = menu_cases.Dev(payload, None, 0)
+        dev.m.adapter = True
+        dev.m.insert_card(menu_cases.SDCard(menu_cases.MemoryMedium(bytearray(image))))
+        writes = []
+        dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, a, s, d: writes.append(dev.u32(LB_SHOWN)), begin=PATTERN_WRITE, end=PATTERN_WRITE)
+        looks = []                  # (S_EXPECT, S_DONE, S_DRAWN, S_PAT, P_SHOWN, screen)
+        while len(looks) < 80:
+            dev.m.run_until(dev.m.time_ns / 1e9 + 0.25)
+            looks.append(tuple(dev.u32(LB_STATE + o) for o in (0, 12, 24, 40)) + (dev.u32(LB_SHOWN), dev.screen()["number"]))
+            if looks[-1][5] == 1:
+                break
+        on = [k for k in looks if k[0] == 1]
+        shown = [k[4] for k in on]
+        out.append(entry(f"boot_progress_{name}", len(writes) == 3 and on and all(k[2] == 1 and k[3] == 1 for k in on[1:])
+                         and shown == sorted(shown) and max(writes) < 1000 and looks[-1][0] == 2 and looks[-1][1] == 1
+                         and looks[-1][4] >= 990 and looks[-1][5] == 1 and not dev.m.asserts,
+                         f"{len(on)} looks with the animation on, permille {shown[:1]} up to {shown[-1:]}, at the pattern writes {writes}, "
+                         f"at the end {looks[-1]} (state 2, done, at least 99 percent shown, main screen)"))
+    return out
+
+
+GROUPS = (case_export, case_import_browser, case_boot_load, case_boot_progress)
 
 
 def cases(payload, flash=None):

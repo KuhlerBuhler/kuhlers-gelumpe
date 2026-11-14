@@ -101,6 +101,10 @@ pb_path:
 .equ PL_MAGIC, 0x47524F4B       ; "KORG"
 .equ PL_START, 0x54535450       ; "PTST"
 .equ PL_END, 0x44455450         ; "PTED"
+.equ PL_BAR, 0xC0181000         ; the loading animation's entry for the backup (tools/patch/load_bar.py, lb_patterns), behind
+.equ PL_BAR_MAGIC, 0x4C424150   ; this word: (bytes read, size), FFFFFFFF read when done; a set without it has no such word
+.equ PL_POS, 8                  ; in the file object (FatFs FIL): where it is
+.equ PL_SIZE, 12                ; and its size
 
 ; From the early hook. Clobbers r0, r1.
 pat_boot_arm:
@@ -140,6 +144,7 @@ pat_boot_load:
     blx r12
     cmp r0, #0
     bne pl_out
+    bl pl_tell
     mov r0, #PL_BLOCK
     ldr r12, =MG_ALLOC
     blx r12
@@ -170,6 +175,7 @@ pl_next:
     bl card_read
     cmp r0, #0
     bne pl_free                 ; the end of a shorter file, or a read that failed: the patterns so far are in
+    bl pl_tell
     ldr r0, [r7]
     ldr r1, =PL_START
     cmp r0, r1
@@ -209,11 +215,25 @@ pl_free:
     ldr r12, =MG_FREE
     blx r12
 pl_close:
+    mvn r0, #0
+    bl pl_bar
     mov r0, r6
     ldr r12, =FS_CLOSE
     blx r12
 pl_out:
     pop {r4-r11, pc}
+
+; Tells the loading animation where the file is (pl_tell), or r0 = FFFFFFFF that it is done (pl_bar). Clobbers r0 to r3, r12.
+pl_tell:
+    ldr r0, [r6, #PL_POS]
+pl_bar:
+    ldr r1, [r6, #PL_SIZE]
+    ldr r12, =PL_BAR
+    ldr r2, [r12], #4
+    ldr r3, =PL_BAR_MAGIC
+    cmp r2, r3
+    bxne lr
+    bx r12
 .pool
 pl_path:
     .asciz "SD:KORG/blechtribe/Patterns/electribe_sampler_allpattern.e2sallpat"

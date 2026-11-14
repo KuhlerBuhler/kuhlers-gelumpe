@@ -30,7 +30,9 @@ With EXIT held at power-on, without a card or without e2sSample.all nothing is e
 straight to the original. A card that is in the slot but not mounted after the start's question is not asked again: the
 operating system's tick (TIMER64P0, 0xC0019088) is started only after that question, so a sleep there never ends and
 the start hung with a card without a filesystem or one that answers nothing (docs/messungen/2026-11-10-tote-karte-beim-start.md).
-The start goes on as the firmware's does. When the
+The start goes on as the firmware's does. The Patterns backup (tools/patch/script_patterns.s), when it is on the card, loads
+after the samples: the progress runs over the bytes of both, and without e2sSample.all the backup starts the overlay itself
+(lb_patterns, at CODE_AT behind a magic word). When the
 loader ends with a code (a card error), the image stays with the percent where it stopped. The overlay ends when the main screen comes (or after a cap of frames).
 While the firmware's error box says "No Card." or "Card Error" (its code at ERR_CODE), the display send shows Blechy's card
 picture for that code instead of the box, until the box goes (EXIT).
@@ -374,6 +376,11 @@ SOURCE = """
 .equ S_KEY, 28                 ; the picture drawn: the progress picture | the loop's picture + 1 << 16 (0 no loop) | done << 24
 .equ S_LAST, 32                ; TICKS when that key was taken
 .equ S_PWR, 36                 ; TICKS when the power key was first seen held while the samples load (bit 0 set), 0 not held
+.equ S_PAT, 40                 ; 1 when the Patterns backup is part of the progress (behind the samples), else 0
+.equ S_PPOS, 44                ; the backup's bytes read so far
+.equ S_PSIZE, 48               ; the size of the backup
+.equ PB_MAGIC, 0x4C424150       ; "PABL" at CODE_AT: the entry for the Patterns backup follows it
+.equ PB_SIZE, 0x3F8100          ; a whole backup (header, globals, 250 patterns) until the backup tells its own size
 .equ GPIO_IN67, 0x01E26098      ; GPIO IN_DATA67; bit 31 (GPIO 7.15) is low while the power key is held
 .equ GPIO_BASE, 0x01E26000
 .equ GPIO_WRITE, 0xC0016BB4     ; (base, 0, 3, mask): clears the pins in mask; 0x08000000 is GPIO 7.11, the power hold
@@ -442,6 +449,55 @@ SOURCE = """
 
 .org @CODE_AT@
 
+; ===================================================== the Patterns backup
+; tools/patch/script_patterns.s loads KORG/blechtribe/Patterns/electribe_sampler_allpattern.e2sallpat after the samples,
+; in the start's card hook, and tells the overlay how far it is: r0 = bytes read (0 when it opened the file, FFFFFFFF when it
+; is done), r1 = the file's size. It finds this entry by PB_MAGIC in front of it. The first call starts the overlay when no
+; samples were loaded; when they were, lb_load saw the file and the progress already runs over both. A load the overlay
+; does not count (a sample load that ended with a code) is left alone. Clobbers r0 to r3 and r12.
+    .word PB_MAGIC
+    b lb_patterns
+
+lb_patterns:
+    ldr r12, =STATE
+    ldr r2, [r12, #S_PAT]
+    cmp r2, #1
+    beq lpb_on
+    cmp r0, #0
+    bxne lr
+    ldr r2, [r12, #S_EXPECT]
+    cmp r2, #1
+    bxeq lr
+    cmp r2, #2
+    bxeq lr
+    push {r1, lr}
+    bl anim_start
+    pop {r1, lr}
+    ldr r12, =STATE
+    mov r2, #0
+    str r2, [r12, #S_CUR]
+    str r2, [r12, #S_MAX]
+    str r2, [r12, #S_DONE]
+    str r2, [r12, #S_FRAME]
+    str r2, [r12, #S_DRAWN]
+    str r2, [r12, #S_KEY]
+    str r2, [r12, #S_LAST]
+    str r2, [r12, #S_PWR]
+    str r2, [r12, #S_PPOS]
+    str r1, [r12, #S_PSIZE]
+    mov r2, #1
+    str r2, [r12, #S_PAT]
+    str r2, [r12, #S_MODE]
+    str r2, [r12, #S_EXPECT]
+    bx lr
+lpb_on:
+    cmn r0, #1
+    streq r2, [r12, #S_DONE]
+    bxeq lr
+    str r1, [r12, #S_PSIZE]
+    str r0, [r12, #S_PPOS]
+    bx lr
+
 ; ===================================================== stat
 ; Replaces the call that asks whether e2sSample.all exists (r0 = the path, the answer comes back in r0, nonzero when it does).
 ; Reached only on the normal start, after the panel update and the start modes. A load is expected when the file is there
@@ -473,9 +529,22 @@ ls_have:
     str r2, [r1, #S_KEY]
     str r2, [r1, #S_LAST]
     str r2, [r1, #S_PWR]
+    str r2, [r1, #S_PAT]
+    str r2, [r1, #S_PPOS]
+    str r2, [r1, #S_PSIZE]
     mov r2, #1
     str r2, [r1, #S_MODE]
     str r2, [r1, #S_EXPECT]
+; The Patterns backup loads after the samples (script_patterns.s): when it is on the card, the progress runs over both.
+    ldr r0, =pb_path
+    bl STAT
+    cmp r0, #0
+    beq ls_out
+    ldr r1, =STATE
+    ldr r0, =PB_SIZE
+    str r0, [r1, #S_PSIZE]
+    mov r0, #1
+    str r0, [r1, #S_PAT]
 ls_out:
     mov r0, r4
     pop {r4, pc}
@@ -500,14 +569,25 @@ lb_progress:
 ; Replaces the call of the loader: remembers that it is done. When the loader ends with a code (a card error, a sample it
 ; could not load), the image stays with its percent until the main screen comes; the firmware's box then says what happened
 ; (device 18.10.: "Card error" stayed behind the image, which drew on past the main screen), for no card or a broken card
-; as Blechy's card picture.
+; as Blechy's card picture. When the Patterns backup is on the card, it loads next (script_patterns.s): then the samples are
+; all read but the progress runs on over the backup, which ends it (lb_patterns).
 lb_load:
     push {r4, lr}
     bl LOADER
-    cmp r0, #0
-    ldreq r1, =STATE
-    moveq r2, #1
-    streq r2, [r1, #S_DONE]
+    movs r4, r0
+    bne ll_out
+    ldr r1, =STATE
+    ldr r0, [r1, #S_PAT]
+    cmp r0, #1
+    bne ll_done
+    ldr r0, [r1, #S_MAX]
+    str r0, [r1, #S_CUR]
+    b ll_out
+ll_done:
+    mov r2, #1
+    str r2, [r1, #S_DONE]
+ll_out:
+    mov r0, r4
     pop {r4, pc}
 
 ; ===================================================== frame
@@ -645,6 +725,9 @@ sm_loop:
     bx lr
 
 .pool
+pb_path:
+    .asciz "SD:KORG/blechtribe/Patterns/electribe_sampler_allpattern.e2sallpat"
+.align 4
 
 ; Puts the image over the frame buffer, or ends the overlay: when the main screen has come, or after the frame cap.
 ; The user interface has drawn the window into the buffer by now; every frame the image goes over all of it again.
@@ -1782,6 +1865,12 @@ permille:
     addlo r6, r6, r3
 pm_scale:
     ldr r1, [r4, #S_MAX]
+    ldr r0, [r4, #S_PAT]
+    cmp r0, #1
+    ldreq r0, [r4, #S_PSIZE]
+    addeq r1, r1, r0
+    ldreq r0, [r4, #S_PPOS]
+    addeq r6, r6, r0             ; the backup behind the samples
     cmp r1, #0
     moveq r0, #0
     beq pm_keep
