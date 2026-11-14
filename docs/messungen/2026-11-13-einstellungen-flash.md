@@ -9,7 +9,7 @@ Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergele
 - Start: steckt eine Karte mit gültiger Einstellungsdatei, gilt die Karte. Sonst gilt die Kopie im Flash, sonst der Standard.
   Eine Karte ohne gültige Datei zählt wie keine Karte.
 - Ohne Karte gehen Änderungen in den BLECH-Menüs (FEATURES, CUSTOMIZATION, PLUGINS) in den Flash, sobald man das BLECH-Menü
-  verlässt (AUTO SAVE, wie mit Karte; Pascal 14.11.: nicht schon während man dreht). Mit AUTO SAVE OFF erst mit WRITE. WRITE ohne
+  verlässt (AUTO SAVE, wie mit Karte; nicht schon während man dreht). Mit AUTO SAVE OFF erst mit WRITE. WRITE ohne
   Karte schreibt sofort und zeigt `saved in flash`.
 - Mit Karte schreibt WRITE und AUTO SAVE wie bisher die Datei auf der Karte, der Flash bleibt.
 - Nach einem Start ohne Karte liest BLECH keine Karte bis zum nächsten Start (#518, sonst kann Korgs Karten-Init hängen): die
@@ -24,7 +24,7 @@ Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergele
 - Vor dem Lesen der neuen Karte schreibt das Einstecken offene Änderungen ohne Karte (seit dem Ziehen) in den Flash, damit es
   beim Ziehen etwas gibt, wohin es zurückgeht. Hat die Karte dieselben Werte wie der Flash, kommt keine
   Frage.
-- Eine Menüzeile SAVE TO FLASH gibt es nicht (Pascal 14.11.): in den Flash geht es von selbst ohne Karte, mit WRITE ohne Karte
+- Eine Menüzeile SAVE TO FLASH gibt es nicht: in den Flash geht es von selbst ohne Karte, mit WRITE ohne Karte
   oder mit MENU auf die Frage einer getauschten Karte.
 - Neustart: Karte steckt, die Karte gilt; keine Karte, der Flash gilt.
 
