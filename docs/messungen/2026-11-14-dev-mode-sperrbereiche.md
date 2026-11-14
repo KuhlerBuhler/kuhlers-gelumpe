@@ -1,7 +1,7 @@
 # DEV MODE: was im Firmware-Abbild gesperrt bleibt
 
 Stand 14. November 2026. Hacktribe 2.02 und Korg rot 2.02 im Emulator, blau (Synth) nur als Gegenprobe.
-**Am Gerät nicht gemessen.** Plan: `thoughts/shared/plans/2026-11-14-firmware-dev-mode.md` (lokal).
+**Am Gerät nicht gemessen.**
 
 DEV MODE ist ein Schalter im BLECH-Menü (Seite `DEV MODE`, nur auf dem Sampler). Ist er an, darf BLECH WRITE das
 Firmware-Abbild im RAM (`0xC0000000..0xC0200000`) beschreiben, damit ein Host-Tool geänderte Bereiche eines Patches ohne
@@ -13,7 +13,7 @@ SOFTWARE UPDATE einspielen kann. Gesperrt bleiben die Bereiche, die der SysEx-We
 | Befund | Marker |
 |---|---|
 | Der Schalter ist das Wort `DEV_FLAG = 0xC01910FC` (`STATE + 0xFC`). An heißt `0x4D564544` ("DEVM"), alles andere aus | gebaut, `tools/patch/blech_sysex.py` |
-| Das Abbild hat dort `FF`, kein Patch schreibt das Wort; nach jedem Einschalten ist DEV MODE also aus (Pascal 14.11.: immer aus starten) | gemessen (`test/dev-mode.test.mjs`, alle drei Patch-Dateien) |
+| Das Abbild hat dort `FF`, kein Patch schreibt das Wort; nach jedem Einschalten ist DEV MODE also aus (gewollt: startet immer aus) | gemessen (`test/dev-mode.test.mjs`, alle drei Patch-Dateien) |
 | Die Menüseite schreibt nur dieses Wort (Rad hoch = an, runter = aus), WRITE speichert nichts | gebaut, `tools/patch/script_menu.s` |
 | INFO meldet Flag `0x200` (DEV MODE eingebaut) immer auf dem Sampler und `0x400`, solange er an ist; der Synth meldet keins von beiden | gemessen (Emulator, `sysex:dev_*`, `synth_no_dev_mode`) |
 
@@ -68,5 +68,5 @@ Vergleicht das laufende Abbild (Basis) mit einem neuen und schreibt nur, was ohn
 
 ## Offen
 
-- Gerätetest (Plan Phase 4): Schalter, Schreiben ins Abbild, gesperrte Bereiche, Ausschalten.
+- Gerätetest (Plan Phase 4, Schritte in `2026-11-14-dev-mode-geraet.md`): Schalter, Schreiben ins Abbild, gesperrte Bereiche, Ausschalten.
 - USB-Treiber von Korg in die Sperrliste, falls ein Gerätetest zeigt, dass ein Hot-Patch dort die Verbindung trennt.
