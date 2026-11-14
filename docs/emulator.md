@@ -15,7 +15,7 @@ Gerät und keine zusätzliche Schreibfreigabe.
 Ein ausdrücklich gewählter Blackfin-Prüfprototyp kann zusätzlich echte
 DSP-Instruktionen ausführen und deren Speicher über den Host-Port lesen.
 Der vollständige DSP-Start besteht damit noch nicht. Aufbau und Grenzen:
-[Blackfin: echter Start und fehlende ROM-Funktionen](messungen/2026-11-14-blackfin-rtos-rom.md).
+[Blackfin: SysControl und RTOS-Start](messungen/2026-11-14-blackfin-syscontrol.md).
 
 Der Emulator ist ein eigenständiges Python-Programm. Er führt die Firmware der
 Electribe, also eine eigene `SYSTEM.VSB`, mit Unicorn aus und bildet dazu

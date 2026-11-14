@@ -32,6 +32,33 @@ def patch_sources(source):
             text = text.replace(old, new)
         elif text.count(new) != 1:
             raise ValueError('unexpected GNU DSP32ALU arithmetic implementation')
+    for expression in ('signbits (sv1, 32)', 'signbits (sv1, 16)',
+                       'signbits (sv1 >> 16, 16)', 'signbits (acc, 40) & 0xFFFF'):
+        old = f'SET_DREG_L (dst0, {expression});'
+        new = f'STORE (DREG (dst0), REG_H_L (DREG (dst0), {expression}));'
+        if text.count(old) == 1:
+            text = text.replace(old, new)
+        elif text.count(new) != 1:
+            raise ValueError('unexpected GNU SIGNBITS implementation')
+    file.write_text(text)
+    file = source / 'sim/bfin/interp.c'
+    text = file.read_text()
+    begin, end = '/* BLECH_GUARD_BEGIN */\n', '/* BLECH_GUARD_END */\n'
+    guard = begin + (ROOT / 'tools/dsp/blackfin_guard.c.inc').read_text() + '\n' + end
+    if begin in text:
+        a, b = text.index(begin), text.index(end) + len(end)
+        text = text[:a] + guard + text[b:]
+    else:
+        at = '\nvoid\nsim_engine_run ('
+        if text.count(at) != 1:
+            raise ValueError('unexpected GNU Blackfin execution engine')
+        text = text.replace(at, '\n' + guard + at)
+    check = '      blech_bfin_check (sd, cpu);\n'
+    if check not in text:
+        at = '      step_once (cpu);\n'
+        if text.count(at) != 1:
+            raise ValueError('unexpected GNU Blackfin instruction loop')
+        text = text.replace(at, check + at)
     file.write_text(text)
     file = source / 'sim/bfin/machs.c'
     text = file.read_text()
@@ -97,6 +124,8 @@ def build(directory, jobs=4):
     manifest = dict(version=VERSION, url=URL, sourceSHA256=SHA256,
                     patches=['32-bit SIGNEXTEND', 'BSD sed module generation',
                              'deferred DSP32ALU add/sub result writes',
+                             'deferred SIGNBITS half-register writes',
+                             'bounded execution inside the event loop',
                              'do not map empty built-in ROM images'],
                     workerSHA256=hashlib.sha256(worker.read_bytes()).hexdigest(),
                     bridgeSHA256=hashlib.sha256((ROOT / 'tools/dsp/blackfin_worker.c').read_bytes()).hexdigest())

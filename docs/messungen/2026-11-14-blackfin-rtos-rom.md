@@ -1,5 +1,9 @@
 # Blackfin: echter Start und fehlende ROM-Funktionen
 
+Fortsetzung:
+[Blackfin: SysControl und RTOS-Start](2026-11-14-blackfin-syscontrol.md).
+Der dort beschriebene Stub klärt den unten noch offenen normalen ROM-Aufruf.
+
 ## Gemessen im Simulator
 
 Die Startdiagnose lädt den Startstrom der privaten roten Originalfirmware

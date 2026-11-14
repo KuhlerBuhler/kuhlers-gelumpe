@@ -9,6 +9,11 @@
 #include "sim/sim.h"
 #include "sim/callback.h"
 
+extern void blech_bfin_guard(uint32_t, uint32_t);
+extern uint32_t blech_bfin_count(void);
+extern uint32_t blech_bfin_last(void);
+extern int blech_bfin_stopped(void);
+
 /* Little-endian requests: opcode, address/register/budget, byte count/value/PC. */
 #define LIMIT (1024 * 1024)
 static FILE *reply;
@@ -52,7 +57,7 @@ static int rom_snapshot(SIM_DESC sd, uint32_t steps, uint32_t caller) {
 
 int main(int argc, char **argv) {
     unsigned char *buffer = malloc(LIMIT);
-    uint32_t op, address, count, last_pc = UINT32_MAX;
+    uint32_t op, address, count;
     char *args[] = {"blackfin-worker", "--environment=virtual", "--model=bf527",
         "--memory-region=0,0x4000000", "--memory-region=0xFF800000,0x8000",
         "--memory-region=0xFF900000,0x8000", "--memory-region=0xFFA00000,0x14000",
@@ -67,7 +72,7 @@ int main(int argc, char **argv) {
     default_callback.init(&default_callback);
     SIM_DESC sd = sim_open(SIM_OPEN_DEBUG, &default_callback, NULL, args);
     if (!sd || sim_create_inferior(sd, NULL, empty, empty) != SIM_RC_OK) return 3;
-    answer(0, "BFIN2", 5);
+    answer(0, "BFIN3", 5);
     while (get32(&op) && get32(&address) && get32(&count)) {
         if (op == 0) break;
         if (op == 1 || op == 2) {
@@ -92,31 +97,19 @@ int main(int argc, char **argv) {
         } else if (op == 5) {
             uint32_t steps = 0, pc = 0;
             int sig = 0;
-            int rom_stop = 0;
             enum sim_stop reason = sim_stopped;
             if (!address || address > 1000000) { answer(1, NULL, 0); break; }
-            for (;;) {
-                if (!reg_get(sd, 53, &pc)) break;
-                if (pc >= 0xEF000000 && pc < 0xF0000000) {
-                    if (!rom_snapshot(sd, steps, last_pc)) {
-                        answer(1, NULL, 0);
-                        sim_close(sd, 1); free(buffer); fclose(reply);
-                        return 0;
-                    }
-                    rom_stop = 1;
-                    break;
-                }
-                if (steps == address || pc == count) break;
-                last_pc = pc;
-                sim_resume(sd, 1, 0);
-                ++steps;
-                sim_stop_reason(sd, &reason, &sig);
-                if (reason != sim_stopped || sig != SIGTRAP) break;
-            }
-            if (rom_stop) continue;
-            reg_get(sd, 53, &pc);
-            if (reason != sim_stopped || (sig && sig != SIGTRAP)) {
+            blech_bfin_guard(address, count);
+            sim_resume(sd, 0, 0);
+            steps = blech_bfin_count();
+            sim_stop_reason(sd, &reason, &sig);
+            if (!reg_get(sd, 53, &pc)) { answer(1, NULL, 0); break; }
+            if (reason != sim_stopped || sig != SIGTRAP || !blech_bfin_stopped()) {
                 answer(2, NULL, 0); break;
+            }
+            if (pc >= 0xEF000000 && pc < 0xF0000000) {
+                if (!rom_snapshot(sd, steps, blech_bfin_last())) { answer(1, NULL, 0); break; }
+                continue;
             }
             answer(0, NULL, 0);
             put32(steps); put32(pc); fflush(reply);

@@ -2,7 +2,7 @@
 import struct
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from blackfin_backend import BackendError, BlackfinPort, boot_blocks
 from dsp_model import DspModel
@@ -63,12 +63,23 @@ class Stream(unittest.TestCase):
         port = BlackfinPort.__new__(BlackfinPort)
         port._require_loaded = Mock()
         port.initialized, port.boot_steps = False, 100
+        port.boot_timeout = 120
         port.close = Mock()
         port.service = Mock(side_effect=[dict(steps=0), AssertionError('initialization loop repeated without progress')])
         with self.assertRaisesRegex(BackendError, 'progress'):
             port.wait_ready()
         port.close.assert_called_once()
         port.service.assert_called_once()
+
+    def test_native_start_has_a_wall_deadline_even_with_execution_progress(self):
+        port = BlackfinPort.__new__(BlackfinPort)
+        port._require_loaded, port.close, port.service = Mock(), Mock(), Mock()
+        port.initialized, port.boot_steps, port.boot_timeout = False, 250000000, .5
+        with patch('blackfin_backend.time.monotonic', side_effect=(0, 1)):
+            with self.assertRaisesRegex(BackendError, 'deadline'):
+                port.wait_ready()
+        port.service.assert_not_called()
+        port.close.assert_called_once()
 
 
 if __name__ == '__main__':
