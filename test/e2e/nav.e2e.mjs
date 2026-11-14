@@ -1,6 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { setUp } from "./harness.mjs";
+import { setUp, gear } from "./harness.mjs";
 
 let h;
 before(async () => { h = await setUp(); });
@@ -49,35 +49,46 @@ test("Pattern-Werkzeuge and Samples are not offered: no tab, and #ptools and #sa
   assert.deepEqual(await page.locator("#cee-areas [role=tab]:visible").allTextContents(), ["Start", "Emulator", "Design", "Samples", "Konsole", "Blechy", "Firmware Patcher", "Changelogs", "Plugins", "Baukasten", "Doom", "Features", "Discord", "Pattern-Werkzeuge", "Samples"]);
 });
 
-test("the navbar title of the emulator page is a menu: emulator or real device", async () => {
+test("the navbar of the emulator page has one switch: off is the emulator, on the real device", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu`);
   assert.equal(await page.locator("#cee-nav-title").isVisible(), false);
-  assert.equal(await page.locator("#cee-mode-label").textContent(), "Emulator");
-  assert.deepEqual(await page.locator("#cee-nav-state").getByRole("button").allTextContents(), ["SD-Karte öffnen", "Eigenes Fenster"], "the emulator page has no device state, only the SD card and the button for its own window");
-  assert.equal(await page.locator("#cee-nav-state #cee-sd-inserted").count(), 1, "the card's switch beside it");
-  assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "false");
-  await page.click("#cee-mode-button");
-  assert.equal(await page.getAttribute("#cee-mode-button", "aria-expanded"), "true");
-  await page.keyboard.press("Escape");
-  assert.equal(await page.locator("#cee-mode-menu").isVisible(), false);
-  assert.equal(await page.evaluate(() => document.activeElement.id), "cee-mode-button", "the focus goes back to the button");
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("ArrowDown");
+  assert.equal(await page.locator(".cee-mode-title").textContent(), "Emulator");
+  assert.equal(await page.locator("#cee-mode-switch").isChecked(), false);
+  assert.equal(await page.locator("#cee-mode-menu").count(), 0, "no menu any more");
+  assert.equal(await page.locator("#cee-emu-menu").isVisible(), false, "the gear menu starts shut");
+  assert.equal(await page.locator("#cee-nav-state").getByRole("button").count(), 0, "the emulator page has no controls of its own in the bar, they are in the gear menu");
+  await page.focus("#cee-emu-gear");
   await page.keyboard.press("Enter");
-  assert.equal(await page.locator("#cee-mode-label").textContent(), "Echtes Gerät");
+  assert.equal(await page.evaluate(() => document.activeElement.id), "cee-mode-switch", "the gear opens on the mode switch");
+  assert.deepEqual(await page.locator("#cee-emu-menu").getByRole("button").allTextContents(), ["SD-Karte öffnen", "Eigenes Fenster"], "under it the SD card's folder and the emulator's own window");
+  assert.equal(await page.locator("#cee-emu-menu #cee-sd-inserted").count(), 1, "and the card's switch");
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator("#cee-emu-menu").isVisible(), false, "Escape shuts it");
+  assert.equal(await page.evaluate(() => document.activeElement.id), "cee-emu-gear", "and gives the focus back to the gear");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Space");
+  assert.equal(await page.locator("#cee-mode-switch").isChecked(), true);
+  assert.equal(await page.locator(".cee-mode-title").textContent(), "Echtes Gerät", "the title says the mode");
+  assert.equal(await page.locator("#cee-emu-menu").isVisible(), false, "picking a mode shuts the menu");
   assert.equal(await page.locator("#cee-device").isVisible(), false, "with nothing to say, the area above the drawing takes no room (the connect button is in the navbar)");
   assert.equal(await page.locator("#cee-area-emu #cee-e2").isVisible(), true, "the real device is shown in the emulator's drawing");
   assert.equal(await page.getAttribute("#cee-tab-emu", "data-active"), "", "the sidebar still marks the emulator entry");
   assert.equal(await page.locator("#cee-nav-state #cee-connect").isVisible(), true, "on the device page the navbar carries the connect button instead of a not-connected text");
+  await page.focus("#cee-emu-gear");
+  await page.keyboard.press("Enter");
+  assert.equal(await page.locator("#cee-emu-menu").getByRole("button").count(), 0, "on the device page the menu holds only the mode switch");
+  await page.keyboard.press("Space");
+  assert.equal(await page.locator("#cee-mode-switch").isChecked(), false);
+  assert.equal(await page.getAttribute("#cee-tab-emu", "data-active"), null, "off is the emulator again");
 });
 
-test("the emulator page has no options in the sidebar: the firmware goes on its display, the SD card opens from the navbar", async () => {
+test("the emulator page has no options in the sidebar: the firmware goes on its display, the SD card opens from the gear menu", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu`);
   assert.equal(await page.locator("#cee-sub-emu").count(), 0, "nothing folds out under the entry");
-  assert.equal(await page.locator("#cee-nav-state #cee-sd-open").textContent(), "SD-Karte öffnen", "the SD card opens from the navbar");
-  assert.equal(await page.locator("#cee-nav-state #cee-sd-inserted").count(), 1, "and its switch sits next to it");
+  assert.equal(await page.locator("#cee-emu-menu #cee-sd-open").textContent(), "SD-Karte öffnen", "the SD card opens from the gear menu");
+  assert.equal(await page.locator("#cee-emu-menu #cee-sd-inserted").count(), 1, "and its switch sits above it");
   assert.equal(await page.locator(".cee-main #cee-e2-power").isVisible(), true, "the power key stays in the page");
   assert.equal(await page.locator(".cee-main #cee-emu-offer").isVisible(), true, "a switched-off device offers the firmware on its display");
   assert.match(await page.locator("#cee-emu-offer").textContent(), /SYSTEM\.VSB/);
@@ -148,11 +159,59 @@ test("the page title and the sidebar toggle share one centre line in the navbar,
     const mid = s => { const r = document.querySelector(s).getBoundingClientRect(); return r.top + r.height / 2; };
     return { bar: mid(".cee-navbar"), title: mid("#cee-nav-title"), toggle: mid("#cee-collapse"), brand: mid("#cee-brand") };
   });
-  for (const state of ["expanded", "folded"]) {
-    if (state === "folded") { await page.click("#cee-collapse"); await page.waitForTimeout(300); }
-    const c = await centres();
-    for (const key of ["title", "toggle", "brand"]) assert.ok(Math.abs(c[key] - c.bar) <= 1, `${state}: ${key} at ${c[key]}, navbar centre ${c.bar}`);
-  }
+  const c = await centres();
+  for (const key of ["title", "toggle", "brand"]) assert.ok(Math.abs(c[key] - c.bar) <= 1, `expanded: ${key} at ${c[key]}, navbar centre ${c.bar}`);
+  await page.click("#cee-collapse");
+  await page.waitForFunction(() => ![".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition))));
+  const f = await centres();
+  for (const key of ["title", "toggle"]) assert.ok(Math.abs(f[key] - f.bar) <= 1, `folded: ${key} at ${f[key]}, navbar centre ${f.bar}`);
+  const edge = await page.evaluate(() => ({
+    toggle: document.querySelector("#cee-collapse").getBoundingClientRect().left,
+    inset: parseFloat(getComputedStyle(document.querySelector(".cee-navbar")).paddingRight),
+    title: document.querySelector("#cee-nav-title").getBoundingClientRect().left,
+    toggleRight: document.querySelector("#cee-collapse").getBoundingClientRect().right,
+  }));
+  assert.equal(edge.toggle, edge.inset, "folded, the toggle sits at the left edge, in the navbar's own inset");
+  assert.ok(edge.title > edge.toggleRight && edge.title - edge.toggleRight <= 24, `the title follows right after the toggle (${edge.title - edge.toggleRight}px)`);
+});
+
+test("folded, the title is gone for eye and keyboard; the fold animates, but not with reduced motion or a remembered fold", async () => {
+  const page = await h.page();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${h.url}#rescue`);
+  await page.click("#cee-collapse");
+  assert.ok(await page.evaluate(() => [".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition)))), "folding moves");
+  await page.waitForFunction(() => document.querySelector(".cee-app").hasAttribute("data-collapsed") && ![".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition))));
+  assert.equal(await page.locator("#cee-brand").isVisible(), false);
+  await page.locator("#cee-collapse").focus();
+  await page.keyboard.press("Shift+Tab");
+  assert.notEqual(await page.evaluate(() => document.activeElement?.id), "cee-brand", "the folded title takes no focus");
+  assert.equal(await page.locator("#cee-collapse").getAttribute("aria-expanded"), "false");
+  await page.reload();
+  assert.equal(await page.evaluate(() => document.querySelector(".cee-app").hasAttribute("data-collapsed")), true, "the fold is remembered");
+  assert.equal(await page.evaluate(() => [".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition)))), false, "a remembered fold stands without moving");
+  await page.click("#cee-collapse");
+  await page.waitForFunction(() => !document.querySelector(".cee-app").hasAttribute("data-collapsed") && ![".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition))));
+  assert.equal(await page.locator("#cee-brand").isVisible(), true, "unfolded, the title is back");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.click("#cee-collapse");
+  assert.equal(await page.evaluate(() => document.querySelector(".cee-app").hasAttribute("data-collapsed")), true, "with reduced motion it folds at once");
+  assert.equal(await page.evaluate(() => [".cee-right", "#cee-sidebar", "#cee-collapse", "#cee-brand", "#cee-side-body"].some(s => document.querySelector(s).getAnimations().some(a => !(a instanceof CSSTransition)))), false, "and nothing moves");
+  assert.deepEqual(page.errors, []);
+});
+
+test("the drawer slides in under 60rem and Esc still closes it", async () => {
+  const page = await h.page();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(h.url);
+  await page.click("#cee-menu");
+  assert.match(await page.locator("#cee-sidebar").evaluate(n => getComputedStyle(n).transitionProperty), /transform/, "the drawer slides");
+  await page.waitForFunction(() => !document.querySelector("#cee-sidebar").getAnimations().length);
+  assert.equal(await page.locator("#cee-sidebar").evaluate(n => n.getBoundingClientRect().left), 0, "open, it stands at the left edge");
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator("#cee-sidebar").getAttribute("data-open"), null);
+  await page.waitForFunction(() => getComputedStyle(document.querySelector("#cee-sidebar")).visibility === "hidden");
+  assert.deepEqual(page.errors, []);
 });
 
 test("the device drawing fits its box: no sideways scrollbar under the electribe, at any window size", async () => {
@@ -179,11 +238,10 @@ test("the drawing sits at the same height on the emulator page and on the real d
   assert.equal(await top("#device"), await top("#emu"));
 });
 
-test("the start page has its sections in heading order and the donate link opens outside the app", async () => {
+test("the welcome has its sections in heading order and the donate link opens outside the app", async () => {
   const page = await h.page();
   await page.goto(h.url);
-  assert.deepEqual(await page.locator("#cee-start-page h2").allTextContents(), ["Wie installiere ich BLECHTRIBE?", "Geht was schief?", "Was kann BLECHTRIBE?", "Erkunden", "Spenden"]);
-  assert.match(await page.locator("#cee-start-features").textContent(), /volle Liste/, "the start page says there is a lot and points to Features");
+  assert.deepEqual(await page.locator("#cee-start-welcome h2").allTextContents(), ["Was kann BLECHTRIBE?", "Wie installiere ich BLECHTRIBE?", "Geht was schief?", "Spenden"]);
   assert.equal(await page.getAttribute("#cee-start-rescue-more", "href"), "#rescue", "Geht was schief? has its button to the rescue page");
   assert.equal(await page.getAttribute("#cee-start-more", "href"), "#features", "the button leads to the page of all functions");
   await page.click("#cee-start-more");
@@ -203,6 +261,25 @@ test("the start page has its sections in heading order and the donate link opens
   await app.goto(h.url);
   for (const id of ["#cee-support-paypal", "#cee-support-issues", "#cee-support-instagram"]) assert.equal(await app.getAttribute(id, "target"), "_self", "in the app the navigation is caught and opened in the browser");
   assert.equal(await app.getAttribute("#cee-patch-korg-licence-link", "target"), "_self", "Korg's page with its licence, the one link outside on the patcher's first step");
+});
+
+test("the personal intro lives on the hidden about page, reached from the start page and the sidebar", async () => {
+  const page = await h.page();
+  await page.goto(h.url);
+  assert.equal(await page.locator("#cee-start-page").getByText("Entwicklungspsychose").count(), 0, "the intro left the start page");
+  assert.equal(await page.locator("#cee-tab-about").isVisible(), false, "no entry in the list");
+  await page.click("#cee-start-about");
+  await page.waitForFunction(() => document.querySelector("#cee-areas [aria-selected='true']")?.dataset.tab === "about");
+  assert.equal(await page.locator("#cee-nav-title").textContent(), "Über das Projekt");
+  assert.equal(await page.locator("#cee-about-page h1").textContent(), "Wat wird'n ditte hier? Korg verkuhlen or wa?");
+  assert.equal(await page.locator("#cee-about-link").getAttribute("aria-current"), "", "the sidebar link marks the open page");
+  await page.click("#cee-tab-start");
+  await page.click("#cee-about-link");
+  await page.waitForFunction(() => document.querySelector("#cee-areas [aria-selected='true']")?.dataset.tab === "about");
+  await page.goto(`${h.url}#about`);
+  await page.reload();
+  assert.equal(await selectedTab(page), "about", "the address opens it too");
+  assert.deepEqual(page.errors, []);
 });
 
 test("the app opens on the start page although its address carries the emulator link; the browser goes to the emulator", async () => {
@@ -228,23 +305,32 @@ test("the settings page names the app's version in the app, and has no such line
   assert.equal(await app.locator("#cee-version").textContent(), "App-Version 1.2.0");
 });
 
-test("the start page sends to the patcher for Korg's firmware, and to Plugins and the Baukasten under Erkunden", async () => {
+test("the welcome: install and try first in the first screen, four cards to what BLECHTRIBE does, Korg's firmware from the patcher", async () => {
   const page = await h.page();
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(h.url);
+  assert.equal(await page.locator("#cee-start-welcome").isVisible(), true, "nothing connected, no firmware, first visit: the welcome");
+  for (const id of ["#cee-start-patch", "#cee-start-try"]) {
+    const box = await page.locator(id).boundingBox();
+    assert.ok(box.y + box.height <= 800, `${id} is in the first screen`);
+  }
+  assert.deepEqual([await page.getAttribute("#cee-start-patch", "href"), await page.getAttribute("#cee-start-try", "href")], ["#patcher", "#emu"]);
+  assert.deepEqual(await page.locator("#cee-start-cards a").evaluateAll(list => list.map(a => a.getAttribute("href"))), ["#baukasten", "#scripts", "#splash", "#emu"]);
   assert.equal(await page.getAttribute("#cee-start-step-firmware", "href"), "#patcher");
-  assert.equal(await page.locator("#cee-start-page .cee-device-card").count(), 0, "Korg's cards live on the patcher");
-  const explore = page.locator("#cee-start-explore a");
-  assert.deepEqual(await explore.evaluateAll(list => list.map(a => a.getAttribute("href"))), ["#scripts", "#baukasten"]);
+  assert.equal(await page.locator("#cee-start-found").isVisible(), false, "no Electribe found, no line");
+  assert.equal(await page.locator("#cee-start-welcome .cee-device-card").count(), 0, "Korg's cards live on the patcher");
+  assert.deepEqual(page.errors, []);
 });
 
 test("the emulator opens in a window of its own; the page shows a note, and Hier anzeigen or closing the window brings it back", async () => {
   const page = await h.page();
   await page.goto(`${h.url}#emu`);
-  await page.locator("#cee-emu-pop").waitFor();
+  await page.locator("#cee-emu-pop").waitFor({ state: "attached" });
+  await gear(page);
   // what is seen, not the attribute: a display rule can show an element that is hidden
   const shown = async () => ({ device: await page.locator("#cee-emu-device").isVisible(), note: await page.locator("#cee-emu-away").isVisible() });
   assert.deepEqual(await shown(), { device: true, note: false }, "before the window opens, only the device");
-  assert.equal(await page.locator(".cee-navbar #cee-emu-pop").isVisible(), true, "the button sits in the navbar");
+  assert.equal(await page.locator(".cee-navbar #cee-emu-menu #cee-emu-pop").isVisible(), true, "the button sits in the gear menu of the navbar");
   const [win] = await Promise.all([page.context().waitForEvent("page"), page.click("#cee-emu-pop")]);
   await win.locator("#cee-emu-device").waitFor();
   assert.deepEqual(await shown(), { device: false, note: true });
@@ -256,6 +342,7 @@ test("the emulator opens in a window of its own; the page shows a note, and Hier
   await win.waitForEvent("close", { timeout: 3000 }).catch(() => {});
   assert.equal(win.isClosed(), true, "Hier anzeigen closes the window");
 
+  await gear(page);
   const [again] = await Promise.all([page.context().waitForEvent("page"), page.click("#cee-emu-pop")]);
   await again.locator("#cee-emu-device").waitFor();
   await page.locator("#cee-emu-away").waitFor();

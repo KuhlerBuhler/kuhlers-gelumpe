@@ -14,7 +14,9 @@ import { crc32 } from "./script/blob.mjs";
 import { RECORD, recordOf, locatePresets } from "./presets.mjs";
 import { TABLES } from "./map/index.mjs";
 import { locateModTable, writeModType, readModType } from "./modtable.mjs";
-import { buildOf } from "./firmware.mjs";
+import { buildOf, hardwareOf } from "./firmware.mjs";
+import { convertStock } from "./patcher.mjs";
+import { isZip, unzipEntry } from "./zip.mjs";
 import { fxText, fxToRecord, fxFromRecord, modFromType } from "./fx-v2.mjs";
 import { FxRecord } from "./record.mjs";
 import { lint } from "./rules.mjs";
@@ -26,7 +28,7 @@ export const COLLECTION_VERSION = 1;
 export const HEADER_SIZE = 24;
 export const ENTRY_HEAD = 8;
 export const MAX_TEXT = 0x2000;
-export const BUILDS = { hacktribe: 1, stock: 2 };
+export const BUILDS = { hacktribe: 1, stock: 2, synth: 3 };
 export const KIND = { ifx: 1, mfx: 2, mod: 3 };
 export const MOD_RECORD = TABLES.get("table.modType").stride;
 export const MOD_COUNT = TABLES.get("table.modType").count;
@@ -116,12 +118,15 @@ export function parseCollection(bytes, { counts = null } = {}) {
 /** What the user can free on purpose (Baukasten, "Gesperrte Bausteine freigeben"): the measured bad block combinations. */
 const RISKY_CODES = new Set(["stage2-fatal", "stage2-silent", "stage1-needs-solo"]);
 
-/** @param {{risky?: boolean}} [options] risky: let the measured bad block combinations through, the rest stays barred */
-export function collectionEntry(preset, vsb, index, units, { risky = false } = {}) {
+/**
+ * @param {{risky?: boolean, modTable?: object}} [options] risky: let the measured bad block combinations through, the rest stays barred;
+ *   modTable: where the modulation types are when no code in `vsb` points at them (src/device-fx.mjs)
+ */
+export function collectionEntry(preset, vsb, index, units, { risky = false, modTable = null } = {}) {
   const build = buildOf(vsb);
-  if (!(build in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für den roten Sampler, mit Korgs Firmware oder mit Hacktribe." };
+  if (!(build in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für Korgs Firmware 2.02 (rot und blau) und für Hacktribe." };
   if (preset.kind === "mod") {
-    const table = locateModTable(vsb);
+    const table = modTable ?? locateModTable(vsb);
     if (!table.ok) return { ok: false, reason: table.reasons[0] };
     if (index < 0 || index >= MOD_COUNT) return { ok: false, reason: `Modulation ${index + 1} gibt es nicht, es sind ${MOD_COUNT}.` };
     const data = vsb.slice(table.file + index * MOD_RECORD, table.file + (index + 1) * MOD_RECORD);
@@ -140,7 +145,8 @@ export function collectionEntry(preset, vsb, index, units, { risky = false } = {
   if (!made.ok) return made;
   // The Türsteher's rules (src/rules.mjs), as for a live write: what crashes the device, stays silent or is broken
   // does not go on the card either, where it would load at every start.
-  const bad = lint(new FxRecord(made.record, preset.kind), { units }).find(f => ["fatal", "silent", "error"].includes(f.severity) && !(risky && RISKY_CODES.has(f.code)));
+  // The card file loads only on blechtribe; on red that carries stage2-memory (data/patches/blech.json).
+  const bad = lint(new FxRecord(made.record, preset.kind), { units, stage2Memory: hardwareOf(vsb) === "red" }).find(f => ["fatal", "silent", "error"].includes(f.severity) && !(risky && RISKY_CODES.has(f.code)));
   if (bad) return { ok: false, reason: `Vom Türsteher gesperrt: ${bad.message}${RISKY_CODES.has(bad.code) ? " Mit „Gesperrte Bausteine freigeben (RISIKO)“ bei der Wahl des Bausteins geht es trotzdem." : ""}` };
   return { ok: true, entry: { kind: preset.kind, index, data: made.record, text: fxText(preset) } };
 }
@@ -151,10 +157,10 @@ export function collectionEntry(preset, vsb, index, units, { risky = false } = {
  * within its kind is what adding a preset does too (src/presets.mjs addPreset).
  * @returns {{ok: true, entry: object} | {ok: false, reason: string}}
  */
-export function factoryEntry(vsb, kind, from, index, units) {
-  if (!(buildOf(vsb) in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für den roten Sampler, mit Korgs Firmware oder mit Hacktribe." };
+export function factoryEntry(vsb, kind, from, index, units, { modTable = null } = {}) {
+  if (!(buildOf(vsb) in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für Korgs Firmware 2.02 (rot und blau) und für Hacktribe." };
   if (kind === "mod") {
-    const table = locateModTable(vsb);
+    const table = modTable ?? locateModTable(vsb);
     if (!table.ok) return { ok: false, reason: table.reasons[0] };
     if (from < 1 || from > MOD_COUNT || index < 0 || index >= MOD_COUNT) return { ok: false, reason: `Modulation ${from} gibt es nicht, es sind ${MOD_COUNT}.` };
     const data = vsb.slice(table.file + (from - 1) * MOD_RECORD, table.file + from * MOD_RECORD);
@@ -166,14 +172,66 @@ export function factoryEntry(vsb, kind, from, index, units) {
   return { ok: true, entry: { kind, index, data, text: fxText(fxFromRecord(data, kind, units)) } };
 }
 
+/** What the user picks in the export as the device's firmware: Hacktribe or Korg's 2.02 on the red sampler, Korg's 2.02 on the blue synth. */
+export const TARGETS = ["hacktribe", "stock", "synth"];
+/** The device a target's firmware runs on (firmware.mjs hardwareOf). */
+export const targetHardware = target => target === "synth" ? "blue" : "red";
+
 /**
- * Every effect and modulation type of a firmware of the red sampler (Korg's 2.02 or Hacktribe) as .e2fx v2 text, so the
+ * The firmware for `target` out of a file the app got: Korg's zip or a SYSTEM.VSB. Korg's 2.02 becomes Hacktribe with
+ * hacktribe-2.patch (`hacktribePatch()`, loaded only then), as in the patcher (convertStock). Never the emulator's file:
+ * the collection is for the firmware on the device, and that one the user names.
+ * @returns {Promise<{ok: true, bytes: Uint8Array} | {ok: false, code?: "zip"|"device"|"build", reason?: string}>}
+ */
+export async function targetFirmware(target, file, { hacktribePatch = null } = {}) {
+  let vsb = file;
+  if (isZip(file)) {
+    const entry = await unzipEntry(file);
+    if (!entry) return { ok: false, code: "zip" };
+    vsb = entry.bytes;
+  }
+  if (hardwareOf(vsb) !== targetHardware(target)) return { ok: false, code: "device" };
+  const build = buildOf(vsb);
+  if (build === target) return { ok: true, bytes: vsb };
+  if (target === "hacktribe" && build === "stock" && hacktribePatch) {
+    const res = await convertStock(vsb, await hacktribePatch());
+    return res.ok ? { ok: true, bytes: res.bytes } : { ok: false, reason: res.reason };
+  }
+  return { ok: false, code: "build" };
+}
+
+/**
+ * e2sFx.all for the firmware the user named (`target`), made from `firmware`, a file of that very build: the header
+ * carries the target's build, the records are that firmware's. `items` are the places, `slot` 1-based, each either a
+ * factory preset moved from place `from` or a `preset`.
+ * @param {{kind: string, slot: number, from?: number, preset?: object}[]} items
+ * @returns {{ok: true, bytes: Uint8Array} | {ok: false, code?: "build", from?: number, name?: string, reason?: string}}
+ */
+export function collectionFor(target, firmware, items, units, { risky = false, modTable = null } = {}) {
+  if (!(target in BUILDS) || !firmware || hardwareOf(firmware) !== targetHardware(target) || buildOf(firmware) !== target) return { ok: false, code: "build" };
+  const entries = [];
+  for (const item of items) {
+    if (item.from) {
+      const moved = factoryEntry(firmware, item.kind, item.from, item.slot - 1, units, { modTable });
+      if (!moved.ok) return { ok: false, from: item.from, reason: moved.reason };
+      entries.push(moved.entry);
+      continue;
+    }
+    const made = collectionEntry(item.preset, firmware, item.slot - 1, units, { risky, modTable });
+    if (!made.ok) return { ok: false, name: item.preset.name, reason: made.reason };
+    entries.push(made.entry);
+  }
+  return { ok: true, bytes: buildCollection({ build: target, entries }) };
+}
+
+/**
+ * Every effect and modulation type of a firmware (Korg's 2.02, red or blue, or Hacktribe) as .e2fx v2 text, so the
  * Baukasten can take them over as own pieces: who has Korg's original file gets its presets back, nothing of it is shipped.
  * Empty places are left out.
  * @returns {{ok: true, pieces: {kind: "ifx"|"mfx"|"mod", slot: number, name: string, text: string}[]} | {ok: false, reason: string}}
  */
 export function firmwarePresets(vsb, units) {
-  if (!(buildOf(vsb) in BUILDS)) return { ok: false, reason: "Presets lassen sich aus der Firmware des roten Samplers holen, Korgs Original 2.02 oder Hacktribe." };
+  if (!(buildOf(vsb) in BUILDS)) return { ok: false, reason: "Presets lassen sich aus Korgs Firmware 2.02 (rot und blau) oder Hacktribe holen." };
   const pieces = [];
   for (const kind of ["mfx", "ifx"]) {
     for (let slot = 1; recordOf(vsb, kind, slot); slot++) {
@@ -191,6 +249,6 @@ export function firmwarePresets(vsb, units) {
       if (preset.name.trim()) pieces.push({ kind: "mod", slot, name: preset.name, text: fxText(preset) });
     }
   }
-  if (!pieces.length) return { ok: false, reason: "In dieser Datei sind keine Presets zu finden. Nimm eine SYSTEM.VSB des roten Samplers." };
+  if (!pieces.length) return { ok: false, reason: "In dieser Datei sind keine Presets zu finden. Nimm eine SYSTEM.VSB der Electribe 2." };
   return { ok: true, pieces };
 }

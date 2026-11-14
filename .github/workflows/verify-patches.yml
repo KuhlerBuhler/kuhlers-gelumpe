@@ -60,6 +60,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: >-
+    verify-patches-${{ github.event_name }}-${{
+      (github.event_name == 'pull_request' || github.event_name == 'push') && github.run_attempt == 1 &&
+      (github.event.pull_request.number || github.ref) || format('manual-{0}-{1}', github.run_id, github.run_attempt)
+    }}
+  cancel-in-progress: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && github.run_attempt == 1 }}
+
 jobs:
   # The commit all jobs check, so a push to the branch during the hour cannot mix two patch sets.
   ref:
@@ -94,7 +102,8 @@ jobs:
       - id: own
         if: github.event_name == 'pull_request'
         run: |
-          if [ "$(git diff --name-only HEAD^ HEAD)" = "data/patches/verified.json" ]; then
+          if ! git rev-parse --verify --quiet HEAD^2 >/dev/null &&
+             [ "$(git diff --name-only HEAD^ HEAD)" = "data/patches/verified.json" ]; then
             echo "::notice::the last commit only changes verified.json, nothing to check."
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
@@ -113,12 +122,12 @@ jobs:
             echo "::notice::the pull request changes nothing the check is made of, nothing to check."
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
-      # A pull request into develop runs the start scenarios and the case modules of its changed files, and writes nothing.
+      # Feature PRs run start scenarios and cases for their changed files, and write nothing.
       - id: scope
-        if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+        if: github.event_name == 'pull_request' && (github.base_ref == 'develop' || startsWith(github.base_ref, 'release/'))
         run: |
           if [ "$(wc -l < "$RUNNER_TEMP/changed.txt")" -ge 3000 ]; then cases=all; else cases=$(node tools/ci/verify-scope.mjs < "$RUNNER_TEMP/changed.txt"); fi
-          echo "::notice::pull request into develop: start scenarios and cases '${cases:-none}', verified.json stays as it is."
+          echo "::notice::pull request into $GITHUB_BASE_REF: start scenarios and cases '${cases:-none}', verified.json stays as it is."
           echo "full=false" >> "$GITHUB_OUTPUT"
           echo "cases=$cases" >> "$GITHUB_OUTPUT"
       # A push to develop runs every case module with the kept task results, so develop's cache stays current.
@@ -169,10 +178,18 @@ jobs:
       contents: write
       pull-requests: write
     steps:
+      # Blechy, the repository's GitHub App: what its token pushes, opens or merges starts the workflows it should, and
+      # it shows up as Blechy, not as a person. Without the secrets (a fork) the token stays empty and nothing is done.
+      - uses: actions/create-github-app-token@v2
+        id: app
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.BLECHY_APP_ID }}
+          private-key: ${{ secrets.BLECHY_APP_KEY }}
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.ref.outputs.sha }}
-          token: ${{ secrets.SYNC_TOKEN || github.token }}
+          token: ${{ steps.app.outputs.token || github.token }}
       # The joining tool from this workflow's own commit: the checked branch may be older than --results.
       - uses: actions/checkout@v4
         with:
@@ -192,7 +209,7 @@ jobs:
           rm -rf .verify-tool
       - name: Commit
         env:
-          GH_TOKEN: ${{ secrets.SYNC_TOKEN || github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
           BRANCH: ${{ needs.ref.outputs.branch }}
           EVENT: ${{ github.event_name }}
         run: |
@@ -202,8 +219,8 @@ jobs:
             exit 0
           fi
           git diff -- data/patches/verified.json
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "blechy[bot]"
+          git config user.email "356464826+blechy[bot]@users.noreply.github.com"
           git commit -m "chore(patches): refresh verified.json" -m "Checked by the workflow Verify patches, run $GITHUB_RUN_ID." -- data/patches/verified.json
           if [ "$BRANCH" != main ] && [ "$BRANCH" != develop ]; then
             if git push origin "HEAD:refs/heads/$BRANCH"; then
@@ -214,6 +231,23 @@ jobs:
               echo "::warning::$BRANCH moved on during the check; the run for its new head checks again."
               exit 0
             fi
+          fi
+          # An open refresh pull request takes the new file as one more commit, instead of a new pull request per run.
+          # The merge keeps this run's tree (the branch now plus the new verified.json), so the push is a fast-forward.
+          open=$(gh pr list --base "$BRANCH" --state open --json number,headRefName \
+            --jq "[.[] | select(.headRefName | startswith(\"verified/$BRANCH-\"))] | sort_by(.number) | last // empty | \"\(.number) \(.headRefName)\"")
+          if [ -n "$open" ]; then
+            read -r number head <<< "$open"
+            git fetch --quiet origin "refs/heads/$head"
+            git merge --quiet -s ours --allow-unrelated-histories -m "chore(patches): refresh verified.json" \
+              -m "Checked by the workflow Verify patches, run $GITHUB_RUN_ID." FETCH_HEAD
+            if git push origin "HEAD:refs/heads/$head"; then
+              gh pr comment "$number" --body "Run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID passed too; its verified.json is on this branch now."
+              echo "::notice::added the new verified.json to pull request $number."
+              exit 0
+            fi
+            echo "::warning::$head moved on during the check; opening a new pull request instead."
+            git reset --quiet --hard HEAD^1
           fi
           head="verified/$BRANCH-$GITHUB_RUN_ID"
           git push origin "HEAD:refs/heads/$head"

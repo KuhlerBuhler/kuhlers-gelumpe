@@ -17,7 +17,7 @@ if UNICORN_AVAILABLE:
 FS_WRITE = 0xC009DFB8
 FOLDER = b'SD:KORG/blechtribe/Plugin/'
 STORE_PENDING, STORE_FRAME, STORE_GENERATION, STORE_BYTES, STORE_ERRORS, STORE_WRITES = 184, 188, 192, 196, 200, 204
-ENTRY_MASK, ENTRY_STORE = 232, 236
+ENTRY_MASK, ENTRY_STORE = (next(f['offset'] for f in contract_data()['pool']['fields'] if f['name'] == name) for name in ('storeMask', 'store'))
 
 NODE = """
 import { readFileSync } from "node:fs";

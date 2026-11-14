@@ -1931,7 +1931,7 @@ dependencies = [
 
 [[package]]
 name = "kuhlers-gelumpe"
-version = "1.4.5"
+version = "1.4.6"
 dependencies = [
  "alsa",
  "coremidi",
@@ -1943,6 +1943,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
+ "tauri-plugin-fs",
  "tauri-plugin-single-instance",
  "ureq",
 ]

@@ -68,6 +68,16 @@ export const BLECH = {
   FLAG_SAMPLE: 0x80,
   /** bit 30 of a FILE offset: Sample/e2sSample.all; with bit 31 as well Sample/e2sSample.tmp */
   FILE_SAMPLE: 0x40000000,
+  /** INFO flag: the Doom files KORG/blechtribe/Doom/doom.bin and doom.wad can be read and written; never on the blue Electribe 2, whose set has no Doom loader */
+  FLAG_DOOM: 0x100,
+  /** INFO flag: the firmware has DEV MODE (the Sampler's BLECH menu), which lets a write into the firmware image pass; never on the blue Electribe 2 */
+  FLAG_DEV: 0x200,
+  /** INFO flag: DEV MODE is on right now (set at run time, off after every power-on) */
+  FLAG_DEV_ON: 0x400,
+  /** bit 29 of a FILE offset: KORG/blechtribe/Doom/doom.bin; with bit 31 as well doom.wad. Up to SAMPLE_LIMIT, like the sample file */
+  FILE_DOOM: 0x20000000,
+  /** bits 30 and 29 of a FILE offset: KORG/blechtribe/Presets/e2sFx.all, read only (FILE BEGIN says out of range, as a firmware from before does to both). Up to SAMPLE_LIMIT */
+  FILE_FX: 0x60000000,
   /** the largest offset + length on a sample file */
   SAMPLE_LIMIT: 0x10000000,
   /** the most bytes one FILE COPY or FILE CRC works on */

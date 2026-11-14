@@ -7,10 +7,12 @@ import { lint } from "../src/rules.mjs";
 const units = loadUnits();
 const codes = record => lint(record, { units }).map(f => f.code);
 const has = (record, code) => codes(record).includes(code);
+// A firmware without the stage2-memory patch, where stage 2 shared stage 1's memory.
+const old = { units, stage2Memory: false };
 
 test("a unit that kills the sound in stage two is fatal", () => {
   const r = makeRecord("ifx", { devices: { ifx1: 0x15, ifx2: 0x18 } });
-  const found = lint(r, { units }).find(f => f.code === "stage2-fatal");
+  const found = lint(r, old).find(f => f.code === "stage2-fatal");
   assert.ok(found);
   assert.equal(found.severity, "fatal");
 });
@@ -23,6 +25,14 @@ test("a unit that goes quiet in stage two is reported as silent, not fatal", () 
   assert.equal(found.severity, "silent");
 });
 
+test("a pair that failed in the DSP simulation is flagged, the same second stage behind another first one is not", () => {
+  const crash = lint(makeRecord("ifx", { devices: { ifx1: 0x07, ifx2: 0x05 } }), old).find(f => f.code === "stage2-pair");
+  assert.equal(crash?.severity, "fatal");
+  const memory = lint(makeRecord("ifx", { devices: { ifx1: 0x0a, ifx2: 0x15 } }), old).find(f => f.code === "stage2-pair");
+  assert.equal(memory?.severity, "silent");
+  assert.equal(has(makeRecord("ifx", { devices: { ifx1: 0x0a, ifx2: 0x05 } }), "stage2-pair"), false);
+});
+
 test("proven combinations pass", () => {
   for (const [first, second] of [[0x10, 0x06], [0x0a, 0x0a], [0x0a, 0x10]]) {
     const r = makeRecord("ifx", { devices: { ifx1: first, ifx2: second } });
@@ -30,6 +40,7 @@ test("proven combinations pass", () => {
     assert.equal(has(r, "stage2-silent"), false);
     assert.equal(has(r, "stage2-untested"), false);
     assert.equal(has(r, "stage1-needs-solo"), false);
+    assert.equal(has(r, "stage2-pair"), false);
   }
 });
 
@@ -38,9 +49,22 @@ test("a ring modulator with a second stage behind it is silent, not a crash", ()
   const r = makeRecord("ifx", { devices: { ifx1: 0x16, ifx2: 0x0a } });
   const found = lint(r, { units }).find(f => f.code === "stage1-needs-solo");
   assert.equal(found.severity, "silent");
-  const decimator = lint(makeRecord("ifx", { devices: { ifx1: 0x09, ifx2: 0x0a } }), { units })
+  const decimator = lint(makeRecord("ifx", { devices: { ifx1: 0x09, ifx2: 0x0a } }), old)
     .find(f => f.code === "stage1-needs-solo");
   assert.equal(decimator.severity, "fatal");
+});
+
+test("with the stage2-memory patch the memory faults pass, delay pairs and the ring modulator stay locked", () => {
+  const locked = ["stage2-fatal", "stage2-silent", "stage2-pair", "stage1-needs-solo"];
+  const flags = (first, second, opts) => lint(makeRecord("ifx", { devices: { ifx1: first, ifx2: second } }), opts)
+    .map(f => f.code).filter(c => locked.includes(c));
+  for (const [first, second] of [[0x15, 0x18], [0x07, 0x05], [0x0a, 0x15], [0x09, 0x0a], [0x0a, 0x02]]) {
+    assert.deepEqual(flags(first, second, { units }), [], `${first} > ${second} passes on a patched firmware`);
+    assert.notDeepEqual(flags(first, second, old), [], `${first} > ${second} stays locked without the patch`);
+  }
+  assert.ok(flags(0x11, 0x12, { units }).includes("stage2-pair"), "delay > delay still glitches");
+  assert.ok(flags(0x0a, 0x16, { units }).includes("stage2-silent"), "the ring modulator in stage 2 stays silent");
+  assert.ok(flags(0x16, 0x0a, { units }).includes("stage1-needs-solo"), "the ring modulator in stage 1 still wants to be alone");
 });
 
 test("an untried second stage is flagged as untried, not as broken", () => {
@@ -51,7 +75,7 @@ test("an untried second stage is flagged as untried, not as broken", () => {
 
 test("the decimator with anything behind it is fatal", () => {
   const r = makeRecord("ifx", { devices: { ifx1: 0x09, ifx2: 0x0a } });
-  assert.ok(has(r, "stage1-needs-solo"));
+  assert.ok(lint(r, old).some(f => f.code === "stage1-needs-solo"));
   const alone = makeRecord("ifx", { devices: { ifx1: 0x09 } });
   assert.equal(has(alone, "stage1-needs-solo"), false);
 });

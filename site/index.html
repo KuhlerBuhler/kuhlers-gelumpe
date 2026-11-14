@@ -46,6 +46,7 @@
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-ptools" data-labs data-tab="ptools" aria-controls="cee-area-ptools" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 3h7v7H3Z"/><path d="M14 3h7v7h-7Z"/><path d="M3 14h7v7H3Z"/><path d="M14 14h7v7h-7Z"/></svg><span data-i18n="nav.ptools">Pattern-Werkzeuge</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-samples" data-labs data-tab="samples" aria-controls="cee-area-samples" aria-selected="false" tabindex="-1"><svg class="cee-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 18V5l12-2v13"/><path d="M3 18a3 3 0 1 0 6 0 3 3 0 1 0-6 0"/><path d="M15 16a3 3 0 1 0 6 0 3 3 0 1 0-6 0"/></svg><span data-i18n="nav.samples">Samples</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-support" hidden data-tab="support" aria-controls="cee-area-support" aria-selected="false" tabindex="-1"><span data-i18n="nav.support">Unterstützen</span></button>
+          <button type="button" class="cee-nav-item" role="tab" id="cee-tab-about" hidden data-tab="about" aria-controls="cee-area-about" aria-selected="false" tabindex="-1"><span data-i18n="nav.about">Über das Projekt</span></button>
           <button type="button" class="cee-nav-item" role="tab" id="cee-tab-settings" hidden data-tab="settings" aria-controls="cee-area-settings" aria-selected="false" tabindex="-1"><span data-i18n="nav.settings">Einstellungen</span></button>
         </div>
         <span class="cee-nav-group" aria-hidden="true" data-before="emu" data-i18n="nav.groupDevice">Gerät</span>
@@ -53,6 +54,7 @@
       </nav>
       <button type="button" class="btn cee-settings-button" id="cee-settings-button" aria-controls="cee-area-settings" data-i18n="nav.settings">Einstellungen</button>
       <a class="btn cee-donate" id="cee-donate" href="#support" data-i18n="nav.donate">Unterstütze das Projekt :D</a>
+      <a class="cee-text-link cee-about-link" id="cee-about-link" href="#about" data-i18n="nav.about">Über das Projekt</a>
       </div>
     </aside>
 
@@ -61,26 +63,49 @@
         <button type="button" class="btn cee-menu" id="cee-menu" aria-expanded="false" aria-controls="cee-sidebar" data-i18n="nav.menu">Menü</button>
         <strong class="cee-nav-title" id="cee-nav-title"><span data-i18n="nav.start">Start</span></strong>
         <div class="cee-mode" id="cee-mode" hidden>
-          <button type="button" class="cee-mode-button" id="cee-mode-button" aria-haspopup="menu" aria-expanded="false" aria-controls="cee-mode-menu">
-            <span id="cee-mode-label"><span data-i18n="mode.emu">Emulator</span></span>
-          </button>
-          <div class="cee-mode-menu" id="cee-mode-menu" role="menu" aria-label="Emulator oder echtes Gerät" data-i18n-label="mode.menu" hidden>
-            <button type="button" class="cee-mode-item" role="menuitemradio" aria-checked="true" data-value="emu" tabindex="-1" data-i18n="mode.emu">Emulator</button>
-            <button type="button" class="cee-mode-item" role="menuitemradio" aria-checked="false" data-value="device" tabindex="-1" data-i18n="mode.device">Echtes Gerät</button>
-          </div>
+          <strong class="cee-mode-title" id="cee-mode-title" data-i18n="mode.emu">Emulator</strong>
         </div>
         <div class="cee-nav-state" id="cee-nav-state" aria-live="polite"></div>
+        <div class="cee-nav-end" id="cee-nav-end"></div>
+        <div class="cee-emu-menu-box" id="cee-emu-menu-box" hidden>
+          <button type="button" class="cee-mode-button cee-emu-gear" id="cee-emu-gear" aria-expanded="false" aria-controls="cee-emu-menu" data-i18n-label="settings.title" aria-label="Einstellungen"></button>
+          <div class="cee-mode-menu cee-emu-menu" id="cee-emu-menu" hidden>
+            <label class="ui-switch cee-mode-switch cee-emu-row"><input type="checkbox" role="switch" id="cee-mode-switch"><span class="ui-switch-track" aria-hidden="true"></span><span data-i18n="mode.device">Echtes Gerät</span></label>
+            <div class="cee-emu-rows" id="cee-emu-rows"></div>
+          </div>
+        </div>
       </header>
 
       <main class="ui-page cee-main">
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-start" aria-labelledby="cee-tab-start" tabindex="0" hidden>
-        <section class="cee-home" id="cee-start-page" data-no-reveal>
+        <div class="cee-start" id="cee-start-page">
+        <section class="cee-home cee-start-view" id="cee-start-welcome" data-no-reveal>
           <div class="cee-sec">
-            <h1 class="cee-home-title" data-i18n="start.title">Wat wird'n ditte hier? Korg verkuhlen or wa?</h1>
-            <p data-i18n="start.intro.who">Ich bin Kuhler Buhler, aka Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab, ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann. Tja, und dann war ich ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.</p>
-            <p data-i18n="start.intro.why">Warum? Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr drin, als Korg jemals rausgeholt hat. Mit BLECHTRIBE hab ich mir praktisch die Electribe 3 gebaut, die es nie gab.</p>
-            <p data-i18n="start.intro.app">Kuhler's GELUMPE ist die App für BLECHTRIBE: Sie patcht deine Firmware, hat eine Electribe als Emulator im Rechner, einen Editor für eigene Effekte und einen Katalog mit Plugins. Alles läuft auf deinem Rechner, deine Dateien verlassen ihn nicht, und Korg-Firmware ist nicht dabei. Gebaut auf Hacktribe (offene Mods für die Electribe, AGPL) und Wissen aus dem Freetribe-Projekt.</p>
-            <p data-i18n="start.intro.blech">BLECHTRIBE ist eine neue Firmware für deine Electribe 2, für den roten Sampler und die blaue Synth. Sie kommt als Patch auf deine eigene Firmware, Korgs Original 2.02 oder Hacktribe 2.02, und holt raus, was Korg drin gelassen hat.</p>
+            <div class="cee-start-hero">
+            <div class="cee-start-hero-text">
+              <h1 class="cee-home-title" data-i18n="start.title">Hol mehr aus deiner Electribe 2 raus</h1>
+              <p class="cee-start-lead" data-i18n="start.lead">BLECHTRIBE ist eine neue Firmware für die Electribe 2, den roten Sampler und die blaue Synth. Diese App patcht sie auf deine eigene Firmware und bringt sie aufs Gerät.</p>
+              <p class="cee-start-found" id="cee-start-found" hidden></p>
+              <div class="actions">
+                <a class="btn cee-primary" href="#patcher" id="cee-start-patch" data-i18n="start.install.go">BLECHTRIBE installieren</a>
+                <a class="btn" href="#emu" id="cee-start-try" data-i18n="start.try">Erst im Emulator ausprobieren</a>
+              </div>
+            </div>
+            <img class="cee-start-blechy" src="img/blechy/wave.png" alt="" width="43" height="55">
+            </div>
+          </div>
+
+          <div class="cee-sec">
+            <h2 data-i18n="start.features.title">Was kann BLECHTRIBE?</h2>
+            <ul class="cee-entry-steps" id="cee-start-cards">
+              <li><a class="cee-entry-step" href="#baukasten" id="cee-start-card-fx"><strong data-i18n="start.card.fx">Neue Effekte und Presets</strong><span data-i18n="start.card.fx.hint">Eigene Effekte und Modulationen bauen, aus fertigen oder aus Bausteinen.</span></a></li>
+              <li><a class="cee-entry-step" href="#scripts" id="cee-start-card-plugins"><strong data-i18n="start.card.plugins">Plugins und Spiele</strong><span data-i18n="start.card.plugins.hint">Erweiterungen und Spiele aus dem Katalog, oder bau dein eigenes.</span></a></li>
+              <li><a class="cee-entry-step" href="#splash" id="cee-start-card-design"><strong data-i18n="start.card.design">Eigenes Startbild</strong><span data-i18n="start.card.design.hint">Startbild und Ladeanimation fürs Display selbst gestalten.</span></a></li>
+              <li><a class="cee-entry-step" href="#emu" id="cee-start-card-emu"><strong data-i18n="start.card.emu">Emulator im Rechner</strong><span data-i18n="start.card.emu.hint">Eine Electribe im Browser: Firmware testen, Presets bauen, Plugins ausprobieren, ganz ohne Gerät.</span></a></li>
+            </ul>
+            <div class="actions">
+              <a class="btn" href="#features" id="cee-start-more" data-i18n="start.features.more">Alle Features ansehen</a>
+            </div>
           </div>
 
           <div class="cee-sec" id="cee-start-entry">
@@ -104,9 +129,6 @@
                 <p data-i18n-html="start.install.step4.text">Unter <a class="cee-text-link" href="#scripts">Plugins</a> holst du dir Erweiterungen und Spiele aufs Gerät, im <a class="cee-text-link" href="#baukasten">Baukasten</a> baust du eigene Effekte und Modulationen. Und läuft BLECHTRIBE erstmal, kannst du dieselbe Firmware auch in den <a class="cee-text-link" href="#emu" id="cee-start-emu">Emulator</a> laden: neue Presets machen, Plugins bauen und testen, ganz ohne Gerät.</p>
               </li>
             </ol>
-            <div class="actions">
-              <a class="btn cee-primary" href="#patcher" id="cee-start-patch" data-i18n="start.toPatcher">Zum Firmware Patcher</a>
-            </div>
           </div>
 
           <div class="cee-sec" id="cee-start-trouble">
@@ -119,27 +141,75 @@
           </div>
 
           <div class="cee-sec">
-            <h2 data-i18n="start.features.title">Was kann BLECHTRIBE?</h2>
-            <p id="cee-start-features" data-i18n="start.features.text">BLECHTRIBE bringt einen ganzen Haufen neuer Funktionen und Verbesserungen auf die Electribe, viele davon hat sich die Community gewünscht. Die volle Liste mit Bildern und wie du drankommst steht unter Features.</p>
-            <div class="actions">
-              <a class="btn" href="#features" id="cee-start-more" data-i18n="start.features.more">Alle Features ansehen</a>
-            </div>
+            <h2 data-i18n="start.donate.title">Spenden</h2>
+            <p data-i18n-html="start.donate.text">Kostet nix. Wenn dir das was bringt: <a class="cee-text-link" id="cee-donate-start" href="#support">So kannst du das Projekt unterstützen</a>, mit einer Spende, einem Bug-Report, einem Plugin oder einem Profilbild mit Blechy.</p>
+            <p data-i18n-html="start.about">Wer baut das und warum? Steht auf der Seite <a class="cee-text-link" id="cee-start-about" href="#about">Über das Projekt</a>.</p>
           </div>
+          <p class="cee-home-foot" data-i18n="start.foot">Viel Spaß beim Verkuhlen.</p>
+        </section>
 
+        <section class="cee-home cee-start-view" id="cee-start-hub" data-no-reveal hidden>
           <div class="cee-sec">
-            <h2 data-i18n="start.explore.title">Erkunden</h2>
-            <ul class="cee-entry-steps" id="cee-start-explore">
-              <li><a class="cee-entry-step" href="#scripts" id="cee-start-plugins"><strong data-i18n="start.explore.plugins">Plugins ansehen</strong><span data-i18n="start.explore.plugins.hint">Erweiterungen und Spiele aus dem Katalog, oder bau dein eigenes.</span></a></li>
-              <li><a class="cee-entry-step" href="#baukasten" id="cee-start-presets"><strong data-i18n="start.explore.baukasten">Baukasten öffnen</strong><span data-i18n="start.explore.baukasten.hint">Eigene Effekte und Modulationen bauen, aus fertigen oder aus Bausteinen.</span></a></li>
+            <h1 class="cee-home-title" data-i18n="start.hub.title">Deine BLECHTRIBE</h1>
+            <ul class="cee-entry-steps cee-start-status" id="cee-start-status">
+              <li><a class="cee-entry-step cee-device-card" href="#device" id="cee-start-device" data-device="grey">
+                <span class="cee-device-card-text">
+                  <strong id="cee-start-device-name"></strong>
+                  <span id="cee-start-device-state"></span>
+                  <span id="cee-start-device-facts" hidden></span>
+                  <span id="cee-start-device-version" hidden></span>
+                </span>
+              </a></li>
+              <li><a class="cee-entry-step cee-device-card" href="#emu" id="cee-start-emu-card" data-device="grey">
+                <span class="cee-device-card-text">
+                  <strong data-i18n="start.hub.emu">Emulator</strong>
+                  <span id="cee-start-emu-state"></span>
+                  <span id="cee-start-emu-name" hidden></span>
+                  <span id="cee-start-emu-go"></span>
+                </span>
+              </a></li>
             </ul>
           </div>
 
           <div class="cee-sec">
-            <h2 data-i18n="start.donate.title">Spenden</h2>
-            <p data-i18n-html="start.donate.text">Kostet nix. Wenn dir das was bringt: <a class="cee-text-link" id="cee-donate-start" href="#support">So kannst du das Projekt unterstützen</a>, mit einer Spende, einem Bug-Report, einem Plugin oder einem Profilbild mit Blechy.</p>
+            <h2 data-i18n="start.hub.next">Nächste Schritte</h2>
+            <ul class="cee-entry-steps" id="cee-start-next">
+              <li id="cee-start-next-update" hidden><a class="cee-entry-step" href="#patcher" id="cee-start-update"><strong id="cee-start-update-title"></strong><span id="cee-start-update-hint"></span></a></li>
+              <li><a class="cee-entry-step" href="#scripts" id="cee-start-next-plugins"><strong data-i18n="start.card.plugins">Plugins und Spiele</strong><span data-i18n="start.card.plugins.hint">Erweiterungen und Spiele aus dem Katalog, oder bau dein eigenes.</span></a></li>
+              <li><a class="cee-entry-step" href="#baukasten" id="cee-start-next-fx"><strong data-i18n="start.card.fx">Neue Effekte und Presets</strong><span data-i18n="start.card.fx.hint">Eigene Effekte und Modulationen bauen, aus fertigen oder aus Bausteinen.</span></a></li>
+              <li><a class="cee-entry-step" href="#splash" id="cee-start-next-design"><strong data-i18n="start.card.design">Eigenes Startbild</strong><span data-i18n="start.card.design.hint">Startbild und Ladeanimation fürs Display selbst gestalten.</span></a></li>
+              <li><a class="cee-entry-step" href="#sampleset" id="cee-start-next-samples"><strong data-i18n="start.card.samples">Samples</strong><span data-i18n="start.card.samples.hint">Die Samples auf der Karte ansehen und eigene dazupacken.</span></a></li>
+              <li><a class="cee-entry-step" href="#patcher" id="cee-start-next-patcher"><strong data-i18n="start.card.patcher">Firmware Patcher</strong><span data-i18n="start.card.patcher.hint">Patches wählen und eine neue Firmware bauen.</span></a></li>
+            </ul>
+          </div>
+
+          <div class="cee-sec" id="cee-start-news">
+            <h2 data-i18n="start.news.title">Neu in dieser Version</h2>
+            <p id="cee-start-news-version"></p>
+            <ul id="cee-start-news-list"></ul>
+            <div class="actions">
+              <a class="btn" href="#changelog" id="cee-start-news-all" data-i18n="start.news.all">Alle Changelogs</a>
+            </div>
+          </div>
+
+          <div class="cee-sec" id="cee-start-hub-help">
+            <h2 data-i18n="start.trouble.title">Geht was schief?</h2>
+            <p data-i18n="start.trouble.exit">Halt beim Einschalten EXIT gedrückt. Dann startet die Electribe ohne die Patches von BLECHTRIBE, fast wie das Original. Hast du Hacktribe drunter, bleiben dessen Funktionen.</p>
+            <div class="actions">
+              <a class="btn" href="#rescue" id="cee-start-hub-rescue" data-i18n="start.toRescue">Frag Blechy</a>
+            </div>
+            <details class="cee-start-guide" id="cee-start-guide">
+              <summary data-i18n="start.hub.guide">Installationsanleitung</summary>
+            </details>
+          </div>
+
+          <div class="cee-sec">
+            <h2 data-i18n="nav.about">Über das Projekt</h2>
+            <p data-i18n-html="start.hub.more">Wer baut das und warum, steht unter <a class="cee-text-link" href="#about">Über das Projekt</a>. Kostet nix. Wenn dir das was bringt: <a class="cee-text-link" href="#support">So kannst du das Projekt unterstützen</a>.</p>
           </div>
           <p class="cee-home-foot" data-i18n="start.foot">Viel Spaß beim Verkuhlen.</p>
         </section>
+        </div>
       </div>
 
       <div class="ui-tabpanel" role="tabpanel" id="cee-area-emu" aria-labelledby="cee-tab-emu" tabindex="0" hidden>
@@ -262,6 +332,12 @@
               <a class="btn cee-primary" id="cee-doom-bin" href="third_party/doom/doom.bin" download="doom.bin" data-i18n="doom.files.bin">doom.bin laden</a>
               <a class="btn" id="cee-doom-wad" href="third_party/doom/doom.wad" download="doom.wad" data-i18n="doom.files.wad">doom.wad laden (28 MB)</a>
             </div>
+            <p data-i18n="doom.usb.text">Ohne Kartenleser geht es auch: Ist die Electribe per USB verbunden, schreibt die App beide Dateien direkt auf ihre Karte. Das dauert ein paar Minuten.</p>
+            <div class="actions">
+              <button type="button" class="btn" id="cee-doom-usb" disabled data-i18n="doom.usb.send">Per USB auf die Electribe</button>
+            </div>
+            <p class="ui-field-help" id="cee-doom-usb-help" data-i18n="doom.usb.connect">Dafür erst oben „Echtes Gerät“ wählen und mit der Electribe verbinden.</p>
+            <div class="ui-job" id="cee-doom-job" hidden></div>
           </div>
 
           <div class="cee-sec" id="cee-doom-start">
@@ -285,6 +361,18 @@
             <h2 data-i18n="doom.error.title">Wenn DOOM ERROR kommt</h2>
             <p data-i18n-html="doom.error.text">Dann fehlt eine Datei, sie ist unvollständig oder die Karte ist nicht lesbar. Ausschalten, die Dateien nochmal laden und auf die Karte kopieren, dann neu starten. Mehr dazu bei <a class="cee-text-link" href="#rescue">Blechy</a>.</p>
             <p><a class="cee-text-link" id="cee-doom-licences" href="third_party/doom/README.md" target="_blank" rel="noopener noreferrer" data-i18n="doom.licences">Quellen und Lizenzen</a></p>
+          </div>
+        </section>
+      </div>
+
+      <div class="ui-tabpanel" role="tabpanel" id="cee-area-about" aria-labelledby="cee-tab-about" tabindex="0" hidden>
+        <section class="cee-home" id="cee-about-page" data-no-reveal>
+          <div class="cee-sec">
+            <h1 class="cee-home-title" data-i18n="about.title">Wat wird'n ditte hier? Korg verkuhlen or wa?</h1>
+            <p data-i18n="about.who">Ich bin Kuhler Buhler, aka Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab, ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann. Tja, und dann war ich ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.</p>
+            <p data-i18n="about.why">Warum? Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr drin, als Korg jemals rausgeholt hat. Mit BLECHTRIBE hab ich mir praktisch die Electribe 3 gebaut, die es nie gab.</p>
+            <p data-i18n="about.app">Kuhler's GELUMPE ist die App für BLECHTRIBE: Sie patcht deine Firmware, hat eine Electribe als Emulator im Rechner, einen Editor für eigene Effekte und einen Katalog mit Plugins. Alles läuft auf deinem Rechner, deine Dateien verlassen ihn nicht, und Korg-Firmware ist nicht dabei. Gebaut auf Hacktribe (offene Mods für die Electribe, AGPL) und Wissen aus dem Freetribe-Projekt.</p>
+            <p data-i18n="about.blech">BLECHTRIBE ist eine neue Firmware für deine Electribe 2, für den roten Sampler und die blaue Synth. Sie kommt als Patch auf deine eigene Firmware, Korgs Original 2.02 oder Hacktribe 2.02, und holt raus, was Korg drin gelassen hat.</p>
           </div>
         </section>
       </div>

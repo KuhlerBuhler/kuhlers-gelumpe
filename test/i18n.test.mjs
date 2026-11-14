@@ -19,6 +19,7 @@ const code = readdirSync(new URL("../site/app/", import.meta.url))
 const KEYED = [
   "src/text.mjs",
   "src/patcher.mjs",
+  "src/anypatch.mjs",
   "src/script/parser.mjs",
   "src/script/compiler.mjs",
   "src/script/gate.mjs",

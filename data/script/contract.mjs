@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 25;
+export const API_VERSION = 36;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -182,6 +182,11 @@ const EVENT_LIST = [
   ["open", []],
   ["close", []],
   ["timer", ["callback"]],
+  ["touchpadMode", ["mode"]],
+  ["padMode", ["mode"]],
+  ["screen", ["number"]],
+  ["write", ["pattern"]],
+  ["midiIn", ["status", "data1", "data2"]],
 ];
 
 /**
@@ -189,6 +194,8 @@ const EVENT_LIST = [
  * event itself. A handler that takes such a value needs a block of at least that version; the compiler sets it.
  */
 export const EVENT_ARG_SINCE = Object.freeze({ touch: Object.freeze({ first: 6 }) });
+/** The API version an event was added in, for the events newer than API 1: a handler for it needs a block of at least that version. */
+export const EVENT_SINCE = Object.freeze({ touchpadMode: 27, padMode: 29, screen: 29, write: 29, midiIn: 30 });
 
 /**
  * Events. `start` is the script body itself (top-level statements), not a
@@ -308,6 +315,35 @@ const arr = (name, strip) => ({ name, kind: "arr", strip });
 /** Fuel units for each slot of a bitmap's array, on top of the call's cost of 14: the ARM routine takes 63 instructions for the call, at most 28 for a lit slot and about 20 more for each band of a picture one slot wide, at 10 instructions to a unit (tools/patch/test_script_display.py counts them against these numbers). */
 const BITMAP_ITEM_COST = 3;
 
+/**
+ * The data file of a plugin for korg.file.read and korg.file.write: `SD:KORG/blechtribe/Plugin/Data/<name>.bin`, the plugin's
+ * name with every character other than A to Z, a to z, 0 to 9 and "-" as "_", at most `maxBytes` bytes. The limit may grow in a
+ * later API version.
+ */
+export const SCRIPT_DATA_FILE = Object.freeze({ maxBytes: 4096, folder: "KORG/blechtribe/Plugin/Data/", extension: ".bin" });
+
+/** The file name of a plugin's data file (SCRIPT_DATA_FILE). */
+export function dataFileName(name) {
+  const safe = String(name).slice(0, 16).replace(/[^A-Za-z0-9-]/g, "_");
+  return (safe || "_") + SCRIPT_DATA_FILE.extension;
+}
+
+/**
+ * korg.audio.capture, spectrum and wave (API 31): what they return, and the sizes of what the service publishes. `columns` is the
+ * number of log-spaced columns per range from 20 Hz (to 20 kHz, bass to 2 kHz), each in dB 0 to `top` (top = a full-scale sine,
+ * 0 = 96 dB below it or quieter); `wave` the newest frames of the capture, -128 to 127. Sources: 1 to 16 a part, 17 to 24 the
+ * part pairs 1/2 to 15/16.
+ */
+export const AUDIO_STATUS = Object.freeze({ ok: 0, off: 1, busy: 2, wait: 3, gap: 4, noMemory: 5, unsupported: 6 });
+export const AUDIO_SPECTRUM = Object.freeze({ columns: 128, top: 96, wave: 256, sources: 24, parts: 16 });
+
+/**
+ * The values korg.read.sampleInfo reads from the sampler's tables (data/map/sample.mjs), by number. `start` is the start
+ * relative to the sample's audio, `loop` and `end` as in the sample file; `length` the audio in bytes, `rate` in Hz, `tune`
+ * the raw signed value, `stereo` and `oneShot` 0 or 1. `slots` is the number of sample slots (0 to slots - 1).
+ */
+export const SAMPLE_INFO = Object.freeze({ fields: Object.freeze(["start", "end", "loop", "tune", "stereo", "length", "oneShot", "rate"]), slots: 998 });
+
 const API_LIST = [
   // id, name, args, returns, events, cost (one byte), since, perItem. Display costs follow the native instruction counts in
   // Unicorn at 10 instructions to a unit, for a short call, capped at 250; the 5 ms frame budget limits real time.
@@ -389,6 +425,42 @@ const API_LIST = [
   [103, "korg.padUp", [int("pad", 0, 15)], "void", UI, 30, 25],
   [104, "korg.encoder", [int("index", 0, 4), int("delta", -127, 127)], "void", UI, 30, 25],
   [105, "korg.touch", [int("x", -1, 1023), int("y", 0, 1023)], "void", UI, 40, 25],
+  // the 24 motion lanes of the pattern being edited (API 28): owner and destination as the firmware recorded them, the values
+  // 0 to 127 (-1 empty), what the motion engine sends now, and clearing through the firmware's own CLEAR MOTION functions
+  [106, "korg.motion.lane", [int("lane", 0, 23)], "int", ALL, 4, 28],
+  [107, "korg.motion.destination", [int("lane", 0, 23)], "int", ALL, 4, 28],
+  [108, "korg.motion.value", [int("lane", 0, 23), int("step", 0, 63)], "int", ALL, 4, 28],
+  [109, "korg.motion.setValue", [int("lane", 0, 23), int("step", 0, 63), int("value", -1, 127)], "void", UI, 6, 28],
+  [110, "korg.motion.clearLane", [int("lane", 0, 23)], "void", UI, 40, 28],
+  [111, "korg.motion.clearPart", [int("part", 0, 15)], "void", UI, 80, 28],
+  [112, "korg.motion.clearMfx", [], "void", UI, 80, 28],
+  [113, "korg.motion.output", [int("lane", 0, 23)], "int", ALL, 4, 28],
+  [114, "korg.display.chars", [arr("array"), int("x", 0, 127), int("y", 0, 63), int("count", 0, 31)], "void", UI, 250, 29, 1],
+  [115, "korg.read.patternName", [arr("array"), int("pattern", -1, 249)], "int", UI, 6, 29, 1],
+  // MIDI (API 30): channel messages out through the firmware's senders, under its MIDI SEND FILTER (1 sent, 0 kept in), and
+  // a bit per message type a plugin keeps from the firmware's receive handler; channel -1 is the global MIDI channel
+  [116, "korg.midi.cc", [int("channel", -1, 15), int("cc", 0, 127), int("value", 0, 127)], "int", UI, 20, 30],
+  [117, "korg.midi.noteOn", [int("channel", -1, 15), int("note", 0, 127), int("velocity", 1, 127)], "int", UI, 20, 30],
+  [118, "korg.midi.noteOff", [int("channel", -1, 15), int("note", 0, 127)], "int", UI, 20, 30],
+  [119, "korg.midi.program", [int("channel", -1, 15), int("program", 0, 127)], "int", UI, 20, 30],
+  [120, "korg.midi.hold", [int("type", 0, 6), int("on", 0, 1)], "void", UI, 20, 30],
+  // the output level as the meter of the bottom LEDs shows it (API 31), 0 to 254 per side
+  [121, "korg.audio.level", [int("channel", 0, 1)], "int", ALL, 4, 31],
+  // capture, spectrum and wave of a part or part pair through the native capture (API 31, Sampler only; the service is Spettro's,
+  // PR #429): status 0 ok, 1 off, 2 busy, 3 wait, 4 gap, 5 no memory, 6 not on this Electribe (AUDIO_STATUS)
+  [129, "korg.audio.capture", [int("source", -1, 24)], "int", UI, 6, 31],
+  [130, "korg.audio.spectrum", [arr("array"), int("bins", 1, 128), int("range", 0, 1)], "int", UI, 30, 31, 1],
+  [131, "korg.audio.wave", [arr("array")], "int", UI, 30, 31, 1],
+  [122, "korg.file.read", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1)], "int", UI, 250, 32, 1],
+  [123, "korg.file.write", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1)], "int", UI, 250, 32, 1],
+  // samples and pattern actions (API 33): the sampler's name and playback tables (-1 on the synth), WRITE as the key does
+  [124, "korg.read.sampleName", [arr("array"), int("slot", 0, SAMPLE_INFO.slots - 1)], "int", ALL, 6, 33, 1],
+  [125, "korg.read.sampleInfo", [int("slot", 0, SAMPLE_INFO.slots - 1), int("field", 0, SAMPLE_INFO.fields.length - 1)], "int", ALL, 4, 33],
+  [126, "korg.pattern.write", [], "int", UI, 30, 33],
+  [127, "korg.part.copy", [int("pattern", 0, 249), int("from", 0, 15), int("to", 0, 15)], "void", UI, 30, 33],
+  [128, "korg.read.led", [int("index", 0, 87)], "int", ALL, 4, 34],
+  // korg.touchLockX for Y (API 35)
+  [132, "korg.touchLockY", [int("y", -1, 127)], "void", UI, 20, 35],
 ];
 
 /**
@@ -415,6 +487,24 @@ export const ARRAY_HANDLE = Object.freeze({
 
 export const API_BY_ID = new Map(API.map(a => [a.id, a]));
 export const API_BY_NAME = new Map(API.map(a => [a.name, a]));
+
+/**
+ * Calls and properties a newer one replaces: they keep working, the compiler warns with the replacement. `since` is the API
+ * version that marks them, `use` the replacement. A key ending in "." stands for every property below it, the replacement
+ * then gets the same rest (`korg.current.tempo` -> `korg.pattern.current.tempo`). Removing one is a change of a later version.
+ */
+export const DEPRECATED = Object.freeze({
+  "korg.read.chainMode": Object.freeze({ since: 35, use: "korg.global.chainMode" }),
+  "korg.chainMode": Object.freeze({ since: 35, use: "korg.global.chainMode" }),
+  "korg.current.": Object.freeze({ since: 35, use: "korg.pattern.current." }),
+});
+
+/** The deprecation of a call or property path: { since, use } with the full replacement, or null. */
+export function deprecation(name) {
+  if (DEPRECATED[name]) return DEPRECATED[name];
+  const prefix = Object.keys(DEPRECATED).find(k => k.endsWith(".") && name.startsWith(k));
+  return prefix ? { since: DEPRECATED[prefix].since, use: DEPRECATED[prefix].use + name.slice(prefix.length) } : null;
+}
 
 const LED_API = API_BY_NAME.get("korg.led");
 const LED_COUNT = LED_API.args[0].max + 1;
@@ -444,10 +534,11 @@ export const SCRIPT_LED_VALID = Object.freeze({ DESIRED: 1, DELIVERED: 2 });
  * korg.patterns[i].* and korg.parts[i].* stand for. `field` is the index in the list: PATTERN_FIELDS with part -1,
  * PART_FIELDS with part 0 to 15. Offsets are those of data/map/pattern.mjs, a part's from 0x800 + part * 0x330. The kind
  * says how the bytes become the value: u8, s8 (signed), u16 (little endian), bars (the length byte 0 to 3 as 1 to 4),
- * chain (Chain To counted from 1 as 0 to 249, -1 for none), atLeast1 (Chain Repeat, the device shows 0 as 1).
+ * chain (Chain To counted from 1 as 0 to 249, -1 for none), atLeast1 (Chain Repeat, the device shows 0 as 1), mfx2 (no byte
+ * of the pattern: the pattern's entry in the MFX 2 table of the patch mfx-switch, 0 based like mfxType, -1 without that patch).
  * Field indices are never reused or renumbered; new fields go at the end.
  */
-export const PATTERN_FIELD_KINDS = Object.freeze(["u8", "s8", "u16", "bars", "chain", "atLeast1"]);
+export const PATTERN_FIELD_KINDS = Object.freeze(["u8", "s8", "u16", "bars", "chain", "atLeast1", "mfx2"]);
 const field = (name, offset, kind, text) => Object.freeze({ name, offset, kind, text });
 export const PATTERN_FIELDS = Object.freeze([
   field("tempo", 34, "u16", text("api.pattern.tempo")),
@@ -468,6 +559,7 @@ export const PATTERN_FIELDS = Object.freeze([
   field("mfxHold", 65, "u8", text("api.pattern.mfxHold")),
   field("mfxPadX", 62, "u8", text("api.pattern.mfxPadX")),
   field("mfxPadY", 63, "u8", text("api.pattern.mfxPadY")),
+  field("mfx2Type", 0, "mfx2", text("api.pattern.mfx2Type")),
 ]);
 export const PART_FIELDS = Object.freeze([
   field("sample", 8, "u16", text("api.part.sample")),
@@ -536,12 +628,20 @@ export const PATTERN_WRITES = Object.freeze({
   tempo: [200, 3000], swing: [-48, 48], length: [1, 4], beat: [0, 4], key: [0, 11], scale: [0, 34], chordSet: [0, 4],
   level: [0, 127], mfxType: [0, 39], chainTo: [-1, 249], chainRepeat: [0, 127], gateArp: [0, 49],
   syncGroup: [0, 999], alternate1314: [0, 1], alternate1516: [0, 1], mfxHold: [0, 1], mfxPadX: [0, 127], mfxPadY: [0, 127],
+  mfx2Type: [0, 39],
 });
 /** The PATTERN_FIELDS that came with a later API version than korg.read.patternValue: the version, by name. */
 export const PATTERN_FIELD_SINCE = Object.freeze({ syncGroup: 21, alternate1314: 24, alternate1516: 24, mfxHold: 24, mfxPadX: 24,
-  mfxPadY: 24 });
+  mfxPadY: 24, mfx2Type: 27 });
 /** Where a part starts in a pattern block, and the distance from one part to the next. */
 export const PATTERN_PARTS = Object.freeze({ base: 0x800, stride: 0x330, bytes: 0x4000 });
+/**
+ * The motion lanes in a pattern block (korg.motion, API 28; RAM offset = block offset + 4, tools/patch/script_motion.s): the
+ * owner byte of each lane (0 none, 1 to 16 a part, 17 the master effect), its destination, `steps` value bytes a lane (0 empty,
+ * else the value 0 to 127 plus 1), and `mode`, a part's Motion Sequence mode inside its PATTERN_PARTS record (0 off, 1 smooth,
+ * 2 trigger hold). docs/messungen/2026-10-15-tap-motion.md and 2026-11-11-plugin-api28-motion.md.
+ */
+export const PATTERN_MOTION = Object.freeze({ lanes: 24, steps: 64, owner: 0x100, destination: 0x118, values: 0x130, mode: 3, mfx: 17 });
 
 /**
  * The steps korg.seq.* writes, in a part of the pattern in RAM: `count` records of `stride` bytes from `base` in the part
@@ -567,17 +667,17 @@ export const SCRIPT_KNOBS = 20;
  * BUILTIN, which no menu lists. `max` is what plugins can declare, `slots` what the table holds.
  */
 export const SCRIPT_APPS = Object.freeze({
-  max: 12,
+  max: 16,
   builtin: 1,
-  slots: 12 + 1,
+  slots: 16 + 1,
   groups: Object.freeze(["GAMES", "TOOLS"]),
   builtinGroup: 2,
   nameLength: 15,
   recordSize: 12,
   /** Frames after an open in which the firmware may still be on its way to the main screen (its screen switch is a queued message). */
   openGrace: 3,
-  stateSize: 8 + 13 * 12 + 4,
-  fields: Object.freeze([["open", 0], ["count", 4], ["table", 8], ["grace", 8 + 13 * 12]].map(([name, offset]) => Object.freeze({ name, offset }))),
+  stateSize: 8 + 17 * 12 + 4,
+  fields: Object.freeze([["open", 0], ["count", 4], ["table", 8], ["grace", 8 + 17 * 12]].map(([name, offset]) => Object.freeze({ name, offset }))),
   recordFields: Object.freeze([["entry", 0], ["name", 4], ["group", 8]].map(([name, offset]) => Object.freeze({ name, offset }))),
 });
 

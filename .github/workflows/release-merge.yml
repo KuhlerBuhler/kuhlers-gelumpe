@@ -4,16 +4,19 @@
 # approval or a draft means no merge. A Verify patches run that may still push a new verified.json is such a run; its
 # commit is the only one that may come after the approval.
 #
-# It decides again whenever a workflow on a pull request finishes and whenever a review comes in. workflow_run uses this
+# It decides again whenever a workflow on a release branch finishes and whenever a review comes in. Runs on other
+# branches cannot change a release pull request, so they start nothing (before, every finished workflow of every
+# branch started a run here, a few hundred a day). workflow_run uses this
 # file as it is on main, so it only starts once the file is in main; the review event uses it from the release branch.
-# The merge uses SYNC_TOKEN (a token of an admin): a merge with the workflow's own token would start no Release run.
-# Without the secret nothing is merged.
+# The merge uses the token of Blechy (the repository's GitHub App, allowed to merge pull requests past the rules of
+# main): a merge with the workflow's own token would start no Release run. Without the app's secrets nothing is merged.
 name: Release merge
 
 on:
   workflow_run:
     workflows: [Test, Verify patches, Korg data guard, Build apps, Update pull requests, Automerge]
     types: [completed]
+    branches: ["release/**"]
   pull_request_review:
     types: [submitted]
   workflow_dispatch:
@@ -31,15 +34,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Blechy, the repository's GitHub App: what its token pushes, opens or merges starts the workflows it should, and
+      # it shows up as Blechy, not as a person. Without the secrets (a fork) the token stays empty and nothing is done.
+      - uses: actions/create-github-app-token@v2
+        id: app
+        continue-on-error: true
+        with:
+          app-id: ${{ secrets.BLECHY_APP_ID }}
+          private-key: ${{ secrets.BLECHY_APP_KEY }}
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Merge a ready release pull request
         env:
-          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
-            echo "no SYNC_TOKEN: nothing is merged"; exit 0
+            echo "no Blechy token: nothing is merged"; exit 0
           fi
           node tools/release-merge.mjs

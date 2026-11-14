@@ -131,6 +131,20 @@ SOURCE = """
 
 .org {code_at:#x}
 
+; ===================================================== entry for the plugin runtime
+; CODE_AT holds RECORD_ID, CODE_AT + 4 loads the table, CODE_AT + 8 holds DEFAULT (the type a 0 entry stands for, as
+; the display numbers it), CODE_AT + 12 returns r0 = 1 while the patch is off (MFX 2 off in BLECH, EXIT held at power-on):
+; the runtime tests the word, calls the load and then reads TABLE, so the table has one writer.
+; All four stay at these places in every version of the patch.
+entry_id:
+    .word RECORD_ID
+entry_load:
+    b table_load
+entry_default:
+    .word DEFAULT
+entry_killed:
+    b killed
+
 ; ===================================================== key dispatcher hook
 ; Entered from the first instruction of the key dispatcher, r0 = this, r1 = key,
 ; r2 = 1 pressed or 0 released, lr = the caller.

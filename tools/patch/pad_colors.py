@@ -34,6 +34,10 @@ plugin Pulsieren pulses smoothly on the device, 18.10.); the knob LEDs go out un
 of 0xC0028AB4 runs the firmware's function and sends every LED again when the state changed, so the pads dim and come back
 at once. With EXIT held at power-on nothing of this happens.
 
+KNOB LEDS (BLECH page under CUSTOMIZATION, LED; wish 12.11.): OFF sends the five knob LEDs 0 to 4 (VALUE, SAMPLE/OSC, CUTOFF,
+MOD TYPE, IFX TYPE) dark, whatever the firmware wants there; the firmware's own values stay, ON sends them again. The word
+S_KNOB is FF (never written, ON) until the menu reads the settings file, so with EXIT held at power-on they light as stock.
+
     python3 tools/patch/pad_colors.py --vsb SYSTEM.VSB [--out data/patches/pad-colors.json]
     python3 tools/patch/pad_colors.py --vsb BLUE.VSB --build synth [--out data/patches/pad-colors-synth.json]
 
@@ -75,6 +79,7 @@ DIM_SWITCH_WORD = 0xE59F3044
 DIM_BODY = 0xC0028AB8           # the rest of it: sets the flag and returns, or clears it and lights the backlight
 S_DIM = 0x38                    # the power save state the LEDs were last sent for
 S_PEND = 0x3C                   # 1: every LED is due to go out again, from the next LED message of the firmware on (pc_tail)
+S_KNOB = 0x04                   # KNOB LEDS: 0 OFF (the knob LEDs go out dark), anything else ON (FF: never written)
 DIM_FLAG = 0xC00F9310           # byte: not 0 while the firmware dims for power save (the literal behind the switch)
 FIRMWARE_PLACES = ["SEND_TAIL", "SENDER", "DIM_SWITCH", "DIM_BODY", "DIM_FLAG"]
 BUILD = "hacktribe"
@@ -106,6 +111,7 @@ SOURCE = """
 .equ S_MSG, 0x30                ; our own message for the other LED of a pad
 .equ S_DIM, @S_DIM@             ; the power save state the LEDs were last sent for (FF at start)
 .equ S_PEND, @S_PEND@           ; 1 while every LED is due to go out again (set at start, done by the next pass through pc_tail)
+.equ S_KNOB, @S_KNOB@           ; KNOB LEDS: 0 OFF, anything else ON
 .equ MGR, 0xC03404C0            ; pointer to the screen manager, +0x2C the screen that is up (1 the main screen)
 .equ LED_MODE_AT, 0x4F          ; manager + 0x4F + 8 * led: the second byte of the message
 .equ METER_FIRST, 0x4C          ; the bottom RGB LEDs 0x4C to 0x57: the meter's own, not sent again here
@@ -135,6 +141,57 @@ SOURCE = """
     b pc_keep_get               ; +28 -> r0 = the LED DIMMING step
 b pc_colour_get             ; +32 (kind 24 PAD COLOR or 25 SELECT COLOR) -> r0 = its colour, 0 red, 1 blue, 2 pink
 b pc_colour_set             ; +36 (kind, colour): stored, the pads sent again later; a colour the other kind has swaps the two
+b pc_knob_set               ; +40 (KNOB LEDS 1 OFF or 0 ON, r1 = 1 send them now): stored
+b pc_knob_get               ; +44 -> r0 = 1 when KNOB LEDS is OFF (0 ON, as menu_pc_call returns where the set has no pad colours)
+
+; r0 = 1 OFF or 0 ON, r1 = 1 from a page or a plugin (the five knob LEDs go out at once), 0 from the settings file (the menu reads it
+; before the LED manager runs at start: every LED goes out again with the next LED message, as pc_set does). Keeps r4 to r11.
+pc_knob_set:
+    ldr r12, =STATE
+    cmp r0, #0
+    moveq r0, #1
+    movne r0, #0
+    str r0, [r12, #S_KNOB]
+    cmp r1, #0
+    moveq r0, #1
+    streq r0, [r12, #S_PEND]
+    bxeq lr
+    push {r4, r5, lr}
+    ldr r4, =LEDMGR_PTR
+    ldr r4, [r4]
+    cmp r4, #0
+    beq pks_out
+    mov r5, #0
+pks_led:
+    mov r0, r4
+    mov r1, r5
+    mov r2, #1
+    bl LED_SEND
+    add r5, r5, #1
+    cmp r5, #KNOB_LAST
+    bls pks_led
+pks_out:
+    pop {r4, r5, pc}
+
+pc_knob_get:
+    ldr r12, =STATE
+    ldr r0, [r12, #S_KNOB]
+    cmp r0, #0
+    moveq r0, #1
+    movne r0, #0
+    bx lr
+
+; r0 = an LED, r2 = its brightness -> r2 = 0 when it is a knob LED and KNOB LEDS is OFF. Keeps every other register.
+pc_knob_dark:
+    cmp r0, #KNOB_LAST
+    bxhi lr
+    push {r12}
+    ldr r12, =STATE
+    ldr r12, [r12, #S_KNOB]
+    cmp r12, #0
+    moveq r2, #0
+    pop {r12}
+    bx lr
 
 ; -> r0 = PART, r1 = SELECT; never written (or nonsense) is red and blue. Clobbers r12.
 pc_colours:
@@ -823,8 +880,10 @@ pt_chord:
     b pt_colours
 pt_dim_only:
     ldrb r2, [r5, #2]
+    ldrb r0, [r5]
+    bl pc_knob_dark
     cmp r9, #0
-    beq pt_record
+    beq pt_dim_store
     ldrb r0, [r5]
     cmp r0, #KNOB_LAST          ; the LEDs of the knobs (VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE, IFX TYPE) go out (device 18.10.),
     bhi pt_dim_led              ; unless LED DIMMING is 0 percent
@@ -929,6 +988,8 @@ pr_led:
 pr_dim:
     cmp r9, #0
     blne pc_quarter
+    mov r0, r10
+    bl pc_knob_dark
     sub r8, r10, #LED_PAD_FIRST
     cmp r8, #31
     ldrls r12, =STATE + S_SENT
@@ -987,11 +1048,11 @@ def source():
     sampler = globals().get("_SAMPLER_ADDRESSES", {})
     place = lambda name: sampler.get(name, globals()[name])
     text = SOURCE
-    for key, value in chord_source(BUILD != "synth").items():
+    for key, value in chord_source().items():
         text = text.replace(f"@{key}@", value)
     for key, value in {"KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}", "S_SETTING": S_SETTING,
                        "S_SENT": S_SENT, "SENDER": f"{place('SENDER'):#x}", "S_DIM": f"{S_DIM:#x}", "DIM_BODY": f"{place('DIM_BODY'):#x}",
-                       "S_PEND": f"{S_PEND:#x}"}.items():
+                       "S_PEND": f"{S_PEND:#x}", "S_KNOB": f"{S_KNOB:#x}"}.items():
         text = text.replace(f"@{key}@", str(value))
     if BUILD == "synth":
         text = synthaddr.source(text, own=[(CODE_AT, CODE_END), (STATE, STATE_END)])
@@ -1004,23 +1065,10 @@ def source():
     return text
 
 
-def chord_source(local):
+def chord_source():
     """One bounded calculation; no result survives a sender call."""
     parts = dict.fromkeys(("CHORD_STACK", "CHORD_LOCAL", "CHORD_SHARE", "CHORD_UNSTACK",
                            "CHORD_EQUAL", "CHORD_RATIOS"), "")
-    parts["CHORD_START"] = "    moveq r10, #1\n    beq pch_note_next"
-    parts["CHORD_FRACTION"] = """    add r12, r3, r5
-    add r12, r12, #1
-    add r0, r5, #1
-    mov r0, r0, lsl #8
-    mov r4, #0
-pch_div:
-    cmp r0, r12
-    subhs r0, r0, r12
-    addhs r4, r4, #1
-    bhs pch_div"""
-    if not local:
-        return parts
     parts.update(CHORD_STACK="    sub sp, sp, #4",
                  CHORD_UNSTACK="    add sp, sp, #4",
                  CHORD_LOCAL="    mov r0, #1\n    str r0, [sp, #PCH_UNIFORM]")
@@ -1119,11 +1167,11 @@ def build_patch(vsb, build="hacktribe"):
         ],
         "startPhase": [
             {"file": file_offset(SEND_TAIL), "length": 4, "why": "every LED message from the start on now passes pc_tail"},
-            {"file": file_offset(CODE_AT), "length": len(code), "why": "pc_tail, pc_active and pc_dimming: at start they look at the panel object, the kill switch, the setting word (FF until the menu writes it) and the power save flag; on battery with power save the LEDs go out at a quarter from the start, as the backlight is dimmed from the start"},
+            {"file": file_offset(CODE_AT), "length": len(code), "why": "pc_tail, pc_active and pc_dimming: at start they look at the panel object, the kill switch, the setting word and KNOB LEDS (FF until the menu writes them) and the power save flag; on battery with power save the LEDs go out at a quarter from the start, as the backlight is dimmed from the start"},
             {"file": file_offset(DIM_SWITCH), "length": 4, "why": "the firmware sets power save at start too; the hook runs its function and sends the LEDs again when the dimming changed"},
         ],
         "ram": [
-            ramdecl.area(STATE, STATE_END - STATE, "run time state: PC_SETTING at +0 for the BLECH menu, the brightness sent for each pad LED, a message, the power save state last sent", "tools/patch/pad_colors.py:STATE"),
+            ramdecl.area(STATE, STATE_END - STATE, "run time state: PC_SETTING at +0 and KNOB LEDS at +4 for the BLECH menu, the brightness sent for each pad LED, a message, the power save state last sent", "tools/patch/pad_colors.py:STATE"),
         ],
     }
 

@@ -222,9 +222,6 @@ function valuePopup(pre) {
 }
 
 /** `prefix` starts the ids of the controls, so a second drawing on the page does not repeat them. */
-/** The two LEDs of each pad, red 0x2c + 2n and blue 0x2d + 2n. */
-const isPadLed = i => i >= 0x2c && i <= 0x4b;
-
 export function devicePanel(send, { prefix = "cee-e2" } = {}) {
   const pre = prefix;
   let frontNode = null;
@@ -411,7 +408,7 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
    */
   function paintPad(face) {
     const { red, blue } = face;
-    const tone = red > LIT && blue > LIT ? "purple" : red > LIT ? "red" : blue > LIT ? "blue" : "off";
+    const tone = red > 0 && blue > 0 ? "purple" : red > 0 ? "red" : blue > 0 ? "blue" : "off";
     face.node.dataset.tone = tone;
     face.node.style.setProperty("--cee-e2-glow", String(Math.max(red, blue)));
     face.node.style.setProperty("--cee-e2-red", String(red));
@@ -544,15 +541,14 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
       return root;
     },
     /**
-     * LED brightness from the firmware, 0 to 255. Unlisted LEDs keep their state. The pad LEDs
-     * (0x2c to 0x4b) are on or off on the device: any value from 1 lights fully (measured 2026-10-16,
-     * docs/messungen/2026-10-16-pad-led-stufen.md), so the panel shows them the same way.
+     * LED brightness from the firmware, 0 to 255. Unlisted LEDs keep their state. Every LED, the pads too, is
+     * the panel controller's linear duty cycle (docs/hintergrund/panel-controller.md); a pad keeps its colour
+     * at any value from 1.
      */
     showLeds(state, replace = false) {
       if (replace) for (const applies of leds.values()) for (const apply of applies) apply(0);
       for (const [i, v] of Object.entries(state)) {
-        const level = isPadLed(Number(i)) ? (v > 0 ? 1 : 0) : v / 255;
-        for (const apply of leds.get(Number(i)) || []) apply(level);
+        for (const apply of leds.get(Number(i)) || []) apply(v / 255);
       }
     },
     /** The display and the controls only mean something while the firmware runs. */

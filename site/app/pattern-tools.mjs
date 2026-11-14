@@ -14,6 +14,7 @@ import { PatternFile, Pattern, parseSinglePattern, toSinglePattern, FileError, c
 import { rollPart, checkRoll, SCALES, ROOTS, DEFAULTS } from "../../src/dice.mjs";
 import { isFree } from "../../src/pattern-set.mjs";
 import { t } from "./i18n.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 
 const SLOTS = 250;
 const MAX_DEVICE_COPIES = 8;
@@ -80,15 +81,17 @@ export function patternToolsPage(root, { device }) {
   const undoSend = el("button", { type: "button", className: "btn", id: "cee-pt-undo", textContent: t("backup.sendUndo"), disabled: true });
   const connectEmu = el("button", { type: "button", className: "btn", id: "cee-pt-connect-emu", textContent: t("device.connectEmu") });
   connectEmu.addEventListener("click", () => device.connectEmulator());
+  const sourceDrop = el("label", { className: "ui-dropzone" }, [
+    input,
+    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t("backup.drop.drag") }), t("common.pick")]),
+    el("span", { className: "ui-dropzone-hint", textContent: t("backup.drop.hint") }),
+    el("span", { className: "ui-dropzone-files" }),
+  ]);
+  const sourceZone = dropzoneClear(input).node;
   const source = el("section", { className: "ui-section" }, [
     el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: t("ptools.source") })]),
     el("p", { className: "muted", textContent: t("ptools.source.lead") }),
-    el("label", { className: "ui-dropzone" }, [
-      input,
-      el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t("backup.drop.drag") }), t("common.pick")]),
-      el("span", { className: "ui-dropzone-hint", textContent: t("backup.drop.hint") }),
-      el("span", { className: "ui-dropzone-files" }),
-    ]),
+    sourceZone,
     loaded,
     el("div", { className: "actions cee-pt-device-row" }, [connectEmu, undoSend]),
     line,

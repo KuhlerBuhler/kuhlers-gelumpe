@@ -63,7 +63,8 @@ Voraussetzungen, **offen** = nicht geprüft.
 | Karten bis 1 GiB mounten | gemessen | Abschnitt 7 |
 | `KORG/hacktribe` lässt sich als Datenpatch umbenennen (21 Byte) | gemessen | Abschnitt 9 |
 | Kein WAV-Import beim Start | gemessen | Abschnitt 10 |
-| SDSC (Byte-Adressierung), Karten über 1 GiB, Schreibschutz-Schalter | offen | nicht geprüft |
+| SDSC (Byte-Adressierung), Schreibschutz-Schalter | gemessen (Emulator) | [Fehlerfälle der Karte](../emulator.md#fehlerfälle-der-karte) |
+| Karten über 1 GiB | offen | nicht geprüft |
 
 ## 1. Der SD-Pfad in der Firmware
 
@@ -123,7 +124,8 @@ genügt, sie liest dann je Interrupt 64 Byte.
 - **gemessen:** Die Firmware schickt CMD8 und ACMD41 mit HCS. Das Modell
   antwortete als SDHC (OCR Bit 30), und die Firmware übergab dann den
   Blockindex als Argument (zum Beispiel `0x27E2` für LBA 10210).
-  **SDSC (Byte-Adressierung) ist nicht geprüft.** **offen**
+  SDSC (Byte-Adressierung, keine CMD8-Antwort) ist seither nachgebildet und
+  mountet (siehe Fehlerfälle der Karte im Emulator-Dokument). **gemessen**
 - **gemessen:** Das DMATRIG-Bit steht im Befehlswort für Lesen und Schreiben
   (`0x10000`), im Modell ohne Wirkung. Es wurde kein EDMA programmiert.
 
@@ -149,6 +151,25 @@ genügt, sie liest dann je Interrupt 64 Byte.
 - **gemessen:** Beim Anlegen schreibt FatFs nur dann einen LFN-Eintrag, wenn
   der Name nicht 8.3 in Großbuchstaben ist: `T.WAV` entsteht ohne LFN,
   `501_tst_root.wav` mit.
+- **offline gelesen:** Korgs FatFs ist ohne `_FS_LOCK` gebaut: f_open prüft
+  keine Sperre, f_close schreibt nur zurück und löscht das Objekt. Offene
+  Dateien können also nicht ausgehen. Es ist auch nicht wiedereintrittsfest
+  (find_volume sperrt nicht), Korgs Hüllen (`0xC0035440`) rufen es direkt.
+  BLECH ruft es aus der SysEx-Task und aus der UI-Task; zwei Dateizugriffe
+  gleichzeitig sind ungeschützt (im Emulator nie überlappend gesehen).
+- **gelesen:** Status 6 von FILE READ und WRITE (`STATUS_FILE` in
+  `tools/patch/blech_sysex.py`) steht für jedes Ergebnis ungleich 0 von
+  f_open, f_lseek, f_read oder f_close. Den FatFs-Code selbst verwirft
+  `frb_error`; 6 sagt also nur, dass die Karte nein gesagt hat, nicht warum.
+- **Byte-Vergleich + gemessen (14.11.):** Kein BLECH-Patch ändert ein Byte an
+  Korgs SD-Treiber und Kartentask (`0xC00175B0` bis `0xC001DC00`), diskio
+  (`0xC003F000` bis `0xC0041000`) oder FatFs (`0xC009B000` bis `0xC009F200`),
+  geprüft auf develop und release/1.4.6 gegen Hacktribe 2.02. Im Emulator ist
+  der Verkehr am Kartencontroller beim Start ohne Karte und bei der ersten
+  Initialisierung nach spätem Stecken gleich mit BLECH, mit EXIT beim
+  Einschalten und mit Hacktribe pur. Grenze: die Emulator-Karte ist ideal
+  (kein ACMD41-Busy); ob Hacktribe pur nach einem Start ohne Karte am Gerät
+  genauso hängt (#518), ist ungeprüft.
 
 ## 2. Wann die Firmware die Karte anfasst
 
@@ -243,10 +264,11 @@ und arbeiten mit selbst erzeugten Karten.
 - **Netzteil:** Ohne Netzteil-Schalter scheitert jedes Update scheinbar
   ("Battery Low"), siehe Abschnitt 5. Der Dienst braucht dafür einen
   eigenen Schalter.
-- **Nachbildung:** Weder CRC noch Fehlerfälle (Timeout, CRC-Fehler,
-  Schreibschutz, Karte gezogen) sind modelliert. Die Firmwaretexte dazu
-  ("Card Error", "Card Write Protected", "Card Removal") sind also ungeprüft.
-- **Typen:** SDSC, Karten über 1 GiB und exFAT sind ungeprüft. FatFs
+- **Nachbildung:** CRC, Schreibschutz (GPIO 4.0), Timeouts, Lese- und
+  Schreibfehler sind im Emulator nachgebildet; was die Firmware daraus macht
+  ("Card Error", "Card Write Protected"), steht unter Fehlerfälle der Karte in
+  [../emulator.md](../emulator.md). "Card Removal" ist weiter ungeprüft.
+- **Typen:** Karten über 1 GiB und exFAT sind ungeprüft. FatFs
   unterscheidet FAT12/16/32 nur nach der Clusterzahl; ein falsch gebautes Abbild
   mountet ohne Fehlermeldung nicht.
 - **Urheberrecht:** Echte Karten enthalten Korg-Daten. Abbilder mit

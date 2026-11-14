@@ -1,0 +1,1237 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "user-samples",
+ "builds": [
+  "synth"
+ ],
+ "name": "Eigene Samples: e2sSample.all von der Karte als Oszillatoren der Gruppe [User]",
+ "changes": [
+  {
+   "file": 1212672,
+   "bytes": "4cc89fe500c09ce5760f5ce366cfa0830c0050e11eff2fe134189fe5001091e5760f51e3661fa0831eff2fe120c89fe500c09ce5760f5ce366cfa083000054e30c4084b0014084b21eff2fb10c0054e10c4044c0014044c21eff2fe1f04f2de9f0b79fe50000a0e300008be504008be5660fa0e30c008be50100a0e314008be5000056e33d00000a0200a0e314008be5c4079fe5000090e5000050e30200000a180090e5020a10e33400001a360000eba8079fe50010a0e3012ba0e3042052e2021080e7fcffff1a94179fe50120a0e37889fdeb000050e30300a01314008b152600001a0000a0e378179fe5012aa0e33c0000eb000050e31900001a64179fe5000091e560279fe5020050e10400910558279f05020050011100001a0500a0e314008be5430000eb09a5fbeb18008be500a0a0e338179fe50a4191e7000054e34f00001b00009be5400050e30600002a01a08ae21c079fe500005ae1f4ffff3a010000ea0400a0e314008be5ec069fe56f8bfdeb00009be5660f80e20c008be5f04fbde80600a0e11eff2fe110402de910d04de20d00a0e1dc169fe5f228fceb00109de5b8069fe53f20a0e30130d1e4000053e30200000a0130c0e4012052e2f9ffff1ab4169fe50130d1e40130c0e4000053e3fbffff1a0d00a0e15a93fdeb10d08de21080bde830402de90140a0e10250a0e10010a0e160069fe5568bfdeb000050e30900001a50069fe50410a0e10520a0e110308be2ab89fdeb000050e30200001a10009be5050050e03080bde80100a0e33080bde844069fe5000090e540169fe540269fe5000050e30800000a003091e508c091e50c3083e0023083e2020053e10320a081101081e2010040e2f4ffffea1f2082e21f20c2e308208be51eff2fe100442de90400a0e130108be22c20a0e3d3ffffeb000050e3c000001a30508be2000095e5e0159fe5010050e108009505d8159f05010050010c009505d0159f0501005001100095051000500324009505c0159f0501005001b000001a140095e52078a0e10008a0e1010850e3ab00001a010057e302005713a800001a200095e52008a0e1100050e3a400001a188095e5fa0f58e3a100003a7c059fe5000058e19e00008a289095e5010047e23960a0e10160c6e3040056e39800003a2c608be5020046e224008be520008be50000a0e31c008be50100a0e328008be53c059fe5b0008be50000a0e3b4008be5b8008be5bc008be52c0084e2090080e0011009e2010080e060108be24820a0e394ffffeb000050e32400001a60508be2000095e5fc149fe5010050e108009505f4149f05010050011c00001a105085e2020085e2b0108be20f20a0e30130d0e40130c1e4000053e30100000a012052e2f9ffff1a0030a0e30130c1e4012052e2fcffff5a300095e5021046e2010050e10a00008a2c1095e5000051e10700008a282095e5000052e10400008a1c208be520108be524008be53400d5e528008be508009be55f1086e21f10c1e3011080e068249fe5020051e15500008a60049fe5000090e5020c50e35100002a54049fe5000090e5020c50e34d00002a48049fe5000090e5060c50e34900002a00049fe5000090e5060c50e34500002a8700a0e1010040e20090c9e108509be52c0084e218149fe50020a0e34effffeb000050e33b00001a0189a0e3080059e10980a03198039fe5f4139fe50820a0e110308be2fd88fdeb000050e33100001a10009be5080050e12e00001a089049e0020057e31300001ac4039fe50010a0e12821a0e10130d0e401c0d0e40c3483e10338a0e101c0d0e401e0d0e40ec48ce10cc8a0e14338a0e14c3883e0c330a0e10130c1e42334a0e10130c1e4012052e2efffff1aa880a0e1000059e30700001a6c039fe55f1088e21f10c1e30020a0e30820c0e7018088e2010058e1fbffff3a18009be50510a0e144239fe5a830a0e108a0fbeb085085e0000059e3c9ffff1a080000eb08508be500009be5010080e200008be50084bde804009be5010080e204008be50084bde8f0432de92c609be5026046e224209be5060052e10620a081000052e30620a0010120c2e31c009be5020050e10000a0830100c0e320109be5000051e10010a031020051e10210a0810110c1e328309be5000053e30210a011001041e0002042e008309be5000083e0020051e19c329fe50138830354429fe5005094e550c29fe505c28ce000008ce504108ce508208ce50c308ce5010085e2000084e548009be55e0000eb5c429fe5006094e560c29fe586c18ce07f10a0e30010cce50010a0e30110cce50250cce52514a0e10310cce50400cce52014a0e10510cce5ff10a0e30610cce50710cce5010086e2000084e50c429fe5007094e518c29fe507c28ce0b0009be500008ce5b4009be504008ce508608ce50000a0e30c008ce5010087e2000084e5f0019fe50010d0e50120d0e5021481e1321041e2e0019fe5811280e0b8419fe5008094e588c280e00020a0e3023091e702308ce7042082e2200052e3faffff1a7f20a0e30820cce50920cce50a20cce50b20cce51820dce51930dce50010a0e381008ce01070c0e52794a0e11190c0e51820c0e51930c0e5011081e2040051e3f6ffff1a010088e2000084e500009be5660f80e2010080e260c19fe500108ce280c28ce00020a0e3023091e702308ce7042082e2200052e3faffff1ab0009be500008ce5b4009be504008ce5b8009be508008ce5bc009be5ff04c0e30c008ce50e00a0e31000cce5320088e21200cce52004a0e11300cce5f083bde810402de9090000eb0040a0e1f4009fe5060000eb040040e04002a0e1e8109fe5900102e04206a0e10f0b80e21080bde80010a0e30020a0e1010052e3a220a08101108182fbffff8a0f2071e21032a051002062423032a0410108a0e10229a0e393030ce0ac37a0e1010853e3a330a02102008021a220b0e1f8ffff1a1eff2fe10c3013c0003013c0f8e833c0003213c0003113c0004013c06532732073616d70104013c0fc03000023010000e48812c064de34c0743e35c0e05a36005249464657415645666d74206461746100ee0200555345526b6f726765736c69e05a3601683e35c06c3e35c0749e35c0005013c034000000648634c0681e35c0129012c068de34c0009012c080bb0000000c000053616d706c652f65327353616d706c652e616c6c005b557365725d00",
+   "expect": "adea5e0a9361c2700525b2452f81230a0f5c1fb310669e1a5b1d779143b9e297",
+   "note": "the load of the sample file, the list's end for the three places that walk the list, the path and the group name"
+  },
+  {
+   "file": 1216768,
+   "copy": {
+    "file": 781384,
+    "length": 13088,
+    "expect": "d1856e07569a641f7d49a52d22688a4651ea599cc4db7f818b992f3fd5967bca"
+   },
+   "expect": "da28ca4367c01ea9e5fe1fba1734dc063a83b6ca3506b6b94966250407758337",
+   "note": "the oscillator table, copied from the VSB to where it has room for the [User] records"
+  },
+  {
+   "file": 1229856,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 1: SAW until a sample fills it"
+  },
+  {
+   "file": 1229888,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 2: SAW until a sample fills it"
+  },
+  {
+   "file": 1229920,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 3: SAW until a sample fills it"
+  },
+  {
+   "file": 1229952,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 4: SAW until a sample fills it"
+  },
+  {
+   "file": 1229984,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 5: SAW until a sample fills it"
+  },
+  {
+   "file": 1230016,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 6: SAW until a sample fills it"
+  },
+  {
+   "file": 1230048,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 7: SAW until a sample fills it"
+  },
+  {
+   "file": 1230080,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 8: SAW until a sample fills it"
+  },
+  {
+   "file": 1230112,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 9: SAW until a sample fills it"
+  },
+  {
+   "file": 1230144,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 10: SAW until a sample fills it"
+  },
+  {
+   "file": 1230176,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 11: SAW until a sample fills it"
+  },
+  {
+   "file": 1230208,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 12: SAW until a sample fills it"
+  },
+  {
+   "file": 1230240,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 13: SAW until a sample fills it"
+  },
+  {
+   "file": 1230272,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 14: SAW until a sample fills it"
+  },
+  {
+   "file": 1230304,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 15: SAW until a sample fills it"
+  },
+  {
+   "file": 1230336,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 16: SAW until a sample fills it"
+  },
+  {
+   "file": 1230368,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 17: SAW until a sample fills it"
+  },
+  {
+   "file": 1230400,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 18: SAW until a sample fills it"
+  },
+  {
+   "file": 1230432,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 19: SAW until a sample fills it"
+  },
+  {
+   "file": 1230464,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 20: SAW until a sample fills it"
+  },
+  {
+   "file": 1230496,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 21: SAW until a sample fills it"
+  },
+  {
+   "file": 1230528,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 22: SAW until a sample fills it"
+  },
+  {
+   "file": 1230560,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 23: SAW until a sample fills it"
+  },
+  {
+   "file": 1230592,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 24: SAW until a sample fills it"
+  },
+  {
+   "file": 1230624,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 25: SAW until a sample fills it"
+  },
+  {
+   "file": 1230656,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 26: SAW until a sample fills it"
+  },
+  {
+   "file": 1230688,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 27: SAW until a sample fills it"
+  },
+  {
+   "file": 1230720,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 28: SAW until a sample fills it"
+  },
+  {
+   "file": 1230752,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 29: SAW until a sample fills it"
+  },
+  {
+   "file": 1230784,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 30: SAW until a sample fills it"
+  },
+  {
+   "file": 1230816,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 31: SAW until a sample fills it"
+  },
+  {
+   "file": 1230848,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 32: SAW until a sample fills it"
+  },
+  {
+   "file": 1230880,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 33: SAW until a sample fills it"
+  },
+  {
+   "file": 1230912,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 34: SAW until a sample fills it"
+  },
+  {
+   "file": 1230944,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 35: SAW until a sample fills it"
+  },
+  {
+   "file": 1230976,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 36: SAW until a sample fills it"
+  },
+  {
+   "file": 1231008,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 37: SAW until a sample fills it"
+  },
+  {
+   "file": 1231040,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 38: SAW until a sample fills it"
+  },
+  {
+   "file": 1231072,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 39: SAW until a sample fills it"
+  },
+  {
+   "file": 1231104,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 40: SAW until a sample fills it"
+  },
+  {
+   "file": 1231136,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 41: SAW until a sample fills it"
+  },
+  {
+   "file": 1231168,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 42: SAW until a sample fills it"
+  },
+  {
+   "file": 1231200,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 43: SAW until a sample fills it"
+  },
+  {
+   "file": 1231232,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 44: SAW until a sample fills it"
+  },
+  {
+   "file": 1231264,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 45: SAW until a sample fills it"
+  },
+  {
+   "file": 1231296,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 46: SAW until a sample fills it"
+  },
+  {
+   "file": 1231328,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 47: SAW until a sample fills it"
+  },
+  {
+   "file": 1231360,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 48: SAW until a sample fills it"
+  },
+  {
+   "file": 1231392,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 49: SAW until a sample fills it"
+  },
+  {
+   "file": 1231424,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 50: SAW until a sample fills it"
+  },
+  {
+   "file": 1231456,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 51: SAW until a sample fills it"
+  },
+  {
+   "file": 1231488,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 52: SAW until a sample fills it"
+  },
+  {
+   "file": 1231520,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 53: SAW until a sample fills it"
+  },
+  {
+   "file": 1231552,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 54: SAW until a sample fills it"
+  },
+  {
+   "file": 1231584,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 55: SAW until a sample fills it"
+  },
+  {
+   "file": 1231616,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 56: SAW until a sample fills it"
+  },
+  {
+   "file": 1231648,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 57: SAW until a sample fills it"
+  },
+  {
+   "file": 1231680,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 58: SAW until a sample fills it"
+  },
+  {
+   "file": 1231712,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 59: SAW until a sample fills it"
+  },
+  {
+   "file": 1231744,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 60: SAW until a sample fills it"
+  },
+  {
+   "file": 1231776,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 61: SAW until a sample fills it"
+  },
+  {
+   "file": 1231808,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 62: SAW until a sample fills it"
+  },
+  {
+   "file": 1231840,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 63: SAW until a sample fills it"
+  },
+  {
+   "file": 1231872,
+   "copy": {
+    "file": 791784,
+    "length": 32,
+    "expect": "17ad34d965bde378128f92b3724b6eb445bdc5bf2c4a17207b5e2b034d6c0b34"
+   },
+   "expect": "af9613760f72635fbdb44a5a0a63c39f12af30f950a6ee5c971be188e89c4051",
+   "note": "[User] record 64: SAW until a sample fills it"
+  },
+  {
+   "file": 1216512,
+   "copy": {
+    "file": 830680,
+    "length": 56,
+    "expect": "80b7b7866b044add4f0c4e5c5f3897b7609df2244b4bd55d599d03e09bd50f68"
+   },
+   "expect": "528ff50ab05e77bbbd224a9ec86165dbb6824a9a9efb544be0a1d57d5b416457",
+   "note": "the 14 group names, copied from the VSB"
+  },
+  {
+   "file": 1216568,
+   "bytes": "f98812c0",
+   "expect": "ad95131bc0b799c0b1af477fb14fcf26a6a9f76079e48bf090acb7e8367bfd0e",
+   "note": "the 15th group name, [User]"
+  },
+  {
+   "file": 244308,
+   "bytes": "009012c0",
+   "expect": "32e7cafda149990716fe971706ea50dc877846d2333b52b17df4b6f4292df898",
+   "note": "a literal of the oscillator table points to the copy"
+  },
+  {
+   "file": 244364,
+   "bytes": "009012c0",
+   "expect": "32e7cafda149990716fe971706ea50dc877846d2333b52b17df4b6f4292df898",
+   "note": "a literal of the oscillator table points to the copy"
+  },
+  {
+   "file": 244552,
+   "bytes": "009012c0",
+   "expect": "32e7cafda149990716fe971706ea50dc877846d2333b52b17df4b6f4292df898",
+   "note": "a literal of the oscillator table points to the copy"
+  },
+  {
+   "file": 439752,
+   "bytes": "009012c0",
+   "expect": "32e7cafda149990716fe971706ea50dc877846d2333b52b17df4b6f4292df898",
+   "note": "a literal of the oscillator table points to the copy"
+  },
+  {
+   "file": 462616,
+   "bytes": "009012c0",
+   "expect": "32e7cafda149990716fe971706ea50dc877846d2333b52b17df4b6f4292df898",
+   "note": "a literal of the oscillator table points to the copy"
+  },
+  {
+   "file": 552204,
+   "bytes": "009012c0",
+   "expect": "32e7cafda149990716fe971706ea50dc877846d2333b52b17df4b6f4292df898",
+   "note": "a literal of the oscillator table points to the copy"
+  },
+  {
+   "file": 552432,
+   "bytes": "009012c0",
+   "expect": "32e7cafda149990716fe971706ea50dc877846d2333b52b17df4b6f4292df898",
+   "note": "a literal of the oscillator table points to the copy"
+  },
+  {
+   "file": 552612,
+   "bytes": "009012c0",
+   "expect": "32e7cafda149990716fe971706ea50dc877846d2333b52b17df4b6f4292df898",
+   "note": "a literal of the oscillator table points to the copy"
+  },
+  {
+   "file": 553320,
+   "bytes": "009012c0",
+   "expect": "32e7cafda149990716fe971706ea50dc877846d2333b52b17df4b6f4292df898",
+   "note": "a literal of the oscillator table points to the copy"
+  },
+  {
+   "file": 553684,
+   "bytes": "009012c0",
+   "expect": "32e7cafda149990716fe971706ea50dc877846d2333b52b17df4b6f4292df898",
+   "note": "a literal of the oscillator table points to the copy"
+  },
+  {
+   "file": 439756,
+   "bytes": "008f12c0",
+   "expect": "653b7070a8420d9d3ece8a10e8ff08933c28d363ae71cf9612501cb031e89085",
+   "note": "the group names' literal points to the copy"
+  },
+  {
+   "file": 439716,
+   "bytes": "0e0053e3",
+   "expect": "e9d9dc67ab07a689c7ddc14d551cd578c0596c750952ce3a1ea2bb0e5d9c7f98",
+   "note": "the name lookup accepts group 14"
+  },
+  {
+   "file": 552172,
+   "bytes": "760f50e3",
+   "expect": "f674f6cb6662305d8d61d7acd8f927ab0539ef91066deb2334b3a29487ae2e59",
+   "note": "the index is refused above 0x1D8 instead of 0x198"
+  },
+  {
+   "file": 552296,
+   "bytes": "760f51e3",
+   "expect": "4e40a01e7668f8f9a5833decc0903196b7bcf3c8d089d5ba2cd0ff7475ee67c0",
+   "note": "the index is refused above 0x1D8 instead of 0x198"
+  },
+  {
+   "file": 552484,
+   "bytes": "760f55e3",
+   "expect": "6892135118e890f9d27dad7a87db7af7c1f77b1c819998bbab994d1fa8caa558",
+   "note": "the index is refused above 0x1D8 instead of 0x198"
+  },
+  {
+   "file": 553268,
+   "bytes": "760f55e3",
+   "expect": "6892135118e890f9d27dad7a87db7af7c1f77b1c819998bbab994d1fa8caa558",
+   "note": "the index is refused above 0x1D8 instead of 0x198"
+  },
+  {
+   "file": 553752,
+   "bytes": "760f54e3",
+   "expect": "0b38ef7572b618bfc6028a96fbf3404c661f628522689b7b9f23c64b471146bd",
+   "note": "the index is refused above 0x1D8 instead of 0x198"
+  },
+  {
+   "file": 553900,
+   "bytes": "760f51d3",
+   "expect": "2c01eb4905960e0386504f2dfec917e0ddc27c5fbf8798a25f3d9bb808a650fb",
+   "note": "the index is refused above 0x1D8 instead of 0x198"
+  },
+  {
+   "file": 553952,
+   "bytes": "760f51d3",
+   "expect": "2c01eb4905960e0386504f2dfec917e0ddc27c5fbf8798a25f3d9bb808a650fb",
+   "note": "the index is refused above 0x1D8 instead of 0x198"
+  },
+  {
+   "file": 554008,
+   "bytes": "760f51d3",
+   "expect": "2c01eb4905960e0386504f2dfec917e0ddc27c5fbf8798a25f3d9bb808a650fb",
+   "note": "the index is refused above 0x1D8 instead of 0x198"
+  },
+  {
+   "file": 554076,
+   "bytes": "760f53e3",
+   "expect": "fdd799497f882098e66a65c87596247783788c62159f5a843f3d730dd49fd2b0",
+   "note": "the index is refused above 0x1D8 instead of 0x198"
+  },
+  {
+   "file": 554148,
+   "bytes": "760f53e3",
+   "expect": "fdd799497f882098e66a65c87596247783788c62159f5a843f3d730dd49fd2b0",
+   "note": "the index is refused above 0x1D8 instead of 0x198"
+  },
+  {
+   "file": 554224,
+   "bytes": "760f53e3",
+   "expect": "fdd799497f882098e66a65c87596247783788c62159f5a843f3d730dd49fd2b0",
+   "note": "the index is refused above 0x1D8 instead of 0x198"
+  },
+  {
+   "file": 553680,
+   "bytes": "00d012c0",
+   "expect": "6e5ccabbaaac1ddc5502b79fc5e669890ad2b454ee303a211ffd4a1de23962b7",
+   "note": "the per-part A/B array moves to room for the [User] records"
+  },
+  {
+   "file": 553804,
+   "bytes": "00d012c0",
+   "expect": "6e5ccabbaaac1ddc5502b79fc5e669890ad2b454ee303a211ffd4a1de23962b7",
+   "note": "the per-part A/B array moves to room for the [User] records"
+  },
+  {
+   "file": 553888,
+   "bytes": "00d012c0",
+   "expect": "6e5ccabbaaac1ddc5502b79fc5e669890ad2b454ee303a211ffd4a1de23962b7",
+   "note": "the per-part A/B array moves to room for the [User] records"
+  },
+  {
+   "file": 553944,
+   "bytes": "00d012c0",
+   "expect": "6e5ccabbaaac1ddc5502b79fc5e669890ad2b454ee303a211ffd4a1de23962b7",
+   "note": "the per-part A/B array moves to room for the [User] records"
+  },
+  {
+   "file": 554000,
+   "bytes": "00d012c0",
+   "expect": "6e5ccabbaaac1ddc5502b79fc5e669890ad2b454ee303a211ffd4a1de23962b7",
+   "note": "the per-part A/B array moves to room for the [User] records"
+  },
+  {
+   "file": 554048,
+   "bytes": "00d012c0",
+   "expect": "6e5ccabbaaac1ddc5502b79fc5e669890ad2b454ee303a211ffd4a1de23962b7",
+   "note": "the per-part A/B array moves to room for the [User] records"
+  },
+  {
+   "file": 554120,
+   "bytes": "00d012c0",
+   "expect": "6e5ccabbaaac1ddc5502b79fc5e669890ad2b454ee303a211ffd4a1de23962b7",
+   "note": "the per-part A/B array moves to room for the [User] records"
+  },
+  {
+   "file": 554196,
+   "bytes": "00d012c0",
+   "expect": "6e5ccabbaaac1ddc5502b79fc5e669890ad2b454ee303a211ffd4a1de23962b7",
+   "note": "the per-part A/B array moves to room for the [User] records"
+  },
+  {
+   "file": 554272,
+   "bytes": "00d012c0",
+   "expect": "6e5ccabbaaac1ddc5502b79fc5e669890ad2b454ee303a211ffd4a1de23962b7",
+   "note": "the per-part A/B array moves to room for the [User] records"
+  },
+  {
+   "file": 553676,
+   "bytes": "8b050000",
+   "expect": "9e9e3d2c312caf55439e4c14fbb22d278fee1119bb0bf67500a35c2eb9d5200f",
+   "note": "its stride per part, 3 bytes per record"
+  },
+  {
+   "file": 553800,
+   "bytes": "8b050000",
+   "expect": "9e9e3d2c312caf55439e4c14fbb22d278fee1119bb0bf67500a35c2eb9d5200f",
+   "note": "its stride per part, 3 bytes per record"
+  },
+  {
+   "file": 553892,
+   "bytes": "8b050000",
+   "expect": "9e9e3d2c312caf55439e4c14fbb22d278fee1119bb0bf67500a35c2eb9d5200f",
+   "note": "its stride per part, 3 bytes per record"
+  },
+  {
+   "file": 553940,
+   "bytes": "8b050000",
+   "expect": "9e9e3d2c312caf55439e4c14fbb22d278fee1119bb0bf67500a35c2eb9d5200f",
+   "note": "its stride per part, 3 bytes per record"
+  },
+  {
+   "file": 553996,
+   "bytes": "8b050000",
+   "expect": "9e9e3d2c312caf55439e4c14fbb22d278fee1119bb0bf67500a35c2eb9d5200f",
+   "note": "its stride per part, 3 bytes per record"
+  },
+  {
+   "file": 554044,
+   "bytes": "8b050000",
+   "expect": "9e9e3d2c312caf55439e4c14fbb22d278fee1119bb0bf67500a35c2eb9d5200f",
+   "note": "its stride per part, 3 bytes per record"
+  },
+  {
+   "file": 554116,
+   "bytes": "8b050000",
+   "expect": "9e9e3d2c312caf55439e4c14fbb22d278fee1119bb0bf67500a35c2eb9d5200f",
+   "note": "its stride per part, 3 bytes per record"
+  },
+  {
+   "file": 554192,
+   "bytes": "8b050000",
+   "expect": "9e9e3d2c312caf55439e4c14fbb22d278fee1119bb0bf67500a35c2eb9d5200f",
+   "note": "its stride per part, 3 bytes per record"
+  },
+  {
+   "file": 554268,
+   "bytes": "8b050000",
+   "expect": "9e9e3d2c312caf55439e4c14fbb22d278fee1119bb0bf67500a35c2eb9d5200f",
+   "note": "its stride per part, 3 bytes per record"
+  },
+  {
+   "file": 244284,
+   "bytes": "afb103eb",
+   "expect": "f674f6cb6662305d8d61d7acd8f927ab0539ef91066deb2334b3a29487ae2e59",
+   "note": "the scan to the next group ends at the list's end"
+  },
+  {
+   "file": 244540,
+   "bytes": "75b103eb",
+   "expect": "a90bdf6e7d0723352f0f7142371d48023d09f13e1755e058cf002782617243ce",
+   "note": "the scan to the previous group wraps to the list's end"
+  },
+  {
+   "file": 244796,
+   "bytes": "3ab103eb0c0000ea",
+   "expect": "732deb22f1befd25271241be2f3ead292c039067a2cd9d2fbde629570da53fbc",
+   "note": "the knob's step wraps at the list's end"
+  },
+  {
+   "file": 292048,
+   "bytes": "218303eb",
+   "expect": "1f9a2b9a3d817d0f114f0b717f009fb9eb8f2bbd3b461ba5753ac0633533527a",
+   "note": "the end of the PCM load calls the load of the sample file"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC00473D0",
+   "kind": "instruction",
+   "chain": "pcm-loaded",
+   "position": "replace",
+   "swallow": false,
+   "note": "the load of the sample file runs at the end of the PCM load and returns the firmware's result"
+  },
+  {
+   "site": "0xC003B93C",
+   "kind": "instruction",
+   "chain": "osc-next-group",
+   "position": "replace",
+   "swallow": true,
+   "note": "the list ends at the last sample"
+  },
+  {
+   "site": "0xC003BA3C",
+   "kind": "instruction",
+   "chain": "osc-prev-group",
+   "position": "replace",
+   "swallow": true,
+   "note": "the list ends at the last sample"
+  },
+  {
+   "site": "0xC003BB3C",
+   "kind": "instruction",
+   "chain": "osc-step",
+   "position": "replace",
+   "swallow": true,
+   "note": "the knob wraps at the last sample"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 292048,
+   "length": 4,
+   "why": "the end of the PCM load at start now calls the loader"
+  },
+  {
+   "file": 1212672,
+   "length": 2304,
+   "why": "the loader runs at start: it reads e2sSample.all, writes the DSP and the wave tables, reads the held keys"
+  },
+  {
+   "file": 1216768,
+   "length": 15136,
+   "why": "the moved oscillator table: the loader fills the [User] records, the first pattern's oscillators are read from it"
+  },
+  {
+   "file": 244308,
+   "length": 4,
+   "why": "the oscillator table moved: the first pattern's oscillators are read through this literal"
+  },
+  {
+   "file": 244364,
+   "length": 4,
+   "why": "the oscillator table moved: the first pattern's oscillators are read through this literal"
+  },
+  {
+   "file": 244552,
+   "length": 4,
+   "why": "the oscillator table moved: the first pattern's oscillators are read through this literal"
+  },
+  {
+   "file": 439752,
+   "length": 4,
+   "why": "the oscillator table moved: the first pattern's oscillators are read through this literal"
+  },
+  {
+   "file": 462616,
+   "length": 4,
+   "why": "the oscillator table moved: the first pattern's oscillators are read through this literal"
+  },
+  {
+   "file": 552204,
+   "length": 4,
+   "why": "the oscillator table moved: the first pattern's oscillators are read through this literal"
+  },
+  {
+   "file": 552432,
+   "length": 4,
+   "why": "the oscillator table moved: the first pattern's oscillators are read through this literal"
+  },
+  {
+   "file": 552612,
+   "length": 4,
+   "why": "the oscillator table moved: the first pattern's oscillators are read through this literal"
+  },
+  {
+   "file": 553320,
+   "length": 4,
+   "why": "the oscillator table moved: the first pattern's oscillators are read through this literal"
+  },
+  {
+   "file": 553684,
+   "length": 4,
+   "why": "the oscillator table moved: the first pattern's oscillators are read through this literal"
+  },
+  {
+   "file": 552172,
+   "length": 4,
+   "why": "the oscillator check takes the [User] records; it runs when the first pattern loads"
+  },
+  {
+   "file": 552296,
+   "length": 4,
+   "why": "the oscillator check takes the [User] records; it runs when the first pattern loads"
+  },
+  {
+   "file": 552484,
+   "length": 4,
+   "why": "the oscillator check takes the [User] records; it runs when the first pattern loads"
+  },
+  {
+   "file": 553268,
+   "length": 4,
+   "why": "the oscillator check takes the [User] records; it runs when the first pattern loads"
+  },
+  {
+   "file": 553752,
+   "length": 4,
+   "why": "the oscillator check takes the [User] records; it runs when the first pattern loads"
+  },
+  {
+   "file": 553900,
+   "length": 4,
+   "why": "the oscillator check takes the [User] records; it runs when the first pattern loads"
+  },
+  {
+   "file": 553952,
+   "length": 4,
+   "why": "the oscillator check takes the [User] records; it runs when the first pattern loads"
+  },
+  {
+   "file": 554008,
+   "length": 4,
+   "why": "the oscillator check takes the [User] records; it runs when the first pattern loads"
+  },
+  {
+   "file": 554076,
+   "length": 4,
+   "why": "the oscillator check takes the [User] records; it runs when the first pattern loads"
+  },
+  {
+   "file": 554148,
+   "length": 4,
+   "why": "the oscillator check takes the [User] records; it runs when the first pattern loads"
+  },
+  {
+   "file": 554224,
+   "length": 4,
+   "why": "the oscillator check takes the [User] records; it runs when the first pattern loads"
+  },
+  {
+   "file": 553680,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 553804,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 553888,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 553944,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 554000,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 554048,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 554120,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 554196,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 554272,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 553676,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 553800,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 553892,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 553940,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 553996,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 554044,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 554116,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 554192,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  },
+  {
+   "file": 554268,
+   "length": 4,
+   "why": "the per-part array moved; the first pattern's oscillators are set through this literal"
+  }
+ ],
+ "ram": [
+  {
+   "at": "0xC012D000",
+   "length": 22704,
+   "what": "the per-part array of A, B and a flag per oscillator, moved from 0xC056CF96 with room for the [User] records",
+   "source": "tools/patch/user_samples.py:AB_ARRAY"
+  },
+  {
+   "at": "0xC0133000",
+   "length": 256,
+   "what": "run time state: samples loaded and left out, the next DSP address, the list's end, the result, the WAV head and esli record of the sample being loaded",
+   "source": "tools/patch/user_samples.py:STATE"
+  },
+  {
+   "at": "0xC0133100",
+   "length": 256,
+   "what": "the path of the sample file",
+   "source": "tools/patch/user_samples.py:PATH"
+  },
+  {
+   "at": "0xC0133200",
+   "length": 1024,
+   "what": "the FatFs file object",
+   "source": "tools/patch/user_samples.py:FIL"
+  },
+  {
+   "at": "0xC0134000",
+   "length": 4096,
+   "what": "the head of the sample file, an offset per slot",
+   "source": "tools/patch/user_samples.py:HDR"
+  },
+  {
+   "at": "0xC0135000",
+   "length": 16640,
+   "what": "a block of PCM on its way to the DSP and the zeros behind the last one",
+   "source": "tools/patch/user_samples.py:BUF"
+  }
+ ]
+}

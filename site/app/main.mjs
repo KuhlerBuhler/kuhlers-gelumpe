@@ -5,6 +5,7 @@
 import { PatternFile, Pattern, parseSinglePattern, toSinglePattern, FileError } from "../../src/pattern.mjs";
 import { fieldsOf, field } from "../../src/map/index.mjs";
 import { control, el } from "./fields.mjs";
+import { icon } from "./icons.mjs";
 import { stepEditor } from "./steps.mjs";
 import { devicePanel } from "./device.mjs";
 import { fxPanel } from "./fx.mjs";
@@ -12,6 +13,7 @@ import { levelsPanel } from "./levels.mjs";
 import { modulationsPage } from "./modulations.mjs";
 import { samplesPage } from "./samples.mjs";
 import { samplesFilePage } from "./sampleset.mjs";
+import { doomPage } from "./doom.mjs";
 import { createMidiTransport } from "./midi.mjs";
 import { createUsbWatch } from "./usb-watch.mjs";
 import { usbIndicator } from "./usb.mjs";
@@ -26,6 +28,7 @@ import { rescuePage } from "./rescue.mjs";
 import { checkVerdict } from "../../data/rescue.mjs";
 import { collectMidi, midiVerdict } from "./midi-report.mjs";
 import { supportPage } from "./support.mjs";
+import { seenBefore, startPage } from "./start.mjs";
 import { changelogPage } from "./changelog.mjs";
 import { discordPage } from "./discord.mjs";
 import { splashPage } from "./splash.mjs";
@@ -37,13 +40,12 @@ import { Terminal } from "../../src/terminal.mjs";
 import { loadBlechSet } from "../../src/patcher.mjs";
 import { patchesPresent, selectFor } from "../../src/patch.mjs";
 import { sharedProbe } from "./probe.mjs";
-import { dropdown } from "./dropdown.mjs";
-import { icon } from "./icons.mjs";
 import { watchForUpdate, showNews } from "./update.mjs";
-import { apply as applySettings, get as setting, holdAutoConnect, languageSwitch, releaseAutoConnect, settingsButton, settingsPage } from "./settings.mjs";
-import { toast } from "./toast.mjs";
+import { apply as applySettings, get as setting, holdAutoConnect, languageSwitch, reducedMotion, releaseAutoConnect, settingsButton, settingsPage } from "./settings.mjs";
+import { toast, toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
 import { t } from "./i18n.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 
 const $ = sel => document.querySelector(sel);
 
@@ -371,11 +373,11 @@ async function startAfterDisconnect(device, emulator) {
   const yes = await window.ui?.confirm({ title: t("app.disconnect.title"), text: t("app.disconnect.text"), confirmLabel: t("app.disconnect.confirm") });
   if (!yes || !device.session) return;
   await device.disconnect();
-  try { toast(await emulator().powerOn(), "info"); } catch (e) { toast(e.message, "error"); }
+  try { toast(await emulator().powerOn(), "info"); } catch (e) { toast(e.message, "error", { help: "h:emulator:fix" }); }
 }
 
-/** Pages that share one navbar title: a menu switches between the emulator and the real device. */
-const MODES = { emu: "mode.emu", device: "mode.device" };
+/** Pages that share one navbar title: a switch goes between the emulator and the real device. */
+const MODES = { emu: true, device: true };
 
 /** Navbar: the title of the open page, and whether a device is connected, as words. */
 function navbar({ onMode }) {
@@ -384,26 +386,37 @@ function navbar({ onMode }) {
   let device = false;
   let emuAction = null;
   let cardButton = null;
+  let cardStatus = null;
   let consoleAction = null;
   let pluginActions = [];
   let baukastenActions = [];
   const trails = {};
   const homes = {};
-  $("#cee-mode-button").append(icon("chevronDown"));
-  const menu = dropdown($("#cee-mode-button"), $("#cee-mode-menu"), { onPick: onMode });
+  // One switch: off is the emulator, on the real device. onMode answers false when the device cannot be chosen.
+  const modeSwitch = $("#cee-mode-switch");
+  const menu = gearMenu($("#cee-emu-gear"), $("#cee-emu-menu"));
+  modeSwitch.addEventListener("change", () => {
+    if (onMode(modeSwitch.checked ? "device" : "emu") === false) modeSwitch.checked = page === "device";
+    else menu.close(true);
+  });
   function render() {
     const mode = page in MODES;
     $("#cee-nav-title").hidden = mode;
     $("#cee-mode").hidden = !mode;
+    $("#cee-emu-menu-box").hidden = !mode;
     if (mode) {
-      $("#cee-mode-label").textContent = t(MODES[page]);
-      for (const item of $("#cee-mode-menu").querySelectorAll("[role=menuitemradio]")) item.setAttribute("aria-checked", String(item.dataset.value === page));
+      modeSwitch.checked = page === "device";
+      const title = $("#cee-mode-title");
+      title.dataset.i18n = page === "device" ? "mode.device" : "mode.emu";
+      title.textContent = t(title.dataset.i18n);
     } else {
       // A page with sub-pages shows where you are as a breadcrumb: Plugins › Dokumentation › the section you read.
       // Every crumb but the last leads back: the title to the page's start sub-page, a step with `go` to that step.
       const parts = trails[page] ?? [];
       const tab = $(`#cee-tab-${page}`);
-      const title = parts.length && tab ? el("button", { type: "button", className: "cee-crumb-link", textContent: tab.textContent, onclick: () => (homes[page] ?? (() => tab.click()))() }) : tab?.textContent ?? "";
+      // The label only: a badge on the tab (the "!" of a new release) is no part of the page's name.
+      const name = tab?.querySelector("[data-i18n]")?.textContent ?? tab?.textContent ?? "";
+      const title = parts.length && tab ? el("button", { type: "button", className: "cee-crumb-link", textContent: name, onclick: () => (homes[page] ?? (() => tab.click()))() }) : name;
       $("#cee-nav-title").replaceChildren(title, ...parts.map((t, i) => {
         const text = typeof t === "string" ? t : t.text;
         return t.go && i < parts.length - 1
@@ -414,11 +427,15 @@ function navbar({ onMode }) {
     // On the device page the navbar carries the device panel's button (it moves there from the page, so its handlers
     // stay): connect while no device is attached, disconnect with the words "Gerät verbunden" once one is.
     const link = connectButton ? [connectButton] : [];
-    const state = page === "emu" ? [cardButton, emuAction].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page === "scripts" ? pluginActions : page === "baukasten" ? baukastenActions : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: t("app.connected") }), ...link] : link;
+    // The emulator's card, its folder and its own window are rows of the gear menu, under the mode switch.
+    $("#cee-emu-rows").replaceChildren(...(page === "emu" ? [cardButton, emuAction].filter(Boolean) : []));
+    // The card's state line (for screen readers) stays in the bar: a live region in the shut menu would say nothing.
+    cardStatus ??= cardButton?.querySelector("#cee-sd-status") ?? null;
+    const state = page === "emu" ? [cardStatus].filter(Boolean) : page === "console" ? [consoleAction].filter(Boolean) : page === "scripts" ? pluginActions : page === "baukasten" ? baukastenActions : page !== "device" ? [] : device ? [el("span", { className: "cee-nav-fact", textContent: t("app.connected") }), ...link] : link;
     $("#cee-nav-state").replaceChildren(...state);
   }
   return {
-    page(id) { menu.close(); page = id; render(); },
+    page(id) { page = id; render(); },
     device(on) { device = on; render(); },
     /** The device panel's connect and disconnect button. */
     connect(node) { connectButton = node; render(); },
@@ -435,6 +452,31 @@ function navbar({ onMode }) {
     /** The breadcrumb after the title of `id`: the sub-page and, in the docs, the section. `home` opens the start sub-page. */
     trail(id, parts, home) { trails[id] = parts; if (home) homes[id] = home; if (id === page) render(); },
   };
+}
+
+/**
+ * The gear next to the mode title: a panel with the mode switch, the SD card, its folder and the emulator's own window.
+ * A disclosure, not role=menu, since its rows are switches and buttons; Escape and a click outside close it, and a
+ * button row closes it after it ran.
+ */
+function gearMenu(button, panel) {
+  button.append(icon("settings"));
+  const close = (refocus = false) => {
+    if (panel.hidden) return;
+    panel.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+    if (refocus) button.focus({ preventScroll: true });
+  };
+  button.addEventListener("click", () => {
+    if (!panel.hidden) { close(); return; }
+    panel.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    panel.querySelector("input, button:not([hidden])")?.focus({ preventScroll: true });
+  });
+  panel.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); close(true); } });
+  panel.addEventListener("click", e => { if (e.target.closest("button")) close(); });
+  document.addEventListener("pointerdown", e => { if (!panel.hidden && !panel.contains(e.target) && !button.contains(e.target)) close(); });
+  return { close };
 }
 
 /** The emulator's SD card in the navbar: the switch that puts it in and the button that shows its folder. */
@@ -456,7 +498,7 @@ function sidebarDrawer() {
   };
   button.addEventListener("click", () => set(!side.hasAttribute("data-open")));
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && side.hasAttribute("data-open")) { set(false); button.focus(); }
+    if (e.key === "Escape" && side.hasAttribute("data-open")) { set(false); button.focus({ preventScroll: true }); }
   });
   // The drawer covers the menu button; a tap on the page beside it closes it.
   document.addEventListener("pointerdown", e => {
@@ -469,13 +511,40 @@ function sidebarDrawer() {
 function sidebarFold() {
   const app = $(".cee-app");
   const button = $("#cee-collapse");
+  const right = $(".cee-right");
+  const fading = [$("#cee-brand"), $("#cee-side-body")];
+  const token = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const ms = name => parseFloat(token(name)) || 0;
+  let busy = null;
   const set = fold => {
     app.toggleAttribute("data-collapsed", fold);
     button.setAttribute("aria-expanded", String(!fold));
     try { localStorage.setItem("cee.fold", fold ? "1" : "0"); } catch {}
   };
+  // Page and toggle glide from where they stood to where the new layout puts them (the layout switches at once,
+  // only transforms run); the title and the list fade out before folding and in after unfolding.
+  const animate = async fold => {
+    const easing = token("--ease-out") || "ease-out";
+    const from = { page: right.getBoundingClientRect().left, toggle: button.getBoundingClientRect().left };
+    if (fold) await Promise.all(fading.map(n => n.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms("--dur-fast"), easing, fill: "forwards" }).finished));
+    set(fold);
+    for (const n of fading) n.getAnimations().forEach(a => a.cancel());
+    const glide = (node, dx) => dx && node.animate([{ transform: `translateX(${dx}px)` }, { transform: "none" }], { duration: ms("--dur-slow"), easing }).finished;
+    await Promise.all([
+      glide(right, from.page - right.getBoundingClientRect().left),
+      // Folded, the sidebar is just the toggle's box and would clip the toggle sliding out of it: the box moves.
+      glide(fold ? $("#cee-sidebar") : button, from.toggle - button.getBoundingClientRect().left),
+      ...(fold ? [] : fading.map(n => n.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms("--dur-slow"), easing }).finished)),
+    ]);
+  };
+  // A remembered fold stands from the first frame, without moving.
   try { if (localStorage.getItem("cee.fold") === "1") set(true); } catch {}
-  button.addEventListener("click", () => set(!app.hasAttribute("data-collapsed")));
+  button.addEventListener("click", () => {
+    const fold = !app.hasAttribute("data-collapsed");
+    if (busy) return;
+    if (reducedMotion()) { set(fold); return; }
+    busy = animate(fold).catch(() => set(fold)).finally(() => { busy = null; });
+  });
 }
 
 /**
@@ -503,12 +572,15 @@ function fileLinks() {
 }
 
 function boot() {
+  // Before the tabs store the open page: a 1.4.x user's last page is one sign of having used the app.
+  try { seenBefore(window.localStorage); } catch { /* blocked storage: a first visit */ }
   applySettings();
   fileLinks();
   const changelog = changelogPage($("#cee-changelog"), $("#cee-tab-changelog"));
   const discord = discordPage($("#cee-discord"));
   settingsButton($("#cee-settings-button"), () => { areas?.select("settings"); drawer.close(); });
   $("#cee-donate").addEventListener("click", () => drawer.close());
+  $("#cee-about-link").addEventListener("click", () => drawer.close());
   const emu = takeLink();
   let areas = null;
   // Picking the mode that is open already changes nothing; ui.tabs would show the empty device panel instead of the drawing.
@@ -521,12 +593,21 @@ function boot() {
     try { localStorage.setItem("cee.mode", id); } catch { /* blocked: the choice holds until the page closes */ }
     if (id === "device") device.chosen();
   };
-  const nav = navbar({ onMode: id => { pickMode(id); if (id !== areas?.current) areas?.select(id, { focus: false }); } });
+  const nav = navbar({
+    onMode: id => {
+      // Nothing on the cable: stay on the emulator. "unknown" (MIDI not granted yet) passes, the connect button asks for it.
+      if (id === "device" && usb.state === "absent") { toast(t("mode.none"), "info"); return false; }
+      pickMode(id);
+      if (id !== areas?.current) areas?.select(id, { focus: false });
+    },
+  });
   const drawer = sidebarDrawer();
   const transport = createMidiTransport(window);
   const usb = createUsbWatch({ transport, permissions: navigator.permissions, hidden: () => document.hidden });
-  usbIndicator($(".cee-navbar"), usb);
-  languageSwitch($(".cee-navbar"));
+  usbIndicator($("#cee-nav-end"), usb);
+  languageSwitch($("#cee-nav-end"));
+  // The gear of the emulator sits in the right corner, after the language menu.
+  $("#cee-nav-end").append($("#cee-emu-menu-box"));
   // The navbar wraps on narrow screens, so anchors and scrollIntoView keep clear of its real height (app.css).
   const navBox = $(".cee-navbar");
   new ResizeObserver(() => document.documentElement.style.setProperty("--cee-navbar-real", `${navBox.offsetHeight}px`)).observe(navBox);
@@ -543,11 +624,13 @@ function boot() {
   let terminal = null;
   let sd = null;
   let sampleset = null;
+  let doom = null;
+  let start = null;
   // One session on the emulator's port, shared by the effect editor's probe and the terminal's rehearsal.
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
   const device = devicePanel($("#cee-device"), {
-    onSession: () => { sampleset?.sessionChanged(); restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
+    onSession: () => { start?.sessionChanged(); sampleset?.sessionChanged(); doom?.sessionChanged(); restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
     emulator: () => emulator?.port,
     view: () => emulator,
     probe,
@@ -593,6 +676,7 @@ function boot() {
       options.page(id);
       $("#cee-settings-button").toggleAttribute("aria-current", id === "settings");
       $("#cee-donate").toggleAttribute("aria-current", id === "support");
+      $("#cee-about-link").toggleAttribute("aria-current", id === "about");
       $("#cee-tab-emu").toggleAttribute("data-active", id === "device");
       $("#cee-device").hidden = id !== "device";
       if (id === "device") { $("#cee-area-emu").hidden = false; $("#cee-area-device").hidden = true; }
@@ -600,6 +684,7 @@ function boot() {
       if (id === "console") terminal?.update();
       if (id === "changelog") changelog.opened();
       if (id === "discord") discord.opened();
+      if (id === "start") start?.opened();
     },
   }) : null;
   $("#cee-areas").addEventListener("click", e => { if (e.target.closest("[role=tab]")) drawer.close(); });
@@ -643,14 +728,16 @@ function boot() {
   });
   emulator = emulatorPanel($("#cee-emu"), emu.link, { deviceArea: device, onConnect: next => sd?.connect(next), onBlocked: () => startAfterDisconnect(device, () => emulator), onFirmware: () => device.firmwareChanged() });
   const modulations = modulationsPage($("#cee-mod"), { emulator });
-  const baukasten = baukastenPage($("#cee-baukasten"), { emulator, presets: fx, sub: options, trail: (parts, home) => nav.trail("baukasten", parts, home), navbar: nodes => nav.baukasten(nodes) });
+  const baukasten = baukastenPage($("#cee-baukasten"), { presets: fx, device, sub: options, trail: (parts, home) => nav.trail("baukasten", parts, home), navbar: nodes => nav.baukasten(nodes) });
   samplesPage($("#cee-samples"), { device, emulator, probe });
   sampleset = samplesFilePage($("#cee-sampleset"), { device });
+  doom = doomPage($("#cee-doom-files"), { device });
   let fxFirmware = null;
   let modFirmware = null;
   let plainFor = null;
   let fxRunning = false;
   let noFirmware = null;
+  let startFirmware = null;
   setInterval(() => {
     const running = !!emulator.port.running;
     if (running !== fxRunning) { fxRunning = running; if (running) setTimeout(() => fx.refresh(), 3000); }
@@ -670,6 +757,7 @@ function boot() {
       });
     }
     if (emulator.firmware && emulator.firmware !== modFirmware) { modFirmware = emulator.firmware; modulations.loadBytes(modFirmware).catch(() => {}); }
+    if (emulator.firmware !== startFirmware) { startFirmware = emulator.firmware; start?.firmwareChanged(); }
     baukasten.update();
     if (!emulator.firmware !== noFirmware) { noFirmware = !emulator.firmware; restrict(); }
   }, 1000);
@@ -683,9 +771,11 @@ function boot() {
   let target = null;
   // The patcher's last red test, for Blechy; it lasts until the app closes, a passed test clears it.
   let tested = null;
-  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null, onTarget: folder => { target = folder; }, onTest: failure => { tested = failure; } });
+  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null, onTarget: folder => { target = folder; start?.done(); }, onTest: failure => { tested = failure; } });
   // A session on the emulator's port is no Electribe, so the Rettung page only asks one on a cable.
   const cabled = () => (device.session && device.session.port !== emulator?.port && !device.session.sender.disconnected ? device.session : null);
+  start = startPage($("#cee-start-page"), { storage, session: cabled, emulator: () => emulator });
+  usb.subscribe(() => start.sessionChanged());
   rescuePage($("#cee-rescue"), {
     hardware: () => cabled()?.hardware?.() ?? null,
     firmware: () => (cabled()?.device?.blech ? "blech" : null),
@@ -719,6 +809,7 @@ function boot() {
     areas?.select("emu");
   });
 
+  dropzoneClear($("#cee-file"), () => { $("#cee-error").hidden = true; });
   $("#cee-file").addEventListener("change", e => {
     $("#cee-error").hidden = true;
     const f = e.target.files?.[0];
@@ -746,7 +837,7 @@ function boot() {
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
 else boot();
 
-watchForUpdate($("#cee-update"), undefined, toast);
+watchForUpdate($("#cee-update"), undefined, toastFor("h:updates"));
 showNews(toast);
 
 // In the desktop app a new window goes nowhere: the donate, GitHub, Instagram and Korg links navigate in place and the app opens them in the browser (src-tauri).

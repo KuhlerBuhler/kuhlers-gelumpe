@@ -8,7 +8,7 @@
 import { API, API_BY_NAME, EVENTS, EVENT_BY_NAME, SCRIPT_APPS, LIMITS } from "../../data/script/contract.mjs";
 import { API_DOCS, ON_EVENT_DOC, EVENT_DOCS, GROUP_DOCS, NAME_FAMILY_DOCS } from "../../data/script/describe.mjs";
 import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
-import { PROPERTIES, KNOB_NAMES } from "../../data/script/properties.mjs";
+import { PROPERTIES, KNOB_NAMES, deprecated } from "../../data/script/properties.mjs";
 import { OBJECTS, OBJECT_BY_PATH, objectChildren, isObjectBranch } from "../../data/script/objects.mjs";
 import { hintAt } from "./names.mjs";
 import { text as msg, render } from "../text.mjs";
@@ -140,8 +140,15 @@ function branchInfo(path) {
 /** A path of the object tree: a leaf, or a branch that has leaves below it. */
 const treeInfo = path => (OBJECT_BY_PATH.has(path) ? leafInfo(OBJECT_BY_PATH.get(path)) : isObjectBranch(path) ? branchInfo(path) : null);
 
+/** `info` with the deprecation text when `name` is deprecated (data/script/contract.mjs DEPRECATED). */
+function withDeprecation(name, info) {
+  const d = info && deprecated(name);
+  return d ? Object.defineProperty({ ...info }, "deprecated", { get: () => say("compile.deprecated", { name, ...d }), enumerable: true }) : info;
+}
+
 /** An API entry by its name; `korg.tempo` without a bracket behind it is the property. */
-const infoFor = (name, called = true) => (name === ON_EVENT_DOC.name ? ON_EVENT_INFO
+const infoFor = (name, called = true) => withDeprecation(name, plainInfo(name, called));
+const plainInfo = (name, called) => (name === ON_EVENT_DOC.name ? ON_EVENT_INFO
   : treeInfo(name) ? treeInfo(name)
   : called && API_BY_NAME.has(name) ? apiInfo(API_BY_NAME.get(name))
     : objectInfo(name) ?? (API_BY_NAME.has(name) ? apiInfo(API_BY_NAME.get(name)) : null));
@@ -218,7 +225,7 @@ function treeOptions(path) {
 }
 
 /** The first branches of the object tree, offered after `korg.` beside the flat names: `korg.menu`, `korg.system`. */
-const TREE_ROOTS = [...new Set(OBJECTS.map(o => o.path.split(".").slice(0, 2).join(".")))].map(path => ({
+const TREE_ROOTS = [...new Set(OBJECTS.map(o => o.path.split(".").slice(0, 2).join(".")))].filter(path => !OBJECT_BY_PATH.has(path)).map(path => ({
   label: path, type: "namespace", get detail() { return say("script.editor.branch"); }, info: branchInfo(path), apply: `${path}.`, retrigger: true,
 }));
 

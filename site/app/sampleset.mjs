@@ -5,17 +5,28 @@
  */
 import { el } from "./fields.mjs";
 import { stateText } from "./state.mjs";
-import { toast } from "./toast.mjs";
+import { toastFor } from "./toast.mjs";
 import { saveFile } from "./save-file.mjs";
-import { parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, SampleFileError, FIRST_USER, LAST_USER } from "../../src/sample-file.mjs";
+import { parseSampleFile, planChange, applyPlan, entryFromWav, freeSlot, cleanSampleName, blueLoad, wavChunks, SampleFileError, FIRST_USER, LAST_USER, BLUE_MAX } from "../../src/sample-file.mjs";
 import { readDeviceSamples, downloadDeviceSamples, writeDeviceChange, needsCompaction, inspectTemp, finishTemp, discardTemp, SwapInterrupted } from "../../src/usb-sample-file.mjs";
 import { t, tNodes } from "./i18n.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 import { number } from "../../src/text.mjs";
+/** An error of this page opens Blechy at its topic (data/rescue.mjs). */
+const toast = toastFor("h:wavs");
 
 const restart = () => t("sampleset.restart");
 
 const size = bytes => (bytes >= 1048576 ? `${number(Number((bytes / 1048576).toFixed(1)), { useGrouping: false, minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 const seconds = s => `${s.frames && s.rate ? number(Number((s.frames / s.rate).toFixed(2)), { useGrouping: false, minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0"} s`;
+/** The blue Electribe 2 (model byte 0x23 in the search reply) loads the file through the user samples patch, differently from the red. */
+const BLUE_MODEL = 0x23;
+const MODEL_KEY = "cee.sampleset.model";
+const readModel = () => { try { return localStorage.getItem(MODEL_KEY) === "blue"; } catch { return false; } };
+const writeModel = blue => { try { localStorage.setItem(MODEL_KEY, blue ? "blue" : "red"); } catch { /* blocked: the choice lasts this visit */ } };
+/** Room as seconds of 16-bit mono at 48 kHz, the rate most samples have. */
+const seconds48 = bytes => number(Math.floor(bytes / 96000), { useGrouping: false });
+const SKIP = { format: "sampleset.blue.skip.format", room: "sampleset.blue.skip.room", max: "sampleset.blue.skip.max" };
 const format = s => t("sampleset.format", { rate: number(s.rate / 1000, { useGrouping: false }), bits: s.bits, channels: s.channels === 2 ? t("sampleset.stereo") : t("sampleset.mono") });
 
 export function samplesFilePage(root, { device = null } = {}) {
@@ -25,13 +36,17 @@ export function samplesFilePage(root, { device = null } = {}) {
   let parsed = null;
   let removed = new Set();
   let added = [];
+  let blue = readModel();
   // Both files come in through the design's upload field (ui-dropzone): click to pick or drop on it.
-  const dropzone = (input, drag, hint) => el("label", { className: "ui-dropzone" }, [
-    input,
-    el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t(drag) }), t("common.pick")]),
-    el("span", { className: "ui-dropzone-hint", textContent: t(hint) }),
-    el("span", { className: "ui-dropzone-files" }),
-  ]);
+  const dropzone = (input, drag, hint, onClear) => {
+    el("label", { className: "ui-dropzone" }, [
+      input,
+      el("span", { className: "ui-dropzone-title" }, [el("span", { className: "ui-dropzone-drag", textContent: t(drag) }), t("common.pick")]),
+      el("span", { className: "ui-dropzone-hint", textContent: t(hint) }),
+      el("span", { className: "ui-dropzone-files" }),
+    ]);
+    return dropzoneClear(input, onClear).node;
+  };
   const pick = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-file", accept: ".all,.ALL" });
   const wavs = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-sf-wav", accept: ".wav,.WAV,audio/wav", multiple: true, disabled: true });
   const fromDevice = el("button", { type: "button", className: "btn cee-primary", id: "cee-sf-device", textContent: t("sampleset.device.read"), disabled: true, onclick: () => loadFromDevice() });
@@ -44,9 +59,33 @@ export function samplesFilePage(root, { device = null } = {}) {
   const intro = el("p", { className: "cee-sf-intro" }, [
     ...tNodes("sampleset.intro", { path: el("code", { textContent: "KORG/…/Sample/e2sSample.all" }), restart: restart() }),
   ]);
-  const wavZone = dropzone(wavs, "sampleset.wav.drag", "sampleset.wav.hint");
+  // Red or blue: the blue takes 16-bit samples only and has room for far fewer (tools/patch/user_samples.py), so what is
+  // added is made 16-bit mono for it and the list says what it will load.
+  const modelTabs = [["red", "patcher.device.red"], ["blue", "patcher.device.blue"]].map(([id, key]) => {
+    const input = el("input", { type: "radio", name: "cee-sf-model", value: id, checked: (id === "blue") === blue, onchange: () => setModel(id === "blue") });
+    return el("label", { className: "ui-segmented-option", id: `cee-sf-model-${id}` }, [input, el("span", { textContent: t(key) })]);
+  });
+  const modelSwitch = el("div", { className: "ui-segmented", role: "radiogroup", id: "cee-sf-model" }, modelTabs);
+  modelSwitch.setAttribute("aria-label", t("sampleset.model"));
+  const blueNote = el("p", { className: "muted", id: "cee-sf-blue-note" });
+  const wavZone = dropzone(wavs, "sampleset.wav.drag", "sampleset.wav.hint", () => { added = []; render(); });
   const actions = el("div", { className: "actions" }, [save, reset]);
-  root.replaceChildren(intro, el("div", { className: "actions" }, [fromDevice, download]), dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), wavZone, job, summary, list, actions);
+  root.replaceChildren(modelSwitch, el("div", { className: "actions" }, [fromDevice, download]), dropzone(pick, "sampleset.drop.drag", "sampleset.drop.hint"), intro, blueNote, wavZone, job, summary, list, actions);
+
+  /** A new entry out of the WAV as dropped, made for the model chosen; the WAV is kept so a switch of the model can make it again. */
+  function addedEntry(wav, slot, name) {
+    const bytes = entryFromWav(wav, slot, name, { blue });
+    const probe = parseSampleFile(entryAsFile(bytes, slot)).samples[0];
+    return { slot, name, wav, bytes, rate: probe.rate, bits: probe.bits, channels: probe.channels, frames: probe.frames, tagNo: probe.tagNo, layout: probe.layout, dataSize: probe.dataSize };
+  }
+
+  function setModel(to) {
+    blue = to;
+    writeModel(to);
+    added = added.map(a => addedEntry(a.wav, a.slot, a.name));
+    for (const input of modelSwitch.querySelectorAll("input")) input.checked = (input.value === "blue") === to;
+    render();
+  }
 
   const taken = () => new Set([...parsed.samples.filter(s => !removed.has(s.slot)).map(s => s.slot), ...added.map(a => a.slot)]);
   const dirty = () => removed.size > 0 || added.length > 0;
@@ -55,6 +94,8 @@ export function samplesFilePage(root, { device = null } = {}) {
 
   function render() {
     list.replaceChildren();
+    blueNote.hidden = !blue;
+    blueNote.textContent = blue ? t("sampleset.blue.note", { max: BLUE_MAX }) : "";
     fromDevice.disabled = download.disabled = busy || !session();
     pick.disabled = busy;
     wavs.disabled = !parsed || busy;
@@ -68,8 +109,10 @@ export function samplesFilePage(root, { device = null } = {}) {
     summary.textContent = (dirty() ? t("sampleset.summary.changed", { count: kept.length + added.length, size: size(plan.size), before: size(parsed.size) }) : t("sampleset.summary", { count: kept.length + added.length, size: size(plan.size) }));
     const rows = [
       ...parsed.samples.map(s => ({ ...s, state: removed.has(s.slot) ? "removed" : "kept" })),
-      ...added.map(a => ({ slot: a.slot, name: a.name, rate: a.rate, bits: a.bits, channels: a.channels, frames: a.frames, length: a.bytes.length, problem: null, state: "new" })),
+      ...added.map(a => ({ slot: a.slot, name: a.name, rate: a.rate, bits: a.bits, channels: a.channels, frames: a.frames, tagNo: a.tagNo, layout: a.layout, dataSize: a.dataSize, length: a.bytes.length, problem: null, state: "new" })),
     ].sort((a, b) => a.slot - b.slot);
+    const load = blue ? blueLoad(rows.filter(r => r.state !== "removed")) : null;
+    if (load) summary.textContent += ` ${t("sampleset.blue.summary", { loaded: load.loaded, max: BLUE_MAX, free: size(Math.max(0, load.room - load.used)), seconds: seconds48(Math.max(0, load.room - load.used)) })}`;
     for (const s of rows) {
       const button = el("button", { type: "button", className: "btn sm", textContent: s.state === "removed" ? t("sampleset.keep") : t("common.remove"), disabled: busy });
       button.dataset.slot = String(s.slot + 1);
@@ -85,7 +128,7 @@ export function samplesFilePage(root, { device = null } = {}) {
           s.problem ? null : el("span", { className: "ui-row-meta", textContent: `${format(s)}, ${seconds(s)}, ${size(s.length)}` }),
         ]),
         el("div", { className: "ui-row-actions" }, [
-          s.problem ? stateText("error", s.problem) : s.state === "new" ? stateText("ok", t("sampleset.new")) : s.state === "removed" ? stateText("warn", t("sampleset.removing")) : null,
+          s.problem ? stateText("error", s.problem) : s.state === "removed" ? stateText("warn", t("sampleset.removing")) : load?.skip.has(s.slot) ? stateText("warn", t(SKIP[load.skip.get(s.slot)], { max: BLUE_MAX })) : s.state === "new" ? stateText("ok", t("sampleset.new")) : null,
           button,
         ]),
       ]);
@@ -223,10 +266,13 @@ export function samplesFilePage(root, { device = null } = {}) {
       if (slot === null) { toast(t("sampleset.full", { first: FIRST_USER + 1, last: LAST_USER + 1 }), "error"); break; }
       try {
         const name = cleanSampleName(file.name.replace(/\.wav$/i, "")) || `Sample${slot + 1}`;
-        const bytes = entryFromWav(new Uint8Array(await file.arrayBuffer()), slot, name);
-        const probe = parseSampleFile(entryAsFile(bytes, slot)).samples[0];
-        added.push({ slot, name, bytes, rate: probe.rate, bits: probe.bits, channels: probe.channels, frames: probe.frames });
-        if (probe.bits === 24 || probe.channels === 2) toast(t("sampleset.unchecked", { name: file.name, bits: probe.bits }), "info");
+        const wav = new Uint8Array(await file.arrayBuffer());
+        const entry = addedEntry(wav, slot, name);
+        added.push(entry);
+        const fmt = wavChunks(wav).fmt.at;
+        const deep = wav[fmt + 14] !== 16 || wav[fmt + 2] !== 1;
+        if (blue && deep) toast(t("sampleset.blue.converted", { name: file.name }), "info");
+        else if (!blue && (entry.bits === 24 || entry.channels === 2)) toast(t("sampleset.unchecked", { name: file.name, bits: entry.bits }), "info");
       } catch (e) {
         toast(t("sampleset.rejected", { name: file.name, error: e instanceof SampleFileError ? e.message : e.message }), "error");
       }
@@ -242,8 +288,14 @@ export function samplesFilePage(root, { device = null } = {}) {
     load(out);
   });
   reset.addEventListener("click", () => { removed = new Set(); added = []; render(); });
-  render();
-  return { sessionChanged: render };
+  /** A connected Electribe says which one it is: the blue's search reply carries model 0x23. */
+  const sessionChanged = () => {
+    const model = session()?.device?.model;
+    if (model != null && (model === BLUE_MODEL) !== blue) setModel(model === BLUE_MODEL);
+    else render();
+  };
+  sessionChanged();
+  return { sessionChanged };
 }
 
 /** One entry as a file of its own, so the parser can read its facts. */

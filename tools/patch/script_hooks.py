@@ -8,6 +8,7 @@ import re
 from .arm import assemble
 from .ramdecl import area, share
 from .script_vm import build as build_vm
+from . import spectrum
 
 BLECHY_BLOCK = 0xC0184000
 BLECHY_BLOCK_END = 0xC0188000
@@ -20,6 +21,14 @@ CARD = 0xC01F7000
 CODE_END = 0xC01AE000
 MORE_START = 0xC018D000          # the second code area, now a reserve; free (FF) in all three images, behind the idle insert effect
 MORE_END = 0xC018FF00
+AUDIO_SERVICE = MORE_START       # korg.audio capture service (script_audio_service.s:AU_REQUEST): the heap context, the source asked for,
+AUDIO_SERVICE_END = AUDIO_SERVICE + 16   # the tick of the last call, the last status; FF at power-on is no context and off. MORE2 is full
+MENU_ITEMS = AUDIO_SERVICE_END     # the pages of korg.menu.add (script_menu.s:MENU_ITEMS_MAX entries of 40 bytes), FF at power-on
+MENU_ITEMS_END = MENU_ITEMS + 12 * 40
+TOUCH_LOCK_Y = MENU_ITEMS_END    # korg.touchLockY (script_hw.s:TL_RAW): the Y written into touch messages, the plugin that locks and its
+TOUCH_LOCK_Y_END = TOUCH_LOCK_Y + 12   # checksum; FF at power-on is no lock
+DATA_FILE = TOUCH_LOCK_Y_END      # korg.file.read and korg.file.write (script_data.s:DF_BLOCK): the heap block of the data file, its size,
+DATA_FILE_END = DATA_FILE + 16   # 1 while it waits for the card, the frame of the last write; FF at power-on is no block
 MORE2_START = 0xC0188A00         # the third code area, now a reserve; free (FF) in all three images, in the unused end of the page
 MORE2_END = 0xC0188F00           # of the tap motion patch (its code ends at 0xC018852C, its state sits at 0xC0188F00)
 SETTINGS_RAM = MORE2_START       # its start since 1.3.8: the two buffers of the settings file (SETTINGS_MAX each, 0x120) and the
@@ -32,12 +41,15 @@ KEY_PASS = KNOB_HOLD_END         # korg.passKeys (script_hw.s:KP_PASS): the keys
 KEY_PASS_END = KEY_PASS + 16     # the keys whose press did; FF at power-on is the defaults
 TOUCH_LOCK = KEY_PASS_END        # korg.touchLockX (script_hw.s:TL_RAW): the X written into touch messages, the plugin that locks and its
 TOUCH_LOCK_END = TOUCH_LOCK + 12 # checksum; FF at power-on is no lock
-KEY_HOLD = TOUCH_LOCK_END        # korg.keyHold (script_hw.s:KY_FREE): the free keys, the keys whose press was kept, two words unused since API 19;
+KEY_HOLD = TOUCH_LOCK_END        # korg.keyHold (script_hw.s:KY_FREE): the free keys, the keys whose press was kept, the free MIDI types, a word unused;
 KEY_HOLD_END = KEY_HOLD + 24     # FF at power-on is all keys free
 PRESS_KEY = KEY_HOLD_END         # korg.pressKey (script_hw.s:PK_UP): the keys whose release goes out in the next frame, inverted, so
 PRESS_KEY_END = PRESS_KEY + 8    # FF at power-on is none
 SIM_INPUT = PRESS_KEY_END        # korg.keyDown, korg.padDown, korg.touch (script_hw.s:SI_UP): what a plugin holds down on the panel, inverted,
-SIM_INPUT_END = SIM_INPUT + 20   # the plugin that holds it and its checksum; FF at power-on is nothing down. The rest a reserve
+SIM_INPUT_END = SIM_INPUT + 20   # the plugin that holds it and its checksum; FF at power-on is nothing down
+EGG_WORK = SIM_INPUT_END         # the egg on the page VERSION (script_egg.s:M_EGG), zeroed when the menu is armed (menu_arm); FF before,
+EGG_WORK_END = EGG_WORK + 20     # which the egg reads as off. MENU_STATE is full. Nothing left as a reserve
+assert EGG_WORK_END == MORE2_END
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 RUNTIME = 0xC01AE000
@@ -45,8 +57,7 @@ POOL = 0xC01D7000
 END = 0xC01FFFF0
 RAM_BASE = 0xC0000000
 LITERALS = ((0xC0083710,0xC031BB2C),)
-MENU_ITEMS = 0xC01D6C00
-MENU_ITEMS_END = MENU_ITEMS + 12 * 40
+MENU_MORE = 0xC01D6DE0           # more state of the BLECH menu, right before MENU_STATE
 MENU_STATE = 0xC01D6E00
 MENU_TABLE = 0xC01ADF00         # the copies sit at the end of the code area: the table (Sampler 180 + 4, synth 148 + 4 bytes), then
 MENU_VTABLE = 0xC01ADFB8        # the class table (72 bytes) up to RUNTIME; they were at 0xC01ADE00 and 0xC01ADF00, the code needed the room
@@ -56,6 +67,7 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC00836FC,0xE59F000C,'script_frame_hook'),
          (0xC0038D68,0xE28D0004,'script_card_hook'),
          (0xC004C1B4,0xE92D4070,'script_save_hook'),
+         (0xC004C28C,0xE92D40F8,'script_write_hook'),
          (0xC006E8D8,0xE351000A,'menu_toplevel'),
          (0xC006F094,0xE92D4038,'menu_write'),
          (0xC008A83C,0xE3A03000,'menu_counter_new'),
@@ -84,14 +96,21 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          # Hacktribe has its own handler (FILTER_TOGGLE_HACKTRIBE), Korg's stays unused there
          (0xC006FDEC,0xE3A00008,'ft_select'),
          # AUTO SAVE (script_menu.s): SWITCH_SCREEN's bl to the screen manager behind the check that the screen changes
-         (0xC0083D7C,0xEBFEA4B1,'autosave_switch_hook'))
+         (0xC0083D7C,0xEBFEA4B1,'autosave_switch_hook'),
+         # korg.midi (script_midi.s): the MIDI receive loop's call of the handler of a channel message
+         (0xC002B2D8,0xEB004208,'script_midi_in_hook'),
+         # korg.audio (script_audio_service.s): CommandTask's call of its command handler, bl 0xC002D844; the synth has no capture
+         (0xC002A628,0xEB000C85,'audio_command_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
+# KP_OCT_SET (object, octave) is the keyboard octave's setter that KEYBOARD mode's bar keys call, on the object in KP_OCT_OBJ.
 KEY_PADS_SAMPLER = dict(KP_TITLE_AT=0xC008A1C8, KP_TITLE_FN=0xC0078744, KP_VALUE_AT=0xC008A1F4, KP_VALUE_FN=0xC0078E2C,
-                        KP_CHECK_AT=0xC008A244, KP_CHECK_FN=0xC00783EC, KP_WINDOW=0xC03487EC)
+                        KP_CHECK_AT=0xC008A244, KP_CHECK_FN=0xC00783EC, KP_WINDOW=0xC03487EC,
+                        KP_OCT_SET=0xC00818E0, KP_OCT_OBJ=0xC06912E0)
 KEY_PADS_SYNTH = dict(KP_TITLE_AT=0xC0079AD8, KP_TITLE_FN=0xC006B404, KP_VALUE_AT=0xC0079B04, KP_VALUE_FN=0xC006B864,
-                      KP_CHECK_AT=0xC0079B5C, KP_CHECK_FN=0xC006B454, KP_WINDOW=0xC0348500)
+                      KP_CHECK_AT=0xC0079B5C, KP_CHECK_FN=0xC006B454, KP_WINDOW=0xC0348500,
+                      KP_OCT_SET=0xC00723EC, KP_OCT_OBJ=0xC056B58C)
 KEY_PADS_SYNTH_WORDS = {'kp_title_hook': 0xEBFFC649, 'kp_value_hook': 0xEBFFC756, 'kp_check_hook': 0xEBFFC63C}
 # Words that change to a plain value instead of a branch: the screen factory's bound and its table literal.
 WORDS = ((0xC006E664,0xE350002C,0xE350002D),
@@ -110,8 +129,10 @@ VTABLE_OVER = ((8,'menu_slot_exit'),(12,'menu_slot_keys'),(16,'menu_slot_prev'),
 # (the second number, as korg.pressKey) when the byte at the third number of the pattern in RAM differs from the value, so MFX HOLD
 # changes as its key changes it, with LED, effect and touchpad. CC(id) sends the byte after the setter as the touchpad sends it,
 # the MIDI CC sender's id on the global channel (docs/messungen/2026-11-08-plugin-api24-part-cc.md).
+# Function 3 (API 27) is MFX 2 of the current pattern through the patch mfx-switch (pattern_value_mfx2): the second number is the
+# MFX type setter, called while MFX 2 is active so the patch's own hook stores the type, the table entry is written otherwise.
 PATTERN_SETTER_FIELDS = ('tempo','swing','length','beat','key','scale','chordSet','level','mfxType','chainTo','chainRepeat','gateArp','syncGroup',
-                         'alternate1314','alternate1516','mfxHold','mfxPadX','mfxPadY')
+                         'alternate1314','alternate1516','mfxHold','mfxPadX','mfxPadY','mfx2Type')
 ALTERNATE = lambda i: (i + 1) << 16
 CC = lambda cc: cc << 24
 _MFX_HOLD_KEY = (2, 7, 65)
@@ -121,7 +142,8 @@ _SAMPLER_SETTERS = {'tempo': (0xC004A80C, 0), 'swing': (0xC004A594, 0), 'length'
                     'mfxType': (0xC0048A64, 0x4004), 'chainTo': (0xC004A5B0, 0), 'chainRepeat': (0xC004A5D4, 0),
                     'gateArp': (0xC004A5F8, 0), 'syncGroup': _SYNC_GROUP_STORE,
                     'alternate1314': (0xC004A614, 0, ALTERNATE(0)), 'alternate1516': (0xC004A614, 0, ALTERNATE(1)),
-                    'mfxHold': _MFX_HOLD_KEY, 'mfxPadX': (0xC0048924, 0x4004, CC(0xF)), 'mfxPadY': (0xC0048984, 0x4004, CC(0x10))}
+                    'mfxHold': _MFX_HOLD_KEY, 'mfxPadX': (0xC0048924, 0x4004, CC(0xF)), 'mfxPadY': (0xC0048984, 0x4004, CC(0x10)),
+                    'mfx2Type': (3, 0xC0048A64)}
 PATTERN_SETTERS = {
     'hacktribe': _SAMPLER_SETTERS,
     'stock': _SAMPLER_SETTERS,
@@ -130,7 +152,8 @@ PATTERN_SETTERS = {
               'mfxType': (0xC0042CBC, 0x4004, 31), 'chainTo': (0xC0044690, 0), 'chainRepeat': (0xC00446B4, 0),
               'gateArp': (0xC00446D8, 0), 'syncGroup': _SYNC_GROUP_STORE,
               'alternate1314': (0xC00446F4, 0, ALTERNATE(0)), 'alternate1516': (0xC00446F4, 0, ALTERNATE(1)),
-              'mfxHold': _MFX_HOLD_KEY, 'mfxPadX': (0xC0042B7C, 0x4004, CC(0xF)), 'mfxPadY': (0xC0042BDC, 0x4004, CC(0x10))},
+              'mfxHold': _MFX_HOLD_KEY, 'mfxPadX': (0xC0042B7C, 0x4004, CC(0xF)), 'mfxPadY': (0xC0042BDC, 0x4004, CC(0x10)),
+              'mfx2Type': (3, 0xC0042CBC, 31)},
 }
 
 # korg.seq.setPartValue (script_seq.s:part_setters): per build and PART_FIELDS name the firmware's direct setter of a part
@@ -256,18 +279,20 @@ def runtime_profile(build):
                                               HW_MUTE_OBJECT=0xC06CA798 if build == 'stock' else 0xC06CA760,
                                               POWER_HOLD_MASK=0x08000000, SHORTCUTS=1, REMOTE=1, HW_ENCODER=0xC00419B4,
                                               SC_LEDMGR=0xC0345A1C, SC_PLAYER=0xC002FAFC, SC_PATPTR=0xC033E6A4,
-                                              SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84, SC_LEDSEND=0xC00875F4,
+                                              SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84, SC_PART_OBJ=0xC009AF20, SC_PART_SOUND=0xC0099FFC, SC_LEDSEND=0xC00875F4,
                                               MG_WORK=0xC0190100, MG_MKDIR=0xC009EB00, FS_UNLINK=0xC009E9B8, MG_GETFREE=0xC009E85C, MG_ALLOC=0xC0028DCC, MG_FREE=0xC0028DD4,
-                                              MG_VRAM=0xC031B310, MG_MARK=0xC001531C, MG_BLUE=0, MG_LCD=0, MG_FLUSH=0, SYNC_GROUP_AT=0x3B80,
+                                              MG_VRAM=0xC031B310, MG_MARK=0xC001531C, MG_BLUE=0, MG_LCD=0, MG_FLUSH=0, LCD_FLUSH_ALL=0, SYNC_GROUP_AT=0x3B80,
                                               # the collection on the card (fx_card.s): which build it is for, and the modulation table this build reads
                                               FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC,
                                               BUILD_BASE=4 if build == 'stock' else 0,
                                               # DATA UTILITY's list: its functions (counter "n/14"), and the bits of our pages there the build has (script_menu.s, menu_du_mask)
-                                              DU_PAGES=14, DU_BUILT=7, FT_BACK=ft_at+4, **KEY_PADS_SAMPLER, **pattern_setter_actions(build), **part_setter_actions(build)))   # the value of BLECH > VERSION, an offset into base_names
+                                              DU_PAGES=14, DU_BUILT=7, US_STATE=0, FT_BACK=ft_at+4,
+                                              # DEV MODE: the word BLECH's SysEx code reads (tools/patch/blech_sysex.py DEV_FLAG); 0 where the build has no page
+                                              DEV_FLAG=0xC01910FC, **KEY_PADS_SAMPLER, **pattern_setter_actions(build), **part_setter_actions(build)))   # the value of BLECH > VERSION, an offset into base_names
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
-        if name == 'script_early_hook':
+        if name in ('script_early_hook', 'audio_command_hook'):
             continue
         if name == 'boot_light_hook':
             address, expected = 0xC0025E48, 0xE1500003
@@ -279,6 +304,8 @@ def runtime_profile(build):
             address = 0xC0062F14
         elif name == 'autosave_switch_hook':
             address, expected = synthaddr.tr(address), 0xEBFED795   # bl 0xC002A1AC, the synth's screen manager getter
+        elif name == 'script_midi_in_hook':
+            address, expected = synthaddr.tr(address), 0xEB00383F   # bl 0xC0036540, the synth's handler of a channel message
         elif name in KEY_PADS_SYNTH_WORDS:
             address, expected = KEY_PADS_SYNTH[name.replace('kp_', 'KP_').replace('_hook', '_AT').upper()], KEY_PADS_SYNTH_WORDS[name]
         else:
@@ -295,12 +322,15 @@ def runtime_profile(build):
         HW_PART_EDIT=0xC0042700, HW_PART_EDITOR=0xC0348570, HW_PARAM_WINDOW=0xC0348500,
         POWER_HOLD_MASK=0, SHORTCUTS=1, REMOTE=1, HW_ENCODER=0,
         SC_LEDMGR=synthaddr.tr(0xC0345A1C), SC_PLAYER=synthaddr.tr(0xC002FAFC), SC_PATPTR=synthaddr.tr(0xC033E6A4),
-        SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_LEDSEND=synthaddr.tr(0xC00875F4),
+        SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_PART_OBJ=synthaddr.tr(0xC009AF20), SC_PART_SOUND=synthaddr.tr(0xC0099FFC), SC_LEDSEND=synthaddr.tr(0xC00875F4),
         # the folder copy of the first start: f_mkdir, f_getfree, new, delete and the mark of a changed region are the Sampler's
         # functions, 16 masked words equal (fwmap); the frame buffer has the same address; MG_FLUSH (MG_LCD, 2 or 3, 0) sends the
         # frame buffer, as Korg's PCM loader does for its bar (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md)
+        # LCD_FLUSH_ALL (MG_LCD, 1): every page sent, also where it equals the copy last sent, as the display's start does (0xC00117F4)
         MG_WORK=0xC0190100, MG_MKDIR=0xC008B510, FS_UNLINK=0, MG_GETFREE=0xC008B3B4, MG_ALLOC=0xC0026240, MG_FREE=0xC0026248,
-        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=3, FT_BACK=0xC0062F18, **KEY_PADS_SYNTH, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
+        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, LCD_FLUSH_ALL=0xC001185C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=7, US_STATE=0xC0133000, FT_BACK=0xC0062F18, DEV_FLAG=0,
+        # the collection on the card (fx_card.s): Korg's red modulation table, at the synth's address (data/synth-map/preset-tables.json)
+        FX_BUILD=3, FX_MODS=synthaddr.tr(0xC00D81EC), **KEY_PADS_SYNTH, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
 
 def blechy_block():
@@ -351,6 +381,7 @@ class BuiltHooks:
             ('script_app_glue','script_display_take_glue','korg.app: Blechys Rumpf meldet sich an, der Eintrag steht schon da.'),
             ('frame_return','script_frame_return_end','Rahmenrückweg samt eigenen Literalen im beobachteten Startblock.'),
             ('script_save_hook','script_save_hook_end','Speicher-Haken erhält Register, meldet das Ereignis und führt den verdrängten Befehl aus.'),
+            ('script_write_hook','script_write_hook_end','Der Haken am Pattern-Schreiben erhält Register, meldet das Ereignis write mit dem Pattern und führt den verdrängten Befehl aus.'),
             ('script_early_hook','script_early_end','Der Haken vor dem Sample-Lader (erster Befehl des Ladebefehls) erhält Register und Flags, schaltet das Menü scharf und liest die Einstellungen, damit das Aussehen schon beim Laden gilt, und führt den verdrängten Befehl aus.'),
             ('boot_light_hook','boot_light_end','Die Farbe des Hintergrundlichts beim Einschalten: hinter dem ersten Lesen des Flash prüft der Haken Panel, EXIT und Panel-Update, liest 12 Byte der Globals im Flash (Marke GLED) und setzt nur die drei Pins des Lichts; die Haken der Lichtfunktionen lassen sie bis zum Scharfschalten so.'),
             ('script_card_hook','script_card_wrapper_end','Start-Wrapper erhält Register und Flags, prüft den Notschalter vor Menü und Plugins und führt den verdrängten nativen Befehl aus.'),
@@ -369,6 +400,7 @@ class BuiltHooks:
             ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts, von KEY PADS und FILTER TOGGLE.'),
             ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel und EXIT und die Ordner der Karte; nur wenn blechtribe keine e2sSample.all hat, aber ein hacktribe- oder electribe-sampler-Ordner, fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU; nach dem Lader fragt sie so nach der Pattern-Sicherung (auf der blauen: blechtribe keine .e2allpat, aber KORG/electribe). Fehlende Unterordner von KORG/blechtribe legt sie auf der blauen hier an, auf der roten im ersten Rahmen auf dem Hauptbildschirm.'),
             ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
+            ('audio_command_hook','audio_columns','Der Haken an CommandTask ruft erst den ursprünglichen Befehlshandler und dann den Dienst von korg.audio; ohne Anfrage eines Plugins kehrt der Dienst ohne Firmware-Aufruf zurück.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE, Seitenzähler und der Bildschirmwechsel (AUTO SAVE) laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
         ]:
             if start in self.symbols and end in self.symbols:
@@ -402,13 +434,15 @@ class BuiltHooks:
                 position='before',swallow=True),dict(site='0xC00836FC',kind='instruction',
                 chain='frame',position='after',swallow=False),dict(site='0xC0038D68',kind='instruction',
                 chain='start',position='before',swallow=False),dict(site='0xC004C1B4',kind='instruction',
-                chain='save',position='before',swallow=False)]+menu_hooks))
+                chain='save',position='before',swallow=False),dict(site='0xC004C28C',kind='instruction',
+                chain='pattern-write',position='before',swallow=False),dict(site='0xC002B2D8',kind='instruction',
+                chain='midi-in',position='before',swallow=True),dict(site='0xC002A628',kind='call',
+                chain='command-task',position='after',swallow=False)]+menu_hooks))
 
     def ram_areas(self):
         layout=self.layout
         return [area(layout['runtime'],layout['runtimeSize'],'runtime: control block, stacks, ring, LED, display buffer, knobs, app table (RT_* layout)','tools/patch/script_hooks.py:RUNTIME'),
-            area(MENU_ITEMS,MENU_ITEMS_END-MENU_ITEMS,'pages of the plugins in the BLECH menu, 12 entries of 40 bytes','tools/patch/script_hooks.py:MENU_ITEMS'),
-            area(MENU_ITEMS_END,MENU_STATE-MENU_ITEMS_END,'more state of the BLECH menu: intensity, save light, meter and overlap colours, the power save tables of the backlight; the last bytes are the EXIT shortcuts (EXIT held, save and reset asked for)','tools/patch/script_menu.s:MX_INTENS'),
+            area(MENU_MORE,MENU_STATE-MENU_MORE,'more state of the BLECH menu: intensity, save light, meter and overlap colours, the power save tables of the backlight; the last bytes are the EXIT shortcuts (EXIT held, save and reset asked for)','tools/patch/script_menu.s:MX_INTENS'),
             area(MENU_STATE,0x200,'state of the BLECH menu','tools/patch/script_hooks.py:MENU_STATE'),
             area(layout['pool'],layout['poolEnd']-layout['pool'],'plugin pool, SCRIPT_POOL_BYTES','tools/patch/script_hooks.py:POOL'),
             area(layout['card'],layout['input']-layout['card'],'work area of the card loader: file object, state, plugin list of the import page, the key commands of KORG.press, the record of korg.remapKey and the word korg.seq marks a written frame with','tools/patch/script_hooks.py:CARD'),
@@ -416,16 +450,20 @@ class BuiltHooks:
             area(layout['codeEnd'],MORE3_END-layout['codeEnd'],'the rest of the code area, kept free for the code of the plugin API to grow into','tools/patch/script_hooks.py:MORE3_END'),
             *([area(CODE_START,MENU_TABLE-CODE_START,'the first code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:CODE_START')]
               if self.profile.build == 'synth' else []),
-            area(MORE_START,MORE_END-MORE_START,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:MORE_START'),
+            area(AUDIO_SERVICE,AUDIO_SERVICE_END-AUDIO_SERVICE,'korg.audio.capture, spectrum and wave: the heap context of the capture service (103424 bytes, taken on the first request and kept until power-off), the source asked for, the tick of the last call and the last status','tools/patch/script_audio_service.s:AU_REQUEST'),
+            area(MENU_ITEMS,MENU_ITEMS_END-MENU_ITEMS,'pages of the plugins in the BLECH menu, 12 entries of 40 bytes','tools/patch/script_hooks.py:MENU_ITEMS'),
+            area(TOUCH_LOCK_Y,TOUCH_LOCK_Y_END-TOUCH_LOCK_Y,'korg.touchLockY: the Y the input filter writes into touch messages, the plugin that locks it and the checksum of its block','tools/patch/script_hw.s:TL_RAW'),
+            area(DATA_FILE,DATA_FILE_END-DATA_FILE,'korg.file.read and korg.file.write: the heap block that holds one plugin\'s data file, its size, the flag of a write that waits for the card and the frame of the last write','tools/patch/script_data.s:DF_BLOCK'),
+            area(DATA_FILE_END,MORE_END-DATA_FILE_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:DATA_FILE_END'),
             area(SETTINGS_RAM,SETTINGS_RAM_END-SETTINGS_RAM,'the two buffers of the settings file of the BLECH menu and its checksum list (allowed plugins, plugins switched off)','tools/patch/script_hooks.py:SETTINGS_RAM'),
             area(LIST_WORK,LIST_WORK_END-LIST_WORK,'work area of the list of MANAGE PLUGINS: folder object, file info, long name, path, the place of each listed file in the folder, the flag of more files than the list holds','tools/patch/script_menu.s:LIST_WORK'),
             area(KNOB_HOLD,KNOB_HOLD_END-KNOB_HOLD,'korg.knobHold: a bit per knob that reaches the firmware, folded from the plugins\' holds; the other two words are unused since API 19','tools/patch/script_hw.s:KH_FREE'),
             area(KEY_PASS,KEY_PASS_END-KEY_PASS,'korg.passKeys: a bit per key that reaches the firmware while an app is open, and a bit per key whose press did','tools/patch/script_hw.s:KP_PASS'),
             area(TOUCH_LOCK,TOUCH_LOCK_END-TOUCH_LOCK,'korg.touchLockX: the X the input filter writes into touch messages, the plugin that locks it and the checksum of its block','tools/patch/script_hw.s:TL_RAW'),
-            area(KEY_HOLD,KEY_HOLD_END-KEY_HOLD,'korg.keyHold and korg.keyMask: a bit per key that reaches the firmware, folded from the plugins\' holds, a bit per key whose press was kept; the last two words are unused since API 19','tools/patch/script_hw.s:KY_FREE'),
+            area(KEY_HOLD,KEY_HOLD_END-KEY_HOLD,'korg.keyHold and korg.keyMask: a bit per key that reaches the firmware, folded from the plugins\' holds, a bit per key whose press was kept, a bit per MIDI message type that reaches the firmware (korg.midi.hold, script_midi.s:MIDI_FREE); the last word is unused since API 19','tools/patch/script_hw.s:KY_FREE'),
             area(PRESS_KEY,PRESS_KEY_END-PRESS_KEY,'korg.pressKey: a bit per key whose release goes to the firmware in the next frame','tools/patch/script_hw.s:PK_UP'),
             area(SIM_INPUT,SIM_INPUT_END-SIM_INPUT,'korg.keyDown, korg.padDown and korg.touch: a bit per key, the touchpad and a bit per pad a plugin holds down, the plugin that holds them and the checksum of its block','tools/patch/script_hw.s:SI_UP'),
-            area(SIM_INPUT_END,MORE2_END-SIM_INPUT_END,'the rest of the third code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:SIM_INPUT_END')]+(
+            area(EGG_WORK,EGG_WORK_END-EGG_WORK,'the egg on the page VERSION: its state bytes, the milliseconds it started at, the blink step last sent, the menu screen object','tools/patch/script_egg.s:M_EGG')]+(
             [area(self.profile.actions['MG_WORK'],0xF00,'work area of the folder copy at the first start: state, file and folder objects, paths','tools/patch/script_migrate.s:MG_ACTIVE')]
             if self.profile.actions.get('MG_WORK') else [])
 
@@ -481,6 +519,11 @@ GLOBAL_SETTERS = {
     41: (0xC0047454, 0xC0041720), 42: (0xC004748C, 0xC0041758), 43: (0xC00474E0, 0xC00417AC),
 }
 OBJECT_BASE_GLOBAL = 3
+# korg.system.device: 0 Hacktribe, 1 Korg's red Sampler, 2 Korg's blue Synth
+BUILD_DEVICES = {'hacktribe': 0, 'stock': 1, 'synth': 2}
+# The patch mfx-switch (tools/patch/mfx_switch.py, same addresses on every build): its entry block at CODE_AT (RECORD_ID, then a
+# branch to its table load, then the default type), the table at RECBUF + 8 and its state words. test_script_hooks.py checks them.
+MFX2_ENTRY, MFX2_RECORD_ID, MFX2_TABLE, MFX2_STATE = 0xC01A5000, int.from_bytes(b'MFX2', 'little'), 0xC01A5D08, 0xC01A5C00
 OBJECT_APPLY_SETTER = 3
 
 def object_rows(constants, build='hacktribe'):
@@ -508,18 +551,24 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += '\n'+ '\n'.join(f'.equ VM_{name.upper()}, {vm.symbols[name]}' for name in ['script_run_event','script_runtime_init','script_load_block','script_load_block_ex'])
     constants += f'\n.equ VM_CRC_UPDATE, {vm.symbols["crc_update"]}'
     constants += ''.join(f'\n.equ {name.upper()}, {vm.symbols[name]}' for name in ['script_font','script_error_names'])
-    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
+    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
     constants += f'\n.equ MENU_SCREEN, {profile.screen}\n'
+    # korg.system.device and korg.system.limits.samples (data/script/objects.mjs, INFO): the build this runtime is made for
+    constants += f'.equ MFX2_ENTRY, {MFX2_ENTRY:#x}\n.equ MFX2_RECORD_ID, {MFX2_RECORD_ID:#x}\n.equ MFX2_TABLE, {MFX2_TABLE:#x}\n.equ MFX2_STATE, {MFX2_STATE:#x}\n'
+    constants += f'.equ BUILD_DEVICE, {BUILD_DEVICES[build]}\n.equ BUILD_SAMPLES, {0 if build == "synth" else 1000}\n'
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
     files = ['script_hooks.s','script_card.s','script_builtin.s','script_menu.s',
-             'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s']
+             'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s','script_egg.s']
+    files.append('fx_card.s')
     if build != 'synth':
-        files.append('fx_card.s')
+        files += ['script_sample.s','script_audio_service.s']
     else:
-        files.append('script_fx_none.s')
-    files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_timer.s','script_led.s']
+        files += ['script_sample_none.s','script_audio_service_none.s']
+    files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_timer.s','script_led.s','script_motion.s','script_midi.s','script_audio.s','script_data.s']
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
     source = constants+'\n'+read(files)
+    if build != 'synth':
+        source += '\n'+spectrum.source()
     if build == 'synth':
         from . import synthaddr
         source = '\n'.join(line for line in source.splitlines() if not line.lstrip().startswith(';'))
@@ -530,16 +579,16 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     source = source.replace('@MENU_TOPLEVEL@', Path(__file__).with_name(f'script_toplevel_{variant}.s').read_text())
     actions = '\n'.join(f'.equ {name}, {value}' for name, value in profile.actions.items())
     hooks=assemble(actions+'\n'+source,origin=origin)
-    linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_PAD_HOLD':hooks.symbols['script_pad_hold_glue'],'API_KORG_KNOB_HOLD':hooks.symbols['script_knob_hold_glue'],'API_KORG_KNOB':hooks.symbols['script_knob_glue'],'API_KORG_PASS_KEYS':hooks.symbols['script_pass_keys_glue'],'API_KORG_TOUCH_LOCK_X':hooks.symbols['script_touch_lock_x_glue'],'API_KORG_KEY_HOLD':hooks.symbols['script_key_hold_glue'],'API_KORG_KEY_MASK':hooks.symbols['script_key_mask_glue'],'API_KORG_PRESS_KEY':hooks.symbols['script_press_key_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['KEY_DOWN','KEY_UP','PAD_DOWN','PAD_UP','ENCODER','TOUCH']},'API_KORG_READ_PATTERN_BYTES':hooks.symbols['script_read_pattern_bytes_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],'API_KORG_FILE_FRAME':hooks.symbols['script_file_frame_glue'],'API_KORG_GET':hooks.symbols['script_object_get_glue'],'API_KORG_SET':hooks.symbols['script_object_set_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_timer_{name.lower()}_glue'] for name in ['AFTER','EVERY','AFTER_STEPS','CANCEL']},**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},'API_KORG_READ_CHAIN_MODE':hooks.symbols['script_read_chain_mode_glue'],'API_KORG_READ_VIEWED_PATTERN':hooks.symbols['script_read_viewed_pattern_glue'],'API_KORG_READ_NEXT_PATTERN':hooks.symbols['script_read_next_pattern_glue'],'API_KORG_READ_PATTERN_VALUE':hooks.symbols['script_read_pattern_value_glue'],'API_KORG_REMAP_KEY':hooks.symbols['script_remap_key_glue'],**{f'API_KORG_SEQ_{name}':hooks.symbols[f'script_seq_{name.lower()}_glue'] for name in ['SET_STEP','SET_GATE','CLEAR_PART','SET_PART_VALUE','WRITE_STEPS','SET_PATTERN_VALUE','GET_ON','GET_GATE','GET_NOTE','GET_VELOCITY']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
-        for name,label in [('CLEAR','clear'),('TEXT','text'),('NUMBER','number'),('PIXEL','pixel'),('RECT','rect'),('CLEAR_RECT','clear_rect'),('TAKE','take'),('RELEASE','release'),('BITMAP','bitmap'),('TEXT_NUMBER','text_number'),('POPUPS','popups')]},'API_KORG_READ_POPUPS':hooks.symbols['script_read_popups_glue']}
+    linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_PAD_HOLD':hooks.symbols['script_pad_hold_glue'],'API_KORG_KNOB_HOLD':hooks.symbols['script_knob_hold_glue'],'API_KORG_KNOB':hooks.symbols['script_knob_glue'],'API_KORG_PASS_KEYS':hooks.symbols['script_pass_keys_glue'],'API_KORG_TOUCH_LOCK_X':hooks.symbols['script_touch_lock_x_glue'],'API_KORG_TOUCH_LOCK_Y':hooks.symbols['script_touch_lock_y_glue'],'API_KORG_KEY_HOLD':hooks.symbols['script_key_hold_glue'],'API_KORG_KEY_MASK':hooks.symbols['script_key_mask_glue'],'API_KORG_PRESS_KEY':hooks.symbols['script_press_key_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['KEY_DOWN','KEY_UP','PAD_DOWN','PAD_UP','ENCODER','TOUCH']},'API_KORG_READ_PATTERN_BYTES':hooks.symbols['script_read_pattern_bytes_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],'API_KORG_FILE_FRAME':hooks.symbols['script_file_frame_glue'],'API_KORG_GET':hooks.symbols['script_object_get_glue'],'API_KORG_SET':hooks.symbols['script_object_set_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_timer_{name.lower()}_glue'] for name in ['AFTER','EVERY','AFTER_STEPS','CANCEL']},**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},'API_KORG_READ_CHAIN_MODE':hooks.symbols['script_read_chain_mode_glue'],'API_KORG_READ_VIEWED_PATTERN':hooks.symbols['script_read_viewed_pattern_glue'],'API_KORG_READ_NEXT_PATTERN':hooks.symbols['script_read_next_pattern_glue'],'API_KORG_READ_PATTERN_VALUE':hooks.symbols['script_read_pattern_value_glue'],'API_KORG_REMAP_KEY':hooks.symbols['script_remap_key_glue'],**{f'API_KORG_SEQ_{name}':hooks.symbols[f'script_seq_{name.lower()}_glue'] for name in ['SET_STEP','SET_GATE','CLEAR_PART','SET_PART_VALUE','WRITE_STEPS','SET_PATTERN_VALUE','GET_ON','GET_GATE','GET_NOTE','GET_VELOCITY']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
+        for name,label in [('CLEAR','clear'),('TEXT','text'),('NUMBER','number'),('PIXEL','pixel'),('RECT','rect'),('CLEAR_RECT','clear_rect'),('TAKE','take'),('RELEASE','release'),('BITMAP','bitmap'),('TEXT_NUMBER','text_number'),('POPUPS','popups'),('CHARS','chars')]},'API_KORG_READ_POPUPS':hooks.symbols['script_read_popups_glue'],'API_KORG_READ_PATTERN_NAME':hooks.symbols['script_read_pattern_name_glue'],**{f'API_KORG_MOTION_{name}':hooks.symbols[f'script_motion_{name.lower()}_glue'] for name in ['LANE','DESTINATION','VALUE','SET_VALUE','CLEAR_LANE','CLEAR_PART','CLEAR_MFX','OUTPUT']},**{f'API_KORG_MIDI_{name}':hooks.symbols[f'script_midi_{name.lower()}_glue'] for name in ['CC','NOTE_ON','NOTE_OFF','PROGRAM','HOLD']},'API_KORG_AUDIO_LEVEL':hooks.symbols['script_audio_level_glue'],**{f'API_KORG_AUDIO_{name}':hooks.symbols[f'script_audio_{name.lower()}_glue'] for name in ['CAPTURE','SPECTRUM','WAVE']},'API_KORG_FILE_READ':hooks.symbols['script_file_read_glue'],'API_KORG_FILE_WRITE':hooks.symbols['script_file_write_glue'],'API_KORG_READ_SAMPLE_NAME':hooks.symbols['script_read_sample_name_glue'],'API_KORG_READ_SAMPLE_INFO':hooks.symbols['script_read_sample_info_glue'],'API_KORG_PATTERN_WRITE':hooks.symbols['script_pattern_write_glue'],'API_KORG_PART_COPY':hooks.symbols['script_part_copy_glue'],'API_KORG_READ_LED':hooks.symbols['script_read_led_glue']}
     vm=build_vm(include,origin=MORE3_START,glue=linked_glue)
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
     pool_end=POOL+vm.symbols['SCRIPT_POOL_BYTES']
     (first_at,first),=hooks.sections
     if first_at!=origin or origin+len(first)>MORE3_END:
         raise ValueError(f'the code area runs over: {first_at:#x} + {len(first):#x} (limit {MORE3_END:#x})')
-    if runtime_end>MENU_ITEMS or MENU_ITEMS_END>MENU_STATE or MENU_STATE+0x200>POOL or pool_end>CARD:
-        raise ValueError(f'script code, runtime or pool exceeds its reserved area: runtime end {runtime_end:#x} (limit {MENU_ITEMS:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
+    if runtime_end>MENU_MORE or DATA_FILE_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
+        raise ValueError(f'script code, runtime or pool exceeds its reserved area: runtime end {runtime_end:#x} (limit {MENU_MORE:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
     if s['SETTINGS_MAX']>0x120 or SETTINGS_RAM+0x240+4*s['MENU_MAX_TRUST']>SETTINGS_RAM_END:
         raise ValueError('the settings buffers or the checksum list run over their area')

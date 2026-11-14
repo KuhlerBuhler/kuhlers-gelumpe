@@ -14,6 +14,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync
 import { fileURLToPath } from "node:url";
 import { pythonEnv, targetTriple } from "./python-env.mjs";
 import { clearCfgInFile } from "./pe-flags.mjs";
+import { ensureRuntimePatches } from "../patch/ensure-runtime.mjs";
 
 const path = rel => fileURLToPath(new URL(rel, import.meta.url));
 const win = process.platform === "win32";
@@ -37,6 +38,9 @@ if (!triple) {
   process.exit(1);
 }
 
+// data/patches is added to the bundle below, and the set lists the runtime patches: they are built, not committed.
+ensureRuntimePatches({ log: message => console.log(message) });
+
 const work = path("../../build/sidecar");
 rmSync(work, { recursive: true, force: true });
 mkdirSync(work, { recursive: true });
@@ -52,8 +56,9 @@ run(...command(python, [
   "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile",
   "--name", "gelumpe-emu",
   "--distpath", `${work}/dist`, "--workpath", `${work}/work`, "--specpath", work,
-  // Every folder a case module puts on sys.path (test/sidecar-build.test.mjs holds that): doom_loader_cases imports tools/doom.
-  "--paths", path("."), "--paths", path("../patch"), "--paths", path("../doom"),
+  // Every folder a case module puts on sys.path (test/sidecar-build.test.mjs holds that): doom_loader_cases imports tools/doom,
+  // sysex_cases tools/device (hot_patch.py).
+  "--paths", path("."), "--paths", path("../patch"), "--paths", path("../doom"), "--paths", path("../dsp"), "--paths", path("../device"),
   "--hidden-import", "machine", "--hidden-import", "check",
   // The check workers import their case modules by name at run time (parallel.py), where PyInstaller sees no import.
   ...readdirSync(path(".")).filter(f => /_cases\.py$/.test(f)).flatMap(f => ["--hidden-import", f.slice(0, -3)]),

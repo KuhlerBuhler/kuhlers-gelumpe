@@ -17,6 +17,11 @@ export const LINKS = {
   settings: "#settings",
   patcher: "#patcher",
   discord: "#discord",
+  plugins: "#scripts",
+  baukasten: "#baukasten",
+  emulator: "#emu",
+  samples: "#sampleset",
+  splash: "#splash",
 };
 
 /**
@@ -113,13 +118,14 @@ const BOOT_CHECKS = ["boot:normal", "boot:normal_blank", "update_offer", "panel_
 export const TEST_AREAS = {
   menu: "rescue.area.menu", shortcut: "rescue.area.menu",
   pswitch: "rescue.area.pattern", lastpattern: "rescue.area.pattern", initpattern: "rescue.area.pattern",
-  "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples", "ht-osc": "rescue.area.samples",
+  "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples", "ht-osc": "rescue.area.samples", usersamples: "rescue.area.samples",
   splash: "rescue.area.start", loadbar: "rescue.area.start", migrate: "rescue.area.start",
-  fxcard: "rescue.area.card", presets: "rescue.area.card", power_off: "rescue.area.card",
+  fxcard: "rescue.area.card", cardfault: "rescue.area.card", presets: "rescue.area.card", power_off: "rescue.area.card",
   mfx: "rescue.area.sound", ifxidle: "rescue.area.sound", synthfilter: "rescue.area.sound",
   tapmotion: "rescue.area.play", noteassist: "rescue.area.play", dice: "rescue.area.play", beateighth: "rescue.area.play", touchscalezero: "rescue.area.play",
-  remote: "rescue.area.midi", sysex: "rescue.area.midi",
-  plugin_edit: "rescue.area.plugin", plugin_api15: "rescue.area.plugin", plugin_api18: "rescue.area.plugin", plugin_api19: "rescue.area.plugin", plugin_api22: "rescue.area.plugin", plugin_api23: "rescue.area.plugin", plugin_api24: "rescue.area.plugin", plugin_api25: "rescue.area.plugin", plugin_catalog15: "rescue.area.plugin", timers: "rescue.area.plugin", objects: "rescue.area.plugin", live_write: "rescue.area.plugin", global: "rescue.area.plugin", pattern_parts: "rescue.area.plugin", testmode: "rescue.area.plugin",
+  remote: "rescue.area.midi", sysex: "rescue.area.midi", devmode: "rescue.area.midi", hotpatch: "rescue.area.midi",
+  plugin_edit: "rescue.area.plugin", plugin_api15: "rescue.area.plugin", plugin_api18: "rescue.area.plugin", plugin_api19: "rescue.area.plugin", plugin_api22: "rescue.area.plugin", plugin_api23: "rescue.area.plugin", plugin_api24: "rescue.area.plugin", plugin_api25: "rescue.area.plugin", plugin_api35: "rescue.area.plugin", plugin_api36: "rescue.area.plugin", plugin_api26: "rescue.area.plugin", plugin_api27: "rescue.area.plugin", plugin_api28: "rescue.area.plugin", plugin_api29: "rescue.area.plugin", plugin_api30: "rescue.area.plugin", plugin_api31: "rescue.area.plugin", plugin_api31_spectrum: "rescue.area.plugin", plugin_api32: "rescue.area.plugin", plugin_api33: "rescue.area.plugin", plugin_api34: "rescue.area.plugin", plugin_catalog_api: "rescue.area.plugin", plugin_catalog15: "rescue.area.plugin", timers: "rescue.area.plugin", objects: "rescue.area.plugin", live_write: "rescue.area.plugin", global: "rescue.area.plugin", pattern_parts: "rescue.area.plugin", testmode: "rescue.area.plugin",
+  dsp: "rescue.area.play",
   doom: "rescue.area.doom",
 };
 
@@ -147,24 +153,47 @@ export function testFailure(report) {
 /** Nodes the conversation can start at besides `start`: an app error opens `error`. */
 export const ENTRIES = ["error"];
 
-/** The answers to the first question: what the device shows, or that the app is where it sticks. */
+/**
+ * The answers to the first question: what the device shows, a problem in the app, or a question about using the app.
+ * Ordered by what people ask most on the Discord server (the first ones are FIRST_CASES). A case with `to` goes straight
+ * to that node; the others ask the colour first. Every id needs its texts in all languages (`rescue.case.<id>`), its
+ * words (data/blechy-words.mjs) and test queries (test/fixtures/blechy-queries.mjs).
+ */
 export const CASES = [
+  { id: "hacktribe", label: "rescue.case.hacktribe", hint: "rescue.case.hacktribe.hint", to: "h:hacktribe" },
+  { id: "nofile", label: "rescue.case.nofile", hint: "rescue.case.nofile.hint" },
+  { id: "invalid", label: "rescue.case.invalid", hint: "rescue.case.invalid.hint" },
+  { id: "install", label: "rescue.case.install", hint: "rescue.case.install.hint", to: "h:install" },
+  { id: "check", label: "rescue.case.check", hint: "rescue.case.check.hint", to: "test" },
+  { id: "plugins", label: "rescue.case.plugins", hint: "rescue.case.plugins.hint", to: "h:plugins" },
+  { id: "notfound", label: "rescue.case.notfound", hint: "rescue.case.notfound.hint", to: "notfound" },
   { id: "silent", label: "rescue.case.silent", hint: "rescue.case.silent.hint" },
+  { id: "samples", label: "rescue.case.samples", hint: "rescue.case.samples.hint" },
   { id: "zero", label: "rescue.case.zero", hint: "rescue.case.zero.hint" },
   { id: "prompt", label: "rescue.case.prompt", hint: "rescue.case.prompt.hint" },
-  { id: "invalid", label: "rescue.case.invalid", hint: "rescue.case.invalid.hint" },
-  { id: "nofile", label: "rescue.case.nofile", hint: "rescue.case.nofile.hint" },
   { id: "starts", label: "rescue.case.starts", hint: "rescue.case.starts.hint" },
-  { id: "samples", label: "rescue.case.samples", hint: "rescue.case.samples.hint" },
   { id: "back", label: "rescue.case.back", hint: "rescue.case.back.hint" },
-  { id: "app", label: "rescue.case.app", hint: "rescue.case.app.hint" },
+  { id: "app", label: "rescue.case.app", hint: "rescue.case.app.hint", to: "app" },
+  { id: "games", label: "rescue.case.games", hint: "rescue.case.games.hint", to: "h:games" },
+  { id: "effects", label: "rescue.case.effects", hint: "rescue.case.effects.hint", to: "h:effects" },
+  { id: "emulator", label: "rescue.case.emulator", hint: "rescue.case.emulator.hint", to: "h:emulator" },
+  { id: "wavs", label: "rescue.case.wavs", hint: "rescue.case.wavs.hint", to: "h:wavs" },
+  { id: "updates", label: "rescue.case.updates", hint: "rescue.case.updates.hint", to: "h:updates" },
+  { id: "write", label: "rescue.case.write", hint: "rescue.case.write.hint", to: "h:write" },
+  { id: "splash", label: "rescue.case.splash", hint: "rescue.case.splash.hint", to: "h:splash" },
 ];
 
-/** The cases Blechy's field offers before anything is typed; the others come up while typing or under "show all". */
-export const FIRST_CASES = ["silent", "zero", "starts", "back"];
+/**
+ * The cases Blechy's field offers before anything is typed; the others come up while typing or under "show all". The
+ * order follows what people asked for on the Discord server (docs/rettung.md).
+ */
+export const FIRST_CASES = ["hacktribe", "nofile", "invalid", "install", "check"];
+
+/** At most this many cases stand in the list at once, typed or not; "show all" lists every one. */
+export const MAX_SHOWN = 5;
 
 /** Where the colour question leads, by the case that was picked: every case about the device asks the colour first, once. */
-const AFTER_COLOR = { silent: "silent", zero: "zero", prompt: "prompt", invalid: "invalid", nofile: "nofile", starts: "starts", samples: "samples", back: "back" };
+const AFTER_COLOR = { silent: "silent", zero: "zero", prompt: "prompt", invalid: "invalid", nofile: "nofile", starts: "starts", samples: "samples", back: "back", install: "firmware:last" };
 
 /**
  * The conversation. Each node: Blechy's mood, what he says (`say`, lines; `path` a file path on the card, `tree` the same as
@@ -179,7 +208,7 @@ export const FLOW = {
     say: ["rescue.say.start.1", "rescue.say.start.2", "rescue.say.start.3"],
     // the answers come up under a text field as the person types (site/app/rescue.mjs), not as a wall of buttons
     search: true,
-    choices: CASES.map(c => ({ label: c.label, hint: c.hint, to: c.id === "app" ? "app" : "color", id: c.id, ...(c.id === "app" ? {} : { set: { case: c.id } }) })),
+    choices: CASES.map(c => ({ label: c.label, hint: c.hint, to: c.to ?? "color", id: c.id, ...(c.to ? {} : { set: { case: c.id } }) })),
   },
   color: {
     mood: "idle",
@@ -555,6 +584,7 @@ export const FLOW = {
     say: ["rescue.say.app.1"],
     choices: [
       { label: "rescue.answer.notFound", to: "notfound" },
+      { label: "rescue.answer.emuNotRunning", to: "h:emulator:fix" },
       { label: "rescue.answer.oldPatterns", to: "export" },
       { label: "rescue.answer.checkFails", to: "test" },
       { label: "rescue.answer.somethingElse", to: "ask" },
@@ -771,6 +801,56 @@ for (const [group, then] of Object.entries(NORMAL_THEN)) {
     choices: [{ label: "rescue.answer.checkGreen", to: "app:fixed" }, { label: "rescue.answer.normalStillRed", to: then }],
   };
 }
+
+/**
+ * Questions about using the app, not about a device that went wrong (the cases with a `to` that starts with "h:"). Each
+ * node says what to do in a few lines and ends with "helped" or the way to the contact. An error of a page of the app
+ * opens the node of that page (`help` of the toast, site/app/toast.mjs).
+ */
+const HELP_END = [{ label: "rescue.answer.helped", to: "helpdone" }, { label: "rescue.answer.somethingElse", to: "ask" }];
+/** An answer that goes on with a device case: the colour first, then that case's way. */
+const viaColor = (label, id) => ({ label, to: "color", set: { case: id } });
+const pageLink = (name, text) => ({ [name]: { link: name, text } });
+const help = (id, mood, say, choices = []) => { FLOW[`h:${id}`] = { mood, say, choices: [...choices, ...HELP_END] }; };
+help("install", "happy", [
+  { key: "rescue.help.install.1", links: pageLink("patcher", "nav.patcher") },
+  "rescue.help.install.2",
+  "rescue.help.install.3",
+], [viaColor("rescue.answer.whichFolder", "install"), viaColor("rescue.answer.noFile", "nofile"), viaColor("rescue.answer.invalidFile", "invalid")]);
+help("hacktribe", "idle", ["rescue.help.hacktribe.1", "rescue.help.hacktribe.2", "rescue.help.hacktribe.3"], [viaColor("rescue.case.samples", "samples"), viaColor("rescue.case.back", "back")]);
+help("plugins", "happy", [
+  { key: "rescue.help.plugins.1", links: pageLink("plugins", "nav.scripts") },
+  "rescue.help.plugins.2",
+  { path: "KORG/blechtribe/Plugin/" },
+  "rescue.help.plugins.3",
+], [{ label: "rescue.answer.howGames", to: "h:games" }, { label: "rescue.case.effects", to: "h:effects" }]);
+help("games", "happy", [{ key: "rescue.help.games.1", links: pageLink("plugins", "nav.scripts") }, "rescue.help.games.2"], [{ label: "rescue.answer.gameMissing", to: "h:plugins" }]);
+help("effects", "idle", [
+  { key: "rescue.help.effects.1", links: pageLink("baukasten", "nav.baukasten") },
+  "rescue.help.effects.2",
+  { path: "KORG/blechtribe/Presets/" },
+  "rescue.help.effects.3",
+]);
+help("emulator", "idle", [{ key: "rescue.help.emulator.1", links: pageLink("emulator", "nav.emu") }, "rescue.help.emulator.2"], [{ label: "rescue.answer.emuNotRunning", to: "h:emulator:fix" }]);
+// The emulator of the app does not run: where an error of the Emulator page leads.
+FLOW["h:emulator:fix"] = {
+  mood: "idle",
+  say: ["rescue.help.emulatorFix.1", "rescue.help.emulatorFix.2", { path: "~/.gelumpe/emu.log" }, "rescue.help.emulatorFix.3"],
+  choices: [{ label: "rescue.answer.emuRuns", to: "app:fixed" }, { label: "rescue.answer.stillNotFound", to: "check:report" }],
+};
+help("wavs", "idle", [{ key: "rescue.help.wavs.1", links: pageLink("samples", "nav.sampleset") }, "rescue.help.wavs.2", "rescue.help.wavs.3"], [viaColor("rescue.case.samples", "samples")]);
+help("updates", "idle", [
+  { key: "rescue.help.updates.1", links: pageLink("patcher", "nav.patcher") },
+  "rescue.help.updates.2",
+  "rescue.help.updates.3",
+], [viaColor("rescue.answer.noFile", "nofile"), viaColor("rescue.answer.invalidFile", "invalid")]);
+help("write", "idle", ["rescue.help.write.1", "rescue.help.write.2"]);
+help("splash", "idle", [
+  { key: "rescue.help.splash.1", links: pageLink("splash", "nav.splash") },
+  { path: "KORG/blechtribe/" },
+  "rescue.help.splash.2",
+]);
+FLOW.helpdone = { mood: "happy", say: ["rescue.help.done.1"] };
 
 /** Korg's file: the exact page of the 2.02 update and the version, only said once it is clear which one is needed. */
 const download = (d, to) => ({

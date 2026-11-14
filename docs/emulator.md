@@ -35,9 +35,11 @@ Was er nicht ist:
   Firmwareversion; abweichende Funktionsergebnisse, Speicherfehler und
   ausbleibende Rückkehr führen zum Fehler. Das ist keine Freigabe für
   Gerätezugriffe.
-- **Nicht nachgebildet:** an der SD-Karte CRC, Schreibschutz, Fehlerfälle und
-  SDSC; bei USB ein Kabel; bei der Stromversorgung Batteriestand und Netzteil
-  (das Batteriesymbol bleibt gleich).
+- **Nicht nachgebildet:** an der SD-Karte Karten über 1 GiB und exFAT (CRC,
+  Schreibschutz, Fehlerfälle und SDSC siehe Virtuelle SD-Karte); bei USB ein Kabel;
+  der Batteriestand (das Symbol zeigt immer das Netzteil). Der Emulator steckt immer
+  am Netzteil (Panel-Nachricht 7); nur beim Ausschalten meldet er Batterie, weil die
+  Firmware am Netzteil nicht ausgeht.
 - Keine eingebauten Firmwaredaten und keine Hardwareverbindung. Der Emulator
   braucht keine Node-Laufzeit, nur Python. Was einige Fälle aus dem
   JavaScript des Repositorys brauchen (übersetzte Plugins, Feldlisten,
@@ -252,12 +254,76 @@ Firmware gerade) und in `status` die eingelegte Karte. Die Seite dazu ist
 `site/app/sdcard.mjs`: `sdcardPanel(root, emulator)`, ein Schalter "Karte
 einlegen", der Knopf "Öffnen" und eine kurze Statuszeile.
 
-Grenzen: Nicht nachgebildet sind CRC, Schreibschutz der Karte, Fehlerfälle der
-Karte und SDSC. Tempo: 64 Byte je Interrupt, rund 0,8 ms Gerätezeit je Sektor
-(etwa 640 KB/s); eine große `e2sSample.all` verlängert den Start entsprechend.
+Tempo: 64 Byte je Interrupt, rund 0,8 ms Gerätezeit je Sektor (etwa 640 KB/s,
+**geschätzt**); eine große `e2sSample.all` verlängert den Start entsprechend.
+Karten über 1 GiB und exFAT sind nicht nachgebildet. Was an Fehlerfällen
+nachgebildet ist, steht im nächsten Abschnitt.
+
+### Fehlerfälle der Karte
+
+Die Karte verhält sich wie eine echte, auch im Fehlerfall, damit sich das ohne
+Gerät testen lässt. Gewählt wird es beim Einlegen (`POST /sd/insert`, Körper
+JSON) oder an der eingelegten Karte (`POST /sd/card`, ersetzt `faults` und
+schaltet `writeProtect`, die Art bleibt); `GET /sd` nennt unter `card`, was
+gilt und wie oft ein Fehler getroffen hat. In Python: `SDCard(medium, kind=...,
+write_protect=..., never_ready=...)` und `card.fail(art, cmds=, lbas=, skip=,
+count=)`, `card.heal()`.
+
+| Option | Wirkung |
+|---|---|
+| `kind: "sdsc"` | alte Karte: keine Antwort auf CMD8, kein High-Capacity-Bit, CSD 1.0, Byteadressen |
+| `writeProtect` | Schreibschutzschalter, die Firmware liest ihn an GPIO 4.0 (hoch = geschützt) |
+| `neverReady` | das Hochfahren der Karte endet nie (ACMD41 bleibt busy) |
+| Fehler `no_response` | der Befehl bekommt keine Antwort |
+| `response_crc` | die Antwort kommt mit falscher CRC7 |
+| `read_timeout`, `read_error` | Antwort ja, Daten kommen nie (`read_error` meldet im nächsten R1 ECC_FAILED) |
+| `read_crc` | der Block kommt beschädigt, mit nicht passender CRC16 |
+| `write_crc`, `write_error` | die Karte lehnt den Block ab und speichert ihn nicht |
+
+`cmds` (Befehlsnummern) und `lbas` (Blöcke, als Liste oder `{"from","to"}`)
+grenzen einen Fehler ein, `skip` lässt die ersten Treffer durch, `count` begrenzt
+die Zahl der Treffer. CRC7 für Antworten und CRC16 für jeden Datenblock werden
+von der Karte gebildet und vom Controller geprüft; ein Fehler dreht ein Bit auf
+dem Weg.
+
+**Was die Firmware tut** (Emulator, Hacktribe, Korgs rot und BLECH darauf;
+`tools/emu/card_error_cases.py`, `test/emulator-card-errors.test.mjs`):
+
+| Fall | Firmware | Status |
+|---|---|---|
+| Lesen der Sampledatei bleibt ohne Antwort oder die Daten kommen nie, nach dem Einhängen | Kasten "Card Error" (Code 4), nach 8 bis 17 s; BLECH macht keine Ordner, schreibt nichts | gemessen |
+| Karte gesperrt, Start | kein Schreibbefehl, keine Ordner, das Gerät läuft normal | gemessen |
+| Karte gesperrt, EXPORT ALL PATTERN | Kasten "Card Write Protected" (Code 3) sofort, nichts geschrieben; mit Schalter aus schreibt derselbe Export | gemessen |
+| SDSC-Karte | hängt ein, liest und schreibt wie die SDHC (Byteadressen aus dem OCR abgeleitet), BLECH macht seine Ordner | gemessen |
+| Lesen mit falscher CRC | kein Kartenfehler: die Treiberfunktionen werten die CRC-Bits nie aus (`CRCRD`, `CRCWR`, `TOUTRD`), die Firmware arbeitet mit den beschädigten Bytes; bei der Sampledatei kommt später ihr eigener Fehler (Stock "Format Error", BLECH "bad WAV file") | gemessen, Treiber offline gelesen |
+| Schreiben mit falscher CRC oder abgelehnt | nichts im Treiber merkt es, FatFs findet die fehlenden Daten später: "Card Error" | gemessen |
+| Schreiben ohne Antwort | "Card Error" nach etwa 15 s | gemessen |
+
+Nur die Laufwerksfunktion der Firmware wertet das Schreibschutz-Pin aus
+(`disk_status` `0xC003FEB8` setzt STA_PROTECT, `chk_mounted` macht daraus
+FR_WRITE_PROTECTED; **offline gelesen**).
+
+**Modellannahmen** (nicht am Gerät gemessen):
+
+- Die Fehler-Bits stehen so im Controller: `TOUTRD`, `CRCRD` (am Ende des
+  Blocks, die Daten kommen trotzdem an), `CRCWR` (bei jedem Status-Token außer
+  "ok") und `CRCRS` (statt `RSPDNE`). Ob die echte Karte oder der AM1808 das so
+  meldet, ist offen. Die Firmware wertet `CRCRD` und `CRCWR` ohnehin nicht aus.
+- Zeitüberschreitungen melden sich sofort, nicht erst nach `MMCTOD`.
+- Die CRC16 ist eine über die 512 Byte; ein 4-Bit-Bus hat eine je Datenleitung.
+- Eine SDSC-Adresse, die kein ganzer Block ist, gibt ADDRESS_ERROR und keine Daten.
+- Ohne Antwort auf einen Lesebefehl **beim Einhängen** bleibt die Firmware im
+  Treiber stehen (Startbild). Das deckt sich mit der Rückmeldung vom 18.10.,
+  ist aber am Gerät nicht gemessen.
+
+**Offen:** Mit BLECH hängt der Start im Emulator bei einer Karte ohne
+Dateisystem (leere Karte ohne FAT) und bei einer Karte, die auf nichts
+antwortet; ohne BLECH (Hacktribe, Original) läuft das Gerät mit beiden weiter.
+Der erste Lesebefehl kommt, dann steht der Start. Nicht behoben, ein Fall im
+Ladebalken-Patch (Mounten wiederholen, `load_bar.py`) ist der erste Verdacht.
 
 Tests: `test_fat32.py` (FAT32-Schreiber und -Leser, mit `fsck_msdos` auf macOS),
-`test_sdcard.py` (Controller über die Register), `test_cardstore.py`
+`test_sdcard.py` (Controller über die Register, die Fehlerfälle), `test_cardstore.py`
 (Einlegen, Schutz, Übernahme in den Ordner, FAT16, Ordnername) und der Teil
 `CardServiceTest` in `test_server.py` laufen ohne Firmware in `npm test`.
 `test/emulator-card.test.mjs` fährt die ganze Strecke mit der Firmware
@@ -292,6 +358,16 @@ wird nicht angefasst, der Start meldet das. Test: `test/emulator-flash.test.mjs`
 (`npm run test:emu`) importiert eine selbstgebaute Sicherung, startet den Dienst neu und
 findet das Pattern im neuen Export.
 
+Eine blaue Firmware (Synth) erkennt auf dem gelöschten Sampler-Flash (`machine.blank_flash()`
+ohne Synth-Kennung) fremde Hardware und bleibt auf einem unbekannten Bildschirm stehen. Fälle für
+die blaue nehmen deshalb `machine.hardware_flash("blue")` (so `flash_with` in
+`tools/emu/splash_cases.py`).
+
+Seiten aus `korg.menu.add` gibt es nur, wenn das Plugin beim Start von der Karte kam
+(`edit.boot`). Die Seiten eines Plugins zählen 0 DESCRIPTION, 1 STATE, ab 2 die eigenen. Vor
+Pad-Drücken das Menü BLECH verlassen (`menu_cases.leave_to_main`), dort bekommen Plugins keine
+Eingaben (Beispiel: `tools/emu/plugin_catalog_api_cases.py`).
+
 ## Display
 
 Die Firmware schaltet jeden Bildpunkt nur an oder aus; es gibt keinen Grau-Befehl
@@ -299,8 +375,8 @@ und kein Wechseln zwischen zwei Bildern. Was am Gerät gedimmt aussieht (etwa de
 Name des wartenden Patterns, den die Firmware alle 280 ms ein- und ausblendet),
 ist die Trägheit der Flüssigkristalle. `lcd.py` bildet sie nach, ein Verzögerungsglied
 je Bildpunkt, getrennt für das Dunkelwerden (`TAU_ON`, 0,040 s, aus einem Zeitlupenvideo)
-und das Hellwerden (`TAU_OFF`, 0,20 s, **geschätzt**: mit bloßem Auge am Gerät am 27.10.,
-am 29.10. von 0,30 auf 0,20 s gesenkt, weil es im Emulator zu träge wirkte; keine Messung; die 0,028 s aus dem Video waren zu niedrig, siehe
+und das Hellwerden (`TAU_OFF`, 0,17 s, **geschätzt**: mit bloßem Auge am Gerät am 27.10.,
+am 29.10. von 0,30 auf 0,20 s und am 10.11. auf 0,17 s gesenkt, weil es im Emulator zu träge wirkte; keine Messung; die 0,028 s aus dem Video waren zu niedrig, siehe
 [LCD-Helligkeit](messungen/2026-10-12-lcd-helligkeit.md)). Die Werte stehen nur in
 `lcd.py`.
 
@@ -315,9 +391,90 @@ Zeile für Zeile, 0 hell bis 15 dunkel). Das Ereignis `display` (1 Bit, `m.fb`)
 bleibt unverändert; die Seite zeichnet die Stufen zwischen den Farben
 `--cee-lcd-off` und `--cee-lcd-on`. Test: `test_lcd.py`.
 
+### Displaylicht
+
+Die Firmware treibt das Licht über drei GPIO-Pins, GPIO 6.3, 6.4 und 6.5 für
+Rot, Grün und Blau (BLECH-Menü BACKLIGHT, Plugins mit `korg.backlight` und
+`display.red/green/blue`; alles endet an diesen Pins). Stufe 0 oder 15
+ist ein fester Pin, eine Stufe dazwischen eine Software-PWM aus 16 Takten zu
+0,5 ms, also 8 ms je Periode (**offline**, 10.11.: Rot auf 5 steigt alle 8000 µs
+und bleibt 2500 µs an). Energiesparen lässt Rot und Grün abwechselnd je einmal
+in 27 ms aufleuchten. `backlight.py` rechnet je Pin den Anteil der Zeit, die er in
+seiner letzten vollen Periode an war (von steigender Flanke zu steigender Flanke),
+so wie das Auge den Mittelwert sieht; ein Pin, der sich 100 ms nicht ändert, ist
+fest an oder aus. Ausschalten macht das Licht dunkel.
+
+Der Dienst schickt das als Ereignis `backlight`, `[rot, grün, blau]` je 0 bis 255
+(Rot auf 5 von 16 ist `[80, 0, 0]`), bei jeder Änderung und beim Verbinden. Bevor
+die Firmware einen der Pins zum ersten Mal schreibt, und bei einer Maschine ohne
+Licht-Modell, ist es `null`. Die Seite multipliziert beide LCD-Farben je Kanal
+mit dem Licht: Weiß (Werkszustand) lässt die Theme-Farben, wie sie sind, ein
+gedimmtes Rot färbt die hellen Bildpunkte dunkelrot, Licht aus macht das ganze
+Display schwarz. Bei `null`, im Fake-Start ohne Firmware und beim Spiegeln eines
+echten Geräts bleiben die Theme-Farben. Ausgeschaltet blendet die Seite das
+Display ganz aus, dahinter liegt der dunkle Rahmen. Ob die Farben am Gerät genauso
+aussehen (LED-Farbort, Helligkeitskurve), ist **offen**: die Seite nimmt das
+Tastverhältnis linear. Tests: `test_backlight.py`, `test_server.py`
+(`test_streams_the_display_light_colour`), `test/lcd-shade.test.mjs`, die
+Emulator-Seite in `test/e2e/support/emulator-suite.mjs` und der Fall
+`look_backlight_colour_reaches_the_page` in `menu_cases.py` an der Firmware.
+
+## LEDs
+
+Die Firmware schickt jede LED als Nachricht `00 LED Wert` über UART0 ans Bedienfeld. Der Emulator schreibt jede Änderung mit ihrer
+Gerätezeit mit (`tools/emu/panel_leds.py`, `Machine.panel_leds`): wann das Panel das letzte Byte hatte und wann die LED danach
+leuchtet. Eine Nachricht, die nur den alten Wert wiederholt, zählt dort mit, ist aber keine Änderung.
+
+Bis 1.4.5 gingen kurze Wechsel unterwegs verloren (hergeleitet aus dem Code):
+
+- `Machine.leds` hält nur den letzten Wert je LED, `panel_log` die Nachrichten ohne Zeit.
+- Der Dienst sah nach jedem Schritt von 20 ms Gerätezeit auf diese Tabelle. Ein Pad, das 14 ms dunkel war, kam nie an.
+- Die Seite setzte jede Tabelle sofort, ohne Zeit, und zeigte Pads nur an oder aus.
+
+Jetzt schickt der Dienst nach jedem Schritt das Ereignis `ledtrace` mit allen Änderungen des Schritts, je
+`[Gerätezeit µs, leuchtet ab µs, LED, Wert]`. Kommt eine Seite nicht hinterher und verliert ein Ereignis, bekommt sie vor dem
+nächsten die ganze Tabelle (`leds`). Die Seite (`site/app/led-trace.mjs`) spielt die Änderungen 60 ms nach ihrer Gerätezeit in
+den Abständen des Geräts ab. Jedes gezeichnete Bild zeigt eine LED als Mittel ihrer Werte über das Bild, so wie das Auge eine
+PWM-LED sieht: 5 ms dunkel in einem Bild von 17 ms ist ein sichtbar dunkleres Bild.
+
+Das Bedienfeld selbst, nach [Panel-Controller](hintergrund/panel-controller.md):
+
+| Was | Wert | Marker |
+|---|---|---|
+| 88 LEDs in 11 Zeilen mal 8 PWM-Kanälen | Tabelle `0x8460` im Panel-Code | hergeleitet |
+| PWM rund 2 kHz (5000 Schritte bei 10 MHz), Takt des Panels 100 µs | Panel-Code | hergeleitet |
+| Helligkeit linear: Wert mal Periode durch 255, auch die Pads | Panel-Code `0x4EBC`; Pulsieren am 18.10. am Gerät flüssig | hergeleitet |
+| Eine Nachricht wirkt einen Takt nach ihrem letzten Byte, die Zeilen leuchten reihum je eine PWM-Periode, ein neuer Wert ab der nächsten Runde (5,5 ms) | | Modellannahme |
+| Ein Wert, der vor seiner Runde schon ersetzt ist, leuchtet nie | folgt aus der Annahme darüber | Modellannahme |
+| Die Seite zeigt den Tastgrad linear als Deckkraft; wie hell das Auge eine Stufe am Gerät sieht | nicht gemessen | Modellannahme |
+| `02 b` von der Firmware wirkt auf die LEDs | offen, das Modell übergeht es | offen |
+
+Pads zeigt die Seite jetzt gestuft wie die anderen LEDs; die Messung vom 16.10. (nur an oder aus) ist am 18.10. teils widerlegt
+([Pad-LED-Stufen](messungen/2026-10-16-pad-led-stufen.md)). Power Save dimmt in der Firmware, nicht im Panel: BLECH schickt auf
+Batterie ein Viertel ([Energiesparen](messungen/2026-10-18-energiesparen-leds.md)), das Modell bekommt also schon die gedimmten Werte.
+
+### Pad-Flackern beim schnellen Drehen
+
+`pswitch:pad_flicker_playing` und `pswitch:pad_flicker_stopped_unsaved` (`tools/emu/pswitch_cases.py`, `case_pad_flicker`): 20
+Klicks am Rad im Abstand von 30 ms, abspielend und gestoppt mit ungespeicherter Änderung. Gezählt werden dunkle Lücken eines Pads bis
+50 ms, so wie das Bedienfeld sie zeigt. Erlaubt sind die der Firmware (EXIT beim Einschalten) plus die zwei Neuzeichnungen, die
+der Fix lässt: die erste sofort und die nach dem Stillstand.
+
+Gemessen im Emulator (Hacktribe 2.02 mit dem BLECH-Satz, 10.11.):
+
+| Stand | abspielend | gestoppt, ungespeichert | Ergebnis |
+|---|---|---|---|
+| Firmware (EXIT gehalten) | 0 | 1 | |
+| vor dem Fix (`c2ba48fd^`) | 20, je Klick einmal | 18 | rot |
+| mit dem Fix (`c2ba48fd`) | 2 | 2 | grün |
+
+Jede Neuzeichnung der Vorschau schickt die blaue LED von Pad 1 (`0x2d`) erst 0 und rund 14 ms später wieder 255; am Bedienfeld
+sind das 11 bis 16,5 ms dunkel. Die zwei Neuzeichnungen, die der Fix lässt, flackern so noch je einmal (gemessen). Am Gerät nicht
+geprüft.
+
 ## Zeit und Takt
 
-Der Emulator rechnet 5 ns je Befehl. Eine Scheibe endet vor dem nächsten
+Der Grundtakt ist 5 ns je Befehl. Eine Scheibe endet vor dem nächsten
 Timer-Takt oder UART-Byte (`slice_length`), ein wartender Prozessor springt bis
 dorthin (`run_slice`); die Firmware bekommt so 1000 Timer-Interrupts und
 25 Bildschirm-Takte je Sekunde Gerätezeit, egal wie lang `SLICE` ist.
@@ -330,11 +487,39 @@ Abfrageschleife die Antwort weg (ST0 löscht beim Lesen, Assertion Zeile 228).
 `migrate_cases.py` prüft das mit einem Blick alle 2 µs. Messung:
 [Emulator-Takt](messungen/2026-10-12-emulator-takt.md).
 
+### Gerätetakt
+
 Gegen das Gerät verglichen ([Emulator-Zeit gegen Gerätezeit](messungen/2026-10-16-emulator-timing.md),
-`tools/device/timing_probe.py`): reine Rechenschleifen laufen am Gerät in der Emulatorzeit (Faktor 1,0),
-ein abhängiges Multiply kostet 6,7 ns mehr, und ein Durchlauf über Speicher größer als der Daten-Cache
-braucht rund das Vierfache (der Emulator kennt keinen Cache). Der Grundwert bleibt deshalb bei 5 ns;
-`tools/emu/devicetime.py` rechnet eine Emulatorzeit mit diesen Zuschlägen auf eine geschätzte Gerätezeit hoch.
+`tools/device/timing_probe.py`): reine Rechenschleifen laufen am Gerät in 5 ns je Befehl, ein abhängiges
+Multiply kostet 6,7 ns mehr, Lesen 0,5 ns je Byte mehr, wenn der Daten-Cache trifft, 6,8 ns je Byte bei
+einem Durchlauf über mehr Speicher, als der Cache fasst, und 12,4 ns je Byte über den ungecachten Alias
+`0xC4000000`.
+
+Mit diesen Zuschlägen rechnet der Emulator die Zeit jeder Scheibe (`devicetime.Pace`, `Machine.device_rate`).
+Er sieht nicht jeden Speicherzugriff an, das wäre zu teuer, sondern nimmt eine Stichprobe: wo eine Scheibe
+aufhört, liegt der Code, der gerade läuft. Diese Stelle wird einmal dekodiert, als ganze Schleife, wenn ein
+Rücksprung sie umschließt, sonst bis zum Ende des Blocks, und ihr Preis je Befehl gilt für die nächste Scheibe.
+So sehen Timer-Interrupts, Bildschirm-Takte, die Echtzeit-Bremse und alle Fälle die Gerätezeit. Ein Ladezugriff,
+dessen Basisregister in einer Schleife durch den Speicher läuft, zählt als Cache-Fehlgriff, sobald zwei
+Stichproben derselben Schleife kurz nacheinander mehr als 16 KiB auseinander liegen. Die vier Schleifen der
+Messung kommen damit auf die Gerätewerte (`test_devicetime.py`). `GELUMPE_PACE=flat` schaltet zurück auf
+5 ns für jeden Befehl.
+
+**Modellannahmen**, nicht gemessen:
+
+- Der Daten-Cache fasst 16 KiB (Datenblatt des AM1808). Gemessen ist nur: 4 KiB treffen, 256 KiB nicht.
+- Der Zuschlag ist linear in den gelesenen Bytes, auch für einzelne Bytes und Halbwörter.
+- Jedes Multiply kostet den Zuschlag, auch eins, dessen Ergebnis nicht gleich gebraucht wird.
+- Schreiben, der Befehls-Cache, falsch vorhergesagte und indirekte Sprünge, Lesen von Peripherie und
+  Thumb-Code kosten nichts extra.
+- Der erste Blick auf einen Durchlauf zählt als Treffer. Eine Kopie, die kürzer als eine Scheibe läuft, rechnet
+  der Emulator deshalb zu schnell. Ein Lauf über 256 KiB kommt auf 126 statt 143 ns je Runde.
+- Ein Interrupt-Handler läuft im Preis des Codes, den er unterbricht. Seine Scheiben (`ISR_STEP`) enden jedes
+  Mal an denselben Stellen und wären keine Stichprobe.
+
+Gegen die Plugin-VM geprüft ([Gerätetakt im Emulator](messungen/2026-11-10-emulator-geraetetakt.md)): am
+Gerät 7 bis 8 ns je Emulator-Befehl, mit dem Modell 5,7 bis 6,1, flach 5. Das Modell rechnet also näher am
+Gerät, aber noch zu schnell für einen Interpreter.
 
 ### Tempo der Prüfungen
 
@@ -748,6 +933,26 @@ Unterstützter Untersuchungsstand: Sampler 2.02 mit dem dokumentierten
 Hacktribe-Build. Größenprüfung allein identifiziert keine Firmwareversion;
 abweichende Funktionsergebnisse, Speicherfehler und ausbleibende Rückkehr
 führen zum Fehler. Das ist keine Freigabe für Gerätezugriffe.
+
+### Fälle von Hand starten
+
+Drei Stolpersteine, die wie ein Fehler im Code aussehen:
+
+- **Die Fälle laufen auf einem leeren Flash.** `check.py` führt die Fälle der Patches auf einem leeren Flash aus
+  (wie CI, `--hardware blue` für einen blauen), nicht auf dem eines Nutzers: sie erwarten die Init-Patterns eines leeren
+  Flashs (ein Takt, keine Kette). Ein Flash mit gespeicherten Patterns lässt Fälle scheitern (gesehen bei
+  `tap_motion_cases` Gruppe 5 mit `KeyError (0, 28)`, `pswitch_cases` Gruppe 14 und `dice_cases` Gruppe 3). Der eigene Flash
+  eines Nutzers geht nur mit `--boot-flash` an die Startszenarien (die App macht es so, `server.py`). Ändert sich der eigene Flash, läuft wegen des Task-Caches
+  jeder Task neu, nicht nur die Starts ([Entwicklung](development.md)).
+- **Jedes Fallmodul mit eigenem `Dev` ruft `menu_cases.for_build(payload)`** (oder `menu_cases.boot`). Die Vorgaben von
+  `menu_cases` sind die der Hacktribe (MENU 45, BASE_RING 29); ein Modul, das sein Gerät selbst baut und das nicht tut,
+  steuert die blaue mit den Bildschirmnummern der roten an und stürzt ab (`UC_ERR_READ_UNMAPPED`). Früher fiel das nicht
+  auf, weil ein vorheriger Task im selben Prozess den Build schon gesetzt hatte; seit jeder Task einen eigenen Prozess
+  bekommt, schon. Beispiel: `power_off_cases.for_build`.
+- **Eine Test-VSB, die vor einer Änderung gepatcht wurde, trägt die alte Laufzeit.** Ein Fallmodul, das man von Hand mit
+  `cases --patched Datei.VSB` startet, nimmt genau diese Datei. Nach einer Änderung an `tools/patch/script_*.s` und
+  `node tools/patch/script_runtime.mjs --build ...` bricht das Laden eines Plugins dann mit Fehlercode 19 ab, oder die Fälle
+  stürzen ab. Die Datei neu patchen, dann stimmt es wieder. `tools/verify-patches.mjs` patcht immer frisch.
 
 ### Tests
 

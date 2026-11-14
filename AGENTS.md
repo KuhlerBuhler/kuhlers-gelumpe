@@ -106,8 +106,12 @@ case modules your change touches; CI runs the rest (see below). The blue Electri
   its `data-i18n` key. `test/i18n.test.mjs` fails on hard-coded text and on a key missing in any language.
 - Device menu paths are written as `Menü -> BLECH -> CUSTOMIZATION`, app paths by the sidebar group:
   `BLECHTRIBE -> Baukasten`.
-- The firmware writes its settings to the SD card (`KORG/blechtribe/`), not to the flash. Do not add
-  flash writes. AUTO SAVE only triggers the firmware's own save of the Global values into its own
+- The firmware writes its settings to the SD card (`KORG/blechtribe/`). The one exception is a device
+  without a card: the BLECH settings then go to the two flash sectors `0x7FD000` and `0x7FE000`, a
+  card settings file wins at start, and a card swapped in after a start with a card is written there only after MENU on its
+  "SAVE TO FLASH?" prompt
+  ([docs/messungen/2026-11-13-einstellungen-flash.md](docs/messungen/2026-11-13-einstellungen-flash.md)).
+  Do not add other flash writes. AUTO SAVE only triggers the firmware's own save of the Global values into its own
   sector, the path WRITE and power-off use; that sector is written more often, and its wear on a device
   is not measured ([docs/messungen/2026-11-09-auto-save.md](docs/messungen/2026-11-09-auto-save.md)). The app sends no usage data anywhere. **The editor never gets a design system page**,
   no overview of all components. `test/design.test.mjs` holds that.
@@ -141,10 +145,13 @@ Docs state what holds now; before and after belong in commits and release notes.
   the blue), an entry in the set `data/patches/blech.json` or `blech-synth.json`, cases in
   `tools/emu/<name>_cases.py`, a row in the table of [docs/patcher.md](docs/patcher.md) and a
   measurement in `docs/messungen/`. Add the case module to `tools/ci/verify-scope.mjs`;
-  `test/verify-scope.test.mjs` fails otherwise.
-- After a change to `tools/patch/script_*.s` or `data/script/contract.mjs`, rebuild the runtime patch
-  for all three builds: `node tools/patch/script_runtime.mjs --build hacktribe`, `--build stock`,
-  `--build synth`. Other patches have their builder next to them in `tools/patch/`.
+  `test/verify-scope.test.mjs` fails otherwise. Give the case module's id prefix an area in
+  `TEST_AREAS` (`data/rescue.mjs`); `test/rescue.test.mjs` fails otherwise.
+- The runtime patches (`data/patches/script-runtime*.json`) are built, not committed: `npm test`,
+  `npm start`, `npm run serve`, `build:site`, `build:sidecar`, `check_sets.mjs` and `verify-patches.mjs`
+  build what is missing or older than the sources (`tools/patch/ensure-runtime.mjs`); by hand
+  `node tools/patch/ensure-runtime.mjs --force`. Never commit them. Other patches keep their file in
+  `data/patches/` and have their builder next to them in `tools/patch/`.
 - Runtime code lives in MORE3 (`tools/patch/script_hooks.py`). New RAM goes into an area declared in
   `ram_areas()` or the patch's `ram` list; `test/patch-ram.test.mjs` fails when two patches claim the
   same RAM. A word inside a block that is already in use collides silently, check the block first.
@@ -182,13 +189,14 @@ Docs state what holds now; before and after belong in commits and release notes.
   attribution lines.
 - A pull request that may go in once CI is green gets the label `automerge` (`gh pr create ... --label automerge`):
   the workflow Automerge merges it when `unit`, `browser`, `guard` and `patches` pass. Do not poll CI or merge by hand.
+  The label only acts on pull requests to `develop`; one to `release/X.Y.Z` is merged by hand once every check is
+  green: `gh pr merge <n> --merge --admin --match-head-commit <sha>`.
   Leave the label off when the change waits for a device or listening test.
 - On a pull request to `develop`, Verify patches runs `check.py --quick` plus the case modules that
   `tools/ci/verify-scope.mjs` maps to the changed files, on all four originals. The full check runs on
   the release pull request.
 - A branch does not have to be current with develop to be merged; merge develop in only when you need its changes.
-  Never rebase or force-push a shared branch. Leave a conflict that is only in `data/patches/script-runtime*.json`
-  alone: the workflow Update pull requests rebuilds those.
+  Never rebase or force-push a shared branch.
 - Firmware changes that touch the same patches (`data/patches/`, `tools/patch/`, `tools/emu/*_cases.py`) go one
   after the other or in one pull request, not in parallel. App changes may run in parallel.
 - A release: `node tools/set-version.mjs X.Y.Z`, notes in `release-notes/X.Y.Z.md` (German, then

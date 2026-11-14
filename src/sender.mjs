@@ -317,6 +317,65 @@ export class Sender {
     }
   }
 
+  /** A FILE offset of the Doom files (`wad`: doom.wad, else doom.bin) at `at`. */
+  doomSelector(wad, at = 0) {
+    return (P.BLECH.FILE_DOOM | (wad ? P.BLECH.FILE_OTHER : 0) | at) >>> 0;
+  }
+
+  /** The size of doom.bin (`wad`: doom.wad) on the card; 0 when there is none. */
+  async doomFileSize(model, wad = false) {
+    try {
+      return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, this.doomSelector(wad), 0, model), "blech-file-read"), this.channel, 0, model))).size;
+    } catch (e) {
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE) return 0;
+      throw e;
+    }
+  }
+
+  /**
+   * The bytes as the new doom.bin (`wad`: doom.wad): the first block makes the file anew (and the folder KORG/blechtribe/Doom when it is
+   * missing), every block is read back from the card with its CRC. `signal` (an AbortSignal) stops it between two blocks.
+   */
+  async doomFileWrite(bytes, model, onProgress, wad = false, signal) {
+    const max = this.blech.maxBlock;
+    for (let at = 0; at < bytes.length; at += max) {
+      signal?.throwIfAborted();
+      const part = bytes.subarray(at, Math.min(at + max, bytes.length));
+      const crc = P.crc32(part);
+      await this.blechAttempts("write", async () => {
+        P.parseBlechFileBegin(await this.blechExchange(P.blechFileBegin(this.channel, this.doomSelector(wad, at), part.length, crc, model), "blech-file-begin"), this.channel, model);
+        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part, model), "blech-data", part.length), this.channel, crc, model);
+      });
+      onProgress?.(at + part.length, bytes.length);
+    }
+  }
+
+  /** The size of e2sFx.all on the card (FILE_FX, read only); 0 when there is none, null when the firmware answers out of range (it is from before the read). */
+  async fxFileSize(model) {
+    try {
+      return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, P.BLECH.FILE_FX, 0, model), "blech-file-read"), this.channel, 0, model))).size;
+    } catch (e) {
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE) return 0;
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.RANGE) return null;
+      throw e;
+    }
+  }
+
+  /** `length` bytes of e2sFx.all from `at`, in blocks of the device's largest size, each checked against its CRC. */
+  async fxFileRead(at, length, model) {
+    const out = new Uint8Array(length);
+    const max = this.blech.maxBlock;
+    for (let got = 0; got < length;) {
+      const n = Math.min(max, length - got);
+      const r = await this.blechAttempts("read", async () =>
+        P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, (P.BLECH.FILE_FX | (at + got)) >>> 0, n, model), "blech-file-read", n), this.channel, n, model));
+      if (r.offset !== at + got || r.bytes.length !== n) throw new SendError("reply", text("sender.fileRead", { got: r.bytes.length, offset: r.offset, want: n, at: at + got }));
+      out.set(r.bytes, got);
+      got += n;
+    }
+    return out;
+  }
+
   /** A FILE offset of the sample file (`temp`: its temp file) at `at`. */
   sampleSelector(temp, at = 0) {
     return (P.BLECH.FILE_SAMPLE | (temp ? P.BLECH.FILE_OTHER : 0) | at) >>> 0;

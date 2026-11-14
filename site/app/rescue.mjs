@@ -4,7 +4,8 @@
  * the person has to do or answer something. Content: data/rescue.mjs.
  */
 import { el } from "./fields.mjs";
-import { FLOW, LINKS, BUTTONS, FOLDERS, CASES, FIRST_CASES, destOf, passSteps } from "../../data/rescue.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
+import { FLOW, LINKS, BUTTONS, FOLDERS, CASES, FIRST_CASES, MAX_SHOWN, destOf, passSteps } from "../../data/rescue.mjs";
 import { makeMatcher, casePhrases } from "../../src/blechy-match.mjs";
 import { checkName, korgBlueForSampler } from "../../src/patcher.mjs";
 import { saveFile } from "./save-file.mjs";
@@ -177,6 +178,7 @@ export function rescuePage(root, context = {}) {
   const answers = el("div", { className: "cee-rescue-answers", id: "cee-rescue-answers" });
   const back = el("button", { type: "button", className: "btn sm", id: "cee-rescue-back", textContent: t(BUTTONS.back) });
   const again = el("button", { type: "button", className: "btn sm", id: "cee-rescue-again", textContent: t(BUTTONS.again) });
+  const nav = el("div", { className: "actions cee-rescue-nav", id: "cee-rescue-nav" }, [back, again]);
   const input = el("input", { type: "file", id: "cee-rescue-input", className: "ui-dropzone-input", accept: ".VSB,.vsb" });
   const fileInfo = el("span", { className: "ui-dropzone-files", id: "cee-rescue-file-info" });
   let path = ["start"];
@@ -251,6 +253,7 @@ export function rescuePage(root, context = {}) {
       el("span", { className: "ui-dropzone-hint", textContent: t("rescue.drop.hint") }),
       fileInfo,
     ]);
+    const wrapped = dropzoneClear(input).node;
     input.onchange = async () => {
       const file = input.files?.[0];
       input.value = "";
@@ -267,7 +270,7 @@ export function rescuePage(root, context = {}) {
       path = [...path, node.done];
       render();
     };
-    return zone;
+    return wrapped;
   }
 
   function render() {
@@ -300,6 +303,8 @@ export function rescuePage(root, context = {}) {
     answers.hidden = !choices.length && !pick.length;
     answers.classList.toggle("cee-rescue-answers-ask", !!node.search);
     back.disabled = path.length < 2;
+    // On the start page there is nothing to go back to and nothing to start over.
+    nav.hidden = path.length < 2;
     showNewest();
     clearTimeout(timer);
     learn(at, node);
@@ -316,7 +321,7 @@ export function rescuePage(root, context = {}) {
   }
   /**
    * The first question as a message field: what is typed brings up the cases that fit above it, as a combobox with a
-   * listbox (arrow keys move, Enter picks, Escape clears). Empty, it offers FIRST_CASES and the way to all of them.
+   * listbox (arrow keys move, Enter picks, Escape clears). Empty, it offers FIRST_CASES and the way to all of them; never more than MAX_SHOWN unless all are asked for.
    */
   function askBox(choices, at) {
     const byId = Object.fromEntries(choices.map(c => [c.id, c]));
@@ -359,7 +364,7 @@ export function rescuePage(root, context = {}) {
       if (query) everything = false;
       const before = previous[at] ? choices.find(c => c.label === previous[at])?.id : null;
       const ids = query ? matchCases(query) : everything ? choices.map(c => c.id) : [...new Set([before, ...FIRST_CASES].filter(Boolean))];
-      shown = ids.map(id => byId[id]).filter(Boolean);
+      shown = ids.map(id => byId[id]).filter(Boolean).slice(0, everything && !query ? Infinity : MAX_SHOWN);
       active = query && shown.length ? 0 : -1;
       list.replaceChildren(...shown.map(option));
       list.hidden = !shown.length;
@@ -558,7 +563,7 @@ export function rescuePage(root, context = {}) {
     el("h1", { className: "cee-rescue-title ui-sr-only", textContent: t("nav.rescue") }),
     chat,
     answers,
-    el("div", { className: "actions cee-rescue-nav" }, [back, again]),
+    nav,
   ]));
   render();
 }

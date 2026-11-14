@@ -79,6 +79,13 @@ export const SAMPLE_FILE = "e2sSample.all";
 export const SAMPLE_TEMP = "e2sSample.tmp";
 /** Which sample file a FILE offset names: bit 30 for the sample file, bits 30 and 31 for the temp file; null for the update folder's files. */
 const sampleFileName = offset => (offset & BLECH.FILE_SAMPLE ? (offset & BLECH.FILE_OTHER ? SAMPLE_TEMP : SAMPLE_FILE) : null);
+/** The names the Doom files have in the card map of the simulation (KORG/blechtribe/Doom/ on the card). */
+export const DOOM_BIN = "doom.bin";
+export const DOOM_WAD = "doom.wad";
+/** Which Doom file a FILE offset names: bit 29 for doom.bin, bits 29 and 31 for doom.wad; null for the others. */
+const doomFileName = offset => (offset & BLECH.FILE_DOOM && !(offset & BLECH.FILE_SAMPLE) ? (offset & BLECH.FILE_OTHER ? DOOM_WAD : DOOM_BIN) : null);
+/** The name the effect collection has in the card map of the simulation (KORG/blechtribe/Presets/ on the card). */
+export const FX_FILE = "e2sFx.all";
 
 export class SimDevice {
   /**
@@ -93,9 +100,11 @@ export class SimDevice {
    * @param {boolean} [opts.hacktribe] answers Hacktribe's commands 0x52 to 0x57; off, the device is Korg's original
    * @param {boolean|number} [opts.blech] answers BLECH's own commands (docs/messungen/2026-10-15-blech-sysex.md); a number is the largest block
    * @param {Map<string, Uint8Array>} [opts.card] the update folder of the card ("SYSTEM.VSB", "ORIGINAL.BIN"): BLECH's FILE commands work on it
+   * @param {boolean} [opts.doom] the firmware has the Doom files (FLAG_DOOM, bit 29 of a FILE offset); off, it is a BLECHTRIBE from before them
    */
-  constructor({ image = null, channel = 9, flash = null, pattern = null, global = null, version = [2, 2], execute = null, hacktribe = true, blech = false, card = null } = {}) {
+  constructor({ image = null, channel = 9, flash = null, pattern = null, global = null, version = [2, 2], execute = null, hacktribe = true, blech = false, card = null, doom = true } = {}) {
     this.card = card;
+    this.doom = doom;
     this.execute = execute;
     this.hacktribe = hacktribe;
     this.blech = blech ? { maxBlock: blech === true ? 0x8000 : blech, build: hacktribe ? "hacktribe" : "stock" } : null;
@@ -219,7 +228,7 @@ export class SimDevice {
     const payload = syxDec(encoded);
     const word = i => readU32le(payload, i * 4);
     if (cmd === BLECH.INFO) {
-      const flags = 7 | BLECH.FLAG_EXEC | (this.flash ? BLECH.FLAG_FLASH : 0) | (this.card ? BLECH.FLAG_FILE | BLECH.FLAG_SAMPLE : 0);
+      const flags = 7 | BLECH.FLAG_EXEC | (this.flash ? BLECH.FLAG_FLASH : 0) | (this.card ? BLECH.FLAG_FILE | BLECH.FLAG_SAMPLE | (this.doom ? BLECH.FLAG_DOOM : 0) : 0);
       return this.blechReply(BLECH.R_INFO, 0, BLECH.VERSION, flags, this.blech.maxBlock, protectTable({ build: this.blech.build }).crc, BLECH.FLASH_MAX);
     }
     if (cmd === BLECH.FLASH) return this.blechFlash(payload);
@@ -302,13 +311,17 @@ export class SimDevice {
 
   /**
    * BLECH's FILE commands on the card's update folder, as the firmware does them (tools/patch/blech_sysex.py): bit 31 of the offset
-   * chooses ORIGINAL.BIN, a first block at offset 0 makes the file anew, a read past the end gives what is there.
+   * chooses ORIGINAL.BIN, bit 30 the sample files, bit 29 the Doom files, a first block at offset 0 makes the file anew, a read past
+   * the end gives what is there.
    */
   fileCommand(cmd, payload) {
     const word = i => readU32le(payload, i * 4);
-    const name = offset => sampleFileName(offset) ?? (offset & BLECH.FILE_OTHER ? "ORIGINAL.BIN" : "SYSTEM.VSB");
-    const limit = offset => (sampleFileName(offset) ? BLECH.SAMPLE_LIMIT : BLECH.FILE_LIMIT);
-    const plain = offset => offset & ~(BLECH.FILE_OTHER | BLECH.FILE_SAMPLE);
+    // bits 30 and 29 name e2sFx.all, which is only read; with bit 31 as well no file: the firmware makes the offset -1, which every range check refuses
+    const both = offset => this.doom && offset & BLECH.FILE_DOOM && offset & BLECH.FILE_SAMPLE;
+    const fx = offset => both(offset) && !(offset & BLECH.FILE_OTHER);
+    const name = offset => (fx(offset) ? FX_FILE : null) ?? sampleFileName(offset) ?? (this.doom ? doomFileName(offset) : null) ?? (offset & BLECH.FILE_OTHER ? "ORIGINAL.BIN" : "SYSTEM.VSB");
+    const limit = offset => (fx(offset) && cmd === BLECH.FILE_READ ? BLECH.SAMPLE_LIMIT : both(offset) ? -1 : sampleFileName(offset) || (this.doom && doomFileName(offset)) ? BLECH.SAMPLE_LIMIT : BLECH.FILE_LIMIT);
+    const plain = offset => offset & ~(BLECH.FILE_OTHER | BLECH.FILE_SAMPLE | (this.doom ? BLECH.FILE_DOOM : 0));
     if (cmd === BLECH.FILE_READ) {
       const offset = plain(word(0)) >>> 0;
       const length = word(1);

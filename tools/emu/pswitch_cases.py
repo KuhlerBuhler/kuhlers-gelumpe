@@ -59,13 +59,16 @@ def card_image():
 
 
 class Box:
-    """A booted device (3 s) with a mounted card, or without one."""
+    """A booted device (3 s) with a mounted card, or without one; with `dsp`, the DSP model listens from power-on."""
 
-    def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0, adapter=False):
+    def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0, adapter=False, dsp=False):
         self.payload = bytes(payload)
         for_build(self.payload)
         self.dev = Dev(self.payload, flash, held, adapter=adapter)
         self.m = self.dev.m
+        if dsp:
+            from dsp_model import DspModel
+            DspModel.attach(self.m)
         if card:
             self.m.insert_card(SDCard(MemoryMedium(card_image())))
         self.dev.run(seconds)
@@ -697,6 +700,7 @@ def case_sync_group(payload, flash):
                      f"part 1 was {a_mute} in the first pattern, {a_mute ^ 1} saved in the second; pressed in PART MUTE right after the switch: {mutes(pad)[0]}"))
     # The firmware drops a pad press while its command runner is busy, the pattern load among others (device report 25.10.); the patch
     # keeps it and hands it on when the load is done. A tap sent the moment the runner turns busy: press and release both fall in.
+    # The change is seen on a 10 ms grid and rounded to it, so it can read up to 10 ms before the tap that came in the same step.
     tap = Box(payload, flash)
     setup(tap)
     t_mute = mutes(tap)[0]
@@ -716,7 +720,7 @@ def case_sync_group(payload, flash):
                       begin=spec.PGATE_CONT, end=spec.PGATE_CONT)     # where the handler goes on with a pad (r4 = pressed)
     tap.m.uc.ctl_flush_tb()
     changed = tap.until_change()
-    out.append(entry("pad_during_the_load_is_kept", tap.running() == 1 and sent and changed is not None and 0 <= changed - sent[0] < 0.02
+    out.append(entry("pad_during_the_load_is_kept", tap.running() == 1 and sent and changed is not None and -0.01 < changed - sent[0] < 0.02
                      and mutes(tap)[0] == t_mute ^ 1 and calls == [1, 0] and not tap.m.asserts,
                      f"tap sent at {sent} s as the runner turned busy, the pattern changed at {changed} s; part 1 was {t_mute}, now {mutes(tap)[0]}; "
                      f"pads the handler went on with, pressed: {calls}"))
@@ -1433,14 +1437,19 @@ def case_view_blink(payload, flash):
     box = Box(payload, flash)
     bank = viewing(box)
     rows = watch(box, 1.5)
-    together = sum(all(r[0][n] == r[0][OTHER] for n in BLINKING) for r in rows) / len(rows)   # the 16 sends of one half can straddle a sample
+    apart = [i for i, r in enumerate(rows) if any(r[0][n] != r[0][OTHER] for n in BLINKING)]
+    together = 1 - len(apart) / len(rows)
+    # the 16 sends of one half can straddle a sample, so a row may be split right at a change of pad 5 (in it or the next); how many
+    # rows that hits depends on where the edges fall on the 10 ms grid, which shifts with the start's timing
+    edge = lambda i: any(0 < j < len(rows) and rows[j][0][OTHER] != rows[j - 1][0][OTHER] for j in (i, i + 1))
+    stray = [i for i in apart if not edge(i)]
     with_menu = sum((r[0][OTHER] > 0) == (r[1] > 0) for r in rows) / len(rows)
     rate = gaps(rows, OTHER)
     out.append(entry("view_pads_of_parts_that_are_on_blink",
-                     all(values(rows, n) == [0, 255] for n in BLINKING) and values(rows, MUTED) == [0] and together >= 0.95
+                     all(values(rows, n) == [0, 255] for n in BLINKING) and values(rows, MUTED) == [0] and not stray
                      and rate and all(0.24 <= g <= 0.32 for g in rate) and with_menu >= 0.95 and not box.m.asserts,
                      f"pattern 2 viewed: red of pad 5 {values(rows, OTHER)}, pad 2 (muted in pattern 2) {values(rows, MUTED)}, all blinking pads together "
-                     f"{together:.2f}, seconds between changes {rate}, in step with MENU's LED {with_menu:.2f}"))
+                     f"{together:.2f} (apart away from a change: {len(stray)}), seconds between changes {rate}, in step with MENU's LED {with_menu:.2f}"))
     pad(box, P)
     rows = watch(box, 1.0)
     out.append(entry("view_press_brings_the_part_in_and_stops_its_blink",
@@ -1694,9 +1703,45 @@ def case_fast_steps(payload, flash):
     return out
 
 
+def case_pad_flicker(payload, flash):
+    """The pads do not flicker while the wheel turns fast (device report on 1.4.5: the pads flickered while browsing). Every redraw of the
+    view's pads sent pad 1's blue LED 0 and then 255 again, about 14 ms apart, so each click showed as a short dark pad. The check reads
+    the LED changes with their device time (panel_leds.py) as the panel controller lights them and counts dark gaps up to 50 ms. Allowed:
+    the firmware's own (EXIT held at power-on) and the two redraws the fix keeps, the first click at once and the one after the wheel
+    stopped. Before the fix there was one per click. docs/emulator.md (LEDs)"""
+    import panel_leds
+    out = []
+    STEPS, GAP, KEPT = 20, 0.03, 2
+    pads = set(range(0x2C, 0x4C))
+    for scene in ("playing", "stopped_unsaved"):
+        rows = {}
+        for name, held in (("firmware", KILL), ("blech", 0)):
+            b = Box(payload, flash, held)
+            if scene == "playing":
+                play(b)
+            else:                                  # as case_fast_steps: SEQUENCER, steps in pattern 21, a knob changed, so BLECH browses
+                b.dev.press(0x15, 0.4)
+                for st in (1, 3, 5, 7):
+                    b.pattern_bytes(STEPS, 0x830 + 12 * st, [1])
+                b.m.send([2, 1 if b.dev.synth else 0, 0, 200, 0])
+            b.run(0.5)
+            log, t0 = b.m.panel_leds, b.m.time_ns
+            before = dict(log.value)
+            for _ in range(STEPS):
+                b.turn(1, GAP)
+            b.run(0.3)
+            rows[name] = (b, panel_leds.blinks(log.between(t0, b.m.time_ns, pads), before))
+        (_, ref), (box, gaps) = rows["firmware"], rows["blech"]
+        ok = len(gaps) <= len(ref) + KEPT and not box.m.asserts
+        shown = ", ".join(f"LED {led:#x} {round(dark / 1e6, 1)} ms" for led, _, dark in gaps[:4])
+        out.append(entry(f"pad_flicker_{scene}", ok, f"{STEPS} clicks {GAP * 1000:.0f} ms apart: {len(gaps)} dark pad gaps up to 50 ms "
+                                                       f"(firmware {len(ref)}, allowed {len(ref) + KEPT}){': ' + shown if shown else ''}"))
+    return out
+
+
 GROUPS = (case_browse, case_confirm, case_exit, case_stopped, case_stop, case_chain, case_other_sources, case_wrap, case_off, case_mfx, case_unsaved,
           case_sync_group, case_sync_voices, case_sync_unsaved, case_view, case_view_pads, case_view_copy, case_view_side, case_view_blink, case_view_back,
-          case_fast_steps)
+          case_fast_steps, case_pad_flicker)
 
 
 def group_entries(payload, flash, i):

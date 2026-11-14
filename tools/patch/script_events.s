@@ -149,7 +149,51 @@ events_store:
     str r8, [r4, #SCRIPT_CONTROL_SEQ_PART]
     str r9, [r4, #SCRIPT_CONTROL_SEQ_STEP]
     str r10, [r4, #SCRIPT_CONTROL_SEQ_MUTES]
+    mov r0, #0
+    ldr r1, =objects_padmode_last
+    mov r2, #EV_PAD_MODE
+    bl events_state
+    mov r0, #2
+    ldr r1, =objects_screen_last
+    mov r2, #EV_SCREEN
+    bl events_state
+    bl objects_touchpad_mode
+    ldr r1, =objects_touchpad_last
+    ldr r2, [r1]
+    str r0, [r1]
+    cmp r0, #4                      ; no touch pad object yet (0xFF), or the first frame (the word starts at FFFFFFFF): no event
+    cmpls r2, #4
+    bhi events_done
+    cmp r0, r2
+    beq events_done
+    mov r2, r0
+    mov r0, r4
+    mov r1, #EV_TOUCHPAD_MODE
+    mov r3, #0
+    bl events_post
+events_done:
     pop {r4-r11, pc}
+; r0 = the state word (objects_state_word), r1 = its word of the last frame, r2 = the event, r4 = control: posts the event with
+; the new value when it changed. The first frame (last FFFFFFFF) and a frame without the firmware's object post nothing.
+events_state:
+    push {r5, r6, r7, lr}
+    mov r5, r1
+    mov r6, r2
+    bl objects_state_word
+    ldr r2, [r5]
+    str r0, [r5]
+    cmp r0, #0x100
+    cmplo r2, #0x100
+    bhs events_state_done
+    cmp r0, r2
+    beq events_state_done
+    mov r2, r0
+    mov r0, r4
+    mov r1, r6
+    mov r3, #0
+    bl events_post
+events_state_done:
+    pop {r5, r6, r7, pc}
 .pool
 
 ; Entered by a branch from the first word of the firmware's settings writer 0xC004C1B4 (push {r4, r5, r6, lr}),
@@ -179,3 +223,31 @@ save_pass:
     ldr pc, =0xC004C1B8
 .pool
 script_save_hook_end:
+
+; Entered by a branch from the first word of the firmware's pattern write 0xC004C28C (push {r3-r7, lr}, r1 = the pattern),
+; which runs here after the event write is posted, then continues at the second word.
+script_write_hook:
+    push {r0-r3, r12, lr}
+    ldr r0, =HOOK_RUNTIME
+    ldr r1, [r0, #RT_ARMED]
+    cmp r1, #1
+    bne write_pass
+    ldr r1, =PANEL
+    ldr r1, [r1]
+    cmp r1, #0
+    beq write_pass
+    cmn r1, #1
+    beq write_pass
+    ldr r1, [r1, #0x18]
+    tst r1, #0x2000
+    bne write_pass
+    ldr r2, [sp, #4]
+    mov r1, #EV_WRITE
+    mov r3, #0
+    bl events_post
+write_pass:
+    pop {r0-r3, r12, lr}
+    push {r3-r7, lr}
+    ldr pc, =0xC004C290
+.pool
+script_write_hook_end:

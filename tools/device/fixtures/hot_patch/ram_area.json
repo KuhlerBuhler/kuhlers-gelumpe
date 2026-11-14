@@ -1,0 +1,32 @@
+{
+ "what": "a declared RAM area: data, full update",
+ "context": {
+  "data": [
+   [
+    "0xc0191000",
+    "0xc0191100"
+   ]
+  ],
+  "dsp": [
+   "0xc0400000",
+   "0xc0400000"
+  ]
+ },
+ "base": {
+  "0xc0191010": "00"
+ },
+ "new": {
+  "0xc0191010": "01"
+ },
+ "expect": {
+  "rows": [
+   [
+    "0xc0191010",
+    "0xc0191014",
+    "full"
+   ]
+  ],
+  "groups": [],
+  "warnings": 0
+ }
+}
