@@ -100,6 +100,9 @@
                               ; interrupt clears it, and none comes without an init (docs/messungen/2026-11-14-karte-init-sperre.md)
 .equ SD_INPUT, 0x01E26070     ; GPIO IN_DATA45: bit 1 (GPIO 4.1) is low while a card is in (tools/patch/card_gate.py)
 .equ SD_DETECT, 2
+.equ MMC_CTL, 0x01C40000      ; MMC0 control: bit 2 WIDTH (4-bit bus)
+.equ MMC_CLK, 0x01C40004      ; MMC0 clock: bit 9 DIV4, bit 8 on, bits 0-7 CLKRT; 150 MHz / ((DIV4 ? 4 : 2) * (CLKRT + 1))
+.equ MMC_CLK_IDENT, 0x25D     ; 0.4 MHz, the identification clock Korg sets once at power-on, before the first card init
 ; The settings in the flash, for a device without a card (menu_flash_read, menu_flash_save; written when the BLECH screen is left, autosave_leave): the record of
 ; settings.a.bin (version 3), behind it the word FLASH_TAG << 16 | generation and the CRC-32 of record and word, in one of two 4 KiB
 ; sectors by the parity of the generation (odd FLASH_SET_A, even FLASH_SET_B), so a torn write leaves the other copy whole.
@@ -287,6 +290,7 @@ menu_arm_load_end:
 ; are held and that is out for CARD_SETTLE frames brings back the copy in the flash (CARD_PULL), what ran before the card came.
 ; Each read clears the lock of Korg's SD init (SD_INIT_LOCK) first. A card whose read locked it again (a card that stayed busy) is
 ; read once more after CARD_RETRY_MS, which mounts it; locked again, it stays CARD_STUCK until it is pulled.
+; While no card is in, the MMC controller is set back to the identification clock of the power-on (MMC_CLK_IDENT).
 ; Called from the frame hook past the first main screen (UI task, where WRITE reads and
 ; writes the card as well). Clobbers r0 to r3 and r12.
 menu_card_watch:
@@ -375,6 +379,25 @@ card_watch_wait:
     mov r8, #1
     b card_watch_settled
 card_watch_gone:
+    ldr r1, =MMC_CLK            ; Korg's init does not set the clock: the next card would be identified at the 12.5 MHz, 4-bit bus of
+    ldr r0, [r1]                ; the card before, which a card may not answer (docs/messungen/2026-11-14-karte-tausch-takt.md)
+    ldr r3, =MMC_CLK_IDENT
+    bic r2, r0, #0x100
+    cmp r2, r3
+    beq card_watch_slow
+    bic r0, r0, #0x100          ; the clock is off while the divider changes, as the TRM asks
+    str r0, [r1]
+    bic r0, r0, #0x300
+    bic r0, r0, #0xFF
+    orr r0, r0, r3
+    str r0, [r1]
+    orr r0, r0, #0x100
+    str r0, [r1]
+    ldr r1, =MMC_CTL
+    ldr r0, [r1]
+    bic r0, r0, #4
+    str r0, [r1]
+card_watch_slow:
     ldr r0, [r4, #M_CARD]
     cmp r0, #CARD_STUCK         ; read (CARD_DONE), locked out (CARD_STUCK) or waiting for the read again (CARD_WAIT)
     movhs r0, #CARD_GONE

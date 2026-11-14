@@ -25,6 +25,7 @@ RSP01, RSP67, DRSP = 0x38, 0x44, 0x48
 ST0_DATDNE, ST0_BSYDNE, ST0_RSPDNE, ST0_TOUTRD, ST0_TOUTRS = 0x1, 0x2, 0x4, 0x8, 0x10
 ST0_CRCWR, ST0_CRCRD, ST0_CRCRS = 0x20, 0x40, 0x80      # AM1808 MMCST0: write-data, read-data and response CRC error
 ST0_DXRDY, ST0_DRRDY = 0x200, 0x400
+IDENT_CLKRT = 0x5D           # the divider of the identification clock Korg sets at power-on (MMCCLK 0x35D, with DIV4 0.4 MHz)
 CHUNK = 64                   # FIFO level the firmware sets (FIFOCTL 0x5): one interrupt per 64 bytes, read or written in one go
 
 STATES = {"idle": 0, "ready": 1, "ident": 2, "stby": 3, "tran": 4, "data": 5, "rcv": 6}
@@ -151,16 +152,19 @@ class SDCard:
     `kind` "sdsc" is an old standard-capacity card: it does not know CMD8 (no answer), reports no high-capacity bit
     in the OCR, has a version 1.0 CSD and takes byte addresses (Modellannahme: only multiples of 512, as the firmware
     sends them after CMD16 with 512). `write_protect` is the lock switch of the card, which the socket reports on
-    GPIO 4.0 (machine.py). `never_ready` is a card whose power-up never ends (ACMD41 stays busy). `faults` are armed
+    GPIO 4.0 (machine.py). `never_ready` is a card whose power-up never ends (ACMD41 stays busy). `slow_ident` is a card that
+    answers no command before it has an address (CMD3) unless the clock is the identification clock Korg sets at power-on
+    (CLKRT 0x5D or slower; a card on the device ignored ACMD41 at 12.5 MHz, docs/messungen/2026-11-14-karte-tausch-takt.md). `faults` are armed
     from the start; `fail()` arms more at any time."""
 
-    def __init__(self, medium, kind="sdhc", write_protect=False, never_ready=False, faults=()):
+    def __init__(self, medium, kind="sdhc", write_protect=False, never_ready=False, faults=(), slow_ident=False):
         if kind not in KINDS:
             raise ValueError(f"unknown card kind {kind!r}; known: {', '.join(KINDS)}")
         if kind == "sdsc" and medium.sectors * SECTOR > 2 << 30:
             raise ValueError("an SDSC card holds 2 GiB at most")
         self.medium, self.kind = medium, kind
         self.write_protect, self.never_ready = bool(write_protect), bool(never_ready)
+        self.slow_ident = bool(slow_ident)
         self.faults = [f if isinstance(f, Fault) else Fault(**f) for f in faults]
         self.sectors_read = self.sectors_written = 0
         self.commands = collections.Counter()
@@ -517,6 +521,9 @@ class MMCController:
             return
         if idx in (17, 18) and self.slow_card is not None and self.regs.get(CLK, 0) & 0xFF == self.slow_card:
             self.st0 |= ST0_TOUTRS
+            return
+        if getattr(self.card, "slow_ident", False) and self.card.state in ("idle", "ready", "ident") and self.regs.get(CLK, 0) & 0xFF < IDENT_CLKRT:
+            self.st0 |= ST0_RSPDNE if fmt == 0 else ST0_TOUTRS
             return
         res = self.card.command(idx, self.regs.get(ARG, 0))
         kind = res[0]

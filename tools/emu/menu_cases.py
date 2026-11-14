@@ -2937,6 +2937,17 @@ def card_later_cases(payload, flash=None):
     add("runtime_stays", kept == eff, f"plugin runtime and MFX 2 in effect before {eff}, after {kept}")
     add("card_not_written", bytes(dev.m.mmc.card.medium.data) == untouched, "the card was " + ("not written" if bytes(dev.m.mmc.card.medium.data) == untouched else "written"))
 
+    # a card that is identified only at the power-on clock: the card before left the controller at 12.5 MHz, 4-bit (device 14.11.)
+    slow = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    slow.m.eject_card()
+    slow.run(0.5)
+    clock = slow.m.mmc.regs.get(4, 0), slow.m.mmc.regs.get(0, 0)
+    slow.m.insert_card(SDCard(MemoryMedium(card_image(files_b)), slow_ident=True))
+    slow.run(1.0)
+    add("swap_identifies_at_the_start_clock", look(slow) == ref_b and slow.u32(SD_INIT_LOCK) == 0 and state(slow, S_CARD) == 0xFF
+        and not slow.m.asserts, f"card out: MMCCLK {clock[0]:#x}, MMCCTL {clock[1]:#x}; other card {look(slow)}, lock {slow.u32(SD_INIT_LOCK)}, "
+        f"card state {state(slow, S_CARD):#x}; started with it {ref_b}")
+
     # started without a card: the first card after such a start can hang the Korg SD init on the device, so none is read until the next start
     bare_dev = boot(payload, flash, adapter=True, card=False, seconds=wait)
     bare = look(bare_dev)
