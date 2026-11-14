@@ -457,10 +457,12 @@ ph_out:
 
 ; ===================================================== the firmware's pad light
 ; First instruction of the function that lights the pads of a note (r0 = the LED manager, r1 = the part, r2 = the note, r3 = the
-; velocity, 0 for a note off). A note on of the selected part takes every hint away, before the firmware writes its own LEDs (it
+; velocity, 0 for a note off). A note on of the selected part takes the hints away before the firmware writes its own LEDs (it
 ; writes a pad only if the pad is dark); the next tick brings back what still fits and is dark. In KEYBOARD mode the note becomes the
 ; one the hints are for, when a pad of the layout holds it: so a note of the sequencer shows its hints as a pad note does (device 18.10.).
-; The pads that hold the note go to S_PLAY (the tick clears it unless the pattern plays).
+; The pads that hold the note go to S_PLAY (the tick clears it unless the pattern plays), and only those pads are made dark: the tick
+; gives every other pad its new level anyway (14.11.: no longer all 16 pads off and on again for each note). Any other note takes
+; every hint away (na_sync with r7 0).
 light_hook:
     push {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, lr}
     cmp r3, #0
@@ -510,6 +512,34 @@ lh_next:
     str r8, [r12, #S_PLAY]
     mov r0, #0
     str r0, [r12, #S_SINCE]
+    ldrb r0, [r4, #LOCK_AT]     ; as na_sync: nothing while a plugin holds the LED lock
+    cmp r0, #0
+    bne lh_out
+    mov r6, #0
+lh_free:
+    mov r0, #1
+    tst r8, r0, lsl r6
+    beq lh_free_next
+    mov r9, r6, lsl #1
+    add r9, r9, #LED_PAD_FIRST
+    add r10, r4, r9, lsl #3
+    ldrb r0, [r10, #LED_VALUE]
+    bl na_ours
+    cmp r0, #0
+    movne r1, r9
+    movne r0, #0
+    blne na_put
+    ldrb r0, [r10, #LED_VALUE + 8]
+    bl na_ours
+    cmp r0, #0
+    addne r1, r9, #1
+    movne r0, #0
+    blne na_put
+lh_free_next:
+    add r6, r6, #1
+    cmp r6, #16
+    bne lh_free
+    b lh_out
 lh_sync:
     mov r7, #0
     bl na_sync
