@@ -115,6 +115,7 @@ const PATCH_LABELS = {
   "ht-osc": "features.htOsc.title",
   "beat-eighth": "features.beatEighth.title",
   "touch-scale-zero": "features.touchScaleZero.title",
+  "stage2-memory": "patcher.patch.stage2Memory",
   "blech-version": "patcher.patch.version",
   "doom-loader": "features.doom.title",
   "blech-sysex": { synth: "patcher.patch.sysexSynth", other: "patcher.patch.sysex" },

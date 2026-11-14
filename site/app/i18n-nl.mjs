@@ -1517,6 +1517,7 @@ export default {
   "patcher.patch.sysex": "BLECHTRIBE SysEx: RAM lezen en schrijven",
   "patcher.patch.sysexSynth": "BLECHTRIBE SysEx: RAM en flash lezen",
   "patcher.patch.ifxIdle": "Rustend inserteffect",
+  "patcher.patch.stage2Memory": "Eigen geheugen voor trap 2 van de inserteffecten",
   "patcher.patch.loadingAnim": "Eigen laadanimatie",
   "patcher.patch.version": "BLECHTRIBE-versie in het menu (BLECH > VERSION)",
   "patcher.usbName": "Apparaatnaam: Electribe 3",

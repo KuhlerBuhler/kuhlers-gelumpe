@@ -57,7 +57,7 @@ run(...command(python, [
   "--name", "gelumpe-emu",
   "--distpath", `${work}/dist`, "--workpath", `${work}/work`, "--specpath", work,
   // Every folder a case module puts on sys.path (test/sidecar-build.test.mjs holds that): doom_loader_cases imports tools/doom.
-  "--paths", path("."), "--paths", path("../patch"), "--paths", path("../doom"),
+  "--paths", path("."), "--paths", path("../patch"), "--paths", path("../doom"), "--paths", path("../dsp"),
   "--hidden-import", "machine", "--hidden-import", "check",
   // The check workers import their case modules by name at run time (parallel.py), where PyInstaller sees no import.
   ...readdirSync(path(".")).filter(f => /_cases\.py$/.test(f)).flatMap(f => ["--hidden-import", f.slice(0, -3)]),

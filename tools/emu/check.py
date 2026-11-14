@@ -67,6 +67,7 @@ from stereo_pad_cases import GROUPS as STEREOPAD_GROUPS, has_hooks as has_stereo
 from ht_osc_cases import GROUPS as HTOSC_GROUPS, has_hooks as has_htosc
 from beat_eighth_cases import GROUPS as BEATEIGHTH_GROUPS, has_hooks as has_beateighth
 from touch_scale_zero_cases import GROUPS as TOUCHZERO_GROUPS, has_hooks as has_touchzero
+from stage2_memory_check import dsp_stream as stage2_dsp_stream
 from doom_loader_cases import GROUPS as DOOM_GROUPS, has_hooks as has_doom
 
 HEADER = 0x100
@@ -76,9 +77,9 @@ SYNTH_DSP_STREAM = slice(0xDFC80, 0x1218F4)
 
 
 def same_dsp_program(base, patched):
-    """The complete DSP upload measured for this firmware build is unchanged."""
+    """(ok, detail): the DSP upload measured for this firmware build is unchanged but for the stage 2 memory patch."""
     span = SYNTH_DSP_STREAM if is_synth(base[HEADER:]) else DSP_STREAM
-    return base[span] == patched[span]
+    return stage2_dsp_stream(base, patched, span)
 
 
 def changed_runs(base, patched):
@@ -174,7 +175,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     add("header", base[:HEADER] == patched[:HEADER], "der Kopf der VSB ist unverändert")
     # The emulator stubs the DSP upload, so a changed DSP stream never shows up in a boot;
     # a broken block can hang the device before the rescue paths.
-    add("dsp_stream", same_dsp_program(base, patched), "der DSP-Strom des Firmware-Builds ist unverändert")
+    add("dsp_stream", *same_dsp_program(base, patched))
     runs = changed_runs(base[HEADER:], patched[HEADER:])
     payload = patched[HEADER:]
     want = lambda has: not quick and (cases is None or has.__module__ in cases) and has(payload)

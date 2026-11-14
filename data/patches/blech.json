@@ -30,6 +30,7 @@
   "data/patches/ht-osc.json",
   "data/patches/beat-eighth.json",
   "data/patches/touch-scale-zero.json",
+  "data/patches/stage2-memory.json",
   "data/patches/blech-version.json",
   "data/patches/doom-loader.json",
   "data/patches/blech-sysex.json",
