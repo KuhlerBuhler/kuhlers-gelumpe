@@ -49,8 +49,11 @@ def has_menu(payload):
 
 
 def for_build(payload):
-    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT
+    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT, LIST_DEV, LIST_VERSION, LIST_COUNT
     synth = synthaddr.is_synth(payload)
+    LIST_DEV = None if synth else len(LIST_PAGES)   # DEV MODE (BLECH's SysEx may write the image) is a Sampler row
+    LIST_VERSION = len(LIST_PAGES) + (0 if synth else 1)
+    LIST_COUNT = LIST_VERSION + 1
     FX_EXPORT = b"SD:KORG/blechtribe/Presets/e2sFx.all" in payload   # EXPORT ALL EFFECTS comes with the loader of the collection (fx_card.s)
     DU_FUNCS = 11 if synth else 14     # the functions of DATA UTILITY's list (screen 15), the blue has no sample functions
     SYNC_GROUP = True                  # the page SYNC GROUP is in the ring on both (the synth since 24.10.)
@@ -139,7 +142,8 @@ STEREO_PAGE = False                                                   # set by b
 
 
 VERSION_TEXT = 0xC014FCF0                                            # the patch blech-version (tools/patch/blech_version.mjs): the title of VERSION
-LIST_VERSION = len(LIST_PAGES)                                       # VERSION, the last row of the list (behind GAMES and TOOLS where an app is declared)
+LIST_DEV = len(LIST_PAGES)                                           # DEV MODE, in front of VERSION on the Sampler (for_build sets None on the synth)
+LIST_VERSION = LIST_DEV + 1                                          # VERSION, the last row of the list (behind GAMES and TOOLS where an app is declared)
 LIST_COUNT = LIST_VERSION + 1
 BASE_NAMES = {"hacktribe": "HACKTRIBE", "stock": "KORG RED", "synth": "KORG BLUE"}   # the value of VERSION: the firmware the runtime is built for
 
@@ -670,6 +674,8 @@ def list_cases(payload, flash=None):
         press(dev, "edit_next")
     wrapped = (dev.screen()["number"], state(dev, S_PAGE))
     want = [(MENU, 1, page, (page, LIST_COUNT), (title, "", PRESS), "BLECH") for page, title in enumerate(LIST_PAGES)]
+    if LIST_DEV is not None:
+        want.append((MENU, 1, LIST_DEV, (LIST_DEV, LIST_COUNT), ("DEV MODE", "OFF", ""), "BLECH"))
     want.append((MENU, 1, LIST_VERSION, (LIST_VERSION, LIST_COUNT), (*version_texts(payload), ""), "BLECH"))
     add("enter_opens_the_list_of_groups", steps == want and wrapped == (MENU, 0), f"{steps}, then {wrapped}")
     # VERSION, the last row: the version of the set this copy was patched with and the firmware it is for; ENTER, WRITE and the dial change nothing

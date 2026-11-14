@@ -144,6 +144,10 @@
 .equ US_STATUS, 0x14
 .equ US_BAD, 4                  ; ST_NOTALL: the file is there but not a sample file
 .equ US_OK, 5                   ; ST_OK
+; DEV MODE (kind 56): the word DEV_FLAG (build profile, 0 where the build has no page) holds DEV_MAGIC while it is on; BLECH's
+; SysEx code then lets a WRITE into the firmware image pass (tools/patch/blech_sysex.py). The image has FF there, so every start
+; begins with it off; nothing saves it.
+.equ DEV_MAGIC, 0x4D564544      ; "DEVM"
 .equ SPLASH_IMPORT, 0xC01A2500 ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
 .equ SPLASH_DRAW, 0xC01A2504
 .equ SPLASH_RESET, 0xC01A2508
@@ -2996,6 +3000,8 @@ menu_texts_clear:
     beq menu_text_version
     cmp r0, #55
     beq menu_text_us
+    cmp r0, #56
+    beq menu_text_dev
     cmp r0, #42
     beq menu_text_export
     cmp r0, #43
@@ -3080,6 +3086,33 @@ menu_text_us_ok:
 menu_text_us_end:
     bl menu_copy
     pop {r4, r5, r6, r7, pc}
+; DEV MODE (56): ON while DEV_FLAG holds DEV_MAGIC
+menu_text_dev:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_dev
+    bl menu_copy
+    bl menu_dev_state
+    cmp r0, #0
+    ldreq r1, =str_off
+    ldrne r1, =str_on
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    pop {r4, r5, r6, r7, pc}
+; -> r0 = 1 when the build has DEV MODE (DEV_FLAG is not 0). Clobbers nothing else.
+menu_dev_on:
+    ldr r0, =DEV_FLAG
+    cmp r0, #0
+    movne r0, #1
+    bx lr
+; -> r0 = 1 while DEV MODE is on. Clobbers r1.
+menu_dev_state:
+    ldr r1, =DEV_FLAG
+    ldr r0, [r1]
+    ldr r1, =DEV_MAGIC
+    cmp r0, r1
+    moveq r0, #1
+    movne r0, #0
+    bx lr
 ; -> r0 = 1 when the list has the row USER SAMPLES: the build has the patch's state (US_STATE) and the start found a sample file there
 ; (loaded it, or found it was not one). Without the file, with EXIT at power-on or without the patch (FF) there is no row. Clobbers r1.
 menu_us_on:
@@ -4101,7 +4134,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 54 SAVE TO FLASH; 50 was HT OSC, 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 54 SAVE TO FLASH, 55 USER SAMPLES, 56 DEV MODE; 50 was HT OSC, 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -4144,9 +4177,14 @@ menu_kind:
     moveq r0, #41
     moveq r1, #0
     beq menu_kind_done
-    sub r0, r0, #1              ; USER SAMPLES in front of it, where the start found a sample file
+    sub r0, r0, #1              ; DEV MODE (the Sampler) or USER SAMPLES (the blue, where the start found a sample file) in front of it
     cmp r5, r0
     bne menu_kind_rows
+    bl menu_dev_on
+    cmp r0, #0
+    movne r0, #56
+    movne r1, #0
+    bne menu_kind_done
     bl menu_us_on
     cmp r0, #0
     movne r0, #55
@@ -4364,6 +4402,8 @@ menu_count_level1:
     cmp r0, #0
     addne r4, r4, #1
     bl menu_us_on               ; and USER SAMPLES on the blue when the start found a sample file
+    add r4, r4, r0
+    bl menu_dev_on              ; and DEV MODE on the Sampler
     add r4, r4, r0
     mov r0, r4
     pop {r4, pc}
@@ -6039,6 +6079,8 @@ menu_slot_value:
     beq menu_value_as
     cmp r0, #53
     beq menu_value_knob
+    cmp r0, #56
+    beq menu_value_dev
     cmp r0, #24
     beq menu_value_colour
     cmp r0, #25
@@ -6272,6 +6314,16 @@ menu_value_knob:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
+; DEV MODE acts at once and is never saved: the dial up writes DEV_MAGIC, down FF (as after the start)
+menu_value_dev:
+    ldr r1, =DEV_FLAG
+    cmp r5, #0
+    ldrgt r2, =DEV_MAGIC
+    mvnle r2, #0
+    str r2, [r1]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
 ; AUTO SAVE acts at once
 menu_value_as:
     mov r1, #1
@@ -6459,6 +6511,7 @@ menu_slot_keys:
     cmp r0, #39
     cmpne r0, #41
     cmpne r0, #55
+    cmpne r0, #56               ; WRITE on DEV MODE saves nothing: it is not a setting
     beq menu_keys_done
     cmp r0, #36
     cmpeq r6, #0x09
@@ -6959,6 +7012,8 @@ str_sp:
     .asciz "STEREO 1 PAD"
 str_us:
     .asciz "USER SAMPLES"
+str_dev:
+    .asciz "DEV MODE"
 str_us_loaded:
     .asciz " LOADED"
 str_us_ok:

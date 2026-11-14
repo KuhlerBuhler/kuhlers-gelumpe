@@ -51,9 +51,10 @@ export function accessOf(msg) {
  * @param {{space: "ram"|"flash", op: "read"|"write", addr: number, length: number}} access
  * @param {object} [o]
  * @param {{start: number, end: number, what: string}[]} [o.declared] the regions the editor may write; the ones an exception can name
+ * @param {boolean} [o.devMode] DEV MODE is on: a region with `devOpen` passes writes (not in the mirror), its `devClosed` parts stay closed
  * @returns {{region: object, message: string} | null} the reason to refuse, or null
  */
-export function refusal(access, { declared, build } = {}) {
+export function refusal(access, { declared, build, devMode = false } = {}) {
   const { space, op, addr, length } = access;
   const verb = op === "write" ? "Schreiben" : "Lesen";
   const where = `${verb} bei ${hex(addr)} für ${length} Byte`;
@@ -70,11 +71,13 @@ export function refusal(access, { declared, build } = {}) {
     spots.push({ at: other, mirror: true });
   }
 
+  const closed = devMode && space === "ram" && op === "write" ? devClosedRegions(build) : [];
   for (const { at, mirror } of spots) {
-    for (const region of PROTECTED_REGIONS) {
+    for (const region of [...closed, ...PROTECTED_REGIONS]) {
       if (region.space !== space || (region.deny === "write" && op !== "write")) continue;
       if (at >= region.end || at + length <= region.start) continue;
       if (!mirror && region.except && covers(declaredHit()?.what ?? "", region.except)) continue;
+      if (!mirror && devMode && region.devOpen && build !== "synth") continue;
       const proposal = region.status === "proposal" ? " Schutzvorschlag, am Gerät nicht beobachtet." : "";
       const via = mirror ? ` Die Adresse liegt im vermuteten Spiegel (${hex(at)}) des Bereichs.` : "";
       return {
@@ -92,6 +95,17 @@ export function refusal(access, { declared, build } = {}) {
     };
   }
   return null;
+}
+
+/** The regions DEV MODE keeps closed in one build's image, as protection entries. The synth has no DEV MODE. */
+export function devClosedRegions(build = "hacktribe") {
+  const list = PROTECTED.devClosed[build] ?? [];
+  return list.map((r, i) => ({
+    id: `dev-closed-${i}`, space: "ram", start: r.start, end: r.end, deny: "write", status: "derived",
+    what: "Im Dev Mode gesperrt",
+    why: `SysEx- oder Flash-Weg der Firmware, auch im Dev Mode gesperrt (${r.from}).`,
+    evidence: "measure:2026-11-14/dev-mode-sperrbereiche",
+  }));
 }
 
 /** The first refusal among the messages of some steps, or null. For the sender, which has no declared list of its own. */
