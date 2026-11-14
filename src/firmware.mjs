@@ -29,7 +29,7 @@ const text = (bytes, at, n) => String.fromCharCode(...bytes.subarray(at, at + n)
  * start image never touch it, so it tells the two builds apart for every Hacktribe file, original or edited.
  * The same rule is tools/emu/firmware.py `build_of`. File offsets, the header is 0x100 bytes.
  */
-const HACKTRIBE_CODE = { file: 0x170100, length: 0x40 };
+export const HACKTRIBE_CODE = { file: 0x170100, length: 0x40 };
 
 /** The head of the blue Electribe 2 (synth) ends its file type in "E2", the Sampler's in "E2S": derived from one file of
  * each (docs/messungen/2026-10-15-blaue-electribe.md). The service identifies by code (tools/emu/firmware.py). */

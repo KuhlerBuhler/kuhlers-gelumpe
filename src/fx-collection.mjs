@@ -118,12 +118,15 @@ export function parseCollection(bytes, { counts = null } = {}) {
 /** What the user can free on purpose (Baukasten, "Gesperrte Bausteine freigeben"): the measured bad block combinations. */
 const RISKY_CODES = new Set(["stage2-fatal", "stage2-silent", "stage1-needs-solo"]);
 
-/** @param {{risky?: boolean}} [options] risky: let the measured bad block combinations through, the rest stays barred */
-export function collectionEntry(preset, vsb, index, units, { risky = false } = {}) {
+/**
+ * @param {{risky?: boolean, modTable?: object}} [options] risky: let the measured bad block combinations through, the rest stays barred;
+ *   modTable: where the modulation types are when no code in `vsb` points at them (src/device-fx.mjs)
+ */
+export function collectionEntry(preset, vsb, index, units, { risky = false, modTable = null } = {}) {
   const build = buildOf(vsb);
   if (!(build in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für Korgs Firmware 2.02 (rot und blau) und für Hacktribe." };
   if (preset.kind === "mod") {
-    const table = locateModTable(vsb);
+    const table = modTable ?? locateModTable(vsb);
     if (!table.ok) return { ok: false, reason: table.reasons[0] };
     if (index < 0 || index >= MOD_COUNT) return { ok: false, reason: `Modulation ${index + 1} gibt es nicht, es sind ${MOD_COUNT}.` };
     const data = vsb.slice(table.file + index * MOD_RECORD, table.file + (index + 1) * MOD_RECORD);
@@ -153,10 +156,10 @@ export function collectionEntry(preset, vsb, index, units, { risky = false } = {
  * within its kind is what adding a preset does too (src/presets.mjs addPreset).
  * @returns {{ok: true, entry: object} | {ok: false, reason: string}}
  */
-export function factoryEntry(vsb, kind, from, index, units) {
+export function factoryEntry(vsb, kind, from, index, units, { modTable = null } = {}) {
   if (!(buildOf(vsb) in BUILDS)) return { ok: false, reason: "Die Sammeldatei gibt es für Korgs Firmware 2.02 (rot und blau) und für Hacktribe." };
   if (kind === "mod") {
-    const table = locateModTable(vsb);
+    const table = modTable ?? locateModTable(vsb);
     if (!table.ok) return { ok: false, reason: table.reasons[0] };
     if (from < 1 || from > MOD_COUNT || index < 0 || index >= MOD_COUNT) return { ok: false, reason: `Modulation ${from} gibt es nicht, es sind ${MOD_COUNT}.` };
     const data = vsb.slice(table.file + (from - 1) * MOD_RECORD, table.file + from * MOD_RECORD);
@@ -203,17 +206,17 @@ export async function targetFirmware(target, file, { hacktribePatch = null } = {
  * @param {{kind: string, slot: number, from?: number, preset?: object}[]} items
  * @returns {{ok: true, bytes: Uint8Array} | {ok: false, code?: "build", from?: number, name?: string, reason?: string}}
  */
-export function collectionFor(target, firmware, items, units, { risky = false } = {}) {
+export function collectionFor(target, firmware, items, units, { risky = false, modTable = null } = {}) {
   if (!(target in BUILDS) || !firmware || hardwareOf(firmware) !== targetHardware(target) || buildOf(firmware) !== target) return { ok: false, code: "build" };
   const entries = [];
   for (const item of items) {
     if (item.from) {
-      const moved = factoryEntry(firmware, item.kind, item.from, item.slot - 1, units);
+      const moved = factoryEntry(firmware, item.kind, item.from, item.slot - 1, units, { modTable });
       if (!moved.ok) return { ok: false, from: item.from, reason: moved.reason };
       entries.push(moved.entry);
       continue;
     }
-    const made = collectionEntry(item.preset, firmware, item.slot - 1, units, { risky });
+    const made = collectionEntry(item.preset, firmware, item.slot - 1, units, { risky, modTable });
     if (!made.ok) return { ok: false, name: item.preset.name, reason: made.reason };
     entries.push(made.entry);
   }
