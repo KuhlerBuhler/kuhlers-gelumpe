@@ -140,6 +140,7 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [22.10.2026: Gemeinsame CRC, Speicherfüllung und kombinierte Rechenbefehle](2026-10-22-patch-effizienz-helfer.md)
 - [20.10.2026: Laufzeit und Platz der BLECH-Patches](2026-10-20-patch-performance.md)
 - [8.11.2026: CPU-Last mit BLECH, was am Gerät zu sehen ist und was jeder Patch kostet, im Emulator](2026-11-08-cpu-last-blech.md)
+- [14.11.2026: Energie und Last, Befunde vor der Umsetzung: Lastmethode, Statusleiste, Panel, Leerlauf, DSP](2026-11-14-energie-befunde.md)
 
 - [Startbild-Editor im Menü Global (Idee 35): gebaut und im Emulator geprüft](2026-10-10-startbild-editor.md)
 - [MFX 2 auf TOUCH SCALE (Idee 44): gebaut und im Emulator geprüft](2026-10-10-mfx-umschalter.md)
