@@ -346,9 +346,9 @@ def case_grow(payload, flash):
             self.dev = Dev(bytes(payload), flash, 0)
             self.dsp = DspLog(self.dev.m)
             self.dev.m.insert_card(card(files))
-            self.dev.run(BOOT_S)
+            self.dev.run(BOOT_SYNTH_S if self.dev.synth else BOOT_S)
 
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     base = Box({})
     n0 = {k: base.count(k) for k in ("ifx", "mfx")}
     last = {"ifx": SLOTS - 1, "mfx": n0["mfx"] + 5}
