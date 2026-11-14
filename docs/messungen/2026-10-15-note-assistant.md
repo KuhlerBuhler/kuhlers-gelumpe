@@ -128,6 +128,25 @@ den Hinweis halten und folgt, solange das Hinweisfenster offen ist, der Regel "p
 Mit dem Haken zeigt Pad 2 im ersten Schritt (192, 0), das Licht der Firmware, und danach wieder den Hinweis. Ohne den Haken (das Wort `0xC008870C` auf dem Original) bleibt das Pad im Hinweis (21, 13), das Licht der Firmware
 kommt nie, und beim Ende der Note setzt die Firmware das Rot auf 0 und die Hinweise flackern (rot 0, blau 13) bis zum nächsten Takt des LED-Managers. Der Haken ist also nötig und tut, was die Herleitung sagt.
 
+## Nur die Pads der Note freigeben (14.11.)
+
+Bis 14.11. nahm `light_hook` bei jeder Note des gewählten Parts alle 16 Hinweise weg (`na_sync` mit r7 = 0), und der
+nächste Takt des LED-Managers setzte sie neu. Im KEYBOARD-Modus mit laufendem Pattern hieß das zwei LED-Nachrichten je
+Hinweis-Pad und Note. Jetzt macht der Haken nur die Pads dunkel, die die Note halten (die Firmware schreibt nur dunkle
+Pads); den übrigen gibt der nächste Takt ihre neue Stufe ohnehin. Eine Note, die kein Pad hält, oder eine Note außerhalb
+von KEYBOARD nimmt weiter alle Hinweise weg.
+
+Gemessen mit `tools/emu/arm_load.py` (Stand mit Bindungs-Cache gegen denselben Stand mit dieser Änderung, `blech.json`
+bzw. `blech-synth.json`), Szene `playing-keyboard`:
+
+| | Hacktribe | Korg rot | Synth |
+|---|---:|---:|---:|
+| Panelnachrichten je Sekunde | 731,5 / 401,5 | 730,3 / 401,5 | 731,0 / 401,0 |
+| Last gesamt in % | 11,044 / 10,830 | 11,056 / 10,845 | 11,349 / 11,138 |
+
+Ohne KEYBOARD bleiben Last und Nachrichten gleich. Alle 33 Fälle von `note_assist_cases.py` sind auf den drei Builds
+grün.
+
 ## Grenzen und offen
 
 - **Offen, am Gerät:** ob 21 und 13 zu schwach, zu stark oder zu bläulich sind (Zwischenwerte zeigt der Weg über den LED-Manager, 16.10.); ob das Blau des Parts nach dem Ende der Hinweise sichtbar zurückkommt, auch bei Moduswechsel und Part-Wechsel mitten in den 1,5 s; ob die Hinweise unter Last flackern; ob 1,5 s Hinweiszeit sich richtig anfühlt.
