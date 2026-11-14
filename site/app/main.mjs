@@ -28,6 +28,7 @@ import { rescuePage } from "./rescue.mjs";
 import { checkVerdict } from "../../data/rescue.mjs";
 import { collectMidi, midiVerdict } from "./midi-report.mjs";
 import { supportPage } from "./support.mjs";
+import { seenBefore, startPage } from "./start.mjs";
 import { changelogPage } from "./changelog.mjs";
 import { discordPage } from "./discord.mjs";
 import { splashPage } from "./splash.mjs";
@@ -571,6 +572,8 @@ function fileLinks() {
 }
 
 function boot() {
+  // Before the tabs store the open page: a 1.4.x user's last page is one sign of having used the app.
+  try { seenBefore(window.localStorage); } catch { /* blocked storage: a first visit */ }
   applySettings();
   fileLinks();
   const changelog = changelogPage($("#cee-changelog"), $("#cee-tab-changelog"));
@@ -622,11 +625,12 @@ function boot() {
   let sd = null;
   let sampleset = null;
   let doom = null;
+  let start = null;
   // One session on the emulator's port, shared by the effect editor's probe and the terminal's rehearsal.
   const probe = sharedProbe(() => emulator?.port, () => emulator?.lack("sysex") ?? null);
   let restrictNow = () => {};
   const device = devicePanel($("#cee-device"), {
-    onSession: () => { sampleset?.sessionChanged(); doom?.sessionChanged(); restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
+    onSession: () => { start?.sessionChanged(); sampleset?.sessionChanged(); doom?.sessionChanged(); restrictNow(); fx?.sessionChanged(); patterns?.update(); ptools?.sessionChanged(); terminal?.update(); usb.setConnected(!!device?.session && !device.session.sender.disconnected && device.session.port !== emulator?.port); },
     emulator: () => emulator?.port,
     view: () => emulator,
     probe,
@@ -732,6 +736,7 @@ function boot() {
   let plainFor = null;
   let fxRunning = false;
   let noFirmware = null;
+  let startFirmware = null;
   setInterval(() => {
     const running = !!emulator.port.running;
     if (running !== fxRunning) { fxRunning = running; if (running) setTimeout(() => fx.refresh(), 3000); }
@@ -751,6 +756,7 @@ function boot() {
       });
     }
     if (emulator.firmware && emulator.firmware !== modFirmware) { modFirmware = emulator.firmware; modulations.loadBytes(modFirmware).catch(() => {}); }
+    if (emulator.firmware !== startFirmware) { startFirmware = emulator.firmware; start?.firmwareChanged(); }
     baukasten.update();
     if (!emulator.firmware !== noFirmware) { noFirmware = !emulator.firmware; restrict(); }
   }, 1000);
@@ -764,9 +770,11 @@ function boot() {
   let target = null;
   // The patcher's last red test, for Blechy; it lasts until the app closes, a passed test clears it.
   let tested = null;
-  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null, onTarget: folder => { target = folder; }, onTest: failure => { tested = failure; } });
+  patcherPage($("#cee-patcher"), { emulator, show: id => areas?.select(id), session: () => device.session ?? null, onTarget: folder => { target = folder; start?.done(); }, onTest: failure => { tested = failure; } });
   // A session on the emulator's port is no Electribe, so the Rettung page only asks one on a cable.
   const cabled = () => (device.session && device.session.port !== emulator?.port && !device.session.sender.disconnected ? device.session : null);
+  start = startPage($("#cee-start-page"), { storage, session: cabled, emulator: () => emulator });
+  usb.subscribe(() => start.sessionChanged());
   rescuePage($("#cee-rescue"), {
     hardware: () => cabled()?.hardware?.() ?? null,
     firmware: () => (cabled()?.device?.blech ? "blech" : null),
