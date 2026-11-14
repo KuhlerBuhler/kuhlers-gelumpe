@@ -29,7 +29,7 @@ def dsp_stream(base, patched, span):
         expected[at:at + len(new)] = new
     if bytes(expected[span]) != patched[span]:
         return False, "der DSP-Strom ist anders geändert als durch stage2-memory"
-    return True, "der DSP-Strom trägt genau die Änderungen von stage2-memory (Speicher für Stufe 2, kürzerer Heap 1), sonst unverändert"
+    return True, "der DSP-Strom trägt genau die Änderungen von stage2-memory (Speicher für Stufe 2, kürzerer Heap 1, Nullen beim Start), sonst unverändert"
 
 
 def main():

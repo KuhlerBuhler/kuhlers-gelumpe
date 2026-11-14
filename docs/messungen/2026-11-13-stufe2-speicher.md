@@ -21,7 +21,7 @@ Zustand bis `0x84` Bytes (`0x11`). Fast jedes Paar schreibt also in den Nachbarn
 
 ## Patch
 
-`tools/patch/stage2_memory.py`, im BLECH-Set als `stage2-memory`. Fünf Befehle der Schleife und die Länge von Heap 1:
+`tools/patch/stage2_memory.py`, im BLECH-Set als `stage2-memory`. Fünf Befehle der Schleife, die Länge von Heap 1 und ein Block im Startstrom:
 
 | Adresse | vorher | nachher |
 |---|---|---|
@@ -31,6 +31,7 @@ Zustand bis `0x84` Bytes (`0x11`). Fast jedes Paar schreibt also in den Nachbarn
 | `0x01F0C1CC` | `[I0++] = R6` (0) | `[I0++] = R0` (Puffer des Parts) |
 | `0x01F0C1EC` | `R4 = 0x1B4` | `R4 = 0xB4` |
 | `0x01F02448` | Heap 1: `0x39FF` Bytes | `0x1D20` Bytes (Heap-Tabelle: Basis, Länge, Nummer) |
+| Startblock 145 (Datei `0x130918`) | füllt `0xFF900CD0` bis `0xFF903FF0` mit Nullen (`0x3320`) | bis `0xFF908000` (`0x7330`), Prüfbyte des Kopfs `0x0D` zu `0x5D` |
 
 Danach:
 
@@ -39,6 +40,7 @@ Danach:
   `0xA0` Bytes des Part-Blocks.
 - SDRAM Stufe 2: der Puffer des Parts.
 - Heap 1: `0xFF904600` bis `0xFF906320` statt bis zum Ende von Bank B.
+- Beim Start steht in Bank B ab `0xFF900CD0` bis zum Ende überall 0.
 
 Der DSP-Strom hat keine Prüfsumme über die Nutzdaten (keine Callback- oder CRC-Flags, Block 107 trägt Flag `0x1`). `check.py`
 lässt am DSP-Strom genau diese Änderungen durch und sonst nichts (`tools/emu/stage2_memory_check.py`).
@@ -69,6 +71,21 @@ nichts kaputt, aber `0x15` hätte mit fremden, sich ändernden Werten gerechnet.
 Bytes Lücke zwischen Zustand und Koeffizienten: das Wort liegt für jeden Part in Speicher, den kein Baustein der Stufe 2
 benutzt (`0x14` Bytes hinter den Koeffizienten zwei Parts tiefer, die Lücke, oder das ungenutzte Ende des Zustands von
 Part 15). `build_patch` prüft das.
+
+## Zufälliger Speicher beim Einschalten
+
+Erster Gerätetest (Rot, Firmware mit dem Patch ohne den Startblock, 2026-11-14): auf Pad 5 liefen alle Paare aus der
+Liste unten, auf Pad 8 hängte `0x0a` vor `0x12` den DSP. Pads ließen sich noch wechseln, Regler und IFX an/aus nicht mehr;
+nach einem Samplewechsel und Spielen des Pads stürzte das ganze Gerät ab. IFX muss dafür nicht an sein, der Effekt ist
+auch bei IFX aus geladen.
+
+Die Lesung von Bank B im Leerlauf (alte Firmware) zeigt, warum es vom Pad abhängt: `0xFF9054E0` bis `0xFF908000` hält
+zufällige Bytes vom Einschalten, die niemand schreibt. Der Startstrom löscht nur bis `0xFF903FF0`, kein anderer Block lädt
+darüber. Stufe 2 startete also auf Müll, für jeden Part anderem. Der Simulator hat dort Nullen und sah es nicht.
+
+Darum füllt der Startblock 145 jetzt bis zum Ende von Bank B. Er löscht damit auch den Bereich des Stacks
+(`0xFF904000` bis `0xFF904600`); das ist harmlos, solange der Stack des Boot-ROMs dort nicht liegt (angenommen, nicht
+geprüft). `stage2_memory.py` prüft, dass kein anderer Block in den neu gelöschten Bereich lädt.
 
 ## Ergebnis im Simulator
 
@@ -130,3 +147,4 @@ auf Blau darüber frei ist, steht noch aus.
 3. `0x0a` vor `0x01`, `0x09` vor `0x0a`, `0x0a` vor `0x09` (vorher Absturz oder kein Ton).
 4. `0x11` (Chorus) und `0x12` (Flanger) in Stufe 2, etwa hinter `0x0a` (vorher Absturz).
 5. `0x18` (Short Delay) in Stufe 2 hinter `0x0a` (vorher Ton weg am ganzen Gerät).
+6. Alle Paare auf mehreren Pads, besonders `0x0a` vor `0x12` auf Pad 8 (hing ohne den Startblock).

@@ -43,6 +43,12 @@
    "bytes": "201d0000",
    "expect": "eed9ded321f40035e83a0ad24e896746122c96b91644b590a448b66c3f957b7c",
    "note": "DSP 0x01f02448: heap 1 length, the heap ends where stage 2 starts (was 0x39FF, the rest of bank B)"
+  },
+  {
+   "file": 1247512,
+   "bytes": "01015dadd00c90ff3073000000000000",
+   "expect": "4ccb47e8d33ba2a6e4fc27160be3b4a86bb455b906908c75b45875fa4e2940f9",
+   "note": "DSP boot block: zero fill 0xff900cd0 up to 0xff908000 (was 0xff903ff0)"
   }
  ],
  "startPhase": [],

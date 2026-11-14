@@ -1,4 +1,4 @@
-"""Builds the stage 2 memory patch: five instructions and the heap 1 length of the DSP program of the red builds (Hacktribe and Korg's 2.02),
+"""Builds the stage 2 memory patch: five instructions, the heap 1 length and one boot block of the DSP program of the red builds (Hacktribe and Korg's 2.02),
 docs/messungen/2026-11-13-stufe2-speicher.md.
 
 An insert effect has two stages, each one an effect unit of the DSP. At start the DSP fills one argument block per part
@@ -15,6 +15,7 @@ Patched:
                            the part's whole 0xA0 bytes
     stage 2 delay memory   the part's SDRAM buffer
     heap 1                 0xFF904600 + 0x1D20 instead of 0x39FF bytes, so it ends where stage 2 starts
+    zero fill at boot      0xFF900CD0 up to 0xFF908000 instead of 0xFF903FF0, so stage 2 starts on zeros
 
 Unit 0x15 keeps a pointer to the word 0xC8 below its coefficients (in stage 1 the part block + 8), reads it every frame
 and writes the same value back. The 0xB4 stride and the 0x34 bytes between the state and the coefficients make that
@@ -50,6 +51,7 @@ COEF_BACK = 0xC8                        # unit 0x15 reads and rewrites the word 
 TAKEN = (STATE2, COEF2 + COEF2_STRIDE * (PARTS - 1) + COEF_USED)
 HEAP1, HEAP1_LEN = 0xFF904600, 0x39FF          # heap table entry at 0x01F02444: base, length, id 1
 HEAP1_NEW = STATE2 - HEAP1
+FILL_AT, FILL_WAS, BANK_B_END = 0xFF900CD0, 0x3320, 0xFF908000   # the boot stream's zero fill of bank B
 
 # DSP address, instruction before, instruction after, what it does
 SITES = (
@@ -84,7 +86,31 @@ def sites(vsb):
         if at is None or vsb[at:at + len(old)] != old:
             return None
         out.append((at, old, bytes.fromhex(now), f"DSP {addr:#010x}: {note}"))
-    return out
+    fill = zero_fill(vsb)
+    if fill is None:
+        return None
+    return out + [fill]
+
+
+def zero_fill(vsb):
+    """The header of the boot stream's zero fill of bank B, made to reach the end of the bank: (file offset, before, after,
+    note), or None when the stream has no such block. Bank B above the heap is never written otherwise, so stage 2 would
+    start on whatever the RAM held at power on (read on the device: random bytes from 0xFF9054E0 up)."""
+    try:
+        blocks = list(dsp_extract.parse(vsb))
+    except ValueError:
+        return None
+    for _, pos, flags, target, count, arg, _ in blocks:
+        if flags & dsp_extract.F_FILL and target == FILL_AT and count == FILL_WAS and arg == 0:
+            old = bytes(vsb[pos:pos + 16])
+            new = bytearray(old)
+            new[8:12] = (BANK_B_END - FILL_AT).to_bytes(4, "little")
+            new[2] = 0
+            for i, byte in enumerate(new):
+                if i != 2:
+                    new[2] ^= byte
+            return pos, old, bytes(new), f"DSP boot block: zero fill {FILL_AT:#x} up to {BANK_B_END:#x} (was {FILL_AT + FILL_WAS:#x})"
+    return None
 
 
 def free_word(addr):
@@ -98,7 +124,7 @@ def build_patch(vsb):
     assert all(free_word(COEF2 + COEF2_STRIDE * k - COEF_BACK) for k in range(PARTS))
     assert dsp_extract.vsb_offset(vsb, 0x01F02444) is not None and vsb[dsp_extract.vsb_offset(vsb, 0x01F02444):][:4] == HEAP1.to_bytes(4, "little")
     for _, _, flags, target, count, _, _ in dsp_extract.parse(vsb):
-        if not flags & dsp_extract.F_IGNORE and count and target < TAKEN[1] and TAKEN[0] < target + count:
+        if not flags & dsp_extract.F_IGNORE and not flags & dsp_extract.F_FILL and count and target < BANK_B_END and FILL_AT + FILL_WAS < target + count:
             raise SystemExit(f"a boot block loads {target:#x}..{target + count:#x}, inside the memory the patch takes")
     found = sites(vsb)
     if found is None:
