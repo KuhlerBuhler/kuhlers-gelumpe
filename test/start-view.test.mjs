@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DONE_KEY, VERSION_AT, compareVersions, deviceFacts, parseBlechVersion, seenBefore, startView, updateState } from "../site/app/start.mjs";
+import { DONE_KEY, VERSION_AT, compareVersions, deviceFacts, deviceReads, parseBlechVersion, seenBefore, startView, updateState } from "../site/app/start.mjs";
 import { VERSION_AT as PATCH_AT } from "../tools/patch/blech_version.mjs";
 
 const store = (init = {}) => {
@@ -70,4 +70,30 @@ test("device facts: one read each per session, the version only with BLECH's RAM
   assert.deepEqual(await deviceFacts(null), { hardware: null, version: null });
   const stuck = { device: { ram: "blech", blech: {} }, hardware: () => new Promise(() => {}), readRamBlock: async () => text("BLECH 1.4.6") };
   assert.deepEqual(await deviceFacts(stuck, 20), { hardware: null, version: "1.4.6" }, "a read that does not come back is unknown after the wait");
+  const slow = { device: { ram: "blech", blech: {} }, hardware: async () => "red", readRamBlock: () => new Promise(done => setTimeout(done, 60, text("BLECH 1.4.6"))) };
+  const late = deviceReads(slow, 20);
+  assert.equal(await late.version, null, "unknown after the wait");
+  assert.equal(await late.late.version, "1.4.6", "the read goes on and its answer can still be drawn");
+});
+
+test("device facts: a session busy with another read (the sidebar's LEDs, or the version) is waited for, not taken as unknown", async () => {
+  // One operation at a time, as Session.exclusive: a second one while one runs is refused with kind "busy".
+  const busySession = () => ({
+    device: { ram: "blech", blech: {} },
+    running: null,
+    get busy() { return !!this.running; },
+    async idle() { while (this.running) await this.running.catch(() => {}); },
+    async exclusive(fn) {
+      if (this.running) throw Object.assign(new Error("busy"), { kind: "busy" });
+      this.running = fn();
+      try { return await this.running; } finally { this.running = null; }
+    },
+    hardware() { return this.exclusive(async () => "red"); },
+    readRamBlock() { return this.exclusive(async () => text("BLECH 1.0.0")); },
+  });
+  assert.deepEqual(await deviceFacts(busySession(), 1000), { hardware: "red", version: "1.0.0" }, "the flash read waits for the RAM read");
+  const session = busySession();
+  const leds = session.exclusive(() => new Promise(done => setTimeout(done, 30)));
+  assert.deepEqual(await deviceFacts(session, 1000), { hardware: "red", version: "1.0.0" }, "both wait for the LED read");
+  await leds;
 });
