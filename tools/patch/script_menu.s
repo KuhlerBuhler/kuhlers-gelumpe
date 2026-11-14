@@ -144,6 +144,13 @@
 .equ US_STATUS, 0x14
 .equ US_BAD, 4                  ; ST_NOTALL: the file is there but not a sample file
 .equ US_OK, 5                   ; ST_OK
+.equ MEDIA_CODE, 0xC01AD000    ; the loading animation's card entries (tools/patch/load_bar.py media_entry), FF where the set has no loading animation:
+.equ MEDIA_GET, MEDIA_CODE + 4  ; -> byte 14 of Media/loading.blla as the start read it, -1 without a valid file
+.equ MEDIA_SET, MEDIA_CODE + 8  ; (byte 14, FatFs file, &written) -> 0 written, -1 no file at the start, else FatFs's code
+; DEV MODE (kind 56): the word DEV_FLAG (build profile, 0 where the build has no page) holds DEV_MAGIC while it is on; BLECH's
+; SysEx code then lets a WRITE into the firmware image pass (tools/patch/blech_sysex.py). The image has FF there, so every start
+; begins with it off; nothing saves it.
+.equ DEV_MAGIC, 0x4D564544      ; "DEVM"
 .equ SPLASH_IMPORT, 0xC01A2500 ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
 .equ SPLASH_DRAW, 0xC01A2504
 .equ SPLASH_RESET, 0xC01A2508
@@ -2579,7 +2586,7 @@ menu_brw_row_bmp:
     b menu_brw_row_next
 menu_brw_row_card:              ; behind the names kept: read from the folder
     bl splash_pick
-    ldr r1, =LIST_PATH+SPLASH_NAME_AT
+    mov r1, r2
     mov r2, #BRW_FILE+BRW_NOEXT
 menu_brw_row_name:
     strb r2, [r11]
@@ -2996,6 +3003,8 @@ menu_texts_clear:
     beq menu_text_version
     cmp r0, #55
     beq menu_text_us
+    cmp r0, #56
+    beq menu_text_dev
     cmp r0, #42
     beq menu_text_export
     cmp r0, #43
@@ -3014,6 +3023,9 @@ menu_texts_clear:
     beq menu_text_knob
     cmp r0, #54
     beq menu_text_flash
+    cmp r0, #57
+    cmpne r0, #58
+    beq menu_text_anim
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -3080,6 +3092,33 @@ menu_text_us_ok:
 menu_text_us_end:
     bl menu_copy
     pop {r4, r5, r6, r7, pc}
+; DEV MODE (56): ON while DEV_FLAG holds DEV_MAGIC
+menu_text_dev:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_dev
+    bl menu_copy
+    bl menu_dev_state
+    cmp r0, #0
+    ldreq r1, =str_off
+    ldrne r1, =str_on
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    pop {r4, r5, r6, r7, pc}
+; -> r0 = 1 when the build has DEV MODE (DEV_FLAG is not 0). Clobbers nothing else.
+menu_dev_on:
+    ldr r0, =DEV_FLAG
+    cmp r0, #0
+    movne r0, #1
+    bx lr
+; -> r0 = 1 while DEV MODE is on. Clobbers r1.
+menu_dev_state:
+    ldr r1, =DEV_FLAG
+    ldr r0, [r1]
+    ldr r1, =DEV_MAGIC
+    cmp r0, r1
+    moveq r0, #1
+    movne r0, #0
+    bx lr
 ; -> r0 = 1 when the list has the row USER SAMPLES: the build has the patch's state (US_STATE) and the start found a sample file there
 ; (loaded it, or found it was not one). Without the file, with EXIT at power-on or without the patch (FF) there is no row. Clobbers r1.
 menu_us_on:
@@ -3441,7 +3480,7 @@ menu_text_splash_card:
     str r1, [r5, #M_SPLASH_SEL]
     movs r6, r0
     ldreq r1, =str_splash_nofile
-    ldrne r1, =LIST_PATH+SPLASH_NAME_AT
+    movne r1, r2
     add r0, r5, #M_VALUE
     bl menu_copy
     cmp r6, #0                  ; a longer name runs its letters into each other: it loses ".bmp" and is cut to fit
@@ -3539,6 +3578,40 @@ menu_text_knob:
     ldr r1, =str_on
     cmp r0, #0
     ldrne r1, =str_off
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; LOADING ANIM (r0 = 57: CARD plays the card's Media/loading.blla, BLECHY plays Blechy, OFF leaves the firmware's window) and
+; ANIM LOOP (58): byte 14 of that file (tools/patch/load_bar.py media_set), "no file" without a valid one at the start
+menu_text_anim:
+    mov r6, r0
+    mov r0, #3
+    bl menu_title_prefix
+    cmp r6, #57
+    ldreq r1, =str_anim
+    ldrne r1, =str_aloop
+    bl menu_copy
+    ldr r1, [r5, #M_STATUS]
+    cmp r1, #0
+    bne menu_text_status_value
+    ldr r12, =MEDIA_GET
+    blx r12
+    ldr r1, =str_anim_nofile
+    cmn r0, #1
+    beq menu_text_anim_go
+    cmp r6, #58
+    beq menu_text_aloop
+    ldr r1, =str_anim_card
+    tst r0, #4
+    ldrne r1, =str_anim_blechy
+    tst r0, #2
+    ldrne r1, =str_off
+    b menu_text_anim_go
+menu_text_aloop:
+    ldr r1, =str_on
+    tst r0, #1
+    ldrne r1, =str_off
+menu_text_anim_go:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
@@ -4101,7 +4174,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 54 SAVE TO FLASH; 50 was HT OSC, 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 54 SAVE TO FLASH, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP; 50 was HT OSC, 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -4144,9 +4217,14 @@ menu_kind:
     moveq r0, #41
     moveq r1, #0
     beq menu_kind_done
-    sub r0, r0, #1              ; USER SAMPLES in front of it, where the start found a sample file
+    sub r0, r0, #1              ; DEV MODE (the Sampler) or USER SAMPLES (the blue, where the start found a sample file) in front of it
     cmp r5, r0
     bne menu_kind_rows
+    bl menu_dev_on
+    cmp r0, #0
+    movne r0, #56
+    movne r1, #0
+    bne menu_kind_done
     bl menu_us_on
     cmp r0, #0
     movne r0, #55
@@ -4365,6 +4443,8 @@ menu_count_level1:
     addne r4, r4, #1
     bl menu_us_on               ; and USER SAMPLES on the blue when the start found a sample file
     add r4, r4, r0
+    bl menu_dev_on              ; and DEV MODE on the Sampler
+    add r4, r4, r0
     mov r0, r4
     pop {r4, pc}
 menu_count_group:
@@ -4390,6 +4470,14 @@ menu_count_features:
     ldr r0, =sub_counts
     sub r1, r1, #5
     ldrb r0, [r0, r1]
+    cmp r1, #4                  ; SPLASH: LOADING ANIM and ANIM LOOP where the set has the loading animation
+    bne menu_count_led
+    ldr r1, =MEDIA_CODE
+    ldr r1, [r1]
+    cmn r1, #1
+    addne r0, r0, #2
+    b menu_count_out
+menu_count_led:
     cmp r1, #1                  ; LED without the pad colours: no KNOB LEDS (the patch pad-colors sends the LEDs)
     bne menu_count_out
     ldr r1, =PC_CODE
@@ -4950,7 +5038,10 @@ splash_folder:
     .asciz "SD:KORG/blechtribe"
 splash_prefix:
     .asciz "SD:KORG/blechtribe/"
-.equ SPLASH_NAME_AT, 19         ; the length of splash_prefix: where the name starts in LIST_PATH
+splash_media:
+    .asciz "SD:KORG/blechtribe/Media"
+splash_media_prefix:
+    .asciz "SD:KORG/blechtribe/Media/"
 .equ SPLASH_CACHED, LIST_MAX    ; the .bmp names splash_cache keeps, 16 bytes each in LIST_TITLES
 .equ SPLASH_SHOW, 11            ; characters of a name SPLASH IMPORT shows: 11 of the widest letter (m) end at column 124 (emulator)
 import_folder:
@@ -5037,18 +5128,34 @@ menu_dir_next_end:
     pop {r4-r7, pc}
 .pool
 
-; r0 = a place among the .bmp files in KORG/blechtribe, in the order of the folder -> r0 = how many there are, r1 = the place taken
-; (the last file where r0 is past it, 0 without files), LIST_PATH the path of that file. Clobbers r2, r3 and r12.
-splash_pick:
-    push {r4, r5, lr}
-    mov r4, r0
-    mov r5, #0
-    ldr r0, =LIST_PATH
-    ldr r1, =splash_prefix
-    bl menu_copy
-    ldr r0, =splash_folder
+; -> r0 = the FatFs result of opening the folder of SPLASH IMPORT at LIST_DIR, r1 = its path with the slash: KORG/blechtribe/Media,
+; or KORG/blechtribe when there is no Media folder (cards from before 1.5). Clobbers r2, r3 and r12.
+splash_open:
+    push {lr}
+    ldr r0, =splash_media
     bl menu_dir_open
     cmp r0, #0
+    ldreq r1, =splash_media_prefix
+    popeq {pc}
+    ldr r0, =splash_folder
+    bl menu_dir_open
+    ldr r1, =splash_prefix
+    pop {pc}
+
+; r0 = a place among the .bmp files of SPLASH IMPORT's folder (splash_open), in the order of the folder -> r0 = how many there are,
+; r1 = the place taken (the last file where r0 is past it, 0 without files), r2 = the name in LIST_PATH, the path of that file.
+; Clobbers r3 and r12.
+splash_pick:
+    push {r4, r5, r6, lr}
+    mov r4, r0
+    mov r5, #0
+    bl splash_open
+    mov r6, r0
+    ldr r0, =LIST_PATH
+    bl menu_copy
+    mov r1, r6
+    mov r6, r0                  ; where the name goes
+    cmp r1, #0
     bne splash_pick_out
 splash_pick_next:
     ldr r0, =str_bmp
@@ -5057,7 +5164,7 @@ splash_pick_next:
     beq splash_pick_close
     cmp r5, r4
     movls r1, r0
-    ldrls r0, =LIST_PATH+SPLASH_NAME_AT
+    movls r0, r6
     blls menu_copy
     add r5, r5, #1
     b splash_pick_next
@@ -5071,10 +5178,11 @@ splash_pick_out:
     movmi r1, #0
     cmp r4, r1
     movlo r1, r4
-    pop {r4, r5, pc}
+    mov r2, r6
+    pop {r4, r5, r6, pc}
 .pool
 
-; -> r0 = how many .bmp files KORG/blechtribe holds. Reads the folder once while SPLASH IMPORT shows (M_SPLASH_CACHE), so a step of
+; -> r0 = how many .bmp files the folder of SPLASH IMPORT holds (splash_open). Reads the folder once while SPLASH IMPORT shows (M_SPLASH_CACHE), so a step of
 ; the dial does not wait for the card: five passes over the folder per step left the display a second behind a fast dial
 ; (docs/messungen/2026-11-09-menue-liste-rad.md). The first SPLASH_CACHED names go to LIST_TITLES, which only
 ; the list of the plugins uses besides, and menu_list fills it again whenever that list opens: an entry is the first 15 characters
@@ -5087,8 +5195,7 @@ splash_cache:
     ldrne r0, [r4, #M_BRW_N]
     popne {r4, r5, pc}
     mov r5, #0
-    ldr r0, =splash_folder
-    bl menu_dir_open
+    bl splash_open
     cmp r0, #0
     bne splash_cache_done
 splash_cache_next:
@@ -6039,6 +6146,11 @@ menu_slot_value:
     beq menu_value_as
     cmp r0, #53
     beq menu_value_knob
+    cmp r0, #56
+    beq menu_value_dev
+    cmp r0, #57
+    cmpne r0, #58
+    beq menu_value_anim
     cmp r0, #24
     beq menu_value_colour
     cmp r0, #25
@@ -6272,6 +6384,63 @@ menu_value_knob:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
+; LOADING ANIM and ANIM LOOP write byte 14 of Media/loading.blla at once (no WRITE: the file on the card is the setting).
+; LOADING ANIM steps CARD, BLECHY, OFF with the dial and stops at the ends; ANIM LOOP is ON up, OFF down. A write that fails
+; shows FatFs's code as the other card pages do (0x20 + code) and keeps the value as it was.
+menu_value_anim:
+    mov r3, r0
+    ldr r12, =MEDIA_GET
+    blx r12
+    cmn r0, #1
+    beq menu_value_done
+    mov r2, r0
+    cmp r3, #58
+    beq menu_value_aloop
+    mov r1, #0                  ; the step now: 0 CARD, 1 BLECHY, 2 OFF
+    tst r2, #4
+    movne r1, #1
+    tst r2, #2
+    movne r1, #2
+    cmp r5, #0
+    addgt r1, r1, #1
+    sublt r1, r1, #1
+    cmp r1, #0
+    movlt r1, #0
+    cmp r1, #2
+    movgt r1, #2
+    bic r0, r2, #6
+    cmp r1, #1
+    orreq r0, r0, #4
+    cmp r1, #2
+    orreq r0, r0, #2
+    b menu_value_anim_set
+menu_value_aloop:
+    cmp r5, #0
+    biceq r0, r2, #0            ; no turn: as it is
+    bicgt r0, r2, #1
+    orrlt r0, r2, #1
+menu_value_anim_set:
+    cmp r0, r2
+    beq menu_value_done
+    ldr r1, =HOOK_CARD
+    add r2, r1, #CARD_BR
+    add r1, r1, #CARD_FIL
+    ldr r12, =MEDIA_SET
+    blx r12
+    cmp r0, #0
+    addne r0, r0, #0x20
+    str r0, [r6, #M_STATUS]
+    b menu_value_done
+; DEV MODE acts at once and is never saved: the dial up writes DEV_MAGIC, down FF (as after the start)
+menu_value_dev:
+    ldr r1, =DEV_FLAG
+    cmp r5, #0
+    ldrgt r2, =DEV_MAGIC
+    mvnle r2, #0
+    str r2, [r1]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
 ; AUTO SAVE acts at once
 menu_value_as:
     mov r1, #1
@@ -6459,6 +6628,7 @@ menu_slot_keys:
     cmp r0, #39
     cmpne r0, #41
     cmpne r0, #55
+    cmpne r0, #56               ; WRITE on DEV MODE saves nothing: it is not a setting
     beq menu_keys_done
     cmp r0, #36
     cmpeq r6, #0x09
@@ -6959,6 +7129,8 @@ str_sp:
     .asciz "STEREO 1 PAD"
 str_us:
     .asciz "USER SAMPLES"
+str_dev:
+    .asciz "DEV MODE"
 str_us_loaded:
     .asciz " LOADED"
 str_us_ok:
@@ -6994,7 +7166,7 @@ sub_kinds:                      ; the kinds of the pages of DISPLAY, LED, PAD CO
     .byte 7, 8, 9, 10, 28, 29, 30, 31, 53, 0, 0, 0, 0, 0, 0, 0      ; LED: bottom LEDs, LED red, green, blue, the meter's four colours, KNOB LEDS
     .byte 24, 25, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; PAD COLOR: pad colour, select colour, overlap
     .byte 27, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0          ; POWER SAVE: DISPLAY LIGHT, LED DIMMING (device 19.10.: SAVE LIGHT under DISPLAY said too little)
-    .byte 22, 23, 35, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; SPLASH: IMPORT, DRAW, RESET (device 22.10.: three rows of their own in CUSTOMIZATION were too many)
+    .byte 22, 23, 35, 57, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0       ; SPLASH: IMPORT, DRAW, RESET (device 22.10.: three rows of their own in CUSTOMIZATION were too many), LOADING ANIM, ANIM LOOP
 sub_counts:                     ; LED: KNOB LEDS, the last, only where the set has the pad colours (menu_count_features)
     .byte 5, 9, 3, 2, 3
 led_dim_percent:                ; LED DIMMING, the steps of the dial: percent dimmed (pad_colors.py keeps the step 8 places on, 75 is 0)
@@ -7017,6 +7189,16 @@ str_on:
     .asciz "ON"
 str_off:
     .asciz "OFF"
+str_anim:
+    .asciz "LOADING ANIM"
+str_aloop:
+    .asciz "ANIM LOOP"
+str_anim_card:
+    .asciz "CARD"
+str_anim_blechy:
+    .asciz "BLECHY"
+str_anim_nofile:
+    .asciz "no file"
 menu_tab:
     .asciz "BLECH"
     .align 4

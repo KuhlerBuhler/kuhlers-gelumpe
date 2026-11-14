@@ -3,6 +3,7 @@
     decode(blob) -> (progress, loop), lists of 1024-byte frame buffers
     validate(blob) -> None when good, else the reason (the checks the firmware makes)
     picture(blob, index, loop=None) -> what the overlay shows: progress picture `index`, loop list `loop` over it
+    flags(blob) -> byte 14: NO_LOOP, OFF, BLECHY (the device's settings of the animation, written by the BLECH menu and the app)
 """
 import struct
 
@@ -11,6 +12,8 @@ VERSION = 1
 MAX_BYTES = 16384
 FRAME_BYTES = 1024
 HEADER_BYTES = 16
+FLAGS_AT = 14                   # the size is a u16 at 12 (at most MAX_BYTES), byte 14 the flags, byte 15 unused
+NO_LOOP, OFF, BLECHY = 1, 2, 4
 
 
 def validate(blob):
@@ -22,7 +25,7 @@ def validate(blob):
         return f"version {blob[4]}"
     if blob[5] > 100:
         return f"loop from {blob[5]} percent"
-    n, m, table, size = struct.unpack_from("<HHHI", blob, 6)
+    n, m, table, size = struct.unpack_from("<HHHH", blob, 6)
     if size > MAX_BYTES:
         return f"{size} bytes, more than {MAX_BYTES}"
     if size > len(blob):
@@ -60,6 +63,15 @@ def _apply(frame, blob, p):
         frame[at:at + length] = blob[p + 2:p + 2 + length]
         p += 2 + length
     return frame
+
+
+def flags(blob):
+    return blob[FLAGS_AT]
+
+
+def with_flags(blob, value):
+    """The file with byte 14 set to `value`, as the BLECH menu writes it."""
+    return bytes(blob[:FLAGS_AT]) + bytes((value,)) + bytes(blob[FLAGS_AT + 1:])
 
 
 def progress_index(n, permille):

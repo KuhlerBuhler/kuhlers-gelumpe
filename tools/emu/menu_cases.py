@@ -49,8 +49,11 @@ def has_menu(payload):
 
 
 def for_build(payload):
-    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT
+    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT, LIST_DEV, LIST_VERSION, LIST_COUNT
     synth = synthaddr.is_synth(payload)
+    LIST_DEV = None if synth else len(LIST_PAGES)   # DEV MODE (BLECH's SysEx may write the image) is a Sampler row
+    LIST_VERSION = len(LIST_PAGES) + (0 if synth else 1)
+    LIST_COUNT = LIST_VERSION + 1
     FX_EXPORT = b"SD:KORG/blechtribe/Presets/e2sFx.all" in payload   # EXPORT ALL EFFECTS comes with the loader of the collection (fx_card.s)
     DU_FUNCS = 11 if synth else 14     # the functions of DATA UTILITY's list (screen 15), the blue has no sample functions
     SYNC_GROUP = True                  # the page SYNC GROUP is in the ring on both (the synth since 24.10.)
@@ -139,7 +142,8 @@ STEREO_PAGE = False                                                   # set by b
 
 
 VERSION_TEXT = 0xC014FCF0                                            # the patch blech-version (tools/patch/blech_version.mjs): the title of VERSION
-LIST_VERSION = len(LIST_PAGES)                                       # VERSION, the last row of the list (behind GAMES and TOOLS where an app is declared)
+LIST_DEV = len(LIST_PAGES)                                           # DEV MODE, in front of VERSION on the Sampler (for_build sets None on the synth)
+LIST_VERSION = LIST_DEV + 1                                          # VERSION, the last row of the list (behind GAMES and TOOLS where an app is declared)
 LIST_COUNT = LIST_VERSION + 1
 BASE_NAMES = {"hacktribe": "HACKTRIBE", "stock": "KORG RED", "synth": "KORG BLUE"}   # the value of VERSION: the firmware the runtime is built for
 
@@ -670,6 +674,8 @@ def list_cases(payload, flash=None):
         press(dev, "edit_next")
     wrapped = (dev.screen()["number"], state(dev, S_PAGE))
     want = [(MENU, 1, page, (page, LIST_COUNT), (title, "", PRESS), "BLECH") for page, title in enumerate(LIST_PAGES)]
+    if LIST_DEV is not None:
+        want.append((MENU, 1, LIST_DEV, (LIST_DEV, LIST_COUNT), ("DEV MODE", "OFF", ""), "BLECH"))
     want.append((MENU, 1, LIST_VERSION, (LIST_VERSION, LIST_COUNT), (*version_texts(payload), ""), "BLECH"))
     add("enter_opens_the_list_of_groups", steps == want and wrapped == (MENU, 0), f"{steps}, then {wrapped}")
     # VERSION, the last row: the version of the set this copy was patched with and the firmware it is for; ENTER, WRITE and the dial change nothing
@@ -1684,7 +1690,7 @@ def cases_task(i):
 
 
 def splash_menu_cases(payload, flash=None):
-    """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT lists the .bmp files in KORG/blechtribe, the dial picks one
+    """CUSTOMIZATION, where the build has the splash editor: SPLASH IMPORT lists the .bmp files in KORG/blechtribe/Media (KORG/blechtribe without that folder), the dial picks one
     and ENTER reads it into the start image; the value row shows the name alone (a name of more than 11 characters without ".bmp", cut
     to 11), SPLASH DRAW opens the editor (Global, page SPLASH SCREEN), SPLASH RESET drops the stored image and the VSB's own comes back; the
     three are a group of their own, the row SPLASH of CUSTOMIZATION opens it.
@@ -1726,6 +1732,14 @@ def splash_menu_cases(payload, flash=None):
     differ = [i for i, (a, b) in enumerate(zip(dev.fb(), want)) if a != b and i not in battery]
     add("draw_opens_the_editor", page == ("SPLASH DRAW", "", PRESS) and dev.screen()["number"] == 9 and dev.screen()["page"] == splash_editor.PAGE and st == 1
         and len(differ) <= 1 and not dev.m.asserts, f"{page}, screen {dev.screen()}, editor mode {st}, display bytes not the image (battery aside): {differ}")
+    pic2 = [[1 if (x * 3 + y) % 5 == 0 else 0 for x in range(128)] for y in range(64)]
+    media = boot(payload, flash, files={**CARD_FOLDER, "/KORG/blechtribe/splash.bmp": bmp(pic), "/KORG/blechtribe/Media/mine.bmp": bmp(pic2)})
+    goto_group(media, GROUP_SPLASH, 0)
+    listed = texts_of(media)
+    press(media, "menu", 0.6)
+    stored = media.read(splash_editor.RECBUF + 8, 1024) == image_of(pic2)
+    add("import_lists_media", listed[:2] == ("SPLASH IMPORT", "mine.bmp") and texts_of(media)[1] == "loaded" and stored and not media.m.asserts,
+        f"{listed}, image {'stored' if stored else 'not stored'}")
     bare = boot(payload, flash, files=CARD_FOLDER)
     # the value row shows the value alone: no "press  [ Enter ]" on its row, nothing left of SPLASH DRAW's line from before the key
     goto_group(bare, GROUP_SPLASH, 1)
@@ -2635,6 +2649,63 @@ def filter_toggle_menu_cases(payload, flash=None):
     return switch_menu_cases(payload, flash, "filter_toggle", "FILTER TOGGLE", S_FT, FT_OFF, 2)
 
 
+def media_menu_cases(payload, flash=None):
+    """CUSTOMIZATION, SPLASH, LOADING ANIM and ANIM LOOP (the loading animation from the card, Pascal 14.11.): the two last pages of the
+    group where the set has the loading animation; they show byte 14 of KORG/blechtribe/Media/loading.blla as the start read it and
+    write it at once on the dial: LOADING ANIM CARD, BLECHY, OFF (bits 2 and 1), ANIM LOOP ON, OFF (bit 0); nothing else of the file
+    changes. Without the file both say "no file" and the dial writes nothing. Without the loading animation the group keeps 3 pages."""
+    import loadbar_cases
+    import sampleset
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:media_{name}", "ok": bool(ok), "detail": detail})
+
+    path = "/KORG/blechtribe/Media/loading.blla"
+    anim = loadbar_cases.blla(loadbar_cases.small_lists(), 21)
+    files = {**CARD_FOLDER, "/KORG/blechtribe/Sample/e2sSample.all": sampleset.build(sampleset.sized(4, 24000))}
+
+    def on_card(dev):
+        volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
+        try:
+            return volume.read(path)
+        except fat32.FatError:
+            return None
+        finally:
+            volume.close()
+
+    dev = boot(payload, flash, files={**files, path: anim}, seconds=3.0)
+    if dev.u32(load_bar.MEDIA_CODE) == 0xFFFFFFFF:
+        goto_group(dev, GROUP_SPLASH, 0)
+        add("no_pages_without_the_animation", counter(dev) is not None and counter(dev)[1] == 3, f"counter {counter(dev)}")
+        return out
+    goto_group(dev, GROUP_SPLASH, 3)
+    seen = [(texts_of(dev)[:2], counter(dev), on_card(dev)[14])]
+    for turn in (1, 1, 1, -1, -1):
+        dev.turn(turn, wait=0.4)
+        seen.append((texts_of(dev)[:2], counter(dev), on_card(dev)[14]))
+    want = [(("LOADING ANIM", "CARD"), (3, 5), 0), (("LOADING ANIM", "BLECHY"), (3, 5), 4), (("LOADING ANIM", "OFF"), (3, 5), 2),
+            (("LOADING ANIM", "OFF"), (3, 5), 2), (("LOADING ANIM", "BLECHY"), (3, 5), 4), (("LOADING ANIM", "CARD"), (3, 5), 0)]
+    add("loading_anim", seen == want and not dev.m.asserts, f"page, counter and byte 14 on the card, start and after the turns +1 +1 +1 -1 -1 (one step each, stops at the ends): {seen}")
+    press(dev, "edit_next", 0.4)
+    loop = [(texts_of(dev)[:2], on_card(dev)[14])]
+    for turn in (-1, -1, 1):
+        dev.turn(turn, wait=0.4)
+        loop.append((texts_of(dev)[:2], on_card(dev)[14]))
+    rest = on_card(dev)
+    add("anim_loop", loop == [(("ANIM LOOP", "ON"), 0), (("ANIM LOOP", "OFF"), 1), (("ANIM LOOP", "OFF"), 1), (("ANIM LOOP", "ON"), 0)]
+        and rest[:14] == anim[:14] and rest[15:] == anim[15:] and not dev.m.asserts,
+        f"page and byte 14, start and after the turns -1 -1 +1: {loop}; the rest of the file {'unchanged' if rest[:14] + rest[15:] == anim[:14] + anim[15:] else 'changed'}")
+    bare = boot(payload, flash, files=files, seconds=3.0)
+    goto_group(bare, GROUP_SPLASH, 3)
+    before = texts_of(bare)[:2]
+    bare.turn(1, wait=0.4)
+    after = texts_of(bare)[:2]
+    add("no_file", before == after == ("LOADING ANIM", "no file") and on_card(bare) is None and not bare.m.asserts,
+        f"without Media/loading.blla: {before} -> {after}, the file {'is there' if on_card(bare) is not None else 'still missing'}")
+    return out
+
+
 def knob_leds_cases(payload, flash=None):
     """CUSTOMIZATION, LED, KNOB LEDS (patch pad-colors, wish 12.11.): ON is stock (no file, a file without the bit), OFF sends the five
     knob LEDs 0 to 4 dark at once while the firmware keeps its own values, a knob turned on the main screen lights none of them, ON
@@ -3427,10 +3498,10 @@ def look_parts():
     calibration cases. Each boots devices of its own, so they run side by side."""
     from calibrate_cases import cases as calibration_cases
     return ((lambda payload, flash: look_cases(payload, flash, rest=False)), *look_rest(), splash_menu_cases, wheel_cases,
-            pad_colour_cases, calibration_cases, flash_settings_cases)
+            pad_colour_cases, calibration_cases, flash_settings_cases, media_menu_cases)
 
 
-LOOK_PARTS = 1 + len(look_rest()) + 5      # look_parts() without importing calibrate_cases
+LOOK_PARTS = 1 + len(look_rest()) + 6      # look_parts() without importing calibrate_cases
 
 
 def look_cases_task(i):

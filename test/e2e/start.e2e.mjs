@@ -102,3 +102,11 @@ test("an Electribe with this app's BLECHTRIBE is up to date, a newer one is said
     assert.deepEqual(page.errors, []);
   }
 });
+
+test("the device card reads red from the Electribe's flash at once, the read does not hold the session", async () => {
+  const page = await connected(APP);
+  // an unanswered flash read holds the session until the sender gives up after 12 s
+  await page.waitForFunction(() => document.querySelector("#cee-start-device")?.dataset.device === "red", null, { timeout: 5000 });
+  assert.equal(await text(page, "#cee-start-device-name"), "Electribe, rot");
+  assert.deepEqual(page.errors, []);
+});

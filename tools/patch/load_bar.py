@@ -4,7 +4,8 @@ with Hacktribe.
 While the start loads the samples (e2sSample.all), the firmware shows a window "Loading nnn%". With this patch Blechy
 draws a line instead: the line is the bar, he stands where the tip of his tube has eaten it, the percent counts up at the
 bottom right, and from 95 percent the finale plays (eyes torn open, shaking). The pictures are a loading animation file
-(docs/hintergrund/ladeanimation.md): a custom one the app writes into ANIM_SLOT when it passes the checks, else the default
+(docs/hintergrund/ladeanimation.md): the card's KORG/blechtribe/Media/loading.blla, read into ANIM_SLOT at the start
+(media_load) when it passes the checks, else the default
 assets/blechy/loading.blla, made from the parts in assets/blechy/loading.bin by the renderer of the previews
 (compose_reference is the same in Python). The picture follows the bytes the loader has read of e2sSample.all, smoothed
 within a read. At most one new picture every 50 ms. The start image (assets/blechy/splash.json) is seen from power-on
@@ -72,6 +73,16 @@ ANIM_VARS = 0xC01AC800          # its run time state, in RAM only
 ANIM_VARS_END = 0xC01AC840
 ANIM_BUF = 0xC01ACC00           # the progress picture on screen, in RAM only
 ANIM_BUF_END = 0xC01AD000
+# Free (FF) in the Sampler's images behind the progress picture, up to the script runtime's menu copies (MENU_TABLE). The code
+# that reads the animation from the card lives here, its first instruction is the entry the start hook of the script runtime
+# calls (tools/patch/script_start_sampler.s); FF there means this patch is not in the set.
+MEDIA_CODE = 0xC01AD000
+MEDIA_CODE_END = 0xC01ADF00
+MEDIA_PATH = "SD:KORG/blechtribe/Media/loading.blla"
+FS_OPEN = 0xC009DB60            # FatFs f_open (file, path, mode), as tools/patch/script_card.s
+FS_CLOSE = 0xC009E3DC           # FatFs f_close (file)
+FS_WRITE = 0xC009DFB8           # FatFs f_write (file, buffer, count, &written), as tools/patch/script_card.s
+FS_LSEEK = 0xC009E404           # FatFs f_lseek (file, offset), as tools/patch/script_file.s
 STATE = 0xC0181F00              # run time state, in RAM only
 STATE_END = 0xC0181F40
 
@@ -416,6 +427,17 @@ SOURCE = """
 .equ R_MS, 40                  ; TICKS they took
 .equ P_SHOWN, 44               ; the progress shown, permille
 .equ P_T, 48                   ; TICKS when it last went up
+.equ A_FLAGS, 52               ; byte 14 of the file played: bit 0 no loop, bit 1 no animation, bit 2 Blechy instead (0 for Blechy)
+.equ A_READY, 56               ; 1 once the card's file was looked for (media_load) or the loader runs: the overlay draws from then; 2 once it drew: the display shows the buffer from then
+.equ FL_NO_LOOP, 1
+.equ FL_OFF, 2
+.equ FL_BLECHY, 4
+.equ FLAGS_AT, 14             ; byte 14 of the file: the flags above
+.equ FS_OPEN, @FS_OPEN@
+.equ FS_CLOSE, @FS_CLOSE@
+.equ FS_WRITE, @FS_WRITE@
+.equ FS_LSEEK, @FS_LSEEK@
+.equ A_MEDIA, 60               ; byte 14 of the card's Media/loading.blla as read at the start (written by media_set), -1 without a valid file
 .equ LOOK_BACK, @LOOK_BACK@
 .equ LOOK_OUT, @LOOK_OUT@
 .equ SHADOW, @SHADOW@          ; the firmware's copy of what the display shows, 8 pages of 128 bytes
@@ -561,8 +583,14 @@ lb_progress:
     str r2, [r12, #S_MAX]
     ldr r12, [r12, #S_EXPECT]
     cmp r12, #1
-    moveq r0, #1
-    bxeq lr
+    bne lp_text
+    ldr r2, =VARS                ; the loader runs: the overlay draws from now on, whether the card was looked at or not
+    ldr r3, [r2, #A_READY]
+    cmp r3, #0
+    streq r12, [r2, #A_READY]
+    mov r0, #1
+    bx lr
+lp_text:
     ldr r12, =SETTEXT
     bx r12
 
@@ -610,6 +638,16 @@ lf_pass:
 ; copy. Here it is the same, but from LOOK_OUT when the look is wanted: at page 0 the look is drawn there from the frame.
 ; The firmware's frame buffer is never written.
 lb_page:
+    ldr r2, =STATE               ; a load is expected, the card not looked at yet: the display keeps the start image
+    ldr r2, [r2, #S_EXPECT]
+    cmp r2, #1
+    bne lp_go
+    ldr r2, =VARS
+    ldr r2, [r2, #A_READY]
+    cmp r2, #2
+    movne r0, #0
+    bxne lr
+lp_go:
     push {r4, r5, r6, lr}
     ldr r4, [r0]
     mov r5, r1
@@ -755,6 +793,12 @@ ov_go:
     ldr r1, =FRAME_CAP
     cmp r5, r1
     bhi ov_end
+    ldr r0, =VARS                ; until the card was looked at for an animation the start image stays
+    ldr r1, [r0, #A_READY]
+    cmp r1, #0
+    beq ov_out
+    mov r1, #2                   ; drawn once: the display may show the buffer (lb_page)
+    str r1, [r0, #A_READY]
     bl compose
 ov_out:
     pop {r4, r5, r6, r7, r8, r9, r10, pc}
@@ -1648,15 +1692,22 @@ anim_start:
     ldr r4, =VARS
     ldr r0, =SLOT
     bl validate
+    mov r6, #0                   ; the flags: those of the custom file, none for Blechy
     cmp r0, #0
     ldrne r5, =SLOT
+    ldrbne r6, [r5, #14]
     ldreq r5, =DEFAULT
+    tst r6, #FL_BLECHY           ; the file asks for Blechy: its other flags still count
+    ldrne r5, =DEFAULT
     str r5, [r4, #A_FILE]
+    str r6, [r4, #A_FLAGS]
     add r0, r5, #6
     bl u16
     str r0, [r4, #A_N]
     add r0, r5, #8
     bl u16
+    tst r6, #FL_NO_LOOP          ; no loop: the last progress picture stays when the progress stands
+    movne r0, #0
     str r0, [r4, #A_M]
     add r0, r5, #10
     bl u16
@@ -1672,6 +1723,7 @@ anim_start:
     str r0, [r4, #R_BYTES]
     str r0, [r4, #R_MS]
     str r0, [r4, #P_SHOWN]
+    str r0, [r4, #A_READY]
     ldr r0, =TICKS
     ldr r0, [r0]
     str r0, [r4, #P_T]
@@ -1701,7 +1753,9 @@ validate:
     ldrb r1, [r4, #5]
     cmp r1, #100
     bhi va_bad
-    ldr r5, [r4, #12]            ; the size
+    add r0, r4, #12              ; the size, u16 (byte 14 is the flags, byte 15 unused)
+    bl u16
+    mov r5, r0
     ldr r1, =MAX_BYTES
     cmp r5, r1
     bhi va_bad
@@ -2077,6 +2131,124 @@ lb_read:
 
 .align 4
 .pool
+
+.org @MEDIA_CODE@
+; ===================================================== the animation from the card (Media/loading.blla)
+; r0 = a FatFs file object the caller lends (the script runtime's card scratch), r1 = a word for the count read. Called once
+; by the script runtime's start hook (0xC0038D34, before the sample loader; the card can be read there, earlier it hangs)
+; after the settings are read. Only while a load is expected: the file goes into SLOT (FF in the image, the patcher no longer
+; writes it), anim_start picks the animation again by its checks and flags, and the overlay draws from now on. Byte 14 bit 1
+; (no animation) ends the overlay: the firmware's own window shows the load. Keeps r4 to r11.
+; The entries the script runtime calls (MEDIA_CODE + 0, 4, 8; FF where the set has no loading animation).
+media_entry:
+    b media_load
+    b media_get
+    b media_set
+
+media_load:
+    push {r4, r5, r6, lr}
+    ldr r2, =STATE
+    ldr r2, [r2, #S_EXPECT]
+    cmp r2, #1
+    bne ml_out
+    ldr r2, =VARS
+    mvn r3, #0
+    str r3, [r2, #A_MEDIA]
+    mov r4, r0
+    mov r5, r1
+    ldr r1, =media_path
+    mov r2, #1                   ; FA_READ
+    ldr r12, =FS_OPEN
+    blx r12
+    cmp r0, #0
+    beq ml_read
+    ldr r1, =SLOT                ; no file: Blechy, whatever the slot held
+    mov r2, #0
+    str r2, [r1]
+    b ml_pick
+ml_read:
+    mov r0, r4
+    ldr r1, =SLOT
+    ldr r2, =MAX_BYTES
+    mov r3, r5
+    ldr r12, =F_READ
+    blx r12
+    mov r0, r4
+    ldr r12, =FS_CLOSE
+    blx r12
+ml_pick:
+    bl anim_start
+    ldr r0, =SLOT                ; a valid file: the BLECH menu shows and writes its byte 14
+    bl validate
+    cmp r0, #0
+    ldr r4, =VARS
+    ldrne r1, =SLOT
+    ldrbne r1, [r1, #14]
+    strne r1, [r4, #A_MEDIA]
+    ldr r0, [r4, #A_FLAGS]
+    tst r0, #FL_OFF
+    ldrne r1, =STATE
+    movne r2, #2
+    strne r2, [r1, #S_EXPECT]
+    mov r0, #1
+    str r0, [r4, #A_READY]
+ml_out:
+    pop {r4, r5, r6, pc}
+
+; r0 = byte 14 of the card's Media/loading.blla as the start read it (or as media_set wrote it), -1 without a valid file.
+media_get:
+    ldr r0, =VARS
+    ldr r0, [r0, #A_MEDIA]
+    bx lr
+
+; r0 = the new byte 14, r1 = a FatFs file object the caller lends, r2 = a word for the count written: writes byte 14 of
+; Media/loading.blla (opened as it is, nothing else of the file changes). r0 = 0 when written, else not 0 (no valid file at the
+; start: -1, else FatFs's code). Keeps r4 to r11.
+media_set:
+    push {r4, r5, r6, lr}
+    ldr r6, =VARS
+    ldr r3, [r6, #A_MEDIA]
+    cmn r3, #1
+    beq ms_out
+    and r0, r0, #0xFF
+    str r0, [r6, #A_MEDIA]
+    mov r4, r1
+    mov r5, r2
+    mov r0, r4
+    ldr r1, =media_path
+    mov r2, #3                   ; FA_READ | FA_WRITE, the file as it is
+    ldr r12, =FS_OPEN
+    blx r12
+    cmp r0, #0
+    bne ms_ret
+    mov r0, r4
+    mov r1, #FLAGS_AT
+    ldr r12, =FS_LSEEK
+    blx r12
+    cmp r0, #0
+    bne ms_close
+    mov r0, r4
+    add r1, r6, #A_MEDIA
+    mov r2, #1
+    mov r3, r5
+    ldr r12, =FS_WRITE
+    blx r12
+ms_close:
+    mov r6, r0
+    mov r0, r4
+    ldr r12, =FS_CLOSE
+    blx r12
+    orrs r0, r0, r6
+ms_ret:
+    pop {r4, r5, r6, pc}
+ms_out:
+    mvn r0, #0
+    pop {r4, r5, r6, pc}
+.align 4
+.pool
+media_path:
+    .asciz "@MEDIA_PATH@"
+.align 4
 """
 
 
@@ -2131,6 +2303,7 @@ def source():
         "SLOT": f"{ANIM_SLOT:#x}", "DEFAULT": f"{ANIM_DEFAULT:#x}", "MAX_BYTES": str(loading_anim.MAX_BYTES), "PBUF": f"{ANIM_BUF:#x}",
         "VARS": f"{ANIM_VARS:#x}", "LOOP_MS": str(TICK_MS), "STALL_MS": str(STALL_MS), "F_READ": f"{READ_FUNC:#x}",
         "UDIV": f"{UDIV:#x}", "UDIVMOD": f"{UDIVMOD:#x}", "ANIM_CODE": f"{ANIM_CODE:#x}",
+        "MEDIA_CODE": f"{MEDIA_CODE:#x}", "MEDIA_PATH": MEDIA_PATH, "FS_OPEN": f"{FS_OPEN:#x}", "FS_CLOSE": f"{FS_CLOSE:#x}", "FS_WRITE": f"{FS_WRITE:#x}", "FS_LSEEK": f"{FS_LSEEK:#x}",
         "LOOK_CODE": f"{LOOK_CODE:#x}", "LOOK_BACK": f"{LOOK_BACK:#x}", "LOOK_OUT": f"{LOOK_OUT:#x}", "SHADOW": f"{SHADOW:#x}", "LOOK_VARS": f"{LOOK_VARS:#x}", "LOOK_BOXES": f"{LOOK_BOXES:#x}", "LOOK_BOX": str(LOOK_BOX),
         "LOOK_NBOX": str(LOOK_NBOX), "APP_PICTURE": f"{APP_PICTURE:#x}", "OFF_ACTIVE": f"{OFF_ACTIVE:#x}",
         "EDITOR_MODE": f"{EDITOR_MODE:#x}", "ERR_CODE": f"{ERR_CODE:#x}", "CARD_ART": f"{card_at():#x}", "CARD_ART4": f"{card_at() + len(rle(card_frame(2))):#x}", "DITHER_WORD": f"{int.from_bytes(bytes(DITHER), 'little'):#x}",
@@ -2140,10 +2313,16 @@ def source():
 
 
 def build_code():
-    """(code at, its bytes, symbols, the look's code at, its bytes, the animation's code at, its bytes)."""
+    """(code at, its bytes, symbols, the look's code at, its bytes, the animation's code at, its bytes); media_code() has
+    the fourth section."""
     code = arm.assemble(source())
-    (at, data), (look_at, look), (anim_at, anim_code) = code.sections
+    (at, data), (look_at, look), (anim_at, anim_code), _ = code.sections
     return at, data, code.symbols, look_at, look, anim_at, anim_code
+
+
+def media_code():
+    """(at, bytes) of the code that reads the animation from the card."""
+    return arm.assemble(source()).sections[3]
 
 
 def file_offset(addr):
@@ -2167,6 +2346,9 @@ def build_patch(vsb):
         raise SystemExit(f"the look's code is {len(look):#x} bytes, room for {LOOK_CODE_END - LOOK_CODE:#x}")
     if anim_at != ANIM_CODE or anim_at + len(anim_code) > ANIM_CODE_END:
         raise SystemExit(f"the animation's code is {len(anim_code):#x} bytes, room for {ANIM_CODE_END - ANIM_CODE:#x}")
+    media_at, media = media_code()
+    if media_at != MEDIA_CODE or media_at + len(media) > MEDIA_CODE_END or symbols["media_entry"] != MEDIA_CODE:
+        raise SystemExit(f"the card reader is {len(media):#x} bytes at {media_at:#x}, room for {MEDIA_CODE_END - MEDIA_CODE:#x}")
 
     def was(addr, n):
         return vsb[file_offset(addr):file_offset(addr) + n]
@@ -2224,6 +2406,8 @@ def build_patch(vsb):
              "note": "the look: tab corner, box corners and shadows, the dithered rim, drawn over every frame with DISPLAY INVERT ON"},
             {"file": file_offset(ANIM_CODE), "bytes": anim_code.hex(), "expect": free(ANIM_CODE, len(anim_code)),
              "note": "the animation: checks the file, picks the picture by the bytes read, counts the loader's reads"},
+            {"file": file_offset(MEDIA_CODE), "bytes": media.hex(), "expect": free(MEDIA_CODE, len(media)),
+             "note": "reads Media/loading.blla from the card into the slot before the samples load (called by the script runtime)"},
             hook(STAT_CALL, "lb_stat", True, "the question whether e2sSample.all exists goes through the hook"),
             hook(PROGRESS_CALL, "lb_progress", True, "the loader's text update goes through the hook"),
             *(hook(site, "lb_read", True, "the sample parser's read of PCM data goes through the hook") for site in READ_CALLS),
@@ -2246,6 +2430,7 @@ def build_patch(vsb):
             *({"file": file_offset(site), "length": 4, "why": "the sample parser reads the PCM data of every sample in chunks up to 64 KiB and now calls lb_read"}
               for site in READ_CALLS),
             {"file": file_offset(ANIM_CODE), "length": len(anim_code), "why": "lb_read and the animation: they count reads and draw only while a load is expected"},
+            {"file": file_offset(MEDIA_CODE), "length": len(media), "why": "media_load, called by the script runtime's start hook before the sample loader: reads Media/loading.blla only while a load is expected"},
             {"file": file_offset(LOAD_CALL), "length": 4, "why": "the start task calls the loader and now calls lb_load"},
             {"file": file_offset(FLUSH), "length": 4, "why": "every frame of the user interface task ends in this flush; from the first frame (about 170 ms) it calls lb_frame"},
             {"file": file_offset(CODE_AT), "length": len(code), "why": "the hooks and what they call: they note a load only when the file exists and EXIT was not held, and draw only then"},
@@ -2257,7 +2442,7 @@ def build_patch(vsb):
             ramdecl.area(LOOK_BACK, 1024, "the frame as the firmware drew it, read by the look", "tools/patch/load_bar.py:LOOK_BACK"),
             ramdecl.area(LOOK_OUT, 1024, "the frame with the look, the display send takes its pages from it", "tools/patch/load_bar.py:LOOK_OUT"),
             ramdecl.area(LOOK_VARS, LOOK_END - LOOK_VARS, "the look's tab, boxes and the send's source", "tools/patch/load_bar.py:LOOK_NBOX"),
-            ramdecl.area(ANIM_SLOT, ANIM_SLOT_END - ANIM_SLOT, "a custom loading animation, written by the app, FF without one", "tools/patch/load_bar.py:ANIM_SLOT"),
+            ramdecl.area(ANIM_SLOT, ANIM_SLOT_END - ANIM_SLOT, "the loading animation of the card (Media/loading.blla), read at start, FF without one", "tools/patch/load_bar.py:ANIM_SLOT"),
             ramdecl.area(ANIM_VARS, ANIM_VARS_END - ANIM_VARS, "the animation shown, the loader's reads, the progress shown", "tools/patch/load_bar.py:ANIM_VARS"),
             ramdecl.area(ANIM_BUF, ANIM_BUF_END - ANIM_BUF, "the progress picture on screen", "tools/patch/load_bar.py:ANIM_BUF"),
         ],

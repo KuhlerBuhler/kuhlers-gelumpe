@@ -1,3 +1,5 @@
+; SPLASH_SYNC: tools/patch/splash_editor.py:SYNC_ENTRY
+.equ SPLASH_SYNC, 0xC01A250C
 script_card_hook:
     push {r0-r12, lr}
     .word 0xE10FC000
@@ -19,6 +21,10 @@ script_card_hook:
     bne synth_start_native
     bl menu_arm_load
     bl migrate_start
+    ldr r12, =SPLASH_SYNC       ; the start image from the card (tools/patch/splash_editor.py:splash_sync), FF without the editor
+    ldr r0, [r12]
+    cmn r0, #1
+    blxne r12
     ldr r0, =HOOK_RUNTIME
     bl blechy_boot
     ldr r0, =HOOK_RUNTIME

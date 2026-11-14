@@ -1,6 +1,7 @@
-/** The Startbild page: any picture to splash.bmp for the card (SPLASH IMPORT in the BLECH menu). Logic: src/splash-bmp.mjs. */
+/** The Startbild page: any picture to splash.bmp in the card's Media folder, which the firmware takes at the start. Logic: src/splash-bmp.mjs. */
 import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
+import { writeMedia } from "./card-access.mjs";
 import { toastFor } from "./toast.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
 import { t, tNodes } from "./i18n.mjs";
@@ -119,6 +120,18 @@ export function splashPage(root) {
 
   const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-splash-download", textContent: t("common.download", { file: SPLASH_FILE }), disabled: true });
   download.addEventListener("click", () => { if (pixels) saveBmp(pixels); });
+  const toCard = el("button", { type: "button", className: "btn", id: "cee-splash-write", disabled: true }, [icon("folder"), t("splash.write")]);
+  toCard.addEventListener("click", async () => {
+    if (!pixels) return;
+    const bytes = encodeBmp(pixels);
+    try {
+      const done = await writeMedia(SPLASH_FILE, bytes);
+      if (done === "written") toast(t("splash.written", { file: SPLASH_FILE, folder: SPLASH_FOLDER }), "ok");
+      else if (done === "readonly") { toast(t("splash.readonly", { folder: SPLASH_FOLDER }), "info"); saveBmp(pixels); }
+    } catch (e) {
+      toast(t("splash.writeFailed", { error: e?.message ?? String(e) }), "error");
+    }
+  });
   const keep = el("button", { type: "button", className: "btn", id: "cee-splash-keep", textContent: t("splash.keep"), disabled: true });
   let pictureName = "";
   keep.addEventListener("click", () => {
@@ -196,6 +209,7 @@ export function splashPage(root) {
     pictureName = "";
     document.getElementById("cee-splash-work").hidden = true;
     download.disabled = true;
+    toCard.disabled = true;
     keep.disabled = true;
     render();
   }).node;
@@ -213,7 +227,7 @@ export function splashPage(root) {
         el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-splash-threshold" }, tNodes("splash.threshold", { value: thresholdOut })), threshold]),
         dither.node,
         invert.node,
-        el("div", { className: "actions" }, [download, keep]),
+        el("div", { className: "actions" }, [download, toCard, keep]),
       ]),
     ]),
     el("ol", { className: "cee-splash-steps", id: "cee-splash-steps" }, [
@@ -234,6 +248,7 @@ export function splashPage(root) {
     files.textContent = name;
     document.getElementById("cee-splash-work").hidden = false;
     download.disabled = false;
+    toCard.disabled = false;
     keep.disabled = false;
     render();
     document.getElementById("cee-splash-work").scrollIntoView?.({ block: "nearest" });

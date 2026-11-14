@@ -31,7 +31,8 @@ async function withCopy(source, build, fn) {
     writeFileSync(path, res.bytes);
     // Reads of 2000 bytes take a second of line time each; the rest of the vectors are the same rule at other places.
     const vectors = join(directory, "vectors.json");
-    writeFileSync(vectors, JSON.stringify(sysexVectors(build).filter((v, i) => v.length <= 16 && i % 5 === 0)));
+    const small = list => list.filter((v, i) => v.length <= 16 && i % 5 === 0);
+    writeFileSync(vectors, JSON.stringify([...small(sysexVectors(build)), ...small(sysexVectors(build, { devMode: true }))]));
     return await fn(path, vectors);
   } finally {
     rmSync(directory, { recursive: true, force: true });
@@ -58,6 +59,15 @@ describe("BLECH's SysEx commands in the emulator", { concurrency: slots }, () =>
       await withCopy(source, build, async (path, vectors) => {
         const report = await cases(path, vectors, "--only", "0");
         for (const id of IDS) assert.ok(report.some(c => c.id === `sysex:${id}`), id);
+      });
+    });
+
+    test(`emulate:2026-11-14/dev-mode-sperrbereiche, DEV MODE opens the image and keeps the closed regions on ${name}`, { skip }, async () => {
+      await withCopy(source, build, async (path, vectors) => {
+        const report = await cases(path, vectors, "--only", "11");
+        for (const id of ["dev_off_refuses_the_image", "dev_on_writes_the_image", "dev_on_keeps_closed_regions", "dev_on_refuses_the_rest", "dev_same_rule_as_the_editor", "dev_off_again", "dev_no_asserts"]) {
+          assert.ok(report.some(c => c.id === `sysex:${id}`), id);
+        }
       });
     });
 

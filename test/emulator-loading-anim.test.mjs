@@ -6,11 +6,12 @@ import { delimiter, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { applyPatches } from "../src/patch.mjs";
-import { BLECH_SET_URL, loadBlechSet, withLoadingAnim } from "../src/patcher.mjs";
+import { BLECH_SET_URL, loadBlechSet } from "../src/patcher.mjs";
 import { encodeAnimation, decodeAnimation, loopPicture, progressIndex, FRAME_BYTES } from "../src/loading-anim.mjs";
 import { run } from "./support/spawn.mjs";
 
-// An animation of the user's own, the way the Patcher page makes the copy: the BLECH set, then withLoadingAnim. The overlay
+// An animation of the user's own, the way the app makes it: the BLECH set on the firmware, the file in Media/loading.blla on
+// the card (tools/emu/loadbar_cases.py app_file puts it there). The overlay
 // has to play exactly the app's pictures and not Blechy (tools/emu/loadbar_cases.py app_file), and the copy has to pass the
 // start check (check.py --quick). E2_VSB is Hacktribe's original, E2_STOCK_VSB Korg's red 2.02; each is skipped without its file.
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -64,10 +65,7 @@ async function appCopy(file) {
   assert.equal(first.ok, true, first.reasons?.join(" "));
   assert.ok(first.spans.some(s => s.patch === "load-bar"), "load-bar is in the set for this build");
   const { bytes } = encodeAnimation(testAnimation());
-  const res = await withLoadingAnim(first, bytes);
-  assert.equal(res.ok, true, res.reasons?.join(" "));
-  assert.ok(res.spans.some(s => s.patch === "loading-anim"));
-  return { res, bytes };
+  return { res: first, bytes };
 }
 
 function suite(name, file) {

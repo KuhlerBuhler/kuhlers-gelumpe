@@ -10,6 +10,8 @@ SysEx and the panel unaffected, and with EXIT held at power-on no answer at all.
 
     tools/emu/.venv/bin/python tools/emu/sysex_cases.py cases --patched NEW.VSB [--flash dump.bin] [--vectors vectors.json]
     tools/emu/.venv/bin/python tools/emu/sysex_cases.py speed --patched NEW.VSB [--flash dump.bin]
+    tools/emu/.venv/bin/python tools/emu/sysex_cases.py hotpatch --patched HT.VSB        # tools/device/hot_patch.py, DEV MODE
+    tools/emu/.venv/bin/python tools/emu/sysex_cases.py hotpatch-full --patched HT.VSB
 """
 
 import argparse
@@ -401,6 +403,7 @@ def protected_cases(dev, lk, payload, vectors):
             reads.append(name)
     out.append(entry("reads_everywhere_in_the_window", not reads, "a read is refused only where the access itself is the risk; firmware, heap, stacks and the patch's code read back" if not reads else f"reads that failed: {reads}"))
 
+    vectors = [v for v in vectors or [] if not v.get("dev")]
     if vectors:
         bad = []
         for v in vectors:
@@ -987,8 +990,106 @@ def sample_kill_switch_cases(payload, flash):
     return sample_cases(payload, flash, held_only=True)
 
 
+def dev_closed(payload):
+    """The regions DEV MODE keeps closed, as the image's own table has them: flags 0 inside the image, after the listed ones."""
+    table = table_of(payload)
+    count = struct.unpack_from("<I", table, 0)[0]
+    regions = [struct.unpack_from("<3I", table, 8 + 12 * i) for i in range(count)]
+    tail = []
+    for a, b, f in reversed(regions):  # the closed ones come last; a listed region with class 0 (sysex-hook) stays out
+        if f != 0 or not (IMAGE <= a and b <= IMAGE + 0x200000):
+            break
+        tail.append((a, b))
+    return tail[::-1]
+
+
+def dev_on(dev, on=True):
+    dev.m.uc.mem_write(spec.DEV_FLAG, struct.pack("<I", spec.DEV_MAGIC) if on else b"\xff" * 4)
+
+
+def case_dev_mode(payload, flash, vectors=None):
+    """DEV MODE (the flag poked into RAM; the menu page has its own cases): off, a write into the image is refused; on, it
+    passes, is read back and INFO says so, while every closed region, a write across a closed edge, the image's mirror and
+    the rest of the table still refuse; a new start is off again."""
+    import sysex_trace
+    out = []
+    dev, lk = boot(payload, flash)
+    build = sysex_trace.build_name(payload)
+    fresh = mem(dev, spec.DEV_FLAG, 4)
+    info = lk.info()
+    target = 0xC0100000                                       # firmware code no idle task runs (it is far from the SysEx path)
+    original = mem(dev, target, 1024)
+    before = original[:64]
+    begin, _ = lk.write(target, bytes(64), send_data=False)
+    out.append(entry("dev_off_refuses_the_image", fresh == b"\xff" * 4 and info and info["flags"] == spec.FLAGS and begin and begin["status"] == REFUSED
+                     and mem(dev, target, 64) == before,
+                     f"after the start DEV_FLAG holds {fresh.hex()}, INFO flags {info and hex(info['flags'])} (FLAG_DEV without FLAG_DEV_ON), "
+                     f"a write into the image is refused at BEGIN ({begin and begin['status']})"))
+
+    dev_on(dev)
+    info = lk.info()
+    data = bytes((i * 13 + 5) & 0xFF for i in range(1024))
+    begin, done = lk.write(target, data)
+    landed = mem(dev, target, 1024) == data
+    r = lk.read(target, 1024)
+    restored = lk.write(target, original)[1]
+    dev.run(1.0)
+    alive = dev.m.screen() == 1 and not dev.m.asserts
+    out.append(entry("dev_on_writes_the_image", info and info["flags"] == spec.FLAGS | spec.FLAG_DEV_ON and begin and begin["status"] == OK
+                     and done and done["status"] == OK and done["crc"] == zlib.crc32(data) and landed and r and r["data"] == data and alive
+                     and restored and restored["status"] == OK and mem(dev, target, 1024) == original,
+                     f"INFO flags {info and hex(info['flags'])}; 1 KiB into the image at {target:#x}: BEGIN {begin and begin['status']}, "
+                     f"DATA {done and done['status']}, in RAM {landed}, READ back {bool(r) and r['data'] == data}; the firmware runs on: {alive}"))
+
+    closed = dev_closed(payload)
+    wanted = [(a, b) for a, b in ((r["start"], r["end"]) for r in sysex_trace.closed_regions(build))]
+    open_ = []
+    for a, b in closed:
+        for at, n in ((a, min(4, b - a)), (b - min(4, b - a), min(4, b - a)), (a - 8, 16) if a - 8 >= IMAGE else (a, 1)):
+            got = lk.write(at, bytes(n), send_data=False)[0]
+            if not got or got["status"] != REFUSED:
+                open_.append((hex(at), n, got and got["status"]))
+    out.append(entry("dev_on_keeps_closed_regions", closed == sorted(wanted) and not open_ and len(closed) > 10,
+                     f"{len(closed)} closed regions in the image's table, equal to data/traces and the constants: {closed == sorted(wanted)}; "
+                     f"first byte, last word and the lower edge of each refused" if not open_ else f"not refused (addr, length, status): {open_[:5]}"))
+
+    others = []
+    for name, addr, n in (("the mirror of the image", 0xC4100000, 16), ("the alias of the patch's code", 0xC4000000 + (spec.CODE_AT - IMAGE), 16),
+                          ("the patch's own code", spec.CODE_AT, 16), ("the table", spec.TABLE_AT, 8), ("DEV_FLAG itself", spec.DEV_FLAG, 4),
+                          ("task stacks", 0xC0210000, 16), ("heap", 0xC0700000, 16), ("across the image's end", IMAGE + 0x200000 - 8, 16)):
+        got = lk.write(addr, bytes(n), send_data=False)[0]
+        if not got or got["status"] != REFUSED:
+            others.append((name, got and got["status"]))
+    out.append(entry("dev_on_refuses_the_rest", not others,
+                     "with DEV MODE on the image's mirror, the alias of the patch's code, its code, table and DEV_FLAG, stacks, heap and a write across the image's end stay refused"
+                     if not others else f"not refused: {others}"))
+
+    # A read in the released RAM behind the buffer trips the Link's guard; the firmware would answer it, the case may not look.
+    dev_vectors = [v for v in vectors or [] if v.get("dev")
+                   and not (v["op"] == "read" and v["addr"] < spec.FILE_AREA and v["addr"] + v["length"] > spec.BUF_END)]
+    if dev_vectors:
+        bad = []
+        for v in dev_vectors:
+            r = lk.read(v["addr"], v["length"], wait=5.0) if v["op"] == "read" and v["length"] <= spec.MAX_BLOCK else None
+            begin = lk.write(v["addr"], bytes(v["length"]), send_data=False)[0] if v["op"] == "write" and v["length"] <= spec.MAX_BLOCK else None
+            got = (r or begin or {}).get("status")
+            if got != v["status"]:
+                bad.append((hex(v["addr"]), v["length"], v["op"], got, v["status"]))
+        out.append(entry("dev_same_rule_as_the_editor", not bad, f"{len(dev_vectors)} ranges answered as src/protect.mjs rules for them with devMode" if not bad
+                         else f"differ from the editor's rule (addr, length, op, device, editor): {bad[:5]}"))
+
+    dev_on(dev, False)
+    info = lk.info()
+    begin, _ = lk.write(target, bytes(16), send_data=False)
+    out.append(entry("dev_off_again", info and info["flags"] == spec.FLAGS and begin and begin["status"] == REFUSED,
+                     f"DEV_FLAG cleared: INFO flags {info and hex(info['flags'])}, a write into the image refused again"))
+    out.append(entry("dev_no_asserts", not dev.m.asserts, f"asserts: {dev.m.asserts[:3]}"))
+    return out
+
+
 GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, file_cases, sample_cases, sample_kill_switch_cases,
-          case_stream, doom_bin_cases, doom_wad_cases, fx_read_cases)   # each its own task in check.py
+          case_stream, doom_bin_cases, doom_wad_cases, fx_read_cases, case_dev_mode)   # each its own task in check.py
+VECTOR_GROUPS = (case_protocol, case_dev_mode)
 
 
 def synth_cases(payload, flash):
@@ -1003,7 +1104,7 @@ def synth_cases(payload, flash):
         out.append(entry("synth_main_screen", dev.m.screen() == 1 and not dev.m.asserts, f"the patched synth firmware is on screen {dev.m.screen()} (1 is the main screen)"))
         info = lk.info()
         table = table_of(payload)
-        out.append(entry("synth_info", info and info["status"] == OK and info["version"] == spec.PROTOCOL_VERSION and info["flags"] == spec.FLAGS & ~spec.FLAG_DOOM
+        out.append(entry("synth_info", info and info["status"] == OK and info["version"] == spec.PROTOCOL_VERSION and info["flags"] == spec.FLAGS & ~spec.FLAG_DOOM & ~spec.FLAG_DEV
                          and info["max_block"] == spec.MAX_BLOCK and info["max_flash"] == spec.FLASH_MAX and info["table_crc"] == zlib.crc32(table),
                          f"INFO answered with model byte 0x23: flags {info and hex(info['flags'])} (no Doom), flash block {info and info['max_flash']}, table {len(table)} bytes, CRC equal to the image's: {bool(info) and info['table_crc'] == zlib.crc32(table)}"))
         bad = []
@@ -1019,6 +1120,12 @@ def synth_cases(payload, flash):
                          "a write is refused already at BEGIN, because the synth's RAM map is not measured; the RAM stays"))
         r, _ = lk.ask(spec.FUNC_EXEC, struct.pack("<II", spec.EXEC_START, 0), reply=spec.REPLY_EXEC)
         words = struct.unpack_from("<3I", r["words"]) if r else None
+        dev_on(dev)
+        begin, _ = lk.write(IMAGE + 0x100000, bytes(16), send_data=False)
+        flagged = lk.info()
+        dev_on(dev, False)
+        out.append(entry("synth_no_dev_mode", begin and begin["status"] == REFUSED and flagged and not flagged["flags"] & (spec.FLAG_DEV | spec.FLAG_DEV_ON),
+                         f"DEV_FLAG poked on the synth: a write into the image is still refused ({begin and begin['status']}), INFO flags {flagged and hex(flagged['flags'])}"))
         out.append(entry("synth_exec_refused", words == (REFUSED, spec.EXEC_START, 0), f"EXEC is refused, because nothing may be written there ({words})"))
         out.extend(flash_cases(dev, lk))
         out.extend(case_kill_switch(payload, flash))
@@ -1035,7 +1142,7 @@ def group_entries(payload, flash, i, vectors=None):
     """check.py entries of case group i; each boots its own device, so they can run side by side."""
     if synthaddr.is_synth(payload):
         return synth_cases(payload, flash) if i == 0 else []
-    return GROUPS[i](payload, flash, vectors) if i == 0 else GROUPS[i](payload, flash)
+    return GROUPS[i](payload, flash, vectors) if GROUPS[i] in VECTOR_GROUPS else GROUPS[i](payload, flash)
 
 
 def cases_task(i):
@@ -1068,12 +1175,91 @@ def speed(payload, flash=None, sizes=(16, 256, 1024, 4096, 8192, 16384, 24576, 3
     return rows
 
 
+def hot_setup(payload, flash=None):
+    """A booted Sampler with DEV MODE switched on at its page, tools/device/hot_patch.py's Blech over the DIN link, the context
+    of the test images (cached under out/hot-patch) and the three images of make_hot_fixtures.py."""
+    sys.path.insert(0, str(ROOT / "tools" / "device"))
+    import hot_patch as hp
+    import make_hot_fixtures
+    import menu_cases as mc
+    from remote_press import Blech
+    raw = bytes(0x100) + bytes(payload)
+    images = make_hot_fixtures.fixtures(raw)
+    dev = mc.boot(payload, flash)
+    lk = Link(dev)
+    mc.goto_top(dev, mc.LIST_DEV)
+    dev.turn(1, wait=0.3)
+
+    def ask(message):
+        replies, _ = lk.exchange(bytes(message), wait=10.0)
+        if not replies:
+            raise SystemExit("emulator: no answer")
+        return list(replies[0])
+    return hp, mc, dev, Blech(ask), raw, images
+
+
+def hotpatch_report(raw):
+    """What check.py --report says of a test image; the cases build their images themselves and check only the hot patch."""
+    import hashlib
+    return {"vsb_sha256": hashlib.sha256(raw).hexdigest(), "ok": True, "quick": False, "partial": False}
+
+
+def hotpatch_cases(payload, flash=None):
+    """hot_patch.py against the emulator: the title of DEV MODE written hot shows on the LCD, --revert brings the base back."""
+    import tempfile
+    hp, mc, dev, blech, raw, images = hot_setup(payload, flash)
+    new = images["ht-text.VSB"]
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"hotpatch:{name}", "ok": bool(ok), "detail": str(detail)})
+    tmp = Path(tempfile.mkdtemp())
+    log = []
+    assert hp.accept_report(hotpatch_report(new), new) is None
+    ctx = hp.Context.measure(raw[0x100:], new[0x100:], "ht", say=log.append)
+    p, journal = hp.run(blech, raw, tmp / "base.VSB", new, tmp / "ht-text.VSB", ctx, proof="near", journals=tmp, say=log.append)
+    rows = [(r["start"], r["end"], r["cls"]) for r in p["rows"]]
+    mc.goto_top(dev, mc.LIST_VERSION)
+    mc.goto_top(dev, mc.LIST_DEV)
+    shown = mc.texts_of(dev)
+    add("text_written_hot", journal and [c for _, _, c in rows] == ["hot"] and shown[:2] == ("HOT MODE", "ON") and not dev.m.asserts,
+        f"rows {[(hex(a), hex(b), c) for a, b, c in rows]}, LCD {shown}")
+    hp.revert(blech, journal, say=log.append)
+    back = all(blech.read(a, b - a) == raw[0x100 + a - hp.IMAGE:0x100 + b - hp.IMAGE] for a, b, _ in rows)
+    mc.goto_top(dev, mc.LIST_VERSION)
+    mc.goto_top(dev, mc.LIST_DEV)
+    add("revert_reads_base", back and mc.texts_of(dev)[0] == "DEV MODE" and not dev.m.asserts, f"READ equals base: {back}, LCD {mc.texts_of(dev)}")
+    return out
+
+
+def hotpatch_full_cases(payload, flash=None):
+    """hot_patch.py against the emulator: a start-phase byte and a DSP byte are reported full update, nothing is written."""
+    import tempfile
+    hp, mc, dev, blech, raw, images = hot_setup(payload, flash)
+    out, writes = [], []
+    real_write = blech.write
+    blech.write = lambda a, data, verify=True: (writes.append(a), real_write(a, data, verify))
+    for name, reason in (("ht-start.VSB", "start phase"), ("ht-dsp.VSB", "DSP")):
+        new = images[name]
+        changed = hp.diff(raw[0x100:], new[0x100:])
+        before = [bytes(dev.m.uc.mem_read(a, b - a)) for a, b in changed]   # the firmware rewrites other image bytes itself while it runs
+        ctx = hp.Context.measure(raw[0x100:], new[0x100:], "ht", say=lambda *_: None)
+        tmp = Path(tempfile.mkdtemp())
+        p, journal = hp.run(blech, raw, tmp / "base.VSB", new, tmp / name, ctx, proof="near", journals=tmp, say=lambda *_: None)
+        after = [bytes(dev.m.uc.mem_read(a, b - a)) for a, b in changed]
+        reasons = [r["reason"] for r in p["full"]]
+        out.append({"id": f"hotpatch:{name.split('.')[0]}_is_full_update", "ok": bool(p["full"]) and all(reason in r for r in reasons)
+                    and journal is None and before == after and not writes and not p["groups"],
+                    "detail": f"full {reasons}, journal {journal}, WRITE calls {len(writes)}, changed range unchanged {before == after}"})
+    return out
+
+
 def main():
     import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("what", choices=("cases", "speed", "synth"))
+    p.add_argument("what", choices=("cases", "speed", "synth", "hotpatch", "hotpatch-full"))
     p.add_argument("--patched", required=True, type=Path)
     p.add_argument("--flash", nargs="*", default=[], type=Path)
     p.add_argument("--vectors", type=Path, help="ranges and what src/protect.mjs says about them, JSON")
@@ -1085,6 +1271,10 @@ def main():
     if a.what == "speed":
         print(json.dumps(speed(payload, flash), indent=1))
         return 0
+    if a.what in ("hotpatch", "hotpatch-full"):
+        entries = (hotpatch_cases if a.what == "hotpatch" else hotpatch_full_cases)(payload, flash)
+        print(json.dumps(entries, indent=1))
+        return 0 if all(e["ok"] for e in entries) else 1
     if a.what == "synth":
         import machine
         entries = synth_cases(payload, flash or bytes(machine.blank_flash(b"KORGelec2USR")))
