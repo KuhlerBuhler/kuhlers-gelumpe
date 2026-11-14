@@ -1284,12 +1284,12 @@ game. The pads keep playing the Electribe meanwhile. Checked in the simulator (`
 on the device.
 
 **PLAY-Takt** uses API 11 and runs in the background. While the sequencer plays, the PLAY LED (red and blue) blinks in the
-tempo of the pattern: the event `beat` lights it on every quarter note, `korg.afterSteps(2, ...)` turns it off two steps
-later, so with BEAT 8 on every half note. On STOP and in the pause it stays lit; `korg.cancel` clears the timer then. In the
-pause the firmware blinks the PLAY LED itself, the plugin lights it again in every frame: in the emulator it then stays dark
-for at most one round of the LED matrix (5.5 ms in the model of `tools/emu/panel_leds.py`), on STOP until the next frame
-(40 ms). It is also the catalog's example of the timers. Checked in the simulator (`test/script-play-takt.test.mjs`) and in
-the emulator (`tools/emu/timer_cases.py`, Hacktribe), not on the device.
+tempo of the pattern: the event `beat` lights it on every quarter note, `korg.afterSteps(1, ...)` turns it off one step
+later, so with BEAT 8 briefly on every half note. On STOP it is off, in the pause it stays lit; `korg.cancel` clears the timer
+then. On STOP and in the pause the firmware writes the PLAY LED itself, the plugin sets it again in every frame: in the pause
+it stays dark in the emulator for at most one round of the LED matrix (5.5 ms in the model of `tools/emu/panel_leds.py`),
+after STOP it shows no light there. It is also the catalog's example of the timers. Checked in the simulator
+(`test/script-play-takt.test.mjs`) and in the emulator (`tools/emu/timer_cases.py`, Hacktribe and red), not on the device.
 
 ## The Plugins page in the editor
 
