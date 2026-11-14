@@ -32,6 +32,9 @@ test("Startbild: a picture becomes splash.bmp, black is drawn, the guide names t
   await page.goto(h.url);
   await go(page, "splash");
   assert.equal(await page.locator("#cee-nav-title").textContent(), "Design");
+  assert.equal(await page.locator("#cee-splash-page-editor").isHidden(), true, "the editor is a page of its own, not below the gallery");
+  await page.click("#cee-splash-make");
+  assert.equal(await page.locator("#cee-splash-page-gallery").isHidden(), true);
   assert.equal(await page.locator("#cee-splash-download").isDisabled(), true, "nothing to download before a picture");
   await dropPicture(page);
   const download = page.waitForEvent("download");
@@ -49,31 +52,41 @@ test("Startbild: a picture becomes splash.bmp, black is drawn, the guide names t
   assert.deepEqual(page.errors, []);
 });
 
-test("Startbild: the gallery has the ten pictures of the app, the standard one comes as splash.bmp, an own picture stays in this browser", async () => {
+test("Startbild: the gallery has the sixteen pictures of the app as cards with their maker, a card opens its page with splash.bmp and Bearbeiten, an own picture stays in this browser", async () => {
   const page = await h.page();
   await page.goto(h.url);
   await go(page, "splash");
   const items = page.locator("#cee-splash-gallery > li");
-  assert.equal(await items.count(), 10);
-  assert.match(await items.first().textContent(), /BLECHTRIBE\s*Standard/, "the standard picture first, to get it back after SPLASH RESET");
+  assert.equal(await items.count(), 16);
+  assert.match(await items.first().textContent(), /BLECHTRIBE\s*Standard\s*von Kuhler Buhler/, "the standard picture first, to get it back after SPLASH RESET");
+  assert.match(await page.locator("#cee-splash-item-hardtekk").textContent(), /HARDTEKK\s*von Acey/, "a picture from Discord names its maker");
+  assert.equal(await items.first().locator("button").count(), 1, "no buttons on a card: the title's button covers it, like a plugin card");
+  await items.first().locator(".cee-catalog-open").click();
+  assert.equal(await page.locator("#cee-splash-detail-title").textContent(), "BLECHTRIBE");
+  assert.equal(await page.locator("#cee-splash-page-gallery").isHidden(), true);
   const download = page.waitForEvent("download");
-  await items.first().getByRole("button", { name: /herunterladen/ }).click();
+  await page.click("#cee-splash-detail-download");
   const file = await download;
   assert.equal(file.suggestedFilename(), "splash.bmp");
   const bytes = await (await file.createReadStream()).toArray().then(parts => Buffer.concat(parts));
   assert.equal(bytes.length, 1086);
   assert.ok(bytes.subarray(62).some(b => b !== 0) && bytes.subarray(62).some(b => b !== 0xff), "a picture, not an empty card");
-  await items.nth(1).getByRole("button", { name: "Bearbeiten" }).click();
+  await page.click("#cee-splash-detail-back");
+  await items.nth(1).locator(".cee-catalog-open").click();
+  await page.click("#cee-splash-detail-edit");
   await page.locator("#cee-splash-work:not([hidden])").waitFor();
+  assert.equal(await page.locator("#cee-splash-page-editor").isVisible(), true);
   await dropPicture(page);
   await page.click("#cee-splash-keep");
-  assert.equal(await items.count(), 11);
+  assert.equal(await page.locator("#cee-splash-page-gallery").isVisible(), true, "kept, back in the gallery");
+  assert.equal(await items.count(), 17);
   assert.match(await items.last().textContent(), /half\s*Eigenes/);
   await page.reload();
   await go(page, "splash");
-  assert.equal(await items.count(), 11, "kept across a reload");
-  await items.last().getByRole("button", { name: "Entfernen" }).click();
-  assert.equal(await items.count(), 10);
+  assert.equal(await items.count(), 17, "kept across a reload");
+  await items.last().locator(".cee-catalog-open").click();
+  await page.click("#cee-splash-detail-remove");
+  assert.equal(await items.count(), 16);
   assert.deepEqual(page.errors, []);
 });
 
@@ -81,6 +94,7 @@ test("Startbild: the X on the picture field drops the pending picture and the fi
   const page = await h.page();
   await page.goto(h.url);
   await go(page, "splash");
+  await page.click("#cee-splash-make");
   const zone = page.locator(".ui-dropzone:has(#cee-splash-file)");
   const x = page.locator(".cee-dropzone-wrap:has(#cee-splash-file) > .cee-dropzone-clear");
   assert.equal(await zone.locator(".cee-dropzone-clear").count(), 0, "the X is a sibling of the label, not in it");
