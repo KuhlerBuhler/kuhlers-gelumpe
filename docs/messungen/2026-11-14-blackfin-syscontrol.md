@@ -1,5 +1,7 @@
 # Blackfin: SysControl und RTOS-Start
 
+Fortsetzung: [HOSTDP-Register und Interrupts](2026-11-14-blackfin-hostdp.md).
+
 ## Hergeleitet aus der ROM-Schnittstelle
 
 Das vollständige

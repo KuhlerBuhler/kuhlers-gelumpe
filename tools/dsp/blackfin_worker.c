@@ -13,6 +13,7 @@ extern void blech_bfin_guard(uint32_t, uint32_t);
 extern uint32_t blech_bfin_count(void);
 extern uint32_t blech_bfin_last(void);
 extern int blech_bfin_stopped(void);
+extern int blech_bfin_hostdp_event(SIM_DESC, unsigned);
 
 /* Little-endian requests: opcode, address/register/budget, byte count/value/PC. */
 #define LIMIT (1024 * 1024)
@@ -72,7 +73,7 @@ int main(int argc, char **argv) {
     default_callback.init(&default_callback);
     SIM_DESC sd = sim_open(SIM_OPEN_DEBUG, &default_callback, NULL, args);
     if (!sd || sim_create_inferior(sd, NULL, empty, empty) != SIM_RC_OK) return 3;
-    answer(0, "BFIN3", 5);
+    answer(0, "BFIN4", 5);
     while (get32(&op) && get32(&address) && get32(&count)) {
         if (op == 0) break;
         if (op == 1 || op == 2) {
@@ -82,6 +83,9 @@ int main(int argc, char **argv) {
                                  : sim_write(sd, address, buffer, count);
             if (n != count) { answer(1, NULL, 0); break; }
             answer(0, buffer, op == 1 ? count : 0);
+        } else if (op == 6) {
+            if (count || !blech_bfin_hostdp_event(sd, address)) { answer(1, NULL, 0); break; }
+            answer(0, NULL, 0);
         } else if (op == 3 || op == 4) {
             if (address > 53) { answer(1, NULL, 0); break; }
             uint32_t value;

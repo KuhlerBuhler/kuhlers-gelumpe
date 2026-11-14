@@ -62,6 +62,13 @@ def patch_sources(source):
     file.write_text(text)
     file = source / 'sim/bfin/machs.c'
     text = file.read_text()
+    for name in ('bf522_dev', 'bf526_dev'):
+        start = text.index(f'static const struct bfin_dev_layout {name}[] =\n{{\n')
+        stop = text.index('\n};', start)
+        region = text[start:stop]
+        if '"bfin_hostdp"' not in region:
+            at = text.index('{\n', start) + 2
+            text = text[:at] + '  DEVICE (0xFFC03400, 12, "bfin_hostdp"),\n' + text[at:]
     old = 'if (bfrom->sirev == sirev)\n'
     new = 'if (bfrom->sirev == sirev && bfrom->len != 0)\n'
     if text.count(old) == 1:
@@ -71,7 +78,14 @@ def patch_sources(source):
     file.write_text(text)
     file = source / 'sim/Makefile.in'
     text = file.read_text().replace(r'\1/;p}', r'\1/;p;}')
+    hostdp = '@SIM_ENABLE_ARCH_bfin_TRUE@\tbfin_hostdp \\\n'
+    if hostdp not in text:
+        anchor = '@SIM_ENABLE_ARCH_bfin_TRUE@\tbfin_gptimer \\\n'
+        if text.count(anchor) != 1:
+            raise ValueError('unexpected GNU Blackfin device list')
+        text = text.replace(anchor, anchor + hostdp)
     file.write_text(text)
+    shutil.copyfile(ROOT / 'tools/dsp/blackfin_hostdp.c', source / 'sim/bfin/dv-bfin_hostdp.c')
 
 
 def build(directory, jobs=4):
@@ -126,6 +140,7 @@ def build(directory, jobs=4):
                              'deferred DSP32ALU add/sub result writes',
                              'deferred SIGNBITS half-register writes',
                              'bounded execution inside the event loop',
+                             'BF52x HOSTDP registers and interrupt sources',
                              'do not map empty built-in ROM images'],
                     workerSHA256=hashlib.sha256(worker.read_bytes()).hexdigest(),
                     bridgeSHA256=hashlib.sha256((ROOT / 'tools/dsp/blackfin_worker.c').read_bytes()).hexdigest())
