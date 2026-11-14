@@ -230,9 +230,10 @@ class Flash:
 
 
 class Machine:
-    def __init__(self, payload, flash=None, profile=None):
+    def __init__(self, payload, flash=None, profile=None, *, dsp_backend=None):
         """`profile` is the build's Profile (firmware.py); without it the payload is looked at, and a payload that
         is not a Sampler 2.02 build the emulator knows raises firmware.ProfileError."""
+        self.dsp_backend = dsp_backend
         self.profile = profile or identify(payload)
         p = self.profile
         self.ENTRIES = (p.assert_handler, p.flash_read, p.dsp_upload, p.tx_full)
@@ -380,6 +381,8 @@ class Machine:
         differ from `card_base` (the image as it was when the machine started, bootcache.py) or, without it, from
         an empty card. A card on a folder of the host (cardstore.py) is the host's and cannot be kept. Without
         instance methods that someone wrapped around the model (their owner puts them back after restoring)."""
+        if self.dsp_backend is not None:
+            raise ValueError('Blackfin backend sessions cannot be snapshotted')
         card = self.mmc.card
         if card is not None and not card_in_memory(card):
             raise ValueError("a card on a folder of the host cannot be snapshotted")
@@ -433,6 +436,8 @@ class Machine:
         flash and not have run, and a card in its slot has to be the image the snapshot's `card_base` was (an empty
         one without). The objects the caller may hold stay the same: the machine, its flash, the card and its
         image, and the dicts, lists and sets of the model."""
+        if self.dsp_backend is not None:
+            raise ValueError('Blackfin backend sessions cannot restore snapshots')
         blob = pickle.loads(snap)
         uc = self.uc
         if blob["flash_mem"] is not None:
@@ -499,7 +504,8 @@ class Machine:
         if timer:
             self.poll_time()
             return self.timer_count(*timer)
-        if a == DSP_CTRL: return 0x85                # assumption: DSP always ready; bit 2 is the one Korg's own build waits for before a host-port write
+        if a == DSP_CTRL:
+            return self.dsp_backend.status() if self.dsp_backend is not None else 0x85
         if a == DSP_DATA: return self.dsp_read()
         if a in (SPI0 + 0x40, SPI1 + 0x40):          # SPIBUF, RXEMPTY once read
             s = self.spi[a - 0x40]
@@ -539,6 +545,12 @@ class Machine:
         return None
 
     def write(self, a, v):
+        if self.dsp_backend is not None and a in (DSP_CTRL, DSP_DATA):
+            if a == DSP_CTRL:
+                self.dsp_backend.control(v)
+            else:
+                self.dsp_backend.write_word(v)
+            return True
         if a == DSP_CTRL:
             if not self.dsp_ctl and v & 0xFFFF == DSP_SYNC:      # Korg's build writes a lone sync word between frames
                 return True
@@ -654,6 +666,8 @@ class Machine:
 
     # ---- DSP host port -------------------------------------------------------
     def dsp_read(self):
+        if self.dsp_backend is not None:
+            return self.dsp_backend.read_word()
         # Transfers start with 7 control words [0xA9 read | 0xAB write, address low,
         # address high, count of 16-bit words, 2, 0, 0]. Unmodelled words read 0,
         # which leaves bit 31 of the DSP outboxes clear, so the CPU stops waiting.
@@ -954,9 +968,13 @@ class Machine:
         return True
 
     def _dsp_upload(self):
-        # The DSP is a stand-in, so its program has nowhere to go; sending it
-        # byte by byte took most of the boot.
         uc = self.uc
+        if self.dsp_backend is not None:
+            address = uc.reg_read(self.A.UC_ARM_REG_R1)
+            count = uc.reg_read(self.A.UC_ARM_REG_R2)
+            if not 0 < count <= 1 << 20:
+                raise ValueError('invalid Blackfin boot stream length')
+            self.dsp_backend.boot(bytes(uc.mem_read(address, count)))
         self.dsp_uploads.append(round(self.time_ns / 1e6, 2))
         uc.reg_write(self.A.UC_ARM_REG_R0, 1)
         uc.reg_write(self.A.UC_ARM_REG_PC, uc.reg_read(self.A.UC_ARM_REG_LR))

@@ -12,6 +12,11 @@ Gerät und keine zusätzliche Schreibfreigabe.
 
 ## Zweck und Grenzen
 
+Ein ausdrücklich gewählter Blackfin-Prüfprototyp kann zusätzlich echte
+DSP-Instruktionen ausführen und deren Speicher über den Host-Port lesen.
+Der vollständige DSP-Start besteht damit noch nicht. Aufbau und Grenzen:
+[Blackfin: Kern und Host-Port als Prüfprototyp](messungen/2026-11-14-blackfin-boot-ruecklesen.md).
+
 Der Emulator ist ein eigenständiges Python-Programm. Er führt die Firmware der
 Electribe, also eine eigene `SYSTEM.VSB`, mit Unicorn aus und bildet dazu
 Display, Panel, MIDI, Flash und SD-Karte nach. Damit lässt sich:
