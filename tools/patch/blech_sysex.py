@@ -125,8 +125,15 @@ REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH, REPLY_FREAD, REPLY
 REPLY_COPY, REPLY_DELETE, REPLY_CRC = 0x79, 0x7A, 0x7B
 STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY, STATUS_FILE = 0, 1, 2, 3, 4, 5, 6
 PROTOCOL_VERSION = 1
-FLAGS = 0x1FF                   # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC), bit 8 the Doom files
+FLAGS = 0x3FF                   # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC), bit 8 the Doom files, bit 9 DEV MODE
 FLAG_DOOM = 0x100               # not on the blue Electribe 2: its set has no Doom loader (data/patches/blech-synth.json), so the files would do nothing there
+FLAG_DEV = 0x200                # the build has DEV MODE (the Sampler's BLECH menu); FLAG_DEV_ON, set in INFO at run time, says it is on
+FLAG_DEV_ON = 0x400
+DEV = True                      # False on the blue Electribe 2: its menu has no DEV MODE page, so its code is left out
+DEV_FLAG = STATE + 0xFC         # DEV_MAGIC while DEV MODE is on; the image holds FF there, so every start begins with it off
+DEV_MAGIC = 0x4D564544          # "DEVM"
+DEV_OPEN = 0x200                # region flag bit 9: with DEV MODE on, a write may go into this region (firmware image only)
+IMAGE_END = 0xC0200000          # a write below this goes into the running code: it is copied with interrupts masked, then the caches are synced
 EXEC_START, EXEC_END = 0xC1000000, 0xC1000400   # the stub buffer of data/exec.mjs (stubAt, stubAt + stubSize)
 HACKTRIBE_FIRST, HACKTRIBE_FLASH_WRITE = 0x52, 0x56   # Hacktribe's commands are 0x52 to 0x57
 FLASH_MAX = 0x1000              # bytes in one FLASH READ: the sector size, the largest piece the firmware's own flash code takes at once
@@ -196,6 +203,58 @@ def unlink_body():
     return f"    b {FS_UNLINK:#x}"
 
 
+def info_dev():
+    """INFO: FLAG_DEV_ON joins the flags while DEV MODE is on."""
+    if not DEV:
+        return ""
+    return """    ldr r2, =DEV_FLAG
+    ldr r2, [r2]
+    ldr r12, =DEV_MAGIC
+    cmp r2, r12
+    orreq r3, r3, #FLAG_DEV_ON
+"""
+
+
+def policy_dev():
+    """A region with DEV_OPEN is passed over in the first pass while DEV MODE is on; the mirror pass still refuses it, and so
+    do the closed regions inside it, which lack the bit."""
+    if not DEV:
+        return ""
+    return """    tst r3, #DEV_OPEN
+    beq policy_class
+    ldr r2, =DEV_FLAG
+    ldr r2, [r2]
+    ldr r12, =DEV_MAGIC
+    cmp r2, r12
+    beq policy_region
+policy_class:
+"""
+
+
+def data_copy():
+    """The copy of WRITE DATA. Into the image (only possible with DEV MODE on) with IRQ and FIQ masked, so no task runs half
+    old, half new code, then the write buffer drained and the instruction cache cleared. CommandTask runs privileged (EXEC's
+    cache code needs that too)."""
+    if not DEV:
+        return "    bl memcpy\n"
+    return """    ldr r3, =IMAGE_END
+    cmp r0, r3
+    bhs data_copy_plain
+    .word 0xE10F4000            ; mrs r4, cpsr
+    orr r3, r4, #0xC0
+    .word 0xE121F003            ; msr cpsr_c, r3: IRQ and FIQ off
+    bl memcpy
+    mov r0, #0
+    .word 0xEE070F9A            ; mcr p15, 0, r0, c7, c10, 4: drain the write buffer
+    .word 0xEE070F15            ; mcr p15, 0, r0, c7, c5, 0: clear the instruction cache
+    .word 0xE121F004            ; msr cpsr_c, r4: back as before
+    b data_copied
+data_copy_plain:
+    bl memcpy
+data_copied:
+"""
+
+
 def source():
     return f"""
 .equ PANEL, {PANEL:#x}
@@ -252,6 +311,11 @@ def source():
 .equ S_RAW, {S_RAW}
 .equ S_OUT, {S_OUT}
 .equ FLAGS, {FLAGS}
+.equ DEV_FLAG, {DEV_FLAG:#x}
+.equ DEV_MAGIC, {DEV_MAGIC:#x}
+.equ DEV_OPEN, {DEV_OPEN:#x}
+.equ FLAG_DEV_ON, {FLAG_DEV_ON:#x}
+.equ IMAGE_END, {IMAGE_END:#x}
 .equ EXEC_START, {EXEC_START:#x}
 .equ EXEC_END, {EXEC_END:#x}
 .equ HT_FIRST, {HACKTRIBE_FIRST:#x}
@@ -446,7 +510,7 @@ do_info:
     mov r3, #VERSION
     str r3, [r8, #4]
     ldr r3, =FLAGS
-    str r3, [r8, #8]
+{info_dev()}    str r3, [r8, #8]
     ldr r3, =MAX_BLOCK
     str r3, [r8, #12]
     ldr r0, =TABLE
@@ -669,8 +733,7 @@ do_data:
     mov r0, r8
     ldr r1, =BUF
     mov r2, r9
-    bl memcpy
-    mov r0, r8
+{data_copy()}    mov r0, r8
     mov r1, r9
     bl crc32
     mov r11, r0
@@ -1128,7 +1191,7 @@ policy_region:
 policy_hit:
     cmp r7, #0
     bne policy_refused
-    ands r2, r3, #0xff
+{policy_dev()}    ands r2, r3, #0xff
     beq policy_refused
     mov r0, r9
     bl in_window
@@ -1668,7 +1731,8 @@ def use_build(build, ref=None, vsb=None):
     import fwmap
     globals()["MODEL"] = 0x23
     globals()["FOLDER_ID"] = 0x123           # the id the synth's update passes to its folder function (0xC0035304 loads it)
-    globals()["FLAGS"] = FLAGS & ~FLAG_DOOM
+    globals()["FLAGS"] = FLAGS & ~FLAG_DOOM & ~FLAG_DEV
+    globals()["DEV"] = False                 # no DEV MODE page in the synth's menu
     mapped = fwmap.FirmwareMap(fwmap.load(ref), vsb[HEADER:])
     found = {}
     for name in FIRMWARE_PLACES:
