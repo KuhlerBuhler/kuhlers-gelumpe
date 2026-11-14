@@ -158,9 +158,11 @@ Gruppe `case_flash`, mit leerem Flash), Gerätetest in [BLECH-Datei, Schritt 22]
 
 ## Status 6: die Karte meldet einen Fehler
 
-Status 6 (`STATUS_FILE` in `tools/patch/blech_sysex.py`) ist BLECHs eigener Code, nicht FatFs-Code 6 (`FR_INVALID_NAME`). Er heißt
-nur: eine FatFs-Funktion der Firmware hat nicht 0 geliefert. Welcher Code das war, steht nicht in der Antwort; die Firmware setzt
-bei jedem Fehler dieselbe 6.
+Status 6 (`STATUS_FILE` in `tools/patch/blech_sysex.py`) ist BLECHs eigener Code, nicht FatFs-Code 6 (`FR_INVALID_NAME`). Er heißt:
+eine FatFs-Funktion der Firmware hat nicht 0 geliefert. Bei FILE READ und bei DATA in eine Datei steht der Grund im vierten Wort
+der Antwort (sonst die CRC): FatFs' `FRESULT` oder einer der zwei BLECH-Codes unten. Ältere Apps lesen das Wort bei Status 6 nicht.
+Die App zeigt den Grund als Text mit dem Code (`sysex.status.cardWhy` in `site/app/i18n-*.mjs`). FILE COPY, DELETE und CRC liefern
+nur die 6.
 
 | Befehl | Status 6, wenn | Beleg |
 |---|---|---|
@@ -180,10 +182,17 @@ benutzt, die übrigen folgen aus derselben Reihenfolge:
 | 5 | `FR_NO_PATH` | Ordner fehlt; beim ersten Schreibblock legt BLECH ihn an und versucht es einmal neu | gemessen |
 | 7 | `FR_DENIED` | Karte oder Verzeichnis voll | hergeleitet |
 | 13 | `FR_NO_FILESYSTEM` | Karte ohne FAT, z. B. nicht formatiert | hergeleitet |
+| 0x80 | `FR_CARD_NEVER` (BLECH) | Gerät ohne Karte gestartet: kein Dateibefehl fasst eine Karte an, bis zum nächsten Start (siehe unten) | gemessen im Emulator (`sysex:file_no_card`, `file_card_after_start_without_one`) |
+| 0x81 | `FR_SHORT` (BLECH) | `f_write` hat weniger Bytes geschrieben als verlangt: Karte voll | offline gelesen |
 
-Am Gerät heißt das: bei einer 6 zuerst prüfen, ob die Karte steckt und eingehängt ist (BLECH READ von `fs_type`, siehe
-[Init-Sperre](2026-11-14-karte-init-sperre.md)), dann ob Datei und Ordner da sind. Den echten FatFs-Code in die Antwort zu
-legen, ist nicht gebaut.
+Nach einem Start ohne Karte steht das Kartenwort des BLECH-Menüs (`M_CARD`, `MENU_STATE + 0x1B0`) auf `CARD_NEVER`. Eine danach
+gesteckte Karte kann Korgs SD-Init hängen lassen (#518). Darum prüfen alle Dateibefehle dieses Wort vor dem Öffnen oder Löschen
+(`fs_open`, `fs_unlink` in `tools/patch/blech_sysex.py`) und antworten mit 6 und Code 0x80, ohne die Karte anzusprechen. Im
+Emulator geht nach Stecken einer Karte kein einziger Befehl an sie (`file_card_after_start_without_one`, **gemessen**). Ob der
+Hänger am Gerät genau so entsteht, ist **hergeleitet**, nicht am Gerät gemessen.
+
+Am Gerät heißt das: bei 0x80 neu starten, mit gesteckter Karte. Bei 3 prüfen, ob die Karte eingehängt ist (BLECH READ von
+`fs_type`, siehe [Init-Sperre](2026-11-14-karte-init-sperre.md)), bei 4 und 5, ob Datei und Ordner da sind.
 
 ## Die blaue Electribe 2 (Synth)
 

@@ -35,7 +35,9 @@ when one is missing, as on the blue's card), every other writes into the existin
 0x200100, the size of a VSB. Bit 29 of the offset chooses the Doom files instead: SD:/KORG/blechtribe/Doom/doom.bin (bit 31 clear)
 and doom.wad (bit 31 set), the paths the Doom loader opens (tools/doom/runtime_abi.h); they are written like the update file (offset 0
 makes the file anew, a missing folder is made) but may be as large as the sample file, and INFO says so with bit 8 of its flags, which
-the blue Electribe 2 does not set (its set has no Doom loader). Bits 30 and 29 together name no file and are refused as out of range. Status 6 is a card error (no card, no file, card full). The firmware's update writes the flash
+the blue Electribe 2 does not set (its set has no Doom loader). Bits 30 and 29 together name no file and are refused as out of range. Status 6 is a card error (no card, no file, card full);
+FILE READ and the DATA of a file write then carry the FatFs result in their CRC word, 0x80 for a card put in after a start without
+one (the FILE commands do not touch it, as the BLECH menu does not) and 0x81 for a write the card took only in part. The firmware's update writes the flash
 from that file when the user starts it; nothing here writes the flash.
 
 Every field is a 32-bit little endian word (the status too), the words are packed as every Electribe SysEx payload is
@@ -109,6 +111,11 @@ SAMPLE_LIMIT = 0x10000000       # offset plus length of a FILE command on the sa
 COPY_MAX = 0x40000              # bytes one FILE COPY or FILE CRC works on
 COPY_CHUNK = 0x4000             # bytes the copy moves at once through BUF
 FILE_FIL2 = FILE_AREA + 0x400   # the second FatFs file object, for FILE COPY
+MENU_STATE = 0xC01D6E00         # the BLECH menu's state (tools/patch/script_hooks.py:MENU_STATE), read only here
+M_CARD = 0x1B0                  # its card word (tools/patch/script_menu.s:M_CARD)
+CARD_NEVER = 0xFE               # M_CARD after a start without a card: no card is touched until the next start (#518)
+FR_CARD_NEVER = 0x80            # not a FatFs code: a card put in after a start without one, which the FILE commands leave alone
+FR_SHORT = 0x81                 # not a FatFs code: f_write wrote fewer bytes than asked (the card is full)
 NAME_MAX = 16                   # characters of a plugin file's name (PLUGIN BEGIN)
 
 # STATE: +0 pending (the magic below when a BEGIN waits for its DATA), +4 address, +8 length, +12 CRC,
@@ -210,6 +217,11 @@ def source():
 .equ FILE_BR, {FILE_AREA + 0x240:#x}
 .equ FILE_PATH, {FILE_AREA + 0x280:#x}
 .equ FILE_NAME, {FILE_AREA + 0x300:#x}
+.equ FILE_FR, {FILE_AREA + 0x244:#x}
+.equ MENU_CARD, {MENU_STATE + M_CARD:#x}
+.equ CARD_NEVER, {CARD_NEVER:#x}
+.equ FR_CARD_NEVER, {FR_CARD_NEVER:#x}
+.equ FR_SHORT, {FR_SHORT:#x}
 .equ NAME_MAX, {NAME_MAX}
 .equ FILE_LIMIT, {FILE_LIMIT:#x}
 .equ SAMPLE_LIMIT, {SAMPLE_LIMIT:#x}
@@ -679,7 +691,7 @@ data_file:
     movne r2, #0x03             ; FA_OPEN_EXISTING | FA_READ | FA_WRITE
     cmp r5, #3
     moveq r2, #0x13             ; the sample file: opened or made, never cut by a block at offset 0 (that one is its header)
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     beq data_file_open
     cmp r0, #5                  ; FR_NO_PATH on the first block: make the folders of the path, then once more
@@ -689,7 +701,7 @@ data_file:
     ldr r0, =FILE_FIL
     ldr r1, =FILE_PATH
     mov r2, #0x0A
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     bne data_file_error
 data_file_open:
@@ -708,6 +720,7 @@ data_file_open:
     ldr r0, =FILE_BR
     ldr r0, [r0]
     cmp r0, r9
+    movne r0, #FR_SHORT
     bne data_file_close
     ldr r0, =FILE_FIL
     bl FS_CLOSE
@@ -718,7 +731,7 @@ data_file_open:
     mov r2, r5
     bl file_read_back
     cmp r0, #0
-    bne data_file_error
+    bne data_file_fr
     ldr r0, =BUF_END
     sub r0, r0, r9
     bic r0, r0, #3
@@ -730,11 +743,17 @@ data_file_open:
     movne r4, #{STATUS_VERIFY}
     b data_reply
 data_file_close:
+    mov r4, r0
     ldr r0, =FILE_FIL
     bl FS_CLOSE
+    mov r0, r4
+    b data_file_error
+data_file_fr:
+    ldr r0, =FILE_FR
+    ldr r0, [r0]
 data_file_error:
     mov r4, #{STATUS_FILE}
-    mov r11, #0
+    mov r11, r0                 ; with status 6 the CRC word carries the FatFs result, or FR_CARD_NEVER or FR_SHORT
 data_reply:
     add r0, r6, #S_RAW
     str r4, [r0]
@@ -898,6 +917,9 @@ fread_failed:
     str r8, [r11, #4]
     mov r3, #0
     str r3, [r11, #8]
+    cmp r4, #{STATUS_FILE}
+    ldreq r3, =FILE_FR          ; with status 6 the CRC word carries the FatFs result, or FR_CARD_NEVER
+    ldreq r3, [r3]
     str r3, [r11, #12]
     str r5, [r11, #16]
     mov r0, #{REPLY_FREAD}
@@ -908,7 +930,8 @@ fread_failed:
 .pool
 
 ; r0 = offset, r1 = length, r2 = which file: its bytes from there into the end of BUF (rounded down to a word, as READ does), the
-; count in FILE_BR and the size in the file object; returns r0 = 0, or STATUS_FILE when the card says no. Keeps r4 to r11.
+; count in FILE_BR and the size in the file object; returns r0 = 0, or STATUS_FILE when the card says no, its FatFs result in
+; FILE_FR. Keeps r4 to r11.
 file_read_back:
     push {{r4, r5, r6, lr}}
     mov r4, r0
@@ -921,7 +944,7 @@ file_read_back:
     ldr r0, =FILE_FIL
     ldr r1, =FILE_PATH
     mov r2, #1                  ; FA_READ
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     bne frb_error
     ldr r0, =FILE_FIL
@@ -948,9 +971,13 @@ frb_done:
     mov r0, #0
     pop {{r4, r5, r6, pc}}
 frb_close:
+    mov r4, r0
     ldr r0, =FILE_FIL
     bl FS_CLOSE
+    mov r0, r4
 frb_error:
+    ldr r1, =FILE_FR
+    str r0, [r1]
     mov r0, #{STATUS_FILE}
     pop {{r4, r5, r6, pc}}
 
@@ -1189,6 +1216,28 @@ window_no:
     pop {{r3, r4, r5, r6, r7, r8, pc}}
 .pool
 
+; f_unlink(r0 = path) of the firmware; the blue Electribe 2's image has none, there it fails with 1 (FR_DISK_ERR)
+fs_unlink:
+    ldr r12, =MENU_CARD
+    ldr r12, [r12]
+    cmp r12, #CARD_NEVER
+    moveq r0, #FR_CARD_NEVER
+    bxeq lr
+{unlink_body()}
+.pool
+
+; f_open(r0 = file object, r1 = path, r2 = mode) of the firmware, but not after a start without a card (M_CARD CARD_NEVER,
+; tools/patch/script_menu.s): mounting a card put in after such a start can hang in Korg's SD init (#518), so the FILE commands
+; get FR_CARD_NEVER instead, as the BLECH menu leaves such a card alone
+fs_open:
+    ldr r12, =MENU_CARD
+    ldr r12, [r12]
+    cmp r12, #CARD_NEVER
+    moveq r0, #FR_CARD_NEVER
+    bxeq lr
+    b FS_OPEN
+.pool
+
 ; The sample file commands sit apart from the rest, in the free run behind the preset tables' second block, so that the code above
 ; keeps its room (the Sync Group's buffer of the pattern switch starts at 0xC0173000).
 .org {SAMPLE_AT:#x}
@@ -1271,7 +1320,7 @@ do_fcopy:
     ldr r0, =FILE_FIL
     ldr r1, =FILE_PATH
     mov r2, #1                  ; FA_READ
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     bne copy_reply
     ldr r0, =FILE_FIL
@@ -1291,7 +1340,7 @@ do_fcopy:
     ldr r0, =FILE_FIL2
     ldr r1, =FILE_PATH
     mov r2, #0x13               ; FA_OPEN_ALWAYS | FA_READ | FA_WRITE
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     bne copy_close1
     ldr r0, =FILE_FIL2
@@ -1432,7 +1481,7 @@ do_fcrc:
     ldr r0, =FILE_FIL
     ldr r1, =FILE_PATH
     mov r2, #1                  ; FA_READ
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     bne fcrc_reply
     ldr r0, =FILE_FIL
@@ -1490,11 +1539,6 @@ fcrc_reply:
     mov r2, #16
     add r3, r6, #S_OUT
     b reply_tail
-
-; f_unlink(r0 = path) of the firmware; the blue Electribe 2's image has none, there it fails with 1 (FR_DISK_ERR)
-fs_unlink:
-{unlink_body()}
-.pool
 
 ; r8 = a FILE offset with its selector bits; returns r5 = which file (0 SYSTEM.VSB, 1 ORIGINAL.BIN, 3 e2sSample.all, 4 e2sSample.tmp,
 ; 5 doom.bin, 6 doom.wad) and r8 = the offset. Bits 30 and 29 together name no file: r8 = -1 then, which every range check refuses.
@@ -1739,7 +1783,10 @@ def build_patch(vsb, table, build):
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: the declared write, the request as decoded, the words and the packed bytes of a short reply", "tools/patch/blech_sysex.py:STATE"),
             ramdecl.area(BUF, BUF_END - BUF, "the buffer a message is decoded into and a reply is packed in, up to MAX_BLOCK bytes of data", "tools/patch/blech_sysex.py:BUF"),
-            ramdecl.area(FILE_AREA, FILE_AREA_END - FILE_AREA, "the FatFs file object, the byte count and the path of the FILE commands", "tools/patch/blech_sysex.py:FILE_AREA"),
+            ramdecl.area(FILE_AREA, FILE_AREA_END - FILE_AREA, "the FatFs file object, the byte count, the FatFs result and the path of the FILE commands", "tools/patch/blech_sysex.py:FILE_AREA"),
+        ],
+        "shares": [
+            ramdecl.share(MENU_STATE + M_CARD, 4, "script-runtime", "read only: the BLECH menu's card word (M_CARD), a card after a start without one is left alone", "tools/patch/blech_sysex.py:MENU_STATE"),
         ],
     }
 
