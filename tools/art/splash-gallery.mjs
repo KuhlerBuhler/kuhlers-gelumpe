@@ -71,18 +71,6 @@ function canvas() {
 const rng = seed => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
 
 const PICTURES = {
-  /** The wordmark in big letters, light on dark, between two rows of dashes. */
-  gelumpe() {
-    const c = canvas();
-    c.rect(0, 0, W, H);
-    for (let x = 0; x < W; x += 4) { c.rect(x, 3, 2, 2, 0); c.rect(x + 2, H - 5, 2, 2, 0); }
-    c.centred(15, "KUHLER'S", 1, 0);
-    c.centred(26, "GELUMPE", 2, 0);
-    c.rect(22, 46, 84, 1, 0);
-    c.centred(51, "FOR BLECHTRIBE", 1, 0);
-    return c;
-  },
-
   /** Holstein spots around a plate with the name. */
   kuhler() {
     const c = canvas();
@@ -96,8 +84,8 @@ const PICTURES = {
     c.rect(14, 13, 100, 38, 0);
     c.frame(14, 13, 100, 38);
     c.frame(16, 15, 96, 34);
-    c.centred(21, "KUHLER", 2);
-    c.centred(38, "BUHLER", 1);
+    c.centred(21, "BLECH", 2);
+    c.centred(38, "TRIBE", 1);
     return c;
   },
 
@@ -131,31 +119,8 @@ const PICTURES = {
       if (last !== null) c.line(x - 1, last, x, y, 0);
       last = y;
     }
-    c.text(4, 55, "SAMPLE", 1, 0);
-    c.text(W - 4 - c.width("BLECH"), 55, "BLECH", 1, 0);
+    c.text(4, 55, "BLECH", 1, 0);
     c.rect(4, 52, W - 8, 1, 0);
-    return c;
-  },
-
-  /** One big knob with its scale: the value stands next to it. */
-  knob() {
-    const c = canvas();
-    const cx = 36;
-    const cy = 32;
-    c.disc(cx, cy, 22);
-    c.disc(cx, cy, 18, 0);
-    c.disc(cx, cy, 15);
-    const a = (-135 + 0.72 * 270) * Math.PI / 180;
-    c.line(cx, cy, cx + Math.round(Math.sin(a) * 15), cy - Math.round(Math.cos(a) * 15), 0);
-    c.line(cx + 1, cy, cx + 1 + Math.round(Math.sin(a) * 15), cy - Math.round(Math.cos(a) * 15), 0);
-    for (let i = 0; i <= 10; i++) {
-      const t = (-135 + i * 27) * Math.PI / 180;
-      c.line(cx + Math.round(Math.sin(t) * 26), cy - Math.round(Math.cos(t) * 26), cx + Math.round(Math.sin(t) * (i % 5 ? 28 : 30)), cy - Math.round(Math.cos(t) * (i % 5 ? 28 : 30)));
-    }
-    c.text(78, 14, "CUTOFF", 1);
-    c.text(78, 26, "73", 3);
-    c.rect(78, 50, 40, 1);
-    c.text(78, 54, "BLECH", 1);
     return c;
   },
 
