@@ -194,6 +194,12 @@ Un cycle transmet d’abord `ready` une fois par plugin, collecte les entrées e
 `frame` en dernier. Les nouvelles entrées attendent le cycle suivant. Un nouveau plugin reçoit
 `ready` après la fin du cycle précédent.
 
+Tant que le menu BLECH est ouvert, les pads, touches et encodeurs vont
+directement au firmware et aucun plugin ne reçoit d’événement (seule la page de
+Blechy reçoit le touchpad et sa touche). Dans tous les menus du firmware
+(Pattern, Global, Part Edit, Step Edit et les autres), les plugins reçoivent les
+entrées comme sur l’écran principal.
+
 ### Ce qu’un plugin atteint (API 35)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est

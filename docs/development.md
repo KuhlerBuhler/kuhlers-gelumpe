@@ -129,7 +129,7 @@ in zwei, die Browsertests in vier Teilen nebeneinander (`--test-shard`), die Pr�
 Workflows, laufen nur die Einheitstests, die Dokumente lesen, und keine Browsertests (ausgenommen
 `DESIGN.md`, `docs/plugins*.md` und `third_party/`, die die Seite und die Tests lesen).
 
-Jeder lokale Testlauf (`npm test`, `test:e2e`, `test:all`, `test:emu`, `test:local`, `verify:patches`, `check.py`, `menu_cases.py` und die übrigen `*_cases.py`) prüft zuerst die Auslastung (`tools/load-gate.mjs`) und startet nicht, solange das 1-Minuten-Lastmittel mindestens 0,8 mal die Kernzahl beträgt oder weniger als 10 % Speicher frei sind. Er meldet das in einer Zeile, prüft alle 15 s neu und bricht nach 20 Minuten mit Fehlercode ab. `GELUMPE_LOAD_GATE=off` überspringt die Prüfung, `GELUMPE_LOAD_MAX` (Faktor der Kerne), `GELUMPE_LOAD_WAIT` (Sekunden) und `GELUMPE_LOAD_POLL` (Sekunden) stellen sie ein. In CI (`CI` gesetzt) entfällt sie, und verschachtelte Läufe warten nicht doppelt (`GELUMPE_LOAD_GATE_PASSED`). Direkt gestartetes `node --test` ist nicht abgesichert, dafür `node tools/load-gate.mjs node --test ...` voranstellen.
+Jeder lokale Testlauf (`npm test`, `test:e2e`, `test:all`, `test:emu`, `test:local`, `verify:patches`, `check.py`, `menu_cases.py` und die übrigen `*_cases.py`) prüft zuerst die Auslastung (`tools/load-gate.mjs`) und startet nicht, solange das 1-Minuten-Lastmittel mindestens 0,8 mal die Kernzahl beträgt oder weniger als 10 % Speicher frei sind. Er meldet das in einer Zeile, prüft alle 15 s neu und bricht nach 20 Minuten mit Fehlercode ab. `GELUMPE_LOAD_GATE=off` überspringt die Prüfung, `GELUMPE_LOAD_MAX` (Faktor der Kerne), `GELUMPE_LOAD_WAIT` (Sekunden) und `GELUMPE_LOAD_POLL` (Sekunden) stellen sie ein. In CI (`CI` gesetzt) entfällt sie, und verschachtelte Läufe warten nicht doppelt (`GELUMPE_LOAD_GATE_PASSED`). Direkt gestartetes `node --test` ist nicht abgesichert, dafür `node tools/load-gate.mjs node --test ...` voranstellen. Ebenso ungeschützt sind `cases()` eines Fallmoduls, aus Python aufgerufen (die Prüfung steht nur in seinem `main()`), und `python -m unittest tools/patch/test_*.py`: vorher `sysctl -n vm.loadavg` ansehen oder `node tools/load-gate.mjs` voranstellen.
 
 Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt starten:
 
@@ -144,6 +144,13 @@ ohne gültige positive ganze Zahl nutzt der Node-Teststarter die Hälfte der CPU
 mindestens zwei.
 
 `--test-timeout` gilt je Datei: `patcher.e2e.mjs` allein braucht in CI rund 160 s, deshalb 300 s.
+
+Die nativen Python-Tests bauen die Laufzeit einmal je Prozess (`hook_runtime()` in
+`tools/patch/test_script_hooks.py` ist gecacht). Ein Bau dauert rund 5 s; ein Test, der sie je
+Methode neu baut, bringt `script-runtime*.test.mjs` in CI über die 300 s je Datei.
+
+Scheitert ein `verify`-Teil in CI schon beim Herunterladen der Firmware-Originale
+(Zeitüberschreitung), ist das kein Fehler im Code: erst den Job neu starten, dann suchen.
 
 Die Python-Tests unter `tools/patch/` sind `unittest`, `pytest` ist nicht in der Umgebung:
 

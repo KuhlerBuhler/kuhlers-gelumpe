@@ -234,6 +234,12 @@ Referenzlaufzeit kann vor dem ersten Hauptbildschirm mit
 diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
+Solange das Menü BLECH offen ist, gehen Pads, Tasten und Encoder direkt an die
+Firmware, und kein Plugin bekommt ein Ereignis (nur die Seite von Blechy bekommt
+das Touchpad und ihre Taste). In allen Menüs der Firmware (Pattern, Global, Part
+Edit, Step Edit und die übrigen) bekommen Plugins die Eingaben wie auf dem
+Hauptbildschirm.
+
 ### Was ein Plugin erreicht (API 35)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
