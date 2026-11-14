@@ -25,8 +25,8 @@ Die Karte war im Betrieb zum Mac gezogen und wieder gesteckt worden. Danach zeig
   Lesen aufgehalten hat, laufen direkt danach nach (Emulator: 50 Frames in 0,1 s).
 - Sperrt auch das zweite Lesen, geht `M_CARD` auf `CARD_STUCK`: kein weiterer Versuch, bis die Karte gezogen wird. Jeder Versuch hält den
   UI-Task, solange Korgs Schleife läuft (im Emulator ~6,5 s), darum nur einer.
-- Steckt beim Start eine Karte und die Sperre ist schon gesetzt (die Karte hing beim Start), startet `M_CARD` auf `CARD_STUCK`, damit nach
-  dem Start kein zweiter Hänger folgt.
+- Steckt beim Start eine Karte und die Sperre ist schon gesetzt (die Karte war beim Einschalten noch busy, Blechy zeigt den Kartenfehler),
+  startet `M_CARD` auf `CARD_WAIT`: 2 s nach dem Start liest der Wächter die Karte noch einmal, wie oben.
 - `CARD_NEVER` (Start ohne Karte, #518) bleibt unverändert: keine Karte, kein Versuch bis zum nächsten Start.
 
 | Behauptung | Beleg | Marker |
@@ -34,4 +34,6 @@ Die Karte war im Betrieb zum Mac gezogen und wieder gesteckt worden. Danach zeig
 | Karte beim ersten Lesen noch nicht fertig, danach fertig: das zweite Lesen nach 2 s liest die Einstellungsdatei, Sperre 0 | `tools/emu/menu_cases.py:card_later_cases`, `locked_card_read_again`, HT/rot/blau | gemessen |
 | Karte bleibt nicht fertig: genau ein zweiter Versuch, dann `CARD_STUCK`, keine weiteren | `busy_card_read_once_more_only`, HT/rot/blau | gemessen |
 | Danach eine andere Karte stecken liest sie | `stuck_card_swapped_reads`, HT/rot/blau | gemessen |
+| Am Gerät 14.11.: nach einem Neustart (BLECH-Stand vor dem Fix) wieder Kartenfehler, nach dem nächsten Neustart (Update) gemountet (init 1, `fs_type` 3, Sperre 0) | Bericht Pascal, READ danach | gemessen |
+| Karte beim Einschalten busy: Start sperrt (Emulator ~6 s), mit dem Fix 2 s nach dem Hauptscreen gelesen, sobald die Karte fertig ist | `card_busy_at_start_read_after`, HT/rot/blau | gemessen |
 | Ob 2 s am Gerät reichen, hängt davon ab, wie lange die Karte busy bleibt (am 12.11. nach einem Start ohne Karte 18 s, das ist `CARD_NEVER`). Ziehen und Stecken hilft immer | | offen |

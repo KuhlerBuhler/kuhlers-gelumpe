@@ -261,11 +261,15 @@ menu_arm_load:
     tst r2, #SD_DETECT
     movne r1, #CARD_NEVER       ; no card at the start: menu_card_watch reads none
     bne arm_card_store
-    ldr r2, =SD_INIT_LOCK       ; a card in now is read; menu_card_watch reads the next one after it is pulled. One the start's
-    ldr r2, [r2]                ; init locked out is not read again: the start already waited that init out once
+    ldr r2, =SD_INIT_LOCK       ; a card in now is read; menu_card_watch reads the next one after it is pulled, and reads once
+    ldr r2, [r2]                ; more one the start's init locked out (a card still busy at power-on)
     cmp r2, #0
     moveq r1, #CARD_DONE
-    movne r1, #CARD_STUCK
+    beq arm_card_store
+    ldr r1, =MENU_TICKS
+    ldr r1, [r1]
+    add r1, r1, #CARD_RETRY_MS
+    orr r1, r1, #CARD_WAIT
 arm_card_store:
     str r1, [r0, #M_CARD]
     bl objects_repair

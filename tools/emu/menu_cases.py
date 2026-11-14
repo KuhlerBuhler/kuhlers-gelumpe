@@ -2990,7 +2990,21 @@ def card_later_cases(payload, flash=None):
     stuck.run(0.5)
     stuck.m.insert_card(SDCard(MemoryMedium(card_image(files_b))))
     stuck.run(1.5)
-    add("stuck_card_swapped_reads", look(stuck) == ref_b and stuck.u32(SD_INIT_LOCK) == 0 and not stuck.m.asserts, f"other card {look(stuck)}; started with it {ref_b}")
+    # busy at power-on: the start's own init locks out, the card is read once more after the start
+    late = Dev(payload, flash, 0)
+    late.m.adapter = True
+    slow = SDCard(MemoryMedium(card_image(files_a)), never_ready=True)
+    late.m.insert_card(slow)
+    for _ in range(300):
+        late.run(0.1)
+        if late.screen()["number"] == 1 and state(late, S_CARD) != 0xFFFFFFFF:
+            break
+    at_start = late.u32(SD_INIT_LOCK), state(late, S_CARD)
+    slow.never_ready = False
+    late.run(4.0)
+    add("card_busy_at_start_read_after", at_start[0] == 1 and at_start[1] >= 0x100 and look(late) == ref_a and late.u32(SD_INIT_LOCK) == 0
+        and not late.m.asserts, f"at the main screen lock {at_start[0]}, card state {at_start[1]:#x}; read after {look(late)}; started with it {ref_a}")
+    add("stuck_card_swapped_reads",look(stuck) == ref_b and stuck.u32(SD_INIT_LOCK) == 0 and not stuck.m.asserts, f"other card {look(stuck)}; started with it {ref_b}")
 
     started = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
     gen = state(started, S_GEN)
