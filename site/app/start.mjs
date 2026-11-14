@@ -92,20 +92,34 @@ export const READ_WAIT = 8000;
 const within = (promise, ms) => Promise.race([promise, new Promise(done => setTimeout(done, ms, null))]);
 
 /**
+ * One read through the session's one-at-a-time queue: while another read runs (the sidebar's LEDs and display, or the
+ * other start page read) the session refuses with "busy", so this waits until it is idle and asks again.
+ */
+async function whenIdle(session, read, tries = 50) {
+  for (let attempt = 1; ; attempt++) {
+    if (session.busy) await session.idle?.();
+    try { return await read(); } catch (e) { if (e?.kind !== "busy" || attempt >= tries) throw e; }
+  }
+}
+
+/**
  * What a session tells about the Electribe, read once per session: the BLECHTRIBE version (a RAM read) first, then red or
  * blue (a flash read, slow on some sets). Each a promise of its own, so one does not wait for the other to be shown.
- * Only reads; a failed or slow read gives null, never an error.
+ * Only reads; a failed or slow read gives null, never an error. `late` holds the same reads without the wait, for an
+ * answer that comes after it.
  */
 const reads = new WeakMap();
 export function deviceReads(session, wait = READ_WAIT) {
   if (!session?.device) return { hardware: Promise.resolve(null), version: Promise.resolve(null) };
   let known = reads.get(session);
   if (!known) {
-    const version = session.device.ram === "blech"
-      ? within(Promise.resolve().then(() => session.readRamBlock(VERSION_AT, VERSION_LENGTH)).then(parseBlechVersion, () => null), wait)
-      : Promise.resolve(null);
-    const hardware = within(Promise.resolve().then(() => session.hardware?.()).catch(() => null).then(h => h ?? null), wait);
-    known = { hardware, version };
+    const late = {
+      version: session.device.ram === "blech"
+        ? whenIdle(session, () => session.readRamBlock(VERSION_AT, VERSION_LENGTH)).then(parseBlechVersion, () => null)
+        : Promise.resolve(null),
+      hardware: whenIdle(session, () => session.hardware?.()).catch(() => null).then(h => h ?? null),
+    };
+    known = { hardware: within(late.hardware, wait), version: within(late.version, wait), late };
     reads.set(session, known);
   }
   return known;
@@ -198,9 +212,11 @@ function paintDevice(hub, session, current) {
   paintUpdate(hub, blech ? null : "install");
   stateLine(version, blech ? "running" : "info", t(blech ? "start.hub.reading" : "start.hub.noBlech"));
   const reads = deviceReads(session);
-  reads.hardware.then(hardware => { if (current() === session) look(hardware); });
+  // After the wait the card says what it has; an answer that comes later (a busy or slow device) is drawn then.
+  const later = (kind, show) => reads[kind].then(found => { show(found); if (!found) reads.late?.[kind].then(v => { if (v) show(v); }); });
+  later("hardware", hardware => { if (current() === session) look(hardware); });
   if (!blech) return;
-  reads.version.then(found => {
+  later("version", found => {
     if (current() !== session) return;
     if (found) facts.textContent = `${korg}, ${t("start.hub.blech", { version: found })}`;
     const due = updateState(found, APP_VERSION);
