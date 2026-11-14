@@ -38,6 +38,7 @@ sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import blech_sysex as spec  # noqa: E402
+import node_json  # noqa: E402
 
 IMAGE, IMAGE_END = 0xC0000000, 0xC0200000
 GAP_CODE = 0x40                 # blocks closer than this are one range: a function's blocks the run did not take lie between
@@ -259,13 +260,19 @@ def constant_ranges():
     ]
 
 
+DECLARED = ("import {allowedRegions} from './src/plan.mjs'; const b = process.argv[1] === 'ht' ? 'hacktribe' : 'stock';"
+            "console.log(JSON.stringify(allowedRegions({build: b}).map(r => [r.start, r.end])));")
+
+
+def node_requests():
+    """None kept in data/emu/node-results.json: declared() reads src/plan.mjs, which many changes touch, and this tool for
+    the developer runs from a checkout with Node."""
+
+
 def declared(build):
     """The editor's declared writes in the image (src/plan.mjs): a closed region may not cover one, or the firmware would
     refuse an edit the editor makes every day."""
-    import subprocess
-    source = ("import {allowedRegions} from './src/plan.mjs'; const b = process.argv[1] === 'ht' ? 'hacktribe' : 'stock';"
-              "console.log(JSON.stringify(allowedRegions({build: b}).map(r => [r.start, r.end])));")
-    got = json.loads(subprocess.check_output(["node", "--input-type=module", "-e", source, build], cwd=ROOT, text=True))
+    got = node_json.run(DECLARED, build)
     return sorted((a, b) for a, b in got if a < IMAGE_END and b > IMAGE)
 
 
