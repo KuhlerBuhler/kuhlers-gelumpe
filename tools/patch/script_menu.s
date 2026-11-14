@@ -109,6 +109,12 @@
 .equ FLASH_SET_B, 0x7FE000
 .equ FLASH_SET_LEN, 0x120     ; SETTINGS_MAX and the 8 bytes behind it, the size of MENU_FILE_A
 .equ FLASH_TAG, 0x4C46        ; "FL"
+.equ M_LCD_RR, 0x1C4          ; LCD LAB, never saved (a start sends the stock values again): byte, LCD REGULATOR, 0 STOCK, 1 to 8 the ratio 0x20 to 0x27
+.equ M_LCD_EV, 0x1C5          ; byte, LCD VOLUME: 0 STOCK (the firmware's contrast), 1 to 64 the electronic volume 0 to 63
+.equ M_LCD_OSC, 0x1C6         ; byte, LCD CLOCK: 0 STOCK (0xE4, as the boot loader), 1 0xE5
+.equ M_LCD_HW, 4              ; the three values the controller got last lie 4 bytes behind (0x1C8 to 0x1CA)
+.equ M_LAB_BALL, 0x1CB        ; byte: 1 while the ball of the LCD LAB pages is in the frame buffer
+.equ LAB_BALL_PAGE, 6         ; the display page of the ball, free on the pages of DISPLAY (the value reaches into page 5)
 .equ LCD_PAGE_HOOK_BACK, 0xC00161A8
 .equ LCD_SEND, 0xC00160C4
 .equ MENU_MAX_TRUST, 64        ; the checksum list at MENU_TRUST (tools/patch/script_hooks.py:SETTINGS_RAM), 16 up to 1.3.7
@@ -2192,7 +2198,7 @@ lcd_test_done:
     cmn r1, #1                      ; the settings are being read (menu_arm): the default must not flash before the file says OFF
     beq lcd_invert_pass
     cmp r3, r1
-    beq lcd_invert_pass
+    beq lcd_lab
     str r3, [r2, #M_INV_HW]
     push {r4, lr}
     cmp r3, #0
@@ -2201,11 +2207,119 @@ lcd_test_done:
     ldr r0, [fp, #-0x10]
     bl LCD_SEND
     pop {r4, lr}
+; The LCD LAB (DISPLAY: LCD REGULATOR, LCD VOLUME, LCD CLOCK): a value the controller has not got yet goes out here, once. All
+; three start at STOCK, so nothing is sent until a page is turned; back to STOCK sends what the boot loader sent (0x25, 0xE4) and
+; for the volume the firmware's own contrast (the display object's byte +8, which its contrast write sends behind 0x81).
+lcd_lab:
+    push {r4, r5, r6, lr}
+    ldr r4, =MENU_STATE
+    ldr r6, [fp, #-0x10]
+    ldrb r5, [r4, #M_LCD_RR]
+    ldrb r1, [r4, #M_LCD_RR+M_LCD_HW]
+    cmp r5, r1
+    beq lcd_lab_ev
+    strb r5, [r4, #M_LCD_RR+M_LCD_HW]
+    subs r1, r5, #1
+    movmi r1, #5
+    add r1, r1, #0x20
+    mov r0, r6
+    bl LCD_SEND
+lcd_lab_ev:
+    ldrb r5, [r4, #M_LCD_EV]
+    ldrb r1, [r4, #M_LCD_EV+M_LCD_HW]
+    cmp r5, r1
+    beq lcd_lab_osc
+    strb r5, [r4, #M_LCD_EV+M_LCD_HW]
+    mov r0, r6
+    mov r1, #0x81
+    bl LCD_SEND
+    subs r1, r5, #1
+    ldrbmi r1, [r6, #8]
+    and r1, r1, #0x3F
+    mov r0, r6
+    bl LCD_SEND
+lcd_lab_osc:
+    ldrb r5, [r4, #M_LCD_OSC]
+    ldrb r1, [r4, #M_LCD_OSC+M_LCD_HW]
+    cmp r5, r1
+    beq lcd_lab_done
+    strb r5, [r4, #M_LCD_OSC+M_LCD_HW]
+    cmp r5, #0
+    movne r1, #0xE5
+    moveq r1, #0xE4
+    mov r0, r6
+    bl LCD_SEND
+lcd_lab_done:
+    pop {r4, r5, r6, lr}
 lcd_invert_pass:
     ldr r3, [fp, #-0x10]
     ldr pc, =LCD_PAGE_HOOK_BACK
 .pool
 look_hooks_end:
+
+; Every frame (behind display_calibrate): on the pages of the LCD LAB a ball runs to and fro in display page LAB_BALL_PAGE, a test
+; picture for how fast the crystals follow at the values set. The ball goes straight into the frame buffer as the calibration's
+; balls; once the pages are left, the firmware draws the whole display anew (it redraws only its own widgets). Clobbers r0 to r3, r12.
+lcd_lab_ball:
+    ldr r2, =MENU_STATE
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    beq lcd_lab_ball_off
+    ldr r0, [r1, #0x24]
+    cmp r0, #0
+    bne lcd_lab_ball_off
+    ldr r0, [r1, #0x2c]
+    cmp r0, #MENU_SCREEN
+    bne lcd_lab_ball_off
+    ldr r0, [r2, #M_LEVEL]
+    cmp r0, #2
+    bne lcd_lab_ball_off
+    ldr r0, [r2, #M_GROUP]
+    cmp r0, #5
+    bne lcd_lab_ball_off
+    ldr r0, [r2, #M_PAGE]
+    cmp r0, #5
+    blo lcd_lab_ball_off
+    mov r0, #1
+    strb r0, [r2, #M_LAB_BALL]
+    ldr r3, =SCRIPT_DISPLAY_RAM+LAB_BALL_PAGE*128+4
+    mov r0, #0
+    mov r1, #120
+lcd_lab_ball_clear:
+    subs r1, r1, #1
+    strb r0, [r3, r1]
+    bne lcd_lab_ball_clear
+    ldr r0, =HOOK_RUNTIME
+    ldr r0, [r0, #RT_FRAMES]
+    mov r0, r0, lsl #2      ; the calibration's fastest ball: about 45 pixels a second in the emulator
+    and r0, r0, #255
+    cmp r0, #128
+    rsbhs r0, r0, #255
+    mov r1, #113
+    mul r12, r1, r0
+    add r3, r3, r12, lsr #7
+    ldr r1, =calibrate_circle
+    mov r12, #0
+lcd_lab_ball_column:
+    ldrb r0, [r1, r12]
+    strb r0, [r3, r12]
+    add r12, r12, #1
+    cmp r12, #7
+    blo lcd_lab_ball_column
+    bx lr
+lcd_lab_ball_off:
+    ldrb r0, [r2, #M_LAB_BALL]
+    cmp r0, #0
+    bxeq lr
+    mov r0, #0
+    strb r0, [r2, #M_LAB_BALL]
+    ldr r1, =UI_REDRAW
+    mov r0, #1
+    strb r0, [r1]
+    bx lr
+.pool
 
 ; ---- the screen
 ; Table entry 45, factory(arg): an object of 52 bytes, built like Global's.
@@ -3020,6 +3134,9 @@ menu_texts_clear:
     beq menu_text_knob
     cmp r0, #54
     beq menu_text_flash
+    sub r1, r0, #57
+    cmp r1, #2
+    bls menu_text_lcd
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -3640,6 +3757,27 @@ menu_text_ledmode:
     ldreq r1, =str_off
     add r0, r5, #M_VALUE
     bl menu_copy
+    b menu_text_look_line3
+; LCD REGULATOR, LCD VOLUME and LCD CLOCK (57 to 59, the LCD LAB), r1 = 0 to 2: STOCK, the ratio 0 to 7, the volume 0 to 63, E5
+menu_text_lcd:
+    mov r6, r1
+    add r0, r5, #M_TITLE
+    ldr r1, =lcd_titles
+    ldr r1, [r1, r6, lsl #2]
+    bl menu_copy
+    add r1, r5, #M_LCD_RR
+    ldrb r1, [r1, r6]
+    add r0, r5, #M_VALUE
+    subs r1, r1, #1
+    ldrmi r1, =str_stock_word
+    bmi menu_text_lcd_word
+    cmp r6, #2
+    ldreq r1, =str_e5
+    beq menu_text_lcd_word
+    bl menu_dec
+    b menu_text_look_line3
+menu_text_lcd_word:
+    bl menu_copy
 menu_text_look_line3:
     ldr r1, [r5, #M_STATUS]
     cmp r1, #0
@@ -4134,7 +4272,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 54 SAVE TO FLASH, 55 USER SAMPLES, 56 DEV MODE; 50 was HT OSC, 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 54 SAVE TO FLASH, 55 USER SAMPLES, 56 DEV MODE, 57 LCD REGULATOR, 58 LCD VOLUME, 59 LCD CLOCK; 50 was HT OSC, 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -6085,6 +6223,9 @@ menu_slot_value:
     beq menu_value_colour
     cmp r0, #25
     beq menu_value_colour
+    sub r3, r0, #57
+    cmp r3, #2
+    bls menu_value_lcd
     mov r2, #15
     cmp r0, #26
     moveq r3, #MX_INTENS
@@ -6129,6 +6270,10 @@ menu_slot_value:
     str r3, [r6, #M_STATUS]
     b menu_value_done
 ; INTENSITY, SAVE LIGHT and the meter's colours: r3 = the byte's offset from MENU_STATE, 0 to r2, acting at once like the other look pages
+menu_value_lcd:                 ; the LCD LAB, r3 = 0 to 2: STOCK and 8 ratios, STOCK and 64 volumes, STOCK and E5
+    ldr r2, =lcd_counts
+    ldrb r2, [r2, r3]
+    add r3, r3, #M_LCD_RR
 menu_value_byte:
     ldrb r1, [r6, r3]
     adds r1, r1, r5
@@ -6858,6 +7003,17 @@ str_tab_splash:
     .asciz "Splash"
 str_stock_word:
     .asciz "STOCK"
+str_lcd_rr:
+    .asciz "LCD REGULATOR"
+str_lcd_ev:
+    .asciz "LCD VOLUME"
+str_lcd_osc:
+    .asciz "LCD CLOCK"
+str_e5:
+    .asciz "E5"
+.align 4
+lcd_titles:
+    .word str_lcd_rr, str_lcd_ev, str_lcd_osc
 str_tab_display:
     .asciz "Display"
 str_tab_led:
@@ -7045,13 +7201,15 @@ custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD C
     .byte 16, 16, 16, 16, 16
 .align 4
 sub_kinds:                      ; the kinds of the pages of DISPLAY, LED, PAD COLOR and POWER SAVE, 16 a group (device 18.10.)
-    .byte 11, 12, 13, 26, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0       ; DISPLAY: backlight red, green, blue, INTENSITY, display invert
+    .byte 11, 12, 13, 26, 14, 57, 58, 59, 0, 0, 0, 0, 0, 0, 0, 0    ; DISPLAY: backlight red, green, blue, INTENSITY, display invert, the LCD LAB
     .byte 7, 8, 9, 10, 28, 29, 30, 31, 53, 0, 0, 0, 0, 0, 0, 0      ; LED: bottom LEDs, LED red, green, blue, the meter's four colours, KNOB LEDS
     .byte 24, 25, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; PAD COLOR: pad colour, select colour, overlap
     .byte 27, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0          ; POWER SAVE: DISPLAY LIGHT, LED DIMMING (device 19.10.: SAVE LIGHT under DISPLAY said too little)
     .byte 22, 23, 35, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; SPLASH: IMPORT, DRAW, RESET (device 22.10.: three rows of their own in CUSTOMIZATION were too many)
 sub_counts:                     ; LED: KNOB LEDS, the last, only where the set has the pad colours (menu_count_features)
-    .byte 5, 9, 3, 2, 3
+    .byte 8, 9, 3, 2, 3
+lcd_counts:                     ; the highest value of each page of the LCD LAB (0 is STOCK)
+    .byte 8, 64, 1
 led_dim_percent:                ; LED DIMMING, the steps of the dial: percent dimmed (pad_colors.py keeps the step 8 places on, 75 is 0)
     .byte 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100
 meter_palette:                  ; red, green, blue of the colours 1 to 7, then the firmware's colours of the four zones

@@ -308,6 +308,8 @@ class Machine:
         self.fb = [[0] * 128 for _ in range(8)]
         self.lcd_page = self.lcd_col = 0
         self.lcd_reverse_sent = 0  # how many 0xA6 or 0xA7 the controller has been sent
+        self.lcd_setting = []      # the commands of the panel's drive (LCD LAB): 0x20 to 0x27, 0xE4, 0xE5, (0x81, volume) in order
+        self.lcd_volume_next = False
         self.lcd_reverse = False   # 0xA7 sent: the controller shows every pixel the other way round, 0xA6 normal
         self.lcd_on = True         # 0xAE switches the controller's display off (all pixels clear, RAM kept), 0xAF on again
         self.frames = 0
@@ -734,6 +736,13 @@ class Machine:
         if self.gpio_out(8, 1):
             if self.lcd_col < 128: self.fb[self.lcd_page][self.lcd_col] = b
             self.lcd_col += 1
+        elif self.lcd_volume_next:       # the byte behind 0x81 is the volume, not a command
+            self.lcd_volume_next = False
+            self.lcd_setting.append((0x81, b))
+        elif b == 0x81:
+            self.lcd_volume_next = True
+        elif 0x20 <= b <= 0x27 or b in (0xE4, 0xE5):
+            self.lcd_setting.append(b)
         elif 0xB0 <= b <= 0xB7:
             self.lcd_page = b - 0xB0
             if self.lcd_page == 0: self.frames += 1

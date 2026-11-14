@@ -1403,7 +1403,7 @@ def look_cases(payload, flash=None, rest=True):
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
     add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
-        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT HUE", 5), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 9)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT HUE", 8), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 9)]
         and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
         f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
@@ -2237,7 +2237,7 @@ def invert_cases(payload, flash=None):
     go(dev, 1)
     dev.run(0.5)
     main_off = dev.screen()["number"], status(dev), plain(dev)
-    add("page", page == (("DISPLAY INVERT", "ON", ""), (4, 5), "Display"), f"{page}")
+    add("page", page == (("DISPLAY INVERT", "ON", ""), (4, 8), "Display"), f"{page}")
     add("off_swaps_the_display", off == (("DISPLAY INVERT", "OFF", ""), (0, False, 2), True) and still == (0, False, 2),
         f"{off}, dial again {still}")
     add("main_screen_plain", main_off == (1, (0, False, 2), True) and not dev.m.asserts, f"{main_off}")
@@ -2278,6 +2278,81 @@ def invert_cases(payload, flash=None):
     add("exit_held_is_stock", state(held, S_ON) != 1 and status(held)[1:] == (False, 0) and plain(held) and not held.m.asserts, f"on={state(held, S_ON):#x}, {status(held)}")
     return out
 
+
+
+def lcd_lab_cases(payload, flash=None):
+    """The LCD LAB, the last three pages of DISPLAY: LCD REGULATOR (STOCK, ratio 0 to 7 as 0x20 to 0x27), LCD VOLUME (STOCK, the
+    electronic volume 0 to 63 behind 0x81) and LCD CLOCK (STOCK, E5). The display page write sends a changed value once; STOCK
+    sends what the boot loader sent (0x25, 0xE4) and for the volume the firmware's own contrast. Nothing is sent before a page is
+    turned, nothing is saved, EXIT at power-on sends nothing. A ball runs in display page 6 while one of the pages shows. The
+    emulator's controller (machine.py) logs these commands in lcd_setting."""
+    out = []
+
+    def add(name, ok, detail):
+        out.append({"id": f"menu:lcd_lab_{name}", "ok": bool(ok), "detail": detail})
+
+    lab = lambda dev: [c for c in dev.m.lcd_setting if c != (0x81, 34)]     # 0x81 34 is the firmware's own contrast write
+    firmware_volume = lambda dev: [c for c in dev.m.lcd_setting if isinstance(c, tuple)]
+
+    def turn(dev, steps):
+        dev.m.lcd_setting.clear()
+        dev.turn(steps, wait=0.4)
+        dev.run(0.3)
+        return texts_of(dev)[1], list(dev.m.lcd_setting)
+
+    dev = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    booted = lab(dev), firmware_volume(dev)
+    pages = []
+    for n in (5, 6, 7):
+        goto_group(dev, GROUP_DISPLAY, n)
+        pages.append((texts_of(dev), counter(dev), tab(dev)))
+    add("pages", pages == [(("LCD REGULATOR", "STOCK", ""), (5, 8), "Display"), (("LCD VOLUME", "STOCK", ""), (6, 8), "Display"),
+                           (("LCD CLOCK", "STOCK", ""), (7, 8), "Display")] and booted[0] == [] and booted[1],
+        f"{pages}, at the start {booted}")
+
+    goto_group(dev, GROUP_DISPLAY, 5)
+    rr = [turn(dev, 3), turn(dev, -3), turn(dev, -1), turn(dev, 20)]
+    add("regulator", rr == [("2", [0x22]), ("STOCK", [0x25]), ("STOCK", []), ("7", [0x27])], f"{rr}")
+    turn(dev, -20)
+
+    goto_group(dev, GROUP_DISPLAY, 6)
+    ev = [turn(dev, 10), turn(dev, 99), turn(dev, -99)]
+    add("volume", ev == [("9", [(0x81, 9)]), ("63", [(0x81, 63)]), ("STOCK", [(0x81, 34)])], f"{ev}")
+
+    goto_group(dev, GROUP_DISPLAY, 7)
+    osc = [turn(dev, 1), turn(dev, 1), turn(dev, -1)]
+    add("clock", osc == [("E5", [0xE5]), ("E5", []), ("STOCK", [0xE4])], f"{osc}")
+
+    # the ball: 7 columns in page 6, at another place a moment later, gone once the pages are left
+    def ball(dev):
+        row = dev.m.fb[6]
+        return [x for x in range(4, 124) if row[x]]     # the frame of the page lies in columns 0 to 2 and 126, 127
+    first = ball(dev)
+    dev.run(0.2)
+    later = ball(dev)
+    goto_page(dev, PAGE_INVERT)
+    dev.run(0.3)
+    gone = [x for x in ball(dev) if x not in ORIG_X]     # DISPLAY INVERT shows the stored value: the ORIG badge lies in page 6
+    add("ball", len(first) == 7 and len(later) == 7 and first != later and gone == [] and not dev.m.asserts,
+        f"{first} then {later}, after leaving {gone}")
+
+    # WRITE on a LAB page saves nothing of it: the next start sends nothing
+    keep = boot(payload, flash, files=CARD_FOLDER, adapter=True)
+    goto_group(keep, GROUP_DISPLAY, 5)
+    keep.turn(3, wait=0.4)
+    press(keep, "write", wait=0.6)
+    again = Dev(payload, flash, 0)
+    again.m.adapter = True
+    again.m.insert_card(SDCard(MemoryMedium(bytearray(keep.m.mmc.card.medium.data))))
+    again.run(2.0)
+    goto_group(again, GROUP_DISPLAY, 5)
+    add("not_saved", lab(again) == [] and texts_of(again)[1] == "STOCK" and not again.m.asserts, f"{lab(again)}, {texts_of(again)}")
+
+    # EXIT at power-on: the controller is never told anything
+    held = boot(payload, flash, held=KILL, files=CARD_FOLDER, adapter=True)
+    held.run(0.5)
+    add("exit_held_sends_nothing", state(held, S_ON) != 1 and lab(held) == [] and not held.m.asserts, f"{lab(held)}")
+    return out
 
 def confirm_cases(payload, flash=None):
     """The page PATTERN CONFIRM on level 1 of the BLECH menu: ON is the default and writes nothing to the word of the pattern switch,
@@ -3425,7 +3500,7 @@ def flash_settings_cases(payload, flash=None):
 
 def look_rest():
     """The suites look_cases runs after its own cases, in that order."""
-    return (invert_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, key_pads_menu_cases, filter_toggle_menu_cases, knob_leds_cases, auto_save_cases, default_level_cases, early_look_cases, card_later_cases)
+    return (invert_cases, lcd_lab_cases, confirm_cases, tap_motion_cases, note_assist_menu_cases, last_pattern_menu_cases, key_pads_menu_cases, filter_toggle_menu_cases, knob_leds_cases, auto_save_cases, default_level_cases, early_look_cases, card_later_cases)
 
 
 def look_parts():
