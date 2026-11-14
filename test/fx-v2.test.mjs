@@ -198,20 +198,17 @@ test("the Türsteher stands before the card too: a block that crashes in stage 2
   ], { patched: true });
   const crash = { kind: "ifx", name: "Absturz", map: [], stages: [
     { stage: "ifx1", unit: 0x11, unitName: "I_chorus", params: {} },
-    { stage: "ifx2", unit: 0x02, unitName: "I_decimator", params: {} },
+    { stage: "ifx2", unit: 0x16, unitName: "I_ring_mod", params: {} },
   ] };
   const made = collectionEntry(crash, vsb, 0, units);
-  assert.equal(made.ok, false, "a decimator in stage 2 crashes the device (data/findings.mjs)");
+  assert.equal(made.ok, false, "a ring modulator in stage 2 goes silent (data/findings.mjs)");
   assert.match(made.reason, /Türsteher/);
   assert.match(made.reason, /freigeben/, "and it says how to let it through anyway");
   const freed = collectionEntry(crash, vsb, 0, units, { risky: true });
   assert.equal(freed.ok, true, `freed on purpose it goes into the file: ${freed.reason}`);
-  // These two glitched on the device (stage2Pair in data/findings.mjs); release/1.4.6 rebuilds them without the pair.
-  const pending = new Set(["Bass Enhancer", "Hardtekk Kick"]);
   for (const item of FX_CATALOG) {
     const entry = collectionEntry(item, vsb, 0, units);
-    if (pending.has(item.name)) assert.match(entry.reason ?? "", /on the device/, `${item.name}: refused for the measured pair`);
-    else assert.equal(entry.ok, true, `${item.name}: ${entry.reason}`);
+    assert.equal(entry.ok, true, `${item.name}: ${entry.reason}`);
   }
 });
 
