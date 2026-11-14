@@ -102,6 +102,16 @@ class HostPort(unittest.TestCase):
     def test_word_reads_zero_extend_the_register(self):
         self.assertEqual(self.backend.read(CONTROL, 4), struct.pack('<I', 0x400))
 
+    def test_route_change_recomputes_an_already_pending_source(self):
+        self.backend.write(0xFFC00158, struct.pack('<I', 2 << 4))
+        self.backend.write(0xFFC0014C, struct.pack('<I', 1 << 17))
+        self.write(CONTROL, 0x345)
+        self.backend.host_event(1)
+        latched = lambda: struct.unpack('<I', self.backend.read(0xFFE0210C, 4))[0]
+        self.assertTrue(latched() & (1 << 9))
+        self.backend.write(0xFFC00158, struct.pack('<I', 3 << 4))
+        self.assertTrue(latched() & (1 << 10))
+
     def test_native_interrupt_handler_acknowledges_host_irq(self):
         entry, main, handler, count = 0x1000, 0x1100, 0x1200, 0x1300
         code = (0xE108, count, 0xE148, 0, 0x6008, 0x9300,
