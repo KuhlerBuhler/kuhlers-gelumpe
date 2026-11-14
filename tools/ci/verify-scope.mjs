@@ -59,6 +59,7 @@ export const TABLE = [
   [/^tools\/emu\/live_write_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/objects_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
   [/^tools\/emu\/catalog_app_cases\.py$/, ["remote_cases"]],  // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_catalog15_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   // what the case modules get from Node (node_json.py): only groups of remote_cases ask; the writer of the file checks nothing
   [/^tools\/emu\/node_json\.py$|^data\/emu\/node-results\.json$/, ["remote_cases"]],
   [/^tools\/emu\/node_results\.py$/, []],
