@@ -2744,7 +2744,7 @@ export default {
   "rescue.say.export.1": "Często spotykają się tu dwie rzeczy, żadna z nich nie jest błędem urządzenia.",
   "rescue.say.export.write": "Po pierwsze: EXPORT PATTERN zapisuje zapisany pattern. Czego nie zapisałeś przez WRITE po zmianach, tego nie ma w pliku. Czyli najpierw WRITE, potem EXPORT PATTERN.",
   "rescue.say.export.folder": "Po drugie: z BLECHTRIBE twoje eksporty trafiają do tego folderu. Stary folder BLECHTRIBE przy pierwszym starcie tylko tu skopiował, a on zostaje ze starymi patternami. Dlatego importuj tylko stąd:",
-  "rescue.say.export.blue": "Na niebieskiej Electribe BLECHTRIBE nie kopiuje starego folderu. Twoje eksporty i tak leżą tutaj, stare patterny zostają w KORG/electribe.",
+  "rescue.say.export.blue": "Na niebieskiej Electribe BLECHTRIBE nie kopiuje starego folderu, a eksporty trafiają prosto do KORG/blechtribe, bez Patterns. Stare patterny zostają w KORG/electribe.",
   "rescue.say.export.date": "I nie dziw się dacie: Electribe nie ma zegara, jej pliki zawsze mają datę 01.01.2014. Nowy eksport o tej samej nazwie zastępuje stary plik, więc na komputerze folder wygląda tak samo.",
   "rescue.say.check.1": "Jeśli test świeci na czerwono, nic nie trafia na twoje urządzenie, więc nic się nie psuje. Sprawdzę, jaką wersję aplikacji masz.",
   "rescue.say.checkOld.1": "Twoja aplikacja jest starsza niż 1.3.7. Tam pełny test się nie udaje, jeśli w emulatorze są zapisane patterny. Zmień nazwę tego pliku, na przykład na flash-alt.bin, i uruchom test od nowa:",

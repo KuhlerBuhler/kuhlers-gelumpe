@@ -2744,7 +2744,7 @@ export default {
   "rescue.say.export.1": "Muitas vezes juntam-se aqui duas coisas, e nenhuma delas é um erro do aparelho.",
   "rescue.say.export.write": "Primeiro: EXPORT PATTERN escreve o pattern guardado. O que mudaste mas não guardaste com WRITE não está no ficheiro. Por isso, primeiro WRITE, depois EXPORT PATTERN.",
   "rescue.say.export.folder": "Segundo: com o BLECHTRIBE as tuas exportações vão para esta pasta. A pasta antiga, o BLECHTRIBE só a copiou para aqui no primeiro arranque, ela continua lá com os patterns antigos. Por isso importa só daqui:",
-  "rescue.say.export.blue": "Na Electribe azul, o BLECHTRIBE não copia a pasta antiga. As tuas exportações ficam na mesma aqui, os patterns antigos ficam em KORG/electribe.",
+  "rescue.say.export.blue": "Na Electribe azul, o BLECHTRIBE não copia a pasta antiga, e as exportações vão diretamente para KORG/blechtribe, sem Patterns. Os patterns antigos ficam em KORG/electribe.",
   "rescue.say.export.date": "E não estranhes a data: a Electribe não tem relógio, os ficheiros dela têm sempre 01.01.2014. Uma exportação nova com o mesmo nome substitui o ficheiro antigo, e no computador a pasta parece igual.",
   "rescue.say.check.1": "Se a verificação fica vermelha, nada vai para o teu aparelho, por isso não se estraga nada. Vou ver que versão da app tens.",
   "rescue.say.checkOld.1": "A tua app é mais antiga que a 1.3.7. Nela, a verificação completa falha quando há patterns guardados no emulador. Muda o nome deste ficheiro, por exemplo para flash-alt.bin, e começa a verificação de novo:",

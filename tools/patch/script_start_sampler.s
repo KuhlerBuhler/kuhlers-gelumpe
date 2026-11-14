@@ -17,6 +17,7 @@ script_early_hook:
     push {r12, lr}
     bl menu_arm_load
     bl migrate_start
+    bl pat_boot_arm
     ldr r12, =MEDIA_LOAD        ; the loading animation from the card (tools/patch/load_bar.py:media_load), after the migration
     ldr r0, [r12]               ; moved the old folders; FF when the patch load-bar is not in the set
     cmn r0, #1
@@ -44,6 +45,7 @@ script_card_hook:
     bl menu_arm_load
     ldrb r0, [r4, #0x18]        ; the loader's result, as 0xC0038D64 stored it (r4 is the command, kept by menu_arm_load)
     bl migrate_folders
+    bl pat_boot_load
     ldr r0, =HOOK_RUNTIME
     bl blechy_boot
     ldr r0, =HOOK_RUNTIME

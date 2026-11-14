@@ -100,7 +100,12 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          # korg.midi (script_midi.s): the MIDI receive loop's call of the handler of a channel message
          (0xC002B2D8,0xEB004208,'script_midi_in_hook'),
          # korg.audio (script_audio_service.s): CommandTask's call of its command handler, bl 0xC002D844; the synth has no capture
-         (0xC002A628,0xEB000C85,'audio_command_hook'))
+         (0xC002A628,0xEB000C85,'audio_command_hook'),
+         # the Patterns folder (script_patterns.s): EXPORT PATTERN's and EXPORT ALL PATTERN's bl 0xC0035720 (the folder string)
+         (0xC00371B0,0xEBFFF95A,'pat_export_hook'),
+         (0xC002E084,0xEB001DA5,'pat_export_all_hook'),
+         # IMPORT PATTERN's and IMPORT ALL PATTERN's browser step: ldr r0, [r6] in front of the browser's open (the folder)
+         (0xC0031400,0xE5960000,'pat_browse_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
@@ -292,7 +297,7 @@ def runtime_profile(build):
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
-        if name in ('script_early_hook', 'audio_command_hook'):
+        if name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook'):
             continue
         if name == 'boot_light_hook':
             address, expected = 0xC0025E48, 0xE1500003
@@ -398,6 +403,7 @@ class BuiltHooks:
             ('shortcut_input','shortcut_tick','Die EXIT-Shortcuts, KEY PADS und FILTER TOGGLE im Eingangsfilter: prüfen Panel und EXIT beim Einschalten, merken sich EXIT und SHIFT und lassen jede Meldung durch, solange weder EXIT noch KEYBOARD (KEY PADS an) auf dem Hauptbildschirm gehalten wird; ein Pad, dessen Anschlag KEY PADS nahm, behält auch sein Loslassen.'),
             ('kp_input','kp_tick','KEY PADS und FILTER TOGGLE im Eingangsfilter: mit scharfem Menü liest es jede Panel-Meldung schon vor dem Hauptbildschirm und lässt sie durch, solange KEYBOARD nicht gehalten wird; eine Filtertaste geht immer durch, FILTER TOGGLE merkt sich nur, ob SHIFT dabei gehalten war.'),
             ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts, von KEY PADS und FILTER TOGGLE.'),
+            ('pat_boot_arm','pat_boot_end','Die Pattern-Sicherung in KORG/blechtribe/Patterns: der Haken vor dem Sample-Lader merkt sich nur den Start, der Kartenhaken prüft Panel, EXIT und Kartenstatus, liest die Datei und schreibt nur Patterns, die sich vom RAM unterscheiden, über das Pattern-Schreiben der Firmware; ohne Datei bleibt es bei einem f_open.'),
             ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel und EXIT und die Ordner der Karte; nur wenn blechtribe keine e2sSample.all hat, aber ein hacktribe- oder electribe-sampler-Ordner, fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU; nach dem Lader fragt sie so nach der Pattern-Sicherung (auf der blauen: blechtribe keine .e2allpat, aber KORG/electribe). Fehlende Unterordner von KORG/blechtribe legt sie auf der blauen hier an, auf der roten im ersten Rahmen auf dem Hauptbildschirm.'),
             ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
             ('audio_command_hook','audio_columns','Der Haken an CommandTask ruft erst den ursprünglichen Befehlshandler und dann den Dienst von korg.audio; ohne Anfrage eines Plugins kehrt der Dienst ohne Firmware-Aufruf zurück.'),
@@ -561,7 +567,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
              'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s','script_egg.s']
     files.append('fx_card.s')
     if build != 'synth':
-        files += ['script_sample.s','script_audio_service.s']
+        files += ['script_sample.s','script_audio_service.s','script_patterns.s']
     else:
         files += ['script_sample_none.s','script_audio_service_none.s']
     files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_timer.s','script_led.s','script_motion.s','script_midi.s','script_audio.s','script_data.s']

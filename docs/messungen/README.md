@@ -334,5 +334,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Hacktribe-Oszillatoren auf den freien Plätzen 422 bis 497 der roten Firmware](2026-11-08-ht-osc-freie-plaetze.md)
 - [Osterei auf der Seite VERSION, Freischaltung im Flash, Sample 500 offen](2026-11-09-osterei-version.md)
 - [Hacktribes Extra-Effekte, Grooves und Touch-Skalen auf der roten 2.02: was als Datenpatch geht](2026-11-10-hacktribe-extras-rot.md)
+- [Patterns-Ordner: Export, Import-Browser, Laden beim Start, Globals](2026-11-14-patterns-ordner.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)

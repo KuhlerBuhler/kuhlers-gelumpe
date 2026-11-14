@@ -2743,7 +2743,7 @@ export default {
   "rescue.say.export.1": "Muchas veces se juntan dos cosas, y ninguna es un fallo del dispositivo.",
   "rescue.say.export.write": "Primero: EXPORT PATTERN escribe el pattern guardado. Lo que hayas cambiado pero no guardado con WRITE no está en el archivo. Así que primero WRITE, luego EXPORT PATTERN.",
   "rescue.say.export.folder": "Segundo: con BLECHTRIBE tus exports van a esta carpeta. La carpeta antigua BLECHTRIBE solo la copió aquí en el primer arranque, y sigue ahí con los patterns antiguos. Por eso importa solo desde aquí:",
-  "rescue.say.export.blue": "En la Electribe azul, BLECHTRIBE no copia la carpeta antigua. Tus exports están igualmente aquí, los patterns antiguos se quedan en KORG/electribe.",
+  "rescue.say.export.blue": "En la Electribe azul, BLECHTRIBE no copia la carpeta antigua, y los exports van directamente a KORG/blechtribe, sin Patterns. Los patterns antiguos se quedan en KORG/electribe.",
   "rescue.say.export.date": "Y no te extrañes por la fecha: la Electribe no tiene reloj, sus archivos llevan siempre el 01.01.2014. Un export nuevo con el mismo nombre reemplaza el archivo antiguo, y en el ordenador la carpeta se ve igual.",
   "rescue.say.check.1": "Si la comprobación se pone roja, no llega nada a tu dispositivo, así que no se rompe nada. Voy a mirar qué versión de la app tienes.",
   "rescue.say.checkOld.1": "Tu app es anterior a la 1.3.7. Ahí la comprobación completa falla si hay patterns guardados en el emulador. Renombra este archivo, por ejemplo a flash-alt.bin, y vuelve a iniciar la comprobación:",

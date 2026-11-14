@@ -2744,7 +2744,7 @@ export default {
   "rescue.say.export.1": "Hier komen vaak twee dingen samen, en geen van beide is een fout in het apparaat.",
   "rescue.say.export.write": "Ten eerste: EXPORT PATTERN schrijft het opgeslagen pattern. Wat je hebt veranderd maar niet met WRITE hebt opgeslagen, staat niet in het bestand. Dus eerst WRITE, dan EXPORT PATTERN.",
   "rescue.say.export.folder": "Ten tweede: met BLECHTRIBE komen je exports in deze map terecht. De oude map heeft BLECHTRIBE bij de eerste start alleen hierheen gekopieerd, hij blijft met de oude patterns staan. Importeer daarom alleen vanaf hier:",
-  "rescue.say.export.blue": "Op de blauwe Electribe kopieert BLECHTRIBE de oude map niet. Je exports staan toch hier, de oude patterns blijven in KORG/electribe.",
+  "rescue.say.export.blue": "Op de blauwe Electribe kopieert BLECHTRIBE de oude map niet, en exports komen direct in KORG/blechtribe, zonder Patterns. De oude patterns blijven in KORG/electribe.",
   "rescue.say.export.date": "En kijk niet raar op van de datum: de Electribe heeft geen klok, zijn bestanden hebben altijd 01.01.2014. Een nieuwe export met dezelfde naam vervangt het oude bestand, op de computer ziet de map er dan hetzelfde uit.",
   "rescue.say.check.1": "Wordt de controle rood, dan komt er niets op je apparaat, er gaat dus niets kapot. Ik kijk even welke versie van de app je hebt.",
   "rescue.say.checkOld.1": "Je app is ouder dan 1.3.7. Daarin mislukt de volledige controle als er in de emulator patterns zijn opgeslagen. Hernoem dit bestand, bijvoorbeeld naar flash-alt.bin, en start de controle opnieuw:",

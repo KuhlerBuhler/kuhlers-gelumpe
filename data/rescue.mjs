@@ -117,7 +117,7 @@ const BOOT_CHECKS = ["boot:normal", "boot:normal_blank", "update_offer", "panel_
  */
 export const TEST_AREAS = {
   menu: "rescue.area.menu", shortcut: "rescue.area.menu",
-  pswitch: "rescue.area.pattern", lastpattern: "rescue.area.pattern", initpattern: "rescue.area.pattern",
+  pswitch: "rescue.area.pattern", lastpattern: "rescue.area.pattern", initpattern: "rescue.area.pattern", patterns: "rescue.area.pattern",
   "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples", "ht-osc": "rescue.area.samples", usersamples: "rescue.area.samples",
   splash: "rescue.area.start", loadbar: "rescue.area.start", migrate: "rescue.area.start",
   fxcard: "rescue.area.card", cardfault: "rescue.area.card", presets: "rescue.area.card", power_off: "rescue.area.card",
@@ -718,7 +718,7 @@ export const FLOW = {
       "rescue.say.export.1",
       "rescue.say.export.write",
       "rescue.say.export.folder",
-      { path: "KORG/blechtribe/" },
+      { path: "KORG/blechtribe/Patterns/" },
       "rescue.say.export.blue",
       "rescue.say.export.date",
     ],
