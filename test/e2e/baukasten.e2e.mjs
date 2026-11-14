@@ -143,7 +143,7 @@ test("a new insert effect: two blocks from the palette, a name; Meine Effekte op
   await page.locator("#cee-bk-block-2").getByRole("button", { name: "Baustein wählen" }).click();
   const ringMod = page.locator("#cee-bk-palette .cee-bk-unit:disabled", { hasText: "Bleibt an zweiter Stelle stumm" }).filter({ hasText: "Ringmodulator" });
   assert.equal(await ringMod.count(), 1, "the ring modulator is silent in block 2 and cannot be picked there");
-  assert.equal(await page.locator("#cee-bk-palette .cee-bk-unit:not(:disabled)", { hasText: "Lo-Fi (Decimator)" }).count(), 1, "the stage2-memory patch frees the decimator in block 2");
+  assert.equal(await page.locator("#cee-bk-palette .cee-bk-unit:disabled", { hasText: "Lo-Fi (Decimator)" }).count(), 1, "the decimator still crashes in block 2 on the device and cannot be picked there");
   // Freed on purpose for a test, it can be picked; the switch says the risk.
   await page.locator("label.ui-switch:has(#cee-bk-risky)").click();
   assert.equal(await page.locator("#cee-bk-palette .cee-bk-unit:not(:disabled)", { hasText: "Ringmodulator" }).count(), 1, "freed, the ring modulator can be picked in block 2");

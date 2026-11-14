@@ -25,6 +25,8 @@ const FIX = { fixedBy: "stage2-memory" };
 /** Units with a delay line: two in one effect still share the part's buffer with the patch. */
 const DELAY_FIRST = new Set([0x11, 0x12, 0x16, 0x18]);
 const DELAY_SECOND = new Set([0x11, 0x12, 0x18]);
+/** Delays that still crash in stage 2 on a patched device: 0x0a > 0x12 hung the audio engine on 2026-11-14 (ef02f1d2), 0x11 is the same unit family. */
+const DEVICE_CRASH_SECOND = new Set([0x11, 0x12]);
 
 const stage2 = (unit, verdict, note, evidence) => ({
   id: `stage2.${unit.toString(16).padStart(2, "0")}`, kind: "stage2", unit, verdict, note, source: "measured", evidence,
@@ -39,7 +41,7 @@ const PAIR_NOTE = { fatal: "DSP crashed in the simulation", silent: "stage 2 wro
 const pairs = (unit, verdict, firsts) => firsts.map(first => ({
   id: `stage2Pair.${first.toString(16).padStart(2, "0")}.${unit.toString(16).padStart(2, "0")}`,
   kind: "stage2Pair", first, unit, verdict, note: PAIR_NOTE[verdict], source: "derived", evidence: SIM,
-  ...(DELAY_FIRST.has(first) && DELAY_SECOND.has(unit) ? {} : FIX),
+  ...(DEVICE_CRASH_SECOND.has(unit) || (DELAY_FIRST.has(first) && DELAY_SECOND.has(unit)) ? {} : FIX),
 }));
 
 export default [
@@ -51,7 +53,7 @@ export default [
   stage2(0x06, "ok", "eq_2_band, and Korg uses it itself", SWEEP),
   stage2(0x07, "ok", "eq_4_band", SWEEP),
   { ...stage2(0x08, "silent", "exciter: runs, passes no audio", SWEEP), ...FIX },
-  { ...stage2(0x09, "fatal", "decimator: crash", SWEEP), ...FIX },
+  stage2(0x09, "fatal", "decimator: crash", SWEEP),
   stage2(0x0a, "ok", "filter, and Korg uses it itself", CHAINS),
   stage2(0x10, "ok", "acid driver, and Korg uses it itself", CHAINS),
   stage2(0x16, "silent", "ring mod: runs, passes no audio (heard 2026-09-21)", RING),

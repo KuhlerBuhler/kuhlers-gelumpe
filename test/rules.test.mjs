@@ -54,7 +54,7 @@ test("a ring modulator with a second stage behind it is silent, not a crash", ()
   assert.equal(decimator.severity, "fatal");
 });
 
-test("with the stage2-memory patch the memory faults pass, delay pairs and the ring modulator stay locked", () => {
+test("with the stage2-memory patch the memory faults pass, stage 2 delays and the ring modulator stay locked", () => {
   const locked = ["stage2-fatal", "stage2-silent", "stage2-pair", "stage1-needs-solo"];
   const flags = (first, second, opts) => lint(makeRecord("ifx", { devices: { ifx1: first, ifx2: second } }), opts)
     .map(f => f.code).filter(c => locked.includes(c));
@@ -63,6 +63,9 @@ test("with the stage2-memory patch the memory faults pass, delay pairs and the r
     assert.notDeepEqual(flags(first, second, old), [], `${first} > ${second} stays locked without the patch`);
   }
   assert.ok(flags(0x11, 0x12, { units }).includes("stage2-pair"), "delay > delay still glitches");
+  assert.ok(flags(0x0a, 0x12, { units }).includes("stage2-pair"), "a delay in stage 2 still crashes on the device");
+  assert.ok(flags(0x0a, 0x11, { units }).includes("stage2-pair"), "so does its sibling 0x11");
+  assert.ok(flags(0x0a, 0x09, { units }).includes("stage2-fatal"), "the decimator in stage 2 still crashes on the device");
   assert.ok(flags(0x0a, 0x16, { units }).includes("stage2-silent"), "the ring modulator in stage 2 stays silent");
   assert.ok(flags(0x16, 0x0a, { units }).includes("stage1-needs-solo"), "the ring modulator in stage 1 still wants to be alone");
 });

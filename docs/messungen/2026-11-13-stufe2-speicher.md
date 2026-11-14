@@ -132,9 +132,14 @@ richtig".
 ## Sperren im Baukasten
 
 Befunde, die der Patch behebt, tragen in `data/findings.mjs` `fixedBy: "stage2-memory"`: Stufe 2 mit `0x01`, `0x02`,
-`0x08`, `0x09`, `0x18`, der Decimator `0x09` in Stufe 1 und alle Paare außer Delay hinter Delay (erste Stufe `0x11`,
-`0x12`, `0x16` oder `0x18`, zweite `0x11`, `0x12` oder `0x18`). Gesperrt bleiben diese Delay-Paare und `0x16` in beiden
-Stufen.
+`0x08`, `0x18`, der Decimator `0x09` in Stufe 1 und alle Paare außer Delay hinter Delay (erste Stufe `0x11`,
+`0x12`, `0x16` oder `0x18`, zweite `0x11`, `0x12` oder `0x18`) und außer `0x11` oder `0x12` in Stufe 2. Gesperrt bleiben
+diese Paare, `0x09` in Stufe 2 und `0x16` in beiden Stufen.
+
+`0x11` und `0x12` in Stufe 2 stürzen am Gerät trotz Patch ab: `0x0a` vor `0x12` hängte die Audio-Engine (Rot, Firmware
+`ef02f1d2` mit allen sieben Änderungen, 2026-11-14), im Simulator lief das Paar. `0x11` ist gesperrt, weil es zur selben
+Familie gehört, am Gerät nicht geprüft. `0x0a` vor `0x09` (Decimator in Stufe 2) stürzte am Gerät ebenso ab.
+`0x0a` vor `0x18` lief am Gerät.
 
 Die App gibt die behobenen Befunde frei, solange die Firmware den Patch trägt. Mit gelesener Firmware prüft
 `hasStage2Memory` das erste Wort des Patches (Datei `0x12A8D6`), ohne gelesene Firmware gilt der Patch als vorhanden.
