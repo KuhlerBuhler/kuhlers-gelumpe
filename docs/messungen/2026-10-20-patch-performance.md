@@ -100,8 +100,29 @@ einem klar abgegrenzten LED-Update berechnen und die Sendefunktion auf das Ergeb
 lassen. Ein Cache braucht eindeutige Invalidierung bei Part, Bar, Pattern, Noten, Gate,
 Triggern und Voice-Zuweisung. Cursor und Helligkeit bleiben aktuelle LED-Werte. Die
 Verantwortung gehört in die Pad-Darstellung; ein zusätzlicher versteckter Aufruf aus einem
-fremden Patch wäre kein sauberer Ersatz. Dieser Umbau ist noch nicht implementiert oder
-als Beschleunigung beziffert.
+fremden Patch wäre kein sauberer Ersatz.
+
+**Umgesetzt 2026-11-14 (Bindungs-Cache):** `pc_chord` legt sein Ergebnis je Pad ab, solange
+ein Durchlauf durch `pc_tail` läuft. Der erste Aufruf im Durchlauf bildet einen Schlüssel aus
+Taktabschnitt, Adresse des Parts und dessen 0x330 Byte (Voice Assign und alle 64 Steps);
+weicht er ab, gelten alle Ergebnisse als ungültig. Außerhalb von `pc_tail` wird nichts
+behalten. 80 Byte mehr Laufzeitzustand, Code 3748 Byte (vorher 3492).
+
+Gemessen mit `arm_load.py` (develop `cf3aa103` gegen denselben Stand mit Cache, gepatcht mit
+`blech.json` bzw. `blech-synth.json`, Last in Prozent, Anteil `pad-colors` in Prozentpunkten):
+
+| Szene | Hacktribe | Korg rot | Synth |
+|---|---:|---:|---:|
+| Vier Noten mit langen Bindungen, gesamt | 20,177 / 19,790 | 20,386 / 20,000 | 20,290 / 19,937 |
+| dto., p99 je 10 ms | 29,40 / 24,46 | 29,74 / 24,74 | 31,95 / 27,49 |
+| dto., Anteil `pad-colors` | 0,617 / 0,174 | 0,616 / 0,174 | 0,617 / 0,174 |
+| Bindungen mit Step-Änderung alle 100 ms, gesamt | 19,934 / 19,802 | 20,139 / 20,011 | 20,027 / 19,924 |
+| dto., Anteil `pad-colors` | 0,325 / 0,183 | 0,325 / 0,183 | 0,325 / 0,183 |
+
+In allen anderen Szenen (Stillstand, Wiedergabe, KEYBOARD, 16 Parts) steigt der Anteil von
+`pad-colors` um 0,001 bis 0,003 Punkte (Schlüssel und Durchlaufmarke); die Gesamtwerte liegen
+im Rauschen des Emulators. Die Szene mit Step-Änderungen schreibt die Gate-Bytes direkt in den
+Speicher und zeigt die Kosten der Ungültigmachung, nicht die des Editierens in der Firmware.
 
 ## Plugin-Laufzeit: drei getrennte Prototypen
 
