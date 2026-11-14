@@ -6,6 +6,9 @@
  */
 import { installWebMidiStub } from "/src/webmidi.mjs";
 import { VsbImage } from "/src/image.mjs";
+import { hardwareOf } from "/src/firmware.mjs";
+import { FLASH } from "/src/layout.mjs";
+import { FLASH_END } from "/src/protocol.mjs";
 
 const q = new URLSearchParams(location.search);
 const list = name => (q.get(name) || "").split(",").filter(Boolean).map(Number);
@@ -15,7 +18,10 @@ const bytes = new Uint8Array(await (await fetch("/test-support/files/system.vsb"
 // ?card: BLECH's own commands and a card the test fills (window.__ceeCard, a Map of file name to bytes: e2sSample.all, e2sSample.tmp, SYSTEM.VSB).
 const card = q.has("card") ? new Map() : null;
 window.__ceeCard = card;
-const sim = installWebMidiStub({ image: q.has("noram") ? null : new VsbImage(bytes), hacktribe: !q.has("noram"), channel: 9, latencyMs: Number(q.get("latency") ?? 2), blech: q.has("card"), card });
+// The flash as a device with this firmware has it: erased, with the user-data mark of its colour that session.hardware() reads.
+const flash = new Uint8Array(FLASH_END).fill(0xff);
+flash.set(new TextEncoder().encode(hardwareOf(bytes) === "blue" ? "KORGelec2USR" : "KORGele2sUSR"), FLASH.userDataStart);
+const sim = installWebMidiStub({ image: q.has("noram") ? null : new VsbImage(bytes), hacktribe: !q.has("noram"), channel: 9, latencyMs: Number(q.get("latency") ?? 2), blech: q.has("card"), card, flash });
 
 // ?exec=1: the stand-in takes an execute command and notes the address, which it never does otherwise.
 if (q.has("exec")) sim.device.execute = addr => { (window.__ceeExec ??= []).push(addr); return true; };
