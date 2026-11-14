@@ -58,7 +58,8 @@ Vergleicht das laufende Abbild (Basis) mit einem neuen und schreibt nur, was ohn
 | Befund | Marker |
 |---|---|
 | Das neue Abbild braucht einen Prüfbericht (`tools/emu/check.py --report`) mit passendem sha256, sonst läuft der volle Check; `--allow-quick` nur mit Hinweis in der Ausgabe | gebaut, `test_hot_patch.py` |
-| Basis: SYSTEM.VSB von der Karte (FILE READ), `--base` oder `--chain <Journal>`; vor dem Schreiben per READ gegen das laufende Abbild geprüft (`--proof full` ganzes Abbild, `near` 4-KiB-Blöcke um die Änderungen) | gebaut |
+| Basis: SYSTEM.VSB von der Karte (FILE READ), `--base` oder `--chain <Journal>`; vor dem Schreiben per READ gegen das laufende Abbild geprüft (`--proof near`, Standard: 4-KiB-Blöcke um die Änderungen; `full` ganzes Abbild ohne die Datenbereiche) | gebaut |
+| `--proof full` hält am Gerät nicht: die Firmware schreibt im Betrieb 33 Bereiche (41693 Byte) im Abbild, die der Emulator in 5 s nicht sieht (Vektor-Zeiger, `.data`, Settings-Liste, freie FF-Bereiche); daher ist `near` der Standard | gemessen (`2026-11-14-dev-mode-geraet.md`, Schritt 4) |
 | Nach dem Start schreibt die Firmware rund 186 KB im Abbild selbst (ht und rot, Emulator 5 s), darunter etwa 450 Byte `.data` bei `0xC00F8EA0..0xC00F94F1`, `0xC00F9D8C`, `0xC0162894`, `0xC0163134`, die nicht in der Spur nach dem Start stehen. Das Tool bootet Basis und neues Abbild im Emulator und zählt diese Bytes zu den Daten | gemessen |
 | Einteilung je Bereich: gesperrt, DSP-Programm, Startphase (`bootmap.py`), Daten (RAM-Bereiche der Patches, Schreibspur, Startwerte) und abweichende Live-Bytes = volles Update; schon geschrieben = übersprungen; sonst hot | gebaut, `test_hot_patch.py` |
 | Gruppen: zeigt ein neues Wort (B/BL oder Zeiger) in einen anderen geänderten Bereich, sind beide eine Gruppe; Reihenfolge Code über FF zuerst, einzelne Wörter zuletzt; über einem Block (1 KiB) Warnung "nicht atomar" | gebaut |
