@@ -1,5 +1,11 @@
 # Blackfin: Kern und Host-Port als Prüfprototyp
 
+Der aktuelle Befund steht in
+[Blackfin: echter Start und fehlende ROM-Funktionen](2026-11-14-blackfin-rtos-rom.md).
+Die unten beschriebenen direkten Funktionsaufrufe sind ein früherer
+Einzeltest und keine Abnahme des RTOS-Starts. Der verkürzte Prüfmodus wurde
+aus dem Diagnosewerkzeug entfernt.
+
 ## Gemessen mit erzeugten Programmen
 
 Der zusätzliche Prüfpfad startet einen eigenen Prozess mit dem GNU-Blackfin-
@@ -115,8 +121,7 @@ den geprüften GNU-Quellstand mit den beiden genannten Korrekturen. Er
 python3 tools/dsp/build_blackfin.py "$BFIN_SDK"
 export BFIN_WORKER="$BFIN_SDK/blackfin-worker"
 PYTHONPATH=tools/emu tools/emu/.venv/bin/python -m unittest test_blackfin_backend test_blackfin_stream test_dsp_model test_bootcache
-python3 tools/dsp/blackfin_probe.py --worker "$BFIN_WORKER" --vsb "$E2_STOCK_VSB" --functional-init
-python3 tools/dsp/blackfin_probe.py --worker "$BFIN_WORKER" --vsb "$E2_STOCK_VSB" --operating
+python3 tools/dsp/blackfin_probe.py --worker "$BFIN_WORKER" --vsb "$E2_STOCK_VSB"
 ```
 
 `BFIN_SDK` muss außerhalb des Repositorys liegen. Der letzte Befehl schlägt
