@@ -1,0 +1,19 @@
+{
+ "entries": [
+  { "from": "0xC00981B4", "to": "0xC00857AC", "kind": "code", "why": "fwmap, place only: the fifth literal of the insert knob memory; holds 0xC0692278 in Korg's red and 0xC056C3A0 (that memory's synth address) here (measure:2026-11-08/blau-eigene-effekte)" },
+  { "from": "0xC0098084", "to": "0xC008567C", "kind": "code", "why": "fwmap, same code: the row length of the insert knob memory, mov r2, #38 in both" },
+  { "from": "0xC009809C", "to": "0xC0085694", "kind": "code", "why": "fwmap, same code: insert menu length, cmp r3, #38 in both" },
+  { "from": "0xC00980E8", "to": "0xC00856E0", "kind": "code", "why": "fwmap, same code: insert menu length minus one, cmp r5, #37 in both" },
+  { "from": "0xC00980EC", "to": "0xC00856E4", "kind": "code", "why": "fwmap, same code: insert menu length, movle r3, #38 in both" },
+  { "from": "0xC009811C", "to": "0xC0085714", "kind": "code", "why": "fwmap, same code: insert menu length, mov r2, #38 in both" },
+  { "from": "0xC0098138", "to": "0xC0085730", "kind": "code", "why": "fwmap, same code: insert menu length, cmp r3, #38 in both" },
+  { "from": "0xC009814C", "to": "0xC0085744", "kind": "code", "why": "fwmap, same code: insert menu length minus one, cmple r1, #37 in both" },
+  { "from": "0xC0098150", "to": "0xC0085748", "kind": "code", "why": "fwmap, same code: insert menu length, movle r3, #38 in both" },
+  { "from": "0xC0098188", "to": "0xC0085780", "kind": "code", "why": "fwmap, same code: insert menu length minus one, cmp r2, #37 in both" },
+  { "from": "0xC0098194", "to": "0xC008578C", "kind": "code", "why": "fwmap, same code: insert menu length, mov r1, #38 in both" },
+  { "from": "0xC0048F80", "to": "0xC0043140", "kind": "code", "why": "fwmap, place only: insert menu length minus one, cmp r0, #37 in both" },
+  { "from": "0xC0049EF0", "to": "0xC004400C", "kind": "code", "why": "fwmap, place only: insert menu length minus one, cmp r2, #37 in both" },
+  { "from": "0xC004A1F8", "to": "0xC00442F8", "kind": "code", "why": "fwmap, same code: insert menu length minus one, cmp r2, #37 in both" },
+  { "from": "0xC00D81EC", "to": "0xC00C1E64", "kind": "data", "why": "the modulation table Korg's firmware reads (72 records of 0x58, the word before the first name): 72 of 72 equal to the red one; the loaders at 0xC0086180 and 0xC00868DC point at its +4 (measure:2026-11-08/blau-eigene-effekte)" }
+ ]
+}

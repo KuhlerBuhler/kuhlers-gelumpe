@@ -1,7 +1,6 @@
 /** The Patcher page's logic without the page: what a dropped SYSTEM.VSB is, the BLECH patches, the state from drop to download. */
 import { buildOf, hardwareOf, identifyBase, sha256 } from "./firmware.mjs";
 import { applyPatches, buildsOf, patchesPresent, selectFor } from "./patch.mjs";
-import { loadingAnimPatch, LOADING_ANIM_ID } from "./loading-anim.mjs";
 import { applyBsdiff, parseBsdiff } from "./bsdiff.mjs";
 import { text, isText, TextError, number } from "./text.mjs";
 
@@ -70,18 +69,6 @@ export const BLECH_SYNTH_SET_URL = "data/patches/blech-synth.json";
  */
 export const USB_NAME_URLS = ["data/patches/usb-name.json", "data/patches/usb-name-synth.json"];
 
-/**
- * A patched copy with the user's own loading animation on top, in a pass of its own: load-bar declares the slot as its
- * RAM, so in one list with load-bar the patch would collide with it. Written only when load-bar went on, since nothing
- * else reads the slot; no file (null) keeps the default Blechy. Throws on a file the firmware would reject.
- */
-export async function withLoadingAnim(res, anim) {
-  if (!res.ok || !anim || !res.spans.some(s => s.patch === "load-bar")) return res;
-  const more = await applyPatches(res.bytes, [loadingAnimPatch(anim)]);
-  if (!more.ok) return { ...more, dependencies: res.dependencies };
-  return { ...more, dependencies: res.dependencies, spans: [...res.spans, ...more.spans], allow: [...res.allow, ...more.allow], allowCode: [...res.allowCode, ...more.allowCode] };
-}
-
 /** The variant of an optional patch (its variants parsed) for a firmware build, or null when none is made for it. */
 export const optionFor = (variants, build) => variants.find(p => buildsOf(p).includes(build)) ?? null;
 /** Copies that already passed the whole emulator check, as SHA-256 of input and result (tools/verify-patches.mjs). */
@@ -100,7 +87,6 @@ const PATCH_LABELS = {
   "dice": "features.dice.title",
   "pad-colors": "features.colors.title",
   "load-bar": "features.loading.title",
-  [LOADING_ANIM_ID]: "patcher.patch.loadingAnim",
   "sample-errors": "features.sampleErrors.title",
   "script-runtime": "features.plugins.title",
   "splash": "patcher.patch.splash",
@@ -115,6 +101,7 @@ const PATCH_LABELS = {
   "ht-osc": "features.htOsc.title",
   "beat-eighth": "features.beatEighth.title",
   "touch-scale-zero": "features.touchScaleZero.title",
+  "stage2-memory": "patcher.patch.stage2Memory",
   "blech-version": "patcher.patch.version",
   "doom-loader": "features.doom.title",
   "blech-sysex": { synth: "patcher.patch.sysexSynth", other: "patcher.patch.sysex" },
@@ -150,9 +137,16 @@ export async function loadBlechSet(fetchJson, setUrl = BLECH_SET_URL) {
 export const itemsFor = (blech, build) => blech.items.filter((_, i) => buildsOf(blech.patches[i]).includes(build));
 
 /**
+ * Where BLECH's code starts in the file (0xC0180000), free (FF, the test firmware 00) in Hacktribe since its patch of 2024-09 (9fa7f8bd).
+ * Hacktribe's patches up to 2023-09 (3e000ecc and older) keep their own code there and at 0x170000, so BLECH cannot go on.
+ */
+const BLECH_CODE = 0x180100;
+export const oldHacktribe = bytes => bytes.subarray(BLECH_CODE, BLECH_CODE + 16).some(b => b !== 0xff && b !== 0);
+
+/**
  * kind: wrong-size, stock (Korg's unchanged 2.02), hacktribe, blech (every patch is in already), partial (some are),
  * unknown; `present` lists the patch ids found. An unknown file of Korg's build that is not Korg's unchanged file
- * carries `changed` ("stock" or "synth"): the original of that Electribe is the one to take instead. A file of Korg's build is only accepted as the unchanged original
+ * carries `changed` ("stock" or "synth"), and so does an old Hacktribe file ("stock", see oldHacktribe): the original of that Electribe is the one to take instead. A file of Korg's build is only accepted as the unchanged original
  * or when it already carries the BLECH patches made for it.
  */
 export async function classify(bytes, patches, stockHash = STOCK_SHA256, synthHash = SYNTH_SHA256) {
@@ -171,6 +165,10 @@ export async function classify(bytes, patches, stockHash = STOCK_SHA256, synthHa
   }
   if (base.build === "stock" && !present.length) {
     return { ...out, changed: "stock", reasons: [text("patcher.reason.stockChanged", { sha: stockHash.slice(0, 8) })] };
+  }
+  if (base.build === "hacktribe" && !present.length && oldHacktribe(bytes)) {
+    // Hacktribe is rebuilt from Korg's red 2.02 on the red and the blue alike (its updater takes only the Sampler head)
+    return { ...out, changed: "stock", reasons: [text("patcher.reason.oldHacktribe")] };
   }
   const kind = present.length === 0 ? "hacktribe" : present.length === mine.length ? "blech" : "partial";
   // hardware: the head says which Electribe a Hacktribe file is for (the blue one carries the synth head)
@@ -272,6 +270,10 @@ const CHECK_NAMES = {
   header: "patcher.checkName.header",
   dsp_stream: "patcher.checkName.dspStream",
   dsp_boot_once: "patcher.checkName.dspBootOnce",
+  "dsp:start_reaches_the_dsp": "patcher.checkName.dspStart",
+  "dsp:pad_opens_and_closes_a_voice": "patcher.checkName.dspPad",
+  "dsp:play_opens_and_closes_voices": "patcher.checkName.dspPlay",
+  "dsp:transfers_are_well_formed": "patcher.checkName.dspTransfers",
   "boot:normal": "patcher.checkName.bootNormal",
   "boot:normal_blank": "patcher.checkName.bootNormalBlank",
   update_offer: "patcher.checkName.updateOffer",

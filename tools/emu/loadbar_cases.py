@@ -15,6 +15,7 @@ reference for "as it was" is the same copy with EXIT held at power-on, where no 
 """
 
 import argparse
+import hashlib
 import json
 import struct
 import sys
@@ -54,17 +55,19 @@ def has_hooks(payload):
     return spec.CODE_AT <= spec.FLUSH + 8 + (off << 2) < spec.CODE_END
 
 
-def card_with(folder, samples=20, seconds=4, table=None):
+def card_with(folder, samples=20, seconds=4, table=None, media=None):
     """A formatted card with an e2sSample.all of `samples` samples, together `seconds` of audio, or of `table` (slot: (name,
-    frames)) when given (made once per process)."""
-    key = (folder, samples, seconds, repr(table))
+    frames)) when given, and `media` as Media/loading.blla when given (made once per process)."""
+    key = (folder, samples, seconds, repr(table), media and hashlib.sha1(media).hexdigest())
     if key not in _card:
         image = fat32.format_image(64 * 1024 * 1024)
         volume = fat32.Volume(image)
         if samples or table:
             data = sampleset.build(table or sampleset.sized(samples, int(seconds * 48000)))
             volume.write(f"KORG/{folder}/Sample/e2sSample.all", data)
-            _card[("size",) + key] = len(data)
+            _card[("size",) + key[:4]] = len(data)
+        if media is not None:
+            volume.write(f"KORG/{folder}/Media/loading.blla", media)
         volume.close()
         _card[key] = bytes(image)
     return SDCard(MemoryMedium(bytearray(_card[key])))
@@ -100,7 +103,7 @@ def without_overlay(payload):
 class Run:
     """A device booted with a card (or none), watched every 10 ms of device time until the main screen has been up for a while."""
 
-    def __init__(self, payload, flash=None, held=0, card=True, samples=20, seconds=4, panel_version=None, limit=9.0, table=None, fail_at=None):
+    def __init__(self, payload, flash=None, held=0, card=True, samples=20, seconds=4, panel_version=None, limit=9.0, table=None, fail_at=None, media=None):
         self.payload = bytes(payload)
         self.dev = WatchedDev(self.payload, flash, held)
         self.m = self.dev.m
@@ -109,7 +112,7 @@ class Run:
         self.size = None
         if card:
             folder = cardstore.card_folder(self.payload)
-            sd = card_with(folder, samples, seconds, table)
+            sd = card_with(folder, samples, seconds, table, media)
             self.size = file_size(folder, samples, seconds, table)
             if fail_at is not None:
                 FailingCard(sd, self.dev).after = fail_at
@@ -157,9 +160,8 @@ class Run:
                 + tuple(self.dev.u32(spec.ANIM_VARS + o) for o, _ in VARS))
 
     def anim(self):
-        """The animation the overlay plays (A_FILE), as the image holds it."""
-        at = self.state()[A_FILE] - IMAGE
-        return self.payload[at:at + loading_anim.MAX_BYTES]
+        """The animation the overlay plays (A_FILE), as the RAM holds it (the slot has the card's file)."""
+        return bytes(self.m.uc.mem_read(self.state()[A_FILE], loading_anim.MAX_BYTES))
 
     def loader_ms(self):
         return None if not self.loader or self.loader[0][1] is None else self.loader[0][1] - self.loader[0][0]
@@ -252,6 +254,21 @@ def finale_check(run, keys, need):
                  f"none of its pictures before {spec.FINALE_AT} percent (picture {at})")
 
 
+FIRST_MS = 100                  # the first picture after the loader's start: the card's file is read before it, and pages go out every 40 ms
+
+
+def start_image_held(run, first):
+    """(ms of looks between the start image's first showing and the first picture of the animation that show something else,
+    the loader's start in ms). Until the card's Media/loading.blla was looked at the display keeps the start image: no window
+    of the firmware, nothing blank. The pages of the first picture go out one after the other, so the last 50 ms may mix."""
+    image = display_of(vsb_image(run.payload))
+    seen = [t for t, fb, _, _, _ in run.frames if bytes(fb) == image]
+    start = run.loader[0][0] if run.loader else None
+    if not seen or first is None:
+        return [None], start
+    return [round(t) for t, fb, _, _, _ in run.frames if seen[0] <= t < first - 50 and bytes(fb) != image], start
+
+
 def case_bar(payload, flash):
     """Blechy draws the line, the percent counts up with the bytes read, the finale from 95, at most 20 pictures a second, the
     display stays dark, no frame shows the window; the loader is no slower than without the patch."""
@@ -260,9 +277,11 @@ def case_bar(payload, flash):
     ref = Run(payload, flash, KILL)
     off = Run(without_overlay(payload), flash)
     frames, first, bad = mismatches(run)
-    out.append(entry("overlay_frames_are_the_animation", len(frames) >= 30 and first is not None and first < 300 and not bad and not run.m.asserts and run.main_at is not None
-                     and run.state()[A_FILE] == spec.ANIM_DEFAULT,
-                     (f"{len(frames)} looks at the display (every 10 ms) from {frames[0][0]:.0f} ms to {frames[-1][0]:.0f} ms: from {first and round(first)} ms on each is exactly "
+    held, start = start_image_held(run, first)
+    out.append(entry("overlay_frames_are_the_animation", len(frames) >= 30 and first is not None and start is not None and first <= start + FIRST_MS and not held
+                     and not bad and not run.m.asserts and run.main_at is not None and run.state()[A_FILE] == spec.ANIM_DEFAULT,
+                     (f"{len(frames)} looks at the display (every 10 ms) from {frames[0][0]:.0f} ms to {frames[-1][0]:.0f} ms: the start image until {first and round(first)} ms "
+                      f"(the loader started at {start and round(start)} ms, limit {FIRST_MS} ms later)" + (f", other pictures at {held[:5]} ms" if held else "") + "; from then each is exactly "
                       f"the picture of the key in the state (or its complement before DISPLAY INVERT), so none shows the window; the animation is the default at "
                       f"{run.state()[A_FILE]:#x}" + (f"; frames that differ at {bad[:5]} ms" if bad else "")) if frames else "no frame of the overlay"))
     keys = [st[7] for _, _, st, _, _ in frames]
@@ -406,9 +425,10 @@ def case_card_error(payload, flash):
                      f"the loader returned {ended[0][1] if ended else None} at {round(ended[0][0], 2) if ended else None} s, the overlay state is then {expect:#x} (1: still drawn), "
                      f"done {done:#x}; the picture stays at {sorted({index(k) for k in after})} over {len(after)} looks after it, not done"))
     # the firmware's box "Card Error" comes with the main screen a few seconds later; the overlay is over by then and the
-    # display shows Blechy's card picture instead of the box, until EXIT
+    # display shows Blechy's card picture instead of the box, until EXIT. Each file the start opens on the dead card waits 4 s
+    # (plugins, effects, the Patterns backup), so the box comes at about 21 s
     picture = spec.card_frame(4)
-    while dev.u32(spec.ERR_CODE) != 4 and dev.m.time_ns / 1e9 < 20:
+    while dev.u32(spec.ERR_CODE) != 4 and dev.m.time_ns / 1e9 < 30:
         dev.run(0.1)
     dev.run(0.2)
     boxed_over = dev.u32(spec.STATE) == 2
@@ -582,7 +602,7 @@ def case_smooth(payload, flash):
     return out
 
 
-def blla(lists, n, m=0, loop_from=0, frame0=None):
+def blla(lists, n, m=0, loop_from=0, frame0=None, flags=0):
     """A loading animation file built by hand for the cases (docs/hintergrund/ladeanimation.md): `lists` are the change lists
     in file order, each a list of (offset, bytes) runs."""
     table = loading_anim.HEADER_BYTES + loading_anim.FRAME_BYTES
@@ -593,7 +613,7 @@ def blla(lists, n, m=0, loop_from=0, frame0=None):
         body += struct.pack("<H", len(runs))
         for off, data in runs:
             body += struct.pack("<H", off | (len(data) - 1) << 10) + bytes(data)
-    head = b"BLLA" + bytes((1, loop_from)) + struct.pack("<HHHI", n, m, table, at + len(body))
+    head = b"BLLA" + bytes((1, loop_from)) + struct.pack("<HHHHBB", n, m, table, at + len(body), flags, 0)
     return head + bytes(frame0 or bytes(1024)) + b"".join(struct.pack("<H", o) for o in offsets) + bytes(body)
 
 
@@ -623,7 +643,7 @@ def corrupt_files():
     first = struct.unpack_from("<H", past, struct.unpack_from("<H", past, 10)[0])[0]
     struct.pack_into("<H", past, first + 2, 1020 | 7 << 10)
     cut = bytearray(good)
-    struct.pack_into("<I", cut, 12, len(good) - 3)
+    struct.pack_into("<H", cut, 12, len(good) - 3)
     return {"wrong_magic": magic, "run_past_1023": bytes(past), "list_cut_off": bytes(cut)}
 
 
@@ -655,19 +675,19 @@ def counted_run(payload, flash, **kw):
 
 
 def case_custom(payload, flash):
-    """A custom animation in the slot: one at MAX_BYTES with 301 pictures is played, jumping over many pictures forward at
+    """A custom animation on the card (Media/loading.blla): one at MAX_BYTES with 301 pictures is played, jumping over many pictures forward at
     once; three broken ones leave the default; one that loops while waiting plays its loop when the reads stop."""
     out = []
     big = big_file()
     if loading_anim.validate(big) is not None or len(big) != loading_anim.MAX_BYTES:
         raise SystemExit(f"the file at the limit is wrong: {loading_anim.validate(big)}, {len(big)} bytes")
-    run, counts = counted_run(with_slot(payload, big), flash)
+    run, counts = counted_run(payload, flash, media=big)
     frames, first, bad = mismatches(run)
     idx = [index(st[7]) for _, _, st, _, _ in frames]
     jumps = [b - a for a, b in zip(idx, idx[1:])]
     out.append(entry("custom_at_the_limit", run.state()[A_FILE] == spec.ANIM_SLOT and len(frames) >= 30 and first is not None and not bad and not run.m.asserts
                      and idx == sorted(idx) and idx[-1] >= loading_anim.progress_index(301, 950) and jumps and max(jumps) >= 10,
-                     f"a file of {len(big)} bytes with 301 pictures in the slot is played (animation at {run.state()[A_FILE]:#x}): {len(frames)} looks, each its picture, "
+                     f"a file of {len(big)} bytes with 301 pictures on the card is played (animation at {run.state()[A_FILE]:#x}): {len(frames)} looks, each its picture, "
                      f"pictures {idx[0] if idx else '?'} to {idx[-1] if idx else '?'}, the largest jump {max(jumps) if jumps else None} pictures at once"
                      + (f"; frames that differ at {bad[:5]} ms" if bad else "")))
     out.append(entry("custom_frame_cost", counts and max(counts) < 200000,
@@ -675,14 +695,14 @@ def case_custom(payload, flash):
                      f"(median {sorted(counts)[len(counts) // 2] if counts else None}, {len(counts)} frames, the firmware's division not counted)"))
     for name, data in corrupt_files().items():
         why = loading_anim.validate(data)
-        run = Run(with_slot(payload, data), flash, limit=1.2)
+        run = Run(payload, flash, limit=1.2, media=data)
         frames, first, bad = mismatches(run)
         out.append(entry(f"custom_{name}_shows_the_default", why and run.state()[A_FILE] == spec.ANIM_DEFAULT and frames and first is not None and not bad and not run.m.asserts,
                          f"refused ({why}): the animation is {run.state()[A_FILE]:#x} (the default {spec.ANIM_DEFAULT:#x}), "
                          f"{len(frames)} looks, each a picture of Blechy" + (f"; frames that differ at {bad[:5]} ms" if bad else "")))
     loops = [[((k * 8) % 1000, bytes([0xC3 + j] * 6))] for j, k in enumerate((3, 5, 7))]
     waiting = blla(small_lists() + loops, 21, m=3)
-    run = Run(with_slot(payload, waiting), flash, fail_at=0.5, limit=4.0)
+    run = Run(payload, flash, fail_at=0.5, limit=4.0, media=waiting)
     frames, first, bad = mismatches(run)
     since = {}
     for t, _, st, _, _ in frames:
@@ -696,17 +716,53 @@ def case_custom(payload, flash):
     return out
 
 
+def case_media(payload, flash):
+    """Media/loading.blla on the card decides: without it Blechy plays even when the image's slot holds an animation; a file
+    larger than MAX_BYTES is refused; byte 14 turns the loop off, picks Blechy or leaves the firmware's own window."""
+    out = []
+    good = blla(small_lists(), 21)
+    run = Run(with_slot(payload, good), flash, limit=1.2)
+    frames, first, bad = mismatches(run)
+    out.append(entry("media_missing_plays_blechy", run.state()[A_FILE] == spec.ANIM_DEFAULT and frames and first is not None and not bad and not run.m.asserts,
+                     f"no file on the card, a valid animation in the image's slot: the animation is {run.state()[A_FILE]:#x} (Blechy {spec.ANIM_DEFAULT:#x}), "
+                     f"{len(frames)} looks, each his picture" + (f"; frames that differ at {bad[:5]} ms" if bad else "")))
+    big = bytearray(big_file() + bytes(256))
+    struct.pack_into("<H", big, 12, len(big))
+    run = Run(payload, flash, limit=1.2, media=bytes(big))
+    frames, first, bad = mismatches(run)
+    out.append(entry("media_too_big_plays_blechy", loading_anim.validate(bytes(big)) and run.state()[A_FILE] == spec.ANIM_DEFAULT and frames and first is not None
+                     and not bad and not run.m.asserts,
+                     f"a file of {len(big)} bytes (limit {loading_anim.MAX_BYTES}): the animation is {run.state()[A_FILE]:#x}, Blechy, {len(frames)} looks"
+                     + (f"; frames that differ at {bad[:5]} ms" if bad else "")))
+    loops = [[((k * 8) % 1000, bytes([0xC3 + j] * 6))] for j, k in enumerate((3, 5, 7))]
+    run = Run(payload, flash, fail_at=0.5, limit=3.0, media=blla(small_lists() + loops, 21, m=3, flags=loading_anim.NO_LOOP))
+    frames, first, bad = mismatches(run)
+    looped = [round(t) for t, _, st, _, _ in frames if loop_of(st[7])]
+    out.append(entry("media_no_loop", run.state()[A_FILE] == spec.ANIM_SLOT and frames and not looped and not bad and not run.m.asserts,
+                     f"byte 14 bit 0: the reads stop at 0.5 s, {len(frames)} looks, the loop never plays" + (f"; it did at {looped[:3]} ms" if looped else "")
+                     + (f"; frames that differ at {bad[:5]} ms" if bad else "")))
+    run = Run(payload, flash, limit=1.2, media=blla(small_lists(), 21, flags=loading_anim.BLECHY))
+    frames, first, bad = mismatches(run)
+    out.append(entry("media_blechy", run.state()[A_FILE] == spec.ANIM_DEFAULT and frames and first is not None and not bad and not run.m.asserts,
+                     f"byte 14 bit 2: a valid file, the animation is {run.state()[A_FILE]:#x} (Blechy {spec.ANIM_DEFAULT:#x}), {len(frames)} looks"
+                     + (f"; frames that differ at {bad[:5]} ms" if bad else "")))
+    run = Run(payload, flash, media=blla(small_lists(), 21, flags=loading_anim.OFF))
+    drawn = [round(t) for t, _, st, _, _ in run.frames if st[6] == 1]
+    out.append(entry("media_off_shows_the_window", run.state()[0] == 2 and not overlay_frames(run) and run.main_at is not None and not run.m.asserts,
+                     f"byte 14 bit 1: no look of the overlay, the overlay is over (state {run.state()[0]}), the main screen at {run.main_at and round(run.main_at)} ms"
+                     + (f"; the overlay had drawn at {drawn[:3]} ms" if drawn else "")))
+    return out
+
+
 def app_file(payload, flash, expect):
-    """A copy the app made with an animation of its own (test/emulator-loading-anim.test.mjs): `expect` holds the file
+    """An animation of the app's own (test/emulator-loading-anim.test.mjs): `expect` holds the file
     (src/loading-anim.mjs:encodeAnimation) and every picture as the app computes it (shownPicture, "index,loop", loop -1 for
-    none). The slot holds the file, the overlay plays it and not Blechy, every look is one of its pictures, the app's
+    none). The file passes the checks, on the card as Media/loading.blla the overlay plays it and not Blechy, every look is one of its pictures, the app's
     pictures are the firmware's, the progress counts up and the loop plays from its percent on."""
     blob = bytes.fromhex(expect["anim"])
-    at = spec.ANIM_SLOT - IMAGE
-    slot = payload[at:at + len(blob)]
-    out = [entry("app_slot_is_the_file", slot == blob and loading_anim.validate(blob) is None and set(payload[at + len(blob):spec.ANIM_SLOT_END - IMAGE]) <= {0xFF},
-                 f"the app wrote its file of {len(blob)} bytes at {spec.ANIM_SLOT:#x}, FF behind it, and it passes the firmware's checks")]
-    run = Run(payload, flash)
+    out = [entry("app_file_passes_the_checks", loading_anim.validate(blob) is None and len(blob) <= loading_anim.MAX_BYTES,
+                 f"the app's file of {len(blob)} bytes passes the firmware's checks; it goes on the card as Media/loading.blla")]
+    run = Run(payload, flash, media=blob)
     frames, first, bad = mismatches(run)
     keys = [st[7] for _, _, st, _, _ in frames]
     seen = sorted({k & 0xFFFFFF for k in keys})
@@ -738,7 +794,7 @@ def app_file(payload, flash, expect):
     return out
 
 
-GROUPS = (case_bar, case_off, case_rescue, case_custom_image, case_card_error, case_look, case_power_while_loading, case_smooth, case_custom)
+GROUPS = (case_bar, case_off, case_rescue, case_custom_image, case_card_error, case_look, case_power_while_loading, case_smooth, case_custom, case_media)
 
 
 def group_entries(payload, flash, i):

@@ -512,7 +512,7 @@ def case_mfx(payload, flash):
 
 
 def runtime_size():
-    """Bytes of the script runtime's state area, from its patch (the app table is the last 0xA8 of them: SCRIPT_APPS_STATE_SIZE)."""
+    """Bytes of the script runtime's state area, from its patch (the app table is the last 0xD8 of them: SCRIPT_APPS_STATE_SIZE)."""
     patch = json.loads((ROOT / "data" / "patches" / "script-runtime.json").read_text())
     return next(int(a["length"]) for a in patch["ram"] if int(a["at"], 16) == RUNTIME)
 
@@ -536,7 +536,7 @@ def case_app(payload, flash):
             box.m.uc.mem_write(POOL, bytes(0x124))
             box.m.uc.mem_write(POOL + 4, struct.pack("<I", POOL))                  # SCRIPT_ENTRY_BLOB
             app_open = POOL
-        box.m.uc.mem_write(RUNTIME + size - 0xA8, struct.pack("<I", app_open))     # SCRIPT_APPS_OPEN: the entry of the open app
+        box.m.uc.mem_write(RUNTIME + size - 0xD8, struct.pack("<I", app_open))     # SCRIPT_APPS_OPEN: the entry of the open app
         box.run(0.1)
         tempo_before = box.tempo()
         for _ in range(3):
@@ -618,9 +618,9 @@ def case_card_pulled(payload, flash):
 
 def case_card_inserted_late(payload, flash):
     """A device that starts without a card and gets one later: the patch is on as soon as the card is in and a setting changed in the
-    BLECH menu acts at once, before anything was saved. FatFs mounts the Sampler's volume only at the first access (a WRITE or the
-    save of AUTO SAVE, which is off here), so the volume is still unmounted while the card is in; tools/patch/card_gate.py reads the
-    card switch as well (reported 11.11.: with the card in only after the start, a changed setting took effect only after saving)."""
+    BLECH menu acts at once, before anything was saved. tools/patch/card_gate.py reads the card switch, not only the mounted volume
+    (reported 11.11.: with the card in only after the start, a changed setting took effect only after saving). The volume type byte
+    is only reported: the card watch reads the settings file once the card is in, so FatFs may have mounted the volume by then."""
     import menu_cases
     menu_cases.for_build(payload)
     box = TBox(payload, flash, card=False)
@@ -651,7 +651,7 @@ def case_card_inserted_late(payload, flash):
     box.tap()
     with_on = box.mode()
     saved = bytes(box.m.mmc.card.medium.data) != untouched
-    return [entry("card_inserted_late_works_unsaved", no_card == start and volume in (None, 0) and first == (0, 0) and second == (1, 1)
+    return [entry("card_inserted_late_works_unsaved", no_card == start and first == (0, 0) and second == (1, 1)
                   and off == 0 and with_off == (1, 1) and on == 1 and with_on == (0, 0) and not saved and not box.m.asserts,
                   f"no card: TAP {start} -> {no_card}; card in (volume type byte {volume}), TAP: {first}, TAP: {second}; menu TAP MOTION OFF (word {off}), TAP: {with_off}; "
                   f"ON (word {on}), TAP: {with_on}; the card was {'written' if saved else 'not written'}; assertions {box.m.asserts}")]
@@ -696,6 +696,7 @@ def case_mfx_blink(payload, flash):
 def case_hold(payload, flash):
     """TAP held 320 ms or longer works only while held: letting go switches back; a short TAP stays switched (device 18.10.)."""
     t = TBox(payload, flash)
+    t.run(0.3)                      # the start just ended: a key down in its first milliseconds can be lost, which is not a hold
     start = t.mode()
     t.hold("tap", True)
     t.run(0.5)

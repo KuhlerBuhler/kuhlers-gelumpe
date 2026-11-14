@@ -1,9 +1,10 @@
 # Eigene Ladeanimation: das Dateiformat
 
-Stand 28.10.2026, [Idee 71](../ideen/71-ladeanimation-karte.md). Gebaut sind Kodieren, Dekodieren, Prüfen
+Stand 14.11.2026, [Idee 71](../ideen/71-ladeanimation-karte.md). Gebaut sind Kodieren, Dekodieren, Prüfen
 (`src/loading-anim.mjs`), der Dekoder in Python für die Emulator-Fälle (`tools/patch/loading_anim.py`), ein GIF-Dekoder für
-den Import (`src/gif.mjs`) und das Abspielen in der Firmware (`tools/patch/load_bar.py`, Hacktribe und rot). Die App
-macht die Datei im Bereich Design und schreibt sie beim Patchen in den Slot (siehe unten), am Gerät ist nichts geprüft.
+den Import (`src/gif.mjs`) und das Abspielen in der Firmware (`tools/patch/load_bar.py`, Hacktribe und rot). Seit 1.5 liegt
+die Datei auf der Karte, `KORG/blechtribe/Media/loading.blla`, die Firmware liest sie bei jedem Start (siehe unten). Die App
+macht die Datei im Bereich Design und schreibt sie auf die Karte oder als Download.
 
 ## Bilder
 
@@ -26,7 +27,9 @@ Alle Zahlen little endian.
 | 6 | 2 | N, Fortschritts-Bilder (mindestens 1, Bild 0 mitgezählt) |
 | 8 | 2 | M, Schleifen-Bilder |
 | 10 | 2 | Offset der Listentabelle (heute 1040) |
-| 12 | 4 | Größe der Datei |
+| 12 | 2 | Größe der Datei |
+| 14 | 1 | Einstellungen: Bit 0 keine Schleife, Bit 1 aus (das Fenster der Firmware), Bit 2 Blechy statt der Datei |
+| 15 | 1 | 0 |
 | 16 | 1024 | Bild 0, voll |
 | Tabelle | 2 je Liste | N - 1 + M Offsets ab Dateianfang: erst Fortschritt 1 bis N - 1, dann Schleife 0 bis M - 1 |
 
@@ -80,12 +83,23 @@ blau bleibt er Reserve der Laufzeit:
 
 | Bereich | Inhalt |
 |---|---|
-| `0xC01A6000` bis `0xC01AA000` | eigene Animation, 16384 Byte, von der App geschrieben; `FF` ohne |
+| `0xC01A6000` bis `0xC01AA000` | RAM: die Datei von der Karte, 16384 Byte, beim Start gelesen; `FF` im Abbild |
 | `0xC01AA000` bis `0xC01AC000` | Standard-Blechy `assets/blechy/loading.blla` (7918 Byte), vom Patch geschrieben |
 | `0xC01AC000` bis `0xC01AC800` | Code: Prüfen, Abspielen, Zählen der Lesevorgänge |
 | `0xC01AC800` + 0x40 | RAM: welche Animation, gezeigtes Bild, gelesene Bytes, Rate, gezeigter Fortschritt |
 | `0xC01ACC00` + 0x400 | RAM: das Fortschritts-Bild auf dem Schirm |
-| `0xC01AD000` bis `0xC01ADF00` | frei |
+| `0xC01AD000` bis `0xC01ADF00` | Code: die Datei von der Karte lesen, Byte 14 für das BLECH-Menü lesen und schreiben (Einträge +0, +4, +8) |
+
+## Von der Karte
+
+`media_load` läuft im Start-Haken der Script-Laufzeit (`0xC0038D34`, vor dem Sample-Lader; vorher hängt das Lesen der
+Karte), nur wenn ein Laden kommt. Es liest `Media/loading.blla` in den Slot. Ohne Datei spielt Blechy, eine ungültige Datei
+heißt ebenfalls Blechy. Byte 14 entscheidet danach: Bit 2 spielt Blechy, Bit 1 lässt das Fenster der Firmware stehen,
+Bit 0 lässt die Schleife weg. Das BLECH-Menü zeigt unter `CUSTOMIZATION -> SPLASH` die Zeilen `LOADING ANIM` (CARD,
+BLECHY, OFF) und `ANIM LOOP` (ON, OFF); eine Änderung schreibt sofort Byte 14 der Datei (`media_set`, öffnen, `f_lseek` auf
+14, ein Byte schreiben), sonst bleibt die Datei, wie sie ist. Ohne gültige Datei beim Start zeigt das Menü `NO FILE`.
+Emulator-Fälle: `tools/emu/loadbar_cases.py` (`case_media`: Karte, ohne Datei, ungültig, Flags) und `tools/emu/menu_cases.py`
+(`media_menu_cases`).
 
 Geprüft wird einmal, wenn der Start fragt, ob `e2sSample.all` da ist (`lb_stat`), vor dem ersten Bild. Der Fortschritt
 kommt aus den Lesevorgängen des Sample-Parsers (`0xC00362FC` und `0xC003635C`, je bis 64 KiB): Position und Größe der
@@ -135,12 +149,11 @@ belegten Plätze ab da zu Schleifenbildern, der Fortschritt hält dort das Bild 
 die Schleifenbilder ohne Lücken ab dem Prozent zurück (`animationToSlots`). Eine ältere Datei mit 0 in Byte 5 zeigt 95 und
 wird mit 95 geschrieben, eine mit anderer Bildzahl wird auf die Plätze gestreckt. Die Größe steht als "x von 16 KB"; zu
 groß heißt gesperrt, mit den drei teuersten Bildern im Hinweis und dem Knopf Ausdünnen (leert jedes zweite belegte Bild
-vor der Schleife). Gespeichert wird die Datei im Browser. Der Speichern-Knopf ist nur aktiv, solange etwas nicht
-gespeichert ist; eine Hilfezeile darunter sagt, was der Patcher nimmt, ob die Änderungen gespeichert sind, und verlinkt
-den Firmware Patcher.
+vor der Schleife). "Beim Start" (Diese Animation, Blechy, Aus) setzt Byte 14. "Auf die Karte schreiben" fragt nach dem
+Ordner der Karte und legt `loading.blla` nach `KORG/blechtribe/Media` (`writeMedia` in `site/app/card-access.mjs`, in der
+App über den Befehl `card_write`, der nur in diesen Ordner schreibt); kann der Browser nicht in Ordner schreiben, kommt die
+Datei als Download. "Herunterladen" gibt sie direkt. Beides merkt sich die Datei im Browser, damit die Seite sie beim
+nächsten Mal wieder zeigt. "Leeren" leert die Seite und vergisst die Datei, die Datei auf der Karte bleibt.
 
-Der Firmware Patcher schreibt sie als Patch `loading-anim` in das Kartenfeld `loadingAnim` (der Slot ab `0xC01A6000`,
-Rest `FF`), in einem eigenen Durchgang nach dem Set und nur, wenn `load-bar` mit drauf ging: `load-bar` meldet den Slot
-als seinen RAM, in einer Liste mit ihm würde der Patch abgelehnt. Vorher prüft `loadingAnimPatch` die Datei mit
-`validateAnimation`. "Standard wiederherstellen" löscht die gespeicherte Datei, dann bleibt der Slot `FF` und die Firmware
-zeigt Blechy. Tests: `test/loading-anim-patch.test.mjs`, `test/e2e/loading-anim.e2e.mjs`.
+Bis 1.4 schrieb der Firmware Patcher die Datei als Patch `loading-anim` in den Slot; das ist weg, der Slot ist jetzt RAM
+für die Datei von der Karte. Tests: `test/loading-anim.test.mjs`, `test/e2e/loading-anim.e2e.mjs`.

@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { availableParallelism } from "node:os";
 import { fileURLToPath } from "node:url";
 import { loadGate } from "./load-gate.mjs";
+import { ensureRuntimePatches } from "./patch/ensure-runtime.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const EMULATOR = ["test/emulator.test.mjs", "test/emulator-session.test.mjs", "test/emulator-card.test.mjs",
@@ -39,6 +40,8 @@ export function planAll({ cores = availableParallelism(), env = process.env } = 
 }
 
 export function runNode(plan, { cwd = root, executable = process.execPath, capture = false } = {}) {
+  // The runtime patches are built, not committed: every suite, and every run of test-all.mjs, starts with them in place.
+  ensureRuntimePatches({ log: message => process.stderr.write(message + "\n") });
   const start = Date.now();
   return new Promise(resolve => {
     const child = spawn(executable, plan.args, { cwd, env: { ...process.env, ...plan.env }, stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit" });

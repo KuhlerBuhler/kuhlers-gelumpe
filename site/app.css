@@ -2,8 +2,8 @@
    design/root.min.css werden hier nicht umdefiniert. */
 :root {
   --cee-navbar-h: var(--space-16);
-  /* Room the folded sidebar's title and toggle take in the navbar row. */
-  --cee-folded-title: 22rem;
+  /* Room the folded sidebar's toggle takes in the navbar row: the navbar's own inset, the toggle, a gap. */
+  --cee-folded-title: calc(var(--space-6) + var(--space-10) + var(--space-3));
 }
 
 /* Anchors and scrollIntoView land below the sticky navbar; main.mjs sets its real height, which grows when it wraps. */
@@ -597,7 +597,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   visibility: hidden;
 }
 
-/* The gaps between the display's pixels (pixelGrid in emulator.mjs), over the display canvas and as large. */
+/* The display built like the glass (pixelGrid in emulator.mjs), over the display canvas and as large. */
 .cee-lcd-grid {
   position: absolute;
   inset: 0;
@@ -855,7 +855,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   min-height: 100vh;
 }
 
-/* Folded, the sidebar is no column any more: title and toggle float in the top left, in the navbar row. */
+/* Folded, the sidebar is no column any more: the toggle floats in the top left, in the navbar row. */
 .cee-app[data-collapsed] {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -876,6 +876,11 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
 }
 
 .cee-app[data-collapsed] .cee-side-body {
+  display: none;
+}
+
+/* Folded, only the toggle stays: the title is gone for the eye, the tab order and screen readers alike. */
+.cee-app[data-collapsed] .cee-brand {
   display: none;
 }
 
@@ -1547,6 +1552,97 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   color: var(--color-text-muted);
 }
 
+/* The start page (start.mjs) shows one of its two views, the welcome or the hub. */
+.cee-start-view[hidden] {
+  display: none;
+}
+
+/* The hub's state: the Electribe and the emulator side by side, no room kept for an arrow. */
+.cee-start-status {
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+}
+
+#cee-start-next {
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+.cee-start-status .cee-device-card {
+  padding-right: var(--space-4);
+}
+
+.cee-start-status .cee-state[hidden],
+#cee-start-news[hidden] {
+  display: none;
+}
+
+/* The install steps of the welcome, folded in the hub. */
+.cee-start-guide > summary {
+  cursor: pointer;
+  color: var(--color-text-primary);
+  font-weight: 600;
+  padding-block: var(--space-2);
+}
+
+.cee-start-guide > summary:hover {
+  color: var(--color-accent-primary);
+}
+
+.cee-start-guide > summary:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cee-start-guide[open] > summary {
+  margin-bottom: var(--space-5);
+}
+
+/* Welcome: title, one sentence and the way to install beside Blechy, in the first screen. */
+.cee-start-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.cee-start-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 44rem;
+}
+
+.cee-start-lead {
+  color: var(--color-text-secondary);
+  font-size: var(--text-lg);
+}
+
+.cee-start-found {
+  white-space: normal;
+}
+
+.cee-start-found[hidden] {
+  display: none;
+}
+
+.cee-start-blechy {
+  flex: none;
+  width: calc(43px * 4);
+  height: auto;
+  border-radius: var(--radius-md);
+  image-rendering: pixelated;
+}
+
+@media (max-width: 720px) {
+  .cee-start-hero {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+  }
+
+  .cee-start-blechy {
+    width: calc(43px * 2);
+  }
+}
+
 @media (max-width: 60rem) {
   .cee-app {
     grid-template-columns: minmax(0, 1fr);
@@ -1562,9 +1658,15 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
     visibility: hidden;
   }
 
+  /* The drawer slides in and out; it only turns invisible once it is out. */
+  .cee-sidebar {
+    transition: transform var(--dur-slow) var(--ease-out), visibility 0s linear var(--dur-slow);
+  }
+
   .cee-sidebar[data-open] {
     transform: none;
     visibility: visible;
+    transition: transform var(--dur-slow) var(--ease-out), visibility 0s;
   }
 
   .cee-menu {
@@ -2508,6 +2610,8 @@ select,
 .cee-settings-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .cee-settings-button { justify-content: flex-start; gap: var(--space-2); }
 .cee-donate { justify-content: center; text-decoration: none; }
+/* The about page has no entry in the list: a quiet link under the donate button. */
+.cee-about-link { align-self: center; margin-top: calc(var(--space-3) * -1); font-size: var(--text-sm); }
 .cee-settings-button .cee-icon { flex: none; }
 .cee-midi { margin-top: var(--space-6); gap: var(--space-3); }
 .cee-midi-report { white-space: pre-wrap; overflow-wrap: anywhere; }

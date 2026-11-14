@@ -136,11 +136,12 @@ describe("the protection table", () => {
   const table = protectTable();
   const view = new DataView(table.bytes.buffer);
 
-  test("it is cut from data/protected.mjs: every RAM region, with the exception windows of the three that name some", () => {
+  test("it is cut from data/protected.mjs: every RAM region, with the exception windows of the three that name some, then the regions DEV MODE keeps closed", () => {
     const ram = PROTECTED.regions.filter(r => r.space === "ram");
-    assert.equal(view.getUint32(0, true), ram.length);
-    assert.deepEqual(table.regions.map(r => r.id), ram.map(r => r.id));
-    assert.equal(table.bytes.length, 4 * (2 + 3 * ram.length + 5 * table.windows.length));
+    const closed = PROTECTED.devClosed.hacktribe;
+    assert.equal(view.getUint32(0, true), ram.length + closed.length);
+    assert.deepEqual(table.regions.map(r => r.id), [...ram.map(r => r.id), ...closed.map((_, i) => `dev-closed-${i}`)]);
+    assert.equal(table.bytes.length, 4 * (2 + 3 * (ram.length + closed.length) + 5 * table.windows.length));
     const classes = table.regions.filter(r => r.flags & 0xff).map(r => r.id);
     assert.deepEqual(classes, PROTECTED.regions.filter(r => r.space === "ram" && r.except?.length).map(r => r.id));
     assert.deepEqual(table.regions.filter(r => r.flags & 0x100).map(r => r.id), ["loader", "dsp-ports"], "refused for reads too");
@@ -232,10 +233,10 @@ describe("the patch", () => {
   });
 
   test("the constants of the builder are the ones of the editor", () => {
-    const run = spawnSync("python3", ["-c", "import sys, json; sys.path.insert(0, 'tools/patch'); import blech_sysex as b; print(json.dumps([b.FUNC_INFO, b.FUNC_READ, b.FUNC_BEGIN, b.FUNC_DATA, b.REPLY_INFO, b.REPLY_READ, b.REPLY_BEGIN, b.REPLY_DATA, b.STATUS_OK, b.STATUS_BAD_CRC, b.STATUS_REFUSED, b.STATUS_RANGE, b.STATUS_VERIFY, b.PROTOCOL_VERSION, b.MAX_BLOCK, b.FLAGS, b.FUNC_FLASH, b.REPLY_FLASH, b.STATUS_FLASH, b.FLASH_MAX, b.FLASH_LIMIT, b.FUNC_PBEGIN, b.NAME_MAX, b.FUNC_EXEC, b.REPLY_EXEC, b.EXEC_START, b.EXEC_END, b.FLAG_DOOM, b.FILE_DOOM, b.FILE_SAMPLE, b.SAMPLE_LIMIT]))"], { cwd: root, encoding: "utf8" });
+    const run = spawnSync("python3", ["-c", "import sys, json; sys.path.insert(0, 'tools/patch'); import blech_sysex as b; print(json.dumps([b.FUNC_INFO, b.FUNC_READ, b.FUNC_BEGIN, b.FUNC_DATA, b.REPLY_INFO, b.REPLY_READ, b.REPLY_BEGIN, b.REPLY_DATA, b.STATUS_OK, b.STATUS_BAD_CRC, b.STATUS_REFUSED, b.STATUS_RANGE, b.STATUS_VERIFY, b.PROTOCOL_VERSION, b.MAX_BLOCK, b.FLAGS, b.FUNC_FLASH, b.REPLY_FLASH, b.STATUS_FLASH, b.FLASH_MAX, b.FLASH_LIMIT, b.FUNC_PBEGIN, b.NAME_MAX, b.FUNC_EXEC, b.REPLY_EXEC, b.EXEC_START, b.EXEC_END, b.FLAG_DOOM, b.FILE_DOOM, b.FILE_SAMPLE, b.SAMPLE_LIMIT, b.FILE_FX, b.FLAG_DEV, b.FLAG_DEV_ON]))"], { cwd: root, encoding: "utf8" });
     assert.equal(run.status, 0, run.stderr);
     const { STATUS } = BLECH;
-    assert.deepEqual(JSON.parse(run.stdout), [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, STATUS.OK, STATUS.BAD_CRC, STATUS.REFUSED, STATUS.RANGE, STATUS.VERIFY, BLECH.VERSION, 0x8000, 0x1ff, BLECH.FLASH, BLECH.R_FLASH, STATUS.FLASH, 0x1000, 0x1000000, BLECH.PLUGIN_BEGIN, BLECH.NAME_MAX, BLECH.EXEC, BLECH.R_EXEC, EXEC.stubAt, EXEC.stubAt + EXEC.stubSize, BLECH.FLAG_DOOM, BLECH.FILE_DOOM, BLECH.FILE_SAMPLE, BLECH.SAMPLE_LIMIT]);
+    assert.deepEqual(JSON.parse(run.stdout), [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, STATUS.OK, STATUS.BAD_CRC, STATUS.REFUSED, STATUS.RANGE, STATUS.VERIFY, BLECH.VERSION, 0x8000, 0x3ff, BLECH.FLASH, BLECH.R_FLASH, STATUS.FLASH, 0x1000, 0x1000000, BLECH.PLUGIN_BEGIN, BLECH.NAME_MAX, BLECH.EXEC, BLECH.R_EXEC, EXEC.stubAt, EXEC.stubAt + EXEC.stubSize, BLECH.FLAG_DOOM, BLECH.FILE_DOOM, BLECH.FILE_SAMPLE, BLECH.SAMPLE_LIMIT, BLECH.FILE_FX, BLECH.FLAG_DEV, BLECH.FLAG_DEV_ON]);
   });
 
   test("the synth gets read commands with a table that refuses every RAM write, in its own set", () => {
@@ -249,7 +250,7 @@ describe("the patch", () => {
     assert.deepEqual(Uint8Array.from(fromHex(synth.changes.find(c => c.file === TABLE).bytes)), table.bytes);
     const paths = read("data/patches/blech-synth.json").patches;
     assert.ok(paths.includes("data/patches/blech-sysex-synth.json"));
-    for (const path of paths) assert.deepEqual(read(path).builds, ["synth"]);
+    for (const path of paths) assert.ok(read(path).builds.includes("synth"), path);
     assert.ok(!paths.some(p => /sample-errors|synth-filters/.test(p)));
     assert.ok(!SET.patches.includes("data/patches/blech-sysex-synth.json"), "the Sampler's set has no variant for the synth, it would refuse the set");
     assert.deepEqual(checkHooks([synth]).reasons, []);
@@ -311,4 +312,16 @@ describe("the firmware's rule is the editor's rule", () => {
       for (const v of vectors(build)) assert.equal(sim.blechStatus(v.op, v.addr, v.length), v.status, `${v.op} ${v.addr.toString(16)} ${v.length}`);
     });
   }
+});
+
+test("FILE READ with bits 30 and 29 reads e2sFx.all in the simulation; FILE BEGIN on it is out of range", async () => {
+  const { SimDevice, FX_FILE, SAMPLE_FILE } = await import("../src/device.mjs");
+  const { blechFileRead, blechFileBegin, parseBlechFileRead, parseBlechFileBegin } = await import("../src/protocol.mjs");
+  const fx = Uint8Array.from({ length: 5000 }, (_, i) => (i * 131) & 255);
+  const sim = new SimDevice({ blech: true, card: new Map([[FX_FILE, fx], [SAMPLE_FILE, new Uint8Array(10)]]) });
+  const read = parseBlechFileRead(sim.handle(blechFileRead(9, BLECH.FILE_FX | 4000, 2000)), 9, 2000);
+  assert.deepEqual([read.offset, read.size, read.bytes], [4000, 5000, fx.slice(4000)]);
+  assert.throws(() => parseBlechFileBegin(sim.handle(blechFileBegin(9, BLECH.FILE_FX | 0, 10, 0)), 9), e => e instanceof BlechError && e.status === BLECH.STATUS.RANGE);
+  assert.throws(() => parseBlechFileRead(sim.handle(blechFileRead(9, (BLECH.FILE_FX | BLECH.FILE_OTHER) >>> 0, 10)), 9, 10), e => e instanceof BlechError && e.status === BLECH.STATUS.RANGE);
+  assert.equal(sim.card.get(FX_FILE), fx);
 });

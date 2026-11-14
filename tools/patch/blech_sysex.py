@@ -35,7 +35,9 @@ when one is missing, as on the blue's card), every other writes into the existin
 0x200100, the size of a VSB. Bit 29 of the offset chooses the Doom files instead: SD:/KORG/blechtribe/Doom/doom.bin (bit 31 clear)
 and doom.wad (bit 31 set), the paths the Doom loader opens (tools/doom/runtime_abi.h); they are written like the update file (offset 0
 makes the file anew, a missing folder is made) but may be as large as the sample file, and INFO says so with bit 8 of its flags, which
-the blue Electribe 2 does not set (its set has no Doom loader). Bits 30 and 29 together name no file and are refused as out of range. Status 6 is a card error (no card, no file, card full). The firmware's update writes the flash
+the blue Electribe 2 does not set (its set has no Doom loader). Bits 30 and 29 together name the effect collection
+SD:KORG/blechtribe/Presets/e2sFx.all, which FILE READ reads up to the sample file's limit and FILE BEGIN refuses as out of range
+(a firmware from before answers out of range to both); with bit 31 as well they name no file. Status 6 is a card error (no card, no file, card full). The firmware's update writes the flash
 from that file when the user starts it; nothing here writes the flash.
 
 Every field is a 32-bit little endian word (the status too), the words are packed as every Electribe SysEx payload is
@@ -87,8 +89,8 @@ RAM = 0xC0000000
 
 CODE_AT = 0xC0172100            # free (FF) in the image, behind Hacktribe's code (ends 0xC01720B0) and clear of every other patch
 CODE_END = 0xC0173000           # the Sync Group's buffer of the pattern switch begins here (data/patches/pattern-switch.json)
-SAMPLE_AT = 0xC017B950          # the sample file commands: free (FF) behind the second block of the preset tables, ends before 0xC017C190
-SAMPLE_END = 0xC017C190
+SAMPLE_AT = 0xC017B950          # the sample file commands: free (FF) behind the second block of the preset tables, ends where preset-tables starts
+SAMPLE_END = 0xC017C000          # preset-tables writes from here (its change at file 0x17c100)
 TABLE_AT = 0xC0173800           # the protection table, 412 bytes today (src/sysex-table.mjs)
 TABLE_END = 0xC0174000
 STATE = 0xC0191000              # run time state, in RAM only (behind the synth filters' 0xC0190000 to 0xC0190100)
@@ -104,7 +106,8 @@ FILE_AREA_END = 0xC01A0000
 FILE_LIMIT = 0x200100           # offset plus length of a FILE command: the size of a VSB
 FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead of SYSTEM.VSB
 FILE_SAMPLE = 0x40000000        # bit 30 of a FILE offset: the sample file Sample/e2sSample.all, with bit 31 as well Sample/e2sSample.tmp
-FILE_DOOM = 0x20000000          # bit 29 of a FILE offset: the Doom program KORG/blechtribe/Doom/doom.bin, with bit 31 as well doom.wad (with bit 30 no file)
+FILE_FX = 0x60000000            # bits 30 and 29 of a FILE offset: the effect collection KORG/blechtribe/Presets/e2sFx.all, read only
+FILE_DOOM = 0x20000000          # bit 29 of a FILE offset: the Doom program KORG/blechtribe/Doom/doom.bin, with bit 31 as well doom.wad (with bit 30 e2sFx.all)
 SAMPLE_LIMIT = 0x10000000       # offset plus length of a FILE command on the sample file (256 MiB)
 COPY_MAX = 0x40000              # bytes one FILE COPY or FILE CRC works on
 COPY_CHUNK = 0x4000             # bytes the copy moves at once through BUF
@@ -122,8 +125,15 @@ REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH, REPLY_FREAD, REPLY
 REPLY_COPY, REPLY_DELETE, REPLY_CRC = 0x79, 0x7A, 0x7B
 STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY, STATUS_FILE = 0, 1, 2, 3, 4, 5, 6
 PROTOCOL_VERSION = 1
-FLAGS = 0x1FF                   # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC), bit 8 the Doom files
+FLAGS = 0x3FF                   # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC), bit 8 the Doom files, bit 9 DEV MODE
 FLAG_DOOM = 0x100               # not on the blue Electribe 2: its set has no Doom loader (data/patches/blech-synth.json), so the files would do nothing there
+FLAG_DEV = 0x200                # the build has DEV MODE (the Sampler's BLECH menu); FLAG_DEV_ON, set in INFO at run time, says it is on
+FLAG_DEV_ON = 0x400
+DEV = True                      # False on the blue Electribe 2: its menu has no DEV MODE page, so its code is left out
+DEV_FLAG = STATE + 0xFC         # DEV_MAGIC while DEV MODE is on; the image holds FF there, so every start begins with it off
+DEV_MAGIC = 0x4D564544          # "DEVM"
+DEV_OPEN = 0x200                # region flag bit 9: with DEV MODE on, a write may go into this region (firmware image only)
+IMAGE_END = 0xC0200000          # a write below this goes into the running code: it is copied with interrupts masked, then the caches are synced
 EXEC_START, EXEC_END = 0xC1000000, 0xC1000400   # the stub buffer of data/exec.mjs (stubAt, stubAt + stubSize)
 HACKTRIBE_FIRST, HACKTRIBE_FLASH_WRITE = 0x52, 0x56   # Hacktribe's commands are 0x52 to 0x57
 FLASH_MAX = 0x1000              # bytes in one FLASH READ: the sector size, the largest piece the firmware's own flash code takes at once
@@ -178,8 +188,71 @@ CRC_WORDS = ", ".join(f"{w:#010x}" for w in crc_nibbles())
 
 def unlink_body():
     if FS_UNLINK is None:
-        return "    mov r0, #1\n    bx lr"
+        # the synth's FatFs has no f_unlink: the file is made anew and closed, so it is left empty (size 0, which the editor
+        # reads as no file); a missing one is made empty, a missing folder is status 6
+        return """    push {r4, lr}
+    mov r1, r0
+    ldr r0, =FILE_FIL
+    mov r2, #0x0A               ; FA_CREATE_ALWAYS | FA_WRITE
+    bl FS_OPEN
+    cmp r0, #0
+    popne {r4, pc}
+    ldr r0, =FILE_FIL
+    bl FS_CLOSE
+    pop {r4, pc}"""
     return f"    b {FS_UNLINK:#x}"
+
+
+def info_dev():
+    """INFO: FLAG_DEV_ON joins the flags while DEV MODE is on."""
+    if not DEV:
+        return ""
+    return """    ldr r2, =DEV_FLAG
+    ldr r2, [r2]
+    ldr r12, =DEV_MAGIC
+    cmp r2, r12
+    orreq r3, r3, #FLAG_DEV_ON
+"""
+
+
+def policy_dev():
+    """A region with DEV_OPEN is passed over in the first pass while DEV MODE is on; the mirror pass still refuses it, and so
+    do the closed regions inside it, which lack the bit."""
+    if not DEV:
+        return ""
+    return """    tst r3, #DEV_OPEN
+    beq policy_class
+    ldr r2, =DEV_FLAG
+    ldr r2, [r2]
+    ldr r12, =DEV_MAGIC
+    cmp r2, r12
+    beq policy_region
+policy_class:
+"""
+
+
+def data_copy():
+    """The copy of WRITE DATA. Into the image (only possible with DEV MODE on) with IRQ and FIQ masked, so no task runs half
+    old, half new code, then the write buffer drained and the instruction cache cleared. CommandTask runs privileged (EXEC's
+    cache code needs that too)."""
+    if not DEV:
+        return "    bl memcpy\n"
+    return """    ldr r3, =IMAGE_END
+    cmp r0, r3
+    bhs data_copy_plain
+    .word 0xE10F4000            ; mrs r4, cpsr
+    orr r3, r4, #0xC0
+    .word 0xE121F003            ; msr cpsr_c, r3: IRQ and FIQ off
+    bl memcpy
+    mov r0, #0
+    .word 0xEE070F9A            ; mcr p15, 0, r0, c7, c10, 4: drain the write buffer
+    .word 0xEE070F15            ; mcr p15, 0, r0, c7, c5, 0: clear the instruction cache
+    .word 0xE121F004            ; msr cpsr_c, r4: back as before
+    b data_copied
+data_copy_plain:
+    bl memcpy
+data_copied:
+"""
 
 
 def source():
@@ -238,6 +311,11 @@ def source():
 .equ S_RAW, {S_RAW}
 .equ S_OUT, {S_OUT}
 .equ FLAGS, {FLAGS}
+.equ DEV_FLAG, {DEV_FLAG:#x}
+.equ DEV_MAGIC, {DEV_MAGIC:#x}
+.equ DEV_OPEN, {DEV_OPEN:#x}
+.equ FLAG_DEV_ON, {FLAG_DEV_ON:#x}
+.equ IMAGE_END, {IMAGE_END:#x}
 .equ EXEC_START, {EXEC_START:#x}
 .equ EXEC_END, {EXEC_END:#x}
 .equ HT_FIRST, {HACKTRIBE_FIRST:#x}
@@ -432,7 +510,7 @@ do_info:
     mov r3, #VERSION
     str r3, [r8, #4]
     ldr r3, =FLAGS
-    str r3, [r8, #8]
+{info_dev()}    str r3, [r8, #8]
     ldr r3, =MAX_BLOCK
     str r3, [r8, #12]
     ldr r0, =TABLE
@@ -655,8 +733,7 @@ do_data:
     mov r0, r8
     ldr r1, =BUF
     mov r2, r9
-    bl memcpy
-    mov r0, r8
+{data_copy()}    mov r0, r8
     mov r1, r9
     bl crc32
     mov r11, r0
@@ -760,6 +837,8 @@ do_fbegin:
     mov r3, #0
     str r3, [r6]
     bl sel_file                 ; which file into r5 (the function byte is not needed any more), the offset into r8
+    cmp r5, #8                  ; e2sFx.all is only read: no range
+    mvneq r8, #0
 fbegin_checked:
     ldr r10, [r6, #S_REQ + 8]
     mov r0, #{STATUS_RANGE}
@@ -1112,7 +1191,7 @@ policy_region:
 policy_hit:
     cmp r7, #0
     bne policy_refused
-    ands r2, r3, #0xff
+{policy_dev()}    ands r2, r3, #0xff
     beq policy_refused
     mov r0, r9
     bl in_window
@@ -1188,6 +1267,29 @@ window_no:
     mov r0, #0
     pop {{r3, r4, r5, r6, r7, r8, pc}}
 .pool
+; file_path for 5, 6 and 8: the fixed paths of the Doom files and of e2sFx.all into FILE_PATH. Here because the sample section
+; below is full (on the synth to the last byte).
+doom_path:
+    ldr r1, =doom_bin_name
+    cmp r0, #6
+    ldreq r1, =doom_wad_name
+    cmp r0, #8
+    ldreq r1, =fx_name
+    ldr r0, =FILE_PATH
+dp_copy:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    cmp r3, #0
+    bne dp_copy
+    bx lr
+.pool
+doom_bin_name:
+    .asciz "SD:/KORG/blechtribe/Doom/doom.bin"
+doom_wad_name:
+    .asciz "SD:/KORG/blechtribe/Doom/doom.wad"
+fx_name:
+    .asciz "SD:KORG/blechtribe/Presets/e2sFx.all"
+.align 4
 
 ; The sample file commands sit apart from the rest, in the free run behind the preset tables' second block, so that the code above
 ; keeps its room (the Sync Group's buffer of the pattern switch starts at 0xC0173000).
@@ -1375,8 +1477,9 @@ copy_reply:
 .pool
 
 ; FILE DELETE: a FILE offset with its selector bits (one of the two sample files, the offset is ignored). Deletes that file with the
-; firmware's own f_unlink. Answers status and the word asked. Status 2 for a selector that is no sample file, 6 when the card says no
-; (a missing file counts).
+; firmware's own f_unlink; on the synth, which has none, the file is left empty (size 0, as the editor reads a missing file). Answers
+; status and the word asked. Status 2 for a selector that is no sample file, 6 when the card says no (a missing file counts, except on
+; the synth, where it is made empty).
 do_fdelete:
     mov r4, #{STATUS_REFUSED}
     ldr r0, [r6, #S_REQ]
@@ -1497,8 +1600,8 @@ fs_unlink:
 .pool
 
 ; r8 = a FILE offset with its selector bits; returns r5 = which file (0 SYSTEM.VSB, 1 ORIGINAL.BIN, 3 e2sSample.all, 4 e2sSample.tmp,
-; 5 doom.bin, 6 doom.wad) and r8 = the offset. Bits 30 and 29 together name no file: r8 = -1 then, which every range check refuses.
-; Touches nothing else.
+; 5 doom.bin, 6 doom.wad, 8 e2sFx.all) and r8 = the offset. Bits 30 and 29 name e2sFx.all, with bit 31 as well no file: r8 = -1
+; then, which every range check refuses. Touches nothing else.
 sel_file:
     mov r5, r8, lsr #31
     tst r8, #{FILE_SAMPLE}
@@ -1506,7 +1609,7 @@ sel_file:
     tst r8, #{FILE_DOOM}
     addne r5, r5, #5
     bic r8, r8, #0xE0000000
-    cmp r5, #7
+    cmp r5, #9
     mvnhs r8, #0
     bx lr
 
@@ -1514,7 +1617,8 @@ sel_file:
 ; r0 = which: FILE_PATH = the update's folder (the firmware's own function, as the update builds it) + "System/SYSTEM.VSB", or
 ; "System/ORIGINAL.BIN" for 1, "Sample/e2sSample.all" for 3 and "Sample/e2sSample.tmp" for 4; for 2 the plugin file
 ; SD:KORG/blechtribe/Plugin/<FILE_NAME>.blech, for 5 and 6 the path the Doom loader opens, SD:/KORG/blechtribe/Doom/doom.bin and
-; doom.wad (tools/doom/runtime_abi.h). Keeps r4 to r11.
+; doom.wad (tools/doom/runtime_abi.h), for 8 the effect collection the start loads, SD:KORG/blechtribe/Presets/e2sFx.all
+; (tools/patch/fx_card.s). Keeps r4 to r11.
 file_path:
     cmp r0, #2
     beq plugin_path
@@ -1574,17 +1678,6 @@ pp_suffix:
     cmp r3, #0
     bne pp_suffix
     bx lr
-doom_path:
-    ldr r1, =doom_bin_name
-    cmp r0, #6
-    ldreq r1, =doom_wad_name
-    ldr r0, =FILE_PATH
-dp_copy:
-    ldrb r3, [r1], #1
-    strb r3, [r0], #1
-    cmp r3, #0
-    bne dp_copy
-    bx lr
 ; f_mkdir of every folder on the way to the file in FILE_PATH, cut at each "/" in place; an existing one answers FR_EXIST.
 make_folders:
     push {{r4, lr}}
@@ -1615,10 +1708,6 @@ sample_name:
     .asciz "Sample/e2sSample.all"
 sample_tmp_name:
     .asciz "Sample/e2sSample.tmp"
-doom_bin_name:
-    .asciz "SD:/KORG/blechtribe/Doom/doom.bin"
-doom_wad_name:
-    .asciz "SD:/KORG/blechtribe/Doom/doom.wad"
 .align 4
 .pool
 
@@ -1642,7 +1731,8 @@ def use_build(build, ref=None, vsb=None):
     import fwmap
     globals()["MODEL"] = 0x23
     globals()["FOLDER_ID"] = 0x123           # the id the synth's update passes to its folder function (0xC0035304 loads it)
-    globals()["FLAGS"] = FLAGS & ~FLAG_DOOM
+    globals()["FLAGS"] = FLAGS & ~FLAG_DOOM & ~FLAG_DEV
+    globals()["DEV"] = False                 # no DEV MODE page in the synth's menu
     mapped = fwmap.FirmwareMap(fwmap.load(ref), vsb[HEADER:])
     found = {}
     for name in FIRMWARE_PLACES:
@@ -1658,8 +1748,7 @@ def use_build(build, ref=None, vsb=None):
         if not mapped.same_code(FS_UNLINK):
             raise fwmap.Unmapped("not the same code")
     except fwmap.Unmapped:
-        globals()["FS_UNLINK"] = None            # compiled out of the synth's FatFs: no FILE DELETE, no sample file flag
-        globals()["FLAGS"] = FLAGS & ~0x80
+        globals()["FS_UNLINK"] = None            # compiled out of the synth's FatFs: FILE DELETE leaves the file empty instead
     return found
 
 

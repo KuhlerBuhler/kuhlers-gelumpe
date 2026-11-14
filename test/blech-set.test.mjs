@@ -15,11 +15,11 @@ const builderAvailable = existsSync(python);
 test("the BLECH set lists patch files that exist, with unique ids per build, and the hook register accepts them together", () => {
   assert.equal(SET.format, "gelumpe-patch-set");
   assert.equal(SET.version, 1);
-  assert.deepEqual(patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "script-runtime", "blechtribe", "blechtribe", "splash", "blech-theme", "preset-tables", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "ht-osc", "beat-eighth", "touch-scale-zero", "blech-version", "doom-loader", "blech-sysex", "blech-sysex"]);
+  assert.deepEqual(patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "script-runtime", "blechtribe", "blechtribe", "splash", "blech-theme", "preset-tables", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "ht-osc", "beat-eighth", "touch-scale-zero", "stage2-memory", "blech-version", "doom-loader", "blech-sysex", "blech-sysex"]);
   for (const build of ["hacktribe", "stock"]) {
     const chosen = selectFor(patches, build);
     assert.deepEqual(chosen.reasons, [], build);
-    assert.deepEqual(chosen.patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", ...(build === "stock" ? ["synth-filters"] : []), "power-off", "last-pattern", "init-pattern", "stereo-pad", ...(build === "stock" ? ["ht-osc"] : []), "beat-eighth", "touch-scale-zero", "blech-version", "doom-loader", "blech-sysex"], build);
+    assert.deepEqual(chosen.patches.map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", ...(build === "stock" ? ["synth-filters"] : []), "power-off", "last-pattern", "init-pattern", "stereo-pad", ...(build === "stock" ? ["ht-osc"] : []), "beat-eighth", "touch-scale-zero", "stage2-memory", "blech-version", "doom-loader", "blech-sysex"], build);
     const registered = checkHooks(chosen.patches);
     assert.equal(registered.ok, true, registered.reasons.join(" "));
   }
@@ -31,7 +31,8 @@ test("the build-specific patches have one variant per supported firmware", () =>
   assert.match(folder[1].name, /electribe sampler/);
   assert.deepEqual(patches.filter(p => p.id === "preset-tables").map(p => buildsOf(p)), [["hacktribe"], ["stock"]]);
   assert.deepEqual(patches.filter(p => p.id === "blech-sysex").map(p => buildsOf(p)), [["hacktribe"], ["stock"]], "the protection table differs: Korg keeps its presets elsewhere");
-  for (const p of patches.filter(p => !["blechtribe", "preset-tables", "synth-filters", "blech-sysex", "script-runtime", "ht-osc"].includes(p.id))) assert.deepEqual(buildsOf(p), ["hacktribe", "stock"], p.id);
+  for (const p of patches.filter(p => !["blechtribe", "preset-tables", "synth-filters", "blech-sysex", "script-runtime", "fx-catalog", "ht-osc"].includes(p.id))) assert.deepEqual(buildsOf(p), ["hacktribe", "stock"], p.id);
+  assert.deepEqual(buildsOf(patches.find(p => p.id === "fx-catalog")), ["hacktribe", "stock", "synth"], "one catalog for every build, the blue's set lists it too");
   assert.deepEqual(buildsOf(patches.find(p => p.id === "synth-filters")), ["stock"], "Hacktribe's firmware has the synth filters itself");
   assert.deepEqual(buildsOf(patches.find(p => p.id === "ht-osc")), ["stock"], "Hacktribe's firmware has the oscillators itself");
   assert.deepEqual(patches.filter(p => p.id === "script-runtime").map(p => buildsOf(p)), [["hacktribe"], ["stock"]]);

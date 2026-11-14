@@ -65,7 +65,7 @@ test("a rerun with fewer parts selects only its own count and hardware artifacts
 test("start and editor checks occupy independent jobs with the original hardware and case coverage", () => {
   const kinds = options => firmwareMatrix(4, options).smokes.map(f => [f.name, f.kind]);
   const starts = [["hacktribe", "start"], ["red", "start"], ["blue", "start"]];
-  const full = [...starts, ["hacktribe", "editor"], ["red", "editor"]];
+  const full = [...starts, ["hacktribe", "editor"], ["red", "editor"], ["blue", "editor"]];
   assert.deepEqual(kinds(), full);
   assert.deepEqual(kinds({ full: false, cases: "" }), starts);
   assert.deepEqual(kinds({ full: false, cases: "remote_cases,menu_cases" }), starts);
@@ -109,7 +109,7 @@ test("PR and publication use one shared firmware execution with mandatory joins 
   assert.match(shared, /if: matrix\.firmware\.kind == 'start'/);
   assert.match(shared, /name: \$\{\{ matrix\.firmware\.artifact \}\}-\$\{\{ matrix\.part \}\}/);
   assert.match(shared, /pattern: \$\{\{ matrix\.firmware\.artifact \}\}-\*/);
-  assert.match(shared, /group: .*matrix\.firmware\.kind/);
+  assert.doesNotMatch(shared, /^\s+concurrency:/m);
   assert.equal([...shared.matchAll(/GELUMPE_NODE_RESULTS: \$\{\{ !inputs\.full && 'strict' \|\| '' \}\}/g)].length, 2);
   assert.doesNotMatch(shared, /path:.*(?:SYSTEM\.VSB|\/boot|\/power-on)/);
 });

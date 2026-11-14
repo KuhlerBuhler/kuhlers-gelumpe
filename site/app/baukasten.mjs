@@ -14,13 +14,14 @@ import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs
 import { clamp } from "./dials.mjs";
 import { parseUnits } from "../../src/units.mjs";
 import { fxText, readFx, fxFileName, fxToRecord } from "../../src/fx-v2.mjs";
-import { parseCollection, collectionFor, targetFirmware, firmwarePresets, TARGETS as FIRMWARES, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
+import { parseCollection, collectionFor, targetFirmware, targetHardware, firmwarePresets, TARGETS as FIRMWARES, COLLECTION_FILE, COLLECTION_FOLDER, MOD_COUNT } from "../../src/fx-collection.mjs";
 import { HACKTRIBE_PATCH_RAW, KORG_DOWNLOADS } from "../../src/patcher.mjs";
 import { FX_CATALOG, MOD_CATALOG } from "../../data/fx/catalog.mjs";
 import { GROUPS, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
 import { GROUPS as PARAM_GROUPS, labelFor } from "../../data/map/fx-labels.mjs";
 import FINDINGS from "../../data/findings.mjs";
 import { BLOCKS, field } from "../../src/map/index.mjs";
+import { readDeviceEffects, deviceFxNames } from "../../src/device-fx.mjs";
 import { REC } from "../../src/layout.mjs";
 import { t, tNodes, localize } from "./i18n.mjs";
 /** An error of this page opens Blechy at its topic (data/rescue.mjs). */
@@ -42,8 +43,8 @@ const writeRisky = on => { try { if (on) localStorage.setItem(RISKY, "1"); else 
 const DEVICE_FIRMWARE = "cee.baukasten.firmware";
 const readDeviceFirmware = () => { try { const v = localStorage.getItem(DEVICE_FIRMWARE); return FIRMWARES.includes(v) ? v : null; } catch { return null; } };
 const writeDeviceFirmware = v => { try { localStorage.setItem(DEVICE_FIRMWARE, v); } catch {} };
-/** The names of the two firmwares and why a file does not fit, as keys the i18n check can see. */
-const DEVICE_NAME = { hacktribe: "bk.device.hacktribe", stock: "bk.device.stock" };
+/** The names of the firmwares and why a file does not fit, as keys the i18n check can see. */
+const DEVICE_NAME = { hacktribe: "bk.device.hacktribe", stock: "bk.device.stock", synth: "bk.device.synth" };
 const DEVICE_ERROR = { zip: "bk.device.err.zip", device: "bk.device.err.device", build: "bk.device.err.build" };
 const readOwn = () => { try { return JSON.parse(localStorage.getItem(OWN) ?? "[]"); } catch { return []; } };
 const writeOwn = list => { try { localStorage.setItem(OWN, JSON.stringify(list)); return true; } catch { return false; } };
@@ -88,10 +89,15 @@ function rangeOf(kind, unit, name) {
   }
 }
 
+// Findings the stage2-memory patch removes are left out: the built effects are for current blechtribe firmware.
+const OPEN = FINDINGS.filter(f => !f.fixedBy);
 /** What a building block does behind another one in an insert effect, as measured (data/findings.mjs). */
-const STAGE2 = new Map(FINDINGS.filter(f => f.kind === "stage2").map(f => [f.unit, f]));
-const SOLO = new Map(FINDINGS.filter(f => f.kind === "stage1NeedsSolo").map(f => [f.unit, f]));
+const STAGE2 = new Map(FINDINGS.filter(f => f.kind === "stage2").map(f => [f.unit, f.fixedBy ? { ...f, verdict: "ok" } : f]));
+const SOLO = new Map(OPEN.filter(f => f.kind === "stage1NeedsSolo").map(f => [f.unit, f]));
 const STAGE2_WORD = { fatal: "bk.stage2.fatal", silent: "bk.stage2.silent" };
+/** Pairs that failed in the DSP simulation (data/findings.mjs), by "first.unit"; the word when choosing stage 2, then stage 1. */
+const PAIR = new Map(OPEN.filter(f => f.kind === "stage2Pair").map(f => [`${f.first}.${f.unit}`, f]));
+const PAIR_WORD = { fatal: ["bk.pair2.fatal", "bk.pair1.fatal"], silent: ["bk.pair2.silent", "bk.pair1.silent"] };
 const MAP_META = BLOCKS.get("fxRecord").meta;
 
 const PARAM_ORDER = ["mix", "filter", "delay", "mod", "dyn", "room", "tone", "eq", "other"];
@@ -135,8 +141,9 @@ function ownList() {
  * @param {HTMLElement} root
  * @param {{presets?: object, sub?: object, trail?: (parts: string[]) => void, navbar?: (nodes: Node[]) => void}} [options]
  *   presets: the panel of the Presets page (fx.mjs), which knows the slots and writes a record live
+ *   device: the device panel (device.mjs); with a BLECHTRIBE session the export reads the effects from the device
  */
-export function baukastenPage(root, { presets = null, sub = null, trail: setTrail = () => {}, navbar = () => {} } = {}) {
+export function baukastenPage(root, { presets = null, device = null, sub = null, trail: setTrail = () => {}, navbar = () => {} } = {}) {
   // The title in the breadcrumb leads to the catalog, the start of the page.
   const trail = parts => setTrail(parts, () => page("catalog"));
   let raw = null;            // data/units.json as it is, for the defaults of a block
@@ -234,6 +241,8 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
       if (stage === "ifx2" && STAGE2_WORD[STAGE2.get(u.id)?.verdict]) return t(STAGE2_WORD[STAGE2.get(u.id).verdict]);
       if (stage === "ifx2" && SOLO.has(other?.unit)) return t("bk.solo1");
       if (stage === "ifx1" && other?.unit && SOLO.has(u.id)) return t("bk.solo");
+      const pair = other?.unit ? PAIR.get(stage === "ifx2" ? `${other.unit}.${u.id}` : `${u.id}.${other.unit}`) : null;
+      if (pair) return t(PAIR_WORD[pair.verdict][stage === "ifx2" ? 0 : 1], { unit: localize(unitLabel(kind, other.unit, other.unitName)[0]) });
       return null;
     };
     // The user may lift the bar for a test on purpose; it stays on in this browser until switched off.
@@ -896,7 +905,7 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     if (!firmwareFile && !native()) { toast(t("bk.device.needFile", { device }), "error"); return null; }
     const close = firmwareFile ? () => {} : toast(t("patcher.korg.loading"), "info", { stay: true });
     try {
-      const bytes = firmwareFile?.bytes ?? new Uint8Array(await native()("korg_firmware", { device: "red" }));
+      const bytes = firmwareFile?.bytes ?? new Uint8Array(await native()("korg_firmware", { device: targetHardware(target) }));
       const got = await targetFirmware(target, bytes, { hacktribePatch });
       close();
       if (!got.ok) { toast(t("bk.device.failed", { device, reason: got.code ? t(DEVICE_ERROR[got.code], { device }) : got.reason }), "error"); return null; }
@@ -908,6 +917,48 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
       return null;
     }
   }
+  // What the connected red Electribe has in RAM right now (src/device-fx.mjs): its build, its presets, the menus as long
+  // as the card loader grew them, and e2sFx.all from the card where the firmware can read it. The export then builds on
+  // that instead of a firmware file, and the list shows the names the device shows.
+  let live = null;           // readDeviceEffects' result with the session it came from
+  let reading = false;
+  const liveOf = () => (live && device?.session === live.session ? live : null);
+  const liveFor = target => (liveOf()?.build === target ? live : null);
+  const canRead = () => !reading && device?.session?.device?.ram === "blech";
+  const liveRead = el("button", { type: "button", className: "btn", id: "cee-bk-device-read", disabled: !canRead() }, [icon("usb"), t("bk.live.read")]);
+  const liveHelp = el("p", { className: "muted", id: "cee-bk-device-read-help", textContent: t("bk.live.help") });
+  const LIVE_ERROR = { noBlech: "bk.live.noBlech", build: "bk.live.build", presets: "bk.live.presets", modTable: "bk.live.modTable" };
+  const CARD_TEXT = { ok: "bk.live.card.ok", none: "bk.live.card.none", skipped: "bk.live.card.skipped", build: "bk.live.card.build", bad: "bk.live.card.bad" };
+  liveRead.addEventListener("click", async () => {
+    const session = device?.session;
+    if (!session || reading) return;
+    reading = true;
+    liveRead.disabled = true;
+    try {
+      const got = await readDeviceEffects(session);
+      if (!got.ok) { toast(t("bk.live.failed", { reason: t(LIVE_ERROR[got.reason]) }), "error"); return; }
+      live = { ...got, session };
+      deviceFirmware = got.build;
+      writeDeviceFirmware(got.build);
+      for (const tab of firmwareTabs) { const input = tab.querySelector("input"); input.checked = input.value === got.build; }
+      const lines = [t("bk.live.state", { build: t(DEVICE_NAME[got.build]), ifx: got.counts.ifx, mfx: got.counts.mfx })];
+      if (got.card) lines.push(t(CARD_TEXT[got.card.status], { count: got.card.loaded }));
+      if (got.file && !got.file.present) lines.push(t("bk.live.file.none"));
+      else if (got.file?.read && !got.file.read.ok) lines.push(t("bk.live.file.bad", { reason: got.file.read.reason }));
+      else if (got.file?.read) {
+        await takeCollection(got.file.read);
+        lines.push(t("bk.live.file.taken", { count: got.file.read.entries.length }));
+      }
+      liveHelp.textContent = lines.join(" ");
+      renderExport();
+      toast(lines[0], "ok");
+    } catch (e) {
+      toast(t("bk.live.failed", { reason: e?.message ?? String(e) }), "error");
+    } finally {
+      reading = false;
+      liveRead.disabled = !canRead();
+    }
+  });
   const allInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-bk-all", accept: ".all" });
   const allFiles = el("span", { className: "ui-dropzone-files" });
   const allDrop = el("label", { className: "ui-dropzone" }, [
@@ -923,6 +974,12 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     if (!file) return;
     const read = parseCollection(new Uint8Array(await file.arrayBuffer()));
     if (!read.ok) { toast(t("bk.fileError", { file: file.name, reason: read.reason }), "error"); return; }
+    const added = await takeCollection(read);
+    allFiles.textContent = t("bk.all.entries", { file: file.name, count: read.entries.length });
+    toast(t("bk.all.loaded", { file: file.name, count: read.entries.length, added }), "ok");
+  });
+  /** A read e2sFx.all onto the places: the catalog's pieces as the catalog's, the rest as own ones; how many are new. */
+  async function takeCollection(read) {
     await loadUnits();
     const list = ownList();
     const slots = readSlots();
@@ -940,11 +997,10 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     }
     writeOwn(list);
     writeSlots(slots);
-    allFiles.textContent = t("bk.all.entries", { file: file.name, count: read.entries.length });
     renderMine();
     renderExport();
-    toast(t("bk.all.loaded", { file: file.name, count: read.entries.length, added }), "ok");
-  });
+    return added;
+  }
   const exportLists = el("div", { className: "cee-bk-export", id: "cee-bk-export" });
   /** The catalog's pieces go on a place like own ones; the slot keeps "catalog:<name>" instead of an own id. */
   const catalogId = item => `catalog:${item.name}`;
@@ -960,7 +1016,11 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
 
   /** The names of the firmware's own presets by slot, so a place is not overwritten by mistake; empty without a firmware. */
   let factoryShown = false;
+  /** Where the names in the list come from: the device read, the emulator's firmware, or nowhere. */
+  const shownFrom = () => (liveFor(deviceFirmware) ? "device" : !!presets?.presets());
   function factoryNames(kind) {
+    const now = liveFor(deviceFirmware);
+    if (now) return deviceFxNames(now, kind);
     try {
       return new Map((presets?.presets()?.list(kind) ?? []).map(x => [x.slot, x.name]));
     } catch {
@@ -1052,7 +1112,7 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
   exportSwitch.setAttribute("aria-label", t("bk.export.which"));
   function renderExport() {
     // Remembered here, so the tick in update() does not draw the rows again under a drag that has already started.
-    factoryShown = !!presets?.presets();
+    factoryShown = shownFrom();
     const list = ownList();
     const slots = readSlots();
     const kinds = [[exportKind, exportKind === "mod" ? MOD_COUNT : SLOT_COUNT_FX]];
@@ -1082,9 +1142,10 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
       if (!read.ok) { toast(t("bk.export.entry", { name: t("bk.export.anEntry"), reason: read.reason }), "error"); return; }
       items.push({ kind: w.kind, slot: w.slot, preset: read.preset });
     }
-    const vsb = await firmwareFor(target);
+    const now = liveFor(target);
+    const vsb = now?.image ?? await firmwareFor(target);
     if (!vsb) return;
-    const made = collectionFor(target, vsb, items, units, { risky: readRisky() });
+    const made = collectionFor(target, vsb, items, units, { risky: readRisky(), modTable: now?.modTable });
     if (!made.ok) {
       const reason = made.code ? t(DEVICE_ERROR[made.code], { device: t(DEVICE_NAME[target]) }) : made.reason;
       toast(made.from ? t("bk.export.factory", { slot: made.from, reason }) : t("bk.export.entry", { name: made.name ?? t("bk.export.anEntry"), reason }), "error");
@@ -1100,6 +1161,8 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
     el("h3", { textContent: t("bk.device") }),
     firmwareSwitch,
     firmwareHelp,
+    el("div", { className: "actions" }, [liveRead]),
+    liveHelp,
     firmwareZone,
     allZone,
     exportSwitch,
@@ -1168,11 +1231,12 @@ export function baukastenPage(root, { presets = null, sub = null, trail: setTrai
   page("catalog");
   loadUnits().then(() => { renderMine(); renderExport(); }).catch(() => renderMine());
   return {
-    /** The factory names on the export page follow the firmware in the emulator; the exported file does not. */
+    /** The factory names on the export page follow the device read, else the firmware in the emulator. */
     update() {
-      // Runs every second (main.mjs): the slots are drawn again only when the firmware's presets come or go.
-      const loaded = !!presets?.presets();
-      if (units && loaded !== factoryShown) renderExport();
+      liveRead.disabled = !canRead();
+      if (live && !liveOf()) { live = null; liveHelp.textContent = t("bk.live.help"); }
+      // Runs every second (main.mjs): the slots are drawn again only when where the names come from changes.
+      if (units && shownFrom() !== factoryShown) renderExport();
     },
     page,
   };

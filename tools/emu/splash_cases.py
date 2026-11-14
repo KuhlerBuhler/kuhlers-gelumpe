@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patch"))
 import bootcache  # noqa: E402
 import splash_editor as spec  # noqa: E402
 import synthaddr  # noqa: E402
-from machine import FIRMWARE_AT, FLASH_SIZE, STOCK_BOOT_LIMIT_S, Machine, blank_flash, load_flash  # noqa: E402
+from machine import FIRMWARE_AT, FLASH_SIZE, STOCK_BOOT_LIMIT_S, Machine, blank_flash, hardware_flash, load_flash  # noqa: E402
 
 PAYLOAD_SIZE = 0x200000
 from sdcard import MemoryMedium, SDCard  # noqa: E402
@@ -65,7 +65,8 @@ def record_valid(raw):
 
 
 def vsb_image(payload):
-    return bytes(payload[SPLASH - IMAGE:SPLASH - IMAGE + spec.IMAGE_BYTES])
+    at = synthaddr.table()[SPLASH] if synthaddr.is_synth(payload) else SPLASH
+    return bytes(payload[at - IMAGE:at - IMAGE + spec.IMAGE_BYTES])
 
 
 def other_image(payload):
@@ -74,12 +75,13 @@ def other_image(payload):
 
 
 def has_start_hook(payload):
-    """True when the call after the rescue paths goes into the splash editor's start code."""
-    word = struct.unpack_from("<I", payload, START_HOOK - IMAGE)[0]
+    """True when the call after the rescue paths goes into the splash editor's start code (on the blue at its own address)."""
+    at = synthaddr.tr(START_HOOK) if synthaddr.is_synth(payload) else START_HOOK
+    word = struct.unpack_from("<I", payload, at - IMAGE)[0]
     if word >> 24 != 0xEB:
         return False
     off = (word & 0xFFFFFF) | (0xFF000000 if word & 0x800000 else 0)
-    return spec.START_AT <= START_HOOK + 8 + (off << 2) < spec.START_END
+    return spec.START_AT <= (at + 8 + (off << 2)) & 0xFFFFFFFF < spec.START_END
 
 
 # ---- a device to drive -----------------------------------------------------------------
@@ -193,9 +195,9 @@ class Dev:
         self.m.png(path)
 
 
-def flash_with(flash, patches):
-    """A flash image (the user's, or a blank one) with byte strings written at addresses."""
-    mem = bytearray(flash) if flash else blank_flash()
+def flash_with(flash, patches, payload=b""):
+    """A flash image (the user's, or a blank one of the hardware `payload` runs on) with byte strings written at addresses."""
+    mem = bytearray(flash) if flash else hardware_flash("blue") if synthaddr.is_synth(payload) else blank_flash()
     for at, data in patches:
         mem[at:at + len(data)] = data
     return bytes(mem)
@@ -215,7 +217,7 @@ def boot_case(payload, flash, held=0, limit=2.0):
     vsb, mine = display_of(vsb_image(payload)), None
     dev = Dev(payload, flash, held)
     stock = dev.m.profile.build == "stock"
-    limit = max(limit, STOCK_BOOT_LIMIT_S) if stock else limit
+    limit = max(limit, STOCK_BOOT_LIMIT_S) if stock or dev.synth else limit     # both Korg builds load their user data first
     shown = []
     sector = bytes(dev.m.flash.mem[spec.FLASH_RECORD:spec.FLASH_RECORD + 0x1000])
     t = 0.0
@@ -232,6 +234,7 @@ def boot_case(payload, flash, held=0, limit=2.0):
     return {
         "frames": shown, "vsb": vsb, "screen_1": dev.screen()["number"] == 1, "asserts": dev.m.asserts,
         "magic": dev.u32(spec.STATE), "descriptor": dev.u32(DESC13), "dsp_uploads": list(dev.m.dsp_uploads), "stock": stock,
+        "bar": PROGRESS_BARS.get(dev.m.profile.build),
         "flash_untouched": bytes(dev.m.flash.mem[spec.FLASH_RECORD:spec.FLASH_RECORD + 0x1000]) == sector,
         "dev": dev,
     }
@@ -248,21 +251,24 @@ def summary(seen):
     return "/".join(f"{name} x{n}" for name, n in runs) or "nothing"
 
 
-# Korg's own build draws its loading progress over the start image: it clears the two pixel rows 61 and 62 (bits 5 and 6
-# of a byte, display bit 0 the top row) in page 7, columns 9 to 119 (docs/messungen/2026-10-14-stock-blech.md).
-# Hacktribe's build draws nothing there.
-PROGRESS_BAR = range(7 * 128 + 9, 7 * 128 + 120)
-PROGRESS_MASK = 0x9F
+# Korg's own builds draw their loading progress over the start image. The red one clears the two pixel rows 61 and 62
+# (bits 5 and 6 of a byte, display bit 0 the top row) in page 7, columns 9 to 119 (docs/messungen/2026-10-14-stock-blech.md);
+# the blue one clears rows 54 and 55 (bits 6 and 7) in page 6 from column 9 on (measured in the emulator, 2026-11-13).
+# Hacktribe's build draws nothing there. Per build: the bytes the bar may touch and the bits it leaves alone.
+PROGRESS_BARS = {"stock": (range(7 * 128 + 9, 7 * 128 + 120), 0x9F), "synth": (range(6 * 128 + 9, 6 * 128 + 120), 0x3F)}
 
 
-def same_image(frame, image, bar=False):
-    """Whether the frame is the image; with `bar`, the progress bar of Korg's own build may be drawn over it."""
+def same_image(frame, image, bar=None):
+    """Whether the frame is the image; with `bar` (an entry of PROGRESS_BARS), that loading bar may be drawn over it."""
     if frame == image:
         return True
-    return bar and all(a == b or (i in PROGRESS_BAR and a == b & PROGRESS_MASK) for i, (a, b) in enumerate(zip(frame, image)) if a != b)
+    if not bar:
+        return False
+    where, keep = bar
+    return all(a == b or (i in where and a == b & keep) for i, (a, b) in enumerate(zip(frame, image)) if a != b)
 
 
-def classify(frame, images, bar=False):
+def classify(frame, images, bar=None):
     for name, image in images.items():
         if same_image(frame, image, bar):
             return name
@@ -294,20 +300,25 @@ def boot_case_specs(payload):
 BOOT_CASES = 9      # the eight of boot_case_specs and the Global menu with EXIT held
 
 
+def drop_half_drawn(seen):
+    """Drawing the image takes about 12 ms, so a look every 10 ms can fall into it: the first one or two are the image half drawn."""
+    seen = list(seen)
+    for _ in range(2):
+        if len(seen) > MIN_FRAMES and seen[0] == "other":
+            seen.pop(0)
+    return seen
+
+
 def boot_case_entry(payload, flash, i):
     """Boot case i (0 to 8) as a check.py entry {id, ok, detail}. They boot on their own, so they can run side by side."""
     images, good, cases = boot_case_specs(payload)
     if i == len(cases):
-        r = boot_case(payload, flash_with(flash, [(spec.FLASH_RECORD, good)]), KILL)
+        r = boot_case(payload, flash_with(flash, [(spec.FLASH_RECORD, good)], payload), KILL)
         return {"id": "splash:exit_held_menu", "ok": kill_switch_menu(r["dev"]),
                 "detail": "with EXIT held the Global menu has its 20 original pages, no page 20, no editor"}
     name, patches, held, want, armed = cases[i]
-    r = boot_case(payload, flash_with(flash, patches), held)
-    seen = [classify(f, images, r["stock"]) for f in r["frames"]]       # Korg's own build draws its loading bar over the image
-    # drawing the image takes about 12 ms, so a look every 10 ms can fall into it: the first one or two are the image half drawn
-    for _ in range(2):
-        if len(seen) > MIN_FRAMES and seen[0] == "other":
-            seen.pop(0)
+    r = boot_case(payload, flash_with(flash, patches, payload), held)
+    seen = drop_half_drawn([classify(f, images, r["bar"]) for f in r["frames"]])   # Korg's own builds draw their loading bar over the image
     ok = (len(seen) >= MIN_FRAMES and all(s == want for s in seen) and r["screen_1"] and not r["asserts"] and r["flash_untouched"]
           and (r["magic"] == spec.MAGIC) == armed and len(r["dsp_uploads"]) == 1)
     return {"id": f"splash:{name}", "ok": ok,
@@ -368,7 +379,7 @@ def editor_run(base, patched, flash=None, png_dir=None):
         steps.append({"step": name, "ok": bool(ok), "detail": detail})
 
     vsb = vsb_image(patched)
-    flash_in = flash_with(flash, [(spec.FLASH_RECORD, b"\xff" * spec.RECORD_SIZE)])
+    flash_in = flash_with(flash, [(spec.FLASH_RECORD, b"\xff" * spec.RECORD_SIZE)], patched)
     stock = Dev(base, flash_in, machine=bootcache.booted(bytes(base), flash_in, 0, 4.0)[0])
     dev = Dev(patched, flash_in, machine=bootcache.booted(bytes(patched), flash_in, 0, 4.0)[0])
     step("boot", dev.screen()["number"] == 1 and not dev.m.asserts and dev.u32(spec.STATE) == spec.MAGIC
@@ -564,13 +575,14 @@ def editor_run(base, patched, flash=None, png_dir=None):
     # restart with the stored image
     flash_after = bytes(dev.m.flash.mem)
     again = boot_case(patched, flash_after)
-    shown = [classify(f, {"stored": display_of(wanted), "vsb": display_of(vsb)}) for f in again["frames"]]
+    shown = drop_half_drawn(classify(f, {"stored": display_of(wanted), "vsb": display_of(vsb)}, again["bar"]) for f in again["frames"])
     step("after a restart the display shows the edited image", len(shown) >= MIN_FRAMES and all(s == "stored" for s in shown) and again["screen_1"] and not again["asserts"]
          and len(again["dsp_uploads"]) == 1, f"{summary(shown)}, DSP booted {len(again['dsp_uploads'])} time(s)")
     if png_dir:
         Path(png_dir).mkdir(parents=True, exist_ok=True)
         dev.png(Path(png_dir) / "editor.png")
     steps.extend(import_steps(patched, flash_in))
+    steps.extend(media_steps(patched, flash_in))
     return {"ok": all(s["ok"] for s in steps), "steps": steps, "evidence": evidence}
 
 
@@ -620,16 +632,91 @@ def import_steps(patched, flash):
         dev = Dev(patched, flash)
         dev.m.insert_card(SDCard(MemoryMedium(img)))
         dev.run(4)
-        got = dev.call(spec.IMPORT_ENTRY)
+        got = dev.call(spec.IMPORT_ENTRY, 0)          # 0: the default path, KORG/blechtribe/splash.bmp
         stored = dev.read(spec.RECBUF + 8, spec.IMAGE_BYTES) == image_of(pic)
         steps.append({"step": f"import: {name} gives {want}", "ok": got == want and (want != 0 or stored) and not dev.m.asserts,
                       "detail": f"returned {got}, image {'as drawn' if stored else 'not stored'}"})
+        copy = card_file(img, MEDIA_FILE)
+        if want == 0:
+            steps.append({"step": f"import: {name} writes Media/splash.bmp with the image", "ok": copy is not None and bmp_pixels(copy) == pic,
+                          "detail": "missing" if copy is None else f"{len(copy)} bytes"})
+        elif name != "missing":
+            steps.append({"step": f"import: {name} writes no Media/splash.bmp", "ok": copy is None})
         if name == "bottom-up":
             again = boot_case(patched, bytes(dev.m.flash.mem))
-            shown = [classify(f, {"stored": display_of(image_of(pic))}) for f in again["frames"]]
+            shown = drop_half_drawn(classify(f, {"stored": display_of(image_of(pic))}, again["bar"]) for f in again["frames"])
             steps.append({"step": "after a restart the display shows the imported image",
                           "ok": len(shown) >= MIN_FRAMES and all(x == "stored" for x in shown) and again["screen_1"] and not again["asserts"],
                           "detail": summary(shown)})
+    return steps
+
+
+MEDIA_FILE = "/KORG/blechtribe/Media/splash.bmp"
+
+
+def card_file(img, path):
+    """The bytes of a file on a card image, None when it is not there."""
+    import fat32
+    try:
+        return fat32.open_volume(img).read(path)
+    except Exception:
+        return None
+
+
+def bmp_pixels(data):
+    """Rows of 0 and 1 (1 drawn, the darker palette colour) of a 128 x 64 BMP with 1 bit per pixel, None for anything else."""
+    if len(data) < 62 or data[:2] != b"BM":
+        return None
+    off, dib = struct.unpack_from("<II", data, 10)
+    width, height, _, bpp = struct.unpack_from("<iiHH", data, 18)
+    if width != 128 or abs(height) != 64 or bpp != 1 or len(data) < off + 1024:
+        return None
+    pal = data[14 + dib:14 + dib + 8]
+    ink = 1 if sum(pal[4:7]) < sum(pal[0:3]) else 0
+    rows = []
+    for y in range(64):
+        r = 63 - y if height > 0 else y
+        row = data[off + 16 * r:off + 16 * r + 16]
+        rows.append([1 if ((row[x >> 3] >> (7 - (x & 7))) & 1) == ink else 0 for x in range(128)])
+    return rows
+
+
+def pixels_of(image):
+    """The inverse of image_of."""
+    return [[1 if image[(y // 8) * 128 + x] & (0x80 >> (y % 8)) else 0 for x in range(128)] for y in range(64)]
+
+
+def media_steps(patched, flash):
+    """Media/splash.bmp at start: a different image goes into the flash and is the start image from the next start on, the same
+    image as shown writes nothing."""
+    import fat32
+    steps = []
+    pic = [[1 if (x * y) % 7 == 0 or y == 10 else 0 for x in range(128)] for y in range(64)]
+    for name, data, want in (("a different image", bmp(pic), image_of(pic)), ("the image shown", bmp(pixels_of(vsb_image(patched))), None)):
+        img = bytearray(fat32.format_image(64 * 1024 * 1024))
+        vol = fat32.open_volume(img)
+        for d in ("/KORG", "/KORG/blechtribe", "/KORG/blechtribe/Media"):
+            vol.mkdir(d)
+        vol.write(MEDIA_FILE, data)
+        vol.close()
+        dev = Dev(patched, flash)
+        before = bytes(dev.m.flash.mem[spec.FLASH_RECORD:spec.FLASH_RECORD + 0x1000])
+        dev.m.insert_card(SDCard(MemoryMedium(img)))
+        dev.run(4)
+        sector = bytes(dev.m.flash.mem[spec.FLASH_RECORD:spec.FLASH_RECORD + 0x1000])
+        rec = sector[:spec.RECORD_SIZE]
+        if want is None:
+            steps.append({"step": f"Media/splash.bmp at start: {name} leaves the flash as it was", "ok": sector == before and not dev.m.asserts,
+                          "detail": "unchanged" if sector == before else "written"})
+            continue
+        ok = record_valid(rec) and rec[8:8 + spec.IMAGE_BYTES] == want and dev.screen()["number"] == 1 and not dev.m.asserts
+        steps.append({"step": f"Media/splash.bmp at start: {name} is stored in flash", "ok": ok,
+                      "detail": f"record {'valid' if record_valid(rec) else 'not valid'}, screen {dev.screen()['number']}"})
+        again = boot_case(patched, bytes(dev.m.flash.mem))
+        shown = drop_half_drawn(classify(f, {"stored": display_of(want)}, again["bar"]) for f in again["frames"])
+        steps.append({"step": "after a restart without card the display shows that image",
+                      "ok": len(shown) >= MIN_FRAMES and all(x == "stored" for x in shown) and again["screen_1"] and not again["asserts"],
+                      "detail": summary(shown)})
     return steps
 
 

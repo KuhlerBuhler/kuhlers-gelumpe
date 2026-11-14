@@ -16,7 +16,7 @@
  *   note    cosmetic
  */
 import {
-  REC, SOURCES, CHAINS, STAGE2, STAGE1_NEEDS_SOLO, MFX_DEVICE_RANGE,
+  REC, SOURCES, CHAINS, STAGE2, STAGE2_PAIRS, STAGE1_NEEDS_SOLO, STAGE2_MEMORY_FIXES, MFX_DEVICE_RANGE,
   MFX_MUTE, ENUM_PARAMS, LOUDNESS, OFF_AT, PLAY_ROW_RESYNCS,
 } from "./layout.mjs";
 import { unitFor, hex } from "./units.mjs";
@@ -33,13 +33,14 @@ const OFF_PARAMS = Object.keys(OFF_AT);
 /** Sources whose zero position is the bottom of the control's travel. */
 const BOTTOM_SOURCES = new Set([0x42, 0x45]);
 
-export function lint(record, { units, profile = null } = {}) {
+/** stage2Memory: the target firmware carries the stage2-memory patch; false only for a firmware known to lack it. */
+export function lint(record, { units, profile = null, stage2Memory = true } = {}) {
   const findings = [];
   const add = (severity, code, where, key, vars) => findings.push(finding({ severity, code, where }, key, vars));
 
   checkName(record, add);
   checkFiledCorrectly(record, add);
-  const stages = checkStages(record, units, add);
+  const stages = checkStages(record, units, add, stage2Memory);
   checkMap(record, units, stages, add);
   checkFxOnCrossfade(record, add);
   checkZeroIsOff(record, units, stages, add);
@@ -86,7 +87,7 @@ function checkFiledCorrectly(record, add) {
 }
 
 /** @returns {Map<string, {device:number, unit:object|null}>} the stages in use */
-function checkStages(record, units, add) {
+function checkStages(record, units, add, stage2Memory) {
   const stages = new Map();
 
   for (const stage of record.stageNames) {
@@ -119,18 +120,27 @@ function checkStages(record, units, add) {
   const second = record.device("ifx2");
   if (second) {
     const known = STAGE2[second];
+    const fixed = stage2Memory ? STAGE2_MEMORY_FIXES : { stage2: new Set(), pairs: new Set(), solo: new Set() };
     if (!known) {
       add("warn", "stage2-untested", "ifx2", "lint.stage2.untested", {
         unit: hex(second), proven: Object.entries(STAGE2).filter(([, v]) => v.verdict === "ok").map(([k]) => hex(Number(k))).join(", "),
       });
+    } else if (fixed.stage2.has(second)) {
+      // measured on a firmware without the patch: stage 2 shared stage 1's memory
     } else if (known.verdict === "fatal") {
       add("fatal", "stage2-fatal", "ifx2", "lint.stage2.known", { unit: hex(second), note: known.note });
     } else if (known.verdict === "silent") {
       add("silent", "stage2-silent", "ifx2", "lint.stage2.known", { unit: hex(second), note: known.note });
     }
 
+    const pairKey = `${record.device("ifx1")}.${second}`;
+    const pair = STAGE2_PAIRS[pairKey];
+    if (pair && !fixed.pairs.has(pairKey)) {
+      add(pair.verdict, "stage2-pair", "ifx2", "lint.stage2.pair", { first: hex(record.device("ifx1")), unit: hex(second), note: pair.note });
+    }
+
     const solo = STAGE1_NEEDS_SOLO[record.device("ifx1")];
-    if (solo) {
+    if (solo && !fixed.solo.has(record.device("ifx1"))) {
       add(solo.verdict || "fatal", "stage1-needs-solo", "ifx1", "lint.stage1NeedsSolo", { unit: hex(record.device("ifx1")), note: solo.note });
     }
   }

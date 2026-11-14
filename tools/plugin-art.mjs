@@ -105,6 +105,50 @@ const PLUGIN_ART = {
     }
     arrow(p, 57, 27);
   },
+  // a step above velocity 96 plays with its own EG INT, DECAY and LEVEL: a taller, longer envelope on the lit pads
+  betteraccent: p => {
+    p.text("ACCENT", 4, 3);
+    p.text("VEL > 96", 124, 3, { align: "right" });
+    [0, 1, 0, 0, 1, 0, 0, 1].forEach((accent, k) => {
+      const x = 6 + k * 15, h = accent ? 24 : 10;
+      for (let i = 0; i < 13; i++) p.fill(x + i, 38 - Math.round(h * Math.exp(-i / (accent ? 6 : 2.5))), 1, 2);
+      if (accent) p.fill(x, 46, 12, 12, RED); else p.frame(x, 46, 12, 12);
+    });
+  },
+  // a TIE step and the step after it get more glide: the two notes slide into each other
+  easyslides: p => {
+    p.text("SLIDE", 4, 3);
+    p.text("TIE", 124, 3, { align: "right" });
+    p.fill(6, 44, 30, 3);
+    for (let i = 0; i < 40; i++) p.fill(36 + i, 44 - Math.round(24 * (1 - Math.cos((i / 39) * Math.PI)) / 2), 1, 3);
+    p.fill(76, 20, 46, 3);
+    p.frame(6, 52, 12, 10);
+    p.fill(36, 52, 40, 10, RED);
+    p.frame(90, 52, 12, 10);
+  },
+  // every pad press also goes out as a MIDI note on its own channel: pad 1 = note 36 up to pad 16 = note 51
+  midiecho: p => {
+    p.text("MIDI ECHO", 4, 3);
+    p.text("CH 10", 124, 3, { align: "right" });
+    for (let i = 0; i < 8; i++) {
+      const [x] = padAt(i);
+      if (i === 2) p.fill(x, 16, 12, 12, RED); else p.frame(x, 16, 12, 12);
+    }
+    arrow(p, 18, 34);
+    p.text("NOTE 38", 40, 36);
+    p.text("VEL 100", 40, 50);
+  },
+  // clears the motion sequence of the selected part: the recorded knob curve goes flat
+  motionclear: p => {
+    p.text("CLEAR MOTION", 4, 3);
+    p.text("PART 3", 124, 3, { align: "right" });
+    p.frame(4, 16, 54, 34, 2);
+    for (let x = 0; x < 48; x++) p.fill(7 + x, 33 - Math.round(12 * Math.sin((x / 47) * 2 * Math.PI)), 1, 2);
+    arrow(p, 62, 30);
+    p.frame(74, 16, 50, 34, 2);
+    p.fill(77, 33, 44, 2);
+    p.text("MENU -> BLECH", 64, 54, { align: "center" });
+  },
 };
 
 mkdirSync(OUT, { recursive: true });

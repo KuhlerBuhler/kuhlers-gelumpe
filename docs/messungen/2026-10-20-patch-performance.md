@@ -79,8 +79,11 @@ deshalb eine bewusste Speicherplanung. Die vorhandenen Bauprüfungen erkennen Ü
 
 **Gemessen:** Im letzten Fall steigt die gesamte gezählte ARM-Arbeit auf den Samplern um
 etwa 23,8 Prozent gegenüber dem jeweiligen Original. Das sind etwa 4,25 Prozentpunkte im
-Zeitmodell, keine 24 Prozent zusätzliche Hardwareauslastung. Auf dem Synth ist die neue
-Bindungsauswertung nicht aktiv; dort bleibt der Unterschied klein.
+Zeitmodell, keine 24 Prozent zusätzliche Hardwareauslastung. Auf dem Synth lief bei dieser
+Messung noch keine Bindungsauswertung; dort blieb der Unterschied klein. Seit 2026-11-14 nutzt
+der Synth dieselbe lokale Auswertung wie die Sampler (gemessen, Korg 2.02 mit BLECH,
+`arm_load.py`, Szene `sequencer-four-note-long-ties`: 20,31 % statt vorher 23,91 %, p99 32,5 %
+statt 75,8 %).
 
 Auf Hacktribe entfallen in diesem Fall während zwei Sekunden 19437547 gezählte Befehle auf
 `pad-colors`. Die Eintritte werden zusätzlich gezählt: `pc_chord` 2737-mal,

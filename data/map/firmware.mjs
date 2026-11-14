@@ -12,6 +12,8 @@ const MODS = "measure:2026-09-14/modulation-table";
 const MOD_DEFAULTS = "measure:2026-10-14/offene-fragen";
 const MOD_STAGE2 = "measure:2026-10-15/modulation-stufe2";
 const PRESETS = "measure:2026-10-15/preset-tabellen";
+const FIRMWARE_SYNTH = "synth-2.02";
+const BLUE_FX = "measure:2026-11-08/blau-eigene-effekte";
 const GROOVE ="derived:hacktribe-editor/extra/e2_groove_template.py";
 const LAYOUT = "derived:hacktribe/firmware layout, as listed in the modding notes v3";
 const l = (de, en = de) => ({ de, en });
@@ -62,7 +64,8 @@ const firmware = {
   // How the firmware finds an FX preset, in every build: a getter reads a pointer from an array and clamps the index
   // (`clamp`, the `movhs r0, #n` behind the compare). `literal` holds the array's address. The records are not in one run
   // in Korg's own build, so no `tables` entry describes them; the array does. `reserve` is the room the BLECH patch
-  // preset-tables leaves for records beyond the firmware's 100 (tools/patch/preset_tables.py).
+  // preset-tables leaves for records beyond the firmware's 100 (tools/patch/preset_tables.py). The blue Electribe 2 (synth) has the
+  // getters and Korg's red records at its own addresses: src/presets.mjs finds them through data/synth-map/preset-tables.json.
   pointerTables: [
     {
       id: "presets.ifx", label: l("Insert-Presets über Zeiger", "Insert presets by pointer"), block: "fxRecord", kind: "ifx",
@@ -73,6 +76,7 @@ const firmware = {
         { build: "stock", ram: 0xc00adf94, count: 100, firmware: FIRMWARE_STOCK,
           records: [{ ram: 0xc00a7f60, count: 47 }, { ram: 0xc00ae124, count: 9 }, { ram: 0xc00af520, count: 144 }] },
         { build: "hacktribe", ram: 0xc00a7f60, count: 100, firmware: FIRMWARE },
+        { build: "synth", ram: 0xc009898c, count: 100, firmware: FIRMWARE_SYNTH, evidence: BLUE_FX },
         { build: "blech", ram: 0xc017c000, count: 128, firmware: "sampler-2.02 + BLECH preset-tables" },
       ],
       reserve: { ram: 0xc0174000, slots: 28, first: 101 },
@@ -84,6 +88,7 @@ const firmware = {
       arrays: [
         { build: "stock", ram: 0xc00af390, count: 100, firmware: FIRMWARE_STOCK },
         { build: "hacktribe", ram: 0xc00b4da0, count: 100, firmware: FIRMWARE },
+        { build: "synth", ram: 0xc0099d88, count: 100, firmware: FIRMWARE_SYNTH, evidence: BLUE_FX },
         { build: "blech", ram: 0xc017c200, count: 128, firmware: "sampler-2.02 + BLECH preset-tables" },
       ],
       reserve: { ram: 0xc0178000, slots: 28, first: 101 },

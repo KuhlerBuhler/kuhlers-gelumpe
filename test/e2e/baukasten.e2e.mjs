@@ -139,15 +139,16 @@ test("a new insert effect: two blocks from the palette, a name; Meine Effekte op
   assert.ok(await page.locator("#cee-bk-palette .cee-bk-group h3").count() >= 4, "the blocks come by group");
   await page.locator("#cee-bk-palette .cee-bk-unit", { hasText: "Chorus" }).click();
   await page.locator("#cee-bk-block-1 h4", { hasText: "Chorus" }).waitFor();
-  // What crashes behind another block (measured, data/findings.mjs) cannot be picked for block 2.
+  // What fails behind another block (measured, data/findings.mjs) cannot be picked for block 2.
   await page.locator("#cee-bk-block-2").getByRole("button", { name: "Baustein wählen" }).click();
-  const decimator = page.locator("#cee-bk-palette .cee-bk-unit:disabled", { hasText: "Stürzt an zweiter Stelle ab" }).filter({ hasText: "Lo-Fi (Decimator)" });
-  assert.equal(await decimator.count(), 1, "the decimator crashes in block 2 and cannot be picked there");
+  const ringMod = page.locator("#cee-bk-palette .cee-bk-unit:disabled", { hasText: "Bleibt an zweiter Stelle stumm" }).filter({ hasText: "Ringmodulator" });
+  assert.equal(await ringMod.count(), 1, "the ring modulator is silent in block 2 and cannot be picked there");
+  assert.equal(await page.locator("#cee-bk-palette .cee-bk-unit:not(:disabled)", { hasText: "Lo-Fi (Decimator)" }).count(), 1, "the stage2-memory patch frees the decimator in block 2");
   // Freed on purpose for a test, it can be picked; the switch says the risk.
   await page.locator("label.ui-switch:has(#cee-bk-risky)").click();
-  assert.equal(await page.locator("#cee-bk-palette .cee-bk-unit:not(:disabled)", { hasText: "Lo-Fi (Decimator)" }).count(), 1, "freed, the decimator can be picked in block 2");
+  assert.equal(await page.locator("#cee-bk-palette .cee-bk-unit:not(:disabled)", { hasText: "Ringmodulator" }).count(), 1, "freed, the ring modulator can be picked in block 2");
   await page.locator("label.ui-switch:has(#cee-bk-risky)").click();
-  assert.equal(await decimator.count(), 1, "switched off, it is barred again");
+  assert.equal(await ringMod.count(), 1, "switched off, it is barred again");
   await page.locator("#cee-bk-palette .ui-dialog-foot .btn").click();
   // Parameters stop where the device stops (data/map/fx-params.mjs), and a control can be added.
   assert.equal(await page.getAttribute("#cee-bk-p-0-dry_wet", "max"), "100");

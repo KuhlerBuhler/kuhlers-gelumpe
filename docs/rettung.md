@@ -310,9 +310,11 @@ Kleinschreibung nicht unterscheidet, ist hergeleitet. Wo die Karte steckt:
 Kann die Seite nichts lesen (Web MIDI noch nicht erlaubt), fragt sie nach dem Modus und nach den Namen im Bericht.
 
 **Export oder Import zeigt alte Patterns.** Kein Fehler in BLECHTRIBE ([Messung](messungen/2026-10-28-pattern-export.md)):
-EXPORT PATTERN schreibt das gespeicherte Pattern, also erst WRITE; Exporte liegen in `KORG/blechtribe/`, der alte Ordner
-bleibt nach der Übernahme mit den alten Kopien stehen, auf der blauen gibt es keine Übernahme und `KORG/electribe/`
-bleibt; Gerätedateien tragen immer den 01.01.2014.
+EXPORT PATTERN schreibt das gespeicherte Pattern, also erst WRITE; Exporte liegen ab 1.5 in `KORG/blechtribe/Patterns/`
+(blau direkt in `KORG/blechtribe/`), der alte Ordner bleibt nach der Übernahme mit den alten Kopien stehen, auf der blauen
+gibt es keine Übernahme und `KORG/electribe/` bleibt; Gerätedateien tragen immer den 01.01.2014. Liegt
+`Patterns/electribe_sampler_allpattern.e2sallpat` auf der Karte, schreibt jeder Start deren geänderte Patterns in den
+Flash: was nur mit WRITE gespeichert und nicht exportiert wurde, ist danach wieder der Stand der Datei.
 
 **Der Test im Patcher wird rot oder läuft nicht.** Auf das Gerät kommt dann nichts. Blechy fragt, was der Patcher
 meldet, in fünf Gruppen (`testGroup` und `testFailure` in `data/rescue.mjs`, die Kennungen aus `tools/emu/check.py`):

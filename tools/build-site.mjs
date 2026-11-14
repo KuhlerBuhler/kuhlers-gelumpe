@@ -9,6 +9,7 @@ import { cpSync, mkdirSync, rmSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ROUTES } from "./site-routes.mjs";
+import { ensureRuntimePatches } from "./patch/ensure-runtime.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DIST = join(ROOT, "dist");
@@ -19,6 +20,9 @@ const FORBIDDEN = /\.(vsb|syx|e2sallpat|e2spat|all|wav|aif|aiff)$/i;
 // the editor must not publish. Of assets/blechy only the patch and the picture go out, not the sounds.
 const SKIP = new Set(["src/node.mjs", "src/webmidi.mjs"]);
 const SKIP_PATTERN = /^(site\/design\/.*\.md|assets\/blechy\/.*\.(mp3|bin)|docs\/(?!plugins(?:\.(?:en|fr))?\.md$).+)$/;
+
+// data/patches goes out with the page, and the set lists the runtime patches: build what is missing first.
+ensureRuntimePatches({ log: message => console.log(message) });
 
 rmSync(DIST, { recursive: true, force: true });
 for (const [prefix, dir] of ROUTES) {

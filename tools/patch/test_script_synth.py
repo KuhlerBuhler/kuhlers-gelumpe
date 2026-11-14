@@ -31,7 +31,7 @@ class SynthStartupTests(unittest.TestCase):
         from unicorn import arm_const as arm
 
         built = build(contract_data()['include'], build='synth')
-        startup = ['menu_arm_load', 'migrate_start', 'blechy_boot', 'script_card_load', 'menu_recount']
+        startup = ['menu_arm_load', 'migrate_start', 'blechy_boot', 'script_card_load', 'fx_card_load', 'menu_recount']
         registers = [getattr(arm, f'UC_ARM_REG_R{i}') for i in range(13)] + [arm.UC_ARM_REG_SP, arm.UC_ARM_REG_CPSR]
         for name, pointer, held, mode, updating, active in [
             ('normal', 0xC0204000, 0, 0, 0, True),
@@ -47,6 +47,7 @@ class SynthStartupTests(unittest.TestCase):
                 uc.mem_map(0xC0000000, 0x800000)
                 for address, data in built.sections:
                     uc.mem_write(address, data)
+                uc.mem_write(0xC01A250C, b'\xff' * 4)   # splash_sync's entry is free space (FF) without the splash editor
                 uc.mem_write(0xC033E8F8, pointer.to_bytes(4, 'little'))
                 if pointer not in (0, 0xFFFFFFFF):
                     uc.mem_write(pointer + 0x18, held.to_bytes(8, 'little') + bytes([mode, 0, updating]))

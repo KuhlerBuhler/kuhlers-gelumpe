@@ -87,7 +87,7 @@ test("the last review of each person counts; changes requested by a writer block
   assert.ok(mergeProblems(pr, ready({ reviews: [review(1, "KuhlerBuhler", "APPROVED"), review(2, "pascalfritzsche", "CHANGES_REQUESTED")] })).some(p => p.includes("pascalfritzsche")));
 });
 
-test("the workflow starts on every workflow that runs on a pull request and calls the script with SYNC_TOKEN", () => {
+test("the workflow starts on every workflow that runs on a pull request and calls the script with the Blechy app token", () => {
   const dir = new URL("../.github/workflows/", import.meta.url);
   const yml = readFileSync(new URL("release-merge.yml", dir), "utf8");
   assert.match(yml, new RegExp(`^name: ${SELF}$`, "m"));
@@ -101,6 +101,7 @@ test("the workflow starts on every workflow that runs on a pull request and call
   for (const n of listed) assert.ok(readdirSync(dir).some(f => readFileSync(new URL(f, dir), "utf8").includes(`name: ${n}\n`)), n);
   // only runs on a release branch can change a release pull request; without the filter every finished workflow started a run
   assert.match(yml, /types: \[completed\]\n {4}branches: \["release\/\*\*"\]/);
-  assert.match(yml, /GH_TOKEN: \$\{\{ secrets\.SYNC_TOKEN \}\}/);
+  assert.match(yml, /GH_TOKEN: \$\{\{ steps\.app\.outputs\.token \}\}/);
+  assert.match(yml, /create-github-app-token@v2/);
   assert.match(yml, /node tools\/release-merge\.mjs/);
 });

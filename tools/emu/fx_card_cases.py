@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Emulator checks for the collection on the card (tools/patch/fx_card.s, src/fx-collection.mjs).
 
-check.py runs `cases_task` on every patched sampler copy that carries the loader. A good file puts its insert and master
+check.py runs `cases_task` on every patched copy that carries the loader, red or blue (the blue's places: data/synth-map/). A good file puts its insert and master
 records where the firmware's getters point and its modulation type into the table the build reads, in RAM; the flash
 ends up byte for byte as after a start without the file. A missing file, a wrong checksum, the wrong build, an index
 past the menu, a cut file and EXIT held at power-on leave every record as the firmware has it.
@@ -41,20 +41,32 @@ KIND = {"ifx": 1, "mfx": 2, "mod": 3}
 STATE = script_hooks.CARD + 0xFE0
 STATUS = {2: "loaded", 3: "no panel", 4: "EXIT held", 5: "no file", 6: "bad header", 7: "wrong build", 8: "bad entry", 9: "bad checksum", 10: "read error"}
 BOOT_S = 6.0
+BOOT_SYNTH_S = 10.0     # the blue's start takes longer to reach the main screen
 NAME = 1                # an FX record's name is bytes 1 to 15
 MOD_NAME, MOD_DEPTH = 4, 26
 
 
+BUILD = {"hacktribe": 1, "stock": 2, "synth": 3}         # the header's build word, src/fx-collection.mjs BUILDS
+OTHER = {1: 2, 2: 1, 3: 2}                                 # a build the loader has to refuse
+
+
 def has_hooks(payload):
-    return PATH_IN_IMAGE in payload and not synthaddr.is_synth(payload)
+    return PATH_IN_IMAGE in payload
 
 
 def build_of(payload):
-    return identify(payload).build
+    return "synth" if synthaddr.is_synth(payload) else identify(payload).build
 
 
 def mods(payload):
-    return 0xC00D81EC if build_of(payload) == "stock" else 0xC019FFFC
+    """The modulation table the build reads (FX_MODS of tools/patch/script_hooks.py), at its own address."""
+    build = build_of(payload)
+    return synthaddr.tr(0xC00D81EC) if build == "synth" else 0xC00D81EC if build == "stock" else 0xC019FFFC
+
+
+def raw(dev, addr, n):
+    """Bytes at an address the running firmware handed out or the build's own address: no translation of Sampler places."""
+    return bytes(dev.m.uc.mem_read(addr, n))
 
 
 def entry(kind, index, data, text=b'{"format":"gelumpe-fx"}'):
@@ -81,21 +93,22 @@ def card(files):
 
 
 def boot(payload, flash, files, held=0):
+    menu_cases.for_build(payload)     # export() walks the menu of this build
     dev = Dev(payload, flash, held)
     dev.m.insert_card(card(files))
-    dev.run(BOOT_S)
+    dev.run(BOOT_SYNTH_S if dev.synth else BOOT_S)
     return dev
 
 
 def state(dev):
-    status, loaded = struct.unpack("<II", dev.read(STATE, 8))
+    status, loaded = struct.unpack("<II", raw(dev, STATE, 8))
     return status, loaded
 
 
 def records(dev, payload):
     """The records the cases touch, as the running firmware has them."""
-    return {"ifx": dev.read(dev.call(GET["ifx"], 1), RECORD), "mfx": dev.read(dev.call(GET["mfx"], 0), RECORD),
-            "ifx2": dev.read(dev.call(GET["ifx"], 2), RECORD), "mod": dev.read(mods(payload) + 3 * MOD_RECORD, MOD_RECORD)}
+    return {"ifx": raw(dev, dev.call(GET["ifx"], 1), RECORD), "mfx": raw(dev, dev.call(GET["mfx"], 0), RECORD),
+            "ifx2": raw(dev, dev.call(GET["ifx"], 2), RECORD), "mod": raw(dev, mods(payload) + 3 * MOD_RECORD, MOD_RECORD)}
 
 
 def named(record, at, width, text):
@@ -122,7 +135,7 @@ def result(name, ok, detail):
 
 def case_good(payload, flash):
     base, before, want, good = plan(payload, flash)
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     dev = boot(payload, flash, {CARD_FILE: collection(build, good)})
     now = records(dev, payload)
     status, loaded = state(dev)
@@ -138,11 +151,11 @@ def case_good(payload, flash):
 
 def case_refused(payload, flash):
     base, before, want, good = plan(payload, flash)
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     files = {
         "missing": ({}, 5),
         "checksum": ({CARD_FILE: collection(build, good, crc_wrong=True)}, 9),
-        "build": ({CARD_FILE: collection(3 - build, good)}, 7),
+        "build": ({CARD_FILE: collection(OTHER[build], good)}, 7),
         "index": ({CARD_FILE: collection(build, [entry("ifx", 250, want["ifx"])])}, 8),
         "cut": ({CARD_FILE: collection(build, good, cut=8)}, None),
     }
@@ -159,12 +172,14 @@ def case_refused(payload, flash):
 
 def case_exit(payload, flash):
     base, before, want, good = plan(payload, flash)
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     dev = boot(payload, flash, {CARD_FILE: collection(build, good)}, held=menu_cases.KILL)
     status, loaded = state(dev)
     now = records(dev, payload)
     unchanged = all(now[k] == before[k] for k in ("ifx", "mfx", "mod"))
-    return [result("exit_held", status in (0, 4) and unchanged, f"status {STATUS.get(status, status)}, records unchanged {unchanged}")]
+    # the blue's start wrapper (script_start_synth.s) skips all of BLECH with EXIT held, the loader does not run and its state stays erased
+    skipped = (0, 4, 0xFFFFFFFF) if build == BUILD["synth"] else (0, 4)
+    return [result("exit_held", status in skipped and unchanged, f"status {STATUS.get(status, status)}, records unchanged {unchanged}")]
 
 
 def case_boot_effects(payload, flash):
@@ -178,10 +193,10 @@ def case_boot_effects(payload, flash):
             self.dev = Dev(bytes(payload), flash, 0)
             self.dsp = DspLog(self.dev.m)
             self.dev.m.insert_card(card(files))
-            self.dev.run(BOOT_S)
+            self.dev.run(BOOT_SYNTH_S if self.dev.synth else BOOT_S)
 
     ab = lambda changes: [t for t in changes if t[0] == 0xAB]
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     base = Box({})
     n = base.count("ifx")
     out = []
@@ -203,11 +218,11 @@ def case_version_text(payload, flash):
     """BLECH > VERSION says behind the firmware what the start did with e2sFx.all, nothing without a file. The third row stays empty:
     the firmware draws it on the row of the value. The value row on screen holds exactly the pixels of the value alone."""
     base, before, want, good = plan(payload, flash)
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     firmware = menu_cases.BASE_NAMES[build_of(payload)]
     out = []
     for name, files, tag in (("none", {}, ""), ("loaded", {CARD_FILE: collection(build, good)}, " FX"),
-                             ("build", {CARD_FILE: collection(3 - build, good)}, " FX fw?"),
+                             ("build", {CARD_FILE: collection(OTHER[build], good)}, " FX fw?"),
                              ("checksum", {CARD_FILE: collection(build, good, crc_wrong=True)}, " FX bad")):
         dev = boot(payload, flash, files)
         menu_cases.goto_top(dev, menu_cases.LIST_VERSION)
@@ -223,7 +238,7 @@ def case_version_text(payload, flash):
 
 def export(dev):
     """DATA UTILITY, our page EXPORT ALL EFFECTS, ENTER: the value it shows after, and the collection on the card then."""
-    menu_cases.INIT_PAGE = dev.read(menu_cases.INIT_CODE, 4) != b"\xff" * 4
+    menu_cases.INIT_PAGE = raw(dev, menu_cases.INIT_CODE, 4) != b"\xff" * 4
     menu_cases.FX_EXPORT = True
     menu_cases.goto_du(dev, menu_cases.du_pages().index("EXPORT ALL EFFECTS"))
     title = menu_cases.text(dev, menu_cases.S_TITLE)
@@ -253,7 +268,7 @@ def case_export(payload, flash):
     text too, the CRC new; the next start loads it. Without a file it makes one; a file changed since the start or one the
     start did not load stays as it is."""
     base, before, want, good = plan(payload, flash)
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     bare = named(before["ifx2"], NAME, 15, "NO TEXT")
     original = collection(build, good + [entry("ifx", 2, bare, text=b"")])
     dev = boot(payload, flash, {CARD_FILE: original})
@@ -289,11 +304,11 @@ def export_new(payload, flash, build):
     no text, the CRC right, in a Presets folder it makes; the next start loads all of it, and a second export writes into it."""
     dev = boot(payload, flash, {})
     counts = {k: min(dev.call(a), 256) for k, a in COUNT.items()}
-    edited = named(dev.read(dev.call(GET["ifx"], 1), RECORD), NAME, 15, "NEW FILE IFX")
+    edited = named(raw(dev, dev.call(GET["ifx"], 1), RECORD), NAME, 15, "NEW FILE IFX")
     dev.m.uc.mem_write(dev.call(GET["ifx"], 1), edited)
-    ram = [(1, i, dev.read(dev.call(GET["ifx"], i), RECORD)) for i in range(counts["ifx"])]
-    ram += [(2, i, dev.read(dev.call(GET["mfx"], i), RECORD)) for i in range(counts["mfx"])]
-    ram += [(3, i, dev.read(mods(payload) + i * MOD_RECORD, MOD_RECORD)) for i in range(MOD_COUNT)]
+    ram = [(1, i, raw(dev, dev.call(GET["ifx"], i), RECORD)) for i in range(counts["ifx"])]
+    ram += [(2, i, raw(dev, dev.call(GET["mfx"], i), RECORD)) for i in range(counts["mfx"])]
+    ram += [(3, i, raw(dev, mods(payload) + i * MOD_RECORD, MOD_RECORD)) for i in range(MOD_COUNT)]
     _, value, written = export(dev)
     now, crc_ok = entries_of(written) if written else ([], False)
     same = [(k, i, d) for k, i, d, _ in now] == ram and all(t == b"" for *_, t in now)
@@ -348,7 +363,7 @@ def main():
     if a.what == "load":
         dev = boot(payload, flash, {CARD_FILE: a.file.read_bytes()})
         status, loaded = state(dev)
-        read = lambda kind, index: dev.read(dev.call(GET[kind], index), RECORD) if kind != "mod" else dev.read(mods(payload) + index * MOD_RECORD, MOD_RECORD)
+        read = lambda kind, index: raw(dev, dev.call(GET[kind], index), RECORD) if kind != "mod" else raw(dev, mods(payload) + index * MOD_RECORD, MOD_RECORD)
         names = {"ifx": 1, "mfx": 2, "mod": 3}
         data = a.file.read_bytes()
         count, at, records = struct.unpack_from("<H", data, 6)[0], 24, []
