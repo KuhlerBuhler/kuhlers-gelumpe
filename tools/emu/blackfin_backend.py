@@ -8,6 +8,7 @@ import struct
 import subprocess
 import tempfile
 import time
+from types import MappingProxyType
 
 LIMIT = 1 << 20
 REGISTER_NAMES = ([f'R{i}' for i in range(8)] + [f'P{i}' for i in range(6)] + ['SP', 'FP']
@@ -49,8 +50,8 @@ class BlackfinBackend:
             os.set_blocking(self.process.stdin.fileno(), False)
             os.set_blocking(self.process.stdout.fileno(), False)
             self._selector.register(self.process.stdout, selectors.EVENT_READ)
-            if self._response() != b'BFIN6':
-                raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN6')
+            if self._response() != b'BFIN7':
+                raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN7')
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
             self.close()
@@ -111,7 +112,7 @@ class BlackfinBackend:
         self._deadline = time.monotonic() + self.timeout
         try:
             self._send(struct.pack('<III', op, address, count) + data)
-            response = self._response(rom=op == 5)
+            response = self._response(rom=op in (5, 13))
             return self._receive(extra) if extra else response
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
@@ -158,6 +159,41 @@ class BlackfinBackend:
 
     def host_read(self):
         return struct.unpack('<I', self._request(12, 0, 0, extra=4))[0]
+
+    def host_frdy(self):
+        return struct.unpack('<I', self._request(15, 0, 0, extra=4))[0]
+
+    def clock_status(self):
+        lo, hi, remaining, idle = struct.unpack('<4I', self._request(14, 0, 0, extra=16))
+        return dict(cycles=lo | hi << 32, remaining=remaining, idle=bool(idle))
+
+    def advance(self, cycles):
+        if not isinstance(cycles, int) or not 1 <= cycles <= 1000000:
+            raise ValueError('invalid bounded Blackfin cycle budget')
+        start = self.clock_status()['cycles']
+        left, steps, calls = cycles, 0, 0
+        while left:
+            try:
+                elapsed, executed, pc, idle = struct.unpack('<4I', self._request(13, left, 0, extra=16))
+                if elapsed != left:
+                    raise BackendError('Blackfin did not reach the requested time boundary')
+                steps += executed
+                break
+            except _ROMCall as error:
+                steps += error.steps
+                try:
+                    if self.rom is None or calls >= 64:
+                        raise BackendError('missing or exhausted Blackfin ROM service')
+                    self.rom.handle(self, error.registers)
+                    calls += 1
+                    elapsed = self.clock_status()['cycles'] - start
+                    if not 0 <= elapsed < cycles:
+                        raise BackendError('invalid Blackfin ROM time boundary')
+                    left = cycles - elapsed
+                except (BackendError, ValueError) as failure:
+                    self.close()
+                    raise BackendError(f'{failure}: {error}') from failure
+        return dict(cycles=cycles, steps=steps, pc=pc, idle=bool(idle))
 
     def _host_word(self, operation, word):
         if not isinstance(word, int) or not 0 <= word <= 65535:
@@ -268,7 +304,7 @@ class BlackfinPort:
         self.host_transport = host_transport
         self.worker, self.timeout, self.operating = worker, timeout, operating
         self.rom = rom
-        self.sport = sport
+        self.sport = MappingProxyType(dict(sport)) if sport is not None else None
         self.ready_address, self.boot_steps = ready_address, boot_steps
         self.boot_timeout = boot_timeout
         self.backend = None
@@ -276,8 +312,53 @@ class BlackfinPort:
         self.words, self.transfer = [], None
         self.boot_report = None
         self._initial_word = bytes(4)
+        self.clock_bound = False
+        self._boot_attempted = False
+        self._clock_ns = self._clock_origin_ns = self._clock_cycles = 0
+
+    def bind_clock(self, now_ns):
+        if self.host_transport != 'fifo' or self.loaded or self.clock_bound or self.sport is None:
+            raise ValueError('clock binding requires an unloaded FIFO transport with explicit SPORT clock')
+        hz = self.sport.get('core_hz')
+        if not isinstance(hz, int) or not 48000 <= hz <= 2000000000:
+            raise ValueError('explicit bounded DSP core frequency is required')
+        if not isinstance(now_ns, int) or now_ns < 0:
+            raise ValueError('invalid common model time')
+        self.clock_bound = True
+        self._clock_hz = hz
+        self._clock_ns = self._clock_origin_ns = now_ns
+
+    def advance_to(self, now_ns):
+        if not self.clock_bound or not isinstance(now_ns, int) or now_ns < self._clock_ns:
+            raise ValueError('common model time cannot rewind')
+        self._clock_ns = now_ns
+        if not self.loaded:
+            self._clock_origin_ns = now_ns
+            return
+        target = (now_ns - self._clock_origin_ns) * self._clock_hz // 1000000000
+        while self._clock_cycles < target:
+            count = min(target - self._clock_cycles, 1000000)
+            result = self.backend.advance(count)
+            if result['cycles'] != count:
+                self._abort('Blackfin did not reach common model time')
+            self._clock_cycles += count
+        if not self.initialized:
+            value = self.backend.read(self.ready_address, 4)
+            self.initialized = value != self._initial_word and value != bytes(4)
+            if self.initialized:
+                self.boot_report = dict(ready=True, ready_address=self.ready_address,
+                                        before=self._initial_word.hex(), after=value.hex(),
+                                        clock_cycles=self._clock_cycles, operating=self.operating,
+                                        host_transport=self.host_transport)
+
+    def frdy(self):
+        if not self._boot_attempted and not self.loaded:
+            return 1
+        self._require_loaded()
+        return self.backend.host_frdy()
 
     def boot(self, stream):
+        self._boot_attempted = True
         self.close()
         blocks = boot_blocks(stream)
         self.backend = BlackfinBackend(self.worker, timeout=self.timeout, operating=self.operating, rom=self.rom)
@@ -294,7 +375,10 @@ class BlackfinPort:
             self._initial_word = self.backend.read(self.ready_address, 4)
             self.loaded = True
             self.backend.set_register(53, 0xFFA00000)
-            self.service(16)
+            self._clock_cycles = 0
+            self._clock_origin_ns = self._clock_ns
+            if not self.clock_bound:
+                self.service(16)
         except (ValueError, BackendError):
             self.close()
             raise
@@ -306,6 +390,8 @@ class BlackfinPort:
 
     def service(self, steps=64):
         self._require_loaded()
+        if self.clock_bound:
+            raise BackendError('clock-bound DSP executes only through common model time')
         try:
             result = self.backend.run(steps)
             value = self.backend.read(self.ready_address, 4)
@@ -348,7 +434,8 @@ class BlackfinPort:
 
     def status(self):
         self._require_loaded()
-        self.service()
+        if not self.clock_bound:
+            self.service()
         if self.host_transport == 'fifo':
             return self.backend.host_status()
         # Endpoint transport readiness, not calibrated DSP BUSY timing.
@@ -385,7 +472,8 @@ class BlackfinPort:
         self._require_loaded()
         if self.host_transport == 'fifo':
             self.backend.host_write(value)
-            self.service()
+            if not self.clock_bound:
+                self.service()
             return
         transfer = self.transfer
         if transfer is None or not transfer['left'] or transfer['command'] != 0xAB:
@@ -399,7 +487,8 @@ class BlackfinPort:
     def read_word(self):
         self._require_loaded()
         if self.host_transport == 'fifo':
-            self.service()
+            if not self.clock_bound:
+                self.service()
             return self.backend.host_read()
         transfer = self.transfer
         if transfer is None or not transfer['left'] or transfer['command'] != 0xA9:

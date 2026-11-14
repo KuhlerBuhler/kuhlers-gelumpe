@@ -253,7 +253,7 @@ hostdp_write (struct hw *me, const void *source, int space, address_word address
     {
     case 0:
       if ((host->active || host->configured || host->setup_event) && !(value & HOST_RESET)
-          && ((host->control ^ value) & (HOST_ENABLE | 2 | 4 | READY_OVERRIDE | TIMEOUT_ENABLE | 0x400)))
+          && ((host->control ^ value) & (HOST_ENABLE | 2 | 4 | 0x40 | READY_OVERRIDE | TIMEOUT_ENABLE | 0x400)))
         hw_abort (me, "HOSTDP mode changed during an active transfer");
       host->control = value & 0x07E7;
       if (value & HOST_RESET)
@@ -382,12 +382,28 @@ blech_bfin_hostdp_bus (SIM_DESC sd, unsigned operation, bu32 *word)
 {
   struct hw *me;
   struct bfin_hostdp *host;
-  if (STATE_ENVIRONMENT (sd) != OPERATING_ENVIRONMENT || operation > 3)
+  if (STATE_ENVIRONMENT (sd) != OPERATING_ENVIRONMENT || operation > 4)
     return 0;
   me = hw_tree_find_device (sim_hw_parse (sd, "/core"), "./bfin_hostdp");
   if (!me)
     return 0;
   host = hw_data (me);
+  if (operation == 4)
+    {
+      if (host->control & HOST_ENABLE)
+        {
+          hostdp_require_mode (me);
+          if (!(host->control & 0x40))
+            hw_abort (me, "FRDY requires HOSTDP interrupt mode");
+        }
+      bool ready = host->active && !host->aborted && host->host_left
+                   && (host->control & HOST_ENABLE) && (host->control & 4)
+                   && !(host->control & (2 | READY_OVERRIDE | TIMEOUT_ENABLE | 0x400))
+                   && (host->write ? (host->control & 0x100) && !host->count
+                                   : (host->control & 0x200) && host->count == FIFO_WORDS);
+      *word = !ready;
+      return 1;
+    }
   if (operation == 0)
     {
       *word = host->status;

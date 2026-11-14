@@ -233,7 +233,8 @@ class Machine:
     def __init__(self, payload, flash=None, profile=None, *, dsp_backend=None):
         """`profile` is the build's Profile (firmware.py); without it the payload is looked at, and a payload that
         is not a Sampler 2.02 build the emulator knows raises firmware.ProfileError."""
-        if getattr(dsp_backend, 'host_transport', None) == 'fifo':
+        self._dsp_clocked = getattr(dsp_backend, 'host_transport', None) == 'fifo'
+        if self._dsp_clocked and not callable(getattr(dsp_backend, 'bind_clock', None)):
             raise ValueError('native HOSTDP FIFO transport requires ARM/DSP clock coupling')
         self.dsp_backend = dsp_backend
         self.profile = profile or identify(payload)
@@ -267,6 +268,11 @@ class Machine:
         self.regs = {}
         self.recent = collections.deque(maxlen=3000)
         self.time_ns = 0
+        self._dsp_arm_fraction = 0
+        self._dsp_arm_count = 0
+        self._dsp_arm_idle = False
+        if self._dsp_clocked:
+            dsp_backend.bind_clock(0)
         self.insns = 0
         self.pace = PACE           # charge slices at the device's pace (devicetime.Pace), not NS_PER_INSN flat
         self._pace = devicetime.Pace()   # its decoded code is made again after a restore ...
@@ -329,6 +335,18 @@ class Machine:
         # An exit address costs nothing while the code runs; the run stops in front of it.
         uc.ctl_exits_enabled(True)
         uc.ctl_set_exits(list(self.ENTRIES))
+        if self._dsp_clocked:
+            uc.hook_add(unicorn.UC_HOOK_CODE, self._dsp_arm_tick)
+
+    def _dsp_arm_tick(self, uc, address, size, data):
+        elapsed = self._dsp_arm_fraction + self.ns_per_insn
+        self.time_ns += int(elapsed)
+        self._dsp_arm_fraction = elapsed - int(elapsed)
+        self._dsp_arm_count += 1
+
+    def _dsp_sync(self):
+        if getattr(self, '_dsp_clocked', False):
+            self.dsp_backend.advance_to(int(self.time_ns))
 
     def reg(self, reg_id):
         """A 32-bit register, read straight through the library: Unicorn's reg_read costs about
@@ -507,6 +525,7 @@ class Machine:
             self.poll_time()
             return self.timer_count(*timer)
         if a == DSP_CTRL:
+            self._dsp_sync()
             return self.dsp_backend.status() if self.dsp_backend is not None else 0x85
         if a == DSP_DATA: return self.dsp_read()
         if a in (SPI0 + 0x40, SPI1 + 0x40):          # SPIBUF, RXEMPTY once read
@@ -548,6 +567,7 @@ class Machine:
 
     def write(self, a, v):
         if self.dsp_backend is not None and a in (DSP_CTRL, DSP_DATA):
+            self._dsp_sync()
             if a == DSP_CTRL:
                 self.dsp_backend.control(v)
             else:
@@ -635,9 +655,13 @@ class Machine:
                 if p == pair: w = (w | bit) if level else (w & ~bit)
             if pair == 2:                # GPIO 4.0, the lock switch of the card: high = write protected (the firmware's disk status, 0xC0016DB8)
                 w = (w | 1) if getattr(self.mmc.card, "write_protect", False) else (w & ~1)
-            if pair == 3:                # GPIO 6.1, DSP handshake: toggles (assumption)
-                self.handshake ^= 2
-                w = (w & ~2) | self.handshake
+            if pair == 3:
+                if getattr(self.dsp_backend, 'host_transport', None) == 'fifo':
+                    self._dsp_sync()
+                    w = (w & ~2) | (self.dsp_backend.frdy() << 1)
+                else:
+                    self.handshake ^= 2
+                    w = (w & ~2) | self.handshake
             return w
         return self.regs.get(GPIO + off, 0)
 
@@ -669,6 +693,7 @@ class Machine:
     # ---- DSP host port -------------------------------------------------------
     def dsp_read(self):
         if self.dsp_backend is not None:
+            self._dsp_sync()
             return self.dsp_backend.read_word()
         # Transfers start with 7 control words [0xA9 read | 0xAB write, address low,
         # address high, count of 16-bit words, 2, 0, 0]. Unmodelled words read 0,
@@ -898,11 +923,17 @@ class Machine:
                 self.raw.add(MMC_IRQ)
                 self.mmc.raised()
 
+    def _irq_line(self):
+        return bool(self.regs.get(AINTC + 0x10, 0) & 1
+                    and self.regs.get(AINTC + 0x1500, 0) & 2
+                    and not self.highest() & 0x80000000)
+
     def irq(self):
         uc, A = self.uc, self.A
         cpsr = self.reg(A.UC_ARM_REG_CPSR)
-        if cpsr & 0x80 or not self.regs.get(AINTC + 0x10, 0) & 1: return
-        if not self.regs.get(AINTC + 0x1500, 0) & 2 or self.highest() & 0x80000000: return
+        if cpsr & 0x80 or not self._irq_line(): return
+        if getattr(self, '_dsp_clocked', False):
+            self._dsp_arm_idle = False
         pc = self.reg(A.UC_ARM_REG_PC)
         uc.reg_write(A.UC_ARM_REG_CPSR, (cpsr & ~0x3F) | 0x92)
         uc.reg_write(A.UC_ARM_REG_SPSR, cpsr)
@@ -972,6 +1003,7 @@ class Machine:
     def _dsp_upload(self):
         uc = self.uc
         if self.dsp_backend is not None:
+            self._dsp_sync()
             address = uc.reg_read(self.A.UC_ARM_REG_R1)
             count = uc.reg_read(self.A.UC_ARM_REG_R2)
             if not 0 < count <= 1 << 20:
@@ -985,22 +1017,41 @@ class Machine:
         """Run the CPU for one slice and let device time pass, an idle CPU up to the next event
         but not past limit (ns). Returns the time the slice began."""
         uc, A = self.uc, self.A
+        if self._dsp_clocked:
+            limit = min(limit, self.time_ns + 1000000)
+            if self._dsp_arm_idle:
+                if not self._irq_line():
+                    start = self.time_ns
+                    self.time_ns = max(self.time_ns, min(self.next_event(), limit))
+                    self._dsp_sync()
+                    return start
+                self._dsp_arm_idle = False
         cpsr = self.reg(A.UC_ARM_REG_CPSR)
         in_isr = cpsr & 0x1F == 0x12
         count = self.slice_length(in_isr)
+        if self._dsp_clocked and limit < math.inf:
+            count = min(count, max(1, math.ceil((limit - self.time_ns) / self.ns_per_insn)))
+        self._dsp_arm_count = 0
         start, self.poll_stop, self.tx_idle = self.time_ns, False, False
         ran = False
         if not (self.reg(A.UC_ARM_REG_PC) in self.ENTRIES and self.service()):
             pc = self.reg(A.UC_ARM_REG_PC)
             uc.emu_start(pc | (1 if cpsr & 0x20 else 0), 0, count=count)
             ran = True
-        self.insns += count
+        self.insns += self._dsp_arm_count if self._dsp_clocked else count
         pc = self.reg(A.UC_ARM_REG_PC)
         wait = self.waiting(pc)
-        if wait and self.highest() & 0x80000000:
+        asleep = not self._irq_line() if self._dsp_clocked else bool(self.highest() & 0x80000000)
+        if wait and asleep:
+            if self._dsp_clocked:
+                self._dsp_arm_idle = True
             self.time_ns = max(self.time_ns, min(self.next_event(), limit))
+        elif self._dsp_clocked:
+            if not self._dsp_arm_count and not self.poll_stop:
+                self.time_ns += max(1, round(self.ns_per_insn))
         elif not self.poll_stop:        # a stopped poll loop has already spent its time on the reads
             self.time_ns += round(count * self.ns_per_insn)
+        self._dsp_sync()
         # Where a slice that ran its instructions stopped is a sample of the code that runs; it sets the rate of the next
         # slice. Not where a slice starts, nor where a wait, a poll or a modelled routine stopped it: those are the
         # interrupt vector, a register read or a routine's address more often than not. Nor in a handler: its slices

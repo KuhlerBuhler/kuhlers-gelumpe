@@ -13,6 +13,10 @@ extern void blech_bfin_guard(uint32_t, uint32_t);
 extern uint32_t blech_bfin_count(void);
 extern uint32_t blech_bfin_last(void);
 extern int blech_bfin_stopped(void);
+extern void blech_bfin_time_guard(uint32_t);
+extern uint64_t blech_bfin_time(void);
+extern uint32_t blech_bfin_remaining(void);
+extern int blech_bfin_sleeping(void);
 extern int blech_bfin_hostdp_event(SIM_DESC, unsigned);
 extern int blech_bfin_hostdp_bus(SIM_DESC, unsigned, uint32_t *);
 extern int blech_bfin_sport_config(SIM_DESC, uint32_t, uint32_t, uint32_t, uint32_t);
@@ -76,7 +80,7 @@ int main(int argc, char **argv) {
     default_callback.init(&default_callback);
     SIM_DESC sd = sim_open(SIM_OPEN_DEBUG, &default_callback, NULL, args);
     if (!sd || sim_create_inferior(sd, NULL, empty, empty) != SIM_RC_OK) return 3;
-    answer(0, "BFIN6", 5);
+    answer(0, "BFIN7", 5);
     while (get32(&op) && get32(&address) && get32(&count)) {
         if (op == 0) break;
         if (op == 1 || op == 2) {
@@ -86,14 +90,21 @@ int main(int argc, char **argv) {
                                  : sim_write(sd, address, buffer, count);
             if (n != count) { answer(1, NULL, 0); break; }
             answer(0, buffer, op == 1 ? count : 0);
-        } else if (op >= 9 && op <= 12) {
+        } else if (op == 14) {
+            if (address || count) { answer(1, NULL, 0); break; }
+            uint64_t ticks = blech_bfin_time();
+            answer(0, NULL, 0);
+            put32(ticks); put32(ticks >> 32);
+            put32(blech_bfin_remaining()); put32(blech_bfin_sleeping()); fflush(reply);
+        } else if ((op >= 9 && op <= 12) || op == 15) {
             uint32_t word = count;
             if (address || ((op == 9 || op == 12) && count)
-                || !blech_bfin_hostdp_bus(sd, op - 9, &word)) {
+                || (op == 15 && count)
+                || !blech_bfin_hostdp_bus(sd, op == 15 ? 4 : op - 9, &word)) {
                 answer(1, NULL, 0); break;
             }
             answer(0, NULL, 0);
-            if (op == 9 || op == 12) { put32(word); fflush(reply); }
+            if (op == 9 || op == 12 || op == 15) { put32(word); fflush(reply); }
         } else if (op == 7) {
             uint32_t hz, rate, mode, seed;
             if (address || count != 16 || !get32(&hz) || !get32(&rate)
@@ -125,12 +136,14 @@ int main(int argc, char **argv) {
                 if (sim_store_register(sd, address, b, 4) != 4) { answer(1, NULL, 0); break; }
                 answer(0, NULL, 0);
             }
-        } else if (op == 5) {
+        } else if (op == 5 || op == 13) {
             uint32_t steps = 0, pc = 0;
             int sig = 0;
             enum sim_stop reason = sim_stopped;
             if (!address || address > 1000000) { answer(1, NULL, 0); break; }
-            blech_bfin_guard(address, count);
+            uint64_t before = blech_bfin_time();
+            if (op == 13) blech_bfin_time_guard(address);
+            else blech_bfin_guard(address, count);
             sim_resume(sd, 0, 0);
             steps = blech_bfin_count();
             sim_stop_reason(sd, &reason, &sig);
@@ -143,7 +156,9 @@ int main(int argc, char **argv) {
                 continue;
             }
             answer(0, NULL, 0);
+            if (op == 13) put32(blech_bfin_time() - before);
             put32(steps); put32(pc); fflush(reply);
+            if (op == 13) { put32(blech_bfin_sleeping()); fflush(reply); }
         } else { answer(1, NULL, 0); break; }
     }
     sim_close(sd, 1);
