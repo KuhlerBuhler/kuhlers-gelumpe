@@ -1,0 +1,13 @@
+{
+ "entries": [
+  {"from": "0xC009816C", "to": "0xC0085764", "kind": "code", "why": "FX_KNOB_STORE, a part's insert knob value into its row (tools/patch/fx_card.s): fwmap, same code True"},
+  {"from": "0xC00980AC", "to": "0xC00856A4", "kind": "code", "why": "FX_KNOB_RESET, the insert knob memory reset (tools/patch/fx_card.s): fwmap, same code True"},
+  {"from": "0xC0048F81", "to": "0xC0043141", "kind": "code", "why": "fx_sites in tools/patch/fx_card.s: the menu length site 0xC0048F80 (entry 0xC0043140) with its flag bits 1 (bit 0 last index, bit 1 master menu)"},
+  {"from": "0xC0049EF1", "to": "0xC004400D", "kind": "code", "why": "fx_sites in tools/patch/fx_card.s: the menu length site 0xC0049EF0 (entry 0xC004400C) with its flag bits 1 (bit 0 last index, bit 1 master menu)"},
+  {"from": "0xC004A1F9", "to": "0xC00442F9", "kind": "code", "why": "fx_sites in tools/patch/fx_card.s: the menu length site 0xC004A1F8 (entry 0xC00442F8) with its flag bits 1 (bit 0 last index, bit 1 master menu)"},
+  {"from": "0xC009814D", "to": "0xC0085745", "kind": "code", "why": "fx_sites in tools/patch/fx_card.s: the menu length site 0xC009814C (entry 0xC0085744) with its flag bits 1 (bit 0 last index, bit 1 master menu)"},
+  {"from": "0xC0098189", "to": "0xC0085781", "kind": "code", "why": "fx_sites in tools/patch/fx_card.s: the menu length site 0xC0098188 (entry 0xC0085780) with its flag bits 1 (bit 0 last index, bit 1 master menu)"},
+  {"from": "0xC00980E9", "to": "0xC00856E1", "kind": "code", "why": "fx_sites in tools/patch/fx_card.s: the menu length site 0xC00980E8 (entry 0xC00856E0) with its flag bits 1 (bit 0 last index, bit 1 master menu)"},
+  {"from": "0xC003EFE6", "to": "0xC0039C06", "kind": "code", "why": "fx_sites in tools/patch/fx_card.s: the menu length site 0xC003EFE4 (entry 0xC0039C04) with its flag bits 2 (bit 0 last index, bit 1 master menu)"}
+ ]
+}

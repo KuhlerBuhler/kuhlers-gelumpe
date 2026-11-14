@@ -170,7 +170,7 @@ zu tun ist.
 | `frame` | | 25 Mal je Sekunde; eine App bekommt es nur, solange sie offen ist |
 | `buttonPress`, `buttonRelease` | `key` | Taste gedrückt, losgelassen; `key` vergleicht man mit einem Namen wie `korg.key.TAP`, siehe „Namen für Tasten und LEDs“ |
 | `knob` | `index`, `value` | Regler bewegt (Rohwert 0 bis 255) |
-| `encoder` | `index`, `delta` | Drehgeber gedreht |
+| `encoder` | `index`, `delta` | Encoder gedreht |
 | `pad` | `index`, `down`, `velocity` | Pad gedrückt oder losgelassen |
 | `touch` | `x`, `y`, `first` | Touchpad berührt oder der Finger darauf bewegt. `x` und `y` sind die Werte der Panel-Nachricht (0 bis 1023, `y` nach oben, am Gerät nicht geprüft). `first` ist 1 bei der ersten Stelle einer Berührung, also dort, wo der Finger aufsetzt, sonst 0. `buttonPress` mit `korg.key.TOUCHPAD` hat keine Lage; sie kommt mit dem `touch` danach, und der trägt `first`. Ein Handler, der nur `x` und `y` nimmt, bleibt Version 1; wer `first` nimmt, braucht API Version 6 |
 | `step` | `step` | Sequencer-Schritt (16tel) |
@@ -695,7 +695,7 @@ Plugin mit einem Fehler.
 | `korg.seq.getGate(part, step)` | liest das Gate-Byte des Steps so, wie es im Pattern steht, ohne Umrechnung: 0 bis 96 ist die Länge, die Step-Eingabe der Firmware schreibt 127 für TIE (das Display zeigt TIE für jeden Wert über 96). In Patterns steht auch 255, `getGate` gibt es unverändert zurück; der Sequencer spielt jedes Gate über 96 als TIE, 127 und 255 gleich (im Emulator auf Hacktribe gemessen). Ab API Version 22 | überall |
 | `korg.seq.getNote(part, step, platz)` | die MIDI-Note auf Notenplatz `platz` (0 bis 3) des Steps, -1 für einen leeren Platz (im Pattern steht Note + 1, 0 heißt leer). Ab API Version 22 | überall |
 | `korg.seq.getVelocity(part, step)` | liest das Velocity-Byte des Steps so, wie es im Pattern steht. Ab API Version 22 | überall |
-| `korg.seq.setPartValue(part, wert, x)` | setzt den Wert `wert` (Nummer in `PART_FIELDS`, wie bei `korg.read.patternValue`) von Part `part` auf `x`, in seinen Bereich geklemmt, über die Funktion der Firmware, die auch die Regler nehmen: Pattern im RAM und Klang ändern sich wie beim Drehen. Für den gewählten Part öffnet sich das Parameterfenster wie beim Regler. `voiceAssign` und `mfxSend` (ab API Version 21) gehen über die Funktion der Firmware, die auch die Seite VOICE ASSIGN im Part-Menü und die Taste MFX SEND rufen; sie schreiben Pattern und die Kopie der Klangerzeugung auf allen drei Firmwares, ohne Parameterfenster. Ab API Version 23 (im Emulator geprüft auf Hacktribe, rot und blau, [Messung](messungen/2026-11-07-plugin-api23-part-writes.md)): `ifxOn` und `ampEg` gehen den Weg der Tasten IFX ON und AMP EG, Pattern, Kopie der Klangerzeugung und die LED der Taste stehen danach wie nach der Taste; `mfxSend` schaltet jetzt auch seine LED. Die LED leuchtet nur für den gewählten Part, wie an der Taste. Ab API Version 24 schickt der Aufruf denselben MIDI-CC wie der Regler, der Drehgeber CUTOFF oder die Taste (IFX ON, MFX SEND), auf dem Kanal des Parts. `ifxType` geht wie der Drehgeber IFX über den Part-Edit und zeigt dasselbe Fenster; er hält bei der letzten Nummer der Firmware an (mit dem BLECHTRIBE-Satz 58 auf Hacktribe, 47 auf rot, 37 auf blau; die Grenze liest der Aufruf zur Laufzeit aus der Firmware, ein fx-Katalog mit mehr Typen hebt sie mit), statt umzuspringen. `sample` nimmt die ganze Slotnummer (0 bis 999) über den Part-Edit wie der Regler SAMPLE, aber nur einen Slot, bei dem der Regler stehen bleibt; einen leeren Slot schreibt der Aufruf nicht. Auf blau gibt es keine Samples, dort schreibt `sample` nichts. Jeder Wert geht außerdem so an die Klangerzeugung wie vom Bedienelement (im Emulator auf allen drei Firmwares geprüft, Befunde aus PR #401, [Messung](messungen/2026-11-09-plugin-part-dsp.md)): die Werte der Regler und CUTOFF danach an den Parametersetzer der Firmware wie der Regler, `sample`, `modType`, `ifxType` und `filterType` mit dem Auffrischen wie die Drehgeber und Filtertasten, `mfxSend` mit 127 statt 1 wie die Taste. `filterType` schaltet für den gewählten Part die LEDs LPF, HPF und BPF wie die Taste, `modType` zeigt das Fenster des Drehgebers MOD. Ab API Version 24 setzt `sample` auf einem Sample mit Slices auch den Slice wie der Regler SAMPLE, wenn er auf das Sample hochgedreht wird (im Emulator mit einem gestellten Slice-Sample geprüft, die Karte im Emulator hat keins). Lesbarer als `korg.parts[i].cutoff = x`. Ab API Version 24 geht der Aufruf auch auf der blauen Electribe über den Part-Edit der Regler, mit Fenster. Die Werte der Seiten LAST STEP bis SCALE MODE und GROOVE im Part-Menü (ab API Version 24) gehen über die Funktion dieser Seiten und landen wie nach dem Drehen im Menü. Im Emulator geprüft ([Messung](messungen/2026-11-06-plugin-api21-pattern-parts.md), [API 24](messungen/2026-11-08-plugin-api24-part-cc.md)), am Gerät nicht. Ab API Version 14 | wie `korg.led` |
+| `korg.seq.setPartValue(part, wert, x)` | setzt den Wert `wert` (Nummer in `PART_FIELDS`, wie bei `korg.read.patternValue`) von Part `part` auf `x`, in seinen Bereich geklemmt, über die Funktion der Firmware, die auch die Regler nehmen: Pattern im RAM und Klang ändern sich wie beim Drehen. Für den gewählten Part öffnet sich das Parameterfenster wie beim Regler. `voiceAssign` und `mfxSend` (ab API Version 21) gehen über die Funktion der Firmware, die auch die Seite VOICE ASSIGN im Part-Menü und die Taste MFX SEND rufen; sie schreiben Pattern und die Kopie der Klangerzeugung auf allen drei Firmwares, ohne Parameterfenster. Ab API Version 23 (im Emulator geprüft auf Hacktribe, rot und blau, [Messung](messungen/2026-11-07-plugin-api23-part-writes.md)): `ifxOn` und `ampEg` gehen den Weg der Tasten IFX ON und AMP EG, Pattern, Kopie der Klangerzeugung und die LED der Taste stehen danach wie nach der Taste; `mfxSend` schaltet jetzt auch seine LED. Die LED leuchtet nur für den gewählten Part, wie an der Taste. Ab API Version 24 schickt der Aufruf denselben MIDI-CC wie der Regler, der Encoder CUTOFF oder die Taste (IFX ON, MFX SEND), auf dem Kanal des Parts. `ifxType` geht wie der Encoder IFX über den Part-Edit und zeigt dasselbe Fenster; er hält bei der letzten Nummer der Firmware an (mit dem BLECHTRIBE-Satz 58 auf Hacktribe, 47 auf rot, 37 auf blau; die Grenze liest der Aufruf zur Laufzeit aus der Firmware, ein fx-Katalog mit mehr Typen hebt sie mit), statt umzuspringen. `sample` nimmt die ganze Slotnummer (0 bis 999) über den Part-Edit wie der Regler SAMPLE, aber nur einen Slot, bei dem der Regler stehen bleibt; einen leeren Slot schreibt der Aufruf nicht. Auf blau gibt es keine Samples, dort schreibt `sample` nichts. Jeder Wert geht außerdem so an die Klangerzeugung wie vom Bedienelement (im Emulator auf allen drei Firmwares geprüft, Befunde aus PR #401, [Messung](messungen/2026-11-09-plugin-part-dsp.md)): die Werte der Regler und CUTOFF danach an den Parametersetzer der Firmware wie der Regler, `sample`, `modType`, `ifxType` und `filterType` mit dem Auffrischen wie die Encoder und Filtertasten, `mfxSend` mit 127 statt 1 wie die Taste. `filterType` schaltet für den gewählten Part die LEDs LPF, HPF und BPF wie die Taste, `modType` zeigt das Fenster des Encoders MOD. Ab API Version 24 setzt `sample` auf einem Sample mit Slices auch den Slice wie der Regler SAMPLE, wenn er auf das Sample hochgedreht wird (im Emulator mit einem gestellten Slice-Sample geprüft, die Karte im Emulator hat keins). Lesbarer als `korg.parts[i].cutoff = x`. Ab API Version 24 geht der Aufruf auch auf der blauen Electribe über den Part-Edit der Regler, mit Fenster. Die Werte der Seiten LAST STEP bis SCALE MODE und GROOVE im Part-Menü (ab API Version 24) gehen über die Funktion dieser Seiten und landen wie nach dem Drehen im Menü. Im Emulator geprüft ([Messung](messungen/2026-11-06-plugin-api21-pattern-parts.md), [API 24](messungen/2026-11-08-plugin-api24-part-cc.md)), am Gerät nicht. Ab API Version 14 | wie `korg.led` |
 | `korg.seq.setPatternValue(wert, x)` | setzt den Wert `wert` (Nummer in `PATTERN_FIELDS`, wie bei `korg.read.patternValue` mit `part` -1) des Patterns, das läuft, auf `x`, in seinen Bereich geklemmt, über die Funktion der Firmware, die auch das Pattern-Menü nimmt: im Block steht danach dasselbe Byte wie nach dem Drehen im Menü. MFX TYPE geht auf blau nur bis 31. `syncGroup` (Wert 12, ab API Version 21) hat keine Funktion der Firmware, die Firmware kennt es nicht; der Aufruf schreibt es in den Block wie die Seite SYNC GROUP. Ab API Version 24: `alternate1314` und `alternate1516` gehen über die Funktion der Seiten ALTERNATE; `mfxHold` drückt die Taste MFX HOLD, wenn der Wert sich ändert, LED, Effekt und Touchpad stehen danach wie nach der Taste (der Wert steht erst nach dem nächsten Bild im Block); `mfxPadX` und `mfxPadY` setzen den Wert des Touchpads und schicken den MIDI-CC wie das Touchpad auf dem globalen Kanal. Der Name des Patterns lässt sich nicht setzen. Im Emulator geprüft auf Hacktribe, rot und blau ([Messung](messungen/2026-11-03-plugin-api15.md)), am Gerät noch nicht. Die Tabelle je Firmware steht in `tools/patch/script_hooks.py` (`PATTERN_SETTERS`). Ab API Version 15 | wie `korg.led` |
 | `korg.read.patternBytes(feld, pattern, offset)` | kopiert Bytes eines Patterns ins Feld, ein Byte je Platz: `pattern` -1 das im RAM, 0 bis 249 ein gespeichertes, ab `offset` (0 bis 16383) im Block von 16384 Byte, so viele wie das Feld Plätze hat und der Block reicht. Gibt die Zahl der Bytes zurück. Die Stellen stehen in `data/map/pattern.mjs`: Part `p` beginnt bei 2048 + 816 × `p`, sein Step `s` bei 48 + 12 × `s` darin. Ab API Version 14 | überall |
 | `korg.read.patternName(feld, pattern)` | kopiert die 16 Bytes des Pattern-Namens (Offset 16 im Block) ins Feld, ein Byte je Platz, wie `korg.read.patternBytes(feld, pattern, 16)` mit höchstens 16 Plätzen; `pattern` -1 das im RAM, 0 bis 249 ein gespeichertes. Gibt die Zahl der Bytes zurück. Anzeigen mit `korg.display.chars`. Ab API Version 29 | überall |
@@ -970,7 +970,7 @@ Laden des Moduls gegen den Bereich von `korg.led`. Woher die Nummern kommen
 | `korg.key.TOUCHPAD` | 34 | Touchpad berührt |
 
 Die Tasten `1` bis `4` und `TOUCHPAD` (das Berühren des Touchpads, mit `touch` für die
-Lage) kommen wie jede Taste als `buttonPress`. Ein Drehgeber, ein Regler oder ein Pad
+Lage) kommen wie jede Taste als `buttonPress`. Ein Encoder, ein Regler oder ein Pad
 sendet kein `buttonPress`, sondern `encoder`, `knob` und `pad` mit ihrem `index`.
 
 **Regler** (`index` bei `knob`, `korg.read.knob(index)`, `korg.knobs.NAME`):
@@ -989,11 +989,11 @@ sendet kein `buttonPress`, sondern `encoder`, `knob` und `pad` mit ihrem `index`
 | 9 | `korg.knobs.OSC_EDIT` | OSC EDIT |
 | 10 | `korg.knobs.MOD_SPEED` | MOD. SPEED |
 
-Die Indizes 11 bis 19 gehören zu keinem Regler, sie bleiben 0. CUTOFF ist kein Regler, sondern ein Drehgeber.
+Die Indizes 11 bis 19 gehören zu keinem Regler, sie bleiben 0. CUTOFF ist kein Regler, sondern ein Encoder.
 
-**Drehgeber** (`index` bei `encoder`):
+**Encoder** (endlos drehbar, `index` bei `encoder`):
 
-| Index | Drehgeber |
+| Index | Encoder |
 |---|---|
 | 0 | VALUE / PATTERN (das große Rad) |
 | 1 | SAMPLE / OSC |
@@ -1500,13 +1500,21 @@ Das sind Messungen der JavaScript-Referenz, keine Gerätezeiten. Die Arbeitsreih
 später sichtbar machen ([Messung](messungen/2026-10-19-mandelbrot-arbeitsliste.md)). Die Zoomstufe geht bis 7,
 tiefer reichen die 14 Bit nicht.
 
-**BPM Glide** (Idee: [KrImZoR](https://www.instagram.com/krimzor_live)) ist keine App, sondern läuft im Hintergrund.
-Kettet das laufende Pattern weiter (Chain To, CHAIN MODE an), gleitet das Tempo vom Tempo beim Start zum gespeicherten
-Tempo des nächsten Patterns, verteilt über Länge mal Chain Repeat; der letzte Schritt erreicht das neue Tempo, der
-Wechsel springt also nicht. Es liest die Kette beim ersten Schritt nach PLAY oder einem Patternwechsel, weil die Firmware
-das neue Pattern erst dann im RAM hat. STOP setzt das Tempo zurück, mit dem das Pattern gestartet ist. Die Seite
-BPM GLIDE im Menü BLECH schaltet es an (1) und aus (0), `korg.store` behält die Einstellung. Weil `korg.tempo` das
-Tempo des Patterns im RAM setzt, gilt es bis STOP als ungespeicherte Änderung. Im Simulator geprüft
+**BPM Glide** (Idee: [KrImZoR](https://www.instagram.com/krimzor_live)) braucht API 18 und läuft im Hintergrund.
+Es gleitet das Tempo zum gespeicherten Tempo des Patterns, das als nächstes kommt, so dass der Wechsel nicht springt. Zwei
+Seiten im Menü BLECH schalten die beiden Wege an (1) und aus (0), beide sind an, `korg.store` behält die Einstellung.
+GLIDE CHAIN: kettet das laufende Pattern weiter (Chain To, CHAIN MODE an), gleitet das Tempo vom Tempo beim Start zum
+gespeicherten Tempo des nächsten Patterns, verteilt über Länge mal Chain Repeat; der letzte Schritt erreicht das neue Tempo.
+Es liest die Kette beim ersten Schritt nach PLAY oder einem Patternwechsel, weil die Firmware das neue Pattern erst dann im
+RAM hat. STOP setzt das Tempo zurück, mit dem das Pattern gestartet ist. GLIDE SWITCH: bestätigt MENU beim Spielen ein
+Pattern, das am Rad gewählt ist (unten `NEXT:`), gleitet das Tempo vom Tempo in diesem Moment zum gespeicherten Tempo dieses
+Patterns, verteilt über den Schritt der Bestätigung und die Schritte bis zum Sequenzende, wo die Firmware wechselt: bei
+Schritt 1 bestätigt über das ganze Pattern, in der Mitte über die zweite Hälfte. Das Plugin sieht die Bestätigung über
+`korg.nextPattern` (API 18) bei jedem Schritt; Blättern allein (`VIEW:`) zählt nicht, mit PATTERN CONFIRM OFF gibt es
+nichts zu sehen. Ein bestätigtes Pattern gewinnt über die Kette, wie bei der Firmware. Nimmt EXIT die Bestätigung zurück,
+gleitet die Kette weiter, ohne Kette geht das Tempo auf den Stand vor der Bestätigung zurück. Eine neue Bestätigung startet
+von vorn vom Tempo in dem Moment. STOP wendet ein bestätigtes Pattern wie die Firmware gleich an, mit seinem Tempo. Weil
+`korg.tempo` das Tempo des Patterns im RAM setzt, gilt es bis STOP als ungespeicherte Änderung. Im Simulator geprüft
 (`test/script-bpm-glide.test.mjs`), am Gerät nicht.
 
 **Momentary Mute** (Wunsch aus der Community nach dem Vorbild des Korg ESX, [Idee 91](ideen/91-moment-mute.md)) braucht
@@ -1603,21 +1611,35 @@ gewählten Parts, STOP stellt es wieder her. Im Katalog wirkt es nur auf die Par
 bei einem Patternwechsel merkt (`maxParts = 8`): das Original schrieb bei jedem Step auch die Parts 9 bis 16 und setzte
 deren Glide auf 0. Im Simulator geprüft (`test/script-community-catalog.test.mjs`), laut Autor am Gerät.
 
-**PLAY-Takt** braucht API 11 und läuft im Hintergrund. Solange der Sequencer läuft, blinkt die PLAY-LED (rot und blau) im
-Tempo des Patterns: das Ereignis `beat` macht sie auf jeder Viertel an, `korg.afterSteps(2, ...)` zwei Schritte später aus,
-mit BEAT 8 also auf jeder halben Note. Bei STOP und in der Pause leuchtet sie ruhig; `korg.cancel` räumt dann den Timer ab.
-In der Pause blinkt die Firmware die PLAY-LED selbst, das Plugin setzt sie dort in jedem Rahmen wieder an: im Emulator
-bleibt sie danach höchstens einen Umlauf der LED-Matrix dunkel (5,5 ms im Modell von `tools/emu/panel_leds.py`), bei STOP
-bis zum nächsten Rahmen (40 ms). Es ist zugleich das Beispiel des Katalogs für die Timer. Im Simulator
-(`test/script-play-takt.test.mjs`) und im Emulator (`tools/emu/timer_cases.py`, Hacktribe) geprüft, am Gerät nicht.
+**Pad Finger** (von nic0crank, aus dem BLECH-Discord, geschickt als Touch Pad Tester) ist eine App unter TOOLS und braucht
+API 15. Solange sie offen ist, zeigt sie oben links X und Y des Touchpads (Rohwerte 0 bis 1023) und ein Fadenkreuz, wo der
+Finger liegt. TAP schaltet zwischen LOCK (Vorgabe) und FREE, oben rechts angezeigt: mit LOCK hält `korg.touchLockX` das X,
+das die Firmware sieht, dort, wo der Finger aufsetzt, Y bleibt das des Fingers; Finger heben, FREE oder die App schließen
+lässt los. Code unverändert. Im Simulator geprüft (`test/script-community-catalog.test.mjs`), nicht am Gerät.
+
+**Blechy Run** ist eine App unter GAMES und braucht API 6: ein Endlos-Läufer mit Blechy, dem Maskottchen, als kleines
+Bild (20 x 24 Pixel, aus den Sprites calm und walk in `assets/blechy/sprites`, beim Treffer mit Kreuzen als Augen). Von rechts
+kommen Blöcke in drei Größen, jede Taste außer PLAY, STOP und REC, ein Pad oder das Touchpad lässt ihn springen. Alle 2 s wird
+es etwas schneller, bis zum Höchsttempo nach gut einer Minute. Ein Treffer zeigt GAME OVER und den Punktestand; der beste
+bleibt mit `korg.store` (Platz 0) auf der Karte und steht oben links als HI. Nach einer kurzen Pause starten dieselben Tasten
+den nächsten Lauf, EXIT verlässt das Spiel. Die Pads spielen dabei weiter die Electribe. Im Simulator geprüft
+(`test/script-community-catalog.test.mjs`), nicht am Gerät.
+
+**STOP-Takt** braucht API 11 und läuft im Hintergrund. Solange der Sequencer läuft, blinkt die STOP-LED im Tempo des
+Patterns: das Ereignis `beat` macht sie auf jeder Viertel an, `korg.afterSteps(1, ...)` einen Schritt später aus, mit
+BEAT 8 also auf jeder halben Note kurz. Bei STOP und in der Pause ist sie aus; `korg.cancel` räumt dann den Timer ab. Die
+PLAY-LED fasst das Plugin nicht an, sie zeigt wie in der Firmware Spielen und Pause. Die Firmware schreibt die STOP-LED im
+Emulator nie. Die Kennung im Katalog bleibt `playtakt` (bis 1.4.5 hieß das Plugin PLAY-Takt und blinkte auf PLAY). Es ist
+zugleich das Beispiel des Katalogs für die Timer. Im Simulator (`test/script-play-takt.test.mjs`) und im Emulator
+(`tools/emu/timer_cases.py`, Hacktribe, Rot und Blau, gegen denselben Ablauf ohne Plugin) geprüft, am Gerät nicht.
 
 ## Die Seite Plugins im Editor
 
 Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokumentation. Der Titel in der
 Brotkrumenleiste führt immer zurück zum Katalog.
 
-**Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon
-und Mandelbrot unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, PLAY-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent und Easy Slides (TOOLS), Quelle
+**Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
+Mandelbrot und Blechy Run unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, STOP-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides und Pad Finger (TOOLS), Quelle
 `data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem

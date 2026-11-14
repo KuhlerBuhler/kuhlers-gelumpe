@@ -101,6 +101,7 @@ Startphase, Startmodi, Notschalter, Firmware als Datei und der Weg zurück.
 - [Firmware-Rückweg: geprüfte Quellen und getrennte Verfahren](2026-10-08-firmware-rueckweg.md)
 - [Geänderte Firmware als Datei, im Emulator gebootet](2026-10-09-firmware-export.md)
 - [Rückweg geübt: eigene Firmware hin, Original zurück](2026-10-10-rueckweg-geuebt.md)
+- [SOFTWARE UPDATE prüft die Dateigröße: eine abgeschnittene SYSTEM.VSB wird nicht geflasht, im Emulator](2026-11-13-update-schutz.md)
 
 
 ## Emulator
@@ -265,6 +266,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [AUTO SAVE: GLOBAL PARAMETERS und BLECH-Einstellungen speichern sich beim Verlassen, nur mit Änderung, im Emulator](2026-11-09-auto-save.md)
 - [ORIG im BLECH-Menü wie auf den Seiten der Firmware; Spielhilfen mit einer erst nach dem Start eingesteckten Karte, im Emulator](2026-11-11-orig-und-karte-spaeter.md)
 - [Die später gesteckte Karte bringt ihre ganze Einstellungsdatei mit, auch beim Kartentausch, im Emulator](2026-11-12-karte-spaeter-einstellungen.md)
+- [Karte steckt, aber "No Card.": die Init-Sperre in Korgs SD-Treiber und das einmalige Neu-Lesen, am Gerät und im Emulator](2026-11-14-karte-init-sperre.md)
 - [BLECH-Einstellungen ohne Karte im Flash: zwei Sektoren im Wechsel, die Karte gewinnt beim Start, beim Einstecken fragt das Display SAVE TO FLASH?, im Emulator](2026-11-13-einstellungen-flash.md)
 - [Startbild-Editor auf der blauen: SPLASH IMPORT, DRAW und RESET, Bild im Flash-Sektor 0x7F0000, im Emulator](2026-11-13-startbild-editor-blau.md)
 - [Media-Ordner: Startbild und Ladeanimation von der Karte, Einstellung in Byte 14 der BLLA-Datei, im Emulator](2026-11-14-media-ordner.md)

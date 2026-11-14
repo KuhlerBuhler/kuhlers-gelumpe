@@ -173,7 +173,10 @@ Wegwerfkopie davon. Die geladene Datei bleibt in beiden Fällen unberührt.
   angekommen ist, dann entschieden.
 - Vor jedem RAM-Schreiben wird der alte Inhalt gelesen und gehört zur Sitzung,
   damit Rückgängig auch live geht.
-- Je Sitzung läuft genau eine Operation, eine zweite wird abgelehnt.
+- Je Sitzung läuft genau eine Operation, eine zweite wird abgelehnt. Wer neben
+  anderen Lesern laufen kann (Startseite, Seitenleiste, Effekte), wartet, bis die
+  Sitzung frei ist, und fragt neu; eine Ablehnung wegen "busy" ist keine Antwort
+  und wird nicht als "unbekannt" gemerkt.
 - Es zählt nur die Antwortart, die der Schritt erwartet, mit genau der erfragten
   Länge. Nach einer Zeitüberschreitung wartet der nächste Schritt, bis die Leitung
   ruhig ist.

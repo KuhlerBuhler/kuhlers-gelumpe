@@ -284,7 +284,7 @@ dorthin, danach am Gerät Menü -> BLECH -> PLUGINS. Geschrieben wird in einer a
 nur das Plugin abgeschaltet, die Electribe läuft normal weiter. Sprache, Ereignisse und Funktionen:
 [docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: Set-Timer, BLECH Clicker,
 Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Image Viewer, BPM Glide,
-Momentary Mute, Gate Hold, Step Copy, Lauflicht, Pulsieren und PLAY-Takt.
+Momentary Mute, Gate Hold, Step Copy, Lauflicht, Pulsieren und STOP-Takt.
 
 ## Der Emulator
 

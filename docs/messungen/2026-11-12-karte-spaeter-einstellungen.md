@@ -28,6 +28,7 @@ im Menüzustand) setzt `menu_arm_load` am Ende des Starts: mit Karte auf `CARD_D
 geht der Wächter sofort heraus. Sonst setzt ihn eine gezogene Karte auf 0, eine gesteckte zählt hoch; nach 8 Frames setzt er sich auf
 `CARD_DONE` und ruft `menu_settings_load`, dieselbe Funktion wie der Start. Ohne Datei geht `menu_settings_load` beim Nachstecken
 sofort heraus (beim Start setzt sie den Standard).
+Sperrt Korgs SD-Treiber die Karte beim Lesen (`CARD_WAIT`, `CARD_STUCK`), siehe [Init-Sperre](2026-11-14-karte-init-sperre.md).
 
 ## Hänger bei der ersten Karte nach einem Start ohne Karte
 

@@ -58,3 +58,21 @@ stecken (`data/units.json`), die Modulationen sind Einträge der 72-Arten-Tabell
 3. Zwei-Stufen-Effekte (Bass Enhancer, Hardtekk Kick, Tekk Kick Soft, Warm Drive, Glue Comp): läuft Stufe 2, Pegel, kein Absturz.
 4. Alle Pegel, besonders Bit Grinder, Alias Crush, Master Warmth, Master Glue.
 5. Die DSP-Last mit vielen Parts auf diesen Effekten (Korg nennt zu viele schwere Effekte als Grund für ausbleibende Noten).
+
+## Nachtrag 2026-11-13: Limiter in Stufe 2
+
+Ein Nutzer meldet für develop/1.4.6: IFX 62 (Bass Enhancer) und IFX 63 (Hardtekk Kick) bringen die Electribe zum Glitchen.
+Der DSP-Simulator (alle 400 Paare aus Stufe 1 und 2, Doku auf develop mit #541) sagt dasselbe voraus: der Limiter (`0x05`)
+in Stufe 2 stürzt hinter `0x07` (EQ 4 Bänder) und `0x0f` (Distortion) ab. Hinter dem Filter (`0x0a`, gemessen), `0x06`
+(EQ 2 Bänder), `0x10` (Acid Drive) und `0x02` läuft er dort.
+
+Geändert vor dem Release von 1.4.6:
+
+| Effekt | vorher | jetzt |
+|---|---|---|
+| Bass Enhancer | EQ 4 Bänder vor Limiter | EQ 2 Bänder vor Limiter, dieselben Werte (Bänder 3 und 4 standen neutral auf 36) |
+| Hardtekk Kick | Distortion vor Limiter | Distortion allein |
+| ULTRA LOUD | Distortion (Gain 127) vor Limiter | Acid Drive (Drive 127, Pegel 30) vor Limiter |
+
+Alle übrigen Katalog-Inserts liegen auf Paaren, die im Simulator laufen. Am Gerät offen: die drei neuen Fassungen hören,
+ULTRA LOUD auch auf den Pegel.

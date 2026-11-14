@@ -602,7 +602,8 @@ def file_cases(payload, flash):
     data = bytes(rng.getrandbits(8) for _ in range(70000))
     dev, lk = device({f"KORG/{folder}/System/keep.txt": b"x", "KORG/blechtribe/Plugin/keep.txt": b"x"})
     none = lk.file_read(0, 0)
-    out.append(entry("file_missing", none and none["status"] == spec.STATUS_FILE and none["size"] == 0, f"no update file yet: status {none and none['status']}"))
+    out.append(entry("file_missing", none and none["status"] == spec.STATUS_FILE and none["size"] == 0 and none["crc"] == 4,
+                     f"no update file yet: status {none and none['status']}, FatFs code {none and none['crc']} (4 FR_NO_FILE)"))
     results = []
     for at in range(0, len(data), spec.MAX_BLOCK):
         results.append(lk.file_write(at, data[at:at + spec.MAX_BLOCK]))
@@ -644,7 +645,19 @@ def file_cases(payload, flash):
                      f"a card without KORG/blechtribe (the blue's has only KORG/electribe): PLUGIN BEGIN makes the folders and writes {made} ({on_card(bare, made) == blob[:300]})"))
     nocard, lk2 = device(card=False)
     r = lk2.file_read(0, 0)
-    out.append(entry("file_no_card", r and r["status"] == spec.STATUS_FILE and not nocard.m.asserts, f"without a card: status {r and r['status']}"))
+    out.append(entry("file_no_card", r and r["status"] == spec.STATUS_FILE and r["crc"] == spec.FR_CARD_NEVER and not nocard.m.asserts,
+                     f"without a card: status {r and r['status']}, code {r and r['crc']:#x} (a start without a card)"))
+    # a card put in after a start without one: Korg's SD init can hang on it (#518), so the FILE commands leave it alone until the next start
+    late = SDCard(MemoryMedium(bytearray(fat32.format_image(64 * 1024 * 1024))))
+    nocard.m.insert_card(late)
+    nocard.run(1.0)
+    r = lk2.file_read(0, 0)
+    b2, d2 = lk2.file_write(0, b"x" * 64)
+    out.append(entry("file_card_after_start_without_one", r and r["status"] == spec.STATUS_FILE and r["crc"] == spec.FR_CARD_NEVER
+                     and d2 and d2["status"] == spec.STATUS_FILE and d2["crc"] == spec.FR_CARD_NEVER
+                     and sum(late.commands.values()) == 0 and not nocard.m.asserts,
+                     f"FILE READ status {r and r['status']} code {r and r['crc']:#x}, DATA status {d2 and d2['status']} code {d2 and d2['crc']:#x}, "
+                     f"commands sent to the card {sum(late.commands.values())}"))
     held, lk3 = device(held=KILL)
     r = lk3.file_read(0, 0)
     out.append(entry("file_kill_switch_silent", r is None, "with EXIT held at power-on FILE READ gets no answer"))

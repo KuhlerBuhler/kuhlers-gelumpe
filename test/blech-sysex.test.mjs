@@ -11,7 +11,7 @@ import { protectTable } from "../src/sysex-table.mjs";
 import { allowedRegions } from "../src/plan.mjs";
 import { refusal } from "../src/protect.mjs";
 import PROTECTED from "../data/protected.mjs";
-import { BLECH, blechInfo, blechRead, blechBegin, blechData, classify, parseBlechInfo, parseBlechRead, parseBlechBegin, parseBlechData, BlechError, ReplyError, head, crc32, ackFor, pluginName, blechPluginBegin, describeMessage, blechFileCopy, blechFileDelete, blechFileCrc, parseBlechFileCopy, parseBlechFileDelete, parseBlechFileCrc } from "../src/protocol.mjs";
+import { BLECH, blechInfo, blechRead, blechBegin, blechData, classify, parseBlechInfo, parseBlechRead, parseBlechBegin, parseBlechData, BlechError, ReplyError, head, crc32, ackFor, pluginName, blechPluginBegin, describeMessage, blechFileCopy, blechFileDelete, blechFileCrc, parseBlechFileCopy, parseBlechFileDelete, parseBlechFileCrc, parseBlechFileRead } from "../src/protocol.mjs";
 import { syxEnc, syxDec, u32le } from "../src/bytes.mjs";
 import EXEC from "../data/exec.mjs";
 import { hasBlechSysex } from "../src/firmware.mjs";
@@ -117,6 +117,15 @@ describe("the answers", () => {
     for (const status of [BLECH.STATUS.REFUSED, BLECH.STATUS.RANGE]) {
       assert.throws(() => parseBlechRead(answer(BLECH.R_READ, status, 0, 0, 0), 3, 100), e => e instanceof BlechError && !e.retry && e.status === status);
     }
+  });
+
+  test("status 6 of FILE READ and DATA carries the card's code in word 3, and the error names it", () => {
+    const file = (code) => () => parseBlechFileRead(answer(BLECH.R_FILE_READ, BLECH.STATUS.FILE, 0, 0, code, 0), 3, 0);
+    assert.throws(file(4), e => e instanceof BlechError && e.status === BLECH.STATUS.FILE && e.code === 4 && /Code 4/.test(e.message));
+    assert.throws(file(0x80), e => e.code === 0x80 && /Neustart/.test(e.message));
+    assert.throws(file(99), e => e.code === 99 && /Code 99/.test(e.message), "an unknown code still shows its number");
+    assert.throws(() => parseBlechData(answer(BLECH.R_DATA, BLECH.STATUS.FILE, 0, 0, 0x81), 3, 77), e => e.code === 0x81 && /Code 129/.test(e.message));
+    assert.throws(() => parseBlechData(answer(BLECH.R_DATA, BLECH.STATUS.RANGE, 0, 0, 77), 3, 77), e => e.code === 0, "word 3 is a code only with status 6");
   });
 
   test("BEGIN and DATA: ok, a refusal at BEGIN, and a read-back CRC that is not the one sent", () => {

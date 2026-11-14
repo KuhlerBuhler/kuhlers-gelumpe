@@ -44,10 +44,13 @@ Was er nicht ist:
   braucht keine Node-Laufzeit, nur Python. Was einige Fälle aus dem
   JavaScript des Repositorys brauchen (übersetzte Plugins, Feldlisten,
   Presets), steht vorberechnet in `data/emu/node-results.json` und geht mit
-  in die App. Nach einer Änderung an Compiler, Vertrag, Presets oder Karte
-  die Datei neu schreiben: `tools/emu/.venv/bin/python
+  in die App. Nach einer Änderung an Compiler, Vertrag, Presets oder Karte,
+  und für jedes neue Test-Plugin in einem Fall, die Datei neu schreiben: `tools/emu/.venv/bin/python
   tools/emu/node_results.py`. `test/node-results.test.mjs` schlägt fehl,
-  solange sie veraltet ist.
+  solange sie veraltet ist, und die Verify-Jobs auch.
+- Unicorn merkt sich übersetzte Code-Blöcke. Ein Code-Hook, der für schon
+  gelaufenen Code nachträglich gesetzt wird, greift erst nach
+  `uc.ctl_remove_cache(start, end)` für diesen Bereich (gemessen).
 
 Die Messungen tragen die Marker **gemessen** (am Gerät), **hergeleitet**,
 **offen**, **offline** (im Emulator am Originalcode beobachtet) und
