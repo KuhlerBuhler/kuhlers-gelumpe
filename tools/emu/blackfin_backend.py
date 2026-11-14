@@ -49,8 +49,8 @@ class BlackfinBackend:
             os.set_blocking(self.process.stdin.fileno(), False)
             os.set_blocking(self.process.stdout.fileno(), False)
             self._selector.register(self.process.stdout, selectors.EVENT_READ)
-            if self._response() != b'BFIN4':
-                raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN4')
+            if self._response() != b'BFIN5':
+                raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN5')
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
             self.close()
@@ -147,6 +147,20 @@ class BlackfinBackend:
             raise ValueError('invalid HOSTDP event')
         self._request(6, event, 0)
 
+    def configure_sport(self, *, core_hz, input='silence', seed=1):
+        if not isinstance(core_hz, int) or not 48000 <= core_hz <= 2000000000:
+            raise ValueError('invalid SPORT0 test core frequency')
+        if input not in ('silence', 'lcg') or not isinstance(seed, int) or not 0 <= seed <= 0xFFFFFFFF:
+            raise ValueError('invalid SPORT0 input configuration')
+        data = struct.pack('<4I', core_hz, 48000, input == 'lcg', seed)
+        self._request(7, 0, len(data), data)
+
+    def sport_status(self):
+        names = ('core_hz', 'rate', 'input', 'seed', 'lcg_state', 'rx_frames', 'tx_frames',
+                 'rx_words', 'tx_words', 'tx_hash', 'rx_fifo_words', 'tx_fifo_words')
+        values = struct.unpack('<12I', self._request(8, 0, 0, extra=48))
+        return dict(zip(names, values))
+
     def run(self, steps, *, until=0xFFFFFFFF):
         if not 1 <= steps <= 1000000 or not 0 <= until <= 0xFFFFFFFF:
             raise ValueError('invalid Blackfin execution budget')
@@ -225,7 +239,7 @@ def boot_blocks(data):
 class BlackfinPort:
     """Explicit experimental DSP endpoint. Unready or failed sessions never read as zero."""
     def __init__(self, worker, *, ready_address=0xFF9031D8, boot_steps=1000000,
-                 timeout=5, operating=False, rom=None, boot_timeout=300):
+                 timeout=5, operating=False, rom=None, boot_timeout=300, sport=None):
         BlackfinBackend._span(ready_address, 4)
         if ready_address & 3 or not isinstance(boot_steps, int) or not 1 <= boot_steps <= 500000000:
             raise ValueError('aligned readiness word and bounded initialization budget required')
@@ -233,6 +247,7 @@ class BlackfinPort:
             raise ValueError('a finite positive native startup deadline is required')
         self.worker, self.timeout, self.operating = worker, timeout, operating
         self.rom = rom
+        self.sport = sport
         self.ready_address, self.boot_steps = ready_address, boot_steps
         self.boot_timeout = boot_timeout
         self.backend = None
@@ -246,6 +261,8 @@ class BlackfinPort:
         blocks = boot_blocks(stream)
         self.backend = BlackfinBackend(self.worker, timeout=self.timeout, operating=self.operating, rom=self.rom)
         try:
+            if self.sport is not None:
+                self.backend.configure_sport(**self.sport)
             for flags, target, size, argument, data in blocks:
                 if flags & (0x800 | 0x1000):
                     continue

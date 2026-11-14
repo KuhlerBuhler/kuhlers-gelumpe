@@ -337,3 +337,4 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Blackfin: echter Start und fehlende ROM-Funktionen](2026-11-14-blackfin-rtos-rom.md)
 - [Blackfin: SysControl und RTOS-Start](2026-11-14-blackfin-syscontrol.md)
 - [Blackfin: HOSTDP-Register und Interrupts](2026-11-14-blackfin-hostdp.md)
+- [Blackfin: SPORT0 und der native Audiotakt](2026-11-14-blackfin-sport0.md)

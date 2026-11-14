@@ -1,5 +1,7 @@
 # Blackfin: HOSTDP-Register und Interrupts
 
+Fortsetzung: [SPORT0 und der native Audiotakt](2026-11-14-blackfin-sport0.md).
+
 ## Hergeleitet
 
 Das

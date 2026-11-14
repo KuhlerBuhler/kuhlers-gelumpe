@@ -43,7 +43,7 @@ class Failures(unittest.TestCase):
     def test_a_worker_that_stops_reading_cannot_block_a_large_write(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'worker'
-            path.write_text("#!/usr/bin/env python3\nimport os,struct,time\nos.write(1,struct.pack('<II',0,5)+b'BFIN4')\ntime.sleep(30)\n")
+            path.write_text("#!/usr/bin/env python3\nimport os,struct,time\nos.write(1,struct.pack('<II',0,5)+b'BFIN5')\ntime.sleep(30)\n")
             path.chmod(0o755)
             with BlackfinBackend(path, timeout=3) as backend:
                 backend.timeout = .1
@@ -53,7 +53,7 @@ class Failures(unittest.TestCase):
     def test_a_crashed_worker_is_a_failure_and_cannot_continue(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'worker'
-            path.write_text("#!/usr/bin/env python3\nimport os,struct\nos.write(1,struct.pack('<II',0,5)+b'BFIN4')\nos.read(0,12)\nos._exit(139)\n")
+            path.write_text("#!/usr/bin/env python3\nimport os,struct\nos.write(1,struct.pack('<II',0,5)+b'BFIN5')\nos.read(0,12)\nos._exit(139)\n")
             path.chmod(0o755)
             with BlackfinBackend(path, timeout=3) as backend:
                 with self.assertRaisesRegex(BackendError, 'exited before answering'):

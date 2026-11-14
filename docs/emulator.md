@@ -14,8 +14,10 @@ Gerät und keine zusätzliche Schreibfreigabe.
 
 Ein ausdrücklich gewählter Blackfin-Prüfprototyp kann zusätzlich echte
 DSP-Instruktionen ausführen und deren Speicher über den Host-Port lesen.
-Der vollständige DSP-Start besteht damit noch nicht. Aufbau und Grenzen:
-[Blackfin: HOSTDP-Register und Interrupts](messungen/2026-11-14-blackfin-hostdp.md).
+Mit ausdrücklich gesetztem SPORT-Prüftakt erreicht die rote Originalfirmware
+ihre native Audioverarbeitung. Eine vollständige Kopplung an den ARM-Verkehr
+besteht noch nicht. Aufbau und Grenzen:
+[Blackfin: SPORT0 und der native Audiotakt](messungen/2026-11-14-blackfin-sport0.md).
 
 Der Emulator ist ein eigenständiges Python-Programm. Er führt die Firmware der
 Electribe, also eine eigene `SYSTEM.VSB`, mit Unicorn aus und bildet dazu
