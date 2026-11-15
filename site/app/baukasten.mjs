@@ -21,7 +21,7 @@ import { GROUPS, unitLabel, paramLabel } from "../../data/fx/labels.mjs";
 import { GROUPS as PARAM_GROUPS, labelFor } from "../../data/map/fx-labels.mjs";
 import FINDINGS from "../../data/findings.mjs";
 import { BLOCKS, field } from "../../src/map/index.mjs";
-import { readDeviceEffects, deviceFxNames } from "../../src/device-fx.mjs";
+import { readDeviceEffects, deviceFxNames, canWriteCollection, writeCollectionFile } from "../../src/device-fx.mjs";
 import { REC } from "../../src/layout.mjs";
 import { t, tNodes, localize } from "./i18n.mjs";
 /** An error of this page opens Blechy at its topic (data/rescue.mjs). */
@@ -1125,12 +1125,13 @@ export function baukastenPage(root, { presets = null, device = null, sub = null,
       ]);
     }));
   }
-  async function exportAll() {
+  /** The collection for the chosen firmware as bytes, or null after a toast that says why not. */
+  async function buildExport() {
     const slots = readSlots();
     const wanted = Object.entries(slots).flatMap(([kind, map]) => Object.entries(map).map(([slot, id]) => ({ kind, slot: Number(slot), id })));
-    if (!wanted.length) { toast(t("bk.export.none"), "error"); return; }
+    if (!wanted.length) { toast(t("bk.export.none"), "error"); return null; }
     const target = deviceFirmware;
-    if (!target) { toast(t("bk.device.none"), "error"); return; }
+    if (!target) { toast(t("bk.device.none"), "error"); return null; }
     await loadUnits();
     const items = [];
     for (const w of wanted) {
@@ -1139,20 +1140,53 @@ export function baukastenPage(root, { presets = null, device = null, sub = null,
       const text = textOf(w.id);
       if (!text) continue;
       const read = readFx(text, units);
-      if (!read.ok) { toast(t("bk.export.entry", { name: t("bk.export.anEntry"), reason: read.reason }), "error"); return; }
+      if (!read.ok) { toast(t("bk.export.entry", { name: t("bk.export.anEntry"), reason: read.reason }), "error"); return null; }
       items.push({ kind: w.kind, slot: w.slot, preset: read.preset });
     }
     const now = liveFor(target);
     const vsb = now?.image ?? await firmwareFor(target);
-    if (!vsb) return;
+    if (!vsb) return null;
     const made = collectionFor(target, vsb, items, units, { risky: readRisky(), modTable: now?.modTable });
     if (!made.ok) {
       const reason = made.code ? t(DEVICE_ERROR[made.code], { device: t(DEVICE_NAME[target]) }) : made.reason;
       toast(made.from ? t("bk.export.factory", { slot: made.from, reason }) : t("bk.export.entry", { name: made.name ?? t("bk.export.anEntry"), reason }), "error");
-      return;
+      return null;
     }
-    saveFile(made.bytes, COLLECTION_FILE, { note: t("bk.export.note", { folder: COLLECTION_FOLDER }) });
+    return made.bytes;
   }
+  async function exportAll() {
+    const bytes = await buildExport();
+    if (bytes) saveFile(bytes, COLLECTION_FILE, { note: t("bk.export.note", { folder: COLLECTION_FOLDER }) });
+  }
+  // Straight onto the card of the connected Electribe, where its BLECHTRIBE writes e2sFx.all over the cable (src/device-fx.mjs).
+  let writing = false;
+  const writeTarget = () => device?.session?.device;
+  const canWrite = () => !writing && canWriteCollection(writeTarget()) && writeTarget().build === deviceFirmware;
+  const writeButton = el("button", { type: "button", className: "btn", id: "cee-bk-collection-write", hidden: !canWriteCollection(writeTarget()), disabled: !canWrite() }, [icon("usb"), t("bk.export.write")]);
+  async function writeAll() {
+    const session = device?.session;
+    if (!session || !canWrite()) return;
+    const bytes = await buildExport();
+    if (!bytes) return;
+    const ok = await (window.ui?.confirm ? window.ui.confirm({ title: t("bk.export.write.title", { file: COLLECTION_FILE }), text: t("bk.export.write.text", { folder: COLLECTION_FOLDER }), confirmLabel: t("bk.export.write") }) : false);
+    if (!ok) return;
+    writing = true;
+    writeButton.disabled = true;
+    const close = toast(t("bk.export.write.busy", { file: COLLECTION_FILE }), "info", { stay: true });
+    try {
+      const done = await writeCollectionFile(session, bytes);
+      close();
+      if (!done.ok) { toast(t("bk.export.write.failed", { reason: t(done.reason === "size" ? "bk.export.write.size" : "bk.export.write.noWrite") }), "error"); return; }
+      toast(t("bk.export.write.done", { file: COLLECTION_FILE, folder: COLLECTION_FOLDER }), "ok");
+    } catch (e) {
+      close();
+      toast(t("bk.export.write.failed", { reason: e?.message ?? String(e) }), "error");
+    } finally {
+      writing = false;
+      writeButton.disabled = !canWrite();
+    }
+  }
+  writeButton.addEventListener("click", writeAll);
   const exportButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-bk-collection" }, [icon("download"), t("bk.export")]);
   exportButton.addEventListener("click", exportAll);
   const exportPage = el("div", { className: "cee-bk-page", id: "cee-bk-page-export" }, [
@@ -1218,7 +1252,7 @@ export function baukastenPage(root, { presets = null, device = null, sub = null,
     for (const node of new Set(Object.values(PAGE_NODES))) node.hidden = node !== PAGE_NODES[id];
     subPages?.select(id === "detail" ? "catalog" : id);
     switchRow();
-    navbar(id === "export" ? [exportButton] : []);
+    navbar(id === "export" ? [writeButton, exportButton] : []);
     updateTrail();
     root.closest(".cee-main")?.scrollTo?.({ top: 0 });
   }
@@ -1234,6 +1268,8 @@ export function baukastenPage(root, { presets = null, device = null, sub = null,
     /** The factory names on the export page follow the device read, else the firmware in the emulator. */
     update() {
       liveRead.disabled = !canRead();
+      writeButton.hidden = !canWriteCollection(writeTarget());
+      writeButton.disabled = !canWrite();
       if (live && !liveOf()) { live = null; liveHelp.textContent = t("bk.live.help"); }
       // Runs every second (main.mjs): the slots are drawn again only when where the names come from changes.
       if (units && shownFrom() !== factoryShown) renderExport();

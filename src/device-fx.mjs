@@ -13,7 +13,7 @@ import { fileToRam } from "./map/address.mjs";
 import { HACKTRIBE_CODE, buildOf } from "./firmware.mjs";
 import { readPresetsLive, recordOf, menuLength, nameAt } from "./presets.mjs";
 import { modTableAt, readModType, MOD_COUNT } from "./modtable.mjs";
-import { parseCollection, COLLECTION_MAGIC, HEADER_SIZE } from "./fx-collection.mjs";
+import { parseCollection, COLLECTION_MAGIC, HEADER_SIZE, MAX_FILE as FILE_MAX } from "./fx-collection.mjs";
 
 const IMAGE = 0x200100;
 const MOD_RECORD = TABLES.get("table.modType").stride;
@@ -22,8 +22,6 @@ const MOD_TABLE = { hacktribe: "table.modType", stock: "table.modTypeStock" };
 /** What the card loader did at the last start: status and entries loaded (tools/patch/script_hooks.py CARD + fx_card.s FX_STATE_AT). */
 export const FX_STATE = 0xc01f7fe0;
 const STATUS = { 2: "ok", 4: "skipped", 5: "none", 7: "build" };
-/** A collection is at most this large: 255 + 255 + 72 entries with text (fx_card.s); a larger file is not one. */
-const FILE_MAX = 0x500000;
 
 /**
  * @param {(addr: number, length: number) => Promise<Uint8Array>} read reads RAM
@@ -110,6 +108,29 @@ export async function readDeviceEffects(session) {
         const file = got?.bytes ? parseCollection(got.bytes, { counts: { ifx: Math.max(fx.counts.ifx, 100), mfx: Math.max(fx.counts.mfx, 100) } }) : null;
         return { ...fx, file: got ? { present: !!got.bytes, read: file } : null };
       });
+    } catch (e) {
+      if (e.kind !== "busy" || attempt >= 8) throw e;
+    }
+  }
+}
+
+/** The connected firmware writes e2sFx.all over the cable (INFO flag FLAG_FX_WRITE, tools/patch/blech_sysex.py). */
+export const canWriteCollection = device => device?.ram === "blech" && !!(device.blech?.flags & BLECH.FLAG_FX_WRITE);
+
+/**
+ * `bytes` (a collection of src/fx-collection.mjs) as e2sFx.all on the card of the connected device, over the session; the
+ * firmware reads every block back from the card. The loader takes it at the next power-on. `onProgress(done, total)`.
+ * @returns {Promise<{ok: true} | {ok: false, reason: "noWrite" | "size"}>}
+ */
+export async function writeCollectionFile(session, bytes, onProgress) {
+  const device = session.device;
+  if (!canWriteCollection(device)) return { ok: false, reason: "noWrite" };
+  if (!bytes.length || bytes.length > FILE_MAX) return { ok: false, reason: "size" };
+  for (let attempt = 0; ; attempt++) {
+    await session.idle();
+    try {
+      await session.exclusive(() => session.sender.fxFileWrite(bytes, device.model, onProgress));
+      return { ok: true };
     } catch (e) {
       if (e.kind !== "busy" || attempt >= 8) throw e;
     }
