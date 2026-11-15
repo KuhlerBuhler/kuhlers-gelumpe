@@ -59,13 +59,16 @@ def card_image():
 
 
 class Box:
-    """A booted device (3 s) with a mounted card, or without one."""
+    """A booted device (3 s) with a mounted card, or without one; with `dsp`, the DSP model listens from power-on."""
 
-    def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0, adapter=False):
+    def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0, adapter=False, dsp=False):
         self.payload = bytes(payload)
         for_build(self.payload)
         self.dev = Dev(self.payload, flash, held, adapter=adapter)
         self.m = self.dev.m
+        if dsp:
+            from dsp_model import DspModel
+            DspModel.attach(self.m)
         if card:
             self.m.insert_card(SDCard(MemoryMedium(card_image())))
         self.dev.run(seconds)

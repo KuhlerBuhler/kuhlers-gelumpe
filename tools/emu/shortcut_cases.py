@@ -205,8 +205,8 @@ class VBox(SBox):
     """A device that sees what the voices of part 1 get: the sample in its part object, the samples of the notes the voices
     take, and the words the DSP's mailbox gets (DspLog, the note messages as ht_osc_cases reads them)."""
 
-    def __init__(self, payload, flash=None, held=0):
-        super().__init__(payload, flash, held)
+    def __init__(self, payload, flash=None, held=0, dsp=False):
+        super().__init__(payload, flash, held, dsp=dsp)
         from mfx_cases import DspLog
         self.log = DspLog(self.m)
         self.notes = []
@@ -314,6 +314,62 @@ def case_reset_voice(payload, flash):
                          f"{how}, pad 1: mailbox values only the changed twin sends {sorted(only_changed)}, only the untouched twin "
                          f"{sorted(only_plain)}; after EXIT + pad: of the changed ones {sorted(hits['reset'][1] & only_changed)}, of the "
                          f"untouched ones {sorted(hits['reset'][1] & only_plain)}; samples of the notes {[hits[k][0] for k in hits]}"))
+    return out
+
+
+def case_reset_dsp(payload, flash):
+    """EXIT + pad hands the reset values of part 1 to the sound engine, without a knob turned (device test 15.11.: PITCH and
+    CUTOFF changed, EXIT + pad, the display showed the saved values, the sound changed only once each knob was turned). The DSP
+    model (dsp_model.py) listens from power-on. PITCH, LEVEL and PAN turned, CUTOFF and the IFX encoder turned: the DSP gets the
+    new values. After EXIT + pad it holds the values it had before the turns: the PITCH offset of each voice, the cutoff, the
+    level and the pan of the part and the unit of its insert effect; stopped (a MIDI note on channel 1) and while the sequencer
+    plays part 1 (its voices of one second)."""
+    from dsp_model import LEVEL, PAN_LEFT, PAN_RIGHT, DspModel
+    from plugin_api24_cases import CUTOFF_ENCODER, KNOBS
+    IFX_ENCODER = 4
+    out = []
+    for playing in (False, True):
+        slug, how = ("while_playing", "playing") if playing else ("stopped", "stopped")
+        box = VBox(payload, flash, dsp=True)
+        dsp = DspModel.attach(box.m)
+        box.steps(playing)
+        if playing:
+            play(box)
+
+        def state():
+            mark = len(dsp.gates)
+            if playing:
+                box.run(1.0)
+            else:
+                box.m.midi(bytes([0x90, 60, 100]))
+                box.run(0.3)
+            voices = [dsp.voice(g[1]) for g in dsp.gates[mark:] if g[3]]
+            seen = {"pitch": sorted({v.get("pitch") for v in voices}), "cutoff": (dsp.filter(0) or (None,))[0],
+                    "unit": (dsp.ifx(0) or {}).get("unit")}
+            if not playing:
+                seen.update(level=dsp.part_value(0, LEVEL), pan=(dsp.part_value(0, PAN_LEFT), dsp.part_value(0, PAN_RIGHT)))
+                box.m.midi(bytes([0x80, 60, 0]))
+                box.run(0.4)
+            return seen
+
+        before = state()
+        box.m.send([2, KNOBS["pitch"], 0, 230, 0])
+        box.m.send([2, KNOBS["level"], 0, 30, 0])
+        box.m.send([2, KNOBS["pan"], 0, 240, 0])
+        box.run(0.3)
+        box.m.send([1, CUTOFF_ENCODER, 0, -30 & 0xFF, 0])
+        box.run(0.3)
+        box.m.send([1, IFX_ENCODER, 0, 3, 0])
+        box.run(1.8)                    # the value window closes
+        turned = state()
+        moved = [k for k in before if turned[k] != before[k]]
+        box.reset()
+        after = state()
+        back = [k for k in before if after[k] == before[k]]
+        out.append(entry(f"exit_pad_resets_the_dsp_values_{slug}", sorted(moved) == sorted(before) == sorted(back)
+                         and None not in before.values() and not box.m.asserts,
+                         f"{how}: at the DSP before {before}; after the knobs {turned} (changed {moved}); after EXIT + pad 1 {after} "
+                         f"(back {back})"))
     return out
 
 
@@ -715,7 +771,8 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_kill, case_unsaved, case_pad_state, case_key_pads, case_key_pads_transpose, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_kill, case_unsaved, case_pad_state, case_key_pads, case_key_pads_transpose, case_filter_toggle,
+          case_reset_dsp)
 
 
 def group_entries(payload, flash, i):
