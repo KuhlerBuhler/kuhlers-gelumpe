@@ -1263,6 +1263,7 @@ pages sont détaillées ci-dessous. ABOUT n’existe plus : il n’affichait que
 | DISPLAY, BACKLIGHT HUE, SAT, BRIGHT | HUE 0 à 95, SAT/BRIGHT 0 à 15. Le cercle des teintes comprend six intervalles de 16 pas entre rouge, jaune, vert, cyan, bleu et magenta. Stockage inchangé en RGB 0 à 15, compatible avec les anciens réglages. Absence de réglage ou luminosité maximale sans saturation : STOCK, blanc d’origine. Un pas de même couleur est sauté. Effet immédiat. Après WRITE, les canaux s’allument au démarrage s’ils atteignent au moins la moitié du canal le plus fort : HUE 15, SAT 13, BRIGHT 14 démarre jaune. Rouge : avant l’image ; bleu : peu après son apparition ; niveaux intermédiaires après chargement du menu. [Mesure](messungen/2026-10-29-hintergrundlicht-beim-start.md) |
 | DISPLAY, INTENSITY | 0 à 15, intensité commune sans modifier le mélange ; 0 éteint, 15 couleur pleine ; immédiat |
 | DISPLAY, DISPLAY INVERT | OFF/ON, échange pixels clairs et sombres ; commandes écran `0xA7` pour inverser et `0xA6` pour restaurer. Immédiat. ON par défaut pour réduire les traînées ; un fichier 1.2 sans ce bit conserve OFF |
+| DISPLAY, LOAD METER | OFF/ON, affiche sur l’écran principal, à gauche du symbole de carte, la charge du processeur principal en pour cent (0 à 99, une fois par seconde) : la part du temps où il ne dort pas dans sa boucle d’inactivité. Rien dans le menu, dans les fenêtres du firmware ou avec une app ouverte. Immédiat. OFF par défaut ; ON est gardé dans l’octet 7 du fichier de réglages (version 4) |
 | CUSTOMIZATION, POWER SAVE | ENTER ouvre les pages d’économie d’énergie, sur piles seulement ; EXIT revient à POWER SAVE |
 | POWER SAVE, DISPLAY LIGHT | STOCK ou 1 à 15. STOCK utilise l’atténuation du firmware ; 1 à 15 règlent la couleur propre, avec 1 correspondant à 3/15 et 15 au maximum |
 | POWER SAVE, LED DIMMING | 0 à 100 % d’atténuation des LED de pads, boutons et encodeurs. 0 sans atténuation, 100 éteint, 75 par défaut laisse un quart de luminosité. Les LED d’encodeurs s’éteignent sauf à 0 %. Immédiat, conservé par WRITE |
@@ -1297,7 +1298,7 @@ pas : environ 14 caractères dans la valeur et 18 dans le titre.
 WRITE sur PLUGIN RUNTIME, FEATURES, CUSTOMIZATION et pour autoriser un plugin externe
 sauvegarde `KORG/blechtribe/settings.a.bin` et `settings.b.bin`, en générations alternées.
 AUTO SAVE le fait aussi en quittant le menu après modification. Format de 24 à 280 octets,
-marqueur `GSET`, version 3 ; bit 0 d’un octet supplémentaire pour METER LOUD RAINBOW,
+marqueur `GSET`, version 3, ou version 4 avec LOAD METER sur ON (l’octet 7 devient un second octet d’interrupteurs, le nombre d’entrées tient dans l’octet 6 ; un BLECHTRIBE jusqu’à 1.4.6 ne lit pas la version 4 et prend l’autre copie ou les valeurs par défaut) ; bit 0 d’un octet supplémentaire pour METER LOUD RAINBOW,
 refusé par BLECHTRIBE antérieur à 1.3. Maximum 64 entrées, contre 16 en version 2 jusqu’à 1.3.7.
 Un ancien BLECHTRIBE jusqu’à 1.3.7 ne lit pas la version 3 et reprend un éventuel fichier 2 plus
 ancien ou les valeurs par défaut. Les formats 1 et 2 restent lisibles et deviennent 3 au

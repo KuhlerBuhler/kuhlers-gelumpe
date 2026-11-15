@@ -766,7 +766,7 @@ def page_cases(payload, flash=None):
     dev = boot(payload, flash)
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0), ("global", 0)] + [("du", page) for page in range(len(du_pages()))] + [("list", page) for page in range(LIST_COUNT)] + [(GROUP_PLUGINS, 0)]
-    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(5)] + [(GROUP_LED, page) for page in range(8 + (custom_extra(dev) > 0))]
+    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(6)] + [(GROUP_LED, page) for page in range(8 + (custom_extra(dev) > 0))]
     pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_PSAVE, page) for page in range(2)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
     for group, page in pages:
@@ -861,7 +861,7 @@ def orig_shown(dev):
 def orig_pages():
     """(name, how to reach it) of every page of the BLECH menu that shows a setting."""
     pages = [("PLUGIN RUNTIME", lambda dev: goto_global(dev))]
-    for group, count in ((GROUP_DISPLAY, 5), (GROUP_LED, 9), (GROUP_PADS, 3), (GROUP_PSAVE, 2), (GROUP_FEATURES, feature_count())):
+    for group, count in ((GROUP_DISPLAY, 6), (GROUP_LED, 9), (GROUP_PADS, 3), (GROUP_PSAVE, 2), (GROUP_FEATURES, feature_count())):
         pages += [(f"{group}:{page}", lambda dev, group=group, page=page: goto_group(dev, group, page)) for page in range(count)]
     return pages
 
@@ -1405,7 +1405,7 @@ def look_cases(payload, flash=None, rest=True):
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
     add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
-        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT HUE", 5), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 9)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT HUE", 6), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 9)]
         and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
         f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
@@ -2247,7 +2247,7 @@ def invert_cases(payload, flash=None):
     go(dev, 1)
     dev.run(0.5)
     main_off = dev.screen()["number"], status(dev), plain(dev)
-    add("page", page == (("DISPLAY INVERT", "ON", ""), (4, 5), "Display"), f"{page}")
+    add("page", page == (("DISPLAY INVERT", "ON", ""), (4, 6), "Display"), f"{page}")
     add("off_swaps_the_display", off == (("DISPLAY INVERT", "OFF", ""), (0, False, 2), True) and still == (0, False, 2),
         f"{off}, dial again {still}")
     add("main_screen_plain", main_off == (1, (0, False, 2), True) and not dev.m.asserts, f"{main_off}")
@@ -3693,13 +3693,14 @@ def look_rest():
 
 def look_parts():
     """What look_cases_task(i) runs: the look cases themselves, the suites after them, then the splash, pad colour and
-    calibration cases. Each boots devices of its own, so they run side by side."""
+    calibration cases, the load meter last. Each boots devices of its own, so they run side by side."""
     from calibrate_cases import cases as calibration_cases
+    from load_meter_cases import cases as load_meter_cases
     return ((lambda payload, flash: look_cases(payload, flash, rest=False)), *look_rest(), splash_menu_cases, wheel_cases,
-            pad_colour_cases, calibration_cases, flash_settings_cases, settings_v4_cases, media_menu_cases)
+            pad_colour_cases, calibration_cases, flash_settings_cases, settings_v4_cases, media_menu_cases, load_meter_cases)
 
 
-LOOK_PARTS = 1 + len(look_rest()) + 7      # look_parts() without importing calibrate_cases
+LOOK_PARTS = 1 + len(look_rest()) + 8      # look_parts() without importing calibrate_cases and load_meter_cases
 
 
 def look_cases_task(i):

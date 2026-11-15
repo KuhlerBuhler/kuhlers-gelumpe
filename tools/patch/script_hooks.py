@@ -52,6 +52,8 @@ EGG_WORK_END = EGG_WORK + 20     # which the egg reads as off. MENU_STATE is ful
 assert EGG_WORK_END == MORE2_END
 METER_SENT = DATA_FILE_END       # the meter LEDs (script_menu.s:meter_dedupe_hook): per LED the brightness and mode last sent, bit 16 set;
 METER_SENT_END = METER_SENT + 48 # FF at power-on matches nothing
+LOAD_METER = METER_SENT_END      # LOAD METER (script_load_meter.s:LM_*): the stamp of the idle loop, the sum of sleep, the frame's reading,
+LOAD_METER_END = LOAD_METER + 40 # the value shown and the armed word; FF at power-on is no stamp, no reading and not armed
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 RUNTIME = 0xC01AE000
@@ -108,7 +110,12 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC00371B0,0xEBFFF95A,'pat_export_hook'),
          (0xC002E084,0xEB001DA5,'pat_export_all_hook'),
          # IMPORT PATTERN's and IMPORT ALL PATTERN's browser step: ldr r0, [r6] in front of the browser's open (the folder)
-         (0xC0031400,0xE5960000,'pat_browse_hook'))
+         (0xC0031400,0xE5960000,'pat_browse_hook'),
+         # LOAD METER (script_load_meter.s): the idle loop's store of 1 into the idle word in front of wfi, and the IRQ entry's
+         # store of the word + 1, and the idle loop's store of 0 behind wfi (docs/messungen/2026-11-14-energie-befunde.md, 0.1)
+         (0xC00017F0,0xE5863000,'load_idle_hook'),
+         (0xC000159C,0xE5820000,'load_irq_hook'),
+         (0xC0001820,0xE5863000,'load_wake_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
@@ -409,6 +416,7 @@ class BuiltHooks:
             ('pat_boot_arm','pat_boot_end','Die Pattern-Sicherung in KORG/blechtribe/Patterns: der Haken vor dem Sample-Lader merkt sich nur den Start, der Kartenhaken prüft Panel, EXIT und Kartenstatus, liest die Datei und schreibt nur Patterns, die sich vom RAM unterscheiden, über das Pattern-Schreiben der Firmware; ohne Datei bleibt es bei einem f_open.'),
             ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel und EXIT und die Ordner der Karte; nur wenn blechtribe keine e2sSample.all hat, aber ein hacktribe- oder electribe-sampler-Ordner, fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU; nach dem Lader fragt sie so nach der Pattern-Sicherung (auf der blauen: blechtribe keine .e2allpat, aber KORG/electribe). Fehlende Unterordner von KORG/blechtribe legt sie auf der blauen hier an, auf der roten im ersten Rahmen auf dem Hauptbildschirm.'),
             ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
+            ('load_idle_hook','load_meter_frame','Die zwei Haken der Lastanzeige (Leerlaufschleife vor wfi, IRQ-Eingang) laufen vom ersten IRQ an: sie merken sich nur Timer3 und zählen den Schlaf, gezeichnet wird erst im Rahmenhaken mit dem Schalter.'),
             ('audio_command_hook','audio_columns','Der Haken an CommandTask ruft erst den ursprünglichen Befehlshandler und dann den Dienst von korg.audio; ohne Anfrage eines Plugins kehrt der Dienst ohne Firmware-Aufruf zurück.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE, Seitenzähler und der Bildschirmwechsel (AUTO SAVE) laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
         ]:
@@ -465,7 +473,8 @@ class BuiltHooks:
             area(TOUCH_LOCK_Y,TOUCH_LOCK_Y_END-TOUCH_LOCK_Y,'korg.touchLockY: the Y the input filter writes into touch messages, the plugin that locks it and the checksum of its block','tools/patch/script_hw.s:TL_RAW'),
             area(DATA_FILE,DATA_FILE_END-DATA_FILE,'korg.file.read and korg.file.write: the heap block that holds one plugin\'s data file, its size, the flag of a write that waits for the card and the frame of the last write','tools/patch/script_data.s:DF_BLOCK'),
             area(METER_SENT,METER_SENT_END-METER_SENT,'the meter LEDs: per LED the brightness and mode last sent to the panel, so the LED manager sends only a change','tools/patch/script_menu.s:meter_dedupe_hook'),
-            area(METER_SENT_END,MORE_END-METER_SENT_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:METER_SENT_END'),
+            area(LOAD_METER,LOAD_METER_END-LOAD_METER,'LOAD METER: the stamp of the idle loop, the sum of sleep, the frame\'s reading, the value shown and the armed word','tools/patch/script_load_meter.s:LM_STAMP'),
+            area(LOAD_METER_END,MORE_END-LOAD_METER_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:LOAD_METER_END'),
             area(SETTINGS_RAM,SETTINGS_RAM_END-SETTINGS_RAM,'the two buffers of the settings file of the BLECH menu and its checksum list (allowed plugins, plugins switched off)','tools/patch/script_hooks.py:SETTINGS_RAM'),
             area(LIST_WORK,LIST_WORK_END-LIST_WORK,'work area of the list of MANAGE PLUGINS: folder object, file info, long name, path, the place of each listed file in the folder, the flag of more files than the list holds','tools/patch/script_menu.s:LIST_WORK'),
             area(KNOB_HOLD,KNOB_HOLD_END-KNOB_HOLD,'korg.knobHold: a bit per knob that reaches the firmware, folded from the plugins\' holds; the other two words are unused since API 19','tools/patch/script_hw.s:KH_FREE'),
@@ -562,14 +571,14 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += '\n'+ '\n'.join(f'.equ VM_{name.upper()}, {vm.symbols[name]}' for name in ['script_run_event','script_runtime_init','script_load_block','script_load_block_ex'])
     constants += f'\n.equ VM_CRC_UPDATE, {vm.symbols["crc_update"]}'
     constants += ''.join(f'\n.equ {name.upper()}, {vm.symbols[name]}' for name in ['script_font','script_error_names'])
-    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ METER_SENT, {METER_SENT}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
+    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ METER_SENT, {METER_SENT}\n.equ LOAD_METER, {LOAD_METER}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
     constants += f'\n.equ MENU_SCREEN, {profile.screen}\n'
     # korg.system.device and korg.system.limits.samples (data/script/objects.mjs, INFO): the build this runtime is made for
     constants += f'.equ MFX2_ENTRY, {MFX2_ENTRY:#x}\n.equ MFX2_RECORD_ID, {MFX2_RECORD_ID:#x}\n.equ MFX2_TABLE, {MFX2_TABLE:#x}\n.equ MFX2_STATE, {MFX2_STATE:#x}\n'
     constants += f'.equ BUILD_DEVICE, {BUILD_DEVICES[build]}\n.equ BUILD_SAMPLES, {0 if build == "synth" else 1000}\n'
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
     files = ['script_hooks.s','script_card.s','script_builtin.s','script_menu.s',
-             'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s','script_egg.s']
+             'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_calibrate.s','script_egg.s','script_load_meter.s']
     files.append('fx_card.s')
     if build != 'synth':
         files += ['script_sample.s','script_audio_service.s','script_patterns.s']
@@ -598,7 +607,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     (first_at,first),=hooks.sections
     if first_at!=origin or origin+len(first)>MORE3_END:
         raise ValueError(f'the code area runs over: {first_at:#x} + {len(first):#x} (limit {MORE3_END:#x})')
-    if runtime_end>MENU_MORE or METER_SENT_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
+    if runtime_end>MENU_MORE or LOAD_METER_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
         raise ValueError(f'script code, runtime or pool exceeds its reserved area: runtime end {runtime_end:#x} (limit {MENU_MORE:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
     if s['SETTINGS_MAX']>0x120 or SETTINGS_RAM+0x240+4*s['MENU_MAX_TRUST']>SETTINGS_RAM_END:
