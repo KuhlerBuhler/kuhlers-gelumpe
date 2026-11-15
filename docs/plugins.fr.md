@@ -378,7 +378,7 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.menu.blech.customizations.display.intensity` | Luminosité du rétroéclairage, comme INTENSITY | Oui, immédiatement ; WRITE la conserve | 0 (éteint) à 15 (maximum) |
 | `korg.system.repairs` | Nombre de valeurs corrigées depuis le démarrage | Non | 0 à 2147483647 |
 | `korg.system.testMode` | Mode de test actif : écran, rétroéclairage et LED éteints, arrêt automatique suspendu | Non, uniquement par USB ; RAM seulement, désactivé au redémarrage | 0 à 1 |
-| `korg.system.keepAwake()` | Appel, pas une valeur | Relance les 4 heures avant arrêt automatique comme un bouton physique | |
+| `korg.system.keepAwake()` | Appel, pas une valeur | Relance les 4 heures avant arrêt automatique comme un bouton physique ; depuis 1.5.0 relance aussi le délai d’IDLE SAVE et réveille un appareil atténué | |
 | `korg.system.device` | appareil sur lequel tourne le plugin : 0 Hacktribe, 1 Sampler rouge (Korg), 2 Synth bleu (Korg) (depuis l’API 26) | non | 0 à 2 |
 | `korg.system.version` | version du set BLECHTRIBE en nombre, x * 10000 + y * 100 + z, 1.5.0 vaut 10500 ; 0 si le set n’a pas de version (0 dans le simulateur de l’éditeur) | non | 0 à 999999 |
 | `korg.system.limits.ifxTypes` | nombre d’effets d’insertion du firmware, `ifxType` va de 0 à cette valeur moins 1 ; le firmware les compte à la lecture, un catalogue d’effets l’augmente | non | 0 à 255 |
@@ -1264,9 +1264,10 @@ pages sont détaillées ci-dessous. ABOUT n’existe plus : il n’affichait que
 | DISPLAY, INTENSITY | 0 à 15, intensité commune sans modifier le mélange ; 0 éteint, 15 couleur pleine ; immédiat |
 | DISPLAY, DISPLAY INVERT | OFF/ON, échange pixels clairs et sombres ; commandes écran `0xA7` pour inverser et `0xA6` pour restaurer. Immédiat. ON par défaut pour réduire les traînées ; un fichier 1.2 sans ce bit conserve OFF |
 | DISPLAY, LOAD METER | OFF/ON, affiche sur l’écran principal, à gauche du symbole de carte, la charge du processeur principal en pour cent (0 à 99, une fois par seconde) : la part du temps où il ne dort pas dans sa boucle d’inactivité. Rien dans le menu, dans les fenêtres du firmware ou avec une app ouverte. Immédiat. OFF par défaut ; ON est gardé dans l’octet 7 du fichier de réglages (version 4) |
-| CUSTOMIZATION, POWER SAVE | ENTER ouvre les pages d’économie d’énergie, sur piles seulement ; EXIT revient à POWER SAVE |
+| CUSTOMIZATION, POWER SAVE | ENTER ouvre les pages d’économie d’énergie (DISPLAY LIGHT et LED DIMMING sur piles seulement, IDLE SAVE aussi sur secteur) ; EXIT revient à POWER SAVE |
 | POWER SAVE, DISPLAY LIGHT | STOCK ou 1 à 15. STOCK utilise l’atténuation du firmware ; 1 à 15 règlent la couleur propre, avec 1 correspondant à 3/15 et 15 au maximum |
 | POWER SAVE, LED DIMMING | 0 à 100 % d’atténuation des LED de pads, boutons et encodeurs. 0 sans atténuation, 100 éteint, 75 par défaut laisse un quart de luminosité. Les LED d’encodeurs s’éteignent sauf à 0 %. Immédiat, conservé par WRITE |
+| POWER SAVE, IDLE SAVE | ON/OFF. Sans manipulation, la lumière de l’écran et les LED baissent à 75, 50 et 25 % après 2, 3 et 4 minutes et s’éteignent après 5, sur secteur comme sur batterie. Boutons, pads, potentiomètres, encodeur, touchpad, notes et CC MIDI (pas l’horloge), PLAY en cours et `korg.system.keepAwake()` gardent l’appareil éveillé. La première manipulation en état atténué ou éteint ne fait que réveiller et est avalée entière (appui et relâchement, le touchpad jusqu’au relâchement) ; un potentiomètre reprend ensuite sa valeur sans saut. Jamais plus clair que l’économie d’énergie du firmware, le mode test passe avant. ON par défaut ; OFF est gardé dans l’octet 7 du fichier de réglages (version 4) |
 | CUSTOMIZATION, LED | ENTER ouvre les LED inférieures ; EXIT revient à LED |
 | LED, BOTTOM LEDS | METER vu-mètre, COLOR couleur fixe, OFF éteint ; immédiat sur les quatre LED RGB inférieures |
 | LED, LED HUE, SAT, BRIGHT | Même sélection de couleur que le rétroéclairage. En METER sans couleur de zone propre, le niveau pilote la luminosité de cette couleur. STOCK conserve les couleurs du firmware ; immédiat |
@@ -1298,7 +1299,7 @@ pas : environ 14 caractères dans la valeur et 18 dans le titre.
 WRITE sur PLUGIN RUNTIME, FEATURES, CUSTOMIZATION et pour autoriser un plugin externe
 sauvegarde `KORG/blechtribe/settings.a.bin` et `settings.b.bin`, en générations alternées.
 AUTO SAVE le fait aussi en quittant le menu après modification. Format de 24 à 280 octets,
-marqueur `GSET`, version 3, ou version 4 avec LOAD METER sur ON (l’octet 7 devient un second octet d’interrupteurs, le nombre d’entrées tient dans l’octet 6 ; un BLECHTRIBE jusqu’à 1.4.6 ne lit pas la version 4 et prend l’autre copie ou les valeurs par défaut) ; bit 0 d’un octet supplémentaire pour METER LOUD RAINBOW,
+marqueur `GSET`, version 3, ou version 4 avec LOAD METER sur ON ou IDLE SAVE sur OFF (l’octet 7 devient un second octet d’interrupteurs, le nombre d’entrées tient dans l’octet 6 ; un BLECHTRIBE jusqu’à 1.4.6 ne lit pas la version 4 et prend l’autre copie ou les valeurs par défaut) ; bit 0 d’un octet supplémentaire pour METER LOUD RAINBOW,
 refusé par BLECHTRIBE antérieur à 1.3. Maximum 64 entrées, contre 16 en version 2 jusqu’à 1.3.7.
 Un ancien BLECHTRIBE jusqu’à 1.3.7 ne lit pas la version 3 et reprend un éventuel fichier 2 plus
 ancien ou les valeurs par défaut. Les formats 1 et 2 restent lisibles et deviennent 3 au
