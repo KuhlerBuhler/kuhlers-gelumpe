@@ -48,6 +48,7 @@ The blue Electribe 2 (the synth) has the same LED manager and the same power sav
 import argparse
 import hashlib
 import json
+import re
 import struct
 import sys
 from pathlib import Path
@@ -74,6 +75,8 @@ S_CKEY = 0x44                   # the key the cached results belong to (even; FF
 S_CVALID = 0x48                 # bit n: the result for pad n is in S_CACHE
 S_CACHE = 0x4C                  # 16 words: pc_chord's result for each pad
 S_IDLE = 0x8C                   # byte: the percent IDLE POWER SAVE keeps (script_idle.s:PC_IDLE writes it), FF never written
+_PC_IDLE = re.search(r"\.equ PC_IDLE, PC_CODE \+ (0x[0-9A-Fa-f]+)", Path(__file__).with_name("script_idle.s").read_text())
+assert _PC_IDLE and CODE_AT + int(_PC_IDLE[1], 16) == STATE + S_IDLE < STATE_END, "script_idle.s:PC_IDLE must be STATE + S_IDLE"
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13, measured on the device 10.10.)
 
 SEND_TAIL = 0xC00876A8          # b 0xC0087578: the end of the LED manager's send function, the message is built

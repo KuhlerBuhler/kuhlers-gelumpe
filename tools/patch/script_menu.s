@@ -238,7 +238,7 @@ menu_arm_zero:
     str r0, [r4, #M_COUNT]
     ldr r1, =LOAD_METER         ; LOAD METER measures from now on (script_load_meter.s:LM_ARMED), not with EXIT held at power-on
     str r0, [r1, #LM_ARMED]
-    ldr r1, =IDLE               ; IDLE POWER SAVE counts from now on (script_idle.s): stage 0, all kept, nothing swallowed, no knob
+    ldr r1, =IDLE               ; IDLE POWER SAVE counts from now on (script_idle.s): stage 0, all kept, nothing swallowed or down, no knob
     ldr r2, =IDLE_TICKS         ; seen yet; with EXIT held at power-on it stays FF and nothing of it runs
     ldr r2, [r2]
     str r2, [r1, #IS_LAST]
@@ -248,6 +248,9 @@ menu_arm_zero:
     str r2, [r1, #IS_KEYS]
     str r2, [r1, #IS_KEYS+4]
     str r2, [r1, #IS_PADS]
+    str r2, [r1, #IS_DOWN_KEYS]
+    str r2, [r1, #IS_DOWN_KEYS+4]
+    str r2, [r1, #IS_DOWN_PADS]
     mvn r2, #0
     str r2, [r1, #IS_KNOBS]
     str r2, [r1, #IS_KNOBS+4]

@@ -149,11 +149,11 @@ rm_post_go:
     bl IRQ_RESTORE
     cmp r7, #0
     beq rm_post_out
+    bl testmode_keep_awake      ; before the event: the CsTask may take the message at once, IDLE POWER SAVE must find it awake
     ldr r0, =PANEL_QUEUE
     ldr r1, [r0, #0x1c]
     ldr r0, [r0, #8]
     bl EVENT_SET
-    bl testmode_keep_awake
     mov r0, r5
     mov r1, r6
     cmp r8, #0
