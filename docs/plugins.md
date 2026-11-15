@@ -176,7 +176,7 @@ zu tun ist.
 | `step` | `step` | Sequencer-Schritt (16tel) |
 | `beat` | | Viertel |
 | `play`, `stop`, `rec` | | Transport |
-| `patternChange` | `index` | Pattern gewechselt |
+| `patternChange` | `index` | Pattern gewechselt. Das Ereignis folgt `HW_PATTERN`, der am Rad gewählten Nummer: Drehen am Rad und EXIT lösen es auch aus, ohne dass das spielende Pattern wechselt. Für Ketten `korg.read.nextPattern` oder das spielende Pattern nehmen |
 | `partChange` | `part` | Part gewechselt |
 | `mute` | `part`, `muted` | Part stumm oder nicht |
 | `tempo` | `tenthsBpm` | Tempo geändert |
