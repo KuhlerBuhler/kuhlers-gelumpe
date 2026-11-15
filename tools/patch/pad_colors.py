@@ -30,12 +30,14 @@ With the default colours (red, blue) or no setting written only the chords chang
 
 Power save: while the firmware dims the backlight (its flag 0xC00F9310, set by 0xC0028AB4), every LED goes out dimmed by the
 BLECH page POWER SAVE, LED DIMMING (0 to 100 percent, a quarter of its brightness when never set; the panel takes levels: the
-plugin Pulsieren pulses smoothly on the device, 18.10.); the knob LEDs go out unless the page says 0 percent. The hook at the start
+plugin Pulsieren pulses smoothly on the device, 18.10.); the knob LEDs too, unless KNOB LEDS is OFF (then dark, as without power
+save; device test 15.11.: they went dark in power save whatever KNOB LEDS said, and ON did not bring them back). The hook at the start
 of 0xC0028AB4 runs the firmware's function and sends every LED again when the state changed, so the pads dim and come back
 at once. With EXIT held at power-on nothing of this happens.
 
 KNOB LEDS (BLECH page under CUSTOMIZATION, LED; wish 12.11.): OFF sends the five knob LEDs 0 to 4 (VALUE, SAMPLE/OSC, CUTOFF,
-MOD TYPE, IFX TYPE) dark, whatever the firmware wants there; the firmware's own values stay, ON sends them again. The word
+MOD TYPE, IFX TYPE) dark, whatever the firmware wants there; the firmware's own values stay, ON sends them again (in power save
+dimmed like every other LED). The word
 S_KNOB is FF (never written, ON) until the menu reads the settings file, so with EXIT held at power-on they light as stock.
 
     python3 tools/patch/pad_colors.py --vsb SYSTEM.VSB [--out data/patches/pad-colors.json]
@@ -143,6 +145,7 @@ b pc_colour_get             ; +32 (kind 24 PAD COLOR or 25 SELECT COLOR) -> r0 =
 b pc_colour_set             ; +36 (kind, colour): stored, the pads sent again later; a colour the other kind has swaps the two
 b pc_knob_set               ; +40 (KNOB LEDS 1 OFF or 0 ON, r1 = 1 send them now): stored
 b pc_knob_get               ; +44 -> r0 = 1 when KNOB LEDS is OFF (0 ON, as menu_pc_call returns where the set has no pad colours)
+b pc_send_all               ; +48 every LED sent again now (a page changed OVERLAP or LED DIMMING)
 
 ; r0 = 1 OFF or 0 ON, r1 = 1 from a page or a plugin (the five knob LEDs go out at once), 0 from the settings file (the menu reads it
 ; before the LED manager runs at start: every LED goes out again with the next LED message, as pc_set does). Keeps r4 to r11.
@@ -171,6 +174,30 @@ pks_led:
     cmp r5, #KNOB_LAST
     bls pks_led
 pks_out:
+    pop {r4, r5, pc}
+
+; From a page of the menu (OVERLAP, LED DIMMING): every LED goes out again at once through the firmware's send function and so
+; through pc_tail, in the new setting. The resend S_PEND leaves for later waits for the main screen, so in the menu the LEDs kept
+; the old setting until the menu was left (device test 15.11.). Keeps r4 to r11.
+pc_send_all:
+    push {r4, r5, lr}
+    ldr r12, =STATE
+    mov r0, #0
+    str r0, [r12, #S_PEND]
+    ldr r4, =LEDMGR_PTR
+    ldr r4, [r4]
+    cmp r4, #0
+    beq psa_out
+    mov r5, #0
+psa_led:
+    mov r0, r4
+    mov r1, r5
+    mov r2, #1
+    bl LED_SEND
+    add r5, r5, #1
+    cmp r5, #LED_COUNT
+    blo psa_led
+psa_out:
     pop {r4, r5, pc}
 
 pc_knob_get:
@@ -881,18 +908,9 @@ pt_chord:
 pt_dim_only:
     ldrb r2, [r5, #2]
     ldrb r0, [r5]
-    bl pc_knob_dark
+    bl pc_knob_dark             ; the knob LEDs: dark with KNOB LEDS OFF, else dimmed like every other LED (device test 15.11.)
     cmp r9, #0
-    beq pt_dim_store
-    ldrb r0, [r5]
-    cmp r0, #KNOB_LAST          ; the LEDs of the knobs (VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE, IFX TYPE) go out (device 18.10.),
-    bhi pt_dim_led              ; unless LED DIMMING is 0 percent
-    bl pc_keep_get
-    cmp r0, #4
-    movne r2, #0
-    b pt_dim_store
-pt_dim_led:
-    bl pc_quarter
+    blne pc_quarter
 pt_dim_store:
     strb r2, [r5, #2]
 pt_record:

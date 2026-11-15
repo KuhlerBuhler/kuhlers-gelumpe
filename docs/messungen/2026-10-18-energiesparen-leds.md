@@ -53,3 +53,24 @@ ist nicht gemessen, vermutlich die niedrigere Spannung auf Batterie).
 bei 0 % bleiben alle LEDs außer den Reglern, wie sie waren; bei 100 % sind alle aus; bei 70 % zeigt jede LED
 `(Wert * 30 + 99) / 100`; nach WRITE und Neustart steht die Seite wieder auf 70 %. DISPLAY LIGHT 4 mit Blau 12: 4 von 16.
 
+## Gerätetest 15.11.: Regler-LEDs, sofort im Menü, Stufen
+
+Gerätetest 15.11. (rot, release/1.4.6 f56f4b7e), drei Befunde:
+
+1. **Regler-LEDs:** im Power Save blieben sie dunkel, egal was KNOB LEDS sagte, und ON brachte sie nicht zurück. Ursache
+   (offline gelesen): die Regel vom 18.10. setzte jede Nachricht an die LEDs `0x00` bis `0x04` im Power Save auf 0, also auch
+   die, die ON neu schickt. Jetzt gilt KNOB LEDS auch im Power Save: ON gedimmt wie jede andere LED, OFF dunkel. Die alte Regel
+   "Regler-LEDs aus im Power Save" entfällt, OFF deckt sie ab.
+2. **Erst nach dem Menü:** eine neue Stufe auf LED DIMMING zeigte sich erst nach dem Verlassen des Menüs. Ursache (offline
+   gelesen): die Seite merkte nur "neu senden fällig" (`S_PEND`), und das Neusenden wartet auf den Hauptbildschirm (siehe Blau
+   oben). Jetzt schickt die Seite alle LEDs sofort über den Sendeweg der Firmware (neuer Eintrag +48 `pc_send_all`), ebenso
+   OVERLAP. PAD COLOR, SELECT COLOR und KNOB LEDS schickten schon sofort.
+3. **Keine Zwischenstufen:** am Gerät nur aus, ganz hell oder sehr dunkel, die Prozentzahl änderte dazwischen nichts. Im
+   Emulator rechnet der Patch jede Stufe richtig (`(Wert * behalten + 99) / 100`), und die Firmware schickt beim Dimmen keinen
+   eigenen Befehl ans Bedienfeld (**gemessen**: Schalter mit 1 auf dem Stand mit EXIT beim Einschalten, nur die zwölf
+   Pegel-LEDs `0x4C` bis `0x57` mit 120, sonst nichts). Warum das Bedienfeld die Zwischenwerte nicht zeigt, ist **offen**:
+   die Messung vom 16.10. (ein Wert je LED, alles ab 1 gleich hell) und die Beobachtung vom 18.10. (Pulsieren pulsiert flüssig)
+   widersprechen sich. Ausgeschlossen (**gemessen** im Emulator): dass Bit 3 der Stufe beim Speichern verloren geht (das
+   hätte 40 bis 70 % zu 75 bis 100 % gemacht); 70 % steht nach WRITE und Neustart wieder auf 70 %. Nächster Schritt am Gerät, nur mit Zustimmung: eine Pad-LED und eine Tasten-LED nacheinander auf
+   255, 192, 128, 64, 32, 16, 8 setzen und ansehen, einmal mit und einmal ohne Power Save.
+
