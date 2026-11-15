@@ -28,6 +28,8 @@ export const COLLECTION_VERSION = 1;
 export const HEADER_SIZE = 24;
 export const ENTRY_HEAD = 8;
 export const MAX_TEXT = 0x2000;
+/** A collection is at most this large: 255 + 255 + 72 entries with their longest text; the firmware writes no more over the cable (BLECH.FX_LIMIT). */
+export const MAX_FILE = 0x500000;
 export const BUILDS = { hacktribe: 1, stock: 2, synth: 3 };
 export const KIND = { ifx: 1, mfx: 2, mod: 3 };
 export const MOD_RECORD = TABLES.get("table.modType").stride;
