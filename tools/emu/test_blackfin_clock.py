@@ -325,6 +325,34 @@ class ArmClock(unittest.TestCase):
             self.assertEqual(port.backend.clock_status()['cycles'], 48)
             self.assertEqual(machine.reg(machine.A.UC_ARM_REG_R0) & 2, 2)
 
+    def test_native_and_python_instruction_clock_agree(self):
+        import machine as machine_module
+        from test_blackfin_backend import stream
+        if machine_module._arm_tick_library() is None:
+            self.skipTest('no C compiler for arm_tick.c')
+        profile = SimpleNamespace(assert_handler=0xC0100000, flash_read=0xC0100004,
+                                  dsp_upload=0xC0100008, tx_full=0xC010000C,
+                                  user_mark=bytes(12))
+        seen = []
+        for native in (True, False):
+            with BlackfinPort(WORKER, operating=True, host_transport='fifo',
+                              sport=dict(core_hz=4800000)) as port, \
+                 patch.object(machine_module, '_arm_tick_library',
+                              wraps=machine_module._arm_tick_library if native else lambda: None):
+                machine = machine_module.Machine(bytes(0x1000), profile=profile, dsp_backend=port)
+                self.assertEqual(isinstance(machine, machine_module._NativeClockMachine), native)
+                machine.pace = False
+                machine.ns_per_insn = 2.7
+                port.boot(stream(struct.pack('<2H', 0, 0x2FFF)))
+                # A GPIO poll loop: every read syncs the DSP at the time of the reading instruction.
+                machine.uc.mem_write(0xC0000070, struct.pack('<2I', 0xE5910000, 0xEAFFFFFD))
+                machine.uc.reg_write(machine.A.UC_ARM_REG_R1, 0x01E26098)
+                machine.uc.reg_write(machine.A.UC_ARM_REG_PC, 0xC0000070)
+                machine.run_slice(10001)
+                seen.append((machine.time_ns, type(machine.time_ns), machine.insns, machine._dsp_arm_fraction,
+                             port.backend.clock_status()['cycles']))
+        self.assertEqual(seen[0], seen[1])
+
 
 if __name__ == '__main__':
     unittest.main()

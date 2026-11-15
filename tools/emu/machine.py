@@ -336,7 +336,30 @@ class Machine:
         uc.ctl_exits_enabled(True)
         uc.ctl_set_exits(list(self.ENTRIES))
         if self._dsp_clocked:
-            uc.hook_add(unicorn.UC_HOOK_CODE, self._dsp_arm_tick)
+            library = _arm_tick_library()
+            if library is None:
+                uc.hook_add(unicorn.UC_HOOK_CODE, self._dsp_arm_tick)
+            else:
+                self._native_clock(library)
+
+    def _native_clock(self, library):
+        """Run _dsp_arm_tick in C (arm_tick.c): the clock fields move into the struct the C hook updates,
+        read and written through _NativeClockMachine's properties, so MMIO handlers and other hooks see
+        the time of the instruction that runs, as with the Python hook."""
+        from unicorn.unicorn_py3 import unicorn as u
+        state = {name: self.__dict__.pop(name) for name in _NativeClockMachine.CLOCK}
+        self._tick = _ArmTick()
+        self.__class__ = _NativeClockMachine
+        for name, value in state.items():
+            setattr(self, name, value)
+        handle = u.uc_hook_h()
+        status = u.uclib.uc_hook_add(self._uch, ctypes.byref(handle), u.uc.UC_HOOK_CODE,
+                                     ctypes.cast(library.blech_arm_tick, ctypes.c_void_p),
+                                     ctypes.c_void_p(ctypes.addressof(self._tick)), ctypes.c_uint64(1),
+                                     ctypes.c_uint64(0))
+        if status:
+            raise u.UcError(status)
+        self._tick_hook = (library, handle)
 
     def _dsp_arm_tick(self, uc, address, size, data):
         elapsed = self._dsp_arm_fraction + self.ns_per_insn
@@ -1110,6 +1133,80 @@ class Machine:
             self._saw_loading = True
         if not self.booted and screen == MAIN_SCREEN:
             self.booted, self.boot_ms = True, round(self.time_ns / 1e6, 1)
+
+
+class _ArmTick(ctypes.Structure):
+    _fields_ = [('time_ns', ctypes.c_double), ('fraction', ctypes.c_double),
+                ('ns_per_insn', ctypes.c_double), ('count', ctypes.c_uint64)]
+
+
+_ARM_TICK = []
+
+
+def _arm_tick_library():
+    """arm_tick.c built once per source and host into the temp directory, or None: no C compiler, or
+    GELUMPE_ARM_TICK=python to keep the Python hook."""
+    if os.environ.get('GELUMPE_ARM_TICK') == 'python':
+        return None
+    if not _ARM_TICK:
+        import platform
+        import subprocess
+        import tempfile
+        source = Path(__file__).with_name('arm_tick.c')
+        digest = hashlib.sha1(source.read_bytes() + platform.platform().encode()).hexdigest()[:12]
+        target = Path(tempfile.gettempdir()) / f'gelumpe-arm-tick-{digest}.so'
+        library = None
+        try:
+            if not target.exists():
+                partial = target.with_name(f'{target.name}.{os.getpid()}')
+                subprocess.run([os.environ.get('CC', 'cc'), '-O2', '-shared', '-fPIC', '-o', str(partial), str(source)],
+                               check=True, capture_output=True, timeout=120)
+                os.replace(partial, target)
+            library = ctypes.CDLL(str(target))
+        except (OSError, subprocess.SubprocessError):
+            library = None
+        _ARM_TICK.append(library)
+    return _ARM_TICK[0]
+
+
+class _NativeClockMachine(Machine):
+    """A clocked Machine whose per-instruction clock runs in C; see Machine._native_clock."""
+    CLOCK = ('time_ns', '_dsp_arm_fraction', '_dsp_arm_count', 'ns_per_insn')
+
+    @property
+    def time_ns(self):
+        value = self._tick.time_ns
+        return int(value) if self._time_is_int else value
+
+    @time_ns.setter
+    def time_ns(self, value):
+        self._tick.time_ns = value
+        self._time_is_int = type(value) is int
+
+    @property
+    def _dsp_arm_fraction(self):
+        return self._tick.fraction
+
+    @_dsp_arm_fraction.setter
+    def _dsp_arm_fraction(self, value):
+        self._tick.fraction = value
+
+    @property
+    def _dsp_arm_count(self):
+        return self._tick.count
+
+    @_dsp_arm_count.setter
+    def _dsp_arm_count(self, value):
+        self._tick.count = value
+
+    @property
+    def ns_per_insn(self):
+        return self._ns_per_insn
+
+    @ns_per_insn.setter
+    def ns_per_insn(self, value):
+        self._ns_per_insn = value
+        self._tick.ns_per_insn = value
 
 
 def load_flash(paths):
