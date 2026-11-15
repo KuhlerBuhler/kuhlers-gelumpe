@@ -52,7 +52,7 @@ B = Stichprobe des Worts beim IRQ-Eintritt an der 2-kHz-Kante (Vorwert 0 oder 1)
   64er-Trust-Grenze nur bei der aktuellen Version (`:773`). Nur hochzählen würde kartenlose Geräte auf Standard werfen und
   Karten mit mehr als 16 Plugins ablehnen.
 - **Vorschlag:** Byte 7 wird zweites Flagbyte, Anzahl nur noch Byte 6 (max 64). In jedem gültigen v1-v3-Satz ist Byte 7 = 0, also
-  ohne Weiche lesbar. Bits: 7.0 LOAD METER, 7.1 IDLE POWER SAVE, 7.2 DSP SLEEP, Rest frei. 0 = Standard.
+  ohne Weiche lesbar. Bits: 7.0 LOAD METER, 7.1 IDLE POWER SAVE aus (gesetzt = aus, damit der Standard "an" Version 3 schreibt), 7.2 DSP SLEEP, Rest frei. 0 = Standard.
 - Änderungen: Version 4; `:688` nimmt 3 und 4; Anzahl nur Byte 6; Trust-Grenze ab Version 3; Maske für Byte 7; `:859` schreibt
   Flags2; Laden wertet Byte 7 aus.
 - Migration ohne neuen Flash-Schreibpfad: v3 laden, im RAM als v4 führen, geschrieben wird erst beim nächsten normalen Speichern.
@@ -204,3 +204,33 @@ vorher). Am Gerät nicht geprüft.
   sind die Spalten leer, danach kommen die Ziffern wieder; OFF nimmt sie sofort weg. ORIG-Plakette über `orig_masks` (Byte 7).
 - **Downgrade:** ein BLECHTRIBE bis 1.4.6 lehnt den Satz der Version 4 ab und nimmt die andere Kopie oder die Standardwerte.
 - Offen: am Gerät nicht geprüft. Im Emulator folgt die Zeit dem 5-ns-Modell, am Gerät misst Timer3 die echte Zeit, die Zahl kann dort anders ausfallen.
+
+## Idle Power Save (Phase 6, umgesetzt)
+
+(Selbst nachgelesen und im Emulator gemessen, HT, rot, blau; Gerät nicht.)
+- **Umsetzung:** `tools/patch/script_idle.s`. Zeit in `IS_LAST` (OS-Tick, 1 ms), `idle_frame` im Rahmenhaken rechnet die Stufe:
+  ab 2:00 Stufe 1 (75 %), 3:00 Stufe 2 (50 %), 4:00 Stufe 3 (25 %), 5:00 Stufe 4 (dunkel). Nur bei einem Stufenwechsel
+  laufen `menu_look_apply`, die LEDs der Firmware (erzwungenes `HW_LED_REFRESH` 0 bis 0x57, außer ein Plugin oder der
+  Testmodus hält sie) und die LEDs der Plugins neu.
+- **Licht:** `idle_scale` skaliert INTENSITY und SAVE LIGHT mit (i * (4 - Stufe) + 3) >> 2, Weiß 15 also 12, 8, 4, 0 von 16.
+  Damit läuft im Dimmen der PWM-Weg auch für reines Weiß. Mit SAVE LIGHT 0 bleibt das Dimmen der Firmware in Stufe 1 bis 3
+  stehen (es ist dunkler), in Stufe 4 schaltet `bl_pwm_save_none` alle Pins aus.
+- **LEDs:** pad-colors liest den Prozentwert in `S_IDLE` (`PC_IDLE`) und nimmt das Minimum aus dem Viertel der Firmware und
+  dem Idle-Wert; LEDs eines Plugins skaliert `script_led_try_send` in Stufe 1 bis 4 gleich (aufgerundet, eine leuchtende LED
+  bleibt bis Stufe 4 an).
+- **Wachhalten:** Taste (`00 nn 1`), Pad, Drehgeber, Touchpad (`00 22`, `05`), Regler nn < 0x11 erst ab 2/255 Abstand zum
+  gemerkten Wert, PLAY (`HW_TRANSPORT`), MIDI-Note und CC im MIDI-Haken (Clock kommt dort nicht an), `korg.system.keepAwake()`.
+  Testmodus hält wach und hat Vorrang. Mit EXIT beim Einschalten bleibt `IS_STAGE` 0xFF, nichts davon läuft.
+- **Wecken:** `idle_input` im Eingabefilter: die erste Bedienung im gedimmten Zustand weckt und wird verschluckt, je Taste und
+  Pad ein Bit bis zum Loslassen, Touchpad-Positionen bis Taste 34 losgelassen ist. Ein Regler: die weckende Bewegung wird
+  verschluckt, der gemerkte Wert übernommen, die nächste Bewegung geht durch.
+- **Fälle:** `tools/emu/idle_save_cases.py`, 18 Fälle, HT 18/18, rot 18/18, blau 18/18: jede Stufe (Licht 0,75/0,50/0,25/0,
+  LEDs genau aufgerundet skaliert), Wecken mit Taste, Pad, Touchpad, Regler und Drehgeber verschluckt, MIDI-Note und CC wecken,
+  Clock nicht, PLAY hält wach (Netzteil und Batterie), Testmodus vor Idle, Korg Power Save plus Idle nie heller, Plugin-Licht
+  und -LED gehalten und zurück, keepAwake weckt, Schalter: Vorgabe ON schreibt Version 3, OFF Version 4 mit Byte 7 = 2, der
+  nächste Start liest es, EXIT beim Einschalten ohne Wirkung.
+- **Kosten des PWM:** Befehle mal 5 ns (Modell aus 0.1) über 1 s Leerlauf, wach (Weiß als Pin) gegen Stufe 1 (Weiß per PWM):
+  HT 4,00 % gegen 4,02 %, rot gleich, blau 4,98 % gegen 5,00 %, also 0,02 Punkte.
+- **Schalter:** Byte 7 Bit 1 gesetzt heißt OFF (`FLAGS2_IDLE_OFF`), damit die Vorgabe ON den Satz bei Version 3 lässt und ein
+  BLECHTRIBE bis 1.4.6 ihn weiter liest.
+- Offen: am Gerät nicht geprüft (Strom, Sichtbarkeit der Stufen, ob 25 % Weiß noch lesbar ist).

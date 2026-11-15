@@ -115,6 +115,17 @@ script_midi_in_hook:
     ldr r12, [r12, #0x18]
     tst r12, #0x2000
     bne midi_in_free
+    mov r12, r1, lsr #4         ; a note or a CC keeps the device awake (IDLE POWER SAVE, script_idle.s); the clock never comes here
+    cmp r12, #8
+    cmpne r12, #9
+    cmpne r12, #0xB
+    bne midi_in_post
+    ldr r0, =IDLE_TICKS
+    ldr r0, [r0]
+    ldr r12, =IDLE
+    str r0, [r12, #IS_LAST]
+    ldr r0, =HOOK_RUNTIME
+midi_in_post:
     sub sp, sp, #16
     mov r12, #EV_MIDI_IN
     str r12, [sp]

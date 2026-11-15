@@ -487,6 +487,8 @@ hw_pop_bad_arg:
 .equ HW_LED_COPY_PAGE, 0x880
 
 ; r0 red, r1 green, r2 blue: 1 lights that colour of the display light, 0 darkens it. Not held against the dimming on battery.
+; While IDLE POWER SAVE dims or darkens the light (script_idle.s) the pins stay as they are; the light asked for last comes on
+; when the device wakes.
 script_backlight_glue:
     push {r4-r6, lr}
     ldr r3, =objects_test_mode
@@ -496,6 +498,19 @@ script_backlight_glue:
     mov r4, r0
     mov r5, r1
     mov r6, r2
+    mov r0, #0
+    cmp r4, #0
+    orrne r0, r0, #1
+    cmp r5, #0
+    orrne r0, r0, #2
+    cmp r6, #0
+    orrne r0, r0, #4
+    ldr r3, =IDLE
+    strb r0, [r3, #IS_BL]
+    ldrb r0, [r3, #IS_STAGE]
+    sub r0, r0, #1
+    cmp r0, #3
+    bls backlight_done
     ldr r0, =HW_GPIO
     mov r1, r4
     mov r2, #3

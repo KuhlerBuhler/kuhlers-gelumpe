@@ -48,7 +48,7 @@
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
 .equ MX_FLAGS2, -0x15          ; byte, byte 7 of a version 4 settings file (FLAGS2_*), 0 without one
 .equ FLAGS2_LOAD_METER, 1      ; LOAD METER on (CUSTOMIZATION)
-.equ FLAGS2_IDLE_SAVE, 2       ; IDLE POWER SAVE on (CUSTOMIZATION)
+.equ FLAGS2_IDLE_OFF, 2        ; IDLE POWER SAVE off (POWER SAVE); clear is on, the default, so a file with the default stays version 3
 .equ FLAGS2_KNOWN, 3           ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
@@ -238,6 +238,22 @@ menu_arm_zero:
     str r0, [r4, #M_COUNT]
     ldr r1, =LOAD_METER         ; LOAD METER measures from now on (script_load_meter.s:LM_ARMED), not with EXIT held at power-on
     str r0, [r1, #LM_ARMED]
+    ldr r1, =IDLE               ; IDLE POWER SAVE counts from now on (script_idle.s): stage 0, all kept, nothing swallowed, no knob
+    ldr r2, =IDLE_TICKS         ; seen yet; with EXIT held at power-on it stays FF and nothing of it runs
+    ldr r2, [r2]
+    str r2, [r1, #IS_LAST]
+    ldr r2, =IS_FRESH
+    str r2, [r1, #IS_STAGE]
+    mov r2, #0
+    str r2, [r1, #IS_KEYS]
+    str r2, [r1, #IS_KEYS+4]
+    str r2, [r1, #IS_PADS]
+    mvn r2, #0
+    str r2, [r1, #IS_KNOBS]
+    str r2, [r1, #IS_KNOBS+4]
+    str r2, [r1, #IS_KNOBS+8]
+    str r2, [r1, #IS_KNOBS+12]
+    str r2, [r1, #IS_KNOBS+16]
     mov r0, #1
     str r0, [r4, #M_SET_RUN]
     str r0, [r4, #M_SET_MFX]
@@ -1373,6 +1389,7 @@ look_led_kind:
     moveq r8, #15
     push {r0, r7, r8}           ; the levels of the colour, scaled by INTENSITY for the light and by SAVE LIGHT for power save
     ldrb r1, [r4, #MX_INTENS]
+    bl idle_scale
     add r5, r4, #M_BL_CLR
     bl look_triple
     str r12, [r4, #M_BL_ON]
@@ -1385,6 +1402,7 @@ look_led_kind:
     ldrne r0, =4682             ; / 14: * 4682 >> 16
     mulne r1, r2, r0
     movne r1, r1, lsr #16
+    bl idle_scale
     sub r5, r4, #-MX_SAVE_CLR
     bl look_triple
     strb r12, [r4, #MX_SAVE_ON]
@@ -1442,6 +1460,18 @@ look_channel:
     ldrb r2, [r5, r0]
     orr r2, r2, r3
     strb r2, [r5, r0]
+    bx lr
+; r1 = an intensity 0 to 15 -> r1 scaled by the stage of IDLE POWER SAVE (script_idle.s): 4, 3, 2, 1 or 0 of 4 parts, rounded up,
+; so a lit light stays lit until the stage goes dark. FF (before menu_arm) is no stage. Clobbers r2 and r3.
+idle_scale:
+    ldr r2, =IDLE
+    ldrb r2, [r2, #IS_STAGE]
+    cmp r2, #4
+    bxhi lr
+    rsb r2, r2, #4
+    mul r3, r1, r2
+    add r3, r3, #3
+    mov r1, r3, lsr #2
     bx lr
 ; The backlight as the firmware sets it when the light comes back from power save: all three pins on, our setter hooks leave
 ; on what the settings allow. Not while the firmware dims (power save), the dim routine owns the pins then.
@@ -2135,7 +2165,7 @@ bl_pwm_hook:
     beq bl_pwm_normal
     ldrb r3, [r2, #MX_SAVE]     ; power save dims: with SAVE LIGHT the light of the colour at that intensity, else the firmware's dim
     cmp r3, #0
-    beq bl_pwm_pass
+    beq bl_pwm_save_none
     push {r4, r5, r6, r7, r8, lr}
     mov r5, r2
     ldrb r6, [r5, #MX_SAVE_ON]
@@ -2176,6 +2206,16 @@ bl_pwm_clear:
     bl GPIO_WRITE
 bl_pwm_done:
     pop {r4, r5, r6, r7, r8, pc}   ; the firmware's dim routine would only return (not dimming) or is replaced (SAVE LIGHT)
+bl_pwm_save_none:               ; the firmware's dim, unless IDLE POWER SAVE went dark (script_idle.s): then no pin lights
+    ldr r3, =IDLE
+    ldrb r3, [r3, #IS_STAGE]
+    cmp r3, #4
+    bne bl_pwm_pass
+    push {r4, r5, r6, r7, r8, lr}
+    mov r5, r2
+    mov r6, #0
+    add r7, r5, #M_BL_CLR
+    b bl_pwm_run
 bl_pwm_pass:
     push {r4, r5, r6, lr}
     ldr pc, =0xC00289F8
@@ -2547,6 +2587,8 @@ orig_masks:
     .byte 53, 64, 0, 0                ; KNOB LEDS: bit 6
     .word 0, 0
     .byte 59, 0, FLAGS2_LOAD_METER, 0 ; LOAD METER: bit 0 of byte 7
+    .word 0, 0
+    .byte 60, 0, FLAGS2_IDLE_OFF, 0 ; IDLE SAVE: bit 1 of byte 7, set is OFF
     .word 0, 0
     .byte 0xFF, 0, 0, 0
 
@@ -3109,6 +3151,8 @@ menu_texts_clear:
     beq menu_text_knob
     cmp r0, #59
     beq menu_text_lm
+    cmp r0, #60
+    beq menu_text_idle
     cmp r0, #57
     cmpne r0, #58
     beq menu_text_anim
@@ -3668,6 +3712,20 @@ menu_text_lm:
     ldr r1, =str_off
     tst r2, #FLAGS2_LOAD_METER
     ldrne r1, =str_on
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; IDLE SAVE: the light and the LEDs dim after 2, 3 and 4 minutes without a touch and go dark after 5 (script_idle.s); bit 1 of
+; byte 7 (MX_FLAGS2) set is OFF, so ON, the default, keeps byte 7 at 0
+menu_text_idle:
+    mov r0, #3
+    bl menu_title_prefix
+    ldr r1, =str_idle
+    bl menu_copy
+    ldrb r2, [r5, #MX_FLAGS2]
+    ldr r1, =str_on
+    tst r2, #FLAGS2_IDLE_OFF
+    ldrne r1, =str_off
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
@@ -4264,7 +4322,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -6232,6 +6290,8 @@ menu_slot_value:
     beq menu_value_knob
     cmp r0, #59
     beq menu_value_lm
+    cmp r0, #60
+    beq menu_value_idle
     cmp r0, #56
     beq menu_value_dev
     cmp r0, #57
@@ -6476,6 +6536,16 @@ menu_value_lm:
     cmp r5, #0
     orrgt r1, r1, #FLAGS2_LOAD_METER
     bicle r1, r1, #FLAGS2_LOAD_METER
+    strb r1, [r6, #MX_FLAGS2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; IDLE SAVE acts at once (OFF wakes at the next frame), WRITE keeps it: ON up, OFF down
+menu_value_idle:
+    ldrb r1, [r6, #MX_FLAGS2]
+    cmp r5, #0
+    bicgt r1, r1, #FLAGS2_IDLE_OFF
+    orrle r1, r1, #FLAGS2_IDLE_OFF
     strb r1, [r6, #MX_FLAGS2]
     mov r3, #0
     str r3, [r6, #M_STATUS]
@@ -7216,6 +7286,8 @@ str_knob:
     .asciz "KNOB LEDS"
 str_lm:
     .asciz "LOAD METER"
+str_idle:
+    .asciz "IDLE SAVE"
 str_sp:
     .asciz "STEREO 1 PAD"
 str_us:
@@ -7256,10 +7328,10 @@ sub_kinds:                      ; the kinds of the pages of DISPLAY, LED, PAD CO
     .byte 11, 12, 13, 26, 14, 59, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0      ; DISPLAY: backlight red, green, blue, INTENSITY, display invert, LOAD METER
     .byte 7, 8, 9, 10, 28, 29, 30, 31, 53, 0, 0, 0, 0, 0, 0, 0      ; LED: bottom LEDs, LED red, green, blue, the meter's four colours, KNOB LEDS
     .byte 24, 25, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; PAD COLOR: pad colour, select colour, overlap
-    .byte 27, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0          ; POWER SAVE: DISPLAY LIGHT, LED DIMMING (device 19.10.: SAVE LIGHT under DISPLAY said too little)
+    .byte 27, 34, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; POWER SAVE: DISPLAY LIGHT, LED DIMMING (device 19.10.: SAVE LIGHT under DISPLAY said too little), IDLE SAVE
     .byte 22, 23, 35, 57, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0       ; SPLASH: IMPORT, DRAW, RESET (device 22.10.: three rows of their own in CUSTOMIZATION were too many), LOADING ANIM, ANIM LOOP
 sub_counts:                     ; LED: KNOB LEDS, the last, only where the set has the pad colours (menu_count_features)
-    .byte 6, 9, 3, 2, 3
+    .byte 6, 9, 3, 3, 3
 led_dim_percent:                ; LED DIMMING, the steps of the dial: percent dimmed (pad_colors.py keeps the step 8 places on, 75 is 0)
     .byte 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100
 meter_palette:                  ; red, green, blue of the colours 1 to 7, then the firmware's colours of the four zones
