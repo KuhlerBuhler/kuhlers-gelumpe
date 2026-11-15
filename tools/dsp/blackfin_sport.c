@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include "defs.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include "sim-main.h"
 #include "sim-hw.h"
 #include "devices.h"
@@ -34,6 +36,23 @@ struct bfin_sport {
   bu32 core_hz, rate, mode, seed, lcg, remainder;
   bu32 rx_frames, tx_frames, rx_words, tx_words, tx_hash, last_rx;
 };
+
+/* Optional raw TX capture for audio inspection: BLECH_SPORT_TX_CAPTURE=<file>
+   receives every transmitted slot word (4 per frame, little endian). */
+static FILE *
+tx_capture (void)
+{
+  static FILE *file;
+  static bool opened;
+  if (!opened)
+    {
+      const char *path = getenv ("BLECH_SPORT_TX_CAPTURE");
+      opened = true;
+      if (path && *path)
+        file = fopen (path, "wb");
+    }
+  return file;
+}
 
 static void
 fifo_put (struct sport_fifo *fifo, bu32 value)
@@ -118,9 +137,13 @@ sport_tick (struct hw *me, void *data)
             }
           else
             sport->regs[12] |= TX_UNDERFLOW;
+          if (tx_capture ())
+            fwrite (&value, 4, 1, tx_capture ());
           for (byte = 0; byte < 4; ++byte)
             sport->tx_hash = (sport->tx_hash ^ ((value >> (byte * 8)) & 255)) * 16777619U;
         }
+      if (tx_capture ())
+        fflush (tx_capture ());
       if (sport->tx_dma)
         blech_bfin_dma_request (sport->tx_dma);
     }
