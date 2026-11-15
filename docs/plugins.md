@@ -443,7 +443,7 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, Farbe eines Pads, das leuchtet und gewählt ist: 0 die Farbe, die bleibt, 1 rot, 2 blau, 3 rosa | ja, wirkt sofort wie die Seite | 0 bis 3 |
 | `korg.menu.blech.customizations.powerSave.displayLight` | DISPLAY LIGHT im Power Save: 0 das Dimmen der Firmware, 1 bis 15 Stärke des Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.powerSave.ledDimming` | LED DIMMING im Power Save als Schritt des Rads: 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100 Prozent gedimmt | ja, wirkt sofort wie die Seite | 0 bis 11 |
-| `korg.menu.blech.customizations.powerSave.idleSave` | IDLE SAVE: Licht und LEDs dimmen ohne Bedienung (1, die Vorgabe) (ab API Version 37) | ja, wirkt sofort wie die Seite, 0 weckt ein gedimmtes Gerät; jedes Schreiben startet die Zeit von IDLE SAVE neu wie ein Dreh am Rad | 0 bis 1 |
+| `korg.menu.blech.customizations.powerSave.idleSave` | IDLE SAVE: Licht und LEDs dimmen ohne Bedienung (1, die Vorgabe) (ab API Version 37) | ja, wirkt sofort wie die Seite, 0 weckt ein gedimmtes Gerät; jedes Schreiben startet die Zeit von IDLE SAVE und Auto Power Off neu wie ein Dreh am Rad, also nicht in jedem Takt schreiben | 0 bis 1 |
 | `korg.menu.blech.features.mfx2` | MFX 2 an (1); gilt ab dem nächsten Start, die Seite sagt das | ja | 0 bis 1 |
 | `korg.menu.blech.features.patternConfirm` | PATTERN CONFIRM: der Patternwechsel wartet auf einen zweiten Druck (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
 | `korg.menu.blech.features.tapMotion` | TAP MOTION: 0 aus, 1 an, 2 einmal | ja, wirkt sofort wie die Seite | 0 bis 2 |

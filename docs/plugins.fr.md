@@ -414,7 +414,7 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, couleur d’un pad allumé et sélectionné : 0 couleur restante, 1 rouge, 2 bleu, 3 rose | Oui, comme la page | 0 à 3 |
 | `korg.menu.blech.customizations.powerSave.displayLight` | DISPLAY LIGHT en économie d’énergie : 0 atténuation du firmware, 1 à 15 intensité choisie | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.powerSave.ledDimming` | LED DIMMING, indice des atténuations 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100 % | Oui, comme la page | 0 à 11 |
-| `korg.menu.blech.customizations.powerSave.idleSave` | IDLE SAVE, lumière et LED s’atténuent sans action (1, par défaut) (depuis l’API 37) | Oui, comme la page, 0 réveille un appareil atténué ; chaque écriture relance le délai d’IDLE SAVE comme un tour de molette | 0 à 1 |
+| `korg.menu.blech.customizations.powerSave.idleSave` | IDLE SAVE, lumière et LED s’atténuent sans action (1, par défaut) (depuis l’API 37) | Oui, comme la page, 0 réveille un appareil atténué ; chaque écriture relance le délai d’IDLE SAVE et d’Auto Power Off comme un tour de molette, donc ne pas l’écrire à chaque tick | 0 à 1 |
 | `korg.menu.blech.features.mfx2` | MFX 2 activé ; effet au démarrage suivant, indiqué sur la page | Oui | 0 à 1 |
 | `korg.menu.blech.features.patternConfirm` | PATTERN CONFIRM, changement soumis à une seconde pression | Oui, comme la page | 0 à 1 |
 | `korg.menu.blech.features.tapMotion` | TAP MOTION : 0 désactivé, 1 activé, 2 une fois | Oui, comme la page | 0 à 2 |

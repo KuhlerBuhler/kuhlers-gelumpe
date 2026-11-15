@@ -403,7 +403,7 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, color of a pad that is lit and selected: 0 the color that is left, 1 red, 2 blue, 3 pink | yes, acts at once like the page | 0 to 3 |
 | `korg.menu.blech.customizations.powerSave.displayLight` | DISPLAY LIGHT in power save: 0 the firmware's own dim, 1 to 15 the light's intensity | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.powerSave.ledDimming` | LED DIMMING in power save as the dial's step: 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100 percent dimmed | yes, acts at once like the page | 0 to 11 |
-| `korg.menu.blech.customizations.powerSave.idleSave` | IDLE SAVE: light and LEDs dim without a touch (1, the default) (from API version 37) | yes, acts at once like the page, 0 wakes a dimmed device; every write starts the time of IDLE SAVE again like a turn of the dial | 0 to 1 |
+| `korg.menu.blech.customizations.powerSave.idleSave` | IDLE SAVE: light and LEDs dim without a touch (1, the default) (from API version 37) | yes, acts at once like the page, 0 wakes a dimmed device; every write starts the time of IDLE SAVE and Auto Power Off again like a turn of the dial, so do not write it on every tick | 0 to 1 |
 | `korg.menu.blech.features.mfx2` | MFX 2 on (1); takes effect at the next start, the page says so | yes | 0 to 1 |
 | `korg.menu.blech.features.patternConfirm` | PATTERN CONFIRM: a pattern change waits for a second press (1) | yes, acts at once like the page | 0 to 1 |
 | `korg.menu.blech.features.tapMotion` | TAP MOTION: 0 off, 1 on, 2 once | yes, acts at once like the page | 0 to 2 |
