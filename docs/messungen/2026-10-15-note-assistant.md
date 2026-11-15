@@ -102,7 +102,7 @@ den Hinweis halten und folgt, solange das Hinweisfenster offen ist, der Regel "p
 
 ## KEY und KEY PADS Oktave (15.11.)
 
-**Gerät 15.11. (Pascal, Test-Firmware 599f7486):** im KEYBOARD-Modus zeigte der Notenassistent manchmal gar nichts mehr, weder Hinweise noch das Rot der
+**Gerät 15.11. (Test-Firmware 599f7486):** im KEYBOARD-Modus zeigte der Notenassistent manchmal gar nichts mehr, weder Hinweise noch das Rot der
 gerade gespielten Note, bis zum Patternwechsel oder Neustart.
 
 **Ursache (gemessen, `sequencer_note_follows_key_and_octave`).** Bei einem Part mit SCALE MODE ON spielt die Firmware die Note um den KEY höher, mit KEY PADS
