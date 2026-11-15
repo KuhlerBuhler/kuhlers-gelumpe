@@ -1,12 +1,15 @@
 ; IDLE POWER SAVE (CUSTOMIZATION > POWER SAVE > IDLE SAVE, ON by default): with no touch for 2 minutes the backlight and the
 ; LEDs dim to 75 percent, after 3 minutes to 50, after 4 to 25, after 5 they go dark. A touch (key, pad, knob, encoder, touchpad,
-; idle_input in script_hooks.s), a MIDI note or CC (script_midi.s), PLAY and korg.system.keepAwake() (script_remote.s) start
-; the time again. The first touch while dimmed or dark wakes the device and is swallowed with all that belongs to it.
+; power key; idle_input in script_hooks.s), a MIDI note or CC (script_midi.s), PLAY or recording (not pause), a remote command,
+; korg.pressKey and korg.system.keepAwake() (script_remote.s) start the time again. The first key, pad, encoder or touchpad touch
+; while dimmed or dark wakes the device and is swallowed with all that belongs to it; a press that reached the firmware before
+; keeps reaching it until its release. A knob wakes and goes to the firmware as always (KNOB MODE decides).
 ; The light: menu_look_apply scales INTENSITY and SAVE LIGHT by the stage (script_menu.s:idle_scale); with SAVE LIGHT 0 the
 ; firmware's own power save dim stays as it is until the stage goes dark (bl_pwm_save_none). The LEDs: the patch pad-colors
 ; scales every LED message by the percent kept (its S_IDLE byte, PC_IDLE), a plugin's LEDs are scaled in script_led_try_send,
-; a plugin's korg.backlight is held from stage 1 on and comes back on waking. The test mode goes first: it keeps the device
-; awake. With EXIT held at power-on menu_arm never runs, IS_STAGE stays FF and nothing of this runs.
+; a plugin's korg.backlight is held from stage 1 on and comes back on waking (given up when no plugin runs, script_led_hold_guard).
+; The test mode goes first: it keeps the device awake. With EXIT held at power-on menu_arm never runs, IS_STAGE stays FF and
+; nothing of this runs. No flag tells a long card job (sample import, SysEx) apart, so one longer than 2 minutes dims too.
 ; Measured in docs/messungen/2026-11-14-energie-befunde.md ("Idle Power Save").
 .equ IS_LAST, 0                 ; the OS tick (1 ms) of the last touch, MIDI note or CC, PLAY or keepAwake
 .equ IS_STAGE, 4                ; byte: the stage shown, 0 awake, 1 to 3 dimmed, 4 dark; FF before menu_arm
@@ -15,10 +18,13 @@
 .equ IS_FRESH, 0x00FF6400       ; the word at IS_STAGE after menu_arm: stage 0, 100 kept, no backlight of a plugin
 .equ IS_KEYS, 8                 ; 2 words: a bit per key whose press woke the device; its release is swallowed too
 .equ IS_PADS, 16                ; a bit per pad whose press woke the device; its pressure and its release are swallowed too
-.equ IS_KNOBS, 20               ; 20 bytes: the raw value each knob was last seen at, FF none yet
-.equ IDLE_SIZE, 40
+.equ IS_KNOBS, 20               ; 20 bytes: the raw value each knob was last seen at (FF read as FE), FF none yet
+.equ IS_DOWN, 32                ; IS_DOWN + IS_KEYS/IS_PADS: a bit per key and pad whose press went to the firmware, until its release
+.equ IS_DOWN_KEYS, IS_DOWN + IS_KEYS
+.equ IS_DOWN_PADS, IS_DOWN + IS_PADS
+.equ IDLE_SIZE, 52
 .equ IDLE_KNOBS, 17             ; knob messages 0 to 16 are the knobs; 17 on are the other ADC inputs, never a touch
-.equ IDLE_KNOB_MOVE, 2          ; a knob counts as touched once it moved this far from where it was last seen (ADC noise is 1)
+.equ IDLE_KNOB_MOVE, 2          ; a knob counts as a touch once it moved this far from where it was last seen (ADC noise is 1)
 .equ IDLE_TOUCH_KEY, 34         ; the key message of the touchpad (byte 0x0e 1 touched, 0 let go)
 .equ IDLE_FIRST_MS, 120000      ; stage 1 after 2 minutes
 .equ IDLE_STEP_MS, 60000        ; each further stage a minute later
@@ -54,9 +60,10 @@ idle_frame_mode:
     mov r6, #0
     tst r1, #FLAGS2_IDLE_OFF
     bne idle_frame_stage
-    ldr r1, =HW_TRANSPORT       ; PLAY keeps the device awake
+    ldr r1, =HW_TRANSPORT       ; PLAY (1), REC armed (3) and recording (4) keep the device awake, pause (2) does not
     ldr r1, [r1]
     cmp r1, #0
+    cmpne r1, #2
     strne r5, [r4, #IS_LAST]
     ldr r1, [r4, #IS_LAST]
     sub r1, r5, r1              ; signed: a touch noted after the tick was read is no time at all

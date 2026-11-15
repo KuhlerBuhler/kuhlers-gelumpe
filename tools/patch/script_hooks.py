@@ -55,7 +55,7 @@ METER_SENT_END = METER_SENT + 48 # FF at power-on matches nothing
 LOAD_METER = METER_SENT_END      # LOAD METER (script_load_meter.s:LM_*): the stamp of the idle loop, the sum of sleep, the frame's reading,
 LOAD_METER_END = LOAD_METER + 40 # the value shown and the armed word; FF at power-on is no stamp, no reading and not armed
 IDLE = LOAD_METER_END            # IDLE POWER SAVE (script_idle.s:IS_*): the tick of the last touch, the stage, the percent kept,
-IDLE_END = IDLE + 40             # a plugin's backlight, the keys and pads that woke, the knobs' last values; FF before menu_arm
+IDLE_END = IDLE + 52             # a plugin's backlight, the keys and pads that woke or are down, the knobs' last values; FF before menu_arm
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 RUNTIME = 0xC01AE000
@@ -476,7 +476,7 @@ class BuiltHooks:
             area(DATA_FILE,DATA_FILE_END-DATA_FILE,'korg.file.read and korg.file.write: the heap block that holds one plugin\'s data file, its size, the flag of a write that waits for the card and the frame of the last write','tools/patch/script_data.s:DF_BLOCK'),
             area(METER_SENT,METER_SENT_END-METER_SENT,'the meter LEDs: per LED the brightness and mode last sent to the panel, so the LED manager sends only a change','tools/patch/script_menu.s:meter_dedupe_hook'),
             area(LOAD_METER,LOAD_METER_END-LOAD_METER,'LOAD METER: the stamp of the idle loop, the sum of sleep, the frame\'s reading, the value shown and the armed word','tools/patch/script_load_meter.s:LM_STAMP'),
-            area(IDLE,IDLE_END-IDLE,'IDLE POWER SAVE: the tick of the last touch, the stage shown, the percent the LEDs keep, a plugin\'s backlight held, the keys and pads whose release is swallowed, the knobs\' last values','tools/patch/script_idle.s:IS_LAST'),
+            area(IDLE,IDLE_END-IDLE,'IDLE POWER SAVE: the tick of the last touch, the stage shown, the percent the LEDs keep, a plugin\'s backlight held, the keys and pads whose release is swallowed or that are down, the knobs\' last values','tools/patch/script_idle.s:IS_LAST'),
             area(IDLE_END,MORE_END-IDLE_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:IDLE_END'),
             area(SETTINGS_RAM,SETTINGS_RAM_END-SETTINGS_RAM,'the two buffers of the settings file of the BLECH menu and its checksum list (allowed plugins, plugins switched off)','tools/patch/script_hooks.py:SETTINGS_RAM'),
             area(LIST_WORK,LIST_WORK_END-LIST_WORK,'work area of the list of MANAGE PLUGINS: folder object, file info, long name, path, the place of each listed file in the folder, the flag of more files than the list holds','tools/patch/script_menu.s:LIST_WORK'),

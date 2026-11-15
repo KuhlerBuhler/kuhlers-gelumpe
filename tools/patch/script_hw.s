@@ -586,10 +586,14 @@ script_read_led_glue:
     mov r1, #ERR_OK
     bx lr
 
-; r0 runtime. Gives the LEDs back when a script held them and none is left to run.
+; r0 runtime. Gives the LEDs back when a script held them and none is left to run, and forgets the backlight a plugin asked for
+; (IDLE POWER SAVE would bring it back on waking, script_idle.s:IS_BL).
 script_led_hold_guard:
     ldr r1, [r0, #SCRIPT_CONTROL_LED_HOLD]
-    cmp r1, #0
+    ldr r2, =IDLE
+    ldrb r2, [r2, #IS_BL]
+    cmp r2, #0xFF
+    cmpeq r1, #0
     bxeq lr
     ldr r1, =EGG_WORK           ; the egg on the page VERSION holds them while its show runs (script_egg.s)
     ldrb r1, [r1, #M_EGG]
@@ -611,6 +615,9 @@ led_guard_next:
     b led_guard_entry
 led_guard_release:
     push {lr}
+    ldr r1, =IDLE
+    mov r2, #0xFF
+    strb r2, [r1, #IS_BL]
     mov r0, #0
     bl script_led_hold_glue
     pop {pc}
