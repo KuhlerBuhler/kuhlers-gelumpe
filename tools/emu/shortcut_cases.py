@@ -40,10 +40,12 @@ STEPS = 0x30                    # the steps of a part start here, 12 bytes each
 KILL = menu_cases.KILL
 KEY_AT = 39                     # KEY of the pattern, 0 to 11
 KEY_PADS_ON = script_hooks.MENU_STATE + 0x104   # M_KP: the page KEY PADS (tools/patch/script_menu.s)
-# Per pad the KEY that KEY PADS sets, -1 none: chromatic in pad order, pad 1 C to pad 12 B; pads 13 to 16 set the octave instead.
+# Per pad the KEY that KEY PADS sets, -1 none: chromatic in pad order, pad 1 C to pad 12 B; pads 13 to 16 shift the octave instead.
 KEY_NOTES = list(range(12)) + [-1] * 4
-KEY_OCTAVES = [3, 4, 5, 6]      # pads 13 to 16: the keyboard's octave (4 after the start, pad 1 then plays 60)
-OCTAVE_AT = 0x324               # the octave in the object KP_OCT_OBJ points to (tools/patch/script_hooks.py)
+KEY_SHIFTS = [-1, 0, 1, 2]      # pads 13 to 16: octaves added to the KEY where the firmware adds it to a note (0 after the start)
+KP_OCT = script_hooks.MENU_STATE + 0x10D   # the shift, signed byte (tools/patch/script_shortcuts.s)
+OCTAVE_AT = 0x324               # the keyboard octave of the bar keys, in the object behind OCTAVE_OBJ (2026-11-12-key-pads-oktave.md)
+OCTAVE_OBJ = {False: 0xC06912E0, True: 0xC056B58C}
 KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 DRAW_TEXT = {False: 0xC003F7D0, True: 0xC003A408}   # the firmware's text draw (text, x, y, ...), Sampler and synth
 DISPATCH = 0xC002837C           # the dispatcher of panel messages, before the input filter
@@ -446,11 +448,11 @@ def case_key_pads(payload, flash):
     out = []
     box.poke(KEY_AT, 0)
     part = box.selected()
-    octave_object = (script_hooks.KEY_PADS_SYNTH if box.dev.synth else script_hooks.KEY_PADS_SAMPLER)["KP_OCT_OBJ"]
-    octave = lambda: box.u32(box.u32(octave_object) + OCTAVE_AT)  # noqa: E731
-    start_octave = octave()
+    octave = lambda: box.u32(box.u32(OCTAVE_OBJ[box.dev.synth]) + OCTAVE_AT)  # noqa: E731
+    shift = lambda: struct.unpack("b", box.dev.read(KP_OCT, 1))[0]  # noqa: E731
+    start_shift = shift()
     held(KEYBOARD, True, 0.25)     # 0.2 put pad 6 on the frame where the KEYBOARD window times out (blue, 12.11.)
-    got, shown, windows, octaves = [], [], [], []
+    got, shown, windows, shifts = [], [], [], []
     for n in range(16):
         texts.clear()
         opened.clear()
@@ -458,7 +460,7 @@ def case_key_pads(payload, flash):
             box.poke(KEY_AT, 3)             # a pad without a note leaves any KEY as it is
         box.pad(n)
         got.append(key())
-        octaves.append(octave())
+        shifts.append(shift())
         windows.append(list(opened))
         if KEY_NOTES[n] >= 0:
             shown.append(KEY_NAMES[KEY_NOTES[n]] in texts and "KEY" in texts)
@@ -470,9 +472,11 @@ def case_key_pads(payload, flash):
                      and windows == [[n] if n >= 0 else [] for n in KEY_NOTES] and not box.m.asserts,
                      f"pads 1 to 12, window with KEY and the note: {shown}; window messages per pad {windows}"))
 
-    out.append(entry("key_pads_set_the_octave", start_octave == 4 and octaves == [4] * 12 + KEY_OCTAVES and not box.m.asserts,
-                     f"octave at the start {start_octave}, after each of the 16 pads {octaves} (want 4 for pads 1 to 12, then {KEY_OCTAVES})"))
+    out.append(entry("key_pads_set_the_octave", start_shift == 0 and shifts == [0] * 12 + KEY_SHIFTS and octave() == 4 and not box.m.asserts,
+                     f"shift at the start {start_shift}, after each of the 16 pads {shifts} (want 0 for pads 1 to 12, then {KEY_SHIFTS}); "
+                     f"the bar keys' keyboard octave {octave()} (want 4, untouched)"))
 
+    box.poke(PART + 5, 1)  # the shift follows the KEY, which moves only a part with SCALE MODE ON
     box.dev.press(KEYBOARD, 0.4)
 
     def pad_notes():
@@ -486,9 +490,9 @@ def case_key_pads(payload, flash):
     box.pad(13)
     held(KEYBOARD, False, 0.3)
     low = pad_notes()
-    out.append(entry("key_pads_octave_plays", len(high) == 1 and len(low) == 1 and high[0] - low[0] == 24 and octave() == 4
+    out.append(entry("key_pads_octave_plays", len(high) == 1 and len(low) == 1 and high[0] - low[0] == 24 and shift() == 0
                      and marked == passed and not box.m.asserts,
-                     f"KEYBOARD mode, pad 1 after pad 16 (octave 6) {high}, after pad 14 (octave {octave()}) {low}, want 24 apart"))
+                     f"KEYBOARD mode, SCALE MODE ON, pad 1 after pad 16 (shift +2) {high}, after pad 14 (shift {shift()}) {low}, want 24 apart"))
     out.append(entry("key_pads_short_press_reaches_the_firmware", marked == [1, 0] and mode() == 5 and key() == 3
                      and box.dev.read(script_hooks.PRESS_KEY, 8) == b"\xff" * 8 and not box.m.asserts,
                      f"KEYBOARD passed on {marked} (want press and release), pad mode {mode()} (want 5 KEYBOARD), KEY {key()}"))
@@ -506,6 +510,80 @@ def case_key_pads(payload, flash):
     out.append(entry("key_pads_shift_and_off_are_stock", key() == 0 and box.selected() == 12 and marked == [] and not box.m.asserts,
                      f"after SHIFT + KEYBOARD and KEY PADS OFF + KEYBOARD + pad 13: KEY {key()} (want 0), part {box.selected()} "
                      f"(want 12, the firmware's part select), marked presses {marked}"))
+    return out
+
+
+def case_key_pads_transpose(payload, flash):
+    """KEY PADS octave: pads 13 to 16 move the sequence by -1, 0, +1, +2 octaves where the firmware adds the KEY, so a part with
+    SCALE MODE ON plays shifted and a part with SCALE MODE OFF stays; a note played on the keyboard while shifted is recorded
+    without the shift and plays back as it was heard (device test 15.11.: the octave only moved the keyboard)."""
+    out = []
+    box = SBox(payload, flash)
+
+    def held(k, down, wait=0.25):
+        box.m.press(k, down)
+        box.run(wait)
+
+    def shift_to(pad):
+        held(KEYBOARD, True)
+        box.pad(pad)
+        held(KEYBOARD, False, 0.3)
+
+    def notes(seconds):
+        sent = len(box.m.uart[UART1]["tx"])
+        box.run(seconds)
+        data = bytes(box.m.uart[UART1]["tx"][sent:])
+        return {(data[i] & 15, data[i + 1]) for i in range(len(data) - 2) if data[i] & 0xF0 == 0x90 and data[i + 2] > 0}
+
+    def steps(part, scale, note):
+        base = PART + part * STRIDE
+        box.poke(base + 5, scale)
+        for s in range(64):
+            on = s % 16 in (0, 4, 8, 12)
+            for i, v in enumerate([int(on), 40, 100, int(on), note if on else 0, 0, 0, 0]):
+                box.poke(base + STEPS + s * 12 + i, v)
+    steps(0, 1, 61)
+    steps(1, 0, 63)
+    play(box)
+    box.run(0.1)
+    heard = {}
+    for pad in (13, 12, 15, 13):
+        shift_to(pad)
+        heard[pad] = notes(8.0)
+    scaled = {pad: sorted(n for ch, n in got if ch == 0) for pad, got in heard.items()}
+    plain = {pad: sorted(n for ch, n in got if ch == 1) for pad, got in heard.items()}
+    base_note = scaled[13][0] if len(scaled[13]) == 1 else None
+    out.append(entry("key_pads_octave_moves_the_sequence", base_note is not None and scaled[12] == [base_note - 12] and scaled[15] == [base_note + 24]
+                     and all(v == plain[13] and len(v) == 1 for v in plain.values()) and not box.m.asserts,
+                     f"part 1 (SCALE MODE ON) per pad 14, 13, 16, 14: {[scaled[p] for p in (13, 12, 15)]}, want -12 and +24 from pad 14; "
+                     f"part 2 (OFF): {[plain[p] for p in (13, 12, 15)]}, want the same"))
+
+    recorded = {}
+    for pad in (13, 14):
+        box = SBox(payload, flash)
+        steps(0, 1, 0)
+        shift_to(pad)
+        box.dev.press(KEYBOARD, 0.4)
+        sent = len(box.m.uart[UART1]["tx"])
+        box.pad(0)
+        data = bytes(box.m.uart[UART1]["tx"][sent:])
+        live = [data[i + 1] for i in range(len(data) - 2) if data[i] & 0xF0 == 0x90 and data[i + 2] > 0]
+        box.dev.press(0x00, 0.2)                    # REC, then PLAY: pad 1 four times
+        box.dev.press(0x02, 0.3)
+        for _ in range(4):
+            box.pad(0)
+            box.run(0.3)
+        box.dev.press(0x01, 0.5)
+        pat = box.live()
+        stored = sorted({pat[PART + STEPS + s * 12 + 4] for s in range(64) if pat[PART + STEPS + s * 12]})
+        play(box)
+        back = sorted(n for ch, n in notes(8.0) if ch == 0)
+        recorded[pad] = (live, stored, back)
+    (live0, stored0, back0), (live1, stored1, back1) = recorded[13], recorded[14]
+    out.append(entry("key_pads_octave_records_without_the_shift", len(live0) == 1 and live1 == [live0[0] + 12] and stored0 and stored1 == stored0
+                     and back0 == live0 and back1 == live1 and not box.m.asserts,
+                     f"KEYBOARD mode pad 1 at shift 0 / +1: plays {live0} / {live1}, stored {stored0} / {stored1} (want the same), "
+                     f"plays back {back0} / {back1} (want what was played)"))
     return out
 
 
@@ -637,7 +715,7 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_kill, case_unsaved, case_pad_state, case_key_pads, case_key_pads_transpose, case_filter_toggle)
 
 
 def group_entries(payload, flash, i):

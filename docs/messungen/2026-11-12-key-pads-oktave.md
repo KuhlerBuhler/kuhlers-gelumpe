@@ -5,6 +5,9 @@ Stand 12.11.2026, Emulator mit Hacktribe 2.02 (163d1d8d), Korgs rotem 2.02 und K
 `tools/patch/script_shortcuts.s` (`kp_notes`, `kp_tick_octave`), Adressen `tools/patch/script_hooks.py` (`KP_OCT_SET`,
 `KP_OCT_OBJ`), Fälle `tools/emu/shortcut_cases.py` (`case_key_pads`). Am Gerät nichts getan.
 
+Abgelöst durch [KEY PADS transponieren](2026-11-15-key-pads-transpose.md): Pads 13 bis 16 rufen den Setter nicht mehr, sie verschieben
+seit 15.11. die Parts mit SCALE MODE ON und die Tastatur um -1 bis +2 Oktaven.
+
 Marker: **gemessen** heißt im Emulator ausgeführt und gesehen, **hergeleitet** heißt aus dem Code geschlossen, **ungeprüft** heißt
 offen, vor allem am Gerät.
 
