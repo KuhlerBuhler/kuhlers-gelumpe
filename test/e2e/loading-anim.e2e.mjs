@@ -11,13 +11,13 @@ after(async () => { await h.tearDown(); });
 const GIF = new URL("../fixtures/gif/ffmpeg-moving.gif", import.meta.url).pathname;
 const KEY = "cee.loading.anim";
 
-/** The Design page on its Ladeanimation tab; `reduce` starts it with reduced motion, so the preview follows the gallery. */
+/** The Design page on its Ladeanimation sub-page; `reduce` starts it with reduced motion, so the preview follows the gallery. */
 async function designPage({ reduce = true } = {}) {
   const page = await h.page();
   if (reduce) await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(h.url);
   await go(page, "splash");
-  await page.click("#cee-design-tab-anim");
+  await page.click("#cee-splash-page-anim");
   await page.locator("#cee-anim-slot-text:not(:empty)").waitFor();
   return page;
 }
@@ -58,14 +58,23 @@ const filled = page => page.locator("#cee-anim-slot-picture").isVisible();
 const lcdShot = page => page.locator("#cee-anim-preview").evaluate(c => c.toDataURL());
 const same = (a, b) => a.every((x, i) => x === b[i]);
 
-test("Design: three tabs, Startbild, Ladeanimation and Image Viewer; the gallery stands with 100 empty slots from the start", async () => {
+test("Design: sub-pages in the sidebar, Startbilder, Selbst gestalten, Ladeanimation and Image Viewer; the gallery stands with 100 empty slots from the start", async () => {
   const page = await h.page();
   await page.goto(h.url);
   await go(page, "splash");
-  assert.deepEqual(await page.locator("#cee-design-tabs [role=tab]").allTextContents(), ["Startbild", "Ladeanimation", "Image Viewer"]);
-  assert.equal(await page.locator("#cee-design-panel-splash").isVisible(), true, "Startbild first");
-  await page.click("#cee-design-tab-anim");
+  assert.equal(await page.locator("#cee-design-tabs").count(), 0, "no tab row above the page any more");
+  assert.deepEqual(await page.locator("#cee-splash-pages .cee-nav-subitem").allTextContents(), ["Startbilder", "Selbst gestalten", "Ladeanimation", "Image Viewer"]);
+  assert.equal(await page.locator("#cee-splash-page-gallery").isVisible(), true, "Startbilder first");
+  assert.equal(await page.locator("#cee-splash-page-images").getAttribute("aria-current"), "");
+  await page.click("#cee-splash-page-make");
+  assert.equal(await page.locator("#cee-splash-page-editor").isVisible(), true, "Selbst gestalten opens the editor");
+  assert.equal(await page.locator("#cee-splash-page-make").getAttribute("aria-current"), "");
+  await page.click("#cee-splash-page-pics");
+  assert.equal(await page.locator("#cee-design-panel-pics").isVisible(), true);
+  assert.equal(await page.locator("#cee-design-panel-splash").isHidden(), true);
+  await page.click("#cee-splash-page-anim");
   assert.equal(await page.locator("#cee-design-panel-anim .ui-section-title").textContent(), "Ladeanimation");
+  assert.match(await page.locator("#cee-nav-title").textContent(), /Ladeanimation$/, "the navbar names the sub-page");
   assert.equal(await page.locator("#cee-anim-gallery").isVisible(), true);
   assert.equal(await slotText(page), "Bild 1 von 100, 0 %. Leer, das Display bleibt hier leer.");
   assert.equal(await page.locator("#cee-anim-slot-drop").isVisible(), true, "an empty slot is a drop field with a plus");
