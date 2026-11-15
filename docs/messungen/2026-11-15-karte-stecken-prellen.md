@@ -7,14 +7,14 @@ SysEx (`swappoll.py` auf linux, ~/gelumpe-probe, Log `reins-loop.log`). Emulator
 ## Befund
 
 Gerätetest 1.4.6: Start mit Karte A, A ziehen, am Rechner `e2sFx.all` ersetzen, A wieder stecken. Ziehen geht (Flash-Werte zurück),
-nach dem Stecken steht das Gerät: Pattern-Bildschirm eingefroren, erst Aus/Ein hilft (Pascal).
+nach dem Stecken steht das Gerät: Pattern-Bildschirm eingefroren, erst Aus/Ein hilft.
 
 | Behauptung | Beleg | Marker |
 |---|---|---|
 | 17:16:20 Ziehen: `M_CARD` 0x82 bis 0x87, dann 0, `M_FL` 0x4, Flash-CRC 0x5aff3ac7 | READ-Poll | gemessen |
 | 17:17:05,7 Stecken: Zähler 1 bis 7, nach 0,3 s gelesen (`M_CARD` 0xFF). Korgs Init läuft bis ACMD41 (OCR kurz 0x00FF8000, dann bereit), Init-Flag bleibt 0, `fs_type` 0, `M_FL` bleibt 0x4: das Lesen ist gescheitert | READ-Poll | gemessen |
 | 0,2 s nach dem Lesen (0,5 s nach dem ersten Kontakt) meldet der Kartenschalter einmal "keine Karte", danach wieder "Karte" | READ-Poll, `pres` 0 bei 441,19 s | gemessen |
-| Ab etwa 17:17:07 keine Antwort mehr, bis Pascal aus- und einschaltet | READ-Poll, Pascal | gemessen |
+| Ab etwa 17:17:07 keine Antwort mehr, bis zum Aus- und Einschalten von Hand | READ-Poll, Tester | gemessen |
 | Die Karte war beim Lesen noch nicht ganz drin: der Schalter prellt danach noch, und die Init scheitert nach ACMD41 | aus den Zeilen darüber | hergeleitet |
 | `e2sFx.all` liest BLECH nur beim Start (`fx_card_load` aus `script_start_sampler.s`), nicht beim Stecken | Code | gemessen |
 | Warum das Gerät nach dem gescheiterten Lesen hängt | Emulator: gescheiterte Init plus Prellen hängt nicht | offen |
