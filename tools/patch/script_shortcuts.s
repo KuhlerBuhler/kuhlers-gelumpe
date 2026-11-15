@@ -294,7 +294,7 @@ sc_encoders:                    ; the part edit's parameter, the offset; 0 ends
 
 ; KEY PADS (idea 85, built in since the plugin keypads): KEYBOARD held on the main screen, a pad sets the KEY of the pattern, like
 ; TRANSPOSE on the old Electribes. The pads go up chromatically in pad order: pad 1 C, pad 2 C#, ... pad 12 B; pads 13 to 16
-; set the keyboard's octave to 3, 4 (the start's), 5 and 6 through the setter KEYBOARD mode's bar keys use (KP_OCT_SET). The KEY goes through the Pattern menu's setter (field 4 of
+; shift the octave by -1, 0 (the start's), +1 and +2 (KP_OCT, see kp_key). The KEY goes through the Pattern menu's setter (field 4 of
 ; script_seq_set_pattern_value_glue), and the firmware's parameter window, the one a knob opens, shows "KEY" and the note.
 ; KEYBOARD is held away from the firmware: a short press without a pad goes on to it on release (script_press_key_glue, marked)
 ; and switches to KEYBOARD mode as always; with a pad it does not. SHIFT + KEYBOARD stays the firmware's, so does KEYBOARD while
@@ -304,6 +304,7 @@ sc_encoders:                    ; the part edit's parameter, the offset; 0 ends
 .equ KP_SHIFT, 0x10A            ; 1 while SHIFT is held
 .equ KP_PRESS, 0x10B            ; 1: the next tick gives the firmware a short press of KEYBOARD
 .equ KP_KEY, 0x10C              ; the KEY (plus 1) the next tick sets, 0 none
+.equ KP_OCT, 0x10D              ; signed byte: the octave shift of pads 13 to 16, -1 to 2; 0 at power-on (menu_arm zeroes it)
 .equ KP_PADS, 0x110             ; word: the pads whose press was taken, their release is taken too
 .equ KP_KEY_SHIFT, 10
 .equ KP_KEY_KEYBOARD, 23
@@ -477,14 +478,42 @@ kp_tick_octave:
     mov r0, #0
     strb r0, [r4, #KP_KEY]
     and r1, r5, #0x7F
-    ldr r0, =KP_OCT_OBJ
-    ldr r0, [r0]
-    cmp r0, #0
-    cmnne r0, #1
-    beq kp_tick_done
-    ldr r12, =KP_OCT_SET
-    blx r12
+    sub r1, r1, #4
+    strb r1, [r4, #KP_OCT]
     b kp_tick_done
+
+; KEY PADS octave: the firmware adds the KEY of the pattern to a note of a part with SCALE MODE ON where it plays a step and a pad in
+; KEYBOARD mode, and takes it off where it records a note and finds the pad that lights for a step; all four call the KEY getter
+; (ldrb r0, [r0, #0x2B]). Those calls (KP_KEY_*_AT, per build in script_hooks.py) branch here, and the KEY comes back with
+; 12 x KP_OCT added, so the sequence and the keyboard move by whole octaves the way they move with the KEY, parts with SCALE MODE OFF
+; stay. A note that falls outside 0 to 127 is dropped by the firmware's own check behind the call, as with the KEY. Not saved:
+; KP_OCT is 0 at power-on, and with KEY PADS OFF or the menu unarmed the KEY comes back as it is. Clobbers only r0 and r12.
+kp_key_play_hook:
+    ldr lr, =KP_KEY_PLAY_AT+4
+    b kp_key
+kp_key_live_hook:
+    ldr lr, =KP_KEY_LIVE_AT+4
+    b kp_key
+kp_key_rec_hook:
+    ldr lr, =KP_KEY_REC_AT+4
+    b kp_key
+kp_key_led_hook:
+    ldr lr, =KP_KEY_LED_AT+4
+kp_key:
+    push {r1, lr}
+    ldrb r0, [r0, #0x2B]
+    ldr r12, =MENU_STATE
+    ldr r1, [r12, #M_ON]
+    cmp r1, #1
+    ldreq r1, [r12, #M_KP]
+    cmpeq r1, #1
+    popne {r1, pc}
+    ldrb r1, [r12, #KP_OCT]
+    mov r1, r1, lsl #24
+    mov r1, r1, asr #24
+    add r1, r1, r1, lsl #1
+    add r0, r0, r1, lsl #2
+    pop {r1, pc}
 
 ; FILTER TOGGLE (idea 81, built in since the plugin filtertoggle): SHIFT + LPF, HPF or BPF turns the filter of the selected part
 ; off, and the same combination turns it on again with the type that key had last, kept per part and key until power off; SHIFT
@@ -596,7 +625,7 @@ kp_check_hook:
 
 ; per pad the KEY it sets plus 1, 0 none
 kp_notes:
-    .byte 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0x83, 0x84, 0x85, 0x86   ; KEY plus 1, or 0x80 + octave
+    .byte 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 0x83, 0x84, 0x85, 0x86   ; KEY plus 1, or 0x80 + 4 + octave shift
 kp_names:
     .asciz "C"
     .space 2
