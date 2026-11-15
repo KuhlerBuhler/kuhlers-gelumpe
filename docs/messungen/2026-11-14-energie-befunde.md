@@ -59,6 +59,12 @@ B = Stichprobe des Worts beim IRQ-Eintritt an der 2-kHz-Kante (Vorwert 0 oder 1)
 - Downgrade auf 1.4.5: lehnt v4 ab, nimmt die andere A/B-Kopie. Option: v3 schreiben, solange Byte 7 = 0.
 - **Konflikt PR #574:** gleiche Stellen in `script_menu.s`; danach wird Flash nur beim Verlassen des Menüs (AUTO SAVE) oder per
   WRITE geschrieben. v4 baut auf #574 auf. Von außen gesetzte Werte (Plugin) würden erst beim nächsten Verlassen gespeichert.
+- **Umgesetzt (Phase 4):** wie vorgeschlagen, ohne DSP SLEEP (gestrichen). Im RAM steht Byte 7 in `MX_FLAGS2` (`MENU_STATE-0x15`,
+  vorher frei, `menu_arm` nullt es); unbekannte Bits fallen beim Laden weg. Geschrieben wird Version 4 nur mit einem Bit in Byte 7,
+  sonst Version 3, also liest 1.4.6 alles, was diese Firmware ohne die neuen Schalter schreibt. Ein v3-Satz mit Byte 7 ungleich 0
+  bleibt abgelehnt (Anzahl über 64). Belege: `tools/emu/menu_cases.py:settings_v4_cases` (Karte v3, v4 mit Byte 7 = 0xFF und 40
+  Prüfsummen, gelöschte Bits, falsche CRC, v3 mit Byte 7 = 1, v4 mit 65 Prüfsummen, Flash-Kopie v3 und v4, WRITE ohne Karte
+  als v4 in den Flash und zurück), HT, rot, blau, gemessen.
 
 ## 0.6 Testmodus
 
