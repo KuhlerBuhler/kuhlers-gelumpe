@@ -109,6 +109,17 @@ class NBox(Box):
     def hinted(self):
         return sorted(n for n, v in self.leds().items() if is_hint(v))
 
+    def settle(self):
+        """Runs on in 1 ms steps until the pads hold still for 1 ms (at most 20 ms): a pad's red and blue go out 0.4 ms apart, so a
+        look at a fixed moment can catch a hint's new red with its old blue."""
+        before = self.leds()
+        for _ in range(20):
+            self.run(0.001)
+            now = self.leds()
+            if now == before:
+                return
+            before = now
+
     def levels(self):
         """{pad: the red of its hint}."""
         return {n: v[0] for n, v in self.leds().items() if is_hint(v)}
@@ -431,6 +442,7 @@ def case_firmware_wins(payload, flash):
     quiet = seq.hinted()
     seq.key("play", 0.0)
     seq.run(0.6)
+    seq.settle()
     shown = seq.hinted()
     played = seq.leds().get(2)
     seq.key("stop", 0.5)

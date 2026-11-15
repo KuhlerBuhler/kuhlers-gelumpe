@@ -31,7 +31,7 @@ test("Startbild: a picture becomes splash.bmp, black is drawn, the guide names t
   const page = await h.page();
   await page.goto(h.url);
   await go(page, "splash");
-  assert.equal(await page.locator("#cee-nav-title").textContent(), "Design");
+  assert.equal(await page.locator("#cee-nav-title").textContent(), "DesignStartbilder");
   assert.equal(await page.locator("#cee-splash-page-editor").isHidden(), true, "the editor is a page of its own, not below the gallery");
   await page.click("#cee-splash-make");
   assert.equal(await page.locator("#cee-splash-page-gallery").isHidden(), true);
