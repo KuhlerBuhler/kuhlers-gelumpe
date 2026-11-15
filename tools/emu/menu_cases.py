@@ -2660,7 +2660,7 @@ def switch_menu_cases(payload, flash, name, title, slot, bit, from_end):
     off = texts_of(dev), state(dev, slot)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), state(dev, slot)
-    add("page", page == ((title, "ON", ""), (page_at, feature_count()), "Feature") and page_at == feature_count() - from_end, f"{page}")
+    add("page", page == ((title, "ON", ""), (page_at, feature_count()), "Feature") and page_at == feature_count() - len(GLIDE_PAGES) - from_end, f"{page}")
     add("dial_acts_at_once", off == ((title, "OFF", ""), 0) and back == ((title, "ON", ""), 1) and not dev.m.asserts,
         f"{off}, back {back}")
 
