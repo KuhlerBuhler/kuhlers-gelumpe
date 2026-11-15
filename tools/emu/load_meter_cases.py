@@ -2,7 +2,8 @@
 digits left of the card symbol. Off it draws nothing and its two hooks cost almost nothing; on, the value matches method A
 recomputed here from the same two firmware places (the idle loop's store in front of wfi, the IRQ entry), idle and with 16
 parts playing; the page switches it, WRITE keeps it in byte 7 of a version 4 settings file and the next start reads it; the
-digits stay off the BLECH menu and the WRITE window.
+digits stay off the BLECH menu and the WRITE window and are gone after OFF on the page; with EXIT held at power-on nothing
+is measured.
 
     python3 tools/emu/load_meter_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN] [--png DIR]
 
@@ -26,7 +27,8 @@ import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
 
 LM = script_hooks.LOAD_METER
-LM_VALUE, LM_DRAWN, LM_SLEEP = LM + 28, LM + 29, LM + 8
+LM_VALUE, LM_DRAWN, LM_SLEEP, LM_ARMED = LM + 28, LM + 29, LM + 8, LM + 32
+TICKS = 150_000_000                              # Timer3 ticks a second
 COLS = range(100, 108)                           # page 0, the eight columns the digits use (row 0 stays the firmware's)
 IDLE_SITE, IRQ_SITE = 0xC00017F0, 0xC000159C     # the idle loop's store of 1 in front of wfi, the IRQ entry's store of the word + 1
 FONT = bytes([0xFE, 0x82, 0xFE, 0, 0x84, 0xFE, 0x80, 0, 0xF2, 0x92, 0x9E, 0, 0x92, 0x92, 0xFE, 0, 0x1E, 0x10, 0xFE, 0,
@@ -148,18 +150,20 @@ def cases(payload, flash=None, png=None):
         return [entry("hooked", False, f"build {build}: no branch to the meter's code at {IDLE_SITE:#x}")]
 
     before = shown(dev)
+    sleep0 = dev.u32(LM_SLEEP)
     off_cost = r.cost()
+    slept = (dev.u32(LM_SLEEP) - sleep0) & 0xFFFFFFFF          # 2 s idle: most of it asleep
     out.append(entry("off_draws_nothing_and_costs_little",
-                     off_cost <= OFF_COST and r.byte(LM_DRAWN) != 1 and not r.values and shown(dev) == before and dev.u32(LM_SLEEP) != 0
-                     and not dev.m.asserts,
+                     off_cost <= OFF_COST and r.byte(LM_DRAWN) != 1 and not r.values and not any(before) and shown(dev) == before
+                     and slept > 1.5 * TICKS and not dev.m.asserts,
                      f"build {build}: {off_cost:.3f} points in the meter's code over 2 s idle (at most {OFF_COST}), drawn "
-                     f"{r.byte(LM_DRAWN)}, values {len(r.values)}, columns {before.hex()} -> {shown(dev).hex()}, sleep summed {dev.u32(LM_SLEEP):#x}"))
+                     f"{r.byte(LM_DRAWN)}, values {len(r.values)}, columns {before.hex()} -> {shown(dev).hex()}, sleep summed {slept / TICKS:.3f} s"))
 
     r.switch(True)
     idle = r.compare(4.5)
     on_cost = r.cost(1.0)
-    value = r.byte(LM_VALUE)
     dev.run(0.1)
+    value = r.byte(LM_VALUE)
     out.append(entry("idle_matches_method_a", len(idle) >= 2 and all(abs(a - b) <= 1 for a, b in idle) and shown(dev) == glyphs(value)
                      and not dev.m.asserts,
                      f"build {build}: (shown, method A) {idle}, display {shown(dev).hex()} for {value}, on {on_cost:.3f} points"))
@@ -169,8 +173,8 @@ def cases(payload, flash=None, png=None):
     heavy(dev)
     dev.run(1.2)
     busy = r.compare(4.5)
-    value = r.byte(LM_VALUE)
     dev.run(0.1)
+    value = r.byte(LM_VALUE)
     out.append(entry("playing_matches_method_a", len(busy) >= 2 and all(abs(a - b) <= 1 for a, b in busy)
                      and max(a for a, _ in busy) > max(a for a, _ in idle) and shown(dev) == glyphs(value) and not dev.m.asserts,
                      f"build {build}: 16 parts playing, (shown, method A) {busy}, display {shown(dev).hex()} for {value}"))
@@ -205,6 +209,7 @@ def cases(payload, flash=None, png=None):
     mc.press(d, "write", wait=0.6)
     d.run(3.0)
     rec = newest_settings(d.m.mmc.card.medium.data)
+    written = bytearray(d.m.mmc.card.medium.data)  # the card as WRITE left it (OFF further down is saved again on leaving)
     mc.leave_to_main(d)
     d.run(1.5)
     main = page.byte(LM_DRAWN), shown(d) == glyphs(page.byte(LM_VALUE)) and page.byte(LM_VALUE) != 0xFF
@@ -214,12 +219,30 @@ def cases(payload, flash=None, png=None):
     out.append(entry("write_keeps_it_in_byte_7", rec is not None and rec[4] == 4 and rec[7] & 1,
                      f"build {build}: newest file (version, byte 7) {None if rec is None else (rec[4], rec[7])}"))
 
+    # OFF on the page while the digits were shown: back on the main screen they are gone
+    mc.goto_group(d, mc.GROUP_DISPLAY, 5)
+    d.turn(-1, wait=0.4)
+    off_page = mc.texts_of(d)[1], page.byte(mc.MX_FLAGS2) & 1
+    mc.leave_to_main(d)
+    d.run(1.5)
+    out.append(entry("off_on_the_page_leaves_no_digits", main == (1, True) and off_page == ("OFF", 0) and page.byte(LM_DRAWN) == 0
+                     and not any(shown(d)) and not d.m.asserts,
+                     f"build {build}: page after the dial down {off_page}, on the main screen drawn {page.byte(LM_DRAWN)}, columns {shown(d).hex()}"))
+
     again = mc.Dev(payload, flash, 0)
     again.m.adapter = True
-    again.m.insert_card(mc.SDCard(mc.MemoryMedium(bytearray(d.m.mmc.card.medium.data))))
+    again.m.insert_card(mc.SDCard(mc.MemoryMedium(written)))
     again.run(r.wait + 2.0)
     out.append(entry("next_start_reads_it", again.read(mc.MX_FLAGS2, 1)[0] & 1 and again.read(LM_DRAWN, 1)[0] == 1 and not again.m.asserts,
                      f"build {build}: byte 7 {again.read(mc.MX_FLAGS2, 1)[0]:#x}, drawn {again.read(LM_DRAWN, 1)[0]}, value {again.read(LM_VALUE, 1)[0]}"))
+
+    # EXIT held at power-on: the menu is not armed, the hooks measure nothing
+    held = mc.boot(payload, flash, held=mc.KILL, files=mc.CARD_FOLDER, adapter=True, seconds=r.wait)
+    sleep0 = held.u32(LM_SLEEP)
+    held.run(2.0)
+    out.append(entry("exit_at_power_on_measures_nothing", held.u32(LM_SLEEP) == sleep0 and held.read(LM_ARMED, 1)[0] != 1
+                     and held.read(LM_DRAWN, 1)[0] != 1 and not held.m.asserts,
+                     f"build {build}: sleep sum {sleep0:#x} -> {held.u32(LM_SLEEP):#x}, armed byte {held.read(LM_ARMED, 1)[0]:#x}"))
     return out
 
 

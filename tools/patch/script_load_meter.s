@@ -1,10 +1,11 @@
 ; LOAD METER (CUSTOMIZATION > DISPLAY): the ARM's load in percent, two digits on the main screen's top row left of the card
-; symbol (page 0, columns 100 to 106, rows 1 to 7; columns 75 to 108 of that row are free on all three builds, measured
+; symbol (page 0, columns 100 to 107, rows 1 to 7; columns 75 to 108 of that row are free on all three builds, measured
 ; docs/messungen/2026-11-14-energie-befunde.md, "Lastanzeige").
 ; The measurement (method A, docs/messungen/2026-11-14-energie-befunde.md, 0.1): the idle loop sets the word 0xC06A2894 to 1
 ; before it sleeps (wfi), every IRQ adds 1 to it on entry. The time from that store to the next IRQ entry that finds 1 is
-; sleep, the rest is load. Timer3 (SCRIPT_TIMER_ADDRESS, 150 MHz, wraps every second) gives the time. The two hooks run
-; always, the switch only decides whether the frame draws: off costs the two hooks and nothing else.
+; sleep, the rest is load. Timer3 (SCRIPT_TIMER_ADDRESS, 150 MHz, wraps every second) gives the time. The three hooks run
+; always, the switch only decides whether the frame draws: off costs the hooks and nothing else. With EXIT held at power-on
+; the menu is not armed (LM_ARMED stays FF): the idle hook takes no stamp, so the IRQ hook never adds anything.
 .equ LM_STAMP, 0                ; Timer3 when the idle loop set the word to 1
 .equ LM_VALID, 4                ; 1 from that store to the first IRQ entry behind it (FF at power-on is not valid)
 .equ LM_SLEEP, 8                ; the sum of all sleep in Timer3 ticks, wrapping (the frame takes differences)
@@ -14,24 +15,41 @@
 .equ LM_SNAP, 24                ; LM_SLEEP at the last value
 .equ LM_VALUE, 28               ; byte: the load shown, 0 to 99, 0xFF before the first value
 .equ LM_DRAWN, 29               ; byte: 1 while our digits may be on the display
+.equ LM_ARMED, 32               ; 1 once menu_arm ran (FF at power-on, and with EXIT held at power-on)
+.equ LM_TICK, 36                ; the OS tick count (1 ms) at the frame before
 .equ LM_COL, 100                ; the first column of the digits
-.equ LM_SECOND, 150000000       ; Timer3 ticks in a second (SCRIPT_TIMER_PERIOD)
+.equ LM_OS_TICKS, 0xC06A292C    ; the firmware's OS tick count, one per millisecond (script_hw.s:OS_TICKS)
 
 ; 0xC00017F0, the idle loop's `str r3, [r6]` (r3 = 1, r6 = the word) in front of wfi, IRQs masked. The stamp goes first, so
-; an IRQ never finds the word at 1 with an old stamp. r0 to r2 are loaded again before the loop uses them.
+; an IRQ never finds the word at 1 with an old stamp. r0 to r2 are loaded again before the loop uses them (0xC00017F8 writes
+; r0, the loop at 0xC00017CC loads r0 to r2). Without an armed menu no stamp: nothing is measured.
 load_idle_hook:
     ldr r1, =LOAD_METER
+    ldr r0, [r1, #LM_ARMED]
+    cmp r0, #1
+    bne load_idle_out
     ldr r0, =SCRIPT_TIMER_ADDRESS
     ldr r0, [r0]
     str r0, [r1, #LM_STAMP]
     str r3, [r1, #LM_VALID]
+load_idle_out:
     str r3, [r6]
     ldr pc, =0xC00017F4
+
+; 0xC0001820, the idle loop's `str r3, [r6]` behind wfi (r3 = 0), IRQs masked again. A wake without an IRQ leaves the stamp
+; unused: it goes here, so no later IRQ that finds the word at 1 (one nested in an IRQ) counts it. r0 is loaded again at
+; 0xC00017CC, where the loop goes next.
+load_wake_hook:
+    ldr r0, =LOAD_METER
+    str r3, [r0, #LM_VALID]
+    str r3, [r6]
+    ldr pc, =0xC0001824
 
 ; 0xC000159C, the IRQ entry's `str r0, [r2]` (r0 = the word + 1, r2 = the word, r3 = the word before), in SVC mode with IRQs
 ; masked, r1 free (the SPSR is pushed). The first IRQ that finds 1 behind a stamp ends a sleep: its length goes onto
 ; LM_SLEEP and the stamp is used up (a nested IRQ over a task also finds 1, it adds nothing). With r3 = 1 the firmware loads
-; r0, r1 and r2 again before it uses them and only compares r3; with any other r3 the hook touches nothing but the flags.
+; r0, r1 and r2 again before it uses them and only compares r3 (0xC00015A4 to 0xC00015AC run only with r3 = 0, 0xC00015B0
+; loads r3, then r0, r2 and r1 are written before they are read); with any other r3 the hook touches nothing but the flags.
 load_irq_hook:
     str r0, [r2]
     cmp r3, #1
@@ -46,7 +64,7 @@ load_irq_hook:
     ldr r0, [r0]
     ldr r1, [r2, #LM_STAMP]
     subs r0, r0, r1
-    ldrlo r1, =LM_SECOND
+    ldrlo r1, =SCRIPT_TIMER_PERIOD
     addlo r0, r0, r1
     ldr r1, [r2, #LM_SLEEP]
     add r1, r1, r0
@@ -57,6 +75,7 @@ load_irq_out:
 
 ; Once a frame, past the first main screen. With the switch off the digits go (once) and the reading starts again when it is
 ; turned on. With it on: Timer3's ticks are summed, and once a second's worth is in, the load is 100 minus the share of sleep.
+; A gap of more than a second between two frames (Timer3 wraps every second) starts the reading again.
 ; The digits are drawn only on the main screen with no window over it, no open app and no question of our own on the
 ; display, and only into the frame buffer when what is there differs (the firmware may have drawn the row again).
 ; Keeps r4 to r11.
@@ -85,11 +104,19 @@ load_meter_frame:
     bl load_meter_put
     b load_frame_out
 load_frame_on:
+    ldr r2, =LM_OS_TICKS
+    ldr r2, [r2]
+    ldr r1, [r4, #LM_TICK]
+    str r2, [r4, #LM_TICK]
+    sub r2, r2, r1
     ldr r0, =SCRIPT_TIMER_ADDRESS
     ldr r0, [r0]
     ldr r1, [r4, #LM_INIT]
     cmp r1, #1
-    beq load_frame_count
+    bne load_frame_start
+    cmp r2, #1000
+    bls load_frame_count
+load_frame_start:
     mov r1, #1
     str r1, [r4, #LM_INIT]
     str r0, [r4, #LM_LAST]
@@ -104,11 +131,11 @@ load_frame_count:
     ldr r1, [r4, #LM_LAST]
     str r0, [r4, #LM_LAST]
     subs r0, r0, r1
-    ldrlo r1, =LM_SECOND
+    ldrlo r1, =SCRIPT_TIMER_PERIOD
     addlo r0, r0, r1
     ldr r1, [r4, #LM_ACC]
     add r1, r1, r0
-    ldr r2, =LM_SECOND
+    ldr r2, =SCRIPT_TIMER_PERIOD
     cmp r1, r2
     strlo r1, [r4, #LM_ACC]
     blo load_frame_draw

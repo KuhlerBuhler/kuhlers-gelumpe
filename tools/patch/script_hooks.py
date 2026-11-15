@@ -112,9 +112,10 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          # IMPORT PATTERN's and IMPORT ALL PATTERN's browser step: ldr r0, [r6] in front of the browser's open (the folder)
          (0xC0031400,0xE5960000,'pat_browse_hook'),
          # LOAD METER (script_load_meter.s): the idle loop's store of 1 into the idle word in front of wfi, and the IRQ entry's
-         # store of the word + 1 (docs/messungen/2026-11-14-energie-befunde.md, 0.1)
+         # store of the word + 1, and the idle loop's store of 0 behind wfi (docs/messungen/2026-11-14-energie-befunde.md, 0.1)
          (0xC00017F0,0xE5863000,'load_idle_hook'),
-         (0xC000159C,0xE5820000,'load_irq_hook'))
+         (0xC000159C,0xE5820000,'load_irq_hook'),
+         (0xC0001820,0xE5863000,'load_wake_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.

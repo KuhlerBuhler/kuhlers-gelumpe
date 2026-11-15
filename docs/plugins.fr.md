@@ -1298,7 +1298,7 @@ pas : environ 14 caractères dans la valeur et 18 dans le titre.
 WRITE sur PLUGIN RUNTIME, FEATURES, CUSTOMIZATION et pour autoriser un plugin externe
 sauvegarde `KORG/blechtribe/settings.a.bin` et `settings.b.bin`, en générations alternées.
 AUTO SAVE le fait aussi en quittant le menu après modification. Format de 24 à 280 octets,
-marqueur `GSET`, version 3, ou version 4 avec LOAD METER sur ON (l’octet 7 devient un second octet d’interrupteurs, le nombre d’entrées tient dans l’octet 6 ; un BLECHTRIBE jusqu’à 1.4.5 ne lit pas la version 4 et prend l’autre copie ou les valeurs par défaut) ; bit 0 d’un octet supplémentaire pour METER LOUD RAINBOW,
+marqueur `GSET`, version 3, ou version 4 avec LOAD METER sur ON (l’octet 7 devient un second octet d’interrupteurs, le nombre d’entrées tient dans l’octet 6 ; un BLECHTRIBE jusqu’à 1.4.6 ne lit pas la version 4 et prend l’autre copie ou les valeurs par défaut) ; bit 0 d’un octet supplémentaire pour METER LOUD RAINBOW,
 refusé par BLECHTRIBE antérieur à 1.3. Maximum 64 entrées, contre 16 en version 2 jusqu’à 1.3.7.
 Un ancien BLECHTRIBE jusqu’à 1.3.7 ne lit pas la version 3 et reprend un éventuel fichier 2 plus
 ancien ou les valeurs par défaut. Les formats 1 et 2 restent lisibles et deviennent 3 au

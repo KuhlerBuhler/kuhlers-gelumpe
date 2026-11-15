@@ -236,6 +236,8 @@ menu_arm_zero:
     str r1, [r0, #16]
     mov r0, #1
     str r0, [r4, #M_COUNT]
+    ldr r1, =LOAD_METER         ; LOAD METER measures from now on (script_load_meter.s:LM_ARMED), not with EXIT held at power-on
+    str r0, [r1, #LM_ARMED]
     mov r0, #1
     str r0, [r4, #M_SET_RUN]
     str r0, [r4, #M_SET_MFX]

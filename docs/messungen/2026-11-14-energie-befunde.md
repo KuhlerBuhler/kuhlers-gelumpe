@@ -182,18 +182,25 @@ vorher). Am Gerät nicht geprüft.
 - **Umsetzung:** `tools/patch/script_load_meter.s`, Methode A aus 0.1. Haken an der Leerlaufschleife (`0xC00017F0`, Blau
   `0xC0001610`, `str r3, [r6]` vor wfi) merkt sich Timer3; Haken am IRQ-Eingang (`0xC000159C`, Blau `0xC00013BC`) addiert beim
   ersten IRQ, der das Leerlaufwort auf 1 findet, die Schlafzeit. Der Rahmen summiert seine Timer3-Abstände und rechnet nach
-  einer Sekunde 100 minus Schlafanteil, gerundet, höchstens 99. Gezeichnet werden zwei Ziffern 3x7 in Spalten 100-106, nur auf
+  einer Sekunde 100 minus Schlafanteil, gerundet, höchstens 99. Gezeichnet werden zwei Ziffern 3x7 mit Abstand in Spalten 100-107, nur auf
   dem Hauptbildschirm ohne Fenster, ohne offene App, ohne eigene Frage und ohne Ordnerübernahme, und nur Bytes, die sich
   unterscheiden (danach `MG_MARK`). Schalter: Byte 7 Bit 0 (`MX_FLAGS2`), also Version 4 beim Speichern.
+- **Nachbesserungen nach dem Review:** ein dritter Haken an der Stelle nach dem Aufwachen (`0xC0001820`, Blau `0xC0001640`,
+  `str r3, [r6]` mit r3 = 0) löscht die gemerkte Marke, damit ein IRQ, der das Leerlaufwort nicht mehr auf 1 findet, keine
+  alte Zeit zählt. Gemessen wird erst, wenn `menu_arm` gelaufen ist (`LM_ARMED`); mit EXIT beim Einschalten bleibt die
+  Summe unberührt, und der IRQ-Pfad bleibt gleich lang, weil ohne Marke nie etwas gültig ist. Liegen zwischen zwei Rahmen mehr
+  als 1000 OS-Ticks (1 ms), beginnt die Messung neu, statt ein langes Fenster zu verrechnen. Im Disassembly geprüft: die
+  Leerlaufschleife lädt r0 bis r2 am Anfang (`0xC00017CC`) neu, der IRQ-Eingang schreibt r0 bis r2 vor dem Lesen, die
+  Haken dürfen sie also benutzen.
 - **Zahl statt Balken (5.4):** zwei Ziffern lesen sich neben Tempo und Karte ohne Legende, ein Balken in 8 Spalten hätte nur
   8 Stufen gehabt. Bilder im Emulator (Scratch, nicht im Repo): Leerlauf zeigt "2" (Blau "3" bis "4"), 16 Parts spielend "27".
 - **Genauigkeit:** `tools/emu/load_meter_cases.py` rechnet Methode A aus denselben zwei Stellen in Python nach (Zeit vom Store
   bis zum IRQ-Eingang mit r3 = 1) und vergleicht jedes Fenster zwischen zwei gespeicherten Werten: Leerlauf HT 2/2, rot 2/2,
   blau 3/3 und 4/4; 16 Parts spielend auf allen dreien 27/27. Abweichung 0 Punkte (erlaubt 1).
-- **Kosten:** Befehle im eigenen Code mal 5 ns (Modell aus 0.1) über 2 s Leerlauf: aus 0,047 Punkte, an 0,049 Punkte, auf
-  allen drei Builds (Grenze SC-5.1: 0,1). Aus kostet nur die zwei Haken und den frühen Rücksprung im Rahmen.
+- **Kosten:** Befehle im eigenen Code mal 5 ns (Modell aus 0.1) über 2 s Leerlauf: aus 0,036 Punkte (Blau 0,035), an 0,038
+  Punkte, auf allen drei Builds (Grenze SC-5.1: 0,1). Aus kostet nur die zwei Haken und den frühen Rücksprung im Rahmen.
 - **Schalter und Speichern:** Seite DISPLAY 6/6 "LOAD METER", OFF Vorgabe, das Rad schaltet sofort; im Menü keine Ziffern;
   WRITE schreibt Version 4 mit Byte 7 = 1, der nächste Start liest es und zeigt die Ziffern. Im WRITE-Fenster der Firmware
   sind die Spalten leer, danach kommen die Ziffern wieder; OFF nimmt sie sofort weg. ORIG-Plakette über `orig_masks` (Byte 7).
-- **Downgrade:** ein BLECHTRIBE bis 1.4.5 lehnt den Satz der Version 4 ab und nimmt die andere Kopie oder die Standardwerte.
+- **Downgrade:** ein BLECHTRIBE bis 1.4.6 lehnt den Satz der Version 4 ab und nimmt die andere Kopie oder die Standardwerte.
 - Offen: am Gerät nicht geprüft. Im Emulator folgt die Zeit dem 5-ns-Modell, am Gerät misst Timer3 die echte Zeit, die Zahl kann dort anders ausfallen.

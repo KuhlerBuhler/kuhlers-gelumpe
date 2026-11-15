@@ -3,6 +3,8 @@
   {"from": "0xC00017F0", "to": "0xC0001610", "kind": "code", "why": "the idle loop's str r3, [r6] (r3 = 1) in front of wfi, LOAD METER's first hook (tools/patch/script_load_meter.s): read in both, the same loop (docs/messungen/2026-11-14-energie-befunde.md, 0.1)"},
   {"from": "0xC00017F4", "to": "0xC0001614", "kind": "code", "why": "ldr sp behind that store, where the hook goes on: read in both"},
   {"from": "0xC000159C", "to": "0xC00013BC", "kind": "code", "why": "the IRQ entry's str r0, [r2] (the idle word + 1), LOAD METER's second hook: read in both, the same entry"},
+  {"from": "0xC0001820", "to": "0xC0001640", "kind": "code", "why": "the idle loop's str r3, [r6] (r3 = 0) behind wfi, LOAD METER's wake hook: read in both, the same loop"},
+  {"from": "0xC0001824", "to": "0xC0001644", "kind": "code", "why": "b back to the loop's start behind that store, where the hook goes on: read in both"},
   {"from": "0xC00015A0", "to": "0xC00013C0", "kind": "code", "why": "cmp r3, #0 behind that store, where the hook goes on: read in both"}
  ]
 }

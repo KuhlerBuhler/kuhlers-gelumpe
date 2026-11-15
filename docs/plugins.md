@@ -1376,7 +1376,7 @@ Titel rund 18.
 
 Auf den Seiten PLUGIN RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION und bei der Zustimmung für fremde Plugins
 speichert WRITE (mit AUTO SAVE auch das Verlassen des Menüs nach einer Änderung) die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
-sich mit einer Generationsnummer abwechseln (24 bis 280 Byte: Kennung `GSET`, Version 3, mit LOAD METER ON Version 4 (Byte 7 ist dann ein zweites Byte mit Schaltern, die Anzahl steht allein in Byte 6; ein BLECHTRIBE bis 1.4.5 liest Version 4 nicht, es nimmt die andere Kopie oder die Standardwerte), ein Byte mit METER LOUD RAINBOW in Bit 0 (ein BLECHTRIBE vor 1.3 verwirft eine Datei, in der es gesetzt ist), Anzahl
+sich mit einer Generationsnummer abwechseln (24 bis 280 Byte: Kennung `GSET`, Version 3, mit LOAD METER ON Version 4 (Byte 7 ist dann ein zweites Byte mit Schaltern, die Anzahl steht allein in Byte 6; ein BLECHTRIBE bis 1.4.6 liest Version 4 nicht, es nimmt die andere Kopie oder die Standardwerte), ein Byte mit METER LOUD RAINBOW in Bit 0 (ein BLECHTRIBE vor 1.3 verwirft eine Datei, in der es gesetzt ist), Anzahl
 erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
 erlaubten fremden Blöcke, CRC-32; höchstens 64 Einträge (bis 1.3.7 Version 2 mit höchstens 16; ein BLECHTRIBE bis 1.3.7 liest Version 3 nicht, es nimmt dann eine ältere Datei der Version 2, die noch auf der Karte liegt, oder die Standardwerte);
 in derselben Liste steht für jedes ausgeschaltete Plugin seine Prüfsumme invertiert, ein älteres BLECHTRIBE liest sie als
