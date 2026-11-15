@@ -556,7 +556,7 @@ export default {
   "features.noteAssist.how": "Režim KEYBOARD, zahraj notu. Vypnout jde v Menu -> BLECH -> FEATURES -> NOTE ASSIST.",
   "features.keyPads.title": "KEY z padů",
   "features.keyPads.text": "Držte KEYBOARD a stiskněte pad: KEY patternu skočí na tón padu, jako TRANSPOSE na starých Electribe. Krátký stisk samotného KEYBOARD přepne režim jako vždy.",
-  "features.keyPads.how": "KEYBOARD držen + pad: pady 1 až 12 chromaticky od C do B, pady 13 až 16 nic nedělají. Vypnout jde v Menu -> BLECH -> FEATURES -> KEY PADS.",
+  "features.keyPads.how": "KEYBOARD držen + pad: pady 1 až 12 chromaticky od C do B, pady 13 až 16 transponují party se SCALE MODE ON a klávesnici o -1, 0, +1 nebo +2 oktávy (pad 14 bez posunu, jako po zapnutí). Vypnout jde v Menu -> BLECH -> FEATURES -> KEY PADS.",
   "features.filterToggle.title": "Filtr vypnout a zapnout",
   "features.filterToggle.text": "SHIFT + LPF, HPF nebo BPF vypne filtr zvoleného partu, stejná kombinace ho znovu zapne s typem, který klávesa měla naposledy. Každý part si pamatuje své typy.",
   "features.filterToggle.how": "SHIFT + LPF, HPF, BPF: filtr vypnout, znovu zapnout s posledním typem klávesy; SHIFT + jiná klávesa filtru: její poslední typ. Vypnout jde v Menu -> BLECH -> FEATURES -> FILTER TOGGLE.",
