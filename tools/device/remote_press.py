@@ -1,10 +1,11 @@
 """Operate an Electribe with the BLECH runtime from a computer over USB: every key, the encoders, the knobs, the pads, the
 touchpad and the test mode, and read back where it is and what the display shows.
 
-RAM only: a stub of 76 or 104 bytes (src/remote.mjs) goes to the EXEC buffer at 0xC1000000 and runs once per step through
+RAM only: a stub of 28 or 56 bytes (src/remote.mjs) goes to the EXEC buffer at 0xC1000000 and runs once per step through
 BLECH's own SysEx commands (WRITE and EXEC, tools/patch/blech_sysex.py); it leaves a command word (and a panel message) for
-the runtime's frame hook (tools/patch/script_remote.s), which hands it to the firmware as a message from the panel. The
-original bytes of the buffer are put back at the end. Stops before anything is written when the firmware has no BLECH
+the runtime's frame hook (tools/patch/script_remote.s), which hands it to the firmware as a message from the panel. The stub
+returns at once and the tool reads the runtime's done counter until it moved: a stub that slept inside EXEC hung a red
+Electribe on 2026-11-12. The original bytes of the buffer are put back at the end. Stops before anything is written when the firmware has no BLECH
 EXEC (the blue Electribe refuses writes) or no runtime with the keys from the computer.
 
     python3 remote_press.py --emu VSB menu edit_next +1 exit     # against the local emulator
@@ -29,6 +30,7 @@ import argparse
 import re
 import struct
 import sys
+import time
 import zlib
 from pathlib import Path
 
@@ -123,22 +125,26 @@ def camel(name):
     return re.sub(r"_([a-z0-9])", lambda m: m.group(1).upper(), name)
 
 
-WAIT = [0xE3A06032, 0xE3A0000A, None, 0xE12FFF3C, 0xE5940008, 0xE1500005, 0x1A000004, 0xE2566001, 0x1AFFFFF7, 0xE3A00000,
-        0xE5840000, 0xE8BD8070, 0xE3A00001, 0xE8BD8070]
+TRIES = 50        # reads of the done counter, 10 ms apart: as TRIES in src/remote.mjs
 
 
-def stub(mailbox, word, os_wait=OS_WAIT):
-    """The same words as stub() in src/remote.mjs: 1 when the runtime took the command, else 0 with the word taken back."""
-    words = [0xE92D4070, 0xE59F4040, 0xE5945008, 0xE59F003C, 0xE5840000, *(w or 0xE59FC030 for w in WAIT),
-             mailbox, word, os_wait]
+def stub(mailbox, word):
+    """The same words as stub() in src/remote.mjs: the command word, return 1 at once."""
+    words = [0xE59F000C, 0xE59F100C, 0xE5801000, 0xE3A00001, 0xE12FFF1E, mailbox, word]
     return b"".join(struct.pack("<I", w) for w in words)
 
 
-def message_stub(mailbox, at, message, os_wait=OS_WAIT):
-    """The same words as messageStub() in src/remote.mjs."""
+def message_stub(mailbox, at, message):
+    """The same words as messageStub() in src/remote.mjs: the panel message at `at`, the command word, return 1 at once."""
     first, second = struct.unpack("<2I", bytes(message).ljust(8, b"\0"))
-    words = [0xE92D4070, 0xE59F4050, 0xE5945008, 0xE59F104C, 0xE59F204C, 0xE59F304C, 0xE881000C, 0xE59F0048,
-             0xE5840000, *(w or 0xE59FC03C for w in WAIT), mailbox, at, first, second, MARK | MESSAGE, os_wait]
+    words = [0xE59F201C, 0xE59F301C, 0xE59FC01C, 0xE8821008, 0xE59F0018, 0xE59F1018, 0xE5801000, 0xE3A00001, 0xE12FFF1E,
+             at, first, second, mailbox, MARK | MESSAGE]
+    return b"".join(struct.pack("<I", w) for w in words)
+
+
+def take_back(mailbox, word):
+    """The same words as takeBack() in src/remote.mjs: clear the mailbox while it still holds `word`."""
+    words = [0xE59F0018, 0xE5901000, 0xE59F2014, 0xE1510002, 0x03A01000, 0x05801000, 0xE3A00001, 0xE12FFF1E, mailbox, word]
     return b"".join(struct.pack("<I", w) for w in words)
 
 
@@ -249,7 +255,7 @@ def main():
         found = remote_of(dev)
         if found is None:
             raise SystemExit("no BLECH runtime with the keys from the computer on this device; nothing written")
-        mailbox, message_at, test_at, os_wait = found
+        mailbox, message_at, test_at, _ = found
         if message_at is None and any(m is not None or w & 0xFF in (TEST, RELEASE) for _, w, m in steps):
             raise SystemExit("this runtime takes keys and the main dial only (knobs, pads, touchpad and test mode need 1.3.8); nothing written")
         done = lambda: struct.unpack("<I", dev.read(mailbox + 8, 4))[0]
@@ -260,8 +266,17 @@ def main():
             return 0
         def run(w, message=None):
             before = done()
-            dev.write(STUB_AT, message_stub(mailbox, message_at, message, os_wait) if message else stub(mailbox, w, os_wait), verify=False)
-            return dev.execute(STUB_AT) == 1 and (done() - before) & 0xFFFFFFFF == 1
+            dev.write(STUB_AT, message_stub(mailbox, message_at, message) if message else stub(mailbox, w), verify=False)
+            if dev.execute(STUB_AT) != 1:
+                return False
+            for _ in range(TRIES):
+                moved = (done() - before) & 0xFFFFFFFF
+                if moved:
+                    return moved == 1
+                time.sleep(0.01)
+            dev.write(STUB_AT, take_back(mailbox, MARK | MESSAGE if message else w), verify=False)
+            dev.execute(STUB_AT)
+            return False
 
         finished = False
         try:
