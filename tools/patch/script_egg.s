@@ -166,9 +166,10 @@ egg_end_pending:
     blo egg_end_pending
     mov r0, #0
     bl script_led_hold_glue
-    ldr r1, =UI_REDRAW
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
     mov r0, #1
-    strb r0, [r1]
+    strb r0, [r1, #UI_REDRAW_AT]
     pop {r4, pc}
 .pool
 

@@ -1863,7 +1863,8 @@ gespielt hat, sagt sie selbst. Die Schrittlisten für einen eigenen Test:
   ([Messung](messungen/2026-10-14-blech-menue.md), Abschnitt "DATA UTILITY").
   `e2sCustom.all` von EXPORT ALL CUSTOMIZATIONS liest beim Start noch nichts; einen Lader dafür gibt es nicht.
 - **Apps am Gerät:** das Öffnen und Schließen, der Neuzeichner des Hauptbildschirms
-  (Byte `0xC06C226C`) und die Tasten der offenen App sind nur im Emulator gespielt.
+  (Byte `+0x5C` im Bildschirm-Manager hinter `0xC03404C0`, auf unseren Karten `0xC06C226C`; auf einer
+  anderen roten mit anderem Flash-Inhalt liegt der Manager woanders) und die Tasten der offenen App sind nur im Emulator gespielt.
 - **Format 2:** der Aufschlag der 16-Bit-Operanden ist hergeleitet (Abschnitt
   "Format 2 und die Kosten"), in den genannten Messungen nicht gesondert
   nachgemessen.

@@ -111,9 +111,10 @@ calibrate_off:
     bxne lr
     mov r2, #0
     strb r2, [r1, #M_CAL_ON]
-    ldr r1, =UI_REDRAW
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
     mov r2, #1
-    strb r2, [r1]
+    strb r2, [r1, #UI_REDRAW_AT]
     bx lr
 .pool
 

@@ -48,6 +48,13 @@ class SharedWordTests(unittest.TestCase):
             self.assertEqual((load>>24,killed>>24),(0xEA,0xEA),name)
             self.assertEqual(default,mfx_switch.DEFAULT_TYPE,name)
 
+def redraw(machine):
+    """The firmware's redraw byte where the runtime has to set it, the screen manager's +0x5C (tick argument +0x4C), and the byte at
+    0xC06C226C, the manager of our own cards: the test's manager sits elsewhere, so a fixed address shows up as (0, 1)."""
+    manager=machine.read(0xC03404C0)
+    return bytes(machine.uc.mem_read(manager+0x5C,1))[0],bytes(machine.uc.mem_read(0xC06C226C,1))[0]
+
+
 @unittest.skipUnless(UNICORN_AVAILABLE,'Unicorn is required for native hook tests')
 class HookTests(unittest.TestCase):
     def machine(self):
@@ -474,7 +481,7 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.drain(machine),[(20,entry,0,0)])
         machine.call('script_app_close',machine.runtime)
         self.assertEqual((machine.read(base),self.drain(machine)),(0,[(21,entry,0,0)]))
-        self.assertEqual(bytes(machine.uc.mem_read(0xC06C226C,1)),b'\x01','closing makes the firmware repaint its main screen')
+        self.assertEqual(redraw(machine),(1,0),'closing makes the firmware repaint its main screen')
         machine.call('script_app_close',machine.runtime)
         self.assertEqual(self.drain(machine),[],'closing nothing says nothing')
 
@@ -959,7 +966,7 @@ class HookTests(unittest.TestCase):
         machine.call('script_display_take_glue')
         self.assertEqual(self.input(machine,[0,13,1,0,0]),0xC0028380)
         self.assertEqual(machine.read(base),0,'EXIT ends a takeover like it closes an app')
-        self.assertEqual(bytes(machine.uc.mem_read(0xC06C226C,1)),b'\x01','the firmware repaints its main screen whole')
+        self.assertEqual(redraw(machine),(1,0),'the firmware repaints its main screen whole')
         self.assertEqual(self.drain(machine),[(21,other,0,0)])
 
     def test_public_patch_manifest_has_only_own_changes_and_registered_hooks(self):
@@ -1124,7 +1131,7 @@ class HookTests(unittest.TestCase):
         machine.write(machine.input+0x202C,3)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.read(base),0,'any other screen closes him')
-        self.assertEqual(bytes(machine.uc.mem_read(0xC06C226C,1)),b'\x01','and the firmware repaints')
+        self.assertEqual(redraw(machine),(1,0),'and the firmware repaints')
         machine.write(machine.input+0x202C,0x2D)
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(machine.read(base),him,'a second landing opens him again')
