@@ -3568,7 +3568,7 @@ def flash_settings_cases(payload, flash=None):
 
 
 MX_FLAGS2 = STATE - 0x15               # byte 7 of a version 4 settings file in RAM (script_menu.s:MX_FLAGS2), 0 without one
-FLAGS2_KNOWN = 3                        # bit 0 LOAD METER, bit 1 IDLE POWER SAVE
+FLAGS2_KNOWN = 3                        # bit 0 LOAD METER, bit 1 IDLE POWER SAVE off
 
 
 def settings_file_v4(generation, flags, look, flags2, extras=0, trusted=(), bad_crc=False):
@@ -3674,13 +3674,13 @@ def settings_v4_cases(payload, flash=None):
     # without a card WRITE goes to the flash: with a bit in byte 7 a version 4 copy, which the next start without a card reads
     bare = boot(payload, flash, adapter=True, card=False, seconds=wait)
     goto_group(bare, GROUP_FEATURES, FEAT_TM)
-    bare.m.uc.mem_write(MX_FLAGS2, bytes([FLAGS2_IDLE_SAVE := 2]))
+    bare.m.uc.mem_write(MX_FLAGS2, bytes([FLAGS2_IDLE_OFF := 2]))
     press(bare, "write", wait=0.6)
     bare.run(3.0)
     image = bytes(bare.m.flash.mem)
     rec = flash_record(image, FLASH_SET_A) or flash_record(image, FLASH_SET_B)
     back = start(None, image, card=False)
-    add("flash_write_v4_read_back", rec is not None and rec[1][4] == 4 and rec[1][7] == FLAGS2_IDLE_SAVE and flags2(back) == FLAGS2_IDLE_SAVE
+    add("flash_write_v4_read_back", rec is not None and rec[1][4] == 4 and rec[1][7] == FLAGS2_IDLE_OFF and flags2(back) == FLAGS2_IDLE_OFF
         and not bare.m.asserts and not back.m.asserts,
         f"copy {None if rec is None else (rec[0], rec[1][4], rec[1][7])} (generation, version, byte 7), next start byte 7 {flags2(back)}")
     return out
@@ -3693,14 +3693,16 @@ def look_rest():
 
 def look_parts():
     """What look_cases_task(i) runs: the look cases themselves, the suites after them, then the splash, pad colour and
-    calibration cases, the load meter last. Each boots devices of its own, so they run side by side."""
+    calibration cases, the load meter and idle power save last. Each boots devices of its own, so they run side by side."""
     from calibrate_cases import cases as calibration_cases
     from load_meter_cases import cases as load_meter_cases
+    from idle_save_cases import cases as idle_save_cases
     return ((lambda payload, flash: look_cases(payload, flash, rest=False)), *look_rest(), splash_menu_cases, wheel_cases,
-            pad_colour_cases, calibration_cases, flash_settings_cases, settings_v4_cases, media_menu_cases, load_meter_cases)
+            pad_colour_cases, calibration_cases, flash_settings_cases, settings_v4_cases, media_menu_cases, load_meter_cases,
+            idle_save_cases)
 
 
-LOOK_PARTS = 1 + len(look_rest()) + 8      # look_parts() without importing calibrate_cases and load_meter_cases
+LOOK_PARTS = 1 + len(look_rest()) + 9      # look_parts() without importing calibrate_cases, load_meter_cases and idle_save_cases
 
 
 def look_cases_task(i):

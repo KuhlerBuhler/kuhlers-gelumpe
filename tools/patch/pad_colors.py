@@ -73,6 +73,7 @@ S_CPASS = 0x40                  # byte: 1 inside pc_tail with the tie cache's ke
 S_CKEY = 0x44                   # the key the cached results belong to (even; FFFFFFFF never written)
 S_CVALID = 0x48                 # bit n: the result for pad n is in S_CACHE
 S_CACHE = 0x4C                  # 16 words: pc_chord's result for each pad
+S_IDLE = 0x8C                   # byte: the percent IDLE POWER SAVE keeps (script_idle.s:PC_IDLE writes it), FF never written
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13, measured on the device 10.10.)
 
 SEND_TAIL = 0xC00876A8          # b 0xC0087578: the end of the LED manager's send function, the message is built
@@ -120,6 +121,7 @@ SOURCE = """
 .equ S_CKEY, @S_CKEY@
 .equ S_CVALID, @S_CVALID@
 .equ S_CACHE, @S_CACHE@
+.equ S_IDLE, @S_IDLE@           ; the percent of IDLE POWER SAVE (script_idle.s), 100 and FF keep all
 .equ MGR, 0xC03404C0            ; pointer to the screen manager, +0x2C the screen that is up (1 the main screen)
 .equ LED_MODE_AT, 0x4F          ; manager + 0x4F + 8 * led: the second byte of the message
 .equ METER_FIRST, 0x4C          ; the bottom RGB LEDs 0x4C to 0x57: the meter's own, not sent again here
@@ -863,8 +865,22 @@ pf_send:
     bl SENDER
     pop {pc}
 
-; -> r0 = 1 while the firmware dims for power save and EXIT was not held at power-on. Clobbers r12.
+; -> r0 = 1 while the LEDs go out dimmed: the firmware dims for power save, or IDLE POWER SAVE keeps less than all (S_IDLE, the
+; runtime's script_idle.s writes it). Clobbers r12.
 pc_dimming:
+    push {lr}
+    bl pc_fw_dimming
+    cmp r0, #0
+    popne {pc}
+    ldr r12, =STATE
+    ldrb r0, [r12, #S_IDLE]
+    cmp r0, #100
+    movlo r0, #1
+    movhs r0, #0
+    pop {pc}
+
+; -> r0 = 1 while the firmware dims for power save and EXIT was not held at power-on. Clobbers r12.
+pc_fw_dimming:
     ldr r12, =PANEL
     ldr r12, [r12]
     cmp r12, #0
@@ -883,12 +899,22 @@ pd_no:
 
 ; r2 = brightness -> r2 = the part LED DIMMING keeps of it (rounded up, so a lit LED stays lit unless the step is 100 percent).
 ; The step (bits 12 to 15 of the setting word, device wish 19.10.) picks the percent kept from pc_keep; step 0, also a setting
-; never written, keeps 25 percent, the quarter of before. Keeps every other register.
+; never written, keeps 25 percent, the quarter of before. That is in the firmware's power save; IDLE POWER SAVE keeps S_IDLE,
+; and with both the darker of the two goes out. Keeps every other register.
 pc_quarter:
     push {r0, r1, r12, lr}
+    mov r1, #100
+    bl pc_fw_dimming
+    cmp r0, #0
+    beq pq_idle
     bl pc_keep_get
     ldr r1, =pc_keep
     ldrb r1, [r1, r0]
+pq_idle:
+    ldr r12, =STATE
+    ldrb r0, [r12, #S_IDLE]
+    cmp r0, r1
+    movlo r1, r0
     mul r0, r2, r1
     add r0, r0, #99
     ldr r1, =5243               ; / 100: * 5243 >> 19, exact up to 255 * 100 + 99
@@ -969,11 +995,15 @@ pt_dim_only:
     cmp r9, #0
     beq pt_dim_store
     ldrb r0, [r5]
-    cmp r0, #KNOB_LAST          ; the LEDs of the knobs (VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE, IFX TYPE) go out (device 18.10.),
-    bhi pt_dim_led              ; unless LED DIMMING is 0 percent
+    cmp r0, #KNOB_LAST          ; the LEDs of the knobs (VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE, IFX TYPE) go out in the firmware's
+    bhi pt_dim_led              ; power save (device 18.10.), unless LED DIMMING is 0 percent; IDLE POWER SAVE alone scales them
+    bl pc_fw_dimming
+    cmp r0, #0
+    beq pt_dim_led
     bl pc_keep_get
     cmp r0, #4
-    movne r2, #0
+    beq pt_dim_led
+    mov r2, #0
     b pt_dim_store
 pt_dim_led:
     bl pc_quarter
@@ -1098,7 +1128,7 @@ pc_dim_switch:
     push {r4, r5, lr}
     ldr r3, =DIM_FLAG                   ; the replaced instruction loads this literal
     bl DIM_BODY
-    bl pc_dimming
+    bl pc_fw_dimming
     ldr r12, =STATE
     ldr r1, [r12, #S_DIM]
     cmp r0, r1
@@ -1140,7 +1170,8 @@ def source():
     for key, value in {"KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}", "S_SETTING": S_SETTING,
                        "S_SENT": S_SENT, "SENDER": f"{place('SENDER'):#x}", "S_DIM": f"{S_DIM:#x}", "DIM_BODY": f"{place('DIM_BODY'):#x}",
                        "S_PEND": f"{S_PEND:#x}", "S_KNOB": f"{S_KNOB:#x}",
-                       "S_CPASS": f"{S_CPASS:#x}", "S_CKEY": f"{S_CKEY:#x}", "S_CVALID": f"{S_CVALID:#x}", "S_CACHE": f"{S_CACHE:#x}"}.items():
+                       "S_CPASS": f"{S_CPASS:#x}", "S_CKEY": f"{S_CKEY:#x}", "S_CVALID": f"{S_CVALID:#x}", "S_CACHE": f"{S_CACHE:#x}",
+                       "S_IDLE": f"{S_IDLE:#x}"}.items():
         text = text.replace(f"@{key}@", str(value))
     if BUILD == "synth":
         text = synthaddr.source(text, own=[(CODE_AT, CODE_END), (STATE, STATE_END)])
@@ -1259,7 +1290,7 @@ def build_patch(vsb, build="hacktribe"):
             {"file": file_offset(DIM_SWITCH), "length": 4, "why": "the firmware sets power save at start too; the hook runs its function and sends the LEDs again when the dimming changed"},
         ],
         "ram": [
-            ramdecl.area(STATE, STATE_END - STATE, "run time state: PC_SETTING at +0 and KNOB LEDS at +4 for the BLECH menu, the brightness sent for each pad LED, a message, the power save state last sent, the tie cache (pass, key, valid bits, 16 results)", "tools/patch/pad_colors.py:STATE"),
+            ramdecl.area(STATE, STATE_END - STATE, "run time state: PC_SETTING at +0 and KNOB LEDS at +4 for the BLECH menu, the brightness sent for each pad LED, a message, the power save state last sent, the tie cache (pass, key, valid bits, 16 results), the percent IDLE POWER SAVE keeps", "tools/patch/pad_colors.py:STATE"),
         ],
     }
 
