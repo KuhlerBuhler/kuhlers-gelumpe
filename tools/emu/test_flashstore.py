@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from flashstore import FLASH_SIZE, FlashError, FlashStore, default_dir  # noqa: E402
-from machine import Flash, hardware_flash  # noqa: E402
+from machine import FLASH_BUSY_NS, Flash, hardware_flash  # noqa: E402
 from server import Emulator, VSB_SIZE  # noqa: E402
 from test_server import FakeMachine  # noqa: E402
 
@@ -144,6 +144,52 @@ class FlashTest(unittest.TestCase):
 
     def test_the_flash_folder_sits_next_to_the_card_folder(self):
         self.assertEqual(default_dir(Path("/a/b/sd")), Path("/a/b/flash"))
+
+
+class FlashBusyTest(unittest.TestCase):
+    """The chip stays busy after an erase or a page program like a real SPI NOR, so the firmware's wait loop runs."""
+
+    def command(self, flash, now, *data):
+        flash.select(True, now)
+        out = [flash.byte(b, now) for b in data]
+        flash.select(False, now)
+        return out
+
+    def status(self, flash, now):
+        return self.command(flash, now, 0x05, 0)[1]
+
+    def test_a_sector_erase_reports_busy_until_its_time_is_over(self):
+        f = Flash(None)
+        self.command(f, 0, 0x06)
+        self.command(f, 0, 0x20, 0x7F, 0xD0, 0x00)
+        self.assertEqual(self.status(f, 1_000_000) & 0x01, 0x01)
+        self.assertEqual(self.status(f, FLASH_BUSY_NS[0x1000]), 0x00)
+        self.assertEqual(f.mem[0x7FD000:0x7FE000], b"\xff" * 0x1000)
+
+    def test_while_busy_the_chip_takes_only_the_status_read(self):
+        f = Flash(None)
+        f.mem[0x7FE000] = 0x12
+        self.command(f, 0, 0x06)
+        self.command(f, 0, 0x20, 0x7F, 0xD0, 0x00)
+        self.assertEqual(self.command(f, 10, 0x03, 0x7F, 0xE0, 0x00, 0)[4], 0xFF)
+        self.command(f, 20, 0x06)
+        self.assertEqual(self.status(f, 30) & 0x02, 0x00)
+        self.command(f, 40, 0x20, 0x7F, 0xE0, 0x00)
+        self.assertEqual(f.mem[0x7FE000], 0x12)
+
+    def test_a_page_program_is_busy_after_the_chip_is_let_go_and_drops_the_write_enable(self):
+        f = Flash(None)
+        f.mem[0x7FD000:0x7FD002] = b"\xff\xff"
+        self.command(f, 0, 0x06)
+        self.command(f, 0, 0x02, 0x7F, 0xD0, 0x00, 0x12, 0x34)
+        self.assertEqual(f.mem[0x7FD000:0x7FD002], b"\x12\x34")
+        self.assertEqual(self.status(f, 1_000), 0x01)
+        self.assertEqual(self.status(f, FLASH_BUSY_NS["program"]), 0x00)
+
+    def test_status_and_id_reads_leave_the_chip_idle(self):
+        f = Flash(None)
+        self.command(f, 0, 0x9F, 0, 0, 0)
+        self.assertEqual(self.status(f, 0), 0x00)
 
 
 if __name__ == "__main__":

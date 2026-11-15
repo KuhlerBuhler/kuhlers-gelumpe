@@ -94,7 +94,9 @@
 .equ M_INV, 0x1B8
 .equ M_INV_HW, 0x1BC
 .equ M_CARD, 0x1B0            ; menu_card_watch: frames in a row the card switch showed a card, CARD_DONE once its settings are read
-.equ CARD_SETTLE, 8           ; 8 frames of 40 ms: a card that is still going in is not read
+.equ CARD_SETTLE, 8           ; 8 frames of 40 ms: out this long, a read card counts as pulled
+.equ CARD_SETTLE_IN, 15       ; 15 frames of 40 ms: a card that is still going in is not read (its detect switch bounced 0.5 s after the
+                              ; first contact on the device, and the card init 0.3 s after it failed: docs/messungen/2026-11-15-karte-stecken-prellen.md)
 .equ CARD_DONE, 0xFF
 .equ CARD_NEVER, 0xFE         ; started without a card: no card is read until the next start (the first card after such a start can hang the Korg SD init)
 .equ CARD_GONE, 0x80          ; CARD_GONE + n: the card read (CARD_DONE) has been out for n frames; out for CARD_SETTLE frames it is pulled
@@ -107,6 +109,9 @@
                               ; interrupt clears it, and none comes without an init (docs/messungen/2026-11-14-karte-init-sperre.md)
 .equ SD_INPUT, 0x01E26070     ; GPIO IN_DATA45: bit 1 (GPIO 4.1) is low while a card is in (tools/patch/card_gate.py)
 .equ SD_DETECT, 2
+.equ MMC_CTL, 0x01C40000      ; MMC0 control: bit 2 WIDTH (4-bit bus)
+.equ MMC_CLK, 0x01C40004      ; MMC0 clock: bit 9 DIV4, bit 8 on, bits 0-7 CLKRT; 150 MHz / ((DIV4 ? 4 : 2) * (CLKRT + 1))
+.equ MMC_CLK_IDENT, 0x25D     ; 0.4 MHz, the identification clock Korg sets once at power-on, before the first card init
 ; The settings in the flash, for a device without a card (menu_flash_read, menu_flash_save; written when the BLECH screen is left, autosave_leave): the record of
 ; settings.a.bin (version 3 or 4), behind it the word FLASH_TAG << 16 | generation and the CRC-32 of record and word, in one of two 4 KiB
 ; sectors by the parity of the generation (odd FLASH_SET_A, even FLASH_SET_B), so a torn write leaves the other copy whole.
@@ -327,7 +332,7 @@ menu_arm_load_end:
 
 ; ---- another card for the one pulled (#479), after a start with a card: its settings file is read as at the start, so every
 ; setting and the look (backlight, bottom LEDs, pad colours, display polarity) switch at once. The card switch (GPIO 4.1, as
-; tools/patch/card_gate.py reads it) must show the card for CARD_SETTLE frames in a row first. What this power-on runs with stays:
+; tools/patch/card_gate.py reads it) must show the card for CARD_SETTLE_IN frames in a row first. What this power-on runs with stays:
 ; the plugin runtime and MFX 2 (M_EFF_RUN, M_EFF_MFX) take a new value only at the next start, as after a change on their pages.
 ; A card without a valid settings file changes nothing (menu_load_none). Settings from a card stay out of the flash (FL_HOLD) and
 ; the display asks "SAVE TO FLASH?" (menu_ask_frame): MENU writes them, EXIT keeps them for this power-on only. Before the card is
@@ -335,6 +340,7 @@ menu_arm_load_end:
 ; are held and that is out for CARD_SETTLE frames brings back the copy in the flash (CARD_PULL), what ran before the card came.
 ; Each read clears the lock of Korg's SD init (SD_INIT_LOCK) first. A card whose read locked it again (a card that stayed busy) is
 ; read once more after CARD_RETRY_MS, which mounts it; locked again, it stays CARD_STUCK until it is pulled.
+; While no card is in, the MMC controller is set back to the identification clock of the power-on (MMC_CLK_IDENT).
 ; Called from the frame hook past the first main screen (UI task, where WRITE reads and
 ; writes the card as well). Clobbers r0 to r3 and r12.
 menu_card_watch:
@@ -362,7 +368,7 @@ menu_card_watch:
     movhs r0, #CARD_DONE
     bhs card_watch_store
     add r0, r0, #1
-    cmp r0, #CARD_SETTLE
+    cmp r0, #CARD_SETTLE_IN
     blo card_watch_store
 card_watch_settled:
     ldr r0, =SD_INIT_LOCK       ; a card put in gets an init of its own, also after the one before it was locked out
@@ -423,6 +429,27 @@ card_watch_wait:
     mov r8, #1
     b card_watch_settled
 card_watch_gone:
+    ldr r1, =MMC_CLK            ; Korg's init does not set the clock: the next card would be identified at the 12.5 MHz, 4-bit bus of
+    ldr r0, [r1]                ; the card before, which a card may not answer (docs/messungen/2026-11-14-karte-tausch-takt.md)
+    ldr r3, =MMC_CLK_IDENT
+    bic r2, r0, #0x100
+    cmp r2, r3
+    beq card_watch_slow
+    ldr r12, =MMC_CTL           ; command and data path in reset around the change, as Korg's controller init at power-on does
+    ldr r2, [r12]
+    orr r2, r2, #3
+    str r2, [r12]
+    bic r0, r0, #0x100          ; the clock is off while the divider changes, as the TRM asks
+    str r0, [r1]
+    bic r0, r0, #0x300
+    bic r0, r0, #0xFF
+    orr r0, r0, r3
+    str r0, [r1]
+    orr r0, r0, #0x100
+    str r0, [r1]
+    bic r2, r2, #7              ; out of reset, 1-bit bus
+    str r2, [r12]
+card_watch_slow:
     ldr r0, [r4, #M_CARD]
     cmp r0, #CARD_STUCK         ; read (CARD_DONE), locked out (CARD_STUCK) or waiting for the read again (CARD_WAIT)
     movhs r0, #CARD_GONE
@@ -6440,6 +6467,8 @@ menu_value_over:
     movgt r0, #3
     mov r1, #16
     bl menu_pc_call
+    mov r1, #48                 ; the pads show it at once, not only after the menu
+    bl menu_pc_call
     b menu_value_look_done
 ; LED DIMMING: the dial goes through led_dim_percent, the patch pad-colors keeps the step and sends the LEDs; WRITE keeps it
 menu_value_ledsave:
@@ -6454,6 +6483,8 @@ menu_value_ledsave:
     cmp r0, #12
     subhs r0, r0, #12
     mov r1, #24
+    bl menu_pc_call
+    mov r1, #48                 ; in power save the LEDs take the new step at once, not only after the menu (device test 15.11.)
     bl menu_pc_call
     b menu_value_look_done
 ; PAD COLOR and SELECT COLOR: the dial steps the colour in the patch, which skips the other page's and sends the pads; WRITE keeps it.

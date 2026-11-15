@@ -101,6 +101,12 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC008A1C8,0xEBFFB95D,'kp_title_hook'),
          (0xC008A1F4,0xEBFFBB0C,'kp_value_hook'),
          (0xC008A244,0xEBFFB868,'kp_check_hook'),
+         # KEY PADS octave (script_shortcuts.s, kp_key): the calls of the KEY getter where a note gets the KEY added (the step's
+         # note at playback, the pad's note in KEYBOARD mode) or taken off (a recorded note, the pad that lights for a step)
+         (0xC005A2B8,0xEBFFC032,'kp_key_play_hook'),
+         (0xC005AE00,0xEBFFBD60,'kp_key_live_hook'),
+         (0xC00607A8,0xEBFFA6F6,'kp_key_rec_hook'),
+         (0xC0088784,0xEBFF06FF,'kp_key_led_hook'),
          # FILTER TOGGLE (script_shortcuts.s): the filter key handler's path that sets the type, mov r0, #8 (FT_BACK goes on behind it);
          # Hacktribe has its own handler (FILTER_TOGGLE_HACKTRIBE), Korg's stays unused there
          (0xC006FDEC,0xE3A00008,'ft_select'),
@@ -123,14 +129,17 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
-# KP_OCT_SET (object, octave) is the keyboard octave's setter that KEYBOARD mode's bar keys call, on the object in KP_OCT_OBJ.
+# KP_KEY_*_AT: the four calls of the KEY getter (ldrb r0, [r0, #0x2B]) in note arithmetic, see the sites above
+# (docs/messungen/2026-11-15-key-pads-transpose.md).
 KEY_PADS_SAMPLER = dict(KP_TITLE_AT=0xC008A1C8, KP_TITLE_FN=0xC0078744, KP_VALUE_AT=0xC008A1F4, KP_VALUE_FN=0xC0078E2C,
                         KP_CHECK_AT=0xC008A244, KP_CHECK_FN=0xC00783EC, KP_WINDOW=0xC03487EC,
-                        KP_OCT_SET=0xC00818E0, KP_OCT_OBJ=0xC06912E0)
+                        KP_KEY_PLAY_AT=0xC005A2B8, KP_KEY_LIVE_AT=0xC005AE00, KP_KEY_REC_AT=0xC00607A8, KP_KEY_LED_AT=0xC0088784)
 KEY_PADS_SYNTH = dict(KP_TITLE_AT=0xC0079AD8, KP_TITLE_FN=0xC006B404, KP_VALUE_AT=0xC0079B04, KP_VALUE_FN=0xC006B864,
                       KP_CHECK_AT=0xC0079B5C, KP_CHECK_FN=0xC006B454, KP_WINDOW=0xC0348500,
-                      KP_OCT_SET=0xC00723EC, KP_OCT_OBJ=0xC056B58C)
-KEY_PADS_SYNTH_WORDS = {'kp_title_hook': 0xEBFFC649, 'kp_value_hook': 0xEBFFC756, 'kp_check_hook': 0xEBFFC63C}
+                      KP_KEY_PLAY_AT=0xC0050EAC, KP_KEY_LIVE_AT=0xC0051960, KP_KEY_REC_AT=0xC0057260, KP_KEY_LED_AT=0xC0078968)
+KEY_PADS_SYNTH_WORDS = {'kp_title_hook': 0xEBFFC649, 'kp_value_hook': 0xEBFFC756, 'kp_check_hook': 0xEBFFC63C,
+                        'kp_key_play_hook': 0xEBFFCD75, 'kp_key_live_hook': 0xEBFFCAC8, 'kp_key_rec_hook': 0xEBFFB488,
+                        'kp_key_led_hook': 0xEBFF2EC6}
 # Words that change to a plain value instead of a branch: the screen factory's bound and its table literal.
 WORDS = ((0xC006E664,0xE350002C,0xE350002D),
          (0xC006E68C,0xC00F9CD8,MENU_TABLE))
