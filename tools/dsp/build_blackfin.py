@@ -40,6 +40,19 @@ def patch_sources(source):
             text = text.replace(old, new)
         elif text.count(new) != 1:
             raise ValueError('unexpected GNU SIGNBITS implementation')
+    # A pointer load in the first multi-issue slot must not change its register before the second slot's
+    # store reads it ("R0 = [P0++] || [I1++] = R0" stores the old R0), like GNU's I-register and pmod loads.
+    for name in ('decode_LDST_0', 'decode_LDSTii_0'):
+        start = text.index(f'\n{name} (')
+        end = text.index('\n}\n', start)
+        body = text[start:end]
+        loads = body.count('SET_DREG (reg, ')
+        if loads not in (3, 5) and 'STORE (DREG (reg), ' not in body:
+            raise ValueError(f'unexpected GNU {name} implementation')
+        body = body.replace('SET_DREG (reg, ', 'STORE (DREG (reg), ')
+        if name == 'decode_LDST_0':
+            body = body.replace('SET_PREG (ptr, ', 'STORE (PREG (ptr), ')
+        text = text[:start] + body + text[end:]
     file.write_text(text)
     file = source / 'sim/bfin/dv-bfin_dmac.c'
     text = file.read_text()
@@ -400,6 +413,7 @@ def build(directory, jobs=4):
                     patches=['32-bit SIGNEXTEND', 'BSD sed module generation',
                              'deferred DSP32ALU add/sub result writes',
                              'deferred SIGNBITS half-register writes',
+                             'deferred pointer-load register writes',
                              'bounded execution inside the event loop',
                              'persistent cycle slices, native IDLE and independent IWR wakeup',
                              'BF52x HOSTDP registers and interrupt sources',

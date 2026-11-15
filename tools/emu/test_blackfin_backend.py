@@ -127,6 +127,20 @@ class Execution(unittest.TestCase):
                 self.backend.run(10)
                 self.assertEqual(self.backend.read(DATA, 8), struct.pack('<II', 0xAABBF75F, 0xAABB0000 | expected))
 
+    def test_parallel_pointer_load_store_reads_the_original_register(self):
+        # MNOP || R0 = [P0++] || [I1++] = R0, the copy loop the native DSP uses for its handler table.
+        self.backend.write(ENTRY, struct.pack('<5H', 0xC803, 0x1800, 0x9000, 0x9E08, 0x2000))
+        self.backend.write(DATA, struct.pack('<5I', 0xAAAAAAAA, 0, 0, 0, 0x55555555))
+        self.backend.set_register(0, 0x11111111)
+        self.backend.set_register(8, DATA)
+        self.backend.set_register(17, DATA + 16)
+        self.backend.set_register(53, ENTRY)
+        self.backend.run(3)
+        self.assertEqual(self.backend.read(DATA + 16, 4), struct.pack('<I', 0x11111111))
+        self.assertEqual(self.backend.register(0), 0xAAAAAAAA)
+        self.assertEqual(self.backend.register(8), DATA + 4)
+        self.assertEqual(self.backend.register(17), DATA + 20)
+
     def test_run_stops_at_a_requested_pc(self):
         self.backend.write(ENTRY, program())
         self.backend.set_register(53, ENTRY)
