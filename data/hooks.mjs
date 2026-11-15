@@ -145,7 +145,7 @@ export const CHAINS = {
   ],
   "pad-note": [
     { id: "keyboard-pad", sites: [0xC0044B3C] },
-    { id: "pad-light", sites: [0xC008870C] },
+    { id: "pad-light", sites: [0xC008878C] },
   ],
   "led-tick-body": [{ id: "before-loop", sites: [0xC008774C] }],
   "led-tick-end": [{ id: "tick-end", sites: [0xC00877D4] }],
