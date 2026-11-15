@@ -6,7 +6,8 @@
 ; 5 no address, read only, offset picks what the runtime knows about the device (INFO in data/script/objects.mjs),
 ; 6 no address: the touch pad mode, read from the firmware's touch pad object and the patch mfx-switch, set with the panel's keys,
 ; 7 no address: the motion switch of the selected part, set with one TAP of the patch tap-motion,
-; 8 no address, read only: offset picks a state word of the firmware (STATE_WORDS in data/script/objects.mjs).
+; 8 no address, read only: offset picks a state word of the firmware (STATE_WORDS in data/script/objects.mjs),
+; 9 a bit of byte 7 of the settings (MX_FLAGS2): offset is its mask, OBJ_FLAGS2_INVERT on top where a set bit reads 0.
 .equ OBJ_BASE_ABS, 2
 .equ OBJ_BASE_GLOBAL, 3
 .equ OBJ_BASE_PAD, 4
@@ -14,6 +15,9 @@
 .equ OBJ_BASE_TOUCHPAD, 6
 .equ OBJ_BASE_MOTION, 7
 .equ OBJ_BASE_STATE, 8
+.equ OBJ_BASE_FLAGS2, 9
+.equ OBJ_FLAGS2_INVERT, 0x100     ; FLAGS2_INVERT in data/script/objects.mjs
+.equ STATE_POWER_SAVE, 5          ; STATE_WORDS: the firmware's dim flag, then the stage of IDLE POWER SAVE
 .equ POWER_MODEL, 0xC03405C4       ; pointer to the power source model, +0x308 1 on the adapter (docs/messungen/2026-11-11-plugin-api34-system.md)
 .equ BATTERY_MODEL, 0xC03405C8     ; pointer to the battery model, +0x328 the level 0 to 4 its thresholds give
 .equ STATE_MODEL, 0xC0348884       ; pointer to the sequencer model, +0x344 the bar section (as dice.py MODEL)
@@ -49,6 +53,8 @@ script_object_get_glue:
     beq objects_motion_get
     cmp r1, #OBJ_BASE_STATE
     beq objects_state_get
+    cmp r1, #OBJ_BASE_FLAGS2
+    beq objects_flags2_get
     ldrb r1, [r4, #17]
     cmp r1, #0
     ldrbeq r0, [r0]
@@ -101,14 +107,26 @@ objects_touchpad_get:
 objects_motion_get:
     bl objects_motion_on
     b objects_get_done
-; korg.pads.mode, korg.pads.bar and korg.screen
+; korg.pads.mode, korg.pads.bar, korg.screen, korg.system.power, battery, powerSave and idle
 objects_state_get:
     ldr r0, [r4]
     bl objects_state_word
     b objects_get_done
+; LOAD METER, IDLE SAVE, GLIDE CHAIN and GLIDE SWITCH: r5 = the mask, 1 when the bit is set (0 with OBJ_FLAGS2_INVERT)
+objects_flags2_get:
+    ldr r5, [r4]
+    ldr r1, =MENU_STATE
+    ldrb r0, [r1, #MX_FLAGS2]
+    ands r0, r0, r5
+    movne r0, #1
+    tst r5, #OBJ_FLAGS2_INVERT
+    eorne r0, r0, #1
+    b objects_get_done
 ; r0 = a state word (STATE_WORDS) -> r0 = the firmware's word, FFFFFFFF while its object does not exist (reads as the factory
 ; value). Clobbers r1, r2.
 objects_state_word:
+    cmp r0, #STATE_POWER_SAVE
+    bhs objects_state_own
     ldr r1, =objects_state_words
     add r1, r1, r0, lsl #3
     ldr r2, [r1, #4]
@@ -119,6 +137,21 @@ objects_state_word:
     mvneq r0, #0
     bxeq lr
     ldr r0, [r1, r2]
+    bx lr
+; powerSave: 1 while the firmware dims for POWER SAVE (its flag, pad_colors.py DIM_FLAG); idle: the stage of IDLE POWER SAVE,
+; FFFFFFFF before menu_arm (IS_STAGE FF), so no event and the factory value
+objects_state_own:
+    ldreq r1, =BL_DIM_FLAG
+    ldrbeq r0, [r1]
+    ldrhi r1, =IDLE
+    ldrbhi r0, [r1, #IS_STAGE]
+    bhi objects_state_stage
+    cmp r0, #0
+    movne r0, #1
+    bx lr
+objects_state_stage:
+    cmp r0, #4
+    mvnhi r0, #0
     bx lr
 ; per state word: the pointer to the firmware's object, the offset of the word in it
 objects_state_words:
@@ -208,6 +241,8 @@ script_object_set_glue:
     beq objects_touchpad_set
     cmp r1, #OBJ_BASE_MOTION
     beq objects_motion_set
+    cmp r1, #OBJ_BASE_FLAGS2
+    beq objects_flags2_set
     ldr r12, [r4, #OBJ_SETTER_AT]   ; a Global setting goes through the firmware's own setter (Global object, value, 1), as the menu calls it
     cmp r12, #0
     bne objects_set_through
@@ -268,6 +303,21 @@ objects_pad_colour:
     mov r1, #36
 objects_pad_call:
     bl menu_pc_call
+    b objects_set_done
+; r0 = the value, r4 = the row: sets or clears the leaf's bit of byte 7 as its page does, the other bits (also the reserved ones)
+; stay. The frame acts on it (LOAD METER draws or takes its digits away, IDLE SAVE OFF wakes); IDLE SAVE starts its time again.
+objects_flags2_set:
+    ldr r5, [r4]
+    tst r5, #OBJ_FLAGS2_INVERT
+    eorne r0, r0, #1
+    and r5, r5, #0xFF
+    ldr r1, =MENU_STATE
+    ldrb r2, [r1, #MX_FLAGS2]
+    cmp r0, #0
+    orrne r2, r2, r5
+    biceq r2, r2, r5
+    strb r2, [r1, #MX_FLAGS2]
+    bl objects_apply
     b objects_set_done
 
 ; korg.touchpad.mode = r0: one press of the key that leads from the current mode to r0, as a finger would, so LEDs and effect
@@ -341,7 +391,7 @@ objects_motion_set:
     mov r0, #KEY_TAP
     b objects_touchpad_press
 
-; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; bases 4 to 8 have none)
+; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; bases 4 to 9 have none)
 objects_row:
     mov r4, #0
     cmp r0, #OBJ_COUNT
@@ -362,6 +412,8 @@ objects_row:
     cmp r1, #OBJ_BASE_MOTION
     bxeq lr
     cmp r1, #OBJ_BASE_STATE
+    bxeq lr
+    cmp r1, #OBJ_BASE_FLAGS2
     bxeq lr
     cmp r1, #OBJ_BASE_GLOBAL
     beq objects_row_global
@@ -511,6 +563,8 @@ objects_padmode_last:
     .word 0xFFFFFFFF                ; the pad mode and the screen number of the last frame, for padMode and screen
 objects_screen_last:
     .word 0xFFFFFFFF
+objects_idle_last:
+    .word 0xFFFFFFFF                ; the stage of IDLE POWER SAVE of the last frame, for the event idle
 objects_table:
 @OBJECT_ROWS@
 .align 4

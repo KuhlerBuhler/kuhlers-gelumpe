@@ -162,6 +162,7 @@ suivent la langue choisie dans l’application. Cette langue n’étend pas le j
 | `screen` | `number` | un autre écran du firmware est ouvert, la nouvelle valeur de `korg.screen` ; depuis l’API 29 |
 | `write` | `pattern` | un pattern est écrit dans la banque (WRITE, aussi le raccourci EXIT + WRITE), `pattern` sa place 0 à 249, avant que le firmware l’écrive ; depuis l’API 29 |
 | `midiIn` | `status`, `data1`, `data2` | le firmware a reçu un message de canal par MIDI (DIN ou USB), statut 128 à 239 (type et canal), octets de données 0 à 127 ; sur tous les canaux et avant le MIDI RECEIVE FILTER, le firmware le reçoit ensuite, sauf si un plugin retient son type avec `korg.midi.hold`. Clock, SysEx et messages temps réel ne viennent pas ; depuis l’API 30 |
+| `idle` | `stage` | le niveau d’IDLE SAVE a changé, la nouvelle valeur de `korg.system.idle` (0 éveillé, 1 à 3 atténué, 4 éteint), aussi au réveil et quand IDLE SAVE OFF réveille l’appareil ; depuis l’API 37 |
 | `save` | | WRITE dans Global et extinction |
 | `menu` | `id`, `value` | Rotation de la molette principale sur une page créée avec `korg.menu.add` |
 | `open`, `close` | | Réservés aux applications et aux plugins ayant pris l’écran : ouverture depuis le menu, fermeture par EXIT ou départ de la page principale. Ils ne sont transmis qu’au plugin concerné |
@@ -200,7 +201,7 @@ Blechy reçoit le touchpad et sa touche). Dans tous les menus du firmware
 (Pattern, Global, Part Edit, Step Edit et les autres), les plugins reçoivent les
 entrées comme sur l’écran principal.
 
-### Ce qu’un plugin atteint (API 36)
+### Ce qu’un plugin atteint (API 37)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -252,6 +253,7 @@ feuille de l’arbre d’objets.
 | GLOBAL PARAMETERS | `korg.global.*` | `korg.global.*` | non |
 | Menu BLECH (CUSTOMIZATION, FEATURES) | `korg.menu.blech.*` | `korg.menu.blech.*` | non |
 | Adaptateur ou batterie, charge | `korg.system.power`, `korg.system.battery` | non | non |
+| Économie d’énergie (POWER SAVE du firmware, IDLE SAVE) | `korg.system.powerSave`, `korg.system.idle` | non | `idle` |
 | **Services pour les plugins** | | | |
 | Entrées propres dans le menu BLECH | non | `korg.menu.add` | `menu` |
 | Apps | non | `korg.app` | `open`, `close` |
@@ -378,7 +380,7 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.menu.blech.customizations.display.intensity` | Luminosité du rétroéclairage, comme INTENSITY | Oui, immédiatement ; WRITE la conserve | 0 (éteint) à 15 (maximum) |
 | `korg.system.repairs` | Nombre de valeurs corrigées depuis le démarrage | Non | 0 à 2147483647 |
 | `korg.system.testMode` | Mode de test actif : écran, rétroéclairage et LED éteints, arrêt automatique suspendu | Non, uniquement par USB ; RAM seulement, désactivé au redémarrage | 0 à 1 |
-| `korg.system.keepAwake()` | Appel, pas une valeur | Relance les 4 heures avant arrêt automatique comme un bouton physique ; depuis 1.5.0 relance aussi le délai d’IDLE SAVE et réveille un appareil atténué | |
+| `korg.system.keepAwake()` | Appel, pas une valeur | Relance les 4 heures avant arrêt automatique comme un bouton physique ; depuis 1.5.0 relance aussi le délai d’IDLE SAVE et réveille un appareil atténué ; `korg.pressKey`, `korg.keyDown`, `korg.keyUp`, `korg.padDown`, `korg.padUp`, `korg.encoder` et `korg.touch` le gardent aussi éveillé | |
 | `korg.system.device` | appareil sur lequel tourne le plugin : 0 Hacktribe, 1 Sampler rouge (Korg), 2 Synth bleu (Korg) (depuis l’API 26) | non | 0 à 2 |
 | `korg.system.version` | version du set BLECHTRIBE en nombre, x * 10000 + y * 100 + z, 1.5.0 vaut 10500 ; 0 si le set n’a pas de version (0 dans le simulateur de l’éditeur) | non | 0 à 999999 |
 | `korg.system.limits.ifxTypes` | nombre d’effets d’insertion du firmware, `ifxType` va de 0 à cette valeur moins 1 ; le firmware les compte à la lecture, un catalogue d’effets l’augmente | non | 0 à 255 |
@@ -391,10 +393,13 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.screen` | numéro de l’écran du firmware ouvert : 1 écran principal, 3 menu Pattern, 7 Part Edit, 8 Global, 19 Step Edit, 21 Part Util, 37 Sample ; les autres numéros sont dans la [mesure](messungen/2026-11-11-plugin-api29-state-events.md) (depuis l’API 29) | Non | 0 à 255 |
 | `korg.system.power` | source d’alimentation comme le firmware l’affiche en haut à droite : 1 adaptateur, 0 piles (message de panneau 7 ; depuis l’API 34, [mesure](messungen/2026-11-11-plugin-api34-system.md), en allemand) | non | 0 à 1 |
 | `korg.system.battery` | niveau des piles comme le symbole en haut à droite : 4 plein, 3, 2, 1 faible (le firmware signale alors les piles), 0 vide ; sans objet sur adaptateur (depuis l’API 34) | non | 0 à 4 |
+| `korg.system.powerSave` | 1 tant que le firmware atténue la lumière et les LED pour son économie d’énergie (POWER SAVE MODE dans GLOBAL PARAMETERS, sur piles uniquement), sinon 0, donc toujours 0 sur l’adaptateur secteur (depuis l’API 37, [mesure](messungen/2026-11-15-plugin-api37-energie.md), en allemand) | non | 0 à 1 |
+| `korg.system.idle` | niveau d’IDLE SAVE : 0 éveillé, 1 à 3 atténué (après 2, 3 et 4 minutes sans action), 4 éteint (après 5 minutes) ; toujours 0 avec IDLE SAVE OFF (depuis l’API 37) | non | 0 à 4 |
 | `korg.menu.blech.customizations.display.red` | Rouge du rétroéclairage ; BACKLIGHT HUE, SAT, BRIGHT affichent teinte, saturation, luminosité ; les trois canaux à 0 signifient blanc d’origine | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.green` | Vert du rétroéclairage | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.blue` | Bleu du rétroéclairage | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.display.invert` | Inversion de l’écran, comme DISPLAY INVERT | Oui, comme la page | 0 à 1 |
+| `korg.menu.blech.customizations.display.loadMeter` | LOAD METER, charge du processeur principal sur l’écran principal (1) (depuis l’API 37) | Oui, comme la page | 0 à 1 |
 | `korg.menu.blech.customizations.led.mode` | LED inférieures : 0 vu-mètre, 1 couleur fixe, 2 éteintes, comme BOTTOM LEDS | Oui, comme la page | 0 à 2 |
 | `korg.menu.blech.customizations.led.red` | Rouge des LED inférieures, pages LED HUE, SAT, BRIGHT ; les trois canaux à 0 signifient couleurs d’origine | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.led.green` | Vert des LED inférieures | Oui, comme la page | 0 à 15 |
@@ -409,6 +414,7 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, couleur d’un pad allumé et sélectionné : 0 couleur restante, 1 rouge, 2 bleu, 3 rose | Oui, comme la page | 0 à 3 |
 | `korg.menu.blech.customizations.powerSave.displayLight` | DISPLAY LIGHT en économie d’énergie : 0 atténuation du firmware, 1 à 15 intensité choisie | Oui, comme la page | 0 à 15 |
 | `korg.menu.blech.customizations.powerSave.ledDimming` | LED DIMMING, indice des atténuations 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100 % | Oui, comme la page | 0 à 11 |
+| `korg.menu.blech.customizations.powerSave.idleSave` | IDLE SAVE, lumière et LED s’atténuent sans action (1, par défaut) (depuis l’API 37) | Oui, comme la page, 0 réveille un appareil atténué ; chaque écriture relance le délai d’IDLE SAVE et d’Auto Power Off comme un tour de molette, donc ne pas l’écrire à chaque tick | 0 à 1 |
 | `korg.menu.blech.features.mfx2` | MFX 2 activé ; effet au démarrage suivant, indiqué sur la page | Oui | 0 à 1 |
 | `korg.menu.blech.features.patternConfirm` | PATTERN CONFIRM, changement soumis à une seconde pression | Oui, comme la page | 0 à 1 |
 | `korg.menu.blech.features.tapMotion` | TAP MOTION : 0 désactivé, 1 activé, 2 une fois | Oui, comme la page | 0 à 2 |
@@ -416,6 +422,8 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.menu.blech.features.lastPattern` | LAST PATTERN, retrouver le dernier pattern à l’allumage | Oui, comme la page | 0 à 1 |
 | `korg.menu.blech.features.stereo1Pad` | STEREO 1 PAD, un sample stéréo occupe seulement son pad | Oui, comme la page | 0 à 1 |
 | `korg.menu.blech.features.initPattern` | SET INIT PATTERN, modèle copié par INITIALIZE PATTERN ; 0 modèle du firmware | Oui, comme la page | 0 à 250 |
+| `korg.menu.blech.features.glideChain` | GLIDE CHAIN, dans la chaîne le tempo glisse vers celui du pattern suivant (1) (depuis l’API 37) | Oui, comme la page | 0 à 1 |
+| `korg.menu.blech.features.glideSwitch` | GLIDE SWITCH, le tempo glisse vers celui d’un pattern confirmé avec MENU (1) (depuis l’API 37) | Oui, comme la page | 0 à 1 |
 | `korg.menu.blech.write()` | Appel, pas une valeur | Demande l’enregistrement des réglages BLECH sur la carte, comme WRITE ; voir ci-dessous | |
 | `korg.global.triggerMode` | GLOBAL PARAMETERS > TRIGGER MODE : 0 Normal, 1 Seq 1st, 2 Seq Play | Oui, par la fonction du menu | 0 à 2 |
 | `korg.global.velocityCurve` | VELOCITY CURVE : 0 Heavy, 1 Normal, 2 Light, 3 Const96 | Oui, par la fonction du menu | 0 à 3 |
