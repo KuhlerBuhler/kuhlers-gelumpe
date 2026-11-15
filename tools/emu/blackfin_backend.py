@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Bounded, process-isolated access to the GNU Blackfin simulator worker."""
+import ctypes
+import mmap
 import os
 import math
 from pathlib import Path
@@ -11,6 +13,7 @@ import time
 from types import MappingProxyType
 
 LIMIT = 1 << 20
+CHANNEL_SPIN_NS = 200000   # how long a wait for the worker spins before it sleeps on the pipe
 REGISTER_NAMES = ([f'R{i}' for i in range(8)] + [f'P{i}' for i in range(6)] + ['SP', 'FP']
                   + [f'{kind}{i}' for kind in ('I', 'M', 'B', 'L') for i in range(4)]
                   + ['A0.X', 'A0.W', 'A1.X', 'A1.W', 'ASTAT', 'RETS', 'LC0', 'LT0', 'LB0',
@@ -33,6 +36,24 @@ class _ROMCall(Exception):
                 f'caller=0x{self.caller:08x} {values}')
 
 
+def _channel_library():
+    """blackfin_channel.c built by native_build, or None: no C compiler, or BLECH_WORKER_CHANNEL=pipe."""
+    if os.environ.get('BLECH_WORKER_CHANNEL') == 'pipe':
+        return None
+    import native_build
+    lib = native_build.library(Path(__file__).resolve().parents[1] / 'dsp/blackfin_channel.c')
+    if lib is not None and lib.blech_channel_size.restype is not ctypes.c_uint64:
+        lib.blech_channel_size.restype = ctypes.c_uint64
+        lib.blech_channel_ring.restype = ctypes.c_void_p
+        lib.blech_channel_ring.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        lib.blech_ring_write.restype = ctypes.c_int
+        lib.blech_ring_write.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint64, ctypes.c_int]
+        lib.blech_ring_read.restype = ctypes.c_int64
+        lib.blech_ring_read.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint64, ctypes.c_uint64,
+                                        ctypes.c_int, ctypes.c_int64, ctypes.c_int64]
+    return lib
+
+
 class BlackfinBackend:
     def __init__(self, worker, *, timeout=5, operating=False, rom=None):
         if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
@@ -46,19 +67,40 @@ class BlackfinBackend:
         self._buffer = bytearray()   # bytes the worker has sent beyond the current answer
         self._cycles = None          # worker clock as of the last advance; None after anything else moved it
         self._host = None            # HOSTDP status from the last advance; None after any other request
+        self._channel = None         # shared-memory rings once the worker answered the handshake
+        channel_path = None
         try:
             path = Path(worker).resolve(strict=True)
-            self.process = subprocess.Popen([str(path)] + (['--operating'] if operating else []), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            arguments = [str(path)] + (['--operating'] if operating else [])
+            lib = _channel_library()
+            if lib is not None:
+                handle, channel_path = tempfile.mkstemp(prefix='blackfin-channel-')
+                try:
+                    os.ftruncate(handle, lib.blech_channel_size())
+                    shared = mmap.mmap(handle, lib.blech_channel_size())
+                finally:
+                    os.close(handle)
+                arguments += ['--channel', channel_path]
+            self.process = subprocess.Popen(arguments, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                             stderr=self._stderr, bufsize=0)
             os.set_blocking(self.process.stdin.fileno(), False)
             os.set_blocking(self.process.stdout.fileno(), False)
             self._selector.register(self.process.stdout, selectors.EVENT_READ)
-            if self._response() != b'BFIN9':
+            handshake = self._response()
+            if handshake not in (b'BFIN9', b'BFIN9 channel'):
                 raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN9')
+            if handshake == b'BFIN9 channel':      # a worker that ignores --channel stays on the pipes
+                anchor = ctypes.c_char.from_buffer(shared)
+                base = ctypes.addressof(anchor)
+                self._channel = (lib, shared, anchor, lib.blech_channel_ring(base, 0), lib.blech_channel_ring(base, 1),
+                                 ctypes.create_string_buffer(LIMIT + 64))
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
             self.close()
             raise BackendError(f'Blackfin worker: {error}{detail}') from error
+        finally:
+            if channel_path is not None:
+                os.unlink(channel_path)
 
     def _diagnostic(self):
         if self._stderr.closed:
@@ -69,6 +111,11 @@ class BlackfinBackend:
         return f': {data}' if data else ''
 
     def _send(self, data):
+        if self._channel is not None:
+            lib, _, _, to_worker, _, _ = self._channel
+            if lib.blech_ring_write(to_worker, data, len(data), self.process.stdin.fileno()):
+                raise BackendError('Blackfin worker stopped accepting requests')
+            return
         # The pipe almost always has room: write first and wait only for a full pipe.
         try:
             count = os.write(self.process.stdin.fileno(), data)
@@ -97,6 +144,21 @@ class BlackfinBackend:
         # Reads whatever the worker has sent, so a header and its data usually cost one read;
         # waits only when nothing has arrived yet.
         data = self._buffer
+        if self._channel is not None:
+            lib, _, _, _, to_host, buffer = self._channel
+            while len(data) < size:
+                left_ms = int((self._deadline - time.monotonic()) * 1000)
+                if left_ms <= 0:
+                    raise BackendError('Blackfin worker deadline exceeded')
+                count = lib.blech_ring_read(to_host, buffer, size - len(data), len(buffer),
+                                            self.process.stdout.fileno(), CHANNEL_SPIN_NS, left_ms)
+                if count == 0:
+                    raise BackendError('Blackfin worker exited before answering')
+                if count == -1:
+                    raise BackendError('Blackfin worker deadline exceeded')
+                if count < 0:
+                    raise BackendError('Blackfin worker channel failed')
+                data.extend(memoryview(buffer)[:count])
         while len(data) < size:
             try:
                 chunk = os.read(self.process.stdout.fileno(), 65536)
@@ -292,6 +354,11 @@ class BlackfinBackend:
                     process.wait()
             process.stdin.close()
             process.stdout.close()
+        channel, self._channel = self._channel, None
+        if channel is not None:
+            shared = channel[1]
+            del channel
+            shared.close()
         self._selector.close()
         self._stderr.close()
 

@@ -1,10 +1,15 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE   /* fopencookie */
+#endif
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include "bfd.h"
 #include "sim/sim.h"
 #include "sim/callback.h"
@@ -24,13 +29,69 @@ extern int blech_bfin_sport_report(SIM_DESC, uint32_t *);
 extern int blech_bfin_memory_window(uint32_t, uint32_t);
 extern void blech_bfin_memory_report(uint64_t *, uint32_t *);
 
+extern uint64_t blech_channel_size(void);
+extern void *blech_channel_ring(void *, int);
+extern int blech_ring_write(void *, const void *, uint64_t, int);
+extern int64_t blech_ring_read(void *, void *, uint64_t, uint64_t, int, int64_t, int64_t);
+
 /* Little-endian requests: opcode, address/register/budget, byte count/value/PC. */
 #define LIMIT (1024 * 1024)
-static FILE *reply;
+#define CHANNEL_SPIN_NS 200000
+static FILE *reply, *request;
+
+/* --channel: the same byte streams over shared memory (blackfin_channel.c); the pipes ring the bell. */
+struct channel_end { void *ring; int bell; };
+
+static ssize_t channel_read(void *cookie, char *data, size_t size)
+{
+    struct channel_end *end = cookie;
+    int64_t n = blech_ring_read(end->ring, data, 1, size, end->bell, CHANNEL_SPIN_NS, -1);
+    return n < 0 ? -1 : (ssize_t)n;
+}
+
+static ssize_t channel_write(void *cookie, const char *data, size_t size)
+{
+    struct channel_end *end = cookie;
+    return blech_ring_write(end->ring, data, size, end->bell) ? -1 : (ssize_t)size;
+}
+
+#ifdef __APPLE__
+static int apple_read(void *cookie, char *data, int size) { return (int)channel_read(cookie, data, size); }
+static int apple_write(void *cookie, const char *data, int size) { return (int)channel_write(cookie, data, size); }
+static FILE *channel_file(struct channel_end *end, int writing)
+{
+    return writing ? funopen(end, NULL, apple_write, NULL, NULL) : funopen(end, apple_read, NULL, NULL, NULL);
+}
+#else
+static FILE *channel_file(struct channel_end *end, int writing)
+{
+    cookie_io_functions_t io = {writing ? NULL : channel_read, writing ? channel_write : NULL, NULL, NULL};
+    return fopencookie(end, writing ? "w" : "r", io);
+}
+#endif
+
+static int open_channel(const char *path, FILE **in, FILE **out)
+{
+    static struct channel_end ends[2];
+    static char buffers[2][1 << 16];
+    int fd = open(path, O_RDWR);
+    if (fd < 0) return 0;
+    void *shared = mmap(NULL, blech_channel_size(), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    close(fd);
+    if (shared == MAP_FAILED) return 0;
+    ends[0] = (struct channel_end){blech_channel_ring(shared, 0), STDIN_FILENO};
+    ends[1] = (struct channel_end){blech_channel_ring(shared, 1), fileno(*out)};
+    FILE *reader = channel_file(&ends[0], 0), *writer = channel_file(&ends[1], 1);
+    if (!reader || !writer || setvbuf(reader, buffers[0], _IOFBF, sizeof(buffers[0]))
+        || setvbuf(writer, buffers[1], _IOFBF, sizeof(buffers[1]))) return 0;
+    *in = reader;
+    *out = writer;   /* the pipe behind the old *out stays open as the bell */
+    return 1;
+}
 
 static int get32(uint32_t *value) {
     unsigned char b[4];
-    if (fread(b, 1, 4, stdin) != 4) return 0;
+    if (fread(b, 1, 4, request) != 4) return 0;
     *value = b[0] | (uint32_t)b[1] << 8 | (uint32_t)b[2] << 16 | (uint32_t)b[3] << 24;
     return 1;
 }
@@ -73,21 +134,33 @@ int main(int argc, char **argv) {
         "--memory-region=0xFF900000,0x8000", "--memory-region=0xFFA00000,0x14000",
         "--memory-region=0xFFC00000,0x3FF000", NULL};
     char *empty[] = {NULL};
-    if (argc == 2 && strcmp(argv[1], "--operating") == 0) {
-        args[1] = "--environment=operating";
-        args[4] = NULL;
-    } else if (argc != 1) return 2;
+    const char *channel = NULL;
+    for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "--operating") == 0) {
+            args[1] = "--environment=operating";
+            args[4] = NULL;
+        } else if (strcmp(argv[i], "--channel") == 0 && i + 1 < argc) channel = argv[++i];
+        else return 2;
+    }
+    request = stdin;
     reply = fdopen(dup(STDOUT_FILENO), "wb");
     if (!buffer || !reply || dup2(STDERR_FILENO, STDOUT_FILENO) < 0) return 2;
+    /* Map the channel before the handshake, so the host may remove its file once answered. */
+    FILE *channel_in = request, *channel_out = reply;
+    if (channel && !open_channel(channel, &channel_in, &channel_out)) return 4;
     default_callback.init(&default_callback);
     SIM_DESC sd = sim_open(SIM_OPEN_DEBUG, &default_callback, NULL, args);
     if (!sd || sim_create_inferior(sd, NULL, empty, empty) != SIM_RC_OK) return 3;
-    answer(0, "BFIN9", 5);
+    if (channel) answer(0, "BFIN9 channel", 13);
+    else answer(0, "BFIN9", 5);
+    /* The handshake went over the pipe; from here on the rings carry the streams. */
+    request = channel_in;
+    reply = channel_out;
     while (get32(&op) && get32(&address) && get32(&count)) {
         if (op == 0) break;
         if (op == 1 || op == 2) {
             if (count > LIMIT || (uint64_t)address + count > 0x100000000ULL) break;
-            if (op == 2 && fread(buffer, 1, count, stdin) != count) break;
+            if (op == 2 && fread(buffer, 1, count, request) != count) break;
             uint64_t n = op == 1 ? sim_read(sd, address, buffer, count)
                                  : sim_write(sd, address, buffer, count);
             if (n != count) { answer(1, NULL, 0); break; }

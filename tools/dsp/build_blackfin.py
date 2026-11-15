@@ -419,7 +419,8 @@ def build(directory, jobs=4):
             extra += shlex.split(result.stdout)
     run([os.environ.get('CC', 'cc'), '-O2', '-include', str(output / 'bfd/config.h'),
          '-I', str(output / 'bfd'), '-I', str(source / 'include'),
-         str(ROOT / 'tools/dsp/blackfin_worker.c'), *(str(output / f) for f in libraries),
+         str(ROOT / 'tools/dsp/blackfin_worker.c'), str(ROOT / 'tools/dsp/blackfin_channel.c'),
+         *(str(output / f) for f in libraries),
          *extra, '-o', str(worker)], name='worker-build.log')
     manifest = dict(version=VERSION, url=URL, sourceSHA256=SHA256,
                     patches=['32-bit SIGNEXTEND', 'BSD sed module generation',
@@ -439,7 +440,8 @@ def build(directory, jobs=4):
                              'BF52x SIC aggregate levels and CEC level-sensitive interrupts',
                              'do not map empty built-in ROM images'],
                     workerSHA256=hashlib.sha256(worker.read_bytes()).hexdigest(),
-                    bridgeSHA256=hashlib.sha256((ROOT / 'tools/dsp/blackfin_worker.c').read_bytes()).hexdigest())
+                    bridgeSHA256=hashlib.sha256(b''.join((ROOT / 'tools/dsp' / name).read_bytes() for name in
+                                                         ('blackfin_worker.c', 'blackfin_channel.c'))).hexdigest())
     (directory / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     return worker
 

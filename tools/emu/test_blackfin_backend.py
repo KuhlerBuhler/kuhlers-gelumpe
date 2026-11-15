@@ -77,6 +77,17 @@ class Execution(unittest.TestCase):
         self.backend = BlackfinBackend(WORKER)
         self.addCleanup(self.backend.close)
 
+    def test_shared_memory_channel_carries_full_size_transfers_around_the_ring(self):
+        import blackfin_backend
+        if os.environ.get('BLECH_WORKER_CHANNEL') == 'pipe' or blackfin_backend._channel_library() is None:
+            self.skipTest('shared-memory channel not in use')
+        self.assertIsNotNone(self.backend._channel)
+        size = blackfin_backend.LIMIT
+        for round_ in range(6):        # 6 MiB each way through 4 MiB rings
+            data = bytes((round_ * 7 + i) & 0xFF for i in range(256)) * (size // 256)
+            self.backend.write(DATA, data)
+            self.assertEqual(self.backend.read(DATA, size), data)
+
     def test_real_instructions_produce_memory_and_sign_extended_registers(self):
         self.backend.write(ENTRY, program())
         self.backend.set_register(53, ENTRY)

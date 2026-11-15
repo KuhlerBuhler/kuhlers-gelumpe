@@ -1140,33 +1140,13 @@ class _ArmTick(ctypes.Structure):
                 ('ns_per_insn', ctypes.c_double), ('count', ctypes.c_uint64)]
 
 
-_ARM_TICK = []
-
-
 def _arm_tick_library():
-    """arm_tick.c built once per source and host into the temp directory, or None: no C compiler, or
-    GELUMPE_ARM_TICK=python to keep the Python hook."""
+    """arm_tick.c built by native_build, or None: no C compiler, or GELUMPE_ARM_TICK=python to keep the
+    Python hook."""
     if os.environ.get('GELUMPE_ARM_TICK') == 'python':
         return None
-    if not _ARM_TICK:
-        import platform
-        import subprocess
-        import tempfile
-        source = Path(__file__).with_name('arm_tick.c')
-        digest = hashlib.sha1(source.read_bytes() + platform.platform().encode()).hexdigest()[:12]
-        target = Path(tempfile.gettempdir()) / f'gelumpe-arm-tick-{digest}.so'
-        library = None
-        try:
-            if not target.exists():
-                partial = target.with_name(f'{target.name}.{os.getpid()}')
-                subprocess.run([os.environ.get('CC', 'cc'), '-O2', '-shared', '-fPIC', '-o', str(partial), str(source)],
-                               check=True, capture_output=True, timeout=120)
-                os.replace(partial, target)
-            library = ctypes.CDLL(str(target))
-        except (OSError, subprocess.SubprocessError):
-            library = None
-        _ARM_TICK.append(library)
-    return _ARM_TICK[0]
+    import native_build
+    return native_build.library(Path(__file__).with_name('arm_tick.c'))
 
 
 class _NativeClockMachine(Machine):
