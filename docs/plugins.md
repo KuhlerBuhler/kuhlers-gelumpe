@@ -185,6 +185,7 @@ zu tun ist.
 | `screen` | `number` | ein anderer Bildschirm der Firmware ist offen, der neue Wert von `korg.screen`; ab API Version 29 |
 | `write` | `pattern` | ein Pattern wird in die Bank geschrieben (WRITE, auch der Shortcut EXIT + WRITE), `pattern` sein Platz 0 bis 249, bevor die Firmware schreibt; ab API Version 29 |
 | `midiIn` | `status`, `data1`, `data2` | die Firmware hat über MIDI (DIN oder USB) eine Kanalnachricht empfangen, Status 128 bis 239 (Typ und Kanal), die Datenbytes 0 bis 127; auf jedem Kanal und vor dem MIDI RECEIVE FILTER, die Firmware bekommt sie danach, außer ein Plugin hält ihren Typ mit `korg.midi.hold`. Clock, SysEx und Echtzeitnachrichten kommen nicht; ab API Version 30 |
+| `idle` | `stage` | die Stufe von IDLE SAVE hat sich geändert, der neue Wert von `korg.system.idle` (0 wach, 1 bis 3 gedimmt, 4 dunkel), auch beim Aufwachen und wenn IDLE SAVE OFF weckt; ab API Version 37 |
 | `save` | | WRITE in Global, Ausschalten |
 | `menu` | `id`, `value` | am Hauptrad wurde eine Seite gedreht, die das Plugin mit `korg.menu.add` angelegt hat |
 | `open`, `close` | | nur für Apps und für ein Plugin, das das Display nahm: `open`, wenn der Nutzer die App im Menü öffnet; `close`, wenn EXIT sie schließt (oder die Firmware den Hauptbildschirm verlässt). Sie gehen nur an dieses Plugin und kommen nie von außen |
@@ -240,7 +241,7 @@ das Touchpad und ihre Taste). In allen Menüs der Firmware (Pattern, Global, Par
 Edit, Step Edit und die übrigen) bekommen Plugins die Eingaben wie auf dem
 Hauptbildschirm.
 
-### Was ein Plugin erreicht (API 36)
+### Was ein Plugin erreicht (API 37)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -291,6 +292,7 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | GLOBAL PARAMETERS | `korg.global.*` | `korg.global.*` | nein |
 | Menü BLECH (CUSTOMIZATION, FEATURES) | `korg.menu.blech.*` | `korg.menu.blech.*` | nein |
 | Netzteil oder Batterie, Ladestand | `korg.system.power`, `korg.system.battery` | nein | nein |
+| Energiesparen (POWER SAVE der Firmware, IDLE SAVE) | `korg.system.powerSave`, `korg.system.idle` | nein | `idle` |
 | **Dienste für Plugins** | | | |
 | Eigene Einträge im Menü BLECH | nein | `korg.menu.add` | `menu` |
 | Apps | nein | `korg.app` | `open`, `close` |
@@ -407,7 +409,7 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.menu.blech.customizations.display.intensity` | Helligkeit des Display-Lichts wie die Seite INTENSITY | ja, wirkt sofort; WRITE im Menü behält sie | 0 (aus) bis 15 (voll) |
 | `korg.system.repairs` | wie viele Werte seit dem Start geklemmt oder zurückgesetzt wurden | nein | 0 bis 2147483647 |
 | `korg.system.testMode` | ob der Test-Modus an ist: Display, Licht und alle LEDs dunkel, Auto Power Off angehalten | nein, nur über USB; nur im RAM, nach einem Neustart aus | 0 (aus) bis 1 (an) |
-| `korg.system.keepAwake()` | (ein Aufruf, kein Wert) | startet die 4 Stunden von Auto Power Off neu, wie eine Taste am Gerät; seit 1.5.0 startet er auch die Zeit von IDLE SAVE neu und weckt ein gedimmtes Gerät | |
+| `korg.system.keepAwake()` | (ein Aufruf, kein Wert) | startet die 4 Stunden von Auto Power Off neu, wie eine Taste am Gerät; seit 1.5.0 startet er auch die Zeit von IDLE SAVE neu und weckt ein gedimmtes Gerät; `korg.pressKey`, `korg.keyDown`, `korg.keyUp`, `korg.padDown`, `korg.padUp`, `korg.encoder` und `korg.touch` halten ebenso wach | |
 | `korg.system.device` | auf welchem Gerät das Plugin läuft: 0 Hacktribe, 1 roter Sampler (Korg), 2 blauer Synth (Korg) (ab API Version 26) | nein | 0 bis 2 |
 | `korg.system.version` | Version des BLECHTRIBE-Sets als Zahl, x * 10000 + y * 100 + z, 1.5.0 ist 10500; 0, wenn das Set keine Versionsangabe hat (im Simulator des Editors 0) | nein | 0 bis 999999 |
 | `korg.system.limits.ifxTypes` | wie viele Insert-Effekte die Firmware hat, `ifxType` geht von 0 bis zu diesem Wert minus 1; die Firmware zählt sie beim Lesen, ein Effekt-Katalog erhöht sie | nein | 0 bis 255 |
@@ -420,10 +422,13 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.screen` | Nummer des offenen Bildschirms der Firmware: 1 Hauptbildschirm, 3 Pattern-Menü, 7 Part Edit, 8 Global, 19 Step Edit, 21 Part Util, 37 Sample; die übrigen Nummern stehen in der [Messung](messungen/2026-11-11-plugin-api29-state-events.md) (ab API Version 29) | nein | 0 bis 255 |
 | `korg.system.power` | Stromquelle, wie die Firmware sie oben rechts zeigt: 1 Netzteil, 0 Batterie (Panel-Nachricht 7; ab API Version 34, [Messung](messungen/2026-11-11-plugin-api34-system.md)) | nein | 0 bis 1 |
 | `korg.system.battery` | Ladestand der Batterie wie das Symbol oben rechts: 4 voll, 3, 2, 1 schwach (die Firmware meldet dann die Batterie), 0 leer; am Netzteil ohne Bedeutung (ab API Version 34) | nein | 0 bis 4 |
+| `korg.system.powerSave` | 1, solange die Firmware Licht und LEDs für ihren Energiesparmodus dimmt (POWER SAVE MODE in GLOBAL PARAMETERS), sonst 0 (ab API Version 37, [Messung](messungen/2026-11-15-plugin-api37-energie.md)) | nein | 0 bis 1 |
+| `korg.system.idle` | Stufe von IDLE SAVE: 0 wach, 1 bis 3 gedimmt (nach 2, 3 und 4 Minuten ohne Bedienung), 4 dunkel (nach 5 Minuten); mit IDLE SAVE OFF immer 0 (ab API Version 37) | nein | 0 bis 4 |
 | `korg.menu.blech.customizations.display.red` | Rotanteil des Display-Lichts (die Seiten BACKLIGHT HUE, SAT und BRIGHT zeigen ihn als Farbton, Sättigung, Helligkeit); alle drei auf 0 ist das Weiß der Firmware | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.green` | Grünanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.blue` | Blauanteil des Display-Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.display.invert` | Display invertiert (1), wie die Seite DISPLAY INVERT | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.customizations.display.loadMeter` | LOAD METER: die Last des Hauptprozessors auf dem Hauptbildschirm (1) (ab API Version 37) | ja, wirkt sofort wie die Seite | 0 bis 1 |
 | `korg.menu.blech.customizations.led.mode` | untere LEDs: 0 Meter, 1 Farbe, 2 aus (Seite BOTTOM LEDS) | ja, wirkt sofort wie die Seite | 0 bis 2 |
 | `korg.menu.blech.customizations.led.red` | Rotanteil der unteren LEDs (Seiten LED HUE, SAT, BRIGHT); alle drei auf 0 sind die Farben der Firmware | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.led.green` | Grünanteil der unteren LEDs | ja, wirkt sofort wie die Seite | 0 bis 15 |
@@ -438,6 +443,7 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, Farbe eines Pads, das leuchtet und gewählt ist: 0 die Farbe, die bleibt, 1 rot, 2 blau, 3 rosa | ja, wirkt sofort wie die Seite | 0 bis 3 |
 | `korg.menu.blech.customizations.powerSave.displayLight` | DISPLAY LIGHT im Power Save: 0 das Dimmen der Firmware, 1 bis 15 Stärke des Lichts | ja, wirkt sofort wie die Seite | 0 bis 15 |
 | `korg.menu.blech.customizations.powerSave.ledDimming` | LED DIMMING im Power Save als Schritt des Rads: 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100 Prozent gedimmt | ja, wirkt sofort wie die Seite | 0 bis 11 |
+| `korg.menu.blech.customizations.powerSave.idleSave` | IDLE SAVE: Licht und LEDs dimmen ohne Bedienung (1, die Vorgabe) (ab API Version 37) | ja, wirkt sofort wie die Seite, 0 weckt ein gedimmtes Gerät; jedes Schreiben startet die Zeit von IDLE SAVE neu wie ein Dreh am Rad | 0 bis 1 |
 | `korg.menu.blech.features.mfx2` | MFX 2 an (1); gilt ab dem nächsten Start, die Seite sagt das | ja | 0 bis 1 |
 | `korg.menu.blech.features.patternConfirm` | PATTERN CONFIRM: der Patternwechsel wartet auf einen zweiten Druck (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
 | `korg.menu.blech.features.tapMotion` | TAP MOTION: 0 aus, 1 an, 2 einmal | ja, wirkt sofort wie die Seite | 0 bis 2 |
@@ -445,6 +451,8 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.menu.blech.features.lastPattern` | LAST PATTERN: beim Einschalten das zuletzt gewählte Pattern öffnen (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
 | `korg.menu.blech.features.stereo1Pad` | STEREO 1 PAD: ein Stereo-Sample belegt nur seinen eigenen Pad (1) | ja, wirkt sofort wie die Seite | 0 bis 1 |
 | `korg.menu.blech.features.initPattern` | SET INIT PATTERN: das Pattern, das INITIALIZE PATTERN kopiert; 0 die Vorlage der Firmware | ja, wirkt sofort wie die Seite | 0 bis 250 |
+| `korg.menu.blech.features.glideChain` | GLIDE CHAIN: das Tempo gleitet in der Kette zum Tempo des nächsten Patterns (1) (ab API Version 37) | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.features.glideSwitch` | GLIDE SWITCH: das Tempo gleitet zum Tempo eines mit MENU bestätigten Patterns (1) (ab API Version 37) | ja, wirkt sofort wie die Seite | 0 bis 1 |
 | `korg.menu.blech.write()` | (ein Aufruf, kein Wert) | schreibt die Einstellungen des Menüs BLECH auf die Karte wie WRITE auf einer Seite, siehe unten | |
 | `korg.global.triggerMode` | Seite TRIGGER MODE von GLOBAL PARAMETERS: 0 Normal, 1 Seq 1st, 2 Seq Play | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
 | `korg.global.velocityCurve` | Seite VELOCITY CURVE von GLOBAL PARAMETERS: 0 Heavy, 1 Normal, 2 Light, 3 Const96 | ja, wie das Menü, über die Funktion der Firmware | 0 bis 3 |

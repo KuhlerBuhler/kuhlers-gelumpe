@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 36;
+export const API_VERSION = 37;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -187,6 +187,7 @@ const EVENT_LIST = [
   ["screen", ["number"]],
   ["write", ["pattern"]],
   ["midiIn", ["status", "data1", "data2"]],
+  ["idle", ["stage"]],
 ];
 
 /**
@@ -195,7 +196,7 @@ const EVENT_LIST = [
  */
 export const EVENT_ARG_SINCE = Object.freeze({ touch: Object.freeze({ first: 6 }) });
 /** The API version an event was added in, for the events newer than API 1: a handler for it needs a block of at least that version. */
-export const EVENT_SINCE = Object.freeze({ touchpadMode: 27, padMode: 29, screen: 29, write: 29, midiIn: 30 });
+export const EVENT_SINCE = Object.freeze({ touchpadMode: 27, padMode: 29, screen: 29, write: 29, midiIn: 30, idle: 37 });
 
 /**
  * Events. `start` is the script body itself (top-level statements), not a

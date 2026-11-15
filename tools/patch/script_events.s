@@ -157,6 +157,10 @@ events_store:
     ldr r1, =objects_screen_last
     mov r2, #EV_SCREEN
     bl events_state
+    mov r0, #6
+    ldr r1, =objects_idle_last
+    mov r2, #EV_IDLE
+    bl events_state
     bl objects_touchpad_mode
     ldr r1, =objects_touchpad_last
     ldr r2, [r1]

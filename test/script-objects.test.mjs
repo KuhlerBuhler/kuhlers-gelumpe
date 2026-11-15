@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { API_VERSION, PATTERN_MOTION, PATTERN_PARTS } from "../data/script/contract.mjs";
 import globalMap from "../data/map/global.mjs";
-import { OBJECTS, OBJECT_BY_PATH, OBJECT_BASES, INFO, objectChildren } from "../data/script/objects.mjs";
+import { OBJECTS, OBJECT_BY_PATH, OBJECT_BASES, INFO, STATE_WORDS, FLAGS2_INVERT, objectChildren } from "../data/script/objects.mjs";
 import { PROPERTY_BY_PATH } from "../data/script/properties.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
 import { decodeBlob } from "../src/script/blob.mjs";
@@ -92,7 +92,7 @@ test("the compiler refuses an unknown path, a read-only leaf and a known value o
 test("the children of a branch are what error messages and the editor list", () => {
   assert.deepEqual(objectChildren("korg.menu.blech"), ["customizations", "features", "write"]);
   assert.deepEqual(objectChildren("korg.menu.blech.customizations"), ["display", "led", "padColor", "powerSave"]);
-  assert.deepEqual(objectChildren("korg.menu.blech.customizations.display"), ["intensity", "red", "green", "blue", "invert"]);
+  assert.deepEqual(objectChildren("korg.menu.blech.customizations.display"), ["intensity", "red", "green", "blue", "invert", "loadMeter"]);
   assert.deepEqual(objectChildren("korg.menu.blech.customizations.led.meter"), ["still", "low", "mid", "loud"]);
   assert.deepEqual(objectChildren(INTENSITY), []);
 });
@@ -161,9 +161,12 @@ test("the range of a leaf is the range the page's dial runs through", () => {
 
 test("the bases of the table are the ones script_objects.s knows by number", () => {
   const objects = readFileSync(new URL("../tools/patch/script_objects.s", import.meta.url), "utf8");
-  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"], ["OBJ_BASE_TOUCHPAD", "touchpad"], ["OBJ_BASE_MOTION", "motion"], ["OBJ_BASE_STATE", "state"]]) {
+  for (const [name, base] of [["OBJ_BASE_ABS", "abs"], ["OBJ_BASE_GLOBAL", "global"], ["OBJ_BASE_PAD", "pad"], ["OBJ_BASE_INFO", "info"], ["OBJ_BASE_TOUCHPAD", "touchpad"], ["OBJ_BASE_MOTION", "motion"], ["OBJ_BASE_STATE", "state"], ["OBJ_BASE_FLAGS2", "flags2"]]) {
     assert.equal(Number(objects.match(new RegExp(`^\\.equ ${name}, (\\d+)`, "m"))[1]), OBJECT_BASES.indexOf(base), name);
   }
+  assert.equal(Number(objects.match(/^\.equ OBJ_FLAGS2_INVERT, (0x[0-9A-Fa-f]+)/m)[1]), FLAGS2_INVERT);
+  assert.equal(Number(objects.match(/^\.equ STATE_POWER_SAVE, (\d+)/m)[1]), STATE_WORDS.powerSave);
+  assert.equal(STATE_WORDS.idle, STATE_WORDS.powerSave + 1, "objects_state_own reads the stage for the word after powerSave");
 });
 
 test("a plugin sets a page and the simulated device keeps it inside the range", () => {
@@ -389,4 +392,53 @@ test("korg.menu.blech.customizations.led.knobLeds needs API 36, starts on, reads
   const device = run(`let v = 5; korg.onEvent("ready", () => { korg.store.set(0, ${KNOB}); ${KNOB} = 0; korg.store.set(1, ${KNOB});
   ${KNOB} = v; korg.store.set(2, ${KNOB}); korg.store.set(3, korg.system.repairs); });`);
   assert.deepEqual([0, 1, 2, 3].map(i => stored(device, i)), [1, 0, 1, 1]);
+});
+
+// API 37: power save and IDLE POWER SAVE read only (base "state"), the four switches of byte 7 of the settings (base "flags2",
+// tools/patch/script_objects.s objects_flags2_get and objects_flags2_set) and the event idle.
+const FLAGS2 = {
+  "korg.menu.blech.customizations.display.loadMeter": ["FLAGS2_LOAD_METER", false, 0],
+  "korg.menu.blech.customizations.powerSave.idleSave": ["FLAGS2_IDLE_OFF", true, 1],
+  "korg.menu.blech.features.glideChain": ["FLAGS2_GLIDE_CHAIN", false, 0],
+  "korg.menu.blech.features.glideSwitch": ["FLAGS2_GLIDE_SWITCH", false, 0],
+};
+
+test("korg.system.powerSave and korg.system.idle need API 37, are read only and read the simulator's 0", () => {
+  const leaves = ["korg.system.powerSave", "korg.system.idle"].map(path => OBJECT_BY_PATH.get(path));
+  assert.deepEqual(leaves.map(o => [o.id, o.base, o.offset, o.min, o.max, o.factory, o.write, o.since]),
+    [[61, "state", STATE_WORDS.powerSave, 0, 1, 0, false, 37], [62, "state", STATE_WORDS.idle, 0, 4, 0, false, 37]]);
+  assert.deepEqual([STATE_WORDS.powerSave, STATE_WORDS.idle], [5, 6]);
+  for (const o of leaves) {
+    assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let v = ${o.path}; });`)).header.apiVersion, 37, o.path);
+    assert.match(refused(`korg.onEvent("ready", () => { ${o.path} = 1; });`), new RegExp(o.path.replace(/\./g, "\\.")));
+  }
+  const device = run(`korg.onEvent("ready", () => { korg.store.set(0, korg.system.powerSave); korg.store.set(1, korg.system.idle); });`);
+  assert.deepEqual([0, 1].map(i => stored(device, i)), [0, 0]);
+});
+
+test("the switches of byte 7 are leaves of the base flags2 with the menu's masks, IDLE SAVE inverted", () => {
+  for (const [path, [mask, invert, factory]] of Object.entries(FLAGS2)) {
+    const o = OBJECT_BY_PATH.get(path);
+    assert.deepEqual([o.base, o.offset, o.min, o.max, o.factory, o.write, o.stored, o.since],
+      ["flags2", signed(mask) + (invert ? FLAGS2_INVERT : 0), 0, 1, factory, true, false, 37], path);
+    assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let v = ${path}; });`)).header.apiVersion, 37, path);
+  }
+  assert.deepEqual(Object.keys(FLAGS2).map(path => OBJECT_BY_PATH.get(path).id), [63, 64, 65, 66]);
+  assert.equal(OBJECT_BY_PATH.get("korg.menu.blech.customizations.powerSave.idleSave").apply, "keepAwake", "a write starts the time again like the dial");
+  const known = signed("FLAGS2_KNOWN");
+  assert.equal(Object.values(FLAGS2).reduce((all, [mask]) => all | signed(mask), 0), known, "one leaf per known bit");
+});
+
+test("a plugin switches the four bits and the simulated device keeps them inside the range", () => {
+  const [lm, idle, chain, sw] = Object.keys(FLAGS2);
+  const device = run(`let v = 7; korg.onEvent("ready", () => { korg.store.set(0, ${lm}); korg.store.set(1, ${idle});
+  ${lm} = 1; ${idle} = 0; ${chain} = v; ${sw} = 1;
+  korg.store.set(2, ${lm}); korg.store.set(3, ${idle}); korg.store.set(4, ${chain}); korg.store.set(5, ${sw}); korg.store.set(6, korg.system.repairs); });`);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => stored(device, i)), [0, 1, 1, 0, 1, 1, 1]);
+});
+
+test("the event idle carries the stage and needs API 37", () => {
+  assert.equal(decodeBlob(build(`korg.onEvent("idle", (stage) => { korg.store.set(0, stage); });`)).header.apiVersion, 37);
+  const events = readFileSync(new URL("../tools/patch/script_events.s", import.meta.url), "utf8");
+  assert.match(events, /mov r0, #6\n    ldr r1, =objects_idle_last\n    mov r2, #EV_IDLE\n    bl events_state/);
 });

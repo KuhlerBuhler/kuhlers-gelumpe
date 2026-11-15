@@ -75,6 +75,8 @@ export const COVERAGE = Object.freeze([
     ["korg.menu.blech.*"], ["korg.menu.blech.*"]),
   row("system", "Netzteil oder Batterie, Ladestand", "Adapter or battery, charge", "Adaptateur ou batterie, charge",
     ["korg.system.power", "korg.system.battery"]),
+  row("system", "Energiesparen (POWER SAVE der Firmware, IDLE SAVE)", "Power saving (the firmware's POWER SAVE, IDLE SAVE)",
+    "Économie d’énergie (POWER SAVE du firmware, IDLE SAVE)", ["korg.system.powerSave", "korg.system.idle"], [], ["idle"]),
   row("plugin", "Eigene Einträge im Menü BLECH", "Own entries in the menu BLECH", "Entrées propres dans le menu BLECH", [], ["korg.menu.add"], ["menu"]),
   row("plugin", "Apps", "Apps", "Apps", [], ["korg.app"], ["open", "close"]),
   row("plugin", "Gespeicherte Werte", "Stored values", "Valeurs enregistrées", ["korg.store.get"], ["korg.store.set", "korg.store.save"], ["save"]),

@@ -142,6 +142,7 @@ export const EVENT_DOCS = Object.freeze({
   screen: { text: text("api.event.screen"), args: { number: text("api.event.screen.number") } },
   write: { text: text("api.event.write"), args: { pattern: text("api.event.write.pattern") } },
   midiIn: { text: text("api.event.midiIn"), args: { status: text("api.event.midiIn.status"), data1: text("api.event.midiIn.data1"), data2: text("api.event.midiIn.data2") } },
+  idle: { text: text("api.event.idle"), args: { stage: text("api.event.idle.stage") } },
 });
 
 export const GROUP_DOCS = Object.freeze({

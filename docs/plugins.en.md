@@ -169,6 +169,7 @@ A compile error names line and column and says what to do. The wording is German
 | `screen` | `number` | another firmware screen is open, the new value of `korg.screen`; from API version 29 |
 | `write` | `pattern` | a pattern is written to the bank (WRITE, also the EXIT + WRITE shortcut), `pattern` its place 0 to 249, before the firmware writes it; from API version 29 |
 | `midiIn` | `status`, `data1`, `data2` | the firmware received a channel message over MIDI (DIN or USB), status 128 to 239 (type and channel), the data bytes 0 to 127; on every channel and before the MIDI RECEIVE FILTER, the firmware gets it afterwards unless a plugin holds its type with `korg.midi.hold`. Clock, SysEx and real time messages do not come; since API version 30 |
+| `idle` | `stage` | the stage of IDLE SAVE changed, the new value of `korg.system.idle` (0 awake, 1 to 3 dimmed, 4 dark), also on waking and when IDLE SAVE OFF wakes the device; from API version 37 |
 | `save` | | WRITE in Global, power off |
 | `menu` | `id`, `value` | someone turned a page that the plugin created with `korg.menu.add` on the main dial |
 | `open`, `close` | | only for apps and for a plugin that took the display: `open` when the user opens the app in the menu, `close` when EXIT closes it (or the firmware leaves the main screen). They go only to this plugin and never come from outside |
@@ -202,7 +203,7 @@ firmware and no plugin gets an event (only Blechy's page gets the touchpad and
 its key). In all firmware menus (Pattern, Global, Part Edit, Step Edit and the
 rest) plugins get input as on the main screen.
 
-### What a plugin reaches (API 36)
+### What a plugin reaches (API 37)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -253,6 +254,7 @@ or a leaf of the object tree is missing.
 | GLOBAL PARAMETERS | `korg.global.*` | `korg.global.*` | no |
 | Menu BLECH (CUSTOMIZATION, FEATURES) | `korg.menu.blech.*` | `korg.menu.blech.*` | no |
 | Adapter or battery, charge | `korg.system.power`, `korg.system.battery` | no | no |
+| Power saving (the firmware's POWER SAVE, IDLE SAVE) | `korg.system.powerSave`, `korg.system.idle` | no | `idle` |
 | **Services for plugins** | | | |
 | Own entries in the menu BLECH | no | `korg.menu.add` | `menu` |
 | Apps | no | `korg.app` | `open`, `close` |
@@ -367,7 +369,7 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.menu.blech.customizations.display.intensity` | brightness of the display light, like the page INTENSITY | yes, at once; WRITE in the menu keeps it | 0 (off) to 15 (full) |
 | `korg.system.repairs` | how many values were clamped or reset since start | no | 0 to 2147483647 |
 | `korg.system.testMode` | whether the test mode is on: display, light and every LED dark, Auto Power Off held | no, over USB only; RAM only, off after a restart | 0 (off) to 1 (on) |
-| `korg.system.keepAwake()` | (a call, not a value) | starts the 4 hours of Auto Power Off again, as a key on the device does; since 1.5.0 it also starts the time of IDLE SAVE again and wakes a dimmed device | |
+| `korg.system.keepAwake()` | (a call, not a value) | starts the 4 hours of Auto Power Off again, as a key on the device does; since 1.5.0 it also starts the time of IDLE SAVE again and wakes a dimmed device; `korg.pressKey`, `korg.keyDown`, `korg.keyUp`, `korg.padDown`, `korg.padUp`, `korg.encoder` and `korg.touch` keep it awake too | |
 | `korg.system.device` | the device the plugin runs on: 0 Hacktribe, 1 red Sampler (Korg), 2 blue Synth (Korg) (from API version 26) | no | 0 to 2 |
 | `korg.system.version` | version of the BLECHTRIBE set as a number, x * 10000 + y * 100 + z, 1.5.0 is 10500; 0 when the set carries no version (0 in the editor's simulator) | no | 0 to 999999 |
 | `korg.system.limits.ifxTypes` | how many insert effects the firmware has, `ifxType` runs from 0 to this value minus 1; the firmware counts them at the read, an fx catalog raises it | no | 0 to 255 |
@@ -380,10 +382,13 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.screen` | the number of the firmware screen that is open: 1 main screen, 3 Pattern menu, 7 Part Edit, 8 Global, 19 Step Edit, 21 Part Util, 37 Sample; the other numbers are in the [measurement](messungen/2026-11-11-plugin-api29-state-events.md) (from API version 29) | no | 0 to 255 |
 | `korg.system.power` | power source as the firmware shows it top right: 1 adapter, 0 battery (panel message 7; from API version 34, [measurement](messungen/2026-11-11-plugin-api34-system.md), German) | no | 0 to 1 |
 | `korg.system.battery` | battery level as the symbol top right: 4 full, 3, 2, 1 low (the firmware then warns about the battery), 0 empty; no meaning on the adapter (from API version 34) | no | 0 to 4 |
+| `korg.system.powerSave` | 1 while the firmware dims the light and the LEDs for its power save (POWER SAVE MODE in GLOBAL PARAMETERS), else 0 (from API version 37, [measurement](messungen/2026-11-15-plugin-api37-energie.md), German) | no | 0 to 1 |
+| `korg.system.idle` | stage of IDLE SAVE: 0 awake, 1 to 3 dimmed (after 2, 3 and 4 minutes without a touch), 4 dark (after 5 minutes); always 0 with IDLE SAVE OFF (from API version 37) | no | 0 to 4 |
 | `korg.menu.blech.customizations.display.red` | Red level of the display light (the pages BACKLIGHT HUE, SAT and BRIGHT show it as hue, saturation, brightness); all three at 0 is the stock white | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.display.green` | Green level of the display light | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.display.blue` | Blue level of the display light | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.display.invert` | display inverted (1), like the page DISPLAY INVERT | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.customizations.display.loadMeter` | LOAD METER: the main processor's load on the main screen (1) (from API version 37) | yes, acts at once like the page | 0 to 1 |
 | `korg.menu.blech.customizations.led.mode` | bottom LEDs: 0 meter, 1 color, 2 off (page BOTTOM LEDS) | yes, acts at once like the page | 0 to 2 |
 | `korg.menu.blech.customizations.led.red` | Red level of the bottom LEDs (pages LED HUE, SAT, BRIGHT); all three at 0 are the stock colors | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.led.green` | Green level of the bottom LEDs | yes, acts at once like the page | 0 to 15 |
@@ -398,6 +403,7 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.menu.blech.customizations.padColor.overlap` | OVERLAP, color of a pad that is lit and selected: 0 the color that is left, 1 red, 2 blue, 3 pink | yes, acts at once like the page | 0 to 3 |
 | `korg.menu.blech.customizations.powerSave.displayLight` | DISPLAY LIGHT in power save: 0 the firmware's own dim, 1 to 15 the light's intensity | yes, acts at once like the page | 0 to 15 |
 | `korg.menu.blech.customizations.powerSave.ledDimming` | LED DIMMING in power save as the dial's step: 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100 percent dimmed | yes, acts at once like the page | 0 to 11 |
+| `korg.menu.blech.customizations.powerSave.idleSave` | IDLE SAVE: light and LEDs dim without a touch (1, the default) (from API version 37) | yes, acts at once like the page, 0 wakes a dimmed device; every write starts the time of IDLE SAVE again like a turn of the dial | 0 to 1 |
 | `korg.menu.blech.features.mfx2` | MFX 2 on (1); takes effect at the next start, the page says so | yes | 0 to 1 |
 | `korg.menu.blech.features.patternConfirm` | PATTERN CONFIRM: a pattern change waits for a second press (1) | yes, acts at once like the page | 0 to 1 |
 | `korg.menu.blech.features.tapMotion` | TAP MOTION: 0 off, 1 on, 2 once | yes, acts at once like the page | 0 to 2 |
@@ -405,6 +411,8 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.menu.blech.features.lastPattern` | LAST PATTERN: open the pattern selected last at power-on (1) | yes, acts at once like the page | 0 to 1 |
 | `korg.menu.blech.features.stereo1Pad` | STEREO 1 PAD: a stereo sample takes only its own pad (1) | yes, acts at once like the page | 0 to 1 |
 | `korg.menu.blech.features.initPattern` | SET INIT PATTERN: the pattern INITIALIZE PATTERN copies; 0 the firmware's template | yes, acts at once like the page | 0 to 250 |
+| `korg.menu.blech.features.glideChain` | GLIDE CHAIN: in the chain the tempo glides to the next pattern's tempo (1) (from API version 37) | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.features.glideSwitch` | GLIDE SWITCH: the tempo glides to the tempo of a pattern MENU confirmed (1) (from API version 37) | yes, acts at once like the page | 0 to 1 |
 | `korg.menu.blech.write()` | (a call, not a value) | writes the settings of the menu BLECH to the card as WRITE does on a page, see below | |
 | `korg.global.triggerMode` | page TRIGGER MODE of GLOBAL PARAMETERS: 0 Normal, 1 Seq 1st, 2 Seq Play | yes, as the menu does, through the firmware's own function | 0 to 2 |
 | `korg.global.velocityCurve` | page VELOCITY CURVE of GLOBAL PARAMETERS: 0 Heavy, 1 Normal, 2 Light, 3 Const96 | yes, as the menu does, through the firmware's own function | 0 to 3 |

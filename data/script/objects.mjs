@@ -13,6 +13,8 @@
  *            "touchpad" no address: the touch pad mode, read from the firmware and the patch mfx-switch, set with one key press
  *            "motion" no address: whether the selected part plays its motion, set with one TAP press of the patch tap-motion
  *            "state" no address, read only: `offset` picks a firmware state word read behind its pointer (STATE_WORDS)
+ *            "flags2" a bit of byte 7 of the settings (MX_FLAGS2 in tools/patch/script_menu.s): `offset` is the bit's mask,
+ *            FLAGS2_INVERT on top where a set bit reads 0 (IDLE SAVE: set is OFF); the other bits stay as they are
  *   type     "u8" one byte, "u32" one word
  *   min, max the valid range; a set outside it is clamped and counted, so is a stored value found outside it at start
  *   factory  the value when the menu starts without a settings file
@@ -28,9 +30,14 @@
 import { text } from "../../src/text.mjs";
 import globalMap from "../map/global.mjs";
 
-export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info", "touchpad", "motion", "state"]);
-/** What a leaf of the base "state" reads, by its offset. */
-export const STATE_WORDS = Object.freeze({ padMode: 0, bar: 1, screen: 2, power: 3, battery: 4 });
+export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info", "touchpad", "motion", "state", "flags2"]);
+/**
+ * What a leaf of the base "state" reads, by its offset. powerSave and idle are bytes the runtime reads itself: the firmware's
+ * dim flag of POWER SAVE and the stage of IDLE POWER SAVE (tools/patch/script_idle.s).
+ */
+export const STATE_WORDS = Object.freeze({ padMode: 0, bar: 1, screen: 2, power: 3, battery: 4, powerSave: 5, idle: 6 });
+/** Added to the mask of a leaf of the base "flags2" whose bit set reads 0. */
+export const FLAGS2_INVERT = 0x100;
 /**
  * What a leaf of the base "info" reads, by its `offset` (tools/patch/script_objects.s, objects_info_get): the build the runtime
  * was made for, the version of the set (the text of the patch blech-version), and the counts the firmware's own functions
@@ -278,6 +285,33 @@ export const OBJECTS = Object.freeze([
   leaf(60, "korg.menu.blech.customizations.led.knobLeds", {
     base: "pad", offset: 4, type: "u8", min: 0, max: 1, factory: 1, write: true, since: 36,
     unit: "0 off, 1 on", text: text("api.object.led.knobLeds"),
+  }),
+
+  // API 37: power save and IDLE POWER SAVE, read only, and the four switches of byte 7 of the settings (MX_FLAGS2). Like the
+  // pages they act at the next frame and stay in RAM until WRITE; IDLE SAVE also starts its time again, as a turn of the dial does
+  leaf(61, "korg.system.powerSave", {
+    base: "state", offset: STATE_WORDS.powerSave, type: "u32", min: 0, max: 1, factory: 0, write: false, since: 37,
+    unit: "0 normal, 1 the firmware dims for power save", text: text("api.object.system.powerSave"),
+  }),
+  leaf(62, "korg.system.idle", {
+    base: "state", offset: STATE_WORDS.idle, type: "u32", min: 0, max: 4, factory: 0, write: false, since: 37,
+    unit: "0 awake, 1 to 3 dimmed (2, 3, 4 minutes), 4 dark", text: text("api.object.system.idle"),
+  }),
+  leaf(63, "korg.menu.blech.customizations.display.loadMeter", {
+    base: "flags2", offset: 1, type: "u8", min: 0, max: 1, factory: 0, write: true, since: 37,
+    unit: "0 off, 1 on", text: text("api.object.display.loadMeter"),
+  }),
+  leaf(64, "korg.menu.blech.customizations.powerSave.idleSave", {
+    base: "flags2", offset: 2 + FLAGS2_INVERT, type: "u8", min: 0, max: 1, factory: 1, write: true, apply: "keepAwake", since: 37,
+    unit: "0 off, 1 on", text: text("api.object.powerSave.idleSave"),
+  }),
+  leaf(65, "korg.menu.blech.features.glideChain", {
+    base: "flags2", offset: 4, type: "u8", min: 0, max: 1, factory: 0, write: true, since: 37,
+    unit: "0 off, 1 on", text: text("api.object.features.glideChain"),
+  }),
+  leaf(66, "korg.menu.blech.features.glideSwitch", {
+    base: "flags2", offset: 8, type: "u8", min: 0, max: 1, factory: 0, write: true, since: 37,
+    unit: "0 off, 1 on", text: text("api.object.features.glideSwitch"),
   }),
 ]);
 
