@@ -90,7 +90,9 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          # Hacktribe has its own handler (FILTER_TOGGLE_HACKTRIBE), Korg's stays unused there
          (0xC006FDEC,0xE3A00008,'ft_select'),
          # AUTO SAVE (script_menu.s): SWITCH_SCREEN's bl to the screen manager behind the check that the screen changes
-         (0xC0083D7C,0xEBFEA4B1,'autosave_switch_hook'))
+         (0xC0083D7C,0xEBFEA4B1,'autosave_switch_hook'),
+         # card init (script_menu.s): the call in Korg's ACMD41 loop that checks the card is still in, bl 0xC001CAE8
+         (0xC001AEB4,0xEB00070B,'acmd41_round_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.

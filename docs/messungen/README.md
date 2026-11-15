@@ -277,6 +277,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)
 - [Karte im Betrieb getauscht: neue Karte wird mit 12,5 MHz identifiziert](2026-11-14-karte-tausch-takt.md)
 - [Karte im Betrieb wieder gesteckt: Lesen, solange die Karte noch rutscht](2026-11-15-karte-stecken-prellen.md)
+- [Kartentausch: Hänger bei busy Karte, SAVE TO FLASH ging verloren, Knopf-LEDs folgen der Karte](2026-11-15-karte-tausch-haenger.md)
 - [Grundlagen für native Bedienmakros](2026-10-25-makro-grundlagen.md)
 - [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
 - [Meter: RAINBOW auch bei LOUD, im Tempo](2026-10-24-meter-loud-rainbow.md)
