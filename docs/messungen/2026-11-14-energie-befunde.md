@@ -218,17 +218,33 @@ vorher). Am Gerät nicht geprüft.
 - **LEDs:** pad-colors liest den Prozentwert in `S_IDLE` (`PC_IDLE`) und nimmt das Minimum aus dem Viertel der Firmware und
   dem Idle-Wert; LEDs eines Plugins skaliert `script_led_try_send` in Stufe 1 bis 4 gleich (aufgerundet, eine leuchtende LED
   bleibt bis Stufe 4 an).
-- **Wachhalten:** Taste (`00 nn 1`), Pad, Drehgeber, Touchpad (`00 22`, `05`), Regler nn < 0x11 erst ab 2/255 Abstand zum
-  gemerkten Wert, PLAY (`HW_TRANSPORT`), MIDI-Note und CC im MIDI-Haken (Clock kommt dort nicht an), `korg.system.keepAwake()`.
+- **Wachhalten:** Taste (`00 nn 1`), Pad, Drehgeber, Touchpad (`00 22`, `05`), Power-Taste (`06 01`), Regler nn < 0x11 ab
+  2/255 Abstand zum gemerkten Wert (noch nicht gesehen zählt auch), PLAY (`HW_TRANSPORT` 1) und Aufnahme (3, 4), nicht Pause (2),
+  MIDI-Note und CC im MIDI-Haken (Clock kommt dort nicht an), Fernbedienungs-Befehle und `korg.pressKey` (`rm_post_go`, setzt
+  die Zeit vor dem Wecken der CsTask, sonst nimmt die den Druck vor der Zeit und er wird verschluckt, gemessen), `korg.system.keepAwake()`.
   Testmodus hält wach und hat Vorrang. Mit EXIT beim Einschalten bleibt `IS_STAGE` 0xFF, nichts davon läuft.
-- **Wecken:** `idle_input` im Eingabefilter: die erste Bedienung im gedimmten Zustand weckt und wird verschluckt, je Taste und
-  Pad ein Bit bis zum Loslassen, Touchpad-Positionen bis Taste 34 losgelassen ist. Ein Regler: die weckende Bewegung wird
-  verschluckt, der gemerkte Wert übernommen, die nächste Bewegung geht durch.
-- **Fälle:** `tools/emu/idle_save_cases.py`, 18 Fälle, HT 18/18, rot 18/18, blau 18/18: jede Stufe (Licht 0,75/0,50/0,25/0,
-  LEDs genau aufgerundet skaliert), Wecken mit Taste, Pad, Touchpad, Regler und Drehgeber verschluckt, MIDI-Note und CC wecken,
-  Clock nicht, PLAY hält wach (Netzteil und Batterie), Testmodus vor Idle, Korg Power Save plus Idle nie heller, Plugin-Licht
-  und -LED gehalten und zurück, keepAwake weckt, Schalter: Vorgabe ON schreibt Version 3, OFF Version 4 mit Byte 7 = 2, der
-  nächste Start liest es, EXIT beim Einschalten ohne Wirkung.
+- **Wecken:** `idle_input` läuft als erstes im Eingabefilter (nach der Power-Taste beim Start, vor Fragen und Menüs): der erste
+  Druck einer Taste oder eines Pads, ein Drehgeber-Schritt oder ein Touchpad-Griff im gedimmten Zustand weckt und wird
+  verschluckt, je Taste und Pad ein Bit bis zum Loslassen, Touchpad-Positionen bis Taste 34 losgelassen ist. Ein Druck, der wach an
+  die Firmware ging, ist "unten" (`IS_DOWN`) bis zu seinem Loslassen: Druck, Wiederholung und Loslassen gehen weiter durch, auch
+  über Stufe 1 hinaus, und setzen nie ein Verschluck-Bit. Ein Regler wird nie verschluckt: er weckt und geht an die Firmware,
+  KNOB MODE entscheidet wie immer (Entscheidung 15.11.). Nachrichten mit `PK_MARK` lässt `idle_input` in Ruhe.
+- **Plugin-Licht:** endet das letzte Plugin, vergisst `script_led_hold_guard` sein `korg.backlight` (`IS_BL` = FF), sonst käme
+  das Licht eines toten Plugins beim Wecken zurück.
+- **Fälle:** `tools/emu/idle_save_cases.py`, 25 Fälle auf HT, rot und blau: jede Stufe (Licht 0,75/0,50/0,25/0, LEDs genau
+  aufgerundet skaliert, Meter-LEDs 0x4C bis 0x57 in Stufe 4 aus), Wecken mit Taste, Pad, Touchpad und Drehgeber verschluckt
+  (jede verschluckte Nachricht bekommt 0,3 s), Pad und Touchpad über Stufe 1 gehalten gehen durch, Regler weckt und ändert den
+  Parameter, Rauschen von 1 weckt nicht, Fernbedienungs-Taste und Power-Taste wecken, MIDI-Note und CC wecken, Clock nicht, PLAY
+  hält wach, Pause nicht (Netzteil und Batterie), Testmodus vor Idle, Korg Power Save plus Idle nie heller und Wecken zurück auf
+  Korgs Dimmen, auch mit einer anderen Stufe LED DIMMING, SAVE LIGHT 8 wird mit skaliert, Plugin-Licht und -LED gehalten und
+  zurück (Licht in Stufe 2 bei 0,5), keepAwake weckt, gestopptes Plugin: Licht vergessen, Schalter: Vorgabe ON schreibt Version
+  3, OFF Version 4 mit Byte 7 = 2, der nächste Start liest es, EXIT beim Einschalten ohne Wirkung (LEDs unverändert, `PC_IDLE`
+  bleibt FF).
+- **Andere Fälle:** `menu_cases.boot` hält Idle wach (`keep_awake`: `IS_LAST` je Sekunde Gerätezeit auf jetzt, nur RAM), damit
+  lange Fälle nicht dimmen; Byte 7 bleibt dabei unberührt, sonst schrieben alle WRITE-Fälle Version 4. `idle_input` läuft dort
+  trotzdem mit. Nur `idle_save_cases` bootet mit `idle=True`.
+- **Kartenarbeit:** ein Flag "Karte beschäftigt" (Sample-Import, SysEx) gibt es nicht billig; eine Kartenarbeit über 2 Minuten
+  dimmt also mit (nicht gemessen, ob die Firmware währenddessen Rahmen zeichnet).
 - **Kosten des PWM:** Befehle mal 5 ns (Modell aus 0.1) über 1 s Leerlauf, wach (Weiß als Pin) gegen Stufe 1 (Weiß per PWM):
   HT 4,00 % gegen 4,02 %, rot gleich, blau 4,98 % gegen 5,00 %, also 0,02 Punkte.
 - **Schalter:** Byte 7 Bit 1 gesetzt heißt OFF (`FLAGS2_IDLE_OFF`), damit die Vorgabe ON den Satz bei Version 3 lässt und ein

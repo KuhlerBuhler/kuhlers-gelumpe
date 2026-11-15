@@ -28,6 +28,7 @@ test("Vom Gerät lesen is off without a device", async () => {
   await page.goto(`${h.url}#baukasten`);
   await page.click("#cee-baukasten-page-export");
   assert.equal(await page.locator("#cee-bk-device-read").isDisabled(), true);
+  assert.equal(await page.locator("#cee-bk-collection-write").isHidden(), true, "no write to the device without one");
   assert.deepEqual(page.errors, []);
 });
 
@@ -58,5 +59,10 @@ test("Vom Gerät lesen: the device's build and preset names, e2sFx.all from its 
   assert.equal(read.build, "hacktribe");
   assert.equal(readFx(read.entries.find(e => e.kind === "mfx" && e.index === 1).text, units).preset.name, "Mod Delay", "a factory preset moved, read from the device");
   assert.ok(read.entries.some(e => e.kind === "ifx" && e.index === 4), "the card's entry goes back out");
+  // The firmware says it writes e2sFx.all (INFO flag): the same file goes onto the card over the cable after a question.
+  await page.locator("#cee-bk-collection-write:not([disabled])").click();
+  await page.locator("dialog.ui-dialog[open]").getByRole("button", { name: "Aufs Gerät schreiben" }).click();
+  await page.locator("#app-toasts .cee-toast", { hasText: "liegt auf der Karte" }).waitFor();
+  assert.deepEqual(new Uint8Array(await page.evaluate(() => Array.from(window.__ceeCard.get("e2sFx.all")))), bytes);
   assert.deepEqual(page.errors, []);
 });

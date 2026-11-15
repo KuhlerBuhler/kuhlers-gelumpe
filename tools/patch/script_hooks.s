@@ -62,6 +62,10 @@ input_power_held:
 input_power_wait:
     b input_power_wait
 input_power_no:
+    bl idle_input                ; IDLE POWER SAVE: a touch keeps the device awake, the one that wakes it is swallowed
+    cmp r0, #0
+    ldr r0, [sp, #8]
+    bne input_drop
     bl migrate_input
     cmp r0, #0
     ldr r0, [sp, #8]
@@ -78,10 +82,6 @@ script_input_guard_end:
     ldrb r1, [r0, #0x13]
     cmp r1, #PK_MARK
     beq input_pass
-    bl idle_input                ; IDLE POWER SAVE: a touch keeps the device awake, the one that wakes it is swallowed
-    cmp r0, #0
-    ldr r0, [sp, #8]
-    bne input_drop
     bl remap_input
     ldr r0, [sp, #8]
     bl shortcut_input
@@ -311,16 +311,22 @@ input_pass:
     ldrb r3, [r0, #0x18]
     ldr pc, =0xC0028380
 
-; IDLE POWER SAVE (script_idle.s): r0 = a panel message -> r0 = 1 to swallow it. A touch notes the time. The first one while the
+; IDLE POWER SAVE (script_idle.s): r0 = a panel message -> r0 = 1 to swallow it. Runs first, before the questions and menus
+; take the keys. A touch notes the time. The first press of a key or pad, a turn of the encoder or a touchpad touch while the
 ; light is dimmed or dark (a stage shown and no touch since) wakes the device and is swallowed with all that belongs to it: the
 ; repeats and the release of its key, the pressure and the release of its pad, the touchpad's positions until it is let go.
-; A knob counts once it moved IDLE_KNOB_MOVE from where it was last seen; the move that wakes is swallowed, so its parameter
-; stays where it was. In the span of the input filter: with Blechy the runtime is armed before the main screen.
+; A press that went to the firmware while awake is down (IS_DOWN) until its release: all of it keeps going there, also past
+; stage 1, so the firmware never sees a key or pad held that is up. A knob is never swallowed: once it moved IDLE_KNOB_MOVE
+; from where it was last seen (or was not seen yet) it notes the time, which wakes the device, and goes on like any knob.
+; The power key notes the time. A message with PK_MARK (korg.pressKey, the remote) is left alone: rm_post_go noted it.
 ; Clobbers r1 to r3 and r12.
 idle_input:
     push {r4-r6, lr}
     mov r5, r0
     mov r0, #0
+    ldrb r1, [r5, #0x13]
+    cmp r1, #PK_MARK
+    beq idle_in_out
     ldr r4, =IDLE
     ldrb r1, [r4, #IS_STAGE]
     cmp r1, #4
@@ -348,6 +354,10 @@ idle_in_kind:
     beq idle_in_pad
     cmp r1, #5
     beq idle_in_pos
+    cmp r1, #6                   ; the power key: noted, never swallowed
+    bne idle_in_out
+    cmp r2, #1
+    beq idle_in_seen
     b idle_in_out
 idle_in_key:
     cmp r2, #64
@@ -369,9 +379,20 @@ idle_in_bit:                     ; r1 = the bit of the key or pad, r3 = its word
     mov r0, #1
     b idle_in_out
 idle_in_free:
+    ldr r0, [r3, #IS_DOWN]
     cmp r2, #0
-    cmpne r6, #0
-    beq idle_in_seen
+    biceq r0, r0, r1             ; a release goes to the firmware and ends the press
+    beq idle_in_down
+    tst r0, r1
+    bne idle_in_seen             ; down: its repeats and pressure go on
+    cmp r6, #0
+    bne idle_in_swallow
+    orr r0, r0, r1
+idle_in_down:
+    str r0, [r3, #IS_DOWN]
+    b idle_in_seen
+idle_in_swallow:
+    ldr r0, [r3]
     orr r0, r0, r1
     str r0, [r3]
 idle_in_wake:
@@ -383,7 +404,7 @@ idle_in_seen:
     mov r0, #0
 idle_in_out:
     pop {r4-r6, pc}
-idle_in_turn:                    ; the encoder, and a knob that moved
+idle_in_turn:                    ; the encoder
     cmp r6, #0
     bne idle_in_wake
     b idle_in_seen
@@ -391,19 +412,20 @@ idle_in_knob:
     cmp r2, #IDLE_KNOBS
     bhs idle_in_out
     ldrb r1, [r5, #0x0f]
+    cmp r1, #0xFF
+    moveq r1, #0xFE              ; FF is "not seen yet"
     add r3, r4, #IS_KNOBS
     ldrb r0, [r3, r2]
-    cmp r0, #0xFF                ; none seen yet: this one is where it is, no touch
-    strbeq r1, [r3, r2]
-    moveq r0, #0
-    beq idle_in_out
+    cmp r0, #0xFF
+    beq idle_in_moved
     subs r0, r1, r0
     rsbmi r0, r0, #0
-    cmp r0, #IDLE_KNOB_MOVE
+    cmp r0, #IDLE_KNOB_MOVE      ; less is ADC noise: passes, no touch
     movlo r0, #0
     blo idle_in_out
+idle_in_moved:
     strb r1, [r3, r2]
-    b idle_in_turn
+    b idle_in_seen
 idle_in_pad:
     cmp r2, #16
     bhs idle_in_out
@@ -412,11 +434,14 @@ idle_in_pad:
     mov r1, r1, lsl r2
     ldrb r2, [r5, #0x10]
     b idle_in_bit
-idle_in_pos:                     ; a touchpad position: swallowed while the touch that woke is held
+idle_in_pos:                     ; a touchpad position: swallowed while the touch that woke is held, goes on while it is down
     ldr r0, [r4, #IS_KEYS+4]
     tst r0, #1 << (IDLE_TOUCH_KEY-32)
     movne r0, #1
     bne idle_in_out
+    ldr r1, [r4, #IS_DOWN_KEYS+4]
+    tst r1, #1 << (IDLE_TOUCH_KEY-32)
+    bne idle_in_seen
     cmp r6, #0
     beq idle_in_seen
     orr r0, r0, #1 << (IDLE_TOUCH_KEY-32)

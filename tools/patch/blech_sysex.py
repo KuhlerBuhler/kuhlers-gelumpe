@@ -36,8 +36,11 @@ when one is missing, as on the blue's card), every other writes into the existin
 and doom.wad (bit 31 set), the paths the Doom loader opens (tools/doom/runtime_abi.h); they are written like the update file (offset 0
 makes the file anew, a missing folder is made) but may be as large as the sample file, and INFO says so with bit 8 of its flags, which
 the blue Electribe 2 does not set (its set has no Doom loader). Bits 30 and 29 together name the effect collection
-SD:KORG/blechtribe/Presets/e2sFx.all, which FILE READ reads up to the sample file's limit and FILE BEGIN refuses as out of range
-(a firmware from before answers out of range to both); with bit 31 as well they name no file. Status 6 is a card error (no card, no file, card full);
+SD:KORG/blechtribe/Presets/e2sFx.all, which FILE READ reads up to the sample file's limit and FILE BEGIN writes like the update file
+(offset 0 makes it anew, a missing Presets folder is made, every block read back) up to FX_LIMIT, the largest collection
+src/fx-collection.mjs can make; bit 11 of the INFO flags says so, on the blue Electribe 2 as well, whose loader reads the file
+too. A firmware from before answers out of range to the write (and one before #553 to the read). With bit 31 as well the bits
+name no file. Status 6 is a card error (no card, no file, card full);
 FILE READ and the DATA of a file write then carry the FatFs result in their CRC word, 0x80 for a card put in after a start without
 one (the FILE commands do not touch it, as the BLECH menu does not) and 0x81 for a write the card took only in part. The firmware's update writes the flash
 from that file when the user starts it; nothing here writes the flash.
@@ -108,7 +111,8 @@ FILE_AREA_END = 0xC01A0000
 FILE_LIMIT = 0x200100           # offset plus length of a FILE command: the size of a VSB
 FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead of SYSTEM.VSB
 FILE_SAMPLE = 0x40000000        # bit 30 of a FILE offset: the sample file Sample/e2sSample.all, with bit 31 as well Sample/e2sSample.tmp
-FILE_FX = 0x60000000            # bits 30 and 29 of a FILE offset: the effect collection KORG/blechtribe/Presets/e2sFx.all, read only
+FILE_FX = 0x60000000            # bits 30 and 29 of a FILE offset: the effect collection KORG/blechtribe/Presets/e2sFx.all
+FX_LIMIT = 0x500000             # offset plus length of a FILE write of e2sFx.all: 255 + 255 + 72 entries with their longest text (src/fx-collection.mjs MAX_FILE)
 FILE_DOOM = 0x20000000          # bit 29 of a FILE offset: the Doom program KORG/blechtribe/Doom/doom.bin, with bit 31 as well doom.wad (with bit 30 e2sFx.all)
 SAMPLE_LIMIT = 0x10000000       # offset plus length of a FILE command on the sample file (256 MiB)
 COPY_MAX = 0x40000              # bytes one FILE COPY or FILE CRC works on
@@ -132,10 +136,11 @@ REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH, REPLY_FREAD, REPLY
 REPLY_COPY, REPLY_DELETE, REPLY_CRC = 0x79, 0x7A, 0x7B
 STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY, STATUS_FILE = 0, 1, 2, 3, 4, 5, 6
 PROTOCOL_VERSION = 1
-FLAGS = 0x3FF                   # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC), bit 8 the Doom files, bit 9 DEV MODE
+FLAGS = 0xBFF                   # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC), bit 8 the Doom files, bit 9 DEV MODE, bit 11 e2sFx.all is written (bit 10 is FLAG_DEV_ON)
 FLAG_DOOM = 0x100               # not on the blue Electribe 2: its set has no Doom loader (data/patches/blech-synth.json), so the files would do nothing there
 FLAG_DEV = 0x200                # the build has DEV MODE (the Sampler's BLECH menu); FLAG_DEV_ON, set in INFO at run time, says it is on
 FLAG_DEV_ON = 0x400
+FLAG_FX_WRITE = 0x800           # FILE BEGIN takes e2sFx.all; a firmware without it answers out of range
 DEV = True                      # False on the blue Electribe 2: its menu has no DEV MODE page, so its code is left out
 DEV_FLAG = STATE + 0xFC         # DEV_MAGIC while DEV MODE is on; the image holds FF there, so every start begins with it off
 DEV_MAGIC = 0x4D564544          # "DEVM"
@@ -297,6 +302,7 @@ def source():
 .equ FR_SHORT, {FR_SHORT:#x}
 .equ NAME_MAX, {NAME_MAX}
 .equ FILE_LIMIT, {FILE_LIMIT:#x}
+.equ FX_LIMIT, {FX_LIMIT:#x}
 .equ SAMPLE_LIMIT, {SAMPLE_LIMIT:#x}
 .equ COPY_MAX, {COPY_MAX:#x}
 .equ COPY_CHUNK, {COPY_CHUNK:#x}
@@ -733,7 +739,7 @@ do_data:
     bne data_reply
     ldr r0, [r6, #S_MODE]
     sub r0, r0, #1
-    cmp r0, #7                  ; 1 SYSTEM.VSB, 2 ORIGINAL.BIN, 3 a plugin file, 4 e2sSample.all, 5 e2sSample.tmp, 6 doom.bin, 7 doom.wad
+    cmp r0, #9                  ; 1 SYSTEM.VSB, 2 ORIGINAL.BIN, 3 a plugin file, 4 e2sSample.all, 5 e2sSample.tmp, 6 doom.bin, 7 doom.wad, 9 e2sFx.all
     blo data_file
     mov r0, r8
     mov r1, r9
@@ -856,8 +862,6 @@ do_fbegin:
     mov r3, #0
     str r3, [r6]
     bl sel_file                 ; which file into r5 (the function byte is not needed any more), the offset into r8
-    cmp r5, #8                  ; e2sFx.all is only read: no range
-    mvneq r8, #0
 fbegin_checked:
     ldr r10, [r6, #S_REQ + 8]
     mov r0, #{STATUS_RANGE}
@@ -871,6 +875,8 @@ fbegin_checked:
     ldr r2, =FILE_LIMIT
     cmp r5, #3
     ldrhs r2, =SAMPLE_LIMIT
+    cmp r5, #8
+    ldreq r2, =FX_LIMIT
     cmp r3, r2
     bhi fbegin_reply
     str r8, [r6, #S_ADDR]

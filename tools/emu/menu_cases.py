@@ -71,8 +71,28 @@ def card_image(files=None):
     return img
 
 
-def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seconds=1.2):
-    """A device booted to the main screen; with `adapter` on mains power (the bottom LEDs and the backlight show their normal state)."""
+OS_TICKS = 0xC06A292C                   # the OS tick, 1 ms (script_hw.s:OS_TICKS)
+
+
+def keep_awake(dev):
+    """IDLE POWER SAVE never dims in a case that does not test it: the last touch (script_idle.s:IS_LAST) is set to now once a
+    second of device time. RAM only, so the settings (byte 7, FLAGS2_IDLE_OFF) and their file version stay as they are and
+    idle_input still sees every message, it just never finds the device asleep."""
+    m, ticks, last = dev.m, dev.a(OS_TICKS), [-1e18]
+    run_slice = m.run_slice
+
+    def awake(*args, **kwargs):
+        if m.time_ns - last[0] >= 1e9:
+            last[0] = m.time_ns
+            m.uc.mem_write(script_hooks.IDLE, bytes(m.uc.mem_read(ticks, 4)))
+        return run_slice(*args, **kwargs)
+
+    m.run_slice = awake
+
+
+def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seconds=1.2, idle=False):
+    """A device booted to the main screen; with `adapter` on mains power (the bottom LEDs and the backlight show their normal state).
+    Without `idle` IDLE POWER SAVE is held awake (keep_awake)."""
     global INIT_PAGE, LAST_PAGE, STEREO_PAGE
     for_build(payload)
     INIT_PAGE = payload[INIT_CODE - 0xC0000000:INIT_CODE - 0xC0000000 + 4] != b"\xff" * 4
@@ -83,6 +103,8 @@ def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seco
     if card:
         dev.m.insert_card(SDCard(MemoryMedium(card_image(files))))
     dev.run(seconds)
+    if not idle:
+        keep_awake(dev)
     return dev
 
 

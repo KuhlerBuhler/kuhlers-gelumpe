@@ -76,8 +76,12 @@ export const BLECH = {
   FLAG_DEV_ON: 0x400,
   /** bit 29 of a FILE offset: KORG/blechtribe/Doom/doom.bin; with bit 31 as well doom.wad. Up to SAMPLE_LIMIT, like the sample file */
   FILE_DOOM: 0x20000000,
-  /** bits 30 and 29 of a FILE offset: KORG/blechtribe/Presets/e2sFx.all, read only (FILE BEGIN says out of range, as a firmware from before does to both). Up to SAMPLE_LIMIT */
+  /** bits 30 and 29 of a FILE offset: KORG/blechtribe/Presets/e2sFx.all. Read up to SAMPLE_LIMIT; written up to FX_LIMIT where INFO has FLAG_FX_WRITE (before, FILE BEGIN says out of range) */
   FILE_FX: 0x60000000,
+  /** INFO flag: FILE BEGIN takes e2sFx.all (bits 30 and 29), offset 0 makes the file anew and its folder when missing */
+  FLAG_FX_WRITE: 0x800,
+  /** the largest offset + length of a write of e2sFx.all (src/fx-collection.mjs MAX_FILE) */
+  FX_LIMIT: 0x500000,
   /** the largest offset + length on a sample file */
   SAMPLE_LIMIT: 0x10000000,
   /** the most bytes one FILE COPY or FILE CRC works on */

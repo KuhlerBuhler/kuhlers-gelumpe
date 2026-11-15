@@ -803,7 +803,7 @@ def doom_cases(payload, flash, part=None):
     loader opens. The real doom.bin of third_party/doom is written in blocks onto a card that has no Doom folder yet, read back over SysEx
     and compared byte for byte on the card image; doom.wad is written past the size limit of a VSB (the whole 28 MB file would take hours
     over the emulated DIN line, so the start of the real file and a block far behind it), read back, made anew by a block at 0. A write
-    with bits 30 and 29 (e2sFx.all, fx_read_cases) and a read with bits 31, 30 and 29 are refused, so are offsets past the limit; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
+    and a read with bits 31, 30 and 29 (no file) are refused, so are offsets past the limit; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
     import fat32
     from sdcard import MemoryMedium, SDCard
     BIN, WAD = spec.FILE_DOOM, spec.FILE_DOOM | spec.FILE_OTHER
@@ -881,12 +881,12 @@ def doom_cases(payload, flash, part=None):
         short = wad[:5000]
         b, d = lk.file_write(WAD | 0, short)
         out.append(entry("doom_wad_anew", b and d and d["status"] == OK and on_card(dev, wad_path) == short, f"a block at offset 0 makes doom.wad anew: {len(on_card(dev, wad_path) or b'')} bytes, written {len(short)}"))
-    both, _ = lk.file_write(spec.FILE_DOOM | spec.FILE_SAMPLE | 0, b"x" * 10)
+    both, _ = lk.file_write(spec.FILE_DOOM | spec.FILE_SAMPLE | spec.FILE_OTHER | 0, b"x" * 10)
     both_read = lk.file_read(spec.FILE_DOOM | spec.FILE_SAMPLE | spec.FILE_OTHER | 0, 0)
     beyond, _ = lk.file_write(BIN | (spec.SAMPLE_LIMIT - 5), b"x" * 10)
     statuses = [r and r["status"] for r in (both, both_read, beyond)]
     out.append(entry("doom_refusals", statuses == [RANGE, RANGE, RANGE] and on_card(dev, vsb) == system and on_card(dev, "KORG/blechtribe/Sample/e2sSample.all") is None,
-                     f"bits 30 and 29 written, bits 31, 30 and 29 read and past the limit: {statuses}; SYSTEM.VSB unchanged, no sample file made"))
+                     f"bits 31, 30 and 29 written and read, past the limit: {statuses}; SYSTEM.VSB unchanged, no sample file made"))
     if part in (None, "bin"):
         nocard, lk2 = device(card=False)
         r = lk2.file_read(BIN | 0, 0)
@@ -956,8 +956,8 @@ def case_stream(payload, flash):
 
 def fx_read_cases(payload, flash):
     """FILE READ with bits 30 and 29: the effect collection SD:KORG/blechtribe/Presets/e2sFx.all, read in blocks and compared byte
-    for byte with the card; a read past its end gives the rest. FILE BEGIN with the same bits is refused and leaves the file as it
-    was; without the file the read says STATUS_FILE."""
+    for byte with the card; a read past its end gives the rest. FILE BEGIN with bit 31 as well names no file and is refused, the
+    file stays as it was (the write itself: fx_card_cases.case_usb_write); without the file the read says STATUS_FILE."""
     import fat32
     from sdcard import MemoryMedium, SDCard
     FX = spec.FILE_SAMPLE | spec.FILE_DOOM
@@ -987,10 +987,10 @@ def fx_read_cases(payload, flash):
     tail = lk.file_read(FX | (len(data) - 100), 4096)
     out.append(entry("fx_read_tail", tail and tail["status"] == OK and tail["length"] == 100 and tail["data"] == data[-100:] and tail["crc_ok"],
                      f"a read past the end gives the last {tail and tail['length']} bytes"))
-    b, _ = lk.file_write(FX | 0, b"x" * 10)
+    b, _ = lk.file_write(FX | spec.FILE_OTHER, b"x" * 10)
     card = fat32.Volume(dev.m.mmc.card.medium.data).read(fx_path)
     out.append(entry("fx_write_refused", b and b["status"] == RANGE and card == data,
-                     f"FILE BEGIN with bits 30 and 29: status {b and b['status']}, the file unchanged: {card == data}"))
+                     f"FILE BEGIN with bits 31, 30 and 29 (no file): status {b and b['status']}, e2sFx.all unchanged: {card == data}"))
     dev2, lk2 = device({})
     none = lk2.file_read(FX | 0, 0)
     out.append(entry("fx_missing", none and none["status"] == spec.STATUS_FILE and none["size"] == 0 and not dev2.m.asserts,

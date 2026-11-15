@@ -5,7 +5,7 @@ check.py runs `cases_task` on every patched copy that carries the loader, red or
 records where the firmware's getters point and its modulation type into the table the build reads, in RAM; the flash
 ends up byte for byte as after a start without the file. A slot past the menu, up to 100, makes the menu that long in RAM.
 A missing file, a wrong checksum, the wrong build, an index past 100, a cut file and EXIT held at power-on leave every
-record as the firmware has it.
+record as the firmware has it. The file also goes onto the card over the cable (case_usb_write) and loads at the next start.
 
     tools/emu/.venv/bin/python tools/emu/fx_card_cases.py cases --patched NEW.VSB [--flash dump.bin] [--only N]
 """
@@ -399,7 +399,73 @@ def case_grow(payload, flash):
     return out
 
 
-GROUPS = (case_good, case_refused, case_exit, case_export, case_boot_effects, case_version_text, case_grow)
+def case_usb_write(payload, flash):
+    """e2sFx.all over the cable (tools/patch/blech_sysex.py, FILE BEGIN with bits 30 and 29): INFO says so with FLAG_FX_WRITE, a
+    collection longer than one block goes onto a card without the folder Presets in 4 KiB blocks, each read back with its CRC, and
+    comes back byte for byte over FILE READ; a shorter one at offset 0 makes the file anew, and the next start with that card loads
+    it. Bits 31, 30 and 29 and a write past FX_LIMIT stay refused; a start without a card answers the DATA with status 6."""
+    import sysex_cases as sx
+    spec = sx.spec
+    FX = spec.FILE_FX
+    synth = build_of(payload) == "synth"
+    sx.MODEL = 0x23 if synth else 0x24
+    try:
+        base, before, want, good = plan(payload, flash)
+        build = BUILD[build_of(payload)]
+        long_text = [entry(k, i, want[k], (b'{"format":"gelumpe-fx","pad":"' + bytes([0x61 + n]) * 3000 + b'"}')) for n, (k, i) in enumerate((("ifx", 1), ("mfx", 0), ("mod", 3)))]
+        big, small = collection(build, long_text), collection(build, good)
+        dev = boot(payload, flash, {})
+        lk = sx.Link(dev)
+        lk.find_channel()
+        info = lk.info()
+        out = [result("usb_flag", info and info["flags"] & spec.FLAG_FX_WRITE, f"INFO flags {info and hex(info['flags'])}")]
+
+        def put(data, block=0x1000):
+            bad = []
+            for at in range(0, len(data), block):
+                part = data[at:at + block]
+                b, d = lk.file_write(FX | at, part)
+                if not (b and b["status"] == sx.OK and d and d["status"] == sx.OK and d["crc"] == zlib.crc32(part)):
+                    bad.append((at, b and b["status"], d and d["status"]))
+            return bad
+
+        def on_card(d):
+            return fat32.Volume(d.m.mmc.card.medium.data).read(CARD_FILE)
+
+        bad = put(big)
+        size = lk.file_read(FX | 0, 0)
+        back = b"".join((r or {}).get("data", b"") for r in (lk.file_read(FX | at, min(spec.MAX_BLOCK, len(big) - at)) for at in range(0, len(big), spec.MAX_BLOCK)))
+        out.append(result("usb_write", not bad and on_card(dev) == big and size and size["size"] == len(big) and back == big,
+                          f"{len(big)} bytes in {(len(big) + 0xFFF) // 0x1000} blocks, failed {bad}; on the card equal {on_card(dev) == big}, read back equal {back == big}"))
+        bad = put(small)
+        out.append(result("usb_write_anew", not bad and on_card(dev) == small, f"{len(small)} bytes at offset 0 over {len(big)}: the file has {len(on_card(dev) or b'')}"))
+        r1, _ = lk.file_write(FX | spec.FILE_OTHER, b"x" * 10)
+        r2, _ = lk.file_write(FX | (spec.FX_LIMIT - 5), b"x" * 10)
+        statuses = [r and r["status"] for r in (r1, r2)]
+        out.append(result("usb_refused", statuses == [sx.RANGE, sx.RANGE] and on_card(dev) == small, f"bits 31, 30 and 29, past FX_LIMIT: {statuses}; file unchanged {on_card(dev) == small}"))
+        out.append(result("usb_no_assert", not dev.m.asserts, f"asserts {dev.m.asserts[:2]}"))
+        image = bytearray(dev.m.mmc.card.medium.data)
+        menu_cases.for_build(payload)
+        again = Dev(payload, flash, 0)
+        again.m.insert_card(SDCard(MemoryMedium(image)))
+        again.run(BOOT_SYNTH_S if again.synth else BOOT_S)
+        now = records(again, payload)
+        status, loaded = state(again)
+        out.append(result("usb_next_start", status == 2 and loaded == 3 and all(now[k] == want[k] for k in ("ifx", "mfx", "mod")),
+                          f"the next start: status {STATUS.get(status, status)}, {loaded} entries, records equal {[now[k] == want[k] for k in ('ifx', 'mfx', 'mod')]}"))
+        nocard = Dev(payload, flash, 0)
+        nocard.run(BOOT_SYNTH_S if nocard.synth else BOOT_S)
+        lk2 = sx.Link(nocard)
+        lk2.find_channel()
+        b, d = lk2.file_write(FX | 0, small)
+        out.append(result("usb_no_card", b and b["status"] == sx.OK and d and d["status"] == spec.STATUS_FILE,
+                          f"without a card: BEGIN {b and b['status']}, DATA {d and d['status']} (code {d and hex(d['crc'])})"))
+        return out
+    finally:
+        sx.MODEL = 0x24
+
+
+GROUPS = (case_good, case_refused, case_exit, case_export, case_boot_effects, case_version_text, case_grow, case_usb_write)
 
 
 def group_entries(payload, flash, i):
