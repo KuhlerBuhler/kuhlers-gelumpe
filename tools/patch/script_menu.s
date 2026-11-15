@@ -6011,6 +6011,8 @@ menu_value_over:
     movgt r0, #3
     mov r1, #16
     bl menu_pc_call
+    mov r1, #48                 ; the pads show it at once, not only after the menu
+    bl menu_pc_call
     b menu_value_look_done
 ; LED DIMMING: the dial goes through led_dim_percent, the patch pad-colors keeps the step and sends the LEDs; WRITE keeps it
 menu_value_ledsave:
@@ -6025,6 +6027,8 @@ menu_value_ledsave:
     cmp r0, #12
     subhs r0, r0, #12
     mov r1, #24
+    bl menu_pc_call
+    mov r1, #48                 ; in power save the LEDs take the new step at once, not only after the menu (device test 15.11.)
     bl menu_pc_call
     b menu_value_look_done
 ; PAD COLOR and SELECT COLOR: the dial steps the colour in the patch, which skips the other page's and sends the pads; WRITE keeps it.
