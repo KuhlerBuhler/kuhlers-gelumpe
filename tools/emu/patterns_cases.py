@@ -196,7 +196,7 @@ def case_boot_progress(payload, flash):
         while len(looks) < 80:
             dev.m.run_until(dev.m.time_ns / 1e9 + 0.25)
             looks.append(tuple(dev.u32(LB_STATE + o) for o in (0, 12, 24, 40)) + (dev.u32(LB_SHOWN), dev.screen()["number"]))
-            if looks[-1][5] == 1:
+            if looks[-1][5] == 1 and looks[-1][0] != 1:   # the overlay ends at its next frame after the main screen (80 to 90 ms)
                 break
         on = [k for k in looks if k[0] == 1]
         shown = [k[4] for k in on]
