@@ -143,9 +143,18 @@ geöffnete Stimme mit der richtigen Sample-Adresse.
 ## Offen
 
 - Ursache und Gerätevergleich des überlappenden Speicher-DMA-Auftrags.
-- Tatsächliche PCM-Lesezugriffe beim Spielen und das Ende dieser Zugriffe. Dafür fehlt der Vergleich der Stimmenkonfiguration mit dem Gerät.
 - Natürliche Stimmenenden und ausklingende Effekte. Ein Gate-Wert reicht dafür nicht.
 - Große reale Bibliotheken, Live-Wechsel, Kartenlaufzeiten und vollständiger RAM-/DMA-Besitz am Gerät.
 
 Die Prüfung belegt bisher Transport, Tabellenwechsel und eine Stimmenadresse.
 Sie ist keine Freigabe des gesamten Sample-Swap und kein Klangnachweis.
+
+## Nachtrag 2026-11-16: Lesezugriffe beim Spielen
+
+Mit dem korrigierten Simulator (Mehrfachbefehle schreiben Register erst nach
+allen Slots, `tools/dsp/build_blackfin.py`) liest der DSP nach dem
+Pad-Anschlag das verschobene Sample 502 per DMA bis zum letzten Wort
+(gemessen im Simulator, Hacktribe-Kandidat). Der Prüffall verlangt das jetzt
+(`dsp_reads_relocated_sample`, `dsp_reaches_sample_end`) und setzt
+`sample_playback_end_verified` nur nach dieser Messung. Ein Gerätevergleich
+der Lesezugriffe fehlt weiter.

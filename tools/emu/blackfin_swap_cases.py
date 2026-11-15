@@ -49,7 +49,7 @@ def cases(payload, worker, *, core_hz, wall_timeout=1200):
     verify_patch_code(payload, profile.screens)
     deadline = time.monotonic() + wall_timeout
     report = dict(ok=False, hardware_contact=False, samples=[], checks={},
-                  verification_scope='startup, PCM transport, residency and voice sample address',
+                  verification_scope='startup, PCM transport, residency, voice sample address and DSP sample reads',
                   sample_playback_end_verified=False)
     box = None
     with BlackfinPort(worker, operating=True, timeout=15, rom=SysControl(),
@@ -102,6 +102,13 @@ def cases(payload, worker, *, core_hz, wall_timeout=1200):
             voice_index = opened[0] if len(opened) == 1 else None
             voice = active[voice_index * 26:voice_index * 26 + 26] if voice_index is not None else None
             ended = later[voice_index * 26] if voice_index is not None else None
+            start, size = final[502]['start'], final[502]['bytes']
+            reads = later_accesses['dma_read']
+            # Watched window is the relocated PCM only, so every counted DMA read is a sample read.
+            dsp_reads_sample = (early_accesses['dma_read']['accesses'] > 0
+                                and reads['accesses'] > early_accesses['dma_read']['accesses']
+                                and start <= reads['address'] < start + size)
+            playback_end = dsp_reads_sample and reads['address'] + reads['width'] >= start + size
             clock = port.backend.clock_status()
             expected_cycles = (int(box.m.time_ns) - port._clock_origin_ns) * core_hz // 1000000000
             checks = dict(native_initialization=port.initialized,
@@ -117,9 +124,12 @@ def cases(payload, worker, *, core_hz, wall_timeout=1200):
                           unused_sample_evicted=not box.resident(500),
                           other_samples_resident=box.resident(501) and box.resident(502),
                           voice_uses_relocated_sample=voice is not None and voice[10] == final[502]['start'],
+                          dsp_reads_relocated_sample=dsp_reads_sample,
+                          dsp_reaches_sample_end=playback_end,
                           no_arm_assertions=not box.m.asserts,
                           no_dsp_exception=port.backend.register(47) == 0)
             report.update(ok=all(checks.values()), checks=checks, clock=clock,
+                          sample_playback_end_verified=playback_end,
                           opened_voices=opened, voice_index=voice_index,
                           gate_cleared_without_release=ended == 0,
                           sample_accesses_early=early_accesses, sample_accesses_later=later_accesses,
