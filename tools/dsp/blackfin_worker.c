@@ -150,6 +150,38 @@ int main(int argc, char **argv) {
                 if (sim_store_register(sd, address, b, 4) != 4) { answer(1, NULL, 0); break; }
                 answer(0, NULL, 0);
             }
+        } else if (op == 18) {
+            /* One round trip per ARM sync: advance `address` cycles (0: none), then report the time
+               advanced, steps, PC, idle, the HOSTDP status and the word at `count` (0: none). */
+            uint32_t out[6] = {0}, word = 0;
+            int sig = 0;
+            enum sim_stop reason = sim_stopped;
+            if (address > 1000000) { answer(1, NULL, 0); break; }
+            if (address) {
+                uint64_t before = blech_bfin_time();
+                blech_bfin_time_guard(address);
+                sim_resume(sd, 0, 0);
+                out[1] = blech_bfin_count();
+                sim_stop_reason(sd, &reason, &sig);
+                if (!reg_get(sd, 53, &out[2])) { answer(1, NULL, 0); break; }
+                if (reason != sim_stopped || sig != SIGTRAP || !blech_bfin_stopped()) {
+                    answer(2, NULL, 0); break;
+                }
+                if (out[2] >= 0xEF000000 && out[2] < 0xF0000000) {
+                    if (!rom_snapshot(sd, out[1], blech_bfin_last())) { answer(1, NULL, 0); break; }
+                    continue;
+                }
+                out[0] = blech_bfin_time() - before;
+            } else if (!reg_get(sd, 53, &out[2])) { answer(1, NULL, 0); break; }
+            out[3] = blech_bfin_sleeping();
+            if (!blech_bfin_hostdp_bus(sd, 0, &word)) { answer(1, NULL, 0); break; }
+            out[4] = word;
+            if (count && sim_read(sd, count, (unsigned char *)&out[5], 4) != 4) { answer(1, NULL, 0); break; }
+            unsigned char data[24];
+            for (unsigned i = 0; i < 5; ++i)
+                for (unsigned b = 0; b < 4; ++b) data[4 * i + b] = out[i] >> (8 * b);
+            memcpy(data + 20, &out[5], 4);
+            answer(0, data, sizeof(data));
         } else if (op == 5 || op == 13) {
             uint32_t steps = 0, pc = 0;
             int sig = 0;

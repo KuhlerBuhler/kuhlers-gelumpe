@@ -43,6 +43,9 @@ class BlackfinBackend:
         self._stderr = tempfile.TemporaryFile()
         self._selector = selectors.DefaultSelector()
         self._deadline = time.monotonic() + timeout
+        self._buffer = bytearray()   # bytes the worker has sent beyond the current answer
+        self._cycles = None          # worker clock as of the last advance; None after anything else moved it
+        self._host = None            # HOSTDP status from the last advance; None after any other request
         try:
             path = Path(worker).resolve(strict=True)
             self.process = subprocess.Popen([str(path)] + (['--operating'] if operating else []), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -66,7 +69,16 @@ class BlackfinBackend:
         return f': {data}' if data else ''
 
     def _send(self, data):
-        view = memoryview(data)
+        # The pipe almost always has room: write first and wait only for a full pipe.
+        try:
+            count = os.write(self.process.stdin.fileno(), data)
+        except BlockingIOError:
+            count = 0
+        if count == len(data):
+            return
+        if count < 0:
+            raise BackendError('Blackfin worker stopped accepting requests')
+        view = memoryview(data)[count:]
         with selectors.DefaultSelector() as selector:
             selector.register(self.process.stdin, selectors.EVENT_WRITE)
             while view:
@@ -82,19 +94,23 @@ class BlackfinBackend:
                 view = view[count:]
 
     def _receive(self, size):
-        data = bytearray()
+        # Reads whatever the worker has sent, so a header and its data usually cost one read;
+        # waits only when nothing has arrived yet.
+        data = self._buffer
         while len(data) < size:
-            remaining = self._deadline - time.monotonic()
-            if remaining <= 0 or not self._selector.select(remaining):
-                raise BackendError('Blackfin worker deadline exceeded')
             try:
-                chunk = os.read(self.process.stdout.fileno(), size - len(data))
+                chunk = os.read(self.process.stdout.fileno(), 65536)
             except BlockingIOError:
+                remaining = self._deadline - time.monotonic()
+                if remaining <= 0 or not self._selector.select(remaining):
+                    raise BackendError('Blackfin worker deadline exceeded')
                 continue
             if not chunk:
                 raise BackendError('Blackfin worker exited before answering')
             data.extend(chunk)
-        return bytes(data)
+        out = bytes(data[:size])
+        del data[:size]
+        return out
 
     def _response(self, *, rom=False):
         status, count = struct.unpack('<II', self._receive(8))
@@ -110,9 +126,12 @@ class BlackfinBackend:
         if self.process is None:
             raise BackendError('Blackfin worker is closed')
         self._deadline = time.monotonic() + self.timeout
+        self._host = None
+        if op in (4, 5, 13):         # set_register can write CYCLES; run and the old advance move the clock untracked
+            self._cycles = None
         try:
             self._send(struct.pack('<III', op, address, count) + data)
-            response = self._response(rom=op in (5, 13))
+            response = self._response(rom=op in (5, 13, 18))
             return self._receive(extra) if extra else response
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
@@ -161,6 +180,8 @@ class BlackfinBackend:
         self._request(6, event, 0)
 
     def host_status(self):
+        if self._host is not None:
+            return self._host
         return struct.unpack('<I', self._request(9, 0, 0, extra=4))[0]
 
     def host_control(self, word):
@@ -179,17 +200,25 @@ class BlackfinBackend:
         lo, hi, remaining, idle = struct.unpack('<4I', self._request(14, 0, 0, extra=16))
         return dict(cycles=lo | hi << 32, remaining=remaining, idle=bool(idle))
 
-    def advance(self, cycles):
+    def advance(self, cycles, ready_address=0):
+        """Run `cycles` cycles. The answer also carries the HOSTDP status after them (kept for host_status())
+        and, with `ready_address`, the 4 bytes there, so one ARM sync costs one round trip."""
         if not isinstance(cycles, int) or not 1 <= cycles <= 1000000:
             raise ValueError('invalid bounded Blackfin cycle budget')
-        start = self.clock_status()['cycles']
+        if not isinstance(ready_address, int) or not 0 <= ready_address <= 0xFFFFFFFC:
+            raise ValueError('invalid Blackfin ready address')
+        start = self._cycles if self._cycles is not None else self.clock_status()['cycles']
         left, steps, calls = cycles, 0, 0
         while left:
             try:
-                elapsed, executed, pc, idle = struct.unpack('<4I', self._request(13, left, 0, extra=16))
+                answer = self._request(18, left, ready_address)
+                if len(answer) != 24:
+                    raise BackendError('invalid Blackfin advance answer')
+                elapsed, executed, pc, idle, host = struct.unpack('<5I', answer[:20])
                 if elapsed != left:
                     raise BackendError('Blackfin did not reach the requested time boundary')
                 steps += executed
+                self._cycles, self._host = start + cycles, host
                 break
             except _ROMCall as error:
                 steps += error.steps
@@ -205,7 +234,8 @@ class BlackfinBackend:
                 except (BackendError, ValueError) as failure:
                     self.close()
                     raise BackendError(f'{failure}: {error}') from failure
-        return dict(cycles=cycles, steps=steps, pc=pc, idle=bool(idle))
+        return dict(cycles=cycles, steps=steps, pc=pc, idle=bool(idle), host_status=host,
+                    word=answer[20:] if ready_address else None)
 
     def _host_word(self, operation, word):
         if not isinstance(word, int) or not 0 <= word <= 65535:
@@ -348,14 +378,18 @@ class BlackfinPort:
             self._clock_origin_ns = now_ns
             return
         target = (now_ns - self._clock_origin_ns) * self._clock_hz // 1000000000
+        value = None
         while self._clock_cycles < target:
             count = min(target - self._clock_cycles, 1000000)
-            result = self.backend.advance(count)
+            last = self._clock_cycles + count == target
+            result = self.backend.advance(count, self.ready_address if last and not self.initialized else 0)
             if result['cycles'] != count:
                 self._abort('Blackfin did not reach common model time')
             self._clock_cycles += count
+            value = result['word']
         if not self.initialized:
-            value = self.backend.read(self.ready_address, 4)
+            if value is None:
+                value = self.backend.read(self.ready_address, 4)
             self.initialized = value != self._initial_word and value != bytes(4)
             if self.initialized:
                 self.boot_report = dict(ready=True, ready_address=self.ready_address,

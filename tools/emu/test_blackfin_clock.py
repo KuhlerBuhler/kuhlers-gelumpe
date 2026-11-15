@@ -173,11 +173,10 @@ class BoundPort(unittest.TestCase):
         port.bind_clock(0)
         port.backend = Mock()
         port.loaded = True
-        port.backend.read.return_value = bytes(4)
-        port.backend.advance.return_value = dict(cycles=48)
+        port.backend.advance.return_value = dict(cycles=48, word=bytes(4))
         config['core_hz'] = 9600000
         port.advance_to(10000)
-        port.backend.advance.assert_called_once_with(48)
+        port.backend.advance.assert_called_once_with(48, port.ready_address)
         with self.assertRaises(TypeError):
             port.sport['core_hz'] = 9600000
 
@@ -196,10 +195,10 @@ class BoundPort(unittest.TestCase):
         port.bind_clock(0)
         port.backend = Mock()
         port.backend.process.poll.return_value = None
-        port.backend.advance.return_value = dict(cycles=48)
+        port.backend.advance.return_value = dict(cycles=48, word=bytes(4))
         port.loaded = True
         port.advance_to(10000)
-        port.backend.advance.assert_called_once_with(48)
+        port.backend.advance.assert_called_once_with(48, port.ready_address)
         port.status()
         port.control(0xAB)
         port.write_word(1)
@@ -221,13 +220,16 @@ class BoundPort(unittest.TestCase):
         port.bind_clock(0)
         port.loaded = True
         port.backend = Mock()
-        port.backend.advance.return_value = dict(cycles=48, steps=7)
-        port.backend.read.return_value = bytes(4)
+        port.backend.advance.return_value = dict(cycles=48, steps=7, word=bytes(4))
         port.advance_to(10000)
         self.assertFalse(port.initialized)
-        port.backend.read.return_value = b'\x01\x00\x00\x00'
+        port.backend.advance.return_value = dict(cycles=48, steps=7, word=b'\x01\x00\x00\x00')
         port.advance_to(20000)
         self.assertTrue(port.initialized)
+        port.backend.advance.return_value = dict(cycles=48, steps=7, word=None)
+        port.advance_to(30000)
+        port.backend.advance.assert_called_with(48, 0)
+        port.backend.read.assert_not_called()
         self.assertTrue(port.boot_report['ready'])
         self.assertEqual(port.boot_report['clock_cycles'], 96)
 
