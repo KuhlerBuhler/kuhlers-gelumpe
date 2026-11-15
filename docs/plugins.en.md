@@ -160,7 +160,7 @@ A compile error names line and column and says what to do. The wording is German
 | `step` | `step` | sequencer step (16th note) |
 | `beat` | | quarter note |
 | `play`, `stop`, `rec` | | transport |
-| `patternChange` | `index` | pattern changed |
+| `patternChange` | `index` | pattern changed. The event follows `HW_PATTERN`, the number picked with the dial: turning the dial and EXIT also fire it while the playing pattern stays. For chains use `korg.read.nextPattern` or the playing pattern |
 | `partChange` | `part` | part changed |
 | `mute` | `part`, `muted` | part muted or not |
 | `tempo` | `tenthsBpm` | tempo changed |

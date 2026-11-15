@@ -191,6 +191,14 @@ Links, absolute Benutzerpfade, Namen und Gedankenstriche in `README*`, `AGENTS.m
 `docs/`. `test/map.test.mjs` prüft die Belege der Gerätekarte, auch dass jede Messung,
 auf die ein Eintrag zeigt, als Datei in `docs/messungen/` liegt.
 
+Zwei Tests zählen die Änderungen des Runtime-Patches fest: `test_public_patch_manifest` in
+`tools/patch/test_script_hooks.py` prüft die Zahl der Einträge in `startPhase`, und
+`test/script-runtime.test.mjs` prüft `runtime.changes.length` samt Kommentar. Jede neue
+Hakenstelle ändert beide Zahlen; sie gehören in denselben PR, sonst wird die Unit-CI rot.
+Liest BLECH-Code ein neues Hardware-Register, braucht `tools/patch/test_script_vm.py`
+dessen Seite in der Speicherliste (so wie `0x01C40000` für die MMC), sonst stürzen die
+nativen VM-Tests beim Lesen ab.
+
 ### Prozesse und Ordner eines Testlaufs
 
 Nach einem Testlauf bleibt nichts zurück, auch wenn er abgebrochen wird. Die Tests tragen
