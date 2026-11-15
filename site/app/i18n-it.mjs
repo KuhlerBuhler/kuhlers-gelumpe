@@ -2159,7 +2159,7 @@ export default {
   "catalog.bmpviewer.control1": "Encoder: scegli il file",
   "catalog.bmpviewer.control2": "◄ PART e PART ►: immagine precedente e successiva",
   "catalog.bmpviewer.control3": "TAP: mostra o nascondi il numero dell'immagine",
-  "catalog.bpmglide.description": "Porta il tempo gradualmente al tempo salvato del pattern successivo, così il cambio non salta. CHAIN: durante la riproduzione di un pattern concatenato (Chain To, CHAIN MODE acceso, lunghezza per Chain Repeat). SWITCH: dopo MENU su un pattern scelto durante la riproduzione (NEXT:), sugli step che mancano al cambio; confermato a metà, ci mette metà del tempo. STOP riporta il suo tempo.",
+  "catalog.bpmglide.description": "Porta il tempo gradualmente al tempo salvato del pattern successivo, così il cambio non salta. CHAIN: durante la riproduzione di un pattern concatenato (Chain To, CHAIN MODE acceso, lunghezza per Chain Repeat). SWITCH: dopo MENU su un pattern scelto durante la riproduzione (NEXT:), sugli step che mancano al cambio; confermato a metà, ci mette metà del tempo. STOP riporta il suo tempo. Integrato da blechtribe 1.5 (BLECH > FEATURES > GLIDE CHAIN/GLIDE SWITCH), non caricare anche il plugin; resta per firmware più vecchi.",
   "catalog.bpmglide.control1": "Menu -> BLECH -> GLIDE CHAIN: 1 acceso, 0 spento",
   "catalog.bpmglide.control2": "Menu -> BLECH -> GLIDE SWITCH: 1 acceso, 0 spento",
   "catalog.lauflicht.description": "Una luce corre sui pad.",

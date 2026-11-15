@@ -2208,7 +2208,7 @@ export default {
   "catalog.bmpviewer.control1": "Encoder: Datei wählen",
   "catalog.bmpviewer.control2": "◄ PART und PART ►: voriges und nächstes Bild",
   "catalog.bmpviewer.control3": "TAP: Bildnummer zeigen oder ausblenden",
-  "catalog.bpmglide.description": "Gleitet das Tempo zum gespeicherten Tempo des nächsten Patterns, damit der Wechsel nicht springt. CHAIN: über die Spielzeit eines verketteten Patterns (Chain To, CHAIN MODE an, Länge mal Chain Repeat). SWITCH: nach MENU auf einem beim Spielen gewählten Pattern (NEXT:) über die Schritte bis zum Wechsel, mittendrin bestätigt also in der halben Zeit. STOP holt das eigene Tempo zurück.",
+  "catalog.bpmglide.description": "Gleitet das Tempo zum gespeicherten Tempo des nächsten Patterns, damit der Wechsel nicht springt. CHAIN: über die Spielzeit eines verketteten Patterns (Chain To, CHAIN MODE an, Länge mal Chain Repeat). SWITCH: nach MENU auf einem beim Spielen gewählten Pattern (NEXT:) über die Schritte bis zum Wechsel, mittendrin bestätigt also in der halben Zeit. STOP holt das eigene Tempo zurück. Ab blechtribe 1.5 eingebaut (BLECH > FEATURES > GLIDE CHAIN/GLIDE SWITCH), das Plugin dann nicht zusätzlich laden; es bleibt für ältere Firmware.",
   "catalog.bpmglide.control1": "Menü -> BLECH -> GLIDE CHAIN: 1 an, 0 aus",
   "catalog.bpmglide.control2": "Menü -> BLECH -> GLIDE SWITCH: 1 an, 0 aus",
   "catalog.lauflicht.description": "Ein Licht läuft über die Pads.",

@@ -2160,7 +2160,7 @@ export default {
   "catalog.bmpviewer.control1": "Enkodér: výběr souboru",
   "catalog.bmpviewer.control2": "◄ PART a PART ►: předchozí a další obrázek",
   "catalog.bmpviewer.control3": "TAP: zobrazit nebo skrýt číslo obrázku",
-  "catalog.bpmglide.description": "Plynule vede tempo k uloženému tempu dalšího patternu, aby změna neskočila. CHAIN: během hraní zřetězeného patternu (Chain To, CHAIN MODE zapnutý, délka krát Chain Repeat). SWITCH: po MENU na patternu vybraném během hraní (NEXT:) během kroků zbývajících do přepnutí; potvrzeno v polovině, trvá to poloviční dobu. STOP vrátí vlastní tempo.",
+  "catalog.bpmglide.description": "Plynule vede tempo k uloženému tempu dalšího patternu, aby změna neskočila. CHAIN: během hraní zřetězeného patternu (Chain To, CHAIN MODE zapnutý, délka krát Chain Repeat). SWITCH: po MENU na patternu vybraném během hraní (NEXT:) během kroků zbývajících do přepnutí; potvrzeno v polovině, trvá to poloviční dobu. STOP vrátí vlastní tempo. Od blechtribe 1.5 vestavěno (BLECH > FEATURES > GLIDE CHAIN/GLIDE SWITCH), plugin tam navíc nenačítejte; zůstává pro starší firmware.",
   "catalog.bpmglide.control1": "Menu -> BLECH -> GLIDE CHAIN: 1 zapnuto, 0 vypnuto",
   "catalog.bpmglide.control2": "Menu -> BLECH -> GLIDE SWITCH: 1 zapnuto, 0 vypnuto",
   "catalog.lauflicht.description": "Světlo běží po padech.",
