@@ -868,17 +868,11 @@ pf_send:
 ; -> r0 = 1 while the LEDs go out dimmed: the firmware dims for power save, or IDLE POWER SAVE keeps less than all (S_IDLE, the
 ; runtime's script_idle.s writes it). Clobbers r12.
 pc_dimming:
-    push {lr}
-    bl pc_fw_dimming
-    cmp r0, #0
-    popne {pc}
     ldr r12, =STATE
     ldrb r0, [r12, #S_IDLE]
     cmp r0, #100
     movlo r0, #1
-    movhs r0, #0
-    pop {pc}
-
+    bxlo lr
 ; -> r0 = 1 while the firmware dims for power save and EXIT was not held at power-on. Clobbers r12.
 pc_fw_dimming:
     ldr r12, =PANEL

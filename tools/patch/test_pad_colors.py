@@ -171,7 +171,7 @@ class PadGeometryTests(unittest.TestCase):
                 at,code,_ = pad_colors.build_code()
                 self.assertEqual(at,pad_colors.CODE_AT)
                 self.assertEqual(code,old_code,build)
-                self.assertLessEqual(len(code),2684+808+256)    # + 40 for KNOB LEDS (12.11.), + 256 for the tie cache (14.11.)
+                self.assertLessEqual(len(code),2684+808+256+68)    # + 40 for KNOB LEDS (12.11.), + 256 for the tie cache (14.11.), + 68 for IDLE POWER SAVE (15.11., 24 bytes left before CODE_END)
                 self.assertLessEqual(at+len(code),pad_colors.CODE_END)
         finally:
             pad_colors.use_build('hacktribe')
