@@ -38,6 +38,9 @@ export const TIMEOUTS = { search: 1500, read: 3000, ack: 3000, pattern: 12000, g
 const LINE_MS_PER_BYTE = 0.4;
 /** How often a block whose CRC did not match is sent again before the run fails. Nothing is ever sent again after a timeout. */
 export const BLECH_RETRIES = 2;
+/** The FatFs results a FILE READ carries with status 6 when the file, or its folder, is not on the card. */
+const FR_NO_FILE = 4;
+const FR_NO_PATH = 5;
 
 /** What a failure says: an error's text, or its message when it has none (an error of the port or the browser). */
 export const textOf = e => e?.text ?? e?.message ?? String(e);
@@ -190,7 +193,7 @@ export class Sender {
   blechFailure(e, what) {
     if (!(e instanceof P.BlechError)) return e;
     const refused = e.status === P.BLECH.STATUS.REFUSED || e.status === P.BLECH.STATUS.RANGE;
-    return new SendError(refused ? "protected" : e.retry ? "crc" : "verify", e.text, { status: e.status, what });
+    return new SendError(refused ? "protected" : e.retry ? "crc" : "verify", e.text, { status: e.status, code: e.code, what });
   }
 
   /** Whole attempts with a CRC that did not fit are repeated, the first other failure ends it. */
@@ -355,12 +358,15 @@ export class Sender {
     return (P.BLECH.FILE_SAMPLE | (temp ? P.BLECH.FILE_OTHER : 0) | at) >>> 0;
   }
 
-  /** The size of the sample file (`temp`: its temp file); 0 when there is none. */
+  /**
+   * The size of the sample file (`temp`: its temp file); 0 when there is none, which the firmware tells by FatFs FR_NO_FILE (4) or
+   * FR_NO_PATH (5). Any other card error is thrown: taken for an empty card, an add would write a new header over the real file.
+   */
   async sampleFileSize(model, temp = false) {
     try {
       return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, this.sampleSelector(temp), 0, model), "blech-file-read"), this.channel, 0, model))).size;
     } catch (e) {
-      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE) return 0;
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE && (e.code === FR_NO_FILE || e.code === FR_NO_PATH)) return 0;
       throw e;
     }
   }
