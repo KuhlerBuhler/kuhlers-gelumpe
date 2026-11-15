@@ -97,6 +97,7 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 
 Startphase, Startmodi, Notschalter, Firmware als Datei und der Weg zurück.
 
+- [Laufzeit 1.4.0 auf einem fremden roten Gerät: Start-Haken, Redraw-Byte, Verlegen (Briefing Nat333)](2026-11-01-omnitribe-laufzeit-1.4.0.md)
 - [Startphase, Startmodi und Notschalter-Taste](2026-10-10-startphase.md)
 - [Firmware-Rückweg: geprüfte Quellen und getrennte Verfahren](2026-10-08-firmware-rueckweg.md)
 - [Geänderte Firmware als Datei, im Emulator gebootet](2026-10-09-firmware-export.md)
