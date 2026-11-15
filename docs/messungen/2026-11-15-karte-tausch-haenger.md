@@ -6,7 +6,7 @@ Rote Electribe, Test-VSB 599f7486 (release/1.4.6), Geräteliste `2026-11-14-gera
 
 - **Gemessen am Gerät:** andere Karte gesteckt, das Gerät steht. Ziehen beendet den Hänger, erneutes Stecken hängt wieder.
   Kurz danach ging dieselbe Karte und fragte SAVE TO FLASH?. Der Hänger kam beim ersten Tausch nach dem Einschalten,
-  der zweite Versuch ohne Neustart ging (Pascal). Dasselbe Muster wie beim ersten Stecken nach einem Start ohne Karte.
+  der zweite Versuch ohne Neustart ging. Dasselbe Muster wie beim ersten Stecken nach einem Start ohne Karte.
 - **Hergeleitet, offen:** Korg prüft die Antwort auf CMD8 nicht (`0xC001AE50`, das Ergebnis wird überschrieben) und
   setzt in ACMD41 immer HCS (`0xC001BE48`). Eine SDHC-Karte, die CMD8 nicht bekommen hat, bleibt bei HCS laut SD-Spec
   dauerhaft busy. Warum gerade der erste Init nach dem Einschalten das trifft, ist am Gerät nicht gemessen.
