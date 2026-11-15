@@ -453,6 +453,7 @@ frame_gate_open:
     bl shortcut_tick
     bl remote_tick
     bl script_press_key_tick
+    bl load_meter_frame          ; LOAD METER: the reading and the digits (script_load_meter.s)
     ldr r1, =APP_STATE
     ldr r1, [r1]
     cmp r1, #0

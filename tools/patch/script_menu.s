@@ -2385,7 +2385,7 @@ menu_show:
 
 ; r0 = the kind of a page -> r0 = 1 when the setting the page shows is the one the file holds (menu_orig_snap), 0 when it was changed
 ; or the page shows no setting. Builds the record of the settings as they are (menu_settings_crc leaves it in MENU_FILE_A) and
-; compares the bits of orig_masks for that kind: byte 5, the flags word and the look word of the record.
+; compares the bits of orig_masks for that kind: byte 5, byte 7, the flags word and the look word of the record.
 menu_orig_flag:
     push {r4, r5, lr}
     mov r4, r0
@@ -2406,6 +2406,12 @@ menu_orig_find:
     ldrb r3, [r5, #1]
     ands r2, r2, r3
     bne menu_orig_no
+    ldrb r2, [r0, #7]
+    ldrb r3, [r1, #7]
+    eor r2, r2, r3
+    ldrb r3, [r5, #2]
+    ands r2, r2, r3
+    bne menu_orig_no
     ldr r2, [r0, #12]
     ldr r3, [r1, #12]
     eor r2, r2, r3
@@ -2424,7 +2430,7 @@ menu_orig_no:
     mov r0, #0
     pop {r4, r5, pc}
 .pool
-; per kind (menu_texts_fill): the kind, the bits of byte 5, then the bits of the flags word and of the look word of the settings record
+; per kind (menu_texts_fill): the kind, the bits of byte 5, the bits of byte 7, then the bits of the flags word and of the look word of the settings record
 orig_masks:
     .byte 0, 0, 0, 0                  ; PLUGIN RUNTIME: bit 0 of the flags
     .word 0x00000001, 0
@@ -2483,6 +2489,8 @@ orig_masks:
     .byte 51, 128, 0, 0               ; AUTO SAVE: bit 7
     .word 0, 0
     .byte 53, 64, 0, 0                ; KNOB LEDS: bit 6
+    .word 0, 0
+    .byte 59, 0, FLAGS2_LOAD_METER, 0 ; LOAD METER: bit 0 of byte 7
     .word 0, 0
     .byte 0xFF, 0, 0, 0
 
@@ -3043,6 +3051,8 @@ menu_texts_clear:
     beq menu_text_as
     cmp r0, #53
     beq menu_text_knob
+    cmp r0, #59
+    beq menu_text_lm
     cmp r0, #57
     cmpne r0, #58
     beq menu_text_anim
@@ -3589,6 +3599,19 @@ menu_text_knob:
     ldr r1, =str_on
     cmp r0, #0
     ldrne r1, =str_off
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; LOAD METER: the ARM's load as two digits on the main screen's top row (script_load_meter.s), bit 0 of byte 7 (MX_FLAGS2)
+menu_text_lm:
+    mov r0, #3
+    bl menu_title_prefix
+    ldr r1, =str_lm
+    bl menu_copy
+    ldrb r2, [r5, #MX_FLAGS2]
+    ldr r1, =str_off
+    tst r2, #FLAGS2_LOAD_METER
+    ldrne r1, =str_on
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
@@ -4185,7 +4208,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -6151,6 +6174,8 @@ menu_slot_value:
     beq menu_value_as
     cmp r0, #53
     beq menu_value_knob
+    cmp r0, #59
+    beq menu_value_lm
     cmp r0, #56
     beq menu_value_dev
     cmp r0, #57
@@ -6386,6 +6411,16 @@ menu_value_knob:
     mov r2, #1
     mov r1, #40
     bl menu_pc_call
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; LOAD METER acts at once (the frame draws or takes the digits away), WRITE keeps it: ON up, OFF down
+menu_value_lm:
+    ldrb r1, [r6, #MX_FLAGS2]
+    cmp r5, #0
+    orrgt r1, r1, #FLAGS2_LOAD_METER
+    bicle r1, r1, #FLAGS2_LOAD_METER
+    strb r1, [r6, #MX_FLAGS2]
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
@@ -7123,6 +7158,8 @@ str_as:
     .asciz "AUTO SAVE"
 str_knob:
     .asciz "KNOB LEDS"
+str_lm:
+    .asciz "LOAD METER"
 str_sp:
     .asciz "STEREO 1 PAD"
 str_us:
@@ -7160,13 +7197,13 @@ custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD C
     .byte 16, 16, 16, 16, 16
 .align 4
 sub_kinds:                      ; the kinds of the pages of DISPLAY, LED, PAD COLOR and POWER SAVE, 16 a group (device 18.10.)
-    .byte 11, 12, 13, 26, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0       ; DISPLAY: backlight red, green, blue, INTENSITY, display invert
+    .byte 11, 12, 13, 26, 14, 59, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0      ; DISPLAY: backlight red, green, blue, INTENSITY, display invert, LOAD METER
     .byte 7, 8, 9, 10, 28, 29, 30, 31, 53, 0, 0, 0, 0, 0, 0, 0      ; LED: bottom LEDs, LED red, green, blue, the meter's four colours, KNOB LEDS
     .byte 24, 25, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; PAD COLOR: pad colour, select colour, overlap
     .byte 27, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0          ; POWER SAVE: DISPLAY LIGHT, LED DIMMING (device 19.10.: SAVE LIGHT under DISPLAY said too little)
     .byte 22, 23, 35, 57, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0       ; SPLASH: IMPORT, DRAW, RESET (device 22.10.: three rows of their own in CUSTOMIZATION were too many), LOADING ANIM, ANIM LOOP
 sub_counts:                     ; LED: KNOB LEDS, the last, only where the set has the pad colours (menu_count_features)
-    .byte 5, 9, 3, 2, 3
+    .byte 6, 9, 3, 2, 3
 led_dim_percent:                ; LED DIMMING, the steps of the dial: percent dimmed (pad_colors.py keeps the step 8 places on, 75 is 0)
     .byte 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100
 meter_palette:                  ; red, green, blue of the colours 1 to 7, then the firmware's colours of the four zones
