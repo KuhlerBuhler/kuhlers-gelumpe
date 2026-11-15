@@ -291,6 +291,7 @@ def copy_cases(vsb, flash, programs, built):
         dev.press(0x0E, 1.0)
         if dev.read(bank + n * 0x4000, 0x4000) == dev.read(at, 0x4000):
             break
+    dev.run(0.5)        # the bank in RAM is copied before the flash write ends; a turn while it runs is lost
     saved = dev.read(bank + n * 0x4000, 0x4000)
     dev.turn(1, 0.6)
     away = dev.u32(RUNNING)

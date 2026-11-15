@@ -2033,8 +2033,10 @@ def pad_colour_cases(payload, flash=None):
     # OVERLAP chosen (device 18.10.): red instead of the colour left
     goto_group(dev, GROUP_PADS, 2)
     over_page = texts_of(dev)
+    sent = len(dev.m.panel_log)
     dev.turn(1, wait=0.4)
     over_red = texts_of(dev)[1]
+    over_pads = sum(1 for m in dev.m.panel_log[sent:] if m[0] == 0 and 0x2C <= m[1] < 0x4C)
     go(dev, 1)
     dev.m.send([4, 3, 0, 100, 1])
     dev.run(0.15)
@@ -2042,6 +2044,7 @@ def pad_colour_cases(payload, flash=None):
     dev.m.send([4, 3, 0, 0, 0])
     dev.run(0.3)
     add("overlap_chosen", over_page == ("OVERLAP", "AUTO", "") and over_red == "RED" and both_red == (255, 0), f"page {over_page}, then {over_red}, pad 4 held and selected {both_red}")
+    add("overlap_sent_at_once", over_pads >= 32, f"pad LED messages right after the turn on OVERLAP: {over_pads} (all 32 go out at once, not after the menu)")
     goto_group(dev, GROUP_PADS, 0)
     press(dev, "write", wait=0.6)
     word = read_settings_look(dev.m.mmc.card.medium.data).get("b", (0, 0, 0, None))[3]
@@ -2071,8 +2074,8 @@ def pad_colour_cases(payload, flash=None):
     before, during, after = dimmed(plain)
     lit = {led: v for led, v in before.items() if v and not 0x4C <= led <= 0x57}   # the bottom RGB LEDs: power save switches them off itself
     quarter = {led: during.get(led, 0) for led in lit}
-    # the knob LEDs 0 to 4 go out, every other one is at a quarter (device 18.10.)
-    add("power_save_dims_every_led", lit and any(led <= 4 for led in lit) and all(quarter[led] == (0 if led <= 4 else (v + 3) >> 2) for led, v in lit.items())
+    # every LED is at a quarter, the knob LEDs too while KNOB LEDS is ON (device test 15.11.; until then they went out, 18.10.)
+    add("power_save_dims_every_led", lit and any(led <= 4 for led in lit) and all(quarter[led] == (v + 3) >> 2 for led, v in lit.items())
         and {led: after.get(led, 0) for led in lit} == lit
         and not plain.m.asserts, f"lit before {lit}, while dimmed {quarter}, after {({led: after.get(led, 0) for led in lit})}")
     before, during, after = dimmed(again)
@@ -2088,18 +2091,39 @@ def pad_colour_cases(payload, flash=None):
     # POWER SAVE, LED DIMMING: 75 percent when never set; 0 percent leaves every LED (the knobs too), 100 percent puts all out (device wish 19.10.)
     goto_group(plain, GROUP_PSAVE, 1)
     first = texts_of(plain)
+    # the base is what the firmware wants while dimmed (LED manager + 0x4E + 8 * LED): knob LED 1 follows the turned value
+    mgr = synthaddr.tr(0xC0345A1C) if synthaddr.is_synth(payload) else 0xC0345A1C
     def at(turn):
         plain.turn(turn, wait=0.4)
-        b, d, _ = dimmed(plain)
-        shown = {led: v for led, v in b.items() if v and not 0x4C <= led <= 0x57}
+        plain.call(PC.DIM_SWITCH, 1)
+        plain.run(0.3)
+        d = dict(plain.m.leds)
+        want = {led: plain.read(plain.u32(mgr) + 0x4E + 8 * led, 1)[0] for led in range(0x4C)}
+        plain.call(PC.DIM_SWITCH, 0)
+        plain.run(0.3)
+        shown = {led: v for led, v in want.items() if v}
         return texts_of(plain)[1], shown, {led: d.get(led, 0) for led in shown}
     none, full, part = at(-8), at(11), at(-4)
-    # at 0 percent BLECH leaves every LED as the firmware sends it; the knob LEDs then show the firmware's own power save value
-    knobless = lambda d: {led: v for led, v in d.items() if led > 4}
-    add("power_save_led_dimming", first == ("LED DIMMING", "75%", "") and none[0] == "0%" and knobless(none[1]) and knobless(none[2]) == knobless(none[1])
+    # at 0 percent BLECH leaves every LED as the firmware sends it, the knob LEDs too
+    add("power_save_led_dimming", first == ("LED DIMMING", "75%", "") and none[0] == "0%" and none[1] and none[2] == none[1]
         and full[0] == "100%" and set(full[2].values()) == {0}
-        and part[0] == "70%" and all(part[2][led] == (0 if led <= 4 else (v * 30 + 99) // 100) for led, v in part[1].items()) and not plain.m.asserts,
+        and part[0] == "70%" and all(part[2][led] == (v * 30 + 99) // 100 for led, v in part[1].items()) and not plain.m.asserts,
         f"page {first}; at {none[0]} {none[1]} -> {none[2]}; at {full[0]} -> {full[2]}; at {part[0]} {part[1]} -> {part[2]}")
+    # live (device test 15.11.: the LEDs took a new step only after the menu was left): while dimmed, each turn of the page sends
+    # every LED at once in the new step, without a change of the power save switch
+    plain.call(PC.DIM_SWITCH, 0)                # the page stands at 70 percent; first what the firmware wants
+    plain.run(0.3)
+    full_now = {led: v for led, v in plain.m.leds.items() if v and not 0x4C <= led <= 0x57}
+    plain.call(PC.DIM_SWITCH, 1)
+    plain.run(0.3)
+    live = []
+    for turn, dims in ((-4, 30), (-3, 0), (11, 100), (-4, 70)):    # ends at 70 percent again for WRITE below
+        plain.turn(turn, wait=0.4)
+        live.append((texts_of(plain)[1], dims, {led: plain.m.leds.get(led, 0) for led in full_now}))
+    plain.call(PC.DIM_SWITCH, 0)
+    plain.run(0.3)
+    add("power_save_led_dimming_live", full_now and all(shown == f"{dims}%" and all(leds[led] == (v * (100 - dims) + 99) // 100 for led, v in full_now.items())
+        for shown, dims, leds in live) and not plain.m.asserts, f"lit {full_now}; while dimmed, at once after each turn: {live}")
     press(plain, "write", wait=0.6)
     look = read_settings_look(plain.m.mmc.card.medium.data).get("b", (0, 0, 0, None))
     keep = Dev(payload, flash, 0)
@@ -2737,7 +2761,7 @@ def knob_leds_cases(payload, flash=None):
     """CUSTOMIZATION, LED, KNOB LEDS (patch pad-colors, wish 12.11.): ON is stock (no file, a file without the bit), OFF sends the five
     knob LEDs 0 to 4 dark at once while the firmware keeps its own values, a knob turned on the main screen lights none of them, ON
     sends them again; WRITE keeps OFF as bit 6 of byte 5 next to the meter's bit 0, the next start has them dark, EXIT held at
-    power-on lights them as stock."""
+    power-on lights them as stock. In power save ON shows them dimmed like every other LED and OFF dark, also from power-on."""
     import pad_colors as PC
     out = []
 
@@ -2798,6 +2822,37 @@ def knob_leds_cases(payload, flash=None):
     newest = max(read_settings_look(again.m.mmc.card.medium.data).items(), key=lambda kv: kv[1][0])[0]
     extras = settings_extras(again.m.mmc.card.medium.data).get(newest, 0)
     add("file_holds_on", extras == 1 and knobs(again)[1:] == stock[1:], f"byte 5 {extras:#x}, knob LEDs {knobs(again)}")
+
+    # power save (device test 15.11.: dark in power save whatever KNOB LEDS said, ON did not bring them back): while the firmware
+    # dims, ON shows them dimmed like every other LED (a quarter when LED DIMMING was never set), OFF keeps them dark
+    quarter = lambda d: [(v * 25 + 99) // 100 for v in wanted(d)]
+    lit = boot(payload, flash, files=meter_file, adapter=True, seconds=wait)
+    goto_group(lit, GROUP_LED, 8)
+    lit.call(PC.DIM_SWITCH, 1)
+    lit.run(0.3)
+    dim_on = knobs(lit), quarter(lit)
+    lit.turn(-1, wait=0.4)
+    dim_off = texts_of(lit)[1], knobs(lit)
+    lit.turn(1, wait=0.4)
+    dim_on_again = texts_of(lit)[1], knobs(lit), quarter(lit)
+    lit.call(PC.DIM_SWITCH, 0)
+    lit.run(0.3)
+    add("power_save_on_dimmed", any(dim_on[0][1:]) and dim_on[0][1:] == dim_on[1][1:] and not lit.m.asserts,
+        f"dimmed with ON {dim_on[0]}, a quarter of the firmware's {dim_on[1]}")
+    add("power_save_off_dark", dim_off == ("OFF", [0] * 5) and not lit.m.asserts, f"OFF while dimmed: {dim_off}")
+    add("power_save_on_again", dim_on_again[0] == "ON" and any(dim_on_again[1][1:]) and dim_on_again[1][1:] == dim_on_again[2][1:]
+        and not lit.m.asserts, f"ON while dimmed: {dim_on_again}")
+    add("power_save_back", knobs(lit)[1:] == wanted(lit)[1:] and any(knobs(lit)[1:]), f"after power save {knobs(lit)}, the firmware wants {wanted(lit)}")
+    # a start in power save (the firmware dims from power-on, on battery here) with the file's OFF stays dark, with ON lights dimmed
+    for name, file_image, want_dark in (("start_off", image, True), ("start_on", again.m.mmc.card.medium.data, False)):
+        dev = Dev(payload, flash, 0)
+        dev.m.insert_card(SDCard(MemoryMedium(bytearray(file_image))))
+        dev.run(wait + 0.8)
+        dev.call(PC.DIM_SWITCH, 1)              # whether the firmware dims on battery depends on POWER SAVE in the flash
+        dev.run(0.3)
+        seen, want = knobs(dev), quarter(dev)
+        add(f"power_save_{name}", (seen == [0] * 5 if want_dark else any(seen[1:]) and seen[1:] == want[1:]) and not dev.m.asserts,
+            f"knob LEDs {seen}, a quarter of the firmware's {want}, dims from power-on {dev.read(PC.DIM_FLAG, 1)[0] != 0}")
     return out
 
 
@@ -3045,6 +3100,34 @@ def card_later_cases(payload, flash=None):
     add("swap_reads_the_other_card", ref_a != ref_b and pulled == ref_a and got_b == ref_b and not dev.m.asserts, f"pulled {pulled}; other card {got_b}; started with it {ref_b}")
     add("runtime_stays", kept == eff, f"plugin runtime and MFX 2 in effect before {eff}, after {kept}")
     add("card_not_written", bytes(dev.m.mmc.card.medium.data) == untouched, "the card was " + ("not written" if bytes(dev.m.mmc.card.medium.data) == untouched else "written"))
+
+    # a card that is identified only at the power-on clock: the card before left the controller at 12.5 MHz, 4-bit (device 14.11.)
+    slow = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    slow.m.eject_card()
+    slow.run(0.5)
+    clock = slow.m.mmc.regs.get(4, 0), slow.m.mmc.regs.get(0, 0)
+    slow.m.insert_card(SDCard(MemoryMedium(card_image(files_b)), slow_ident=True))
+    slow.run(1.0)
+    add("swap_identifies_at_the_start_clock", look(slow) == ref_b and slow.u32(SD_INIT_LOCK) == 0 and state(slow, S_CARD) == 0xFF
+        and not slow.m.asserts, f"card out: MMCCLK {clock[0]:#x}, MMCCTL {clock[1]:#x}; other card {look(slow)}, lock {slow.u32(SD_INIT_LOCK)}, "
+        f"card state {state(slow, S_CARD):#x}; started with it {ref_b}")
+
+    # a card still going in: no answer yet, and its detect switch opens once 0.5 s after the first contact (device 15.11.)
+    moving = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    moving.m.eject_card()
+    moving.run(0.5)
+    card_m = SDCard(MemoryMedium(card_image(files_b)))
+    card_m.fail("no_response")
+    moving.m.insert_card(card_m)
+    moving.run(0.5)
+    moving.m.eject_card()
+    moving.run(0.04)
+    card_m.heal()
+    moving.m.insert_card(card_m)
+    moving.run(1.0)
+    add("card_going_in_is_read_once_in", look(moving) == ref_b and moving.u32(SD_INIT_LOCK) == 0 and state(moving, S_CARD) == 0xFF
+        and not moving.m.asserts, f"other card {look(moving)}, lock {moving.u32(SD_INIT_LOCK)}, card state {state(moving, S_CARD):#x}; "
+        f"started with it {ref_b}")
 
     # started without a card: the first card after such a start can hang the Korg SD init on the device, so none is read until the next start
     bare_dev = boot(payload, flash, adapter=True, card=False, seconds=wait)

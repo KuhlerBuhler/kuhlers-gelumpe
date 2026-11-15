@@ -59,8 +59,15 @@ Satz liest es 1 und Schreiben tut nichts (hergeleitet aus `menu_pc_call`, kein S
 | `on_again` | 1 geschrieben: liest 1, Sollwert wieder geschickt |
 | `page_shows_on` | Seite `KNOB LEDS` / `ON` |
 
+## Power Save (Gerätetest 15.11.)
+
+Am Gerät blieben die Regler-LEDs im Power Save dunkel, auch mit ON, und ON brachte sie nicht zurück. Der Haken setzte im Power
+Save jede Regler-LED auf 0 (Regel vom 18.10., [Power Save](2026-10-18-energiesparen-leds.md)). Jetzt: ON gedimmt wie jede andere
+LED (Stufe von LED DIMMING), OFF dunkel, auch ab dem Einschalten. Fälle `power_save_on_dimmed`, `power_save_off_dark`,
+`power_save_on_again`, `power_save_back`, `power_save_start_off`, `power_save_start_on` in `knob_leds_cases`.
+
 ## Offen
 
-- Am Gerät nicht geprüft: ob die LEDs mit OFF wirklich dunkel bleiben und mit ON wieder angehen, auch nach Power Save.
+- Am Gerät nicht geprüft: ob die LEDs mit OFF wirklich dunkel bleiben und mit ON wieder angehen, im Power Save gedimmt.
 - VALUE leuchtet in der Firmware nur beim Drehen; mit OFF bleibt es auch dann aus (hergeleitet aus `knob_turned_stays_dark`,
   am Gerät offen).
