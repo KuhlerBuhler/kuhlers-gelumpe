@@ -2927,6 +2927,12 @@ def early_run(payload, flash, files, held=0):
             seen.update(loader_ms=m.time_ns / 1e6, on=state(dev, S_ON), led_eff=state(dev, S_LED_EFF), bl_on=state(dev, S_BL_ON), bl_pwm=state(dev, S_BL_PWM),
                         led_v=dev.read(STATE + S_LED_V, 3), pins=pins(dev), screen=dev.screen()["number"])
     m.uc.hook_add(unicorn.UC_HOOK_CODE, at_loader, begin=SAMPLE_LOADER, end=SAMPLE_LOADER)
+
+    def at_site(uc, address, size, user):              # the early hook: its branch at EARLY_SITE, back at the instruction after it
+        key = "hook_in_ms" if address == EARLY_SITE else "hook_out_ms"
+        if key not in seen and (key == "hook_in_ms" or "hook_in_ms" in seen):
+            seen[key] = m.time_ns / 1e6
+    m.uc.hook_add(unicorn.UC_HOOK_CODE, at_site, begin=EARLY_SITE, end=EARLY_SITE + 4)
     m.uc.ctl_flush_tb()
     while m.time_ns / 1e9 < 3.0 and not m.asserts:
         m.run_until(m.time_ns / 1e9 + 0.002)
@@ -3111,11 +3117,14 @@ def early_look_cases(payload, flash=None):
     add("armed_before_the_loader", early.get("on") == 1 and early.get("screen") != 1 and late.get("on") != 1, f"at the loader's start: early copy armed {early.get('on')}, copy without the hook {late.get('on')}")
     add("look_applied_before_the_loader", early.get("led_eff") == 2 and tuple(early.get("led_v", b"")) == (255, 119, 0) and early.get("bl_pwm") == 1 and early.get("bl_on") == 0x08
         and early.get("pins", 0) & 0x38 in (0, 0x08) and late.get("led_eff") != 2, f"LED kind {early.get('led_eff')}, colour {tuple(early.get('led_v', b''))}, light pins {early.get('bl_on')}, PWM {early.get('bl_pwm')}; without the hook {late.get('led_eff')}")
-    # The loader waits for the early hook (menu_arm_load and migrate_start read the card): 10.2 ms at GELUMPE_PACE=flat, 17.2 ms at the
-    # device pace (measured 2026-11-10 from the hook's entry to its return; the loader then starts 4 to 5 ms later in both copies). 25 ms holds that with room for the emulator's noise. The main screen below gets the same 25 ms: the hook's 17.2 ms can reach it in full (a copy
-    # without the hook was 17.2 ms earlier on the main screen after the dead card change, 5.6 ms before it, the hooked copy the same both times).
-    add("loader_starts_at_the_same_time", abs(early["loader_ms"] - late["loader_ms"]) < 25, f"loader {early['loader_ms']:.1f} ms with the hook, {late['loader_ms']:.1f} ms without (the settings are read first now, not afterwards)")
-    add("main_screen_not_later", early["main_ms"] <= late["main_ms"] + 25 and not early["asserts"], f"main screen at {early['main_ms']:.1f} ms with the hook, {late['main_ms']:.1f} ms without")
+    # The loader waits for the early hook (menu_arm_load and migrate_start read the card): 17.2 ms at the device pace on 2026-11-10, more
+    # since then (the Patterns backup and the update guard read at power-on too). Both copies may differ by the hook's own time, measured
+    # here from its entry to its return, plus 8 ms for the emulator's noise (the loader starts 4 to 5 ms after the hook in both copies; a
+    # copy without the hook was 17.2 ms earlier on the main screen after the dead card change, 5.6 ms before it). The fixed 25 ms broke
+    # once the hook took 22.8 ms (develop 15e90ad6, red: the main screen 27.4 ms later).
+    hook = early.get("hook_out_ms", 0) - early.get("hook_in_ms", 0)
+    add("loader_starts_at_the_same_time", abs(early["loader_ms"] - late["loader_ms"]) < hook + 8, f"loader {early['loader_ms']:.1f} ms with the hook, {late['loader_ms']:.1f} ms without (the settings are read first now, not afterwards), the hook {hook:.1f} ms")
+    add("main_screen_not_later", 0 < hook < 60 and early["main_ms"] <= late["main_ms"] + hook + 8 and not early["asserts"], f"main screen at {early['main_ms']:.1f} ms with the hook, {late['main_ms']:.1f} ms without, the hook {hook:.1f} ms")
     held = early_run(payload, flash, files, held=KILL)
     add("exit_held_stays_stock", held.get("on") != 1 and held.get("pins") == GPIO_PINS and not held["asserts"], f"armed {held.get('on'):#x}, light pins {held.get('pins'):#x}")
     return out + boot_light_cases(payload, flash)
