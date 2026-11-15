@@ -37,6 +37,7 @@ export const GALLERY = [
   { id: "rules-for-terror", title: "Rules for Terror", creator: "VenganceTerror", src: "img/splash/rules-for-terror.png" },
 ];
 const OWN = "cee.splash.own";
+const PAGE_KEY = "cee.design.page";
 
 /** 0/1 per pixel to base64 of 1024 bytes and back: how an own picture is kept in this browser. */
 export const packBits = pixels => btoa(String.fromCharCode(...Array.from({ length: pixels.length / 8 }, (_, i) => pixels.slice(i * 8, i * 8 + 8).reduce((b, p, k) => b | (p ? 0x80 >> k : 0), 0))));
@@ -86,7 +87,7 @@ export function switchOf(id, text) {
   return { input, node: el("label", { className: "ui-switch" }, [input, el("span", { className: "ui-switch-track", ariaHidden: "true" }), text]) };
 }
 
-export function splashPage(root) {
+export function splashPage(root, { sub = null, trail = () => {} } = {}) {
   if (!document.querySelector("link[data-cee-splash]")) {
     const css = el("link", { rel: "stylesheet", href: STYLE });
     css.setAttribute("data-cee-splash", "");
@@ -94,6 +95,21 @@ export function splashPage(root) {
   }
   let picture = null;
   let pixels = null;
+  // The sub-pages in the sidebar: the start images, the editor that makes one, the loading animation, the Image Viewer's pictures.
+  const SUB = [
+    { id: "images", title: t("splash.page.images"), icon: "image", panel: 0 },
+    { id: "make", title: t("splash.page.make"), icon: "pencil", panel: 0 },
+    { id: "anim", title: t("splash.anim.title"), icon: "film", panel: 1 },
+    { id: "pics", title: t("pics.title"), icon: "eye", panel: 2 },
+  ];
+  let subPages = null;
+  /** Marks the open sub-page in the sidebar and the navbar, and keeps it for the next start. */
+  function mark(id) {
+    subPages?.select(id);
+    const item = SUB.find(p => p.id === id);
+    if (item) trail([item.title]);
+    try { localStorage.setItem(PAGE_KEY, id); } catch {}
+  }
 
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-splash-file", accept: "image/*" });
   const files = el("span", { className: "ui-dropzone-files" });
@@ -186,23 +202,9 @@ export function splashPage(root) {
     gallery.replaceChildren(...GALLERY.map(item => card(item, false)), ...readOwn().map(item => card(item, true)));
   }
 
-  // Three tabs, each its own section: the start image for the card, the loading animation for the Patcher, and pictures for the Image Viewer.
-  const tabs = el("div", { className: "ui-tabs", id: "cee-design-tabs" });
-  tabs.setAttribute("role", "tablist");
-  tabs.setAttribute("aria-label", t("nav.splash"));
-  const panels = [["splash", t("splash.title")], ["anim", t("splash.anim.title")], ["pics", t("pics.title")]].map(([id, text], i) => {
-    const tab = el("button", { type: "button", className: "ui-tab", id: `cee-design-tab-${id}`, textContent: text });
-    tab.setAttribute("role", "tab");
-    tab.dataset.tab = id;
-    tab.setAttribute("aria-controls", `cee-design-panel-${id}`);
-    tab.setAttribute("aria-selected", String(i === 0));
-    if (i) tab.tabIndex = -1;
-    tabs.append(tab);
-    const panel = el("div", { className: "ui-tabpanel", id: `cee-design-panel-${id}`, tabIndex: 0, hidden: i > 0 });
-    panel.setAttribute("role", "tabpanel");
-    panel.setAttribute("aria-labelledby", tab.id);
-    return panel;
-  });
+  // Three sections, each a sub-page in the sidebar like the ones of Plugins: the start images for the card (the gallery
+  // and, as a page of its own, the editor that makes one), the loading animation for the Patcher, and pictures for the Image Viewer.
+  const panels = ["splash", "anim", "pics"].map((id, i) => el("div", { className: "cee-design-panel", id: `cee-design-panel-${id}`, hidden: i > 0 }));
 
   const dropZone = dropzoneClear(fileInput, () => {
     picture = null;
@@ -248,9 +250,10 @@ export function splashPage(root) {
     steps(),
   ]);
   const PAGES = { gallery: galleryPage, detail: detailPage, editor: editorPage };
-  function show(id) {
+  function show(id, { scroll = true } = {}) {
     for (const [k, node] of Object.entries(PAGES)) node.hidden = k !== id;
-    PAGES[id].scrollIntoView?.({ block: "nearest" });
+    mark(id === "editor" ? "make" : "images");
+    if (scroll) PAGES[id].scrollIntoView?.({ block: "nearest" });
   }
   /** One picture's page: big, with its creator, download and Bearbeiten, and Entfernen for an own one. */
   function openDetail(item, own) {
@@ -290,8 +293,7 @@ export function splashPage(root) {
   panels[0].append(el("section", { className: "ui-section", id: "cee-splash-section" }, [galleryPage, detailPage, editorPage]));
   panels[1].append(loadingAnimSection());
   panels[2].append(pictureFileSection());
-  root.replaceChildren(el("h1", { className: "ui-sr-only", textContent: t("nav.splash") }), tabs, ...panels);
-  window.ui?.tabs?.(tabs, { persist: "cee.design.tab", hash: false });
+  root.replaceChildren(el("h1", { className: "ui-sr-only", textContent: t("nav.splash") }), ...panels);
 
   /** Puts a picture into the editor: a dropped file or one of the gallery. */
   function open(img, name) {
@@ -308,6 +310,20 @@ export function splashPage(root) {
     document.getElementById("cee-splash-work").scrollIntoView?.({ block: "nearest" });
   }
   drawGallery();
+
+  subPages = sub?.pages("splash", { id: "cee-splash-pages", label: t("splash.pages"), items: SUB.map(({ id, title, icon }) => ({ id, title, icon })), pick: id => page(id) });
+  function page(id, { scroll = true } = {}) {
+    const at = SUB.find(p => p.id === id) ?? SUB[0];
+    panels.forEach((panel, i) => { panel.hidden = i !== at.panel; });
+    if (at.id === "images") show("gallery", { scroll: false });
+    else if (at.id === "make") show("editor", { scroll: false });
+    else mark(at.id);
+    if (scroll) window.scrollTo?.({ top: 0, behavior: "instant" });
+  }
+  // The open sub-page is kept in this browser like the tab before it.
+  let saved = null;
+  try { saved = localStorage.getItem(PAGE_KEY); } catch {}
+  page(saved ?? "images", { scroll: false });
 
   fileInput.addEventListener("change", () => {
     const file = fileInput.files?.[0];

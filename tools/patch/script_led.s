@@ -244,6 +244,14 @@ led_send_reject:
     mov r0, #0
 led_send_restore:
     .word 0xE12FF006 ; msr cpsr_cxsf, r6
+    cmp r0, #0
+    beq led_send_out
+    sub r12, r4, #0x4c              ; a meter LED: the LED manager's next send of it goes out again (script_menu.s:meter_dedupe_hook)
+    cmp r12, #11
+    ldrls r1, =METER_SENT
+    mvnls r2, #0
+    strls r2, [r1, r12, lsl #2]
+led_send_out:
     add sp, sp, #4
     pop {r4-r11, pc}
 .pool
