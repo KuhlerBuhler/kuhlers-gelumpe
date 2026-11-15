@@ -788,7 +788,7 @@ function boot() {
   });
   supportPage({ avatar: $("#cee-support-avatar"), wallpaper: $("#cee-support-wallpaper") });
   featuresPage($("#cee-features"));
-  splashPage($("#cee-splash"));
+  splashPage($("#cee-splash"), { sub: options, trail: parts => nav.trail("splash", parts) });
   // A run from the console opens the Plugins page, where the run area shows it.
   const scripts = scriptsPanel($("#cee-scripts"), { storage, sub: options, session: () => device.session ?? null, onRun: () => areas?.select("scripts", { focus: false }), trail: (parts, home) => nav.trail("scripts", parts, home), navbar: nodes => nav.plugins(nodes) });
   // The console always talks to the emulator; this switch in the navbar lets a script go on to a connected Electribe.
