@@ -465,9 +465,10 @@ card_watch_slow:
     tst r0, #FL_ASK             ; the question goes with the card
     bic r1, r0, #FL_ASK
     str r1, [r4, #M_FL]
-    ldrne r1, =UI_REDRAW
+    ldrne r1, =SCREEN_MANAGER
+    ldrne r1, [r1]
     movne r2, #1
-    strbne r2, [r1]
+    strbne r2, [r1, #UI_REDRAW_AT]
     tst r0, #FL_HOLD
     beq card_watch_out
     mov r0, #CARD_PULL
@@ -1265,9 +1266,10 @@ menu_ask_frame:
     str r0, [r8, #M_FL]
     cmp r1, #2
     bleq menu_flash_save_status
-    ldr r1, =UI_REDRAW          ; the firmware draws its own screen again
+    ldr r1, =SCREEN_MANAGER     ; the firmware draws its own screen again
+    ldr r1, [r1]
     mov r2, #1
-    strb r2, [r1]
+    strb r2, [r1, #UI_REDRAW_AT]
     b menu_ask_out
 menu_ask_draw:
     bl display_clear
@@ -2656,9 +2658,10 @@ menu_brw_fill:
     strb r0, [r5, #M_SPLASH_CACHE]
     strb r0, [r5, #M_BRW_ON]
     cmp r9, #0
-    ldrne r1, =UI_REDRAW
+    ldrne r1, =SCREEN_MANAGER
+    ldrne r1, [r1]
     movne r0, #1
-    strbne r0, [r1]
+    strbne r0, [r1, #UI_REDRAW_AT]
     pop {r4, r6-r11, pc}
 menu_brw_plugins:               ; the value line goes under the rows when it says more than ON or OFF
     mov r0, #0
@@ -6131,9 +6134,10 @@ menu_desc_frame_off:
     popeq {r4-r8, pc}
     mov r0, #0
     strb r0, [r8, #M_DESC_ON]
-    ldr r1, =UI_REDRAW
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
     mov r0, #1
-    strb r0, [r1]
+    strb r0, [r1, #UI_REDRAW_AT]
     pop {r4-r8, pc}
 .pool
 

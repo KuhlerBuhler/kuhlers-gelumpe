@@ -24,7 +24,7 @@ from sdcard import MemoryMedium, SDCard  # noqa: E402
 import fat32  # noqa: E402
 import synthaddr  # noqa: E402
 import firmware  # noqa: E402
-from splash_cases import Dev, SWITCH_SCREEN, has_start_hook  # noqa: E402
+from splash_cases import Dev, SWITCH_SCREEN, TICK, has_start_hook  # noqa: E402
 from unicorn import arm_const  # noqa: E402
 
 HEADER = 0x100
@@ -36,8 +36,8 @@ S_ON, S_PAGE, S_ENTER, S_COUNT, S_RUN, S_MFX = 0, 4, 8, 12, 16, 20
 S_SET_RUN, S_SET_MFX = S_RUN, S_MFX
 S_TITLE, S_VALUE, S_LINE3 = 0x40, 0x60, 0x80
 COUNTER_VTABLE = 0xC00E5218
-UI_MANAGER = 0xC06C2220
-UI_REDRAW = 0xC06C226C
+SCREEN_MANAGER = 0xC03404C0   # -> the screen manager (heap, moves with the flash content); the tick gets it plus 0x10
+UI_REDRAW_AT = 0x10 + 0x4C     # the tick's redraw byte in the manager (script_app.s:UI_REDRAW_AT)
 KILL = 0x2000
 KEYS = {"menu": 0x09, "edit_prev": 0x08, "edit_next": 0x0C, "exit": 0x0D, "write": 0x0E}
 
@@ -116,8 +116,13 @@ def text(dev, offset):
     return dev.read(STATE + offset, 32).split(b"\0")[0].decode("latin-1")
 
 
+def ui_redraw(dev):
+    """The redraw byte of the screen tick in this device's screen manager, as the runtime finds it."""
+    return dev.u32(SCREEN_MANAGER) + UI_REDRAW_AT
+
+
 def screen_object(dev):
-    return dev.m.u32(dev.a(UI_MANAGER) + 0x10)
+    return dev.m.u32(dev.u32(SCREEN_MANAGER) + 0x20)
 
 
 def counter(dev):
@@ -317,7 +322,7 @@ def draw_tab(dev, label, index=None, total=None):
     scratch = script_hooks.CARD + 0xE00
     dev.m.uc.mem_write(scratch, label.encode() + b"\0")
     dev.m.uc.mem_write(state(dev, S_TABW) + TAB_TEXT_POINTER, struct.pack("<I", scratch))
-    dev.m.uc.mem_write(dev.a(UI_REDRAW), b"\1")
+    dev.m.uc.mem_write(ui_redraw(dev), b"\1")
     if index is not None:
         counter_widget = dev.u32(screen_object(dev) + COUNTER_WIDGET)
         dev.m.uc.mem_write(STATE + S_RAW, struct.pack("<I", 1))
@@ -383,7 +388,7 @@ def value_row_leftovers(dev):
     if dev.read(STATE + S_BRW_ON, 1)[0]:
         shown = lit(frame(dev), range(8, 64))
         dev.m.uc.mem_write(0xC031B310 + 128, b"\0" * (1024 - 128))
-        dev.m.uc.mem_write(dev.a(UI_REDRAW), b"\1")
+        dev.m.uc.mem_write(ui_redraw(dev), b"\1")
         dev.run(0.3)
         alone = lit(frame(dev), range(8, 64))
         return shown - alone, alone - shown
@@ -570,9 +575,24 @@ def blechy_ring_cases(dev):
     dev.turn(-9, wait=0.4)
     turned = here()
     add("blechy_dial_changes_nothing", turned == after, f"{turned}")
+    import unicorn
+    uc, arm = dev.m.uc, dev.m.A
+    redraw, ticks, sets = ui_redraw(dev), [], []
+    code = (script_hooks.MORE3_START, script_hooks.MORE3_END)
+    hooks = [uc.hook_add(unicorn.UC_HOOK_CODE, lambda u, a, s, d: ticks.append(u.reg_read(arm.UC_ARM_REG_R0)), begin=dev.a(TICK), end=dev.a(TICK)),
+             uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, lambda u, acc, a, size, value, d: sets.append((u.reg_read(arm.UC_ARM_REG_PC), value & 0xFF)), begin=redraw, end=redraw)]
+    uc.ctl_flush_tb()
     press(dev, "exit", wait=0.8)
+    for hook in hooks:
+        uc.hook_del(hook)
+    uc.ctl_flush_tb()
     main = (dev.screen()["number"], open_app_entry(dev))
     add("blechy_exit_goes_to_main", main == (1, 0) and not dev.m.asserts, f"{main}")
+    # The byte the runtime sets to have the main screen drawn whole is the one the tick reads: the tick's argument plus 0x4C. The
+    # runtime takes it from the screen manager's pointer, never a fixed address (the manager moves with the flash content).
+    ours = [value for pc, value in sets if code[0] <= pc < code[1]]
+    add("blechy_exit_redraws_through_the_screen_manager", ticks and all(r0 + 0x4C == redraw for r0 in ticks) and 1 in ours,
+        f"redraw byte {redraw:#x}, tick arguments {sorted({hex(r0) for r0 in ticks})}, runtime writes {ours}")
     bad = []
     for key in range(0x30):
         goto_blechy(dev)

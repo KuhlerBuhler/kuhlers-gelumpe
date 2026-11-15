@@ -24,7 +24,7 @@ class DisplayCalibrationTests(unittest.TestCase):
 .equ RT_FRAMES, 0
 .equ MENU_STATE, 0xC0307000
 .equ M_CAL_ON, 0xFA
-.equ UI_REDRAW, 0xC0307100
+.equ UI_REDRAW_AT, 0x5C
 .equ SCRIPT_FONT, {cls.vm.symbols['script_font']}
 '''
         cls.code = assemble(constants + (ROOT/'tools/patch/script_calibrate.s').read_text(), origin=0xC0150300)
