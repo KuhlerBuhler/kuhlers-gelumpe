@@ -503,8 +503,8 @@ def setting_cases(payload, flash):
                   f"build {r.build}: next start byte 7 {read}, 4 minutes on stage {still}, ON {on} then stage {dims}, WRITE {again}")]
 
 
-def cases(vsb, flash=None):
-    payload = vsb[0x100:]
+def cases(payload, flash=None):
+    """All idle power save cases on `payload` (the image behind the 256-byte header), as menu_cases.look_parts calls them."""
     mc.for_build(payload)
     r = Run(payload, flash)
     out = []
@@ -522,7 +522,7 @@ def main():
     p.add_argument("--vsb", required=True, type=Path)
     p.add_argument("--flash", type=Path)
     a = p.parse_args()
-    result = cases(a.vsb.read_bytes(), load_flash(a.flash) if a.flash else None)
+    result = cases(a.vsb.read_bytes()[0x100:], load_flash(a.flash) if a.flash else None)
     print(json.dumps(result, indent=1))
     sys.exit(0 if all(e["ok"] for e in result) else 1)
 
