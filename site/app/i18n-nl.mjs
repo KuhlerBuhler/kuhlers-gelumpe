@@ -2168,7 +2168,7 @@ export default {
   "catalog.bmpviewer.control1": "Encoder: bestand kiezen",
   "catalog.bmpviewer.control2": "◄ PART en PART ►: vorig en volgend beeld",
   "catalog.bmpviewer.control3": "TAP: beeldnummer tonen of verbergen",
-  "catalog.bpmglide.description": "Laat het tempo glijden naar het opgeslagen tempo van het volgende pattern, zodat de wissel niet springt. CHAIN: over de speeltijd van een gekoppeld pattern (Chain To, CHAIN MODE aan, lengte maal Chain Repeat). SWITCH: na MENU op een pattern dat tijdens het spelen is gekozen (NEXT:), over de stappen tot de wissel; halverwege bevestigd duurt het de helft. STOP haalt het eigen tempo terug.",
+  "catalog.bpmglide.description": "Laat het tempo glijden naar het opgeslagen tempo van het volgende pattern, zodat de wissel niet springt. CHAIN: over de speeltijd van een gekoppeld pattern (Chain To, CHAIN MODE aan, lengte maal Chain Repeat). SWITCH: na MENU op een pattern dat tijdens het spelen is gekozen (NEXT:), over de stappen tot de wissel; halverwege bevestigd duurt het de helft. STOP haalt het eigen tempo terug. Ingebouwd vanaf blechtribe 1.5 (BLECH > FEATURES > GLIDE CHAIN/GLIDE SWITCH), laad de plugin daar niet extra; hij blijft voor oudere firmware.",
   "catalog.bpmglide.control1": "Menu -> BLECH -> GLIDE CHAIN: 1 aan, 0 uit",
   "catalog.bpmglide.control2": "Menu -> BLECH -> GLIDE SWITCH: 1 aan, 0 uit",
   "catalog.lauflicht.description": "Een licht loopt over de pads.",

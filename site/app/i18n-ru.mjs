@@ -2168,7 +2168,7 @@ export default {
   "catalog.bmpviewer.control1": "Энкодер: выбрать файл",
   "catalog.bmpviewer.control2": "◄ PART и PART ►: предыдущая и следующая картинка",
   "catalog.bmpviewer.control3": "TAP: показать или скрыть номер картинки",
-  "catalog.bpmglide.description": "Плавно ведёт темп к сохранённому темпу следующего паттерна, чтобы смена не прыгала. CHAIN: за время игры связанного паттерна (Chain To, CHAIN MODE включён, длина умноженная на Chain Repeat). SWITCH: после MENU на паттерне, выбранном во время игры (NEXT:), за шаги, оставшиеся до смены; подтверждено на середине, займёт половину времени. STOP возвращает собственный темп.",
+  "catalog.bpmglide.description": "Плавно ведёт темп к сохранённому темпу следующего паттерна, чтобы смена не прыгала. CHAIN: за время игры связанного паттерна (Chain To, CHAIN MODE включён, длина умноженная на Chain Repeat). SWITCH: после MENU на паттерне, выбранном во время игры (NEXT:), за шаги, оставшиеся до смены; подтверждено на середине, займёт половину времени. STOP возвращает собственный темп. Встроено с blechtribe 1.5 (BLECH > FEATURES > GLIDE CHAIN/GLIDE SWITCH), тогда не загружайте плагин дополнительно; он остаётся для старой прошивки.",
   "catalog.bpmglide.control1": "Меню -> BLECH -> GLIDE CHAIN: 1 включить, 0 выключить",
   "catalog.bpmglide.control2": "Меню -> BLECH -> GLIDE SWITCH: 1 включить, 0 выключить",
   "catalog.lauflicht.description": "Огонёк бежит по падам.",

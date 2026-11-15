@@ -1342,6 +1342,9 @@ in the firmware. When EXIT takes the confirmation back, the chain glides on; wit
 was before the confirmation. A new confirmation starts again from the tempo at that moment. STOP applies a confirmed pattern
 at once like the firmware, with its tempo. Because `korg.tempo` sets the tempo of the pattern in RAM, it counts as an
 unsaved change until STOP. Checked in the simulator (`test/script-bpm-glide.test.mjs`), not on the device.
+From blechtribe 1.5 BPM Glide is built in: BLECH > FEATURES > GLIDE CHAIN and GLIDE SWITCH (OFF by default, saved with the
+BLECH settings), same rules, only the pattern that really plays counts. The plugin stays in the catalog for older firmware;
+do not run it on 1.5 as well, or both set the tempo.
 
 **Momentary Mute** (a wish from the community, modelled on the Korg ESX, [idea 91](ideen/91-moment-mute.md)) needs API 15
 and runs in the background. Mutes change only while PART MUTE is held: with PART MUTE held, a pad switches its part off or

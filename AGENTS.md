@@ -138,7 +138,7 @@ Docs state what holds now; before and after belong in commits and release notes.
 ## Firmware patches
 
 - **Core features are built into the firmware**, with a switch under `Menü -> BLECH -> FEATURES`
-  (Key Pads, Filter Toggle, LAST PATTERN, STEREO 1 PAD, AUTO SAVE). A catalog plugin is for extras, not
+  (Key Pads, Filter Toggle, LAST PATTERN, STEREO 1 PAD, AUTO SAVE, GLIDE CHAIN, GLIDE SWITCH). A catalog plugin is for extras, not
   for playing features. Screens use the firmware's own look: its value window for a value, the file
   browser for a list, never a hand-drawn screen.
 - A new patch is `tools/patch/<name>.py` (builder), `data/patches/<name>.json` (and `-synth.json` for

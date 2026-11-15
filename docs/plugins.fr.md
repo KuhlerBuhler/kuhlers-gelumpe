@@ -1420,6 +1420,9 @@ La chaîne est lue au premier pas après PLAY ou changement, lorsque la RAM est 
 STOP restaure le tempo initial. Page BPM GLIDE, 1 activé/0 désactivé, conservée avec
 `korg.store`. `korg.tempo` modifie le pattern en RAM, donc celui-ci est non enregistré
 jusqu’à STOP. Vérifié dans le simulateur, `test/script-bpm-glide.test.mjs`, pas sur l’appareil.
+Dès blechtribe 1.5, BPM Glide est intégré : BLECH > FEATURES > GLIDE CHAIN et GLIDE SWITCH (OFF par défaut, enregistrés
+avec les réglages BLECH), mêmes règles. Le plugin reste au catalogue pour les firmwares plus anciens ; ne pas l’utiliser
+en plus sur 1.5, sinon les deux règlent le tempo.
 
 **Momentary Mute** exige l’API 15 et fonctionne en arrière-plan, comme le comportement
 souhaité sur ESX. Les pads ne basculent les états muets que pendant PART MUTE ; relâché,

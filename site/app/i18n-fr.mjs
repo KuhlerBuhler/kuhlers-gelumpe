@@ -2168,7 +2168,7 @@ export default {
   "catalog.bmpviewer.control1": "Encodeur : choisir le fichier",
   "catalog.bmpviewer.control2": "◄ PART et PART ► : image précédente et suivante",
   "catalog.bmpviewer.control3": "TAP : afficher ou masquer le numéro de l'image",
-  "catalog.bpmglide.description": "Fait glisser le tempo vers le tempo enregistré du pattern suivant, pour que le changement ne saute pas. CHAIN : pendant la durée de lecture d'un pattern enchaîné (Chain To, CHAIN MODE activé, longueur fois Chain Repeat). SWITCH : après MENU sur un pattern choisi pendant la lecture (NEXT:), sur les pas restants jusqu'au changement ; confirmé à mi-chemin, il met la moitié du temps. STOP rend son propre tempo.",
+  "catalog.bpmglide.description": "Fait glisser le tempo vers le tempo enregistré du pattern suivant, pour que le changement ne saute pas. CHAIN : pendant la durée de lecture d'un pattern enchaîné (Chain To, CHAIN MODE activé, longueur fois Chain Repeat). SWITCH : après MENU sur un pattern choisi pendant la lecture (NEXT:), sur les pas restants jusqu'au changement ; confirmé à mi-chemin, il met la moitié du temps. STOP rend son propre tempo. Intégré dès blechtribe 1.5 (BLECH > FEATURES > GLIDE CHAIN/GLIDE SWITCH), ne pas charger le plugin en plus ; il reste pour les firmwares plus anciens.",
   "catalog.bpmglide.control1": "Menu -> BLECH -> GLIDE CHAIN : 1 activé, 0 désactivé",
   "catalog.bpmglide.control2": "Menu -> BLECH -> GLIDE SWITCH : 1 activé, 0 désactivé",
   "catalog.lauflicht.description": "Une lumière court sur les pads.",

@@ -596,6 +596,7 @@ frame_gate_open:
     bl script_press_key_tick
     bl load_meter_frame          ; LOAD METER: the reading and the digits (script_load_meter.s)
     bl idle_frame                ; IDLE POWER SAVE: the stage, the light and the LEDs (script_idle.s)
+    bl glide_frame               ; BPM GLIDE: GLIDE CHAIN and GLIDE SWITCH (script_glide.s)
     ldr r1, =APP_STATE
     ldr r1, [r1]
     cmp r1, #0

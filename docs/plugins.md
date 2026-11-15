@@ -1518,6 +1518,9 @@ gleitet die Kette weiter, ohne Kette geht das Tempo auf den Stand vor der Bestä
 von vorn vom Tempo in dem Moment. STOP wendet ein bestätigtes Pattern wie die Firmware gleich an, mit seinem Tempo. Weil
 `korg.tempo` das Tempo des Patterns im RAM setzt, gilt es bis STOP als ungespeicherte Änderung. Im Simulator geprüft
 (`test/script-bpm-glide.test.mjs`), am Gerät nicht.
+Ab blechtribe 1.5 ist BPM Glide eingebaut: BLECH > FEATURES > GLIDE CHAIN und GLIDE SWITCH (Vorgabe OFF, gespeichert mit den
+BLECH-Einstellungen), gleiche Regeln, nur das Pattern zählt, das wirklich spielt. Das Plugin bleibt im Katalog für ältere
+Firmware; auf 1.5 nicht zusätzlich laufen lassen, sonst setzen beide das Tempo.
 
 **Momentary Mute** (Wunsch aus der Community nach dem Vorbild des Korg ESX, [Idee 91](ideen/91-moment-mute.md)) braucht
 API 15 und läuft im Hintergrund. Mutes ändern sich nur, solange PART MUTE gehalten wird: PART MUTE gehalten, schaltet ein

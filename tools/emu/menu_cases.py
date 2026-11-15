@@ -180,8 +180,11 @@ def version_texts(payload):
 
 def feature_pages():
     """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches, KEY PADS, FILTER
-    TOGGLE and AUTO SAVE last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
-    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"]
+    TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"] + GLIDE_PAGES
+
+
+GLIDE_PAGES = ["GLIDE CHAIN", "GLIDE SWITCH"]                          # BPM GLIDE (bpm_glide_cases.py), OFF by default
 
 
 def feature_count():
@@ -722,7 +725,7 @@ def list_cases(payload, flash=None):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, "ON") for title in feature_pages()]
+    want = [(title, "OFF" if title in GLIDE_PAGES else "ON") for title in feature_pages()]
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
@@ -3590,7 +3593,7 @@ def flash_settings_cases(payload, flash=None):
 
 
 MX_FLAGS2 = STATE - 0x15               # byte 7 of a version 4 settings file in RAM (script_menu.s:MX_FLAGS2), 0 without one
-FLAGS2_KNOWN = 3                        # bit 0 LOAD METER, bit 1 IDLE POWER SAVE off
+FLAGS2_KNOWN = 15                       # bit 0 LOAD METER, bit 1 IDLE POWER SAVE off, bits 2 and 3 GLIDE CHAIN and GLIDE SWITCH
 
 
 def settings_file_v4(generation, flags, look, flags2, extras=0, trusted=(), bad_crc=False):
@@ -3719,12 +3722,13 @@ def look_parts():
     from calibrate_cases import cases as calibration_cases
     from load_meter_cases import cases as load_meter_cases
     from idle_save_cases import cases as idle_save_cases
+    from bpm_glide_cases import cases as bpm_glide_cases
     return ((lambda payload, flash: look_cases(payload, flash, rest=False)), *look_rest(), splash_menu_cases, wheel_cases,
             pad_colour_cases, calibration_cases, flash_settings_cases, settings_v4_cases, media_menu_cases, load_meter_cases,
-            idle_save_cases)
+            idle_save_cases, bpm_glide_cases)
 
 
-LOOK_PARTS = 1 + len(look_rest()) + 9      # look_parts() without importing calibrate_cases, load_meter_cases and idle_save_cases
+LOOK_PARTS = 1 + len(look_rest()) + 10     # look_parts() without importing calibrate_cases, load_meter_cases, idle_save_cases and bpm_glide_cases
 
 
 def look_cases_task(i):
