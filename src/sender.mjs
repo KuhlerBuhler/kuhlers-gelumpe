@@ -272,7 +272,7 @@ export class Sender {
     try {
       return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, at, 0, model), "blech-file-read"), this.channel, 0, model))).size;
     } catch (e) {
-      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE) return 0;
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE && (e.code === FR_NO_FILE || e.code === FR_NO_PATH)) return 0;
       throw e;
     }
   }
