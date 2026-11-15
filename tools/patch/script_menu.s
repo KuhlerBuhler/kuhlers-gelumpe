@@ -49,7 +49,10 @@
 .equ MX_FLAGS2, -0x15          ; byte, byte 7 of a version 4 settings file (FLAGS2_*), 0 without one
 .equ FLAGS2_LOAD_METER, 1      ; LOAD METER on (CUSTOMIZATION)
 .equ FLAGS2_IDLE_OFF, 2        ; IDLE POWER SAVE off (POWER SAVE); clear is on, the default, so a file with the default stays version 3
-.equ FLAGS2_KNOWN, 3           ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
+.equ FLAGS2_GLIDE_CHAIN, 4     ; GLIDE CHAIN on (FEATURES, script_glide.s)
+.equ FLAGS2_GLIDE_SWITCH, 8    ; GLIDE SWITCH on (FEATURES, script_glide.s)
+.equ FLAGS2_GLIDE, 12
+.equ FLAGS2_KNOWN, 15          ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
 .equ M_SPLASH_SEL, 0x100      ; the page SPLASH IMPORT: the place of the .bmp file it shows among those in KORG/blechtribe
@@ -2590,6 +2593,10 @@ orig_masks:
     .word 0, 0
     .byte 60, 0, FLAGS2_IDLE_OFF, 0 ; IDLE SAVE: bit 1 of byte 7, set is OFF
     .word 0, 0
+    .byte 61, 0, FLAGS2_GLIDE_CHAIN, 0 ; GLIDE CHAIN: bit 2 of byte 7
+    .word 0, 0
+    .byte 62, 0, FLAGS2_GLIDE_SWITCH, 0 ; GLIDE SWITCH: bit 3 of byte 7
+    .word 0, 0
     .byte 0xFF, 0, 0, 0
 
 ; ---- the list of the plugins (level 5) and SPLASH IMPORT as the firmware's file browser (DATA UTILITY, IMPORT SAMPLE: screen 39)
@@ -3153,6 +3160,9 @@ menu_texts_clear:
     beq menu_text_lm
     cmp r0, #60
     beq menu_text_idle
+    cmp r0, #61
+    cmpne r0, #62
+    beq menu_text_glide
     cmp r0, #57
     cmpne r0, #58
     beq menu_text_anim
@@ -3726,6 +3736,24 @@ menu_text_idle:
     ldr r1, =str_on
     tst r2, #FLAGS2_IDLE_OFF
     ldrne r1, =str_off
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; GLIDE CHAIN (r0 = 61) and GLIDE SWITCH (62): the tempo glides to the next pattern's (script_glide.s), bits 2 and 3 of byte 7
+menu_text_glide:
+    mov r6, r0
+    mov r0, #3
+    bl menu_title_prefix
+    cmp r6, #61
+    ldreq r1, =str_glide_chain
+    ldrne r1, =str_glide_switch
+    moveq r6, #FLAGS2_GLIDE_CHAIN
+    movne r6, #FLAGS2_GLIDE_SWITCH
+    bl menu_copy
+    ldrb r2, [r5, #MX_FLAGS2]
+    ldr r1, =str_off
+    tst r2, r6
+    ldrne r1, =str_on
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
@@ -4308,7 +4336,7 @@ menu_confirm_add:
 ; set's version and the firmware it is built for, no group). Each group is again "press [ Enter ]". ENTER on a group opens level 2,
 ; the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION, 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR, 8 POWER
 ; SAVE, 9 SPLASH). Those five are rows of CUSTOMIZATION that open their pages; EXIT there goes back to that row. FEATURES holds the
-; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST, LAST PATTERN, STEREO 1 PAD, KEY PADS, FILTER TOGGLE and AUTO SAVE (the main dial
+; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST, LAST PATTERN, STEREO 1 PAD, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH (the main dial
 ; changes them, WRITE keeps them). ENTER on PLUGINS opens level 5 (M_LEVEL_PLUGIN) straight away, one page a plugin with its name and its
 ; state, the dial moves through the list as in the firmware's file browser, EXIT goes back to the row PLUGINS; the one page of the group, MANAGE PLUGINS, only shows when
 ; there is no plugin or after REMOVE, ENTER there opens the list again; ENTER on a plugin opens level 6 (M_LEVEL_PSUB), the pages of that plugin: ACTIVE (the dial switches
@@ -4322,7 +4350,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE, 61 GLIDE CHAIN, 62 GLIDE SWITCH; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -4421,8 +4449,16 @@ menu_kind_sub:
     mov r1, #0
     b menu_kind_done
 menu_kind_features:
-    bl menu_page_count          ; KEY PADS, FILTER TOGGLE and AUTO SAVE are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them
+    bl menu_page_count          ; KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them
     mov r1, #0
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #62
+    beq menu_kind_done
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #61
+    beq menu_kind_done
     sub r0, r0, #1
     cmp r5, r0
     moveq r0, #51
@@ -4630,7 +4666,7 @@ menu_count_led:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #7                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE and AUTO SAVE, LAST PATTERN and STEREO 1 PAD where the set has their patches
+    mov r0, #9                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH, LAST PATTERN and STEREO 1 PAD where the set has their patches
     ldr r1, =LP_CODE
     ldr r1, [r1]
     cmn r1, #1
@@ -6292,6 +6328,9 @@ menu_slot_value:
     beq menu_value_lm
     cmp r0, #60
     beq menu_value_idle
+    cmp r0, #61
+    cmpne r0, #62
+    beq menu_value_glide
     cmp r0, #56
     beq menu_value_dev
     cmp r0, #57
@@ -6546,6 +6585,19 @@ menu_value_idle:
     cmp r5, #0
     bicgt r1, r1, #FLAGS2_IDLE_OFF
     orrle r1, r1, #FLAGS2_IDLE_OFF
+    strb r1, [r6, #MX_FLAGS2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; GLIDE CHAIN and GLIDE SWITCH act at once (the frame follows the switch), WRITE keeps them: ON up, OFF down
+menu_value_glide:
+    cmp r0, #61
+    moveq r2, #FLAGS2_GLIDE_CHAIN
+    movne r2, #FLAGS2_GLIDE_SWITCH
+    ldrb r1, [r6, #MX_FLAGS2]
+    cmp r5, #0
+    orrgt r1, r1, r2
+    bicle r1, r1, r2
     strb r1, [r6, #MX_FLAGS2]
     mov r3, #0
     str r3, [r6, #M_STATUS]
@@ -7286,6 +7338,10 @@ str_knob:
     .asciz "KNOB LEDS"
 str_lm:
     .asciz "LOAD METER"
+str_glide_chain:
+    .asciz "GLIDE CHAIN"
+str_glide_switch:
+    .asciz "GLIDE SWITCH"
 str_idle:
     .asciz "IDLE SAVE"
 str_sp:
