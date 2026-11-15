@@ -53,6 +53,18 @@ def patch_sources(source):
         if name == 'decode_LDST_0':
             body = body.replace('SET_PREG (ptr, ', 'STORE (PREG (ptr), ')
         text = text[:start] + body + text[end:]
+    # The same for the single-register DSP32ALU results a parallel store can read ("R1 = -R0 || [P2] = R1").
+    start = text.index('\ndecode_dsp32alu_0 (')
+    end = text.index('\n}\n', start)
+    body = text[start:end]
+    for old in ('SET_DREG (dst0, min32 (', 'SET_DREG (dst0, max32 (', 'SET_DREG (dst0, min2x16 (',
+                'SET_DREG (dst0, max2x16 (', 'SET_DREG (dst0, val);', 'SET_DREG (dst0, val0);',
+                'SET_DREG (dst1, val1);'):
+        new = old.replace('SET_DREG (dst0, ', 'STORE (DREG (dst0), ').replace('SET_DREG (dst1, ', 'STORE (DREG (dst1), ')
+        if old not in body and new not in body:
+            raise ValueError('unexpected GNU DSP32ALU single-register implementation')
+        body = body.replace(old, new)
+    text = text[:start] + body + text[end:]
     file.write_text(text)
     file = source / 'sim/bfin/dv-bfin_dmac.c'
     text = file.read_text()
@@ -414,6 +426,7 @@ def build(directory, jobs=4):
                              'deferred DSP32ALU add/sub result writes',
                              'deferred SIGNBITS half-register writes',
                              'deferred pointer-load register writes',
+                             'deferred single-register DSP32ALU results',
                              'bounded execution inside the event loop',
                              'persistent cycle slices, native IDLE and independent IWR wakeup',
                              'BF52x HOSTDP registers and interrupt sources',

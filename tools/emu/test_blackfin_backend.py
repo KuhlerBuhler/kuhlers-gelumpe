@@ -141,6 +141,17 @@ class Execution(unittest.TestCase):
         self.assertEqual(self.backend.register(8), DATA + 4)
         self.assertEqual(self.backend.register(17), DATA + 20)
 
+    def test_parallel_negate_store_reads_the_original_register(self):
+        # R1 = -R0 (NS) || [P2 + 0x10] = R1 || NOP
+        self.backend.write(ENTRY, struct.pack('<5H', 0xCC07, 0xC200, 0xB111, 0x0000, 0x2000))
+        self.backend.set_register(0, 5)
+        self.backend.set_register(1, 0x12345678)
+        self.backend.set_register(10, DATA)
+        self.backend.set_register(53, ENTRY)
+        self.backend.run(3)
+        self.assertEqual(self.backend.read(DATA + 16, 4), struct.pack('<I', 0x12345678))
+        self.assertEqual(self.backend.register(1), 0xFFFFFFFB)
+
     def test_run_stops_at_a_requested_pc(self):
         self.backend.write(ENTRY, program())
         self.backend.set_register(53, ENTRY)
