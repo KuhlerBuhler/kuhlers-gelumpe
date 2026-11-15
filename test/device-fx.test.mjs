@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { DeviceSession } from "../src/session.mjs";
 import { readUnits } from "../src/node.mjs";
 import { simPort, makeFirmwareWithArrays, makeRecord, asStock, putModTable } from "./helpers.mjs";
-import { readDeviceEffects, deviceFxNames, FX_STATE } from "../src/device-fx.mjs";
+import { readDeviceEffects, deviceFxNames, FX_STATE, canWriteCollection, writeCollectionFile } from "../src/device-fx.mjs";
 import { collectionFor, buildCollection, parseCollection } from "../src/fx-collection.mjs";
 import { locateModTable, readModType } from "../src/modtable.mjs";
 import { modFromType } from "../src/fx-v2.mjs";
@@ -117,4 +117,18 @@ test("a firmware from before the read of e2sFx.all answers out of range; the pag
   const fx = await readDeviceEffects(session);
   assert.equal(fx.ok, true);
   assert.equal(fx.file, null);
+});
+
+test("e2sFx.all goes onto the card over FILE BEGIN where INFO says the firmware writes it; without the flag nothing is sent", async () => {
+  const vsb = await firmware("hacktribe");
+  const file = buildCollection({ build: "hacktribe", entries: [{ kind: "ifx", index: 4, data: vsb.slice(recordOf(vsb, "ifx", 3).file, recordOf(vsb, "ifx", 3).file + RECORD), text: "y".repeat(5000) }] });
+  const { session, sim, sent } = await connect(vsb, { card: new Map() });
+  assert.equal(canWriteCollection(session.device), true);
+  assert.deepEqual(await writeCollectionFile(session, file), { ok: true });
+  assert.deepEqual(sim.card.get(FX_FILE), file);
+  assert.equal((await readDeviceEffects(session)).file.read.ok, true);
+  session.device.blech.flags &= ~0x800;
+  const before = sent.length;
+  assert.deepEqual(await writeCollectionFile(session, file), { ok: false, reason: "noWrite" });
+  assert.equal(sent.length, before);
 });

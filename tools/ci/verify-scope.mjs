@@ -101,7 +101,7 @@ export const TABLE = [
   [/^tools\/patch\/(load_bar|loading_anim)\.py$|^data\/patches\/load-bar[^/]*\.json$/, ["loadbar_cases", "card_error_cases"]],
   [/^tools\/patch\/sample_errors\.py$|^data\/patches\/sample-errors[^/]*\.json$/, ["sample_error_cases"]],
   [/^tools\/patch\/synth_filters\.py$|^data\/patches\/synth-filters[^/]*\.json$/, ["synth_filter_cases"]],
-  [/^tools\/patch\/blech_sysex\.(py|mjs)$|^data\/patches\/blech-sysex[^/]*\.json$/, ["sysex_cases", "dev_mode_cases"]],
+  [/^tools\/patch\/blech_sysex\.(py|mjs)$|^data\/patches\/blech-sysex[^/]*\.json$/, ["sysex_cases", "dev_mode_cases", "fx_card_cases"]],   // fx_card_cases writes e2sFx.all over the cable
   [/^tools\/patch\/last_pattern\.py$|^data\/patches\/last-pattern[^/]*\.json$/, ["last_pattern_cases"]],
   [/^tools\/patch\/init_pattern\.py$|^data\/patches\/init-pattern[^/]*\.json$/, ["init_pattern_cases"]],
   [/^tools\/patch\/stereo_pad\.py$|^data\/patches\/stereo-pad[^/]*\.json$/, ["stereo_pad_cases"]],
