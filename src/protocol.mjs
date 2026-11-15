@@ -91,6 +91,12 @@ export const BLECH = {
   VERSION: 1,
 };
 const STATUS_TEXT = { 1: "sysex.status.crc", 2: "sysex.status.refused", 3: "sysex.status.range", 4: "sysex.status.flash", 5: "sysex.status.verify", 6: "sysex.status.card" };
+// The code FILE READ and the DATA of a file write carry with status 6: FatFs' result, or 0x80/0x81 of tools/patch/blech_sysex.py.
+const CARD_TEXT = { 1: "sysex.card.disk", 3: "sysex.card.notReady", 4: "sysex.card.noFile", 5: "sysex.card.noPath", 7: "sysex.card.denied", 13: "sysex.card.noFs", 0x80: "sysex.card.never", 0x81: "sysex.card.full" };
+const statusText = (status, code) => {
+  if (status === BLECH.STATUS.FILE && code) return text("sysex.status.cardWhy", { why: text(CARD_TEXT[code] ?? "sysex.card.other"), code });
+  return STATUS_TEXT[status] ? text(STATUS_TEXT[status]) : text("sysex.status.other", { status });
+};
 
 export const head = (channel, model = DEVICE_ID) => {
   if (!Number.isInteger(channel) || channel < 0 || channel > 15) throw new RangeError(`channel ${channel}`);
@@ -107,12 +113,13 @@ export class ReplyError extends TextError {
   constructor(key, vars) { super(key, vars); this.name = "ReplyError"; }
 }
 
-/** A BLECH answer that is not a plain ok: `status` is the device's, `retry` says that nothing was written and the block may be sent again. */
+/** A BLECH answer that is not a plain ok: `status` is the device's, `code` the card's reason with status 6 (0 when the reply has none), `retry` says that nothing was written and the block may be sent again. */
 export class BlechError extends ReplyError {
-  constructor(status, what) {
-    super("sysex.blech", { what, status: STATUS_TEXT[status] ? text(STATUS_TEXT[status]) : text("sysex.status.other", { status }) });
+  constructor(status, what, code = 0) {
+    super("sysex.blech", { what, status: statusText(status, code) });
     this.name = "BlechError";
     this.status = status;
+    this.code = code;
     this.retry = status === BLECH.STATUS.BAD_CRC;
   }
 }
@@ -318,7 +325,7 @@ export function parseBlechExec(msg, channel) {
 /** A FILE READ answer: the bytes, checked against the length and the CRC, and the size of the whole file. */
 export function parseBlechFileRead(msg, channel, length, model = DEVICE_ID) {
   const { payload, word } = blechWords(msg, channel, BLECH.R_FILE_READ, 5, FILE_READ, model);
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), FILE_READ);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), FILE_READ, word(0) === BLECH.STATUS.FILE ? word(3) : 0);
   const bytes = Uint8Array.from(payload.slice(20));
   if (bytes.length !== word(2) || word(2) > length) throw new ReplyError("sysex.size", { what: FILE_READ, got: bytes.length, want: word(2) });
   if (crc32(bytes) !== word(3)) throw new BlechError(BLECH.STATUS.BAD_CRC, FILE_READ);
@@ -362,7 +369,7 @@ export function parseBlechBegin(msg, channel) {
 /** The answer to DATA: ok with the CRC the device read back, which has to be the one that was sent. */
 export function parseBlechData(msg, channel, crc, model = DEVICE_ID) {
   const { word } = blechWords(msg, channel, BLECH.R_DATA, 4, WRITE_DATA, model);
-  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), WRITE_DATA);
+  if (word(0) !== BLECH.STATUS.OK) throw new BlechError(word(0), WRITE_DATA, word(0) === BLECH.STATUS.FILE ? word(3) : 0);
   if (word(3) !== crc) throw new BlechError(BLECH.STATUS.VERIFY, WRITE_DATA);
   return { addr: word(1), length: word(2), crc: word(3) };
 }

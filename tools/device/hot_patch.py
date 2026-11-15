@@ -31,8 +31,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(ROOT / "tools" / "patch"))
+# Appended, not put first: the emulator's spawn workers run this script again, and tools/device/backlight.py would hide
+# tools/emu/backlight.py from them.
+for _p in (str(HERE), str(ROOT / "tools" / "patch")):
+    if _p not in sys.path:
+        sys.path.append(_p)
 
 IMAGE, IMAGE_SIZE, HEADER = 0xC0000000, 0x200000, 0x100
 DSP = (0xC00F9E10, 0xC013C0B0)          # the DSP's program, uploaded at the start (tools/emu/check.py DSP_STREAM)
@@ -340,7 +343,7 @@ def proof_ranges(ctx, changed, mode):
     return minus(want, ctx.data)
 
 
-def prove(blech, base, ctx, changed, mode="full", say=print):
+def prove(blech, base, ctx, changed, mode="near", say=print):
     """READ the running image over the proof ranges and compare with the base; stops on the first difference."""
     ranges = proof_ranges(ctx, changed, mode)
     total, done = sum(b - a for a, b in ranges), 0
@@ -434,7 +437,7 @@ def connect(emu=None, dev_on=True):
     return Blech(mido_ask()), None
 
 
-def run(blech, base_raw, base_path, new_raw, new_path, ctx, *, dry_run=False, partial=False, block=BLOCK, proof="full",
+def run(blech, base_raw, base_path, new_raw, new_path, ctx, *, dry_run=False, partial=False, block=BLOCK, proof="near",
         playing_ok=False, confirm=None, chain=None, base_payload=None, journals=JOURNALS, say=print):
     """Steps 2 to 10 against a connected device. Returns the plan and the journal path (None on a dry run)."""
     base = base_payload or payload_of(base_raw)
@@ -483,7 +486,9 @@ def main(argv=None):
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--partial", action="store_true", help="write the hot ranges even when others need a full update")
     ap.add_argument("--block", type=int, default=BLOCK)
-    ap.add_argument("--proof", choices=("full", "near"), default="full", help="base proof over the whole image or near the changes")
+    ap.add_argument("--proof", choices=("full", "near"), default="near",
+                    help="base proof near the changes (default) or over the whole image; full stops on a device, whose firmware "
+                         "writes about 41 KB of the image at run time that the emulator does not see")
     ap.add_argument("--while-playing", action="store_true")
     ap.add_argument("--yes", action="store_true", help="do not ask before writing")
     ap.add_argument("--revert", type=Path, help="write a journal's base bytes back")

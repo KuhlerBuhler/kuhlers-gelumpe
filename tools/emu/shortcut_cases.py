@@ -117,20 +117,29 @@ def edit(box, part, step_byte=None):
     return at
 
 
+SAVE_PATTERNS = (0, 5)           # the first pattern and one the wheel chooses (stopped), so the save is not tied to place 1
+
+
 def case_save(payload, flash):
     out = []
-    box = SBox(payload, flash)
-    others = [box.saved(n) for n in (1, 2)]
-    nudge(box)
-    edited = box.live() != box.saved()
-    box.exit_held(True)
-    box.dev.press(WRITE, 1.0)
-    box.exit_held(False)
-    box.run(0.5)
-    out.append(entry("exit_write_saves", edited and box.live() == box.saved() and box.screen() == 1
-                     and [box.saved(n) for n in (1, 2)] == others and not box.m.asserts,
-                     f"edited {edited}; EXIT + WRITE: saved into its own place {box.live() == box.saved()}, screen {box.screen()}, "
-                     f"other places untouched {[box.saved(n) for n in (1, 2)] == others}"))
+    for pattern in SAVE_PATTERNS:
+        box = SBox(payload, flash)
+        if pattern:
+            box.turn(pattern)
+            box.run(1.0)
+        bank = [box.saved(n) for n in range(16)]
+        nudge(box)
+        edited = box.live() != box.saved()
+        box.exit_held(True)
+        box.dev.press(WRITE, 1.0)
+        box.exit_held(False)
+        box.run(0.5)
+        changed = [n for n in range(16) if box.saved(n) != bank[n]]
+        out.append(entry("exit_write_saves" + (f"_pattern_{pattern + 1}" if pattern else ""),
+                         edited and box.running() == pattern and box.live() == box.saved() and box.screen() == 1
+                         and changed == [pattern] and not box.m.asserts,
+                         f"edited {edited}; EXIT + WRITE on pattern {box.running() + 1} (chosen {pattern + 1}): saved into its own place "
+                         f"{box.live() == box.saved()}, screen {box.screen()}, places changed {changed}"))
     plain = SBox(payload, flash)
     nudge(plain)
     plain.dev.press(WRITE, 0.3)

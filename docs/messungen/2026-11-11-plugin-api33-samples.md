@@ -42,6 +42,7 @@ Firmware selbst hat?
 | `pattern.write` nach einer Änderung von Part 1: erster Aufruf 1, zweiter gleich danach 0, das Ereignis `write` kommt mit der laufenden Nummer, danach ist die Bank gleich dem RAM, Bildschirm 1, andere Plätze unverändert | gemessen (Hacktribe, rot, blau) |
 | `part.copy(1, 3, 0)` mit geändertem Part 4 von Pattern 2 in der Bank: alle 0x330 Byte von Part 1 im RAM gleich der Quelle, die anderen Parts unverändert | gemessen (Hacktribe, rot, blau) |
 | EXIT + WRITE und WRITE allein verhalten sich wie vorher (`shortcut_cases.case_save`) | gemessen (Hacktribe, blau 14.11.) |
+| `pattern.write` (mit und ohne Popups) und EXIT + WRITE auch mit Pattern 6 als laufendem Pattern (am Rad gewählt, gestoppt): gespeichert wird nur dessen Platz, die anderen 15 Plätze der Bank bleiben wie vor dem Start des Plugins (`*_pattern_6`). Vorher liefen die Fälle nur mit Pattern 1, und `pattern_write_*` las die anderen Plätze erst nach dem Speichern | gemessen (Hacktribe, rot, blau 14.11.) |
 | `pattern.write` mit Popups an: der Bildschirm geht über das Fenster 18 zurück auf 1 (`pattern_write_saves`) | gemessen (Hacktribe, rot, blau) |
 | `pattern.write` mit `korg.display.popups = 0`: kein Wechsel des Bildschirms, erster Aufruf 1, zweiter 0, Ereignis `write`, Bank gleich RAM, andere Plätze unverändert; ein neuer Start aus dem geschriebenen Flash hat das geänderte Pattern an seinem Platz (`pattern_write_quiet`). Vor dem Fix: Fenster 18 trotz Popups aus | gemessen (Hacktribe, rot, blau) |
 

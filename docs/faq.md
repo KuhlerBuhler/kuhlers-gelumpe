@@ -80,12 +80,25 @@ Kein Fehler in BLECHTRIBE ([Messung](messungen/2026-10-28-pattern-export.md), **
 
 - **Erst WRITE, dann EXPORT PATTERN.** Der Export schreibt das gespeicherte Pattern, Änderungen ohne WRITE sind nicht
   in der Datei. Korgs und Hacktribes Firmware machen es genauso.
-- **Exporte liegen in `KORG/blechtribe/`.** Die Übernahme beim ersten Start kopiert den alten Ordner dorthin und lässt
-  ihn stehen. Importier nur aus `KORG/blechtribe/`.
-- **Auf der blauen** gibt es die Übernahme nicht: Exporte liegen in `KORG/blechtribe/`, die alten Patterns bleiben in
-  `KORG/electribe/`.
+- **Exporte liegen ab 1.5 in `KORG/blechtribe/Patterns/`**, EXPORT PATTERN und EXPORT ALL PATTERN. IMPORT PATTERN und
+  IMPORT ALL PATTERN öffnen dort. Die Übernahme beim ersten Start kopiert den alten Ordner nach `KORG/blechtribe/` und lässt
+  ihn stehen, ältere Exporte liegen also direkt in `KORG/blechtribe/`.
+- **Auf der blauen** gibt es die Übernahme nicht: Exporte liegen direkt in `KORG/blechtribe/`, ohne `Patterns/`, die alten
+  Patterns bleiben in `KORG/electribe/`.
 - **Das Datum ist immer der 01.01.2014**, die Electribe hat keine Uhr. Ein Export mit demselben Namen ersetzt die Datei,
   am Rechner sieht der Ordner gleich aus.
+
+## Die Sicherung in `Patterns/` überschreibt beim Start meine Patterns
+
+So gewollt (ab 1.5, rot und Hacktribe). Liegt `KORG/blechtribe/Patterns/electribe_sampler_allpattern.e2sallpat` auf der
+Karte, lädt jeder Start sie: jedes Pattern der Datei, das anders ist als im Gerät, wird in den Flash geschrieben, gleiche
+bleiben unberührt. Die Ladeanimation zählt das mit. Nur diese eine Datei, andere Namen lädt der Start nicht, auch keine
+Globals (das macht nur IMPORT ALL PATTERN von Hand).
+
+- **Was du am Gerät mit WRITE speicherst, ohne danach EXPORT ALL PATTERN, ist beim nächsten Start wieder der Stand der
+  Datei.** Also nach dem Speichern exportieren, oder die Datei umbenennen oder löschen.
+- **Start ohne die Datei**: EXIT beim Einschalten halten lädt nichts, oder Karte ohne die Datei stecken.
+- Eine Datei mit weniger Patterns ändert nur ihre eigenen, kaputte Patterns (ohne Anfangs- oder Endmarke) lässt der Start aus.
 
 ## Die volle Prüfung im Patcher wird rot
 

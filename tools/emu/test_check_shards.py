@@ -220,6 +220,18 @@ class CheckIntegrationTest(unittest.TestCase):
         with patch("shard_weights.weights_for", side_effect=lambda tasks: [20] * len(tasks)), self.assertRaises(ValueError):
             check.check(image, image, quick=True, reports=parts)
 
+    def test_join_cannot_mix_foreign_and_own_patch_results(self):
+        image = bytes(check.HEADER + check.PAYLOAD)
+        with patch.dict(os.environ, {"GELUMPE_CACHE": "off"}), patch.object(check.parallel, "run_tasks", self.fake_run):
+            own = [check.check(image, image, quick=True, shard=(i, 2)) for i in range(1, 3)]
+            foreign = [check.check(image, image, quick=True, foreign=True, shard=(i, 2)) for i in range(1, 3)]
+            check.check(image, image, quick=True, reports=own)
+            check.check(image, image, quick=True, foreign=True, reports=foreign)
+            with self.assertRaises(ValueError):
+                check.check(image, image, quick=True, foreign=True, reports=own)
+            with self.assertRaises(ValueError):
+                check.check(image, image, quick=True, reports=foreign)
+
     def test_unsharded_checks_do_not_read_the_partition_profile(self):
         image = bytes(check.HEADER + check.PAYLOAD)
         with patch.dict(os.environ, {"GELUMPE_CACHE": "off"}), \

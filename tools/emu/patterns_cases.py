@@ -1,0 +1,230 @@
+"""Emulator cases of the Patterns folder (tools/patch/script_patterns.s, plan 2026-11-14-patterns-ordner): EXPORT PATTERN and
+EXPORT ALL PATTERN of DATA UTILITY write into KORG/blechtribe/Patterns, a card without that folder gets it, and IMPORT PATTERN's
+and IMPORT ALL PATTERN's browser opens there (the card's root when the folder is missing). At power-on the backup
+in that folder goes into the pattern bank: only the patterns that differ are written to the flash, one without its frame is left
+out, a shorter file changes only its own patterns, EXIT held at power-on reads nothing, the pattern the device opens is the
+file's, and the loading animation counts the backup (behind the samples, or on its own without them). Red and Hacktribe only; on the blue neither is built yet, the groups report that and pass.
+
+The groups run inside migrate_cases (GROUPS there), which check.py runs on every BLECH set.
+
+    python3 tools/emu/patterns_cases.py --vsb PATCHED.VSB
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools" / "patch"))
+sys.path.insert(0, str(Path(__file__).parent))
+
+import unicorn  # noqa: E402
+import fat32  # noqa: E402
+import menu_cases  # noqa: E402
+import synthaddr  # noqa: E402
+
+DATA_UTIL = 14                  # the screen of the menu Data Util; MENU enters its list (screen 15) at EXPORT PATTERN
+FOLDER = "/KORG/blechtribe/Patterns"
+EXPORT_AT = 0xC00371B0          # EXPORT PATTERN's call of the folder string, branched to pat_export_hook by the runtime
+SINGLE_SIZE = 0x4100            # a .e2spat: header 0x100 and one pattern
+ALL_SIZE = 0x10100 + 250 * 0x4000
+BACKUP = f"{FOLDER}/electribe_sampler_allpattern.e2sallpat"
+BANK = 0xC08B2940               # the 250 patterns in RAM, 0x4000 each (0xC004A350), read from the flash at about 80 ms
+BLOCK = 0x4000
+PATTERN_WRITE = 0xC004C28C      # (_, n, source, copy): the firmware's pattern write, slot and flash
+PATTERN_PTR = 0xC033E6A4        # the pattern being edited, its block from +4
+
+
+def entry(name, ok, detail):
+    return {"id": f"patterns:{name}", "ok": bool(ok), "detail": str(detail)}
+
+
+def redirected(payload):
+    """True when EXPORT PATTERN's call is a branch into our code (the runtime of a red or Hacktribe set)."""
+    if synthaddr.is_synth(payload):
+        return False
+    word = int.from_bytes(payload[EXPORT_AT - 0xC0000000:EXPORT_AT - 0xC0000000 + 4], "little")
+    return word >> 24 == 0xEA
+
+
+def files(dev):
+    volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
+    try:
+        return {path: e.size for path, e in volume.walk() if not e.attr & 0x10}
+    finally:
+        volume.close()
+
+
+def export(payload, flash, keys, seconds):
+    dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True)
+    menu_cases.go(dev, DATA_UTIL)
+    for key in keys:
+        menu_cases.press(dev, key, wait=0.8)
+    dev.run(seconds)
+    return dev
+
+
+def case_export(payload, flash):
+    if not redirected(payload):
+        return [entry("export_not_in_this_build", True, "the blue keeps the firmware's export folder")]
+    dev = export(payload, flash, ("menu", "menu", "menu"), 0.5)
+    single = files(dev)
+    pats = {p: s for p, s in single.items() if p.endswith(".e2spat")}
+    out = [entry("export_pattern_writes_into_patterns", list(pats) == [f"{FOLDER}/001_Init Pattern.e2spat"]
+                 and list(pats.values()) == [SINGLE_SIZE] and not dev.m.asserts, pats)]
+    dev = export(payload, flash, ("menu", "edit_next", "menu", "menu", "menu"), 15)
+    every = {p: s for p, s in files(dev).items() if p.endswith(".e2sallpat")}
+    out.append(entry("export_all_writes_into_patterns", every == {f"{FOLDER}/electribe_sampler_allpattern.e2sallpat": ALL_SIZE}
+                     and not dev.m.asserts, every))
+    return out
+
+
+def case_import_browser(payload, flash):
+    """IMPORT PATTERN and IMPORT ALL PATTERN open Korg's browser in Patterns. A walk is Korg's own (Upper Folder goes to SD:, the
+    browser counts its levels itself and the start skipped them), leaving the import and starting it again opens Patterns again,
+    and a card without the folder gets Korg's own way back to SD:."""
+    if not redirected(payload):
+        return [entry("import_not_in_this_build", True, "the blue keeps the firmware's export folder")]
+
+    def walk(files, keys):
+        dev = menu_cases.boot(payload, flash, files=files, adapter=True)
+        opened = []
+        dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, a, s, d: opened.append(
+            dev.read(uc.reg_read(unicorn.arm_const.UC_ARM_REG_R1), 64).split(b"\0")[0].decode("latin-1")),
+            begin=0xC009E660, end=0xC009E660)                                           # f_opendir
+        menu_cases.go(dev, DATA_UTIL)
+        for key in keys:
+            menu_cases.press(dev, key, wait=0.8)
+        return dev, opened
+
+    patterns = "SD:/KORG/blechtribe/Patterns"
+    with_folder = {**menu_cases.CARD_FOLDER, f"{FOLDER}/001_Init Pattern.e2spat": bytes(SINGLE_SIZE)}
+    # IMPORT PATTERN (3/18): Patterns, Upper Folder, out of the import and into it again
+    dev, opened = walk(with_folder, ("menu", "edit_next", "edit_next", "menu", "menu", "menu", "exit", "exit", "menu", "menu", "menu"))
+    out = [entry("import_opens_patterns_and_again_after_leaving", opened == [patterns, "SD:", patterns] and not dev.m.asserts, opened)]
+    dev, opened = walk(with_folder, ("menu", "edit_next", "edit_next", "edit_next", "menu"))
+    out.append(entry("import_all_opens_patterns", opened == [patterns] and not dev.m.asserts, opened))
+    dev, opened = walk(menu_cases.CARD_FOLDER, ("menu", "edit_next", "edit_next", "edit_next", "menu"))
+    out.append(entry("import_without_the_folder_opens_the_root", opened == [patterns, "SD:"] and not dev.m.asserts, opened))
+    return out
+
+
+def backup(bank, count):
+    """A .e2sallpat with the first `count` patterns of `bank`: header with KORG, the globals area left empty."""
+    return b"KORG" + bytes(0xFC) + bytes(0x10000) + bytes(bank[:count * BLOCK])
+
+
+def start(payload, files, held=0, seconds=1.5):
+    """Power-on with `files` on the card, noting every pattern write; runs past the first pattern selection."""
+    dev = menu_cases.Dev(payload, None, held)
+    dev.m.adapter = True
+    dev.m.insert_card(menu_cases.SDCard(menu_cases.MemoryMedium(menu_cases.card_image(files))))
+    writes = []
+    dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, a, s, d: writes.append(uc.reg_read(unicorn.arm_const.UC_ARM_REG_R1)),
+                      begin=PATTERN_WRITE, end=PATTERN_WRITE)
+    dev.m.run_until(seconds)
+    return dev, writes
+
+
+def changed(bank, patterns):
+    out = bytearray(bank)
+    for n in patterns:
+        out[n * BLOCK + 0x100] ^= 0x55
+    return out
+
+
+def case_boot_load(payload, flash):
+    if not redirected(payload):
+        return [entry("boot_load_not_in_this_build", True, "the blue reads no backup at power-on")]
+    menu_cases.for_build(payload)
+    plain, _ = start(payload, menu_cases.CARD_FOLDER, seconds=1.2)
+    bank = plain.read(BANK, 250 * BLOCK)
+    out = []
+    # the whole file: patterns 1, 8 and 250 changed, 4 changed without its end mark (left out)
+    every = changed(bank, (0, 7, 249, 3))
+    every[3 * BLOCK + 15356:3 * BLOCK + 15360] = b"XXXX"
+    dev, writes = start(payload, {**menu_cases.CARD_FOLDER, BACKUP: backup(every, 250)}, seconds=12)
+    want = bytearray(every)
+    want[3 * BLOCK:4 * BLOCK] = bank[3 * BLOCK:4 * BLOCK]
+    ram = dev.read(BANK, 250 * BLOCK)
+    edit = dev.read(dev.u32(PATTERN_PTR) + 4, BLOCK)
+    out.append(entry("boot_load_writes_only_changed_patterns", writes == [0, 7, 249] and ram == bytes(want) and not dev.m.asserts,
+                     f"writes {writes}, bank as the file without pattern 4: {ram == bytes(want)}"))
+    out.append(entry("boot_load_opens_the_file_pattern", edit == bytes(every[:BLOCK]), f"edit buffer = pattern 1 of the file: {edit == bytes(every[:BLOCK])}"))
+    # a shorter file: 12 patterns, 6 changed; the same file again writes nothing
+    short = backup(changed(bank, (5,)), 12)
+    dev, writes = start(payload, {**menu_cases.CARD_FOLDER, BACKUP: short}, seconds=2.5)
+    out.append(entry("boot_load_short_file", writes == [5] and dev.read(BANK + 12 * BLOCK, 238 * BLOCK) == bank[12 * BLOCK:],
+                     f"writes {writes}"))
+    same = backup(bank, 12)
+    dev, writes = start(payload, {**menu_cases.CARD_FOLDER, BACKUP: same}, seconds=2.5)
+    out.append(entry("boot_load_same_file_writes_nothing", writes == [], f"writes {writes}"))
+    dev, writes = start(payload, {**menu_cases.CARD_FOLDER, BACKUP: short}, held=menu_cases.KILL, seconds=2.5)
+    out.append(entry("boot_load_not_with_exit_held", writes == [] and dev.read(BANK, 250 * BLOCK) == bank, f"writes {writes}"))
+    return out
+
+
+LB_STATE = 0xC0181F00           # tools/patch/load_bar.py STATE: S_EXPECT 0, S_DONE 12, S_DRAWN 24, S_PAT 40, S_PPOS 44, S_PSIZE 48
+LB_SHOWN = 0xC01AC800 + 44      # its ANIM_VARS P_SHOWN: the progress shown, permille
+
+
+def case_boot_progress(payload, flash):
+    """The loading animation counts the backup: behind the samples (the bar does not reach the end with them), and on its own
+    when there is no e2sSample.all (the animation starts with the backup). Either way it ends at 100 when the backup is done,
+    and the main screen ends it."""
+    if not redirected(payload):
+        return [entry("boot_progress_not_in_this_build", True, "the blue reads no backup at power-on")]
+    import cardstore
+    import sampleset
+    menu_cases.for_build(payload)
+    plain, _ = start(payload, menu_cases.CARD_FOLDER, seconds=1.2)
+    bank = plain.read(BANK, 250 * BLOCK)
+    out = []
+    for name, samples in (("with_samples", 20), ("without_samples", 0)):
+        image = fat32.format_image(64 * 1024 * 1024)
+        volume = fat32.Volume(image)
+        if samples:
+            volume.write(f"KORG/{cardstore.card_folder(payload)}/Sample/e2sSample.all", sampleset.build(sampleset.sized(samples, 4 * 48000)))
+        volume.write(BACKUP.lstrip("/"), backup(changed(bank, (0, 120, 249)), 250))
+        volume.close()
+        dev = menu_cases.Dev(payload, None, 0)
+        dev.m.adapter = True
+        dev.m.insert_card(menu_cases.SDCard(menu_cases.MemoryMedium(bytearray(image))))
+        writes = []
+        dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, a, s, d: writes.append(dev.u32(LB_SHOWN)), begin=PATTERN_WRITE, end=PATTERN_WRITE)
+        looks = []                  # (S_EXPECT, S_DONE, S_DRAWN, S_PAT, P_SHOWN, screen)
+        while len(looks) < 80:
+            dev.m.run_until(dev.m.time_ns / 1e9 + 0.25)
+            looks.append(tuple(dev.u32(LB_STATE + o) for o in (0, 12, 24, 40)) + (dev.u32(LB_SHOWN), dev.screen()["number"]))
+            if looks[-1][5] == 1:
+                break
+        on = [k for k in looks if k[0] == 1]
+        shown = [k[4] for k in on]
+        out.append(entry(f"boot_progress_{name}", len(writes) == 3 and on and all(k[2] == 1 and k[3] == 1 for k in on[1:])
+                         and shown == sorted(shown) and max(writes) < 1000 and looks[-1][0] == 2 and looks[-1][1] == 1
+                         and looks[-1][4] >= 990 and looks[-1][5] == 1 and not dev.m.asserts,
+                         f"{len(on)} looks with the animation on, permille {shown[:1]} up to {shown[-1:]}, at the pattern writes {writes}, "
+                         f"at the end {looks[-1]} (state 2, done, at least 99 percent shown, main screen)"))
+    return out
+
+
+GROUPS = (case_export, case_import_browser, case_boot_load, case_boot_progress)
+
+
+def cases(payload, flash=None):
+    return [e for group in GROUPS for e in group(payload, flash)]
+
+
+def main():
+    import lifetime
+    lifetime.load_gate()
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--vsb", required=True, type=Path)
+    a = p.parse_args()
+    result = cases(a.vsb.read_bytes()[0x100:])
+    print(json.dumps(result, indent=1))
+    sys.exit(0 if all(e["ok"] for e in result) else 1)
+
+
+if __name__ == "__main__":
+    main()

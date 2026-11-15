@@ -700,6 +700,7 @@ pub fn main() {
             kuhlers_gelumpe::card::card_read,
             kuhlers_gelumpe::card::card_exists,
             kuhlers_gelumpe::card::card_move,
+            kuhlers_gelumpe::card::card_write,
             kuhlers_gelumpe::save::save_cards,
             kuhlers_gelumpe::save::save_card,
             kuhlers_gelumpe::save::save_pick

@@ -54,6 +54,12 @@ export const CHAINS = {
   ],
   "pattern-select": [{ id: "clamp", sites: [0xC0079DC8] }],
   "pattern-init": [{ id: "data-utility-init", sites: [0xC0036A34] }],
+  // SOFTWARE UPDATE's f_read of SYSTEM.VSB (tools/patch/update_guard.py); the second of each is the synth build's
+  "update-read": [
+    { id: "version-header", sites: [0xC00309E0, 0xC002D7C8] },
+    { id: "header", sites: [0xC003A968, 0xC003AD4C, 0xC00353B4, 0xC003579C] },
+    { id: "image", sites: [0xC003A9FC, 0xC003AE24, 0xC0035448, 0xC0035874] },
+  ],
   "stereo-pair": [
     { id: "osc-change", sites: [0xC00413EC] },
     { id: "part-mode", sites: [0xC007DE08] },

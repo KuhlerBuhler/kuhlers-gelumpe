@@ -2,7 +2,8 @@
 //! card's top folder in the app's own dialog; the app keeps that folder and the page only names paths inside it ("KORG/
 //! electribe sampler/System/SYSTEM.VSB"). Every path is checked to stay inside the folder: plain names only, no "..", no
 //! links followed. The page can list the .VSB files, read one, ask whether a name is taken and move a file to a free name.
-//! Nothing here deletes or writes over a file.
+//! The one write is a file in the Media folder (KORG/blechtribe/Media: the start image and the loading animation the
+//! firmware reads at start), which may replace the one there. Nothing else is deleted or written over.
 
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -178,6 +179,33 @@ pub fn move_file(root: &Path, from: &str, to: &str) -> Result<(), String> {
     fs::rename(&source, &target).map_err(|e| format!("{from} ließ sich nicht verschieben: {e}"))
 }
 
+/// The folder `write` may put files into.
+const MEDIA: &str = "KORG/blechtribe/Media";
+/// The media files are small (a BMP has 1,086 bytes, an animation at most 16 KiB).
+const MEDIA_LIMIT: usize = 64 << 10;
+
+/// Writes `bytes` to `rel`, a file directly in KORG/blechtribe/Media (any letters), making the folders on the way.
+pub fn write(root: &Path, rel: &str, bytes: &[u8]) -> Result<(), String> {
+    let parts = names(rel)?;
+    let media: Vec<&str> = MEDIA.split('/').collect();
+    if parts.len() != media.len() + 1
+        || !parts
+            .iter()
+            .zip(&media)
+            .all(|(a, b)| a.eq_ignore_ascii_case(b))
+    {
+        return Err(format!("{rel} liegt nicht im Ordner {MEDIA}."));
+    }
+    if bytes.len() > MEDIA_LIMIT {
+        return Err(format!("{rel} ist zu groß."));
+    }
+    let target = resolve(root, rel, true)?.ok_or(format!("{rel} liegt nicht auf der Karte."))?;
+    if taken(&target) && !is_file(&target) {
+        return Err(format!("{rel} ist keine Datei, ich schreib nicht drüber."));
+    }
+    fs::write(&target, bytes).map_err(|e| format!("{rel} ließ sich nicht schreiben: {e}"))
+}
+
 fn allow(window: &WebviewWindow) -> Result<(), String> {
     let address = window.url().map_err(|e| e.to_string())?;
     if !trusted_origin(window.label(), address.as_str()) {
@@ -274,6 +302,17 @@ pub fn card_move(
 ) -> Result<(), String> {
     allow(&window)?;
     move_file(&root(&state)?, &from, &to)
+}
+
+#[tauri::command]
+pub fn card_write(
+    window: WebviewWindow,
+    state: State<'_, CardRoot>,
+    path: String,
+    bytes: Vec<u8>,
+) -> Result<(), String> {
+    allow(&window)?;
+    write(&root(&state)?, &path, &bytes)
 }
 
 #[cfg(test)]
@@ -393,5 +432,33 @@ mod tests {
         assert!(list(&root).is_empty());
         assert!(read(&root, "link/SYSTEM.VSB").is_err());
         assert!(!exists(&root, "link/SYSTEM.VSB").unwrap());
+    }
+
+    #[test]
+    fn write_puts_media_files_and_nothing_else() {
+        let root = card();
+        write(&root, "KORG/blechtribe/Media/splash.bmp", b"one").unwrap();
+        assert_eq!(
+            fs::read(root.join("KORG/blechtribe/Media/splash.bmp")).unwrap(),
+            b"one"
+        );
+        write(&root, "korg/BLECHTRIBE/media/splash.bmp", b"two").unwrap();
+        assert_eq!(
+            fs::read(root.join("KORG/blechtribe/Media/splash.bmp")).unwrap(),
+            b"two"
+        );
+        assert!(write(&root, "KORG/blechtribe/settings.bin", b"x").is_err());
+        assert!(write(&root, "KORG/blechtribe/Media/sub/a.bmp", b"x").is_err());
+        assert!(write(&root, "KORG/blechtribe/Media/../x.bmp", b"x").is_err());
+        assert!(write(&root, "KORG/electribe sampler/System/SYSTEM.VSB", b"x").is_err());
+        assert!(write(
+            &root,
+            "KORG/blechtribe/Media/big.blla",
+            &vec![0u8; MEDIA_LIMIT + 1]
+        )
+        .is_err());
+        fs::create_dir_all(root.join("KORG/blechtribe/Media/dir.bmp")).unwrap();
+        assert!(write(&root, "KORG/blechtribe/Media/dir.bmp", b"x").is_err());
+        let _ = fs::remove_dir_all(&root);
     }
 }

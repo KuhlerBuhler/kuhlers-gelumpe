@@ -105,6 +105,7 @@ pub fn run() {
             crate::card::card_read,
             crate::card::card_exists,
             crate::card::card_move,
+            crate::card::card_write,
             file_save
         ])
         .plugin(tauri_plugin_dialog::init())

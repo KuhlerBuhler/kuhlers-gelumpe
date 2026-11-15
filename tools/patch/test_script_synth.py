@@ -47,6 +47,7 @@ class SynthStartupTests(unittest.TestCase):
                 uc.mem_map(0xC0000000, 0x800000)
                 for address, data in built.sections:
                     uc.mem_write(address, data)
+                uc.mem_write(0xC01A250C, b'\xff' * 4)   # splash_sync's entry is free space (FF) without the splash editor
                 uc.mem_write(0xC033E8F8, pointer.to_bytes(4, 'little'))
                 if pointer not in (0, 0xFFFFFFFF):
                     uc.mem_write(pointer + 0x18, held.to_bytes(8, 'little') + bytes([mode, 0, updating]))

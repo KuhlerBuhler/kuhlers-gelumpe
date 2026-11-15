@@ -223,7 +223,7 @@ small VM in the firmware, and an error switches the plugin off without disturbin
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
 The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
 Mandelbrot, GIF Player, Image Viewer, BPM Glide, Momentary Mute, Gate Hold, Step Copy,
-Lauflicht, Pulsieren and PLAY-Takt.
+Lauflicht, Pulsieren and STOP-Takt.
 
 ## The emulator
 

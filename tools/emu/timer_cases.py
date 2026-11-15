@@ -1,8 +1,9 @@
 """Emulator cases of the plugin timers (API 11, korg.after, korg.every, korg.afterSteps): a korg.after(1000) fires between
 1000 and 1040 ms after the call, also with a pattern change in between; one set in the body of a plugin on the card, before
 the samples load, fires at the first frame after the start, and the clock of the plugin has not lost the seconds of the load;
-korg.afterSteps(4) fires with the fourth step after the call. The catalog plugin PLAY-Takt blinks the PLAY LED on the beat
-while the sequencer plays and keeps it lit when stopped and paused, also against the firmware's own blink in the pause.
+korg.afterSteps(4) fires with the fourth step after the call. The catalog plugin STOP-Takt (id playtakt) blinks the STOP LED
+on the beat while the sequencer plays and keeps it off when stopped and paused; it never writes the PLAY LEDs, they show
+what the firmware shows without the plugin, its own blink in the pause included.
 
     python3 tools/emu/timer_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 """
@@ -18,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from tools.patch import script_hooks  # noqa: E402
 import menu_cases  # noqa: E402
 import node_json  # noqa: E402
-import panel_leds  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
@@ -56,6 +56,7 @@ PLAYTAKT = node_json.run("import {PRESETS} from './data/script/presets.mjs';"
                          "console.log(JSON.stringify(PRESETS.find(p => p.id === 'playtakt').source))")
 PLAY, STOP = 2, 1               # key codes
 PLAY_LEDS = (0x09, 0x15)        # PLAY and PLAY_BLUE
+STOP_LED = 0x13
 TRANSPORT = 0xC06BC318          # 0 stop, 1 play, 2 pause (plugin_edit_cases.py)
 PATTERN_PTR = 0xC033E6A4        # the pattern in RAM, its block from +4; the tempo at +34 in tenths of BPM
 
@@ -169,56 +170,90 @@ def tap(dev, key):
     dev.m.send([0, key, 0, 0, 0])
 
 
-def playtakt_cases(payload, flash):
-    """PLAY-Takt from the catalog: PLAY, 2 s playing at the pattern's tempo, PLAY again (pause) for 1.5 s, PLAY, then STOP
-    for 1 s. The panel's side of the LEDs (panel_leds.py) says what the PLAY LED shows."""
-    request = compiled_playtakt()
-    built = script_hooks.build(request["include"], build=identify(payload).build)
+def playtakt_run(payload, flash, plugin):
+    """PLAY, 2 s playing at the pattern's tempo, PLAY again (pause) for 1.5 s, PLAY, then STOP for 1 s, with STOP-Takt from
+    the catalog or, with `plugin` false, without it. Per phase what the panel got for STOP, PLAY and PLAY_BLUE (panel_leds.py)."""
     dev = menu_cases.boot(payload, flash, files=menu_cases.CARD_FOLDER, adapter=True, seconds=2.0)
     m = dev.m
-    script_cases.install(dev, built, request["programs"], ["playtakt"])
-    dev.run(0.5)
-    stopped = [m.leds.get(led, 0) for led in PLAY_LEDS]
-    tempo = int.from_bytes(bytes(m.uc.mem_read(dev.u32(dev.a(PATTERN_PTR)) + 4 + 34, 2)), "little") / 10
+    if plugin:
+        request = compiled_playtakt()
+        built = script_hooks.build(request["include"], build=identify(payload).build)
+        script_cases.install(dev, built, request["programs"], ["playtakt"])
+    leds = (STOP_LED, *PLAY_LEDS)
+    phases = {}
 
-    def window(seconds, led=PLAY_LEDS[0]):
-        before = {led: m.leds.get(led, 0)}
+    def window(name, seconds):
+        before = {led: m.leds.get(led, 0) for led in leds}
         start = m.time_ns
         dev.run(seconds)
-        changes = m.panel_leds.between(start, m.time_ns, {led})
-        return panel_leds.shown(changes, before), panel_leds.blinks(changes, before, gap_ns=10**9), before[led]
+        changes = m.panel_leds.between(start, m.time_ns, set(leds))
+        phases[name] = {"before": before, "after": {led: m.leds.get(led, 0) for led in leds},
+                        "changes": {led: [c for c in changes if c[3] == led] for led in leds}}
 
+    window("stopped", 0.5)
+    tempo = int.from_bytes(bytes(m.uc.mem_read(dev.u32(dev.a(PATTERN_PTR)) + 4 + 34, 2)), "little") / 10
     tap(dev, PLAY)
     dev.run(0.5)                                               # the first beat after the start
-    playing, _, _ = window(2.0)
-    blue, _, _ = window(1.0, PLAY_LEDS[1])
-    ons = [at for at, _, value in playing if value]
-    periods = [round((b - a) / 1e6) for a, b in zip(ons, ons[1:])]
-    beat_ms = 60000 / tempo if tempo else 0
+    window("playing", 2.0)
     tap(dev, PLAY)
     dev.run(0.1)
     paused_transport = dev.u32(dev.a(TRANSPORT))
-    paused, paused_dark, paused_from = window(1.5)
-    firmware_toggles = len(m.panel_leds.between(m.time_ns - int(1.5e9), m.time_ns, {PLAY_LEDS[0]}))
+    window("paused", 1.5)
     tap(dev, PLAY)
-    dev.run(0.5)
+    window("resumed", 0.5)
     tap(dev, STOP)
     dev.run(0.2)
-    stop_shown, _, stop_from = window(1.0)
-    out = [entry("playtakt_lit_when_stopped", stopped == [255, 255] and not m.asserts, f"PLAY and PLAY_BLUE {stopped} after the start"),
-           entry("playtakt_blinks_on_the_beat", len(ons) >= 3 and beat_ms and all(abs(p - beat_ms) <= 45 for p in periods)
-                 and sum(1 for _, _, v in playing if not v) >= 3 and sum(1 for _, _, v in blue if v) >= 1 and not m.asserts,
-                 f"tempo {tempo} BPM, a beat {beat_ms:.0f} ms; PLAY on every {periods} ms over 2 s, {len(playing)} changes; "
-                 f"PLAY_BLUE {len(blue)} changes in 1 s"),
-           # the firmware blinks PLAY while paused and the plugin lights it again at the next frame, about 6 ms later; the
-           # panel shows each from its next row round (5.5 ms, the model), so what stays dark is at most two rounds
-           entry("playtakt_steady_when_paused", paused_from == 255 and firmware_toggles > 0
-                 and all(dark <= 2 * panel_leds.ROUND_NS for _, _, dark in paused_dark) and (not paused or paused[-1][2] == 255) and not m.asserts,
-                 f"transport {paused_transport}, firmware wrote PLAY {firmware_toggles} times in 1.5 s, dark gaps "
-                 f"{[round(d / 1e6, 1) for _, _, d in paused_dark]} ms"),
-           entry("playtakt_steady_after_stop", stop_from == 255 and not stop_shown and m.leds.get(PLAY_LEDS[0]) == 255 and not m.asserts,
-                 f"PLAY {stop_from} 0.2 s after STOP, {len(stop_shown)} changes in the second after")]
-    return out
+    window("after_stop", 1.0)
+    return {"tempo": tempo, "transport": paused_transport, "phases": phases, "asserts": bool(m.asserts)}
+
+
+def led_summary(phase, led):
+    """Number of changes, the values, and the median ms between two changes of `led` in a phase."""
+    changes = phase["changes"][led]
+    gaps = sorted(round((b[1] - a[1]) / 1e6) for a, b in zip(changes, changes[1:]))
+    return len(changes), sorted({c[4] for c in changes}), gaps[len(gaps) // 2] if gaps else None
+
+
+def follows(own, firmware):
+    """The plugin run shows a PLAY LED as the run without it: as many changes (2 more or less, the phase of the firmware's
+    blink to the window may differ), the same values, the same rhythm (10 ms)."""
+    (n, values, gap), (n0, values0, gap0) = own, firmware
+    return abs(n - n0) <= 2 and values == values0 and (gap is None) == (gap0 is None) and (gap is None or abs(gap - gap0) <= 10)
+
+
+def playtakt_cases(payload, flash):
+    """STOP-Takt from the catalog against the same steps without it: the STOP LED blinks on the beat while playing and is off
+    when stopped and paused, the PLAY LEDs show what the firmware shows without the plugin."""
+    run = playtakt_run(payload, flash, True)
+    base = playtakt_run(payload, flash, False)
+    phases, tempo = run["phases"], run["tempo"]
+    stop = {name: phase["changes"][STOP_LED] for name, phase in phases.items()}
+    ons = [c[1] for c in stop["playing"] if c[4]]
+    periods = [round((b - a) / 1e6) for a, b in zip(ons, ons[1:])]
+    beat_ms = 60000 / tempo if tempo else 0
+    quiet = lambda name: not stop[name] and phases[name]["after"][STOP_LED] == 0
+    firmware = {(name, led): (led_summary(phases[name], led), led_summary(base["phases"][name], led))
+                for name in phases for led in PLAY_LEDS}
+    differ = {f"{name}/{led:#x}": pair for (name, led), pair in firmware.items() if not follows(*pair)}
+    firmware_blinks = all(firmware[("paused", led)][1][0] > 2 for led in PLAY_LEDS)
+    # without the plugin the firmware never writes STOP in these steps, so what STOP shows is the plugin's alone
+    firmware_stop = sum(len(phase["changes"][STOP_LED]) for phase in base["phases"].values())
+    ok = not run["asserts"] and not base["asserts"]
+    return [entry("playtakt_off_when_stopped", phases["stopped"]["before"][STOP_LED] == 0 and quiet("stopped") and firmware_stop == 0 and ok,
+                  f"STOP {phases['stopped']['after'][STOP_LED]}, {len(stop['stopped'])} changes in 0.5 s after the start; "
+                  f"without the plugin STOP changed {firmware_stop} times"),
+            entry("playtakt_blinks_on_the_beat", len(ons) >= 3 and beat_ms and all(abs(p - beat_ms) <= 45 for p in periods)
+                  and sum(1 for c in stop["playing"] if not c[4]) >= 3 and any(c[4] for c in stop["resumed"]) and ok,
+                  f"tempo {tempo} BPM, a beat {beat_ms:.0f} ms; STOP on every {periods} ms over 2 s, {len(stop['playing'])} changes; "
+                  f"{len(stop['resumed'])} changes in 0.5 s after the pause"),
+            entry("playtakt_off_when_paused", run["transport"] == 2 and phases["paused"]["before"][STOP_LED] == 0 and quiet("paused") and ok,
+                  f"transport {run['transport']}, STOP {phases['paused']['before'][STOP_LED]} 0.1 s into the pause, "
+                  f"{len(stop['paused'])} changes in 1.5 s"),
+            entry("playtakt_off_after_stop", phases["after_stop"]["before"][STOP_LED] == 0 and quiet("after_stop") and ok,
+                  f"STOP {phases['after_stop']['before'][STOP_LED]} 0.2 s after STOP, {len(stop['after_stop'])} changes in the second after"),
+            entry("playtakt_play_leds_follow_the_firmware", not differ and firmware_blinks and ok,
+                  f"differ from the run without the plugin: {differ or 'none'}; PLAY in the pause (changes, values, ms between), "
+                  f"with and without: {firmware[('paused', PLAY_LEDS[0])]}")]
 
 
 def main():

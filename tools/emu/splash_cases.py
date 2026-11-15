@@ -582,6 +582,7 @@ def editor_run(base, patched, flash=None, png_dir=None):
         Path(png_dir).mkdir(parents=True, exist_ok=True)
         dev.png(Path(png_dir) / "editor.png")
     steps.extend(import_steps(patched, flash_in))
+    steps.extend(media_steps(patched, flash_in))
     return {"ok": all(s["ok"] for s in steps), "steps": steps, "evidence": evidence}
 
 
@@ -635,12 +636,87 @@ def import_steps(patched, flash):
         stored = dev.read(spec.RECBUF + 8, spec.IMAGE_BYTES) == image_of(pic)
         steps.append({"step": f"import: {name} gives {want}", "ok": got == want and (want != 0 or stored) and not dev.m.asserts,
                       "detail": f"returned {got}, image {'as drawn' if stored else 'not stored'}"})
+        copy = card_file(img, MEDIA_FILE)
+        if want == 0:
+            steps.append({"step": f"import: {name} writes Media/splash.bmp with the image", "ok": copy is not None and bmp_pixels(copy) == pic,
+                          "detail": "missing" if copy is None else f"{len(copy)} bytes"})
+        elif name != "missing":
+            steps.append({"step": f"import: {name} writes no Media/splash.bmp", "ok": copy is None})
         if name == "bottom-up":
             again = boot_case(patched, bytes(dev.m.flash.mem))
             shown = drop_half_drawn(classify(f, {"stored": display_of(image_of(pic))}, again["bar"]) for f in again["frames"])
             steps.append({"step": "after a restart the display shows the imported image",
                           "ok": len(shown) >= MIN_FRAMES and all(x == "stored" for x in shown) and again["screen_1"] and not again["asserts"],
                           "detail": summary(shown)})
+    return steps
+
+
+MEDIA_FILE = "/KORG/blechtribe/Media/splash.bmp"
+
+
+def card_file(img, path):
+    """The bytes of a file on a card image, None when it is not there."""
+    import fat32
+    try:
+        return fat32.open_volume(img).read(path)
+    except Exception:
+        return None
+
+
+def bmp_pixels(data):
+    """Rows of 0 and 1 (1 drawn, the darker palette colour) of a 128 x 64 BMP with 1 bit per pixel, None for anything else."""
+    if len(data) < 62 or data[:2] != b"BM":
+        return None
+    off, dib = struct.unpack_from("<II", data, 10)
+    width, height, _, bpp = struct.unpack_from("<iiHH", data, 18)
+    if width != 128 or abs(height) != 64 or bpp != 1 or len(data) < off + 1024:
+        return None
+    pal = data[14 + dib:14 + dib + 8]
+    ink = 1 if sum(pal[4:7]) < sum(pal[0:3]) else 0
+    rows = []
+    for y in range(64):
+        r = 63 - y if height > 0 else y
+        row = data[off + 16 * r:off + 16 * r + 16]
+        rows.append([1 if ((row[x >> 3] >> (7 - (x & 7))) & 1) == ink else 0 for x in range(128)])
+    return rows
+
+
+def pixels_of(image):
+    """The inverse of image_of."""
+    return [[1 if image[(y // 8) * 128 + x] & (0x80 >> (y % 8)) else 0 for x in range(128)] for y in range(64)]
+
+
+def media_steps(patched, flash):
+    """Media/splash.bmp at start: a different image goes into the flash and is the start image from the next start on, the same
+    image as shown writes nothing."""
+    import fat32
+    steps = []
+    pic = [[1 if (x * y) % 7 == 0 or y == 10 else 0 for x in range(128)] for y in range(64)]
+    for name, data, want in (("a different image", bmp(pic), image_of(pic)), ("the image shown", bmp(pixels_of(vsb_image(patched))), None)):
+        img = bytearray(fat32.format_image(64 * 1024 * 1024))
+        vol = fat32.open_volume(img)
+        for d in ("/KORG", "/KORG/blechtribe", "/KORG/blechtribe/Media"):
+            vol.mkdir(d)
+        vol.write(MEDIA_FILE, data)
+        vol.close()
+        dev = Dev(patched, flash)
+        before = bytes(dev.m.flash.mem[spec.FLASH_RECORD:spec.FLASH_RECORD + 0x1000])
+        dev.m.insert_card(SDCard(MemoryMedium(img)))
+        dev.run(4)
+        sector = bytes(dev.m.flash.mem[spec.FLASH_RECORD:spec.FLASH_RECORD + 0x1000])
+        rec = sector[:spec.RECORD_SIZE]
+        if want is None:
+            steps.append({"step": f"Media/splash.bmp at start: {name} leaves the flash as it was", "ok": sector == before and not dev.m.asserts,
+                          "detail": "unchanged" if sector == before else "written"})
+            continue
+        ok = record_valid(rec) and rec[8:8 + spec.IMAGE_BYTES] == want and dev.screen()["number"] == 1 and not dev.m.asserts
+        steps.append({"step": f"Media/splash.bmp at start: {name} is stored in flash", "ok": ok,
+                      "detail": f"record {'valid' if record_valid(rec) else 'not valid'}, screen {dev.screen()['number']}"})
+        again = boot_case(patched, bytes(dev.m.flash.mem))
+        shown = drop_half_drawn(classify(f, {"stored": display_of(want)}, again["bar"]) for f in again["frames"])
+        steps.append({"step": "after a restart without card the display shows that image",
+                      "ok": len(shown) >= MIN_FRAMES and all(x == "stored" for x in shown) and again["screen_1"] and not again["asserts"],
+                      "detail": summary(shown)})
     return steps
 
 
