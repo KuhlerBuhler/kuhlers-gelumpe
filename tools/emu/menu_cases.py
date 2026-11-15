@@ -2948,6 +2948,23 @@ def card_later_cases(payload, flash=None):
         and not slow.m.asserts, f"card out: MMCCLK {clock[0]:#x}, MMCCTL {clock[1]:#x}; other card {look(slow)}, lock {slow.u32(SD_INIT_LOCK)}, "
         f"card state {state(slow, S_CARD):#x}; started with it {ref_b}")
 
+    # a card still going in: no answer yet, and its detect switch opens once 0.5 s after the first contact (device 15.11.)
+    moving = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    moving.m.eject_card()
+    moving.run(0.5)
+    card_m = SDCard(MemoryMedium(card_image(files_b)))
+    card_m.fail("no_response")
+    moving.m.insert_card(card_m)
+    moving.run(0.5)
+    moving.m.eject_card()
+    moving.run(0.04)
+    card_m.heal()
+    moving.m.insert_card(card_m)
+    moving.run(1.0)
+    add("card_going_in_is_read_once_in", look(moving) == ref_b and moving.u32(SD_INIT_LOCK) == 0 and state(moving, S_CARD) == 0xFF
+        and not moving.m.asserts, f"other card {look(moving)}, lock {moving.u32(SD_INIT_LOCK)}, card state {state(moving, S_CARD):#x}; "
+        f"started with it {ref_b}")
+
     # started without a card: the first card after such a start can hang the Korg SD init on the device, so none is read until the next start
     bare_dev = boot(payload, flash, adapter=True, card=False, seconds=wait)
     bare = look(bare_dev)
