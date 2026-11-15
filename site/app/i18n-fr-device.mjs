@@ -716,6 +716,7 @@ export default {
   "snapshot ist ein Ergebnis von KORG.ram.snapshot": "snapshot doit être un résultat de KORG.ram.snapshot",
   "where(adresse, anzahl)": "where(adresse, nombre)",
   "abgelehnt": "refusé",
+  "nicht innerhalb von 500 ms": "pas dans les 500 ms",
   "Firmware-Code prüfen": "Vérifier le code du firmware",
   "Sichern": "Sauvegarder",
   "Schreiben": "Écrire",
