@@ -19,13 +19,6 @@ export const MEDIA_NAME_MAX = SCRIPT_MEDIA.nameMax;
 /** Longest file name the folder walk takes, as the BLECH menu's list (tools/patch/script_menu.s, menu_dir_next). */
 const FILE_NAME_MAX = 31;
 
-/**
- * The polarity of a picture in the slots, one switch for both kinds until it is measured on the device: true sets the bit of a
- * pixel that is drawn, as frameOfPixels does. Drawn is the darker palette entry of a .bmp, and for a .blla what
- * frameToPixels (src/loading-anim.mjs) calls drawn, the complement of the bits the loading overlay writes.
- */
-export const DRAWN_IS_SET = true;
-
 /** The name korg.file.name shows for a file name: without its ending, longer than MEDIA_NAME_MAX cut and marked with "..". */
 export function mediaName(fileName, kind) {
   const base = fileName.slice(0, fileName.length - MEDIA_KINDS[kind].length);
@@ -51,24 +44,30 @@ export function listMedia(card, kind) {
   return out;
 }
 
-/** The characters of a name as korg.file.name writes them, one byte each; a character beyond one byte becomes "?". */
+/**
+ * The characters of a name as korg.file.name writes them, one byte each; a character beyond ASCII becomes "?". The firmware's
+ * FatFs gives a long name in code page 932 (its Shift JIS tables are in the image), so the device turns every byte from 0x80 on
+ * into "?": a name with such characters can differ in length there (two bytes a character, or the short name instead).
+ */
 export function mediaNameBytes(name) {
-  return Uint8Array.from(name, c => (c.charCodeAt(0) < 256 ? c.charCodeAt(0) : 0x3f));
+  return Uint8Array.from(name, c => (c.charCodeAt(0) < 0x80 ? c.charCodeAt(0) : 0x3f));
 }
 
-/** Every picture of a file in the slot layout of frameOfPixels, or null when the file is none of its kind. */
+/**
+ * Every picture of a file in the slot layout of frameOfPixels, or null when the file is none of its kind. A drawn pixel sets its
+ * bit, as frameOfPixels does: drawn is the darker palette entry of a .bmp, and for a .blla what frameToPixels
+ * (src/loading-anim.mjs) calls drawn, the complement of the bits the loading overlay writes (frameOfPixels(frameToPixels(f)) is
+ * f with every bit turned).
+ */
 function pictures(bytes, kind) {
   if (!(bytes instanceof Uint8Array)) return null;
   if (kind === 0) {
     const px = decodeBmp(bytes);
-    if (typeof px === "string") return null;
-    const frame = frameOfPixels(px);
-    return [DRAWN_IS_SET ? frame : frame.map(b => b ^ 0xff)];
+    return typeof px === "string" ? null : [frameOfPixels(px)];
   }
   let anim;
   try { anim = decodeAnimation(bytes); } catch { return null; }
-  // frameOfPixels(frameToPixels(f)) is f with every bit turned: the overlay's bits are lit, not drawn
-  return [...anim.progress, ...anim.loop].map(f => (DRAWN_IS_SET ? f.map(b => b ^ 0xff) : f));
+  return [...anim.progress, ...anim.loop].map(f => f.map(b => b ^ 0xff));
 }
 
 /**
@@ -76,12 +75,15 @@ function pictures(bytes, kind) {
  * Kind 0 has one picture; kind 1 has the progress pictures 0 to N - 1, then the loop pictures N to N + M - 1, each
  * as decodeAnimation gives it. -> the number of pictures in the file, 0 when `frame` is past the last (the slots stay),
  * -1 when the file is missing or not one of its kind (any list of a .blla out of bounds makes the whole file bad).
+ * `reversed` is the display as DISPLAY INVERT ON leaves it (controller command 0xA7): every bit is turned, so a drawn pixel is
+ * dark either way, as the start image at power-on (drawn before the 0xA7) and the loading animation (which turns its own bits
+ * with DISPLAY INVERT OFF) show it. Measured in the emulator, docs/messungen/2026-11-16-media-polaritaet.md.
  */
-export function readMediaPicture(bytes, kind, frame, slots) {
+export function readMediaPicture(bytes, kind, frame, slots, reversed = false) {
   const all = pictures(bytes, kind);
   if (!all) return -1;
   if (frame >= all.length) return 0;
-  const f = all[frame];
-  for (let i = 0; i < f.length; i++) slots[i] = f[i];
+  const f = all[frame], turn = reversed ? 0xff : 0;
+  for (let i = 0; i < f.length; i++) slots[i] = f[i] ^ turn;
   return all.length;
 }

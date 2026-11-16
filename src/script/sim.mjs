@@ -14,8 +14,11 @@ import { ScriptFault } from "./vm.mjs";
 import { text, render } from "../text.mjs";
 import { gifPath, readGifFrame } from "./gif.mjs";
 import { listMedia, mediaNameBytes, readMediaPicture } from "./media.mjs";
+import { OBJECTS } from "../../data/script/objects.mjs";
 
 export const FRAME_MS = 40;
+/** DISPLAY INVERT ON reverses the display, korg.file.picture turns its bits for it (src/script/media.mjs). */
+const DISPLAY_INVERT = OBJECTS.findIndex(o => o.path === "korg.menu.blech.customizations.display.invert");
 const KEY_EXIT = KEY_NAMES.find(n => n.name === "EXIT").value;
 
 export class SimDevice {
@@ -70,7 +73,7 @@ export class SimDevice {
         "korg.file.picture": (slots, kind, index, frame) => {
           if (slots.length < SCRIPT_MEDIA.pictureBytes) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.mediaPicture", { length: slots.length, needed: SCRIPT_MEDIA.pictureBytes })));
           const entry = this.media[kind][index];
-          return entry ? readMediaPicture(this.card.get(entry.path), kind, frame, slots) : -1;
+          return entry ? readMediaPicture(this.card.get(entry.path), kind, frame, slots, this.hardware.objects[DISPLAY_INVERT] === 1) : -1;
         },
         ...this.hardware.api(),
       },

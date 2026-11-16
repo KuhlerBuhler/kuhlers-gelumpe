@@ -302,7 +302,8 @@ test("the simulator lists Media/ and gives each picture exactly as readMediaPict
         p.call(kind, idx, fr);
         const before = p.slots("pic");
         want.set(before);
-        assert.equal(p.v("got"), readMediaPicture(bytes, kind, fr, want), `${entry.name} picture ${fr}`);
+        // DISPLAY INVERT is ON from the factory, so the bits come turned
+        assert.equal(p.v("got"), readMediaPicture(bytes, kind, fr, want, true), `${entry.name} picture ${fr}`);
         assert.deepEqual(p.slots("pic"), Array.from(want), `${entry.name} picture ${fr}`);
         const name = mediaNameBytes(entry.name);
         assert.equal(p.v("len"), name.length);

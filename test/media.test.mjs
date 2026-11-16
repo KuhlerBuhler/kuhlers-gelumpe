@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { encodeBmp } from "../src/splash-bmp.mjs";
 import { encodeAnimation, decodeAnimation, frameToPixels } from "../src/loading-anim.mjs";
 import { frameOfPixels } from "../src/script/gif.mjs";
-import { MEDIA_FOLDER, MEDIA_MAX_FILES, DRAWN_IS_SET, listMedia, mediaName, mediaNameBytes, readMediaPicture } from "../src/script/media.mjs";
+import { MEDIA_FOLDER, MEDIA_MAX_FILES, listMedia, mediaName, mediaNameBytes, readMediaPicture } from "../src/script/media.mjs";
 
 const N = 128 * 64;
 const blechy = new Uint8Array(readFileSync(new URL("../assets/blechy/loading.blla", import.meta.url)));
@@ -17,10 +17,12 @@ const slots = () => new Int32Array(1024).fill(-7);
 test("a .bmp reads as one picture in the layout of frameOfPixels, the darker entry drawn", () => {
   const s = slots();
   assert.equal(readMediaPicture(encodeBmp(marker()), 0, 0, s), 1);
-  const want = frameOfPixels(marker());
-  assert.deepEqual(Array.from(s), Array.from(DRAWN_IS_SET ? want : want.map(b => b ^ 0xff)));
-  assert.equal(s[0], DRAWN_IS_SET ? 1 : 0xfe, "pixel 0,0 is bit 0 of slot 0");
-  assert.equal(s[7 * 128 + 127], DRAWN_IS_SET ? 0x80 : 0x7f, "pixel 127,63 is bit 7 of the last slot");
+  assert.deepEqual(Array.from(s), Array.from(frameOfPixels(marker())));
+  assert.equal(s[0], 1, "pixel 0,0 is bit 0 of slot 0");
+  assert.equal(s[7 * 128 + 127], 0x80, "pixel 127,63 is bit 7 of the last slot");
+  const turned = slots();
+  assert.equal(readMediaPicture(encodeBmp(marker()), 0, 0, turned, true), 1);
+  assert.deepEqual(Array.from(turned), Array.from(frameOfPixels(marker())).map(b => b ^ 0xff), "DISPLAY INVERT ON turns every bit");
   const after = slots();
   assert.equal(readMediaPicture(encodeBmp(marker()), 0, 1, after), 0, "past the one picture");
   assert.ok(after.every(v => v === -7), "the slots stay");
@@ -44,7 +46,7 @@ test("every picture of Blechy's loading.blla is decodeAnimation's, progress firs
   all.forEach((f, k) => {
     const s = slots();
     assert.equal(readMediaPicture(blechy, 1, k, s), all.length, `picture ${k}`);
-    assert.deepEqual(Array.from(s), Array.from(frameOfPixels(frameToPixels(f))).map(b => (DRAWN_IS_SET ? b : b ^ 0xff)), `picture ${k}`);
+    assert.deepEqual(Array.from(s), Array.from(frameOfPixels(frameToPixels(f))), `picture ${k}`);
   });
   const s = slots();
   assert.equal(readMediaPicture(blechy, 1, all.length, s), 0);
@@ -57,7 +59,10 @@ test("a small .blla with 3 progress and 2 loop pictures gives 5, the loop over i
   want.forEach((f, k) => {
     const s = slots();
     assert.equal(readMediaPicture(bytes, 1, k, s), 5);
-    assert.deepEqual(Array.from(s), Array.from(f).map(b => (DRAWN_IS_SET ? b ^ 0xff : b)), `picture ${k}`);
+    assert.deepEqual(Array.from(s), Array.from(f).map(b => b ^ 0xff), `picture ${k}`);
+    const raw = slots();
+    readMediaPicture(bytes, 1, k, raw, true);
+    assert.deepEqual(Array.from(raw), Array.from(f), `picture ${k} with DISPLAY INVERT ON: the file's own bits`);
   });
   assert.equal(readMediaPicture(bytes, 1, 5, slots()), 0);
   assert.equal(readMediaPicture(bytes, 0, 0, slots()), -1, "not a .bmp");
@@ -95,5 +100,5 @@ test("the list takes only files right in Media/ that end in the kind's ending, i
 test("a name is cut to 15 characters and .. beyond 17, and goes out one byte a character", () => {
   assert.equal(mediaName("seventeen-chars-x.bmp", 0), "seventeen-chars-x");
   assert.equal(mediaName("eighteen-chars-xyz.blla", 1), "eighteen-chars-..");
-  assert.deepEqual(Array.from(mediaNameBytes("Ab.é€")), [65, 98, 46, 0xe9, 0x3f]);
+  assert.deepEqual(Array.from(mediaNameBytes("Ab.é€")), [65, 98, 46, 0x3f, 0x3f]);
 });

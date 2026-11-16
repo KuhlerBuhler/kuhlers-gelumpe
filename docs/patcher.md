@@ -444,7 +444,10 @@ sind kein RAM und stehen auch nicht hier.
 | `0xC018CF00` + 0x40 | ifx-idle | Zustand: je Part die stummen Takte und ob er Punch vom Patch hat (der Code liegt bei `0xC018C000`, 0x1E4 Byte, als geänderte Bytes) | `ifx_idle.py:STATE` |
 | `0xC018D000` + 16, `0xC018D010` + 480 | script-runtime | Zustand des Spektrum-Dienstes (`korg.audio`), Menüseiten der Plugins (`korg.menu.add`) | `script_hooks.py:AUDIO_SERVICE`, `MENU_ITEMS` |
 | `0xC018D1F0` + 12 | script-runtime | `korg.touchLockY`: das rohe Y für die Firmware, wie bei `korg.touchLockX` | `script_hooks.py:TOUCH_LOCK_Y` |
-| `0xC018D1FC` bis `0xC018FF00` | script-runtime | Reserve: Rest der zweiten Code-Fläche der Laufzeit bis 1.3.7 | `script_hooks.py:TOUCH_LOCK_Y_END` |
+| `0xC018D1FC` + 16 | script-runtime | `korg.file.read` und `korg.file.write`: der Heap-Block der Datendatei, ihre Größe, das Zeichen eines wartenden Schreibens, der Rahmen des letzten | `script_data.s:DF_BLOCK` |
+| `0xC018D20C` + 48, `0xC018D23C` + 40, `0xC018D264` + 52, `0xC018D298` + 84 | script-runtime | die zuletzt gesendeten Meter-LEDs, LOAD METER, IDLE POWER SAVE, BPM GLIDE | `script_hooks.py:METER_SENT`, `LOAD_METER`, `IDLE`, `GLIDE` |
+| `0xC018D2EC` + 0x16C0 | script-runtime | `korg.file.count`, `name` und `picture`: die Liste der Startbilder und der Ladeanimationen in `Media/` (je 64 Einträge zu 32 Byte), das Bild im Bau, die Puffer der beiden Leser einer `.blla` (512 und 128 Byte), die Zahlen und der Kopf der geprüften `.blla` (FF beim Einschalten heißt nichts gelistet, nichts geprüft) | `script_media.s:MS_COUNT` |
+| `0xC018E9AC` bis `0xC018FF00` | script-runtime | Reserve: Rest der zweiten Code-Fläche der Laufzeit bis 1.3.7 | `script_hooks.py:MEDIA_END` |
 | `0xC0191000` + 0x100 | blech-sysex | Zustand: das erklärte Schreiben, die decodierte Anfrage, Antworten, die kurz sind | `blech_sysex.py:STATE` |
 | `0xC0191100` bis `0xC01A0000` | blech-sysex | Puffer für Nachrichten und Antworten, bis 32768 Byte Nutzdaten, die Antwort wird von hinten im selben Puffer gepackt | `blech_sysex.py:BUF` |
 | `0xC01A5C00` + 0x40, `0xC01A5D00` + 0x120 | mfx-switch | Zustand, Datensatz der Tabelle | `mfx_switch.py:STATE`, `RECBUF` |
