@@ -32,7 +32,11 @@ Das Bedienfeld ist ein eigener Rechner an UART0 (5-Byte-Nachrichten, siehe
 | ARM teilt Touchpad durch 8 (`asr #3`) | hergeleitet | `0xC00458D8`, `0xC00458E4` |
 | Kalibrierung aus Flash `0x7FF000` geht als `85`/`86` ans Panel und wird dort angewandt | gemessen (Nachrichten), hergeleitet (Rechnung) | Emulator-Mitschnitt: `85 00 69 03 72`, `86 00 9c 03 2f`; Panel-Code `0x3EEC` |
 | Pads, Regler-LEDs, REC, PLAY, die blauen LEDs von 1 bis 4 und `0x4C` bis `0x57` bekommen im Panel einen PWM-Wert aus dem Byte 0..255 | hergeleitet | Panel-Code `0x4EBC`, Matrix `0x8460` Spalten 0 bis 6, `panel_mcu.py --leds` |
-| Die übrigen 32 Tasten-LEDs (Spalten 7 bis 10) kennen nur an oder aus: jeder Wert ab 1 leuchtet voll | hergeleitet | Scan `0x4F28`, GPIO-Bit-Band `0x5310` bis `0x53A2`, `panel_mcu.py --leds` |
+| Die übrigen 32 Tasten-LEDs (Spalten 7 bis 10) kennen nur an oder aus: jeder Wert ab 1 leuchtet voll | hergeleitet | Scan `0x4F28` prüft dort nur `wert != 0` (`0x513A` bis `0x516E`), GPIO-Bit-Band `0x5310` bis `0x53A2`, `panel_mcu.py --leds` |
+| PWM-Periode im Timer: 4999 (Zählschritte 0 bis 4999), Tabelle `0x1FFFCB00` je Kanal, beim Booten gesetzt | gemessen im Emulator | `panel_mcu.py --vsb X.VSB --duty` |
+| Tastgrad-Wort je Wert 0..255: `4999 - floor(wert * 4999 / 255)`, bei 0 also 4999, bei 128 2490, bei 255 1; linear, für Pads und WRITE gleich gerechnet, auf Hacktribe, red und blue gleich | gemessen im Emulator | `panel_mcu.py --vsb X.VSB --duty`, LED `0x2D` und `0x0B` |
+| Beim Schreiben ins Register wird ein Wort ab der Periode auf Periode - 1 begrenzt (Wert 0 ergibt 4998) | hergeleitet | Panel-Code `0x7464`, Registerzeiger `0x86D4` |
+| Leuchtanteil etwa wert / 255, dazu ein Achtel durch die 8 Zeilen | hergeleitet | Polarität der Ausgänge nicht gemessen |
 | Pad-LEDs dimmen am Gerät | offen | nicht am Gerät geprüft |
 | Abtastrate je Regler, Pad, Touchpad | offen | nur der Grundtakt ist bekannt |
 
@@ -128,9 +132,15 @@ gehaltene Tasten, `A0`/`A1` Kennung. Vom ARM (`0x2CB8`): `00` LED, `01 nn` (`0x2
 - Spalten 0 bis 6 laufen über die Kanäle 1 bis 7 der Base Timer, Spalten 7 bis 10 sind reine GPIO-Pins
   (Bit-Band `0x4266xxxx`, `0x5310` bis `0x53A2`). Jede Spalte hat dazu ihren GPIO-Pin, der sagt, ob die
   LED der aktuellen Zeile an ist (Byte 1 und Wert ungleich 0).
-- PWM: Periode 5000 Zählschritte, Takt geteilt durch 4, bei 40 MHz rund 2 kHz (hergeleitet).
-- `00 nn wert` legt `[nn, 1, wert]` ab (`0x2E3A`). Für die PWM-Spalten rechnet das Panel
-  `wert * Periode / 255` in einen Tastgrad um (`0x4EBC`), linear, ohne Gamma, auch für die Pads.
+- PWM: Periode 5000 Zählschritte (Register 4999), Takt geteilt durch 4, bei 40 MHz rund 2 kHz (hergeleitet).
+- `00 nn wert` legt `[nn, 1, wert]` ab (`0x2E3A`). Für die PWM-Spalten rechnet das Panel daraus ein
+  Tastgrad-Wort `P - min(floor(wert * P / 255), P - 1)` mit `P = 4999` und legt es im LED-Eintrag ab
+  (`0x4EBC`, Tabelle `0x1FFFDFAC`, 6 Byte je LED, Wort bei `+4`). Linear, ohne Gamma, auch für die Pads.
+  Alle 256 Werte im Emulator abgelesen (`panel_mcu.py --duty`): 0 ergibt 4999, 1 ergibt 4980, 64 ergibt
+  3745, 128 ergibt 2490, 192 ergibt 1236, 255 ergibt 1.
+- Der Scan schreibt das Wort über `0x7464` ins Vergleichsregister des Kanals (Zeiger `0x86D4`) und
+  begrenzt es dort auf `P - 1`. Ist Byte 1 oder der Wert 0, schreibt er `P`, die LED bleibt aus.
+  Kleineres Wort heißt also heller; dass der Ausgang so herum gepolt ist, ist hergeleitet, nicht gemessen.
 - Mit PWM: alle Pad-LEDs, die Regler-LEDs `0x00` bis `0x04`, REC (`0x12`), PLAY (`0x09`, `0x15`), die
   blauen LEDs von 1 bis 4 (`0x16` bis `0x19`) und `0x4C` bis `0x57` (keinem Bedienelement zugeordnet,
   vermutlich die unteren RGB-LEDs, offen).

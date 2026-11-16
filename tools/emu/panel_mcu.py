@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Find the panel controller firmware in a Sampler VSB and run the panel update against a fake boot ROM.
 
-    tools/emu/.venv/bin/python tools/emu/panel_mcu.py --vsb SYSTEM.VSB [--flash dump.bin] [--simulate] [--corrupt PAGE] [--leds]
+    tools/emu/.venv/bin/python tools/emu/panel_mcu.py --vsb SYSTEM.VSB [--flash dump.bin] [--simulate] [--corrupt PAGE] [--leds] [--duty]
 
 Facts: docs/hintergrund/panel-controller.md. Prints offsets, sizes, hashes and the protocol steps, never
 firmware bytes. The image is found by its shape, not by address: a Cortex-M vector table (stack pointer
@@ -11,6 +11,9 @@ RAM loader's u32 length sits 0x28 bytes after that word, the loader right behind
 With --simulate the emulator boots with panel version 0x95, so the firmware starts its 12-step panel update,
 and this script answers like the FM3 boot ROM and the RAM loader would (sync, RAM write, run, erase, pages,
 read back). The pages and the loader it receives are compared with the ones in the VSB.
+
+With --duty the panel image alone runs in Unicorn: it boots to its main loop (that sets the PWM period),
+then the LED handler gets `00 nn wert` for every value 0..255, and the duty word it stores is printed.
 """
 import argparse
 import hashlib
@@ -27,6 +30,9 @@ SP = 0x20004000
 LOADER_GAP = 0x28           # from the image's length word to the loader's length word
 LED_MATRIX = 0x8460         # 8 rows of 11 LED numbers (0xFF: none), read row by row by the scan at 0x4F28
 LED_ROWS, LED_PWM_COLUMNS, LED_COLUMNS = 8, 7, 11   # row counter wraps after 7 (0x5584); columns 0-6 base timer 1-7
+LED_HANDLER = 0x4EBC        # takes one LED message, stores [nn, 1, wert, ?, duty u16] per LED
+LED_TABLE_PTR = 0x4F24      # literal: address of that RAM table, 6 bytes per LED
+PERIOD_TABLE = 0x1FFFCB00   # u16 period per base timer channel, set while booting
 
 
 def find(payload):
@@ -52,6 +58,42 @@ def leds(image):
     pick = lambda cols: sorted(n for row in rows for n in row[cols] if n != 0xFF)
     return {"pwm": [hex(n) for n in pick(slice(0, LED_PWM_COLUMNS))],
             "on_off": [hex(n) for n in pick(slice(LED_PWM_COLUMNS, LED_COLUMNS))]}
+
+
+def duty(image, numbers=(0x2D, 0x0B), boot=2_000_000):
+    """{"period": P, "leds": {"0x2d": [duty for wert 0..255], ...}} from the panel code itself."""
+    from unicorn import Uc, UC_ARCH_ARM, UC_MODE_THUMB, UC_MODE_MCLASS, UcError
+    from unicorn.arm_const import UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2
+    u = Uc(UC_ARCH_ARM, UC_MODE_THUMB | UC_MODE_MCLASS)
+    u.mem_map(0, 0x10000)
+    u.mem_write(0, image)
+    u.mem_map(0x1FFF0000, 0x20000)          # SRAM 0x1FFFC000..0x20003FFF and room for the call frames
+    u.mem_map(0x40000000, 0x4000000)        # peripherals and their bit band, plain memory
+    u.mem_map(0xE0000000, 0x100000)         # system control space
+    sp, reset = struct.unpack_from("<II", image, 0)
+    u.reg_write(UC_ARM_REG_SP, sp)
+    try:
+        u.emu_start(reset | 1, 0xFFFFFFFF, count=boot)   # the main loop never returns, the count stops it
+    except UcError:
+        pass
+    table = struct.unpack_from("<I", image, LED_TABLE_PTR)[0]
+    stop, msg, ctx = 0x8000, 0x1FFFF000, 0x1FFFF100
+    out = {}
+    for n in numbers:
+        rows = []
+        for w in range(256):
+            u.mem_write(msg, bytes([n, 1, w, 0, 0, 0]))
+            u.mem_write(ctx, bytes(0x20))
+            u.mem_write(ctx + 0x14, b"\x01")
+            u.reg_write(UC_ARM_REG_R0, ctx)
+            u.reg_write(UC_ARM_REG_R1, msg)
+            u.reg_write(UC_ARM_REG_R2, 6)
+            u.reg_write(UC_ARM_REG_LR, stop | 1)
+            u.reg_write(UC_ARM_REG_SP, 0x2000F000)
+            u.emu_start(LED_HANDLER | 1, stop, count=10000)
+            rows.append(struct.unpack_from("<H", u.mem_read(table + n * 6 + 4, 2))[0])
+        out[hex(n)] = rows
+    return {"period": struct.unpack("<H", u.mem_read(PERIOD_TABLE, 2))[0], "leds": out}
 
 
 def describe(payload):
@@ -159,6 +201,7 @@ def main():
     p.add_argument("--corrupt", type=int, help="with --simulate: flip one bit in this read-back page")
     p.add_argument("--png", type=Path, help="with --simulate: the display at the end")
     p.add_argument("--leds", action="store_true", help="the LEDs with PWM and the ones only switched")
+    p.add_argument("--duty", action="store_true", help="the duty word the panel stores for every value 0..255")
     a = p.parse_args()
     payload = a.vsb.read_bytes()[HEADER:]
     info = describe(payload)
@@ -168,6 +211,9 @@ def main():
     if a.leds:
         at, size, _, _ = find(payload)
         print(json.dumps(leds(payload[at:at + size])))
+    if a.duty:
+        at, size, _, _ = find(payload)
+        print(json.dumps(duty(payload[at:at + size])))
     if a.simulate:
         steps, m = simulate(payload, load_flash(a.flash) if a.flash else None, a.corrupt)
         for s in steps:
