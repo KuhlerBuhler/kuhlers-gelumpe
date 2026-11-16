@@ -44,12 +44,12 @@ jobs:
     runs-on: ${{ fromJSON('{"windows":"windows-latest","linux":"ubuntu-22.04","macos":"macos-latest","macos-intel":"macos-15-intel"}')[matrix.target] }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         id: python
         with:
           python-version: "3.12"
@@ -93,7 +93,7 @@ jobs:
           VERSION: ${{ inputs.version }}
       # The frozen emulator depends only on these files, the Python version and the pinned packages. Same inputs, same
       # sidecar: it comes from the cache and the build skips PyInstaller.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         id: sidecar
         with:
           path: src-tauri/binaries
@@ -133,7 +133,7 @@ jobs:
           ls -l out
         env:
           TARGET: ${{ matrix.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: app-${{ matrix.target }}
           path: out/*
@@ -149,8 +149,8 @@ jobs:
     runs-on: ${{ fromJSON('{"windows":"windows-latest","linux":"ubuntu-22.04","macos":"macos-latest"}')[matrix.target] }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
