@@ -201,7 +201,7 @@ Blechy reçoit le touchpad et sa touche). Dans tous les menus du firmware
 (Pattern, Global, Part Edit, Step Edit et les autres), les plugins reçoivent les
 entrées comme sur l’écran principal.
 
-### Ce qu’un plugin atteint (API 37)
+### Ce qu’un plugin atteint (API 38)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -259,6 +259,7 @@ feuille de l’arbre d’objets.
 | Apps | non | `korg.app` | `open`, `close` |
 | Valeurs enregistrées | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
 | Fichier propre sur la carte | `korg.file.read` | `korg.file.write` | non |
+| Images de démarrage et animations de chargement sur la carte (Media) | `korg.file.count`, `korg.file.name`, `korg.file.picture` | non | non |
 | Temps et minuteurs | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
 
@@ -621,6 +622,9 @@ La colonne d’autorisation s’applique aussi à la syntaxe de propriété équ
 | `korg.after(ms, fn)`, `korg.every(ms, fn)`, `korg.afterSteps(n, fn)`, `korg.cancel(number)` | Temporisateurs décrits ci-dessus, depuis l’API 11 | Partout sauf `save` |
 | `korg.app(name, group)` | Inscrit l’application : nom de 1 à 15 caractères, groupe `"GAMES"` ou `"TOOLS"`. Renvoie son numéro, ou -1 si les 16 places sont occupées (l’appareil affiche alors « max 16 apps » à l’import ; le plugin reste dans la liste des plugins et tourne). Une instruction autonome au premier niveau, une fois par plugin, vérifiée par le compilateur | Corps uniquement |
 | `korg.file.frame(array, file, index)` | Lit l’image `index`, 0 à 65535, de `KORG/blechtribe/Gif/GIFnn.E2G`, avec `file` de 0 à 99 pour nn. Un octet par élément du tableau, d’au moins 1024 éléments ; `korg.display.bitmap(array, 0, 0, 128)` l’affiche directement. Renvoie le délai en ms, au moins 1 ; 0 après la dernière image ; -1 sans fichier, fichier invalide ou tronqué, ou hors de la page principale. Après -1, le dernier quart du tableau peut avoir changé. Depuis l’API 7 | Comme `korg.led` |
+| `korg.file.count(kind)` | Relit le dossier `KORG/blechtribe/Media/` et renvoie le nombre de fichiers du type `kind` : 0 images de démarrage (`.bmp`), 1 animations de chargement (`.blla`), dans l’ordre du dossier, 64 au plus (le reste manque). -1 si la carte n’est pas lisible ou hors de la page principale. Aucun autre dossier ne compte. Depuis l’API 38 | Comme `korg.led` |
+| `korg.file.name(array, kind, index)` | Écrit le nom du fichier `index` (0 à 63) de la liste lue par le dernier `korg.file.count(kind)` dans le tableau, sans extension, un caractère par case, puis un 0 s’il reste de la place ; pour `korg.display.chars`. Au-delà de 17 caractères il est coupé à 15 plus "..". Renvoie sa longueur, 0 après le dernier fichier. Depuis l’API 38 | Comme `korg.led` |
+| `korg.file.picture(array, kind, index, frame)` | Lit l’image `frame` du fichier `index` de la même liste dans le tableau (au moins 1024 cases), comme `korg.display.bitmap(array, 0, 0, 128)` la prend. Un `.bmp` (128 x 64, 1 bit, comme SPLASH IMPORT) a une image, la couleur la plus sombre est dessinée ; un `.blla` a d’abord ses images de progression, puis ses images de boucle. Renvoie le nombre d’images du fichier, 0 après la dernière (le tableau reste), -1 si le fichier manque ou est abîmé. Si une image dessinée paraît claire ou sombre sur l’appareil reste ouvert. Depuis l’API 38 | Comme `korg.led` |
 | `korg.display.take()` | Demande l’écran hors application ; renvoie 1 si obtenu, 0 si application, autre propriétaire ou hors page principale | Comme `korg.led` |
 | `korg.display.release()` | Rend l’écran au firmware | Comme `korg.led` |
 | `korg.display.popups = 0` | Supprime la fenêtre de paramètre ouverte par `korg.seq.setPartValue` et la fenêtre d’écriture de `korg.pattern.write`, pour les appels de ce plugin uniquement ; 1 la réactive, valeur initiale après chargement. Appel équivalent : `korg.display.popups(on)`. `korg.knob` conserve la fenêtre car il simule le potentiomètre. Lecture par `korg.display.popups` ou `korg.read.popups()`. Depuis l’API 24 | Comme `korg.led` |

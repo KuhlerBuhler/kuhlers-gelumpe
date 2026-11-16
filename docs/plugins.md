@@ -241,7 +241,7 @@ das Touchpad und ihre Taste). In allen Menüs der Firmware (Pattern, Global, Par
 Edit, Step Edit und die übrigen) bekommen Plugins die Eingaben wie auf dem
 Hauptbildschirm.
 
-### Was ein Plugin erreicht (API 37)
+### Was ein Plugin erreicht (API 38)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -298,6 +298,7 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Apps | nein | `korg.app` | `open`, `close` |
 | Gespeicherte Werte | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
 | Eigene Datei auf der Karte | `korg.file.read` | `korg.file.write` | nein |
+| Startbilder und Ladeanimationen auf der Karte (Media) | `korg.file.count`, `korg.file.name`, `korg.file.picture` | nein | nein |
 | Zeit und Timer | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
 
@@ -637,6 +638,9 @@ Plugin mit einem Fehler.
 | `korg.after(ms, fn)`, `korg.every(ms, fn)`, `korg.afterSteps(n, fn)`, `korg.cancel(nummer)` | Timer, siehe oben. Ab API Version 11 | überall außer `save` |
 | `korg.app(name, gruppe)` | meldet das Plugin als App an: `name` 1 bis 15 Zeichen, `gruppe` `"GAMES"` oder `"TOOLS"`. Gibt die Nummer der App zurück, -1 wenn alle 16 Plätze belegt sind (das Gerät meldet dann beim Import "max 16 apps", das Plugin steht trotzdem in der Plugin-Liste und läuft). Als eigene Anweisung ganz oben, einmal je Plugin (der Übersetzer prüft das) | nur im Rumpf |
 | `korg.file.frame(feld, datei, bild)` | liest Bild `bild` (0 bis 65535) der Datei `GIFnn.E2G` (`datei` 0 bis 99 ist nn) aus `KORG/blechtribe/Gif/` ins Feld, ein Byte je Platz, also genau, was `korg.display.bitmap(feld, 0, 0, 128)` zeichnet. Das Feld braucht mindestens 1024 Plätze. Gibt die Dauer des Bildes in ms zurück (mindestens 1), 0 hinter dem letzten Bild, -1 ohne Datei, bei falscher oder abgeschnittener Datei und außerhalb des Hauptbildschirms; nach -1 kann am Gerät das letzte Viertel des Felds verändert sein. Ab API Version 7 | wie `korg.led` |
+| `korg.file.count(art)` | liest den Ordner `KORG/blechtribe/Media/` neu und gibt die Zahl der Dateien der Art `art` zurück: 0 Startbilder (`.bmp`), 1 Ladeanimationen (`.blla`), in der Reihenfolge des Ordners, höchstens 64 (der Rest fehlt). -1, wenn die Karte gerade nicht lesbar ist oder außerhalb des Hauptbildschirms. Andere Ordner zählen nicht. Ab API Version 38 | wie `korg.led` |
+| `korg.file.name(feld, art, platz)` | schreibt den Namen der Datei `platz` (0 bis 63) aus der Liste, die das letzte `korg.file.count(art)` gelesen hat, ohne Endung ins Feld, ein Zeichen je Platz, danach eine 0, wenn Platz ist; für `korg.display.chars`. Länger als 17 Zeichen wird er auf 15 und ".." gekürzt. Gibt die Länge zurück, 0 hinter der letzten Datei. Ab API Version 38 | wie `korg.led` |
+| `korg.file.picture(feld, art, platz, bild)` | liest Bild `bild` der Datei `platz` aus derselben Liste ins Feld (mindestens 1024 Plätze), im Aufbau von `korg.display.bitmap(feld, 0, 0, 128)`. Ein `.bmp` (128 x 64, 1 Bit, wie SPLASH IMPORT) hat ein Bild, die dunklere Farbe ist gezeichnet; ein `.blla` hat erst die Fortschrittsbilder, dann die Schleifenbilder. Gibt die Zahl der Bilder der Datei zurück, 0 hinter dem letzten (Feld bleibt), -1 wenn die Datei fehlt oder kaputt ist. Ob ein gezeichnetes Bild am Gerät hell oder dunkel erscheint, ist noch offen. Ab API Version 38 | wie `korg.led` |
 | `korg.display.take()` | das Display nehmen (Weg 2, siehe oben); 1 wenn es klappt, 0 wenn nicht (eine App, ein anderer Besitzer, nicht der Hauptbildschirm) | wie `korg.led` |
 | `korg.display.release()` | das Display zurückgeben | wie `korg.led` |
 | `korg.display.popups = 0` | hält das Parameterfenster zu, das `korg.seq.setPartValue` sonst wie der Regler öffnet, und das Schreibfenster von `korg.pattern.write`; nur für die Aufrufe dieses Plugins, 1 schaltet es wieder ein. Beim Laden steht es auf 1. `korg.knob` öffnet das Fenster der Firmware weiter, weil es den Regler selbst spielt. Lesen mit `korg.display.popups` oder `korg.read.popups()`. Ab API Version 24 | wie `korg.led` |

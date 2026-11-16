@@ -4,13 +4,16 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { API_BY_NAME, ERROR, SCRIPT_GIF } from "../data/script/contract.mjs";
+import { API_BY_NAME, ERROR, SCRIPT_GIF, SCRIPT_MEDIA } from "../data/script/contract.mjs";
 import { PRESETS } from "../data/script/presets.mjs";
 import { KEY_NAMES } from "../data/script/names.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
 import { decodeBlob } from "../src/script/blob.mjs";
 import { SimDevice } from "../src/script/sim.mjs";
 import { gifPath, packGif, readGifFrame, frameOfPixels } from "../src/script/gif.mjs";
+import { listMedia, mediaNameBytes, readMediaPicture } from "../src/script/media.mjs";
+import { encodeBmp } from "../src/splash-bmp.mjs";
+import { encodeAnimation } from "../src/loading-anim.mjs";
 
 const key = name => KEY_NAMES.find(k => k.name === name).value;
 const frameOf = seed => Uint8Array.from({ length: 1024 }, (_, i) => (i * seed + seed) & 255);
@@ -234,4 +237,108 @@ c = Image.new("L", (128, 64), 0); c.putpixel((127, 0), 255); c.save("${dir}/c.bm
   assert.equal(readGifFrame(file, 2, slots), 100);
   assert.deepEqual(lit(), [[127, 0]]);
   assert.equal(readGifFrame(file, 3, slots), 0);
+});
+
+const media = name => SCRIPT_MEDIA.folder + name;
+function mediaCard() {
+  const marker = new Uint8Array(128 * 64);
+  marker[0] = 1; marker[128 * 64 - 1] = 1;
+  const topDown = encodeBmp(marker);
+  new DataView(topDown.buffer).setInt32(22, -64, true);
+  const broken = encodeBmp(marker);
+  new DataView(broken.buffer).setUint16(28, 24, true);
+  return new Map([
+    [media("marker.bmp"), encodeBmp(marker)],
+    [media("loading.blla"), new Uint8Array(readFileSync(new URL("../assets/blechy/loading.blla", import.meta.url)))],
+    [media("top-down-picture-long.bmp"), topDown],
+    [media("broken.bmp"), broken],
+    [media("small.blla"), encodeAnimation({ progress: [frameOf(1), frameOf(2), frameOf(3)], loop: [frameOf(5), frameOf(7)] }).bytes],
+    ["KORG/blechtribe/splash.bmp", encodeBmp(marker)],
+  ]);
+}
+
+function mediaPlugin(card) {
+  const r = compile(`const pic = new Array(1024); const nm = new Array(20);
+    let kind = 0; let idx = 0; let fr = 0; let n0 = 0; let n1 = 0; let len = 0; let got = 0; let listed = 0;
+    korg.onEvent("buttonPress", (k) => {
+      if (listed == 0) { n0 = korg.file.count(0); n1 = korg.file.count(1); listed = 1; }
+      len = korg.file.name(nm, kind, idx);
+      got = korg.file.picture(pic, kind, idx, fr);
+    });`, { name: "media" });
+  assert.ok(r.ok, r.errors?.map(formatError).join("\n"));
+  const device = new SimDevice({ card });
+  const loaded = device.load(r.blob);
+  device.frame();
+  const slot = name => r.info.symbols[name].slot;
+  const vars = loaded.script.vars;
+  return {
+    blob: r.blob, device,
+    v: name => vars[slot(name)],
+    slots: name => Array.from(vars.subarray(slot(name), slot(name) + r.info.symbols[name].length)),
+    call(kind, idx, fr) {
+      vars[slot("kind")] = kind; vars[slot("idx")] = idx; vars[slot("fr")] = fr;
+      device.post("buttonPress", 3);
+      device.frame();
+    },
+  };
+}
+
+test("korg.file.count, name and picture need API 38", () => {
+  for (const name of ["korg.file.count", "korg.file.name", "korg.file.picture"]) assert.equal(API_BY_NAME.get(name).since, 38, name);
+  assert.equal(decodeBlob(mediaPlugin(new Map()).blob).header.apiVersion, 38);
+});
+
+test("the simulator lists Media/ and gives each picture exactly as readMediaPicture, with the name", () => {
+  const card = mediaCard();
+  const p = mediaPlugin(card);
+  p.call(0, 0, 0);
+  assert.deepEqual([p.v("n0"), p.v("n1")], [3, 2], "three .bmp and two .blla in Media/, the root left out");
+  for (const kind of [0, 1]) {
+    listMedia(card, kind).forEach((entry, idx) => {
+      const bytes = card.get(entry.path);
+      const total = Math.max(1, readMediaPicture(bytes, kind, 0, new Int32Array(1024)));
+      for (const fr of [0, 1, total - 1, total]) {
+        const want = new Int32Array(1024);
+        p.call(kind, idx, fr);
+        const before = p.slots("pic");
+        want.set(before);
+        assert.equal(p.v("got"), readMediaPicture(bytes, kind, fr, want), `${entry.name} picture ${fr}`);
+        assert.deepEqual(p.slots("pic"), Array.from(want), `${entry.name} picture ${fr}`);
+        const name = mediaNameBytes(entry.name);
+        assert.equal(p.v("len"), name.length);
+        assert.deepEqual(p.slots("nm").slice(0, name.length + 1), [...name, 0]);
+      }
+    });
+  }
+  p.call(0, 1, 0);
+  assert.equal(p.v("len"), 17, "a long name is cut");
+  assert.equal(p.v("got"), 1, "rows from the top");
+  p.call(0, 2, 0);
+  assert.equal(p.v("got"), -1, "a 24 bit .bmp is broken");
+  p.call(1, 1, 4);
+  assert.equal(p.v("got"), 5, "3 progress and 2 loop pictures");
+  p.call(0, 3, 0);
+  assert.deepEqual([p.v("len"), p.v("got")], [0, -1], "past the list");
+});
+
+test("korg.file.picture reads the list of the last count: a file gone since is -1, an array under 1024 slots a fault", () => {
+  const card = mediaCard();
+  const p = mediaPlugin(card);
+  p.call(0, 0, 0);
+  assert.equal(p.v("got"), 1);
+  card.delete(media("marker.bmp"));
+  p.call(0, 0, 0);
+  assert.deepEqual([p.v("len"), p.v("got")], [6, -1], "the name stays in the list, the file is gone");
+  const before = new SimDevice();
+  const fresh = before.load(build('const pic = new Array(1024); let got = 7; korg.onEvent("buttonPress", (k) => { got = korg.file.picture(pic, 0, 0, 0); });'));
+  before.frame();
+  before.post("buttonPress", 3);
+  before.frame();
+  assert.equal(fresh.script.vars[1024], -1, "nothing listed before the first count");
+  const small = new SimDevice();
+  const short = small.load(build('const pic = new Array(512); korg.onEvent("buttonPress", (k) => { korg.file.picture(pic, 0, 0, 0); });'));
+  small.frame();
+  small.post("buttonPress", 3);
+  small.frame();
+  assert.equal(short.script.fault?.code ?? small.status().scripts[0].fault?.code, ERROR.API_ARG);
 });

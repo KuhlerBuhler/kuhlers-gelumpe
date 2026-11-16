@@ -203,7 +203,7 @@ firmware and no plugin gets an event (only Blechy's page gets the touchpad and
 its key). In all firmware menus (Pattern, Global, Part Edit, Step Edit and the
 rest) plugins get input as on the main screen.
 
-### What a plugin reaches (API 37)
+### What a plugin reaches (API 38)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -260,6 +260,7 @@ or a leaf of the object tree is missing.
 | Apps | no | `korg.app` | `open`, `close` |
 | Stored values | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
 | Own file on the card | `korg.file.read` | `korg.file.write` | no |
+| Start images and loading animations on the card (Media) | `korg.file.count`, `korg.file.name`, `korg.file.picture` | no | no |
 | Time and timers | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
 
@@ -593,6 +594,9 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.after(ms, fn)`, `korg.every(ms, fn)`, `korg.afterSteps(n, fn)`, `korg.cancel(number)` | timers, see above. From API version 11 | everywhere except `save` |
 | `korg.app(name, group)` | registers the plugin as an app: `name` 1 to 15 characters, `group` `"GAMES"` or `"TOOLS"`. Returns the number of the app, -1 if all 16 places are taken (the device then says "max 16 apps" on import; the plugin still shows in the plugin list and runs). As a statement of its own at the top, once per plugin (the compiler checks this) | body only |
 | `korg.file.frame(array, file, index)` | reads frame `index` (0 to 65535) of the file `GIFnn.E2G` (`file` 0 to 99 is nn) in `KORG/blechtribe/Gif/` into the array, one byte to a slot, which is exactly what `korg.display.bitmap(array, 0, 0, 128)` draws. The array needs at least 1024 slots. Returns the frame's delay in ms (at least 1), 0 past the last frame, -1 without a file, for a wrong or cut file and outside the main screen; after -1 the device may have changed the last quarter of the array. From API version 7 | like `korg.led` |
+| `korg.file.count(kind)` | reads the folder `KORG/blechtribe/Media/` anew and returns how many files of `kind` it holds: 0 start images (`.bmp`), 1 loading animations (`.blla`), in the order of the folder, at most 64 (the rest is left out). -1 when the card cannot be read now or outside the main screen. No other folder counts. From API version 38 | like `korg.led` |
+| `korg.file.name(array, kind, index)` | writes the name of file `index` (0 to 63) of the list the last `korg.file.count(kind)` read into the array without its ending, one character per slot, then a 0 when there is room; for `korg.display.chars`. A name longer than 17 characters is cut to 15 and "..". Returns its length, 0 past the last file. From API version 38 | like `korg.led` |
+| `korg.file.picture(array, kind, index, frame)` | reads picture `frame` of file `index` of the same list into the array (at least 1024 slots), laid out as `korg.display.bitmap(array, 0, 0, 128)` takes it. A `.bmp` (128 x 64, 1 bit, as SPLASH IMPORT takes it) has one picture, the darker colour drawn; a `.blla` has its progress pictures first, then its loop pictures. Returns the number of pictures in the file, 0 past the last (the array stays), -1 when the file is missing or broken. Whether a drawn picture shows light or dark on the device is still open. From API version 38 | like `korg.led` |
 | `korg.display.take()` | take the display (way 2, see above); 1 on success, 0 if not (an app, another owner, not the main screen) | like `korg.led` |
 | `korg.display.release()` | give the display back | like `korg.led` |
 | `korg.display.popups = 0` | keeps the parameter window shut that `korg.seq.setPartValue` otherwise opens like the knob, and the write window of `korg.pattern.write`; only for this plugin's calls, 1 turns it back on. It is 1 after loading. `korg.knob` still opens the firmware's window, because it plays the knob itself. Read it with `korg.display.popups` or `korg.read.popups()`. From API version 24 | like `korg.led` |

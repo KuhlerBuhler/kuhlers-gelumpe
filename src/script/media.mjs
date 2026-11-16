@@ -3,18 +3,19 @@
  * and loading animations (.blla, kind 1) in KORG/blechtribe/Media/. This is the reference the simulator, the firmware and the
  * app are held against.
  */
+import { SCRIPT_MEDIA } from "../../data/script/contract.mjs";
 import { decodeBmp } from "../splash-bmp.mjs";
 import { decodeAnimation } from "../loading-anim.mjs";
 import { frameOfPixels } from "./gif.mjs";
 
 /** The file endings of each kind, in lower case: 0 images, 1 animations. */
-export const MEDIA_KINDS = Object.freeze([".bmp", ".blla"]);
+export const MEDIA_KINDS = SCRIPT_MEDIA.endings;
 /** The one folder that is searched, no other. */
-export const MEDIA_FOLDER = "KORG/blechtribe/Media/";
+export const MEDIA_FOLDER = SCRIPT_MEDIA.folder;
 /** At most this many files of a kind are listed, the rest is left out. */
-export const MEDIA_MAX_FILES = 64;
+export const MEDIA_MAX_FILES = SCRIPT_MEDIA.maxFiles;
 /** The longest name korg.file.name gives; a longer one is cut to MEDIA_NAME_MAX - 2 characters and "..". */
-export const MEDIA_NAME_MAX = 17;
+export const MEDIA_NAME_MAX = SCRIPT_MEDIA.nameMax;
 /** Longest file name the folder walk takes, as the BLECH menu's list (tools/patch/script_menu.s, menu_dir_next). */
 const FILE_NAME_MAX = 31;
 

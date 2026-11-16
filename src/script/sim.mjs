@@ -3,7 +3,7 @@
  * model, the LED ledger and a clock, one frame per call. It shows what a block
  * does, not what the firmware's drawing or timing do.
  */
-import { QUEUED_EVENTS, EVENT_BY_NAME, SCRIPT_LED, SCRIPT_GIF, ERROR } from "../../data/script/contract.mjs";
+import { QUEUED_EVENTS, EVENT_BY_NAME, SCRIPT_LED, SCRIPT_GIF, SCRIPT_MEDIA, ERROR } from "../../data/script/contract.mjs";
 import { ScriptRuntime } from "./runtime.mjs";
 import { ScriptLeds } from "./led.mjs";
 import { Display, drawFault } from "./display.mjs";
@@ -13,6 +13,7 @@ import { KEY_NAMES } from "../../data/script/names.mjs";
 import { ScriptFault } from "./vm.mjs";
 import { text, render } from "../text.mjs";
 import { gifPath, readGifFrame } from "./gif.mjs";
+import { listMedia, mediaNameBytes, readMediaPicture } from "./media.mjs";
 
 export const FRAME_MS = 40;
 const KEY_EXIT = KEY_NAMES.find(n => n.name === "EXIT").value;
@@ -21,6 +22,8 @@ export class SimDevice {
   /** @param {{ now?: () => number, storage?: object, card?: Map<string, Uint8Array> }} [o] a clock in milliseconds (the default advances one frame per frame()), persistent values as ScriptRuntime takes them, and files on the card by path (gifPath) */
   constructor({ now, storage = null, card = new Map() } = {}) {
     this.card = card;
+    /** The files of each kind korg.file.count listed last; korg.file.name and korg.file.picture read only these, as the device's cache. */
+    this.media = SCRIPT_MEDIA.endings.map(() => []);
     this.clock = 0;
     this.now = now ?? (() => this.clock);
     this.display = new Display();
@@ -55,6 +58,19 @@ export class SimDevice {
         "korg.file.frame": (slots, file, index) => {
           if (slots.length < SCRIPT_GIF.frameBytes) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.gifFrame", { length: slots.length, needed: SCRIPT_GIF.frameBytes })));
           return readGifFrame(this.card.get(gifPath(file)), index, slots);
+        },
+        "korg.file.count": kind => (this.media[kind] = listMedia(this.card, kind)).length,
+        "korg.file.name": (slots, kind, index) => {
+          const entry = this.media[kind][index];
+          if (!entry) return 0;
+          const name = mediaNameBytes(entry.name);
+          for (let i = 0; i < slots.length && i <= name.length; i++) slots[i] = i < name.length ? name[i] : 0;
+          return name.length;
+        },
+        "korg.file.picture": (slots, kind, index, frame) => {
+          if (slots.length < SCRIPT_MEDIA.pictureBytes) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.mediaPicture", { length: slots.length, needed: SCRIPT_MEDIA.pictureBytes })));
+          const entry = this.media[kind][index];
+          return entry ? readMediaPicture(this.card.get(entry.path), kind, frame, slots) : -1;
         },
         ...this.hardware.api(),
       },
