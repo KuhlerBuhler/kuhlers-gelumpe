@@ -35,6 +35,8 @@
   "data/patches/update-guard.json",
   "data/patches/blech-version.json",
   "data/patches/doom-loader.json",
+  "data/patches/import-slots.json",
+  "data/patches/import-slots-stock.json",
   "data/patches/blech-sysex.json",
   "data/patches/blech-sysex-stock.json"
  ]

@@ -1,4 +1,7 @@
-"""Native WAV imports propagate bounded PCM failures using generated samples."""
+"""Native WAV imports propagate bounded PCM failures using generated samples.
+
+Research tool, run by hand: no runner calls it.
+"""
 import argparse
 import json
 import struct

@@ -1,6 +1,7 @@
 """Exercise register capture over BLECH SysEx with generated ARM926 tables.
 
 CP15 reads and the scratch mirror are injected, not hardware translation.
+Research tool, run by hand: no runner calls it.
 """
 import argparse
 import json

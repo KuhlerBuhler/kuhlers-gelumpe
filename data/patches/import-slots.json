@@ -1,0 +1,28 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "import-slots",
+ "name": "Import auf Werks-Slots",
+ "builds": [
+  "hacktribe"
+ ],
+ "changes": [
+  {
+   "file": 435004,
+   "bytes": "013c41e2130053e3b51f81b2011081b2fa0f51e3b51f41a2011041a2",
+   "expect": "4b8aa441bf8b145a659e02e0387668fffa0faafaeb7c9d6c540473257aa654a7",
+   "note": "IMPORT SAMPLE: the destination runs from 275 to 999 instead of 501 to 999"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC006A23C",
+   "kind": "instruction",
+   "chain": "import-destination",
+   "position": "replace",
+   "swallow": false,
+   "note": "the destination selector of DATA UTILITY > IMPORT SAMPLE wraps at the first slot the import takes instead of at 501"
+  }
+ ],
+ "ram": []
+}
