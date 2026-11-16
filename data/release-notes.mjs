@@ -5,8 +5,8 @@
 export const RELEASE_NOTES = Object.freeze([
   {
     "version": "1.4.7",
-    "de": "BLECHTRIBE 1.4.7 und die App 1.4.7.\n\n**Behoben**\n- Notenassistent im KEYBOARD-Modus: bei einem Part mit SCALE MODE ON und einer anderen KEY als C (oder einer KEY-PADS-Oktave) zeigte er keine Hinweis-Pads und kein Rot für die gespielte Note, bis ein Pattern-Wechsel oder Neustart kam. Er liest die Note jetzt erst, nachdem die Firmware KEY und Oktave verrechnet hat.",
-    "en": "BLECHTRIBE 1.4.7 and the app 1.4.7.\n\n**Fixed**\n- Note assistant in KEYBOARD mode: with a part on SCALE MODE ON and a KEY other than C (or a KEY PADS octave), it showed no hint pads and no red for the played note until a pattern switch or restart. It now reads the note after the firmware has applied the KEY and the octave."
+    "de": "BLECHTRIBE 1.4.7 und die App 1.4.7.\n\n**Behoben**\n- Notenassistent im KEYBOARD-Modus: bei einem Part mit SCALE MODE ON und einer anderen KEY als C (oder einer KEY-PADS-Oktave) zeigte er keine Hinweis-Pads und kein Rot für die gespielte Note, bis ein Pattern-Wechsel oder Neustart kam. Er liest die Note jetzt erst, nachdem die Firmware KEY und Oktave verrechnet hat.\n- App: war die Electribe per USB angesteckt, aber nicht mit der App verbunden, zeigte das USB-Symbol grün und der Firmware-Tab trotzdem „Die Electribe ist nicht verbunden“. Die Meldung sagt jetzt, dass das Gerät angesteckt ist, und wie man es verbindet.",
+    "en": "BLECHTRIBE 1.4.7 and the app 1.4.7.\n\n**Fixed**\n- Note assistant in KEYBOARD mode: with a part on SCALE MODE ON and a KEY other than C (or a KEY PADS octave), it showed no hint pads and no red for the played note until a pattern switch or restart. It now reads the note after the firmware has applied the KEY and the octave.\n- App: with the Electribe plugged in via USB but not connected to the app, the USB icon was green while the firmware tab still said the Electribe was not connected. The message now says the device is plugged in and how to connect it."
   },
   {
     "version": "1.4.6",
