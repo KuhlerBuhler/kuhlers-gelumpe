@@ -21,6 +21,9 @@ Marker: **gemessen** (Befehl lief, Zahl abgelesen), **gelesen** (Quelltext),
   den DSP-Kernen 7,7 bis 9,7 mal schneller als GNU (Abschnitt 6). Die
   Rechenzeit in QEMU ist dabei klein; den Rest teilen sich das
   Warten auf den ARM und der Aufwand je Anfrage im GNU-Simulator (Abschnitt 4).
+- Dauervergleich: 210000 Fuzz-Programme ohne Abweichung, 38/38 Funktionen
+  mit je 20000 Aufrufen gleich auf Hacktribe und Stock (Abschnitt 7,
+  **gemessen**).
 
 ## 1. Weg: Hybrid statt neuer Geräte
 
@@ -188,6 +191,34 @@ bis zu 25 %; Weg dahin wäre, häufige Befehle dieser Klassen wieder als TCG zu
 Alle vier Wege enden im Fallauf mit derselben Ausgabe (md5 gleich): die
 Abweichungen aus dem Anhang treten in diesem Lauf nicht auf (**gemessen**).
 
+## 7. Dauervergleich
+
+Build 892dfd39 (Standardweg GNU-Port), alles gegen den GNU-Worker,
+Load-Gate vor jedem Schritt (**gemessen**):
+
+| Lauf | Programme | Abweichend | Nur in GNU illegal |
+|---|---:|---:|---:|
+| Klasse alu, Seed 101 | 30000 | 0 | 0 |
+| Klasse shift, Seed 101 | 30000 | 0 | 0 |
+| Klasse shiftimm, Seed 101 | 30000 | 0 | 0 |
+| Klasse mac, Seed 101 | 30000 | 0 | 0 |
+| Klasse mult, Seed 101 | 30000 | 0 | 0 |
+| gemischt, 1 Befehl, Seed 201 | 10000 | 0 | 0 |
+| gemischt, 4 Befehle, Seed 204 | 10000 | 0 | 0 |
+| gemischt, 8 Befehle, Seed 208 | 10000 | 0 | 0 |
+| gemischt, 16 Befehle, Seed 2016 | 10000 | 0 | 0 |
+
+| Lauf | Ergebnis |
+|---|---|
+| 38 Funktionen Hacktribe, je 20000 Aufrufe | 38/38 gleich, Summe GNU 17,5 s, QEMU 2,1 s |
+| 38 Funktionen Stock, je 20000 Aufrufe | 38/38 gleich, Summe GNU 17,3 s, QEMU 2,1 s |
+| Worker-Tests `qemu_worker_tests.sh alle` | 175/175 grün |
+
+Der Patch `tools/dsp/qemu-worker.patch` ist gleich `git diff` im
+Entwicklungsbaum; `build_qemu.py` wendet ihn bei jedem Build auf einen frisch
+ausgecheckten ae8fe9a an, der Build für diese Läufe lief so durch
+(**gemessen**).
+
 ## Nachstellen
 
 ```bash
@@ -204,6 +235,7 @@ tools/emu/.venv/bin/python tools/dsp/qemu_compare.py <SYSTEM.VSB> --gnu ~/gelump
   --qemu ~/gelumpe-dsp/worker/qemu-bfin-worker
 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py --fuzz 3000 --seed 21 --fuzz-length 4 --gnu ... --qemu ...
 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py --fuzz 3000 --seed 2 --fuzz-class alu --gnu ... --qemu ...
+tools/emu/.venv/bin/python tools/dsp/qemu_compare.py <SYSTEM.VSB> --calls 20000 --gnu ... --qemu ...
 BLECH_QEMU_DSP32=1 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py --fuzz 3000 --seed 2 --fuzz-class alu --gnu ... --qemu ...
 ```
 
