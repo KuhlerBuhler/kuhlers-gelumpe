@@ -34,7 +34,7 @@ test("only feature PRs into develop or release branches select cached case check
   assert.match(workflow, /full: \$\{\{ steps\.scope\.outputs\.full \|\| steps\.push\.outputs\.full \|\| 'true' \}\}/);
   assert.match(workflow, /full: \$\{\{ needs\.ref\.outputs\.full == 'true' \}\}/);
   assert.match(read(".github/workflows/release.yml"), /full: true/);
-  assert.match(read(".github/workflows/firmware-check.yml"), /name: Develop task results\n\s+if: \$\{\{ !inputs\.full \}\}\n\s+uses: actions\/cache\/restore@v4/);
+  assert.match(read(".github/workflows/firmware-check.yml"), /name: Develop task results\n\s+if: \$\{\{ !inputs\.full \}\}\n\s+uses: actions\/cache\/restore@v6/);
 });
 
 test("the firmware matrix retains four hardware variants for each shard", () => {
