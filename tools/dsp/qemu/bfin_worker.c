@@ -237,6 +237,8 @@ static int worker_main(void)
     if (getenv("BLECH_QEMU_DSP32")) {
         bfin_blech_dsp32 = NULL;
     }
+    /* BLECH_QEMU_DSP32_GNU=1: dsp32 ALU and shift insns run in GNU's decoder. */
+    bfin_blech_dsp32_route = getenv("BLECH_QEMU_DSP32_GNU") != NULL;
     return entry(&worker_ops, argc + 1, argv);
 }
 

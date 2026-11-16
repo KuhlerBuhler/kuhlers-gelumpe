@@ -1,8 +1,8 @@
 diff --git a/target/bfin/bfin-sim.c b/target/bfin/bfin-sim.c
-index c3d6162f55..3a158176c0 100644
+index c3d6162f55..f8a64828ce 100644
 --- a/target/bfin/bfin-sim.c
 +++ b/target/bfin/bfin-sim.c
-@@ -29,6 +29,42 @@ unhandled_instruction(DisasContext *dc, const char *insn)
+@@ -29,6 +29,49 @@ unhandled_instruction(DisasContext *dc, const char *insn)
      illegal_instruction(dc);
  }
  
@@ -19,8 +19,11 @@ index c3d6162f55..3a158176c0 100644
 +    return true;
 +}
 +
-+/* Worker build: dsp32 ALU and shift insns run in the GNU simulator's own
-+   decoders (HELPER(dsp32_gnu)); an encoding GNU rejects goes to GNU whole. */
++/* Worker build: the GNU probe decides legality and DISALGNEXCPT of dsp32
++   ALU and shift insns; an encoding GNU rejects goes to GNU whole.  A legal
++   one runs GNU's decoder ported onto the QEMU state (HELPER(dsp32_port),
++   bfin-gnu-dsp32.c.inc), or with bfin_blech_dsp32_route in the GNU library
++   itself (HELPER(dsp32_gnu)). */
 +static bool
 +blech_dsp32_gnu(DisasContext *dc, uint16_t iw0, uint16_t iw1)
 +{
@@ -38,14 +41,18 @@ index c3d6162f55..3a158176c0 100644
 +        break;
 +    }
 +    gen_astat_update(dc, true);
-+    gen_helper_dsp32_gnu(tcg_env, tcg_constant_i32(insn));
++    if (bfin_blech_dsp32_route) {
++        gen_helper_dsp32_gnu(tcg_env, tcg_constant_i32(insn));
++    } else {
++        gen_helper_dsp32_port(tcg_env, tcg_constant_i32(insn));
++    }
 +    return true;
 +}
 +
  typedef enum {
      c_0, c_1, c_4, c_2, c_uimm2, c_uimm3, c_imm3, c_pcrel4,
      c_imm4, c_uimm4s4, c_uimm4s4d, c_uimm4, c_uimm4s2, c_negimm5s4, c_imm5,
-@@ -284,10 +320,14 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
+@@ -284,10 +327,14 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
          cec_exception(dc, EXCP_DEBUG);
      } else if (prgfunc == 3 && poprnd < 8) {
          /* CLI Dreg{poprnd}; */
@@ -62,7 +69,7 @@ index c3d6162f55..3a158176c0 100644
      } else if (prgfunc == 5 && poprnd < 8) {
          /* JUMP (Preg{poprnd}); */
          dc->base.is_jmp = DISAS_JUMP;
-@@ -324,10 +364,10 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
+@@ -324,10 +371,10 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
           * which prevents it from working even with on-chip memory.  As such,
           * we'll just do a "stupid" implementation here.  */
          TCGv tmp = tcg_temp_new();
@@ -75,7 +82,7 @@ index c3d6162f55..3a158176c0 100644
      } else {
          illegal_instruction(dc);
      }
-@@ -396,12 +436,12 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -396,12 +443,12 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
          if (grp == 4 && reg == 6) {
              /* Pop ASTAT */
              tmp = tcg_temp_new();
@@ -90,7 +97,7 @@ index c3d6162f55..3a158176c0 100644
              tmp64 = tcg_temp_new_i64();
              tcg_gen_extu_i32_i64(tmp64, tmp);
  
-@@ -410,7 +450,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -410,7 +457,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
          } else if (grp == 4 && (reg == 1 || reg == 3)) {
              /* Pop A#.W */
              tmp = tcg_temp_new();
@@ -99,7 +106,7 @@ index c3d6162f55..3a158176c0 100644
              tmp64 = tcg_temp_new_i64();
              tcg_gen_extu_i32_i64(tmp64, tmp);
  
-@@ -419,7 +459,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -419,7 +466,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
          } else {
              check_lb = true;
              treg = get_allreg(dc, grp, reg);
@@ -108,7 +115,7 @@ index c3d6162f55..3a158176c0 100644
  
              if (grp == 6 && (reg == 1 || reg == 4)) {
                  /* LT loads auto clear the LSB */
-@@ -443,7 +483,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -443,7 +490,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
              /* Push ASTAT */
              tmp = tcg_temp_new();
              gen_astat_load(dc, tmp);
@@ -117,7 +124,7 @@ index c3d6162f55..3a158176c0 100644
          } else if (grp == 4 && (reg == 0 || reg == 2)) {
              /* Push A#.X */
              tmp64 = tcg_temp_new_i64();
-@@ -455,15 +495,15 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -455,15 +502,15 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
               * we're lazy during intermediate operations (like maintaining the
               * sign bit).  */
              tcg_gen_andi_tl(tmp, tmp, 0xff);
@@ -136,7 +143,7 @@ index c3d6162f55..3a158176c0 100644
          }
          tcg_gen_mov_tl(cpu_spreg, tmp_sp);
      }
-@@ -503,26 +543,26 @@ decode_PushPopMultiple_0(DisasContext *dc, uint16_t iw0)
+@@ -503,26 +550,26 @@ decode_PushPopMultiple_0(DisasContext *dc, uint16_t iw0)
          if (d) {
              for (i = dr; i < 8; i++) {
                  tcg_gen_subi_tl(tmp_sp, tmp_sp, 4);
@@ -167,7 +174,7 @@ index c3d6162f55..3a158176c0 100644
                  tcg_gen_addi_tl(tmp_sp, tmp_sp, 4);
              }
          }
-@@ -574,6 +614,10 @@ decode_CCflag_0(DisasContext *dc, uint16_t iw0)
+@@ -574,6 +621,10 @@ decode_CCflag_0(DisasContext *dc, uint16_t iw0)
          TCGv_i64 tmp64;
          TCGCond cond;
  
@@ -178,7 +185,7 @@ index c3d6162f55..3a158176c0 100644
          if (opc == 5 && I == 0 && G == 0) {
              /* CC = A0 == A1; */
              cond = TCG_COND_EQ;
-@@ -591,6 +635,22 @@ decode_CCflag_0(DisasContext *dc, uint16_t iw0)
+@@ -591,6 +642,22 @@ decode_CCflag_0(DisasContext *dc, uint16_t iw0)
          tmp64 = tcg_temp_new_i64();
          tcg_gen_setcond_i64(cond, tmp64, cpu_areg[0], cpu_areg[1]);
          tcg_gen_extrl_i64_i32(cpu_cc, tmp64);
@@ -201,7 +208,7 @@ index c3d6162f55..3a158176c0 100644
      } else {
          int issigned = opc < 3;
          uint32_t dst_imm = issigned ? imm3(y) : uimm3(y);
-@@ -868,63 +928,32 @@ decode_ALU2op_0(DisasContext *dc, uint16_t iw0)
+@@ -868,63 +935,32 @@ decode_ALU2op_0(DisasContext *dc, uint16_t iw0)
      int src = ((iw0 >> ALU2op_src_bits) & ALU2op_src_mask);
      int opc = ((iw0 >> ALU2op_opc_bits) & ALU2op_opc_mask);
      int dst = ((iw0 >> ALU2op_dst_bits) & ALU2op_dst_mask);
@@ -277,7 +284,7 @@ index c3d6162f55..3a158176c0 100644
      } else if (opc == 8) {
          /* DIVQ (Dreg, Dreg); */
          gen_divq(cpu_dreg[dst], cpu_dreg[src]);
-@@ -956,6 +985,8 @@ decode_ALU2op_0(DisasContext *dc, uint16_t iw0)
+@@ -956,6 +992,8 @@ decode_ALU2op_0(DisasContext *dc, uint16_t iw0)
          /* Dreg = ~Dreg; */
          tcg_gen_not_tl(cpu_dreg[dst], cpu_dreg[src]);
          astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
@@ -286,7 +293,7 @@ index c3d6162f55..3a158176c0 100644
      }
  }
  
-@@ -978,6 +1009,8 @@ decode_PTR2op_0(DisasContext *dc, uint16_t iw0)
+@@ -978,6 +1016,8 @@ decode_PTR2op_0(DisasContext *dc, uint16_t iw0)
      } else if (opc == 1) {
          /* Preg{dst} = Preg{src} << 2; */
          tcg_gen_shli_tl(cpu_preg[dst], cpu_preg[src], 2);
@@ -295,7 +302,7 @@ index c3d6162f55..3a158176c0 100644
      } else if (opc == 3) {
          /* Preg{dst} = Preg{src} >> 2; */
          tcg_gen_shri_tl(cpu_preg[dst], cpu_preg[src], 2);
-@@ -1120,11 +1153,12 @@ decode_COMPI2opD_0(DisasContext *dc, uint16_t iw0)
+@@ -1120,11 +1160,12 @@ decode_COMPI2opD_0(DisasContext *dc, uint16_t iw0)
          tcg_gen_movi_tl(cpu_dreg[dst], imm);
      } else {
          /* Dreg{dst} += imm{src}; */
@@ -312,7 +319,7 @@ index c3d6162f55..3a158176c0 100644
      }
  }
  
-@@ -1301,7 +1335,7 @@ disalgnexcpt_ld32u(DisasContext *dc, TCGv ret, TCGv addr)
+@@ -1301,7 +1342,7 @@ disalgnexcpt_ld32u(DisasContext *dc, TCGv ret, TCGv addr)
      if (dc->disalgnexcpt) {
          TCGv tmp = tcg_temp_new();
          tcg_gen_andi_tl(tmp, addr, ~0x3);
@@ -321,7 +328,7 @@ index c3d6162f55..3a158176c0 100644
      } else {
          gen_aligned_qemu_ld32u(dc, ret, addr);
      }
-@@ -1457,10 +1491,10 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
+@@ -1457,10 +1498,10 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
              gen_aligned_qemu_ld16s(dc, cpu_dreg[reg], cpu_preg[ptr]);
          } else if (sz == 2 && Z == 0) {
              /* Dreg{reg} = B[Preg{ptr}{aop}] (Z); */
@@ -334,7 +341,7 @@ index c3d6162f55..3a158176c0 100644
          } else {
              illegal_instruction(dc);
              return;
-@@ -1477,7 +1511,7 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
+@@ -1477,7 +1518,7 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
              gen_aligned_qemu_st16(dc, cpu_dreg[reg], cpu_preg[ptr]);
          } else if (sz == 2 && Z == 0) {
              /* B[Preg{ptr}{aop}] = Dreg{reg}; */
@@ -343,7 +350,7 @@ index c3d6162f55..3a158176c0 100644
          } else {
              illegal_instruction(dc);
              return;
-@@ -1517,10 +1551,10 @@ decode_LDSTiiFP_0(DisasContext *dc, uint16_t iw0)
+@@ -1517,10 +1558,10 @@ decode_LDSTiiFP_0(DisasContext *dc, uint16_t iw0)
      gen_align_check(dc, ea, 4, false);
      if (W == 0) {
          /* DPreg{reg} = [FP + imm{offset}]; */
@@ -356,7 +363,7 @@ index c3d6162f55..3a158176c0 100644
      }
  }
  
-@@ -1741,10 +1775,10 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -1741,10 +1782,10 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
              gen_aligned_qemu_ld16s(dc, cpu_dreg[reg], ea);
          } else if (sz == 2 && Z == 0) {
              /* Dreg{reg} = B[Preg{ptr} + imm{offset}] (Z); */
@@ -369,7 +376,7 @@ index c3d6162f55..3a158176c0 100644
          }
      } else {
          if (sz == 0 && Z == 0) {
-@@ -1758,7 +1792,7 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -1758,7 +1799,7 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
              gen_aligned_qemu_st16(dc, cpu_dreg[reg], ea);
          } else if (sz == 2 && Z == 0) {
              /* B[Preg{ptr} + imm{offset}] = Dreg{reg}; */
@@ -378,7 +385,7 @@ index c3d6162f55..3a158176c0 100644
          } else {
              illegal_instruction(dc);
          }
-@@ -1789,18 +1823,18 @@ decode_linkage_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -1789,18 +1830,18 @@ decode_linkage_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
          /* LINK imm{framesize}; */
          int size = uimm16s4(framesize);
          tcg_gen_subi_tl(tmp_sp, tmp_sp, 4);
@@ -401,7 +408,7 @@ index c3d6162f55..3a158176c0 100644
          tcg_gen_addi_tl(cpu_spreg, tmp_sp, 4);
      } else {
          illegal_instruction(dc);
-@@ -1837,6 +1871,9 @@ decode_dsp32mac_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -1837,6 +1878,9 @@ decode_dsp32mac_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
                    M, mmod, MM, P, w1, op1, h01, h11, w0, op0, h00, h10,
                    dst, src0, src1);
  
@@ -411,7 +418,7 @@ index c3d6162f55..3a158176c0 100644
      /* Full semantics (GNU sim port) live in the helper.  */
      gen_astat_update(dc, true);
      gen_helper_dsp32mac(tcg_env, tcg_constant_i32(((uint32_t)iw0 << 16) | iw1));
-@@ -1933,6 +1970,9 @@ decode_dsp32alu_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -1933,6 +1977,9 @@ decode_dsp32alu_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
         | 1 | 1 | 0 | 0 |.M.| 1 | 0 | - | - | - |.HL|.aopcde............|
         |.aop...|.s.|.x.|.dst0......|.dst1......|.src0......|.src1......|
         +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
@@ -421,7 +428,7 @@ index c3d6162f55..3a158176c0 100644
      int s    = ((iw1 >> DSP32Alu_s_bits) & DSP32Alu_s_mask);
      int x    = ((iw1 >> DSP32Alu_x_bits) & DSP32Alu_x_mask);
      int aop  = ((iw1 >> DSP32Alu_aop_bits) & DSP32Alu_aop_mask);
-@@ -2301,25 +2341,29 @@ decode_dsp32alu_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -2301,25 +2348,29 @@ decode_dsp32alu_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
          astat_queue_state2(dc, ASTAT_OP_ABS, cpu_dreg[dst0], cpu_dreg[src0]);
      } else if (aop == 3 && aopcde == 7) {
          /* Dreg{dst0} = -Dreg{src0} (amod1(s,0)); */
@@ -469,7 +476,7 @@ index c3d6162f55..3a158176c0 100644
      } else if (aop == 2 && aopcde == 6) {
          /* Dreg{dst0} = ABS Dreg{src0} (V); */
          TCGv tmp0;
-@@ -2482,6 +2526,9 @@ decode_dsp32shift_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -2482,6 +2533,9 @@ decode_dsp32shift_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
         | 1 | 1 | 0 | 0 |.M.| 1 | 1 | 0 | 0 | - | - |.sopcde............|
         |.sop...|.HLs...|.dst0......| - | - | - |.src0......|.src1......|
         +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
@@ -479,7 +486,7 @@ index c3d6162f55..3a158176c0 100644
      int HLs  = ((iw1 >> DSP32Shift_HLs_bits) & DSP32Shift_HLs_mask);
      int sop  = ((iw1 >> DSP32Shift_sop_bits) & DSP32Shift_sop_mask);
      int src0 = ((iw1 >> DSP32Shift_src0_bits) & DSP32Shift_src0_mask);
-@@ -2596,40 +2643,12 @@ decode_dsp32shift_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -2596,40 +2650,12 @@ decode_dsp32shift_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
      } else if ((sop == 0 || sop == 1 || sop == 2) && sopcde == 2) {
          /* Dreg{dst0} = [LA]SHIFT Dreg{src1} BY Dreg_lo{src0} (opt_S); */
          /* sop == 1 : opt_S */
@@ -523,7 +530,7 @@ index c3d6162f55..3a158176c0 100644
      } else if (sop == 3 && sopcde == 2) {
          /* Dreg{dst0} = ROT Dreg{src1} BY Dreg_lo{src0}; */
          tmp = tcg_temp_new();
-@@ -2907,6 +2926,9 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -2907,6 +2933,9 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
         | 1 | 1 | 0 | 0 |.M.| 1 | 1 | 0 | 1 | - | - |.sopcde............|
         |.sop...|.HLs...|.dst0......|.immag.................|.src1......|
         +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
@@ -533,7 +540,7 @@ index c3d6162f55..3a158176c0 100644
      int src1     = ((iw1 >> DSP32ShiftImm_src1_bits) & DSP32ShiftImm_src1_mask);
      int sop      = ((iw1 >> DSP32ShiftImm_sop_bits) & DSP32ShiftImm_sop_mask);
      int bit8     = ((iw1 >> 8) & 0x1);
-@@ -2983,24 +3005,21 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -2983,24 +3012,21 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
          HLs = !!HLs;
  
          /* Areg{HLs} = Aregs{HLs} >>> imm{newimmag}; */
@@ -567,7 +574,7 @@ index c3d6162f55..3a158176c0 100644
      } else if (sop == 1 && sopcde == 1 && bit8 == 0) {
          /* Dreg{dst0} = Dreg{src1} << imm{immag} (V, S); */
          unhandled_instruction(dc, "Dreg = Dreg << imm (V,S)");
-@@ -3052,19 +3071,15 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -3052,19 +3078,15 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
      } else if (sop == 1 && sopcde == 2) {
          /* Dreg{dst0} = Dreg{src1} << imm{count} (S); */
          int count = imm6(immag);
@@ -593,7 +600,7 @@ index c3d6162f55..3a158176c0 100644
      } else if (sop == 3 && sopcde == 2) {
          /* Dreg{dst0} = ROT Dreg{src1} BY imm{shift}; */
          int shift = imm6(immag);
-@@ -3073,16 +3088,9 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -3073,16 +3095,9 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
          /* Dreg{dst0} = Dreg{src1} >>> imm{count}; */
          int count = imm6(newimmag);
  
@@ -629,7 +636,7 @@ index 81c07eb2de..ee2986b8f9 100644
  
  static bool bfin_cpu_has_work(CPUState *cpu)
 diff --git a/target/bfin/cpu.h b/target/bfin/cpu.h
-index 66696b9c99..e82a980fc6 100644
+index 66696b9c99..7a0b1af9f1 100644
 --- a/target/bfin/cpu.h
 +++ b/target/bfin/cpu.h
 @@ -19,6 +19,15 @@ struct DisasContext;
@@ -660,7 +667,7 @@ index 66696b9c99..e82a980fc6 100644
  } CPUBfinState;
  #define spreg preg[6]
  #define fpreg preg[7]
-@@ -164,6 +178,15 @@ extern const struct VMStateDescription vmstate_bfin_cpu;
+@@ -164,6 +178,16 @@ extern const struct VMStateDescription vmstate_bfin_cpu;
  
  void bfin_cpu_do_interrupt(CPUState *cpu);
  
@@ -672,11 +679,12 @@ index 66696b9c99..e82a980fc6 100644
 +/* CLI (op 0) and STI (op 1) on the GNU CEC; false hands the insn to GNU. */
 +extern bool (*bfin_blech_cec)(int op, uint32_t value, uint32_t *result);
 +extern int (*bfin_blech_dsp32)(int probe, uint32_t insn, uint32_t *regs);
++extern int bfin_blech_dsp32_route;
 +
  void bfin_cpu_dump_state(CPUState *cs, FILE *f, int flags);
  hwaddr bfin_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
  int bfin_cpu_gdb_read_register(CPUState *cpu, GByteArray *buf, int reg);
-@@ -247,7 +270,8 @@ static inline void cpu_get_tb_cpu_state(CPUArchState *env, vaddr *pc,
+@@ -247,7 +271,8 @@ static inline void cpu_get_tb_cpu_state(CPUArchState *env, vaddr *pc,
                                          uint64_t *cs_base, uint32_t *flags)
  {
      *pc = env->pc;
@@ -687,16 +695,17 @@ index 66696b9c99..e82a980fc6 100644
  }
  
 diff --git a/target/bfin/helper.c b/target/bfin/helper.c
-index e2bf7df46b..fe01593ab4 100644
+index e2bf7df46b..f052d2460e 100644
 --- a/target/bfin/helper.c
 +++ b/target/bfin/helper.c
-@@ -78,6 +78,13 @@ int cpu_handle_mmu_fault(CPUState *cs, target_ulong address,
+@@ -78,6 +78,14 @@ int cpu_handle_mmu_fault(CPUState *cs, target_ulong address,
     NULL, it means that the function was called in C code (i.e. not
     from generated code or from helper.c) */
  /* XXX: fix it to restore all registers */
 +uint32_t bfin_blech_stop = -1;
 +bool (*bfin_blech_cec)(int op, uint32_t value, uint32_t *result);
 +int (*bfin_blech_dsp32)(int probe, uint32_t insn, uint32_t *regs);
++int bfin_blech_dsp32_route;
 +bool (*bfin_blech_tlb_fill)(CPUState *cs, vaddr address, int size,
 +                            MMUAccessType access_type, int mmu_idx,
 +                            bool probe, uintptr_t retaddr);
@@ -704,7 +713,7 @@ index e2bf7df46b..fe01593ab4 100644
  bool bfin_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
                         MMUAccessType access_type, int mmu_idx, bool probe,
                         uintptr_t retaddr)
-@@ -89,6 +96,10 @@ bool bfin_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
+@@ -89,6 +97,10 @@ bool bfin_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
  #else
      int ret;
  
@@ -716,7 +725,7 @@ index e2bf7df46b..fe01593ab4 100644
      if (likely(!ret)) {
          return true;
 diff --git a/target/bfin/helper.h b/target/bfin/helper.h
-index e7f31b075a..bf1ab82a8c 100644
+index e7f31b075a..723865f357 100644
 --- a/target/bfin/helper.h
 +++ b/target/bfin/helper.h
 @@ -10,6 +10,7 @@
@@ -727,7 +736,7 @@ index e7f31b075a..bf1ab82a8c 100644
  
  DEF_HELPER_FLAGS_4(dbga_l, TCG_CALL_NO_WG, void, env, i32, i32, i32)
  DEF_HELPER_FLAGS_4(dbga_h, TCG_CALL_NO_WG, void, env, i32, i32, i32)
-@@ -30,6 +31,10 @@ DEF_HELPER_FLAGS_1(signbits_40, TCG_CALL_NO_RWG_SE, i32, i64)
+@@ -30,6 +31,11 @@ DEF_HELPER_FLAGS_1(signbits_40, TCG_CALL_NO_RWG_SE, i32, i64)
  DEF_HELPER_FLAGS_4(dagadd, TCG_CALL_NO_RWG_SE, i32, i32, i32, i32, i32)
  DEF_HELPER_FLAGS_4(dagsub, TCG_CALL_NO_RWG_SE, i32, i32, i32, i32, i32)
  DEF_HELPER_FLAGS_2(add_brev, TCG_CALL_NO_RWG_SE, i32, i32, i32)
@@ -737,13 +746,14 @@ index e7f31b075a..bf1ab82a8c 100644
 +DEF_HELPER_4(acc_shift_gnu, void, env, i32, i32, i32)
  DEF_HELPER_2(dsp32mac, void, env, i32)
 +DEF_HELPER_2(dsp32_gnu, void, env, i32)
++DEF_HELPER_2(dsp32_port, void, env, i32)
 +DEF_HELPER_4(alu2op_shift_gnu, i32, env, i32, i32, i32)
  DEF_HELPER_2(dsp32mult, void, env, i32)
 diff --git a/target/bfin/op_helper.c b/target/bfin/op_helper.c
-index 445fa56979..83640ace6d 100644
+index 445fa56979..710a7f9ba6 100644
 --- a/target/bfin/op_helper.c
 +++ b/target/bfin/op_helper.c
-@@ -15,6 +15,94 @@
+@@ -15,6 +15,101 @@
  #include "exec/exec-all.h"
  #include "sysemu/runstate.h"
  
@@ -760,6 +770,13 @@ index 445fa56979..83640ace6d 100644
 +}
 +
 +/* dsp32 ALU and shift insns run by the GNU simulator's own decoders. */
++#include "bfin-gnu-dsp32.c.inc"
++
++void HELPER(dsp32_port)(CPUArchState *env, uint32_t insn)
++{
++    gnu_dsp32(env, insn);
++}
++
 +void HELPER(dsp32_gnu)(CPUArchState *env, uint32_t insn)
 +{
 +    uint32_t r[16];
@@ -838,7 +855,7 @@ index 445fa56979..83640ace6d 100644
  void HELPER(raise_exception)(CPUArchState *env, uint32_t excp, uint32_t pc)
  {
      BlackfinCPU *cpu = bfin_env_get_cpu(env);
-@@ -279,38 +367,117 @@ uint32_t HELPER(add_brev)(uint32_t addend1, uint32_t addend2)
+@@ -279,38 +374,117 @@ uint32_t HELPER(add_brev)(uint32_t addend1, uint32_t addend2)
  }
  
  /* Dreg = ASHIFT Dreg BY Dreg_lo (S), as lshift ()/ashiftrt () in the GNU sim */
@@ -981,7 +998,7 @@ index 445fa56979..83640ace6d 100644
  }
  
  /*
-@@ -705,6 +872,7 @@ void HELPER(dsp32mac)(CPUArchState *env, uint32_t insn)
+@@ -705,6 +879,7 @@ void HELPER(dsp32mac)(CPUArchState *env, uint32_t insn)
      }
      if (P || w0 || w1) {
          env->astat[ASTAT_V] = v_0 | v_1;
