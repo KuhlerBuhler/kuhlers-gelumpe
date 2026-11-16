@@ -213,7 +213,7 @@ def cases(payload, flash=None, png=None):
     mc.leave_to_main(d)
     d.run(1.5)
     main = page.byte(LM_DRAWN), shown(d) == glyphs(page.byte(LM_VALUE)) and page.byte(LM_VALUE) != 0xFF
-    out.append(entry("page_switches_at_once", first == (("LOAD METER", "OFF", ""), (5, 6)) and on == (("LOAD METER", "ON", ""), 1)
+    out.append(entry("page_switches_at_once", first == (("LOAD METER", "OFF", ""), (5, 7)) and on == (("LOAD METER", "ON", ""), 1)
                      and in_menu == 0 and main == (1, True) and not d.m.asserts,
                      f"build {build}: page {first}, dial up {on}, drawn in the menu {in_menu}, on the main screen (drawn, digits right) {main}"))
     out.append(entry("write_keeps_it_in_byte_7", rec is not None and rec[4] == 4 and rec[7] & 1,

@@ -724,6 +724,19 @@ class Machine:
         """A 5-byte message from the panel, as if a control was used."""
         self.receive(UART0, msg)
 
+    def battery(self, raw):
+        """Panel message 6 with a battery reading: the firmware's battery model keeps it (+0x320) and takes its level from the
+        threshold table of the Global BATTERY TYPE (docs/messungen/2026-11-16-batterie-prozent.md). 1 is the power key and 0
+        reads as empty, so a reading is 2 to 255; on battery one at or below the table's last threshold switches off."""
+        if not 2 <= raw <= 255:
+            raise ValueError(f"a battery reading is 2 to 255, not {raw} (1 is the power key)")
+        self.send([0x06, raw, 0, 0, 0])
+
+    def power_source(self, adapter):
+        """Panel message 7: mains power (the plug symbol) or battery, as the panel reports a plug put in or pulled."""
+        self.adapter = bool(adapter)
+        self.send([0x07, 1 if adapter else 0, 0, 0, 0])
+
     def receive(self, base, data):
         """Bytes coming in on a UART line; they arrive one byte time apart."""
         self.uart[base]["wire"].extend(bytes(data))
