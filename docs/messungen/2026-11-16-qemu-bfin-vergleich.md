@@ -20,7 +20,7 @@ QEMU-Port der schnelle Kern für den DSP werden?
   GNU-Simulator 4 bis 9 Millionen. QEMU ist damit 10- bis 25-mal schneller als der
   GNU-Simulator, aber 2- bis 10-mal langsamer als der echte DSP (rund 525 MHz). **gemessen**
 - Für den Einsatz als Kern fehlt QEMU die ganze Peripherie, die der GNU-Simulator inzwischen hat
-  (HOSTDP, SPORT0, DMA, MDMA), und ein Taktzähler. Schätzung in Abschnitt 5: 5 bis 8 Wochen.
+  (HOSTDP, SPORT0, DMA, MDMA), und ein Taktzähler. Schätzung in Abschnitt 5: 4 bis 7 Arbeitstage, rund 1 bis 2 Wochen Kalenderzeit.
 
 ## 1. Aufbau
 
@@ -169,16 +169,22 @@ also ohne den Dateideskriptor-Umweg des GNU-Simulators), PLL, SIC, EVT, MMU-Regi
 DMA-Stub, der Schreibzugriffe verwirft und 0 liest. Kein SPORT, kein HOSTDP. **offline** gelesen
 in `hw/bfin/`.
 
-| Teil | Was | Aufwand (geschätzt) |
+| Teil | Was | Arbeitstage (geschätzt) |
 |---|---|---|
-| Befehlssatz | Restliche Lücken (V/VS/AC-Flags, `RND12/20`, BYTEOP, SAA, W32), dazu ein Dauervergleich gegen den GNU-Simulator über ganze Audioblöcke statt Einzelfunktionen | 1 bis 2 Wochen |
-| Tempo | Sicherung nur bei Konfliktbündeln, MAC in TCG | 2 bis 4 Tage |
-| HOSTDP | Gerät mit FIFO und DMA1 nach Vorlage `tools/dsp/blackfin_hostdp.c` (461 Zeilen) auf die QEMU-Geräteschnittstelle (MemoryRegion, IRQ) umgeschrieben | 3 bis 5 Tage |
-| SPORT0, DMA, MDMA | Echter DMA-Controller statt Stub, MDMA, SPORT0 nach `tools/dsp/blackfin_sport.c` (404 Zeilen), Interrupts über SIC | 1 bis 2 Wochen |
-| Takt | CYCLES zählt Nanosekunden der virtuellen Uhr. Für Zeitscheiben und das Budget je Block braucht es einen Befehlszähler: `-icount` mit fester Rate macht die Zeit proportional zu den Befehlen, kennt aber keine Blackfin-Takte (Stalls, Mehrtakt-Befehle). Für Klang reicht Befehle-als-Takte, für Taktmessungen bleibt der GNU-Simulator | 2 bis 3 Tage |
-| Kopplung | QEMU läuft als eigener Prozess (System-Emulation), der ARM-Emulator in Python. Dazwischen ein Kanal für Host-Port-Zugriffe und Zeitscheiben, wie `blackfin_channel.c` beim GNU-Arbeiter | 3 bis 5 Tage |
+| Befehlssatz | Restliche Lücken (V/VS/AC-Flags, `RND12/20`, BYTEOP, SAA, W32), dazu ein Dauervergleich gegen den GNU-Simulator über ganze Audioblöcke statt Einzelfunktionen | 1 bis 2 |
+| Tempo | Sicherung nur bei Konfliktbündeln, MAC in TCG | 0,5 |
+| HOSTDP | Gerät mit FIFO und DMA1 nach Vorlage `tools/dsp/blackfin_hostdp.c` (461 Zeilen) auf die QEMU-Geräteschnittstelle (MemoryRegion, IRQ) umgeschrieben | 0,5 bis 1 |
+| SPORT0, DMA, MDMA | Echter DMA-Controller statt Stub, MDMA, SPORT0 nach `tools/dsp/blackfin_sport.c` (404 Zeilen), Interrupts über SIC | 1 bis 1,5 |
+| Takt | CYCLES zählt Nanosekunden der virtuellen Uhr. Für Zeitscheiben und das Budget je Block braucht es einen Befehlszähler: `-icount` mit fester Rate macht die Zeit proportional zu den Befehlen, kennt aber keine Blackfin-Takte (Stalls, Mehrtakt-Befehle). Für Klang reicht Befehle-als-Takte, für Taktmessungen bleibt der GNU-Simulator | 0,5 |
+| Kopplung | QEMU läuft als eigener Prozess (System-Emulation), der ARM-Emulator in Python. Dazwischen ein Kanal für Host-Port-Zugriffe und Zeitscheiben, wie `blackfin_channel.c` beim GNU-Arbeiter | 0,5 bis 1,5 |
 
-Zusammen rund 5 bis 8 Wochen. Ergebnis wäre ein Kern, der einzelne Effekte nahe Echtzeit rechnet
+Zusammen 4 bis 7 Arbeitstage, mit Wartezeiten für lange Vergleichsläufe unter Last rund 1 bis 2
+Wochen Kalenderzeit. Maßstab ist das bisherige Tempo: die ganze Peripherie des GNU-Simulators
+(SysControl, HOSTDP, SPORT0-DMA, Kopplung an den ARM-Emulator) entstand am 14.11. an einem Tag
+(Commits `dab41585` bis `11cc6663` auf `feature/sample-swap-native-dsp`), der QEMU-Patch dieser
+Messung mit fünf Fehlerklassen ebenfalls an einem Tag. Der größte unsichere Posten ist der
+Befehlssatz: wie viele Fehler QEMU in den noch nicht verglichenen Befehlen hat, ist unbekannt.
+Ergebnis wäre ein Kern, der einzelne Effekte nahe Echtzeit rechnet
 und einen ganzen Patch (10 000 bis 15 000 Takte je Sample nach Idee 52) in ungefähr 2- bis
 5-facher Echtzeit, also weiter nicht live, aber 10- bis 25-mal schneller als heute. **geschätzt**
 
@@ -214,5 +220,5 @@ nicht im Repository.
 | QEMU 55 bis 233, GNU 4 bis 9 Millionen Takte je Sekunde | gemessen | Abschnitt 4, unter Last |
 | Ohne Sicherung bei Nicht-Konfliktbündeln Tempo wie v1 | geschätzt | nicht gebaut |
 | QEMU-DMA ist ein Stub, kein SPORT, kein HOSTDP | offline | `hw/bfin/bfin_dma.c`, Inhalt von `hw/bfin/` |
-| Aufwand 5 bis 8 Wochen | geschätzt | Urteil |
+| Aufwand 4 bis 7 Arbeitstage | geschätzt | Urteil, Maßstab Commit-Zeiten vom 14.11. und diese Messung |
 | Flags (ASTAT) gleich | offen | nicht verglichen |
