@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Find the panel controller firmware in a Sampler VSB and run the panel update against a fake boot ROM.
 
-    tools/emu/.venv/bin/python tools/emu/panel_mcu.py --vsb SYSTEM.VSB [--flash dump.bin] [--simulate] [--corrupt PAGE]
+    tools/emu/.venv/bin/python tools/emu/panel_mcu.py --vsb SYSTEM.VSB [--flash dump.bin] [--simulate] [--corrupt PAGE] [--leds]
 
 Facts: docs/hintergrund/panel-controller.md. Prints offsets, sizes, hashes and the protocol steps, never
 firmware bytes. The image is found by its shape, not by address: a Cortex-M vector table (stack pointer
@@ -25,6 +25,8 @@ from machine import UART0, Machine, load_flash  # noqa: E402
 HEADER = 0x100
 SP = 0x20004000
 LOADER_GAP = 0x28           # from the image's length word to the loader's length word
+LED_MATRIX = 0x8460         # 8 rows of 11 LED numbers (0xFF: none), read row by row by the scan at 0x4F28
+LED_ROWS, LED_PWM_COLUMNS, LED_COLUMNS = 8, 7, 11   # row counter wraps after 7 (0x5584); columns 0-6 base timer 1-7
 
 
 def find(payload):
@@ -42,6 +44,14 @@ def find(payload):
                         return at, size, end + LOADER_GAP + 4, lsize
         at = payload.find(needle, at + 1)
     return None
+
+
+def leds(image):
+    """{"pwm": [...], "on_off": [...]}: the LED numbers on base timer PWM and on the plain GPIO columns."""
+    rows = [image[LED_MATRIX + LED_COLUMNS * r:LED_MATRIX + LED_COLUMNS * (r + 1)] for r in range(LED_ROWS)]
+    pick = lambda cols: sorted(n for row in rows for n in row[cols] if n != 0xFF)
+    return {"pwm": [hex(n) for n in pick(slice(0, LED_PWM_COLUMNS))],
+            "on_off": [hex(n) for n in pick(slice(LED_PWM_COLUMNS, LED_COLUMNS))]}
 
 
 def describe(payload):
@@ -148,12 +158,16 @@ def main():
     p.add_argument("--simulate", action="store_true")
     p.add_argument("--corrupt", type=int, help="with --simulate: flip one bit in this read-back page")
     p.add_argument("--png", type=Path, help="with --simulate: the display at the end")
+    p.add_argument("--leds", action="store_true", help="the LEDs with PWM and the ones only switched")
     a = p.parse_args()
     payload = a.vsb.read_bytes()[HEADER:]
     info = describe(payload)
     if not info:
         raise SystemExit("no panel image found")
     print(json.dumps(info, indent=1))
+    if a.leds:
+        at, size, _, _ = find(payload)
+        print(json.dumps(leds(payload[at:at + size])))
     if a.simulate:
         steps, m = simulate(payload, load_flash(a.flash) if a.flash else None, a.corrupt)
         for s in steps:

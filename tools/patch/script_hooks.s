@@ -632,6 +632,8 @@ frame_app_close:
 frame_app_ok:
     mov r1, #0
     str r1, [r4, #RT_PAUSED]
+    ldr r2, =CARD_CLOCK
+    str r1, [r2]
     mov r1, #1
     str r1, [r4, #RT_FRAME_ACTIVE]
     ldr r1, =SCRIPT_TIMER_ADDRESS

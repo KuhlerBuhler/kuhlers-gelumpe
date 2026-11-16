@@ -187,7 +187,9 @@ Hormis `ready` et `frame`, les événements utilisent un tampon circulaire de 64
 plein, le nouvel événement est perdu et compté. Deux mouvements immédiats du même potentiomètre
 ne conservent que la dernière valeur. Les gestionnaires d’une trame disposent ensemble de 5 ms ;
 un dépassement désactive le plugin responsable. Plus de 0,5 ms pour un gestionnaire est un
-avertissement. Les autres plugins, entrées restantes et gestionnaires de trame continuent à la
+avertissement. Le temps de lecture de la carte par `korg.file.frame`, `read`, `write`, `count`, `name` et `picture`
+ne compte ni dans les 5 ms ni pour l’avertissement, jusqu’à 50 ms par trame ; au-delà, il compte de nouveau
+(mesuré dans l’émulateur : 9 ms pour une image à chaque trame, le plugin reste actif). Les autres plugins, entrées restantes et gestionnaires de trame continuent à la
 trame suivante ; les événements déjà livrés ne sont pas répétés. Un gestionnaire qui n’a pas
 encore commencé lorsque le temps manque est reporté sans être désactivé.
 
@@ -201,7 +203,7 @@ Blechy reçoit le touchpad et sa touche). Dans tous les menus du firmware
 (Pattern, Global, Part Edit, Step Edit et les autres), les plugins reçoivent les
 entrées comme sur l’écran principal.
 
-### Ce qu’un plugin atteint (API 37)
+### Ce qu’un plugin atteint (API 38)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -259,6 +261,7 @@ feuille de l’arbre d’objets.
 | Apps | non | `korg.app` | `open`, `close` |
 | Valeurs enregistrées | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
 | Fichier propre sur la carte | `korg.file.read` | `korg.file.write` | non |
+| Images de démarrage et animations de chargement sur la carte (Media) | `korg.file.count`, `korg.file.name`, `korg.file.picture` | non | non |
 | Temps et minuteurs | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
 
@@ -621,6 +624,9 @@ La colonne d’autorisation s’applique aussi à la syntaxe de propriété équ
 | `korg.after(ms, fn)`, `korg.every(ms, fn)`, `korg.afterSteps(n, fn)`, `korg.cancel(number)` | Temporisateurs décrits ci-dessus, depuis l’API 11 | Partout sauf `save` |
 | `korg.app(name, group)` | Inscrit l’application : nom de 1 à 15 caractères, groupe `"GAMES"` ou `"TOOLS"`. Renvoie son numéro, ou -1 si les 16 places sont occupées (l’appareil affiche alors « max 16 apps » à l’import ; le plugin reste dans la liste des plugins et tourne). Une instruction autonome au premier niveau, une fois par plugin, vérifiée par le compilateur | Corps uniquement |
 | `korg.file.frame(array, file, index)` | Lit l’image `index`, 0 à 65535, de `KORG/blechtribe/Gif/GIFnn.E2G`, avec `file` de 0 à 99 pour nn. Un octet par élément du tableau, d’au moins 1024 éléments ; `korg.display.bitmap(array, 0, 0, 128)` l’affiche directement. Renvoie le délai en ms, au moins 1 ; 0 après la dernière image ; -1 sans fichier, fichier invalide ou tronqué, ou hors de la page principale. Après -1, le dernier quart du tableau peut avoir changé. Depuis l’API 7 | Comme `korg.led` |
+| `korg.file.count(kind)` | Relit le dossier `KORG/blechtribe/Media/` et renvoie le nombre de fichiers du type `kind` : 0 images de démarrage (`.bmp`), 1 animations de chargement (`.blla`), dans l’ordre du dossier, 64 au plus (le reste manque). -1 si la carte n’est pas lisible ou hors de la page principale. Aucun autre dossier ne compte. Depuis l’API 38 | Comme `korg.led` |
+| `korg.file.name(array, kind, index)` | Écrit le nom du fichier `index` (0 à 63) de la liste lue par le dernier `korg.file.count(kind)` dans le tableau, sans extension, un caractère par case, puis un 0 s’il reste de la place ; pour `korg.display.chars`. Au-delà de 17 caractères il est coupé à 15 plus "..". Renvoie sa longueur, 0 après le dernier fichier. Depuis l’API 38 | Comme `korg.led` |
+| `korg.file.picture(array, kind, index, frame)` | Lit l’image `frame` du fichier `index` de la même liste dans le tableau (au moins 1024 cases), comme `korg.display.bitmap(array, 0, 0, 128)` la prend. Un `.bmp` (128 x 64, 1 bit, comme SPLASH IMPORT) a une image, la couleur la plus sombre est dessinée ; un `.blla` a d’abord ses images de progression, puis ses images de boucle. Renvoie le nombre d’images du fichier, 0 après la dernière (le tableau reste), -1 si l’index n’est pas dans la liste, si le fichier manque ou est abîmé, et hors de l’écran principal. Un point dessiné paraît sombre, comme dans l’image de démarrage et l’animation de chargement : avec DISPLAY INVERT ON tous les bits arrivent inversés (mesuré dans l’émulateur). Depuis l’API 38 | Comme `korg.led` |
 | `korg.display.take()` | Demande l’écran hors application ; renvoie 1 si obtenu, 0 si application, autre propriétaire ou hors page principale | Comme `korg.led` |
 | `korg.display.release()` | Rend l’écran au firmware | Comme `korg.led` |
 | `korg.display.popups = 0` | Supprime la fenêtre de paramètre ouverte par `korg.seq.setPartValue` et la fenêtre d’écriture de `korg.pattern.write`, pour les appels de ce plugin uniquement ; 1 la réactive, valeur initiale après chargement. Appel équivalent : `korg.display.popups(on)`. `korg.knob` conserve la fenêtre car il simule le potentiomètre. Lecture par `korg.display.popups` ou `korg.read.popups()`. Depuis l’API 24 | Comme `korg.led` |
@@ -1183,7 +1189,31 @@ deux octets nuls et 1024 octets d’écran. Octet `(y / 8) * 128 + x`, bit `y % 
 en une image par entrée dans l’ordre fourni. `src/script/gif.mjs` lit le format dans le navigateur.
 Chaque appel ouvre, cherche, lit et ferme le fichier avec FatFs, dont `f_lseek` à `0xC009E404`,
 `0xC008AF5C` sur bleu, et l’objet fichier du chargeur. Lecture seulement sur l’écran principal.
-La durée de lecture de 1 Kio sur l’appareil n’est pas mesurée ; les 5 ms par trame restent la limite.
+La durée de lecture de 1 Kio sur l’appareil n’est pas mesurée ; dans l’émulateur elle est de 7,5 ms, hors du budget de la trame.
+
+**Images de démarrage et animations de chargement, `korg.file.count`, `korg.file.name`, `korg.file.picture`, depuis l’API 38.**
+Seul `KORG/blechtribe/Media/` est lu, nom du dossier en casse quelconque, sans ses sous-dossiers ni `KORG/blechtribe/`.
+Compte chaque fichier en `.bmp`, type 0, ou `.blla`, type 1, extension en casse quelconque, nom de 31 caractères au plus,
+sans point au début. L’ordre est celui où FatFs parcourt le dossier, le plus souvent l’ordre d’arrivée sur la carte, pas
+l’ordre alphabétique. 64 fichiers au plus par type entrent dans la liste, `SCRIPT_MEDIA.maxFiles` ; le reste manque.
+`korg.file.count` relit le dossier : 0 sans dossier, -1 si la carte n’est pas lisible, la liste est alors vide, ou hors de
+l’écran principal, l’ancienne liste reste. `korg.file.name` et `korg.file.picture` ne lisent que cette liste, sans parcours du dossier à
+chaque pas d’encodeur ; avant le premier `count` ils renvoient 0 et -1. Un fichier est ouvert par son nom court 8.3. Si un
+fichier a disparu après le `count` ou si la carte a changé, `picture` renvoie -1 jusqu’au `count` suivant.
+Noms : le nom long sans extension, au-delà de 17 caractères coupé à 15 plus ".." ; chaque octet à partir de 0x80 devient "?".
+La FatFs du firmware donne les noms longs en page de code 932, un nom avec accents peut donc avoir une autre longueur sur l’appareil.
+Un `.bmp` doit être comme les images de démarrage de SPLASH IMPORT et de l’application : `BM`, 128 x 64 pixels, hauteur 64
+ou -64, un plan, 1 bit sans compression, pixels de l’octet 54 à 0x200 après en-tête et palette, les 1024 octets de pixels
+présents ; la couleur la plus sombre de la palette est dessinée. Un `.blla` suit le format de
+[l’animation de chargement](hintergrund/ladeanimation.md) ; à chaque changement de fichier il est vérifié une fois en entier,
+une liste abîmée n’importe où donne -1 pour chaque image du fichier.
+Polarité : un point dessiné est un bit posé ; menu BLECH armé et DISPLAY INVERT ON, tous les bits arrivent inversés. Un point
+dessiné reste ainsi sombre comme dans l’image de démarrage et l’animation de chargement,
+[mesure](messungen/2026-11-16-media-polaritaet.md). Dans le navigateur, le simulateur prend la valeur d’usine ON.
+Durées dans l’émulateur, [mesure](messungen/2026-11-16-image-viewer-timing.md), pas mesurées sur l’appareil : `count` avec
+5 fichiers 3,9 à 4,1 ms, avec 64 listés 20,1 ms ; un `.bmp` 9,2 à 9,4 ms ; `.blla` première image après changement de fichier
+24,1 à 24,9 ms, une image plus loin 6,6 à 7,0 ms, saut à la dernière image 21,3 ms. Comme pour `korg.file.frame`, ce temps ne
+compte pas dans le budget de la trame, 50 ms par trame au plus.
 
 ### Valeurs persistantes
 
@@ -1403,7 +1433,7 @@ sur le matériel peut différer. Les lecteurs d’images dépassent cette borne 
 | Simon | GAMES | Les 16 pads jouent une séquence à reproduire, allongée d’un pas par tour. Durée de pas 0,72 s, raccourcie tous les quatre tours, minimum 0,4 s. L’écran indique tour, pas et action. Erreur de pad termine ; TAP ou pad relance | 2268 octets | Trame 1673 unités maximum à la fin, ouverture 1644 |
 | Mandelbrot | GAMES | Pavé pour déplacer, Part droite et encodeur pour zoomer, Part gauche pour dézoomer ; 1/2 règlent 8 à 64 itérations, TAP réinitialise | 2436 octets | 2135 unités, 0,41 ms |
 | GIF Player | TOOLS | Fichiers GIF00.E2G à GIF99.E2G de la carte ; encodeur choisit, Part gauche/droite divisent ou multiplient la vitesse par deux entre 25 et 400 %, TAP met en pause. Fichier absent signalé ; chaque image reste au moins 40 ms | 972 octets | 3762 unités par trame, environ 0,72 ms, dont image 3086 ; au-dessus de l’avertissement de 0,5 ms |
-| Image Viewer | TOOLS | Images d’un fichier E2G une par une, par exemple plusieurs BMP réunis par `tools/gif/gif2e2g.py`. Part droite/gauche avancent/reculent en boucle ; encodeur change de fichier. Numéro comme 2/3 visible deux secondes après chaque changement ; total connu après parcours du fichier. TAP garde ou masque l’indication. Recul de la première vers la dernière seulement après découverte du nombre d’images | 1128 octets | 4414 unités maximum, deux lectures et dessin au-delà de la dernière image ; environ 0,84 ms déduit, au-dessus de 0,5 ms |
+| Image Viewer | TOOLS | Images de démarrage (`.bmp`) et animations de chargement (`.blla`) de `KORG/blechtribe/Media/`. Liste `IMAGES n` et `ANIMATIONS n` au départ ; encodeur ou Part choisit, MENU ouvre, MENU revient à la liste. IMAGES : encodeur et Part parcourent en boucle, nom et position deux secondes en haut, TAP les garde. ANIMATIONS : encodeur choisit le fichier, Part image suivante ou précédente, TAP lit ou met en pause ; une image toutes les 96 ms, Part divise ou double (48 à 384 ms), après la dernière image revient la première. `NO IMAGES`, `NO ANIMATIONS`, `NO CARD`, fichier abîmé : nom et `BAD FILE` | 2260 octets | trame en lecture 4620 unités, touche 4697 (dont l’image entière 3086), déduit au-dessus de l’avertissement ; mesuré dans l’émulateur au plus 0,35 ms (saut à l’image 255 d’un `.blla`), temps de carte non compté |
 
 **Set-Timer** utilise `korg.millis()`, actualisé même application fermée. Il n’écoute que
 `play`, boutons, `open`, `close` ; fermé, quelques opérations par bouton et aucune par trame.

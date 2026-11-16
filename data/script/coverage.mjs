@@ -81,6 +81,8 @@ export const COVERAGE = Object.freeze([
   row("plugin", "Apps", "Apps", "Apps", [], ["korg.app"], ["open", "close"]),
   row("plugin", "Gespeicherte Werte", "Stored values", "Valeurs enregistrées", ["korg.store.get"], ["korg.store.set", "korg.store.save"], ["save"]),
   row("plugin", "Eigene Datei auf der Karte", "Own file on the card", "Fichier propre sur la carte", ["korg.file.read"], ["korg.file.write"]),
+  row("plugin", "Startbilder und Ladeanimationen auf der Karte (Media)", "Start images and loading animations on the card (Media)",
+    "Images de démarrage et animations de chargement sur la carte (Media)", ["korg.file.count", "korg.file.name", "korg.file.picture"]),
   row("plugin", "Zeit und Timer", "Time and timers", "Temps et minuteurs", ["korg.millis"], ["korg.after", "korg.every", "korg.afterSteps", "korg.cancel"],
     ["ready", "frame"]),
 ]);

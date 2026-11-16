@@ -5,7 +5,7 @@
  * pending handlers survive an overrun. Only the faulty script is switched off.
  * Timers (korg.after, korg.every, korg.afterSteps) are checked at the start of each frame, as the frame hook does.
  */
-import { BUDGET, LIMITS, ERROR, QUEUED_EVENTS, SCRIPT_ENTRY, SCRIPT_PHASE, EVENT_BY_NAME, STORE, SCRIPT_APPS, TIMERS, SCRIPT_DATA_FILE } from "../../data/script/contract.mjs";
+import { BUDGET, CARD_READS, LIMITS, ERROR, QUEUED_EVENTS, SCRIPT_ENTRY, SCRIPT_PHASE, EVENT_BY_NAME, STORE, SCRIPT_APPS, TIMERS, SCRIPT_DATA_FILE } from "../../data/script/contract.mjs";
 import { Script, ScriptFault } from "./vm.mjs";
 import { decodeBlob, fail } from "./blob.mjs";
 import { verifyParts } from "./verifier.mjs";
@@ -36,8 +36,9 @@ export class ScriptRuntime {
    * @param {{ load: (name: string) => { mask: number, values: ArrayLike<number> } | null, save: (records: { name: string, mask: number, values: Int32Array }[]) => void } | null} [o.storage]
    *   persistent values: `load` is asked when a script is added, `save` gets every script's record once `flushStore` runs
    * @param {() => number} [o.clock] milliseconds of the device clock the timers count in, by default korg.millis of `api`
+   * @param {number} [o.cardMs] card time per frame the budget leaves out (CARD_READS)
    */
-  constructor({ api = {}, now = () => performance.now(), frameMs = BUDGET.frameMs, handlerWarnMs = BUDGET.handlerWarnMs, fuel = LIMITS.fuel, varSlots = BUDGET.variableSlots, scriptBytes = BUDGET.scriptBytes, storage = null, clock = null } = {}) {
+  constructor({ api = {}, now = () => performance.now(), frameMs = BUDGET.frameMs, handlerWarnMs = BUDGET.handlerWarnMs, cardMs = CARD_READS.cardMs, fuel = LIMITS.fuel, varSlots = BUDGET.variableSlots, scriptBytes = BUDGET.scriptBytes, storage = null, clock = null } = {}) {
     if (!Number.isInteger(scriptBytes) || scriptBytes < 0 || scriptBytes > BUDGET.scriptBytes) throw new RangeError(`scriptBytes must be between 0 and ${BUDGET.scriptBytes}`);
     this.api = api;
     this.storage = storage;
@@ -60,6 +61,10 @@ export class ScriptRuntime {
     this.clock = clock ?? (() => Math.floor(this.api["korg.millis"]?.() ?? now()));
     this.frameMs = frameMs;
     this.handlerWarnMs = handlerWarnMs;
+    this.cardMs = cardMs;
+    /** Card time left out of the budget: in all (the budget clock runs this much behind `now`) and in the running frame. */
+    this.cardShift = 0;
+    this.cardFrame = 0;
     this.fuel = fuel;
     this.varSlots = varSlots;
     this.scriptBytes = scriptBytes;
@@ -173,7 +178,26 @@ export class ScriptRuntime {
       if (this.open === entry) this.open = null;
       return 0;
     };
+    // Card reads stop the budget clock (CARD_READS), up to cardMs per frame.
+    for (const name of CARD_READS.calls) {
+      const call = api[name];
+      if (typeof call !== "function") continue;
+      api[name] = (...args) => {
+        const t = this.now();
+        try { return call(...args); } finally { this.#cardTime(this.now() - t); }
+      };
+    }
     return api;
+  }
+
+  /** The clock of the frame budget: `now` without the card time left out. */
+  #clock() { return this.now() - this.cardShift; }
+
+  #cardTime(ms) {
+    const left = Math.min(ms, this.cardMs - this.cardFrame);
+    if (!(left > 0)) return;
+    this.cardFrame += left;
+    this.cardShift += left;
   }
 
   /** The hold records of the armed plugins (what each keeps from the firmware, see SimHardware). */
@@ -265,7 +289,7 @@ export class ScriptRuntime {
   }
 
   #env(entry, deadline) {
-    return { api: entry.api, fuel: this.fuel, onStep: entry.onStep, timeUp: deadline === null ? undefined : () => this.now() > deadline };
+    return { api: entry.api, fuel: this.fuel, onStep: entry.onStep, timeUp: deadline === null ? undefined : () => this.#clock() > deadline };
   }
 
   /** The user turns a page a script added: the value moves within its range and the script gets `menu`(id, value). Returns the new value, or null for an id that does not exist. */
@@ -300,7 +324,8 @@ export class ScriptRuntime {
     this.ready ||= ready;
     if (!this.ready) return { handled: 0, faults: [], ms: 0, queued: 0 };
     this.#timersDue();
-    const t0 = this.now();
+    this.cardFrame = 0;
+    const t0 = this.#clock();
     const deadline = t0 + this.frameMs;
     const faults = [];
     let handled = 0;
@@ -345,12 +370,12 @@ export class ScriptRuntime {
         if (cycle.phase === SCRIPT_PHASE.READY) entry.readySent = true;
         continue;
       }
-      if (this.now() > deadline) { cycle.next -= 1; break; }
+      if (this.#clock() > deadline) { cycle.next -= 1; break; }
       if (cycle.phase === SCRIPT_PHASE.READY) entry.readySent = true;
-      const t = this.now();
+      const t = this.#clock();
       const r = entry.script.dispatch(name, args, this.#env(entry, deadline));
       handled += 1;
-      const ms = this.now() - t;
+      const ms = this.#clock() - t;
       entry.maxCost[name] = Math.max(entry.maxCost[name] ?? 0, r.cost);
       entry.maxMs[name] = Math.max(entry.maxMs[name] ?? 0, ms);
       if (ms > this.handlerWarnMs) {
@@ -360,7 +385,7 @@ export class ScriptRuntime {
       if (!r.ok) faults.push({ script: entry.script.name, ...entry.script.fault });
       if (r.code === ERROR.TIME) break;
     }
-    return { handled, faults, ms: this.now() - t0, queued };
+    return { handled, faults, ms: this.#clock() - t0, queued };
   }
 
   /** What the status block on the device will hold: per script its state and last fault, the cost of its biggest handler per event, slow handlers; plus the ring overflows. */
