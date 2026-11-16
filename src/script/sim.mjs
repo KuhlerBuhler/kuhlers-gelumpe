@@ -199,6 +199,18 @@ export function inputEvents() {
 }
 
 /**
+ * A plugin as a catalog card shows it: loaded, its app opened if it has one, run `frames` frames. `drawn` says whether it drew
+ * on the display at all (the display memory), `picture` is what the panel shows of it, with DISPLAY INVERT as the preview has it.
+ */
+export function thumbnail(blob, frames, storage = null) {
+  const device = new SimDevice({ storage });
+  const loaded = device.load(blob);
+  if (loaded.ok && device.apps.length) device.openApp(device.apps[0].id);
+  device.run(frames);
+  return { device, drawn: device.shown.some(b => b), picture: device.lcd };
+}
+
+/**
  * The probe the export gate reads: a fresh device, the block loaded, the
  * recorded inputs played at their frames, run long enough to cover them.
  * @returns {{ ok: boolean, loadError: object | null, faults: object[], lines: { all: number[], covered: number[], missing: number[] }, frames: number, warnings: number }}

@@ -24,7 +24,7 @@ import { KEY_NAMES, LED_NAMES } from "../../data/script/names.mjs";
 import { KNOB_NAMES } from "../../data/script/properties.mjs";
 import { hintAt } from "../../src/script/names.mjs";
 import { Workspace, sourceKey, validName } from "../../src/script/workspace.mjs";
-import { SimDevice, probe as runProbe, FRAME_MS } from "../../src/script/sim.mjs";
+import { SimDevice, probe as runProbe, thumbnail, FRAME_MS } from "../../src/script/sim.mjs";
 import { exportGate } from "../../src/script/gate.mjs";
 import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
 import { storePlugin } from "../../src/usb-update.mjs";
@@ -863,18 +863,14 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const THUMB_FRAMES = 40;
   const noStore = { load: () => null, save: () => {} };
 
-  /** The display of a plugin after a few frames, drawn with the LCD drawing of the emulator page; a catalog plugin that
+  /** The display of a plugin after a few frames as the panel shows it (DISPLAY INVERT, SimDevice.lcd), drawn with the LCD drawing of the emulator page; a catalog plugin that
    * leaves the display alone shows its picture (site/img/plugins, tools/plugin-art.mjs), an own one its pads. */
   function renderThumb(canvas, preset) {
     const result = compile(preset.source, { name: validName(preset.id) ? preset.id : "plugin" });
     drawDisplay(canvas, new Uint8Array(1024));
     if (!result.ok) return;
-    const device = new SimDevice({ storage: noStore });
-    const loaded = device.load(result.blob);
-    if (loaded.ok && device.apps.length) device.openApp(device.apps[0].id);
-    device.run(THUMB_FRAMES);
-    const bytes = device.shown;
-    if (bytes.some(b => b)) { drawDisplay(canvas, bytes); return; }
+    const { device, drawn, picture } = thumbnail(result.blob, THUMB_FRAMES, noStore);
+    if (drawn) { drawDisplay(canvas, picture); return; }
     const ctx = canvas.getContext("2d");
     ctx.fillStyle = getComputedStyle(canvas).getPropertyValue("--cee-lcd-on");
     for (const pad of PADS) {
