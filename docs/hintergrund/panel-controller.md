@@ -31,7 +31,8 @@ Das Bedienfeld ist ein eigener Rechner an UART0 (5-Byte-Nachrichten, siehe
 | Touchpad geht als 0..1023 ans ARM, im Normalbetrieb auf Achterschritte gerundet | hergeleitet | Panel-Code `0x3780`, `0x4044` |
 | ARM teilt Touchpad durch 8 (`asr #3`) | hergeleitet | `0xC00458D8`, `0xC00458E4` |
 | Kalibrierung aus Flash `0x7FF000` geht als `85`/`86` ans Panel und wird dort angewandt | gemessen (Nachrichten), hergeleitet (Rechnung) | Emulator-Mitschnitt: `85 00 69 03 72`, `86 00 9c 03 2f`; Panel-Code `0x3EEC` |
-| Jede LED, auch die Pads, bekommt im Panel einen PWM-Wert aus dem Byte 0..255 | hergeleitet | Panel-Code `0x4EBC`, Matrix `0x8460` |
+| Pads, Regler-LEDs, REC, PLAY, die blauen LEDs von 1 bis 4 und `0x4C` bis `0x57` bekommen im Panel einen PWM-Wert aus dem Byte 0..255 | hergeleitet | Panel-Code `0x4EBC`, Matrix `0x8460` Spalten 0 bis 6, `panel_mcu.py --leds` |
+| Die übrigen 32 Tasten-LEDs (Spalten 7 bis 10) kennen nur an oder aus: jeder Wert ab 1 leuchtet voll | hergeleitet | Scan `0x4F28`, GPIO-Bit-Band `0x5310` bis `0x53A2`, `panel_mcu.py --leds` |
 | Pad-LEDs dimmen am Gerät | offen | nicht am Gerät geprüft |
 | Abtastrate je Regler, Pad, Touchpad | offen | nur der Grundtakt ist bekannt |
 
@@ -122,12 +123,21 @@ gehaltene Tasten, `A0`/`A1` Kennung. Vom ARM (`0x2CB8`): `00` LED, `01 nn` (`0x2
 
 ### LEDs
 
-- 88 LED-Nummern `0x00` bis `0x57` in einer Matrix 11 x 8 (Tabelle `0x8460`): 8 PWM-Kanäle der Base
-  Timer, 11 Zeilen über GPIO.
+- 88 LED-Nummern `0x00` bis `0x57` in einer Matrix aus 8 Zeilen zu 11 Spalten (Tabelle `0x8460`). Der
+  Scan `0x4F28` schaltet je Aufruf eine Zeile weiter, der Zähler läuft nach 7 wieder auf 0 (`0x5584`).
+- Spalten 0 bis 6 laufen über die Kanäle 1 bis 7 der Base Timer, Spalten 7 bis 10 sind reine GPIO-Pins
+  (Bit-Band `0x4266xxxx`, `0x5310` bis `0x53A2`). Jede Spalte hat dazu ihren GPIO-Pin, der sagt, ob die
+  LED der aktuellen Zeile an ist (Byte 1 und Wert ungleich 0).
 - PWM: Periode 5000 Zählschritte, Takt geteilt durch 4, bei 40 MHz rund 2 kHz (hergeleitet).
-- `00 nn wert`: das Panel rechnet für jede LED `wert * Periode / 255` in einen Tastgrad um (`0x4EBC`),
-  linear, ohne Gamma. Das gilt auch für die Pads: auf Panel-Seite gibt es kein Nur-an/aus. Ob die
-  Pads am Gerät sichtbar dimmen, ist offen.
+- `00 nn wert` legt `[nn, 1, wert]` ab (`0x2E3A`). Für die PWM-Spalten rechnet das Panel
+  `wert * Periode / 255` in einen Tastgrad um (`0x4EBC`), linear, ohne Gamma, auch für die Pads.
+- Mit PWM: alle Pad-LEDs, die Regler-LEDs `0x00` bis `0x04`, REC (`0x12`), PLAY (`0x09`, `0x15`), die
+  blauen LEDs von 1 bis 4 (`0x16` bis `0x19`) und `0x4C` bis `0x57` (keinem Bedienelement zugeordnet,
+  vermutlich die unteren RGB-LEDs, offen).
+- Nur an oder aus: alle übrigen Tasten-LEDs, auch STOP, TAP und die roten LEDs von 1 bis 4 (Liste
+  `LED_ON_OFF` in `data/panel.mjs`). Power Save dimmt sie darum nicht, solange ihr Wert nicht 0 wird.
+- Ob die Pads am Gerät sichtbar dimmen: Pulsieren pulsiert flüssig (18.10.), die Messung vom 16.10.
+  sah alle Werte gleich hell, das ist offen.
 
 ## Auflösung: wo Bits verloren gehen
 

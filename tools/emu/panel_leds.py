@@ -4,11 +4,12 @@
 The firmware sends `00 LED value` over UART0 (machine.py, Machine.panel). What the panel controller does
 with it (docs/hintergrund/panel-controller.md, read from its code, not run):
 
-- derived: 88 LEDs (0x00 to 0x57) in a matrix of 11 rows by 8 PWM channels, PWM period 5000 counts at
-  40 MHz / 4, about 2 kHz; the value becomes a duty cycle `value * period / 255`, linear, no gamma, the
-  pads as well. The scheduler ticks every 100 us.
+- derived: 88 LEDs (0x00 to 0x57) in a matrix of 8 rows by 11 columns. Columns 0 to 6 run on base timer
+  channels 1 to 7, PWM period 5000 counts at 40 MHz / 4, about 2 kHz; the value becomes a duty cycle
+  `value * period / 255`, linear, no gamma, the pads as well. Columns 7 to 10 are GPIO pins: those LEDs
+  (data/panel.mjs, LED_ON_OFF) are fully on at any value from 1. The scheduler ticks every 100 us.
 - Modellannahme: the controller takes a message within one tick of its last byte, and the rows are lit
-  one per PWM period, so a row comes round every 11 periods (5.5 ms); a new value shows from the next
+  one per PWM period, so a row comes round every 8 periods (4 ms); a new value shows from the next
   round. A value that is replaced before then never lights.
 
 Power save dims in the firmware (BLECH's pad_colors patch sends a quarter), not in the controller: the
@@ -21,7 +22,7 @@ import collections
 LED_COUNT = 0x58
 TICK_NS = 100_000            # derived: dual timer 1 reloads 4000 at 40 MHz
 PWM_NS = 500_000             # derived: 5000 counts at 10 MHz
-ROWS = 11                    # derived: matrix table 0x8460 of the panel code
+ROWS = 8                     # derived: matrix table 0x8460 of the panel code, row counter wraps after 7
 ROUND_NS = ROWS * PWM_NS     # Modellannahme: one row per PWM period
 LOG_MAX = 1 << 16            # changes kept; the service reads them every 20 ms, a case right after its run
 
