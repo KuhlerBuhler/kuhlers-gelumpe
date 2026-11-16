@@ -134,6 +134,9 @@ blech_hybrid_engine (SIM_DESC sd, SIM_CPU *cpu)
       return;
     }
   blech_hybrid_report ();
+  /* A request ending at a guard stop leaves the flag set; QEMU stops at the
+     guard target by itself, so a new request starts in QEMU.  */
+  blech_hybrid_gnu_next = false;
   while (1)
     {
       if (!blech_clock.left)
