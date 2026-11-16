@@ -4,6 +4,7 @@
 void blech_hybrid_attach (SIM_DESC, const struct blech_qemu_ops *);
 bool blech_hybrid_cec (int, uint32_t, uint32_t *);
 bool blech_cec_fast (SIM_CPU *, int, bu32, bu32 *);
+extern SIM_CPU *blech_dsp32_cpu;
 
 static const struct blech_qemu_ops *blech_qemu;
 static bool blech_hybrid_gnu_next;
@@ -39,6 +40,7 @@ blech_hybrid_attach (SIM_DESC sd, const struct blech_qemu_ops *ops)
 
   blech_qemu = ops;
   blech_hybrid_cpu = STATE_CPU (sd, 0);
+  blech_dsp32_cpu = blech_hybrid_cpu;
   for (map = first; map; map = map->next)
     {
       /* The GNU core uses the first mapping that holds an address.  */

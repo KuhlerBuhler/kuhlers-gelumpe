@@ -227,10 +227,15 @@ static int worker_main(void)
     entry = library ? (blech_hybrid_main_fn)dlsym(library, "blech_hybrid_main")
                     : NULL;
     bfin_blech_cec = library ? dlsym(library, "blech_hybrid_cec") : NULL;
-    if (!entry || !bfin_blech_cec) {
+    bfin_blech_dsp32 = library ? dlsym(library, "blech_dsp32") : NULL;
+    if (!entry || !bfin_blech_cec || !bfin_blech_dsp32) {
         fprintf(stderr, "bf-electribe: cannot load BLECH_HYBRID_LIB: %s\n",
                 path ? dlerror() : "unset");
         return 1;
+    }
+    /* BLECH_QEMU_DSP32=1: QEMU's own dsp32 ALU and shift code, for comparison. */
+    if (getenv("BLECH_QEMU_DSP32")) {
+        bfin_blech_dsp32 = NULL;
     }
     return entry(&worker_ops, argc + 1, argv);
 }

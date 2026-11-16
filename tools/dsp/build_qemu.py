@@ -110,6 +110,114 @@ blech_cec_fast (SIM_CPU *cpu, int op, bu32 value, bu32 *result)
 '''
 
 
+# GNU's dsp32 ALU and shift decoders, called by QEMU for each such insn (HELPER(dsp32_gnu)). A probe
+# at translation time runs the decoder once, also for MAC and MULT, which QEMU computes itself; an
+# encoding GNU rejects jumps back instead of raising the exception, and QEMU hands that insn to GNU.
+DSP32_JUMP = '#include <setjmp.h>\nstatic jmp_buf *blech_dsp32_jump;\n'
+DSP32_HOOK = '  if (blech_dsp32_jump)\n    longjmp (*blech_dsp32_jump, 1);\n'
+DSP32_GNU = r'''
+SIM_CPU *blech_dsp32_cpu;
+int blech_dsp32 (int, uint32_t, uint32_t *);
+
+/* R0-R7 P0 I0 I1 A0.X A0.W A1.X A1.W ASTAT; returns 0 for an illegal insn,
+   3 when it allows misaligned loads in its bundle (DISALGNEXCPT), else 1.
+   A probe leaves the state as it was.  */
+int
+blech_dsp32 (int probe, uint32_t insn, uint32_t *r)
+{
+  SIM_CPU *cpu = blech_dsp32_cpu;
+  struct bfin_cpu_state saved;
+  bu16 iw0 = insn >> 16, iw1 = insn;
+  jmp_buf jump;
+  int i, legal = 1;
+
+  if (probe)
+    saved = BFIN_CPU_STATE;
+  else
+    {
+      for (i = 0; i < 8; ++i)
+        DREG (i) = r[i];
+      PREG (0) = r[8];
+      IREG (0) = r[9];
+      IREG (1) = r[10];
+      for (i = 0; i < 2; ++i)
+        {
+          /* GNU keeps A.X either as 8 bits or sign-extended, as in
+             blech_hybrid_take.  */
+          if ((AXREG (i) & 0xff) != (r[11 + 2 * i] & 0xff))
+            AXREG (i) = r[11 + 2 * i] & 0xff;
+          AWREG (i) = r[12 + 2 * i];
+        }
+      SET_ASTAT (r[15]);
+    }
+  BFIN_CPU_STATE.n_stores = 0;
+  PARALLEL_GROUP = BFIN_PARALLEL_NONE;
+  DIS_ALGN_EXPT &= ~1;
+  blech_dsp32_jump = &jump;
+  if (setjmp (jump) == 0)
+    {
+      if ((iw0 & 0xF600) == 0xC000)
+        decode_dsp32mac_0 (cpu, iw0, iw1);
+      else if ((iw0 & 0xF600) == 0xC200)
+        decode_dsp32mult_0 (cpu, iw0, iw1);
+      else if ((iw0 & 0xF7C0) == 0xC400)
+        decode_dsp32alu_0 (cpu, iw0, iw1);
+      else if ((iw0 & 0xF7E0) == 0xC600 && (iw1 & 0x01C0) == 0)
+        decode_dsp32shift_0 (cpu, iw0, iw1);
+      else if ((iw0 & 0xF7E0) == 0xC680)
+        decode_dsp32shiftimm_0 (cpu, iw0, iw1);
+      else
+        legal = 0;
+    }
+  else
+    legal = 0;
+  blech_dsp32_jump = NULL;
+  if (legal && (DIS_ALGN_EXPT & 1))
+    legal = 3;
+  if (legal)
+    for (i = 0; i < BFIN_CPU_STATE.n_stores; ++i)
+      *BFIN_CPU_STATE.stores[i].addr = BFIN_CPU_STATE.stores[i].val;
+  BFIN_CPU_STATE.n_stores = 0;
+  if (probe)
+    {
+      BFIN_CPU_STATE = saved;
+      return legal;
+    }
+  for (i = 0; i < 8; ++i)
+    r[i] = DREG (i);
+  for (i = 0; i < 2; ++i)
+    {
+      r[11 + 2 * i] = AXREG (i) & 0xff;
+      r[12 + 2 * i] = AWREG (i);
+    }
+  r[15] = ASTAT;
+  return legal;
+}
+'''
+
+
+def patch_dsp32(source):
+    file = source / 'sim/bfin/bfin-sim.c'
+    text = file.read_text()
+    if DSP32_JUMP in text:
+        # The tree is reused between builds: replace the appended function.
+        file.write_text(text[:text.index(DSP32_GNU.split('\n', 2)[1])].rstrip('\n') + '\n' + DSP32_GNU)
+        return
+    for name in ('illegal_instruction (SIM_CPU *cpu)\n{\n', 'illegal_instruction_combination (SIM_CPU *cpu)\n{\n',
+                 'unhandled_instruction (SIM_CPU *cpu, const char *insn)\n{\n'):
+        head = 'static ATTRIBUTE_NORETURN void\n' + name
+        if text.count(head) != 1:
+            raise ValueError('unexpected GNU ' + name.split()[0])
+        body = text.index(head) + len(head)
+        end = text.index('\n\n', body) + 1  # after the local declarations, if any
+        if 'unhandled' not in name:
+            end = body
+        text = text[:end] + DSP32_HOOK + text[end:]
+    first = 'static ATTRIBUTE_NORETURN void\nillegal_instruction (SIM_CPU *cpu)\n'
+    text = text.replace(first, DSP32_JUMP + '\n' + first)
+    file.write_text(text + DSP32_GNU)
+
+
 def patch_hybrid(source):
     """The GNU engine hands the instructions between two events to QEMU (blackfin_hybrid.c.inc)."""
     file = source / 'sim/bfin/interp.c'
@@ -128,6 +236,7 @@ def patch_hybrid(source):
     text = cec.read_text()
     if CEC_FAST not in text:
         cec.write_text(text + CEC_FAST)
+    patch_dsp32(source)
     shutil.copyfile(DSP / 'blackfin_hybrid.h', source / 'sim/bfin/blackfin_hybrid.h')
 
 

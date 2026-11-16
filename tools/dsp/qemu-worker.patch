@@ -1,8 +1,51 @@
 diff --git a/target/bfin/bfin-sim.c b/target/bfin/bfin-sim.c
-index c3d6162f55..e9d316dd6a 100644
+index c3d6162f55..3a158176c0 100644
 --- a/target/bfin/bfin-sim.c
 +++ b/target/bfin/bfin-sim.c
-@@ -284,10 +284,14 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
+@@ -29,6 +29,42 @@ unhandled_instruction(DisasContext *dc, const char *insn)
+     illegal_instruction(dc);
+ }
+ 
++/* Worker build: whether the GNU simulator accepts a dsp32 encoding; one it
++   rejects goes to GNU whole, which raises the exception. */
++static bool
++blech_dsp32_legal(DisasContext *dc, uint16_t iw0, uint16_t iw1)
++{
++    if (bfin_blech_dsp32 &&
++        !bfin_blech_dsp32(1, ((uint32_t)iw0 << 16) | iw1, NULL)) {
++        illegal_instruction(dc);
++        return false;
++    }
++    return true;
++}
++
++/* Worker build: dsp32 ALU and shift insns run in the GNU simulator's own
++   decoders (HELPER(dsp32_gnu)); an encoding GNU rejects goes to GNU whole. */
++static bool
++blech_dsp32_gnu(DisasContext *dc, uint16_t iw0, uint16_t iw1)
++{
++    uint32_t insn = ((uint32_t)iw0 << 16) | iw1;
++
++    if (!bfin_blech_dsp32) {
++        return false;
++    }
++    switch (bfin_blech_dsp32(1, insn, NULL)) {
++    case 0:
++        illegal_instruction(dc);
++        return true;
++    case 3:
++        dc->disalgnexcpt = true;
++        break;
++    }
++    gen_astat_update(dc, true);
++    gen_helper_dsp32_gnu(tcg_env, tcg_constant_i32(insn));
++    return true;
++}
++
+ typedef enum {
+     c_0, c_1, c_4, c_2, c_uimm2, c_uimm3, c_imm3, c_pcrel4,
+     c_imm4, c_uimm4s4, c_uimm4s4d, c_uimm4, c_uimm4s2, c_negimm5s4, c_imm5,
+@@ -284,10 +320,14 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
          cec_exception(dc, EXCP_DEBUG);
      } else if (prgfunc == 3 && poprnd < 8) {
          /* CLI Dreg{poprnd}; */
@@ -19,7 +62,7 @@ index c3d6162f55..e9d316dd6a 100644
      } else if (prgfunc == 5 && poprnd < 8) {
          /* JUMP (Preg{poprnd}); */
          dc->base.is_jmp = DISAS_JUMP;
-@@ -324,10 +328,10 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
+@@ -324,10 +364,10 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
           * which prevents it from working even with on-chip memory.  As such,
           * we'll just do a "stupid" implementation here.  */
          TCGv tmp = tcg_temp_new();
@@ -32,7 +75,7 @@ index c3d6162f55..e9d316dd6a 100644
      } else {
          illegal_instruction(dc);
      }
-@@ -396,12 +400,12 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -396,12 +436,12 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
          if (grp == 4 && reg == 6) {
              /* Pop ASTAT */
              tmp = tcg_temp_new();
@@ -47,7 +90,7 @@ index c3d6162f55..e9d316dd6a 100644
              tmp64 = tcg_temp_new_i64();
              tcg_gen_extu_i32_i64(tmp64, tmp);
  
-@@ -410,7 +414,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -410,7 +450,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
          } else if (grp == 4 && (reg == 1 || reg == 3)) {
              /* Pop A#.W */
              tmp = tcg_temp_new();
@@ -56,7 +99,7 @@ index c3d6162f55..e9d316dd6a 100644
              tmp64 = tcg_temp_new_i64();
              tcg_gen_extu_i32_i64(tmp64, tmp);
  
-@@ -419,7 +423,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -419,7 +459,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
          } else {
              check_lb = true;
              treg = get_allreg(dc, grp, reg);
@@ -65,7 +108,7 @@ index c3d6162f55..e9d316dd6a 100644
  
              if (grp == 6 && (reg == 1 || reg == 4)) {
                  /* LT loads auto clear the LSB */
-@@ -443,7 +447,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -443,7 +483,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
              /* Push ASTAT */
              tmp = tcg_temp_new();
              gen_astat_load(dc, tmp);
@@ -74,7 +117,7 @@ index c3d6162f55..e9d316dd6a 100644
          } else if (grp == 4 && (reg == 0 || reg == 2)) {
              /* Push A#.X */
              tmp64 = tcg_temp_new_i64();
-@@ -455,15 +459,15 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -455,15 +495,15 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
               * we're lazy during intermediate operations (like maintaining the
               * sign bit).  */
              tcg_gen_andi_tl(tmp, tmp, 0xff);
@@ -93,7 +136,7 @@ index c3d6162f55..e9d316dd6a 100644
          }
          tcg_gen_mov_tl(cpu_spreg, tmp_sp);
      }
-@@ -503,26 +507,26 @@ decode_PushPopMultiple_0(DisasContext *dc, uint16_t iw0)
+@@ -503,26 +543,26 @@ decode_PushPopMultiple_0(DisasContext *dc, uint16_t iw0)
          if (d) {
              for (i = dr; i < 8; i++) {
                  tcg_gen_subi_tl(tmp_sp, tmp_sp, 4);
@@ -124,7 +167,152 @@ index c3d6162f55..e9d316dd6a 100644
                  tcg_gen_addi_tl(tmp_sp, tmp_sp, 4);
              }
          }
-@@ -1301,7 +1305,7 @@ disalgnexcpt_ld32u(DisasContext *dc, TCGv ret, TCGv addr)
+@@ -574,6 +614,10 @@ decode_CCflag_0(DisasContext *dc, uint16_t iw0)
+         TCGv_i64 tmp64;
+         TCGCond cond;
+ 
++        if (x != 0 || y != 0) {
++            illegal_instruction(dc);
++            return;
++        }
+         if (opc == 5 && I == 0 && G == 0) {
+             /* CC = A0 == A1; */
+             cond = TCG_COND_EQ;
+@@ -591,6 +635,22 @@ decode_CCflag_0(DisasContext *dc, uint16_t iw0)
+         tmp64 = tcg_temp_new_i64();
+         tcg_gen_setcond_i64(cond, tmp64, cpu_areg[0], cpu_areg[1]);
+         tcg_gen_extrl_i64_i32(cpu_cc, tmp64);
++
++        /* AZ, AN and AC0 from A0 - A1, as the GNU sim. */
++        {
++            TCGv flag = tcg_temp_new();
++            gen_astat_update(dc, true);
++            tcg_gen_setcond_i64(TCG_COND_EQ, tmp64, cpu_areg[0], cpu_areg[1]);
++            tcg_gen_extrl_i64_i32(flag, tmp64);
++            _gen_astat_store(ASTAT_AZ, flag);
++            tcg_gen_setcond_i64(TCG_COND_LT, tmp64, cpu_areg[0], cpu_areg[1]);
++            tcg_gen_extrl_i64_i32(flag, tmp64);
++            _gen_astat_store(ASTAT_AN, flag);
++            tcg_gen_setcond_i64(TCG_COND_LEU, tmp64, cpu_areg[1], cpu_areg[0]);
++            tcg_gen_extrl_i64_i32(flag, tmp64);
++            _gen_astat_store(ASTAT_AC0, flag);
++            _gen_astat_store(ASTAT_AC0_COPY, flag);
++        }
+     } else {
+         int issigned = opc < 3;
+         uint32_t dst_imm = issigned ? imm3(y) : uimm3(y);
+@@ -868,63 +928,32 @@ decode_ALU2op_0(DisasContext *dc, uint16_t iw0)
+     int src = ((iw0 >> ALU2op_src_bits) & ALU2op_src_mask);
+     int opc = ((iw0 >> ALU2op_opc_bits) & ALU2op_opc_mask);
+     int dst = ((iw0 >> ALU2op_dst_bits) & ALU2op_dst_mask);
+-    TCGLabel *l;
+-    TCGv tmp;
+ 
+     TRACE_EXTRACT("opc:%i src:%i dst:%i", opc, src, dst);
+ 
+     if (opc == 0) {
+         /* Dreg{dst} >>>= Dreg{src}; */
+-        tmp = tcg_temp_new();
+-
+-        /* Clip the shift magnitude to 31 bits */
+-        tcg_gen_movi_tl(tmp, 31);
+-        tcg_gen_movcond_tl(TCG_COND_LTU, tmp, cpu_dreg[src], tmp, cpu_dreg[src], tmp);
+-
+-        tcg_gen_sar_tl(cpu_dreg[dst], cpu_dreg[dst], tmp);
+-
+-
+-        astat_queue_state1(dc, ASTAT_OP_LSHIFT_RT32, cpu_dreg[dst]);
++        gen_astat_update(dc, true);
++        gen_helper_alu2op_shift_gnu(cpu_dreg[dst], tcg_env, tcg_constant_i32(0),
++                                    cpu_dreg[dst], cpu_dreg[src]);
+     } else if (opc == 1) {
+         /* Dreg{dst} >>= Dreg{src}; */
+-        l = gen_new_label();
+-        tmp = tcg_temp_new();
+-
+-        /* Clip the shift magnitude to 31 bits */
+-        tcg_gen_mov_tl(tmp, cpu_dreg[src]);
+-        tcg_gen_brcondi_tl(TCG_COND_LEU, tmp, 31, l);
+-        tcg_gen_movi_tl(tmp, 0);
+-        tcg_gen_mov_tl(cpu_dreg[dst], tmp);
+-        gen_set_label(l);
+-
+-        tcg_gen_shr_tl(cpu_dreg[dst], cpu_dreg[dst], tmp);
+-
+-
+-        astat_queue_state1(dc, ASTAT_OP_LSHIFT_RT32, cpu_dreg[dst]);
++        gen_astat_update(dc, true);
++        gen_helper_alu2op_shift_gnu(cpu_dreg[dst], tcg_env, tcg_constant_i32(1),
++                                    cpu_dreg[dst], cpu_dreg[src]);
+     } else if (opc == 2) {
+         /* Dreg{dst} <<= Dreg{src}; */
+-        l = gen_new_label();
+-        tmp = tcg_temp_new();
+-
+-        /* Clip the shift magnitude to 31 bits */
+-        tcg_gen_mov_tl(tmp, cpu_dreg[src]);
+-        tcg_gen_brcondi_tl(TCG_COND_LEU, tmp, 31, l);
+-        tcg_gen_movi_tl(tmp, 0);
+-        tcg_gen_mov_tl(cpu_dreg[dst], tmp);
+-        gen_set_label(l);
+-
+-        tcg_gen_shl_tl(cpu_dreg[dst], cpu_dreg[dst], tmp);
+-
+-
+-        astat_queue_state1(dc, ASTAT_OP_LSHIFT32, cpu_dreg[dst]);
++        gen_astat_update(dc, true);
++        gen_helper_alu2op_shift_gnu(cpu_dreg[dst], tcg_env, tcg_constant_i32(2),
++                                    cpu_dreg[dst], cpu_dreg[src]);
+     } else if (opc == 3) {
+         /* Dreg{dst} *= Dreg{src}; */
+         tcg_gen_mul_tl(cpu_dreg[dst], cpu_dreg[dst], cpu_dreg[src]);
+     } else if (opc == 4 || opc == 5) {
+         /* Dreg{dst} = (Dreg{dst} + Dreg{src}) << imm{opc}; */
+-        tcg_gen_add_tl(cpu_dreg[dst], cpu_dreg[dst], cpu_dreg[src]);
+-        tcg_gen_shli_tl(cpu_dreg[dst], cpu_dreg[dst], (opc - 3));
+-        astat_queue_state1(dc, ASTAT_OP_LSHIFT32, cpu_dreg[dst]);
++        gen_astat_update(dc, true);
++        gen_helper_add_shift_gnu(cpu_dreg[dst], tcg_env, cpu_dreg[dst],
++                                 cpu_dreg[src], tcg_constant_tl(opc - 3));
+     } else if (opc == 8) {
+         /* DIVQ (Dreg, Dreg); */
+         gen_divq(cpu_dreg[dst], cpu_dreg[src]);
+@@ -956,6 +985,8 @@ decode_ALU2op_0(DisasContext *dc, uint16_t iw0)
+         /* Dreg = ~Dreg; */
+         tcg_gen_not_tl(cpu_dreg[dst], cpu_dreg[src]);
+         astat_queue_state1(dc, ASTAT_OP_LOGICAL, cpu_dreg[dst]);
++    } else {
++        illegal_instruction(dc);
+     }
+ }
+ 
+@@ -978,6 +1009,8 @@ decode_PTR2op_0(DisasContext *dc, uint16_t iw0)
+     } else if (opc == 1) {
+         /* Preg{dst} = Preg{src} << 2; */
+         tcg_gen_shli_tl(cpu_preg[dst], cpu_preg[src], 2);
++    } else if (opc == 2) {
++        illegal_instruction(dc);
+     } else if (opc == 3) {
+         /* Preg{dst} = Preg{src} >> 2; */
+         tcg_gen_shri_tl(cpu_preg[dst], cpu_preg[src], 2);
+@@ -1120,11 +1153,12 @@ decode_COMPI2opD_0(DisasContext *dc, uint16_t iw0)
+         tcg_gen_movi_tl(cpu_dreg[dst], imm);
+     } else {
+         /* Dreg{dst} += imm{src}; */
++        /* Not in astat_arg yet: the pending ASTAT op still reads it. */
++        TCGv old = tcg_temp_new();
+         tmp = tcg_constant_tl(imm);
+-        tcg_gen_mov_tl(cpu_astat_arg[1], cpu_dreg[dst]);
+-        tcg_gen_add_tl(cpu_dreg[dst], cpu_astat_arg[1], tmp);
+-        astat_queue_state3(dc, ASTAT_OP_ADD32, cpu_dreg[dst], cpu_astat_arg[1],
+-                           tmp);
++        tcg_gen_mov_tl(old, cpu_dreg[dst]);
++        tcg_gen_add_tl(cpu_dreg[dst], old, tmp);
++        astat_queue_state3(dc, ASTAT_OP_ADD32, cpu_dreg[dst], old, tmp);
+     }
+ }
+ 
+@@ -1301,7 +1335,7 @@ disalgnexcpt_ld32u(DisasContext *dc, TCGv ret, TCGv addr)
      if (dc->disalgnexcpt) {
          TCGv tmp = tcg_temp_new();
          tcg_gen_andi_tl(tmp, addr, ~0x3);
@@ -133,7 +321,7 @@ index c3d6162f55..e9d316dd6a 100644
      } else {
          gen_aligned_qemu_ld32u(dc, ret, addr);
      }
-@@ -1457,10 +1461,10 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
+@@ -1457,10 +1491,10 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
              gen_aligned_qemu_ld16s(dc, cpu_dreg[reg], cpu_preg[ptr]);
          } else if (sz == 2 && Z == 0) {
              /* Dreg{reg} = B[Preg{ptr}{aop}] (Z); */
@@ -146,7 +334,7 @@ index c3d6162f55..e9d316dd6a 100644
          } else {
              illegal_instruction(dc);
              return;
-@@ -1477,7 +1481,7 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
+@@ -1477,7 +1511,7 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
              gen_aligned_qemu_st16(dc, cpu_dreg[reg], cpu_preg[ptr]);
          } else if (sz == 2 && Z == 0) {
              /* B[Preg{ptr}{aop}] = Dreg{reg}; */
@@ -155,7 +343,7 @@ index c3d6162f55..e9d316dd6a 100644
          } else {
              illegal_instruction(dc);
              return;
-@@ -1517,10 +1521,10 @@ decode_LDSTiiFP_0(DisasContext *dc, uint16_t iw0)
+@@ -1517,10 +1551,10 @@ decode_LDSTiiFP_0(DisasContext *dc, uint16_t iw0)
      gen_align_check(dc, ea, 4, false);
      if (W == 0) {
          /* DPreg{reg} = [FP + imm{offset}]; */
@@ -168,7 +356,7 @@ index c3d6162f55..e9d316dd6a 100644
      }
  }
  
-@@ -1741,10 +1745,10 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -1741,10 +1775,10 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
              gen_aligned_qemu_ld16s(dc, cpu_dreg[reg], ea);
          } else if (sz == 2 && Z == 0) {
              /* Dreg{reg} = B[Preg{ptr} + imm{offset}] (Z); */
@@ -181,7 +369,7 @@ index c3d6162f55..e9d316dd6a 100644
          }
      } else {
          if (sz == 0 && Z == 0) {
-@@ -1758,7 +1762,7 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -1758,7 +1792,7 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
              gen_aligned_qemu_st16(dc, cpu_dreg[reg], ea);
          } else if (sz == 2 && Z == 0) {
              /* B[Preg{ptr} + imm{offset}] = Dreg{reg}; */
@@ -190,7 +378,7 @@ index c3d6162f55..e9d316dd6a 100644
          } else {
              illegal_instruction(dc);
          }
-@@ -1789,18 +1793,18 @@ decode_linkage_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -1789,18 +1823,18 @@ decode_linkage_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
          /* LINK imm{framesize}; */
          int size = uimm16s4(framesize);
          tcg_gen_subi_tl(tmp_sp, tmp_sp, 4);
@@ -213,6 +401,218 @@ index c3d6162f55..e9d316dd6a 100644
          tcg_gen_addi_tl(cpu_spreg, tmp_sp, 4);
      } else {
          illegal_instruction(dc);
+@@ -1837,6 +1871,9 @@ decode_dsp32mac_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+                   M, mmod, MM, P, w1, op1, h01, h11, w0, op0, h00, h10,
+                   dst, src0, src1);
+ 
++    if (!blech_dsp32_legal(dc, iw0, iw1)) {
++        return;
++    }
+     /* Full semantics (GNU sim port) live in the helper.  */
+     gen_astat_update(dc, true);
+     gen_helper_dsp32mac(tcg_env, tcg_constant_i32(((uint32_t)iw0 << 16) | iw1));
+@@ -1933,6 +1970,9 @@ decode_dsp32alu_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+        | 1 | 1 | 0 | 0 |.M.| 1 | 0 | - | - | - |.HL|.aopcde............|
+        |.aop...|.s.|.x.|.dst0......|.dst1......|.src0......|.src1......|
+        +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
++    if (blech_dsp32_gnu(dc, iw0, iw1)) {
++        return;
++    }
+     int s    = ((iw1 >> DSP32Alu_s_bits) & DSP32Alu_s_mask);
+     int x    = ((iw1 >> DSP32Alu_x_bits) & DSP32Alu_x_mask);
+     int aop  = ((iw1 >> DSP32Alu_aop_bits) & DSP32Alu_aop_mask);
+@@ -2301,25 +2341,29 @@ decode_dsp32alu_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+         astat_queue_state2(dc, ASTAT_OP_ABS, cpu_dreg[dst0], cpu_dreg[src0]);
+     } else if (aop == 3 && aopcde == 7) {
+         /* Dreg{dst0} = -Dreg{src0} (amod1(s,0)); */
+-        TCGLabel *l, *endl;
+-
+-        l = gen_new_label();
+-        endl = gen_new_label();
+-        tcg_gen_brcondi_tl(TCG_COND_NE, cpu_dreg[src0], 0x80000000, l);
++        /* GNU sim: AZ and AN from the result, V and VS only on saturation. */
++        TCGv sat = tcg_temp_new();
++        gen_astat_update(dc, true);
++        tmp = tcg_temp_new();
++        tcg_gen_neg_tl(tmp, cpu_dreg[src0]);
+         if (s) {
+-            tcg_gen_movi_tl(cpu_dreg[dst0], 0x7fffffff);
+-            tmp = tcg_constant_tl(1);
+-            _gen_astat_store(ASTAT_V, tmp);
+-            _gen_astat_store(ASTAT_V_COPY, tmp);
+-            _gen_astat_store(ASTAT_VS, tmp);
+-        } else {
+-            tcg_gen_movi_tl(cpu_dreg[dst0], 0x80000000);
+-        }
+-
+-        gen_set_label(l);
+-        tcg_gen_neg_tl(cpu_dreg[dst0], cpu_dreg[src0]);
+-        gen_set_label(endl);
+-        astat_queue_state2(dc, ASTAT_OP_NEGATE, cpu_dreg[dst0], cpu_dreg[src0]);
++            tcg_gen_setcondi_tl(TCG_COND_EQ, sat, cpu_dreg[src0], 0x80000000);
++            tcg_gen_movcond_tl(TCG_COND_NE, tmp, sat, tcg_constant_tl(0),
++                               tcg_constant_tl(0x7fffffff), tmp);
++            TCGv old = tcg_temp_new();
++            tcg_gen_ld_tl(old, tcg_env, offsetof(CPUArchState, astat[ASTAT_V]));
++            tcg_gen_or_tl(old, old, sat);
++            _gen_astat_store(ASTAT_V, old);
++            _gen_astat_store(ASTAT_V_COPY, old);
++            tcg_gen_ld_tl(old, tcg_env, offsetof(CPUArchState, astat[ASTAT_VS]));
++            tcg_gen_or_tl(old, old, sat);
++            _gen_astat_store(ASTAT_VS, old);
++        }
++        tcg_gen_mov_tl(cpu_dreg[dst0], tmp);
++        tcg_gen_setcondi_tl(TCG_COND_EQ, sat, tmp, 0);
++        _gen_astat_store(ASTAT_AZ, sat);
++        tcg_gen_shri_tl(sat, tmp, 31);
++        _gen_astat_store(ASTAT_AN, sat);
+     } else if (aop == 2 && aopcde == 6) {
+         /* Dreg{dst0} = ABS Dreg{src0} (V); */
+         TCGv tmp0;
+@@ -2482,6 +2526,9 @@ decode_dsp32shift_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+        | 1 | 1 | 0 | 0 |.M.| 1 | 1 | 0 | 0 | - | - |.sopcde............|
+        |.sop...|.HLs...|.dst0......| - | - | - |.src0......|.src1......|
+        +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
++    if (blech_dsp32_gnu(dc, iw0, iw1)) {
++        return;
++    }
+     int HLs  = ((iw1 >> DSP32Shift_HLs_bits) & DSP32Shift_HLs_mask);
+     int sop  = ((iw1 >> DSP32Shift_sop_bits) & DSP32Shift_sop_mask);
+     int src0 = ((iw1 >> DSP32Shift_src0_bits) & DSP32Shift_src0_mask);
+@@ -2596,40 +2643,12 @@ decode_dsp32shift_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+     } else if ((sop == 0 || sop == 1 || sop == 2) && sopcde == 2) {
+         /* Dreg{dst0} = [LA]SHIFT Dreg{src1} BY Dreg_lo{src0} (opt_S); */
+         /* sop == 1 : opt_S */
+-        TCGLabel *l, *endl;
+-
+-        /* XXX: Missing V/VS update */
+-        if (sop == 1) {
+-            /* GNU sim semantics: saturating shift as a helper */
+-            gen_helper_ashift32_sat(cpu_dreg[dst0], cpu_dreg[src1],
+-                                    cpu_dreg[src0]);
+-            astat_queue_state1(dc, ASTAT_OP_LSHIFT32, cpu_dreg[dst0]);
+-            return;
+-        }
+ 
+         tmp = tcg_temp_new();
+         gen_extNsi_tl(tmp, cpu_dreg[src0], 6);
+-
+-        /* Negative shift means logical or arith shift right */
+-        endl = gen_new_label();
+-        l = gen_new_label();
+-        tcg_gen_brcondi_tl(TCG_COND_GE, tmp, 0, l);
+-        tcg_gen_neg_tl(tmp, tmp);
+-        if (sop == 2) {
+-            tcg_gen_shr_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
+-            astat_queue_state1(dc, ASTAT_OP_LSHIFT_RT32, cpu_dreg[dst0]);
+-        } else {
+-            tcg_gen_sar_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
+-            astat_queue_state1(dc, ASTAT_OP_ASHIFT32, cpu_dreg[dst0]);
+-        }
+-        tcg_gen_br(endl);
+-
+-        /* Positive shift is a logical left shift */
+-        gen_set_label(l);
+-        tcg_gen_shl_tl(cpu_dreg[dst0], cpu_dreg[src1], tmp);
+-        astat_queue_state1(dc, ASTAT_OP_LSHIFT32, cpu_dreg[dst0]);
+-        gen_set_label(endl);
+-
++        gen_astat_update(dc, true);
++        gen_helper_shift32_gnu(cpu_dreg[dst0], tcg_env, cpu_dreg[src1], tmp,
++                               tcg_constant_tl((sop == 1) | (sop == 2) << 1 | 12));
+     } else if (sop == 3 && sopcde == 2) {
+         /* Dreg{dst0} = ROT Dreg{src1} BY Dreg_lo{src0}; */
+         tmp = tcg_temp_new();
+@@ -2907,6 +2926,9 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+        | 1 | 1 | 0 | 0 |.M.| 1 | 1 | 0 | 1 | - | - |.sopcde............|
+        |.sop...|.HLs...|.dst0......|.immag.................|.src1......|
+        +---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+  */
++    if (blech_dsp32_gnu(dc, iw0, iw1)) {
++        return;
++    }
+     int src1     = ((iw1 >> DSP32ShiftImm_src1_bits) & DSP32ShiftImm_src1_mask);
+     int sop      = ((iw1 >> DSP32ShiftImm_sop_bits) & DSP32ShiftImm_sop_mask);
+     int bit8     = ((iw1 >> 8) & 0x1);
+@@ -2983,24 +3005,21 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+         HLs = !!HLs;
+ 
+         /* Areg{HLs} = Aregs{HLs} >>> imm{newimmag}; */
+-        gen_extend_acc(cpu_areg[HLs]);
+-        tcg_gen_sari_i64(cpu_areg[HLs], cpu_areg[HLs], shift);
++        gen_astat_update(dc, true);
++        gen_helper_acc_shift_gnu(tcg_env, tcg_constant_i32(HLs),
++                                 tcg_constant_i32(shift), tcg_constant_i32(2));
+     } else if ((sop == 0 && sopcde == 3 && bit8 == 0) ||
+                (sop == 1 && sopcde == 3)) {
+         int shiftup = uimm5(immag);
+         int shiftdn = uimm5(newimmag);
+         HLs = !!HLs;
+ 
+-        if (sop == 0) {
+-            /* Areg{HLs} = Aregs{HLs} <<{sop} imm{immag}; */
+-            tcg_gen_shli_i64(cpu_areg[HLs], cpu_areg[HLs], shiftup);
+-        } else {
+-            /* Areg{HLs} = Aregs{HLs} >>{sop} imm{newimmag}; */
+-            gen_unextend_acc(cpu_areg[HLs]);
+-            tcg_gen_shri_i64(cpu_areg[HLs], cpu_areg[HLs], shiftdn);
+-        }
+-
+-        /* XXX: Missing ASTAT update */
++        /* Areg{HLs} = Aregs{HLs} <<{sop} imm{immag}; */
++        /* Areg{HLs} = Aregs{HLs} >>{sop} imm{newimmag}; */
++        gen_astat_update(dc, true);
++        gen_helper_acc_shift_gnu(tcg_env, tcg_constant_i32(HLs),
++                                 tcg_constant_i32(sop ? shiftdn : shiftup),
++                                 tcg_constant_i32(sop));
+     } else if (sop == 1 && sopcde == 1 && bit8 == 0) {
+         /* Dreg{dst0} = Dreg{src1} << imm{immag} (V, S); */
+         unhandled_instruction(dc, "Dreg = Dreg << imm (V,S)");
+@@ -3052,19 +3071,15 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+     } else if (sop == 1 && sopcde == 2) {
+         /* Dreg{dst0} = Dreg{src1} << imm{count} (S); */
+         int count = imm6(immag);
+-        gen_helper_ashift32_sat(cpu_dreg[dst0], cpu_dreg[src1],
+-                                tcg_constant_tl(count & 0x3f));
+-        astat_queue_state1(dc, ASTAT_OP_LSHIFT32, cpu_dreg[dst0]);
++        gen_astat_update(dc, true);
++        gen_helper_shift32_gnu(cpu_dreg[dst0], tcg_env, cpu_dreg[src1],
++                               tcg_constant_tl(count), tcg_constant_tl(9));
+     } else if (sop == 2 && sopcde == 2) {
+         /* Dreg{dst0} = Dreg{src1} >> imm{count}; */
+         int count = imm6(newimmag);
+-        if (count < 0) {
+-            tcg_gen_shli_tl(cpu_dreg[dst0], cpu_dreg[src1], -count);
+-            astat_queue_state1(dc, ASTAT_OP_LSHIFT32, cpu_dreg[dst0]);
+-        } else {
+-            tcg_gen_shri_tl(cpu_dreg[dst0], cpu_dreg[src1], count);
+-            astat_queue_state1(dc, ASTAT_OP_LSHIFT_RT32, cpu_dreg[dst0]);
+-        }
++        gen_astat_update(dc, true);
++        gen_helper_shift32_gnu(cpu_dreg[dst0], tcg_env, cpu_dreg[src1],
++                               tcg_constant_tl(-count), tcg_constant_tl(2));
+     } else if (sop == 3 && sopcde == 2) {
+         /* Dreg{dst0} = ROT Dreg{src1} BY imm{shift}; */
+         int shift = imm6(immag);
+@@ -3073,16 +3088,9 @@ decode_dsp32shiftimm_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+         /* Dreg{dst0} = Dreg{src1} >>> imm{count}; */
+         int count = imm6(newimmag);
+ 
+-        /* Negative shift magnitudes produce Logical Left shifts.
+-         * Positive shift magnitudes produce Arithmetic Right shifts.
+-         */
+-        if (count < 0) {
+-            tcg_gen_shli_tl(cpu_dreg[dst0], cpu_dreg[src1], -count);
+-            astat_queue_state1(dc, ASTAT_OP_LSHIFT32, cpu_dreg[dst0]);
+-        } else {
+-            tcg_gen_sari_tl(cpu_dreg[dst0], cpu_dreg[src1], count);
+-            astat_queue_state1(dc, ASTAT_OP_ASHIFT32, cpu_dreg[dst0]);
+-        }
++        gen_astat_update(dc, true);
++        gen_helper_shift32_gnu(cpu_dreg[dst0], tcg_env, cpu_dreg[src1],
++                               tcg_constant_tl(-count), tcg_constant_tl(0));
+     } else {
+         illegal_instruction(dc);
+     }
 diff --git a/target/bfin/cpu.c b/target/bfin/cpu.c
 index 81c07eb2de..ee2986b8f9 100644
 --- a/target/bfin/cpu.c
@@ -229,7 +629,7 @@ index 81c07eb2de..ee2986b8f9 100644
  
  static bool bfin_cpu_has_work(CPUState *cpu)
 diff --git a/target/bfin/cpu.h b/target/bfin/cpu.h
-index 66696b9c99..518bc37e69 100644
+index 66696b9c99..e82a980fc6 100644
 --- a/target/bfin/cpu.h
 +++ b/target/bfin/cpu.h
 @@ -19,6 +19,15 @@ struct DisasContext;
@@ -260,7 +660,7 @@ index 66696b9c99..518bc37e69 100644
  } CPUBfinState;
  #define spreg preg[6]
  #define fpreg preg[7]
-@@ -164,6 +178,14 @@ extern const struct VMStateDescription vmstate_bfin_cpu;
+@@ -164,6 +178,15 @@ extern const struct VMStateDescription vmstate_bfin_cpu;
  
  void bfin_cpu_do_interrupt(CPUState *cpu);
  
@@ -271,11 +671,12 @@ index 66696b9c99..518bc37e69 100644
 +                                   bool probe, uintptr_t retaddr);
 +/* CLI (op 0) and STI (op 1) on the GNU CEC; false hands the insn to GNU. */
 +extern bool (*bfin_blech_cec)(int op, uint32_t value, uint32_t *result);
++extern int (*bfin_blech_dsp32)(int probe, uint32_t insn, uint32_t *regs);
 +
  void bfin_cpu_dump_state(CPUState *cs, FILE *f, int flags);
  hwaddr bfin_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
  int bfin_cpu_gdb_read_register(CPUState *cpu, GByteArray *buf, int reg);
-@@ -247,7 +269,8 @@ static inline void cpu_get_tb_cpu_state(CPUArchState *env, vaddr *pc,
+@@ -247,7 +270,8 @@ static inline void cpu_get_tb_cpu_state(CPUArchState *env, vaddr *pc,
                                          uint64_t *cs_base, uint32_t *flags)
  {
      *pc = env->pc;
@@ -286,15 +687,16 @@ index 66696b9c99..518bc37e69 100644
  }
  
 diff --git a/target/bfin/helper.c b/target/bfin/helper.c
-index e2bf7df46b..6db5feceb2 100644
+index e2bf7df46b..fe01593ab4 100644
 --- a/target/bfin/helper.c
 +++ b/target/bfin/helper.c
-@@ -78,6 +78,12 @@ int cpu_handle_mmu_fault(CPUState *cs, target_ulong address,
+@@ -78,6 +78,13 @@ int cpu_handle_mmu_fault(CPUState *cs, target_ulong address,
     NULL, it means that the function was called in C code (i.e. not
     from generated code or from helper.c) */
  /* XXX: fix it to restore all registers */
 +uint32_t bfin_blech_stop = -1;
 +bool (*bfin_blech_cec)(int op, uint32_t value, uint32_t *result);
++int (*bfin_blech_dsp32)(int probe, uint32_t insn, uint32_t *regs);
 +bool (*bfin_blech_tlb_fill)(CPUState *cs, vaddr address, int size,
 +                            MMUAccessType access_type, int mmu_idx,
 +                            bool probe, uintptr_t retaddr);
@@ -302,7 +704,7 @@ index e2bf7df46b..6db5feceb2 100644
  bool bfin_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
                         MMUAccessType access_type, int mmu_idx, bool probe,
                         uintptr_t retaddr)
-@@ -89,6 +95,10 @@ bool bfin_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
+@@ -89,6 +96,10 @@ bool bfin_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
  #else
      int ret;
  
@@ -314,7 +716,7 @@ index e2bf7df46b..6db5feceb2 100644
      if (likely(!ret)) {
          return true;
 diff --git a/target/bfin/helper.h b/target/bfin/helper.h
-index e7f31b075a..a567c8fbec 100644
+index e7f31b075a..bf1ab82a8c 100644
 --- a/target/bfin/helper.h
 +++ b/target/bfin/helper.h
 @@ -10,6 +10,7 @@
@@ -325,11 +727,23 @@ index e7f31b075a..a567c8fbec 100644
  
  DEF_HELPER_FLAGS_4(dbga_l, TCG_CALL_NO_WG, void, env, i32, i32, i32)
  DEF_HELPER_FLAGS_4(dbga_h, TCG_CALL_NO_WG, void, env, i32, i32, i32)
+@@ -30,6 +31,10 @@ DEF_HELPER_FLAGS_1(signbits_40, TCG_CALL_NO_RWG_SE, i32, i64)
+ DEF_HELPER_FLAGS_4(dagadd, TCG_CALL_NO_RWG_SE, i32, i32, i32, i32, i32)
+ DEF_HELPER_FLAGS_4(dagsub, TCG_CALL_NO_RWG_SE, i32, i32, i32, i32, i32)
+ DEF_HELPER_FLAGS_2(add_brev, TCG_CALL_NO_RWG_SE, i32, i32, i32)
+-DEF_HELPER_FLAGS_2(ashift32_sat, TCG_CALL_NO_RWG_SE, i32, i32, i32)
++DEF_HELPER_4(shift32_gnu, i32, env, i32, i32, i32)
++DEF_HELPER_4(add_shift_gnu, i32, env, i32, i32, i32)
++DEF_HELPER_4(acc_shift_gnu, void, env, i32, i32, i32)
+ DEF_HELPER_2(dsp32mac, void, env, i32)
++DEF_HELPER_2(dsp32_gnu, void, env, i32)
++DEF_HELPER_4(alu2op_shift_gnu, i32, env, i32, i32, i32)
+ DEF_HELPER_2(dsp32mult, void, env, i32)
 diff --git a/target/bfin/op_helper.c b/target/bfin/op_helper.c
-index 445fa56979..264f0c1210 100644
+index 445fa56979..83640ace6d 100644
 --- a/target/bfin/op_helper.c
 +++ b/target/bfin/op_helper.c
-@@ -15,6 +15,18 @@
+@@ -15,6 +15,94 @@
  #include "exec/exec-all.h"
  #include "sysemu/runstate.h"
  
@@ -345,11 +759,238 @@ index 445fa56979..264f0c1210 100644
 +    return result;
 +}
 +
++/* dsp32 ALU and shift insns run by the GNU simulator's own decoders. */
++void HELPER(dsp32_gnu)(CPUArchState *env, uint32_t insn)
++{
++    uint32_t r[16];
++    int i;
++
++    for (i = 0; i < 8; i++) {
++        r[i] = env->dreg[i];
++    }
++    r[8] = env->preg[0];
++    r[9] = env->ireg[0];
++    r[10] = env->ireg[1];
++    for (i = 0; i < 2; i++) {
++        r[11 + 2 * i] = (env->areg[i] >> 32) & 0xff;
++        r[12 + 2 * i] = (uint32_t)env->areg[i];
++    }
++    r[15] = bfin_astat_read(env);
++    bfin_blech_dsp32(0, insn, r);
++    for (i = 0; i < 8; i++) {
++        env->dreg[i] = r[i];
++    }
++    for (i = 0; i < 2; i++) {
++        uint64_t acc = ((uint64_t)(r[11 + 2 * i] & 0xff) << 32) | r[12 + 2 * i];
++        env->areg[i] = (uint64_t)((int64_t)(acc << 24) >> 24);
++    }
++    bfin_astat_write(env, r[15]);
++}
++
++/* "Dreg >>>= Dreg" (opc 0), "Dreg >>= Dreg" (opc 1) and "Dreg <<= Dreg"
++   (opc 2) as ashiftrt, lshiftrt and lshift in the GNU sim, 32 bits. GNU
++   skips lshiftrt, flags included, for counts above 31. The count is the whole register as an int, so
++   counts outside 0..31 shift as the host compiles the same C shifts. */
++uint32_t HELPER(alu2op_shift_gnu)(CPUArchState *env, uint32_t opc,
++                                  uint32_t value, uint32_t count)
++{
++    int cnt = (int)count, size = 32;
++    int real_cnt = cnt > size ? size : cnt;
++    uint64_t val = value;
++
++    if (opc == 1 && count > 0x1F) {
++        return 0;
++    }
++    if (opc == 0) {
++        uint64_t sgn = ~(((val & 0xFFFFFFFFFFull) >> (size - 1)) - 1);
++        int sgncnt = size - real_cnt;
++        if (sgncnt > 16) {
++            sgn <<= 16, sgncnt -= 16;
++        }
++        sgn <<= sgncnt;
++        if (real_cnt > 16) {
++            val >>= 16, real_cnt -= 16;
++        }
++        val >>= real_cnt;
++        val |= sgn;
++    } else if (opc == 1) {
++        if (real_cnt > 16) {
++            val >>= 16, real_cnt -= 16;
++        }
++        val >>= real_cnt;
++        val &= 0xFFFFFFFF;
++    } else {
++        if (real_cnt > 16) {
++            val <<= 16, real_cnt -= 16;
++        }
++        val <<= real_cnt;
++        val &= 0xFFFFFFFF;
++    }
++    /* The flags see all 64 bits, as SET_ASTATREG (an, !!(val >> 31)). */
++    env->astat[ASTAT_AN] = (val >> 31) != 0;
++    env->astat[ASTAT_AZ] = val == 0;
++    value = val;
++    env->astat[ASTAT_V] = 0;
++    env->astat[ASTAT_V_COPY] = 0;
++    return value;
++}
++
  void HELPER(raise_exception)(CPUArchState *env, uint32_t excp, uint32_t pc)
  {
      BlackfinCPU *cpu = bfin_env_get_cpu(env);
+@@ -279,38 +367,117 @@ uint32_t HELPER(add_brev)(uint32_t addend1, uint32_t addend2)
+ }
+ 
+ /* Dreg = ASHIFT Dreg BY Dreg_lo (S), as lshift ()/ashiftrt () in the GNU sim */
+-uint32_t HELPER(ashift32_sat)(uint32_t v, uint32_t src0)
++/* GNU sim lshift () for 32 bits (sim/bfin/bfin-sim.c, gdb 15.2). */
++static uint32_t gnu_lshift32(uint32_t v, int cnt, bool saturate, int *v_out)
++{
++    uint64_t val = v, sgn = ~((val >> 31) - 1), mask = ~(uint64_t)0 << 31;
++    uint64_t new_val = val << cnt, masked;
++    int v_i;
++
++    sgn <<= 31;
++    masked = new_val & mask;
++    if (((val << cnt) >> 32) == 0
++        || (((val << cnt) >> 32) == ~((uint32_t)~0 << cnt)
++            && ((new_val >> 31) & 0x1))) {
++        v_i = 0;
++    } else {
++        v_i = 1;
++    }
++    new_val &= 0xFFFFFFFF;
++    masked &= 0xFFFFFFFF;
++    sgn &= 0xFFFFFFFF;
++    if (saturate && (v_i || sgn != masked || (!sgn && new_val == 0 && val != 0))) {
++        new_val = sgn == 0 ? 0x7fffffff : 0x80000000;
++        v_i = 1;
++    }
++    *v_out = v_i;
++    return new_val;
++}
++
++/*
++ * GNU sim accumulator shifts by an immediate (dsp32shiftimm, sopcde 3):
++ * mode 0 A <<= n, 1 A >>= n (logical), 2 A >>>= n (arithmetic).
++ */
++void HELPER(acc_shift_gnu)(CPUArchState *env, uint32_t which, uint32_t n,
++                           uint32_t mode)
+ {
+-    int32_t shft = (int8_t)(src0 << 2) >> 2;
+-    uint64_t val = v;
++    uint64_t acc = (uint64_t)env->areg[which] & 0xFFFFFFFFFFull;
+ 
+-    if (shft < 0) {
+-        int cnt = -shft > 32 ? 32 : -shft;
+-        return cnt >= 32 ? (uint32_t)((int32_t)v >> 31)
+-                         : (uint32_t)((int32_t)v >> cnt);
++    if (mode == 0) {
++        acc <<= n;
++    } else if (mode == 1) {
++        acc >>= n;
+     } else {
+-        int cnt = shft, v_i;
+-        uint64_t sgn = ~((val >> 31) - 1);
+-        uint64_t mask = ~(uint64_t)0 << 31;
+-        uint64_t new_val = val << cnt, masked;
+-
+-        sgn <<= 31;
+-        masked = new_val & mask;
+-        if (((val << cnt) >> 32) == 0
+-            || (((val << cnt) >> 32) == ~((uint32_t)~0 << cnt)
+-                && ((new_val >> 31) & 0x1))) {
+-            v_i = 0;
+-        } else {
++        acc = (uint64_t)(((int64_t)(acc << 24) >> 24) >> n);
++    }
++    acc &= 0xFFFFFFFFFFull;
++    env->areg[which] = (int64_t)(acc << 24) >> 24;
++    env->astat[ASTAT_AV0 + 2 * which] = 0;
++    env->astat[ASTAT_AN] = !!(acc & (1ull << 39));
++    env->astat[ASTAT_AZ] = acc == 0;
++}
++
++/* GNU sim add_and_shift (): Dreg = (Dreg + Dreg) << 1 or 2 with its flags. */
++uint32_t HELPER(add_shift_gnu)(CPUArchState *env, uint32_t a, uint32_t b,
++                               uint32_t shift)
++{
++    uint32_t v = a + b;
++    /* add32 in the GNU sim: an add overflow counts and sets VS. */
++    int vi = ((a ^ v) & (b ^ v)) >> 31;
++
++    while (shift-- > 0) {
++        int x = (v >> 30) & 0x3;
++        if (x == 1 || x == 2) {
++            vi = 1;
++        }
++        v <<= 1;
++    }
++    env->astat[ASTAT_AZ] = v == 0;
++    env->astat[ASTAT_AN] = v >> 31;
++    env->astat[ASTAT_V] = vi;
++    env->astat[ASTAT_V_COPY] = vi;
++    if (vi) {
++        env->astat[ASTAT_VS] = 1;
++    }
++    return v;
++}
++
++/*
++ * 32-bit shifts of dsp32shift / dsp32shiftimm with the GNU sim flags:
++ * left > 0 shifts left (lshift, V and VS on overflow), left < 0 shifts right
++ * (lshiftrt or ashiftrt, V cleared).  mode: 1 saturate, 2 logical right
++ * shift, 4 V/VS also on a sign change (register count), 8 count 0 is a
++ * left shift.
++ */
++uint32_t HELPER(shift32_gnu)(CPUArchState *env, uint32_t v, uint32_t left,
++                             uint32_t mode)
++{
++    int32_t cnt = left;
++    uint32_t val;
++    int v_i = 0;
++
++    if (cnt > 0 || (cnt == 0 && (mode & 8))) {
++        val = gnu_lshift32(v, cnt, mode & 1, &v_i);
++        if ((mode & 4) && ((v ^ val) >> 31)) {
+             v_i = 1;
+         }
+-        new_val &= 0xFFFFFFFF;
+-        masked &= 0xFFFFFFFF;
+-        sgn &= 0xFFFFFFFF;
+-        if (v_i || sgn != masked || (!sgn && new_val == 0 && val != 0)) {
+-            new_val = sgn == 0 ? 0x7fffffff : 0x80000000;
++    } else {
++        cnt = -cnt > 32 ? 32 : -cnt;
++        if (mode & 2) {
++            val = cnt >= 32 ? 0 : v >> cnt;
++        } else {
++            val = cnt >= 32 ? (uint32_t)((int32_t)v >> 31)
++                            : (uint32_t)((int32_t)v >> cnt);
+         }
+-        return new_val;
+     }
++    env->astat[ASTAT_AN] = val >> 31;
++    env->astat[ASTAT_AZ] = val == 0;
++    env->astat[ASTAT_V] = v_i;
++    env->astat[ASTAT_V_COPY] = v_i;
++    if (v_i) {
++        env->astat[ASTAT_VS] = 1;
++    }
++    return val;
+ }
+ 
+ /*
+@@ -705,6 +872,7 @@ void HELPER(dsp32mac)(CPUArchState *env, uint32_t insn)
+     }
+     if (P || w0 || w1) {
+         env->astat[ASTAT_V] = v_0 | v_1;
++        env->astat[ASTAT_V_COPY] = v_0 | v_1;
+         if (v_0 || v_1) {
+             env->astat[ASTAT_VS] = 1;
+         }
 diff --git a/target/bfin/translate.c b/target/bfin/translate.c
-index 0e0357e9e3..71f623715f 100644
+index 0e0357e9e3..544dc19b79 100644
 --- a/target/bfin/translate.c
 +++ b/target/bfin/translate.c
 @@ -47,6 +47,12 @@ typedef struct DisasContext {
@@ -484,7 +1125,103 @@ index 0e0357e9e3..71f623715f 100644
      gen_gotoi_tb(dc, 0, dc->pc + pcrel);
      gen_set_label(l);
      if (loop == -1) {
-@@ -1172,10 +1206,71 @@ static void bfin_tr_tb_start(DisasContextBase *dcbase, CPUState *cs)
+@@ -930,6 +964,16 @@ static void _gen_astat_update_nz2(TCGv reg, TCGv reg2, TCGv tmp, uint32_t len)
+     _gen_astat_update_an2(reg, reg2, tmp, len);
+ }
+ 
++static void _gen_astat_update_v(TCGv v, TCGv tmp)
++{
++    /* GNU sim: V and V_COPY follow the result, VS is sticky. */
++    _gen_astat_store(ASTAT_V, v);
++    _gen_astat_store(ASTAT_V_COPY, v);
++    tcg_gen_ld_tl(tmp, tcg_env, offsetof(CPUArchState, astat[ASTAT_VS]));
++    tcg_gen_or_tl(tmp, tmp, v);
++    _gen_astat_store(ASTAT_VS, tmp);
++}
++
+ static void gen_astat_update(DisasContext *dc, bool clear)
+ {
+     TCGv tmp = tcg_temp_new();
+@@ -947,8 +991,15 @@ static void gen_astat_update(DisasContext *dc, bool clear)
+         _gen_astat_update_nz2(cpu_astat_arg[0], cpu_astat_arg[1], tmp, len);
+         break;
+ 
+-    case ASTAT_OP_ADD32:    /* [0] = [1] + [2] */
+-        /* XXX: Missing V/VS updates */
++    case ASTAT_OP_ADD32: {    /* [0] = [1] + [2] */
++        /* Overflow from the operands: [0] may be saturated. */
++        TCGv sum = tcg_temp_new(), v = tcg_temp_new();
++        tcg_gen_add_tl(sum, cpu_astat_arg[1], cpu_astat_arg[2]);
++        tcg_gen_xor_tl(v, cpu_astat_arg[1], sum);
++        tcg_gen_xor_tl(tmp, cpu_astat_arg[2], sum);
++        tcg_gen_and_tl(v, v, tmp);
++        tcg_gen_shri_tl(v, v, 31);
++        _gen_astat_update_v(v, tmp);
+         len = 32;
+         tcg_gen_not_tl(tmp, cpu_astat_arg[1]);
+         tcg_gen_setcond_tl(TCG_COND_LTU, tmp, tmp, cpu_astat_arg[2]);
+@@ -956,6 +1007,7 @@ static void gen_astat_update(DisasContext *dc, bool clear)
+         _gen_astat_store(ASTAT_AC0_COPY, tmp);
+         _gen_astat_update_nz(cpu_astat_arg[0], tmp, 32);
+         break;
++    }
+ 
+     case ASTAT_OP_ASHIFT32:
+         len *= 2;
+@@ -1068,25 +1120,33 @@ static void gen_astat_update(DisasContext *dc, bool clear)
+         _gen_astat_update_nz2(cpu_astat_arg[0], cpu_astat_arg[1], tmp, 16);
+         break;
+ 
+-    case ASTAT_OP_NEGATE:    /* [0] = -[1] */
+-        len = 32;
++    case ASTAT_OP_NEGATE: {    /* [0] = -[1], ALU2op form */
++        TCGv v = tcg_temp_new();
+         _gen_astat_update_nz(cpu_astat_arg[0], tmp, 32);
+-        tcg_gen_setcondi_tl(TCG_COND_EQ, tmp, cpu_astat_arg[0], 1 << (len - 1));
+-        _gen_astat_store(ASTAT_V, tmp);
+-        /* XXX: Should "VS |= V;" */
++        tcg_gen_setcondi_tl(TCG_COND_EQ, v, cpu_astat_arg[0], 0x80000000);
++        _gen_astat_update_v(v, tmp);
+         tcg_gen_setcondi_tl(TCG_COND_EQ, tmp, cpu_astat_arg[0], 0);
+         _gen_astat_store(ASTAT_AC0, tmp);
++        _gen_astat_store(ASTAT_AC0_COPY, tmp);
+         break;
++    }
+ 
+-    case ASTAT_OP_SUB32:    /* [0] = [1] - [2] */
++    case ASTAT_OP_SUB32: {    /* [0] = [1] - [2] */
++        TCGv diff = tcg_temp_new(), v = tcg_temp_new();
++        tcg_gen_sub_tl(diff, cpu_astat_arg[1], cpu_astat_arg[2]);
++        tcg_gen_xor_tl(v, cpu_astat_arg[1], cpu_astat_arg[2]);
++        tcg_gen_xor_tl(tmp, diff, cpu_astat_arg[1]);
++        tcg_gen_and_tl(v, v, tmp);
++        tcg_gen_shri_tl(v, v, 31);
++        _gen_astat_update_v(v, tmp);
+         len = 32;
+-        /* XXX: Missing V/VS updates */
+         tcg_gen_setcond_tl(TCG_COND_LEU, tmp, cpu_astat_arg[2],
+                            cpu_astat_arg[1]);
+         _gen_astat_store(ASTAT_AC0, tmp);
+         _gen_astat_store(ASTAT_AC0_COPY, tmp);
+         _gen_astat_update_nz(cpu_astat_arg[0], tmp, len);
+         break;
++    }
+ 
+     case ASTAT_OP_VECTOR_ADD_ADD:    /* [0][1] = [2] +|+ [3] */
+     case ASTAT_OP_VECTOR_ADD_SUB:    /* [0][1] = [2] +|- [3] */
+@@ -1114,6 +1174,11 @@ static void
+ _astat_queue_state(DisasContext *dc, enum astat_ops op, unsigned int num,
+                    TCGv arg0, TCGv arg1, TCGv arg2)
+ {
++    /* The new op may leave flags alone that the pending one writes
++       (a shift keeps the AC0 a logical op clears). */
++    if (dc->astat_op != ASTAT_OP_NONE && dc->astat_op != ASTAT_OP_DYNAMIC) {
++        gen_astat_update(dc, false);
++    }
+     dc->astat_op = op;
+ 
+     tcg_gen_mov_tl(cpu_astat_arg[0], arg0);
+@@ -1172,10 +1237,71 @@ static void bfin_tr_tb_start(DisasContextBase *dcbase, CPUState *cs)
  {
  }
  
@@ -557,7 +1294,7 @@ index 0e0357e9e3..71f623715f 100644
      BlackfinCPU *cpu = BFIN_CPU(cs);
      CPUArchState *env = &cpu->env;
  
-@@ -1189,15 +1284,60 @@ static void bfin_tr_insn_start(DisasContextBase *dcbase, CPUState *cs)
+@@ -1189,15 +1315,60 @@ static void bfin_tr_insn_start(DisasContextBase *dcbase, CPUState *cs)
      }
  #endif
  
@@ -620,7 +1357,7 @@ index 0e0357e9e3..71f623715f 100644
  
      gen_hwloop_check(ctx, cs);
  
-@@ -1222,6 +1362,7 @@ static void bfin_tr_tb_stop(DisasContextBase *dcbase, CPUState *cs)
+@@ -1222,6 +1393,7 @@ static void bfin_tr_tb_stop(DisasContextBase *dcbase, CPUState *cs)
      case DISAS_CALL:
      case DISAS_JUMP:
      case DISAS_TB_JUMP:
