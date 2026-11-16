@@ -241,8 +241,9 @@ test("a map row gets its from/to pair in all six copies, the donor's old range d
 // A catalog effect stays at most this loud. The mod delay has no cap: the Short Delay keeps its own values, set on the device.
 // Distortion output_level (factory 11) and Master Pumper output_gain_adjust (factory 24) are allowed slightly above factory:
 // a listening test on the device (31.10.) found the factory-level catalog effects a bit too quiet.
+// Level Mod output_gain (factory 36) goes to 45 for Bounce Gate: the gate cuts each note short (device test 14.11.: too quiet).
 const LEVEL_CAPS = {
-  ifx: { 0x0f: { output_level: 20 }, 0x10: { output_level: 65 }, 0x15: { output_gain: 36 }, 0x18: { fb_depth: 45, wet_level: 120 } },
+  ifx: { 0x0f: { output_level: 20 }, 0x10: { output_level: 65 }, 0x15: { output_gain: 45 }, 0x18: { fb_depth: 45, wet_level: 120 } },
   mfx: { 0x3c: { feedback: 72, output_level: 53 }, 0x35: { output_gain_adjust: 26 } },
 };
 // A remake of a Hacktribe insert preset (`hacktribe: true`, slots 39 to 49 on Korg's 2.02) stays just below the levels of

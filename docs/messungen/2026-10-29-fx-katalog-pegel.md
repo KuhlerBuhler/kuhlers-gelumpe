@@ -96,3 +96,24 @@ nicht nachgehört.**
 
 Die Pegelgrenzen in `test/fx-v2.test.mjs` liegen dafür für die Distortion (20) und den Master Pumper (26) knapp über
 Werk. Die Reglerzeile des Hot Overdrive bleibt unter der Grenze der Einheit (65), der Mod Delay hat keine Grenze.
+
+## 5. Nach den Gerätetests 14. und 15.11.
+
+Rückmeldung vom Gerät: Loud Distortion ist etwa doppelt so laut wie der Rest, das LEVEL des Samples dämpft es nicht (der
+Verzerrer sättigt, sein Ausgang hängt an `output_level`). Bounce Gate, Warm Drive, Bit Grinder und Glue Comp sind zu leise.
+Die neuen Werte kommen, wo es geht, aus den Werkspresets derselben Einheit (Korg rot und Hacktribe 2.02, offline gelesen
+mit `firmwarePresets` aus `src/fx-collection.mjs`). **Nicht nachgehört.**
+
+| Effekt | Parameter | bisher | Werk | jetzt | Herleitung |
+|---|---|---|---|---|---|
+| Loud Distortion | `output_level` | 20 | 11 | 15 | geschätzt: unter 18 (31.10. angehoben, weil 14 "ein bisschen zu leise" war), über Werk |
+| Bit Grinder | `output_level`, Regler | 90, 90 bis 75 | Decimator und Bit Crusher 127 | 127, 127 bis 106 | Werkspegel des Decimators; der Regler nimmt wie bisher ein Sechstel zurück |
+| Alias Crush | `output_level` | 90 | 127 | 127 | wie Bit Grinder, gleiche Einheit |
+| Warm Drive | `output_level`, Regler | 42, 50 bis 27 | Acid Drive 65 bei Drive 0, 22 bei Drive 91, 11 bei Drive 127 | 46, 56 bis 32 | die Werkskurve, linear zwischen Drive 0 und 91 gelesen: Drive 40 gibt 46, Drive 20 gibt 56, Drive 70 gibt 32 |
+| Glue Comp | Kompressor `output_gain`, Regler | 52, 50 bis 58 | kein Werkspreset mit dem SR1-Kompressor | 60, 58 bis 66 | geschätzt, wie am 31.10. um etwa ein Sechstel |
+| Glue Comp | Limiter `output_gain` | 48 | Limiter 48 (der Regler des Werkspresets fährt die Schwelle, nicht den Ausgang) | 60 | geschätzt; ohne den Limiter höher bliebe der Kompressor an ihm hängen |
+| Bounce Gate 16, 8 | `output_gain` | 36 | Off Beater, Pumper, Repeater 36, Slicer 32 | 45 | geschätzt, ein Viertel über Werk: das Gate schneidet jeder Note das Ende ab, es bleibt weniger Energie als bei den Werkspresets |
+
+`test/fx-v2.test.mjs` lässt den Level Mod (`0x15`) dafür bis 45 zu, knapp über Werk wie die Distortion und der Master Pumper.
+Die Master-Effekte (Pumper, Multitap, Wow Tape, Dub Delay, Ping Pong zu leise, Letter Drive zu laut, Gerätetest 15.11.) sind
+hier nicht angefasst.
