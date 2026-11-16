@@ -54,6 +54,20 @@ test("Startbild: a picture becomes splash.bmp, black is drawn, the guide names t
   assert.deepEqual(page.errors, []);
 });
 
+test("Startbild: a stored Image Viewer page from before 1.5 opens Startbilder, which names the Media folder for the Image Viewer", async () => {
+  const page = await h.page();
+  await page.goto(h.url);
+  await page.evaluate(() => localStorage.setItem("cee.design.page", "pics"));
+  await page.reload();
+  await go(page, "splash");
+  assert.equal(await page.locator("#cee-splash-page-gallery").isVisible(), true);
+  assert.equal(await page.locator("#cee-design-panel-pics").count(), 0);
+  assert.equal(await page.evaluate(() => localStorage.getItem("cee.design.page")), "images", "the gone page is not kept");
+  assert.match(await page.locator("#cee-splash-steps").textContent(), /Image Viewer \(BLECH -> PLUGINS\) zeigt jede \.bmp in KORG\/blechtribe\/Media\//);
+  assert.equal(await page.locator("#cee-splash-section .ui-pill, #cee-splash-section .cee-status, #cee-splash-section .ui-chip").count(), 0, "plain text, no pill or chip");
+  assert.deepEqual(page.errors, []);
+});
+
 test("Startbild: the gallery has the sixteen pictures of the app as cards with their maker, a card opens its page with splash.bmp and Bearbeiten, an own picture stays in this browser", async () => {
   const page = await h.page();
   await page.goto(h.url);

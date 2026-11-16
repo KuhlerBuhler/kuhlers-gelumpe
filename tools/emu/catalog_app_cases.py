@@ -67,9 +67,21 @@ def blechyrun(dev, check):
           f"GAME OVER row y 18 lit: {sum(pixel(fb, x, 18) for x in range(37, 91))} pixels, asserts {dev.m.asserts}")
 
 
+def bmpviewer(dev, check):
+    """No Media/ on this card: MENU opens IMAGES and says NO IMAGES, MENU again gives the list back as it opened."""
+    start = bytes(dev.read(FB, 1024))
+    menu_cases.press(dev, "menu", wait=0.3)
+    empty = bytes(dev.read(FB, 1024))
+    menu_cases.press(dev, "menu", wait=0.3)
+    back = bytes(dev.read(FB, 1024))
+    check("bmpviewer_menu_opens_images_and_back", empty != start and back == start and not dev.m.asserts,
+          f"IMAGES differs from the list in {sum(a != b for a, b in zip(empty, start))} bytes, back in {sum(a != b for a, b in zip(back, start))}")
+
+
 # id: (group in the BLECH menu, the app's own cases between opening and EXIT)
 APPS = {
     "blechyrun": (menu_cases.GROUP_GAMES, blechyrun),
+    "bmpviewer": (menu_cases.GROUP_TOOLS, bmpviewer),
 }
 
 

@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 37;
+export const API_VERSION = 38;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -49,6 +49,12 @@ export const LIMITS = Object.freeze({
 /** The shared arena holds blobs, variables and script entries. Scratch and the event ring are separate. */
 const SCRIPT_POOL_BYTES = 128 * 1024;
 export const BUDGET = Object.freeze({ frameMs: 5, handlerWarnMs: 0.5, ring: 64, scriptBytes: SCRIPT_POOL_BYTES, variableSlots: SCRIPT_POOL_BYTES / 4 });
+/**
+ * Time spent inside these calls reading the card does not count against `frameMs` nor `handlerWarnMs`: the clock of the
+ * budget stops around the read. At most `cardMs` of card time per frame is left out, beyond that it counts again, so a card
+ * that answers slowly switches the plugin off instead of holding every frame (tools/patch/script_media.s:card_timed).
+ */
+export const CARD_READS = Object.freeze({ calls: Object.freeze(["korg.file.frame", "korg.file.read", "korg.file.write", "korg.file.count", "korg.file.name", "korg.file.picture"]), cardMs: 50 });
 /** Timer3 counts at 150 MHz and the firmware runs it with a period of one second (PRD 0x8F0D17F), so it wraps there, not at 2^32. */
 export const TIMER3 = Object.freeze({ address: 0x01F0D010, hz: 150000000, period: 150000000 });
 
@@ -323,6 +329,15 @@ const BITMAP_ITEM_COST = 3;
  */
 export const SCRIPT_DATA_FILE = Object.freeze({ maxBytes: 4096, folder: "KORG/blechtribe/Plugin/Data/", extension: ".bin" });
 
+/**
+ * The pictures on the card for korg.file.count, korg.file.name and korg.file.picture (API 38): the files right in `folder` that end
+ * in `endings[kind]` (kind 0 start images, 1 loading animations), in the order of the folder, at most `maxFiles` of a kind. A
+ * name is shown without its ending, one longer than `nameMax` cut to `nameMax` - 2 characters and "..". The device keeps one
+ * entry of `entryBytes` for each file; a picture fills `pictureBytes` slots. src/script/media.mjs reads them.
+ */
+export const SCRIPT_MEDIA = Object.freeze({ folder: "KORG/blechtribe/Media/", endings: Object.freeze([".bmp", ".blla"]), maxFiles: 64,
+  nameMax: 17, entryBytes: 32, pictureBytes: 1024 });
+
 /** The file name of a plugin's data file (SCRIPT_DATA_FILE). */
 export function dataFileName(name) {
   const safe = String(name).slice(0, 16).replace(/[^A-Za-z0-9-]/g, "_");
@@ -462,6 +477,11 @@ const API_LIST = [
   [128, "korg.read.led", [int("index", 0, 87)], "int", ALL, 4, 34],
   // korg.touchLockX for Y (API 35)
   [132, "korg.touchLockY", [int("y", -1, 127)], "void", UI, 20, 35],
+  // start images and loading animations in KORG/blechtribe/Media/ (API 38, SCRIPT_MEDIA): count lists them anew, name and
+  // picture read that list
+  [133, "korg.file.count", [int("kind", 0, 1)], "int", UI, 250, 38],
+  [134, "korg.file.name", [arr("array"), int("kind", 0, 1), int("index", 0, SCRIPT_MEDIA.maxFiles - 1)], "int", UI, 6, 38, 1],
+  [135, "korg.file.picture", [arr("array"), int("kind", 0, 1), int("index", 0, SCRIPT_MEDIA.maxFiles - 1), int("frame", 0, 65535)], "int", UI, 250, 38],
 ];
 
 /**
