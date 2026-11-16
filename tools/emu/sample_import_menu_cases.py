@@ -76,6 +76,9 @@ def cases(payload, *, missing=False, large=False, close_failure=False, flash=Non
     before = dict(box.dsp)
     steps = [("menu", 1), ("turn1", 1), ("menu", 1), ("turn2", 1), ("menu", 3), ("menu", 1)]
     found = c.steps_on(box, "import sample", steps)
+    # with the flash busy time modelled, appending to a large library outlasts the menu waits: let the import finish first
+    box.until(lambda: box.u32(c.spec.IMPORT_LOCK) == 0, 30.0)
+    box.to_main()
     mode_after_import = box.state("MODE")
     volume = c.fat32.Volume(bytes(box.m.mmc.card.medium.data))
     try:
@@ -113,7 +116,8 @@ def cases(payload, *, missing=False, large=False, close_failure=False, flash=Non
     if large and on_card:
         image = bytes(box.m.mmc.card.medium.data)
         with patch.object(c, "card", lambda *args, **kwargs: c.SDCard(c.MemoryMedium(bytearray(image)))):
-            reboot = c.Box(payload, flash, samples, [TARGET], record_dsp=True)
+            # the boot loads the large sample from the card first: 13.8 s on the red build
+            reboot = c.Box(payload, flash, samples, [TARGET], record_dsp=True, boot_limit_s=30.0)
         rebooted_pcm = (ready(reboot) and reboot.resident(TARGET) and reboot.dsp_bytes(*reboot.extent(TARGET)) == pcm
                         and not reboot.m.asserts)
     released = box.u32(c.spec.IMPORT_LOCK) == 0 and box.u32(c.spec.FILE_OWNER) == 0

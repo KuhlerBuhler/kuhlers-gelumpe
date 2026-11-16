@@ -98,7 +98,7 @@ class Box:
     `bank` {pattern: part samples} the bank blocks."""
 
     def __init__(self, payload, flash, samples, live, bank=None, cap=None, held=0, record_dsp=False, extra=None,
-                 before_boot=None, dsp_backend=None):
+                 before_boot=None, dsp_backend=None, boot_limit_s=STOCK_BOOT_LIMIT_S):
         self.payload = with_cap(payload, cap)
         self.m = Machine(self.payload, flash, dsp_backend=dsp_backend)
         self.m.insert_card(card(payload, samples, extra))
@@ -133,14 +133,14 @@ class Box:
             before_boot(self)
         self.dev = Dev(self.payload, flash, held=held, machine=self.m)
         self.dev.run(1.0)
-        if not self.until(lambda: self.m.screen() == 1, max(0, STOCK_BOOT_LIMIT_S - self.now())):
+        if not self.until(lambda: self.m.screen() == 1, max(0, boot_limit_s - self.now())):
             raise RuntimeError("the native sample loader did not reach the main screen")
         ready = []
         tick = self.dev.a(SCREEN_TICK)
         hook = self.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: ready.append(True), begin=tick, end=tick)
         self.m.uc.ctl_flush_tb()
         try:
-            if not self.until(lambda: bool(ready), max(0, STOCK_BOOT_LIMIT_S - self.now())):
+            if not self.until(lambda: bool(ready), max(0, boot_limit_s - self.now())):
                 raise RuntimeError("the main screen did not start drawing after the sample load")
         finally:
             self.m.uc.hook_del(hook)
@@ -569,7 +569,11 @@ FLOWS = [
     ("import sample", "import sample", [("menu", 1), ("turn1", 1), ("menu", 6), ("menu", 30), ("menu", 1)], None),
     ("export all sample", "export all sample", [("menu", 1), ("menu", 1), ("menu", 60), ("menu", 1)], None),
     ("export all pattern", "export all pattern", EXPORT_PATTERNS, None),
-    ("import all pattern", "import all pattern", [("menu", 1), ("menu", 1), ("turn1", 1), ("menu", 1), ("pattern_file", 1), ("menu", 30), ("menu", 1)],
+    # IMPORT ALL PATTERN's browser opens in KORG/blechtribe/Patterns (script_patterns.s, pat_browse_hook), but Korg builds the
+    # file's path from the levels it walked itself and opens SD:/<name> from there. Upper Folder goes to SD:, the walk goes down.
+    # The import itself runs about 80 s of model time before its OK screen.
+    ("import all pattern", "import all pattern", [("menu", 1), ("menu", 1), ("menu", 1), ("turn1", 1), ("menu", 1), ("patterns_dir", 1),
+                                                  ("menu", 1), ("pattern_file", 1), ("menu", 90), ("menu", 1)],
      ("export all pattern", EXPORT_PATTERNS)),
     ("sampling and resampling", None, None, None),
 ]
@@ -585,7 +589,7 @@ WRITERS = ("import all pattern",)   # flows that write the native work buffer
 
 
 def pattern_file_delta(box):
-    folder = f"KORG/{cardstore.card_folder(box.payload)}"
+    folder = f"KORG/{cardstore.card_folder(box.payload)}/Patterns"   # EXPORT ALL PATTERN writes there, the browser opens there
     volume = fat32.Volume(bytes(box.m.mmc.card.medium.data))
     try:
         entries = volume.listdir(folder)
@@ -598,10 +602,23 @@ def pattern_file_delta(box):
     return 1 + sum(entry.is_dir and not entry.name.startswith(".") for entry in entries)
 
 
+def patterns_dir_delta(box):
+    """From Upper Folder in KORG/<card folder> to its Patterns folder: Korg's browser lists the directories by name."""
+    volume = fat32.Volume(bytes(box.m.mmc.card.medium.data))
+    try:
+        entries = volume.listdir(f"KORG/{cardstore.card_folder(box.payload)}")
+    finally:
+        volume.close()
+    folders = sorted((entry.name for entry in entries if entry.is_dir and not entry.name.startswith(".")), key=str.lower)
+    return 1 + folders.index("Patterns")
+
+
 def steps_on(box, page, steps):
     found = box.data_utility(page)
     for k, wait in steps:
-        if k == "pattern_file":
+        if k == "patterns_dir":
+            box.dev.turn(patterns_dir_delta(box), wait)
+        elif k == "pattern_file":
             box.dev.turn(pattern_file_delta(box), wait)
         elif k.startswith("turn"):
             box.dev.turn(int(k[4:]), wait)
@@ -718,8 +735,8 @@ def case_full_session(payload, flash, *, box_type=Box):
             before = state["writes"]
             before_cache = state["cache_writes"]
             if index == 0:
-                # IMPORT ALL PATTERN leaves the browser two folders below the card root, on Upper Folder.
-                steps = [("menu", 1), ("menu", 1), *steps]
+                # IMPORT ALL PATTERN leaves the browser three folders below the card root, on Upper Folder.
+                steps = [("menu", 1), ("menu", 1), ("menu", 1), *steps]
             found = perform_flow(box, page, steps)
             box.to_main()
             rows.append(dict(mode=name, filled=filled, found=found, dropped=box.state("GEN") != gen,
