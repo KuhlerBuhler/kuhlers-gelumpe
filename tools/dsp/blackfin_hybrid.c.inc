@@ -2,9 +2,12 @@
 #include "blackfin_hybrid.h"
 
 void blech_hybrid_attach (SIM_DESC, const struct blech_qemu_ops *);
+bool blech_hybrid_cec (int, uint32_t, uint32_t *);
+bool blech_cec_fast (SIM_CPU *, int, bu32, bu32 *);
 
 static const struct blech_qemu_ops *blech_qemu;
 static bool blech_hybrid_gnu_next;
+static SIM_CPU *blech_hybrid_cpu;
 static uint64_t blech_hybrid_stats[4]; /* QEMU runs, QEMU cycles, GNU steps, delegations */
 
 /* BLECH_HYBRID_STATS=PREFIX writes PREFIX.<pid> on every run request; the
@@ -35,6 +38,7 @@ blech_hybrid_attach (SIM_DESC sd, const struct blech_qemu_ops *ops)
   sim_core_mapping *map, *earlier;
 
   blech_qemu = ops;
+  blech_hybrid_cpu = STATE_CPU (sd, 0);
   for (map = first; map; map = map->next)
     {
       /* The GNU core uses the first mapping that holds an address.  */
@@ -46,6 +50,13 @@ blech_hybrid_attach (SIM_DESC sd, const struct blech_qemu_ops *ops)
           && (map->bound < 0xEF000000 || map->base >= 0xF0000000))
         ops->map (map->base, map->nr_bytes, map->buffer);
     }
+}
+
+/* CLI and STI from QEMU, see blech_cec_fast in dv-bfin_cec.c.  */
+bool
+blech_hybrid_cec (int op, uint32_t value, uint32_t *result)
+{
+  return blech_cec_fast (blech_hybrid_cpu, op, value, result);
 }
 
 static void

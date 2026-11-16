@@ -221,7 +221,8 @@ static int worker_main(void)
     library = path ? dlopen(path, RTLD_NOW | RTLD_LOCAL) : NULL;
     entry = library ? (blech_hybrid_main_fn)dlsym(library, "blech_hybrid_main")
                     : NULL;
-    if (!entry) {
+    bfin_blech_cec = library ? dlsym(library, "blech_hybrid_cec") : NULL;
+    if (!entry || !bfin_blech_cec) {
         fprintf(stderr, "bf-electribe: cannot load BLECH_HYBRID_LIB: %s\n",
                 path ? dlerror() : "unset");
         return 1;

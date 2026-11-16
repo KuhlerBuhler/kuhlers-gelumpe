@@ -78,6 +78,38 @@ def checkout(directory, log):
     return source
 
 
+# CLI and STI that QEMU may run itself. STI qualifies only when no latched interrupt becomes
+# unmasked: then the CEC event GNU schedules finds nothing, and skipping it changes nothing.
+CEC_FAST = r'''
+bool blech_cec_fast (SIM_CPU *, int, bu32, bu32 *);
+bool
+blech_cec_fast (SIM_CPU *cpu, int op, bu32 value, bu32 *result)
+{
+  struct bfin_cec *cec;
+  bu32 imask;
+
+  *result = 0;
+  if (STATE_ENVIRONMENT (CPU_STATE (cpu)) != OPERATING_ENVIRONMENT)
+    return true;
+  cec = CEC_STATE (cpu);
+  if (!_cec_is_supervisor_mode (cec))
+    return false;
+  if (op == 0)
+    {
+      *result = cec->imask;
+      _cec_imask_write (cec, 0);
+      return true;
+    }
+  imask = (value & IVG_MASKABLE_B) | (cec->imask & IVG_UNMASKABLE_B);
+  if ((cec->ilat | (cec->system_lines & ~cec->ipend)) & imask)
+    return false;
+  cec->ilat |= cec->system_lines & ~cec->ipend;
+  cec->imask = imask;
+  return true;
+}
+'''
+
+
 def patch_hybrid(source):
     """The GNU engine hands the instructions between two events to QEMU (blackfin_hybrid.c.inc)."""
     file = source / 'sim/bfin/interp.c'
@@ -92,6 +124,10 @@ def patch_hybrid(source):
     if text.count(call) != 1:
         raise ValueError('unexpected GNU Blackfin execution engine')
     file.write_text(text.replace(call, '  blech_hybrid_engine (sd, STATE_CPU (sd, 0));\n'))
+    cec = source / 'sim/bfin/dv-bfin_cec.c'
+    text = cec.read_text()
+    if CEC_FAST not in text:
+        cec.write_text(text + CEC_FAST)
     shutil.copyfile(DSP / 'blackfin_hybrid.h', source / 'sim/bfin/blackfin_hybrid.h')
 
 

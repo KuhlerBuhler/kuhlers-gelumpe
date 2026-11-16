@@ -1,8 +1,25 @@
 diff --git a/target/bfin/bfin-sim.c b/target/bfin/bfin-sim.c
-index c3d6162f55..f95ba32650 100644
+index c3d6162f55..e9d316dd6a 100644
 --- a/target/bfin/bfin-sim.c
 +++ b/target/bfin/bfin-sim.c
-@@ -324,10 +324,10 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
+@@ -284,10 +284,14 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
+         cec_exception(dc, EXCP_DEBUG);
+     } else if (prgfunc == 3 && poprnd < 8) {
+         /* CLI Dreg{poprnd}; */
+-        cec_require_supervisor(dc);
++        blech_astat_flush(dc);
++        gen_helper_blech_cec(cpu_dreg[poprnd], tcg_env, tcg_constant_i32(0),
++                             tcg_constant_i32(0));
+     } else if (prgfunc == 4 && poprnd < 8) {
+         /* STI Dreg{poprnd}; */
+-        cec_require_supervisor(dc);
++        blech_astat_flush(dc);
++        gen_helper_blech_cec(tcg_temp_new(), tcg_env, tcg_constant_i32(1),
++                             cpu_dreg[poprnd]);
+     } else if (prgfunc == 5 && poprnd < 8) {
+         /* JUMP (Preg{poprnd}); */
+         dc->base.is_jmp = DISAS_JUMP;
+@@ -324,10 +328,10 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
           * which prevents it from working even with on-chip memory.  As such,
           * we'll just do a "stupid" implementation here.  */
          TCGv tmp = tcg_temp_new();
@@ -15,7 +32,7 @@ index c3d6162f55..f95ba32650 100644
      } else {
          illegal_instruction(dc);
      }
-@@ -396,12 +396,12 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -396,12 +400,12 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
          if (grp == 4 && reg == 6) {
              /* Pop ASTAT */
              tmp = tcg_temp_new();
@@ -30,7 +47,7 @@ index c3d6162f55..f95ba32650 100644
              tmp64 = tcg_temp_new_i64();
              tcg_gen_extu_i32_i64(tmp64, tmp);
  
-@@ -410,7 +410,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -410,7 +414,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
          } else if (grp == 4 && (reg == 1 || reg == 3)) {
              /* Pop A#.W */
              tmp = tcg_temp_new();
@@ -39,7 +56,7 @@ index c3d6162f55..f95ba32650 100644
              tmp64 = tcg_temp_new_i64();
              tcg_gen_extu_i32_i64(tmp64, tmp);
  
-@@ -419,7 +419,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -419,7 +423,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
          } else {
              check_lb = true;
              treg = get_allreg(dc, grp, reg);
@@ -48,7 +65,7 @@ index c3d6162f55..f95ba32650 100644
  
              if (grp == 6 && (reg == 1 || reg == 4)) {
                  /* LT loads auto clear the LSB */
-@@ -443,7 +443,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -443,7 +447,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
              /* Push ASTAT */
              tmp = tcg_temp_new();
              gen_astat_load(dc, tmp);
@@ -57,7 +74,7 @@ index c3d6162f55..f95ba32650 100644
          } else if (grp == 4 && (reg == 0 || reg == 2)) {
              /* Push A#.X */
              tmp64 = tcg_temp_new_i64();
-@@ -455,15 +455,15 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+@@ -455,15 +459,15 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
               * we're lazy during intermediate operations (like maintaining the
               * sign bit).  */
              tcg_gen_andi_tl(tmp, tmp, 0xff);
@@ -76,7 +93,7 @@ index c3d6162f55..f95ba32650 100644
          }
          tcg_gen_mov_tl(cpu_spreg, tmp_sp);
      }
-@@ -503,26 +503,26 @@ decode_PushPopMultiple_0(DisasContext *dc, uint16_t iw0)
+@@ -503,26 +507,26 @@ decode_PushPopMultiple_0(DisasContext *dc, uint16_t iw0)
          if (d) {
              for (i = dr; i < 8; i++) {
                  tcg_gen_subi_tl(tmp_sp, tmp_sp, 4);
@@ -107,7 +124,7 @@ index c3d6162f55..f95ba32650 100644
                  tcg_gen_addi_tl(tmp_sp, tmp_sp, 4);
              }
          }
-@@ -1301,7 +1301,7 @@ disalgnexcpt_ld32u(DisasContext *dc, TCGv ret, TCGv addr)
+@@ -1301,7 +1305,7 @@ disalgnexcpt_ld32u(DisasContext *dc, TCGv ret, TCGv addr)
      if (dc->disalgnexcpt) {
          TCGv tmp = tcg_temp_new();
          tcg_gen_andi_tl(tmp, addr, ~0x3);
@@ -116,7 +133,7 @@ index c3d6162f55..f95ba32650 100644
      } else {
          gen_aligned_qemu_ld32u(dc, ret, addr);
      }
-@@ -1457,10 +1457,10 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
+@@ -1457,10 +1461,10 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
              gen_aligned_qemu_ld16s(dc, cpu_dreg[reg], cpu_preg[ptr]);
          } else if (sz == 2 && Z == 0) {
              /* Dreg{reg} = B[Preg{ptr}{aop}] (Z); */
@@ -129,7 +146,7 @@ index c3d6162f55..f95ba32650 100644
          } else {
              illegal_instruction(dc);
              return;
-@@ -1477,7 +1477,7 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
+@@ -1477,7 +1481,7 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
              gen_aligned_qemu_st16(dc, cpu_dreg[reg], cpu_preg[ptr]);
          } else if (sz == 2 && Z == 0) {
              /* B[Preg{ptr}{aop}] = Dreg{reg}; */
@@ -138,7 +155,7 @@ index c3d6162f55..f95ba32650 100644
          } else {
              illegal_instruction(dc);
              return;
-@@ -1517,10 +1517,10 @@ decode_LDSTiiFP_0(DisasContext *dc, uint16_t iw0)
+@@ -1517,10 +1521,10 @@ decode_LDSTiiFP_0(DisasContext *dc, uint16_t iw0)
      gen_align_check(dc, ea, 4, false);
      if (W == 0) {
          /* DPreg{reg} = [FP + imm{offset}]; */
@@ -151,7 +168,7 @@ index c3d6162f55..f95ba32650 100644
      }
  }
  
-@@ -1741,10 +1741,10 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -1741,10 +1745,10 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
              gen_aligned_qemu_ld16s(dc, cpu_dreg[reg], ea);
          } else if (sz == 2 && Z == 0) {
              /* Dreg{reg} = B[Preg{ptr} + imm{offset}] (Z); */
@@ -164,7 +181,7 @@ index c3d6162f55..f95ba32650 100644
          }
      } else {
          if (sz == 0 && Z == 0) {
-@@ -1758,7 +1758,7 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -1758,7 +1762,7 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
              gen_aligned_qemu_st16(dc, cpu_dreg[reg], ea);
          } else if (sz == 2 && Z == 0) {
              /* B[Preg{ptr} + imm{offset}] = Dreg{reg}; */
@@ -173,7 +190,7 @@ index c3d6162f55..f95ba32650 100644
          } else {
              illegal_instruction(dc);
          }
-@@ -1789,18 +1789,18 @@ decode_linkage_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+@@ -1789,18 +1793,18 @@ decode_linkage_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
          /* LINK imm{framesize}; */
          int size = uimm16s4(framesize);
          tcg_gen_subi_tl(tmp_sp, tmp_sp, 4);
@@ -212,7 +229,7 @@ index 81c07eb2de..ee2986b8f9 100644
  
  static bool bfin_cpu_has_work(CPUState *cpu)
 diff --git a/target/bfin/cpu.h b/target/bfin/cpu.h
-index 66696b9c99..f04567c673 100644
+index 66696b9c99..518bc37e69 100644
 --- a/target/bfin/cpu.h
 +++ b/target/bfin/cpu.h
 @@ -19,6 +19,15 @@ struct DisasContext;
@@ -243,7 +260,7 @@ index 66696b9c99..f04567c673 100644
  } CPUBfinState;
  #define spreg preg[6]
  #define fpreg preg[7]
-@@ -164,6 +178,12 @@ extern const struct VMStateDescription vmstate_bfin_cpu;
+@@ -164,6 +178,14 @@ extern const struct VMStateDescription vmstate_bfin_cpu;
  
  void bfin_cpu_do_interrupt(CPUState *cpu);
  
@@ -252,11 +269,13 @@ index 66696b9c99..f04567c673 100644
 +extern bool (*bfin_blech_tlb_fill)(CPUState *cs, vaddr address, int size,
 +                                   MMUAccessType access_type, int mmu_idx,
 +                                   bool probe, uintptr_t retaddr);
++/* CLI (op 0) and STI (op 1) on the GNU CEC; false hands the insn to GNU. */
++extern bool (*bfin_blech_cec)(int op, uint32_t value, uint32_t *result);
 +
  void bfin_cpu_dump_state(CPUState *cs, FILE *f, int flags);
  hwaddr bfin_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
  int bfin_cpu_gdb_read_register(CPUState *cpu, GByteArray *buf, int reg);
-@@ -247,7 +267,8 @@ static inline void cpu_get_tb_cpu_state(CPUArchState *env, vaddr *pc,
+@@ -247,7 +269,8 @@ static inline void cpu_get_tb_cpu_state(CPUArchState *env, vaddr *pc,
                                          uint64_t *cs_base, uint32_t *flags)
  {
      *pc = env->pc;
@@ -267,14 +286,15 @@ index 66696b9c99..f04567c673 100644
  }
  
 diff --git a/target/bfin/helper.c b/target/bfin/helper.c
-index e2bf7df46b..6b45fa5e0e 100644
+index e2bf7df46b..6db5feceb2 100644
 --- a/target/bfin/helper.c
 +++ b/target/bfin/helper.c
-@@ -78,6 +78,11 @@ int cpu_handle_mmu_fault(CPUState *cs, target_ulong address,
+@@ -78,6 +78,12 @@ int cpu_handle_mmu_fault(CPUState *cs, target_ulong address,
     NULL, it means that the function was called in C code (i.e. not
     from generated code or from helper.c) */
  /* XXX: fix it to restore all registers */
 +uint32_t bfin_blech_stop = -1;
++bool (*bfin_blech_cec)(int op, uint32_t value, uint32_t *result);
 +bool (*bfin_blech_tlb_fill)(CPUState *cs, vaddr address, int size,
 +                            MMUAccessType access_type, int mmu_idx,
 +                            bool probe, uintptr_t retaddr);
@@ -282,7 +302,7 @@ index e2bf7df46b..6b45fa5e0e 100644
  bool bfin_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
                         MMUAccessType access_type, int mmu_idx, bool probe,
                         uintptr_t retaddr)
-@@ -89,6 +94,10 @@ bool bfin_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
+@@ -89,6 +95,10 @@ bool bfin_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
  #else
      int ret;
  
@@ -293,8 +313,43 @@ index e2bf7df46b..6b45fa5e0e 100644
      ret = cpu_bfin_handle_mmu_fault(cs, address, access_type, mmu_idx);
      if (likely(!ret)) {
          return true;
+diff --git a/target/bfin/helper.h b/target/bfin/helper.h
+index e7f31b075a..a567c8fbec 100644
+--- a/target/bfin/helper.h
++++ b/target/bfin/helper.h
+@@ -10,6 +10,7 @@
+ DEF_HELPER_FLAGS_3(raise_exception, TCG_CALL_NO_WG, void, env, i32, i32)
+ DEF_HELPER_FLAGS_5(memalign, TCG_CALL_NO_WG, void, env, i32, i32, i32, i32)
+ DEF_HELPER_FLAGS_2(require_supervisor, TCG_CALL_NO_WG, void, env, i32)
++DEF_HELPER_FLAGS_3(blech_cec, TCG_CALL_NO_WG, i32, env, i32, i32)
+ 
+ DEF_HELPER_FLAGS_4(dbga_l, TCG_CALL_NO_WG, void, env, i32, i32, i32)
+ DEF_HELPER_FLAGS_4(dbga_h, TCG_CALL_NO_WG, void, env, i32, i32, i32)
+diff --git a/target/bfin/op_helper.c b/target/bfin/op_helper.c
+index 445fa56979..264f0c1210 100644
+--- a/target/bfin/op_helper.c
++++ b/target/bfin/op_helper.c
+@@ -15,6 +15,18 @@
+ #include "exec/exec-all.h"
+ #include "sysemu/runstate.h"
+ 
++uint32_t HELPER(blech_cec)(CPUArchState *env, uint32_t op, uint32_t value)
++{
++    uint32_t result = 0;
++
++    if (!bfin_blech_cec || !bfin_blech_cec(op, value, &result)) {
++        CPUState *cs = env_cpu(env);
++        cs->exception_index = EXCP_BLECH_GNU;
++        cpu_loop_exit_restore(cs, GETPC());
++    }
++    return result;
++}
++
+ void HELPER(raise_exception)(CPUArchState *env, uint32_t excp, uint32_t pc)
+ {
+     BlackfinCPU *cpu = bfin_env_get_cpu(env);
 diff --git a/target/bfin/translate.c b/target/bfin/translate.c
-index 0e0357e9e3..9697303d5a 100644
+index 0e0357e9e3..71f623715f 100644
 --- a/target/bfin/translate.c
 +++ b/target/bfin/translate.c
 @@ -47,6 +47,12 @@ typedef struct DisasContext {
@@ -429,7 +484,7 @@ index 0e0357e9e3..9697303d5a 100644
      gen_gotoi_tb(dc, 0, dc->pc + pcrel);
      gen_set_label(l);
      if (loop == -1) {
-@@ -1172,10 +1206,69 @@ static void bfin_tr_tb_start(DisasContextBase *dcbase, CPUState *cs)
+@@ -1172,10 +1206,71 @@ static void bfin_tr_tb_start(DisasContextBase *dcbase, CPUState *cs)
  {
  }
  
@@ -454,6 +509,8 @@ index 0e0357e9e3..9697303d5a 100644
 +            cost = 5;
 +        } else if (prgfunc == 2 && (poprnd == 3 || poprnd == 4)) {
 +            cost = 10;
++        } else if ((prgfunc == 3 || prgfunc == 4) && poprnd < 8) {
++            cost = prgfunc == 4 ? 3 : 1;
 +        } else if (prgfunc >= 5 && prgfunc <= 8 && poprnd < 8) {
 +            cost = 5;
 +        } else if (prgfunc == 11 && poprnd < 6) {
@@ -500,7 +557,7 @@ index 0e0357e9e3..9697303d5a 100644
      BlackfinCPU *cpu = BFIN_CPU(cs);
      CPUArchState *env = &cpu->env;
  
-@@ -1189,15 +1282,60 @@ static void bfin_tr_insn_start(DisasContextBase *dcbase, CPUState *cs)
+@@ -1189,15 +1284,60 @@ static void bfin_tr_insn_start(DisasContextBase *dcbase, CPUState *cs)
      }
  #endif
  
@@ -563,7 +620,7 @@ index 0e0357e9e3..9697303d5a 100644
  
      gen_hwloop_check(ctx, cs);
  
-@@ -1222,6 +1360,7 @@ static void bfin_tr_tb_stop(DisasContextBase *dcbase, CPUState *cs)
+@@ -1222,6 +1362,7 @@ static void bfin_tr_tb_stop(DisasContextBase *dcbase, CPUState *cs)
      case DISAS_CALL:
      case DISAS_JUMP:
      case DISAS_TB_JUMP:
