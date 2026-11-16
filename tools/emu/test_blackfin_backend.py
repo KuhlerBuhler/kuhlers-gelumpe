@@ -88,6 +88,76 @@ class Execution(unittest.TestCase):
             self.backend.write(DATA, data)
             self.assertEqual(self.backend.read(DATA, size), data)
 
+    def _timer_loop(self, backend):
+        backend.write(ENTRY, struct.pack('<H', 0x2000))       # a jump to itself, the core timer counts
+        backend.set_register(53, ENTRY)
+        backend.set_register(48, 0x32)
+        for address, value in ((0xFFE03008, 0), (0xFFE0300C, 100000), (0xFFE03000, 3)):
+            backend.write(address, struct.pack('<I', value))
+        backend.run(37)
+
+    @staticmethod
+    def _state(backend):
+        return ([backend.register(i) for i in range(54)], backend.read(0xFFE0300C, 4),
+                backend.read(DATA, 64), backend.clock_status())
+
+    def test_a_worker_copy_goes_on_exactly_as_the_original(self):
+        with BlackfinBackend(WORKER, operating=True) as backend:
+            self._timer_loop(backend)
+            backend.write(DATA, bytes(range(64)))
+            with backend.fork() as copy:
+                self.assertEqual(self._state(copy), self._state(backend))
+                for _ in range(3):
+                    backend.run(500)
+                    copy.run(500)
+                    self.assertEqual(self._state(copy), self._state(backend))
+                copy.write(DATA, bytes(64))                   # the copy's memory is its own
+                self.assertEqual(backend.read(DATA, 64), bytes(range(64)))
+            backend.run(10)                                   # the original outlives its copy
+
+    @staticmethod
+    def _status_later(backend, nops):
+        """`nops` NOPs, then a halfword store of 0x10 to HOST_STATUS (the bus status changes), then a jump to itself."""
+        store = 0x8000 | (1 << 11) | (1 << 9)
+        backend.write(ENTRY, bytes(2 * nops) + struct.pack('<3H', store, 0x2000, 0x2000))
+        for number, value in ((8, 0xFFC03404), (0, 0x10), (53, ENTRY)):
+            backend.set_register(number, value)
+
+    def test_poll_ahead_matches_one_advance_per_poll(self):
+        steps = [3, 0, 5, 7, 2] * 40
+        for nops in (60, 5000):              # the status changes within the steps, and not at all
+            with BlackfinBackend(WORKER, operating=True) as one, BlackfinBackend(WORKER, operating=True) as many:
+                for backend in (one, many):
+                    self._status_later(backend, nops)
+                status = one.host_status()
+                done = 0
+                for step in steps:
+                    done += 1
+                    if step:
+                        one.advance(step)
+                    if one.host_status() != status:
+                        break
+                self.assertEqual(many.ahead(status, steps), (done, one.host_status()))
+                self.assertEqual(done < len(steps), nops == 60)
+                self.assertEqual(self._state(many), self._state(one))
+
+    def test_cases_run_from_one_state_in_process_copies(self):
+        port = BlackfinPort(WORKER, operating=True)
+        port.backend = BlackfinBackend(WORKER, operating=True)
+        self.addCleanup(port.close)
+        self._timer_loop(port.backend)
+        before = self._state(port.backend)
+
+        def case():
+            port.backend.run(800)
+            return self._state(port.backend)
+        first, second = port.run_copy(case), port.run_copy(case)
+        self.assertEqual(first, second)
+        self.assertEqual(self._state(port.backend), before)   # the parent's worker did not move
+        self.assertEqual(case(), first)
+        with self.assertRaisesRegex(BackendError, 'process copy failed: ValueError: broken case'):
+            port.run_copy(lambda: (_ for _ in ()).throw(ValueError('broken case')))
+
     def test_real_instructions_produce_memory_and_sign_extended_registers(self):
         self.backend.write(ENTRY, program())
         self.backend.set_register(53, ENTRY)

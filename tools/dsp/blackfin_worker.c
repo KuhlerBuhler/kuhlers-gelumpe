@@ -10,6 +10,8 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include "bfd.h"
 #include "sim/sim.h"
 #include "sim/callback.h"
@@ -37,7 +39,7 @@ extern int64_t blech_ring_read(void *, void *, uint64_t, uint64_t, int, int64_t,
 /* Little-endian requests: opcode, address/register/budget, byte count/value/PC. */
 #define LIMIT (1024 * 1024)
 #define CHANNEL_SPIN_NS 200000
-static FILE *reply, *request;
+static FILE *reply, *request, *pipe_reply;
 
 /* --channel: the same byte streams over shared memory (blackfin_channel.c); the pipes ring the bell. */
 struct channel_end { void *ring; int bell; };
@@ -70,7 +72,7 @@ static FILE *channel_file(struct channel_end *end, int writing)
 }
 #endif
 
-static int open_channel(const char *path, FILE **in, FILE **out)
+static int open_channel(const char *path, int in_bell, int out_bell, FILE **in, FILE **out)
 {
     static struct channel_end ends[2];
     static char buffers[2][1 << 16];
@@ -79,13 +81,47 @@ static int open_channel(const char *path, FILE **in, FILE **out)
     void *shared = mmap(NULL, blech_channel_size(), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     close(fd);
     if (shared == MAP_FAILED) return 0;
-    ends[0] = (struct channel_end){blech_channel_ring(shared, 0), STDIN_FILENO};
-    ends[1] = (struct channel_end){blech_channel_ring(shared, 1), fileno(*out)};
+    ends[0] = (struct channel_end){blech_channel_ring(shared, 0), in_bell};
+    ends[1] = (struct channel_end){blech_channel_ring(shared, 1), out_bell};
     FILE *reader = channel_file(&ends[0], 0), *writer = channel_file(&ends[1], 1);
     if (!reader || !writer || setvbuf(reader, buffers[0], _IOFBF, sizeof(buffers[0]))
         || setvbuf(writer, buffers[1], _IOFBF, sizeof(buffers[1]))) return 0;
     *in = reader;
     *out = writer;   /* the pipe behind the old *out stays open as the bell */
+    return 1;
+}
+
+static void answer(uint32_t status, const void *data, uint32_t count);
+
+/* Op 19: this worker forks; the copy goes on from exactly this state for another host. `spec` is
+   "<socket path>\0<channel path>": the copy connects to the socket the host listens on and carries
+   its streams over that socket, or over the channel file with the socket as the bell when one is
+   named. The original answers with the copy's pid and goes on serving its own host. */
+static int fork_copy(const char *spec, uint32_t count, pid_t *pid)
+{
+    const char *channel = memchr(spec, 0, count);
+    struct sockaddr_un address = {.sun_family = AF_UNIX};
+    if (!channel || channel == spec || (size_t)(channel - spec) >= sizeof(address.sun_path)
+        || spec[count - 1]) return 0;
+    ++channel;
+    memcpy(address.sun_path, spec, strlen(spec));
+    fflush(NULL);
+    *pid = fork();
+    if (*pid < 0) return 0;
+    if (*pid) return 1;
+    /* The copy: drop the original's pipes, so its host still sees the original's end alone. */
+    close(STDIN_FILENO);
+    close(fileno(pipe_reply));
+    int link = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (link < 0 || connect(link, (struct sockaddr *)&address, sizeof(address))) _exit(5);
+    if (*channel) {
+        if (!open_channel(channel, link, link, &request, &reply)) _exit(5);
+    } else {
+        request = fdopen(link, "rb");
+        reply = fdopen(dup(link), "wb");
+        if (!request || !reply) _exit(5);
+    }
+    answer(0, "BFIN9 copy", 10);
     return 1;
 }
 
@@ -143,14 +179,15 @@ int main(int argc, char **argv) {
         else return 2;
     }
     request = stdin;
-    reply = fdopen(dup(STDOUT_FILENO), "wb");
+    reply = pipe_reply = fdopen(dup(STDOUT_FILENO), "wb");
     if (!buffer || !reply || dup2(STDERR_FILENO, STDOUT_FILENO) < 0) return 2;
     /* Map the channel before the handshake, so the host may remove its file once answered. */
     FILE *channel_in = request, *channel_out = reply;
-    if (channel && !open_channel(channel, &channel_in, &channel_out)) return 4;
+    if (channel && !open_channel(channel, STDIN_FILENO, fileno(reply), &channel_in, &channel_out)) return 4;
     default_callback.init(&default_callback);
     SIM_DESC sd = sim_open(SIM_OPEN_DEBUG, &default_callback, NULL, args);
     if (!sd || sim_create_inferior(sd, NULL, empty, empty) != SIM_RC_OK) return 3;
+    signal(SIGCHLD, SIG_IGN);   /* copies (op 19) are reaped by the system */
     if (channel) answer(0, "BFIN9 channel", 13);
     else answer(0, "BFIN9", 5);
     /* The handshake went over the pipe; from here on the rings carry the streams. */
@@ -165,6 +202,60 @@ int main(int argc, char **argv) {
                                  : sim_write(sd, address, buffer, count);
             if (n != count) { answer(1, NULL, 0); break; }
             answer(0, buffer, op == 1 ? count : 0);
+        } else if (op == 19) {
+            pid_t pid;
+            if (address || !count || count > 4096 || fread(buffer, 1, count, request) != count) break;
+            if (!fork_copy((const char *)buffer, count, &pid)) { answer(1, NULL, 0); break; }
+            if (pid) {
+                unsigned char value[] = {pid, pid >> 8, pid >> 16, pid >> 24};
+                answer(0, value, 4);
+            }
+        } else if (op == 20) {
+            /* A poll loop of the ARM, ahead: `address` runs, each advancing the next of the cycle steps that
+               follow a ready address and word (4 bytes each, as op 18 would), as long as the HOSTDP status
+               stays `count` and, with a ready address, the 4 bytes there stay the word. Answers the runs
+               done, whether something changed in the last of them, and the status. A ROM entry ends the
+               request with the ROM diagnostic instead (rom_snapshot); the host finds the run from the clock. */
+            uint32_t n = address, done = 0, changed = 0, status = count, ready, word;
+            int failed = 0, rom = 0;
+            if (!n || n > LIMIT / 4 - 2 || fread(buffer, 1, 4 * n + 8, request) != 4 * n + 8) break;
+            memcpy(&ready, buffer, 4);
+            memcpy(&word, buffer + 4, 4);
+            for (; done < n; ++done) {
+                const unsigned char *at = buffer + 8 + 4 * done;
+                uint32_t cycles = at[0] | (uint32_t)at[1] << 8 | (uint32_t)at[2] << 16 | (uint32_t)at[3] << 24;
+                if (cycles > 1000000) { failed = 1; break; }
+                if (cycles) {
+                    uint32_t pc, executed;
+                    int sig = 0;
+                    enum sim_stop reason = sim_stopped;
+                    blech_bfin_time_guard(cycles);
+                    sim_resume(sd, 0, 0);
+                    executed = blech_bfin_count();
+                    sim_stop_reason(sd, &reason, &sig);
+                    if (!reg_get(sd, 53, &pc)) { failed = 1; break; }
+                    if (reason != sim_stopped || sig != SIGTRAP || !blech_bfin_stopped()) { failed = 2; break; }
+                    if (pc >= 0xEF000000 && pc < 0xF0000000) {
+                        if (!rom_snapshot(sd, executed, blech_bfin_last())) failed = 1;
+                        rom = 1;
+                        break;
+                    }
+                }
+                if (!blech_bfin_hostdp_bus(sd, 0, &status)) { failed = 1; break; }
+                if (status != count) { ++done; changed = 1; break; }
+                if (ready) {
+                    uint32_t now;
+                    if (sim_read(sd, ready, (unsigned char *)&now, 4) != 4) { failed = 1; break; }
+                    if (now != word) { ++done; changed = 1; break; }
+                }
+            }
+            if (failed) { answer(failed, NULL, 0); break; }
+            if (rom) continue;
+            unsigned char data[12];
+            uint32_t out[3] = {done, changed, status};
+            for (unsigned i = 0; i < 3; ++i)
+                for (unsigned b = 0; b < 4; ++b) data[4 * i + b] = out[i] >> (8 * b);
+            answer(0, data, sizeof(data));
         } else if (op == 16) {
             if (!blech_bfin_memory_window(address, count)) { answer(1, NULL, 0); break; }
             answer(0, NULL, 0);

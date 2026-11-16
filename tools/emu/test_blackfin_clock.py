@@ -353,6 +353,62 @@ class ArmClock(unittest.TestCase):
                              port.backend.clock_status()['cycles']))
         self.assertEqual(seen[0], seen[1])
 
+    def test_a_computed_poll_loop_ends_exactly_like_reading_every_time(self):
+        import unicorn
+        import machine as machine_module
+        from test_blackfin_backend import stream
+        if machine_module._arm_tick_library() is None:
+            self.skipTest('no C compiler for arm_tick.c')
+        profile = SimpleNamespace(assert_handler=0xC0100000, flash_read=0xC0100004,
+                                  dsp_upload=0xC0100008, tx_full=0xC010000C,
+                                  user_mark=bytes(12))
+        # ARM: call a function that pushes, reads DSP_CTRL twice and pops, again and again. The first read that
+        # differs from R5 leaves for 0xC0000078 (first read) or 0xC000007C (second).
+        arm = struct.pack('<18I', 0xEB000002, 0xEAFFFFFD, 0xEAFFFFFE, 0xEAFFFFFE, 0xE92D4010, 0xE3A04206,
+                          0xE3844002, 0xE1D400B0, 0xE1500005, 0x1AFFFFF7, *[0xE1A02002] * 4,
+                          0xE1D410B0, 0xE1510005, 0x1AFFFFF1, 0xE8BD8010)
+        replayed = []
+        original_replayed = machine_module._NativeClockMachine._replayed
+
+        def replay(machine):
+            replayed.append(True)
+            return original_replayed(machine)
+        exits = set()
+        for nops in range(3000, 3024, 2):
+            seen, ahead = [], []
+            for reads in (machine_module._NativeClockMachine.POLL_READS, 0):
+                with BlackfinPort(WORKER, operating=True, host_transport='fifo',
+                                  sport=dict(core_hz=400000000)) as port, \
+                     patch.object(machine_module._NativeClockMachine, 'POLL_READS', reads), \
+                     patch.object(machine_module._NativeClockMachine, '_replayed', replay):
+                    machine = machine_module.Machine(bytes(0x1000), profile=profile, dsp_backend=port)
+                    machine.pace = False
+                    # DSP: NOPs, then a halfword store of 0x10 to HOST_STATUS, then a jump to itself.
+                    port.boot(stream(bytes(2 * nops) + struct.pack('<3H', 0x8A00, 0x2000, 0x2000)))
+                    port.backend.set_register(8, 0xFFC03404)
+                    port.backend.set_register(0, 0x10)
+                    machine.uc.mem_write(0xC0000070, arm)
+                    # A test's own code hook away from the loop, as swap_cases.Box sets them.
+                    machine.uc.hook_add(unicorn.UC_HOOK_CODE, lambda *_: None, begin=0xC0000800, end=0xC0000800)
+                    machine.uc.reg_write(machine.A.UC_ARM_REG_SP, 0xC0000F00)
+                    machine.uc.reg_write(machine.A.UC_ARM_REG_R5, port.backend.host_status())
+                    machine.uc.reg_write(machine.A.UC_ARM_REG_PC, 0xC0000070)
+                    calls = []
+                    original = port.ahead
+                    port.ahead = lambda *args: calls.append(original(*args)) or calls[-1]
+                    while machine.reg(machine.A.UC_ARM_REG_PC) not in (0xC0000078, 0xC000007C) \
+                            and machine.time_ns < 50000000:
+                        machine.run_slice()
+                    seen.append((machine.time_ns, machine.insns, machine._dsp_arm_fraction,
+                                 [machine.reg(r) for r in machine._reg_ids], port.backend.clock_status(),
+                                 port.backend.host_status(), machine.uc.mem_read(0xC0000E00, 0x100)))
+                    ahead.append(calls)
+            self.assertEqual(seen[0], seen[1])
+            exits.add(seen[0][3][15])
+            self.assertTrue(ahead[0] and not ahead[1])
+        self.assertEqual(exits, {0xC0000078, 0xC000007C})
+        self.assertTrue(replayed)             # some status changes came in the middle of a run
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -348,7 +348,8 @@ class Machine:
         the time of the instruction that runs, as with the Python hook."""
         from unicorn.unicorn_py3 import unicorn as u
         state = {name: self.__dict__.pop(name) for name in _NativeClockMachine.CLOCK}
-        self._tick = _ArmTick()
+        self._tick = _ArmTick(budget=NO_BUDGET, stop=ctypes.cast(u.uclib.uc_emu_stop, ctypes.c_void_p).value)
+        self._tick_epoch = 0
         self.__class__ = _NativeClockMachine
         for name, value in state.items():
             setattr(self, name, value)
@@ -360,6 +361,20 @@ class Machine:
         if status:
             raise u.UcError(status)
         self._tick_hook = (library, handle)
+        self._tick_library, self._foreign_hooks = library, {}
+        self._poll_seen, self._poll_skip, self._replay, self._scratch = {}, {}, collections.deque(), None
+        add, remove = self.uc.hook_add, self.uc.hook_del
+
+        def hook_add(kind, callback, user_data=None, begin=1, end=0, *args, **kwargs):
+            handle = add(kind, callback, user_data, begin, end, *args, **kwargs)
+            self._foreign_hooks[handle] = (kind, begin, end)
+            return handle
+
+        def hook_del(handle):
+            self._foreign_hooks.pop(handle, None)
+            return remove(handle)
+
+        self.uc.hook_add, self.uc.hook_del = hook_add, hook_del
 
     def _dsp_arm_tick(self, uc, address, size, data):
         elapsed = self._dsp_arm_fraction + self.ns_per_insn
@@ -1059,7 +1074,14 @@ class Machine:
         ran = False
         if not (self.reg(A.UC_ARM_REG_PC) in self.ENTRIES and self.service()):
             pc = self.reg(A.UC_ARM_REG_PC)
-            uc.emu_start(pc | (1 if cpsr & 0x20 else 0), 0, count=count)
+            if self._dsp_clocked and hasattr(self, '_tick'):
+                self._tick.budget = count            # arm_tick.c ends the slice, not emu_start's count
+                try:
+                    uc.emu_start(pc | (1 if cpsr & 0x20 else 0), 0)
+                finally:
+                    self._tick.budget = NO_BUDGET
+            else:
+                uc.emu_start(pc | (1 if cpsr & 0x20 else 0), 0, count=count)
             ran = True
         self.insns += self._dsp_arm_count if self._dsp_clocked else count
         pc = self.reg(A.UC_ARM_REG_PC)
@@ -1135,9 +1157,106 @@ class Machine:
             self.booted, self.boot_ms = True, round(self.time_ns / 1e6, 1)
 
 
+NO_BUDGET = (1 << 64) - 1
+
+
 class _ArmTick(ctypes.Structure):
     _fields_ = [('time_ns', ctypes.c_double), ('fraction', ctypes.c_double),
-                ('ns_per_insn', ctypes.c_double), ('count', ctypes.c_uint64)]
+                ('ns_per_insn', ctypes.c_double), ('count', ctypes.c_uint64),
+                ('budget', ctypes.c_uint64), ('stop', ctypes.c_void_p)]
+
+
+class _PollScratch:
+    """A second Unicorn for Machine._poll_ahead: it runs the loop once from a copy of the machine's state
+    (registers, SCTLR, the memory pages it touches, copied as it touches them) with DSP_CTRL reading a fixed
+    status. run() returns the instructions of one run, the instruction number (from 1) of each DSP_CTRL read in
+    it and the read's address, or None when the run is not one that repeats unchanged."""
+    RAM = ((0xC0000000, 0x08000000), (0xFFFF0000, 0x10000), (0x80000000, 0x20000), (0, 0x1000))
+    REGISTERS = tuple(range(66, 79)) + (12, 10)        # R0-R12, SP, LR (unicorn arm_const ids)
+
+    def __init__(self, machine):
+        import unicorn
+        A = machine.A
+        self.machine, self.A = machine, A
+        uc = self.uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
+        uc.ctl_set_cpu_model(A.UC_CPU_ARM_926)
+        uc.mmio_map(DSP_DATA & ~0xFFF, 0x1000, self._read, None, self._write, None)
+        uc.hook_add(unicorn.UC_HOOK_MEM_UNMAPPED, self._unmapped)
+        uc.hook_add(unicorn.UC_HOOK_CODE, self._code)
+        uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, self._stored)
+        uc.hook_add(unicorn.UC_HOOK_INTR, self._interrupt)
+        self.pages = set()
+
+    def _unmapped(self, uc, access, address, size, value, data):
+        page = address & ~0xFFF
+        if self.bad or not any(base <= page < base + size for base, size in self.RAM):
+            self.bad = True
+            return False
+        uc.mem_map(page, 0x1000)
+        uc.mem_write(page, bytes(self.machine.uc.mem_read(page, 0x1000)))
+        self.pages.add(page)
+        return True
+
+    def _read(self, uc, offset, size, data):
+        if (DSP_DATA & ~0xFFF) + offset != DSP_CTRL or size != 2:
+            self.bad = True
+            uc.emu_stop()
+            return 0
+        self.reads.append((self.count, uc.reg_read(self.A.UC_ARM_REG_PC)))
+        return self.status
+
+    def _write(self, uc, offset, size, value, data):
+        self.bad = True
+        uc.emu_stop()
+
+    def _code(self, uc, address, size, data):
+        if address == self.pc and self.count:
+            self.done = True
+            uc.emu_stop()
+            return
+        self.count += 1
+        if address in self.machine.ENTRIES or any(begin <= address <= end for _, begin, end in self.hooks):
+            self.bad = True
+            uc.emu_stop()
+
+    def _stored(self, uc, access, address, size, value, data):
+        self.stored.add((address, size))
+
+    def _interrupt(self, uc, number, data):
+        self.bad = True
+        uc.emu_stop()
+
+    def run(self, pc, status, limit):
+        m, A, uc = self.machine, self.A, self.uc
+        sctlr = m.uc.reg_read(A.UC_ARM_REG_CP_REG, (15, 0, 0, 1, 0, 0, 0))
+        if sctlr & 1:                                  # MMU on: the copy would not translate addresses alike
+            return None
+        self.hooks = [(kind, begin, end) for kind, begin, end in m._foreign_hooks.values()]
+        if any(kind != 4 or begin > end for kind, begin, end in self.hooks):    # 4: UC_HOOK_CODE with a range
+            return None
+        for page in self.pages:
+            uc.mem_unmap(page, 0x1000)
+        self.pages = set()
+        uc.ctl_flush_tb()
+        self.pc, self.status, self.count, self.reads, self.stored = pc, status, 0, [], set()
+        self.bad = self.done = False
+        cpsr = m.reg(A.UC_ARM_REG_CPSR)
+        before = [m.reg(r) for r in self.REGISTERS]
+        uc.reg_write(A.UC_ARM_REG_CP_REG, (15, 0, 0, 1, 0, 0, 0, sctlr))
+        uc.reg_write(A.UC_ARM_REG_CPSR, cpsr)
+        for r, value in zip(self.REGISTERS, before):
+            uc.reg_write(r, value)
+        try:
+            uc.emu_start(pc | (1 if cpsr & 0x20 else 0), 0, count=limit + 1)
+        except Exception:
+            return None
+        if (self.bad or not self.done or not self.reads or self.reads[0] != (1, pc)
+                or uc.reg_read(A.UC_ARM_REG_CPSR) != cpsr or [uc.reg_read(r) for r in self.REGISTERS] != before):
+            return None
+        for address, size in self.stored:              # memory as it was: the next run starts alike
+            if uc.mem_read(address, size) != m.uc.mem_read(address, size):
+                return None
+        return self.count, [n for n, _ in self.reads], [a for _, a in self.reads]
 
 
 def _arm_tick_library():
@@ -1178,6 +1297,92 @@ class _NativeClockMachine(Machine):
     @_dsp_arm_count.setter
     def _dsp_arm_count(self, value):
         self._tick.count = value
+        self._tick_epoch += 1                 # a new slice: reads of the last tell nothing about this one
+        if getattr(self, '_replay', None):
+            raise RuntimeError('a slice ended inside a computed poll loop')
+
+    def read(self, a):
+        if a == DSP_CTRL and self.dsp_backend is not None:
+            if self._replay:
+                return self._replayed()
+            return self._poll_ahead(Machine.read(self, a))
+        return Machine.read(self, a)
+
+    # A firmware loop that only polls DSP_CTRL. When a read comes from an instruction that read the same status
+    # a short while before, one run of the loop from the current state is computed in a scratch Unicorn
+    # (_PollScratch). If that run reads no device but DSP_CTRL, ends at this instruction with the same
+    # registers and leaves memory as it found it, every further run is the same until the status changes. The
+    # DSP is then moved on in one request (blackfin_worker op 20), advanced at each read of the runs as
+    # advance_to would, up to the read that sees a new status or the end of the slice. The ARM skips the whole
+    # runs, its clock counted as arm_tick.c would; the reads of the last part run gets the statuses the DSP
+    # gave (_replay). Same results as running every read.
+    POLL_READS = 4096
+    POLL_PERIOD = 512
+
+    def _replayed(self):
+        pc, time, status = self._replay.popleft()
+        if self._tick.time_ns != time or self.reg(self.A.UC_ARM_REG_PC) != pc:
+            raise RuntimeError(f'poll loop left its computed path at 0x{self.reg(self.A.UC_ARM_REG_PC):08x}')
+        return status
+
+    def _poll_ahead(self, status):
+        tick, port = self._tick, self.dsp_backend
+        if (tick.budget == NO_BUDGET or self.POLL_READS < 1 or not getattr(port, 'clock_bound', False)
+                or not port.loaded):
+            return status
+        count, epoch, pc = tick.count, self._tick_epoch, self.reg(self.A.UC_ARM_REG_PC)
+        last = self._poll_seen.get(pc)
+        self._poll_seen[pc] = (epoch, count, status)
+        if last is None or last[0] != epoch or last[2] != status or not 0 < count - last[1] <= self.POLL_PERIOD:
+            return status
+        skip = self._poll_skip.get(pc)
+        if skip and skip[0]:
+            skip[0] -= 1
+            return status
+        if self._scratch is None:
+            self._scratch = _PollScratch(self)
+        loop = self._scratch.run(pc, status, self.POLL_PERIOD)
+        if loop is None:
+            self._back_off(pc)
+            return status
+        period, offsets, pcs = loop
+        m = len(offsets)
+        gaps = (ctypes.c_uint32 * m)(*[offsets[j + 1] - offsets[j] for j in range(m - 1)],
+                                     period - offsets[-1] + offsets[0])
+        n = min(self.POLL_READS // m, (tick.budget - count) // period) * m
+        if n < 1:
+            return status
+        steps, times, fractions = (ctypes.c_uint32 * n)(), (ctypes.c_double * n)(), (ctypes.c_double * n)()
+        self._tick_library.blech_arm_ahead(ctypes.byref(tick), gaps, ctypes.c_uint32(m), ctypes.c_uint32(n),
+                                           ctypes.c_int64(port._clock_origin_ns), ctypes.c_int64(port._clock_hz),
+                                           ctypes.c_int64(port._clock_cycles), steps, times, fractions)
+        steps = list(steps)
+        for i, step in enumerate(steps):
+            if step > 1000000:                # advance_to would split it; leave such reads to it
+                n = i
+                break
+        if n < 1:
+            return status
+        done, changed = port.ahead(status, steps[:n], [int(t) for t in times[:n]])
+        if done < 32:
+            self._back_off(pc)
+        else:
+            self._poll_skip.pop(pc, None)
+        runs = done // m                      # whole runs: the ARM is at this read again after them
+        if runs:
+            r = runs * m
+            tick.time_ns, tick.fraction = times[r - 1], fractions[r - 1]
+            tick.count = count + runs * period
+            self.recent.extend([DSP_CTRL] * min(r, self.recent.maxlen))
+            self._poll_seen[pc] = (epoch, tick.count, status)
+        for r in range(runs * m + 1, done + 1):
+            self._replay.append((pcs[r % m], times[r - 1], changed if r == done else status))
+        return changed if runs and runs * m == done else status
+
+    def _back_off(self, pc):
+        skip = self._poll_skip.setdefault(pc, [0, 1])
+        skip[1] = min(skip[1] * 2, 4096)
+        skip[0] = skip[1]
 
     @property
     def ns_per_insn(self):

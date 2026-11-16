@@ -5,9 +5,12 @@ import mmap
 import os
 import math
 from pathlib import Path
+import pickle
 import selectors
+import socket
 import struct
 import subprocess
+import sys
 import tempfile
 import time
 from types import MappingProxyType
@@ -58,16 +61,7 @@ class BlackfinBackend:
     def __init__(self, worker, *, timeout=5, operating=False, rom=None):
         if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
             raise ValueError('a finite positive Blackfin deadline is required')
-        self.process = None
-        self.timeout = timeout
-        self.rom = rom
-        self._stderr = tempfile.TemporaryFile()
-        self._selector = selectors.DefaultSelector()
-        self._deadline = time.monotonic() + timeout
-        self._buffer = bytearray()   # bytes the worker has sent beyond the current answer
-        self._cycles = None          # worker clock as of the last advance; None after anything else moved it
-        self._host = None            # HOSTDP status from the last advance; None after any other request
-        self._channel = None         # shared-memory rings once the worker answered the handshake
+        self._fields(timeout, rom, tempfile.TemporaryFile())
         channel_path = None
         try:
             path = Path(worker).resolve(strict=True)
@@ -83,17 +77,15 @@ class BlackfinBackend:
                 arguments += ['--channel', channel_path]
             self.process = subprocess.Popen(arguments, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                             stderr=self._stderr, bufsize=0)
-            os.set_blocking(self.process.stdin.fileno(), False)
-            os.set_blocking(self.process.stdout.fileno(), False)
-            self._selector.register(self.process.stdout, selectors.EVENT_READ)
+            self._out, self._in = self.process.stdin.fileno(), self.process.stdout.fileno()
+            os.set_blocking(self._out, False)
+            os.set_blocking(self._in, False)
+            self._selector.register(self._in, selectors.EVENT_READ)
             handshake = self._response()
             if handshake not in (b'BFIN9', b'BFIN9 channel'):
                 raise BackendError('invalid Blackfin worker handshake; rebuild the SDK for BFIN9')
             if handshake == b'BFIN9 channel':      # a worker that ignores --channel stays on the pipes
-                anchor = ctypes.c_char.from_buffer(shared)
-                base = ctypes.addressof(anchor)
-                self._channel = (lib, shared, anchor, lib.blech_channel_ring(base, 0), lib.blech_channel_ring(base, 1),
-                                 ctypes.create_string_buffer(LIMIT + 64))
+                self._map(lib, shared)
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
             self.close()
@@ -101,6 +93,83 @@ class BlackfinBackend:
         finally:
             if channel_path is not None:
                 os.unlink(channel_path)
+
+    def _fields(self, timeout, rom, stderr):
+        self.process = None
+        self.timeout = timeout
+        self.rom = rom
+        self._stderr = stderr
+        self._selector = selectors.DefaultSelector()
+        self._deadline = time.monotonic() + timeout
+        self._buffer = bytearray()   # bytes the worker has sent beyond the current answer
+        self._cycles = None          # worker clock as of the last advance; None after anything else moved it
+        self._host = None            # HOSTDP status from the last advance; None after any other request
+        self._channel = None         # shared-memory rings once the worker answered the handshake
+        self._link = None            # the socket to a worker copy (fork); the pipes of `process` otherwise
+        self._out = self._in = -1    # where requests go and answers come from, or the bells of the channel
+
+    def _map(self, lib, shared):
+        anchor = ctypes.c_char.from_buffer(shared)
+        base = ctypes.addressof(anchor)
+        self._channel = (lib, shared, anchor, lib.blech_channel_ring(base, 0), lib.blech_channel_ring(base, 1),
+                         ctypes.create_string_buffer(LIMIT + 64))
+
+    def fork(self):
+        """A second backend whose worker is a copy of this one's as it is now (worker op 19): the same DSP
+        memory, registers, devices, event queue and clock. Both go on independently from here; this one is
+        left exactly as it was, so several cases can start from one boot."""
+        if self.process is None and self._link is None:
+            raise BackendError('Blackfin worker is closed')
+        folder = tempfile.mkdtemp(prefix='bfin-', dir=None if len(tempfile.gettempdir()) < 64 else '/tmp')
+        socket_path, channel_path = os.path.join(folder, 's'), None
+        listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        copy = BlackfinBackend.__new__(BlackfinBackend)
+        copy._fields(self.timeout, self.rom, os.fdopen(os.dup(self._stderr.fileno()), 'rb'))
+        try:
+            listener.bind(socket_path)
+            listener.listen(1)
+            shared = None
+            if self._channel is not None:
+                lib = self._channel[0]
+                channel_path = os.path.join(folder, 'c')
+                handle = os.open(channel_path, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600)
+                try:
+                    os.ftruncate(handle, lib.blech_channel_size())
+                    shared = mmap.mmap(handle, lib.blech_channel_size())
+                finally:
+                    os.close(handle)
+            spec = socket_path.encode() + b'\0' + (channel_path.encode() if channel_path else b'') + b'\0'
+            copy.pid = struct.unpack('<I', self._request(19, 0, len(spec), spec))[0]
+            listener.settimeout(self.timeout)
+            copy._link, _ = listener.accept()
+            copy._link.setblocking(False)
+            copy._out = copy._in = copy._link.fileno()
+            copy._selector.register(copy._in, selectors.EVENT_READ)
+            if shared is not None:
+                copy._map(self._channel[0], shared)
+            if copy._response() != b'BFIN9 copy':
+                raise BackendError('invalid Blackfin worker copy handshake')
+            copy._cycles = self._cycles
+        except (OSError, BackendError) as error:
+            copy.close()
+            raise BackendError(f'Blackfin worker copy: {error}') from error
+        finally:
+            listener.close()
+            for path in (socket_path, channel_path):
+                if path is not None and os.path.exists(path):
+                    os.unlink(path)
+            os.rmdir(folder)
+        return copy
+
+    def running(self):
+        if self.process is None:
+            return self._link is not None
+        return self.process.poll() is None
+
+    def after_fork(self):
+        """Call in a child process (os.fork) that goes on with this backend: kqueue selectors are not inherited."""
+        self._selector = selectors.DefaultSelector()
+        self._selector.register(self._in, selectors.EVENT_READ)
 
     def _diagnostic(self):
         if self._stderr.closed:
@@ -113,12 +182,12 @@ class BlackfinBackend:
     def _send(self, data):
         if self._channel is not None:
             lib, _, _, to_worker, _, _ = self._channel
-            if lib.blech_ring_write(to_worker, data, len(data), self.process.stdin.fileno()):
+            if lib.blech_ring_write(to_worker, data, len(data), self._out):
                 raise BackendError('Blackfin worker stopped accepting requests')
             return
         # The pipe almost always has room: write first and wait only for a full pipe.
         try:
-            count = os.write(self.process.stdin.fileno(), data)
+            count = os.write(self._out, data)
         except BlockingIOError:
             count = 0
         if count == len(data):
@@ -127,13 +196,13 @@ class BlackfinBackend:
             raise BackendError('Blackfin worker stopped accepting requests')
         view = memoryview(data)[count:]
         with selectors.DefaultSelector() as selector:
-            selector.register(self.process.stdin, selectors.EVENT_WRITE)
+            selector.register(self._out, selectors.EVENT_WRITE)
             while view:
                 remaining = self._deadline - time.monotonic()
                 if remaining <= 0 or not selector.select(remaining):
                     raise BackendError('Blackfin worker deadline exceeded while writing')
                 try:
-                    count = os.write(self.process.stdin.fileno(), view)
+                    count = os.write(self._out, view)
                 except BlockingIOError:
                     continue
                 if count <= 0:
@@ -151,7 +220,7 @@ class BlackfinBackend:
                 if left_ms <= 0:
                     raise BackendError('Blackfin worker deadline exceeded')
                 count = lib.blech_ring_read(to_host, buffer, size - len(data), len(buffer),
-                                            self.process.stdout.fileno(), CHANNEL_SPIN_NS, left_ms)
+                                            self._in, CHANNEL_SPIN_NS, left_ms)
                 if count == 0:
                     raise BackendError('Blackfin worker exited before answering')
                 if count == -1:
@@ -161,7 +230,7 @@ class BlackfinBackend:
                 data.extend(memoryview(buffer)[:count])
         while len(data) < size:
             try:
-                chunk = os.read(self.process.stdout.fileno(), 65536)
+                chunk = os.read(self._in, 65536)
             except BlockingIOError:
                 remaining = self._deadline - time.monotonic()
                 if remaining <= 0 or not self._selector.select(remaining):
@@ -185,7 +254,7 @@ class BlackfinBackend:
         return self._receive(count)
 
     def _request(self, op, address, count, data=b'', extra=0):
-        if self.process is None:
+        if self.process is None and self._link is None:
             raise BackendError('Blackfin worker is closed')
         self._deadline = time.monotonic() + self.timeout
         self._host = None
@@ -193,7 +262,7 @@ class BlackfinBackend:
             self._cycles = None
         try:
             self._send(struct.pack('<III', op, address, count) + data)
-            response = self._response(rom=op in (5, 13, 18))
+            response = self._response(rom=op in (5, 13, 18, 20))
             return self._receive(extra) if extra else response
         except (OSError, BackendError) as error:
             detail = self._diagnostic()
@@ -299,6 +368,58 @@ class BlackfinBackend:
         return dict(cycles=cycles, steps=steps, pc=pc, idle=bool(idle), host_status=host,
                     word=answer[20:] if ready_address else None)
 
+    def ahead(self, status, steps, ready_address=0, word=b''):
+        """Runs advance(step) for the steps in turn, as long as the HOSTDP status stays `status` and, with
+        `ready_address`, the 4 bytes there stay `word`, in one round trip (a polling ARM,
+        Machine._poll_ahead). Returns the steps done and the status after the last of them; a change ends
+        the steps with the one that made it. A ROM entry is served as in advance and the steps go on."""
+        if ready_address and (not 0 < ready_address <= 0xFFFFFFFC or len(word) != 4):
+            raise ValueError('invalid Blackfin ready address')
+        if not steps or len(steps) > LIMIT // 4 - 2 or any(not 0 <= step <= 1000000 for step in steps):
+            raise ValueError('invalid Blackfin poll steps')
+        if self._cycles is None:
+            self._cycles = self.clock_status()['cycles']
+        done = 0
+        while done < len(steps):
+            start, rest = self._cycles, steps[done:]
+            try:
+                answer = self._request(20, len(rest), status, struct.pack(f'<I4s{len(rest)}I', ready_address,
+                                                                          word or bytes(4), *rest))
+            except _ROMCall as error:
+                try:
+                    if self.rom is None:
+                        raise BackendError('missing Blackfin ROM service')
+                    self.rom.handle(self, error.registers)
+                    elapsed = self.clock_status()['cycles'] - start
+                except (BackendError, ValueError) as failure:
+                    self.close()
+                    raise BackendError(f'{failure}: {error}') from failure
+                for step in rest:            # the run the ROM entry came in, then finish it as advance does
+                    if elapsed < step:
+                        break
+                    elapsed -= step
+                    start += step
+                    done += 1
+                self._cycles = start + elapsed
+                left = steps[done] - elapsed
+                if left:
+                    self.advance(left)
+                host = self.host_status()
+                done += 1
+                if host != status or ready_address and self.read(ready_address, 4) != word:
+                    return done, host
+                continue
+            if len(answer) != 12:
+                raise BackendError('invalid Blackfin poll answer')
+            ran, changed, host = struct.unpack('<3I', answer)
+            if not 0 < ran <= len(rest) or (ran < len(rest) and not changed):
+                raise BackendError('invalid Blackfin poll answer')
+            done += ran
+            self._cycles, self._host = start + sum(rest[:ran]), host
+            if changed:
+                break
+        return done, self._host
+
     def _host_word(self, operation, word):
         if not isinstance(word, int) or not 0 <= word <= 65535:
             raise ValueError('invalid 16-bit HOSTDP bus word')
@@ -354,6 +475,9 @@ class BlackfinBackend:
                     process.wait()
             process.stdin.close()
             process.stdout.close()
+        link, self._link = self._link, None
+        if link is not None:
+            link.close()                # the copy reads the end of its requests and exits
         channel, self._channel = self._channel, None
         if channel is not None:
             shared = channel[1]
@@ -464,6 +588,34 @@ class BlackfinPort:
                                         clock_cycles=self._clock_cycles, operating=self.operating,
                                         host_transport=self.host_transport)
 
+    def ahead(self, status, steps, times):
+        """advance_to(times[i]) with status() after each, as a polling ARM would, while the status stays
+        `status` (BlackfinBackend.ahead). Returns how many were done and the status after the last."""
+        if not self.clock_bound or not self.loaded or len(steps) != len(times) \
+                or any(b < a for a, b in zip([self._clock_ns] + times, times)):
+            raise ValueError('invalid poll steps')
+        try:
+            if self.initialized:
+                done, host = self.backend.ahead(status, steps)
+            else:                             # advance_to looks at the ready word after each step
+                word = self.backend.read(self.ready_address, 4)
+                done, host = self.backend.ahead(status, steps, self.ready_address, word)
+        except BackendError:
+            self.close()
+            raise
+        self._clock_cycles += sum(steps[:done])
+        self._clock_ns = times[done - 1]
+        if not self.initialized:
+            value = self.backend.read(self.ready_address, 4)
+            self.backend._host = host         # a read does not change the status it reports
+            self.initialized = value != self._initial_word and value != bytes(4)
+            if self.initialized:
+                self.boot_report = dict(ready=True, ready_address=self.ready_address,
+                                        before=self._initial_word.hex(), after=value.hex(),
+                                        clock_cycles=self._clock_cycles, operating=self.operating,
+                                        host_transport=self.host_transport)
+        return done, host
+
     def frdy(self):
         if not self._boot_attempted and not self.loaded:
             return 1
@@ -497,8 +649,7 @@ class BlackfinPort:
             raise
 
     def _require_loaded(self):
-        if (not self.loaded or self.backend is None or self.backend.process is None
-                or self.backend.process.poll() is not None):
+        if not self.loaded or self.backend is None or not self.backend.running():
             raise BackendError('Blackfin DSP program is not loaded')
 
     def service(self, steps=64):
@@ -611,6 +762,54 @@ class BlackfinPort:
         transfer['address'] += 2
         transfer['left'] -= 1
         return value
+
+    def run_copy(self, task):
+        """task() in a copy of this process (os.fork) whose DSP worker is a copy of this port's (fork), both as
+        they are now, and what it returned (pickled across). The ARM machine, this port and its worker stay
+        exactly as they were, so every case can start from the same boot: run_copy again for the next one."""
+        copy = self.backend.fork()
+        result_in, result_out = os.pipe()
+        try:
+            pid = os.fork()
+        except OSError:
+            copy.close()
+            os.close(result_in)
+            os.close(result_out)
+            raise
+        if pid == 0:                                    # the copy of this process
+            outcome = ('error', 'case did not finish', '')
+            try:
+                os.close(result_in)
+                copy.after_fork()
+                self.backend = copy
+                outcome = ('ok', task())
+            except BaseException as error:
+                import traceback
+                outcome = ('error', f'{type(error).__name__}: {error}', traceback.format_exc())
+            finally:
+                try:
+                    data = pickle.dumps(outcome, pickle.HIGHEST_PROTOCOL)
+                except Exception as error:
+                    data = pickle.dumps(('error', f'case result cannot be pickled: {error}', ''))
+                try:
+                    view = memoryview(data)
+                    while view:
+                        view = view[os.write(result_out, view):]
+                    sys.stdout.flush()
+                    sys.stderr.flush()
+                finally:
+                    os._exit(0)                         # never the parent's cleanup: its worker stays
+        os.close(result_out)
+        copy.close()                                    # the child holds its own end of the copy
+        chunks = []
+        with os.fdopen(result_in, 'rb') as stream:
+            while chunk := stream.read(1 << 20):
+                chunks.append(chunk)
+        os.waitpid(pid, 0)
+        status, *rest = pickle.loads(b''.join(chunks)) if chunks else ('error', 'case process died', '')
+        if status != 'ok':
+            raise BackendError(f'case in a process copy failed: {rest[0]}\n{rest[1]}'.rstrip())
+        return rest[0]
 
     def close(self):
         self.loaded = self.initialized = False
