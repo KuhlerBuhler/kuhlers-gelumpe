@@ -34,6 +34,7 @@ Speicheruntersuchung zusammen. Anleitungen zum Nachvollziehen am eigenen Gerät 
 - [Sample-Journal: Wiederanlauf nach einer unvollständigen Schreibung](2026-11-10-sample-journal-wiederanlauf.md)
 - [Sample Swap auf der Grundlage von 1.4.5](2026-11-11-sample-swap-develop-final.md)
 - [Native DSP-Aufträge und die Sample-Bibliothek](2026-11-12-native-dsp-bibliotheksbindung.md)
+- [Sample Swap mit dem DSP-Modell prüfen](2026-11-14-sample-swap-dsp-modell.md)
 - [Sampleänderungen mit WRITE dauerhaft speichern](2026-11-11-sample-aenderungen-speichern.md)
 - [Sample-Datei: Wiederanlauf nach abgebrochener Erstanlage](2026-11-10-sample-datei-erstanlage.md)
 - [Aufnahmeabschluss: vorbereitete Auslagerungen verwerfen](2026-11-10-sample-aufnahme-schutz.md)
