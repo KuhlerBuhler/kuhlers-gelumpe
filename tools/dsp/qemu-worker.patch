@@ -1,0 +1,573 @@
+diff --git a/target/bfin/bfin-sim.c b/target/bfin/bfin-sim.c
+index c3d6162f55..f95ba32650 100644
+--- a/target/bfin/bfin-sim.c
++++ b/target/bfin/bfin-sim.c
+@@ -324,10 +324,10 @@ decode_ProgCtrl_0(DisasContext *dc, uint16_t iw0)
+          * which prevents it from working even with on-chip memory.  As such,
+          * we'll just do a "stupid" implementation here.  */
+         TCGv tmp = tcg_temp_new();
+-        tcg_gen_qemu_ld_tl(tmp, cpu_preg[poprnd], dc->mem_idx, MO_UB);
++        blech_qemu_ld(dc, tmp, cpu_preg[poprnd], dc->mem_idx, MO_UB);
+         tcg_gen_setcondi_tl(TCG_COND_EQ, cpu_cc, tmp, 0);
+         tcg_gen_ori_tl(tmp, tmp, 0x80);
+-        tcg_gen_qemu_st_tl(tmp, cpu_preg[poprnd], dc->mem_idx, MO_UB);
++        blech_qemu_st(dc, tmp, cpu_preg[poprnd], dc->mem_idx, MO_UB);
+     } else {
+         illegal_instruction(dc);
+     }
+@@ -396,12 +396,12 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+         if (grp == 4 && reg == 6) {
+             /* Pop ASTAT */
+             tmp = tcg_temp_new();
+-            tcg_gen_qemu_ld_tl(tmp, cpu_spreg, dc->mem_idx, MO_TEUL);
++            blech_qemu_ld(dc, tmp, cpu_spreg, dc->mem_idx, MO_TEUL);
+             gen_astat_store(dc, tmp);
+         } else if (grp == 4 && (reg == 0 || reg == 2)) {
+             /* Pop A#.X */
+             tmp = tcg_temp_new();
+-            tcg_gen_qemu_ld_tl(tmp, cpu_spreg, dc->mem_idx, MO_UB);
++            blech_qemu_ld(dc, tmp, cpu_spreg, dc->mem_idx, MO_UB);
+             tmp64 = tcg_temp_new_i64();
+             tcg_gen_extu_i32_i64(tmp64, tmp);
+ 
+@@ -410,7 +410,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+         } else if (grp == 4 && (reg == 1 || reg == 3)) {
+             /* Pop A#.W */
+             tmp = tcg_temp_new();
+-            tcg_gen_qemu_ld_tl(tmp, cpu_spreg, dc->mem_idx, MO_TEUL);
++            blech_qemu_ld(dc, tmp, cpu_spreg, dc->mem_idx, MO_TEUL);
+             tmp64 = tcg_temp_new_i64();
+             tcg_gen_extu_i32_i64(tmp64, tmp);
+ 
+@@ -419,7 +419,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+         } else {
+             check_lb = true;
+             treg = get_allreg(dc, grp, reg);
+-            tcg_gen_qemu_ld_tl(treg, cpu_spreg, dc->mem_idx, MO_TEUL);
++            blech_qemu_ld(dc, treg, cpu_spreg, dc->mem_idx, MO_TEUL);
+ 
+             if (grp == 6 && (reg == 1 || reg == 4)) {
+                 /* LT loads auto clear the LSB */
+@@ -443,7 +443,7 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+             /* Push ASTAT */
+             tmp = tcg_temp_new();
+             gen_astat_load(dc, tmp);
+-            tcg_gen_qemu_st_tl(tmp, tmp_sp, dc->mem_idx, MO_TEUL);
++            blech_qemu_st(dc, tmp, tmp_sp, dc->mem_idx, MO_TEUL);
+         } else if (grp == 4 && (reg == 0 || reg == 2)) {
+             /* Push A#.X */
+             tmp64 = tcg_temp_new_i64();
+@@ -455,15 +455,15 @@ decode_PushPopReg_0(DisasContext *dc, uint16_t iw0)
+              * we're lazy during intermediate operations (like maintaining the
+              * sign bit).  */
+             tcg_gen_andi_tl(tmp, tmp, 0xff);
+-            tcg_gen_qemu_st_tl(tmp, tmp_sp, dc->mem_idx, MO_TEUL);
++            blech_qemu_st(dc, tmp, tmp_sp, dc->mem_idx, MO_TEUL);
+         } else if (grp == 4 && (reg == 1 || reg == 3)) {
+             /* Push A#.W */
+             tmp = tcg_temp_new();
+             tcg_gen_extrl_i64_i32(tmp, cpu_areg[reg >> 1]);
+-            tcg_gen_qemu_st_tl(tmp, tmp_sp, dc->mem_idx, MO_TEUL);
++            blech_qemu_st(dc, tmp, tmp_sp, dc->mem_idx, MO_TEUL);
+         } else {
+             treg = get_allreg(dc, grp, reg);
+-            tcg_gen_qemu_st_tl(treg, tmp_sp, dc->mem_idx, MO_TEUL);
++            blech_qemu_st(dc, treg, tmp_sp, dc->mem_idx, MO_TEUL);
+         }
+         tcg_gen_mov_tl(cpu_spreg, tmp_sp);
+     }
+@@ -503,26 +503,26 @@ decode_PushPopMultiple_0(DisasContext *dc, uint16_t iw0)
+         if (d) {
+             for (i = dr; i < 8; i++) {
+                 tcg_gen_subi_tl(tmp_sp, tmp_sp, 4);
+-                tcg_gen_qemu_st_tl(cpu_dreg[i], tmp_sp, dc->mem_idx, MO_TEUL);
++                blech_qemu_st(dc, cpu_dreg[i], tmp_sp, dc->mem_idx, MO_TEUL);
+             }
+         }
+         if (p) {
+             for (i = pr; i < 6; i++) {
+                 tcg_gen_subi_tl(tmp_sp, tmp_sp, 4);
+-                tcg_gen_qemu_st_tl(cpu_preg[i], tmp_sp, dc->mem_idx, MO_TEUL);
++                blech_qemu_st(dc, cpu_preg[i], tmp_sp, dc->mem_idx, MO_TEUL);
+             }
+         }
+     } else {
+         /* ({d}R7:imm{dr}, {p}P5:imm{pr}) = [SP++]; */
+         if (p) {
+             for (i = 5; i >= pr; i--) {
+-                tcg_gen_qemu_ld_tl(cpu_preg[i], tmp_sp, dc->mem_idx, MO_TEUL);
++                blech_qemu_ld(dc, cpu_preg[i], tmp_sp, dc->mem_idx, MO_TEUL);
+                 tcg_gen_addi_tl(tmp_sp, tmp_sp, 4);
+             }
+         }
+         if (d) {
+             for (i = 7; i >= dr; i--) {
+-                tcg_gen_qemu_ld_tl(cpu_dreg[i], tmp_sp, dc->mem_idx, MO_TEUL);
++                blech_qemu_ld(dc, cpu_dreg[i], tmp_sp, dc->mem_idx, MO_TEUL);
+                 tcg_gen_addi_tl(tmp_sp, tmp_sp, 4);
+             }
+         }
+@@ -1301,7 +1301,7 @@ disalgnexcpt_ld32u(DisasContext *dc, TCGv ret, TCGv addr)
+     if (dc->disalgnexcpt) {
+         TCGv tmp = tcg_temp_new();
+         tcg_gen_andi_tl(tmp, addr, ~0x3);
+-        tcg_gen_qemu_ld_tl(ret, tmp, dc->mem_idx, MO_TEUL);
++        blech_qemu_ld(dc, ret, tmp, dc->mem_idx, MO_TEUL);
+     } else {
+         gen_aligned_qemu_ld32u(dc, ret, addr);
+     }
+@@ -1457,10 +1457,10 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
+             gen_aligned_qemu_ld16s(dc, cpu_dreg[reg], cpu_preg[ptr]);
+         } else if (sz == 2 && Z == 0) {
+             /* Dreg{reg} = B[Preg{ptr}{aop}] (Z); */
+-            tcg_gen_qemu_ld_tl(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx, MO_UB);
++            blech_qemu_ld(dc, cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx, MO_UB);
+         } else if (sz == 2 && Z == 1) {
+             /* Dreg{reg} = B[Preg{ptr}{aop}] (X); */
+-            tcg_gen_qemu_ld_tl(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx, MO_SB);
++            blech_qemu_ld(dc, cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx, MO_SB);
+         } else {
+             illegal_instruction(dc);
+             return;
+@@ -1477,7 +1477,7 @@ decode_LDST_0(DisasContext *dc, uint16_t iw0)
+             gen_aligned_qemu_st16(dc, cpu_dreg[reg], cpu_preg[ptr]);
+         } else if (sz == 2 && Z == 0) {
+             /* B[Preg{ptr}{aop}] = Dreg{reg}; */
+-            tcg_gen_qemu_st_tl(cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx, MO_UB);
++            blech_qemu_st(dc, cpu_dreg[reg], cpu_preg[ptr], dc->mem_idx, MO_UB);
+         } else {
+             illegal_instruction(dc);
+             return;
+@@ -1517,10 +1517,10 @@ decode_LDSTiiFP_0(DisasContext *dc, uint16_t iw0)
+     gen_align_check(dc, ea, 4, false);
+     if (W == 0) {
+         /* DPreg{reg} = [FP + imm{offset}]; */
+-        tcg_gen_qemu_ld_tl(treg, ea, dc->mem_idx, MO_TEUL);
++        blech_qemu_ld(dc, treg, ea, dc->mem_idx, MO_TEUL);
+     } else {
+         /* [FP + imm{offset}] = DPreg{reg}; */
+-        tcg_gen_qemu_st_tl(treg, ea, dc->mem_idx, MO_TEUL);
++        blech_qemu_st(dc, treg, ea, dc->mem_idx, MO_TEUL);
+     }
+ }
+ 
+@@ -1741,10 +1741,10 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+             gen_aligned_qemu_ld16s(dc, cpu_dreg[reg], ea);
+         } else if (sz == 2 && Z == 0) {
+             /* Dreg{reg} = B[Preg{ptr} + imm{offset}] (Z); */
+-            tcg_gen_qemu_ld_tl(cpu_dreg[reg], ea, dc->mem_idx, MO_UB);
++            blech_qemu_ld(dc, cpu_dreg[reg], ea, dc->mem_idx, MO_UB);
+         } else if (sz == 2 && Z == 1) {
+             /* Dreg{reg} = B[Preg{ptr} + imm{offset}] (X); */
+-            tcg_gen_qemu_ld_tl(cpu_dreg[reg], ea, dc->mem_idx, MO_SB);
++            blech_qemu_ld(dc, cpu_dreg[reg], ea, dc->mem_idx, MO_SB);
+         }
+     } else {
+         if (sz == 0 && Z == 0) {
+@@ -1758,7 +1758,7 @@ decode_LDSTidxI_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+             gen_aligned_qemu_st16(dc, cpu_dreg[reg], ea);
+         } else if (sz == 2 && Z == 0) {
+             /* B[Preg{ptr} + imm{offset}] = Dreg{reg}; */
+-            tcg_gen_qemu_st_tl(cpu_dreg[reg], ea, dc->mem_idx, MO_UB);
++            blech_qemu_st(dc, cpu_dreg[reg], ea, dc->mem_idx, MO_UB);
+         } else {
+             illegal_instruction(dc);
+         }
+@@ -1789,18 +1789,18 @@ decode_linkage_0(DisasContext *dc, uint16_t iw0, uint16_t iw1)
+         /* LINK imm{framesize}; */
+         int size = uimm16s4(framesize);
+         tcg_gen_subi_tl(tmp_sp, tmp_sp, 4);
+-        tcg_gen_qemu_st_tl(cpu_rets, tmp_sp, dc->mem_idx, MO_TEUL);
++        blech_qemu_st(dc, cpu_rets, tmp_sp, dc->mem_idx, MO_TEUL);
+         tcg_gen_subi_tl(tmp_sp, tmp_sp, 4);
+-        tcg_gen_qemu_st_tl(cpu_fpreg, tmp_sp, dc->mem_idx, MO_TEUL);
++        blech_qemu_st(dc, cpu_fpreg, tmp_sp, dc->mem_idx, MO_TEUL);
+         tcg_gen_mov_tl(cpu_fpreg, tmp_sp);
+         tcg_gen_subi_tl(cpu_spreg, tmp_sp, size);
+     } else if (framesize == 0) {
+         /* UNLINK; */
+         /* Restore SP from FP.  */
+         tcg_gen_mov_tl(tmp_sp, cpu_fpreg);
+-        tcg_gen_qemu_ld_tl(cpu_fpreg, tmp_sp, dc->mem_idx, MO_TEUL);
++        blech_qemu_ld(dc, cpu_fpreg, tmp_sp, dc->mem_idx, MO_TEUL);
+         tcg_gen_addi_tl(tmp_sp, tmp_sp, 4);
+-        tcg_gen_qemu_ld_tl(cpu_rets, tmp_sp, dc->mem_idx, MO_TEUL);
++        blech_qemu_ld(dc, cpu_rets, tmp_sp, dc->mem_idx, MO_TEUL);
+         tcg_gen_addi_tl(cpu_spreg, tmp_sp, 4);
+     } else {
+         illegal_instruction(dc);
+diff --git a/target/bfin/cpu.c b/target/bfin/cpu.c
+index 81c07eb2de..ee2986b8f9 100644
+--- a/target/bfin/cpu.c
++++ b/target/bfin/cpu.c
+@@ -31,7 +31,10 @@ static void bfin_restore_state_to_opc(CPUState *cs,
+     BlackfinCPU *cpu = BFIN_CPU(cs);
+     CPUArchState *env = &cpu->env;
+ 
++    /* The insn at data[0] did not complete and is issued again. */
+     env->pc = data[0];
++    env->blech_insns += 1;
++    env->blech_cycles += data[1];
+ }
+ 
+ static bool bfin_cpu_has_work(CPUState *cpu)
+diff --git a/target/bfin/cpu.h b/target/bfin/cpu.h
+index 66696b9c99..f04567c673 100644
+--- a/target/bfin/cpu.h
++++ b/target/bfin/cpu.h
+@@ -19,6 +19,15 @@ struct DisasContext;
+ 
+ #define TARGET_HAS_ICE 1
+ 
++/* Worker build: the second insn_start word is the cycle cost of the insn. */
++#define TARGET_INSN_START_EXTRA_WORDS 1
++
++/* Worker build: reasons a cycle-bounded run returns from cpu_exec. */
++#define EXCP_BLECH_TIME  0x10100
++#define EXCP_BLECH_GUARD 0x10101
++#define EXCP_BLECH_ROM   0x10102
++#define EXCP_BLECH_GNU   0x10103
++
+ /* These exceptions correspond directly to hardware levels.  */
+ #define EXCP_SYSCALL        0
+ #define EXCP_SOFT_BP        1
+@@ -94,6 +103,11 @@ typedef struct CPUArchState {
+     uint32_t astat[32];
+     /* ASTAT delayed helpers */
+     uint32_t astat_op, astat_arg[3];
++
++    /* Worker run limits: cycles may go negative by the cost of the last insn. */
++    int32_t blech_cycles;
++    uint32_t blech_insns;
++    uint32_t blech_last;
+ } CPUBfinState;
+ #define spreg preg[6]
+ #define fpreg preg[7]
+@@ -164,6 +178,12 @@ extern const struct VMStateDescription vmstate_bfin_cpu;
+ 
+ void bfin_cpu_do_interrupt(CPUState *cpu);
+ 
++/* Worker board hooks. */
++extern uint32_t bfin_blech_stop;
++extern bool (*bfin_blech_tlb_fill)(CPUState *cs, vaddr address, int size,
++                                   MMUAccessType access_type, int mmu_idx,
++                                   bool probe, uintptr_t retaddr);
++
+ void bfin_cpu_dump_state(CPUState *cs, FILE *f, int flags);
+ hwaddr bfin_cpu_get_phys_page_debug(CPUState *cpu, vaddr addr);
+ int bfin_cpu_gdb_read_register(CPUState *cpu, GByteArray *buf, int reg);
+@@ -247,7 +267,8 @@ static inline void cpu_get_tb_cpu_state(CPUArchState *env, vaddr *pc,
+                                         uint64_t *cs_base, uint32_t *flags)
+ {
+     *pc = env->pc;
+-    *cs_base = 0;
++    /* Hardware loop checks are translated against the LB values. */
++    *cs_base = env->lbreg[0] | ((uint64_t)env->lbreg[1] << 32);
+     *flags = env->astat[ASTAT_RND_MOD];
+ }
+ 
+diff --git a/target/bfin/helper.c b/target/bfin/helper.c
+index e2bf7df46b..6b45fa5e0e 100644
+--- a/target/bfin/helper.c
++++ b/target/bfin/helper.c
+@@ -78,6 +78,11 @@ int cpu_handle_mmu_fault(CPUState *cs, target_ulong address,
+    NULL, it means that the function was called in C code (i.e. not
+    from generated code or from helper.c) */
+ /* XXX: fix it to restore all registers */
++uint32_t bfin_blech_stop = -1;
++bool (*bfin_blech_tlb_fill)(CPUState *cs, vaddr address, int size,
++                            MMUAccessType access_type, int mmu_idx,
++                            bool probe, uintptr_t retaddr);
++
+ bool bfin_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
+                        MMUAccessType access_type, int mmu_idx, bool probe,
+                        uintptr_t retaddr)
+@@ -89,6 +94,10 @@ bool bfin_cpu_tlb_fill(CPUState *cs, vaddr address, int size,
+ #else
+     int ret;
+ 
++    if (bfin_blech_tlb_fill) {
++        return bfin_blech_tlb_fill(cs, address, size, access_type, mmu_idx,
++                                   probe, retaddr);
++    }
+     ret = cpu_bfin_handle_mmu_fault(cs, address, access_type, mmu_idx);
+     if (likely(!ret)) {
+         return true;
+diff --git a/target/bfin/translate.c b/target/bfin/translate.c
+index 0e0357e9e3..9697303d5a 100644
+--- a/target/bfin/translate.c
++++ b/target/bfin/translate.c
+@@ -47,6 +47,12 @@ typedef struct DisasContext {
+     int disalgnexcpt;
+ 
+     int mem_idx;
++
++    /* Worker build: hand this insn to the GNU simulator. */
++    bool blech_delegate;
++    /* Worker build: cycle cost of the insn, and the extra cost when a
++       conditional branch is taken. */
++    int blech_cost, blech_taken;
+ } DisasContext;
+ 
+ /* only pc was modified dynamically */
+@@ -81,6 +87,7 @@ static TCGv cpu_emudat;
+ static TCGv cpu_pc;
+ static TCGv cpu_cc;
+ static TCGv cpu_astat_arg[3];
++static TCGv cpu_blech_cycles, cpu_blech_insns, cpu_blech_last;
+ 
+ static inline void
+ bfin_tcg_new_set3(TCGv *tcgv, unsigned int cnt, unsigned int offbase,
+@@ -113,6 +120,13 @@ void bfin_translate_init(void)
+     cpu_astat_arg[2] = tcg_global_mem_new(tcg_env,
+         offsetof(CPUArchState, astat_arg[2]), "astat_arg[2]");
+ 
++    cpu_blech_cycles = tcg_global_mem_new(tcg_env,
++        offsetof(CPUArchState, blech_cycles), "blech_cycles");
++    cpu_blech_insns = tcg_global_mem_new(tcg_env,
++        offsetof(CPUArchState, blech_insns), "blech_insns");
++    cpu_blech_last = tcg_global_mem_new(tcg_env,
++        offsetof(CPUArchState, blech_last), "blech_last");
++
+     cpu_areg[0] = tcg_global_mem_new_i64(tcg_env,
+         offsetof(CPUArchState, areg[0]), "A0");
+     cpu_areg[1] = tcg_global_mem_new_i64(tcg_env,
+@@ -217,22 +231,39 @@ static void gen_gotoi_tb(DisasContext *dc, int tb_num, target_ulong dest)
+     gen_goto_tb(dc, tb_num, tmp);
+ }
+ 
++/* Worker build: exceptions, the CEC and supervisor insns belong to the GNU
++   simulator, which executes the whole insn instead. */
+ static void cec_exception(DisasContext *dc, int excp)
+ {
+-    TCGv tmp = tcg_constant_tl(excp);
+-    TCGv pc = tcg_constant_tl(dc->pc);
+-    gen_helper_raise_exception(tcg_env, tmp, pc);
+-    dc->base.is_jmp = DISAS_UPDATE;
++    dc->blech_delegate = true;
+ }
+ 
+ static void cec_require_supervisor(DisasContext *dc)
+ {
+-#ifdef CONFIG_LINUX_USER
+-    cec_exception(dc, EXCP_ILL_SUPV);
+-#else
+-    TCGv pc = tcg_constant_tl(dc->pc);
+-    gen_helper_require_supervisor(tcg_env, pc);
+-#endif
++    dc->blech_delegate = true;
++}
++
++static void blech_astat_flush(DisasContext *dc)
++{
++    /* A load or store may leave the TB through the GNU simulator, which
++       reads ASTAT from env. */
++    if (dc->astat_op != ASTAT_OP_NONE && dc->astat_op != ASTAT_OP_DYNAMIC) {
++        gen_astat_update(dc, false);
++    }
++}
++
++static void blech_qemu_ld(DisasContext *dc, TCGv ret, TCGv addr, TCGArg idx,
++                          MemOp op)
++{
++    blech_astat_flush(dc);
++    tcg_gen_qemu_ld_tl(ret, addr, idx, op);
++}
++
++static void blech_qemu_st(DisasContext *dc, TCGv val, TCGv addr, TCGArg idx,
++                          MemOp op)
++{
++    blech_astat_flush(dc);
++    tcg_gen_qemu_st_tl(val, addr, idx, op);
+ }
+ 
+ static void gen_align_check(DisasContext *dc, TCGv addr, uint32_t len,
+@@ -255,31 +286,31 @@ static void gen_align_check(DisasContext *dc, TCGv addr, uint32_t len,
+ static void gen_aligned_qemu_ld16u(DisasContext *dc, TCGv ret, TCGv addr)
+ {
+     gen_align_check(dc, addr, 2, false);
+-    tcg_gen_qemu_ld_tl(ret, addr, dc->mem_idx, MO_TEUW);
++    blech_qemu_ld(dc, ret, addr, dc->mem_idx, MO_TEUW);
+ }
+ 
+ static void gen_aligned_qemu_ld16s(DisasContext *dc, TCGv ret, TCGv addr)
+ {
+     gen_align_check(dc, addr, 2, false);
+-    tcg_gen_qemu_ld_tl(ret, addr, dc->mem_idx, MO_TESW);
++    blech_qemu_ld(dc, ret, addr, dc->mem_idx, MO_TESW);
+ }
+ 
+ static void gen_aligned_qemu_ld32u(DisasContext *dc, TCGv ret, TCGv addr)
+ {
+     gen_align_check(dc, addr, 4, false);
+-    tcg_gen_qemu_ld_tl(ret, addr, dc->mem_idx, MO_TEUL);
++    blech_qemu_ld(dc, ret, addr, dc->mem_idx, MO_TEUL);
+ }
+ 
+ static void gen_aligned_qemu_st16(DisasContext *dc, TCGv val, TCGv addr)
+ {
+     gen_align_check(dc, addr, 2, false);
+-    tcg_gen_qemu_st_tl(val, addr, dc->mem_idx, MO_TEUW);
++    blech_qemu_st(dc, val, addr, dc->mem_idx, MO_TEUW);
+ }
+ 
+ static void gen_aligned_qemu_st32(DisasContext *dc, TCGv val, TCGv addr)
+ {
+     gen_align_check(dc, addr, 4, false);
+-    tcg_gen_qemu_st_tl(val, addr, dc->mem_idx, MO_TEUL);
++    blech_qemu_st(dc, val, addr, dc->mem_idx, MO_TEUL);
+ }
+ 
+ /*
+@@ -331,6 +362,9 @@ static void gen_hwloop_br_pcrel_cc(DisasContext *dc, int loop)
+ 
+     l = gen_new_label();
+     tcg_gen_brcondi_tl(TCG_COND_NE, cpu_cc, T, l);
++    if (dc->blech_taken) {
++        tcg_gen_subi_tl(cpu_blech_cycles, cpu_blech_cycles, dc->blech_taken);
++    }
+     gen_gotoi_tb(dc, 0, dc->pc + pcrel);
+     gen_set_label(l);
+     if (loop == -1) {
+@@ -1172,10 +1206,69 @@ static void bfin_tr_tb_start(DisasContextBase *dcbase, CPUState *cs)
+ {
+ }
+ 
++/*
++ * Worker build: cycle cost per insn as the GNU simulator counts it
++ * (CYCLE_DELAY in gdb 15.2 sim/bfin/bfin-sim.c), and the insns the GNU
++ * simulator executes itself: CEC returns and modes, system registers,
++ * CYCLES, exceptions and debug pseudo insns.
++ */
++static void blech_predecode(DisasContext *dc, CPUState *cs)
++{
++    CPUArchState *env = &BFIN_CPU(cs)->env;
++    uint16_t iw0 = translator_lduw(env, &dc->base, dc->base.pc_next);
++    int cost = 1, taken = 0;
++    bool gnu = false;
++
++    if ((iw0 & 0xFF00) == 0x0000) {
++        int prgfunc = (iw0 >> 4) & 0xf, poprnd = iw0 & 0xf;
++        if (prgfunc == 0 && poprnd == 0) {
++            cost = 1;
++        } else if (prgfunc == 1 && poprnd == 0) {
++            cost = 5;
++        } else if (prgfunc == 2 && (poprnd == 3 || poprnd == 4)) {
++            cost = 10;
++        } else if (prgfunc >= 5 && prgfunc <= 8 && poprnd < 8) {
++            cost = 5;
++        } else if (prgfunc == 11 && poprnd < 6) {
++            cost = 2;
++        } else {
++            gnu = true;
++        }
++    } else if ((iw0 & 0xFF80) == 0x0100) {
++        int grp = (iw0 >> 3) & 7, reg = iw0 & 7;
++        gnu = grp == 7 || (grp == 6 && reg >= 6);
++    } else if ((iw0 & 0xFE00) == 0x0400) {
++        cost = (iw0 >> 6) & 1 ? 14 : 11;
++    } else if ((iw0 & 0xF000) == 0x1000) {
++        int b = (iw0 >> 10) & 1;
++        cost = b ? 9 : 1;
++        taken = (b ? 5 : 9) - cost;
++    } else if ((iw0 & 0xF000) == 0x2000) {
++        cost = 5;
++    } else if ((iw0 & 0xF000) == 0x3000) {
++        int gd = (iw0 >> 9) & 7, gs = (iw0 >> 6) & 7;
++        int dst = (iw0 >> 3) & 7, src = iw0 & 7;
++        gnu = gd == 7 || gs == 7 || (gd == 6 && dst >= 6) ||
++              (gs == 6 && src >= 6);
++    } else if ((iw0 & 0xFC00) == 0x4000 && ((iw0 >> 6) & 0xf) == 3) {
++        cost = 3;
++    } else if ((iw0 & 0xFE00) == 0xE200) {
++        cost = 5;
++    } else if ((iw0 & 0xFFFE) == 0xE800) {
++        cost = iw0 & 1 ? 2 : 3;
++    } else if ((iw0 & 0xFF00) == 0xF000 || (iw0 & 0xFF00) == 0xF800 ||
++               (iw0 & 0xFF00) == 0xF900) {
++        gnu = true;
++    }
++    dc->blech_cost = cost;
++    dc->blech_taken = taken;
++    dc->blech_delegate = gnu;
++}
++
+ static void bfin_tr_insn_start(DisasContextBase *dcbase, CPUState *cs)
+ {
+-#ifdef CONFIG_USER_ONLY
+     DisasContext *ctx = container_of(dcbase, DisasContext, base);
++#ifdef CONFIG_USER_ONLY
+     BlackfinCPU *cpu = BFIN_CPU(cs);
+     CPUArchState *env = &cpu->env;
+ 
+@@ -1189,15 +1282,60 @@ static void bfin_tr_insn_start(DisasContextBase *dcbase, CPUState *cs)
+     }
+ #endif
+ 
+-    tcg_gen_insn_start(dcbase->pc_next);
++    blech_predecode(ctx, cs);
++    tcg_gen_insn_start(dcbase->pc_next, ctx->blech_cost);
++}
++
++static void blech_exit(DisasContext *dc, int excp)
++{
++    gen_astat_update(dc, false);
++    gen_helper_raise_exception(tcg_env, tcg_constant_tl(excp),
++                               tcg_constant_tl(dc->pc));
+ }
+ 
+ static void bfin_tr_translate_insn(DisasContextBase *dcbase, CPUState *cs)
+ {
+     DisasContext *ctx = container_of(dcbase, DisasContext, base);
++    DisasContext saved;
++    TCGLabel *more, *issue;
++    TCGOp *mark;
+ 
+     ctx->pc = dcbase->pc_next;
+-    interp_insn_bfin(ctx, cs);
++
++    /* Worker build: the run ends before an insn once the cycle or insn
++       budget is spent, or at the stop address. */
++    if (ctx->pc == bfin_blech_stop) {
++        blech_exit(ctx, EXCP_BLECH_GUARD);
++        dcbase->is_jmp = DISAS_NORETURN;
++        /* A TB must not be empty; the exit never executes these bytes. */
++        dcbase->pc_next += 2;
++        return;
++    }
++    more = gen_new_label();
++    issue = gen_new_label();
++    tcg_gen_brcondi_tl(TCG_COND_GT, cpu_blech_cycles, 0, more);
++    blech_exit(ctx, EXCP_BLECH_TIME);
++    gen_set_label(more);
++    tcg_gen_brcondi_tl(TCG_COND_NE, cpu_blech_insns, 0, issue);
++    blech_exit(ctx, EXCP_BLECH_GUARD);
++    gen_set_label(issue);
++
++    mark = tcg_last_op();
++    saved = *ctx;
++    if (!ctx->blech_delegate) {
++        tcg_gen_movi_tl(cpu_blech_last, ctx->pc);
++        tcg_gen_subi_tl(cpu_blech_insns, cpu_blech_insns, 1);
++        tcg_gen_subi_tl(cpu_blech_cycles, cpu_blech_cycles, ctx->blech_cost);
++        interp_insn_bfin(ctx, cs);
++    }
++    if (ctx->blech_delegate) {
++        tcg_remove_ops_after(mark);
++        *ctx = saved;
++        blech_exit(ctx, EXCP_BLECH_GNU);
++        dcbase->is_jmp = DISAS_NORETURN;
++        dcbase->pc_next += 2;
++        return;
++    }
+ 
+     gen_hwloop_check(ctx, cs);
+ 
+@@ -1222,6 +1360,7 @@ static void bfin_tr_tb_stop(DisasContextBase *dcbase, CPUState *cs)
+     case DISAS_CALL:
+     case DISAS_JUMP:
+     case DISAS_TB_JUMP:
++    case DISAS_NORETURN:
+         /* nothing more to generate */
+         break;
+     default:
