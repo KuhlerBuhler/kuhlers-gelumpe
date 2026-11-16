@@ -43,8 +43,15 @@ pf_path:
 ; becomes SD:/KORG/blechtribe/Patterns. A walk changes the string, so it is left as it is. A card without the folder: the open
 ; fails with FR_NO_PATH and Korg's browser goes back to SD: on its own. Not after IMPORT SAMPLE's browser moved the folder (it
 ; shares the object but not this step): then the import opens where that browser was.
+; The import does not take the chosen file's path from the browser's folder: it keeps its own folder string, PB_LEVELS ("SD:"
+; from 0xC0060FE0, "/" and the name added per folder at 0xC0061110), and copies it into its file list's folder, PB_LIST (the list
+; at 0xC0345ECC, +0x318). The list's 0xC003CA08 builds folder + "/" + name, which goes to 0xC0340588 for f_open. So the start runs
+; the open itself and then copies the browser's folder into both, Patterns or the SD: of a card without it: with the browser's
+; folder alone the import opened SD:/<name> and f_open gave FR_NO_FILE.
 .equ PB_AT, 0xC0031400          ; ldr r0, [r6]: the browser object, in front of its open
 .equ PB_ASSIGN, 0xC00A26C0      ; std::string::assign(this, const char *), as Korg's browser takes SD: with it
+.equ PB_LEVELS, 0xC0691224      ; the import's own folder string, copied into PB_LIST on each walk (same on red and Hacktribe)
+.equ PB_LIST, 0xC03461E4        ; the file list's folder, the one 0xC003CA08 builds the file path from (same on red and Hacktribe)
 .equ PB_PTR, 4                  ; in KNOB_HOLD, the two words unused since API 19: the folder string of the last open
 .equ PB_LEN, 8                  ; and its length; FF from power-on, so the first import after it opens in Patterns too
 
@@ -67,14 +74,34 @@ pb_fresh:
     ldr r1, =pb_path
     ldr r12, =PB_ASSIGN
     blx r12
+    bl pb_remember
+    ldr r0, [r6]                ; Korg's open, here, so that its folder afterwards (Patterns, or SD: without it) can be copied
+    ldr r3, [r0]
+    ldr r3, [r3, #8]
+    blx r3
+    mov r5, r0
+    ldr r0, =PB_LEVELS
+    ldr r1, [r4]
+    ldr r12, =PB_ASSIGN
+    blx r12
+    ldr r0, =PB_LIST
+    ldr r1, [r4]
+    ldr r12, =PB_ASSIGN
+    blx r12
+    mov r0, r5
+    pop {r4-r7, lr}
+    ldr pc, =PB_AT+0x10         ; behind the open: its result in r0
 pb_note:
+    bl pb_remember
+    pop {r4-r7, lr}
+    ldr r0, [r6]
+    ldr pc, =PB_AT+4
+pb_remember:
     ldr r0, [r4]
     ldr r1, [r0, #-12]
     str r0, [r7, #PB_PTR]
     str r1, [r7, #PB_LEN]
-    pop {r4-r7, lr}
-    ldr r0, [r6]
-    ldr pc, =PB_AT+4
+    bx lr
 .pool
 pb_path:
     .asciz "SD:/KORG/blechtribe/Patterns"
