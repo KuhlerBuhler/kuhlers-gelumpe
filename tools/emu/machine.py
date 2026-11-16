@@ -1105,6 +1105,18 @@ class Machine:
             self.booted, self.boot_ms = True, round(self.time_ns / 1e6, 1)
 
 
+# The card symbol's two places in page 0 of a frame (8 pages of 128 columns): Korg's 109 to 114 and the main screen's 94 to
+# 99 (BATTERY %, script_battery.s:card_place). A case that compares a frame with the firmware's own leaves them out.
+CARD_COLUMNS = (*range(94, 100), *range(109, 115))
+
+
+def without_card(frame):
+    out = bytearray(frame)
+    for x in CARD_COLUMNS:
+        out[x] = 0
+    return bytes(out)
+
+
 def load_flash(paths):
     data = b"".join(Path(p).read_bytes() for p in paths)
     if len(data) != FLASH_SIZE:
