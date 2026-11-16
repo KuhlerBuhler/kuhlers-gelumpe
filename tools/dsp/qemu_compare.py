@@ -10,14 +10,16 @@ register, ASTAT and CYCLES included.
 
     qemu_compare.py SYSTEM.VSB --gnu GNU_WORKER --qemu QEMU_WORKER [--calls N]
                     [--func ADDR ...] [--bench --min-speedup X]
-    qemu_compare.py --fuzz N [--seed S] [--fuzz-length L] --gnu GNU_WORKER --qemu QEMU_WORKER
+    qemu_compare.py --fuzz N [--seed S] [--fuzz-length L | --fuzz-class C] --gnu GNU_WORKER --qemu QEMU_WORKER
 
 Without --func the 38 functions from docs/messungen/2026-11-16-qemu-bfin-
 vergleich.md are compared. --bench times the calls in both workers and fails
 when QEMU is not at least --min-speedup times faster. --fuzz runs N short
 programs of random ALU, shift and DSP instructions (no memory access) from
 random registers and compares all registers afterwards; an instruction that
-raises an exception has to raise in both workers. Exit status 1 on any
+raises an exception has to raise in both workers. --fuzz-class limits each
+program to one instruction of a 32-bit class (mac, mult, alu, shift,
+shiftimm); each difference line carries the start registers. Exit status 1 on any
 difference or a missed speed-up.
 """
 import argparse
@@ -198,12 +200,20 @@ ASTAT_BITS = 0x030F316F
 # 16-bit ALU2op, PTR2op, LOGI2op, comp3op, COMPI2op, CCflag; 32-bit dsp32mac/mult/alu/shift/shiftimm.
 FUZZ_16 = [(0x4000, 0x4800), (0x4800, 0x5000), (0x5000, 0x6000), (0x6000, 0x7000), (0x0800, 0x1000)]
 FUZZ_32 = [(0xC000, 0xC800), (0xC800, 0xD000)]
+# --fuzz-class: base and random bits of the first word. ALU and shift keep the
+# reserved bits 6..8 clear, which GNU rejects anyway.
+FUZZ_CLASSES = {'mac': (0xC000, 0x1FF), 'mult': (0xC200, 0x1FF), 'alu': (0xC400, 0x3F),
+                'shift': (0xC600, 0x1F), 'shiftimm': (0xC680, 0x1F)}
 FUZZ_REGISTERS = ([f'R{i}' for i in range(8)] + [f'P{i}' for i in range(6)] + ['SP', 'FP'] + [f'{k}{i}' for k in 'IMB' for i in range(4)]
                   + ['A0.X', 'A0.W', 'A1.X', 'A1.W'])
 
 
-def fuzz_program(rng, length):
+def fuzz_program(rng, length, cls=None):
     words = []
+    if cls:
+        base, bits = FUZZ_CLASSES[cls]
+        words = [base | rng.getrandbits(16) & bits, rng.randrange(0x10000)]
+        return struct.pack('<3H', *words, 0), HARNESS + 4
     for _ in range(length):
         if rng.random() < 0.5:
             low, high = rng.choice(FUZZ_16)
@@ -250,7 +260,7 @@ def fuzz(args):
     failed = exceptions = gnu_only = 0
     try:
         for trial in range(args.fuzz):
-            code, halt = fuzz_program(rng, args.fuzz_length)
+            code, halt = fuzz_program(rng, args.fuzz_length, args.fuzz_class)
             state = fuzz_state(rng)
             for (word,) in struct.iter_unpack('<H', code):
                 if 0x4000 <= word < 0x40C0:
@@ -259,7 +269,7 @@ def fuzz(args):
             gnu = fuzz_run(workers, args.gnu, code, halt, state)
             qemu = fuzz_run(workers, args.qemu, code, halt, state)
             if 'error' in gnu and 'error' not in qemu:
-                gnu_only += 1    # illegal in GNU, executed by QEMU: see the measurement, section 3
+                gnu_only += 1    # illegal in GNU, executed by QEMU
                 continue
             if 'error' in gnu or 'error' in qemu:
                 same = 'error' in gnu and 'error' in qemu
@@ -269,7 +279,8 @@ def fuzz(args):
                 differ = [n for n in REGISTER_NAMES if (gnu[n] ^ qemu[n]) & WIDTH.get(n, 0xFFFFFFFF)]
             if differ:
                 failed += 1
-                print(json.dumps(dict(trial=trial, code=code.hex(), differ=differ,
+                inputs = {n: f'{v:#x}' for n, v in state.items() if n[0] in 'RA' or n == 'ASTAT'}
+                print(json.dumps(dict(trial=trial, code=code.hex(), differ=differ, inputs=inputs,
                                       gnu={n: f'{gnu[n]:#x}' for n in differ if n in gnu} or gnu,
                                       qemu={n: f'{qemu[n]:#x}' for n in differ if n in qemu} or qemu)), flush=True)
     finally:
@@ -292,6 +303,7 @@ def main():
     parser.add_argument('--fuzz', type=int, metavar='N')
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--fuzz-length', type=int, default=1, help='instructions per program')
+    parser.add_argument('--fuzz-class', choices=sorted(FUZZ_CLASSES), help='one 32-bit insn of this class per program')
     args = parser.parse_args()
     if args.fuzz is None and args.vsb is None:
         parser.error('SYSTEM.VSB or --fuzz N is required')
