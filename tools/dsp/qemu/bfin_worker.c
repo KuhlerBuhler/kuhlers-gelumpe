@@ -24,6 +24,7 @@
 static BlackfinCPU *worker_cpu;
 static struct {
     uint32_t base, length;
+    MemoryRegion *region;
 } worker_ram[16];
 static int worker_rams;
 static uint32_t watch_begin;
@@ -73,6 +74,7 @@ static void worker_map(uint32_t address, uint32_t length, void *host)
     memory_region_add_subregion(get_system_memory(), address, region);
     worker_ram[worker_rams].base = address;
     worker_ram[worker_rams].length = length;
+    worker_ram[worker_rams].region = region;
     worker_rams++;
     tlb_flush(CPU(worker_cpu));
 }
@@ -136,10 +138,28 @@ static void worker_set(const uint32_t *r)
     env->pc = r[44];
 }
 
+/* Translations are indexed by ram_addr, not by guest address. */
+static void worker_invalidate_range(uint32_t address, uint32_t length)
+{
+    uint64_t end = (uint64_t)address + length;
+    int i;
+
+    for (i = 0; i < worker_rams; i++) {
+        uint64_t begin = MAX(address, worker_ram[i].base);
+        uint64_t stop = MIN(end, (uint64_t)worker_ram[i].base + worker_ram[i].length);
+
+        if (begin < stop) {
+            ram_addr_t base = memory_region_get_ram_addr(worker_ram[i].region)
+                              - worker_ram[i].base;
+            tb_invalidate_phys_range(base + begin, base + stop - 1);
+        }
+    }
+}
+
 static void worker_invalidate(uint32_t address)
 {
     if (address != (uint32_t)-1) {
-        tb_invalidate_phys_range(address, address + 7);
+        worker_invalidate_range(address, 8);
     }
 }
 
@@ -182,7 +202,7 @@ static void worker_run(struct blech_qemu_run *run)
 static void worker_written(uint32_t address, uint32_t length)
 {
     if (length) {
-        tb_invalidate_phys_range(address, address + length - 1);
+        worker_invalidate_range(address, length);
     }
 }
 

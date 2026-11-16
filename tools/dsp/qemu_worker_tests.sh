@@ -25,6 +25,7 @@ kern)
         $B.test_parallel_pointer_load_store_reads_the_original_register
         $B.test_parallel_negate_store_reads_the_original_register
         $B.test_run_stops_at_a_requested_pc
+        $B.test_rewritten_l1_code_runs_the_new_instructions
         $B.test_queued_requests_never_reach_the_dsp_as_uart_input
         $B.test_core_timer_observes_all_modeled_instruction_cycles
         $B.test_illegal_instruction_raises_and_invalidates_the_backend

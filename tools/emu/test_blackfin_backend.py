@@ -240,6 +240,16 @@ class Execution(unittest.TestCase):
         self.assertEqual(result['steps'], 5)
         self.assertTrue(result['reached'])
 
+    def test_rewritten_l1_code_runs_the_new_instructions(self):
+        with BlackfinBackend(WORKER, operating=True) as backend:
+            for entry in (ENTRY, 0xFFA00000):
+                for value in (1, 2, 3):
+                    with self.subTest(entry=hex(entry), value=value):
+                        backend.write(entry, struct.pack('<2H', 0x6000 | value << 3, 0x2000))   # R0 = value
+                        backend.set_register(53, entry)
+                        backend.run(2)
+                        self.assertEqual(backend.register(0), value)
+
     def test_queued_requests_never_reach_the_dsp_as_uart_input(self):
         # GNU's UART reads the simulator's stdin; requests queued behind this one must not show up there.
         with BlackfinBackend(WORKER, operating=True) as backend:
