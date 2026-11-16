@@ -7,7 +7,7 @@ Part 1 plays it through its oscillator "Audio In Mn" (pad 1 held), so it passes 
 effect as on the device. Inserts are chosen with the IFX encoder and the IFX ON key, master effects with Korg's own
 setter while the touch pad is held. SPORT0 TX is captured (BLECH_SPORT_TX_CAPTURE) and every window is compared with
 the same signal without the effect. The codec and the analog output are not modeled, so only relative levels count
-(docs/messungen/2026-11-16-fx-pegel-im-dsp-sim.md).
+(docs/messungen/2026-11-16-fx-pegel-im-dsp-sim.md). Run by hand: a full levels run takes about 30 minutes.
 
     tools/emu/.venv/bin/python tools/emu/fx_level_cases.py levels --vsb PATCHED.VSB --worker blackfin-worker [--only A,B]
     tools/emu/.venv/bin/python tools/emu/fx_level_cases.py reset --vsb PATCHED.VSB --worker blackfin-worker
