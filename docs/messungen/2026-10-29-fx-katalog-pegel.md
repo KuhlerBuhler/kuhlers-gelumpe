@@ -115,5 +115,20 @@ mit `firmwarePresets` aus `src/fx-collection.mjs`). **Nicht nachgehört.**
 | Bounce Gate 16, 8 | `output_gain` | 36 | Off Beater, Pumper, Repeater 36, Slicer 32 | 45 | geschätzt, ein Viertel über Werk: das Gate schneidet jeder Note das Ende ab, es bleibt weniger Energie als bei den Werkspresets |
 
 `test/fx-v2.test.mjs` lässt den Level Mod (`0x15`) dafür bis 45 zu, knapp über Werk wie die Distortion und der Master Pumper.
-Die Master-Effekte (Pumper, Multitap, Wow Tape, Dub Delay, Ping Pong zu leise, Letter Drive zu laut, Gerätetest 15.11.) sind
-hier nicht angefasst.
+Die Master-Effekte aus dem Gerätetest 15.11. (Pumper, Multitap, Wow Tape, Dub Delay, Ping Pong zu leise, Letter Drive zu laut)
+sind bis auf den Pumper Hacktribes eigene Presets (Plätze 37 bis 49: Ping Pong, Dub Delay, Wow Tape, Ladder Drive, Ring Crush,
+Multi Tap). Werkspresets bleiben, wie sie sind.
+
+## 6. Master-Effekte nach dem Gerätetest 15.11.
+
+Angepasst sind nur die eigenen Master-Effekte. **Nicht nachgehört.**
+
+| Effekt | Parameter | bisher | jetzt | Herleitung |
+|---|---|---|---|---|
+| Master Pumper | `output_gain_adjust` | 26 | 32 | geschätzt: Werk 24; das Pumpen nimmt der Summe Energie wie das Bounce Gate, das ein Viertel über Werk steht |
+| Master Limiter | `threshold`, Regler | 48, 52 bis 30 | 64, 64 bis 40 | Urteil: er drückte so stark, dass er kurz aussetzte wie ein leichter Slicer |
+| Master Limiter | `release` | 8 | 20 | Urteil; Korgs Preset "Limiter" (Platz 26, Einheit SR1-Kompressor, nicht `M_limiter`) hat 12 |
+| Master Limiter | `hold_time` | 8 | 17 | wie Korgs Preset "Limiter" |
+
+Master Tilt und Master Warmth sind aus dem Katalog genommen: am Gerät hörbar wirkungslos und nicht gebraucht. Master
+Glue bleibt.

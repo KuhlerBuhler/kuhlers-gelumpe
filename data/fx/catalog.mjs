@@ -1262,7 +1262,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "M_level_mod",
     "params": {
      "amp_level": 127,
-     "output_gain_adjust": 26,
+     "output_gain_adjust": 32,
      "level_mod_source": 4,
      "level_mod_int": 126,
      "level_mod_type": 0,
@@ -1480,10 +1480,10 @@ export const FX_CATALOG = Object.freeze([
     "params": {
      "dry_wet": 100,
      "envelope_select": 0,
-     "threshold": 48,
+     "threshold": 64,
      "attack": 0,
-     "release": 8,
-     "hold_time": 8,
+     "release": 20,
+     "hold_time": 17,
      "tube_sat": 50,
      "output_gain": 54
     }
@@ -1508,8 +1508,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 2,
     "param": 2,
-    "low": 52,
-    "high": 30
+    "low": 64,
+    "high": 40
    }
   ],
   "creator": "Kuhler Buhler"
@@ -2274,127 +2274,6 @@ export const FX_CATALOG = Object.freeze([
     "param": 2,
     "low": 46,
     "high": 30
-   }
-  ],
-  "creator": "Kuhler Buhler"
- },
- {
-  "kind": "mfx",
-  "name": "Master Tilt",
-  "description": "Kippt die ganze Summe: X nach links macht sie heller, nach rechts dunkler, um sechs Stufen. Ein Baustein, den Hacktribe in keinem Preset benutzt.",
-  "stages": [
-   {
-    "stage": "mfx",
-    "unit": 43,
-    "unitName": "M_eq_4_band",
-    "params": {
-     "dry_wet": 100,
-     "trim": 127,
-     "b1_type": 2,
-     "b2_type": 0,
-     "b3_type": 0,
-     "b4_type": 1,
-     "b1_frequency": 18,
-     "b1_q": 5,
-     "b1_gain": 36,
-     "b2_frequency": 33,
-     "b2_q": 5,
-     "b2_gain": 36,
-     "b3_frequency": 48,
-     "b3_q": 5,
-     "b3_gain": 36,
-     "b4_frequency": 38,
-     "b4_q": 5,
-     "b4_gain": 36
-    }
-   }
-  ],
-  "map": [
-   {
-    "source": 65,
-    "chain": 10,
-    "param": 4,
-    "low": 127,
-    "high": 0
-   },
-   {
-    "source": 65,
-    "chain": 10,
-    "param": 0,
-    "low": 0,
-    "high": 127
-   },
-   {
-    "source": 66,
-    "chain": 2,
-    "param": 8,
-    "low": 30,
-    "high": 42
-   },
-   {
-    "source": 66,
-    "chain": 2,
-    "param": 17,
-    "low": 42,
-    "high": 30
-   }
-  ],
-  "creator": "Kuhler Buhler"
- },
- {
-  "kind": "mfx",
-  "name": "Master Warmth",
-  "description": "Leichte Röhrensättigung auf der Summe: etwas Wärme und Dichte, ohne zu verzerren. X dreht die Sättigung auf.",
-  "stages": [
-   {
-    "stage": "mfx",
-    "unit": 47,
-    "unitName": "M_tubepre",
-    "params": {
-     "dry_wet": 100,
-     "tube1_gain": 52,
-     "tube1_sat": 20,
-     "tube2_gain": 52,
-     "tube2_sat": 30,
-     "lo_cut1": 0,
-     "hi_cut1": 127,
-     "lo_cut2": 0,
-     "hi_cut2": 127,
-     "tube1_bias": 30,
-     "tube1_phase": 0,
-     "tube2_bias": 40,
-     "output_level": 84
-    }
-   }
-  ],
-  "map": [
-   {
-    "source": 65,
-    "chain": 10,
-    "param": 4,
-    "low": 127,
-    "high": 0
-   },
-   {
-    "source": 65,
-    "chain": 10,
-    "param": 0,
-    "low": 0,
-    "high": 127
-   },
-   {
-    "source": 66,
-    "chain": 2,
-    "param": 2,
-    "low": 20,
-    "high": 70
-   },
-   {
-    "source": 66,
-    "chain": 2,
-    "param": 4,
-    "low": 30,
-    "high": 80
    }
   ],
   "creator": "Kuhler Buhler"
