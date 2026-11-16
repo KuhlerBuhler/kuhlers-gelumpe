@@ -1,6 +1,8 @@
-; BATTERY % (CUSTOMIZATION > DISPLAY): the battery's charge in steps of 10 percent on the main screen's top row, left of LOAD
-; METER's digits (page 0, columns 83 to 98, rows 1 to 7: hundreds, tens, ones and '%', each 3 columns and a blank one; columns
-; 75 to 99 of that row are free on all three builds, docs/messungen/2026-11-16-batterie-prozent.md). Shown only on battery
+; BATTERY % (CUSTOMIZATION > DISPLAY): the battery's charge in steps of 10 percent on the main screen's top row, right before
+; the battery symbol (page 0, columns 101 to 116, rows 1 to 7: hundreds, tens, ones and '%', each 3 columns and a blank one).
+; On the main screen the card symbol moves to 94 to 99 (card_place, card_frame) and LOAD METER sits at 86 to 93, in the same
+; places whether the percent is shown or not; every other screen keeps the card at Korg's 109
+; (docs/messungen/2026-11-16-batterie-prozent.md). Shown only on battery
 ; (POWER_MODEL +0x308 is 0) with Global BATTERY TYPE Alkali (byte 0x20 of the Global values is 1); on mains power and with
 ; Ni-MH nothing is drawn. On by default: the stored bit FLAGS2_BATT_OFF means off, so a file with the default stays version 3.
 ; The reading is the battery model's (BATTERY_MODEL +0x320, from panel message 6), its thresholds the table at +0x318 (full
@@ -11,13 +13,19 @@
 .equ BP_SHOWN, 8                ; byte: the percent shown, 0 to 100 in steps of 10, 0xFF before the first one
 .equ BP_DRAWN, 9                ; byte: 1 while our digits may be on the display
 .equ BP_INIT, 12                ; 1 while a reading is held (0 while not wanted, FF at power-on)
-.equ BP_COL, 83                 ; the first column of the digits
+.equ BP_CARD, 16                ; 6 bytes: columns 94 to 99 of page 0 (row 0 left out) as card_frame last drew them
+.equ BP_TARGET, 22              ; byte: the screen card_place placed the card for (FF before the first switch)
+.equ BP_CARD_IN, 23             ; byte: the card flag of the widget when card_frame last drew it
+.equ BP_SWITCH, 24              ; the OS tick count at that switch
+.equ BP_PENDING_MS, 300         ; how long card_frame waits for the screen manager to show that screen
+.equ BP_COL, 101                ; the first column of the digits
 .equ BP_STEP_MS, 250            ; one smoothing step
 .equ BP_HOLD, 80                ; per mille: the percent shown changes only when the new one is further away than this
 
 ; Once a frame, behind glide_frame. Keeps r4 to r11.
 battery_frame:
     push {r4-r8, lr}
+    bl card_frame
     ldr r4, =BATT
     bl battery_model
     movs r5, r0
@@ -232,6 +240,195 @@ batt_put_col:
     ldr r12, =MG_MARK
     blx r12
     pop {pc}
+.pool
+.align 4
+; The card symbol: Korg's widget is the third of the status bar ([SCREEN_MANAGER] + 0x10, widgets at +0x34, +0x38, +0x3C), x at
+; +4, y +8, width +0xC (6), height +0x10 (8), +0x14 the byte that makes its draw clear its place and draw again, +0x48 a card
+; is in; its draw is slot 2 of its class table. The status bar draws it on every screen; the main screen draws its own widgets
+; behind it, among them the EDIT mark at 84 to 97 in the clearing colour, so the main screen needs card_frame as well.
+.equ CARD_X_KORG, 109
+.equ CARD_X_MAIN, 94
+
+; -> r0 = the card widget when it is the one these lines know (width 6, height 8, x 109 or 94), else 0; r1 = the screen
+; manager. Clobbers r2.
+card_widget:
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    beq card_widget_none
+    ldr r0, [r1, #0x4C]
+    cmp r0, #0
+    cmnne r0, #1
+    beq card_widget_none
+    ldr r2, [r0, #0xC]
+    cmp r2, #6
+    ldreq r2, [r0, #0x10]
+    cmpeq r2, #8
+    bne card_widget_none
+    ldr r2, [r0, #4]
+    cmp r2, #CARD_X_KORG
+    cmpne r2, #CARD_X_MAIN
+    bxeq lr
+card_widget_none:
+    mov r0, #0
+    bx lr
+
+; r0 = the screen to come (SWITCH_SCREEN, autosave_switch_hook), before it is drawn: the card's x for it, its old place cleared
+; (not every screen clears the top row where the card was), and its byte to draw again, so the new screen draws it in its
+; place. With the menu not armed nothing moves. Keeps r4 to r11.
+card_place:
+    push {r4, lr}
+    mov r4, r0
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_ON]
+    cmp r0, #1
+    popne {r4, pc}
+    bl card_widget
+    cmp r0, #0
+    popeq {r4, pc}
+    ldr r1, =BATT               ; the switch is posted, the screen manager shows the screen later: card_frame waits for it
+    strb r4, [r1, #BP_TARGET]
+    ldr r2, =LM_OS_TICKS
+    ldr r2, [r2]
+    str r2, [r1, #BP_SWITCH]
+    cmp r4, #1
+    moveq r1, #CARD_X_MAIN
+    movne r1, #CARD_X_KORG
+    ldr r4, [r0, #4]
+    cmp r4, r1
+    popeq {r4, pc}
+    str r1, [r0, #4]
+    mov r1, #1
+    strb r1, [r0, #0x14]
+    ldr r0, =BATT+BP_CARD       ; card_frame draws it again on the main screen
+    mov r1, #0xFF
+    strb r1, [r0]
+    mov r0, r4
+    bl card_clear
+    pop {r4, pc}
+
+; r0 = a column: the six columns of the card from there cleared in page 0, row 0 kept, and marked. Clobbers r0 to r3, r12.
+card_clear:
+    push {r4, lr}
+    mov r4, r0
+    ldr r2, =MG_VRAM
+    add r2, r2, r4
+    mov r3, #0
+card_clear_col:
+    ldrb r0, [r2, r3]
+    and r0, r0, #1
+    strb r0, [r2, r3]
+    add r3, r3, #1
+    cmp r3, #6
+    blo card_clear_col
+    mov r0, r4
+    mov r1, #0
+    add r2, r4, #5
+    mov r3, #7
+    ldr r12, =MG_MARK
+    blx r12
+    pop {r4, pc}
+
+; Once a frame: on the main screen the card sits at 94; when its columns differ from what card_frame drew last (the main screen
+; cleared them with its EDIT mark, or the card came or went) it is drawn again there, only with no window, app or question of
+; ours over the screen. Any other screen gets Korg's 109 back (card_place does it before the screen is drawn; this is the
+; fallback, as at the first start when the menu was armed behind the main screen). Keeps r4 to r11.
+card_frame:
+    push {r4-r6, lr}
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_ON]
+    cmp r0, #1
+    bne card_frame_out
+    bl card_widget
+    movs r4, r0
+    beq card_frame_out
+    ldr r2, [r1, #0x2C]
+    ldr r5, =BATT               ; a switch card_place saw that the screen manager has not shown yet: nothing until it has
+    ldrb r3, [r5, #BP_TARGET]
+    and r0, r2, #0xFF
+    cmp r3, r0
+    cmpne r3, #0xFF
+    beq card_frame_screen
+    ldr r0, =LM_OS_TICKS
+    ldr r0, [r0]
+    ldr r3, [r5, #BP_SWITCH]
+    sub r0, r0, r3
+    cmp r0, #BP_PENDING_MS
+    blo card_frame_out
+card_frame_screen:
+    cmp r2, #1
+    beq card_frame_main
+    ldr r2, [r4, #4]
+    cmp r2, #CARD_X_MAIN
+    bne card_frame_out
+    mov r2, #CARD_X_KORG
+    str r2, [r4, #4]
+    mov r2, #1
+    strb r2, [r4, #0x14]
+    b card_frame_out
+card_frame_main:
+    ldr r2, [r4, #4]
+    cmp r2, #CARD_X_KORG
+    bne card_frame_check
+    mov r2, #CARD_X_MAIN
+    str r2, [r4, #4]
+    mov r0, #CARD_X_KORG        ; the card drawn at 109 before the move
+    bl card_clear
+    b card_frame_draw_check
+card_frame_check:
+    ldrb r0, [r4, #0x14]
+    cmp r0, #0
+    bne card_frame_draw_check
+    ldrb r0, [r4, #0x48]        ; a card put in or pulled during a redraw that also cleared 84 to 97 leaves the columns as they were
+    ldr r5, =BATT
+    ldrb r1, [r5, #BP_CARD_IN]
+    cmp r0, r1
+    bne card_frame_draw_check
+    ldr r2, =MG_VRAM+CARD_X_MAIN
+    ldr r5, =BATT+BP_CARD
+    mov r3, #0
+card_frame_cmp:
+    ldrb r0, [r2, r3]
+    bic r0, r0, #1
+    ldrb r1, [r5, r3]
+    cmp r0, r1
+    bne card_frame_draw_check
+    add r3, r3, #1
+    cmp r3, #6
+    blo card_frame_cmp
+    b card_frame_out
+card_frame_draw_check:
+    bl load_meter_shown
+    cmp r0, #0
+    beq card_frame_out
+    mov r0, #1
+    strb r0, [r4, #0x14]
+    mov r0, r4
+    ldr r1, [r4]
+    ldr r1, [r1, #8]
+    blx r1
+    ldrb r0, [r4, #0x48]
+    ldr r1, =BATT
+    strb r0, [r1, #BP_CARD_IN]
+    mov r0, #CARD_X_MAIN
+    mov r1, #0
+    mov r2, #CARD_X_MAIN+5
+    mov r3, #8
+    ldr r12, =MG_MARK
+    blx r12
+    ldr r2, =MG_VRAM+CARD_X_MAIN
+    ldr r5, =BATT+BP_CARD
+    mov r3, #0
+card_frame_keep:
+    ldrb r0, [r2, r3]
+    bic r0, r0, #1
+    strb r0, [r5, r3]
+    add r3, r3, #1
+    cmp r3, #6
+    blo card_frame_keep
+card_frame_out:
+    pop {r4-r6, pc}
 .pool
 .align 4
 batt_percent_glyph:             ; '%' in 3 x 7, as load_meter_font, and a blank column

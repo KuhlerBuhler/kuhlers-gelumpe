@@ -1750,6 +1750,8 @@ autosave_switch_hook:
     mov r0, r3
     mov r1, r4
     bl autosave_leave
+    mov r0, r4
+    bl card_place               ; the card symbol's place on the screen to come (script_battery.s)
     pop {r0-r3, r12, lr}
     ldr r12, =0xC002D048
     blx r12

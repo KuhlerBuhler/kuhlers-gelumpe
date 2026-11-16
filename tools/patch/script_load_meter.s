@@ -1,6 +1,7 @@
 ; LOAD METER (CUSTOMIZATION > DISPLAY): the ARM's load in percent, two digits on the main screen's top row left of the card
-; symbol (page 0, columns 100 to 107, rows 1 to 7; columns 75 to 108 of that row are free on all three builds, measured
-; docs/messungen/2026-11-14-energie-befunde.md, "Lastanzeige").
+; symbol (page 0, columns 86 to 93, rows 1 to 7; columns 75 to 108 of that row are free on the main screen on all three builds,
+; measured docs/messungen/2026-11-14-energie-befunde.md, "Lastanzeige"; in the menus the EDIT icon fills 84 to 97). The card
+; symbol sits at 94 to 99 on the main screen, left of BATTERY % (script_battery.s:card_place).
 ; The measurement (method A, docs/messungen/2026-11-14-energie-befunde.md, 0.1): the idle loop sets the word 0xC06A2894 to 1
 ; before it sleeps (wfi), every IRQ adds 1 to it on entry. The time from that store to the next IRQ entry that finds 1 is
 ; sleep, the rest is load. Timer3 (SCRIPT_TIMER_ADDRESS, 150 MHz, wraps every second) gives the time. The three hooks run
@@ -17,7 +18,7 @@
 .equ LM_DRAWN, 29               ; byte: 1 while our digits may be on the display
 .equ LM_ARMED, 32               ; 1 once menu_arm ran (FF at power-on, and with EXIT held at power-on)
 .equ LM_TICK, 36                ; the OS tick count (1 ms) at the frame before
-.equ LM_COL, 100                ; the first column of the digits
+.equ LM_COL, 86                 ; the first column of the digits
 .equ LM_OS_TICKS, 0xC06A292C    ; the firmware's OS tick count, one per millisecond (script_hw.s:OS_TICKS)
 
 ; 0xC00017F0, the idle loop's `str r3, [r6]` (r3 = 1, r6 = the word) in front of wfi, IRQs masked. The stamp goes first, so

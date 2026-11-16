@@ -1,10 +1,15 @@
 """Emulator cases of BATTERY % (CUSTOMIZATION > DISPLAY, tools/patch/script_battery.s): the battery's charge in steps of 10
-percent on the main screen's top row, left of LOAD METER's digits. Shown only on battery with Global BATTERY TYPE Alkali; on
+percent on the main screen's top row, right before the battery symbol. Shown only on battery with Global BATTERY TYPE Alkali; on
 mains power and with Ni-MH nothing is drawn. The battery reading comes in as panel message 6 (machine.battery), mains or
 battery as message 7 (machine.power_source). The value is smoothed: a short dip leaves it, a lasting change walks there in
 steps. The page is ON by default, OFF takes the digits away at once, WRITE keeps OFF as bit 4 of byte 7 (version 4), ON writes
 version 3, and the next start reads it. With LOAD METER on and a card in, the digits, the load meter, the card and the battery
 symbol each keep their own columns.
+
+The card symbol sits at 94 on the main screen and at the firmware's 109 everywhere else (script_battery.s:card_place): in the
+menus the EDIT icon fills 84 to 97. The card cases boot with and without a card, pull and put in a card on the main screen,
+go into the BLECH menu and GLOBAL PARAMETERS and back, open the firmware's WRITE question and Blechy's app, with LOAD METER off
+and on. The card's picture is taken from the display at 109 in a menu, the menus' columns 84 to 99 from the boot without a card.
 
 The mapping from reading to percent is a placeholder (derived, not measured): linear between the empty and the full threshold
 of the firmware's Alkali table, read from the firmware's battery model at run time.
@@ -36,8 +41,9 @@ LM_VALUE = LM + 28
 BATTERY_MODEL = 0xC03405C8                      # -> the firmware's battery model: +0x318 the threshold table, +0x320 the reading
 GLOBALS = 0xC033E6A0                            # -> the Global object, its block at +4; byte 0x20 BATTERY TYPE (0 Ni-MH, 1 Alkali)
 GLOBAL_SCREEN, BATTERY_TYPE_PAGE = 9, 14        # GLOBAL PARAMETERS and its page BATTERY TYPE (counted from 0)
-COLS = range(83, 99)                            # page 0: four slots of 3 columns and a blank one (hundreds, tens, ones, %)
-LOAD_COLS, CARD_COLS, SYMBOL_COLS = range(100, 108), range(109, 115), range(117, 128)
+COLS = range(101, 117)                          # page 0: four slots of 3 columns and a blank one (hundreds, tens, ones, %)
+LOAD_COLS, CARD_COLS, SYMBOL_COLS = range(86, 94), range(94, 100), range(117, 128)
+KORG_CARD_COLS, MENU_COLS = range(109, 115), range(84, 100)   # the card where the firmware has it, the EDIT icon and right of it
 FLAGS2_BATT_OFF = 16                            # bit 4 of byte 7 of the settings (script_menu.s:FLAGS2_BATT_OFF)
 FONT = bytes([0xFE, 0x82, 0xFE, 0, 0x84, 0xFE, 0x80, 0, 0xF2, 0x92, 0x9E, 0, 0x92, 0x92, 0xFE, 0, 0x1E, 0x10, 0xFE, 0,
               0x9E, 0x92, 0xF2, 0, 0xFE, 0x92, 0xF2, 0, 0x02, 0x02, 0xFE, 0, 0xFE, 0x92, 0xFE, 0, 0x9E, 0x92, 0xFE, 0])
@@ -235,9 +241,9 @@ def display_cases(payload, flash, png):
     load = b.byte(LM_VALUE)
     tens = FONT[load // 10 * 4:load // 10 * 4 + 4] if load >= 10 else bytes(4)
     layout = (columns(d) == glyphs(b.expected(mid)), columns(d, LOAD_COLS) == tens + FONT[load % 10 * 4:load % 10 * 4 + 4],
-              any(columns(d, CARD_COLS)), any(columns(d, SYMBOL_COLS)), not any(columns(d, range(99, 100))))
+              any(columns(d, CARD_COLS)), any(columns(d, SYMBOL_COLS)), not any(columns(d, range(100, 101))))
     out.append(entry("layout_with_load_meter_and_card", all(layout) and not d.m.asserts,
-                     f"build {build}: (battery digits, load meter {load}, card, battery symbol, column 99 free) {layout}, "
+                     f"build {build}: (battery digits, load meter {load}, card, battery symbol, column 100 free) {layout}, "
                      f"page 0 {bytes(d.m.fb[0]).hex()}"))
     if png:
         d.m.png(str(Path(png) / f"{build}-battery-with-load-meter.png"))
@@ -248,6 +254,100 @@ def display_cases(payload, flash, png):
     off = b.shown()
     out.append(entry("off_hides_at_once", off[1] == 0 and not any(off[2]) and not d.m.asserts,
                      f"build {build}: (drawn, columns) {off[1]}, {off[2].hex()}"))
+    return out
+
+
+def card_cases(payload, flash, png):
+    """The card symbol moved to 94 on the main screen only: with and without a card, through the menus, a window and an app."""
+    out = []
+    build = "synth" if synthaddr.is_synth(payload) else mc.firmware.build_of(payload)
+    wait = 10.0 if synthaddr.is_synth(payload) else 2.0
+
+    def main(d):
+        return columns(d, CARD_COLS), columns(d, KORG_CARD_COLS)
+
+    def menus(d):
+        """(BLECH menu, GLOBAL PARAMETERS): columns 84 to 99 and 109 to 114 in each, back on the main screen after each."""
+        got = []
+        for enter in (lambda: mc.goto_group(d, mc.GROUP_DISPLAY, 6), lambda: mc.go(d, GLOBAL_SCREEN)):
+            enter()
+            d.run(0.5)
+            got.append((columns(d, MENU_COLS), columns(d, KORG_CARD_COLS)))
+            mc.leave_to_main(d)
+            d.run(0.5)
+            got.append(main(d))
+        return got
+
+    # without a card: nothing at 94 or 109 on the main screen, the menus' columns as reference for the boot with a card
+    n = mc.boot(payload, flash, card=False, seconds=wait)
+    empty_boot = main(n)
+    bare = menus(n)
+    blank = bytes(6)
+    out.append(entry("card_none", empty_boot == (blank, blank) and all(m[1] == blank for m in bare[0::2])
+                     and all(m == (blank, blank) for m in bare[1::2]) and not n.m.asserts,
+                     f"build {build}: main (94, 109) {empty_boot[0].hex()} {empty_boot[1].hex()}, menus and back "
+                     f"{[(a.hex(), b.hex()) for a, b in bare]}"))
+
+    # with a card: its picture at 109 in GLOBAL PARAMETERS, at 94 on the main screen; the menus' 84 to 99 as without a card
+    b = Battery(payload, flash)
+    d = b.dev
+    booted = main(d)
+    mc.go(d, GLOBAL_SCREEN)
+    d.run(0.5)
+    card = columns(d, KORG_CARD_COLS)
+    mc.leave_to_main(d)
+    d.run(0.5)
+    out.append(entry("card_boot_at_94", any(card) and booted == (card, blank) and not d.m.asserts,
+                     f"build {build}: the card at 109 in a menu {card.hex()}, on the main screen after the boot (94, 109) "
+                     f"{booted[0].hex()} {booted[1].hex()}"))
+
+    flags = b.byte(mc.MX_FLAGS2)
+    for meter in (0, 1):
+        d.m.uc.mem_write(mc.MX_FLAGS2, bytes([flags & ~1 | meter]))
+        d.run(1.0)
+        got = menus(d)
+        ok = all(m == (bare[2 * i][0], card) for i, m in enumerate(got[0::2])) and all(m == (card, blank) for m in got[1::2])
+        out.append(entry(f"card_menus_load_meter_{'on' if meter else 'off'}", ok and not d.m.asserts,
+                         f"build {build}: BLECH menu (84 to 99, 109) {got[0][0].hex()} {got[0][1].hex()} (without a card "
+                         f"{bare[0][0].hex()}), back (94, 109) {got[1][0].hex()} {got[1][1].hex()}; GLOBAL PARAMETERS "
+                         f"{got[2][0].hex()} {got[2][1].hex()} (without a card {bare[2][0].hex()}), back {got[3][0].hex()} "
+                         f"{got[3][1].hex()}"))
+    d.m.uc.mem_write(mc.MX_FLAGS2, bytes([flags]))
+
+    # pulled and put in on the main screen
+    d.m.eject_card()
+    d.run(1.5)
+    pulled = main(d)
+    d.m.insert_card(mc.SDCard(mc.MemoryMedium(mc.card_image(mc.CARD_FOLDER))))
+    d.run(3.0)
+    inserted = main(d)
+    out.append(entry("card_pull_and_insert_on_main", pulled == (blank, blank) and inserted == (card, blank) and not d.m.asserts,
+                     f"build {build}: pulled (94, 109) {pulled[0].hex()} {pulled[1].hex()}, put in {inserted[0].hex()} "
+                     f"{inserted[1].hex()}"))
+
+    # the WRITE question (its own screen): the card at 109, then back at 94
+    mc.press(d, "write", wait=0.6)
+    question = main(d)
+    mc.press(d, "exit", wait=0.6)
+    d.run(1.0)
+    after = main(d)
+    out.append(entry("card_write_question", question == (blank, card) and after == (card, blank) and not d.m.asserts,
+                     f"build {build}: in the question (94, 109) {question[0].hex()} {question[1].hex()}, after it "
+                     f"{after[0].hex()} {after[1].hex()}"))
+
+    # Blechy's app open: no card at 94 over it; closed, the card is back at 94
+    mc.goto_blechy(d)
+    mc.press(d, "menu", wait=0.8)
+    d.run(1.0)
+    app = mc.open_app_entry(d), main(d)
+    if png:
+        d.m.png(str(Path(png) / f"{build}-card-app.png"))
+    mc.press(d, "exit", wait=0.6)
+    d.run(1.0)
+    closed = mc.open_app_entry(d), main(d)
+    out.append(entry("card_app", app[0] and app[1][0] != card and closed == (0, (card, blank)) and not d.m.asserts,
+                     f"build {build}: app {app[0]:#x} (94, 109) {app[1][0].hex()} {app[1][1].hex()}, closed {closed[0]:#x} "
+                     f"{closed[1][0].hex()} {closed[1][1].hex()}"))
     return out
 
 
@@ -309,7 +409,7 @@ def page_cases(payload, flash):
 def cases(payload, flash=None, png=None):
     """All BATTERY % cases on `payload` (the image behind the 256-byte header), as menu_cases.look_parts calls them."""
     mc.for_build(payload)
-    return display_cases(payload, flash, png) + page_cases(payload, flash)
+    return display_cases(payload, flash, png) + card_cases(payload, flash, png) + page_cases(payload, flash)
 
 
 def main():

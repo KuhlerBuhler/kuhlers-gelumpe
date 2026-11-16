@@ -59,7 +59,7 @@ IDLE_END = IDLE + 52             # a plugin's backlight, the keys and pads that 
 GLIDE = IDLE_END                 # BPM GLIDE (script_glide.s:GL_*): the transport, pattern and step of the last frame, the chain and the
 GLIDE_END = GLIDE + 84           # confirmed pattern being glided to; FF at power-on is not started
 BATT = GLIDE_END                 # BATTERY % (script_battery.s:BP_*): the smoothed reading, its tick, the percent shown and drawn,
-BATT_END = BATT + 16             # whether a reading is held; FF at power-on is no reading yet
+BATT_END = BATT + 28             # whether a reading is held, the card symbol's columns and card flag last drawn; FF at power-on is no reading yet
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 RUNTIME = 0xC01AE000
@@ -491,7 +491,7 @@ class BuiltHooks:
             area(LOAD_METER,LOAD_METER_END-LOAD_METER,'LOAD METER: the stamp of the idle loop, the sum of sleep, the frame\'s reading, the value shown and the armed word','tools/patch/script_load_meter.s:LM_STAMP'),
             area(IDLE,IDLE_END-IDLE,'IDLE POWER SAVE: the tick of the last touch, the stage shown, the percent the LEDs keep, a plugin\'s backlight held, the keys and pads whose release is swallowed or that are down, the knobs\' last values','tools/patch/script_idle.s:IS_LAST'),
             area(GLIDE,GLIDE_END-GLIDE,'BPM GLIDE: the transport, pattern and step of the last frame, the switches, the chain and the confirmed pattern the tempo glides to','tools/patch/script_glide.s:GL_INIT'),
-            area(BATT,BATT_END-BATT,'BATTERY %: the smoothed battery reading, the tick of its last step, the percent shown and the percent drawn, whether a reading is held','tools/patch/script_battery.s:BP_AVG'),
+            area(BATT,BATT_END-BATT,'BATTERY %: the smoothed battery reading, the tick of its last step, the percent shown and the percent drawn, whether a reading is held, the card symbol\'s columns and card flag as last drawn on the main screen','tools/patch/script_battery.s:BP_AVG'),
             area(BATT_END,MORE_END-BATT_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:BATT_END'),
             area(SETTINGS_RAM,SETTINGS_RAM_END-SETTINGS_RAM,'the two buffers of the settings file of the BLECH menu and its checksum list (allowed plugins, plugins switched off)','tools/patch/script_hooks.py:SETTINGS_RAM'),
             area(LIST_WORK,LIST_WORK_END-LIST_WORK,'work area of the list of MANAGE PLUGINS: folder object, file info, long name, path, the place of each listed file in the folder, the flag of more files than the list holds','tools/patch/script_menu.s:LIST_WORK'),
