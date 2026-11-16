@@ -29,6 +29,7 @@ Hooks in der Laufzeit (`Probe` in `tools/emu/plugin_api38_cases.py`):
 |---|---|---|---|
 | langsamster Handler (ohne Kartenzeit) | 0,37 ms | 0,44 ms | 0,44 ms |
 | `korg.file.count`, 5 Dateien in `Media/` | 4,1 ms | 4,0 ms | 3,9 ms |
+| `korg.file.count`, 70 BMP in `Media/` (64 gelistet) | 20,1 ms | 20,1 ms | 20,1 ms |
 | `korg.file.name` | 0,1 ms | 0,0 ms | 0,1 ms |
 | `korg.file.picture`, BMP 1 KiB | 9,3 ms | 9,2 ms | 9,4 ms |
 | `korg.file.picture`, kaputte BMP (24 Bit) | 5,1 ms | 5,0 ms | 5,0 ms |
@@ -39,6 +40,9 @@ Hooks in der Laufzeit (`Probe` in `tools/emu/plugin_api38_cases.py`):
 | Rahmen beim Abspielen mit 96 ms (`small.blla`), Mittel / Max | 4,0 / 13,3 ms | 3,9 / 12,8 ms | 3,9 / 12,8 ms |
 | Rahmen beim Abspielen mit 48 ms (`loading.blla`), Mittel / Max | 6,9 / 23,4 ms | 6,7 / 22,9 ms | 6,8 / 22,9 ms |
 | Bilder gelesen in 5 s bei 48 ms | 104 | 104 | 104 |
+
+Die Zeile mit 70 BMP kommt aus einem eigenen Lauf (Skript nur im Scratchpad: ein Plugin ruft `korg.file.count(0)` einmal
+in einem `frame`-Handler, Karte mit `pic00.bmp` bis `pic69.bmp`, gleiche `Probe`); er gibt 64 zurück, das Plugin bleibt an.
 
 **gemessen im Emulator.** Das langsamste Bild beim Abspielen ist der Umlauf vom letzten Bild auf Bild 0. Der
 Max-Wert bei 96 ms enthält das Umschalten auf `loading.blla` mitten im Abschnitt (die Datei wird beim Wechsel einmal
