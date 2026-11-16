@@ -77,8 +77,6 @@ die Zeit der Hüllkurve (MOD. SPEED) kommt vom Platz, den du überschreibst.
 | Tilt EQ | Insert | Kippt den Klang: links heller, rechts dunkler, Mitte unverändert. |
 | Mix Clean Up | Insert | Rumpeln unten und Dröhnen in den Tiefmitten raus, oben etwas Luft. |
 | Master Glue | Master | Kompressor auf der Summe. X dreht die Schwelle runter. |
-| Master Tilt | Master | Die Summe um sechs Stufen kippen: X nach links heller, nach rechts dunkler. |
-| Master Warmth | Master | Leichte Röhrensättigung auf der Summe. |
 
 ## Was nicht geht
 
