@@ -108,6 +108,14 @@ export class SimDevice {
   /** What the device's display shows: the picture of the open app, nothing of a plugin otherwise (the device shows its own screen). */
   get shown() { return this.runtime.open ? this.display.bytes : this.blank; }
 
+  /** What the panel of the device shows of `shown`: with DISPLAY INVERT ON (the factory value) the BLECH menu tells the controller
+   * to reverse the display (0xA7), so every bit of an app's picture shows turned, text as well as korg.file.picture (which turns
+   * its bits for it); `shown` stays the display memory. As the emulator's Machine.shown() (tools/emu/machine.py). */
+  get lcd() {
+    if (!this.runtime.open || this.hardware.objects[DISPLAY_INVERT] !== 1) return this.shown;
+    return this.display.bytes.map(b => b ^ 0xff);
+  }
+
   /** The user opens an app from the BLECH menu: the display is cleared for it, it gets `open`. */
   openApp(id) {
     const app = this.runtime.apps[id];

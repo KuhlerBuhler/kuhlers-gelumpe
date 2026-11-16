@@ -412,11 +412,11 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     if (device.apps.length && !loaded.error) device.openApp(device.apps[0].id);
     live.timer = setInterval(() => {
       showFaults(device.run(1));
-      panel().show(device.shown, device.leds);
+      panel().show(device.lcd, device.leds);
       panel().menus(device.menus, (id, value) => device.menuSet(id, value));
       panel().apps(device.apps, appActions);
     }, FRAME_MS);
-    panel().show(device.shown, device.leds);
+    panel().show(device.lcd, device.leds);
     panel().menus([], () => null);
     panel().apps(device.apps, appActions);
     panel().say(t("plugins.run", { label, hz: Math.round(1000 / FRAME_MS), app: device.apps.length ? ` ${t("plugins.run.app")}` : "" }));

@@ -11,6 +11,7 @@ import { compile, formatError } from "../src/script/compiler.mjs";
 import { decodeBlob } from "../src/script/blob.mjs";
 import { SimDevice } from "../src/script/sim.mjs";
 import { Display } from "../src/script/display.mjs";
+import { OBJECTS } from "../data/script/objects.mjs";
 import { ScriptRuntime } from "../src/script/runtime.mjs";
 import { gifPath, packGif, readGifFrame, frameOfPixels } from "../src/script/gif.mjs";
 import { listMedia, mediaNameBytes, readMediaPicture } from "../src/script/media.mjs";
@@ -317,6 +318,25 @@ test("no Image Viewer handler costs more than the warning line of 0.5 ms besides
   for (const [handler, units] of Object.entries(p.device.status().scripts[0].maxCost)) {
     assert.ok(units - picture <= warn, `${handler} costs ${units} units, ${units - picture} without the picture, the warning line is ${warn}`);
   }
+});
+
+test("the preview shows the display as the device does: every bit turned with DISPLAY INVERT ON, as it is with OFF", () => {
+  const invert = OBJECTS.findIndex(o => o.path === "korg.menu.blech.customizations.display.invert");
+  // marker.bmp: one black pixel top left and one bottom right (mediaCard); the panel shows them dark either way
+  const dark = (bytes, x, y) => (bytes[(y >> 3) * 128 + x] >> (y & 7)) & 1;
+  for (const on of [1, 0]) {
+    const p = viewer(mediaCard());
+    p.device.hardware.objects[invert] = on;
+    p.device.frame();
+    const ram = Array.from(p.device.shown);
+    assert.deepEqual(Array.from(p.device.lcd), on ? ram.map(b => b ^ 0xff) : ram, `the list, DISPLAY INVERT ${on}`);
+    p.press("MENU");
+    p.step(2000);
+    const lcd = p.device.lcd;
+    assert.deepEqual([dark(lcd, 0, 0), dark(lcd, 127, 63), dark(lcd, 64, 32)], [1, 1, 0], `marker.bmp, DISPLAY INVERT ${on}`);
+  }
+  const closed = new SimDevice();
+  assert.ok(closed.lcd.every(b => b === 0), "no app open: nothing of a plugin");
 });
 
 test("gif2e2g puts several BMPs into one file, one frame each in the order given", t => {
