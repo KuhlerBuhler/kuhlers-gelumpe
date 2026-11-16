@@ -212,7 +212,7 @@ Plätzen. Ist er voll, geht das neue Ereignis verloren und wird gezählt. Ein
 Regler, der sofort wieder gedreht wird, behält nur seinen letzten Wert.
 Die Handler eines Rahmens laufen zusammen höchstens 5 ms; wer darüber
 kommt, wird abgeschaltet. Ein einzelner Handler über 0,5 ms ist eine Warnung.
-Die Zeit, die `korg.file.frame`, `read`, `count`, `name` und `picture` auf der Karte lesen, zählt
+Die Zeit, die `korg.file.frame`, `read`, `write`, `count`, `name` und `picture` auf der Karte lesen, zählt
 weder für die 5 ms noch für die Warnung, höchstens 50 ms davon je Rahmen; was darüber geht, zählt wieder
 (im Emulator gemessen: 9 ms für ein Bild je Rahmen, das Plugin bleibt an).
 Der Status hält die höchsten Kosten und den höchsten Zeitverbrauch getrennt

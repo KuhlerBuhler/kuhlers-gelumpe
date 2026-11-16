@@ -54,7 +54,7 @@ export const BUDGET = Object.freeze({ frameMs: 5, handlerWarnMs: 0.5, ring: 64, 
  * budget stops around the read. At most `cardMs` of card time per frame is left out, beyond that it counts again, so a card
  * that answers slowly switches the plugin off instead of holding every frame (tools/patch/script_media.s:card_timed).
  */
-export const CARD_READS = Object.freeze({ calls: Object.freeze(["korg.file.frame", "korg.file.read", "korg.file.count", "korg.file.name", "korg.file.picture"]), cardMs: 50 });
+export const CARD_READS = Object.freeze({ calls: Object.freeze(["korg.file.frame", "korg.file.read", "korg.file.write", "korg.file.count", "korg.file.name", "korg.file.picture"]), cardMs: 50 });
 /** Timer3 counts at 150 MHz and the firmware runs it with a period of one second (PRD 0x8F0D17F), so it wraps there, not at 2^32. */
 export const TIMER3 = Object.freeze({ address: 0x01F0D010, hz: 150000000, period: 150000000 });
 

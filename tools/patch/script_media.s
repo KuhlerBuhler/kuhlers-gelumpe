@@ -778,6 +778,9 @@ script_file_frame_timed:
 script_file_read_timed:
     ldr r12, =script_file_read_glue
     b card_timed
+script_file_write_timed:
+    ldr r12, =script_file_write_glue
+    b card_timed
 script_file_count_timed:
     ldr r12, =script_file_count_glue
     b card_timed

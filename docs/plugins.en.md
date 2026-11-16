@@ -190,7 +190,7 @@ longer writes then, because the "Power Off" window is open. Details of the hooks
 All events except `ready` and `frame` travel through a ring with 64 places. When it is full, the new event
 is lost and counted. A knob that is turned again at once keeps only its last value. The handlers of one
 frame may run 5 ms in total; a plugin that goes over is switched off. A single handler over 0.5 ms is a
-warning. The time `korg.file.frame`, `read`, `count`, `name` and `picture` spend reading the card counts neither
+warning. The time `korg.file.frame`, `read`, `write`, `count`, `name` and `picture` spend reading the card counts neither
 against the 5 ms nor the warning, up to 50 ms of it per frame; beyond that it counts again (measured in the
 emulator: 9 ms for one picture in every frame, the plugin stays on). Only the plugin that runs over is switched off: the other plugins, the remaining inputs and the
 frame handler carry on in the next frame, and events already delivered are not repeated. Handlers that

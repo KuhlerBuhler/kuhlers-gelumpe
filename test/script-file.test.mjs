@@ -481,8 +481,9 @@ test("a card read does not count against the frame budget, up to CARD_READS.card
     return rt.status().scripts[0];
   };
   const every = run(`const pic = new Array(1024); let got = 0;
-korg.onEvent("frame", () => { got = korg.file.picture(pic, 0, 0, 0); korg.file.frame(pic, 0, 0); korg.file.count(0); });`);
-  assert.equal(every.state, "armed", "27 ms of card reads in each frame, 5 ms budget");
+korg.onEvent("frame", () => { got = korg.file.picture(pic, 0, 0, 0); korg.file.frame(pic, 0, 0); korg.file.count(0); korg.file.write(pic, 0); });`);
+  assert.ok(CARD_READS.calls.includes("korg.file.write"), "korg.file.write reads the card at its first call");
+  assert.equal(every.state, "armed", "36 ms of card reads in each frame, 5 ms budget");
   assert.equal(every.slowHandlers, 0, `nothing over ${BUDGET.handlerWarnMs} ms`);
   const many = run(`const pic = new Array(1024);
 korg.onEvent("frame", () => { for (let i = 0; i < 10; i = i + 1) { korg.file.picture(pic, 0, 0, 0); } });`);

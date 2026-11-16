@@ -187,7 +187,7 @@ Hormis `ready` et `frame`, les événements utilisent un tampon circulaire de 64
 plein, le nouvel événement est perdu et compté. Deux mouvements immédiats du même potentiomètre
 ne conservent que la dernière valeur. Les gestionnaires d’une trame disposent ensemble de 5 ms ;
 un dépassement désactive le plugin responsable. Plus de 0,5 ms pour un gestionnaire est un
-avertissement. Le temps de lecture de la carte par `korg.file.frame`, `read`, `count`, `name` et `picture`
+avertissement. Le temps de lecture de la carte par `korg.file.frame`, `read`, `write`, `count`, `name` et `picture`
 ne compte ni dans les 5 ms ni pour l’avertissement, jusqu’à 50 ms par trame ; au-delà, il compte de nouveau
 (mesuré dans l’émulateur : 9 ms pour une image à chaque trame, le plugin reste actif). Les autres plugins, entrées restantes et gestionnaires de trame continuent à la
 trame suivante ; les événements déjà livrés ne sont pas répétés. Un gestionnaire qui n’a pas
