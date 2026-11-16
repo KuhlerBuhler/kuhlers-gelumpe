@@ -278,6 +278,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Startbild-Editor auf der blauen: SPLASH IMPORT, DRAW und RESET, Bild im Flash-Sektor 0x7F0000, im Emulator](2026-11-13-startbild-editor-blau.md)
 - [Media-Ordner: Startbild und Ladeanimation von der Karte, Einstellung in Byte 14 der BLLA-Datei, im Emulator](2026-11-14-media-ordner.md)
 - [korg.file.picture: Polarität gegen Startbild und DISPLAY INVERT, Lesezeit gegen das Rahmenbudget, im Emulator](2026-11-16-media-polaritaet.md)
+- [Image Viewer: Handler, Kartenzeit je Bild und Rahmenzeit beim Abspielen auf Hacktribe, Korg rot und blau, im Emulator](2026-11-16-image-viewer-timing.md)
 - [KNOB LEDS: die LEDs hinter den Reglern aus, im Emulator](2026-11-12-knopf-leds.md)
 - [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
