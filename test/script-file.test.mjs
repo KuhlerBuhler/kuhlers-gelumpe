@@ -4,12 +4,13 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { API_BY_NAME, ERROR, SCRIPT_GIF, SCRIPT_MEDIA } from "../data/script/contract.mjs";
+import { API_BY_NAME, BUDGET, CARD_READS, ERROR, SCRIPT_GIF, SCRIPT_MEDIA } from "../data/script/contract.mjs";
 import { PRESETS } from "../data/script/presets.mjs";
 import { KEY_NAMES } from "../data/script/names.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
 import { decodeBlob } from "../src/script/blob.mjs";
 import { SimDevice } from "../src/script/sim.mjs";
+import { ScriptRuntime } from "../src/script/runtime.mjs";
 import { gifPath, packGif, readGifFrame, frameOfPixels } from "../src/script/gif.mjs";
 import { listMedia, mediaNameBytes, readMediaPicture } from "../src/script/media.mjs";
 import { encodeBmp } from "../src/splash-bmp.mjs";
@@ -342,4 +343,26 @@ test("korg.file.picture reads the list of the last count: a file gone since is -
   small.post("buttonPress", 3);
   small.frame();
   assert.equal(short.script.fault?.code ?? small.status().scripts[0].fault?.code, ERROR.API_ARG);
+});
+
+test("a card read does not count against the frame budget, up to CARD_READS.cardMs a frame", () => {
+  let ms = 0;
+  const card = name => (...args) => { ms += 9; return name === "korg.file.picture" && args.length === 4 ? 1 : 0; };
+  const api = Object.fromEntries(CARD_READS.calls.map(name => [name, card(name)]));
+  const run = source => {
+    const rt = new ScriptRuntime({ api, now: () => ms });
+    const r = compile(source, { name: "budget" });
+    assert.ok(r.ok, r.errors?.map(formatError).join("\n"));
+    assert.ok(rt.add(r.blob).ok);
+    for (let i = 0; i < 30; i++) rt.frame();
+    return rt.status().scripts[0];
+  };
+  const every = run(`const pic = new Array(1024); let got = 0;
+korg.onEvent("frame", () => { got = korg.file.picture(pic, 0, 0, 0); korg.file.frame(pic, 0, 0); korg.file.count(0); });`);
+  assert.equal(every.state, "armed", "27 ms of card reads in each frame, 5 ms budget");
+  assert.equal(every.slowHandlers, 0, `nothing over ${BUDGET.handlerWarnMs} ms`);
+  const many = run(`const pic = new Array(1024);
+korg.onEvent("frame", () => { for (let i = 0; i < 10; i = i + 1) { korg.file.picture(pic, 0, 0, 0); } });`);
+  assert.equal(many.state, "disabled", `90 ms of card reads in one frame, ${CARD_READS.cardMs} ms left out`);
+  assert.equal(many.fault.name, "TIME");
 });

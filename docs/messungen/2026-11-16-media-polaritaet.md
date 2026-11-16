@@ -40,19 +40,32 @@ Punkt ist also auch immer dunkel; die `.blla`-Bilder folgen derselben Regel (**h
 `tools/patch/test_script_file.py` prüft die Bytes im Feld gegen die Referenz für Menü scharf mit ON, mit OFF und
 Menü nicht scharf mit ON.
 
-## Lesezeit (offen)
+## Lesezeit
 
-Jeder Aufruf allein in einem `frame`-Handler, Timer3-Ticks des Handlers (150 MHz):
+Jeder Aufruf allein in einem `frame`-Handler, Zeit im Aufruf (Timer3, 150 MHz):
 
-| Aufruf | Zeit | Folge |
+| Aufruf | Zeit im Aufruf |
+|---|---|
+| `korg.file.count(0)`, 1 Datei | 3,7 ms |
+| `korg.file.picture` (BMP, 1 KiB) | 9,0 bis 9,3 ms |
+| `korg.file.frame` (GIF, 1 KiB, seit API 7) | 7,5 ms |
+
+**gemessen im Emulator**, am Gerät nicht. Das Rahmenbudget ist 5 ms. Darum zählt die Zeit in den Kartenaufrufen
+(`CARD_READS` in `data/script/contract.mjs`: `korg.file.frame`, `read`, `count`, `name`, `picture`) nicht für das
+Budget und nicht für die Warnung: `card_timed` in `tools/patch/script_media.s` schiebt den Start des Rahmens und des
+Handlers um die Zeit des Aufrufs vor, höchstens 50 ms je Rahmen (`CARD_CLOCK`, am Rahmenanfang 0). Die Kartentreiber
+von Korg brechen ein Lesen ohne Antwort selbst ab ("Card Error" nach 8 bis 17 s, [docs/emulator.md](../emulator.md));
+die 50 ms sorgen dafür, dass ein Plugin auf so einer Karte mit `TIME` abgeschaltet wird, statt jeden Rahmen anzuhalten.
+
+`tools/emu/plugin_api38_cases.py`, Hacktribe mit `data/patches/blech.json`, ein Plugin liest in jedem Rahmen:
+
+| Fall | ohne Regel | mit Regel |
 |---|---|---|
-| `korg.file.count(0)`, 1 Datei | 3,7 ms | läuft |
-| `korg.file.picture` (BMP, 1 KiB) | 9,0 bis 9,3 ms | `TIME`, Plugin abgeschaltet |
-| `korg.file.frame` (GIF, 1 KiB, seit API 7) | 7,5 ms | `TIME`, Plugin abgeschaltet |
+| `korg.file.picture` je Rahmen, 6 s | `TIME` nach dem ersten Lesen, 8,94 ms | an, 137 Lesungen, langsamster Handler 0,09 ms |
+| `korg.file.frame` je Rahmen, 6 s | `TIME` nach dem ersten Lesen, 7,53 ms | an, 138 Lesungen |
+| zehn `korg.file.picture` in einem Handler | | `TIME`, 41 ms gezählt (90 ms gelesen, 50 ms frei) |
 
-**gemessen im Emulator.** Das Rahmenbudget ist 5 ms. Auch das ältere `korg.file.frame` reißt es im Emulator; ob das
-Gerät die Karte schneller liest, ist nicht gemessen. Für die Polaritätsmessung oben wurde das Plugin nach dem `TIME`
-im Emulator wieder scharf geschaltet. Offen für den Viewer (Phase 4) und die Emulator-Fälle (Phase 5).
+**gemessen im Emulator.**
 
 ## Größe
 

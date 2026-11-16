@@ -212,6 +212,9 @@ Plätzen. Ist er voll, geht das neue Ereignis verloren und wird gezählt. Ein
 Regler, der sofort wieder gedreht wird, behält nur seinen letzten Wert.
 Die Handler eines Rahmens laufen zusammen höchstens 5 ms; wer darüber
 kommt, wird abgeschaltet. Ein einzelner Handler über 0,5 ms ist eine Warnung.
+Die Zeit, die `korg.file.frame`, `read`, `count`, `name` und `picture` auf der Karte lesen, zählt
+weder für die 5 ms noch für die Warnung, höchstens 50 ms davon je Rahmen; was darüber geht, zählt wieder
+(im Emulator gemessen: 9 ms für ein Bild je Rahmen, das Plugin bleibt an).
 Der Status hält die höchsten Kosten und den höchsten Zeitverbrauch getrennt
 für jeden Handler. In der JS Referenzlaufzeit nennt `maxMs` diese Zeiten in
 Millisekunden; der ARM Eintrag hält Timer3 Ticks je Ereignis.
@@ -1231,7 +1234,7 @@ Byte Displayspeicher (Byte `(y / 8) * 128 + x`, Bit `y % 8`). `tools/gif/gif2e2g
 (Pillow), aus mehreren Bildern (etwa BMPs) eine Datei mit einem Bild je Eingabe in der genannten Reihenfolge, `src/script/gif.mjs` liest sie im Browser. Ein Aufruf öffnet die Datei, springt zum Bild, liest es und schließt
 sie wieder, über die FatFs-Funktionen der Firmware (auch `f_lseek`, `0xC009E404`, in Blau `0xC008AF5C`) und mit dem
 Dateiobjekt des Kartenladers. Er liest nur bei offenem Hauptbildschirm. Wie lange das
-Lesen von 1 KiB am Gerät dauert, ist nicht gemessen; die 5 ms des Rahmens bleiben die Grenze.
+Lesen von 1 KiB am Gerät dauert, ist nicht gemessen; im Emulator sind es 7,5 ms, die nicht für das Rahmenbudget zählen.
 
 ### Dauerhafte Werte
 

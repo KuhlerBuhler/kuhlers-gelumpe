@@ -49,6 +49,12 @@ export const LIMITS = Object.freeze({
 /** The shared arena holds blobs, variables and script entries. Scratch and the event ring are separate. */
 const SCRIPT_POOL_BYTES = 128 * 1024;
 export const BUDGET = Object.freeze({ frameMs: 5, handlerWarnMs: 0.5, ring: 64, scriptBytes: SCRIPT_POOL_BYTES, variableSlots: SCRIPT_POOL_BYTES / 4 });
+/**
+ * Time spent inside these calls reading the card does not count against `frameMs` nor `handlerWarnMs`: the clock of the
+ * budget stops around the read. At most `cardMs` of card time per frame is left out, beyond that it counts again, so a card
+ * that answers slowly switches the plugin off instead of holding every frame (tools/patch/script_media.s:card_timed).
+ */
+export const CARD_READS = Object.freeze({ calls: Object.freeze(["korg.file.frame", "korg.file.read", "korg.file.count", "korg.file.name", "korg.file.picture"]), cardMs: 50 });
 /** Timer3 counts at 150 MHz and the firmware runs it with a period of one second (PRD 0x8F0D17F), so it wraps there, not at 2^32. */
 export const TIMER3 = Object.freeze({ address: 0x01F0D010, hz: 150000000, period: 150000000 });
 

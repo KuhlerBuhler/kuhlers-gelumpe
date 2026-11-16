@@ -770,6 +770,65 @@ blla_apply_bad:
     mvn r0, #0
     pop {r4-r11, pc}
 
+;  The card reads of the plugin API (CARD_READS in data/script/contract.mjs) go through card_timed: the clock of the frame
+; budget stops while the glue runs, so a read of the card does not count against SCRIPT_FRAME_TICKS nor the handler's ticks.
+script_file_frame_timed:
+    ldr r12, =script_file_frame_glue
+    b card_timed
+script_file_read_timed:
+    ldr r12, =script_file_read_glue
+    b card_timed
+script_file_count_timed:
+    ldr r12, =script_file_count_glue
+    b card_timed
+script_file_name_timed:
+    ldr r12, =script_file_name_glue
+    b card_timed
+script_file_picture_timed:
+    ldr r12, =script_file_picture_glue
+    b card_timed
+
+; r0 to r3 the arguments, r12 the glue -> what the glue returns (r0, r1). The ticks it took move RT_FRAME_START and RT_STARTED
+; forward, up to SCRIPT_CARD_TICKS in one frame (CARD_CLOCK, set to 0 at the start of each frame); beyond that the time counts,
+; so a card that answers slowly ends in TIME instead of holding every frame.
+card_timed:
+    push {r4-r6, lr}
+    ldr r4, =SCRIPT_TIMER_ADDRESS
+    ldr r5, [r4]
+    blx r12
+    push {r0, r1}
+    ldr r0, [r4]
+    cmp r0, r5
+    sub r0, r0, r5
+    ldrlo r1, =SCRIPT_TIMER_PERIOD
+    addlo r0, r0, r1
+    ldr r6, =CARD_CLOCK
+    ldr r1, [r6]
+    ldr r2, =SCRIPT_CARD_TICKS
+    cmp r1, r2
+    bhs card_timed_done
+    sub r2, r2, r1
+    cmp r0, r2
+    movhi r0, r2
+    add r1, r1, r0
+    str r1, [r6]
+    ldr r6, =HOOK_RUNTIME
+    ldr r3, =SCRIPT_TIMER_PERIOD
+    ldr r1, [r6, #RT_FRAME_START]
+    add r1, r1, r0
+    cmp r1, r3
+    subhs r1, r1, r3
+    str r1, [r6, #RT_FRAME_START]
+    ldr r1, [r6, #RT_STARTED]
+    add r1, r1, r0
+    cmp r1, r3
+    subhs r1, r1, r3
+    str r1, [r6, #RT_STARTED]
+card_timed_done:
+    pop {r0, r1}
+    pop {r4-r6, pc}
+.pool
+
 media_folder:
     .asciz "SD:KORG/blechtribe/Media"
 media_prefix:

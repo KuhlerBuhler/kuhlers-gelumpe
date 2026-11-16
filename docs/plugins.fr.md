@@ -187,7 +187,9 @@ Hormis `ready` et `frame`, les événements utilisent un tampon circulaire de 64
 plein, le nouvel événement est perdu et compté. Deux mouvements immédiats du même potentiomètre
 ne conservent que la dernière valeur. Les gestionnaires d’une trame disposent ensemble de 5 ms ;
 un dépassement désactive le plugin responsable. Plus de 0,5 ms pour un gestionnaire est un
-avertissement. Les autres plugins, entrées restantes et gestionnaires de trame continuent à la
+avertissement. Le temps de lecture de la carte par `korg.file.frame`, `read`, `count`, `name` et `picture`
+ne compte ni dans les 5 ms ni pour l’avertissement, jusqu’à 50 ms par trame ; au-delà, il compte de nouveau
+(mesuré dans l’émulateur : 9 ms pour une image à chaque trame, le plugin reste actif). Les autres plugins, entrées restantes et gestionnaires de trame continuent à la
 trame suivante ; les événements déjà livrés ne sont pas répétés. Un gestionnaire qui n’a pas
 encore commencé lorsque le temps manque est reporté sans être désactivé.
 
@@ -1187,7 +1189,7 @@ deux octets nuls et 1024 octets d’écran. Octet `(y / 8) * 128 + x`, bit `y % 
 en une image par entrée dans l’ordre fourni. `src/script/gif.mjs` lit le format dans le navigateur.
 Chaque appel ouvre, cherche, lit et ferme le fichier avec FatFs, dont `f_lseek` à `0xC009E404`,
 `0xC008AF5C` sur bleu, et l’objet fichier du chargeur. Lecture seulement sur l’écran principal.
-La durée de lecture de 1 Kio sur l’appareil n’est pas mesurée ; les 5 ms par trame restent la limite.
+La durée de lecture de 1 Kio sur l’appareil n’est pas mesurée ; dans l’émulateur elle est de 7,5 ms, hors du budget de la trame.
 
 ### Valeurs persistantes
 
