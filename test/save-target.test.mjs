@@ -69,3 +69,14 @@ test("cards: only the app looks, and a save names the card and the goal's folder
   assert.equal(sameCards([card], [{ ...card, vsbExists: true }]), false, "a file put there later counts as a change");
   assert.equal(sameCards([], [card]), false);
 });
+
+test("the Android app saves through its own dialog and finds no cards", async () => {
+  const android = { ...app({ save_cards: [{ root: "/x" }] }), __GELUMPE_MOBILE: { platform: "android" } };
+  assert.equal(saveWay(android), "download");
+  assert.deepEqual(await findCards("KORG/blechtribe/System/", android), []);
+  const got = [];
+  const out = await saveAs(bytes, "SYSTEM.VSB", { scope: android, download: (b, n) => got.push(n) });
+  assert.deepEqual(got, ["SYSTEM.VSB"]);
+  assert.equal(out.way, "download");
+  assert.deepEqual(android.asked, []);
+});

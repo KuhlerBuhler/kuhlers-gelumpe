@@ -5,7 +5,7 @@ Firmware im Blackfin-Simulator aus gdb laufen lassen und mit dem Verkehr fütter
 Ausgangspegel zu bekommen. **Ergebnis: Der Weg ist vorerst geparkt.** Init, Postfach und Audioschleife laufen, aber Noten bleiben
 still, und wo der DSP Samples abspielt, ist nicht gefunden. Das [DSP-Modell](2026-11-12-dsp-modell.md) bleibt der Weg für Prüfungen.
 
-Die Werkzeuge dazu (Aufzeichnung, Replay, Simulator-Erweiterungen) liegen nicht im Repo.
+Aufzeichnung und Replay liegen in [tools/dsp/sim](../../tools/dsp/sim/README.md), die Simulator-Erweiterungen (Spuren, MDMA-Modell) liegen nicht im Repo.
 
 ## Aufbau
 

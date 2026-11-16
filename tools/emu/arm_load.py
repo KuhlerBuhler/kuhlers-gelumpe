@@ -5,7 +5,8 @@
 
 Load is the model of cpu_profile.py: executed ARM instructions times 5 ns over device time, the rest the firmware sleeps in
 wait-for-interrupt. Every scene runs 2 s of device time in 10 ms slices; the result has the mean, the median, the 99th
-percentile and the largest slice. SPANS.txt is the output of tools/patch/apply.mjs; the instructions inside each span are
+percentile, the largest slice and the messages to the panel per second (mostly LEDs). SPANS.txt is the output of
+tools/patch/apply.mjs; the instructions inside each span are
 added up per patch (only code that runs inside a patch, not the firmware work a hook starts). "-" for an unpatched file.
 The DSP is a mock in the emulator: these numbers say nothing about the DSP load.
 """
@@ -49,13 +50,15 @@ def main():
     uc.hook_add(unicorn.UC_HOOK_BLOCK, block)
     results = []
 
-    def measure(scene, seconds=2.0):
+    def measure(scene, seconds=2.0, each=None):
         st["pages"].clear()
         uc.ctl_flush_tb()
         slices = []
-        t0 = m.time_ns
+        t0, p0 = m.time_ns, m.panel_count
         st["on"] = True
         while m.time_ns - t0 < seconds * 1e9:
+            if each:
+                each(len(slices))
             n0, s0 = st["n"], m.time_ns
             dev.run(SLICE)
             slices.append((st["n"] - n0) * NS / (m.time_ns - s0) * 100)
@@ -71,7 +74,7 @@ def main():
         slices.sort()
         row = dict(scene=scene, busy=round(total * NS / dt * 100, 3), p50=round(slices[len(slices) // 2], 2),
                    p99=round(slices[int(len(slices) * .99)], 2), max=round(slices[-1], 2), deviceMs=round(dt / 1e6),
-                   asserts=len(m.asserts),
+                   panelPerS=round((m.panel_count - p0) / dt * 1e9, 1), asserts=len(m.asserts),
                    byPatch={k: round(v * NS / dt * 100, 3) for k, v in by.most_common()})
         print(json.dumps(row), flush=True)
         results.append(row)
@@ -107,6 +110,12 @@ def main():
     dev.press(0x15, .3)
     dev.press(2, .4)
     measure("sequencer-four-note-long-ties")
+
+    def edit(i):                # a step edit every 100 ms while it plays: the tie cache (tools/patch/pad_colors.py) starts over
+        if i % 10 == 0:
+            step = 1 + i // 10 % 16
+            uc.mem_write(pattern + 0x830 + step * 12 + 1, bytes([126 + i // 10 % 2]))
+    measure("sequencer-long-ties-editing", each=edit)
     dev.press(1, .3)
     Path(out).write_text(json.dumps(results, indent=1))
 

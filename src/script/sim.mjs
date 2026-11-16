@@ -51,6 +51,7 @@ export class SimDevice {
         "korg.display.clearRect": (x, y, w, h) => this.display.clearRect(x, y, w, h),
         "korg.display.bitmap": (slots, x, y, width) => this.display.bitmap(slots, x, y, width),
         "korg.display.textNumber": (text, value, x, y) => this.display.textNumber(text, value, x, y),
+        "korg.display.chars": (slots, x, y, count) => this.display.chars(slots, x, y, count),
         "korg.file.frame": (slots, file, index) => {
           if (slots.length < SCRIPT_GIF.frameBytes) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.gifFrame", { length: slots.length, needed: SCRIPT_GIF.frameBytes })));
           return readGifFrame(this.card.get(gifPath(file)), index, slots);

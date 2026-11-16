@@ -80,8 +80,8 @@ class Rig:
             self.erases.append({"address": fl.addr & ~(size - 1), "size": size})
             return erase(size)
 
-        def logged_byte(b):
-            r = byte(b)
+        def logged_byte(b, *now):
+            r = byte(b, *now)
             if fl.cmd == 0x02 and fl.wel:
                 if len(fl.buf) == 3:
                     self.programs.append({"address": fl.addr, "bytes": 0})

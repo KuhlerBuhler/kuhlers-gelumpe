@@ -10,6 +10,7 @@ import { t } from "./i18n.mjs";
 
 const BOTH = ["red", "blue"];
 const RED = ["red"];
+const BLUE = ["blue"];
 /** The last group: what is planned (docs/ideen.md), without a date. */
 const SOON = "features.group.soon";
 const DEVICE = { red: "device.red", blue: "device.blue" };
@@ -59,6 +60,9 @@ export const FEATURES = [
   { group: "features.group.play", id: "ht-osc", title: "features.htOsc.title", where: RED, image: "img/features/ht-osc.svg",
     text: "features.htOsc.text",
     how: "features.htOsc.how" },
+  { group: "features.group.play", id: "user-samples", title: "features.userSamples.title", where: BLUE, image: "img/features/user-samples.svg",
+    text: "features.userSamples.text",
+    how: "features.userSamples.how" },
   { group: "features.group.play", id: "beat-eighth", title: "features.beatEighth.title", where: BOTH, image: "img/features/beat-eighth.svg",
     text: "features.beatEighth.text",
     how: "features.beatEighth.how" },

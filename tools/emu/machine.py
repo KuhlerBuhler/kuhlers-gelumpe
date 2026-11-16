@@ -37,6 +37,8 @@ ISR_STEP = 256             # slice length while an interrupt handler runs, so th
 PACE = os.environ.get("GELUMPE_PACE", "device") != "flat"
 
 AINTC = 0xFFFEE000
+GNLR = AINTC + 0x1C        # global nesting level: an IRQ whose channel (CMR) is this number or higher is not passed
+GNLR_NONE = 0x100          # its reset level, which blocks no channel
 GPIO = 0x01E26000
 MMC = 0x01C40000
 SPI0, SPI1 = 0x01C41000, 0x01F0E000
@@ -58,6 +60,8 @@ DSP_SYNC = 0x2C            # a one-word write to the control port that no transf
 #   tx_full         UART send loop: the byte did not fit the queue, retried up to 100000 times; ends the slice
 #   screens         pointer to the screen manager: +0x2C number of the current screen
 FLASH_SIZE = 0x1000000
+# typical busy times of a SPI NOR erase and page program (datasheet class values, not measured on the device): 4 KiB, 32 KiB, 64 KiB
+FLASH_BUSY_NS = {0x1000: 45_000_000, 0x8000: 150_000_000, 0x10000: 200_000_000, "program": 700_000}
 FIRMWARE_AT = 0x20000      # flash offset of the firmware image (SOFTWARE UPDATE writes [0x20000, 0x220000), measured 2026-10-10)
 USER_MARK = 0x220000       # flash offset the firmware checks at start; without the mark it offers the update
 MAIN_SCREEN = 1            # the screen the firmware shows once it has started
@@ -179,7 +183,13 @@ class SysexReader:
 
 
 class Flash:
-    """Serial NOR flash on SPI1, selected while GPIO 2.14 is low."""
+    """Serial NOR flash on SPI1, selected while GPIO 2.14 is low.
+
+    An erase or a page program keeps the chip busy (status bit 0, WIP) for FLASH_BUSY_NS after it starts, as a real chip
+    does, and a page program clears the write enable as an erase does. While busy the chip takes no command but the status
+    read. The firmware's driver polls the status with a 1 us delay (0xC001673C) between polls, at most 10,000 or 4,000,000
+    times (0xC001E940 and its two callers on red/HT, read 2026-11-14), so the calling task keeps the CPU. The times are
+    typical datasheet values for a SPI NOR of this size, not measured on the device."""
 
     def __init__(self, image, mark=SAMPLER_USER_MARK):
         self.mem = bytearray(image) if image else blank_flash(mark)
@@ -190,21 +200,36 @@ class Flash:
         self.wel = False
         self.dirty = False          # erased or programmed since the host last saved it
         self.commands = collections.Counter()
+        self.now = 0                # device time (ns) of the last select or byte, set by the machine
+        self.busy_until = 0         # end of the running erase or program
+        self.programmed = False     # a page program took data since the last select
 
-    def select(self, on):
+    def busy(self):
+        return self.now < self.busy_until
+
+    def select(self, on, now=0):
+        self.now = now
+        if not on and self.programmed:      # a page program starts when the chip is let go
+            self.busy_until = now + FLASH_BUSY_NS["program"]
+            self.wel = False
         self.selected = on
-        self.cmd, self.buf = None, []
+        self.cmd, self.buf, self.programmed = None, [], False
 
-    def byte(self, b):
+    def byte(self, b, now=0):
+        self.now = now
         if self.cmd is None:
             self.cmd = b
             self.commands[b] += 1
+            if self.busy() and b != 0x05:
+                self.cmd = -1               # busy: every command but the status read is ignored
+                return 0xFF
             if b == 0x06: self.wel = True
             if b == 0x04: self.wel = False
             return 0xFF
         self.buf.append(b)
         c, n = self.cmd, len(self.buf)
-        if c == 0x05: return 0x02 if self.wel else 0x00
+        if c == -1: return 0xFF
+        if c == 0x05: return (0x02 if self.wel else 0x00) | (0x01 if self.busy() else 0x00)
         if c == 0x9F: return (0x01, 0x20, 0x18)[min(n - 1, 2)]
         if n == 3:
             self.addr = int.from_bytes(bytes(self.buf), "big")
@@ -219,6 +244,7 @@ class Flash:
         if n > 3 and c == 0x02 and self.wel:
             self.mem[self.addr] &= b
             self.dirty = True
+            self.programmed = True
             self.addr = (self.addr & ~0xFF) | ((self.addr + 1) & 0xFF)
         return 0xFF
 
@@ -227,6 +253,7 @@ class Flash:
         self.mem[start:start + size] = b"\xff" * size
         self.dirty = True
         self.wel = False
+        self.busy_until = self.now + FLASH_BUSY_NS[size]
 
 
 class Machine:
@@ -280,6 +307,7 @@ class Machine:
         self.ns_per_insn = NS_PER_INSN   # the rate of the next slice (device_rate)
         self.asserts = []
         self.raw, self.enabled, self.cmr = set(), set(), {}
+        self.nest_level = GNLR_NONE
         self._tcfg, self._tper = {}, {}      # timer configuration as read from regs; see _wr
         self.timer_last = {}
         self.deadline, self.poll_stop, self.tx_idle = math.inf, False, False
@@ -601,6 +629,8 @@ class Machine:
             return self.regs.get(a, 0) | (1 if forced else 0)
         if a in (AINTC + 0x900, AINTC + 0x904):     # HIPIR1 / HIPIR2
             return self.highest(fiq=a == AINTC + 0x900)
+        if a == GNLR:
+            return self.nest_level
         return None
 
     def write(self, a, v):
@@ -632,7 +662,7 @@ class Machine:
                 self.lcd(v & 0xFF)
             if len(s["wire"]) >= 2:
                 s["buf"], s["full"] = s["wire"].popleft(), True
-            s["wire"].append(self.flash.byte(v & 0xFF) if base == SPI1 and self.flash.selected else 0)
+            s["wire"].append(self.flash.byte(v & 0xFF, self.time_ns) if base == SPI1 and self.flash.selected else 0)
             return True
         base = a & ~0xFF
         if base in self.uart:
@@ -660,6 +690,7 @@ class Machine:
             elif off == 0x24: self.raw.discard(v & 0x7F)
             elif off == 0x28: self.enabled.add(v & 0x7F)
             elif off == 0x2C: self.enabled.discard(v & 0x7F)
+            elif off == 0x1C: self.nest_level = v & 0x1FF
             elif 0x200 <= off < 0x210: self._bits(self.raw, off - 0x200, v, True)
             elif 0x280 <= off < 0x290: self._bits(self.raw, off - 0x280, v, False)
             elif 0x300 <= off < 0x310: self._bits(self.enabled, off - 0x300, v, True)
@@ -714,7 +745,7 @@ class Machine:
         if pair == 3 and reg in (0x04, 0x08, 0x0C) and ((old ^ w) | v) & BACKLIGHT_PINS:
             self.backlight.write(self.time_ns, w & BACKLIGHT_PINS)
         if pair == 1 and (old ^ w) & 0x4000:        # GPIO 2.14: flash chip select
-            self.flash.select(not w & 0x4000)
+            self.flash.select(not w & 0x4000, self.time_ns)
         hold = pin(7, 11)[1]
         if pair == 3 and old & hold and not w & hold:   # GPIO 7.11: power hold let go
             self.powered = False
@@ -850,7 +881,17 @@ class Machine:
 
     # ---- interrupts ----------------------------------------------------------
     def highest(self, fiq=False):
-        live = [i for i in self.raw & self.enabled if (self.cmr.get(i, 0) < 2) == fiq]
+        """The pending, enabled interrupt with the highest priority (lowest CMR channel), 0x80000000 for none.
+
+        An IRQ whose channel number is the global nesting level (GNLR) or higher is held back until the level drops, as
+        the AM1808's controller does by its manual (not measured on the device). Korg's IRQ dispatcher
+        (0xC00013D0 on the synth, 0xC00015B0 on red/HT) disables the line it serves, sets GNLR to that line's channel and
+        enables IRQs before it calls the handler, so only a higher priority line nests; it puts the old level back
+        afterwards. Without the level, a lower line nested inside a handler that itself had interrupted the DIN send
+        handler halfway through its count update (0xC00206BC to 0xC00206CC on the synth), and the line's send queue lost a
+        byte: every reply longer than the 1024-byte queue came out broken."""
+        live = [i for i in self.raw & self.enabled if (self.cmr.get(i, 0) < 2) == fiq
+                and (fiq or self.cmr.get(i, 0) < self.nest_level)]
         return min(live, key=lambda i: (self.cmr.get(i, 0), i)) if live else 0x80000000
 
     def poll_time(self):
@@ -902,10 +943,14 @@ class Machine:
     def slice_length(self, in_isr):
         """Instructions to run next: at most SLICE, ending where the next timer edge or UART byte
         falls so that it happens at its own time, and short while a handler runs so that the next
-        pending interrupt is taken when it returns, as the controller does, not one slice later."""
+        pending interrupt is taken when it returns, as the controller does, not one slice later. Korg's handlers run
+        in SVC mode behind the dispatcher, which has set a nesting level (GNLR) until they return: short then as well,
+        or a line the level holds back waits for the next slice end and a line of higher priority that comes again
+        by then is taken first every time (the 1 kHz tick starved behind TIMER64P2 with long slices)."""
         self.deadline = self.next_event()
         left = self.deadline - self.time_ns
-        return max(1, min(ISR_STEP if in_isr else SLICE, math.ceil(left / self.ns_per_insn) if left < math.inf else SLICE))
+        short = in_isr or self.nest_level < GNLR_NONE
+        return max(1, min(ISR_STEP if short else SLICE, math.ceil(left / self.ns_per_insn) if left < math.inf else SLICE))
 
     def device_rate(self, cpsr):
         """ns per instruction for the code at pc: NS_PER_INSN, or with `pace` the device's rate for it

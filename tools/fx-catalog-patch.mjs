@@ -28,8 +28,9 @@ const patch = {
   version: 1,
   id: "fx-catalog",
   name: "Effekte aus dem Katalog",
-  builds: ["hacktribe", "stock"],
-  notNeededOn: ["synth"],
+  builds: ["hacktribe", "stock", "synth"],
+  // Korg's 2.02 has 38 insert and 32 master presets; Hacktribe's own inserts 39 to 49 come first in the catalog.
+  first: { ifx: 39, mfx: 33 },
   ram: [],
   presets,
   units: used,

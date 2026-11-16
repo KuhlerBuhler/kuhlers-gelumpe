@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { STORE } from "../data/script/contract.mjs";
+import { STORE, SCRIPT_DATA_FILE, dataFileName } from "../data/script/contract.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
 import { ScriptRuntime } from "../src/script/runtime.mjs";
 import { buildStore, parseStore, newestStore } from "../src/script/store.mjs";
@@ -98,4 +98,26 @@ test("a slot outside 0 to 15 ends the script with an argument error", () => {
   assert.ok(added.ok);
   const faults = rt.frame().faults;
   assert.equal(faults[0].name, "API_ARG");
+});
+
+test("korg.file.write keeps bytes per plugin up to the size limit, korg.file.read gives them back from an offset", () => {
+  const runtime = new ScriptRuntime({ frameMs: Infinity });
+  const keeper = `const buf = new Array(4); const back = new Array(8); let got = -9;
+korg.onEvent("ready", () => {
+  buf[0] = 7; buf[1] = 8; buf[2] = 9; buf[3] = 300;
+  korg.file.write(buf, 2);
+  got = korg.file.read(back, 1);
+  korg.store.set(0, got); korg.store.set(1, back[0]); korg.store.set(2, back[1]); korg.store.set(3, back[4]);
+  korg.store.set(4, korg.file.write(buf, ${SCRIPT_DATA_FILE.maxBytes - 2}));
+});`;
+  assert.ok(runtime.add(block("keeper", keeper)).ok);
+  runtime.frame();
+  const file = runtime.dataFiles.get("keeper");
+  assert.equal(file.length, SCRIPT_DATA_FILE.maxBytes, "the second write ends at the limit");
+  assert.deepEqual(Array.from(file.slice(0, 6)), [0, 0, 7, 8, 9, 44], "a gap reads 0, a slot keeps its low byte");
+  const entry = runtime.scripts.find(e => e.script.header.name === "keeper");
+  assert.deepEqual(Array.from(entry.store.values.slice(0, 5)), [5, 0, 7, 44, 2], "read from 1 gives 5 bytes, write near the end takes 2");
+  assert.equal(dataFileName("keeper"), "keeper.bin");
+  assert.equal(dataFileName("a b/c"), "a_b_c.bin");
+  assert.equal(dataFileName(""), "_.bin");
 });

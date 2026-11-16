@@ -25,6 +25,7 @@ import { checkName, checkDetail } from "../../src/patcher.mjs";
 import { GROUPS, labelFor } from "../../data/map/fx-labels.mjs";
 import { suggestionsFor, applySuggestion } from "../../src/suggestions.mjs";
 import { t, localize } from "./i18n.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
 /** An error of this page opens Blechy at its topic (data/rescue.mjs). */
 const toast = toastFor("h:effects");
 
@@ -109,8 +110,8 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
     await units();
     const id = await identify(bytes);
     state.identity = id;
-    // Korg's own build is not "known" (its presets are not Hacktribe's), but its presets are read through the pointer arrays all the same
-    const stock = id.build === "stock" && !!locatePresets(bytes);
+    // Korg's own builds, red and blue, are not "known" (their presets are not Hacktribe's), but their presets are read through the pointer arrays all the same
+    const stock = (id.build === "stock" || id.build === "synth") && !!locatePresets(bytes);
     if (!id.known && !stock) {
       identity.replaceChildren(...(id.build === "stock" ? [] : [stateText("error", t("presets.unknown")), ` ${id.reasons.join(" ")}`]));
       if (!embedded) window.ui?.rejectFile(fileInput, t("presets.notMeasured"));
@@ -648,7 +649,7 @@ export function fxPanel(root, { device, prefix = "cee", embedded = false, onSent
   sendButton.addEventListener("click", send);
   undoButton.addEventListener("click", undoLive);
   if (embedded && idle) identity.textContent = idle;
-  root.replaceChildren(...(embedded ? [] : [drop]), identity, picker, editor, verdict, actions, job, fileGroup, ...(embedded ? [] : [limits]));
+  root.replaceChildren(...(embedded ? [] : [dropzoneClear(fileInput).node]), identity, picker, editor, verdict, actions, job, fileGroup, ...(embedded ? [] : [limits]));
 
   return {
     sessionChanged: hookSession,

@@ -11,6 +11,8 @@ import { checkHooks } from "../src/hooks.mjs";
 import { identify } from "../src/firmware.mjs";
 
 // The loading animation (docs/ideen/41-startbild-ausbauen.md, tools/art/loading).
+import "./support/runtime.mjs";
+
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const PATCH = read("../data/patches/load-bar.json");
 const SPLASH_DATA = read("../assets/blechy/splash.json");
@@ -24,6 +26,8 @@ const DEFAULT = 0x1aa100;            // file offset of 0xC01AA000: assets/blechy
 const DEFAULT_BYTES = readFileSync(new URL("../assets/blechy/loading.blla", import.meta.url));
 const ANIM = 0x1ac100;               // file offset of 0xC01AC000: the animation's code
 const ANIM_END = 0x1ac900;           // 0xC01AC800, where its state begins
+const MEDIA = 0x1ad100;              // file offset of 0xC01AD000: media_load, media_get, media_set (Media/loading.blla on the card)
+const MEDIA_END = 0x1ae000;          // 0xC01ADF00
 // the replaced words: the stat call, the loader's text update, the parser's two PCM reads, the loader call, the frame
 // function's flush, the display send's page compare
 const WORDS = [[0x2af60, 0xeb, 0xc002ae60], [0x367d4, 0xeb, 0xc00366d4], [0x363fc, 0xeb, 0xc00362fc], [0x3645c, 0xeb, 0xc003635c],
@@ -48,20 +52,21 @@ test("the loading bar has the v1 format, says what it replaces and names what ru
     assert.ok(change.note);
     assert.equal(change.copy, undefined, "nothing of the firmware is copied");
   }
-  assert.equal(PATCH.startPhase.length, 10);
+  assert.equal(PATCH.startPhase.length, 11);
   for (const span of PATCH.startPhase) {
     assert.ok(span.why.length > 20);
     assert.ok(PATCH.changes.some(c => span.file >= c.file && span.file + span.length <= c.file + c.bytes.length / 2), `0x${span.file.toString(16)} is not written by the patch`);
   }
 });
 
-test("it is our code in three places, the default animation, the card picture and seven replaced words, each a branch into the code, and every hook is declared", () => {
-  assert.equal(PATCH.changes.length, 5 + WORDS.length);
-  const [code, anim, card, look, animCode, ...words] = PATCH.changes;
+test("it is our code in four places, the default animation, the card picture and seven replaced words, each a branch into the code, and every hook is declared", () => {
+  assert.equal(PATCH.changes.length, 6 + WORDS.length);
+  const [code, anim, card, look, animCode, media, ...words] = PATCH.changes;
   const n = fromHex(code.bytes).length, m = fromHex(animCode.bytes).length;
   assert.ok(code.file === CODE && code.file + n <= CODE_END, `${n} bytes`);
   assert.ok(look.file === LOOK && look.file + fromHex(look.bytes).length <= LOOK_END, "the look's code");
   assert.ok(animCode.file === ANIM && animCode.file + m <= ANIM_END, `the animation's code, ${m} bytes`);
+  assert.ok(media.file === MEDIA && media.file + fromHex(media.bytes).length <= MEDIA_END, "the card reader's code");
   assert.equal(anim.file, DEFAULT);
   assert.deepEqual(Buffer.from(fromHex(anim.bytes)), DEFAULT_BYTES, "assets/blechy/loading.blla as it is");
   assert.equal(card.file, CARD, "the card pictures where the old pictures were");
@@ -104,7 +109,7 @@ test("applied to the own firmware it changes only what it names, alone and with 
   for (let i = 0; i < original.length; i++) {
     if (original[i] !== res.bytes[i]) assert.ok(named.some(([at, n]) => i >= at && i < at + n), `0x${i.toString(16)} changed without being named`);
   }
-  assert.equal(res.allowCode.length, 10, "the spans the patch asks to run at start");
+  assert.equal(res.allowCode.length, 11, "the spans the patch asks to run at start");
   const all = await applyPatches(original, [...OTHERS, PATCH, SPLASH_DATA]);
   assert.equal(all.ok, true, all.reasons.join(" "));
 });

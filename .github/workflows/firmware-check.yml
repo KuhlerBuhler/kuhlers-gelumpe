@@ -34,12 +34,12 @@ jobs:
       parts: ${{ steps.matrix.outputs.parts }}
       smokes: ${{ steps.matrix.outputs.smokes }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 26
       - id: matrix
         env:
           SHARDS: ${{ inputs.shards }}
@@ -52,17 +52,14 @@ jobs:
     name: ${{ matrix.firmware.name }} (${{ matrix.part }}/${{ inputs.shards }})
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    concurrency:
-      group: ${{ github.workflow }}-firmware-${{ inputs.full && github.run_id || inputs.branch }}-${{ matrix.firmware.name }}-${{ matrix.part }}
-      cancel-in-progress: ${{ !inputs.full && (github.event_name == 'pull_request' || github.event_name == 'push') }}
     strategy:
       fail-fast: false
-      max-parallel: ${{ fromJSON(vars.FIRMWARE_MAX_PARALLEL || '8') }}
+      max-parallel: ${{ fromJSON(vars.FIRMWARE_MAX_PARALLEL || (inputs.full && '16' || '8')) }}
       matrix:
         firmware: ${{ fromJSON(needs.plan.outputs.firmwares) }}
         part: ${{ fromJSON(needs.plan.outputs.parts) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
       - uses: ./.github/actions/firmware-input
@@ -72,7 +69,7 @@ jobs:
           blue-head: ${{ matrix.firmware.blue_head }}
       - name: Develop task results
         if: ${{ !inputs.full }}
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.cache/gelumpe/task
@@ -85,7 +82,7 @@ jobs:
           for d in task task-time; do [ ! -e ~/.cache/gelumpe/$d ] || mv ~/.cache/gelumpe/$d "$RUNNER_TEMP/develop/"; done
       - name: Pull request task results
         if: ${{ !inputs.full && github.event_name == 'pull_request' }}
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             ~/.cache/gelumpe/task
@@ -109,7 +106,7 @@ jobs:
           args=(--shard "$PART" --output "$RUNNER_TEMP/shard.json")
           if [ "$FULL" != true ]; then args+=(--cases "$CASES"); fi
           npm run -s verify:patches -- "${args[@]}" "$RUNNER_TEMP/SYSTEM.VSB"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.firmware.artifact }}-${{ matrix.part }}
           path: ${{ runner.temp }}/shard.json
@@ -119,7 +116,7 @@ jobs:
       - if: ${{ always() && !inputs.full }}
         run: find ~/.cache/gelumpe/task -type f -mtime +14 -delete 2>/dev/null || true
       - if: ${{ always() && !inputs.full }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             ~/.cache/gelumpe/task
@@ -136,7 +133,7 @@ jobs:
       matrix:
         firmware: ${{ fromJSON(needs.plan.outputs.firmwares) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
       - uses: ./.github/actions/firmware-input
@@ -144,7 +141,7 @@ jobs:
           url: ${{ secrets[matrix.firmware.secret] }}
           sha256: ${{ matrix.firmware.sha256 }}
           blue-head: ${{ matrix.firmware.blue_head }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: ${{ matrix.firmware.artifact }}-*
           path: ${{ runner.temp }}/shards
@@ -158,7 +155,7 @@ jobs:
           if [ "$FULL" != true ]; then args+=(--cases "$CASES"); fi
           npm run -s verify:patches -- "${args[@]}" "$RUNNER_TEMP/SYSTEM.VSB"
       - if: ${{ inputs.full }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: verified-${{ matrix.firmware.name }}
           path: data/patches/verified.json
@@ -171,15 +168,12 @@ jobs:
     name: ${{ matrix.firmware.kind }} ${{ matrix.firmware.name }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    concurrency:
-      group: ${{ github.workflow }}-firmware-${{ inputs.full && github.run_id || inputs.branch }}-${{ matrix.firmware.name }}-${{ matrix.firmware.kind }}
-      cancel-in-progress: ${{ !inputs.full && (github.event_name == 'pull_request' || github.event_name == 'push') }}
     strategy:
       fail-fast: false
       matrix:
         firmware: ${{ fromJSON(needs.plan.outputs.smokes) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
       - uses: ./.github/actions/firmware-input
@@ -187,6 +181,9 @@ jobs:
           url: ${{ secrets[matrix.firmware.secret] }}
           sha256: ${{ matrix.firmware.sha256 }}
           blue-head: ${{ matrix.firmware.blue_head }}
+      # Both tests load blech.json, which names the runtime patches; they are built, not committed
+      # (tools/patch/ensure-runtime.mjs), and node --test alone does not build them.
+      - run: node tools/patch/ensure-runtime.mjs
       - name: The editor's e2sFx.all in the emulator
         if: matrix.firmware.kind == 'editor' && (inputs.full || inputs.cases == 'all' || contains(format(',{0},', inputs.cases), ',fx_card_cases,'))
         env:

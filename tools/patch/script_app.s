@@ -4,10 +4,13 @@
 ; the BLECH menu lists the apps by group and opens one; EXIT always closes it, in the input filter, before any
 ; plugin sees the key.
 .equ APP_STATE, HOOK_RUNTIME+RT_APPS
-; The screen tick (0xC006F178, called with 0xC06C2220) clears and redraws the whole screen when the byte at +0x4c is set. The
-; firmware draws its widgets only where something changed, so when the display is given back this byte makes the main
-; screen whole again at once (measured: the display is then equal to one that never had an app).
-.equ UI_REDRAW, 0xC06C226C
+; The screen tick (0xC006F178, called with the screen manager plus 0x10) clears and redraws the whole screen when the byte
+; at +0x4c of its argument is set. The firmware draws its widgets only where something changed, so when the display is
+; given back this byte makes the main screen whole again at once (measured: the display is then equal to one that never had
+; an app). The manager lives on the heap and moves with the flash content (0xC06C2210 on our cards, 0x3320 higher on another
+; red with other flash content), so every writer takes it from SCREEN_MANAGER: [SCREEN_MANAGER] + UI_REDRAW_AT. Measured in the
+; emulator on Hacktribe, Korg's red and the blue: the tick's r0 is [SCREEN_MANAGER] + 0x10 in all three.
+.equ UI_REDRAW_AT, 0x10 + 0x4C
 
 ; korg.app(name, group): r0 = name text, r1 = group text -> r0 = the app's id, -1 when all places are taken,
 ; r1 = error code. Declared twice by one script it is the same app. A group other than GAMES or TOOLS and an
@@ -135,9 +138,10 @@ script_display_release_glue:
     cmp r3, r1
     moveq r3, #0
     streq r3, [r2, #SCRIPT_APPS_OPEN]
-    ldreq r2, =UI_REDRAW
+    ldreq r2, =SCREEN_MANAGER
+    ldreq r2, [r2]
     moveq r3, #1
-    strbeq r3, [r2]
+    strbeq r3, [r2, #UI_REDRAW_AT]
     mov r0, #0
     mov r1, #ERR_OK
     bx lr
@@ -217,9 +221,10 @@ script_app_close:
     bl hold_pads_release
     bl key_pass_reset
     mov r1, r4
-    ldr r2, =UI_REDRAW
+    ldr r2, =SCREEN_MANAGER
+    ldr r2, [r2]
     mov r3, #1
-    strb r3, [r2]
+    strb r3, [r2, #UI_REDRAW_AT]
     mov r0, #EV_CLOSE
     bl app_post
 app_close_done:

@@ -1,3 +1,5 @@
+; SPLASH_SYNC: tools/patch/splash_editor.py:SYNC_ENTRY
+.equ SPLASH_SYNC, 0xC01A250C
 script_card_hook:
     push {r0-r12, lr}
     .word 0xE10FC000
@@ -19,10 +21,15 @@ script_card_hook:
     bne synth_start_native
     bl menu_arm_load
     bl migrate_start
+    ldr r12, =SPLASH_SYNC       ; the start image from the card (tools/patch/splash_editor.py:splash_sync), FF without the editor
+    ldr r0, [r12]
+    cmn r0, #1
+    blxne r12
     ldr r0, =HOOK_RUNTIME
     bl blechy_boot
     ldr r0, =HOOK_RUNTIME
     bl script_card_load
+    bl fx_card_load
     bl menu_recount
 synth_start_native:
     pop {r12, lr}
@@ -37,6 +44,7 @@ script_card_wrapper_end:
 ; ---- the backlight colour at power-on: the hook of this build, the rest is script_boot_light.s
 .equ FLASH_GET, 0xC0026DAC      ; the flash object (it exists from about 62 ms)
 .equ FLASH_READ, 0xC0026DE0     ; (object, destination, address, length)
+.equ FLASH_WRITE, 0xC0026E24    ; (object, address, length, source): erases and writes the 4 KiB sectors under the firmware's lock, 1 written
 
 ; 0xC0025E48 in the start, `cmp r0, r3`: right behind the firmware's first flash read (the mark at 0x220000, about 65 ms) on the
 ; way of the normal start. The blue draws its start image earlier (45 ms) and keeps it until about 396 ms, so the colour comes
