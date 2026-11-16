@@ -70,6 +70,8 @@ MEDIA_STATE = MEDIA_TBUF + MEDIA_TBUF_BYTES   # the counts, the checked .blla an
 MEDIA_END = MEDIA_STATE + 64     # FF at power-on is nothing listed, no file checked and no picture built
 CARD_CLOCK = MEDIA_END           # the card time left out of the frame budget in this frame (script_media.s:card_timed); FF at power-on
 CARD_CLOCK_END = CARD_CLOCK + 4  # is the whole allowance used, the first frame sets it to 0
+BATT = CARD_CLOCK_END            # BATTERY % (script_battery.s:BP_*): the smoothed reading, its tick, the percent shown and drawn,
+BATT_END = BATT + 28             # whether a reading is held, the card symbol's columns and card flag last drawn; FF at power-on is no reading yet
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 RUNTIME = 0xC01AE000
@@ -444,6 +446,8 @@ class BuiltHooks:
             ('load_idle_hook','load_meter_frame','Die zwei Haken der Lastanzeige (Leerlaufschleife vor wfi, IRQ-Eingang) laufen vom ersten IRQ an: sie merken sich nur Timer3 und zählen den Schlaf, gezeichnet wird erst im Rahmenhaken mit dem Schalter.'),
             ('audio_command_hook','audio_columns','Der Haken an CommandTask ruft erst den ursprünglichen Befehlshandler und dann den Dienst von korg.audio; ohne Anfrage eines Plugins kehrt der Dienst ohne Firmware-Aufruf zurück.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE, Seitenzähler und der Bildschirmwechsel (AUTO SAVE) laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
+            ('card_widget','card_frame','Der Bildschirmwechsel setzt mit scharfem Menü schon beim ersten Wechsel zum Hauptbildschirm den Platz des Kartensymbols (BATTERY %): er sucht Korgs Widget, setzt x und dessen Neuzeichnen-Byte und leert die alten Spalten; ohne scharfes Menü kehrt er sofort zurück.'),
+            ('card_frame_out','batt_percent_glyph','Literale des Kartensymbol-Platzes, die der Bildschirmwechsel beim Start liest.'),
         ]:
             if start in self.symbols and end in self.symbols:
                 spans.append((self.symbols[start],self.symbols[end],why))
@@ -503,7 +507,8 @@ class BuiltHooks:
             area(GLIDE,GLIDE_END-GLIDE,'BPM GLIDE: the transport, pattern and step of the last frame, the switches, the chain and the confirmed pattern the tempo glides to','tools/patch/script_glide.s:GL_INIT'),
             area(MEDIA_LIST,MEDIA_END-MEDIA_LIST,'korg.file.count, name and picture: the list of the start images and of the loading animations in Media/ (64 entries of 32 bytes each), the picture being built, the buffers of the two readers of a .blla, the counts and the header of the checked .blla','tools/patch/script_media.s:MS_COUNT'),
             area(CARD_CLOCK,CARD_CLOCK_END-CARD_CLOCK,'the card time left out of the frame budget in this frame (CARD_READS in data/script/contract.mjs)','tools/patch/script_media.s:card_timed'),
-            area(CARD_CLOCK_END,MORE_END-CARD_CLOCK_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:CARD_CLOCK_END'),
+            area(BATT,BATT_END-BATT,'BATTERY %: the smoothed battery reading, the tick of its last step, the percent shown and the percent drawn, whether a reading is held, the card symbol\'s columns and card flag as last drawn on the main screen','tools/patch/script_battery.s:BP_AVG'),
+            area(BATT_END,MORE_END-BATT_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:BATT_END'),
             area(SETTINGS_RAM,SETTINGS_RAM_END-SETTINGS_RAM,'the two buffers of the settings file of the BLECH menu and its checksum list (allowed plugins, plugins switched off)','tools/patch/script_hooks.py:SETTINGS_RAM'),
             area(LIST_WORK,LIST_WORK_END-LIST_WORK,'work area of the list of MANAGE PLUGINS: folder object, file info, long name, path, the place of each listed file in the folder, the flag of more files than the list holds','tools/patch/script_menu.s:LIST_WORK'),
             area(KNOB_HOLD,KNOB_HOLD_END-KNOB_HOLD,'korg.knobHold: a bit per knob that reaches the firmware, folded from the plugins\' holds; the other two words are unused since API 19','tools/patch/script_hw.s:KH_FREE'),
@@ -600,14 +605,14 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += '\n'+ '\n'.join(f'.equ VM_{name.upper()}, {vm.symbols[name]}' for name in ['script_run_event','script_runtime_init','script_load_block','script_load_block_ex'])
     constants += f'\n.equ VM_CRC_UPDATE, {vm.symbols["crc_update"]}'
     constants += ''.join(f'\n.equ {name.upper()}, {vm.symbols[name]}' for name in ['script_font','script_error_names'])
-    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ METER_SENT, {METER_SENT}\n.equ LOAD_METER, {LOAD_METER}\n.equ IDLE, {IDLE}\n.equ GLIDE, {GLIDE}\n.equ MEDIA_LIST, {MEDIA_LIST}\n.equ MEDIA_WORK, {MEDIA_WORK}\n.equ MEDIA_BUF, {MEDIA_BUF}\n.equ MEDIA_BUF_BYTES, {MEDIA_BUF_BYTES}\n.equ MEDIA_TBUF, {MEDIA_TBUF}\n.equ MEDIA_TBUF_BYTES, {MEDIA_TBUF_BYTES}\n.equ MEDIA_STATE, {MEDIA_STATE}\n.equ CARD_CLOCK, {CARD_CLOCK}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
+    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ METER_SENT, {METER_SENT}\n.equ LOAD_METER, {LOAD_METER}\n.equ IDLE, {IDLE}\n.equ GLIDE, {GLIDE}\n.equ MEDIA_LIST, {MEDIA_LIST}\n.equ MEDIA_WORK, {MEDIA_WORK}\n.equ MEDIA_BUF, {MEDIA_BUF}\n.equ MEDIA_BUF_BYTES, {MEDIA_BUF_BYTES}\n.equ MEDIA_TBUF, {MEDIA_TBUF}\n.equ MEDIA_TBUF_BYTES, {MEDIA_TBUF_BYTES}\n.equ MEDIA_STATE, {MEDIA_STATE}\n.equ CARD_CLOCK, {CARD_CLOCK}\n.equ BATT, {BATT}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
     constants += f'\n.equ MENU_SCREEN, {profile.screen}\n'
     # korg.system.device and korg.system.limits.samples (data/script/objects.mjs, INFO): the build this runtime is made for
     constants += f'.equ MFX2_ENTRY, {MFX2_ENTRY:#x}\n.equ MFX2_RECORD_ID, {MFX2_RECORD_ID:#x}\n.equ MFX2_TABLE, {MFX2_TABLE:#x}\n.equ MFX2_STATE, {MFX2_STATE:#x}\n'
     constants += f'.equ BUILD_DEVICE, {BUILD_DEVICES[build]}\n.equ BUILD_SAMPLES, {0 if build == "synth" else 1000}\n'
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
     files = ['script_hooks.s','script_card.s','script_builtin.s','script_menu.s',
-             'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_media.s','script_calibrate.s','script_egg.s','script_load_meter.s','script_idle.s','script_glide.s']
+             'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_media.s','script_calibrate.s','script_egg.s','script_load_meter.s','script_idle.s','script_glide.s','script_battery.s']
     files.append('fx_card.s')
     if build != 'synth':
         files += ['script_sample.s','script_audio_service.s','script_patterns.s']
@@ -636,7 +641,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     (first_at,first),=hooks.sections
     if first_at!=origin or origin+len(first)>MORE3_END:
         raise ValueError(f'the code area runs over: {first_at:#x} + {len(first):#x} (limit {MORE3_END:#x})')
-    if runtime_end>MENU_MORE or CARD_CLOCK_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
+    if runtime_end>MENU_MORE or BATT_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
         raise ValueError(f'script code, runtime or pool exceeds its reserved area: runtime end {runtime_end:#x} (limit {MENU_MORE:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
     if s['SETTINGS_MAX']>0x120 or SETTINGS_RAM+0x240+4*s['MENU_MAX_TRUST']>SETTINGS_RAM_END:

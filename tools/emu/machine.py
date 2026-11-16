@@ -724,6 +724,19 @@ class Machine:
         """A 5-byte message from the panel, as if a control was used."""
         self.receive(UART0, msg)
 
+    def battery(self, raw):
+        """Panel message 6 with a battery reading: the firmware's battery model keeps it (+0x320) and takes its level from the
+        threshold table of the Global BATTERY TYPE (docs/messungen/2026-11-16-batterie-prozent.md). 1 is the power key and 0
+        reads as empty, so a reading is 2 to 255; on battery one at or below the table's last threshold switches off."""
+        if not 2 <= raw <= 255:
+            raise ValueError(f"a battery reading is 2 to 255, not {raw} (1 is the power key)")
+        self.send([0x06, raw, 0, 0, 0])
+
+    def power_source(self, adapter):
+        """Panel message 7: mains power (the plug symbol) or battery, as the panel reports a plug put in or pulled."""
+        self.adapter = bool(adapter)
+        self.send([0x07, 1 if adapter else 0, 0, 0, 0])
+
     def receive(self, base, data):
         """Bytes coming in on a UART line; they arrive one byte time apart."""
         self.uart[base]["wire"].extend(bytes(data))
@@ -1090,6 +1103,18 @@ class Machine:
             self._saw_loading = True
         if not self.booted and screen == MAIN_SCREEN:
             self.booted, self.boot_ms = True, round(self.time_ns / 1e6, 1)
+
+
+# The card symbol's two places in page 0 of a frame (8 pages of 128 columns): Korg's 109 to 114 and the main screen's 94 to
+# 99 (BATTERY %, script_battery.s:card_place). A case that compares a frame with the firmware's own leaves them out.
+CARD_COLUMNS = (*range(94, 100), *range(109, 115))
+
+
+def without_card(frame):
+    out = bytearray(frame)
+    for x in CARD_COLUMNS:
+        out[x] = 0
+    return bytes(out)
 
 
 def load_flash(paths):

@@ -52,7 +52,8 @@
 .equ FLAGS2_GLIDE_CHAIN, 4     ; GLIDE CHAIN on (FEATURES, script_glide.s)
 .equ FLAGS2_GLIDE_SWITCH, 8    ; GLIDE SWITCH on (FEATURES, script_glide.s)
 .equ FLAGS2_GLIDE, 12
-.equ FLAGS2_KNOWN, 15          ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
+.equ FLAGS2_BATT_OFF, 16       ; BATTERY % off (DISPLAY, script_battery.s); clear is on, the default, so a file with the default stays version 3
+.equ FLAGS2_KNOWN, 31          ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
 .equ M_SPLASH_SEL, 0x100      ; the page SPLASH IMPORT: the place of the .bmp file it shows among those in KORG/blechtribe
@@ -1749,6 +1750,8 @@ autosave_switch_hook:
     mov r0, r3
     mov r1, r4
     bl autosave_leave
+    mov r0, r4
+    bl card_place               ; the card symbol's place on the screen to come (script_battery.s)
     pop {r0-r3, r12, lr}
     ldr r12, =0xC002D048
     blx r12
@@ -2629,6 +2632,8 @@ orig_masks:
     .word 0, 0
     .byte 62, 0, FLAGS2_GLIDE_SWITCH, 0 ; GLIDE SWITCH: bit 3 of byte 7
     .word 0, 0
+    .byte 63, 0, FLAGS2_BATT_OFF, 0 ; BATTERY %: bit 4 of byte 7, set is OFF
+    .word 0, 0
     .byte 0xFF, 0, 0, 0
 
 ; ---- the list of the plugins (level 5) and SPLASH IMPORT as the firmware's file browser (DATA UTILITY, IMPORT SAMPLE: screen 39)
@@ -3193,6 +3198,8 @@ menu_texts_clear:
     beq menu_text_lm
     cmp r0, #60
     beq menu_text_idle
+    cmp r0, #63
+    beq menu_text_batt
     cmp r0, #61
     cmpne r0, #62
     beq menu_text_glide
@@ -3768,6 +3775,20 @@ menu_text_idle:
     ldrb r2, [r5, #MX_FLAGS2]
     ldr r1, =str_on
     tst r2, #FLAGS2_IDLE_OFF
+    ldrne r1, =str_off
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; BATTERY %: the battery's charge in steps of 10 next to LOAD METER, on battery with Alkali (script_battery.s); bit 4 of byte 7
+; (MX_FLAGS2) set is OFF, so ON, the default, keeps byte 7 at 0
+menu_text_batt:
+    mov r0, #3
+    bl menu_title_prefix
+    ldr r1, =str_batt
+    bl menu_copy
+    ldrb r2, [r5, #MX_FLAGS2]
+    ldr r1, =str_on
+    tst r2, #FLAGS2_BATT_OFF
     ldrne r1, =str_off
     add r0, r5, #M_VALUE
     bl menu_copy
@@ -4383,7 +4404,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE, 61 GLIDE CHAIN, 62 GLIDE SWITCH; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE, 61 GLIDE CHAIN, 62 GLIDE SWITCH, 63 BATTERY %; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -6362,6 +6383,8 @@ menu_slot_value:
     beq menu_value_lm
     cmp r0, #60
     beq menu_value_idle
+    cmp r0, #63
+    beq menu_value_batt
     cmp r0, #61
     cmpne r0, #62
     beq menu_value_glide
@@ -6623,6 +6646,16 @@ menu_value_idle:
     cmp r5, #0
     bicgt r1, r1, #FLAGS2_IDLE_OFF
     orrle r1, r1, #FLAGS2_IDLE_OFF
+    strb r1, [r6, #MX_FLAGS2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; BATTERY % acts at once (OFF takes the digits away at the next frame), WRITE keeps it: ON up, OFF down
+menu_value_batt:
+    ldrb r1, [r6, #MX_FLAGS2]
+    cmp r5, #0
+    bicgt r1, r1, #FLAGS2_BATT_OFF
+    orrle r1, r1, #FLAGS2_BATT_OFF
     strb r1, [r6, #MX_FLAGS2]
     mov r3, #0
     str r3, [r6, #M_STATUS]
@@ -7382,6 +7415,8 @@ str_glide_switch:
     .asciz "GLIDE SWITCH"
 str_idle:
     .asciz "IDLE SAVE"
+str_batt:
+    .asciz "BATTERY %"
 str_sp:
     .asciz "STEREO 1 PAD"
 str_us:
@@ -7419,13 +7454,13 @@ custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD C
     .byte 16, 16, 16, 16, 16
 .align 4
 sub_kinds:                      ; the kinds of the pages of DISPLAY, LED, PAD COLOR and POWER SAVE, 16 a group (device 18.10.)
-    .byte 11, 12, 13, 26, 14, 59, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0      ; DISPLAY: backlight red, green, blue, INTENSITY, display invert, LOAD METER
+    .byte 11, 12, 13, 26, 14, 59, 63, 0, 0, 0, 0, 0, 0, 0, 0, 0     ; DISPLAY: backlight red, green, blue, INTENSITY, display invert, LOAD METER, BATTERY %
     .byte 7, 8, 9, 10, 28, 29, 30, 31, 53, 0, 0, 0, 0, 0, 0, 0      ; LED: bottom LEDs, LED red, green, blue, the meter's four colours, KNOB LEDS
     .byte 24, 25, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; PAD COLOR: pad colour, select colour, overlap
     .byte 27, 34, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; POWER SAVE: DISPLAY LIGHT, LED DIMMING (device 19.10.: SAVE LIGHT under DISPLAY said too little), IDLE SAVE
     .byte 22, 23, 35, 57, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0       ; SPLASH: IMPORT, DRAW, RESET (device 22.10.: three rows of their own in CUSTOMIZATION were too many), LOADING ANIM, ANIM LOOP
 sub_counts:                     ; LED: KNOB LEDS, the last, only where the set has the pad colours (menu_count_features)
-    .byte 6, 9, 3, 3, 3
+    .byte 7, 9, 3, 3, 3
 led_dim_percent:                ; LED DIMMING, the steps of the dial: percent dimmed (pad_colors.py keeps the step 8 places on, 75 is 0)
     .byte 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100
 meter_palette:                  ; red, green, blue of the colours 1 to 7, then the firmware's colours of the four zones
