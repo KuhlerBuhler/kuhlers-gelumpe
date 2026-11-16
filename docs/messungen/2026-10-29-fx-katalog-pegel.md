@@ -117,7 +117,7 @@ mit `firmwarePresets` aus `src/fx-collection.mjs`). **Nicht nachgehört.**
 `test/fx-v2.test.mjs` lässt den Level Mod (`0x15`) dafür bis 45 zu, knapp über Werk wie die Distortion und der Master Pumper.
 Die Master-Effekte aus dem Gerätetest 15.11. (Pumper, Multitap, Wow Tape, Dub Delay, Ping Pong zu leise, Letter Drive zu laut)
 sind bis auf den Pumper Hacktribes eigene Presets (Plätze 37 bis 49: Ping Pong, Dub Delay, Wow Tape, Ladder Drive, Ring Crush,
-Multi Tap). Werkspresets bleiben, wie sie sind (Pascal 16.11.).
+Multi Tap). Werkspresets bleiben, wie sie sind.
 
 ## 6. Master-Effekte nach dem Gerätetest 15.11.
 
@@ -130,5 +130,5 @@ Angepasst sind nur die eigenen Master-Effekte. **Nicht nachgehört.**
 | Master Limiter | `release` | 8 | 20 | Urteil; Korgs Preset "Limiter" (Platz 26, Einheit SR1-Kompressor, nicht `M_limiter`) hat 12 |
 | Master Limiter | `hold_time` | 8 | 17 | wie Korgs Preset "Limiter" |
 
-Master Tilt und Master Warmth sind aus dem Katalog genommen: am Gerät hörbar wirkungslos, Pascal braucht sie nicht. Master
+Master Tilt und Master Warmth sind aus dem Katalog genommen: am Gerät hörbar wirkungslos und nicht gebraucht. Master
 Glue bleibt.
