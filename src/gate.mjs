@@ -155,11 +155,11 @@ export async function lintCheck(edit, ctx) {
   if (edit.kind !== "fxRecord") return [];
   const after = new FxRecord(edit.bytes, edit.table);
   const before = edit.before ? new FxRecord(edit.before, edit.table) : null;
-  const found = lint(after, { units: ctx.units, profile: ctx.profile });
+  const found = lint(after, { units: ctx.units, profile: ctx.profile, stage2Memory: ctx.stage2Memory });
   if (!before) return found;
   const factory = edit.slot <= FACTORY_SLOTS[edit.table] && await isOriginalSlot(before.bytes, edit.table, edit.slot);
   if (!factory) return found;
-  const had = new Set(lint(before, { units: ctx.units, profile: ctx.profile }).map(f => `${f.code}:${f.where}`));
+  const had = new Set(lint(before, { units: ctx.units, profile: ctx.profile, stage2Memory: ctx.stage2Memory }).map(f => `${f.code}:${f.where}`));
   return found.map(f => (f.severity === "error" && had.has(`${f.code}:${f.where}`)
     ? finding({ ...f, severity: "warn", baseline: true }, "lint.gate.baseline", { message: f.text })
     : f));

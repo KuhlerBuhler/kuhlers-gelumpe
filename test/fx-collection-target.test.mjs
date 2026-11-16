@@ -30,8 +30,8 @@ async function items(vsb) {
 }
 
 test("the target picks the build in the header: Hacktribe 1, Korg's original 2", async () => {
-  assert.deepEqual(TARGETS, ["hacktribe", "stock"]);
-  for (const target of TARGETS) {
+  assert.deepEqual(TARGETS, ["hacktribe", "stock", "synth"]);
+  for (const target of ["hacktribe", "stock"]) {
     const vsb = await firmware(target);
     const made = collectionFor(target, vsb, await items(vsb), units);
     assert.equal(made.ok, true, made.reason);
@@ -55,7 +55,7 @@ test("a firmware of the other build is refused, not built for the wrong device",
   assert.deepEqual(collectionFor("hacktribe", null, [], units), { ok: false, code: "build" });
 });
 
-test("targetFirmware takes a file of the target's build, refuses the blue and another build", async () => {
+test("targetFirmware takes a file of the target's build, refuses the other device and another build", async () => {
   const stock = await firmware("stock");
   const hacktribe = await firmware("hacktribe");
   assert.equal((await targetFirmware("hacktribe", hacktribe)).bytes, hacktribe);
@@ -70,4 +70,5 @@ test("targetFirmware takes a file of the target's build, refuses the blue and an
   const blue = Uint8Array.from(hacktribe);
   blue.set([0x45, 0x32, 0x00], 0x10);
   assert.deepEqual(await targetFirmware("hacktribe", blue), { ok: false, code: "device" });
+  assert.deepEqual(await targetFirmware("synth", hacktribe), { ok: false, code: "device" }, "a red file is not the blue synth's");
 });

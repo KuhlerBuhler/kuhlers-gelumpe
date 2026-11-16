@@ -470,7 +470,7 @@ def menu_script_cases(programs, built, patched, flash, check):
     for _ in range(menu_cases.LIST_COUNT):
         titles.append(menu_cases.text(dev, menu_cases.S_TITLE))
         menu_cases.press(dev, "edit_next")
-    check("menu-liste-ohne-about", titles == menu_cases.LIST_PAGES + [menu_cases.version_texts(patched)[0]] and "ABOUT" not in titles and menu_cases.text(dev, menu_cases.S_TITLE) == "FEATURES", titles)
+    check("menu-liste-ohne-about", titles == menu_cases.LIST_PAGES + ([] if menu_cases.LIST_DEV is None else ["DEV MODE"]) + [menu_cases.version_texts(patched)[0]] and "ABOUT" not in titles and menu_cases.text(dev, menu_cases.S_TITLE) == "FEATURES", titles)
     check("menu-blechy-keine-plugin-seite", dev.u32(menu_cases.STATE + 40) == 2 and plugin_entry(dev, runtime, 2) == 0, dict(count=dev.u32(menu_cases.STATE + 40)))
     menu_cases.goto_plugin(dev, 0)
 

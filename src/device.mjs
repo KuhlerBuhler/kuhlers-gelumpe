@@ -84,6 +84,8 @@ export const DOOM_BIN = "doom.bin";
 export const DOOM_WAD = "doom.wad";
 /** Which Doom file a FILE offset names: bit 29 for doom.bin, bits 29 and 31 for doom.wad; null for the others. */
 const doomFileName = offset => (offset & BLECH.FILE_DOOM && !(offset & BLECH.FILE_SAMPLE) ? (offset & BLECH.FILE_OTHER ? DOOM_WAD : DOOM_BIN) : null);
+/** The name the effect collection has in the card map of the simulation (KORG/blechtribe/Presets/ on the card). */
+export const FX_FILE = "e2sFx.all";
 
 export class SimDevice {
   /**
@@ -99,10 +101,12 @@ export class SimDevice {
    * @param {boolean|number} [opts.blech] answers BLECH's own commands (docs/messungen/2026-10-15-blech-sysex.md); a number is the largest block
    * @param {Map<string, Uint8Array>} [opts.card] the update folder of the card ("SYSTEM.VSB", "ORIGINAL.BIN"): BLECH's FILE commands work on it
    * @param {boolean} [opts.doom] the firmware has the Doom files (FLAG_DOOM, bit 29 of a FILE offset); off, it is a BLECHTRIBE from before them
+   * @param {boolean} [opts.fxWrite] FILE BEGIN takes e2sFx.all (FLAG_FX_WRITE); off, it is a BLECHTRIBE that only reads it
    */
-  constructor({ image = null, channel = 9, flash = null, pattern = null, global = null, version = [2, 2], execute = null, hacktribe = true, blech = false, card = null, doom = true } = {}) {
+  constructor({ image = null, channel = 9, flash = null, pattern = null, global = null, version = [2, 2], execute = null, hacktribe = true, blech = false, card = null, doom = true, fxWrite = true } = {}) {
     this.card = card;
     this.doom = doom;
+    this.fxWrite = doom && fxWrite;
     this.execute = execute;
     this.hacktribe = hacktribe;
     this.blech = blech ? { maxBlock: blech === true ? 0x8000 : blech, build: hacktribe ? "hacktribe" : "stock" } : null;
@@ -226,7 +230,7 @@ export class SimDevice {
     const payload = syxDec(encoded);
     const word = i => readU32le(payload, i * 4);
     if (cmd === BLECH.INFO) {
-      const flags = 7 | BLECH.FLAG_EXEC | (this.flash ? BLECH.FLAG_FLASH : 0) | (this.card ? BLECH.FLAG_FILE | BLECH.FLAG_SAMPLE | (this.doom ? BLECH.FLAG_DOOM : 0) : 0);
+      const flags = 7 | BLECH.FLAG_EXEC | (this.flash ? BLECH.FLAG_FLASH : 0) | (this.card ? BLECH.FLAG_FILE | BLECH.FLAG_SAMPLE | (this.doom ? BLECH.FLAG_DOOM : 0) | (this.fxWrite ? BLECH.FLAG_FX_WRITE : 0) : 0);
       return this.blechReply(BLECH.R_INFO, 0, BLECH.VERSION, flags, this.blech.maxBlock, protectTable({ build: this.blech.build }).crc, BLECH.FLASH_MAX);
     }
     if (cmd === BLECH.FLASH) return this.blechFlash(payload);
@@ -314,10 +318,11 @@ export class SimDevice {
    */
   fileCommand(cmd, payload) {
     const word = i => readU32le(payload, i * 4);
-    const name = offset => sampleFileName(offset) ?? (this.doom ? doomFileName(offset) : null) ?? (offset & BLECH.FILE_OTHER ? "ORIGINAL.BIN" : "SYSTEM.VSB");
-    // bits 30 and 29 together name no file: the firmware makes the offset -1, which every range check refuses
+    // bits 30 and 29 name e2sFx.all (written only with FLAG_FX_WRITE); with bit 31 as well no file: the firmware makes the offset -1, which every range check refuses
     const both = offset => this.doom && offset & BLECH.FILE_DOOM && offset & BLECH.FILE_SAMPLE;
-    const limit = offset => (both(offset) ? -1 : sampleFileName(offset) || (this.doom && doomFileName(offset)) ? BLECH.SAMPLE_LIMIT : BLECH.FILE_LIMIT);
+    const fx = offset => both(offset) && !(offset & BLECH.FILE_OTHER);
+    const name = offset => (fx(offset) ? FX_FILE : null) ?? sampleFileName(offset) ?? (this.doom ? doomFileName(offset) : null) ?? (offset & BLECH.FILE_OTHER ? "ORIGINAL.BIN" : "SYSTEM.VSB");
+    const limit = offset => (fx(offset) && cmd === BLECH.FILE_READ ? BLECH.SAMPLE_LIMIT : fx(offset) && this.fxWrite ? BLECH.FX_LIMIT : both(offset) ? -1 : sampleFileName(offset) || (this.doom && doomFileName(offset)) ? BLECH.SAMPLE_LIMIT : BLECH.FILE_LIMIT);
     const plain = offset => offset & ~(BLECH.FILE_OTHER | BLECH.FILE_SAMPLE | (this.doom ? BLECH.FILE_DOOM : 0));
     if (cmd === BLECH.FILE_READ) {
       const offset = plain(word(0)) >>> 0;

@@ -31,7 +31,7 @@ test("Startbild: a picture becomes splash.bmp, black is drawn, the guide names t
   const page = await h.page();
   await page.goto(h.url);
   await go(page, "splash");
-  assert.equal(await page.locator("#cee-nav-title").textContent(), "Design");
+  assert.equal(await page.locator("#cee-nav-title").textContent(), "DesignStartbilder");
   assert.equal(await page.locator("#cee-splash-page-editor").isHidden(), true, "the editor is a page of its own, not below the gallery");
   await page.click("#cee-splash-make");
   assert.equal(await page.locator("#cee-splash-page-gallery").isHidden(), true);
@@ -48,7 +48,23 @@ test("Startbild: a picture becomes splash.bmp, black is drawn, the guide names t
   // top row, bottom-up file: the last row of pixel data; left 64 pixels drawn (bit 1), right 64 empty
   const top = bytes.subarray(62 + 63 * 16, 62 + 64 * 16);
   assert.deepEqual([...top], [...Array(8).fill(0xff), ...Array(8).fill(0)]);
+  assert.match(await page.locator("#cee-splash-steps").textContent(), /KORG\/blechtribe\/Media\//, "the file goes to the Media folder");
   assert.match(await page.locator("#cee-splash-steps").textContent(), /SPLASH IMPORT/);
+  assert.equal(await page.locator("#cee-splash-write").isEnabled(), true, "and can go straight to the card");
+  assert.deepEqual(page.errors, []);
+});
+
+test("Startbild: a stored Image Viewer page from before 1.5 opens Startbilder, which names the Media folder for the Image Viewer", async () => {
+  const page = await h.page();
+  await page.goto(h.url);
+  await page.evaluate(() => localStorage.setItem("cee.design.page", "pics"));
+  await page.reload();
+  await go(page, "splash");
+  assert.equal(await page.locator("#cee-splash-page-gallery").isVisible(), true);
+  assert.equal(await page.locator("#cee-design-panel-pics").count(), 0);
+  assert.equal(await page.evaluate(() => localStorage.getItem("cee.design.page")), "images", "the gone page is not kept");
+  assert.match(await page.locator("#cee-splash-steps").textContent(), /Image Viewer \(BLECH -> PLUGINS\) zeigt jede \.bmp in KORG\/blechtribe\/Media\//);
+  assert.equal(await page.locator("#cee-splash-section .ui-pill, #cee-splash-section .cee-status, #cee-splash-section .ui-chip").count(), 0, "plain text, no pill or chip");
   assert.deepEqual(page.errors, []);
 });
 

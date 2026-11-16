@@ -2,7 +2,8 @@
 """Emulator checks for the preset-tables patch (tools/patch/preset_tables.py,
 docs/messungen/2026-10-15-preset-tabellen.md).
 
-check.py runs `cases_task` on every copy that carries the patch. Two kinds of copy come through:
+check.py runs `cases_task` on every copy that carries the patch, red or blue (the blue's places: data/synth-map/). Two kinds
+of copy come through:
 
   - the patch itself on a firmware without it: the factory presets are found at the same records as
     without the patch, the getters take indexes up to 127, the knob memory moved to the patch's table
@@ -27,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patch"))
 
 import bootcache  # noqa: E402
 import preset_tables as spec  # noqa: E402
+import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
 from mfx_cases import DspLog, same_dsp  # noqa: E402
 from splash_cases import Dev  # noqa: E402
@@ -42,19 +44,29 @@ PART_BASE = 0x800
 ENCODER_IFX = 4
 KILL = 0x2000
 BOOT_S = 6.0
+BOOT_SYNTH_S = 10.0     # the blue's start takes longer to reach the main screen
 NAME_END = 16           # the record's name is bytes 1 to 15; what the editor copies is the rest
+
+
+def place(payload, addr):
+    """A Sampler place as this image has it."""
+    return synthaddr.tr(addr) if synthaddr.is_synth(payload) else addr
 
 
 def has_patch(payload):
     """True when the preset getters read their pointers from the patch's arrays."""
-    return struct.unpack_from("<I", payload, 0xC003E74C - IMAGE)[0] == spec.ARRAY_IFX
+    return struct.unpack_from("<I", payload, place(payload, 0xC003E74C) - IMAGE)[0] == spec.ARRAY_IFX
 
 
 class Box:
     def __init__(self, payload, flash, held=0):
         self.dev = Dev(bytes(payload), flash, held)
         self.dsp = DspLog(self.dev.m)
-        self.dev.run(BOOT_S)
+        self.dev.run(BOOT_SYNTH_S if self.dev.synth else BOOT_S)
+
+    def raw(self, addr, n):
+        """Bytes at an address the running firmware handed out: never translated as a Sampler place."""
+        return bytes(self.dev.m.uc.mem_read(addr, n))
 
     def count(self, kind):
         return self.dev.call(COUNT[kind])
@@ -63,13 +75,13 @@ class Box:
         return self.dev.call(GET[kind], index)
 
     def record(self, kind, index):
-        return self.dev.read(self.address(kind, index), spec.RECORD)
+        return self.raw(self.address(kind, index), spec.RECORD)
 
     def ifx_type(self):
-        return self.dev.read(self.dev.u32(PATTERN) + 4 + PART_BASE + 33, 1)[0]
+        return self.raw(self.dev.u32(PATTERN) + 4 + PART_BASE + 33, 1)[0]
 
     def mfx_type(self):
-        return self.dev.read(self.dev.u32(PATTERN) + 4 + 61, 1)[0]
+        return self.raw(self.dev.u32(PATTERN) + 4 + 61, 1)[0]
 
     def step_ifx(self, delta=1):
         self.dev.m.send([0x01, ENCODER_IFX, 0, delta & 0xFF, 0])
@@ -82,7 +94,7 @@ class Box:
     def knob_rows(self, count):
         """The insert knob memory as the firmware sets it up: 16 rows of `count` bytes behind the literal of the init code."""
         table = struct.unpack_from("<I", self.dev.read(0xC00980A8, 4))[0]
-        return table, self.dev.read(table, 16 * count)
+        return table, self.raw(table, 16 * count)
 
     def goto_ifx(self, target, n):
         """Turn the INSERT encoder until the part holds type `target`, by the shorter way round."""
@@ -128,7 +140,7 @@ def judge(base_payload, patched_payload, flash):
     kept = all(rows[p * n:p * n + keep] == base_rows[p * n0["ifx"]:p * n0["ifx"] + keep] and set(rows[p * n + keep:(p + 1) * n]) <= {64} for p in range(16))
     # A base whose row length differs from its menu length (a menu length set without the row length, docs/messungen/2026-10-15-preset-tabellen.md)
     # leaves part of its table unset, so it is no yardstick: then every byte of the copy's table has to be set.
-    base_row = base_payload[0x98084]
+    base_row = base_payload[place(base_payload, 0xC0098084) - IMAGE]
     inconsistent = base_row != n0["ifx"] and not patch_mode
     if inconsistent:
         kept = 255 not in rows

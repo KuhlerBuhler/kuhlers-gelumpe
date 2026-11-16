@@ -37,6 +37,8 @@ ISR_STEP = 256             # slice length while an interrupt handler runs, so th
 PACE = os.environ.get("GELUMPE_PACE", "device") != "flat"
 
 AINTC = 0xFFFEE000
+GNLR = AINTC + 0x1C        # global nesting level: an IRQ whose channel (CMR) is this number or higher is not passed
+GNLR_NONE = 0x100          # its reset level, which blocks no channel
 GPIO = 0x01E26000
 MMC = 0x01C40000
 SPI0, SPI1 = 0x01C41000, 0x01F0E000
@@ -296,6 +298,7 @@ class Machine:
         self.ns_per_insn = NS_PER_INSN   # the rate of the next slice (device_rate)
         self.asserts = []
         self.raw, self.enabled, self.cmr = set(), set(), {}
+        self.nest_level = GNLR_NONE
         self._tcfg, self._tper = {}, {}      # timer configuration as read from regs; see _wr
         self.timer_last = {}
         self.deadline, self.poll_stop, self.tx_idle = math.inf, False, False
@@ -561,6 +564,8 @@ class Machine:
             return self.regs.get(a, 0) | (1 if forced else 0)
         if a in (AINTC + 0x900, AINTC + 0x904):     # HIPIR1 / HIPIR2
             return self.highest(fiq=a == AINTC + 0x900)
+        if a == GNLR:
+            return self.nest_level
         return None
 
     def write(self, a, v):
@@ -613,6 +618,7 @@ class Machine:
             elif off == 0x24: self.raw.discard(v & 0x7F)
             elif off == 0x28: self.enabled.add(v & 0x7F)
             elif off == 0x2C: self.enabled.discard(v & 0x7F)
+            elif off == 0x1C: self.nest_level = v & 0x1FF
             elif 0x200 <= off < 0x210: self._bits(self.raw, off - 0x200, v, True)
             elif 0x280 <= off < 0x290: self._bits(self.raw, off - 0x280, v, False)
             elif 0x300 <= off < 0x310: self._bits(self.enabled, off - 0x300, v, True)
@@ -718,6 +724,19 @@ class Machine:
         """A 5-byte message from the panel, as if a control was used."""
         self.receive(UART0, msg)
 
+    def battery(self, raw):
+        """Panel message 6 with a battery reading: the firmware's battery model keeps it (+0x320) and takes its level from the
+        threshold table of the Global BATTERY TYPE (docs/messungen/2026-11-16-batterie-prozent.md). 1 is the power key and 0
+        reads as empty, so a reading is 2 to 255; on battery one at or below the table's last threshold switches off."""
+        if not 2 <= raw <= 255:
+            raise ValueError(f"a battery reading is 2 to 255, not {raw} (1 is the power key)")
+        self.send([0x06, raw, 0, 0, 0])
+
+    def power_source(self, adapter):
+        """Panel message 7: mains power (the plug symbol) or battery, as the panel reports a plug put in or pulled."""
+        self.adapter = bool(adapter)
+        self.send([0x07, 1 if adapter else 0, 0, 0, 0])
+
     def receive(self, base, data):
         """Bytes coming in on a UART line; they arrive one byte time apart."""
         self.uart[base]["wire"].extend(bytes(data))
@@ -796,7 +815,17 @@ class Machine:
 
     # ---- interrupts ----------------------------------------------------------
     def highest(self, fiq=False):
-        live = [i for i in self.raw & self.enabled if (self.cmr.get(i, 0) < 2) == fiq]
+        """The pending, enabled interrupt with the highest priority (lowest CMR channel), 0x80000000 for none.
+
+        An IRQ whose channel number is the global nesting level (GNLR) or higher is held back until the level drops, as
+        the AM1808's controller does by its manual (not measured on the device). Korg's IRQ dispatcher
+        (0xC00013D0 on the synth, 0xC00015B0 on red/HT) disables the line it serves, sets GNLR to that line's channel and
+        enables IRQs before it calls the handler, so only a higher priority line nests; it puts the old level back
+        afterwards. Without the level, a lower line nested inside a handler that itself had interrupted the DIN send
+        handler halfway through its count update (0xC00206BC to 0xC00206CC on the synth), and the line's send queue lost a
+        byte: every reply longer than the 1024-byte queue came out broken."""
+        live = [i for i in self.raw & self.enabled if (self.cmr.get(i, 0) < 2) == fiq
+                and (fiq or self.cmr.get(i, 0) < self.nest_level)]
         return min(live, key=lambda i: (self.cmr.get(i, 0), i)) if live else 0x80000000
 
     def poll_time(self):
@@ -834,7 +863,7 @@ class Machine:
         return period
 
     def next_event(self):
-        """Device time in ns of the next timer edge or UART byte, inf when none is pending."""
+        """Device time in ns of the next timer edge, UART byte or card interrupt, inf when none is pending."""
         at = [math.inf]
         for base in TIMERS:
             period = self.timer_period(base)
@@ -843,15 +872,24 @@ class Machine:
         for u in self.uart.values():
             if u["busy"]: at.append(u["busy"])
             if u["wire"]: at.append(u["arrive"])
+        # A card chunk that is ready is raised at the next mmc_irq_ns cell (lines()). Without it an idle CPU that waits for
+        # the card slept to the next timer edge: with the short handler slices of the nesting level (GNLR) it idles there
+        # far more often, and SOFTWARE UPDATE read SYSTEM.VSB at a third of the speed.
+        if self.mmc.irq():
+            at.append((self.time_ns // self.mmc_irq_ns + 1) * self.mmc_irq_ns)
         return min(at)
 
     def slice_length(self, in_isr):
         """Instructions to run next: at most SLICE, ending where the next timer edge or UART byte
         falls so that it happens at its own time, and short while a handler runs so that the next
-        pending interrupt is taken when it returns, as the controller does, not one slice later."""
+        pending interrupt is taken when it returns, as the controller does, not one slice later. Korg's handlers run
+        in SVC mode behind the dispatcher, which has set a nesting level (GNLR) until they return: short then as well,
+        or a line the level holds back waits for the next slice end and a line of higher priority that comes again
+        by then is taken first every time (the 1 kHz tick starved behind TIMER64P2 with long slices)."""
         self.deadline = self.next_event()
         left = self.deadline - self.time_ns
-        return max(1, min(ISR_STEP if in_isr else SLICE, math.ceil(left / self.ns_per_insn) if left < math.inf else SLICE))
+        short = in_isr or self.nest_level < GNLR_NONE
+        return max(1, min(ISR_STEP if short else SLICE, math.ceil(left / self.ns_per_insn) if left < math.inf else SLICE))
 
     def device_rate(self, cpsr):
         """ns per instruction for the code at pc: NS_PER_INSN, or with `pace` the device's rate for it
@@ -992,6 +1030,7 @@ class Machine:
         uc, A = self.uc, self.A
         cpsr = self.reg(A.UC_ARM_REG_CPSR)
         in_isr = cpsr & 0x1F == 0x12
+        in_handler = in_isr or self.nest_level < GNLR_NONE   # Korg's handlers run in SVC behind the dispatcher (GNLR set)
         count = self.slice_length(in_isr)
         start, self.poll_stop, self.tx_idle = self.time_ns, False, False
         ran = False
@@ -1011,7 +1050,7 @@ class Machine:
         # interrupt vector, a register read or a routine's address more often than not. Nor in a handler: its slices
         # are ISR_STEP long from the vector, so they stop at the same few places every time; it runs at the rate of
         # the code it interrupted.
-        if ran and not in_isr and not wait and not self.poll_stop and pc not in self.ENTRIES:
+        if ran and not in_handler and not wait and not self.poll_stop and pc not in self.ENTRIES:
             self.ns_per_insn = self.device_rate(self.reg(A.UC_ARM_REG_CPSR))
         return start
 
@@ -1064,6 +1103,18 @@ class Machine:
             self._saw_loading = True
         if not self.booted and screen == MAIN_SCREEN:
             self.booted, self.boot_ms = True, round(self.time_ns / 1e6, 1)
+
+
+# The card symbol's two places in page 0 of a frame (8 pages of 128 columns): Korg's 109 to 114 and the main screen's 94 to
+# 99 (BATTERY %, script_battery.s:card_place). A case that compares a frame with the firmware's own leaves them out.
+CARD_COLUMNS = (*range(94, 100), *range(109, 115))
+
+
+def without_card(frame):
+    out = bytearray(frame)
+    for x in CARD_COLUMNS:
+        out[x] = 0
+    return bytes(out)
 
 
 def load_flash(paths):

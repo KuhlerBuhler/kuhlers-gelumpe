@@ -16,9 +16,7 @@ import { recogniseBlech } from "../../src/blech-update.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
-import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim, restoreOriginal, canRestore, runsHacktribe, runningFolder, goalsFor, goalMismatch, korgBlueForSampler } from "../../src/patcher.mjs";
-import { LOADING_ANIM_ID } from "../../src/loading-anim.mjs";
-import { storedAnimation } from "./loading-anim.mjs";
+import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, restoreOriginal, canRestore, runsHacktribe, runningFolder, goalsFor, goalMismatch, korgBlueForSampler } from "../../src/patcher.mjs";
 import { testFailure } from "../../data/rescue.mjs";
 import { RESCUE_EVENT } from "./rescue.mjs";
 /** An error of this page opens Blechy at its topic (data/rescue.mjs). */
@@ -838,10 +836,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   function planItems() {
     // one line per patch: the variant for this firmware (a BLECH.patch carries one per build)
     const extra = usbName.checked && input ? [{ id: "usb-name", label: t("patcher.usbName") }] : [];
-    // the own loading animation from the Design page goes on only where load-bar does, which reads it
-    const withAnim = items => (storedAnimation() && items.some(p => p.id === "load-bar") ? [...items, { id: LOADING_ANIM_ID, label: t("patcher.patch.loadingAnim") }] : items);
-    if (ownPatch) return input ? [...withAnim(itemsOf(ownPatch, base(), patchLabel)), ...extra] : [];
-    return blech && input ? [...withAnim(itemsFor(blech, buildOf(input))), ...extra] : [];
+    if (ownPatch) return input ? [...itemsOf(ownPatch, base(), patchLabel), ...extra] : [];
+    return blech && input ? [...itemsFor(blech, buildOf(input)), ...extra] : [];
   }
 
   blechInput.addEventListener("change", async () => {
@@ -1133,7 +1129,6 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         const more = await applyPatches(res.bytes, extra);
         res = more.ok ? { ...more, spans: [...res.spans, ...more.spans], allow: [...res.allow, ...more.allow], allowCode: [...res.allowCode, ...more.allowCode] } : more;
       }
-      res = await withLoadingAnim(res, items.some(p => p.id === LOADING_ANIM_ID) ? storedAnimation() : null);
       if (!res.ok) {
         for (const p of items) {
           const own = res.reasons.filter(r => r.startsWith(`${p.id}:`)).map(r => r.slice(p.id.length + 2));

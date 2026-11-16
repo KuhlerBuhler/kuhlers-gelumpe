@@ -5,7 +5,7 @@
  */
 import { el } from "./fields.mjs";
 import { icon } from "./icons.mjs";
-import { BUTTONS, ENCODERS, KNOBS, KNOB_OFF_ANGLE, PADS, TOUCHPAD_MAX } from "../../data/panel.mjs";
+import { BUTTONS, ENCODERS, KNOBS, KNOB_OFF_ANGLE, LED_ON_OFF, PADS, TOUCHPAD_MAX } from "../../data/panel.mjs";
 import {
   Accumulator, WheelGovernor, DETENT_DEG, DRAG_PX_PER_DETENT, DRAG_PX_FULL_RANGE, WHEEL_PX_PER_DETENT, WHEEL_PX_FULL_RANGE,
   FREE_MAX, FREE_CENTER, CLICK_MAX_MS, CLICK_MAX_PX, clamp, wheelPixels, rawOf, withCatch, angleOfValue,
@@ -541,14 +541,15 @@ export function devicePanel(send, { prefix = "cee-e2" } = {}) {
       return root;
     },
     /**
-     * LED brightness from the firmware, 0 to 255. Unlisted LEDs keep their state. Every LED, the pads too, is
-     * the panel controller's linear duty cycle (docs/hintergrund/panel-controller.md); a pad keeps its colour
-     * at any value from 1.
+     * LED brightness from the firmware, 0 to 255. Unlisted LEDs keep their state. The pads and the other PWM LEDs
+     * show the panel controller's linear duty cycle, the LEDs of LED_ON_OFF are fully on from 1
+     * (docs/hintergrund/panel-controller.md); a pad keeps its colour at any value from 1.
      */
     showLeds(state, replace = false) {
       if (replace) for (const applies of leds.values()) for (const apply of applies) apply(0);
       for (const [i, v] of Object.entries(state)) {
-        for (const apply of leds.get(Number(i)) || []) apply(v / 255);
+        const level = LED_ON_OFF.has(Number(i)) ? (v > 0 ? 1 : 0) : v / 255;
+        for (const apply of leds.get(Number(i)) || []) apply(level);
       }
     },
     /** The display and the controls only mean something while the firmware runs. */

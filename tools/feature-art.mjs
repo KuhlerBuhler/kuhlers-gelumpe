@@ -224,6 +224,13 @@ const ART = {
       else { p.frame(x, y, 58, 16); p.text(name, x + 29, y + 1, { s: 2, align: "center" }); }
     });
   },
+  "user-samples": p => {
+    p.text("OSC", 4, 3, { s: 2 });
+    p.text("[User]", 124, 7, { align: "right" });
+    p.fill(4, 22, 120, 16);
+    p.text("MyKick", 64, 23, { s: 2, align: "center", colour: null });
+    p.text("FROM CARD AT START", 64, 48, { align: "center" });
+  },
   "beat-eighth": p => {
     p.text("BEAT", 4, 3, { s: 2 });
     let x = 4;
@@ -238,6 +245,13 @@ const ART = {
     p.frame(4, 34, 120, 22, 2);
     p.fill(60, 34, 2, 22);
     p.text("C4", 64, 41);
+  },
+  "import-slots": p => {
+    p.text("IMPORT SAMPLE", 4, 3);
+    p.text("19", 64, 16, { s: 2, align: "center" });
+    p.fill(4, 36, 120, 1);
+    p.text("19 ... 999", 64, 42, { align: "center" });
+    p.text("FACTORY SLOT", 64, 53, { align: "center" });
   },
   "exit-pad": p => {
     p.frame(0, 12, 52, 26, 2);

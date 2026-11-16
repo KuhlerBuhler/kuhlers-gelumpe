@@ -176,6 +176,7 @@ test("every leaf of the object tree shows up in the completions, from korg. down
       assert.ok(labels(result).includes(names[i]), `${names[i]} after ${prefix}.`);
       assert.equal(result.from, prefix.length + 1);
     }
+    if (names.length === 2) continue;   // a leaf right below korg. is one of the flat properties
     const option = complete(`${names.slice(0, -1).join(".")}.|`).options.find(o => o.label === names.at(-1));
     assert.match(option.info.allowed, new RegExp(`ab API ${leaf.since}`), `${leaf.path} says its version`);
     if (!leaf.action) assert.match(option.detail, new RegExp(`${leaf.min} bis ${leaf.max}, (lesen und setzen|nur lesen)`));

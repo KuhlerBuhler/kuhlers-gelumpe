@@ -11,6 +11,8 @@
  * two built patches.
  */
 export const CHAINS = {
+  // korg.audio (tools/patch/script_audio_service.s): CommandTask's call of its command handler, the service runs after it
+  "command-task": [{ id: "task-service", sites: [0xC002A628] }],
   "start": [
     { id: "after-flash-mark", sites: [0xC00289D8, 0xC0025E48] },   // the second is the synth build's
     { id: "after-rescue-paths", sites: [0xC002ADAC] },
@@ -99,7 +101,17 @@ export const CHAINS = {
   "type-set": [{ id: "setter", sites: [0xC0048A64] }],
   "filter-key": [{ id: "selection", sites: [0xC006FCE8] }],
   "filter-type-store": [{ id: "setter", sites: [0xC00495DC] }],
-  "pattern-write": [{ id: "staging-copy", sites: [0xC004C2BC] }],
+  "midi-in": [{ id: "channel-message", sites: [0xC002B2D8, 0xC002843C] }],   // the second is the synth build's
+  "pcm-loaded": [{ id: "end", sites: [0xC00473D0] }],                // the synth's PCM load returns its result (user-samples)
+  // DATA UTILITY > IMPORT SAMPLE: the destination selector's range test (import-slots, tools/patch/import_slots.py)
+  "import-destination": [{ id: "range", sites: [0xC006A23C] }],
+  "osc-next-group": [{ id: "scan", sites: [0xC003B93C] }],          // the synth's oscillator list: next group, previous group, the knob's step
+  "osc-prev-group": [{ id: "wrap", sites: [0xC003BA3C] }],
+  "osc-step": [{ id: "wrap", sites: [0xC003BB3C] }],
+  "pattern-write": [
+    { id: "entry", sites: [0xC004C28C, 0xC0046090] },   // the second is the synth build's
+    { id: "staging-copy", sites: [0xC004C2BC] },
+  ],
   "save": [{ id: "entry", sites: [0xC004C1B4] }],
   "seq-step": [{ id: "step", sites: [0xC00589EC] }],
   "seq-beat": [{ id: "beat", sites: [0xC005BD7C] }],
@@ -135,11 +147,14 @@ export const CHAINS = {
   ],
   "pad-note": [
     { id: "keyboard-pad", sites: [0xC0044B3C] },
-    { id: "pad-light", sites: [0xC008870C] },
+    { id: "pad-light", sites: [0xC008878C] },
   ],
   "led-tick-body": [{ id: "before-loop", sites: [0xC008774C] }],
   "led-tick-end": [{ id: "tick-end", sites: [0xC00877D4] }],
-  "led-send": [{ id: "sender", sites: [0xC00876A8] }],
+  "led-send": [
+    { id: "compare", sites: [0xC0087608] },   // meter_dedupe_hook (script_menu.s): the meter LEDs send only a change
+    { id: "sender", sites: [0xC00876A8] },
+  ],
   "mode-key": [{ id: "mode-keys", sites: [0xC006FEDC] }],
   "led-timer": [{ id: "callback", sites: [0xC0089D90] }],
 };

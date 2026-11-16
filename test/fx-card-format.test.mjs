@@ -39,7 +39,7 @@ print(f.collection(build, [f.entry(e["kind"], e["index"], bytes.fromhex(e["data"
 
 test("the emulator cases write e2sFx.all byte for byte as the editor does", { skip: !available && !required ? "Unicorn not installed" : false }, () => {
   assert.ok(available, probe.error?.message ?? probe.stderr);
-  for (const [build, number] of [["hacktribe", 1], ["stock", 2]]) {
+  for (const [build, number] of [["hacktribe", 1], ["stock", 2], ["synth", 3]]) {
     const editor = buildCollection({ build, entries: ENTRIES });
     assert.deepEqual(pythonCollection(number, ENTRIES), editor, build);
     const back = parseCollection(editor);

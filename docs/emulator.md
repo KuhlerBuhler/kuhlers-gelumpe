@@ -361,6 +361,16 @@ wird nicht angefasst, der Start meldet das. Test: `test/emulator-flash.test.mjs`
 (`npm run test:emu`) importiert eine selbstgebaute Sicherung, startet den Dienst neu und
 findet das Pattern im neuen Export.
 
+Eine blaue Firmware (Synth) erkennt auf dem gelöschten Sampler-Flash (`machine.blank_flash()`
+ohne Synth-Kennung) fremde Hardware und bleibt auf einem unbekannten Bildschirm stehen. Fälle für
+die blaue nehmen deshalb `machine.hardware_flash("blue")` (so `flash_with` in
+`tools/emu/splash_cases.py`).
+
+Seiten aus `korg.menu.add` gibt es nur, wenn das Plugin beim Start von der Karte kam
+(`edit.boot`). Die Seiten eines Plugins zählen 0 DESCRIPTION, 1 STATE, ab 2 die eigenen. Vor
+Pad-Drücken das Menü BLECH verlassen (`menu_cases.leave_to_main`), dort bekommen Plugins keine
+Eingaben (Beispiel: `tools/emu/plugin_catalog_api_cases.py`).
+
 ## Display
 
 Die Firmware schaltet jeden Bildpunkt nur an oder aus; es gibt keinen Grau-Befehl
@@ -434,10 +444,10 @@ Das Bedienfeld selbst, nach [Panel-Controller](hintergrund/panel-controller.md):
 
 | Was | Wert | Marker |
 |---|---|---|
-| 88 LEDs in 11 Zeilen mal 8 PWM-Kanälen | Tabelle `0x8460` im Panel-Code | hergeleitet |
+| 88 LEDs in 8 Zeilen mal 11 Spalten, Spalten 0 bis 6 mit PWM, 7 bis 10 nur an oder aus | Tabelle `0x8460` im Panel-Code, `panel_mcu.py --leds` | hergeleitet |
 | PWM rund 2 kHz (5000 Schritte bei 10 MHz), Takt des Panels 100 µs | Panel-Code | hergeleitet |
-| Helligkeit linear: Wert mal Periode durch 255, auch die Pads | Panel-Code `0x4EBC`; Pulsieren am 18.10. am Gerät flüssig | hergeleitet |
-| Eine Nachricht wirkt einen Takt nach ihrem letzten Byte, die Zeilen leuchten reihum je eine PWM-Periode, ein neuer Wert ab der nächsten Runde (5,5 ms) | | Modellannahme |
+| Helligkeit linear: Wert mal Periode durch 255, auch die Pads; die 32 Tasten-LEDs ohne PWM (`LED_ON_OFF`) zeigt die Seite ab 1 voll | Panel-Code `0x4EBC`; Pulsieren am 18.10. am Gerät flüssig | hergeleitet |
+| Eine Nachricht wirkt einen Takt nach ihrem letzten Byte, die Zeilen leuchten reihum je eine PWM-Periode, ein neuer Wert ab der nächsten Runde (4 ms) | | Modellannahme |
 | Ein Wert, der vor seiner Runde schon ersetzt ist, leuchtet nie | folgt aus der Annahme darüber | Modellannahme |
 | Die Seite zeigt den Tastgrad linear als Deckkraft; wie hell das Auge eine Stufe am Gerät sieht | nicht gemessen | Modellannahme |
 | `02 b` von der Firmware wirkt auf die LEDs | offen, das Modell übergeht es | offen |

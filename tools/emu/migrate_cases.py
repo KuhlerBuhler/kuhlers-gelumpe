@@ -448,7 +448,9 @@ def case_pattern(payload, flash):
     return out
 
 
-GROUPS = (case_copy, case_choose, case_none, case_full, case_existing, case_card_interrupt, case_folders, case_pattern)
+import patterns_cases  # noqa: E402  the Patterns folder's cases run here (card folders of the runtime, patterns_cases.py)
+
+GROUPS = (case_copy, case_choose, case_none, case_full, case_existing, case_card_interrupt, case_folders, case_pattern) + patterns_cases.GROUPS
 
 
 def group_entries(payload, flash, i):

@@ -37,16 +37,18 @@ Building the tools (none of this is installed system-wide):
   away, so 16-bit constant loads such as 'R1 = 7 (X)' produce wrong values.
   Replace it with
     #define SIGNEXTEND(v, n) (((bs32)((bu32)(v) << (32 - (n)))) >> (32 - (n)))
-  The QEMU port (github.com/vapier/qemu, branch bfin) has the same macro in
-  target/bfin/bfin-sim.c. It also lacks 'Dreg = ASHIFT Dreg BY Dreg_lo (S)'
-  (sop 1, sopcde 2 in decode_dsp32shift_0), which several effects use.
-  Configure it with --target-list=bfin-softmmu --objcc=clang
+  The QEMU port (github.com/vapier/qemu, branch bfin) has the same macro and
+  computes many DSP instructions wrongly. tools/dsp/qemu-bfin.patch fixes the
+  ones the electribe effects use (see docs/messungen/2026-11-16-qemu-bfin-
+  vergleich.md); apply it with 'git apply' on commit ae8fe9a of that branch.
+  Configure with --target-list=bfin-softmmu --objcc=clang
   --audio-drv-list= --disable-coreaudio --disable-vmnet --disable-cocoa.
 
 Output (one line, JSON): calls, cycles per call (min, max, mean), total
-simulated cycles, a checksum of the soup after all calls (equal checksums in
-both simulators mean both computed the same thing), host seconds, simulated
-Mcycles per host second.
+simulated cycles, an FNV-1a checksum of the soup after all calls (equal
+checksums in both simulators mean both computed the same thing), host
+seconds, simulated Mcycles per host second. Under QEMU the cycle fields are
+nanoseconds of QEMU's virtual clock, not DSP cycles.
 """
 import argparse
 import json
@@ -102,12 +104,17 @@ def harness_asm(func, presets, calls, qemu=False):
         f'\tR0.H = 0x{calls >> 16:04X}; R0.L = 0x{calls & 0xFFFF:04X}; [P4 + 16] = R0;',
         '.Lloop:',
     ]
+    # Presets go after the CYCLES read, so no register reaches the function
+    # with a simulator-specific value (QEMU's CYCLES counts ns). Their cost is
+    # part of the measured cycles; subtract an empty call (e.g. 0xFFA0010A).
+    lines += [
+        '\tR6 = CYCLES;',
+        '\t[--SP] = R6;',
+        f'\tP5.H = 0x{func >> 16:04X}; P5.L = 0x{func & 0xFFFF:04X};',
+    ]
     for reg, value in presets:
         lines.append(f'\t{reg}.H = 0x{value >> 16:04X}; {reg}.L = 0x{value & 0xFFFF:04X};')
     lines += [
-        f'\tP5.H = 0x{func >> 16:04X}; P5.L = 0x{func & 0xFFFF:04X};',
-        '\tR6 = CYCLES;',
-        '\t[--SP] = R6;',
         '\tCALL (P5);',
         '\tR7 = CYCLES;',
         '\tR6 = [SP++];',
@@ -124,10 +131,13 @@ def harness_asm(func, presets, calls, qemu=False):
         # checksum of the soup after all calls, to compare simulators
         f'\tP2.H = 0x{SOUP_BASE >> 16:04X}; P2.L = 0x{SOUP_BASE & 0xFFFF:04X};',
         f'\tP0.H = 0x{(SOUP_SIZE // 4) >> 16:04X}; P0.L = 0x{(SOUP_SIZE // 4) & 0xFFFF:04X};',
-        '\tR0 = 0 (X);',
+        # FNV-1a over 32-bit words; a plain sum of the fresh soup is 0
+        '\tR0.H = 0x811C; R0.L = 0x9DC5;',
+        '\tR3.H = 0x0100; R3.L = 0x0193;',
         '\tLSETUP(.Lcb, .Lce) LC1 = P0;',
         '.Lcb:\tR1 = [P2++];',
-        '.Lce:\tR0 = R0 + R1;',
+        '\tR0 = R0 ^ R1;',
+        '.Lce:\tR0 *= R3;',
         f'\tP4.H = 0x{RESULT >> 16:04X}; P4.L = 0x{RESULT & 0xFFFF:04X};',
         '\t[P4 + 20] = R0;',
     ]

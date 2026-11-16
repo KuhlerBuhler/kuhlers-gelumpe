@@ -6,7 +6,7 @@ import { delimiter, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { applyPatches } from "../src/patch.mjs";
-import { BLECH_SET_URL, loadBlechSet } from "../src/patcher.mjs";
+import { BLECH_SET_URL, BLECH_SYNTH_SET_URL, loadBlechSet } from "../src/patcher.mjs";
 import { buildOf } from "../src/firmware.mjs";
 import { readUnits } from "../src/node.mjs";
 import { recordOf, RECORD } from "../src/presets.mjs";
@@ -30,7 +30,7 @@ test("a collection the editor built loads into RAM at power-on; broken ones and 
   const dir = mkdtempSync(join(tmpdir(), "gelumpe-fxcard-"));
   try {
     const base = new Uint8Array(readFileSync(vsb));
-    const set = await loadBlechSet(async url => JSON.parse(readFileSync(join(root, url), "utf8")), BLECH_SET_URL);
+    const set = await loadBlechSet(async url => JSON.parse(readFileSync(join(root, url), "utf8")), buildOf(base) === "synth" ? BLECH_SYNTH_SET_URL : BLECH_SET_URL);
     const patched = await applyPatches(base, set.patches.filter(p => !p.builds || p.builds.includes(buildOf(base))));
     assert.equal(patched.ok, true, patched.reasons?.join(" "));
     const firmware = join(dir, "BLECH.VSB");

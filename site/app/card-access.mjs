@@ -3,10 +3,14 @@
  * picked file gives the page no path. In the app the folder dialog and every read and move run in the app
  * (src-tauri/src/card.rs, only inside the picked folder); in Chrome and Edge the page gets the folder with write access
  * (showDirectoryPicker); elsewhere it can only read the folder (an input with webkitdirectory) and Blechy says what to do.
+ * Writing is for the Media folder only (MEDIA_FOLDER: the start image and the loading animation the firmware reads at start).
  */
 import { DEPTH, isVsb, skipDir } from "../../src/card-check.mjs";
 
 const parts = path => path.split("/").filter(Boolean);
+
+/** The folder on the card that BLECH reads its start image and loading animation from (tools/patch/load_bar.py, splash_editor.py). */
+export const MEDIA_FOLDER = "KORG/blechtribe/Media";
 const same = (a, b) => a.toLowerCase() === b.toLowerCase();
 
 /** The card through the app: it opened the dialog and keeps the folder, the page only names paths inside it. */
@@ -17,6 +21,7 @@ function nativeCard(invoke, name) {
     read: async path => new Uint8Array(await invoke("card_read", { path })),
     exists: path => invoke("card_exists", { path }),
     async move(from, to) { await invoke("card_move", { from, to }); return "moved"; },
+    write: (path, bytes) => invoke("card_write", { path, bytes: [...bytes] }),
   };
 }
 
@@ -89,6 +94,13 @@ export function handleCard(root) {
       await writer.close();
       return "copied";
     },
+    async write(path, bytes) {
+      const names = parts(path);
+      const dir = await dirAt(root, names.slice(0, -1), true);
+      const writer = await (await dir.getFileHandle(names.at(-1), { create: true })).createWritable();
+      await writer.write(bytes);
+      await writer.close();
+    },
   };
   return card;
 }
@@ -111,6 +123,7 @@ export function filesCard(list) {
     },
     exists: async path => files.some(f => same(f.path, path)),
     move: async () => { throw new Error("read only"); },
+    write: async () => { throw new Error("read only"); },
   };
 }
 
@@ -127,6 +140,18 @@ function pickFiles(doc) {
     doc.body.append(input);
     input.click();
   });
+}
+
+/**
+ * Writes `bytes` as `name` into the Media folder of a card the person picks. Call it straight from the click. Returns
+ * "written", "cancelled" or "readonly" (this browser cannot write to a folder; the download is the way then).
+ */
+export async function writeMedia(name, bytes, scope = globalThis) {
+  const card = await pickCard(scope);
+  if (!card) return "cancelled";
+  if (!card.writable) return "readonly";
+  await card.write(`${MEDIA_FOLDER}/${name}`, bytes);
+  return "written";
 }
 
 /**

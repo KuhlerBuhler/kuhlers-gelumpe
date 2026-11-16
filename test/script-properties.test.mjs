@@ -131,3 +131,41 @@ korg.onEvent("frame", () => { viewed = korg.viewedPattern; next = korg.nextPatte
   device.run(1);
   assert.deepEqual([v("viewed"), v("next"), v("selected")], [12, 12, 7]);
 });
+
+test("deprecated calls and properties still compile, with a warning that names the replacement (API 35)", async () => {
+  const { DEPRECATED, API_BY_NAME: calls } = await import("../data/script/contract.mjs");
+  const { PROPERTY_BY_PATH, deprecated } = await import("../data/script/properties.mjs");
+  const { hoverAt } = await import("../src/script/editor-model.mjs");
+  for (const [name, d] of Object.entries(DEPRECATED)) {
+    assert.ok(d.since <= 35, name);
+    const old = name.endsWith(".") ? `${name}tempo` : name;
+    const use = deprecated(old).use;
+    assert.ok(calls.has(old) || PROPERTY_BY_PATH.has(old), `${old} exists`);
+    assert.ok(calls.has(use) || PROPERTY_BY_PATH.has(use), `${use} exists`);
+  }
+  const src = "let a = 0;\nkorg.onEvent(\"ready\", () => {\n  a = korg.chainMode + korg.read.chainMode() + korg.current.tempo;\n  korg.current.key += 1;\n  a = korg.global.chainMode + korg.pattern.current.tempo;\n});";
+  const r = compile(src);
+  assert.ok(r.ok);
+  assert.deepEqual(r.warnings.map(w => [w.line, w.column, w.text.vars.name, w.text.vars.use]), [
+    [3, 7, "korg.chainMode", "korg.global.chainMode"],
+    [3, 24, "korg.read.chainMode", "korg.global.chainMode"],
+    [3, 48, "korg.current.tempo", "korg.pattern.current.tempo"],
+    [4, 3, "korg.current.key", "korg.pattern.current.key"],
+  ]);
+  assert.equal(r.warnings[0].text.vars.useSince, 20);
+  assert.equal(r.warnings[2].text.vars.useSince, 21);
+  assert.equal(blob("let x = korg.chainMode;"), blob("let x = korg.read.chainMode();"), "the block stays the same");
+  assert.match(hoverAt(src, src.indexOf("korg.current.tempo") + 5).info.deprecated, /korg\.pattern\.current\.tempo/);
+  assert.equal(hoverAt(src, src.indexOf("korg.global.chainMode") + 5).info.deprecated, undefined);
+});
+
+test("the catalog, the templates and Blechy use no deprecated call or property", async () => {
+  const { PRESETS } = await import("../data/script/presets.mjs");
+  const { TEMPLATES, templateSource } = await import("../data/script/templates.mjs");
+  const sources = [...PRESETS.map(p => [p.id, p.source]), ...TEMPLATES.map(t => [t.id, templateSource(t.id)])];
+  for (const [id, source] of sources) {
+    const r = compile(source, { name: "plugin" });
+    assert.ok(r.ok, id);
+    assert.deepEqual(r.warnings.map(w => formatError(w)), [], id);
+  }
+});

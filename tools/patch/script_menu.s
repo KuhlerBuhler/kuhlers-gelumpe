@@ -36,7 +36,7 @@
 .equ M_BL_PWM, 0xC8
 .equ M_BL_N, 0xCC
 .equ M_BL_CLR, 0xD0
-.equ MX_INTENS, -0x20          ; the 32 bytes in front of MENU_STATE (behind the menu items): byte, INTENSITY of the backlight 0 to 15
+.equ MX_INTENS, -0x20          ; the 32 bytes in front of MENU_STATE: byte, INTENSITY of the backlight 0 to 15
 .equ MX_SAVE, -0x1F            ; byte, SAVE LIGHT: 0 the firmware's own dim in power save, 1 to 15 the backlight at that intensity
 .equ MX_OVER, -0x1E            ; byte, OVERLAP of the pad colours (0 the colour that is left)
 .equ MX_METER, -0x1C           ; 4 bytes, the colours of the meter (STILL, LOW, MID, LOUD), 0 the firmware's
@@ -46,6 +46,14 @@
 .equ METER_OFF, 9              ; METER STILL only: the still meter stays dark (bit 1 of byte 5 of the settings file)
 .equ METER_RAINBOW, 8          ; METER STILL and LOUD: the colours turn round the wheel (STILL bit 30 of the settings flags, LOUD bit 0 of byte 5)
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
+.equ MX_FLAGS2, -0x15          ; byte, byte 7 of a version 4 settings file (FLAGS2_*), 0 without one
+.equ FLAGS2_LOAD_METER, 1      ; LOAD METER on (CUSTOMIZATION)
+.equ FLAGS2_IDLE_OFF, 2        ; IDLE POWER SAVE off (POWER SAVE); clear is on, the default, so a file with the default stays version 3
+.equ FLAGS2_GLIDE_CHAIN, 4     ; GLIDE CHAIN on (FEATURES, script_glide.s)
+.equ FLAGS2_GLIDE_SWITCH, 8    ; GLIDE SWITCH on (FEATURES, script_glide.s)
+.equ FLAGS2_GLIDE, 12
+.equ FLAGS2_BATT_OFF, 16       ; BATTERY % off (DISPLAY, script_battery.s); clear is on, the default, so a file with the default stays version 3
+.equ FLAGS2_KNOWN, 31          ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
 .equ M_SPLASH_SEL, 0x100      ; the page SPLASH IMPORT: the place of the .bmp file it shows among those in KORG/blechtribe
@@ -108,7 +116,7 @@
 .equ MMC_CLK, 0x01C40004      ; MMC0 clock: bit 9 DIV4, bit 8 on, bits 0-7 CLKRT; 150 MHz / ((DIV4 ? 4 : 2) * (CLKRT + 1))
 .equ MMC_CLK_IDENT, 0x25D     ; 0.4 MHz, the identification clock Korg sets once at power-on, before the first card init
 ; The settings in the flash, for a device without a card (menu_flash_read, menu_flash_save; written when the BLECH screen is left, autosave_leave): the record of
-; settings.a.bin (version 3), behind it the word FLASH_TAG << 16 | generation and the CRC-32 of record and word, in one of two 4 KiB
+; settings.a.bin (version 3 or 4), behind it the word FLASH_TAG << 16 | generation and the CRC-32 of record and word, in one of two 4 KiB
 ; sectors by the parity of the generation (odd FLASH_SET_A, even FLASH_SET_B), so a torn write leaves the other copy whole.
 ; Both sectors have no writer in the firmware and lie outside every range an update writes (docs/messungen/2026-11-13-einstellungen-flash.md).
 .equ M_FL, 0x114              ; bits 0 to 15 the generation of the newest copy in the flash, bit 16 FL_HOLD
@@ -133,7 +141,7 @@
 .equ SETTINGS_SIZE, 24
 .equ SETTINGS_SIZE_V1, 20
 .equ SETTINGS_MAX, 24+4*MENU_MAX_TRUST    ; the size of each settings buffer, MENU_FILE_A and MENU_FILE_B
-.equ SETTINGS_VERSION, 3
+.equ SETTINGS_VERSION, 4      ; the newest version read; written only when byte 7 is not 0, else version 3 (a BLECH up to 1.4.6 reads that)
 .equ M_STATE_WORDS, 128
 .equ SWITCH_SCREEN, 0xC0083D28
 .equ PC_CODE, 0xC018B000        ; the patch pad-colors (tools/patch/pad_colors.py), FF where the set does not have it; its entries:
@@ -150,6 +158,20 @@
 .equ SP_CODE, 0xC014FF00
 .equ SP_SETTING, 0xC014FFFC     ; FFFFFFFF (never written) or 1 is on, 0 is off; bit 2 of byte 5 of the settings file is OFF
 .equ VERSION_TEXT, 0xC014FCF0   ; the patch blech-version (tools/patch/blech_version.mjs): "BLECH 1.3.7", NUL padded, FF where the set does not have it
+; USER SAMPLES: the state of the patch user-samples (tools/patch/user_samples.py, US_STATE from the build profile, 0 where the build has
+; no such patch): samples loaded, samples left out, and the result of the start; FF where the set does not have the patch
+.equ US_LOADED, 0x00
+.equ US_REJECTED, 0x04
+.equ US_STATUS, 0x14
+.equ US_BAD, 4                  ; ST_NOTALL: the file is there but not a sample file
+.equ US_OK, 5                   ; ST_OK
+.equ MEDIA_CODE, 0xC01AD000    ; the loading animation's card entries (tools/patch/load_bar.py media_entry), FF where the set has no loading animation:
+.equ MEDIA_GET, MEDIA_CODE + 4  ; -> byte 14 of Media/loading.blla as the start read it, -1 without a valid file
+.equ MEDIA_SET, MEDIA_CODE + 8  ; (byte 14, FatFs file, &written) -> 0 written, -1 no file at the start, else FatFs's code
+; DEV MODE (kind 56): the word DEV_FLAG (build profile, 0 where the build has no page) holds DEV_MAGIC while it is on; BLECH's
+; SysEx code then lets a WRITE into the firmware image pass (tools/patch/blech_sysex.py). The image has FF there, so every start
+; begins with it off; nothing saves it.
+.equ DEV_MAGIC, 0x4D564544      ; "DEVM"
 .equ SPLASH_IMPORT, 0xC01A2500 ; the splash editor's entries (tools/patch/splash_editor.py), FF where the build has no editor
 .equ SPLASH_DRAW, 0xC01A2504
 .equ SPLASH_RESET, 0xC01A2508
@@ -219,8 +241,35 @@ menu_arm_zero:
     str r1, [r0], #4
     subs r2, r2, #1
     bne menu_arm_zero
+    ldr r0, =EGG_WORK           ; the egg's 20 bytes (script_egg.s), FF in the reserve before
+    str r1, [r0]
+    str r1, [r0, #4]
+    str r1, [r0, #8]
+    str r1, [r0, #12]
+    str r1, [r0, #16]
     mov r0, #1
     str r0, [r4, #M_COUNT]
+    ldr r1, =LOAD_METER         ; LOAD METER measures from now on (script_load_meter.s:LM_ARMED), not with EXIT held at power-on
+    str r0, [r1, #LM_ARMED]
+    ldr r1, =IDLE               ; IDLE POWER SAVE counts from now on (script_idle.s): stage 0, all kept, nothing swallowed or down, no knob
+    ldr r2, =IDLE_TICKS         ; seen yet; with EXIT held at power-on it stays FF and nothing of it runs
+    ldr r2, [r2]
+    str r2, [r1, #IS_LAST]
+    ldr r2, =IS_FRESH
+    str r2, [r1, #IS_STAGE]
+    mov r2, #0
+    str r2, [r1, #IS_KEYS]
+    str r2, [r1, #IS_KEYS+4]
+    str r2, [r1, #IS_PADS]
+    str r2, [r1, #IS_DOWN_KEYS]
+    str r2, [r1, #IS_DOWN_KEYS+4]
+    str r2, [r1, #IS_DOWN_PADS]
+    mvn r2, #0
+    str r2, [r1, #IS_KNOBS]
+    str r2, [r1, #IS_KNOBS+4]
+    str r2, [r1, #IS_KNOBS+8]
+    str r2, [r1, #IS_KNOBS+12]
+    str r2, [r1, #IS_KNOBS+16]
     mov r0, #1
     str r0, [r4, #M_SET_RUN]
     str r0, [r4, #M_SET_MFX]
@@ -423,9 +472,10 @@ card_watch_slow:
     tst r0, #FL_ASK             ; the question goes with the card
     bic r1, r0, #FL_ASK
     str r1, [r4, #M_FL]
-    ldrne r1, =UI_REDRAW
+    ldrne r1, =SCREEN_MANAGER
+    ldrne r1, [r1]
     movne r2, #1
-    strbne r2, [r1]
+    strbne r2, [r1, #UI_REDRAW_AT]
     tst r0, #FL_HOLD
     beq card_watch_out
     tst r0, #FL_SAVE            ; MENU said save: what runs stays and goes to the flash, not the older copy there
@@ -479,12 +529,13 @@ acmd41_round:
 .pool
 
 ; ---- settings file: settings.a.bin and settings.b.bin alternate, the newer valid one is read.
-; magic, version u16 (1, 2 or 3), count u16 (the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
-; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON; byte 5: bit 0 METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (it was HT OSC OFF on develop for half a day before 1.4.5, no release wrote it), bit 7 AUTO SAVE OFF), version 2 and 3 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
+; magic, version u16 (1, 2, 3 or 4), count u16 (version 4: byte 6 alone, byte 7 the second flag byte FLAGS2_*; the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
+; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON; byte 5: bit 0 METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (it was HT OSC OFF on develop for half a day before 1.4.5, no release wrote it), bit 7 AUTO SAVE OFF), version 2 to 4 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
 ; means the stock white, bit 28 the display inverted (no file or a version 1 file: inverted), bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes (both up to 16 checksums), version 3 24 to 280 bytes (up to
-; 64, MENU_MAX_TRUST). Always written as version 3, versions 1 and 2 are still read; a BLECH up to 1.3.7 does not read version 3.
+; 64, MENU_MAX_TRUST), version 4 the same as 3. Written as version 3 while byte 7 is 0, as version 4 otherwise; versions 1 to 4 are
+; read. A BLECH up to 1.3.7 does not read version 3, one up to 1.4.6 not version 4 (it takes the other copy or the defaults).
 ; Called from the card hook wrapper after menu_arm, before the script loader reads M_EFF_RUN.
 menu_settings_load:
     push {r4-r8, lr}
@@ -527,6 +578,12 @@ menu_load_b:
 menu_load_apply:
     ldr r1, [r0, #8]
     str r1, [r4, #M_GEN]
+    ldrb r1, [r0, #4]           ; byte 7 of version 4: the second flag byte; older versions have none
+    cmp r1, #4
+    ldrbhs r1, [r0, #7]
+    movlo r1, #0
+    and r1, r1, #FLAGS2_KNOWN
+    strb r1, [r4, #MX_FLAGS2]
     ldr r1, [r0, #12]
     and r2, r1, #1
     str r2, [r4, #M_SET_RUN]
@@ -627,7 +684,7 @@ menu_load_meter:
     and r0, r0, #3
     mov r1, #16
     bl menu_pc_call
-    ldr r0, [sp]                ; LED DIMMING (POWER SAVE): bits 6 and 7 and 31 of these flags, bit 31 of the look word (version 2 and 3)
+    ldr r0, [sp]                ; LED DIMMING (POWER SAVE): bits 6 and 7 and 31 of these flags, bit 31 of the look word (version 2 to 4)
     ldr r1, [r0, #12]
     ldrb r3, [r0, #4]
     cmp r3, #1
@@ -779,16 +836,18 @@ menu_flash_read_take:
 menu_flash_read_out:
     pop {r6-r8, pc}
 
-; r0 = a copy of FLASH_SET_LEN bytes from the flash -> r0 = 0x10000 | its generation when it is a whole record of version 3 with
-; tag and checksum, 0 otherwise (erased flash, a torn write). r5 = card scratch. Keeps r4 to r11.
+; r0 = a copy of FLASH_SET_LEN bytes from the flash -> r0 = 0x10000 | its generation when it is a whole record of version 3 or 4
+; with tag and checksum, 0 otherwise (erased flash, a torn write). r5 = card scratch. Keeps r4 to r11.
 menu_flash_check:
     push {r4, r6, r7, lr}
     mov r7, r0
     ldrb r0, [r7, #4]
-    cmp r0, #SETTINGS_VERSION
-    bne menu_flash_check_fail
+    sub r0, r0, #3
+    cmp r0, #1
+    bhi menu_flash_check_fail
+    ldrb r1, [r7, #7]           ; version 3: the high byte of the count; version 4: the second flag byte, the count is byte 6 alone
+    moveq r1, #0
     ldrb r0, [r7, #6]
-    ldrb r1, [r7, #7]
     orr r0, r0, r1, lsl #8
     cmp r0, #MENU_MAX_TRUST
     bhi menu_flash_check_fail
@@ -864,17 +923,19 @@ menu_record_body:
     ldrb r1, [r7, #5]
     bics r1, r1, #0xFF          ; byte 5: only bit 0 (LOUD RAINBOW), bit 1 (STILL OFF), bit 2 (STEREO 1 PAD OFF), bit 3 (LAST PATTERN OFF), bit 4 (KEY PADS OFF), bit 5 (FILTER TOGGLE OFF), bit 6 (KNOB LEDS OFF) and bit 7 (AUTO SAVE OFF) may be set
     bne menu_read_fail
-    sub r0, r0, #1              ; version 1, 2 or 3
+    sub r0, r0, #1              ; version 1, 2, 3 or 4
     cmp r0, #SETTINGS_VERSION-1
     bhi menu_read_fail
     cmp r0, #0
     moveq r2, #SETTINGS_SIZE_V1
     movne r2, #SETTINGS_SIZE
-    cmp r0, #SETTINGS_VERSION-1
-    moveq r3, #MENU_MAX_TRUST
-    movne r3, #MENU_MAX_TRUST_V2
-    ldrb r0, [r7, #6]
+    cmp r0, #2                  ; version 3 and 4: up to 64 checksums
+    movhs r3, #MENU_MAX_TRUST
+    movlo r3, #MENU_MAX_TRUST_V2
     ldrb r1, [r7, #7]
+    cmp r0, #3                  ; version 4: byte 7 is the second flag byte, the count is byte 6 alone
+    movhs r1, #0
+    ldrb r0, [r7, #6]
     orr r0, r0, r1, lsl #8
     cmp r0, r3
     bhi menu_read_fail
@@ -936,8 +997,6 @@ menu_settings_write:
     ldr r7, =MENU_FILE_A
     ldr r0, =SETTINGS_MAGIC
     str r0, [r7]
-    mov r0, #SETTINGS_VERSION
-    strb r0, [r7, #4]
     mov r0, #0
     strb r0, [r7, #5]
     ldr r1, =SP_CODE
@@ -949,14 +1008,18 @@ menu_settings_write:
     cmp r1, #0
     moveq r0, #4
     strbeq r0, [r7, #5]
-    mov r0, #0                  ; byte 7 below takes r0
 menu_save_sp_done:
     ldr r9, [r4, #M_TRUST_N]
     cmp r11, #1
     cmpne r11, #2
     moveq r9, #0
     strb r9, [r7, #6]
+    ldrb r0, [r4, #MX_FLAGS2]
     strb r0, [r7, #7]
+    cmp r0, #0                  ; version 4 only with a bit in byte 7: without one the record is a version 3 file
+    moveq r0, #3
+    movne r0, #4
+    strb r0, [r7, #4]
     ldr r8, [r4, #M_GEN]
     cmp r11, #0
     addeq r8, r8, #1
@@ -1289,9 +1352,10 @@ menu_ask_asked:
     orreq r0, r0, #FL_SAVE      ; until the flash holds them (menu_flash_save clears it)
     str r0, [r8, #M_FL]
     bleq menu_flash_save_status
-    ldr r1, =UI_REDRAW          ; the firmware draws its own screen again
+    ldr r1, =SCREEN_MANAGER     ; the firmware draws its own screen again
+    ldr r1, [r1]
     mov r2, #1
-    strb r2, [r1]
+    strb r2, [r1, #UI_REDRAW_AT]
     b menu_ask_out
 menu_ask_draw:
     bl display_clear
@@ -1446,6 +1510,7 @@ look_led_kind:
     moveq r8, #15
     push {r0, r7, r8}           ; the levels of the colour, scaled by INTENSITY for the light and by SAVE LIGHT for power save
     ldrb r1, [r4, #MX_INTENS]
+    bl idle_scale
     add r5, r4, #M_BL_CLR
     bl look_triple
     str r12, [r4, #M_BL_ON]
@@ -1458,6 +1523,7 @@ look_led_kind:
     ldrne r0, =4682             ; / 14: * 4682 >> 16
     mulne r1, r2, r0
     movne r1, r1, lsr #16
+    bl idle_scale
     sub r5, r4, #-MX_SAVE_CLR
     bl look_triple
     strb r12, [r4, #MX_SAVE_ON]
@@ -1515,6 +1581,18 @@ look_channel:
     ldrb r2, [r5, r0]
     orr r2, r2, r3
     strb r2, [r5, r0]
+    bx lr
+; r1 = an intensity 0 to 15 -> r1 scaled by the stage of IDLE POWER SAVE (script_idle.s): 4, 3, 2, 1 or 0 of 4 parts, rounded up,
+; so a lit light stays lit until the stage goes dark. FF (before menu_arm) is no stage. Clobbers r2 and r3.
+idle_scale:
+    ldr r2, =IDLE
+    ldrb r2, [r2, #IS_STAGE]
+    cmp r2, #4
+    bxhi lr
+    rsb r2, r2, #4
+    mul r3, r1, r2
+    add r3, r3, #3
+    mov r1, r3, lsr #2
     bx lr
 ; The backlight as the firmware sets it when the light comes back from power save: all three pins on, our setter hooks leave
 ; on what the settings allow. Not while the firmware dims (power save), the dim routine owns the pins then.
@@ -1757,6 +1835,8 @@ autosave_switch_hook:
     mov r0, r3
     mov r1, r4
     bl autosave_leave
+    mov r0, r4
+    bl card_place               ; the card symbol's place on the screen to come (script_battery.s)
     pop {r0-r3, r12, lr}
     ldr r12, =0xC002D048
     blx r12
@@ -1785,6 +1865,17 @@ autosave_from_other:
     beq autosave_global
     b autosave_out
 autosave_from_menu:
+    ldr r0, =EGG_WORK           ; the egg's show ends first, so its colour of the display light never reaches the settings (script_egg.s)
+    ldrb r1, [r0, #M_EGG]
+    cmp r1, #1
+    cmpne r1, #2
+    bne autosave_menu_compare
+    cmp r1, #1
+    bleq egg_end
+    ldr r0, =EGG_WORK
+    mov r1, #0
+    strb r1, [r0, #M_EGG]
+autosave_menu_compare:
     ldr r2, [r4, #M_AS]
     cmp r2, #0
     beq autosave_out
@@ -1845,7 +1936,36 @@ menu_hooks_end:
 ; switch off (Global power save with battery), it stays. Otherwise, with another look than the stock meter, the twelve
 ; channels are set the way the firmware does it (brightness into the target table, then 0xC00875F4), from the
 ; same smoothed level the meter uses (0xC0088220), so the colour follows the level.
+; The firmware smooths the level only while it shows the meter; with r1 = 0 or a plugin's LED lock the hook smooths it, so
+; korg.audio.level stays current.
 led_meter_hook:
+    cmp r1, #0
+    beq led_meter_smooth
+    ldrb r12, [r0, #0xb98]
+    cmp r12, #0
+    beq led_meter_armed
+led_meter_smooth:
+    push {r0-r3, r12, lr}
+    ldr r2, =0xC033E4F4
+    ldr r2, [r2]
+    cmp r2, #0
+    beq led_meter_smoothed
+    sub sp, sp, #8
+    ldrb r3, [r2, #0x13]
+    mov r3, r3, lsl #24
+    mov r3, r3, asr #23
+    str r3, [sp]
+    ldr r3, [r2, #0x14]
+    mov r3, r3, asr #24
+    mov r3, r3, lsl #1
+    str r3, [sp, #4]
+    mov r0, sp
+    add r1, sp, #4
+    bl 0xC0088220
+    add sp, sp, #8
+led_meter_smoothed:
+    pop {r0-r3, r12, lr}
+led_meter_armed:
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_ON]
     cmp r3, #1
@@ -1952,7 +2072,8 @@ led_meter_mod3:
     bhs led_meter_mod3
     ldrb r3, [r8, r0]
     cmp r3, #1                  ; never 1: 0xC00875F4 compares what it sent last with the message's mode byte (1 for these LEDs),
-    moveq r3, #2                ; so after a 1 it sends nothing more and the channel sticks (emulator 22.10., the rainbow)
+    moveq r3, #2                ; so after a 1 it sends nothing more and the channel sticks (emulator 22.10., the rainbow); meter_dedupe_hook
+    ; fixes that, but passes on the loading screen and with EXIT held at power-on, so the rule stays
     add r0, r4, r5, lsl #3
     strb r3, [r0, #0x2ae]
     mov r0, r4
@@ -2167,7 +2288,7 @@ bl_pwm_hook:
     beq bl_pwm_normal
     ldrb r3, [r2, #MX_SAVE]     ; power save dims: with SAVE LIGHT the light of the colour at that intensity, else the firmware's dim
     cmp r3, #0
-    beq bl_pwm_pass
+    beq bl_pwm_save_none
     push {r4, r5, r6, r7, r8, lr}
     mov r5, r2
     ldrb r6, [r5, #MX_SAVE_ON]
@@ -2208,6 +2329,16 @@ bl_pwm_clear:
     bl GPIO_WRITE
 bl_pwm_done:
     pop {r4, r5, r6, r7, r8, pc}   ; the firmware's dim routine would only return (not dimming) or is replaced (SAVE LIGHT)
+bl_pwm_save_none:               ; the firmware's dim, unless IDLE POWER SAVE went dark (script_idle.s): then no pin lights
+    ldr r3, =IDLE
+    ldrb r3, [r3, #IS_STAGE]
+    cmp r3, #4
+    bne bl_pwm_pass
+    push {r4, r5, r6, r7, r8, lr}
+    mov r5, r2
+    mov r6, #0
+    add r7, r5, #M_BL_CLR
+    b bl_pwm_run
 bl_pwm_pass:
     push {r4, r5, r6, lr}
     ldr pc, =0xC00289F8
@@ -2264,6 +2395,59 @@ lcd_test_done:
 lcd_invert_pass:
     ldr r3, [fp, #-0x10]
     ldr pc, =LCD_PAGE_HOOK_BACK
+.pool
+; 0xC0087608, in the LED manager's send function 0xC00875F4 (r0 = r4 manager, r1 LED, r2 force) behind the check of the lock
+; a plugin holds: `cmp r2, #0`. For the twelve meter LEDs (0x4C to 0x57) the message goes out only when what the panel would
+; get changed: brightness (0 while the firmware's power save darkens them, [manager+0xb78]) and the message's second byte
+; (manager + 0x4F + 8 * LED), kept per LED in METER_SENT with bit 16 set (FF matches nothing). Korg's own comparison takes
+; the wanted value's mode byte for the sent brightness and so sends nearly every time, about 22 times a second per LED. A
+; forced send (lock released, test mode, korg.led refresh) always goes out and refreshes the word. With the menu not armed
+; (EXIT at power-on) nothing changes, nor while there is no screen yet or the loading screen (0) is up: the sample loader at
+; the start polls the card and is scheduled again sooner while the panel's UART interrupts come, so without them it took
+; 51 ms longer in the emulator. Those sends go out unchecked and forget the LED's word, as does a plugin's korg.led on it
+; (script_led_try_send), so the next send after them goes out again. The send path from 0xC008764C reads r1, r3 and r4 only.
+meter_dedupe_hook:
+    sub r12, r1, #0x4c
+    cmp r12, #11
+    bhi meter_dedupe_pass
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_ON]
+    cmp r0, #1
+    bne meter_dedupe_pass
+    ldr r0, =SCREEN_MANAGER
+    ldr r0, [r0]
+    cmp r0, #0
+    cmnne r0, #1
+    beq meter_dedupe_forget
+    ldr r0, [r0, #0x2c]
+    cmp r0, #0
+    beq meter_dedupe_forget
+    add r3, r4, r1, lsl #3
+    ldrb r0, [r4, #0xb78]
+    cmp r0, #0
+    ldrbeq r0, [r3, #0x4e]
+    movne r0, #0
+    ldrb r3, [r3, #0x4f]
+    orr r0, r0, r3, lsl #8
+    orr r0, r0, #0x10000
+    ldr r3, =METER_SENT
+    add r3, r3, r12, lsl #2
+    ldr r12, [r3]
+    cmp r2, #0
+    bne meter_dedupe_send
+    cmp r0, r12
+    popeq {r3, r4, r5, pc}
+meter_dedupe_send:
+    str r0, [r3]
+    add r3, r1, #9              ; the send path reads r3 = LED + 9
+    ldr pc, =0xC008764C
+meter_dedupe_forget:
+    ldr r0, =METER_SENT
+    mvn r3, #0                  ; r3 is set again at 0xC008760C
+    str r3, [r0, r12, lsl #2]
+meter_dedupe_pass:
+    cmp r2, #0
+    ldr pc, =0xC008760C
 .pool
 look_hooks_end:
 
@@ -2382,6 +2566,9 @@ menu_show:
     push {r4, r5, lr}
     mov r4, r0
     ldr r5, =MENU_STATE
+    mov r0, #0                  ; any other key between them: the MENU presses for the egg count from 0 again
+    ldr r1, =EGG_WORK
+    strb r0, [r1, #M_EGG_N]
     ldr r0, [r5, #M_PAGE]
     bl menu_texts
     bl menu_tab_text
@@ -2417,7 +2604,7 @@ menu_show:
 
 ; r0 = the kind of a page -> r0 = 1 when the setting the page shows is the one the file holds (menu_orig_snap), 0 when it was changed
 ; or the page shows no setting. Builds the record of the settings as they are (menu_settings_crc leaves it in MENU_FILE_A) and
-; compares the bits of orig_masks for that kind: byte 5, the flags word and the look word of the record.
+; compares the bits of orig_masks for that kind: byte 5, byte 7, the flags word and the look word of the record.
 menu_orig_flag:
     push {r4, r5, lr}
     mov r4, r0
@@ -2438,6 +2625,12 @@ menu_orig_find:
     ldrb r3, [r5, #1]
     ands r2, r2, r3
     bne menu_orig_no
+    ldrb r2, [r0, #7]
+    ldrb r3, [r1, #7]
+    eor r2, r2, r3
+    ldrb r3, [r5, #2]
+    ands r2, r2, r3
+    bne menu_orig_no
     ldr r2, [r0, #12]
     ldr r3, [r1, #12]
     eor r2, r2, r3
@@ -2456,7 +2649,7 @@ menu_orig_no:
     mov r0, #0
     pop {r4, r5, pc}
 .pool
-; per kind (menu_texts_fill): the kind, the bits of byte 5, then the bits of the flags word and of the look word of the settings record
+; per kind (menu_texts_fill): the kind, the bits of byte 5, the bits of byte 7, then the bits of the flags word and of the look word of the settings record
 orig_masks:
     .byte 0, 0, 0, 0                  ; PLUGIN RUNTIME: bit 0 of the flags
     .word 0x00000001, 0
@@ -2516,6 +2709,16 @@ orig_masks:
     .word 0, 0
     .byte 53, 64, 0, 0                ; KNOB LEDS: bit 6
     .word 0, 0
+    .byte 59, 0, FLAGS2_LOAD_METER, 0 ; LOAD METER: bit 0 of byte 7
+    .word 0, 0
+    .byte 60, 0, FLAGS2_IDLE_OFF, 0 ; IDLE SAVE: bit 1 of byte 7, set is OFF
+    .word 0, 0
+    .byte 61, 0, FLAGS2_GLIDE_CHAIN, 0 ; GLIDE CHAIN: bit 2 of byte 7
+    .word 0, 0
+    .byte 62, 0, FLAGS2_GLIDE_SWITCH, 0 ; GLIDE SWITCH: bit 3 of byte 7
+    .word 0, 0
+    .byte 63, 0, FLAGS2_BATT_OFF, 0 ; BATTERY %: bit 4 of byte 7, set is OFF
+    .word 0, 0
     .byte 0xFF, 0, 0, 0
 
 ; ---- the list of the plugins (level 5) and SPLASH IMPORT as the firmware's file browser (DATA UTILITY, IMPORT SAMPLE: screen 39)
@@ -2545,9 +2748,10 @@ menu_brw_fill:
     strb r0, [r5, #M_SPLASH_CACHE]
     strb r0, [r5, #M_BRW_ON]
     cmp r9, #0
-    ldrne r1, =UI_REDRAW
+    ldrne r1, =SCREEN_MANAGER
+    ldrne r1, [r1]
     movne r0, #1
-    strbne r0, [r1]
+    strbne r0, [r1, #UI_REDRAW_AT]
     pop {r4, r6-r11, pc}
 menu_brw_plugins:               ; the value line goes under the rows when it says more than ON or OFF
     mov r0, #0
@@ -2640,7 +2844,7 @@ menu_brw_row_bmp:
     b menu_brw_row_next
 menu_brw_row_card:              ; behind the names kept: read from the folder
     bl splash_pick
-    ldr r1, =LIST_PATH+SPLASH_NAME_AT
+    mov r1, r2
     mov r2, #BRW_FILE+BRW_NOEXT
 menu_brw_row_name:
     strb r2, [r11]
@@ -3055,6 +3259,10 @@ menu_texts_clear:
     beq menu_text_ip
     cmp r0, #41
     beq menu_text_version
+    cmp r0, #55
+    beq menu_text_us
+    cmp r0, #56
+    beq menu_text_dev
     cmp r0, #42
     beq menu_text_export
     cmp r0, #43
@@ -3071,12 +3279,28 @@ menu_texts_clear:
     beq menu_text_as
     cmp r0, #53
     beq menu_text_knob
+    cmp r0, #59
+    beq menu_text_lm
+    cmp r0, #60
+    beq menu_text_idle
+    cmp r0, #63
+    beq menu_text_batt
+    cmp r0, #61
+    cmpne r0, #62
+    beq menu_text_glide
+    cmp r0, #57
+    cmpne r0, #58
+    beq menu_text_anim
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
 ; VERSION: the set's version text (the patch blech-version) as the title, the firmware this runtime is built for as the value, behind
 ; it what the start did with e2sFx.all ("HACKTRIBE FX"). The third row would be drawn on the row of the value, over the firmware.
 menu_text_version:
+    ldr r0, =EGG_WORK           ; after the egg's first show: NEW SAMPLE Unlocked for two seconds (script_egg.s)
+    ldrb r0, [r0, #M_EGG]
+    cmp r0, #2
+    beq menu_text_egg
     add r0, r5, #M_TITLE
     ldr r1, =VERSION_TEXT
     ldrb r2, [r1]
@@ -3095,6 +3319,85 @@ menu_text_version:
     movne r0, r4
     blne menu_copy
     pop {r4, r5, r6, r7, pc}
+menu_text_egg:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_egg_new
+    bl menu_copy
+    add r0, r5, #M_VALUE
+    ldr r1, =str_egg_unlocked
+    bl menu_copy
+    pop {r4, r5, r6, r7, pc}
+; USER SAMPLES (55): what the start did with Sample/e2sSample.all, "2 LOADED", "2 OK 1 SKIPPED" with samples left out (too large for
+; the room or not 16-bit PCM), or "bad sample file". Only shown when the start found the file (menu_us_on).
+menu_text_us:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_us
+    bl menu_copy
+    ldr r6, =US_STATE
+    add r0, r5, #M_VALUE
+    ldr r1, [r6, #US_STATUS]
+    cmp r1, #US_OK
+    beq menu_text_us_ok
+    ldr r1, =str_us_bad
+    bl menu_copy
+    pop {r4, r5, r6, r7, pc}
+menu_text_us_ok:
+    ldr r1, [r6, #US_LOADED]
+    bl menu_dec
+    ldr r1, [r6, #US_REJECTED]
+    cmp r1, #0
+    ldreq r1, =str_us_loaded
+    beq menu_text_us_end
+    push {r1}
+    ldr r1, =str_us_ok
+    bl menu_copy
+    pop {r1}
+    bl menu_dec
+    ldr r1, =str_us_skipped
+menu_text_us_end:
+    bl menu_copy
+    pop {r4, r5, r6, r7, pc}
+; DEV MODE (56): ON while DEV_FLAG holds DEV_MAGIC
+menu_text_dev:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_dev
+    bl menu_copy
+    bl menu_dev_state
+    cmp r0, #0
+    ldreq r1, =str_off
+    ldrne r1, =str_on
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    pop {r4, r5, r6, r7, pc}
+; -> r0 = 1 when the build has DEV MODE (DEV_FLAG is not 0). Clobbers nothing else.
+menu_dev_on:
+    ldr r0, =DEV_FLAG
+    cmp r0, #0
+    movne r0, #1
+    bx lr
+; -> r0 = 1 while DEV MODE is on. Clobbers r1.
+menu_dev_state:
+    ldr r1, =DEV_FLAG
+    ldr r0, [r1]
+    ldr r1, =DEV_MAGIC
+    cmp r0, r1
+    moveq r0, #1
+    movne r0, #0
+    bx lr
+; -> r0 = 1 when the list has the row USER SAMPLES: the build has the patch's state (US_STATE) and the start found a sample file there
+; (loaded it, or found it was not one). Without the file, with EXIT at power-on or without the patch (FF) there is no row. Clobbers r1.
+menu_us_on:
+    ldr r1, =US_STATE
+    cmp r1, #0
+    moveq r0, #0
+    bxeq lr
+    ldr r0, [r1, #US_STATUS]
+    cmp r0, #US_OK
+    cmpne r0, #US_BAD
+    moveq r0, #1
+    movne r0, #0
+    bx lr
+.pool
 ; the page BLECH in the ring and the groups of the list look like Data Util: the name as the title, "press  [ Enter ]" under it
 menu_text_ring:
     add r0, r5, #M_TITLE
@@ -3433,7 +3736,7 @@ menu_text_splash_card:
     str r1, [r5, #M_SPLASH_SEL]
     movs r6, r0
     ldreq r1, =str_splash_nofile
-    ldrne r1, =LIST_PATH+SPLASH_NAME_AT
+    movne r1, r2
     add r0, r5, #M_VALUE
     bl menu_copy
     cmp r6, #0                  ; a longer name runs its letters into each other: it loses ".bmp" and is cut to fit
@@ -3531,6 +3834,99 @@ menu_text_knob:
     ldr r1, =str_on
     cmp r0, #0
     ldrne r1, =str_off
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; LOAD METER: the ARM's load as two digits on the main screen's top row (script_load_meter.s), bit 0 of byte 7 (MX_FLAGS2)
+menu_text_lm:
+    mov r0, #3
+    bl menu_title_prefix
+    ldr r1, =str_lm
+    bl menu_copy
+    ldrb r2, [r5, #MX_FLAGS2]
+    ldr r1, =str_off
+    tst r2, #FLAGS2_LOAD_METER
+    ldrne r1, =str_on
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; IDLE SAVE: the light and the LEDs dim after 2, 3 and 4 minutes without a touch and go dark after 5 (script_idle.s); bit 1 of
+; byte 7 (MX_FLAGS2) set is OFF, so ON, the default, keeps byte 7 at 0
+menu_text_idle:
+    mov r0, #3
+    bl menu_title_prefix
+    ldr r1, =str_idle
+    bl menu_copy
+    ldrb r2, [r5, #MX_FLAGS2]
+    ldr r1, =str_on
+    tst r2, #FLAGS2_IDLE_OFF
+    ldrne r1, =str_off
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; BATTERY %: the battery's charge in steps of 10 next to LOAD METER, on battery with Alkali (script_battery.s); bit 4 of byte 7
+; (MX_FLAGS2) set is OFF, so ON, the default, keeps byte 7 at 0
+menu_text_batt:
+    mov r0, #3
+    bl menu_title_prefix
+    ldr r1, =str_batt
+    bl menu_copy
+    ldrb r2, [r5, #MX_FLAGS2]
+    ldr r1, =str_on
+    tst r2, #FLAGS2_BATT_OFF
+    ldrne r1, =str_off
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; GLIDE CHAIN (r0 = 61) and GLIDE SWITCH (62): the tempo glides to the next pattern's (script_glide.s), bits 2 and 3 of byte 7
+menu_text_glide:
+    mov r6, r0
+    mov r0, #3
+    bl menu_title_prefix
+    cmp r6, #61
+    ldreq r1, =str_glide_chain
+    ldrne r1, =str_glide_switch
+    moveq r6, #FLAGS2_GLIDE_CHAIN
+    movne r6, #FLAGS2_GLIDE_SWITCH
+    bl menu_copy
+    ldrb r2, [r5, #MX_FLAGS2]
+    ldr r1, =str_off
+    tst r2, r6
+    ldrne r1, =str_on
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; LOADING ANIM (r0 = 57: CARD plays the card's Media/loading.blla, BLECHY plays Blechy, OFF leaves the firmware's window) and
+; ANIM LOOP (58): byte 14 of that file (tools/patch/load_bar.py media_set), "no file" without a valid one at the start
+menu_text_anim:
+    mov r6, r0
+    mov r0, #3
+    bl menu_title_prefix
+    cmp r6, #57
+    ldreq r1, =str_anim
+    ldrne r1, =str_aloop
+    bl menu_copy
+    ldr r1, [r5, #M_STATUS]
+    cmp r1, #0
+    bne menu_text_status_value
+    ldr r12, =MEDIA_GET
+    blx r12
+    ldr r1, =str_anim_nofile
+    cmn r0, #1
+    beq menu_text_anim_go
+    cmp r6, #58
+    beq menu_text_aloop
+    ldr r1, =str_anim_card
+    tst r0, #4
+    ldrne r1, =str_anim_blechy
+    tst r0, #2
+    ldrne r1, =str_off
+    b menu_text_anim_go
+menu_text_aloop:
+    ldr r1, =str_on
+    tst r0, #1
+    ldrne r1, =str_off
+menu_text_anim_go:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
@@ -4079,7 +4475,7 @@ menu_confirm_add:
 ; set's version and the firmware it is built for, no group). Each group is again "press [ Enter ]". ENTER on a group opens level 2,
 ; the pages of that group, M_GROUP (0 PLUGINS, 1 GAMES, 2 TOOLS, 3 CUSTOMIZATION, 4 FEATURES, 5 DISPLAY, 6 LED, 7 PAD COLOR, 8 POWER
 ; SAVE, 9 SPLASH). Those five are rows of CUSTOMIZATION that open their pages; EXIT there goes back to that row. FEATURES holds the
-; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST, LAST PATTERN, STEREO 1 PAD, KEY PADS, FILTER TOGGLE and AUTO SAVE (the main dial
+; built-in features with their switches: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST, LAST PATTERN, STEREO 1 PAD, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH (the main dial
 ; changes them, WRITE keeps them). ENTER on PLUGINS opens level 5 (M_LEVEL_PLUGIN) straight away, one page a plugin with its name and its
 ; state, the dial moves through the list as in the firmware's file browser, EXIT goes back to the row PLUGINS; the one page of the group, MANAGE PLUGINS, only shows when
 ; there is no plugin or after REMOVE, ENTER there opens the list again; ENTER on a plugin opens level 6 (M_LEVEL_PSUB), the pages of that plugin: ACTIVE (the dial switches
@@ -4093,7 +4489,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE, 61 GLIDE CHAIN, 62 GLIDE SWITCH, 63 BATTERY %; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -4136,6 +4532,20 @@ menu_kind:
     moveq r0, #41
     moveq r1, #0
     beq menu_kind_done
+    sub r0, r0, #1              ; DEV MODE (the Sampler) or USER SAMPLES (the blue, where the start found a sample file) in front of it
+    cmp r5, r0
+    bne menu_kind_rows
+    bl menu_dev_on
+    cmp r0, #0
+    movne r0, #56
+    movne r1, #0
+    bne menu_kind_done
+    bl menu_us_on
+    cmp r0, #0
+    movne r0, #55
+    movne r1, #0
+    bne menu_kind_done
+menu_kind_rows:
     sub r5, r5, #3
     mov r0, #0
     bl app_count
@@ -4178,8 +4588,16 @@ menu_kind_sub:
     mov r1, #0
     b menu_kind_done
 menu_kind_features:
-    bl menu_page_count          ; KEY PADS, FILTER TOGGLE and AUTO SAVE are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them
+    bl menu_page_count          ; KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them
     mov r1, #0
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #62
+    beq menu_kind_done
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #61
+    beq menu_kind_done
     sub r0, r0, #1
     cmp r5, r0
     moveq r0, #51
@@ -4340,6 +4758,10 @@ menu_count_level1:
     bl app_count
     cmp r0, #0
     addne r4, r4, #1
+    bl menu_us_on               ; and USER SAMPLES on the blue when the start found a sample file
+    add r4, r4, r0
+    bl menu_dev_on              ; and DEV MODE on the Sampler
+    add r4, r4, r0
     mov r0, r4
     pop {r4, pc}
 menu_count_group:
@@ -4365,6 +4787,14 @@ menu_count_features:
     ldr r0, =sub_counts
     sub r1, r1, #5
     ldrb r0, [r0, r1]
+    cmp r1, #4                  ; SPLASH: LOADING ANIM and ANIM LOOP where the set has the loading animation
+    bne menu_count_led
+    ldr r1, =MEDIA_CODE
+    ldr r1, [r1]
+    cmn r1, #1
+    addne r0, r0, #2
+    b menu_count_out
+menu_count_led:
     cmp r1, #1                  ; LED without the pad colours: no KNOB LEDS (the patch pad-colors sends the LEDs)
     bne menu_count_out
     ldr r1, =PC_CODE
@@ -4375,7 +4805,7 @@ menu_count_features:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #7                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE and AUTO SAVE, LAST PATTERN and STEREO 1 PAD where the set has their patches
+    mov r0, #9                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH, LAST PATTERN and STEREO 1 PAD where the set has their patches
     ldr r1, =LP_CODE
     ldr r1, [r1]
     cmn r1, #1
@@ -4925,7 +5355,10 @@ splash_folder:
     .asciz "SD:KORG/blechtribe"
 splash_prefix:
     .asciz "SD:KORG/blechtribe/"
-.equ SPLASH_NAME_AT, 19         ; the length of splash_prefix: where the name starts in LIST_PATH
+splash_media:
+    .asciz "SD:KORG/blechtribe/Media"
+splash_media_prefix:
+    .asciz "SD:KORG/blechtribe/Media/"
 .equ SPLASH_CACHED, LIST_MAX    ; the .bmp names splash_cache keeps, 16 bytes each in LIST_TITLES
 .equ SPLASH_SHOW, 11            ; characters of a name SPLASH IMPORT shows: 11 of the widest letter (m) end at column 124 (emulator)
 import_folder:
@@ -5012,18 +5445,34 @@ menu_dir_next_end:
     pop {r4-r7, pc}
 .pool
 
-; r0 = a place among the .bmp files in KORG/blechtribe, in the order of the folder -> r0 = how many there are, r1 = the place taken
-; (the last file where r0 is past it, 0 without files), LIST_PATH the path of that file. Clobbers r2, r3 and r12.
-splash_pick:
-    push {r4, r5, lr}
-    mov r4, r0
-    mov r5, #0
-    ldr r0, =LIST_PATH
-    ldr r1, =splash_prefix
-    bl menu_copy
-    ldr r0, =splash_folder
+; -> r0 = the FatFs result of opening the folder of SPLASH IMPORT at LIST_DIR, r1 = its path with the slash: KORG/blechtribe/Media,
+; or KORG/blechtribe when there is no Media folder (cards from before 1.5). Clobbers r2, r3 and r12.
+splash_open:
+    push {lr}
+    ldr r0, =splash_media
     bl menu_dir_open
     cmp r0, #0
+    ldreq r1, =splash_media_prefix
+    popeq {pc}
+    ldr r0, =splash_folder
+    bl menu_dir_open
+    ldr r1, =splash_prefix
+    pop {pc}
+
+; r0 = a place among the .bmp files of SPLASH IMPORT's folder (splash_open), in the order of the folder -> r0 = how many there are,
+; r1 = the place taken (the last file where r0 is past it, 0 without files), r2 = the name in LIST_PATH, the path of that file.
+; Clobbers r3 and r12.
+splash_pick:
+    push {r4, r5, r6, lr}
+    mov r4, r0
+    mov r5, #0
+    bl splash_open
+    mov r6, r0
+    ldr r0, =LIST_PATH
+    bl menu_copy
+    mov r1, r6
+    mov r6, r0                  ; where the name goes
+    cmp r1, #0
     bne splash_pick_out
 splash_pick_next:
     ldr r0, =str_bmp
@@ -5032,7 +5481,7 @@ splash_pick_next:
     beq splash_pick_close
     cmp r5, r4
     movls r1, r0
-    ldrls r0, =LIST_PATH+SPLASH_NAME_AT
+    movls r0, r6
     blls menu_copy
     add r5, r5, #1
     b splash_pick_next
@@ -5046,10 +5495,11 @@ splash_pick_out:
     movmi r1, #0
     cmp r4, r1
     movlo r1, r4
-    pop {r4, r5, pc}
+    mov r2, r6
+    pop {r4, r5, r6, pc}
 .pool
 
-; -> r0 = how many .bmp files KORG/blechtribe holds. Reads the folder once while SPLASH IMPORT shows (M_SPLASH_CACHE), so a step of
+; -> r0 = how many .bmp files the folder of SPLASH IMPORT holds (splash_open). Reads the folder once while SPLASH IMPORT shows (M_SPLASH_CACHE), so a step of
 ; the dial does not wait for the card: five passes over the folder per step left the display a second behind a fast dial
 ; (docs/messungen/2026-11-09-menue-liste-rad.md). The first SPLASH_CACHED names go to LIST_TITLES, which only
 ; the list of the plugins uses besides, and menu_list fills it again whenever that list opens: an entry is the first 15 characters
@@ -5062,8 +5512,7 @@ splash_cache:
     ldrne r0, [r4, #M_BRW_N]
     popne {r4, r5, pc}
     mov r5, #0
-    ldr r0, =splash_folder
-    bl menu_dir_open
+    bl splash_open
     cmp r0, #0
     bne splash_cache_done
 splash_cache_next:
@@ -5791,9 +6240,10 @@ menu_desc_frame_off:
     popeq {r4-r8, pc}
     mov r0, #0
     strb r0, [r8, #M_DESC_ON]
-    ldr r1, =UI_REDRAW
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
     mov r0, #1
-    strb r0, [r1]
+    strb r0, [r1, #UI_REDRAW_AT]
     pop {r4-r8, pc}
 .pool
 
@@ -5824,6 +6274,11 @@ menu_export_custom:
 
 ; ---- slots of the class, this = r0
 menu_slot_prev:
+    ldr r3, =EGG_WORK           ; the egg's show and its message take no key but EXIT (script_egg.s)
+    ldrb r3, [r3, #M_EGG]
+    cmp r3, #1
+    cmpne r3, #2
+    bxeq lr
     push {r4, lr}
     mov r4, r0
     ldr r2, =MENU_STATE
@@ -5904,6 +6359,11 @@ menu_prev_blechy:
 .pool
 
 menu_slot_next:
+    ldr r3, =EGG_WORK           ; the egg's show and its message take no key but EXIT (script_egg.s)
+    ldrb r3, [r3, #M_EGG]
+    cmp r3, #1
+    cmpne r3, #2
+    bxeq lr
     push {r4, lr}
     mov r4, r0
     bl menu_page_count
@@ -5968,6 +6428,11 @@ menu_next_pattern:
 
 ; r1 = steps of the main dial
 menu_slot_value:
+    ldr r3, =EGG_WORK           ; the egg's show and its message take no key but EXIT (script_egg.s)
+    ldrb r3, [r3, #M_EGG]
+    cmp r3, #1
+    cmpne r3, #2
+    bxeq lr
     push {r4, r5, r6, lr}
     mov r4, r0
     mov r5, r1
@@ -5999,6 +6464,20 @@ menu_slot_value:
     beq menu_value_as
     cmp r0, #53
     beq menu_value_knob
+    cmp r0, #59
+    beq menu_value_lm
+    cmp r0, #60
+    beq menu_value_idle
+    cmp r0, #63
+    beq menu_value_batt
+    cmp r0, #61
+    cmpne r0, #62
+    beq menu_value_glide
+    cmp r0, #56
+    beq menu_value_dev
+    cmp r0, #57
+    cmpne r0, #58
+    beq menu_value_anim
     cmp r0, #24
     beq menu_value_colour
     cmp r0, #25
@@ -6236,6 +6715,106 @@ menu_value_knob:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
+; LOAD METER acts at once (the frame draws or takes the digits away), WRITE keeps it: ON up, OFF down
+menu_value_lm:
+    ldrb r1, [r6, #MX_FLAGS2]
+    cmp r5, #0
+    orrgt r1, r1, #FLAGS2_LOAD_METER
+    bicle r1, r1, #FLAGS2_LOAD_METER
+    strb r1, [r6, #MX_FLAGS2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; IDLE SAVE acts at once (OFF wakes at the next frame), WRITE keeps it: ON up, OFF down
+menu_value_idle:
+    ldrb r1, [r6, #MX_FLAGS2]
+    cmp r5, #0
+    bicgt r1, r1, #FLAGS2_IDLE_OFF
+    orrle r1, r1, #FLAGS2_IDLE_OFF
+    strb r1, [r6, #MX_FLAGS2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; BATTERY % acts at once (OFF takes the digits away at the next frame), WRITE keeps it: ON up, OFF down
+menu_value_batt:
+    ldrb r1, [r6, #MX_FLAGS2]
+    cmp r5, #0
+    bicgt r1, r1, #FLAGS2_BATT_OFF
+    orrle r1, r1, #FLAGS2_BATT_OFF
+    strb r1, [r6, #MX_FLAGS2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; GLIDE CHAIN and GLIDE SWITCH act at once (the frame follows the switch), WRITE keeps them: ON up, OFF down
+menu_value_glide:
+    cmp r0, #61
+    moveq r2, #FLAGS2_GLIDE_CHAIN
+    movne r2, #FLAGS2_GLIDE_SWITCH
+    ldrb r1, [r6, #MX_FLAGS2]
+    cmp r5, #0
+    orrgt r1, r1, r2
+    bicle r1, r1, r2
+    strb r1, [r6, #MX_FLAGS2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; LOADING ANIM and ANIM LOOP write byte 14 of Media/loading.blla at once (no WRITE: the file on the card is the setting).
+; LOADING ANIM steps CARD, BLECHY, OFF with the dial and stops at the ends; ANIM LOOP is ON up, OFF down. A write that fails
+; shows FatFs's code as the other card pages do (0x20 + code) and keeps the value as it was.
+menu_value_anim:
+    mov r3, r0
+    ldr r12, =MEDIA_GET
+    blx r12
+    cmn r0, #1
+    beq menu_value_done
+    mov r2, r0
+    cmp r3, #58
+    beq menu_value_aloop
+    mov r1, #0                  ; the step now: 0 CARD, 1 BLECHY, 2 OFF
+    tst r2, #4
+    movne r1, #1
+    tst r2, #2
+    movne r1, #2
+    cmp r5, #0
+    addgt r1, r1, #1
+    sublt r1, r1, #1
+    cmp r1, #0
+    movlt r1, #0
+    cmp r1, #2
+    movgt r1, #2
+    bic r0, r2, #6
+    cmp r1, #1
+    orreq r0, r0, #4
+    cmp r1, #2
+    orreq r0, r0, #2
+    b menu_value_anim_set
+menu_value_aloop:
+    cmp r5, #0
+    biceq r0, r2, #0            ; no turn: as it is
+    bicgt r0, r2, #1
+    orrlt r0, r2, #1
+menu_value_anim_set:
+    cmp r0, r2
+    beq menu_value_done
+    ldr r1, =HOOK_CARD
+    add r2, r1, #CARD_BR
+    add r1, r1, #CARD_FIL
+    ldr r12, =MEDIA_SET
+    blx r12
+    cmp r0, #0
+    addne r0, r0, #0x20
+    str r0, [r6, #M_STATUS]
+    b menu_value_done
+; DEV MODE acts at once and is never saved: the dial up writes DEV_MAGIC, down FF (as after the start)
+menu_value_dev:
+    ldr r1, =DEV_FLAG
+    cmp r5, #0
+    ldrgt r2, =DEV_MAGIC
+    mvnle r2, #0
+    str r2, [r1]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
 ; AUTO SAVE acts at once
 menu_value_as:
     mov r1, #1
@@ -6380,6 +6959,11 @@ menu_value_desc:
 menu_slot_keys:
     cmp r2, #1
     bxne lr
+    ldr r3, =EGG_WORK           ; the egg's show and its message take no key but EXIT (script_egg.s)
+    ldrb r3, [r3, #M_EGG]
+    cmp r3, #1
+    cmpne r3, #2
+    bxeq lr
     cmp r1, #0x0E
     cmpne r1, #0x09
     bxne lr
@@ -6415,6 +6999,8 @@ menu_slot_keys:
     beq menu_keys_export
     cmp r0, #39
     cmpne r0, #41
+    cmpne r0, #55
+    cmpne r0, #56               ; WRITE on DEV MODE saves nothing: it is not a setting
     beq menu_keys_done
     cmp r0, #36
     cmpeq r6, #0x09
@@ -6580,6 +7166,11 @@ menu_slot_exit:
     cmp r1, #13
     cmpeq r2, #1
     bne menu_exit_stock
+    ldr r3, =EGG_WORK           ; EXIT ends the egg's show or its message (script_egg.s)
+    ldrb r3, [r3, #M_EGG]
+    cmp r3, #1
+    cmpne r3, #2
+    beq egg_exit
     push {r1, r2, r4, lr}
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_LEVEL]
@@ -6651,8 +7242,14 @@ menu_exit_stock:
     ldr pc, =0xC0060F04
 .pool
 
-; MENU is the firmware's slot of its own and does not come through the key slot on a press: it is ENTER here.
+; MENU is the firmware's slot of its own and does not come through the key slot on a press: it is ENTER here. On VERSION it
+; is counted for the egg first (egg_menu_press), the page itself does nothing with it.
 menu_slot_enter:
+    push {r0, lr}
+    bl egg_menu_press
+    cmp r0, #0
+    pop {r0, lr}
+    bxne lr
     mov r1, #0x09
     mov r2, #1
     b menu_slot_keys
@@ -6784,7 +7381,7 @@ str_duplicate:
 str_pool_full:
     .asciz "memory full"
 str_apps_full:
-    .asciz "max 12 apps"
+    .asciz "max 16 apps"
 str_allow:
     .asciz "WRITE=ALLOW"
 str_fault:
@@ -6895,8 +7492,30 @@ str_as:
     .asciz "AUTO SAVE"
 str_knob:
     .asciz "KNOB LEDS"
+str_lm:
+    .asciz "LOAD METER"
+str_glide_chain:
+    .asciz "GLIDE CHAIN"
+str_glide_switch:
+    .asciz "GLIDE SWITCH"
+str_idle:
+    .asciz "IDLE SAVE"
+str_batt:
+    .asciz "BATTERY %"
 str_sp:
     .asciz "STEREO 1 PAD"
+str_us:
+    .asciz "USER SAMPLES"
+str_dev:
+    .asciz "DEV MODE"
+str_us_loaded:
+    .asciz " LOADED"
+str_us_ok:
+    .asciz " OK "
+str_us_skipped:
+    .asciz " SKIPPED"
+str_us_bad:
+    .asciz "bad sample file"
 str_lp:
     .asciz "LAST PATTERN"
 str_mg:
@@ -6920,13 +7539,13 @@ custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD C
     .byte 16, 16, 16, 16, 16
 .align 4
 sub_kinds:                      ; the kinds of the pages of DISPLAY, LED, PAD COLOR and POWER SAVE, 16 a group (device 18.10.)
-    .byte 11, 12, 13, 26, 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0       ; DISPLAY: backlight red, green, blue, INTENSITY, display invert
+    .byte 11, 12, 13, 26, 14, 59, 63, 0, 0, 0, 0, 0, 0, 0, 0, 0     ; DISPLAY: backlight red, green, blue, INTENSITY, display invert, LOAD METER, BATTERY %
     .byte 7, 8, 9, 10, 28, 29, 30, 31, 53, 0, 0, 0, 0, 0, 0, 0      ; LED: bottom LEDs, LED red, green, blue, the meter's four colours, KNOB LEDS
     .byte 24, 25, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; PAD COLOR: pad colour, select colour, overlap
-    .byte 27, 34, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0          ; POWER SAVE: DISPLAY LIGHT, LED DIMMING (device 19.10.: SAVE LIGHT under DISPLAY said too little)
-    .byte 22, 23, 35, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; SPLASH: IMPORT, DRAW, RESET (device 22.10.: three rows of their own in CUSTOMIZATION were too many)
+    .byte 27, 34, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0         ; POWER SAVE: DISPLAY LIGHT, LED DIMMING (device 19.10.: SAVE LIGHT under DISPLAY said too little), IDLE SAVE
+    .byte 22, 23, 35, 57, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0       ; SPLASH: IMPORT, DRAW, RESET (device 22.10.: three rows of their own in CUSTOMIZATION were too many), LOADING ANIM, ANIM LOOP
 sub_counts:                     ; LED: KNOB LEDS, the last, only where the set has the pad colours (menu_count_features)
-    .byte 5, 9, 3, 2, 3
+    .byte 7, 9, 3, 3, 3
 led_dim_percent:                ; LED DIMMING, the steps of the dial: percent dimmed (pad_colors.py keeps the step 8 places on, 75 is 0)
     .byte 0, 10, 20, 30, 40, 50, 60, 70, 75, 80, 90, 100
 meter_palette:                  ; red, green, blue of the colours 1 to 7, then the firmware's colours of the four zones
@@ -6947,6 +7566,16 @@ str_on:
     .asciz "ON"
 str_off:
     .asciz "OFF"
+str_anim:
+    .asciz "LOADING ANIM"
+str_aloop:
+    .asciz "ANIM LOOP"
+str_anim_card:
+    .asciz "CARD"
+str_anim_blechy:
+    .asciz "BLECHY"
+str_anim_nofile:
+    .asciz "no file"
 menu_tab:
     .asciz "BLECH"
     .align 4

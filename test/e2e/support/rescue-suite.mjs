@@ -636,7 +636,7 @@ export function rescueSuite(index, parts) {
     assert.deepEqual(page.errors, []);
   });
 
-  test("old patterns after an export: WRITE first, the folder KORG/blechtribe, the date of the device", async () => {
+  test("old patterns after an export: WRITE first, the folder KORG/blechtribe/Patterns, the date of the device", async () => {
     const page = await open();
     await answer(page, label("app"));
     await answer(page, "Export oder Import zeigt alte Patterns");
@@ -644,7 +644,7 @@ export function rescueSuite(index, parts) {
     assert.match(text, /erst WRITE, dann EXPORT PATTERN/);
     assert.match(text, /01\.01\.2014/);
     assert.match(text, /KORG\/electribe/);
-    assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "KORG/blechtribe/");
+    assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "KORG/blechtribe/Patterns/");
     assert.deepEqual(page.errors, []);
   });
 
