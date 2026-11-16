@@ -568,7 +568,9 @@ class Emulator:
                     self.publish("midi", msg.hex())
                 if not self.status["booted"] and getattr(m, "booted", True):
                     self.set_status(booted=True)
-                if not getattr(m, "powered", True):
+                # A watchdog reset (machine.py) ends the run like switching off: whether the device stays on through it is
+                # open (docs/messungen/2026-11-16-watchdog-neustart.md); the power switch starts it again from the flash.
+                if not getattr(m, "powered", True) or getattr(m, "reset", None):
                     self.running = False
                     self.publish("display", self._display(m))
                     lcd.settle(m.fb, getattr(m, "lcd_reverse", False))
