@@ -271,7 +271,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [FILTER TOGGLE fest eingebaut: SHIFT + Filtertaste schaltet das Filter aus und an, mit dem Fenster der Firmware, im Emulator](2026-11-08-filter-toggle-eingebaut.md)
 - [AUTO SAVE: GLOBAL PARAMETERS und BLECH-Einstellungen speichern sich beim Verlassen, nur mit Änderung, im Emulator](2026-11-09-auto-save.md)
 - [BPM GLIDE fest eingebaut: GLIDE CHAIN und GLIDE SWITCH in FEATURES, Tempo gleitet zum nächsten Pattern, im Emulator](2026-11-15-bpm-glide.md)
-- [BATTERY %: Ladestand in Prozent neben dem Batteriesymbol, Kartensymbol auf dem Hauptbildschirm bei 94, Panel-Nachricht 6 als Rohwert, Platzhalter-Kurve, im Emulator](2026-11-16-batterie-prozent.md)
+- [BATTERY %: Ladestand in Prozent neben dem Batteriesymbol, Kartensymbol auf dem Hauptbildschirm bei 94, Panel-Nachricht 6 als Rohwert, Entladekurve am Gerät gemessen (oben geschätzt), im Emulator](2026-11-16-batterie-prozent.md)
 - [Hänger nach EXEC-Tastendrücken: der nächste Werkzeugstart nach EXEC bekommt keine Antwort, Ursache offen, am Gerät](2026-11-15-remote-exec-haenger.md)
 - [ORIG im BLECH-Menü wie auf den Seiten der Firmware; Spielhilfen mit einer erst nach dem Start eingesteckten Karte, im Emulator](2026-11-11-orig-und-karte-spaeter.md)
 - [Die später gesteckte Karte bringt ihre ganze Einstellungsdatei mit, auch beim Kartentausch, im Emulator](2026-11-12-karte-spaeter-einstellungen.md)

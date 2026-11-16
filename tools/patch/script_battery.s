@@ -434,8 +434,9 @@ card_frame_out:
 batt_percent_glyph:             ; '%' in 3 x 7, as load_meter_font, and a blank column
     .byte 0x42, 0x38, 0x84, 0x00
 ; The charge in per mille at 0, 10, ... 100 percent of the way from the empty to the full threshold of BATTERY TYPE's table.
-; PLACEHOLDER (derived, not measured): linear, a straight line between Korg's Alkali empty and full thresholds. Replace these
-; eleven values with a discharge curve measured on a device (docs/messungen/2026-11-16-batterie-prozent.md); they must rise.
+; The share of the running time left at each point, from one discharge measured on a red with Alkali AA cells and Power Save on
+; (docs/messungen/2026-11-16-batterie-prozent.md). Measured from reading 123 down to the switch-off at 98; above 123 estimated
+; (the cells were not fresh). They must rise.
 batt_curve:
-    .word 0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000
+    .word 0, 88, 198, 341, 467, 649, 780, 857, 885, 926, 1000
 .align 4
