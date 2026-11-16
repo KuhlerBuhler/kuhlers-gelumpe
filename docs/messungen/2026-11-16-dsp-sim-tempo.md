@@ -72,3 +72,47 @@ gemeinsamen Speicher und `poll` auf Pipes. Unter Windows gibt es das nativ
 nicht. Entscheidung (16.11.): Windows läuft über WSL2. Später soll die
 DSP-Simulation in der App für alle laufen. Fehlt dann der Worker, bleibt nur
 der DSP-Teil aus, der übrige Emulator läuft weiter.
+
+## Wohin die Zeit im Worker geht
+
+Gemessen am selben Lauf, Mac mit Last um 6: macOS `sample` auf dem Worker
+(6 s, 4009 Proben) und ein Python-Hook auf jede Anfrage op 18 (8500 Syncs).
+
+| Anteil | Wofür |
+|---:|---|
+| 17 % | Warten auf den ARM (Ring lesen, `poll`, `clock_gettime`) |
+| 13 % | `getrusage` in `sim_events_resume`/`suspend`, bei jedem `sim_resume` |
+| 11 % | `setjmp`/`longjmp` mit Signalmaske, bei jedem `sim_resume` |
+| ~8 % | Trace-Text per `sprintf` (`fmtconst_str`, `trace_prefix`), obwohl Trace aus ist |
+| ~12 % | `mmu_check_addr` je Speicherzugriff |
+| ~5 % | Befehle holen über `sim_core_read_buffer` |
+| ~22 % | Dekodieren und Ausführen |
+| ~5 % | Ereignisse, Hardware-Schleifen |
+
+Der Simulator schafft so etwa 8 Mio. DSP-Befehle je Sekunde (17,7 Mio. in
+2,1 bis 2,4 s Worker-Zeit).
+
+## Der DSP schläft nie
+
+Gemessen: Jeder Sync läuft 1,5 bis 2,5 Zyklen je Befehl, keiner endet im
+IDLE. Für Echtzeit wären bei rund 2 Zyklen je Befehl etwa 200 Mio. Befehle je
+Sekunde nötig, also etwa das 25-fache.
+
+Die heißen Stellen sind der RTOS-Kern (Queues, Sperren mit CLI/STI,
+Taskwechsel um `0xFFA0AAA8`, `0xFFA0B6F8`, `0xFFA0B94C`) und eine Task-Schleife
+`0xFFA05104` bis `0xFFA0516E`, die `0x01F0E7F4` aufruft, abgibt und von vorn
+beginnt. Hergeleitet: Korg lässt den Leerlauf als Dauerschleife laufen, nicht
+mit IDLE. Ihr Anteil gegenüber der Audio-ISR ist nicht gemessen.
+
+## Was das heißt (geschätzt)
+
+- Die Kosten je `sim_resume`, den Trace-Text, einen schnellen Weg für die
+  MMU-Prüfung und einen Befehls-Cache zu beseitigen, macht den Simulator
+  2,5- bis 3-mal schneller. Bis Echtzeit fehlt dann noch etwa das 8- bis 10-fache.
+- Ein Sprung über IDLE bringt nichts. Ein Sprung über die Dauerschleife wäre
+  möglich, der Gewinn hängt am noch nicht gemessenen Anteil.
+- Für Ton in Echtzeit bleibt ein Übersetzer statt Interpreter. Der QEMU-Port
+  erreichte an einzelnen Funktionen 320 bis 460 Mio. Takte je Sekunde
+  ([Idee 52](../ideen/52-ton-im-emulator.md)). Seine Codeerzeugung kann x86-64
+  und ARM64, also Windows und Mac. Es fehlen dort die Peripherie aus diesem
+  Worker und die Zyklenzählung, und an zwei Funktionen rechnet er anders als der GNU-Simulator.
