@@ -337,7 +337,8 @@ export function scriptsSuite(index, parts) {
       const c = document.getElementById("cee-sim-lcd").getContext("2d").getImageData(0, 0, 128, 64).data;
       let n = 0;
       for (let i = 0; i < c.length; i += 4) if (c[i] + c[i + 1] + c[i + 2] < 384) n += 1;
-      return n > 5 && n < 60;
+      const ink = Math.min(n, 128 * 64 - n); // the preview follows DISPLAY INVERT: text may be the light pixels
+      return ink > 5 && ink < 60;
     });
     assert.deepEqual(page.errors, []);
   });
