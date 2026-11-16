@@ -246,6 +246,13 @@ const ART = {
     p.fill(60, 34, 2, 22);
     p.text("C4", 64, 41);
   },
+  "import-slots": p => {
+    p.text("IMPORT SAMPLE", 4, 3);
+    p.text("19", 64, 16, { s: 2, align: "center" });
+    p.fill(4, 36, 120, 1);
+    p.text("19 ... 999", 64, 42, { align: "center" });
+    p.text("FACTORY SLOT", 64, 53, { align: "center" });
+  },
   "exit-pad": p => {
     p.frame(0, 12, 52, 26, 2);
     p.text("EXIT", 26, 18, { s: 2, align: "center" });
