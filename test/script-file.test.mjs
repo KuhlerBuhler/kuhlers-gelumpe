@@ -10,6 +10,7 @@ import { KEY_NAMES } from "../data/script/names.mjs";
 import { compile, formatError } from "../src/script/compiler.mjs";
 import { decodeBlob } from "../src/script/blob.mjs";
 import { SimDevice } from "../src/script/sim.mjs";
+import { Display } from "../src/script/display.mjs";
 import { ScriptRuntime } from "../src/script/runtime.mjs";
 import { gifPath, packGif, readGifFrame, frameOfPixels } from "../src/script/gif.mjs";
 import { listMedia, mediaNameBytes, readMediaPicture } from "../src/script/media.mjs";
@@ -157,63 +158,165 @@ function viewer(card) {
   device.frame();
   assert.ok(device.openApp(0));
   device.frame();
-  return { device, step: (ms = 40) => { now += ms; device.frame(); }, v: name => loaded.script.vars[r.info.symbols[name].slot] };
+  const p = { device, step: (ms = 40) => { now += ms; device.frame(); }, v: name => loaded.script.vars[r.info.symbols[name].slot] };
+  p.press = name => { device.post("buttonPress", key(name)); p.step(); };
+  p.turn = delta => { device.post("encoder", 0, delta); p.step(); };
+  return p;
 }
 
-test("the Image Viewer pages through the pictures of a file with Part, shows the number for two seconds and wraps around", () => {
-  const pics = [3, 5, 7].map(frameOf);
-  const shows = (p, i) => Array.from(p.device.display.bytes).every((b, at) => b === pics[i][at]);
-  const corner = p => Array.from(p.device.display.bytes.subarray(0, 30)).join(",");
-  const p = viewer(new Map([[gifPath(2), packGif(pics.map(bytes => ({ delay: 100, bytes })))]]));
-  assert.ok(p.device.display.rows().join("\n").includes("#"), "no file 0: it says so in text");
-  assert.equal(p.v("shown"), 0);
-  p.device.post("encoder", 0, 2);
-  p.step();
+/** The display a list of draw calls gives, to compare a screen with. */
+function screen(draw) {
+  const d = new Display();
+  draw(d);
+  return Array.from(d.bytes).join(",");
+}
+const shown = p => Array.from(p.device.display.bytes).join(",");
+const picture = (bytes, kind, fr) => {
+  const slots = new Int32Array(1024);
+  readMediaPicture(bytes, kind, fr, slots, true);
+  return Array.from(slots, v => v & 255).join(",");
+};
+
+test("the Image Viewer lists IMAGES and ANIMATIONS of Media/, pages through the files, steps and plays an animation", () => {
+  const card = mediaCard();
+  const p = viewer(card);
+  assert.deepEqual([p.v("mode"), p.v("n0"), p.v("n1")], [0, 3, 2], "three .bmp and two .blla in Media/");
+  assert.equal(shown(p), screen(d => { d.textNumber("IMAGES ", 3, 12, 18); d.textNumber("ANIMATIONS ", 2, 12, 32); d.text(">", 4, 18); }));
+  p.turn(1);
+  assert.equal(p.v("sel"), 1);
+  p.press("PART_LEFT");
+  assert.equal(p.v("sel"), 0);
+
+  // IMAGES: the name and the place for two seconds, then the picture alone
+  p.press("MENU");
+  assert.deepEqual([p.v("mode"), p.v("file")], [1, 0]);
+  const marker = picture(card.get(media("marker.bmp")), 0, 0);
+  assert.notEqual(shown(p), marker, "the name covers the top");
+  p.step(2000);
+  assert.equal(shown(p), marker);
+  p.turn(1);
+  p.step(2000);
+  assert.equal(p.v("file"), 1);
+  assert.equal(shown(p), picture(card.get(media("top-down-picture-long.bmp")), 0, 0));
+  p.press("PART_RIGHT");
   assert.equal(p.v("file"), 2);
-  assert.equal(p.v("index"), 0);
-  assert.ok(!shows(p, 0), "the number covers the corner");
-  const one = corner(p);
+  assert.ok(p.v("total") < 0, "broken.bmp is a 24 bit picture");
+  const name = [...mediaNameBytes("broken"), 0];
+  assert.equal(shown(p), screen(d => { d.chars(name, 4, 18, 17); d.text("BAD FILE", 4, 32); }));
+  p.press("PART_RIGHT");
   p.step(2000);
-  assert.ok(shows(p, 0), "after two seconds the picture alone");
-  p.device.post("buttonPress", key("PART_RIGHT"));
-  p.step();
-  assert.equal(p.v("index"), 1);
-  assert.ok(!shows(p, 1));
-  assert.notEqual(corner(p), one, "another number on another picture");
-  p.step(2000);
-  assert.ok(shows(p, 1));
-  p.device.post("buttonPress", key("PART_RIGHT"));
-  p.step();
-  p.step(2000);
-  assert.ok(shows(p, 2));
-  assert.equal(p.v("count"), 0, "the count is not known yet");
-  p.device.post("buttonPress", key("PART_RIGHT"));
-  p.step();
-  p.step(2000);
-  assert.equal(p.v("index"), 0, "past the last picture it starts again");
-  assert.equal(p.v("count"), 3);
-  assert.ok(shows(p, 0));
-  p.device.post("buttonPress", key("PART_LEFT"));
-  p.step();
-  p.step(2000);
-  assert.equal(p.v("index"), 2, "back from the first goes to the last once the count is known");
-  assert.ok(shows(p, 2));
-  p.device.post("buttonPress", key("PART_LEFT"));
-  p.step();
-  p.step(2000);
-  assert.ok(shows(p, 1));
-  p.device.post("buttonPress", key("TAP"));
-  p.step();
+  assert.equal(p.v("file"), 0, "past the last file comes the first");
+  assert.equal(shown(p), marker);
+  p.press("PART_LEFT");
+  assert.equal(p.v("file"), 2, "back from the first goes to the last");
+  p.turn(-2);
+  assert.equal(p.v("file"), 0);
+  p.press("TAP");
   p.step(5000);
-  assert.ok(!shows(p, 1), "TAP keeps the number");
-  p.device.post("buttonPress", key("TAP"));
-  p.step();
-  assert.ok(shows(p, 1), "a second TAP hides it");
-  p.device.post("encoder", 0, -1);
-  p.step();
-  assert.equal(p.v("shown"), 0, "file 1 is missing");
-  assert.equal(p.v("count"), 0, "a new file forgets the count");
+  assert.notEqual(shown(p), marker, "TAP keeps the name");
+  p.press("TAP");
+  assert.equal(shown(p), marker, "a second TAP hides it");
+
+  // ANIMATIONS: step, wrap, play at 96 ms, change the speed, pause
+  p.press("MENU");
+  assert.equal(p.v("mode"), 0, "MENU goes back to the list");
+  p.turn(1);
+  p.press("MENU");
+  assert.deepEqual([p.v("mode"), p.v("file"), p.v("frame")], [2, 0, 0]);
+  p.turn(1);
+  const small = card.get(media("small.blla"));
+  assert.deepEqual([p.v("file"), p.v("frame"), p.v("total")], [1, 0, 5], "3 progress and 2 loop pictures");
+  p.step(2000);
+  assert.equal(shown(p), picture(small, 1, 0));
+  p.press("PART_RIGHT");
+  p.step(2000);
+  assert.equal(p.v("frame"), 1);
+  assert.equal(shown(p), picture(small, 1, 1));
+  p.press("PART_LEFT");
+  p.press("PART_LEFT");
+  p.step(2000);
+  assert.equal(p.v("frame"), 4, "back from the first picture goes to the last");
+  assert.equal(shown(p), picture(small, 1, 4));
+  p.press("PART_RIGHT");
+  assert.equal(p.v("frame"), 0);
+  p.press("TAP");
+  assert.equal(p.v("playing"), 1);
+  const seen = [];
+  for (let i = 0; i < 6; i++) {
+    p.step(96);
+    seen.push(p.v("frame"));
+  }
+  assert.deepEqual(seen, [1, 2, 3, 4, 0, 1], "a picture every 96 ms, after the last the first again");
+  p.step(2000);
+  const at = p.v("frame");
+  assert.equal(shown(p), picture(small, 1, at), "the place goes away while it plays");
+  p.press("PART_RIGHT");
+  assert.equal(p.v("ms"), 48, "Part right plays twice as fast");
+  p.press("PART_LEFT");
+  p.press("PART_LEFT");
+  p.press("PART_LEFT");
+  p.press("PART_LEFT");
+  assert.equal(p.v("ms"), 384, "and stops at 384 ms");
+  p.press("TAP");
+  const paused = p.v("frame");
+  p.step(2000);
+  assert.deepEqual([p.v("playing"), p.v("frame")], [0, paused], "TAP pauses");
   assert.equal(p.device.status().scripts[0].fault ?? null, null);
+});
+
+test("the Image Viewer says NO IMAGES, NO ANIMATIONS and NO CARD", () => {
+  const p = viewer(new Map([["KORG/blechtribe/splash.bmp", new Uint8Array(10)]]));
+  assert.deepEqual([p.v("n0"), p.v("n1")], [0, 0], "a picture outside Media/ does not count");
+  p.press("MENU");
+  assert.equal(shown(p), screen(d => d.text("NO IMAGES", 4, 26)));
+  p.turn(1);
+  p.press("PART_RIGHT");
+  p.press("TAP");
+  assert.equal(shown(p), screen(d => d.text("NO IMAGES", 4, 26)), "nothing to page through");
+  p.press("MENU");
+  p.turn(1);
+  p.press("MENU");
+  assert.equal(shown(p), screen(d => d.text("NO ANIMATIONS", 4, 26)));
+  p.press("TAP");
+  assert.equal(p.v("playing"), 0);
+  const none = viewer(null);
+  assert.equal(none.v("n0"), -1);
+  assert.equal(shown(none), screen(d => d.text("NO CARD", 4, 26)));
+  none.press("MENU");
+  assert.equal(none.v("mode"), 0, "with no card MENU stays on the list");
+  for (const q of [p, none]) assert.equal(q.device.status().scripts[0].fault ?? null, null);
+});
+
+test("no Image Viewer handler costs more than the warning line of 0.5 ms besides drawing the picture", () => {
+  const near = i => { const f = frameOf(3); f[i * 4] ^= 0xff; return f; };
+  const big = encodeAnimation({ progress: Array.from({ length: 200 }, (_, i) => near(i)), loop: Array.from({ length: 55 }, (_, i) => near(i + 200)) }).bytes;
+  const card = mediaCard();
+  card.set(media("zz-big.blla"), big);
+  const p = viewer(card);
+  p.press("MENU");
+  for (const n of [1, 1, 1]) p.turn(n);
+  p.press("PART_RIGHT");
+  p.press("PART_LEFT");
+  p.press("PART_LEFT");
+  p.press("MENU");
+  p.turn(1);
+  p.press("MENU");
+  p.turn(2);
+  assert.equal(p.v("total"), 255, "the most pictures a .blla holds");
+  p.press("PART_LEFT");
+  assert.equal(p.v("frame"), 254, "the jump back to the last picture of a big BLLA");
+  p.press("TAP");
+  for (let i = 0; i < 70; i++) p.step(48);
+  p.press("TAP");
+  // The warning line in units is derived (docs/plugins.md, Snake: 542 units in 0.103 ms). A whole-display korg.display.bitmap
+  // alone is 14 + 3 x 1024 units, above it, as in the GIF Player; the emulator draws it in far less (docs/plugins.md), so
+  // everything else a handler does has to stay under the line.
+  const warn = Math.floor(542 * BUDGET.handlerWarnMs / 0.103);
+  const bitmap = API_BY_NAME.get("korg.display.bitmap");
+  const picture = bitmap.cost + 1024 * bitmap.perItem;
+  for (const [handler, units] of Object.entries(p.device.status().scripts[0].maxCost)) {
+    assert.ok(units - picture <= warn, `${handler} costs ${units} units, ${units - picture} without the picture, the warning line is ${warn}`);
+  }
 });
 
 test("gif2e2g puts several BMPs into one file, one frame each in the order given", t => {

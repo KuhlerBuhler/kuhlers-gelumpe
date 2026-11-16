@@ -22,7 +22,7 @@ const DISPLAY_INVERT = OBJECTS.findIndex(o => o.path === "korg.menu.blech.custom
 const KEY_EXIT = KEY_NAMES.find(n => n.name === "EXIT").value;
 
 export class SimDevice {
-  /** @param {{ now?: () => number, storage?: object, card?: Map<string, Uint8Array> }} [o] a clock in milliseconds (the default advances one frame per frame()), persistent values as ScriptRuntime takes them, and files on the card by path (gifPath) */
+  /** @param {{ now?: () => number, storage?: object, card?: Map<string, Uint8Array> }} [o] a clock in milliseconds (the default advances one frame per frame()), persistent values as ScriptRuntime takes them, and files on the card by path (gifPath), null for no card (korg.file.count is -1) */
   constructor({ now, storage = null, card = new Map() } = {}) {
     this.card = card;
     /** The files of each kind korg.file.count listed last; korg.file.name and korg.file.picture read only these, as the device's cache. */
@@ -62,7 +62,7 @@ export class SimDevice {
           if (slots.length < SCRIPT_GIF.frameBytes) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.gifFrame", { length: slots.length, needed: SCRIPT_GIF.frameBytes })));
           return readGifFrame(this.card.get(gifPath(file)), index, slots);
         },
-        "korg.file.count": kind => (this.media[kind] = listMedia(this.card, kind)).length,
+        "korg.file.count": kind => this.card ? (this.media[kind] = listMedia(this.card, kind)).length : (this.media[kind] = [], -1),
         "korg.file.name": (slots, kind, index) => {
           const entry = this.media[kind][index];
           if (!entry) return 0;
@@ -73,7 +73,7 @@ export class SimDevice {
         "korg.file.picture": (slots, kind, index, frame) => {
           if (slots.length < SCRIPT_MEDIA.pictureBytes) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.mediaPicture", { length: slots.length, needed: SCRIPT_MEDIA.pictureBytes })));
           const entry = this.media[kind][index];
-          return entry ? readMediaPicture(this.card.get(entry.path), kind, frame, slots, this.hardware.objects[DISPLAY_INVERT] === 1) : -1;
+          return entry && this.card ? readMediaPicture(this.card.get(entry.path), kind, frame, slots, this.hardware.objects[DISPLAY_INVERT] === 1) : -1;
         },
         ...this.hardware.api(),
       },
