@@ -24,7 +24,7 @@ anderen Effekt; sie werden nicht umgeschrieben.
 
 | Name | Art | Was er tut |
 |---|---|---|
-| Loud Distortion | Insert | Gain 64, Ausgangspegel 20 (Grenze des Katalogs für den Verzerrer, Werkspreset 11). Regler: Verzerrung. |
+| Loud Distortion | Insert | Gain 64, Ausgangspegel 15 (Werkspreset 11; 20 war am Gerät doppelt so laut wie der Rest, [Pegel](messungen/2026-10-29-fx-katalog-pegel.md)). Regler: Verzerrung. |
 | ULTRA LOUD | Insert, zwei Stufen | Acid Drive mit Drive 127 und Ausgangspegel 30, dahinter ein Limiter: Röhrensättigung 127, Ausgangspegel 90 (Lautstärke sperrt der Linter nie, er warnt nur: über 90 `output-too-loud`, von 61 bis 90 `output-above-usable`, "nicht gehört"; 90 ist also die Grenze der Regeln). Regler: Drive 96 bis 127. Bis 1.4.6 vor dem Release mit Distortion statt Acid Drive: Distortion vor Limiter stürzt ab ([Nachtrag](messungen/2026-11-11-neue-effekte.md)). |
 
 ## Bässe, die springen
