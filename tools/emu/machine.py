@@ -850,7 +850,7 @@ class Machine:
         return period
 
     def next_event(self):
-        """Device time in ns of the next timer edge or UART byte, inf when none is pending."""
+        """Device time in ns of the next timer edge, UART byte or card interrupt, inf when none is pending."""
         at = [math.inf]
         for base in TIMERS:
             period = self.timer_period(base)
@@ -859,6 +859,11 @@ class Machine:
         for u in self.uart.values():
             if u["busy"]: at.append(u["busy"])
             if u["wire"]: at.append(u["arrive"])
+        # A card chunk that is ready is raised at the next mmc_irq_ns cell (lines()). Without it an idle CPU that waits for
+        # the card slept to the next timer edge: with the short handler slices of the nesting level (GNLR) it idles there
+        # far more often, and SOFTWARE UPDATE read SYSTEM.VSB at a third of the speed.
+        if self.mmc.irq():
+            at.append((self.time_ns // self.mmc_irq_ns + 1) * self.mmc_irq_ns)
         return min(at)
 
     def slice_length(self, in_isr):
@@ -1012,6 +1017,7 @@ class Machine:
         uc, A = self.uc, self.A
         cpsr = self.reg(A.UC_ARM_REG_CPSR)
         in_isr = cpsr & 0x1F == 0x12
+        in_handler = in_isr or self.nest_level < GNLR_NONE   # Korg's handlers run in SVC behind the dispatcher (GNLR set)
         count = self.slice_length(in_isr)
         start, self.poll_stop, self.tx_idle = self.time_ns, False, False
         ran = False
@@ -1031,7 +1037,7 @@ class Machine:
         # interrupt vector, a register read or a routine's address more often than not. Nor in a handler: its slices
         # are ISR_STEP long from the vector, so they stop at the same few places every time; it runs at the rate of
         # the code it interrupted.
-        if ran and not in_isr and not wait and not self.poll_stop and pc not in self.ENTRIES:
+        if ran and not in_handler and not wait and not self.poll_stop and pc not in self.ENTRIES:
             self.ns_per_insn = self.device_rate(self.reg(A.UC_ARM_REG_CPSR))
         return start
 
