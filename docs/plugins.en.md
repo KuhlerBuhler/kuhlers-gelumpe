@@ -598,7 +598,7 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.file.frame(array, file, index)` | reads frame `index` (0 to 65535) of the file `GIFnn.E2G` (`file` 0 to 99 is nn) in `KORG/blechtribe/Gif/` into the array, one byte to a slot, which is exactly what `korg.display.bitmap(array, 0, 0, 128)` draws. The array needs at least 1024 slots. Returns the frame's delay in ms (at least 1), 0 past the last frame, -1 without a file, for a wrong or cut file and outside the main screen; after -1 the device may have changed the last quarter of the array. From API version 7 | like `korg.led` |
 | `korg.file.count(kind)` | reads the folder `KORG/blechtribe/Media/` anew and returns how many files of `kind` it holds: 0 start images (`.bmp`), 1 loading animations (`.blla`), in the order of the folder, at most 64 (the rest is left out). -1 when the card cannot be read now or outside the main screen. No other folder counts. From API version 38 | like `korg.led` |
 | `korg.file.name(array, kind, index)` | writes the name of file `index` (0 to 63) of the list the last `korg.file.count(kind)` read into the array without its ending, one character per slot, then a 0 when there is room; for `korg.display.chars`. A name longer than 17 characters is cut to 15 and "..". Returns its length, 0 past the last file. From API version 38 | like `korg.led` |
-| `korg.file.picture(array, kind, index, frame)` | reads picture `frame` of file `index` of the same list into the array (at least 1024 slots), laid out as `korg.display.bitmap(array, 0, 0, 128)` takes it. A `.bmp` (128 x 64, 1 bit, as SPLASH IMPORT takes it) has one picture, the darker colour drawn; a `.blla` has its progress pictures first, then its loop pictures. Returns the number of pictures in the file, 0 past the last (the array stays), -1 when the file is missing or broken. A drawn pixel shows dark, as in the start image and the loading animation: with DISPLAY INVERT ON every bit comes turned (measured in the emulator). From API version 38 | like `korg.led` |
+| `korg.file.picture(array, kind, index, frame)` | reads picture `frame` of file `index` of the same list into the array (at least 1024 slots), laid out as `korg.display.bitmap(array, 0, 0, 128)` takes it. A `.bmp` (128 x 64, 1 bit, as SPLASH IMPORT takes it) has one picture, the darker colour drawn; a `.blla` has its progress pictures first, then its loop pictures. Returns the number of pictures in the file, 0 past the last (the array stays), -1 when the index is not in the list, the file is missing or broken, and outside the main screen. A drawn pixel shows dark, as in the start image and the loading animation: with DISPLAY INVERT ON every bit comes turned (measured in the emulator). From API version 38 | like `korg.led` |
 | `korg.display.take()` | take the display (way 2, see above); 1 on success, 0 if not (an app, another owner, not the main screen) | like `korg.led` |
 | `korg.display.release()` | give the display back | like `korg.led` |
 | `korg.display.popups = 0` | keeps the parameter window shut that `korg.seq.setPartValue` otherwise opens like the knob, and the write window of `korg.pattern.write`; only for this plugin's calls, 1 turns it back on. It is 1 after loading. `korg.knob` still opens the firmware's window, because it plays the knob itself. Read it with `korg.display.popups` or `korg.read.popups()`. From API version 24 | like `korg.led` |
@@ -1094,6 +1094,29 @@ reads it in the browser. A call opens the file, seeks to the frame, reads it and
 firmware's FatFs functions (also `f_lseek`, `0xC009E404`, on blue `0xC008AF5C`) with the card loader's file object. It
 reads only while the main screen is open. How long 1 KiB takes on the device is not
 measured; in the emulator it is 7.5 ms, which do not count against the frame budget.
+
+**Start images and loading animations** (`korg.file.count`, `korg.file.name`, `korg.file.picture`, from API version 38):
+only `KORG/blechtribe/Media/` is searched (folder name in any case), not its subfolders and not `KORG/blechtribe/`. Every file
+ending in `.bmp` (kind 0) or `.blla` (kind 1) counts, ending in any case, name at most 31 characters, not starting with a dot.
+The order is the one FatFs walks the folder in, mostly the order the files came onto the card, not alphabetical. At most 64
+files of a kind go into the list (`SCRIPT_MEDIA.maxFiles`), the rest is left out. `korg.file.count` reads the folder anew,
+0 without the folder, -1 when the card cannot be read (the list is empty then) or outside the main screen (the old list stays).
+`korg.file.name` and `korg.file.picture` read only that list, no folder walk per encoder step; before the first `count` they
+give 0 and -1. A file is opened by its short name (8.3). When a file is gone after the `count` or the card was changed,
+`picture` gives -1 until the next `count`.
+Names: the long name without its ending, longer than 17 characters cut to 15 and ".."; every byte from 0x80 on becomes "?"
+(the firmware's FatFs gives long names in code page 932, so a name with umlauts can have another length on the device).
+A `.bmp` has to be like the start images of SPLASH IMPORT and the app: `BM`, 128 x 64 pixels (height 64 or -64), one plane,
+1 bit without compression, pixels from byte 54 to 0x200 behind header and palette, all 1024 pixel bytes there; the darker
+palette colour is drawn. A `.blla` has the format of [Loading animation](hintergrund/ladeanimation.md); when the file changes
+it is checked once as a whole, a broken list anywhere means -1 for every picture of the file.
+Polarity: a drawn pixel is a set bit; with the BLECH menu armed and DISPLAY INVERT ON every bit comes turned. So a drawn pixel
+is dark as in the start image and the loading animation ([measurement](messungen/2026-11-16-media-polaritaet.md)). In the
+browser the simulator takes the factory value ON.
+Times in the emulator ([measurement](messungen/2026-11-16-image-viewer-timing.md)), not measured on the device: `count` with
+5 files 3.9 to 4.1 ms, with 64 listed 20.1 ms; a `.bmp` 9.2 to 9.4 ms; `.blla` first picture after a change of file 24.1 to
+24.9 ms, one picture on 6.6 to 7.0 ms, jump to the last picture 21.3 ms. Like `korg.file.frame` this time does not count
+against the frame budget, at most 50 ms a frame (see above).
 
 ### Persistent values
 

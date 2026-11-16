@@ -112,6 +112,17 @@ Standard-Blechy ist ein Fortschritts-Bild je Prozent 0 bis 99 mit der Zahl darin
 das Finale als Schleife ab 95 Prozent (8 Bilder). `tools/art/loading/firmware_assets.py` baut die Datei aus den Teilen in
 `assets/blechy/loading.bin` und vergleicht jedes Bild mit dem Renderer.
 
+## Im Image Viewer
+
+Das Katalog-Plugin Image Viewer (ab 1.5, API 38) liest dieselbe Datei: unter ANIMATIONS steht jede `.blla` aus
+`KORG/blechtribe/Media/`, also auch `loading.blla`. `korg.file.picture` (Art 1, `tools/patch/script_media.s`) gibt Bild 0
+bis N-1 als Fortschritt und N bis N+M-1 als Schleife (Schleifenbild j ist das Basisbild nach `loopBase` mit der
+Schleifenliste j), wie `decodeAnimation` sie liefert. Die ganze Datei wird einmal geprüft, wenn die Datei wechselt; eine
+kaputte Liste irgendwo heißt -1 für jedes Bild. Ein gezeichneter Punkt ist dort dunkel wie beim Laden, auch auf Blau, wo
+der Ladebalken-Code fehlt. Der Viewer spielt alle N+M Bilder und fängt danach bei Bild 0 an, die Schleife allein spielt
+er nicht. Zeiten im Emulator: [Messung](../messungen/2026-11-16-image-viewer-timing.md); Format der Aufrufe:
+[Plugins, Karte und Dateiformat](../plugins.md#karte-und-dateiformat).
+
 ## Größe
 
 Bild 0 kostet 1024 Byte, der Kopf 16, jedes weitere Bild 2 Byte Tabelle, 2 Byte Zähler und seine Läufe.
