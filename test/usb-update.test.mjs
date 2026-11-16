@@ -53,6 +53,13 @@ test("without SYSTEM.VSB on the card, or without the FILE commands on the device
   await assert.rejects(fetchUpdateFile(old.session), /zu alt für Updates über USB/);
 });
 
+test("a card error on reading ORIGINAL.BIN stops the update instead of starting from the patched SYSTEM.VSB", async () => {
+  const card = new Map([["SYSTEM.VSB", fill(5000, 4)], ["ORIGINAL.BIN", fill(5000, 3)]]);
+  card.errors = { "ORIGINAL.BIN": 1 }; // FatFs FR_DISK_ERR instead of the file
+  const { session } = await device(card);
+  await assert.rejects(fetchUpdateFile(session), e => e.code === 1);
+});
+
 test("Doom goes onto the card as KORG/blechtribe/Doom/doom.wad and doom.bin, the wad first, the update file stays", async () => {
   const system = fill(3000, 6);
   const card = new Map([["SYSTEM.VSB", system], ["doom.bin", fill(90000, 7)]]);

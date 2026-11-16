@@ -324,7 +324,10 @@ export class SimDevice {
       const length = word(1);
       const file = this.card.get(name(word(0)));
       if (length > this.blech.maxBlock || offset + length > limit(word(0))) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.RANGE, offset, 0, 0, 0);
-      if (!file) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.FILE, offset, 0, 0, 0);
+      // a card map may name a FatFs result per file in `errors` (a disk error, a card not ready) that a read gets instead of the file
+      const fault = this.card.errors?.[name(word(0))];
+      if (fault) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.FILE, offset, 0, fault, 0);
+      if (!file) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.FILE, offset, 0, 4, 0); // FatFs FR_NO_FILE in the CRC word, as the firmware sends it
       const bytes = file.slice(Math.min(offset, file.length), Math.min(offset + length, file.length));
       return [0xf0, ...this.head, BLECH.R_FILE_READ, ...syxEnc([...[0, offset, bytes.length, crc32(bytes), file.length].flatMap(u32le), ...bytes]), 0xf7];
     }

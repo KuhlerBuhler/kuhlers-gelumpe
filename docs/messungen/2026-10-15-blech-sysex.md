@@ -30,7 +30,8 @@ außerhalb dessen, was Korg (`0x0E`, `0x10`, `0x11`, `0x1C`, `0x21` bis `0x26`, 
 | `0x64` FLASH READ | Flash-Adresse, Länge | `0x6C` | Status, Adresse, Länge, CRC-32, dann die Bytes des Flash |
 
 Status: 0 in Ordnung, 1 Prüfsumme stimmt nicht, 2 verweigert, 3 außerhalb des erlaubten Bereichs, 4 die Flash-Funktion der Firmware
-meldet keinen Erfolg (nur FLASH READ), 5 das Zurücklesen nach dem Kopieren weicht ab. Die CRC-32 ist die von zlib (Polynom `0xEDB88320`). Der größte Block ist 32768 Byte
+meldet keinen Erfolg (nur FLASH READ), 5 das Zurücklesen nach dem Kopieren weicht ab, 6 die Karte meldet einen Fehler (nur die Dateibefehle, siehe
+[Status 6](#status-6-die-karte-meldet-einen-fehler)). Die CRC-32 ist die von zlib (Polynom `0xEDB88320`). Der größte Block ist 32768 Byte
 (`MAX_BLOCK`), das ist die Größe des eigenen Puffers, nicht eine Grenze der Firmware.
 
 Ein Schreiben sind zwei Nachrichten: BEGIN prüft Adresse und Länge gegen die Schutztabelle, damit eine Ablehnung kommt, bevor
@@ -154,6 +155,44 @@ Gruppe `case_flash`, mit leerem Flash), Gerätetest in [BLECH-Datei, Schritt 22]
 | Währenddessen sieht der Flash-Chip kein Programmieren und kein Löschen, sein Inhalt gilt als unverändert | gemessen | `sysex:flash_untouched` (Zähler der Befehle des emulierten Chips) |
 | Mit EXIT beim Einschalten bleibt FLASH READ ohne Antwort | gemessen | `sysex:kill_switch_silent` |
 | Der Durchsatz und ob der Treiber am Gerät 4096 Byte am Stück ohne Fehler liefert | offen | Gerätetest |
+
+## Status 6: die Karte meldet einen Fehler
+
+Status 6 (`STATUS_FILE` in `tools/patch/blech_sysex.py`) ist BLECHs eigener Code, nicht FatFs-Code 6 (`FR_INVALID_NAME`). Er heißt:
+eine FatFs-Funktion der Firmware hat nicht 0 geliefert. Bei FILE READ und bei DATA in eine Datei steht der Grund im vierten Wort
+der Antwort (sonst die CRC): FatFs' `FRESULT` oder einer der zwei BLECH-Codes unten. Ältere Apps lesen das Wort bei Status 6 nicht.
+Die App zeigt den Grund als Text mit dem Code (`sysex.status.cardWhy` in `site/app/i18n-*.mjs`). FILE COPY, DELETE und CRC liefern
+nur die 6.
+
+| Befehl | Status 6, wenn | Beleg |
+|---|---|---|
+| `0x65` FILE READ | `f_open` (nur lesen), `f_lseek`, `f_read` oder `f_close` scheitert (`file_read_back`, Sprungziel `frb_error`) | offline gelesen |
+| `0x63` WRITE DATA in eine Datei | `f_open` (auch nach dem Anlegen fehlender Ordner), `f_lseek`, `f_write`, `f_close` scheitert, weniger Bytes geschrieben als verlangt, oder das Zurücklesen scheitert (`data_file_error`) | offline gelesen |
+| `0x71` FILE COPY, `0x72` FILE DELETE, `0x73` FILE CRC | Öffnen, Lesen, Schreiben oder Löschen auf der Karte scheitert | offline gelesen |
+| alle Dateibefehle | ohne Karte, und wenn die Datei fehlt | gemessen im Emulator (`sysex:file_*`, `doom_no_card`, `doom_missing`, [Doom per USB](2026-11-11-doom-usb.md)) |
+
+Was hinter einer 6 stecken kann. Die Nummern sind FatFs' `FRESULT`; 1, 4 und 5 sind in dieser Firmware gemessen bzw. im Code
+benutzt, die übrigen folgen aus derselben Reihenfolge:
+
+| FatFs-Code | Name | typischer Grund am Gerät | Marker |
+|---|---|---|---|
+| 1 | `FR_DISK_ERR` | Lesefehler der Karte; auf der blauen fehlt `f_unlink`, dort liefert Löschen immer 1 | gemessen |
+| 3 | `FR_NOT_READY` | Karte nicht eingehängt: keine Karte, oder Korgs Init-Sperre `0xC031BEEC` ist gesetzt ([Init-Sperre](2026-11-14-karte-init-sperre.md)) | hergeleitet |
+| 4 | `FR_NO_FILE` | Datei fehlt (z. B. `doom.bin`, `ORIGINAL.BIN`) | im Code benutzt (`fx_card.s`) |
+| 5 | `FR_NO_PATH` | Ordner fehlt; beim ersten Schreibblock legt BLECH ihn an und versucht es einmal neu | gemessen |
+| 7 | `FR_DENIED` | Karte oder Verzeichnis voll | hergeleitet |
+| 13 | `FR_NO_FILESYSTEM` | Karte ohne FAT, z. B. nicht formatiert | hergeleitet |
+| 0x80 | `FR_CARD_NEVER` (BLECH) | Gerät ohne Karte gestartet: kein Dateibefehl fasst eine Karte an, bis zum nächsten Start (siehe unten) | gemessen im Emulator (`sysex:file_no_card`, `file_card_after_start_without_one`) |
+| 0x81 | `FR_SHORT` (BLECH) | `f_write` hat weniger Bytes geschrieben als verlangt: Karte voll | offline gelesen |
+
+Nach einem Start ohne Karte steht das Kartenwort des BLECH-Menüs (`M_CARD`, `MENU_STATE + 0x1B0`) auf `CARD_NEVER`. Eine danach
+gesteckte Karte kann Korgs SD-Init hängen lassen (#518). Darum prüfen alle Dateibefehle dieses Wort vor dem Öffnen oder Löschen
+(`fs_open`, `fs_unlink` in `tools/patch/blech_sysex.py`) und antworten mit 6 und Code 0x80, ohne die Karte anzusprechen. Im
+Emulator geht nach Stecken einer Karte kein einziger Befehl an sie (`file_card_after_start_without_one`, **gemessen**). Ob der
+Hänger am Gerät genau so entsteht, ist **hergeleitet**, nicht am Gerät gemessen.
+
+Am Gerät heißt das: bei 0x80 neu starten, mit gesteckter Karte. Bei 3 prüfen, ob die Karte eingehängt ist (BLECH READ von
+`fs_type`, siehe [Init-Sperre](2026-11-14-karte-init-sperre.md)), bei 4 und 5, ob Datei und Ordner da sind.
 
 ## Die blaue Electribe 2 (Synth)
 

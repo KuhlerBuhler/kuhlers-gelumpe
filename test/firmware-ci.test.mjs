@@ -109,7 +109,7 @@ test("PR and publication use one shared firmware execution with mandatory joins 
   assert.match(shared, /if: matrix\.firmware\.kind == 'start'/);
   assert.match(shared, /name: \$\{\{ matrix\.firmware\.artifact \}\}-\$\{\{ matrix\.part \}\}/);
   assert.match(shared, /pattern: \$\{\{ matrix\.firmware\.artifact \}\}-\*/);
-  assert.match(shared, /group: .*matrix\.firmware\.kind/);
+  assert.doesNotMatch(shared, /^\s+concurrency:/m);
   assert.equal([...shared.matchAll(/GELUMPE_NODE_RESULTS: \$\{\{ !inputs\.full && 'strict' \|\| '' \}\}/g)].length, 2);
   assert.doesNotMatch(shared, /path:.*(?:SYSTEM\.VSB|\/boot|\/power-on)/);
 });

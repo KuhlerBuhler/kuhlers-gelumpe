@@ -11,6 +11,8 @@ import { checkHooks } from "../src/hooks.mjs";
 import { identify } from "../src/firmware.mjs";
 
 // The pattern switch (docs/ideen/46-patternwechsel-bestaetigung.md).
+import "./support/runtime.mjs";
+
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 const PATCH = read("../data/patches/pattern-switch.json");
 const OTHERS = ["splash-editor", "mfx-switch", "script-runtime", "blechtribe", "blech-theme"].map(id => read(`../data/patches/${id}.json`));

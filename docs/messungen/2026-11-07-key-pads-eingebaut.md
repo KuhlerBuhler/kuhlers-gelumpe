@@ -12,7 +12,9 @@ Reihe (Pads 9 bis 16) C D E F G A B C, obere Reihe die schwarzen Tasten darüber
 Pads 1, 4 und 8 tun nichts. Das Wertefenster der Firmware zeigt "KEY" und den Ton, wie beim Drehen eines Werts.
 KEYBOARD kurz allein geht beim Loslassen an die Firmware und schaltet wie immer den Modus. SHIFT + KEYBOARD und alles bei
 offener App, im Menü oder auf anderen Bildschirmen bleibt bei der Firmware. BLECH > FEATURES > KEY PADS (letzte Seite)
-schaltet es aus, WRITE behält das in Bit 4 von Byte 5 der Einstellungsdatei.
+schaltet es aus, WRITE behält das in Bit 4 von Byte 5 der Einstellungsdatei. Vor dem Scharfschalten des Menüs (EXIT beim
+Einschalten) liest `MENU_STATE` überall FF, der Schalter würde als ON gelesen und jeden Pad-Druck schlucken; darum prüft
+`kp_input` zuerst `M_ON` (`tools/patch/script_shortcuts.s`).
 
 ## Wie es gebaut ist
 

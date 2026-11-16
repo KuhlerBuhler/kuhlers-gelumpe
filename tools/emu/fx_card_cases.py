@@ -3,8 +3,9 @@
 
 check.py runs `cases_task` on every patched sampler copy that carries the loader. A good file puts its insert and master
 records where the firmware's getters point and its modulation type into the table the build reads, in RAM; the flash
-ends up byte for byte as after a start without the file. A missing file, a wrong checksum, the wrong build, an index
-past the menu, a cut file and EXIT held at power-on leave every record as the firmware has it.
+ends up byte for byte as after a start without the file. A slot past the menu, up to 100, makes the menu that long in RAM.
+A missing file, a wrong checksum, the wrong build, an index past 100, a cut file and EXIT held at power-on leave every
+record as the firmware has it.
 
     tools/emu/.venv/bin/python tools/emu/fx_card_cases.py cases --patched NEW.VSB [--flash dump.bin] [--only N]
 """
@@ -312,7 +313,78 @@ def export_new(payload, flash, build):
     return out
 
 
-GROUPS = (case_good, case_refused, case_exit, case_export, case_boot_effects, case_version_text)
+# the sites of the menu lengths in fx_card.s (fx_sites): address, the master menu, the last index instead of the count
+SITES = [(a, False, False) for a in (0xC003EFDC, 0xC0098150, 0xC0098194, 0xC00980EC, 0xC009809C, 0xC009811C, 0xC0098138, 0xC0098084)]
+SITES += [(a, False, True) for a in (0xC0048F80, 0xC0049EF0, 0xC004A1F8, 0xC009814C, 0xC0098188, 0xC00980E8)] + [(0xC003EFE4, True, False)]
+SLOTS = 100
+
+
+def case_grow(payload, flash):
+    """A file that fills slots past the menu, up to 100, makes the menus that long in RAM: every site of the length agrees, the
+    knob memory has a row of the new length for each part, the encoder walks all slots and the gaps between, the last slot
+    plays its record, the flash stays as it is. Slot 101 is refused and the menus keep their length."""
+    import preset_cases
+    from mfx_cases import DspLog, same_dsp
+
+    class Box(preset_cases.Box):
+        def __init__(self, files):
+            self.dev = Dev(bytes(payload), flash, 0)
+            self.dsp = DspLog(self.dev.m)
+            self.dev.m.insert_card(card(files))
+            self.dev.run(BOOT_S)
+
+    build = 2 if build_of(payload) == "stock" else 1
+    base = Box({})
+    n0 = {k: base.count(k) for k in ("ifx", "mfx")}
+    last = {"ifx": SLOTS - 1, "mfx": n0["mfx"] + 5}
+    want = {"ifx": named(base.record("ifx", 5), NAME, 15, "SLOT 100 IFX"), "mfx": named(base.record("mfx", 5), NAME, 15, "LATE MFX")}
+    dev = Box({CARD_FILE: collection(build, [entry("ifx", last["ifx"], want["ifx"]), entry("mfx", last["mfx"], want["mfx"])])})
+    status, loaded = state(dev.dev)
+    n1 = {k: dev.count(k) for k in ("ifx", "mfx")}
+    words = {a: dev.dev.read(a, 1)[0] for a, *_ in SITES}
+    agree = all(words[a] == n1["mfx" if mfx else "ifx"] - (1 if back else 0) for a, mfx, back in SITES)
+    same = all(dev.record(k, last[k]) == want[k] for k in want)
+    out = [result("grow_menus", status == 2 and loaded == 2 and n1 == {"ifx": SLOTS, "mfx": last["mfx"] + 1} and agree and same and not dev.dev.m.asserts,
+                  f"status {STATUS.get(status, status)}, {loaded} entries, menus {n0} to {n1}, every site of the length agrees {agree}, records in place {same}")]
+    table, rows = dev.knob_rows(SLOTS)
+    out.append(result("grow_knob_memory", table == 0xC017C400 and 255 not in rows and set(rows) <= set(range(128)),
+                      f"16 rows of {SLOTS} at {table:#x}, every byte set: {255 not in rows}"))
+    out.append(result("grow_flash_untouched", bytes(dev.dev.m.flash.mem) == bytes(base.dev.m.flash.mem), "the flash after the start is the same as after a start without the file"))
+    first = dev.ifx_type()
+    seen = [first]
+    for _ in range(SLOTS + 2):
+        dev.step_ifx()
+        seen.append(dev.ifx_type())
+    out.append(result("grow_ifx_walk", seen == [(first + i) % SLOTS for i in range(SLOTS + 3)] and not dev.dev.m.asserts,
+                      f"the INSERT encoder walks {SLOTS + 2} steps through {SLOTS} slots, the empty ones between included, and wraps: {seen[-4:]}"))
+
+    def ifx_dsp(box, target, n):
+        box.goto_ifx((target - 1) % n, n)
+        box.dsp.clear()
+        box.step_ifx(1)
+        box.dev.run(1.0)
+        return box.dsp.changes()
+
+    a, b = ifx_dsp(base, 5, n0["ifx"]), ifx_dsp(dev, last["ifx"], SLOTS)
+    out.append(result("grow_last_slot_plays", len(a) > 0 and same_dsp(a, b) and not dev.dev.m.asserts,
+                      f"slot 100 sends the DSP {len(b)} transfers, the same as preset 6, whose record it carries ({len(a)})"))
+    dev.dsp.clear()
+    dev.set_mfx(last["mfx"])
+    dev.dev.run(1.0)
+    out.append(result("grow_mfx_set", dev.mfx_type() == last["mfx"] and len(dev.dsp.changes()) > 0 and not dev.dev.m.asserts,
+                      f"the master type setter takes slot {last['mfx'] + 1}: {dev.mfx_type() + 1}"))
+    over = boot(payload, flash, {CARD_FILE: collection(build, [entry("ifx", SLOTS, want["ifx"])])})
+    status, loaded = state(over)
+    kept = {k: over.call(COUNT[k]) for k in COUNT}
+    out.append(result("refused_slot_101", status == 8 and loaded == 0 and kept == n0 and not over.m.asserts,
+                      f"status {STATUS.get(status, status)}, menus {kept}"))
+    inside = boot(payload, flash, {CARD_FILE: collection(build, [entry("ifx", 1, want["ifx"])])})
+    kept = {k: inside.call(COUNT[k]) for k in COUNT}
+    out.append(result("inside_menu_keeps_length", state(inside)[0] == 2 and kept == n0, f"menus {kept}, before {n0}"))
+    return out
+
+
+GROUPS = (case_good, case_refused, case_exit, case_export, case_boot_effects, case_version_text, case_grow)
 
 
 def group_entries(payload, flash, i):

@@ -515,8 +515,8 @@ def menu_script_cases(programs, built, patched, flash, check):
     switched_on = (texts(dev), dev.u32(healthy + 12))
     leave_menu(dev)
     started = tap()
-    check("menu-aktiv-erste-seite-dial-schaltet", first_on == (menu_cases.LEVEL_PSUB, (0, 4), ("ACTIVE", "ON", "")) and switched_off == (("ACTIVE", "OFF", ""), 1) and stopped == 0
-          and first_off == ((0, 4), ("ACTIVE", "OFF", "")) and switched_on == (("ACTIVE", "ON", ""), 2) and started == 1 and not dev.m.asserts,
+    check("menu-aktiv-erste-seite-dial-schaltet", first_on == (menu_cases.LEVEL_PSUB, (0, 3), ("ACTIVE", "ON", "")) and switched_off == (("ACTIVE", "OFF", ""), 1) and stopped == 0
+          and first_off == ((0, 3), ("ACTIVE", "OFF", "")) and switched_on == (("ACTIVE", "ON", ""), 2) and started == 1 and not dev.m.asserts,
           dict(first_on=first_on, switched_off=switched_off, stopped=stopped, first_off=first_off, switched_on=switched_on, started=started))
     # a faulted script cannot be switched on
     menu_cases.goto_plugin(dev, 1, menu_cases.PLUGIN_ACTIVE)
@@ -619,7 +619,7 @@ def menu_script_cases(programs, built, patched, flash, check):
     menu_cases.press(gone, "exit", wait=0.4)
     left = (menu_cases.state(gone, menu_cases.S_LEVEL), menu_cases.state(gone, menu_cases.S_PAGE), texts(gone))
     check("plugin-verwalten-oeffnet-und-exit", edit == ("PLUGINS", "", menu_cases.PRESS) and opened == (menu_cases.LEVEL_PLUGIN, (0, 2), ("healthy", "ON", ""), "Plugins")
-          and inside == (menu_cases.LEVEL_PSUB, (0, 4), "Plugins") and up == (menu_cases.LEVEL_PLUGIN, 0, ("healthy", "ON", ""))
+          and inside == (menu_cases.LEVEL_PSUB, (0, 3), "Plugins") and up == (menu_cases.LEVEL_PLUGIN, 0, ("healthy", "ON", ""))
           and left == (1, menu_cases.LIST_PLUGINS, edit) and not gone.m.asserts, dict(edit=edit, opened=opened, inside=inside, up=up, left=left))
     menu_cases.press(gone, "menu", wait=0.4)
     menu_cases.press(gone, "menu", wait=0.4)
@@ -634,7 +634,7 @@ def menu_script_cases(programs, built, patched, flash, check):
     volume.close()
     menu_cases.press(gone, "menu", wait=0.4)
     remaining = texts(gone)
-    check("plugin-entfernen", last == ((3, 4), ("REMOVE", "", menu_cases.PRESS)) and asks == ("REMOVE", "Enter = remove", "")
+    check("plugin-entfernen", last == ((2, 3), ("REMOVE", "", menu_cases.PRESS)) and asks == ("REMOVE", "Enter = remove", "")
           and done == (2, menu_cases.PLUGIN_MANAGE, ("MANAGE PLUGINS", "removed", ""), 1) and left_on_card == archive(blocks[1:])
           and remaining[0] == "fault" and not gone.m.asserts,
           dict(last=last, asks=asks, done=done, card=len(left_on_card), remaining=remaining))
@@ -882,15 +882,18 @@ def import_cases(programs, built, patched, flash, check):
     dev.turn(1, wait=0.8)
     head = plugin_entry(dev, runtime)
     check("dial-oben-laedt-und-startet", shown_off == 0 and head not in (0, 0xffffffff) and dev.u32(head + 12) == 2 and state(40) == 1 and state(36) == 0 and byte(0xFB) == 0
-          and texts() == ("ACTIVE", "ON", "") and menu_cases.counter(dev) == (0, 4) and dev.u32(runtime + 96) == 1 and not dev.m.asserts,
+          and texts() == ("ACTIVE", "ON", "") and menu_cases.counter(dev) == (0, 3) and dev.u32(runtime + 96) == 1 and not dev.m.asserts,
           dict(state=dev.u32(head + 12) if head not in (0, 0xffffffff) else None, status=hex(state(36)), texts=texts(), counter=menu_cases.counter(dev)))
     kept = store_file(1, [("elsewhere", 1, 77)])
     check("laden-speicherbild-bleibt", image() == kept, dict(why="the file went through the buffer of the store image, which is read back from the card",
                                                           before=before_image[:24].hex(), after=image()[:24].hex()))
-    dev.turn(-1, wait=0.4)
-    off = (dev.u32(head + 12), texts())
-    dev.turn(1, wait=0.4)
-    check("stand-aus-und-an", off == (1, ("ACTIVE", "OFF", "")) and dev.u32(head + 12) == 2 and state(40) == 1 and not dev.m.asserts, dict(off=off, on=dev.u32(head + 12)))
+    # ACTIVE OFF takes it out (its block stays in the pool, marked), ON loads it again as a new entry behind it
+    dev.turn(-1, wait=0.8)
+    off = (dev.u32(head + 12), texts(), state(40))
+    dev.turn(1, wait=0.8)
+    head = plugin_entry(dev, runtime, 1)
+    check("stand-aus-und-an", off == (1, ("ACTIVE", "OFF", ""), 0) and head not in (0, 0xffffffff) and dev.u32(head + 12) == 2 and state(40) == 1 and texts() == ("ACTIVE", "ON", "")
+          and not dev.m.asserts, dict(off=off, on=dev.u32(head + 12) if head not in (0, 0xffffffff) else None, texts=texts()))
     menu_cases.press(dev, "exit", wait=0.4)
     menu_cases.press(dev, "menu", wait=0.5)
     menu_cases.press(dev, "edit_next", wait=0.5)
@@ -901,7 +904,7 @@ def import_cases(programs, built, patched, flash, check):
     menu_cases.press(dev, "menu", wait=0.5)
     dev.turn(1, wait=0.8)
     foreign = dev.u32(head)
-    check("fremd-wartet-nach-dem-laden", loaded_desc == (2, 8, 1, (1, 4)) and second == (name(foreign_block), "OFF", "")
+    check("fremd-wartet-nach-dem-laden", loaded_desc == (2, 8, 1, (1, 3)) and second == (name(foreign_block), "OFF", "")
           and foreign not in (0, 0xffffffff) and dev.u32(foreign + 12) == 1 and state(40) == 2 and texts() == ("ACTIVE", "WRITE=ALLOW", "") and byte(0xFB) == 1,
           dict(loaded_desc=loaded_desc, second=second, state=dev.u32(foreign + 12) if foreign not in (0, 0xffffffff) else None, texts=texts(), psel=byte(0xFB)))
     menu_cases.press(dev, "write", wait=0.8)
@@ -934,7 +937,7 @@ def import_cases(programs, built, patched, flash, check):
     # the imported scripts answer input, outside the menu
     leave_menu(dev)
     check("laden-verlassen", byte(0xF9) == 0 and dev.screen()["number"] == 1, dict(on=byte(0xF9), screen=dev.screen()["number"]))
-    healthy = plugin_entry(dev, runtime)
+    healthy = plugin_entry(dev, runtime, 1)  # entry 0 is the block ACTIVE OFF took out
     before = variables(dev, healthy, programs["healthy"])["count"]
     dev.m.send([0, 24, 1, 0, 0])
     dev.run(0.2)
@@ -963,34 +966,39 @@ def import_cases(programs, built, patched, flash, check):
     check("liste-plugin-ohne-datei", total[:2] == (1, 2) and with_file == (8, 1) and second[0] == name(foreign_block) and without_file == (0, 1)
           and sum(bin(b).count("1") for b in shown_both()) > 100 and not both.m.asserts, dict(total=total, with_file=with_file, second=second, without_file=without_file))
 
-    # OFF (the page before REMOVE) takes a plugin out of e2sPlugin.all and keeps its file: it is in the list again as one not loaded,
-    # and loads again
+    # ACTIVE turned to OFF takes a plugin out of e2sPlugin.all and keeps its file: the page stays on it, now as one not loaded, and
+    # turned to ON it loads again and is back in e2sPlugin.all
     again = with_card(patched, flash, {CARD_FILE: archive([healthy_block]), folder + "a.blech": blech_file(healthy_block, description)})
     again.run(2)
     menu_cases.goto_group(again, menu_cases.GROUP_PLUGINS, menu_cases.PLUGIN_MANAGE)
     menu_cases.press(again, "menu", wait=0.5)
     menu_cases.press(again, "menu", wait=0.5)
-    menu_cases.press(again, "edit_prev", wait=0.4)
-    menu_cases.press(again, "edit_prev", wait=0.4)
-    off_page = (menu_cases.counter(again), menu_cases.texts_of(again))
-    menu_cases.press(again, "menu", wait=0.4)
-    off_asks = menu_cases.texts_of(again)
-    menu_cases.press(again, "menu", wait=0.8)
-    off_done = menu_cases.texts_of(again)
+    on_page = (menu_cases.counter(again), menu_cases.texts_of(again))
+    again.turn(-1, wait=0.8)
+    off_page = (menu_cases.state(again, menu_cases.S_LEVEL), menu_cases.counter(again), menu_cases.texts_of(again), again.u32(menu_cases.STATE + 40))
     volume = fat32.Volume(again.m.mmc.card.medium.data)
     off_card = (volume.read(CARD_FILE), volume.read(folder + "a.blech"))
     volume.close()
-    check("plugin-aus-behaelt-datei", off_page == ((2, 4), ("OFF", "", menu_cases.PRESS)) and off_asks == ("OFF", "Enter = off", "")
-          and off_done == ("MANAGE PLUGINS", "off, file kept", "") and off_card == (archive([]), blech_file(healthy_block, description)) and not again.m.asserts,
-          dict(off_page=off_page, off_asks=off_asks, off_done=off_done, sizes=[len(part) for part in off_card]))
-    menu_cases.press(again, "menu", wait=0.5)
+    check("plugin-aus-behaelt-datei", on_page == ((0, 3), ("ACTIVE", "ON", "")) and off_page == (menu_cases.LEVEL_PSUB, (0, 3), ("ACTIVE", "OFF", ""), 0)
+          and off_card == (archive([]), blech_file(healthy_block, description)) and not again.m.asserts,
+          dict(on_page=on_page, off_page=off_page, sizes=[len(part) for part in off_card]))
+    menu_cases.press(again, "exit", wait=0.5)
     listed = (again.u32(menu_cases.STATE + 48), again.u32(menu_cases.STATE + 40), menu_cases.texts_of(again))
     menu_cases.press(again, "menu", wait=0.5)
     again.turn(1, wait=0.8)
     head = plugin_entry(again, runtime, 1)
+    volume = fat32.Volume(again.m.mmc.card.medium.data)
+    on_card = volume.read(CARD_FILE)
+    volume.close()
     check("entferntes-plugin-laedt-wieder", listed == (1, 0, (name(healthy_block), "OFF", ""))
           and head not in (0, 0xffffffff) and again.u32(head + 12) == 2 and again.u32(menu_cases.STATE + 40) == 1 and menu_cases.texts_of(again) == ("ACTIVE", "ON", "")
-          and not again.m.asserts, dict(listed=listed, texts=menu_cases.texts_of(again)))
+          and on_card == archive([healthy_block]) and not again.m.asserts, dict(listed=listed, texts=menu_cases.texts_of(again), size=len(on_card)))
+    back = Dev(patched[0x100:], flash, 0)
+    back.m.insert_card(SDCard(MemoryMedium(bytearray(again.m.mmc.card.medium.data))))
+    back.run(2)
+    entry = plugin_entry(back, runtime)
+    check("aus-und-an-laeuft-nach-neustart", entry not in (0, 0xffffffff) and back.u32(entry + 12) == 2 and not back.m.asserts,
+          dict(state=back.u32(entry + 12) if entry not in (0, 0xffffffff) else None))
 
     # nothing at all, scripts switched off in the settings
     nothing = with_card(patched, flash, {folder + "notes.txt": b"text"})

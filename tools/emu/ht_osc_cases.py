@@ -7,7 +7,7 @@ after a start without a card and after a start from e2sSample.all (the factory n
 OSC dial goes from 420 through 421..496 to the first user sample and back; the voice's slot lookup gives the entry and a note on
 slot 421 sends the DSP the messages a note on the firmware's own oscillator slot 0 sends; a pattern with slot 430 keeps it
 through WRITE and a new start; EXPORT ALL SAMPLE writes no entry for 421 to 499; EXIT held at power-on gives the firmware's
-empty slots again; a settings file with bit 6 of byte 5 set (once HT OSC OFF) still gives the oscillators. There is no switch.
+empty slots again; a settings file with bit 6 of byte 5 set (once HT OSC OFF, now KNOB LEDS OFF) still gives the oscillators. There is no switch.
 What the DSP makes of a wave is not modelled: how each oscillator sounds is not checked here.
 
     tools/emu/.venv/bin/python tools/emu/ht_osc_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
@@ -259,7 +259,7 @@ def case_exit(payload, flash):
 
 
 def case_old_setting(payload, flash):
-    """A settings file with bit 6 of byte 5 set (an earlier build wrote it for a page HT OSC OFF): the bit is read as nothing,
+    """A settings file with bit 6 of byte 5 set (an earlier build wrote it for a page HT OSC OFF, now KNOB LEDS OFF): the oscillators ignore the bit,
     the file still loads (KEY PADS OFF, bit 4, is read), the slots hold the oscillators and the entry for 449 is skipped."""
     if not mc.has_menu(payload):
         return [entry("alte-einstellung", True, "no BLECH menu in this copy: nothing to check")]

@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import { addRelease, emptyKnown } from "../src/blech-update.mjs";
 import { buildOf } from "../src/firmware.mjs";
 import { USB_NAME_URLS } from "../src/patcher.mjs";
+import { ensureRuntimePatches } from "./patch/ensure-runtime.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const args = process.argv.slice(2);
@@ -37,6 +38,9 @@ const setOf = (ref, setPath) => {
   const set = show(ref, setPath);
   return set ? set.patches.map(p => show(ref, p)).filter(Boolean) : null;
 };
+
+// `worktree` reads the patch files from disk, and the runtime patches live there only after a build.
+if (refs.includes("worktree")) ensureRuntimePatches({ log: message => console.log(message) });
 
 const known = emptyKnown();
 for (const ref of refs) {

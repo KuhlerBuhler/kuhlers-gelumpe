@@ -46,6 +46,7 @@ script_card_wrapper_end:
 ; ---- the backlight colour at power-on: the hook of this build, the rest is script_boot_light.s
 .equ FLASH_GET, 0xC0029A40      ; the flash object (it exists from about 56 ms)
 .equ FLASH_READ, 0xC0029A74     ; (object, destination, address, length)
+.equ FLASH_WRITE, 0xC0029AB8    ; (object, address, length, source): erases and writes the 4 KiB sectors under the firmware's lock, 1 written
 
 ; 0xC00289D8 in the start, `cmp r0, #0x124`: right behind the firmware's first flash read (the mark at 0x220000, about 59 ms) on the
 ; way of the normal start (the start modes branch off before). The held keys are known and the flash answers; the start image is not

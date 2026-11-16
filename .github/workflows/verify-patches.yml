@@ -60,6 +60,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: >-
+    verify-patches-${{ github.event_name }}-${{
+      (github.event_name == 'pull_request' || github.event_name == 'push') && github.run_attempt == 1 &&
+      (github.event.pull_request.number || github.ref) || format('manual-{0}-{1}', github.run_id, github.run_attempt)
+    }}
+  cancel-in-progress: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && github.run_attempt == 1 }}
+
 jobs:
   # The commit all jobs check, so a push to the branch during the hour cannot mix two patch sets.
   ref:
@@ -94,7 +102,8 @@ jobs:
       - id: own
         if: github.event_name == 'pull_request'
         run: |
-          if [ "$(git diff --name-only HEAD^ HEAD)" = "data/patches/verified.json" ]; then
+          if ! git rev-parse --verify --quiet HEAD^2 >/dev/null &&
+             [ "$(git diff --name-only HEAD^ HEAD)" = "data/patches/verified.json" ]; then
             echo "::notice::the last commit only changes verified.json, nothing to check."
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi

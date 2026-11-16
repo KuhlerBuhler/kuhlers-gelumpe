@@ -597,7 +597,7 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   visibility: hidden;
 }
 
-/* The gaps between the display's pixels (pixelGrid in emulator.mjs), over the display canvas and as large. */
+/* The display built like the glass (pixelGrid in emulator.mjs), over the display canvas and as large. */
 .cee-lcd-grid {
   position: absolute;
   inset: 0;

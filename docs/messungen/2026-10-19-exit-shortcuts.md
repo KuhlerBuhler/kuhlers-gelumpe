@@ -62,6 +62,56 @@ Steps: die Note von Pad 1 schickt dem Postfach `0xFF900A34` unberührt den Wert 
 Offen: am Gerät nicht gehört. Weil die Stimmen des Parts frei werden, bricht hergeleitet eine Note des Parts, die gerade klingt,
 beim Kürzel ab, wie bei Copy Part.
 
+## Der Part bleibt stumm (Gerätetest 11.11.)
+
+Am Gerät, Testbuild 1.4.5 mit dem Fix oben: nach EXIT + Pad stand Pitch richtig zurück, der Part blieb aber stumm, bis im Sample
+Edit am SAMPLE-Rad gedreht und Stop/Start gedrückt wurde.
+
+**Aus dem Code gelesen (Hacktribe 2.02, rot gleich):** Die Klangeinrichtung von Copy Part (`0xC0098BE0`) ruft als Erstes
+`0xC0098AD0`, und die schaltet den Part am DSP ab: `0xC0093A20(Part, Stereo)` löscht das Bit des Parts in `0xC06914E8` und schreibt
+0 in den DSP-Parameter `0x2C2 + 0x6D * Part` (`0xC00127B0`), dazu Byte 0 des Part-Objekts auf 0. Wieder an schaltet ihn
+`0xC0093988` (Bit setzen, Parameter 1), nur aus der Noteneinrichtung `0xC0098604` für den Notentyp 0. Weder der Patternwechsel
+(`0xC009B5DC`) noch das SAMPLE-Rad rufen `0xC0098AD0`: das Rad läuft über `0xC009A588(Part)` in den Sample-Handler
+`0xC0099FFC(Objekt)` (im Emulator gemessen: OSC drehen ruft nur ihn, darin `0xC0099D88`), der setzt das Sample ins Objekt und
+richtet nur bei einem Wechsel mono/stereo das Paar neu ein (`0xC0098B20`, ohne Abschalten).
+
+Im Emulator klingt der Part trotzdem: jede Note schickt den Parameter wieder auf 1 (gemessen, gestoppt und beim Abspielen). Den
+DSP modelliert der Emulator nicht. Dass das Abschalten am Gerät die Stille macht, ist hergeleitet: es ist der einzige Schritt, den
+der Fix oben neu brachte und den weder Patternwechsel noch SAMPLE-Rad machen.
+
+**Der Fix:** Nach dem Laden ruft das Kürzel den Sample-Handler der Firmware mit dem Part-Objekt, `0xC0099FFC(0xC009AF20(Part))`,
+also dasselbe wie ein Dreh am SAMPLE-Rad, statt der Klangeinrichtung von Copy Part. Blau hat keinen Sample-Handler: dort die
+Einrichtung je Part aus dem Patternwechsel `0xC0087C84(0xC0087B60(Part))` (Oszillator ins Objekt), auch ohne das Abschalten
+`0xC0081680` (gelesen, `data/synth-map/shortcuts.json`). Die Stimmen des Parts werden, ausser beim Wechsel mono/stereo, nicht mehr freigegeben, eine klingende Note
+läuft also aus.
+
+Geprüft (`shortcut:exit_pad_keeps_the_part_on_stopped`, `..._while_playing`): während EXIT + Pad 1 wird `0xC0093A20` (blau
+`0xC0081680`) nicht gerufen, die vier Fälle oben bleiben grün. Gegenprobe mit dem alten Code: beide neuen Fälle schlagen fehl
+(Part 0 abgeschaltet). Am Gerät noch nicht gehört.
+
+## Werte erreichen den DSP erst nach einem Dreh (Gerätetest 15.11.)
+
+Am Gerät, Firmware release/1.4.6 (38b75dd1): PITCH gedreht, EXIT + Pad, das Display zeigte den gespeicherten Wert, der Klang
+änderte sich aber erst, als PITCH einmal gedreht wurde. Mit CUTOFF genauso.
+
+**Gemessen im Emulator mit dem DSP-Modell** (`tools/emu/dsp_model.py`, hört ab dem Einschalten zu): PITCH, LEVEL, PAN, CUTOFF
+und der IFX-Drehgeber gedreht, dann EXIT + Pad 1. Danach hatte der DSP Cutoff und Effekteinheit des Parts noch vom Drehen,
+gestoppt (MIDI-Note) und beim Abspielen; PITCH, LEVEL und PAN kamen im Emulator zurück. Das Pattern-Laden schreibt den RAM,
+gibt die Werte aber nicht an die Klangerzeugung weiter.
+
+**Der Fix:** Nach dem Sample-Handler gibt das Kürzel jeden Reglerwert des Parts an den Parametersetzer der Firmware
+(`HW_PARAM_SET`: Part + 1, Id des Reglers, Wert, 1), den Aufruf, den Regler, CUTOFF-Drehgeber und die Tasten IFX ON und MFX SEND
+nach ihrem Part-Edit machen ([Wege der Bedienelemente](2026-11-09-plugin-part-dsp.md)): OSC EDIT, CUTOFF, RESONANCE, EG INT,
+MOD SPEED, MOD DEPTH, ATTACK, DECAY, LEVEL, PAN, MFX SEND, IFX ON, IFX EDIT, PITCH, GLIDE (PAN, PITCH und EG INT plus 64, IFX ON
+und MFX SEND als 127 oder 0). FILTER TYPE, MOD TYPE und IFX TYPE gehen wie ihre Drehgeber durch den Part-Edit mit Flag 1
+(Parameter 10, 14, 26), der den Verteiler die Klangerzeugung auffrischen lässt. Blau gleich, mit seinen Adressen
+(`tools/patch/script_hooks.py`). Fenster und MIDI-CC schickt das Kürzel nicht.
+
+Geprüft (`shortcut:exit_pad_resets_the_dsp_values_stopped`, `..._while_playing`): nach EXIT + Pad 1 hat der DSP wieder die Werte
+von vor dem Drehen (PITCH je Stimme, Cutoff, Effekteinheit, gestoppt auch LEVEL und PAN). Gegenprobe mit dem alten Stand: beide
+Fälle schlagen fehl (Cutoff und Effekteinheit bleiben gedreht). Am Gerät noch nicht gehört; dass PITCH am Gerät hängen blieb, im
+Emulator aber nicht, ist offen.
+
 ## Ungespeichert anzeigen (19.10., Vorschlag 1)
 
 Die WRITE-LED (`0x0B`) atmet, solange das Pattern im RAM von seinem Platz in der Bank abweicht: alle 8 Frames vergleicht BLECH
@@ -90,6 +140,7 @@ hätte. Geprüft: `shortcut:pad_state_is_not_an_edit` und `pswitch:pad_state_sav
 | STEP JUMP, ebenso | Part 1 (der gewählte) zurück, Part 6 bleibt bearbeitet (30.10.) |
 | beim Abspielen EXIT + Pad 3 | Part 3 zurück, spielt weiter, gleiches Pattern |
 | Sample von Part 1 mit OSC gedreht, EXIT + Pad 1, gestoppt und beim Abspielen | Stimmen, Sequencer und DSP wieder auf dem gespeicherten Sample (10.11.) |
+| PITCH, LEVEL, PAN, CUTOFF und IFX TYPE von Part 1 gedreht, EXIT + Pad 1, gestoppt und beim Abspielen | der DSP hat wieder die Werte von vorher (15.11.) |
 | EXIT beim Einschalten | Fenster bleibt offen, nichts gespeichert, Pad setzt nichts zurück |
 
 Auf Korgs Original sind `0xC004AB84` und `0xC000985C` Byte für Byte gleich.

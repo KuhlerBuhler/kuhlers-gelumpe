@@ -5,7 +5,7 @@ docs/messungen/2026-10-19-exit-shortcuts.md).
 check.py runs `cases` on every patched copy that carries the BLECH menu, the blue Electribe's too (its places from data/synth-map/). With EXIT held on the main screen, WRITE
 saves the edited pattern into its own place (through the firmware's Write window) and a pad puts the sound of a part back to
 the values saved in the bank, the steps and the other parts left as they are, and the part's voices take its saved sample again,
-stopped and while playing. WRITE alone still only opens the window, and with
+stopped and while playing, without the part being switched off at the DSP. WRITE alone still only opens the window, and with
 EXIT held at power-on both are the firmware's.
 
     tools/emu/.venv/bin/python tools/emu/shortcut_cases.py cases --patched NEW.VSB [--flash dump.bin] [--only N]
@@ -25,7 +25,7 @@ import menu_cases  # noqa: E402
 import synthaddr  # noqa: E402
 import unicorn  # noqa: E402
 from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1  # noqa: E402
-from machine import load_flash  # noqa: E402
+from machine import UART1, load_flash  # noqa: E402
 from pswitch_cases import Box, play  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
 
@@ -40,8 +40,12 @@ STEPS = 0x30                    # the steps of a part start here, 12 bytes each
 KILL = menu_cases.KILL
 KEY_AT = 39                     # KEY of the pattern, 0 to 11
 KEY_PADS_ON = script_hooks.MENU_STATE + 0x104   # M_KP: the page KEY PADS (tools/patch/script_menu.s)
-# Per pad the KEY that KEY PADS sets, -1 none: chromatic in pad order, pad 1 C to pad 12 B; pads 13 to 16 set nothing.
+# Per pad the KEY that KEY PADS sets, -1 none: chromatic in pad order, pad 1 C to pad 12 B; pads 13 to 16 shift the octave instead.
 KEY_NOTES = list(range(12)) + [-1] * 4
+KEY_SHIFTS = [-1, 0, 1, 2]      # pads 13 to 16: octaves added to the KEY where the firmware adds it to a note (0 after the start)
+KP_OCT = script_hooks.MENU_STATE + 0x10D   # the shift, signed byte (tools/patch/script_shortcuts.s)
+OCTAVE_AT = 0x324               # the keyboard octave of the bar keys, in the object behind OCTAVE_OBJ (2026-11-12-key-pads-oktave.md)
+OCTAVE_OBJ = {False: 0xC06912E0, True: 0xC056B58C}
 KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 DRAW_TEXT = {False: 0xC003F7D0, True: 0xC003A408}   # the firmware's text draw (text, x, y, ...), Sampler and synth
 DISPATCH = 0xC002837C           # the dispatcher of panel messages, before the input filter
@@ -194,20 +198,24 @@ NOTE_ON = 0xC00998B4            # a voice takes a note: r0 the voice, r1 the sam
 MAILBOX = 0xFF900A34            # the DSP's mailbox: what a note sends there (ht_osc_cases.Box.note)
 SAMPLE_AT = 8                   # the sample of a part, a half word in its record
 OSC_DIAL = [1, 1, 0, 1, 0]      # the OSC encoder one step up: the firmware's own sample change (live_write_cases.PART_INPUTS)
+PART_OFF = 0xC0093A20           # (part, ...) switches a part off at the DSP; Copy Part's part sound setup calls it, the SAMPLE knob does not
 
 
 class VBox(SBox):
     """A device that sees what the voices of part 1 get: the sample in its part object, the samples of the notes the voices
     take, and the words the DSP's mailbox gets (DspLog, the note messages as ht_osc_cases reads them)."""
 
-    def __init__(self, payload, flash=None, held=0):
-        super().__init__(payload, flash, held)
+    def __init__(self, payload, flash=None, held=0, dsp=False):
+        super().__init__(payload, flash, held, dsp=dsp)
         from mfx_cases import DspLog
         self.log = DspLog(self.m)
         self.notes = []
         self.part = self.dev.call(PART_OBJECT, 0)
+        self.offs = []
         at = self.dev.a(NOTE_ON)
         self.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: self.notes.append(uc.reg_read(UC_ARM_REG_R1)), begin=at, end=at)
+        at = self.dev.a(PART_OFF)
+        self.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: self.offs.append(uc.reg_read(UC_ARM_REG_R0)), begin=at, end=at)
         self.m.uc.ctl_flush_tb()
 
     def sample(self, data=None):
@@ -233,10 +241,13 @@ class VBox(SBox):
         self.run(1.5)                   # the OSC value window closes
 
     def reset(self):
+        """EXIT + pad 1. Returns the parts the firmware switched off at the DSP meanwhile."""
+        self.offs.clear()
         self.exit_held(True)
         self.pad(0)
         self.exit_held(False)
         self.run(0.5)
+        return list(self.offs)
 
     def hit(self):
         """Pad 1 (TRIGGER: part 1 sounds): the samples its voice takes and the values of the mailbox's note messages."""
@@ -270,7 +281,7 @@ def case_reset_voice(payload, flash):
         box.change_sample()
         changed = box.sample()
         firmware_follows = box.voice_sample() == changed != saved
-        box.reset()
+        offs = box.reset()
         restored = box.sample() == saved and box.voice_sample() == saved
         if not playing:
             play(box)
@@ -281,6 +292,11 @@ def case_reset_voice(payload, flash):
                          f"{how}: saved sample {saved}, OSC encoder 3 up {changed}, part object took it {firmware_follows}; EXIT + pad 1: "
                          f"pattern {box.sample()}, part object {box.voice_sample()}; {'sequencer goes on' if playing else 'PLAY'}, its notes "
                          f"take {seq}; pad 1 takes {notes}; playing {box.transport() == 1}"))
+        # Device test 11.11.: with Copy Part's part sound setup the part stayed silent after EXIT + pad until the SAMPLE knob was
+        # turned and the sequencer restarted. That setup first switches the part off at the DSP (PART_OFF); the emulator does not
+        # model the DSP, so the check is that the reset does not do that, like the SAMPLE knob.
+        out.append(entry(f"exit_pad_keeps_the_part_on_{slug}", restored and not offs and not box.m.asserts,
+                         f"{how}: parts switched off at the DSP during EXIT + pad 1: {offs or 'none'}; part 1 back on its saved sample {restored}"))
         twins = {kind: VBox(payload, flash) for kind in ("plain", "changed", "reset")}
         for kind, twin in twins.items():
             twin.steps(False)
@@ -298,6 +314,62 @@ def case_reset_voice(payload, flash):
                          f"{how}, pad 1: mailbox values only the changed twin sends {sorted(only_changed)}, only the untouched twin "
                          f"{sorted(only_plain)}; after EXIT + pad: of the changed ones {sorted(hits['reset'][1] & only_changed)}, of the "
                          f"untouched ones {sorted(hits['reset'][1] & only_plain)}; samples of the notes {[hits[k][0] for k in hits]}"))
+    return out
+
+
+def case_reset_dsp(payload, flash):
+    """EXIT + pad hands the reset values of part 1 to the sound engine, without a knob turned (device test 15.11.: PITCH and
+    CUTOFF changed, EXIT + pad, the display showed the saved values, the sound changed only once each knob was turned). The DSP
+    model (dsp_model.py) listens from power-on. PITCH, LEVEL and PAN turned, CUTOFF and the IFX encoder turned: the DSP gets the
+    new values. After EXIT + pad it holds the values it had before the turns: the PITCH offset of each voice, the cutoff, the
+    level and the pan of the part and the unit of its insert effect; stopped (a MIDI note on channel 1) and while the sequencer
+    plays part 1 (its voices of one second)."""
+    from dsp_model import LEVEL, PAN_LEFT, PAN_RIGHT, DspModel
+    from plugin_api24_cases import CUTOFF_ENCODER, KNOBS
+    IFX_ENCODER = 4
+    out = []
+    for playing in (False, True):
+        slug, how = ("while_playing", "playing") if playing else ("stopped", "stopped")
+        box = VBox(payload, flash, dsp=True)
+        dsp = DspModel.attach(box.m)
+        box.steps(playing)
+        if playing:
+            play(box)
+
+        def state():
+            mark = len(dsp.gates)
+            if playing:
+                box.run(1.0)
+            else:
+                box.m.midi(bytes([0x90, 60, 100]))
+                box.run(0.3)
+            voices = [dsp.voice(g[1]) for g in dsp.gates[mark:] if g[3]]
+            seen = {"pitch": sorted({v.get("pitch") for v in voices}), "cutoff": (dsp.filter(0) or (None,))[0],
+                    "unit": (dsp.ifx(0) or {}).get("unit")}
+            if not playing:
+                seen.update(level=dsp.part_value(0, LEVEL), pan=(dsp.part_value(0, PAN_LEFT), dsp.part_value(0, PAN_RIGHT)))
+                box.m.midi(bytes([0x80, 60, 0]))
+                box.run(0.4)
+            return seen
+
+        before = state()
+        box.m.send([2, KNOBS["pitch"], 0, 230, 0])
+        box.m.send([2, KNOBS["level"], 0, 30, 0])
+        box.m.send([2, KNOBS["pan"], 0, 240, 0])
+        box.run(0.3)
+        box.m.send([1, CUTOFF_ENCODER, 0, -30 & 0xFF, 0])
+        box.run(0.3)
+        box.m.send([1, IFX_ENCODER, 0, 3, 0])
+        box.run(1.8)                    # the value window closes
+        turned = state()
+        moved = [k for k in before if turned[k] != before[k]]
+        box.reset()
+        after = state()
+        back = [k for k in before if after[k] == before[k]]
+        out.append(entry(f"exit_pad_resets_the_dsp_values_{slug}", sorted(moved) == sorted(before) == sorted(back)
+                         and None not in before.values() and not box.m.asserts,
+                         f"{how}: at the DSP before {before}; after the knobs {turned} (changed {moved}); after EXIT + pad 1 {after} "
+                         f"(back {back})"))
     return out
 
 
@@ -432,8 +504,11 @@ def case_key_pads(payload, flash):
     out = []
     box.poke(KEY_AT, 0)
     part = box.selected()
-    held(KEYBOARD, True)
-    got, shown, windows = [], [], []
+    octave = lambda: box.u32(box.u32(OCTAVE_OBJ[box.dev.synth]) + OCTAVE_AT)  # noqa: E731
+    shift = lambda: struct.unpack("b", box.dev.read(KP_OCT, 1))[0]  # noqa: E731
+    start_shift = shift()
+    held(KEYBOARD, True, 0.25)     # 0.2 put pad 6 on the frame where the KEYBOARD window times out (blue, 12.11.)
+    got, shown, windows, shifts = [], [], [], []
     for n in range(16):
         texts.clear()
         opened.clear()
@@ -441,6 +516,7 @@ def case_key_pads(payload, flash):
             box.poke(KEY_AT, 3)             # a pad without a note leaves any KEY as it is
         box.pad(n)
         got.append(key())
+        shifts.append(shift())
         windows.append(list(opened))
         if KEY_NOTES[n] >= 0:
             shown.append(KEY_NAMES[KEY_NOTES[n]] in texts and "KEY" in texts)
@@ -452,7 +528,27 @@ def case_key_pads(payload, flash):
                      and windows == [[n] if n >= 0 else [] for n in KEY_NOTES] and not box.m.asserts,
                      f"pads 1 to 12, window with KEY and the note: {shown}; window messages per pad {windows}"))
 
+    out.append(entry("key_pads_set_the_octave", start_shift == 0 and shifts == [0] * 12 + KEY_SHIFTS and octave() == 4 and not box.m.asserts,
+                     f"shift at the start {start_shift}, after each of the 16 pads {shifts} (want 0 for pads 1 to 12, then {KEY_SHIFTS}); "
+                     f"the bar keys' keyboard octave {octave()} (want 4, untouched)"))
+
+    box.poke(PART + 5, 1)  # the shift follows the KEY, which moves only a part with SCALE MODE ON
     box.dev.press(KEYBOARD, 0.4)
+
+    def pad_notes():
+        sent = len(box.m.uart[UART1]["tx"])
+        box.pad(0)
+        data = bytes(box.m.uart[UART1]["tx"][sent:])
+        return [data[i + 1] for i in range(len(data) - 2) if data[i] & 0xF0 == 0x90 and data[i + 2] > 0]
+    high = pad_notes()
+    passed = list(marked)
+    held(KEYBOARD, True)
+    box.pad(13)
+    held(KEYBOARD, False, 0.3)
+    low = pad_notes()
+    out.append(entry("key_pads_octave_plays", len(high) == 1 and len(low) == 1 and high[0] - low[0] == 24 and shift() == 0
+                     and marked == passed and not box.m.asserts,
+                     f"KEYBOARD mode, SCALE MODE ON, pad 1 after pad 16 (shift +2) {high}, after pad 14 (shift {shift()}) {low}, want 24 apart"))
     out.append(entry("key_pads_short_press_reaches_the_firmware", marked == [1, 0] and mode() == 5 and key() == 3
                      and box.dev.read(script_hooks.PRESS_KEY, 8) == b"\xff" * 8 and not box.m.asserts,
                      f"KEYBOARD passed on {marked} (want press and release), pad mode {mode()} (want 5 KEYBOARD), KEY {key()}"))
@@ -470,6 +566,80 @@ def case_key_pads(payload, flash):
     out.append(entry("key_pads_shift_and_off_are_stock", key() == 0 and box.selected() == 12 and marked == [] and not box.m.asserts,
                      f"after SHIFT + KEYBOARD and KEY PADS OFF + KEYBOARD + pad 13: KEY {key()} (want 0), part {box.selected()} "
                      f"(want 12, the firmware's part select), marked presses {marked}"))
+    return out
+
+
+def case_key_pads_transpose(payload, flash):
+    """KEY PADS octave: pads 13 to 16 move the sequence by -1, 0, +1, +2 octaves where the firmware adds the KEY, so a part with
+    SCALE MODE ON plays shifted and a part with SCALE MODE OFF stays; a note played on the keyboard while shifted is recorded
+    without the shift and plays back as it was heard (device test 15.11.: the octave only moved the keyboard)."""
+    out = []
+    box = SBox(payload, flash)
+
+    def held(k, down, wait=0.25):
+        box.m.press(k, down)
+        box.run(wait)
+
+    def shift_to(pad):
+        held(KEYBOARD, True)
+        box.pad(pad)
+        held(KEYBOARD, False, 0.3)
+
+    def notes(seconds):
+        sent = len(box.m.uart[UART1]["tx"])
+        box.run(seconds)
+        data = bytes(box.m.uart[UART1]["tx"][sent:])
+        return {(data[i] & 15, data[i + 1]) for i in range(len(data) - 2) if data[i] & 0xF0 == 0x90 and data[i + 2] > 0}
+
+    def steps(part, scale, note):
+        base = PART + part * STRIDE
+        box.poke(base + 5, scale)
+        for s in range(64):
+            on = s % 16 in (0, 4, 8, 12)
+            for i, v in enumerate([int(on), 40, 100, int(on), note if on else 0, 0, 0, 0]):
+                box.poke(base + STEPS + s * 12 + i, v)
+    steps(0, 1, 61)
+    steps(1, 0, 63)
+    play(box)
+    box.run(0.1)
+    heard = {}
+    for pad in (13, 12, 15, 13):
+        shift_to(pad)
+        heard[pad] = notes(8.0)
+    scaled = {pad: sorted(n for ch, n in got if ch == 0) for pad, got in heard.items()}
+    plain = {pad: sorted(n for ch, n in got if ch == 1) for pad, got in heard.items()}
+    base_note = scaled[13][0] if len(scaled[13]) == 1 else None
+    out.append(entry("key_pads_octave_moves_the_sequence", base_note is not None and scaled[12] == [base_note - 12] and scaled[15] == [base_note + 24]
+                     and all(v == plain[13] and len(v) == 1 for v in plain.values()) and not box.m.asserts,
+                     f"part 1 (SCALE MODE ON) per pad 14, 13, 16, 14: {[scaled[p] for p in (13, 12, 15)]}, want -12 and +24 from pad 14; "
+                     f"part 2 (OFF): {[plain[p] for p in (13, 12, 15)]}, want the same"))
+
+    recorded = {}
+    for pad in (13, 14):
+        box = SBox(payload, flash)
+        steps(0, 1, 0)
+        shift_to(pad)
+        box.dev.press(KEYBOARD, 0.4)
+        sent = len(box.m.uart[UART1]["tx"])
+        box.pad(0)
+        data = bytes(box.m.uart[UART1]["tx"][sent:])
+        live = [data[i + 1] for i in range(len(data) - 2) if data[i] & 0xF0 == 0x90 and data[i + 2] > 0]
+        box.dev.press(0x00, 0.2)                    # REC, then PLAY: pad 1 four times
+        box.dev.press(0x02, 0.3)
+        for _ in range(4):
+            box.pad(0)
+            box.run(0.3)
+        box.dev.press(0x01, 0.5)
+        pat = box.live()
+        stored = sorted({pat[PART + STEPS + s * 12 + 4] for s in range(64) if pat[PART + STEPS + s * 12]})
+        play(box)
+        back = sorted(n for ch, n in notes(8.0) if ch == 0)
+        recorded[pad] = (live, stored, back)
+    (live0, stored0, back0), (live1, stored1, back1) = recorded[13], recorded[14]
+    out.append(entry("key_pads_octave_records_without_the_shift", len(live0) == 1 and live1 == [live0[0] + 12] and stored0 and stored1 == stored0
+                     and back0 == live0 and back1 == live1 and not box.m.asserts,
+                     f"KEYBOARD mode pad 1 at shift 0 / +1: plays {live0} / {live1}, stored {stored0} / {stored1} (want the same), "
+                     f"plays back {back0} / {back1} (want what was played)"))
     return out
 
 
@@ -601,7 +771,8 @@ def case_filter_toggle(payload, flash):
     return out
 
 
-GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle)
+GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_kill, case_unsaved, case_pad_state, case_key_pads, case_key_pads_transpose, case_filter_toggle,
+          case_reset_dsp)
 
 
 def group_entries(payload, flash, i):

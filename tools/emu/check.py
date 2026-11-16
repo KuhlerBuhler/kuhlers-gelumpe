@@ -25,7 +25,7 @@ e.g. Hacktribe on Korg's): it changes start code by nature and says nothing abou
 checked at all; every other check, the boots included, stays. While it runs, check.py writes one JSON line {"progress": ...} per finished task to stderr (progress.py); stdout is only the result. A copy that carries the splash editor's start
 hook also has to pass its storage and kill switch cases (splash_cases.py); one with the MFX 2
 switch's key hook has to pass its switch, DSP and kill switch cases (mfx_cases.py); one with the BLECH menu has to pass the menu, settings and look
-cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py), every copy with the BLECH menu the cases of the device from the computer, of the test mode, of the plugin timers, of the plugin edits, of the live write paths, of the touchpad and key calls and of the object tree (remote_cases.py, testmode_cases.py, timer_cases.py, plugin_edit_cases.py, live_write_cases.py, plugin_api15_cases.py, objects_cases.py, plugin_api18_cases.py, plugin_api19_cases.py, global_cases.py, pattern_parts_cases.py, plugin_api22_cases.py, plugin_api23_cases.py, plugin_api24_cases.py, plugin_api25_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py); one with the BEAT 8 table entry has to pass its step, clock, menu, WRITE, Gate Arp, export, slice and REC cases (beat_eighth_cases.py); one with TOUCH SCALE RANGE 0 has to pass its menu, note, octave, key, Gate Arp and power-on cases (touch_scale_zero_cases.py); one with the Hacktribe oscillators has to pass its name, card, knob, voice, pattern, export, EXIT and FEATURES page cases (ht_osc_cases.py); every copy with the BLECH menu the cases of a card that stops answering, a locked card, an SDSC card, a card that damages data and a dead card at the start (card_error_cases.py).
+cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py), every copy with the BLECH menu the cases of the device from the computer, of the test mode, of the plugin timers, of the plugin edits, of the live write paths, of the touchpad and key calls and of the object tree (remote_cases.py, testmode_cases.py, timer_cases.py, plugin_edit_cases.py, live_write_cases.py, plugin_api15_cases.py, objects_cases.py, plugin_api18_cases.py, plugin_api19_cases.py, global_cases.py, pattern_parts_cases.py, plugin_api22_cases.py, plugin_api23_cases.py, plugin_api24_cases.py, plugin_api25_cases.py, plugin_catalog15_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py); one with the BEAT 8 table entry has to pass its step, clock, menu, WRITE, Gate Arp, export, slice and REC cases (beat_eighth_cases.py); one with TOUCH SCALE RANGE 0 has to pass its menu, note, octave, key, Gate Arp and power-on cases (touch_scale_zero_cases.py); one with the update guard has to refuse a cut short, an empty and a too long SYSTEM.VSB at each read and still update from a whole one (update_guard_cases.py); one with the Hacktribe oscillators has to pass its name, card, knob, voice, pattern, export, EXIT and FEATURES page cases (ht_osc_cases.py); every copy with the BLECH menu the cases of a card that stops answering, a locked card, an SDSC card, a card that damages data and a dead card at the start (card_error_cases.py).
 """
 
 import argparse
@@ -65,6 +65,7 @@ from stereo_pad_cases import GROUPS as STEREOPAD_GROUPS, has_hooks as has_stereo
 from ht_osc_cases import GROUPS as HTOSC_GROUPS, has_hooks as has_htosc
 from beat_eighth_cases import GROUPS as BEATEIGHTH_GROUPS, has_hooks as has_beateighth
 from touch_scale_zero_cases import GROUPS as TOUCHZERO_GROUPS, has_hooks as has_touchzero
+from update_guard_cases import GROUPS as UPDATEGUARD_GROUPS, has_hooks as has_updateguard
 from doom_loader_cases import GROUPS as DOOM_GROUPS, has_hooks as has_doom
 
 HEADER = 0x100
@@ -224,6 +225,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         tasks += [("beat_eighth_cases", "cases_task", (i,)) for i in range(len(BEATEIGHTH_GROUPS))]
     if want(has_touchzero):
         tasks += [("touch_scale_zero_cases", "cases_task", (i,)) for i in range(len(TOUCHZERO_GROUPS))]
+    if want(has_updateguard):
+        tasks += [("update_guard_cases", "cases_task", (i,)) for i in range(len(UPDATEGUARD_GROUPS))]
     if want(has_doom):
         tasks += [("doom_loader_cases", "cases_task", (i,)) for i in range(len(DOOM_GROUPS))]
     power_off, combine_power_off = power_off_tasks(payload) if want(has_power_off_hook) else ([], None)
@@ -236,15 +239,18 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     data = {"payload": payload, "flash": flash, "boot_flash": boot, "base": base[HEADER:]}
     if shard is not None or reports is not None:
         import check_shards
+        import shard_weights
+        weights = shard_weights.weights_for(tasks)
         config = {"allow": sorted(map(tuple, allow)), "allow_code": sorted(map(tuple, allow_code)), "quick": quick, "cases": cases,
                   **({"foreign": True} if foreign else {}),
+                  "partition": {"algorithm": "lpt-v1", "weights": weights},
                   "runtime": taskcache.inputs("check-shard", {}), "header": base[:HEADER].hex(), "patched_header": patched[:HEADER].hex()}
         fingerprint = check_shards.identity(data, tasks, config, check_shards.source_identity(Path(__file__).resolve().parents[2]))
         if shard is not None:
             if reports is not None:
                 raise ValueError("a check cannot run and join shards together")
             index, count = shard
-            assigned = check_shards.indices(len(tasks), index, count)
+            assigned = check_shards.indices(len(tasks), index, count, weights=weights)
             selected = [tasks[i] for i in assigned]
             tracker = progress_lib.Tracker(selected, parallel.workers(len(selected)) if jobs is None else jobs, progress) if progress else None
             measured = []
@@ -254,13 +260,15 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
                 if metrics:
                     metrics(event)
 
+            measured_task({"kind": "partition", "algorithm": "lpt-v1", "index": index, "count": count,
+                           "tasks": len(assigned), "estimated_ms": sum(weights[i] for i in assigned)})
             result = parallel.run_tasks(selected, data, jobs, tracker.done if tracker else None,
                                         cache="check", on_queue=tracker.queued if tracker else None,
                                         on_metrics=measured_task)
-            part = check_shards.report(fingerprint, tasks, index, count, result)
+            part = check_shards.report(fingerprint, tasks, index, count, result, weights=weights)
             part["metrics"] = measured
             return part
-        done = check_shards.join(fingerprint, tasks, reports, read_size=PAYLOAD)
+        done = check_shards.join(fingerprint, tasks, reports, read_size=PAYLOAD, weights=weights)
     else:
         tracker = progress_lib.Tracker(tasks, parallel.workers(len(tasks)) if jobs is None else jobs, progress) if progress else None
         done = parallel.run_tasks(tasks, data, jobs, tracker.done if tracker else None,
@@ -289,6 +297,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     htosc = [c for _ in range(len(HTOSC_GROUPS) if want(has_htosc) else 0) for c in done.pop(0)]
     beateighth = [c for _ in range(len(BEATEIGHTH_GROUPS) if want(has_beateighth) else 0) for c in done.pop(0)]
     touchzero = [c for _ in range(len(TOUCHZERO_GROUPS) if want(has_touchzero) else 0) for c in done.pop(0)]
+    updateguard = [c for _ in range(len(UPDATEGUARD_GROUPS) if want(has_updateguard) else 0) for c in done.pop(0)]
     doom = [c for _ in range(len(DOOM_GROUPS) if want(has_doom) else 0) for c in done.pop(0)]
     power_off_done = [done.pop(0) for _ in power_off]
     presets = done.pop(0) if want(has_presets) else []
@@ -344,6 +353,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(htosc)
     checks.extend(beateighth)
     checks.extend(touchzero)
+    checks.extend(updateguard)
     checks.extend(doom)
     if power_off:
         checks.extend(combine_power_off(power_off_done))
@@ -360,7 +370,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
 CASE_MODULES = ("mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases", "note_assist_cases",
                 "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
                 "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-                "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases")
+                "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases")
 
 
 def case_list(text):

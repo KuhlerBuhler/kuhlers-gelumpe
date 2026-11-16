@@ -13,7 +13,7 @@ import { field, readRaw } from "./map/index.mjs";
 import { plan } from "./plan.mjs";
 import { identify } from "./firmware.mjs";
 import { ramTools } from "./ramsearch.mjs";
-import { remoteInfo, command, stub, messageStub, panel, KEY, ENCODER, TEST, RELEASE } from "./remote.mjs";
+import { remoteInfo, command, stub, messageStub, takeBack, panel, KEY, ENCODER, MESSAGE, TEST, RELEASE, TRIES } from "./remote.mjs";
 
 export const SCREEN_W = 128;
 export const SCREEN_H = 64;
@@ -143,11 +143,27 @@ export function makeKorg({ session, emulator }, { hooks = {}, print = null } = {
     const info = remoteInfo(s.firmwareBytes);
     if (info === null) return false;
     if (message && info.message === null) throw new Error(localize("Diese Firmware nimmt nur Tasten und das Hauptrad an, Regler, Pads und Touchpad brauchen BLECHTRIBE 1.3.8."));
-    const code = message ? messageStub(info.mailbox, info.message, message, info.osWait) : stub(info.mailbox, word, info.osWait);
-    const res = await s.apply({ kind: "exec", code: toCode(code), at: EXEC.stubAt, guards: guardsOf(s, [[EXEC.icache.addr, EXEC.icache.length]]), invalidate: true }, { confirmed: true });
-    // The stub returns 0 when the runtime did not take the command in 500 ms (switched on with EXIT held, a full queue); EXEC reports that.
-    if (!res.ok) throw new Error(localize("Die Laufzeit hat den Befehl nicht genommen: {reason}", { reason: res.error?.message ?? res.gate?.reasons?.map(r => r.message).join(" ") ?? localize("abgelehnt") }));
-    return true;
+    const sent = message ? command(MESSAGE) : word;
+    const code = message ? messageStub(info.mailbox, info.message, message) : stub(info.mailbox, word);
+    const exec = code => s.apply({ kind: "exec", code: toCode(code), at: EXEC.stubAt, guards: guardsOf(s, [[EXEC.icache.addr, EXEC.icache.length]]), invalidate: true }, { confirmed: true });
+    const failed = res => new Error(localize("Die Laufzeit hat den Befehl nicht genommen: {reason}", { reason: res.error?.message ?? res.gate?.reasons?.map(r => r.message).join(" ") ?? localize("abgelehnt") }));
+    // The stub returns at once (waiting inside EXEC hung a device); the done counter tells when the runtime took the word.
+    const done = async () => {
+      const run = await s.exclusive(() => s.sender.run(plan({ kind: "readRam", addr: info.mailbox + 8, length: 4 }, { channel: s.device.channel })));
+      if (!run.ok) throw run.error;
+      const b = run.results[0].value;
+      return (b[0] | b[1] << 8 | b[2] << 16 | b[3] << 24) >>> 0;
+    };
+    const before = await done();
+    const res = await exec(code);
+    if (!res.ok) throw failed(res);
+    for (let i = 0; i < TRIES; i++) {
+      if ((await done()) !== before) return true;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    // Not taken in about 500 ms (switched on with EXIT held, a full queue): the word back, so nothing runs it later.
+    await exec(takeBack(info.mailbox, sent));
+    throw failed({ error: { message: localize("nicht innerhalb von 500 ms") } });
   };
   const send = async message => {
     if (!(await remote(null, message))) throw new Error(localize("Das geht nur mit einer Firmware mit dem BLECHTRIBE-Satz (die Laufzeit nimmt den Befehl an)."));

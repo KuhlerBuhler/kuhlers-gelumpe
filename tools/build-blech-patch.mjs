@@ -29,6 +29,7 @@ import { applyPatchFile, buildPatchFile } from "../src/patchfile.mjs";
 import { buildOf, sha256 } from "../src/firmware.mjs";
 import { STOCK_SHA256, SYNTH_SHA256, HACKTRIBE_SHA256 as OFFICIAL_SHA256, withHead } from "../src/patcher.mjs";
 import { applyBsdiff, buildBsdiff, copyMatches, parseBsdiff } from "./patch/bsdiff.mjs";
+import { ensureRuntimePatches } from "./patch/ensure-runtime.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const args = process.argv.slice(2);
@@ -50,6 +51,7 @@ const setPath = resolve(root, option("--set", "data/patches/blech.json"));
 const synthSetPath = resolve(root, option("--synth-set", "data/patches/blech-synth.json"));
 const version = option("--version", JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")).version);
 
+ensureRuntimePatches({ log: message => console.log(message) });
 const read = path => JSON.parse(readFileSync(path, "utf8"));
 const set = read(setPath);
 if (set.format !== "gelumpe-patch-set" || set.version !== 1 || !Array.isArray(set.patches)) fail(`${setPath}: not a gelumpe-patch-set 1`);

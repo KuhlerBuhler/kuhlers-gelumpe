@@ -260,7 +260,7 @@ ein Plugin mit Endlosschleife im Rahmen-Handler wird nach 20000 Operationen abge
 
 ### 2.3 VM-Prototyp, Messungen
 
-- 29 Operationen (Stapelmaschine, 32-Bit-Ganzzahlen, Variablen, Konstanten, Sprünge, Felder mit Grenzprüfung, API-Aufrufe mit 0 bis 3 Argumenten, Division), gebaut mit dem Assembler `tools/patch/arm.py`,
+- 29 Operationen (Stapelmaschine, 32-Bit-Ganzzahlen, Variablen, Konstanten, Sprünge, Felder mit Grenzprüfung, API-Aufrufe mit 0 bis 4 Argumenten (mehr nimmt kein Eintrag von `API` in `data/script/contract.mjs`, darum ist das Gate von `korg.seq.setGate` ein eigener Aufruf neben `setStep`), Division), gebaut mit dem Assembler `tools/patch/arm.py`,
   972 Byte inklusive Sprungtabelle. Eine Python-Referenz-VM rechnet dasselbe: die Summe-Schleife ergibt in beiden `i=1000, s=1346792`.
 - Kosten je Operation (Befehle inklusive Dispatch, gemessen): `PUSHB` 8, `PUSHK`/`LOAD`/`STORE` 9, `ADD`/`MUL`/`XOR` 10, `LT` 12, `JMP` 13, `JZ` 10. Mittelwert 9,6.
   Dispatch allein: `ldrb`, `subs`, `beq`, `and`, `ldr pc` = 5 Befehle.
@@ -319,7 +319,7 @@ Plugin-Variablen im RAM überstehen kein Ausschalten. Für einen "Korg Klicker"-
 
 | Bereich | Größe | Risiko |
 |---|---|---|
-| `0x7F1000` bis `0x7FEFFF` | 56 KiB | niedrig, Empfehlung (`0x7F0000` hat der Startbild-Editor, `0x7FF000` ist die XY-Kalibrierung) |
+| `0x7F1000` bis `0x7FCFFF` | 48 KiB | niedrig, Empfehlung (`0x7F0000` hat der Startbild-Editor, `0x7FD000` und `0x7FE000` die BLECH-Einstellungen ohne Karte, [Messung](../messungen/2026-11-13-einstellungen-flash.md), `0x7FF000` ist die XY-Kalibrierung) |
 | `0x7E0000` bis `0x7EEFFF` | 60 KiB | niedrig (`0x7E8000` hat MFX 2, `0x7EF000` die Panel-Kennung) |
 | `0xE60000` bis `0xFFFFFF` | 1,6 MiB | mittel (Update-Weg `0x80`) |
 | `0x221000` bis `0x22FFFF`, `0x231000` bis `0x23FFFF` | je 60 KiB | mittel (Update-Bereich `0x22` = `0x220000` bis `0x6B0000`) |

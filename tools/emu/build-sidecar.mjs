@@ -14,6 +14,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync
 import { fileURLToPath } from "node:url";
 import { pythonEnv, targetTriple } from "./python-env.mjs";
 import { clearCfgInFile } from "./pe-flags.mjs";
+import { ensureRuntimePatches } from "../patch/ensure-runtime.mjs";
 
 const path = rel => fileURLToPath(new URL(rel, import.meta.url));
 const win = process.platform === "win32";
@@ -36,6 +37,9 @@ if (!triple) {
   console.error("Zieltriple unbekannt: rustc fehlt. TAURI_TARGET_TRIPLE setzen.");
   process.exit(1);
 }
+
+// data/patches is added to the bundle below, and the set lists the runtime patches: they are built, not committed.
+ensureRuntimePatches({ log: message => console.log(message) });
 
 const work = path("../../build/sidecar");
 rmSync(work, { recursive: true, force: true });
@@ -72,6 +76,8 @@ run(...command(python, [
   // Blechy's sprites and the display font: the power-off and card-error pictures are drawn from them when a check builds them.
   "--add-data", `${path("../../assets/blechy/sprites")}${sep}assets/blechy/sprites`,
   "--add-data", `${path("../../data/script/font.mjs")}${sep}data/script`,
+  // The runtime's assembler sources: a case that builds its own runtime (script_hooks.build) reads them next to the modules.
+  ...readdirSync(path("../patch")).filter(f => /\.s$/.test(f)).flatMap(f => ["--add-data", `${path(`../patch/${f}`)}${sep}tools/patch`]),
   path("server.py"),
 ]));
 

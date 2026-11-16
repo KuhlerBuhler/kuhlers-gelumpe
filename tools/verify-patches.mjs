@@ -32,9 +32,11 @@ import { buildOf, hardwareOf, sha256 } from "../src/firmware.mjs";
 import { loadBlechSet, samplerHead, withHead, BLECH_SET_URL, BLECH_SYNTH_SET_URL, VERIFIED_URL } from "../src/patcher.mjs";
 import { pythonEnv } from "./emu/python-env.mjs";
 import { loadGate } from "./load-gate.mjs";
+import { ensureRuntimePatches } from "./patch/ensure-runtime.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 await loadGate();
+ensureRuntimePatches({ log: message => console.log(message) });
 const FORMAT = "gelumpe-verified";
 const SHARD_FORMAT = "gelumpe-verification-shard";
 

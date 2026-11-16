@@ -129,8 +129,8 @@ const ALLOWED = {
   // The default name of a sample as the device writes it.
   "sampleset.mjs": ["Sample{}"],
   "samples.mjs": ["Sample{}"],
-  // A name: the BLECHTRIBE mascot.
-  "splash.mjs": ["Blechy"],
+  // Names: the BLECHTRIBE mascot, and the gallery's pictures and their makers from the Discord channel #splash-screens.
+  "splash.mjs": ["Blechy", "Kuhler Buhler", "Psytrance", "Psychosis", "Watch Dogs", "Rules for Terror", "Crank", "Acey", "Josie"],
   // A heading of docs/plugins.md, found by its text.
   "scripts.mjs": ["Namen für Tasten und LEDs", "Names for keys and LEDs", "Noms des boutons et des LED"],
   // The file name of a saved profile picture.
