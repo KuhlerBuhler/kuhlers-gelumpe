@@ -175,6 +175,8 @@ export const CHAINS = {
   "filter-type-store": [{ id: "setter", sites: [0xC00495DC] }],
   "midi-in": [{ id: "channel-message", sites: [0xC002B2D8, 0xC002843C] }],   // the second is the synth build's
   "pcm-loaded": [{ id: "end", sites: [0xC00473D0] }],                // the synth's PCM load returns its result (user-samples)
+  // DATA UTILITY > IMPORT SAMPLE: the destination selector's range test (import-slots, tools/patch/import_slots.py)
+  "import-destination": [{ id: "range", sites: [0xC006A23C] }],
   "osc-next-group": [{ id: "scan", sites: [0xC003B93C] }],          // the synth's oscillator list: next group, previous group, the knob's step
   "osc-prev-group": [{ id: "wrap", sites: [0xC003BA3C] }],
   "osc-step": [{ id: "wrap", sites: [0xC003BB3C] }],

@@ -102,6 +102,7 @@ const PATCH_LABELS = {
   "ht-osc": "features.htOsc.title",
   "beat-eighth": "features.beatEighth.title",
   "touch-scale-zero": "features.touchScaleZero.title",
+  "import-slots": "features.importSlots.title",
   "stage2-memory": "patcher.patch.stage2Memory",
   "update-guard": "patcher.patch.updateGuard",
   "blech-version": "patcher.patch.version",
