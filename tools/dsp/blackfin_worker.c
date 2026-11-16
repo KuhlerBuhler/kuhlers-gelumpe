@@ -40,6 +40,7 @@ extern int64_t blech_ring_read(void *, void *, uint64_t, uint64_t, int, int64_t,
 #define LIMIT (1024 * 1024)
 #define CHANNEL_SPIN_NS 200000
 static FILE *reply, *request, *pipe_reply;
+static int pipe_request = -1;
 
 /* --channel: the same byte streams over shared memory (blackfin_channel.c); the pipes ring the bell. */
 struct channel_end { void *ring; int bell; };
@@ -110,7 +111,7 @@ static int fork_copy(const char *spec, uint32_t count, pid_t *pid)
     if (*pid < 0) return 0;
     if (*pid) return 1;
     /* The copy: drop the original's pipes, so its host still sees the original's end alone. */
-    close(STDIN_FILENO);
+    close(pipe_request);
     close(fileno(pipe_reply));
     int link = socket(AF_UNIX, SOCK_STREAM, 0);
     if (link < 0 || connect(link, (struct sockaddr *)&address, sizeof(address))) _exit(5);
@@ -178,12 +179,18 @@ int main(int argc, char **argv) {
         } else if (strcmp(argv[i], "--channel") == 0 && i + 1 < argc) channel = argv[++i];
         else return 2;
     }
-    request = stdin;
+    /* The simulated UART reads the simulator's stdin (dv-bfin_uart.c), so the requests move off fd 0:
+       a request byte there would reach the DSP as UART input, depending on when it arrived. */
+    int quiet = open("/dev/null", O_RDONLY);
+    pipe_request = dup(STDIN_FILENO);
+    if (quiet < 0 || pipe_request < 0 || dup2(quiet, STDIN_FILENO) < 0) return 2;
+    close(quiet);
+    request = fdopen(pipe_request, "rb");
     reply = pipe_reply = fdopen(dup(STDOUT_FILENO), "wb");
-    if (!buffer || !reply || dup2(STDERR_FILENO, STDOUT_FILENO) < 0) return 2;
+    if (!buffer || !request || !reply || dup2(STDERR_FILENO, STDOUT_FILENO) < 0) return 2;
     /* Map the channel before the handshake, so the host may remove its file once answered. */
     FILE *channel_in = request, *channel_out = reply;
-    if (channel && !open_channel(channel, STDIN_FILENO, fileno(reply), &channel_in, &channel_out)) return 4;
+    if (channel && !open_channel(channel, pipe_request, fileno(reply), &channel_in, &channel_out)) return 4;
     default_callback.init(&default_callback);
     SIM_DESC sd = sim_open(SIM_OPEN_DEBUG, &default_callback, NULL, args);
     if (!sd || sim_create_inferior(sd, NULL, empty, empty) != SIM_RC_OK) return 3;

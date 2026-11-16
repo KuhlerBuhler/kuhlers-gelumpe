@@ -240,6 +240,17 @@ class Execution(unittest.TestCase):
         self.assertEqual(result['steps'], 5)
         self.assertTrue(result['reached'])
 
+    def test_queued_requests_never_reach_the_dsp_as_uart_input(self):
+        # GNU's UART reads the simulator's stdin; requests queued behind this one must not show up there.
+        with BlackfinBackend(WORKER, operating=True) as backend:
+            data = bytes(range(256)) * 1024   # more than stdio buffers, so part of it waits on the pipe
+            backend._send(struct.pack('<III', 1, 0xFFC00414, 2) + struct.pack('<III', 2, DATA, len(data)) + data
+                          + struct.pack('<III', 1, DATA + len(data) - 4, 4))
+            status, = struct.unpack('<H', backend._response())
+            self.assertFalse(status & 1)   # LSR DR: no received byte
+            self.assertEqual(backend._response(), b'')
+            self.assertEqual(backend._response(), data[-4:])
+
     def test_core_timer_observes_all_modeled_instruction_cycles(self):
         with BlackfinBackend(WORKER, operating=True) as backend:
             backend.write(ENTRY, struct.pack('<H', 0x2000))
