@@ -957,7 +957,7 @@ export const FX_CATALOG = Object.freeze([
  {
   "kind": "ifx",
   "name": "Loud Distortion",
-  "description": "Weniger Verzerrung als das Werkspreset (Gain 64 statt 100), der Ausgangspegel deutlich darüber (20 statt 11). Der Regler dreht die Verzerrung.",
+  "description": "Weniger Verzerrung als das Werkspreset (Gain 64 statt 100), der Ausgangspegel etwas darüber (15 statt 11). Der Regler dreht die Verzerrung.",
   "stages": [
    {
     "stage": "ifx1",
@@ -978,7 +978,7 @@ export const FX_CATALOG = Object.freeze([
      "post_eq3_frequency": 53,
      "post_eq3_q": 5,
      "post_eq3_gain": 25,
-     "output_level": 20
+     "output_level": 15
     }
    },
    {
@@ -1525,7 +1525,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "I_level_mod",
     "params": {
      "amp_level": 127,
-     "output_gain": 36,
+     "output_gain": 45,
      "level_mod_source": 4,
      "level_mod_int": 8,
      "level_mod_type": 0,
@@ -1573,7 +1573,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "I_level_mod",
     "params": {
      "amp_level": 127,
-     "output_gain": 36,
+     "output_gain": 45,
      "level_mod_source": 4,
      "level_mod_int": 8,
      "level_mod_type": 0,
@@ -1777,7 +1777,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "I_acid_driver",
     "params": {
      "drive": 40,
-     "output_level": 42
+     "output_level": 46
     }
    },
    {
@@ -1809,8 +1809,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 0,
     "param": 1,
-    "low": 50,
-    "high": 27
+    "low": 56,
+    "high": 32
    }
   ],
   "creator": "Kuhler Buhler"
@@ -1973,7 +1973,7 @@ export const FX_CATALOG = Object.freeze([
      "hi_damp": 120,
      "sample_freq": 127,
      "bit_depth": 8,
-     "output_level": 90,
+     "output_level": 127,
      "mask_type": 0
     }
    },
@@ -1996,8 +1996,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 0,
     "param": 6,
-    "low": 90,
-    "high": 75
+    "low": 127,
+    "high": 106
    }
   ],
   "creator": "Kuhler Buhler"
@@ -2018,7 +2018,7 @@ export const FX_CATALOG = Object.freeze([
      "hi_damp": 110,
      "sample_freq": 60,
      "bit_depth": 20,
-     "output_level": 90,
+     "output_level": 127,
      "mask_type": 0
     }
    },
@@ -2059,7 +2059,7 @@ export const FX_CATALOG = Object.freeze([
      "release": 5,
      "hold_time": 0,
      "tube_sat": 10,
-     "output_gain": 52
+     "output_gain": 60
     }
    },
    {
@@ -2074,7 +2074,7 @@ export const FX_CATALOG = Object.freeze([
      "release": 3,
      "hold_time": 3,
      "tubesat": 0,
-     "output_gain": 48
+     "output_gain": 60
     }
    }
   ],
@@ -2090,8 +2090,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 0,
     "param": 9,
-    "low": 50,
-    "high": 58
+    "low": 58,
+    "high": 66
    }
   ],
   "creator": "Kuhler Buhler"
