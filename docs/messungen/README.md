@@ -410,6 +410,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [FX-Pegel und Part-Reset im DSP-Sim: Inserts, Master, Limiter, Ring Crush, #611](2026-11-16-fx-pegel-im-dsp-sim.md)
 - [Blackfin: HOSTDP-FIFO und DMA1](2026-11-14-blackfin-host-fifo.md)
 - [Blackfin: gemeinsame ARM-/DSP-Modellzeit und GPIO](2026-11-14-blackfin-modellzeit.md)
+- [DSP-Simulator: Tempo, Poll-Vorlauf und Plattformen](2026-11-16-dsp-sim-tempo.md)
 
 ## DSP-Grundlagen der nativen Gegenprobe
 
