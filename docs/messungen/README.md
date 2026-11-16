@@ -103,6 +103,7 @@ Startphase, Startmodi, Notschalter, Firmware als Datei und der Weg zurück.
 - [Geänderte Firmware als Datei, im Emulator gebootet](2026-10-09-firmware-export.md)
 - [Rückweg geübt: eigene Firmware hin, Original zurück](2026-10-10-rueckweg-geuebt.md)
 - [SOFTWARE UPDATE prüft die Dateigröße: eine abgeschnittene SYSTEM.VSB wird nicht geflasht, im Emulator](2026-11-13-update-schutz.md)
+- [Neustart über den Watchdog von Timer 1: Modell, 84-Byte-Stub über EXEC, im Emulator; Gerätetest offen](2026-11-16-watchdog-neustart.md)
 
 
 ## Emulator
