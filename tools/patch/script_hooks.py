@@ -139,7 +139,9 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          # store of the word + 1, and the idle loop's store of 0 behind wfi (docs/messungen/2026-11-14-energie-befunde.md, 0.1)
          (0xC00017F0,0xE5863000,'load_idle_hook'),
          (0xC000159C,0xE5820000,'load_irq_hook'),
-         (0xC0001820,0xE5863000,'load_wake_hook'))
+         (0xC0001820,0xE5863000,'load_wake_hook'),
+         # card init (script_menu.s): the call in Korg's ACMD41 loop that checks the card is still in, bl 0xC001CAE8
+         (0xC001AEB4,0xEB00070B,'acmd41_round_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.

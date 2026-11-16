@@ -106,6 +106,8 @@
 .equ CARD_RETRY_MS, 2000      ; the wait before that read; in OS ticks, not frames: the frames the locked out read held up run right after it
 .equ MENU_TICKS, 0xC06A292C   ; the OS tick count, one per millisecond (script_hw.s:OS_TICKS)
 .equ CARD_STUCK, 0xFC         ; the read again was locked out too: nothing more until the card is pulled
+.equ CARD_INIT_MS, 2000       ; acmd41_round_hook: a card still busy this long after the first ACMD41 locks out (SD spec: ready within 1 s)
+.equ M_SD_T0, 0xD4            ; acmd41_round_hook: the OS tick of the first ACMD41 round of the init running
 .equ SD_INIT_LOCK, 0xC031BEEC ; Korg's SD driver: 1 once its ACMD41 loop ran out of rounds; every init after it fails at once ("No Card."), only a card
                               ; interrupt clears it, and none comes without an init (docs/messungen/2026-11-14-karte-init-sperre.md)
 .equ SD_INPUT, 0x01E26070     ; GPIO IN_DATA45: bit 1 (GPIO 4.1) is low while a card is in (tools/patch/card_gate.py)
@@ -121,6 +123,8 @@
 .equ M_FL_CRC, 0x1B4          ; menu_settings_crc of what the flash holds (of the defaults at a start without a copy)
 .equ FL_HOLD, 0x10000         ; the settings came from a card: nothing goes to the flash by itself until MENU on SAVE TO FLASH?
 .equ FL_ASK, 0x20000          ; the question "SAVE TO FLASH?" of a card put in after the start is on the display (menu_ask_frame)
+.equ FL_SAVE, 0x40000         ; MENU answered the question and the flash write failed: menu_ask_frame writes again every CARD_RETRY_MS
+.equ M_FL_RETRY, 0xD8         ; FL_SAVE: the OS tick of the next try
 .equ M_FL_KEY, 0x157          ; byte: the key that answered the question, set by menu_ask_input: 1 EXIT, 2 MENU
 .equ FLASH_SET_A, 0x7FD000
 .equ FLASH_SET_B, 0x7FE000
@@ -379,6 +383,8 @@ card_watch_settled:
     str r0, [r4, #M_CARD]
     mov r7, #0
     ldr r0, [r4, #M_FL]
+    bic r0, r0, #FL_SAVE        ; the settings of the card before are not written any more
+    str r0, [r4, #M_FL]
     tst r0, #FL_HOLD
     bne card_watch_read
     bl menu_flash_sync          ; the settings without a card are in the flash now, what a pull of this card brings back
@@ -472,6 +478,8 @@ card_watch_slow:
     strbne r2, [r1, #UI_REDRAW_AT]
     tst r0, #FL_HOLD
     beq card_watch_out
+    tst r0, #FL_SAVE            ; MENU said save: what runs stays and goes to the flash, not the older copy there
+    bne card_watch_out
     mov r0, #CARD_PULL
     str r0, [r4, #M_CARD]
     ldr r5, [r4, #M_EFF_RUN]
@@ -493,6 +501,31 @@ card_watch_store:
     str r0, [r4, #M_CARD]
 card_watch_out:
     pop {r4-r8, pc}
+.pool
+
+; Korg's ACMD41 loop (0xC001AE80, in every card init) at its call that checks the card is still in, once a round. A card that stays
+; busy held the task doing the init (the UI task when the menu reads) for all 50000 rounds, half a minute and more on the device
+; (docs/messungen/2026-11-15-karte-tausch-haenger.md); after CARD_INIT_MS it takes Korg's own path for the last round instead:
+; -13 and SD_INIT_LOCK. Before the menu is armed (the start) the loop runs as Korg's. Clobbers r0 to r3 and r12, as the call does.
+acmd41_round_hook:
+    ldr r3, =MENU_STATE
+    ldr r2, [r3, #M_ON]
+    cmp r2, #1
+    bne acmd41_round
+    ldr r1, =MENU_TICKS
+    ldr r1, [r1]
+    ldr r0, [fp, #-0xc]         ; the round, counted from 1
+    cmp r0, #1
+    streq r1, [r3, #M_SD_T0]
+    beq acmd41_round
+    ldr r0, [r3, #M_SD_T0]
+    sub r1, r1, r0
+    cmp r1, #CARD_INIT_MS
+    ldrhs pc, =0xC001AEA4
+acmd41_round:
+    ldr r12, =0xC001CAE8
+    blx r12
+    ldr pc, =0xC001AEB8
 .pool
 
 ; ---- settings file: settings.a.bin and settings.b.bin alternate, the newer valid one is read.
@@ -670,6 +703,10 @@ menu_load_meter:
     mov r0, r0, lsr #6
     and r0, r0, #1
     mov r2, #0
+    ldr r1, [r4, #M_CARD]       ; a card swapped or pulled after the start: the knob LEDs change now, the resend S_PEND leaves for
+    cmp r1, #CARD_DONE          ; later waits for a firmware LED message on the main screen
+    cmpne r1, #CARD_PULL
+    moveq r2, #1
     mov r1, #40
     bl menu_pc_call
     pop {r0-r3}
@@ -1181,6 +1218,10 @@ menu_flash_save_status:
     movne r0, #0x45
     ldr r1, =MENU_STATE
     str r0, [r1, #M_STATUS]
+    ldreq r2, =MENU_TICKS       ; failed: the next try of a pending save (FL_SAVE)
+    ldreq r2, [r2]
+    addeq r2, r2, #CARD_RETRY_MS
+    streq r2, [r1, #M_FL_RETRY]
     pop {r4, pc}
 ; Writes the settings as they run as the next generation to the sector the newer copy is not in -> r0 = 1 written, 0 not.
 ; Written, FL_HOLD ends and the flash's copy is what the pages compare with (menu_orig_snap) and the next start reads. UI task
@@ -1216,7 +1257,40 @@ menu_flash_save:
     bl FLASH_WRITE
     cmp r0, #0
     beq menu_flash_save_out
-    str r8, [r4, #M_FL]         ; the new generation, FL_HOLD cleared
+    sub sp, sp, #32             ; read back 32 bytes at a time: a write the firmware reports may not be in the flash
+    mov r5, #0
+menu_flash_verify:
+    bl FLASH_GET
+    mov r1, sp
+    tst r8, #1
+    ldrne r2, =FLASH_SET_A
+    ldreq r2, =FLASH_SET_B
+    add r2, r2, r5
+    mov r3, #32
+    bl FLASH_READ
+    mov r3, #0
+menu_flash_verify_word:
+    ldr r0, [sp, r3]
+    add r1, r5, r3
+    ldr r1, [r7, r1]
+    cmp r0, r1
+    bne menu_flash_verify_bad
+    add r3, r3, #4
+    add r1, r5, r3
+    add r2, r6, #8
+    cmp r1, r2
+    bhs menu_flash_verify_done
+    cmp r3, #32
+    blo menu_flash_verify_word
+    add r5, r5, #32
+    b menu_flash_verify
+menu_flash_verify_bad:
+    add sp, sp, #32
+    mov r0, #0
+    b menu_flash_save_out
+menu_flash_verify_done:
+    add sp, sp, #32
+    str r8, [r4, #M_FL]         ; the new generation, FL_HOLD and FL_SAVE cleared
     ldr r0, [r4, #M_BL_ON]      ; the colour the copy now holds is the one the next start shows (Global byte 250)
     bl boot_light_save
     bl menu_orig_snap
@@ -1246,7 +1320,8 @@ menu_flash_sync_out:
     pop {r4, pc}
 
 ; ---- the question of a card put in after the start (FL_ASK): over every screen, "SAVE TO FLASH?" in the look of the firmware's
-; menus (as the question of script_migrate.s). MENU writes the card's settings to the flash (menu_flash_save_status, FL_HOLD ends),
+; menus (as the question of script_migrate.s). MENU writes the card's settings to the flash (menu_flash_save_status, FL_HOLD ends;
+; a write that fails is tried again, FL_SAVE),
 ; EXIT takes the question away and the settings run until the card is pulled or the power goes off. From the frame hook behind
 ; menu_card_watch (UI task). Keeps r4 to r11.
 menu_ask_frame:
@@ -1256,6 +1331,15 @@ menu_ask_frame:
     cmp r0, #1
     bne menu_ask_out
     ldr r0, [r8, #M_FL]
+    tst r0, #FL_SAVE
+    beq menu_ask_asked
+    ldr r1, =MENU_TICKS
+    ldr r1, [r1]
+    ldr r2, [r8, #M_FL_RETRY]
+    subs r1, r1, r2
+    blpl menu_flash_save_status
+    ldr r0, [r8, #M_FL]
+menu_ask_asked:
     tst r0, #FL_ASK
     beq menu_ask_out
     ldrb r1, [r8, #M_FL_KEY]
@@ -1264,8 +1348,9 @@ menu_ask_frame:
     mov r2, #0
     strb r2, [r8, #M_FL_KEY]
     bic r0, r0, #FL_ASK
-    str r0, [r8, #M_FL]
     cmp r1, #2
+    orreq r0, r0, #FL_SAVE      ; until the flash holds them (menu_flash_save clears it)
+    str r0, [r8, #M_FL]
     bleq menu_flash_save_status
     ldr r1, =SCREEN_MANAGER     ; the firmware draws its own screen again
     ldr r1, [r1]

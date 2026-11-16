@@ -1464,7 +1464,8 @@ device according to its author.
 velocity above 96 is an accent: on `step` it writes the accent values of EG INT, DECAY and LEVEL for that part, on a step below
 the normal ones. SHIFT + EG INT, DECAY or LEVEL sets the accent values of the selected part (`korg.knobHold` keeps the three
 knobs from the firmware then), without SHIFT it keeps track of the normal values. STOP puts the normal values back. It acts on
-parts 1 to 7 only (`maxParts = 7`): with all 16 the step handler tripped the watchdog according to its author. A WRITE during
+all 16 parts (`maxParts = 15`); an earlier version stopped at part 7 because the step handler tripped the watchdog, the
+current one reads only step, on and velocity per part. A WRITE during
 an accent saves the accent values. Checked in the simulator, on the device according to its author.
 
 **Easy Slides** (by alarykko, from the BLECH Discord) runs in the background under TOOLS: a TIE step (gate above 96) and the step

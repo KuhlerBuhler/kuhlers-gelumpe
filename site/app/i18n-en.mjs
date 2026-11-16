@@ -2206,7 +2206,7 @@ export default {
   "catalog.randomslot.description": "Slot machine randomizer for one part: the reels spin, then it rolls new sound values, a new melody or small changes to the sound or the steps. Nothing is saved, WRITE keeps what you like.",
   "catalog.randomslot.control1": "Pads: pick the part. 1: random sound. 2: random melody. 3: small sound change. 4: small step change",
   "catalog.randomslot.control2": "PART MUTE: solo the part, again: the mutes as before",
-  "catalog.betteraccent.description": "Accents like a 303: a step with velocity above 96 plays with its own EG INT, DECAY and LEVEL, so the filter opens further. Works on parts 1 to 7, STOP puts the normal values back.",
+  "catalog.betteraccent.description": "Accents like a 303: a step with velocity above 96 plays with its own EG INT, DECAY and LEVEL, so the filter opens further. Works on all 16 parts, STOP puts the normal values back.",
   "catalog.betteraccent.control1": "SHIFT + EG INT, DECAY or LEVEL: accent value of the selected part",
   "catalog.betteraccent.control2": "EG INT, DECAY and LEVEL without SHIFT: the normal value, as before",
   "catalog.easyslides.description": "Makes TIE steps slide: a TIE step and the step after it get more glide, so the two notes slide into each other. Works on parts 1 to 8, STOP puts the glide back.",
