@@ -17,8 +17,9 @@ Marker: **gemessen** (Befehl lief, Zahl abgelesen), **gelesen** (Quelltext),
   JSON-Ausgabe, 123520781 DSP-Zyklen, gleiche PC, gleicher SPORT-Hash
   (**gemessen**).
 - Tempo im Fallauf: 6,7 s statt 13,6 s (**gemessen**, Last 8 bis 15 auf dem
-  Mac). Mit der Zwischenlösung für dsp32-Befehle (Abschnitt 5) 8,7 s statt
-  14,0 s, in den DSP-Kernen nur noch 1,1 bis 1,9 mal schneller (Abschnitt 6). Die Rechenzeit in QEMU ist dabei klein; den Rest teilen sich das
+  Mac). Mit GNUs dsp32-Decodern in QEMU (Abschnitt 5) 6,4 s statt 12,9 s, in
+  den DSP-Kernen 7,7 bis 9,7 mal schneller als GNU (Abschnitt 6). Die
+  Rechenzeit in QEMU ist dabei klein; den Rest teilen sich das
   Warten auf den ARM und der Aufwand je Anfrage im GNU-Simulator (Abschnitt 4).
 
 ## 1. Weg: Hybrid statt neuer Geräte
@@ -121,50 +122,70 @@ Was in QEMU angeglichen ist (`qemu-worker.patch`, **gelesen** und per Fuzz
   (Probe beim Übersetzen). Ohne Probe führt QEMU 1615 von 3000 zufälligen
   MAC-Kodierungen aus, die GNU ablehnt (**gemessen**).
 
-### Zwischenlösung: dsp32alu, dsp32shift, dsp32shiftimm über GNU
+### dsp32alu, dsp32shift, dsp32shiftimm: GNUs Decoder in QEMU
 
-Diese drei Klassen rechnet QEMU nicht selbst, sondern ruft je Befehl GNUs
-Decoder (`blech_dsp32` in der GNU-Bibliothek, `HELPER(dsp32_gnu)`). Beim
-Übersetzen läuft der Decoder einmal als Probe auf einer Kopie des Zustands;
-lehnt GNU ab, geht der Befehl als Ausnahme an GNU. `BLECH_QEMU_DSP32=1` schaltet
-zurück auf QEMUs eigenen Code, für Vergleich und Messung.
+Diese drei Klassen rechnet QEMU mit GNUs eigenem C-Code. `build_qemu.py`
+kopiert beim Bauen `decode_dsp32alu_0`, `decode_dsp32shift_0`,
+`decode_dsp32shiftimm_0` und ihre Helfer (add16, lshift, saturate_s40 usw.)
+aus `sim/bfin/bfin-sim.c` nach `target/bfin/bfin-gnu-dsp32-gen.c.inc`;
+`tools/dsp/bfin_gnu_dsp32.c.inc` bildet GNUs Registerzugriffe auf den
+QEMU-Zustand ab, auch das verzögerte Schreiben (`STORE`) bis zum Befehlsende.
+QEMU ruft das je Befehl als `HELPER(dsp32_port)`, ohne die GNU-Bibliothek.
 
-Das ist nicht der Endstand (Pascal 16.11.): Ziel bleibt, diese Befehle in QEMU
-selbst gleich zu machen, an GNU geht dann nur noch, was GNU ablehnt (Plan-Task
-2.6). Die Liste im Anhang ist dafür die Arbeitsliste.
+An GNU geht nur noch die Legalität: beim Übersetzen läuft GNUs Decoder einmal
+als Probe; lehnt GNU ab, geht der Befehl als Ausnahme an GNU.
 
-## 6. Zeit mit und ohne Abgabe an GNU
+QEMUs eigener TCG-Code für diese Klassen bleibt für den Vergleich
+(`BLECH_QEMU_DSP32=1`, Anhang), der Aufruf der GNU-Bibliothek je Befehl für die
+Zeitmessung (`BLECH_QEMU_DSP32_GNU=1`).
 
-Build 25b608d2, Hacktribe-VSB, je 3 Läufe, Median (**gemessen**, Last 6,6 bis
-7,8 auf 10 Kernen, Load-Gate davor). "QEMU eigen" = `BLECH_QEMU_DSP32=1`, also
-QEMU rechnet dsp32alu/shift/shiftimm selbst; "QEMU Abgabe" = Standard, diese
-Befehle laufen über GNUs Decoder.
+Mit dem Standardweg (Build 892dfd39, **gemessen**):
+
+| Prüfung | Ergebnis |
+|---|---|
+| `--fuzz-class` alu, shift, shiftimm, mac, mult, Seed 2, je 3000 | 0 abweichend, 0 nur GNU wirft |
+| `--fuzz-class` alu, shift, shiftimm, Seed 7, je 3000 | 0 abweichend, 0 nur GNU wirft |
+| `--fuzz 2000 --fuzz-length 4`, Seed 23 | 0 abweichend, 0 nur GNU wirft |
+| `--fuzz 1000 --fuzz-length 8`, Seed 24 | 0 abweichend, 0 nur GNU wirft |
+| 38 Funktionen, Hacktribe und Stock | 38/38 gleich |
+| Worker-Tests `qemu_worker_tests.sh alle` | 175/175 grün |
+
+## 6. Zeit je dsp32-Weg
+
+Build 892dfd39, Hacktribe-VSB, je 3 Läufe, Median (**gemessen**, Last bis 8,8
+auf 10 Kernen, Load-Gate davor). Wege für dsp32alu/shift/shiftimm:
+
+- "GNU-Port" = Standard, GNUs Decoder in QEMU (Abschnitt 5);
+- "TCG" = `BLECH_QEMU_DSP32=1`, QEMUs eigener Code, weicht ab (Anhang);
+- "GNU-Bibliothek" = `BLECH_QEMU_DSP32_GNU=1`, Aufruf in die GNU-Bibliothek je
+  Befehl mit Kopie von 16 Registern.
 
 Fallauf 0,3 s Modellzeit (`blackfin_cases.py --seconds 0.3`, Wanduhr):
 
 | Worker | Zeit | Ausgabe |
 |---|---:|---|
-| GNU | 14,0 s | Referenz |
-| QEMU eigen | 6,7 s | gleich wie GNU |
-| QEMU Abgabe | 8,7 s | gleich wie GNU |
+| GNU | 12,9 s | Referenz |
+| QEMU GNU-Port | 6,4 s | gleich wie GNU |
+| QEMU TCG | 6,5 s | gleich wie GNU |
+| QEMU GNU-Bibliothek | 7,6 s | gleich wie GNU |
 
-Bench-Funktionen (`qemu_compare.py --calls 20000`, Rechenzeit im Worker,
-GNU-Median über alle 6 Läufe):
+Bench-Funktionen (`qemu_compare.py --calls 20000`, Rechenzeit im Worker, GNU
+aus den Läufen des GNU-Port-Wegs):
 
-| Funktion | GNU | QEMU eigen | QEMU Abgabe |
-|---|---:|---:|---:|
-| Filterkern electribe | 0,565 s | 0,050 s (11,3x) | 0,468 s (1,2x) |
-| Filterkern OB | 0,622 s | 0,056 s (11,1x) | 0,560 s (1,1x) |
-| Master Hall/Plate Reverb | 1,605 s | 0,169 s (9,5x) | 0,864 s (1,9x) |
-| Master Room Reverb | 1,617 s | 0,133 s (12,2x) | 0,833 s (1,9x) |
+| Funktion | GNU | GNU-Port | TCG | GNU-Bibliothek |
+|---|---:|---:|---:|---:|
+| Filterkern electribe | 0,566 s | 0,066 s (8,6x) | 0,050 s (11,3x) | 0,414 s (1,4x) |
+| Filterkern OB | 0,607 s | 0,079 s (7,7x) | 0,055 s (11,0x) | 0,547 s (1,3x) |
+| Master Hall/Plate Reverb | 1,556 s | 0,191 s (8,1x) | 0,170 s (9,1x) | 0,862 s (1,8x) |
+| Master Room Reverb | 1,506 s | 0,156 s (9,7x) | 0,128 s (12,1x) | 0,843 s (1,8x) |
 
-Die Abgabe kostet in den Kernen fast den ganzen Vorsprung: jeder dsp32-ALU-
-oder Shift-Befehl ist ein Helferaufruf mit Kopie von 16 Registern hin und
-zurück und einem GNU-Decode (**hergeleitet**). Im Fallauf überwiegt die Zeit
-außerhalb der Befehle (Abschnitt 4), deshalb nur +2 s. Phase 6 (`--min-speedup
-10`) ist mit der Abgabe nicht zu schaffen, erst mit Task 2.6.
+Der GNU-Port kostet gegenüber TCG 10 bis 40 % in den Kernen: ein Helferaufruf
+je Befehl, der die Kodierung zur Laufzeit zerlegt, statt fest übersetztem Code
+(**hergeleitet**). Für `--min-speedup 10` (Phase 6) fehlen in drei Kernen noch
+bis zu 25 %; Weg dahin wäre, häufige Befehle dieser Klassen wieder als TCG zu
+übersetzen, sobald ihr TCG-Code GNU-gleich ist (**Urteil**).
 
-Beide QEMU-Varianten enden im Fallauf mit derselben Ausgabe wie GNU: die
+Alle vier Wege enden im Fallauf mit derselben Ausgabe (md5 gleich): die
 Abweichungen aus dem Anhang treten in diesem Lauf nicht auf (**gemessen**).
 
 ## Nachstellen
@@ -182,6 +203,7 @@ Vergleich und Fuzz (Abschnitt 5), Anhang mit QEMUs eigenem Code:
 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py <SYSTEM.VSB> --gnu ~/gelumpe-dsp/gnu/blackfin-worker \
   --qemu ~/gelumpe-dsp/worker/qemu-bfin-worker
 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py --fuzz 3000 --seed 21 --fuzz-length 4 --gnu ... --qemu ...
+tools/emu/.venv/bin/python tools/dsp/qemu_compare.py --fuzz 3000 --seed 2 --fuzz-class alu --gnu ... --qemu ...
 BLECH_QEMU_DSP32=1 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py --fuzz 3000 --seed 2 --fuzz-class alu --gnu ... --qemu ...
 ```
 
@@ -196,8 +218,10 @@ jeder Anfrage einen Dateizugriff und verfälscht die Laufzeit (81 s statt
 `BLECH_QEMU_DSP32=1`, Build 25b608d2 (**gemessen**). Je Gruppe gleicher
 Opcode-Felder ein Beispiel: n = Treffer der Gruppe, Eingabe = Startwerte der
 im Befehl genannten Register und ASTAT, rechts GNU / QEMU, Flags als
-`Name GNU/QEMU`. Mit der Abgabe an GNU (Standard) sind alle drei Klassen 0
-abweichend und 0 nur in GNU illegal (**gemessen**).
+`Name GNU/QEMU`. Die Spalte "nur in GNU illegal" gilt ohne Probe; mit Probe
+(Build 892dfd39) ist sie 0, die Abweichungen sind dieselben 180/11/90. Der
+Standardweg (GNU-Port) hat keine dieser Abweichungen (Abschnitt 5,
+**gemessen**).
 
 Weitere Klassen, gleicher Lauf: mac 0 abweichend, aber 1615 von 3000
 Kodierungen nur in GNU illegal (mit GNU-Probe 0); mult 0 und 0.
