@@ -374,11 +374,21 @@ def patch_sources(source):
     file.write_text(text)
 
 
-def build(directory, jobs=4):
-    directory = directory.resolve()
-    if directory == ROOT or ROOT in directory.parents:
-        raise ValueError('the Blackfin SDK must be built outside the repository')
-    directory.mkdir(parents=True, exist_ok=True)
+LIBRARIES = ['sim/bfin/libsim.a', 'bfd/.libs/libbfd.a', 'opcodes/.libs/libopcodes.a',
+             'libiberty/libiberty.a', 'gnulib/import/libgnu.a']
+
+
+def system_libraries():
+    extra = ['-lz', '-lm']
+    if shutil.which('pkg-config'):
+        result = subprocess.run(['pkg-config', '--libs', 'libzstd'], capture_output=True, text=True)
+        if result.returncode == 0:
+            extra += shlex.split(result.stdout)
+    return extra
+
+
+def source_tree(directory):
+    """Downloads, checks and patches the GNU source in `directory`; returns its path."""
     archive = directory / f'gdb-{VERSION}.tar.xz'
     if not archive.exists():
         with urllib.request.urlopen(URL, timeout=60) as response, archive.open('wb') as output:
@@ -394,34 +404,45 @@ def build(directory, jobs=4):
                     raise ValueError('unsafe GNU source archive member')
             files.extractall(directory)
     patch_sources(source)
-    output = directory / 'build'
+    return source
+
+
+def compile_sim(directory, source, output, jobs, cflags='-O2 -std=gnu11'):
     output.mkdir(exist_ok=True)
+
+    def run(args, name):
+        with (directory / name).open('ab') as log:
+            subprocess.run(args, cwd=output, stdout=log, stderr=subprocess.STDOUT, check=True)
+
+    run([str(source / 'configure'), '--target=bfin-elf', '--enable-sim', '--disable-gdb',
+         '--disable-gdbserver', '--disable-werror', '--disable-nls', '--without-guile',
+         '--without-python', '--with-system-zlib', f'CFLAGS={cflags}', 'MAKEINFO=true'],
+        'configure.log')
+    run(['make', f'-j{jobs}', 'all-sim', 'MAKEINFO=true'], 'build.log')
+    modules = (output / 'sim/bfin/modules.c').read_text()
+    if '  sim_install_hw,' not in modules:
+        raise RuntimeError('GNU simulator hardware module was not installed')
+
+
+def build(directory, jobs=4):
+    directory = directory.resolve()
+    if directory == ROOT or ROOT in directory.parents:
+        raise ValueError('the Blackfin SDK must be built outside the repository')
+    directory.mkdir(parents=True, exist_ok=True)
+    source = source_tree(directory)
+    output = directory / 'build'
 
     def run(args, cwd=output, name='build.log'):
         with (directory / name).open('ab') as log:
             subprocess.run(args, cwd=cwd, stdout=log, stderr=subprocess.STDOUT, check=True)
 
-    run([str(source / 'configure'), '--target=bfin-elf', '--enable-sim', '--disable-gdb',
-         '--disable-gdbserver', '--disable-werror', '--disable-nls', '--without-guile',
-         '--without-python', '--with-system-zlib', 'CFLAGS=-O2 -std=gnu11', 'MAKEINFO=true'],
-        name='configure.log')
-    run(['make', f'-j{jobs}', 'all-sim', 'MAKEINFO=true'])
-    modules = (output / 'sim/bfin/modules.c').read_text()
-    if '  sim_install_hw,' not in modules:
-        raise RuntimeError('GNU simulator hardware module was not installed')
+    compile_sim(directory, source, output, jobs)
     worker = directory / 'blackfin-worker'
-    libraries = ['sim/bfin/libsim.a', 'bfd/.libs/libbfd.a', 'opcodes/.libs/libopcodes.a',
-                 'libiberty/libiberty.a', 'gnulib/import/libgnu.a']
-    extra = ['-lz', '-lm']
-    if shutil.which('pkg-config'):
-        result = subprocess.run(['pkg-config', '--libs', 'libzstd'], capture_output=True, text=True)
-        if result.returncode == 0:
-            extra += shlex.split(result.stdout)
     run([os.environ.get('CC', 'cc'), '-O2', '-include', str(output / 'bfd/config.h'),
          '-I', str(output / 'bfd'), '-I', str(source / 'include'),
          str(ROOT / 'tools/dsp/blackfin_worker.c'), str(ROOT / 'tools/dsp/blackfin_channel.c'),
-         *(str(output / f) for f in libraries),
-         *extra, '-o', str(worker)], name='worker-build.log')
+         *(str(output / f) for f in LIBRARIES),
+         *system_libraries(), '-o', str(worker)], name='worker-build.log')
     manifest = dict(version=VERSION, url=URL, sourceSHA256=SHA256,
                     patches=['32-bit SIGNEXTEND', 'BSD sed module generation',
                              'deferred DSP32ALU add/sub result writes',
