@@ -49,7 +49,7 @@ Der GNU-Simulator schafft 4 bis 9 Millionen DSP-Takte je Sekunde, der QEMU-Port 
 
 | Teil | Was | Aufwand (Schätzung) |
 |---|---|---|
-| Kern | GNU-Simulator als Bibliothek (`sim_open`, `sim_resume`, `sim_read`, `sim_write`) über ctypes aus `tools/emu` steuern; QEMU nur, wenn live gewollt ist, dann als eigener Prozess mit fehlenden Befehlen und einem Vergleich gegen den GNU-Simulator | 2 bis 4 Tage, QEMU Wochen |
+| Kern | GNU-Simulator als Bibliothek (`sim_open`, `sim_resume`, `sim_read`, `sim_write`) über ctypes aus `tools/emu` steuern; QEMU nur, wenn live gewollt ist, dann als eigener Prozess mit fehlenden Befehlen und einem Vergleich gegen den GNU-Simulator | 2 bis 4 Tage, QEMU 4 bis 7 Arbeitstage |
 | Laden | Den Strom nicht über SPI1 und Boot-Rom schicken, sondern mit `dsp_extract.py` direkt in den Speicher legen und bei `0xFFA00000` starten (Stufe 1 überspringen). Nebenbei die Bytes prüfen, die der ARM in `0xC0011AB8` senden würde (Kopf-XOR, `0xAD`, FINAL-Block), das schließt die Lücke aus Abschnitt 4.2 von [DSP, erster Blick](../hintergrund/dsp-erster-blick.md) auch ohne Klang | 1 bis 2 Tage |
 | Host-Port | Den Briefkasten in `machine.py` (`dsp_read`, Steuerwörter `0xA9`/`0xAB`) auf Lese- und Schreibzugriffe im DSP-Speicher umlenken; im Simulator ein kleines Gerät für HOSTDP (`0xFFC03404` Bit 4 fragt die Audioschleife ab) und den Bereit-Ausgang (GPIO, `0xC00171A8` Bit 12 auf der ARM-Seite) | 2 bis 4 Tage |
 | DMA und SPORT | Der GNU-Simulator hat DMA, aber kein SPORT. Ein SPORT-Modell, das alle 4 Frames den Puffer abholt und den Interrupt hebt, der das Semaphor der Audioschleife setzt | 3 bis 5 Tage |
@@ -61,7 +61,7 @@ Zusammen 3 bis 5 Wochen bis zu einer offline gerenderten WAV, ohne die Samples.
 
 ### Empfehlung
 
-- **Live:** nein. Der GNU-Simulator ist 56- bis 122-mal langsamer als der echte DSP. Der QEMU-Port rechnet mit dem Patch gleich, ist 2- bis 10-mal langsamer als der echte DSP und bräuchte Peripherie in C (HOSTDP, SPORT0, DMA), einen Befehlszähler und die Kopplung zweier Prozesse, geschätzt 5 bis 8 Wochen ([QEMU gegen GNU-Simulator](../messungen/2026-11-16-qemu-bfin-vergleich.md)).
+- **Live:** nein. Der GNU-Simulator ist 56- bis 122-mal langsamer als der echte DSP. Der QEMU-Port rechnet mit dem Patch gleich, ist 2- bis 10-mal langsamer als der echte DSP und bräuchte Peripherie in C (HOSTDP, SPORT0, DMA), einen Befehlszähler und die Kopplung zweier Prozesse, geschätzt 4 bis 7 Arbeitstage ([QEMU gegen GNU-Simulator](../messungen/2026-11-16-qemu-bfin-vergleich.md)).
 - **Offline rendern:** machbar mit dem GNU-Simulator, eine Sekunde Klang in 10 Sekunden (leichter Patch) bis 2 Minuten (voller Patch). Ein Pattern von 8 Sekunden mit allen Parts wäre in 10 bis 15 Minuten fertig. Das ist der Weg, wenn es Klang sein soll.
 - **Zuerst:** nur DSP-Patches prüfen. Mit `bfsim_bench.py` lässt sich eine geänderte Funktion gegen die originale stellen: gleiche Prüfsumme heißt gleiches Ergebnis, die Taktzahl zeigt, wie viel vom Budget sie kostet. Dazu die Prüfung des Boot-Stroms. Das kostet 1 bis 2 Tage und deckt das ab, was bei einem DSP-Patch am meisten weh tut.
 
