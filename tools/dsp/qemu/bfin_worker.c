@@ -212,6 +212,11 @@ static int worker_main(void)
     blech_hybrid_main_fn entry;
     void *library;
 
+    /* QEMU's handlers only request a shutdown from its main loop, which never
+       runs here; the backend ends a worker with SIGTERM. */
+    signal(SIGTERM, SIG_DFL);
+    signal(SIGINT, SIG_DFL);
+    signal(SIGHUP, SIG_DFL);
     argv[0] = (char *)"blackfin-worker";
     for (i = 1; i <= argc; i++) {
         char name[32];
