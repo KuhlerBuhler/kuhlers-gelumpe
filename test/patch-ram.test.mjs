@@ -20,14 +20,15 @@ const hex = n => `0x${n.toString(16).toUpperCase()}`;
 const IMAGE = PROTECTED.regions.find(r => r.id === "firmware-image");
 const where = { free: [...FREE_RUNS, ...HIGH_RUNS], regions: PROTECTED.regions, window: PROTECTED.ram.window, image: IMAGE };
 
-test("slot storage and protection own their code budget and leave the transport area free", () => {
+test("the sample swap's code fills the room between the SysEx buffer and its file area on red, which the synth leaves free", () => {
   for (const build of ["hacktribe", "stock", "synth"]) {
     const set = build === "synth" ? read("data/patches/blech-synth.json").patches.map(read) : chosen(build);
     const claim = (at, length) => ({ id: "new-area", changes: [], ram: [{ at: hex(at), length, what: "test", source: "test:capacity" }] });
-    const freeAt = build === "synth" ? 0xc019a400 : 0xc019e000;
-    assert.deepEqual(checkRam([...set, claim(freeAt, 0xc019f000 - freeAt)]), [], build);
-    assert.deepEqual(checkRamPlacement([...set, claim(freeAt, 0xc019f000 - freeAt)], { ...where, free: build === "synth" ? SYNTH_FREE_RUNS : where.free }), [], build);
-    if (build !== "synth") for (const at of [0xc019a400, 0xc019c400, 0xc019dfff])
+    if (build === "synth") {
+      assert.deepEqual(checkRam([...set, claim(0xc019a400, 0xc019f000 - 0xc019a400)]), [], build);
+      assert.deepEqual(checkRamPlacement([...set, claim(0xc019a400, 0xc019f000 - 0xc019a400)], { ...where, free: SYNTH_FREE_RUNS }), [], build);
+    }
+    if (build !== "synth") for (const at of [0xc019a400, 0xc019c400, 0xc019dfff, 0xc019e000, 0xc019efff])
       assert.match(checkRam([...set, claim(at, 1)]).join(), /sample-swap.*overlaps|overlaps sample-swap/, build);
     for (const at of [0xc019a3ff, 0xc019f000]) assert.match(checkRam([...set, claim(at, 1)]).join(), /blech-sysex.*overlaps|overlaps blech-sysex/, build);
   }

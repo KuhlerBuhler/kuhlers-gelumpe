@@ -349,7 +349,7 @@ def identity_target(link, slot):
 
 
 LEGACY_SWAP_MODE = 0xC0188530
-SWAP_MODE = 0xC0188540          # tools/patch/sample_swap.py: STATE + MODE, 1 active, 2 faulted
+SWAP_MODE = 0xC0188800          # tools/patch/sample_swap.py: STATE + MODE, 1 active, 2 faulted
 
 
 def swap_off(link):
