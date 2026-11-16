@@ -199,7 +199,12 @@ load_meter_shown:
     ldr r1, =HOOK_RUNTIME
     ldr r2, [r1, #SCRIPT_CONTROL_DISPLAY_ACTIVE]
     cmp r2, #1
-    bxeq lr
+    bne load_shown_no_app
+    ldr r1, =APP_STATE          ; an app draws only while one is open (script_display_blit); the flag alone outlives Blechy
+    ldr r1, [r1]
+    cmp r1, #0
+    bxne lr
+load_shown_no_app:
     ldr r1, =MENU_STATE
     ldr r2, [r1, #M_FL]
     tst r2, #FL_ASK
