@@ -16,12 +16,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
@@ -51,7 +51,7 @@ jobs:
       # Only arm64: the phones and tablets with USB OTG that a later MIDI build is for.
       - name: Build the APK
         run: NDK_HOME="$ANDROID_NDK_LATEST_HOME" cargo tauri android build --debug --apk --target aarch64 --ci
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: gelumpe-android-debug
           path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk

@@ -102,6 +102,6 @@ test("the workflow starts on every workflow that runs on a pull request and call
   // only runs on a release branch can change a release pull request; without the filter every finished workflow started a run
   assert.match(yml, /types: \[completed\]\n {4}branches: \["release\/\*\*"\]/);
   assert.match(yml, /GH_TOKEN: \$\{\{ steps\.app\.outputs\.token \}\}/);
-  assert.match(yml, /create-github-app-token@v2/);
+  assert.match(yml, /create-github-app-token@v3/);
   assert.match(yml, /node tools\/release-merge\.mjs/);
 });

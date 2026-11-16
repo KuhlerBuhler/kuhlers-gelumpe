@@ -46,17 +46,17 @@ jobs:
     steps:
       # Blechy, the repository's GitHub App: what its token pushes, opens or merges starts the workflows it should, and
       # it shows up as Blechy, not as a person. Without the secrets (a fork) the token stays empty and nothing is done.
-      - uses: actions/create-github-app-token@v2
+      - uses: actions/create-github-app-token@v3
         id: app
         continue-on-error: true
         with:
           app-id: ${{ secrets.BLECHY_APP_ID }}
           private-key: ${{ secrets.BLECHY_APP_KEY }}
       # tools/ci/pr-queue.mjs picks the pull request, that is all this job needs from the repository.
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 26
       - name: Merge the base into pull requests that are behind
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
