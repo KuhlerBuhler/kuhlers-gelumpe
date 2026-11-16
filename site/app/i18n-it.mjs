@@ -2090,7 +2090,7 @@ export default {
   "catalog.randomslot.description": "Casualità da slot machine per una part: i rulli girano, poi estrae nuovi valori di suono, una nuova melodia o piccole modifiche al suono o agli step. Non si salva nulla, WRITE tiene quello che piace.",
   "catalog.randomslot.control1": "Pad: scegliere la part. 1: suono casuale. 2: melodia casuale. 3: piccola modifica al suono. 4: piccola modifica agli step",
   "catalog.randomslot.control2": "PART MUTE: part in solo, di nuovo: i mute come prima",
-  "catalog.betteraccent.description": "Accenti come su una 303: uno step con velocity sopra 96 suona con EG INT, DECAY e LEVEL propri, il filtro si apre di più. Agisce sulle parti da 1 a 7, STOP rimette i valori normali.",
+  "catalog.betteraccent.description": "Accenti come su una 303: uno step con velocity sopra 96 suona con EG INT, DECAY e LEVEL propri, il filtro si apre di più. Agisce su tutte le 16 parti, STOP rimette i valori normali.",
   "catalog.betteraccent.control1": "SHIFT + EG INT, DECAY o LEVEL: valore di accento della parte scelta",
   "catalog.betteraccent.control2": "EG INT, DECAY e LEVEL senza SHIFT: il valore normale, come prima",
   "catalog.easyslides.description": "Fa scivolare gli step con TIE: uno step con TIE e quello dopo ricevono più glide, le due note scivolano l'una nell'altra. Agisce sulle parti da 1 a 8, STOP rimette il glide.",

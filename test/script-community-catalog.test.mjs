@@ -94,9 +94,9 @@ function fill(api, part, velocity, gate) {
   }
 }
 
-test("Better Accent plays steps above velocity 96 with the accent values of parts 1 to 7 and STOP puts the normal ones back", () => {
+test("Better Accent plays steps above velocity 96 with the accent values of all 16 parts and STOP puts the normal ones back", () => {
   const p = plugin("betteraccent");
-  for (const part of [0, 7]) fill(p.api, part, s => (s === 8 ? 120 : 90), () => 60);
+  for (const part of [0, 15]) fill(p.api, part, s => (s === 8 ? 120 : 90), () => 60);
   p.run(2);
   assert.equal(p.device.apps.length, 0, "a background plugin");
   p.device.post("buttonPress", key("SHIFT"));
@@ -107,10 +107,14 @@ test("Better Accent plays steps above velocity 96 with the accent values of part
   const egInt = part => p.api["korg.read.patternValue"](-1, part, field("egInt"));
   assert.equal(egInt(0), 0, "SHIFT holds the knob from the firmware");
   p.press("PLAY");
-  const seen = { 0: new Set(), 7: new Set() };
-  for (let i = 0; i < 300; i++) { p.run(1); seen[0].add(egInt(0)); seen[7].add(egInt(7)); }
+  const seen = { 0: new Set(), 15: new Set() };
+  for (let i = 0; i < 300; i++) { p.run(1); seen[0].add(egInt(0)); seen[15].add(egInt(15)); }
   assert.deepEqual([...seen[0]].sort((a, b) => a - b), [0, 36], "the accent step opens EG INT, the others stay normal");
-  assert.deepEqual([...seen[7]], [0], "part 8 is beyond maxParts = 7");
+  assert.deepEqual([...seen[15]], [0], "part 16 keeps its normal values");
+  p.api["korg.seq.setPartValue"](15, field("egInt"), 20);
+  assert.equal(egInt(15), 20);
+  for (let i = 0; i < 300; i++) p.run(1);
+  assert.equal(egInt(15), 0, "part 16 is within maxParts = 15: a normal step writes its normal EG INT back");
   p.press("STOP");
   assert.equal(egInt(0), 0);
   assert.deepEqual(p.faults, []);
