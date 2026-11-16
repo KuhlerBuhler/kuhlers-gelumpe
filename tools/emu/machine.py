@@ -850,7 +850,10 @@ class Machine:
         return period
 
     def next_event(self):
-        """Device time in ns of the next timer edge or UART byte, inf when none is pending."""
+        """Device time in ns of the next timer edge or UART byte, inf when none is pending. While the card's interrupt
+        line is asserted, the next look at it (lines, once per mmc_irq_ns) counts too: an idle CPU waiting for the card
+        jumped to the next timer edge instead and took every 64-byte chunk late. With the 1 kHz tick taken on time (the
+        nesting level, #625) a 4 MB EXPORT ALL PATTERN wrote a third of the sectors per second it writes now."""
         at = [math.inf]
         for base in TIMERS:
             period = self.timer_period(base)
@@ -859,6 +862,8 @@ class Machine:
         for u in self.uart.values():
             if u["busy"]: at.append(u["busy"])
             if u["wire"]: at.append(u["arrive"])
+        if self.mmc.irq():
+            at.append((self.time_ns // self.mmc_irq_ns + 1) * self.mmc_irq_ns)
         return min(at)
 
     def slice_length(self, in_isr):
