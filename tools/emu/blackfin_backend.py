@@ -428,9 +428,11 @@ class BlackfinBackend:
     def configure_sport(self, *, core_hz, input='silence', seed=1):
         if not isinstance(core_hz, int) or not 48000 <= core_hz <= 2000000000:
             raise ValueError('invalid SPORT0 test core frequency')
-        if input not in ('silence', 'lcg') or not isinstance(seed, int) or not 0 <= seed <= 0xFFFFFFFF:
+        # 'file' plays the slot words from BLECH_SPORT_RX_SOURCE in the worker's environment, looped.
+        modes = ('silence', 'lcg', 'file')
+        if input not in modes or not isinstance(seed, int) or not 0 <= seed <= 0xFFFFFFFF:
             raise ValueError('invalid SPORT0 input configuration')
-        data = struct.pack('<4I', core_hz, 48000, input == 'lcg', seed)
+        data = struct.pack('<4I', core_hz, 48000, modes.index(input), seed)
         self._request(7, 0, len(data), data)
 
     def sport_status(self):

@@ -145,6 +145,9 @@ tools/emu/.venv/bin/python tools/dsp/blackfin_probe.py \
 keine frei gewählte Blockgröße. Für jeden gezählten Aufruf muss der nächste
 native Einsprung erreicht werden. Ein abgelaufenes Budget ist ein Fehler.
 Ohne `--sport-input lcg` werden Nullen eingespeist.
+Mit `--sport-input file` spielt der Worker die Slot-Wörter aus der Datei
+in `BLECH_SPORT_RX_SOURCE` ab (little endian, vier Wörter pro Frame) und
+fängt am Ende wieder vorn an. Fehlt die Datei, kommen Nullen.
 
 ## Offen
 
