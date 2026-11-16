@@ -1439,8 +1439,8 @@ wird nichts. Im Simulator geprüft, laut Autor am Gerät.
 Velocity über 96 ist ein Accent: beim `step` schreibt es für diesen Part die Accent-Werte von EG INT, DECAY und LEVEL, bei
 einem Step darunter die normalen. SHIFT + EG INT, DECAY oder LEVEL setzt die Accent-Werte des gewählten Parts
 (`korg.knobHold` hält die drei Regler dann von der Firmware fern), ohne SHIFT merkt es sich die normalen Werte. STOP stellt
-die normalen Werte wieder her. Es wirkt nur auf die Parts 1 bis 7 (`maxParts = 7`): mit allen 16 lief der Step-Handler laut
-Autor in den Watchdog. Ein WRITE während eines Accents speichert die Accent-Werte. Im Simulator geprüft, laut Autor am Gerät.
+die normalen Werte wieder her. Es wirkt auf alle 16 Parts (`maxParts = 15`), eine frühere Version
+hörte bei Part 7 auf, weil der Step-Handler in den Watchdog lief, die jetzige liest je Part nur Step, On und Velocity. Ein WRITE während eines Accents speichert die Accent-Werte. Im Simulator geprüft, laut Autor am Gerät.
 
 **Easy Slides** (von alarykko, aus dem BLECH-Discord) läuft im Hintergrund unter TOOLS: ein TIE-Step (Gate über 96) und der
 Step danach bekommen 35 mehr Glide, die zwei Noten gleiten ineinander. SHIFT + PITCH/GLIDE setzt das Grund-Glide des
