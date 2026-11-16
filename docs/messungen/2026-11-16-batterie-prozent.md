@@ -1,4 +1,4 @@
-# BATTERY %: Ladestand in Prozent neben der Lastanzeige
+# BATTERY %: Ladestand in Prozent neben dem Batteriesymbol
 
 Stand 16.11.2026, nur Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Branches),
 kein Gerät. Marker: **gemessen** (im Emulator), **gelesen** (im Disassemblat), **hergeleitet**.
@@ -14,7 +14,7 @@ kein Gerät. Marker: **gemessen** (im Emulator), **gelesen** (im Disassemblat), 
   - und der Hauptbildschirm ohne Fenster, App oder eigene Frage zu sehen ist (`load_meter_shown`, dieselbe Bedingung wie LOAD
     METER).
   Am Netzteil und mit Ni-MH wird nichts gezeichnet; was schon da stand, wird beim nächsten Bild gelöscht.
-- Zustand `BATT`, 16 Byte hinter `GLIDE` in MORE (`script_hooks.py:BATT`).
+- Zustand `BATT`, 28 Byte hinter `GLIDE` in MORE (`script_hooks.py:BATT`), mit dem Stand des Kartensymbols.
 - Emulator: `Machine.battery(raw)` schickt die Panel-Nachricht 6 mit einem Rohwert, `Machine.power_source(adapter)` die
   Nachricht 7 (Netzteil oder Batterie). Unit-Test `tools/emu/test_battery_feed.py`.
 
@@ -50,21 +50,58 @@ kein Gerät. Marker: **gemessen** (im Emulator), **gelesen** (im Disassemblat), 
 
 ## Platz in der Statusleiste
 
-Gemessen auf allen drei Builds, Seite 0 des Bildschirmspeichers (Zeilen 1 bis 7, Zeile 0 bleibt der Firmware):
+Gemessen auf allen drei Builds, Seite 0 des Bildschirmspeichers (Zeilen 1 bis 7, Zeile 0 bleibt der Firmware). Vorher:
 
 | Spalten | Inhalt |
 |---|---|
 | 50 bis 74 | BPM |
-| 75 bis 99 | auf dem Hauptbildschirm nie benutzt (Ruhe, Regler, Tasten, PLAY, REC, Motion-Aufnahme, STOP, Netzteil) |
-| 100 bis 107 | LOAD METER (Ziffern ab 100) |
+| 75 bis 108 | auf dem Hauptbildschirm frei (Ruhe, Regler, Tasten, PLAY, REC, Motion-Aufnahme, STOP, Netzteil) |
+| 84 bis 97 | in den Menüs das EDIT-Symbol (Bild 0x0B ab x 84, `0xC0085438`); auf dem Hauptbildschirm zeichnet die Firmware es beim Betreten und bei jedem Neuzeichnen in der Löschfarbe, das löscht 84 bis 97 |
 | 109 bis 114 | Kartensymbol |
 | 117 bis 127 | Batteriesymbol (leeres Bild 117 bis 127) |
 
-Direkt neben dem Batteriesymbol sind nur die Spalten 115, 116 und 127 frei, zu wenig für eine Zahl. Gewählt: feste Stelle
-links von LOAD METER, Spalten 83 bis 98, rechtsbündig in vier Feldern zu je 3 Spalten und einer leeren (Hunderter ab 83,
-Zehner ab 87, Einer ab 91, `%` ab 95), Spalte 99 bleibt als Abstand zur Lastanzeige frei. Das `%` unterscheidet die Zahl von
-den nackten Ziffern der Lastanzeige. Seiten ab 1 sind der Rahmen der Box und darum nicht nutzbar. Geschrieben werden nur
-Bytes, die sich geändert haben, und nur dann wird der Bereich als geändert markiert.
+Korrektur zur ersten Fassung: 75 bis 99 sind nicht "nie benutzt", das EDIT-Symbol belegt 84 bis 97 in den Menüs und löscht
+sie auf dem Hauptbildschirm. (gemessen)
+
+Belegung jetzt, auf dem Hauptbildschirm, gleich ob BATTERY % gerade gezeigt wird oder nicht:
+
+| Spalten | Inhalt |
+|---|---|
+| 86 bis 93 | LOAD METER (zwei Ziffern) |
+| 94 bis 99 | Kartensymbol |
+| 100 | frei |
+| 101 bis 115 | BATTERY %: vier Felder zu je 3 Spalten und einer leeren, rechtsbündig (Hunderter ab 101, Zehner ab 105, Einer ab 109, `%` ab 113), "100%" passt ganz hinein |
+| 116 | frei (die leere Spalte des `%`) |
+| 117 bis 127 | Batteriesymbol |
+
+In allen anderen Bildschirmen (Menüs, GLOBAL PARAMETERS, die WRITE-Frage, Blechy) bleibt das Kartensymbol bei 109, sonst
+läge es über dem EDIT-Symbol. Seiten ab 1 sind der Rahmen der Box und darum nicht nutzbar. Geschrieben werden nur Bytes, die
+sich geändert haben, und nur dann wird der Bereich als geändert markiert.
+
+## Kartensymbol
+
+- Das Objekt baut `0xC008C8B4` (blau `0xC007B308`): x bei +4 (109), y +8 (1), Breite +0xC (6), Höhe +0x10 (8), "neu zeichnen"
+  +0x14, Karte drin +0x48. Sein Zeichnen (Vtable +8, `0xC008C7D4`) löscht das Rechteck, wenn +0x14 gesetzt ist, und malt Bild 6
+  bei x, y, wenn eine Karte drin ist. Es ist das dritte Objekt der Statusleiste: `[[SCREEN_MANAGER] + 0x4C]`. (gelesen)
+- `card_widget` holt es zur Laufzeit über diesen Zeiger, ohne feste Adresse pro Build, und nimmt es nur mit Breite 6, Höhe 8
+  und x 109 oder 94.
+- `card_place` im Haken von SWITCH_SCREEN (`autosave_switch_hook`): für den Hauptbildschirm (1) x = 94, sonst 109. Ändert sich
+  x, wird +0x14 gesetzt und die alte Stelle gelöscht (GLOBAL PARAMETERS löscht sie selbst nicht).
+- Der Wechsel wird nur eingereiht, der Bildschirm-Manager zeigt ihn später. `card_frame` wartet darum bis zu 300 ms, bis der
+  angekündigte Bildschirm da ist, und stellt sonst nichts um.
+- `card_frame` im Frame-Haken: auf dem Hauptbildschirm zeichnet es die Karte bei 94 neu, wenn +0x14 gesetzt ist, die Spalten
+  94 bis 99 nicht mehr so aussehen wie nach dem letzten Zeichnen (das Löschen durch EDIT) oder die Karte inzwischen gesteckt
+  oder gezogen wurde. Letzteres braucht es auf blau: dort zeichnet das Stecken den Hauptbildschirm neu, das EDIT-Löschen nimmt
+  die gerade gemalte Karte wieder weg, und die Spalten sehen danach aus wie vorher. Außerhalb des Hauptbildschirms stellt es
+  ein übrig gebliebenes x 94 auf 109 zurück (für einen Wechsel ohne SWITCH_SCREEN).
+- Beim Betreten des Hauptbildschirms ist die Karte für ein Bild weg (Firmware malt, EDIT löscht, `card_frame` malt neu). Im
+  Emulator nicht sichtbar, am Gerät zu prüfen.
+
+## Lastanzeige nach Blechy
+
+Vorher (develop) zeichnete LOAD METER nach dem Schließen von Blechys App nicht mehr: `SCRIPT_CONTROL_DISPLAY_ACTIVE` bleibt
+nach dem Schließen 1. `load_meter_shown` verlangt jetzt zusätzlich eine offene App (`APP_STATE` nicht 0), wie
+`script_display_blit`. Davon hängt auch das Kartensymbol bei 94 ab. (gemessen)
 
 ## Belegtabelle
 
@@ -75,12 +112,18 @@ Bytes, die sich geändert haben, und nur dann wird der Bereich als geändert mar
 | Werte von knapp über leer bis über voll geben 0 bis 100 in Zehnerschritten | `steps_of_10` | gemessen |
 | Ein Einbruch für einen Schritt lässt den Wert stehen, ein dauerhafter Anstieg läuft in Stufen bis 100 | `smoothed` | gemessen |
 | Am Netzteil sofort weg, zurück auf Batterie wieder da | `hidden_on_mains` | gemessen |
-| Mit LOAD METER ON und Karte behalten Zahl, Lastanzeige, Karte und Batteriesymbol ihre Spalten, 99 bleibt frei | `layout_with_load_meter_and_card` | gemessen |
+| Mit LOAD METER ON und Karte behalten Zahl, Lastanzeige, Karte und Batteriesymbol ihre Spalten, 100 bleibt frei | `layout_with_load_meter_and_card` | gemessen |
+| Ohne Karte nichts bei 94 und 109, auch nicht nach BLECH-Menü und GLOBAL PARAMETERS | `card_none` | gemessen |
+| Mit Karte nach dem Start bei 94, nicht bei 109 | `card_boot_at_94` | gemessen |
+| In BLECH-Menü und GLOBAL PARAMETERS die Karte bei 109 und 84 bis 99 wie ohne Karte, zurück wieder bei 94; mit LOAD METER OFF und ON | `card_menus_load_meter_off`, `card_menus_load_meter_on` | gemessen |
+| Auf dem Hauptbildschirm gezogen weg, gesteckt wieder bei 94 | `card_pull_and_insert_on_main` | gemessen |
+| In der WRITE-Frage bei 109, danach bei 94 | `card_write_question` | gemessen |
+| Mit Blechys App offen keine Karte bei 94, geschlossen wieder da | `card_app` | gemessen |
 | OFF nimmt die Zahl beim nächsten Bild weg | `off_hides_at_once` | gemessen |
 | Seite 7 von 7 in DISPLAY, Vorgabe ON, WRITE mit ON schreibt Version 3 | `page_default_on` | gemessen |
 | OFF auf der Seite: zurück auf dem Hauptbildschirm keine Zahl; WRITE schreibt Version 4 mit Bit 4 | `page_off_hides_on_the_main_screen`, `write_off_is_version_4` | gemessen |
 | Der nächste Start liest OFF, Bit gelöscht zeigt wieder | `next_start_reads_off` | gemessen |
-| Gleiche Ergebnisse auf Hacktribe, rot und blau | je 11 von 11 Fällen | gemessen |
+| Gleiche Ergebnisse auf Hacktribe, rot und blau | je 18 von 18 Fällen | gemessen |
 | Prozentwerte entsprechen der echten Restladung | Kurve ist eine Gerade | hergeleitet, offen |
 | Am Gerät | nicht geprüft | offen |
 
