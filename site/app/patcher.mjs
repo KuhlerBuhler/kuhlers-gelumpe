@@ -69,7 +69,12 @@ function verdictText(input, items, waiting) {
 }
 
 /** `onTest(failure)` hears the last test as testFailure (data/rescue.mjs) gives it: null when it passed, for the Rettung page. */
-export function patcherPage(root, { emulator, show = () => {}, session = () => null, onTarget = () => {}, onTest = () => {} }) {
+/** The toast key for a USB action without a MIDI session: the cable can be in while the app is not connected. */
+export function notConnectedKey(state) {
+  return state === "present" ? "patcher.usb.notSession" : "patcher.usb.notConnected";
+}
+
+export function patcherPage(root, { emulator, show = () => {}, session = () => null, usbState = () => "unknown", onTarget = () => {}, onTest = () => {} }) {
   if (!document.querySelector("link[data-cee-patcher]")) {
     const css = el("link", { rel: "stylesheet", href: STYLE });
     css.setAttribute("data-cee-patcher", "");
@@ -1261,7 +1266,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   usbGet.addEventListener("click", async () => {
     const s = session();
-    if (!s) { toast(t("patcher.usb.notConnected"), "error", { help: "notfound" }); return; }
+    if (!s) { toast(t(notConnectedKey(usbState())), "error", { help: "notfound" }); return; }
     usbGet.disabled = true;
     usbNote.hidden = false;
     try {
@@ -1283,7 +1288,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   usbPut.addEventListener("click", async () => {
     const s = session();
     if (!passed || !allowed(flow).download || !htReady()) return;
-    if (!s) { toast(t("patcher.usb.notConnected"), "error", { help: "notfound" }); return; }
+    if (!s) { toast(t(notConnectedKey(usbState())), "error", { help: "notfound" }); return; }
     usbPut.disabled = true;
     usbNote.hidden = false;
     try {

@@ -1466,6 +1466,7 @@ export default {
   "patcher.korg.started": "Ton navigateur télécharge le zip chez Korg. Glisse-le ensuite dans le champ.",
   "patcher.usb.done": "Terminé, le nouveau firmware est sur la carte. Maintenant sur l'appareil : MENU, avec EDIT ◀ jusqu'à DATA UTILITY, MENU, avec EDIT ▶ jusqu'à SOFTWARE UPDATE, puis appuyer sur MENU jusqu'à ce que « OK. Please Reboot. » s'affiche. Ne pas éteindre entre-temps. Ensuite éteindre et rallumer.",
   "patcher.usb.notConnected": "L'Electribe n'est pas connectée. Branche-la en USB et allume-la. Puis choisis « Vrai appareil » en haut de la section Émulateur et clique sur « Se connecter à l'Electribe ».",
+  "patcher.usb.notSession": "L'Electribe est branchée en USB, mais pas connectée à l'app. Choisis « Vrai appareil » en haut de la section Émulateur et clique sur « Se connecter à l'Electribe ». Si on te dit alors que le port MIDI est déjà ouvert, un autre programme le tient : ferme-le et réessaie.",
   "patcher.usb.decide": "Le fichier de l'appareil demande encore une décision, voir plus bas.",
   "patcher.usb.checking": "Patch et vérification dans l'émulateur, ça prend quelques minutes.",
   "patcher.usb.failed": "La vérification dans l'émulateur a échoué, rien n'est parti vers l'appareil. Détails plus bas.",
