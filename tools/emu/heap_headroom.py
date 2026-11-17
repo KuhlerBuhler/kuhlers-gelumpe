@@ -90,7 +90,7 @@ def measure(vsb, flash):
     step("pattern changes with plugin")
     largest = 0
     for size in PROBE:
-        block = dev.call(new, size)
+        block = dev.call(NEW, size)            # call() maps the Sampler address itself
         if block:
             dev.call(delete, block)
             largest = size
