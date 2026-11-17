@@ -8,8 +8,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from blackfin_backend import BlackfinBackend, BlackfinPort, BackendError
+import blackfin_worker
 
-WORKER = os.environ.get('BFIN_WORKER')
+WORKER = blackfin_worker.find()
 ENTRY, DATA = 0x1000, 0x100000
 
 
@@ -71,7 +72,7 @@ class Failures(unittest.TestCase):
                     backend.run(20)
 
 
-@unittest.skipUnless(WORKER, 'build the GNU Blackfin worker and set BFIN_WORKER')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class Execution(unittest.TestCase):
     def setUp(self):
         self.backend = BlackfinBackend(WORKER)

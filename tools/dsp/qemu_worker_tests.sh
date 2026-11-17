@@ -1,6 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Worker tests of one group against $BFIN_WORKER (GNU or QEMU worker):
+# Worker tests of one group against $BFIN_WORKER, by default the worker
+# tools/emu/blackfin_worker.py picks (QEMU, else GNU):
 #   qemu_worker_tests.sh kern|host|dma|fork|alle
 # The tests skip themselves without a worker, so a skipped test fails this
 # run unless tools/dsp/qemu_gnu_only.txt lists it (one test id per line, with
@@ -10,10 +11,15 @@ here=$(cd "$(dirname "$0")" && pwd)
 emu="$here/../emu"
 group=${1:-}
 
-if [ -z "${BFIN_WORKER:-}" ] || [ ! -x "$BFIN_WORKER" ]; then
-    echo "BFIN_WORKER must name a built worker (build_blackfin.py or build_qemu.py)" >&2
+python="$emu/.venv/bin/python"
+[ -x "$python" ] || python=python3
+BFIN_WORKER=$(cd "$emu" && "$python" -c 'import blackfin_worker; print(blackfin_worker.find() or "")')
+if [ -z "$BFIN_WORKER" ] || [ ! -x "$BFIN_WORKER" ]; then
+    echo "no Blackfin worker: build one (build_qemu.py or build_blackfin.py) or set BFIN_WORKER" >&2
     exit 2
 fi
+export BFIN_WORKER
+echo "worker: $BFIN_WORKER" >&2
 
 B=test_blackfin_backend.Execution
 case "$group" in
@@ -62,8 +68,6 @@ alle)
     exit 2 ;;
 esac
 
-python="$emu/.venv/bin/python"
-[ -x "$python" ] || python=python3
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 status=0

@@ -41,7 +41,7 @@ class CandidateCode(unittest.TestCase):
             blackfin_swap_cases.verify_patch_code(self.payload, self.screens)
 
 
-@unittest.skipUnless(WORKER, 'set BFIN_WORKER to a built private GNU worker')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class NativeSwapMemory(unittest.TestCase):
     def test_pcm_is_read_from_executed_dsp_memory(self):
         with BlackfinBackend(WORKER) as backend:

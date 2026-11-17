@@ -9,6 +9,7 @@ from pathlib import Path
 import time
 
 from blackfin_backend import BlackfinPort, BackendError
+import blackfin_worker
 from blackfin_rom import SysControl
 from firmware import identify
 from machine import Machine, DSP_CTRL, DSP_DATA, blank_flash, hardware_flash
@@ -76,17 +77,20 @@ def cases(payload, worker, *, core_hz, seconds=1, input='silence', wall_timeout=
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--vsb', type=Path, required=True)
-    parser.add_argument('--worker', type=Path, required=True)
+    parser.add_argument('--worker', type=Path, help='default: blackfin_worker.find()')
     parser.add_argument('--core-hz', type=int, required=True)
     parser.add_argument('--seconds', type=float, default=1)
     parser.add_argument('--wall-timeout', type=float, default=600)
     parser.add_argument('--input', choices=('silence', 'lcg'), default='silence')
     args = parser.parse_args()
     try:
+        worker = blackfin_worker.find(args.worker)
+        if worker is None:
+            raise ValueError('no Blackfin worker: build one with tools/dsp/build_qemu.py or pass --worker')
         raw = args.vsb.read_bytes()
         if len(raw) != 0x200100:
             raise ValueError('expected a complete SYSTEM.VSB')
-        report = cases(raw[0x100:], args.worker, core_hz=args.core_hz,
+        report = cases(raw[0x100:], worker, core_hz=args.core_hz,
                        seconds=args.seconds, input=args.input, wall_timeout=args.wall_timeout)
     except (OSError, BackendError, ValueError) as error:
         report = dict(ok=False, error=str(error), hardware_contact=False)

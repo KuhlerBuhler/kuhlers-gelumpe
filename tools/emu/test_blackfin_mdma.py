@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Generated MDMA streams with unequal descriptor and row boundaries."""
-import os
 import struct
 import unittest
 
 from blackfin_backend import BlackfinBackend, BackendError
+import blackfin_worker
 
-WORKER = os.environ.get('BFIN_WORKER')
+WORKER = blackfin_worker.find()
 SOURCE, DESTINATION = 0xFFC00F40, 0xFFC00F00
 SRC, OTHER, DST = 0x30000, 0x31000, 0x40000
 
 
-@unittest.skipUnless(WORKER, 'build the private GNU worker and set BFIN_WORKER')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class MemoryDMA(unittest.TestCase):
     def setUp(self):
         self.backend = BlackfinBackend(WORKER, operating=True)

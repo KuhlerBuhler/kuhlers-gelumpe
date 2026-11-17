@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Bounded frame observations with generated programs."""
-import os
 from pathlib import Path
 import struct
 import sys
@@ -12,8 +11,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'dsp'))
 from blackfin_probe import observe_frames
 import blackfin_probe
 from blackfin_backend import BlackfinBackend, BackendError
+import blackfin_worker
 
-WORKER = os.environ.get('BFIN_WORKER')
+WORKER = blackfin_worker.find()
 
 
 class ObservationFailures(unittest.TestCase):
@@ -49,7 +49,7 @@ class ObservationFailures(unittest.TestCase):
                 observe_frames(SimpleNamespace(backend=Mock()), frames, entry)
 
 
-@unittest.skipUnless(WORKER, 'build the GNU Blackfin worker and set BFIN_WORKER')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class GeneratedObservation(unittest.TestCase):
     def test_breakpoint_observation_never_replaces_native_control_flow(self):
         with BlackfinBackend(WORKER, operating=True) as backend:
