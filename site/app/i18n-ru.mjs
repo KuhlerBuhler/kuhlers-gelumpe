@@ -1581,6 +1581,7 @@ export default {
   "patcher.patch.sysexSynth": "BLECHTRIBE SysEx: чтение RAM и flash",
   "patcher.patch.ifxIdle": "Insert-эффект в покое",
   "patcher.patch.stage2Memory": "Своя память для ступени 2 insert-эффектов",
+  "patcher.patch.nativeRecording": "Встроенная запись",
   "patcher.patch.version": "Версия BLECHTRIBE в меню (BLECH > VERSION)",
   "patcher.patch.updateGuard": "SOFTWARE UPDATE отклоняет неполный SYSTEM.VSB",
   "patcher.usbName": "Имя устройства: Electribe 3",

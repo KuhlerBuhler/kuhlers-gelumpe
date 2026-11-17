@@ -22,6 +22,7 @@ audio_command_hook:
     .word 0xE10FC000                 ; mrs r12, cpsr
     push {r12, lr}
     bl audio_service
+    bl nr_service
     pop {r12, lr}
     .word 0xE128F00C                 ; msr cpsr_f, r12
     pop {r0-r12, lr}
@@ -32,6 +33,9 @@ audio_command_hook:
 audio_service:
     push {r4-r8, lr}
     ldr r4, =AUDIO_SERVICE
+    bl nr_busy
+    cmp r0, #0
+    bne audio_service_recording
     ldr r5, [r4, #AU_REQUEST]
     sub r6, r5, #1
     cmp r6, #24
@@ -82,6 +86,17 @@ audio_service_have:
     str r0, [r7, #108]
     mov r0, r7
     bl scope_service
+    b audio_service_status
+audio_service_recording:
+    mvn r0, #0
+    str r0, [r4, #AU_REQUEST]
+    ldr r0, [r4]
+    cmn r0, #1
+    beq audio_service_recording_status
+    cmp r0, #0
+    blne scope_close
+audio_service_recording_status:
+    mov r0, #BUSY
     b audio_service_status
 audio_service_expired:
     mvn r0, #0
@@ -225,6 +240,12 @@ script_audio_capture_glue:
     sub r1, r0, #1
     cmp r1, #24
     bhs audio_capture_off
+    push {r0, lr}
+    bl nr_busy
+    cmp r0, #0
+    pop {r0, lr}
+    bne audio_capture_recording
+    ldr r2, =AUDIO_SERVICE
     ldr r1, [r2, #AU_REQUEST]
     cmp r1, r0
     strne r0, [r2, #AU_REQUEST]
@@ -234,6 +255,10 @@ script_audio_capture_glue:
     ldr r3, [r3]
     str r3, [r2, #AU_LEASE_TICK]
     b audio_status
+audio_capture_recording:
+    mov r0, #2
+    mov r1, #ERR_OK
+    bx lr
 audio_capture_off:
     mvn r1, #0
     str r1, [r2, #AU_REQUEST]

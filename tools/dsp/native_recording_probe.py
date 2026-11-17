@@ -47,7 +47,7 @@ def output(size):
     ])
 
 
-def run_probe(args, asm, returns, size):
+def run_probe(args, asm, returns, size, patches=(), extra_segments=()):
     with tempfile.TemporaryDirectory(prefix='gelumpe-native-dsp-') as temp:
         work = Path(temp)
         (work / 'probe.s').write_text('.text\n.global _start\n_start:\n' +
@@ -61,11 +61,16 @@ def run_probe(args, asm, returns, size):
         segments = []
         for entry in json.loads((args.regions / 'map.json').read_text()):
             data = bytearray((args.regions / entry['file']).read_bytes())
+            for address, replacement in patches:
+                offset = address - entry['target']
+                if 0 <= offset and offset + len(replacement) <= len(data):
+                    data[offset:offset + len(replacement)] = replacement
             for address in returns:
                 offset = address - entry['target']
                 if 0 <= offset < len(data):
                     data[offset:offset + len(ret)] = ret
             segments.append((entry['target'], bytes(data)))
+        segments.extend(extra_segments)
         segments.append((0x03000000, (work / 'probe.bin').read_bytes()))
         write_elf(str(work / 'probe.elf'), segments, 0x03000000)
         cmd = [args.run, '--environment', 'virtual', '--model', 'bf527']

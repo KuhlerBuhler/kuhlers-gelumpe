@@ -273,7 +273,35 @@ bei `0xFFA01720` dazu. Sie sind nicht der nachgelagerte THRU- oder Klickweg.
 | 0.4 | längste Leserlücke bei Pattern-Wechsel, WRITE und Sample Swap, CommandTask und eigener Task | offen, Besitzer misst |
 | 0.5 | A bei gemessener Leserlücke unter 80 ms, sonst C oder B | noch nicht entschieden |
 
-Simulatorgeschwindigkeit ersetzt keine dieser Zeitmessungen. Der erste Aufnahmedienst wartet auf die Ringentscheidung.
+Simulatorgeschwindigkeit ersetzt keine dieser Zeitmessungen. Die Freigabe für lückenlose Aufnahmen wartet auf die Ringentscheidung.
+
+## 7. Eigener Aufnahmezweig und nativer Schreiber
+
+**Im Simulator geprüft:** Der eigene DSP-Code liegt ab `0x01F12000`, sein Zustand ab `0x01F12100`. Das gepackte
+Aufnahme-Wort steht bei `0x01F12108`, die Freigabe bei `0x01F1210C`, ein Kennwort bei `0x01F12110`. Die beiden
+Umleitungen nach THRU und nach der Ausgangsverstärkung erhalten den hörbaren Ausgang in acht Vergleichsfällen bitgleich.
+Der Abgriff entspricht demselben Originallauf ohne Klick, auch mit Eingangssignal und Sättigung. Die Erfassung davor
+liest das Wort des vorigen Frames; beim Start wird der bisherige Ringinhalt verworfen.
+
+**Gelesen und geprüft:** Der Bootstrom erhält einen eigenen Block vor seinem abschließenden Start-Header. Seine Länge
+wird mit angepasst. Der Builder prüft freien Platz vor `0xC013C200`, die originalen Umleitungsstellen, vorhandene
+Ladeblöcke und die vier Heap-Einträge ab `0x01F02438`. Jeder Eintrag enthält Basis, gespeicherte Länge und ID. Der neue
+DSP-Bereich liegt außerhalb aller vier Heaps. Die Patch-Datei enthält eigenen Code und Prüfsummen, keine Originalbytes.
+
+**Im ARM-Emulator geprüft:** Der private WAV-Schreiber nutzt einen eigenen `0x240`-Byte-FIL-Kontext. Er legt
+`SD:Recordings/REC0001.WAV` mit FA_CREATE_NEW an und überspringt vorhandene Namen. Der Kopf umfasst 512 Byte: JUNK,
+PCM-Format und data-Header, danach ganze 64-KiB-Blöcke und beim Stop der Rest. Längen werden beim Abschluss gesetzt.
+Ein Teilwrite meldet einen Fehler; nur vollständige Frames stehen im data-Chunk. Ein fehlgeschlagenes Schließen behält
+seinen Dateikontext bis zum nächsten Abschlussversuch.
+
+**Gelesen und im ARM-Emulator geprüft:** `0xC0014284` schreibt keine Transfers unter 16 Wörtern. Kurze Host-Port-Writes
+laufen über `0xC00146B4` mit exakter Länge und Schritt 2. Der Port kommt aus `0xC0015C98`, davor und danach steht die
+native DSP-Sperre 1 (`0xC0000D80`/`0xC0000CA8`). Das verhindert das Überschreiben benachbarter Zustandswörter.
+
+**Im ARM-Emulator geprüft:** Auf rot und Hacktribe schreibt der Worker aus CommandTask mit den originalen FatFs- und
+SD-Routinen eine lesbare Stereo-WAV auf die virtuelle Karte. Ihre PCM-Daten stimmen mit dem synthetischen DSP-Signal
+überein. Benutzer-Flash bleibt unverändert; keine Assertions. Die Fälle nutzen Emulator-Arbeitsraum und beweisen noch
+keine Menüanbindung, keine Gerätezeiten und kein störungsfreies langes Set.
 
 ## Offen
 
@@ -284,3 +312,20 @@ Simulatorgeschwindigkeit ersetzt keine dieser Zeitmessungen. Der erste Aufnahmed
 - Ob Weg A ohne Lücke hält; sonst Weg B oder C.
 - Polarität: die Ausgangsstufe dreht beide Kanäle nach dem Abgriff um (`0xFFA0197E`); ob die Aufnahme gegen den Ausgang
   am Gerät invertiert ist, ist offen und für eine WAV egal.
+
+## 8. Native Bedienung und vorläufiger Dienst
+
+**Im ARM-Emulator geprüft:** SHIFT+REC öffnet die Sampling-Ansicht. RECORD ist eine eigene dritte Quellwahl; der native
+Quellwert bleibt 0 oder 1. Die Lebensdauer der Ansicht wird an Konstruktor und Destruktor erkannt, kein Ansichtszeiger
+bleibt im Aufnahmedienst. PLAY schließt die native Ansicht und startet keine Aufnahme. REC startet und stoppt in RECORD.
+Während des Starts und Abschlusses bleibt die Quelle gesperrt. Die Anzeige nennt Datei, Dauer aus PCM-Bytes und Fehler.
+
+**Im ARM-Emulator geprüft:** CommandTask besitzt den Aufnahmekontext und einen dynamischen Ring, nur solange Ressourcen
+belegt sind. Es wird der größte verfügbare Zweierpotenz-Block von 128 KiB bis 2 MiB versucht. Im vollständigen Startlauf
+waren 1 MiB möglich; das ist keine Zusage für das Gerät. Der Bereich liegt im allgemeinen Heap, nicht im reservierten
+Sample-Swap-Bereich. Spettro und andere Apps mit Erfassung sind während der Aufnahme nicht wählbar.
+
+**Im ARM-Emulator geprüft:** Mit dem ganzen Patch-Set bestehen je 15 Aufnahmeprüfungen auf rot und Hacktribe. Kurze Takes
+enthalten exakt das künstliche Signal. Ein voller 64-KiB-Write im aktuellen Karten-/CPU-Modell überschreitet die vorläufige
+80-ms-Frist: sichtbarer Lückenstatus, gültiger WAV-Kopf und zusammenhängender PCM-Anfang. Dieser Fall belegt den Abbruch,
+nicht lückenlose lange Aufnahmen, keine SD-Schreibrate und keine längste Pause am Gerät. 0.3 und 0.4 bleiben offen.

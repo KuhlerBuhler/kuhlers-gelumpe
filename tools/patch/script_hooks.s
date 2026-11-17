@@ -62,6 +62,10 @@ input_power_held:
 input_power_wait:
     b input_power_wait
 input_power_no:
+    bl nr_input
+    cmp r0, #0
+    ldr r0, [sp, #8]
+    bne input_drop
     bl idle_input                ; IDLE POWER SAVE: a touch keeps the device awake, the one that wakes it is swallowed
     cmp r0, #0
     ldr r0, [sp, #8]
@@ -595,6 +599,7 @@ frame_gate_open:
     bl remote_tick
     bl script_press_key_tick
     bl load_meter_frame          ; LOAD METER: the reading and the digits (script_load_meter.s)
+    bl nr_frame
     bl idle_frame                ; IDLE POWER SAVE: the stage, the light and the LEDs (script_idle.s)
     bl glide_frame               ; BPM GLIDE: GLIDE CHAIN and GLIDE SWITCH (script_glide.s)
     bl battery_frame             ; BATTERY %: the percent next to the load meter (script_battery.s)
@@ -838,3 +843,16 @@ frame_return:
     pop {r4-r11, pc}
 .pool
 script_frame_return_end:
+
+
+nr_frame:
+    push {r4, lr}
+    bl nr_busy
+    cmp r0, #0
+    beq nr_frame_done
+    bl testmode_keep_awake
+    bl nr_close_capture_app
+nr_frame_done:
+    pop {r4, pc}
+.pool
+nr_frame_end:

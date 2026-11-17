@@ -21,12 +21,12 @@ export const ALL = "all";
 export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases",
   "note_assist_cases", "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases",
   "remote_cases", "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "import_slots_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases", "user_samples_cases", "dev_mode_cases"];
+  "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "import_slots_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases", "user_samples_cases", "dev_mode_cases", "recording_cases"];
 
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
 const MENU_USERS = ["menu_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
-  "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "beat_eighth_cases", "ht_osc_cases", "card_error_cases", "dev_mode_cases", "import_slots_cases"];
+  "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "beat_eighth_cases", "ht_osc_cases", "card_error_cases", "dev_mode_cases", "import_slots_cases", "recording_cases"];
 const PSWITCH_USERS = ["pswitch_cases", "tap_motion_cases", "note_assist_cases", "ifx_idle_cases", "shortcut_cases",
   "synth_filter_cases", "beat_eighth_cases"];
 const MFX_USERS = ["mfx_cases", "preset_cases", "stereo_pad_cases", "touch_scale_zero_cases", "ht_osc_cases"];
@@ -84,14 +84,17 @@ export const TABLE = [
   [/^tools\/emu\/node_json\.py$|^data\/emu\/node-results\.json$/, ["remote_cases"]],
   [/^tools\/emu\/node_results\.py$/, []],
   // the DSP model (dsp_model.py): the case modules that ask it
-  [/^tools\/emu\/dsp_model\.py$/, ["shortcut_cases"]],
+  [/^tools\/emu\/dsp_model\.py$/, ["shortcut_cases", "recording_cases"]],
   // the DSP interface cases run with the start scenarios on every copy
   [/^tools\/emu\/dsp_cases\.py$/, []],
+
+  [/^tools\/emu\/recording_cases\.py$|^tools\/patch\/recording_[^/]*\.(py|s)$|^data\/patches\/native-recording-dsp\.json$/, ["recording_cases"]],
+  [/^tools\/emu\/recording_dsp_check\.py$/, []],
 
   // the patches and the code they build, to the cases that test them (check.py's docstring, each has_hooks)
   [/^tools\/patch\/mfx_switch\.py$|^data\/patches\/mfx-switch[^/]*\.json$/, MFX_USERS],
   [/^tools\/patch\/(splash_editor\.py|splash_synth\.mjs)$|^data\/patches\/splash-(editor|synth)[^/]*\.json$/, ["splash_cases"]],
-  [/^tools\/patch\/script_menu\.s$/, ["menu_cases", "shortcut_cases", "migrate_cases", "init_pattern_cases", "last_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "dev_mode_cases"]],
+  [/^tools\/patch\/script_menu\.s$/, ["menu_cases", "shortcut_cases", "migrate_cases", "init_pattern_cases", "last_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "dev_mode_cases", "recording_cases"]],
   [/^tools\/patch\/blech_version\.mjs$|^data\/patches\/blech-version[^/]*\.json$/, ["menu_cases"]],
   [/^tools\/patch\/script_shortcuts\.s$/, ["shortcut_cases"]],
   [/^tools\/patch\/script_migrate\.s$/, ["migrate_cases", "card_error_cases"]],

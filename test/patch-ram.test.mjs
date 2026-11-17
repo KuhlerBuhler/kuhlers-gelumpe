@@ -20,6 +20,16 @@ const hex = n => `0x${n.toString(16).toUpperCase()}`;
 const IMAGE = PROTECTED.regions.find(r => r.id === "firmware-image");
 const where = { free: FREE_RUNS, regions: PROTECTED.regions, window: PROTECTED.ram.window, image: IMAGE };
 
+test("native recording DSP boot data fits the sampler patch sets", () => {
+  const recording = read("data/patches/native-recording-dsp.json");
+  for (const build of BUILDS) {
+    const set = chosen(build);
+    assert.ok(set.some(patch => patch.id === recording.id), build);
+    assert.deepEqual(checkRam(set), [], build);
+    assert.deepEqual(checkRamPlacement(set, where), [], build);
+  }
+});
+
 test("all three builds can reuse the released SysEx space without taking the file workspace", () => {
   for (const build of ["hacktribe", "stock", "synth"]) {
     const set = build === "synth" ? read("data/patches/blech-synth.json").patches.map(read) : chosen(build);

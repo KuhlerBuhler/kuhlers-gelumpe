@@ -53,7 +53,8 @@
 .equ FLAGS2_GLIDE_SWITCH, 8    ; GLIDE SWITCH on (FEATURES, script_glide.s)
 .equ FLAGS2_GLIDE, 12
 .equ FLAGS2_BATT_OFF, 16       ; BATTERY % off (DISPLAY, script_battery.s); clear is on, the default, so a file with the default stays version 3
-.equ FLAGS2_KNOWN, 31          ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
+.equ FLAGS2_NATIVE_RECORDING, 32
+.equ FLAGS2_KNOWN, 63          ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
 .equ M_SPLASH_SEL, 0x100      ; the page SPLASH IMPORT: the place of the .bmp file it shows among those in KORG/blechtribe
@@ -2719,6 +2720,8 @@ orig_masks:
     .word 0, 0
     .byte 63, 0, FLAGS2_BATT_OFF, 0 ; BATTERY %: bit 4 of byte 7, set is OFF
     .word 0, 0
+    .byte 64, 0, FLAGS2_NATIVE_RECORDING, 0
+    .word 0, 0
     .byte 0xFF, 0, 0, 0
 
 ; ---- the list of the plugins (level 5) and SPLASH IMPORT as the firmware's file browser (DATA UTILITY, IMPORT SAMPLE: screen 39)
@@ -3287,7 +3290,8 @@ menu_texts_clear:
     beq menu_text_batt
     cmp r0, #61
     cmpne r0, #62
-    beq menu_text_glide
+    cmpne r0, #64
+    beq menu_text_flag2
     cmp r0, #57
     cmpne r0, #58
     beq menu_text_anim
@@ -3878,16 +3882,23 @@ menu_text_batt:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
-; GLIDE CHAIN (r0 = 61) and GLIDE SWITCH (62): the tempo glides to the next pattern's (script_glide.s), bits 2 and 3 of byte 7
-menu_text_glide:
+; FLAGS2 features whose set bit means ON: GLIDE CHAIN, GLIDE SWITCH and NATIVE RECORDING.
+menu_text_flag2:
     mov r6, r0
     mov r0, #3
     bl menu_title_prefix
     cmp r6, #61
     ldreq r1, =str_glide_chain
     ldrne r1, =str_glide_switch
+    cmp r6, #64
+    ldreq r1, =str_native_recording
+    cmp r6, #61
     moveq r6, #FLAGS2_GLIDE_CHAIN
+    beq menu_text_flag2_copy
+    cmp r6, #64
+    moveq r6, #FLAGS2_NATIVE_RECORDING
     movne r6, #FLAGS2_GLIDE_SWITCH
+menu_text_flag2_copy:
     bl menu_copy
     ldrb r2, [r5, #MX_FLAGS2]
     ldr r1, =str_off
@@ -4590,6 +4601,14 @@ menu_kind_sub:
 menu_kind_features:
     bl menu_page_count          ; KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them
     mov r1, #0
+    mov r2, #NR_SUPPORTED
+    cmp r2, #0
+    beq menu_kind_glide
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #64
+    beq menu_kind_done
+menu_kind_glide:
     sub r0, r0, #1
     cmp r5, r0
     moveq r0, #62
@@ -4805,7 +4824,7 @@ menu_count_led:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #9                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH, LAST PATTERN and STEREO 1 PAD where the set has their patches
+    mov r0, #9+NR_SUPPORTED     ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH, LAST PATTERN and STEREO 1 PAD where the set has their patches
     ldr r1, =LP_CODE
     ldr r1, [r1]
     cmn r1, #1
@@ -6472,7 +6491,8 @@ menu_slot_value:
     beq menu_value_batt
     cmp r0, #61
     cmpne r0, #62
-    beq menu_value_glide
+    cmpne r0, #64
+    beq menu_value_flag2
     cmp r0, #56
     beq menu_value_dev
     cmp r0, #57
@@ -6745,11 +6765,13 @@ menu_value_batt:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
-; GLIDE CHAIN and GLIDE SWITCH act at once (the frame follows the switch), WRITE keeps them: ON up, OFF down
-menu_value_glide:
+; FLAGS2 features: ON up, OFF down; WRITE keeps them.
+menu_value_flag2:
     cmp r0, #61
     moveq r2, #FLAGS2_GLIDE_CHAIN
     movne r2, #FLAGS2_GLIDE_SWITCH
+    cmp r0, #64
+    moveq r2, #FLAGS2_NATIVE_RECORDING
     ldrb r1, [r6, #MX_FLAGS2]
     cmp r5, #0
     orrgt r1, r1, r2
@@ -7494,6 +7516,8 @@ str_knob:
     .asciz "KNOB LEDS"
 str_lm:
     .asciz "LOAD METER"
+str_native_recording:
+    .asciz "NATIVE RECORDING"
 str_glide_chain:
     .asciz "GLIDE CHAIN"
 str_glide_switch:

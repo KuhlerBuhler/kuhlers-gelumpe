@@ -2,8 +2,8 @@
   "planId": "2026-11-17-native-aufnahme-1.6",
   "planPath": "docs/plaene/2026-11-17-native-aufnahme-1.6.md",
   "createdAt": "2026-11-17T10:28:13Z",
-  "updatedAt": "2026-11-17T15:26:56.169397+00:00",
-  "revision": 1,
+  "updatedAt": "2026-11-17T22:29:10.862905+00:00",
+  "revision": 2,
   "supersedes": [],
   "absorbs": {},
   "phases": [
@@ -50,8 +50,8 @@
         {
           "id": "0.5",
           "name": "Entscheidung A/B/C in die Messung schreiben: A, wenn die längste Leserlücke unter 80 ms bleibt; sonst C (DSP-Ring im Sample-Speicher) oder B",
-          "status": "pending",
-          "note": "A/B/C requires measured reader gaps and card stalls from 0.3 and 0.4; no timing values inferred from simulator throughput."
+          "status": "in_progress",
+          "note": "Path A is the provisional implementation baseline. Its 80 ms deadline is an unverified design bound, not a measured reader gap. Final A/B/C decision awaits device measurements."
         }
       ],
       "criteria": [
@@ -68,32 +68,70 @@
     {
       "id": "phase-1",
       "name": "Phase 1: Master auf die Karte, ein Knopf (2 bis 3 Tage)",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "1.1",
           "name": "Aufnahmedienst: Erfassung mit der gewählten Quelle, SAMPLING sperren; Spettro zeigt Master oder ist während der Aufnahme nicht wählbar; DSP-Ring lesen und R/L zu L/R drehen",
-          "status": "pending"
+          "status": "passed",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00",
+          "note": "Native tap, reader, source ownership and SAMPLING/capture-app interlocks implemented. Focused reader, runtime and hook tests pass; both complete sampler patch sets pass the native recording card cases."
+        },
+        {
+          "id": "1.1a",
+          "name": "DSP-Abgriff mit THRU und Ausgangsverstärkung, ohne Metronom; Ausgang bitgleich prüfen",
+          "status": "passed",
+          "verifiedAt": "2026-11-17T21:29:08.017954+00:00",
+          "note": "GNU DSP patch probe: 8 cases, audible output bit-exact, tap equals click-free output including THRU and saturation; marker and source fingerprints checked; boot/heap and RAM collision guards pass."
+        },
+        {
+          "id": "1.1b",
+          "name": "Nativer Ring-Leser mit Besitzprüfung, R/L-Konvertierung und sichtbaren Lückenfehlern",
+          "status": "passed",
+          "verifiedAt": "2026-11-17T21:29:08.018393+00:00",
+          "note": "13 native reader cases; locked exact-size DSP writes verified with native firmware in both sampler emulator profiles. Snapshot-age and stop ownership regressions pass."
         },
         {
           "id": "1.2",
           "name": "Schreiber in einer Task, die die Karte darf: WAV-Kopf 512 Byte (JUNK), Daten in 64-KiB-Blöcken anhängen, beim Stopp Längen setzen und schließen; Dateiname fortlaufend im Aufnahmeordner",
-          "status": "pending"
+          "status": "passed",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00",
+          "note": "Native WAV writer and task-owned service implemented; whole 64-KiB unit cases and the native deadline-abort card case pass. Physical write latency is not verified."
+        },
+        {
+          "id": "1.2a",
+          "name": "Nativer WAV-Schreiber: eigener FIL-Kontext, exklusive Dateinamen, Sektorkopf und Fehlerabschluss",
+          "status": "passed",
+          "verifiedAt": "2026-11-17T16:06:59.230260+00:00",
+          "note": "11 native Unicorn cases pass; writer remains a library until the recording service is connected."
+        },
+        {
+          "id": "1.2b",
+          "name": "WAV-Schreiber im Aufnahmedienst an die kartenzugriffsberechtigte Task anbinden",
+          "status": "passed",
+          "note": "Permanent CommandTask hook and dynamic heap controller verified through native panel-to-card cases on both sampler builds; allocations survive failed closes and are freed after finalization.",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00"
         },
         {
           "id": "1.3",
           "name": "SHIFT + REC um RECORD ergänzen; Start nur über RECORD, unabhängig von PLAY; Zeit, Karte voll und Schlafsperre",
-          "status": "pending"
+          "status": "passed",
+          "note": "Native SHIFT+REC third source, REC-only start/stop, filename/PCM time/error display and keep-awake verified by nine hook tests, native UI inspection and integrated sampler cases. PLAY leaves the native setup and does not record.",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00"
         },
         {
           "id": "1.4",
           "name": "Emulator: DSP-Modell/QEMU liefert ein bekanntes Signal im Master-Wort; Fall prüft die WAV auf der virtuellen Karte (Kopf gültig, Frames bit-gleich, Länge stimmt), Fall-Modul im Verify-Scope angemeldet",
-          "status": "pending"
+          "status": "passed",
+          "note": "recording_cases registered in check.py and verify-scope. Complete patch sets pass 15 recording checks each on Hacktribe and stock, including explicit 80 ms deadline failure. Four exact DSP-stream checks and eight scope checks pass.",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00"
         },
         {
           "id": "1.5",
           "name": "Patcher-Tabelle, Messung, Schalter unter FEATURES (aus = kein Verhalten)",
-          "status": "pending"
+          "status": "passed",
+          "note": "Default-off sampler FEATURES option, patcher labels in eleven languages, parent patch set and runtime RAM reservation implemented. All three runtime manifests rebuilt; targeted RAM and patcher table checks pass.",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00"
         }
       ],
       "criteria": [
@@ -121,7 +159,8 @@
           "threshold": "human-approval",
           "status": "pending"
         }
-      ]
+      ],
+      "note": "Software tasks pass. Hardware acceptance and final path A/B/C selection remain pending; no long-set or device success is claimed."
     },
     {
       "id": "phase-2",
