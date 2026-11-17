@@ -57,7 +57,7 @@ korg.onEvent("frame", () => {
     "write": """const data = new Array(1024);
 let got = 99;
 let writes = 0;
-korg.onEvent("frame", () => { got = korg.file.write(data, 0); writes = writes + 1; });""",
+korg.onEvent("frame", () => { got = korg.file.write(data, 0, 0); writes = writes + 1; });""",
 }
 
 
