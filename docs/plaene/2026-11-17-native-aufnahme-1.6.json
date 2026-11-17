@@ -1,0 +1,292 @@
+{
+  "planId": "2026-11-17-native-aufnahme-1.6",
+  "planPath": "thoughts/shared/plans/2026-11-17-native-aufnahme-1.6.md",
+  "createdAt": "2026-11-17T10:28:13Z",
+  "updatedAt": "2026-11-17T14:44:23+00:00",
+  "revision": 1,
+  "supersedes": [],
+  "absorbs": {},
+  "phases": [
+    {
+      "id": "phase-0",
+      "name": "Phase 0: Belege am Gerät und Weg entscheiden (Spike, 1 bis 2 Tage)",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "0.1",
+          "name": "Nur lesend: während RESAMPLING die Zustandswörter `0xFF9031F8..0xFF90320C` lesen (Quelle = Master-Wort?), Ringzeiger `0xFF9031D8` bei laufendem Spettro lesen",
+          "status": "pending"
+        },
+        {
+          "id": "0.2",
+          "name": "Im DSP-Sim: Erfassung starten, Quellzeiger umbiegen, Ring gegen das gepackte Master-Wort vergleichen (bit-gleich); Stufe ab `0xFFA0189A` und `[P4+0x6C]/[P4+0x70]` benennen",
+          "status": "pending"
+        },
+        {
+          "id": "0.2b",
+          "name": "AUDIO IN und Metronom im Master: Abgriff nach AUDIO IN, vor Metronom",
+          "status": "pending"
+        },
+        {
+          "id": "0.3",
+          "name": "Mit OK: Kartenschreibtest am Gerät (64-KiB-Blöcke, 60 s, 12,5 und 25 MHz): Rate, längste Schreibpause, Pausen beim Clusterwechsel; Testdatei danach löschen",
+          "status": "pending"
+        },
+        {
+          "id": "0.4",
+          "name": "Mit OK: Laufabstand eines Lesers messen (CommandTask vs. eigene Task) während Pattern-Wechsel, WRITE (Flash-Löschen) und Sample-Swap-Laden; Ergebnis längste Lücke in ms",
+          "status": "pending"
+        },
+        {
+          "id": "0.5",
+          "name": "Entscheidung A/B/C in die Messung schreiben: A, wenn die längste Leserlücke unter 80 ms bleibt; sonst C (DSP-Ring im Sample-Speicher) oder B",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-01",
+          "description": "Messdatei hat Zahlen zu Abgriff, Kartenschreiben, Leserluecke und Entscheidung A/B/C",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-1",
+      "name": "Phase 1: Master auf die Karte, ein Knopf (2 bis 3 Tage)",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "1.1",
+          "name": "Aufnahmedienst: Erfassung mit Master-Quelle starten (gewählter Weg), Sperre gegen Spettro und SAMPLING (Status belegt), Leser leert den DSP-Ring in einen ARM-Ring und dreht R/L zu L/R",
+          "status": "pending"
+        },
+        {
+          "id": "1.2",
+          "name": "Schreiber in einer Task, die die Karte darf: WAV-Kopf 512 Byte (JUNK), Daten in 64-KiB-Blöcken anhängen, beim Stopp Längen setzen und schließen; Dateiname fortlaufend im Aufnahmeordner",
+          "status": "pending"
+        },
+        {
+          "id": "1.3",
+          "name": "Bedienung nach Pascals Antwort (Menüpunkt oder Tastenkombination), Anzeige: läuft, Zeit, Karte voll; Gerät schläft während der Aufnahme nicht",
+          "status": "pending"
+        },
+        {
+          "id": "1.4",
+          "name": "Emulator: DSP-Modell/QEMU liefert ein bekanntes Signal im Master-Wort; Fall prüft die WAV auf der virtuellen Karte (Kopf gültig, Frames bit-gleich, Länge stimmt), Fall-Modul im Verify-Scope angemeldet",
+          "status": "pending"
+        },
+        {
+          "id": "1.5",
+          "name": "Patcher-Tabelle, Messung, Schalter unter FEATURES (aus = kein Verhalten)",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-02",
+          "description": "Emulatorfall WAV auf virtueller Karte bit-gleich auf Hacktribe und rot",
+          "type": "manual",
+          "verify": "Fall-Modul im Verify-Scope, Lauf gruen",
+          "threshold": "human-approval",
+          "status": "pending"
+        },
+        {
+          "id": "SC-03",
+          "description": "RAM-Kollisionstest gruen",
+          "type": "command",
+          "verify": "node --test test/patch-ram.test.mjs",
+          "threshold": "exit-0",
+          "status": "pending"
+        },
+        {
+          "id": "SC-04",
+          "description": "Geraetetest mit Pascal",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "Phase 2: Lange Sets ohne Lücke (1 bis 2 Tage)",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "2.1",
+          "name": "Lückenzähler: Leser erkennt überholten DSP-Ring und ARM-Ring-Überlauf; Anzeige und Marker (cue-Chunk oder Logdatei), nie stilles Verschlucken",
+          "status": "pending"
+        },
+        {
+          "id": "2.2",
+          "name": "Ringgröße nach Phase 0 festlegen (Vorschlag 2 MiB), Bereich anmelden oder vom Sample-Swap-Cache leihen",
+          "status": "pending"
+        },
+        {
+          "id": "2.3",
+          "name": "Andere Kartenschreiber (Einstellungen, Patterns, Plugins, Sample Swap) während der Aufnahme: warten lassen oder seriell, mit Fall",
+          "status": "pending"
+        },
+        {
+          "id": "2.4",
+          "name": "Stromausfall: Längen regelmäßig nachtragen oder Reparatur beim Start (Länge aus Dateigröße), mit Fall",
+          "status": "pending"
+        },
+        {
+          "id": "2.5",
+          "name": "Karte voll, Karte gezogen, 4-GiB-Grenze: sauber beenden, ab 4 GiB neue Datei",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-05",
+          "description": "Faelle Ueberlauf, Karte voll, Reparatur gruen",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        },
+        {
+          "id": "SC-06",
+          "description": "60 min Set am Geraet ohne Luecke",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "Phase 3: Plugin-API Master-Quelle (0,5 Tag, optional)",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "3.1",
+          "name": "`korg.audio.capture` bekommt die Quelle Master (neue Nummer am Listenende, API-Sprung), Spettro zeigt den Mix",
+          "status": "pending"
+        },
+        {
+          "id": "3.2",
+          "name": "Aufnahme-Status lesbar für Plugins (läuft, Zeit, Lücken), nur wenn Pascal will",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-07",
+          "description": "Plugin-API-Fall gruen, Doku DE/EN",
+          "type": "command",
+          "verify": "node --test test/docs.test.mjs",
+          "threshold": "exit-0",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Phase 4: WAV abspielen (später, auf Sample Swap #166)",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "4.1",
+          "name": "DSP-Patch: Leseweg aus einem Ring im DSP-Speicher, addiert nach MFX und nach der Röhrenkurve (Pascal 17.11.), eigenes Zwischenwort, damit Aufnahme und Wiedergabe gleichzeitig laufen; im QEMU-Kern bit-genau geprüft",
+          "status": "pending"
+        },
+        {
+          "id": "4.2",
+          "name": "ARM: WAV wählen (Dateibrowser im Firmware-Look), Format prüfen (48 kHz, 16 Bit, mono/stereo, Rest ablehnen), Ring per Host-Port füllen, Start/Stopp, Pegel",
+          "status": "pending"
+        },
+        {
+          "id": "4.3",
+          "name": "Start mit PLAY koppeln (optional), Anzeige Zeit/Rest",
+          "status": "pending"
+        },
+        {
+          "id": "4.4",
+          "name": "Emulatorfall: WAV auf der Karte, Ausgang am DSP-Modell gleich der Datei",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-08",
+          "description": "Wiedergabe-Fall gruen, DSP-Patch im QEMU-Kern bit-genau",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        },
+        {
+          "id": "SC-09",
+          "description": "Geraet 10 min Track ohne Aussetzer",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "name": "Phase 5: Blau (nur mit Tester)",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "5.1",
+          "name": "Start über eigenen ARM-Code (Postfach `0x37` auf blau), mono über `0xFF802818`",
+          "status": "pending"
+        },
+        {
+          "id": "5.2",
+          "name": "Stereo auf blau entfällt (mono reicht, Pascal 17.11.); Wiedergabe über P2-Patch fürs blaue Programm",
+          "status": "pending"
+        },
+        {
+          "id": "5.3",
+          "name": "Fälle auf blau, Gerätetest durch Tester",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-10",
+          "description": "Faelle gruen auf blau, Testerbericht",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-6",
+      "name": "Phase 6: Doku und Release",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "6.1",
+          "name": "Patcher-Doku, Plugin-Doku DE/EN (falls Phase 3), README-Zeile, 1.6-Notes DE/EN/FR",
+          "status": "pending"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-11",
+          "description": "Docs-Test gruen",
+          "type": "command",
+          "verify": "node --test test/docs.test.mjs",
+          "threshold": "exit-0",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}
