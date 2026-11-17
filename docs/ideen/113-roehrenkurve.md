@@ -1,6 +1,6 @@
 # Idee 113: Röhrenkurve statt Soft-Clipper
 
-Stand 2026-11-17. Entschieden als Richtung, nichts gebaut.
+Stand 2026-11-17. Entschieden als Richtung, nichts gebaut. Ziel: Folgeversion von 1.5, unabhängig von der Aufnahme.
 
 ## Wunsch
 
@@ -45,5 +45,8 @@ nicht gemessen). Die Kurve wirkt vor dem Aufnahme-Abgriff `0xFF802888` und lande
 ## Offen
 
 - DSP-Auslastung am Gerät oder mit Zyklen im QEMU-Kern.
-- Klangziel, Grenzen der Regler, Bedienung (BLECH-Menü, Plugin-API).
+- Klangziel, Grenzen der Regler.
+- Bedienung: Drive mit SHIFT + Regler. AUDIO IN und VOLUME sind analog vor dem Wandler und schicken keine
+  Panel-Nachricht, die Firmware kennt ihre Stellung nicht. In Frage kommen nur Panel-Regler (etwa IFX EDIT oder LEVEL);
+  welche SHIFT-Kombination bei Korg frei ist, ist nicht gelesen. Dazu BLECH-Menü und Plugin-API.
 - Blau: eigene Adressen, Clipper bei `0xFFA01348`.
