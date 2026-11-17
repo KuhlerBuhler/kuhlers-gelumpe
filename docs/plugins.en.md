@@ -261,7 +261,7 @@ or a leaf of the object tree is missing.
 | Own entries in the menu BLECH | no | `korg.menu.add` | `menu` |
 | Apps | no | `korg.app` | `open`, `close` |
 | Stored values | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
-| Own file on the card | `korg.file.read` | `korg.file.write` | no |
+| Own files on the card (16 per plugin) | `korg.file.read` | `korg.file.write` | no |
 | Start images and loading animations on the card (Media) | `korg.file.count`, `korg.file.name`, `korg.file.picture` | no | no |
 | Time and timers | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
@@ -678,8 +678,8 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.audio.capture(source)` | asks for the audio of a source: `source` 1 to 16 part 1 to 16, 17 to 24 the part pairs 1+2 to 15+16 (both sides), -1 or 0 stops. The firmware takes the audio of the source at the DSP and computes a spectrum every 50 ms (FFT over 4096 frames, 48 kHz), in its own task, not in the plugin. Returns the status (`AUDIO_STATUS` in the contract): 0 ok, 1 off, 2 busy, 3 wait (the first data is coming), 4 gap, 5 no memory, 6 not on this Electribe. A plugin that does not call `capture`, `spectrum` or `wave` at least every 2 s loses the capture. Capture, FFT and ring come from Spettro by Luigi (GitHub reflectiveboi, PR #429). Sampler only (Hacktribe and red), 6 on the blue synth. Since API version 31 ([measurement](messungen/2026-11-12-plugin-api31-spektrum.md)) | everywhere |
 | `korg.audio.spectrum(array, bins, range)` | fills the first `bins` (1 to 128) slots of the array with the spectrum of the source, dB 0 to 96 per band, 96 is a full-scale sine; `range` 0 full 20 Hz to 20 kHz, 1 bass 20 Hz to 2 kHz, split logarithmically, per slot the loudest of the 128 bands in it. Returns the status as `korg.audio.capture`; the array is only written with 0. Since API version 31 | everywhere |
 | `korg.audio.wave(array)` | fills the array with the newest frames of the source, -128 to 127 (the top 8 bits), at most 256, the last slot newest; for a part pair the mean of both sides. Returns the status as `korg.audio.capture`. Since API version 31 | everywhere |
-| `korg.file.read(array, offset)` | reads the plugin's data file (see [Data file](#data-file)) from byte `offset` (0 to 4095) into the array, one byte per slot, as many as the array has slots and the file holds. Returns the number of bytes (0 without a file), -1 outside the main screen and the BLECH menu, without a readable card or while another plugin's file still waits to be written. Since API version 32 ([measurement](messungen/2026-11-11-plugin-api32-data-file.md)) | as `korg.led` |
-| `korg.file.write(array, offset)` | writes the low byte of each slot into the plugin's data file from byte `offset`, up to the end of the array or the limit of 4096 bytes; a gap behind the old end reads as 0. As with `korg.store.save`, the file goes to the card only on the main screen or in the BLECH menu and at the earliest 2 s after the last write. Returns the number of bytes, -1 as `korg.file.read`. Since API version 32 | as `korg.led` |
+| `korg.file.read(array, offset, file)` | reads the plugin's data file `file` (0 to 15, see [Data file](#data-file)) from byte `offset` (0 to 32767) into the array, one byte per slot, as many as the array has slots and the file holds. Returns the number of bytes (0 without a file), -1 outside the main screen and the BLECH menu, without a readable card or while another file, the plugin's own included, still waits to be written. A number outside 0 to 15 stops the plugin (`API_ARG`). Since API version 39 ([measurement](messungen/2026-11-17-plugin-daten-heap.md), German) | as `korg.led` |
+| `korg.file.write(array, offset, file)` | writes the low byte of each slot into the plugin's data file `file` (0 to 15) from byte `offset`, up to the end of the array or the limit of 32768 bytes; a gap behind the old end reads as 0. As with `korg.store.save`, the file goes to the card only on the main screen or in the BLECH menu and at the earliest 2 s after the last write to the card. Returns the number of bytes, -1 as `korg.file.read`. Since API version 39 | as `korg.led` |
 | `korg.read.sampleName(array, slot)` | reads the name of the sample in slot `slot` (0 to 997, the number on the display minus 1, as the part value `sample`) into the array, one character per slot, up to the first zero byte, 16 characters or the end of the array. Returns the number of characters (0 for an empty slot), -1 on the blue synth. Since API version 33 ([measurement](messungen/2026-11-11-plugin-api33-samples.md), German) | everywhere |
 | `korg.read.sampleInfo(slot, value)` | a value of the sample in slot `slot` from the sampler's tables: `value` 0 start, 1 end, 2 loop (raw values as in the sample file, the unit is not measured), 3 tune (-128 to 127), 4 stereo (0 or 1), 5 length of the PCM data in bytes, 6 one shot (0 or 1), 7 sample rate in Hz (`SAMPLE_INFO.fields` in the contract). 0 for an empty slot, -1 on the blue synth. Since API version 33 | everywhere |
 | `korg.pattern.write()` | saves the running pattern into its place in the bank, as EXIT + WRITE: presses WRITE, and the firmware's window gets its second WRITE in the next frame. With `korg.display.popups = 0` it saves without the window (it posts to the firmware what the window's second WRITE posts). Returns 1 when the save is under way, 0 off the main screen, while a save still waits for its window or for 1 s after a save without the window. The `write` event comes as with the key. Since API version 33 | as `korg.led` |
@@ -1139,12 +1139,13 @@ page is reloaded.
 
 ### Data file
 
-Each plugin has one file for its own bytes, `KORG/blechtribe/Plugin/Data/<name>.bin`: the plugin name with every character other
-than A to Z, a to z, 0 to 9 and `-` as `_` (`dataFileName` in the contract). It holds at most 4096 bytes (`SCRIPT_DATA_FILE.maxBytes`);
-the limit may grow in a later API version. `korg.file.read` and `korg.file.write` work on a copy in RAM: the runtime keeps the
-file of one plugin at a time in a block of the firmware heap (4112 bytes, taken at the first call, kept until power-off). Another
-plugin gets the block only once the previous plugin's file is on the card. What a plugin writes before its file is on the card is
-lost at power-off.
+Each plugin has a folder of its own with up to 16 files for its own bytes, `KORG/blechtribe/Plugin/Data/<name>/00.bin` to
+`15.bin`: `<name>` is the plugin name with every character other than A to Z, a to z, 0 to 9 and `-` as `_` (`dataFileName` in
+the contract). The last argument of `korg.file.read` and `korg.file.write` picks the file; a plugin reaches no other path. Each
+file holds at most 32768 bytes (`SCRIPT_DATA_FILE.files` and `.maxBytes`). Both calls work on a copy in RAM: the runtime keeps
+one file at a time in a block of the firmware heap (32788 bytes, taken at the first call, kept until power-off;
+[measurement](messungen/2026-11-17-plugin-daten-heap.md), German). Another file, the plugin's own or another plugin's, gets the block only once the previous one is on
+the card; until then the calls return -1. What a plugin writes before its file is on the card is lost at power-off.
 
 ## The BLECH menu on the device
 
