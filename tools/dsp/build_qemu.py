@@ -150,7 +150,7 @@ blech_cec_fast (SIM_CPU *cpu, int op, bu32 value, bu32 *result)
 # at translation time runs the decoder once, also for MAC and MULT, which QEMU computes itself; an
 # encoding GNU rejects jumps back instead of raising the exception, and QEMU hands that insn to GNU.
 DSP32_JUMP = '#include <setjmp.h>\nstatic jmp_buf *blech_dsp32_jump;\n'
-DSP32_HOOK = '  if (blech_dsp32_jump)\n    longjmp (*blech_dsp32_jump, 1);\n'
+DSP32_HOOK = '  if (blech_dsp32_jump)\n    _longjmp (*blech_dsp32_jump, 1);\n'
 DSP32_GNU = r'''
 SIM_CPU *blech_dsp32_cpu;
 int blech_dsp32 (int, uint32_t, uint32_t *);
@@ -190,7 +190,7 @@ blech_dsp32 (int probe, uint32_t insn, uint32_t *r)
   PARALLEL_GROUP = BFIN_PARALLEL_NONE;
   DIS_ALGN_EXPT &= ~1;
   blech_dsp32_jump = &jump;
-  if (setjmp (jump) == 0)
+  if (_setjmp (jump) == 0)
     {
       if ((iw0 & 0xF600) == 0xC000)
         decode_dsp32mac_0 (cpu, iw0, iw1);
@@ -236,7 +236,8 @@ def patch_dsp32(source):
     file = source / 'sim/bfin/bfin-sim.c'
     text = file.read_text()
     if DSP32_JUMP in text:
-        # The tree is reused between builds: replace the appended function.
+        # The tree is reused between builds: replace the hooks and the appended function.
+        text = text.replace(DSP32_HOOK.replace('_longjmp', 'longjmp'), DSP32_HOOK)
         file.write_text(text[:text.index(DSP32_GNU.split('\n', 2)[1])].rstrip('\n') + '\n' + DSP32_GNU)
         return
     for name in ('illegal_instruction (SIM_CPU *cpu)\n{\n', 'illegal_instruction_combination (SIM_CPU *cpu)\n{\n',
@@ -284,6 +285,8 @@ SPEED = (
      '      _longjmp (*halt_buf, sim_engine_halt_jmpval);\n'),
     ('sim/common/sim-engine.c', '      longjmp (*halt_buf, sim_engine_restart_jmpval);\n',
      '      _longjmp (*halt_buf, sim_engine_restart_jmpval);\n'),
+    # The poll event only checks for a host interrupt (Ctrl-C); every 4096 cycles it ended a QEMU run.
+    ('sim/common/sim-events.c', '#define SIM_EVENTS_POLL_RATE 0x1000\n', '#define SIM_EVENTS_POLL_RATE 0x40000000\n'),
     # Buffer reads and writes (DMA, host requests) look the mapping up once per run, not per byte.
     ('sim/common/sim-core.c',
      '    ((unsigned_1*)buffer)[count] =\n      *(unsigned_1*)sim_core_translate (mapping, raddr);\n'
