@@ -276,11 +276,9 @@ test("no catalog effect is set or mapped louder than Korg's presets of its unit"
 // Every value a catalog effect sets or maps stays inside the table range of its unit (data/map/fx-params.mjs). A value
 // past the table reads whatever follows it: the Master Limiter's release 20 (table 0 to 19) and threshold 64 (0 to 60)
 // made it drop out after loud passages (docs/messungen/2026-10-29-fx-katalog-pegel.md, section 7). The Short Delay keeps its
-// dry_wet above 100, set and heard on the device. Tap Delay Sync (#665) sets spread 120 over the table's 100 and
-// Tube Drive (#665) maps dry_wet to 127 and the tube gains to 124 (table 100 and 96); not measured here, left as #665
-// made them.
+// dry_wet above 100, set and heard on the device.
 const RANGE = Object.fromEntries(FX_PARAMS.fields.map(f => [f.id, f.range ?? FX_PARAMS.defaults.range]));
-const OWN_VALUES = { "Short Delay": ["dry_wet"], "Tap Delay Sync": ["spread"], "Tube Drive": ["dry_wet", "tube1_gain", "tube2_gain"] };
+const OWN_VALUES = { "Short Delay": ["dry_wet"] };
 
 test("no catalog effect sets or maps a parameter outside its unit's table", () => {
   for (const item of FX_CATALOG.filter(i => i.kind === "ifx" || i.kind === "mfx")) {

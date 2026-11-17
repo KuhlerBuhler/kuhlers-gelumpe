@@ -147,7 +147,7 @@ export const FX_CATALOG = Object.freeze([
      "lfo_speed": 34,
      "lfo_reset": 0,
      "pre_lpf": 106,
-     "spread": 120
+     "spread": 100
     }
    }
   ],
@@ -251,7 +251,7 @@ export const FX_CATALOG = Object.freeze([
     "chain": 2,
     "param": 0,
     "low": 36,
-    "high": 127
+    "high": 100
    },
    {
     "source": 71,
@@ -286,14 +286,14 @@ export const FX_CATALOG = Object.freeze([
     "chain": 2,
     "param": 1,
     "low": 64,
-    "high": 124
+    "high": 96
    },
    {
     "source": 67,
     "chain": 2,
     "param": 3,
     "low": 34,
-    "high": 124
+    "high": 96
    }
   ],
   "creator": "Kuhler Buhler",
