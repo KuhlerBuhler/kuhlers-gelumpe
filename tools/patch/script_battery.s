@@ -5,8 +5,9 @@
 ; (docs/messungen/2026-11-16-batterie-prozent.md). Shown only on battery
 ; (POWER_MODEL +0x308 is 0) with Global BATTERY TYPE Alkali (byte 0x20 of the Global values is 1); on mains power and with
 ; Ni-MH nothing is drawn. On by default: the stored bit FLAGS2_BATT_OFF means off, so a file with the default stays version 3.
-; The reading is the battery model's (BATTERY_MODEL +0x320, from panel message 6), its thresholds the table at +0x318 (full
-; first, empty last). It is smoothed: every BP_STEP_MS it moves an eighth of the way to the reading, and the percent shown
+; The reading is the battery model's (BATTERY_MODEL +0x320, from panel message 6). Empty is the last byte of its threshold
+; table at +0x318, where the firmware switches off; full is BP_FULL, a little under fresh Alkali cells (162 to 163 measured),
+; because Korg's full threshold 127 is reached only after about an hour. It is smoothed: every BP_STEP_MS it moves an eighth of the way to the reading, and the percent shown
 ; changes only when the new one is more than 8 percent away from it, so a short dip or noise around a step leaves it.
 .equ BP_AVG, 0                  ; the smoothed reading times 256
 .equ BP_TICK, 4                 ; the OS tick count (1 ms) at the last smoothing step
@@ -21,6 +22,7 @@
 .equ BP_COL, 101                ; the first column of the digits
 .equ BP_STEP_MS, 250            ; one smoothing step
 .equ BP_HOLD, 80                ; per mille: the percent shown changes only when the new one is further away than this
+.equ BP_FULL, 160               ; the reading shown as 100 percent
 
 ; Once a frame, behind glide_frame. Keeps r4 to r11.
 battery_frame:
@@ -82,7 +84,7 @@ batt_frame_step:
 batt_frame_value:
     ldr r0, [r4, #BP_AVG]
     ldr r1, [r5, #0x318]
-    ldrb r7, [r1]               ; full
+    mov r7, #BP_FULL
     ldrb r8, [r1, #3]           ; empty
     sub r1, r7, r8
     subs r0, r0, r8, lsl #8
@@ -433,10 +435,10 @@ card_frame_out:
 .align 4
 batt_percent_glyph:             ; '%' in 3 x 7, as load_meter_font, and a blank column
     .byte 0x42, 0x38, 0x84, 0x00
-; The charge in per mille at 0, 10, ... 100 percent of the way from the empty to the full threshold of BATTERY TYPE's table.
-; The share of the running time left at each point, from one discharge measured on a red with Alkali AA cells and Power Save on
-; (docs/messungen/2026-11-16-batterie-prozent.md). Measured from reading 123 down to the switch-off at 98; above 123 estimated
-; (the cells were not fresh). They must rise.
+; The charge in per mille at 0, 10, ... 100 percent of the way from empty (the table's last byte) to BP_FULL.
+; The share of the running time left at each point (raw 97 + 6.3 per step up to BP_FULL), from two runs on a red with
+; Alkali AA cells and Power Save on (docs/messungen/2026-11-16-batterie-prozent.md): fresh cells 162 down to 132 while
+; playing, old cells 123 down to the switch-off at 98 without playing; 132 to 123 estimated. They must rise.
 batt_curve:
-    .word 0, 88, 198, 341, 467, 649, 780, 857, 885, 926, 1000
+    .word 0, 97, 221, 369, 421, 488, 626, 795, 908, 974, 1000
 .align 4

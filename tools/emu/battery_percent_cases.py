@@ -49,6 +49,7 @@ FONT = bytes([0xFE, 0x82, 0xFE, 0, 0x84, 0xFE, 0x80, 0, 0xF2, 0x92, 0x9E, 0, 0x9
               0x9E, 0x92, 0xF2, 0, 0xFE, 0x92, 0xF2, 0, 0x02, 0x02, 0xFE, 0, 0xFE, 0x92, 0xFE, 0, 0x9E, 0x92, 0xFE, 0])
 PERCENT = bytes([0x42, 0x38, 0x84, 0])
 STEP_S = 0.25                                   # one smoothing step (script_battery.s:BP_STEP_MS)
+FULL = int((ROOT / "tools/patch/script_battery.s").read_text().split(".equ BP_FULL,")[1].split(";")[0])
 CURVE = [int(v) for v in (ROOT / "tools/patch/script_battery.s").read_text().split("batt_curve:")[1].split(".word")[1]
          .splitlines()[0].split(",")]           # batt_curve, the charge in per mille at 0, 10, ... 100 percent of the way
 
@@ -111,9 +112,8 @@ class Battery:
         return self.raw(self.word(self.model() + 0x318), 4)
 
     def thresholds(self):
-        """(full, empty): the first and the last byte of that table."""
-        table = self.table()
-        return table[0], table[3]
+        """(full, empty): BP_FULL from the patch and the last byte of that table."""
+        return FULL, self.table()[3]
 
     def window(self):
         """The window over the screen (the firmware's low battery warning is one), 0 without."""
