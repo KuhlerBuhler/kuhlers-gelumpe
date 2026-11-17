@@ -15,7 +15,7 @@ Rot und Hacktribe haben dasselbe DSP-Programm ([DSP-Modell](2026-11-12-dsp-model
 | Wo liegt der fertige Mix? | DSP-Wort `0xFF802888`: links (obere 16 Bit) und rechts (untere 16 Bit), nach dem Master-Effekt und einem Soft-Clipper, jedes Sample neu. Daneben `0xFF80288C`, die Mono-Summe | gelesen |
 | Wie nimmt Korg ihn auf? | RESAMPLING ist Postfach-Kommando `0x3B` mit Quelle 1: der DSP kopiert dieses Wort jedes Sample per DMA linear in den Sample-Speicher | gelesen |
 | Geht es mit `korg.audio.capture`? | Ja, mit einem Wort: die Erfassung (`0x37`) liest ihre Quelle über einen Zeiger in `0xFF9031DC`. Zeigt er auf `0xFF802888`, läuft der Master in den Ring. Der Ring fasst aber nur 4800 Frames, 100 ms | gelesen, hergeleitet |
-| Reicht die Karte? | Lesen 3,1 MiB/s (12,5 MHz) und 5,1 MiB/s (25 MHz) am Gerät. Aufnahme braucht 0,19 MB/s. Schreiben schätzt Pascal auf rund 3 MB/s; Schreibrate und Schreibpausen am Gerät sind nicht gemessen | gemessen (lesen), geschätzt (schreiben) |
+| Reicht die Karte? | Lesen 3,1 MiB/s (12,5 MHz) und 5,1 MiB/s (25 MHz) am Gerät. Aufnahme braucht 0,19 MB/s. Schreiben ist auf rund 3 MB/s geschätzt (Erfahrungswert des Besitzers); Schreibrate und Schreibpausen am Gerät sind nicht gemessen | gemessen (lesen), geschätzt (schreiben) |
 | WAV ohne `f_truncate`? | Ja: nur anhängen, am Ende mit `f_lseek` auf den Kopf und die zwei Längen überschreiben | hergeleitet |
 | RAM | Ring auf dem ARM 2 MiB (rund 10 s), Sample Swap belegt `0xC274F000..0xC4000000` | hergeleitet |
 | Abspielen | Ohne DSP-Patch nur über einen Sample-Platz und eine Stimme; sauber über einen kleinen DSP-Patch, der einen Ring in den Mix liest | hergeleitet |
@@ -123,7 +123,7 @@ dann unter 2 % der Zeit. Die Leserate selbst ist **offen**.
 **Gemessen** ([SD-Takt](2026-10-25-sd-takt.md), Gerät, Lesen in 32-KiB-Blöcken über die FatFs der Firmware):
 3156 KiB/s bei 12,5 MHz, 5172 KiB/s bei 25 MHz. Die Firmware läuft heute mit 25 MHz beim Laden.
 
-**Geschätzt:** Pascal schätzt die Schreibrate der Karte am Gerät auf rund 3 MB/s (Erfahrungswert, keine Messung).
+**Geschätzt:** der Besitzer schätzt die Schreibrate der Karte am Gerät auf rund 3 MB/s (Erfahrungswert, keine Messung).
 
 **Offen:** Schreiben am Gerät ist nicht gemessen, weder Rate noch die längste Pause eines einzelnen `f_write`. Die
 640 KB/s im Emulator ([Virtuelle SD](../hintergrund/virtuelle-sd.md)) sind kein Gerätewert. Der SD-Standard erlaubt einer
@@ -180,7 +180,7 @@ geleert werden, egal was die Karte tut.
 
 ## 4. Abspielen
 
-Reihenfolge (Pascal, 17.11.): erst die Aufnahme. Der Player ist ein späterer Schritt und baut auf Sample Swap
+Reihenfolge (Entscheidung 17.11.): erst die Aufnahme. Der Player ist ein späterer Schritt und baut auf Sample Swap
 (#166, Zweig `feature/sample-swap-native-dsp`) auf.
 
 **Gelesen:** die CPU schickt heute kein Audio in den DSP; Samples liegen im DSP-Speicher und werden von Stimmen gespielt
