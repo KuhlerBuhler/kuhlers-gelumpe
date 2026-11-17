@@ -147,7 +147,7 @@ export const FX_CATALOG = Object.freeze([
      "lfo_speed": 34,
      "lfo_reset": 0,
      "pre_lpf": 106,
-     "spread": 120
+     "spread": 100
     }
    }
   ],
@@ -251,7 +251,7 @@ export const FX_CATALOG = Object.freeze([
     "chain": 2,
     "param": 0,
     "low": 36,
-    "high": 127
+    "high": 100
    },
    {
     "source": 71,
@@ -286,14 +286,14 @@ export const FX_CATALOG = Object.freeze([
     "chain": 2,
     "param": 1,
     "low": 64,
-    "high": 124
+    "high": 96
    },
    {
     "source": 67,
     "chain": 2,
     "param": 3,
     "low": 34,
-    "high": 124
+    "high": 96
    }
   ],
   "creator": "Kuhler Buhler",
@@ -1557,7 +1557,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "M_level_mod",
     "params": {
      "amp_level": 127,
-     "output_gain_adjust": 32,
+     "output_gain_adjust": 38,
      "level_mod_source": 4,
      "level_mod_int": 126,
      "level_mod_type": 0,
@@ -1775,10 +1775,10 @@ export const FX_CATALOG = Object.freeze([
     "params": {
      "dry_wet": 100,
      "envelope_select": 0,
-     "threshold": 64,
+     "threshold": 52,
      "attack": 0,
-     "release": 20,
-     "hold_time": 17,
+     "release": 8,
+     "hold_time": 8,
      "tube_sat": 50,
      "output_gain": 54
     }
@@ -1803,8 +1803,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 2,
     "param": 2,
-    "low": 64,
-    "high": 40
+    "low": 60,
+    "high": 44
    }
   ],
   "creator": "Kuhler Buhler"
@@ -2338,39 +2338,24 @@ export const FX_CATALOG = Object.freeze([
  {
   "kind": "ifx",
   "name": "Glue Comp",
-  "description": "Ein Kompressor, der Bass und Drums zusammenhält, dahinter ein Limiter als Sicherung. Der Regler dreht die Schwelle runter und gleicht den Pegel mit aus.",
+  "description": "Ein sanfter Kompressor, der Bass und Drums zusammenhält, auf Korgs Kompressor-Baustein mit den Werten des Werkspresets Sustainer. Der Regler fährt die Hüllkurve wie beim Werkspreset.",
   "stages": [
    {
     "stage": "ifx1",
-    "unit": 2,
-    "unitName": "I_sr1_comp",
+    "unit": 3,
+    "unitName": "I_cheap_comp",
     "params": {
-     "dry_wet": 100,
-     "envelope_select": 0,
-     "threshold": 40,
-     "ratio": 8,
-     "knee": 6,
-     "attack": 11,
-     "release": 5,
-     "hold_time": 0,
-     "tube_sat": 10,
-     "output_gain": 60
+     "hpf_b1": 127,
+     "peak_hold_b1": 0,
+     "env_bit_shift_amount": 35,
+     "output_level": 11
     }
    },
    {
     "stage": "ifx2",
-    "unit": 5,
-    "unitName": "I_limiter",
-    "params": {
-     "dry_wet": 100,
-     "envelope_select": 0,
-     "threshold": 52,
-     "attack": 0,
-     "release": 3,
-     "hold_time": 3,
-     "tubesat": 0,
-     "output_gain": 60
-    }
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
    }
   ],
   "map": [
@@ -2378,15 +2363,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 0,
     "param": 2,
-    "low": 46,
-    "high": 26
-   },
-   {
-    "source": 66,
-    "chain": 0,
-    "param": 9,
-    "low": 58,
-    "high": 66
+    "low": 35,
+    "high": 0
    }
   ],
   "creator": "Kuhler Buhler"
@@ -2537,14 +2515,14 @@ export const FX_CATALOG = Object.freeze([
     "params": {
      "dry_wet": 100,
      "envelope_select": 0,
-     "threshold": 42,
+     "threshold": 27,
      "ratio": 8,
      "knee": 6,
      "attack": 11,
      "release": 5,
      "hold_time": 0,
      "tube_sat": 0,
-     "output_gain": 50
+     "output_gain": 53
     }
    }
   ],
@@ -2567,8 +2545,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 2,
     "param": 2,
-    "low": 46,
-    "high": 30
+    "low": 33,
+    "high": 21
    }
   ],
   "creator": "Kuhler Buhler"

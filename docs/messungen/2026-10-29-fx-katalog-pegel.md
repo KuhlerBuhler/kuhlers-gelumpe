@@ -132,3 +132,65 @@ Angepasst sind nur die eigenen Master-Effekte. **Nicht nachgehört.**
 
 Master Tilt und Master Warmth sind aus dem Katalog genommen: am Gerät hörbar wirkungslos und nicht gebraucht. Master
 Glue bleibt.
+
+## 7. Nachmessung im DSP-Simulator (17.11.)
+
+Gemessen mit Korgs DSP-Code im GNU-bfin-Simulator, Fall `tools/emu/fx_level_cases.py` (noch nicht in diesem Branch).
+Testsignal, Fenster und Kennzahlen wie dort: 1-kHz-Sinus mit -12 dBFS Spitze, danach ein Rauschstoß, Touchpad in der Mitte.
+Alle Werte in dB gegen trocken im selben Lauf, `einbr.` zählt 2-ms-Blöcke im Sinus unter der halben Medianleistung.
+Firmware: Patcher dieses Branches auf Hacktribe 163d1d8d (HT) und Korgs rot 2.02. **Nicht nachgehört.**
+
+### Ursachen (gemessen)
+
+- **Master Limiter.** `threshold` 64 und der Regler bis 64 lagen über dem Bereich der Einheit (0 bis 60), `release` 20 über
+  0 bis 19. Mit `release` 19 und Schwelle 64 blieben die Einbrüche (26), mit dem Regler bis 60 und `release`/`hold_time` 8
+  waren es null. Längere Release- oder Hold-Werte machen im Simulator Einbrüche: `release` 14 gibt 14, `release` 12 mit `hold_time` 17
+  gibt 6. Die Gerätemeldung "setzt aus wie ein leichter Slicer" kam auf 1.4.6 (Schwelle 48, Release und Hold 8); im Simulator
+  macht diese Einstellung keine Einbrüche (Urteil: die Meldung bleibt für 1.4.6 offen).
+- **Glue Comp.** Der Limiter in Stufe 2 (`I_limiter`) macht leise Signale um bis zu 30 dB leiser, auch hinter Korgs eigenem
+  Kompressor. Ohne ihn ist der SR1-Kompressor in Stufe 1 ein fester Pegel (+6,5 dB bei -12 und -3 dBFS, `threshold` 20 und
+  28 gleich), Ratio 0, 14 und 18 (Hacktribes Preset "SR1 Comp") geben Stille. Korgs Kompressor-Baustein (`I_cheap_comp`,
+  Werkspreset Sustainer) drückt: -0,3 dB bei -12 dBFS, -2,7 dB bei -3 dBFS.
+- **Master Glue.** Die Ratio ändert nichts (2 bis 18), die Schwelle schon. Mit Schwelle 42 greift er bei diesem Pegel nicht.
+- **Master Pumper.** `output_gain_adjust` 38 statt 32 hebt ihn um 2,9 dB, 42 wäre 2 dB über trocken.
+
+### Änderungen
+
+| Effekt | Parameter | bisher | jetzt | Herleitung |
+|---|---|---|---|---|
+| Master Limiter | `threshold`, Regler | 64, 64 bis 40 | 52, 60 bis 44 | gemessen: im Bereich der Einheit, Mitte 52 |
+| Master Limiter | `release`, `hold_time` | 20, 17 | 8, 8 | gemessen: wie 1.4.6, keine Einbrüche |
+| Master Pumper | `output_gain_adjust` | 32 | 38 | gemessen |
+| Glue Comp | Stufe 1, Stufe 2 | SR1-Kompressor, Limiter | `I_cheap_comp` wie Sustainer, keine | gemessen; Regler wie Sustainer auf `env_bit_shift_amount` 35 bis 0 |
+| Master Glue | `threshold`, `output_gain`, Regler | 42, 50, 46 bis 30 | 27, 53, 33 bis 21 | gemessen |
+
+`test/fx-v2.test.mjs` prüft jetzt jeden Wert und jede Reglerzeile des Katalogs gegen den Bereich der Einheit und lässt den
+Master Pumper bis 38 zu.
+
+### Vorher und nachher, Sinus und Rauschstoß (gemessen)
+
+| Effekt | HT vorher rms | HT vorher einbr. | HT nachher rms | HT nachher einbr. | rot vorher rms | rot nachher rms |
+|---|---|---|---|---|---|---|
+| Master Limiter | -9,5 | 26 | +1,5 | 0 | -9,5 (26) | +1,5 (0) |
+| Master Pumper | -2,9 | 0 | 0,0 | 0 | -3,6 | -0,7 |
+| Glue Comp | -6,3 | 0 | -3,2 | 0 | -6,3 | -3,2 |
+| Master Glue | +0,1 | 0 | +0,4 | 0 | +0,1 | +0,4 |
+| Loud Distortion (Kontrolle) | -2,3 | 0 | -2,3 | 0 | -2,3 | -2,3 |
+
+### Nur Sinus, -12 gegen -3 dBFS (gemessen)
+
+| Effekt | HT vorher | HT nachher | rot nachher |
+|---|---|---|---|
+| Glue Comp | -21,9 / +11,6 | -1,7 / -4,1 | -1,7 / -4,1 |
+| Master Glue | +0,1 / +0,1 | +1,6 / -1,6 | +1,6 / -1,6 |
+
+9 dB mehr Eingang ergeben jetzt 6,6 dB (Glue Comp) und 6,8 dB (Master Glue) mehr Ausgang: beide drücken sanft, statt zu
+expandieren oder nichts zu tun.
+
+### Nicht geändert
+
+- Multi Tap, Wow Tape, Dub Delay, Ping Pong, Ladder Drive und Ring Crush sind Hacktribes eigene Presets, nicht Teil des
+  Katalogs. Werkspresets bleiben, wie sie sind (Abschnitt 5). Am 16.11. gemessen 3,6 bis 6 dB leiser als trocken, Ring Crush
+  dämpft den Sinus um 60 dB.
+- Ladder Drive "zu laut" ist mit Touch in der Mitte nicht nachzustellen (-11 dB); andere Touch-Stellen sind nicht gemessen.
+- Glue Comp liegt mit dem Rauschstoß 3,2 dB unter trocken. Ein höheres `output_level` ist nicht gemessen.

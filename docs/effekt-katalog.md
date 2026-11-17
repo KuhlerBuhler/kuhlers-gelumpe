@@ -60,7 +60,7 @@ die Zeit der Hüllkurve (MOD. SPEED) kommt vom Platz, den du überschreibst.
 | Name | Art | Was er tut |
 |---|---|---|
 | Bass Enhancer | Insert, zwei Stufen | EQ (2 Bänder) mit Tiefen-Regal und etwas weniger Tiefmitten, dahinter ein Limiter. Regler: mehr Bass, weniger Eingangspegel. |
-| Glue Comp | Insert, zwei Stufen | Kompressor (SR1) mit Limiter dahinter. Regler: Schwelle runter, Pegel ausgleichen. |
+| Glue Comp | Insert | Sanfter Kompressor auf Korgs Kompressor-Baustein, Werte wie das Werkspreset Sustainer. Regler: Hüllkurve wie dort. |
 
 ## Kicks
 
