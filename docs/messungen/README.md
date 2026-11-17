@@ -161,6 +161,7 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 - [Emulator-Takt: 1000 Timer-Interrupts je Sekunde](2026-10-12-emulator-takt.md)
 - [Display-Helligkeit: die Firmware schaltet nur an und aus](2026-10-12-lcd-helligkeit.md)
 - [Emulator-Tempo: Zeit je Gerätesekunde](2026-10-13-emulator-tempo.md)
+- [DSP-Simulator: Tempo, Poll-Vorlauf und Plattformen, im Simulator](2026-11-16-dsp-sim-tempo.md)
 - [QEMU-Port gegen GNU-Simulator: DSP-Funktionen bit-gleich, Tempo, was zum schnellen Kern fehlt, im Simulator](2026-11-16-qemu-bfin-vergleich.md)
 - [QEMU als DSP-Kern: Hybrid-Worker hinter BFIN9, gleich GNU, Tempo gegen Echtzeit, im Simulator](2026-11-16-qemu-dsp-kern.md)
 - [LED-Inventur am eigenen Gerät](2026-10-13-led-inventur.md)
