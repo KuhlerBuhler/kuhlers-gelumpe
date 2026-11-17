@@ -30,9 +30,10 @@ means ON; never written means on).
 
 Three hooks, all of them first or last instructions of firmware functions, none of them changes what the firmware does:
   keyboard pad  0xC0044B3C, the keyboard's pad event (object, pad, on, velocity): remembers the note of a pad that goes down
-  pad light     0xC008870C, the firmware's own pad light for a note (manager, part, note, velocity): a note on of the selected
-                part (from a pad or from the sequencer) takes the hints away before the firmware lights its pads, because the
-                firmware does not write a pad whose LED already holds a value on a note on
+  pad light     0xC008878C, inside the firmware's own pad light for a note of the selected part (0xC008870C), where the note has
+                the KEY taken off (SCALE MODE ON; with KEY PADS also its octave) and is the note of a pad of the layout: a note on
+                (from a pad or from the sequencer) takes the hints away before the firmware lights its pads, because the firmware
+                does not write a pad whose LED already holds a value on a note on
   LED tick      0xC00877D4, the last instruction of the 40 ms task of the LED manager: counts the time and brings the hints
                 where they belong (shows, keeps, or takes away)
 
@@ -89,9 +90,9 @@ FADE_TICKS = 3                  # while the pattern plays a level loses an eight
 PAD_HOOK = 0xC0044B3C           # push {r4, r5, r6, r7, r8, lr}
 PAD_WORD = 0xE92D41F0
 PAD_BODY = 0xC0044B40
-LIGHT_HOOK = 0xC008870C         # push {r3, r4, r5, r6, r7, r8, sb, lr}
-LIGHT_WORD = 0xE92D43F8
-LIGHT_BODY = 0xC0088710
+LIGHT_HOOK = 0xC008878C         # ldr r4, [pc, #0x94] (the keyboard object's pointer), behind the KEY taken off the note
+LIGHT_WORD = 0xE59F4094
+LIGHT_BODY = 0xC0088790
 TICK_HOOK = 0xC00877D4          # pop {r4, r5, r6, pc}, the end of the LED manager's tick
 TICK_WORD = 0xE8BD8070
 
@@ -456,25 +457,25 @@ ph_out:
     b PAD_BODY
 
 ; ===================================================== the firmware's pad light
-; First instruction of the function that lights the pads of a note (r0 = the LED manager, r1 = the part, r2 = the note, r3 = the
-; velocity, 0 for a note off). A note on of the selected part takes every hint away, before the firmware writes its own LEDs (it
-; writes a pad only if the pad is dark); the next tick brings back what still fits and is dark. In KEYBOARD mode the note becomes the
-; one the hints are for, when a pad of the layout holds it: so a note of the sequencer shows its hints as a pad note does (device 18.10.).
-; The pads that hold the note go to S_PLAY (the tick clears it unless the pattern plays).
+; Inside the function that lights the pads of a note of the selected part (0xC008870C), where r5 = the LED manager, r6 = the note
+; with the KEY taken off when the part's SCALE MODE is on (and with it the KEY PADS octave, kp_key), so the note of a pad of the
+; layout, r8 = the velocity, 0 for a note off. The note as the function got it holds the KEY: matched against the layout, a sequencer
+; note on another KEY found no pad or the wrong one (device 15.11.: no hints and no red of the playing note until the pattern changed).
+; A note on takes the hints away before the firmware writes its own LEDs (it writes a pad only if the pad is dark); the next tick
+; brings back what still fits and is dark. In KEYBOARD mode the note becomes the one the hints are for, when a pad of the layout holds
+; it: so a note of the sequencer shows its hints as a pad note does (device 18.10.). The pads that hold the note go to S_PLAY (the
+; tick clears it unless the pattern plays), and only those pads are made dark: the tick gives every other pad its new level anyway
+; (14.11.: no longer all 16 pads off and on again for each note). Any other note takes every hint away (na_sync with r7 0).
 light_hook:
     push {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, lr}
-    cmp r3, #0
+    cmp r8, #0
     beq lh_out
-    mov r4, r0
-    ldr r0, [r4, #PART_AT]
-    cmp r1, r0
-    bne lh_out
+    mov r4, r5
+    mov r2, r6
     bl na_active
     cmp r0, #0
     beq lh_out
-    push {r1}
     bl na_kbd
-    pop {r1}
     cmp r0, #1
     bne lh_sync
     cmp r2, #0x7F
@@ -510,12 +511,40 @@ lh_next:
     str r8, [r12, #S_PLAY]
     mov r0, #0
     str r0, [r12, #S_SINCE]
+    ldrb r0, [r4, #LOCK_AT]     ; as na_sync: nothing while a plugin holds the LED lock
+    cmp r0, #0
+    bne lh_out
+    mov r6, #0
+lh_free:
+    mov r0, #1
+    tst r8, r0, lsl r6
+    beq lh_free_next
+    mov r9, r6, lsl #1
+    add r9, r9, #LED_PAD_FIRST
+    add r10, r4, r9, lsl #3
+    ldrb r0, [r10, #LED_VALUE]
+    bl na_ours
+    cmp r0, #0
+    movne r1, r9
+    movne r0, #0
+    blne na_put
+    ldrb r0, [r10, #LED_VALUE + 8]
+    bl na_ours
+    cmp r0, #0
+    addne r1, r9, #1
+    movne r0, #0
+    blne na_put
+lh_free_next:
+    add r6, r6, #1
+    cmp r6, #16
+    bne lh_free
+    b lh_out
 lh_sync:
     mov r7, #0
     bl na_sync
 lh_out:
     pop {r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, lr}
-    push {r3, r4, r5, r6, r7, r8, r9, lr}  ; the replaced first instruction
+    ldr r4, =KBOBJ_PTR                     ; the replaced instruction
     b LIGHT_BODY
 
 ; ===================================================== the LED manager's tick, every 40 ms
@@ -753,10 +782,10 @@ def build_patch(vsb, build="hacktribe"):
 
     expected = (
         (PAD_HOOK, PAD_WORD, "the keyboard's pad event does not start with push {r4, r5, r6, r7, r8, lr}"),
-        (LIGHT_HOOK, LIGHT_WORD, "the firmware's pad light does not start with push {r3, r4, r5, r6, r7, r8, sb, lr}"),
+        (LIGHT_HOOK, LIGHT_WORD, "the firmware's pad light does not load the keyboard object's pointer with ldr r4, [pc, #0x94]"),
         (TICK_HOOK, TICK_WORD, "the LED manager's tick does not end with pop {r4, r5, r6, pc}"),
         (PAD_BODY, 0xE1A04000, "the keyboard's pad event does not go on with mov r4, r0"),
-        (LIGHT_BODY, 0xE1A08003, "the firmware's pad light does not go on with mov r8, r3"),
+        (LIGHT_BODY, 0xE5943000, "the firmware's pad light does not go on with ldr r3, [r4]"),
     )
     for addr, want, why in expected:
         if word(addr) != want:
@@ -776,7 +805,7 @@ def build_patch(vsb, build="hacktribe"):
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
              "note": "note assistant: the three hooks and what they share, and what the BLECH menu's NOTE ASSISTANT page will write (NA_SETTING)"},
             hook(PAD_HOOK, "pad_hook", "first instruction of the keyboard's pad event jumps to the hook"),
-            hook(LIGHT_HOOK, "light_hook", "first instruction of the firmware's pad light jumps to the hook"),
+            hook(LIGHT_HOOK, "light_hook", "the firmware's pad light jumps to the hook once the KEY is off the note"),
             hook(TICK_HOOK, "tick_hook", "last instruction of the LED manager's tick jumps to the hook"),
         ],
         "hooks": [

@@ -193,7 +193,8 @@ weiter lesen, Sicherung und Prüfung brauchen das.
 
 | Id | Raum | Intervall | Ausnahme | Status |
 |---|---|---|---|---|
-| `firmware-image` | RAM | `[0xC0000000, 0xC0200000)` | FX-Tabellen, Menüzähler | gemessen |
+| `firmware-image` | RAM | `[0xC0000000, 0xC0200000)` | FX-Tabellen, Menüzähler | gemessen; mit DEV MODE offen bis auf `devClosed` |
+| `dev-closed-N` | RAM | 95 Bereiche im Abbild (`data/dev-closed.mjs`) | keine, auch mit DEV MODE gesperrt | gemessen (Emulator, `2026-11-14-dev-mode-sperrbereiche.md`) |
 | `sysex-hook` | RAM | `[0xC0170540, 0xC0171FEC)` | keine | gemessen |
 | `task-stacks` | RAM | `[0xC0200000, 0xC03167A8)` | keine | gemessen |
 | `task-control-blocks` | RAM | `[0xC06A24E4, 0xC06A2624)` | keine | gemessen |

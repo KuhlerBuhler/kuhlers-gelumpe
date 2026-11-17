@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import ifx_idle as spec  # noqa: E402
 import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
-from mfx_cases import DspLog  # noqa: E402
+from dsp_model import DspModel  # noqa: E402
 from pswitch_cases import Box  # noqa: E402
 
 IMAGE = 0xC0000000
@@ -106,9 +106,17 @@ class IBox(Box):
         self.byte(self.part(n) + ON_AT, value)
 
 
+def units(payload):
+    """The DSP unit of insert stage 1 per preset index, from the firmware's preset list (shortcut_cases.fx_table)."""
+    from shortcut_cases import IFX_DEVICE, fx_table
+    return [payload[r + IFX_DEVICE] for r in fx_table(payload, b"Punch", b"Overdrive")]
+
+
 def case_switch(payload, flash):
     out = []
     box = IBox(payload, flash)
+    dsp, unit = DspModel.attach(box.m), units(payload)
+    field = lambda since: [u for _, f, u in dsp.loads[since:] if f == 2]     # part 1, stage 1
     box.give(0, OVERDRIVE)
     box.give(1, DISTORTION, mute=1)
     box.give(2, 0, mute=1)
@@ -116,17 +124,20 @@ def case_switch(payload, flash):
                      (box.loaded(0), box.loaded(1), box.loaded(2))))
     box.run(4.0)
     out.append(entry("wait_hold", (box.loaded(0), box.loaded(1)) == (OVERDRIVE, DISTORTION), "4 s muted: still its own effect"))
-    log = DspLog(box.m)
+    mark = len(dsp.loads)
     box.run(1.5)
-    sent = len(log.changes())
-    out.append(entry("muted_punch", box.loaded(1) == 0 and box.remembered(1) == 0 and sent > 0,
-                     dict(loaded=box.loaded(1), remembered=box.remembered(1), dsp_writes=sent)))
+    sent = field(mark)
+    out.append(entry("muted_punch", box.loaded(1) == 0 and box.remembered(1) == 0 and sent == [unit[0]],
+                     dict(loaded=box.loaded(1), remembered=box.remembered(1), dsp_units=sent, punch=unit[0])))
     out.append(entry("heard_untouched", box.loaded(0) == OVERDRIVE, box.loaded(0)))
     out.append(entry("punch_untouched", box.loaded(2) == 0 and box.byte(spec.STATE + spec.S_SWAP + 2) != 1,
                      box.byte(spec.STATE + spec.S_SWAP + 2)))
     box.mute(1, 0)
+    mark = len(dsp.loads)
     box.run(0.1)
-    out.append(entry("unmute_back", box.loaded(1) == DISTORTION and box.remembered(1) == DISTORTION, (box.loaded(1), box.remembered(1))))
+    back = field(mark)
+    out.append(entry("unmute_back", box.loaded(1) == DISTORTION and box.remembered(1) == DISTORTION and back == [unit[DISTORTION]],
+                     (box.loaded(1), box.remembered(1), back, unit[DISTORTION])))
     box.switch(0, 0)
     box.run(5.5)
     off = box.loaded(0)

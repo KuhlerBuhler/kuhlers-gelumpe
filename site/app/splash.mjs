@@ -1,30 +1,42 @@
-/** The Startbild page: any picture to splash.bmp for the card (SPLASH IMPORT in the BLECH menu). Logic: src/splash-bmp.mjs. */
+/** The Startbild page: any picture to splash.bmp in the card's Media folder, which the firmware takes at the start. Logic: src/splash-bmp.mjs. */
 import { el } from "./fields.mjs";
 import { saveFile } from "./save-file.mjs";
+import { writeMedia } from "./card-access.mjs";
 import { toastFor } from "./toast.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { loadingAnimSection } from "./loading-anim.mjs";
 import { icon } from "./icons.mjs";
+import { dropzoneClear } from "./dropzone-clear.mjs";
+import { creatorLine, creatorName } from "./creator.mjs";
 /** An error of this page opens Blechy at its topic (data/rescue.mjs). */
 const toast = toastFor("h:splash");
 
 const STYLE = new URL("./splash.css", import.meta.url).href;
 
-/** The pictures that come with the app; the first is the one BLECHTRIBE brings, to get it back after SPLASH RESET. */
+const KUHLER = "Kuhler Buhler";
+/** The pictures that come with the app; the first is the one BLECHTRIBE brings, to get it back after SPLASH RESET.
+ * The ones after "bars" come from the #splash-screens channel on Discord, with their creator's name there. */
 export const GALLERY = [
-  { id: "blechtribe", title: "BLECHTRIBE", note: "splash.gallery.default", src: "img/splash/blechtribe.png" },
-  { id: "blech", title: "BLECH", src: "img/splash/blech.png" },
-  { id: "blechy", title: "Blechy", src: "img/splash/blechy.png" },
-  { id: "blechy-winkt", get title() { return t("splash.gallery.wave"); }, src: "img/splash/blechy-winkt.png" },
-  { id: "gelumpe", title: "GELUMPE", src: "img/splash/gelumpe.png" },
-  { id: "kuhler", title: "KUHLER", src: "img/splash/kuhler.png" },
-  { id: "pads", get title() { return t("splash.gallery.pads"); }, src: "img/splash/pads.png" },
-  { id: "wave", get title() { return t("splash.gallery.waveform"); }, src: "img/splash/wave.png" },
-  { id: "knob", get title() { return t("splash.gallery.knob"); }, src: "img/splash/knob.png" },
-  { id: "bars", get title() { return t("splash.gallery.bars"); }, src: "img/splash/bars.png" },
+  { id: "blechtribe", title: "BLECHTRIBE", note: "splash.gallery.default", creator: KUHLER, src: "img/splash/blechtribe.png" },
+  { id: "blech", title: "BLECH", creator: KUHLER, src: "img/splash/blech.png" },
+  { id: "blechy", title: "Blechy", creator: KUHLER, src: "img/splash/blechy.png" },
+  { id: "blechy-winkt", get title() { return t("splash.gallery.wave"); }, creator: KUHLER, src: "img/splash/blechy-winkt.png" },
+  { id: "kuhler", title: "KUHLER", creator: KUHLER, src: "img/splash/kuhler.png" },
+  { id: "pads", get title() { return t("splash.gallery.pads"); }, creator: KUHLER, src: "img/splash/pads.png" },
+  { id: "wave", get title() { return t("splash.gallery.waveform"); }, creator: KUHLER, src: "img/splash/wave.png" },
+  { id: "bars", get title() { return t("splash.gallery.bars"); }, creator: KUHLER, src: "img/splash/bars.png" },
+  { id: "psytrance", title: "Psytrance", creator: "Crank", src: "img/splash/psytrance.png" },
+  { id: "psychosis", title: "Psychosis", creator: "Crank", src: "img/splash/psychosis.png" },
+  { id: "watch-dogs", title: "Watch Dogs", creator: "Crank", src: "img/splash/watch-dogs.png" },
+  { id: "muss-blechen", title: "MUSS BLECHEN", creator: "Acey", src: "img/splash/muss-blechen.png" },
+  { id: "hardtekk", title: "HARDTEKK", creator: "Acey", src: "img/splash/hardtekk.png" },
+  { id: "old-electribe", title: "ELECTRIBE", creator: "luzis", src: "img/splash/old-electribe.png" },
+  { id: "emx-esx-blechtribe", title: "blechtribe EMX/ESX", creator: "Josie", src: "img/splash/emx-esx-blechtribe.png" },
+  { id: "rules-for-terror", title: "Rules for Terror", creator: "VenganceTerror", src: "img/splash/rules-for-terror.png" },
 ];
 const OWN = "cee.splash.own";
+const PAGE_KEY = "cee.design.page";
 
 /** 0/1 per pixel to base64 of 1024 bytes and back: how an own picture is kept in this browser. */
 export const packBits = pixels => btoa(String.fromCharCode(...Array.from({ length: pixels.length / 8 }, (_, i) => pixels.slice(i * 8, i * 8 + 8).reduce((b, p, k) => b | (p ? 0x80 >> k : 0), 0))));
@@ -74,7 +86,7 @@ export function switchOf(id, text) {
   return { input, node: el("label", { className: "ui-switch" }, [input, el("span", { className: "ui-switch-track", ariaHidden: "true" }), text]) };
 }
 
-export function splashPage(root) {
+export function splashPage(root, { sub = null, trail = () => {} } = {}) {
   if (!document.querySelector("link[data-cee-splash]")) {
     const css = el("link", { rel: "stylesheet", href: STYLE });
     css.setAttribute("data-cee-splash", "");
@@ -82,6 +94,20 @@ export function splashPage(root) {
   }
   let picture = null;
   let pixels = null;
+  // The sub-pages in the sidebar: the start images, the editor that makes one, the loading animation.
+  const SUB = [
+    { id: "images", title: t("splash.page.images"), icon: "image", panel: 0 },
+    { id: "make", title: t("splash.page.make"), icon: "pencil", panel: 0 },
+    { id: "anim", title: t("splash.anim.title"), icon: "film", panel: 1 },
+  ];
+  let subPages = null;
+  /** Marks the open sub-page in the sidebar and the navbar, and keeps it for the next start. */
+  function mark(id) {
+    subPages?.select(id);
+    const item = SUB.find(p => p.id === id);
+    if (item) trail([item.title]);
+    try { localStorage.setItem(PAGE_KEY, id); } catch {}
+  }
 
   const fileInput = el("input", { type: "file", className: "ui-dropzone-input", id: "cee-splash-file", accept: "image/*" });
   const files = el("span", { className: "ui-dropzone-files" });
@@ -117,6 +143,18 @@ export function splashPage(root) {
 
   const download = el("button", { type: "button", className: "btn cee-primary", id: "cee-splash-download", textContent: t("common.download", { file: SPLASH_FILE }), disabled: true });
   download.addEventListener("click", () => { if (pixels) saveBmp(pixels); });
+  const toCard = el("button", { type: "button", className: "btn", id: "cee-splash-write", disabled: true }, [icon("folder"), t("splash.write")]);
+  toCard.addEventListener("click", async () => {
+    if (!pixels) return;
+    const bytes = encodeBmp(pixels);
+    try {
+      const done = await writeMedia(SPLASH_FILE, bytes);
+      if (done === "written") toast(t("splash.written", { file: SPLASH_FILE, folder: SPLASH_FOLDER }), "ok");
+      else if (done === "readonly") { toast(t("splash.readonly", { folder: SPLASH_FOLDER }), "info"); saveBmp(pixels); }
+    } catch (e) {
+      toast(t("splash.writeFailed", { error: e?.message ?? String(e) }), "error");
+    }
+  });
   const keep = el("button", { type: "button", className: "btn", id: "cee-splash-keep", textContent: t("splash.keep"), disabled: true });
   let pictureName = "";
   keep.addEventListener("click", () => {
@@ -125,27 +163,106 @@ export function splashPage(root) {
     list.push({ id: `own-${Date.now()}`, title: pictureName || t("splash.ownPicture"), bits: packBits(pixels) });
     if (!writeOwn(list)) { toast(t("splash.noStorage"), "error"); return; }
     drawGallery();
+    show("gallery");
     document.getElementById("cee-splash-gallery").lastElementChild?.scrollIntoView?.({ block: "nearest" });
   });
 
   // The gallery: the pictures of the app and the own ones of this browser. A picture is drawn once it scrolls into view.
-  const gallery = el("ul", { className: "cee-splash-gallery", id: "cee-splash-gallery" });
+  const gallery = el("ul", { className: "cee-catalog cee-splash-gallery", id: "cee-splash-gallery" });
   const later = typeof IntersectionObserver === "function" ? new IntersectionObserver(entries => {
     for (const e of entries) if (e.isIntersecting) { later.unobserve(e.target); e.target.draw(); }
   }, { rootMargin: "200px" }) : null;
+  /** Pixels of a picture and a canvas that draws them: the gallery card and the picture's own page share it. */
+  const bitsOf = new Map();
+  const ready = async item => { if (!bitsOf.has(item.id)) bitsOf.set(item.id, item.bits ? unpackBits(item.bits) : pixelsOf(await loadImage(item.src))); return bitsOf.get(item.id); };
+  function thumb(item) {
+    const c = el("canvas", { className: "cee-splash-thumb", width: SPLASH_W, height: SPLASH_H });
+    c.setAttribute("role", "img");
+    c.setAttribute("aria-label", t("splash.thumb", { title: item.title }));
+    c.draw = () => ready(item).then(p => paint(c, p)).catch(() => {});
+    return c;
+  }
+  const tagOf = (item, own) => (item.note ? t(item.note) : own ? t("splash.ownTag") : null);
+  /** A card like the plugin catalog's (scripts.mjs catalogCard): the whole card opens the picture's page. */
   function card(item, own) {
-    const canvas = el("canvas", { className: "cee-splash-thumb", width: SPLASH_W, height: SPLASH_H });
-    canvas.setAttribute("role", "img");
-    canvas.setAttribute("aria-label", t("splash.thumb", { title: item.title }));
-    let bits = own ? unpackBits(item.bits) : null;
-    const ready = async () => bits ??= pixelsOf(await loadImage(item.src));
-    canvas.draw = () => ready().then(p => paint(canvas, p)).catch(() => {});
-    const get = el("button", { type: "button", className: "btn sm", textContent: SPLASH_FILE });
-    get.setAttribute("aria-label", t("splash.downloadAs", { title: item.title, file: SPLASH_FILE }));
-    get.addEventListener("click", async () => saveBmp(await ready()));
-    const edit = el("button", { type: "button", className: "btn sm", textContent: t("common.edit") });
+    const canvas = thumb(item);
+    const tag = tagOf(item, own);
+    const li = el("li", { className: "cee-catalog-card cee-splash-item", id: `cee-splash-item-${item.id}` }, [
+      canvas,
+      el("h3", {}, el("button", { type: "button", className: "cee-catalog-open", textContent: item.title, onclick: () => openDetail(item, own) })),
+      tag ? el("p", { className: "cee-catalog-category", textContent: tag }) : null,
+      creatorLine(item.creator),
+    ]);
+    if (later) later.observe(canvas); else canvas.draw();
+    return li;
+  }
+  function drawGallery() {
+    gallery.replaceChildren(...GALLERY.map(item => card(item, false)), ...readOwn().map(item => card(item, true)));
+  }
+
+  // Two sections, each a sub-page in the sidebar like the ones of Plugins: the start images for the card (the gallery
+  // and, as a page of its own, the editor that makes one) and the loading animation for the Patcher.
+  const panels = ["splash", "anim"].map((id, i) => el("div", { className: "cee-design-panel", id: `cee-design-panel-${id}`, hidden: i > 0 }));
+
+  const dropZone = dropzoneClear(fileInput, () => {
+    picture = null;
+    pictureName = "";
+    document.getElementById("cee-splash-work").hidden = true;
+    download.disabled = true;
+    toCard.disabled = true;
+    keep.disabled = true;
+    render();
+  }).node;
+  // The Startbild tab has three pages: the gallery, one picture's page, and the editor that turns any picture into one.
+  const back = id => el("button", { type: "button", className: "cee-text-link cee-detail-back", id, textContent: t("splash.back"), onclick: () => show("gallery") });
+  const makeOwn = el("button", { type: "button", className: "btn", id: "cee-splash-make", textContent: t("splash.make"), onclick: () => show("editor") });
+  const steps = () => el("ol", { className: "cee-splash-steps" }, [
+    el("li", {}, tNodes("splash.step.copy", { file: el("code", { textContent: SPLASH_FILE }), folder: el("code", { textContent: SPLASH_FOLDER }) })),
+    el("li", { textContent: t("splash.step.import") }),
+    el("li", { textContent: t("splash.step.see") }),
+    el("li", {}, tNodes("splash.step.viewer", { folder: el("code", { textContent: SPLASH_FOLDER }) })),
+  ]);
+  const galleryPage = el("div", { className: "cee-splash-page", id: "cee-splash-page-gallery" }, [
+    el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: t("splash.title") }), makeOwn]),
+    el("p", { className: "cee-splash-lead", textContent: t("splash.lead") }),
+    gallery,
+    el("h3", { className: "cee-splash-head", textContent: t("splash.howto") }),
+    Object.assign(steps(), { id: "cee-splash-steps" }),
+  ]);
+  const detailHead = el("div", { className: "cee-detail-head", id: "cee-splash-detail-head" });
+  const detailPage = el("div", { className: "cee-splash-page cee-detail", id: "cee-splash-page-detail", hidden: true }, [back("cee-splash-detail-back"), detailHead]);
+  const editorTitle = el("h2", { className: "ui-section-title", id: "cee-splash-editor-title", textContent: t("splash.ownPicture") });
+  const editorPage = el("div", { className: "cee-splash-page", id: "cee-splash-page-editor", hidden: true }, [
+    back("cee-splash-editor-back"),
+    el("div", { className: "ui-section-head" }, [editorTitle]),
+    dropZone,
+    el("div", { className: "cee-splash-work", hidden: true, id: "cee-splash-work" }, [
+      canvas,
+      el("div", { className: "cee-splash-controls" }, [
+        el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: t("splash.fit") }), fit]),
+        el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-splash-threshold" }, tNodes("splash.threshold", { value: thresholdOut })), threshold]),
+        dither.node,
+        invert.node,
+        el("div", { className: "actions" }, [download, toCard, keep]),
+      ]),
+    ]),
+    steps(),
+  ]);
+  const PAGES = { gallery: galleryPage, detail: detailPage, editor: editorPage };
+  function show(id, { scroll = true } = {}) {
+    for (const [k, node] of Object.entries(PAGES)) node.hidden = k !== id;
+    mark(id === "editor" ? "make" : "images");
+    if (scroll) PAGES[id].scrollIntoView?.({ block: "nearest" });
+  }
+  /** One picture's page: big, with its creator, download and Bearbeiten, and Entfernen for an own one. */
+  function openDetail(item, own) {
+    const big = thumb(item);
+    big.classList.add("cee-splash-big");
+    const get = el("button", { type: "button", className: "btn cee-primary", id: "cee-splash-detail-download", textContent: t("common.download", { file: SPLASH_FILE }) });
+    get.addEventListener("click", async () => saveBmp(await ready(item)));
+    const edit = el("button", { type: "button", className: "btn", id: "cee-splash-detail-edit", textContent: t("common.edit") });
     edit.addEventListener("click", async () => {
-      const p = await ready();
+      const p = await ready(item);
       const c = el("canvas", { width: SPLASH_W, height: SPLASH_H });
       const g = c.getContext("2d");
       const img = g.createImageData(SPLASH_W, SPLASH_H);
@@ -155,79 +272,57 @@ export function splashPage(root) {
     });
     const actions = [get, edit];
     if (own) {
-      const remove = el("button", { type: "button", className: "btn sm", textContent: t("common.remove") });
-      remove.addEventListener("click", () => { writeOwn(readOwn().filter(o => o.id !== item.id)); drawGallery(); });
+      const remove = el("button", { type: "button", className: "btn", id: "cee-splash-detail-remove", textContent: t("common.remove") });
+      remove.addEventListener("click", () => { writeOwn(readOwn().filter(o => o.id !== item.id)); bitsOf.delete(item.id); drawGallery(); show("gallery"); });
       actions.push(remove);
     }
-    const li = el("li", { className: "cee-splash-item", id: `cee-splash-item-${item.id}` }, [
-      canvas,
-      el("p", { className: "cee-splash-item-title" }, [el("strong", { textContent: item.title }), item.note ? el("span", { className: "muted", textContent: ` ${t(item.note)}` }) : own ? el("span", { className: "muted", textContent: ` ${t("splash.ownTag")}` }) : null]),
-      el("div", { className: "actions" }, actions),
-    ]);
-    if (later) later.observe(canvas); else canvas.draw();
-    return li;
-  }
-  function drawGallery() {
-    gallery.replaceChildren(...GALLERY.map(item => card(item, false)), ...readOwn().map(item => card(item, true)));
-  }
-
-  // Two tabs, each its own section: the start image for the card, and the loading animation for the Patcher.
-  const tabs = el("div", { className: "ui-tabs", id: "cee-design-tabs" });
-  tabs.setAttribute("role", "tablist");
-  tabs.setAttribute("aria-label", t("nav.splash"));
-  const panels = [["splash", t("splash.title")], ["anim", t("splash.anim.title")]].map(([id, text], i) => {
-    const tab = el("button", { type: "button", className: "ui-tab", id: `cee-design-tab-${id}`, textContent: text });
-    tab.setAttribute("role", "tab");
-    tab.dataset.tab = id;
-    tab.setAttribute("aria-controls", `cee-design-panel-${id}`);
-    tab.setAttribute("aria-selected", String(i === 0));
-    if (i) tab.tabIndex = -1;
-    tabs.append(tab);
-    const panel = el("div", { className: "ui-tabpanel", id: `cee-design-panel-${id}`, tabIndex: 0, hidden: i > 0 });
-    panel.setAttribute("role", "tabpanel");
-    panel.setAttribute("aria-labelledby", tab.id);
-    return panel;
-  });
-
-  panels[0].append(el("section", { className: "ui-section", id: "cee-splash-section" }, [
-    el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: t("splash.title") })]),
-    el("p", { className: "cee-splash-lead", textContent: t("splash.lead") }),
-    el("h3", { className: "cee-splash-head", textContent: t("splash.gallery") }),
-    gallery,
-    el("h3", { className: "cee-splash-head", textContent: t("splash.ownPicture") }),
-    drop,
-    el("div", { className: "cee-splash-work", hidden: true, id: "cee-splash-work" }, [
-      canvas,
-      el("div", { className: "cee-splash-controls" }, [
-        el("div", { className: "ui-field" }, [el("span", { className: "ui-field-label", textContent: t("splash.fit") }), fit]),
-        el("div", { className: "ui-field" }, [el("label", { className: "ui-field-label", htmlFor: "cee-splash-threshold" }, tNodes("splash.threshold", { value: thresholdOut })), threshold]),
-        dither.node,
-        invert.node,
-        el("div", { className: "actions" }, [download, keep]),
+    const tag = tagOf(item, own);
+    detailHead.replaceChildren(big, el("div", { className: "cee-detail-text" }, [
+      el("h2", { className: "cee-detail-title", id: "cee-splash-detail-title", textContent: item.title }),
+      el("dl", { className: "cee-detail-facts" }, [
+        el("dt", { textContent: t("plugins.by") }), el("dd", {}, creatorName(item.creator) ?? (own ? t("splash.ownTag") : "?")),
+        ...(tag && !own ? [el("dt", { textContent: t("splash.fact.kind") }), el("dd", { textContent: tag })] : []),
+        el("dt", { textContent: t("splash.fact.size") }), el("dd", { textContent: t("splash.fact.sizeValue", { file: SPLASH_FILE }) }),
       ]),
-    ]),
-    el("ol", { className: "cee-splash-steps", id: "cee-splash-steps" }, [
-      el("li", {}, tNodes("splash.step.copy", { file: el("code", { textContent: SPLASH_FILE }), folder: el("code", { textContent: SPLASH_FOLDER }) })),
-      el("li", { textContent: t("splash.step.import") }),
-      el("li", { textContent: t("splash.step.see") }),
-    ]),
-  ]));
+      el("div", { className: "actions" }, actions),
+    ]));
+    big.draw();
+    show("detail");
+  }
+  panels[0].append(el("section", { className: "ui-section", id: "cee-splash-section" }, [galleryPage, detailPage, editorPage]));
   panels[1].append(loadingAnimSection());
-  root.replaceChildren(el("h1", { className: "ui-sr-only", textContent: t("nav.splash") }), tabs, ...panels);
-  window.ui?.tabs?.(tabs, { persist: "cee.design.tab", hash: false });
+  root.replaceChildren(el("h1", { className: "ui-sr-only", textContent: t("nav.splash") }), ...panels);
 
   /** Puts a picture into the editor: a dropped file or one of the gallery. */
   function open(img, name) {
     picture = img;
     pictureName = name;
+    editorTitle.textContent = name;
+    show("editor");
     files.textContent = name;
     document.getElementById("cee-splash-work").hidden = false;
     download.disabled = false;
+    toCard.disabled = false;
     keep.disabled = false;
     render();
     document.getElementById("cee-splash-work").scrollIntoView?.({ block: "nearest" });
   }
   drawGallery();
+
+  subPages = sub?.pages("splash", { id: "cee-splash-pages", label: t("splash.pages"), items: SUB.map(({ id, title, icon }) => ({ id, title, icon })), pick: id => page(id) });
+  function page(id, { scroll = true } = {}) {
+    const at = SUB.find(p => p.id === id) ?? SUB[0];
+    panels.forEach((panel, i) => { panel.hidden = i !== at.panel; });
+    if (at.id === "images") show("gallery", { scroll: false });
+    else if (at.id === "make") show("editor", { scroll: false });
+    else mark(at.id);
+    if (scroll) window.scrollTo?.({ top: 0, behavior: "instant" });
+  }
+  // The open sub-page is kept in this browser like the tab before it. One that is gone ("pics", the Image Viewer's
+  // pictures up to 1.4.6) opens Startbilder, and that is kept from then on.
+  let saved = null;
+  try { saved = localStorage.getItem(PAGE_KEY); } catch {}
+  page(saved ?? "images", { scroll: false });
 
   fileInput.addEventListener("change", () => {
     const file = fileInput.files?.[0];

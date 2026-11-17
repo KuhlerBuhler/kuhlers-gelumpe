@@ -137,6 +137,18 @@ script_led_try_send:
     bhs led_send_reject
     cmp r5, #SCRIPT_LED_LEVEL_MAX
     bhi led_send_reject
+    ldr r12, =IDLE                  ; IDLE POWER SAVE dims a plugin's LEDs as the firmware's (script_idle.s) in stages 1 to 4
+    ldrb r0, [r12, #IS_STAGE]
+    sub r0, r0, #1
+    cmp r0, #3
+    bhi led_send_kept
+    ldrb r0, [r12, #IS_KEEP]
+    mul r12, r5, r0
+    add r12, r12, #99               ; rounded up, as the patch pad-colors does: a lit LED stays lit until the stage goes dark
+    ldr r0, =5243                   ; / 100: * 5243 >> 19
+    mul r5, r12, r0
+    mov r5, r5, lsr #19
+led_send_kept:
     orr r12, r6, #0x80
     .word 0xE121F00C ; msr cpsr_c, r12
 led_send_critical:
@@ -244,6 +256,14 @@ led_send_reject:
     mov r0, #0
 led_send_restore:
     .word 0xE12FF006 ; msr cpsr_cxsf, r6
+    cmp r0, #0
+    beq led_send_out
+    sub r12, r4, #0x4c              ; a meter LED: the LED manager's next send of it goes out again (script_menu.s:meter_dedupe_hook)
+    cmp r12, #11
+    ldrls r1, =METER_SENT
+    mvnls r2, #0
+    strls r2, [r1, r12, lsl #2]
+led_send_out:
     add sp, sp, #4
     pop {r4-r11, pc}
 .pool

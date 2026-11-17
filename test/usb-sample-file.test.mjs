@@ -60,6 +60,26 @@ test("a card without a sample file lists nothing, and a first sample makes the f
   assert.deepEqual(names(parseSampleFile(card.get(SAMPLE_FILE))), [[500, "First"]]);
 });
 
+test("a card error on reading the size is shown, not taken for an empty card, and nothing is written", async () => {
+  const old = file({ 500: "Kick", 501: "Snare" });
+  for (const [key, code] of [[SAMPLE_FILE, 1], [SAMPLE_FILE, 3], [SAMPLE_TEMP, 1]]) {
+    const { session, card } = await device({ [SAMPLE_FILE]: old });
+    card.errors = { [key]: code }; // FatFs FR_DISK_ERR / FR_NOT_READY instead of the file
+    await assert.rejects(readDeviceSamples(session), e => e.status === BLECH.STATUS.FILE && e.code === code);
+    if (key === SAMPLE_FILE) await assert.rejects(downloadDeviceSamples(session), e => e.status === BLECH.STATUS.FILE && e.code === code);
+    assert.deepEqual(card.log, [], "nothing was written");
+    assert.deepEqual(card.get(SAMPLE_FILE), old);
+  }
+});
+
+test("a missing folder counts as no sample file, like a missing file", async () => {
+  const { session, card } = await device({});
+  card.errors = { [SAMPLE_FILE]: 5, [SAMPLE_TEMP]: 5 }; // FatFs FR_NO_PATH
+  const { parsed, temp } = await readDeviceSamples(session);
+  assert.equal(parsed.samples.length, 0);
+  assert.equal(temp, 0);
+});
+
 test("adding sends the new samples behind the old ones first and the header last, and what was there stays", async () => {
   const old = file({ 500: "Kick", 501: "Snare" });
   const { session, card } = await device({ [SAMPLE_FILE]: old });

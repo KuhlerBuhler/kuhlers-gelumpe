@@ -7,7 +7,7 @@ after a start without a card and after a start from e2sSample.all (the factory n
 OSC dial goes from 420 through 421..496 to the first user sample and back; the voice's slot lookup gives the entry and a note on
 slot 421 sends the DSP the messages a note on the firmware's own oscillator slot 0 sends; a pattern with slot 430 keeps it
 through WRITE and a new start; EXPORT ALL SAMPLE writes no entry for 421 to 499; EXIT held at power-on gives the firmware's
-empty slots again; a settings file with bit 6 of byte 5 set (once HT OSC OFF) still gives the oscillators. There is no switch.
+empty slots again; a settings file with bit 6 of byte 5 set (once HT OSC OFF, now KNOB LEDS OFF) still gives the oscillators. There is no switch.
 What the DSP makes of a wave is not modelled: how each oscillator sounds is not checked here.
 
     tools/emu/.venv/bin/python tools/emu/ht_osc_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
@@ -28,7 +28,8 @@ import ht_osc as spec  # noqa: E402
 import menu_cases as mc  # noqa: E402
 import sampleset  # noqa: E402
 from machine import load_flash  # noqa: E402
-from mfx_cases import PATTERN_SLOTS, DspLog  # noqa: E402
+from dsp_model import DspModel  # noqa: E402
+from mfx_cases import PATTERN_SLOTS  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
 
@@ -39,7 +40,6 @@ META = 0xC036AD88               # the sample table, 0x45C bytes per sample, +0x0
 PATTERN_IN_RAM = 0xC033E6A4     # pointer to the pattern in RAM, the part records from +4 + 0x800, 0x330 each, +8 the sample
 VOICE_SLOT = spec.VOICE_SITE - 0x1C   # 0xC0099788 (slot) -> the slot's entry or 0
 SWITCH_SCREEN = 0xC0083D28
-MAILBOX = 0xFF900A34
 CRAFTED = 449                   # display 450: a file entry on an oscillator slot
 USERS = (500, 501, 600)         # display 501, 502, 601
 LOW = 18                        # the first factory sample slot (display 19)
@@ -135,13 +135,13 @@ class Box:
 
     def note(self):
         """The message kinds the A34 mailbox gets while pad 1 is hit."""
-        log = DspLog(self.dev.m)
-        log.clear()
+        dsp = DspModel.attach(self.dev.m)
+        before = dict(dsp.commands)
         self.dev.m.send([0x04, 0, 0, 100, 1])
         self.dev.run(0.2)
         self.dev.m.send([0x04, 0, 0, 0, 0])
         self.dev.run(0.3)
-        return sorted({x[3][1] for x in log.xfers if x[0] == 0xAB and x[1] == MAILBOX and len(x[3]) > 1 and x[3][0] & 2})
+        return sorted(c for c, n in dsp.commands.items() if n > before.get(c, 0))
 
 
 def table(payload):
@@ -259,7 +259,7 @@ def case_exit(payload, flash):
 
 
 def case_old_setting(payload, flash):
-    """A settings file with bit 6 of byte 5 set (an earlier build wrote it for a page HT OSC OFF): the bit is read as nothing,
+    """A settings file with bit 6 of byte 5 set (an earlier build wrote it for a page HT OSC OFF, now KNOB LEDS OFF): the oscillators ignore the bit,
     the file still loads (KEY PADS OFF, bit 4, is read), the slots hold the oscillators and the entry for 449 is skipped."""
     if not mc.has_menu(payload):
         return [entry("alte-einstellung", True, "no BLECH menu in this copy: nothing to check")]

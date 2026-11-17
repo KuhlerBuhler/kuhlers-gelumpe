@@ -196,6 +196,15 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual(self.request("POST", "/check?allow=1:2:3", body=bytes(VSB_SIZE) + patched)[0].status, 400)
         self.assertEqual(self.request("POST", "/check", body=b"\0" * 10)[0].status, 400)
 
+    def test_a_foreign_patch_reaches_check_py_only_when_asked(self):
+        calls = []
+        self.emu.checker = lambda base, patched, flash, allow, allow_code, boot_flash=None, progress=None, **flags: calls.append(flags) or {"ok": True, "checks": []}
+        patched = bytes(VSB_SIZE - 1) + b"\x01"
+        self.request("POST", "/check", body=bytes(VSB_SIZE) + patched)
+        self.request("POST", "/check?foreign=1", body=bytes(VSB_SIZE) + patched)
+        self.request("POST", "/check?foreign=0", body=bytes(VSB_SIZE) + patched)
+        self.assertEqual(calls, [{}, {"foreign": True}, {}], "without the flag the start phase stays checked")
+
     def test_check_progress_follows_the_run_and_ends_done_or_failed(self):
         self.assertEqual(self.request("GET", "/check/progress")[1], {"state": "idle"})
         self.assertEqual(self.request("GET", "/check/progress", token=None)[0].status, 401)

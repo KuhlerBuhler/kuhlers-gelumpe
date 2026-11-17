@@ -72,6 +72,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Second master effect (MFX 2) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | BEAT 8: eighth-note steps, patterns twice as long | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TOUCH SCALE RANGE 0: X plays the key note only | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Import samples onto factory slots | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
 | Plugins and games (Snake, Tetris, ...) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Pad and LED colours | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Confirm before changing patterns | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -222,8 +223,8 @@ Menü -> BLECH -> PLUGINS. The code is a subset of JavaScript, the editor compil
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
 The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
-Mandelbrot, GIF Player, BMP Viewer, BPM Glide, Momentary Mute, Gate Hold, Step Copy,
-Lauflicht, Pulsieren and PLAY-Takt.
+Mandelbrot, GIF Player, Image Viewer, BPM Glide, Momentary Mute, Gate Hold, Step Copy,
+Lauflicht, Pulsieren and STOP-Takt.
 
 ## The emulator
 

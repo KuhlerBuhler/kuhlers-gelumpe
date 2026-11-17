@@ -16,8 +16,8 @@ const PATCH = read("../data/patches/note-assistant.json");
 const SET = read("../data/patches/blech.json").patches.map(p => read(`../${p}`)).filter(p => !(p.builds.length === 1 && p.builds[0] === "stock"));
 const CODE = 0x189100;              // file offset of 0xC0189000
 const CODE_END = 0x189900;          // 0xC0189800
-// the replaced words: the first instruction of the keyboard's pad event, of the firmware's pad light, and the last one of the LED manager's tick
-const WORDS = [[0x44c3c, 0xc0044b3c], [0x8880c, 0xc008870c], [0x878d4, 0xc00877d4]];
+// the replaced words: the first instruction of the keyboard's pad event, the one behind the KEY in the firmware's pad light, and the last one of the LED manager's tick
+const WORDS = [[0x44c3c, 0xc0044b3c], [0x8888c, 0xc008878c], [0x878d4, 0xc00877d4]];
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
 const vsb = process.env.E2_VSB;

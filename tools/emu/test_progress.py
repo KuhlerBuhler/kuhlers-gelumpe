@@ -102,7 +102,7 @@ class CheckEmitsTest(unittest.TestCase):
         self.assertGreater(len(ran), 1)
         self.assertEqual(ran[0]["done"], 0)
         self.assertEqual(ran[-1]["done"], ran[-1]["total"])
-        self.assertEqual({g["id"] for g in ran[0]["groups"]}, {"bootmap"})
+        self.assertEqual({g["id"] for g in ran[0]["groups"]}, {"bootmap", "dsp_cases"})
 
 
 if __name__ == "__main__":

@@ -16,8 +16,10 @@ import sys
 import arm
 import ramdecl
 
-CODE_AT, CODE_END = 0xC019E000, 0xC019E800
-STATE, STATE_END = 0xC019EFF0, 0xC019EFF4
+# Standalone default in the free tail of the loading bar's code room, clear of every area the BLECH set declares
+# (the set's own transport is sample_swap.py: TRANSPORT).
+CODE_AT, CODE_END = 0xC0181A48, 0xC0181EF8
+STATE, STATE_END = 0xC0181EF8, 0xC0181EFC
 PORT, GPIO, TIMER = 0x60000000, 0x01E26098, 0x01F0D000
 SEMA, RELEASE = 0xC06A2480, 0xC0000CA8
 IRQ_DEPTH, STARTED = 0xC06A2894, 0xC06A2928

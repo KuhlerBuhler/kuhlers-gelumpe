@@ -1,0 +1,34 @@
+{
+ "entries": [
+  {
+   "from": "0xC031BEEC",
+   "to": "0xC031BEEC",
+   "kind": "ram",
+   "why": "the init lock of Korg's SD driver (tools/patch/script_menu.s SD_INIT_LOCK): on the Sampler set to 1 by 0xC001DB18, read by 0xC001DB3C, cleared by 0xC001DB60; the synth's three functions at 0xC0019440, 0xC0019464 and 0xC0019488 are the same code with the same literal 0xC031BEEC (read in both images). Emulator: never-ready card sets it on both builds"
+  },
+  {
+   "from": "0xC001AEA4",
+   "to": "0xC00167CC",
+   "kind": "code",
+   "why": "Korg's ACMD41 loop of the card init (Sampler 0xC001AE80, synth 0xC00167A8): the same code read in both images, the synth's 0x46D8 lower; the out-of-rounds path (mvn r3, #0xc; bl to the lock setter)"
+  },
+  {
+   "from": "0xC001AEB4",
+   "to": "0xC00167DC",
+   "kind": "code",
+   "why": "Korg's ACMD41 loop of the card init (Sampler 0xC001AE80, synth 0xC00167A8): the same code read in both images, the synth's 0x46D8 lower; the call that checks the card is in (acmd41_round_hook)"
+  },
+  {
+   "from": "0xC001AEB8",
+   "to": "0xC00167E0",
+   "kind": "code",
+   "why": "Korg's ACMD41 loop of the card init (Sampler 0xC001AE80, synth 0xC00167A8): the same code read in both images, the synth's 0x46D8 lower; the return of that call"
+  },
+  {
+   "from": "0xC001CAE8",
+   "to": "0xC0018410",
+   "kind": "code",
+   "why": "Korg's ACMD41 loop of the card init (Sampler 0xC001AE80, synth 0xC00167A8): the same code read in both images, the synth's 0x46D8 lower; the card-present function it calls"
+  }
+ ]
+}

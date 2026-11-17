@@ -89,11 +89,11 @@ def traced(dev):
         ops["erase"].append((flash.addr & ~(size - 1), size))
         return erase(size)
 
-    def byte_(b):
+    def byte_(b, *now):
         if flash.cmd == 0x02 and flash.wel and len(flash.buf) >= 3:
             ops["program"].update(struct.pack("<IB", flash.addr, b))
             ops["bytes"] += 1
-        return byte(b)
+        return byte(b, *now)
 
     def write_(lba, block):
         card.append((lba, sha(bytes(block))))
@@ -122,9 +122,17 @@ def run_case(payload, flash, name):
         dev.run(1.5)                                  # AUTO SAVE's Global save on leaving shows the firmware's window for about 1 s
         settings = dev.u32(GLOBALS) + POWER_SAVE     # changed on the main screen: AUTO SAVE saves only on leaving a page
         dev.m.uc.mem_write(settings, bytes([(dev.read(settings, 1)[0] + 1) % 3]))
-    if kind == "blechy":    # the device is on the page of Blechy, built into BLECH, and he has stopped waving
+    if kind == "blechy":    # the device is on the page of Blechy, built into BLECH
         menu_cases.goto_blechy(dev)
         dev.run(5.0)
+        # he keeps moving, a step every 0.1 to 0.25 s: press the key right after one, so that no step of his lands before the picture
+        # and counts as a frame of the box. Without this the result depends on the build's timing.
+        before = dev.fb()
+        for _ in range(500):
+            dev.run(0.001)
+            if dev.fb() != before:
+                break
+        dev.run(0.01)       # the step is drawn in full
     ours = frame_of(payload)
     pictures = sequence_of(payload)
     # a look can come while a display frame is half sent: the upper pages already show the next picture, the lower ones still the one
@@ -163,13 +171,18 @@ def run_task(name):
 def shows_picture(run):
     """The display goes from the main screen to the picture within 100 ms and then stays on it until the power is gone. One frame of the
     firmware's box may come in between: the window paints when it opens, at a time the display frame (every 40 ms) does not wait for.
-    The picture may also be the first thing a look sees, when the first display frame came before the first look."""
+    The picture may also be the first thing a look sees, when the first display frame came before the first look.
+    After the dark end one more frame of the box may come: the save after the wait is the firmware's and takes the flash's
+    erase and program time (machine.FLASH_BUSY_NS), long enough for a display frame of the box it keeps painting."""
     labels = [k for _, k in run["timeline"]]
     first = run["first_ours_ms"]
     if labels[:1] == ["main"]:
         labels = labels[1:]
     if labels[:1] and labels[0].startswith("fb:"):
         labels = labels[1:]
+    tail = run["timeline"][-2:]
+    if len(labels) > 3 and labels[-3] == "blank" and labels[-2].startswith("fb:") and labels[-1] == "blank" and tail[0][0] >= spec.DARK_AT:
+        labels = labels[:-2]
     return labels == ["ours", "blank"] and first is not None and first <= 100
 
 

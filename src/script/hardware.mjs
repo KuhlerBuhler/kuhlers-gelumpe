@@ -1,5 +1,5 @@
 /** The sequencer and panel state a script can read, for the simulated device. The values follow the firmware's ranges. */
-import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PATTERN_WRITES, PATTERN_PARTS, PATTERN_STEPS } from "../../data/script/contract.mjs";
+import { SCRIPT_KNOBS, ERROR, PATTERN_FIELDS, PART_FIELDS, PART_WRITES, PATTERN_WRITES, PATTERN_PARTS, PATTERN_STEPS, PATTERN_MOTION, SAMPLE_INFO, AUDIO_STATUS, AUDIO_SPECTRUM } from "../../data/script/contract.mjs";
 import { ScriptFault } from "./vm.mjs";
 import { text, render } from "../text.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
@@ -10,6 +10,7 @@ const KEY_TOUCHPAD = KEY_NAMES.find(n => n.name === "TOUCHPAD").value;
 const KEY_PLAY = KEY_NAMES.find(n => n.name === "PLAY").value;
 const KEY_STOP = KEY_NAMES.find(n => n.name === "STOP").value;
 const KEY_EXIT = KEY_NAMES.find(n => n.name === "EXIT").value;
+const CHAIN_MODE = OBJECTS.findIndex(o => o.path === "korg.global.chainMode");
 const REPAIRS = OBJECTS.find(o => o.path === "korg.system.repairs").id;
 
 export class SimHardware {
@@ -27,10 +28,13 @@ export class SimHardware {
     this.steps = new Int32Array(16);
     this.mutes = new Uint8Array(16);
     this.knobs = new Int32Array(SCRIPT_KNOBS);
-    /** CHAIN MODE in Global, and the pattern blocks korg.read.patternValue reads (-1 the pattern in RAM, 0 to 249 the bank), made on first use. */
-    this.chainMode = 1;
+    /** The pattern blocks korg.read.patternValue reads (-1 the pattern in RAM, 0 to 249 the bank), made on first use. */
     this.patternBlocks = new Map();
+    /** The MFX 2 table of the patch mfx-switch, one entry per pattern: 1 to 100 the type as the display numbers it, 0 the default (7). */
+    this.mfx2 = new Uint8Array(250);
     this.backlight = [1, 1, 1];
+    /** korg.read.led: the brightness the firmware last sent per LED (0 to 87); LEDs a plugin sets are not in it. */
+    this.firmwareLeds = new Uint8Array(88);
     this.ledHold = 0;
     /**
      * What plugins keep from the firmware is the fold of the holds of all armed plugins (`holders` gives their hold records, each
@@ -47,6 +51,8 @@ export class SimHardware {
     this.resetKeyPass();
     /** korg.touchLockX: the X the firmware sees while a finger is on the touchpad, -1 the finger's own. */
     this.touchLock = -1;
+    /** korg.touchLockY: the Y the firmware sees while a finger is on the touchpad, -1 the finger's own. */
+    this.touchLockY = -1;
     /** korg.keyHold and korg.keyMask: per key 1 when its presses reach the plugins only, also without an app. */
     this.keyHold = new Uint8Array(34);
     /** korg.pressKey: the keys plugins passed to the firmware as a short press, in order. */
@@ -64,8 +70,41 @@ export class SimHardware {
     this.appOpen = false;
     /** The leaves of the object tree by id (data/script/objects.mjs), at their factory values; `repairs` is korg.system.repairs. */
     this.objects = OBJECTS.map(o => o.factory);
+    this.chainMode = 1;
     /** 0 finger up, 1 the press came and the first position has not, 2 the first position is out. */
     this.touch = 0;
+    /** korg.midi: the global MIDI channel (0 to 15), the MIDI SEND FILTER (0 Off, 1 Short, 2 Short + Program), the messages sent as byte arrays, a bit per message type kept from the firmware. */
+    this.midiChannel = 0;
+    this.midiFilter = 0;
+    this.midiSent = [];
+    this.midiHeld = 0;
+    /** korg.audio.level: the two sides of the level meter, 0 to 254. */
+    this.audioLevel = [0, 0];
+    /**
+     * korg.audio.capture, spectrum and wave: the source asked for (0 none), the status the service reports for it, and what it
+     * published: per range (0 full, 1 bass) 128 columns in dB 0 to 96, and the newest 256 frames, -128 to 127. A test sets the
+     * status and the data; `audioSupported` false is the blue Electribe.
+     */
+    this.audioSupported = true;
+    this.audioSource = 0;
+    this.audioStatus = AUDIO_STATUS.wait;
+    this.audioColumns = [new Array(AUDIO_SPECTRUM.columns).fill(0), new Array(AUDIO_SPECTRUM.columns).fill(0)];
+    this.audioWave = new Array(AUDIO_SPECTRUM.wave).fill(0);
+    /** korg.read.sampleName and sampleInfo: the samples by slot, { name, start, end, loop, tune, stereo, length, oneShot, rate }; an empty slot reads as "" and 0. */
+    this.samples = new Map();
+  }
+
+  /** The status korg.audio.spectrum and wave return: the service's while a source is asked for, else off. */
+  audioReady() {
+    if (!this.audioSupported) return AUDIO_STATUS.unsupported;
+    return this.audioSource ? this.audioStatus : AUDIO_STATUS.off;
+  }
+
+  /** A channel message out as the firmware's senders send it: 1 sent, 0 kept in by the MIDI SEND FILTER (program changes pass Short). */
+  midiSend(status, channel, ...data) {
+    if (status === 0xC0 ? this.midiFilter === 2 : this.midiFilter !== 0) return 0;
+    this.midiSent.push([status | (channel < 0 ? this.midiChannel : channel), ...data]);
+    return 1;
   }
 
   /** Host functions for the read API entries. */
@@ -99,6 +138,7 @@ export class SimHardware {
       "korg.display.popups": (holds, on) => { holds.quiet = on ? 0 : 1; },
       "korg.read.popups": holds => (holds.quiet ? 0 : 1),
       "korg.touchLockX": x => { this.touchLock = x; },
+      "korg.touchLockY": y => { this.touchLockY = y; },
       "korg.keyHold": (holds, key, on) => { this.keyExit("korg.keyHold", key); holds.keys[key] = on; this.syncHolds(holds); },
       "korg.keyMask": (holds, low, high) => {
         if ((low >>> KEY_EXIT) & 1) this.keyExit("korg.keyMask", KEY_EXIT);
@@ -121,6 +161,7 @@ export class SimHardware {
       },
       "korg.seq.setPatternValue": (field, value) => this.setPatternValue(field, value),
       "korg.read.patternBytes": (slots, pattern, offset) => this.patternBytes(slots, pattern, offset),
+      "korg.read.patternName": (slots, pattern) => this.patternBytes(slots.subarray(0, 16), pattern, 16),
       "korg.seq.writeSteps": (slots, part, first) => this.writeSteps(slots, part, first),
       "korg.mute": (part, muted) => { if (this.mutes[part] !== muted) { this.mutes[part] = muted; this.emit("mute", part, muted); } },
       "korg.seq.getOn": (part, step) => this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.on],
@@ -131,13 +172,92 @@ export class SimHardware {
       "korg.seq.setGate": (part, step, gate) => { this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.gate] = gate; },
       "korg.get": leaf => this.objectGet(leaf),
       "korg.set": (leaf, index, value) => this.objectSet(leaf, value),
+      "korg.motion.lane": lane => this.patternBlock(-1)[PATTERN_MOTION.owner + lane],
+      "korg.motion.destination": lane => this.patternBlock(-1)[PATTERN_MOTION.destination + lane],
+      "korg.motion.value": (lane, step) => this.patternBlock(-1)[PATTERN_MOTION.values + lane * PATTERN_MOTION.steps + step] - 1,
+      "korg.motion.setValue": (lane, step, value) => {
+        const block = this.patternBlock(-1);
+        if (block[PATTERN_MOTION.owner + lane]) block[PATTERN_MOTION.values + lane * PATTERN_MOTION.steps + step] = value + 1;
+      },
+      // the simulator has no motion engine: every lane is silent
+      "korg.motion.output": () => -1,
+      "korg.midi.cc": (channel, cc, value) => this.midiSend(0xB0, channel, cc, value),
+      "korg.midi.noteOn": (channel, note, velocity) => this.midiSend(0x90, channel, note, velocity),
+      "korg.midi.noteOff": (channel, note) => this.midiSend(0x80, channel, note, 0x40),
+      "korg.midi.program": (channel, program) => this.midiSend(0xC0, channel, program),
+      "korg.audio.level": channel => this.audioLevel[channel],
+      "korg.audio.capture": source => {
+        if (!this.audioSupported) return AUDIO_STATUS.unsupported;
+        if (source < 1) { this.audioSource = 0; return AUDIO_STATUS.off; }
+        if (source !== this.audioSource) { this.audioSource = source; this.audioStatus = AUDIO_STATUS.wait; }
+        return this.audioStatus;
+      },
+      "korg.audio.spectrum": (slots, bins, range) => {
+        const status = this.audioReady();
+        if (status !== AUDIO_STATUS.ok) return status;
+        const n = Math.min(bins, slots.length), columns = this.audioColumns[range];
+        slots.fill(0, 0, n);
+        for (let c = 0; c < AUDIO_SPECTRUM.columns; c++) {
+          const i = (c * n) >> 7;
+          if (columns[c] > slots[i]) slots[i] = columns[c];
+        }
+        return status;
+      },
+      "korg.audio.wave": slots => {
+        const status = this.audioReady();
+        if (status !== AUDIO_STATUS.ok) return status;
+        const n = Math.min(slots.length, AUDIO_SPECTRUM.wave);
+        for (let i = 0; i < n; i++) slots[i] = this.audioWave[AUDIO_SPECTRUM.wave - n + i];
+        return status;
+      },
+      "korg.read.sampleName": (slots, slot) => {
+        const name = (this.samples.get(slot)?.name ?? "").slice(0, 16), n = Math.min(name.length, slots.length);
+        for (let i = 0; i < n; i++) slots[i] = name.charCodeAt(i) & 0xFF;
+        return n;
+      },
+      "korg.read.sampleInfo": (slot, field) => this.samples.get(slot)?.[SAMPLE_INFO.fields[field]] ?? 0,
+      "korg.read.led": index => this.firmwareLeds[index],
+      // the simulator has no Write window: the pattern in RAM goes into its place in the bank at once
+      "korg.pattern.write": () => { this.patternBlock(this.pattern).set(this.patternBlock(-1)); return 1; },
+      "korg.part.copy": (pattern, from, to) => {
+        const at = part => PATTERN_PARTS.base + part * PATTERN_PARTS.stride;
+        const source = this.patternBlock(pattern === this.pattern ? -1 : pattern).slice(at(from), at(from + 1));
+        this.patternBlock(-1).set(source, at(to));
+      },
+      "korg.midi.hold": (type, on) => { this.midiHeld = on ? this.midiHeld | (1 << type) : this.midiHeld & ~(1 << type); },
+      "korg.motion.clearLane": lane => this.clearMotion(lane),
+      "korg.motion.clearPart": part => this.clearMotionOf(part + 1),
+      "korg.motion.clearMfx": () => this.clearMotionOf(PATTERN_MOTION.mfx),
       "korg.seq.clearPart": part => { for (let step = 0; step < PATTERN_STEPS.count; step++) this.patternBlock(-1)[this.stepAt(part, step) + PATTERN_STEPS.on] = 0; },
     };
   }
 
+  /** A motion lane emptied as the firmware's clear_lane does: owner, destination and every value 0. */
+  clearMotion(lane) {
+    const block = this.patternBlock(-1);
+    block[PATTERN_MOTION.owner + lane] = 0;
+    block[PATTERN_MOTION.destination + lane] = 0;
+    block.fill(0, PATTERN_MOTION.values + lane * PATTERN_MOTION.steps, PATTERN_MOTION.values + (lane + 1) * PATTERN_MOTION.steps);
+  }
+
+  /** Every motion lane of an owner (1 to 16 a part, 17 the master effect), as CLEAR MOTION and CLEAR MFX MOTION. */
+  clearMotionOf(owner) {
+    for (let lane = 0; lane < PATTERN_MOTION.lanes; lane++) if (this.patternBlock(-1)[PATTERN_MOTION.owner + lane] === owner) this.clearMotion(lane);
+  }
+
+  /** The Motion Sequence mode byte of the selected part in the pattern block. */
+  motionModeAt() {
+    return PATTERN_PARTS.base + this.part * PATTERN_PARTS.stride + PATTERN_MOTION.mode;
+  }
+
   /** korg.get: the value of a leaf, as the runtime's table reads it. */
+  /** CHAIN MODE in Global: korg.read.chainMode and the leaf korg.global.chainMode read the same byte, as on the device. */
+  get chainMode() { return this.objects[CHAIN_MODE]; }
+  set chainMode(value) { this.objects[CHAIN_MODE] = value; }
+
   objectGet(leaf) {
     if (!OBJECTS[leaf]) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectLeaf", { leaf })));
+    if (OBJECTS[leaf].base === "motion") return this.patternBlock(-1)[this.motionModeAt()] ? 1 : 0;
     return this.objects[leaf];
   }
 
@@ -148,6 +268,18 @@ export class SimHardware {
     if (!o.write) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectReadOnly", { path: o.path })));
     const clamped = Math.min(o.max, Math.max(o.min, value));
     if (clamped !== value) this.objects[REPAIRS] += 1;
+    if (o.base === "touchpad") {
+      // the simulator is a set with MFX 2 on: one key press reaches every mode but Gate Arp alone (0)
+      if (clamped === 0 || clamped === this.objects[leaf]) return;
+      this.objects[leaf] = clamped;
+      this.emit("touchpadMode", clamped);
+      return;
+    }
+    if (o.base === "motion") {
+      // the simulator is a set with the patch tap-motion on: one TAP switches the selected part's motion, off and back to Smooth
+      this.patternBlock(-1)[this.motionModeAt()] = clamped;
+      return;
+    }
     this.objects[leaf] = clamped;
   }
 
@@ -207,6 +339,7 @@ export class SimHardware {
     const w = f && PATTERN_WRITES[f.name];
     if (!w) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.objectReadOnly", { path: `korg.current.${f?.name ?? field}` })));
     const v = Math.min(w[1], Math.max(w[0], value));
+    if (f.kind === "mfx2") { this.mfx2[this.pattern] = v + 1; return; }
     const block = this.patternBlock(-1);
     if (f.kind === "u16") { block[f.offset] = v & 255; block[f.offset + 1] = v >> 8 & 255; return; }
     block[f.offset] = (f.kind === "bars" ? v - 1 : f.kind === "chain" ? v + 1 : v) & 255;
@@ -270,6 +403,10 @@ export class SimHardware {
   patternValue(pattern, part, field) {
     const f = (part < 0 ? PATTERN_FIELDS : PART_FIELDS)[field];
     if (!f) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.patternValue", { field })));
+    if (f.kind === "mfx2") {
+      const entry = this.mfx2[pattern < 0 ? this.pattern : pattern] ?? 0;
+      return entry >= 1 && entry <= 100 ? entry - 1 : 6;
+    }
     const block = this.patternBlocks.get(pattern) ?? new Uint8Array(PATTERN_PARTS.bytes);
     const at = f.offset + (part < 0 ? 0 : PATTERN_PARTS.base + part * PATTERN_PARTS.stride);
     const raw = block[at];

@@ -552,11 +552,12 @@ export function emulatorSuite(index, parts) {
     assert.match(await page.getAttribute("#cee-e2-write", "aria-label"), /leuchtet/, "lit is also said in words");
     assert.equal(await page.getAttribute("#cee-e2-pad1", "data-tone"), "blue");
 
-    // WRITE breathes while the pattern is unsaved: the key follows every brightness the firmware sends.
+    // WRITE sits on a plain GPIO column of the panel controller: any value above 0 is fully on, no dimming.
     // The server always sends the whole set; an LED it leaves out is dark.
     fake.broadcast("leds", { 0x0b: 64, 0x2d: 255 });
-    await page.waitForFunction(() => document.querySelector("#cee-e2-write").dataset.lit === "dim");
-    assert.equal(Number(await page.locator("#cee-e2-write").evaluate(n => n.style.getPropertyValue("--cee-e2-glow"))), 64 / 255);
+    await settle(200);
+    assert.equal(await page.getAttribute("#cee-e2-write", "data-lit"), "on");
+    assert.equal(Number(await page.locator("#cee-e2-write").evaluate(n => n.style.getPropertyValue("--cee-e2-glow"))), 1);
 
     // A press goes to the firmware; whether the pad lights is up to it (korg.padHold swallows the press on the device).
     const press = async sel => { const b = await page.locator(sel).boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); };

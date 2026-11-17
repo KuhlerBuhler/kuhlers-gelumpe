@@ -339,3 +339,9 @@ test("disconnect invalidates an outstanding payload read and late bytes are disc
   assert.deepEqual(received, []);
   assert.deepEqual(f.calls.find(c => c.command === "midi_ack").args, { sessionId: "session", sequence: 1 });
 });
+
+test("the Android app has no MIDI yet, even when its WebView offers Web MIDI", () => {
+  const scope = { __GELUMPE_MOBILE: { version: "1.4.2", platform: "android" }, navigator: { requestMIDIAccess: async () => ({}) } };
+  assert.equal(createMidiTransport(scope).supported, false);
+  assert.equal(createMidiTransport({ navigator: scope.navigator }).supported, true);
+});
