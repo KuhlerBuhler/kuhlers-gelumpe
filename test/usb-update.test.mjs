@@ -53,6 +53,16 @@ test("without SYSTEM.VSB on the card, or without the FILE commands on the device
   await assert.rejects(fetchUpdateFile(old.session), /zu alt für Updates über USB/);
 });
 
+test("a firmware from before 1.4.6, which sends no FatFs result, still starts the first update from SYSTEM.VSB", async () => {
+  const unpatched = fill(5000, 1);
+  const card = new Map([["SYSTEM.VSB", unpatched]]);
+  card.noCodes = true; // status 6 with 0 in the CRC word for the missing ORIGINAL.BIN
+  const { session } = await device(card);
+  const got = await fetchUpdateFile(session);
+  assert.equal(got.fromOriginal, false);
+  assert.deepEqual(got.bytes, unpatched);
+});
+
 test("a card error on reading ORIGINAL.BIN stops the update instead of starting from the patched SYSTEM.VSB", async () => {
   const card = new Map([["SYSTEM.VSB", fill(5000, 4)], ["ORIGINAL.BIN", fill(5000, 3)]]);
   card.errors = { "ORIGINAL.BIN": 1 }; // FatFs FR_DISK_ERR instead of the file
