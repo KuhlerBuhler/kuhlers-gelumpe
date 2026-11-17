@@ -15,6 +15,7 @@
 #include "exec/address-spaces.h"
 #include "exec/exec-all.h"
 #include "exec/memory.h"
+#include "exec/ram_addr.h"
 #include "cpu.h"
 #include "blackfin_hybrid.h"
 
@@ -151,7 +152,11 @@ static void worker_invalidate_range(uint32_t address, uint32_t length)
         if (begin < stop) {
             ram_addr_t base = memory_region_get_ram_addr(worker_ram[i].region)
                               - worker_ram[i].base;
-            tb_invalidate_phys_range(base + begin, base + stop - 1);
+            /* A page holding translations has its code-dirty bit cleared. */
+            if (!cpu_physical_memory_all_dirty(base + begin, stop - begin,
+                                               DIRTY_MEMORY_CODE)) {
+                tb_invalidate_phys_range(base + begin, base + stop - 1);
+            }
         }
     }
 }
