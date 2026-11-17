@@ -86,6 +86,7 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Startinitialisierung, Interrupt-/Loader-Stacks und Patternbank](2026-10-08-boot-pattern-speicher.md)
 - [Task-Stacks, Heap und Arbeitsbuffer, offline gemessen](2026-10-08-systemspeicher-offline.md)
 - [DSP-Audiopfade und Ausführungsgrenzen, offline](2026-10-08-dsp-audiopfade.md)
+- [Natives Aufnehmen und Abspielen: Master-Abgriff im DSP, Kartenrate, RAM, blau, offline](2026-11-17-native-aufnahme.md)
 - [USB-Sampleimport ohne SD: Offline-Machbarkeit](2026-10-08-usb-sample-import-offline.md)
 - [Ganzer Flash in einem Stand](2026-10-09-flash-dump.md)
 - [Menüzustand im RAM: welcher Bildschirm, welche Seite](2026-10-09-menuezustand.md)
