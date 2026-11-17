@@ -1249,7 +1249,7 @@
      "unitName": "M_level_mod",
      "params": {
       "amp_level": 127,
-      "output_gain_adjust": 32,
+      "output_gain_adjust": 38,
       "level_mod_source": 4,
       "level_mod_int": 126,
       "level_mod_type": 0,
@@ -1463,10 +1463,10 @@
      "params": {
       "dry_wet": 100,
       "envelope_select": 0,
-      "threshold": 64,
+      "threshold": 52,
       "attack": 0,
-      "release": 20,
-      "hold_time": 17,
+      "release": 8,
+      "hold_time": 8,
       "tube_sat": 50,
       "output_gain": 54
      }
@@ -1491,8 +1491,8 @@
      "source": 66,
      "chain": 2,
      "param": 2,
-     "low": 64,
-     "high": 40
+     "low": 60,
+     "high": 44
     }
    ],
    "creator": "Kuhler Buhler"
@@ -2018,35 +2018,20 @@
    "stages": [
     {
      "stage": "ifx1",
-     "unit": 2,
-     "unitName": "I_sr1_comp",
+     "unit": 3,
+     "unitName": "I_cheap_comp",
      "params": {
-      "dry_wet": 100,
-      "envelope_select": 0,
-      "threshold": 40,
-      "ratio": 8,
-      "knee": 6,
-      "attack": 11,
-      "release": 5,
-      "hold_time": 0,
-      "tube_sat": 10,
-      "output_gain": 60
+      "hpf_b1": 127,
+      "peak_hold_b1": 0,
+      "env_bit_shift_amount": 35,
+      "output_level": 11
      }
     },
     {
      "stage": "ifx2",
-     "unit": 5,
-     "unitName": "I_limiter",
-     "params": {
-      "dry_wet": 100,
-      "envelope_select": 0,
-      "threshold": 52,
-      "attack": 0,
-      "release": 3,
-      "hold_time": 3,
-      "tubesat": 0,
-      "output_gain": 60
-     }
+     "unit": 0,
+     "unitName": "nofx_thru",
+     "params": {}
     }
    ],
    "map": [
@@ -2054,15 +2039,8 @@
      "source": 66,
      "chain": 0,
      "param": 2,
-     "low": 46,
-     "high": 26
-    },
-    {
-     "source": 66,
-     "chain": 0,
-     "param": 9,
-     "low": 58,
-     "high": 66
+     "low": 35,
+     "high": 0
     }
    ],
    "creator": "Kuhler Buhler"
@@ -2209,14 +2187,14 @@
      "params": {
       "dry_wet": 100,
       "envelope_select": 0,
-      "threshold": 42,
+      "threshold": 27,
       "ratio": 8,
       "knee": 6,
       "attack": 11,
       "release": 5,
       "hold_time": 0,
       "tube_sat": 0,
-      "output_gain": 50
+      "output_gain": 53
      }
     }
    ],
@@ -2239,8 +2217,8 @@
      "source": 66,
      "chain": 2,
      "param": 2,
-     "low": 46,
-     "high": 30
+     "low": 33,
+     "high": 21
     }
    ],
    "creator": "Kuhler Buhler"
@@ -2692,58 +2670,28 @@
      }
     ]
    },
-   "0x02": {
-    "unit": "I_sr1_comp",
+   "0x03": {
+    "unit": "I_cheap_comp",
     "params": [
      {
-      "name": "dry_wet",
+      "name": "hpf_b1",
       "type": "Int8ul",
-      "default": "0x64"
+      "default": "0x7F"
      },
      {
-      "name": "envelope_select",
+      "name": "peak_hold_b1",
       "type": "Int8ul",
-      "default": "0x0"
+      "default": "0x7F"
      },
      {
-      "name": "threshold",
-      "type": "Int8ul",
-      "default": "0x24"
-     },
-     {
-      "name": "ratio",
-      "type": "Int8ul",
-      "default": "0x8"
-     },
-     {
-      "name": "knee",
-      "type": "Int8ul",
-      "default": "0x5"
-     },
-     {
-      "name": "attack",
-      "type": "Int8ul",
-      "default": "0xC"
-     },
-     {
-      "name": "release",
-      "type": "Int8ul",
-      "default": "0x2"
-     },
-     {
-      "name": "hold_time",
+      "name": "env_bit_shift_amount",
       "type": "Int8ul",
       "default": "0x4"
      },
      {
-      "name": "tube_sat",
+      "name": "output_level",
       "type": "Int8ul",
-      "default": "0x3C"
-     },
-     {
-      "name": "output_gain",
-      "type": "Int8ul",
-      "default": "0x36"
+      "default": "0xC"
      }
     ]
    },
