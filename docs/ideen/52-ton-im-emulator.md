@@ -40,16 +40,16 @@ Werkzeug, im Repository nur die Skripte, keine Korg-Daten:
 | Distortion (Insert) | 189 | 0,36 µs | 44,0 µs (122x) | 0,59 µs (1,6x) |
 | Hall Reverb (Master) | 432 | 0,82 µs | 71,2 µs (87x) | 1,18 µs (1,4x) |
 
-Der GNU-Simulator schafft 4 bis 9 Millionen DSP-Takte je Sekunde, der QEMU-Port 320 bis 460 Millionen. Auf einen Block von 64 Samples (1,33 ms Echtzeit) umgerechnet braucht ein einzelner Insert im GNU-Simulator schon 1,2 bis 2,8 ms, der Hall 4,6 ms. Im QEMU-Port sind es 19 bis 75 µs.
+Der GNU-Simulator schafft 4 bis 9 Millionen DSP-Takte je Sekunde, der QEMU-Port ohne Korrekturen 320 bis 460 Millionen, mit den Korrekturen, die ihn richtig rechnen lassen, 55 bis 230 Millionen ([QEMU gegen GNU-Simulator](../messungen/2026-11-16-qemu-bfin-vergleich.md)). Auf einen Block von 64 Samples (1,33 ms Echtzeit) umgerechnet braucht ein einzelner Insert im GNU-Simulator schon 1,2 bis 2,8 ms, der Hall 4,6 ms. Im QEMU-Port ohne Korrekturen sind es 19 bis 75 µs, mit Korrekturen rund das Zwei- bis Fünffache.
 
 6. **Ganzer Patch (Schätzung):** pro Sample etwa 500 Takte fest (Audioschleife, Mischer), je aktivem Part etwa 300 Takte Rahmen plus Filterkern plus Insert (zusammen 600 bis 700), dazu Master 370 bis 450 und die Stimmen. 16 Parts plus Master ergeben 10 000 bis 15 000 Takte je Sample, also ungefähr das ganze Budget. Daraus: eine Sekunde Klang braucht im GNU-Simulator 1 bis 2 Minuten, im QEMU-Port 1,1 bis 1,6 Sekunden. Ein leichter Patch (ein Part, ein Insert, Hall, rund 1 800 Takte je Sample) braucht im GNU-Simulator 10 bis 20 Sekunden je Sekunde Klang, im QEMU-Port 0,2 Sekunden.
-7. **QEMU-Port (vapier/qemu, Zweig `bfin`, Stand Januar 2024, auf QEMU 8.2):** baut auf dem Mac in rund 10 Minuten (ohne Audio, vmnet und Cocoa; Objective-C-Compiler ausdrücklich angeben). Nur das Board BF537 ist da, für den reinen Prozessor reicht es. Es fehlte ein Befehl, den 5 von 13 Effekten benutzen (`ASHIFT ... BY Rx.L (S)`), nachgerüstet als Hilfsfunktion. Danach rechnen Short Delay, Distortion, Chorus und (beim ersten Aufruf) Hall bit-gleich zum GNU-Simulator, der Filterkern schon beim ersten Aufruf nicht, der Hall nach 1000 Aufrufen auch nicht mehr. Welcher der beiden richtig rechnet, sagt nur das Gerät. CYCLES zählt im QEMU-Port Nanosekunden, keine Takte.
+7. **QEMU-Port (vapier/qemu, Zweig `bfin`, Stand Januar 2024, auf QEMU 8.2):** baut auf dem Mac in rund 10 Minuten (ohne Audio, vmnet und Cocoa; Objective-C-Compiler ausdrücklich angeben). Nur das Board BF537 ist da, für den reinen Prozessor reicht es. Es fehlte ein Befehl, den 5 von 13 Effekten benutzen (`ASHIFT ... BY Rx.L (S)`), nachgerüstet als Hilfsfunktion. Ohne weitere Korrekturen rechnet er nur 17 von 76 Vergleichen gleich zum GNU-Simulator. Im Einzelschritt lag jedes Mal QEMU falsch (MAC ohne Vorzeichen und Sättigung, Akku-Schieben, `<< imm (S)`, Add/Sub mit `(S)`, Mehrfachbefehle ohne verzögertes Zurückschreiben). Mit `tools/dsp/qemu-bfin.patch` rechnen alle 38 prüfbaren Funktionen, Filterkerne eingeschlossen, nach 1 und 2 000 Aufrufen bit-gleich; Einzelheiten in [QEMU gegen GNU-Simulator](../messungen/2026-11-16-qemu-bfin-vergleich.md). CYCLES zählt im QEMU-Port Nanosekunden, keine Takte.
 
 ### Was ein voller DSP-Emulator braucht (Skizze, nichts gebaut)
 
 | Teil | Was | Aufwand (Schätzung) |
 |---|---|---|
-| Kern | GNU-Simulator als Bibliothek (`sim_open`, `sim_resume`, `sim_read`, `sim_write`) über ctypes aus `tools/emu` steuern; QEMU nur, wenn live gewollt ist, dann als eigener Prozess mit fehlenden Befehlen und einem Vergleich gegen den GNU-Simulator | 2 bis 4 Tage, QEMU Wochen |
+| Kern | GNU-Simulator als Bibliothek (`sim_open`, `sim_resume`, `sim_read`, `sim_write`) über ctypes aus `tools/emu` steuern; QEMU nur, wenn live gewollt ist, dann als eigener Prozess mit fehlenden Befehlen und einem Vergleich gegen den GNU-Simulator | 2 bis 4 Tage, QEMU 4 bis 7 Arbeitstage |
 | Laden | Den Strom nicht über SPI1 und Boot-Rom schicken, sondern mit `dsp_extract.py` direkt in den Speicher legen und bei `0xFFA00000` starten (Stufe 1 überspringen). Nebenbei die Bytes prüfen, die der ARM in `0xC0011AB8` senden würde (Kopf-XOR, `0xAD`, FINAL-Block), das schließt die Lücke aus Abschnitt 4.2 von [DSP, erster Blick](../hintergrund/dsp-erster-blick.md) auch ohne Klang | 1 bis 2 Tage |
 | Host-Port | Den Briefkasten in `machine.py` (`dsp_read`, Steuerwörter `0xA9`/`0xAB`) auf Lese- und Schreibzugriffe im DSP-Speicher umlenken; im Simulator ein kleines Gerät für HOSTDP (`0xFFC03404` Bit 4 fragt die Audioschleife ab) und den Bereit-Ausgang (GPIO, `0xC00171A8` Bit 12 auf der ARM-Seite) | 2 bis 4 Tage |
 | DMA und SPORT | Der GNU-Simulator hat DMA, aber kein SPORT. Ein SPORT-Modell, das alle 4 Frames den Puffer abholt und den Interrupt hebt, der das Semaphor der Audioschleife setzt | 3 bis 5 Tage |
@@ -61,7 +61,7 @@ Zusammen 3 bis 5 Wochen bis zu einer offline gerenderten WAV, ohne die Samples.
 
 ### Empfehlung
 
-- **Live:** nein. Der GNU-Simulator ist 56- bis 122-mal langsamer als der echte DSP. Der QEMU-Port käme in die Nähe von Echtzeit, rechnet aber nicht überall gleich, hat Lücken und bräuchte Peripherie in C, dazu die Kopplung zweier Prozesse.
+- **Live:** nein. Der GNU-Simulator ist 56- bis 122-mal langsamer als der echte DSP. Der QEMU-Port rechnet mit dem Patch gleich, ist 2- bis 10-mal langsamer als der echte DSP und bräuchte Peripherie in C (HOSTDP, SPORT0, DMA), einen Befehlszähler und die Kopplung zweier Prozesse, geschätzt 4 bis 7 Arbeitstage ([QEMU gegen GNU-Simulator](../messungen/2026-11-16-qemu-bfin-vergleich.md)).
 - **Offline rendern:** machbar mit dem GNU-Simulator, eine Sekunde Klang in 10 Sekunden (leichter Patch) bis 2 Minuten (voller Patch). Ein Pattern von 8 Sekunden mit allen Parts wäre in 10 bis 15 Minuten fertig. Das ist der Weg, wenn es Klang sein soll.
 - **Zuerst:** nur DSP-Patches prüfen. Mit `bfsim_bench.py` lässt sich eine geänderte Funktion gegen die originale stellen: gleiche Prüfsumme heißt gleiches Ergebnis, die Taktzahl zeigt, wie viel vom Budget sie kostet. Dazu die Prüfung des Boot-Stroms. Das kostet 1 bis 2 Tage und deckt das ab, was bei einem DSP-Patch am meisten weh tut.
 
@@ -75,13 +75,13 @@ Zusammen 3 bis 5 Wochen bis zu einer offline gerenderten WAV, ohne die Samples.
 | Das frühere Hängen kam von `SIGNEXTEND` | hergeleitet | der alte Build ist nicht mehr da, nicht nachgestellt |
 | Insert-Effekte 129 bis 206, Master-Effekte 374 bis 444 Takte je Aufruf, Filterkern 149 | gemessen (Simulator) | `bfsim_bench.py OUT ADRESSE --calls 5 --reg R0=soup`, Adressen aus der Deskriptortabelle SDRAM `0x4C30` (`+0x18`) |
 | Diese Taktzahlen gelten für den echten Kontext | offen | synthetischer Kontext, Simulator ohne Cache und SDRAM-Wartezeit |
-| GNU-Simulator 4 bis 9, QEMU-Port 320 bis 460 Millionen DSP-Takte je Sekunde | gemessen | `bfsim_bench.py` mit `--calls 200000` (Simulator) und `--calls 2000000 --qemu` (QEMU), Lauf mit `--calls 1` und der leere Aufruf `ffa0010a` abgezogen |
+| GNU-Simulator 4 bis 9, QEMU-Port ohne Korrekturen 320 bis 460, mit Korrekturen 55 bis 230 Millionen DSP-Takte je Sekunde | gemessen | `bfsim_bench.py` mit `--calls 200000` (Simulator) und `--calls 2000000 --qemu` (QEMU), Lauf mit `--calls 1` und der leere Aufruf `ffa0010a` abgezogen |
 | 4 Frames je Block, ein Aufruf von `0xFFA0141A` je Frame | hergeleitet | Disassembly `0xFFA001B0` bis `0xFFA00236` (Zähler bis 4, Zeiger + 16), offline gelesen |
 | DSP-Kern rund 525 MHz | hergeleitet | Stufe 1 (Block 2) setzt PLL_CTL `0x2A00`; Quarzfrequenz offen |
 | Ganzer Patch 10 000 bis 15 000 Takte je Sample | hergeleitet | Befehle gezählt (`0xFFA0141A`: 66 + 393 fest, 313 je Part, 58 je Stimme) plus gemessene Kerne; Kosten der Stimmen offen |
 | QEMU-Port baut auf dem Mac, fehlender Befehl `ASHIFT ... (S)` | gemessen | Abbruch "unhandled exception type=33" bei `0x12BD2`, `0xFFA0923A`, `0xFFA07936`, `0xFFA08780`, `0x1C79C0E` |
-| QEMU rechnet Short Delay, Distortion, Chorus gleich, Filterkern nicht | gemessen | Prüfsumme in `bfsim_bench.py` mit und ohne `--qemu` |
-| Welcher Simulator beim Filterkern richtig liegt | offen | braucht das Gerät |
+| QEMU mit `qemu-bfin.patch` rechnet alle 38 prüfbaren Funktionen gleich, ohne nur 17 von 76 Vergleichen | gemessen | [QEMU gegen GNU-Simulator](../messungen/2026-11-16-qemu-bfin-vergleich.md) |
+| Welcher Simulator beim Filterkern richtig liegt | hergeleitet: der GNU-Simulator | Einzelschritt bis zur ersten Abweichung, Befehlssatz-Semantik, [QEMU gegen GNU-Simulator](../messungen/2026-11-16-qemu-bfin-vergleich.md); am Gerät nicht geprüft |
 | Aufwand der Teile | geschätzt | Urteil, nichts davon gebaut |
 
 Hinweis zu [DSP, erster Blick](../hintergrund/dsp-erster-blick.md) 2.6: die Rechnung dort nimmt Blöcke von 64 bis 128 Samples an. Wenn der DSP-Block 4 Samples hat, stimmt die Herleitung der 100 ms über "ein Frame je Audioblock" nicht mehr; wie oft der Frame-Task Rechenzeit bekommt, bleibt offen.

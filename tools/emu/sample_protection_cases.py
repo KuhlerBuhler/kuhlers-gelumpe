@@ -192,7 +192,8 @@ def pcm_boot_cases(payload):
             if not dynamic:
                 box.m.uc.mem_write(c.spec.STATE + c.spec.OFF['MODE'], struct.pack('<I', 1))
             evictable = state_call(box, 'can_evict', 500)
-            actual = box.dsp_bytes(c.DSP_MIN, 32)
+            # the swap keeps DSP_GUARD bytes free in front of its first sample; the foreign write lands at DSP_MIN
+            actual = box.dsp_bytes(c.DSP_MIN if foreign else box.extent(500)[0], 32)
             expected = bytes((i * 17 + 39) & 255 for i in range(32)) if foreign else c.wav_pcm(500, c.FRAMES)[:32]
             out.append(dict(id=f'pcm_boot_{"dynamic" if dynamic else "small"}_{"foreign" if foreign else "clean"}',
                             ok=mode == int(dynamic) and seen['injected'] == foreign

@@ -5,6 +5,18 @@
    "to": "0xC03406B0",
    "kind": "ram",
    "why": "pointer to the screen manager (object of 0x74 bytes, +0x2C the screen number): all 8 literal pool words that hold it in the Sampler sit at equal places of the synth's pools and hold 0xC03406B0 (vote 8 of 8); the user at synth 0xC006C358 allocates 0x74 bytes like the Sampler and compares +0x2C with 1 before reading the keyboard object's mode"
+  },
+  {
+   "from": "0xC008878C",
+   "to": "0xC0078970",
+   "kind": "code",
+   "why": "the firmware's pad light for a note (Sampler 0xC008870C, synth 0xC00788F0) has the same instructions at the same offsets, read in both (capstone): +0x80 ldr r4, [pc, #0x94] loads the keyboard object's pointer (Sampler 0xC0348880, synth 0xC0348584), behind the bl to the KEY getter at +0x78 (Sampler 0xC0088784, synth 0xC0078968)"
+  },
+  {
+   "from": "0xC0088790",
+   "to": "0xC0078974",
+   "kind": "code",
+   "why": "the next instruction, ldr r3, [r4], in both: the firmware's pad light for a note (Sampler 0xC008870C, synth 0xC00788F0) has the same instructions at the same offsets, read in both (capstone)"
   }
  ]
 }

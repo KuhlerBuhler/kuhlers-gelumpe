@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Emulator checks for the collection on the card (tools/patch/fx_card.s, src/fx-collection.mjs).
 
-check.py runs `cases_task` on every patched sampler copy that carries the loader. A good file puts its insert and master
+check.py runs `cases_task` on every patched copy that carries the loader, red or blue (the blue's places: data/synth-map/). A good file puts its insert and master
 records where the firmware's getters point and its modulation type into the table the build reads, in RAM; the flash
-ends up byte for byte as after a start without the file. A missing file, a wrong checksum, the wrong build, an index
-past the menu, a cut file and EXIT held at power-on leave every record as the firmware has it.
+ends up byte for byte as after a start without the file. A slot past the menu, up to 100, makes the menu that long in RAM.
+A missing file, a wrong checksum, the wrong build, an index past 100, a cut file and EXIT held at power-on leave every
+record as the firmware has it. The file also goes onto the card over the cable (case_usb_write) and loads at the next start.
 
     tools/emu/.venv/bin/python tools/emu/fx_card_cases.py cases --patched NEW.VSB [--flash dump.bin] [--only N]
 """
@@ -41,20 +42,32 @@ KIND = {"ifx": 1, "mfx": 2, "mod": 3}
 STATE = script_hooks.CARD + 0xFE0
 STATUS = {2: "loaded", 3: "no panel", 4: "EXIT held", 5: "no file", 6: "bad header", 7: "wrong build", 8: "bad entry", 9: "bad checksum", 10: "read error"}
 BOOT_S = 6.0
+BOOT_SYNTH_S = 10.0     # the blue's start takes longer to reach the main screen
 NAME = 1                # an FX record's name is bytes 1 to 15
 MOD_NAME, MOD_DEPTH = 4, 26
 
 
+BUILD = {"hacktribe": 1, "stock": 2, "synth": 3}         # the header's build word, src/fx-collection.mjs BUILDS
+OTHER = {1: 2, 2: 1, 3: 2}                                 # a build the loader has to refuse
+
+
 def has_hooks(payload):
-    return PATH_IN_IMAGE in payload and not synthaddr.is_synth(payload)
+    return PATH_IN_IMAGE in payload
 
 
 def build_of(payload):
-    return identify(payload).build
+    return "synth" if synthaddr.is_synth(payload) else identify(payload).build
 
 
 def mods(payload):
-    return 0xC00D81EC if build_of(payload) == "stock" else 0xC019FFFC
+    """The modulation table the build reads (FX_MODS of tools/patch/script_hooks.py), at its own address."""
+    build = build_of(payload)
+    return synthaddr.tr(0xC00D81EC) if build == "synth" else 0xC00D81EC if build == "stock" else 0xC019FFFC
+
+
+def raw(dev, addr, n):
+    """Bytes at an address the running firmware handed out or the build's own address: no translation of Sampler places."""
+    return bytes(dev.m.uc.mem_read(addr, n))
 
 
 def entry(kind, index, data, text=b'{"format":"gelumpe-fx"}'):
@@ -81,21 +94,22 @@ def card(files):
 
 
 def boot(payload, flash, files, held=0):
+    menu_cases.for_build(payload)     # export() walks the menu of this build
     dev = Dev(payload, flash, held)
     dev.m.insert_card(card(files))
-    dev.run(BOOT_S)
+    dev.run(BOOT_SYNTH_S if dev.synth else BOOT_S)
     return dev
 
 
 def state(dev):
-    status, loaded = struct.unpack("<II", dev.read(STATE, 8))
+    status, loaded = struct.unpack("<II", raw(dev, STATE, 8))
     return status, loaded
 
 
 def records(dev, payload):
     """The records the cases touch, as the running firmware has them."""
-    return {"ifx": dev.read(dev.call(GET["ifx"], 1), RECORD), "mfx": dev.read(dev.call(GET["mfx"], 0), RECORD),
-            "ifx2": dev.read(dev.call(GET["ifx"], 2), RECORD), "mod": dev.read(mods(payload) + 3 * MOD_RECORD, MOD_RECORD)}
+    return {"ifx": raw(dev, dev.call(GET["ifx"], 1), RECORD), "mfx": raw(dev, dev.call(GET["mfx"], 0), RECORD),
+            "ifx2": raw(dev, dev.call(GET["ifx"], 2), RECORD), "mod": raw(dev, mods(payload) + 3 * MOD_RECORD, MOD_RECORD)}
 
 
 def named(record, at, width, text):
@@ -122,7 +136,7 @@ def result(name, ok, detail):
 
 def case_good(payload, flash):
     base, before, want, good = plan(payload, flash)
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     dev = boot(payload, flash, {CARD_FILE: collection(build, good)})
     now = records(dev, payload)
     status, loaded = state(dev)
@@ -138,11 +152,11 @@ def case_good(payload, flash):
 
 def case_refused(payload, flash):
     base, before, want, good = plan(payload, flash)
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     files = {
         "missing": ({}, 5),
         "checksum": ({CARD_FILE: collection(build, good, crc_wrong=True)}, 9),
-        "build": ({CARD_FILE: collection(3 - build, good)}, 7),
+        "build": ({CARD_FILE: collection(OTHER[build], good)}, 7),
         "index": ({CARD_FILE: collection(build, [entry("ifx", 250, want["ifx"])])}, 8),
         "cut": ({CARD_FILE: collection(build, good, cut=8)}, None),
     }
@@ -159,12 +173,14 @@ def case_refused(payload, flash):
 
 def case_exit(payload, flash):
     base, before, want, good = plan(payload, flash)
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     dev = boot(payload, flash, {CARD_FILE: collection(build, good)}, held=menu_cases.KILL)
     status, loaded = state(dev)
     now = records(dev, payload)
     unchanged = all(now[k] == before[k] for k in ("ifx", "mfx", "mod"))
-    return [result("exit_held", status in (0, 4) and unchanged, f"status {STATUS.get(status, status)}, records unchanged {unchanged}")]
+    # the blue's start wrapper (script_start_synth.s) skips all of BLECH with EXIT held, the loader does not run and its state stays erased
+    skipped = (0, 4, 0xFFFFFFFF) if build == BUILD["synth"] else (0, 4)
+    return [result("exit_held", status in skipped and unchanged, f"status {STATUS.get(status, status)}, records unchanged {unchanged}")]
 
 
 def case_boot_effects(payload, flash):
@@ -178,10 +194,10 @@ def case_boot_effects(payload, flash):
             self.dev = Dev(bytes(payload), flash, 0)
             self.dsp = DspLog(self.dev.m)
             self.dev.m.insert_card(card(files))
-            self.dev.run(BOOT_S)
+            self.dev.run(BOOT_SYNTH_S if self.dev.synth else BOOT_S)
 
     ab = lambda changes: [t for t in changes if t[0] == 0xAB]
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     base = Box({})
     n = base.count("ifx")
     out = []
@@ -203,11 +219,11 @@ def case_version_text(payload, flash):
     """BLECH > VERSION says behind the firmware what the start did with e2sFx.all, nothing without a file. The third row stays empty:
     the firmware draws it on the row of the value. The value row on screen holds exactly the pixels of the value alone."""
     base, before, want, good = plan(payload, flash)
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     firmware = menu_cases.BASE_NAMES[build_of(payload)]
     out = []
     for name, files, tag in (("none", {}, ""), ("loaded", {CARD_FILE: collection(build, good)}, " FX"),
-                             ("build", {CARD_FILE: collection(3 - build, good)}, " FX fw?"),
+                             ("build", {CARD_FILE: collection(OTHER[build], good)}, " FX fw?"),
                              ("checksum", {CARD_FILE: collection(build, good, crc_wrong=True)}, " FX bad")):
         dev = boot(payload, flash, files)
         menu_cases.goto_top(dev, menu_cases.LIST_VERSION)
@@ -223,7 +239,7 @@ def case_version_text(payload, flash):
 
 def export(dev):
     """DATA UTILITY, our page EXPORT ALL EFFECTS, ENTER: the value it shows after, and the collection on the card then."""
-    menu_cases.INIT_PAGE = dev.read(menu_cases.INIT_CODE, 4) != b"\xff" * 4
+    menu_cases.INIT_PAGE = raw(dev, menu_cases.INIT_CODE, 4) != b"\xff" * 4
     menu_cases.FX_EXPORT = True
     menu_cases.goto_du(dev, menu_cases.du_pages().index("EXPORT ALL EFFECTS"))
     title = menu_cases.text(dev, menu_cases.S_TITLE)
@@ -253,7 +269,7 @@ def case_export(payload, flash):
     text too, the CRC new; the next start loads it. Without a file it makes one; a file changed since the start or one the
     start did not load stays as it is."""
     base, before, want, good = plan(payload, flash)
-    build = 2 if build_of(payload) == "stock" else 1
+    build = BUILD[build_of(payload)]
     bare = named(before["ifx2"], NAME, 15, "NO TEXT")
     original = collection(build, good + [entry("ifx", 2, bare, text=b"")])
     dev = boot(payload, flash, {CARD_FILE: original})
@@ -289,11 +305,11 @@ def export_new(payload, flash, build):
     no text, the CRC right, in a Presets folder it makes; the next start loads all of it, and a second export writes into it."""
     dev = boot(payload, flash, {})
     counts = {k: min(dev.call(a), 256) for k, a in COUNT.items()}
-    edited = named(dev.read(dev.call(GET["ifx"], 1), RECORD), NAME, 15, "NEW FILE IFX")
+    edited = named(raw(dev, dev.call(GET["ifx"], 1), RECORD), NAME, 15, "NEW FILE IFX")
     dev.m.uc.mem_write(dev.call(GET["ifx"], 1), edited)
-    ram = [(1, i, dev.read(dev.call(GET["ifx"], i), RECORD)) for i in range(counts["ifx"])]
-    ram += [(2, i, dev.read(dev.call(GET["mfx"], i), RECORD)) for i in range(counts["mfx"])]
-    ram += [(3, i, dev.read(mods(payload) + i * MOD_RECORD, MOD_RECORD)) for i in range(MOD_COUNT)]
+    ram = [(1, i, raw(dev, dev.call(GET["ifx"], i), RECORD)) for i in range(counts["ifx"])]
+    ram += [(2, i, raw(dev, dev.call(GET["mfx"], i), RECORD)) for i in range(counts["mfx"])]
+    ram += [(3, i, raw(dev, mods(payload) + i * MOD_RECORD, MOD_RECORD)) for i in range(MOD_COUNT)]
     _, value, written = export(dev)
     now, crc_ok = entries_of(written) if written else ([], False)
     same = [(k, i, d) for k, i, d, _ in now] == ram and all(t == b"" for *_, t in now)
@@ -312,7 +328,144 @@ def export_new(payload, flash, build):
     return out
 
 
-GROUPS = (case_good, case_refused, case_exit, case_export, case_boot_effects, case_version_text)
+# the sites of the menu lengths in fx_card.s (fx_sites): address, the master menu, the last index instead of the count
+SITES = [(a, False, False) for a in (0xC003EFDC, 0xC0098150, 0xC0098194, 0xC00980EC, 0xC009809C, 0xC009811C, 0xC0098138, 0xC0098084)]
+SITES += [(a, False, True) for a in (0xC0048F80, 0xC0049EF0, 0xC004A1F8, 0xC009814C, 0xC0098188, 0xC00980E8)] + [(0xC003EFE4, True, False)]
+SLOTS = 100
+
+
+def case_grow(payload, flash):
+    """A file that fills slots past the menu, up to 100, makes the menus that long in RAM: every site of the length agrees, the
+    knob memory has a row of the new length for each part, the encoder walks all slots and the gaps between, the last slot
+    plays its record, the flash stays as it is. Slot 101 is refused and the menus keep their length."""
+    import preset_cases
+    from mfx_cases import DspLog, same_dsp
+
+    class Box(preset_cases.Box):
+        def __init__(self, files):
+            self.dev = Dev(bytes(payload), flash, 0)
+            self.dsp = DspLog(self.dev.m)
+            self.dev.m.insert_card(card(files))
+            self.dev.run(BOOT_SYNTH_S if self.dev.synth else BOOT_S)
+
+    build = BUILD[build_of(payload)]
+    base = Box({})
+    n0 = {k: base.count(k) for k in ("ifx", "mfx")}
+    last = {"ifx": SLOTS - 1, "mfx": n0["mfx"] + 5}
+    want = {"ifx": named(base.record("ifx", 5), NAME, 15, "SLOT 100 IFX"), "mfx": named(base.record("mfx", 5), NAME, 15, "LATE MFX")}
+    dev = Box({CARD_FILE: collection(build, [entry("ifx", last["ifx"], want["ifx"]), entry("mfx", last["mfx"], want["mfx"])])})
+    status, loaded = state(dev.dev)
+    n1 = {k: dev.count(k) for k in ("ifx", "mfx")}
+    words = {a: dev.dev.read(a, 1)[0] for a, *_ in SITES}
+    agree = all(words[a] == n1["mfx" if mfx else "ifx"] - (1 if back else 0) for a, mfx, back in SITES)
+    same = all(dev.record(k, last[k]) == want[k] for k in want)
+    out = [result("grow_menus", status == 2 and loaded == 2 and n1 == {"ifx": SLOTS, "mfx": last["mfx"] + 1} and agree and same and not dev.dev.m.asserts,
+                  f"status {STATUS.get(status, status)}, {loaded} entries, menus {n0} to {n1}, every site of the length agrees {agree}, records in place {same}")]
+    table, rows = dev.knob_rows(SLOTS)
+    out.append(result("grow_knob_memory", table == 0xC017C400 and 255 not in rows and set(rows) <= set(range(128)),
+                      f"16 rows of {SLOTS} at {table:#x}, every byte set: {255 not in rows}"))
+    out.append(result("grow_flash_untouched", bytes(dev.dev.m.flash.mem) == bytes(base.dev.m.flash.mem), "the flash after the start is the same as after a start without the file"))
+    first = dev.ifx_type()
+    seen = [first]
+    for _ in range(SLOTS + 2):
+        dev.step_ifx()
+        seen.append(dev.ifx_type())
+    out.append(result("grow_ifx_walk", seen == [(first + i) % SLOTS for i in range(SLOTS + 3)] and not dev.dev.m.asserts,
+                      f"the INSERT encoder walks {SLOTS + 2} steps through {SLOTS} slots, the empty ones between included, and wraps: {seen[-4:]}"))
+
+    def ifx_dsp(box, target, n):
+        box.goto_ifx((target - 1) % n, n)
+        box.dsp.clear()
+        box.step_ifx(1)
+        box.dev.run(1.0)
+        return box.dsp.changes()
+
+    a, b = ifx_dsp(base, 5, n0["ifx"]), ifx_dsp(dev, last["ifx"], SLOTS)
+    out.append(result("grow_last_slot_plays", len(a) > 0 and same_dsp(a, b) and not dev.dev.m.asserts,
+                      f"slot 100 sends the DSP {len(b)} transfers, the same as preset 6, whose record it carries ({len(a)})"))
+    dev.dsp.clear()
+    dev.set_mfx(last["mfx"])
+    dev.dev.run(1.0)
+    out.append(result("grow_mfx_set", dev.mfx_type() == last["mfx"] and len(dev.dsp.changes()) > 0 and not dev.dev.m.asserts,
+                      f"the master type setter takes slot {last['mfx'] + 1}: {dev.mfx_type() + 1}"))
+    over = boot(payload, flash, {CARD_FILE: collection(build, [entry("ifx", SLOTS, want["ifx"])])})
+    status, loaded = state(over)
+    kept = {k: over.call(COUNT[k]) for k in COUNT}
+    out.append(result("refused_slot_101", status == 8 and loaded == 0 and kept == n0 and not over.m.asserts,
+                      f"status {STATUS.get(status, status)}, menus {kept}"))
+    inside = boot(payload, flash, {CARD_FILE: collection(build, [entry("ifx", 1, want["ifx"])])})
+    kept = {k: inside.call(COUNT[k]) for k in COUNT}
+    out.append(result("inside_menu_keeps_length", state(inside)[0] == 2 and kept == n0, f"menus {kept}, before {n0}"))
+    return out
+
+
+def case_usb_write(payload, flash):
+    """e2sFx.all over the cable (tools/patch/blech_sysex.py, FILE BEGIN with bits 30 and 29): INFO says so with FLAG_FX_WRITE, a
+    collection longer than one block goes onto a card without the folder Presets in 4 KiB blocks, each read back with its CRC, and
+    comes back byte for byte over FILE READ; a shorter one at offset 0 makes the file anew, and the next start with that card loads
+    it. Bits 31, 30 and 29 and a write past FX_LIMIT stay refused; a start without a card answers the DATA with status 6."""
+    import sysex_cases as sx
+    spec = sx.spec
+    FX = spec.FILE_FX
+    synth = build_of(payload) == "synth"
+    sx.MODEL = 0x23 if synth else 0x24
+    try:
+        base, before, want, good = plan(payload, flash)
+        build = BUILD[build_of(payload)]
+        long_text = [entry(k, i, want[k], (b'{"format":"gelumpe-fx","pad":"' + bytes([0x61 + n]) * 3000 + b'"}')) for n, (k, i) in enumerate((("ifx", 1), ("mfx", 0), ("mod", 3)))]
+        big, small = collection(build, long_text), collection(build, good)
+        dev = boot(payload, flash, {})
+        lk = sx.Link(dev)
+        lk.find_channel()
+        info = lk.info()
+        out = [result("usb_flag", info and info["flags"] & spec.FLAG_FX_WRITE, f"INFO flags {info and hex(info['flags'])}")]
+
+        def put(data, block=0x1000):
+            bad = []
+            for at in range(0, len(data), block):
+                part = data[at:at + block]
+                b, d = lk.file_write(FX | at, part)
+                if not (b and b["status"] == sx.OK and d and d["status"] == sx.OK and d["crc"] == zlib.crc32(part)):
+                    bad.append((at, b and b["status"], d and d["status"]))
+            return bad
+
+        def on_card(d):
+            return fat32.Volume(d.m.mmc.card.medium.data).read(CARD_FILE)
+
+        bad = put(big)
+        size = lk.file_read(FX | 0, 0)
+        back = b"".join((r or {}).get("data", b"") for r in (lk.file_read(FX | at, min(spec.MAX_BLOCK, len(big) - at)) for at in range(0, len(big), spec.MAX_BLOCK)))
+        out.append(result("usb_write", not bad and on_card(dev) == big and size and size["size"] == len(big) and back == big,
+                          f"{len(big)} bytes in {(len(big) + 0xFFF) // 0x1000} blocks, failed {bad}; on the card equal {on_card(dev) == big}, read back equal {back == big}"))
+        bad = put(small)
+        out.append(result("usb_write_anew", not bad and on_card(dev) == small, f"{len(small)} bytes at offset 0 over {len(big)}: the file has {len(on_card(dev) or b'')}"))
+        r1, _ = lk.file_write(FX | spec.FILE_OTHER, b"x" * 10)
+        r2, _ = lk.file_write(FX | (spec.FX_LIMIT - 5), b"x" * 10)
+        statuses = [r and r["status"] for r in (r1, r2)]
+        out.append(result("usb_refused", statuses == [sx.RANGE, sx.RANGE] and on_card(dev) == small, f"bits 31, 30 and 29, past FX_LIMIT: {statuses}; file unchanged {on_card(dev) == small}"))
+        out.append(result("usb_no_assert", not dev.m.asserts, f"asserts {dev.m.asserts[:2]}"))
+        image = bytearray(dev.m.mmc.card.medium.data)
+        menu_cases.for_build(payload)
+        again = Dev(payload, flash, 0)
+        again.m.insert_card(SDCard(MemoryMedium(image)))
+        again.run(BOOT_SYNTH_S if again.synth else BOOT_S)
+        now = records(again, payload)
+        status, loaded = state(again)
+        out.append(result("usb_next_start", status == 2 and loaded == 3 and all(now[k] == want[k] for k in ("ifx", "mfx", "mod")),
+                          f"the next start: status {STATUS.get(status, status)}, {loaded} entries, records equal {[now[k] == want[k] for k in ('ifx', 'mfx', 'mod')]}"))
+        nocard = Dev(payload, flash, 0)
+        nocard.run(BOOT_SYNTH_S if nocard.synth else BOOT_S)
+        lk2 = sx.Link(nocard)
+        lk2.find_channel()
+        b, d = lk2.file_write(FX | 0, small)
+        out.append(result("usb_no_card", b and b["status"] == sx.OK and d and d["status"] == spec.STATUS_FILE,
+                          f"without a card: BEGIN {b and b['status']}, DATA {d and d['status']} (code {d and hex(d['crc'])})"))
+        return out
+    finally:
+        sx.MODEL = 0x24
+
+
+GROUPS = (case_good, case_refused, case_exit, case_export, case_boot_effects, case_version_text, case_grow, case_usb_write)
 
 
 def group_entries(payload, flash, i):
@@ -348,7 +501,7 @@ def main():
     if a.what == "load":
         dev = boot(payload, flash, {CARD_FILE: a.file.read_bytes()})
         status, loaded = state(dev)
-        read = lambda kind, index: dev.read(dev.call(GET[kind], index), RECORD) if kind != "mod" else dev.read(mods(payload) + index * MOD_RECORD, MOD_RECORD)
+        read = lambda kind, index: raw(dev, dev.call(GET[kind], index), RECORD) if kind != "mod" else raw(dev, mods(payload) + index * MOD_RECORD, MOD_RECORD)
         names = {"ifx": 1, "mfx": 2, "mod": 3}
         data = a.file.read_bytes()
         count, at, records = struct.unpack_from("<H", data, 6)[0], 24, []

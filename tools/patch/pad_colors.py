@@ -30,9 +30,15 @@ With the default colours (red, blue) or no setting written only the chords chang
 
 Power save: while the firmware dims the backlight (its flag 0xC00F9310, set by 0xC0028AB4), every LED goes out dimmed by the
 BLECH page POWER SAVE, LED DIMMING (0 to 100 percent, a quarter of its brightness when never set; the panel takes levels: the
-plugin Pulsieren pulses smoothly on the device, 18.10.); the knob LEDs go out unless the page says 0 percent. The hook at the start
+plugin Pulsieren pulses smoothly on the device, 18.10.); the knob LEDs too, unless KNOB LEDS is OFF (then dark, as without power
+save; device test 15.11.: they went dark in power save whatever KNOB LEDS said, and ON did not bring them back). The hook at the start
 of 0xC0028AB4 runs the firmware's function and sends every LED again when the state changed, so the pads dim and come back
 at once. With EXIT held at power-on nothing of this happens.
+
+KNOB LEDS (BLECH page under CUSTOMIZATION, LED; wish 12.11.): OFF sends the five knob LEDs 0 to 4 (VALUE, SAMPLE/OSC, CUTOFF,
+MOD TYPE, IFX TYPE) dark, whatever the firmware wants there; the firmware's own values stay, ON sends them again (in power save
+dimmed like every other LED). The word
+S_KNOB is FF (never written, ON) until the menu reads the settings file, so with EXIT held at power-on they light as stock.
 
     python3 tools/patch/pad_colors.py --vsb SYSTEM.VSB [--out data/patches/pad-colors.json]
     python3 tools/patch/pad_colors.py --vsb BLUE.VSB --build synth [--out data/patches/pad-colors-synth.json]
@@ -44,6 +50,7 @@ The blue Electribe 2 (the synth) has the same LED manager and the same power sav
 import argparse
 import hashlib
 import json
+import re
 import struct
 import sys
 from pathlib import Path
@@ -58,13 +65,20 @@ HEADER = 0x100
 RAM = 0xC0000000
 
 CODE_AT = 0xC018B000            # free (FF) in the image, behind the dice (0xC018A000 to 0xC018B000)
-CODE_END = 0xC018BE00
+CODE_END = 0xC018BF00            # up to the state (0xC018BE00 until the tie cache, 14.11.)
 STATE = 0xC018BF00              # run time state, in RAM only; FF there means "nothing"
-STATE_END = 0xC018BF40
+STATE_END = 0xC018BF90
 S_SETTING, S_SENT = 0, 0x10     # the setting word; 32 bytes: the brightness last sent for each pad LED
 PC_SETTING = STATE + S_SETTING  # the BLECH menu writes PART | SELECT << 4 (0 red, 1 blue, 2 pink); FFFFFFFF never written
 RED, BLUE, PINK = 0, 1, 2
 
+S_CPASS = 0x40                  # byte: 1 inside pc_tail with the tie cache's key not yet checked, 2 checked, else the cache is not used
+S_CKEY = 0x44                   # the key the cached results belong to (even; FFFFFFFF never written)
+S_CVALID = 0x48                 # bit n: the result for pad n is in S_CACHE
+S_CACHE = 0x4C                  # 16 words: pc_chord's result for each pad
+S_IDLE = 0x8C                   # byte: the percent IDLE POWER SAVE keeps (script_idle.s:PC_IDLE writes it), FF never written
+_PC_IDLE = re.search(r"\.equ PC_IDLE, PC_CODE \+ (0x[0-9A-Fa-f]+)", Path(__file__).with_name("script_idle.s").read_text())
+assert _PC_IDLE and CODE_AT + int(_PC_IDLE[1], 16) == STATE + S_IDLE < STATE_END, "script_idle.s:PC_IDLE must be STATE + S_IDLE"
 KILL_SWITCH = 0x2000            # EXIT held at power-on (bit 13, measured on the device 10.10.)
 
 SEND_TAIL = 0xC00876A8          # b 0xC0087578: the end of the LED manager's send function, the message is built
@@ -75,6 +89,7 @@ DIM_SWITCH_WORD = 0xE59F3044
 DIM_BODY = 0xC0028AB8           # the rest of it: sets the flag and returns, or clears it and lights the backlight
 S_DIM = 0x38                    # the power save state the LEDs were last sent for
 S_PEND = 0x3C                   # 1: every LED is due to go out again, from the next LED message of the firmware on (pc_tail)
+S_KNOB = 0x04                   # KNOB LEDS: 0 OFF (the knob LEDs go out dark), anything else ON (FF: never written)
 DIM_FLAG = 0xC00F9310           # byte: not 0 while the firmware dims for power save (the literal behind the switch)
 FIRMWARE_PLACES = ["SEND_TAIL", "SENDER", "DIM_SWITCH", "DIM_BODY", "DIM_FLAG"]
 BUILD = "hacktribe"
@@ -106,6 +121,12 @@ SOURCE = """
 .equ S_MSG, 0x30                ; our own message for the other LED of a pad
 .equ S_DIM, @S_DIM@             ; the power save state the LEDs were last sent for (FF at start)
 .equ S_PEND, @S_PEND@           ; 1 while every LED is due to go out again (set at start, done by the next pass through pc_tail)
+.equ S_KNOB, @S_KNOB@           ; KNOB LEDS: 0 OFF, anything else ON
+.equ S_CPASS, @S_CPASS@         ; the tie cache (pch_cache): pass state, key, valid bits, 16 results
+.equ S_CKEY, @S_CKEY@
+.equ S_CVALID, @S_CVALID@
+.equ S_CACHE, @S_CACHE@
+.equ S_IDLE, @S_IDLE@           ; the percent of IDLE POWER SAVE (script_idle.s), 100 and FF keep all
 .equ MGR, 0xC03404C0            ; pointer to the screen manager, +0x2C the screen that is up (1 the main screen)
 .equ LED_MODE_AT, 0x4F          ; manager + 0x4F + 8 * led: the second byte of the message
 .equ METER_FIRST, 0x4C          ; the bottom RGB LEDs 0x4C to 0x57: the meter's own, not sent again here
@@ -121,6 +142,7 @@ SOURCE = """
 .equ MODE_AT, 0xB58             ; manager + 0xB58: the pad mode (4 SEQUENCER), + 0xB60 the selected part
 .equ PART_AT, 0xB60
 .equ PCH_UNIFORM, 0            ; local word in pc_chord's stack frame
+.equ PCH_SLOT, 4               ; local word: pad + 1 whose result pch_out puts in the tie cache, 0 none
 .equ LED_SEND, 0xC00875F4       ; (manager, led, force)
 
 .org @CODE_AT@
@@ -135,6 +157,82 @@ SOURCE = """
     b pc_keep_get               ; +28 -> r0 = the LED DIMMING step
 b pc_colour_get             ; +32 (kind 24 PAD COLOR or 25 SELECT COLOR) -> r0 = its colour, 0 red, 1 blue, 2 pink
 b pc_colour_set             ; +36 (kind, colour): stored, the pads sent again later; a colour the other kind has swaps the two
+b pc_knob_set               ; +40 (KNOB LEDS 1 OFF or 0 ON, r1 = 1 send them now): stored
+b pc_knob_get               ; +44 -> r0 = 1 when KNOB LEDS is OFF (0 ON, as menu_pc_call returns where the set has no pad colours)
+b pc_send_all               ; +48 every LED sent again now (a page changed OVERLAP or LED DIMMING)
+
+; r0 = 1 OFF or 0 ON, r1 = 1 from a page or a plugin (the five knob LEDs go out at once), 0 from the settings file (the menu reads it
+; before the LED manager runs at start: every LED goes out again with the next LED message, as pc_set does). Keeps r4 to r11.
+pc_knob_set:
+    ldr r12, =STATE
+    cmp r0, #0
+    moveq r0, #1
+    movne r0, #0
+    str r0, [r12, #S_KNOB]
+    cmp r1, #0
+    moveq r0, #1
+    streq r0, [r12, #S_PEND]
+    bxeq lr
+    push {r4, r5, lr}
+    ldr r4, =LEDMGR_PTR
+    ldr r4, [r4]
+    cmp r4, #0
+    beq pks_out
+    mov r5, #0
+pks_led:
+    mov r0, r4
+    mov r1, r5
+    mov r2, #1
+    bl LED_SEND
+    add r5, r5, #1
+    cmp r5, #KNOB_LAST
+    bls pks_led
+pks_out:
+    pop {r4, r5, pc}
+
+; From a page of the menu (OVERLAP, LED DIMMING): every LED goes out again at once through the firmware's send function and so
+; through pc_tail, in the new setting. The resend S_PEND leaves for later waits for the main screen, so in the menu the LEDs kept
+; the old setting until the menu was left (device test 15.11.). Keeps r4 to r11.
+pc_send_all:
+    push {r4, r5, lr}
+    ldr r12, =STATE
+    mov r0, #0
+    str r0, [r12, #S_PEND]
+    ldr r4, =LEDMGR_PTR
+    ldr r4, [r4]
+    cmp r4, #0
+    beq psa_out
+    mov r5, #0
+psa_led:
+    mov r0, r4
+    mov r1, r5
+    mov r2, #1
+    bl LED_SEND
+    add r5, r5, #1
+    cmp r5, #LED_COUNT
+    blo psa_led
+psa_out:
+    pop {r4, r5, pc}
+
+pc_knob_get:
+    ldr r12, =STATE
+    ldr r0, [r12, #S_KNOB]
+    cmp r0, #0
+    moveq r0, #1
+    movne r0, #0
+    bx lr
+
+; r0 = an LED, r2 = its brightness -> r2 = 0 when it is a knob LED and KNOB LEDS is OFF. Keeps every other register.
+pc_knob_dark:
+    cmp r0, #KNOB_LAST
+    bxhi lr
+    push {r12}
+    ldr r12, =STATE
+    ldr r12, [r12, #S_KNOB]
+    cmp r12, #0
+    moveq r2, #0
+    pop {r12}
+    bx lr
 
 ; -> r0 = PART, r1 = SELECT; never written (or nonsense) is red and blue. Clobbers r12.
 pc_colours:
@@ -489,7 +587,8 @@ pm_lit:
 ; While another pattern is viewed (tools/patch/pattern_switch.py: the display's accessor is not the one of the pattern in RAM)
 ; every pad of PART MUTE and SEQUENCER shows that pattern: r0 = 2, the chord's colour, so its pads differ from the playing
 ; pattern's (Pascal's decision 29.10.).
-; Clobbers r0 to r3 and r12. Reads memory only.
+; Inside pc_tail the results of the steps' pass are kept per pad (pch_cache) until the part's bytes, the part, the pattern or the bar
+; section change. Clobbers r0 to r3 and r12. Writes only its stack frame and the tie cache.
 pc_chord:
     mov r0, #CHORD
     cmp r0, #0
@@ -542,6 +641,10 @@ pch_live:
     beq pch_no
     ldr r0, [r0, #0x344]
     and r0, r0, #3
+    bl pch_cache                        ; the result kept from an earlier pass over the same steps
+    cmn r1, #1
+    movne r0, r1
+    bne pch_out
     sub r1, r8, #LED_PAD_FIRST
     mov r1, r1, lsr #1
     add r1, r1, r0, lsl #4              ; the step of the pad
@@ -629,6 +732,9 @@ pch_starts:
 pch_no:
     mov r0, #0
 pch_out:
+    ldr r1, [sp, #PCH_SLOT]
+    cmp r1, #0
+    blne pch_store
 @CHORD_UNSTACK@
     pop {r4-r11, pc}
 
@@ -667,6 +773,70 @@ pch_tied:
     ldrbne r4, [r0, #7]
     cmpne r4, r8
     moveq r12, #1
+    bx lr
+
+; The tie cache. pc_chord's result for a pad depends on the part's 0x330 bytes (voice assign, the 64 steps), on which part of which
+; pattern they are (their address) and on the bar section; the first lookup in a pass through pc_tail sums all of that into a key
+; and forgets every result when it differs. Outside pc_tail (S_CPASS not 1 or 2, FF at start) nothing is kept.
+; r0 = bar section, r2 = the part, r8 = the pad's red LED -> r1 = the kept result, or -1 (then [caller's sp, #PCH_SLOT] = pad + 1
+; while a pass is on). Keeps r0, r2, r5, r7, r8; clobbers r3, r4, r6, r12.
+pch_cache:
+    push {r0, r2, lr}
+    ldr r12, =STATE
+    ldrb r1, [r12, #S_CPASS]
+    cmp r1, #1
+    beq pcc_key
+    cmp r1, #2
+    bne pcc_none
+pcc_look:
+    sub r3, r8, #LED_PAD_FIRST
+    mov r3, r3, lsr #1                  ; the pad, 0 to 15
+    ldr r1, [r12, #S_CVALID]
+    mov r4, #1
+    tst r1, r4, lsl r3
+    beq pcc_miss
+    add r1, r12, #S_CACHE
+    ldr r1, [r1, r3, lsl #2]
+    pop {r0, r2, pc}
+pcc_miss:
+    add r3, r3, #1
+    str r3, [sp, #12 + PCH_SLOT]
+pcc_none:
+    mvn r1, #0
+    pop {r0, r2, pc}
+pcc_key:
+    mov r1, #2
+    strb r1, [r12, #S_CPASS]
+    eor r1, r0, r2                      ; the section and the part's address
+    bic r3, r2, #3
+    add r4, r3, #0x334                  ; the part's bytes, a word more for an unaligned start
+pcc_sum:
+    ldr r6, [r3], #4
+    add r1, r6, r1, ror #27             ; add, not eor: with eor the same bit changed in two words 32 apart would cancel
+    cmp r3, r4
+    blo pcc_sum
+    bic r1, r1, #1                      ; even, so never the FFFFFFFF of the start
+    ldr r6, [r12, #S_CKEY]
+    cmp r6, r1
+    beq pcc_look
+    str r1, [r12, #S_CKEY]
+    mov r6, #0
+    str r6, [r12, #S_CVALID]
+    b pcc_look
+
+; r0 = pc_chord's result, r1 = pad + 1 -> kept in the tie cache while the pass is on. Keeps r0; clobbers r1 to r3 and r12.
+pch_store:
+    ldr r12, =STATE
+    ldrb r3, [r12, #S_CPASS]
+    cmp r3, #2
+    bxne lr
+    sub r1, r1, #1
+    add r3, r12, #S_CACHE
+    str r0, [r3, r1, lsl #2]
+    ldr r3, [r12, #S_CVALID]
+    mov r2, #1
+    orr r3, r3, r2, lsl r1
+    str r3, [r12, #S_CVALID]
     bx lr
 @CHORD_RATIOS@
 
@@ -725,8 +895,16 @@ pf_send:
     bl SENDER
     pop {pc}
 
-; -> r0 = 1 while the firmware dims for power save and EXIT was not held at power-on. Clobbers r12.
+; -> r0 = 1 while the LEDs go out dimmed: the firmware dims for power save, or IDLE POWER SAVE keeps less than all (S_IDLE, the
+; runtime's script_idle.s writes it). Clobbers r12.
 pc_dimming:
+    ldr r12, =STATE
+    ldrb r0, [r12, #S_IDLE]
+    cmp r0, #100
+    movlo r0, #1
+    bxlo lr
+; -> r0 = 1 while the firmware dims for power save and EXIT was not held at power-on. Clobbers r12.
+pc_fw_dimming:
     ldr r12, =PANEL
     ldr r12, [r12]
     cmp r12, #0
@@ -745,12 +923,22 @@ pd_no:
 
 ; r2 = brightness -> r2 = the part LED DIMMING keeps of it (rounded up, so a lit LED stays lit unless the step is 100 percent).
 ; The step (bits 12 to 15 of the setting word, device wish 19.10.) picks the percent kept from pc_keep; step 0, also a setting
-; never written, keeps 25 percent, the quarter of before. Keeps every other register.
+; never written, keeps 25 percent, the quarter of before. That is in the firmware's power save; IDLE POWER SAVE keeps S_IDLE,
+; and with both the darker of the two goes out. Keeps every other register.
 pc_quarter:
     push {r0, r1, r12, lr}
+    mov r1, #100
+    bl pc_fw_dimming
+    cmp r0, #0
+    beq pq_idle
     bl pc_keep_get
     ldr r1, =pc_keep
     ldrb r1, [r1, r0]
+pq_idle:
+    ldr r12, =STATE
+    ldrb r0, [r12, #S_IDLE]
+    cmp r0, r1
+    movlo r1, r0
     mul r0, r2, r1
     add r0, r0, #99
     ldr r1, =5243               ; / 100: * 5243 >> 19, exact up to 255 * 100 + 99
@@ -764,6 +952,9 @@ pc_keep:                        ; percent kept for the steps 0 to 11: dimmed by 
 ; Entered by the branch at the end of the send function: r0 = sender object, r1 = message (manager + 0xB4C), lr = its caller.
 pc_tail:
     push {r0, r1, r4, r5, r6, r7, r8, r9, lr}
+    ldr r12, =STATE                     ; a pass: the tie cache checks its key once, at the first lookup
+    mov r0, #1
+    strb r0, [r12, #S_CPASS]
     ldr r5, [sp, #4]
     bl pc_dimming
     mov r9, r0
@@ -823,17 +1014,10 @@ pt_chord:
     b pt_colours
 pt_dim_only:
     ldrb r2, [r5, #2]
-    cmp r9, #0
-    beq pt_record
     ldrb r0, [r5]
-    cmp r0, #KNOB_LAST          ; the LEDs of the knobs (VALUE, SAMPLE/OSC, CUTOFF, MOD TYPE, IFX TYPE) go out (device 18.10.),
-    bhi pt_dim_led              ; unless LED DIMMING is 0 percent
-    bl pc_keep_get
-    cmp r0, #4
-    movne r2, #0
-    b pt_dim_store
-pt_dim_led:
-    bl pc_quarter
+    bl pc_knob_dark             ; the knob LEDs: dark with KNOB LEDS OFF, else dimmed like every other LED (device test 15.11.)
+    cmp r9, #0
+    blne pc_quarter
 pt_dim_store:
     strb r2, [r5, #2]
 pt_record:
@@ -898,6 +1082,9 @@ pt_mapped:
 pt_send:
     bl pc_follow
 pt_stock:
+    ldr r12, =STATE                     ; the pass is over: no lookup outside it trusts the cache
+    mov r0, #0
+    strb r0, [r12, #S_CPASS]
     pop {r0, r1, r4, r5, r6, r7, r8, r9, lr}
     b SENDER
 
@@ -929,6 +1116,8 @@ pr_led:
 pr_dim:
     cmp r9, #0
     blne pc_quarter
+    mov r0, r10
+    bl pc_knob_dark
     sub r8, r10, #LED_PAD_FIRST
     cmp r8, #31
     ldrls r12, =STATE + S_SENT
@@ -950,7 +1139,7 @@ pc_dim_switch:
     push {r4, r5, lr}
     ldr r3, =DIM_FLAG                   ; the replaced instruction loads this literal
     bl DIM_BODY
-    bl pc_dimming
+    bl pc_fw_dimming
     ldr r12, =STATE
     ldr r1, [r12, #S_DIM]
     cmp r0, r1
@@ -987,11 +1176,13 @@ def source():
     sampler = globals().get("_SAMPLER_ADDRESSES", {})
     place = lambda name: sampler.get(name, globals()[name])
     text = SOURCE
-    for key, value in chord_source(BUILD != "synth").items():
+    for key, value in chord_source().items():
         text = text.replace(f"@{key}@", value)
     for key, value in {"KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}", "S_SETTING": S_SETTING,
                        "S_SENT": S_SENT, "SENDER": f"{place('SENDER'):#x}", "S_DIM": f"{S_DIM:#x}", "DIM_BODY": f"{place('DIM_BODY'):#x}",
-                       "S_PEND": f"{S_PEND:#x}"}.items():
+                       "S_PEND": f"{S_PEND:#x}", "S_KNOB": f"{S_KNOB:#x}",
+                       "S_CPASS": f"{S_CPASS:#x}", "S_CKEY": f"{S_CKEY:#x}", "S_CVALID": f"{S_CVALID:#x}", "S_CACHE": f"{S_CACHE:#x}",
+                       "S_IDLE": f"{S_IDLE:#x}"}.items():
         text = text.replace(f"@{key}@", str(value))
     if BUILD == "synth":
         text = synthaddr.source(text, own=[(CODE_AT, CODE_END), (STATE, STATE_END)])
@@ -1004,25 +1195,12 @@ def source():
     return text
 
 
-def chord_source(local):
-    """One bounded calculation; no result survives a sender call."""
+def chord_source():
+    """One bounded calculation per pad; inside pc_tail its result is kept in the tie cache (pch_cache) until its inputs change."""
     parts = dict.fromkeys(("CHORD_STACK", "CHORD_LOCAL", "CHORD_SHARE", "CHORD_UNSTACK",
                            "CHORD_EQUAL", "CHORD_RATIOS"), "")
-    parts["CHORD_START"] = "    moveq r10, #1\n    beq pch_note_next"
-    parts["CHORD_FRACTION"] = """    add r12, r3, r5
-    add r12, r12, #1
-    add r0, r5, #1
-    mov r0, r0, lsl #8
-    mov r4, #0
-pch_div:
-    cmp r0, r12
-    subhs r0, r0, r12
-    addhs r4, r4, #1
-    bhs pch_div"""
-    if not local:
-        return parts
-    parts.update(CHORD_STACK="    sub sp, sp, #4",
-                 CHORD_UNSTACK="    add sp, sp, #4",
+    parts.update(CHORD_STACK="    sub sp, sp, #8\n    mov r0, #0\n    str r0, [sp, #PCH_SLOT]",
+                 CHORD_UNSTACK="    add sp, sp, #8",
                  CHORD_LOCAL="    mov r0, #1\n    str r0, [sp, #PCH_UNIFORM]")
     parts["CHORD_START"] = """    bne pch_has_tail
     mov r10, #1
@@ -1119,11 +1297,11 @@ def build_patch(vsb, build="hacktribe"):
         ],
         "startPhase": [
             {"file": file_offset(SEND_TAIL), "length": 4, "why": "every LED message from the start on now passes pc_tail"},
-            {"file": file_offset(CODE_AT), "length": len(code), "why": "pc_tail, pc_active and pc_dimming: at start they look at the panel object, the kill switch, the setting word (FF until the menu writes it) and the power save flag; on battery with power save the LEDs go out at a quarter from the start, as the backlight is dimmed from the start"},
+            {"file": file_offset(CODE_AT), "length": len(code), "why": "pc_tail, pc_active and pc_dimming: at start they look at the panel object, the kill switch, the setting word and KNOB LEDS (FF until the menu writes them) and the power save flag; on battery with power save the LEDs go out at a quarter from the start, as the backlight is dimmed from the start"},
             {"file": file_offset(DIM_SWITCH), "length": 4, "why": "the firmware sets power save at start too; the hook runs its function and sends the LEDs again when the dimming changed"},
         ],
         "ram": [
-            ramdecl.area(STATE, STATE_END - STATE, "run time state: PC_SETTING at +0 for the BLECH menu, the brightness sent for each pad LED, a message, the power save state last sent", "tools/patch/pad_colors.py:STATE"),
+            ramdecl.area(STATE, STATE_END - STATE, "run time state: PC_SETTING at +0 and KNOB LEDS at +4 for the BLECH menu, the brightness sent for each pad LED, a message, the power save state last sent, the tie cache (pass, key, valid bits, 16 results), the percent IDLE POWER SAVE keeps", "tools/patch/pad_colors.py:STATE"),
         ],
     }
 

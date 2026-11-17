@@ -18,8 +18,7 @@ test('generated DSP transport composes through applyPatches without self-overlap
   const { applyPatches } = await import('../src/patch.mjs');
   const { sha256 } = await import('../src/firmware.mjs');
   const vsb = await makeFirmware();
-  vsb.fill(0xff, 0x19e100, 0x19e900);
-  vsb.fill(0xff, 0x19f0f0, 0x19f0f4);
+  vsb.fill(0xff, 0x181b48, 0x181ffc);
   const generate = [
     'import json, sys',
     'from unittest.mock import patch',
@@ -43,7 +42,7 @@ test('generated DSP transport composes through applyPatches without self-overlap
   assert.equal(applied.ok, true, applied.reasons.join('\n'));
   const tailWriter = {
     ...companion, id: 'reserved-tail-writer',
-    changes: [{ file: 0x19e8fc, bytes: '01020304', expect: await sha256(vsb.subarray(0x19e8fc, 0x19e900)) }],
+    changes: [{ file: 0x181ff4, bytes: '01020304', expect: await sha256(vsb.subarray(0x181ff4, 0x181ff8)) }],
   };
   const refused = await applyPatches(vsb, [transport, tailWriter]);
   assert.equal(refused.ok, false, 'the unused transport code budget remains reserved');

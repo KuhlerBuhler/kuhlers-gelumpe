@@ -1,0 +1,91 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "update-guard",
+ "name": "SOFTWARE UPDATE pr\u00fcft die Dateigr\u00f6\u00dfe",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "changes": [
+  {
+   "file": 1371904,
+   "bytes": "f0412de90040a0e10150a0e10260a0e10370a0e1d63bfdeb000050e30c00001a0c1094e52c209fe5020051e10200001a001097e5060051e10500000a010c56e30200001a0000a0e3000085e5000000ea0100a0e3f081bde800012000",
+   "expect": "f7b17d2718fb1c33c3f11a2ec0b20bc08a365fa6b3700dc45cfbe5dae8ca3d73",
+   "note": "update guard: f_read of SOFTWARE UPDATE, then the file must be 0x200100 bytes and read whole"
+  },
+  {
+   "file": 199392,
+   "bytes": "067904eb",
+   "expect": "4aea9f3332975e957807a7b634ebc629816a8e0c08544e8de992919cdd57ddba",
+   "note": "SOFTWARE UPDATE reads the file through ug_read (version_head)"
+  },
+  {
+   "file": 240232,
+   "bytes": "245104eb",
+   "expect": "3aa6aeb833ae7672e8942785318c6d9392f3f9ddde331bcd0fbf84df05eed5e9",
+   "note": "SOFTWARE UPDATE reads the file through ug_read (boot_head)"
+  },
+  {
+   "file": 240380,
+   "bytes": "ff5004eb",
+   "expect": "6a5e31a7b2384ab22ffa00eaf6241404e08a04abf6738c810908057bc1405157",
+   "note": "SOFTWARE UPDATE reads the file through ug_read (boot_image)"
+  },
+  {
+   "file": 241228,
+   "bytes": "2b5004eb",
+   "expect": "806b472d035c59f1ecaf4e04d1789665b451aa0ed6a73d6a91da482822e43f08",
+   "note": "SOFTWARE UPDATE reads the file through ug_read (menu_head)"
+  },
+  {
+   "file": 241444,
+   "bytes": "f54f04eb",
+   "expect": "1505c7a872178cb6a318fb1007dd3753d71826a42dd2cf4436cc73bc0a986ae4",
+   "note": "SOFTWARE UPDATE reads the file through ug_read (menu_image)"
+  }
+ ],
+ "hooks": [
+  {
+   "site": "0xC00309E0",
+   "kind": "call",
+   "chain": "update-read",
+   "position": "after",
+   "swallow": false,
+   "note": "f_read runs first; a file that is not 0x200100 bytes or not read whole fails the update before the flash"
+  },
+  {
+   "site": "0xC003A968",
+   "kind": "call",
+   "chain": "update-read",
+   "position": "after",
+   "swallow": false,
+   "note": "f_read runs first; a file that is not 0x200100 bytes or not read whole fails the update before the flash"
+  },
+  {
+   "site": "0xC003A9FC",
+   "kind": "call",
+   "chain": "update-read",
+   "position": "after",
+   "swallow": false,
+   "note": "f_read runs first; a file that is not 0x200100 bytes or not read whole fails the update before the flash"
+  },
+  {
+   "site": "0xC003AD4C",
+   "kind": "call",
+   "chain": "update-read",
+   "position": "after",
+   "swallow": false,
+   "note": "f_read runs first; a file that is not 0x200100 bytes or not read whole fails the update before the flash"
+  },
+  {
+   "site": "0xC003AE24",
+   "kind": "call",
+   "chain": "update-read",
+   "position": "after",
+   "swallow": false,
+   "note": "f_read runs first; a file that is not 0x200100 bytes or not read whole fails the update before the flash"
+  }
+ ],
+ "ram": []
+}

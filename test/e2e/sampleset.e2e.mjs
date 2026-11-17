@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { setUp } from "./harness.mjs";
 import { wav, file } from "../support/sample-file.mjs";
-import { parseSampleFile } from "../../src/sample-file.mjs";
+import { parseSampleFile, entryFromWav } from "../../src/sample-file.mjs";
 
 let h;
 before(async () => { h = await setUp(); });
@@ -36,7 +36,7 @@ test("both files come in through the design's upload fields, and the intro reads
   await page.goto(`${h.url}#sampleset`);
   assert.equal(await page.locator("#cee-sampleset .ui-dropzone #cee-sf-file").count(), 1);
   assert.equal(await page.locator("#cee-sf-wav").isDisabled(), true, "WAVs only once a file is open");
-  assert.equal(await page.locator("#cee-sf-wav").evaluate(i => i.closest(".ui-dropzone").hidden), true);
+  assert.equal(await page.locator("#cee-sf-wav").evaluate(i => i.closest(".cee-dropzone-wrap").hidden), true);
   assert.equal(await page.locator("#cee-sf-list").isHidden(), true, "no empty list frame before a file is open");
   assert.equal(await page.locator(".cee-sf-intro").evaluate(p => getComputedStyle(p).display), "block");
   assert.equal(await page.locator(".cee-sf-intro code").evaluate(c => getComputedStyle(c).display), "inline");
@@ -119,5 +119,41 @@ test("removing a new row drops it; remove one and add one in a single save", asy
 test("the page has no a11y blockers of its own: buttons are named, rows are a list", async () => {
   const page = await open();
   assert.equal(await page.locator("#cee-sf-list").evaluate(l => l.tagName), "UL");
-  for (const b of await page.locator("#cee-sampleset button").all()) assert.ok((await b.textContent()).trim().length > 0);
+  for (const b of await page.locator("#cee-sampleset button").all()) assert.ok(((await b.textContent()).trim() || await b.getAttribute("aria-label") || "").length > 0);
+});
+
+test("for the blue a 24-bit stereo WAV is added as 16-bit mono, and the list says what the blue loads", async () => {
+  const page = await open();
+  assert.equal(await page.locator("#cee-sf-blue-note").isHidden(), true, "red is the default");
+  await page.click("#cee-sf-model-blue");
+  assert.match(await page.locator("#cee-sf-blue-note").textContent(), /höchstens 64 Samples, nur 16 Bit/);
+  assert.match(await page.locator("#cee-sf-summary").textContent(), /Auf der blauen: 3 von höchstens 64 geladen/);
+  await page.setInputFiles("#cee-sf-wav", h.file("Deep.wav", wav({ frames: 90, bits: 24, channels: 2 })));
+  await page.locator("#app-toasts .cee-toast", { hasText: "16 Bit mono umgewandelt" }).waitFor();
+  const added = page.locator(".cee-sf-row[data-state=new]");
+  assert.match(await added.textContent(), /48 kHz, 16 Bit, Mono/);
+  const next = parseSampleFile(await saved(page, () => page.click("#cee-sf-save")));
+  assert.deepEqual(next.samples.map(s => [s.name, s.bits, s.channels, s.frames]).at(-1), ["Deep", 16, 1, 90]);
+  assert.deepEqual(page.errors, []);
+});
+
+test("on the blue a 24-bit sample of the file is marked as skipped, and switching back to red keeps the WAV as it was", async () => {
+  const page = await h.page();
+  await page.goto(`${h.url}#sampleset`);
+  await page.click("#cee-sf-model-blue");
+  const red = file({ 500: "Kick" });
+  const deep = entryFromWav(wav({ frames: 30, bits: 24 }), 501, "Deep");
+  const all = new Uint8Array(red.length + deep.length);
+  all.set(red);
+  all.set(deep, red.length);
+  new DataView(all.buffer).setUint32(16 + 4 * 501, red.length, true);
+  await page.setInputFiles("#cee-sf-file", h.file("e2sSample.all", all));
+  await page.locator(".cee-sf-row").first().waitFor();
+  assert.match(await page.locator(".cee-sf-row", { hasText: "Deep" }).textContent(), /lädt die blaue nicht \(kein 16 Bit\)/);
+  assert.match(await page.locator("#cee-sf-summary").textContent(), /1 von höchstens 64/);
+  await page.setInputFiles("#cee-sf-wav", h.file("St.wav", wav({ frames: 40, channels: 2 })));
+  await page.locator(".cee-sf-row[data-state=new]", { hasText: "Mono" }).waitFor();
+  await page.click("#cee-sf-model-red");
+  await page.locator(".cee-sf-row[data-state=new]", { hasText: "Stereo" }).waitFor();
+  assert.equal(await page.locator("#cee-sf-blue-note").isHidden(), true);
 });

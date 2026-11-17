@@ -1,0 +1,26 @@
+{
+ "what": "a byte of the DSP program: full update",
+ "base": {
+  "0xc0100000": "00"
+ },
+ "new": {
+  "0xc0100000": "01"
+ },
+ "expect": {
+  "rows": [
+   [
+    "0xc0100000",
+    "0xc0100004",
+    "full"
+   ]
+  ],
+  "groups": [],
+  "warnings": 0
+ },
+ "context": {
+  "dsp": [
+   "0xc00f9e10",
+   "0xc013c0b0"
+  ]
+ }
+}

@@ -38,7 +38,14 @@ when one is missing, as on the blue's card), every other writes into the existin
 0x200100, the size of a VSB. Bit 29 of the offset chooses the Doom files instead: SD:/KORG/blechtribe/Doom/doom.bin (bit 31 clear)
 and doom.wad (bit 31 set), the paths the Doom loader opens (tools/doom/runtime_abi.h); they are written like the update file (offset 0
 makes the file anew, a missing folder is made) but may be as large as the sample file, and INFO says so with bit 8 of its flags, which
-the blue Electribe 2 does not set (its set has no Doom loader). Bits 30 and 29 together name no file and are refused as out of range. Status 6 is a card error (no card, no file, card full). The firmware's update writes the flash
+the blue Electribe 2 does not set (its set has no Doom loader). Bits 30 and 29 together name the effect collection
+SD:KORG/blechtribe/Presets/e2sFx.all, which FILE READ reads up to the sample file's limit and FILE BEGIN writes like the update file
+(offset 0 makes it anew, a missing Presets folder is made, every block read back) up to FX_LIMIT, the largest collection
+src/fx-collection.mjs can make; bit 11 of the INFO flags says so, on the blue Electribe 2 as well, whose loader reads the file
+too. A firmware from before answers out of range to the write (and one before #553 to the read). With bit 31 as well the bits
+name no file. Status 6 is a card error (no card, no file, card full);
+FILE READ and the DATA of a file write then carry the FatFs result in their CRC word, 0x80 for a card put in after a start without
+one (the FILE commands do not touch it, as the BLECH menu does not) and 0x81 for a write the card took only in part. The firmware's update writes the flash
 from that file when the user starts it; nothing here writes the flash.
 
 Every field is a 32-bit little endian word (the status too), the words are packed as every Electribe SysEx payload is
@@ -90,8 +97,8 @@ RAM = 0xC0000000
 
 CODE_AT = 0xC0172100            # free (FF) in the image, behind Hacktribe's code (ends 0xC01720B0) and clear of every other patch
 CODE_END = 0xC0173000           # the Sync Group's buffer of the pattern switch begins here (data/patches/pattern-switch.json)
-SAMPLE_AT = 0xC017B950          # sample file commands, free (FF) behind the preset tables
-SAMPLE_END = 0xC017C000
+SAMPLE_AT = 0xC017B950          # the sample file commands: free (FF) behind the second block of the preset tables
+SAMPLE_END = 0xC017C000         # the preset tables' IFX pointers begin here (tools/patch/preset_tables.py:ARRAY_IFX)
 TABLE_AT = 0xC0173800           # the protection table, 412 bytes today (src/sysex-table.mjs)
 TABLE_END = 0xC0174000
 STATE = 0xC0191000              # run time state, in RAM only (behind the synth filters' 0xC0190000 to 0xC0190100)
@@ -107,11 +114,18 @@ FILE_AREA_END = 0xC01A0000
 FILE_LIMIT = 0x200100           # offset plus length of a FILE command: the size of a VSB
 FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead of SYSTEM.VSB
 FILE_SAMPLE = 0x40000000        # bit 30 of a FILE offset: the sample file Sample/e2sSample.all, with bit 31 as well Sample/e2sSample.tmp
-FILE_DOOM = 0x20000000          # bit 29 of a FILE offset: the Doom program KORG/blechtribe/Doom/doom.bin, with bit 31 as well doom.wad (with bit 30 no file)
+FILE_FX = 0x60000000            # bits 30 and 29 of a FILE offset: the effect collection KORG/blechtribe/Presets/e2sFx.all
+FX_LIMIT = 0x500000             # offset plus length of a FILE write of e2sFx.all: 255 + 255 + 72 entries with their longest text (src/fx-collection.mjs MAX_FILE)
+FILE_DOOM = 0x20000000          # bit 29 of a FILE offset: the Doom program KORG/blechtribe/Doom/doom.bin, with bit 31 as well doom.wad (with bit 30 e2sFx.all)
 SAMPLE_LIMIT = 0x10000000       # offset plus length of a FILE command on the sample file (256 MiB)
 COPY_MAX = 0x40000              # bytes one FILE COPY or FILE CRC works on
 COPY_CHUNK = 0x4000             # bytes the copy moves at once through BUF
 FILE_FIL2 = FILE_AREA + 0x400   # the second FatFs file object, for FILE COPY
+MENU_STATE = 0xC01D6E00         # the BLECH menu's state (tools/patch/script_hooks.py:MENU_STATE), read only here
+M_CARD = 0x1B0                  # its card word (tools/patch/script_menu.s:M_CARD)
+CARD_NEVER = 0xFE               # M_CARD after a start without a card: no card is touched until the next start (#518)
+FR_CARD_NEVER = 0x80            # not a FatFs code: a card put in after a start without one, which the FILE commands leave alone
+FR_SHORT = 0x81                 # not a FatFs code: f_write wrote fewer bytes than asked (the card is full)
 NAME_MAX = 16                   # characters of a plugin file's name (PLUGIN BEGIN)
 
 # STATE: +0 pending (the magic below when a BEGIN waits for its DATA), +4 address, +8 length, +12 CRC,
@@ -125,8 +139,16 @@ REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH, REPLY_FREAD, REPLY
 REPLY_COPY, REPLY_DELETE, REPLY_CRC = 0x79, 0x7A, 0x7B
 STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY, STATUS_FILE = 0, 1, 2, 3, 4, 5, 6
 PROTOCOL_VERSION = 1
-FLAGS = 0x1FF                   # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC), bit 8 the Doom files
+FLAGS = 0xBFF                   # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC), bit 8 the Doom files, bit 9 DEV MODE, bit 11 e2sFx.all is written (bit 10 is FLAG_DEV_ON)
 FLAG_DOOM = 0x100               # not on the blue Electribe 2: its set has no Doom loader (data/patches/blech-synth.json), so the files would do nothing there
+FLAG_DEV = 0x200                # the build has DEV MODE (the Sampler's BLECH menu); FLAG_DEV_ON, set in INFO at run time, says it is on
+FLAG_DEV_ON = 0x400
+FLAG_FX_WRITE = 0x800           # FILE BEGIN takes e2sFx.all; a firmware without it answers out of range
+DEV = True                      # False on the blue Electribe 2: its menu has no DEV MODE page, so its code is left out
+DEV_FLAG = STATE + 0xFC         # DEV_MAGIC while DEV MODE is on; the image holds FF there, so every start begins with it off
+DEV_MAGIC = 0x4D564544          # "DEVM"
+DEV_OPEN = 0x200                # region flag bit 9: with DEV MODE on, a write may go into this region (firmware image only)
+IMAGE_END = 0xC0200000          # a write below this goes into the running code: it is copied with interrupts masked, then the caches are synced
 EXEC_START, EXEC_END = 0xC1000000, 0xC1000400   # the stub buffer of data/exec.mjs (stubAt, stubAt + stubSize)
 HACKTRIBE_FIRST, HACKTRIBE_FLASH_WRITE = 0x52, 0x56   # Hacktribe's commands are 0x52 to 0x57
 FLASH_MAX = 0x1000              # bytes in one FLASH READ: the sector size, the largest piece the firmware's own flash code takes at once
@@ -181,8 +203,71 @@ CRC_WORDS = ", ".join(f"{w:#010x}" for w in crc_nibbles())
 
 def unlink_body():
     if FS_UNLINK is None:
-        return "    mov r0, #1\n    bx lr"
+        # the synth's FatFs has no f_unlink: the file is made anew and closed, so it is left empty (size 0, which the editor
+        # reads as no file); a missing one is made empty, a missing folder is status 6
+        return """    push {r4, lr}
+    mov r1, r0
+    ldr r0, =FILE_FIL
+    mov r2, #0x0A               ; FA_CREATE_ALWAYS | FA_WRITE
+    bl FS_OPEN
+    cmp r0, #0
+    popne {r4, pc}
+    ldr r0, =FILE_FIL
+    bl FS_CLOSE
+    pop {r4, pc}"""
     return f"    b {FS_UNLINK:#x}"
+
+
+def info_dev():
+    """INFO: FLAG_DEV_ON joins the flags while DEV MODE is on."""
+    if not DEV:
+        return ""
+    return """    ldr r2, =DEV_FLAG
+    ldr r2, [r2]
+    ldr r12, =DEV_MAGIC
+    cmp r2, r12
+    orreq r3, r3, #FLAG_DEV_ON
+"""
+
+
+def policy_dev():
+    """A region with DEV_OPEN is passed over in the first pass while DEV MODE is on; the mirror pass still refuses it, and so
+    do the closed regions inside it, which lack the bit."""
+    if not DEV:
+        return ""
+    return """    tst r3, #DEV_OPEN
+    beq policy_class
+    ldr r2, =DEV_FLAG
+    ldr r2, [r2]
+    ldr r12, =DEV_MAGIC
+    cmp r2, r12
+    beq policy_region
+policy_class:
+"""
+
+
+def data_copy():
+    """The copy of WRITE DATA. Into the image (only possible with DEV MODE on) with IRQ and FIQ masked, so no task runs half
+    old, half new code, then the write buffer drained and the instruction cache cleared. CommandTask runs privileged (EXEC's
+    cache code needs that too)."""
+    if not DEV:
+        return "    bl memcpy\n"
+    return """    ldr r3, =IMAGE_END
+    cmp r0, r3
+    bhs data_copy_plain
+    .word 0xE10F4000            ; mrs r4, cpsr
+    orr r3, r4, #0xC0
+    .word 0xE121F003            ; msr cpsr_c, r3: IRQ and FIQ off
+    bl memcpy
+    mov r0, #0
+    .word 0xEE070F9A            ; mcr p15, 0, r0, c7, c10, 4: drain the write buffer
+    .word 0xEE070F15            ; mcr p15, 0, r0, c7, c5, 0: clear the instruction cache
+    .word 0xE121F004            ; msr cpsr_c, r4: back as before
+    b data_copied
+data_copy_plain:
+    bl memcpy
+data_copied:
+"""
 
 
 def source():
@@ -213,8 +298,14 @@ def source():
 .equ FILE_BR, {FILE_AREA + 0x240:#x}
 .equ FILE_PATH, {FILE_AREA + 0x280:#x}
 .equ FILE_NAME, {FILE_AREA + 0x300:#x}
+.equ FILE_FR, {FILE_AREA + 0x244:#x}
+.equ MENU_CARD, {MENU_STATE + M_CARD:#x}
+.equ CARD_NEVER, {CARD_NEVER:#x}
+.equ FR_CARD_NEVER, {FR_CARD_NEVER:#x}
+.equ FR_SHORT, {FR_SHORT:#x}
 .equ NAME_MAX, {NAME_MAX}
 .equ FILE_LIMIT, {FILE_LIMIT:#x}
+.equ FX_LIMIT, {FX_LIMIT:#x}
 .equ SAMPLE_LIMIT, {SAMPLE_LIMIT:#x}
 .equ COPY_MAX, {COPY_MAX:#x}
 .equ COPY_CHUNK, {COPY_CHUNK:#x}
@@ -241,6 +332,11 @@ def source():
 .equ S_RAW, {S_RAW}
 .equ S_OUT, {S_OUT}
 .equ FLAGS, {FLAGS}
+.equ DEV_FLAG, {DEV_FLAG:#x}
+.equ DEV_MAGIC, {DEV_MAGIC:#x}
+.equ DEV_OPEN, {DEV_OPEN:#x}
+.equ FLAG_DEV_ON, {FLAG_DEV_ON:#x}
+.equ IMAGE_END, {IMAGE_END:#x}
 .equ EXEC_START, {EXEC_START:#x}
 .equ EXEC_END, {EXEC_END:#x}
 .equ HT_FIRST, {HACKTRIBE_FIRST:#x}
@@ -435,7 +531,7 @@ do_info:
     mov r3, #VERSION
     str r3, [r8, #4]
     ldr r3, =FLAGS
-    str r3, [r8, #8]
+{info_dev()}    str r3, [r8, #8]
     ldr r3, =MAX_BLOCK
     str r3, [r8, #12]
     ldr r0, =TABLE
@@ -646,7 +742,7 @@ do_data:
     bne data_reply
     ldr r0, [r6, #S_MODE]
     sub r0, r0, #1
-    cmp r0, #7                  ; 1 SYSTEM.VSB, 2 ORIGINAL.BIN, 3 a plugin file, 4 e2sSample.all, 5 e2sSample.tmp, 6 doom.bin, 7 doom.wad
+    cmp r0, #9                  ; 1 SYSTEM.VSB, 2 ORIGINAL.BIN, 3 a plugin file, 4 e2sSample.all, 5 e2sSample.tmp, 6 doom.bin, 7 doom.wad, 9 e2sFx.all
     blo data_file
     mov r0, r8
     mov r1, r9
@@ -658,8 +754,7 @@ do_data:
     mov r0, r8
     ldr r1, =BUF
     mov r2, r9
-    bl memcpy
-    bl upload_crc
+{data_copy()}    bl upload_crc
     mov r11, r0
     cmp r11, r10
     moveq r4, #{STATUS_OK}
@@ -680,7 +775,7 @@ data_file:
     movne r2, #0x03             ; FA_OPEN_EXISTING | FA_READ | FA_WRITE
     cmp r5, #3
     moveq r2, #0x13             ; the sample file: opened or made, never cut by a block at offset 0 (that one is its header)
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     beq data_file_open
     cmp r0, #5                  ; FR_NO_PATH on the first block: make the folders of the path, then once more
@@ -690,7 +785,7 @@ data_file:
     ldr r0, =FILE_FIL
     ldr r1, =FILE_PATH
     mov r2, #0x0A
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     bne data_file_error
 data_file_open:
@@ -709,6 +804,7 @@ data_file_open:
     ldr r0, =FILE_BR
     ldr r0, [r0]
     cmp r0, r9
+    movne r0, #FR_SHORT
     bne data_file_close
     ldr r0, =FILE_FIL
     bl FS_CLOSE
@@ -719,7 +815,7 @@ data_file_open:
     mov r2, r5
     bl file_read_back
     cmp r0, #0
-    bne data_file_error
+    bne data_file_fr
     ldr r0, =BUF_END
     sub r0, r0, r9
     bic r0, r0, #3
@@ -731,11 +827,17 @@ data_file_open:
     movne r4, #{STATUS_VERIFY}
     b data_reply
 data_file_close:
+    mov r4, r0
     ldr r0, =FILE_FIL
     bl FS_CLOSE
+    mov r0, r4
+    b data_file_error
+data_file_fr:
+    ldr r0, =FILE_FR
+    ldr r0, [r0]
 data_file_error:
     mov r4, #{STATUS_FILE}
-    mov r11, #0
+    mov r11, r0                 ; with status 6 the CRC word carries the FatFs result, or FR_CARD_NEVER or FR_SHORT
 data_reply:
     add r0, r6, #S_RAW
     str r4, [r0]
@@ -774,6 +876,8 @@ fbegin_checked:
     ldr r2, =FILE_LIMIT
     cmp r5, #3
     ldrhs r2, =SAMPLE_LIMIT
+    cmp r5, #8
+    ldreq r2, =FX_LIMIT
     cmp r3, r2
     bhi fbegin_reply
     str r8, [r6, #S_ADDR]
@@ -899,6 +1003,9 @@ fread_failed:
     str r8, [r11, #4]
     mov r3, #0
     str r3, [r11, #8]
+    cmp r4, #{STATUS_FILE}
+    ldreq r3, =FILE_FR          ; with status 6 the CRC word carries the FatFs result, or FR_CARD_NEVER
+    ldreq r3, [r3]
     str r3, [r11, #12]
     str r5, [r11, #16]
     mov r0, #{REPLY_FREAD}
@@ -909,7 +1016,8 @@ fread_failed:
 .pool
 
 ; r0 = offset, r1 = length, r2 = which file: its bytes from there into the end of BUF (rounded down to a word, as READ does), the
-; count in FILE_BR and the size in the file object; returns r0 = 0, or STATUS_FILE when the card says no. Keeps r4 to r11.
+; count in FILE_BR and the size in the file object; returns r0 = 0, or STATUS_FILE when the card says no, its FatFs result in
+; FILE_FR. Keeps r4 to r11.
 file_read_back:
     push {{r4, r5, r6, lr}}
     mov r4, r0
@@ -922,7 +1030,7 @@ file_read_back:
     ldr r0, =FILE_FIL
     ldr r1, =FILE_PATH
     mov r2, #1                  ; FA_READ
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     bne frb_error
     ldr r0, =FILE_FIL
@@ -949,9 +1057,13 @@ frb_done:
     mov r0, #0
     pop {{r4, r5, r6, pc}}
 frb_close:
+    mov r4, r0
     ldr r0, =FILE_FIL
     bl FS_CLOSE
+    mov r0, r4
 frb_error:
+    ldr r1, =FILE_FR
+    str r0, [r1]
     mov r0, #{STATUS_FILE}
     pop {{r4, r5, r6, pc}}
 
@@ -1113,7 +1225,7 @@ policy_region:
 policy_hit:
     cmp r7, #0
     bne policy_refused
-    ands r2, r3, #0xff
+{policy_dev()}    ands r2, r3, #0xff
     beq policy_refused
     mov r0, r9
     bl in_window
@@ -1189,8 +1301,56 @@ window_no:
     mov r0, #0
     pop {{r3, r4, r5, r6, r7, r8, pc}}
 .pool
+; file_path for 5, 6 and 8: the fixed paths of the Doom files and of e2sFx.all into FILE_PATH. Here because the sample section
+; below is full (on the synth to the last byte).
+doom_path:
+    ldr r1, =doom_bin_name
+    cmp r0, #6
+    ldreq r1, =doom_wad_name
+    cmp r0, #8
+    ldreq r1, =fx_name
+    ldr r0, =FILE_PATH
+dp_copy:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    cmp r3, #0
+    bne dp_copy
+    bx lr
+.pool
+doom_bin_name:
+    .asciz "SD:/KORG/blechtribe/Doom/doom.bin"
+doom_wad_name:
+    .asciz "SD:/KORG/blechtribe/Doom/doom.wad"
+fx_name:
+    .asciz "SD:KORG/blechtribe/Presets/e2sFx.all"
+.align 4
 
-; r8 = destination, r9 = length; returns the CRC in r0.
+; f_unlink(r0 = path) of the firmware; the blue Electribe 2's image has none, there it fails with 1 (FR_DISK_ERR)
+fs_unlink:
+    ldr r12, =MENU_CARD
+    ldr r12, [r12]
+    cmp r12, #CARD_NEVER
+    moveq r0, #FR_CARD_NEVER
+    bxeq lr
+{unlink_body()}
+.pool
+
+; f_open(r0 = file object, r1 = path, r2 = mode) of the firmware, but not after a start without a card (M_CARD CARD_NEVER,
+; tools/patch/script_menu.s): mounting a card put in after such a start can hang in Korg's SD init (#518), so the FILE commands
+; get FR_CARD_NEVER instead, as the BLECH menu leaves such a card alone
+fs_open:
+    ldr r12, =MENU_CARD
+    ldr r12, [r12]
+    cmp r12, #CARD_NEVER
+    moveq r0, #FR_CARD_NEVER
+    bxeq lr
+    b FS_OPEN
+.pool
+
+; The sample file commands sit apart from the rest, in the free run behind the preset tables' second block, so that the code above
+; keeps its room (the Sync Group's buffer of the pattern switch starts at 0xC0173000).
+.org {SAMPLE_AT:#x}
+; r8 = destination, r9 = length; returns the CRC in r0. Here for room: the code above is full.
 upload_crc:
     cmp r9, #0
     beq upload_crc_args
@@ -1221,9 +1381,6 @@ upload_crc_args:
     b crc32
 .pool
 
-; The sample file commands sit apart from the rest, in the free run behind the preset tables' second block, so that the code above
-; keeps its room (the Sync Group's buffer of the pattern switch starts at 0xC0173000).
-.org {SAMPLE_AT:#x}
 ; ---- the sample file ------------------------------------------------------------------------------------------------
 ; r0 = a FILE offset with its selector bits: r0 = 3 (Sample/e2sSample.all, bit 30 only) or 4 (Sample/e2sSample.tmp, bits 30 and 31),
 ; r1 = the offset; r0 = 0 when the word names no sample file. Touches r0 and r1.
@@ -1303,7 +1460,7 @@ do_fcopy:
     ldr r0, =FILE_FIL
     ldr r1, =FILE_PATH
     mov r2, #1                  ; FA_READ
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     bne copy_reply
     ldr r0, =FILE_FIL
@@ -1323,7 +1480,7 @@ do_fcopy:
     ldr r0, =FILE_FIL2
     ldr r1, =FILE_PATH
     mov r2, #0x13               ; FA_OPEN_ALWAYS | FA_READ | FA_WRITE
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     bne copy_close1
     ldr r0, =FILE_FIL2
@@ -1407,8 +1564,9 @@ copy_reply:
 .pool
 
 ; FILE DELETE: a FILE offset with its selector bits (one of the two sample files, the offset is ignored). Deletes that file with the
-; firmware's own f_unlink. Answers status and the word asked. Status 2 for a selector that is no sample file, 6 when the card says no
-; (a missing file counts).
+; firmware's own f_unlink; on the synth, which has none, the file is left empty (size 0, as the editor reads a missing file). Answers
+; status and the word asked. Status 2 for a selector that is no sample file, 6 when the card says no (a missing file counts, except on
+; the synth, where it is made empty).
 do_fdelete:
     mov r4, #{STATUS_REFUSED}
     ldr r0, [r6, #S_REQ]
@@ -1464,7 +1622,7 @@ do_fcrc:
     ldr r0, =FILE_FIL
     ldr r1, =FILE_PATH
     mov r2, #1                  ; FA_READ
-    bl FS_OPEN
+    bl fs_open
     cmp r0, #0
     bne fcrc_reply
     ldr r0, =FILE_FIL
@@ -1523,16 +1681,9 @@ fcrc_reply:
     add r3, r6, #S_OUT
     b reply_tail
 
-; f_unlink(r0 = path) of the firmware; the blue Electribe 2's image has none, there it fails with 1 (FR_DISK_ERR)
-fs_unlink:
-{unlink_body()}
-.pool
-
-
-
 ; r8 = a FILE offset with its selector bits; returns r5 = which file (0 SYSTEM.VSB, 1 ORIGINAL.BIN, 3 e2sSample.all, 4 e2sSample.tmp,
-; 5 doom.bin, 6 doom.wad) and r8 = the offset. Bits 30 and 29 together name no file: r8 = -1 then, which every range check refuses.
-; Touches nothing else.
+; 5 doom.bin, 6 doom.wad, 8 e2sFx.all) and r8 = the offset. Bits 30 and 29 name e2sFx.all, with bit 31 as well no file: r8 = -1
+; then, which every range check refuses. Touches nothing else.
 sel_file:
     mov r5, r8, lsr #31
     tst r8, #{FILE_SAMPLE}
@@ -1540,7 +1691,7 @@ sel_file:
     tst r8, #{FILE_DOOM}
     addne r5, r5, #5
     bic r8, r8, #0xE0000000
-    cmp r5, #7
+    cmp r5, #9
     mvnhs r8, #0
     bx lr
 
@@ -1548,7 +1699,8 @@ sel_file:
 ; r0 = which: FILE_PATH = the update's folder (the firmware's own function, as the update builds it) + "System/SYSTEM.VSB", or
 ; "System/ORIGINAL.BIN" for 1, "Sample/e2sSample.all" for 3 and "Sample/e2sSample.tmp" for 4; for 2 the plugin file
 ; SD:KORG/blechtribe/Plugin/<FILE_NAME>.blech, for 5 and 6 the path the Doom loader opens, SD:/KORG/blechtribe/Doom/doom.bin and
-; doom.wad (tools/doom/runtime_abi.h). Keeps r4 to r11.
+; doom.wad (tools/doom/runtime_abi.h), for 8 the effect collection the start loads, SD:KORG/blechtribe/Presets/e2sFx.all
+; (tools/patch/fx_card.s). Keeps r4 to r11.
 file_path:
     cmp r0, #2
     beq plugin_path
@@ -1608,17 +1760,6 @@ pp_suffix:
     cmp r3, #0
     bne pp_suffix
     bx lr
-doom_path:
-    ldr r1, =doom_bin_name
-    cmp r0, #6
-    ldreq r1, =doom_wad_name
-    ldr r0, =FILE_PATH
-dp_copy:
-    ldrb r3, [r1], #1
-    strb r3, [r0], #1
-    cmp r3, #0
-    bne dp_copy
-    bx lr
 ; f_mkdir of every folder on the way to the file in FILE_PATH, cut at each "/" in place; an existing one answers FR_EXIST.
 make_folders:
     push {{r4, lr}}
@@ -1649,10 +1790,6 @@ sample_name:
     .asciz "Sample/e2sSample.all"
 sample_tmp_name:
     .asciz "Sample/e2sSample.tmp"
-doom_bin_name:
-    .asciz "SD:/KORG/blechtribe/Doom/doom.bin"
-doom_wad_name:
-    .asciz "SD:/KORG/blechtribe/Doom/doom.wad"
 .align 4
 .pool
 
@@ -1676,7 +1813,8 @@ def use_build(build, ref=None, vsb=None):
     import fwmap
     globals()["MODEL"] = 0x23
     globals()["FOLDER_ID"] = 0x123           # the id the synth's update passes to its folder function (0xC0035304 loads it)
-    globals()["FLAGS"] = FLAGS & ~FLAG_DOOM
+    globals()["FLAGS"] = FLAGS & ~FLAG_DOOM & ~FLAG_DEV
+    globals()["DEV"] = False                 # no DEV MODE page in the synth's menu
     mapped = fwmap.FirmwareMap(fwmap.load(ref), vsb[HEADER:])
     found = {}
     for name in FIRMWARE_PLACES:
@@ -1692,8 +1830,7 @@ def use_build(build, ref=None, vsb=None):
         if not mapped.same_code(FS_UNLINK):
             raise fwmap.Unmapped("not the same code")
     except fwmap.Unmapped:
-        globals()["FS_UNLINK"] = None            # compiled out of the synth's FatFs: no FILE DELETE, no sample file flag
-        globals()["FLAGS"] = FLAGS & ~0x80
+        globals()["FS_UNLINK"] = None            # compiled out of the synth's FatFs: FILE DELETE leaves the file empty instead
     return found
 
 
@@ -1773,7 +1910,10 @@ def build_patch(vsb, table, build):
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: the declared write, the request as decoded, the words and the packed bytes of a short reply", "tools/patch/blech_sysex.py:STATE"),
             ramdecl.area(BUF, BUF_END - BUF, "the buffer a message is decoded into and a reply is packed in, up to MAX_BLOCK bytes of data", "tools/patch/blech_sysex.py:BUF"),
-            ramdecl.area(FILE_AREA, FILE_AREA_END - FILE_AREA, "the FatFs file object, the byte count and the path of the FILE commands", "tools/patch/blech_sysex.py:FILE_AREA"),
+            ramdecl.area(FILE_AREA, FILE_AREA_END - FILE_AREA, "the FatFs file object, the byte count, the FatFs result and the path of the FILE commands", "tools/patch/blech_sysex.py:FILE_AREA"),
+        ],
+        "shares": [
+            ramdecl.share(MENU_STATE + M_CARD, 4, "script-runtime", "read only: the BLECH menu's card word (M_CARD), a card after a start without one is left alone", "tools/patch/blech_sysex.py:MENU_STATE"),
         ],
     }
 

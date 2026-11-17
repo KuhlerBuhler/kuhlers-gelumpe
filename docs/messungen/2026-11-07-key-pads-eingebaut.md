@@ -55,6 +55,10 @@ Hacktribe, rot und blau:
 
 ## Grenzen
 
+- Korgs blaue 2.02 zeichnet ihren Hauptbildschirm etwa alle 2,4 s ganz neu. Fällt das in das Bild direkt nach der Anfrage
+  des Wertefensters, fällt das Fenster weg, der Wert ist trotzdem gesetzt (gemessen im Emulator, auch auf develop vor #400).
+  Auf einer blauen kann das KEY-Fenster daher selten einen Pad-Druck auslassen. `shortcut_cases.py` drückt das Pad dann noch
+  einmal; Fälle, die auf der blauen ein Fenster der Firmware erwarten, sollten das genauso machen.
 - Ein BLECH vor dieser Version lehnt eine Einstellungsdatei mit Bit 4 in Byte 5 ab und startet mit den Vorgaben, wie bei
   den früheren Bits (hergeleitet aus `menu_load`).
 - Im Objektbaum der Plugin-API (`korg.object`) gibt es noch keinen Eintrag für KEY PADS; dafür bräuchte es eine neue

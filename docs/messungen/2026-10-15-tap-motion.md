@@ -128,7 +128,7 @@ Nachricht: gleicher Eintrag, gleiche Bytes (`09 0D 11 15 ...` für `16, 24, 32, 
 läuft auch bei Modus Off (`gate-rec-with-mode-0`).
 
 **Wiedergabe (gemessen, `motion-engine-follows-the-recorded-lane`).** Sie ändert das Parameter-Byte nicht. Ihr Ausgang für Spur 0 ist das
-Wort `0xC068DB1C` (die Spuren 1 und 2 bei `+4` und `+8`): `0xFFFFFFFF` heißt still, sonst steht dort der Wert des Spurbytes
+Wort `0xC068DB1C`, Spur i bei `0xC068DB1C + 0x24 * i` (gemessen in [Plugin API 28](2026-11-11-plugin-api28-motion.md)): `0xFFFFFFFF` heißt still, sonst steht dort der Wert des Spurbytes
 ohne die Verschiebung, einmal je Schritt neu. Für die Spur des Tests (16, 24 ... 136) steht dort 8, 12 ... 68, Schritt für Schritt. Ob die Stimme dem Ausgang der
 Spur oder dem Parameter-Byte folgt, sieht der Emulator nicht (das DSP ist nicht nachgebildet): **offen**, am Gerät zu hören.
 

@@ -37,12 +37,10 @@ class BufferGuards(unittest.TestCase):
     def test_installation_preserves_the_full_declared_live_swap_code(self):
         uc, dev = self.machine(True)
         owned = [(lo, bytes(uc.mem_read(lo, hi - lo))) for lo, hi in (
-            (swap.STORE_CODE, swap.STORE_CODE_END), (swap.PROTECTION_CODE, swap.PROTECTION_CODE_END))]
+            (swap.STORE_CODE, swap.STORE_CODE_END), (swap.PROTECTION_CODE, swap.PROTECTION_CODE_END), (swap.CODE1, swap.CODE1_END))]
         s.Link(dev)
         for lo, before in owned:
             self.assertEqual(bytes(uc.mem_read(lo, len(before))), before, hex(lo))
-        self.assertEqual(bytes(uc.mem_read(swap.PROTECTION_CODE_END, s.spec.FILE_AREA - swap.PROTECTION_CODE_END)),
-                         bytes([0xD3]) * (s.spec.FILE_AREA - swap.PROTECTION_CODE_END))
 
     def test_live_code_can_read_its_literal_pool(self):
         uc, dev = self.machine(True)
@@ -112,13 +110,14 @@ class BufferGuards(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, 'live swap code changed'):
             link.check_guards()
 
-    def test_the_remaining_released_tail_refuses_both_reads_and_writes(self):
+    def test_the_code_behind_the_protection_code_up_to_the_file_area_is_live_code(self):
+        self.assertEqual((swap.PROTECTION_CODE_END, swap.CODE1_END), (swap.CODE1, s.spec.FILE_AREA))
         for write in (False, True):
             with self.subTest(write=write):
                 uc, dev = self.machine(True)
                 s.Link(dev)
-                with self.assertRaisesRegex(AssertionError, 'released RAM'):
-                    self.access(uc, swap.PROTECTION_CODE_END, write)
+                with self.assertRaisesRegex(AssertionError, 'live swap code'):
+                    self.access(uc, swap.CODE1_END - 4, write)
 
     def test_protection_code_retains_live_code_access_checks(self):
         for write in (False, True):

@@ -34,6 +34,23 @@ oder 24 Bit, mehr als zwei Kanäle, Platz belegt), wird übersprungen, wenn BLEC
   lesen lassen. Abbrechen geht zwischen zwei Stücken von 256 KiB. Eine volle Datei (26,8 MB) dauert rund zwei Minuten
   ([Messung](../messungen/2026-10-26-sample-datei-sysex.md#am-gerät-lesegeschwindigkeit)).
 
+## Für die blaue Electribe 2
+
+Mit dem Patch `user-samples-synth.json` (im BLECHTRIBE-Satz der blauen) lädt die blaue dieselbe Datei aus ihrem Ordner
+(`KORG/blechtribe/Sample/` mit dem Satz) bei jedem Start als Oszillatoren der Gruppe `[User]`
+([Messung](../messungen/2026-11-12-blau-sample-import.md)). Ihr Lader nimmt weniger als der der roten, deshalb hat die Seite oben
+einen Schalter rot/blau. Er stellt sich auf das angeschlossene Gerät (Modellbyte `0x23` der blauen) und bleibt sonst gespeichert.
+
+- **Hinzufügen** für die blaue macht aus der WAV 16 Bit mono bei ihrer Rate: von 24 Bit bleiben die oberen 16, Stereo wird
+  gemittelt und abgerundet wie im Lader (`toMono16`). Ein `esli`-Satz der WAV bleibt, nur das Stereo-Bit geht weg. Eine schon
+  hinzugefügte WAV wird beim Umschalten neu gebaut.
+- Die Liste sagt, was die blaue beim nächsten Start nicht lädt (`blueLoad`, derselbe Gang wie der Lader: Plätze aufsteigend):
+  kein 16 Bit oder anders aufgebaut als `fmt`, `data`, `korg`; kein Platz mehr hinter den Werkswellen; mehr als 64.
+- Die Zusammenfassung zeigt den freien Platz in MB und in Sekunden mono bei 48 kHz. Der Platz ist **geschätzt**: Fensterende
+  `0x1365AE0` minus `0xE03E60`, wo die Werkswellen im Emulator enden (5 643 392 Byte). Am Gerät rechnet der Lader ihn aus den
+  eigenen Tabellen. Ein Sample braucht seine Werte, 64 Byte Nullen und das auf 32 Byte aufgerundet.
+- Neue Samples spielt die blaue erst nach einem Neustart, wie die rote.
+
 ## Der Plan einer Änderung
 
 `planChange` gibt zurück, was die Datei ändert, so wenig wie nötig: den neuen Kopf, die Einträge, die bleiben und wohin sie
@@ -57,7 +74,8 @@ Ordner der Firmware (Bit 31 des Offsets wählt), dazu `0x67` PLUGIN BEGIN eine P
 
 Ein Block bei Offset 0 schneidet `e2sSample.all` nicht ab (er schreibt den Kopf an Ort und Stelle, `FA_OPEN_ALWAYS`), bei der Tauschdatei
 macht er sie neu. INFO meldet Bit 7 der Flags, wenn die Befehle da sind. Auf der blauen Electribe 2 fehlt `f_unlink` im Abbild, dort
-antwortet DELETE mit 6 und INFO meldet Bit 7 nicht. Der Code liegt in einem zweiten Abschnitt bei `0xC017B950` (1116 Byte), weil der
+macht DELETE die Datei neu und schließt sie, sie bleibt also leer (Größe 0, die die Seite wie eine fehlende liest); der Tausch unten
+läuft so auch auf der blauen, nur bleibt eine leere `e2sSample.tmp` liegen. Der Code liegt in einem zweiten Abschnitt bei `0xC017B950` (1116 Byte), weil der
 erste bis `0xC0173000` reicht, wo der Puffer der Sync Group anfängt.
 
 ### Warum die Datei über eine Tauschdatei kleiner wird

@@ -22,6 +22,11 @@ tools/emu/.venv*
 __pycache__/
 *.pyc
 
+# Built from tools/patch/script_*.s, never committed (tools/patch/ensure-runtime.mjs).
+data/patches/script-runtime.json
+data/patches/script-runtime-stock.json
+data/patches/script-runtime-synth.json
+
 # Card images can hold Korg samples. They live outside the repository.
 *.img
 

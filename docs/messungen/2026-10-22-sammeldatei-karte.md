@@ -12,7 +12,7 @@ eigenen Hacktribe-2.02-Datei und Korgs Original 2.02 (rot), jeweils mit dem BLEC
   Datensatz für den Build, für den die Datei gebaut ist. Der Datensatz entsteht aus dem Datensatz der Firmware an diesem
   Platz; ein anderer Baustein kommt aus einem Spender-Preset derselben Firmware mit diesem Baustein in derselben Stufe.
 - `tools/patch/fx_card.s`: der Lader in der Plugin-Laufzeit, direkt nach dem Plugin-Lader beim Start. Erster Durchgang:
-  Kopf, Build, jeder Eintrag (Art, Platz kleiner als die Menülänge, Datensatzlänge), Gesamtlänge, CRC-32; geschrieben wird
+  Kopf, Build, jeder Eintrag (Art, Platz bis 100, Datensatzlänge), Gesamtlänge, CRC-32; geschrieben wird
   nichts. Nur eine Datei, die das besteht, wird ein zweites Mal gelesen, und ihre Datensätze gehen dorthin, wohin die
   Getter der Firmware zeigen (`0xC003E738`, `0xC003E750`), die Modulationen in die Tabelle, die der Build liest
   (Hacktribe `0xC019FFFC`, Korg `0xC00D81EC`). Zustand in `0xC01F7FE0` (Status, Zahl der Einträge).
@@ -26,6 +26,24 @@ eigenen Hacktribe-2.02-Datei und Korgs Original 2.02 (rot), jeweils mit dem BLEC
 | Flash nach dem Start gleich wie ohne Datei | ja | ja |
 | Datei fehlt, Prüfsumme falsch, falscher Build, Platz 251, abgeschnitten: nichts geändert | ja | ja |
 | EXIT beim Einschalten: nichts geändert | ja | ja |
+| Insert auf Platz 100 und Master hinter dem Menü (14.11.): Menüs wachsen auf 100 und 49, alle 15 Längen-Stellen gleich, Knopf-Speicher 16 Zeilen à 100, Encoder läuft durch alle 100 und die leeren Plätze, Platz 100 schickt dem DSP dasselbe wie Preset 6, Flash unverändert | ja | ja |
+| Platz 101: abgelehnt, Menüs bleiben; Datei nur mit Plätzen im Menü: Menüs bleiben | ja | ja |
+
+## Plätze hinter dem Menü (14.11.)
+
+Die App lässt Plätze bis 100 wählen (`collectionEntry` prüft nur `recordOf`). Bis 1.4.5 lehnte der Lader jeden Platz ab der
+Menülänge ab, die ganze Datei wurde "FX bad" (gemeldet mit IFX 59 und 60 bei 59 Inserts). Mit dem BLECH-Satz hat jeder der
+Plätze 1 bis 100 einen eigenen Datensatz (gemessen auf Hacktribe und Korg rot, `preset_tables.py`: 100 Zeiger der Firmware,
+erst 101 bis 128 zeigen auf Eintrag 0). Jetzt:
+
+- Erster Durchgang: Platz bis 100 geht durch, wenn beide Getter-Klammern 127 sind (Preset-Tabellen da) und alle 15
+  Stellen der Menülänge (`fx_sites` in `fx_card.s`: 8 Anzahl, 6 letzter Index, 1 Master) den Befehl und die Länge tragen,
+  die die Firmware hat. Sonst wie bisher "FX bad".
+- Nach dem zweiten Durchgang (`fx_grow`): jede Stelle bekommt die neue Länge im RAM, nie kürzer. D-Cache-Zeile reinigen
+  (`c7, c10, 1`), Schreibpuffer leeren, I-Cache leeren, dann Knopf-Speicher neu (`0xC00980AC`) und je Part der Wert
+  zurück (`0xC009816C`), danach wie bisher `fx_reapply`. Im Flash ändert sich nichts, nach dem Ausschalten liest der Start
+  die Datei wieder.
+- Am Gerät noch nicht gemessen (Cache-Befehle laufen am Gerät im Doom-Lader, `2026-10-22-doom-am-geraet.md`).
 | Vom Editor gebaute Datei (Master 1, Modulation 6) lädt Byte für Byte | ja | ja |
 
 ## Offen
@@ -34,5 +52,4 @@ eigenen Hacktribe-2.02-Datei und Korgs Original 2.02 (rot), jeweils mit dem BLEC
   Lader läuft nach dem Sample-Lader; wann das Pattern seine Effekte einrichtet, ist nicht gemessen.
 - Ob geänderte Vorgaben einer Modulation (Tiefe, Tempo) greifen: laut Gerätekarte füllt die Tabelle beim Einschalten den
   Speicher je Part; der Lader läuft danach. Erwartung: erst wenn die Modulation neu gewählt wird.
-- Neue Plätze über die Menülänge hinaus legt die Datei nicht an; sie überschreibt nur vorhandene.
 - Blau: nicht gemessen, der Lader ist nur im roten Satz.

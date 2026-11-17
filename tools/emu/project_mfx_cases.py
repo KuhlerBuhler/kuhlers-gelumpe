@@ -98,10 +98,10 @@ def probe(payload, build=None):
         io.append(dict(stage=stage, operation="erase", start=m.flash.addr & ~(size - 1), length=size))
         original_erase(size)
 
-    def byte(value):
+    def byte(value, *now):
         if m.flash.cmd == 0x02 and len(m.flash.buf) >= 3 and m.flash.wel:
             pages[(stage, m.flash.addr & ~255)] += 1
-        return original_byte(value)
+        return original_byte(value, *now)
 
     m.flash.erase, m.flash.byte = erase, byte
 

@@ -32,9 +32,11 @@ import { buildOf, hardwareOf, sha256 } from "../src/firmware.mjs";
 import { loadBlechSet, samplerHead, withHead, BLECH_SET_URL, BLECH_SYNTH_SET_URL, VERIFIED_URL } from "../src/patcher.mjs";
 import { pythonEnv } from "./emu/python-env.mjs";
 import { loadGate } from "./load-gate.mjs";
+import { ensureRuntimePatches } from "./patch/ensure-runtime.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 await loadGate();
+ensureRuntimePatches({ log: message => console.log(message) });
 const FORMAT = "gelumpe-verified";
 const SHARD_FORMAT = "gelumpe-verification-shard";
 
@@ -174,8 +176,11 @@ async function check(files, cases = null, options = {}) {
         continue;
       }
       if (run.status !== 0 || !report?.ok || !Array.isArray(report.checks)) {
-        const bad = report?.checks?.filter(c => !c.ok).map(c => `${c.id} (${JSON.stringify(c.detail)})`) ?? [`check.py ended with ${run.status}`];
-        console.error(`${file}: not passed: ${bad.join(", ")}`);
+        // a shard report carries its checks per task, a full report in checks
+        const checks = report?.checks ?? report?.tasks?.flatMap(t => [t.result].flat()).filter(c => typeof c?.id === "string");
+        const bad = checks?.filter(c => c.ok === false).map(c => `${c.id} (${JSON.stringify(c.detail)})`);
+        const named = bad?.length ? bad : [`check.py ended with ${run.status}`];
+        console.error(`${file}: not passed: ${named.join(", ")}`);
         failed++;
         continue;
       }

@@ -63,7 +63,7 @@ Hacktribe.
 
 ## Ours
 
-Everything in `src/`, `bin/`, `test/`, `tools/` (except the emulator's licence below), `site/` (except `site/vendor/`, see above) and `data/` (except `data/units.json`, see above), including the design in `site/design/`. Every address, offset and rule was
+Everything in `src/`, `bin/`, `test/`, `tools/` (except the GPL files listed below), `site/` (except `site/vendor/`, see above) and `data/` (except `data/units.json`, see above), including the design in `site/design/`. Every address, offset and rule was
 measured on a Korg Electribe 2 Sampler, firmware 2.02, unless a comment says
 otherwise.
 
@@ -85,3 +85,19 @@ site build. If an installer later redistributes the engine, it must preserve
 the upstream notices and satisfy GPLv2 source-distribution obligations.
 The Python program's GPLv2 licence avoids assuming GPLv2-only and AGPLv3
 are compatible within a linked program. No Korg data is included.
+
+## Other GPL files outside `tools/emu`
+
+These files carry a GPL header on purpose and are not AGPL-3.0:
+
+- `tools/patch/project_contract.py` and `tools/patch/test_projects.py`
+  (GPL-2.0-only): research contracts for the project import idea, loaded by
+  the emulator case `tools/emu/project_cases.py`. They stay GPL-2.0-only so
+  the emulator program does not link an AGPL module.
+- `tools/device/hot_patch.py` and `tools/device/make_hot_fixtures.py`
+  (GPL-2.0-only): the DEV MODE tool and its test images. `hot_patch.py`
+  loads modules from `tools/emu` and `make_hot_fixtures.py` imports
+  `hot_patch.py`, so both belong to the emulator program.
+- `tools/jtag/am1802.cfg` (GPL-2.0-or-later): based on OpenOCD's
+  `tcl/target/omapl138.cfg`, which is GPL-2.0-or-later. Licence text:
+  `tools/emu/LICENSE` (GPL-2.0), https://openocd.org for the upstream file.

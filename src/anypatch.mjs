@@ -96,6 +96,9 @@ export async function readAnyPatch(bytes) {
   throw new TextError("patcher.any.unknown");
 }
 
+/** A patch that is not ours (IPS, bsdiff): it names no start-phase exceptions, so the emulator check leaves out the start phase. */
+export const isForeign = own => own?.kind === "ips" || own?.kind === "bsdiff";
+
 /** The items a plan lists for a read patch on the VSB `vsb`, `label` makes the text of a patch of a patch file. */
 export function itemsOf(own, vsb, label) {
   if (own.kind === "gelumpe") return patchesFor(own.file, vsb).map(p => ({ id: p.id, label: label(p) }));

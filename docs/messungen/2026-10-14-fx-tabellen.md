@@ -230,7 +230,7 @@ tempo-synchrone Einstellungen bei der externen Clock vor (Seite 7), ohne Notenwe
 | Preset | Guide | VSB | Lesart |
 |---|---|---|---|
 | IFX 1 bis 38 | 38 Namen | alle 38 gleich (Namen in der VSB auf 15 Zeichen gekürzt) | passt |
-| IFX 39 bis 59 | nicht im Guide | 21 weitere Presets (Lag, KP2 Comp, die Drive-Filter, die Delays 9/32, 3/32, 1/12 und so weiter) | Hacktribe, ohne Guide-Beleg |
+| IFX 39 bis 64 | nicht im Guide | 26 weitere Presets (Lag, KP2 Comp, die Drive-Filter, die Delays 9/32, 3/32, 1/12 bis T3 Kontrolle; 2026-11-15 gegen ORIGINAL.BIN 163d1d8d und per USB-READ aus dem RAM geprüft, vorher stand hier 39 bis 59) | Hacktribe, ohne Guide-Beleg; unser Effekt-Katalog beginnt bei 65 |
 | MFX 1 bis 32 | 32 Namen | 29 gleich | |
 | MFX 11 | Jag Filter | Plate Reverb | abweichend |
 | MFX 21 | Touch Wah | Tap Delay Sync | abweichend |

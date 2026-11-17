@@ -82,6 +82,7 @@ export function rescueSuite(index, parts) {
     assert.equal(await field.getAttribute("aria-controls"), "cee-rescue-suggest");
     assert.equal(await page.locator("label[for=cee-rescue-search]").textContent(), "Was ist los?");
     assert.deepEqual(await page.locator("#cee-rescue-suggest [role=option] .cee-rescue-answer").allTextContents(), rescue.FIRST_CASES.map(label));
+    assert.ok(rescue.FIRST_CASES.length <= rescue.MAX_SHOWN, "at most five topics before anything is typed");
     const above = await page.locator("#cee-rescue-suggest").boundingBox();
     assert.ok(above.y + above.height <= (await field.boundingBox()).y, "the suggestions stand above the field");
     await page.click("#cee-rescue-search-all");
@@ -98,6 +99,7 @@ export function rescueSuite(index, parts) {
     assert.equal(await page.locator("#cee-rescue-search").getAttribute("aria-expanded"), "true");
     assert.equal(await page.locator("#cee-rescue-search").getAttribute("aria-activedescendant"), "cee-rescue-case-silent");
     assert.match(await page.locator("#cee-rescue-search-status").textContent(), /Passende Themen: \d/);
+    assert.ok(await options.count() <= rescue.MAX_SHOWN, "typing shows at most five topics too");
     await page.fill("#cee-rescue-search", "back to korg firmware");
     assert.equal(await options.first().locator(".cee-rescue-answer").textContent(), label("back"));
     await page.fill("#cee-rescue-search", "qqqq zzzz");
@@ -479,7 +481,7 @@ export function rescueSuite(index, parts) {
     assert.match(await zone.locator(".ui-dropzone-title").textContent(), /Korgs SYSTEM\.VSB für die blaue hierher ziehen oder auswählen/);
     assert.match(await zone.locator(".ui-dropzone-hint").textContent(), /electribe_system_v202\.zip/);
     assert.equal(await zone.locator("input[type=file]").getAttribute("accept"), ".VSB,.vsb");
-    assert.equal(await page.locator("#cee-rescue-answers button").count(), 0, "no answer that goes on without a file");
+    assert.equal(await page.locator("#cee-rescue-answers button:not(.cee-dropzone-clear)").count(), 0, "no answer that goes on without a file, the X only clears the field");
     assert.equal(await page.locator("#cee-rescue-back").isEnabled(), true);
     assert.deepEqual(page.errors, []);
   });
@@ -634,7 +636,7 @@ export function rescueSuite(index, parts) {
     assert.deepEqual(page.errors, []);
   });
 
-  test("old patterns after an export: WRITE first, the folder KORG/blechtribe, the date of the device", async () => {
+  test("old patterns after an export: WRITE first, the folder KORG/blechtribe/Patterns, the date of the device", async () => {
     const page = await open();
     await answer(page, label("app"));
     await answer(page, "Export oder Import zeigt alte Patterns");
@@ -642,7 +644,7 @@ export function rescueSuite(index, parts) {
     assert.match(text, /erst WRITE, dann EXPORT PATTERN/);
     assert.match(text, /01\.01\.2014/);
     assert.match(text, /KORG\/electribe/);
-    assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "KORG/blechtribe/");
+    assert.equal(await page.locator("#cee-rescue-chat .cee-rescue-path").last().textContent(), "KORG/blechtribe/Patterns/");
     assert.deepEqual(page.errors, []);
   });
 

@@ -6,6 +6,9 @@ Rahmen (25 Hz) dieselbe Panel-Nachricht `00 index helligkeit` mit 0 bis 255 an d
 16.10. alle Werte gleich hell zeigte, ist **offen** (Vermutung, nicht geprüft: der LED-Manager der Firmware schickte
 danach seine eigenen Werte). Der Rest dieser Seite ist der Stand vom 16.10.
 
+**Nachtrag 16.11.:** Laut Panel-Code haben alle Pad-LEDs PWM. Nur 32 Tasten-LEDs kennen nur an oder aus
+([Panel-Controller](../hintergrund/panel-controller.md#leds)).
+
 Stand 2026-10-16. Gemessen am Gerät (Firmware 2.02 mit Hacktribe, BLECH v21), Werkzeug
 `tools/device/led_show.py` (Stub im RAM über Hacktribes Execute `0x57`, danach zurückgesetzt, kein
 Flash), angesehen und fotografiert vom Besitzer.

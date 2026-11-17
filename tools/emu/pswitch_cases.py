@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import fat32  # noqa: E402
 import pattern_switch as spec  # noqa: E402
 import synthaddr  # noqa: E402
-from machine import UART1, load_flash  # noqa: E402
+from machine import UART1, load_flash, without_card  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
 
@@ -59,13 +59,16 @@ def card_image():
 
 
 class Box:
-    """A booted device (3 s) with a mounted card, or without one."""
+    """A booted device (3 s) with a mounted card, or without one; with `dsp`, the DSP model listens from power-on."""
 
-    def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0, adapter=False):
+    def __init__(self, payload, flash=None, held=0, card=True, seconds=3.0, adapter=False, dsp=False):
         self.payload = bytes(payload)
         for_build(self.payload)
         self.dev = Dev(self.payload, flash, held, adapter=adapter)
         self.m = self.dev.m
+        if dsp:
+            from dsp_model import DspModel
+            DspModel.attach(self.m)
         if card:
             self.m.insert_card(SDCard(MemoryMedium(card_image())))
         self.dev.run(seconds)
@@ -171,8 +174,9 @@ class Box:
         return changed
 
     def look(self):
-        """The screen and the frame as the firmware drew it (the frame buffer: the load bar's look changes only what is sent)."""
-        return self.dev.screen()["number"], self.dev.read(VRAM, 1024)
+        """The screen and the frame as the firmware drew it (the frame buffer: the load bar's look changes only what is sent), the
+        card symbol's places left out (machine.without_card)."""
+        return self.dev.screen()["number"], without_card(self.dev.read(VRAM, 1024))
 
 
 VRAM = 0xC031B310               # the firmware's frame buffer
@@ -231,7 +235,7 @@ def case_browse(payload, flash):
     # line differs is the answer.
     differ = None
     for _ in range(10):
-        fb, theirs = box.dev.read(VRAM, 1024), ref2.dev.read(VRAM, 1024)
+        fb, theirs = without_card(box.dev.read(VRAM, 1024)), without_card(ref2.dev.read(VRAM, 1024))
         now = {i // 128 for i in range(1024) if fb[i] != theirs[i]}
         if now and now <= {6, 7}:
             differ = now

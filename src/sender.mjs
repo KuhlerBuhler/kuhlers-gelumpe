@@ -38,6 +38,9 @@ export const TIMEOUTS = { search: 1500, read: 3000, ack: 3000, pattern: 12000, g
 const LINE_MS_PER_BYTE = 0.4;
 /** How often a block whose CRC did not match is sent again before the run fails. Nothing is ever sent again after a timeout. */
 export const BLECH_RETRIES = 2;
+/** The FatFs results a FILE READ carries with status 6 when the file, or its folder, is not on the card. */
+const FR_NO_FILE = 4;
+const FR_NO_PATH = 5;
 
 /** What a failure says: an error's text, or its message when it has none (an error of the port or the browser). */
 export const textOf = e => e?.text ?? e?.message ?? String(e);
@@ -190,7 +193,7 @@ export class Sender {
   blechFailure(e, what) {
     if (!(e instanceof P.BlechError)) return e;
     const refused = e.status === P.BLECH.STATUS.REFUSED || e.status === P.BLECH.STATUS.RANGE;
-    return new SendError(refused ? "protected" : e.retry ? "crc" : "verify", e.text, { status: e.status, what });
+    return new SendError(refused ? "protected" : e.retry ? "crc" : "verify", e.text, { status: e.status, code: e.code, what });
   }
 
   /** Whole attempts with a CRC that did not fit are repeated, the first other failure ends it. */
@@ -269,7 +272,7 @@ export class Sender {
     try {
       return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, at, 0, model), "blech-file-read"), this.channel, 0, model))).size;
     } catch (e) {
-      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE) return 0;
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE && (e.code === FR_NO_FILE || e.code === FR_NO_PATH)) return 0;
       throw e;
     }
   }
@@ -350,17 +353,63 @@ export class Sender {
     }
   }
 
+  /** The size of e2sFx.all on the card (FILE_FX); 0 when there is none, null when the firmware answers out of range (it is from before the read). */
+  async fxFileSize(model) {
+    try {
+      return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, P.BLECH.FILE_FX, 0, model), "blech-file-read"), this.channel, 0, model))).size;
+    } catch (e) {
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE) return 0;
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.RANGE) return null;
+      throw e;
+    }
+  }
+
+  /**
+   * The bytes as the new e2sFx.all (needs FLAG_FX_WRITE): the first block makes the file anew (and KORG/blechtribe/Presets when it is
+   * missing), every block is read back from the card with its CRC. The loader reads it at the next power-on.
+   */
+  async fxFileWrite(bytes, model, onProgress) {
+    const max = this.blech.maxBlock;
+    for (let at = 0; at < bytes.length; at += max) {
+      const part = bytes.subarray(at, Math.min(at + max, bytes.length));
+      const crc = P.crc32(part);
+      await this.blechAttempts("write", async () => {
+        P.parseBlechFileBegin(await this.blechExchange(P.blechFileBegin(this.channel, (P.BLECH.FILE_FX | at) >>> 0, part.length, crc, model), "blech-file-begin"), this.channel, model);
+        P.parseBlechData(await this.blechExchange(P.blechData(this.channel, part, model), "blech-data", part.length), this.channel, crc, model);
+      });
+      onProgress?.(at + part.length, bytes.length);
+    }
+  }
+
+  /** `length` bytes of e2sFx.all from `at`, in blocks of the device's largest size, each checked against its CRC. */
+  async fxFileRead(at, length, model) {
+    const out = new Uint8Array(length);
+    const max = this.blech.maxBlock;
+    for (let got = 0; got < length;) {
+      const n = Math.min(max, length - got);
+      const r = await this.blechAttempts("read", async () =>
+        P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, (P.BLECH.FILE_FX | (at + got)) >>> 0, n, model), "blech-file-read", n), this.channel, n, model));
+      if (r.offset !== at + got || r.bytes.length !== n) throw new SendError("reply", text("sender.fileRead", { got: r.bytes.length, offset: r.offset, want: n, at: at + got }));
+      out.set(r.bytes, got);
+      got += n;
+    }
+    return out;
+  }
+
   /** A FILE offset of the sample file (`temp`: its temp file) at `at`. */
   sampleSelector(temp, at = 0) {
     return (P.BLECH.FILE_SAMPLE | (temp ? P.BLECH.FILE_OTHER : 0) | at) >>> 0;
   }
 
-  /** The size of the sample file (`temp`: its temp file); 0 when there is none. */
+  /**
+   * The size of the sample file (`temp`: its temp file); 0 when there is none, which the firmware tells by FatFs FR_NO_FILE (4) or
+   * FR_NO_PATH (5). Any other card error is thrown: taken for an empty card, an add would write a new header over the real file.
+   */
   async sampleFileSize(model, temp = false) {
     try {
       return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, this.sampleSelector(temp), 0, model), "blech-file-read"), this.channel, 0, model))).size;
     } catch (e) {
-      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE) return 0;
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE && (e.code === FR_NO_FILE || e.code === FR_NO_PATH)) return 0;
       throw e;
     }
   }

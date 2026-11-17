@@ -58,6 +58,18 @@ export class Display {
     }
   }
 
+  /** korg.display.chars: the low byte of each slot as a character, up to `count` (31 at most), the array's end or a 0. */
+  chars(slots, x, y, count) {
+    for (let i = 0, cursor = x; i < Math.min(count, slots.length, 31) && cursor < WIDTH; i++, cursor += ADVANCE) {
+      const code = slots[i] & 255;
+      if (!code) break;
+      const columns = glyph(code);
+      for (let column = 0; column < GLYPH_WIDTH; column++) {
+        for (let row = 0; row < GLYPH_HEIGHT; row++) if ((columns[column] >> row) & 1) this.pixel(cursor + column, y + row, 1);
+      }
+    }
+  }
+
   number(value, x, y) { this.text(String(value), x, y); }
 
   /** Text, then the number right after its last character (the number is cut off at the edge like any text). */

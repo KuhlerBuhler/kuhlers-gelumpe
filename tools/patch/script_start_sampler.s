@@ -7,12 +7,29 @@
 ; the look (backlight colour, bottom LEDs, display polarity) holds from about 350 ms on and through the samples loading, not only after
 ; them. Reading the card earlier, behind that question in the start task (0xC002AE68, about 123 ms), was tried and does not work: the
 ; first file open there waits for the card driver forever (measured, docs/messungen/2026-10-16-blech-look-frueh.md).
+; MEDIA_LOAD: tools/patch/load_bar.py:MEDIA_CODE
+.equ MEDIA_LOAD, 0xC01AD000
+; SPLASH_SYNC: tools/patch/splash_editor.py:SYNC_ENTRY
+.equ SPLASH_SYNC, 0xC01A250C
 script_early_hook:
     push {r0-r12, lr}
     .word 0xE10FC000 ; mrs r12, cpsr
     push {r12, lr}
     bl menu_arm_load
     bl migrate_start
+    bl pat_boot_arm
+    ldr r12, =MEDIA_LOAD        ; the loading animation from the card (tools/patch/load_bar.py:media_load), after the migration
+    ldr r0, [r12]               ; moved the old folders; FF when the patch load-bar is not in the set
+    cmn r0, #1
+    beq early_media_done
+    ldr r0, =HOOK_CARD+CARD_FIL
+    ldr r1, =HOOK_CARD+CARD_BR
+    blx r12
+early_media_done:
+    ldr r12, =SPLASH_SYNC       ; the start image from the card (tools/patch/splash_editor.py:splash_sync): Media/splash.bmp
+    ldr r0, [r12]               ; into flash when it differs; FF when the patch splash-editor is not in the set
+    cmn r0, #1
+    blxne r12
     pop {r12, lr}
     .word 0xE12FF00C ; msr cpsr_cxsf, r12
     pop {r0-r12, lr}
@@ -28,6 +45,7 @@ script_card_hook:
     bl menu_arm_load
     ldrb r0, [r4, #0x18]        ; the loader's result, as 0xC0038D64 stored it (r4 is the command, kept by menu_arm_load)
     bl migrate_folders
+    bl pat_boot_load
     ldr r0, =HOOK_RUNTIME
     bl blechy_boot
     ldr r0, =HOOK_RUNTIME
@@ -46,6 +64,7 @@ script_card_wrapper_end:
 ; ---- the backlight colour at power-on: the hook of this build, the rest is script_boot_light.s
 .equ FLASH_GET, 0xC0029A40      ; the flash object (it exists from about 56 ms)
 .equ FLASH_READ, 0xC0029A74     ; (object, destination, address, length)
+.equ FLASH_WRITE, 0xC0029AB8    ; (object, address, length, source): erases and writes the 4 KiB sectors under the firmware's lock, 1 written
 
 ; 0xC00289D8 in the start, `cmp r0, #0x124`: right behind the firmware's first flash read (the mark at 0x220000, about 59 ms) on the
 ; way of the normal start (the start modes branch off before). The held keys are known and the flash answers; the start image is not

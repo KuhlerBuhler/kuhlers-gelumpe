@@ -1,4 +1,7 @@
-"""Native SysEx cache-probe cases with injected CP15/cache views, no hardware."""
+"""Native SysEx cache-probe cases with injected CP15/cache views, no hardware.
+
+Research tool, run by hand: no runner calls it.
+"""
 import argparse
 import json
 import struct

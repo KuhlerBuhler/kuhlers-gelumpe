@@ -4,9 +4,11 @@
  *
  * The runtime (tools/patch/script_remote.s) takes a command word from the work area of its card loader in the frame
  * hook and puts a panel message into the firmware's queue of panel messages, so the firmware takes it as one from the
- * panel. The console only leaves the word (and the message) there, through a stub run by KORG.exec; the stub then waits
- * until the runtime counted the command done, so a second command never overwrites a first one. The emulator and the
- * device get the same stub. (measure:2026-10-22/tasten-vom-rechner, measure:2026-10-29/test-modus-fernsteuerung)
+ * panel. The console only leaves the word (and the message) there, through a stub run by KORG.exec that returns at once;
+ * the console then reads the runtime's done counter until it moved, so a second command never overwrites a first one.
+ * The stub must not wait in EXEC: a stub that slept in the SysEx command task hung a red Electribe on 2026-11-12. The
+ * emulator and the device get the same stub.
+ * (measure:2026-10-22/tasten-vom-rechner, measure:2026-10-29/test-modus-fernsteuerung)
  */
 import { ramToFile } from "./map/address.mjs";
 import { BUTTONS, ENCODERS, KNOBS, KNOB_MAX, PADS, TOUCH_BUTTON, TOUCHPAD_MAX } from "../data/panel.mjs";
@@ -27,8 +29,8 @@ export const TEST = 4;
 export const RELEASE = 5;
 /** The operating system's sleep (ms) of the Sampler (tools/patch/script_menu.s, OS_WAIT); a 1.3.8 runtime names its own. */
 const OS_WAIT = 0xc0000b78;
-/** How long the stub waits for the runtime: 50 times 10 ms. A key takes two frames of 40 ms. */
-const TRIES = 50;
+/** How long the console waits for the runtime: 50 reads of the done counter 10 ms apart. A key takes two frames of 40 ms. */
+export const TRIES = 50;
 const LAST_KEY = Math.max(TOUCH_BUTTON, ...BUTTONS.map(b => b.index));
 
 /**
@@ -86,59 +88,57 @@ export function command(kind, index = 0, value = 0) {
 }
 
 /**
- * The stub for KORG.exec: note the done counter, write the command word, sleep 10 ms until the counter moved (at most
- * TRIES times). It returns 1 when the runtime took the command; else it takes the word back and returns 0, and EXEC
- * reports the failure. Assembled with tools/patch/arm.py; test/remote.test.mjs holds it against the assembler.
+ * The stub for KORG.exec: write the command word and return 1 at once. It does not wait for the runtime; the console reads
+ * the done counter (mailbox + 8) afterwards and takes the word back with takeBack() when it did not move. Assembled with
+ * tools/patch/arm.py; test/remote.test.mjs holds it against the assembler.
  */
-export function stub(mailbox, word, osWait = OS_WAIT) {
+export function stub(mailbox, word) {
   return [
-    0xe92d4070, // push {r4, r5, r6, lr}
-    0xe59f4040, // ldr r4, =mailbox
-    0xe5945008, // ldr r5, [r4, #8]      done counter before
-    0xe59f003c, // ldr r0, =word
-    0xe5840000, // str r0, [r4]
-    ...WAIT.map(w => w ?? 0xe59fc030),
-    mailbox >>> 0, word >>> 0, osWait >>> 0,
+    0xe59f000c, // ldr r0, =mailbox
+    0xe59f100c, // ldr r1, =word
+    0xe5801000, // str r1, [r0]
+    0xe3a00001, // mov r0, #1
+    0xe12fff1e, // bx lr
+    mailbox >>> 0, word >>> 0,
   ];
 }
 
-/** The wait of both stubs: up to TRIES times 10 ms for the done counter, then 1, or 0 with the word taken back. */
-const WAIT = [
-  (0xe3a06000 | TRIES) >>> 0, // mov r6, #TRIES
-  0xe3a0000a, // wait: mov r0, #10
-  null, // ldr r12, =OS_WAIT (pc relative, differs between the stubs)
-  0xe12fff3c, // blx r12
-  0xe5940008, // ldr r0, [r4, #8]
-  0xe1500005, // cmp r0, r5
-  0x1a000004, // bne out
-  0xe2566001, // subs r6, r6, #1
-  0x1afffff7, // bne wait
-  0xe3a00000, // mov r0, #0
-  0xe5840000, // str r0, [r4]          the word back: nothing runs it later
-  0xe8bd8070, // pop {r4, r5, r6, pc}
-  0xe3a00001, // out: mov r0, #1
-  0xe8bd8070, // pop {r4, r5, r6, pc}
-];
-
 /**
- * The stub for a whole panel message: as stub(), and before the command word the message's 8 bytes at `at` (the
- * runtime's RM_MSG_AT). Assembled with tools/patch/arm.py; test/remote.test.mjs holds it against the assembler.
+ * The stub for a whole panel message: the message's 8 bytes at `at` (the runtime's RM_MSG_AT), then the command word, and
+ * return 1 at once, as stub(). Assembled with tools/patch/arm.py; test/remote.test.mjs holds it against the assembler.
  */
-export function messageStub(mailbox, at, message, osWait = OS_WAIT) {
+export function messageStub(mailbox, at, message) {
   const bytes = new Uint8Array(8);
   bytes.set(message.slice(0, 5));
   const view = new DataView(bytes.buffer);
   return [
-    0xe92d4070, // push {r4, r5, r6, lr}
-    0xe59f4050, // ldr r4, =mailbox
-    0xe5945008, // ldr r5, [r4, #8]      done counter before
-    0xe59f104c, // ldr r1, =at
-    0xe59f204c, // ldr r2, =message, first word
-    0xe59f304c, // ldr r3, =message, second word
-    0xe881000c, // stmia r1, {r2, r3}
-    0xe59f0048, // ldr r0, =command word
-    0xe5840000, // str r0, [r4]
-    ...WAIT.map(w => w ?? 0xe59fc03c),
-    mailbox >>> 0, at >>> 0, view.getUint32(0, true), view.getUint32(4, true), command(MESSAGE), osWait >>> 0,
+    0xe59f201c, // ldr r2, =at
+    0xe59f301c, // ldr r3, =message, first word
+    0xe59fc01c, // ldr r12, =message, second word
+    0xe8821008, // stmia r2, {r3, r12}
+    0xe59f0018, // ldr r0, =mailbox
+    0xe59f1018, // ldr r1, =command word
+    0xe5801000, // str r1, [r0]
+    0xe3a00001, // mov r0, #1
+    0xe12fff1e, // bx lr
+    at >>> 0, view.getUint32(0, true), view.getUint32(4, true), mailbox >>> 0, command(MESSAGE),
+  ];
+}
+
+/**
+ * The word back when the runtime did not take it in time (switched on with EXIT held, a full queue): clears the mailbox
+ * only while it still holds `word`, so nothing runs it later. Returns 1. Assembled with tools/patch/arm.py.
+ */
+export function takeBack(mailbox, word) {
+  return [
+    0xe59f0018, // ldr r0, =mailbox
+    0xe5901000, // ldr r1, [r0]
+    0xe59f2014, // ldr r2, =word
+    0xe1510002, // cmp r1, r2
+    0x03a01000, // moveq r1, #0
+    0x05801000, // streq r1, [r0]
+    0xe3a00001, // mov r0, #1
+    0xe12fff1e, // bx lr
+    mailbox >>> 0, word >>> 0,
   ];
 }

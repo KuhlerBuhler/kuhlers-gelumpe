@@ -490,6 +490,19 @@ test("korg.keyHold refuses EXIT, korg.touchLockX is state in the simulated hardw
   assert.equal(faults[0]?.name, "API_ARG");
 });
 
+test("korg.touchLockY is state in the simulated hardware, apart from the X lock", () => {
+  const sim = new SimDevice();
+  assert.ok(sim.load(build("locky", `
+    korg.onEvent("ready", () => { korg.touchLockY(100); });
+    korg.onEvent("touch", (x, y) => { if (y > 900) korg.touchLockY(-1); });
+  `)).ok);
+  sim.frame();
+  assert.deepEqual([sim.hardware.touchLockY, sim.hardware.touchLock], [100, -1]);
+  sim.post("touch", 300, 1000);
+  sim.frame();
+  assert.equal(sim.hardware.touchLockY, -1, "the plugin gets the real Y and lets go");
+});
+
 test("korg.seq.setPatternValue writes a value of the pattern that plays, clamped and stored as it is read", () => {
   const sim = new SimDevice();
   assert.ok(sim.load(build("pattern", `

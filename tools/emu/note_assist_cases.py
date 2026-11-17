@@ -109,6 +109,17 @@ class NBox(Box):
     def hinted(self):
         return sorted(n for n, v in self.leds().items() if is_hint(v))
 
+    def settle(self):
+        """Runs on in 1 ms steps until the pads hold still for 1 ms (at most 20 ms): a pad's red and blue go out 0.4 ms apart, so a
+        look at a fixed moment can catch a hint's new red with its old blue."""
+        before = self.leds()
+        for _ in range(20):
+            self.run(0.001)
+            now = self.leds()
+            if now == before:
+                return
+            before = now
+
     def levels(self):
         """{pad: the red of its hint}."""
         return {n: v[0] for n, v in self.leds().items() if is_hint(v)}
@@ -431,6 +442,7 @@ def case_firmware_wins(payload, flash):
     quiet = seq.hinted()
     seq.key("play", 0.0)
     seq.run(0.6)
+    seq.settle()
     shown = seq.hinted()
     played = seq.leds().get(2)
     seq.key("stop", 0.5)
@@ -673,7 +685,50 @@ def case_chord(payload, flash):
     return out
 
 
-GROUPS = (case_chord, case_layout_and_hints, case_timing, case_new_note, case_firmware_wins, case_modes, case_stock, case_values, case_lock)
+def case_key(payload, flash):
+    """A part with SCALE MODE ON plays its notes KEY semitones higher (and 12 x the KEY PADS octave), and the firmware lights the pad
+    of the note less that shift. The patch's note of the sequencer has to be the same pad (device 15.11.: with another KEY the hints and
+    the red of the playing note stayed away until the pattern changed)."""
+    out = []
+    rows = {}
+    for label, key, octave_pad in (("key_c", 0, None), ("key_e", 4, None), ("octave_up", 0, 14), ("octave_down", 0, 12)):
+        box = NBox(payload, flash)
+        part = box.pattern() + 4 + 0x800
+        box.m.uc.mem_write(part + 5, b"\x01")                                       # SCALE MODE ON
+        for s in range(64):
+            on = s % 4 == 0
+            box.m.uc.mem_write(part + 0x30 + 12 * s, bytes([int(on), 40, 100, int(on), 61 if on else 0, 0, 0, 0]))
+        box.key("keyboard", 0.4)
+        if key:
+            box.dev.call(SET_KEY, box.pattern(), key, 0)
+            box.run(0.3)
+        if octave_pad is not None:                                                  # KEY PADS: KEYBOARD held, pad 13 to 16
+            box.m.press(KEYS["keyboard"], True)
+            box.run(0.25)
+            box.tap_pad(octave_pad, hold=0.05, wait=0.05)
+            box.m.press(KEYS["keyboard"], False)
+            box.run(0.3)
+        box.key("play", 0.0)
+        lit, red, hinted = set(), set(), 0
+        for _ in range(100):
+            box.run(0.02)
+            for n, (r, b) in box.leds().items():
+                if r % 2 == 0 and r >= 34 and r != 255:
+                    lit.add(n)
+                if (r, b) == (spec.PLAY_RED, 0):
+                    red.add(n)
+            hinted += bool(box.hinted())
+        box.key("stop", 0.3)
+        rows[label] = (sorted(lit), sorted(red), hinted, box.m.asserts)
+    # pad 0 is the selected part's: it holds the firmware's blue and shows a red only while the patch has it
+    ok = all(lit and set(lit) - {0} == set(red) - {0} and hinted > 50 and not asserts for lit, red, hinted, asserts in rows.values())
+    out.append(entry("sequencer_note_follows_key_and_octave", ok,
+                     f"part 1 SCALE MODE ON, every 4th step one note, PLAY for 2 s; per case (pads the firmware lit, pads with the patch's red, "
+                     f"frames of 100 with hints): {rows}; want the patch's red on the firmware's pads (pad 0, the part's, aside) and hints in every case"))
+    return out
+
+
+GROUPS = (case_chord, case_layout_and_hints, case_timing, case_new_note, case_firmware_wins, case_modes, case_stock, case_values, case_lock, case_key)
 
 
 def group_entries(payload, flash, i):
