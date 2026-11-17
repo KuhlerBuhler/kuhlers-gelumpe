@@ -6,6 +6,301 @@
 export const FX_CATALOG = Object.freeze([
  {
   "kind": "mfx",
+  "name": "Big Hall",
+  "description": "Nach Hacktribes Big Hall: ein großer, langer Hall, dunkler als Korgs Wet Reverb. Der Effekt-Schalter blendet den Hall ein, X macht ihn länger, Y nach oben mehr Hall, nach unten weniger.",
+  "stages": [
+   {
+    "stage": "mfx",
+    "unit": 54,
+    "unitName": "M_hall_reverb",
+    "params": {
+     "dry_wet": 100,
+     "time": 120,
+     "hi_damp": 88,
+     "pre_delay": 60,
+     "trim": 52,
+     "trim2": 127,
+     "lo_eq": 22,
+     "hi_eq": 31,
+     "pd_thru": 120
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 65,
+    "chain": 7,
+    "param": 5,
+    "low": 0,
+    "high": 44
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 1,
+    "low": 30,
+    "high": 100
+   },
+   {
+    "source": 71,
+    "chain": 2,
+    "param": 4,
+    "low": 24,
+    "high": 0
+   },
+   {
+    "source": 70,
+    "chain": 2,
+    "param": 4,
+    "low": 24,
+    "high": 84
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "mfx",
+  "name": "Plate Reverb",
+  "description": "Nach Hacktribes Plate Reverb: ein dichter Plattenhall, eingestellt wie Korgs Hall Reverb. Der Effekt-Schalter blendet den Hall ein, X macht ihn länger, Y nach oben mehr Hall, nach unten weniger.",
+  "stages": [
+   {
+    "stage": "mfx",
+    "unit": 56,
+    "unitName": "M_wet_plate_reverb",
+    "params": {
+     "dry_wet": 100,
+     "time": 42,
+     "hi_damp": 112,
+     "pre_delay": 40,
+     "trim": 52,
+     "trim2": 127,
+     "lo_eq": 24,
+     "hi_eq": 32,
+     "pd_thru": 92
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 65,
+    "chain": 7,
+    "param": 5,
+    "low": 0,
+    "high": 44
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 1,
+    "low": 30,
+    "high": 122
+   },
+   {
+    "source": 71,
+    "chain": 2,
+    "param": 4,
+    "low": 24,
+    "high": 0
+   },
+   {
+    "source": 70,
+    "chain": 2,
+    "param": 4,
+    "low": 24,
+    "high": 80
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "mfx",
+  "name": "Tap Delay Sync",
+  "description": "Nach Hacktribes Tap Delay Sync: Korgs Tape Delay mit einem anderen Notenwert für das erste Echo, etwas leiser und mit leichtem Leiern. X stellt die Zeit, Y oben mehr Wiederholungen und Sättigung, unten weniger Pegel.",
+  "stages": [
+   {
+    "stage": "mfx",
+    "unit": 60,
+    "unitName": "M_tape_echo",
+    "params": {
+     "dry_wet": 100,
+     "time_ratio": 40,
+     "sync_on": 1,
+     "s_note1": 6,
+     "s_note2": 8,
+     "time1": 19,
+     "time2": 19,
+     "delay_lag": 1,
+     "output_level": 44,
+     "tap1_level": 86,
+     "tap2_level": 86,
+     "feedback": 68,
+     "hi_damp": 84,
+     "lo_damp": 60,
+     "trim": 66,
+     "saturation": 45,
+     "gain": 53,
+     "gainshift": 5,
+     "lfo_wave": 3,
+     "lfo_depth": 20,
+     "lfo_speed": 34,
+     "lfo_reset": 0,
+     "pre_lpf": 106,
+     "spread": 120
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 65,
+    "chain": 7,
+    "param": 5,
+    "low": 0,
+    "high": 127
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 1,
+    "low": 46,
+    "high": 40
+   },
+   {
+    "source": 70,
+    "chain": 2,
+    "param": 11,
+    "low": 30,
+    "high": 66
+   },
+   {
+    "source": 71,
+    "chain": 2,
+    "param": 14,
+    "low": 62,
+    "high": 0
+   },
+   {
+    "source": 67,
+    "chain": 2,
+    "param": 15,
+    "low": 46,
+    "high": 92
+   },
+   {
+    "source": 70,
+    "chain": 2,
+    "param": 16,
+    "low": 53,
+    "high": 62
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "mfx",
+  "name": "Tube Drive",
+  "description": "Nach Hacktribes Tube Drive: Korgs Tube EQ ohne Filter, als Röhrenverzerrer. Y zerrt stärker und nimmt dabei den Pegel etwas zurück, X nimmt Bass raus.",
+  "stages": [
+   {
+    "stage": "mfx",
+    "unit": 47,
+    "unitName": "M_tubepre",
+    "params": {
+     "dry_wet": 100,
+     "tube1_gain": 70,
+     "tube1_sat": 0,
+     "tube2_gain": 66,
+     "tube2_sat": 82,
+     "lo_cut1": 0,
+     "hi_cut1": 126,
+     "lo_cut2": 0,
+     "hi_cut2": 127,
+     "tube1_bias": 30,
+     "tube1_phase": 0,
+     "tube2_bias": 40,
+     "output_level": 64
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 65,
+    "chain": 10,
+    "param": 4,
+    "low": 127,
+    "high": 0
+   },
+   {
+    "source": 65,
+    "chain": 10,
+    "param": 0,
+    "low": 0,
+    "high": 127
+   },
+   {
+    "source": 67,
+    "chain": 2,
+    "param": 2,
+    "low": 20,
+    "high": 124
+   },
+   {
+    "source": 70,
+    "chain": 2,
+    "param": 0,
+    "low": 36,
+    "high": 127
+   },
+   {
+    "source": 71,
+    "chain": 2,
+    "param": 4,
+    "low": 70,
+    "high": 26
+   },
+   {
+    "source": 71,
+    "chain": 2,
+    "param": 0,
+    "low": 30,
+    "high": 0
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 5,
+    "low": 0,
+    "high": 80
+   },
+   {
+    "source": 67,
+    "chain": 2,
+    "param": 12,
+    "low": 62,
+    "high": 50
+   },
+   {
+    "source": 67,
+    "chain": 2,
+    "param": 1,
+    "low": 64,
+    "high": 124
+   },
+   {
+    "source": 67,
+    "chain": 2,
+    "param": 3,
+    "low": 34,
+    "high": 124
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "mfx",
   "name": "Short Delay",
   "description": "Ein kurzes Stereo-Echo, die Wiederholungen leicht versetzt. Das Touchpad mischt das Echo dazu und verschiebt die Zeiten.",
   "stages": [

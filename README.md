@@ -62,7 +62,9 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | Eigene Samples aufnehmen und laden | ✅ | ➖ | ✅ | ✅ | ➖ | ✅ |
 | Erweiterte Hacktribe-Oszillatorbank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Zusätzliche Hacktribe-MFX, IFX, Grooves und Skalen | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Hacktribe-Inserts (Lag, KP2 Comp, Drive-Filter, Delays) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Hacktribe-MFX (Big Hall, Plate Reverb, Tap Delay Sync, Tube Drive) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Zusätzliche Hacktribe-Grooves und Skalen | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | FX und Grooves über die Hacktribe-Menüs importieren/exportieren | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Eigenes INIT-Pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Hacktribe-SysEx (für den Hacktribe-Editor) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
@@ -97,7 +99,8 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 
 Hacktribe ist eine eigene Firmwarebasis. BLECHTRIBE ergänzt sie; es schaltet diese
 Hacktribe-Funktionen auf einem Korg-Original nicht automatisch frei. Ausnahme sind die Hacktribe-Oszillatoren
-auf den freien Plätzen 422 bis 497 der roten BLECHTRIBE, immer an, ohne Schalter. Die blaue BLECHTRIBE-Spalte
+auf den freien Plätzen 422 bis 497 der roten BLECHTRIBE, immer an, ohne Schalter, die 11 Hacktribe-Inserts
+als Nachbau auf den IFX-Plätzen 39 bis 49 und die 4 Hacktribe-MFX als Nachbau auf den MFX-Plätzen 33 bis 36 der roten BLECHTRIBE. Die blaue BLECHTRIBE-Spalte
 meint den Synth-Satz auf Korg 2.02. Hacktribe selbst unterstützt laut Projekt beide Hardwaretypen.
 
 **Was du bei Hacktribe abwägen musst:**
