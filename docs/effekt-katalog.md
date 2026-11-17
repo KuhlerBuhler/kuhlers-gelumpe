@@ -16,9 +16,21 @@ Inserts (Lag, KP2 Comp, LP Drive, LP Drive Res, HP Drive, HP Res Drive, BP Drive
 1/12 Delay), ab 50 der Katalog. Hacktribe behält auf 39 bis 49 seine eigenen Presets. Korgs 2.02 bekommt dort Nachbauten
 aus dem Katalog: dieselben Bausteine, dieselben Notenwerte, die übrigen Werte bewusst leicht anders gesetzt (Hacktribes
 Bytes kommen nicht ins Projekt), im Klang nah dran. Master-Effekte: Hacktribe hat keine über Korgs 32 hinaus, es tauscht nur
-vier Werksplätze (10, 11, 21, 32); der Katalog beginnt auf beiden bei 33. Ein Patch-Update einer schon gepatchten Datei
-ordnet die Katalog-Plätze genauso neu. Patterns, die einen Katalog-Insert auf Korgs 2.02 nutzen, zeigen danach auf einen
+vier Werksplätze (10 Big Hall, 11 Plate Reverb, 21 Tap Delay Sync, 32 Tube Drive). Ab 1.4.7 bekommt Korgs 2.02 diese vier als
+Nachbauten auf 33 bis 36, angehängt, kein Werkspreset wird ersetzt; der Katalog beginnt dort bei 37. Hacktribe behält seine
+vier auf den Werksplätzen, sein Katalog beginnt weiter bei 33. Ein Patch-Update einer schon gepatchten Datei
+ordnet die Katalog-Plätze genauso neu. Patterns, die einen Katalog-Effekt auf Korgs 2.02 nutzen, zeigen danach auf einen
 anderen Effekt; sie werden nicht umgeschrieben.
+
+| Name | Baustein | Woher die Werte kommen |
+|---|---|---|
+| Big Hall | `M_hall_reverb` | Korgs Wet Reverb als Ausgang, länger und dunkler gesetzt, in Richtung Hacktribes Big Hall. Den Baustein nutzt kein Werkspreset. |
+| Plate Reverb | `M_wet_plate_reverb` | Korgs Hall Reverb, leicht verschoben. Den Baustein nutzt kein Werkspreset. |
+| Tap Delay Sync | `M_tape_echo` | Korgs Tape Delay mit Hacktribes Notenwerten (6 und 8), Ausgangspegel 44 statt 53, leichtes Leiern. |
+| Tube Drive | `M_tubepre` | Korgs Tube EQ ohne Tiefen- und Höhenschnitt, Y fährt Sättigung und Gain. |
+
+Im Emulator schicken die vier dem DSP dieselben Bausteine wie Hacktribes eigene, mit den eigenen Werten
+([Messung](messungen/2026-11-17-hacktribe-master-rot.md)). Gehört ist keiner.
 
 ## Laut
 
