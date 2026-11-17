@@ -11,6 +11,7 @@ register, ASTAT and CYCLES included.
     qemu_compare.py SYSTEM.VSB --gnu GNU_WORKER --qemu QEMU_WORKER [--calls N]
                     [--func ADDR ...] [--bench --min-speedup X]
     qemu_compare.py --fuzz N [--seed S] [--fuzz-length L | --fuzz-class C] --gnu GNU_WORKER --qemu QEMU_WORKER
+    qemu_compare.py SYSTEM.VSB --blocks N --gnu GNU_WORKER --qemu QEMU_WORKER
 
 Without --func the 38 functions from docs/messungen/2026-11-16-qemu-bfin-
 vergleich.md are compared. --bench times the calls in both workers and fails
@@ -19,7 +20,9 @@ programs of random ALU, shift and DSP instructions (no memory access) from
 random registers and compares all registers afterwards; an instruction that
 raises an exception has to raise in both workers. --fuzz-class limits each
 program to one instruction of a 32-bit class (mac, mult, alu, shift,
-shiftimm); each difference line carries the start registers. Exit status 1 on any
+shiftimm); each difference line carries the start registers. --blocks
+records N audio blocks of the coupled ARM/DSP run in GNU and replays them in
+QEMU (qemu_blocks.py). Exit status 1 on any
 difference or a missed speed-up.
 """
 import argparse
@@ -304,7 +307,15 @@ def main():
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--fuzz-length', type=int, default=1, help='instructions per program')
     parser.add_argument('--fuzz-class', choices=sorted(FUZZ_CLASSES), help='one 32-bit insn of this class per program')
+    parser.add_argument('--blocks', type=int, metavar='N', help='compare N audio blocks of the coupled run (qemu_blocks.py)')
     args = parser.parse_args()
+    if args.blocks is not None:
+        if args.vsb is None:
+            parser.error('--blocks needs SYSTEM.VSB')
+        import qemu_blocks
+        result = qemu_blocks.run(args.vsb, args.gnu, args.qemu, args.blocks)
+        print(json.dumps(result, indent=2))
+        sys.exit(0 if result['ok'] else 1)
     if args.fuzz is None and args.vsb is None:
         parser.error('SYSTEM.VSB or --fuzz N is required')
     sys.exit(fuzz(args) if args.fuzz is not None else compare(args))
