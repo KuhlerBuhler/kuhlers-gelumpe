@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 38;
+export const API_VERSION = 39;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -323,11 +323,12 @@ const arr = (name, strip) => ({ name, kind: "arr", strip });
 const BITMAP_ITEM_COST = 3;
 
 /**
- * The data file of a plugin for korg.file.read and korg.file.write: `SD:KORG/blechtribe/Plugin/Data/<name>.bin`, the plugin's
- * name with every character other than A to Z, a to z, 0 to 9 and "-" as "_", at most `maxBytes` bytes. The limit may grow in a
- * later API version.
+ * The data files of a plugin for korg.file.read and korg.file.write (API 39): `files` files in the plugin's own folder,
+ * `SD:KORG/blechtribe/Plugin/Data/<name>/00.bin` to `15.bin`, `<name>` the plugin's name with every character other than A to Z,
+ * a to z, 0 to 9 and "-" as "_"; each at most `maxBytes` bytes. The device holds one of them at a time in a heap block
+ * (docs/messungen/2026-11-17-plugin-daten-heap.md).
  */
-export const SCRIPT_DATA_FILE = Object.freeze({ maxBytes: 4096, folder: "KORG/blechtribe/Plugin/Data/", extension: ".bin" });
+export const SCRIPT_DATA_FILE = Object.freeze({ files: 16, maxBytes: 32768, folder: "KORG/blechtribe/Plugin/Data/", extension: ".bin" });
 
 /**
  * The pictures on the card for korg.file.count, korg.file.name and korg.file.picture (API 38): the files right in `folder` that end
@@ -338,10 +339,10 @@ export const SCRIPT_DATA_FILE = Object.freeze({ maxBytes: 4096, folder: "KORG/bl
 export const SCRIPT_MEDIA = Object.freeze({ folder: "KORG/blechtribe/Media/", endings: Object.freeze([".bmp", ".blla"]), maxFiles: 64,
   nameMax: 17, entryBytes: 32, pictureBytes: 1024 });
 
-/** The file name of a plugin's data file (SCRIPT_DATA_FILE). */
-export function dataFileName(name) {
+/** The path of a plugin's data file `file` below SCRIPT_DATA_FILE.folder: the plugin's folder, "/", the number in two digits. */
+export function dataFileName(name, file = 0) {
   const safe = String(name).slice(0, 16).replace(/[^A-Za-z0-9-]/g, "_");
-  return (safe || "_") + SCRIPT_DATA_FILE.extension;
+  return (safe || "_") + "/" + String(file).padStart(2, "0") + SCRIPT_DATA_FILE.extension;
 }
 
 /**
@@ -467,8 +468,9 @@ const API_LIST = [
   [129, "korg.audio.capture", [int("source", -1, 24)], "int", UI, 6, 31],
   [130, "korg.audio.spectrum", [arr("array"), int("bins", 1, 128), int("range", 0, 1)], "int", UI, 30, 31, 1],
   [131, "korg.audio.wave", [arr("array")], "int", UI, 30, 31, 1],
-  [122, "korg.file.read", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1)], "int", UI, 250, 32, 1],
-  [123, "korg.file.write", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1)], "int", UI, 250, 32, 1],
+  // a plugin's data files (SCRIPT_DATA_FILE); API 39 added the file argument and the folder per plugin
+  [122, "korg.file.read", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1), int("file", 0, SCRIPT_DATA_FILE.files - 1)], "int", UI, 250, 39, 1],
+  [123, "korg.file.write", [arr("array"), int("offset", 0, SCRIPT_DATA_FILE.maxBytes - 1), int("file", 0, SCRIPT_DATA_FILE.files - 1)], "int", UI, 250, 39, 1],
   // samples and pattern actions (API 33): the sampler's name and playback tables (-1 on the synth), WRITE as the key does
   [124, "korg.read.sampleName", [arr("array"), int("slot", 0, SAMPLE_INFO.slots - 1)], "int", ALL, 6, 33, 1],
   [125, "korg.read.sampleInfo", [int("slot", 0, SAMPLE_INFO.slots - 1), int("field", 0, SAMPLE_INFO.fields.length - 1)], "int", ALL, 4, 33],
