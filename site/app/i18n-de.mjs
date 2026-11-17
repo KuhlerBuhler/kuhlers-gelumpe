@@ -2347,7 +2347,7 @@ export default {
   "api.korg.audio.spectrum": "Füllt die ersten bins Plätze mit dem Spektrum, dB 0 bis 96 je Band, range 0 bis 20 kHz oder 1 bis 2 kHz. Gibt den Status wie korg.audio.capture, schreibt nur bei 0.",
   "api.korg.audio.wave": "Füllt das Feld mit den neuesten Frames des aufgenommenen Tons, -128 bis 127, höchstens 256, der letzte Platz am neuesten. Gibt den Status wie korg.audio.capture.",
   "api.korg.file.read": "Liest die Datendatei file (0 bis 15) des Plugins ab offset von der Karte ins Feld, ein Byte je Platz. Gibt die gelesenen Bytes zurück, -1 wenn die Karte gerade nicht lesbar ist.",
-  "api.korg.file.write": "Schreibt das untere Byte jedes Platzes ab offset in die Datendatei file (0 bis 15) des Plugins (höchstens 32768 Bytes), auf die Karte im Hauptbild. Gibt die Bytes zurück, -1 wenn es gerade nicht geht.",
+  "api.korg.file.write": "Schreibt das untere Byte jedes Platzes ab offset in die Datendatei file (0 bis 15) des Plugins, höchstens 32768 Bytes, im Hauptbild auf die Karte. Gibt die Bytes zurück, sonst -1.",
   "api.korg.read.sampleName": "Liest den Namen des Samples in slot (0 bis 997) ins Feld, ein Zeichen je Platz. Gibt die Zeichen zurück, 0 für einen leeren Slot, -1 auf dem blauen Synth.",
   "api.korg.read.sampleInfo": "Ein Wert des Samples in slot: 0 Start, 1 Ende, 2 Loop, 3 Tune, 4 Stereo, 5 Länge in Byte, 6 One-Shot, 7 Samplerate. -1 auf dem blauen Synth.",
   "api.korg.pattern.write": "Speichert das laufende Pattern an seinen Platz, wie EXIT + WRITE. Gibt 1 zurück, wenn es speichert, 0 außerhalb des Hauptbilds.",
