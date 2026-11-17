@@ -2,8 +2,7 @@
 
 Stand 17. November 2026. Grundlage für das Hauptfeature von 1.6: den laufenden Mix ohne PC und Interface auf die Karte
 aufnehmen und eine WAV von der Karte abspielen. Gelesen im DSP-Programm (Hacktribe 2.02, rot und blau 2.02, ausgepackt mit
-[`dsp_extract.py`](../../tools/dsp/dsp_extract.py), Blackfin-binutils 2.42) und im ARM-Code (capstone). Kein Gerätezugriff,
-kein Emulatorlauf. Marker: **gelesen** (Code gelesen), **gemessen** (aus einer anderen Messung übernommen, mit Link),
+[`dsp_extract.py`](../../tools/dsp/dsp_extract.py), Blackfin-binutils 2.42) und im ARM-Code (capstone). Ergänzt um die unten beschriebenen Simulatorprüfungen. Kein Gerätezugriff. Marker: **gelesen** (Code gelesen), **gemessen** (aus einer anderen Messung übernommen, mit Link),
 **hergeleitet**, **offen**.
 
 Rot und Hacktribe haben dasselbe DSP-Programm ([DSP-Modell](2026-11-12-dsp-modell.md)), alles zu Hacktribe gilt dort.
@@ -12,7 +11,7 @@ Rot und Hacktribe haben dasselbe DSP-Programm ([DSP-Modell](2026-11-12-dsp-model
 
 | Frage | Antwort | Marker |
 |---|---|---|
-| Wo liegt der fertige Mix? | DSP-Wort `0xFF802888`: links (obere 16 Bit) und rechts (untere 16 Bit), nach dem Master-Effekt und einem Soft-Clipper, jedes Sample neu. Daneben `0xFF80288C`, die Mono-Summe | gelesen |
+| Wo liegt der Mix vor THRU und Metronom? | DSP-Wort `0xFF802888`: links (obere 16 Bit) und rechts (untere 16 Bit), nach dem Master-Effekt und einem Soft-Clipper, jedes Sample neu. Daneben `0xFF80288C`, die Mono-Summe | gelesen |
 | Wie nimmt Korg ihn auf? | RESAMPLING ist Postfach-Kommando `0x3B` mit Quelle 1: der DSP kopiert dieses Wort jedes Sample per DMA linear in den Sample-Speicher | gelesen |
 | Geht es mit `korg.audio.capture`? | Ja, mit einem Wort: die Erfassung (`0x37`) liest ihre Quelle über einen Zeiger in `0xFF9031DC`. Zeigt er auf `0xFF802888`, läuft der Master in den Ring. Der Ring fasst aber nur 4800 Frames, 100 ms | gelesen, hergeleitet |
 | Reicht die Karte? | Lesen 3,1 MiB/s (12,5 MHz) und 5,1 MiB/s (25 MHz) am Gerät. Aufnahme braucht 0,19 MB/s. Schreiben ist auf rund 3 MB/s geschätzt (Erfahrungswert des Besitzers); Schreibrate und Schreibpausen am Gerät sind nicht gemessen | gemessen (lesen), geschätzt (schreiben) |
@@ -32,20 +31,19 @@ schreibt dort `0xFF802870` hinein (`0x01F0C626`, `[P0 + 0xC] = R2` mit `P0 = 0xF
 |---|---|
 | `0xFFA016AC` | Aufruf des Master-Effekts, vorher wartet sie auf MDMA (`0xFFC00F28` Bit 3) |
 | `0xFFA016B6..0xFFA0171C` | Effektausgang mal Pegel plus trockener Anteil |
-| `0xFFA01720..0xFFA01734` | dazu `[P4 + 0x6C]`, `[P4 + 0x70]` (Bedeutung offen), mal 2 mit Sättigung |
+| `0xFFA01720..0xFFA01734` | dazu `[P4 + 0x6C]`, `[P4 + 0x70]` (Sammelbus, der MFX umgeht, hergeleitet), mal 2 mit Sättigung |
 | `0xFFA0174A` | `0xFFA0135C`, ein Soft-Clipper (kubisch über einer Schwelle `0x361962E9`), in place auf `[P4 + 0x10]`, `[P4 + 0x14]` |
 | `0xFFA01750..0xFFA01784` | ein Verstärkungsfaktor aus `[P5 + 0x144..0x150]`, einpolig geglättet (hergeleitet: Pegelrampe) |
 | `0xFFA0179A` | **`[P4 + 0x18]` = L obere 16 Bit, R untere 16 Bit**, also `0xFF802888` |
 | `0xFFA017A8` | **`[P4 + 0x1C]` = L/2 + R/2**, also `0xFF80288C` |
 | `0xFFA017AA..0xFFA017EC` | Erfassung (`0x37`, siehe unten) |
 | `0xFFA017EE..0xFFA0183C` | Aufnahme (`0x3B`, siehe unten) |
-| `0xFFA0189A..0xFFA0193A` | eine weitere Stufe addiert ein Mono-Signal mit eigener Hüllkurve (Bedeutung offen) und eine Verstärkung |
+| `0xFFA0189A..0xFFA0193A` | AUDIO IN THRU, danach Metronom mit eigener Hüllkurve und Ausgangsverstärkung (siehe Simulatorprüfung) |
 | `0xFFA01946..0xFFA01966` | Spitzenpegel `[P5 + 0x50]`, `[P5 + 0x54]` = `0xFF9030F4` ([Pegel-LEDs](2026-11-12-pegel-leds.md)) |
 | `0xFFA019C6` | Ausgang nach `[P4 + 0x10]`, `[P4 + 0x14]` |
 
 **Hergeleitet:** das aufgenommene Wort enthält den Mix nach dem Master-Effekt und dem Soft-Clipper, aber nicht die Stufe ab
-`0xFFA0189A`. Ob dort das Metronom, AUDIO IN THRU oder etwas anderes dazukommt, ist **offen**; das klärt ein Vergleich am
-Gerät (RESAMPLING mit und ohne Metronom).
+`0xFFA0189A`. Dort kommen AUDIO IN THRU und danach das Metronom dazu (gelesen und im Simulator geprüft, siehe Abschnitt 6).
 
 ### Korgs RESAMPLING: Kommando `0x3B`
 
@@ -86,8 +84,8 @@ Erfassung über `0xC0014368` (Postfach `0x37`, `(1, Art)`) und beendet sie über
 
 **Hergeleitet:** startet die CPU die Erfassung mit einer gültigen Art und schreibt danach `0xFF802888` nach `0xFF9031DC`
 (Host-Port-Schreiben `0xAB`, wie beim Postfach), dann landet der Master im Ring. Pro Frame ein 32-Bit-Wort, im Speicher
-erst R, dann L (die Hälften werden in diesem Weg nicht getauscht). Das ist ein Wort Schreiben, kein DSP-Patch. Nicht im
-Emulator und nicht am Gerät geprüft.
+erst R, dann L (die Hälften werden in diesem Weg nicht getauscht). Das ist ein Wort Schreiben, kein DSP-Patch. Quellzugriff und Deskriptoren im
+Simulator geprüft (Abschnitt 6), nicht am Gerät.
 
 **Gelesen:** Erfassung und Aufnahme teilen sich das Zwischenwort `0xFF80004C` und den DMA-Auftrag. Beide gleichzeitig
 gehen nicht; der Spettro-Dienst prüft das schon ([API 31](2026-11-12-plugin-api31-spektrum.md), Status 2). Aufnahme,
@@ -212,10 +210,75 @@ eigenen ARM-Code, der `0x37` ans Postfach schickt. Stereo braucht auf blau einen
 die Wiedergabe geht auf blau nur über P2, weil es dort keine User-Samples im Sample-Speicher gibt. Der Besitzer hat nur
 eine rote; blau braucht einen Tester.
 
+## 6. Simulatorprüfung am 17. November 2026
+
+**Im Simulator geprüft:** [`native_recording_probe.py`](../../tools/dsp/native_recording_probe.py) führt Abschnitte des
+originalen roten Blackfin-Programms mit synthetischen Signalen im GNU-Simulator aus. Die Firmwarebereiche werden aus einem
+externen Verzeichnis gelesen; ELF und Binärdateien entstehen nur im temporären Verzeichnis. Rücksprünge an den Grenzen
+isolieren die Abschnitte. Das ist kein vollständiger DSP-Boot und keine Messung am Gerät.
+
+Die Werkzeuge und das ausgepackte rote DSP-Programm werden beim Aufruf ausdrücklich übergeben:
+
+```sh
+node tools/load-gate.mjs python3 tools/dsp/native_recording_probe.py REGIONS \
+  --as BFIN_AS --objcopy BFIN_OBJCOPY --run BFIN_RUN
+```
+
+`REGIONS` kommt aus `tools/dsp/dsp_extract.py` und bleibt außerhalb des Repos. Die Adressen dieses Prüfers gelten für
+rot und Hacktribe, nicht für blau. Das DSP-Programm beider Sampler ist gleich (siehe DSP-Modell).
+
+### Erfassung und Ring
+
+Der Handler `0xFFA05620` startet die Erfassung. Danach wird der Quellzeiger vor jedem Frame zwischen dem Master-Wort und
+einem synthetischen zweiten Wort umgestellt. Für 4803 Frames werden Zwischenwort, DMA-Quelladresse, DMA-Zieladresse und
+nächster Ringzeiger geprüft. Die ersten 4800 Frames füllen einen Ring, die nächsten drei laufen wieder vom Anfang.
+Die Wörter bleiben bitgleich. Die Bytefolge ist R vor L; für eine Stereo-WAV muss der ARM die beiden 16-Bit-Hälften tauschen.
+
+**Grenze:** Die DMA-Register sind in diesem Lauf RAM. Der Prüfer bildet die Ringdaten aus den geprüften Deskriptoren nach.
+Das belegt den Quellzugriff, die Wortfolge und den Ringumlauf, keine echte MDMA-Übertragung oder deren Dauer. Schreibpausen
+und Leserabstände am Gerät bleiben offen. Gleichzeitiges Ändern des Zeigers durch einen Host-Port-Transfer ist nicht getestet.
+
+### AUDIO IN THRU und Metronom
+
+**Gelesen und im Simulator geprüft:** `0xFFA0189A..0xFFA018DC` glättet den THRU-Pegel und addiert die vorherigen linken und
+rechten Eingangswerte. Die aktuellen Werte aus `[P4]` und `[P4+4]` werden für den nächsten Frame gespeichert. Dieser Anteil
+steht noch nicht in `0xFF802888`.
+
+**Gelesen:** Der Sequencer liest über `0xC0046B8C` die Metronomeinstellung. Der Auslöser `0xC005EA3C` führt über
+`0xC003FC60` nach `0xC0014198`. Dort werden DSP-Parameter `0x4C55` und `0x4C56` beschrieben. Sie entsprechen den Wörtern
+`0xFF903154` und `0xFF903158`, also `[P5+0xB0]` und `[P5+0xB4]`. Der DSP verarbeitet sie bei
+`0xFFA018E0..0xFFA01906`: Mono-Klick links und rechts, Hüllkurve und Abklingen. Die Initialisierung setzt Abklingen 34 und
+Pegel `0x2000` über `0xC003FC48`.
+
+**Im Simulator geprüft:** Getrennte linke und rechte Eingangssignale erscheinen nur auf ihrem Kanal. Der isolierte Klick
+erscheint gleich auf beiden Kanälen; sein Pegel null entfernt ihn. Vor `0xFFA018E0` bleibt AUDIO IN erhalten und der Klick
+fehlt. Die Ausgangsverstärkung folgt bei `0xFFA0190A..0xFFA0193A`.
+
+**Hergeleitet:** Das eigene Aufnahme-Wort muss nach dem THRU-Anteil und der Player-Summe entstehen. Der Klick muss getrennt
+bleiben; die nachfolgende Ausgangsverstärkung ist auch auf den Aufnahmezweig anzuwenden. Der vorhandene Capture-Abschnitt
+läuft davor, daher muss auch die Reihenfolge oder der definierte Abstand von einem Frame berücksichtigt werden. Der Klick
+bleibt für den Ausgang eingeschaltet. Ein einfacher Wechsel des Quellzeigers auf `0xFF802888` erfüllt das Aufnahmeziel nicht.
+
+**Gelesen, hergeleitet:** `[P4+0x6C]` und `[P4+0x70]` sind die linken und rechten Sammelwerte, die MFX umgehen, aber vor dem
+Clipper zugemischt werden. Die Audioschleife sammelt Werte ab `[P4+0x20+2*Route]`, skaliert die vier Buswörter ab `+0x6C`
+bei `0xFFA0157C` und leert sie bei `0xFFA019CA`. `+0x74` und `+0x78` gehen durch den MFX-Zweig; `+0x6C` und `+0x70` kommen
+bei `0xFFA01720` dazu. Sie sind nicht der nachgelagerte THRU- oder Klickweg.
+
+### Ausstehende Gerätemessungen
+
+| Aufgabe | Messwerte | Stand |
+|---|---|---|
+| 0.1 | Quelle und Zustand während RESAMPLING; Ringzeiger bei Spettro | offen, Besitzer misst |
+| 0.3 | Schreibrate, längste Pause und Clusterwechsel bei 64-KiB-Blöcken, je 60 s mit 12,5 und 25 MHz | offen, Besitzer misst |
+| 0.4 | längste Leserlücke bei Pattern-Wechsel, WRITE und Sample Swap, CommandTask und eigener Task | offen, Besitzer misst |
+| 0.5 | A bei gemessener Leserlücke unter 80 ms, sonst C oder B | noch nicht entschieden |
+
+Simulatorgeschwindigkeit ersetzt keine dieser Zeitmessungen. Der erste Aufnahmedienst wartet auf die Ringentscheidung.
+
 ## Offen
 
-- Gerät, nur lesend: Quellzeiger und Ring während RESAMPLING und mit laufendem Spettro lesen, Bedeutung von
-  `[P4 + 0x6C]`/`[P4 + 0x70]` und der Stufe ab `0xFFA0189A`.
+- Gerät, nur lesend: Quellzeiger und Ring während RESAMPLING und mit laufendem Spettro lesen, Bestätigung des im
+  Simulator geprüften Abgriffs mit AUDIO IN THRU und Metronom.
 - Gerät, schreibend (nur mit Zustimmung): Schreibrate und längste Pause von `f_write` mit 64-KiB-Blöcken, mit 12,5 und 25 MHz.
 - Gerät: Laufabstand eines Lesers, wenn die CommandTask ein Pattern lädt oder WRITE den Flash löscht.
 - Ob Weg A ohne Lücke hält; sonst Weg B oder C.

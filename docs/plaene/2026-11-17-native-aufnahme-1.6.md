@@ -1,6 +1,6 @@
 # Plan: Natives Aufnehmen und Abspielen (1.6)
 
-> Entwurf 17.11.2026, Status: alle Fragen beantwortet (17.11.). Kein Code vor dem Ja; Phase 0 (Messung) darf laufen, Gerät gerade aus.
+> Stand 17.11.2026: Umsetzung freigegeben, Phase 0 in Arbeit. Gerätemessungen bleiben beim Besitzer; diese Ausführung greift nicht auf das Gerät zu.
 > Grundlage: docs/messungen/2026-11-17-native-aufnahme.md (Docs-PR gegen develop).
 
 ## Ziel
@@ -31,8 +31,8 @@ Sets), und eine WAV von der Karte abspielen, damit ein Track laufen kann, statt 
 Ziel: Weg A, B oder C für den DSP-Ring festlegen, mit Zahlen.
 
 - [ ] 0.1 Nur lesend: während RESAMPLING die Zustandswörter `0xFF9031F8..0xFF90320C` lesen (Quelle = Master-Wort?), Ringzeiger `0xFF9031D8` bei laufendem Spettro lesen
-- [ ] 0.2 Im DSP-Sim: Erfassung starten, Quellzeiger umbiegen, Ring gegen das gepackte Master-Wort vergleichen (bit-gleich); Stufe ab `0xFFA0189A` und `[P4+0x6C]/[P4+0x70]` benennen
-- [ ] 0.2b Wo AUDIO IN und Metronom in den Master kommen: liegt AUDIO IN schon im Master-Wort (sonst dazumischen)? Gibt es einen Abgriffpunkt nach AUDIO IN, aber vor dem Metronom (Pascal: Metronom nicht auf der Aufnahme, aber weiter hörbar)? Wenn nicht: Metronom mit drauf, Pascal fragen
+- [x] 0.2 Im DSP-Sim: Erfassung starten, Quellzeiger umbiegen, Ring gegen das gepackte Master-Wort vergleichen (bit-gleich); Stufe ab `0xFFA0189A` und `[P4+0x6C]/[P4+0x70]` benennen
+- [x] 0.2b Wo AUDIO IN und Metronom in den Master kommen: liegt AUDIO IN schon im Master-Wort (sonst dazumischen)? Gibt es einen Abgriffpunkt nach AUDIO IN, aber vor dem Metronom (Pascal: Metronom nicht auf der Aufnahme, aber weiter hörbar)? Wenn nicht: Metronom mit drauf, Pascal fragen
 - [ ] 0.3 OK da (Pascal 17.11., Gerät gerade aus): Kartenschreibtest am Gerät (64-KiB-Blöcke, 60 s, 12,5 und 25 MHz): Rate, längste Schreibpause, Pausen beim Clusterwechsel; Testdatei danach löschen
 - [ ] 0.4 OK da (Pascal 17.11.): Laufabstand eines Lesers messen (CommandTask vs. eigene Task) während Pattern-Wechsel, WRITE (Flash-Löschen) und Sample-Swap-Laden; Ergebnis längste Lücke in ms
 - [ ] 0.5 Entscheidung A/B/C in die Messung schreiben: A, wenn die längste Leserlücke unter 80 ms bleibt; sonst C (DSP-Ring im Sample-Speicher) oder B
@@ -124,6 +124,14 @@ Akzeptanz: Docs-Test grün.
 > Findings, deviations, and decisions made during implementation that weren't
 > anticipated in the original plan. This section is populated by the implementing
 > agent, leave it empty when creating the plan.
+
+- **Phase 0, Arbeitsstand:** Der bestehende Zweig liegt im separaten Worktree. Keine Geräteverbindung wurde geöffnet. 0.1, 0.3 und 0.4 bleiben Gerätemessungen durch den Besitzer; die frühere Freigabe für EXEC und Kartenschreiben gilt für diese Ausführung nicht.
+- **Phase 0.2, Simulator:** Ein reproduzierbares Prüfprogramm liegt unter `tools/dsp/native_recording_probe.py`. Es führt die originalen Blackfin-Abschnitte mit synthetischen Eingaben aus. Rücksprünge begrenzen die geprüften Abschnitte. Extrahierte Daten und ELF bleiben außerhalb des Repos. 4803 Frames prüfen Quellwechsel, Zwischenwort, DMA-Adressen und Ringumlauf. Der virtuelle GNU-Simulator bildet hier keine echte MDMA ab; Ringdaten werden aus den geprüften Deskriptoren nachgebildet. Kein Beleg für Gerätezeiten.
+- **Phase 0.2b, Abweichung im Signalweg:** AUDIO IN THRU kommt erst bei `0xFFA018B8..0xFFA018DC` zum Mix, hinter dem bisherigen Capture-Abgriff. Das Mono-Signal danach ist das Metronom: Der Sequencer fragt die Metronomeinstellung ab und ruft über `0xC003FC60` den Auslöser `0xC0014198` auf. Dieser schreibt DSP-Parameter `0x4C55` und `0x4C56`. Die Ausgangsstufe verarbeitet diese bei `0xFFA018E0..0xFFA01906`. Ein neues Aufnahme-Wort muss den Eingangsanteil enthalten, den Klick auslassen und die nachfolgende Ausgangsverstärkung berücksichtigen. Ein bloßes Umstellen auf `0xFF802888` würde AUDIO IN THRU verlieren.
+- **Phase 0.2b, Folgerung für Phase 1:** Das eigene DSP-Wort aus 4.1 wird schon für die Aufnahme benötigt; der Player ergänzt später seine Summe an dieser Stelle. THRU wird nach der Röhrenkurve ergänzt. Der klickfreie Zweig braucht dieselbe Ausgangsverstärkung. Der Capture-Abschnitt läuft in der bestehenden Schleife früher; die neue Reihenfolge oder ein definierter Frame-Abstand samt Initialisierung muss im DSP-Fall geprüft werden. Den fertigen Klick nachträglich abzuziehen wäre bei Sättigung nicht korrekt.
+- **Phase 0.5, offen:** Ohne die längste Leserlücke und die längste Kartenpause ist A/B/C nicht belastbar wählbar. Phase 1 beginnt nach dieser Entscheidung; es gibt noch keinen Aufnahmedienst oder WAV-Schreiber. Die optionalen Plugin-Erweiterungen, der spätere Player und der Test auf blau bleiben in ihrer vorgesehenen Reihenfolge.
+
+- **Phase 0, Prüfstand:** Der abschließende GNU-Lauf ist grün: vier Stereo/Mono-Paare, Capture-Start und 4803 Frames mit wechselnder Quelle, Ringumlauf sowie je sechs Differenzfälle vor und nach dem Klick. Der Docs-Test besteht 8 von 9 Prüfungen; nur die schon vorhandenen Personennamen in dieser temporären Plan-Datei verletzen die Veröffentlichungsregel. Die Datei bleibt bis zur weiteren Umsetzung erhalten und wird vor dem Merge entfernt.
 
 ## References
 
