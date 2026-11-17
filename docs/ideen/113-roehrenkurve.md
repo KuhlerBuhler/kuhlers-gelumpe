@@ -25,8 +25,10 @@ Den Clipper durch eine einstellbare Röhrenkurve ersetzen, statt einen zweiten E
 - **Kurve:** glattes Polynom niedriger Ordnung mit einstellbarer Asymmetrie. Symmetrisch gibt es nur ungerade Obertöne
   (wie heute), die Asymmetrie bringt gerade Obertöne dazu. Ein einpoliger Hochpass nimmt den Gleichanteil weg, den die
   Asymmetrie erzeugt.
-- **Werte:** Drive, Asymmetrie, Ausgangspegel als Wörter, die der ARM über den Host-Port schreibt. Die Grundstellung
-  rechnet bit-gleich wie Korgs Clipper; wer nichts einstellt, hört keinen Unterschied.
+- **Werte:** Drive, Asymmetrie, Ausgangspegel als Wörter, die der ARM über den Host-Port schreibt. Eingestellt auf einem
+  eigenen Punkt im BLECH-Menü, global für das Gerät (Entscheidung 17.11.). AUDIO IN und VOLUME scheiden als Regler aus:
+  sie sind analog vor dem Wandler und schicken keine Panel-Nachricht. Die Grundstellung rechnet
+  bit-gleich wie Korgs Clipper; wer nichts einstellt, hört keinen Unterschied.
 - **Begrenzen bleibt:** die Kurve schützt den Ausgang weiter vor hartem digitalem Clipping.
 - **Einbau:** Aufruf umbiegen oder die Funktion an Ort und Stelle ersetzen, wenn der Code in den Platz passt. DSP-Patch
   wie stage2-memory ([Stufe 2](../messungen/2026-11-13-stufe2-speicher.md)), bit-genau prüfbar im QEMU-DSP-Kern.
@@ -46,7 +48,5 @@ nicht gemessen). Die Kurve wirkt vor dem Aufnahme-Abgriff `0xFF802888` und lande
 
 - DSP-Auslastung am Gerät oder mit Zyklen im QEMU-Kern.
 - Klangziel, Grenzen der Regler.
-- Bedienung: Drive mit SHIFT + Regler. AUDIO IN und VOLUME sind analog vor dem Wandler und schicken keine
-  Panel-Nachricht, die Firmware kennt ihre Stellung nicht. In Frage kommen nur Panel-Regler (etwa IFX EDIT oder LEVEL);
-  welche SHIFT-Kombination bei Korg frei ist, ist nicht gelesen. Dazu BLECH-Menü und Plugin-API.
-- Blau: eigene Adressen, Clipper bei `0xFFA01348`.
+- Name und Platz des Menüpunkts.
+- Blau (wird mitgebaut): eigene Adressen, Clipper bei `0xFFA01348`.
