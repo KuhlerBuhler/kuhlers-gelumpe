@@ -1382,3 +1382,49 @@ index 0e0357e9e3..544dc19b79 100644
          /* nothing more to generate */
          break;
      default:
+diff --git a/include/qemu/osdep.h b/include/qemu/osdep.h
+index c9692cc314..c9e253cd38 100644
+--- a/include/qemu/osdep.h
++++ b/include/qemu/osdep.h
+@@ -763,14 +763,23 @@ size_t qemu_get_host_physmem(void);
+  */
+ #if defined(MAC_OS_VERSION_11_0) && \
+     MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_VERSION_11_0
++/* Last state set on this thread (-1: none yet); the call is expensive. */
++extern __thread int qemu_jit_protected;
++
+ static inline void qemu_thread_jit_execute(void)
+ {
+-    pthread_jit_write_protect_np(true);
++    if (qemu_jit_protected != 1) {
++        pthread_jit_write_protect_np(true);
++        qemu_jit_protected = 1;
++    }
+ }
+ 
+ static inline void qemu_thread_jit_write(void)
+ {
+-    pthread_jit_write_protect_np(false);
++    if (qemu_jit_protected != 0) {
++        pthread_jit_write_protect_np(false);
++        qemu_jit_protected = 0;
++    }
+ }
+ #else
+ static inline void qemu_thread_jit_write(void) {}
+diff --git a/util/osdep.c b/util/osdep.c
+index e996c4744a..4248c575fb 100644
+--- a/util/osdep.c
++++ b/util/osdep.c
+@@ -22,6 +22,11 @@
+  * THE SOFTWARE.
+  */
+ #include "qemu/osdep.h"
++
++#if defined(MAC_OS_VERSION_11_0) && \
++    MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_VERSION_11_0
++__thread int qemu_jit_protected = -1;
++#endif
+ #include "qapi/error.h"
+ #include "qemu/cutils.h"
+ #include "qemu/sockets.h"
