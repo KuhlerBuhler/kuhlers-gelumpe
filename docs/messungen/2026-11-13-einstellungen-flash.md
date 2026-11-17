@@ -11,7 +11,8 @@ Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergele
 - Ohne Karte gehen Änderungen in den BLECH-Menüs (FEATURES, CUSTOMIZATION, PLUGINS) in den Flash, sobald man das BLECH-Menü
   verlässt (AUTO SAVE, wie mit Karte; nicht schon während man dreht). Mit AUTO SAVE OFF erst mit WRITE. WRITE ohne
   Karte schreibt sofort und zeigt `saved in flash`.
-- Mit Karte schreibt WRITE und AUTO SAVE wie bisher die Datei auf der Karte, der Flash bleibt.
+- Mit Karte schreibt WRITE und AUTO SAVE die Datei auf der Karte und danach den Flash (ab 1.4.7, siehe unten). Bis 1.4.6 blieb der
+  Flash dabei, wie er war.
 - Nach einem Start ohne Karte liest BLECH keine Karte bis zum nächsten Start (#518, sonst kann Korgs Karten-Init hängen): die
   Werte kommen aus dem Flash, eine gesteckte Karte zählt nicht, Änderungen und WRITE gehen in den Flash, die Karte wird nicht
   angefasst.
@@ -28,6 +29,26 @@ Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergele
   oder mit MENU auf die Frage einer getauschten Karte.
 - Neustart: Karte steckt, die Karte gilt; keine Karte, der Flash gilt.
 
+## Ab 1.4.7: der Flash ist der Hauptspeicher
+
+Stand 17.11.2026 auf `release/1.4.7`, nur Emulator, am Gerät nichts geprüft. Bis 1.4.6 schrieb ein Start mit Karte nur auf die Karte;
+der Flash blieb leer oder alt, ein Start ohne Karte hatte dann die alten Werte.
+
+- Jedes Speichern mit Karte (Verlassen des BLECH-Menüs mit AUTO SAVE, WRITE, ein Plugin, das die Einstellungen schreibt) schreibt
+  erst die Karte, dann den Flash (`menu_settings_save_card`). Die Karte ist eine Kopie zum Mitnehmen.
+- In den Flash geht es nur, wenn sich etwas geändert hat: Verlassen schreibt nur bei einer anderen Prüfsumme als beim Betreten
+  (wie bisher), und ohne Sperre `FL_HOLD` nur, wenn die Prüfsumme nicht die des Flash ist (`M_FL_CRC`). Mit Sperre (die Werte kamen von
+  einer Karte und stehen nicht im Flash) schreibt jedes Speichern. Geschrieben wird an denselben Stellen wie ohne Karte (UI-Task,
+  Schreibfunktion der Firmware mit Zurücklesen), nie beim Drehen.
+- Schlägt das Schreiben in den Flash fehl, versucht es `menu_ask_frame` alle 2 s noch einmal (`FL_SAVE`, wie nach MENU auf der Frage).
+  `M_STATUS` bleibt der Stand der Karte, nur wenn die Karte nicht geschrieben wurde, zeigt die Seite den des Flash.
+- Nach dem Speichern ist die Sperre weg: Ziehen der Karte lässt die Werte, wie sie sind (sie stehen im Flash). Eine danach gesteckte
+  Karte mit anderen Werten gilt sofort und fragt `SAVE TO FLASH?`; EXIT lässt den Flash, MENU schreibt die Werte der Karte.
+- Beim Start mit Karte gibt es keine Frage, auch wenn ihre Werte nicht die des Flash sind: die Karte gilt, der Flash bleibt, bis man
+  etwas ändert oder speichert. Zieht man sie vorher, gilt wieder der Flash (wie bisher). Für eine Frage beim Start müsste der Start die
+  Prüfsumme der Kopie im Flash eigens bilden (hergeleitet, offen).
+- Nach einem Start ohne Karte liest BLECH weiter keine Karte bis zum nächsten Start (#518); die Frage kommt dann nicht.
+
 ## Belegtabelle
 
 | Behauptung | Beleg | Marker |
@@ -36,7 +57,9 @@ Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergele
 | AUTO SAVE OFF ohne Karte: Verlassen schreibt nichts, WRITE schreibt | `auto_save_off_waits_for_write` | gemessen |
 | Der nächste Start ohne Karte liest den Flash; eine zweite Änderung geht in Sektor `0x7FE000` (Generation 2), `0x7FD000` bleibt Byte für Byte | `restart_reads_flash` | gemessen |
 | Ein halb geschriebener Satz (ein Byte im neueren Sektor gekippt) fällt auf den älteren zurück; beide Sektoren gelöscht gibt den Standard | `torn_copy_falls_back` | gemessen |
-| Karte mit Datei gewinnt beim Start, der Flash wird dabei und nach WRITE nicht angefasst, WRITE schreibt die Karte; eine Karte ohne Datei nimmt den Flash | `card_wins` | gemessen |
+| Karte mit Datei gewinnt beim Start, der Flash wird dabei nicht angefasst; WRITE schreibt die Karte und danach den Flash (Generation 3 in `0x7FD000`, kein anderer Sektor); eine Karte ohne Datei nimmt den Flash | `card_wins` | gemessen |
+| Start mit Karte, TAP MOTION auf OFF, Verlassen: Karte (Generation 8) und Flash (Generation 3 in `0x7FD000`, nur dieser Sektor) haben die Änderung, der nächste Start ohne Karte auch; mit dem Satz von 1.4.6 schlägt der Fall fehl (Flash unverändert) | `card_change_reaches_flash` | gemessen |
+| Danach die Karte gegen eine mit anderen Werten getauscht: beim Ziehen bleiben die Werte, die neue Karte gilt sofort und fragt; EXIT lässt den Flash Byte für Byte, der Start ohne Karte hat die Änderung; MENU schreibt die Werte der Karte als Generation 4 in `0x7FE000`, die Änderung bleibt als ältere Kopie in `0x7FD000`; mit dem Satz von 1.4.6 schlägt er fehl | `card_swap_after_change_exit`, `card_swap_after_change_menu` | gemessen |
 | Start mit Karte, Karte gezogen (Werte des Flash), Karte wieder gesteckt: die Werte der Karte gelten sofort, das Display fragt (Bit 17 von `M_FL`, Pixel der zwei Titelzeilen), der Flash bleibt; EXIT löst die Frage, die Werte bleiben; Ziehen bringt die Werte des Flash zurück, eine Änderung danach geht beim Verlassen wieder in den Flash (Generation 3) | `hot_swap_asks_exit_keeps_ram` | gemessen |
 | MENU auf der Frage schreibt die Werte der Karte (Generation 3 in `0x7FD000`, kein anderer Sektor), Ziehen ändert nichts, der nächste Start ohne Karte hat sie | `hot_swap_menu_saves` | gemessen |
 | Karte beim Start: keine Frage; gezogen gelten die Werte des Flash, der Flash wird nicht angefasst | `start_card_pulled_reverts` | gemessen |
@@ -76,7 +99,7 @@ ihrer Sperre den Sektor liest, löscht und neu schreibt, wie der Startbild-Edito
 
 ## Messwerte
 
-Alle elf Fälle in `flash_settings_cases` sind auf allen drei Builds grün, ebenso `settings_cases` (20), `page_cases` (3)
+Alle 16 Fälle in `flash_settings_cases` sind auf allen drei Builds grün (17.11., mit 1.4.7; mit dem Satz von `release/1.4.7` davor schlagen genau `card_wins`, `card_change_reaches_flash` und `card_swap_after_change_exit`/`_menu` fehl), ebenso `settings_cases` (20), `page_cases` (3)
 und `splash_menu_cases` (gemessen). In keinem Lauf wurde ein anderer Sektor als `0x7FD000` oder `0x7FE000` gelöscht.
 
 Der Flash hängt an SPI1 und ist nicht in den Adressraum gelegt. Am Gerät (14.11.) hat BLECH FLASH READ (`0x64`, ohne EXEC)
