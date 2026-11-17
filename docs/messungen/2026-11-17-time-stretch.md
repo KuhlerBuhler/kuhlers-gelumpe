@@ -1,6 +1,6 @@
 # Time Stretch: offline auf dem ARM, live im DSP
 
-Stand 17. November 2026. Frage aus [Idee 60](https://github.com/KuhlerBuhler/gelumpe-emu-boot/pull/668): geht Tempo
+Stand 17. November 2026. Frage aus [Idee 60](https://github.com/KuhlerBuhler/kuhlers-gelumpe/pull/668): geht Tempo
 ändern ohne Tonhöhe auf dem Electribe 2 Sampler mit blechtribe? Zwei getrennte Stufen: offline (Sample einmal neu
 rechnen, Faktor rund 85 bis 115 %) und live (Stretch im Blackfin beim Abspielen, per Regler oder BPM).
 
@@ -151,7 +151,7 @@ hergeleitet). Der zweite Kopf braucht einen zweiten MDMA-Deskriptor oder direkte
   (hergeleitet dort). Gemessen ist das nicht. Die "DMA ~15 %" aus der QEMU-Arbeit sind Host-Zeit des Workers, keine
   DSP-Zyklen (gelesen im Plan).
 - Ob die Stimmen im DSP-Simulator Nutzer-Samples wirklich aus dem SDRAM lesen, ist noch nicht beobachtet
-  (offen in [Sample Swap nativ](https://github.com/KuhlerBuhler/gelumpe-emu-boot/tree/feature/sample-swap-native-dsp)).
+  (offen in [Sample Swap nativ](https://github.com/KuhlerBuhler/kuhlers-gelumpe/tree/feature/sample-swap-native-dsp)).
 - Platz im L1-Programmspeicher für einen neuen Generator (nicht geprüft).
 
 **Ergebnis live: unklar, ohne DSP-Patch nicht machbar.**
