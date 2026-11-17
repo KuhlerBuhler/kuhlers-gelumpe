@@ -2287,7 +2287,7 @@ cat_refuse:
     pop {r3-r8, r11, pc}
 .pool
 
-; r0: 0 full catalogue, 1 index only, 2 full with absence allowed. Both 1 and 2 accept a missing file.
+; r0: 0 full catalogue, 1 index only, 2 full with absence allowed. Both 1 and 2 accept a missing file or folder.
 catalogue_read:
     push {r4-r6, lr}
     mov r6, r0
@@ -2300,6 +2300,7 @@ catalogue_read:
     mov r2, #1
     bl F_OPEN
     cmp r0, #4
+    cmpne r0, #5
     bne cat_read_opened
     cmp r6, #0
     bne cat_read_absent

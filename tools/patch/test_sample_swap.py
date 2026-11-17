@@ -401,6 +401,18 @@ class CatalogueOwnership(unittest.TestCase):
                 self.assertEqual(s.state("MODE"), expected)
                 self.assertEqual(s.owner()[2], uncertain)
 
+    def test_import_catalogue_treats_a_missing_folder_as_an_absent_library(self):
+        for result in (4, 5):
+            with self.subTest(result=result):
+                s = self.setup_writer(size=16384)
+                s.set_state("MODE", 0)
+                at = F["F_OPEN"]
+                s.uc.mem_write(at, arm.assemble(f"mov r0, #{result}\nbx lr", origin=at).bytes)
+                s.uc.ctl_flush_tb()
+                self.assertEqual(s.call("catalogue_begin_import"), 0)
+                self.assertEqual(s.uc.reg_read(R.UC_ARM_REG_R3), 4)
+                self.assertEqual(s.owner()[2], 1)
+
     def test_writer_invalidates_jobs_and_closes_the_reader_before_recovery(self):
         s = self.setup_writer()
         self.assertEqual(s.call("catalogue_begin"), 0)
