@@ -1,7 +1,8 @@
 # BATTERY %: Ladestand in Prozent neben dem Batteriesymbol
 
-Stand 16.11.2026, nur Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Branches),
-kein Gerät. Marker: **gemessen** (im Emulator), **gelesen** (im Disassemblat), **hergeleitet**.
+Stand 16.11.2026, Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Branches); die
+Entladekurve am 16./17.11. auf einem roten Gerät. Marker: **gemessen** (im Emulator, bei der Kurve am Gerät), **gelesen** (im
+Disassemblat), **hergeleitet**, **geschätzt**.
 
 ## Was gebaut ist
 
@@ -44,9 +45,47 @@ kein Gerät. Marker: **gemessen** (im Emulator), **gelesen** (im Disassemblat), 
 - Daraus die Ladung über die Kurve `batt_curve` (11 Stützpunkte, dazwischen linear), auf 10 % gerundet.
 - Hysterese: der angezeigte Wert ändert sich erst, wenn die neue Ladung mehr als 8 % (80 Promille) von ihm weg ist. Ein
   kurzer Einbruch oder Rauschen um eine Stufengrenze lässt ihn stehen.
-- **Die Kurve ist ein Platzhalter (hergeleitet, nicht gemessen):** eine Gerade zwischen Korgs Alkali-Schwellen für leer und
-  voll. Eine echte Entladekurve muss am Gerät gemessen werden (Rohwert gegen Zeit bei bekannter Last); dann werden die elf
-  Werte in `batt_curve` ersetzt, sonst nichts.
+- Die elf Werte von `batt_curve` kommen aus einer Entladung am Gerät (Abschnitt Entladekurve). Bis dahin war die Kurve eine
+  Gerade zwischen Korgs Alkali-Schwellen für leer und voll.
+
+## Entladekurve
+
+Gemessen am 16./17.11.2026 auf einem roten Gerät (HT-Basis, BLECHTRIBE-Testbuild), vier Rubin Alkaline AA, nicht frisch (das
+Batteriesymbol zeigte schon einen Strich weniger). Global AUTO POWER OFF aus, POWER SAVE an, Hauptbildschirm, kein Abspielen,
+USB zum Auslesen gesteckt (das Gerät lief trotzdem auf Batterie, +0x308 war 0). Einmal pro Minute nur gelesen (BLECH READ):
+Rohwert +0x320 und Stufe +0x328 des Batterie-Modells. Mit anderer Last (Abspielen, Licht, POWER SAVE aus) läuft die Zeit
+anders, die Form der Kurve sollte ähnlich bleiben (hergeleitet).
+
+| Minute | Rohwert | Stufe |
+|---|---|---|
+| 0 | 123 | 3 |
+| 4 | 118 | 3 |
+| 11 | 115 | 3 |
+| 23 | 112 | 3 |
+| 34 | 110 | 2 (ab hier) |
+| 51 | 106 | 2 |
+| 61 | 104 | 1 (ab hier, Low Battery) |
+| 74 | 100 | 1 |
+| 80 | 98 | 1 |
+| 81 bis 82 | | aus |
+
+(gemessen) Der letzte gelesene Rohwert vor dem Ausschalten war 98; ob 97 noch kurz anlag, zeigt das Minutenraster nicht. Die Warnung Low Battery kam etwa
+21 Minuten vor dem Ausschalten.
+
+Daraus `batt_curve`: für jeden Stützpunkt (Rohwert 97, 100, ... 127, das sind 0, 10, ... 100 % des Wegs von leer nach voll)
+der Anteil der Laufzeit, der ab dem ersten Erreichen dieses Rohwerts noch bleibt, in Promille. Ende ist das Ausschalten bei
+Minute 82.
+
+| Rohwert | 97 | 100 | 103 | 106 | 109 | 112 | 115 | 118 | 121 | 124 | 127 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Promille | 0 | 88 | 198 | 341 | 467 | 649 | 780 | 857 | 885 | 926 | 1000 |
+
+- 97 bis 121 gemessen (zwischen zwei Minuten linear eingesetzt).
+- 124 und 127 **geschätzt**: die Zellen waren nicht frisch, das Log begann bei 123. Angenommen ist, dass 127 bis 123 etwa 10 %
+  der Laufzeit ausmachen (9 Minuten), wie es für Alkali-Zellen am Anfang typisch ist; 124 liegt linear dazwischen. Mit
+  frischen Zellen nachmessen und die beiden Werte ersetzen.
+- Die gesamte Laufzeit ab voll ist damit etwa 91 Minuten (geschätzt), nur für diese Zellen und diese Last.
+
 
 ## Platz in der Statusleiste
 

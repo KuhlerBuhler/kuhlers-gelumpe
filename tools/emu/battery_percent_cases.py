@@ -11,8 +11,8 @@ menus the EDIT icon fills 84 to 97. The card cases boot with and without a card,
 go into the BLECH menu and GLOBAL PARAMETERS and back, open the firmware's WRITE question and Blechy's app, with LOAD METER off
 and on. The card's picture is taken from the display at 109 in a menu, the menus' columns 84 to 99 from the boot without a card.
 
-The mapping from reading to percent is a placeholder (derived, not measured): linear between the empty and the full threshold
-of the firmware's Alkali table, read from the firmware's battery model at run time.
+The mapping from reading to percent is batt_curve (measured on a device, its top estimated) between the empty and the full
+threshold of the firmware's Alkali table, read from the firmware's battery model at run time.
 
     python3 tools/emu/battery_percent_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN] [--png DIR]
 
@@ -49,6 +49,8 @@ FONT = bytes([0xFE, 0x82, 0xFE, 0, 0x84, 0xFE, 0x80, 0, 0xF2, 0x92, 0x9E, 0, 0x9
               0x9E, 0x92, 0xF2, 0, 0xFE, 0x92, 0xF2, 0, 0x02, 0x02, 0xFE, 0, 0xFE, 0x92, 0xFE, 0, 0x9E, 0x92, 0xFE, 0])
 PERCENT = bytes([0x42, 0x38, 0x84, 0])
 STEP_S = 0.25                                   # one smoothing step (script_battery.s:BP_STEP_MS)
+CURVE = [int(v) for v in (ROOT / "tools/patch/script_battery.s").read_text().split("batt_curve:")[1].split(".word")[1]
+         .splitlines()[0].split(",")]           # batt_curve, the charge in per mille at 0, 10, ... 100 percent of the way
 
 
 def entry(name, ok, detail):
@@ -140,10 +142,13 @@ class Battery:
         return self.battery_type()
 
     def expected(self, raw):
-        """The step the placeholder curve gives for a steady reading: linear between the table's empty and full threshold."""
+        """The step `batt_curve` gives for a steady reading, as the frame computes it: the place between the table's empty and
+        full threshold in per mille, the curve's segment and the place in it, rounded to 10."""
         full, empty = self.thresholds()
-        tenths = max(0, min(1000, (raw - empty) * 1000 // (full - empty)))
-        return (tenths + 50) // 100 * 10
+        place = max(0, min(1000, (raw - empty) * 1000 // (full - empty)))
+        seg, rest = divmod(place, 100)
+        charge = CURVE[seg] if seg == 10 else CURVE[seg] + (CURVE[seg + 1] - CURVE[seg]) * rest // 100
+        return (charge + 50) // 100 * 10
 
     def switch(self, on):
         flags = self.byte(mc.MX_FLAGS2)
@@ -192,7 +197,7 @@ def display_cases(payload, flash, png):
     if png:
         d.m.png(str(Path(png) / f"{build}-battery-shown.png"))
 
-    # steps of 10: every reading from just above empty to past full gives the placeholder's step, drawn as such
+    # steps of 10: every reading from just above empty to past full gives batt_curve's step, drawn as such
     steps, bad = [], []
     for raw in sorted({empty + 1, empty + (full - empty) // 4, mid, full - 2, full, full + 20, 255}):
         value, cols = b.fresh(raw)
