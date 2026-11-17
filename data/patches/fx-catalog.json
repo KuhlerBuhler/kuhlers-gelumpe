@@ -18,6 +18,297 @@
  "presets": [
   {
    "kind": "mfx",
+   "name": "Big Hall",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 54,
+     "unitName": "M_hall_reverb",
+     "params": {
+      "dry_wet": 100,
+      "time": 120,
+      "hi_damp": 88,
+      "pre_delay": 60,
+      "trim": 52,
+      "trim2": 127,
+      "lo_eq": 22,
+      "hi_eq": 31,
+      "pd_thru": 120
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 7,
+     "param": 5,
+     "low": 0,
+     "high": 44
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 1,
+     "low": 30,
+     "high": 100
+    },
+    {
+     "source": 71,
+     "chain": 2,
+     "param": 4,
+     "low": 24,
+     "high": 0
+    },
+    {
+     "source": 70,
+     "chain": 2,
+     "param": 4,
+     "low": 24,
+     "high": 84
+    }
+   ],
+   "creator": "Kuhler Buhler",
+   "hacktribe": true
+  },
+  {
+   "kind": "mfx",
+   "name": "Plate Reverb",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 56,
+     "unitName": "M_wet_plate_reverb",
+     "params": {
+      "dry_wet": 100,
+      "time": 42,
+      "hi_damp": 112,
+      "pre_delay": 40,
+      "trim": 52,
+      "trim2": 127,
+      "lo_eq": 24,
+      "hi_eq": 32,
+      "pd_thru": 92
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 7,
+     "param": 5,
+     "low": 0,
+     "high": 44
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 1,
+     "low": 30,
+     "high": 122
+    },
+    {
+     "source": 71,
+     "chain": 2,
+     "param": 4,
+     "low": 24,
+     "high": 0
+    },
+    {
+     "source": 70,
+     "chain": 2,
+     "param": 4,
+     "low": 24,
+     "high": 80
+    }
+   ],
+   "creator": "Kuhler Buhler",
+   "hacktribe": true
+  },
+  {
+   "kind": "mfx",
+   "name": "Tap Delay Sync",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 60,
+     "unitName": "M_tape_echo",
+     "params": {
+      "dry_wet": 100,
+      "time_ratio": 40,
+      "sync_on": 1,
+      "s_note1": 6,
+      "s_note2": 8,
+      "time1": 19,
+      "time2": 19,
+      "delay_lag": 1,
+      "output_level": 44,
+      "tap1_level": 86,
+      "tap2_level": 86,
+      "feedback": 68,
+      "hi_damp": 84,
+      "lo_damp": 60,
+      "trim": 66,
+      "saturation": 45,
+      "gain": 53,
+      "gainshift": 5,
+      "lfo_wave": 3,
+      "lfo_depth": 20,
+      "lfo_speed": 34,
+      "lfo_reset": 0,
+      "pre_lpf": 106,
+      "spread": 120
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 7,
+     "param": 5,
+     "low": 0,
+     "high": 127
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 1,
+     "low": 46,
+     "high": 40
+    },
+    {
+     "source": 70,
+     "chain": 2,
+     "param": 11,
+     "low": 30,
+     "high": 66
+    },
+    {
+     "source": 71,
+     "chain": 2,
+     "param": 14,
+     "low": 62,
+     "high": 0
+    },
+    {
+     "source": 67,
+     "chain": 2,
+     "param": 15,
+     "low": 46,
+     "high": 92
+    },
+    {
+     "source": 70,
+     "chain": 2,
+     "param": 16,
+     "low": 53,
+     "high": 62
+    }
+   ],
+   "creator": "Kuhler Buhler",
+   "hacktribe": true
+  },
+  {
+   "kind": "mfx",
+   "name": "Tube Drive",
+   "stages": [
+    {
+     "stage": "mfx",
+     "unit": 47,
+     "unitName": "M_tubepre",
+     "params": {
+      "dry_wet": 100,
+      "tube1_gain": 70,
+      "tube1_sat": 0,
+      "tube2_gain": 66,
+      "tube2_sat": 82,
+      "lo_cut1": 0,
+      "hi_cut1": 126,
+      "lo_cut2": 0,
+      "hi_cut2": 127,
+      "tube1_bias": 30,
+      "tube1_phase": 0,
+      "tube2_bias": 40,
+      "output_level": 64
+     }
+    }
+   ],
+   "map": [
+    {
+     "source": 65,
+     "chain": 10,
+     "param": 4,
+     "low": 127,
+     "high": 0
+    },
+    {
+     "source": 65,
+     "chain": 10,
+     "param": 0,
+     "low": 0,
+     "high": 127
+    },
+    {
+     "source": 67,
+     "chain": 2,
+     "param": 2,
+     "low": 20,
+     "high": 124
+    },
+    {
+     "source": 70,
+     "chain": 2,
+     "param": 0,
+     "low": 36,
+     "high": 127
+    },
+    {
+     "source": 71,
+     "chain": 2,
+     "param": 4,
+     "low": 70,
+     "high": 26
+    },
+    {
+     "source": 71,
+     "chain": 2,
+     "param": 0,
+     "low": 30,
+     "high": 0
+    },
+    {
+     "source": 66,
+     "chain": 2,
+     "param": 5,
+     "low": 0,
+     "high": 80
+    },
+    {
+     "source": 67,
+     "chain": 2,
+     "param": 12,
+     "low": 62,
+     "high": 50
+    },
+    {
+     "source": 67,
+     "chain": 2,
+     "param": 1,
+     "low": 64,
+     "high": 124
+    },
+    {
+     "source": 67,
+     "chain": 2,
+     "param": 3,
+     "low": 34,
+     "high": 124
+    }
+   ],
+   "creator": "Kuhler Buhler",
+   "hacktribe": true
+  },
+  {
+   "kind": "mfx",
    "name": "Short Delay",
    "stages": [
     {
@@ -2839,8 +3130,8 @@
    }
   },
   "mfx_device": {
-   "0x3b": {
-    "unit": "M_mod_delay",
+   "0x36": {
+    "unit": "M_hall_reverb",
     "params": [
      {
       "name": "dry_wet",
@@ -2848,114 +3139,94 @@
       "default": "0x64"
      },
      {
-      "name": "wet_spread",
+      "name": "time",
+      "type": "Int8ul",
+      "default": "0x26"
+     },
+     {
+      "name": "hi_damp",
+      "type": "Int8ul",
+      "default": "0x5C"
+     },
+     {
+      "name": "pre_delay",
+      "type": "Int8ul",
+      "default": "0x26"
+     },
+     {
+      "name": "trim",
+      "type": "Int8ul",
+      "default": "0x30"
+     },
+     {
+      "name": "trim2",
       "type": "Int8ul",
       "default": "0x7F"
      },
      {
-      "name": "input_trim",
+      "name": "lo_eq",
       "type": "Int8ul",
-      "default": "0x32"
+      "default": "0x1E"
      },
      {
-      "name": "pre_leq_gain",
+      "name": "hi_eq",
       "type": "Int8ul",
-      "default": "0x24"
+      "default": "0x1E"
      },
      {
-      "name": "pre_leq_frequency",
+      "name": "pd_thru",
       "type": "Int8ul",
-      "default": "0x14"
+      "default": "0x1A"
+     }
+    ]
+   },
+   "0x38": {
+    "unit": "M_wet_plate_reverb",
+    "params": [
+     {
+      "name": "dry_wet",
+      "type": "Int8ul",
+      "default": "0x64"
      },
      {
-      "name": "pre_heq_gain",
+      "name": "time",
       "type": "Int8ul",
-      "default": "0x24"
+      "default": "0x1F"
      },
      {
-      "name": "pre_heq_frequency",
+      "name": "hi_damp",
       "type": "Int8ul",
-      "default": "0x2C"
+      "default": "0x6A"
      },
      {
-      "name": "delay_time_tempo_sync",
+      "name": "pre_delay",
       "type": "Int8ul",
-      "default": "0x1"
+      "default": "0x26"
      },
      {
-      "name": "off_time_ratio",
-      "type": "Int8ul",
-      "default": "0x41"
-     },
-     {
-      "name": "off_l_delay_time",
-      "type": "Int8ul",
-      "default": "0x2F"
-     },
-     {
-      "name": "off_r_delay_time",
-      "type": "Int8ul",
-      "default": "0x29"
-     },
-     {
-      "name": "on_time_ratio",
-      "type": "Int8ul",
-      "default": "0x23"
-     },
-     {
-      "name": "on_l_syncnote",
-      "type": "Int8ul",
-      "default": "0x11"
-     },
-     {
-      "name": "on_r_syncnote",
+      "name": "trim",
       "type": "Int8ul",
       "default": "0x2B"
      },
      {
-      "name": "fb_type",
+      "name": "trim2",
       "type": "Int8ul",
-      "default": "0x0"
+      "default": "0x5F"
      },
      {
-      "name": "fb_depth",
+      "name": "lo_eq",
       "type": "Int8ul",
-      "default": "0x46"
+      "default": "0x1E"
      },
      {
-      "name": "high_damp",
+      "name": "hi_eq",
       "type": "Int8ul",
-      "default": "0x0"
+      "default": "0x1E"
      },
      {
-      "name": "low_damp",
-      "type": "Int8ul",
-      "default": "0x0"
-     },
-     {
-      "name": "mod_depth",
-      "type": "Int8ul",
-      "default": "0x23"
-     },
-     {
-      "name": "mod_wave",
-      "type": "Int8ul",
-      "default": "0x1"
-     },
-     {
-      "name": "mod_freq",
+      "name": "pd_thru",
       "type": "Int8ul",
       "default": "0x1A"
-     },
-     {
-      "name": "mod_rch_degree",
-      "type": "Int8ul",
-      "default": "0x9"
-     },
-     {
-      "name": "delay_lag",
-      "type": "Int8ul",
-      "default": "0x0"
      }
     ]
    },
@@ -3081,6 +3352,196 @@
       "name": "spread",
       "type": "Int8ul",
       "default": "0x64"
+     }
+    ]
+   },
+   "0x2f": {
+    "unit": "M_tubepre",
+    "params": [
+     {
+      "name": "dry_wet",
+      "type": "Int8ul",
+      "default": "0x64"
+     },
+     {
+      "name": "tube1_gain",
+      "type": "Int8ul",
+      "default": "0x30"
+     },
+     {
+      "name": "tube1_sat",
+      "type": "Int8ul",
+      "default": "0x4C"
+     },
+     {
+      "name": "tube2_gain",
+      "type": "Int8ul",
+      "default": "0x30"
+     },
+     {
+      "name": "tube2_sat",
+      "type": "Int8ul",
+      "default": "0x6C"
+     },
+     {
+      "name": "lo_cut1",
+      "type": "Int8ul",
+      "default": "0x4"
+     },
+     {
+      "name": "hi_cut1",
+      "type": "Int8ul",
+      "default": "0x7A"
+     },
+     {
+      "name": "lo_cut2",
+      "type": "Int8ul",
+      "default": "0x4"
+     },
+     {
+      "name": "hi_cut2",
+      "type": "Int8ul",
+      "default": "0x7E"
+     },
+     {
+      "name": "tube1_bias",
+      "type": "Int8ul",
+      "default": "0x1E"
+     },
+     {
+      "name": "tube1_phase",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "tube2_bias",
+      "type": "Int8ul",
+      "default": "0x28"
+     },
+     {
+      "name": "output_level",
+      "type": "Int8ul",
+      "default": "0x34"
+     }
+    ]
+   },
+   "0x3b": {
+    "unit": "M_mod_delay",
+    "params": [
+     {
+      "name": "dry_wet",
+      "type": "Int8ul",
+      "default": "0x64"
+     },
+     {
+      "name": "wet_spread",
+      "type": "Int8ul",
+      "default": "0x7F"
+     },
+     {
+      "name": "input_trim",
+      "type": "Int8ul",
+      "default": "0x32"
+     },
+     {
+      "name": "pre_leq_gain",
+      "type": "Int8ul",
+      "default": "0x24"
+     },
+     {
+      "name": "pre_leq_frequency",
+      "type": "Int8ul",
+      "default": "0x14"
+     },
+     {
+      "name": "pre_heq_gain",
+      "type": "Int8ul",
+      "default": "0x24"
+     },
+     {
+      "name": "pre_heq_frequency",
+      "type": "Int8ul",
+      "default": "0x2C"
+     },
+     {
+      "name": "delay_time_tempo_sync",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "off_time_ratio",
+      "type": "Int8ul",
+      "default": "0x41"
+     },
+     {
+      "name": "off_l_delay_time",
+      "type": "Int8ul",
+      "default": "0x2F"
+     },
+     {
+      "name": "off_r_delay_time",
+      "type": "Int8ul",
+      "default": "0x29"
+     },
+     {
+      "name": "on_time_ratio",
+      "type": "Int8ul",
+      "default": "0x23"
+     },
+     {
+      "name": "on_l_syncnote",
+      "type": "Int8ul",
+      "default": "0x11"
+     },
+     {
+      "name": "on_r_syncnote",
+      "type": "Int8ul",
+      "default": "0x2B"
+     },
+     {
+      "name": "fb_type",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "fb_depth",
+      "type": "Int8ul",
+      "default": "0x46"
+     },
+     {
+      "name": "high_damp",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "low_damp",
+      "type": "Int8ul",
+      "default": "0x0"
+     },
+     {
+      "name": "mod_depth",
+      "type": "Int8ul",
+      "default": "0x23"
+     },
+     {
+      "name": "mod_wave",
+      "type": "Int8ul",
+      "default": "0x1"
+     },
+     {
+      "name": "mod_freq",
+      "type": "Int8ul",
+      "default": "0x1A"
+     },
+     {
+      "name": "mod_rch_degree",
+      "type": "Int8ul",
+      "default": "0x9"
+     },
+     {
+      "name": "delay_lag",
+      "type": "Int8ul",
+      "default": "0x0"
      }
     ]
    },
