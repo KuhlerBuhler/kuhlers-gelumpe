@@ -979,6 +979,38 @@ und `E2_PATTERNS`. Für die Boot-Tests die Flash-Teile in `E2_FLASH` angeben
 `test_lcd.py` und weitere) laufen in `npm test`; `test_timer.py` und
 `test_snapshot.py` brauchen die Firmware.
 
+### Blackfin-Worker: QEMU oder GNU
+
+Die Blackfin-Prüfungen brauchen einen gebauten Worker außerhalb des
+Repositorys. Es gibt zwei, beide sprechen dasselbe Protokoll (BFIN9) und nehmen
+dieselben Argumente:
+
+```sh
+tools/emu/.venv/bin/python tools/dsp/build_qemu.py ~/gelumpe-dsp/worker    # QEMU-Kern: qemu-bfin-worker
+tools/emu/.venv/bin/python tools/dsp/build_blackfin.py ~/gelumpe-dsp/gnu   # GNU-Simulator: blackfin-worker
+```
+
+Standard ist der QEMU-Worker. Gewählt wird an einer Stelle,
+`tools/emu/blackfin_worker.py`:
+
+1. ausdrücklich: `--worker` bei `blackfin_cases.py` und `blackfin_swap_cases.py`,
+   sonst `BFIN_WORKER` (Tests `tools/emu/test_blackfin_*.py` und
+   `tools/dsp/qemu_worker_tests.sh`), jeweils der Pfad eines Workers;
+2. sonst `qemu-bfin-worker` unter `GELUMPE_DSP` (Vorgabe `~/gelumpe-dsp`) in
+   `worker/`;
+3. sonst der GNU-Worker in `gnu/`, mit der Meldung, dass kein QEMU-Build da ist.
+
+Ohne Worker werden die Tests übersprungen. `npm test` und CI suchen keinen
+Worker; die Worker-Tests laufen mit `tools/dsp/qemu_worker_tests.sh alle`.
+
+Der QEMU-Worker rechnet die Befehle mit QEMU und lässt Geräte, Interrupts und
+Zeit beim GNU-Simulator. Er liefert in Registern, ASTAT, Speicher und Takten
+dieselben Ergebnisse wie GNU und ist schneller (Messung und Grenzen:
+[QEMU als DSP-Kern](messungen/2026-11-16-qemu-dsp-kern.md)). Der GNU-Worker
+bleibt Referenz für Vergleiche und Rückfall: `BFIN_WORKER=~/gelumpe-dsp/gnu/blackfin-worker`.
+Auf Windows läuft der GNU-Worker nur in WSL2; den QEMU-Worker dort hat noch
+niemand gebaut.
+
 Emulatorergebnisse sind keine Messung am Gerät. Als Beleg für die Gerätekarte
 taugt allenfalls `derived:` mit dokumentierter Herleitung, sichtbar als
 Emulatorbefund benannt; Gerätetests bleiben `measure:`.
