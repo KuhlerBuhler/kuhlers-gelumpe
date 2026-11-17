@@ -211,6 +211,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 35: veraltete Aufrufe und ihr Ersatz](2026-11-12-plugin-api35-veraltet.md)
 - [Plugin API 37: Energiesparmodus und IDLE SAVE lesen, das Ereignis idle, die Schalter in Byte 7, im Emulator](2026-11-15-plugin-api37-energie.md)
 - [Plugin API 35: Touchpad-Y halten wie korg.touchLockX, im Emulator](2026-11-12-plugin-touch-lock-y.md)
+- [Plugin API 39: ein Ordner mit 16 Datendateien je Plugin, 32 KiB je Datei, Heap im Emulator gemessen](2026-11-17-plugin-daten-heap.md)
 - [Firmwarepfad fuer Part-Parameter, im Emulator geprueft](2026-11-06-part-param-refresh.md)
 - [DSP-Transport bei neuen Part-Bedienungen, im Emulator geprueft](2026-11-07-part-control-dsp-refresh.md)
 - [Part-Werte aus Plugins: Parametersetzer, Auffrischen, Filter-LEDs und MFX SEND wie die Bedienelemente, im Emulator](2026-11-09-plugin-part-dsp.md)

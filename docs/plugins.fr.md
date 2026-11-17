@@ -260,7 +260,7 @@ feuille de l’arbre d’objets.
 | Entrées propres dans le menu BLECH | non | `korg.menu.add` | `menu` |
 | Apps | non | `korg.app` | `open`, `close` |
 | Valeurs enregistrées | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
-| Fichier propre sur la carte | `korg.file.read` | `korg.file.write` | non |
+| Fichiers propres sur la carte (16 par plugin) | `korg.file.read` | `korg.file.write` | non |
 | Images de démarrage et animations de chargement sur la carte (Media) | `korg.file.count`, `korg.file.name`, `korg.file.picture` | non | non |
 | Temps et minuteurs | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
@@ -712,8 +712,8 @@ exclut le corps et `save`.
 | `korg.audio.capture(source)` | demande le son d’une source : `source` 1 à 16 la partie 1 à 16, 17 à 24 les paires de parties 1+2 à 15+16 (les deux côtés), -1 ou 0 arrête. Le firmware prend le son de la source au DSP et calcule un spectre toutes les 50 ms (FFT sur 4096 trames, 48 kHz), dans sa propre tâche, pas dans le plugin. Renvoie l’état (`AUDIO_STATUS` dans le contrat) : 0 ok, 1 arrêt, 2 occupé, 3 attente (les premières données arrivent), 4 trou, 5 pas de mémoire, 6 pas sur cette Electribe. Un plugin qui n’appelle pas `capture`, `spectrum` ou `wave` au moins toutes les 2 s perd la capture. Capture, FFT et anneau viennent de Spettro par Luigi (GitHub reflectiveboi, PR #429). Sampler seulement (Hacktribe et rouge), 6 sur le synthé bleu. Depuis l’API 31 ([mesure](messungen/2026-11-12-plugin-api31-spektrum.md)) | Partout |
 | `korg.audio.spectrum(tableau, bins, plage)` | remplit les `bins` (1 à 128) premières cases du tableau avec le spectre de la source, dB 0 à 96 par bande, 96 est un sinus à pleine échelle ; `plage` 0 complet 20 Hz à 20 kHz, 1 basses 20 Hz à 2 kHz, découpé en log, par case la plus forte des 128 bandes. Renvoie l’état comme `korg.audio.capture` ; le tableau n’est écrit qu’avec 0. Depuis l’API 31 | Partout |
 | `korg.audio.wave(tableau)` | remplit le tableau avec les trames les plus récentes de la source, -128 à 127 (les 8 bits du haut), au plus 256, la dernière case la plus récente ; pour une paire, la moyenne des deux côtés. Renvoie l’état comme `korg.audio.capture`. Depuis l’API 31 | Partout |
-| `korg.file.read(tableau, offset)` | lit le fichier de données du plugin (voir [Fichier de données](#fichier-de-données)) à partir de l’octet `offset` (0 à 4095) dans le tableau, un octet par case, autant que le tableau a de cases et que le fichier en contient. Renvoie le nombre d’octets (0 sans fichier), -1 hors de l’écran principal et du menu BLECH, sans carte lisible ou tant que le fichier d’un autre plugin attend d’être écrit. Depuis l’API 32 ([mesure](messungen/2026-11-11-plugin-api32-data-file.md)) | comme `korg.led` |
-| `korg.file.write(tableau, offset)` | écrit l’octet bas de chaque case dans le fichier de données du plugin à partir de l’octet `offset`, jusqu’à la fin du tableau ou la limite de 4096 octets ; un trou derrière l’ancienne fin se lit comme 0. Comme pour `korg.store.save`, le fichier n’arrive sur la carte qu’à l’écran principal ou dans le menu BLECH, au plus tôt 2 s après la dernière écriture. Renvoie le nombre d’octets, -1 comme `korg.file.read`. Depuis l’API 32 | comme `korg.led` |
+| `korg.file.read(tableau, offset, fichier)` | lit le fichier de données `fichier` (0 à 15) du plugin (voir [Fichier de données](#fichier-de-données)) à partir de l’octet `offset` (0 à 32767) dans le tableau, un octet par case, autant que le tableau a de cases et que le fichier en contient. Renvoie le nombre d’octets (0 sans fichier), -1 hors de l’écran principal et du menu BLECH, sans carte lisible ou tant qu’un autre fichier, même du plugin, attend d’être écrit. Un numéro hors de 0 à 15 arrête le plugin (`API_ARG`). Depuis l’API 39 ([mesure](messungen/2026-11-17-plugin-daten-heap.md), en allemand) | comme `korg.led` |
+| `korg.file.write(tableau, offset, fichier)` | écrit l’octet bas de chaque case dans le fichier de données `fichier` (0 à 15) du plugin à partir de l’octet `offset`, jusqu’à la fin du tableau ou la limite de 32768 octets ; un trou derrière l’ancienne fin se lit comme 0. Comme pour `korg.store.save`, le fichier n’arrive sur la carte qu’à l’écran principal ou dans le menu BLECH, au plus tôt 2 s après la dernière écriture sur la carte. Renvoie le nombre d’octets, -1 comme `korg.file.read`. Depuis l’API 39 | comme `korg.led` |
 | `korg.read.sampleName(tableau, slot)` | lit le nom de l’échantillon du slot `slot` (0 à 997, le numéro affiché moins 1, comme la valeur de partie `sample`) dans le tableau, un caractère par case, jusqu’au premier octet nul, 16 caractères ou la fin du tableau. Renvoie le nombre de caractères (0 pour un slot vide), -1 sur le synthé bleu. Depuis l’API 33 ([mesure](messungen/2026-11-11-plugin-api33-samples.md), en allemand) | Partout |
 | `korg.read.sampleInfo(slot, valeur)` | une valeur de l’échantillon du slot `slot` tirée des tables de l’échantillonneur : `valeur` 0 début, 1 fin, 2 boucle (valeurs brutes comme dans le fichier d’échantillon, l’unité n’est pas mesurée), 3 tune (-128 à 127), 4 stéréo (0 ou 1), 5 longueur des données PCM en octets, 6 one shot (0 ou 1), 7 fréquence d’échantillonnage en Hz (`SAMPLE_INFO.fields` dans le contrat). 0 pour un slot vide, -1 sur le synthé bleu. Depuis l’API 33 | Partout |
 | `korg.pattern.write()` | enregistre le pattern en lecture à sa place dans la banque, comme EXIT + WRITE : appuie sur WRITE, et la fenêtre du firmware reçoit son second WRITE à la trame suivante. Avec `korg.display.popups = 0`, il enregistre sans la fenêtre (il envoie au firmware ce qu’envoie le second WRITE de la fenêtre). Renvoie 1 quand l’enregistrement est en cours, 0 hors de l’écran principal, tant qu’un enregistrement attend encore sa fenêtre ou pendant 1 s après un enregistrement sans fenêtre. L’événement `write` arrive comme avec la touche. Depuis l’API 33 | comme `korg.led` |
@@ -1236,12 +1236,14 @@ automatique. Dans le navigateur, les valeurs persistent uniquement jusqu’au re
 
 ### Fichier de données
 
-Chaque plugin a un fichier pour ses propres octets, `KORG/blechtribe/Plugin/Data/<nom>.bin` : le nom du plugin, chaque caractère
-autre que A à Z, a à z, 0 à 9 et `-` remplacé par `_` (`dataFileName` dans le contrat). Il fait au plus 4096 octets
-(`SCRIPT_DATA_FILE.maxBytes`) ; la limite pourra augmenter dans une version future de l’API. `korg.file.read` et `korg.file.write`
-travaillent sur une copie en RAM : le runtime garde le fichier d’un plugin à la fois dans un bloc du tas du firmware (4112 octets,
-pris au premier appel, gardé jusqu’à l’extinction). Un autre plugin n’obtient le bloc qu’une fois le fichier du précédent sur la
-carte. Ce qu’un plugin écrit avant que son fichier soit sur la carte est perdu à l’extinction.
+Chaque plugin a son propre dossier avec jusqu’à 16 fichiers pour ses propres octets, `KORG/blechtribe/Plugin/Data/<nom>/00.bin`
+à `15.bin` : `<nom>` est le nom du plugin, chaque caractère autre que A à Z, a à z, 0 à 9 et `-` remplacé par `_` (`dataFileName`
+dans le contrat). Le dernier argument de `korg.file.read` et `korg.file.write` choisit le fichier ; un plugin n’atteint aucun
+autre chemin. Chaque fichier fait au plus 32768 octets (`SCRIPT_DATA_FILE.files` et `.maxBytes`). Les deux appels travaillent sur
+une copie en RAM : le runtime garde un fichier à la fois dans un bloc du tas du firmware (32788 octets, pris au premier appel,
+gardé jusqu’à l’extinction ; [mesure](messungen/2026-11-17-plugin-daten-heap.md), en allemand). Un autre fichier, du même plugin ou d’un autre, n’obtient le bloc
+qu’une fois le précédent sur la carte ; jusque-là les appels renvoient -1. Ce qu’un plugin écrit avant que son fichier soit sur la
+carte est perdu à l’extinction.
 
 ## Menu BLECH de l’appareil
 

@@ -300,7 +300,7 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Eigene Einträge im Menü BLECH | nein | `korg.menu.add` | `menu` |
 | Apps | nein | `korg.app` | `open`, `close` |
 | Gespeicherte Werte | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
-| Eigene Datei auf der Karte | `korg.file.read` | `korg.file.write` | nein |
+| Eigene Dateien auf der Karte (16 je Plugin) | `korg.file.read` | `korg.file.write` | nein |
 | Startbilder und Ladeanimationen auf der Karte (Media) | `korg.file.count`, `korg.file.name`, `korg.file.picture` | nein | nein |
 | Zeit und Timer | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
@@ -723,8 +723,8 @@ Plugin mit einem Fehler.
 | `korg.audio.capture(quelle)` | fordert den Ton einer Quelle an: `quelle` 1 bis 16 Part 1 bis 16, 17 bis 24 die Part-Paare 1+2 bis 15+16 (beide Seiten), -1 oder 0 hört auf. Die Firmware nimmt den Ton der Quelle am DSP ab und rechnet alle 50 ms ein Spektrum (FFT über 4096 Frames, 48 kHz), in ihrer eigenen Task, nicht im Plugin. Gibt den Status zurück (`AUDIO_STATUS` im Vertrag): 0 ok, 1 aus, 2 belegt, 3 warten (die ersten Daten kommen), 4 Lücke, 5 kein Speicher, 6 nicht auf dieser Electribe. Wer nicht mindestens alle 2 s `capture`, `spectrum` oder `wave` ruft, verliert die Aufnahme. Capture, FFT und Ring kommen aus Spettro von Luigi (GitHub reflectiveboi, PR #429). Nur Sampler (Hacktribe und rot), auf dem blauen Synth 6. Ab API Version 31 ([Messung](messungen/2026-11-12-plugin-api31-spektrum.md)) | überall |
 | `korg.audio.spectrum(feld, bins, bereich)` | füllt die ersten `bins` (1 bis 128) Plätze des Felds mit dem Spektrum der Quelle, dB 0 bis 96 je Band, 96 ist ein Sinus mit voller Aussteuerung; `bereich` 0 voll 20 Hz bis 20 kHz, 1 Bass 20 Hz bis 2 kHz, logarithmisch geteilt, je Platz das lauteste der 128 Bänder darin. Gibt den Status wie `korg.audio.capture` zurück; das Feld wird nur bei 0 beschrieben. Ab API Version 31 | überall |
 | `korg.audio.wave(feld)` | füllt das Feld mit den neuesten Frames der Quelle, -128 bis 127 (die oberen 8 Bit), höchstens 256, der letzte Platz am neuesten; bei einem Part-Paar der Mittelwert beider Seiten. Gibt den Status wie `korg.audio.capture` zurück. Ab API Version 31 | überall |
-| `korg.file.read(feld, offset)` | liest die Datendatei des Plugins (siehe [Datendatei](#datendatei)) ab Byte `offset` (0 bis 4095) ins Feld, ein Byte je Platz, so viele wie das Feld Plätze hat und die Datei reicht. Gibt die Zahl der Bytes zurück (0 ohne Datei), -1 außerhalb des Hauptbildschirms und des Menüs BLECH, ohne lesbare Karte oder solange ein anderes Plugin noch auf das Schreiben seiner Datei wartet. Ab API Version 32 ([Messung](messungen/2026-11-11-plugin-api32-data-file.md)) | wie `korg.led` |
-| `korg.file.write(feld, offset)` | schreibt das untere Byte jedes Platzes ab Byte `offset` in die Datendatei des Plugins, bis zum Ende des Felds oder der Grenze von 4096 Byte; eine Lücke hinter dem alten Ende liest sich als 0. Auf die Karte kommt die Datei wie bei `korg.store.save` erst im Hauptbildschirm oder im Menü BLECH und frühestens 2 s nach dem letzten Schreiben. Gibt die Zahl der Bytes zurück, -1 wie `korg.file.read`. Ab API Version 32 | wie `korg.led` |
+| `korg.file.read(feld, offset, datei)` | liest die Datendatei `datei` (0 bis 15) des Plugins (siehe [Datendatei](#datendatei)) ab Byte `offset` (0 bis 32767) ins Feld, ein Byte je Platz, so viele wie das Feld Plätze hat und die Datei reicht. Gibt die Zahl der Bytes zurück (0 ohne Datei), -1 außerhalb des Hauptbildschirms und des Menüs BLECH, ohne lesbare Karte oder solange eine andere Datei, auch eine eigene, noch auf das Schreiben wartet. Eine Nummer außerhalb 0 bis 15 hält das Plugin an (`API_ARG`). Ab API Version 39 ([Messung](messungen/2026-11-17-plugin-daten-heap.md)) | wie `korg.led` |
+| `korg.file.write(feld, offset, datei)` | schreibt das untere Byte jedes Platzes ab Byte `offset` in die Datendatei `datei` (0 bis 15) des Plugins, bis zum Ende des Felds oder der Grenze von 32768 Byte; eine Lücke hinter dem alten Ende liest sich als 0. Auf die Karte kommt die Datei wie bei `korg.store.save` erst im Hauptbildschirm oder im Menü BLECH und frühestens 2 s nach dem letzten Schreiben auf die Karte. Gibt die Zahl der Bytes zurück, -1 wie `korg.file.read`. Ab API Version 39 | wie `korg.led` |
 | `korg.read.sampleName(feld, slot)` | liest den Namen des Samples in Slot `slot` (0 bis 997, die Nummer am Display minus 1, wie der Part-Wert `sample`) ins Feld, ein Zeichen je Platz, bis zum ersten Nullbyte, 16 Zeichen oder dem Ende des Felds. Gibt die Zahl der Zeichen zurück (0 für einen leeren Slot), -1 auf dem blauen Synth. Ab API Version 33 ([Messung](messungen/2026-11-11-plugin-api33-samples.md)) | überall |
 | `korg.read.sampleInfo(slot, wert)` | ein Wert des Samples in Slot `slot` aus den Tabellen des Samplers: `wert` 0 Start, 1 Ende, 2 Loop (Rohwerte wie in der Sample-Datei, die Einheit ist nicht gemessen), 3 Tune (-128 bis 127), 4 Stereo (0 oder 1), 5 Länge der PCM-Daten in Byte, 6 One-Shot (0 oder 1), 7 Samplerate in Hz (`SAMPLE_INFO.fields` im Vertrag). 0 für einen leeren Slot, -1 auf dem blauen Synth. Ab API Version 33 | überall |
 | `korg.pattern.write()` | speichert das laufende Pattern an seinen Platz in der Bank, wie EXIT + WRITE: drückt WRITE, und das Fenster der Firmware bekommt im nächsten Rahmen sein zweites WRITE. Mit `korg.display.popups = 0` speichert es ohne das Fenster (schickt der Firmware, was das zweite WRITE im Fenster schickt). Gibt 1 zurück, wenn das Speichern läuft, 0 außerhalb des Hauptbildschirms, solange ein Speichern noch auf sein Fenster wartet oder bis 1 s nach einem Speichern ohne Fenster. Das Ereignis `write` kommt wie bei der Taste. Ab API Version 33 | wie `korg.led` |
@@ -1288,12 +1288,14 @@ Werte bis zum Neuladen der Seite.
 
 ### Datendatei
 
-Jedes Plugin hat eine Datei für eigene Bytes, `KORG/blechtribe/Plugin/Data/<name>.bin`: der Plugin-Name, jedes Zeichen außer
-A bis Z, a bis z, 0 bis 9 und `-` als `_` (`dataFileName` im Vertrag). Sie ist höchstens 4096 Byte groß (`SCRIPT_DATA_FILE.maxBytes`);
-die Grenze kann in einer späteren API-Version wachsen. `korg.file.read` und `korg.file.write` arbeiten auf einer Kopie im
-RAM: die Laufzeit hält die Datei eines Plugins zur Zeit in einem Block vom Heap der Firmware (4112 Byte, beim ersten Aufruf
-genommen, bis zum Ausschalten behalten). Ein anderes Plugin bekommt den Block erst, wenn die Datei des vorigen auf der Karte
-steht. Was ein Plugin schreibt, bevor die Datei auf der Karte steht, geht beim Ausschalten verloren.
+Jedes Plugin hat einen eigenen Ordner mit bis zu 16 Dateien für eigene Bytes, `KORG/blechtribe/Plugin/Data/<name>/00.bin` bis
+`15.bin`: `<name>` ist der Plugin-Name, jedes Zeichen außer A bis Z, a bis z, 0 bis 9 und `-` als `_` (`dataFileName` im
+Vertrag). Das letzte Argument von `korg.file.read` und `korg.file.write` wählt die Datei, einen anderen Pfad erreicht ein
+Plugin nicht. Jede Datei ist höchstens 32768 Byte groß (`SCRIPT_DATA_FILE.files` und `.maxBytes`). Beide Aufrufe arbeiten auf
+einer Kopie im RAM: die Laufzeit hält eine Datei zur Zeit in einem Block vom Heap der Firmware (32788 Byte, beim ersten Aufruf
+genommen, bis zum Ausschalten behalten; [Messung](messungen/2026-11-17-plugin-daten-heap.md)). Eine andere Datei, eigene oder die eines anderen Plugins, kommt erst in
+den Block, wenn die vorige auf der Karte steht; bis dahin geben die Aufrufe -1. Was ein Plugin schreibt, bevor die Datei auf
+der Karte steht, geht beim Ausschalten verloren.
 
 ## Das Menü BLECH am Gerät
 
