@@ -212,6 +212,9 @@ Plätzen. Ist er voll, geht das neue Ereignis verloren und wird gezählt. Ein
 Regler, der sofort wieder gedreht wird, behält nur seinen letzten Wert.
 Die Handler eines Rahmens laufen zusammen höchstens 5 ms; wer darüber
 kommt, wird abgeschaltet. Ein einzelner Handler über 0,5 ms ist eine Warnung.
+Die Zeit, die `korg.file.frame`, `read`, `write`, `count`, `name` und `picture` auf der Karte lesen, zählt
+weder für die 5 ms noch für die Warnung, höchstens 50 ms davon je Rahmen; was darüber geht, zählt wieder
+(im Emulator gemessen: 9 ms für ein Bild je Rahmen, das Plugin bleibt an).
 Der Status hält die höchsten Kosten und den höchsten Zeitverbrauch getrennt
 für jeden Handler. In der JS Referenzlaufzeit nennt `maxMs` diese Zeiten in
 Millisekunden; der ARM Eintrag hält Timer3 Ticks je Ereignis.
@@ -241,7 +244,7 @@ das Touchpad und ihre Taste). In allen Menüs der Firmware (Pattern, Global, Par
 Edit, Step Edit und die übrigen) bekommen Plugins die Eingaben wie auf dem
 Hauptbildschirm.
 
-### Was ein Plugin erreicht (API 37)
+### Was ein Plugin erreicht (API 38)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -297,7 +300,8 @@ erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht 
 | Eigene Einträge im Menü BLECH | nein | `korg.menu.add` | `menu` |
 | Apps | nein | `korg.app` | `open`, `close` |
 | Gespeicherte Werte | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
-| Eigene Datei auf der Karte | `korg.file.read` | `korg.file.write` | nein |
+| Eigene Dateien auf der Karte (16 je Plugin) | `korg.file.read` | `korg.file.write` | nein |
+| Startbilder und Ladeanimationen auf der Karte (Media) | `korg.file.count`, `korg.file.name`, `korg.file.picture` | nein | nein |
 | Zeit und Timer | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
 
@@ -637,6 +641,9 @@ Plugin mit einem Fehler.
 | `korg.after(ms, fn)`, `korg.every(ms, fn)`, `korg.afterSteps(n, fn)`, `korg.cancel(nummer)` | Timer, siehe oben. Ab API Version 11 | überall außer `save` |
 | `korg.app(name, gruppe)` | meldet das Plugin als App an: `name` 1 bis 15 Zeichen, `gruppe` `"GAMES"` oder `"TOOLS"`. Gibt die Nummer der App zurück, -1 wenn alle 16 Plätze belegt sind (das Gerät meldet dann beim Import "max 16 apps", das Plugin steht trotzdem in der Plugin-Liste und läuft). Als eigene Anweisung ganz oben, einmal je Plugin (der Übersetzer prüft das) | nur im Rumpf |
 | `korg.file.frame(feld, datei, bild)` | liest Bild `bild` (0 bis 65535) der Datei `GIFnn.E2G` (`datei` 0 bis 99 ist nn) aus `KORG/blechtribe/Gif/` ins Feld, ein Byte je Platz, also genau, was `korg.display.bitmap(feld, 0, 0, 128)` zeichnet. Das Feld braucht mindestens 1024 Plätze. Gibt die Dauer des Bildes in ms zurück (mindestens 1), 0 hinter dem letzten Bild, -1 ohne Datei, bei falscher oder abgeschnittener Datei und außerhalb des Hauptbildschirms; nach -1 kann am Gerät das letzte Viertel des Felds verändert sein. Ab API Version 7 | wie `korg.led` |
+| `korg.file.count(art)` | liest den Ordner `KORG/blechtribe/Media/` neu und gibt die Zahl der Dateien der Art `art` zurück: 0 Startbilder (`.bmp`), 1 Ladeanimationen (`.blla`), in der Reihenfolge des Ordners, höchstens 64 (der Rest fehlt). -1, wenn die Karte gerade nicht lesbar ist oder außerhalb des Hauptbildschirms. Andere Ordner zählen nicht. Ab API Version 38 | wie `korg.led` |
+| `korg.file.name(feld, art, platz)` | schreibt den Namen der Datei `platz` (0 bis 63) aus der Liste, die das letzte `korg.file.count(art)` gelesen hat, ohne Endung ins Feld, ein Zeichen je Platz, danach eine 0, wenn Platz ist; für `korg.display.chars`. Länger als 17 Zeichen wird er auf 15 und ".." gekürzt. Gibt die Länge zurück, 0 hinter der letzten Datei. Ab API Version 38 | wie `korg.led` |
+| `korg.file.picture(feld, art, platz, bild)` | liest Bild `bild` der Datei `platz` aus derselben Liste ins Feld (mindestens 1024 Plätze), im Aufbau von `korg.display.bitmap(feld, 0, 0, 128)`. Ein `.bmp` (128 x 64, 1 Bit, wie SPLASH IMPORT) hat ein Bild, die dunklere Farbe ist gezeichnet; ein `.blla` hat erst die Fortschrittsbilder, dann die Schleifenbilder. Gibt die Zahl der Bilder der Datei zurück, 0 hinter dem letzten (Feld bleibt), -1 wenn der Platz nicht in der Liste steht, die Datei fehlt oder kaputt ist und außerhalb des Hauptbildschirms. Ein gezeichneter Punkt erscheint dunkel wie beim Startbild und der Ladeanimation: mit DISPLAY INVERT ON kommen alle Bits umgedreht (im Emulator gemessen, [Messung](messungen/2026-11-16-media-polaritaet.md)). Ab API Version 38 | wie `korg.led` |
 | `korg.display.take()` | das Display nehmen (Weg 2, siehe oben); 1 wenn es klappt, 0 wenn nicht (eine App, ein anderer Besitzer, nicht der Hauptbildschirm) | wie `korg.led` |
 | `korg.display.release()` | das Display zurückgeben | wie `korg.led` |
 | `korg.display.popups = 0` | hält das Parameterfenster zu, das `korg.seq.setPartValue` sonst wie der Regler öffnet, und das Schreibfenster von `korg.pattern.write`; nur für die Aufrufe dieses Plugins, 1 schaltet es wieder ein. Beim Laden steht es auf 1. `korg.knob` öffnet das Fenster der Firmware weiter, weil es den Regler selbst spielt. Lesen mit `korg.display.popups` oder `korg.read.popups()`. Ab API Version 24 | wie `korg.led` |
@@ -716,8 +723,8 @@ Plugin mit einem Fehler.
 | `korg.audio.capture(quelle)` | fordert den Ton einer Quelle an: `quelle` 1 bis 16 Part 1 bis 16, 17 bis 24 die Part-Paare 1+2 bis 15+16 (beide Seiten), -1 oder 0 hört auf. Die Firmware nimmt den Ton der Quelle am DSP ab und rechnet alle 50 ms ein Spektrum (FFT über 4096 Frames, 48 kHz), in ihrer eigenen Task, nicht im Plugin. Gibt den Status zurück (`AUDIO_STATUS` im Vertrag): 0 ok, 1 aus, 2 belegt, 3 warten (die ersten Daten kommen), 4 Lücke, 5 kein Speicher, 6 nicht auf dieser Electribe. Wer nicht mindestens alle 2 s `capture`, `spectrum` oder `wave` ruft, verliert die Aufnahme. Capture, FFT und Ring kommen aus Spettro von Luigi (GitHub reflectiveboi, PR #429). Nur Sampler (Hacktribe und rot), auf dem blauen Synth 6. Ab API Version 31 ([Messung](messungen/2026-11-12-plugin-api31-spektrum.md)) | überall |
 | `korg.audio.spectrum(feld, bins, bereich)` | füllt die ersten `bins` (1 bis 128) Plätze des Felds mit dem Spektrum der Quelle, dB 0 bis 96 je Band, 96 ist ein Sinus mit voller Aussteuerung; `bereich` 0 voll 20 Hz bis 20 kHz, 1 Bass 20 Hz bis 2 kHz, logarithmisch geteilt, je Platz das lauteste der 128 Bänder darin. Gibt den Status wie `korg.audio.capture` zurück; das Feld wird nur bei 0 beschrieben. Ab API Version 31 | überall |
 | `korg.audio.wave(feld)` | füllt das Feld mit den neuesten Frames der Quelle, -128 bis 127 (die oberen 8 Bit), höchstens 256, der letzte Platz am neuesten; bei einem Part-Paar der Mittelwert beider Seiten. Gibt den Status wie `korg.audio.capture` zurück. Ab API Version 31 | überall |
-| `korg.file.read(feld, offset)` | liest die Datendatei des Plugins (siehe [Datendatei](#datendatei)) ab Byte `offset` (0 bis 4095) ins Feld, ein Byte je Platz, so viele wie das Feld Plätze hat und die Datei reicht. Gibt die Zahl der Bytes zurück (0 ohne Datei), -1 außerhalb des Hauptbildschirms und des Menüs BLECH, ohne lesbare Karte oder solange ein anderes Plugin noch auf das Schreiben seiner Datei wartet. Ab API Version 32 ([Messung](messungen/2026-11-11-plugin-api32-data-file.md)) | wie `korg.led` |
-| `korg.file.write(feld, offset)` | schreibt das untere Byte jedes Platzes ab Byte `offset` in die Datendatei des Plugins, bis zum Ende des Felds oder der Grenze von 4096 Byte; eine Lücke hinter dem alten Ende liest sich als 0. Auf die Karte kommt die Datei wie bei `korg.store.save` erst im Hauptbildschirm oder im Menü BLECH und frühestens 2 s nach dem letzten Schreiben. Gibt die Zahl der Bytes zurück, -1 wie `korg.file.read`. Ab API Version 32 | wie `korg.led` |
+| `korg.file.read(feld, offset, datei)` | liest die Datendatei `datei` (0 bis 15) des Plugins (siehe [Datendatei](#datendatei)) ab Byte `offset` (0 bis 32767) ins Feld, ein Byte je Platz, so viele wie das Feld Plätze hat und die Datei reicht. Gibt die Zahl der Bytes zurück (0 ohne Datei), -1 außerhalb des Hauptbildschirms und des Menüs BLECH, ohne lesbare Karte oder solange eine andere Datei, auch eine eigene, noch auf das Schreiben wartet. Eine Nummer außerhalb 0 bis 15 hält das Plugin an (`API_ARG`). Ab API Version 39 ([Messung](messungen/2026-11-17-plugin-daten-heap.md)) | wie `korg.led` |
+| `korg.file.write(feld, offset, datei)` | schreibt das untere Byte jedes Platzes ab Byte `offset` in die Datendatei `datei` (0 bis 15) des Plugins, bis zum Ende des Felds oder der Grenze von 32768 Byte; eine Lücke hinter dem alten Ende liest sich als 0. Auf die Karte kommt die Datei wie bei `korg.store.save` erst im Hauptbildschirm oder im Menü BLECH und frühestens 2 s nach dem letzten Schreiben auf die Karte. Gibt die Zahl der Bytes zurück, -1 wie `korg.file.read`. Ab API Version 39 | wie `korg.led` |
 | `korg.read.sampleName(feld, slot)` | liest den Namen des Samples in Slot `slot` (0 bis 997, die Nummer am Display minus 1, wie der Part-Wert `sample`) ins Feld, ein Zeichen je Platz, bis zum ersten Nullbyte, 16 Zeichen oder dem Ende des Felds. Gibt die Zahl der Zeichen zurück (0 für einen leeren Slot), -1 auf dem blauen Synth. Ab API Version 33 ([Messung](messungen/2026-11-11-plugin-api33-samples.md)) | überall |
 | `korg.read.sampleInfo(slot, wert)` | ein Wert des Samples in Slot `slot` aus den Tabellen des Samplers: `wert` 0 Start, 1 Ende, 2 Loop (Rohwerte wie in der Sample-Datei, die Einheit ist nicht gemessen), 3 Tune (-128 bis 127), 4 Stereo (0 oder 1), 5 Länge der PCM-Daten in Byte, 6 One-Shot (0 oder 1), 7 Samplerate in Hz (`SAMPLE_INFO.fields` im Vertrag). 0 für einen leeren Slot, -1 auf dem blauen Synth. Ab API Version 33 | überall |
 | `korg.pattern.write()` | speichert das laufende Pattern an seinen Platz in der Bank, wie EXIT + WRITE: drückt WRITE, und das Fenster der Firmware bekommt im nächsten Rahmen sein zweites WRITE. Mit `korg.display.popups = 0` speichert es ohne das Fenster (schickt der Firmware, was das zweite WRITE im Fenster schickt). Gibt 1 zurück, wenn das Speichern läuft, 0 außerhalb des Hauptbildschirms, solange ein Speichern noch auf sein Fenster wartet oder bis 1 s nach einem Speichern ohne Fenster. Das Ereignis `write` kommt wie bei der Taste. Ab API Version 33 | wie `korg.led` |
@@ -1227,7 +1234,30 @@ Byte Displayspeicher (Byte `(y / 8) * 128 + x`, Bit `y % 8`). `tools/gif/gif2e2g
 (Pillow), aus mehreren Bildern (etwa BMPs) eine Datei mit einem Bild je Eingabe in der genannten Reihenfolge, `src/script/gif.mjs` liest sie im Browser. Ein Aufruf öffnet die Datei, springt zum Bild, liest es und schließt
 sie wieder, über die FatFs-Funktionen der Firmware (auch `f_lseek`, `0xC009E404`, in Blau `0xC008AF5C`) und mit dem
 Dateiobjekt des Kartenladers. Er liest nur bei offenem Hauptbildschirm. Wie lange das
-Lesen von 1 KiB am Gerät dauert, ist nicht gemessen; die 5 ms des Rahmens bleiben die Grenze.
+Lesen von 1 KiB am Gerät dauert, ist nicht gemessen; im Emulator sind es 7,5 ms, die nicht für das Rahmenbudget zählen.
+
+**Startbilder und Ladeanimationen** (`korg.file.count`, `korg.file.name`, `korg.file.picture`, ab API Version 38): gesucht wird
+nur in `KORG/blechtribe/Media/` (Ordnername in beliebiger Schreibung), nicht in Unterordnern und nicht in `KORG/blechtribe/`.
+Es zählt jede Datei mit der Endung `.bmp` (Art 0) oder `.blla` (Art 1), Endung in beliebiger Schreibung, Name höchstens 31
+Zeichen, nicht mit einem Punkt am Anfang. Die Reihenfolge ist die, in der FatFs den Ordner liefert, also meist die, in der die
+Dateien auf die Karte kamen, nicht alphabetisch. Je Art kommen höchstens 64 Dateien in die Liste (`SCRIPT_MEDIA.maxFiles`),
+der Rest fehlt. `korg.file.count` liest den Ordner neu, 0 ohne den Ordner, -1 wenn die Karte nicht lesbar ist (die Liste ist dann leer)
+oder außerhalb des Hauptbildschirms (die alte Liste bleibt). `korg.file.name` und `korg.file.picture` lesen nur diese Liste, kein
+Ordnerlauf je Encoder-Schritt; vor dem ersten `count` geben sie 0 und -1. Geöffnet wird über den Kurznamen (8.3). Ist eine Datei
+nach dem `count` weg oder wurde die Karte gewechselt, gibt `picture` -1 bis zum nächsten `count`.
+Namen: der lange Name ohne Endung, länger als 17 Zeichen auf 15 und ".." gekürzt; jedes Byte ab 0x80 wird "?" (die FatFs der
+Firmware liefert lange Namen in Codepage 932, ein Name mit Umlauten kann am Gerät darum anders lang sein).
+Ein `.bmp` muss sein wie die Startbilder von SPLASH IMPORT und der App: `BM`, 128 x 64 Pixel (Höhe 64 oder -64), eine Ebene,
+1 Bit ohne Kompression, Pixel ab Byte 54 bis 0x200 hinter Kopf und Palette, alle 1024 Pixelbyte da; gezeichnet ist die
+dunklere Palettenfarbe. Ein `.blla` hat das Format aus [Ladeanimation](hintergrund/ladeanimation.md); bei einem Wechsel der
+Datei wird sie einmal ganz geprüft, eine kaputte Liste irgendwo heißt -1 für jedes Bild der Datei.
+Polarität: ein gezeichneter Punkt ist ein gesetztes Bit; ist das Menü BLECH scharf und DISPLAY INVERT ON, kommen alle Bits
+umgedreht. So ist ein gezeichneter Punkt dunkel wie beim Startbild und der Ladeanimation
+([Messung](messungen/2026-11-16-media-polaritaet.md)). Im Browser nimmt der Simulator den Werkswert ON.
+Zeiten im Emulator ([Messung](messungen/2026-11-16-image-viewer-timing.md)), am Gerät nicht gemessen: `count` mit 5 Dateien
+3,9 bis 4,1 ms, mit 64 gelisteten 20,1 ms; ein `.bmp` 9,2 bis 9,4 ms; `.blla` erstes Bild nach dem Dateiwechsel 24,1 bis
+24,9 ms, ein Bild weiter 6,6 bis 7,0 ms, Sprung aufs letzte Bild 21,3 ms. Diese Zeit zählt wie bei `korg.file.frame` nicht
+fürs Rahmenbudget, höchstens 50 ms je Rahmen (siehe oben).
 
 ### Dauerhafte Werte
 
@@ -1258,12 +1288,14 @@ Werte bis zum Neuladen der Seite.
 
 ### Datendatei
 
-Jedes Plugin hat eine Datei für eigene Bytes, `KORG/blechtribe/Plugin/Data/<name>.bin`: der Plugin-Name, jedes Zeichen außer
-A bis Z, a bis z, 0 bis 9 und `-` als `_` (`dataFileName` im Vertrag). Sie ist höchstens 4096 Byte groß (`SCRIPT_DATA_FILE.maxBytes`);
-die Grenze kann in einer späteren API-Version wachsen. `korg.file.read` und `korg.file.write` arbeiten auf einer Kopie im
-RAM: die Laufzeit hält die Datei eines Plugins zur Zeit in einem Block vom Heap der Firmware (4112 Byte, beim ersten Aufruf
-genommen, bis zum Ausschalten behalten). Ein anderes Plugin bekommt den Block erst, wenn die Datei des vorigen auf der Karte
-steht. Was ein Plugin schreibt, bevor die Datei auf der Karte steht, geht beim Ausschalten verloren.
+Jedes Plugin hat einen eigenen Ordner mit bis zu 16 Dateien für eigene Bytes, `KORG/blechtribe/Plugin/Data/<name>/00.bin` bis
+`15.bin`: `<name>` ist der Plugin-Name, jedes Zeichen außer A bis Z, a bis z, 0 bis 9 und `-` als `_` (`dataFileName` im
+Vertrag). Das letzte Argument von `korg.file.read` und `korg.file.write` wählt die Datei, einen anderen Pfad erreicht ein
+Plugin nicht. Jede Datei ist höchstens 32768 Byte groß (`SCRIPT_DATA_FILE.files` und `.maxBytes`). Beide Aufrufe arbeiten auf
+einer Kopie im RAM: die Laufzeit hält eine Datei zur Zeit in einem Block vom Heap der Firmware (32788 Byte, beim ersten Aufruf
+genommen, bis zum Ausschalten behalten; [Messung](messungen/2026-11-17-plugin-daten-heap.md)). Eine andere Datei, eigene oder die eines anderen Plugins, kommt erst in
+den Block, wenn die vorige auf der Karte steht; bis dahin geben die Aufrufe -1. Was ein Plugin schreibt, bevor die Datei auf
+der Karte steht, geht beim Ausschalten verloren.
 
 ## Das Menü BLECH am Gerät
 
@@ -1347,6 +1379,7 @@ Die Seiten der Gruppen:
 | DISPLAY, INTENSITY | 0 bis 15 | Helligkeit des Display-Lichts über alle drei Farben, die Mischung bleibt; 0 ist kein Licht, 15 die volle Farbe; gilt sofort |
 | DISPLAY, DISPLAY INVERT | OFF, ON | kehrt das Display um: helle Punkte dunkel und dunkle hell (Befehl `0xA7` an den Display-Baustein, `0xA6` stellt zurück); gilt sofort; ON ist die Vorgabe (eine helle Spur auf dunklem Grund schmiert weniger als eine dunkle), eine Einstellungsdatei aus 1.2 ohne das Bit bleibt bei OFF |
 | DISPLAY, LOAD METER | OFF, ON | zeigt auf dem Hauptbildschirm links neben dem Kartensymbol die Last des Hauptprozessors in Prozent (0 bis 99, einmal pro Sekunde): der Anteil der Zeit, in der er nicht in seiner Leerlaufschleife schläft. Nicht im Menü, in Fenstern der Firmware oder bei offener App; gilt sofort; OFF ist die Vorgabe. ON wird in Byte 7 der Einstellungsdatei gespeichert (Version 4), [Messung](messungen/2026-11-14-energie-befunde.md) |
+| DISPLAY, BATTERY % | ON, OFF | zeigt auf dem Hauptbildschirm direkt links neben dem Batteriesymbol den Ladestand in Zehnerschritten mit `%` (0 bis 100 %), nur auf Batterie und nur mit Global BATTERY TYPE Alkali; am Netzteil und mit Ni-MH nichts. Der Wert ist geglättet, ein kurzer Einbruch ändert ihn nicht. Die Umrechnung folgt einer am Gerät gemessenen Entladekurve (Alkali, POWER SAVE an; 100 % bei frischen Zellen, ein Stück in der Mitte ist geschätzt). Nicht im Menü, in Fenstern der Firmware oder bei offener App; gilt sofort; ON ist die Vorgabe. OFF wird in Byte 7 der Einstellungsdatei gespeichert (Version 4). Auf dem Hauptbildschirm steht das Kartensymbol dafür links der Zahl (Spalten 94 bis 99, LOAD METER davor), in den Menüs an seiner gewohnten Stelle, [Messung](messungen/2026-11-16-batterie-prozent.md) |
 | CUSTOMIZATION, POWER SAVE | ENTER | öffnet die Seiten für den Energiesparmodus (DISPLAY LIGHT und LED DIMMING wirken nur auf Batterie, IDLE SAVE auch am Netzteil); EXIT führt zurück auf POWER SAVE |
 | POWER SAVE, DISPLAY LIGHT | STOCK, 1 bis 15 | das Display-Licht im Energiesparmodus: STOCK ist das Dimmen der Firmware, 1 bis 15 die eigene Farbe, 1 leuchtet mit 3 von 15, 15 voll |
 | POWER SAVE, LED DIMMING | 0 bis 100 % | wie stark der Energiesparmodus Pads, Tasten und Regler-LEDs dimmt: 0 % gar nicht, 100 % aus, 75 % (die Vorgabe) ein Viertel der Helligkeit; die Regler-LEDs gehen aus, außer bei 0 %; gilt sofort, WRITE behält es |
@@ -1385,7 +1418,7 @@ Titel rund 18.
 
 Auf den Seiten PLUGIN RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION und bei der Zustimmung für fremde Plugins
 speichert WRITE (mit AUTO SAVE auch das Verlassen des Menüs nach einer Änderung) die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
-sich mit einer Generationsnummer abwechseln (24 bis 280 Byte: Kennung `GSET`, Version 3, mit LOAD METER ON oder IDLE SAVE OFF Version 4 (Byte 7 ist dann ein zweites Byte mit Schaltern, die Anzahl steht allein in Byte 6; ein BLECHTRIBE bis 1.4.6 liest Version 4 nicht, es nimmt die andere Kopie oder die Standardwerte), ein Byte mit METER LOUD RAINBOW in Bit 0 (ein BLECHTRIBE vor 1.3 verwirft eine Datei, in der es gesetzt ist), Anzahl
+sich mit einer Generationsnummer abwechseln (24 bis 280 Byte: Kennung `GSET`, Version 3, mit LOAD METER ON, IDLE SAVE OFF oder BATTERY % OFF Version 4 (Byte 7 ist dann ein zweites Byte mit Schaltern, die Anzahl steht allein in Byte 6; ein BLECHTRIBE bis 1.4.6 liest Version 4 nicht, es nimmt die andere Kopie oder die Standardwerte), ein Byte mit METER LOUD RAINBOW in Bit 0 (ein BLECHTRIBE vor 1.3 verwirft eine Datei, in der es gesetzt ist), Anzahl
 erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
 erlaubten fremden Blöcke, CRC-32; höchstens 64 Einträge (bis 1.3.7 Version 2 mit höchstens 16; ein BLECHTRIBE bis 1.3.7 liest Version 3 nicht, es nimmt dann eine ältere Datei der Version 2, die noch auf der Karte liegt, oder die Standardwerte);
 in derselben Liste steht für jedes ausgeschaltete Plugin seine Prüfsumme invertiert, ein älteres BLECHTRIBE liest sie als
@@ -1484,7 +1517,7 @@ Einheit anders sein.
 | Simon | GAMES | die 16 Pads leuchten eine Folge vor (ein Schritt 0,72 s, alle vier Runden etwas kürzer, nie unter 0,4 s), man spielt sie nach, jede Runde einen Schritt mehr; das Display zeigt Runde, Schritt und was zu tun ist; ein falsches Pad beendet das Spiel, TAP oder ein Pad startet neu | 2268 Byte | Rahmen höchstens 1673 Einheiten (Spielende), das Öffnen 1644 |
 | Mandelbrot | GAMES | ein Finger auf dem Touchpad verschiebt, Part rechts und Encoder zoomen hinein, Part links hinaus, Taste 1 und 2 stellen die Iterationen (8 bis 64), TAP setzt zurück | 3452 Byte | 2441 Einheiten, 0,46 ms |
 | GIF Player | TOOLS | spielt `GIF00.E2G` bis `GIF99.E2G` von der Karte ab: der Encoder wählt die Datei, Part links und rechts halbieren und verdoppeln das Tempo (25 bis 400 %), TAP hält an; fehlt die Datei, sagt er es. Zum Ausprobieren von Animationen am Display, ein Bild steht mindestens einen Rahmen (40 ms) | 972 Byte | Rahmen 3762 Einheiten, rund 0,72 ms (Bild allein 3086), über der Warnschwelle von 0,5 ms |
-| Image Viewer | TOOLS | zeigt die Bilder einer Datei `GIF00.E2G` bis `GIF99.E2G` einzeln, etwa mehrere BMPs, die `tools/gif/gif2e2g.py` in eine Datei gelegt hat: Part rechts und links blättern vor und zurück, nach dem letzten Bild kommt wieder das erste, der Encoder wählt die Datei. Oben links steht nach jedem Wechsel zwei Sekunden lang die Nummer (`2/3`, die Gesamtzahl erst, wenn er einmal durch ist), TAP lässt sie stehen oder blendet sie aus. Rückwärts vom ersten Bild zum letzten geht erst, wenn er die Zahl kennt, denn die Laufzeit sagt sie nicht vorher | 1128 Byte | Tastendruck höchstens 4414 Einheiten (über das letzte Bild hinaus: zwei Lesevorgänge und das Bild), rund 0,84 ms hergeleitet, über der Warnschwelle von 0,5 ms |
+| Image Viewer | TOOLS | zeigt die Startbilder (`.bmp`) und Ladeanimationen (`.blla`) aus `KORG/blechtribe/Media/`. Am Anfang die Liste `IMAGES n` und `ANIMATIONS n`, Encoder oder Part wählt, MENU öffnet, MENU im Untermenü geht zurück. IMAGES: Encoder und Part blättern im Kreis, Name und Platz stehen zwei Sekunden oben, TAP lässt sie stehen. ANIMATIONS: der Encoder wählt die Datei, Part ein Bild vor und zurück, TAP spielt und hält an; gespielt wird ein Bild alle 96 ms, Part halbiert und verdoppelt das (48 bis 384 ms), nach dem letzten Bild kommt wieder das erste. `NO IMAGES`, `NO ANIMATIONS`, `NO CARD`, eine kaputte Datei zeigt Name und `BAD FILE` | 2260 Byte | Rahmen beim Spielen 4620 Einheiten, Tastendruck 4697 (davon das ganze Bild 3086), hergeleitet über der Warnschwelle; im Emulator gemessen höchstens 0,35 ms (Sprung auf Bild 255 einer `.blla`), die Kartenzeit zählt nicht |
 
 **Set-Timer** ist für den Einsatz im Set gedacht. Die Uhr ist `korg.millis()`, die die Laufzeit in jedem Rahmen
 nachführt, auch wenn die App geschlossen ist. Er abonniert nur `play`, die Tasten und `open` und `close`: geschlossen
@@ -1615,8 +1648,8 @@ wird nichts. Im Simulator geprüft, laut Autor am Gerät.
 Velocity über 96 ist ein Accent: beim `step` schreibt es für diesen Part die Accent-Werte von EG INT, DECAY und LEVEL, bei
 einem Step darunter die normalen. SHIFT + EG INT, DECAY oder LEVEL setzt die Accent-Werte des gewählten Parts
 (`korg.knobHold` hält die drei Regler dann von der Firmware fern), ohne SHIFT merkt es sich die normalen Werte. STOP stellt
-die normalen Werte wieder her. Es wirkt nur auf die Parts 1 bis 7 (`maxParts = 7`): mit allen 16 lief der Step-Handler laut
-Autor in den Watchdog. Ein WRITE während eines Accents speichert die Accent-Werte. Im Simulator geprüft, laut Autor am Gerät.
+die normalen Werte wieder her. Es wirkt auf alle 16 Parts (`maxParts = 15`), eine frühere Version
+hörte bei Part 7 auf, weil der Step-Handler in den Watchdog lief, die jetzige liest je Part nur Step, On und Velocity. Ein WRITE während eines Accents speichert die Accent-Werte. Im Simulator geprüft, laut Autor am Gerät.
 
 **Easy Slides** (von alarykko, aus dem BLECH-Discord) läuft im Hintergrund unter TOOLS: ein TIE-Step (Gate über 96) und der
 Step danach bekommen 35 mehr Glide, die zwei Noten gleiten ineinander. SHIFT + PITCH/GLIDE setzt das Grund-Glide des

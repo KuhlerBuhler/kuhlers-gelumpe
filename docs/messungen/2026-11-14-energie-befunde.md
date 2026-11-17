@@ -81,7 +81,7 @@ B = Stichprobe des Worts beim IRQ-Eintritt an der 2-kHz-Kante (Vorwert 0 oder 1)
 ## 0.2 Statusleiste (Emulator-Dump `m.fb`, nur Rot)
 
 - Kartensymbol: Spalten 109-114, Seite 0, Zeilen 1-7. Batterie (am Netzteil: Stecker gleicher Größe): Spalten 117-126, Seite 0.
-- Seite 0 belegt sonst nur BPM (Spalten 50/52-74). Frei in allen geprüften Zuständen: Seite 0, Spalten 75-108.
+- Seite 0 belegt sonst nur BPM (Spalten 50/52-74). Frei in allen geprüften Zuständen: Seite 0, Spalten 75-108 (nur auf dem Hauptbildschirm: in den Menüs belegt das EDIT-Symbol 84-97, siehe [2026-11-16-batterie-prozent.md](2026-11-16-batterie-prozent.md)).
 - **Vorschlag Lastanzeige: Spalten 100-107, Zeilen 1-7, Seite 0**, 1 px Abstand zur Karte, unabhängig davon, ob eine Karte
   steckt. Pro Bild ändert sich nur Seite 0.
 - Blau, REC, Step Jump und das WRITE-Fenster: siehe "Lastanzeige" unten.
@@ -182,7 +182,7 @@ vorher). Am Gerät nicht geprüft.
 - **Umsetzung:** `tools/patch/script_load_meter.s`, Methode A aus 0.1. Haken an der Leerlaufschleife (`0xC00017F0`, Blau
   `0xC0001610`, `str r3, [r6]` vor wfi) merkt sich Timer3; Haken am IRQ-Eingang (`0xC000159C`, Blau `0xC00013BC`) addiert beim
   ersten IRQ, der das Leerlaufwort auf 1 findet, die Schlafzeit. Der Rahmen summiert seine Timer3-Abstände und rechnet nach
-  einer Sekunde 100 minus Schlafanteil, gerundet, höchstens 99. Gezeichnet werden zwei Ziffern 3x7 mit Abstand in Spalten 100-107, nur auf
+  einer Sekunde 100 minus Schlafanteil, gerundet, höchstens 99. Gezeichnet werden zwei Ziffern 3x7 mit Abstand in Spalten 86-93 (bis 16.11. 100-107), nur auf
   dem Hauptbildschirm ohne Fenster, ohne offene App, ohne eigene Frage und ohne Ordnerübernahme, und nur Bytes, die sich
   unterscheiden (danach `MG_MARK`). Schalter: Byte 7 Bit 0 (`MX_FLAGS2`), also Version 4 beim Speichern.
 - **Nachbesserungen nach dem Review:** ein dritter Haken an der Stelle nach dem Aufwachen (`0xC0001820`, Blau `0xC0001640`,

@@ -48,6 +48,14 @@ kein `f_chmod`, kein `f_truncate`, kein `f_rename`. Deshalb vergleicht jeder Sta
 - Fehlt der Ordner, gibt `f_opendir` `FR_NO_PATH` und Korgs Browser geht von selbst nach `SD:`.
 - Upper Folder geht von `Patterns` nach `SD:`, nicht eine Ebene hoch: Korgs Browser zählt seine Ebenen selbst mit.
 - IMPORT SAMPLE (Erzeuger `0xC0061104`) teilt das Objekt, nicht den Schritt: nach dessen Browser öffnet der Import dort.
+- Den Pfad der gewählten Datei baut der Import nicht aus dem Browser-Ordner (#590, 16.11.): er hat einen eigenen
+  Ordner-String `0xC0691224` (`SD:` aus `0xC0060FE0`, je Ordner `/` und Name in `0xC0061110`) und kopiert ihn in den Ordner
+  seiner Dateiliste (`0xC0345ECC+0x318` = `0xC03461E4`). Deren `0xC003CA08` setzt Ordner + `/` + Name zusammen, das geht über
+  `0xC0340588` an `f_open` (`0xC009DB60`, Aufruf `0xC002E41C`). Nur mit dem Browser-Ordner öffneten IMPORT PATTERN und
+  IMPORT ALL PATTERN `SD:/<Name>`, `f_open` gab `FR_NO_FILE`. Der Hook ruft beim neuen Import das Öffnen jetzt selbst auf
+  und kopiert danach den Browser-Ordner in beide Strings, also `Patterns` oder das `SD:` einer Karte ohne den Ordner.
+  Gleiche Adressen auf rot und Hacktribe. Gemessen im Emulator: Datei in `Patterns` und Datei in `SD:` ohne den Ordner
+  werden beide mit dem richtigen Pfad geöffnet (`patterns_cases.py`, `import_*_reads_*`).
 
 ## Ladeanimation
 

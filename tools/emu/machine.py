@@ -49,6 +49,16 @@ BYTE_NS = {UART0: 86_800, UART1: 320_000, UART2: 86_800}
 TIMERS = {0x01C20000: (24e6, 21), 0x01C21000: (24e6, 23),
           0x01F0C000: (150e6, 68), 0x01F0D000: (150e6, 96)}
 TIMER_COUNTERS = {t + off: (t, hz, off == 0x14) for t, (hz, _) in TIMERS.items() for off in (0x10, 0x14)}
+# The watchdog (docs/messungen/2026-11-16-watchdog-neustart.md). On the AM1808 only Timer64P1 can reset the chip. Its WDTCR holds
+# WDKEY in bits 31:16, WDFLAG (bit 15, set by a timeout) and WDEN (bit 14). With TGCR in timer mode 2 (watchdog), WDEN set
+# together with key 0xA5C6 makes it pre-active, then 0xDA7E active: the 64-bit counter TIM34:TIM12 counts at the timer clock from
+# what it holds; it resets the chip when it reaches PRD34:PRD12. In the active state 0xA5C6 then 0xDA7E serves it (counter back to
+# 0), any other key resets the chip at once. Derived from the TRM (SPRUH82), not measured on the device. The firmware never
+# writes WDTCR (docs/hintergrund/skript-laufzeit.md); the stub of tools/device/watchdog_restart.py does.
+WD_TIMER = 0x01C21000
+WDTCR = WD_TIMER + 0x28
+WD_KEY1, WD_KEY2 = 0xA5C6, 0xDA7E
+WDEN, WDFLAG = 1 << 14, 1 << 15
 CFGCHIP2 = 0x01C14184
 DSP_DATA, DSP_CTRL = 0x60000000, 0x60000002
 DSP_SYNC = 0x2C            # a one-word write to the control port that no transfer starts with (docs/messungen/2026-10-14-stock-blech.md)
@@ -310,6 +320,11 @@ class Machine:
         self.nest_level = GNLR_NONE
         self._tcfg, self._tper = {}, {}      # timer configuration as read from regs; see _wr
         self.timer_last = {}
+        self.wd_state = "off"      # watchdog (WDTCR): off, pre (0xA5C6 with WDEN), active (0xDA7E), service (0xA5C6 while active)
+        self.wd_since = None       # device time in ns the counter started from wd_count0, None while it does not count
+        self.wd_count0 = 0
+        self.wd_expire = math.inf  # device time in ns the counter reaches the period
+        self.reset = None          # the chip reset by the watchdog: {"cause", "ms"}; the run ends there (reboot() starts again)
         self.deadline, self.poll_stop, self.tx_idle = math.inf, False, False
         # One byte shifts while the next waits in the TX buffer; SPIBUF holds one result.
         self.spi = {b: {"wire": collections.deque(), "buf": 0, "full": False} for b in (SPI0, SPI1)}
@@ -590,6 +605,8 @@ class Machine:
         if timer:
             self.poll_time()
             return self.timer_count(*timer)
+        if a == WDTCR:                               # WDKEY reads 0
+            return WDEN if self.wd_state != "off" else 0
         if a == DSP_CTRL:
             self._dsp_sync()
             return self.dsp_backend.status() if self.dsp_backend is not None else 0x85
@@ -634,6 +651,9 @@ class Machine:
         return None
 
     def write(self, a, v):
+        if a == WDTCR:
+            self.watchdog_write(v)
+            return True
         if self.dsp_backend is not None and a in (DSP_CTRL, DSP_DATA):
             self._dsp_sync()
             if a == DSP_CTRL:
@@ -803,6 +823,19 @@ class Machine:
         """A 5-byte message from the panel, as if a control was used."""
         self.receive(UART0, msg)
 
+    def battery(self, raw):
+        """Panel message 6 with a battery reading: the firmware's battery model keeps it (+0x320) and takes its level from the
+        threshold table of the Global BATTERY TYPE (docs/messungen/2026-11-16-batterie-prozent.md). 1 is the power key and 0
+        reads as empty, so a reading is 2 to 255; on battery one at or below the table's last threshold switches off."""
+        if not 2 <= raw <= 255:
+            raise ValueError(f"a battery reading is 2 to 255, not {raw} (1 is the power key)")
+        self.send([0x06, raw, 0, 0, 0])
+
+    def power_source(self, adapter):
+        """Panel message 7: mains power (the plug symbol) or battery, as the panel reports a plug put in or pulled."""
+        self.adapter = bool(adapter)
+        self.send([0x07, 1 if adapter else 0, 0, 0, 0])
+
     def receive(self, base, data):
         """Bytes coming in on a UART line; they arrive one byte time apart."""
         self.uart[base]["wire"].extend(bytes(data))
@@ -901,10 +934,63 @@ class Machine:
             self.poll_stop = True
             self.uc.emu_stop()
 
+    # ---- watchdog: Timer64P1 resets the chip ---------------------------------
+    def watchdog_write(self, v):
+        """A write to WDTCR. Only in watchdog mode (TGCR timer mode 2) does it do anything."""
+        key = v >> 16 & 0xFFFF
+        tgcr = self.regs.get(WD_TIMER + 0x24, 0)
+        state = self.wd_state
+        if state == "off":
+            if (tgcr >> 2) & 3 == 2 and v & WDEN and key == WD_KEY1:
+                self.wd_state = "pre"
+        elif state == "pre":
+            if key == WD_KEY2:
+                lo, hi = self.regs.get(WD_TIMER + 0x10, 0), self.regs.get(WD_TIMER + 0x14, 0)
+                self._watchdog_start(hi << 32 | lo)
+                self.wd_state = "active"
+        elif state == "active" and key == WD_KEY1:
+            self.wd_state = "service"
+        elif state == "service" and key == WD_KEY2:
+            self._watchdog_start(0)
+            self.wd_state = "active"
+        elif not (state == "service" and key == WD_KEY1):
+            self.watchdog_reset("key")
+            self.uc.emu_stop()                       # the write is the last thing the chip does
+        self._tcfg.clear()
+        self._tper.clear()
+
+    def _watchdog_start(self, count):
+        prd = self.regs.get(WD_TIMER + 0x1C, 0) << 32 | self.regs.get(WD_TIMER + 0x18, 0)
+        hz = TIMERS[WD_TIMER][0]
+        self.wd_since, self.wd_count0 = self.time_ns, count
+        self.wd_expire = self.time_ns + max(0, prd - count) / hz * 1e9
+
+    def watchdog_count(self, upper):
+        """TIM12 (TIM34 when `upper`) of the running watchdog counter."""
+        count = self.wd_count0 + int((self.time_ns - self.wd_since) * TIMERS[WD_TIMER][0] / 1e9)
+        return count >> 32 if upper else count & 0xFFFFFFFF
+
+    def watchdog_reset(self, cause):
+        """The chip resets: nothing runs on. `reboot()` gives the machine that starts again."""
+        if self.reset is None:
+            self.reset = {"cause": cause, "ms": round(self.time_ns / 1e6, 3)}
+            self.wd_expire = math.inf
+
+    def reboot(self):
+        """A new machine as the chip starts again after the reset: what the flash holds now, with this flash and card. Not
+        modelled: whether the power hold (GPIO 7.11, cleared by the reset) keeps the device on, and RAM the reset leaves."""
+        image = bytes(self.flash.mem[FIRMWARE_AT:FIRMWARE_AT + self.image_size])
+        same = hashlib.sha256(image).digest() == self.image_sha
+        m = Machine(image, bytes(self.flash.mem), self.profile if same else None)
+        m.adapter, m.panel_version = self.adapter, self.panel_version
+        if self.mmc.card is not None:
+            m.insert_card(self.mmc.card)
+        return m
+
     def timer_count(self, base, hz, upper):
         """TIM12 (TIM34 when `upper`) as the device shows it: 0 while that half is in reset or not enabled, and
         for a timer the firmware sets to watchdog mode (TGCR timer mode 2: 0x01C21000, measured on the device,
-        whose counter stays 0); else counting at hz from time 0, wrapping at PRD + 1 in continuous mode."""
+        whose counter stays 0) until the watchdog is armed (watchdog_count); else counting at hz from time 0, wrapping at PRD + 1 in continuous mode."""
         cfg = self._tcfg.get((base, upper))
         if cfg is None:
             tgcr, tcr = self.regs.get(base + 0x24, 0), self.regs.get(base + 0x20, 0)
@@ -912,7 +998,7 @@ class Machine:
             cfg = self._tcfg[(base, upper)] = (mode, self.regs.get(base + (0x1C if upper else 0x18), 0) or 0xFFFFFFFF)
         mode, prd = cfg
         if not mode:
-            return 0
+            return self.watchdog_count(upper) if base == WD_TIMER and self.wd_since is not None else 0
         ticks = int(self.time_ns * hz / 1e9)
         return ticks % (prd + 1) if mode == 2 else min(ticks, prd)
 
@@ -930,7 +1016,7 @@ class Machine:
 
     def next_event(self):
         """Device time in ns of the next timer edge, UART byte or card interrupt, inf when none is pending."""
-        at = [math.inf]
+        at = [self.wd_expire]
         for base in TIMERS:
             period = self.timer_period(base)
             if period is not None:
@@ -1162,8 +1248,11 @@ class Machine:
         if self.insns == 0:
             uc.reg_write(A.UC_ARM_REG_CPSR, 0xD3)
             uc.reg_write(A.UC_ARM_REG_PC, 0xC0000070)
-        while self.time_ns < seconds * 1e9 and not self.asserts and self.powered:
+        while self.time_ns < seconds * 1e9 and not self.asserts and self.powered and self.reset is None:
             start = self.run_slice(seconds * 1e9)
+            if self.time_ns >= self.wd_expire:
+                self.watchdog_reset("timeout")
+                break
             self.lines()
             self.irq()
             if self.time_ns // 100_000_000 != start // 100_000_000:
@@ -1193,7 +1282,7 @@ class Machine:
         if self.time_ns < LOADING_SCREEN_BY_S * 1e9:
             self.run_until(LOADING_SCREEN_BY_S)
         loaded = False
-        while self.loading() and self.time_ns < limit_s * 1e9 and not self.asserts and self.powered:
+        while self.loading() and self.time_ns < limit_s * 1e9 and not self.asserts and self.powered and self.reset is None:
             self.run_until(self.time_ns / 1e9 + 0.02)
             loaded = True
         if loaded:
@@ -1445,6 +1534,18 @@ class _NativeClockMachine(Machine):
         self._tick.ns_per_insn = value
 
 
+# The card symbol's two places in page 0 of a frame (8 pages of 128 columns): Korg's 109 to 114 and the main screen's 94 to
+# 99 (BATTERY %, script_battery.s:card_place). A case that compares a frame with the firmware's own leaves them out.
+CARD_COLUMNS = (*range(94, 100), *range(109, 115))
+
+
+def without_card(frame):
+    out = bytearray(frame)
+    for x in CARD_COLUMNS:
+        out[x] = 0
+    return bytes(out)
+
+
 def load_flash(paths):
     data = b"".join(Path(p).read_bytes() for p in paths)
     if len(data) != FLASH_SIZE:
@@ -1521,7 +1622,7 @@ def main():
         "asserts": m.asserts, "frames": m.frames, "screens": m.screens,
         "display_lit": sum(bin(b).count("1") for row in m.fb for b in row),
         "display_sha256": hashlib.sha256(bytes(b for row in m.fb for b in row)).hexdigest(),
-        "powered": m.powered,
+        "powered": m.powered, "reset": m.reset,
         "panel_messages": sorted({f"{x[0]:02x}" for x in m.panel_log}),
         "leds_on": sorted(k for k, v in m.leds.items() if v),
         "flash_commands": sorted(f"{c:02x}" for c in m.flash.commands),

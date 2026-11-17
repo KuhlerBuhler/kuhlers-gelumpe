@@ -86,15 +86,21 @@ def case_import_browser(payload, flash):
     if not redirected(payload):
         return [entry("import_not_in_this_build", True, "the blue keeps the firmware's export folder")]
 
-    def walk(files, keys):
+    def walk(files, keys, read=None):
         dev = menu_cases.boot(payload, flash, files=files, adapter=True)
         opened = []
-        dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, a, s, d: opened.append(
-            dev.read(uc.reg_read(unicorn.arm_const.UC_ARM_REG_R1), 64).split(b"\0")[0].decode("latin-1")),
-            begin=0xC009E660, end=0xC009E660)                                           # f_opendir
+        name = lambda uc: dev.read(uc.reg_read(unicorn.arm_const.UC_ARM_REG_R1), 96).split(b"\0")[0].decode("latin-1")
+        dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, a, s, d: opened.append(name(uc)),
+                          begin=0xC009E660, end=0xC009E660)                             # f_opendir
+        if read is not None:
+            dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, a, s, d: read.append(name(uc)),
+                              begin=menu_cases.FS_OPEN, end=menu_cases.FS_OPEN)
         menu_cases.go(dev, DATA_UTIL)
         for key in keys:
-            menu_cases.press(dev, key, wait=0.8)
+            if key == "turn":
+                dev.turn(1, 0.8)
+            else:
+                menu_cases.press(dev, key, wait=0.8)
         return dev, opened
 
     patterns = "SD:/KORG/blechtribe/Patterns"
@@ -106,6 +112,19 @@ def case_import_browser(payload, flash):
     out.append(entry("import_all_opens_patterns", opened == [patterns] and not dev.m.asserts, opened))
     dev, opened = walk(menu_cases.CARD_FOLDER, ("menu", "edit_next", "edit_next", "edit_next", "menu"))
     out.append(entry("import_without_the_folder_opens_the_root", opened == [patterns, "SD:"] and not dev.m.asserts, opened))
+    # the chosen file is read where the browser showed it (#590: the import built SD:/<name> from its own folder string)
+    single, every = "001_Init Pattern.e2spat", "electribe_sampler_allpattern.e2sallpat"
+    whole = backup(bytes(250 * BLOCK), 2)
+    for label, files, keys, want in (
+            ("import_reads_the_file_in_patterns", with_folder,
+             ("menu", "edit_next", "edit_next", "menu", "menu", "turn", "menu"), f"{patterns}/{single}"),
+            ("import_all_reads_the_file_in_patterns", {**menu_cases.CARD_FOLDER, BACKUP: whole},
+             ("menu", "edit_next", "edit_next", "edit_next", "menu", "turn", "menu"), f"{patterns}/{every}"),
+            ("import_without_the_folder_reads_the_root", {**menu_cases.CARD_FOLDER, f"/{single}": bytes(SINGLE_SIZE)},
+             ("menu", "edit_next", "edit_next", "menu", "menu", "turn", "menu"), f"SD:/{single}")):
+        read = []
+        dev, _ = walk(files, keys, read)
+        out.append(entry(label, want in read and not dev.m.asserts, read))
     return out
 
 

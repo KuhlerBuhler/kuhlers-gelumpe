@@ -29,7 +29,7 @@ from machine import load_flash  # noqa: E402
 LM = script_hooks.LOAD_METER
 LM_VALUE, LM_DRAWN, LM_SLEEP, LM_ARMED = LM + 28, LM + 29, LM + 8, LM + 32
 TICKS = 150_000_000                              # Timer3 ticks a second
-COLS = range(100, 108)                           # page 0, the eight columns the digits use (row 0 stays the firmware's)
+COLS = range(86, 94)                             # page 0, the eight columns the digits use (row 0 stays the firmware's)
 IDLE_SITE, IRQ_SITE = 0xC00017F0, 0xC000159C     # the idle loop's store of 1 in front of wfi, the IRQ entry's store of the word + 1
 FONT = bytes([0xFE, 0x82, 0xFE, 0, 0x84, 0xFE, 0x80, 0, 0xF2, 0x92, 0x9E, 0, 0x92, 0x92, 0xFE, 0, 0x1E, 0x10, 0xFE, 0,
               0x9E, 0x92, 0xF2, 0, 0xFE, 0x92, 0xF2, 0, 0x02, 0x02, 0xFE, 0, 0xFE, 0x92, 0xFE, 0, 0x9E, 0x92, 0xFE, 0])
@@ -213,7 +213,7 @@ def cases(payload, flash=None, png=None):
     mc.leave_to_main(d)
     d.run(1.5)
     main = page.byte(LM_DRAWN), shown(d) == glyphs(page.byte(LM_VALUE)) and page.byte(LM_VALUE) != 0xFF
-    out.append(entry("page_switches_at_once", first == (("LOAD METER", "OFF", ""), (5, 6)) and on == (("LOAD METER", "ON", ""), 1)
+    out.append(entry("page_switches_at_once", first == (("LOAD METER", "OFF", ""), (5, 7)) and on == (("LOAD METER", "ON", ""), 1)
                      and in_menu == 0 and main == (1, True) and not d.m.asserts,
                      f"build {build}: page {first}, dial up {on}, drawn in the menu {in_menu}, on the main screen (drawn, digits right) {main}"))
     out.append(entry("write_keeps_it_in_byte_7", rec is not None and rec[4] == 4 and rec[7] & 1,

@@ -1645,20 +1645,30 @@ korg.onEvent("buttonPress", (key) => {
     category: text("catalog.category.tools"),
     creator: "Kuhler Buhler",
     added: "2026-11-03",
-    controls: [text("catalog.bmpviewer.control1"), text("catalog.bmpviewer.control2"), text("catalog.bmpviewer.control3")],
-    source: `// Image Viewer, an app under TOOLS: shows the pictures of a picture file GIF00.E2G to GIF99.E2G from KORG/blechtribe/Gif/
-// on the card one at a time (tools/gif/gif2e2g.py puts several BMPs or other pictures into one file, one frame each).
-// Part right and left show the next and the previous picture, the encoder picks the file. After each change the top left
-// corner shows the number of the picture for two seconds, TAP keeps it there or hides it. Backwards past the first picture
-// goes to the last one once the viewer has been through the file and knows how many there are.
+    controls: [text("catalog.bmpviewer.control1"), text("catalog.bmpviewer.control2"), text("catalog.bmpviewer.control3"), text("catalog.bmpviewer.control4")],
+    source: `// Image Viewer, an app under TOOLS: shows the start images (.bmp) and the loading animations (.blla) in KORG/blechtribe/Media/
+// on the card. The first screen lists IMAGES and ANIMATIONS with how many there are: the encoder or Part picks one, MENU opens
+// it, MENU in it goes back to the list (EXIT closes the app).
+// IMAGES: the encoder and Part page through the files and wrap around. After each change the name and the place show for two
+// seconds, TAP keeps them there or hides them.
+// ANIMATIONS: the encoder picks the file and shows its first picture, Part right and left go one picture on or back, TAP plays
+// and pauses. Playing shows a picture every 96 ms, Part right and left halve and double that (48 to 384 ms). An animation runs
+// through its progress pictures and its loop pictures, then starts again.
 korg.app("Image Viewer", "TOOLS");
 const pic = new Array(1024);
+const nm = new Array(18);
+let mode = 0;
+let sel = 0;
+let n0 = 0;
+let n1 = 0;
 let file = 0;
-let index = 0;
-let count = 0;
-let shown = 0;
+let frame = 0;
+let total = 0;
 let label = 0;
 let until = 0;
+let playing = 0;
+let ms = 96;
+let due = 0;
 let isOpen = 0;
 
 function digits(n) {
@@ -1670,47 +1680,101 @@ function digits(n) {
   return d;
 }
 
+function files() {
+  if (mode == 1) return n0;
+  return n1;
+}
+
+function drawList() {
+  korg.display.clear();
+  if (n0 < 0 || n1 < 0) {
+    korg.display.text("NO CARD", 4, 26);
+    return;
+  }
+  korg.display.textNumber("IMAGES ", n0, 12, 18);
+  korg.display.textNumber("ANIMATIONS ", n1, 12, 32);
+  korg.display.text(">", 4, 18 + sel * 14);
+}
+
+function list() {
+  mode = 0;
+  playing = 0;
+  n0 = korg.file.count(0);
+  n1 = korg.file.count(1);
+  drawList();
+}
+
+function place(a, b) {
+  korg.display.clearRect(0, 55, (digits(a) + digits(b)) * 6 + 9, 9);
+  korg.display.number(a, 1, 56);
+  korg.display.textNumber("/", b, 1 + digits(a) * 6, 56);
+}
+
 function draw() {
   korg.display.clear();
+  if (files() <= 0) {
+    if (mode == 1) korg.display.text("NO IMAGES", 4, 26);
+    else korg.display.text("NO ANIMATIONS", 4, 26);
+    return;
+  }
+  let len = korg.file.name(nm, mode - 1, file);
+  if (total <= 0) {
+    korg.display.chars(nm, 4, 18, 17);
+    korg.display.text("BAD FILE", 4, 32);
+    return;
+  }
   korg.display.bitmap(pic, 0, 0, 128);
   if (label == 0 && until == 0) return;
-  let width = digits(index + 1) * 6 + 3;
-  if (count > 0) width += digits(count) * 6 + 6;
-  korg.display.clearRect(0, 0, width, 9);
-  korg.display.number(index + 1, 1, 1);
-  if (count > 0) korg.display.textNumber("/", count, 1 + digits(index + 1) * 6, 1);
+  korg.display.clearRect(0, 0, len * 6 + 3, 9);
+  korg.display.chars(nm, 1, 1, 17);
+  if (mode == 1) place(file + 1, files());
+  else place(frame + 1, total);
 }
 
 function show() {
-  let delay = korg.file.frame(pic, file, index);
-  if (delay == 0 && index > 0) {
-    count = index;
-    index = 0;
-    delay = korg.file.frame(pic, file, 0);
-  }
-  if (delay <= 0) {
-    shown = 0;
-    korg.display.clear();
-    korg.display.textNumber("GIF ", file, 4, 14);
-    korg.display.text("no file", 4, 26);
-    return;
-  }
-  shown = 1;
+  if (files() > 0) total = korg.file.picture(pic, mode - 1, file, frame);
   until = korg.millis() + 2000;
   draw();
 }
 
+function pick(delta) {
+  let n = files();
+  if (n <= 0) return;
+  file = ((file + delta) % n + n) % n;
+  frame = 0;
+  playing = 0;
+  show();
+}
+
+function step(delta) {
+  if (total <= 0) return;
+  frame = ((frame + delta) % total + total) % total;
+  show();
+}
+
 korg.onEvent("open", () => {
   isOpen = 1;
-  show();
+  list();
 });
 
 korg.onEvent("close", () => {
   isOpen = 0;
+  playing = 0;
 });
 
 korg.onEvent("frame", () => {
-  if (shown == 1 && until > 0 && korg.millis() >= until) {
+  if (mode == 0) return;
+  if (playing == 1 && korg.millis() >= due) {
+    if (until > 0 && korg.millis() >= until) until = 0;
+    frame = (frame + 1) % total;
+    total = korg.file.picture(pic, 1, file, frame);
+    if (total <= 0) playing = 0;
+    due += ms;
+    if (due < korg.millis()) due = korg.millis() + ms;
+    draw();
+    return;
+  }
+  if (until > 0 && korg.millis() >= until) {
     until = 0;
     draw();
   }
@@ -1718,28 +1782,56 @@ korg.onEvent("frame", () => {
 
 korg.onEvent("encoder", (i, delta) => {
   if (isOpen == 0) return;
-  file += delta;
-  if (file < 0) file = 0;
-  if (file > 99) file = 99;
-  index = 0;
-  count = 0;
-  show();
+  if (mode == 0) {
+    if (delta > 0) sel = 1;
+    if (delta < 0) sel = 0;
+    drawList();
+    return;
+  }
+  pick(delta);
 });
 
 korg.onEvent("buttonPress", (key) => {
   if (isOpen == 0) return;
-  if (key == korg.key.PART_RIGHT) {
-    index += 1;
-    show();
+  if (mode == 0) {
+    if (key == korg.key.PART_LEFT) sel = 0;
+    if (key == korg.key.PART_RIGHT) sel = 1;
+    if (key == korg.key.MENU && n0 >= 0 && n1 >= 0) {
+      mode = sel + 1;
+      file = 0;
+      frame = 0;
+      label = 0;
+      show();
+      return;
+    }
+    drawList();
+    return;
   }
-  if (key == korg.key.PART_LEFT) {
-    if (index > 0) index -= 1;
-    else if (count > 0) index = count - 1;
-    show();
+  if (key == korg.key.MENU) {
+    list();
+    return;
   }
-  if (key == korg.key.TAP && shown == 1) {
-    label = 1 - label;
-    until = 0;
+  if (mode == 1) {
+    if (key == korg.key.PART_RIGHT) pick(1);
+    if (key == korg.key.PART_LEFT) pick(-1);
+    if (key == korg.key.TAP && files() > 0) {
+      label = 1 - label;
+      until = 0;
+      draw();
+    }
+    return;
+  }
+  if (playing == 1) {
+    if (key == korg.key.PART_RIGHT && ms > 48) ms = ms / 2;
+    if (key == korg.key.PART_LEFT && ms < 384) ms = ms * 2;
+  } else {
+    if (key == korg.key.PART_RIGHT) step(1);
+    if (key == korg.key.PART_LEFT) step(-1);
+  }
+  if (key == korg.key.TAP && total > 0) {
+    playing = 1 - playing;
+    due = korg.millis() + ms;
+    until = korg.millis() + 2000;
     draw();
   }
 });
@@ -3674,19 +3766,20 @@ korg.onEvent("frame", () => {
     controls: [text("catalog.betteraccent.control1"), text("catalog.betteraccent.control2")],
     source: `// BETTER ACCENT v2 by alarykko, from the BLECH Discord, inspired by the TD-3-MO: a step with velocity above 96 is an
 // accent and opens the filter through EG INT, DECAY and LEVEL. SHIFT + EG INT, DECAY or LEVEL set the accent values of
-// the selected part. It acts on parts 1 to 7 only (maxParts = 7): with all 16 the step handler tripped the watchdog.
-const baseEgInt = new Array(8);
-const baseDecay = new Array(8);
-const baseLevel = new Array(8);
-//const baseGlide = new Array(8);
-const egIntAccAmount = new Array(8);
-const decayAccAmount = new Array(8);
-const levelAccAmount = new Array(8);
+// the selected part. It acts on all 16 parts (maxParts = 15, the last part's index); the step handler reads only what it
+// needs, so all 16 stay within the watchdog.
+const baseEgInt = new Array(16);
+const baseDecay = new Array(16);
+const baseLevel = new Array(16);
+//const baseGlide = new Array(16);
+const egIntAccAmount = new Array(16);
+const decayAccAmount = new Array(16);
+const levelAccAmount = new Array(16);
 //const glideOnTies = 40;
 
 
 
-const maxParts = 7;
+const maxParts = 15;
 const defaultVelocity = 96;
 const stepCount = 64;
 
@@ -3705,7 +3798,7 @@ let lastMillis = 0;
 
 //setta le basi
 function setNewBases(){
-  for(let part = 0; part < maxParts; part++){
+  for(let part = 0; part <= maxParts; part++){
     baseEgInt[part] = korg.parts[part].egInt;
     baseDecay[part] = korg.parts[part].decay;
     baseLevel[part] = korg.parts[part].level;
@@ -3715,7 +3808,7 @@ function setNewBases(){
 
 
 function restoreBases(){
-  for(let part = 0; part < maxParts; part++){
+  for(let part = 0; part <= maxParts; part++){
     korg.parts[part].egInt = baseEgInt[part];
     korg.parts[part].decay = baseDecay[part];
     korg.parts[part].level = baseLevel[part];
@@ -3724,7 +3817,7 @@ function restoreBases(){
 }
 
 function setAccentedAmounts(){
-  for(let part = 0; part < maxParts; part++){
+  for(let part = 0; part <= maxParts; part++){
     egIntAccAmount[part] = korg.parts[part].egInt;
     decayAccAmount[part] = korg.parts[part].decay;
     levelAccAmount[part] = korg.parts[part].level;
@@ -3737,32 +3830,25 @@ function applyAccent(){
 
   
 
-  for(let part = 0; part < maxParts; part++){
+  for(let part = 0; part <= maxParts; part++){
 
     const currentStep = korg.read.step(part);
-    const previousStep = ((currentStep - 1) % stepCount + stepCount) % stepCount;
     const isStepOn = korg.seq.getOn(part, currentStep);
     const stepVelocity = korg.seq.getVelocity(part, currentStep);
-    const currentGate = korg.seq.getGate(part, currentStep);
-    const previousGate = korg.seq.getGate(part, previousStep);
 
     //
-    if(isStepOn == 1 && stepVelocity > defaultVelocity){ 
+    if(isStepOn == 1){
+      if(stepVelocity > defaultVelocity){
       korg.parts[part].egInt = egIntAccAmount[part];
       korg.parts[part].decay = decayAccAmount[part];
       korg.parts[part].level = levelAccAmount[part];
-    }
-    else if (isStepOn == 1 && stepVelocity <= defaultVelocity){
+      }
+      else{
       korg.parts[part].egInt = baseEgInt[part];
       korg.parts[part].decay = baseDecay[part]; 
       korg.parts[part].level = baseLevel[part];
+      }
     }
-    /*
-    if (currentGate > 96  || previousGate > 96)   {
-      korg.parts[part].glide = baseGlide[part] + glideOnTies; 
-    }
-    else korg.parts[part].glide = baseGlide[part];
-    */
   }
 }
 
@@ -3830,15 +3916,15 @@ korg.onEvent("knob", (index, value) => {
 
 
     //Aggiorna tutti i valori per gli step accentati/TIEati
-    if(index == egIntKnobIndex && shiftPress == 0 && (currentPart >= 0) && (currentPart <= maxParts)) baseEgInt[currentPart] = (value/2)-63;
-    if(index == decayKnobIndex && shiftPress == 0 && (currentPart >= 0) && (currentPart <= maxParts)) baseDecay[currentPart] = value/2;
-    if(index == levelKnobIndex && shiftPress == 0 && (currentPart >= 0) && (currentPart <= maxParts)) baseLevel[currentPart] = value/2;
+    if(index == egIntKnobIndex && shiftPress == 0) baseEgInt[currentPart] = (value/2)-63;
+    if(index == decayKnobIndex && shiftPress == 0) baseDecay[currentPart] = value/2;
+    if(index == levelKnobIndex && shiftPress == 0) baseLevel[currentPart] = value/2;
     //if(index == pitchGlideKnobIndex && shiftPress == 1) baseGlide[currentPart] = (value/2);
     
 
 
     //Aggiorna e mostra i valori per gli step accentati
-    if(index == egIntKnobIndex && shiftPress == 1 && (currentPart >= 0) && (currentPart <= maxParts)){
+    if(index == egIntKnobIndex && shiftPress == 1){
       egIntAccAmount[currentPart] = (value/2)-64;
       korg.display.take();
       korg.display.clear();
@@ -3849,7 +3935,7 @@ korg.onEvent("knob", (index, value) => {
       
     }
 
-    if(index == decayKnobIndex && shiftPress == 1 && (currentPart >= 0) && (currentPart <= maxParts)){
+    if(index == decayKnobIndex && shiftPress == 1){
       decayAccAmount[currentPart] = value/2;
       korg.display.take();
       korg.display.clear();
@@ -3860,7 +3946,7 @@ korg.onEvent("knob", (index, value) => {
       
     }
     
-    if(index == levelKnobIndex && shiftPress == 1 && (currentPart >= 0) && (currentPart <= maxParts)){
+    if(index == levelKnobIndex && shiftPress == 1){
       levelAccAmount[currentPart] = value/2;
       korg.display.take();
       korg.display.clear();
