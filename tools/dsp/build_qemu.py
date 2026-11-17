@@ -254,6 +254,31 @@ def patch_dsp32(source):
     file.write_text(text + DSP32_GNU)
 
 
+# Each request resumes and halts the GNU engine; skip its wall clock (getrusage, only for `watch clock`
+# and profiles) and the signal-mask save of setjmp/longjmp (system calls on macOS; the mask never changes).
+SPEED = (
+    ('sim/common/sim-events.c', '  events->resume_wallclock = sim_elapsed_time_get ();\n',
+     '  events->resume_wallclock = 1;\n'),
+    ('sim/common/sim-events.c', '  events->elapsed_wallclock += sim_elapsed_time_since (events->resume_wallclock);\n',
+     ''),
+    ('sim/common/sim-resume.c', '  jmpval = setjmp (buf);\n', '  jmpval = _setjmp (buf);\n'),
+    ('sim/common/sim-engine.c', '      longjmp (*halt_buf, sim_engine_halt_jmpval);\n',
+     '      _longjmp (*halt_buf, sim_engine_halt_jmpval);\n'),
+    ('sim/common/sim-engine.c', '      longjmp (*halt_buf, sim_engine_restart_jmpval);\n',
+     '      _longjmp (*halt_buf, sim_engine_restart_jmpval);\n'),
+)
+
+
+def patch_speed(source):
+    for name, old, new in SPEED:
+        file = source / name
+        text = file.read_text()
+        if text.count(old) == 1:
+            file.write_text(text.replace(old, new))
+        elif old in text or (new and new not in text):   # the tree is reused between builds
+            raise ValueError(f'unexpected GNU {name}')
+
+
 def patch_hybrid(source):
     """The GNU engine hands the instructions between two events to QEMU (blackfin_hybrid.c.inc)."""
     file = source / 'sim/bfin/interp.c'
@@ -273,6 +298,7 @@ def patch_hybrid(source):
     if CEC_FAST not in text:
         cec.write_text(text + CEC_FAST)
     patch_dsp32(source)
+    patch_speed(source)
     shutil.copyfile(DSP / 'blackfin_hybrid.h', source / 'sim/bfin/blackfin_hybrid.h')
 
 

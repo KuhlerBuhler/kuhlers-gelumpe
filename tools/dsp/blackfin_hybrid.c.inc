@@ -16,10 +16,16 @@ static uint64_t blech_hybrid_stats[4]; /* QEMU runs, QEMU cycles, GNU steps, del
 static void
 blech_hybrid_report (void)
 {
-  const char *prefix = getenv ("BLECH_HYBRID_STATS");
+  static const char *prefix;
+  static bool looked;
   char path[512];
   FILE *file;
 
+  if (!looked)
+    {
+      prefix = getenv ("BLECH_HYBRID_STATS");
+      looked = true;
+    }
   if (!prefix)
     return;
   snprintf (path, sizeof path, "%s.%ld", prefix, (long) getpid ());
