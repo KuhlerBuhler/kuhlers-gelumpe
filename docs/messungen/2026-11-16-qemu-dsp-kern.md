@@ -24,6 +24,10 @@ Marker: **gemessen** (Befehl lief, Zahl abgelesen), **gelesen** (Quelltext),
 - Dauervergleich: 210000 Fuzz-Programme ohne Abweichung, 38/38 Funktionen
   mit je 20000 Aufrufen gleich auf Hacktribe und Stock (Abschnitt 7,
   **gemessen**).
+- Gekoppelt mit dem ARM-Emulator: Fälle und Sample-Swap gleich, 10000
+  Blöcke und alle 32 MFX-Typen je Firmware Anfrage für Anfrage gleich; der
+  MFX-Lauf fand einen Fehler (veraltete Übersetzung nach neuem L1-Code),
+  behoben in 855d30fd (Abschnitt 8, **gemessen**).
 
 ## 1. Weg: Hybrid statt neuer Geräte
 
@@ -219,6 +223,112 @@ Entwicklungsbaum; `build_qemu.py` wendet ihn bei jedem Build auf einen frisch
 ausgecheckten ae8fe9a an, der Build für diese Läufe lief so durch
 (**gemessen**).
 
+## 8. Gekoppelt mit dem ARM-Emulator (Phase 5)
+
+Firmware: die Test-VSBs `BLECH-Sample-Swap-Native-DSP-2026-11-14-Guard`
+(hacktribe, stock), ARM-Emulator mit DSP-Worker, Load-Gate vor jedem Lauf.
+
+### Fälle und Sample-Swap
+
+| Lauf | GNU | QEMU | Ergebnis |
+|---|---:|---:|---|
+| `blackfin_cases.py` 1 s, Hacktribe | 29,6 s | 15,8 s | JSON gleich |
+| `blackfin_cases.py` 1 s, Stock | 27,7 s | 11,5 s | JSON gleich |
+| `blackfin_swap_cases.py`, Hacktribe | 122,1 s | 35,1 s | JSON gleich |
+| `blackfin_swap_cases.py`, Stock | 156,0 s | 45,5 s | JSON gleich |
+| `blackfin_cases.py` 3 s, Rauschen, Hacktribe | 61,0 / 62,3 s | 18,6 bis 48,2 s (25 Läufe) | gleicher SPORT-Hash 1984276293, gleicher Verkehr |
+| `blackfin_cases.py` 3 s, Rauschen, Stock | 59,4 / 60,2 s | 11,8 / 13,1 s | gleich |
+
+Nach 1 s ist der Hauptbildschirm noch nicht erreicht; beide Worker melden
+das gleich (`ok: false`, gleiche Ausgabe). Die QEMU-Zeiten im 3-s-Fall
+schwanken mit der Last: 32 bis 48 s bei Last 5 bis 8, 19 bis 21 s bei Last 4
+(**gemessen**).
+
+### Ausfall im 3-s-Fall: Ruhezustand, kein Hänger
+
+Ein Lauf (Hacktribe, QEMU) endete mit `Blackfin worker deadline exceeded`
+bei ARM-Zeit 0,76 s nach 140,5 s. 25 Wiederholungen mit Zeitmessung jeder
+Anfrage liefen durch; die längste Einzelanfrage je Lauf lag zwischen 0,010
+und 0,126 s (Op 18 oder 20), keine über 1 s (**gemessen**). Das
+Energieprotokoll (`pmset -g log`) zeigt den Grund: der Lauf begann
+22:04:56, der Mac ging 22:05:01 in den Ruhezustand (Deckel zu) und wachte
+22:07:16 auf, genau zur Fehlermeldung. `time.monotonic` zählt die
+Ruhezeit mit, also lief die 15-s-Frist beim Aufwachen ab (**gemessen**).
+
+### Blöcke
+
+`qemu_blocks.py` zeichnet die gekoppelte Sitzung auf dem GNU-Worker auf:
+jede Anfrage mit dem Hash ihrer Antwort, nach je 64 SPORT-TX-Frames
+(1,33 ms) ein Abbild aus allen 54 Registern und L1, alle 1000 Blöcke und am
+Ende auch 32 MiB SDRAM. Danach gehen dieselben Anfragen an den
+QEMU-Worker; die erste abweichende Antwort beendet den Lauf. A0.X und A1.X
+zählen nur mit 8 Bit: GNU legt nach manchen Befehlen 32 Bit ab
+(`SET_AREG32` ergibt 0xffffffff), liest aber in jedem Befehl nur die unteren
+8 Bit (**gelesen**, `get_extended_acc`, `get_allreg`, `bfin-sim.c`).
+
+Build f43f9829 (vor dem Fix unten), Eingang Stille:
+
+| Firmware | Blöcke | Anfragen | Ergebnis | Vergleich |
+|---|---:|---:|---|---:|
+| Hacktribe | 10000 | 2121005 | gleich | 362,7 s |
+| Stock | 10000 | 2098568 | gleich | 381,8 s |
+
+Gegenprobe: in einer Aufnahme von 50 Blöcken ein ASTAT-Hash bei Anfrage
+35220 verfälscht; der Vergleich meldet genau diese Anfrage, Register
+ASTAT, Block 1 (**gemessen**).
+
+### Master-Effekte
+
+`qemu_blocks.py --mfx 0-31`: nach dem Boot jeden MFX TYPE mit Korgs Setter
+(0xC0048A64) setzen, Pad 1 auf Rauschen spielen, 0,4 s, Abbild je Typ.
+
+Build 855d30fd:
+
+| Firmware | Typen | Blöcke | Anfragen | Ergebnis |
+|---|---:|---:|---:|---|
+| Hacktribe | 32 | 10714 | 8650507 | gleich, SEQSTAT 0, 32 verschiedene TX-Hashes |
+| Stock | 32 | 10714 | 8613030 | gleich, SEQSTAT 0, 32 verschiedene TX-Hashes |
+
+Die 6 Effekte, die in den Code der Effekt-Bausteine springen, sind darin
+enthalten, wenn ihre Einheiten (0x34, 0x3c bis 0x40) unter den Typen 0 bis
+31 liegen (**hergeleitet**, Zuordnung Typ zu Einheit nicht gemessen).
+
+Der erste Lauf fand einen Fehler im QEMU-Worker: beim Typwechsel lädt der
+DSP neuen Code nach L1 (0xFFA0xxxx), QEMU lief weiter mit der alten
+Übersetzung (Typ 1, Block 535, beide Firmwares). Gefunden mit
+Einzelschritten im Gleichlauf: bei 0xffa04612 steht `I0 = R0` (0x3400),
+GNU setzt I0, QEMU setzte P0. `tb_invalidate_phys_range` erwartet
+ram-Adressen; der Worker gab Gastadressen weiter, die nur für das SDRAM
+ab 0 gleich sind. Fix 855d30fd rechnet über die Speicherregion um; neuer
+Worker-Test `test_rewritten_l1_code_runs_the_new_instructions` ist ohne
+Fix rot bei 0xFFA00000 und grün im SDRAM, mit Fix grün; Worker-Tests
+176/176 (**gemessen**).
+
+### Zeit
+
+Ein Block hat bei 516,096 MHz und 48 kHz ein Budget von 10752 Takten je
+Sample, 688128 je Block (**hergeleitet**). Gegen Echtzeit gemessen: die
+Hacktribe-Aufnahme der 10000 Blöcke (14,84 s Modellzeit) noch einmal
+abgespielt, gezählt nur die Zeit der Vorlauf-Anfragen (Op 18 und 20), ohne
+ARM-Emulator, Last 6,7 bis 8 (**gemessen**):
+
+| Worker | Zeit Vorlauf | Echtzeitfaktor | DSP-Takte je Sekunde |
+|---|---:|---:|---:|
+| GNU | 781,8 s | 52,7x langsamer | 9,8 Mio. |
+| QEMU | 365,1 s | 24,6x langsamer | 21,0 Mio. |
+
+Im Fallauf mit ARM-Emulator braucht QEMU für 3 s Modellzeit 12 bis 21 s
+bei Last 2 bis 4 (Abschnitt Fälle), also 4 bis 7x Echtzeit; dort läuft der DSP
+oft im Leerlauf, den GNU in einem Schritt überspringt (**hergeleitet**).
+Gegenüber den DSP-Kernen allein (7,7 bis 9,7x, Abschnitt 6) gewinnt QEMU
+hier nur 2,1x: 2,1 Mio. Anfragen kosten je etwa 0,17 ms, und jede läuft
+durch den GNU-Simulator (Ereignisse, Geräte, Protokoll), siehe Abschnitt 4
+(**hergeleitet**). Das ist der Ansatzpunkt für Phase 6.
+
+Bei diesem Abspielen ohne die Abbild-Lesungen beendete sich der GNU-Worker
+einmal ohne Antwort; mit Abbild-Lesungen lief er durch. Nicht weiter
+verfolgt, das Messwerkzeug lag im Scratchpad (**gemessen**).
+
 ## Nachstellen
 
 ```bash
@@ -236,6 +346,8 @@ tools/emu/.venv/bin/python tools/dsp/qemu_compare.py <SYSTEM.VSB> --gnu ~/gelump
 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py --fuzz 3000 --seed 21 --fuzz-length 4 --gnu ... --qemu ...
 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py --fuzz 3000 --seed 2 --fuzz-class alu --gnu ... --qemu ...
 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py <SYSTEM.VSB> --calls 20000 --gnu ... --qemu ...
+tools/emu/.venv/bin/python tools/dsp/qemu_compare.py <SYSTEM.VSB> --blocks 10000 --gnu ... --qemu ...
+tools/emu/.venv/bin/python tools/dsp/qemu_blocks.py <SYSTEM.VSB> --mfx 0-31 --gnu ... --qemu ...
 BLECH_QEMU_DSP32=1 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py --fuzz 3000 --seed 2 --fuzz-class alu --gnu ... --qemu ...
 ```
 
