@@ -57,7 +57,8 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | Record and load your own samples | ✅ | ➖ | ✅ | ✅ | ➖ | ✅ |
 | Extended Hacktribe oscillator bank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Extra Hacktribe MFX, IFX, grooves and scales | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Hacktribe inserts (Lag, KP2 Comp, drive filters, delays) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Extra Hacktribe MFX, grooves and scales | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Import/export effects and grooves through Hacktribe menus | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Custom INIT pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Hacktribe SysEx (for the Hacktribe editor) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
@@ -90,7 +91,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 
 ➖ means: does not apply to the synth, it loads no samples.
 
-Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIBE to a Korg original does not add Hacktribe's features. The exception is the Hacktribe oscillators on the free slots 422 to 497 of the red BLECHTRIBE, always on, no switch. The blue BLECHTRIBE column describes the Synth set on Korg 2.02. Hacktribe itself supports both hardware types.
+Hacktribe is a separate firmware base. BLECHTRIBE adds to it; applying BLECHTRIBE to a Korg original does not add Hacktribe's features. The exception is the Hacktribe oscillators on the free slots 422 to 497 of the red BLECHTRIBE, always on, no switch, and the 11 Hacktribe inserts, rebuilt on IFX slots 39 to 49 of the red BLECHTRIBE. The blue BLECHTRIBE column describes the Synth set on Korg 2.02. Hacktribe itself supports both hardware types.
 
 **Hacktribe trade-offs:**
 
