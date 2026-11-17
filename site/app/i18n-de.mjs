@@ -2140,7 +2140,7 @@ export default {
   "catalog.randomslot.description": "Zufall wie am Spielautomaten für einen Part: die Walzen drehen sich, dann würfelt es neue Klangwerte, eine neue Melodie oder kleine Änderungen an Klang oder Steps. Gespeichert wird nichts, WRITE behält, was gefällt.",
   "catalog.randomslot.control1": "Pads: Part wählen. 1: Zufallsklang. 2: Zufallsmelodie. 3: kleine Klangänderung. 4: kleine Step-Änderung",
   "catalog.randomslot.control2": "PART MUTE: Part solo, noch einmal: die Mutes wie vorher",
-  "catalog.betteraccent.description": "Accents wie bei einer 303: ein Step mit Velocity über 96 spielt mit eigenem EG INT, DECAY und LEVEL, der Filter öffnet weiter. Wirkt auf die Parts 1 bis 7, STOP stellt die normalen Werte wieder her.",
+  "catalog.betteraccent.description": "Accents wie bei einer 303: ein Step mit Velocity über 96 spielt mit eigenem EG INT, DECAY und LEVEL, der Filter öffnet weiter. Wirkt auf alle 16 Parts, STOP stellt die normalen Werte wieder her.",
   "catalog.betteraccent.control1": "SHIFT + EG INT, DECAY oder LEVEL: Accent-Wert des gewählten Parts",
   "catalog.betteraccent.control2": "EG INT, DECAY und LEVEL ohne SHIFT: der normale Wert, wie bisher",
   "catalog.easyslides.description": "Lässt TIE-Steps gleiten: ein TIE-Step und der Step danach bekommen mehr Glide, die zwei Noten gleiten ineinander. Wirkt auf die Parts 1 bis 8, STOP stellt das Glide wieder her.",

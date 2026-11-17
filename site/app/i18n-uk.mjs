@@ -2092,7 +2092,7 @@ export default {
   "catalog.randomslot.description": "Випадковість як в ігровому автоматі для одного парта: барабани крутяться, потім випадають нові значення звуку, нова мелодія або невеликі зміни звуку чи кроків. Нічого не зберігається, WRITE залишить те, що сподобалося.",
   "catalog.randomslot.control1": "Пади: вибір парта. 1: випадковий звук. 2: випадкова мелодія. 3: невелика зміна звуку. 4: невелика зміна кроків",
   "catalog.randomslot.control2": "PART MUTE: парт соло, ще раз: mute як було",
-  "catalog.betteraccent.description": "Акценти як у 303: крок з velocity понад 96 звучить зі своїми EG INT, DECAY і LEVEL, фільтр відкривається більше. Працює на партах з 1 по 7, STOP повертає звичайні значення.",
+  "catalog.betteraccent.description": "Акценти як у 303: крок з velocity понад 96 звучить зі своїми EG INT, DECAY і LEVEL, фільтр відкривається більше. Працює на всіх 16 партах, STOP повертає звичайні значення.",
   "catalog.betteraccent.control1": "SHIFT + EG INT, DECAY або LEVEL: значення акценту вибраного парту",
   "catalog.betteraccent.control2": "EG INT, DECAY і LEVEL без SHIFT: звичайне значення, як раніше",
   "catalog.easyslides.description": "Кроки з TIE ковзають: крок з TIE і наступний за ним отримують більше glide, дві ноти ковзають одна в одну. Працює на партах з 1 по 8, STOP повертає glide.",

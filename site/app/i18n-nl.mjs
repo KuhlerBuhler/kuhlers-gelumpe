@@ -2092,7 +2092,7 @@ export default {
   "catalog.randomslot.description": "Toeval als een gokkast voor één part: de rollen draaien, daarna loot hij nieuwe klankwaarden, een nieuwe melodie of kleine wijzigingen aan klank of steps. Er wordt niets opgeslagen, WRITE houdt wat bevalt.",
   "catalog.randomslot.control1": "Pads: part kiezen. 1: willekeurige klank. 2: willekeurige melodie. 3: kleine klankwijziging. 4: kleine stepwijziging",
   "catalog.randomslot.control2": "PART MUTE: part solo, nog eens: de mutes zoals ervoor",
-  "catalog.betteraccent.description": "Accenten zoals op een 303: een step met velocity boven 96 speelt met eigen EG INT, DECAY en LEVEL, het filter gaat verder open. Werkt op parts 1 tot 7, STOP zet de normale waarden terug.",
+  "catalog.betteraccent.description": "Accenten zoals op een 303: een step met velocity boven 96 speelt met eigen EG INT, DECAY en LEVEL, het filter gaat verder open. Werkt op alle 16 parts, STOP zet de normale waarden terug.",
   "catalog.betteraccent.control1": "SHIFT + EG INT, DECAY of LEVEL: accentwaarde van de gekozen part",
   "catalog.betteraccent.control2": "EG INT, DECAY en LEVEL zonder SHIFT: de normale waarde, zoals voorheen",
   "catalog.easyslides.description": "Laat TIE-steps glijden: een TIE-step en de step erna krijgen meer glide, de twee noten glijden in elkaar over. Werkt op parts 1 tot 8, STOP zet de glide terug.",

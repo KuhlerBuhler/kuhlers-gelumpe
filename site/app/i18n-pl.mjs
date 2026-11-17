@@ -2092,7 +2092,7 @@ export default {
   "catalog.randomslot.description": "Losowanie jak w automacie do gry dla jednego partu: bębny się kręcą, potem losuje nowe wartości brzmienia, nową melodię albo małe zmiany brzmienia lub kroków. Nic nie jest zapisywane, WRITE zachowuje to, co się podoba.",
   "catalog.randomslot.control1": "Pady: wybór partu. 1: losowe brzmienie. 2: losowa melodia. 3: mała zmiana brzmienia. 4: mała zmiana kroków",
   "catalog.randomslot.control2": "PART MUTE: part solo, jeszcze raz: mute jak wcześniej",
-  "catalog.betteraccent.description": "Akcenty jak w 303: krok z velocity powyżej 96 gra z własnym EG INT, DECAY i LEVEL, filtr otwiera się bardziej. Działa na partach 1 do 7, STOP przywraca zwykłe wartości.",
+  "catalog.betteraccent.description": "Akcenty jak w 303: krok z velocity powyżej 96 gra z własnym EG INT, DECAY i LEVEL, filtr otwiera się bardziej. Działa na wszystkich 16 partach, STOP przywraca zwykłe wartości.",
   "catalog.betteraccent.control1": "SHIFT + EG INT, DECAY lub LEVEL: wartość akcentu wybranego partu",
   "catalog.betteraccent.control2": "EG INT, DECAY i LEVEL bez SHIFT: zwykła wartość, jak dotąd",
   "catalog.easyslides.description": "Kroki z TIE się ślizgają: krok z TIE i następny dostają więcej glide, dwie nuty przechodzą w siebie. Działa na partach 1 do 8, STOP przywraca glide.",
