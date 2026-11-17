@@ -254,6 +254,24 @@ def patch_dsp32(source):
     file.write_text(text + DSP32_GNU)
 
 
+# Bytes from ADDR up to LAST that resolve to MAPPING, which sim_core_find_mapping found for ADDR: an
+# earlier mapping in the list wins from its base on.
+BLECH_CORE_RUN = '''static unsigned
+blech_core_run (sim_core_common *core, unsigned map, sim_core_mapping *mapping,
+\t\taddress_word addr, address_word last)
+{
+  sim_core_mapping *m;
+
+  if (last < addr || last > mapping->bound)
+    last = mapping->bound;
+  for (m = core->map[map].first; m != mapping; m = m->next)
+    if (m->base > addr && m->base <= last)
+      last = m->base - 1;
+  return last - addr + 1;
+}
+
+'''
+
 # Each request resumes and halts the GNU engine; skip its wall clock (getrusage, only for `watch clock`
 # and profiles) and the signal-mask save of setjmp/longjmp (system calls on macOS; the mask never changes).
 SPEED = (
@@ -266,6 +284,19 @@ SPEED = (
      '      _longjmp (*halt_buf, sim_engine_halt_jmpval);\n'),
     ('sim/common/sim-engine.c', '      longjmp (*halt_buf, sim_engine_restart_jmpval);\n',
      '      _longjmp (*halt_buf, sim_engine_restart_jmpval);\n'),
+    # Buffer reads and writes (DMA, host requests) look the mapping up once per run, not per byte.
+    ('sim/common/sim-core.c',
+     '    ((unsigned_1*)buffer)[count] =\n      *(unsigned_1*)sim_core_translate (mapping, raddr);\n'
+     '    count += 1;\n',
+     '    for (unsigned n = blech_core_run (core, map, mapping, raddr, addr + (len - 1)); n; --n)\n'
+     '      ((unsigned_1*)buffer)[count++] = *(unsigned_1*)sim_core_translate (mapping, raddr++);\n'),
+    ('sim/common/sim-core.c',
+     '      *(unsigned_1*)sim_core_translate (mapping, raddr) =\n\t((unsigned_1*)buffer)[count];\n'
+     '      count += 1;\n',
+     '      for (unsigned n = blech_core_run (core, map, mapping, raddr, addr + (len - 1)); n; --n)\n'
+     '\t*(unsigned_1*)sim_core_translate (mapping, raddr++) = ((unsigned_1*)buffer)[count++];\n'),
+    ('sim/common/sim-core.c', '#if EXTERN_SIM_CORE_P\nunsigned\nsim_core_read_buffer (',
+     BLECH_CORE_RUN + '#if EXTERN_SIM_CORE_P\nunsigned\nsim_core_read_buffer ('),
 )
 
 
@@ -273,9 +304,11 @@ def patch_speed(source):
     for name, old, new in SPEED:
         file = source / name
         text = file.read_text()
+        if new and new in text:   # the tree is reused between builds
+            continue
         if text.count(old) == 1:
             file.write_text(text.replace(old, new))
-        elif old in text or (new and new not in text):   # the tree is reused between builds
+        elif old in text or new:
             raise ValueError(f'unexpected GNU {name}')
 
 
