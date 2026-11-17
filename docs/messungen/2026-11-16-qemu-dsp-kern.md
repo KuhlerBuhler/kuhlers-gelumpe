@@ -28,6 +28,11 @@ Marker: **gemessen** (Befehl lief, Zahl abgelesen), **gelesen** (Quelltext),
   Blöcke und alle 32 MFX-Typen je Firmware Anfrage für Anfrage gleich; der
   MFX-Lauf fand einen Fehler (veraltete Übersetzung nach neuem L1-Code),
   behoben in 855d30fd (Abschnitt 8, **gemessen**).
+- Tempo nach Phase 6, Worker allein gegen Echtzeit: QEMU 6,7x langsamer
+  (Hacktribe), GNU 62,9x; DSP-Kerne 11x schneller als GNU; gekoppelt mit
+  dem ARM-Emulator 5 bis 6x schneller als GNU (Abschnitt 9, **gemessen**).
+- Ohne `--worker` und ohne `BFIN_WORKER` läuft der QEMU-Worker, GNU nur auf
+  Wahl oder als Rückfall ohne QEMU-Build ([Emulator](../emulator.md)).
 
 ## 1. Weg: Hybrid statt neuer Geräte
 
@@ -329,6 +334,100 @@ Bei diesem Abspielen ohne die Abbild-Lesungen beendete sich der GNU-Worker
 einmal ohne Antwort; mit Abbild-Lesungen lief er durch. Nicht weiter
 verfolgt, das Messwerkzeug lag im Scratchpad (**gemessen**).
 
+## 9. Tempo (Phase 6)
+
+### Wo die Zeit hing
+
+Ein Profil (`sample`, Hacktribe-Aufnahme 1000 Blöcke abgespielt) zeigte
+nach Phase 5 nur 9 % der Worker-Zeit im DSP-Code. Der Rest war Verwaltung
+je Anfrage in der GNU-Bibliothek: Wanduhr über `getrusage` 23 %,
+`setjmp`/`longjmp` mit Signalmaske 20 %, JIT-Schreibschutz je übersetztem
+Block 7 %, `getenv` 3 % (**gemessen**). Gekürzt in b1c14184 und cd0e8f47,
+danach TB-Invalidierung nur für Seiten mit Code (ca953c74) und die
+Speicherzuordnung einmal je Pufferlauf statt je Byte (4dd2e813). Das
+Abspielen der 1000 Blöcke fiel von 50,8 s auf 21,7 s (**gemessen**).
+
+Der Poll-Event der GNU-Bibliothek (`SIM_EVENTS_POLL_RATE` 0x1000, prüft nur
+Strg-C) beendete alle 4096 Takte einen QEMU-Lauf. Mit 0x40000000
+(2b8653f8) stieg der Kernvergleich auf Hacktribe von 3,6x auf 8,9x
+(**gemessen**).
+
+In den DSP-Kernen selbst (MultiModeFilter) lagen danach 48 % in GNUs
+dsp32-Decoder und 18 % in MAC (**gemessen**). Ein Histogramm über 65 Mio.
+dsp32-Befehle nannte drei Formen mit zusammen etwa 37 %:
+`Rd = Rs +/- Rt (S)` (c404/cc04), `Rd = (A0 += A1)` (c40b/cc0b) und
+`An >>>= imm` (c683). dc70acc3 rechnet die erste als TCG, die beiden
+anderen als eigene Helper mit GNUs Code ohne den Decoder-Weg. Je Form lief
+ein gezielter Fuzz, auch als Bündel, ohne Abweichung (**gemessen**).
+
+Nicht umgesetzt: Register-Sicherung nur bei Bündeln mit Konflikt (6.1).
+Selbst ganz ohne Sicherung liefen die 21 Kerne, die dabei gleich bleiben,
+nicht schneller (0,465 s mit, 0,592 s ohne, unter Last, **gemessen**).
+MAC/MULT als TCG (6.2) entfiel, weil die Helper im gekoppelten Abspielen
+0,7 % der Worker-Zeit kosten (**gemessen**).
+
+Prüfung nach jedem Schritt: Worker-Tests 176/176, Fuzz aller Klassen ohne
+Abweichung, 38/38 Funktionen auf Hacktribe und Stock, 10000 Blöcke und
+3-s-Fälle gleich GNU (**gemessen**).
+
+### Endstand gegen Echtzeit
+
+Gemessen nacheinander, jeder Lauf erst bei mehr als 70 % freier CPU laut
+`top`; die Spalte nennt den Wert direkt vor dem Lauf. Die Load Average
+blieb dabei bei 8 bis 18, sie zählt auf dem Mac wartende Threads mit
+(**gemessen**).
+
+Worker allein: die Aufnahme der 10000 Blöcke (14,84 s Modellzeit) noch
+einmal abgespielt, gezählt nur die Vorlauf-Anfragen (Op 18 und 20), ohne
+ARM-Emulator (`realtime.py`, **gemessen**):
+
+| Firmware | Worker | Vorlauf | gegen Echtzeit | frei |
+|---|---|---:|---:|---:|
+| Hacktribe | GNU | 933,1 s | 62,9x langsamer | 77,8 % |
+| Hacktribe | QEMU | 98,9 s | 6,7x langsamer | 70,7 % |
+| Stock | GNU | 954,8 s | 64,3x langsamer | 74,2 % |
+| Stock | QEMU | 152,2 s | 10,3x langsamer | 71,1 % |
+
+QEMU ist hier 9,4x (Hacktribe) und 6,3x (Stock) schneller als GNU. Vor
+Phase 6 brauchte QEMU für dieselbe Hacktribe-Aufnahme 365,1 s, also 24,6x
+langsamer als Echtzeit (Abschnitt 8). Der Stock-Lauf endete mit Load 18;
+ob die Lücke zu Hacktribe an der Last oder an der Firmware liegt, ist
+nicht geprüft.
+
+DSP-Kerne allein (`qemu_compare.py --bench --min-speedup 10`, 38
+Funktionen, Prüfsummen gleich, **gemessen**):
+
+| Firmware | GNU | QEMU | schneller | frei |
+|---|---:|---:|---:|---:|
+| Hacktribe | 1,797 s | 0,164 s | 10,96x | 77,9 % |
+| Stock | 2,066 s | 0,183 s | 11,29x | 73,1 % |
+
+Unter Last (Load 7 bis 10, vor der Ruhemessung) waren es 10,45x und 10,8x;
+der Abstand zur Schwelle 10 ist klein (**gemessen**).
+
+Gekoppelt mit dem ARM-Emulator: `blackfin_cases.py`, 3 s Modellzeit, je
+Worker zweimal in der Folge GNU, QEMU, QEMU, GNU. Gemessen ist die ganze
+Laufzeit des Befehls, also mit Start, Booten und ARM-Emulator. Alle acht
+Ausgaben sind gleich und gleich der GNU-Referenz aus Phase 5 (**gemessen**):
+
+| Firmware | Worker | Laufzeit | gegen Echtzeit | frei |
+|---|---|---:|---:|---:|
+| Hacktribe | GNU | 71,5 / 73,5 s | 24x langsamer | 79,0 / 74,5 % |
+| Hacktribe | QEMU | 13,9 / 14,8 s | 4,8x langsamer | 72,5 / 79,5 % |
+| Stock | GNU | 69,9 / 64,7 s | 22x langsamer | 72,7 / 82,8 % |
+| Stock | QEMU | 12,5 / 9,4 s | 3,7x langsamer | 83,9 / 85,0 % |
+
+Gekoppelt ist QEMU damit 5,0x (Hacktribe) und 6,1x (Stock) schneller als
+GNU (**hergeleitet** aus den Mittelwerten). Diese Fälle sind ein Start bis
+zum Hauptbild, der DSP läuft dabei oft im Leerlauf; das Abspielen oben ist
+Last mit Noten. Die beiden Zahlen gegen Echtzeit messen also verschiedene
+Lasten und lassen sich nicht direkt verrechnen.
+
+Bewertung des 10x-Ziels (**Urteil**): erreicht in den DSP-Kernen, knapp.
+Der Worker allein liegt bei 6 bis 9x, gekoppelt bei 5 bis 6x. Wie viel
+der gekoppelten Zeit auf ARM-Emulator und Python entfällt, ist in diesem
+Lauf nicht gemessen. Echtzeit erreicht keiner der Wege.
+
 ## Nachstellen
 
 ```bash
@@ -348,6 +447,7 @@ tools/emu/.venv/bin/python tools/dsp/qemu_compare.py --fuzz 3000 --seed 2 --fuzz
 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py <SYSTEM.VSB> --calls 20000 --gnu ... --qemu ...
 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py <SYSTEM.VSB> --blocks 10000 --gnu ... --qemu ...
 tools/emu/.venv/bin/python tools/dsp/qemu_blocks.py <SYSTEM.VSB> --mfx 0-31 --gnu ... --qemu ...
+tools/emu/.venv/bin/python tools/dsp/qemu_compare.py <SYSTEM.VSB> --gnu ... --qemu ... --bench --min-speedup 10
 BLECH_QEMU_DSP32=1 tools/emu/.venv/bin/python tools/dsp/qemu_compare.py --fuzz 3000 --seed 2 --fuzz-class alu --gnu ... --qemu ...
 ```
 
