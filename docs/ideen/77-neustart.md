@@ -3,6 +3,7 @@
 Idee (27.10.): Nach einem Firmware-Update startet das Gerät von selbst neu, statt dass man es aus- und wieder
 einschalten muss. Und allgemein soll ein Neustart möglich sein, ohne das Gerät auszuschalten.
 Stand 2026-10-27: **aufgeschrieben, nicht untersucht, nichts gebaut.**
+Stand 2026-11-16: Watchdog-Stub und Emulatormodell fertig, Gerätetest steht aus: [Neustart über den Watchdog](../messungen/2026-11-16-watchdog-neustart.md).
 
 ## Was es schon gibt
 

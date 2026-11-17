@@ -111,6 +111,8 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Startinitialisierung, Interrupt-/Loader-Stacks und Patternbank](2026-10-08-boot-pattern-speicher.md)
 - [Task-Stacks, Heap und Arbeitsbuffer, offline gemessen](2026-10-08-systemspeicher-offline.md)
 - [DSP-Audiopfade und Ausführungsgrenzen, offline](2026-10-08-dsp-audiopfade.md)
+- [Natives Aufnehmen und Abspielen: Master-Abgriff im DSP, Kartenrate, RAM, blau, offline](2026-11-17-native-aufnahme.md)
+- [Time Stretch: offline auf dem ARM gemessen, live im DSP (Lesezeiger, Generatoren)](2026-11-17-time-stretch.md)
 - [USB-Sampleimport ohne SD: Offline-Machbarkeit](2026-10-08-usb-sample-import-offline.md)
 - [Sample-Swap: Ladepfad, Platzverwaltung und noch fehlende Gerätetests](2026-10-25-sample-swap.md)
 - [Sample-Swap: RAM-Besitz und ein begrenzter DSP-Transfer](2026-10-25-sample-swap-timeout.md)
@@ -156,6 +158,7 @@ Startphase, Startmodi, Notschalter, Firmware als Datei und der Weg zurück.
 - [Geänderte Firmware als Datei, im Emulator gebootet](2026-10-09-firmware-export.md)
 - [Rückweg geübt: eigene Firmware hin, Original zurück](2026-10-10-rueckweg-geuebt.md)
 - [SOFTWARE UPDATE prüft die Dateigröße: eine abgeschnittene SYSTEM.VSB wird nicht geflasht, im Emulator](2026-11-13-update-schutz.md)
+- [Neustart über den Watchdog von Timer 1: Modell, 84-Byte-Stub über EXEC, im Emulator; Gerätetest offen](2026-11-16-watchdog-neustart.md)
 
 
 ## Emulator
@@ -261,6 +264,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 35: veraltete Aufrufe und ihr Ersatz](2026-11-12-plugin-api35-veraltet.md)
 - [Plugin API 37: Energiesparmodus und IDLE SAVE lesen, das Ereignis idle, die Schalter in Byte 7, im Emulator](2026-11-15-plugin-api37-energie.md)
 - [Plugin API 35: Touchpad-Y halten wie korg.touchLockX, im Emulator](2026-11-12-plugin-touch-lock-y.md)
+- [Plugin API 39: ein Ordner mit 16 Datendateien je Plugin, 32 KiB je Datei, Heap im Emulator gemessen](2026-11-17-plugin-daten-heap.md)
 - [Firmwarepfad fuer Part-Parameter, im Emulator geprueft](2026-11-06-part-param-refresh.md)
 - [DSP-Transport bei neuen Part-Bedienungen, im Emulator geprueft](2026-11-07-part-control-dsp-refresh.md)
 - [Part-Werte aus Plugins: Parametersetzer, Auffrischen, Filter-LEDs und MFX SEND wie die Bedienelemente, im Emulator](2026-11-09-plugin-part-dsp.md)
@@ -324,6 +328,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [FILTER TOGGLE fest eingebaut: SHIFT + Filtertaste schaltet das Filter aus und an, mit dem Fenster der Firmware, im Emulator](2026-11-08-filter-toggle-eingebaut.md)
 - [AUTO SAVE: GLOBAL PARAMETERS und BLECH-Einstellungen speichern sich beim Verlassen, nur mit Änderung, im Emulator](2026-11-09-auto-save.md)
 - [BPM GLIDE fest eingebaut: GLIDE CHAIN und GLIDE SWITCH in FEATURES, Tempo gleitet zum nächsten Pattern, im Emulator](2026-11-15-bpm-glide.md)
+- [BATTERY %: Ladestand in Prozent neben dem Batteriesymbol, Kartensymbol auf dem Hauptbildschirm bei 94, Panel-Nachricht 6 als Rohwert, Entladekurve am Gerät gemessen (oben geschätzt), im Emulator](2026-11-16-batterie-prozent.md)
 - [Hänger nach EXEC-Tastendrücken: der nächste Werkzeugstart nach EXEC bekommt keine Antwort, Ursache offen, am Gerät](2026-11-15-remote-exec-haenger.md)
 - [ORIG im BLECH-Menü wie auf den Seiten der Firmware; Spielhilfen mit einer erst nach dem Start eingesteckten Karte, im Emulator](2026-11-11-orig-und-karte-spaeter.md)
 - [Die später gesteckte Karte bringt ihre ganze Einstellungsdatei mit, auch beim Kartentausch, im Emulator](2026-11-12-karte-spaeter-einstellungen.md)
@@ -331,6 +336,8 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [BLECH-Einstellungen ohne Karte im Flash: zwei Sektoren im Wechsel, die Karte gewinnt beim Start, beim Einstecken fragt das Display SAVE TO FLASH?, im Emulator](2026-11-13-einstellungen-flash.md)
 - [Startbild-Editor auf der blauen: SPLASH IMPORT, DRAW und RESET, Bild im Flash-Sektor 0x7F0000, im Emulator](2026-11-13-startbild-editor-blau.md)
 - [Media-Ordner: Startbild und Ladeanimation von der Karte, Einstellung in Byte 14 der BLLA-Datei, im Emulator](2026-11-14-media-ordner.md)
+- [korg.file.picture: Polarität gegen Startbild und DISPLAY INVERT, Lesezeit gegen das Rahmenbudget, im Emulator](2026-11-16-media-polaritaet.md)
+- [Image Viewer: Handler, Kartenzeit je Bild und Rahmenzeit beim Abspielen auf Hacktribe, Korg rot und blau, im Emulator](2026-11-16-image-viewer-timing.md)
 - [KNOB LEDS: die LEDs hinter den Reglern aus, im Emulator](2026-11-12-knopf-leds.md)
 - [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
@@ -362,6 +369,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)
 - [Karte im Betrieb getauscht: neue Karte wird mit 12,5 MHz identifiziert](2026-11-14-karte-tausch-takt.md)
 - [Karte im Betrieb wieder gesteckt: Lesen, solange die Karte noch rutscht](2026-11-15-karte-stecken-prellen.md)
+- [Kartentausch: Hänger bei busy Karte, SAVE TO FLASH ging verloren, Knopf-LEDs folgen der Karte](2026-11-15-karte-tausch-haenger.md)
 - [Grundlagen für native Bedienmakros](2026-10-25-makro-grundlagen.md)
 - [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
 - [Meter: RAINBOW auch bei LOUD, im Tempo](2026-10-24-meter-loud-rainbow.md)
@@ -409,6 +417,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Blackfin: SPORT0 und der native Audiotakt](2026-11-14-blackfin-sport0.md)
 - [Blackfin: HOSTDP-FIFO und DMA1](2026-11-14-blackfin-host-fifo.md)
 - [Blackfin: gemeinsame ARM-/DSP-Modellzeit und GPIO](2026-11-14-blackfin-modellzeit.md)
+- [DSP-Simulator: Tempo, Poll-Vorlauf und Plattformen, im Simulator](2026-11-16-dsp-sim-tempo.md)
 
 ## DSP-Grundlagen der nativen Gegenprobe
 

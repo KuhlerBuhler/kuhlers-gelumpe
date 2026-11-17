@@ -230,7 +230,7 @@ def version_cases(r):
     struct.pack_into("<H", newer, API_AT, api + 1)
     r.dev.m.uc.mem_write(script_hooks.INPUT, bytes(newer))
     refused = r.dev.call(r.built.symbols["script_load_block"], runtime, script_hooks.INPUT, len(newer))
-    return [entry("api36_loads_newer_refused", version == 36 and api == 37 and loaded == 0 and refused == ERR_API_VERSION
+    return [entry("api36_loads_newer_refused", version == 36 and api >= 37 and loaded == 0 and refused == ERR_API_VERSION
                   and not r.dev.m.asserts,
                   f"build {r.build}: block of API {version} loads with {loaded}, marked API {api + 1} gives {refused} (runtime API {api})")]
 

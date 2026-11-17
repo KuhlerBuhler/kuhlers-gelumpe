@@ -74,9 +74,11 @@ export const TABLE = [
   [/^tools\/emu\/plugin_api35_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api36_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api37_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api38_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/meter_led_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/load_meter_cases\.py$/, ["menu_cases"]],   // runs as a look part of menu_cases
   [/^tools\/emu\/bpm_glide_cases\.py$/, ["menu_cases"]],    // runs as a look part of menu_cases
+  [/^tools\/emu\/battery_percent_cases\.py$/, ["menu_cases"]],   // runs as a look part of menu_cases
   [/^tools\/emu\/plugin_catalog_api_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/live_write_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/objects_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases

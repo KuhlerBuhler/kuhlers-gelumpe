@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import synth_filters as spec  # noqa: E402
-from machine import load_flash  # noqa: E402
+from machine import load_flash, without_card  # noqa: E402
 from pswitch_cases import Box  # noqa: E402
 
 IMAGE = 0xC0000000
@@ -103,7 +103,8 @@ class FBox(Box):
         return tuple(self.m.leds.get(x, 0) for x in LEDS)
 
     def frame(self):
-        return bytes(self.dev.fb())
+        """The frame, the card symbol's places left out (machine.without_card)."""
+        return without_card(self.dev.fb())
 
     def press(self, name, wait=0.4):
         """A key; returns (stored type, LEDs, frame, the names the display looked up (type numbers), the notices of the parameter change)."""

@@ -4,6 +4,9 @@ Stand 11. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Dat
 mit dem BLECH-Satz (`data/patches/blech.json`, für blau `blech-synth.json`). Fälle: `tools/emu/plugin_api32_cases.py` (läuft
 als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.** Teil 7 des Plans.
 
+Seit API 39 gilt ein anderes Layout: ein Ordner `Data/<name>/` mit 16 Dateien und höchstens 32 KiB je Datei, siehe
+[Plugin API 39](2026-11-17-plugin-daten-heap.md). Diese Datei beschreibt den Stand von API 32.
+
 ## Frage
 
 Kann ein Plugin eigene Bytes auf der Karte ablegen und nach dem Ausschalten wieder lesen, ohne die Firmware beim Laden oder

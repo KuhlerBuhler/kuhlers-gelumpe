@@ -1,23 +1,26 @@
-; korg.file.read and korg.file.write (API 32): one data file per plugin, SD:KORG/blechtribe/Plugin/Data/<name>.bin, at most
-; SCRIPT_DATA_FILE_BYTES (SCRIPT_DATA_FILE in data/script/contract.mjs). The file of one plugin at a time sits in a block of the
-; firmware heap, taken at the first call and kept until power-off: the plugin's name (16 bytes), then the file. A write changes
-; the block; script_data_flush writes it to the card as script_store_flush writes the store: while the main screen or BLECH is
-; up and STORE_MIN_PAUSE_FRAMES after the last write. Uses the loader's file object.
+; korg.file.read and korg.file.write (API 39): SCRIPT_DATA_FILES data files per plugin in its own folder,
+; SD:KORG/blechtribe/Plugin/Data/<name>/00.bin and on, each at most SCRIPT_DATA_FILE_BYTES (SCRIPT_DATA_FILE in
+; data/script/contract.mjs). One file of one plugin at a time sits in a block of the firmware heap, taken at the first call and
+; kept until power-off: the plugin's name (16 bytes), the file's number, then the file. A write changes the block;
+; script_data_flush writes it to the card as script_store_flush writes the store: while the main screen or BLECH is up and
+; STORE_MIN_PAUSE_FRAMES after the last write. Uses the loader's file object.
 .equ DF_BLOCK, DATA_FILE        ; -> the block, FF none
 .equ DF_SIZE, 4                 ; from DATA_FILE: the bytes of the file in the block
 .equ DF_PENDING, 8              ; 1 while the block differs from the card
 .equ DF_FRAME, 12               ; the frame count of the last card write
-.equ DF_DATA, 16                ; in the block: the name, then the file from here
-.equ DF_PATH, 64                ; stack bytes for the path: 31 folder, 16 name, 4 extension, the zero
+.equ DF_FILE, 16                ; in the block: the name, then the file's number here
+.equ DF_DATA, 20                ; in the block: the file from here
+.equ DF_PATH, 64                ; stack bytes for the path: 31 folder, 16 name, "/", 2 digits, 4 extension, the zero
 .equ DF_NEW, 0xC0028DCC         ; the firmware's operator new
 .equ FR_NO_FILE, 4
 
-; r0 array handle (checked by the VM), r1 offset -> r0 the bytes copied into the array, one to a slot, from the offset on: up to the
-; end of the array or the file, -1 when the card cannot be read (not the main screen or BLECH, no card, a write of another plugin
-; that still waits for the card).
+; r0 array handle (checked by the VM), r1 offset, r2 the file's number (both checked by the VM) -> r0 the bytes copied into the
+; array, one to a slot, from the offset on: up to the end of the array or the file, -1 when the card cannot be read (not the main
+; screen or BLECH, no card, a write to another file that still waits for the card).
 script_file_read_glue:
     push {r4-r7, lr}
     bl data_args
+    mov r1, r2
     bl data_take
     cmp r0, #0
     mvneq r0, #0
@@ -42,11 +45,13 @@ data_done:
     mov r1, #ERR_OK
     pop {r4-r7, pc}
 
-; r0 array handle, r1 offset -> r0 the bytes taken from the array (the low byte of each slot) into the file from the offset on, up
-; to the end of the array or SCRIPT_DATA_FILE_BYTES; -1 as korg.file.read. A gap behind the old end of the file reads as 0.
+; r0 array handle, r1 offset, r2 the file's number -> r0 the bytes taken from the array (the low byte of each slot) into the file
+; from the offset on, up to the end of the array or SCRIPT_DATA_FILE_BYTES; -1 as korg.file.read. A gap behind the old end of the
+; file reads as 0.
 script_file_write_glue:
     push {r4-r7, lr}
     bl data_args
+    mov r1, r2
     bl data_take
     cmp r0, #0
     mvneq r0, #0
@@ -74,7 +79,7 @@ data_write_copy:
     mov r0, r1
     b data_done
 
-; r0 array handle, r1 offset -> r0 the plugin's name, r4 the slots of the array, r5 its first slot, r7 the offset.
+; r0 array handle, r1 offset -> r0 the plugin's name, r4 the slots of the array, r5 its first slot, r7 the offset; r2 stays.
 data_args:
     mov r4, r0, lsr #16
     mov r5, r0, lsl #16
@@ -103,11 +108,12 @@ data_screen_no:
     cmp r12, #1
     bx lr
 
-; r0 the plugin's name -> r0 the block with that plugin's file, 0 when it cannot be had. Takes the block from the heap at the
-; first call; reads the file from the card when the block holds another plugin's (or none) and no write waits for the card.
+; r0 the plugin's name, r1 the file's number -> r0 the block with that file, 0 when it cannot be had. Takes the block from the
+; heap at the first call; reads the file from the card when the block holds another file (or none) and no write waits for the card.
 data_take:
-    push {r4-r8, lr}
+    push {r4-r10, lr}
     mov r4, r0
+    mov r9, r1
     ldr r5, =DATA_FILE
     ldr r6, [r5]
     cmn r6, #1
@@ -130,10 +136,13 @@ data_take_compare:
     cmp r2, r3
     bne data_take_load
     add r1, r1, #4
-    cmp r1, #DF_DATA
+    cmp r1, #DF_FILE
     blo data_take_compare
+    ldr r3, [r6, #DF_FILE]
+    cmp r3, r9
+    bne data_take_load
     mov r0, r6
-    pop {r4-r8, pc}
+    pop {r4-r10, pc}
 data_take_load:
     ldr r0, [r5, #DF_PENDING]
     cmp r0, #1
@@ -145,8 +154,9 @@ data_take_name:
     ldr r2, [r4, r1]
     str r2, [r6, r1]
     add r1, r1, #4
-    cmp r1, #DF_DATA
+    cmp r1, #DF_FILE
     blo data_take_name
+    str r9, [r6, #DF_FILE]
     sub sp, sp, #DF_PATH
     mov r0, sp
     mov r1, r6
@@ -188,17 +198,18 @@ data_take_zero:
     blo data_take_zero
     add sp, sp, #DF_PATH
     mov r0, r6
-    pop {r4-r8, pc}
+    pop {r4-r10, pc}
 data_take_unknown:
     mvn r0, #0
     str r0, [r6]
     add sp, sp, #DF_PATH
 data_take_fail:
     mov r0, #0
-    pop {r4-r8, pc}
+    pop {r4-r10, pc}
 
-; r0 destination, r1 the name (16 bytes, zero ends it early): SD:KORG/blechtribe/Plugin/Data/<name>.bin, every character other
-; than A to Z, a to z, 0 to 9 and "-" as "_" (dataFileName in data/script/contract.mjs).
+; r0 destination, r1 the block (the name, 16 bytes, zero ends it early; the file's number at DF_FILE):
+; SD:KORG/blechtribe/Plugin/Data/<name>/<two digits>.bin, every character of the name other than A to Z, a to z, 0 to 9 and "-"
+; as "_" (dataFileName in data/script/contract.mjs), so the path never leaves the plugin's folder.
 data_path:
     ldr r2, =data_folder
 data_path_folder:
@@ -229,6 +240,18 @@ data_path_end:
     cmp r2, #0
     moveq r3, #0x5F
     strbeq r3, [r0], #1
+    mov r3, #0x2F
+    strb r3, [r0], #1
+    ldr r2, [r1, #DF_FILE]
+    mov r3, #0x30
+data_path_tens:
+    cmp r2, #10
+    subhs r2, r2, #10
+    addhs r3, r3, #1
+    bhs data_path_tens
+    strb r3, [r0], #1
+    add r2, r2, #0x30
+    strb r2, [r0], #1
     ldr r2, =data_extension
 data_path_extension:
     ldrb r3, [r2], #1

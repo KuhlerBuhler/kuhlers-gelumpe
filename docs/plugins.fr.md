@@ -187,7 +187,9 @@ Hormis `ready` et `frame`, les événements utilisent un tampon circulaire de 64
 plein, le nouvel événement est perdu et compté. Deux mouvements immédiats du même potentiomètre
 ne conservent que la dernière valeur. Les gestionnaires d’une trame disposent ensemble de 5 ms ;
 un dépassement désactive le plugin responsable. Plus de 0,5 ms pour un gestionnaire est un
-avertissement. Les autres plugins, entrées restantes et gestionnaires de trame continuent à la
+avertissement. Le temps de lecture de la carte par `korg.file.frame`, `read`, `write`, `count`, `name` et `picture`
+ne compte ni dans les 5 ms ni pour l’avertissement, jusqu’à 50 ms par trame ; au-delà, il compte de nouveau
+(mesuré dans l’émulateur : 9 ms pour une image à chaque trame, le plugin reste actif). Les autres plugins, entrées restantes et gestionnaires de trame continuent à la
 trame suivante ; les événements déjà livrés ne sont pas répétés. Un gestionnaire qui n’a pas
 encore commencé lorsque le temps manque est reporté sans être désactivé.
 
@@ -201,7 +203,7 @@ Blechy reçoit le touchpad et sa touche). Dans tous les menus du firmware
 (Pattern, Global, Part Edit, Step Edit et les autres), les plugins reçoivent les
 entrées comme sur l’écran principal.
 
-### Ce qu’un plugin atteint (API 37)
+### Ce qu’un plugin atteint (API 38)
 
 Le tableau indique, pour chaque commande et chaque état de l’Electribe, comment un plugin le lit, le règle et en est
 informé. « non » signifie que ce n’est pas possible aujourd’hui ; les touches qu’un plugin ne peut pas régler comme une
@@ -258,7 +260,8 @@ feuille de l’arbre d’objets.
 | Entrées propres dans le menu BLECH | non | `korg.menu.add` | `menu` |
 | Apps | non | `korg.app` | `open`, `close` |
 | Valeurs enregistrées | `korg.store.get` | `korg.store.set`, `korg.store.save` | `save` |
-| Fichier propre sur la carte | `korg.file.read` | `korg.file.write` | non |
+| Fichiers propres sur la carte (16 par plugin) | `korg.file.read` | `korg.file.write` | non |
+| Images de démarrage et animations de chargement sur la carte (Media) | `korg.file.count`, `korg.file.name`, `korg.file.picture` | non | non |
 | Temps et minuteurs | `korg.millis` | `korg.after`, `korg.every`, `korg.afterSteps`, `korg.cancel` | `ready`, `frame` |
 <!-- /coverage -->
 
@@ -621,6 +624,9 @@ La colonne d’autorisation s’applique aussi à la syntaxe de propriété équ
 | `korg.after(ms, fn)`, `korg.every(ms, fn)`, `korg.afterSteps(n, fn)`, `korg.cancel(number)` | Temporisateurs décrits ci-dessus, depuis l’API 11 | Partout sauf `save` |
 | `korg.app(name, group)` | Inscrit l’application : nom de 1 à 15 caractères, groupe `"GAMES"` ou `"TOOLS"`. Renvoie son numéro, ou -1 si les 16 places sont occupées (l’appareil affiche alors « max 16 apps » à l’import ; le plugin reste dans la liste des plugins et tourne). Une instruction autonome au premier niveau, une fois par plugin, vérifiée par le compilateur | Corps uniquement |
 | `korg.file.frame(array, file, index)` | Lit l’image `index`, 0 à 65535, de `KORG/blechtribe/Gif/GIFnn.E2G`, avec `file` de 0 à 99 pour nn. Un octet par élément du tableau, d’au moins 1024 éléments ; `korg.display.bitmap(array, 0, 0, 128)` l’affiche directement. Renvoie le délai en ms, au moins 1 ; 0 après la dernière image ; -1 sans fichier, fichier invalide ou tronqué, ou hors de la page principale. Après -1, le dernier quart du tableau peut avoir changé. Depuis l’API 7 | Comme `korg.led` |
+| `korg.file.count(kind)` | Relit le dossier `KORG/blechtribe/Media/` et renvoie le nombre de fichiers du type `kind` : 0 images de démarrage (`.bmp`), 1 animations de chargement (`.blla`), dans l’ordre du dossier, 64 au plus (le reste manque). -1 si la carte n’est pas lisible ou hors de la page principale. Aucun autre dossier ne compte. Depuis l’API 38 | Comme `korg.led` |
+| `korg.file.name(array, kind, index)` | Écrit le nom du fichier `index` (0 à 63) de la liste lue par le dernier `korg.file.count(kind)` dans le tableau, sans extension, un caractère par case, puis un 0 s’il reste de la place ; pour `korg.display.chars`. Au-delà de 17 caractères il est coupé à 15 plus "..". Renvoie sa longueur, 0 après le dernier fichier. Depuis l’API 38 | Comme `korg.led` |
+| `korg.file.picture(array, kind, index, frame)` | Lit l’image `frame` du fichier `index` de la même liste dans le tableau (au moins 1024 cases), comme `korg.display.bitmap(array, 0, 0, 128)` la prend. Un `.bmp` (128 x 64, 1 bit, comme SPLASH IMPORT) a une image, la couleur la plus sombre est dessinée ; un `.blla` a d’abord ses images de progression, puis ses images de boucle. Renvoie le nombre d’images du fichier, 0 après la dernière (le tableau reste), -1 si l’index n’est pas dans la liste, si le fichier manque ou est abîmé, et hors de l’écran principal. Un point dessiné paraît sombre, comme dans l’image de démarrage et l’animation de chargement : avec DISPLAY INVERT ON tous les bits arrivent inversés (mesuré dans l’émulateur). Depuis l’API 38 | Comme `korg.led` |
 | `korg.display.take()` | Demande l’écran hors application ; renvoie 1 si obtenu, 0 si application, autre propriétaire ou hors page principale | Comme `korg.led` |
 | `korg.display.release()` | Rend l’écran au firmware | Comme `korg.led` |
 | `korg.display.popups = 0` | Supprime la fenêtre de paramètre ouverte par `korg.seq.setPartValue` et la fenêtre d’écriture de `korg.pattern.write`, pour les appels de ce plugin uniquement ; 1 la réactive, valeur initiale après chargement. Appel équivalent : `korg.display.popups(on)`. `korg.knob` conserve la fenêtre car il simule le potentiomètre. Lecture par `korg.display.popups` ou `korg.read.popups()`. Depuis l’API 24 | Comme `korg.led` |
@@ -706,8 +712,8 @@ exclut le corps et `save`.
 | `korg.audio.capture(source)` | demande le son d’une source : `source` 1 à 16 la partie 1 à 16, 17 à 24 les paires de parties 1+2 à 15+16 (les deux côtés), -1 ou 0 arrête. Le firmware prend le son de la source au DSP et calcule un spectre toutes les 50 ms (FFT sur 4096 trames, 48 kHz), dans sa propre tâche, pas dans le plugin. Renvoie l’état (`AUDIO_STATUS` dans le contrat) : 0 ok, 1 arrêt, 2 occupé, 3 attente (les premières données arrivent), 4 trou, 5 pas de mémoire, 6 pas sur cette Electribe. Un plugin qui n’appelle pas `capture`, `spectrum` ou `wave` au moins toutes les 2 s perd la capture. Capture, FFT et anneau viennent de Spettro par Luigi (GitHub reflectiveboi, PR #429). Sampler seulement (Hacktribe et rouge), 6 sur le synthé bleu. Depuis l’API 31 ([mesure](messungen/2026-11-12-plugin-api31-spektrum.md)) | Partout |
 | `korg.audio.spectrum(tableau, bins, plage)` | remplit les `bins` (1 à 128) premières cases du tableau avec le spectre de la source, dB 0 à 96 par bande, 96 est un sinus à pleine échelle ; `plage` 0 complet 20 Hz à 20 kHz, 1 basses 20 Hz à 2 kHz, découpé en log, par case la plus forte des 128 bandes. Renvoie l’état comme `korg.audio.capture` ; le tableau n’est écrit qu’avec 0. Depuis l’API 31 | Partout |
 | `korg.audio.wave(tableau)` | remplit le tableau avec les trames les plus récentes de la source, -128 à 127 (les 8 bits du haut), au plus 256, la dernière case la plus récente ; pour une paire, la moyenne des deux côtés. Renvoie l’état comme `korg.audio.capture`. Depuis l’API 31 | Partout |
-| `korg.file.read(tableau, offset)` | lit le fichier de données du plugin (voir [Fichier de données](#fichier-de-données)) à partir de l’octet `offset` (0 à 4095) dans le tableau, un octet par case, autant que le tableau a de cases et que le fichier en contient. Renvoie le nombre d’octets (0 sans fichier), -1 hors de l’écran principal et du menu BLECH, sans carte lisible ou tant que le fichier d’un autre plugin attend d’être écrit. Depuis l’API 32 ([mesure](messungen/2026-11-11-plugin-api32-data-file.md)) | comme `korg.led` |
-| `korg.file.write(tableau, offset)` | écrit l’octet bas de chaque case dans le fichier de données du plugin à partir de l’octet `offset`, jusqu’à la fin du tableau ou la limite de 4096 octets ; un trou derrière l’ancienne fin se lit comme 0. Comme pour `korg.store.save`, le fichier n’arrive sur la carte qu’à l’écran principal ou dans le menu BLECH, au plus tôt 2 s après la dernière écriture. Renvoie le nombre d’octets, -1 comme `korg.file.read`. Depuis l’API 32 | comme `korg.led` |
+| `korg.file.read(tableau, offset, fichier)` | lit le fichier de données `fichier` (0 à 15) du plugin (voir [Fichier de données](#fichier-de-données)) à partir de l’octet `offset` (0 à 32767) dans le tableau, un octet par case, autant que le tableau a de cases et que le fichier en contient. Renvoie le nombre d’octets (0 sans fichier), -1 hors de l’écran principal et du menu BLECH, sans carte lisible ou tant qu’un autre fichier, même du plugin, attend d’être écrit. Un numéro hors de 0 à 15 arrête le plugin (`API_ARG`). Depuis l’API 39 ([mesure](messungen/2026-11-17-plugin-daten-heap.md), en allemand) | comme `korg.led` |
+| `korg.file.write(tableau, offset, fichier)` | écrit l’octet bas de chaque case dans le fichier de données `fichier` (0 à 15) du plugin à partir de l’octet `offset`, jusqu’à la fin du tableau ou la limite de 32768 octets ; un trou derrière l’ancienne fin se lit comme 0. Comme pour `korg.store.save`, le fichier n’arrive sur la carte qu’à l’écran principal ou dans le menu BLECH, au plus tôt 2 s après la dernière écriture sur la carte. Renvoie le nombre d’octets, -1 comme `korg.file.read`. Depuis l’API 39 | comme `korg.led` |
 | `korg.read.sampleName(tableau, slot)` | lit le nom de l’échantillon du slot `slot` (0 à 997, le numéro affiché moins 1, comme la valeur de partie `sample`) dans le tableau, un caractère par case, jusqu’au premier octet nul, 16 caractères ou la fin du tableau. Renvoie le nombre de caractères (0 pour un slot vide), -1 sur le synthé bleu. Depuis l’API 33 ([mesure](messungen/2026-11-11-plugin-api33-samples.md), en allemand) | Partout |
 | `korg.read.sampleInfo(slot, valeur)` | une valeur de l’échantillon du slot `slot` tirée des tables de l’échantillonneur : `valeur` 0 début, 1 fin, 2 boucle (valeurs brutes comme dans le fichier d’échantillon, l’unité n’est pas mesurée), 3 tune (-128 à 127), 4 stéréo (0 ou 1), 5 longueur des données PCM en octets, 6 one shot (0 ou 1), 7 fréquence d’échantillonnage en Hz (`SAMPLE_INFO.fields` dans le contrat). 0 pour un slot vide, -1 sur le synthé bleu. Depuis l’API 33 | Partout |
 | `korg.pattern.write()` | enregistre le pattern en lecture à sa place dans la banque, comme EXIT + WRITE : appuie sur WRITE, et la fenêtre du firmware reçoit son second WRITE à la trame suivante. Avec `korg.display.popups = 0`, il enregistre sans la fenêtre (il envoie au firmware ce qu’envoie le second WRITE de la fenêtre). Renvoie 1 quand l’enregistrement est en cours, 0 hors de l’écran principal, tant qu’un enregistrement attend encore sa fenêtre ou pendant 1 s après un enregistrement sans fenêtre. L’événement `write` arrive comme avec la touche. Depuis l’API 33 | comme `korg.led` |
@@ -1183,7 +1189,31 @@ deux octets nuls et 1024 octets d’écran. Octet `(y / 8) * 128 + x`, bit `y % 
 en une image par entrée dans l’ordre fourni. `src/script/gif.mjs` lit le format dans le navigateur.
 Chaque appel ouvre, cherche, lit et ferme le fichier avec FatFs, dont `f_lseek` à `0xC009E404`,
 `0xC008AF5C` sur bleu, et l’objet fichier du chargeur. Lecture seulement sur l’écran principal.
-La durée de lecture de 1 Kio sur l’appareil n’est pas mesurée ; les 5 ms par trame restent la limite.
+La durée de lecture de 1 Kio sur l’appareil n’est pas mesurée ; dans l’émulateur elle est de 7,5 ms, hors du budget de la trame.
+
+**Images de démarrage et animations de chargement, `korg.file.count`, `korg.file.name`, `korg.file.picture`, depuis l’API 38.**
+Seul `KORG/blechtribe/Media/` est lu, nom du dossier en casse quelconque, sans ses sous-dossiers ni `KORG/blechtribe/`.
+Compte chaque fichier en `.bmp`, type 0, ou `.blla`, type 1, extension en casse quelconque, nom de 31 caractères au plus,
+sans point au début. L’ordre est celui où FatFs parcourt le dossier, le plus souvent l’ordre d’arrivée sur la carte, pas
+l’ordre alphabétique. 64 fichiers au plus par type entrent dans la liste, `SCRIPT_MEDIA.maxFiles` ; le reste manque.
+`korg.file.count` relit le dossier : 0 sans dossier, -1 si la carte n’est pas lisible, la liste est alors vide, ou hors de
+l’écran principal, l’ancienne liste reste. `korg.file.name` et `korg.file.picture` ne lisent que cette liste, sans parcours du dossier à
+chaque pas d’encodeur ; avant le premier `count` ils renvoient 0 et -1. Un fichier est ouvert par son nom court 8.3. Si un
+fichier a disparu après le `count` ou si la carte a changé, `picture` renvoie -1 jusqu’au `count` suivant.
+Noms : le nom long sans extension, au-delà de 17 caractères coupé à 15 plus ".." ; chaque octet à partir de 0x80 devient "?".
+La FatFs du firmware donne les noms longs en page de code 932, un nom avec accents peut donc avoir une autre longueur sur l’appareil.
+Un `.bmp` doit être comme les images de démarrage de SPLASH IMPORT et de l’application : `BM`, 128 x 64 pixels, hauteur 64
+ou -64, un plan, 1 bit sans compression, pixels de l’octet 54 à 0x200 après en-tête et palette, les 1024 octets de pixels
+présents ; la couleur la plus sombre de la palette est dessinée. Un `.blla` suit le format de
+[l’animation de chargement](hintergrund/ladeanimation.md) ; à chaque changement de fichier il est vérifié une fois en entier,
+une liste abîmée n’importe où donne -1 pour chaque image du fichier.
+Polarité : un point dessiné est un bit posé ; menu BLECH armé et DISPLAY INVERT ON, tous les bits arrivent inversés. Un point
+dessiné reste ainsi sombre comme dans l’image de démarrage et l’animation de chargement,
+[mesure](messungen/2026-11-16-media-polaritaet.md). Dans le navigateur, le simulateur prend la valeur d’usine ON.
+Durées dans l’émulateur, [mesure](messungen/2026-11-16-image-viewer-timing.md), pas mesurées sur l’appareil : `count` avec
+5 fichiers 3,9 à 4,1 ms, avec 64 listés 20,1 ms ; un `.bmp` 9,2 à 9,4 ms ; `.blla` première image après changement de fichier
+24,1 à 24,9 ms, une image plus loin 6,6 à 7,0 ms, saut à la dernière image 21,3 ms. Comme pour `korg.file.frame`, ce temps ne
+compte pas dans le budget de la trame, 50 ms par trame au plus.
 
 ### Valeurs persistantes
 
@@ -1206,12 +1236,14 @@ automatique. Dans le navigateur, les valeurs persistent uniquement jusqu’au re
 
 ### Fichier de données
 
-Chaque plugin a un fichier pour ses propres octets, `KORG/blechtribe/Plugin/Data/<nom>.bin` : le nom du plugin, chaque caractère
-autre que A à Z, a à z, 0 à 9 et `-` remplacé par `_` (`dataFileName` dans le contrat). Il fait au plus 4096 octets
-(`SCRIPT_DATA_FILE.maxBytes`) ; la limite pourra augmenter dans une version future de l’API. `korg.file.read` et `korg.file.write`
-travaillent sur une copie en RAM : le runtime garde le fichier d’un plugin à la fois dans un bloc du tas du firmware (4112 octets,
-pris au premier appel, gardé jusqu’à l’extinction). Un autre plugin n’obtient le bloc qu’une fois le fichier du précédent sur la
-carte. Ce qu’un plugin écrit avant que son fichier soit sur la carte est perdu à l’extinction.
+Chaque plugin a son propre dossier avec jusqu’à 16 fichiers pour ses propres octets, `KORG/blechtribe/Plugin/Data/<nom>/00.bin`
+à `15.bin` : `<nom>` est le nom du plugin, chaque caractère autre que A à Z, a à z, 0 à 9 et `-` remplacé par `_` (`dataFileName`
+dans le contrat). Le dernier argument de `korg.file.read` et `korg.file.write` choisit le fichier ; un plugin n’atteint aucun
+autre chemin. Chaque fichier fait au plus 32768 octets (`SCRIPT_DATA_FILE.files` et `.maxBytes`). Les deux appels travaillent sur
+une copie en RAM : le runtime garde un fichier à la fois dans un bloc du tas du firmware (32788 octets, pris au premier appel,
+gardé jusqu’à l’extinction ; [mesure](messungen/2026-11-17-plugin-daten-heap.md), en allemand). Un autre fichier, du même plugin ou d’un autre, n’obtient le bloc
+qu’une fois le précédent sur la carte ; jusque-là les appels renvoient -1. Ce qu’un plugin écrit avant que son fichier soit sur la
+carte est perdu à l’extinction.
 
 ## Menu BLECH de l’appareil
 
@@ -1272,10 +1304,11 @@ pages sont détaillées ci-dessous. ABOUT n’existe plus : il n’affichait que
 | DISPLAY, INTENSITY | 0 à 15, intensité commune sans modifier le mélange ; 0 éteint, 15 couleur pleine ; immédiat |
 | DISPLAY, DISPLAY INVERT | OFF/ON, échange pixels clairs et sombres ; commandes écran `0xA7` pour inverser et `0xA6` pour restaurer. Immédiat. ON par défaut pour réduire les traînées ; un fichier 1.2 sans ce bit conserve OFF |
 | DISPLAY, LOAD METER | OFF/ON, affiche sur l’écran principal, à gauche du symbole de carte, la charge du processeur principal en pour cent (0 à 99, une fois par seconde) : la part du temps où il ne dort pas dans sa boucle d’inactivité. Rien dans le menu, dans les fenêtres du firmware ou avec une app ouverte. Immédiat. OFF par défaut ; ON est gardé dans l’octet 7 du fichier de réglages (version 4) |
+| DISPLAY, BATTERY % | ON/OFF, affiche sur l’écran principal, juste à gauche du symbole de pile, la charge des piles par pas de 10 avec `%` (0 à 100 %), seulement sur piles et seulement avec BATTERY TYPE Alkali dans Global ; rien sur secteur ni avec Ni-MH. La valeur est lissée, une courte baisse ne la change pas. La conversion suit une courbe de décharge mesurée sur l’appareil (Alkali, POWER SAVE activé ; 100 % avec des piles neuves, une partie au milieu est estimée). Rien dans le menu, dans les fenêtres du firmware ou avec une app ouverte. Immédiat. ON par défaut ; OFF est gardé dans l’octet 7 du fichier de réglages (version 4). Sur l’écran principal, le symbole de carte passe à gauche du nombre (colonnes 94 à 99, LOAD METER devant), dans les menus il reste à sa place |
 | CUSTOMIZATION, POWER SAVE | ENTER ouvre les pages d’économie d’énergie (DISPLAY LIGHT et LED DIMMING sur piles seulement, IDLE SAVE aussi sur secteur) ; EXIT revient à POWER SAVE |
 | POWER SAVE, DISPLAY LIGHT | STOCK ou 1 à 15. STOCK utilise l’atténuation du firmware ; 1 à 15 règlent la couleur propre, avec 1 correspondant à 3/15 et 15 au maximum |
 | POWER SAVE, LED DIMMING | 0 à 100 % d’atténuation des LED de pads, boutons et encodeurs. 0 sans atténuation, 100 éteint, 75 par défaut laisse un quart de luminosité. Les LED d’encodeurs s’éteignent sauf à 0 %. Immédiat, conservé par WRITE |
-| POWER SAVE, IDLE SAVE | ON/OFF. Sans manipulation, la lumière de l’écran et les LED baissent à 75, 50 et 25 % après 2, 3 et 4 minutes et s’éteignent après 5, sur secteur comme sur batterie. Boutons, pads, potentiomètres, encodeur, touchpad, bouton power, notes et CC MIDI (pas l’horloge), PLAY et l’enregistrement (pas la pause), les commandes à distance, `korg.pressKey` et `korg.system.keepAwake()` gardent l’appareil éveillé. Le premier appui d’un bouton ou d’un pad, un cran d’encodeur ou un contact du touchpad en état atténué ou éteint ne fait que réveiller et est avalé entier (appui et relâchement, le touchpad jusqu’au relâchement) ; ce qui était déjà enfoncé continue d’arriver au firmware jusqu’au relâchement. Un potentiomètre réveille et agit aussitôt comme toujours (KNOB MODE décide). Jamais plus clair que l’économie d’énergie du firmware, le mode test passe avant. ON par défaut ; OFF est gardé dans l’octet 7 du fichier de réglages (version 4) |
+| POWER SAVE, IDLE SAVE | ON/OFF. Sans manipulation, la lumière de l’écran et les LED baissent à 75, 50 et 25 % après 2, 3 et 4 minutes et s’éteignent après 5, sur secteur comme sur batterie. Boutons, pads, potentiomètres, encodeur, touchpad, bouton power, notes et CC MIDI (pas l’horloge), PLAY et l’enregistrement (pas la pause), les commandes à distance, `korg.pressKey` et `korg.system.keepAwake()` gardent l’appareil éveillé. Le premier appui d’un bouton ou d’un pad, un cran d’encodeur ou un contact du touchpad en état atténué ou éteint ne fait que réveiller et est avalé entier (appui et relâchement, le touchpad jusqu’au relâchement) ; ce qui était déjà enfoncé continue d’arriver au firmware jusqu’au relâchement. Un potentiomètre réveille et agit aussitôt comme toujours (KNOB MODE décide). Jamais plus clair que l’économie d’énergie du firmware, le mode test passe avant. ON par défaut ; OFF est gardé dans l’octet 7 du fichier de réglages (version 4). Sur l’écran principal, le symbole de carte passe à gauche du nombre (colonnes 94 à 99, LOAD METER devant), dans les menus il reste à sa place |
 | CUSTOMIZATION, LED | ENTER ouvre les LED inférieures ; EXIT revient à LED |
 | LED, BOTTOM LEDS | METER vu-mètre, COLOR couleur fixe, OFF éteint ; immédiat sur les quatre LED RGB inférieures |
 | LED, LED HUE, SAT, BRIGHT | Même sélection de couleur que le rétroéclairage. En METER sans couleur de zone propre, le niveau pilote la luminosité de cette couleur. STOCK conserve les couleurs du firmware ; immédiat |
@@ -1307,7 +1340,7 @@ pas : environ 14 caractères dans la valeur et 18 dans le titre.
 WRITE sur PLUGIN RUNTIME, FEATURES, CUSTOMIZATION et pour autoriser un plugin externe
 sauvegarde `KORG/blechtribe/settings.a.bin` et `settings.b.bin`, en générations alternées.
 AUTO SAVE le fait aussi en quittant le menu après modification. Format de 24 à 280 octets,
-marqueur `GSET`, version 3, ou version 4 avec LOAD METER sur ON ou IDLE SAVE sur OFF (l’octet 7 devient un second octet d’interrupteurs, le nombre d’entrées tient dans l’octet 6 ; un BLECHTRIBE jusqu’à 1.4.6 ne lit pas la version 4 et prend l’autre copie ou les valeurs par défaut) ; bit 0 d’un octet supplémentaire pour METER LOUD RAINBOW,
+marqueur `GSET`, version 3, ou version 4 avec LOAD METER sur ON, IDLE SAVE sur OFF ou BATTERY % sur OFF (l’octet 7 devient un second octet d’interrupteurs, le nombre d’entrées tient dans l’octet 6 ; un BLECHTRIBE jusqu’à 1.4.6 ne lit pas la version 4 et prend l’autre copie ou les valeurs par défaut) ; bit 0 d’un octet supplémentaire pour METER LOUD RAINBOW,
 refusé par BLECHTRIBE antérieur à 1.3. Maximum 64 entrées, contre 16 en version 2 jusqu’à 1.3.7.
 Un ancien BLECHTRIBE jusqu’à 1.3.7 ne lit pas la version 3 et reprend un éventuel fichier 2 plus
 ancien ou les valeurs par défaut. Les formats 1 et 2 restent lisibles et deviennent 3 au
@@ -1402,7 +1435,7 @@ sur le matériel peut différer. Les lecteurs d’images dépassent cette borne 
 | Simon | GAMES | Les 16 pads jouent une séquence à reproduire, allongée d’un pas par tour. Durée de pas 0,72 s, raccourcie tous les quatre tours, minimum 0,4 s. L’écran indique tour, pas et action. Erreur de pad termine ; TAP ou pad relance | 2268 octets | Trame 1673 unités maximum à la fin, ouverture 1644 |
 | Mandelbrot | GAMES | Pavé pour déplacer, Part droite et encodeur pour zoomer, Part gauche pour dézoomer ; 1/2 règlent 8 à 64 itérations, TAP réinitialise | 2436 octets | 2135 unités, 0,41 ms |
 | GIF Player | TOOLS | Fichiers GIF00.E2G à GIF99.E2G de la carte ; encodeur choisit, Part gauche/droite divisent ou multiplient la vitesse par deux entre 25 et 400 %, TAP met en pause. Fichier absent signalé ; chaque image reste au moins 40 ms | 972 octets | 3762 unités par trame, environ 0,72 ms, dont image 3086 ; au-dessus de l’avertissement de 0,5 ms |
-| Image Viewer | TOOLS | Images d’un fichier E2G une par une, par exemple plusieurs BMP réunis par `tools/gif/gif2e2g.py`. Part droite/gauche avancent/reculent en boucle ; encodeur change de fichier. Numéro comme 2/3 visible deux secondes après chaque changement ; total connu après parcours du fichier. TAP garde ou masque l’indication. Recul de la première vers la dernière seulement après découverte du nombre d’images | 1128 octets | 4414 unités maximum, deux lectures et dessin au-delà de la dernière image ; environ 0,84 ms déduit, au-dessus de 0,5 ms |
+| Image Viewer | TOOLS | Images de démarrage (`.bmp`) et animations de chargement (`.blla`) de `KORG/blechtribe/Media/`. Liste `IMAGES n` et `ANIMATIONS n` au départ ; encodeur ou Part choisit, MENU ouvre, MENU revient à la liste. IMAGES : encodeur et Part parcourent en boucle, nom et position deux secondes en haut, TAP les garde. ANIMATIONS : encodeur choisit le fichier, Part image suivante ou précédente, TAP lit ou met en pause ; une image toutes les 96 ms, Part divise ou double (48 à 384 ms), après la dernière image revient la première. `NO IMAGES`, `NO ANIMATIONS`, `NO CARD`, fichier abîmé : nom et `BAD FILE` | 2260 octets | trame en lecture 4620 unités, touche 4697 (dont l’image entière 3086), déduit au-dessus de l’avertissement ; mesuré dans l’émulateur au plus 0,35 ms (saut à l’image 255 d’un `.blla`), temps de carte non compté |
 
 **Set-Timer** utilise `korg.millis()`, actualisé même application fermée. Il n’écoute que
 `play`, boutons, `open`, `close` ; fermé, quelques opérations par bouton et aucune par trame.

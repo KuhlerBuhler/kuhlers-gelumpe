@@ -25,9 +25,10 @@ jeweils mit dem, was die Firmware selbst hält?
   +0x328 aus einer Schwellen-Tabelle bei +0x318 (je nach Batterietyp), +0x31C ist das Freigabe-Flag. (gelesen)
 - Stufen: 4, 3, 2, 1 (niedrig: die Firmware zeigt ohne Netzteil die Warnung 0x1b/0x1a), 0 (leer, Abschaltweg `0xC0028C18`).
   (gelesen)
-- Quelle des Rohwerts: Ereignis 11 (Poster `0xC0083E7C`, aus der Task bei `0xC002A4B0`) nimmt Byte +0x19 des Objekts aus
-  `0xC001CF0C`. Der Emulator schickt diesen Wert nie; der Setter der Anzeige `0xC0084100` wurde im Emulator nie gerufen. Welcher
-  Wert auf dem Gerät tatsächlich bei +0x328 steht, ist darum nur hergeleitet. (hergeleitet)
+- Quelle des Rohwerts: Panel-Nachricht `06 nn` (Ereignis Typ 7 über `0xC0083AD8`, dann `0xC0077A14` mit Rohwert `nn`), nicht
+  Ereignis 11; Ereignis 11 ist die Kartenerkennung. Korrigiert am 16.11.2026, siehe
+  [2026-11-16-batterie-prozent.md](2026-11-16-batterie-prozent.md). Welcher Rohwert auf dem Gerät ankommt, ist weiter nur
+  hergeleitet. (im Emulator gemessen, am Gerät offen)
 - Batterie-Widget: Vtable-Slots `0xC0084100` (Stufe 1..4 → Bild 5..2) und `0xC008414C` (Netzteil → +0x4C blendet aus). Bild 1 ist
   der Stecker, 2/3/4 sind 3/2/1 Balken, 5 leer (Zeichnen `0xC003F650`, Tabelle `0xC00C1C2C`). (gelesen)
 - `korg.system.battery` liest +0x328. (eigener Code)

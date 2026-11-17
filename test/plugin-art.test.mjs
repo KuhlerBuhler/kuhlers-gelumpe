@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { PRESETS } from "../data/script/presets.mjs";
 import { compile } from "../src/script/compiler.mjs";
-import { SimDevice } from "../src/script/sim.mjs";
+import { SimDevice, thumbnail } from "../src/script/sim.mjs";
 import { PLUGIN_PICTURES } from "../data/script/plugin-pictures.mjs";
 
 const DIR = new URL("../site/img/plugins/", import.meta.url);
@@ -34,4 +34,12 @@ test("the pictures are display pictures: 128 x 64 whole pixels, each one differe
   const texts = files.map(f => readFileSync(new URL(f, DIR), "utf8"));
   for (const [i, text] of texts.entries()) assert.match(text, /^<svg [^>]*viewBox="0 0 128 64" shape-rendering="crispEdges"><rect width="128" height="64"\/><path /, files[i]);
   assert.equal(new Set(texts).size, texts.length);
+});
+
+test("a catalog card shows an app as the panel does: with DISPLAY INVERT ON (the factory value) every bit turned", () => {
+  const preset = PRESETS.find(p => p.id === "bmpviewer");
+  const { device, drawn, picture } = thumbnail(compile(preset.source, { name: preset.id }).blob, 40, { load: () => null, save: () => {} });
+  assert.ok(drawn, "the Image Viewer draws its list");
+  assert.deepEqual(Array.from(picture), Array.from(device.shown, b => b ^ 0xff));
+  assert.deepEqual(Array.from(picture), Array.from(device.lcd));
 });

@@ -58,20 +58,18 @@ const filled = page => page.locator("#cee-anim-slot-picture").isVisible();
 const lcdShot = page => page.locator("#cee-anim-preview").evaluate(c => c.toDataURL());
 const same = (a, b) => a.every((x, i) => x === b[i]);
 
-test("Design: sub-pages in the sidebar, Startbilder, Custom Design, Ladeanimation and Image Viewer; the gallery stands with 100 empty slots from the start", async () => {
+test("Design: sub-pages in the sidebar, Startbilder, Custom Design and Ladeanimation; the gallery stands with 100 empty slots from the start", async () => {
   const page = await h.page();
   await page.goto(h.url);
   await go(page, "splash");
   assert.equal(await page.locator("#cee-design-tabs").count(), 0, "no tab row above the page any more");
-  assert.deepEqual(await page.locator("#cee-splash-pages .cee-nav-subitem").allTextContents(), ["Startbilder", "Custom Design", "Ladeanimation", "Image Viewer"]);
+  assert.deepEqual(await page.locator("#cee-splash-pages .cee-nav-subitem").allTextContents(), ["Startbilder", "Custom Design", "Ladeanimation"]);
   assert.equal(await page.locator("#cee-splash-page-gallery").isVisible(), true, "Startbilder first");
   assert.equal(await page.locator("#cee-splash-page-images").getAttribute("aria-current"), "");
   await page.click("#cee-splash-page-make");
   assert.equal(await page.locator("#cee-splash-page-editor").isVisible(), true, "Custom Design opens the editor");
   assert.equal(await page.locator("#cee-splash-page-make").getAttribute("aria-current"), "");
-  await page.click("#cee-splash-page-pics");
-  assert.equal(await page.locator("#cee-design-panel-pics").isVisible(), true);
-  assert.equal(await page.locator("#cee-design-panel-splash").isHidden(), true);
+  assert.equal(await page.locator("#cee-design-panel-pics").count(), 0, "no Image Viewer page: the plugin reads the .bmp files in Media/");
   await page.click("#cee-splash-page-anim");
   assert.equal(await page.locator("#cee-design-panel-anim .ui-section-title").textContent(), "Ladeanimation");
   assert.match(await page.locator("#cee-nav-title").textContent(), /Ladeanimation$/, "the navbar names the sub-page");

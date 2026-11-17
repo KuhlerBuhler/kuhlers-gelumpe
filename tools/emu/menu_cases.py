@@ -811,7 +811,7 @@ def page_cases(payload, flash=None):
     dev = boot(payload, flash)
     # no page runs its texts together or into the edge, none shows a label that is cut off
     pages = [("ring", 0), ("global", 0)] + [("du", page) for page in range(len(du_pages()))] + [("list", page) for page in range(LIST_COUNT)] + [(GROUP_PLUGINS, 0)]
-    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(6)] + [(GROUP_LED, page) for page in range(8 + (custom_extra(dev) > 0))]
+    pages += [(GROUP_CUSTOM, page) for page in range(2)] + [(GROUP_DISPLAY, page) for page in range(7)] + [(GROUP_LED, page) for page in range(8 + (custom_extra(dev) > 0))]
     pages += [(GROUP_PADS, page) for page in range(3)] + [(GROUP_PSAVE, page) for page in range(2)] + [(GROUP_FEATURES, page) for page in range(feature_count())]
     crowded = []
     for group, page in pages:
@@ -906,7 +906,7 @@ def orig_shown(dev):
 def orig_pages():
     """(name, how to reach it) of every page of the BLECH menu that shows a setting."""
     pages = [("PLUGIN RUNTIME", lambda dev: goto_global(dev))]
-    for group, count in ((GROUP_DISPLAY, 6), (GROUP_LED, 9), (GROUP_PADS, 3), (GROUP_PSAVE, 2), (GROUP_FEATURES, feature_count())):
+    for group, count in ((GROUP_DISPLAY, 7), (GROUP_LED, 9), (GROUP_PADS, 3), (GROUP_PSAVE, 2), (GROUP_FEATURES, feature_count())):
         pages += [(f"{group}:{page}", lambda dev, group=group, page=page: goto_group(dev, group, page)) for page in range(count)]
     return pages
 
@@ -1266,6 +1266,7 @@ PC_OFF_BIT = 4                        # bit 2 of the flags of the settings file:
 S_INVERT, S_INVERT_SENT = 0x1B8, 0x1BC
 S_CARD = 0x1B0                        # M_CARD of tools/patch/script_menu.s
 SD_INIT_LOCK = 0xC031BEEC             # Korg's SD init lock, the same address in the synth
+MENU_TICKS = 0xC06A292C               # the OS tick count, one per millisecond (tools/patch/script_menu.s)
 INVERT_BIT = 1 << 28
 S_LED_MODE, S_LED_R, S_LED_G, S_LED_B, S_BL_R, S_BL_G, S_BL_B, S_LED_EFF, S_LED_V, S_BL_ON, S_BL_PWM = 0xA0, 0xA4, 0xA8, 0xAC, 0xB0, 0xB4, 0xB8, 0xBC, 0xC0, 0xC4, 0xC8
 LED_FIRST, LED_COUNT = 0x4C, 12
@@ -1450,7 +1451,7 @@ def look_cases(payload, flash=None, rest=True):
     press(dev, "exit", 0.4)
     top = (state(dev, S_LEVEL), state(dev, S_PAGE))
     add("customization_groups", rows == [("DISPLAY", "", PRESS), ("LED", "", PRESS)]
-        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT HUE", 6), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 9)]
+        and ins == [(2, GROUP_DISPLAY, 0, "Display", "BACKLIGHT HUE", 7), (2, GROUP_LED, 0, "LED", "BOTTOM LEDS", 9)]
         and backs == [(2, GROUP_CUSTOM, CUSTOM_DISPLAY, "Custom"), (2, GROUP_CUSTOM, CUSTOM_LED, "Custom")] and top[0] == 1 and not dev.m.asserts,
         f"rows {rows}, ENTER {ins}, EXIT {backs}, EXIT {top}")
 
@@ -2316,7 +2317,7 @@ def invert_cases(payload, flash=None):
     go(dev, 1)
     dev.run(0.5)
     main_off = dev.screen()["number"], status(dev), plain(dev)
-    add("page", page == (("DISPLAY INVERT", "ON", ""), (4, 6), "Display"), f"{page}")
+    add("page", page == (("DISPLAY INVERT", "ON", ""), (4, 7), "Display"), f"{page}")
     add("off_swaps_the_display", off == (("DISPLAY INVERT", "OFF", ""), (0, False, 2), True) and still == (0, False, 2),
         f"{off}, dial again {still}")
     add("main_screen_plain", main_off == (1, (0, False, 2), True) and not dev.m.asserts, f"{main_off}")
@@ -3121,6 +3122,18 @@ def card_later_cases(payload, flash=None):
     add("runtime_stays", kept == eff, f"plugin runtime and MFX 2 in effect before {eff}, after {kept}")
     add("card_not_written", bytes(dev.m.mmc.card.medium.data) == untouched, "the card was " + ("not written" if bytes(dev.m.mmc.card.medium.data) == untouched else "written"))
 
+    # a card with KNOB LEDS OFF swapped in while a menu page is up: the knob LEDs go dark then, not once the main screen is back
+    knobs = lambda d: [d.m.leds.get(led, 0) for led in range(5)]
+    on_page = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    lit = knobs(on_page)
+    goto_group(on_page, GROUP_LED, 0)
+    on_page.m.eject_card()
+    on_page.run(0.5)
+    on_page.m.insert_card(SDCard(MemoryMedium(card_image({**CARD_FOLDER, SETTINGS_PATHS[0]: settings_file_v3(5, 0, look_word(), 0x40)}))))
+    on_page.run(1.0)
+    add("swap_knob_leds_at_once", any(lit[1:]) and knobs(on_page) == [0] * 5 and not on_page.m.asserts,
+        f"knob LEDs with the first card {lit}, with the other card on a menu page {knobs(on_page)}")
+
     # a card that is identified only at the power-on clock: the card before left the controller at 12.5 MHz, 4-bit (device 14.11.)
     slow = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
     slow.m.eject_card()
@@ -3187,6 +3200,29 @@ def card_later_cases(payload, flash=None):
     add("locked_card_read_again", locked[0] == 1 and locked[1] >= 0x100 and locked[2] == ref_a and look(healed) == ref_b
         and healed.u32(SD_INIT_LOCK) == 0 and state(healed, S_CARD) == 0xFF and not healed.m.asserts,
         f"locked {locked[0]}, card state {locked[1]:#x}; read again {look(healed)}; started with it {ref_b}")
+
+    # Korg's ACMD41 loop holds the UI task for as long as the card stays busy: 50000 rounds, half a minute and more on the
+    # device (15.11.); acmd41_round_hook ends it after CARD_INIT_MS (2 s)
+    ticks = synthaddr.tr(MENU_TICKS) if synthaddr.is_synth(payload) else MENU_TICKS
+    held = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    held.m.eject_card()
+    held.run(0.5)
+    first_busy = SDCard(MemoryMedium(card_image(files_b)), never_ready=True)
+    held.m.insert_card(first_busy)
+    read_at = locked_at = None
+    for _ in range(200):
+        held.run(0.1)
+        if read_at is None and state(held, S_CARD) == 0xFF:
+            read_at = held.u32(ticks)
+        if read_at is not None and held.u32(SD_INIT_LOCK):
+            locked_at = held.u32(ticks)
+            break
+    span = None if locked_at is None else locked_at - read_at
+    before = look(held)
+    first_busy.never_ready = False      # the device (15.11.): the first init after power-on stayed busy, the next one mounted
+    held.run(3.0)
+    add("busy_card_holds_the_ui_briefly", span is not None and span <= 2500 and before == ref_a and look(held) == ref_b
+        and not held.m.asserts, f"read to lock {span} ms (2000 the limit), look {before}; 3 s later {look(held)}, the card's {ref_b}")
 
     stuck = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
     busy_card(stuck)
@@ -3666,6 +3702,53 @@ def flash_settings_cases(payload, flash=None):
         f"card put in: switches/ask/hold {ignored}; a change: copy A {bare_rec}; WRITE {wrote}, copy B {bare_b}; card "
         f"{'untouched' if card_same else 'written'}; erases {erased}")
 
+    # 12. MENU on the question while the flash write does not land (programs lost, or the write reports a failure): the card pulled
+    # right after keeps its settings and the write is tried again (device 15.11.: blue card saved, pulled, yellow again)
+    def lose_programs(dev):
+        """Page programs into the two settings sectors leave the flash as it is while the returned switch is on."""
+        fl, plain, on = dev.m.flash, dev.m.flash.byte, [True]
+
+        def byte(b, now=0):
+            at = fl.addr
+            lost = on[0] and fl.cmd == 0x02 and len(fl.buf) >= 3 and FLASH_SET_A <= at < FLASH_SET_B + 0x1000
+            keep = fl.mem[at]
+            r = plain(b, now)
+            if lost:
+                fl.mem[at] = keep
+            return r
+        fl.byte = byte
+        return on
+
+    def fail_writes(dev):
+        """The firmware's flash write returns 0 for the settings sectors while the returned switch is on."""
+        from unicorn import UC_HOOK_CODE
+        on = [True]
+        entry = 0xC0026E24 if synthaddr.is_synth(payload) else 0xC0029AB8
+        A = arm_const
+
+        def hook(uc, address, size, user):
+            if on[0] and FLASH_SET_A <= uc.reg_read(A.UC_ARM_REG_R1) < FLASH_SET_B + 0x1000:
+                uc.reg_write(A.UC_ARM_REG_R0, 0)
+                uc.reg_write(A.UC_ARM_REG_PC, uc.reg_read(A.UC_ARM_REG_LR))
+        dev.m.uc.hook_add(UC_HOOK_CODE, hook, begin=entry, end=entry)
+        return on
+
+    for name, spoil in (("lost", lose_programs), ("failed", fail_writes)):
+        lost = start(second, files)
+        swap(lost, files)
+        on = spoil(lost)
+        press(lost, "menu", wait=0.6)
+        on[0] = False
+        lost.m.eject_card()
+        lost.run(1.0)
+        pulled = switches(lost)
+        lost.run(3.0)
+        rec = flags(bytes(lost.m.flash.mem), FLASH_SET_A)
+        restart = start(bytes(lost.m.flash.mem))
+        add(f"menu_write_{name}_is_tried_again", pulled == (1, 1) and rec is not None and not rec[1] & (TM_OFF_BIT | NA_OFF_BIT)
+            and switches(restart) == (1, 1) and not lost.m.asserts and not restart.m.asserts,
+            f"pulled right after MENU {pulled}, copy A 3 s later {rec}, next start without a card {switches(restart)}")
+
     # 10. CUSTOMIZATION has no row SAVE TO FLASH (Pascal 14.11.): the flash takes the settings by itself without a card, by WRITE
     # without a card or by MENU on the question of a swapped card; after a start with a card going through the rows writes nothing
     take = start(second, files)
@@ -3696,7 +3779,7 @@ def flash_settings_cases(payload, flash=None):
 
 
 MX_FLAGS2 = STATE - 0x15               # byte 7 of a version 4 settings file in RAM (script_menu.s:MX_FLAGS2), 0 without one
-FLAGS2_KNOWN = 15                       # bit 0 LOAD METER, bit 1 IDLE POWER SAVE off, bits 2 and 3 GLIDE CHAIN and GLIDE SWITCH
+FLAGS2_KNOWN = 31                       # bit 0 LOAD METER, bit 1 IDLE POWER SAVE off, bits 2 and 3 GLIDE CHAIN and GLIDE SWITCH, bit 4 BATTERY % off
 
 
 def settings_file_v4(generation, flags, look, flags2, extras=0, trusted=(), bad_crc=False):
@@ -3821,17 +3904,18 @@ def look_rest():
 
 def look_parts():
     """What look_cases_task(i) runs: the look cases themselves, the suites after them, then the splash, pad colour and
-    calibration cases, the load meter and idle power save last. Each boots devices of its own, so they run side by side."""
+    calibration cases, the load meter, idle power save, BPM glide and BATTERY % last. Each boots devices of its own, so they run side by side."""
     from calibrate_cases import cases as calibration_cases
     from load_meter_cases import cases as load_meter_cases
     from idle_save_cases import cases as idle_save_cases
     from bpm_glide_cases import cases as bpm_glide_cases
+    from battery_percent_cases import cases as battery_percent_cases
     return ((lambda payload, flash: look_cases(payload, flash, rest=False)), *look_rest(), splash_menu_cases, wheel_cases,
             pad_colour_cases, calibration_cases, flash_settings_cases, settings_v4_cases, media_menu_cases, load_meter_cases,
-            idle_save_cases, bpm_glide_cases)
+            idle_save_cases, bpm_glide_cases, battery_percent_cases)
 
 
-LOOK_PARTS = 1 + len(look_rest()) + 10     # look_parts() without importing calibrate_cases, load_meter_cases, idle_save_cases and bpm_glide_cases
+LOOK_PARTS = 1 + len(look_rest()) + 11     # look_parts() without importing calibrate_cases, load_meter_cases, idle_save_cases, bpm_glide_cases and battery_percent_cases
 
 
 def look_cases_task(i):

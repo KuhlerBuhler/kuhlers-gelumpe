@@ -6,7 +6,6 @@ import { toastFor } from "./toast.mjs";
 import { toMono, grayOf, encodeBmp, SPLASH_W, SPLASH_H, SPLASH_FILE, SPLASH_FOLDER } from "../../src/splash-bmp.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { loadingAnimSection } from "./loading-anim.mjs";
-import { pictureFileSection } from "./picture-file.mjs";
 import { icon } from "./icons.mjs";
 import { dropzoneClear } from "./dropzone-clear.mjs";
 import { creatorLine, creatorName } from "./creator.mjs";
@@ -95,12 +94,11 @@ export function splashPage(root, { sub = null, trail = () => {} } = {}) {
   }
   let picture = null;
   let pixels = null;
-  // The sub-pages in the sidebar: the start images, the editor that makes one, the loading animation, the Image Viewer's pictures.
+  // The sub-pages in the sidebar: the start images, the editor that makes one, the loading animation.
   const SUB = [
     { id: "images", title: t("splash.page.images"), icon: "image", panel: 0 },
     { id: "make", title: t("splash.page.make"), icon: "pencil", panel: 0 },
     { id: "anim", title: t("splash.anim.title"), icon: "film", panel: 1 },
-    { id: "pics", title: t("pics.title"), icon: "eye", panel: 2 },
   ];
   let subPages = null;
   /** Marks the open sub-page in the sidebar and the navbar, and keeps it for the next start. */
@@ -202,9 +200,9 @@ export function splashPage(root, { sub = null, trail = () => {} } = {}) {
     gallery.replaceChildren(...GALLERY.map(item => card(item, false)), ...readOwn().map(item => card(item, true)));
   }
 
-  // Three sections, each a sub-page in the sidebar like the ones of Plugins: the start images for the card (the gallery
-  // and, as a page of its own, the editor that makes one), the loading animation for the Patcher, and pictures for the Image Viewer.
-  const panels = ["splash", "anim", "pics"].map((id, i) => el("div", { className: "cee-design-panel", id: `cee-design-panel-${id}`, hidden: i > 0 }));
+  // Two sections, each a sub-page in the sidebar like the ones of Plugins: the start images for the card (the gallery
+  // and, as a page of its own, the editor that makes one) and the loading animation for the Patcher.
+  const panels = ["splash", "anim"].map((id, i) => el("div", { className: "cee-design-panel", id: `cee-design-panel-${id}`, hidden: i > 0 }));
 
   const dropZone = dropzoneClear(fileInput, () => {
     picture = null;
@@ -222,6 +220,7 @@ export function splashPage(root, { sub = null, trail = () => {} } = {}) {
     el("li", {}, tNodes("splash.step.copy", { file: el("code", { textContent: SPLASH_FILE }), folder: el("code", { textContent: SPLASH_FOLDER }) })),
     el("li", { textContent: t("splash.step.import") }),
     el("li", { textContent: t("splash.step.see") }),
+    el("li", {}, tNodes("splash.step.viewer", { folder: el("code", { textContent: SPLASH_FOLDER }) })),
   ]);
   const galleryPage = el("div", { className: "cee-splash-page", id: "cee-splash-page-gallery" }, [
     el("div", { className: "ui-section-head" }, [el("h2", { className: "ui-section-title", textContent: t("splash.title") }), makeOwn]),
@@ -292,7 +291,6 @@ export function splashPage(root, { sub = null, trail = () => {} } = {}) {
   }
   panels[0].append(el("section", { className: "ui-section", id: "cee-splash-section" }, [galleryPage, detailPage, editorPage]));
   panels[1].append(loadingAnimSection());
-  panels[2].append(pictureFileSection());
   root.replaceChildren(el("h1", { className: "ui-sr-only", textContent: t("nav.splash") }), ...panels);
 
   /** Puts a picture into the editor: a dropped file or one of the gallery. */
@@ -320,7 +318,8 @@ export function splashPage(root, { sub = null, trail = () => {} } = {}) {
     else mark(at.id);
     if (scroll) window.scrollTo?.({ top: 0, behavior: "instant" });
   }
-  // The open sub-page is kept in this browser like the tab before it.
+  // The open sub-page is kept in this browser like the tab before it. One that is gone ("pics", the Image Viewer's
+  // pictures up to 1.4.6) opens Startbilder, and that is kept from then on.
   let saved = null;
   try { saved = localStorage.getItem(PAGE_KEY); } catch {}
   page(saved ?? "images", { scroll: false });
