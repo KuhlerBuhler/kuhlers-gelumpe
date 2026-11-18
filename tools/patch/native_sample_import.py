@@ -1,4 +1,5 @@
-"""Card-only WAV import from the native command handler on both red builds."""
+"""WAV import from the native command handler on both red builds: a user slot is written to the card library, then
+Korg's import loads it into the DSP; a factory slot (below 500) goes to Korg's import alone."""
 
 import hashlib
 
@@ -92,13 +93,13 @@ native_wav_import:
     push {r4-r8, r11, r12, lr}
     mov r4, r0
     mov r5, r1
+    cmp r5, #500
+    blo ni_factory
     ldr r0, =NI_TASK
     ldr r0, [r0]
     ldr r1, =NI_COMMAND_TASK
     cmp r0, r1
     bne ni_error
-    cmp r5, #500
-    blo ni_error
     ldr r0, =LAST_USER
     cmp r5, r0
     bhi ni_error
@@ -168,8 +169,25 @@ ni_complete:
     mov r2, r5
     mov r3, r7
     bl catalogue_end_import
+; The sample is in the card library; Korg's import also puts it into the DSP now, above the swap's cursor.
+    cmp r0, #0
+    bne ni_left
+    cmn r5, #1
+    beq ni_left
+    mov r8, r0
+    mov r0, r4
+    mov r1, r5
+    bl NI_NATIVE
+    mov r0, r8
+ni_left:
     bl sample_leave
     pop {r4-r8, r11, r12, pc}
+; A factory slot is not in the card library: Korg's import puts it into the DSP above the swap's cursor.
+ni_factory:
+    mov r0, r4
+    mov r1, r5
+    pop {r4-r8, r11, r12, lr}
+    b NI_NATIVE
 ni_busy:
     bl sample_leave
 ni_error:
