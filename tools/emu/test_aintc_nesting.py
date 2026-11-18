@@ -42,5 +42,27 @@ class Nesting(unittest.TestCase):
         self.assertEqual(m.highest(fiq=True), 1)
 
 
+class SliceLength(unittest.TestCase):
+    """With IRQs masked and a line pending the next slice is short, so the line is taken as soon as the mask drops."""
+
+    def machine(self, cpsr, raw):
+        m = controller()
+        m.raw = set(raw)
+        m.time_ns, m.ns_per_insn = 0, 5.0
+        m.next_event = lambda: 1e9
+        m.A = type("A", (), {"UC_ARM_REG_CPSR": 0})
+        m.reg = lambda _reg: cpsr
+        return m
+
+    def test_masked_with_a_pending_line_is_short(self):
+        self.assertEqual(self.machine(0xD3, {TICK}).slice_length(False), machine.ISR_STEP)
+
+    def test_masked_without_a_pending_line_is_long(self):
+        self.assertEqual(self.machine(0xD3, set()).slice_length(False), machine.SLICE)
+
+    def test_unmasked_is_long(self):
+        self.assertEqual(self.machine(0x53, {TICK}).slice_length(False), machine.SLICE)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1040,7 +1040,10 @@ class Machine:
         by then is taken first every time (the 1 kHz tick starved behind TIMER64P2 with long slices)."""
         self.deadline = self.next_event()
         left = self.deadline - self.time_ns
-        short = in_isr or self.nest_level < GNLR_NONE
+        # Also short while IRQs are masked with a line pending: the scheduler's exit path after a handler runs in SVC with
+        # IRQs off, and a long slice from there let TIMER64P2 come again first every time (1 kHz tick starved, 2026-11-18).
+        masked = self.reg(self.A.UC_ARM_REG_CPSR) & 0x80 and self.raw & self.enabled
+        short = in_isr or self.nest_level < GNLR_NONE or masked
         return max(1, min(ISR_STEP if short else SLICE, math.ceil(left / self.ns_per_insn) if left < math.inf else SLICE))
 
     def device_rate(self, cpsr):
