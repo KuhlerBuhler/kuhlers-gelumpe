@@ -1,4 +1,5 @@
-"""Exercise file-only WAV import through the native Sampler menu on a generated SD card."""
+"""Exercise WAV import through the native Sampler menu on a generated SD card: the card library first, then Korg's import
+loads the sample into the DSP (unless the DSP is full, then the swap loads it on selection)."""
 import argparse
 import json
 import struct
@@ -96,11 +97,15 @@ def cases(payload, *, missing=False, large=False, close_failure=False, flash=Non
                and library[entry_at + 44:entry_at + 44 + len(pcm)] == pcm)
     still_unloaded = not box.resident(TARGET)
     no_dsp_write = not reserves and before == box.dsp
+    # with room in the DSP a stored import is loaded at once; a full DSP or a failed import leaves it to the swap
+    at_import = not large and not close_failure
+    loaded_at_import = bool(reserves) and box.resident(TARGET) and box.dsp_bytes(*box.extent(TARGET)) == pcm
+    dsp_as_expected = loaded_at_import if at_import else still_unloaded and no_dsp_write
     name = box.dev.call(NATIVE_NAME, TARGET)
     visible = (name == c.NAMES + TARGET * 32 + 12
                and bytes(box.m.uc.mem_read(name, 4)) == b"imp\0")
     loaded_on_demand = False
-    if on_card and still_unloaded and visible:
+    if on_card and visible:
         part = box.dev.call(c.spec.FIRMWARE["PART"], 0)
         if missing:
             box.set_parts(box.u32(c.PATPTR) + 4, [TARGET])
@@ -124,17 +129,18 @@ def cases(payload, *, missing=False, large=False, close_failure=False, flash=Non
     locked_while_streaming = bool(leases) and all(value == 1 for value in leases)
     details = dict(mode_after_import=mode_after_import, started=started, found=found, targets=targets, statuses=statuses,
                    card_unchanged=library == original, card_pcm_exact=on_card,
-                   initially_unloaded=still_unloaded, no_dsp_write=no_dsp_write,
+                   initially_unloaded=still_unloaded, no_dsp_write=no_dsp_write, loaded_at_import=loaded_at_import,
                    name_visible=visible, loaded_on_demand=loaded_on_demand,
                    file_bytes=len(library), modelled_full_cursor=cursor_during_import,
                    rebooted_pcm=rebooted_pcm, lock_released=released, close_failed=bool(close_failed),
                    locked_while_streaming=locked_while_streaming, asserts=box.m.asserts)
     case = ("creates_the_first_library" if missing else "extends_a_large_library" if large
             else "recovers_a_failed_source_close" if close_failure else "appends")
-    return [c.entry(f"native_wav_import_{case}_and_only_loads_on_selection",
+    loads = "loads_into_the_dsp" if at_import else "only_loads_on_selection"
+    return [c.entry(f"native_wav_import_{case}_and_{loads}",
                     started and found and targets == [TARGET] and statuses == [4 if close_failure else 0]
                     and mode_after_import == 1 and bool(close_failed) == close_failure and on_card
-                    and still_unloaded and no_dsp_write and visible and loaded_on_demand
+                    and dsp_as_expected and visible and loaded_on_demand
                     and locked_while_streaming and released and not box.m.asserts
                     and (not large or len(original) > 50 * 1024 * 1024 and rebooted_pcm
                          and cursor_during_import == [c.spec.FIRMWARE["DSP_END"]]), details)]

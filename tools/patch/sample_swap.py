@@ -24,7 +24,8 @@ The blue Synth is refused: its RAM places are not mapped.
 
 Hooks (the same addresses in both builds, checked byte for byte):
   0xC0038D50  the boot existence check: keep the library path before the loader can skip an absent file
-  0xC0038DE0  the native WAV command: write the library without allocating PCM in the DSP
+  0xC0038DE0  the native WAV command: a user slot goes into the library, then Korg's import loads it into the DSP;
+              a factory slot (below 500) goes to Korg's import alone
   0xC00364F4  after the library loader's prologue: a latched DSP fault refuses the load before clearing sample metadata
   0xC0036510  the loader's f_open: the file's size decides whether the swap is on, the path is kept
   0xC00366D8  the loader's loop, before the seek of a slot: samples the current pattern does not use are skipped
@@ -37,7 +38,7 @@ Hooks (the same addresses in both builds, checked byte for byte):
   0xC0079A74  the chain's switch: the same for the chain target, with the repeat counter kept at its last round
   0xC0039FB0  EXPORT ALL SAMPLE's f_open: refused with FatFs' write protection while the DSP holds part of the file
 Boot recovery precedes the collection's open. The slot writer appends verified records and commits their index through a
-recovery journal. Native WAV import requires a stopped transport and an empty slot. Nothing is written to flash.
+recovery journal. Native WAV import into a user slot requires a stopped transport and an empty slot. Nothing is written to flash.
 """
 
 import argparse

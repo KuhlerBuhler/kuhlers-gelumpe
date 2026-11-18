@@ -84,7 +84,7 @@ def reboot(payload, flash, image, path, key):
         named = (name == c.NAMES + menu.TARGET * 32 + 12
                  and bytes(box.m.uc.mem_read(name, 4)) == b"imp\0")
         retry_safe = (found and retry_status == [0] and valid(retry_state, new=True, append_offset=len(data))
-                      and retry_journal == 0 and not box.resident(menu.TARGET) and named)
+                      and retry_journal == 0 and box.resident(menu.TARGET) and named)
         retry_state.update(name_visible=named, journal_bytes=retry_journal, old_file_bytes=len(data),
                            resident=box.resident(menu.TARGET))
     return dict(**state, ok=(started and valid(state, new=new) and old_pcm and new_pcm == new and retry_safe
@@ -159,6 +159,8 @@ def card_case(payload, flash, fault):
     pcm_before = dict(box.dsp)
     found = c.steps_on(box, "import sample", STEPS)
     no_upload = not reserve and box.dsp == pcm_before and not box.resident(menu.TARGET)
+    # a stored import is loaded into the DSP at once; a refused one leaves the DSP alone
+    dsp_ok = box.resident(menu.TARGET) if statuses == [0] else no_upload
     final, remaining = card_state(box, path)
     new_final = fault in ("cuts", "short_index", "unlink")
     final_state = examine(final, new=new_final)
@@ -170,7 +172,7 @@ def card_case(payload, flash, fault):
         "short_journal": (0, 512), "short_index": (len(OLD) & 0xFFFF, 4160), "unlink": (len(OLD), 4160),
     }
     keys = ("before_journal", "verified_journal") if fault == "cuts" else (fault,)
-    ok = (started and found and streaming and statuses == [0 if fault == "cuts" else 4] and no_upload
+    ok = (started and found and streaming and statuses == [0 if fault == "cuts" else 4] and dsp_ok
           and (bool(injected) == (fault not in ("full", "cuts")))
           and not box.m.asserts and valid(final_state, new=new_final)
           and remaining == 0
@@ -265,7 +267,7 @@ def publication_case(payload, flash, fault):
              and valid(examine(data, new=True, before=before), new=True, append_offset=len(before)))
     ok = (started and first_menu == (True, [4]) and cut == {"bytes": sent, "marker": True, "previous_bytes": True}
           and ready and preserved and clean and old_pcm and retry == (True, [0]) and exact
-          and txn is None and witness is None and not reboot.resident(menu.TARGET)
+          and txn is None and witness is None and reboot.resident(menu.TARGET)
           and not box.m.asserts and not reboot.m.asserts)
     return c.entry("wav_import_publication_" + fault, ok,
                    dict(cut=cut, first_menu=first_menu, boot_ready=ready, previous_bytes=preserved,
