@@ -75,7 +75,12 @@ rec_open_next:
     mov r2, #512
     bl rec_writer_write
     cmp r0, #0
+    bne rec_open_failed
+    mov r0, r4
+    bl rec_writer_sync
+    cmp r0, #0
     beq rec_open_done
+rec_open_failed:
     mov r0, r4
     bl rec_writer_close
     b rec_open_done
@@ -127,6 +132,71 @@ rec_append_done:
     pop {r4-r8, pc}
 .pool
 
+; Persist PCM and its directory size before publishing a larger WAV length.
+rec_writer_checkpoint:
+    ldr r1, [r0, #RW_STATE]
+    cmp r1, #1
+    movne r0, #RW_BAD_STATE
+    bxne lr
+    ldr r1, [r0, #RW_STATUS]
+    cmp r1, #0
+    movne r0, r1
+    bxne lr
+rec_writer_checkpoint_owned:
+    push {r4-r8, lr}
+    mov r4, r0
+    mov r0, r4
+    bl rec_writer_sync
+rec_checkpoint_data_synced:
+    cmp r0, #0
+    bne rec_checkpoint_done
+    mov r0, r4
+    bl rec_writer_header
+    add r0, r4, #RW_FIL
+    mov r1, #0
+    ldr r12, =REC_FS_LSEEK
+    blx r12
+    cmp r0, #0
+    bne rec_checkpoint_io
+    mov r0, r4
+    add r1, r4, #RW_HEADER
+    mov r2, #512
+    bl rec_writer_write
+rec_checkpoint_header_written:
+    cmp r0, #0
+    bne rec_checkpoint_done
+    add r0, r4, #RW_FIL
+    ldr r1, [r4, #RW_DATA_BYTES]
+    add r1, r1, #512
+    ldr r12, =REC_FS_LSEEK
+    blx r12
+rec_checkpoint_position_restored:
+    cmp r0, #0
+    bne rec_checkpoint_io
+    mov r0, r4
+    bl rec_writer_sync
+    b rec_checkpoint_done
+rec_checkpoint_io:
+    str r0, [r4, #RW_FS_ERROR]
+    mov r0, #RW_IO
+    str r0, [r4, #RW_STATUS]
+rec_checkpoint_done:
+    pop {r4-r8, pc}
+.pool
+
+rec_writer_sync:
+    push {r4, lr}
+    mov r4, r0
+    add r0, r4, #RW_FIL
+    ldr r12, =REC_FS_SYNC
+    blx r12
+    cmp r0, #0
+    strne r0, [r4, #RW_FS_ERROR]
+    movne r0, #RW_IO
+    strne r0, [r4, #RW_STATUS]
+    pop {r4, pc}
+.pool
+
 ; r0 context. Rewrites the sector header and closes, preserving an earlier fault.
 rec_writer_finish:
     push {r4-r8, lr}
@@ -138,22 +208,8 @@ rec_writer_finish:
     movne r0, #RW_BAD_STATE
     bne rec_finish_done
     mov r0, r4
-    bl rec_writer_header
-    add r0, r4, #RW_FIL
-    mov r1, #0
-    ldr r12, =REC_FS_LSEEK
-    blx r12
-    cmp r0, #0
-    bne rec_finish_io
-    mov r0, r4
-    add r1, r4, #RW_HEADER
-    mov r2, #512
-    bl rec_writer_write
+    bl rec_writer_checkpoint_owned
     b rec_finish_close
-rec_finish_io:
-    str r0, [r4, #RW_FS_ERROR]
-    mov r0, #RW_IO
-    str r0, [r4, #RW_STATUS]
 rec_finish_close:
     mov r0, r4
     bl rec_writer_close

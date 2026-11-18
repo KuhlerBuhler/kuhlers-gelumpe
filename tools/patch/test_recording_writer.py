@@ -32,9 +32,10 @@ class Writer:
         self.uc.mem_write(self.ctx - 4, struct.pack('<I', 0xAABBCCDD))
         self.uc.mem_write(self.ctx + self.context_size, struct.pack('<I', 0xDDCCBBAA))
         self.files, self.handles, self.events = {}, {}, []
+        self.durable, self.sync_number, self.sync_fault = {}, 0, None
         self.write_fault = self.seek_fault = None
         self.mkdir_result, self.close_failures, self.write_number = 0, 0, 0
-        self.targets = {self.s('REC_FS_' + name): name for name in ('OPEN', 'WRITE', 'LSEEK', 'CLOSE', 'MKDIR')}
+        self.targets = {self.s('REC_FS_' + name): name for name in ('OPEN', 'WRITE', 'LSEEK', 'CLOSE', 'MKDIR', 'SYNC')}
         for page in {address & ~4095 for address in self.targets}:
             self.uc.mem_map(page, 4096)
         for address in self.targets:
@@ -113,6 +114,14 @@ class Writer:
             result = self.seek_fault or 0
             if not result:
                 self.handles[r[0]][1] = r[1]
+        elif name == 'SYNC':
+            self.sync_number += 1
+            self.events.append((name,))
+            if self.sync_fault and self.sync_fault[0] == self.sync_number:
+                result = self.sync_fault[1]
+            else:
+                path, _ = self.handles[r[0]]
+                self.durable[path] = bytes(self.files[path])
         elif name == 'CLOSE':
             self.events.append((name,))
             if self.close_failures:
@@ -128,6 +137,42 @@ class Writer:
 
 @unittest.skipUnless(UNICORN, 'Unicorn is required for native recording tests')
 class RecordingWriterTests(unittest.TestCase):
+    def test_checkpoint_persists_a_valid_prefix_and_keeps_the_append_position(self):
+        m = Writer()
+        self.assertEqual(m.call('open', 2), 0)
+        first = bytes(range(256)) * 8
+        self.assertEqual(m.append(first), 0)
+        self.assertEqual(m.call('checkpoint'), 0)
+        saved = m.durable['SD:Recordings/REC0001.WAV']
+        with wave.open(io.BytesIO(saved)) as wav:
+            self.assertEqual(wav.readframes(wav.getnframes()), first)
+        events = [e[0] for e in m.events]
+        self.assertEqual(events[-5:], ['SYNC', 'LSEEK', 'WRITE', 'LSEEK', 'SYNC'])
+        tail = b'\x01\x02\x03\x04'
+        self.assertEqual(m.append(tail), 0)
+        self.assertEqual(m.call('finish'), 0)
+        self.assertEqual(m.files['SD:Recordings/REC0001.WAV'][512:], first + tail)
+
+    def test_failed_checkpoint_keeps_the_handle_and_first_error_for_finish(self):
+        m = Writer()
+        self.assertEqual(m.call('open', 2), 0)
+        m.append(bytes(4096))
+        m.sync_fault = (2, 1)
+        self.assertEqual(m.call('checkpoint'), m.s('RW_IO'))
+        self.assertEqual(m.field('RW_STATE'), 1)
+        self.assertEqual(m.field('RW_FS_ERROR'), 1)
+        self.assertEqual(m.append(bytes(4)), m.s('RW_IO'))
+        self.assertEqual(m.call('finish'), m.s('RW_IO'))
+        self.assertFalse(m.handles)
+
+    def test_open_sync_failure_closes_before_reporting_the_card_error(self):
+        m = Writer()
+        m.sync_fault = (1, 3)
+        self.assertEqual(m.call('open', 2), m.s('RW_IO'))
+        self.assertEqual(m.field('RW_FS_ERROR'), 3)
+        self.assertEqual(m.field('RW_STATE'), 0)
+        self.assertFalse(m.handles)
+
     def test_stereo_wav_has_a_sector_header_exact_pcm_and_final_lengths(self):
         m = Writer()
         self.assertEqual(m.call('open', 2), 0)

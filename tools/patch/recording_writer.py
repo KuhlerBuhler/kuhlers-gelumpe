@@ -4,7 +4,7 @@ from .arm import assemble
 from . import synthaddr
 
 FATFS = dict(OPEN=0xC009DB60, WRITE=0xC009DFB8, LSEEK=0xC009E404,
-             CLOSE=0xC009E3DC, MKDIR=0xC009EB00)
+             CLOSE=0xC009E3DC, MKDIR=0xC009EB00, SYNC=0xC009E2C8)
 
 
 def source(build='hacktribe'):

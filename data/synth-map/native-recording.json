@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "from": "0xC009E2C8",
+      "to": "0xC008AE20",
+      "kind": "code",
+      "why": "FatFs f_sync, called first by mapped f_close in both original 2.02 builds; all 69 instructions up to f_close match after masking branch offsets"
+    }
+  ]
+}

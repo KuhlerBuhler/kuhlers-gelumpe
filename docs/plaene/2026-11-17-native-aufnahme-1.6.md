@@ -15,7 +15,7 @@ Sets), und eine WAV von der Karte abspielen, damit ein Track laufen kann, statt 
 - Erfassung `0x37` liest ihre Quelle über den Zeiger `0xFF9031DC`; Zeiger auf `0xFF802888` = Master im 100-ms-Ring
   `0x01C722A0` (hergeleitet, Weg A). Teilt Zwischenwort und DMA mit Korgs SAMPLING und Spettro.
 - Karte lesen 3,1/5,1 MiB/s am Gerät; Schreiben schätzt Besitzer auf rund 3 MB/s (geschätzt, nicht gemessen). Bedarf 0,19 MB/s.
-- WAV ohne `f_truncate`: anhängen, Kopf am Ende per `f_lseek` überschreiben. Kein `f_sync` gefunden.
+- WAV ohne `f_truncate`: anhängen, Kopf am Ende per `f_lseek` überschreiben. `f_sync` wurde am 18.11. im ARM-Emulator bestätigt.
 - Sample Swap (#166) belegt `0xC274F000..0xC4000000`.
 - Blau: `0x37` da, kein Stereo-Wort, kein `0x3B`.
 
@@ -63,7 +63,7 @@ Akzeptanz: Fall grün auf Hacktribe und rot; WAV öffnet in einem Audioprogramm;
 - [x] 2.3a UI-Kartenzugriffe sperren, gepufferte Änderungen nachholen und Start an UI-Grenze freigeben
 - [x] 2.3b Native Pattern-Schreiber und Aufnahme in derselben CommandTask nachweisen
 - [ ] 2.3c Sample-Swap-Kartenzugriffe nach Integration von #166 prüfen
-- [ ] 2.4 Stromausfall: Längen regelmäßig nachtragen oder Reparatur beim Start (Länge aus Dateigröße), mit Fall
+- [x] 2.4 Stromausfall: Längen regelmäßig nachtragen oder Reparatur beim Start (Länge aus Dateigröße), mit Fall
 - [ ] 2.5 Karte voll, Karte gezogen, 4-GiB-Grenze: sauber beenden, ab 4 GiB neue Datei
 
 Akzeptanz: Emulatorfälle für Überlauf, Karte voll, Reparatur grün; Gerät: 60 min Set mit Pattern-Wechseln, 0 Lücken.
@@ -220,6 +220,17 @@ Akzeptanz: Docs-Test grün.
 - **Phase 2.4, f_sync bestätigt:** Der isolierte native Aufruf bei `0xC009E2C8` persistiert eine noch offene WAV samt
   Verzeichnisgröße und 32 KiB exakten PCM-Daten im Emulator. Der Kopf trägt dabei weiterhin die alte Länge. Für einen
   konsistenten Zwischenstand müssen zuerst PCM und Verzeichnis, dann der vergrößerte WAV-Kopf gesichert werden.
+
+
+- **Phase 2.4:** Der Schreiber sichert den leeren Anfangskopf und danach ungefähr jede Sekunde neu geschriebener PCM-Daten.
+  Zuerst werden PCM und Verzeichnisgröße synchronisiert, dann der größere WAV-Kopf geschrieben und synchronisiert.
+  Die Dateiposition kehrt zum PCM-Ende zurück. Der Fehlerabschluss folgt derselben Reihenfolge; ein fehlgeschlagener
+  erster Sync darf keinen Kopf veröffentlichen, der über die gesicherte Dateigröße hinausgeht. Ein solcher Zwischenfehler
+  wurde in der Prüfung gefunden und mit einem nativen Fehlerfall abgesichert. 38 gezielte Kerntests und je 31 vollständige Aufnahmeprüfungen beider Sampler bestehen.
+  Native SD-Abbilder an den Aufrufgrenzen bleiben gültige PCM-Anfänge. Physische Sektorabbrüche sind damit nicht geprüft.
+- **Blaue f_sync-Übersetzung:** Die ursprüngliche blaue Firmware liegt für den lokalen Vergleich vor. Der erste Aufruf
+  ihres bereits zugeordneten f_close führt zu `0xC008AE20`; 69 Befehle entsprechen dem Sampler nach Maskieren der
+  Sprungabstände. Nur Adresse und Herleitung wurden in der Übersetzungskarte ergänzt, keine Firmware-Bytes.
 
 ## References
 

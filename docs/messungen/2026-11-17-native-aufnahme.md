@@ -144,12 +144,22 @@ wahrscheinlich; das Risiko sind die Pausen, nicht die Rate. Der Treiber holt lau
    `fmt `), dann beginnen die Daten auf einer Sektorgrenze und volle Blöcke gehen ohne Umweg über den Fensterpuffer.
 2. Daten in Blöcken zu 64 KiB anhängen (Korgs eigener WAV-Export schreibt auch 65 536 Byte am Stück,
    [DSP-Audiopfade](2026-10-08-dsp-audiopfade.md)).
-3. Beim Stopp `f_lseek` auf 4 und 40 (RIFF- und data-Länge, beim aufgefüllten Kopf die Stelle des data-Kopfs), beide
-   überschreiben, `f_close`.
+3. Beim Zwischenstand zuerst `f_sync`: PCM und Verzeichnisgröße müssen stehen, bevor der Kopf mehr Daten verspricht.
+   Danach `f_lseek` auf 0, den 512-Byte-Kopf mit RIFF-Länge bei Byte 4 und data-Länge bei Byte 508 schreiben,
+   auf das PCM-Ende zurückspringen und erneut `f_sync`. Der Abschluss verwendet dieselbe Reihenfolge.
 
-Eine Datei schrumpft dabei nie. **Offen:** ein eigenes `f_sync` ist nicht gefunden ([Virtuelle SD](../hintergrund/virtuelle-sd.md)).
-Ohne Sync stehen Länge und FAT nach einem Stromausfall auf dem Stand des letzten `f_close`. Wege: alle paar Minuten
-schließen und wieder öffnen, oder beim nächsten Start eine Datei mit Platzhalterlängen aus der Dateigröße reparieren.
+**Am 18.11. im ARM-Emulator geprüft:** `f_sync` liegt bei `0xC009E2C8`; der native `f_close` ruft sie zuerst auf.
+Eine noch offene Datei hält nach dem Aufruf Verzeichnisgröße und 32 KiB exakte PCM-Daten auf der virtuellen SD.
+Auf blau liegt dieselbe Routine bei `0xC008AE20`: alle 69 Befehle bis zum folgenden `f_close` stimmen nach Maskieren
+von Sprungabständen überein. Ein isolierter Lauf im ursprünglichen blauen ARM-Emulator sichert ebenfalls 32 KiB
+exakte PCM-Daten. Er läuft an der zugeordneten UI-Rahmengrenze; der Sampler-CommandTask-Haken ist auf blau nicht
+zugeordnet. Das prüft den Dateischreiber, keinen blauen Aufnahmeweg und kein Gerät.
+
+Eine Datei schrumpft dabei nie. Die Aufnahme sichert nach ungefähr einer Sekunde neu geschriebener PCM-Daten einen
+Zwischenstand. Nach Wegfall von CPU- und FatFs-Zustand zeigen die geprüften SD-Abbilder vor und nach den einzelnen
+Sicherungsschritten jeweils einen gültigen PCM-Anfang. Auch nach einem fehlgeschlagenen Sync wird der Kopf erst
+vergrößert, wenn PCM und Verzeichnis erfolgreich gesichert sind. Die Fälle prüfen Aufrufgrenzen im Emulator,
+keinen Stromausfall mitten in einem physischen SD-Sektorschreibvorgang ([Virtuelle SD](../hintergrund/virtuelle-sd.md)).
 Grenze: FAT32 und RIFF erlauben 4 GiB, das sind 6,2 Stunden je Datei.
 
 **Offen:** ob andere Kartenzugriffe der Firmware während einer Aufnahme (Einstellungen, Patterns-Ordner, Sample Swap,

@@ -80,6 +80,24 @@ class Recorder(Writer):
 
 @unittest.skipUnless(UNICORN, 'Unicorn is required for the native recording worker')
 class RecordingServiceTests(unittest.TestCase):
+    def test_checkpoint_failure_stops_capture_and_keeps_the_card_error_visible(self):
+        m = Recorder()
+        m.command(1)
+        self.assertEqual(m.pump(), 0)
+        m.sync_fault = (2, 3)
+        result = 0
+        for _ in range(30):
+            m.capture([0x12345678] * 2000, elapsed=40)
+            result = m.pump()
+            if result:
+                break
+        self.assertEqual(result, m.s('RW_IO'))
+        self.assertEqual(m.field('RC_ERROR'), m.s('RW_IO'))
+        self.assertEqual(m.field('RW_FS_ERROR'), 3)
+        self.assertEqual(m.rr('RR_OWNED'), 0)
+        self.assertEqual(m.field('RC_ACTIVE'), 0)
+        self.assertFalse(m.handles)
+
     def test_commands_only_post_requests_and_the_worker_writes_exact_pcm(self):
         m = Recorder()
         self.assertEqual(m.command(1), 0)
@@ -93,6 +111,12 @@ class RecordingServiceTests(unittest.TestCase):
             captured += words
             m.capture(words, elapsed=40)
             self.assertEqual(m.pump(), 0)
+        saved = m.durable['SD:Recordings/REC0001.WAV']
+        with wave.open(io.BytesIO(saved)) as wav:
+            count = wav.getnframes()
+            self.assertGreaterEqual(count, 48000)
+            self.assertLess(count, len(captured))
+            self.assertEqual(wav.readframes(count), pcm(captured[:count]))
         self.assertEqual(m.finish(), 0)
         self.assertEqual(m.call('recorder_busy'), 0)
         data = bytes(m.files['SD:Recordings/REC0001.WAV'])

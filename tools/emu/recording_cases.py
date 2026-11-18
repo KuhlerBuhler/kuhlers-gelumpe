@@ -22,7 +22,7 @@ from dsp_model import DspModel
 from sdcard import MemoryMedium, SDCard
 from splash_cases import Dev, user_flash
 from menu_cases import card_image
-from tools.patch import recording_dsp as dsp_spec, recording_service, recording_runtime, script_hooks
+from tools.patch import recording_dsp as dsp_spec, recording_service, recording_runtime, recording_writer, script_hooks
 
 CODE, CONTEXT, RING = 0xC3F00000, 0xC3F10000, 0xC3F20000
 COMMAND_TICK = 0xC002A628
@@ -267,10 +267,83 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
     return out
 
 
+def checkpoint_cases(payload, flash=None, fail_sync=False):
+    """Discard CPU/FatFs state at each checkpoint boundary and inspect only the SD image."""
+    if not has_hooks(payload):
+        return []
+    from unicorn import UC_HOOK_CODE
+    dev = Dev(payload, flash, adapter=True)
+    medium = MemoryMedium(card_image())
+    dev.m.insert_card(SDCard(medium))
+    dev.run(0.8)
+    code = recording_writer.build(build=dev.m.profile.build, origin=CODE)
+    dev.m.uc.mem_write(CODE, code.bytes)
+    dev.m.uc.mem_write(CONTEXT, bytes(code.symbols['RW_SIZE']))
+    expected = bytes(range(256)) * 64 + b'\x01\x23\x45\x67' * 16
+    dev.m.uc.mem_write(RING, expected)
+    call = lambda name, *args: dev.call(code.symbols['rec_writer_' + name], CONTEXT, *args, at=COMMAND_TICK)
+
+    def snapshot():
+        volume = fat32.Volume(bytes(medium.data))
+        try:
+            content = volume.read('/Recordings/REC0001.WAV')
+        finally:
+            volume.close()
+        with wave.open(io.BytesIO(content)) as wav:
+            count = wav.getnframes()
+            exact = wav.readframes(count) == expected[:count * 4]
+        return dict(bytes=len(content), frames=count,
+                    valid=exact and count * 4 <= len(content) - 512
+                    and struct.unpack_from('<I', content, 4)[0] <= len(content) - 8)
+
+    opened = call('open', 2)
+    if opened:
+        return [entry('checkpoint_open', False, f'open status {opened}')]
+    empty = snapshot()
+    cuts = []
+    def cut(uc, address, size, data):
+        cuts.append(snapshot())
+    for name in ('rec_checkpoint_data_synced', 'rec_checkpoint_header_written',
+                 'rec_checkpoint_position_restored', 'rec_checkpoint_done'):
+        address = code.symbols[name]
+        dev.m.uc.hook_add(UC_HOOK_CODE, cut, begin=address, end=address)
+    if fail_sync:
+        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_PC, UC_ARM_REG_LR
+        failed = []
+        def fail(uc, address, size, data):
+            if not failed:
+                failed.append(address)
+                uc.reg_write(UC_ARM_REG_R0, 1)
+                uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
+        address = code.symbols['REC_FS_SYNC']
+        dev.m.uc.hook_add(UC_HOOK_CODE, fail, begin=address, end=address)
+    first = call('append', RING, 16384)
+    checkpoint = call('checkpoint')
+    if fail_sync:
+        finished = call('finish')
+        saved = snapshot()
+        return [entry('checkpoint_fault_keeps_first_error', first == 0 and checkpoint == finished == code.symbols['RW_IO'],
+                      f'append {first}, checkpoint {checkpoint}, finish {finished}'),
+                entry('checkpoint_fault_power_cut_prefixes', len(cuts) >= 6 and all(s['valid'] for s in cuts)
+                      and saved == dict(bytes=16896, frames=4096, valid=True) and not dev.m.asserts,
+                      f'cuts {cuts}, saved {saved}, assertions {dev.m.asserts}')]
+    second = call('append', RING + 16384, 64)
+    checkpoint2 = call('checkpoint')
+    saved = snapshot()
+    finished = call('finish')
+    return [entry('checkpoint_empty_is_durable', empty == dict(bytes=512, frames=0, valid=True), empty),
+            entry('checkpoint_power_cut_prefixes', len(cuts) >= 8 and all(s['valid'] for s in cuts), cuts),
+            entry('checkpoint_append_position_and_lengths', first == checkpoint == second == checkpoint2 == finished == 0
+                  and saved == dict(bytes=512 + len(expected), frames=len(expected) // 4, valid=True)
+                  and not dev.m.asserts,
+                  f'saved {saved}, statuses {[first, checkpoint, second, checkpoint2, finished]}, assertions {dev.m.asserts}')]
+
+
 def cases(payload, flash=None, png=None):
     return (worker_cases(payload, flash) + runtime_cases(payload, flash)
             + runtime_cases(payload, flash, png=png, expect_gap=True)
-            + runtime_cases(payload, flash, defer_settings=True))
+            + runtime_cases(payload, flash, defer_settings=True) + checkpoint_cases(payload, flash)
+            + checkpoint_cases(payload, flash, fail_sync=True))
 
 
 def cases_task():

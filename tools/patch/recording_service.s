@@ -8,6 +8,7 @@
 .equ RC_CHANNELS, RC_REQUEST + 20
 .equ RC_DROPPED, RC_REQUEST + 24
 .equ RC_FILE_BYTES, RC_REQUEST + 28
+.equ RC_CHECKPOINT, RC_REQUEST + 32
 .equ RC_SIZE, 1536
 .equ RC_READER_ERROR, 16
 
@@ -84,6 +85,7 @@ recorder_claim_loaded:
     str r0, [r4, #RC_ERROR]
     str r0, [r4, #RC_DROPPED]
     str r0, [r4, #RC_FILE_BYTES]
+    str r0, [r4, #RC_CHECKPOINT]
     ldr r0, [r4, #RC_CHANNELS]
     cmp r0, #2
     movne r0, #RW_BAD_ARG
@@ -189,10 +191,29 @@ recorder_write:
     add r7, r7, r0
     str r7, [r5, #RR_CONSUMED]
     cmp r6, #0
-    beq recorder_return
+    beq recorder_checkpoint
     str r6, [r4, #RW_STATUS]
     mov r0, r6
     b recorder_writer_error
+recorder_checkpoint:
+    ldr r0, [r4, #RC_ACTIVE]
+    cmp r0, #1
+    bne recorder_return
+    ldr r0, [r4, #RW_DATA_BYTES]
+    ldr r1, [r4, #RC_CHECKPOINT]
+    sub r0, r0, r1
+    ldr r2, =96000
+    ldr r3, [r4, #RC_CHANNELS]
+    mul r2, r3, r2
+    cmp r0, r2
+    blo recorder_return
+    mov r0, r4
+    bl rec_writer_checkpoint
+    cmp r0, #0
+    bne recorder_writer_error
+    ldr r0, [r4, #RW_DATA_BYTES]
+    str r0, [r4, #RC_CHECKPOINT]
+    b recorder_return
 recorder_drained:
     ldr r0, [r4, #RC_ACTIVE]
     cmp r0, #2
