@@ -2,7 +2,7 @@
 
 Deutsche Version | [English version](patcher.en.md)
 
-Stand 2026-11-09. Zu Idee 17 in [`docs/ideen.md`](ideen.md). Der Patcher ist gebaut,
+Stand 2026-11-18. Zu Idee 17 in [`docs/ideen.md`](ideen.md). Der Patcher ist gebaut,
 der Abschnitt "Stand" sagt, was genau und was nicht. Belege stehen in
 `docs/messungen/`; was nur hergeleitet ist, steht hier als solches da.
 
@@ -19,6 +19,11 @@ selbst bauen können, zum Beispiel eigene Menüpunkte (geplant, siehe "Offen").
 
 Gebaut heißt: der Code liegt im Repository und ist im Emulator oder in
 Tests geprüft.
+
+Für 1.6 ist die [native Aufnahme](native-aufnahme.md) auf den Sampler-Builds gebaut: Quelle RECORD in SHIFT+REC,
+eigener DSP-Abgriff ohne Metronom, Stereo-WAV auf SD, sichtbare Abbruchmeldungen und Folgedateien an der WAV-Grenze.
+NATIVE RECORDING in Menü -> BLECH -> FEATURES ist zunächst OFF. Signalweg, Dateischreiber und Bedienung sind
+offline geprüft; Gerätezeiten, endgültige Ringwahl und Langzeitabnahme sind offen. Blau wartet auf Umsetzung und Tester.
 
 Die blaue Electribe 2 mit Synth-Firmware 2.02 hat einen eigenen Satz
 `data/patches/blech-synth.json`. Er enthält lesendes BLECHTRIBE SysEx, Startbild, Theme,
@@ -81,7 +86,7 @@ Warum die übrigen Ports abgelehnt wurden und welche Prüfungen bestehen, steht 
 | KEY PADS in der Laufzeit des BLECH-Menüs (Idee 85, vorher das Plugin Key Pads): KEYBOARD gehalten auf dem Hauptbildschirm + Pad setzt den KEY des Patterns (chromatisch: Pad 1 C bis Pad 12 B, Pads 13 bis 16 transponieren um -1 bis +2 Oktaven: `KP_OCT` im Menü-RAM, an den vier Aufrufen des KEY-Getters `KP_KEY_*_AT` dazugerechnet; Feld 4 über `script_seq_set_pattern_value_glue`), das Wertefenster der Firmware zeigt ihn (Nachricht `{0x5A, Ton}` an `0xC0070688`, Titel, Wert und Markierung über drei Haken in seiner Zeichenfunktion, `script_hooks.py:KEY_PADS_SAMPLER`/`KEY_PADS_SYNTH`); KEYBOARD kurz allein geht beim Loslassen an die Firmware; BLECH > FEATURES > KEY PADS OFF (Bit 4 von Byte 5 der Einstellungsdatei) lässt die Firmware den Part wählen; rot, blau und Hacktribe | `tools/patch/script_shortcuts.s`, `tools/emu/shortcut_cases.py`, `tools/emu/menu_cases.py`, [Messung](messungen/2026-11-07-key-pads-eingebaut.md), [Belegung](messungen/2026-11-08-key-pads-chromatisch.md), [Oktave](messungen/2026-11-12-key-pads-oktave.md), [Transponieren](messungen/2026-11-15-key-pads-transpose.md) |
 | FILTER TOGGLE in der Laufzeit des BLECH-Menüs (Idee 81, vorher das Plugin Filter Toggle): SHIFT + LPF, HPF oder BPF schaltet das Filter des gewählten Parts aus, dieselbe Kombination wieder an mit dem letzten Typ der Taste, SHIFT + eine andere Filtertaste gibt deren letzten Typ, je Part; die Taste geht immer an die Firmware, ein Haken auf ihrem Weg, der den Typ schreibt (`mov r0, #8`), ersetzt nur den neuen Typ, so zeigt die Firmware ihr Fenster "FILTER TYPE" (rot `0xC006FDEC`, blau `0xC0062F14`, Hacktribe mit eigenem Filter-Handler `0xC01501F0`, `script_hooks.py:FILTER_TOGGLE_HACKTRIBE`); BLECH > FEATURES > FILTER TOGGLE OFF (Bit 5 von Byte 5 der Einstellungsdatei) lässt die Firmware allein; rot, blau und Hacktribe | `tools/patch/script_shortcuts.s`, `tools/emu/shortcut_cases.py`, `tools/emu/menu_cases.py`, [Messung](messungen/2026-11-08-filter-toggle-eingebaut.md) |
 | AUTO SAVE in der Laufzeit des BLECH-Menüs (Issue #391): ein Haken in `SWITCH_SCREEN` (`0xC0083D7C`, blau `0xC0074350`, das zweite `bl` auf den Bildschirm-Manager hinter der Prüfung, dass der Bildschirm wechselt) sieht jeden Wechsel; verlässt man GLOBAL PARAMETERS (Bildschirm 9) oder PLUGIN RUNTIME und die 0x100 Byte der Global-Werte weichen von der Kopie der Firmware ab, die der Flash hält (`0xC08A2940`, blau `0xC0773D00`), postet er denselben Auftrag `0xB` wie WRITE dort (`0xC002D5D8`, blau `0xC002A73C`); verlässt man das BLECH-Menü und die Prüfsumme der Einstellungen weicht von der beim Betreten ab (`M_SNAP`), schreibt er die Einstellungsdatei wie WRITE; Schalter BLECH > FEATURES > AUTO SAVE (`M_AS`, Bit 7 von Byte 5 heißt OFF); rot, blau und Hacktribe | `tools/patch/script_menu.s:autosave_leave`, `tools/emu/menu_cases.py:auto_save_cases`, [Messung](messungen/2026-11-09-auto-save.md) |
-| BPM GLIDE in der Laufzeit des BLECH-Menüs (Release 1.5, vorher das Plugin BPM Glide): zwei Seiten am Ende der Gruppe FEATURES, beide Vorgabe OFF, Bits 2 und 3 von Byte 7 der Einstellungsdatei (Version 4); GLIDE CHAIN gleitet das Tempo eines verketteten Patterns (Chain To, CHAIN MODE an) über Länge mal Chain Repeat zum Tempo des nächsten, der letzte Schritt erreicht es, STOP gibt das Starttempo zurück; GLIDE SWITCH gleitet ab der Bestätigung mit MENU (`NEXT:`) über die Schritte bis zum Sequenzende zum Tempo des bestätigten Patterns, EXIT nimmt es zurück, eine Bestätigung gewinnt über die Kette, STOP setzt ihr Tempo; der Frame-Haken vergleicht Transport, laufendes Pattern und Schritt von Part 1 und setzt das Tempo über denselben Aufruf wie `korg.tempo` (`script_tempo_glue`), Zustand `GLIDE` (84 Byte hinter IDLE); rot, blau und Hacktribe | `tools/patch/script_glide.s`, `tools/patch/script_menu.s`, `tools/emu/bpm_glide_cases.py`, [Messung](messungen/2026-11-15-bpm-glide.md) |
+| BPM GLIDE in der Laufzeit des BLECH-Menüs (Release 1.5, vorher das Plugin BPM Glide): zwei benachbarte Seiten in der Gruppe FEATURES, beide Vorgabe OFF, Bits 2 und 3 von Byte 7 der Einstellungsdatei (Version 4); GLIDE CHAIN gleitet das Tempo eines verketteten Patterns (Chain To, CHAIN MODE an) über Länge mal Chain Repeat zum Tempo des nächsten, der letzte Schritt erreicht es, STOP gibt das Starttempo zurück; GLIDE SWITCH gleitet ab der Bestätigung mit MENU (`NEXT:`) über die Schritte bis zum Sequenzende zum Tempo des bestätigten Patterns, EXIT nimmt es zurück, eine Bestätigung gewinnt über die Kette, STOP setzt ihr Tempo; der Frame-Haken vergleicht Transport, laufendes Pattern und Schritt von Part 1 und setzt das Tempo über denselben Aufruf wie `korg.tempo` (`script_tempo_glue`), Zustand `GLIDE` (84 Byte hinter IDLE); rot, blau und Hacktribe | `tools/patch/script_glide.s`, `tools/patch/script_menu.s`, `tools/emu/bpm_glide_cases.py`, [Messung](messungen/2026-11-15-bpm-glide.md) |
 | ORIG im BLECH-Menü: jede Seite, die eine Einstellung zeigt, setzt das Byte `+0x49` des Textfelds, das Korgs Zeichenfunktion für das Schildchen ORIG liest (Symbol 16 bei x 36, y 55); verglichen wird der Satz der Einstellungen von jetzt mit der Kopie, die nach dem Laden und nach jedem Speichern entsteht (`MENU_FILE_B`), je Seite mit den Bits der Tabelle `orig_masks`; rot, blau und Hacktribe | `tools/patch/script_menu.s:menu_orig_flag`, `tools/emu/menu_cases.py:orig_cases`, [Messung](messungen/2026-11-11-orig-und-karte-spaeter.md) |
 | Karte erst nach dem Start eingesteckt: der Wächter der Spielhilfen (`tools/patch/card_gate.py`) liest auf allen Builds den Kartenkontakt (`0x01E26070`, Bit 1), auf den Sampler-Builds gilt ein gemountetes Volume weiter; Patternwechsel, TAP Motion, Notenassistent und Würfeln gehen mit der Karte sofort an, auch vor dem ersten Speichern | `tools/patch/card_gate.py`, `tools/emu/tap_motion_cases.py:case_card_inserted_late`, [Messung](messungen/2026-11-11-orig-und-karte-spaeter.md) |
 | Karte nach dem Start gesteckt oder getauscht: die ganze Einstellungsdatei dieser Karte wird gelesen wie beim Start, CUSTOMIZATION eingeschlossen (Unterleuchten, untere LEDs, Displaypolarität, Pad-Farben); Plugin-Runtime und MFX 2 wechseln erst beim nächsten Start, eine Karte ohne Datei ändert nichts | `tools/patch/script_menu.s:menu_card_watch`, `tools/emu/menu_cases.py:card_later_cases`, [Messung](messungen/2026-11-12-karte-spaeter-einstellungen.md) |
@@ -305,6 +310,12 @@ dieselben Bytes wie der Satz. Der Steuerblock verrät Quelladressen der Kopien,
 keine Bytes. Gebaut wird mit dem Programm `bzip2`.
 
 ## Schreibregel für die Karte
+
+Die native Aufnahme besitzt ihre eigene Datei in CommandTask. Die ursprünglichen Pattern-Exporte laufen in derselben
+Task und sind dadurch seriell. UI-Dateizugriffe prüfen den Aufnahmezustand; gepufferte Plugin-Daten und SD-Einstellungen
+warten bis zum Abschluss. Der Aufnahmestart wartet auf die nächste UI-Rahmengrenze, damit ein bereits laufender
+UiTask-Dateizugriff zurückgekehrt ist. Diese Task-Grenze ist im Emulator geprüft, auch mit RECORD mitten in f_open.
+Sample Swap wird nach seiner Integration gesondert geprüft. Belege: [Aufnahmemessung](messungen/2026-11-17-native-aufnahme.md).
 
 Gebaut für die Plugin-Werte (`korg.store`, `tools/patch/script_store.s`), im
 Emulator geprüft. Code eines Patches greift auf die Karte nur über die

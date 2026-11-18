@@ -96,7 +96,7 @@ Akzeptanz: Fälle grün auf blau; Testerbericht.
 
 ## Phase 6: Doku und Release
 
-- [ ] 6.1 Patcher-Doku, Plugin-Doku DE/EN (falls Phase 3), README-Zeile, 1.6-Notes DE/EN/FR
+- [x] 6.1 Patcher-Doku, Plugin-Doku DE/EN (falls Phase 3), README-Zeile, 1.6-Notes DE/EN/FR
 
 Akzeptanz: Docs-Test grün.
 
@@ -251,6 +251,21 @@ Akzeptanz: Docs-Test grün.
   je 38 vollständige Aufnahmeprüfungen auf rot und Hacktribe bestehen. Die Ersatzkarte erhält 2750 exakte Frames;
   der Vollkartenfall 896 Frames. Eine echte 4-GiB-Datei wurde nicht erzeugt. Die Folgedatei ist mit nativer FatFs und
   verkleinerter Segmentgrenze geprüft, die reale Grenzarithmetik getrennt. Gerätewerte und Langzeitabnahme bleiben offen.
+
+
+- **PLAY während der Aufnahme:** Beide Sampler lassen die Erfassung nach PLAY und geschlossener Ansicht weiterlaufen.
+  SHIFT+REC öffnet die Ansicht wieder, REC stoppt. Die zusätzliche native Prüfung erhält eine PCM-genaue WAV ohne
+  Lücke. PLAY ohne REC-Start legt weiterhin keine Datei an.
+- **Weitere Reihenfolge:** Phase 3 bleibt ohne angeforderte API-Erweiterung offen. Phase 4 wartet wie entschieden auf
+  Sample Swap in develop. Für Phase 5 ist die Verfügbarkeit eines blauen Testgeräts angefragt; davon abhängiger Code
+  beginnt noch nicht. Die Bedienungsdoku und mehrsprachigen Notizen aus 6.1 werden als Entwurf für den geprüften
+  Sampler-Stand vorbereitet. Es gibt keinen Versionssprung und keine Release-Freigabe.
+
+
+- **Doku für den Sampler-Stand:** Bedienung, Fehlermeldungen, Dateifortsetzung und offene Geräteabnahme stehen dauerhaft
+  in der Aufnahmeanleitung und Messdatei. Patcher-Doku und README verlinken sie; die 1.6-Notizen liegen als deutscher,
+  englischer und französischer Entwurf vor. Die Prüfung der Release-Notizen und die gezielten Dokumentationsprüfungen
+  bestehen. Die Plandateien bleiben für die noch offenen Aufgaben erhalten und müssen vor dem Merge entfernt werden.
 
 ## References
 

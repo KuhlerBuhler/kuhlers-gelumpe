@@ -19,6 +19,7 @@ gelesen), **hergeleitet**, **offen**.
 | [effekt-katalog.md](effekt-katalog.md) | Die Effekte und Modulationen im Katalog des Baukastens für Bass, Kick, Verzerrung und Mix, und was ein Effekt hier nicht kann |
 | [rettung.md](rettung.md) | Die Seite Blechy: der dokumentierte Weg zurück, Ordner je Firmware, das Stoppschild |
 | [patcher.md](patcher.md) | Die Firmware patchen: Patchformat, Haken, Regeln, Notschalter, BLECHTRIBE-Patchdatei ([English](patcher.en.md)) |
+| [native-aufnahme.md](native-aufnahme.md) | Native Aufnahme für 1.6: Bedienung, WAV-Dateien, Abbruchmeldungen und offene Geräteabnahme |
 | [emulator.md](emulator.md) | Der Emulator: Installation, Dienst, Karte und Flash, Boot, Prüfläufe |
 | [geraetetests/](geraetetests/README.md) | Anleitungen, um BLECHTRIBE und die Kartenfunktionen an einem eigenen Gerät zu testen |
 

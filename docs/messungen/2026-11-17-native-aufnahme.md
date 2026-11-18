@@ -361,3 +361,44 @@ wird hier nicht verwendet. Stattdessen werden vorhandene ARM-Metadaten gelesen.
 **Gemessen, Ausgangszustand:** `0xC018D000..0xC018D00F` ist vollständig `0xFFFFFFFF`, also noch kein Kontext des
 Spektrumdienstes. Der native Samplerzeiger aus `0xC0345A08` zeigt auf `0xC06C42B8`. Stereo- und Quellwahl dort bei
 `+0x704` und `+0x708` sind beide 0, also mono und AUDIO IN. Das bestätigt noch keinen DSP-Abgriff und keine Ringbewegung.
+
+## 11. Kartenzugriffe und Dateigrenzen
+
+**Im ARM-Emulator geprüft, nicht am Gerät:** Der Eingangsfilter läuft in CsTask, native Tastenhandler und der
+Rahmenhaken in UiTask. Der Aufnahmestart setzt eine Anfrage und sperrt damit neue UI-Kartenzugriffe. CommandTask
+wartet auf die nächste UI-Rahmengrenze; ein schon laufender Dateizugriff ist dann zurückgekehrt. Ein gezielter Fall
+unterbricht einen Plugin-Dateizugriff bei f_open und erhält trotzdem den exakt gespeicherten Wert, bevor die Aufnahme
+starten darf. Ein Stop kann die Wartephase ohne Datei und ohne Erfassung abbrechen.
+
+Originale Pattern-Exporte sind seriell: 253 beobachtete f_write-Aufrufe liefen in derselben CommandTask wie der
+Aufnahmehaken; die UI-Rahmen liefen in einer anderen Task. Gepufferte Plugin-Daten, Einstellungen und Custom-Export
+warten während der Aufnahme. Manuelle Import- und Exportaktionen prüfen die Sperre vor einer Teiländerung.
+**Offen:** Sample Swap ist noch nicht integriert und deshalb hier nicht geprüft.
+
+**Offline gelesen und im Emulator geprüft:** Der native f_close besitzt keine Tabelle geteilter Datei-Handles;
+sein erfolgreicher Abschluss setzt den Dateisystemzeiger im FIL auf null. Ein bereits ungültiges privates Objekt
+(FR_INVALID_OBJECT) oder eine nachweislich entfernte Karte gibt den privaten Kontext mit erhaltenem Fehler frei.
+Bei vorhandener Karte und weiterhin gültigem Objekt bleibt ein Abschlussfehler wiederholbar.
+
+Der native Entnahmefall zeigt Card error, beendet die Erfassung und gibt den Heap frei. Der zuletzt gesicherte
+WAV-Anfang bleibt lesbar. Nach Einsetzen einer Ersatzkarte nimmt ein erneuter REC-Druck 2750 exakte Frames auf.
+Der Vollkartenfall endet mit Card full und 896 exakten Frames in einer gültigen 4096-Byte-Datei; Capture und Datei
+sind freigegeben. Das isolierte Vollkartenabbild besitzt die üblichen BLECH-Ordner bereits vor dem Füllen, damit
+keine noch laufende Startmigration gleichzeitig mit dem isolierten Worker auf die Karte zugreift. Der produktive
+Aufnahmestart verwendet dafür die UI-Freigabe.
+
+Die maximale PCM-Länge pro Datei beträgt `0xFFFFFDFC` Byte, mit 512-Byte-Kopf also `0xFFFFFFFC` Byte.
+Der Worker teilt davor auf ganze Frames und setzt verbleibende Daten in der nächsten freien REC-Datei fort.
+Ein exaktes Ende erzeugt keine leere Folgedatei. Gezielte Fälle prüfen die reale 32-Bit-Arithmetik ohne 4-GiB-Belegung;
+der native FatFs-Fall verkleinert die Segmentgrenze auf 8 KiB und erhält zwei PCM-exakte Teile mit 8192 und 2412 Byte.
+Das ist kein Gerätetest einer echten 4-GiB-Datei. Die Anzeige nennt Datei und Dauer des aktuellen Teils.
+
+PLAY während einer laufenden Aufnahme schließt die Ansicht, lässt die Erfassung aber weiterlaufen. SHIFT+REC öffnet
+sie wieder, REC beendet die Aufnahme. Beide Sampler erhalten dabei eine PCM-exakte WAV ohne Lücke. Diese Bedienung
+ist im Emulator geprüft, ebenso PLAY ohne vorherigen REC-Start, das keine Aufnahme anlegt.
+
+Die gezielten Karten- und Aufnahmekernprüfungen bestehen mit 61 Fällen. Die vollständigen Sampler-Patchsets bestehen
+je 38 Aufnahmefälle; die zusätzlichen PLAY-Prüfungen laufen auf denselben Builds. Die Fälle liegen in
+[`tools/emu/recording_cases.py`](../../tools/emu/recording_cases.py), die Fehler- und Grenzarithmetik in
+[`tools/patch/test_recording_writer.py`](../../tools/patch/test_recording_writer.py) und
+[`tools/patch/test_recording_service.py`](../../tools/patch/test_recording_service.py).

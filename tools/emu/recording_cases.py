@@ -161,7 +161,7 @@ def wav_marker(content):
     return offset, associated[16:12 + size].split(b'\0', 1)[0]
 
 
-def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_settings=False, remove_card=False):
+def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_settings=False, remove_card=False, transport_play=False):
     site = 0xC006B694 - 0xC0000000
     if not has_hooks(payload) or struct.unpack_from('<I', payload, site)[0] >> 24 != 0xEA:
         return []
@@ -264,6 +264,15 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         dev.press(0, 0.01)
         dev.m.press(0x0A, False)
         dev.run(0.01)
+    elif transport_play:
+        dev.press(1, 0.01)
+        out.append(entry('play_keeps_recording', field('PHASE') == 1 and dsp.active and field('SETUP') == 0,
+                         f'PLAY during recording: phase {field("PHASE")}, capture {dsp.active}, setup {field("SETUP")}'))
+        dev.m.press(0x0A, True)
+        dev.run(0.01)
+        dev.press(0, 0.01)
+        dev.m.press(0x0A, False)
+        dev.run(0.01)
     else:
         dev.run(0.4 if expect_gap else 0.1)
     dev.press(0, 0.02)
@@ -314,6 +323,9 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
                          f'pending {field("DEFERRED")}, SD copies {len(saved)}, user flash unchanged {before_flash == user_flash(dev.m)}'))
         for result in out:
             result['id'] = result['id'].replace('native_recording:', 'native_recording:deferred_')
+    if transport_play:
+        for result in out:
+            result['id'] = result['id'].replace('native_recording:', 'native_recording:transport_')
     return out
 
 
@@ -494,7 +506,8 @@ def cases(payload, flash=None, png=None):
             + runtime_cases(payload, flash, png=png, expect_gap=True)
             + runtime_cases(payload, flash, defer_settings=True) + checkpoint_cases(payload, flash)
             + checkpoint_cases(payload, flash, fail_sync=True) + runtime_cases(payload, flash, remove_card=True)
-            + full_card_cases(payload, flash) + rollover_cases(payload, flash))
+            + full_card_cases(payload, flash) + rollover_cases(payload, flash)
+            + runtime_cases(payload, flash, transport_play=True))
 
 
 def cases_task():

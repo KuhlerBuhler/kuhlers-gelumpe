@@ -2,7 +2,7 @@
   "planId": "2026-11-17-native-aufnahme-1.6",
   "planPath": "docs/plaene/2026-11-17-native-aufnahme-1.6.md",
   "createdAt": "2026-11-17T10:28:13Z",
-  "updatedAt": "2026-11-18T11:29:02.038166+00:00",
+  "updatedAt": "2026-11-18T11:48:30.056864+00:00",
   "revision": 2,
   "supersedes": [],
   "absorbs": {},
@@ -249,12 +249,14 @@
         {
           "id": "3.1",
           "name": "`korg.audio.capture` bekommt die Quelle Master (neue Nummer am Listenende, API-Sprung), Spettro zeigt den Mix",
-          "status": "pending"
+          "status": "pending",
+          "note": "Optional plugin API extension was not requested. Existing capture apps remain unavailable during recording; no new API contract is introduced."
         },
         {
           "id": "3.2",
           "name": "Aufnahme-Status lesbar für Plugins (läuft, Zeit, Lücken), nur wenn Pascal will",
-          "status": "pending"
+          "status": "pending",
+          "note": "Optional plugin API extension was not requested. Existing capture apps remain unavailable during recording; no new API contract is introduced."
         }
       ],
       "criteria": [
@@ -276,22 +278,26 @@
         {
           "id": "4.1",
           "name": "DSP-Patch: Player nach MFX und Röhrenkurve addieren; eigenes Aufnahme-Wort für Summe einschließlich Player und AUDIO IN THRU, ohne Metronom; Capture 0x37 darauf umstellen; bit-genau prüfen",
-          "status": "pending"
+          "status": "pending",
+          "note": "Explicitly later; Sample Swap PR166 remains open against develop. Player implementation does not start before that dependency is merged."
         },
         {
           "id": "4.2",
           "name": "ARM: WAV wählen (Dateibrowser im Firmware-Look), Format prüfen (48 kHz, 16 Bit, mono/stereo, Rest ablehnen), Ring per Host-Port füllen, Start/Stopp, Pegel",
-          "status": "pending"
+          "status": "pending",
+          "note": "Explicitly later; Sample Swap PR166 remains open against develop. Player implementation does not start before that dependency is merged."
         },
         {
           "id": "4.3",
           "name": "Start mit PLAY koppeln (optional), Anzeige Zeit/Rest",
-          "status": "pending"
+          "status": "pending",
+          "note": "Explicitly later; Sample Swap PR166 remains open against develop. Player implementation does not start before that dependency is merged."
         },
         {
           "id": "4.4",
           "name": "Emulatorfall: WAV auf der Karte, Ausgang am DSP-Modell gleich der Datei",
-          "status": "pending"
+          "status": "pending",
+          "note": "Explicitly later; Sample Swap PR166 remains open against develop. Player implementation does not start before that dependency is merged."
         }
       ],
       "criteria": [
@@ -321,17 +327,20 @@
         {
           "id": "5.1",
           "name": "Start über eigenen ARM-Code (Postfach `0x37` auf blau), mono über `0xFF802818`",
-          "status": "pending"
+          "status": "pending",
+          "note": "The plan requires a blue-device tester. Tester availability was requested asynchronously; no dependent blue recording implementation starts before confirmation. Only the isolated file writer/f_sync foundation is verified."
         },
         {
           "id": "5.2",
           "name": "Stereo auf blau entfällt (mono reicht, Pascal 17.11.); Wiedergabe über P2-Patch fürs blaue Programm",
-          "status": "pending"
+          "status": "pending",
+          "note": "The plan requires a blue-device tester. Tester availability was requested asynchronously; no dependent blue recording implementation starts before confirmation. Only the isolated file writer/f_sync foundation is verified."
         },
         {
           "id": "5.3",
           "name": "Fälle auf blau, Gerätetest durch Tester",
-          "status": "pending"
+          "status": "pending",
+          "note": "The plan requires a blue-device tester. Tester availability was requested asynchronously; no dependent blue recording implementation starts before confirmation. Only the isolated file writer/f_sync foundation is verified."
         }
       ],
       "criteria": [
@@ -348,12 +357,14 @@
     {
       "id": "phase-6",
       "name": "Phase 6: Doku und Release",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "6.1",
           "name": "Patcher-Doku, Plugin-Doku DE/EN (falls Phase 3), README-Zeile, 1.6-Notes DE/EN/FR",
-          "status": "pending"
+          "status": "passed",
+          "note": "German sampler user guide, German/English Patcher docs and README links added. Draft1.6 release notes supplied in German/English and French; release-note validation and Docs/Scope17 checks pass. No plugin API was added, so its conditional docs do not apply. No version bump/publication. Device acceptance, final ring choice, Sample Swap integration and blue tester-dependent implementation remain open.",
+          "verifiedAt": "2026-11-18T11:48:30.056864+00:00"
         }
       ],
       "criteria": [
