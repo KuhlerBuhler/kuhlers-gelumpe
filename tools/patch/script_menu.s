@@ -53,6 +53,10 @@
 .equ FLAGS2_GLIDE_SWITCH, 8    ; GLIDE SWITCH on (FEATURES, script_glide.s)
 .equ FLAGS2_GLIDE, 12
 .equ FLAGS2_BATT_OFF, 16       ; BATTERY % off (DISPLAY, script_battery.s); clear is on, the default, so a file with the default stays version 3
+.equ NR_DEFER_SETTINGS, 1
+.equ NR_DEFER_CUSTOM, 2
+.equ M_STATUS_RECORDING, 0x58
+.equ M_STATUS_CARD_BUSY, 0x59
 .equ FLAGS2_NATIVE_RECORDING, 32
 .equ FLAGS2_KNOWN, 63          ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
@@ -363,6 +367,8 @@ menu_card_watch:
     ldr r0, [r0]
     tst r0, #SD_DETECT
     bne card_watch_gone
+    bl nr_card_busy
+    bne card_watch_out
     ldr r0, [r4, #M_CARD]
     cmp r0, #CARD_DONE
     beq card_watch_locked
@@ -968,6 +974,10 @@ menu_settings_crc:
     mov r0, #2
     b menu_settings_write
 menu_settings_save:
+    push {lr}
+    bl nr_card_busy
+    pop {lr}
+    bne menu_settings_save_card
     ldr r0, =SD_INPUT           ; no card: the flash takes them (M_STATUS 0x45 written, 0x46 not), unless they came from a card (FL_HOLD),
     ldr r0, [r0]                ; then the card's error stays, only MENU on the question SAVE TO FLASH? takes them
     tst r0, #SD_DETECT
@@ -990,6 +1000,20 @@ menu_settings_save_card:
 menu_settings_write:
     push {r4-r11, lr}
     mov r11, r0
+    cmp r11, #2
+    bhs menu_settings_build
+    bl nr_card_busy
+    beq menu_settings_build
+    cmp r11, #1
+    moveq r0, #NR_DEFER_CUSTOM
+    movne r0, #NR_DEFER_SETTINGS
+    bl nr_defer
+    ldr r1, =MENU_STATE
+    mov r0, #M_STATUS_RECORDING
+    str r0, [r1, #M_STATUS]
+    mov r0, #0
+    pop {r4-r11, pc}
+menu_settings_build:
     cmp r11, #2
     blne menu_off_sync
     ldr r4, =MENU_STATE
@@ -4051,6 +4075,12 @@ menu_text_done:
 menu_text_status:
 menu_text_status_value:
     add r0, r5, #M_VALUE
+    cmp r1, #M_STATUS_CARD_BUSY
+    ldreq r1, =str_record_busy
+    beq menu_text_status_go
+    cmp r1, #M_STATUS_RECORDING
+    ldreq r1, =str_record_wait
+    beq menu_text_status_go
     cmp r1, #1
     ldreq r1, =str_saved
     beq menu_text_status_go
@@ -5019,6 +5049,10 @@ menu_delete:
 ; ACTIVE OFF), its block is marked in RAM so the lists and EXPORT leave it out, and e2sPlugin.all is written again without it, also
 ; when none is left; the block stays in the pool until the next start. Clobbers r0 to r3 and r12.
 menu_drop:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4, r5, lr}
     mov r5, r1
     ldr r1, [r0, #SCRIPT_ENTRY_STATE]
@@ -5043,6 +5077,10 @@ menu_drop:
 ; ACTIVE turned up on a plugin that is not loaded: loads and starts it from its file (menu_load_psel), then writes e2sPlugin.all with
 ; it, so it is on again over a restart, the way ACTIVE OFF took it out. M_STATUS: 0, or what went wrong. Clobbers r0 to r3 and r12.
 menu_pon:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4, r5, r6, lr}
     ldr r4, =MENU_STATE
     ldr r5, [r4, #M_NSCRIPTS]
@@ -5063,6 +5101,10 @@ menu_pon:
 ; OFF and the dial up loads it again. A plugin without a file (only in e2sPlugin.all) would be gone for good, so it is only switched
 ; off; the settings keep it off over a restart (menu_off_sync). M_STATUS: 0, or the error of the write. Clobbers r0 to r3 and r12.
 menu_poff:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r8, lr}
     ldr r4, =MENU_STATE
     mov r6, r0
@@ -5112,6 +5154,10 @@ menu_to_manage:
 ; stays (the blue Electribe 2's FatFs has no f_unlink), 0x57 the folder changed since the list was read, 0x20 + the FatFs code when the
 ; card refuses; when e2sPlugin.all could not be written, that error and the file stays. Clobbers r0 to r3 and r12.
 menu_remove:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r6, lr}
     ldr r4, =MENU_STATE
     ldrb r0, [r4, #M_PSEL]
@@ -5190,6 +5236,10 @@ menu_recount_end:
 ; r0 = 1 writes the file also with no block (DELETE PLUGIN of the last one), 0 refuses that (EXPORT).
 ; Sets M_STATUS: 2 written, 0x30 nothing loaded, 0x20 + code of the failing FatFs call otherwise.
 menu_export:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r11, lr}
     mov r11, r0
     ldr r4, =MENU_STATE
@@ -5315,6 +5365,10 @@ menu_export_end:
 ; places among the names menu_dir_next passes to LIST_ORD, up to LIST_MAX files. The file names are not kept: menu_find_listed reads
 ; the folder again to the place. A folder with more plugin files than that sets LIST_MORE.
 menu_list:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r6, lr}
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
@@ -5389,6 +5443,11 @@ import_prefix:
 
 ; r0 = a folder -> r0 = the FatFs result of opening it at LIST_DIR, long names into LIST_LFN. Clobbers r1 to r3 and r12.
 menu_dir_open:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    movne r0, #0x39
+    bxne lr
     push {lr}
     ldr r1, =LIST_INFO
     ldr r2, =LIST_LFN
@@ -5657,6 +5716,10 @@ menu_find_listed_out:
 ; Sets M_STATUS: 0 loaded, 0x31 nothing to import, 0x32 scripts are off, 0x33 not a script file, 0x34 rejected,
 ; 0x35 name already loaded, 0x36 memory full, 0x37 loaded but no app place left (korg.app sets it), 0x20 + code of the failing FatFs call.
 menu_import:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r11, lr}
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
@@ -5797,6 +5860,11 @@ menu_import_status:
 ; r1 = the name of a file in KORG/blechtribe/Plugin -> r0 = the FatFs result of opening it for reading, at CARD_FIL.
 ; Clobbers r0 to r3 and r12.
 menu_open_listed:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    movne r0, #0x39
+    bxne lr
     push {r4, lr}
     mov r4, r1
     ldr r0, =LIST_PATH
@@ -6045,6 +6113,10 @@ menu_load_psel:
 ; The page DESCRIPTION of the plugin SELECT PLUGIN chose: its file (a plugin that is only in e2sPlugin.all has none, its description
 ; is empty) is read by menu_desc_open. Clobbers r0 to r3 and r12.
 menu_desc_load:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4, lr}
     ldr r4, =MENU_STATE
     ldrb r0, [r4, #M_PSEL]
@@ -6784,6 +6856,8 @@ menu_value_flag2:
 ; LOADING ANIM steps CARD, BLECHY, OFF with the dial and stops at the ends; ANIM LOOP is ON up, OFF down. A write that fails
 ; shows FatFs's code as the other card pages do (0x20 + code) and keeps the value as it was.
 menu_value_anim:
+    bl nr_card_action
+    bne menu_value_done
     mov r3, r0
     ldr r12, =MEDIA_GET
     blx r12
@@ -7065,6 +7139,8 @@ menu_keys_group:
     bl menu_go_in
     pop {r4, r5, r6, pc}
 menu_keys_plugins:              ; in the group PLUGINS (level 2) as menu_go_in goes in, then as ENTER on MANAGE PLUGINS
+    bl nr_card_action
+    bne menu_keys_done
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_PAGE]
     str r3, [r2, #M_TOP]
@@ -7091,6 +7167,8 @@ menu_keys_pedit:
     cmp r6, #0x09
     bne menu_keys_save
 menu_keys_pedit_go:
+    bl nr_card_action
+    bne menu_keys_done
     bl menu_list
     ldr r2, =MENU_STATE
     mov r0, #0
@@ -7141,6 +7219,8 @@ menu_keys_export_fx:
     b menu_keys_done
 menu_keys_splash_import:
     cmp r6, #0x09
+    bne menu_keys_done
+    bl nr_card_action
     bne menu_keys_done
     ldr r0, =MENU_STATE
     ldr r0, [r0, #M_SPLASH_SEL]
@@ -7414,6 +7494,10 @@ str_on_restart:
     .asciz "ON, RESTART"
 str_off_restart:
     .asciz "OFF, RESTART"
+str_record_wait:
+    .asciz "after recording"
+str_record_busy:
+    .asciz "recording"
 str_saved:
     .asciz "saved"
 str_flash_saved:

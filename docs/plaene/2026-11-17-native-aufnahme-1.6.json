@@ -2,7 +2,7 @@
   "planId": "2026-11-17-native-aufnahme-1.6",
   "planPath": "docs/plaene/2026-11-17-native-aufnahme-1.6.md",
   "createdAt": "2026-11-17T10:28:13Z",
-  "updatedAt": "2026-11-18T01:15:49.480668+00:00",
+  "updatedAt": "2026-11-18T10:41:50.916459+00:00",
   "revision": 2,
   "supersedes": [],
   "absorbs": {},
@@ -17,7 +17,7 @@
           "name": "Nur lesend: während RESAMPLING die Zustandswörter `0xFF9031F8..0xFF90320C` lesen (Quelle = Master-Wort?), Ringzeiger `0xFF9031D8` bei laufendem Spettro lesen",
           "status": "in_progress",
           "owner": "Pascal",
-          "note": "Nov18: reached the device through ssh linux, USB SOUND, channel10 using BLECH READ0x61 only. Native source0/stereo0 read; spectrum service still uninitialized. Awaiting manual Spettro opening for its ARM-cached capture metadata. No DSP probe via EXEC is permitted."
+          "note": "Nov18 READ baseline through ssh linux, USB SOUND, channel10. Spectrum service uninitialized; Spettro is not installed on the device. Prepared a tested catalog plugin outside the repository; owner explicitly deferred installation and device measurements. No writes or device EXEC sent."
         },
         {
           "id": "0.2",
@@ -184,7 +184,28 @@
         {
           "id": "2.3",
           "name": "Andere Kartenschreiber (Einstellungen, Patterns, Plugins, Sample Swap) während der Aufnahme: warten lassen oder seriell, mit Fall",
-          "status": "pending"
+          "status": "in_progress",
+          "note": "UI writes/readers are gated; start waits for a UiTask boundary, including a preemption case during FS_OPEN. Thirty focused tests and native deferred WRITE cases pass on both sampler builds. Native pattern writes share CommandTask (253 FS_WRITE hits, same task as recorder hook). Sample Swap #166 is still open and cannot yet be integrated or verified."
+        },
+        {
+          "id": "2.3a",
+          "name": "UI-Kartenzugriffe sperren, gepufferte Änderungen nachholen und Start an UI-Grenze freigeben",
+          "status": "passed",
+          "verifiedAt": "2026-11-18T10:41:50.916459+00:00",
+          "note": "Thirty focused cases; complete sampler patch sets each pass 26 recording checks. Native WRITE queues settings without flash fallback; exact WAV PCM; input/frame task identity traced."
+        },
+        {
+          "id": "2.3b",
+          "name": "Native Pattern-Schreiber und Aufnahme in derselben CommandTask nachweisen",
+          "status": "passed",
+          "verifiedAt": "2026-11-18T10:41:50.916459+00:00",
+          "note": "Targeted native export and export-all cases pass. 253 FS_WRITE calls and 3034 recorder command-loop hits execute only task5; UI frame task4 is separate."
+        },
+        {
+          "id": "2.3c",
+          "name": "Sample-Swap-Kartenzugriffe nach Integration von #166 prüfen",
+          "status": "pending",
+          "note": "PR166 is still open against develop. No firmware work on that parallel branch; integration remains pending."
         },
         {
           "id": "2.4",

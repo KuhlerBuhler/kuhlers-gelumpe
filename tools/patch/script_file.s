@@ -21,6 +21,8 @@ script_file_frame_glue:
     add r4, r4, r3, lsr #14
     mov r8, r2
     mvn r9, #0
+    bl nr_card_busy
+    bne file_return
     ldr r3, =SCREEN_MANAGER
     ldr r3, [r3]
     cmp r3, #0

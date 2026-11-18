@@ -59,6 +59,7 @@ class Runtime(Recorder):
             self.ctx = old
 
     def step(self):
+        self.call('nr_ui_ack')
         return self.call('nr_service')
 
     def close(self):
@@ -72,6 +73,27 @@ class Runtime(Recorder):
 
 @unittest.skipUnless(UNICORN, 'Unicorn is required for the recording runtime')
 class RecordingRuntimeTests(unittest.TestCase):
+    def test_start_waits_for_ui_card_quiescence_and_stop_can_cancel_the_wait(self):
+        m = Runtime()
+        m.post(1)
+        for _ in range(3):
+            m.call('nr_service')
+        self.assertEqual(m.public('NR_REQUEST'), 1)
+        self.assertFalse(m.heap)
+        self.assertFalse(m.events)
+        m.post(0)
+        m.call('nr_service')
+        self.assertEqual(m.call('nr_busy'), 0)
+        self.assertFalse(m.heap)
+        m.post(1)
+        self.assertEqual(m.public('NR_UI_READY'), 0)
+        m.call('nr_service')
+        self.assertFalse(m.heap)
+        m.call('nr_ui_ack')
+        m.call('nr_service')
+        self.assertEqual(m.public('NR_PHASE'), 1)
+        m.close()
+
     def test_disabled_feature_is_inert_and_commands_do_no_io(self):
         m = Runtime()
         m.enabled(False)

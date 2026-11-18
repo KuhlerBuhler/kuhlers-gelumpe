@@ -73,7 +73,7 @@ CARD_CLOCK_END = CARD_CLOCK + 4  # is the whole allowance used, the first frame 
 BATT = CARD_CLOCK_END            # BATTERY % (script_battery.s:BP_*): the smoothed reading, its tick, the percent shown and drawn,
 BATT_END = BATT + 28             # whether a reading is held, the card symbol's columns and card flag last drawn; FF at power-on is no reading yet
 NATIVE_RECORDING = BATT_END
-NATIVE_RECORDING_END = NATIVE_RECORDING + 64
+NATIVE_RECORDING_END = NATIVE_RECORDING + 72
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 RUNTIME = 0xC01AE000
@@ -455,6 +455,7 @@ class BuiltHooks:
             ('load_idle_hook','load_meter_frame','Die zwei Haken der Lastanzeige (Leerlaufschleife vor wfi, IRQ-Eingang) laufen vom ersten IRQ an: sie merken sich nur Timer3 und zählen den Schlaf, gezeichnet wird erst im Rahmenhaken mit dem Schalter.'),
             ('rec_writer_open','nr_runtime_end','Der native Aufnahmedienst prüft seinen Schalter in CommandTask, besitzt Ring und Datei und veröffentlicht nur Zustand und Zähler.'),
             ('nr_setup_enter','nr_ui_end','Die native Aufnahmebedienung prüft Quelle und Aufnahmestatus; ohne Schalter läuft die ursprüngliche Sampling-Ansicht weiter.'),
+            ('nr_defer','nr_card_code_end','Der UI-Rahmen hält SD-Speicherwünsche bis zum Aufnahmeabschluss zurück; ein wartender Kartenwunsch bleibt ein Kartenwunsch.'),
             ('nr_frame','nr_frame_end','Der Aufnahmezustand hält das Gerät während des Starts, der Aufnahme und des Abschlusses wach.'),
             ('audio_command_hook','audio_columns','Der Haken an CommandTask ruft erst den ursprünglichen Befehlshandler und dann den Dienst von korg.audio; ohne Anfrage eines Plugins kehrt der Dienst ohne Firmware-Aufruf zurück.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE, Seitenzähler und der Bildschirmwechsel (AUTO SAVE) laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
@@ -629,7 +630,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
              'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_media.s','script_calibrate.s','script_egg.s','script_load_meter.s','script_idle.s','script_glide.s','script_battery.s']
     files.append('fx_card.s')
     if build != 'synth':
-        files += ['script_sample.s','script_audio_service.s','script_patterns.s','recording_ui.s']
+        files += ['script_sample.s','script_audio_service.s','script_patterns.s','recording_ui.s','recording_card.s']
     else:
         files += ['script_sample_none.s','script_audio_service_none.s','recording_none.s']
     files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_timer.s','script_led.s','script_motion.s','script_midi.s','script_audio.s','script_data.s']

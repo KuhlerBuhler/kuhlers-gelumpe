@@ -559,6 +559,7 @@ script_frame_run:
     push {r4-r11, lr}
     sub sp, sp, #4
     mov r4, r0
+    bl nr_frame
     bl migrate_frame
     mov r7, #0
     mov r8, #ERR_OK
@@ -599,7 +600,6 @@ frame_gate_open:
     bl remote_tick
     bl script_press_key_tick
     bl load_meter_frame          ; LOAD METER: the reading and the digits (script_load_meter.s)
-    bl nr_frame
     bl idle_frame                ; IDLE POWER SAVE: the stage, the light and the LEDs (script_idle.s)
     bl glide_frame               ; BPM GLIDE: GLIDE CHAIN and GLIDE SWITCH (script_glide.s)
     bl battery_frame             ; BATTERY %: the percent next to the load meter (script_battery.s)
@@ -847,12 +847,35 @@ script_frame_return_end:
 
 nr_frame:
     push {r4, lr}
+    bl nr_ui_ack
     bl nr_busy
     cmp r0, #0
-    beq nr_frame_done
+    beq nr_frame_idle
     bl testmode_keep_awake
     bl nr_close_capture_app
+    b nr_frame_done
+nr_frame_idle:
+    bl nr_card_flush
 nr_frame_done:
     pop {r4, pc}
+.pool
+; Preserves API arguments; NE means the recording worker still owns card resources.
+nr_card_busy:
+    push {r0-r3, r4, lr}
+    bl nr_busy
+    cmp r0, #0
+    pop {r0-r3, r4, lr}
+    bx lr
+
+; Manual card actions leave their arguments and RAM state intact while busy.
+nr_card_action:
+    push {lr}
+    bl nr_card_busy
+    pushne {r0, r1}
+    ldrne r1, =MENU_STATE
+    movne r0, #M_STATUS_CARD_BUSY
+    strne r0, [r1, #M_STATUS]
+    popne {r0, r1}
+    pop {pc}
 .pool
 nr_frame_end:

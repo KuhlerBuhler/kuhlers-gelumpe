@@ -5,7 +5,8 @@ from . import recording_service
 
 PUBLIC_FIELDS = dict(CONTEXT=4, REQUEST=8, PHASE=12, ERROR=16, BYTES=20,
                      DROPPED=24, NUMBER=28, START=32, ELAPSED=36,
-                     SELECTED=40, HELD=44, SETUP=48, CAPACITY=52, GAPS=56)
+                     SELECTED=40, HELD=44, SETUP=48, CAPACITY=52, GAPS=56, DEFERRED=60,
+                     UI_READY=64)
 
 
 def source(build='hacktribe'):

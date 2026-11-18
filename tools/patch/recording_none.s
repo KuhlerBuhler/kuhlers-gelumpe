@@ -8,3 +8,8 @@ nr_app_allowed:
     bx lr
 nr_close_capture_app:
     bx lr
+
+nr_defer:
+nr_card_flush:
+nr_ui_ack:
+    bx lr

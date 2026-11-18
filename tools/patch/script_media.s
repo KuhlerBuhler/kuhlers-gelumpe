@@ -41,6 +41,10 @@ media_reversed:
 
 ; -> EQ when the main screen is up (the firmware may use the card elsewhere), as script_file_frame_glue checks. Clobbers r12.
 media_screen:
+    push {r4, lr}
+    bl nr_card_busy
+    pop {r4, lr}
+    bxne lr
     ldr r12, =SCREEN_MANAGER
     ldr r12, [r12]
     cmp r12, #0

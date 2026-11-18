@@ -161,7 +161,7 @@ def wav_marker(content):
     return offset, associated[16:12 + size].split(b'\0', 1)[0]
 
 
-def runtime_cases(payload, flash=None, png=None, expect_gap=False):
+def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_settings=False):
     site = 0xC006B694 - 0xC0000000
     if not has_hooks(payload) or struct.unpack_from('<I', payload, site)[0] >> 24 != 0xEA:
         return []
@@ -196,7 +196,26 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False):
     dev.press(0, 0.01)
     started = field('PHASE') == 1 and field('CONTEXT') != 0
     capacity = field('CAPACITY')
-    dev.run(0.4 if expect_gap else 0.1)
+    if defer_settings:
+        from splash_cases import SWITCH_SCREEN
+        import menu_cases as mc
+        dev.press('exit', 0.01)
+        dev.m.uc.mem_write(script_hooks.MENU_STATE + mc.S_LEVEL, struct.pack('<II', 2, mc.GROUP_FEATURES))
+        dev.m.uc.mem_write(script_hooks.MENU_STATE + mc.S_ENTER, bytes(4))
+        dev.call(SWITCH_SCREEN, 45, 0)
+        dev.run(0.01)
+        dev.press(0x0E, 0.01)
+        untouched = not mc.settings_raw(medium.data)
+        out.append(entry('settings_wait_for_recording', field('DEFERRED') == 1 and untouched and field('PHASE') == 1,
+                         f'WRITE: pending {field("DEFERRED")}, no settings file {untouched}, phase {field("PHASE")}, screen {dev.screen()}, texts {mc.texts_of(dev)}'))
+        dev.press('exit', 0.01)
+        dev.m.press(0x0A, True)
+        dev.run(0.01)
+        dev.press(0, 0.01)
+        dev.m.press(0x0A, False)
+        dev.run(0.01)
+    else:
+        dev.run(0.4 if expect_gap else 0.1)
     dev.press(0, 0.02)
     for _ in range(64):
         if field('PHASE') == 0:
@@ -236,11 +255,22 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False):
                          'no gap counter or marker on a complete take'))
     dev.press('exit', 0.03)
     out.append(entry('native_gap_setup_closed' if expect_gap else 'native_setup_closed', field('SETUP') == 0, 'EXIT ends the setup lifetime without retaining its view'))
+    if defer_settings:
+        dev.run(0.2)
+        records = mc.settings_raw(medium.data)
+        saved = [r for r in records.values() if len(r) >= 24 and r[:4] == b'GSET']
+        out.append(entry('settings_saved_after_release', field('DEFERRED') == 0 and len(saved) == 1 and saved[0][7] & 32
+                         and before_flash == user_flash(dev.m),
+                         f'pending {field("DEFERRED")}, SD copies {len(saved)}, user flash unchanged {before_flash == user_flash(dev.m)}'))
+        for result in out:
+            result['id'] = result['id'].replace('native_recording:', 'native_recording:deferred_')
     return out
 
 
 def cases(payload, flash=None, png=None):
-    return worker_cases(payload, flash) + runtime_cases(payload, flash) + runtime_cases(payload, flash, png=png, expect_gap=True)
+    return (worker_cases(payload, flash) + runtime_cases(payload, flash)
+            + runtime_cases(payload, flash, png=png, expect_gap=True)
+            + runtime_cases(payload, flash, defer_settings=True))
 
 
 def cases_task():

@@ -33,7 +33,8 @@ class RecordingHookTests(unittest.TestCase):
         m.write(b.symbols['OS_TICKS'], 123456)
         m.write(b.symbols['APO_TIMER'], 0)
         m.call('nr_post', 1)
-        m.call('nr_frame')
+        m.write(m.runtime + b.symbols['RT_ARMED'], 0)
+        m.call('script_frame_run', m.runtime)
         self.assertEqual(m.read(IDLE + b.symbols['IS_LAST']), 123456)
         m.call('nr_post', 0)
         m.call('nr_service')
@@ -185,3 +186,11 @@ class RecordingHookTests(unittest.TestCase):
         title, value = m.input + 0x6000, m.input + 0x6040
         m.call('nr_format', title, value)
         self.assertEqual(bytes(m.uc.mem_read(title, 32)).split(b'\0', 1)[0], b'Capture gap #1')
+
+    def test_emulator_menu_model_includes_the_sampler_recording_feature(self):
+        from tools.emu import menu_cases as menu
+        from unittest.mock import patch
+        with patch.object(menu, 'LAST_PAGE', False), patch.object(menu, 'STEREO_PAGE', False), patch.object(menu, 'NATIVE_RECORDING_PAGE', True, create=True):
+            self.assertEqual(menu.feature_pages()[-3:], ['GLIDE CHAIN', 'GLIDE SWITCH', 'NATIVE RECORDING'])
+        with patch.object(menu, 'NATIVE_RECORDING_PAGE', False, create=True):
+            self.assertNotIn('NATIVE RECORDING', menu.feature_pages())

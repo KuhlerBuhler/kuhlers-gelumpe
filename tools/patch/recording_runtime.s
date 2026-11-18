@@ -1,5 +1,5 @@
 .equ NR_MAGIC, 0x3152434E
-.equ NR_SIZE, 64
+.equ NR_SIZE, 72
 .equ NR_RING_BYTES, 2097152
 .equ NR_DISABLED, 32
 .equ NR_OOM, 33
@@ -27,6 +27,14 @@ nr_init_done:
     .word 0xE121F003                 ; msr cpsr_c, r3
     bx lr
 .pool
+
+; UiTask acknowledges only at a frame boundary, after its preceding card calls returned.
+nr_ui_ack:
+    push {lr}
+    bl nr_init
+    mov r1, #1
+    str r1, [r0, #NR_UI_READY]
+    pop {pc}
 
 nr_enabled:
     ldr r1, =MENU_STATE
@@ -77,6 +85,7 @@ nr_post_lock:
     cmp r0, #0
     movne r0, #RW_BAD_STATE
     bne nr_post_unlock
+    str r0, [r5, #NR_UI_READY]
     mov r0, #1
     str r0, [r5, #NR_REQUEST]
     mov r0, #0
@@ -125,6 +134,15 @@ nr_service_context:
     .word 0xE121F001                 ; msr cpsr_c, r1
     ldr r0, [r4, #NR_REQUEST]
 nr_service_claim_loaded:
+    cmp r0, #1
+    bne nr_service_claim
+    ldr r1, [r4, #NR_UI_READY]
+    cmp r1, #1
+    beq nr_service_claim
+    .word 0xE121F008                 ; msr cpsr_c, r8
+    mov r0, #0
+    b nr_service_return
+nr_service_claim:
     cmp r0, #1
     mov r0, #0
     str r0, [r4, #NR_REQUEST]

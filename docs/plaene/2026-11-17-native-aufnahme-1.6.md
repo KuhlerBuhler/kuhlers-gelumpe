@@ -60,6 +60,9 @@ Akzeptanz: Fall grün auf Hacktribe und rot; WAV öffnet in einem Audioprogramm;
 - [x] 2.1 Lückenzähler: Leser erkennt überholten DSP-Ring und ARM-Ring-Überlauf; Anzeige und Marker (cue-Chunk oder Logdatei), nie stilles Verschlucken
 - [x] 2.2 Ring dynamisch (Besitzer 17.11.): nur während der Aufnahme belegen, Größe nach Phase 0 (bis 2 MiB), mit dem Speicherplan von Sample Swap (#166) abstimmen
 - [ ] 2.3 Andere Kartenschreiber (Einstellungen, Patterns, Plugins, Sample Swap) während der Aufnahme: warten lassen oder seriell, mit Fall
+- [x] 2.3a UI-Kartenzugriffe sperren, gepufferte Änderungen nachholen und Start an UI-Grenze freigeben
+- [x] 2.3b Native Pattern-Schreiber und Aufnahme in derselben CommandTask nachweisen
+- [ ] 2.3c Sample-Swap-Kartenzugriffe nach Integration von #166 prüfen
 - [ ] 2.4 Stromausfall: Längen regelmäßig nachtragen oder Reparatur beim Start (Länge aus Dateigröße), mit Fall
 - [ ] 2.5 Karte voll, Karte gezogen, 4-GiB-Grenze: sauber beenden, ab 4 GiB neue Datei
 
@@ -193,6 +196,30 @@ Akzeptanz: Docs-Test grün.
 - **READ am Gerät:** Am 18.11. wurde über den Linux-Rechner der USB-SOUND-Port auf MIDI-Kanal 10 erreicht.
   Gesendet wurde ausschließlich BLECH READ 0x61. Die Ausgangswerte stehen in Abschnitt 10 der Messdatei;
   der DSP-Leser mit EXEC bleibt unbenutzt. Spettro muss für seinen bestehenden ARM-Zustand manuell geöffnet werden.
+
+
+- **Phase 2.3, Zwischenstand:** Gepufferte Plugin-Daten und SD-Einstellungen warten im RAM bis zum Aufnahmeabschluss.
+  Import, Export und Plugin-Verwaltung prüfen den Aufnahmezustand vor Dateizugriffen und Änderungen. Sieben gezielte
+  Sperrfälle bestehen. Ein vollständiger Hacktribe-Lauf bedient WRITE während der Aufnahme: der Wunsch wartet,
+  nach REC-Stopp entsteht eine gültige SD-Einstellungsdatei, die WAV bleibt PCM-genau und ohne Lücke. Die Reihenfolge
+  zwischen Eingabetask und UI-Kartenzugriffen wird vor Abschluss der Aufgabe gesondert geprüft.
+- **Gerät vertagt:** Spettro ist auf dem Gerät nicht installiert. Eine geprüfte Katalogdatei liegt außerhalb des
+  Repositorys bereit. Installation und weitere Gerätemessungen wurden auf später verschoben; die Verbindung bleibt
+  auf READ beschränkt.
+
+
+- **Phase 2.3, Task-Grenze:** Eingaben laufen in CsTask, der UI-Rahmen und native Tastenhandler in UiTask. Eine reine
+  Belegt-Prüfung reichte deshalb nicht. RECORD sperrt neue UI-Kartenzugriffe sofort; CommandTask wartet vor dem Start
+  auf die nächste UI-Rahmengrenze. Ein gezielter Fall unterbricht einen laufenden Plugin-Dateizugriff genau bei f_open:
+  die Aufnahme wartet, der gespeicherte Wert bleibt exakt. Stop kann die Wartephase ohne Datei oder Erfassung abbrechen.
+  Nachgeholtes SD-Speichern und Wachhalten hängen nicht vom scharfgeschalteten Plugin-Lauf ab. Der öffentliche Bereich
+  umfasst dafür 72 Byte und ist in allen drei Laufzeiten neu angemeldet.
+- **Phase 2.3, Patterns:** Einzel- und Gesamtexport bestehen im Emulator. 253 originale f_write-Aufrufe laufen ausschließlich
+  in derselben Task wie der Aufnahme-CommandTask-Haken, die UI-Rahmen getrennt davon. Sample Swap #166 ist weiter offen;
+  dessen Integration bleibt Teilaufgabe 2.3c. Es wurde kein Firmware-Zweig parallel verändert.
+- **Phase 2.4, f_sync bestätigt:** Der isolierte native Aufruf bei `0xC009E2C8` persistiert eine noch offene WAV samt
+  Verzeichnisgröße und 32 KiB exakten PCM-Daten im Emulator. Der Kopf trägt dabei weiterhin die alte Länge. Für einen
+  konsistenten Zwischenstand müssen zuerst PCM und Verzeichnis, dann der vergrößerte WAV-Kopf gesichert werden.
 
 ## References
 
