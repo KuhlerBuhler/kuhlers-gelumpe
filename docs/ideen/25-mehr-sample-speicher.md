@@ -56,8 +56,9 @@ Arbeitspuffers verwirft diesen Cache. Im Emulator geprüft, am Gerät offen; das
 
 Beim WAV-Import hängt der rote Sampler das Sample bei STOP an die laufende
 `e2sSample.all` an. Der gewählte Slot muss auf der Karte und im DSP frei sein.
-Nach dem Import ist sein Name verfügbar, die Audiodaten lädt der Swap bei
-der Auswahl. Details zur [Menü-Gegenprobe](../messungen/2026-11-10-sample-import-karte.md).
+Danach lädt Korgs eigener Import das Sample gleich in den DSP, es ist sofort
+spielbar. Ein Werks-Slot (unter 500) liegt nicht in der Datei, dorthin
+importiert nur Korgs Import, wie ohne Swap. Details zur [Menü-Gegenprobe](../messungen/2026-11-10-sample-import-karte.md).
 
 ## Sampleänderungen speichern
 
