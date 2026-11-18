@@ -242,6 +242,7 @@ batt_put_col:
     ldr r12, =MG_MARK
     blx r12
     pop {pc}
+batt_put_pool:
 .pool
 .align 4
 ; The card symbol: Korg's widget is the third of the status bar ([SCREEN_MANAGER] + 0x10, widgets at +0x34, +0x38, +0x3C), x at
