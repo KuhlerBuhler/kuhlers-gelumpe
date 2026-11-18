@@ -1,8 +1,8 @@
 ; BATTERY % (CUSTOMIZATION > DISPLAY): the battery's charge in steps of 10 percent on the main screen's top row, right before
 ; the battery symbol (page 0, columns 101 to 116, rows 1 to 7: hundreds, tens, ones and '%', each 3 columns and a blank one).
-; On the main screen the card symbol moves to 94 to 99 (card_place, card_frame) and LOAD METER sits at 86 to 93, in the same
-; places whether the percent is shown or not; every other screen keeps the card at Korg's 109
-; (docs/messungen/2026-11-16-batterie-prozent.md). Shown only on battery
+; While the percent is wanted (battery_model) the card symbol moves to 94 to 99 on the main screen (card_place, card_frame);
+; without it (mains, Ni-MH, the switch off) it goes back to Korg's 109, which every other screen keeps. LOAD METER sits at
+; 86 to 93 either way (docs/messungen/2026-11-16-batterie-prozent.md). Shown only on battery
 ; (POWER_MODEL +0x308 is 0) with Global BATTERY TYPE Alkali (byte 0x20 of the Global values is 1); on mains power and with
 ; Ni-MH nothing is drawn. On by default: the stored bit FLAGS2_BATT_OFF means off, so a file with the default stays version 3.
 ; The reading is the battery model's (BATTERY_MODEL +0x320, from panel message 6). Empty is the last byte of its threshold
@@ -280,26 +280,29 @@ card_widget_none:
 ; (not every screen clears the top row where the card was), and its byte to draw again, so the new screen draws it in its
 ; place. With the menu not armed nothing moves. Keeps r4 to r11.
 card_place:
-    push {r4, lr}
+    push {r4-r6, lr}
     mov r4, r0
     ldr r0, =MENU_STATE
     ldr r0, [r0, #M_ON]
     cmp r0, #1
-    popne {r4, pc}
+    popne {r4-r6, pc}
     bl card_widget
     cmp r0, #0
-    popeq {r4, pc}
+    popeq {r4-r6, pc}
+    mov r5, r0
     ldr r1, =BATT               ; the switch is posted, the screen manager shows the screen later: card_frame waits for it
     strb r4, [r1, #BP_TARGET]
     ldr r2, =LM_OS_TICKS
     ldr r2, [r2]
     str r2, [r1, #BP_SWITCH]
+    mov r0, #CARD_X_KORG
     cmp r4, #1
-    moveq r1, #CARD_X_MAIN
-    movne r1, #CARD_X_KORG
+    bleq card_main_x
+    mov r1, r0
+    mov r0, r5
     ldr r4, [r0, #4]
     cmp r4, r1
-    popeq {r4, pc}
+    popeq {r4-r6, pc}
     str r1, [r0, #4]
     mov r1, #1
     strb r1, [r0, #0x14]
@@ -308,7 +311,16 @@ card_place:
     strb r1, [r0]
     mov r0, r4
     bl card_clear
-    pop {r4, pc}
+    pop {r4-r6, pc}
+
+; -> r0 = the card's x on the main screen: 94 while the percent is wanted, else Korg's 109. Clobbers r1 to r3.
+card_main_x:
+    push {lr}
+    bl battery_model
+    cmp r0, #0
+    movne r0, #CARD_X_MAIN
+    moveq r0, #CARD_X_KORG
+    pop {pc}
 
 ; r0 = a column: the six columns of the card from there cleared in page 0, row 0 kept, and marked. Clobbers r0 to r3, r12.
 card_clear:
@@ -332,7 +344,7 @@ card_clear_col:
     blx r12
     pop {r4, pc}
 
-; Once a frame: on the main screen the card sits at 94; when its columns differ from what card_frame drew last (the main screen
+; Once a frame: on the main screen the card sits where card_main_x says; at 94, when its columns differ from what card_frame drew last (the main screen
 ; cleared them with its EDIT mark, or the card came or went) it is drawn again there, only with no window, app or question of
 ; ours over the screen. Any other screen gets Korg's 109 back (card_place does it before the screen is drawn; this is the
 ; fallback, as at the first start when the menu was armed behind the main screen). Keeps r4 to r11.
@@ -370,14 +382,28 @@ card_frame_screen:
     strb r2, [r4, #0x14]
     b card_frame_out
 card_frame_main:
+    bl card_main_x
     ldr r2, [r4, #4]
-    cmp r2, #CARD_X_KORG
-    bne card_frame_check
-    mov r2, #CARD_X_MAIN
-    str r2, [r4, #4]
+    cmp r2, r0
+    beq card_frame_same
+    str r0, [r4, #4]
+    cmp r0, #CARD_X_MAIN
+    bne card_frame_back
     mov r0, #CARD_X_KORG        ; the card drawn at 109 before the move
     bl card_clear
     b card_frame_draw_check
+card_frame_back:                ; the percent gone: Korg's widget draws the card at 109 again, ours at 94 cleared
+    mov r0, #1
+    strb r0, [r4, #0x14]
+    bl load_meter_shown
+    cmp r0, #0
+    beq card_frame_out          ; a window or app over the screen: the firmware draws the screen again when it goes
+    mov r0, #CARD_X_MAIN
+    bl card_clear
+    b card_frame_out
+card_frame_same:
+    cmp r0, #CARD_X_KORG
+    beq card_frame_out
 card_frame_check:
     ldrb r0, [r4, #0x14]
     cmp r0, #0
