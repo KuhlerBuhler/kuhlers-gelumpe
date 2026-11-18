@@ -57,8 +57,8 @@ Akzeptanz: Fall grün auf Hacktribe und rot; WAV öffnet in einem Audioprogramm;
 
 ## Phase 2: Lange Sets ohne Lücke (1 bis 2 Tage)
 
-- [ ] 2.1 Lückenzähler: Leser erkennt überholten DSP-Ring und ARM-Ring-Überlauf; Anzeige und Marker (cue-Chunk oder Logdatei), nie stilles Verschlucken
-- [ ] 2.2 Ring dynamisch (Besitzer 17.11.): nur während der Aufnahme belegen, Größe nach Phase 0 (bis 2 MiB), mit dem Speicherplan von Sample Swap (#166) abstimmen
+- [x] 2.1 Lückenzähler: Leser erkennt überholten DSP-Ring und ARM-Ring-Überlauf; Anzeige und Marker (cue-Chunk oder Logdatei), nie stilles Verschlucken
+- [x] 2.2 Ring dynamisch (Besitzer 17.11.): nur während der Aufnahme belegen, Größe nach Phase 0 (bis 2 MiB), mit dem Speicherplan von Sample Swap (#166) abstimmen
 - [ ] 2.3 Andere Kartenschreiber (Einstellungen, Patterns, Plugins, Sample Swap) während der Aufnahme: warten lassen oder seriell, mit Fall
 - [ ] 2.4 Stromausfall: Längen regelmäßig nachtragen oder Reparatur beim Start (Länge aus Dateigröße), mit Fall
 - [ ] 2.5 Karte voll, Karte gezogen, 4-GiB-Grenze: sauber beenden, ab 4 GiB neue Datei
@@ -176,6 +176,23 @@ Akzeptanz: Docs-Test grün.
   DSP-Prüfer kontrolliert beide Umleitungen, eigenen Ladeblock, Start-Header und Ladelänge, auch zusammen mit
   stage2-memory. Alle drei Laufzeitdateien wurden neu gebaut und bleiben nach dem aktuellen Repository-Verfahren
   erzeugte, ignorierte Dateien. Geräteabnahme und endgültige Ringwahl sind offen.
+
+- **Phase 2.1:** Ein terminaler Erfassungsfehler erhält einen benannten cue-Marker am Ende des gültigen PCM-Anfangs.
+  cue und LIST/adtl/labl ersetzen einen Teil des reservierten JUNK-Bereichs im Sektorkopf. PCM bleibt ab Byte 512;
+  es gibt keinen zusätzlichen Schreibzugriff während der Erfassung. Die Anzeige zeigt den Lückenzähler, auch nach
+  Abschluss; erst eine neue Aufnahme setzt ihn zurück. Die unbekannte Zahl verlorener Frames wird nicht erfunden.
+  Beide vollständigen Sampler-Patchsets bestehen jetzt je 17 Aufnahmeprüfungen einschließlich dauerhaftem WAV-Marker.
+- **Phase 2.2:** Der private Ring wird ausschließlich im allgemeinen Heap angefordert und nach Freigabe von Datei und
+  DSP-Erfassung gelöscht. Er verwendet keinen festen Bereich aus der Sample-Swap-Reservierung. Die vorläufige
+  Ringwahl und Gerätezeiten bleiben von 0.3/0.4 abhängig.
+
+- **Phase 2.4, Vorbefund:** Der native Abschluss bei `0xC009E3DC` ruft vor dem Invalidieren des FIL-Kontexts
+  `0xC009E2C8` auf. Diese Routine prüft den Kontext und schreibt geänderte Puffer und Verzeichniseinträge zurück.
+  Sie ist ein Kandidat für das bisher nicht benannte f_sync und wird vor einer Verwendung im Emulator geprüft.
+  Es gab keinen Aufruf dieser Routine am Gerät.
+- **READ am Gerät:** Am 18.11. wurde über den Linux-Rechner der USB-SOUND-Port auf MIDI-Kanal 10 erreicht.
+  Gesendet wurde ausschließlich BLECH READ 0x61. Die Ausgangswerte stehen in Abschnitt 10 der Messdatei;
+  der DSP-Leser mit EXEC bleibt unbenutzt. Spettro muss für seinen bestehenden ARM-Zustand manuell geöffnet werden.
 
 ## References
 

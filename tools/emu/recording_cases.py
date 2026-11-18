@@ -142,6 +142,25 @@ def worker_cases(payload, flash=None):
     return out
 
 
+
+def wav_marker(content):
+    chunks, cursor = {}, 12
+    while cursor + 8 <= len(content):
+        name, size = struct.unpack_from('<4sI', content, cursor)
+        if cursor + 8 + size > len(content):
+            raise ValueError('RIFF chunk exceeds the file')
+        chunks[name] = content[cursor + 8:cursor + 8 + size]
+        cursor += 8 + size + (size & 1)
+    cue, associated = chunks.get(b'cue '), chunks.get(b'LIST')
+    if cue is None or associated is None:
+        return None
+    count, ident, position, chunk, start, block, offset = struct.unpack('<III4sIII', cue)
+    label, size, label_id = struct.unpack_from('<4sII', associated, 4)
+    if count != 1 or chunk != b'data' or start or block or position != offset or associated[:4] != b'adtl' or label != b'labl' or ident != label_id:
+        raise ValueError('invalid WAV cue or associated label')
+    return offset, associated[16:12 + size].split(b'\0', 1)[0]
+
+
 def runtime_cases(payload, flash=None, png=None, expect_gap=False):
     site = 0xC006B694 - 0xC0000000
     if not has_hooks(payload) or struct.unpack_from('<I', payload, site)[0] >> 24 != 0xEA:
@@ -178,13 +197,14 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False):
     started = field('PHASE') == 1 and field('CONTEXT') != 0
     capacity = field('CAPACITY')
     dev.run(0.4 if expect_gap else 0.1)
-    if png:
-        dev.png(png)
     dev.press(0, 0.02)
     for _ in range(64):
         if field('PHASE') == 0:
             break
         dev.run(0.01)
+    if png:
+        dev.run(0.04)
+        dev.png(png)
     volume = fat32.Volume(bytes(medium.data))
     try:
         content = volume.read('/Recordings/REC0001.WAV')
@@ -207,13 +227,20 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False):
             entry('native_gap_no_flash_write' if expect_gap else 'native_no_flash_write', before_flash == user_flash(dev.m), 'native RECORD leaves user flash unchanged'),
             entry('native_gap_no_assert' if expect_gap else 'native_no_assert', not dev.m.asserts and not dsp.faults,
                   f'assertions {dev.m.asserts}, DSP faults {dsp.faults[:3]}')]
+    if expect_gap:
+        marker = wav_marker(content)
+        out.append(entry('native_gap_evidence', field('GAPS') == 1 and marker == (count, b'Capture gap'),
+                         f'gap counter {field("GAPS")}, WAV marker {marker}, PCM ends at frame {count}'))
+    else:
+        out.append(entry('native_clean_take_has_no_gap', field('GAPS') == 0 and wav_marker(content) is None,
+                         'no gap counter or marker on a complete take'))
     dev.press('exit', 0.03)
     out.append(entry('native_gap_setup_closed' if expect_gap else 'native_setup_closed', field('SETUP') == 0, 'EXIT ends the setup lifetime without retaining its view'))
     return out
 
 
-def cases(payload, flash=None):
-    return worker_cases(payload, flash) + runtime_cases(payload, flash) + runtime_cases(payload, flash, expect_gap=True)
+def cases(payload, flash=None, png=None):
+    return worker_cases(payload, flash) + runtime_cases(payload, flash) + runtime_cases(payload, flash, png=png, expect_gap=True)
 
 
 def cases_task():
@@ -229,7 +256,7 @@ def main():
     ap.add_argument('--png', type=Path)
     args = ap.parse_args()
     payload = args.vsb.read_bytes()[0x100:]
-    result = runtime_cases(payload, png=args.png, expect_gap=args.expect_gap) if args.runtime_only else cases(payload)
+    result = runtime_cases(payload, png=args.png, expect_gap=args.expect_gap) if args.runtime_only else cases(payload, png=args.png)
     print(json.dumps(result, indent=1))
     return 0 if result and all(e['ok'] for e in result) else 1
 

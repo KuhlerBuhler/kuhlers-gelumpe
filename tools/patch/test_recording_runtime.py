@@ -185,3 +185,23 @@ class RecordingRuntimeTests(unittest.TestCase):
         self.assertEqual(struct.unpack('<I', m.uc.mem_read(0x600000 + m.s('RC_CAPACITY'), 4))[0], 524288)
         m.close()
         self.assertEqual(m.heap[-1], ('free', 0x600000))
+
+    def test_gap_counter_is_published_once_and_resets_only_on_a_new_recording(self):
+        m = Runtime()
+        m.post(1)
+        m.step()
+        m.capture([0x12345678] * 1000, elapsed=20)
+        m.step()
+        m.tick(m.tick() + 100)
+        for _ in range(8):
+            m.step()
+            if not m.public('NR_PHASE'):
+                break
+        self.assertEqual(m.public('NR_GAPS'), 1)
+        for _ in range(3):
+            m.step()
+            self.assertEqual(m.public('NR_GAPS'), 1)
+        m.post(1)
+        m.step()
+        self.assertEqual(m.public('NR_GAPS'), 0)
+        m.close()

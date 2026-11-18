@@ -237,7 +237,16 @@ recorder_return:
 recorder_error:
     ldr r1, [r4, #RC_ERROR]
     cmp r1, #0
-    streq r0, [r4, #RC_ERROR]
+    bxne lr
+    str r0, [r4, #RC_ERROR]
+    mov r1, #0
+    cmp r0, #RC_READER_ERROR+RR_GAP
+    moveq r1, #1
+    cmp r0, #RC_READER_ERROR+RR_LOST
+    moveq r1, #2
+    cmp r0, #RC_READER_ERROR+RR_OVERFLOW
+    moveq r1, #3
+    str r1, [r4, #RW_MARKER]
     bx lr
 
 recorder_drop:

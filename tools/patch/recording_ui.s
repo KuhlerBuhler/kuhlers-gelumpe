@@ -337,6 +337,21 @@ nr_format_error:
 nr_format_copy:
     mov r0, r4
     bl nr_text_copy
+    ldr r1, [r6, #NR_ERROR]
+    cmp r1, #0
+    beq nr_format_done
+    ldr r1, [r6, #NR_GAPS]
+    cmp r1, #0
+    beq nr_format_done
+    mov r2, #32
+    strb r2, [r0], #1
+    mov r2, #35
+    strb r2, [r0], #1
+    mov r2, #1
+    bl nr_digit
+    mov r1, #0
+    strb r1, [r0]
+nr_format_done:
     pop {r4-r8, pc}
 .pool
 

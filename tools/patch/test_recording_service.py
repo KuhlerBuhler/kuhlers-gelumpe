@@ -262,6 +262,30 @@ class RecordingServiceTests(unittest.TestCase):
             self.assertEqual(m.field('RW_DATA_BYTES'), 4000)
         self.assertEqual(len(m.files), 2)
 
+    def test_terminal_capture_faults_write_a_labelled_cue_without_inventing_lost_pcm(self):
+        for failure, reason, label in (('late', 1, b'Capture gap'), ('foreign', 2, b'Capture lost')):
+            m = Recorder()
+            m.command(1)
+            m.pump()
+            m.capture([0x12345678] * 1000, elapsed=20)
+            m.pump()
+            if failure == 'late':
+                m.tick(m.tick() + 100)
+            else:
+                m.info(3, m.s('RR_INPUT'))
+            for _ in range(8):
+                m.pump()
+                if not m.field('RC_ACTIVE'):
+                    break
+            self.assertNotEqual(m.field('RC_ERROR'), 0)
+            self.assertEqual(m.field('RW_MARKER'), reason)
+            data = bytes(m.files['SD:Recordings/REC0001.WAV'])
+            self.assertEqual(data[12:16], b'cue ')
+            self.assertIn(label + b'\0', data[:512])
+            with wave.open(io.BytesIO(data)) as wav:
+                self.assertEqual(wav.readframes(wav.getnframes()), pcm([0x12345678] * wav.getnframes()))
+            self.assertEqual(struct.unpack_from('<I', data, 44)[0], (len(data) - 512) // 4)
+
 
 if __name__ == '__main__':
     unittest.main()

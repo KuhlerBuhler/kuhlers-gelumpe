@@ -1,8 +1,9 @@
-# Natives Aufnehmen und Abspielen: Master-Abgriff, Kartenrate, RAM, offline
+# Natives Aufnehmen und Abspielen: Master-Abgriff, Kartenrate, RAM
 
-Stand 17. November 2026. Grundlage für das Hauptfeature von 1.6: den laufenden Mix ohne PC und Interface auf die Karte
+Stand 18. November 2026, Erststand vom 17. November. Grundlage für das Hauptfeature von 1.6: den laufenden Mix ohne PC und Interface auf die Karte
 aufnehmen und eine WAV von der Karte abspielen. Gelesen im DSP-Programm (Hacktribe 2.02, rot und blau 2.02, ausgepackt mit
-[`dsp_extract.py`](../../tools/dsp/dsp_extract.py), Blackfin-binutils 2.42) und im ARM-Code (capstone). Ergänzt um die unten beschriebenen Simulatorprüfungen. Kein Gerätezugriff. Marker: **gelesen** (Code gelesen), **gemessen** (aus einer anderen Messung übernommen, mit Link),
+[`dsp_extract.py`](../../tools/dsp/dsp_extract.py), Blackfin-binutils 2.42) und im ARM-Code (capstone). Ergänzt um Simulatorprüfungen und die späteren READ-Messungen aus Abschnitt 10. Marker: **gelesen** (Code gelesen),
+**gemessen** (am Gerät oder aus einer verlinkten Messung),
 **hergeleitet**, **offen**.
 
 Rot und Hacktribe haben dasselbe DSP-Programm ([DSP-Modell](2026-11-12-dsp-modell.md)), alles zu Hacktribe gilt dort.
@@ -329,3 +330,24 @@ Sample-Swap-Bereich. Spettro und andere Apps mit Erfassung sind während der Auf
 enthalten exakt das künstliche Signal. Ein voller 64-KiB-Write im aktuellen Karten-/CPU-Modell überschreitet die vorläufige
 80-ms-Frist: sichtbarer Lückenstatus, gültiger WAV-Kopf und zusammenhängender PCM-Anfang. Dieser Fall belegt den Abbruch,
 nicht lückenlose lange Aufnahmen, keine SD-Schreibrate und keine längste Pause am Gerät. 0.3 und 0.4 bleiben offen.
+
+## 9. Dauerhafter Beleg eines Erfassungsfehlers
+
+**Im ARM-Emulator geprüft:** Ein terminaler Lückenfehler, verlorener Erfassungsbesitz oder ARM-Ring-Überlauf erhält einen
+cue-Marker am Ende des gültigen PCM-Anfangs. Die zugehörige LIST/adtl/labl-Beschriftung nennt den Grund. Ein Teil des
+JUNK-Bereichs im 512-Byte-Kopf wird dafür verwendet; PCM-Position, RIFF-Länge und Schreibanzahl bleiben gleich. Die Anzeige
+zeigt den Lückenzähler bis zum nächsten Start. Die unbekannte Zahl verlorener Frames wird nicht als Messwert ausgegeben.
+Beide vollständigen Sampler-Patchsets bestehen je 17 Aufnahmeprüfungen mit Dateimarker und sichtbarem Zähler.
+
+**Hergeleitet:** cue darf an beliebiger Stelle der WAV stehen; die Beschriftung verweist über ihre ID auf den cue-Punkt.
+Grundlage: [FADGI, Teil III, Seiten 22 und 23](https://www.digitizationguidelines.gov/audio-visual/documents/BWF_Embed_Guideline_v3_2021.pdf).
+
+## 10. Geräteprüfung am 18.11.2026, nur READ
+
+**Gemessen:** Verbindung über den Linux-Rechner und den USB-SOUND-Port, BLECH READ `0x61`, MIDI-Kanal 10.
+Es wurde kein WRITE, EXEC oder fernbedienter Tastendruck gesendet. Der bestehende DSP-Leser wäre EXEC-basiert und
+wird hier nicht verwendet. Stattdessen werden vorhandene ARM-Metadaten gelesen.
+
+**Gemessen, Ausgangszustand:** `0xC018D000..0xC018D00F` ist vollständig `0xFFFFFFFF`, also noch kein Kontext des
+Spektrumdienstes. Der native Samplerzeiger aus `0xC0345A08` zeigt auf `0xC06C42B8`. Stereo- und Quellwahl dort bei
+`+0x704` und `+0x708` sind beide 0, also mono und AUDIO IN. Das bestätigt noch keinen DSP-Abgriff und keine Ringbewegung.

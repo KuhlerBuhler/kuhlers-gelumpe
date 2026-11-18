@@ -175,3 +175,13 @@ class RecordingHookTests(unittest.TestCase):
         m.call('nr_source_hook', obj, 0xFFFFFFFF)
         self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_SELECTED']), 1)
         self.assertEqual(m.read(engine + 0x708), 1)
+
+    def test_terminal_gap_counter_is_visible_beside_the_failure_reason(self):
+        m, b = self.machine()
+        from tools.patch.script_hooks import NATIVE_RECORDING
+        m.call('nr_init')
+        m.write(NATIVE_RECORDING + b.symbols['NR_ERROR'], 20)
+        m.write(NATIVE_RECORDING + b.symbols['NR_GAPS'], 1)
+        title, value = m.input + 0x6000, m.input + 0x6040
+        m.call('nr_format', title, value)
+        self.assertEqual(bytes(m.uc.mem_read(title, 32)).split(b'\0', 1)[0], b'Capture gap #1')

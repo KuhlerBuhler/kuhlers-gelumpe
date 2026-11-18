@@ -260,6 +260,34 @@ class RecordingWriterTests(unittest.TestCase):
         self.assertEqual(m.events, before)
         self.assertEqual(m.field('RW_DATA_BYTES'), m.s('RW_MAX_DATA'))
 
+    def test_capture_failure_marker_keeps_pcm_sector_aligned_and_names_its_frame(self):
+        for channels, reason, label in ((1, 1, b'Capture gap'), (2, 2, b'Capture lost'), (2, 3, b'Ring overflow')):
+            m = Writer()
+            self.assertEqual(m.call('open', channels), 0)
+            frames = bytes(range(128))
+            self.assertEqual(m.append(frames), 0)
+            m.write(m.s('RW_MARKER'), reason)
+            self.assertEqual(m.call('finish'), 0)
+            data = bytes(m.files['SD:Recordings/REC0001.WAV'])
+            chunks, at = {}, 12
+            while at < len(data):
+                ident, size = struct.unpack_from('<4sI', data, at)
+                self.assertLessEqual(at + 8 + size, len(data))
+                chunks[ident] = data[at + 8:at + 8 + size]
+                at += 8 + size + (size & 1)
+            self.assertEqual(at, len(data))
+            count = len(frames) // (channels * 2)
+            self.assertEqual(struct.unpack('<III4sIII', chunks[b'cue ']), (1, 1, count, b'data', 0, 0, count))
+            associated = chunks[b'LIST']
+            self.assertEqual(associated[:4], b'adtl')
+            ident, size, cue_id = struct.unpack_from('<4sII', associated, 4)
+            self.assertEqual((ident, cue_id), (b'labl', 1))
+            self.assertEqual(associated[16:12 + size].split(b'\0', 1)[0], label)
+            self.assertEqual(data[512:], frames)
+            with wave.open(io.BytesIO(data)) as wav:
+                self.assertEqual(wav.readframes(count), frames)
+            self.assertEqual(len([e for e in m.events if e[0] == 'WRITE']), 3)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -135,6 +135,7 @@ nr_service_claim_loaded:
     str r0, [r4, #NR_ERROR]
     str r0, [r4, #NR_BYTES]
     str r0, [r4, #NR_DROPPED]
+    str r0, [r4, #NR_GAPS]
     str r0, [r4, #NR_ELAPSED]
     str r0, [r4, #NR_CAPACITY]
     mov r6, #NR_RING_BYTES
@@ -187,6 +188,10 @@ nr_service_pump:
     str r0, [r4, #NR_BYTES]
     ldr r0, [r5, #RC_DROPPED]
     str r0, [r4, #NR_DROPPED]
+    ldr r0, [r5, #RW_MARKER]
+    cmp r0, #0
+    movne r0, #1
+    str r0, [r4, #NR_GAPS]
     ldr r0, [r5, #RW_NUMBER]
     str r0, [r4, #NR_NUMBER]
     ldr r0, =OS_TICKS

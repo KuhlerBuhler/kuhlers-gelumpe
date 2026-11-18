@@ -6,6 +6,7 @@
 .equ RW_STATUS, 16
 .equ RW_FS_ERROR, 20
 .equ RW_WRITTEN, 24
+.equ RW_MARKER, 28
 .equ RW_FIL, 32
 .equ RW_FIL_SIZE, 0x240
 .equ RW_HEADER, RW_FIL + RW_FIL_SIZE
@@ -37,6 +38,7 @@ rec_writer_open:
     str r0, [r4, #RW_DATA_BYTES]
     str r0, [r4, #RW_STATUS]
     str r0, [r4, #RW_FS_ERROR]
+    str r0, [r4, #RW_MARKER]
     str r5, [r4, #RW_CHANNELS]
     ldr r0, =rec_directory
     ldr r12, =REC_FS_MKDIR
@@ -256,6 +258,51 @@ rec_header_zero:
     str r0, [r5, #504]
     ldr r0, [r4, #RW_DATA_BYTES]
     str r0, [r5, #508]
+    ldr r0, [r4, #RW_MARKER]
+    sub r0, r0, #1
+    cmp r0, #2
+    bhi rec_header_done
+    ldr r1, =rec_marker_labels
+    ldr r6, [r1, r0, lsl #2]
+    ldr r0, =0x20657563
+    str r0, [r5, #12]
+    mov r0, #28
+    str r0, [r5, #16]
+    mov r0, #1
+    str r0, [r5, #20]
+    str r0, [r5, #24]
+    ldr r1, [r4, #RW_DATA_BYTES]
+    ldr r2, [r4, #RW_CHANNELS]
+    cmp r2, #1
+    moveq r1, r1, lsr #1
+    movne r1, r1, lsr #2
+    str r1, [r5, #28]
+    str r1, [r5, #44]
+    ldr r0, =0x61746164
+    str r0, [r5, #32]
+    ldr r0, =0x5453494C
+    str r0, [r5, #48]
+    mov r0, #48
+    str r0, [r5, #52]
+    ldr r0, =0x6C746461
+    str r0, [r5, #56]
+    ldr r0, =0x6C62616C
+    str r0, [r5, #60]
+    mov r0, #36
+    str r0, [r5, #64]
+    mov r0, #1
+    str r0, [r5, #68]
+    add r1, r5, #72
+rec_header_label:
+    ldrb r0, [r6], #1
+    strb r0, [r1], #1
+    cmp r0, #0
+    bne rec_header_label
+    ldr r0, =0x4B4E554A
+    str r0, [r5, #104]
+    mov r0, #368
+    str r0, [r5, #108]
+rec_header_done:
     pop {r4-r6, pc}
 .pool
 
@@ -294,4 +341,11 @@ rec_directory:
     .asciz "SD:Recordings"
 rec_path_template:
     .asciz "SD:Recordings/REC0000.WAV"
+.align 4
+
+rec_marker_labels:
+    .word rec_marker_gap, rec_marker_lost, rec_marker_overflow
+rec_marker_gap: .asciz "Capture gap"
+rec_marker_lost: .asciz "Capture lost"
+rec_marker_overflow: .asciz "Ring overflow"
 .align 4

@@ -2,7 +2,7 @@
   "planId": "2026-11-17-native-aufnahme-1.6",
   "planPath": "docs/plaene/2026-11-17-native-aufnahme-1.6.md",
   "createdAt": "2026-11-17T10:28:13Z",
-  "updatedAt": "2026-11-17T22:29:10.862905+00:00",
+  "updatedAt": "2026-11-18T01:15:49.480668+00:00",
   "revision": 2,
   "supersedes": [],
   "absorbs": {},
@@ -15,9 +15,9 @@
         {
           "id": "0.1",
           "name": "Nur lesend: während RESAMPLING die Zustandswörter `0xFF9031F8..0xFF90320C` lesen (Quelle = Master-Wort?), Ringzeiger `0xFF9031D8` bei laufendem Spettro lesen",
-          "status": "pending",
+          "status": "in_progress",
           "owner": "Pascal",
-          "note": "Device measurement pending; no device writes or execution authorized in this implementation session."
+          "note": "Nov18: reached the device through ssh linux, USB SOUND, channel10 using BLECH READ0x61 only. Native source0/stereo0 read; spectrum service still uninitialized. Awaiting manual Spettro opening for its ARM-cached capture metadata. No DSP probe via EXEC is permitted."
         },
         {
           "id": "0.2",
@@ -165,17 +165,21 @@
     {
       "id": "phase-2",
       "name": "Phase 2: Lange Sets ohne Lücke (1 bis 2 Tage)",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "2.1",
           "name": "Lückenzähler: Leser erkennt überholten DSP-Ring und ARM-Ring-Überlauf; Anzeige und Marker (cue-Chunk oder Logdatei), nie stilles Verschlucken",
-          "status": "pending"
+          "status": "passed",
+          "note": "Terminal reader gaps, lost ownership and ARM overflow get a labelled cue in the reserved WAV sector header. Gap count is visible and persists after close. Writer/service/controller/UI tests and 17 complete-patch recording checks per sampler build pass; no lost-frame count is fabricated and no extra streaming write is added.",
+          "verifiedAt": "2026-11-18T00:51:59.804938+00:00"
         },
         {
           "id": "2.2",
           "name": "ARM-Ring nur während der Aufnahme dynamisch belegen, Größe nach Phase 0 bis 2 MiB; Speicherplan mit Sample Swap abstimmen",
-          "status": "pending"
+          "status": "passed",
+          "verifiedAt": "2026-11-18T00:51:59.804938+00:00",
+          "note": "Task-owned heap allocation attempts 2 MiB down to 128 KiB in powers of two and publishes actual capacity. Native full boots obtain 1 MiB in the general heap, separate from the Sample Swap reservation at 0xC274F000..0xC4000000. Allocation/failure/free-boundary cases pass; hardware capacity and path choice remain unmeasured."
         },
         {
           "id": "2.3",
