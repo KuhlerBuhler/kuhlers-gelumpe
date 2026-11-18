@@ -161,7 +161,7 @@ def wav_marker(content):
     return offset, associated[16:12 + size].split(b'\0', 1)[0]
 
 
-def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_settings=False):
+def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_settings=False, remove_card=False):
     site = 0xC006B694 - 0xC0000000
     if not has_hooks(payload) or struct.unpack_from('<I', payload, site)[0] >> 24 != 0xEA:
         return []
@@ -196,6 +196,56 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
     dev.press(0, 0.01)
     started = field('PHASE') == 1 and field('CONTEXT') != 0
     capacity = field('CAPACITY')
+    if remove_card:
+        dev.run(0.03)
+        dev.m.eject_card()
+        dev.press(0, 0.02)
+        for _ in range(100):
+            if field('PHASE') == 0:
+                break
+            dev.run(0.01)
+        if png:
+            dev.png(png)
+        volume = fat32.Volume(bytes(medium.data))
+        try:
+            content = volume.read('/Recordings/REC0001.WAV')
+        finally:
+            volume.close()
+        with wave.open(io.BytesIO(content)) as wav:
+            valid = wav.getnframes() * 4 <= len(content) - 512
+        out = [entry('removed_card_releases_capture_and_heap', started and field('PHASE') == 0
+                      and field('CONTEXT') == 0 and not dsp.active and field('ERROR') == 1 and not dev.m.asserts,
+                      f'phase {field("PHASE")}, context {field("CONTEXT")}, capture {dsp.active}, error {field("ERROR")}, selected {field("SELECTED")}, setup {field("SETUP")}, assertions {dev.m.asserts}'),
+                entry('removed_card_keeps_durable_prefix', valid and before_flash == user_flash(dev.m),
+                      f'durable bytes {len(content)}, valid {valid}, user flash unchanged {before_flash == user_flash(dev.m)}')]
+        if not out[0]['ok']:
+            return out
+        replacement = MemoryMedium(card_image())
+        dev.m.insert_card(SDCard(replacement))
+        dev.run(0.3)
+        dev.press(0, 0.01)
+        restarted = field('PHASE') == 1 and field('CONTEXT') != 0
+        dev.run(0.03)
+        dev.press(0, 0.02)
+        for _ in range(100):
+            if field('PHASE') == 0:
+                break
+            dev.run(0.01)
+        volume = fat32.Volume(bytes(replacement.data))
+        try:
+            following = volume.read('/Recordings/REC0002.WAV')
+        except fat32.NotFound:
+            return out + [entry('replacement_card_records_again', False,
+                                f'file missing: started {restarted}, phase {field("PHASE")}, error {field("ERROR")}')]
+        finally:
+            volume.close()
+        with wave.open(io.BytesIO(following)) as wav:
+            count = wav.getnframes()
+            captured = wav.readframes(count)
+        out.append(entry('replacement_card_records_again', restarted and field('PHASE') == field('CONTEXT') == field('ERROR') == 0
+                         and count > 0 and captured == pcm(0, count) and not dsp.active and not dev.m.asserts,
+                         f'started {restarted}, phase {field("PHASE")}, error {field("ERROR")}, {count} frames, exact {captured == pcm(0, count)}, assertions {dev.m.asserts}'))
+        return out
     if defer_settings:
         from splash_cases import SWITCH_SCREEN
         import menu_cases as mc
@@ -339,11 +389,112 @@ def checkpoint_cases(payload, flash=None, fail_sync=False):
                   f'saved {saved}, statuses {[first, checkpoint, second, checkpoint2, finished]}, assertions {dev.m.asserts}')]
 
 
+def full_card_cases(payload, flash=None):
+    if not has_hooks(payload):
+        return []
+    image = card_image()
+    volume = fat32.Volume(image)
+    for name in ('Plugin', 'Presets', 'Gif', 'Doom', 'Sample', 'System'):
+        volume.mkdir('/KORG/blechtribe/' + name)
+    volume.mkdir('/Recordings')
+    volume.write('/FILLER.BIN', bytes((volume.free - 8) * volume.csz))
+    volume.close()
+    dev = Dev(payload, flash, adapter=True)
+    medium = MemoryMedium(image)
+    dev.m.insert_card(SDCard(medium))
+    dsp = CaptureModel.attach(dev.m)
+    dev.run(0.8)
+    before_flash = user_flash(dev.m)
+    code = recording_service.build(build=dev.m.profile.build, origin=CODE)
+    uc = dev.m.uc
+    uc.mem_write(CODE, code.bytes)
+    uc.mem_write(CONTEXT, bytes(code.symbols['RC_SIZE']))
+    for name, value in (('RC_RING', RING), ('RC_CAPACITY', 131072), ('RC_CHANNELS', 2)):
+        uc.mem_write(CONTEXT + code.symbols[name], struct.pack('<I', value))
+    read = lambda name: dev.u32(CONTEXT + code.symbols[name])
+    call = lambda name, *args: dev.call(code.symbols[name], CONTEXT, *args, at=COMMAND_TICK)
+    call('recorder_command', 1)
+    started = call('recorder_pump') == 0 and read('RC_ACTIVE') == 1
+    first = (dev.u32(CONTEXT + code.symbols['RC_READER'] + code.symbols['RR_CURSOR']) - 0x01C722A0) // 4
+    result = 0
+    for _ in range(80):
+        dev.run(0.02)
+        result = call('recorder_pump')
+        if result:
+            break
+    volume = fat32.Volume(bytes(medium.data))
+    try:
+        content = volume.read('/Recordings/REC0001.WAV')
+    finally:
+        volume.close()
+    with wave.open(io.BytesIO(content)) as wav:
+        count = wav.getnframes()
+        captured = wav.readframes(count)
+    return [entry('full_card_stops_and_releases', started and result == code.symbols['RW_FULL']
+                  and read('RC_ERROR') == code.symbols['RW_FULL'] and read('RC_ACTIVE') == read('RW_STATE') == 0
+                  and not dsp.active and not dev.m.asserts,
+                  f'started {started}, result {result}, state {read("RC_ACTIVE")}/{read("RW_STATE")}, capture {dsp.active}, assertions {dev.m.asserts}'),
+            entry('full_card_keeps_exact_prefix', count > 0 and captured == pcm(first, count)
+                  and len(content) == 512 + count * 4 and before_flash == user_flash(dev.m),
+                  f'{count} exact frames from {first}, file bytes {len(content)}, user flash unchanged {before_flash == user_flash(dev.m)}')]
+
+
+def rollover_cases(payload, flash=None):
+    """Use an 8-KiB segment limit with native FatFs; the unit case exercises 32-bit arithmetic."""
+    if not has_hooks(payload):
+        return []
+    from tools.patch.arm import assemble
+    dev = Dev(payload, flash, adapter=True)
+    medium = MemoryMedium(card_image())
+    dev.m.insert_card(SDCard(medium))
+    dsp = CaptureModel.attach(dev.m)
+    dev.run(0.8)
+    before_flash = user_flash(dev.m)
+    source = recording_service.source(dev.m.profile.build).replace('.equ RW_MAX_DATA, 0xFFFFFDFC', '.equ RW_MAX_DATA, 8192')
+    code = assemble(source, origin=CODE)
+    uc = dev.m.uc
+    uc.mem_write(CODE, code.bytes)
+    uc.mem_write(CONTEXT, bytes(code.symbols['RC_SIZE']))
+    for name, value in (('RC_RING', RING), ('RC_CAPACITY', 131072), ('RC_CHANNELS', 2)):
+        uc.mem_write(CONTEXT + code.symbols[name], struct.pack('<I', value))
+    read = lambda name: dev.u32(CONTEXT + code.symbols[name])
+    call = lambda name, *args: dev.call(code.symbols[name], CONTEXT, *args, at=COMMAND_TICK)
+    call('recorder_command', 1)
+    started = call('recorder_pump') == 0 and read('RC_ACTIVE') == 1
+    first = (dev.u32(CONTEXT + code.symbols['RC_READER'] + code.symbols['RR_CURSOR']) - 0x01C722A0) // 4
+    dev.run(0.05)
+    call('recorder_command', 0)
+    for _ in range(80):
+        call('recorder_pump')
+        if read('RC_ACTIVE') == 0:
+            break
+    volume = fat32.Volume(bytes(medium.data))
+    try:
+        paths = sorted(path for path, item in volume.walk() if path.startswith('/Recordings/REC') and not item.is_dir)
+        files = [volume.read(path) for path in paths]
+    finally:
+        volume.close()
+    captured, sizes = b'', []
+    for content in files:
+        with wave.open(io.BytesIO(content)) as wav:
+            data = wav.readframes(wav.getnframes())
+        sizes.append(len(data))
+        captured += data
+    return [entry('rollover_native_files_are_contiguous', started and len(files) >= 2
+                  and all(0 < n <= 8192 for n in sizes) and all(n == 8192 for n in sizes[:-1])
+                  and captured == pcm(first, len(captured) // 4) and all(len(f) == n + 512 for f, n in zip(files, sizes)),
+                  f'paths {paths}, PCM sizes {sizes}, exact {captured == pcm(first, len(captured) // 4)}'),
+            entry('rollover_native_releases_resources', read('RC_ERROR') == read('RC_ACTIVE') == read('RW_STATE') == 0
+                  and read('RC_DROPPED') == 0 and not dsp.active and not dev.m.asserts and before_flash == user_flash(dev.m),
+                  f'error {read("RC_ERROR")}, phase {read("RC_ACTIVE")}, file {read("RW_STATE")}, dropped {read("RC_DROPPED")}, capture {dsp.active}, assertions {dev.m.asserts}')]
+
+
 def cases(payload, flash=None, png=None):
     return (worker_cases(payload, flash) + runtime_cases(payload, flash)
             + runtime_cases(payload, flash, png=png, expect_gap=True)
             + runtime_cases(payload, flash, defer_settings=True) + checkpoint_cases(payload, flash)
-            + checkpoint_cases(payload, flash, fail_sync=True))
+            + checkpoint_cases(payload, flash, fail_sync=True) + runtime_cases(payload, flash, remove_card=True)
+            + full_card_cases(payload, flash) + rollover_cases(payload, flash))
 
 
 def cases_task():

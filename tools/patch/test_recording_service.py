@@ -80,6 +80,26 @@ class Recorder(Writer):
 
 @unittest.skipUnless(UNICORN, 'Unicorn is required for the native recording worker')
 class RecordingServiceTests(unittest.TestCase):
+    def test_file_limit_splits_frames_without_an_empty_following_file(self):
+        for words in ([0x12345678], [0x12345678, 0x90ABCDEF]):
+            with self.subTest(frames=len(words)):
+                m = Recorder()
+                m.command(1)
+                self.assertEqual(m.pump(), 0)
+                # Exercise the real 32-bit limit without allocating a 4-GiB mock file.
+                m.write(m.s('RW_DATA_BYTES'), m.s('RW_MAX_DATA') - 4)
+                m.capture(words, elapsed=20)
+                self.assertEqual(m.finish(), 0)
+                self.assertEqual(m.field('RC_DROPPED'), 0)
+                self.assertEqual(m.field('RW_NUMBER'), len(words))
+                first = m.files['SD:Recordings/REC0001.WAV']
+                self.assertEqual(first[-4:], pcm(words[:1]))
+                self.assertEqual(struct.unpack_from('<I', first, 508)[0], m.s('RW_MAX_DATA'))
+                self.assertEqual(len(m.files), len(words))
+                if len(words) == 2:
+                    self.assertEqual(m.files['SD:Recordings/REC0002.WAV'][512:], pcm(words[1:]))
+                self.assertFalse(m.handles)
+
     def test_checkpoint_failure_stops_capture_and_keeps_the_card_error_visible(self):
         m = Recorder()
         m.command(1)
@@ -261,18 +281,19 @@ class RecordingServiceTests(unittest.TestCase):
                 self.assertFalse(m.handles)
                 self.assertEqual(m.rr('RR_OWNED'), 0)
 
-    def test_limit_error_does_not_reuse_a_previous_write_count(self):
+    def test_failed_rollover_does_not_reuse_a_previous_write_count(self):
         m = Recorder()
         self.assertEqual(m.command(1), 0)
         self.assertEqual(m.pump(), 0)
         m.write(m.s('RW_DATA_BYTES'), m.s('RW_MAX_DATA'))
+        m.write(m.s('RW_NUMBER'), 9999)
         m.rr('RR_PRODUCED', 65536)
-        self.assertEqual(m.pump(), m.s('RW_LIMIT'))
+        self.assertEqual(m.pump(), m.s('RW_NO_NAME'))
         for _ in range(4):
             m.pump()
         self.assertEqual(m.field('RC_DROPPED'), 65536)
         self.assertEqual(m.rr('RR_CONSUMED'), 65536)
-        self.assertEqual(m.field('RC_ERROR'), m.s('RW_LIMIT'))
+        self.assertEqual(m.field('RC_ERROR'), m.s('RW_NO_NAME'))
 
     def test_next_recording_uses_a_new_file_and_resets_stream_counters(self):
         m = Recorder()

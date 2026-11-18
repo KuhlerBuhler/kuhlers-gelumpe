@@ -10,6 +10,7 @@ import wave
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+from tools.patch.card_gate import SD_INPUT, SD_DETECT
 try:
     from unicorn import Uc, UC_ARCH_ARM, UC_MODE_ARM, UC_HOOK_CODE
     from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R12, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
@@ -35,6 +36,8 @@ class Writer:
         self.durable, self.sync_number, self.sync_fault = {}, 0, None
         self.write_fault = self.seek_fault = None
         self.mkdir_result, self.close_failures, self.write_number = 0, 0, 0
+        self.close_error = 1
+        self.uc.mem_map(SD_INPUT & ~4095, 4096)
         self.targets = {self.s('REC_FS_' + name): name for name in ('OPEN', 'WRITE', 'LSEEK', 'CLOSE', 'MKDIR', 'SYNC')}
         for page in {address & ~4095 for address in self.targets}:
             self.uc.mem_map(page, 4096)
@@ -126,7 +129,9 @@ class Writer:
             self.events.append((name,))
             if self.close_failures:
                 self.close_failures -= 1
-                result = 1
+                result = self.close_error
+                if result == 9:
+                    self.handles.pop(r[0], None)
             else:
                 del self.handles[r[0]]
         for reg in (UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_R12):
@@ -284,6 +289,25 @@ class RecordingWriterTests(unittest.TestCase):
         self.assertEqual(m.call('finish'), m.s('RW_IO'))
         self.assertEqual(m.write_number, before, 'retry only closes')
         self.assertFalse(m.handles)
+
+    def test_invalidated_file_object_is_released_with_its_error(self):
+        m = Writer()
+        self.assertEqual(m.call('open', 2), 0)
+        m.close_failures, m.close_error = 1, 9
+        self.assertEqual(m.call('finish'), m.s('RW_IO'))
+        self.assertEqual(m.field('RW_FS_ERROR'), 9)
+        self.assertEqual(m.field('RW_STATE'), 0)
+        self.assertFalse(m.handles)
+
+    def test_removed_card_releases_the_private_file_without_claiming_success(self):
+        m = Writer()
+        self.assertEqual(m.call('open', 2), 0)
+        m.close_failures, m.close_error = 1, 3
+        m.uc.mem_write(SD_INPUT, struct.pack('<I', SD_DETECT))
+        self.assertEqual(m.call('finish'), m.s('RW_IO'))
+        self.assertEqual(m.field('RW_FS_ERROR'), 3)
+        self.assertEqual(m.field('RW_STATE'), 0)
+        self.assertEqual(m.read(m.s('RW_FIL')), 0)
 
     def test_directory_failure_and_filename_exhaustion_do_not_create_a_file(self):
         m = Writer()

@@ -226,11 +226,21 @@ rec_writer_close:
     cmp r0, #0
     beq rec_close_ok
     str r0, [r4, #RW_FS_ERROR]
+    mov r1, r0
     mov r0, #RW_IO
     str r0, [r4, #RW_STATUS]
+    cmp r1, #9
+    beq rec_close_abandon
+    ldr r1, =REC_SD_INPUT
+    ldr r1, [r1]
+    tst r1, #REC_SD_DETECT
+    bne rec_close_abandon
     mov r0, #2
     str r0, [r4, #RW_STATE]
     b rec_close_return
+rec_close_abandon:
+    mov r0, #0
+    str r0, [r4, #RW_FIL]
 rec_close_ok:
     str r0, [r4, #RW_STATE]
 rec_close_return:

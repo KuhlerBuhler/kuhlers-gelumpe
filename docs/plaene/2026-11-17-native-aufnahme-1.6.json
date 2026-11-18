@@ -2,7 +2,7 @@
   "planId": "2026-11-17-native-aufnahme-1.6",
   "planPath": "docs/plaene/2026-11-17-native-aufnahme-1.6.md",
   "createdAt": "2026-11-17T10:28:13Z",
-  "updatedAt": "2026-11-18T11:03:32.873307+00:00",
+  "updatedAt": "2026-11-18T11:29:02.038166+00:00",
   "revision": 2,
   "supersedes": [],
   "absorbs": {},
@@ -217,7 +217,9 @@
         {
           "id": "2.5",
           "name": "Karte voll, Karte gezogen, 4-GiB-Grenze: sauber beenden, ab 4 GiB neue Datei",
-          "status": "pending"
+          "status": "passed",
+          "note": "Private FIL releases on invalid object or removed card, preserving error; valid present-card close failures remain retryable. Whole frames continue into the next exclusive file at the 32-bit WAV limit, without an empty following file. Filename exhaustion stops visibly. 61 focused tests and38 integrated checks per sampler build pass. Native full card preserves896 exact frames; removal releases capture+heap; replacement card records2750 exact frames. Native rollover uses8KiB segments; actual 32-bit boundary arithmetic is separately unit-tested without allocating4GiB.",
+          "verifiedAt": "2026-11-18T11:29:02.038166+00:00"
         }
       ],
       "criteria": [

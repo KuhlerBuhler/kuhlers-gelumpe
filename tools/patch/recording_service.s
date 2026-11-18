@@ -174,6 +174,13 @@ recorder_drain:
 recorder_full_block:
     mov r2, #65536
 recorder_write:
+    ldr r9, [r4, #RW_DATA_BYTES]
+    ldr r0, =RW_MAX_DATA
+    sub r0, r0, r9
+    cmp r0, #0
+    beq recorder_rotate
+    cmp r2, r0
+    movhi r2, r0
     sub r0, r8, #1
     and r0, r7, r0
     sub r1, r8, r0
@@ -181,7 +188,6 @@ recorder_write:
     movhi r2, r1
     ldr r1, [r4, #RC_RING]
     add r1, r1, r0
-    ldr r9, [r4, #RW_DATA_BYTES]
     mov r0, r4
     bl rec_writer_append
     mov r6, r0
@@ -195,6 +201,21 @@ recorder_write:
     str r6, [r4, #RW_STATUS]
     mov r0, r6
     b recorder_writer_error
+recorder_rotate:
+    mov r0, r4
+    bl rec_writer_finish
+    cmp r0, #0
+    bne recorder_writer_error
+    mov r0, r4
+    ldr r1, [r4, #RC_CHANNELS]
+    bl rec_writer_open
+    cmp r0, #0
+    strne r0, [r4, #RW_STATUS]
+    bne recorder_writer_error
+    mov r0, #0
+    str r0, [r4, #RC_CHECKPOINT]
+    str r0, [r4, #RC_FILE_BYTES]
+    b recorder_return
 recorder_checkpoint:
     ldr r0, [r4, #RC_ACTIVE]
     cmp r0, #1

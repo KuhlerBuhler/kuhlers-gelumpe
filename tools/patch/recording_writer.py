@@ -1,7 +1,7 @@
 """Assemble the native recording file writer without firmware data."""
 from pathlib import Path
 from .arm import assemble
-from . import synthaddr
+from . import synthaddr, card_gate
 
 FATFS = dict(OPEN=0xC009DB60, WRITE=0xC009DFB8, LSEEK=0xC009E404,
              CLOSE=0xC009E3DC, MKDIR=0xC009EB00, SYNC=0xC009E2C8)
@@ -13,6 +13,7 @@ def source(build='hacktribe'):
     addresses = {name: synthaddr.tr(address) if build == 'synth' else address
                  for name, address in FATFS.items()}
     constants = '\n'.join(f'.equ REC_FS_{name}, {address:#x}' for name, address in addresses.items())
+    constants += f'\n.equ REC_SD_INPUT, {card_gate.SD_INPUT:#x}\n.equ REC_SD_DETECT, {card_gate.SD_DETECT}\n'
     return constants + '\n' + Path(__file__).with_suffix('.s').read_text()
 
 

@@ -64,7 +64,7 @@ Akzeptanz: Fall grün auf Hacktribe und rot; WAV öffnet in einem Audioprogramm;
 - [x] 2.3b Native Pattern-Schreiber und Aufnahme in derselben CommandTask nachweisen
 - [ ] 2.3c Sample-Swap-Kartenzugriffe nach Integration von #166 prüfen
 - [x] 2.4 Stromausfall: Längen regelmäßig nachtragen oder Reparatur beim Start (Länge aus Dateigröße), mit Fall
-- [ ] 2.5 Karte voll, Karte gezogen, 4-GiB-Grenze: sauber beenden, ab 4 GiB neue Datei
+- [x] 2.5 Karte voll, Karte gezogen, 4-GiB-Grenze: sauber beenden, ab 4 GiB neue Datei
 
 Akzeptanz: Emulatorfälle für Überlauf, Karte voll, Reparatur grün; Gerät: 60 min Set mit Pattern-Wechseln, 0 Lücken.
 
@@ -231,6 +231,26 @@ Akzeptanz: Docs-Test grün.
 - **Blaue f_sync-Übersetzung:** Die ursprüngliche blaue Firmware liegt für den lokalen Vergleich vor. Der erste Aufruf
   ihres bereits zugeordneten f_close führt zu `0xC008AE20`; 69 Befehle entsprechen dem Sampler nach Maskieren der
   Sprungabstände. Nur Adresse und Herleitung wurden in der Übersetzungskarte ergänzt, keine Firmware-Bytes.
+
+
+- **Phase 2.5, Speicherfehler:** Ein ungültiges privates Dateiobjekt oder eine nachweislich entfernte Karte beendet den
+  Besitz am FIL-Kontext mit erhaltenem Fehler. Solange die Karte vorhanden und das Objekt gültig ist, bleiben
+  Abschlussfehler wiederholbar. Im nativen Entnahmefall endet die Erfassung, der Heap wird frei und die Ansicht zeigt
+  Card error. Eine eingesetzte Ersatzkarte nimmt nach erneutem REC wieder PCM-genau auf.
+- **Phase 2.5, Dateigrenze:** Der Worker kürzt einen Block an der maximalen WAV-Datenlänge auf ganze Frames und legt
+  bei verbleibenden Daten die nächste exklusive REC-Datei an. Ein exaktes Ende erzeugt keine leere Folgedatei.
+  Die echte 32-Bit-Arithmetik wird ohne 4-GiB-Speicherbelegung geprüft; der native FatFs-Fall verwendet eine 8-KiB-Grenze
+  und vergleicht die zusammengefügten Dateien PCM-genau. Die Anzeige zählt die Dauer der aktuellen Datei.
+- **Vollkartenfall:** Das isolierte Kartenabbild muss seine üblichen BLECH-Ordner bereits besitzen. Ohne sie arbeitete
+  die Startmigration noch in UiTask, während der isolierte Worker außerhalb der produktiven Startfreigabe begann.
+  Mit vollständig vorbereiteten Ordnern und weiterhin acht freien Clustern endet der native Lauf mit Card full,
+  896 exakten Frames und freigegebenen Ressourcen. Die produktive Aufnahme wartet bereits auf die UI-Rahmengrenze.
+
+
+- **Phase 2.5, Abschluss im Emulator:** 61 gezielte Laufzeit-, Schreiber-, Leseranbindungs- und Kartensperrfälle sowie
+  je 38 vollständige Aufnahmeprüfungen auf rot und Hacktribe bestehen. Die Ersatzkarte erhält 2750 exakte Frames;
+  der Vollkartenfall 896 Frames. Eine echte 4-GiB-Datei wurde nicht erzeugt. Die Folgedatei ist mit nativer FatFs und
+  verkleinerter Segmentgrenze geprüft, die reale Grenzarithmetik getrennt. Gerätewerte und Langzeitabnahme bleiben offen.
 
 ## References
 
