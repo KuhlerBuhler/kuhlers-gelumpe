@@ -597,11 +597,32 @@ script_popup_input:
     beq popup_input_done
     ldrb r1, [r4, #0x13]
     cmp r1, #PK_MARK
-    bne popup_input_hide
+    bne popup_input_user_exit
     ldr r1, =popup_close_native
     ldr r1, [r1]
     cmp r1, #0
     bne popup_input_done
+    b popup_input_hide
+popup_input_user_exit:
+    ldr r1, =popup_active
+    ldr r1, [r1]
+    cmp r1, #0
+    beq popup_input_done
+    ldr r1, =APP_STATE
+    ldr r1, [r1]
+    cmp r1, #0
+    bne popup_input_hide
+    ldr r1, =SCREEN_MANAGER
+    ldr r1, [r1]
+    cmp r1, #0
+    beq popup_input_native_close
+    cmn r1, #1
+    beq popup_input_native_close
+    ldr r1, [r1, #0x24]
+    cmp r1, #0
+    bne popup_input_hide
+popup_input_native_close:
+    bl script_popup_native_close
 popup_input_hide:
     bl script_popup_hide
 popup_input_done:
@@ -649,7 +670,7 @@ popup_frame_timeout:
     beq popup_frame_draw
     subs r0, r0, r1
     bmi popup_frame_draw
-    bl script_popup_native_timeout_close
+    bl script_popup_native_close
     bl script_popup_hide
     b popup_frame_done
 popup_frame_hide:
@@ -661,24 +682,24 @@ popup_frame_done:
     pop {r4-r6, pc}
 .pool
 
-; Native timeout event 0x0a dispatches through the manager's vtable slot at +0x40.
-script_popup_native_timeout_close:
+; Native EXIT and timeout share the close dispatch through the manager's vtable slot at +0x40.
+script_popup_native_close:
     push {r4, lr}
     ldr r0, =SCREEN_MANAGER
     ldr r4, [r0]
     cmp r4, #0
-    beq popup_native_timeout_done
+    beq popup_native_close_done
     cmn r4, #1
-    beq popup_native_timeout_done
+    beq popup_native_close_done
     ldr r0, [r4]
     cmp r0, #0
-    beq popup_native_timeout_done
+    beq popup_native_close_done
     ldr r3, [r0, #0x40]
     cmp r3, #0
-    beq popup_native_timeout_done
+    beq popup_native_close_done
     mov r0, r4
     blx r3
-popup_native_timeout_done:
+popup_native_close_done:
     pop {r4, pc}
 .pool
 

@@ -759,9 +759,10 @@ content is clipped to `x = 2..125`, `y = 14..47`; drawing outside it has no effe
 at `x = 1..126`, `y = 12..49`: top line at `y = 13`, sides at `x = 1` and `x = 126`, bottom line at `y = 48`,
 and a dotted shadow at `y = 49`. There is one shared popup; `show()` replaces the previous one, whether it
 came from firmware or another plugin. An open firmware popup is closed with EXIT first. EXIT also dismisses
-the plugin popup early. On timeout the runtime also runs the firmware's native close path so the main
-screen is redrawn on the device. Apps cannot use these calls. The default lifetime is two seconds;
-`timeout(0)` disables the timer.
+the plugin popup early. If no firmware window is open, the runtime runs the same native close path as the
+firmware so the main screen is redrawn on the device. An EXIT sent to replace a firmware popup stays with
+the firmware path. Apps cannot use these calls. The default lifetime is two seconds; `timeout(0)` disables
+the timer.
 
 **Images from arrays** (`korg.display.bitmap`): one slot of the array holds the 8 pixels of a column, the
 lowest bit is the top pixel (only the lower 8 bits count). This is the layout of the display RAM and of the
