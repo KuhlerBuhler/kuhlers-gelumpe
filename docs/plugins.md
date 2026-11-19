@@ -103,6 +103,8 @@ Loslassen kommt dort an, während das Plugin das Display besitzt, SHIFT oder PAR
 bleiben also nicht hängen (gemessen im Emulator auf Hacktribe, rot und blau,
 `take_lets_key_releases_reach_the_firmware`). Anders als EXIT setzt
 `korg.display.release()` `korg.passKeys` und `korg.padHold` nicht auf die Vorgaben zurück.
+`release()` fordert bei geschlossenem Firmware-Fenster zusätzlich den nativen Neuaufbau des Hauptbildschirms an.
+
 
 ```js
 // Ein Hinweis auf dem Display, solange PLAY gehalten wird.
@@ -645,7 +647,7 @@ Plugin mit einem Fehler.
 | `korg.file.name(feld, art, platz)` | schreibt den Namen der Datei `platz` (0 bis 63) aus der Liste, die das letzte `korg.file.count(art)` gelesen hat, ohne Endung ins Feld, ein Zeichen je Platz, danach eine 0, wenn Platz ist; für `korg.display.chars`. Länger als 17 Zeichen wird er auf 15 und ".." gekürzt. Gibt die Länge zurück, 0 hinter der letzten Datei. Ab API Version 38 | wie `korg.led` |
 | `korg.file.picture(feld, art, platz, bild)` | liest Bild `bild` der Datei `platz` aus derselben Liste ins Feld (mindestens 1024 Plätze), im Aufbau von `korg.display.bitmap(feld, 0, 0, 128)`. Ein `.bmp` (128 x 64, 1 Bit, wie SPLASH IMPORT) hat ein Bild, die dunklere Farbe ist gezeichnet; ein `.blla` hat erst die Fortschrittsbilder, dann die Schleifenbilder. Gibt die Zahl der Bilder der Datei zurück, 0 hinter dem letzten (Feld bleibt), -1 wenn der Platz nicht in der Liste steht, die Datei fehlt oder kaputt ist und außerhalb des Hauptbildschirms. Ein gezeichneter Punkt erscheint dunkel wie beim Startbild und der Ladeanimation: mit DISPLAY INVERT ON kommen alle Bits umgedreht (im Emulator gemessen, [Messung](messungen/2026-11-16-media-polaritaet.md)). Ab API Version 38 | wie `korg.led` |
 | `korg.display.take()` | das Display nehmen (Weg 2, siehe oben); 1 wenn es klappt, 0 wenn nicht (eine App, ein anderer Besitzer, nicht der Hauptbildschirm) | wie `korg.led` |
-| `korg.display.release()` | das Display zurückgeben | wie `korg.led` |
+| `korg.display.release()` | das Display zurückgeben; ohne offenes Firmware-Fenster den nativen Neuaufbau des Hauptbildschirms anfordern | wie `korg.led` |
 | `korg.display.popups = 0` | hält das Parameterfenster zu, das `korg.seq.setPartValue` sonst wie der Regler öffnet, und das Schreibfenster von `korg.pattern.write`; nur für die Aufrufe dieses Plugins, 1 schaltet es wieder ein. Beim Laden steht es auf 1. `korg.knob` öffnet das Fenster der Firmware weiter, weil es den Regler selbst spielt. Lesen mit `korg.display.popups` oder `korg.read.popups()`. Ab API Version 24 | wie `korg.led` |
 | `korg.display.popup.begin()` | beginnt eine Popup-Zeichnung für ein Hintergrund-Plugin; danach zeichnen die bestehenden Display-Aufrufe absolut in den Popup-Puffer. Apps dürfen keine Plugin-Popups öffnen. Ab API Version 40 | wie `korg.led` |
 | `korg.display.popup.timeout(ms)` | setzt die Anzeigedauer des vorbereiteten Popups in Millisekunden, 0 bis 600000. Standard sind 2000 ms; 0 lässt es bis EXIT oder zum nächsten Popup offen. Ab API Version 40 | wie `korg.led` |

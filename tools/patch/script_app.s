@@ -10,7 +10,9 @@
 ; an app). The manager lives on the heap and moves with the flash content (0xC06C2210 on our cards, 0x3320 higher on another
 ; red with other flash content), so every writer takes it from SCREEN_MANAGER: [SCREEN_MANAGER] + UI_REDRAW_AT. Measured in the
 ; emulator on Hacktribe, Korg's red and the blue: the tick's r0 is [SCREEN_MANAGER] + 0x10 in all three.
+; Release also dispatches the native close path when no native window is open, so the hardware redraws immediately.
 .equ UI_REDRAW_AT, 0x10 + 0x4C
+
 
 ; korg.app(name, group): r0 = name text, r1 = group text -> r0 = the app's id, -1 when all places are taken,
 ; r1 = error code. Declared twice by one script it is the same app. A group other than GAMES or TOOLS and an
@@ -131,20 +133,33 @@ display_take_done:
 
 ; korg.display.release(): the owner gives the display back (no `close` event for its own call).
 script_display_release_glue:
+    push {r4, lr}
     ldr r0, =HOOK_RUNTIME
     ldr r1, [r0, #RT_ENTRY]
     ldr r2, =APP_STATE
     ldr r3, [r2, #SCRIPT_APPS_OPEN]
     cmp r3, r1
-    moveq r3, #0
-    streq r3, [r2, #SCRIPT_APPS_OPEN]
-    ldreq r2, =SCREEN_MANAGER
-    ldreq r2, [r2]
-    moveq r3, #1
-    strbeq r3, [r2, #UI_REDRAW_AT]
+    bne display_release_done
+    mov r3, #0
+    str r3, [r2, #SCRIPT_APPS_OPEN]
+    ldr r0, =SCREEN_MANAGER
+    ldr r0, [r0]
+    cmp r0, #0
+    beq display_release_close
+    cmn r0, #1
+    beq display_release_close
+    mov r3, #1
+    strb r3, [r0, #UI_REDRAW_AT]
+    ldr r1, [r0, #0x24]
+    cmp r1, #0
+    bne display_release_done
+display_release_close:
+    bl script_popup_native_close
+display_release_done:
+
     mov r0, #0
     mov r1, #ERR_OK
-    bx lr
+    pop {r4, pc}
 .pool
 
 ; r0 = script entry -> r0 = 1 when it is an app and not the open one (it gets no `frame`), else 0. Clobbers r1 to r3, r12.

@@ -682,7 +682,7 @@ popup_frame_done:
     pop {r4-r6, pc}
 .pool
 
-; Native EXIT and timeout share the close dispatch through the manager's vtable slot at +0x40.
+; Plugin popup timeout, EXIT and display release use the manager's close dispatch at vtable slot +0x40.
 script_popup_native_close:
     push {r4, lr}
     ldr r0, =SCREEN_MANAGER

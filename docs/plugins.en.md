@@ -94,6 +94,8 @@ A key held when `korg.display.take()` succeeds stays with the firmware: its rele
 while the plugin owns the display, so SHIFT or PART MUTE held across a take does not stay stuck (measured in
 the emulator on Hacktribe, red and blue, `take_lets_key_releases_reach_the_firmware`). Unlike EXIT,
 `korg.display.release()` does not put `korg.passKeys` and `korg.padHold` back to their defaults.
+`release()` also asks the firmware's native close path to redraw the main screen when no firmware window is open.
+
 
 ```js
 // A note on the display while PLAY is held.
@@ -600,7 +602,7 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.file.name(array, kind, index)` | writes the name of file `index` (0 to 63) of the list the last `korg.file.count(kind)` read into the array without its ending, one character per slot, then a 0 when there is room; for `korg.display.chars`. A name longer than 17 characters is cut to 15 and "..". Returns its length, 0 past the last file. From API version 38 | like `korg.led` |
 | `korg.file.picture(array, kind, index, frame)` | reads picture `frame` of file `index` of the same list into the array (at least 1024 slots), laid out as `korg.display.bitmap(array, 0, 0, 128)` takes it. A `.bmp` (128 x 64, 1 bit, as SPLASH IMPORT takes it) has one picture, the darker colour drawn; a `.blla` has its progress pictures first, then its loop pictures. Returns the number of pictures in the file, 0 past the last (the array stays), -1 when the index is not in the list, the file is missing or broken, and outside the main screen. A drawn pixel shows dark, as in the start image and the loading animation: with DISPLAY INVERT ON every bit comes turned (measured in the emulator). From API version 38 | like `korg.led` |
 | `korg.display.take()` | take the display (way 2, see above); 1 on success, 0 if not (an app, another owner, not the main screen) | like `korg.led` |
-| `korg.display.release()` | give the display back | like `korg.led` |
+| `korg.display.release()` | give the display back; ask the firmware to redraw the main screen if no firmware window is open | like `korg.led` |
 | `korg.display.popups = 0` | keeps the parameter window shut that `korg.seq.setPartValue` otherwise opens like the knob, and the write window of `korg.pattern.write`; only for this plugin's calls, 1 turns it back on. It is 1 after loading. `korg.knob` still opens the firmware's window, because it plays the knob itself. Read it with `korg.display.popups` or `korg.read.popups()`. From API version 24 | like `korg.led` |
 | `korg.display.popup.begin()` | starts a popup drawing for a background plugin; existing display calls then draw into its buffer with absolute coordinates. Apps cannot open plugin popups. From API version 40 | like `korg.led` |
 | `korg.display.popup.timeout(ms)` | sets the prepared popup's lifetime in milliseconds, 0 to 600000. The default is 2000 ms; 0 leaves it open until EXIT or another popup. From API version 40 | like `korg.led` |

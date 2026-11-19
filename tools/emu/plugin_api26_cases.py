@@ -1,6 +1,10 @@
 """Emulator cases for API 26 device information and API 40 plugin popups.
 
+The cases cover absolute drawing and clipping, timeout and EXIT dismissal, popup replacement, display release, and refusal
+while an app owns the display. They run through the same frame and input hooks as a plugin on the device.
+
     python3 tools/emu/plugin_api26_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
+
 
 The device information measurements are in docs/messungen/2026-11-11-plugin-api26-device-info.md.
 """
@@ -60,6 +64,14 @@ PROGRAMS = {
   korg.display.popup.begin();
   korg.display.pixel(20, 20, 1);
   korg.display.popup.show();
+});""",
+    "release": """let taken = 0;
+korg.onEvent("ready", () => {
+  taken = korg.display.take();
+  if (taken) {
+    korg.display.pixel(20, 20, 1);
+    korg.after(300, () => korg.display.release());
+  }
 });""",
     "first": """korg.onEvent("ready", () => {
   korg.display.popup.begin();
@@ -234,6 +246,34 @@ def cases(vsb, flash=None):
     after_default = popup_active(dev, built)
     out.append(entry("default_timeout", before_default == 1 and after_default == 0,
                      f"active at 1.8 s: {before_default}, at 2.2 s: {after_default}"))
+
+    dev, entries = boot(payload, flash, built, programs, ["release"])
+    manager = dev.u32(dev.m.profile.screens)
+    native_close_handler = dev.u32(dev.u32(manager) + 0x40)
+    if native_close_handler == 0:
+        raise AssertionError("screen manager has no native close handler")
+    native_close_calls = []
+
+    def native_close_hook(uc, address, size, user_data):
+        native_close_calls.append(address)
+
+    hook = dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, native_close_hook,
+                             begin=native_close_handler, end=native_close_handler)
+    dev.m.uc.ctl_flush_tb()
+    dev.run(0.2)
+    taken = script_cases.variables(dev, entries["release"], programs["release"])["taken"]
+    calls_before_release = len(native_close_calls)
+    dev.run(0.4)
+    calls_after_release = len(native_close_calls)
+    screen_after_release = dev.screen()
+    window_after_release = native_window(dev)
+    dev.m.uc.hook_del(hook)
+    dev.m.uc.ctl_flush_tb()
+    out.append(entry("display_release_runs_native_close",
+                     taken == 1 and calls_before_release == 0 and calls_after_release == 1
+                     and screen_after_release["number"] == 1 and window_after_release == 0,
+                     f"take result {taken}, native close calls {calls_before_release}->{calls_after_release}, "
+                     f"screen {screen_after_release}, native window {window_after_release}"))
 
     dev, _ = boot(payload, flash, built, programs, ["indefinite"])
     manager = dev.u32(dev.m.profile.screens)
