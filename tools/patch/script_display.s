@@ -2,9 +2,10 @@
 ; over the firmware display RAM once per frame. Arguments are range checked by
 ; the VM; coordinates that run past the edge are cut off, never wrapped.
 .equ DISPLAY_FB, HOOK_RUNTIME+RT_DISPLAY
+.equ POPUP_DEFAULT_MS, 2000
 
 ; Drawing is taken from the open app only: any other script's drawing calls do nothing (and say nothing). Z is set
-; when the running script owns the display. Keeps r0 to r3.
+; when the running script owns the display or is preparing a background popup. Keeps r0 to r3.
 display_gate:
     push {r0, r1}
     ldr r0, =HOOK_RUNTIME
@@ -12,6 +13,17 @@ display_gate:
     ldr r0, =APP_STATE
     ldr r0, [r0]
     cmp r0, r1
+    beq display_gate_done
+    cmp r0, #0
+    bne display_gate_denied
+    ldr r0, =popup_builder
+    ldr r0, [r0]
+    cmp r0, r1
+    b display_gate_done
+display_gate_denied:
+    mov r0, #1
+    cmp r0, #0
+display_gate_done:
     pop {r0, r1}
     bx lr
 .pool
@@ -23,8 +35,15 @@ display_denied:
 
 display_done:
     ldr r2, =HOOK_RUNTIME
+    ldr r3, [r2, #RT_ENTRY]
+    ldr r2, =APP_STATE
+    ldr r2, [r2]
+    cmp r2, r3
+    bne display_done_return
+    ldr r2, =HOOK_RUNTIME
     mov r3, #1
     str r3, [r2, #SCRIPT_CONTROL_DISPLAY_ACTIVE]
+display_done_return:
     mov r0, #0
     mov r1, #ERR_OK
     bx lr
@@ -369,6 +388,367 @@ bitmap_done:
     b display_done
 .pool
 
+; A background plugin's drawing calls use its runtime picture only between popup.begin and popup.show.
+script_display_popup_begin_glue:
+    push {r4, lr}
+    ldr r4, =HOOK_RUNTIME
+    ldr r4, [r4, #RT_ENTRY]
+    ldr r0, =APP_STATE
+    ldr r0, [r0]
+    cmp r0, #0
+    bne popup_begin_event
+    mov r0, r4
+    bl script_app_closed
+    cmp r0, #0
+    bne popup_begin_event
+    ldr r0, =SCREEN_MANAGER
+    ldr r0, [r0]
+    cmp r0, #0
+    beq popup_begin_event
+    cmn r0, #1
+    beq popup_begin_event
+    ldr r1, [r0, #0x2c]
+    cmp r1, #0
+    beq popup_begin_event
+    ldr r0, =popup_builder
+    str r4, [r0]
+    ldr r0, =popup_build_ms
+    ldr r1, =POPUP_DEFAULT_MS
+    str r1, [r0]
+    bl display_clear
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {r4, pc}
+popup_begin_event:
+    mov r0, #0
+    mov r1, #ERR_API_EVENT
+    pop {r4, pc}
+.pool
+
+; The timeout belongs to the popup being prepared; zero leaves it open until EXIT or replacement.
+script_display_popup_timeout_glue:
+    push {r4, r5, lr}
+    mov r5, r0
+    ldr r4, =HOOK_RUNTIME
+    ldr r4, [r4, #RT_ENTRY]
+    ldr r0, =APP_STATE
+    ldr r0, [r0]
+    cmp r0, #0
+    bne popup_timeout_event
+    mov r0, r4
+    bl script_app_closed
+    cmp r0, #0
+    bne popup_timeout_event
+    ldr r0, =popup_builder
+    ldr r0, [r0]
+    cmp r0, r4
+    bne popup_timeout_arg
+    ldr r0, =popup_build_ms
+    str r5, [r0]
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {r4, r5, pc}
+popup_timeout_event:
+    mov r0, #0
+    mov r1, #ERR_API_EVENT
+    pop {r4, r5, pc}
+popup_timeout_arg:
+    mov r0, #0
+    mov r1, #ERR_API_ARG
+    pop {r4, r5, pc}
+.pool
+
+; Copies the prepared picture into the one shared popup, replacing any older popup and its deadline.
+script_display_popup_show_glue:
+    push {r4-r8, lr}
+    ldr r4, =HOOK_RUNTIME
+    ldr r4, [r4, #RT_ENTRY]
+    ldr r0, =APP_STATE
+    ldr r0, [r0]
+    cmp r0, #0
+    bne popup_show_event
+    mov r0, r4
+    bl script_app_closed
+    cmp r0, #0
+    bne popup_show_event
+    ldr r0, =popup_builder
+    ldr r0, [r0]
+    cmp r0, r4
+    bne popup_show_arg
+    ldr r0, =SCREEN_MANAGER
+    ldr r8, [r0]
+    cmp r8, #0
+    beq popup_show_event
+    cmn r8, #1
+    beq popup_show_event
+    ldr r0, [r8, #0x2c]
+    cmp r0, #0
+    beq popup_show_event
+    ldr r5, =DISPLAY_FB
+    ldr r6, =popup_picture
+    mov r7, #SCRIPT_DISPLAY_BYTES/4
+popup_copy:
+    subs r7, r7, #1
+    ldr r0, [r5, r7, lsl #2]
+    str r0, [r6, r7, lsl #2]
+    bne popup_copy
+    ldr r0, =popup_builder
+    mov r1, #0
+    str r1, [r0]
+    ldr r0, =popup_active
+    mov r1, #1
+    str r1, [r0]
+    ldr r0, =popup_build_ms
+    ldr r7, [r0]
+    cmp r7, #0
+    beq popup_show_no_timer
+    ldr r0, =HOOK_RUNTIME
+    bl script_clock_update
+    add r0, r0, r7
+    ldr r1, =popup_deadline
+    str r0, [r1]
+    b popup_show_window
+popup_show_no_timer:
+    ldr r0, =popup_deadline
+    mov r1, #0
+    str r1, [r0]
+popup_show_window:
+    ldr r0, [r8, #0x24]
+    cmp r0, #0
+    beq popup_show_no_window
+    ldr r0, =popup_close_native
+    mov r1, #1
+    str r1, [r0]
+    mov r0, #KEY_EXIT
+    bl script_press_key_glue
+    b popup_show_done
+popup_show_no_window:
+    ldr r0, =popup_close_native
+    mov r1, #0
+    str r1, [r0]
+popup_show_done:
+    mov r0, #0
+    mov r1, #ERR_OK
+    pop {r4-r8, pc}
+popup_show_event:
+    mov r0, #0
+    mov r1, #ERR_API_EVENT
+    pop {r4-r8, pc}
+popup_show_arg:
+    mov r0, #0
+    mov r1, #ERR_API_ARG
+    pop {r4-r8, pc}
+.pool
+
+; EXIT cancels an active popup. The marked EXIT queued to dismiss a native window is the one exception.
+script_popup_input:
+    push {r4, lr}
+    mov r4, r0
+    ldrb r1, [r4, #0x0c]
+    cmp r1, #0
+    bne popup_input_done
+    ldrb r1, [r4, #0x0d]
+    cmp r1, #KEY_EXIT
+    bne popup_input_done
+    ldrb r1, [r4, #0x0e]
+    cmp r1, #0
+    beq popup_input_done
+    ldrb r1, [r4, #0x13]
+    cmp r1, #PK_MARK
+    bne popup_input_hide
+    ldr r1, =popup_close_native
+    ldr r1, [r1]
+    cmp r1, #0
+    bne popup_input_done
+popup_input_hide:
+    bl script_popup_hide
+popup_input_done:
+    pop {r4, pc}
+.pool
+
+; The frame hook removes expired or superseded popups before compositing the surviving one.
+script_popup_frame:
+    push {r4-r6, lr}
+    ldr r0, =popup_active
+    ldr r0, [r0]
+    cmp r0, #0
+    beq popup_frame_done
+    ldr r0, =APP_STATE
+    ldr r0, [r0]
+    cmp r0, #0
+    bne popup_frame_hide
+    ldr r0, =SCREEN_MANAGER
+    ldr r4, [r0]
+    cmp r4, #0
+    beq popup_frame_hide
+    cmn r4, #1
+    beq popup_frame_hide
+    ldr r1, [r4, #0x2c]
+    cmp r1, #0
+    beq popup_frame_hide
+    ldr r1, [r4, #0x24]
+    cmp r1, #0
+    beq popup_frame_native_gone
+    ldr r1, =popup_close_native
+    ldr r1, [r1]
+    cmp r1, #0
+    beq popup_frame_hide
+    b popup_frame_timeout
+popup_frame_native_gone:
+    ldr r1, =popup_close_native
+    mov r2, #0
+    str r2, [r1]
+popup_frame_timeout:
+    ldr r0, =HOOK_RUNTIME
+    bl script_clock_update
+    ldr r1, =popup_deadline
+    ldr r1, [r1]
+    cmp r1, #0
+    beq popup_frame_draw
+    subs r0, r0, r1
+    bmi popup_frame_draw
+    bl script_popup_hide
+    b popup_frame_done
+popup_frame_hide:
+    bl script_popup_hide
+    b popup_frame_done
+popup_frame_draw:
+    bl script_display_popup_blit
+popup_frame_done:
+    pop {r4-r6, pc}
+.pool
+
+script_popup_hide:
+    ldr r0, =popup_active
+    ldr r2, [r0]
+    mov r1, #0
+    str r1, [r0]
+    ldr r0, =popup_builder
+    str r1, [r0]
+    ldr r0, =popup_close_native
+    str r1, [r0]
+    ldr r0, =popup_deadline
+    str r1, [r0]
+    cmp r2, #0
+    bxeq lr
+    ldr r0, =APP_STATE
+    ldr r0, [r0]
+    cmp r0, #0
+    bxne lr
+    ldr r0, =SCREEN_MANAGER
+    ldr r0, [r0]
+    cmp r0, #0
+    bxeq lr
+    cmn r0, #1
+    bxeq lr
+    ldr r0, [r0, #0x24]
+    cmp r0, #0
+    bxne lr
+    ldr r0, =UI_REDRAW
+    mov r1, #1
+    strb r1, [r0]
+    bx lr
+.pool
+
+; Replaces pixels only inside the measured 128 x 38 firmware popup; absolute drawing coordinates outside it are ignored.
+script_display_popup_blit:
+    push {r4-r11, lr}
+    ldr r4, =SCRIPT_DISPLAY_RAM
+    ldr r5, =popup_picture
+    mov r6, #1
+popup_blit_page:
+    add r8, r4, r6, lsl #7
+    add r9, r5, r6, lsl #7
+    mov r7, #0
+popup_blit_x:
+    ldrb r10, [r8, r7]
+    cmp r6, #1
+    bne popup_blit_last_page
+    cmp r7, #0
+    cmpne r7, #127
+    moveq r11, #0
+    movne r11, #0xF0
+    b popup_blit_clear
+popup_blit_last_page:
+    cmp r6, #6
+    bne popup_blit_middle_page
+    cmp r7, #0
+    beq popup_blit_bottom_edge
+    cmp r7, #127
+    beq popup_blit_bottom_edge
+    mov r11, #3
+    b popup_blit_clear
+popup_blit_bottom_edge:
+    mov r11, #0
+    b popup_blit_clear
+    b popup_blit_clear
+popup_blit_middle_page:
+    cmp r7, #1
+    cmpne r7, #126
+    cmp r7, #0
+    cmpne r7, #127
+    moveq r11, #0
+    movne r11, #0xFF
+popup_blit_clear:
+    bic r10, r10, r11
+    mov r12, #0
+    cmp r6, #1
+    beq popup_blit_top
+    cmp r6, #6
+    beq popup_blit_bottom
+    cmp r7, #1
+    cmpne r7, #126
+    moveq r12, #0xFF
+    cmp r7, #2
+    blo popup_blit_store
+    cmp r7, #125
+    bhi popup_blit_store
+    ldrb r3, [r9, r7]
+    orr r12, r12, r3
+    b popup_blit_store
+popup_blit_top:
+    cmp r7, #1
+    blo popup_blit_store
+    cmp r7, #126
+    bhi popup_blit_store
+    mov r12, #0x20
+    cmp r7, #1
+    cmpne r7, #126
+    orreq r12, r12, #0xC0
+    cmp r7, #2
+    blo popup_blit_store
+    cmp r7, #125
+    bhi popup_blit_store
+    ldrb r3, [r9, r7]
+    and r3, r3, #0xC0
+    orr r12, r12, r3
+    b popup_blit_store
+popup_blit_bottom:
+    cmp r7, #1
+    blo popup_blit_shadow
+    cmp r7, #126
+    bhi popup_blit_shadow
+    mov r12, #1
+popup_blit_shadow:
+    cmp r7, #3
+    blo popup_blit_store
+    cmp r7, #125
+    bhi popup_blit_store
+    tst r7, #1
+    orrne r12, r12, #2
+    b popup_blit_store
+popup_blit_store:
+    orr r10, r10, r12
+    strb r10, [r8, r7]
+    add r7, r7, #1
+    cmp r7, #128
+    blo popup_blit_x
+    add r6, r6, #1
+    cmp r6, #6
+    bls popup_blit_page
+    pop {r4-r11, pc}
+.pool
+
 ; r0 runtime. Copies the picture over the firmware's display RAM while an app is open and the main screen shows, or
 ; while the built-in app is open and its page in the menu ring shows and no window lies over it (the Power Off window
 ; has its own picture: the screen manager's word at +0x24 points at a window, 0 when there is none).
@@ -378,6 +758,14 @@ bitmap_done:
 ; a plugin app or the page DESCRIPTION.
 script_display_blit:
     mov r12, #0
+    ldr r1, =popup_active
+    ldr r1, [r1]
+    cmp r1, #0
+    bxne lr
+    ldr r1, =popup_builder
+    ldr r1, [r1]
+    cmp r1, #0
+    bxne lr
     ldr r1, [r0, #SCRIPT_CONTROL_DISPLAY_ACTIVE]
     cmp r1, #1
     bxne lr
@@ -495,3 +883,18 @@ fault_label:
     .asciz "Line"
 .align 4
 .pool
+
+.align 4
+popup_builder:
+    .word 0
+popup_build_ms:
+    .word 0
+popup_active:
+    .word 0
+popup_close_native:
+    .word 0
+popup_deadline:
+    .word 0
+popup_picture:
+    .space 1024
+.align 4

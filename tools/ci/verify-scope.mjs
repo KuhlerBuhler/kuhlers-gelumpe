@@ -56,6 +56,7 @@ export const TABLE = [
   [/^tools\/emu\/plugin_api23_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api24_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api25_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api26_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/live_write_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/objects_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
   // what the case modules get from Node (node_json.py): only groups of remote_cases ask; the writer of the file checks nothing
@@ -99,7 +100,7 @@ export const TABLE = [
 
 /** The workflow's `paths:` filter as a test: true for a file whose change starts the workflow. */
 export function workflowPaths(text = readFileSync(`${root}.github/workflows/verify-patches.yml`, "utf8")) {
-  const block = text.match(/^ {4}paths:\n((?: {6}- .*\n)+)/m)[1];
+  const block = text.match(/^ {4}paths:\r?\n((?: {6}- .*\r?\n)+)/m)[1];
   const globs = [...block.matchAll(/- "([^"]+)"/g)].map(m => m[1]);
   const re = g => new RegExp(`^${g.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*\*/g, "\0").replace(/\*/g, "[^/]*").replace(/\0/g, ".*")}$`);
   const take = globs.filter(g => !g.startsWith("!")).map(re);

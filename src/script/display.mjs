@@ -87,6 +87,26 @@ export class Display {
   }
 }
 
+/** Firmware popup outline and content clipping, as a display picture for the script simulator. */
+export function popupDisplay(content, base = null) {
+  const popup = new Display();
+  if (base) popup.bytes.set(base);
+  for (let x = 1; x <= 126; x++) for (let y = 12; y <= 49; y++) popup.pixel(x, y, 0);
+  for (let x = 1; x <= 126; x++) {
+    popup.pixel(x, 13);
+    popup.pixel(x, 48);
+  }
+  for (let y = 14; y <= 47; y++) {
+    popup.pixel(1, y);
+    popup.pixel(126, y);
+  }
+  for (let x = 3; x <= 125; x += 2) popup.pixel(x, 49);
+  for (let y = 14; y <= 47; y++) {
+    for (let x = 2; x <= 125; x++) if (content.get(x, y)) popup.pixel(x, y);
+  }
+  return popup;
+}
+
 /** The screen a faulted script leaves: its name, the source line and the error name, one text row each. */
 export function drawFault(display, script, line, errorName) {
   display.clear();

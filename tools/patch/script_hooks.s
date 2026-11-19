@@ -62,6 +62,9 @@ input_power_held:
 input_power_wait:
     b input_power_wait
 input_power_no:
+    push {r0, lr}
+    bl script_popup_input
+    pop {r0, lr}
     bl migrate_input
     cmp r0, #0
     ldr r0, [sp, #8]
@@ -652,6 +655,9 @@ frame_finish:
     bl script_touch_lock_guard
     mov r0, r4
     bl script_sim_input_guard
+    mov r0, r4
+    bl script_popup_frame
+    mov r0, r4
     mov r0, r4
     bl script_display_blit
     bl display_calibrate

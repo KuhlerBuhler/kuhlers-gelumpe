@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 25;
+export const API_VERSION = 26;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -305,7 +305,7 @@ const str = name => ({ name, kind: "str" });
 /** A global array, handed over as one value that holds its first slot (16 bits) and its length (16 bits, above). `strip` names the argument that cuts it into strips. */
 const arr = (name, strip) => ({ name, kind: "arr", strip });
 
-/** Fuel units for each slot of a bitmap's array, on top of the call's cost of 14: the ARM routine takes 63 instructions for the call, at most 28 for a lit slot and about 20 more for each band of a picture one slot wide, at 10 instructions to a unit (tools/patch/test_script_display.py counts them against these numbers). */
+/** Fuel units for each slot of a bitmap's array, on top of the call's cost of 15: the ARM routine takes 68 instructions for the call, at most 28 for a lit slot and about 20 more for each band of a picture one slot wide, at 10 instructions to a unit (tools/patch/test_script_display.py counts them against these numbers). */
 const BITMAP_ITEM_COST = 3;
 
 const API_LIST = [
@@ -321,7 +321,7 @@ const API_LIST = [
   [21, "korg.display.clearRect", [int("x", 0, 127), int("y", 0, 63), int("width", 1, 128), int("height", 1, 64)], "void", UI, 40, 1],
   [22, "korg.display.take", [], "int", UI, 80, 5],
   [23, "korg.display.release", [], "void", UI, 4, 5],
-  [24, "korg.display.bitmap", [arr("array", "width"), int("x", -128, 127), int("y", -64, 63), int("width", 1, 128)], "void", UI, 14, 6, BITMAP_ITEM_COST],
+  [24, "korg.display.bitmap", [arr("array", "width"), int("x", -128, 127), int("y", -64, 63), int("width", 1, 128)], "void", UI, 15, 6, BITMAP_ITEM_COST],
   [25, "korg.display.textNumber", [str("text"), int("value"), int("x", 0, 127), int("y", 0, 63)], "void", UI, 250, 6],
   [32, "korg.store.get", [int("slot", 0, 15), int("fallback")], "int", ALL, 4, 2],
   [33, "korg.store.set", [int("slot", 0, 15), int("value")], "void", ALL, 4, 2],
@@ -389,6 +389,10 @@ const API_LIST = [
   [103, "korg.padUp", [int("pad", 0, 15)], "void", UI, 30, 25],
   [104, "korg.encoder", [int("index", 0, 4), int("delta", -127, 127)], "void", UI, 30, 25],
   [105, "korg.touch", [int("x", -1, 1023), int("y", 0, 1023)], "void", UI, 40, 25],
+  // Background plugins draw into the firmware-style popup between begin and show; one global popup replaces the previous one.
+  [106, "korg.display.popup.begin", [], "void", UI, 120, 26],
+  [107, "korg.display.popup.timeout", [int("ms", 0, TIMERS.maxMs)], "void", UI, 20, 26],
+  [108, "korg.display.popup.show", [], "void", UI, 150, 26],
 ];
 
 /**

@@ -6,7 +6,7 @@
 import { QUEUED_EVENTS, EVENT_BY_NAME, SCRIPT_LED, SCRIPT_GIF, ERROR } from "../../data/script/contract.mjs";
 import { ScriptRuntime } from "./runtime.mjs";
 import { ScriptLeds } from "./led.mjs";
-import { Display, drawFault } from "./display.mjs";
+import { Display, drawFault, popupDisplay } from "./display.mjs";
 import { Coverage } from "./coverage.mjs";
 import { SimHardware } from "./hardware.mjs";
 import { KEY_NAMES } from "../../data/script/names.mjs";
@@ -25,6 +25,12 @@ export class SimDevice {
     this.now = now ?? (() => this.clock);
     this.display = new Display();
     this.blank = new Uint8Array(this.display.bytes.length);
+    this.popupBuilder = null;
+    this.popupStage = null;
+    this.popupVisible = null;
+    this.popupDeadline = 0;
+    this.popupTimeoutMs = 2000;
+    const drawing = () => this.popupBuilder ? this.popupStage : this.display;
     this.leds = new Uint8Array(SCRIPT_LED.count);
     this.ledModel = new ScriptLeds();
     this.runtime = null;
@@ -43,14 +49,30 @@ export class SimDevice {
       api: {
         "korg.led": (index, level) => this.ledModel.request(index, level),
         "korg.millis": () => Math.floor(this.now()),
-        "korg.display.clear": () => this.display.clear(),
-        "korg.display.text": (text, x, y) => this.display.text(text, x, y),
-        "korg.display.number": (value, x, y) => this.display.number(value, x, y),
-        "korg.display.pixel": (x, y, on) => this.display.pixel(x, y, on),
-        "korg.display.rect": (x, y, w, h) => this.display.rect(x, y, w, h),
-        "korg.display.clearRect": (x, y, w, h) => this.display.clearRect(x, y, w, h),
-        "korg.display.bitmap": (slots, x, y, width) => this.display.bitmap(slots, x, y, width),
-        "korg.display.textNumber": (text, value, x, y) => this.display.textNumber(text, value, x, y),
+        "korg.display.clear": () => drawing().clear(),
+        "korg.display.text": (text, x, y) => drawing().text(text, x, y),
+        "korg.display.number": (value, x, y) => drawing().number(value, x, y),
+        "korg.display.pixel": (x, y, on) => drawing().pixel(x, y, on),
+        "korg.display.rect": (x, y, w, h) => drawing().rect(x, y, w, h),
+        "korg.display.clearRect": (x, y, w, h) => drawing().clearRect(x, y, w, h),
+        "korg.display.bitmap": (slots, x, y, width) => drawing().bitmap(slots, x, y, width),
+        "korg.display.textNumber": (text, value, x, y) => drawing().textNumber(text, value, x, y),
+        "korg.display.popup.begin": entry => {
+          this.popupBuilder = entry;
+          this.popupStage = new Display();
+          this.popupTimeoutMs = 2000;
+        },
+        "korg.display.popup.timeout": (entry, ms) => {
+          if (this.popupBuilder !== entry) throw new ScriptFault(ERROR.API_ARG);
+          this.popupTimeoutMs = ms;
+        },
+        "korg.display.popup.show": entry => {
+          if (this.popupBuilder !== entry || !this.popupStage) throw new ScriptFault(ERROR.API_ARG);
+          this.popupVisible = popupDisplay(this.popupStage).bytes.slice();
+          this.popupDeadline = this.popupTimeoutMs ? this.now() + this.popupTimeoutMs : 0;
+          this.popupBuilder = null;
+          this.popupStage = null;
+        },
         "korg.file.frame": (slots, file, index) => {
           if (slots.length < SCRIPT_GIF.frameBytes) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.gifFrame", { length: slots.length, needed: SCRIPT_GIF.frameBytes })));
           return readGifFrame(this.card.get(gifPath(file)), index, slots);
@@ -58,7 +80,8 @@ export class SimDevice {
         ...this.hardware.api(),
       },
     });
-    this.runtime.onOwn = () => this.display.clear();
+    this.runtime.onOwn = () => { this.display.clear(); this.#popupCancel(); };
+    this.runtime.onPopupCancel = () => this.#popupCancel();
     // the firmware clears the pad holds of all plugins and the passed keys when an app closes (script_app_close)
     this.runtime.onClose = () => { for (const e of this.runtime.scripts) e.holds.pad = 0; this.hardware.syncHolds(); this.hardware.resetKeyPass(); };
   }
@@ -86,12 +109,26 @@ export class SimDevice {
   get apps() { return this.runtime.appList; }
 
   /** What the device's display shows: the picture of the open app, nothing of a plugin otherwise (the device shows its own screen). */
-  get shown() { return this.runtime.open ? this.display.bytes : this.blank; }
+  get shown() {
+    if (this.runtime.open) return this.display.bytes;
+    if (this.popupVisible && (!this.popupDeadline || this.now() < this.popupDeadline)) return this.popupVisible;
+    return this.blank;
+  }
+
+  #popupCancel() {
+    this.popupBuilder = null;
+    this.popupStage = null;
+    this.popupVisible = null;
+    this.popupDeadline = 0;
+    this.popupTimeoutMs = 2000;
+    if (this.runtime) this.runtime.popupBuilder = null;
+  }
 
   /** The user opens an app from the BLECH menu: the display is cleared for it, it gets `open`. */
   openApp(id) {
     const app = this.runtime.apps[id];
     if (!app || app.entry.script.state !== "armed") return false;
+    this.#popupCancel();
     return this.runtime.openApp(id);
   }
 
@@ -102,6 +139,7 @@ export class SimDevice {
   #deliver(event, args) {
     if (event === "buttonPress" || event === "buttonRelease") args = [this.runtime.remapped(args[0]), ...args.slice(1)];
     if (event === "buttonPress" && args[0] === KEY_EXIT && this.runtime.open) { this.runtime.closeApp(); return true; }
+    if (event === "buttonPress" && args[0] === KEY_EXIT && this.popupVisible) this.#popupCancel();
     this.hardware.appOpen = Boolean(this.runtime.open);
     this.hardware.syncHolds();
     return this.runtime.post(event, ...this.hardware.input(event, ...args));
@@ -125,6 +163,10 @@ export class SimDevice {
     this.ledModel.beginFrame();
     this.hardware.tick(FRAME_MS);
     const result = this.runtime.frame();
+    if (this.popupVisible && this.popupDeadline && this.now() >= this.popupDeadline) {
+      this.popupVisible = null;
+      this.popupDeadline = 0;
+    }
     this.hardware.syncHolds();
     for (const fault of result.faults) this.#showFault(fault);
     this.ledModel.flushFrame({

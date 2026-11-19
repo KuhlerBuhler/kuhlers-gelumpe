@@ -519,6 +519,9 @@ Plugin mit einem Fehler.
 | `korg.display.take()` | das Display nehmen (Weg 2, siehe oben); 1 wenn es klappt, 0 wenn nicht (eine App, ein anderer Besitzer, nicht der Hauptbildschirm) | wie `korg.led` |
 | `korg.display.release()` | das Display zurückgeben | wie `korg.led` |
 | `korg.display.popups = 0` | hält das Parameterfenster zu, das `korg.seq.setPartValue` sonst wie der Regler öffnet; nur für die Aufrufe dieses Plugins, 1 schaltet es wieder ein. Beim Laden steht es auf 1. `korg.knob` öffnet das Fenster der Firmware weiter, weil es den Regler selbst spielt. Lesen mit `korg.display.popups` oder `korg.read.popups()`. Ab API Version 24 | wie `korg.led` |
+| `korg.display.popup.begin()` | beginnt eine Popup-Zeichnung für ein Hintergrund-Plugin; danach zeichnen die bestehenden Display-Aufrufe absolut in den Popup-Puffer. Apps dürfen keine Plugin-Popups öffnen. Ab API Version 26 | wie `korg.led` |
+| `korg.display.popup.timeout(ms)` | setzt die Anzeigedauer des vorbereiteten Popups in Millisekunden, 0 bis 600000. Standard sind 2000 ms; 0 lässt es bis EXIT oder zum nächsten Popup offen. Ab API Version 26 | wie `korg.led` |
+| `korg.display.popup.show()` | zeigt das vorbereitete Popup und ersetzt ein vorheriges Firmware- oder Plugin-Popup. EXIT schließt es wie ein Firmware-Popup. Ab API Version 26 | wie `korg.led` |
 | `korg.display.clear()` | Display löschen; die Zeichenaufrufe wirken nur für den Besitzer des Displays (die offene App, oder wer es nahm) | wie `korg.led` |
 | `korg.display.text(text, x, y)` | Text mit der linken oberen Ecke bei `x`, `y` (0 bis 127, 0 bis 63) | wie `korg.led` |
 | `korg.display.number(wert, x, y)` | Zahl | wie `korg.led` |
@@ -634,17 +637,29 @@ korg.onEvent("buttonPress", (key) => {
 **Display auf dem Gerät** (`tools/patch/script_display.s`): Die Laufzeit hält ein
 eigenes Bild von 1024 Byte (8 Seiten zu 128 Spalten, Bit 0 die oberste Zeile) und
 zeichnet nur dort hinein, Koordinaten über dem Rand werden abgeschnitten, nie
-umgebrochen. Zeichnen darf nur der Besitzer des Displays (die offene App, oder ein
-Plugin, das es nahm): die Aufrufe jedes anderen Plugins tun nichts. Solange es einen
-Besitzer gibt, kopiert der Rahmenhaken das Bild in jedem Rahmen über das Display RAM
-der Firmware (`0xC031B310`, nach dem Zeichnen ihrer Widgets), aber nur, solange der
-Hauptbildschirm offen ist. Ohne Besitzer rührt die Laufzeit das Display nicht an.
-Menüs und Fenster zeigt die Firmware wie gewohnt, ein Plugin sieht sie nicht. Die
-Schrift ist eine eigene 5 mal 7 Schrift mit 6 Pixel Zeichenabstand
+umgebrochen. Vollbild-Zeichnen darf nur der Besitzer des Displays (die offene App,
+oder ein Plugin, das es nahm): die Aufrufe jedes anderen Plugins tun nichts. Solange
+es einen Besitzer gibt, kopiert der Rahmenhaken das Bild in jedem Rahmen über das
+Display RAM der Firmware (`0xC031B310`, nach dem Zeichnen ihrer Widgets), aber nur,
+solange der Hauptbildschirm offen ist. Ohne Besitzer rührt die Laufzeit das Display
+nicht an. Menüs und Fenster zeigt die Firmware wie gewohnt, ein Plugin sieht sie nicht.
+Die Schrift ist eine eigene 5 mal 7 Schrift mit 6 Pixel Zeichenabstand
 (`data/script/font.mjs`), dieselbe Tabelle in Browser und Laufzeit; die Ausgabe
 ist Pixel für Pixel gleich dem Browsermodell (`src/script/display.mjs`, 70
 Fälle in `tools/patch/test_script_display.py`). Texte sind höchstens 31 Zeichen
 (ein Textplatz), Zahlen werden dezimal gezeichnet.
+
+**Popups für Hintergrund-Plugins** (`korg.display.popup.*`): `begin()` bereitet
+den Zeichenpuffer vor, die bestehenden Text-, Zahlen- und Pixelaufrufe zeichnen mit
+absoluten Display-Koordinaten hinein, `show()` zeigt ihn. Der Inhalt ist auf
+`x = 2..125`, `y = 14..47` beschnitten; Zeichnen außerhalb dieses Bereichs ist
+wirkungslos. Der Firmware-Rahmen liegt bei `x = 1..126`, `y = 12..49`: obere Linie
+bei `y = 13`, Seiten bei `x = 1` und `x = 126`, untere Linie bei `y = 48`, dazu der
+gepunktete Schatten bei `y = 49`. Es gibt genau ein gemeinsames Popup; `show()`
+ersetzt das vorherige, egal ob es von der Firmware oder einem anderen Plugin kam.
+Ein offenes Firmware-Popup wird dabei mit EXIT geschlossen. EXIT schließt auch das
+Plugin-Popup vorzeitig. Apps können diese Aufrufe nicht verwenden. Die Standarddauer
+beträgt zwei Sekunden, `timeout(0)` schaltet den Timer aus.
 
 **Bilder aus Feldern** (`korg.display.bitmap`): ein Platz des Felds hält die 8 Pixel einer Spalte,
 das niedrigste Bit ist das oberste Pixel (nur die unteren 8 Bit zählen); das ist der Aufbau des
@@ -1537,7 +1552,7 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
 
 - Compiler, Prüfer und Referenz-VM in JavaScript (`src/script/`), die Seite
   Plugins mit Lauf, Probe und Export (`site/app/scripts.mjs`), Tests in
-  `test/script-*.test.mjs`. Blockformat 2, API Version 25
+  `test/script-*.test.mjs`. Blockformat 2, API Version 26
   (`data/script/contract.mjs`).
 - ARM-VM (`tools/patch/script_vm.s`): alle 34 Opcodes, 506 Vergleichsfälle gegen
   die JS-VM stimmen ([Messung](messungen/2026-10-14-skript-arm-vm.md)).
