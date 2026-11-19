@@ -897,6 +897,44 @@ class HookTests(unittest.TestCase):
         self.assertEqual(bytes(machine.uc.mem_read(0xC06C226C,1)),b'\x01','the firmware repaints its main screen whole')
         self.assertEqual(self.drain(machine),[(21,other,0,0)])
 
+    def test_release_dispatches_native_close_only_without_a_native_window(self):
+        machine,built=self.machine()
+        base=self.apps_base(machine,built)
+        manager=machine.read(0xC03404C0)
+        owner=self.app_script(machine)
+        other=self.app_script(machine)
+        machine.write(machine.runtime+88,owner)
+        machine.write(manager+0x2c,1)
+        self.assertEqual(machine.call('script_display_take_glue'),(1,0))
+
+        machine.uc.mem_map(0x90000000,0x1000)
+        handler,vtable=0x90000000,0x90000100
+        machine.uc.mem_write(handler,b'\x1e\xff\x2f\xe1')
+        machine.write(manager,vtable)
+        machine.write(vtable+0x40,handler)
+        calls=[]
+        hook=machine.uc.hook_add(UC_HOOK_CODE,lambda uc,address,size,data: calls.append(address),begin=handler,end=handler)
+        try:
+            machine.write(machine.runtime+88,other)
+            machine.call('script_display_release_glue')
+            self.assertEqual(calls,[],'a non-owner cannot refresh the display')
+            self.assertEqual(machine.read(base),owner)
+
+            machine.write(machine.runtime+88,owner)
+            machine.call('script_display_release_glue')
+            self.assertEqual(calls,[handler],'the owner dispatches native close once')
+            self.assertEqual(machine.read(base),0)
+            self.assertEqual(bytes(machine.uc.mem_read(0xC06C226C,1)),b'\x01')
+
+            self.assertEqual(machine.call('script_display_take_glue'),(1,0))
+            machine.write(0xC06C226C,0)
+            machine.write(manager+0x24,0x90000200)
+            machine.call('script_display_release_glue')
+            self.assertEqual(calls,[handler],'an active firmware window stays on its native close path')
+            self.assertEqual(bytes(machine.uc.mem_read(0xC06C226C,1)),b'\x01')
+        finally:
+            machine.uc.hook_del(hook)
+
     def test_public_patch_manifest_has_only_own_changes_and_registered_hooks(self):
         import hashlib
         from tools.patch.script_hooks import build,SITES,WORDS,RAM_BASE

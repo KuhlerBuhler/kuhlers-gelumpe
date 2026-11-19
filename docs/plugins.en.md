@@ -90,6 +90,7 @@ korg.onEvent("frame", () => { frames += 1; if (frames >= 3) { frames = 0; step()
 display. The function returns 1 on success, otherwise 0. Then the plugin draws until it calls
 `korg.display.release()` or the user presses EXIT (the plugin then gets `close`). An app does not take the
 display, it is opened from the menu. Not in the body: there is no display there.
+`release()` also asks the firmware's native close path to redraw the main screen when no firmware window is open.
 
 ```js
 // A note on the display while PLAY is held.
@@ -475,7 +476,7 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.app(name, group)` | registers the plugin as an app: `name` 1 to 15 characters, `group` `"GAMES"` or `"TOOLS"`. Returns the number of the app, -1 if all 8 places are taken. As a statement of its own at the top, once per plugin (the compiler checks this) | body only |
 | `korg.file.frame(array, file, index)` | reads frame `index` (0 to 65535) of the file `GIFnn.E2G` (`file` 0 to 99 is nn) in `KORG/blechtribe/Gif/` into the array, one byte to a slot, which is exactly what `korg.display.bitmap(array, 0, 0, 128)` draws. The array needs at least 1024 slots. Returns the frame's delay in ms (at least 1), 0 past the last frame, -1 without a file, for a wrong or cut file and outside the main screen; after -1 the device may have changed the last quarter of the array. From API version 7 | like `korg.led` |
 | `korg.display.take()` | take the display (way 2, see above); 1 on success, 0 if not (an app, another owner, not the main screen) | like `korg.led` |
-| `korg.display.release()` | give the display back | like `korg.led` |
+| `korg.display.release()` | give the display back; ask the firmware to redraw the main screen if no firmware window is open | like `korg.led` |
 | `korg.display.popups = 0` | keeps the parameter window shut that `korg.seq.setPartValue` otherwise opens like the knob; only for this plugin's calls, 1 turns it back on. It is 1 after loading. `korg.knob` still opens the firmware's window, because it plays the knob itself. Read it with `korg.display.popups` or `korg.read.popups()`. From API version 24 | like `korg.led` |
 | `korg.display.popup.begin()` | starts a popup drawing for a background plugin; existing display calls then draw into its buffer with absolute coordinates. Apps cannot open plugin popups. From API version 26 | like `korg.led` |
 | `korg.display.popup.timeout(ms)` | sets the prepared popup's lifetime in milliseconds, 0 to 600000. The default is 2000 ms; 0 leaves it open until EXIT or another popup. From API version 26 | like `korg.led` |

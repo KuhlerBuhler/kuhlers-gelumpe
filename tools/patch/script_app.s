@@ -4,9 +4,8 @@
 ; the BLECH menu lists the apps by group and opens one; EXIT always closes it, in the input filter, before any
 ; plugin sees the key.
 .equ APP_STATE, HOOK_RUNTIME+RT_APPS
-; The screen tick (0xC006F178, called with 0xC06C2220) clears and redraws the whole screen when the byte at +0x4c is set. The
-; firmware draws its widgets only where something changed, so when the display is given back this byte makes the main
-; screen whole again at once (measured: the display is then equal to one that never had an app).
+; The screen tick (0xC006F178, called with 0xC06C2220) clears and redraws the whole screen when the byte at +0x4c is set.
+; Release sets it and dispatches the native close path when no native window is open, so the hardware redraws immediately.
 .equ UI_REDRAW, 0xC06C226C
 
 ; korg.app(name, group): r0 = name text, r1 = group text -> r0 = the app's id, -1 when all places are taken,
@@ -128,19 +127,33 @@ display_take_done:
 
 ; korg.display.release(): the owner gives the display back (no `close` event for its own call).
 script_display_release_glue:
+    push {r4, lr}
     ldr r0, =HOOK_RUNTIME
     ldr r1, [r0, #RT_ENTRY]
     ldr r2, =APP_STATE
     ldr r3, [r2, #SCRIPT_APPS_OPEN]
     cmp r3, r1
-    moveq r3, #0
-    streq r3, [r2, #SCRIPT_APPS_OPEN]
-    ldreq r2, =UI_REDRAW
-    moveq r3, #1
-    strbeq r3, [r2]
+    bne display_release_done
+    mov r3, #0
+    str r3, [r2, #SCRIPT_APPS_OPEN]
+    ldr r2, =UI_REDRAW
+    mov r3, #1
+    strb r3, [r2]
+    ldr r0, =SCREEN_MANAGER
+    ldr r0, [r0]
+    cmp r0, #0
+    beq display_release_close
+    cmn r0, #1
+    beq display_release_close
+    ldr r1, [r0, #0x24]
+    cmp r1, #0
+    bne display_release_done
+display_release_close:
+    bl script_popup_native_close
+display_release_done:
     mov r0, #0
     mov r1, #ERR_OK
-    bx lr
+    pop {r4, pc}
 .pool
 
 ; r0 = script entry -> r0 = 1 when it is an app and not the open one (it gets no `frame`), else 0. Clobbers r1 to r3, r12.

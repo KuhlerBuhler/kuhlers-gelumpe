@@ -98,6 +98,7 @@ zeigt und das Display niemand besitzt. Die Funktion gibt 1 zurück, wenn es klap
 sonst 0. Danach zeichnet das Plugin, bis es `korg.display.release()` ruft oder der
 Nutzer EXIT drückt (das Plugin bekommt dann `close`). Eine App nimmt das Display nicht,
 sie wird im Menü geöffnet. Nicht im Rumpf: dort gibt es kein Display.
+`release()` fordert bei geschlossenem Firmware-Fenster zusätzlich den nativen Neuaufbau des Hauptbildschirms an.
 
 ```js
 // Ein Hinweis auf dem Display, solange PLAY gehalten wird.
@@ -517,7 +518,7 @@ Plugin mit einem Fehler.
 | `korg.app(name, gruppe)` | meldet das Plugin als App an: `name` 1 bis 15 Zeichen, `gruppe` `"GAMES"` oder `"TOOLS"`. Gibt die Nummer der App zurück, -1 wenn alle 12 Plätze belegt sind (das Gerät meldet dann beim Import "max 12 apps"). Als eigene Anweisung ganz oben, einmal je Plugin (der Übersetzer prüft das) | nur im Rumpf |
 | `korg.file.frame(feld, datei, bild)` | liest Bild `bild` (0 bis 65535) der Datei `GIFnn.E2G` (`datei` 0 bis 99 ist nn) aus `KORG/blechtribe/Gif/` ins Feld, ein Byte je Platz, also genau, was `korg.display.bitmap(feld, 0, 0, 128)` zeichnet. Das Feld braucht mindestens 1024 Plätze. Gibt die Dauer des Bildes in ms zurück (mindestens 1), 0 hinter dem letzten Bild, -1 ohne Datei, bei falscher oder abgeschnittener Datei und außerhalb des Hauptbildschirms; nach -1 kann am Gerät das letzte Viertel des Felds verändert sein. Ab API Version 7 | wie `korg.led` |
 | `korg.display.take()` | das Display nehmen (Weg 2, siehe oben); 1 wenn es klappt, 0 wenn nicht (eine App, ein anderer Besitzer, nicht der Hauptbildschirm) | wie `korg.led` |
-| `korg.display.release()` | das Display zurückgeben | wie `korg.led` |
+| `korg.display.release()` | das Display zurückgeben; ohne offenes Firmware-Fenster den nativen Neuaufbau des Hauptbildschirms anfordern | wie `korg.led` |
 | `korg.display.popups = 0` | hält das Parameterfenster zu, das `korg.seq.setPartValue` sonst wie der Regler öffnet; nur für die Aufrufe dieses Plugins, 1 schaltet es wieder ein. Beim Laden steht es auf 1. `korg.knob` öffnet das Fenster der Firmware weiter, weil es den Regler selbst spielt. Lesen mit `korg.display.popups` oder `korg.read.popups()`. Ab API Version 24 | wie `korg.led` |
 | `korg.display.popup.begin()` | beginnt eine Popup-Zeichnung für ein Hintergrund-Plugin; danach zeichnen die bestehenden Display-Aufrufe absolut in den Popup-Puffer. Apps dürfen keine Plugin-Popups öffnen. Ab API Version 26 | wie `korg.led` |
 | `korg.display.popup.timeout(ms)` | setzt die Anzeigedauer des vorbereiteten Popups in Millisekunden, 0 bis 600000. Standard sind 2000 ms; 0 lässt es bis EXIT oder zum nächsten Popup offen. Ab API Version 26 | wie `korg.led` |
