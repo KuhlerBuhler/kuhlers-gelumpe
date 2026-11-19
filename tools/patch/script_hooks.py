@@ -449,6 +449,8 @@ class BuiltHooks:
             ('audio_command_hook','audio_columns','Der Haken an CommandTask ruft erst den ursprünglichen Befehlshandler und dann den Dienst von korg.audio; ohne Anfrage eines Plugins kehrt der Dienst ohne Firmware-Aufruf zurück.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE, Seitenzähler und der Bildschirmwechsel (AUTO SAVE) laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
             ('card_widget','card_frame','Der Bildschirmwechsel setzt mit scharfem Menü schon beim ersten Wechsel zum Hauptbildschirm den Platz des Kartensymbols (BATTERY %): er sucht Korgs Widget, setzt x und dessen Neuzeichnen-Byte und leert die alten Spalten; ohne scharfes Menü kehrt er sofort zurück.'),
+            ('battery_model','battery_put','Der Platz des Kartensymbols fragt beim ersten Wechsel zum Hauptbildschirm, ob die Akku-Zahl gezeigt wird: liest nur Menü-Schalter, Stromquelle, BATTERY TYPE und Korgs Schwellentabelle, prüft jeden Zeiger und schreibt nichts.'),
+            ('batt_put_pool','card_widget','Literale der Akku-Abfrage, die der Bildschirmwechsel beim Start liest.'),
             ('card_frame_out','batt_percent_glyph','Literale des Kartensymbol-Platzes, die der Bildschirmwechsel beim Start liest.'),
         ]:
             if start in self.symbols and end in self.symbols:

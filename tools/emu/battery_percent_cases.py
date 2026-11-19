@@ -6,8 +6,9 @@ steps. The page is ON by default, OFF takes the digits away at once, WRITE keeps
 version 3, and the next start reads it. With LOAD METER on and a card in, the digits, the load meter, the card and the battery
 symbol each keep their own columns.
 
-The card symbol sits at 94 on the main screen and at the firmware's 109 everywhere else (script_battery.s:card_place): in the
-menus the EDIT icon fills 84 to 97. The card cases boot with and without a card, pull and put in a card on the main screen,
+The card symbol sits at 94 on the main screen while the percent is wanted and at the firmware's 109 everywhere else and without
+the percent (script_battery.s:card_place, card_main_x): in the menus the EDIT icon fills 84 to 97. The card cases boot with and
+without a card, move the card back and forth with mains, Ni-MH and the switch, pull and put in a card on the main screen,
 go into the BLECH menu and GLOBAL PARAMETERS and back, open the firmware's WRITE question and Blechy's app, with LOAD METER off
 and on. The card's picture is taken from the display at 109 in a menu, the menus' columns 84 to 99 from the boot without a card.
 
@@ -72,6 +73,11 @@ def glyphs(percent):
 def columns(dev, cols=COLS):
     """The columns on the display, row 0 left out."""
     return bytes(b & 0xFE for b in bytes(dev.m.fb[0])[cols.start:cols.stop])
+
+
+def no_digits(cols, card):
+    """The digit columns without the percent: blank but for the card back at Korg's 109 (`card` its picture, blank without one)."""
+    return cols == bytes(KORG_CARD_COLS.start - COLS.start) + card + bytes(COLS.stop - KORG_CARD_COLS.stop)
 
 
 def newest_settings(image):
@@ -181,7 +187,9 @@ def display_cases(payload, flash, png):
     d.m.battery(full + 1)
     d.run(1.0)
     nimh = b.battery_type(), b.shown()
-    out.append(entry("hidden_with_nimh", nimh[0] == 0 and nimh[1][1] != 1 and not any(nimh[1][2]) and not d.m.asserts,
+    card = columns(d, KORG_CARD_COLS)       # without the percent the card is at Korg's 109
+    out.append(entry("hidden_with_nimh", nimh[0] == 0 and nimh[1][1] != 1 and any(card) and no_digits(nimh[1][2], card)
+                     and not d.m.asserts,
                      f"build {build}: BATTERY TYPE {nimh[0]}, (shown, drawn, columns) {nimh[1][0]}, {nimh[1][1]}, {nimh[1][2].hex()}"))
 
     kind = b.set_type(1)
@@ -235,7 +243,7 @@ def display_cases(payload, flash, png):
     d.m.battery(mid)
     d.run(0.6)
     back = b.shown()
-    out.append(entry("hidden_on_mains", mains[1] != 1 and not any(mains[2]) and back[1] == 1 and back[2] == glyphs(b.expected(mid))
+    out.append(entry("hidden_on_mains", mains[1] != 1 and no_digits(mains[2], card) and back[1] == 1 and back[2] == glyphs(b.expected(mid))
                      and not d.m.asserts,
                      f"build {build}: on mains (drawn, columns) {mains[1]}, {mains[2].hex()}; on battery again {back[0]}, {back[2].hex()}"))
 
@@ -257,7 +265,7 @@ def display_cases(payload, flash, png):
     b.switch(False)
     d.run(0.2)
     off = b.shown()
-    out.append(entry("off_hides_at_once", off[1] == 0 and not any(off[2]) and not d.m.asserts,
+    out.append(entry("off_hides_at_once", off[1] == 0 and no_digits(off[2], card) and not d.m.asserts,
                      f"build {build}: (drawn, columns) {off[1]}, {off[2].hex()}"))
     return out
 
@@ -293,7 +301,8 @@ def card_cases(payload, flash, png):
                      f"build {build}: main (94, 109) {empty_boot[0].hex()} {empty_boot[1].hex()}, menus and back "
                      f"{[(a.hex(), b.hex()) for a, b in bare]}"))
 
-    # with a card: its picture at 109 in GLOBAL PARAMETERS, at 94 on the main screen; the menus' 84 to 99 as without a card
+    # with a card: its picture at 109 in GLOBAL PARAMETERS; on the main screen at 109 after the boot (Ni-MH, no percent), at 94
+    # once Alkali brings the percent; the menus' 84 to 99 as without a card
     b = Battery(payload, flash)
     d = b.dev
     booted = main(d)
@@ -302,16 +311,46 @@ def card_cases(payload, flash, png):
     card = columns(d, KORG_CARD_COLS)
     mc.leave_to_main(d)
     d.run(0.5)
-    out.append(entry("card_boot_at_94", any(card) and booted == (card, blank) and not d.m.asserts,
+    kind = b.set_type(1)
+    full, empty = b.thresholds()
+    d.m.battery((full + empty) // 2)
+    d.run(1.0)
+    alkali = main(d)
+    digits = glyphs(b.expected((full + empty) // 2))[KORG_CARD_COLS.start - COLS.start:KORG_CARD_COLS.stop - COLS.start]
+    out.append(entry("card_boot_at_94", any(card) and booted == (blank, card) and kind == 1 and alkali == (card, digits)
+                     and not d.m.asserts,
                      f"build {build}: the card at 109 in a menu {card.hex()}, on the main screen after the boot (94, 109) "
-                     f"{booted[0].hex()} {booted[1].hex()}"))
+                     f"{booted[0].hex()} {booted[1].hex()}, with Alkali {alkali[0].hex()} {alkali[1].hex()}"))
+
+    # the percent gone and back: the card goes to 109 and comes back to 94, with nothing left at the other place
+    moves = []
+    for name, gone, back in (("mains", lambda: d.m.power_source(True), lambda: d.m.power_source(False)),
+                             ("switch", lambda: b.switch(False), lambda: b.switch(True))):
+        gone()
+        d.run(0.6)
+        away = main(d)
+        back()
+        d.m.battery((full + empty) // 2)
+        d.run(0.6)
+        moves.append((name, away, main(d), b.shown()[2]))
+    kind = b.set_type(0)
+    d.run(0.6)
+    nimh = main(d)
+    b.set_type(1)
+    d.run(0.6)
+    moves.append(("nimh", nimh, main(d), b.shown()[2]))
+    want = glyphs(b.expected((full + empty) // 2))
+    out.append(entry("card_follows_the_percent", all(m[1] == (blank, card) and m[2] == (card, digits) and m[3] == want for m in moves)
+                     and kind == 0 and not d.m.asserts,
+                     f"build {build}: (what, without the percent (94, 109), with it again, digits) "
+                     f"{[(m[0], m[1][0].hex(), m[1][1].hex(), m[2][0].hex(), m[2][1].hex(), m[3].hex()) for m in moves]}"))
 
     flags = b.byte(mc.MX_FLAGS2)
     for meter in (0, 1):
         d.m.uc.mem_write(mc.MX_FLAGS2, bytes([flags & ~1 | meter]))
         d.run(1.0)
         got = menus(d)
-        ok = all(m == (bare[2 * i][0], card) for i, m in enumerate(got[0::2])) and all(m == (card, blank) for m in got[1::2])
+        ok = all(m == (bare[2 * i][0], card) for i, m in enumerate(got[0::2])) and all(m == (card, digits) for m in got[1::2])
         out.append(entry(f"card_menus_load_meter_{'on' if meter else 'off'}", ok and not d.m.asserts,
                          f"build {build}: BLECH menu (84 to 99, 109) {got[0][0].hex()} {got[0][1].hex()} (without a card "
                          f"{bare[0][0].hex()}), back (94, 109) {got[1][0].hex()} {got[1][1].hex()}; GLOBAL PARAMETERS "
@@ -326,7 +365,7 @@ def card_cases(payload, flash, png):
     d.m.insert_card(mc.SDCard(mc.MemoryMedium(mc.card_image(mc.CARD_FOLDER))))
     d.run(3.0)
     inserted = main(d)
-    out.append(entry("card_pull_and_insert_on_main", pulled == (blank, blank) and inserted == (card, blank) and not d.m.asserts,
+    out.append(entry("card_pull_and_insert_on_main", pulled == (blank, digits) and inserted == (card, digits) and not d.m.asserts,
                      f"build {build}: pulled (94, 109) {pulled[0].hex()} {pulled[1].hex()}, put in {inserted[0].hex()} "
                      f"{inserted[1].hex()}"))
 
@@ -336,7 +375,7 @@ def card_cases(payload, flash, png):
     mc.press(d, "exit", wait=0.6)
     d.run(1.0)
     after = main(d)
-    out.append(entry("card_write_question", question == (blank, card) and after == (card, blank) and not d.m.asserts,
+    out.append(entry("card_write_question", question == (blank, card) and after == (card, digits) and not d.m.asserts,
                      f"build {build}: in the question (94, 109) {question[0].hex()} {question[1].hex()}, after it "
                      f"{after[0].hex()} {after[1].hex()}"))
 
@@ -350,7 +389,7 @@ def card_cases(payload, flash, png):
     mc.press(d, "exit", wait=0.6)
     d.run(1.0)
     closed = mc.open_app_entry(d), main(d)
-    out.append(entry("card_app", app[0] and app[1][0] != card and closed == (0, (card, blank)) and not d.m.asserts,
+    out.append(entry("card_app", app[0] and app[1][0] != card and closed == (0, (card, digits)) and not d.m.asserts,
                      f"build {build}: app {app[0]:#x} (94, 109) {app[1][0].hex()} {app[1][1].hex()}, closed {closed[0]:#x} "
                      f"{closed[1][0].hex()} {closed[1][1].hex()}"))
     return out
@@ -361,6 +400,7 @@ def page_cases(payload, flash):
     build = "synth" if synthaddr.is_synth(payload) else mc.firmware.build_of(payload)
     b = Battery(payload, flash)
     d = b.dev
+    card = columns(d, KORG_CARD_COLS)       # Ni-MH after the boot: the card at Korg's 109
     b.set_type(1)
     full, empty = b.thresholds()
     mid = (full + empty) // 2
@@ -388,7 +428,7 @@ def page_cases(payload, flash):
     mc.leave_to_main(d)
     d.run(1.0)
     main = b.shown()
-    out.append(entry("page_off_hides_on_the_main_screen", off_page == ("OFF", FLAGS2_BATT_OFF) and main[1] == 0 and not any(main[2])
+    out.append(entry("page_off_hides_on_the_main_screen", off_page == ("OFF", FLAGS2_BATT_OFF) and main[1] == 0 and no_digits(main[2], card)
                      and not d.m.asserts,
                      f"build {build}: page after the dial down {off_page}, on the main screen (drawn, columns) {main[1]}, {main[2].hex()}"))
     out.append(entry("write_off_is_version_4", rec is not None and rec[4] == 4 and rec[7] & FLAGS2_BATT_OFF,
@@ -397,6 +437,7 @@ def page_cases(payload, flash):
     again = Battery(payload, flash, load=written)
     a = again.dev
     flags = again.byte(mc.MX_FLAGS2)
+    card = columns(a, KORG_CARD_COLS)
     again.set_type(1)
     a.m.battery(mid)
     a.run(1.0)
@@ -404,7 +445,7 @@ def page_cases(payload, flash):
     again.switch(True)
     a.run(0.5)
     on_again = again.shown()
-    out.append(entry("next_start_reads_off", flags & FLAGS2_BATT_OFF and stays_off[1] != 1 and not any(stays_off[2])
+    out.append(entry("next_start_reads_off", flags & FLAGS2_BATT_OFF and stays_off[1] != 1 and no_digits(stays_off[2], card)
                      and on_again[1] == 1 and on_again[2] == glyphs(again.expected(mid)) and not a.m.asserts,
                      f"build {build}: byte 7 {flags:#x}, Alkali on battery (drawn, columns) {stays_off[1]}, {stays_off[2].hex()}, "
                      f"the bit cleared {on_again[0]}, {on_again[2].hex()}"))
