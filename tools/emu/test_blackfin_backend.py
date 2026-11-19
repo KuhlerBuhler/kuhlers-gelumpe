@@ -8,8 +8,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from blackfin_backend import BlackfinBackend, BlackfinPort, BackendError
+import blackfin_worker
 
-WORKER = os.environ.get('BFIN_WORKER')
+WORKER = blackfin_worker.find()
 ENTRY, DATA = 0x1000, 0x100000
 
 
@@ -71,7 +72,7 @@ class Failures(unittest.TestCase):
                     backend.run(20)
 
 
-@unittest.skipUnless(WORKER, 'build the GNU Blackfin worker and set BFIN_WORKER')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class Execution(unittest.TestCase):
     def setUp(self):
         self.backend = BlackfinBackend(WORKER)
@@ -239,6 +240,16 @@ class Execution(unittest.TestCase):
         result = self.backend.run(100, until=ENTRY + 16)
         self.assertEqual(result['steps'], 5)
         self.assertTrue(result['reached'])
+
+    def test_rewritten_l1_code_runs_the_new_instructions(self):
+        with BlackfinBackend(WORKER, operating=True) as backend:
+            for entry in (ENTRY, 0xFFA00000):
+                for value in (1, 2, 3):
+                    with self.subTest(entry=hex(entry), value=value):
+                        backend.write(entry, struct.pack('<2H', 0x6000 | value << 3, 0x2000))   # R0 = value
+                        backend.set_register(53, entry)
+                        backend.run(2)
+                        self.assertEqual(backend.register(0), value)
 
     def test_queued_requests_never_reach_the_dsp_as_uart_input(self):
         # GNU's UART reads the simulator's stdin; requests queued behind this one must not show up there.

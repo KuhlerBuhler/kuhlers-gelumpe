@@ -7,7 +7,7 @@ from blackfin_backend import BlackfinBackend
 from test_blackfin_backend import WORKER, ENTRY, DATA, program
 
 
-@unittest.skipUnless(WORKER, 'build the private GNU worker and set BFIN_WORKER')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class MemoryWatch(unittest.TestCase):
     def setUp(self):
         self.backend = BlackfinBackend(WORKER, operating=True)

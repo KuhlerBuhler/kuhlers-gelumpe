@@ -367,6 +367,20 @@ const struct hw_descriptor dv_bfin_hostdp_descriptor[] = {
 };
 
 int blech_bfin_hostdp_event (SIM_DESC, unsigned);
+
+/* The device tree is fixed after sim_open; looking the port up by name on every bus cycle costs. */
+static struct hw *
+hostdp_device (SIM_DESC sd)
+{
+  static SIM_DESC known;
+  static struct hw *device;
+  if (known != sd || !device)
+    {
+      device = hw_tree_find_device (sim_hw_parse (sd, "/core"), "./bfin_hostdp");
+      known = sd;
+    }
+  return device;
+}
 int blech_bfin_hostdp_bus (SIM_DESC, unsigned, bu32 *);
 int blech_bfin_hostdp_dma_enabled (struct hw *);
 
@@ -384,7 +398,7 @@ blech_bfin_hostdp_bus (SIM_DESC sd, unsigned operation, bu32 *word)
   struct bfin_hostdp *host;
   if (STATE_ENVIRONMENT (sd) != OPERATING_ENVIRONMENT || operation > 4)
     return 0;
-  me = hw_tree_find_device (sim_hw_parse (sd, "/core"), "./bfin_hostdp");
+  me = hostdp_device (sd);
   if (!me)
     return 0;
   host = hw_data (me);
@@ -448,7 +462,7 @@ blech_bfin_hostdp_event (SIM_DESC sd, unsigned event)
   struct bfin_hostdp *host;
   if (STATE_ENVIRONMENT (sd) != OPERATING_ENVIRONMENT || event < 1 || event > 3)
     return 0;
-  me = hw_tree_find_device (sim_hw_parse (sd, "/core"), "./bfin_hostdp");
+  me = hostdp_device (sd);
   if (me == NULL)
     return 0;
   host = hw_data (me);

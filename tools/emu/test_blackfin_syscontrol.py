@@ -1,20 +1,20 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """ROM API tests with generated instructions and register settings."""
-import os
 import struct
 import unittest
 
 from blackfin_backend import BlackfinBackend, BackendError
+import blackfin_worker
 from blackfin_rom import SysControl
 
-WORKER = os.environ.get('BFIN_WORKER')
+WORKER = blackfin_worker.find()
 ENTRY, DATA = 0x1000, 0x100000
 MMRS = (0xFFC00008, 0xFFC00000, 0xFFC00004, 0xFFC00010, 0xFFC0000C)
 FIELDS = (0x10, 0x100, 0x200, 0x400, 0x800)
 VALUES = (0x30B0, 0x2A00, 5, 0x200, 0xA2)
 
 
-@unittest.skipUnless(WORKER, 'build the GNU Blackfin worker and set BFIN_WORKER')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class SystemControl(unittest.TestCase):
     def setUp(self):
         self.rom = SysControl()

@@ -10,6 +10,7 @@ import struct
 import time
 
 from blackfin_backend import BlackfinPort, BackendError
+import blackfin_worker
 from blackfin_rom import SysControl
 from firmware import identify
 from machine import blank_flash
@@ -146,15 +147,18 @@ def cases(payload, worker, *, core_hz, wall_timeout=1200):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--patched', type=Path, required=True)
-    parser.add_argument('--worker', type=Path, required=True)
+    parser.add_argument('--worker', type=Path, help='default: blackfin_worker.find()')
     parser.add_argument('--core-hz', type=int, required=True)
     parser.add_argument('--wall-timeout', type=float, default=1200)
     args = parser.parse_args()
     try:
+        worker = blackfin_worker.find(args.worker)
+        if worker is None:
+            raise ValueError('no Blackfin worker: build one with tools/dsp/build_qemu.py or pass --worker')
         raw = args.patched.read_bytes()
         if len(raw) != 0x200100:
             raise ValueError('expected a complete SYSTEM.VSB')
-        report = cases(raw[0x100:], args.worker, core_hz=args.core_hz, wall_timeout=args.wall_timeout)
+        report = cases(raw[0x100:], worker, core_hz=args.core_hz, wall_timeout=args.wall_timeout)
     except (OSError, BackendError, ValueError) as error:
         report = dict(ok=False, hardware_contact=False, error=str(error))
     print(json.dumps(report, indent=2))
