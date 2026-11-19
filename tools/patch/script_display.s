@@ -721,17 +721,16 @@ script_popup_hide:
     cmp r0, #0
     bxne lr
     ldr r0, =SCREEN_MANAGER
-    ldr r0, [r0]
-    cmp r0, #0
+    ldr r1, [r0]
+    cmp r1, #0
     bxeq lr
-    cmn r0, #1
+    cmn r1, #1
     bxeq lr
-    ldr r0, [r0, #0x24]
+    ldr r0, [r1, #0x24]
     cmp r0, #0
     bxne lr
-    ldr r0, =UI_REDRAW
-    mov r1, #1
-    strb r1, [r0]
+    mov r0, #1
+    strb r0, [r1, #UI_REDRAW_AT]
     bx lr
 .pool
 
