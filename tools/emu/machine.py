@@ -347,7 +347,8 @@ class Machine:
         self.leds, self.panel_log = {}, []
         self.backlight = Backlight()   # the display light, GPIO 6.3 to 6.5 (backlight.py)
         self.panel_leds = PanelLeds()   # every LED change with its device time (panel_leds.py)
-        self.panel_count = 0       # messages to the panel; the running firmware sends LEDs ~265 per second
+        self.panel_count = 0       # messages to the panel; since #595 an idle main screen sends none (meter LEDs only on a change)
+        self.idle_waits = 0        # slices that ended in the firmware's wait-for-interrupt: an idle device ~3000 a second, a spinning one none
         self.fb = [[0] * 128 for _ in range(8)]
         self.lcd_page = self.lcd_col = 0
         self.lcd_reverse_sent = 0  # how many 0xA6 or 0xA7 the controller has been sent
@@ -1114,6 +1115,8 @@ class Machine:
         self.insns += count
         pc = self.reg(A.UC_ARM_REG_PC)
         wait = self.waiting(pc)
+        if wait and not self.tx_idle:
+            self.idle_waits += 1
         if wait and self.highest() & 0x80000000:
             self.time_ns = max(self.time_ns, min(self.next_event(), limit))
         elif not self.poll_stop:        # a stopped poll loop has already spent its time on the reads
