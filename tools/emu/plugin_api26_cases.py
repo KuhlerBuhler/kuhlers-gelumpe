@@ -134,16 +134,16 @@ def cases(vsb, flash=None):
 
     dev, _ = boot(payload, flash, built, programs, ["timed"])
     manager = dev.u32(dev.m.profile.screens)
-    native_timeout_handler = dev.u32(dev.u32(manager) + 0x40)
-    if native_timeout_handler == 0:
-        raise AssertionError("screen manager has no native timeout handler")
+    native_close_handler = dev.u32(dev.u32(manager) + 0x40)
+    if native_close_handler == 0:
+        raise AssertionError("screen manager has no native close handler")
     native_close_calls = []
 
     def native_close_hook(uc, address, size, user_data):
         native_close_calls.append(address)
 
     hook = dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, native_close_hook,
-                             begin=native_timeout_handler, end=native_timeout_handler)
+                             begin=native_close_handler, end=native_close_handler)
     dev.m.uc.ctl_flush_tb()
     dev.run(0.08)
     early = popup_active(dev, built)
@@ -166,12 +166,31 @@ def cases(vsb, flash=None):
                      f"active at 1.8 s: {before_default}, at 2.2 s: {after_default}"))
 
     dev, _ = boot(payload, flash, built, programs, ["indefinite"])
+    manager = dev.u32(dev.m.profile.screens)
+    native_close_handler = dev.u32(dev.u32(manager) + 0x40)
+    if native_close_handler == 0:
+        raise AssertionError("screen manager has no native close handler")
+    native_close_calls = []
+
+    def native_close_hook(uc, address, size, user_data):
+        native_close_calls.append(address)
+
+    hook = dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, native_close_hook,
+                             begin=native_close_handler, end=native_close_handler)
+    dev.m.uc.ctl_flush_tb()
     dev.run(0.2)
     before_exit = popup_active(dev, built)
+    calls_before_exit = len(native_close_calls)
     menu_cases.press(dev, "exit", wait=0.2)
     after_exit = popup_active(dev, built)
+    calls_after_exit = len(native_close_calls)
+    dev.m.uc.hook_del(hook)
+    dev.m.uc.ctl_flush_tb()
     out.append(entry("exit_closes_plugin_popup", before_exit == 1 and after_exit == 0 and dev.screen()["number"] == 1,
                      f"active before EXIT: {before_exit}, after: {after_exit}, screen {dev.screen()}"))
+    out.append(entry("exit_runs_native_close", before_exit == 1 and after_exit == 0
+                     and calls_after_exit == calls_before_exit + 1,
+                     f"native close handler calls: {calls_before_exit} before EXIT, {calls_after_exit} after"))
 
     dev, _ = boot(payload, flash, built, programs, ["first", "second"])
     dev.run(0.25)
@@ -181,10 +200,27 @@ def cases(vsb, flash=None):
                      f"active {popup_active(dev, built)}, first pixel {pixel(frame, 17, 25)}, second pixel {pixel(frame, 29, 25)}"))
 
     dev, _ = boot(payload, flash, built, programs, ["native_to_plugin"])
+    manager = dev.u32(dev.m.profile.screens)
+    native_close_handler = dev.u32(dev.u32(manager) + 0x40)
+    if native_close_handler == 0:
+        raise AssertionError("screen manager has no native close handler")
+    native_close_calls = []
+
+    def native_close_hook(uc, address, size, user_data):
+        native_close_calls.append(address)
+
+    hook = dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, native_close_hook,
+                             begin=native_close_handler, end=native_close_handler)
+    dev.m.uc.ctl_flush_tb()
     dev.run(0.7)
     native_to_plugin = popup_active(dev, built) == 1 and native_window(dev) == 0 and pixel(dev.fb(), 20, 20) == 1
+    native_close_count = len(native_close_calls)
+    dev.m.uc.hook_del(hook)
+    dev.m.uc.ctl_flush_tb()
     out.append(entry("plugin_replaces_firmware_popup", native_to_plugin,
                      f"active {popup_active(dev, built)}, native window {native_window(dev)}, marker {pixel(dev.fb(), 20, 20)}"))
+    out.append(entry("firmware_replacement_closes_native_once", native_to_plugin and native_close_count == 1,
+                     f"native close handler calls while replacing firmware popup: {native_close_count}"))
 
     dev, _ = boot(payload, flash, built, programs, ["plugin_to_native"])
     dev.run(0.7)
