@@ -649,6 +649,7 @@ popup_frame_timeout:
     beq popup_frame_draw
     subs r0, r0, r1
     bmi popup_frame_draw
+    bl script_popup_native_timeout_close
     bl script_popup_hide
     b popup_frame_done
 popup_frame_hide:
@@ -658,6 +659,27 @@ popup_frame_draw:
     bl script_display_popup_blit
 popup_frame_done:
     pop {r4-r6, pc}
+.pool
+
+; Native timeout event 0x0a dispatches through the manager's vtable slot at +0x40.
+script_popup_native_timeout_close:
+    push {r4, lr}
+    ldr r0, =SCREEN_MANAGER
+    ldr r4, [r0]
+    cmp r4, #0
+    beq popup_native_timeout_done
+    cmn r4, #1
+    beq popup_native_timeout_done
+    ldr r0, [r4]
+    cmp r0, #0
+    beq popup_native_timeout_done
+    ldr r3, [r0, #0x40]
+    cmp r3, #0
+    beq popup_native_timeout_done
+    mov r0, r4
+    blx r3
+popup_native_timeout_done:
+    pop {r4, pc}
 .pool
 
 script_popup_hide:

@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "tools" / "patch"))
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+import unicorn  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
 import menu_cases  # noqa: E402
 import plugin_edit_cases as edit  # noqa: E402
@@ -202,11 +203,29 @@ def cases(vsb, flash=None):
                      f"outline {pixel(frame, 1, 14), pixel(frame, 126, 14), pixel(frame, 30, 13), pixel(frame, 30, 48)}"))
 
     dev, _ = boot(payload, flash, built, programs, ["timed"])
+    manager = dev.u32(dev.m.profile.screens)
+    native_timeout_handler = dev.u32(dev.u32(manager) + 0x40)
+    if native_timeout_handler == 0:
+        raise AssertionError("screen manager has no native timeout handler")
+    native_close_calls = []
+
+    def native_close_hook(uc, address, size, user_data):
+        native_close_calls.append(address)
+
+    hook = dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, native_close_hook,
+                             begin=native_timeout_handler, end=native_timeout_handler)
+    dev.m.uc.ctl_flush_tb()
     dev.run(0.08)
     early = popup_active(dev, built)
+    calls_early = len(native_close_calls)
     dev.run(0.24)
     late = popup_active(dev, built)
+    calls_late = len(native_close_calls)
+    dev.m.uc.hook_del(hook)
+    dev.m.uc.ctl_flush_tb()
     out.append(entry("custom_timeout", early == 1 and late == 0, f"active at 80 ms: {early}, at 320 ms: {late}"))
+    out.append(entry("timeout_runs_native_close", early == 1 and late == 0 and calls_late == calls_early + 1,
+                     f"native close handler calls: {calls_early} at 80 ms, {calls_late} at 320 ms"))
 
     dev, _ = boot(payload, flash, built, programs, ["default"])
     dev.run(1.8)
