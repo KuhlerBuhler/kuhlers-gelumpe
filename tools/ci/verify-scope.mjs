@@ -76,6 +76,7 @@ export const TABLE = [
   [/^tools\/emu\/bpm_glide_cases\.py$/, ["menu_cases"]],    // runs as a look part of menu_cases
   [/^tools\/emu\/battery_percent_cases\.py$/, ["menu_cases"]],   // runs as a look part of menu_cases
   [/^tools\/emu\/plugin_catalog_api_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+
   [/^tools\/emu\/live_write_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/objects_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
   [/^tools\/emu\/catalog_app_cases\.py$/, ["remote_cases"]],  // runs as a group of remote_cases
@@ -132,7 +133,7 @@ export const TABLE = [
 
 /** The workflow's `paths:` filter as a test: true for a file whose change starts the workflow. */
 export function workflowPaths(text = readFileSync(`${root}.github/workflows/verify-patches.yml`, "utf8")) {
-  const block = text.match(/^ {4}paths:\n((?: {6}- .*\n)+)/m)[1];
+  const block = text.match(/^ {4}paths:\r?\n((?: {6}- .*\r?\n)+)/m)[1];
   const globs = [...block.matchAll(/- "([^"]+)"/g)].map(m => m[1]);
   const re = g => new RegExp(`^${g.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*\*/g, "\0").replace(/\*/g, "[^/]*").replace(/\0/g, ".*")}$`);
   const take = globs.filter(g => !g.startsWith("!")).map(re);

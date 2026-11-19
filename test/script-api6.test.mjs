@@ -84,9 +84,11 @@ test("the compiler passes a global array by its first slot and length and refuse
 });
 
 test("the API version of a block follows what it uses", () => {
-  assert.equal(API_VERSION, 39);
+  assert.equal(API_VERSION, 40);
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.display.popup.begin(); });"), 40, "popup drawing needs API 40");
   assert.equal(apiVersionOf("const d = new Array(4); korg.onEvent(\"ready\", () => { korg.file.read(d, 0, 3); });"), 39, "the data files with a number need API 39");
   assert.equal(apiVersionOf("const pic = new Array(1024); korg.onEvent(\"ready\", () => { korg.file.picture(pic, 0, 0, 0); });"), 38, "a picture from Media/ needs API 38");
+
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let g = korg.seq.getGate(0, 0); });"), 22, "reading a step needs API 22");
   assert.equal(apiVersionOf("korg.onEvent(\"frame\", () => { let v = korg.viewedPattern + korg.nextPattern; });"), 18, "the viewed and next pattern need API 18");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.keyMask(1 << korg.key.PLAY, 0); });"), 19, "a key mask needs API 19");
@@ -103,6 +105,7 @@ test("the API version of a block follows what it uses", () => {
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.current.mfxHold = 1; });"), 24, "MFX hold needs API 24");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.display.popups = 0; });"), 24, "the popups switch needs API 24");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.keyDown(korg.key.SHIFT); });"), 25, "the panel calls are new in API 25");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.display.popup.begin(); korg.display.popup.timeout(0); korg.display.popup.show(); });"), 26, "custom firmware-style popups need API 26");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let v = korg.parts[2].ifxType; });"), 8, "reading IFX type stays at korg.read.patternValue");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.features.tapMotion = 2; });"), 17, "a page of the menu BLECH needs API 17");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.write(); });"), 17, "writing the menu's settings needs API 17");

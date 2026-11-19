@@ -2018,6 +2018,8 @@ export default {
   "script.fault.array": "Feld {base}+{length}",
   "script.fault.argc": "{name} nimmt {count}, aufgerufen mit {given}",
   "script.fault.event": "{name} im Ereignis {event}",
+  "script.fault.popupContext": "Nur ein Hintergrund-Plugin kann ein Popup erstellen.",
+  "script.fault.popupBegin": "Rufe korg.display.popup.begin() auf, bevor du ein Popup einstellst oder anzeigst.",
   "script.file.operands": "{op} bei {at} ohne Operanden",
 
   // Errors of the connection to the device and of its files (src/protocol.mjs, sender.mjs, session.mjs and the file modules).
@@ -2308,6 +2310,9 @@ export default {
   "api.korg.seq.getNote": "Gibt die Note auf Notenplatz slot (0 bis 3) des Steps zurück, 0 bis 127, oder -1, wenn der Platz leer ist.",
   "api.korg.seq.getVelocity": "Gibt die Velocity des Steps zurück, wie sie im Pattern steht.",
   "api.korg.display.popups": "0 lässt das Parameterfenster der Firmware bei den Schreibaufrufen dieses Plugins zu, 1 öffnet es wie ein Regler (Standard).",
+  "api.korg.display.popup.begin": "Bereitet ein Popup für ein Hintergrund-Plugin vor. Zeichnen verwendet absolute Display-Koordinaten und wird am Popup-Inhalt abgeschnitten.",
+  "api.korg.display.popup.timeout": "Setzt die Anzeigedauer dieses Popups in Millisekunden (Standard 2000; 0 schaltet den Timer aus).",
+  "api.korg.display.popup.show": "Zeigt das vorbereitete Popup und ersetzt ein Firmware- oder Plugin-Popup. EXIT schließt es.",
   "api.korg.read.popups": "Gibt 1 zurück, wenn die Schreibaufrufe dieses Plugins das Parameterfenster öffnen, 0, wenn es zu bleibt.",
   "api.korg.backlight": "Schaltet die drei Farben des Display-Lichts ein (1) oder aus (0).",
   "api.korg.ledHold": "1 hält die Firmware davon ab, die Panel-LEDs neu zu schreiben, 0 gibt sie zurück.",
