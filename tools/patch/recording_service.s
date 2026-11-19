@@ -87,7 +87,7 @@ recorder_claim_loaded:
     str r0, [r4, #RC_FILE_BYTES]
     str r0, [r4, #RC_CHECKPOINT]
     ldr r0, [r4, #RC_CHANNELS]
-    cmp r0, #2
+    cmp r0, #RR_CHANNELS
     movne r0, #RW_BAD_ARG
     bne recorder_start_error
     ldr r0, [r4, #RC_CAPACITY]

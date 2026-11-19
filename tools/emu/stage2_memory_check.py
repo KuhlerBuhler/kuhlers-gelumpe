@@ -21,9 +21,10 @@ def dsp_stream(base, patched, span):
     """Accept only canonical stage-2 and recording edits, including the extended upload."""
     import recording_dsp_check
     rec = recording_dsp_check.spec
-    sampler = span.start == recording_dsp_check.dsp_extract.file_offset(recording_dsp_check.dsp_extract.STREAM_RAM)
-    length_at = rec.file_offset(rec.LENGTH_WORD)
-    same_length = not sampler or base[length_at:length_at + 4] == patched[length_at:length_at + 4]
+    build = 'synth' if span.start == rec.file_offset(rec.configuration('synth')['stream']) else 'hacktribe'
+    config = rec.configuration(build)
+    length_at = rec.file_offset(config['length_word'])
+    same_length = base[length_at:length_at + 4] == patched[length_at:length_at + 4]
     if base[span] == patched[span] and same_length:
         return True, "der DSP-Strom des Firmware-Builds ist unverändert"
     found = spec.sites(base)
@@ -33,18 +34,17 @@ def dsp_stream(base, patched, span):
             stage2[at:at + len(new)] = new
         if stage2[span] == patched[span] and same_length:
             return True, "der DSP-Strom trägt genau die Änderungen von stage2-memory"
-    if sampler:
-        try:
-            recording = recording_dsp_check.canonical_patch(base)
-            extended = slice(span.start, rec.file_offset(rec.APPEND) + rec.PROGRAM_SIZE + 16)
-            for candidate in (bytearray(base), stage2):
-                for change in recording['changes']:
-                    data = bytes.fromhex(change['bytes'])
-                    candidate[change['file']:change['file'] + len(data)] = data
-                if candidate[extended] == patched[extended] and candidate[length_at:length_at + 4] == patched[length_at:length_at + 4]:
-                    return True, "der DSP-Strom trägt genau den Aufnahme-Abgriff, gegebenenfalls mit stage2-memory; Block und Ladelänge stimmen"
-        except (ValueError, KeyError, OSError) as error:
-            return False, f"der Aufnahme-DSP-Strom ist nicht kanonisch: {error}"
+    try:
+        recording = recording_dsp_check.canonical_patch(base, build)
+        extended = slice(span.start, rec.file_offset(config['final'] + 16) + rec.PROGRAM_SIZE + 16)
+        for candidate in (bytearray(base), stage2):
+            for change in recording['changes']:
+                data = bytes.fromhex(change['bytes'])
+                candidate[change['file']:change['file'] + len(data)] = data
+            if candidate[extended] == patched[extended] and candidate[length_at:length_at + 4] == patched[length_at:length_at + 4]:
+                return True, "der DSP-Strom trägt genau den Aufnahme-Abgriff, gegebenenfalls mit stage2-memory; Block und Ladelänge stimmen"
+    except (ValueError, KeyError, OSError) as error:
+        return False, f"der Aufnahme-DSP-Strom ist nicht kanonisch: {error}"
     return False, "der DSP-Strom oder seine Ladelänge ist anders geändert als durch die geprüften DSP-Patches"
 
 

@@ -6,9 +6,9 @@ from . import recording_service
 PUBLIC_FIELDS = dict(CONTEXT=4, REQUEST=8, PHASE=12, ERROR=16, BYTES=20,
                      DROPPED=24, NUMBER=28, START=32, ELAPSED=36,
                      SELECTED=40, HELD=44, SETUP=48, CAPACITY=52, GAPS=56, DEFERRED=60,
-                     UI_READY=64)
+                     UI_READY=64, VIEW_REQUEST=68)
 
 
-def source(build='hacktribe'):
+def source(build='hacktribe', retarget=True):
     constants = '\n'.join(f'.equ NR_{key}, {value}' for key, value in PUBLIC_FIELDS.items())
-    return recording_service.source(build) + '\n' + constants + '\n' + Path(__file__).with_suffix('.s').read_text()
+    return recording_service.source(build, retarget) + '\n' + constants + '\n' + Path(__file__).with_suffix('.s').read_text()

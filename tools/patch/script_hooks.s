@@ -847,6 +847,7 @@ script_frame_return_end:
 
 nr_frame:
     push {r4, lr}
+    bl nr_view_frame
     bl nr_ui_ack
     bl nr_busy
     cmp r0, #0

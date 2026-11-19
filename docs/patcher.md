@@ -20,10 +20,11 @@ selbst bauen können, zum Beispiel eigene Menüpunkte (geplant, siehe "Offen").
 Gebaut heißt: der Code liegt im Repository und ist im Emulator oder in
 Tests geprüft.
 
-Für 1.6 ist die [native Aufnahme](native-aufnahme.md) auf den Sampler-Builds gebaut: Quelle RECORD in SHIFT+REC,
-eigener DSP-Abgriff ohne Metronom, Stereo-WAV auf SD, sichtbare Abbruchmeldungen und Folgedateien an der WAV-Grenze.
+Für 1.6 ist die [native Aufnahme](native-aufnahme.md) auf den Sampler-Builds und Korgs blauem Synth gebaut: Quelle RECORD in SHIFT+REC beim Sampler,
+eigene RECORD-Ansicht auf blau, DSP-Abgriff ohne Metronom, Stereo-WAV beim Sampler und Mono-WAV auf blau.
+Sichtbare Abbruchmeldungen und Folgedateien an der WAV-Grenze gehören dazu.
 NATIVE RECORDING in Menü -> BLECH -> FEATURES ist zunächst OFF. Signalweg, Dateischreiber und Bedienung sind
-offline geprüft; Gerätezeiten, endgültige Ringwahl und Langzeitabnahme sind offen. Blau wartet auf Umsetzung und Tester.
+offline geprüft; Gerätezeiten, endgültige Ringwahl und Langzeitabnahme sind offen. Für blau ist ein Tester vorhanden; der Gerätebericht steht aus.
 
 Die blaue Electribe 2 mit Synth-Firmware 2.02 hat einen eigenen Satz
 `data/patches/blech-synth.json`. Er enthält lesendes BLECHTRIBE SysEx, Startbild, Theme,

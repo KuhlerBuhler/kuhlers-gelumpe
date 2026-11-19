@@ -72,7 +72,7 @@ test("every emulator case file has a runner", () => {
 });
 
 test("native recording runs for its ARM and DSP sources and its card cases", () => {
-  for (const path of ["tools/patch/recording_writer.s", "tools/patch/recording_reader.py", "tools/patch/recording_runtime.s", "tools/patch/recording_ui.s", "tools/patch/recording_dsp.py", "data/patches/native-recording-dsp.json", "tools/emu/recording_cases.py"]) {
+  for (const path of ["tools/patch/recording_writer.s", "tools/patch/recording_reader.py", "tools/patch/recording_runtime.s", "tools/patch/recording_ui.s", "tools/patch/recording_dsp.py", "data/patches/native-recording-dsp.json", "data/patches/native-recording-dsp-synth.json", "tools/patch/recording_ui_synth.s", "tools/emu/recording_cases.py"]) {
     assert.deepEqual(scope([path]), ["recording_cases"], path);
   }
 });

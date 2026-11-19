@@ -2,8 +2,6 @@
 ; (tools/patch/spectrum/) come from Spettro by Luigi (GitHub reflectiveboi, PR #429). They run in CommandTask behind its call at
 ; AUDIO_COMMAND_AT, never in the frame hook; the calls only post a request and copy what the worker published
 ; (docs/messungen/2026-11-12-plugin-api31-spektrum.md).
-.equ AUDIO_COMMAND_AT, 0xC002A628    ; CommandTask's call of AUDIO_COMMAND_FN, replaced by a branch to audio_command_hook
-.equ AUDIO_COMMAND_FN, 0xC002D844
 .equ AU_REQUEST, 4                   ; from AUDIO_SERVICE: the source asked for, 1 to 24, anything else off (FF at power-on)
 .equ AU_LEASE_TICK, 8                ; the tick of the last call; a request older than AU_LEASE is dropped
 .equ AU_STATUS, 12                   ; the worker's last status (capture.s), FF before its first run
@@ -11,23 +9,6 @@
 .equ AU_OOM, 7
 .equ AU_WAVE, 256
 .align 4
-
-; The replaced bl: the native call first, then the service with all registers and the condition flags kept.
-audio_command_hook:
-    ldr lr, =AUDIO_COMMAND_AT+4
-    push {r4, lr}
-    bl AUDIO_COMMAND_FN
-    pop {r4, lr}
-    push {r0-r12, lr}
-    .word 0xE10FC000                 ; mrs r12, cpsr
-    push {r12, lr}
-    bl audio_service
-    bl nr_service
-    pop {r12, lr}
-    .word 0xE128F00C                 ; msr cpsr_f, r12
-    pop {r0-r12, lr}
-    bx lr
-.pool
 
 ; One step of the service: the context is taken from the heap on the first request and kept until power-off.
 audio_service:

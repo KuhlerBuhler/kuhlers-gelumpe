@@ -104,6 +104,7 @@ const PATCH_LABELS = {
   "import-slots": "features.importSlots.title",
   "stage2-memory": "patcher.patch.stage2Memory",
   "native-recording-dsp": "patcher.patch.nativeRecording",
+  "native-recording-dsp-synth": "patcher.patch.nativeRecording",
   "update-guard": "patcher.patch.updateGuard",
   "blech-version": "patcher.patch.version",
   "doom-loader": "features.doom.title",

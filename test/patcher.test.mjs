@@ -681,3 +681,7 @@ test("flow: back to the original passes Korg's own file without patches or test"
   assert.equal(step(ht, { type: "original" }), ht, "a Hacktribe file is no original");
   assert.equal(step(flow, { type: "options" }).original, false, "new options start over");
 });
+
+test("the mono recording patch shares the translated recording label", () => {
+  assert.equal(render(patchLabel({ id: "native-recording-dsp-synth", builds: ["synth"] })), "Native Aufnahme");
+});

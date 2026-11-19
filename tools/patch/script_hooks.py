@@ -343,10 +343,12 @@ def runtime_profile(build):
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
-        if name.startswith('nr_') or name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook'):
+        if name.startswith('nr_') or name in ('script_early_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook'):
             continue
         if name == 'boot_light_hook':
             address, expected = 0xC0025E48, 0xE1500003
+        elif name == 'audio_command_hook':
+            address, expected = 0xC0027898, 0xEB000C42
         elif name == 'script_card_hook':
             address, expected = 0xC0028170, 0xE5D43004
         elif name == 'menu_toplevel':
@@ -454,6 +456,11 @@ class BuiltHooks:
             ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
             ('load_idle_hook','load_meter_frame','Die zwei Haken der Lastanzeige (Leerlaufschleife vor wfi, IRQ-Eingang) laufen vom ersten IRQ an: sie merken sich nur Timer3 und zählen den Schlaf, gezeichnet wird erst im Rahmenhaken mit dem Schalter.'),
             ('rec_writer_open','nr_runtime_end','Der native Aufnahmedienst prüft seinen Schalter in CommandTask, besitzt Ring und Datei und veröffentlicht nur Zustand und Zähler.'),
+            ('nr_format','nr_format_end','Der Aufnahmebildschirm liest Dateinummer, Laufzeit und Fehler aus dem öffentlichen Zustand.'),
+            ('nr_requires_capture','nr_capture_apps_end','Plugins mit eigener Erfassung geben den Erfassungskanal während der Aufnahme frei.'),
+            ('nr_input','nr_blue_ui_end','Die blaue Electribe öffnet ihre Aufnahmeansicht über SHIFT und REC; REC startet und stoppt.'),
+            ('audio_service','audio_service_end','Der leere Audio-Dienst auf dem Synth kehrt aus CommandTask ohne Erfassungsanfrage zurück.'),
+            ('audio_command_hook','nr_command_end','CommandTask bedient die Erfassung und die Aufnahme nach dem ursprünglichen Befehlshandler.'),
             ('nr_setup_enter','nr_ui_end','Die native Aufnahmebedienung prüft Quelle und Aufnahmestatus; ohne Schalter läuft die ursprüngliche Sampling-Ansicht weiter.'),
             ('nr_defer','nr_card_code_end','Der UI-Rahmen hält SD-Speicherwünsche bis zum Aufnahmeabschluss zurück; ein wartender Kartenwunsch bleibt ein Kartenwunsch.'),
             ('nr_frame','nr_frame_end','Der Aufnahmezustand hält das Gerät während des Starts, der Aufnahme und des Abschlusses wach.'),
@@ -621,24 +628,25 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += f'\n.equ VM_CRC_UPDATE, {vm.symbols["crc_update"]}'
     constants += ''.join(f'\n.equ {name.upper()}, {vm.symbols[name]}' for name in ['script_font','script_error_names'])
     constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ METER_SENT, {METER_SENT}\n.equ LOAD_METER, {LOAD_METER}\n.equ IDLE, {IDLE}\n.equ GLIDE, {GLIDE}\n.equ MEDIA_LIST, {MEDIA_LIST}\n.equ MEDIA_WORK, {MEDIA_WORK}\n.equ MEDIA_BUF, {MEDIA_BUF}\n.equ MEDIA_BUF_BYTES, {MEDIA_BUF_BYTES}\n.equ MEDIA_TBUF, {MEDIA_TBUF}\n.equ MEDIA_TBUF_BYTES, {MEDIA_TBUF_BYTES}\n.equ MEDIA_STATE, {MEDIA_STATE}\n.equ CARD_CLOCK, {CARD_CLOCK}\n.equ BATT, {BATT}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
-    constants += f'\n.equ MENU_SCREEN, {profile.screen}\n.equ NATIVE_RECORDING, {NATIVE_RECORDING}\n.equ NR_SUPPORTED, {int(build != "synth")}\n'
+    constants += f'\n.equ MENU_SCREEN, {profile.screen}\n.equ NATIVE_RECORDING, {NATIVE_RECORDING}\n.equ NR_SUPPORTED, 1\n'
     # korg.system.device and korg.system.limits.samples (data/script/objects.mjs, INFO): the build this runtime is made for
     constants += f'.equ MFX2_ENTRY, {MFX2_ENTRY:#x}\n.equ MFX2_RECORD_ID, {MFX2_RECORD_ID:#x}\n.equ MFX2_TABLE, {MFX2_TABLE:#x}\n.equ MFX2_STATE, {MFX2_STATE:#x}\n'
     constants += f'.equ BUILD_DEVICE, {BUILD_DEVICES[build]}\n.equ BUILD_SAMPLES, {0 if build == "synth" else 1000}\n'
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
     files = ['script_hooks.s','script_card.s','script_builtin.s','script_menu.s',
              'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_media.s','script_calibrate.s','script_egg.s','script_load_meter.s','script_idle.s','script_glide.s','script_battery.s']
-    files.append('fx_card.s')
+    files += ['fx_card.s', 'recording_card.s', 'recording_format.s', 'recording_capture_apps.s', 'recording_command.s']
     if build != 'synth':
-        files += ['script_sample.s','script_audio_service.s','script_patterns.s','recording_ui.s','recording_card.s']
+        files += ['script_sample.s','script_audio_service.s','script_patterns.s','recording_ui.s']
     else:
-        files += ['script_sample_none.s','script_audio_service_none.s','recording_none.s']
+        files += ['script_sample_none.s','script_audio_service_none.s','recording_ui_synth.s']
     files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_timer.s','script_led.s','script_motion.s','script_midi.s','script_audio.s','script_data.s']
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
     source = constants+'\n'+read(files)
+    from . import recording_runtime
+    source += '\n' + recording_runtime.source(build, retarget=False)
     if build != 'synth':
-        from . import recording_runtime
-        source += '\n'+spectrum.source()+'\n'+recording_runtime.source(build)
+        source += '\n' + spectrum.source()
     if build == 'synth':
         from . import synthaddr
         source = '\n'.join(line for line in source.splitlines() if not line.lstrip().startswith(';'))

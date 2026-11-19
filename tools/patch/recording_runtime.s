@@ -180,7 +180,7 @@ nr_service_zero:
     add r0, r5, #RC_SIZE
     str r0, [r5, #RC_RING]
     str r6, [r5, #RC_CAPACITY]
-    mov r0, #2
+    mov r0, #RR_CHANNELS
     str r0, [r5, #RC_CHANNELS]
     ldr r0, [r4, #NR_NUMBER]
     str r0, [r5, #RW_NUMBER]

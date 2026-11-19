@@ -51,7 +51,7 @@ def has_menu(payload):
 def for_build(payload):
     global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT, LIST_DEV, LIST_VERSION, LIST_COUNT, NATIVE_RECORDING_PAGE
     synth = synthaddr.is_synth(payload)
-    NATIVE_RECORDING_PAGE = not synth and b"NATIVE RECORDING\0" in payload
+    NATIVE_RECORDING_PAGE = b"NATIVE RECORDING\0" in payload and b"NCR1" in payload
     LIST_DEV = None if synth else len(LIST_PAGES)   # DEV MODE (BLECH's SysEx may write the image) is a Sampler row
     LIST_VERSION = len(LIST_PAGES) + (0 if synth else 1)
     LIST_COUNT = LIST_VERSION + 1

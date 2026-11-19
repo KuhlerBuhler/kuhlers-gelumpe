@@ -88,7 +88,7 @@ Akzeptanz: Fall grün; Gerät: Track 10 min ohne Aussetzer, gleichzeitig Pattern
 
 ## Phase 5: Blau (nur mit Tester)
 
-- [ ] 5.1 Start über eigenen ARM-Code (Postfach `0x37` auf blau), mono über `0xFF802818`
+- [x] 5.1 Start über eigenen ARM-Code (Postfach `0x37` auf blau), Mono-Summe im eigenen DSP-Wort
 - [ ] 5.2 Stereo auf blau entfällt, mono reicht (Besitzer 17.11.); Wiedergabe über denselben P2-Patch fürs blaue Programm
 - [ ] 5.3 Fälle auf blau, Gerätetest durch Tester
 
@@ -266,6 +266,30 @@ Akzeptanz: Docs-Test grün.
   in der Aufnahmeanleitung und Messdatei. Patcher-Doku und README verlinken sie; die 1.6-Notizen liegen als deutscher,
   englischer und französischer Entwurf vor. Die Prüfung der Release-Notizen und die gezielten Dokumentationsprüfungen
   bestehen. Die Plandateien bleiben für die noch offenen Aufgaben erhalten und müssen vor dem Merge entfernt werden.
+
+
+- **Phase 5, 19.11.:** Ein blauer Tester ist vorhanden; die Offline-Umsetzung ist damit freigegeben. Eigener ARM-Code
+  verwendet den nachgewiesenen nativen Halbwortsender für Start und Stop von `0x37`. Der ursprüngliche Ring besteht
+  aus 32-Bit-Worten; ARM verdichtet die oberen 16 Bit in Mono-PCM. Der geplante feste Abgriff `0xFF802818` entfällt
+  zugunsten des eigenen DSP-Summenworts nach THRU und Ausgangspegel. Zehn GNU-Differenzfälle erhalten den hörbaren
+  Ausgang bitgenau, einschließlich rechts gepannter Signale in der Mono-Aufnahme.
+- **Blaue Bedienung:** Ohne ursprüngliche Sampling-Ansicht öffnet SHIFT+REC eine eigene RECORD-Ansicht im BLECH-Menü.
+  CsTask stellt nur Anfragen; UiTask prüft bei REC den aktuellen Bildschirm. Ein im Review gefundener verspäteter
+  REC-Druck nach EXIT löst damit keine Aufnahme mehr außerhalb der Ansicht aus. Der native vollständige blaue Build
+  schreibt PCM-exakte Mono-WAVs, hält PLAY unabhängig und zeigt nach Abschluss Saved. Beide Sampler bestehen nach
+  Aufteilung der gemeinsamen Anzeige und des Lesers weiterhin je 46 Aufnahmefälle. Gerätebericht, Messwerte und
+  lange Sets bleiben offen; der Player aus Phase 4 wird nicht vorgezogen.
+
+- **Startphasenprüfung:** Der vollständige blaue Prüflauf fand zwei fehlende genaue Deklarationen: den beim Boot
+  gelesenen DSP-Längenwert und den leeren Audio-Dienst aus CommandTask. Beide Spannen sind jetzt im jeweiligen
+  Patch begründet, mit vier Byte je Bereich. Die Laufzeit, der Signalweg und die Startbedingungen wurden dafür
+  nicht gelockert. Die Übersetzungskarte für den Browser wurde aus den vorhandenen Quelldaten neu erzeugt.
+
+- **Vollständige Offline-Abnahme dieses Stands:** Die eigenen Originale bestehen `check.py --cases recording_cases`:
+  blau 52 Prüfungen mit 27 Aufnahmefällen, beide Sampler je 73 Prüfungen mit 48 Aufnahmefällen, einschließlich Start
+  und DSP-Schnittstelle. 103 gezielte Python-Fälle, vier RAM-/Haken-/Patcher-Fälle und 17 Doku-/Scope-Fälle bestehen.
+  Die volle Suite bleibt in CI. Sample Swap #166 ist weiterhin offen; dessen Karteneinbindung und der spätere Player
+  werden deshalb noch nicht umgesetzt. Es gab in diesem Schritt keine Geräteverbindung.
 
 ## References
 

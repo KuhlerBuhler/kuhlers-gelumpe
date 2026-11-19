@@ -7,10 +7,10 @@ FATFS = dict(OPEN=0xC009DB60, WRITE=0xC009DFB8, LSEEK=0xC009E404,
              CLOSE=0xC009E3DC, MKDIR=0xC009EB00, SYNC=0xC009E2C8)
 
 
-def source(build='hacktribe'):
+def source(build='hacktribe', retarget=True):
     if build not in ('hacktribe', 'stock', 'synth'):
         raise ValueError(f'unknown recording build: {build}')
-    addresses = {name: synthaddr.tr(address) if build == 'synth' else address
+    addresses = {name: synthaddr.tr(address) if build == 'synth' and retarget else address
                  for name, address in FATFS.items()}
     constants = '\n'.join(f'.equ REC_FS_{name}, {address:#x}' for name, address in addresses.items())
     constants += f'\n.equ REC_SD_INPUT, {card_gate.SD_INPUT:#x}\n.equ REC_SD_DETECT, {card_gate.SD_DETECT}\n'

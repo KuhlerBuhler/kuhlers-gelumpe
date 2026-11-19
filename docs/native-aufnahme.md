@@ -1,13 +1,15 @@
 # Native Aufnahme für 1.6
 
 **Offline geprüft:** Die Aufnahme läuft im DSP-Simulator und im ARM-Emulator auf beiden Sampler-Builds,
-Korg 2.02 und Hacktribe. **Offen:** Geräteabnahme, Kartenschreibzeiten und lange Sets. Die blaue Mono-Aufnahme
-braucht noch ihre Umsetzung und einen Tester. Dieser Stand ist noch keine Freigabe für das Gerät.
+Korg 2.02 und Hacktribe, sowie auf Korgs blauer Electribe 2 als Mono-Aufnahme. **Offen:** Geräteabnahme,
+Kartenschreibzeiten und lange Sets. Ein Tester für die blaue Electribe ist vorhanden; sein Bericht steht aus.
+Dieser Stand ist noch keine Freigabe für das Gerät.
 
 ## Aufnehmen
 
 1. In Menü -> BLECH -> FEATURES -> NATIVE RECORDING auf ON stellen. Die Vorgabe ist OFF; WRITE behält die Einstellung.
-2. SHIFT+REC öffnet die Sampling-Ansicht. Mit EDIT rechts zur Quelle wechseln und RECORD wählen.
+2. SHIFT+REC öffnet beim Sampler die Sampling-Ansicht. Mit EDIT rechts zur Quelle wechseln und RECORD wählen.
+   Auf Korgs blauer Electribe öffnet SHIFT+REC direkt die eigene RECORD-Ansicht im BLECH-Menü.
 3. REC startet die Aufnahme. Die Anzeige nennt die Datei und ihre aufgenommene Dauer.
 4. REC beendet die Aufnahme und schließt die WAV. Vor dem Herausnehmen der Karte den Abschluss abwarten.
 
@@ -17,7 +19,9 @@ REC außerhalb dieser Ansicht bleibt die normale Pattern-Aufnahme.
 
 ## Was in der Datei steht
 
-Die Sampler schreiben Stereo-WAV mit 48 kHz und 16 Bit nach `Recordings/REC0001.WAV` auf der SD-Karte.
+Die Sampler schreiben Stereo-WAV, Korgs blaue Electribe Mono-WAV mit 48 kHz und 16 Bit nach
+`Recordings/REC0001.WAV` auf der SD-Karte. Mono bildet den Mittelwert beider Ausgangskanäle; auch rechts
+gepannte Klänge werden erfasst. Hacktribe auf blauer Hardware verwendet weiterhin den Sampler-Code mit Stereo.
 Weitere Namen steigen bis `REC9999.WAV`; vorhandene Dateien werden nicht überschrieben. Kurz vor 4 GiB beginnt
 eine Folgedatei. Name und Dauer in der Anzeige gehören zur aktuellen Datei.
 
@@ -49,3 +53,17 @@ Die Kartenzugriffe von Sample Swap werden nach dessen Integration geprüft. Die 
 WAV-Player gehören nicht zu diesem Aufnahmestand.
 
 Belege und offene Messwerte: [native Aufnahme](messungen/2026-11-17-native-aufnahme.md).
+
+## Geräteprüfung auf der blauen Electribe
+
+Nur nach eigener Freigabe des Teststands am Gerät prüfen. Die bisherigen Fälle verwenden die eigene Originaldatei
+im Emulator. Sie belegen weder Schreibzeiten der Karte noch die tatsächliche DSP- und Task-Laufzeit.
+
+1. Mit NATIVE RECORDING OFF muss SHIFT+REC weiterhin das ursprüngliche Verhalten behalten.
+2. Auf ON stellen, mit SHIFT+REC die RECORD-Ansicht öffnen. PLAY allein darf keine WAV erzeugen.
+3. Mit REC starten, links und rechts gepannte Klänge sowie AUDIO IN/THRU spielen. Nach REC muss `Saved` erscheinen.
+4. Die WAV am Rechner prüfen: ein Kanal, 48 kHz, 16 Bit, hörbare linke und rechte Klänge, kein Metronom.
+5. Bei laufender Aufnahme PLAY und EXIT verwenden. Die Aufnahme muss weiterlaufen. Mit SHIFT+REC und REC beenden.
+6. Gerätetyp, Firmware, Karte, Aufnahmedauer, angezeigte Fehler und hörbare Aussetzer in der
+   [Messdatei](messungen/2026-11-17-native-aufnahme.md) festhalten. Einen langen Lauf erst nach den offenen
+   Schreib- und Leserzeitmessungen bewerten.

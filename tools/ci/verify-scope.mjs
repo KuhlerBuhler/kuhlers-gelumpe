@@ -88,7 +88,7 @@ export const TABLE = [
   // the DSP interface cases run with the start scenarios on every copy
   [/^tools\/emu\/dsp_cases\.py$/, []],
 
-  [/^tools\/emu\/recording_cases\.py$|^tools\/patch\/recording_[^/]*\.(py|s)$|^data\/patches\/native-recording-dsp\.json$/, ["recording_cases"]],
+  [/^tools\/emu\/recording_cases\.py$|^tools\/patch\/recording_[^/]*\.(py|s)$|^data\/patches\/native-recording-dsp(?:-synth)?\.json$/, ["recording_cases"]],
   [/^tools\/emu\/recording_dsp_check\.py$/, []],
 
   // the patches and the code they build, to the cases that test them (check.py's docstring, each has_hooks)

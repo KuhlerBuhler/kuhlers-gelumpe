@@ -19,12 +19,13 @@ if UNICORN:
 class Recorder(Writer):
     get, put, info, tick, capture = Reader.get, Reader.put, Reader.info, Reader.tick, Reader.capture
 
-    def __init__(self, capacity=131072, code=None):
-        from tools.patch.recording_service import build
-        super().__init__(code=code if code is not None else build(origin=0x100000))
+    def __init__(self, capacity=131072, code=None, build='hacktribe'):
+        from tools.patch.recording_service import build as build_service
+        super().__init__(code=code if code is not None else build_service(build=build, origin=0x100000))
         dsp_targets = {self.s('RR_FW_' + name): name for name in ('READ', 'WRITE_RAW', 'GET', 'LOCK', 'UNLOCK', 'BEGIN', 'END')}
         for page in {a & ~4095 for a in dsp_targets} | {self.s('RR_TICKS') & ~4095}:
-            self.uc.mem_map(page, 4096)
+            if not 0x100000 <= page < 0x110000:
+                self.uc.mem_map(page, 4096)
         self.targets.update(dsp_targets)
         self.memory, self.after_read, self.initial_frames, self.end_failures = {}, None, [], 0
         self.lock_depth = 0
@@ -80,6 +81,25 @@ class Recorder(Writer):
 
 @unittest.skipUnless(UNICORN, 'Unicorn is required for the native recording worker')
 class RecordingServiceTests(unittest.TestCase):
+    def test_synth_records_one_pcm_channel_from_q31_capture(self):
+        m = Recorder(build='synth')
+        m.write(m.s('RC_CHANNELS'), 1)
+        self.assertEqual(m.command(1), 0)
+        self.assertEqual(m.pump(), 0)
+        captured = []
+        for step in range(3):
+            words = [((step * 2000 + n) * 104729) & 0xFFFFFFFF for n in range(2000)]
+            captured += words
+            m.capture(words, elapsed=40)
+            self.assertEqual(m.pump(), 0)
+        self.assertEqual(m.finish(), 0)
+        data = bytes(m.files['SD:Recordings/REC0001.WAV'])
+        with wave.open(io.BytesIO(data)) as wav:
+            self.assertEqual((wav.getnchannels(), wav.getframerate(), wav.getsampwidth()), (1, 48000, 2))
+            self.assertEqual(wav.getnframes(), len(captured))
+            self.assertEqual(wav.readframes(wav.getnframes()), b''.join(struct.pack('<H', w >> 16) for w in captured))
+        self.assertFalse(m.handles)
+
     def test_file_limit_splits_frames_without_an_empty_following_file(self):
         for words in ([0x12345678], [0x12345678, 0x90ABCDEF]):
             with self.subTest(frames=len(words)):

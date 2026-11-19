@@ -29,7 +29,9 @@ COMMAND_TICK = 0xC002A628
 
 
 def has_hooks(payload):
-    offset = dsp_spec.APPEND - 0xC0000000 + dsp_spec.MAGIC_ADDRESS - dsp_spec.CODE
+    from tools.patch.synthaddr import is_synth
+    config = dsp_spec.configuration('synth' if is_synth(payload) else 'hacktribe')
+    offset = config['final'] + 16 - 0xC0000000 + dsp_spec.MAGIC_ADDRESS - dsp_spec.CODE
     return payload[offset:offset + 4] == struct.pack('<I', dsp_spec.MAGIC)
 
 
@@ -46,25 +48,29 @@ class CaptureModel(DspModel):
     """0x37 capture at 48 kHz; DSP code and SD latency are not inferred here."""
     def __init__(self, machine):
         super().__init__(machine)
+        self.state = 0xFF9031C8 if self.synth else 0xFF9031D0
+        self.ring = 0x01371EC0 if self.synth else 0x01C722A0
+        self.input = 0xFF802810 if self.synth else 0xFF802878
         self.active, self.started, self.frames = False, 0, 0
-        self.put(0xFF9031D0, 0)
-        self.put(0xFF9031D4, 19200)
-        self.put(0xFF9031D8, 0x01C722A0)
-        self.put(0xFF9031DC, 0xFF802878)
-        self.put(0xFF9031F8, 0)
+        self.put(self.state, 0)
+        self.put(self.state + 4, 19200)
+        self.put(self.state + 8, self.ring)
+        self.put(self.state + 12, self.input)
+        if not self.synth:
+            self.put(self.state + 40, 0)
         self.put(dsp_spec.MAGIC_ADDRESS, dsp_spec.MAGIC)
 
     def advance(self):
         if not self.active:
             return
         until = int((self.m.time_ns - self.started) * 48000 // 1_000_000_000)
-        pointer = self.word(0xFF9031D8)
+        pointer = self.word(self.state + 8)
         for index in range(self.frames, until):
-            value = sample(index) if self.word(0xFF9031DC) == dsp_spec.CAPTURE and self.word(dsp_spec.ENABLE) else 0
+            value = sample(index) if self.word(self.state + 12) == dsp_spec.CAPTURE and self.word(dsp_spec.ENABLE) else 0
             self.put(pointer, value)
-            pointer = 0x01C722A0 + (pointer - 0x01C722A0 + 4) % 19200
+            pointer = self.ring + (pointer - self.ring + 4) % 19200
         self.frames = until
-        self.put(0xFF9031D8, pointer)
+        self.put(self.state + 8, pointer)
 
     def _flush(self):
         self.advance()
@@ -72,22 +78,89 @@ class CaptureModel(DspModel):
 
     def answers(self, address):
         self.advance()
-        return 0xFF9031D0 <= address < 0xFF9031FC or super().answers(address)
+        return self.state <= address < self.state + (16 if self.synth else 44) or super().answers(address)
 
     def message(self, words):
         super().message(words)
         if len(words) >= 4 and words[1] == 0x37:
             self.advance()
             self.active = bool(words[2])
-            self.put(0xFF9031D0, int(self.active))
-            self.put(0xFF9031DC, 0xFF802878)
+            self.put(self.state, int(self.active))
+            self.put(self.state + 12, self.input)
             if self.active:
                 self.started, self.frames = self.m.time_ns, 0
-                self.put(0xFF9031D8, 0x01C722A0)
+                self.put(self.state + 8, self.ring)
 
 
 def entry(name, ok, detail):
     return {'id': 'native_recording:' + name, 'ok': bool(ok), 'detail': str(detail)}
+
+
+def feature_cases(payload, flash=None):
+    if not has_hooks(payload):
+        return []
+    import menu_cases as mc
+    dev = mc.boot(payload, flash, files=mc.CARD_FOLDER, adapter=True)
+    flags = dev.read(mc.MX_FLAGS2, 1)[0]
+    index = mc.feature_count() - 1
+    mc.goto_group(dev, mc.GROUP_FEATURES, index)
+    off = mc.texts_of(dev)
+    dev.turn(1, wait=0.1)
+    enabled = mc.texts_of(dev), dev.read(mc.MX_FLAGS2, 1)[0]
+    dev.turn(-1, wait=0.1)
+    disabled = mc.texts_of(dev), dev.read(mc.MX_FLAGS2, 1)[0]
+    return [entry('feature_default_off_and_last', not flags & 32 and off == ('NATIVE RECORDING', 'OFF', '')
+                  and mc.counter(dev) == (index, index + 1), f'page {index}, flags {flags}, text {off}'),
+            entry('feature_toggle_preserves_other_flags', enabled == (('NATIVE RECORDING', 'ON', ''), flags | 32)
+                  and disabled == (off, flags) and not dev.m.asserts, f'on {enabled}, off {disabled}, assertions {dev.m.asserts}')]
+
+
+def blue_worker_cases(payload, flash=None):
+    """Own mono controller with the original synth host port and FatFs in CommandTask."""
+    if not has_hooks(payload):
+        return []
+    dev = Dev(payload, flash, adapter=True)
+    medium = MemoryMedium(card_image())
+    dev.m.insert_card(SDCard(medium))
+    dsp = CaptureModel.attach(dev.m)
+    dev.run(0.8)
+    before_flash = user_flash(dev.m)
+    code = recording_service.build(build='synth', origin=CODE)
+    uc = dev.m.uc
+    uc.mem_write(CODE, code.bytes)
+    uc.mem_write(CONTEXT, bytes(code.symbols['RC_SIZE']))
+    for name, value in (('RC_RING', RING), ('RC_CAPACITY', 131072), ('RC_CHANNELS', 1)):
+        uc.mem_write(CONTEXT + code.symbols[name], struct.pack('<I', value))
+    read = lambda name: dev.u32(CONTEXT + code.symbols[name])
+    call = lambda name, *args: dev.call(code.symbols[name], CONTEXT, *args, at=COMMAND_TICK)
+    call('recorder_command', 1)
+    started = call('recorder_pump') == 0 and read('RC_ACTIVE') == 1
+    first = (dev.u32(CONTEXT + code.symbols['RC_READER'] + code.symbols['RR_CURSOR']) - dsp.ring) // 4
+    for _ in range(4):
+        dev.run(0.02)
+        call('recorder_pump')
+    call('recorder_command', 0)
+    for _ in range(32):
+        call('recorder_pump')
+        if read('RC_ACTIVE') == 0:
+            break
+    volume = fat32.Volume(bytes(medium.data))
+    try:
+        content = volume.read('/Recordings/REC0001.WAV')
+    finally:
+        volume.close()
+    with wave.open(io.BytesIO(content)) as wav:
+        shape = wav.getnchannels(), wav.getframerate(), wav.getsampwidth()
+        count = wav.getnframes()
+        captured = wav.readframes(count)
+    expected = b''.join(struct.pack('<H', sample(i) >> 16) for i in range(first, first + count))
+    return [entry('blue_mono_wav', started and shape == (1, 48000, 2) and count > 0
+                  and captured == expected and first + count == dsp.frames and len(content) == 512 + count * 2,
+                  f'started {started}, shape {shape}, {count} frames from {first}, DSP frames {dsp.frames}, exact {captured == expected}'),
+            entry('blue_mono_releases_ownership', read('RC_ERROR') == read('RC_ACTIVE') == read('RW_STATE') == 0
+                  and not dsp.active and not dev.m.asserts and not dsp.faults,
+                  f'error {read("RC_ERROR")}, phase {read("RC_ACTIVE")}, file {read("RW_STATE")}, capture {dsp.active}, assertions {dev.m.asserts}'),
+            entry('blue_mono_no_flash_write', before_flash == user_flash(dev.m), 'only the private recording file is written')]
 
 
 def worker_cases(payload, flash=None):
@@ -162,7 +235,10 @@ def wav_marker(content):
 
 
 def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_settings=False, remove_card=False, transport_play=False):
-    site = 0xC006B694 - 0xC0000000
+    from tools.patch import synthaddr
+    synth = synthaddr.is_synth(payload)
+    channels = 1 if synth else 2
+    site = (0xC0027898 if synth else 0xC006B694) - 0xC0000000
     if not has_hooks(payload) or struct.unpack_from('<I', payload, site)[0] >> 24 != 0xEA:
         return []
     dev = Dev(payload, flash, adapter=True)
@@ -179,15 +255,15 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
     dev.press(0, 0.05)
     dev.m.press(0x0A, False)
     dev.run(0.05)
-    dev.press(0x0C, 0.05)
-    dev.turn(1, 0.03)
-    dev.turn(1, 0.03)
+    if not synth:
+        dev.press(0x0C, 0.05)
+        dev.turn(1, 0.03)
+        dev.turn(1, 0.03)
     out.append(entry('native_gap_record_source' if expect_gap else 'native_record_source', field('SETUP') == 1 and field('SELECTED') == 1,
-                     'SHIFT+REC, source page and two dial steps select RECORD'))
+                     'SHIFT+REC opens RECORD directly on the synth; the sampler selects its third source'))
     dev.press(1, 0.02)
     out.append(entry('native_gap_play_does_not_record' if expect_gap else 'play_does_not_record', field('PHASE') == 0 and field('CONTEXT') == 0 and not dsp.active,
                      f'PLAY: phase {field("PHASE")}, context {field("CONTEXT")}, capture {dsp.active}, setup {field("SETUP")}'))
-    # Native PLAY leaves the setup; open it again before using its RECORD choice.
     dev.m.press(0x0A, True)
     dev.run(0.03)
     dev.press(0, 0.05)
@@ -266,7 +342,7 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         dev.run(0.01)
     elif transport_play:
         dev.press(1, 0.01)
-        out.append(entry('play_keeps_recording', field('PHASE') == 1 and dsp.active and field('SETUP') == 0,
+        out.append(entry('play_keeps_recording', field('PHASE') == 1 and dsp.active and field('SETUP') == (1 if synth else 0),
                          f'PLAY during recording: phase {field("PHASE")}, capture {dsp.active}, setup {field("SETUP")}'))
         dev.m.press(0x0A, True)
         dev.run(0.01)
@@ -280,6 +356,12 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         if field('PHASE') == 0:
             break
         dev.run(0.01)
+    if synth:
+        dev.run(0.12)
+        import menu_cases as mc
+        shown = mc.texts_of(dev)
+        out.append(entry('blue_finished_view', shown[0].startswith('Saved ') and shown[1] == 'REC0001',
+                         f'phase {field("PHASE")}, texts {shown}'))
     if png:
         dev.run(0.04)
         dev.png(png)
@@ -296,10 +378,12 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
     first = ((struct.unpack_from('<H', captured)[0] - 1234) * pow(17, -1, 65536)) & 65535
     expected_status = 20 if expect_gap else 0
     outcome = 'native_gap_is_reported' if expect_gap else 'native_record_wav'
-    exact = shape == (2, 48000, 2) and count > 0 and first < 4800 and captured == pcm(first, count)
+    expected_pcm = (b''.join(struct.pack('<H', sample(i) >> 16) for i in range(first, first + count))
+                    if synth else pcm(first, count))
+    exact = shape == (channels, 48000, 2) and count > 0 and first < 4800 and captured == expected_pcm
     tail = first + count <= dsp.frames if expect_gap else first + count == dsp.frames
     out += [entry(outcome, started and field('PHASE') == 0 and field('ERROR') == expected_status
-                  and field('CONTEXT') == 0 and field('BYTES') == count * 4
+                  and field('CONTEXT') == 0 and field('BYTES') == count * channels * 2
                   and exact and tail and content[512:] == captured,
                   f'permanent CommandTask hook, {count} frames from {first}, ring {capacity} bytes; status {field("ERROR")}, expected {expected_status}; PCM exact {exact}'),
             entry('native_gap_no_flash_write' if expect_gap else 'native_no_flash_write', before_flash == user_flash(dev.m), 'native RECORD leaves user flash unchanged'),
@@ -502,7 +586,12 @@ def rollover_cases(payload, flash=None):
 
 
 def cases(payload, flash=None, png=None):
-    return (worker_cases(payload, flash) + runtime_cases(payload, flash)
+    from tools.patch import synthaddr
+    if synthaddr.is_synth(payload):
+        return (feature_cases(payload, flash) + blue_worker_cases(payload, flash) + runtime_cases(payload, flash, png=png)
+                + runtime_cases(payload, flash, transport_play=True)
+                + checkpoint_cases(payload, flash) + checkpoint_cases(payload, flash, fail_sync=True))
+    return (feature_cases(payload, flash) + worker_cases(payload, flash) + runtime_cases(payload, flash)
             + runtime_cases(payload, flash, png=png, expect_gap=True)
             + runtime_cases(payload, flash, defer_settings=True) + checkpoint_cases(payload, flash)
             + checkpoint_cases(payload, flash, fail_sync=True) + runtime_cases(payload, flash, remove_card=True)

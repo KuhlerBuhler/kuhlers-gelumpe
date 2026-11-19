@@ -5,6 +5,60 @@
       "to": "0xC008AE20",
       "kind": "code",
       "why": "FatFs f_sync, called first by mapped f_close in both original 2.02 builds; all 69 instructions up to f_close match after masking branch offsets"
+    },
+    {
+      "from": "0xC00141F8",
+      "to": "0xC000FAB4",
+      "kind": "code",
+      "why": "DSP read wrapper: matching lock/get/read/unlock call chain; 33 instructions match, assert-line load differs"
+    },
+    {
+      "from": "0xC00146B4",
+      "to": "0xC000FF70",
+      "kind": "code",
+      "why": "DSP raw write: 118 instructions match after masking branch and literal offsets"
+    },
+    {
+      "from": "0xC0015C98",
+      "to": "0xC0011554",
+      "kind": "code",
+      "why": "DSP host interface getter: all 10 instructions match"
+    },
+    {
+      "from": "0xC0000D80",
+      "to": "0xC0000BA8",
+      "kind": "code",
+      "why": "RTOS lock: all 45 instructions match after masking branches"
+    },
+    {
+      "from": "0xC0000CA8",
+      "to": "0xC0000AD0",
+      "kind": "code",
+      "why": "RTOS unlock: all 51 instructions match after masking branches"
+    },
+    {
+      "from": "0xC002A628",
+      "to": "0xC0027898",
+      "kind": "code",
+      "why": "CommandTask original call site: six-instruction loop matches; native blue packet probe runs at this task boundary"
+    },
+    {
+      "from": "0xC002D844",
+      "to": "0xC002A9A8",
+      "kind": "code",
+      "why": "Original CommandTask handler: all 18 instructions match"
+    },
+    {
+      "from": "0xC001251C",
+      "to": "0xC000E484",
+      "kind": "code",
+      "why": "DSP u16 command sender: all 51 instructions match; native blue0x37 start/stop packet probe passes"
+    },
+    {
+      "from": "0xC0011AB0",
+      "to": "0xC000DD00",
+      "kind": "data",
+      "why": "data: corresponding uploader LDR points here; original synth stream length0x41C74; 20-instruction uploader matches"
     }
   ]
 }

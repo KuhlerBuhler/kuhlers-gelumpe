@@ -15,6 +15,34 @@ from tools.patch import recording_dsp as rec
 
 
 class RecordingDspTests(unittest.TestCase):
+    def test_synth_stream_has_its_own_mono_profile_and_authenticated_append(self):
+        stream_start, length, final, length_word = 0xC00DFB80, 0x41C74, 0xC01217E4, 0xC000DD00
+        raw = bytearray(b'\xFF' * 0x200100)
+        first = rec.boot_header(1, 0xFFA00000, 0x2000) + bytes(0x2000)
+        heaps = rec.boot_header(1, 0x01F02438, 60) + bytes(60)
+        remaining = length - len(first) - len(heaps) - 32
+        stream = first + heaps + rec.boot_header(1, 0x00100000, remaining) + bytes(remaining) + rec.boot_header(0x8001, 0xFFA00000)
+        start = rec.file_offset(stream_start)
+        raw[start:start + len(stream)] = stream
+        struct.pack_into('<I', raw, rec.file_offset(length_word), length)
+        hooks = {a: hashlib.sha256(bytes(10)).hexdigest() for a in (0xFFA0185A, 0xFFA018BA)}
+        program = {'code': bytes(rec.PROGRAM_SIZE), 'hooks': [(a, b'\x11' * 10) for a in hooks]}
+        with patch.object(rec, 'SYNTH_HOOK_HASHES', hooks, create=True):
+            manifest = rec.build_patch(raw, program, build='synth')
+            self.assertEqual(manifest['builds'], ['synth'])
+            out = bytearray(raw)
+            for change in manifest['changes']:
+                data, offset = bytes.fromhex(change['bytes']), change['file']
+                self.assertEqual(change['expect'], hashlib.sha256(out[offset:offset + len(data)]).hexdigest())
+                out[offset:offset + len(data)] = data
+            expanded = struct.unpack_from('<I', out, rec.file_offset(length_word))[0]
+            blocks = list(dsp_extract.parse(out, start=stream_start, length=expanded))
+            self.assertEqual((blocks[-2][3], blocks[-2][4]), (rec.CODE, rec.PROGRAM_SIZE))
+            self.assertEqual(blocks[-1][1], rec.file_offset(final) + 16 + rec.PROGRAM_SIZE)
+            raw[rec.file_offset(final) + 16] = 0
+            with self.assertRaisesRegex(ValueError, 'occupied'):
+                rec.build_patch(raw, program, build='synth')
+
     def setUp(self):
         self.raw = bytearray(b'\xFF' * 0x200100)
         first = rec.boot_header(1, 0xFFA00000, 0x2000) + bytes(0x2000)

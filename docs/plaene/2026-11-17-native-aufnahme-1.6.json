@@ -2,7 +2,7 @@
   "planId": "2026-11-17-native-aufnahme-1.6",
   "planPath": "docs/plaene/2026-11-17-native-aufnahme-1.6.md",
   "createdAt": "2026-11-17T10:28:13Z",
-  "updatedAt": "2026-11-18T11:48:30.056864+00:00",
+  "updatedAt": "2026-11-19T09:19:23.002365+00:00",
   "revision": 2,
   "supersedes": [],
   "absorbs": {},
@@ -322,25 +322,26 @@
     {
       "id": "phase-5",
       "name": "Phase 5: Blau (nur mit Tester)",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
         {
           "id": "5.1",
-          "name": "Start über eigenen ARM-Code (Postfach `0x37` auf blau), mono über `0xFF802818`",
-          "status": "pending",
-          "note": "The plan requires a blue-device tester. Tester availability was requested asynchronously; no dependent blue recording implementation starts before confirmation. Only the isolated file writer/f_sync foundation is verified."
+          "name": "Start über eigenen ARM-Code (Postfach 0x37 auf blau), Mono-Summe im eigenen DSP-Wort",
+          "status": "passed",
+          "note": "Own blue37 start/stop adapter, Q31 mono DSP tap, in-place16-bit ring conversion and SHIFT+REC/REC view implemented. Native original-blue CommandTask/FatFs cases produce exact mono48kHz16-bit WAV and release ownership. Ten GNU differential DSP cases pass; no device writes or EXEC. Hardware acceptance pending. Full check.py runs pass against each original with exact startup declarations: synth52 checks/27 recording cases, each sampler73 checks/48 recording cases. 103 focused Python cases, four JS cases and17 Docs/Scope cases pass. Local checks gated; full suite left to CI.",
+          "verifiedAt": "2026-11-19T09:19:23.002365+00:00"
         },
         {
           "id": "5.2",
           "name": "Stereo auf blau entfällt (mono reicht, Pascal 17.11.); Wiedergabe über P2-Patch fürs blaue Programm",
           "status": "pending",
-          "note": "The plan requires a blue-device tester. Tester availability was requested asynchronously; no dependent blue recording implementation starts before confirmation. Only the isolated file writer/f_sync foundation is verified."
+          "note": "Mono is implemented; stereo remains explicitly unnecessary. Blue playback belongs to deferred Phase4 and is not implemented here."
         },
         {
           "id": "5.3",
           "name": "Fälle auf blau, Gerätetest durch Tester",
-          "status": "pending",
-          "note": "The plan requires a blue-device tester. Tester availability was requested asynchronously; no dependent blue recording implementation starts before confirmation. Only the isolated file writer/f_sync foundation is verified."
+          "status": "in_progress",
+          "note": "27 integrated blue recording cases and all startup/DSP checks pass against the full patched original; blue reader/service/UI cases and ten GNU DSP differential cases pass. Tester confirmed available Nov19; physical report, timing and listening acceptance still pending."
         }
       ],
       "criteria": [
@@ -363,8 +364,8 @@
           "id": "6.1",
           "name": "Patcher-Doku, Plugin-Doku DE/EN (falls Phase 3), README-Zeile, 1.6-Notes DE/EN/FR",
           "status": "passed",
-          "note": "German sampler user guide, German/English Patcher docs and README links added. Draft1.6 release notes supplied in German/English and French; release-note validation and Docs/Scope17 checks pass. No plugin API was added, so its conditional docs do not apply. No version bump/publication. Device acceptance, final ring choice, Sample Swap integration and blue tester-dependent implementation remain open.",
-          "verifiedAt": "2026-11-18T11:48:30.056864+00:00"
+          "note": "German recording guide and German/English Patcher/README docs now include blue mono controls and explicit hardware limits. German/English/French1.6 drafts updated; no version bump or publication.",
+          "verifiedAt": "2026-11-19T09:19:23.002365+00:00"
         }
       ],
       "criteria": [
@@ -374,7 +375,8 @@
           "type": "command",
           "verify": "node --test test/docs.test.mjs",
           "threshold": "exit-0",
-          "status": "pending"
+          "status": "passed",
+          "verifiedAt": "2026-11-19T09:19:23.002365+00:00"
         }
       ]
     }

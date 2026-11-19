@@ -6,6 +6,7 @@
 ; neighbours), shows one page at a time and keeps all of its state in MENU_STATE.
 ; Nothing here runs before the card hook has armed the menu (M_ON == 1) and EXIT
 ; at power-on keeps it unarmed, so the firmware stays as it was.
+.equ M_LEVEL_RECORD, 9
 .equ M_ON, 0
 .equ M_PAGE, 4
 .equ M_ENTER, 8
@@ -3224,6 +3225,8 @@ menu_texts_clear:
     subs r2, r2, #1
     bpl menu_texts_clear
     bl menu_kind
+    cmp r0, #65
+    beq nr_menu_text
     mov r7, r1
     cmp r0, #0
     beq menu_text_run
@@ -4537,6 +4540,9 @@ menu_kind:
     ldr r2, [r4, #M_LEVEL]
     mov r5, r0
     mov r1, #0
+    cmp r2, #M_LEVEL_RECORD
+    moveq r0, #65
+    beq menu_kind_done
     cmp r2, #M_LEVEL_BLECHY
     moveq r0, #19
     beq menu_kind_done
@@ -4779,6 +4785,7 @@ menu_page_count:
     cmp r1, #M_LEVEL_BLECHY
     cmpne r1, #M_LEVEL_SYNC
     cmpne r1, #M_LEVEL_GLOBAL
+    cmpne r1, #M_LEVEL_RECORD
     cmpne r1, #0
     bne menu_count_level1
     mov r0, #1
@@ -6529,6 +6536,8 @@ menu_slot_value:
     mov r5, r1
     ldr r6, =MENU_STATE
     ldr r0, [r6, #M_LEVEL]
+    cmp r0, #M_LEVEL_RECORD
+    popeq {r4, r5, r6, pc}
     cmp r0, #M_LEVEL_PLUGIN
     beq menu_value_list
     ldr r0, [r6, #M_PAGE]
@@ -7281,6 +7290,9 @@ menu_slot_exit:
     cmpne r3, #M_LEVEL_SYNC
     beq menu_exit_stock_pop
     mov r4, r0
+    cmp r3, #M_LEVEL_RECORD
+    moveq r0, #1
+    beq menu_exit_screen
     cmp r3, #M_LEVEL_GLOBAL
     moveq r0, #8
     beq menu_exit_screen

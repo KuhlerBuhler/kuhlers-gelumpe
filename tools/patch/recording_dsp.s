@@ -8,7 +8,7 @@ record_after_input:
     [P1] = R0; [P1 + 4] = R1;
 record_input_return:
     R2 = [P0++]; R3 = [P0++]; R7 = [P0++];
-    P1.H = 0xffa0; P1.L = 0x18e6;
+    P1.H = RECORD_INPUT_RETURN; P1.L = RECORD_INPUT_RETURN;
     JUMP (P1);
 
 .org 0x80
@@ -25,16 +25,21 @@ record_after_gain:
     A1 = R4.H * R1.L (M), A0 = R4.H * R1.H;
     A1 = A1 >>> 15;
     R1 = (A0 += A1);
+.if RECORD_CHANNELS == 1
+    R0 >>>= 1; R1 >>>= 1;
+    R0 = R0 + R1;
+.else
     R0.L = 0;
     R1 = R1 >> 16;
     R1.H = 0;
     R0 = R0 | R1;
+.endif
     [P1 + 8] = R0;
     R0 = R5; R1 = R6;
 record_gain_return:
     R4.H = 0; R4.L = 1;
     R5 = R0 | R4;
-    P1.H = 0xffa0; P1.L = 0x1948;
+    P1.H = RECORD_GAIN_RETURN; P1.L = RECORD_GAIN_RETURN;
     JUMP (P1);
 
 .org 0x100

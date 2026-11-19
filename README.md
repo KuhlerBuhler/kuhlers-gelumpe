@@ -58,7 +58,7 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 
 ## Was kann was?
 
-Für 1.6 ist die [native Aufnahme des Mastermixes auf SD](docs/native-aufnahme.md) auf den Sampler-Builds im Emulator gebaut; Geräteabnahme und lange Sets sind noch offen.
+Für 1.6 ist die [native Aufnahme des Mastermixes auf SD](docs/native-aufnahme.md) auf den Sampler-Builds in Stereo und auf Korgs blauem Synth in Mono im Emulator gebaut; Geräteabnahme und lange Sets sind noch offen.
 
 | | Sampler (rot) Original | Synth (blau) Original | Sampler mit Hacktribe | **BLECHTRIBE** rot | **BLECHTRIBE** blau | **BLECHTRIBE** mit Hacktribe |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|

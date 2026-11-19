@@ -402,3 +402,44 @@ je 38 Aufnahmefälle; die zusätzlichen PLAY-Prüfungen laufen auf denselben Bui
 [`tools/emu/recording_cases.py`](../../tools/emu/recording_cases.py), die Fehler- und Grenzarithmetik in
 [`tools/patch/test_recording_writer.py`](../../tools/patch/test_recording_writer.py) und
 [`tools/patch/test_recording_service.py`](../../tools/patch/test_recording_service.py).
+
+
+## 12. Blaue Mono-Aufnahme, offline am 19.11.2026
+
+**Abgeleitet und im Simulator geprüft, nicht am Gerät gemessen.** Ein Tester für Korgs blaue Electribe 2 ist
+vorhanden; der Gerätebericht steht aus. Hacktribe verwendet auch auf blauer Hardware den Sampler-Code mit Stereo.
+
+Der ursprüngliche blaue DSP-Strom beginnt bei ARM `0xC00DFB80`, umfasst `0x41C74` Byte und endet mit dem
+Ladedeskriptor bei `0xC01217E4`. Der Längenwert des Uploaders steht bei `0xC000DD00`. Der neue eigene DSP-Block
+liegt wie beim Sampler bei `0x01F12000`, außerhalb der ursprünglichen Ladespannen und Heapbereiche.
+Der Abgriff liegt nach THRU bei `0xFFA0185A` und verwendet den Ausgangspegel bei `0xFFA018BA`. Beide ursprünglichen
+Ausgangskanäle bleiben im GNU-Blackfin-Simulator bitgenau. Zehn Differenzfälle prüfen unter anderem nur rechts
+gepanntes Audio, Gegenphase und Sättigung. Die Mono-Summe ist `(links >> 1) + (rechts >> 1)` mit vorzeichenbehafteten
+32-Bit-Werten. Sie enthält keinen Metronomanteil.
+
+Die Erfassung mit Befehl `0x37` schreibt auch auf blau ein 32-Bit-Wort je Frame. Der 100-ms-Ring beginnt bei
+`0x01371EC0`; Status und Zeiger stehen bei `0xFF9031C8`, der Quellenzeiger bei `0xFF9031D4`. Die ursprüngliche
+Eingangsquelle ist `0xFF802810`. Der eigene Patch setzt den Quellenzeiger auf sein eigenes Mono-Summenwort.
+Der zunächst im Plan genannte Abgriff `0xFF802818` wird nicht verwendet. Der ARM-Leser entnimmt die oberen
+16 Bit jedes Ringworts und verdichtet sie im eigenen ARM-Ring, auch bei Ringumlauf und einem Rest von zwei Byte.
+
+Die ursprünglichen blauen Host-Aufrufe sind Lesen `0xC000FAB4`, Rohschreiben `0xC000FF70`, Getter `0xC0011554`,
+Sperren `0xC0000BA8` und Entsperren `0xC0000AD0`. Der Halbwortsender `0xC000E484` nimmt Befehl und zwei Argumente.
+Seine Getter-Rückgabe ist eine Portadresse und kein Erfolgsstatus. Eigener ARM-Code sperrt den Port und sendet
+`0x37` mit Aktivargument 1 oder 0. Der native Start-/Stop-Fall erzeugt zwei Pakete mit je 16 Halbworten ohne Assertion.
+CommandTask läuft über `0xC0027898` und den ursprünglichen Handler `0xC002A9A8`; die neue Aufnahme wird danach bedient.
+Alle Zuordnungen beruhen auf Vergleichen der eigenen Originaldateien und stehen in der Übersetzungskarte.
+
+SHIFT+REC öffnet auf Korgs blauem Synth eine eigene RECORD-Ansicht im BLECH-Menü. CsTask stellt nur Anfragen.
+UiTask prüft beim Verarbeiten von REC den aktuellen Bildschirm, damit ein Tastendruck nach EXIT keine Aufnahme
+außerhalb der Ansicht auslöst. Dieser zuvor fehlschlagende Fall ist als Regression geprüft. Die Dateiarbeit bleibt
+in CommandTask. PLAY allein erzeugt keine WAV; PLAY während der Aufnahme beendet die Erfassung nicht.
+Im blauen nativen Fall entstehen 6878 PCM-exakte Mono-Frames mit 48 kHz und 16 Bit, anschließend `Saved`.
+Die eigene Datei, Erfassung und Heap werden freigegeben, es gibt keine Assertion und keine Flash-Schreibzugriffe.
+
+Die Hardwarefragen aus Phase 0 bleiben offen: Quell- und Ringverhalten am Gerät, Schreibrate und längste
+Schreibpause der Karte sowie maximale Leserlücke bei Pattern-Wechsel, WRITE und Sample Swap. Der blaue Emulatorfall
+ersetzt diese Messungen nicht. Die vorhandenen vollständigen Sampler-Patchsets bestehen nach der gemeinsamen
+Leser- und Anzeigeaufteilung je 48 gezielte Aufnahmeprüfungen einschließlich zweier FEATURE-Schalterfälle.
+Der vollständige blaue Build besteht 27 Aufnahmefälle; alle drei Builds bestehen auch die Startphasen- und
+DSP-Schnittstellenprüfung in `check.py --cases recording_cases`.

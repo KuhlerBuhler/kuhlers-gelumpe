@@ -10,12 +10,9 @@
 .equ RR_INFO, 32
 .equ RR_TEMP, 80
 .equ RR_MODE, 96
+.equ RR_RAW_TARGET, 100
 .equ RR_SIZE, 128
-.equ RR_DSP_STATE, 0xFF9031D0
-.equ RR_SOURCE_POINTER, 0xFF9031DC
-.equ RR_DSP_RING, 0x01C722A0
 .equ RR_DSP_BYTES, 19200
-.equ RR_INPUT, 0xFF802878
 .equ RR_GUARD, 1024
 .equ RR_MAX_GAP, 80
 .equ RR_MAX_READ, 4096
@@ -63,8 +60,9 @@ rec_reader_prepare:
     movne r0, #RR_NO_PATCH
     bne rec_prepare_status
     bl rec_reader_info
+    bl rec_reader_sampling
+    mov r1, r0
     ldr r0, [r4, #RR_INFO]
-    ldr r1, [r4, #RR_INFO+40]
     orrs r0, r0, r1
     movne r0, #RR_BUSY
     bne rec_prepare_status
@@ -150,12 +148,18 @@ rec_reader_info:
     push {r3, lr}
     ldr r0, =RR_DSP_STATE
     add r1, r4, #RR_INFO
-    mov r2, #22
+    mov r2, #RR_INFO_HALFWORDS
     mov r3, #2
     ldr r12, =RR_FW_READ
     blx r12
     pop {r3, pc}
 .pool
+
+rec_reader_sampling:
+    mov r0, #RR_HAS_SAMPLING
+    cmp r0, #0
+    ldrne r0, [r4, #RR_INFO+40]
+    bx lr
 
 ; r0 0: active master capture, 1: stopped capture with Korg's source reset.
 rec_reader_validate:
@@ -235,7 +239,11 @@ rec_read_capacity:
     cmp r0, r8
     bhi rec_read_overflow
     sub r0, r8, r0
-    cmp r5, r0
+    mov r1, r5
+    mov r2, #RR_CHANNELS
+    cmp r2, #1
+    moveq r1, r5, lsr #1
+    cmp r1, r0
     bhi rec_read_overflow
 rec_read_chunk:
     cmp r5, #0
@@ -253,6 +261,20 @@ rec_read_chunk:
     cmp r10, r0
     movhi r10, r0
     add r1, r9, r1
+    mov r2, #RR_CHANNELS
+    cmp r2, #1
+    bne rec_read_target
+    ldr r0, [r4, #RR_CONSUMED]
+    sub r0, r7, r0
+    sub r0, r8, r0
+    cmp r10, r0
+    movhi r10, r0
+    bic r10, r10, #3
+    cmp r10, #0
+    addeq r1, r4, #RR_TEMP
+    moveq r10, #4
+rec_read_target:
+    str r1, [r4, #RR_RAW_TARGET]
     mov r0, r6
     mov r2, r10, lsr #1
     mov r3, #2
@@ -261,6 +283,9 @@ rec_read_chunk:
     sub r1, r8, #1
     and r1, r7, r1
     add r1, r9, r1
+    mov r2, #RR_CHANNELS
+    cmp r2, #1
+    beq rec_read_mono
     mov r2, r10, lsr #2
 rec_read_swap:
     ldr r0, [r1]
@@ -268,11 +293,29 @@ rec_read_swap:
     str r0, [r1], #4
     subs r2, r2, #1
     bne rec_read_swap
+    b rec_read_advance
+rec_read_mono:
+    ldr r2, [r4, #RR_RAW_TARGET]
+    add r2, r2, #2
+    mov r3, r10, lsr #2
+rec_read_mono_sample:
+    ldrb r0, [r2]
+    strb r0, [r1], #1
+    ldrb r0, [r2, #1]
+    strb r0, [r1], #1
+    add r2, r2, #4
+    subs r3, r3, #1
+    bne rec_read_mono_sample
+rec_read_advance:
     add r6, r6, r10
     ldr r0, =RR_DSP_RING+RR_DSP_BYTES
     cmp r6, r0
     subhs r6, r6, #RR_DSP_BYTES
-    add r7, r7, r10
+    mov r0, #RR_CHANNELS
+    cmp r0, #1
+    moveq r0, r10, lsr #1
+    movne r0, r10
+    add r7, r7, r0
     sub r5, r5, r10
     b rec_read_chunk
 rec_read_verify:
@@ -340,7 +383,7 @@ rec_stop_info:
     ldr r1, =RR_INPUT
     cmp r0, r1
     bne rec_stop_foreign
-    ldr r0, [r4, #RR_INFO+40]
+    bl rec_reader_sampling
     cmp r0, #0
     bne rec_stop_foreign
 rec_stop_native:

@@ -14,9 +14,9 @@ if UNICORN:
 
 
 class Reader:
-    def __init__(self):
-        from tools.patch.recording_reader import build
-        self.code = build(origin=0x100000)
+    def __init__(self, build='hacktribe'):
+        from tools.patch.recording_reader import build as build_reader
+        self.code = build_reader(build=build, origin=0x100000)
         self.symbols = self.code.symbols
         self.uc = Uc(UC_ARCH_ARM, UC_MODE_ARM)
         self.ctx, self.ring, self.stack, self.stop = 0x200100, 0x300000, 0x400000, 0x500000
@@ -25,7 +25,8 @@ class Reader:
         self.uc.mem_write(self.code.origin, self.code.bytes)
         targets = {self.s('RR_FW_' + name): name for name in ('READ', 'WRITE_RAW', 'GET', 'LOCK', 'UNLOCK', 'BEGIN', 'END')}
         for page in {a & ~4095 for a in targets} | {self.s('RR_TICKS') & ~4095}:
-            self.uc.mem_map(page, 4096)
+            if not 0x100000 <= page < 0x110000:
+                self.uc.mem_map(page, 4096)
         self.targets, self.memory, self.events, self.after_read = targets, {}, [], None
         self.put(self.s('RR_MAGIC_ADDRESS'), struct.pack('<I', self.s('RR_MAGIC')))
         self.info(1, self.s('RR_DSP_BYTES'))
@@ -139,6 +140,39 @@ def pcm(words):
 
 @unittest.skipUnless(UNICORN, 'Unicorn is required for the native ring reader')
 class RecordingReaderTests(unittest.TestCase):
+    def test_synth_mono_compacts_q31_at_both_ring_boundaries(self):
+        m = Reader('synth')
+        self.assertEqual(m.call('begin', m.ring, 65536), 0)
+        cursor = m.s('RR_DSP_RING') + m.s('RR_DSP_BYTES') - 8
+        m.field('RR_CURSOR', cursor)
+        m.info(2, cursor)
+        m.field('RR_PRODUCED', 65534)
+        m.field('RR_CONSUMED', 65534)
+        m.info(10, 12345)
+        m.uc.mem_write(m.ring + 65536, b'edge')
+        words = [0x7FFFFFFF, 0x80000000, 0x1234ABCD, 0xFFFF0000] * 100
+        m.capture(words, elapsed=20)
+        self.assertEqual(m.call('poll'), 0)
+        frames = (len(words) * 4 - m.s('RR_GUARD')) // 4
+        expected = b''.join(struct.pack('<H', word >> 16) for word in words[:frames])
+        actual = bytes(m.uc.mem_read(m.ring + 65534, 2)) + bytes(m.uc.mem_read(m.ring, len(expected) - 2))
+        self.assertEqual(m.field('RR_PRODUCED'), 65534 + len(expected))
+        self.assertEqual(actual, expected)
+        self.assertEqual(bytes(m.uc.mem_read(m.ring + 65536, 4)), b'edge')
+        self.assertEqual(m.call('finish'), 0)
+        self.assertEqual(m.field('RR_PRODUCED'), 65534 + len(words) * 2)
+
+    def test_synth_last_free_halfword_never_overwrites_unconsumed_pcm(self):
+        m = Reader('synth')
+        self.assertEqual(m.call('begin', m.ring, 65536), 0)
+        m.uc.mem_write(m.ring, b'\xa5' * 65536)
+        m.field('RR_PRODUCED', 65636)
+        m.field('RR_CONSUMED', 102)
+        m.capture([0x12345678] * 257, elapsed=20)
+        self.assertEqual(m.call('poll'), 0)
+        self.assertEqual(m.field('RR_PRODUCED'), 65638)
+        self.assertEqual(bytes(m.uc.mem_read(m.ring + 100, 4)), b'\x34\x12\xa5\xa5')
+
     def test_prepare_checks_availability_without_starting_or_writing_the_dsp(self):
         m = Reader()
         self.assertEqual(m.call('prepare', m.ring, 65536), 0)

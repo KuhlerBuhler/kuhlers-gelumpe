@@ -22,10 +22,11 @@ what to patch, wait for the check and download the result.
 
 Built means: the code is in the repository and was checked in the emulator or in tests.
 
-For 1.6, native recording is implemented on the sampler builds: source RECORD in SHIFT+REC, a private DSP tap excluding
-the metronome, stereo WAV on SD, visible failures and continuation at the WAV limit. NATIVE RECORDING in
+For 1.6, native recording is implemented on both sampler builds and the blue synth: source RECORD in SHIFT+REC, a private DSP tap excluding
+the metronome, stereo WAV on the sampler and mono WAV on the synth, visible failures and continuation at the WAV limit.
+The blue synth opens its own RECORD view directly with SHIFT+REC. NATIVE RECORDING in
 Menü -> BLECH -> FEATURES defaults to OFF. Device timing, the final ring choice and long-set acceptance remain open;
-blue support still needs implementation and a tester. The [recording guide](native-aufnahme.md) and
+a blue-device tester is available, with the hardware report still pending. The [recording guide](native-aufnahme.md) and
 [measurement record](messungen/2026-11-17-native-aufnahme.md) are in German.
 
 - The patch format (version 1) with field, raw and copy changes, the hook registry, and the start-phase

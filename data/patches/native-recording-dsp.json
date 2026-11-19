@@ -39,10 +39,16 @@
    "note": "include the recording block in the DSP upload length"
   }
  ],
- "startPhase": [],
+ "startPhase": [
+  {
+   "file": 72624,
+   "length": 4,
+   "why": "Der DSP-Uploader liest beim Start die Ladel\u00e4nge einschlie\u00dflich des eigenen Aufnahmeblocks."
+  }
+ ],
  "sources": {
-  "tools/patch/recording_dsp.py": "d0de9fbf0599b67e576e89900fac57b4352d4d9bf2e111ad6583ce65871a3854",
-  "tools/patch/recording_dsp.s": "c3a0df22ee51c34ba8151a9675fde80825e314fce42beee3bb44faf5f7e906ab"
+  "tools/patch/recording_dsp.py": "8abb6e5ca8f59cd141ba80597573617deb774525bada448e0c4973049bbbbd8b",
+  "tools/patch/recording_dsp.s": "186b67ded8e3ffa1ecd1a83007af66e512849f7ec4ce79e7d1e36a5f6a57022b"
  },
  "ram": [],
  "dspMemory": [

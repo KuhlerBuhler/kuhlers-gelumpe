@@ -165,3 +165,10 @@ test("the built splash editor and MFX 2 patch the own firmware together", { skip
   assert.equal(res.ok, true, res.reasons.join(" "));
   assert.deepEqual(res.dependencies, []);
 });
+
+test("the recording worker uses the native CommandTask site on both hardware builds", () => {
+  for (const site of [0xC002A628, 0xC0027898]) {
+    const p = { ...patch("recorder", hook(`0x${site.toString(16)}`, "command-task", "after", false, "call")), builds: [site === 0xC0027898 ? "synth" : "stock"] };
+    assert.equal(checkHooks([p]).ok, true);
+  }
+});
