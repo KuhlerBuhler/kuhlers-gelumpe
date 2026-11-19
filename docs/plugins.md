@@ -658,8 +658,10 @@ bei `y = 13`, Seiten bei `x = 1` und `x = 126`, untere Linie bei `y = 48`, dazu 
 gepunktete Schatten bei `y = 49`. Es gibt genau ein gemeinsames Popup; `show()`
 ersetzt das vorherige, egal ob es von der Firmware oder einem anderen Plugin kam.
 Ein offenes Firmware-Popup wird dabei mit EXIT geschlossen. EXIT schließt auch das
-Plugin-Popup vorzeitig. Apps können diese Aufrufe nicht verwenden. Die Standarddauer
-beträgt zwei Sekunden, `timeout(0)` schaltet den Timer aus.
+Plugin-Popup vorzeitig. Beim Ablauf löst die Laufzeit den nativen Schließpfad der
+Firmware aus, damit die Hauptseite am Gerät neu gezeichnet wird. Apps können diese
+Aufrufe nicht verwenden. Die Standarddauer beträgt zwei Sekunden, `timeout(0)`
+schaltet den Timer aus.
 
 **Bilder aus Feldern** (`korg.display.bitmap`): ein Platz des Felds hält die 8 Pixel einer Spalte,
 das niedrigste Bit ist das oberste Pixel (nur die unteren 8 Bit zählen); das ist der Aufbau des
