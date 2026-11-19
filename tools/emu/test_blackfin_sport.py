@@ -2,7 +2,9 @@
 """Generated SPORT0, DMA and interrupt programs; no audio fixtures."""
 import os
 import struct
+import tempfile
 import unittest
+from unittest import mock
 
 from blackfin_backend import BlackfinBackend, BackendError
 
@@ -77,6 +79,19 @@ class Sport(unittest.TestCase):
             expected.append(state)
         self.assertEqual(self.backend.read(0x20000, 64), struct.pack('<16I', *expected))
         self.assertEqual(self.backend.sport_status()['lcg_state'], state)
+
+    def test_file_input_plays_the_source_words_and_repeats_them(self):
+        words = list(range(0x100, 0x100 + 24 * 0x100, 0x100))
+        with tempfile.NamedTemporaryFile(suffix='.raw') as source:
+            source.write(struct.pack(f'<{len(words)}I', *words))
+            source.flush()
+            with mock.patch.dict(os.environ, BLECH_SPORT_RX_SOURCE=source.name):
+                self.backend.close()
+                self.setUp()
+            self.setup_rx(count=32, mode='file')
+            self.backend.run(803)
+        self.assertEqual(self.backend.read(0x20000, 128), struct.pack('<32I', *(words + words[:8])))
+        self.assertEqual(self.backend.sport_status()['input'], 2)
 
     def test_fractional_clock_has_no_accumulating_frame_drift(self):
         self.setup_rx(count=400, core_hz=4800001)

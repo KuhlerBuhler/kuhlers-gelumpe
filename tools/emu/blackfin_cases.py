@@ -80,7 +80,7 @@ def main():
     parser.add_argument('--core-hz', type=int, required=True)
     parser.add_argument('--seconds', type=float, default=1)
     parser.add_argument('--wall-timeout', type=float, default=600)
-    parser.add_argument('--input', choices=('silence', 'lcg'), default='silence')
+    parser.add_argument('--input', choices=('silence', 'lcg', 'file'), default='silence')
     args = parser.parse_args()
     try:
         raw = args.vsb.read_bytes()
