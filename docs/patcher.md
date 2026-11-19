@@ -420,7 +420,7 @@ sind kein RAM und stehen auch nicht hier.
 
 | Bereich | Patch | Inhalt | Größe aus |
 |---|---|---|---|
-| Ende des Codes bis `0xC0170000` | script-runtime | Rest der Code-Fläche ab `0xC0150300`, in der die VM und aller eigene Code liegen (das Ende hängt vom Build ab), frei für den Code der Plugin-API | `script_hooks.py:MORE3_END` |
+| Ende des Codes bis `0xC016C000` | script-runtime | Rest der Code-Fläche ab `0xC0150300`, in der die VM und aller eigene Code liegen (das Ende hängt vom Build ab), frei für den Code der Plugin-API; dahinter bis `0xC0170000` liegen die Texte und Glyphen von `lang-de` als geschriebene Bytes ([Firmware-Sprache](firmware-sprache.md)) | `script_hooks.py:LANG` |
 | `0xC0174000` + 0x3950, `0xC0178000` + 0x3950 | preset-tables | Platz für je 28 weitere Preset-Records (Insert, Master), vom Editor beschrieben | `preset_tables.py:RES_IFX`, `RES_MFX` |
 | `0xC017C400` + 0x800 | preset-tables | Reglergedächtnis des Insert-Effekts, 16 Parts zu 128 Byte, die Firmware füllt es beim Start | `preset_tables.py:EDIT_TABLE` |
 | `0xC0180F00` + 0x40 | pattern-switch | Zustand, darin `PS_SETTING` bei +0x10 | `pattern_switch.py:STATE` |

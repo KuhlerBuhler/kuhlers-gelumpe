@@ -74,6 +74,8 @@ BATT = CARD_CLOCK_END            # BATTERY % (script_battery.s:BP_*): the smooth
 BATT_END = BATT + 28             # whether a reading is held, the card symbol's columns and card flag last drawn; FF at power-on is no reading yet
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
+LANG = 0xC016C000                # the top 16 KiB of MORE3 hold the texts and glyphs of the optional patch lang-de (tools/lang/),
+LANG_END = MORE3_END             # so the runtime's code stops below it
 RUNTIME = 0xC01AE000
 POOL = 0xC01D7000
 END = 0xC01FFFF0
@@ -498,7 +500,7 @@ class BuiltHooks:
             area(layout['pool'],layout['poolEnd']-layout['pool'],'plugin pool, SCRIPT_POOL_BYTES','tools/patch/script_hooks.py:POOL'),
             area(layout['card'],layout['input']-layout['card'],'work area of the card loader: file object, state, plugin list of the import page, the key commands of KORG.press, the record of korg.remapKey and the word korg.seq marks a written frame with','tools/patch/script_hooks.py:CARD'),
             area(layout['input'],END-layout['input'],'block buffer for file reads, the two store images lie in it','tools/patch/script_hooks.py:INPUT'),
-            area(layout['codeEnd'],MORE3_END-layout['codeEnd'],'the rest of the code area, kept free for the code of the plugin API to grow into','tools/patch/script_hooks.py:MORE3_END'),
+            area(layout['codeEnd'],LANG-layout['codeEnd'],'the rest of the code area, kept free for the code of the plugin API to grow into','tools/patch/script_hooks.py:LANG'),
             *([area(CODE_START,MENU_TABLE-CODE_START,'the first code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:CODE_START')]
               if self.profile.build == 'synth' else []),
             area(AUDIO_SERVICE,AUDIO_SERVICE_END-AUDIO_SERVICE,'korg.audio.capture, spectrum and wave: the heap context of the capture service (103424 bytes, taken on the first request and kept until power-off), the source asked for, the tick of the last call and the last status','tools/patch/script_audio_service.s:AU_REQUEST'),
@@ -643,8 +645,8 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
     pool_end=POOL+vm.symbols['SCRIPT_POOL_BYTES']
     (first_at,first),=hooks.sections
-    if first_at!=origin or origin+len(first)>MORE3_END:
-        raise ValueError(f'the code area runs over: {first_at:#x} + {len(first):#x} (limit {MORE3_END:#x})')
+    if first_at!=origin or origin+len(first)>LANG:
+        raise ValueError(f'the code area runs over: {first_at:#x} + {len(first):#x} (limit {LANG:#x})')
     if runtime_end>MENU_MORE or BATT_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
         raise ValueError(f'script code, runtime or pool exceeds its reserved area: runtime end {runtime_end:#x} (limit {MENU_MORE:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
