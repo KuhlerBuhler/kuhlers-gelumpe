@@ -497,8 +497,15 @@ menu_settings_load:
     ldr r0, [r4, #M_CARD]       ; the start: the generation of the flash's copy is known even when the card wins, so a flash write
     cmp r0, #CARD_PULL          ; later overwrites the older copy
     beq menu_load_pulled
+    mov r1, #0                  ; r1: the flash's copy read (0 none), r2: the card generation it was written with
+    mov r2, #0
     cmp r0, #CARD_DONE
-    blne menu_flash_read
+    beq menu_load_cards
+    bl menu_flash_read
+    movs r1, r0
+    ldrne r2, [r0, #8]
+menu_load_cards:
+    push {r1, r2}
     ldr r0, =settings_path_a
     ldr r1, =MENU_FILE_A
     bl menu_file_read
@@ -512,18 +519,31 @@ menu_settings_load:
     beq menu_load_b
     mov r7, #1                  ; r7 = 1: the settings come from the card, 0 from the flash
     cmp r8, #0
-    beq menu_load_apply
+    beq menu_load_card_pick
     ldr r1, [r0, #8]
     ldr r3, =MENU_FILE_B
     ldr r2, [r3, #8]
     cmp r2, r1
     movhi r0, r3
-    b menu_load_apply
+    b menu_load_card_pick
 menu_load_b:
     cmp r8, #0
+    addeq sp, sp, #8
     beq menu_load_none
     mov r7, #1
     ldr r0, =MENU_FILE_B
+; The card wins at the start, unless its newest file has the card generation the flash's copy was written with: then the card
+; is that copy's card, only older (a change while it could not be written: a start without a card, #518), and the flash wins.
+; The next save writes the card again (the generation after it). A card written elsewhere has another generation and wins.
+menu_load_card_pick:
+    pop {r1, r2}
+    cmp r1, #0
+    beq menu_load_apply
+    ldr r3, [r0, #8]
+    cmp r3, r2
+    bne menu_load_apply
+    bl menu_flash_read          ; the flash's copy again (the card's files took its buffers)
+    mov r7, #0
 menu_load_apply:
     ldr r1, [r0, #8]
     str r1, [r4, #M_GEN]
