@@ -5,6 +5,14 @@ Korg 2.02 und Hacktribe, sowie auf Korgs blauer Electribe 2 als Mono-Aufnahme. *
 Kartenschreibzeiten und lange Sets. Ein Tester für die blaue Electribe ist vorhanden; sein Bericht steht aus.
 Dieser Stand ist noch keine Freigabe für das Gerät.
 
+## Passender App-Prüfer
+
+Ein Aufnahme-Patch verändert das DSP-Programm absichtlich. Der Prüfer einer älteren installierten GELUMPE-App
+kennt diesen Abgriff noch nicht und meldet deshalb einen Fehler bei „DSP-Programm unverändert“.
+Die Dateiendung `.patch` oder `.bsdiff` ändert daran nichts: Import und Emulatorprüfung sind getrennte Schritte.
+Für diesen Teststand braucht die Desktop-App auch den aktuellen gebündelten Emulator mit dem kanonischen
+Aufnahme-DSP-Prüfer. Ein bloßes Laden der Patch-Datei aktualisiert ihn nicht. Die DSP-Prüfung bleibt eingeschaltet.
+
 ## Aufnehmen
 
 1. In Menü -> BLECH -> FEATURES -> NATIVE RECORDING auf ON stellen. Die Vorgabe ist OFF; WRITE behält die Einstellung.
@@ -25,7 +33,7 @@ gepannte Klänge werden erfasst. Hacktribe auf blauer Hardware verwendet weiterh
 Weitere Namen steigen bis `REC9999.WAV`; vorhandene Dateien werden nicht überschrieben. Kurz vor 4 GiB beginnt
 eine Folgedatei. Name und Dauer in der Anzeige gehören zur aktuellen Datei.
 
-Aufgenommen wird der Mastermix nach MFX und Röhrenkurve, einschließlich AUDIO IN/THRU. Das Metronom bleibt hörbar,
+Aufgenommen wird der Mastermix nach MFX und dem vorhandenen Soft-Clipper, einschließlich AUDIO IN/THRU. Das Metronom bleibt hörbar,
 steht aber nicht auf der Aufnahme. Der Signalweg ist im DSP-Simulator geprüft, noch nicht am Gerät abgenommen.
 
 Während der Aufnahme sind SAMPLING, RESAMPLING und Apps mit eigener Audioerfassung wie Spettro gesperrt.
@@ -50,7 +58,7 @@ physischen Sektorschreibvorgang. Ein Fehler wird nicht durch eingefügte Stille 
 Die endgültige Ringwahl wartet auf die Schreib- und Laufzeitmessungen am Gerät. Das aktuelle Emulatormodell überschreitet
 bei einem vollen 64-KiB-Schreibblock die vorläufige Leserfrist; dieser Fall prüft den sichtbaren Abbruch, kein langes Set.
 Die Kartenzugriffe von Sample Swap werden nach dessen Integration geprüft. Die optionale Plugin-API und der spätere
-WAV-Player gehören nicht zu diesem Aufnahmestand.
+WAV-Player gehören nicht zu diesem Aufnahmestand. Die geplante neue Röhrenkurve ist ebenfalls noch nicht enthalten.
 
 Belege und offene Messwerte: [native Aufnahme](messungen/2026-11-17-native-aufnahme.md).
 

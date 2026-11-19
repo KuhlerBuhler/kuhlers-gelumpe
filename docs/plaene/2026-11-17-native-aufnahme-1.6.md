@@ -291,6 +291,20 @@ Akzeptanz: Docs-Test grün.
   Die volle Suite bleibt in CI. Sample Swap #166 ist weiterhin offen; dessen Karteneinbindung und der spätere Player
   werden deshalb noch nicht umgesetzt. Es gab in diesem Schritt keine Geräteverbindung.
 
+- **App-Abnahme, 19.11.:** Der Import beider BSDIFF-Dateien über `readAnyPatch` und `applyAnyPatch` erzeugt
+  zwar die richtigen Firmwarekopien, prüft aber noch nicht den installierten Emulator-Dienst. Die installierte
+  Desktop-App vom 14.11. lehnt den blauen Aufnahme-Abgriff mit `dsp_stream` ab; der Fehler ist über ihren
+  HTTP-Prüfaufruf reproduziert. Die Testverteilung braucht daher auch einen aktuellen gebündelten Prüfer.
+  Ein separater App-Teststand mit eigener Versionskennung verhindert die Wiederverwendung des alten Dienstes.
+  Es wird keine DSP-Prüfung abgeschaltet und keine Firmwareänderung vor diesem Fehler versteckt.
+
+- **Gebündelter App-Teststand:** Die separate Mac-App `1.6.0-rec.1` wird mit eigener Kennung gebaut. Der
+  tatsächlich enthaltene, signierte Emulator besteht die HTTP-Kurzprüfung des blauen und roten Testpatches mit
+  jeweils 23 Prüfungen. Ein absichtlich beschädigter DSP-Abgriff wird weiterhin abgelehnt. Die App-ZIP wurde wieder entpackt; Signatur, Hauptprogramm und Emulator stimmen.
+  Die Firmware-Patchdateien bleiben bytegleich. Die Testverteilung nennt nun ausdrücklich den erforderlichen
+  neuen App-Prüfer; die zuvor installierte App wurde nicht überschrieben. Die neue Röhrenkurve ist nicht gebaut,
+  der aktuelle Aufnahme-Abgriff liegt hinter dem vorhandenen Soft-Clipper.
+
 ## References
 
 - docs/messungen/2026-11-17-native-aufnahme.md
