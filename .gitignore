@@ -15,6 +15,7 @@ flash_*.bin
 dist/
 
 # Local tool state.
+.lang-work/
 .claude/
 .cortexignore
 thoughts/
