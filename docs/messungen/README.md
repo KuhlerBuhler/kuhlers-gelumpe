@@ -161,7 +161,7 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [Aussehen früh im Start: Zeitlinie und der früheste Punkt](2026-10-16-blech-look-frueh.md)
 - [Pad-LEDs: nur an oder aus, am Gerät gemessen](2026-10-16-pad-led-stufen.md) (am 18.10. widerlegt: Pulsieren pulsiert flüssig)
 - [Display: Schriften und Symbole der Firmware](2026-10-14-display-schriften.md)
-
+- [Firmware in einer anderen Sprache: Korgs Menütexte und ihre Zeiger, Umlaut-Glyphen, Breite, BLECH-Menü, Aufwand, im Emulator und offline](2026-11-19-firmware-sprache.md)
 
 ## Plugins
 
