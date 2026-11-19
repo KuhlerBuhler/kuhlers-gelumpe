@@ -1,0 +1,14 @@
+{
+  "format": "gelumpe-lang-abbreviations",
+  "lang": "de",
+  "abbreviations": [
+    { "short": "Einst.", "long": "Einstellung, Einstellungen", "example": "MIDI-Einst." },
+    { "short": "Ausw.", "long": "Auswahl", "example": "Pad-Ausw." },
+    { "short": "Nr.", "long": "Nummer", "example": "Sample-Nr." },
+    { "short": "max.", "long": "maximal", "example": "max. 16" },
+    { "short": "min.", "long": "minimal", "example": "min. 1" },
+    { "short": "Std.", "long": "Standard", "example": "Std.-Wert" },
+    { "short": "akt.", "long": "aktuell", "example": "akt. Pattern" },
+    { "short": "inkl.", "long": "inklusive", "example": "inkl. Samples" }
+  ]
+}
