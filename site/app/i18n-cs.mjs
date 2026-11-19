@@ -1466,6 +1466,7 @@ export default {
   "patcher.korg.started": "Prohlížeč stahuje zip od Korgu. Pak ho přetáhni do pole.",
   "patcher.usb.done": "Hotovo, nový firmware leží na kartě. Teď na zařízení: MENU, přes EDIT ◀ k DATA UTILITY, MENU, přes EDIT ▶ k SOFTWARE UPDATE, pak mačkej MENU, až se objeví „OK. Please Reboot.“. Mezitím nevypínej. Potom vypni a zase zapni.",
   "patcher.usb.notConnected": "Electribe není připojená. Připoj ji přes USB a zapni. Pak v sekci Emulátor nahoře vyber „Skutečné zařízení“ a klikni na „Připojit k Electribe“.",
+  "patcher.usb.notSession": "Electribe je připojená přes USB, ale ne k aplikaci. V sekci Emulátor nahoře vyber „Skutečné zařízení“ a klikni na „Připojit k Electribe“. Pokud pak hlásí, že MIDI port je už otevřený, drží ho jiný program: zavři ho a zkus to znovu.",
   "patcher.usb.decide": "Soubor ze zařízení potřebuje ještě rozhodnutí, viz níže.",
   "patcher.usb.checking": "Patchování a ověřování v emulátoru, trvá to pár minut.",
   "patcher.usb.failed": "Kontrola v emulátoru neprošla, do zařízení nic nešlo. Podrobnosti níže.",

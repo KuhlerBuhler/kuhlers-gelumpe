@@ -77,7 +77,7 @@ indem sie die Helligkeit in zwei Tabellen schreibt (`Manager + 0x4E + 8 * LED` u
 `na_put` schreibt beide Tabellen und ruft `0xC00875F4` mit dem Schalter 1, der den Vergleich mit der Kopie überspringt und immer sendet.
 
 **Die Firmware schreibt ein Pad nur, wenn es dunkel ist (hergeleitet aus `0xC008870C`).** Bei einer Note an schreibt sie die Helligkeit nur, wenn der Eintrag 0 ist; bei einer Note aus schreibt sie immer 0. Ein Hinweis auf einem
-Pad würde das Aufleuchten bei einer Sequencer-Note also verschlucken. Darum nimmt der Haken `light_hook` (erste Anweisung von `0xC008870C`) bei jeder Note an des gewählten Parts alle Hinweise weg, bevor die Firmware ihre Pads setzt.
+Pad würde das Aufleuchten bei einer Sequencer-Note also verschlucken. Darum nimmt der Haken `light_hook` (in `0xC008870C` bei `0xC008878C`, seit 15.11., vorher die erste Anweisung) bei jeder Note an des gewählten Parts alle Hinweise weg, bevor die Firmware ihre Pads setzt.
 Ohne diesen Haken bleibt das Pad hell und ohne Sequencer-Licht: Kontrollprobe unten.
 
 **Der Patch erkennt seine LEDs am Wert.** Die Firmware schreibt nur 0, 192, 255 und gerade Zahlen; die beiden Werte des Patches sind ungerade und nicht 255. Jedes Pad mit einem Wert des Patches, das keinen Hinweis
@@ -88,7 +88,7 @@ den Hinweis halten und folgt, solange das Hinweisfenster offen ist, der Regel "p
 ## Haken und Platz
 
 - **Drei Haken**, alle auf der ersten oder letzten Anweisung einer Funktion der Firmware, keiner verschluckt etwas (`swallow: false`):
-  `0xC0044B3C` (Pad-Ereignis des KEYBOARD-Modus, Kette `pad-note`, Stufe `keyboard-pad`), `0xC008870C` (Licht eines Pads, Stufe `pad-light`) und `0xC00877D4` (das letzte `pop` des 40-ms-Takts des LED-Managers,
+  `0xC0044B3C` (Pad-Ereignis des KEYBOARD-Modus, Kette `pad-note`, Stufe `keyboard-pad`), `0xC008878C` (im Licht eines Pads `0xC008870C` hinter dem Abzug des KEY, Stufe `pad-light`) und `0xC00877D4` (das letzte `pop` des 40-ms-Takts des LED-Managers,
   Kette `led-tick-end`). Den Takt-Anfang `0xC0087740` belegt TAP Motion; die Haken ergänzen sich, weil meiner am Ende sitzt.
 - **Code** bei `0xC0189000` (812 Byte von 2048 reserviert), **Zustand** bei `0xC0189F00` (64 Byte), beides im freien FF-Bereich hinter TAP Motion (`0xC0188000`, der Block von Blechy davor, `0xC0184000` bis `0xC0188000`). Zustand: `NA_SETTING` bei `+0` (nie geschrieben, FFFFFFFF, oder 1 heißt an, 0 aus),
   Takte seit dem letzten Pad-Drücken bei `+4` (FFFFFFFF zu Beginn, sättigt bei `0x1000`), Note bei `+8` und Pad bei `+0xC` (FFFFFFFF ist keine).
@@ -100,9 +100,24 @@ den Hinweis halten und folgt, solange das Hinweisfenster offen ist, der Regel "p
   der Einstellungsdatei ab (Bit 0 Skripte, 1 MFX 2, 2 Patternwechsel aus, 3 TAP Motion aus, 4 Notenassistent aus); eine Datei ohne das Bit oder keine Datei heißt an. Der Zustand des Menüs liegt im Wort `+0xFC` des Menüzustands
   (das Wort hinter den acht Byte des Tab-Textes, dessen längster Text "Plugins" ist), das Wort des Patches ist als `shares` in der Plugin-Laufzeit eingetragen. Menüprüfungen: `menu:note_assist_*` in `tools/emu/menu_cases.py`.
 
+## KEY und KEY PADS Oktave (15.11.)
+
+**Gerät 15.11. (Test-Firmware 599f7486):** im KEYBOARD-Modus zeigte der Notenassistent manchmal gar nichts mehr, weder Hinweise noch das Rot der
+gerade gespielten Note, bis zum Patternwechsel oder Neustart.
+
+**Ursache (gemessen, `sequencer_note_follows_key_and_octave`).** Bei einem Part mit SCALE MODE ON spielt die Firmware die Note um den KEY höher, mit KEY PADS
+(Pads 13 bis 16, #613) zusätzlich um 12 x die Oktave. Ihr Pad-Licht `0xC008870C` zieht beides wieder ab (`0xC0088784`, Getter des KEY, mit KEY PADS `kp_key`)
+und sucht dann das Pad. Der Haken saß auf der ersten Anweisung und verglich die Note **mit** KEY mit dem Layout: bei KEY E fand er kein Pad (keine Hinweise,
+kein Rot), bei Oktave +1 oder -1 das Pad eine Oktave daneben (Pad 7 oder 8 statt 0 und 15). Mit KEY C und ohne Oktave fiel es nicht auf. Ein Patternwechsel
+brachte den gespeicherten KEY zurück, ein Neustart dazu die Oktave 0. Der KEY ändert sich über KEY PADS (Pads 1 bis 12) oder das Pattern-Menü.
+
+**Fix.** Der Haken sitzt jetzt bei `0xC008878C` (`ldr r4, [pc, #0x94]`, blau `0xC0078970`), hinter dem Abzug: dort hält `r6` die Note des Pads, wie die Firmware
+sie vergleicht, `r5` den LED-Manager, `r8` die Velocity. Die Prüfung des Parts macht die Firmware vorher selbst. Gemessen: vorher Rot und Pads der Firmware bei
+KEY C gleich (0 und 15), bei KEY E nichts, bei Oktave +1/-1 Pad 7/8; nachher in allen vier Fällen die Pads der Firmware.
+
 ## Prüfungen
 
-`note_assist_cases.py`, acht Gruppen, alle im Emulator mit dem ganzen BLECH-Satz und dem eigenen Flash:
+`note_assist_cases.py`, zehn Gruppen, alle im Emulator mit dem ganzen BLECH-Satz und dem eigenen Flash:
 
 | Prüfung | Was sie belegt |
 |---|---|
@@ -123,10 +138,30 @@ den Hinweis halten und folgt, solange das Hinweisfenster offen ist, der Regel "p
 | `stock_without_the_patch`, `setting_off_gives_the_leds_back`, `setting_on_again` | mit EXIT beim Einschalten, ohne Karte und mit dem Wort 0: die Pads nur mit 0, 192, 255, kein Hinweis, die Zustandswörter bleiben FFFFFFFF; das Wort zur Laufzeit auf 0 nimmt die Hinweise innerhalb von 0,3 s weg und eine neue Note zeigt keine; auf 1 geht es wieder |
 | `firmware_pad_values` | die Werte der Firmware an den Pads (siehe oben); die beiden Werte des Patches sind nie darunter |
 | `led_lock_keeps_the_pads` | hält ein Plugin die LED-Sperre (`Manager + 0xB98`), schreibt der Patch nichts; die Zeit läuft weiter, wird die Sperre innerhalb der 1,5 s gelöst, kommen die Hinweise |
+| `sequencer_note_follows_key_and_octave` | Part 1 mit SCALE MODE ON spielt eine Note, bei KEY C, KEY E, KEY PADS Oktave +1 und -1: das Rot des Patches steht auf den Pads, die auch die Firmware leuchtet, und die Hinweise kommen |
 
 **Kontrollprobe ohne den Haken `light_hook` (gemessen, einmal von Hand, nicht Teil von `check.py`):** Part 5 gewählt, ein Pad auf C angetippt, die Hinweise stehen (auch Pad 2 mit der Note 63), dann PLAY. Gemessen mit der ersten Fassung der Zeit (Hinweise erst nach 1,5 s); der Mechanismus ist derselbe, und `sequencer_light_wins` prüft ihn mit dem Haken.
 Mit dem Haken zeigt Pad 2 im ersten Schritt (192, 0), das Licht der Firmware, und danach wieder den Hinweis. Ohne den Haken (das Wort `0xC008870C` auf dem Original) bleibt das Pad im Hinweis (21, 13), das Licht der Firmware
 kommt nie, und beim Ende der Note setzt die Firmware das Rot auf 0 und die Hinweise flackern (rot 0, blau 13) bis zum nächsten Takt des LED-Managers. Der Haken ist also nötig und tut, was die Herleitung sagt.
+
+## Nur die Pads der Note freigeben (14.11.)
+
+Bis 14.11. nahm `light_hook` bei jeder Note des gewählten Parts alle 16 Hinweise weg (`na_sync` mit r7 = 0), und der
+nächste Takt des LED-Managers setzte sie neu. Im KEYBOARD-Modus mit laufendem Pattern hieß das zwei LED-Nachrichten je
+Hinweis-Pad und Note. Jetzt macht der Haken nur die Pads dunkel, die die Note halten (die Firmware schreibt nur dunkle
+Pads); den übrigen gibt der nächste Takt ihre neue Stufe ohnehin. Eine Note, die kein Pad hält, oder eine Note außerhalb
+von KEYBOARD nimmt weiter alle Hinweise weg.
+
+Gemessen mit `tools/emu/arm_load.py` (Stand mit Bindungs-Cache gegen denselben Stand mit dieser Änderung, `blech.json`
+bzw. `blech-synth.json`), Szene `playing-keyboard`:
+
+| | Hacktribe | Korg rot | Synth |
+|---|---:|---:|---:|
+| Panelnachrichten je Sekunde | 731,5 / 401,5 | 730,3 / 401,5 | 731,0 / 401,0 |
+| Last gesamt in % | 11,044 / 10,830 | 11,056 / 10,845 | 11,349 / 11,138 |
+
+Ohne KEYBOARD bleiben Last und Nachrichten gleich. Alle 33 Fälle von `note_assist_cases.py` sind auf den drei Builds
+grün.
 
 ## Grenzen und offen
 

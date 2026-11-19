@@ -10,6 +10,7 @@ import { recordOf, RECORD } from "../src/presets.mjs";
 import { makeRecord, makeFirmwareWithArrays } from "./helpers.mjs";
 import { REC, MAP, MAP_PAIRS } from "../src/layout.mjs";
 import { FX_CATALOG } from "../data/fx/catalog.mjs";
+import FX_PARAMS from "../data/map/fx-params.mjs";
 
 const units = readUnits();
 const MOD_DELAY = 0x3b;
@@ -239,11 +240,14 @@ test("a map row gets its from/to pair in all six copies, the donor's old range d
 
 // The level parameters of Korg's presets of the same unit, read in both 2.02 firmwares (docs/messungen/2026-10-29-fx-katalog-pegel.md).
 // A catalog effect stays at most this loud. The mod delay has no cap: the Short Delay keeps its own values, set on the device.
-// Distortion output_level (factory 11) and Master Pumper output_gain_adjust (factory 24) are allowed slightly above factory:
-// a listening test on the device (31.10.) found the factory-level catalog effects a bit too quiet.
+// Distortion output_level (factory 11) and Master Pumper output_gain_adjust (factory 24) are allowed above factory:
+// a listening test on the device (31.10.) found the factory-level catalog effects a bit too quiet, and the Master Pumper
+// went to 32 after the device test of 15.11. (quieter than without the effect: the pumping takes energy out of the sum)
+// and to 38 after the DSP sim of 17.11. (32 still measured 3 dB under dry, 38 within 0.1 dB).
+// Level Mod output_gain (factory 36) goes to 45 for Bounce Gate: the gate cuts each note short (device test 14.11.: too quiet).
 const LEVEL_CAPS = {
-  ifx: { 0x0f: { output_level: 20 }, 0x10: { output_level: 65 }, 0x15: { output_gain: 36 }, 0x18: { fb_depth: 45, wet_level: 120 } },
-  mfx: { 0x3c: { feedback: 72, output_level: 53 }, 0x35: { output_gain_adjust: 26 } },
+  ifx: { 0x0f: { output_level: 20 }, 0x10: { output_level: 65 }, 0x15: { output_gain: 45 }, 0x18: { fb_depth: 45, wet_level: 120 } },
+  mfx: { 0x3c: { feedback: 72, output_level: 53 }, 0x35: { output_gain_adjust: 38 } },
 };
 // A remake of a Hacktribe insert preset (`hacktribe: true`, slots 39 to 49 on Korg's 2.02) stays just below the levels of
 // that Hacktribe preset, which go above Korg's: the short delay's wet level and feedback, the KP2 compressor's output as the knob maps it.
@@ -264,6 +268,30 @@ test("no catalog effect is set or mapped louder than Korg's presets of its unit"
       const name = Object.keys(stage.params)[row.param];
       if (name in caps && !(item.kind === "ifx" && stage.unit === 0x18 && name === "fb_depth")) {
         assert.ok(Math.max(row.low, row.high) <= caps[name], `${item.name}: the map drives ${name} to ${Math.max(row.low, row.high)}`);
+      }
+    }
+  }
+});
+
+// Every value a catalog effect sets or maps stays inside the table range of its unit (data/map/fx-params.mjs). A value
+// past the table reads whatever follows it: the Master Limiter's release 20 (table 0 to 19) and threshold 64 (0 to 60)
+// made it drop out after loud passages (docs/messungen/2026-10-29-fx-katalog-pegel.md, section 7). The Short Delay keeps its
+// dry_wet above 100, set and heard on the device.
+const RANGE = Object.fromEntries(FX_PARAMS.fields.map(f => [f.id, f.range ?? FX_PARAMS.defaults.range]));
+const OWN_VALUES = { "Short Delay": ["dry_wet"] };
+
+test("no catalog effect sets or maps a parameter outside its unit's table", () => {
+  for (const item of FX_CATALOG.filter(i => i.kind === "ifx" || i.kind === "mfx")) {
+    for (const s of item.stages) {
+      const id = name => `fx.${s.stage === "mfx" ? "mfx" : "ifx"}.0x${s.unit.toString(16).padStart(2, "0")}.${name}`;
+      const inside = (name, v) => (OWN_VALUES[item.name] ?? []).includes(name) || (v >= RANGE[id(name)][0] && v <= RANGE[id(name)][1]);
+      for (const [name, v] of Object.entries(s.params)) {
+        assert.ok(RANGE[id(name)], `${item.name}: ${id(name)} is not in the map`);
+        assert.ok(inside(name, v), `${item.name}: ${name} ${v} outside ${RANGE[id(name)]}`);
+      }
+      for (const row of item.map.filter(r => ({ 0: "ifx1", 1: "ifx2", 2: "mfx" })[r.chain] === s.stage)) {
+        const name = Object.keys(s.params)[row.param];
+        assert.ok(inside(name, row.low) && inside(name, row.high), `${item.name}: the map drives ${name} ${row.low} to ${row.high}, outside ${RANGE[id(name)]}`);
       }
     }
   }
