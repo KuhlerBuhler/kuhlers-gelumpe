@@ -3691,6 +3691,46 @@ def flash_settings_cases(payload, flash=None):
             and not other.m.asserts and not restart.m.asserts,
             f"pulled {pulled}; card in: switches/ask/hold {q}; after {answer.upper()} {after}; copies A/B {recs}, erases {erased}; "
             f"next start without a card {switches(restart)}")
+
+    # 15. the card only stale (device 18.11.): a start with the card and a change (card and flash in step), a start without a card,
+    # the card put in later stays untouched (#518) while PAD COLOR changes into the flash; the next start with that card takes the
+    # flash's colour, as the card holds the card generation the flash's copy was written with; the next save brings the card up to date
+    def boot_with(image, card_bytes):
+        dev = Dev(payload, bytes(image), 0)
+        dev.m.adapter = True
+        dev.m.insert_card(SDCard(MemoryMedium(bytearray(card_bytes))))
+        dev.run(wait)
+        return dev
+
+    def pad_colour(dev):
+        goto_group(dev, GROUP_PADS, 0)
+        return texts_of(dev)[1]
+
+    synced = start(second, files)
+    card_change(synced)
+    synced_card = bytes(synced.m.mmc.card.medium.data)
+    later = start(bytes(synced.m.flash.mem))
+    later.m.insert_card(SDCard(MemoryMedium(bytearray(synced_card))))
+    later.run(1.0)
+    was = pad_colour(later)
+    later.turn(1, wait=0.4)
+    chosen = texts_of(later)[1]
+    leave_to_main(later)
+    later.run(1.0)
+    untouched = bytes(later.m.mmc.card.medium.data) == synced_card
+    back = boot_with(bytes(later.m.flash.mem), synced_card)
+    shown = pad_colour(back), switches(back), held_bit(back)
+    back.turn(1, wait=0.4)
+    next_colour = texts_of(back)[1]
+    leave_to_main(back)
+    back.run(1.0)
+    caught_up = read_settings_look(back.m.mmc.card.medium.data)
+    newest = max(caught_up.values(), key=lambda v: v[0]) if caught_up else None
+    again = boot_with(bytes(back.m.flash.mem), bytes(back.m.mmc.card.medium.data))
+    add("stale_card_takes_the_flash", chosen != was and untouched and shown == (chosen, (0, 1), 0) and newest is not None and newest[0] == 9
+        and pad_colour(again) == next_colour and not later.m.asserts and not back.m.asserts and not again.m.asserts,
+        f"card in after a start without one: PAD COLOR {was} -> {chosen}, card {'untouched' if untouched else 'written'}; start with "
+        f"the card: colour/switches/hold {shown}; a change to {next_colour}: card files {caught_up}; next start {pad_colour(again)}")
     return out
 
 
