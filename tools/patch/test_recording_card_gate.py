@@ -2,6 +2,7 @@
 import unittest
 from tools.patch import test_script_store as stores
 from tools.patch.script_hooks import MENU_STATE, DATA_FILE
+from tools.patch.card_gate import SD_INPUT
 
 
 @unittest.skipUnless(stores.UNICORN_AVAILABLE, 'Unicorn is required for recording card interlocks')
@@ -10,10 +11,24 @@ class RecordingCardGateTests(unittest.TestCase):
         m = stores.NativeStoreTests().counter_machine()
         m.write(MENU_STATE, 1)
         m.uc.mem_write((MENU_STATE + m.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
+        m.write(SD_INPUT, 0)    # a card is in: recording may start
         return m
 
     def start(self, m):
         self.assertEqual(m.call('nr_post', 1)[0], 0)
+
+    def test_start_without_a_card_is_refused_before_anything_is_claimed(self):
+        from tools.patch.script_hooks import NATIVE_RECORDING
+        from tools.patch.card_gate import SD_DETECT
+        m = self.machine()
+        m.write(SD_INPUT, SD_DETECT)
+        self.assertEqual(m.call('nr_post', 1)[0], m.symbols['NR_NO_CARD'])
+        self.assertEqual(m.read(NATIVE_RECORDING + m.symbols['NR_ERROR']), m.symbols['NR_NO_CARD'])
+        self.assertEqual(m.read(NATIVE_RECORDING + m.symbols['NR_REQUEST']), 0)
+        m.call('nr_service')
+        self.assertEqual(m.call('nr_busy')[0], 0)
+        m.write(SD_INPUT, 0)
+        self.start(m)
 
     def stop(self, m):
         m.call('nr_post', 0)
@@ -96,6 +111,7 @@ class RecordingCardGateTests(unittest.TestCase):
         m.write(MENU_STATE, 1)
         m.uc.mem_write((MENU_STATE + m.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
         m.write(m.runtime + m.symbols['RT_ENTRY'], m.entry)
+        m.write(SD_INPUT, 0)    # a card is in: recording may start
 
     def test_gif_card_read_waits_without_modifying_the_picture_array(self):
         from tools.patch import test_script_file as files

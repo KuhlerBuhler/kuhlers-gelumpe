@@ -2,12 +2,15 @@
 import struct
 import unittest
 from tools.patch import test_script_hooks as hooks
+from tools.patch.card_gate import SD_INPUT
 
 
 @unittest.skipUnless(hooks.UNICORN_AVAILABLE, 'Unicorn is required for runtime hooks')
 class RecordingHookTests(unittest.TestCase):
     def machine(self):
-        return hooks.HookTests().machine()
+        m = hooks.HookTests().machine()
+        m[0].write(SD_INPUT, 0)    # a card is in: recording may start
+        return m
 
     def test_default_off_and_exit_bypass_never_post_or_allocate(self):
         m, b = self.machine()

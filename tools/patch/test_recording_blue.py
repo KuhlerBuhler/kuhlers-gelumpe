@@ -2,6 +2,7 @@
 import unittest
 from functools import lru_cache
 from tools.patch.test_script_vm import BareMachine, contract_data, UNICORN_AVAILABLE
+from tools.patch.card_gate import SD_INPUT
 
 
 @lru_cache(None)
@@ -25,6 +26,7 @@ class BlueRecordingTests(unittest.TestCase):
         m.uc.mem_write(MENU_STATE - 0x15, bytes([32]))
         m.uc.mem_map(b.symbols['PANEL'] & ~4095, 4096)
         m.write(b.symbols['PANEL'], m.input + 4096)
+        m.uc.mem_map(SD_INPUT & ~4095, 4096)    # 0: a card is in, recording may start
         return m, b
 
     def packet(self, m, key=0, pressed=1):

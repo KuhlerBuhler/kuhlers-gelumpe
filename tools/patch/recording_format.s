@@ -104,6 +104,8 @@ nr_format_error:
     ldreq r1, =nr_overflow_text
     cmp r0, #NR_OOM
     ldreq r1, =nr_oom_text
+    cmp r0, #NR_NO_CARD
+    ldreq r1, =nr_no_card_text
 nr_format_copy:
     mov r0, r4
     bl nr_text_copy
@@ -173,6 +175,7 @@ nr_lost_text: .asciz "Capture lost"
 nr_patch_text: .asciz "No DSP patch"
 nr_overflow_text: .asciz "Ring full"
 nr_oom_text: .asciz "No memory"
+nr_no_card_text: .asciz "No card"
 nr_record_text: .asciz "RECORD"
 .align 4
 nr_format_end:

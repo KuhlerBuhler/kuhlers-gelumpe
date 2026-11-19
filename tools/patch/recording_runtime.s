@@ -3,6 +3,7 @@
 .equ NR_RING_BYTES, 2097152
 .equ NR_DISABLED, 32
 .equ NR_OOM, 33
+.equ NR_NO_CARD, 34
 
 ; Public state contains no pointers that the input or frame task dereferences.
 nr_init:
@@ -75,6 +76,13 @@ nr_post:
     cmp r0, #0
     moveq r0, #NR_DISABLED
     beq nr_post_return
+    ; Without a card a start would only fail in the writer; refuse it here and say why.
+    ldr r0, =REC_SD_INPUT
+    ldr r0, [r0]
+    tst r0, #REC_SD_DETECT
+    movne r0, #NR_NO_CARD
+    strne r0, [r5, #NR_ERROR]
+    bne nr_post_return
 nr_post_lock:
     .word 0xE10F6000                 ; mrs r6, cpsr
     orr r1, r6, #0xC0

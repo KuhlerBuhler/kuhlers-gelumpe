@@ -44,6 +44,7 @@ zeigen währenddessen `recording`; ein wartendes Speichern zeigt `after recordin
 
 | Anzeige | Bedeutung |
 |---|---|
+| No card | Es steckt keine Karte. Die Aufnahme startet nicht. |
 | Card full | Die Karte ist voll. Hat die Aufnahme bereits begonnen, bleibt ihr gültiger Anfang als WAV erhalten. |
 | Card error | Ein Kartenzugriff ist fehlgeschlagen oder die Karte wurde entfernt. Der letzte gesicherte Zwischenstand bleibt erhalten. |
 | Capture gap, Capture lost, Ring full | Die Erfassung konnte nicht lückenlos fortgesetzt werden. Die Aufnahme stoppt mit sichtbarem Zähler und einem benannten cue-Punkt am Ende des gültigen PCM-Anfangs. |
