@@ -116,6 +116,7 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 - [Bedienfeld: Nummern der Tasten, Regler, Pads und LEDs](2026-10-08-panel-bedienung.md)
 - [LEDs selbst setzen: Execute, Caches, RGB](2026-10-08-led-execute.md)
 - [Hänger im Emulator erkennen](2026-10-10-haenger.md)
+- [Karte im laufenden Emulator gesteckt: "hängt" war ein Fehlalarm des Dienstes, kein Firmware-Hänger](2026-11-19-karte-stecken-emulator-haengt.md)
 - [Emulator-Takt: 1000 Timer-Interrupts je Sekunde](2026-10-12-emulator-takt.md)
 - [Display-Helligkeit: die Firmware schaltet nur an und aus](2026-10-12-lcd-helligkeit.md)
 - [Emulator-Tempo: Zeit je Gerätesekunde](2026-10-13-emulator-tempo.md)

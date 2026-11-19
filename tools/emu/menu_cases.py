@@ -3169,6 +3169,14 @@ def card_later_cases(payload, flash=None):
     bare_dev.run(1.0)
     after_bare = look(bare_dev)
     add("start_without_card_reads_none", bare != ref_a and after_bare == bare and not bare_dev.m.asserts, f"without card {bare}; card put in {after_bare}; started with it {ref_a}")
+    # the service took that device for hung (PR #690): it sends the panel nothing then, so it must still reach its idle wait
+    waits = bare_dev.m.idle_waits
+    bare_dev.run(2.0)
+    waits = bare_dev.m.idle_waits - waits
+    bare_dev.press("menu", 0.5)
+    screen = bare_dev.screen()["number"]
+    add("card_put_in_keeps_running", waits > 1000 and screen not in (None, 1) and not bare_dev.m.asserts,
+        f"idle waits in 2 s after the card went in {waits}, screen after MENU {screen}")
 
     blank = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
     blank.m.eject_card()
