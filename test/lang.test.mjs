@@ -1,11 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import "./support/runtime.mjs";
 import { applyPatches } from "../src/patch.mjs";
+import { addRelease, emptyKnown, recogniseBlech } from "../src/blech-update.mjs";
+import { buildOf } from "../src/firmware.mjs";
+import { LANG_DE_URLS, optionFor } from "../src/patcher.mjs";
 import {
   badCharacters, englishKeys, entryProblems, langFileProblems, placeholders, samePlaceholders, termForms, unknownAbbreviations,
 } from "../src/lang.mjs";
-import { CODES, FONTS, LANG, LANG_END, TOP, checkArt, glyphChanges, readArt } from "../tools/lang/glyphs.mjs";
+import { CODES, FONTS, LANG, LANG_END, TOP, checkArt, fontFacts, glyphChanges, readArt } from "../tools/lang/glyphs.mjs";
 import { FONT_SHAPE, FONT_TABLE, readFonts } from "../tools/patch/blech_theme.mjs";
 import { makeFirmware } from "./helpers.mjs";
 
@@ -51,6 +55,7 @@ test("a word with a dot needs the abbreviation list, a sentence end and an ellip
   assert.deepEqual(unknownAbbreviations("MIDI-Einst. Nr. 3", abbreviations), []);
   assert.deepEqual(unknownAbbreviations("Pattern gesperrt.", abbreviations), []);
   assert.deepEqual(unknownAbbreviations("Läuft...", abbreviations), []);
+  assert.deepEqual(unknownAbbreviations("EINST.-EXPORT, kein e2sFx.all", abbreviations), []);
   assert.deepEqual(unknownAbbreviations("Imp. Pattern", abbreviations), ["Imp."]);
 });
 
@@ -115,14 +120,14 @@ async function fontBase() {
 test("the glyph changes add ÄÖÜäöüß to fonts 0, 1 and 3 with copies, and carry no firmware bytes", async () => {
   const base = await fontBase();
   const before = readFonts(base);
-  const { changes, startPhase, end } = glyphChanges(base);
+  const { changes, startPhase, end } = glyphChanges(fontFacts(base));
   assert.ok(end <= LANG_END, `ends at 0x${end.toString(16)}`);
   const written = changes.filter(c => c.bytes !== undefined).map(c => Buffer.from(c.bytes, "hex"));
   for (const f of FONTS) {
     const old = base.subarray(file(before[f].array), file(before[f].array) + 4 * before[f].count);
     assert.ok(!written.some(b => Buffer.from(b).includes(Buffer.from(old.subarray(0, 16)))), `font ${f}: no copied glyph pointers in raw bytes`);
   }
-  assert.equal(startPhase.length, FONTS.length);
+  assert.equal(startPhase.length, 2 * FONTS.length, "per font the table word and the copy the start screen reads");
   const res = await applyPatches(base, [{ format: "gelumpe-patch", version: 1, id: "glyph-test", name: "glyphs", changes, startPhase }]);
   assert.equal(res.ok, true, res.reasons.join(" "));
   const after = readFontsLoose(res.bytes);
@@ -162,5 +167,30 @@ function readFontsLoose(vsb) {
       glyphs.set(code, { adv: vsb[file(desc + 4)], w: vsb[file(desc + 0xC)], h: vsb[file(desc + 0xD)], yo: view.getInt8(file(desc + 0xF)) });
     }
     return { head, count, codes, glyphs };
+  });
+}
+
+for (const [label, env, set] of [["Hacktribe", "E2_VSB", "blech"], ["Korg's red 2.02", "E2_STOCK_VSB", "blech"], ["Korg's blue 2.02", "E2_BLUE_VSB", "blech-synth"]]) {
+  const skip = process.env[env] && existsSync(process.env[env]) ? false : `set ${env}`;
+  test(`an update of your ${label} file keeps its language: English stays English, German stays German`, { skip }, async () => {
+    const base = new Uint8Array(readFileSync(process.env[env]));
+    const build = buildOf(base);
+    const patches = load(`data/patches/${set}.json`).patches.map(load);
+    const de = optionFor(LANG_DE_URLS.map(load), build);
+    assert.ok(de, `a lang-de variant for ${build}`);
+    const known = emptyKnown();
+    await addRelease(known, "develop", build, base, patches);
+    await addRelease(known, "develop", build, base, [de]);
+    for (const [name, options] of [["English", []], ["German", [de]]]) {
+      const file = await applyPatches(base, [...patches, ...options]);
+      assert.equal(file.ok, true, file.reasons.join(" "));
+      const rec = await recogniseBlech(file.bytes, known);
+      assert.equal(rec.ok, true, `${name}: ${rec.why}`);
+      assert.equal(rec.present.includes("lang-de"), options.length > 0, `${name}: lang-de ${options.length ? "found" : "not found"}`);
+      // the app puts lang-de back on exactly when it found it (site/app/patcher.mjs)
+      const again = await applyPatches(rec.bytes, [...patches, ...(rec.present.includes("lang-de") ? [de] : [])], rec.options);
+      assert.equal(again.ok, true, again.reasons.join(" "));
+      assert.deepEqual(again.bytes, file.bytes, `${name}: the update gives the same file`);
+    }
   });
 }

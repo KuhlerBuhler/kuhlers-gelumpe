@@ -2,8 +2,8 @@
 
 Deutsch als zweite Sprache der Menüs (das BLECH-Menü und Korgs Menüs) kommt über den optionalen Patch `lang-de`, eine
 Fassung je Build (Hacktribe, Korgs rote 2.02, blaue Electribe). Ohne `lang-de` bleibt alles Englisch. Diese Seite
-beschreibt die Daten, die Regeln für die Texte und die Werkzeuge. Stand: Speicher, Datenformat, Regeln, Umlaute und
-Werkbank stehen, der Patch `lang-de` und die Auswahl in der App sind noch nicht gebaut.
+beschreibt die Daten, die Regeln für die Texte und die Werkzeuge. Stand: das BLECH-Menü ist übersetzt und `lang-de`
+gebaut; Korgs Menüs folgen. Die Auswahl in der App steht hinter einem Entwickler-Schalter (Abschnitt App).
 
 ## Was nicht ins Repository kommt
 
@@ -51,7 +51,7 @@ Gilt für jeden deutschen Text, BLECH und Korg gleich. Die erste Stufe, die pass
 2. **Kürzeres Wort statt Abkürzung:** "Import" statt "Importieren", "Kopie" statt "Kopieren", "Laden" statt "Einlesen".
 3. **Abkürzung nur aus der Liste** `de-abk.json`. Eine neue Abkürzung kommt erst in die Liste, dann in den Text. Ein
    Wort mit Punkt, das nicht in der Liste steht, lehnt der Unit-Test ab; ein Punkt am Textende und `...` sind keine
-   Abkürzungen.
+   Abkürzungen. Groß- und Kleinschreibung zählt nicht (`EINST.` in einem Titel ist `Einst.`).
 4. **Gleich überall:** ein Begriff hat genau eine deutsche Fassung (`de-glossar.json`). Nennt ein Eintrag den Begriff
    in `glossar`, muss der Text diese Fassung oder ihre gelistete Abkürzung enthalten.
 5. **Letzter Ausweg: Englisch lassen,** als `keep` mit Grund. Kein Text wird abgeschnitten.
@@ -67,21 +67,55 @@ Glyphensuche vergleicht vorzeichenbehaftet. `lang-de` gibt den Schriften 0, 1 un
 Glyphen mehr und ein neues Feld, in dem die Umlaute mit ihren negativen Codes vorne stehen und die alten Zeiger
 dahinter; das Wort der Schrift in der Schrifttabelle (`0xC00C2818`, blau über `data/synth-map/`) zeigt auf die Kopie.
 Korgs Glyphen bleiben unverändert. Abstand und Grundlinie nimmt ein Umlaut von seinem Grundbuchstaben (`ß` von `b`).
-Das Tabellenwort wird beim Start gelesen und ist darum als `startPhase` ausgewiesen.
+Der Startbildschirm zeichnet schon Text, darum sind das Tabellenwort und die Kopie jeder Schrift als `startPhase`
+ausgewiesen.
 
 Gemessen im Emulator auf allen drei Builds: jeder Umlaut hat Breite und Pixel, alle ASCII-Zeichen haben dieselbe
 Breite wie ohne die Kopie, keine Zusicherung.
+
+## BLECH-Menü
+
+Jeder Text des BLECH-Menüs, den `blech.json` mit `text` übersetzt, wird in der Laufzeit nicht mehr direkt geladen, sondern
+über eine Nummer aus einer Texttabelle, deren Anfang im RAM-Wort `LANG_TEXTS` steht (`tools/patch/lang_texts.py`).
+Die Nummern folgen den Labels, ihr SHA-256 ist der Schlüssel der Laufzeit. `lang_arm` läuft in `menu_arm_load`: steht am
+Anfang des Sprachbereichs ein Kopf (Tabelle, Anzahl, Schlüssel), der zu dieser Laufzeit passt, zeigt `LANG_TEXTS` auf
+die deutsche Tabelle, sonst auf die englische der Laufzeit. Ein `lang-de` aus einem anderen Build der Laufzeit lässt das
+Menü also Englisch, statt falsche Texte zu zeigen. Darum baut `tools/patch/ensure-runtime.mjs` `lang-de` zusammen mit
+der Laufzeit (`tools/lang/lang_patch.mjs`); beide sind gebaut, nicht committet.
+
+Ein Label ohne Eintrag in `blech.json` bricht den Build ab. Noch direkt geladen und darum Englisch sind die Texte, die
+nicht in `script_menu.s` stehen (Startbild-Titel, Fehlertexte der Samples, Pad-Farben, Pattern-Wechsel, `[User]`).
+
+## App
+
+Schritt 2 des Patchers zeigt "BLECH-Menü auf Deutsch" neben dem Gerätenamen, solange die Übersetzung nicht fertig ist
+nur mit dem Entwickler-Schalter:
+
+```js
+localStorage.setItem("cee.devLang", "1")
+```
+
+Die App legt die Fassung für das Build der Datei dazu, auch auf eine mitgebrachte `BLECH.patch`. Passt `lang-de` nicht
+(fremde Datei), sagt die Planzeile, dass es nur auf BLECHs eigene Dateien passt. Beim Update erkennt die App `lang-de`
+an den Wörtern der Schrifttabelle (`data/known-releases.json`, `tools/known-releases.mjs`) und legt es wieder dazu: eine
+englische Datei bleibt Englisch, eine deutsche Deutsch.
 
 ## Werkzeuge
 
 ```bash
 node tools/lang/glyphs.mjs --check
-node tools/lang/glyphs.mjs --vsb SYSTEM.VSB
+node tools/lang/glyphs.mjs --facts hacktribe=HT.VSB stock=RED.VSB synth=BLUE.VSB
+node tools/patch/ensure-runtime.mjs --force
+tools/emu/.venv/bin/python tools/emu/lang_cases.py cases --patched NEW.VSB
 tools/emu/.venv/bin/python tools/lang/workbench.py --vsb ORIGINAL.BIN
 ```
 
 `glyphs.mjs --check` prüft das Pixelbild allein (alle sieben Buchstaben, Höhe in der Schrift, keine zwei gleich),
-`--vsb` baut die Änderungen für eine Datei und nennt ihre Größe.
+`--facts` misst Schriftköpfe und Grundbuchstaben der eigenen Dateien nach `data/lang/fonts.json` (nur Adressen und
+Prüfsummen). `ensure-runtime.mjs` baut Laufzeit und `lang-de` für alle drei Builds. `lang_cases.py` prüft eine
+gepatchte Datei im Emulator: mit `lang-de` sind alle BLECH-Seiten auf Deutsch sauber (nichts über dem Rand, keine
+Überlappung), die Umlaute zeichnen sich, und drei Seiten zeigen Deutsch; ohne `lang-de` zeigen sie Englisch. `check.py`
+führt die Fälle für jede Datei mit BLECH-Menü aus.
 
 Die Werkbank liest die eigene Firmware, zeigt im Emulator alle Bildschirme 0 bis 44, dreht auf jedem 32 Raststufen und
 blättert 32 Mal mit EDIT und notiert dabei jeden gezeichneten Text mit Schrift. Daraus sucht sie Korgs Vorlagen (Ketten,

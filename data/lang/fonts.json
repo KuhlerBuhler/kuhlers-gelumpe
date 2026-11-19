@@ -1,0 +1,419 @@
+{
+ "hacktribe": {
+  "fonts": {
+   "0": {
+    "word": "0xc00c2818",
+    "head": "0xc00c375c",
+    "headSha": "b29b34611ed708c47ad6b46766b5205898969a1c3ed305a7e3becda3575d55e1",
+    "count": 98,
+    "array": "0xc00c3a18",
+    "arraySha": "069b3ce06ad840ac637690bb37e77c705dfb41d29d545e2a6017e8705e3dade5",
+    "base": {
+     "A": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     },
+     "O": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "U": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "a": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "o": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "u": {
+      "adv": 5,
+      "xo": 0,
+      "w": 4
+     },
+     "b": {
+      "adv": 5,
+      "xo": 0,
+      "w": 4
+     }
+    }
+   },
+   "1": {
+    "word": "0xc00c281c",
+    "head": "0xc00c21fc",
+    "headSha": "1c1e6ee38e33b6c7e40fd3580193ba6de4cb2043b7c151e2c5e540e06556740c",
+    "count": 95,
+    "array": "0xc00c1f4c",
+    "arraySha": "25df6af9023416bb1423b936d586c13d5dd3ad578d479ac630fa3f8f5419fca2",
+    "base": {
+     "A": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "O": {
+      "adv": 9,
+      "xo": 0,
+      "w": 8
+     },
+     "U": {
+      "adv": 9,
+      "xo": 0,
+      "w": 8
+     },
+     "a": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     },
+     "o": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "u": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "b": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     }
+    }
+   },
+   "3": {
+    "word": "0xc00c2824",
+    "head": "0xc00c3208",
+    "headSha": "e445376c1f0a57ea00fdbcf3e7834148bc4e5e14f04836257f65e373ad8de6ad",
+    "count": 95,
+    "array": "0xc00c29a4",
+    "arraySha": "a8692850ca2536f93436e21dfd5b51745c9e47b8297a266c51369386fed7137b",
+    "base": {
+     "A": {
+      "adv": 7,
+      "xo": 0,
+      "w": 7
+     },
+     "O": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "U": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "a": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "o": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     },
+     "u": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "b": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     }
+    }
+   }
+  }
+ },
+ "stock": {
+  "fonts": {
+   "0": {
+    "word": "0xc00c2818",
+    "head": "0xc00c375c",
+    "headSha": "b29b34611ed708c47ad6b46766b5205898969a1c3ed305a7e3becda3575d55e1",
+    "count": 98,
+    "array": "0xc00c3a18",
+    "arraySha": "069b3ce06ad840ac637690bb37e77c705dfb41d29d545e2a6017e8705e3dade5",
+    "base": {
+     "A": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     },
+     "O": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "U": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "a": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "o": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "u": {
+      "adv": 5,
+      "xo": 0,
+      "w": 4
+     },
+     "b": {
+      "adv": 5,
+      "xo": 0,
+      "w": 4
+     }
+    }
+   },
+   "1": {
+    "word": "0xc00c281c",
+    "head": "0xc00c21fc",
+    "headSha": "1c1e6ee38e33b6c7e40fd3580193ba6de4cb2043b7c151e2c5e540e06556740c",
+    "count": 95,
+    "array": "0xc00c1f4c",
+    "arraySha": "25df6af9023416bb1423b936d586c13d5dd3ad578d479ac630fa3f8f5419fca2",
+    "base": {
+     "A": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "O": {
+      "adv": 9,
+      "xo": 0,
+      "w": 8
+     },
+     "U": {
+      "adv": 9,
+      "xo": 0,
+      "w": 8
+     },
+     "a": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     },
+     "o": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "u": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "b": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     }
+    }
+   },
+   "3": {
+    "word": "0xc00c2824",
+    "head": "0xc00c3208",
+    "headSha": "e445376c1f0a57ea00fdbcf3e7834148bc4e5e14f04836257f65e373ad8de6ad",
+    "count": 95,
+    "array": "0xc00c29a4",
+    "arraySha": "a8692850ca2536f93436e21dfd5b51745c9e47b8297a266c51369386fed7137b",
+    "base": {
+     "A": {
+      "adv": 7,
+      "xo": 0,
+      "w": 7
+     },
+     "O": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "U": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "a": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "o": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     },
+     "u": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "b": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     }
+    }
+   }
+  }
+ },
+ "synth": {
+  "fonts": {
+   "0": {
+    "word": "0xc00ad208",
+    "head": "0xc00ae14c",
+    "headSha": "39bc8319218b256cada91ec14fc190702f942f7c09bdf8eda872a4723a96579b",
+    "count": 98,
+    "array": "0xc00ae408",
+    "arraySha": "03b0b608eb378ae03e2fbaab766dd1da4c7b81d245bfd45a61548cedf307aae0",
+    "base": {
+     "A": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     },
+     "O": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "U": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "a": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "o": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "u": {
+      "adv": 5,
+      "xo": 0,
+      "w": 4
+     },
+     "b": {
+      "adv": 5,
+      "xo": 0,
+      "w": 4
+     }
+    }
+   },
+   "1": {
+    "word": "0xc00ad20c",
+    "head": "0xc00acbec",
+    "headSha": "cb2995f4cd2f0cbadce8313591d1e4be4d2aa115558817d31eb95a8991c18905",
+    "count": 95,
+    "array": "0xc00ac93c",
+    "arraySha": "efb715bbc76ee719f55e2de0716219c554dfefe1e3c75c12200289be6a1d974c",
+    "base": {
+     "A": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "O": {
+      "adv": 9,
+      "xo": 0,
+      "w": 8
+     },
+     "U": {
+      "adv": 9,
+      "xo": 0,
+      "w": 8
+     },
+     "a": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     },
+     "o": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "u": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "b": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     }
+    }
+   },
+   "3": {
+    "word": "0xc00ad214",
+    "head": "0xc00adbf8",
+    "headSha": "60ed3c29793974be9bb7280a54d04ae63609fd29465ef374641c68eb0babaf83",
+    "count": 95,
+    "array": "0xc00ad394",
+    "arraySha": "105481fa4b1ee38e7183e83ceb5465977debe184655cda2b53559a9670a18b55",
+    "base": {
+     "A": {
+      "adv": 7,
+      "xo": 0,
+      "w": 7
+     },
+     "O": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "U": {
+      "adv": 8,
+      "xo": 0,
+      "w": 7
+     },
+     "a": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "o": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     },
+     "u": {
+      "adv": 6,
+      "xo": 0,
+      "w": 5
+     },
+     "b": {
+      "adv": 7,
+      "xo": 0,
+      "w": 6
+     }
+    }
+   }
+  }
+ }
+}
