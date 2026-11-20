@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import synthaddr  # noqa: E402
 import tap_motion as spec  # noqa: E402
+from dsp_model import DspModel  # noqa: E402
 from machine import load_flash  # noqa: E402
 from pswitch_cases import Box, card_image  # noqa: E402
 from splash_cases import Dev  # noqa: E402
@@ -611,6 +612,31 @@ def case_touch_scale(payload, flash):
     return out
 
 
+def case_touch_scale_looper(payload, flash):
+    """A gesture recorded on MFX 2 (TOUCH SCALE, the Looper by default) and switched off with TOUCH SCALE + TAP in the middle:
+    the effect lets go at the DSP too (device 20.11.: the Looper kept looping where it was). The pad setter alone changes
+    the pad state but leaves the DSP's touch code on; the patch also takes the way the motion playback lets the pad go."""
+    box = TBox(payload, flash)
+    dsp = DspModel.attach(box.m)
+    box.ensure_master_fx()
+    box.key("touch_scale", 0.3)
+    box.ensure_master_fx = lambda: None          # record on MFX 2, not back on MFX 1
+    box.record_gesture()
+
+    def touch(b):
+        return dsp.effects.get(0x20, {}).get("params", {}).get(0)
+
+    seen = box.script({(0, 18): lambda b: b.m.press(KEYS["touch_scale"], True), (0, 20): lambda b: b.press_in_script("tap"),
+                       (0, 23): lambda b: b.m.press(KEYS["touch_scale"], False)}, 1,
+                      sample=lambda b: (b.u32(b.pad_state()), touch(b), b.mfx_mode()))
+    on = [seen[(0, s)][1] for s in range(16, 20)]
+    off = [seen[(0, s)][1] for s in range(21, 32)]
+    return [entry("touch_scale_looper_lets_go", all(v and v > 0 for v in on) and all(v == 0 for v in off)
+                  and all(seen[(0, s)][0] == 0 and seen[(0, s)][2] == 0 for s in range(21, 32)),
+                  f"DSP touch code (Master FX field, code 0) steps 16-19 {on}, after TOUCH SCALE + TAP at 20: {off}; "
+                  f"pad state / Master FX byte {sorted({seen[(0, s)][0::2] for s in range(21, 32)})}")]
+
+
 def case_card_pulled(payload, flash):
     """A card pulled while the device runs leaves the patch on: it was seen at power-on, the latch of tools/patch/card_gate.py
     keeps it (device 18.10.: TAP MOTION went off with the card). The Sampler's volume is also marked unmounted, as FatFs
@@ -743,7 +769,7 @@ def case_hold(payload, flash):
             entry("hold_with_master_fx", mfx_held != mfx_start and mfx_back == mfx_start, f"Master FX motion before {mfx_start}, held {mfx_held}, let go {mfx_back}")]
 
 
-GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app, case_once, case_touch_scale, case_card_pulled, case_card_inserted_late, case_mfx_blink, case_hold)
+GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app, case_once, case_touch_scale, case_card_pulled, case_card_inserted_late, case_mfx_blink, case_hold, case_touch_scale_looper)
 
 
 def group_entries(payload, flash, i):
