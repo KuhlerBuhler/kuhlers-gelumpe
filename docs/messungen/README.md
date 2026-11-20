@@ -16,6 +16,11 @@ Speicheruntersuchung zusammen. Anleitungen zum Nachvollziehen am eigenen Gerät 
 [Gerätetests](../geraetetests/README.md).
 
 
+## Firmware-Platz
+
+- [Freier und reservierter Platz für ARM, DSP und Plugins, auf festen Quellständen gerechnet](2026-11-20-firmware-speicherbudget.md)
+- [DSP-SDRAM-Kandidaten: statische Besitzer, native Start-/Audioleerlaufläufe und Grenzen des Nachweises](2026-11-20-dsp-sdram-freiraum.md)
+
 ## Pattern, Parts und Global
 
 Felder des Pattern-Blocks, der Parts und der Global-Einstellungen, wie sie die Gerätekarte belegt.
