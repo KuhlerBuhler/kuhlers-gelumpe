@@ -43,6 +43,8 @@ export const TABLE = [
   [/^tools\/emu\/pswitch_cases\.py$/, PSWITCH_USERS],
   [/^tools\/emu\/mfx_cases\.py$/, MFX_USERS],
   [/^tools\/emu\/swap_cases\.py$/, ["swap_cases", "sysex_cases", "blackfin_swap_cases"]],
+  // the Blackfin worker and the CI action that builds it: only the case that runs the executed DSP code
+  [/^tools\/dsp\/|^\.github\/actions\/dsp-worker\//, ["blackfin_swap_cases"]],
   [/^tools\/emu\/sample_import_(card|menu)_cases\.py$/, ["swap_cases"]],
   [/^tools\/emu\/native_sample_persistence_cases\.py$/, ["swap_cases"]],
   [/^tools\/patch\/native_sample_persistence\.py$/, ["swap_cases"]],
