@@ -3,7 +3,7 @@
 Stand 20.11.2026, Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je nur mit dem Patch `pattern-switch`). Marker:
 **gemessen** (im Emulator), **gelesen** (im Disassemblat), **hergeleitet**. Am Gerät ungeprüft.
 
-## Was gebaut ist (Entscheidung Pascal 20.11.)
+## Was gebaut ist (Entscheidung 20.11.)
 
 - Solange `VIEW:` gilt (gedreht, noch nicht mit MENU bestätigt; spielend oder gestoppt mit ungespeicherten Änderungen), zeigt die BPM
   der Statusleiste das Tempo des angesehenen Patterns aus seinem Block der Pattern-Bank, an derselben Stelle in derselben Schrift.

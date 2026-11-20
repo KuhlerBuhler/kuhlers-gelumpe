@@ -313,6 +313,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [MANAGE PLUGINS: 64 Dateien statt 16, REMOVE löscht die Datei, OFF behält sie](2026-10-30-plugin-liste-64-entfernen.md)
 - [Plugins schreiben Steps: korg.seq, im Emulator geprüft](2026-10-26-plugin-steps.md)
 - [Die Ansicht des nächsten Patterns: Pads und Info-Texte](2026-10-25-pattern-ansicht.md)
+- [Vorschau-BPM: die BPM oben zeigt beim Ansehen das Tempo des angesehenen Patterns, Tempo-Widget und Setter, im Emulator](2026-11-19-vorschau-bpm.md)
 - [Test-Modus und Fernbedienung aller Bedienelemente über die Warteschlange des Panels](2026-10-29-test-modus-fernsteuerung.md)
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)
 - [Karte im Betrieb getauscht: neue Karte wird mit 12,5 MHz identifiziert](2026-11-14-karte-tausch-takt.md)
