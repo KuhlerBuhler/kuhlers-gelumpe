@@ -22,7 +22,7 @@ Expressions are Python arithmetic over numbers and symbols.
 
 import re
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 COND = {"eq": 0, "ne": 1, "cs": 2, "hs": 2, "cc": 3, "lo": 3, "mi": 4, "pl": 5, "vs": 6, "vc": 7,
         "hi": 8, "ls": 9, "ge": 10, "lt": 11, "gt": 12, "le": 13, "al": 14, "": 14}
@@ -46,6 +46,8 @@ class Assembled:
     sections: list          # [(address, bytes)], one per .org
     symbols: dict
     origin: int
+    words: list = field(default_factory=list)     # [(address, expression)] of every .word and literal
+    strings: dict = field(default_factory=dict)   # {address: bytes} of every .ascii/.asciz
 
     @property
     def bytes(self):
@@ -427,4 +429,6 @@ class _Assembler:
 def assemble(text, origin=0):
     """Assemble `text` for load address `origin`."""
     a = _Assembler(text, origin)
-    return Assembled(a.encode(), dict(a.symbols), origin)
+    words = [(pc + 4 * i, v.strip()) for kind, values, _, pc in a.items if kind == ".word" for i, v in enumerate(values)]
+    strings = {pc: data for kind, data, _, pc in a.items if kind == "bytes"}
+    return Assembled(a.encode(), dict(a.symbols), origin, words, strings)

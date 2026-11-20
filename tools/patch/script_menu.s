@@ -305,6 +305,7 @@ menu_arm_end:
 ; Arms the menu and reads the settings once. A subsequent startup call leaves an armed menu intact.
 menu_arm_load:
     push {lr}
+    bl lang_arm
     ldr r0, =MENU_STATE
     ldr r0, [r0, #M_ON]
     cmp r0, #1

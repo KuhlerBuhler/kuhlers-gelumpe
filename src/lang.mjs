@@ -23,15 +23,16 @@ export const badCharacters = text => [...new Set([...text].filter(c => !CHARSET.
 
 /**
  * Words with a dot that are not in the abbreviation list. A dot at the very end of the text ends a sentence, and
- * a dot that starts "..." is an ellipsis; both are not abbreviations.
+ * a dot that starts "..." is an ellipsis; both are not abbreviations, nor is a dot with a letter or digit right after it (a file name such as e2sFx.all).
+ * Case does not count: titles are in capitals.
  */
 export function unknownAbbreviations(text, abbreviations) {
-  const known = new Set(abbreviations.map(a => a.short));
+  const known = new Set(abbreviations.map(a => a.short.toLowerCase()));
   const out = [];
   for (const m of text.matchAll(DOTTED)) {
     const after = m.index + m[0].length;
-    if (after === text.length || text[after] === ".") continue;
-    if (!known.has(m[0])) out.push(m[0]);
+    if (after === text.length || /[.A-Za-z0-9]/.test(text[after])) continue;
+    if (!known.has(m[0].toLowerCase())) out.push(m[0]);
   }
   return out;
 }
