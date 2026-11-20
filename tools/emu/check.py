@@ -29,6 +29,7 @@ cases (menu_cases.py); one with the pattern switch has to pass its browse, confi
 """
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -75,10 +76,30 @@ DSP_STREAM = slice(0xF9F10, 0x13C1B0)    # file offsets, RAM 0xC00F9E10..0xC013C
 SYNTH_DSP_STREAM = slice(0xDFC80, 0x1218F4)
 
 
+# DSP patches whose stream change is checked in the QEMU DSP core (tools/dsp/tube_qemu.py, docs/messungen/2026-11-20-roehrenkurve.md).
+DSP_PATCHES = ("tube-curve.json", "tube-curve-synth.json")
+ROOT = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2])   # the app's frozen service unpacks its data files here
+
+
+def known_dsp_changes(base, patched):
+    """The changes of a DSP_PATCHES file that `patched` carries in full on the bytes the patch expects in `base`."""
+    for name in DSP_PATCHES:
+        changes = [(c["file"], bytes.fromhex(c["bytes"]), c["expect"])
+                   for c in json.loads((ROOT / "data" / "patches" / name).read_text())["changes"]]
+        if all(hashlib.sha256(base[at:at + len(new)]).hexdigest() == expect and patched[at:at + len(new)] == new
+               for at, new, expect in changes):
+            yield from ((at, len(new)) for at, new, _ in changes)
+
+
 def same_dsp_program(base, patched):
-    """The complete DSP upload measured for this firmware build is unchanged."""
+    """The complete DSP upload measured for this firmware build is unchanged, apart from a whole DSP_PATCHES patch."""
     span = SYNTH_DSP_STREAM if is_synth(base[HEADER:]) else DSP_STREAM
-    return base[span] == patched[span]
+    if base[span] == patched[span]:
+        return True
+    undone = bytearray(patched)
+    for at, n in known_dsp_changes(base, patched):
+        undone[at:at + n] = base[at:at + n]
+    return base[span] == undone[span]
 
 
 def changed_runs(base, patched):
@@ -173,7 +194,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     add("header", base[:HEADER] == patched[:HEADER], "der Kopf der VSB ist unverändert")
     # The emulator stubs the DSP upload, so a changed DSP stream never shows up in a boot;
     # a broken block can hang the device before the rescue paths.
-    add("dsp_stream", same_dsp_program(base, patched), "der DSP-Strom des Firmware-Builds ist unverändert")
+    add("dsp_stream", same_dsp_program(base, patched), "der DSP-Strom des Firmware-Builds ist unverändert, bis auf einen geprüften DSP-Patch")
     runs = changed_runs(base[HEADER:], patched[HEADER:])
     payload = patched[HEADER:]
     want = lambda has: not quick and (cases is None or has.__module__ in cases) and has(payload)
