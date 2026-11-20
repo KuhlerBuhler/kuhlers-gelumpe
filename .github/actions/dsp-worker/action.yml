@@ -39,7 +39,8 @@ runs:
           ~/gelumpe-dsp/worker/qemu-bfin-worker
           ~/gelumpe-dsp/worker/gnu/libblackfin-hybrid.so
           ~/gelumpe-dsp/worker/qemu/build/qemu-system-bfin
-        key: dsp-worker-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/dsp/**') }}
+        # the restore's key: the build writes into tools/dsp/, so hashing it again here gives a key no shard asks for
+        key: ${{ steps.cache.outputs.cache-primary-key }}
     - id: check
       shell: bash
       run: echo "found=$([ -x ~/gelumpe-dsp/worker/qemu-bfin-worker ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
