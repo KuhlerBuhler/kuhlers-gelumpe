@@ -81,6 +81,10 @@ nur Werkzeugquellen, sie enthalten keine Korg-Daten. Entpackt und gebaut belegt 
 605 MB, Extraktionen 935 MB). Offen: die Download-URL ist nicht protokolliert (GNU-Spiegel angenommen), die
 mitgelieferte Signatur von binutils wurde nicht gegen einen Schlüssel geprüft.
 
+Später auf macOS mit dem Xcode-27-SDK (gemessen): binutils 2.42 und gdb 15.2 scheitern an der mitgelieferten zlib (`fdopen`),
+`--with-system-zlib` behebt das. Für die Signaturen hing `gpg --import` des ganzen GNU-Schlüsselbunds fast eine Stunde;
+`gpgv` gegen den einen Schlüssel des Releases reicht.
+
 ### 1.2 Extraktion des DSP-Abbilds (gemessen)
 
 `dsp_extract.py SYSTEM.VSB OUTDIR` schreibt je Zielregion eine Datei, `blocks.txt` und `map.json`. Das Format
