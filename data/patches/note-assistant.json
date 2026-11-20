@@ -31,6 +31,12 @@
    "bytes": "590704ea",
    "expect": "06875506f101dd62c4b8877e77b51fd2d0e58c09c6f1b165865949fe4ac6128d",
    "note": "last instruction of the LED manager's tick jumps to the hook"
+  },
+  {
+   "file": 559116,
+   "bytes": "f8432de9",
+   "expect": "39f9b1103eddcc9990d6064d8c8b35c7fcb78121ba710357a6acb04fcbdc65bc",
+   "note": "the pad light's first instruction as the firmware has it: BLECH up to 1.4.6 jumped to its hook from here, and an update over such a file (src/blech-update.mjs) keeps a hook site the set does not write"
   }
  ],
  "hooks": [
