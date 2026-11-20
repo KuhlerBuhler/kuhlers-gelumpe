@@ -94,3 +94,7 @@ der blauen. Er nutzt nur das belegte Fenster bis `0x1365AE0`; der Zusatzbereich 
 - Wie Omnitribe auf 9 MB kam.
 - Ob eine Stimme der blauen außerhalb des 16-MiB-Fensters spielt.
 - Größe der echten Werksbank der blauen (Ende der Werkswellen am Gerät).
+
+## Nachprüfung der Kandidatenfläche am 20. November
+
+Die [aktuelle DSP-SDRAM-Prüfung](2026-11-20-dsp-sdram-freiraum.md) bestätigt inzwischen auch im blauen Original die beiden SDRAM-Heaps bei `0x01D00000` und `0x01E00000`. Die ältere rund 11,5-MiB-Spanne darf deshalb nicht als einheitlich frei gelten. Ohne diese Heaps und auf 4 KiB gerundet sind 10,421875 MiB in zwei Fenstern statisch und für die beschriebenen nativen Start-/Audioleerläufe sowie die benannten gekoppelten Ein-Stimmen-Fälle geprüft. Die aktuelle Sample-Importgrenze bleibt bei 16 MiB PCM; eine allgemeine Geräte- oder Volllastfreigabe ist damit noch nicht gegeben.
