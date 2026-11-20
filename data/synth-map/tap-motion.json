@@ -71,6 +71,12 @@
    "to": "0xC0061FC8",
    "kind": "code",
    "why": "the target of that first bl: the synth's C0073CF4 calls C0061FC8 as the red C00836F0 calls C006EAE0"
+  },
+  {
+   "from": "0xC0058B98",
+   "to": "0xC004F98C",
+   "kind": "code",
+   "why": "the lane value call of the motion playback, (lane, control, value, flag): the first 20 bytes are equal and the synth's playback at 0xC0050214 calls it then tests lane 0x11 and control 0x13 before the pad setter 0xC004EA1C, as the red does at 0xC0059844 to 0xC0059884"
   }
  ]
 }
