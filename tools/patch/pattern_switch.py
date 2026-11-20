@@ -17,7 +17,7 @@ pattern of the same group confirms it at once (NEXT:, no MENU needed), and a pat
 carries the state of the pattern that played, changed or not: part mutes and sound, tempo, swing, level, the MFX pad and HOLD.
 A part's sample goes along only when it was changed live (it differs from the bank block the pattern came from). Steps, motion, length, beat, key, scale, chord set and the MFX types (1 and 2) stay the new pattern's.
 
-Twenty-one hooks; the stopped sync, command end, note cleanup and pattern load run before the main screen:
+Twenty-two hooks; the stopped sync, command end, note cleanup and pattern load run before the main screen:
   wheel        the tail call of the main screen's VALUE handler into the selector, 0xC006513C
   pad          first instruction of the pad selection, 0xC006EDE4, clears browse and confirmation
   MIDI         first instruction of the program change handler, 0xC006EE00, ditto
@@ -37,6 +37,8 @@ Twenty-one hooks; the stopped sync, command end, note cleanup and pattern load r
   note slots   voice-mode reinitialization at 0xC005A884; the carried voice mode keeps its active notes
   voice reset  global reset at 0xC0098C84; skipped within a protected load
   voice end    post-copy initialization at 0xC0079C2C; new samples are prepared for subsequent triggers
+  tempo        first instruction of the tempo widget's setter, 0xC008463C: while a pattern is browsed (VIEW:) the status bar's
+               BPM shows its tempo from the bank
 
 Pattern confirmation requires that EXIT was not held at power-on, a card was seen since power-on and PS_SETTING
 is not 0 (the BLECH menu writes it; never written means on). Sync groups remain active independently of that setting
@@ -112,15 +114,21 @@ CMD_BUSY = 0xC002D634           # returns the command runner's busy byte (+0x10 
 CMD_END = 0xC002D81C            # strb r3, [r6, #0x10]: the command runner clears its busy byte (r3 = 0)
 CMD_END_WORD = 0xE5C63010
 VIEW_W = 0xC0173400             # the view's own accessor and state, in RAM only (between SG_BUF and the SysEx patch's table)
-VIEW_SIZE = 0x78
+VIEW_SIZE = 0x7C
 V_NUM, V_LIDX, V_SGNUM = 0x40, 0x44, 0x48
 V_MNUM, V_MTOUCH, V_MUTE, V_TAKE = 0x4C, 0x50, 0x54, 0x58
 V_PEND, V_COPY, V_SIDE, V_BLINK, V_DARK, V_BACK, V_DEFER = 0x5C, 0x60, 0x64, 0x68, 0x6C, 0x70, 0x74
+V_BPM = 0x78                    # the tempo the status bar shows instead of the one that runs (tempo_update), FFFFFFFF none
 DEFER_TICKS = 2                 # LED ticks of 40 ms a redraw of the view's pads waits behind another one (view_defer)
 BLINK_CODE = 0xC0177A00         # the blink of the view's pads, in the FF run behind the insert records of preset-tables (FF in all three builds)
-BLINK_CODE_END = 0xC0177E00
+BLINK_CODE_END = 0xC0178000     # up to the master table reserve of preset-tables (RES_MFX); FF from 0xC0177950 (the end of RES_IFX) in all three builds
 TICK_HOOK = 0xC008774C          # mov r5, #0 in the LED manager's 40 ms tick 0xC0087740, after r4 and r6 took the manager
 TICK_WORD = 0xE3A05000
+TEMPO_SET = 0xC008463C          # str r1, [r0, #0x48]: the setter of a tempo widget (widget, tempo in tenths), the tempo signal's slot
+TEMPO_SET_WORD = 0xE5801048
+TEMPO_SET_BODY = 0xC0084640     # b 0xC00845A4: where the setter formats the text and marks the redraw
+STATUS_BAR = 0xC0691248         # the pointer to the status bar, +0x24 its tempo widget (the BPM at x 50)
+HW_TEMPO = 0xC0691518           # the tempo that runs, tenths of a BPM
 VIEW_CODE = 0xC0173480          # the view's pads (docs/messungen/2026-10-29-vorschau-pads.md), behind VIEW_W, up to the SysEx patch's table
 VIEW_CODE_END = 0xC0173800
 MUTE_GET = 0xC0048CFC           # ldr r3, [r0, #4]: the part mute getter (accessor, part), the pad LEDs read the mutes through it
@@ -169,7 +177,8 @@ FIRMWARE_PLACES = ["WHEEL_HOOK", "SELECT", "PAD_HOOK", "PAD_BODY", "MIDI_HOOK", 
                    "VOICE_BEGIN_ORIG", "VOICE_END_ORIG", "VOICE_RESET_ORIG", "VOICE_CONT", "VOICE_SILENCE_CALL", "VOICE_SILENCE_ORIG",
                    "NOTE_CLEAR_HOOK", "NOTE_CLEAR_BODY", "NOTE_FLUSH_ORIG", "NOTE_FLUSH_KEY", "NOTE_FLUSH_SCALE", "NOTE_FLUSH_VOICE",
                    "NOTE_ASSIGN_CALL", "NOTE_ASSIGN_ORIG", "MUTE_GET", "MUTE_GET_BODY",
-                   "MUTE_SET", "MUTE_SET_CALL", "COPY_PART", "MUTE_ALL_HOOK", "MUTE_ALL_BODY", "KEY_TAIL", "TICK_HOOK"]
+                   "MUTE_SET", "MUTE_SET_CALL", "COPY_PART", "MUTE_ALL_HOOK", "MUTE_ALL_BODY", "KEY_TAIL", "TICK_HOOK",
+                   "TEMPO_SET", "TEMPO_SET_BODY", "STATUS_BAR", "HW_TEMPO"]
 SYNTH = False
 SYNTH_LABEL_WORD = 0xE59F10FC   # ldr r1, [pc, #0xfc]: the synth's builder is laid out a little differently
 
@@ -250,6 +259,7 @@ SOURCE = """
 .equ VIEW_REFRESH, @VIEW_CODE@ + 16
 .equ VIEW_PADS, @VIEW_CODE@ + 20
 .equ VIEW_DEFER, @BLINK_CODE@ + 20
+.equ TEMPO_UPDATE, @BLINK_CODE@ + 24
 
 .org @CODE_AT@
 
@@ -655,7 +665,8 @@ sg_head_at:
 ; Shows where to press: blinking while a pattern is only browsed (VIEW:, MENU confirms it, or loads it when stopped), lit while
 ; one is confirmed (NEXT:). Otherwise the LED is the firmware's (dark on the main screen, mode 1 with brightness 0): its entry is
 ; remembered when the patch takes the LED and given back after. Sent only when that changes. Clobbers r0 to r3 and r12.
-; Every change of the browse or the confirmation passes here, so the view follows it (pc_view_cells); pc_led_engine is for the engine
+; Every change of the browse or the confirmation passes here, so the view follows it (pc_view_cells) and the status bar's BPM
+; (tempo_update, UI task only); pc_led_engine is for the engine
 ; task, where the view only ends and the firmware's own refresh after the pattern load draws the pads.
 pc_led:
     push {lr}
@@ -663,6 +674,7 @@ pc_led:
     bl pc_view_cells
     cmp r0, #0
     blne pc_view_refresh
+    bl TEMPO_UPDATE             ; the status bar's BPM: the browsed pattern's tempo or the one that runs
     pop {pc}
 pc_led_engine:
     push {lr}
@@ -1840,6 +1852,17 @@ BLINK_SOURCE = """
 .equ PAD_ENTRY, 0x4C + 8 * 0x2C ; the red LED of pad 1 (0x2C + 2 * part), 16 bytes from one pad to the next
 .equ PAD_COPY, 0x30C + 8 * 0x2C
 .equ BLINK, 7                   ; as BLINK of SOURCE, MENU's blink: 280 ms lit, 280 ms dark
+.equ V_BPM, 0x78                ; the tempo the status bar shows instead of the one that runs, FFFFFFFF none (also: nothing ever written)
+.equ STATE, @STATE@
+.equ S_BROWSE, 0
+.equ PSEL, 0xC00431F0           ; returns the pattern selection object: +0x318 the chosen number, +0x341 pending flag
+.equ BANK, 0xC08B2940           ; the pattern bank in RAM, 0x4000 per pattern
+.equ PC_ACTIVE, @PC_ACTIVE@     ; -> r0 = 1 when the patch is on (SOURCE)
+.equ PC_GROUPED, @PC_GROUPED@   ; r5 = a pattern number -> r0 = 1 when it shares the running pattern's sync group (SOURCE)
+.equ TEMPO_SET, 0xC008463C      ; the setter of a tempo widget (widget, tempo in tenths), its first instruction jumps to tempo_view
+.equ TEMPO_SET_BODY, 0xC0084640
+.equ STATUS_BAR, 0xC0691248     ; the pointer to the status bar, +0x24 its tempo widget
+.equ HW_TEMPO, 0xC0691518       ; the tempo that runs, tenths of a BPM
 .org @BLINK_CODE@
     b view_tick                 ; +0 from the LED manager's tick (r4, r6 = the manager), sets r5 to 0 as the replaced instruction
     b blink_draw                ; +4 (r0 = the manager) the pads in the blink's half, keeps r0
@@ -1847,6 +1870,7 @@ BLINK_SOURCE = """
     b pad_side                  ; +12 from view_pad, its push {r4, lr} on the stack
     b pad_seq                   ; +16 from view_pad, its push {r4, lr} on the stack
     b view_defer                ; +20 from pc_view_refresh (UI task): the view changed, its pads are due
+    b tempo_update              ; +24 from pc_led (UI task): the status bar's BPM follows the browse
 
 ; From view_pad (r3 = the part's bit, r12 = VIEW_W). The viewed side goes back to vp_viewed with r1 = V_COPY. On the playing side a part
 ; brought in gets its own part back on the first press, unmuted (V_BACK, done by back_copy), then the presses are the firmware's, as
@@ -2096,6 +2120,104 @@ bd_next:
     str r6, [r5, #V_DARK]
 bd_out:
     pop {r0, r4, r5, r6, r7, r8, r9, pc}
+
+; The status bar's BPM while a pattern is browsed (Pascal's decision 20.11., docs/messungen/2026-11-19-vorschau-bpm.md): VIEW: shows the
+; browsed pattern's tempo from its bank block in place of the one that runs, at the same place in the firmware's own font. NEXT: (after
+; MENU), EXIT, a pad, a program change and STOP bring the running tempo back. A pattern of the running pattern's sync group shows the
+; running tempo, it is carried along. The firmware's tempo widget is set through its own setter: tempo_update calls it with the running
+; tempo whenever the tempo to show changes, tempo_view (its first instruction) puts the browsed one in.
+
+; The setter of a tempo widget (r0 = widget, r1 = tempo in tenths), called from the tempo signal and from tempo_update. While V_BPM holds
+; a tempo, the status bar's widget gets the one tempo_want names now (a change of the running tempo meanwhile, TAP or the knob, keeps the
+; browsed one on view; a chain that made the browsed pattern the running one ends it). Runs from the start on: up to tv_set no literal
+; and nothing but V_BPM read (FF at start: none). Clobbers r2, r3 and r12, a call's scratch registers.
+tempo_view:
+    mov r12, #(VIEW_W & 0xFF000000)
+    orr r12, r12, #(VIEW_W & 0x00FF0000)
+    orr r12, r12, #(VIEW_W & 0x0000FF00)
+    orr r12, r12, #(VIEW_W & 0x000000FF)
+    ldr r12, [r12, #V_BPM]
+    cmn r12, #1
+    beq tv_set
+    push {r0, r1, r4, lr}
+    bl tempo_want
+    ldr r12, =VIEW_W
+    str r0, [r12, #V_BPM]
+    mov r4, r0
+    bl tempo_widget
+    mov r2, r0
+    pop {r0, r1}
+    cmp r2, r0
+    bne tv_pop
+    cmn r4, #1
+    movne r1, r4
+tv_pop:
+    pop {r4, lr}
+tv_set:
+    str r1, [r0, #0x48]         ; the replaced instruction
+    b TEMPO_SET_BODY
+tempo_view_end:
+
+; From pc_led (UI task) after every change of the browse or the confirmation: when the tempo to show changed, the setter runs with the
+; running tempo and tempo_view puts in what V_BPM says. Clobbers r0 to r3 and r12.
+tempo_update:
+    push {r4, lr}
+    bl tempo_want
+    ldr r4, =VIEW_W
+    ldr r1, [r4, #V_BPM]
+    cmp r0, r1
+    popeq {r4, pc}
+    str r0, [r4, #V_BPM]
+    bl tempo_widget
+    cmp r0, #0
+    popeq {r4, pc}
+    ldr r1, =HW_TEMPO
+    ldr r1, [r1]
+    bl TEMPO_SET
+    pop {r4, pc}
+
+; -> r0 = the tempo the status bar shows in place of the running one, FFFFFFFF none: the browsed pattern's (VIEW:, playing or stopped
+; with unsaved changes) when it is not the running pattern and not of its sync group. Clobbers r0 to r3 and r12.
+tempo_want:
+    push {r4, r5, lr}
+    mvn r4, #0
+    ldr r3, =STATE
+    ldr r0, [r3, #S_BROWSE]
+    cmp r0, #1
+    bne tw_out
+    bl PC_ACTIVE
+    cmp r0, #0
+    beq tw_out
+    bl PSEL
+    ldrb r1, [r0, #0x341]
+    cmp r1, #0
+    beq tw_out
+    ldr r5, [r0, #0x318]
+    cmp r5, #249
+    bhi tw_out
+    bl PC_GROUPED               ; also 0 for the running pattern itself
+    cmp r0, #0
+    bne tw_out
+    bl PLAYER
+    ldr r1, [r0, #0x318]
+    cmp r1, r5
+    beq tw_out
+    ldr r0, =BANK
+    add r0, r0, r5, lsl #14
+    ldrb r4, [r0, #34]          ; the tempo, a half word at block offset 34
+    ldrb r1, [r0, #35]
+    orr r4, r4, r1, lsl #8
+tw_out:
+    mov r0, r4
+    pop {r4, r5, pc}
+
+; -> r0 = the status bar's tempo widget, 0 while there is none. Clobbers r0.
+tempo_widget:
+    ldr r0, =STATUS_BAR
+    ldr r0, [r0]
+    cmp r0, #0
+    ldrne r0, [r0, #0x24]
+    bx lr
 .pool
 """
 
@@ -2105,6 +2227,7 @@ def build_blink_code(view):
     if SYNTH:
         text = synthaddr.source(text, own=[(BLINK_CODE, BLINK_CODE_END)])
     for key, value in {"VIEW_W": f"{VIEW_W:#x}", "BLINK_CODE": f"{BLINK_CODE:#x}", "VIEW_MUTE": f"{view['view_mute']:#x}",
+                       "STATE": f"{STATE:#x}", "PC_ACTIVE": f"{view['pc_active']:#x}", "PC_GROUPED": f"{view['pc_grouped']:#x}",
                        "VIEW_CODE": f"{VIEW_CODE:#x}", "DEFER_TICKS": str(DEFER_TICKS),
                        "MUTE_SET": f"{MUTE_SET:#x}", "COPY_PART": f"{COPY_PART:#x}", "VP_VIEWED": f"{view['vp_viewed']:#x}",
                        "VP_NO": f"{view['vp_no']:#x}", "VP_DRAW": f"{view['vp_draw']:#x}"}.items():
@@ -2144,7 +2267,7 @@ def build_patch(vsb, build="hacktribe"):
     if view_at != VIEW_CODE or view_at + len(view_code) > VIEW_CODE_END:
         raise SystemExit(f"the view's code exceeds its area: {len(view_code):#x} of {VIEW_CODE_END - VIEW_CODE:#x}")
     symbols.update(view.symbols)
-    blink = build_blink_code(view.symbols)
+    blink = build_blink_code({**symbols, **view.symbols})
     (blink_at, blink_code), = blink.sections
     if blink_at != BLINK_CODE or blink_at + len(blink_code) > BLINK_CODE_END:
         raise SystemExit(f"the blink's code exceeds its area: {blink_at:#x} {len(blink_code):#x} of {BLINK_CODE_END - BLINK_CODE:#x}")
@@ -2188,7 +2311,8 @@ def build_patch(vsb, build="hacktribe"):
          (MUTE_SET_CALL, bl_word(MUTE_SET_CALL, MUTE_SET), "the main screen's PART MUTE pad does not call the mute setter where the patch expects it"),
          (COPY_PART, COPY_PART_WORD, "Copy Part does not start as the patch expects"),
          (MUTE_ALL_HOOK, MUTE_ALL_WORD, "the mode keys' function does not read SHIFT at PART MUTE where the patch expects it"),
-         (TICK_HOOK, TICK_WORD, "the LED manager's tick does not clear its LED counter with mov r5, #0 where the patch expects it"))
+         (TICK_HOOK, TICK_WORD, "the LED manager's tick does not clear its LED counter with mov r5, #0 where the patch expects it"),
+         (TEMPO_SET, TEMPO_SET_WORD, "the tempo widget's setter does not start with str r1, [r0, #0x48]"))
     for addr, want, why in expected:
         if word(addr) != want:
             raise SystemExit(f"{why} in this VSB")
@@ -2248,6 +2372,7 @@ def build_patch(vsb, build="hacktribe"):
             hook(PGATE_HOOK, "pad_gate", False, "the busy check of the pad handler jumps to the gate"),
             hook(CMD_END, "pad_replay", True, "the clear of the command runner's busy byte goes through the hook"),
             hook(INFO_HOOK, "info_hook", False, "the label flag read of the info line's builder goes through the hook (view)"),
+            hook(TEMPO_SET, "tempo_view", False, "first instruction of the tempo widget's setter jumps to the hook (the browsed pattern's tempo in the status bar)"),
         ],
         "hooks": [
             declare(TICK_HOOK, "instruction", "led-tick-body", "before", False, "every 40 ms the pads of the parts that are on in the viewed pattern go dark or lit in the half of the blink; without a preview only a state read"),
@@ -2275,6 +2400,7 @@ def build_patch(vsb, build="hacktribe"):
             declare(CMD_END, "instruction", "command-end", "after", False, "after the busy byte is cleared the kept pad presses go to the pad handler"),
             declare(INFO_HOOK, "instruction", "info-line", "before", False, "while the lower line says VIEW: or NEXT:, the Edit key still shows the info texts of the pattern that is viewed"),
             declare(MUTE_GET, "instruction", "part-mute-get", "before", False, "called with the view's accessor (only the display passes it) the mutes set on the viewed pattern's pads answer"),
+            declare(TEMPO_SET, "instruction", "tempo-widget", "before", False, "while a pattern is browsed (VIEW:) the status bar's BPM shows its tempo from the bank; otherwise the value goes through as before"),
             declare(MUTE_SET_CALL, "call", "part-mute-pad", "replace", False, "a part unmuted on the viewed pattern's pads is first copied from its bank block into the playing pattern with the firmware's Copy Part, then set unmuted; every other press sets the mute as before"),
         ],
         "startPhase": [
@@ -2295,6 +2421,8 @@ def build_patch(vsb, build="hacktribe"):
             {"file": file_offset(INFO_HOOK), "length": 4, "why": "the main screen builds its info line during the start, through info_hook"},
             {"file": file_offset(MUTE_GET), "length": 4, "why": "the first pattern load reads the part mutes through the getter, through view_mute"},
             {"file": file_offset(TICK_HOOK), "length": 4, "why": "the LED manager's 40 ms tick runs from the start, through view_tick"},
+            {"file": file_offset(TEMPO_SET), "length": 4, "why": "the status bar sets its tempo widget during the start, through tempo_view"},
+            {"file": file_offset(symbols["tempo_view"]), "length": symbols["tempo_view_end"] - symbols["tempo_view"], "why": "tempo_view: V_BPM read (FF at start: none), then the replaced instruction and the way back; no literal on that way"},
             {"file": file_offset(BLINK_CODE), "length": symbols["view_tick_end"] - BLINK_CODE, "why": "the blink's table and view_tick up to its first way back: the state read (FF at start: no preview yet), the view number read, r5 cleared; no literal"},
             {"file": file_offset(VIEW_CODE), "length": symbols["view_start_end"] - VIEW_CODE, "why": "the view's table, view_mute (an address compare, then the replaced instruction and the way back) and view_apply from copy_hook (its state word FF at start: nothing taken); no literal"},
             {"file": file_offset(symbols["info_hook"]), "length": symbols["pad_gate"] - symbols["info_hook"], "why": "info_hook: the label flag read, the view state read when it is set (FF at start: no view), the way back, no literal"},
@@ -2303,7 +2431,7 @@ def build_patch(vsb, build="hacktribe"):
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: browse, armed, armed number, PS_SETTING at +0x10 for the BLECH menu, the stopped browse at +0x14, the loaded bank block at +0x1C, MENU's LED at +0x20, the kept pad presses at +0x24, the voice-load guard at +0x38", "tools/patch/pattern_switch.py:STATE"),
             ramdecl.area(SG_BUF, SG_SIZE, "sync group: the values carried into the new pattern during one pattern load", "tools/patch/pattern_switch.py:SG_BUF"),
-            ramdecl.area(VIEW_W, VIEW_SIZE, "view: the accessor the display reads the browsed or confirmed pattern through, the number shown, the info line's index, the bank block of a sync group's carry, and the part mutes set on the viewed pattern's pads (pattern, touched, muted, taken at the switch, copy waiting, brought into the playing pattern, its own part waiting to come back), the side the pads are on (SHIFT + PART MUTE), the blink of its pads (timer, half, pads held dark) and the held back redraw of its pads (ticks, due)", "tools/patch/pattern_switch.py:VIEW_W"),
+            ramdecl.area(VIEW_W, VIEW_SIZE, "view: the accessor the display reads the browsed or confirmed pattern through, the number shown, the info line's index, the bank block of a sync group's carry, and the part mutes set on the viewed pattern's pads (pattern, touched, muted, taken at the switch, copy waiting, brought into the playing pattern, its own part waiting to come back), the side the pads are on (SHIFT + PART MUTE), the blink of its pads (timer, half, pads held dark) and the held back redraw of its pads (ticks, due), and the tempo the status bar's BPM shows while a pattern is browsed", "tools/patch/pattern_switch.py:VIEW_W"),
         ],
     }
 

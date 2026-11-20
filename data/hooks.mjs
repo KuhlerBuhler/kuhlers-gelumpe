@@ -75,6 +75,8 @@ export const CHAINS = {
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
   "info-line": [{ id: "label-flag", sites: [0xC008684C] }],
+  // pattern-switch: the setter of a tempo widget (the tempo signal's slot); the status bar's BPM shows a browsed pattern's tempo
+  "tempo-widget": [{ id: "setter-entry", sites: [0xC008463C] }],
   "part-mute-get": [{ id: "getter-entry", sites: [0xC0048CFC] }],
   "part-mute-pad": [{ id: "setter-call", sites: [0xC0060D34] }],
   "part-mute-shift": [{ id: "shift-read", sites: [0xC007042C] }],
