@@ -138,7 +138,7 @@ export function drawDisplay(canvas, bytes, light = null) {
 
 /** The colour behind the display canvas, which its clear (transparent) pixels show. */
 function backdrop(canvas, off) {
-  canvas.style.backgroundColor = `rgb(${off.join(" ")})`; // raw-ok: the off colour the display already read from its tokens
+  canvas.style.setProperty("--cee-lcd-back", `rgb(${off.join(" ")})`); // raw-ok: the off colour the display already read from its tokens
 }
 
 /** Each cell on the glass is drawn this share of its pitch, the rest is a margin on every side that shows the backlight. */
