@@ -703,7 +703,7 @@ def list_cases(payload, flash=None):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, {"TUBE": "OFF", "TUBE DRIVE": "4", "TUBE ASYM": "0"}.get(title, "ON")) for title in feature_pages()]   # the tube curve starts off, at its default step, symmetric
+    want = [(title, {"TUBE": "OFF", "TUBE DRIVE": "5", "TUBE ASYM": "4"}.get(title, "ON")) for title in feature_pages()]   # the tube curve starts off, at its default DRIVE 5 and ASYM 4
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
@@ -3756,7 +3756,7 @@ def flash_settings_cases(payload, flash=None):
 MX_FLAGS2 = STATE - 0x15               # byte 7 of a version 4 settings file in RAM (script_menu.s:MX_FLAGS2), 0 without one
 FLAGS2_KNOWN = 0xE0                     # bits 5 to 7 TUBE (0 OFF, 1 to 7 TUBE DRIVE); bits 0 to 4 belong to 1.5
 FLAGS2_TUBE_1 = 0x20                    # TUBE ON at TUBE DRIVE 1
-M_TUBE_ASYM = 0x1C7                     # TUBE ASYM 0 to 7 in RAM (script_menu.s), bits 5 to 7 of byte 4 of a version 5 settings file
+M_TUBE_ASYM = 0x1C7                     # TUBE ASYM 0 to 7 xor 4 (its default) in RAM (script_menu.s), as bits 5 to 7 of byte 4 of a version 5 settings file
 
 
 def settings_file_v4(generation, flags, look, flags2, extras=0, trusted=(), bad_crc=False, version=4):

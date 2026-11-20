@@ -115,15 +115,15 @@ def case_pages(payload, flash):
 
     dev.turn(1, wait=0.3)
     on = mc.texts_of(dev), flags2(dev), sent(log)
-    out.append(entry("on_sends_default", on == (("TUBE", "ON", ""), 4 << 5, [4]), f"{on}"))
+    out.append(entry("on_sends_default", on == (("TUBE", "ON", ""), 5 << 5, [(5, 4)]), f"{on}"))
 
     mc.goto_group(dev, mc.GROUP_FEATURES, at + 1)
     steps = [mc.texts_of(dev)]
-    for turn in (2, 5, -10):
+    for turn in (1, 5, -10):
         dev.turn(turn, wait=0.3)
         steps.append(mc.texts_of(dev))
-    out.append(entry("drive_live", [t[1] for t in steps] == ["4", "6", "7", "1"] and steps[0][0] == "TUBE DRIVE"
-                     and sent(log) == [4, 6, 7, 1] and flags2(dev) == 1 << 5, f"{steps}, writes {sent(log)}, byte 7 {flags2(dev):#x}"))
+    out.append(entry("drive_live", [t[1] for t in steps] == ["5", "6", "7", "1"] and steps[0][0] == "TUBE DRIVE"
+                     and sent(log) == [(5, 4), (6, 4), (7, 4), (1, 4)] and flags2(dev) == 1 << 5, f"{steps}, writes {sent(log)}, byte 7 {flags2(dev):#x}"))
 
     mc.goto_group(dev, mc.GROUP_FEATURES, at)
     dev.turn(-1, wait=0.3)
@@ -135,7 +135,7 @@ def case_pages(payload, flash):
     dev.turn(1, wait=0.3)
     again = mc.texts_of(dev), flags2(dev)
     out.append(entry("off_keeps_drive", off == (("TUBE", "OFF", ""), 0) and kept == (("TUBE DRIVE", "3", ""), 0)
-                     and again == (("TUBE", "ON", ""), 3 << 5) and sent(log) == [4, 6, 7, 1, 0, 3] and not dev.m.asserts,
+                     and again == (("TUBE", "ON", ""), 3 << 5) and sent(log) == [(5, 4), (6, 4), (7, 4), (1, 4), 0, (3, 4)] and not dev.m.asserts,
                      f"OFF {off}, DRIVE while OFF {kept}, ON again {again}, writes {sent(log)}"))
 
     mc.press(dev, "write", wait=0.6)
@@ -146,17 +146,17 @@ def case_pages(payload, flash):
 
     mc.goto_group(dev, mc.GROUP_FEATURES, at + 2)
     shapes = [mc.texts_of(dev)]
-    for turn in (3, 10, -5):
+    for turn in (-4, 10, -5):
         dev.turn(turn, wait=0.3)
         shapes.append(mc.texts_of(dev))
-    out.append(entry("asym_live", shapes == [("TUBE ASYM", v, "") for v in ("0", "3", "7", "2")] and asym(dev) == 2
-                     and sent(log) == [4, 6, 7, 1, 0, 3, (3, 3), (3, 7), (3, 2)] and flags2(dev) == 3 << 5,
+    out.append(entry("asym_live", shapes == [("TUBE ASYM", v, "") for v in ("4", "0", "7", "2")] and asym(dev) == 2 ^ 4
+                     and sent(log) == [(5, 4), (6, 4), (7, 4), (1, 4), 0, (3, 4), 3, (3, 7), (3, 2)] and flags2(dev) == 3 << 5,
                      f"{shapes}, writes {sent(log)}, TUBE ASYM {asym(dev)}"))
 
     mc.press(dev, "write", wait=0.6)
     dev.run(3.0)
     raw = newest_file(dev)
-    out.append(entry("write_v5", raw is not None and raw[4] == 5 | 2 << 5 and raw[7] == 3 << 5 and not dev.m.asserts,
+    out.append(entry("write_v5", raw is not None and raw[4] == 5 | (2 ^ 4) << 5 and raw[7] == 3 << 5 and not dev.m.asserts,
                      f"newest file: byte 4 {raw and hex(raw[4])}, byte 7 {raw and hex(raw[7])}"))
 
     nxt, nlog = started(payload, flash, dev.m.mmc.card.medium.data, wait_of(payload) + 1.0)

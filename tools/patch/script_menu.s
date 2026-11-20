@@ -126,8 +126,9 @@
 ; P0.L in the DSP boot stream in RAM (TUBE_MARK) holds the routine's address (TUBE_MARK_ON); both are per build (script_hooks.py)
 .equ M_TUBE_DRIVE, 0x1C5      ; byte: TUBE DRIVE 1 to 7, also while TUBE is OFF; 0 before a file with TUBE ON was read: TUBE_DEFAULT
 .equ M_TUBE_SENT, 0x1C6       ; byte: the TUBE field the DSP holds plus TUBE ASYM times 8 (0 OFF: the boot stream leaves the block zero)
-.equ M_TUBE_ASYM, 0x1C7       ; byte: TUBE ASYM 0 to 7 (bits 5 to 7 of byte 4 of a version 5 settings file, 0 without one)
-.equ TUBE_DEFAULT, 4
+.equ M_TUBE_ASYM, 0x1C7       ; byte: TUBE ASYM 0 to 7 xor TUBE_ASYM_DEFAULT, as bits 5 to 7 of byte 4 of a version 5 settings file hold it (0 without one: the default)
+.equ TUBE_DEFAULT, 5
+.equ TUBE_ASYM_DEFAULT, 4    ; the TUBE ASYM a file without the field has; the field holds TUBE ASYM xor this, so the default writes no version 5
 .equ TUBE_PARAM, 0xFF803FD8   ; the 10 words the ARM writes (tools/dsp/tube_model.py PARAM): gp, then a TUBE DRIVE row of tube_rows
 .equ TUBE_ASYM_SHIFT, 5       ; byte 4 of a version 5 settings file: bits 0 to 4 the version, bits 5 to 7 TUBE ASYM
 .equ M_FL_KEY, 0x157          ; byte: the key that answered the question, set by menu_ask_input: 1 EXIT, 2 MENU
@@ -146,7 +147,7 @@
 .equ SETTINGS_SIZE, 24
 .equ SETTINGS_SIZE_V1, 20
 .equ SETTINGS_MAX, 24+4*MENU_MAX_TRUST    ; the size of each settings buffer, MENU_FILE_A and MENU_FILE_B
-.equ SETTINGS_VERSION, 5      ; the newest version read; 5 written only when TUBE ASYM is not 0, else 4 when byte 7 is not 0, else 3 (a BLECH up to 1.4.6 reads that)
+.equ SETTINGS_VERSION, 5      ; the newest version read; 5 written only when TUBE ASYM is not its default, else 4 when byte 7 is not 0, else 3 (a BLECH up to 1.4.6 reads that)
 .equ M_STATE_WORDS, 128
 .equ SWITCH_SCREEN, 0xC0083D28
 .equ PC_CODE, 0xC018B000        ; the patch pad-colors (tools/patch/pad_colors.py), FF where the set does not have it; its entries:
@@ -497,8 +498,8 @@ acmd41_round:
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
 ; means the stock white, bit 28 the display inverted (no file or a version 1 file: inverted), bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes (both up to 16 checksums), version 3 24 to 280 bytes (up to
-; 64, MENU_MAX_TRUST), version 4 the same as 3, version 5 the same as 4 with TUBE ASYM 1 to 7 in bits 5 to 7 of byte 4 (the version is
-; bits 0 to 4). Written as version 5 while TUBE ASYM is not 0, else as version 4 while byte 7 is not 0, else as version 3; versions 1
+; 64, MENU_MAX_TRUST), version 4 the same as 3, version 5 the same as 4 with TUBE ASYM xor 4 (1 to 7) in bits 5 to 7 of byte 4 (the version is
+; bits 0 to 4). Written as version 5 while TUBE ASYM is not its default 4, else as version 4 while byte 7 is not 0, else as version 3; versions 1
 ; to 5 are read. A BLECH up to 1.3.7 does not read version 3, one up to 1.4.6 not version 4, one up to 1.4.7 not version 5 (it takes
 ; the other copy or the defaults).
 ; Called from the card hook wrapper after menu_arm, before the script loader reads M_EFF_RUN.
@@ -1040,7 +1041,7 @@ menu_save_sp_done:
     cmp r0, #0                  ; version 4 only with a bit in byte 7: without one the record is a version 3 file
     moveq r0, #3
     movne r0, #4
-    ldrb r1, [r4, #M_TUBE_ASYM] ; version 5 only with TUBE ASYM: bits 5 to 7 of byte 4
+    ldrb r1, [r4, #M_TUBE_ASYM] ; version 5 only with TUBE ASYM off its default: bits 5 to 7 of byte 4 (TUBE ASYM xor 4)
     cmp r1, #0
     movne r0, #5
     orr r0, r0, r1, lsl #TUBE_ASYM_SHIFT
@@ -3672,6 +3673,7 @@ menu_text_tube:
     ldrb r2, [r5, #MX_FLAGS2]
     cmp r6, #66
     ldrbeq r2, [r5, #M_TUBE_ASYM]
+    eoreq r2, r2, #TUBE_ASYM_DEFAULT
     beq menu_text_tube_digit
     cmp r6, #64
     bne menu_text_tube_drive
@@ -4469,6 +4471,9 @@ tube_tick:
     ldrb r1, [r4, #MX_FLAGS2]
     mov r1, r1, lsr #FLAGS2_TUBE_SHIFT
     ldrb r2, [r4, #M_TUBE_ASYM]
+    eor r2, r2, #TUBE_ASYM_DEFAULT
+    cmp r1, #0                  ; OFF sends the zero block whatever TUBE ASYM is: one key, so a start with TUBE OFF sends nothing
+    moveq r2, #0
     orr r3, r1, r2, lsl #3
     ldrb r0, [r4, #M_TUBE_SENT]
     cmp r0, r3
@@ -6552,10 +6557,12 @@ menu_value_tube_drive:
 ; TUBE ASYM: 0 to 7, tube_tick sends it the next frame (with TUBE ON)
 menu_value_tube_asym:
     ldrb r2, [r6, #M_TUBE_ASYM]
+    eor r2, r2, #TUBE_ASYM_DEFAULT
     adds r2, r2, r5
     movmi r2, #0
     cmp r2, #7
     movgt r2, #7
+    eor r2, r2, #TUBE_ASYM_DEFAULT
     strb r2, [r6, #M_TUBE_ASYM]
     mov r3, #0
     str r3, [r6, #M_STATUS]
