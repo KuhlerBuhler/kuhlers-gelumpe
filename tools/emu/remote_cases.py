@@ -300,6 +300,7 @@ def plugin_catalog_api_group(payload, flash=None):
     return plugin_catalog_api_cases.cases(bytes(0x100) + payload, flash)
 
 
+
 def plugin_api19_group(payload, flash=None):
     import plugin_api19_cases
     return plugin_api19_cases.cases(bytes(0x100) + payload, flash)
@@ -331,6 +332,7 @@ def live_write_group(payload, flash=None):
 
 
 GROUPS = (cases, message_cases, release_cases, testmode_group, timer_group, plugin_edit_group, live_write_group, plugin_api15_group, objects_group, plugin_api18_group, plugin_api19_group, global_group, pattern_parts_group, plugin_api22_group, plugin_api23_group, plugin_api24_group, plugin_api25_group, plugin_api26_group, plugin_api27_group, plugin_api28_group, plugin_api29_group, plugin_api30_group, plugin_api31_group, plugin_api31_spectrum_group, plugin_api32_group, plugin_api33_group, plugin_api34_group, plugin_api35_group, plugin_api36_group, plugin_api37_group, plugin_api38_group, plugin_catalog_api_group, catalog_app_group, plugin_catalog15_group, meter_led_group)
+
 
 
 def cases_task(i):
