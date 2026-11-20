@@ -1562,6 +1562,7 @@ export default {
   "patcher.korg.started": "Je browser downloadt de zip van Korg. Sleep hem daarna in het veld.",
   "patcher.usb.done": "Klaar, de nieuwe firmware staat op de kaart. Nu op het apparaat: MENU, met EDIT ◀ naar DATA UTILITY, MENU, met EDIT ▶ naar SOFTWARE UPDATE, druk dan op MENU tot “OK. Please Reboot.” komt. Zet tussendoor niet uit. Zet daarna uit en weer aan.",
   "patcher.usb.notConnected": "De Electribe is niet verbonden. Sluit hem via USB aan en zet hem aan. Kies dan bij Emulator bovenaan “Echt apparaat” en klik op “Verbinden met Electribe”.",
+  "patcher.usb.notSession": "De Electribe is via USB aangesloten, maar niet met de app verbonden. Kies bij Emulator bovenaan “Echt apparaat” en klik op “Verbinden met Electribe”. Staat er dan dat de MIDI-poort al open is, dan houdt een ander programma hem vast: sluit dat en probeer het opnieuw.",
   "patcher.usb.decide": "Het bestand van het apparaat heeft nog een keuze nodig, zie hieronder.",
   "patcher.usb.checking": "Patchen en controleren in de emulator, dat duurt een paar minuten.",
   "patcher.usb.failed": "De controle in de emulator is niet geslaagd, er is niets naar het apparaat gegaan. Details hieronder.",

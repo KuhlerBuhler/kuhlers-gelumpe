@@ -5,7 +5,8 @@
  * the writes stay userData and are left out of `spans`, so the patch file's fingerprints do not depend on them.
  * With `first` ({ifx, mfx}) the patch also says where its presets go: one after the other from that slot, so Korg's 2.02
  * and Hacktribe have them on the same slots. A preset marked `hacktribe` is a remake of one Hacktribe has as its own:
- * Hacktribe keeps its own, found by name on that very slot.
+ * Hacktribe keeps its own, found by name on that very slot, or for the master effects on the factory slot it put them
+ * on; then the catalog behind them starts earlier on Hacktribe.
  */
 import { addPreset, locatePresets, menuLength, presetSpans, recordOf, RECORD } from "./presets.mjs";
 import { FxRecord } from "./record.mjs";
@@ -72,6 +73,8 @@ export function appendPresets(bytes, patch, { refresh = null } = {}) {
   for (const preset of patch.presets) {
     if (preset.kind !== "ifx" && preset.kind !== "mfx") return none([`${patch.id}: ${preset.name} ist kein Insert- oder Master-Preset`]);
     const has = names(out, preset.kind).indexOf(shown(preset));
+    // Hacktribe keeps its own master remakes on factory slots (10, 11, 21, 32): they take no slot of the fixed order.
+    if (preset.hacktribe && has >= 0 && patch.first?.[preset.kind] && has + 1 < patch.first[preset.kind]) continue;
     const want = next[preset.kind] ? next[preset.kind]++ : 0;
     if (want && has + 1 !== want && want <= menuLength(out, preset.kind).value) {
       if (ours(preset.kind).has(nameOf(out, preset.kind, want))) {

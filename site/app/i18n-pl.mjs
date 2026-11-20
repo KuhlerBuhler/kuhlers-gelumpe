@@ -1562,6 +1562,7 @@ export default {
   "patcher.korg.started": "Przeglądarka pobiera zip od Korga. Potem przeciągnij go do pola.",
   "patcher.usb.done": "Gotowe, nowy firmware leży na karcie. Teraz na urządzeniu: MENU, przez EDIT ◀ do DATA UTILITY, MENU, przez EDIT ▶ do SOFTWARE UPDATE, potem naciskaj MENU, aż pojawi się „OK. Please Reboot.”. W międzyczasie nie wyłączaj. Potem wyłącz i włącz ponownie.",
   "patcher.usb.notConnected": "Electribe nie jest połączona. Podłącz ją przez USB i włącz. Potem w sekcji Emulator u góry wybierz „Prawdziwe urządzenie” i kliknij „Połącz z Electribe”.",
+  "patcher.usb.notSession": "Electribe jest podłączona przez USB, ale nie połączona z aplikacją. W sekcji Emulator u góry wybierz „Prawdziwe urządzenie” i kliknij „Połącz z Electribe”. Jeśli wtedy pojawi się, że port MIDI jest już otwarty, trzyma go inny program: zamknij go i spróbuj jeszcze raz.",
   "patcher.usb.decide": "Plik z urządzenia wymaga jeszcze decyzji, zobacz niżej.",
   "patcher.usb.checking": "Patchowanie i sprawdzanie w emulatorze, to trwa kilka minut.",
   "patcher.usb.failed": "Sprawdzenie w emulatorze nie zostało zaliczone, na urządzenie nic nie trafiło. Szczegóły niżej.",

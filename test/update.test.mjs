@@ -38,12 +38,21 @@ test("the news shows once, as a toast that stays, and never in a browser", () =>
   const storage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
   const shown = [];
   const toast = (...args) => shown.push(args);
-  showNews(toast, { version: "1.3.0" }, storage);
-  showNews(toast, { version: "1.3.0" }, storage);
+  showNews(toast, { version: "1.4.0" }, storage);
+  showNews(toast, { version: "1.4.0" }, storage);
   showNews(toast, undefined, storage);
   assert.equal(shown.length, 1);
-  assert.equal(shown[0][0], "BLECHTRIBE 1.3 ist da. Was neu ist, steht unter Changelogs.");
+  assert.equal(shown[0][0], "BLECHTRIBE 1.4 ist da. Was neu ist, steht unter Changelogs.");
   assert.deepEqual(shown[0].slice(1), ["info", { stay: true }]);
+});
+
+test("the toast names the newest unseen version, also when the notes run newest first", () => {
+  const store = new Map([["gelumpe.newsSeen", "1.4.5"]]);
+  const storage = { getItem: k => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
+  const shown = [];
+  showNews((...args) => shown.push(args), { version: "1.4.7" }, storage);
+  assert.equal(shown[0][0], "BLECHTRIBE 1.4.7 ist da. Was neu ist, steht unter Changelogs.");
+  assert.deepEqual(unseenNews("1.4.7", "1.4.5").map(n => n.version), ["1.4.7", "1.4.6"], "the app's own release notes are the source");
 });
 
 const RELEASE = { tag_name: "v1.3.2", html_url: "https://github.com/x/y/releases/tag/v1.3.2" };

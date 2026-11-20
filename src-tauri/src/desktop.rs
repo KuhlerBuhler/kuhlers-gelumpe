@@ -680,6 +680,11 @@ fn webview2_message(error: &str) -> String {
 }
 
 pub fn main() {
+    // WebKitGTK's DMA-BUF renderer leaves the window black or aborts on NVIDIA and some Wayland setups.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
     let built = tauri::Builder::default()
         .manage(MidiService::new(
             Arc::new(NativeDriver),

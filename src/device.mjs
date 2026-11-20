@@ -332,7 +332,8 @@ export class SimDevice {
       // a card map may name a FatFs result per file in `errors` (a disk error, a card not ready) that a read gets instead of the file
       const fault = this.card.errors?.[name(word(0))];
       if (fault) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.FILE, offset, 0, fault, 0);
-      if (!file) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.FILE, offset, 0, 4, 0); // FatFs FR_NO_FILE in the CRC word, as the firmware sends it
+      // FatFs FR_NO_FILE in the CRC word, as the firmware sends it; `noCodes` on the card map: 0, as a firmware from before 1.4.6
+      if (!file) return this.blechReply(BLECH.R_FILE_READ, BLECH.STATUS.FILE, offset, 0, this.card.noCodes ? 0 : 4, 0);
       const bytes = file.slice(Math.min(offset, file.length), Math.min(offset + length, file.length));
       return [0xf0, ...this.head, BLECH.R_FILE_READ, ...syxEnc([...[0, offset, bytes.length, crc32(bytes), file.length].flatMap(u32le), ...bytes]), 0xf7];
     }
