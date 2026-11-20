@@ -1028,8 +1028,15 @@ Standard ist der QEMU-Worker. Gewählt wird an einer Stelle,
    `worker/`;
 3. sonst der GNU-Worker in `gnu/`, mit der Meldung, dass kein QEMU-Build da ist.
 
-Ohne Worker werden die Tests übersprungen. `npm test` und CI suchen keinen
-Worker; die Worker-Tests laufen mit `tools/dsp/qemu_worker_tests.sh alle`.
+Ohne Worker werden die Tests übersprungen. `npm test` sucht keinen Worker; die
+Worker-Tests laufen mit `tools/dsp/qemu_worker_tests.sh alle`.
+
+`check.py` nimmt `blackfin_swap_cases.py` bei einer roten Kopie mit Sample-Swap
+mit, sobald ein Worker gefunden wird. Die CI baut den QEMU-Worker dafür einmal je
+Stand von `tools/dsp/` (`.github/actions/dsp-worker`, im Cache) und setzt für
+Hacktribe und rot `GELUMPE_DSP_REQUIRED`: dann plant `check.py` den Fall immer,
+und ohne Worker schlägt er fehl, statt zu fehlen. Ein Lauf dauert rund eine
+Minute je Firmware (gemessen am Mac, 20.11.).
 
 Der QEMU-Worker rechnet die Befehle mit QEMU und lässt Geräte, Interrupts und
 Zeit beim GNU-Simulator. Er liefert in Registern, ASTAT, Speicher und Takten
