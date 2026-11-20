@@ -47,9 +47,9 @@
 .equ METER_RAINBOW, 8          ; METER STILL and LOUD: the colours turn round the wheel (STILL bit 30 of the settings flags, LOUD bit 0 of byte 5)
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
 .equ MX_FLAGS2, -0x15          ; byte, byte 7 of a version 4 settings file (FLAGS2_*), 0 without one
-.equ FLAGS2_LOAD_METER, 1      ; LOAD METER on (CUSTOMIZATION)
-.equ FLAGS2_IDLE_SAVE, 2       ; IDLE POWER SAVE on (CUSTOMIZATION)
-.equ FLAGS2_KNOWN, 3           ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
+.equ FLAGS2_TUBE_SHIFT, 5     ; bits 5 to 7: TUBE (FEATURES, script_tube.s), 0 OFF (Korg's clipper), 1 to 7 ON at TUBE DRIVE 1 to 7;
+.equ FLAGS2_TUBE, 0xE0         ; bits 0 to 4 belong to 1.5 (LOAD METER, IDLE SAVE, GLIDE CHAIN, GLIDE SWITCH, BATTERY %)
+.equ FLAGS2_KNOWN, FLAGS2_TUBE ; the bits this firmware keeps; a bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
 .equ M_SPLASH_SEL, 0x100      ; the page SPLASH IMPORT: the place of the .bmp file it shows among those in KORG/blechtribe
@@ -121,6 +121,13 @@
 .equ FL_ASK, 0x20000          ; the question "SAVE TO FLASH?" of a card put in after the start is on the display (menu_ask_frame)
 .equ FL_SAVE, 0x40000         ; MENU answered the question and the flash write failed: menu_ask_frame writes again every CARD_RETRY_MS
 .equ M_FL_RETRY, 0xD8         ; FL_SAVE: the OS tick of the next try
+; TUBE: the patch tube-curve (tools/patch/tube_curve.py) puts a tube curve in place of Korg's clipper on the master output; its routine
+; reads the parameter block TUBE_PARAM, which tube_tick writes over the host port (HW_DSP_WRITE). The patch is there when the caller's
+; P0.L in the DSP boot stream in RAM (TUBE_MARK) holds the routine's address (TUBE_MARK_ON); both are per build (script_hooks.py)
+.equ M_TUBE_DRIVE, 0x1C5      ; byte: TUBE DRIVE 1 to 7, also while TUBE is OFF; 0 before a file with TUBE ON was read: TUBE_DEFAULT
+.equ M_TUBE_SENT, 0x1C6       ; byte: the TUBE field the DSP holds (0 OFF: the boot stream leaves the block zero)
+.equ TUBE_DEFAULT, 4
+.equ TUBE_PARAM, 0xFF803FE0
 .equ M_FL_KEY, 0x157          ; byte: the key that answered the question, set by menu_ask_input: 1 EXIT, 2 MENU
 .equ FLASH_SET_A, 0x7FD000
 .equ FLASH_SET_B, 0x7FE000
@@ -558,6 +565,8 @@ menu_load_apply:
     movlo r1, #0
     and r1, r1, #FLAGS2_KNOWN
     strb r1, [r4, #MX_FLAGS2]
+    movs r1, r1, lsr #FLAGS2_TUBE_SHIFT   ; TUBE ON: its TUBE DRIVE; OFF keeps the one of this power-on
+    strbne r1, [r4, #M_TUBE_DRIVE]
     ldr r1, [r0, #12]
     and r2, r1, #1
     str r2, [r4, #M_SET_RUN]
@@ -2483,6 +2492,9 @@ menu_show:
 menu_orig_flag:
     push {r4, r5, lr}
     mov r4, r0
+    sub r0, r4, #64
+    cmp r0, #1
+    bls menu_orig_tube
     ldr r5, =orig_masks
 menu_orig_find:
     ldrb r0, [r5]
@@ -2498,6 +2510,12 @@ menu_orig_find:
     ldrb r3, [r1, #5]
     eor r2, r2, r3
     ldrb r3, [r5, #1]
+    ands r2, r2, r3
+    bne menu_orig_no
+    ldrb r2, [r0, #7]
+    ldrb r3, [r1, #7]
+    eor r2, r2, r3
+    ldrb r3, [r5, #2]
     ands r2, r2, r3
     bne menu_orig_no
     ldr r2, [r0, #12]
@@ -2517,8 +2535,34 @@ menu_orig_find:
 menu_orig_no:
     mov r0, #0
     pop {r4, r5, pc}
+; TUBE (64): ON or OFF as stored; TUBE DRIVE (65): the step the page shows (M_TUBE_DRIVE, the default before one was set) as stored,
+; the default when the file holds TUBE OFF (a step set while OFF is not kept)
+menu_orig_tube:
+    ldr r1, =MENU_FILE_B
+    ldrb r3, [r1, #7]
+    movs r3, r3, lsr #FLAGS2_TUBE_SHIFT
+    cmp r4, #64
+    ldr r1, =MENU_STATE
+    beq menu_orig_tube_on
+    cmp r3, #0
+    moveq r3, #TUBE_DEFAULT
+    ldrb r2, [r1, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+    b menu_orig_tube_cmp
+menu_orig_tube_on:
+    ldrb r2, [r1, #MX_FLAGS2]
+    ands r2, r2, #FLAGS2_TUBE
+    movne r2, #1
+    cmp r3, #0
+    movne r3, #1
+menu_orig_tube_cmp:
+    cmp r2, r3
+    moveq r0, #1
+    movne r0, #0
+    pop {r4, r5, pc}
 .pool
-; per kind (menu_texts_fill): the kind, the bits of byte 5, then the bits of the flags word and of the look word of the settings record
+; per kind (menu_texts_fill): the kind, the bits of byte 5, the bits of byte 7, then the bits of the flags word and of the look word of the settings record
 orig_masks:
     .byte 0, 0, 0, 0                  ; PLUGIN RUNTIME: bit 0 of the flags
     .word 0x00000001, 0
@@ -3133,6 +3177,9 @@ menu_texts_clear:
     beq menu_text_as
     cmp r0, #53
     beq menu_text_knob
+    cmp r0, #64
+    cmpne r0, #65
+    beq menu_text_tube
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -3581,6 +3628,34 @@ menu_text_ft:
     ldrne r1, =str_on
     add r0, r5, #M_VALUE
     bl menu_copy
+    b menu_text_look_line3
+; TUBE (r0 = 64): the tube curve of the patch tube-curve in place of Korg's clipper on the master output, bits 5 to 7 of byte 7
+; (MX_FLAGS2), 0 OFF; TUBE DRIVE (65): how hard the output drives the curve, 1 to 7, kept while TUBE is OFF (M_TUBE_DRIVE)
+menu_text_tube:
+    mov r6, r0
+    mov r0, #3
+    bl menu_title_prefix
+    cmp r6, #64
+    ldreq r1, =str_tube
+    ldrne r1, =str_tube_drive
+    bl menu_copy
+    add r0, r5, #M_VALUE
+    ldrb r2, [r5, #MX_FLAGS2]
+    cmp r6, #64
+    bne menu_text_tube_drive
+    ldr r1, =str_off
+    tst r2, #FLAGS2_TUBE
+    ldrne r1, =str_on
+    bl menu_copy
+    b menu_text_look_line3
+menu_text_tube_drive:
+    ldrb r2, [r5, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+    add r2, r2, #0x30          ; '0'
+    strb r2, [r0]
+    mov r2, #0
+    strb r2, [r0, #1]
     b menu_text_look_line3
 ; KNOB LEDS: whether the LEDs behind the knobs light as the firmware wants (ON) or stay dark (OFF), in the patch pad-colors
 menu_text_knob:
@@ -4155,7 +4230,7 @@ menu_confirm_add:
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 64 TUBE, 65 TUBE DRIVE (55 to 63 are 1.5's); 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -4240,7 +4315,7 @@ menu_kind_sub:
     mov r1, #0
     b menu_kind_done
 menu_kind_features:
-    bl menu_page_count          ; KEY PADS, FILTER TOGGLE and AUTO SAVE are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them
+    bl menu_page_count          ; KEY PADS, FILTER TOGGLE and AUTO SAVE are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them, and TUBE and TUBE DRIVE right before them where it has tube-curve
     mov r1, #0
     sub r0, r0, #1
     cmp r5, r0
@@ -4254,6 +4329,18 @@ menu_kind_features:
     cmp r5, r0
     moveq r0, #48
     beq menu_kind_done
+    mov r2, r0
+    bl tube_patched
+    bne menu_kind_ft_head
+    sub r0, r2, #1
+    cmp r5, r0
+    moveq r0, #65
+    beq menu_kind_done
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #64
+    beq menu_kind_done
+menu_kind_ft_head:
     mov r0, #21
     cmp r5, #4
     moveq r0, #45               ; LAST PATTERN where the set has it, STEREO 1 PAD behind it (or at 4 without LAST PATTERN)
@@ -4316,6 +4403,55 @@ menu_kind_psel:
 menu_kind_done:
     pop {r4, r5, pc}
 .pool
+
+; -> r0 = 1 and Z set when the set has the patch tube-curve (TUBE_MARK holds TUBE_MARK_ON), else r0 = 0 and Z clear. Keeps r1 to r12.
+tube_patched:
+    push {r1, lr}
+    ldr r1, =TUBE_MARK
+    ldrb r0, [r1]
+    ldrb r1, [r1, #1]
+    orr r0, r0, r1, lsl #8
+    ldr r1, =TUBE_MARK_ON
+    cmp r0, r1
+    moveq r0, #1
+    movne r0, #0
+    pop {r1, pc}
+; Called from the frame hook past the first main screen (UI task, from where Korg's part edits write the DSP over the host port as
+; well, the DSP runs by then): sends the parameter block of the TUBE field of byte 7 (MX_FLAGS2) to TUBE_PARAM when it is not the
+; one sent last (M_TUBE_SENT), so a page's change sounds the next frame and a start with TUBE ON sends its block once. Nothing
+; without the patch tube-curve. Clobbers r0 to r3 and r12.
+tube_tick:
+    push {r4, lr}
+    ldr r4, =MENU_STATE
+    ldr r0, [r4, #M_ON]
+    cmp r0, #1
+    popne {r4, pc}
+    bl tube_patched
+    popne {r4, pc}
+    ldrb r1, [r4, #MX_FLAGS2]
+    mov r1, r1, lsr #FLAGS2_TUBE_SHIFT
+    ldrb r0, [r4, #M_TUBE_SENT]
+    cmp r0, r1
+    popeq {r4, pc}
+    strb r1, [r4, #M_TUBE_SENT]
+    ldr r0, =TUBE_PARAM         ; the DSP address, the source, 16 halfwords: one write of the host port, no read before it
+    ldr r2, =tube_blocks
+    add r1, r2, r1, lsl #5
+    mov r2, #16
+    ldr r12, =HW_DSP_WRITE
+    blx r12
+    pop {r4, pc}
+.pool
+; the parameter block per TUBE field, OFF and TUBE DRIVE 1 to 7 (tools/dsp/tube_model.py block(); test_tube_curve.py compares)
+tube_blocks:
+    .word 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000   ; OFF
+    .word 0x45300000, 0xFFFFFFFE, 0x00000004, 0x0E030000, 0xE58DFEE8, 0xF79763A9, 0x3B5D1D16, 0x00000001   ; TUBE DRIVE 1
+    .word 0x6EB40000, 0xFFFFFFFE, 0x00000003, 0x11990000, 0xDEC87B93, 0xF5703244, 0x4A907459, 0x00000001   ; TUBE DRIVE 2
+    .word 0x59F20000, 0xFFFFFFFF, 0x00000002, 0x16060000, 0xD66FB35D, 0xF2C8C75D, 0x5D4D0AD5, 0x00000001   ; TUBE DRIVE 3
+    .word 0x45300000, 0x00000000, 0x00000002, 0x0F150000, 0xE388B415, 0xF6F2E8D5, 0x3FE65112, 0x00000001   ; TUBE DRIVE 4
+    .word 0x6EB40000, 0x00000000, 0x00000001, 0x177D0000, 0xD3AAD57A, 0xF1E762A8, 0x6384494A, 0x00000001   ; TUBE DRIVE 5
+    .word 0x567D0000, 0x00000001, 0x00000001, 0x17470000, 0xD4108689, 0xF207B835, 0x62A00305, 0x00000001   ; TUBE DRIVE 6
+    .word 0x45300000, 0x00000002, 0x00000001, 0x17470000, 0xD4108689, 0xF207B835, 0x62A00305, 0x00000001   ; TUBE DRIVE 7
 
 ; Our pages of DATA UTILITY, in this order where the build has them: EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS, EXPORT ALL
 ; EFFECTS (the Sampler builds, they have the effect collection), SET INIT PATTERN (where the set has the patch init-pattern).
@@ -4437,7 +4573,11 @@ menu_count_features:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #7                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE and AUTO SAVE, LAST PATTERN and STEREO 1 PAD where the set has their patches
+    mov r0, #7                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE and AUTO SAVE, LAST PATTERN and STEREO 1 PAD where the set has their patches, TUBE and TUBE DRIVE (before KEY PADS) where it has tube-curve
+    mov r1, r0
+    bl tube_patched
+    addeq r1, r1, #2
+    mov r0, r1
     ldr r1, =LP_CODE
     ldr r1, [r1]
     cmn r1, #1
@@ -6061,6 +6201,10 @@ menu_slot_value:
     beq menu_value_as
     cmp r0, #53
     beq menu_value_knob
+    cmp r0, #64
+    beq menu_value_tube
+    cmp r0, #65
+    beq menu_value_tube_drive
     cmp r0, #24
     beq menu_value_colour
     cmp r0, #25
@@ -6295,6 +6439,40 @@ menu_value_knob:
     mov r2, #1
     mov r1, #40
     bl menu_pc_call
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; TUBE acts at once (tube_tick sends the block the next frame), WRITE keeps it: ON takes TUBE DRIVE, OFF keeps TUBE DRIVE
+menu_value_tube:
+    ldrb r1, [r6, #MX_FLAGS2]
+    bic r1, r1, #FLAGS2_TUBE
+    cmp r5, #0
+    ble menu_value_tube_store
+menu_value_tube_on:
+    ldrb r2, [r6, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+    strb r2, [r6, #M_TUBE_DRIVE]
+    orr r1, r1, r2, lsl #FLAGS2_TUBE_SHIFT
+menu_value_tube_store:
+    strb r1, [r6, #MX_FLAGS2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; TUBE DRIVE: 1 to 7, at once while TUBE is ON, else for the next ON
+menu_value_tube_drive:
+    ldrb r2, [r6, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+    adds r2, r2, r5
+    movle r2, #1
+    cmp r2, #7
+    movgt r2, #7
+    strb r2, [r6, #M_TUBE_DRIVE]
+    ldrb r1, [r6, #MX_FLAGS2]
+    tst r1, #FLAGS2_TUBE
+    bic r1, r1, #FLAGS2_TUBE
+    bne menu_value_tube_on
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
@@ -6953,6 +7131,10 @@ str_kp:
     .asciz "KEY PADS"
 str_ft:
     .asciz "FILTER TOGGLE"
+str_tube:
+    .asciz "TUBE"
+str_tube_drive:
+    .asciz "TUBE DRIVE"
 str_as:
     .asciz "AUTO SAVE"
 str_knob:

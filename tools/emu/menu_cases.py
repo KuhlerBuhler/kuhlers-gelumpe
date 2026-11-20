@@ -70,11 +70,12 @@ def card_image(files=None):
 
 def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seconds=1.2):
     """A device booted to the main screen; with `adapter` on mains power (the bottom LEDs and the backlight show their normal state)."""
-    global INIT_PAGE, LAST_PAGE, STEREO_PAGE
+    global INIT_PAGE, LAST_PAGE, STEREO_PAGE, TUBE_PAGE
     for_build(payload)
     INIT_PAGE = payload[INIT_CODE - 0xC0000000:INIT_CODE - 0xC0000000 + 4] != b"\xff" * 4
     LAST_PAGE = payload[LAST_CODE - 0xC0000000:LAST_CODE - 0xC0000000 + 4] != b"\xff" * 4
     STEREO_PAGE = payload[STEREO_CODE - 0xC0000000:STEREO_CODE - 0xC0000000 + 4] != b"\xff" * 4
+    TUBE_PAGE = has_tube(payload)
     dev = Dev(payload, flash, held)
     dev.m.adapter = adapter
     if card:
@@ -136,6 +137,13 @@ LAST_CODE = 0xC014FE00                                               # the patch
 LAST_PAGE = False                                                     # set by boot(): whether the copy has the patch
 STEREO_CODE = 0xC014FF00                                             # the patch stereo-pad (tools/patch/stereo_pad.py); with it FEATURES ends with STEREO 1 PAD
 STEREO_PAGE = False                                                   # set by boot(): whether the copy has the patch
+TUBE_PAGE = False                                                     # set by boot(): whether the copy has the patch tube-curve (TUBE, TUBE DRIVE before KEY PADS)
+
+
+def has_tube(payload):
+    """True when the caller's P0.L in the DSP boot stream holds the tube routine (script_hooks.py TUBE_MARK, TUBE_MARK_ON)."""
+    mark, on = (0xC01176D6, 0x20F6) if synthaddr.is_synth(payload) else (0xC0131F90, 0x2186)
+    return struct.unpack_from("<H", payload, mark - IMAGE)[0] == on
 
 
 VERSION_TEXT = 0xC014FCF0                                            # the patch blech-version (tools/patch/blech_version.mjs): the title of VERSION
@@ -153,9 +161,10 @@ def version_texts(payload):
 
 
 def feature_pages():
-    """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches, KEY PADS, FILTER
-    TOGGLE and AUTO SAVE last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
-    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"]
+    """The pages of FEATURES: the switches, LAST PATTERN, STEREO 1 PAD, TUBE and TUBE DRIVE where the set has their patches, KEY PADS,
+    FILTER TOGGLE and AUTO SAVE last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    return (FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["TUBE", "TUBE DRIVE"] * TUBE_PAGE
+            + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"])
 
 
 def feature_count():
@@ -694,7 +703,7 @@ def list_cases(payload, flash=None):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, "ON") for title in feature_pages()]
+    want = [(title, {"TUBE": "OFF", "TUBE DRIVE": "4"}.get(title, "ON")) for title in feature_pages()]   # the tube curve starts off, at its default step
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
