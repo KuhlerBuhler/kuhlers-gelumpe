@@ -366,7 +366,7 @@ korg.onEvent("close", () => {
 });
 ```
 
-**Die Seiten von BLECHTRIBE (API 17).** Alle Seiten von CUSTOMIZATION und FEATURES haben ein Blatt, dazu das
+**Die Seiten von BLECHTRIBE (API 17).** Alle Seiten von CUSTOMIZATION und FEATURES außer TUBE und TUBE DRIVE (1.4.8) haben ein Blatt, dazu das
 Blatt SET INIT PATTERN aus DATA UTILITY. Ein Blatt dieser Gruppe braucht API 17. Jede Schreibung ruft die Anwendefunktion, die
 auch die Seite nimmt: die Look-Seiten setzen Licht, LEDs und Display neu, PAD COLOR, SELECT COLOR, OVERLAP und LED DIMMING gehen
 durch den Patch der Pad-Farben, PATTERN CONFIRM, TAP MOTION und NOTE ASSIST setzen zusätzlich das Wort, das ihr Patch liest.
@@ -1134,7 +1134,7 @@ VERSION, die keine Gruppe ist:
 
 | Eintrag | Was dahinter liegt |
 |---|---|
-| FEATURES | die Schalter der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST und, wo der Satz den Patch last-pattern hat, LAST PATTERN, und, wo er den Patch stereo-pad hat (rot), STEREO 1 PAD, dazu KEY PADS, FILTER TOGGLE und AUTO SAVE (Tabelle unten) |
+| FEATURES | die Schalter der eingebauten Funktionen: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST und, wo der Satz den Patch last-pattern hat, LAST PATTERN, und, wo er den Patch stereo-pad hat (rot), STEREO 1 PAD, und, wo er den Patch tube-curve hat, TUBE und TUBE DRIVE, dazu KEY PADS, FILTER TOGGLE und AUTO SAVE (Tabelle unten) |
 | PLUGINS | ENTER öffnet direkt die Liste der Plugins (MANAGE PLUGINS); siehe unten |
 | CUSTOMIZATION | DISPLAY, LED, dazu PAD COLOR, POWER SAVE und SPLASH, wo der Satz sie hat; siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
@@ -1151,6 +1151,8 @@ Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem We
 | NOTE ASSIST | ON, OFF (siehe unten) |
 | LAST PATTERN | ON, OFF (siehe unten) |
 | STEREO 1 PAD | ON, OFF (siehe unten, nur rot) |
+| TUBE | ON, OFF (siehe unten) |
+| TUBE DRIVE | 1 bis 7 (siehe unten) |
 | KEY PADS | ON, OFF (siehe unten) |
 | FILTER TOGGLE | ON, OFF (siehe unten) |
 
@@ -1198,6 +1200,8 @@ Die Seiten der Gruppen:
 | FEATURES, NOTE ASSIST | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Note die Pads der passenden Noten rosa, je besser sie passen, desto heller (Prim und Quinte, dann Terzen, Quarte und ein Tonleiterschritt, dann Sexten); gestoppt oder pausiert bleiben sie stehen, beim Spielen blenden sie aus, die schwachen zuerst; im CHORD-Modus (Skalen mit sieben Tönen) zeigen die Pads ebenso, welche Akkorde gut folgen ([Messung](messungen/2026-10-15-note-assistant.md), [Helligkeit und Ausblenden](messungen/2026-10-19-notenassistent-helligkeit.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
 | FEATURES, LAST PATTERN | ON, OFF | ON: beim Einschalten öffnet die Electribe das Pattern, das vor dem Ausschalten gewählt war ([Idee 76](ideen/76-letztes-pattern.md)); OFF: sie startet wie in der Firmware mit 001, die gemerkte Nummer bleibt für einen Start mit ON; gilt ab dem nächsten Einschalten, WRITE behält es (Bit 3 von Byte 5 der Einstellungsdatei heißt OFF); ohne Datei ON; EXIT beim Einschalten: 001; rot und blau, wo der Satz den Patch last-pattern hat ([Messung](messungen/2026-10-29-letztes-pattern-schalter-doom-ohne-dateien.md)) |
 | FEATURES, STEREO 1 PAD | ON, OFF | ON: ein Stereo-Sample belegt nur sein eigenes Pad und spielt dort auf einer Stimme, das Pad daneben spielt sein eigenes Sample; OFF: wie in der Firmware belegt ein Stereo-Sample auf Pad 1, 3, ... auch das nächste Pad; gilt sofort, WRITE behält es (Bit 2 von Byte 5 der Einstellungsdatei heißt OFF); ohne Datei ON; EXIT beim Einschalten: wie in der Firmware; nur wo der Satz den Patch stereo-pad hat (rot) ([Messung](messungen/2026-10-29-stereo-ein-pad.md)) |
+| FEATURES, TUBE | ON, OFF | ON: eine Röhrenkurve (12AX7-Differenzpaar wie in der Valve-Force-Stufe der ESX/EMX, symmetrisch) ersetzt Korgs festen Soft-Clipper am Master-Ausgang, auch auf der Aufnahme; OFF: Korgs Clipper Bit für Bit; gilt sofort, WRITE behält es (Bits 5 bis 7 von Byte 7 einer Einstellungsdatei Version 4: 0 OFF, 1 bis 7 ON mit dieser TUBE DRIVE); ohne Datei OFF; nur wo der Satz den Patch tube-curve hat (Hacktribe, rot, blau), im Emulator und im QEMU-DSP-Kern geprüft, am Gerät nicht ([Messung](messungen/2026-11-20-roehrenkurve.md)) |
+| FEATURES, TUBE DRIVE | 1 bis 7 | wie stark der Ausgang die Kurve treibt (Gitterspannung bei Vollaussteuerung 0,05 bis 0,8 V), Vorgabe 4; Vollaussteuerung bleibt Vollaussteuerung; gilt sofort; bei TUBE OFF einstellbar, gilt beim nächsten ON, gespeichert wird sie nur mit TUBE ON |
 | FEATURES, KEY PADS | ON, OFF | ON: KEYBOARD gehalten + Pad setzt den KEY (chromatisch in Pad-Reihenfolge: Pad 1 C bis Pad 12 B, Pads 13 bis 16 transponieren die Parts mit SCALE MODE ON und die Tastatur um -1, 0, +1 oder +2 Oktaven, Pad 14 ist keine Verschiebung wie nach dem Start), das Wertefenster der Firmware zeigt ihn; OFF: die Pads wie in der Firmware (KEYBOARD + Pad 13 wählt still Part 13); gilt sofort, WRITE behält es (Bit 4 von Byte 5 der Einstellungsdatei heißt OFF); ohne Datei ON; Hacktribe, rot und blau, im Emulator geprüft, am Gerät nicht ([Messung](messungen/2026-11-07-key-pads-eingebaut.md), [Belegung](messungen/2026-11-08-key-pads-chromatisch.md)) |
 | FEATURES, FILTER TOGGLE | ON, OFF | ON: SHIFT + LPF, HPF oder BPF schaltet das Filter des gewählten Parts aus und wieder an, mit dem Typ, den die Taste zuletzt hatte; OFF: SHIFT + Filtertaste wie in der Firmware; gilt sofort, WRITE behält es (Bit 5 von Byte 5 der Einstellungsdatei heißt OFF); ohne Datei ON; Hacktribe, rot und blau, im Emulator geprüft, am Gerät nicht ([Messung](messungen/2026-11-08-filter-toggle-eingebaut.md)) |
 | FEATURES, AUTO SAVE | ON, OFF | ON: wer GLOBAL PARAMETERS (oder PLUGIN RUNTIME dahinter) verlässt und dort einen Wert geändert hat, dem speichert BLECHTRIBE die Global-Werte mit demselben Auftrag wie WRITE dort (die Firmware zeigt rund eine Sekunde ihr Fenster "Writing...", wie nach WRITE); wer das BLECH-Menü verlässt und eine Einstellung geändert hat, dem schreibt es die Einstellungsdatei wie WRITE; ohne Änderung wird nichts geschrieben, Patterns bleiben bei WRITE; OFF: nur WRITE speichert, wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 7 von Byte 5 der Einstellungsdatei, ein BLECHTRIBE vor 1.5 verwirft eine Datei mit diesem Bit; das Ausschalten von AUTO SAVE selbst behält erst WRITE ([Messung](messungen/2026-11-09-auto-save.md)) |

@@ -448,6 +448,7 @@ script_frame_guard_end:
     str r1, [r4, #RT_READY]
 frame_gate_open:
     bl menu_card_watch           ; only past the first main screen: the start phase reads the card at menu_arm_load
+    bl tube_tick                 ; the TUBE block to the DSP when it changed (script_menu.s)
     bl menu_ask_frame            ; the question of a card put in after the start
     bl blechy_follow
     bl shortcut_tick

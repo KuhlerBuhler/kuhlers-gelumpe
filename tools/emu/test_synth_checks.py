@@ -71,6 +71,36 @@ class DspStream(unittest.TestCase):
         with patch.object(check, 'is_synth', return_value=False):
             self.assertFalse(check.same_dsp_program(base, modified))
 
+    def test_a_known_dsp_patch_passes_only_whole_and_on_the_bytes_it_expects(self):
+        import hashlib
+        import json
+        import tempfile
+        from pathlib import Path
+        import check
+        base = bytes(0x200100)
+        at = (0x100000, 0x100100)
+        with tempfile.TemporaryDirectory() as root:
+            (Path(root) / 'data' / 'patches').mkdir(parents=True)
+            changes = [{'file': a, 'bytes': 'aabb', 'expect': hashlib.sha256(bytes(2)).hexdigest()} for a in at]
+            (Path(root) / 'data' / 'patches' / 'dsp.json').write_text(json.dumps({'changes': changes}))
+            with patch.object(check, 'ROOT', Path(root)), patch.object(check, 'DSP_PATCHES', ('dsp.json',)), \
+                    patch.object(check, 'is_synth', return_value=False):
+                patched = bytearray(base)
+                for a in at:
+                    patched[a:a + 2] = b'\xaa\xbb'
+                self.assertTrue(check.same_dsp_program(base, patched))
+                patched[0x100010] = 1     # one more byte than the patch writes
+                self.assertFalse(check.same_dsp_program(base, patched))
+                patched[0x100010] = 0
+                patched[at[1]:at[1] + 2] = bytes(2)    # half the patch
+                self.assertFalse(check.same_dsp_program(base, patched))
+                other = bytearray(base)
+                other[at[0]] = 1    # a build whose bytes the patch does not expect
+                patched = bytearray(other)
+                for a in at:
+                    patched[a:a + 2] = b'\xaa\xbb'
+                self.assertFalse(check.same_dsp_program(bytes(other), patched))
+
 
 class DiceFlash(unittest.TestCase):
     def test_dice_tracks_write_commands_since_boot_even_if_the_image_stays_the_same(self):

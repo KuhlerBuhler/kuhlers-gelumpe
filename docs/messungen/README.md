@@ -58,7 +58,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [Effekte aus e2sFx.all beim Start an den DSP, Status unter VERSION, SPLASH IMPORT als Dateiliste, im Emulator](2026-11-05-effekte-start-splash-liste.md)
 - [SPLASH IMPORT: Name ohne Zeile darüber, lange Namen gekürzt, VERSION mit Effektstatus in einer Zeile, im Emulator](2026-11-08-splash-import-wertzeile.md)
 - [Eigene Insert- und Master-Effekte auf der blauen Electribe 2: was es kostet](2026-11-08-blau-eigene-effekte.md)
-
+- [Röhrenkurve statt Soft-Clipper am Ausgang, im QEMU-DSP-Kern und im Emulator](2026-11-20-roehrenkurve.md)
 
 ## SysEx und Transport
 

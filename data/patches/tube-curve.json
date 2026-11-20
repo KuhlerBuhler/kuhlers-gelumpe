@@ -1,0 +1,32 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "tube-curve",
+ "name": "Röhrenkurve statt Soft-Clipper am Ausgang (BLECH > FEATURES > TUBE)",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "changes": [
+  {
+   "file": 1253518,
+   "bytes": "08e18621",
+   "expect": "ff64a9d39ad5737d04543b03fc28ac3f482624b0114e06e4c468fb87c5d8500e",
+   "note": "DSP 0xffa01746: P0.L = 0x2186, the master output calls the tube routine (was 0x135c, Korg's clipper)"
+  },
+  {
+   "file": 1256142,
+   "bytes": "09e1e03f49e180ffc9a1010c0310ffe2e4f8003260050c914da01760009110c0208683c688110bc43f0002c6284008c28026cea008c2b2270ba104c4332c08c2b2274ba104c4332c08c2b2278ba104c4332c10c0308683c688110bc43f008ba002c618400092ff67070cd91320051000",
+   "expect": "8448c3610ca3a474a5a949ead2ef25aea6d246d28cd18c17fd9feca14bdee87a",
+   "note": "DSP 0xffa02186: tube routine, parameters at 0xff803fe0, on = 0 jumps to Korg's clipper"
+  },
+  {
+   "file": 1247336,
+   "bytes": "010115adf43d80ff0c02000000000000",
+   "expect": "7dc84ef17756c3f8ac9750eedc77a5979cc860f4e74a10185c5d84890823817c",
+   "note": "DSP boot block: zero fill 0xff803df4 up to 0xff804000 (was 0xff803fd0), the parameter block starts on zeros"
+  }
+ ],
+ "startPhase": [],
+ "ram": []
+}

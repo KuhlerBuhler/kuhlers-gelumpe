@@ -1484,6 +1484,7 @@ export default {
   "patcher.patch.sysex": "BLECHTRIBE SysEx: leer y escribir la RAM",
   "patcher.patch.sysexSynth": "BLECHTRIBE SysEx: leer RAM y flash",
   "patcher.patch.ifxIdle": "Efecto de inserción en reposo",
+  "patcher.patch.tubeCurve": "Curva de válvula en la salida",
   "patcher.patch.loadingAnim": "Animación de carga propia",
   "patcher.patch.version": "Versión de BLECHTRIBE en el menú (BLECH > VERSION)",
   "patcher.patch.updateGuard": "SOFTWARE UPDATE rechaza un SYSTEM.VSB incompleto",

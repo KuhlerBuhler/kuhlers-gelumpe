@@ -328,7 +328,7 @@ korg.onEvent("close", () => {
 });
 ```
 
-**The pages of BLECHTRIBE (API 17).** Every page of CUSTOMIZATION and FEATURES has a leaf, and so has SET INIT
+**The pages of BLECHTRIBE (API 17).** Every page of CUSTOMIZATION and FEATURES but TUBE and TUBE DRIVE (1.4.8) has a leaf, and so has SET INIT
 PATTERN from DATA UTILITY. A leaf of this group needs API 17. Each write calls the apply function the page takes: the look
 pages set light, LEDs and display again, PAD COLOR, SELECT COLOR, OVERLAP and LED DIMMING go through the patch of the pad
 colors, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST also set the word their patch reads. The page then shows the new value.
@@ -984,7 +984,7 @@ page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
-| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD, plus KEY PADS, FILTER TOGGLE and AUTO SAVE (table below) |
+| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD, and where it has the patch tube-curve, TUBE and TUBE DRIVE, plus KEY PADS, FILTER TOGGLE and AUTO SAVE (table below) |
 | PLUGINS | ENTER opens the list of the plugins (MANAGE PLUGINS) straight away; see below |
 | CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
@@ -1001,6 +1001,8 @@ The pages of FEATURES (the tag names the group "Feature"), each with the value O
 | NOTE ASSIST | ON, OFF (see below) |
 | LAST PATTERN | ON, OFF (see below) |
 | STEREO 1 PAD | ON, OFF (see below, red only) |
+| TUBE | ON, OFF (see below) |
+| TUBE DRIVE | 1 to 7 (see below) |
 | KEY PADS | ON, OFF (see below) |
 | FILTER TOGGLE | ON, OFF (see below) |
 
@@ -1048,6 +1050,8 @@ The pages of the groups:
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 | FEATURES, LAST PATTERN | ON, OFF | ON: at power-on the Electribe opens the pattern that was selected before switching off; OFF: it starts with 001 as in the firmware, the kept number stays for a start with ON; applies from the next power-on, WRITE keeps it (bit 3 of byte 5 of the settings file means OFF); without a file ON; EXIT at power-on: 001; red and blue, where the set has the patch last-pattern |
 | FEATURES, STEREO 1 PAD | ON, OFF | ON: a stereo sample takes only its own pad and plays there on one voice, the pad next to it plays its own sample; OFF: as in the firmware, a stereo sample on pad 1, 3, ... also takes the next pad; applies at once, WRITE keeps it (bit 2 of byte 5 of the settings file means OFF); ON without a file; EXIT held at power-on: as in the firmware; only where the set has the patch stereo-pad (red) ([measurement](messungen/2026-10-29-stereo-ein-pad.md)) |
+| FEATURES, TUBE | ON, OFF | ON: a tube curve (a 12AX7 differential pair as in the Valve Force stage of the ESX/EMX, symmetric) replaces Korg's fixed soft clipper on the master output, also on the recording; OFF: Korg's clipper bit for bit; applies at once, WRITE keeps it (bits 5 to 7 of byte 7 of a version 4 settings file: 0 OFF, 1 to 7 ON at that TUBE DRIVE); OFF without a file; only where the set has the patch tube-curve (hacktribe, red, blue), checked in the emulator and the QEMU DSP core, not on the device ([measurement](messungen/2026-11-20-roehrenkurve.md), German) |
+| FEATURES, TUBE DRIVE | 1 to 7 | how hard the output drives the curve (grid voltage at full scale 0.05 to 0.8 V), default 4; full scale stays full scale; applies at once; can be set while TUBE is OFF and applies at the next ON, it is saved only with TUBE ON |
 | FEATURES, KEY PADS | ON, OFF | ON: KEYBOARD held + pad sets the KEY (chromatic in pad order: pad 1 C to pad 12 B, pads 13 to 16 transpose the parts with SCALE MODE ON and the keyboard by -1, 0, +1 or +2 octaves, pad 14 is no shift as after power-on), the firmware's value window shows it; OFF: the pads as in the firmware (KEYBOARD + pad 13 silently selects part 13); applies at once, WRITE keeps it (bit 4 of byte 5 of the settings file means OFF); ON without a file; hacktribe, red and blue, checked in the emulator, not on the device ([measurement](messungen/2026-11-07-key-pads-eingebaut.md), [layout](messungen/2026-11-08-key-pads-chromatisch.md), German) |
 | FEATURES, FILTER TOGGLE | ON, OFF | ON: SHIFT + LPF, HPF or BPF turns the filter of the selected part off and on again, with the type the key had last; OFF: SHIFT + filter key as in the firmware; applies at once, WRITE keeps it (bit 5 of byte 5 of the settings file means OFF); ON without a file; hacktribe, red and blue, checked in the emulator, not on the device ([measurement](messungen/2026-11-08-filter-toggle-eingebaut.md), German) |
 | FEATURES, AUTO SAVE | ON, OFF | ON: leaving GLOBAL PARAMETERS (or PLUGIN RUNTIME behind it) after changing a value there saves the Global values with the same request WRITE sends there (the firmware shows its "Writing..." window for about a second, as after WRITE); leaving the BLECH menu after changing a setting writes the settings file as WRITE does; nothing changed means nothing is written, patterns stay with WRITE; OFF: only WRITE saves, as in the firmware; acts at once, ON is the default (also without a file); OFF is bit 7 of byte 5 of the settings file, a BLECHTRIBE before 1.5 rejects a file with that bit; switching AUTO SAVE itself off is kept by WRITE only ([measurement](messungen/2026-11-09-auto-save.md), German) |
