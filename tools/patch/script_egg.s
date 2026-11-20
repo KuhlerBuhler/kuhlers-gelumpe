@@ -4,10 +4,11 @@
 ; display shows AUTISM in big letters, then the start image, each for a second. EXIT ends it and the page is VERSION again. The
 ; first show unlocks the sample BLECH: Global byte 251 (byte 247 of the Globals block, 0x2300F7 in the flash) becomes EGG_UNLOCKED.
 ; BLECH writes no flash for it: the byte lies in the Globals object in RAM, which the firmware saves itself at switch-off and on
-; WRITE in GLOBAL PARAMETERS (docs/messungen/2026-10-13-globals-zurueckgesetzt.md). After the first show EXIT shows NEW SAMPLE
+; WRITE in GLOBAL PARAMETERS (docs/messungen/2026-10-13-globals-zurueckgesetzt.md). After the first show EXIT shows NEW SAMPLE 500
 ; Unlocked for two seconds, later shows go straight back to VERSION.
-; Light: the LEDs blink with 250 ms on and 250 ms off, 2 flashes a second, under the 3 a second of the guidelines for photosensitive
-; epilepsy; the display light changes its hue one step of 96 every 40 ms, a slow round of 3.8 s, it never flashes.
+; Light: the LEDs blink with 200 ms on and 200 ms off, 2.5 flashes a second (script_led_flush sends twice its budget meanwhile),
+; under the 3 a second of the guidelines for photosensitive epilepsy; the display light changes its hue one step of 96 every 40 ms,
+; a slow round of 3.8 s, it never flashes.
 ; Drawing is the firmware's: the word in its title font (font 3, the BLECH theme's where the set has it) and the start image (image
 ; 13, the user's own when the splash editor stored one) through its drawing functions into its frame buffer, taken from there into the
 ; runtime's picture, which the frame hook copies over the frame buffer each frame while the show runs (script_display_blit).
@@ -22,7 +23,7 @@
 .equ EGG_STEP, 12               ; word: the blink step last sent (milliseconds / EGG_BLINK_MS), FFFFFFFF none
 .equ EGG_OBJ, 16                ; word: the menu screen object the show runs on
 .equ EGG_PRESSES, 5
-.equ EGG_BLINK_MS, 250
+.equ EGG_BLINK_MS, 200
 .equ EGG_MSG_MS, 2000
 .equ EGG_HUE_MS, 40             ; a step of the 96 of the colour wheel: a round in 3.84 s
 .equ EGG_PIC_MS, 1000           ; the word and the start image change each second
@@ -205,7 +206,7 @@ egg_frame:
     ldrb r2, [r8, #M_EGG]
     cmp r2, #2
     beq egg_frame_message
-    mov r0, r6                  ; t / 250
+    mov r0, r6                  ; t / EGG_BLINK_MS
     mov r1, #EGG_BLINK_MS
     bl egg_div
     mov r7, r0
@@ -465,7 +466,7 @@ egg_image_copy:
 str_egg_word:
     .asciz "AUTISM"
 str_egg_new:
-    .asciz "NEW SAMPLE"
+    .asciz "NEW SAMPLE 500"
 str_egg_unlocked:
     .asciz "Unlocked"
 ; per LED number (data/script/names.mjs): 0 one LED, 1 the red (first) LED of a key or pad with two, 2 its blue one

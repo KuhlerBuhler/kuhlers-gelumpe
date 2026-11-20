@@ -64,9 +64,14 @@ script_led_flush:
     movhs r6, #0
     mov r7, #0
     mov r8, #0
+    mov r11, #SCRIPT_LED_PER_FRAME
+    ldr r0, =EGG_WORK               ; the egg's show (script_egg.s) changes all its LEDs at once: twice the budget, so a blink step
+    ldrb r0, [r0, #M_EGG]           ; reaches every LED within its EGG_BLINK_MS
+    cmp r0, #1
+    moveq r11, #SCRIPT_LED_PER_FRAME*2
 led_flush_loop:
     ldr r0, [r4, #SCRIPT_CONTROL_LED_SENT]
-    cmp r0, #SCRIPT_LED_PER_FRAME
+    cmp r0, r11
     bhs led_flush_done
     cmp r7, #SCRIPT_LED_COUNT
     bhs led_flush_done

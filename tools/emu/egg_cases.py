@@ -2,7 +2,7 @@
 
 MENU five times in a row on VERSION starts the show, four times does nothing; the LEDs blink at most 3 times a second, the pads
 go red, blue, purple; the display light walks the colour wheel; the display shows the word and the start image by turns; EXIT
-goes back to VERSION, the first time through NEW SAMPLE Unlocked for two seconds. The unlock is Global byte 251, which the
+goes back to VERSION, the first time through NEW SAMPLE 500 Unlocked for two seconds. The unlock is Global byte 251, which the
 firmware keeps in the flash at switch-off (0x2300F7), and it stays there after a restart. menu_cases runs these as one part.
 
     tools/emu/.venv/bin/python tools/emu/egg_cases.py --patched NEW.VSB
@@ -155,7 +155,7 @@ def show_cases(payload, flash=None):
     dev.run(2.2)
     back = (egg(dev), mc.state(dev, mc.S_LEVEL), mc.state(dev, mc.S_PAGE), mc.texts_of(dev))
     settled = watch(dev, 1.0)
-    want = (2, ("NEW SAMPLE", "Unlocked", "")) if first else (0, shown)
+    want = (2, ("NEW SAMPLE 500", "Unlocked", "")) if first else (0, shown)
     add("exit_first_time_new_sample_message", message == want and back == (0, 1, mc.LIST_VERSION, shown),
         f"after EXIT {message}, 2.2 s later {back}")
     add("exit_gives_the_light_back", len(set((s[0], s[1], s[2], s[3]) for s in settled)) == 1 and not dev.m.asserts,
