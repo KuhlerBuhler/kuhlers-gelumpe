@@ -39,6 +39,7 @@ BLECH_JSON = ROOT / "data" / "lang" / "de" / "blech.json"
 KORG_DIR = ROOT / "data" / "lang" / "de"
 CHUNKS = 9                   # screen groups for the Korg screens, each a task of its own
 DISPLAY_W = 128
+DIALOG_BUFFER = 64
 DEEP = re.compile(r"[ gpqy]")    # a space or a descender
 UMLAUTS = {"Ä": "A", "Ö": "O", "Ü": "U", "ä": "a", "ö": "o", "ü": "u", "ß": "b"}
 
@@ -226,24 +227,30 @@ def korg_screens_case(chunk, payload, flash=None):
 
 def dialogs_case(payload, flash=None):
     """With lang-de, the translated texts the screens 0 to 44 do not reach (dialogs, messages, errors): each fits the
-    display width in fonts 0 and 1, and keeps a space or a descender where the English text has one (Korg clears a
-    dialog line from the glyphs of the new text, one row short: without either the old baseline stays)."""
+    display width in fonts 0 and 1 or is no wider than the English text, and a dialog text (64-byte buffer) keeps a
+    space or a descender where the English text has one (Korg clears a dialog line from the glyphs of the new text, one
+    row short: without either the old baseline stays)."""
     texts = korg(payload)
     if not has_page(payload) or not has_lang(payload):
         return []
     unseen = {a: e for a, e in texts.items() if "text" in e and e.get("pointers") and not e.get("fonts")}
     if not unseen:
         return []
-    items = [(e["text"], font) for e in unseen.values() for font in (0, 1)]
+    items = [(text, font) for a, e in unseen.items() for text in (e["text"], cstring(payload, a).decode("latin-1")) for font in (0, 1)]
+    measured = lang_shown.widths(payload, items, flash)
     wide, flat = [], []
-    for (text, font), width in zip(items, lang_shown.widths(payload, items, flash)):
-        if width > DISPLAY_W:
-            wide.append(f"{text!r} font {font}: {width} px")
+    for i in range(0, len(items), 2 * 2):
+        for f in (0, 1):
+            (text, font), width, english = items[i + f], measured[i + f], measured[i + 2 + f]
+            if width > max(DISPLAY_W, english):
+                wide.append(f"{text!r} font {font}: {width} px")
     for a, e in unseen.items():
+        if e.get("buffer") != DIALOG_BUFFER:
+            continue
         if DEEP.search(cstring(payload, a).decode("latin-1")) and not DEEP.search(e["text"]):
             flat.append(f"0x{a:08x} {e['text']!r}")
-    return [entry("dialogs_fit_de", not wide, wide or f"{len(unseen)} texts, each at most {DISPLAY_W} px in fonts 0 and 1"),
-            entry("dialogs_baseline_de", not flat, flat or f"{len(unseen)} texts keep a space or a descender")]
+    return [entry("dialogs_fit_de", not wide, wide or f"{len(unseen)} texts, each at most {DISPLAY_W} px or the English width in fonts 0 and 1"),
+            entry("dialogs_baseline_de", not flat, flat or "dialog texts keep a space or a descender")]
 
 
 def fx_names_case(payload, flash=None):

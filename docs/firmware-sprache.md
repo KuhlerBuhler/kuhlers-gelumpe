@@ -152,8 +152,8 @@ Kopie, keine englische Vorlage einer übersetzten Kette wird gezeichnet, kein de
 über einen anderen Text (Besitz je Pixel über die Haken auf Text- und Pixelfunktion; eine Überlappung, die die
 englische Fassung derselben Datei genauso zeigt, ist Korgs eigene und zählt nicht), und keine Kopie ist länger als ihr
 Puffer. Die Texte, die diese Bildschirme nicht erreichen (Dialoge, Meldungen, Fehler: Einträge ohne `fonts`), passen
-in Schrift 0 und 1 auf die 128 Pixel und behalten ein Leerzeichen oder eine Unterlänge, wo die englische Kette eine
-hat; die Namensfelder der Effektparameter (`inPlace`) stehen deutsch und gleich lang im Datensatz. Ohne `lang-de` ist
+in Schrift 0 und 1 auf die 128 Pixel oder sind nicht breiter als die englische Kette, und ein Dialogtext (Puffer 64)
+behält ein Leerzeichen oder eine Unterlänge, wo die englische Kette eine hat; die Namensfelder der Effektparameter (`inPlace`) stehen deutsch und gleich lang im Datensatz. Ohne `lang-de` ist
 jedes Zeigerwort und jedes Namensfeld das alte. Die Texte ohne `fonts` prüft erst der Gerätedurchgang am Bildschirm. `check.py` führt die Fälle für jede Datei mit BLECH-Menü aus.
 
 Die Werkbank liest die eigene Firmware, zeigt im Emulator alle Bildschirme 0 bis 44, dreht auf jedem 32 Raststufen und

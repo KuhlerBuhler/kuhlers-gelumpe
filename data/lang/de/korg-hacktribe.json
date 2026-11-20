@@ -1221,7 +1221,7 @@
    ]
   },
   "0xc00a5c9b": {
-   "text": "MIDI-Empfangsfehler",
+   "text": "Fehler bei MIDI",
    "buffer": 64,
    "expect": "613ca19e82f76c08331df9053083719ec57ac751e1dfd8858d84d8ca25052127",
    "length": 18,
@@ -1555,7 +1555,7 @@
    ]
   },
   "0xc00a5e34": {
-   "text": "    Enter: Wiedergabe",
+   "text": "   Enter: Wiedergabe",
    "expect": "5ffc8d1e9dda8f3f22645c7e083745b118b859bf18fb1668dc9d29cc40aaf577",
    "length": 21,
    "fonts": [],
