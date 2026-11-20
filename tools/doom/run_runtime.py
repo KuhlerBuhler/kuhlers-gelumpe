@@ -78,9 +78,9 @@ def write_frame(path, frame):
         return struct.pack(">I",len(data))+kind+data+struct.pack(">I",zlib.crc32(kind+data))
     rows=[]
     for y in range(64):
-        row=b"\0"+b"".join(bytes([0 if frame[(y//8)*128+x] & (1<<(y%8)) else 255])*6 for x in range(128))
+        row=b"\0"+b"".join((b"\0\xff" if frame[(y//8)*128+x] & (1<<(y%8)) else b"\0\0")*6 for x in range(128))  # set black, clear transparent
         rows.extend([row]*6)
-    header=struct.pack(">IIBBBBB",768,384,8,0,0,0,0)
+    header=struct.pack(">IIBBBBB",768,384,8,4,0,0,0)
     path.write_bytes(b"\x89PNG\r\n\x1a\n"+chunk(b"IHDR",header)+chunk(b"IDAT",zlib.compress(b"".join(rows)))+chunk(b"IEND",b""))
 
 
