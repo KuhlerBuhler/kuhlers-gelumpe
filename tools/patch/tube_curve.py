@@ -3,15 +3,16 @@ clipper on the master output, red (Hacktribe and Korg's 2.02) and blue (docs/mes
 
 Korg's clipper (red 0xFFA0135C, blue 0xFFA01348) takes no parameters. The frame code calls it once per sample through
 a fixed address, P0.L = <clipper>; CALL (P0), with R0 pointing at the stereo pair. The patch changes that immediate to
-a routine in a function of the DSP program nothing calls (red 0xFFA02186, blue 0xFFA020F6: no call, jump, constant or
-data word in the program points there, and an exception planted at its first instruction never fired in the QEMU DSP
-core over boot and play). The routine reads the parameter block at 0xFF803FE0, the end of L1 data bank A, which no
-DSP code touches: with the word on = 0 it jumps to Korg's clipper, so TUBE OFF is Korg's output bit for bit; else it
-runs the curve on both channels in place. The boot stream's last zero fill of bank A stops short of the block (red at
-0xFF803FD0, blue at 0xFF803F5C), so the patch makes it reach the end of the bank: the block starts on zeros, OFF,
-whatever the RAM held at power on.
+a routine in two functions of the DSP program nothing calls, a head and a tail (red 0xFFA02186 and 0xFFA0A974, blue
+0xFFA020F6 and 0xFFA0A75C: no call, jump, constant or data word in the program points there, and an exception planted
+at their first instruction never fired in the QEMU DSP core over boot and play). The routine reads the 12-word block at
+0xFF803FD0 (tube_model.py), the end of L1 data bank A, which no DSP code touches: with the word on = 0 it jumps to
+Korg's clipper, so TUBE OFF is Korg's output bit for bit; else it runs the curve and the lowpass on both channels in
+place. The boot stream's last zero fill of bank A stops short of the block (red at 0xFF803FD0, blue at 0xFF803F5C), so
+the patch makes it reach the end of the bank: the block and the lowpass state start on zeros, OFF, whatever the RAM
+held at power on.
 
-The ARM writes the block over the host port (script_menu.s, tube_*).
+The ARM writes the 10 words from 0xFF803FD8 over the host port (script_menu.s, tube_tick).
 
     python3 tools/patch/tube_curve.py --vsb SYSTEM.VSB [--out data/patches/tube-curve.json]
 """
