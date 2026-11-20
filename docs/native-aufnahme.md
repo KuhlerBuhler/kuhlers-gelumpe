@@ -25,6 +25,9 @@ PLAY steuert das Pattern unabhängig von der Aufnahme. PLAY startet keine Aufnah
 nicht. Schließt PLAY oder EXIT die Ansicht, öffne sie zum Stoppen wieder mit SHIFT+REC und drücke REC.
 REC außerhalb dieser Ansicht bleibt die normale Pattern-Aufnahme.
 
+Außerhalb der Ansicht blinkt während der Aufnahme ein Punkt oben auf dem Hauptbildschirm zwischen BPM und LOAD METER
+(Spalten 78 bis 82). Nach dem Abschluss verschwindet er. Im Emulator geprüft, am Gerät noch nicht.
+
 ## Was in der Datei steht
 
 Die Sampler schreiben Stereo-WAV, Korgs blaue Electribe Mono-WAV mit 48 kHz und 16 Bit nach

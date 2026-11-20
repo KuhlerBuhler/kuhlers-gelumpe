@@ -26,6 +26,9 @@ from tools.patch import recording_dsp as dsp_spec, recording_service, recording_
 
 CODE, CONTEXT, RING = 0xC3F00000, 0xC3F10000, 0xC3F20000
 COMMAND_TICK = 0xC002A628
+DOT_VRAM, DOT_COL = 0xC031B310, 78
+DOT = bytes((0x38, 0x7C, 0x7C, 0x7C, 0x38))
+OS_TICKS = 0xC06A292C
 
 
 def has_hooks(payload):
@@ -585,18 +588,82 @@ def rollover_cases(payload, flash=None):
                   f'error {read("RC_ERROR")}, phase {read("RC_ACTIVE")}, file {read("RW_STATE")}, dropped {read("RC_DROPPED")}, capture {dsp.active}, assertions {dev.m.asserts}')]
 
 
+def status_dot_cases(payload, flash=None, png=None):
+    """The blinking dot on the main screen's top row while a recording runs outside the RECORD view."""
+    from tools.patch import synthaddr
+    synth = synthaddr.is_synth(payload)
+    site = (0xC0027898 if synth else 0xC006B694) - 0xC0000000
+    if not has_hooks(payload) or struct.unpack_from('<I', payload, site)[0] >> 24 != 0xEA:
+        return []
+    dev = Dev(payload, flash, adapter=True)
+    dev.m.insert_card(SDCard(MemoryMedium(card_image())))
+    dsp = CaptureModel.attach(dev.m)
+    dev.run(0.8)
+    field = lambda name: dev.u32(script_hooks.NATIVE_RECORDING + recording_runtime.PUBLIC_FIELDS[name])
+    columns = lambda: bytes(b & 0xFE for b in dev.m.uc.mem_read(DOT_VRAM + DOT_COL, 5))
+
+    def open_record():
+        dev.m.press(0x0A, True)
+        dev.run(0.03)
+        dev.press(0, 0.05)
+        dev.m.press(0x0A, False)
+        dev.run(0.05)
+
+    dev.m.uc.mem_write(script_hooks.MENU_STATE - 0x15, b'\x20')
+    before = columns()
+    open_record()
+    if not synth:
+        dev.press(0x0C, 0.05)
+        dev.turn(1, 0.03)
+        dev.turn(1, 0.03)
+    ticks = lambda: dev.u32(OS_TICKS)
+    for _ in range(200):                    # start so that the blink turns within the window the capture model holds
+        if 200 <= ticks() & 511 < 260:
+            break
+        dev.run(0.005)
+    dev.press(0, 0.02)
+    dev.press('exit', 0.05)
+    seen, wrong, frames = set(), 0, 0
+    for _ in range(35):
+        dev.run(0.01)
+        if field('PHASE') != 1:
+            break
+        frames += 1
+        state = columns()
+        if state != (bytes(5) if ticks() & 512 else DOT):
+            wrong += 1
+        if png and state == DOT and DOT not in seen:
+            dev.png(png)
+        seen.add(state)
+    running = frames >= 15                 # the capture model may end the take with a gap later; the dot only needs it running
+    open_record()
+    dev.press(0, 0.02)
+    for _ in range(64):
+        if field('PHASE') == 0:
+            break
+        dev.run(0.01)
+    dev.press('exit', 0.05)
+    dev.run(0.1)
+    after = columns()
+    return [entry('status_dot_blinks_on_main_screen', running and seen == {DOT, bytes(5)} and wrong <= 2 and before == bytes(5),
+                  f'{frames} samples while recording (phase {field("PHASE")}, error {field("ERROR")}), patterns {sorted(x.hex() for x in seen)}, off the blink {wrong} frames, before {before.hex()}'),
+            entry('status_dot_gone_after_stop', field('PHASE') == 0 and after == bytes(5),
+                  f'phase {field("PHASE")}, columns {after.hex()}')]
+
+
 def cases(payload, flash=None, png=None):
     from tools.patch import synthaddr
     if synthaddr.is_synth(payload):
         return (feature_cases(payload, flash) + blue_worker_cases(payload, flash) + runtime_cases(payload, flash, png=png)
                 + runtime_cases(payload, flash, transport_play=True)
-                + checkpoint_cases(payload, flash) + checkpoint_cases(payload, flash, fail_sync=True))
+                + checkpoint_cases(payload, flash) + checkpoint_cases(payload, flash, fail_sync=True)
+                + status_dot_cases(payload, flash))
     return (feature_cases(payload, flash) + worker_cases(payload, flash) + runtime_cases(payload, flash)
             + runtime_cases(payload, flash, png=png, expect_gap=True)
             + runtime_cases(payload, flash, defer_settings=True) + checkpoint_cases(payload, flash)
             + checkpoint_cases(payload, flash, fail_sync=True) + runtime_cases(payload, flash, remove_card=True)
             + full_card_cases(payload, flash) + rollover_cases(payload, flash)
-            + runtime_cases(payload, flash, transport_play=True))
+            + runtime_cases(payload, flash, transport_play=True) + status_dot_cases(payload, flash))
 
 
 def cases_task():

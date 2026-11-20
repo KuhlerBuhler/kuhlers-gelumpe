@@ -106,6 +106,7 @@ Belegung jetzt, auf dem Hauptbildschirm, gleich ob BATTERY % gerade gezeigt wird
 
 | Spalten | Inhalt |
 |---|---|
+| 78 bis 82 | NATIVE RECORDING: blinkender Punkt, solange eine Aufnahme läuft (`recording_cases.py:status_dot_*`) |
 | 86 bis 93 | LOAD METER (zwei Ziffern) |
 | 94 bis 99 | Kartensymbol |
 | 100 | frei |
