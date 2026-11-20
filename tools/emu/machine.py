@@ -781,17 +781,19 @@ class Machine:
         return bytes(b ^ 0xFF for b in flat) if self.lcd_reverse else flat
 
     def png(self, path, scale=4):
+        """The display as a PNG: a set pixel black, a clear one transparent, so the viewer's background shows through
+        it as the backlight does through a clear cell (grey with alpha)."""
         rows = b""
+        shown = self.shown()
         for y in range(64):
-            shown = self.shown()
-            line = bytes(0 if (shown[(y // 8) * 128 + x] >> (y % 8)) & 1 else 255
-                         for x in range(128) for _ in range(scale))
+            line = b"".join(b"\0\xff" if (shown[(y // 8) * 128 + x] >> (y % 8)) & 1 else b"\0\0"
+                            for x in range(128) for _ in range(scale))
             rows += (b"\0" + line) * scale
 
         def chunk(t, d):
             return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
         Path(path).write_bytes(b"\x89PNG\r\n\x1a\n"
-                               + chunk(b"IHDR", struct.pack(">IIBBBBB", 128 * scale, 64 * scale, 8, 0, 0, 0, 0))
+                               + chunk(b"IHDR", struct.pack(">IIBBBBB", 128 * scale, 64 * scale, 8, 4, 0, 0, 0))
                                + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
 
     # ---- interrupts ----------------------------------------------------------
