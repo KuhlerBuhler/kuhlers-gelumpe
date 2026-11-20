@@ -126,7 +126,6 @@ export const TEST_AREAS = {
   remote: "rescue.area.midi", sysex: "rescue.area.midi", devmode: "rescue.area.midi", hotpatch: "rescue.area.midi",
   plugin_edit: "rescue.area.plugin", plugin_api15: "rescue.area.plugin", plugin_api18: "rescue.area.plugin", plugin_api19: "rescue.area.plugin", plugin_api22: "rescue.area.plugin", plugin_api23: "rescue.area.plugin", plugin_api24: "rescue.area.plugin", plugin_api25: "rescue.area.plugin", plugin_api35: "rescue.area.plugin", plugin_api36: "rescue.area.plugin", plugin_api37: "rescue.area.plugin", plugin_api38: "rescue.area.plugin", plugin_api26: "rescue.area.plugin", plugin_api27: "rescue.area.plugin", plugin_api28: "rescue.area.plugin", plugin_api29: "rescue.area.plugin", plugin_api30: "rescue.area.plugin", plugin_api31: "rescue.area.plugin", plugin_api31_spectrum: "rescue.area.plugin", plugin_api32: "rescue.area.plugin", plugin_api33: "rescue.area.plugin", plugin_api34: "rescue.area.plugin", plugin_catalog_api: "rescue.area.plugin", plugin_catalog15: "rescue.area.plugin", timers: "rescue.area.plugin", objects: "rescue.area.plugin", live_write: "rescue.area.plugin", global: "rescue.area.plugin", pattern_parts: "rescue.area.plugin", testmode: "rescue.area.plugin", catalog_app: "rescue.area.plugin",
   dsp: "rescue.area.play",
-
   doom: "rescue.area.doom",
 };
 

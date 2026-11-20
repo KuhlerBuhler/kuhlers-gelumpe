@@ -26,7 +26,6 @@ import { text } from "../../src/text.mjs";
 export const FORMAT_VERSION = 2;
 export const API_VERSION = 40;
 
-
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
 
@@ -489,7 +488,6 @@ const API_LIST = [
   [136, "korg.display.popup.begin", [], "void", UI, 120, 40],
   [137, "korg.display.popup.timeout", [int("ms", 0, TIMERS.maxMs)], "void", UI, 20, 40],
   [138, "korg.display.popup.show", [], "void", UI, 150, 40],
-
 ];
 
 /**

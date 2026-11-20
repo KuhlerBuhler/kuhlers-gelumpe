@@ -105,7 +105,7 @@ test("the API version of a block follows what it uses", () => {
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.current.mfxHold = 1; });"), 24, "MFX hold needs API 24");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.display.popups = 0; });"), 24, "the popups switch needs API 24");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.keyDown(korg.key.SHIFT); });"), 25, "the panel calls are new in API 25");
-  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.display.popup.begin(); korg.display.popup.timeout(0); korg.display.popup.show(); });"), 26, "custom firmware-style popups need API 26");
+  assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.display.popup.begin(); korg.display.popup.timeout(0); korg.display.popup.show(); });"), 40, "custom firmware-style popups need API 40");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { let v = korg.parts[2].ifxType; });"), 8, "reading IFX type stays at korg.read.patternValue");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.features.tapMotion = 2; });"), 17, "a page of the menu BLECH needs API 17");
   assert.equal(apiVersionOf("korg.onEvent(\"ready\", () => { korg.menu.blech.write(); });"), 17, "writing the menu's settings needs API 17");

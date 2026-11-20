@@ -76,7 +76,6 @@ export const TABLE = [
   [/^tools\/emu\/bpm_glide_cases\.py$/, ["menu_cases"]],    // runs as a look part of menu_cases
   [/^tools\/emu\/battery_percent_cases\.py$/, ["menu_cases"]],   // runs as a look part of menu_cases
   [/^tools\/emu\/plugin_catalog_api_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
-
   [/^tools\/emu\/live_write_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/objects_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
   [/^tools\/emu\/catalog_app_cases\.py$/, ["remote_cases"]],  // runs as a group of remote_cases
