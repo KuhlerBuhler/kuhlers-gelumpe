@@ -49,8 +49,9 @@ def has_menu(payload):
 
 
 def for_build(payload):
-    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT, LIST_DEV, LIST_VERSION, LIST_COUNT
+    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT, LIST_DEV, LIST_VERSION, LIST_COUNT, NATIVE_RECORDING_PAGE
     synth = synthaddr.is_synth(payload)
+    NATIVE_RECORDING_PAGE = b"NATIVE RECORDING\0" in payload and b"NCR1" in payload
     LIST_DEV = None if synth else len(LIST_PAGES)   # DEV MODE (BLECH's SysEx may write the image) is a Sampler row
     LIST_VERSION = len(LIST_PAGES) + (0 if synth else 1)
     LIST_COUNT = LIST_VERSION + 1
@@ -185,10 +186,11 @@ def version_texts(payload):
 
 def feature_pages():
     """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches, KEY PADS, FILTER
-    TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
-    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"] + GLIDE_PAGES
+    TOGGLE, AUTO SAVE, GLIDE CHAIN, GLIDE SWITCH and native recording on supported samplers (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"] + GLIDE_PAGES + ["NATIVE RECORDING"] * NATIVE_RECORDING_PAGE
 
 
+NATIVE_RECORDING_PAGE = True
 GLIDE_PAGES = ["GLIDE CHAIN", "GLIDE SWITCH"]                          # BPM GLIDE (bpm_glide_cases.py), OFF by default
 
 
@@ -745,7 +747,7 @@ def list_cases(payload, flash=None):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, "OFF" if title in GLIDE_PAGES else "ON") for title in feature_pages()]
+    want = [(title, "OFF" if title in GLIDE_PAGES or title == "NATIVE RECORDING" else "ON") for title in feature_pages()]
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
@@ -2681,7 +2683,7 @@ def switch_menu_cases(payload, flash, name, title, slot, bit, from_end):
     off = texts_of(dev), state(dev, slot)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), state(dev, slot)
-    add("page", page == ((title, "ON", ""), (page_at, feature_count()), "Feature") and page_at == feature_count() - len(GLIDE_PAGES) - from_end, f"{page}")
+    add("page", page == ((title, "ON", ""), (page_at, feature_count()), "Feature") and page_at == feature_count() - len(GLIDE_PAGES) - NATIVE_RECORDING_PAGE - from_end, f"{page}")
     add("dial_acts_at_once", off == ((title, "OFF", ""), 0) and back == ((title, "ON", ""), 1) and not dev.m.asserts,
         f"{off}, back {back}")
 

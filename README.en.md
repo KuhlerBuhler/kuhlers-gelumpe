@@ -53,6 +53,8 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 
 ## Which firmware does what?
 
+For 1.6, [native master-mix recording to SD](docs/native-aufnahme.md) is implemented in stereo on the sampler builds and in mono on the blue synth in the emulator; device acceptance and long sets remain pending. The linked guide is in German.
+
 | | Red sampler original | Blue synth original | Sampler with Hacktribe | **BLECHTRIBE** red | **BLECHTRIBE** blue | **BLECHTRIBE** with Hacktribe |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | Record and load your own samples | ✅ | ➖ | ✅ | ✅ | ➖ | ✅ |

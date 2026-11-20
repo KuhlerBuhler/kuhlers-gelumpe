@@ -6,6 +6,7 @@
 ; neighbours), shows one page at a time and keeps all of its state in MENU_STATE.
 ; Nothing here runs before the card hook has armed the menu (M_ON == 1) and EXIT
 ; at power-on keeps it unarmed, so the firmware stays as it was.
+.equ M_LEVEL_RECORD, 9
 .equ M_ON, 0
 .equ M_PAGE, 4
 .equ M_ENTER, 8
@@ -53,7 +54,12 @@
 .equ FLAGS2_GLIDE_SWITCH, 8    ; GLIDE SWITCH on (FEATURES, script_glide.s)
 .equ FLAGS2_GLIDE, 12
 .equ FLAGS2_BATT_OFF, 16       ; BATTERY % off (DISPLAY, script_battery.s); clear is on, the default, so a file with the default stays version 3
-.equ FLAGS2_KNOWN, 31          ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
+.equ NR_DEFER_SETTINGS, 1
+.equ NR_DEFER_CUSTOM, 2
+.equ M_STATUS_RECORDING, 0x58
+.equ M_STATUS_CARD_BUSY, 0x59
+.equ FLAGS2_NATIVE_RECORDING, 32
+.equ FLAGS2_KNOWN, 63          ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
 .equ M_SPLASH_SEL, 0x100      ; the page SPLASH IMPORT: the place of the .bmp file it shows among those in KORG/blechtribe
@@ -362,6 +368,8 @@ menu_card_watch:
     ldr r0, [r0]
     tst r0, #SD_DETECT
     bne card_watch_gone
+    bl nr_card_busy
+    bne card_watch_out
     ldr r0, [r4, #M_CARD]
     cmp r0, #CARD_DONE
     beq card_watch_locked
@@ -967,6 +975,10 @@ menu_settings_crc:
     mov r0, #2
     b menu_settings_write
 menu_settings_save:
+    push {lr}
+    bl nr_card_busy
+    pop {lr}
+    bne menu_settings_save_card
     ldr r0, =SD_INPUT           ; no card: the flash takes them (M_STATUS 0x45 written, 0x46 not), unless they came from a card (FL_HOLD),
     ldr r0, [r0]                ; then the card's error stays, only MENU on the question SAVE TO FLASH? takes them
     tst r0, #SD_DETECT
@@ -989,6 +1001,20 @@ menu_settings_save_card:
 menu_settings_write:
     push {r4-r11, lr}
     mov r11, r0
+    cmp r11, #2
+    bhs menu_settings_build
+    bl nr_card_busy
+    beq menu_settings_build
+    cmp r11, #1
+    moveq r0, #NR_DEFER_CUSTOM
+    movne r0, #NR_DEFER_SETTINGS
+    bl nr_defer
+    ldr r1, =MENU_STATE
+    mov r0, #M_STATUS_RECORDING
+    str r0, [r1, #M_STATUS]
+    mov r0, #0
+    pop {r4-r11, pc}
+menu_settings_build:
     cmp r11, #2
     blne menu_off_sync
     ldr r4, =MENU_STATE
@@ -2719,6 +2745,8 @@ orig_masks:
     .word 0, 0
     .byte 63, 0, FLAGS2_BATT_OFF, 0 ; BATTERY %: bit 4 of byte 7, set is OFF
     .word 0, 0
+    .byte 64, 0, FLAGS2_NATIVE_RECORDING, 0
+    .word 0, 0
     .byte 0xFF, 0, 0, 0
 
 ; ---- the list of the plugins (level 5) and SPLASH IMPORT as the firmware's file browser (DATA UTILITY, IMPORT SAMPLE: screen 39)
@@ -3197,6 +3225,8 @@ menu_texts_clear:
     subs r2, r2, #1
     bpl menu_texts_clear
     bl menu_kind
+    cmp r0, #65
+    beq nr_menu_text
     mov r7, r1
     cmp r0, #0
     beq menu_text_run
@@ -3287,7 +3317,8 @@ menu_texts_clear:
     beq menu_text_batt
     cmp r0, #61
     cmpne r0, #62
-    beq menu_text_glide
+    cmpne r0, #64
+    beq menu_text_flag2
     cmp r0, #57
     cmpne r0, #58
     beq menu_text_anim
@@ -3878,16 +3909,23 @@ menu_text_batt:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
-; GLIDE CHAIN (r0 = 61) and GLIDE SWITCH (62): the tempo glides to the next pattern's (script_glide.s), bits 2 and 3 of byte 7
-menu_text_glide:
+; FLAGS2 features whose set bit means ON: GLIDE CHAIN, GLIDE SWITCH and NATIVE RECORDING.
+menu_text_flag2:
     mov r6, r0
     mov r0, #3
     bl menu_title_prefix
     cmp r6, #61
     ldreq r1, =str_glide_chain
     ldrne r1, =str_glide_switch
+    cmp r6, #64
+    ldreq r1, =str_native_recording
+    cmp r6, #61
     moveq r6, #FLAGS2_GLIDE_CHAIN
+    beq menu_text_flag2_copy
+    cmp r6, #64
+    moveq r6, #FLAGS2_NATIVE_RECORDING
     movne r6, #FLAGS2_GLIDE_SWITCH
+menu_text_flag2_copy:
     bl menu_copy
     ldrb r2, [r5, #MX_FLAGS2]
     ldr r1, =str_off
@@ -4040,6 +4078,12 @@ menu_text_done:
 menu_text_status:
 menu_text_status_value:
     add r0, r5, #M_VALUE
+    cmp r1, #M_STATUS_CARD_BUSY
+    ldreq r1, =str_record_busy
+    beq menu_text_status_go
+    cmp r1, #M_STATUS_RECORDING
+    ldreq r1, =str_record_wait
+    beq menu_text_status_go
     cmp r1, #1
     ldreq r1, =str_saved
     beq menu_text_status_go
@@ -4496,6 +4540,9 @@ menu_kind:
     ldr r2, [r4, #M_LEVEL]
     mov r5, r0
     mov r1, #0
+    cmp r2, #M_LEVEL_RECORD
+    moveq r0, #65
+    beq menu_kind_done
     cmp r2, #M_LEVEL_BLECHY
     moveq r0, #19
     beq menu_kind_done
@@ -4590,6 +4637,14 @@ menu_kind_sub:
 menu_kind_features:
     bl menu_page_count          ; KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them
     mov r1, #0
+    mov r2, #NR_SUPPORTED
+    cmp r2, #0
+    beq menu_kind_glide
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #64
+    beq menu_kind_done
+menu_kind_glide:
     sub r0, r0, #1
     cmp r5, r0
     moveq r0, #62
@@ -4730,6 +4785,7 @@ menu_page_count:
     cmp r1, #M_LEVEL_BLECHY
     cmpne r1, #M_LEVEL_SYNC
     cmpne r1, #M_LEVEL_GLOBAL
+    cmpne r1, #M_LEVEL_RECORD
     cmpne r1, #0
     bne menu_count_level1
     mov r0, #1
@@ -4805,7 +4861,7 @@ menu_count_led:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #9                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH, LAST PATTERN and STEREO 1 PAD where the set has their patches
+    mov r0, #9+NR_SUPPORTED     ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH, LAST PATTERN and STEREO 1 PAD where the set has their patches
     ldr r1, =LP_CODE
     ldr r1, [r1]
     cmn r1, #1
@@ -5000,6 +5056,10 @@ menu_delete:
 ; ACTIVE OFF), its block is marked in RAM so the lists and EXPORT leave it out, and e2sPlugin.all is written again without it, also
 ; when none is left; the block stays in the pool until the next start. Clobbers r0 to r3 and r12.
 menu_drop:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4, r5, lr}
     mov r5, r1
     ldr r1, [r0, #SCRIPT_ENTRY_STATE]
@@ -5024,6 +5084,10 @@ menu_drop:
 ; ACTIVE turned up on a plugin that is not loaded: loads and starts it from its file (menu_load_psel), then writes e2sPlugin.all with
 ; it, so it is on again over a restart, the way ACTIVE OFF took it out. M_STATUS: 0, or what went wrong. Clobbers r0 to r3 and r12.
 menu_pon:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4, r5, r6, lr}
     ldr r4, =MENU_STATE
     ldr r5, [r4, #M_NSCRIPTS]
@@ -5044,6 +5108,10 @@ menu_pon:
 ; OFF and the dial up loads it again. A plugin without a file (only in e2sPlugin.all) would be gone for good, so it is only switched
 ; off; the settings keep it off over a restart (menu_off_sync). M_STATUS: 0, or the error of the write. Clobbers r0 to r3 and r12.
 menu_poff:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r8, lr}
     ldr r4, =MENU_STATE
     mov r6, r0
@@ -5093,6 +5161,10 @@ menu_to_manage:
 ; stays (the blue Electribe 2's FatFs has no f_unlink), 0x57 the folder changed since the list was read, 0x20 + the FatFs code when the
 ; card refuses; when e2sPlugin.all could not be written, that error and the file stays. Clobbers r0 to r3 and r12.
 menu_remove:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r6, lr}
     ldr r4, =MENU_STATE
     ldrb r0, [r4, #M_PSEL]
@@ -5171,6 +5243,10 @@ menu_recount_end:
 ; r0 = 1 writes the file also with no block (DELETE PLUGIN of the last one), 0 refuses that (EXPORT).
 ; Sets M_STATUS: 2 written, 0x30 nothing loaded, 0x20 + code of the failing FatFs call otherwise.
 menu_export:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r11, lr}
     mov r11, r0
     ldr r4, =MENU_STATE
@@ -5296,6 +5372,10 @@ menu_export_end:
 ; places among the names menu_dir_next passes to LIST_ORD, up to LIST_MAX files. The file names are not kept: menu_find_listed reads
 ; the folder again to the place. A folder with more plugin files than that sets LIST_MORE.
 menu_list:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r6, lr}
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
@@ -5370,6 +5450,11 @@ import_prefix:
 
 ; r0 = a folder -> r0 = the FatFs result of opening it at LIST_DIR, long names into LIST_LFN. Clobbers r1 to r3 and r12.
 menu_dir_open:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    movne r0, #0x39
+    bxne lr
     push {lr}
     ldr r1, =LIST_INFO
     ldr r2, =LIST_LFN
@@ -5638,6 +5723,10 @@ menu_find_listed_out:
 ; Sets M_STATUS: 0 loaded, 0x31 nothing to import, 0x32 scripts are off, 0x33 not a script file, 0x34 rejected,
 ; 0x35 name already loaded, 0x36 memory full, 0x37 loaded but no app place left (korg.app sets it), 0x20 + code of the failing FatFs call.
 menu_import:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r11, lr}
     ldr r4, =MENU_STATE
     ldr r5, =HOOK_CARD
@@ -5778,6 +5867,11 @@ menu_import_status:
 ; r1 = the name of a file in KORG/blechtribe/Plugin -> r0 = the FatFs result of opening it for reading, at CARD_FIL.
 ; Clobbers r0 to r3 and r12.
 menu_open_listed:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    movne r0, #0x39
+    bxne lr
     push {r4, lr}
     mov r4, r1
     ldr r0, =LIST_PATH
@@ -6026,6 +6120,10 @@ menu_load_psel:
 ; The page DESCRIPTION of the plugin SELECT PLUGIN chose: its file (a plugin that is only in e2sPlugin.all has none, its description
 ; is empty) is read by menu_desc_open. Clobbers r0 to r3 and r12.
 menu_desc_load:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4, lr}
     ldr r4, =MENU_STATE
     ldrb r0, [r4, #M_PSEL]
@@ -6438,6 +6536,8 @@ menu_slot_value:
     mov r5, r1
     ldr r6, =MENU_STATE
     ldr r0, [r6, #M_LEVEL]
+    cmp r0, #M_LEVEL_RECORD
+    popeq {r4, r5, r6, pc}
     cmp r0, #M_LEVEL_PLUGIN
     beq menu_value_list
     ldr r0, [r6, #M_PAGE]
@@ -6472,7 +6572,8 @@ menu_slot_value:
     beq menu_value_batt
     cmp r0, #61
     cmpne r0, #62
-    beq menu_value_glide
+    cmpne r0, #64
+    beq menu_value_flag2
     cmp r0, #56
     beq menu_value_dev
     cmp r0, #57
@@ -6745,11 +6846,13 @@ menu_value_batt:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
-; GLIDE CHAIN and GLIDE SWITCH act at once (the frame follows the switch), WRITE keeps them: ON up, OFF down
-menu_value_glide:
+; FLAGS2 features: ON up, OFF down; WRITE keeps them.
+menu_value_flag2:
     cmp r0, #61
     moveq r2, #FLAGS2_GLIDE_CHAIN
     movne r2, #FLAGS2_GLIDE_SWITCH
+    cmp r0, #64
+    moveq r2, #FLAGS2_NATIVE_RECORDING
     ldrb r1, [r6, #MX_FLAGS2]
     cmp r5, #0
     orrgt r1, r1, r2
@@ -6762,6 +6865,8 @@ menu_value_glide:
 ; LOADING ANIM steps CARD, BLECHY, OFF with the dial and stops at the ends; ANIM LOOP is ON up, OFF down. A write that fails
 ; shows FatFs's code as the other card pages do (0x20 + code) and keeps the value as it was.
 menu_value_anim:
+    bl nr_card_action
+    bne menu_value_done
     mov r3, r0
     ldr r12, =MEDIA_GET
     blx r12
@@ -7043,6 +7148,8 @@ menu_keys_group:
     bl menu_go_in
     pop {r4, r5, r6, pc}
 menu_keys_plugins:              ; in the group PLUGINS (level 2) as menu_go_in goes in, then as ENTER on MANAGE PLUGINS
+    bl nr_card_action
+    bne menu_keys_done
     ldr r2, =MENU_STATE
     ldr r3, [r2, #M_PAGE]
     str r3, [r2, #M_TOP]
@@ -7069,6 +7176,8 @@ menu_keys_pedit:
     cmp r6, #0x09
     bne menu_keys_save
 menu_keys_pedit_go:
+    bl nr_card_action
+    bne menu_keys_done
     bl menu_list
     ldr r2, =MENU_STATE
     mov r0, #0
@@ -7119,6 +7228,8 @@ menu_keys_export_fx:
     b menu_keys_done
 menu_keys_splash_import:
     cmp r6, #0x09
+    bne menu_keys_done
+    bl nr_card_action
     bne menu_keys_done
     ldr r0, =MENU_STATE
     ldr r0, [r0, #M_SPLASH_SEL]
@@ -7179,6 +7290,9 @@ menu_slot_exit:
     cmpne r3, #M_LEVEL_SYNC
     beq menu_exit_stock_pop
     mov r4, r0
+    cmp r3, #M_LEVEL_RECORD
+    moveq r0, #1
+    beq menu_exit_screen
     cmp r3, #M_LEVEL_GLOBAL
     moveq r0, #8
     beq menu_exit_screen
@@ -7392,6 +7506,10 @@ str_on_restart:
     .asciz "ON, RESTART"
 str_off_restart:
     .asciz "OFF, RESTART"
+str_record_wait:
+    .asciz "after recording"
+str_record_busy:
+    .asciz "recording"
 str_saved:
     .asciz "saved"
 str_flash_saved:
@@ -7494,6 +7612,8 @@ str_knob:
     .asciz "KNOB LEDS"
 str_lm:
     .asciz "LOAD METER"
+str_native_recording:
+    .asciz "NATIVE RECORDING"
 str_glide_chain:
     .asciz "GLIDE CHAIN"
 str_glide_switch:

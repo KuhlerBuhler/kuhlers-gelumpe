@@ -69,6 +69,7 @@ from import_slots_cases import GROUPS as IMPORTSLOTS_GROUPS, has_hooks as has_im
 from ht_osc_cases import GROUPS as HTOSC_GROUPS, has_hooks as has_htosc
 from beat_eighth_cases import GROUPS as BEATEIGHTH_GROUPS, has_hooks as has_beateighth
 from touch_scale_zero_cases import GROUPS as TOUCHZERO_GROUPS, has_hooks as has_touchzero
+from recording_cases import has_hooks as has_recording
 from stage2_memory_check import dsp_stream as stage2_dsp_stream
 from update_guard_cases import GROUPS as UPDATEGUARD_GROUPS, has_hooks as has_updateguard
 from doom_loader_cases import GROUPS as DOOM_GROUPS, has_hooks as has_doom
@@ -80,7 +81,7 @@ SYNTH_DSP_STREAM = slice(0xDFC80, 0x1218F4)
 
 
 def same_dsp_program(base, patched):
-    """(ok, detail): the DSP upload measured for this firmware build is unchanged but for the stage 2 memory patch."""
+    """(ok, detail): the DSP upload measured for this firmware build is unchanged or carries only the canonical DSP patches."""
     span = SYNTH_DSP_STREAM if is_synth(base[HEADER:]) else DSP_STREAM
     return stage2_dsp_stream(base, patched, span)
 
@@ -241,6 +242,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         tasks += [("user_samples_cases", "cases_task", (i,)) for i in range(len(USERSAMPLES_GROUPS))]
     if want(has_devmode):
         tasks += [("dev_mode_cases", "cases_task", (i,)) for i in range(len(DEVMODE_GROUPS))]
+    if want(has_recording):
+        tasks.append(("recording_cases", "cases_task", ()))
     power_off, combine_power_off = power_off_tasks(payload) if want(has_power_off_hook) else ([], None)
     tasks += power_off
     if want(has_presets):
@@ -315,6 +318,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     doom = [c for _ in range(len(DOOM_GROUPS) if want(has_doom) else 0) for c in done.pop(0)]
     usersamples = [c for _ in range(len(USERSAMPLES_GROUPS) if want(has_usersamples) else 0) for c in done.pop(0)]
     devmode = [c for _ in range(len(DEVMODE_GROUPS) if want(has_devmode) else 0) for c in done.pop(0)]
+    recording = done.pop(0) if want(has_recording) else []
     power_off_done = [done.pop(0) for _ in power_off]
     presets = done.pop(0) if want(has_presets) else []
     dsp = done.pop(0)
@@ -375,6 +379,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(doom)
     checks.extend(usersamples)
     checks.extend(devmode)
+    checks.extend(recording)
     if power_off:
         checks.extend(combine_power_off(power_off_done))
     checks.extend(presets)
@@ -391,7 +396,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
 CASE_MODULES = ("mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases", "note_assist_cases",
                 "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
                 "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-                "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "import_slots_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases", "user_samples_cases", "dev_mode_cases")
+                "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "import_slots_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases", "user_samples_cases", "dev_mode_cases", "recording_cases")
 
 
 def case_list(text):

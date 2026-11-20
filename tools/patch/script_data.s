@@ -94,6 +94,10 @@ data_args:
 
 ; -> EQ when the card is free for us: the main screen or BLECH is up. Clobbers r12.
 data_screen:
+    push {r4, lr}
+    bl nr_card_busy
+    pop {r4, lr}
+    bxne lr
     ldr r12, =SCREEN_MANAGER
     ldr r12, [r12]
     cmp r12, #0

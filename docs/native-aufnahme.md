@@ -1,0 +1,81 @@
+# Native Aufnahme für 1.6
+
+**Offline geprüft:** Die Aufnahme läuft im DSP-Simulator und im ARM-Emulator auf beiden Sampler-Builds,
+Korg 2.02 und Hacktribe, sowie auf Korgs blauer Electribe 2 als Mono-Aufnahme. **Offen:** Geräteabnahme,
+Kartenschreibzeiten und lange Sets. Ein Tester für die blaue Electribe ist vorhanden; sein Bericht steht aus.
+Dieser Stand ist noch keine Freigabe für das Gerät.
+
+## Passender App-Prüfer
+
+Ein Aufnahme-Patch verändert das DSP-Programm absichtlich. Der Prüfer einer älteren installierten GELUMPE-App
+kennt diesen Abgriff noch nicht und meldet deshalb einen Fehler bei „DSP-Programm unverändert“.
+Die Dateiendung `.patch` oder `.bsdiff` ändert daran nichts: Import und Emulatorprüfung sind getrennte Schritte.
+Für diesen Teststand braucht die Desktop-App auch den aktuellen gebündelten Emulator mit dem kanonischen
+Aufnahme-DSP-Prüfer. Ein bloßes Laden der Patch-Datei aktualisiert ihn nicht. Die DSP-Prüfung bleibt eingeschaltet.
+
+## Aufnehmen
+
+1. In Menü -> BLECH -> FEATURES -> NATIVE RECORDING auf ON stellen. Die Vorgabe ist OFF; WRITE behält die Einstellung.
+2. SHIFT+REC öffnet beim Sampler die Sampling-Ansicht. Mit EDIT rechts zur Quelle wechseln und RECORD wählen.
+   Auf Korgs blauer Electribe öffnet SHIFT+REC direkt die eigene RECORD-Ansicht im BLECH-Menü.
+3. REC startet die Aufnahme. Die Anzeige nennt die Datei und ihre aufgenommene Dauer.
+4. REC beendet die Aufnahme und schließt die WAV. Vor dem Herausnehmen der Karte den Abschluss abwarten.
+
+PLAY steuert das Pattern unabhängig von der Aufnahme. PLAY startet keine Aufnahme und beendet eine laufende Aufnahme
+nicht. Schließt PLAY oder EXIT die Ansicht, öffne sie zum Stoppen wieder mit SHIFT+REC und drücke REC.
+REC außerhalb dieser Ansicht bleibt die normale Pattern-Aufnahme.
+
+Außerhalb der Ansicht blinkt während der Aufnahme ein Punkt oben auf dem Hauptbildschirm zwischen BPM und LOAD METER
+(Spalten 78 bis 82). Nach dem Abschluss verschwindet er. Im Emulator geprüft, am Gerät noch nicht.
+
+## Was in der Datei steht
+
+Die Sampler schreiben Stereo-WAV, Korgs blaue Electribe Mono-WAV mit 48 kHz und 16 Bit nach
+`Recordings/REC0001.WAV` auf der SD-Karte. Mono bildet den Mittelwert beider Ausgangskanäle; auch rechts
+gepannte Klänge werden erfasst. Hacktribe auf blauer Hardware verwendet weiterhin den Sampler-Code mit Stereo.
+Weitere Namen steigen bis `REC9999.WAV`; vorhandene Dateien werden nicht überschrieben. Kurz vor 4 GiB beginnt
+eine Folgedatei. Name und Dauer in der Anzeige gehören zur aktuellen Datei.
+
+Aufgenommen wird der Mastermix nach MFX und dem vorhandenen Soft-Clipper, einschließlich AUDIO IN/THRU. Das Metronom bleibt hörbar,
+steht aber nicht auf der Aufnahme. Der Signalweg ist im DSP-Simulator geprüft, noch nicht am Gerät abgenommen.
+
+Während der Aufnahme sind SAMPLING, RESAMPLING und Apps mit eigener Audioerfassung wie Spettro gesperrt.
+Gepufferte Plugin-Daten und Einstellungen warten bis zum Abschluss. Dateiaktionen wie Plugin-Import und -Export
+zeigen währenddessen `recording`; ein wartendes Speichern zeigt `after recording`.
+
+## Wenn etwas abbricht
+
+| Anzeige | Bedeutung |
+|---|---|
+| No card | Es steckt keine Karte. Die Aufnahme startet nicht. |
+| Card full | Die Karte ist voll. Hat die Aufnahme bereits begonnen, bleibt ihr gültiger Anfang als WAV erhalten. |
+| Card error | Ein Kartenzugriff ist fehlgeschlagen oder die Karte wurde entfernt. Der letzte gesicherte Zwischenstand bleibt erhalten. |
+| Capture gap, Capture lost, Ring full | Die Erfassung konnte nicht lückenlos fortgesetzt werden. Die Aufnahme stoppt mit sichtbarem Zähler und einem benannten cue-Punkt am Ende des gültigen PCM-Anfangs. |
+| No memory | Für den Aufnahmering war kein ausreichender Speicherblock frei; die Aufnahme hat nicht begonnen. |
+
+Der Schreiber sichert regelmäßig einen gültigen Zwischenstand. Bei Stromausfall oder Kartenentnahme können noch
+gepufferte Daten fehlen. Geprüft sind SD-Abbilder an den Grenzen der Dateiaufrufe, kein Stromausfall mitten in einem
+physischen Sektorschreibvorgang. Ein Fehler wird nicht durch eingefügte Stille verdeckt.
+
+## Was noch fehlt
+
+Die endgültige Ringwahl wartet auf die Schreib- und Laufzeitmessungen am Gerät. Das aktuelle Emulatormodell überschreitet
+bei einem vollen 64-KiB-Schreibblock die vorläufige Leserfrist; dieser Fall prüft den sichtbaren Abbruch, kein langes Set.
+Die Kartenzugriffe von Sample Swap werden nach dessen Integration geprüft. Die optionale Plugin-API und der spätere
+WAV-Player gehören nicht zu diesem Aufnahmestand. Die geplante neue Röhrenkurve ist ebenfalls noch nicht enthalten.
+
+Belege und offene Messwerte: [native Aufnahme](messungen/2026-11-17-native-aufnahme.md).
+
+## Geräteprüfung auf der blauen Electribe
+
+Nur nach eigener Freigabe des Teststands am Gerät prüfen. Die bisherigen Fälle verwenden die eigene Originaldatei
+im Emulator. Sie belegen weder Schreibzeiten der Karte noch die tatsächliche DSP- und Task-Laufzeit.
+
+1. Mit NATIVE RECORDING OFF muss SHIFT+REC weiterhin das ursprüngliche Verhalten behalten.
+2. Auf ON stellen, mit SHIFT+REC die RECORD-Ansicht öffnen. PLAY allein darf keine WAV erzeugen.
+3. Mit REC starten, links und rechts gepannte Klänge sowie AUDIO IN/THRU spielen. Nach REC muss `Saved` erscheinen.
+4. Die WAV am Rechner prüfen: ein Kanal, 48 kHz, 16 Bit, hörbare linke und rechte Klänge, kein Metronom.
+5. Bei laufender Aufnahme PLAY und EXIT verwenden. Die Aufnahme muss weiterlaufen. Mit SHIFT+REC und REC beenden.
+6. Gerätetyp, Firmware, Karte, Aufnahmedauer, angezeigte Fehler und hörbare Aussetzer in der
+   [Messdatei](messungen/2026-11-17-native-aufnahme.md) festhalten. Einen langen Lauf erst nach den offenen
+   Schreib- und Leserzeitmessungen bewerten.

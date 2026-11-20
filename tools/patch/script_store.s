@@ -231,6 +231,8 @@ script_store_flush:
     ldr r1, [r4, #SCRIPT_CONTROL_STORE_PENDING]
     cmp r1, #1
     bne store_flush_return
+    bl nr_card_busy
+    bne store_flush_return
     ldr r1, =SCREEN_MANAGER
     ldr r1, [r1]
     cmp r1, #0

@@ -855,6 +855,10 @@ mg_in_pass:
 ; From the frame hook (UI task, before the flush): while the question or the copy is up, the runtime's picture gets their text
 ; and goes over the firmware's frame buffer. Keeps r4 to r11.
 migrate_frame:
+    push {lr}
+    bl nr_card_busy
+    pop {lr}
+    bxne lr
     ldr r1, =MG_WORK
     cmp r1, #0
     bxeq lr

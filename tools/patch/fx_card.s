@@ -488,6 +488,10 @@ fx_card_load_end:
 .equ FX_OPEN_RW, 3              ; FA_READ | FA_WRITE, the file has to be there
 .equ FX_CHUNK, 0x400
 menu_export_fx:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r11, lr}
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL

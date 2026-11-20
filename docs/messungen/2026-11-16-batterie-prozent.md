@@ -128,6 +128,7 @@ Kartensymbol wieder bei 109 und 94 bis 99 sind frei:
 
 | Spalten | Inhalt |
 |---|---|
+| 78 bis 82 | NATIVE RECORDING: blinkender Punkt, solange eine Aufnahme läuft (`recording_cases.py:status_dot_*`) |
 | 86 bis 93 | LOAD METER (zwei Ziffern) |
 | 94 bis 99 | Kartensymbol |
 | 100 | frei |

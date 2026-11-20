@@ -2,7 +2,7 @@
 
 [Deutsche Version](patcher.md) | English version
 
-As of 2026-11-09. This page is the English edition of [patcher.md](patcher.md). The German page is the
+As of 2026-11-18. This page is the English edition of [patcher.md](patcher.md). The German page is the
 reference and carries the developer detail: the hook registry, the start sequence, the memory map and
 the measurements. This page covers what a user needs and links to the German page for the rest. The
 editor is in German, so button labels appear here in German with a translation. Evidence lives in
@@ -21,6 +21,13 @@ what to patch, wait for the check and download the result.
 ### What is built, and where it was tested
 
 Built means: the code is in the repository and was checked in the emulator or in tests.
+
+For 1.6, native recording is implemented on both sampler builds and the blue synth: source RECORD in SHIFT+REC, a private DSP tap excluding
+the metronome, stereo WAV on the sampler and mono WAV on the synth, visible failures and continuation at the WAV limit.
+The blue synth opens its own RECORD view directly with SHIFT+REC. NATIVE RECORDING in
+Menü -> BLECH -> FEATURES defaults to OFF. Device timing, the final ring choice and long-set acceptance remain open;
+a blue-device tester is available, with the hardware report still pending. The [recording guide](native-aufnahme.md) and
+[measurement record](messungen/2026-11-17-native-aufnahme.md) are in German.
 
 - The patch format (version 1) with field, raw and copy changes, the hook registry, and the start-phase
   exceptions (see below).
