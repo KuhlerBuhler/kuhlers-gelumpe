@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-only
-"""Emulator cases of BLECH > FEATURES > TUBE and TUBE DRIVE (tools/patch/tube_curve.py, script_menu.s tube_*,
+"""Emulator cases of BLECH > FEATURES > TUBE, TUBE DRIVE and TUBE ASYM (tools/patch/tube_curve.py, script_menu.s tube_*,
 docs/messungen/2026-11-20-roehrenkurve.md).
 
 The DSP is not modelled here; what is checked is what the ARM sends it over the host port: the parameter block of
-tools/dsp/tube_model.py block() at 0xFF803FE0, 16 halfwords in one 0xAB write, each time the TUBE field of byte 7 changes
-and never otherwise. The pages sit right before KEY PADS, TUBE ON and OFF and TUBE DRIVE 1 to 7 act at once, TUBE DRIVE is
-kept while TUBE is OFF, WRITE keeps the field in byte 7 of a version 4 settings file, and a start with TUBE ON sends its
-block once. A copy whose DSP program does not carry the routine has no pages and sends nothing, also with TUBE ON in its file.
+tools/dsp/tube_model.py block() at PARAM (0xFF803FD8), 20 halfwords in 0xAB writes, each time the TUBE field of byte 7 or
+TUBE ASYM changes and never otherwise. The pages sit right before KEY PADS, TUBE ON and OFF, TUBE DRIVE 1 to 7 and TUBE ASYM
+0 to 7 act at once, TUBE DRIVE is kept while TUBE is OFF, WRITE keeps the field in byte 7 of a version 4 settings file and
+TUBE ASYM in bits 5 to 7 of byte 4 of a version 5 one, and a start with TUBE ON sends its block once. A copy whose DSP program does not carry the routine has no pages and sends nothing, also with TUBE ON in its file.
 What the curve does to the sound is checked in the QEMU DSP core (tools/dsp/tube_qemu.py).
 
     tools/emu/.venv/bin/python tools/emu/tube_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
@@ -35,15 +35,36 @@ PARAM = tube_model.PARAM
 KORG_CALLER = {False: 0x135C, True: 0x1348}      # the caller's P0.L without the patch: Korg's clipper, red and blue
 
 
-def words(step):
-    """The halfwords of the block of TUBE DRIVE `step` (0: OFF) as the host port carries them."""
-    return struct.unpack("<16H", tube_model.block(step))
+HALVES = tube_model.PARAM_SIZE // 2
+
+
+def words(step, asym=0):
+    """The halfwords of the block of TUBE DRIVE `step` (0: OFF) and TUBE ASYM `asym` as the host port carries them."""
+    return struct.unpack(f"<{HALVES}H", tube_model.block(step, asym))
 
 
 def sent(log):
-    """The TUBE DRIVE steps of the blocks written to PARAM, in order; a write that is no whole block is kept as it is."""
-    table = {words(step): step for step in range(8)}
-    return [table.get(tuple(x[3]), (x[2], tuple(x[3]))) for x in log.xfers if x[0] == 0xAB and x[1] == PARAM]
+    """The blocks written to PARAM, in order: the TUBE DRIVE step for TUBE ASYM 0 (0 for OFF), (step, asym) otherwise. The writes
+    into the block are laid over a copy of it; each time all its halfwords were written since the last block, the copy is one.
+    A write that reaches past the block, or a copy that is no block, is kept as it is."""
+    table = {}
+    for step in range(8):
+        for asym in range(tube_model.ASYM_STEPS):
+            table.setdefault(words(step, asym), step if asym == 0 or step == 0 else (step, asym))
+    shadow, seen, out = [0] * HALVES, set(), []
+    for x in log.xfers:
+        if x[0] != 0xAB or not PARAM - 2 * HALVES < x[1] < PARAM + 2 * HALVES:
+            continue
+        at = (x[1] - PARAM) // 2
+        if at < 0 or at + len(x[3]) > HALVES:
+            out.append((hex(x[1]), tuple(x[3])))
+            continue
+        shadow[at:at + len(x[3])] = x[3]
+        seen.update(range(at, at + len(x[3])))
+        if len(seen) == HALVES:
+            out.append(table.get(tuple(shadow), tuple(shadow)))
+            seen = set()
+    return out
 
 
 def entry(name, ok, detail):
@@ -52,6 +73,10 @@ def entry(name, ok, detail):
 
 def flags2(dev):
     return dev.read(mc.MX_FLAGS2, 1)[0]
+
+
+def asym(dev):
+    return dev.read(mc.STATE + mc.M_TUBE_ASYM, 1)[0]
 
 
 def newest_file(dev):
@@ -84,7 +109,7 @@ def case_pages(payload, flash):
     at = pages.index("TUBE")
     mc.goto_group(dev, mc.GROUP_FEATURES, at)
     page = mc.texts_of(dev), mc.counter(dev)
-    out.append(entry("page_off", mc.TUBE_PAGE and pages[at + 1:at + 3] == ["TUBE DRIVE", "KEY PADS"]
+    out.append(entry("page_off", mc.TUBE_PAGE and pages[at + 1:at + 4] == ["TUBE DRIVE", "TUBE ASYM", "KEY PADS"]
                      and page == (("TUBE", "OFF", ""), (at, mc.feature_count())) and flags2(dev) == 0 and sent(log) == [],
                      f"{page}, byte 7 {flags2(dev):#x}, writes {sent(log)}, pages {pages}"))
 
@@ -119,13 +144,29 @@ def case_pages(payload, flash):
     out.append(entry("write_byte_7", raw is not None and raw[4] == 4 and raw[7] == 3 << 5,
                      f"newest file: version {raw and raw[4]}, byte 7 {raw and hex(raw[7])}"))
 
+    mc.goto_group(dev, mc.GROUP_FEATURES, at + 2)
+    shapes = [mc.texts_of(dev)]
+    for turn in (3, 10, -5):
+        dev.turn(turn, wait=0.3)
+        shapes.append(mc.texts_of(dev))
+    out.append(entry("asym_live", shapes == [("TUBE ASYM", v, "") for v in ("0", "3", "7", "2")] and asym(dev) == 2
+                     and sent(log) == [4, 6, 7, 1, 0, 3, (3, 3), (3, 7), (3, 2)] and flags2(dev) == 3 << 5,
+                     f"{shapes}, writes {sent(log)}, TUBE ASYM {asym(dev)}"))
+
+    mc.press(dev, "write", wait=0.6)
+    dev.run(3.0)
+    raw = newest_file(dev)
+    out.append(entry("write_v5", raw is not None and raw[4] == 5 | 2 << 5 and raw[7] == 3 << 5 and not dev.m.asserts,
+                     f"newest file: byte 4 {raw and hex(raw[4])}, byte 7 {raw and hex(raw[7])}"))
+
     nxt, nlog = started(payload, flash, dev.m.mmc.card.medium.data, wait_of(payload) + 1.0)
     first = sent(nlog)
-    mc.goto_group(nxt, mc.GROUP_FEATURES, at)
-    shown = [mc.texts_of(nxt)]
-    mc.goto_group(nxt, mc.GROUP_FEATURES, at + 1)
-    shown.append(mc.texts_of(nxt))
-    out.append(entry("start_sends_once", first == [3] and sent(nlog) == [3] and shown == [("TUBE", "ON", ""), ("TUBE DRIVE", "3", "")]
+    shown = []
+    for k in range(3):
+        mc.goto_group(nxt, mc.GROUP_FEATURES, at + k)
+        shown.append(mc.texts_of(nxt))
+    out.append(entry("start_sends_once", first == [(3, 2)] and sent(nlog) == [(3, 2)]
+                     and shown == [("TUBE", "ON", ""), ("TUBE DRIVE", "3", ""), ("TUBE ASYM", "2", "")]
                      and not nxt.m.asserts, f"writes at the start {first}, after the pages {sent(nlog)}, pages {shown}"))
     return out
 
