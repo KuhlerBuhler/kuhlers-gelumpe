@@ -54,6 +54,36 @@ tx_capture (void)
   return file;
 }
 
+/* Input mode 2 plays a fixed test signal: BLECH_SPORT_RX_SOURCE=<file> holds
+   little-endian slot words (4 per frame) and repeats from the start at its end.
+   A missing or empty file gives silence. */
+static bu32
+rx_source_word (void)
+{
+  static bu32 *words;
+  static size_t count, next;
+  static bool opened;
+  if (!opened)
+    {
+      const char *path = getenv ("BLECH_SPORT_RX_SOURCE");
+      FILE *file = path && *path ? fopen (path, "rb") : NULL;
+      opened = true;
+      if (file)
+        {
+          long size;
+          if (fseek (file, 0, SEEK_END) == 0 && (size = ftell (file)) >= 4
+              && fseek (file, 0, SEEK_SET) == 0 && (words = malloc (size)) != NULL)
+            count = fread (words, 4, size / 4, file);
+          fclose (file);
+        }
+    }
+  if (!count)
+    return 0;
+  if (next >= count)
+    next = 0;
+  return words[next++];
+}
+
 static void
 fifo_put (struct sport_fifo *fifo, bu32 value)
 {
@@ -113,7 +143,9 @@ sport_tick (struct hw *me, void *data)
       for (i = 0; i < WORDS_PER_FRAME; ++i)
         {
           bu32 value = 0;
-          if (sport->mode)
+          if (sport->mode == 2)
+            value = rx_source_word ();
+          else if (sport->mode)
             value = sport->lcg = sport->lcg * 1664525U + 1013904223U;
           if (sport->rx.count < FIFO_WORDS)
             fifo_put (&sport->rx, value);
@@ -369,7 +401,7 @@ int
 blech_bfin_sport_config (SIM_DESC sd, bu32 core_hz, bu32 rate, bu32 mode, bu32 seed)
 {
   struct bfin_sport *sport = sport_device (sd);
-  if (!sport || sport->core_hz || core_hz < 48000 || core_hz > 2000000000 || rate != 48000 || mode > 1
+  if (!sport || sport->core_hz || core_hz < 48000 || core_hz > 2000000000 || rate != 48000 || mode > 2
       || ((sport->regs[0] | sport->regs[8]) & 1))
     return 0;
   sport->core_hz = core_hz;

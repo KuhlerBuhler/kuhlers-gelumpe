@@ -83,7 +83,7 @@ def main():
     parser.add_argument('--virtual', action='store_true', help='instruction-only diagnostic without interrupt hardware')
     parser.add_argument('--boot-steps', type=int, default=250000000, help='bounded native instruction budget, at most 500000000')
     parser.add_argument('--sport-core-hz', type=int, help='explicit simulated CCLK for the 48 kHz external SPORT0 clock')
-    parser.add_argument('--sport-input', choices=('silence', 'lcg'), default='silence')
+    parser.add_argument('--sport-input', choices=('silence', 'lcg', 'file'), default='silence')
     parser.add_argument('--observe-frames', type=int, default=0)
     parser.add_argument('--frame-entry', type=lambda value: int(value, 0))
     parser.add_argument('--host-transport', choices=('compatibility', 'fifo'), default='compatibility')
