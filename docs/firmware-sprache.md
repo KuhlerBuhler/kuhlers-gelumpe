@@ -3,7 +3,7 @@
 Deutsch als zweite Sprache der Menüs (das BLECH-Menü und Korgs Menüs) kommt über den optionalen Patch `lang-de`, eine
 Fassung je Build (Hacktribe, Korgs rote 2.02, blaue Electribe). Ohne `lang-de` bleibt alles Englisch. Diese Seite
 beschreibt die Daten, die Regeln für die Texte und die Werkzeuge. Stand: das BLECH-Menü und Korgs Hauptmenüs
-(GLOBAL PARAMETER, DATA UTILITY, Pattern- und Part-Seiten) sind übersetzt; Dialoge, Meldungen und Effektnamen folgen.
+(GLOBAL PARAMETER, DATA UTILITY, Pattern- und Part-Seiten) sind übersetzt, dazu Dialoge, Meldungen, Skalennamen und die Namen der Effektparameter.
 
 ## Was nicht ins Repository kommt
 
@@ -40,11 +40,13 @@ Ein Eintrag hat entweder `text` (Deutsch) oder `keep` (Grund, warum die Zeile En
 | `fonts` | Schriften, in denen die Firmware die Kette zeichnet (0 bis 3; Schrift 2 hat keine Umlaute) |
 | `buffer` | Größe des Puffers, in den die Firmware die Kette kopiert, mit Null; `"string"`, wenn jeder Leser sie in einen wachsenden C++-String kopiert |
 | `space` | optional: Platz der Zeile in Pixeln |
+| `inPlace` | `true` bei einem Namensfeld eines Effektparameters: ohne Zeigerwort, der Text steht an Ort und Stelle, mit Null bis zur alten Länge aufgefüllt |
 
 `expect`, `length`, `fonts` und `pointers` schreibt die Werkbank (`--update`), `text`, `keep` und `buffer` kommen von
 Hand. Ein deutscher Text länger als `length` braucht ein gemessenes `buffer`, sonst lehnt der Unit-Test ihn ab.
-`korg-stock.json` und `korg-synth.json` übernehmen Text, `keep` und `buffer` aus `korg-hacktribe.json`, wo die alte
-Kette gleich ist (gleicher SHA-256).
+`korg-stock.json` und `korg-synth.json` übernehmen Text, `keep`, `buffer` und `inPlace` aus `korg-hacktribe.json`, wo die
+alte Kette gleich ist (gleicher SHA-256): zuerst an derselben Adresse, sonst an der ersten mit gleicher Kette. Ein
+`inPlace`-Eintrag geht nur an dieselbe Adresse, denn gleicher Text heißt dort nicht gleiches Feld.
 
 ## Kürzungsregel
 
@@ -109,6 +111,7 @@ neuen Wert), nie nach Inhalt. Die Puffer:
 | Zeile 3 `0xC0085888` (Widget `+0xac`) | 28 Byte (Heap-Block 0xd0, gemessen am Objekt) |
 | Dialogtext `0xC008CB10`, `0xC008CB54` (Objekt `+0x4c`) | 64 Byte |
 | `0xC007E2F0` nach `0xC069133C` | 17 Byte (sonst `strncpy` 16 plus Null) |
+| Fehlertabelle `0xC00E3280` (35 Ketten, Warnungsdialog um `0xC0063130`) | 64 Byte: derselbe Aufruf `0xC008CCD4` wie die Ersatzkette für unbekannte Fehler, deren Kopie gemessen ist (aus dem Code hergeleitet) |
 | `0xC00A2570`, `0xC00A2A78`, `0xC00A26C0`, `0xC00A2B9C` (Zuweisen und Anhängen) | C++-String, wächst (`"string"`) |
 
 Korg löscht eine Dialogzeile vor dem Neuzeichnen mit einem Rechteck, das aus den Glyphen des neuen Texts folgt und eine
@@ -148,7 +151,10 @@ Bildschirmen 0 bis 44 (32 Raststufen, 32 Mal EDIT) zeigt jedes Zeigerwort einer 
 Kopie, keine englische Vorlage einer übersetzten Kette wird gezeichnet, kein deutscher Text läuft über den Rand oder
 über einen anderen Text (Besitz je Pixel über die Haken auf Text- und Pixelfunktion; eine Überlappung, die die
 englische Fassung derselben Datei genauso zeigt, ist Korgs eigene und zählt nicht), und keine Kopie ist länger als ihr
-Puffer; ohne `lang-de` ist jedes Zeigerwort das alte. `check.py` führt die Fälle für jede Datei mit BLECH-Menü aus.
+Puffer. Die Texte, die diese Bildschirme nicht erreichen (Dialoge, Meldungen, Fehler: Einträge ohne `fonts`), passen
+in Schrift 0 und 1 auf die 128 Pixel und behalten ein Leerzeichen oder eine Unterlänge, wo die englische Kette eine
+hat; die Namensfelder der Effektparameter (`inPlace`) stehen deutsch und gleich lang im Datensatz. Ohne `lang-de` ist
+jedes Zeigerwort und jedes Namensfeld das alte. Die Texte ohne `fonts` prüft erst der Gerätedurchgang am Bildschirm. `check.py` führt die Fälle für jede Datei mit BLECH-Menü aus.
 
 Die Werkbank liest die eigene Firmware, zeigt im Emulator alle Bildschirme 0 bis 44, dreht auf jedem 32 Raststufen und
 blättert 32 Mal mit EDIT und notiert dabei jeden gezeichneten Text mit Schrift. Daraus sucht sie Korgs Vorlagen (Ketten,
