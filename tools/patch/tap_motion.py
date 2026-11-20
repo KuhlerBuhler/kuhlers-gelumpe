@@ -56,6 +56,8 @@ STATE = 0xC0188F00              # run time state, in RAM only; FF there means "n
 STATE_END = 0xC0188F40
 S_SETTING, S_LED, S_PATNUM, S_LAST, S_MFXLAST, S_ONCE, S_STEPS, S_BLINK = 0, 4, 8, 0x10, 0x20, 0x24, 0x28, 0x3A
 S_HOLD, S_HOLDT = 0x0C, 0x0D      # bytes: what the TAP held now switched (part, 16 Master FX, FF none) and the 40 ms ticks it is held
+S_PADREL = 0x0E                 # byte: frames left in which the Master FX pad is let go again (0 or FF none)
+PADREL_FRAMES = 30              # the Master FX motion switched off: the pad is let go in this many frames of the UI task after it
 HOLD_TICKS = 8                  # TAP held 8 ticks (320 ms) or longer works only while held: letting go switches back (device 18.10.)
 BLINK_TICKS, BLINK_HALF, BLINK_LONG = 12, 6, 10   # 480 ms: on for 6 ticks (part off) or 10 ticks (part on)
 TM_SETTING = STATE + S_SETTING  # the setting word the BLECH menu writes: never written (FFFFFFFF) or 1 is on, 0 is off, 2 once
@@ -137,6 +139,8 @@ SOURCE = """
 .equ S_BLINK, @S_BLINK@         ; byte: the tick within the blink of the TAP LED while the Master FX motion is on
 .equ S_HOLD, @S_HOLD@           ; byte: what the TAP being held switched (part 0 to 15, 16 the Master FX lanes), FF nothing
 .equ S_HOLDT, @S_HOLDT@         ; byte: the LED ticks (40 ms) it has been held, up to 255
+.equ S_PADREL, @S_PADREL@       ; byte: the frames left in which the Master FX pad is let go again, 0 or FF none
+.equ PADREL_FRAMES, @PADREL_FRAMES@
 .equ HOLD_TICKS, @HOLD_TICKS@
 .equ HOLD_WAIT, 0x40            ; in S_HOLD: TAP went down, no frame has seen its key word yet (S_HOLDT does not count)
 .equ KEY_TAP, 3
@@ -305,15 +309,14 @@ tm_mfx_set:
     ldrb r2, [r4, #MFX_BYTE]
     cmp r2, #0
     bne tms_out
-    ldr r0, =PAD_STATE          ; switched off in the middle of a gesture: the lane that would have let the pad go
-    ldr r0, [r0]                ; never comes, so the pad is let go here (unless a finger is on it)
-    cmp r0, #0
-    beq tms_out
-    ldrb r0, [r4, #MFX_TOUCH]
-    cmp r0, #0
+    ldrb r0, [r4, #MFX_TOUCH]   ; switched off: the lane that would have let the pad go never comes, so the pad is let go
+    cmp r0, #0                  ; here (unless a finger is on it), always, not only when the pad state says on
     bne tms_out
     mov r0, #0
     bl PAD_SET
+    ldr r12, =STATE             ; and again in the next frames: TOUCH SCALE or MASTER FX pressed with TAP changes the effect
+    mov r0, #PADREL_FRAMES      ; type, and the new unit comes with the pad on (device 20.11.: MFX 2 stayed on)
+    strb r0, [r12, #S_PADREL]
 tms_out:
     pop {pc}
 
@@ -326,12 +329,40 @@ frame_hook:
     cmp r0, #0
     beq fh_out
     bl tm_hold
+    bl tm_padrel
     ldr r4, =PATPTR
     ldr r4, [r4]
     cmp r4, #0
     blne tm_once
 fh_out:
     pop {r0, r1, r2, r3, r4, r5, r12, pc}
+
+; The Master FX motion went off (tm_mfx_set): for PADREL_FRAMES frames the pad is let go again, as long as the motion stays
+; off and no finger is on the pad. In the UI task, every frame. Clobbers r0 to r3 and r12.
+tm_padrel:
+    push {r4, lr}
+    ldr r12, =STATE
+    ldrb r0, [r12, #S_PADREL]
+    sub r0, r0, #1
+    cmp r0, #PADREL_FRAMES      ; 0 (done) and FF (never set) are above it
+    bhs tpr_out
+    strb r0, [r12, #S_PADREL]
+    ldr r4, =PATPTR
+    ldr r4, [r4]
+    cmp r4, #0
+    beq tpr_stop
+    ldrb r1, [r4, #MFX_BYTE]
+    ldrb r2, [r4, #MFX_TOUCH]
+    orrs r1, r1, r2
+    bne tpr_stop                ; on again or touched: the pad is the firmware's
+    mov r0, #0
+    bl PAD_SET
+    b tpr_out
+tpr_stop:
+    mov r0, #0
+    strb r0, [r12, #S_PADREL]
+tpr_out:
+    pop {r4, pc}
 
 ; TAP let go after being held HOLD_TICKS or longer: what it switched goes back, so a held TAP works only while held; a short TAP
 ; stays switched. In the UI task, every frame. Clobbers r0 to r3 and r12.
@@ -568,7 +599,7 @@ def source():
     for key, value in {
         "KILL": f"{KILL_SWITCH:#x}", "STATE": f"{STATE:#x}", "CODE_AT": f"{CODE_AT:#x}",
         "S_SETTING": S_SETTING, "S_LED": S_LED, "S_PATNUM": S_PATNUM, "S_LAST": S_LAST, "S_MFXLAST": S_MFXLAST, "S_ONCE": S_ONCE, "S_STEPS": S_STEPS,
-        "S_BLINK": S_BLINK, "S_HOLD": S_HOLD, "S_HOLDT": S_HOLDT, "HOLD_TICKS": HOLD_TICKS, "BLINK_TICKS": BLINK_TICKS, "BLINK_HALF": BLINK_HALF, "BLINK_LONG": BLINK_LONG,
+        "S_BLINK": S_BLINK, "S_HOLD": S_HOLD, "S_HOLDT": S_HOLDT, "S_PADREL": S_PADREL, "PADREL_FRAMES": PADREL_FRAMES, "HOLD_TICKS": HOLD_TICKS, "BLINK_TICKS": BLINK_TICKS, "BLINK_HALF": BLINK_HALF, "BLINK_LONG": BLINK_LONG,
         "TAP_BODY": f"{place('TAP_BODY'):#x}", "TAP_EXIT": f"{place('TAP_EXIT'):#x}", "TAP_LITERAL": f"{place('TAP_LITERAL'):#x}",
         "BEAT_BODY": f"{place('BEAT_BODY'):#x}", "TICK_BODY": f"{place('TICK_BODY'):#x}", "FRAME_FUNC": f"{place('FRAME_FUNC'):#x}",
     }.items():

@@ -119,6 +119,9 @@ class TBox(Box):
     def step(self):
         return self.u32(STEP)
 
+    def pad_state(self):
+        return synthaddr.tr(PAD_STATE) if self.dev.synth else PAD_STATE
+
     def out(self, i=0):
         at = synthaddr.tr(MOTION_OUT) if self.dev.synth else MOTION_OUT
         return struct.unpack("<I", self.m.uc.mem_read(at + 4 * i, 4))[0]
@@ -466,7 +469,7 @@ def case_mfx(payload, flash):
     box = TBox(payload, flash)
     box.record_gesture()
     seen = box.script({(0, 18): down, (0, 20): tap, (0, 23): up, (1, 22): down, (1, 24): tap, (1, 27): up}, 2,
-                      sample=lambda x: (x.out(0), x.out(1), x.u32(PAD_STATE), x.mfx_mode(), x.mode(), x.leds()))
+                      sample=lambda x: (x.out(0), x.out(1), x.u32(x.pad_state()), x.mfx_mode(), x.mode(), x.leds()))
     # the outputs of these lanes keep their last value while the byte is 0 (a part's lane goes silent): what counts is that they stop moving
     xy = lambda loop, s: seen[(loop, s)][:2]
     frozen = {xy(0, s) for s in range(21, 32)} | {xy(1, s) for s in range(16, 25)}
@@ -476,6 +479,21 @@ def case_mfx(payload, flash):
                      f"TAP again at step 24 of the next run: from step 25 the lanes play as recorded again ({[xy(1, s) for s in range(25, 32)]}), pad state by step {[seen[(1, s)][2] for s in range(22, 34)]}"))
     pad = {s: seen[(0, s)][2] for s in range(16, 34)}
     out.append(entry("mfx_pad_let_go", all(pad[s] == 1 for s in range(16, 20)) and all(pad[s] == 0 for s in range(20, 34)), f"pad state by step with the gesture switched off at 20: {pad}"))
+
+    # TOUCH SCALE or MASTER FX with TAP changes the effect type, and the new unit can come with the pad on after the TAP (device
+    # 20.11.: MFX 2 stayed on until the pad was touched): the pad is let go again in the frames after, for about a second
+    again = TBox(payload, flash)
+    again.ensure_master_fx()
+    again.hold("master_fx", True)
+    again.tap(0.05)
+    again.hold("master_fx", False)
+    pads = []
+    for _ in range(30):
+        again.m.uc.mem_write(again.pad_state(), struct.pack("<I", 1))
+        again.run(0.05)
+        pads.append(again.u32(again.pad_state()))
+    out.append(entry("mfx_pad_let_go_again", again.mfx_mode() == 0 and all(v == 0 for v in pads[:15]) and all(v == 1 for v in pads[-5:]),
+                     f"the Master FX motion off, the pad state set on every 50 ms after: {pads} (0 let go again, 1 left alone once the window is over)"))
     # the LED is not compared here: with the gesture recorded and its motion on it blinks (case_mfx_blink)
     out.append(entry("mfx_leaves_the_part_alone", all(v[4] == (1, 1) for v in seen.values()) and box.mfx_mode() == 1,
                      f"the part's byte stayed {set(v[4] for v in seen.values())}, the Master FX byte ends {box.mfx_mode()}"))
