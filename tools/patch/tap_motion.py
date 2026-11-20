@@ -118,6 +118,8 @@ SOURCE = """
 .equ HW_STEP, 0xC06904B0        ; part n's step counter at + 0x48 * n
 .equ PAD_STATE, 0xC068D074      ; the Master FX pad state the effect was last given
 .equ PAD_SET, 0xC0057C28        ; (on): the pad on or off through the effect's setter
+.equ LANE_CTRL, 0xC0058B98      ; (lane, control, value, 1): what the motion playback calls for a lane's value; it reaches the DSP
+.equ CTRL_TOUCH, 0x13           ; the control of the Master FX lanes that is the pad on or off (lane LANE_MFX)
 .equ LED_SET, 0xC0087710        ; (manager, led, mode, duration): the manager's own path to set an LED and send it
 .equ LED_TAP, 0x14
 .equ LED_MODE, 0xED             ; manager + 0x4c + 8 * 0x14 + 1: the mode byte of the TAP LED
@@ -312,12 +314,24 @@ tm_mfx_set:
     ldrb r0, [r4, #MFX_TOUCH]   ; switched off: the lane that would have let the pad go never comes, so the pad is let go
     cmp r0, #0                  ; here (unless a finger is on it), always, not only when the pad state says on
     bne tms_out
-    mov r0, #0
-    bl PAD_SET
+    bl tm_pad_off
     ldr r12, =STATE             ; and again in the next frames: TOUCH SCALE or MASTER FX pressed with TAP changes the effect
     mov r0, #PADREL_FRAMES      ; type, and the new unit comes with the pad on (device 20.11.: MFX 2 stayed on)
     strb r0, [r12, #S_PADREL]
 tms_out:
+    pop {pc}
+
+; The Master FX pad let go: the setter (pad state) and the way the motion playback lets it go (the control map to the DSP).
+; The setter alone leaves the effect at the DSP touched (device 20.11.: the Looper on TOUCH SCALE kept looping). Clobbers r0 to r3 and r12.
+tm_pad_off:
+    push {lr}
+    mov r0, #0
+    bl PAD_SET
+    mov r0, #LANE_MFX
+    mov r1, #CTRL_TOUCH
+    mov r2, #0
+    mov r3, #1
+    bl LANE_CTRL
     pop {pc}
 
 ; ONCE, every frame of the UI task (the call at FRAME_CALL goes through here, after the call it replaces): the motions are switched
@@ -355,8 +369,7 @@ tm_padrel:
     ldrb r2, [r4, #MFX_TOUCH]
     orrs r1, r1, r2
     bne tpr_stop                ; on again or touched: the pad is the firmware's
-    mov r0, #0
-    bl PAD_SET
+    bl tm_pad_off
     b tpr_out
 tpr_stop:
     mov r0, #0
