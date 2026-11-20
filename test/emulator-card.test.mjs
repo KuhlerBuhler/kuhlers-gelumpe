@@ -14,6 +14,8 @@ const vsb = process.env.E2_VSB;
 const skip = !local ? "emulation only runs in test:local or test:emu" : !vsb ? "E2_VSB not set" : false;
 
 const MENU = 0x09, EDIT_LEFT = 0x08, EDIT_RIGHT = 0x0c, EXIT = 0x0d;
+// MENU opens Pattern (1/32); DATA UTILITY (29/32) is the fourth page to the left, behind it come Event, BLECH and Blechy's page.
+const toDataUtility = Array(4).fill(EDIT_LEFT);
 const poll = ms => new Promise(r => setTimeout(r, ms));
 
 function wav(frames = 4800, rate = 48000) {
@@ -49,9 +51,9 @@ const front = emu => ({
     await emu.input({ kind: "encoder", index: 0, delta });
     await emu.settle(500);
   },
-  /** DATA UTILITY, function n of 14: MENU, Edit left twice, MENU, then Edit right. */
+  /** DATA UTILITY, function n of 14: MENU, Edit left DATA_UTILITY_LEFT times, MENU, then Edit right. */
   async dataUtility(n) {
-    for (const b of [MENU, EDIT_LEFT, EDIT_LEFT, MENU]) await this.press(b);
+    for (const b of [MENU, ...toDataUtility, MENU]) await this.press(b);
     for (let i = 1; i < n; i++) await this.press(EDIT_RIGHT, 120, 250);
   },
 });
@@ -63,8 +65,9 @@ const writable = path => { try { accessSync(path, constants.W_OK); return true; 
 /** An exported file the card folder has once the firmware closed it: the mirror may show it empty first. */
 const mirrored = (path, size) => existsSync(path) && statSync(path).size > 0 && (!size || statSync(path).size === size) ? statSync(path) : null;
 const idle = emu => until(emu, "the card to be idle", async () => !(await emu.request("GET", "/sd")).body.busy, 30_000);
-// The IMPORT SAMPLE browser opens on the card root, and the key sequences below assume the one WAV (or
-// folder) is its only entry; the empty KORG layout would be the first one (measured, 2026-10-13).
+// The IMPORT SAMPLE browser opens on the card root, sorted: KORG, which the firmware makes when it mounts the
+// card, comes first, then the one WAV (or folder) the test put there. The service's own KORG layout is taken
+// away so that nothing else is listed (measured 2026-11-19).
 const noLayout = sdDir => rmSync(join(sdDir, "card", "KORG"), { recursive: true, force: true });
 const insert = (emu, inserted = true) => emu.request("POST", inserted ? "/sd/insert" : "/sd/eject", "{}");
 
@@ -87,10 +90,11 @@ describe("virtual card", { concurrency: slots }, () => {
       assert.equal(writable(folderOf(emu)), false, "the inserted card is write-protected");
       const panel = front(emu);
 
-      // IMPORT SAMPLE: the browser shows the one WAV; open it, take slot 501.
+      // IMPORT SAMPLE: the browser shows KORG and the WAV; open the WAV, take slot 501.
       await panel.dataUtility(9);
       await panel.press(MENU);
       await emu.settle(1000);
+      await panel.value(1);
       await panel.press(MENU);
       await emu.settle(1000);
       await panel.press(MENU);
@@ -109,15 +113,15 @@ describe("virtual card", { concurrency: slots }, () => {
       assert.equal(wavOut.readUInt32LE(24), 48000, "sample rate");
       assert.ok(wavOut.includes("my kick"), "the name travels in the korg chunk");
 
-      // EXPORT ALL PATTERN: the whole pattern memory as one backup file.
+      // EXPORT ALL PATTERN: the whole pattern memory as one backup file, in the folder Patterns.
       await panel.press(EXIT);
       for (let i = 0; i < 8; i++) await panel.press(EDIT_LEFT, 120, 250);
       await panel.press(MENU);
       await emu.settle(1000);
       await panel.press(MENU);
-      const backup = await until(emu, "the pattern backup", async () => readdirSync(korg(emu)).find(n => n.endsWith(".e2sallpat") && mirrored(korg(emu, n))), 120_000);
+      const backup = await until(emu, "the pattern backup", async () => existsSync(korg(emu, "Patterns")) && readdirSync(korg(emu, "Patterns")).find(n => n.endsWith(".e2sallpat") && mirrored(korg(emu, "Patterns", n))), 120_000);
       await idle(emu);
-      await until(emu, "the whole backup", async () => statSync(korg(emu, backup)).size > 1_000_000);
+      await until(emu, "the whole backup", async () => statSync(korg(emu, "Patterns", backup)).size > 1_000_000);
 
       // Switch off: the card is still in, still protected, and the folder holds everything.
       assert.equal((await emu.request("POST", "/stop")).status, 200);
@@ -155,8 +159,9 @@ describe("virtual card", { concurrency: slots }, () => {
     try {
       const panel = front(emu);
       await panel.dataUtility(9);
-      await panel.press(MENU);                 // the browser starts at the card root: folder drums
+      await panel.press(MENU);                 // the browser starts at the card root: KORG, then folder drums
       await emu.settle(1000);
+      await panel.value(1);                    // onto drums
       await panel.press(MENU);                 // into drums: Upper Folder, then the file
       await emu.settle(1000);
       await panel.value(1);                    // onto the file
@@ -178,11 +183,14 @@ describe("virtual card", { concurrency: slots }, () => {
     }
   });
 
-  // The firmware polls the card-detect input (GPIO 4.1) and shows a card symbol left of the battery
-  // (columns 108 to 115 of the top two display pages, measured 2026-10-13).
+  // The firmware polls the card-detect input (GPIO 4.1) and draws a card symbol left of the battery in the top
+  // display page: from column 94 with the battery percent, from 109 without it. The menu pages draw that row
+  // inverted, so the symbol is looked for in both polarities (measured 2026-11-19).
+  const CARD = [0xfc, 0x86, 0x86, 0x86, 0x86, 0xfe];
   const cardSymbol = emu => {
-    const raw = emu.rawDisplay();
-    return [0, 1].some(page => raw.subarray(page * 128 + 108, page * 128 + 116).some(b => b));
+    const row = emu.rawDisplay().subarray(90, 122);
+    return [CARD, CARD.map(b => b ^ 0xff)].some(glyph =>
+      row.some((_, x) => glyph.every((b, i) => row[x + i] === b)));
   };
 
   test("virtual card: inserted while the device runs, the firmware sees it and imports from it; pulled, the symbol goes", { skip }, async () => {
@@ -197,7 +205,7 @@ describe("virtual card", { concurrency: slots }, () => {
     });
     try {
       const panel = front(emu);
-      for (const b of [MENU, EDIT_LEFT, EDIT_LEFT]) await panel.press(b);   // the DATA UTILITY page, whose top row is quiet
+      for (const b of [MENU, ...toDataUtility]) await panel.press(b);   // the DATA UTILITY page, whose top row is quiet
       await emu.settle(1000);
       assert.equal(cardSymbol(emu), false, "no card, no symbol");
       assert.equal((await insert(emu)).status, 200);

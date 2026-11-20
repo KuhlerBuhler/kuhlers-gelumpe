@@ -70,6 +70,11 @@ Jetzt endet Heap 1 bei `0xFF906320` (`0x1D20` Bytes, knapp doppelt so viel wie b
 Bytes darüber. Reicht der Heap einmal nicht, liefert er keinen Speicher, statt Stufe 2 zu überschreiben. Nach Spielen und
 Stoppen am Gerät gelesen: das Ende steht weiter bei `0xFF9054E0`.
 
+Die ganze Heap-Tabelle (je Basis, Länge, Nummer ab `0x01F02438`, gelesen im Startstrom von Hacktribe 2.02): Heap 0
+`0x1D00000` und Heap 3 `0x1E00000` im SDRAM, je `0xFFFFF` Bytes, Heap 1 wie oben, Heap 2 `0xFFB00000` mit `0xF` Bytes.
+Freies SDRAM für einen weiteren Puffer muss also an diesen zwei MB vorbei. In L1 ist kaum Platz: der Startstrom lädt
+L1-Code bis `0xFFA0BFF8` (8 Bytes vor dem Ende der Bank) und L1-Daten A bis `0xFF803FD0` (gelesen, `dsp_extract.py`).
+
 ## Baustein `0x15` und das Wort unter den Koeffizienten
 
 `0x15` hält in seinem Zustand (`+0x8`) einen Zeiger auf das Wort `0xC8` unter seinen Koeffizienten, in Stufe 1 also

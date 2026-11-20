@@ -16,15 +16,27 @@ Inserts (Lag, KP2 Comp, LP Drive, LP Drive Res, HP Drive, HP Res Drive, BP Drive
 1/12 Delay), ab 50 der Katalog. Hacktribe behält auf 39 bis 49 seine eigenen Presets. Korgs 2.02 bekommt dort Nachbauten
 aus dem Katalog: dieselben Bausteine, dieselben Notenwerte, die übrigen Werte bewusst leicht anders gesetzt (Hacktribes
 Bytes kommen nicht ins Projekt), im Klang nah dran. Master-Effekte: Hacktribe hat keine über Korgs 32 hinaus, es tauscht nur
-vier Werksplätze (10, 11, 21, 32); der Katalog beginnt auf beiden bei 33. Ein Patch-Update einer schon gepatchten Datei
-ordnet die Katalog-Plätze genauso neu. Patterns, die einen Katalog-Insert auf Korgs 2.02 nutzen, zeigen danach auf einen
+vier Werksplätze (10 Big Hall, 11 Plate Reverb, 21 Tap Delay Sync, 32 Tube Drive). Ab 1.4.7 bekommt Korgs 2.02 diese vier als
+Nachbauten auf 33 bis 36, angehängt, kein Werkspreset wird ersetzt; der Katalog beginnt dort bei 37. Hacktribe behält seine
+vier auf den Werksplätzen, sein Katalog beginnt weiter bei 33. Ein Patch-Update einer schon gepatchten Datei
+ordnet die Katalog-Plätze genauso neu. Patterns, die einen Katalog-Effekt auf Korgs 2.02 nutzen, zeigen danach auf einen
 anderen Effekt; sie werden nicht umgeschrieben.
+
+| Name | Baustein | Woher die Werte kommen |
+|---|---|---|
+| Big Hall | `M_hall_reverb` | Korgs Wet Reverb als Ausgang, länger und dunkler gesetzt, in Richtung Hacktribes Big Hall. Den Baustein nutzt kein Werkspreset. |
+| Plate Reverb | `M_wet_plate_reverb` | Korgs Hall Reverb, leicht verschoben. Den Baustein nutzt kein Werkspreset. |
+| Tap Delay Sync | `M_tape_echo` | Korgs Tape Delay mit Hacktribes Notenwerten (6 und 8), Ausgangspegel 44 statt 53, leichtes Leiern. |
+| Tube Drive | `M_tubepre` | Korgs Tube EQ ohne Tiefen- und Höhenschnitt, Y fährt Sättigung und Gain. |
+
+Im Emulator schicken die vier dem DSP dieselben Bausteine wie Hacktribes eigene, mit den eigenen Werten
+([Messung](messungen/2026-11-17-hacktribe-master-rot.md)). Gehört ist keiner.
 
 ## Laut
 
 | Name | Art | Was er tut |
 |---|---|---|
-| Loud Distortion | Insert | Gain 64, Ausgangspegel 20 (Grenze des Katalogs für den Verzerrer, Werkspreset 11). Regler: Verzerrung. |
+| Loud Distortion | Insert | Gain 64, Ausgangspegel 15 (Werkspreset 11; 20 war am Gerät doppelt so laut wie der Rest, [Pegel](messungen/2026-10-29-fx-katalog-pegel.md)). Regler: Verzerrung. |
 | ULTRA LOUD | Insert, zwei Stufen | Acid Drive mit Drive 127 und Ausgangspegel 30, dahinter ein Limiter: Röhrensättigung 127, Ausgangspegel 90 (Lautstärke sperrt der Linter nie, er warnt nur: über 90 `output-too-loud`, von 61 bis 90 `output-above-usable`, "nicht gehört"; 90 ist also die Grenze der Regeln). Regler: Drive 96 bis 127. Bis 1.4.6 vor dem Release mit Distortion statt Acid Drive: Distortion vor Limiter stürzt ab ([Nachtrag](messungen/2026-11-11-neue-effekte.md)). |
 
 ## Bässe, die springen
@@ -48,7 +60,7 @@ die Zeit der Hüllkurve (MOD. SPEED) kommt vom Platz, den du überschreibst.
 | Name | Art | Was er tut |
 |---|---|---|
 | Bass Enhancer | Insert, zwei Stufen | EQ (2 Bänder) mit Tiefen-Regal und etwas weniger Tiefmitten, dahinter ein Limiter. Regler: mehr Bass, weniger Eingangspegel. |
-| Glue Comp | Insert, zwei Stufen | Kompressor (SR1) mit Limiter dahinter. Regler: Schwelle runter, Pegel ausgleichen. |
+| Glue Comp | Insert | Sanfter Kompressor auf Korgs Kompressor-Baustein, Werte wie das Werkspreset Sustainer. Regler: Hüllkurve wie dort. |
 
 ## Kicks
 
@@ -77,8 +89,6 @@ die Zeit der Hüllkurve (MOD. SPEED) kommt vom Platz, den du überschreibst.
 | Tilt EQ | Insert | Kippt den Klang: links heller, rechts dunkler, Mitte unverändert. |
 | Mix Clean Up | Insert | Rumpeln unten und Dröhnen in den Tiefmitten raus, oben etwas Luft. |
 | Master Glue | Master | Kompressor auf der Summe. X dreht die Schwelle runter. |
-| Master Tilt | Master | Die Summe um sechs Stufen kippen: X nach links heller, nach rechts dunkler. |
-| Master Warmth | Master | Leichte Röhrensättigung auf der Summe. |
 
 ## Was nicht geht
 

@@ -94,10 +94,12 @@ Alles gelesen im DSP-Programm, die Bedeutung der Felder ist hergeleitet.
 - **Stimmenschleife** `0xFFA0141A`, einmal pro Sample: `P5 = 0xFF9030A4`, `P4 = [P5+0xC] = 0xFF802870`. Für jede
   Stimme mit Gate holt sie den Generator aus der Tabelle bei `0xFFB00010` über w3 und ruft ihn mit `P2 = &w4`, danach
   Gain und Summe in den Part-Bus `[P4+0x20+2·idx]`. Rumpf rund 52 Befehle (gezählt).
-- **Generatortabelle** `0xFFB00010` (aus ROM `0x01F02478`): `0x20` → `0xFFA0314E`, `0x21` → `0xFFA02EDE`
-  (Sample-Player), `0x22` → `0xFFA0331E` (Codec-Eingang), `0x23..0x26` → `0xFFA0346C`, `0xFFA03508`, `0xFFA0363E`,
-  `0xFFA03714`.
-- **Sample-Player `0x21`** (`0xFFA02EDE`):
+- **Generatortabelle** `0xFFB00010` (aus ROM `0x01F02478`): `0x22` → `0xFFA02EDE` (Sample-Player). Die Liste aus dem
+  GNU-Simulator (`0x21` → `0xFFA02EDE`, `0x22` → `0xFFA0331E` "Codec-Eingang") war um einen Platz verschoben, ein Fehler des
+  Simulators beim Kopieren der Tabelle ([Korrektur](2026-11-12-dsp-im-simulator.md#korrektur-1611)). Die Adressen
+  `0xFFA0314E`, `0xFFA0331E`, `0xFFA0346C`, `0xFFA03508`, `0xFFA0363E`, `0xFFA03714` gehören also zu den Typen um eins
+  über den alten Angaben (hergeleitet).
+- **Sample-Player `0x22`** (`0xFFA02EDE`):
   - Lesezeiger: 40-Bit-Phasenakku in w5 (A0.X) und w6 (A0.W). Position = A0 >>> 13, also 13 Nachkommabits,
     `0x2000` = 1,0.
   - Schrittweite (Pitch-Inkrement): w7, wird jedes Sample auf A0 addiert.
@@ -169,7 +171,7 @@ ohne Tonhöhe, ganz ohne Stretch (Urteil). Für Drum-Loops reicht das oft.
    `clock_status()` Zyklen und Leerlauf) ein volles Pattern laufen lassen und die freien DSP-Zyklen pro Sample zählen.
    Erst bei über rund 2000 freien Zyklen weiter (Urteil).
 3. **Live, dann bauen**: neuer Generatortyp nach `0xFFA0314E` in freiem L1-Code, Typnummer in die Tabelle bei
-   `0xFFB00010` eintragen, erst im Simulator gegen den Typ `0x21` vergleichen.
+   `0xFFB00010` eintragen, erst im Simulator gegen den Sample-Player (`0xFFA02EDE`) vergleichen.
 
 ## Belege
 
@@ -177,7 +179,7 @@ ohne Tonhöhe, ganz ohne Stretch (Urteil). Für Drum-Loops reicht das oft.
 |---|---|
 | WSOLA-Zahlen | Unicorn-Lauf, `wsola.c` und `run_wsola.py` (Scratchpad, nicht im Repo), Befehle pro Block mit capstone gezählt |
 | Gerätezeit pro Befehl/Byte | [Emulator-Timing](2026-10-16-emulator-timing.md) |
-| Generator `0x21`, `0x20`, Stimmenschleife | `objdump -D -b binary -m bfin --adjust-vma=0xFFA00000` auf den ausgepackten L1-Code |
+| Generatoren `0xFFA02EDE`, `0xFFA0314E`, Stimmenschleife | `objdump -D -b binary -m bfin --adjust-vma=0xFFA00000` auf den ausgepackten L1-Code |
 | Setter `0x2B` → `0xFFA068C8`/`0xFFA07394` | dieselbe Disassemblierung, ROM-Region `0x01F00000` für die Typtabelle |
 | Postfach, Host-Port, Tempo `0x20` | [DSP-Modell](2026-11-12-dsp-modell.md), [DSP im Simulator](2026-11-12-dsp-im-simulator.md) |
 | DSP-Budget voll | [Idee 52](../ideen/52-ton-im-emulator.md) |

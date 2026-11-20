@@ -17,11 +17,13 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, renameSync, rm
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildRuntimePatch } from "./script_runtime.mjs";
+import { langPatch, langPatchPath } from "../lang/lang_patch.mjs";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 export const RUNTIME_BUILDS = ["hacktribe", "stock", "synth"];
 // Everything the assembler and the builders after it read. A change in here makes the files stale.
-const SOURCE_DIRS = ["tools/patch", "src/script", "data/script"];
+// lang-de (tools/lang/lang_patch.mjs) is built with each runtime: its header carries the runtime's text numbering.
+const SOURCE_DIRS = ["tools/patch", "src/script", "data/script", "tools/lang", "data/lang"];
 // A build that dies leaves its lock behind; after this long the next one takes it over.
 const LOCK_STALE_MS = 10 * 60_000;
 const LOCK_WAIT_MS = 2 * 60_000;
@@ -49,9 +51,8 @@ function newestSource(root) {
 
 /** True when the file is missing or older than a source it is built from. */
 export function runtimePatchStale(build, root = ROOT) {
-  const path = runtimePatchPath(build, root);
-  if (!existsSync(path)) return true;
-  return statSync(path).mtimeMs <= newestSource(root);
+  const newest = newestSource(root);
+  return [runtimePatchPath(build, root), langPatchPath(build, join(root, "data/patches/"))].some(path => !existsSync(path) || statSync(path).mtimeMs <= newest);
 }
 
 const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
@@ -100,18 +101,21 @@ export function ensureRuntimePatches({ builds = RUNTIME_BUILDS, force = false, l
     const built = withLock(path, () => {
       // Another process waited with us and was quicker.
       if (!force && !runtimePatchStale(build, root)) return false;
-      let text;
+      let text, lang;
       try {
         text = buildRuntimePatch(build);
+        lang = `${JSON.stringify(langPatch(build), null, 1)}\n`;
       } catch (error) {
         throw new Error(`cannot build ${path}: ${error.message}\nThe runtime patches are built, not committed. They need Python 3 (npm run setup:emu sets up the emulator's venv, E2_EMU_PYTHON names another interpreter).`);
       }
       mkdirSync(dirname(path), { recursive: true });
       // Written beside the file and renamed, so a reader sees the old file or the finished one, never half of either.
-      const temp = `${path}.${process.pid}.tmp`;
-      writeFileSync(temp, text);
-      renameSync(temp, path);
-      log(`built ${path}`);
+      for (const [file, content] of [[langPatchPath(build, join(root, "data/patches/")), lang], [path, text]]) {
+        const temp = `${file}.${process.pid}.tmp`;
+        writeFileSync(temp, content);
+        renameSync(temp, file);
+        log(`built ${file}`);
+      }
       return true;
     });
     out.push({ build, path, built });

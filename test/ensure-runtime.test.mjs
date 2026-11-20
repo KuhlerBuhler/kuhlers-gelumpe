@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { tempDir } from "./support/lifetime.mjs";
 import { runtimePatchPath, runtimePatchStale, RUNTIME_BUILDS } from "../tools/patch/ensure-runtime.mjs";
+import { langPatchPath } from "../tools/lang/lang_patch.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 
@@ -28,6 +29,7 @@ test("a file that is missing or older than the sources is built, a fresh one is 
   utimesSync(join(dir, "data/script/nested/contract.mjs"), older, older);
 
   const out = runtimePatchPath("stock", dir);
+  const lang = langPatchPath("stock", join(dir, "data/patches/"));
   assert.equal(runtimePatchStale("stock", dir), true, "no file yet");
   mkdirSync(join(dir, "data/patches"), { recursive: true });
   writeFileSync(out, "{}");
@@ -35,12 +37,15 @@ test("a file that is missing or older than the sources is built, a fresh one is 
   assert.equal(runtimePatchStale("stock", dir), true, "as old as the sources");
   const future = new Date(Date.now() + 120_000);
   utimesSync(out, future, future);
+  assert.equal(runtimePatchStale("stock", dir), true, "lang-de, built with the runtime, is missing");
+  writeFileSync(lang, "{}");
+  utimesSync(lang, future, future);
   assert.equal(runtimePatchStale("stock", dir), false, "built after the sources");
 });
 
 test("the files are built by whoever needs them, not committed", () => {
   const ignore = readFileSync(join(root, ".gitignore"), "utf8");
-  for (const name of ["script-runtime.json", "script-runtime-stock.json", "script-runtime-synth.json"]) {
+  for (const name of ["script-runtime.json", "script-runtime-stock.json", "script-runtime-synth.json", "lang-de.json", "lang-de-stock.json", "lang-de-synth.json"]) {
     assert.match(ignore, new RegExp(`^data/patches/${name.replace(".", "\\.")}$`, "m"), `${name} is gitignored`);
   }
   for (const file of ["tools/test-runner.mjs", "tools/start.mjs", "tools/serve.mjs", "tools/build-site.mjs", "tools/emu/build-sidecar.mjs"]) {

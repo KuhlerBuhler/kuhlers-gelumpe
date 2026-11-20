@@ -123,7 +123,8 @@ Gemessen auf allen drei Builds, Seite 0 des Bildschirmspeichers (Zeilen 1 bis 7,
 Korrektur zur ersten Fassung: 75 bis 99 sind nicht "nie benutzt", das EDIT-Symbol belegt 84 bis 97 in den Menüs und löscht
 sie auf dem Hauptbildschirm. (gemessen)
 
-Belegung jetzt, auf dem Hauptbildschirm, gleich ob BATTERY % gerade gezeigt wird oder nicht:
+Belegung jetzt, auf dem Hauptbildschirm, solange BATTERY % gewollt ist (Batterie, Alkali, ON); ohne die Zahl steht das
+Kartensymbol wieder bei 109 und 94 bis 99 sind frei:
 
 | Spalten | Inhalt |
 |---|---|
@@ -145,7 +146,8 @@ sich geändert haben, und nur dann wird der Bereich als geändert markiert.
   bei x, y, wenn eine Karte drin ist. Es ist das dritte Objekt der Statusleiste: `[[SCREEN_MANAGER] + 0x4C]`. (gelesen)
 - `card_widget` holt es zur Laufzeit über diesen Zeiger, ohne feste Adresse pro Build, und nimmt es nur mit Breite 6, Höhe 8
   und x 109 oder 94.
-- `card_place` im Haken von SWITCH_SCREEN (`autosave_switch_hook`): für den Hauptbildschirm (1) x = 94, sonst 109. Ändert sich
+- `card_main_x`: auf dem Hauptbildschirm 94, solange `battery_model` die Zahl will (Batterie, Alkali, ON), sonst 109.
+- `card_place` im Haken von SWITCH_SCREEN (`autosave_switch_hook`): für den Hauptbildschirm (1) x aus `card_main_x`, sonst 109. Ändert sich
   x, wird +0x14 gesetzt und die alte Stelle gelöscht (GLOBAL PARAMETERS löscht sie selbst nicht).
 - Der Wechsel wird nur eingereiht, der Bildschirm-Manager zeigt ihn später. `card_frame` wartet darum bis zu 300 ms, bis der
   angekündigte Bildschirm da ist, und stellt sonst nichts um.
@@ -153,7 +155,9 @@ sich geändert haben, und nur dann wird der Bereich als geändert markiert.
   94 bis 99 nicht mehr so aussehen wie nach dem letzten Zeichnen (das Löschen durch EDIT) oder die Karte inzwischen gesteckt
   oder gezogen wurde. Letzteres braucht es auf blau: dort zeichnet das Stecken den Hauptbildschirm neu, das EDIT-Löschen nimmt
   die gerade gemalte Karte wieder weg, und die Spalten sehen danach aus wie vorher. Außerhalb des Hauptbildschirms stellt es
-  ein übrig gebliebenes x 94 auf 109 zurück (für einen Wechsel ohne SWITCH_SCREEN).
+  ein übrig gebliebenes x 94 auf 109 zurück (für einen Wechsel ohne SWITCH_SCREEN). Auf dem Hauptbildschirm folgt es
+  `card_main_x`: fällt die Zahl weg (Netzteil, Ni-MH, OFF), geht x auf 109, +0x14 wird gesetzt und 94 bis 99 gelöscht (nicht
+  unter einem Fenster oder einer App); kommt sie wieder, rückt die Karte zurück auf 94.
 - Beim Betreten des Hauptbildschirms ist die Karte für ein Bild weg (Firmware malt, EDIT löscht, `card_frame` malt neu). Im
   Emulator nicht sichtbar, am Gerät zu prüfen.
 

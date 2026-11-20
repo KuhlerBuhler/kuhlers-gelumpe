@@ -1,0 +1,24 @@
+{
+  "format": "gelumpe-lang-glossary",
+  "lang": "de",
+  "keepEnglish": [
+    "PATTERN", "PART", "MFX", "IFX", "EDIT", "WRITE", "SHIFT", "EXIT", "MENU", "PLAY", "REC", "STOP", "TAP", "KEY",
+    "SCALE", "TRIGGER", "SEQUENCER", "MOTION", "CHAIN", "Sample", "Loop", "Swing", "Gate", "Pitch", "Pan", "Cutoff",
+    "Resonance", "Attack", "Decay", "Release", "Groove", "Plugin", "MIDI", "BPM"
+  ],
+  "terms": {
+    "copy": "Kopie",
+    "delete": "Löschen",
+    "export": "Export",
+    "import": "Import",
+    "load": "Laden",
+    "save": "Speichern",
+    "settings": "Einstellungen",
+    "update": "Update",
+    "locked": "gesperrt",
+    "remove": "entfernen",
+    "card": "Karte",
+    "file": "Datei",
+    "working": "Läuft..."
+  }
+}

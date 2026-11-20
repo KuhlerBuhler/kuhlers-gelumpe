@@ -19,3 +19,22 @@ Nächste Schritte, jeder kann einen Neustart kosten: mehrere Prozesse, die den S
 nach `0xC1000000` schreiben und zurückschreiben, ohne EXEC; dann mehrere Prozesse mit
 EXEC ohne Rückschreiben. Das trennt "Schreiben nach `0xC1000000`" von "EXEC". Vor einem
 Update per USB nach solchen Tests das Kabel neu stecken und ein READ prüfen.
+
+## DSP lesen per EXEC (14. und 15.11.)
+
+Die Werkzeuge in `tools/device` (`dsp_peek.py`, `l1_dump.py`, `region_peek.py`) lesen den DSP über die Host-Port-Lesefunktion
+der Firmware `0xC00141F8`, gestartet per EXEC. Die Funktion nimmt Sperre 1 und wartet ohne Zeitgrenze auf den Host-Port
+(hergeleitet aus dem Code). Bleibt die Antwort aus, hängt jedes DSP-Kommando und damit das Gerät.
+
+| Lesen | Ergebnis | Status |
+|---|---|---|
+| Bank A ab `0xFF800000` (`l1_dump.py`), Leerlauf | hängt bei den ersten Lesezugriffen, Aus/Ein nötig, Karte unberührt | gemessen |
+| Bank B `0xFF904000` bis `0xFF908000`, Leerlauf | zweimal ohne Fehler | gemessen |
+| L1-Scratchpad `0xFFB00010` | hängt, zweimal von zwei, auch auf einem stillen Gerät | gemessen |
+| Code der Stimmenschleife `0xFFA0141A..0xFFA0157C` | hängt | gemessen |
+| beliebige Adresse, während ein Sample klingt | hängt | gemessen |
+| Code bei `0xFFA0331E` und `0xFFA04612`, Stimmen- und Part-Blöcke, stilles Gerät nach STOP und Ausklingen | ohne Fehler | gemessen |
+
+Daraus: per EXEC nur auf einem stillen Gerät lesen, nur feste bekannte Blöcke (kein Abzug ganzer Bänke) und L1-Code außerhalb
+der Stimmenschleife, nie das Scratchpad `0xFFB00000` oder Peripherie-Register (die DMA erreicht sie nicht, hergeleitet). Für
+bekannte RAM-Adressen der CPU reicht BLECH READ (`0x61`) ohne EXEC.

@@ -368,6 +368,8 @@ label.btn:has(+ .cee-visually-hidden:focus-visible) {
   width: min(100%, 32rem);
   aspect-ratio: 2 / 1;
   image-rendering: pixelated;
+  /* Only set pixels are drawn; the backlight (the off colour, set by emulator.mjs) shows through the rest. */
+  background-color: var(--cee-lcd-back, transparent);
 }
 
 /* The catalog shows the plugins like the device does by default: DISPLAY INVERT is on, light pixels on dark. */

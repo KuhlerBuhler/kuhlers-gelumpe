@@ -185,6 +185,9 @@ benutzt, die übrigen folgen aus derselben Reihenfolge:
 | 0x80 | `FR_CARD_NEVER` (BLECH) | Gerät ohne Karte gestartet: kein Dateibefehl fasst eine Karte an, bis zum nächsten Start (siehe unten) | gemessen im Emulator (`sysex:file_no_card`, `file_card_after_start_without_one`) |
 | 0x81 | `FR_SHORT` (BLECH) | `f_write` hat weniger Bytes geschrieben als verlangt: Karte voll | offline gelesen |
 
+Am Gerät nach einem DSP-Absturz gesehen (rot, 14.11.): `usbfile.py` bekam Status 6 für `SYSTEM.VSB` und `ORIGINAL.BIN`,
+obwohl beide auf der Karte lagen. Aus und wieder Ein, ohne SOFTWARE UPDATE zu starten, brachte die Karte zurück (**gemessen**).
+
 Nach einem Start ohne Karte steht das Kartenwort des BLECH-Menüs (`M_CARD`, `MENU_STATE + 0x1B0`) auf `CARD_NEVER`. Eine danach
 gesteckte Karte kann Korgs SD-Init hängen lassen (#518). Darum prüfen alle Dateibefehle dieses Wort vor dem Öffnen oder Löschen
 (`fs_open`, `fs_unlink` in `tools/patch/blech_sysex.py`) und antworten mit 6 und Code 0x80, ohne die Karte anzusprechen. Im

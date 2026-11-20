@@ -38,4 +38,5 @@ Run the emulator-based scripts from the repository root with the emulator venv (
 `tools/device/dsp_peek.py`, `region_peek.py`, `l1_dump.py` and `heap_head.py` read DSP memory on the device through the
 firmware's own host-port read (`0xC00141F8`). They compare the device code with a reference VSB first, then place a small
 stub at `0xC1000000`, run it with BLECH EXEC and restore the buffer afterwards. EXEC changes device state: only run them
-on purpose. `dsp_peek.py --emu VSB` runs the same read in the emulator.
+on purpose. Some reads hang the device (bank A, the L1 scratchpad, the voice loop code, any read while a voice sounds), see
+[Hänger nach EXEC](../../../docs/messungen/2026-11-15-remote-exec-haenger.md#dsp-lesen-per-exec-14-und-1511). `dsp_peek.py --emu VSB` runs the same read in the emulator.

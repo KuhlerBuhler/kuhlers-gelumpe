@@ -6,6 +6,301 @@
 export const FX_CATALOG = Object.freeze([
  {
   "kind": "mfx",
+  "name": "Big Hall",
+  "description": "Nach Hacktribes Big Hall: ein großer, langer Hall, dunkler als Korgs Wet Reverb. Der Effekt-Schalter blendet den Hall ein, X macht ihn länger, Y nach oben mehr Hall, nach unten weniger.",
+  "stages": [
+   {
+    "stage": "mfx",
+    "unit": 54,
+    "unitName": "M_hall_reverb",
+    "params": {
+     "dry_wet": 100,
+     "time": 120,
+     "hi_damp": 88,
+     "pre_delay": 60,
+     "trim": 52,
+     "trim2": 127,
+     "lo_eq": 22,
+     "hi_eq": 31,
+     "pd_thru": 120
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 65,
+    "chain": 7,
+    "param": 5,
+    "low": 0,
+    "high": 44
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 1,
+    "low": 30,
+    "high": 100
+   },
+   {
+    "source": 71,
+    "chain": 2,
+    "param": 4,
+    "low": 24,
+    "high": 0
+   },
+   {
+    "source": 70,
+    "chain": 2,
+    "param": 4,
+    "low": 24,
+    "high": 84
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "mfx",
+  "name": "Plate Reverb",
+  "description": "Nach Hacktribes Plate Reverb: ein dichter Plattenhall, eingestellt wie Korgs Hall Reverb. Der Effekt-Schalter blendet den Hall ein, X macht ihn länger, Y nach oben mehr Hall, nach unten weniger.",
+  "stages": [
+   {
+    "stage": "mfx",
+    "unit": 56,
+    "unitName": "M_wet_plate_reverb",
+    "params": {
+     "dry_wet": 100,
+     "time": 42,
+     "hi_damp": 112,
+     "pre_delay": 40,
+     "trim": 52,
+     "trim2": 127,
+     "lo_eq": 24,
+     "hi_eq": 32,
+     "pd_thru": 92
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 65,
+    "chain": 7,
+    "param": 5,
+    "low": 0,
+    "high": 44
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 1,
+    "low": 30,
+    "high": 122
+   },
+   {
+    "source": 71,
+    "chain": 2,
+    "param": 4,
+    "low": 24,
+    "high": 0
+   },
+   {
+    "source": 70,
+    "chain": 2,
+    "param": 4,
+    "low": 24,
+    "high": 80
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "mfx",
+  "name": "Tap Delay Sync",
+  "description": "Nach Hacktribes Tap Delay Sync: Korgs Tape Delay mit einem anderen Notenwert für das erste Echo, etwas leiser und mit leichtem Leiern. X stellt die Zeit, Y oben mehr Wiederholungen und Sättigung, unten weniger Pegel.",
+  "stages": [
+   {
+    "stage": "mfx",
+    "unit": 60,
+    "unitName": "M_tape_echo",
+    "params": {
+     "dry_wet": 100,
+     "time_ratio": 40,
+     "sync_on": 1,
+     "s_note1": 6,
+     "s_note2": 8,
+     "time1": 19,
+     "time2": 19,
+     "delay_lag": 1,
+     "output_level": 44,
+     "tap1_level": 86,
+     "tap2_level": 86,
+     "feedback": 68,
+     "hi_damp": 84,
+     "lo_damp": 60,
+     "trim": 66,
+     "saturation": 45,
+     "gain": 53,
+     "gainshift": 5,
+     "lfo_wave": 3,
+     "lfo_depth": 20,
+     "lfo_speed": 34,
+     "lfo_reset": 0,
+     "pre_lpf": 106,
+     "spread": 100
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 65,
+    "chain": 7,
+    "param": 5,
+    "low": 0,
+    "high": 127
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 1,
+    "low": 46,
+    "high": 40
+   },
+   {
+    "source": 70,
+    "chain": 2,
+    "param": 11,
+    "low": 30,
+    "high": 66
+   },
+   {
+    "source": 71,
+    "chain": 2,
+    "param": 14,
+    "low": 62,
+    "high": 0
+   },
+   {
+    "source": 67,
+    "chain": 2,
+    "param": 15,
+    "low": 46,
+    "high": 92
+   },
+   {
+    "source": 70,
+    "chain": 2,
+    "param": 16,
+    "low": 53,
+    "high": 62
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "mfx",
+  "name": "Tube Drive",
+  "description": "Nach Hacktribes Tube Drive: Korgs Tube EQ ohne Filter, als Röhrenverzerrer. Y zerrt stärker und nimmt dabei den Pegel etwas zurück, X nimmt Bass raus.",
+  "stages": [
+   {
+    "stage": "mfx",
+    "unit": 47,
+    "unitName": "M_tubepre",
+    "params": {
+     "dry_wet": 100,
+     "tube1_gain": 70,
+     "tube1_sat": 0,
+     "tube2_gain": 66,
+     "tube2_sat": 82,
+     "lo_cut1": 0,
+     "hi_cut1": 126,
+     "lo_cut2": 0,
+     "hi_cut2": 127,
+     "tube1_bias": 30,
+     "tube1_phase": 0,
+     "tube2_bias": 40,
+     "output_level": 64
+    }
+   }
+  ],
+  "map": [
+   {
+    "source": 65,
+    "chain": 10,
+    "param": 4,
+    "low": 127,
+    "high": 0
+   },
+   {
+    "source": 65,
+    "chain": 10,
+    "param": 0,
+    "low": 0,
+    "high": 127
+   },
+   {
+    "source": 67,
+    "chain": 2,
+    "param": 2,
+    "low": 20,
+    "high": 124
+   },
+   {
+    "source": 70,
+    "chain": 2,
+    "param": 0,
+    "low": 36,
+    "high": 100
+   },
+   {
+    "source": 71,
+    "chain": 2,
+    "param": 4,
+    "low": 70,
+    "high": 26
+   },
+   {
+    "source": 71,
+    "chain": 2,
+    "param": 0,
+    "low": 30,
+    "high": 0
+   },
+   {
+    "source": 66,
+    "chain": 2,
+    "param": 5,
+    "low": 0,
+    "high": 80
+   },
+   {
+    "source": 67,
+    "chain": 2,
+    "param": 12,
+    "low": 62,
+    "high": 50
+   },
+   {
+    "source": 67,
+    "chain": 2,
+    "param": 1,
+    "low": 64,
+    "high": 96
+   },
+   {
+    "source": 67,
+    "chain": 2,
+    "param": 3,
+    "low": 34,
+    "high": 96
+   }
+  ],
+  "creator": "Kuhler Buhler",
+  "hacktribe": true
+ },
+ {
+  "kind": "mfx",
   "name": "Short Delay",
   "description": "Ein kurzes Stereo-Echo, die Wiederholungen leicht versetzt. Das Touchpad mischt das Echo dazu und verschiebt die Zeiten.",
   "stages": [
@@ -957,7 +1252,7 @@ export const FX_CATALOG = Object.freeze([
  {
   "kind": "ifx",
   "name": "Loud Distortion",
-  "description": "Weniger Verzerrung als das Werkspreset (Gain 64 statt 100), der Ausgangspegel deutlich darüber (20 statt 11). Der Regler dreht die Verzerrung.",
+  "description": "Weniger Verzerrung als das Werkspreset (Gain 64 statt 100), der Ausgangspegel etwas darüber (15 statt 11). Der Regler dreht die Verzerrung.",
   "stages": [
    {
     "stage": "ifx1",
@@ -978,7 +1273,7 @@ export const FX_CATALOG = Object.freeze([
      "post_eq3_frequency": 53,
      "post_eq3_q": 5,
      "post_eq3_gain": 25,
-     "output_level": 20
+     "output_level": 15
     }
    },
    {
@@ -1262,7 +1557,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "M_level_mod",
     "params": {
      "amp_level": 127,
-     "output_gain_adjust": 26,
+     "output_gain_adjust": 38,
      "level_mod_source": 4,
      "level_mod_int": 126,
      "level_mod_type": 0,
@@ -1480,7 +1775,7 @@ export const FX_CATALOG = Object.freeze([
     "params": {
      "dry_wet": 100,
      "envelope_select": 0,
-     "threshold": 48,
+     "threshold": 52,
      "attack": 0,
      "release": 8,
      "hold_time": 8,
@@ -1508,8 +1803,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 2,
     "param": 2,
-    "low": 52,
-    "high": 30
+    "low": 60,
+    "high": 44
    }
   ],
   "creator": "Kuhler Buhler"
@@ -1525,7 +1820,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "I_level_mod",
     "params": {
      "amp_level": 127,
-     "output_gain": 36,
+     "output_gain": 45,
      "level_mod_source": 4,
      "level_mod_int": 8,
      "level_mod_type": 0,
@@ -1573,7 +1868,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "I_level_mod",
     "params": {
      "amp_level": 127,
-     "output_gain": 36,
+     "output_gain": 45,
      "level_mod_source": 4,
      "level_mod_int": 8,
      "level_mod_type": 0,
@@ -1777,7 +2072,7 @@ export const FX_CATALOG = Object.freeze([
     "unitName": "I_acid_driver",
     "params": {
      "drive": 40,
-     "output_level": 42
+     "output_level": 46
     }
    },
    {
@@ -1809,8 +2104,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 0,
     "param": 1,
-    "low": 50,
-    "high": 27
+    "low": 56,
+    "high": 32
    }
   ],
   "creator": "Kuhler Buhler"
@@ -1973,7 +2268,7 @@ export const FX_CATALOG = Object.freeze([
      "hi_damp": 120,
      "sample_freq": 127,
      "bit_depth": 8,
-     "output_level": 90,
+     "output_level": 127,
      "mask_type": 0
     }
    },
@@ -1996,8 +2291,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 0,
     "param": 6,
-    "low": 90,
-    "high": 75
+    "low": 127,
+    "high": 106
    }
   ],
   "creator": "Kuhler Buhler"
@@ -2018,7 +2313,7 @@ export const FX_CATALOG = Object.freeze([
      "hi_damp": 110,
      "sample_freq": 60,
      "bit_depth": 20,
-     "output_level": 90,
+     "output_level": 127,
      "mask_type": 0
     }
    },
@@ -2043,39 +2338,24 @@ export const FX_CATALOG = Object.freeze([
  {
   "kind": "ifx",
   "name": "Glue Comp",
-  "description": "Ein Kompressor, der Bass und Drums zusammenhält, dahinter ein Limiter als Sicherung. Der Regler dreht die Schwelle runter und gleicht den Pegel mit aus.",
+  "description": "Ein sanfter Kompressor, der Bass und Drums zusammenhält, auf Korgs Kompressor-Baustein mit den Werten des Werkspresets Sustainer. Der Regler fährt die Hüllkurve wie beim Werkspreset.",
   "stages": [
    {
     "stage": "ifx1",
-    "unit": 2,
-    "unitName": "I_sr1_comp",
+    "unit": 3,
+    "unitName": "I_cheap_comp",
     "params": {
-     "dry_wet": 100,
-     "envelope_select": 0,
-     "threshold": 40,
-     "ratio": 8,
-     "knee": 6,
-     "attack": 11,
-     "release": 5,
-     "hold_time": 0,
-     "tube_sat": 10,
-     "output_gain": 52
+     "hpf_b1": 127,
+     "peak_hold_b1": 0,
+     "env_bit_shift_amount": 35,
+     "output_level": 11
     }
    },
    {
     "stage": "ifx2",
-    "unit": 5,
-    "unitName": "I_limiter",
-    "params": {
-     "dry_wet": 100,
-     "envelope_select": 0,
-     "threshold": 52,
-     "attack": 0,
-     "release": 3,
-     "hold_time": 3,
-     "tubesat": 0,
-     "output_gain": 48
-    }
+    "unit": 0,
+    "unitName": "nofx_thru",
+    "params": {}
    }
   ],
   "map": [
@@ -2083,15 +2363,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 0,
     "param": 2,
-    "low": 46,
-    "high": 26
-   },
-   {
-    "source": 66,
-    "chain": 0,
-    "param": 9,
-    "low": 50,
-    "high": 58
+    "low": 35,
+    "high": 0
    }
   ],
   "creator": "Kuhler Buhler"
@@ -2242,14 +2515,14 @@ export const FX_CATALOG = Object.freeze([
     "params": {
      "dry_wet": 100,
      "envelope_select": 0,
-     "threshold": 42,
+     "threshold": 27,
      "ratio": 8,
      "knee": 6,
      "attack": 11,
      "release": 5,
      "hold_time": 0,
      "tube_sat": 0,
-     "output_gain": 50
+     "output_gain": 53
     }
    }
   ],
@@ -2272,129 +2545,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 2,
     "param": 2,
-    "low": 46,
-    "high": 30
-   }
-  ],
-  "creator": "Kuhler Buhler"
- },
- {
-  "kind": "mfx",
-  "name": "Master Tilt",
-  "description": "Kippt die ganze Summe: X nach links macht sie heller, nach rechts dunkler, um sechs Stufen. Ein Baustein, den Hacktribe in keinem Preset benutzt.",
-  "stages": [
-   {
-    "stage": "mfx",
-    "unit": 43,
-    "unitName": "M_eq_4_band",
-    "params": {
-     "dry_wet": 100,
-     "trim": 127,
-     "b1_type": 2,
-     "b2_type": 0,
-     "b3_type": 0,
-     "b4_type": 1,
-     "b1_frequency": 18,
-     "b1_q": 5,
-     "b1_gain": 36,
-     "b2_frequency": 33,
-     "b2_q": 5,
-     "b2_gain": 36,
-     "b3_frequency": 48,
-     "b3_q": 5,
-     "b3_gain": 36,
-     "b4_frequency": 38,
-     "b4_q": 5,
-     "b4_gain": 36
-    }
-   }
-  ],
-  "map": [
-   {
-    "source": 65,
-    "chain": 10,
-    "param": 4,
-    "low": 127,
-    "high": 0
-   },
-   {
-    "source": 65,
-    "chain": 10,
-    "param": 0,
-    "low": 0,
-    "high": 127
-   },
-   {
-    "source": 66,
-    "chain": 2,
-    "param": 8,
-    "low": 30,
-    "high": 42
-   },
-   {
-    "source": 66,
-    "chain": 2,
-    "param": 17,
-    "low": 42,
-    "high": 30
-   }
-  ],
-  "creator": "Kuhler Buhler"
- },
- {
-  "kind": "mfx",
-  "name": "Master Warmth",
-  "description": "Leichte Röhrensättigung auf der Summe: etwas Wärme und Dichte, ohne zu verzerren. X dreht die Sättigung auf.",
-  "stages": [
-   {
-    "stage": "mfx",
-    "unit": 47,
-    "unitName": "M_tubepre",
-    "params": {
-     "dry_wet": 100,
-     "tube1_gain": 52,
-     "tube1_sat": 20,
-     "tube2_gain": 52,
-     "tube2_sat": 30,
-     "lo_cut1": 0,
-     "hi_cut1": 127,
-     "lo_cut2": 0,
-     "hi_cut2": 127,
-     "tube1_bias": 30,
-     "tube1_phase": 0,
-     "tube2_bias": 40,
-     "output_level": 84
-    }
-   }
-  ],
-  "map": [
-   {
-    "source": 65,
-    "chain": 10,
-    "param": 4,
-    "low": 127,
-    "high": 0
-   },
-   {
-    "source": 65,
-    "chain": 10,
-    "param": 0,
-    "low": 0,
-    "high": 127
-   },
-   {
-    "source": 66,
-    "chain": 2,
-    "param": 2,
-    "low": 20,
-    "high": 70
-   },
-   {
-    "source": 66,
-    "chain": 2,
-    "param": 4,
-    "low": 30,
-    "high": 80
+    "low": 33,
+    "high": 21
    }
   ],
   "creator": "Kuhler Buhler"

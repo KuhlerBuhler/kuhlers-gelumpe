@@ -169,6 +169,7 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 - [Bedienfeld: Nummern der Tasten, Regler, Pads und LEDs](2026-10-08-panel-bedienung.md)
 - [LEDs selbst setzen: Execute, Caches, RGB](2026-10-08-led-execute.md)
 - [Hänger im Emulator erkennen](2026-10-10-haenger.md)
+- [Karte im laufenden Emulator gesteckt: "hängt" war ein Fehlalarm des Dienstes, kein Firmware-Hänger](2026-11-19-karte-stecken-emulator-haengt.md)
 - [Emulator-Takt: 1000 Timer-Interrupts je Sekunde](2026-10-12-emulator-takt.md)
 - [Display-Helligkeit: die Firmware schaltet nur an und aus](2026-10-12-lcd-helligkeit.md)
 - [Emulator-Tempo: Zeit je Gerätesekunde](2026-10-13-emulator-tempo.md)
@@ -214,7 +215,7 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [Aussehen früh im Start: Zeitlinie und der früheste Punkt](2026-10-16-blech-look-frueh.md)
 - [Pad-LEDs: nur an oder aus, am Gerät gemessen](2026-10-16-pad-led-stufen.md) (am 18.10. widerlegt: Pulsieren pulsiert flüssig)
 - [Display: Schriften und Symbole der Firmware](2026-10-14-display-schriften.md)
-
+- [Firmware in einer anderen Sprache: Korgs Menütexte und ihre Zeiger, Umlaut-Glyphen, Breite, BLECH-Menü, Aufwand, im Emulator und offline](2026-11-19-firmware-sprache.md)
 
 ## Plugins
 
@@ -365,6 +366,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [MANAGE PLUGINS: 64 Dateien statt 16, REMOVE löscht die Datei, OFF behält sie](2026-10-30-plugin-liste-64-entfernen.md)
 - [Plugins schreiben Steps: korg.seq, im Emulator geprüft](2026-10-26-plugin-steps.md)
 - [Die Ansicht des nächsten Patterns: Pads und Info-Texte](2026-10-25-pattern-ansicht.md)
+- [Vorschau-BPM: die BPM oben zeigt beim Ansehen das Tempo des angesehenen Patterns, Tempo-Widget und Setter, im Emulator](2026-11-19-vorschau-bpm.md)
 - [Test-Modus und Fernbedienung aller Bedienelemente über die Warteschlange des Panels](2026-10-29-test-modus-fernsteuerung.md)
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)
 - [Karte im Betrieb getauscht: neue Karte wird mit 12,5 MHz identifiziert](2026-11-14-karte-tausch-takt.md)
@@ -407,6 +409,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Hacktribe-Oszillatoren auf den freien Plätzen 422 bis 497 der roten Firmware](2026-11-08-ht-osc-freie-plaetze.md)
 - [Osterei auf der Seite VERSION, Freischaltung im Flash, Sample 500 offen](2026-11-09-osterei-version.md)
 - [Hacktribes Extra-Effekte, Grooves und Touch-Skalen auf der roten 2.02: was als Datenpatch geht](2026-11-10-hacktribe-extras-rot.md)
+- [Hacktribes Master-Effekte als Nachbau auf MFX 33 bis 36 der roten 2.02, Katalog ab 37, im Emulator](2026-11-17-hacktribe-master-rot.md)
 - [Patterns-Ordner: Export, Import-Browser, Laden beim Start, Globals](2026-11-14-patterns-ordner.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)

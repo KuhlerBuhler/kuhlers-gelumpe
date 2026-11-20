@@ -3169,6 +3169,14 @@ def card_later_cases(payload, flash=None):
     bare_dev.run(1.0)
     after_bare = look(bare_dev)
     add("start_without_card_reads_none", bare != ref_a and after_bare == bare and not bare_dev.m.asserts, f"without card {bare}; card put in {after_bare}; started with it {ref_a}")
+    # the service took that device for hung (PR #690): it sends the panel nothing then, so it must still reach its idle wait
+    waits = bare_dev.m.idle_waits
+    bare_dev.run(2.0)
+    waits = bare_dev.m.idle_waits - waits
+    bare_dev.press("menu", 0.5)
+    screen = bare_dev.screen()["number"]
+    add("card_put_in_keeps_running", waits > 1000 and screen not in (None, 1) and not bare_dev.m.asserts,
+        f"idle waits in 2 s after the card went in {waits}, screen after MENU {screen}")
 
     blank = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
     blank.m.eject_card()
@@ -3495,9 +3503,9 @@ def changed_sectors(before, after):
 
 
 def flash_settings_cases(payload, flash=None):
-    """The BLECH settings in the flash for a device without a card (menu_flash_read, menu_flash_save, autosave_leave in
-    tools/patch/script_menu.s): without a card a change goes to the flash when the BLECH screen is left (AUTO SAVE, the default) or by
-    WRITE, and the next start without a card reads it;
+    """The BLECH settings in the flash, their main store (menu_flash_read, menu_flash_save, autosave_leave in
+    tools/patch/script_menu.s): a change goes to the flash when the BLECH screen is left (AUTO SAVE, the default) or by
+    WRITE, with a card in after the card's file (1.4.7), and the next start without a card reads it;
     a card with a settings file wins at the start; after a start with a card, a card put in for the pulled one applies its
     settings at once and asks "SAVE TO FLASH?" (MENU writes them, EXIT keeps them in RAM only), pulled without saving the flash
     copy runs again; after a start without a card no card is read (#518);
@@ -3577,21 +3585,26 @@ def flash_settings_cases(payload, flash=None):
     add("torn_copy_falls_back", switches(fallback) == (0, 1) and switches(nothing) == (1, 1) and not fallback.m.asserts and not nothing.m.asserts,
         f"B torn {switches(fallback)}, both erased {switches(nothing)}")
 
-    # 4. a card with a settings file wins at the start; the flash stays as it is, WRITE goes to the card
+    # 4. a card with a settings file wins at the start and the flash stays as it is; WRITE goes to the card and to the flash, the
+    # main store (generation 3 in A, nothing else)
     card_file = settings_file_v2(7, 0x1, look_word(1, (15, 7, 0)))
     files = {**CARD_FOLDER, SETTINGS_PATHS[0]: card_file}
     carded = start(second, files)
     erased = watch(carded)
     on_card = switches(carded), state(carded, 0x114) >> 16 & 1
+    at_start = bytes(carded.m.flash.mem) == second
     goto_group(carded, GROUP_FEATURES, FEAT_TM)
     carded.turn(-1, wait=0.3)
     press(carded, "write", wait=0.6)
     carded.run(3.0)
     written = read_settings(carded.m.mmc.card.medium.data)
+    took = flags(bytes(carded.m.flash.mem), FLASH_SET_A)
     plain = start(second, CARD_FOLDER)
-    add("card_wins", on_card == ((1, 1), 1) and bytes(carded.m.flash.mem) == second and not erased and any(gen == 8 and fl & TM_OFF_BIT for gen, fl in written.values())
+    add("card_wins", on_card == ((1, 1), 1) and at_start and any(gen == 8 and fl & TM_OFF_BIT for gen, fl in written.values())
+        and took is not None and took[0] == 3 and took[1] & TM_OFF_BIT and not took[1] & NA_OFF_BIT and [e[:2] for e in erased] == ours[:1]
         and switches(plain) == (0, 0) and not carded.m.asserts,
-        f"card start {on_card[0]} hold {on_card[1]}, flash {'unchanged' if bytes(carded.m.flash.mem) == second else 'written'}, erases {erased}, card files {written}, card without a file {switches(plain)}")
+        f"card start {on_card[0]} hold {on_card[1]}, flash {'unchanged' if at_start else 'written'} at the start, erases {erased}, card files {written}, "
+        f"copy A after WRITE {took}, card without a file {switches(plain)}")
 
     def lcd(dev):
         return bytes(b for row in dev.m.fb for b in row)
@@ -3775,6 +3788,91 @@ def flash_settings_cases(payload, flash=None):
     off_a = flags(bytes(off.m.flash.mem), FLASH_SET_A)
     add("auto_save_off_waits_for_write", left == [] and [e[:2] for e in erased] == ours[:1] and off_a is not None and off_a[0] == 3
         and not off_a[1] & TM_OFF_BIT and not off.m.asserts, f"erases on leaving {left}, after WRITE {erased}, copy A {off_a}")
+    # 13. the flash is the main store with a card in as well (1.4.7): started with a card, a change goes to the card and, on leaving
+    # the BLECH screen, to the flash; the next start without a card has it
+    def card_change(dev):
+        """TAP MOTION OFF on its page, then back to the main screen (AUTO SAVE)."""
+        goto_group(dev, GROUP_FEATURES, FEAT_TM)
+        dev.turn(-1, wait=0.3)
+        leave_to_main(dev)
+        dev.run(1.0)
+
+    main = start(second, files)
+    erased = watch(main)
+    card_change(main)
+    main_flash = bytes(main.m.flash.mem)
+    main_rec = flags(main_flash, FLASH_SET_A)
+    main_card = read_settings(main.m.mmc.card.medium.data)
+    cardless = start(main_flash)
+    add("card_change_reaches_flash", switches(main) == (0, 1) and main_rec is not None and main_rec[0] == 3 and main_rec[1] & TM_OFF_BIT
+        and not main_rec[1] & NA_OFF_BIT and any(gen == 8 and fl & TM_OFF_BIT for gen, fl in main_card.values())
+        and [e[:2] for e in erased] == ours[:1] and switches(cardless) == (0, 1) and not main.m.asserts and not cardless.m.asserts,
+        f"after the change {switches(main)}, copy A {main_rec}, card files {main_card}, erases {erased}; next start without a card {switches(cardless)}")
+
+    # 14. after that change, a card with other settings put in: they run at once and the display asks; EXIT keeps the change in the
+    # flash (the next start without a card has it), MENU writes the card's settings over it (generation 4 in B)
+    for answer in ("exit", "menu"):
+        other = start(second, files)
+        card_change(other)
+        changed = bytes(other.m.flash.mem)
+        erased = watch(other)
+        pulled, _ = swap(other, files)
+        q = switches(other), asked(other), held_bit(other)
+        press(other, answer, wait=0.6)
+        other.run(1.0)
+        after = switches(other), asked(other)
+        left = bytes(other.m.flash.mem)
+        recs = flags(left, FLASH_SET_A), flags(left, FLASH_SET_B)
+        restart = start(left)
+        if answer == "exit":
+            ok = left == changed and not erased and switches(restart) == (0, 1)
+        else:
+            ok = (recs[0] is not None and recs[0][0] == 3 and recs[0][1] & TM_OFF_BIT and recs[1] is not None and recs[1][0] == 4
+                  and not recs[1][1] & (TM_OFF_BIT | NA_OFF_BIT) and [e[:2] for e in erased] == ours[1:] and switches(restart) == (1, 1))
+        add(f"card_swap_after_change_{answer}", pulled == (0, 1) and q == ((1, 1), 1, 1) and after == ((1, 1), 0) and ok
+            and not other.m.asserts and not restart.m.asserts,
+            f"pulled {pulled}; card in: switches/ask/hold {q}; after {answer.upper()} {after}; copies A/B {recs}, erases {erased}; "
+            f"next start without a card {switches(restart)}")
+
+    # 15. the card only stale (device 18.11.): a start with the card and a change (card and flash in step), a start without a card,
+    # the card put in later stays untouched (#518) while PAD COLOR changes into the flash; the next start with that card takes the
+    # flash's colour, as the card holds the card generation the flash's copy was written with; the next save brings the card up to date
+    def boot_with(image, card_bytes):
+        dev = Dev(payload, bytes(image), 0)
+        dev.m.adapter = True
+        dev.m.insert_card(SDCard(MemoryMedium(bytearray(card_bytes))))
+        dev.run(wait)
+        return dev
+
+    def pad_colour(dev):
+        goto_group(dev, GROUP_PADS, 0)
+        return texts_of(dev)[1]
+
+    synced = start(second, files)
+    card_change(synced)
+    synced_card = bytes(synced.m.mmc.card.medium.data)
+    later = start(bytes(synced.m.flash.mem))
+    later.m.insert_card(SDCard(MemoryMedium(bytearray(synced_card))))
+    later.run(1.0)
+    was = pad_colour(later)
+    later.turn(1, wait=0.4)
+    chosen = texts_of(later)[1]
+    leave_to_main(later)
+    later.run(1.0)
+    untouched = bytes(later.m.mmc.card.medium.data) == synced_card
+    back = boot_with(bytes(later.m.flash.mem), synced_card)
+    shown = pad_colour(back), switches(back), held_bit(back)
+    back.turn(1, wait=0.4)
+    next_colour = texts_of(back)[1]
+    leave_to_main(back)
+    back.run(1.0)
+    caught_up = read_settings_look(back.m.mmc.card.medium.data)
+    newest = max(caught_up.values(), key=lambda v: v[0]) if caught_up else None
+    again = boot_with(bytes(back.m.flash.mem), bytes(back.m.mmc.card.medium.data))
+    add("stale_card_takes_the_flash", chosen != was and untouched and shown == (chosen, (0, 1), 0) and newest is not None and newest[0] == 9
+        and pad_colour(again) == next_colour and not later.m.asserts and not back.m.asserts and not again.m.asserts,
+        f"card in after a start without one: PAD COLOR {was} -> {chosen}, card {'untouched' if untouched else 'written'}; start with "
+        f"the card: colour/switches/hold {shown}; a change to {next_colour}: card files {caught_up}; next start {pad_colour(again)}")
     return out
 
 
