@@ -115,13 +115,13 @@
 .equ MMC_CTL, 0x01C40000      ; MMC0 control: bit 2 WIDTH (4-bit bus)
 .equ MMC_CLK, 0x01C40004      ; MMC0 clock: bit 9 DIV4, bit 8 on, bits 0-7 CLKRT; 150 MHz / ((DIV4 ? 4 : 2) * (CLKRT + 1))
 .equ MMC_CLK_IDENT, 0x25D     ; 0.4 MHz, the identification clock Korg sets once at power-on, before the first card init
-; The settings in the flash, for a device without a card (menu_flash_read, menu_flash_save; written when the BLECH screen is left, autosave_leave): the record of
+; The settings in the flash, the main store, with a card as well (menu_flash_read, menu_flash_save; written when the BLECH screen is left, autosave_leave): the record of
 ; settings.a.bin (version 3 or 4), behind it the word FLASH_TAG << 16 | generation and the CRC-32 of record and word, in one of two 4 KiB
 ; sectors by the parity of the generation (odd FLASH_SET_A, even FLASH_SET_B), so a torn write leaves the other copy whole.
 ; Both sectors have no writer in the firmware and lie outside every range an update writes (docs/messungen/2026-11-13-einstellungen-flash.md).
 .equ M_FL, 0x114              ; bits 0 to 15 the generation of the newest copy in the flash, bit 16 FL_HOLD
 .equ M_FL_CRC, 0x1B4          ; menu_settings_crc of what the flash holds (of the defaults at a start without a copy)
-.equ FL_HOLD, 0x10000         ; the settings came from a card: nothing goes to the flash by itself until MENU on SAVE TO FLASH?
+.equ FL_HOLD, 0x10000         ; the settings came from a card: the flash keeps its own until a save (menu_settings_save_card) or MENU on SAVE TO FLASH?
 .equ FL_ASK, 0x20000          ; the question "SAVE TO FLASH?" of a card put in after the start is on the display (menu_ask_frame)
 .equ FL_SAVE, 0x40000         ; MENU answered the question and the flash write failed: menu_ask_frame writes again every CARD_RETRY_MS
 .equ M_FL_RETRY, 0xD8         ; FL_SAVE: the OS tick of the next try
@@ -305,6 +305,7 @@ menu_arm_end:
 ; Arms the menu and reads the settings once. A subsequent startup call leaves an armed menu intact.
 menu_arm_load:
     push {lr}
+    bl lang_arm
     ldr r0, =MENU_STATE
     ldr r0, [r0, #M_ON]
     cmp r0, #1
@@ -339,7 +340,7 @@ menu_arm_load_end:
 ; setting and the look (backlight, bottom LEDs, pad colours, display polarity) switch at once. The card switch (GPIO 4.1, as
 ; tools/patch/card_gate.py reads it) must show the card for CARD_SETTLE_IN frames in a row first. What this power-on runs with stays:
 ; the plugin runtime and MFX 2 (M_EFF_RUN, M_EFF_MFX) take a new value only at the next start, as after a change on their pages.
-; A card without a valid settings file changes nothing (menu_load_none). Settings from a card stay out of the flash (FL_HOLD) and
+; A card without a valid settings file changes nothing (menu_load_none). Settings from a card stay out of the flash until a save (FL_HOLD) and
 ; the display asks "SAVE TO FLASH?" (menu_ask_frame): MENU writes them, EXIT keeps them for this power-on only. Before the card is
 ; read, the settings that ran without a card go to the flash when it does not hold them yet (menu_flash_sync). A card whose settings
 ; are held and that is out for CARD_SETTLE frames brings back the copy in the flash (CARD_PULL), what ran before the card came.
@@ -548,8 +549,15 @@ menu_settings_load:
     ldr r0, [r4, #M_CARD]       ; the start: the generation of the flash's copy is known even when the card wins, so a flash write
     cmp r0, #CARD_PULL          ; later overwrites the older copy
     beq menu_load_pulled
+    mov r1, #0                  ; r1: the flash's copy read (0 none), r2: the card generation it was written with
+    mov r2, #0
     cmp r0, #CARD_DONE
-    blne menu_flash_read
+    beq menu_load_cards
+    bl menu_flash_read
+    movs r1, r0
+    ldrne r2, [r0, #8]
+menu_load_cards:
+    push {r1, r2}
     ldr r0, =settings_path_a
     ldr r1, =MENU_FILE_A
     bl menu_file_read
@@ -563,18 +571,31 @@ menu_settings_load:
     beq menu_load_b
     mov r7, #1                  ; r7 = 1: the settings come from the card, 0 from the flash
     cmp r8, #0
-    beq menu_load_apply
+    beq menu_load_card_pick
     ldr r1, [r0, #8]
     ldr r3, =MENU_FILE_B
     ldr r2, [r3, #8]
     cmp r2, r1
     movhi r0, r3
-    b menu_load_apply
+    b menu_load_card_pick
 menu_load_b:
     cmp r8, #0
+    addeq sp, sp, #8
     beq menu_load_none
     mov r7, #1
     ldr r0, =MENU_FILE_B
+; The card wins at the start, unless its newest file has the card generation the flash's copy was written with: then the card
+; is that copy's card, only older (a change while it could not be written: a start without a card, #518), and the flash wins.
+; The next save writes the card again (the generation after it). A card written elsewhere has another generation and wins.
+menu_load_card_pick:
+    pop {r1, r2}
+    cmp r1, #0
+    beq menu_load_apply
+    ldr r3, [r0, #8]
+    cmp r3, r2
+    bne menu_load_apply
+    bl menu_flash_read          ; the flash's copy again (the card's files took its buffers)
+    mov r7, #0
 menu_load_apply:
     ldr r1, [r0, #8]
     str r1, [r4, #M_GEN]
@@ -967,8 +988,8 @@ menu_settings_crc:
     mov r0, #2
     b menu_settings_write
 menu_settings_save:
-    ldr r0, =SD_INPUT           ; no card: the flash takes them (M_STATUS 0x45 written, 0x46 not), unless they came from a card (FL_HOLD),
-    ldr r0, [r0]                ; then the card's error stays, only MENU on the question SAVE TO FLASH? takes them
+    ldr r0, =SD_INPUT           ; no card: the flash takes them (M_STATUS 0x45 written, 0x46 not); held settings of a pulled card try the
+    ldr r0, [r0]                ; card first, as with a card
     tst r0, #SD_DETECT
     bne menu_save_no_card
     ldr r0, =MENU_STATE
@@ -980,8 +1001,33 @@ menu_save_no_card:
     ldr r0, [r0, #M_FL]
     tst r0, #FL_HOLD
     beq menu_flash_save_status
+; With a card the file is written first, then the flash, the main store (the card is a copy to carry): only when what runs is not
+; what the flash holds (FL_HOLD, or a checksum other than M_FL_CRC), so a save without a change erases nothing. A flash write that
+; fails is tried again (FL_SAVE, menu_ask_frame). M_STATUS stays the card's, or the flash's when the card failed.
 menu_settings_save_card:
+    push {r4-r6, lr}
     mov r0, #0
+    bl menu_settings_write
+    ldr r4, =MENU_STATE
+    ldr r5, [r4, #M_STATUS]
+    ldr r0, [r4, #M_FL]
+    tst r0, #FL_HOLD
+    bne menu_save_card_flash
+    bl menu_settings_crc
+    ldr r1, [r4, #M_FL_CRC]
+    cmp r0, r1
+    popeq {r4-r6, pc}
+menu_save_card_flash:
+    bl menu_flash_save_status
+    ldr r0, [r4, #M_STATUS]
+    cmp r0, #0x46
+    ldreq r0, [r4, #M_FL]
+    orreq r0, r0, #FL_SAVE
+    streq r0, [r4, #M_FL]
+    cmp r5, #1
+    streq r5, [r4, #M_STATUS]
+    pop {r4-r6, pc}
+; r0 = 0: the settings file on the card, as above.
 ; r0 = 1: EXPORT ALL CUSTOMIZATIONS, the same record without the plugin checksums as KORG/blechtribe/e2sCustom.all; the
 ; generation stays, M_STATUS 0x53 when written. Nothing reads that file yet: copied over settings.a.bin it is read as settings.
 ; r0 = 2 (menu_settings_crc): writes nothing and returns the CRC of the record without generation and plugin checksums.

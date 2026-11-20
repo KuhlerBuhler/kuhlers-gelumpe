@@ -9,6 +9,7 @@ from .arm import assemble
 from .ramdecl import area, share
 from .script_vm import build as build_vm
 from . import spectrum
+from . import lang_texts
 
 BLECHY_BLOCK = 0xC0184000
 BLECHY_BLOCK_END = 0xC0186800
@@ -72,8 +73,12 @@ CARD_CLOCK = MEDIA_END           # the card time left out of the frame budget in
 CARD_CLOCK_END = CARD_CLOCK + 4  # is the whole allowance used, the first frame sets it to 0
 BATT = CARD_CLOCK_END            # BATTERY % (script_battery.s:BP_*): the smoothed reading, its tick, the percent shown and drawn,
 BATT_END = BATT + 28             # whether a reading is held, the card symbol's columns and card flag last drawn; FF at power-on is no reading yet
+LANG_TEXTS = BATT_END           # the text table the BLECH menu reads its texts from (tools/patch/lang_texts.py:lang_arm): English, or
+LANG_TEXTS_END = LANG_TEXTS + 4  # lang-de's German table; set by menu_arm_load before any text is drawn
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
+LANG = 0xC016C000                # the top 16 KiB of MORE3 hold the texts and glyphs of the optional patch lang-de (tools/lang/),
+LANG_END = MORE3_END             # so the runtime's code stops below it
 RUNTIME = 0xC01AE000
 POOL = 0xC01D7000
 END = 0xC01FFFF0
@@ -388,6 +393,31 @@ class BuiltHooks:
     symbols: dict
     layout: dict
     profile: RuntimeProfile
+    asm: object = None
+
+    def texts(self):
+        """{label: {address, text, refs, other}} of every string with a label: the words that hold its address
+        (literals and .word tables), and in `other` the words that compute with it (a language patch cannot move those)."""
+        a=self.asm
+        labels={name:address for name,address in a.symbols.items() if address in a.strings and re.search(rf'^\s*{name}:',self.source,re.M)}
+        out={name:dict(address=address,text=a.strings[address].rstrip(b'\0').decode('latin-1'),refs=[],other=[]) for name,address in labels.items()}
+        for at,expr in a.words:
+            if expr in out:
+                out[expr]['refs'].append(at)
+            else:
+                for name in re.findall(r'[A-Za-z_]\w*',expr):
+                    if name in out:
+                        out[name]['other'].append(at)
+        return out
+
+    def lang_manifest(self):
+        """What lang-de needs of this runtime: the numbered labels and their key, the address of every labelled string and
+        the string labels of each numbered table (tools/lang/lang_patch.mjs)."""
+        texts=self.texts()
+        own=lang_texts.strings(self.source)
+        return dict(key=f'{lang_texts.key(self.lang_labels):#010x}',labels=self.lang_labels,
+            strings={name:f'{texts[name]["address"]:#010x}' for name in own if name in texts},
+            tables=lang_texts.tables(self.source,set(self.lang_labels)))
 
     def manifest(self):
         return dict(layout=self.layout.copy(),hooks=[dict(address=address,
@@ -449,6 +479,9 @@ class BuiltHooks:
             ('audio_command_hook','audio_columns','Der Haken an CommandTask ruft erst den ursprünglichen Befehlshandler und dann den Dienst von korg.audio; ohne Anfrage eines Plugins kehrt der Dienst ohne Firmware-Aufruf zurück.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE, Seitenzähler und der Bildschirmwechsel (AUTO SAVE) laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
             ('card_widget','card_frame','Der Bildschirmwechsel setzt mit scharfem Menü schon beim ersten Wechsel zum Hauptbildschirm den Platz des Kartensymbols (BATTERY %): er sucht Korgs Widget, setzt x und dessen Neuzeichnen-Byte und leert die alten Spalten; ohne scharfes Menü kehrt er sofort zurück.'),
+            ('battery_model','battery_put','Der Platz des Kartensymbols fragt beim ersten Wechsel zum Hauptbildschirm, ob die Akku-Zahl gezeigt wird: liest nur Menü-Schalter, Stromquelle, BATTERY TYPE und Korgs Schwellentabelle, prüft jeden Zeiger und schreibt nichts.'),
+            ('batt_put_pool','card_widget','Literale der Akku-Abfrage, die der Bildschirmwechsel beim Start liest.'),
+            ('lang_arm','lang_end','menu_arm_load ruft lang_arm: es liest den Kopf von lang-de und setzt LANG_TEXTS auf die deutsche oder die englische Tabelle, die das Menü ab dann liest.'),
             ('card_frame_out','batt_percent_glyph','Literale des Kartensymbol-Platzes, die der Bildschirmwechsel beim Start liest.'),
         ]:
             if start in self.symbols and end in self.symbols:
@@ -496,7 +529,7 @@ class BuiltHooks:
             area(layout['pool'],layout['poolEnd']-layout['pool'],'plugin pool, SCRIPT_POOL_BYTES','tools/patch/script_hooks.py:POOL'),
             area(layout['card'],layout['input']-layout['card'],'work area of the card loader: file object, state, plugin list of the import page, the key commands of KORG.press, the record of korg.remapKey and the word korg.seq marks a written frame with','tools/patch/script_hooks.py:CARD'),
             area(layout['input'],END-layout['input'],'block buffer for file reads, the two store images lie in it','tools/patch/script_hooks.py:INPUT'),
-            area(layout['codeEnd'],MORE3_END-layout['codeEnd'],'the rest of the code area, kept free for the code of the plugin API to grow into','tools/patch/script_hooks.py:MORE3_END'),
+            area(layout['codeEnd'],LANG-layout['codeEnd'],'the rest of the code area, kept free for the code of the plugin API to grow into','tools/patch/script_hooks.py:LANG'),
             *([area(CODE_START,MENU_TABLE-CODE_START,'the first code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:CODE_START')]
               if self.profile.build == 'synth' else []),
             area(AUDIO_SERVICE,AUDIO_SERVICE_END-AUDIO_SERVICE,'korg.audio.capture, spectrum and wave: the heap context of the capture service (103424 bytes, taken on the first request and kept until power-off), the source asked for, the tick of the last call and the last status','tools/patch/script_audio_service.s:AU_REQUEST'),
@@ -510,7 +543,8 @@ class BuiltHooks:
             area(MEDIA_LIST,MEDIA_END-MEDIA_LIST,'korg.file.count, name and picture: the list of the start images and of the loading animations in Media/ (64 entries of 32 bytes each), the picture being built, the buffers of the two readers of a .blla, the counts and the header of the checked .blla','tools/patch/script_media.s:MS_COUNT'),
             area(CARD_CLOCK,CARD_CLOCK_END-CARD_CLOCK,'the card time left out of the frame budget in this frame (CARD_READS in data/script/contract.mjs)','tools/patch/script_media.s:card_timed'),
             area(BATT,BATT_END-BATT,'BATTERY %: the smoothed battery reading, the tick of its last step, the percent shown and the percent drawn, whether a reading is held, the card symbol\'s columns and card flag as last drawn on the main screen','tools/patch/script_battery.s:BP_AVG'),
-            area(BATT_END,MORE_END-BATT_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:BATT_END'),
+            area(LANG_TEXTS,LANG_TEXTS_END-LANG_TEXTS,'the text table of the BLECH menu: the English one of the runtime or the German one of lang-de','tools/patch/lang_texts.py:lang_arm'),
+            area(LANG_TEXTS_END,MORE_END-LANG_TEXTS_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:LANG_TEXTS_END'),
             area(SETTINGS_RAM,SETTINGS_RAM_END-SETTINGS_RAM,'the two buffers of the settings file of the BLECH menu and its checksum list (allowed plugins, plugins switched off)','tools/patch/script_hooks.py:SETTINGS_RAM'),
             area(LIST_WORK,LIST_WORK_END-LIST_WORK,'work area of the list of MANAGE PLUGINS: folder object, file info, long name, path, the place of each listed file in the folder, the flag of more files than the list holds','tools/patch/script_menu.s:LIST_WORK'),
             area(KNOB_HOLD,KNOB_HOLD_END-KNOB_HOLD,'korg.knobHold: a bit per knob that reaches the firmware, folded from the plugins\' holds; the other two words are unused since API 19','tools/patch/script_hw.s:KH_FREE'),
@@ -608,7 +642,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += f'\n.equ VM_CRC_UPDATE, {vm.symbols["crc_update"]}'
     constants += ''.join(f'\n.equ {name.upper()}, {vm.symbols[name]}' for name in ['script_font','script_error_names'])
     constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ METER_SENT, {METER_SENT}\n.equ LOAD_METER, {LOAD_METER}\n.equ IDLE, {IDLE}\n.equ GLIDE, {GLIDE}\n.equ MEDIA_LIST, {MEDIA_LIST}\n.equ MEDIA_WORK, {MEDIA_WORK}\n.equ MEDIA_BUF, {MEDIA_BUF}\n.equ MEDIA_BUF_BYTES, {MEDIA_BUF_BYTES}\n.equ MEDIA_TBUF, {MEDIA_TBUF}\n.equ MEDIA_TBUF_BYTES, {MEDIA_TBUF_BYTES}\n.equ MEDIA_STATE, {MEDIA_STATE}\n.equ CARD_CLOCK, {CARD_CLOCK}\n.equ BATT, {BATT}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
-    constants += f'\n.equ MENU_SCREEN, {profile.screen}\n'
+    constants += f'\n.equ MENU_SCREEN, {profile.screen}\n.equ LANG, {LANG}\n.equ LANG_TEXTS, {LANG_TEXTS}\n'
     # korg.system.device and korg.system.limits.samples (data/script/objects.mjs, INFO): the build this runtime is made for
     constants += f'.equ MFX2_ENTRY, {MFX2_ENTRY:#x}\n.equ MFX2_RECORD_ID, {MFX2_RECORD_ID:#x}\n.equ MFX2_TABLE, {MFX2_TABLE:#x}\n.equ MFX2_STATE, {MFX2_STATE:#x}\n'
     constants += f'.equ BUILD_DEVICE, {BUILD_DEVICES[build]}\n.equ BUILD_SAMPLES, {0 if build == "synth" else 1000}\n'
@@ -633,6 +667,8 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     source = source.replace('@OBJECT_ROWS@', object_rows(constants, build))
     source = source.replace('@START_WRAPPER@', read([f'script_start_{variant}.s', 'script_boot_light.s']))
     source = source.replace('@MENU_TOPLEVEL@', Path(__file__).with_name(f'script_toplevel_{variant}.s').read_text())
+    lang_labels = lang_texts.index(source, lang_texts.entries())
+    source = lang_texts.rewrite(source, lang_labels) + lang_texts.runtime_source(lang_labels)
     actions = '\n'.join(f'.equ {name}, {value}' for name, value in profile.actions.items())
     hooks=assemble(actions+'\n'+source,origin=origin)
     linked_glue={**(glue or {}),'API_KORG_LED':hooks.symbols['script_led_glue'],'API_KORG_MILLIS':hooks.symbols['script_clock_millis_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['PLAY','STOP','PATTERN','TEMPO','PART','MUTE','BACKLIGHT']},'API_KORG_LED_HOLD':hooks.symbols['script_led_hold_glue'],'API_KORG_PAD_HOLD':hooks.symbols['script_pad_hold_glue'],'API_KORG_KNOB_HOLD':hooks.symbols['script_knob_hold_glue'],'API_KORG_KNOB':hooks.symbols['script_knob_glue'],'API_KORG_PASS_KEYS':hooks.symbols['script_pass_keys_glue'],'API_KORG_TOUCH_LOCK_X':hooks.symbols['script_touch_lock_x_glue'],'API_KORG_TOUCH_LOCK_Y':hooks.symbols['script_touch_lock_y_glue'],'API_KORG_KEY_HOLD':hooks.symbols['script_key_hold_glue'],'API_KORG_KEY_MASK':hooks.symbols['script_key_mask_glue'],'API_KORG_PRESS_KEY':hooks.symbols['script_press_key_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_{name.lower()}_glue'] for name in ['KEY_DOWN','KEY_UP','PAD_DOWN','PAD_UP','ENCODER','TOUCH']},'API_KORG_READ_PATTERN_BYTES':hooks.symbols['script_read_pattern_bytes_glue'],'API_KORG_MENU_ADD':hooks.symbols['script_menu_add_glue'],'API_KORG_APP':hooks.symbols['script_app_glue'],'API_KORG_FILE_FRAME':hooks.symbols['script_file_frame_timed'],**{f'API_KORG_FILE_{name}':hooks.symbols[f'script_file_{name.lower()}_timed'] for name in ['COUNT','NAME','PICTURE']},'API_KORG_GET':hooks.symbols['script_object_get_glue'],'API_KORG_SET':hooks.symbols['script_object_set_glue'],**{f'API_KORG_{name}':hooks.symbols[f'script_timer_{name.lower()}_glue'] for name in ['AFTER','EVERY','AFTER_STEPS','CANCEL']},**{f'API_KORG_READ_{name}':hooks.symbols[f'script_read_{name.lower()}_glue'] for name in ['TRANSPORT','TEMPO','PATTERN','PART','STEP','MUTE','KNOB']},'API_KORG_READ_CHAIN_MODE':hooks.symbols['script_read_chain_mode_glue'],'API_KORG_READ_VIEWED_PATTERN':hooks.symbols['script_read_viewed_pattern_glue'],'API_KORG_READ_NEXT_PATTERN':hooks.symbols['script_read_next_pattern_glue'],'API_KORG_READ_PATTERN_VALUE':hooks.symbols['script_read_pattern_value_glue'],'API_KORG_REMAP_KEY':hooks.symbols['script_remap_key_glue'],**{f'API_KORG_SEQ_{name}':hooks.symbols[f'script_seq_{name.lower()}_glue'] for name in ['SET_STEP','SET_GATE','CLEAR_PART','SET_PART_VALUE','WRITE_STEPS','SET_PATTERN_VALUE','GET_ON','GET_GATE','GET_NOTE','GET_VELOCITY']},**{f'API_KORG_STORE_{name}':hooks.symbols[f'script_store_{label}_glue'] for name,label in [('GET','get'),('SET','set'),('SAVE','save')]},**{f'API_KORG_DISPLAY_{name}':hooks.symbols[f'script_display_{label}_glue']
@@ -641,9 +677,9 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     runtime_end=RUNTIME+vm.symbols['SCRIPT_RUNTIME_SIZE']
     pool_end=POOL+vm.symbols['SCRIPT_POOL_BYTES']
     (first_at,first),=hooks.sections
-    if first_at!=origin or origin+len(first)>MORE3_END:
-        raise ValueError(f'the code area runs over: {first_at:#x} + {len(first):#x} (limit {MORE3_END:#x})')
-    if runtime_end>MENU_MORE or BATT_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
+    if first_at!=origin or origin+len(first)>LANG:
+        raise ValueError(f'the code area runs over: {first_at:#x} + {len(first):#x} (limit {LANG:#x})')
+    if runtime_end>MENU_MORE or LANG_TEXTS_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
         raise ValueError(f'script code, runtime or pool exceeds its reserved area: runtime end {runtime_end:#x} (limit {MENU_MORE:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
     if s['SETTINGS_MAX']>0x120 or SETTINGS_RAM+0x240+4*s['MENU_MAX_TRUST']>SETTINGS_RAM_END:
@@ -658,7 +694,10 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     symbols={**vm.symbols,**hooks.symbols}
     layout=dict(code=MORE3_START,codeEnd=origin+len(first),runtime=RUNTIME,
         runtimeEnd=runtime_end,runtimeSize=vm.symbols['SCRIPT_RUNTIME_SIZE'],pool=POOL,poolEnd=pool_end,card=CARD,input=INPUT)
-    return BuiltHooks(vm,vm.sections+hooks.sections+[(BLECHY_BLOCK,block)],symbols,layout,profile)
+    built=BuiltHooks(vm,vm.sections+hooks.sections+[(BLECHY_BLOCK,block)],symbols,layout,profile,hooks)
+    built.source=source
+    built.lang_labels=lang_labels
+    return built
 
 def make_patch(image,include,glue=None,build_name='hacktribe'):
     built=build(include,glue=glue,build=build_name)

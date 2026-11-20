@@ -16,7 +16,7 @@ import { recogniseBlech } from "../../src/blech-update.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
-import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, restoreOriginal, canRestore, runsHacktribe, runningFolder, goalsFor, goalMismatch, korgBlueForSampler } from "../../src/patcher.mjs";
+import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, LANG_DE_URLS, optionFor, patchLabel, restoreOriginal, canRestore, runsHacktribe, runningFolder, goalsFor, goalMismatch, korgBlueForSampler } from "../../src/patcher.mjs";
 import { testFailure } from "../../data/rescue.mjs";
 import { RESCUE_EVENT } from "./rescue.mjs";
 /** An error of this page opens Blechy at its topic (data/rescue.mjs). */
@@ -67,7 +67,12 @@ function verdictText(input, items, waiting) {
 }
 
 /** `onTest(failure)` hears the last test as testFailure (data/rescue.mjs) gives it: null when it passed, for the Rettung page. */
-export function patcherPage(root, { emulator, show = () => {}, session = () => null, onTarget = () => {}, onTest = () => {} }) {
+/** The toast key for a USB action without a MIDI session: the cable can be in while the app is not connected. */
+export function notConnectedKey(state) {
+  return state === "present" ? "patcher.usb.notSession" : "patcher.usb.notConnected";
+}
+
+export function patcherPage(root, { emulator, show = () => {}, session = () => null, usbState = () => "unknown", onTarget = () => {}, onTest = () => {} }) {
   if (!document.querySelector("link[data-cee-patcher]")) {
     const css = el("link", { rel: "stylesheet", href: STYLE });
     css.setAttribute("data-cee-patcher", "");
@@ -90,6 +95,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let taking = 0;               // files being read and classified: Weiter must not load Korg's over the one that is on its way
   let downloadStarted = false;  // the browser started Korg's zip: the field for it opens
   let usbNames = null;          // the variants of the optional patch usb-name, once loaded
+  let langDes = null;           // the variants of the optional patch lang-de, once loaded
   let hint = null;
   let updating = null;          // the file already carries BLECH of a known release: { present, options }, the set goes over it (src/blech-update.mjs)
   let knownReleases;            // data/known-releases.json, loaded when a file with BLECH is taken; null when it cannot be had
@@ -213,10 +219,19 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const usbName = el("input", { type: "checkbox", id: "cee-patch-usb-name" });
   usbName.addEventListener("change", () => { passed = null; dispatch({ type: "options" }); });
   const usbNameNote = el("p", { className: "muted", id: "cee-patch-usb-name-note", textContent: t("patcher.usbName.note") });
+  // German BLECH menu (docs/firmware-sprache.md); shown only with the developer switch until the German texts are complete
+  const langDe = el("input", { type: "checkbox", id: "cee-patch-lang-de" });
+  langDe.addEventListener("change", () => { passed = null; dispatch({ type: "options" }); });
+  const langDeNote = el("p", { className: "muted", id: "cee-patch-lang-de-note", textContent: t("patcher.langDe.note") });
+  const langDeBox = el("label", { className: "cee-check", id: "cee-patch-lang-de-box" }, [langDe, el("span", { textContent: t("patcher.langDe") })]);
+  const devLang = (() => { try { return localStorage.getItem("cee.devLang") === "1"; } catch { return false; } })();
+  langDeBox.hidden = langDeNote.hidden = !devLang;
   const blechBox = el("section", { className: "cee-patch-choice", id: "cee-patch-blech" }, [
     blechDrop,
     el("label", { className: "cee-check", id: "cee-patch-usb-name-box" }, [usbName, el("span", { textContent: t("patcher.usbName") })]),
     usbNameNote,
+    langDeBox,
+    langDeNote,
   ]);
   const withHacktribe = el("input", { type: "checkbox", id: "cee-patch-hacktribe-use" });
   withHacktribe.addEventListener("change", () => chooseRoute(withHacktribe.checked ? "hacktribe" : "direct"));
@@ -590,21 +605,24 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     return blech;
   }
 
-  /** The variants of the optional patch usb-name, one per hardware. */
-  async function loadUsbNames() {
-    usbNames ??= await Promise.all(USB_NAME_URLS.map(async url => {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(t("patcher.loadFailed", { url }));
-      return res.json();
-    }));
-    return usbNames;
-  }
+  /** The variants of an optional patch, parsed. */
+  const loadVariants = urls => Promise.all(urls.map(async url => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(t("patcher.loadFailed", { url }));
+    return res.json();
+  }));
 
   /** The optional patches the user picked, in the variant for the input's build. */
   async function options() {
-    if (!usbName.checked || !input) return [];
-    const patch = optionFor(await loadUsbNames(), buildOf(input));
-    return patch ? [patch] : [];
+    if (!input) return [];
+    const picked = [];
+    if (usbName.checked) picked.push(optionFor(usbNames ??= await loadVariants(USB_NAME_URLS), buildOf(input)));
+    if (langDe.checked) {
+      const patch = optionFor(langDes ??= await loadVariants(LANG_DE_URLS), buildOf(input));
+      if (!patch) throw new Error(t("patcher.langDe.failed"));
+      picked.push(patch);
+    }
+    return picked.filter(Boolean);
   }
 
   /** The list of copies that passed already; without it every copy is checked. */
@@ -748,6 +766,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     const locked = !!updating?.present.includes("usb-name");
     usbName.disabled = can.busy || locked;
     usbNameNote.textContent = t(locked ? "patcher.update.locked" : "patcher.usbName.note");
+    const langLocked = !!updating?.present.includes("lang-de");
+    langDe.disabled = can.busy || langLocked;
+    langDeNote.textContent = t(langLocked ? "patcher.update.locked" : "patcher.langDe.note");
+    langDeBox.hidden = langDeNote.hidden = !devLang && !langDe.checked;
     blechInfo.textContent = ownPatch ? t(ownPatch.label) : "";
     blechDrop.toggleAttribute("data-filled", !!ownPatch);
     // The field says which file it holds and what it is; pick() empties the input, so ui.js cannot show the name.
@@ -835,7 +857,10 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   /** What goes on the file: the set of this version for its build, or the patches of the BLECH.patch the user brought. */
   function planItems() {
     // one line per patch: the variant for this firmware (a BLECH.patch carries one per build)
-    const extra = usbName.checked && input ? [{ id: "usb-name", label: t("patcher.usbName") }] : [];
+    const extra = !input ? [] : [
+      ...(usbName.checked ? [{ id: "usb-name", label: t("patcher.usbName") }] : []),
+      ...(langDe.checked ? [{ id: "lang-de", label: t("patcher.langDe") }] : []),
+    ];
     if (ownPatch) return input ? [...itemsOf(ownPatch, base(), patchLabel), ...extra] : [];
     return blech && input ? [...itemsFor(blech, buildOf(input)), ...extra] : [];
   }
@@ -975,6 +1000,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         kind = { kind: buildOf(bytes), size: bytes.length, sha256: kind.sha256, reasons: [], present: [], hardware: hardwareOf(bytes) };
         if (usb) usb = { fromOriginal: true };
         usbName.checked = usbName.checked || known.present.includes("usb-name");
+        langDe.checked = langDe.checked || known.present.includes("lang-de");
         toast(t("patcher.update.found"), "info");
       } else if (canRestore(bytes)) {
         restored = await restoreFromKorg(bytes);
@@ -1132,7 +1158,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
       if (!res.ok) {
         for (const p of items) {
           const own = res.reasons.filter(r => r.startsWith(`${p.id}:`)).map(r => r.slice(p.id.length + 2));
-          dispatch({ type: "patch", id: p.id, ok: false, detail: own.length ? own.join(" ") : t("patcher.patch.waiting") });
+          // lang-de's reasons are hashes of Korg's bytes; the user needs to hear that it fits only BLECH's own files
+          const detail = own.length && p.id === "lang-de" ? t("patcher.langDe.failed") : own.length ? own.join(" ") : t("patcher.patch.waiting");
+          dispatch({ type: "patch", id: p.id, ok: false, detail });
         }
         failure = { group: "patch" };
         throw new Error(t("patcher.patch.failed", { reasons: res.reasons.join(" ") }));
@@ -1256,7 +1284,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
 
   usbGet.addEventListener("click", async () => {
     const s = session();
-    if (!s) { toast(t("patcher.usb.notConnected"), "error", { help: "notfound" }); return; }
+    if (!s) { toast(t(notConnectedKey(usbState())), "error", { help: "notfound" }); return; }
     usbGet.disabled = true;
     usbNote.hidden = false;
     try {
@@ -1278,7 +1306,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   usbPut.addEventListener("click", async () => {
     const s = session();
     if (!passed || !allowed(flow).download || !htReady()) return;
-    if (!s) { toast(t("patcher.usb.notConnected"), "error", { help: "notfound" }); return; }
+    if (!s) { toast(t(notConnectedKey(usbState())), "error", { help: "notfound" }); return; }
     usbPut.disabled = true;
     usbNote.hidden = false;
     try {

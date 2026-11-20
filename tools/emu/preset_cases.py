@@ -13,7 +13,12 @@ of copy come through:
     own, the menus reach it, and selecting the last one sends the DSP what selecting its source sends
     (the source is the earlier preset whose record it copies, found by comparing the bytes behind the name).
 
+A copy of Korg's 2.02 with the effect catalog also has to hold Hacktribe's master effects as remakes on 33 to 36 and the
+catalog's master effects from 37; a copy of Hacktribe keeps its own on 10, 11, 21 and 32 and the catalog from 33.
+`ht-mfx` holds the remakes' DSP transfers against Hacktribe's own (same blocks, own values).
+
     tools/emu/.venv/bin/python tools/emu/preset_cases.py cases --base SYSTEM.VSB --patched NEW.VSB [--flash dump.bin]
+    tools/emu/.venv/bin/python tools/emu/preset_cases.py ht-mfx --patched NEW.VSB --hacktribe HACKTRIBE.VSB
 """
 
 import argparse
@@ -46,6 +51,11 @@ KILL = 0x2000
 BOOT_S = 6.0
 BOOT_SYNTH_S = 10.0     # the blue's start takes longer to reach the main screen
 NAME_END = 16           # the record's name is bytes 1 to 15; what the editor copies is the rest
+MFX_DEVICE = 446        # the master stage's unit byte in a record (src/layout.mjs REC.stage.mfx)
+# Hacktribe's own master effects: its slot (on a factory slot of Korg's 2.02) and the unit it plays; the remakes from the
+# catalog (data/fx/catalog.mjs, `hacktribe`) go on 33 to 36 of Korg's 2.02, the catalog behind them from 37.
+HT_MFX = (("Big Hall", 10, 54), ("Plate Reverb", 11, 56), ("Tap Delay Sync", 21, 60), ("Tube Drive", 32, 47))
+CATALOG = Path(__file__).resolve().parents[2] / "data" / "patches" / "fx-catalog.json"
 
 
 def place(payload, addr):
@@ -209,7 +219,84 @@ def judge(base_payload, patched_payload, flash):
             a, b = mfx_dsp(source - 1), mfx_dsp(n1["mfx"] - 1)
             add("added_mfx_dsp", len(a) > 0 and same_dsp(a, b) and new.mfx_type() == n1["mfx"] - 1,
                 f"selecting the last added master slot ({n1['mfx']}) sends the DSP {len(b)} transfers, the same as preset {source}, whose record it copies ({len(a)})")
+    if n0["mfx"] == 32 and has_catalog(new):
+        ht_mfx(base, new, add, flash, patched_payload)
     return checks
+
+
+def name_of(box, kind, index):
+    return box.record(kind, index)[1:NAME_END].split(b"\0")[0].decode("latin1")
+
+
+def has_catalog(box):
+    """True when the copy carries the effect catalog (src/fx-append.mjs): its first master effect is in the menu."""
+    first = first_catalog_mfx()
+    return any(name_of(box, "mfx", i) == first for i in range(box.count("mfx")))
+
+
+def first_catalog_mfx():
+    presets = json.loads(CATALOG.read_text())["presets"]
+    return next(p["name"] for p in presets if p["kind"] == "mfx" and not p.get("hacktribe"))
+
+
+def ht_mfx(base, new, add, flash, payload):
+    """Hacktribe's master effects: remakes on 33 to 36 of Korg's 2.02, the catalog from 37; Hacktribe keeps its own and the catalog from 33."""
+    first = first_catalog_mfx()
+    if name_of(base, "mfx", HT_MFX[0][1] - 1) == HT_MFX[0][0]:
+        kept = [name_of(new, "mfx", slot - 1) for _, slot, _ in HT_MFX]
+        add("ht_mfx_hacktribe_keeps", kept == [n for n, _, _ in HT_MFX] and name_of(new, "mfx", 32) == first,
+            f"Hacktribe keeps its own on 10, 11, 21, 32 ({kept}), the catalog starts at 33 with {name_of(new, 'mfx', 32)}")
+        return
+    got = [(name_of(new, "mfx", i), new.record("mfx", i)[MFX_DEVICE]) for i in range(32, 36)]
+    add("ht_mfx_names", got == [(n, u) for n, _, u in HT_MFX] and not new.dev.m.asserts,
+        f"master slots 33 to 36 hold the remakes of Hacktribe's own with its units: {got}")
+    add("ht_mfx_catalog_from_37", new.count("mfx") > 36 and name_of(new, "mfx", 36) == first,
+        f"the catalog's master effects start at 37 with {name_of(new, 'mfx', 36) if new.count('mfx') > 36 else None} (was 33)")
+    sent = {}
+    for i in range(32, 36):
+        new.set_mfx(0)
+        new.dsp.clear()
+        new.set_mfx(i)
+        new.dev.run(1.0)
+        sent[i + 1] = (len(new.dsp.changes()), new.mfx_type())
+    add("ht_mfx_select", all(n > 0 and t == s - 1 for s, (n, t) in sent.items()) and not new.dev.m.asserts,
+        f"selecting 33 to 36 sets the type and sends the DSP transfers, no assertion: {sent}")
+    from mfx_cases import Box as MfxBox, blank_for, open_mfx_type_page
+    page = MfxBox(payload, flash if flash is not None else blank_for(payload))
+    n = new.count("mfx")
+    opened = open_mfx_type_page(page)
+    seen = [page.mfx()]
+    for _ in range(n + 2):
+        page.turn(1, 0.3)
+        seen.append(page.mfx())
+    add("ht_mfx_page_walk", opened and seen == [(seen[0] + i) % n for i in range(n + 3)] and not page.m.asserts,
+        f"VALUE on the MFX TYPE page walks {n + 2} steps through {n} types, 33 to 36 included, and wraps from {n - 1} to 0: {seen[30:40]}")
+
+
+def same_blocks(a, b):
+    """True when two lists of DspLog.changes() load the same blocks: same transfers in the same order, same commands and
+    lengths. The values may differ (a remake with its own values); same_dsp holds them equal as well."""
+    return len(a) == len(b) and all(x[0] == y[0] and len(x[2]) == len(y[2]) for x, y in zip(a, b))
+
+
+def compare_ht_mfx(patched, hacktribe):
+    """The DSP transfers of the remakes on 33 to 36 against Hacktribe's own on its slots, one boot each."""
+    mine, theirs = Box(patched, None), Box(hacktribe, None)
+
+    def pick(box, index):
+        box.set_mfx(0 if index else 1)
+        box.dsp.clear()
+        box.set_mfx(index)
+        box.dev.run(1.0)
+        return box.dsp.changes()
+    out = {}
+    for slot, (name, ht_slot, _) in enumerate(HT_MFX, 33):
+        a, b = pick(mine, slot - 1), pick(theirs, ht_slot - 1)
+        equal = sum(u == v for x, y in zip(a, b) for u, v in zip(x[2], y[2]))
+        out[name] = {"slot": slot, "hacktribe_slot": ht_slot, "transfers": [len(a), len(b)], "same_blocks": same_blocks(a, b),
+                     "same_dsp": same_dsp(a, b), "equal_words": [equal, sum(len(x[2]) for x in a)]}
+    out["asserts"] = [list(mine.dev.m.asserts), list(theirs.dev.m.asserts)]
+    return out
 
 
 def cases_task():
@@ -222,11 +309,16 @@ def main():
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("what", choices=("cases",))
-    p.add_argument("--base", required=True, type=Path)
+    p.add_argument("what", choices=("cases", "ht-mfx"))
+    p.add_argument("--base", type=Path)
+    p.add_argument("--hacktribe", type=Path, help="ht-mfx: Hacktribe's own SYSTEM.VSB to compare the master remakes with")
     p.add_argument("--patched", required=True, type=Path)
     p.add_argument("--flash", nargs="*", default=[], type=Path)
     a = p.parse_args()
+    if a.what == "ht-mfx":
+        result = compare_ht_mfx(a.patched.read_bytes()[HEADER:], a.hacktribe.read_bytes()[HEADER:])
+        print(json.dumps(result, indent=1))
+        return 0 if all(v["same_blocks"] for k, v in result.items() if k != "asserts") and not any(result["asserts"]) else 1
     base = a.base.read_bytes()[HEADER:]
     patched = a.patched.read_bytes()[HEADER:]
     flash = load_flash(a.flash) if a.flash else None

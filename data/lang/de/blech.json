@@ -1,0 +1,651 @@
+{
+ "format": "gelumpe-lang-blech",
+ "version": 1,
+ "texts": {
+  "calibrate_contrast": {
+   "text": "KONTRAST "
+  },
+  "calibrate_help": {
+   "text": "VALUE: ÄNDERN"
+  },
+  "calibrate_title": {
+   "text": "ANZEIGE KALIBRIEREN"
+  },
+  "card_path": {
+   "keep": "Dateipfad"
+  },
+  "custom_path": {
+   "keep": "Dateipfad"
+  },
+  "data_extension": {
+   "keep": "Dateipfad"
+  },
+  "data_folder": {
+   "keep": "Dateipfad"
+  },
+  "export_path": {
+   "keep": "Dateipfad"
+  },
+  "fault_label": {
+   "text": "Zeile"
+  },
+  "fx_path": {
+   "keep": "Dateipfad"
+  },
+  "gif_path": {
+   "keep": "Dateipfad"
+  },
+  "import_folder": {
+   "keep": "Dateipfad"
+  },
+  "import_prefix": {
+   "keep": "Dateipfad"
+  },
+  "kp_names": {
+   "keep": "Notennamen, der Code rechnet mit ihrer Lage"
+  },
+  "media_folder": {
+   "keep": "Dateipfad"
+  },
+  "media_prefix": {
+   "keep": "Dateipfad"
+  },
+  "media_str_blla": {
+   "keep": "Dateipfad"
+  },
+  "menu_tab": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "mg_allpat_ext": {
+   "keep": "Dateipfad"
+  },
+  "mg_blue_folder": {
+   "keep": "Dateipfad"
+  },
+  "mg_blue_folders": {
+   "keep": "Ordnernamen"
+  },
+  "mg_drive": {
+   "keep": "Laufwerk"
+  },
+  "mg_hack_folder": {
+   "keep": "Dateipfad"
+  },
+  "mg_hack_pat": {
+   "keep": "Dateipfad"
+  },
+  "mg_hack_samples": {
+   "keep": "Dateipfad"
+  },
+  "mg_korg": {
+   "keep": "Dateipfad"
+  },
+  "mg_new_folder": {
+   "keep": "Dateipfad"
+  },
+  "mg_new_pat": {
+   "keep": "Dateipfad"
+  },
+  "mg_new_samples": {
+   "keep": "Dateipfad"
+  },
+  "mg_red_folders": {
+   "keep": "Ordnernamen"
+  },
+  "mg_sampler_folder": {
+   "keep": "Dateipfad"
+  },
+  "mg_sampler_pat": {
+   "keep": "Dateipfad"
+  },
+  "mg_sampler_samples": {
+   "keep": "Dateipfad"
+  },
+  "mg_slash": {
+   "keep": "Dateipfad"
+  },
+  "mg_t_blue": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "mg_t_copy": {
+   "text": "SAMPLES KOPIEREN?"
+  },
+  "mg_t_copying": {
+   "text": "KOPIERE..."
+  },
+  "mg_t_done": {
+   "text": "FERTIG"
+  },
+  "mg_t_exit": {
+   "text": "EXIT: OHNE KOPIE"
+  },
+  "mg_t_failed": {
+   "text": "KOPIE GESCHEITERT"
+  },
+  "mg_t_files": {
+   "text": "DATEIEN KOPIEREN?"
+  },
+  "mg_t_full": {
+   "text": "KARTE VOLL, KEINE KOPIE"
+  },
+  "mg_t_hack": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "mg_t_left": {
+   "keep": "Pfeil"
+  },
+  "mg_t_mb": {
+   "keep": "Einheit"
+  },
+  "mg_t_menu": {
+   "text": "MENU: KOPIEREN"
+  },
+  "mg_t_right": {
+   "keep": "Pfeil"
+  },
+  "mg_t_sampler": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "mg_t_title": {
+   "text": "NEU: BLECHTRIBE"
+  },
+  "pb_path": {
+   "keep": "Dateipfad"
+  },
+  "pf_dir": {
+   "keep": "Dateipfad"
+  },
+  "pf_path": {
+   "keep": "Dateipfad"
+  },
+  "pl_path": {
+   "keep": "Dateipfad"
+  },
+  "settings_path_a": {
+   "keep": "Dateipfad"
+  },
+  "settings_path_b": {
+   "keep": "Dateipfad"
+  },
+  "splash_folder": {
+   "keep": "Dateipfad"
+  },
+  "splash_media": {
+   "keep": "Dateipfad"
+  },
+  "splash_media_prefix": {
+   "keep": "Dateipfad"
+  },
+  "splash_prefix": {
+   "keep": "Dateipfad"
+  },
+  "store_path_a": {
+   "keep": "Dateipfad"
+  },
+  "store_path_b": {
+   "keep": "Dateipfad"
+  },
+  "str_allow": {
+   "text": "WRITE=ERLAUBEN"
+  },
+  "str_aloop": {
+   "text": "SCHLEIFE"
+  },
+  "str_anim": {
+   "text": "LADEANIMATION"
+  },
+  "str_anim_blechy": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_anim_card": {
+   "text": "KARTE"
+  },
+  "str_anim_nofile": {
+   "text": "keine Datei"
+  },
+  "str_app_one": {
+   "keep": "unbenutzt"
+  },
+  "str_apps": {
+   "keep": "unbenutzt"
+  },
+  "str_apps_full": {
+   "text": "max. 16 Apps"
+  },
+  "str_as": {
+   "text": "AUTO-SPEICHERN"
+  },
+  "str_ask_exit": {
+   "text": "EXIT: NUR JETZT"
+  },
+  "str_ask_menu": {
+   "text": "MENU: SPEICHERN"
+  },
+  "str_ask_title": {
+   "text": "EINST. DER KARTE"
+  },
+  "str_auto": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_base_blue": {
+   "text": "KORG BLAU"
+  },
+  "str_base_hacktribe": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_base_red": {
+   "text": "KORG ROT"
+  },
+  "str_batt": {
+   "text": "BATTERIE %"
+  },
+  "str_bl_blue": {
+   "text": "LICHT HELLIGKEIT"
+  },
+  "str_bl_green": {
+   "text": "LICHT SÄTTIGUNG"
+  },
+  "str_bl_red": {
+   "text": "LICHT FARBTON"
+  },
+  "str_blech": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_bmp": {
+   "keep": "Dateipfad"
+  },
+  "str_brw_empty": {
+   "text": "KEINE .BMP-DATEI"
+  },
+  "str_c_blue": {
+   "text": "BLAU"
+  },
+  "str_c_cyan": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_c_green": {
+   "text": "GRÜN"
+  },
+  "str_c_pink": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_c_rainbow": {
+   "text": "REGENBOGEN"
+  },
+  "str_c_red": {
+   "text": "ROT"
+  },
+  "str_c_white": {
+   "text": "WEISS"
+  },
+  "str_c_yellow": {
+   "text": "GELB"
+  },
+  "str_color": {
+   "text": "FARBE"
+  },
+  "str_custom": {
+   "text": "ANPASSUNG"
+  },
+  "str_dev": {
+   "text": "ENTWICKLERMODUS"
+  },
+  "str_display": {
+   "text": "ANZEIGE"
+  },
+  "str_down": {
+   "keep": "Pfeil"
+  },
+  "str_duplicate": {
+   "text": "schon geladen"
+  },
+  "str_egg_new": {
+   "text": "NEUES SAMPLE"
+  },
+  "str_egg_unlocked": {
+   "text": "Freigeschaltet"
+  },
+  "str_egg_word": {
+   "keep": "Wort des Easter Eggs"
+  },
+  "str_enter": {
+   "keep": "unbenutzt"
+  },
+  "str_export": {
+   "text": "PLUGIN-EXPORT"
+  },
+  "str_export_custom": {
+   "text": "EINST.-EXPORT"
+  },
+  "str_export_fx": {
+   "text": "EFFEKT-EXPORT"
+  },
+  "str_exported": {
+   "text": " exportiert"
+  },
+  "str_factory": {
+   "text": "WERK"
+  },
+  "str_fault": {
+   "text": "FEHLER"
+  },
+  "str_features": {
+   "text": "FUNKTIONEN"
+  },
+  "str_file_moved": {
+   "text": "Ordner geändert"
+  },
+  "str_file_stays": {
+   "text": "Datei bleibt auf Karte"
+  },
+  "str_flash_saved": {
+   "text": "im Flash gespeichert"
+  },
+  "str_ft": {
+   "text": "FILTER SCHALTEN"
+  },
+  "str_fx_bad": {
+   "text": "e2sFx.all defekt"
+  },
+  "str_fx_build": {
+   "keep": "Fachwort bleibt"
+  },
+  "str_fx_exported": {
+   "text": "exportiert"
+  },
+  "str_fx_loaded": {
+   "keep": "Fachwort bleibt"
+  },
+  "str_fx_nofile": {
+   "text": "kein e2sFx.all"
+  },
+  "str_fx_skipped": {
+   "text": "FX aus"
+  },
+  "str_fx_tag_bad": {
+   "text": "FX falsch"
+  },
+  "str_glide_chain": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_glide_switch": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_group_games": {
+   "text": "SPIELE"
+  },
+  "str_group_tools": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_idle": {
+   "text": "RUHEMODUS"
+  },
+  "str_intens": {
+   "text": "INTENSITÄT"
+  },
+  "str_invert": {
+   "text": "ANZEIGE INVERS"
+  },
+  "str_ip": {
+   "text": "ALS INIT-PATTERN"
+  },
+  "str_knob": {
+   "text": "REGLER-LEDS"
+  },
+  "str_kp": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_kp_title": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_led_blue": {
+   "text": "LED HELLIGKEIT"
+  },
+  "str_led_dim": {
+   "text": "LED DIMMEN"
+  },
+  "str_led_green": {
+   "text": "LED SÄTTIGUNG"
+  },
+  "str_led_red": {
+   "text": "LED FARBTON"
+  },
+  "str_ledmode": {
+   "text": "LEDS UNTEN"
+  },
+  "str_line": {
+   "keep": "Zeilennummer im Fehlerbericht"
+  },
+  "str_list_full": {
+   "text": "LISTE VOLL"
+  },
+  "str_list_max": {
+   "text": "64 Dateien gezeigt"
+  },
+  "str_lm": {
+   "text": "LASTANZEIGE"
+  },
+  "str_lp": {
+   "text": "LETZTES PATTERN"
+  },
+  "str_meter": {
+   "text": "PEGEL"
+  },
+  "str_meter_loud": {
+   "text": "PEGEL LAUT"
+  },
+  "str_meter_low": {
+   "text": "PEGEL LEISE"
+  },
+  "str_meter_mid": {
+   "text": "PEGEL MITTEL"
+  },
+  "str_meter_still": {
+   "text": "PEGEL STILL"
+  },
+  "str_mfx": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_mg": {
+   "text": "SYNC-GRUPPE"
+  },
+  "str_na": {
+   "text": "NOTENHILFE"
+  },
+  "str_no_desc": {
+   "text": "keine Beschreibung"
+  },
+  "str_no_files": {
+   "text": "keine Dateien"
+  },
+  "str_nocard": {
+   "text": "keine Karte"
+  },
+  "str_nofolder": {
+   "text": "Ordner fehlt"
+  },
+  "str_noplugin": {
+   "text": "Kein Plugin"
+  },
+  "str_not_script": {
+   "text": "kein Plugin"
+  },
+  "str_nothing": {
+   "text": "keine Plugins"
+  },
+  "str_off": {
+   "text": "AUS"
+  },
+  "str_off_restart": {
+   "text": "AUS, NEUSTART"
+  },
+  "str_on": {
+   "text": "AN"
+  },
+  "str_on_restart": {
+   "text": "AN, NEUSTART"
+  },
+  "str_once": {
+   "text": "EINMAL"
+  },
+  "str_open_enter": {
+   "keep": "unbenutzt"
+  },
+  "str_over": {
+   "text": "ÜBERLAPPUNG"
+  },
+  "str_pads": {
+   "text": "PADFARBE"
+  },
+  "str_pc": {
+   "text": "PATTERN BESTÄTIGEN"
+  },
+  "str_pdel": {
+   "text": "ENTFERNEN"
+  },
+  "str_pdel_sure": {
+   "text": "Enter = entfernen"
+  },
+  "str_pdeleted": {
+   "text": "entfernt"
+  },
+  "str_pedit": {
+   "text": "PLUGINS VERWALTEN"
+  },
+  "str_percent": {
+   "keep": "Zeichen"
+  },
+  "str_pool_full": {
+   "text": "Speicher voll"
+  },
+  "str_press": {
+   "text": "drücke  [ Enter ]"
+  },
+  "str_protected": {
+   "text": "Karte geschützt"
+  },
+  "str_psave": {
+   "text": "STROMSPAREN"
+  },
+  "str_pstate": {
+   "text": "AKTIV"
+  },
+  "str_rejected": {
+   "text": "abgelehnt"
+  },
+  "str_runtime": {
+   "text": "PLUGIN-LAUFZEIT"
+  },
+  "str_runtime_off": {
+   "text": "Plugins aus"
+  },
+  "str_save": {
+   "text": "DISPLAYLICHT"
+  },
+  "str_save_flash_q": {
+   "text": "IN DEN FLASH?"
+  },
+  "str_saved": {
+   "text": "gespeichert"
+  },
+  "str_scripts": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_sp": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_splash": {
+   "text": "STARTBILD"
+  },
+  "str_splash_draw": {
+   "text": "STARTBILD MALEN"
+  },
+  "str_splash_format": {
+   "text": "nicht 128x64 1 Bit"
+  },
+  "str_splash_import": {
+   "text": "STARTBILD IMPORT"
+  },
+  "str_splash_nofile": {
+   "text": "keine .bmp-Datei"
+  },
+  "str_splash_reset": {
+   "text": "STARTBILD ZURÜCK"
+  },
+  "str_splash_reset_done": {
+   "text": "Original zurück"
+  },
+  "str_splash_saved": {
+   "text": "geladen"
+  },
+  "str_stock_word": {
+   "text": "ORIGINAL"
+  },
+  "str_suffix": {
+   "keep": "Dateipfad"
+  },
+  "str_tab_custom": {
+   "text": "Eigen"
+  },
+  "str_tab_display": {
+   "keep": "Display ist auch im Deutschen gebräuchlich, Anzeige passt nicht neben den Seitenzähler"
+  },
+  "str_tab_du": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_tab_features": {
+   "text": "Extras"
+  },
+  "str_tab_games": {
+   "text": "Spiele"
+  },
+  "str_tab_global": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_tab_led": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_tab_pads": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_tab_pattern": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_tab_plugins": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_tab_psave": {
+   "text": "Strom"
+  },
+  "str_tab_splash": {
+   "text": "Start"
+  },
+  "str_tab_tools": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_tm": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_up": {
+   "keep": "Pfeil"
+  },
+  "str_us": {
+   "text": "EIGENE SAMPLES"
+  },
+  "str_us_bad": {
+   "text": "Sample-Datei defekt"
+  },
+  "str_us_loaded": {
+   "text": " GELADEN"
+  },
+  "str_us_ok": {
+   "keep": "Fachwort bleibt"
+  },
+  "str_us_skipped": {
+   "text": " AUSGELASSEN"
+  },
+  "str_writeerr": {
+   "text": "Schreibfehler"
+  }
+ }
+}

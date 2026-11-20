@@ -266,13 +266,17 @@ export class Sender {
     return null;
   }
 
-  /** The size of a file of the update folder on the card (`other`: ORIGINAL.BIN, else SYSTEM.VSB); 0 when there is none. */
+  /**
+   * The size of a file of the update folder on the card (`other`: ORIGINAL.BIN, else SYSTEM.VSB); 0 when there is none. A firmware
+   * from before 1.4.6 sends no FatFs result with status 6 (code 0) and so cannot tell a missing file from a card error; there it
+   * counts as none, as it did before, or the first update over USB from such a firmware could never start.
+   */
   async fileSize(model, other = false) {
     const at = other ? P.BLECH.FILE_OTHER : 0;
     try {
       return (await this.blechAttempts("read", async () => P.parseBlechFileRead(await this.blechExchange(P.blechFileRead(this.channel, at, 0, model), "blech-file-read"), this.channel, 0, model))).size;
     } catch (e) {
-      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE && (e.code === FR_NO_FILE || e.code === FR_NO_PATH)) return 0;
+      if (e instanceof SendError && e.status === P.BLECH.STATUS.FILE && (!e.code || e.code === FR_NO_FILE || e.code === FR_NO_PATH)) return 0;
       throw e;
     }
   }

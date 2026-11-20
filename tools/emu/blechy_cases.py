@@ -63,19 +63,21 @@ class Run:
         return self.dev.fb()
 
     def strip(self, name, pictures, scale=3, gap=2):
-        """Several displays (1024 bytes each, as fb() returns them) side by side in one PNG, a lit pixel black."""
+        """Several displays (1024 bytes each, as fb() returns them) side by side in one PNG, a lit pixel black, a clear
+        one transparent (grey with alpha)."""
         width = (128 + gap) * len(pictures) - gap
         rows = b""
         for y in range(64):
             line = b""
             for i, fb in enumerate(pictures):
-                line += (b"\x80" * gap if i else b"") + bytes(0 if (fb[(y // 8) * 128 + x] >> (y % 8)) & 1 else 255 for x in range(128))
-            rows += (b"\0" + b"".join(bytes([c]) * scale for c in line)) * scale
+                line += (b"\x80\xff" * gap if i else b"") + b"".join(b"\0\xff" if (fb[(y // 8) * 128 + x] >> (y % 8)) & 1 else b"\0\0"
+                                                                for x in range(128))
+            rows += (b"\0" + b"".join(line[i:i + 2] * scale for i in range(0, len(line), 2))) * scale
 
         def chunk(t, d):
             return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
         (self.png_dir / ("blechy-emu-" + name + ".png")).write_bytes(
-            b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width * scale, 64 * scale, 8, 0, 0, 0, 0))
+            b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width * scale, 64 * scale, 8, 4, 0, 0, 0))
             + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
 
     def key(self, code, hold=0.08, wait=0.15):

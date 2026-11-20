@@ -69,8 +69,9 @@ test("French renders device fields, effect metadata, accessible values and the p
   page.on("pageerror", e => errors.push(e.message));
   await page.goto(`${h.url}#baukasten`);
   await page.locator("#cee-bk-fx-catalog li").first().waitFor();
-  assert.match(await page.locator("#cee-bk-fx-catalog li").first().innerText(), /Un écho stéréo court/);
-  await page.locator("#cee-bk-fx-catalog li").first().locator(".cee-catalog-open").click();
+  const shortDelay = page.locator("#cee-bk-fx-catalog li", { hasText: "Short Delay" });
+  assert.match(await shortDelay.innerText(), /Un écho stéréo court/);
+  await shortDelay.locator(".cee-catalog-open").click();
   await page.locator("#cee-bk-detail-blocks .cee-knob").first().waitFor();
   assert.match(await page.locator("#cee-bk-detail-head").innerText(), /Un écho stéréo court/);
   assert.deepEqual(await page.locator("#cee-bk-detail-blocks .cee-bk-knob-group h5").allTextContents(), ["Mixage et niveaux", "Écho et durée", "Modulation", "Timbre", "EQ"]);

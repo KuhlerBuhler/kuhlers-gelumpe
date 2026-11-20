@@ -68,6 +68,11 @@ export const BLECH_SYNTH_SET_URL = "data/patches/blech-synth.json";
  * for the red (Hacktribe and Korg's own) and one for the blue. Not part of a set, so a set alone never renames the device.
  */
 export const USB_NAME_URLS = ["data/patches/usb-name.json", "data/patches/usb-name-synth.json"];
+/**
+ * The optional patch lang-de (docs/firmware-sprache.md): the BLECH menu in German, one variant per build. Built with the
+ * runtime (tools/patch/ensure-runtime.mjs), whose text numbering its header has to match.
+ */
+export const LANG_DE_URLS = ["data/patches/lang-de.json", "data/patches/lang-de-stock.json", "data/patches/lang-de-synth.json"];
 
 /** The variant of an optional patch (its variants parsed) for a firmware build, or null when none is made for it. */
 export const optionFor = (variants, build) => variants.find(p => buildsOf(p).includes(build)) ?? null;
@@ -110,6 +115,7 @@ const PATCH_LABELS = {
   "blech-sysex": { synth: "patcher.patch.sysexSynth", other: "patcher.patch.sysex" },
   "ifx-idle": "patcher.patch.ifxIdle",
   "usb-name": "patcher.usbName",
+  "lang-de": "patcher.langDe",
 };
 
 /** The label of a parsed patch for the page: a text of the tables, or the file's own name for a patch the page does not know. */

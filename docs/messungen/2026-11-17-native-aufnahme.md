@@ -38,6 +38,10 @@ schreibt dort `0xFF802870` hinein (`0x01F0C626`, `[P0 + 0xC] = R2` mit `P0 = 0xF
 | `0xFFA0179A` | **`[P4 + 0x18]` = L obere 16 Bit, R untere 16 Bit**, also `0xFF802888` |
 | `0xFFA017A8` | **`[P4 + 0x1C]` = L/2 + R/2**, also `0xFF80288C` |
 | `0xFFA017AA..0xFFA017EC` | Erfassung (`0x37`, siehe unten) |
+
+Der Soft-Clipper ist kein Effektbaustein: er hat keine Parameter, Schwelle und Nachverstärkung (etwa 1,24) stehen als
+Konstanten im Code, und er wird über eine fest geladene Adresse gerufen, nicht über die Effektliste (gelesen). Eine
+Ihn durch eine einstellbare Röhrenkurve zu ersetzen: [Idee 113](../ideen/113-roehrenkurve.md).
 | `0xFFA017EE..0xFFA0183C` | Aufnahme (`0x3B`, siehe unten) |
 | `0xFFA0189A..0xFFA0193A` | eine weitere Stufe addiert ein Mono-Signal mit eigener Hüllkurve (Bedeutung offen) und eine Verstärkung |
 | `0xFFA01946..0xFFA01966` | Spitzenpegel `[P5 + 0x50]`, `[P5 + 0x54]` = `0xFF9030F4` ([Pegel-LEDs](2026-11-12-pegel-leds.md)) |

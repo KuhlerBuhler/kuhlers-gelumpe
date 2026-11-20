@@ -28,11 +28,11 @@ export function scriptsSuite(index, parts) {
     return page;
   }
 
-  /** How many pixels of the simulated display are on (dark ink on light paper). */
+  /** How many pixels of the simulated display are on (dark ink; clear pixels are transparent). */
   const lit = page => page.evaluate(() => {
     const data = document.getElementById("cee-sim-lcd").getContext("2d").getImageData(0, 0, 128, 64).data;
     let n = 0;
-    for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] < 384) n += 1;
+    for (let i = 0; i < data.length; i += 4) if (data[i + 3] && data[i] + data[i + 1] + data[i + 2] < 384) n += 1;
     return { n };
   });
 
@@ -168,7 +168,7 @@ export function scriptsSuite(index, parts) {
     await page.waitForFunction(() => {
       const c = document.getElementById("cee-sim-lcd").getContext("2d").getImageData(0, 0, 128, 64).data;
       let n = 0;
-      for (let i = 0; i < c.length; i += 4) if (c[i] + c[i + 1] + c[i + 2] < 384) n += 1;
+      for (let i = 0; i < c.length; i += 4) if (c[i + 3] && c[i] + c[i + 1] + c[i + 2] < 384) n += 1;
       return n > 0 && n < c.length / 4;
     });
     const before = (await lit(page)).n;
@@ -177,7 +177,7 @@ export function scriptsSuite(index, parts) {
     await page.waitForFunction(b => {
       const c = document.getElementById("cee-sim-lcd").getContext("2d").getImageData(0, 0, 128, 64).data;
       let n = 0;
-      for (let i = 0; i < c.length; i += 4) if (c[i] + c[i + 1] + c[i + 2] < 384) n += 1;
+      for (let i = 0; i < c.length; i += 4) if (c[i + 3] && c[i] + c[i + 1] + c[i + 2] < 384) n += 1;
       return n !== b;
     }, before);
     await page.locator("#cee-sim-tap[data-lit=on]").waitFor({ timeout: 5000 }).catch(() => null);
@@ -199,7 +199,7 @@ export function scriptsSuite(index, parts) {
     assert.match(await page.locator("#cee-sim-apps").textContent(), /GAMES > Snake/);
     await page.waitForFunction(() => {
       const c = document.getElementById("cee-sim-lcd").getContext("2d").getImageData(0, 0, 128, 64).data;
-      for (let i = 0; i < c.length; i += 4) if (c[i] + c[i + 1] + c[i + 2] < 384) return true;
+      for (let i = 0; i < c.length; i += 4) if (c[i + 3] && c[i] + c[i + 1] + c[i + 2] < 384) return true;
       return false;
     });
     assert.equal(await page.locator(".cee-sim-app").isDisabled(), true, "it is open already");
@@ -210,7 +210,7 @@ export function scriptsSuite(index, parts) {
     await page.locator("#cee-sim-screen", { hasText: "zeigt die App" }).waitFor();
     await page.waitForFunction(() => {
       const c = document.getElementById("cee-sim-lcd").getContext("2d").getImageData(0, 0, 128, 64).data;
-      for (let i = 0; i < c.length; i += 4) if (c[i] + c[i + 1] + c[i + 2] < 384) return true;
+      for (let i = 0; i < c.length; i += 4) if (c[i + 3] && c[i] + c[i + 1] + c[i + 2] < 384) return true;
       return false;
     });
     await page.click("#cee-script-stop");
@@ -340,7 +340,7 @@ export function scriptsSuite(index, parts) {
     await page.waitForFunction(() => {
       const c = document.getElementById("cee-sim-lcd").getContext("2d").getImageData(0, 0, 128, 64).data;
       let n = 0;
-      for (let i = 0; i < c.length; i += 4) if (c[i] + c[i + 1] + c[i + 2] < 384) n += 1;
+      for (let i = 0; i < c.length; i += 4) if (c[i + 3] && c[i] + c[i + 1] + c[i + 2] < 384) n += 1;
       const ink = Math.min(n, 128 * 64 - n); // the preview follows DISPLAY INVERT: text may be the light pixels
       return ink > 5 && ink < 60;
     });
@@ -573,7 +573,7 @@ export function scriptsSuite(index, parts) {
       if (draws) {
         await page.waitForFunction(() => {
           const c = document.getElementById("cee-sim-lcd").getContext("2d").getImageData(0, 0, 128, 64).data;
-          for (let i = 0; i < c.length; i += 4) if (c[i] + c[i + 1] + c[i + 2] < 384) return true;
+          for (let i = 0; i < c.length; i += 4) if (c[i + 3] && c[i] + c[i + 1] + c[i + 2] < 384) return true;
           return false;
         });
         assert.match(await page.locator("#cee-sim-apps").textContent(), new RegExp(`${group} > ${name}`));
@@ -608,10 +608,10 @@ export function scriptsSuite(index, parts) {
     assert.deepEqual(await cards.locator("h3").allTextContents(), TITLES);
     assert.equal(await cards.locator("p.muted:not(.cee-catalog-creator)").count(), TITLES.length, "one short description each");
     // The picture is the display after some frames of the browser VM; a plugin that only lights LEDs shows its pads.
-    const inked = await page.locator(".cee-catalog-thumb").evaluateAll(list => list.map(c => {
+    const inked = await page.locator("#cee-catalog .cee-catalog-thumb").evaluateAll(list => list.map(c => {
       const data = c.getContext("2d").getImageData(0, 0, 128, 64).data;
       let n = 0;
-      for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] < 384) n += 1;
+      for (let i = 0; i < data.length; i += 4) if (data[i + 3]) n += 1;
       return n;
     }));
     assert.ok(inked.every(n => n > 0), `every thumbnail has something drawn: ${inked}`);

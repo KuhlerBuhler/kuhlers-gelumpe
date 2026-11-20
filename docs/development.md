@@ -134,6 +134,12 @@ für jeden CPU-Kern eine eigene Chrome-Instanz um denselben Rechner konkurriert.
 
 Jeder lokale Testlauf (`npm test`, `test:e2e`, `test:all`, `test:emu`, `test:local`, `verify:patches`, `check.py`, `menu_cases.py` und die übrigen `*_cases.py`) prüft zuerst die Auslastung (`tools/load-gate.mjs`) und startet nicht, solange das 1-Minuten-Lastmittel mindestens 0,8 mal die Kernzahl beträgt oder weniger als 10 % Speicher frei sind. Er meldet das in einer Zeile, prüft alle 15 s neu und bricht nach 20 Minuten mit Fehlercode ab. `GELUMPE_LOAD_GATE=off` überspringt die Prüfung, `GELUMPE_LOAD_MAX` (Faktor der Kerne), `GELUMPE_LOAD_WAIT` (Sekunden) und `GELUMPE_LOAD_POLL` (Sekunden) stellen sie ein. In CI (`CI` gesetzt) entfällt sie, und verschachtelte Läufe warten nicht doppelt (`GELUMPE_LOAD_GATE_PASSED`). Direkt gestartetes `node --test` ist nicht abgesichert, dafür `node tools/load-gate.mjs node --test ...` voranstellen. Ebenso ungeschützt sind `cases()` eines Fallmoduls, aus Python aufgerufen (die Prüfung steht nur in seinem `main()`), und `python -m unittest tools/patch/test_*.py`: vorher `sysctl -n vm.loadavg` ansehen oder `node tools/load-gate.mjs` voranstellen.
 
+Auf macOS zählt das Lastmittel auch wartende Threads. Gemessen: Lastmittel 16,7 auf 10 Kernen, während `top` 56 % freie CPU
+zeigte; die Prüfung hielt so mehrere Läufe ohne Grund an. Für Zeitmessungen die freie CPU aus `top` ansehen (über etwa 70 %),
+den Wert zum Lauf notieren und dann `GELUMPE_LOAD_GATE=off` setzen. Lange Läufe brauchen einen wachen Rechner: schläft der Mac
+(Deckel zu), laufen Zeitgrenzen über die Schlafzeit ab und der Lauf bricht ohne Fehler im Code ab (gemessen, Ruhezustand im
+`pmset -g log`). Deckel offen lassen oder `caffeinate -i` voranstellen.
+
 Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt starten:
 
 ```bash
@@ -532,6 +538,10 @@ ein Test schlägt fehl, wenn es fehlt.
 | Funktionslisten in `README.md` und `README.en.md` (Plugins, Fallstricke, Rettung) | von Hand | nein |
 | [Fahrplan](fahrplan.md): die Version unter "Erschienen" eintragen, den Rest nachziehen | von Hand | nein |
 | Plugin-API-Version und neue Funktionen in [plugins.md](plugins.md) und `plugins.en.md` | mit dem Feature-PR | nein |
+
+`tools/known-releases.mjs` bricht derzeit schon bei `v1.3.3` ab: Haken 2 des Notenassistenten (`0xC008870C`) gehört
+nicht mehr zur Kette `pad-note` in `data/hooks.mjs` (gemessen 20.11.). Das Skript fängt immer mit einer leeren Datei an,
+alte Tags lassen sich also nicht einfach weglassen.
 
 **Format der Notizen** (`release-notes/X.Y.Z.md`): eine Datei, erst Deutsch, dann eine Zeile `## English` und darunter
 dieselben Notizen auf Englisch. Die Datei enthält nur die Notizen, keinen Download-Abschnitt und keine "Ohne App
