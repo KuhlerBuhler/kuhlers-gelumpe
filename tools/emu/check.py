@@ -318,6 +318,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     carderror = [c for _ in range(len(CARDERROR_GROUPS) if want(has_carderror) else 0) for c in done.pop(0)]
     initpattern = [c for _ in range(len(INITPATTERN_GROUPS) if want(has_initpattern) else 0) for c in done.pop(0)]
     stereopad = [c for _ in range(len(STEREOPAD_GROUPS) if want(has_stereopad) else 0) for c in done.pop(0)]
+    tube = [c for _ in range(len(TUBE_GROUPS) if want(has_tube) else 0) for c in done.pop(0)]
     htosc = [c for _ in range(len(HTOSC_GROUPS) if want(has_htosc) else 0) for c in done.pop(0)]
     beateighth = [c for _ in range(len(BEATEIGHTH_GROUPS) if want(has_beateighth) else 0) for c in done.pop(0)]
     touchzero = [c for _ in range(len(TOUCHZERO_GROUPS) if want(has_touchzero) else 0) for c in done.pop(0)]
@@ -374,6 +375,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(carderror)
     checks.extend(initpattern)
     checks.extend(stereopad)
+    checks.extend(tube)
     checks.extend(htosc)
     checks.extend(beateighth)
     checks.extend(touchzero)
