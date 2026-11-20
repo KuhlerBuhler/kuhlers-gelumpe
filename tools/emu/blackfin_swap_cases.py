@@ -5,14 +5,17 @@ import argparse
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import struct
 import time
 
 from blackfin_backend import BlackfinPort, BackendError
+import blackfin_worker
 from blackfin_rom import SysControl
 from firmware import identify
 from machine import blank_flash
+import swap_cases
 from swap_cases import Box, DSP_MIN, wav_pcm
 import sample_swap as spec
 
@@ -143,18 +146,52 @@ def cases(payload, worker, *, core_hz, wall_timeout=1200):
     return report
 
 
+CORE_HZ = 516096000                 # the core clock the measurements ran at (docs/messungen/2026-11-16-qemu-dsp-kern.md)
+REQUIRED = 'GELUMPE_DSP_REQUIRED'   # set in CI: a missing worker fails the case instead of leaving it out
+
+
+def has_native_swap(payload):
+    """check.py runs this module for a red copy with the sample swap, when a Blackfin worker is there or required."""
+    if not swap_cases.has_hooks(payload) or identify(payload).build not in ('stock', 'hacktribe'):
+        return False
+    return bool(blackfin_worker.find() or os.environ.get(REQUIRED))
+
+
+def report_entries(report):
+    if report.get('error'):
+        return [{"id": "dspswap:session", "ok": False, "detail": report['error']}]
+    return [{"id": f"dspswap:{name}", "ok": bool(ok), "detail": f"executed DSP ({report.get('verification_scope')}): {name} {ok}"}
+            for name, ok in report['checks'].items()]
+
+
+def cases_task():
+    import parallel
+    worker = blackfin_worker.find()
+    if worker is None:
+        return [{"id": "dspswap:worker", "ok": False,
+                 "detail": f'{REQUIRED} is set, but there is no Blackfin worker (tools/dsp/build_qemu.py, BFIN_WORKER)'}]
+    try:
+        report = cases(parallel.shared["payload"], worker, core_hz=CORE_HZ)
+    except (OSError, BackendError, ValueError) as error:
+        report = dict(error=str(error))
+    return report_entries(report)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--patched', type=Path, required=True)
-    parser.add_argument('--worker', type=Path, required=True)
+    parser.add_argument('--worker', type=Path, help='default: blackfin_worker.find()')
     parser.add_argument('--core-hz', type=int, required=True)
     parser.add_argument('--wall-timeout', type=float, default=1200)
     args = parser.parse_args()
     try:
+        worker = blackfin_worker.find(args.worker)
+        if worker is None:
+            raise ValueError('no Blackfin worker: build one with tools/dsp/build_qemu.py or pass --worker')
         raw = args.patched.read_bytes()
         if len(raw) != 0x200100:
             raise ValueError('expected a complete SYSTEM.VSB')
-        report = cases(raw[0x100:], args.worker, core_hz=args.core_hz, wall_timeout=args.wall_timeout)
+        report = cases(raw[0x100:], worker, core_hz=args.core_hz, wall_timeout=args.wall_timeout)
     except (OSError, BackendError, ValueError) as error:
         report = dict(ok=False, hardware_contact=False, error=str(error))
     print(json.dumps(report, indent=2))

@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Generated HOSTDP bus words, RAM patterns and interrupt handlers."""
-import os
 import struct
 import unittest
 
 from blackfin_backend import BlackfinBackend, BackendError
+import blackfin_worker
 
-WORKER = os.environ.get('BFIN_WORKER')
+WORKER = blackfin_worker.find()
 CONTROL, STATUS = 0xFFC03400, 0xFFC03404
 DMA1, DATA = 0xFFC00C40, 0x20000
 
 
-@unittest.skipUnless(WORKER, 'build the GNU Blackfin worker and set BFIN_WORKER')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class HostFIFO(unittest.TestCase):
     def setUp(self):
         self.backend = BlackfinBackend(WORKER, operating=True)

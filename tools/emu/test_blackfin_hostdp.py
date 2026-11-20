@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """BF52x HOSTDP tests with generated values and instructions."""
-import os
 import struct
 import unittest
 
 from blackfin_backend import BlackfinBackend, BackendError
+import blackfin_worker
 
-WORKER = os.environ.get('BFIN_WORKER')
+WORKER = blackfin_worker.find()
 CONTROL, STATUS, TIMEOUT = 0xFFC03400, 0xFFC03404, 0xFFC03408
 SIC_ISR1 = 0xFFC00160
 
 
-@unittest.skipUnless(WORKER, 'build the GNU Blackfin worker and set BFIN_WORKER')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class HostPort(unittest.TestCase):
     def setUp(self):
         self.backend = BlackfinBackend(WORKER, operating=True)

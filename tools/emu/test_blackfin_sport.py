@@ -1,18 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Generated SPORT0, DMA and interrupt programs; no audio fixtures."""
-import os
 import struct
 import tempfile
 import unittest
 from unittest import mock
 
 from blackfin_backend import BlackfinBackend, BackendError
+import blackfin_worker
 
-WORKER = os.environ.get('BFIN_WORKER')
+WORKER = blackfin_worker.find()
 SPORT, RXDMA, TXDMA = 0xFFC00800, 0xFFC00CC0, 0xFFC00D00
 
 
-@unittest.skipUnless(WORKER, 'build the GNU Blackfin worker and set BFIN_WORKER')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class Sport(unittest.TestCase):
     def setUp(self):
         self.backend = BlackfinBackend(WORKER, operating=True)

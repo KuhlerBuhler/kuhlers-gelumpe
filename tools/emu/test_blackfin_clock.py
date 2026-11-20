@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Generated cycle, sleep and external FIFO state counterexamples."""
-import os
 import struct
 import unittest
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
 
 from blackfin_backend import BlackfinBackend, BlackfinPort, BackendError
+import blackfin_worker
 
-WORKER = os.environ.get('BFIN_WORKER')
+WORKER = blackfin_worker.find()
 
 
-@unittest.skipUnless(WORKER, 'build the GNU Blackfin worker and set BFIN_WORKER')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class Clock(unittest.TestCase):
     def setUp(self):
         self.backend = BlackfinBackend(WORKER, operating=True)
@@ -261,7 +261,7 @@ class CoupledSetup(unittest.TestCase):
         self.assertEqual(hardware_of_flash(constructor.call_args.kwargs['flash']), 'blue')
 
 
-@unittest.skipUnless(WORKER, 'build the GNU Blackfin worker and set BFIN_WORKER')
+@unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class ArmClock(unittest.TestCase):
     def test_default_slice_has_a_finite_boundary_when_arm_waits_without_events(self):
         from machine import Machine, AINTC
