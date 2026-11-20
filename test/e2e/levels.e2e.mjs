@@ -193,6 +193,7 @@ test("pseudo reverb: offered on a short delay, marked untested, applies its valu
 });
 
 test("pseudo reverb: not offered on another unit, and refused where short delay sits in stage 2", async () => {
+  // Without a firmware read the stage2-memory patch is assumed: short delay in stage 2 is no longer fatal, the suggestion still wants it in stage 1.
   const page = await open({ connected: false });
   await pickPreset(page, 50);
   assert.equal(await page.locator("#cee-suggest-pseudoReverb").count(), 0);
@@ -200,8 +201,8 @@ test("pseudo reverb: not offered on another unit, and refused where short delay 
   await pickPreset(page, 53);
   const box = page.locator("#cee-suggest-pseudoReverb");
   await box.waitFor();
-  assert.match(await page.locator("#cee-suggest-pseudoReverb-refusal").textContent(), /Stufe 2.*kills sound device-wide/);
+  assert.match(await page.locator("#cee-suggest-pseudoReverb-refusal").textContent(), /Stufe 1/);
   assert.equal(await page.locator("#cee-suggest-pseudoReverb-apply").count(), 0);
-  assert.match(await page.locator("#cee-verdict").textContent(), /tödlich/, "the gatekeeper calls the record itself fatal");
+  assert.doesNotMatch(await page.locator("#cee-verdict").textContent(), /tödlich/, "the gatekeeper does not call the record fatal");
   assert.deepEqual(page.errors, []);
 });

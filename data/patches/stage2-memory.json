@@ -1,0 +1,68 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "stage2-memory",
+ "name": "Eigener Speicher für Stufe 2 der Insert-Effekte",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "changes": [
+  {
+   "file": 1222870,
+   "bytes": "22e1285c",
+   "expect": "f2224dcc50661ff76266aab6811c138217bc2e1964a78a55b9da5100c8d199b1",
+   "note": "DSP 0x01f0c166: R2 = stage 2 coefficients - stage 1 state (was 0x50)"
+  },
+  {
+   "file": 1222874,
+   "bytes": "23e1744a",
+   "expect": "8bf0ae9f6390c31fbf0a2abafb931bdd57ab9cabf64f9e48d8b412e740481f11",
+   "note": "DSP 0x01f0c16a: R3 = stage 2 state - stage 1 state (was 0x70)"
+  },
+  {
+   "file": 1222888,
+   "bytes": "04cc2a04",
+   "expect": "2972ea4f388a279ed8e0b2bc5215293e68211583c7d46e31fc5c9b1980e102e6",
+   "note": "DSP 0x01f0c178: R2 = R5 + R2, stage 2 coefficients from the state base (was R1 + R2, behind stage 1's coefficients)"
+  },
+  {
+   "file": 1222972,
+   "bytes": "009e",
+   "expect": "13c003c3ac1cae35075c0729f912a317d19ef36b2c488196d756e7add4143204",
+   "note": "DSP 0x01f0c1cc: [I0++] = R0, stage 2 gets the part's SDRAM buffer (was R6, 0)"
+  },
+  {
+   "file": 1222986,
+   "bytes": "04cc0c02b4a3009e",
+   "expect": "e4a70b6615e992167d2f1e367d0e7d490835faed775cc00856ba991fa10454c4",
+   "note": "DSP 0x01f0c1da: [I0++] = R0, stage 2's delay pointer starts in that buffer (was R6, 0, the DSP program)"
+  },
+  {
+   "file": 1223004,
+   "bytes": "24e1b400",
+   "expect": "03faf05eac24fe4068f794e41fc37cadee0fd402562551ea454337a91839a4f4",
+   "note": "DSP 0x01f0c1ec: R4 = 0xB4, stage 2 coefficient stride (was 0x1B4, the part block)"
+  },
+  {
+   "file": 1125220,
+   "bytes": "0a200000",
+   "expect": "5a05b73f950be9169aa53d839efa6b6bf091f4a8e089a7b1150f8302700e7325",
+   "note": "DSP 0x00018b00: JUMP.S 0x18B14, the IFX unit handler keeps stage 2's coefficients (was R2 = 0x48: on odd parts it set them back to the part block + 0x120, the unpatched place)"
+  },
+  {
+   "file": 1183868,
+   "bytes": "201d0000",
+   "expect": "eed9ded321f40035e83a0ad24e896746122c96b91644b590a448b66c3f957b7c",
+   "note": "DSP 0x01f02448: heap 1 length, the heap ends where stage 2 starts (was 0x39FF, the rest of bank B)"
+  },
+  {
+   "file": 1247512,
+   "bytes": "01015dadd00c90ff3073000000000000",
+   "expect": "4ccb47e8d33ba2a6e4fc27160be3b4a86bb455b906908c75b45875fa4e2940f9",
+   "note": "DSP boot block: zero fill 0xff900cd0 up to 0xff908000 (was 0xff903ff0)"
+  }
+ ],
+ "startPhase": [],
+ "ram": []
+}

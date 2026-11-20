@@ -7,7 +7,7 @@ import { SPLASH_W, SPLASH_H } from "./patch.mjs";
 
 export { SPLASH_W, SPLASH_H };
 export const SPLASH_FILE = "splash.bmp";
-export const SPLASH_FOLDER = "KORG/blechtribe/";
+export const SPLASH_FOLDER = "KORG/blechtribe/Media/";
 
 /**
  * Brightness 0 (black) to 255 (white), one value per pixel, row by row, to 1 for a drawn pixel and 0 for an empty one.
@@ -75,4 +75,35 @@ export function encodeBmp(pixels) {
     }
   }
   return b;
+}
+
+/**
+ * A Windows bitmap -> its 128 x 64 pixels (1 drawn, row by row), or a text that says why it is none. The checks are those of
+ * SPLASH IMPORT (tools/patch/splash_editor.py, imp_parse): "BM", width 128, height 64 (rows from the bottom) or -64 (from the
+ * top), 1 plane, 1 bit, no compression, the two palette entries before the pixels, the pixels from byte 54 to 0x200 and all
+ * 1024 bytes of them in the file. The darker palette entry is drawn (the sum of blue, green and red; on a tie entry 0).
+ */
+export function decodeBmp(bytes) {
+  if (!(bytes instanceof Uint8Array) || bytes.length < 54) return "shorter than the header";
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes[0] !== 0x42 || bytes[1] !== 0x4d) return "not BM";
+  const off = v.getUint32(10, true), info = v.getUint32(14, true);
+  if (v.getInt32(18, true) !== SPLASH_W) return "not 128 pixels wide";
+  const height = v.getInt32(22, true);
+  if (height !== SPLASH_H && height !== -SPLASH_H) return "not 64 pixels high";
+  if (v.getUint32(28, true) !== 1 || v.getUint16(32, true) !== 0) return "not 1 bit without compression";
+  if (bytes[26] !== 1) return "not one plane";
+  if (info + 22 > off) return "the palette does not end before the pixels";
+  if (off < 54 || off > 0x200) return "the pixels do not start between byte 54 and 0x200";
+  const stride = SPLASH_W / 8;
+  if (off + stride * SPLASH_H > bytes.length) return "the pixels are cut short";
+  const pal = 14 + info;
+  const bright = i => bytes[pal + 4 * i] + bytes[pal + 4 * i + 1] + bytes[pal + 4 * i + 2];
+  const ink = bright(1) < bright(0) ? 1 : 0;
+  const px = new Uint8Array(SPLASH_W * SPLASH_H);
+  for (let y = 0; y < SPLASH_H; y++) {
+    const row = off + (height === SPLASH_H ? SPLASH_H - 1 - y : y) * stride;
+    for (let x = 0; x < SPLASH_W; x++) px[y * SPLASH_W + x] = ((bytes[row + (x >> 3)] >> (7 - (x & 7))) & 1) === ink ? 1 : 0;
+  }
+  return px;
 }

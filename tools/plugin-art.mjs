@@ -126,6 +126,29 @@ const PLUGIN_ART = {
     p.fill(36, 52, 40, 10, RED);
     p.frame(90, 52, 12, 10);
   },
+  // every pad press also goes out as a MIDI note on its own channel: pad 1 = note 36 up to pad 16 = note 51
+  midiecho: p => {
+    p.text("MIDI ECHO", 4, 3);
+    p.text("CH 10", 124, 3, { align: "right" });
+    for (let i = 0; i < 8; i++) {
+      const [x] = padAt(i);
+      if (i === 2) p.fill(x, 16, 12, 12, RED); else p.frame(x, 16, 12, 12);
+    }
+    arrow(p, 18, 34);
+    p.text("NOTE 38", 40, 36);
+    p.text("VEL 100", 40, 50);
+  },
+  // clears the motion sequence of the selected part: the recorded knob curve goes flat
+  motionclear: p => {
+    p.text("CLEAR MOTION", 4, 3);
+    p.text("PART 3", 124, 3, { align: "right" });
+    p.frame(4, 16, 54, 34, 2);
+    for (let x = 0; x < 48; x++) p.fill(7 + x, 33 - Math.round(12 * Math.sin((x / 47) * 2 * Math.PI)), 1, 2);
+    arrow(p, 62, 30);
+    p.frame(74, 16, 50, 34, 2);
+    p.fill(77, 33, 44, 2);
+    p.text("MENU -> BLECH", 64, 54, { align: "center" });
+  },
 };
 
 mkdirSync(OUT, { recursive: true });

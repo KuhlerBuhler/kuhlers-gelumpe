@@ -94,7 +94,7 @@ der Flash.
 zeichnet `menu_ask_frame` im Frame-Hook wie die Frage der Migration (eigener Puffer, in den Bildspeicher der Firmware kopiert,
 neu markiert); `menu_ask_input` vor der Eingabe der Firmware merkt EXIT oder MENU im Byte `0x157` und verwirft alle Eingaben bis
 Typ 5. Ist die Karte 8 Frames weg (`M_CARD` `0x80 + n`), löst das die Frage, und mit Sperre liest `menu_settings_load` nur den
-Flash (`M_CARD` = `0xFE`), ohne Karte. `menu_flash_save` ruft die Schreibfunktion der Firmware (rot und HT `0xC0029AB8`, blau `0xC0026E24`), die unter
+Flash (`M_CARD` = `0xFD`, `CARD_PULL`; `0xFE` ist seit #518 `CARD_NEVER`), ohne Karte. `menu_flash_save` ruft die Schreibfunktion der Firmware (rot und HT `0xC0029AB8`, blau `0xC0026E24`), die unter
 ihrer Sperre den Sektor liest, löscht und neu schreibt, wie der Startbild-Editor bei WRITE.
 
 ## Messwerte
@@ -107,6 +107,9 @@ Der Flash hängt an SPI1 und ist nicht in den Adressraum gelegt. Am Gerät (14.1
 
 ## Offen
 
+- Nicht geprüft: ob andere Kartenzugriffe (EXPORT ALL CUSTOMIZATIONS, Plugin-Seiten) nach einem Start ohne Karte eine
+  später gesteckte Karte anfassen. Umgestellt ist nur WRITE der Einstellungen; ein Kartenzugriff nach so einem Start kann
+  Korgs Karten-Init hängen lassen (#518).
 - Die Schreibfunktion `0xC0029AB8` aus einem EXEC-Stub aufzurufen, um ein Löschen zu timen, hat das rote Gerät abstürzen lassen
   (Display rot und stehend, kein Assert-Text), im Emulator lief derselbe Stub durch; `0x7F0000` bis `0x800000` war danach
   unverändert (gemessen 14.11.). Die Löschzeit wird darum nur über den eigenen Speicherweg der Firmware gemessen.

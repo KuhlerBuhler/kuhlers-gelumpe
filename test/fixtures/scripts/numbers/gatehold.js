@@ -38,7 +38,7 @@ korg.onEvent("touch", (x, y, first) => {
   if (!on || !gate) return;
   if (first || !holding) {
     letGo();
-    base = korg.current.gateArp;
+    base = korg.pattern.current.gateArp;
     rhythm = -1;
     korg.touchLockX(x >> 3);
     holding = 1;
@@ -53,7 +53,7 @@ korg.onEvent("touch", (x, y, first) => {
 // A new pattern brings its own rhythm: that one comes back on release.
 korg.onEvent("patternChange", () => {
   if (!holding) return;
-  base = korg.current.gateArp;
+  base = korg.pattern.current.gateArp;
   rhythm = -1;
 });
 

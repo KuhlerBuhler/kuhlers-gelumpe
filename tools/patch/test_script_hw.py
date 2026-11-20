@@ -98,6 +98,8 @@ class NativeHardwareTests(unittest.TestCase):
             for part,group in [(-1,fields['pattern']),(0,fields['part']),(15,fields['part'])]:
                 at = base + (0 if part < 0 else 0x800 + part * 0x330)
                 for i,f in enumerate(group):
+                    if f['kind'] == 'mfx2':        # the patch mfx-switch's table, not a pattern byte (plugin_api27_cases)
+                        continue
                     for raw,raw2 in [(0,0),(1,7),(200,1),(255,255),(251,0)]:
                         with self.subTest(pattern=pattern,part=part,field=f['name'],raw=raw):
                             m.uc.mem_write(at + f['offset'],bytes([raw,raw2]) if f['kind'] == 'u16' else bytes([raw]))

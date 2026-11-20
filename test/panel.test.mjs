@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { BUTTONS, ENCODERS, KNOBS, PADS, TOUCH_BUTTON } from "../data/panel.mjs";
+import { BUTTONS, ENCODERS, KNOBS, LED_ON_OFF, PADS, TOUCH_BUTTON } from "../data/panel.mjs";
 
 const measured = evidence => {
   const m = /^measure:(\d{4}-\d{2}-\d{2})\/([a-z0-9-]+)$/.exec(evidence);
@@ -25,6 +25,14 @@ test("every LED number says where it comes from", () => {
   }
   const all = [...BUTTONS.map(b => b.led), ...ENCODERS.map(e => e.led), ...PADS.flatMap(p => [p.ledRed, p.ledBlue])];
   assert.equal(new Set(all).size, all.length, "an LED belongs to one control");
+});
+
+test("only button LEDs are switched without PWM", () => {
+  const buttons = new Set(BUTTONS.flatMap(b => [b.led, b.ledBlue]));
+  for (const n of LED_ON_OFF) assert.ok(buttons.has(n), `LED 0x${n.toString(16)} is no button LED`);
+  for (const n of [...ENCODERS.map(e => e.led), ...PADS.flatMap(p => [p.ledRed, p.ledBlue])]) {
+    assert.ok(!LED_ON_OFF.has(n), `LED 0x${n.toString(16)} has PWM`);
+  }
 });
 
 test("the drawing places every button, encoder and knob of the table", () => {

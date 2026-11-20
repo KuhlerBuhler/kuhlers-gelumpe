@@ -1,6 +1,6 @@
 # The editor page and the emulator in one image, the same pair `npm start` runs.
 # Node 20 or newer, Python 3.10 or newer with Unicorn (docs/development.md).
-FROM node:22-bookworm-slim
+FROM node:26-bookworm-slim
 
 # The page has to listen on every interface: a published port reaches the
 # container's own address, never 127.0.0.1 inside it. The emulator takes the

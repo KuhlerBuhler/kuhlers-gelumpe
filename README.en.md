@@ -74,6 +74,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Second master effect (MFX 2) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | BEAT 8: eighth-note steps, patterns twice as long | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TOUCH SCALE RANGE 0: X plays the key note only | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Import samples onto factory slots | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
 | Plugins and games (Snake, Tetris, ...) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Pad and LED colours | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Confirm before changing patterns | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |

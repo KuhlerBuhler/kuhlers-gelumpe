@@ -110,6 +110,7 @@ test("the workflow wakes on completed checks, reads trusted code and never polls
   assert.match(yml, /github\.event_name == 'workflow_run' && contains\(github\.event\.workflow_run\.pull_requests\.\*\.base\.ref, 'develop'\)/);
   assert.match(yml, /ref: develop\b/);
   assert.match(yml, /node tools\/automerge\.mjs/);
-  assert.match(yml, /GH_TOKEN: \$\{\{ secrets\.SYNC_TOKEN \}\}/);
+  assert.match(yml, /GH_TOKEN: \$\{\{ steps\.app\.outputs\.token \}\}/);
+  assert.match(yml, /create-github-app-token@v3/);
   assert.doesNotMatch(yml, /sleep 60|while :|timeout-minutes: 150/);
 });

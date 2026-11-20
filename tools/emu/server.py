@@ -313,6 +313,14 @@ class Emulator:
         return base64.b64encode(shown).decode("ascii")
 
     @staticmethod
+    def alive(m):
+        """What shows the firmware still runs, None where the machine does not count it: its messages to the panel and its waits
+        for an interrupt. Since #595 an idle main screen sends the panel nothing (the meter LEDs go out only on a change), so the
+        messages alone took a quiet device for a hung one (PR #690, a card put in); a firmware stuck in a loop never waits."""
+        count = getattr(m, "panel_count", None)
+        return None if count is None else (count, getattr(m, "idle_waits", 0))
+
+    @staticmethod
     def light(m):
         """The display light as the eye sees it, [red, green, blue] 0 to 255, or None where the machine does not model it or the
         firmware has not driven it yet (backlight.py); the page then draws in its own colours."""
@@ -550,7 +558,7 @@ class Emulator:
         trace = getattr(m, "panel_leds", None)     # every LED change with its device time (panel_leds.py); a stand-in has only the table
         led_seen = trace.count if trace is not None else 0
         status_ns = dev0
-        alive_count, alive_ns = getattr(m, "panel_count", None), dev0
+        alive_count, alive_ns = self.alive(m), dev0
         last_sd = None
         lcd, self.shade = LcdResponse(*self.lcd_tau), None
         try:
@@ -568,7 +576,9 @@ class Emulator:
                     self.publish("midi", msg.hex())
                 if not self.status["booted"] and getattr(m, "booted", True):
                     self.set_status(booted=True)
-                if not getattr(m, "powered", True):
+                # A watchdog reset (machine.py) ends the run like switching off: whether the device stays on through it is
+                # open (docs/messungen/2026-11-16-watchdog-neustart.md); the power switch starts it again from the flash.
+                if not getattr(m, "powered", True) or getattr(m, "reset", None):
                     self.running = False
                     self.publish("display", self._display(m))
                     lcd.settle(m.fb, getattr(m, "lcd_reverse", False))
@@ -600,13 +610,13 @@ class Emulator:
                     if sd != last_sd:
                         last_sd = sd
                         self.publish("sd", {"read": sd[0], "written": sd[1], "busy": sd[2]})
-                count = getattr(m, "panel_count", None)
+                count = self.alive(m)
                 if count != alive_count:
                     alive_count, alive_ns = count, m.time_ns
                     if self.status["state"] == "hung":
                         self.set_status(state="running", error=None)
                 elif count is not None and m.time_ns - alive_ns > self.hang_s * 1e9 and self.status["state"] == "running":
-                    self.set_status(state="hung", error=f"Die Firmware schickt seit {self.hang_s:g} s nichts mehr ans Bedienfeld; sie hängt vermutlich.")
+                    self.set_status(state="hung", error=f"Die Firmware schickt seit {self.hang_s:g} s nichts mehr ans Bedienfeld und wartet nie auf einen Interrupt; sie hängt vermutlich.")
                 if m.asserts:
                     a = m.asserts[0]
                     self.running = False

@@ -1,0 +1,32 @@
+{
+ "what": "a byte the start reads: full update",
+ "context": {
+  "start": [
+   [
+    "0xc0001000",
+    "0xc0002000"
+   ]
+  ],
+  "dsp": [
+   "0xc0400000",
+   "0xc0400000"
+  ]
+ },
+ "base": {
+  "0xc0001800": "00"
+ },
+ "new": {
+  "0xc0001800": "01"
+ },
+ "expect": {
+  "rows": [
+   [
+    "0xc0001800",
+    "0xc0001804",
+    "full"
+   ]
+  ],
+  "groups": [],
+  "warnings": 0
+ }
+}

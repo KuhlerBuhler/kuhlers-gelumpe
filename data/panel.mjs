@@ -102,3 +102,13 @@ export const PADS = Array.from({ length: 16 }, (_, n) => ({
 
 /** Touchpad: `05 xh xl yh yl`, raw values 0 to 1023 (derived from the calibration). */
 export const TOUCHPAD_MAX = 1023;
+
+/**
+ * LEDs the panel controller only switches: any value from 1 lights them fully. They sit in columns 7 to 10
+ * of its LED matrix (table 0x8460 of the panel code), which are plain GPIO pins; columns 0 to 6 run on base
+ * timer PWM. Derived from the panel code (docs/hintergrund/panel-controller.md), `panel_mcu.py --leds`.
+ */
+export const LED_ON_OFF = Object.freeze(new Set([
+  0x05, 0x06, 0x07, 0x08, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x13, 0x14,
+  0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b,
+]));

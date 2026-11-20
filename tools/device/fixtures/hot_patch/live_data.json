@@ -1,0 +1,29 @@
+{
+ "what": "the device holds other bytes than the base: full update",
+ "base": {
+  "0xc0120000": "00000000"
+ },
+ "new": {
+  "0xc0120000": "01000000"
+ },
+ "running": {
+  "0xc0120000": "02000000"
+ },
+ "expect": {
+  "rows": [
+   [
+    "0xc0120000",
+    "0xc0120004",
+    "full"
+   ]
+  ],
+  "groups": [],
+  "warnings": 0
+ },
+ "context": {
+  "dsp": [
+   "0xc0400000",
+   "0xc0400000"
+  ]
+ }
+}

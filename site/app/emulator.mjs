@@ -115,7 +115,11 @@ function glass(style, light) {
 /** How far a cell switched on darkens the backlight towards the theme's dark colour. */
 const DIM = 0.6;
 
-/** The display bytes: 8 pages of 128 columns, bit 0 the top row of a page. `light` as in lit(). */
+/**
+ * The display bytes: 8 pages of 128 columns, bit 0 the top row of a page. `light` as in lit(). Only the set pixels are
+ * drawn; a clear pixel stays transparent and the canvas's background, the off colour, shows through it, as the light
+ * shows through a clear cell of the glass.
+ */
 export function drawDisplay(canvas, bytes, light = null) {
   const ctx = canvas.getContext("2d");
   const style = getComputedStyle(canvas);
@@ -124,11 +128,17 @@ export function drawDisplay(canvas, bytes, light = null) {
   for (let y = 0; y < 64; y++) {
     for (let x = 0; x < 128; x++) {
       const lit = (bytes[(y >> 3) * 128 + x] >> (y & 7)) & 1;
-      img.data.set([...(lit ? on : off), 255], (y * 128 + x) * 4);
+      if (lit) img.data.set([...on, 255], (y * 128 + x) * 4);
     }
   }
+  backdrop(canvas, off);
   ctx.putImageData(img, 0, 0);
   grids.get(canvas)?.colour(back);
+}
+
+/** The colour behind the display canvas, which its clear (transparent) pixels show. */
+function backdrop(canvas, off) {
+  canvas.style.setProperty("--cee-lcd-back", `rgb(${off.join(" ")})`); // raw-ok: the off colour the display already read from its tokens
 }
 
 /** Each cell on the glass is drawn this share of its pitch, the rest is a margin on every side that shows the backlight. */
@@ -171,8 +181,8 @@ export function pixelGrid(display) {
     for (let y = 0; y < 64; y++) {
       for (let x = 0; x < 128; x++) {
         const i = (y * 128 + x) * 4;
-        if (src[i] === back[0] && src[i + 1] === back[1] && src[i + 2] === back[2]) continue;
-        const next = `rgb(${src[i]} ${src[i + 1]} ${src[i + 2]})`; // raw-ok: a cell colour read from the display canvas
+        if (!src[i + 3]) continue; // a clear cell: only the backlight
+        const next = `rgb(${src[i]} ${src[i + 1]} ${src[i + 2]} / ${src[i + 3] / 255})`; // raw-ok: a cell colour read from the display canvas
         if (next !== fill) ctx.fillStyle = fill = next;
         ctx.fillRect(x * cw + mx, y * ch + my, cw * CELL, ch * CELL);
       }
@@ -195,14 +205,15 @@ export function pixelGrid(display) {
 
 /**
  * The display as it looks: one byte per pixel, 0 clear to 15 dark, row by row (tools/emu/lcd.py).
- * Returns RGBA for a 128 x 64 image, each pixel between the off and the on colour.
+ * Returns RGBA for a 128 x 64 image: the on colour, as opaque as the pixel is dark. A clear pixel is fully transparent,
+ * so over the off colour each pixel comes out between the off and the on colour.
  */
-export function shadeImage(levels, on, off) {
+export function shadeImage(levels, on) {
   const out = new Uint8ClampedArray(128 * 64 * 4);
   for (let i = 0; i < 128 * 64; i++) {
-    const mix = Math.min(levels[i], 15) / 15;
-    for (let c = 0; c < 3; c++) out[i * 4 + c] = Math.round(off[c] + (on[c] - off[c]) * mix);
-    out[i * 4 + 3] = 255;
+    const level = Math.min(levels[i], 15);
+    if (!level) continue;
+    out.set([...on, Math.round(level * 255 / 15)], i * 4);
   }
   return out;
 }
@@ -211,7 +222,8 @@ export function drawShade(canvas, levels, light = null) {
   const ctx = canvas.getContext("2d");
   const style = getComputedStyle(canvas);
   const [on, off, back] = glass(style, light);
-  ctx.putImageData(new ImageData(shadeImage(levels, on, off), 128, 64), 0, 0);
+  backdrop(canvas, off);
+  ctx.putImageData(new ImageData(shadeImage(levels, on), 128, 64), 0, 0);
   grids.get(canvas)?.colour(back);
 }
 
@@ -350,7 +362,7 @@ export function emulatorPanel(root, link = null, { deviceArea = null, onConnect 
   const inApp = !!window.__GELUMPE_APP;
   const START_HINT = inApp
     ? t("emu.start.app")
-    : t("emu.start.page");
+    : window.__GELUMPE_MOBILE ? t("emu.start.mobile") : t("emu.start.page");
   const startButton = el("button", { type: "button", className: "btn cee-primary", id: "cee-emu-start", textContent: t("emu.start"), hidden: true });
   /** Looks for the emulator service; false and a toast when there is none. */
   async function start() {
