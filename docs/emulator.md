@@ -192,6 +192,10 @@ SAMPLE die `e2sSample.all` in denselben Ordner, EXPORT ALL PATTERN die Datei
 Firmware nur die `e2sSample.all`, keine einzelnen WAVs. Gemessen in
 [virtuelle SD-Karte](hintergrund/virtuelle-sd.md).
 
+Mit BLECH öffnet MENU die Seite Pattern (1/32); DATA UTILITY (29/32) liegt vier Seiten links davon, dahinter Event, BLECH
+und Blechys Seite. Korgs ungepatchte Firmware braucht zwei. Tests, die den Weg fest drücken, brechen, sobald eine Menüseite
+dazukommt (`toDataUtility` in `test/emulator-card.test.mjs`).
+
 **Die Karte ist ein Ordner.** `~/.gelumpe/sd/card/`, nie im Repository, denn
 die Karte kann Korg-Samples enthalten. Anderer Ort: `GELUMPE_SD_DIR` oder
 `npm run emu -- --sd-dir /pfad` (die Karte ist dann `<pfad>/card/`). Der Ordner
@@ -360,6 +364,13 @@ wurde ([Messung](messungen/2026-10-15-sample-fehler.md)). Die Seite bietet keine
 wird nicht angefasst, der Start meldet das. Test: `test/emulator-flash.test.mjs`
 (`npm run test:emu`) importiert eine selbstgebaute Sicherung, startet den Dienst neu und
 findet das Pattern im neuen Export.
+Der Test wartet, bis alle 250 Patterns im Flash ab `0x240000` der Sicherung gleichen. Auf das erste sichtbare Pattern zu
+warten war zu früh (5 oder 6 von 250 geschrieben, ein halb geschriebenes zeigte nach dem Neustart Init Pattern), und eine
+gleich bleibende Dateigröße sagt nichts (die Datei hat immer 16 MiB).
+
+Löschen und Seitenschreiben halten den Chip beschäftigt (Statusbit WIP), solange nimmt er nur das Lesen des Status an.
+Die Zeiten (`FLASH_BUSY_NS` in `tools/emu/machine.py`: 45 ms je 4 KiB, 150 ms je 32 KiB, 200 ms je 64 KiB, 0,7 ms je
+Seite) sind typische Datenblattwerte, nicht am Gerät gemessen.
 
 Eine blaue Firmware (Synth) erkennt auf dem gelöschten Sampler-Flash (`machine.blank_flash()`
 ohne Synth-Kennung) fremde Hardware und bleibt auf einem unbekannten Bildschirm stehen. Fälle für
@@ -393,6 +404,10 @@ Der Dienst schickt die 16 Stufen als Ereignis `shade` (ein Byte je Bildpunkt,
 Zeile für Zeile, 0 hell bis 15 dunkel). Das Ereignis `display` (1 Bit, `m.fb`)
 bleibt unverändert; die Seite zeichnet die Stufen zwischen den Farben
 `--cee-lcd-off` und `--cee-lcd-on`. Test: `test_lcd.py`.
+
+Nicht gesetzte Bildpunkte malt die Seite nicht, durch sie scheint die Farbe `--cee-lcd-back` hinter dem Canvas
+(`site/app/emulator.mjs`, `backdrop`). Zurückgelesen sind sie `0,0,0,0`: Tests, die dunkle Bildpunkte zählen, müssen Alpha 0
+überspringen, sonst zählt ein leerer Canvas als gezeichnet (wie `test/e2e/support/scripts-suite.mjs`).
 
 ### Displaylicht
 
