@@ -4,7 +4,7 @@ OpenOCD files and scripts for the last way back when a firmware hangs before eve
 (see [Rettung](../../docs/rettung.md)): halt the ARM over JTAG, load a firmware image into RAM, run it from there and use
 DATA UTILITY > SOFTWARE UPDATE to write it back to flash.
 
-No script here writes to flash or RAM. Power off and on undoes everything. No firmware is included.
+No script here writes to flash, and only `rescue/` writes RAM. Power off and on undoes everything. No firmware is included.
 
 ## Files
 
@@ -18,6 +18,7 @@ No script here writes to flash or RAM. Power off and on undoes everything. No fi
 | `pc-stichprobe.tcl` | Read only: halt 12 times and print PC/LR (where does the CPU hang?) |
 | `halt-now.tcl` | Halt right now and say where the CPU is (manual timing trick) |
 | `halt-at-entry.tcl` | Catch the factory boot loader at power-on, run to the firmware entry `0xC0000000` and halt there |
+| `rescue/` | Raspberry Pi 4 scripts of the debrick on 13.11.2026: RAM boot after the boot loader, keys over JTAG ([README](rescue/README.md)) |
 | `photos/` | The board with header J9 (`j9-markiert.jpg` marks CPU, J9 and the DSP header) |
 
 ## Wiring
@@ -43,4 +44,4 @@ boot loader reliably on the test device (mostly "too late"); the manual trick wo
 - Whether the factory boot loader still jumps to `0xC0000000` when the SYSTEM region in flash is empty. Both debricks
   had a valid firmware in flash. If the breakpoint never hits, `halt-at-entry.tcl` reports `RESULT NO_BP` and where the
   CPU is.
-- The Raspberry Pi file is untested (command names for OpenOCD 0.12, older ones are in comments).
+- `e2-raspberrypi.cfg` is untested; `rescue/pi4.cfg` (other pins) is the Pi setup that worked (command names for OpenOCD 0.12, older ones are in comments).
