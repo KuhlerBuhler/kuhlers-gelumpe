@@ -5,7 +5,8 @@ stereo pair), once per sample pair.
 
     off     patched routine with the parameter block as the boot stream leaves it (zeros) gives Korg's clipper output
             bit for bit, unpatched program as reference
-    drive   every TUBE DRIVE step gives tools/dsp/tube_model.py model() bit for bit
+    drive   every TUBE DRIVE step at TUBE ASYM 0, 3 and 7 gives tools/dsp/tube_model.py model() bit for bit, the
+            lowpass state carried from pair to pair as in the DSP
     cycles  CYCLES per call: Korg's clipper, patched OFF, patched ON
 
     tube_qemu.py SYSTEM.VSB PATCH.json [--emu DIR] [--worker PATH] [--pairs N] [--json OUT]
@@ -128,8 +129,8 @@ def main():
     orig.close()
 
     new = Dsp(blackfin_backend, worker, patched(vsb, patch), t['stream'])
-    block = new.dsp.read(tube_model.PARAM, tube_model.PARAM_SIZE)
-    report['boot_block_zero'] = block == bytes(tube_model.PARAM_SIZE)
+    block = new.dsp.read(tube_model.BLOCK, tube_model.BLOCK_SIZE)
+    report['boot_block_zero'] = block == bytes(tube_model.BLOCK_SIZE)
     failed |= not report['boot_block_zero']
     off = [new.call(t['at'], l, r) for l, r in pairs]
     bad = [i for i, (k, o) in enumerate(zip(korg, off)) if k[:2] != o[:2]]
@@ -139,14 +140,18 @@ def main():
     report['drive'] = {}
     on_cycles = []
     for step in range(1, len(tube_model.STEPS) + 1):
-        words = tube_model.params(step)
-        new.dsp.write(tube_model.PARAM, tube_model.block(step))
-        got = [new.call(t['at'], l, r) for l, r in pairs]
-        want = [(tube_model.model(l, words), tube_model.model(r, words)) for l, r in pairs]
-        bad = [i for i, (g, w) in enumerate(zip(got, want)) if g[:2] != w]
-        report['drive'][step] = dict(differ=len(bad), first=[(pairs[i], want[i], got[i][:2]) for i in bad[:3]])
-        failed |= bool(bad)
-        on_cycles += [g[2] for g in got]
+        for asym in (0, 3, 7):
+            words = tube_model.params(step, asym)
+            new.dsp.write(tube_model.BLOCK, bytes(8))           # the lowpass state starts at zero, as after boot
+            new.dsp.write(tube_model.PARAM, tube_model.block(step, asym))
+            got = [new.call(t['at'], l, r) for l, r in pairs]
+            left, _ = tube_model.run([l for l, _ in pairs], words)
+            right, _ = tube_model.run([r for _, r in pairs], words)
+            want = list(zip(left, right))
+            bad = [i for i, (g, w) in enumerate(zip(got, want)) if g[:2] != w]
+            report['drive'][f'{step}/{asym}'] = dict(differ=len(bad), first=[(pairs[i], want[i], got[i][:2]) for i in bad[:3]])
+            failed |= bool(bad)
+            on_cycles += [g[2] for g in got]
     new.close()
     report['cycles'] = dict(korg=[min(k[2] for k in korg), max(k[2] for k in korg)],
                             off=[min(o[2] for o in off), max(o[2] for o in off)],
