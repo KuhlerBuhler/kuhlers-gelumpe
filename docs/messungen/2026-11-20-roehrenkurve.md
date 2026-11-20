@@ -40,7 +40,7 @@ gegen das Koren-Modell. TUBE DRIVE legt fest, welche Gitterspannung Vollaussteue
 jeder Stufe so normiert, dass Vollaussteuerung Vollaussteuerung bleibt (kein Pegelregler). Rechnung und Rundung:
 `tools/dsp/tube_model.py`.
 
-| TUBE DRIVE | 1 | 2 | 3 | 4 (Vorgabe) | 5 | 6 | 7 |
+| TUBE DRIVE | 1 | 2 | 3 | 4 | 5 (Vorgabe) | 6 | 7 |
 |---|---|---|---|---|---|---|---|
 | Gitter bei Vollaussteuerung | 0,05 V | 0,08 V | 0,13 V | 0,2 V | 0,32 V | 0,5 V | 0,8 V |
 | Tiefpass-Ecke | 16 kHz | 14 kHz | 12,5 kHz | 11 kHz | 10 kHz | 9 kHz | 8 kHz |
@@ -55,7 +55,7 @@ und Ausgangsübertrager. Kein eigener Regler. **hergeleitet** (Werte von Hand ge
 
 TUBE ASYM 0 bis 7 fährt die positive Halbwelle schwächer an als die negative: Verstärkung k = 1 - 0,045 · ASYM
 (1 bis 0,685), die negative Halbwelle bleibt. Die Kurve ist dann nicht mehr ungerade, es entsteht die 2. Harmonische
-einer Triodenstufe. ASYM 0 ist die symmetrische Kurve. Die ARM-Seite rechnet gp = g · k selbst und schickt es mit.
+einer Triodenstufe. ASYM 0 ist die symmetrische Kurve, Vorgabe ist 4 (seit dem Gerätetest 20.11.). Die ARM-Seite rechnet gp = g · k selbst und schickt es mit.
 
 Folge: Mit ASYM > 0 trägt der Ausgang einen kleinen Gleichanteil (die positive Halbwelle ist leiser). Bewusst so
 gelassen, kein Hochpass im DSP (kostet Takte; ob der Gleichanteil am Ausgang hörbar oder messbar ist, ist offen).
@@ -83,11 +83,11 @@ und der Sprung). Bei 48 kHz und 516 MHz sind 68 Takte etwa 0,6 % der DSP-Zeit. *
 Menü-Gruppen (Liste, Seiten, Einstellungen v4/v5 9/9, Flash 17/17) ebenfalls auf allen drei. **gemessen** (Emulator)
 
 - Die Seiten TUBE, TUBE DRIVE und TUBE ASYM stehen vor KEY PADS, TUBE steht auf OFF, nichts geht an den DSP.
-- TUBE ON schickt den Block der Vorgabe (4), TUBE DRIVE 4, 6, 7, 1 schickt jeden Schritt sofort.
+- TUBE ON schickt den Block der Vorgabe (DRIVE 5, ASYM 4), TUBE DRIVE 5, 6, 7, 1 schickt jeden Schritt sofort.
 - TUBE OFF schickt den OFF-Block; TUBE DRIVE bleibt dabei einstellbar (3) und gilt beim nächsten ON.
 - WRITE legt das Feld in Byte 7 einer Version-4-Einstellungsdatei ab (Bits 5 bis 7: 0 OFF, 1 bis 7 ON mit dieser Stufe).
 - TUBE ASYM zeigt 0 bis 7 und schickt jeden Schritt sofort (3, 7, 2), solange TUBE ON ist.
-- WRITE mit TUBE ASYM 2 schreibt eine Version-5-Datei: Byte 4 = 5 | ASYM << 5. Mit ASYM 0 bleibt es bei Version 4
+- WRITE mit TUBE ASYM 2 schreibt eine Version-5-Datei: Byte 4 = 5 | (ASYM xor 4) << 5. Mit ASYM 4 (Vorgabe) bleibt es bei Version 4
   (oder 3 ohne Bits in Byte 7), so liest ein BLECH bis 1.4.7 die Datei weiter. Ein BLECH bis 1.4.7 liest Version 5
   nicht und nimmt die andere Kopie oder die Vorgaben.
 - Version 3 und 4 mit gesetzten Bits 5 bis 7 in Byte 4 werden abgelehnt; der Flash-Rundlauf mit ASYM 6 liest 5 | 6 << 5
@@ -96,11 +96,11 @@ Menü-Gruppen (Liste, Seiten, Einstellungen v4/v5 9/9, Flash 17/17) ebenfalls au
 - Eine Kopie ohne DSP-Patch (Korgs Aufruf zurückgesetzt) zeigt die Seiten nicht und schickt nichts, auch mit TUBE ON
   in der Datei.
 
-Bei OFF ist TUBE DRIVE nur im RAM: nach einem Neustart mit TUBE OFF zeigt die Seite wieder die Vorgabe 4.
+Bei OFF ist TUBE DRIVE nur im RAM: nach einem Neustart mit TUBE OFF zeigt die Seite wieder die Vorgabe 5.
 
 ## Offen
 
-- Klang und Pegel am Gerät (rot, blau), ob Stufe 4 als Vorgabe passt, ob die Tiefpass-Ecken und ASYM-Stufen gut klingen
+- Klang und Pegel am Gerät (rot, blau), ob DRIVE 5 und ASYM 4 als Vorgabe passen (Gerät rot 20.11.: klingt gut, ab DRIVE 6 übersteuert es wie eine echte Röhre), ob die Tiefpass-Ecken und ASYM-Stufen gut klingen
   (Hörvergleich mit einer ESX).
 - Ob 68 Takte je Paar am Gerät zu Aussetzern führen, wenn der DSP schon voll ist (QEMU zählt Takte, nicht die Last).
 - Dynamischer Bias ("Atmen") kommt in 1.4.9.
