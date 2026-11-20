@@ -2,8 +2,8 @@
 
 Deutsch als zweite Sprache der Menüs (das BLECH-Menü und Korgs Menüs) kommt über den optionalen Patch `lang-de`, eine
 Fassung je Build (Hacktribe, Korgs rote 2.02, blaue Electribe). Ohne `lang-de` bleibt alles Englisch. Diese Seite
-beschreibt die Daten, die Regeln für die Texte und die Werkzeuge. Stand: das BLECH-Menü ist übersetzt und `lang-de`
-gebaut; Korgs Menüs folgen. Die Auswahl in der App steht hinter einem Entwickler-Schalter (Abschnitt App).
+beschreibt die Daten, die Regeln für die Texte und die Werkzeuge. Stand: das BLECH-Menü und Korgs Hauptmenüs
+(GLOBAL PARAMETER, DATA UTILITY, Pattern- und Part-Seiten) sind übersetzt; Dialoge, Meldungen und Effektnamen folgen.
 
 ## Was nicht ins Repository kommt
 
@@ -35,10 +35,16 @@ Ein Eintrag hat entweder `text` (Deutsch) oder `keep` (Grund, warum die Zeile En
 | Feld | Inhalt |
 |---|---|
 | `expect` | SHA-256 der alten Kette samt Null |
+| `length` | Länge der alten Kette in Byte, ohne Null |
 | `pointers` | die Zeigerwörter auf die Kette, je `at` (Adresse) und `expect` (SHA-256 des alten Worts) |
-| `font` | Schrift der Zeile: 0, 1 oder 3 |
-| `space` | Platz der Zeile in Pixeln, gemessen im Emulator |
-| `buffer` | Größe des Puffers, in den die Firmware die Vorlage kopiert oder formatiert, oder `null` |
+| `fonts` | Schriften, in denen die Firmware die Kette zeichnet (0 bis 3; Schrift 2 hat keine Umlaute) |
+| `buffer` | Größe des Puffers, in den die Firmware die Kette kopiert, mit Null; `"string"`, wenn jeder Leser sie in einen wachsenden C++-String kopiert |
+| `space` | optional: Platz der Zeile in Pixeln |
+
+`expect`, `length`, `fonts` und `pointers` schreibt die Werkbank (`--update`), `text`, `keep` und `buffer` kommen von
+Hand. Ein deutscher Text länger als `length` braucht ein gemessenes `buffer`, sonst lehnt der Unit-Test ihn ab.
+`korg-stock.json` und `korg-synth.json` übernehmen Text, `keep` und `buffer` aus `korg-hacktribe.json`, wo die alte
+Kette gleich ist (gleicher SHA-256).
 
 ## Kürzungsregel
 
@@ -86,16 +92,37 @@ der Laufzeit (`tools/lang/lang_patch.mjs`); beide sind gebaut, nicht committet.
 Ein Label ohne Eintrag in `blech.json` bricht den Build ab. Noch direkt geladen und darum Englisch sind die Texte, die
 nicht in `script_menu.s` stehen (Startbild-Titel, Fehlertexte der Samples, Pad-Farben, Pattern-Wechsel, `[User]`).
 
+## Korgs Menüs
+
+Jeder Text auf Korgs Seiten ist eine Vorlage im Code (Hacktribe und rot `0xC00A3000` bis `0xC00A8000`, blau
+`0xC008E000` bis `0xC0093000`), die die Firmware über ein Zeigerwort lädt und zeichnet oder in ein Widget kopiert.
+`lang-de` legt die deutsche Kette in den Sprachbereich und biegt jedes Zeigerwort dorthin (`expect` = SHA-256 des alten
+Worts); die englische Vorlage bleibt unverändert.
+
+Gemessen im Emulator (Lese-Haken auf die deutschen Ketten, alle Bildschirme): die Ketten lesen nur die Textfunktion,
+`strcpy` der Widget-Setter und das Anhängen an C++-Strings. Verglichen wird nur in SET_VALUE und SET_LINE3 (alter gegen
+neuen Wert), nie nach Inhalt. Die Puffer:
+
+| Leser | Puffer |
+|---|---|
+| Titel `0xC00857E4` (Widget `+0x6c`) | 32 Byte |
+| Zeile 3 `0xC0085888` (Widget `+0xac`) | 28 Byte (Heap-Block 0xd0, gemessen am Objekt) |
+| Dialogtext `0xC008CB10`, `0xC008CB54` (Objekt `+0x4c`) | 64 Byte |
+| `0xC007E2F0` nach `0xC069133C` | 17 Byte (sonst `strncpy` 16 plus Null) |
+| `0xC00A2570`, `0xC00A2A78`, `0xC00A26C0`, `0xC00A2B9C` (Zuweisen und Anhängen) | C++-String, wächst (`"string"`) |
+
+Korg löscht eine Dialogzeile vor dem Neuzeichnen mit einem Rechteck, das aus den Glyphen des neuen Texts folgt und eine
+Zeile zu kurz ist: die Grundlinie bleibt stehen. Nur ein Leerzeichen oder eine Unterlänge (g, p, q, y) macht das
+Rechteck tief genug. Fast jeder englische Text hat eines davon; ein einzelnes deutsches Wort wie "Werkszustand" nach
+"Formatieren" ließe deren Grundlinie stehen, darum "Werkseinstellung". Die Layout-Prüfung findet solche Fälle.
+
+Einige Startbildschirme lesen Korg-Zeigerwörter und ihre Ketten schon beim Start (gemessen mit `check.py --quick`:
+zwei Wörter auf Hacktribe und rot, eins auf blau). `lang-de` nennt darum alle Korg-Zeigerwörter und den Block der
+deutschen Korg-Ketten als Spans der Startphase.
+
 ## App
 
-Schritt 2 des Patchers zeigt "BLECH-Menü auf Deutsch" neben dem Gerätenamen, solange die Übersetzung nicht fertig ist
-nur mit dem Entwickler-Schalter:
-
-```js
-localStorage.setItem("cee.devLang", "1")
-```
-
-Die App legt die Fassung für das Build der Datei dazu, auch auf eine mitgebrachte `BLECH.patch`. Passt `lang-de` nicht
+Schritt 2 des Patchers zeigt "Gerätemenüs auf Deutsch" neben dem Gerätenamen. Die App legt die Fassung für das Build der Datei dazu, auch auf eine mitgebrachte `BLECH.patch`. Passt `lang-de` nicht
 (fremde Datei), sagt die Planzeile, dass es nur auf BLECHs eigene Dateien passt. Beim Update erkennt die App `lang-de`
 an den Wörtern der Schrifttabelle (`data/known-releases.json`, `tools/known-releases.mjs`) und legt es wieder dazu: eine
 englische Datei bleibt Englisch, eine deutsche Deutsch.
@@ -110,12 +137,18 @@ tools/emu/.venv/bin/python tools/emu/lang_cases.py cases --patched NEW.VSB
 tools/emu/.venv/bin/python tools/lang/workbench.py --vsb ORIGINAL.BIN
 ```
 
+`workbench.py --update` schreibt die Fakten jeder gefundenen Vorlage in `korg-<build>.json`.
+
 `glyphs.mjs --check` prüft das Pixelbild allein (alle sieben Buchstaben, Höhe in der Schrift, keine zwei gleich),
 `--facts` misst Schriftköpfe und Grundbuchstaben der eigenen Dateien nach `data/lang/fonts.json` (nur Adressen und
 Prüfsummen). `ensure-runtime.mjs` baut Laufzeit und `lang-de` für alle drei Builds. `lang_cases.py` prüft eine
 gepatchte Datei im Emulator: mit `lang-de` sind alle BLECH-Seiten auf Deutsch sauber (nichts über dem Rand, keine
-Überlappung), die Umlaute zeichnen sich, und drei Seiten zeigen Deutsch; ohne `lang-de` zeigen sie Englisch. `check.py`
-führt die Fälle für jede Datei mit BLECH-Menü aus.
+Überlappung), die Umlaute zeichnen sich, und drei Seiten zeigen Deutsch; ohne `lang-de` zeigen sie Englisch. Auf Korgs
+Bildschirmen 0 bis 44 (32 Raststufen, 32 Mal EDIT) zeigt jedes Zeigerwort einer übersetzten Kette auf ihre deutsche
+Kopie, keine englische Vorlage einer übersetzten Kette wird gezeichnet, kein deutscher Text läuft über den Rand oder
+über einen anderen Text (Besitz je Pixel über die Haken auf Text- und Pixelfunktion; eine Überlappung, die die
+englische Fassung derselben Datei genauso zeigt, ist Korgs eigene und zählt nicht), und keine Kopie ist länger als ihr
+Puffer; ohne `lang-de` ist jedes Zeigerwort das alte. `check.py` führt die Fälle für jede Datei mit BLECH-Menü aus.
 
 Die Werkbank liest die eigene Firmware, zeigt im Emulator alle Bildschirme 0 bis 44, dreht auf jedem 32 Raststufen und
 blättert 32 Mal mit EDIT und notiert dabei jeden gezeichneten Text mit Schrift. Daraus sucht sie Korgs Vorlagen (Ketten,
@@ -123,5 +156,5 @@ deren Teile ohne Platzhalter in gezeichneten Texten vorkommen), ihre Zeigerwört
 deutschen Einträge aus `korg-<build>.json`. Sie meldet Vorlagen ohne Eintrag und Texte, die breiter sind als ihr Platz;
 für die Breite zählt ein Umlaut vorläufig wie sein Grundbuchstabe. Auf Hacktribe findet sie 191 Menüvorlagen mit 247
 Zeigerwörtern und 71 Effektparameter (gemessen, rund eine Minute). Die blaue Electribe hat ihre Texte an anderen
-Adressen und ist noch nicht vermessen. Die Ausgabe liegt in `.lang-work/` und enthält Korgs Text: der Ordner ist von
+Adressen (Abschnitt Korgs Menüs). Die Ausgabe liegt in `.lang-work/` und enthält Korgs Text: der Ordner ist von
 Git ausgenommen und wird nie committet.

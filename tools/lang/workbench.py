@@ -6,10 +6,16 @@ and writes one file per build next to each other: address, English template, fon
 text with its width from data/lang/de/korg-<build>.json. Reports templates without a German entry and German texts
 wider than their space. The English text only goes into the output folder, which is ignored by git; never commit it.
 
-    tools/emu/.venv/bin/python tools/lang/workbench.py --vsb ORIGINAL.BIN [--out .lang-work] [--screens 8 9 14]
+With --update, it also fills in the facts of every entry in data/lang/de/korg-<build>.json: the fonts it is drawn in,
+the SHA-256 of the old text with its NUL, its length, and every pointer word with the SHA-256 of the old word. Entries
+of the Hacktribe file that this build has under the same text are carried over with their buffer, so a text is translated
+once. The data file gets addresses and hashes only, never the English text.
+
+    tools/emu/.venv/bin/python tools/lang/workbench.py --vsb ORIGINAL.BIN [--out .lang-work] [--screens 8 9 14] [--update]
 """
 
 import argparse
+import hashlib
 import json
 import re
 import struct
@@ -24,9 +30,11 @@ from firmware import build_of, identify  # noqa: E402
 
 RAM = 0xC0000000
 HEADER = 0x100
-# Korg's menu texts and the effect parameter records (docs/messungen/2026-11-19-firmware-sprache.md). Sampler builds only:
-# the blue Electribe keeps its texts elsewhere, measured in phase 2 of the plan.
+# Korg's menu texts and the effect parameter records (docs/messungen/2026-11-19-firmware-sprache.md). The blue
+# Electribe keeps its menu texts lower (string density per 4 KiB page, measured on Korg's blue 2.02); its effect
+# records are not located yet.
 AREAS = {"menu": (0xC00A3000, 0xC00A8000), "fx": (0xC011F000, 0xC0124000)}
+AREAS_SYNTH = {"menu": (0xC008E000, 0xC0093000)}
 PLACEHOLDER = re.compile(r"%[-+ #0]*\d*(?:\.\d+)?[hlL]?[diouxXcsfeEgG%]")
 MIN_PART = 3
 # For a width estimate before the glyphs exist, an umlaut counts as its base letter and ß as b.
@@ -75,9 +83,65 @@ def templates(found, shown):
     return out
 
 
+def data_path(build):
+    return ROOT / "data" / "lang" / "de" / f"korg-{build}.json"
+
+
 def load_german(build):
-    path = ROOT / "data" / "lang" / "de" / f"korg-{build}.json"
+    path = data_path(build)
     return json.loads(path.read_text("utf8"))["texts"] if path.exists() else {}
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def text_bytes(payload, address):
+    """The NUL-terminated text at `address`, with its NUL."""
+    off = address - RAM
+    return bytes(payload[off:payload.index(b"\0", off) + 1])
+
+
+def update_data(payload, build, areas, shown_fonts):
+    """Fills in fonts, expect, length and pointers of the entries in korg-<build>.json; returns (file data, notes)."""
+    path = data_path(build)
+    data = json.loads(path.read_text("utf8"))
+    texts = data["texts"]
+    found = {}
+    for span in areas.values():
+        for address in strings(payload, *span):
+            found.setdefault(sha(text_bytes(payload, address)), address)
+    notes = []
+    if build != "hacktribe":
+        for key, entry in load_german("hacktribe").items():
+            address = found.get(entry.get("expect"))
+            if address is None:
+                notes.append(f"{key}: not in this build")
+                continue
+            mine = texts.setdefault(f"0x{address:08x}", {})
+            for k in ("text", "keep", "glossar", "buffer"):
+                if k in entry:
+                    mine[k] = entry[k]
+                else:
+                    mine.pop(k, None)
+    keys = {int(k, 16): k for k in texts}
+    ptrs = pointers(payload, set(keys))
+    for address, key in sorted(keys.items()):
+        entry = texts[key]
+        raw = text_bytes(payload, address)
+        entry["expect"] = sha(raw)
+        entry["length"] = len(raw) - 1
+        fonts = shown_fonts.get(address) or entry.get("fonts")
+        if not fonts:
+            notes.append(f"{key}: not drawn on the screens the tool shows, no fonts")
+        entry["fonts"] = fonts or []
+        entry.pop("font", None)
+        entry["pointers"] = [{"at": f"0x{w:08x}", "expect": sha(struct.pack("<I", address))} for w in ptrs.get(address, [])]
+        if not entry["pointers"]:
+            notes.append(f"{key}: no pointer word")
+    data["texts"] = dict(sorted(texts.items()))
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", "utf8")
+    return notes
 
 
 def main():
@@ -85,16 +149,19 @@ def main():
     p.add_argument("--vsb", required=True, type=Path, help="your own SYSTEM.VSB or ORIGINAL.BIN")
     p.add_argument("--out", type=Path, default=ROOT / ".lang-work", help="output folder, ignored by git")
     p.add_argument("--screens", type=int, nargs="*", help="screen numbers; default 0 to 44")
+    p.add_argument("--update", action="store_true", help="fill in the facts of data/lang/de/korg-<build>.json")
     a = p.parse_args()
 
     payload = a.vsb.read_bytes()[HEADER:]
-    if identify(payload).build == "synth":
-        sys.exit("the blue Electribe keeps its texts at other addresses; not measured yet (plan phase 2.1)")
-    build = build_of(payload)
+    synth = identify(payload).build == "synth"
+    build = "synth" if synth else build_of(payload)
+    areas = AREAS_SYNTH if synth else AREAS
     if a.screens:
         lang_shown.SCREENS = a.screens
-    shown = lang_shown.shown(payload)
-    found = {area: strings(payload, *span) for area, span in AREAS.items()}
+    shown, crashed = lang_shown.shown(payload)
+    for screen, error in sorted(crashed.items()):
+        print(f"screen {screen} not shown, the emulator stopped: {error}")
+    found = {area: strings(payload, *span) for area, span in areas.items()}
     rows = templates(found, shown)
     ptrs = pointers(payload, {address for address, *_ in rows})
     german = load_german(build)
@@ -136,11 +203,14 @@ def main():
             f.write("\t".join([r["address"], r["area"], ",".join(map(str, r["fonts"])), str(len(r["pointers"])),
                                ",".join(map(str, r["width"].values())), r["en"], r["de"] or "",
                                ",".join(map(str, r.get("widthDe", {}).values())), str(r["space"] or "")]) + "\n")
-    per_area = {area: sum(1 for r in entries if r["area"] == area) for area in AREAS}
+    per_area = {area: sum(1 for r in entries if r["area"] == area) for area in areas}
     print(f"{build}: {len(shown)} shown texts, templates {per_area}, "
           f"{sum(len(r['pointers']) for r in entries if r['area'] == 'menu')} pointer words to menu templates")
     print(f"without German: {len(missing)}, wider than their space: {len(wide)} {' '.join(wide)}")
     print(f"written: {out} and {out.with_suffix('.tsv')}")
+    if a.update:
+        notes = update_data(payload, build, areas, {address: fonts for address, _, _, fonts in rows})
+        print(f"updated {data_path(build).relative_to(ROOT)}" + "".join(f"\n  {n}" for n in notes))
 
 
 if __name__ == "__main__":
