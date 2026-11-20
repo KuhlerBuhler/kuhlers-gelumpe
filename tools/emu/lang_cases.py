@@ -5,7 +5,9 @@ check.py runs `cases` on every patched copy with the BLECH menu. With lang-de th
 over the edge, labels whole), the umlauts draw, and sample pages show their German text; without it the menu reads the runtime's
 English table. On Korg's own screens (0 to 44, turned and stepped) every translated text has its pointer words bent to
 lang-de's copy, no English original of it is drawn, no German text runs over the edge or over another text, and no copy
-of one is longer than its measured buffer; without lang-de every pointer word is the original.
+of one is longer than its measured buffer; the texts the screens do not reach (dialogs, messages) fit the display and
+keep a space or descender, and the effect parameter names stand German in their record fields; without lang-de every
+pointer word and record field is the original.
 
     tools/emu/.venv/bin/python tools/emu/lang_cases.py cases --patched NEW.VSB [--flash dump.bin]
 """
@@ -14,6 +16,7 @@ import argparse
 import functools
 import hashlib
 import json
+import re
 import struct
 import sys
 from pathlib import Path
@@ -35,6 +38,8 @@ IMAGE = 0xC0000000
 BLECH_JSON = ROOT / "data" / "lang" / "de" / "blech.json"
 KORG_DIR = ROOT / "data" / "lang" / "de"
 CHUNKS = 9                   # screen groups for the Korg screens, each a task of its own
+DISPLAY_W = 128
+DEEP = re.compile(r"[ gpqy]")    # a space or a descender
 UMLAUTS = {"Ä": "A", "Ö": "O", "Ü": "U", "ä": "a", "ö": "o", "ü": "u", "ß": "b"}
 
 
@@ -219,7 +224,44 @@ def korg_screens_case(chunk, payload, flash=None):
             entry(f"format_buffers_de_{chunk}", not over, sorted(set(over)) or f"screens {name}: {checked} copies, each fits its buffer")]
 
 
-GROUPS = (pages_case, texts_case, pointers_case) + tuple(functools.partial(korg_screens_case, c) for c in range(CHUNKS))
+def dialogs_case(payload, flash=None):
+    """With lang-de, the translated texts the screens 0 to 44 do not reach (dialogs, messages, errors): each fits the
+    display width in fonts 0 and 1, and keeps a space or a descender where the English text has one (Korg clears a
+    dialog line from the glyphs of the new text, one row short: without either the old baseline stays)."""
+    texts = korg(payload)
+    if not has_page(payload) or not has_lang(payload):
+        return []
+    unseen = {a: e for a, e in texts.items() if "text" in e and e.get("pointers") and not e.get("fonts")}
+    if not unseen:
+        return []
+    items = [(e["text"], font) for e in unseen.values() for font in (0, 1)]
+    wide, flat = [], []
+    for (text, font), width in zip(items, lang_shown.widths(payload, items, flash)):
+        if width > DISPLAY_W:
+            wide.append(f"{text!r} font {font}: {width} px")
+    for a, e in unseen.items():
+        if DEEP.search(cstring(payload, a).decode("latin-1")) and not DEEP.search(e["text"]):
+            flat.append(f"0x{a:08x} {e['text']!r}")
+    return [entry("dialogs_fit_de", not wide, wide or f"{len(unseen)} texts, each at most {DISPLAY_W} px in fonts 0 and 1"),
+            entry("dialogs_baseline_de", not flat, flat or f"{len(unseen)} texts keep a space or a descender")]
+
+
+def fx_names_case(payload, flash=None):
+    """Effect parameter names (inPlace): with lang-de the German name in the record field, padded with NUL to the old
+    length; without it the old bytes (their hash)."""
+    texts = {a: e for a, e in korg(payload).items() if e.get("inPlace") and "text" in e}
+    if not has_page(payload) or not texts:
+        return []
+    de, wrong = has_lang(payload), []
+    for a, e in texts.items():
+        held = bytes(payload[a - IMAGE:a - IMAGE + e["length"] + 1])
+        want = e["text"].encode("latin-1").ljust(e["length"] + 1, b"\0")
+        if (held != want) if de else (hashlib.sha256(held).hexdigest() != e["expect"]):
+            wrong.append(f"0x{a:08x}")
+    return [entry("fx_names_de" if de else "fx_names_en", not wrong, wrong or f"{len(texts)} record fields, {'German' if de else 'original'}, same length")]
+
+
+GROUPS = (pages_case, texts_case, pointers_case, dialogs_case, fx_names_case) + tuple(functools.partial(korg_screens_case, c) for c in range(CHUNKS))
 
 
 def cases_task(i):
