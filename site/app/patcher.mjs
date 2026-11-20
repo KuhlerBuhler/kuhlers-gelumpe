@@ -219,13 +219,11 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const usbName = el("input", { type: "checkbox", id: "cee-patch-usb-name" });
   usbName.addEventListener("change", () => { passed = null; dispatch({ type: "options" }); });
   const usbNameNote = el("p", { className: "muted", id: "cee-patch-usb-name-note", textContent: t("patcher.usbName.note") });
-  // German BLECH menu (docs/firmware-sprache.md); shown only with the developer switch until the German texts are complete
+  // German menus (docs/firmware-sprache.md)
   const langDe = el("input", { type: "checkbox", id: "cee-patch-lang-de" });
   langDe.addEventListener("change", () => { passed = null; dispatch({ type: "options" }); });
   const langDeNote = el("p", { className: "muted", id: "cee-patch-lang-de-note", textContent: t("patcher.langDe.note") });
   const langDeBox = el("label", { className: "cee-check", id: "cee-patch-lang-de-box" }, [langDe, el("span", { textContent: t("patcher.langDe") })]);
-  const devLang = (() => { try { return localStorage.getItem("cee.devLang") === "1"; } catch { return false; } })();
-  langDeBox.hidden = langDeNote.hidden = !devLang;
   const blechBox = el("section", { className: "cee-patch-choice", id: "cee-patch-blech" }, [
     blechDrop,
     el("label", { className: "cee-check", id: "cee-patch-usb-name-box" }, [usbName, el("span", { textContent: t("patcher.usbName") })]),
@@ -769,7 +767,6 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     const langLocked = !!updating?.present.includes("lang-de");
     langDe.disabled = can.busy || langLocked;
     langDeNote.textContent = t(langLocked ? "patcher.update.locked" : "patcher.langDe.note");
-    langDeBox.hidden = langDeNote.hidden = !devLang && !langDe.checked;
     blechInfo.textContent = ownPatch ? t(ownPatch.label) : "";
     blechDrop.toggleAttribute("data-filled", !!ownPatch);
     // The field says which file it holds and what it is; pick() empties the input, so ui.js cannot show the name.

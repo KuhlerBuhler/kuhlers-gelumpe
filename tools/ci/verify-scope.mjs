@@ -138,7 +138,7 @@ export const TABLE = [
 
 /** The workflow's `paths:` filter as a test: true for a file whose change starts the workflow. */
 export function workflowPaths(text = readFileSync(`${root}.github/workflows/verify-patches.yml`, "utf8")) {
-  const block = text.match(/^ {4}paths:\n((?: {6}- .*\n)+)/m)[1];
+  const block = text.match(/^ {4}paths:\r?\n((?: {6}- .*\r?\n)+)/m)[1];
   const globs = [...block.matchAll(/- "([^"]+)"/g)].map(m => m[1]);
   const re = g => new RegExp(`^${g.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*\*/g, "\0").replace(/\*/g, "[^/]*").replace(/\0/g, ".*")}$`);
   const take = globs.filter(g => !g.startsWith("!")).map(re);

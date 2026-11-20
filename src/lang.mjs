@@ -5,6 +5,8 @@
 
 export const LANG_FORMATS = { blech: "gelumpe-lang-blech", korg: "gelumpe-lang-korg" };
 export const LANG_FONTS = [0, 1, 3];
+/** Fonts a Korg text may be drawn in; font 2 has no umlauts. */
+export const KORG_FONTS = [0, 1, 2, 3];
 const CHARSET = /^[\x20-\x7EÄÖÜäöüß]*$/;
 const PLACEHOLDER = /%[-+ #0]*\d*(?:\.\d+)?[hlL]?[diouxXcsfeEgG%]/g;
 const DOTTED = /[A-Za-zÄÖÜäöüß]+\./g;
@@ -86,12 +88,20 @@ export function langFileProblems(name, data, context) {
     if (kind !== "korg") continue;
     if (!KORG_KEY.test(key)) problems.push(`${where}: a Korg key is the template address, 0x and 8 lower-case hex digits`);
     if (!SHA.test(entry.expect ?? "")) problems.push(`${where}: expect is the SHA-256 of the old text with its NUL`);
-    if (!LANG_FONTS.includes(entry.font)) problems.push(`${where}: font is one of ${LANG_FONTS.join(", ")}`);
+    const fonts = entry.fonts ?? [];
+    if (!Array.isArray(fonts) || fonts.some(f => !KORG_FONTS.includes(f))) problems.push(`${where}: fonts lists the fonts it is drawn in, each one of ${KORG_FONTS.join(", ")}`);
+    else if (fonts.includes(2) && /[ÄÖÜäöüß]/.test(entry.text ?? "")) problems.push(`${where}: font 2 has no umlauts`);
     for (const p of entry.pointers ?? []) {
       if (!KORG_KEY.test(p.at ?? "") || !SHA.test(p.expect ?? "")) problems.push(`${where}: a pointer has at (address) and expect (SHA-256 of the old word)`);
     }
-    for (const k of ["space", "buffer"]) {
+    for (const k of ["length", "space", "buffer"]) {
+      if (k === "buffer" && entry[k] === "string") continue;
       if (entry[k] !== undefined && entry[k] !== null && !(Number.isInteger(entry[k]) && entry[k] > 0)) problems.push(`${where}: ${k} is a positive whole number`);
+    }
+    // buffer "string": every reader copies the text into a C++ string, which grows to fit.
+    if (typeof entry.text === "string" && Number.isInteger(entry.length) && entry.buffer !== "string") {
+      const room = entry.buffer ? entry.buffer - 1 : entry.length;
+      if (entry.text.length > room) problems.push(`${where}: ${entry.text.length} characters, ${entry.buffer ? `the buffer holds ${room}` : `longer than the old text (${room}) without a measured buffer`}`);
     }
   }
   return problems;

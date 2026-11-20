@@ -126,6 +126,13 @@ of formats. The result has to be the length of a `SYSTEM.VSB` (`0x200100` bytes)
 patcher does not know which firmware they fit: the check is the test in the emulator. Tested with patches built for the
 test (`test/anypatch.test.mjs`), open: patches from the scene.
 
+### Menus in German
+
+The box "Gerätemenüs auf Deutsch" (device menus in German) in step 2 adds the patch `lang-de` for the file's build:
+the BLECH menu and Korg's main menus show German. It is off by default, and an update keeps the file's language.
+German is only available through the app; the files on the release page are English
+([firmware language](firmware-sprache.md), German).
+
 ### A file that already has BLECHTRIBE
 
 A file with BLECHTRIBE of release 1.3.3 or later (over USB or dropped) gets the current set straight over it, no original
@@ -134,7 +141,7 @@ needed, for Korg red, Korg blue and Hacktribe (red and blue head). `data/known-r
 the original bytes or what a release wrote there, otherwise the file counts as unknown and nothing is patched. Free
 areas the current set no longer uses go back to FF, hook sites stay and are rewritten, effect presets of the catalog
 are written again (a preset of your own with the same name stays). Features whose hook sites are in the file cannot be
-removed this way (the device name option is locked). Run `tools/known-releases.mjs` with the tag of every release so
+removed this way (the device name and language options are locked). Run `tools/known-releases.mjs` with the tag of every release so
 its files can be updated later.
 
 Only when that refuses the file: on Korg's build the app rebuilds the original from Korg's System Updater (the bytes

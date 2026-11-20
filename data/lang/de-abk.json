@@ -9,6 +9,9 @@
     { "short": "min.", "long": "minimal", "example": "min. 1" },
     { "short": "Std.", "long": "Standard", "example": "Std.-Wert" },
     { "short": "akt.", "long": "aktuell", "example": "akt. Pattern" },
-    { "short": "inkl.", "long": "inklusive", "example": "inkl. Samples" }
+    { "short": "inkl.", "long": "inklusive", "example": "inkl. Samples" },
+    { "short": "Wdh.", "long": "Wiederholung", "example": "CHAIN-WDH." },
+    { "short": "Exp.", "long": "Export", "example": "ALLE PATTERN EXP." },
+    { "short": "Imp.", "long": "Import", "example": "ALLE PATTERN IMP." }
   ]
 }

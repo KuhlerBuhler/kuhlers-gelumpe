@@ -1,0 +1,28 @@
+{
+ "entries": [
+  {
+   "from": "0xC003F12C",
+   "to": "0xC0039D64",
+   "kind": "code",
+   "why": "pixel setter of the text functions: its first 24 bytes are found once in the synth image; it sits 0x53C8 below the HT place like the text function 0xC003F7D0 -> 0xC003A408"
+  },
+  {
+   "from": "0xC003F278",
+   "to": "0xC0039EB0",
+   "kind": "code",
+   "why": "return address of the glyph function's pixel call: the 16 bytes before it are found once in the synth image, at 0xC0039EA8"
+  },
+  {
+   "from": "0xC0015900",
+   "to": "0xC00111BC",
+   "kind": "code",
+   "why": "end of the frame-buffer pixel writer 0xC0015824 -> 0xC00110E0: its last 16 bytes are found once in the synth image, at 0xC00111AC"
+  },
+  {
+   "from": "0xC000AA64",
+   "to": "0xC00068FC",
+   "kind": "code",
+   "why": "strcpy that Korg's text setters call: its first 24 bytes are found once in the synth image"
+  }
+ ]
+}

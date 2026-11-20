@@ -53,8 +53,12 @@ export class ScriptRuntime {
     this.apps = [];
     /** The script entry that owns the display (its app screen is open, or it took the display), or null. Only it draws. An app gets `frame` only while it is open. */
     this.open = null;
+    /** The one background plugin currently preparing a popup. */
+    this.popupBuilder = null;
     /** Called with the entry when it becomes the owner of the display: the host clears the picture for it. */
     this.onOwn = null;
+    /** Called when an app or display takeover replaces a plugin popup. */
+    this.onPopupCancel = null;
     /** Called when the open app closes, before it gets `close`. */
     this.onClose = null;
     this.now = now;
@@ -162,15 +166,31 @@ export class ScriptRuntime {
       this.apps.push({ entry, script: entry.script.name, name: label, group });
       return this.apps.length - 1;
     };
+    for (const name of ["korg.display.popup.begin", "korg.display.popup.timeout", "korg.display.popup.show"]) {
+      api[name] = (...args) => {
+        if (this.open || this.apps.some(app => app.entry === entry)) {
+          throw new ScriptFault(ERROR.API_EVENT, render(text("script.fault.popupContext")));
+        }
+        if (name.endsWith(".begin")) this.popupBuilder = entry;
+        else if (this.popupBuilder !== entry) throw new ScriptFault(ERROR.API_ARG, render(text("script.fault.popupBegin")));
+        const result = this.api[name](entry, ...args);
+        if (name.endsWith(".show")) this.popupBuilder = null;
+        return result;
+      };
+    }
     // What a plugin keeps from the firmware is its own record; the hardware folds the records of all armed plugins.
     for (const name of HOLD_CALLS) if (this.api[name]) api[name] = (...args) => this.api[name](entry.holds, ...args);
-    // Drawing is taken from the owner of the display only (the open app, or a plugin that took it); any other script's drawing calls do nothing.
+    // Drawing belongs to the open app or to the background plugin preparing the shared popup.
     for (const name of Object.keys(this.api)) {
-      if (name.startsWith("korg.display.")) api[name] = (...args) => (this.open === entry ? this.api[name](...args) : 0);
+      if (name.startsWith("korg.display.") && !name.startsWith("korg.display.popup.")) {
+        api[name] = (...args) => (this.open === entry || this.popupBuilder === entry ? this.api[name](...args) : 0);
+      }
     }
     api["korg.display.take"] = () => {
       if (this.open === entry) return 1;
       if (this.open || this.apps.some(a => a.entry === entry)) return 0;
+      this.popupBuilder = null;
+      this.onPopupCancel?.();
       this.open = entry;
       this.onOwn?.(entry);
       return 1;
@@ -258,6 +278,8 @@ export class ScriptRuntime {
     const app = this.apps[id];
     if (!app || app.entry.script.state !== "armed") return false;
     if (this.open) this.closeApp();
+    this.popupBuilder = null;
+    this.onPopupCancel?.();
     this.open = app.entry;
     this.onOwn?.(app.entry);
     this.#postTo(app.entry, "open");

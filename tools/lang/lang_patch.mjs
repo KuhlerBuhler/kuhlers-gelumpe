@@ -2,7 +2,8 @@
 /**
  * Builds the optional patch lang-de for one runtime build (docs/firmware-sprache.md): ÄÖÜäöüß in fonts 0, 1 and 3,
  * the German BLECH texts from data/lang/de/blech.json, the German text table and German copies of the runtime's string
- * tables, and the header at LANG that tools/patch/lang_texts.py:lang_arm checks (table, count, key).
+ * tables, and the header at LANG that tools/patch/lang_texts.py:lang_arm checks (table, count, key). Korg's menu texts
+ * from data/lang/de/korg-<build>.json go behind them, and each of their pointer words is bent to the German copy.
  * Like the runtime it is built, not committed: its addresses follow the runtime build.
  *
  *   node tools/lang/lang_patch.mjs [--build hacktribe|stock|synth] [--out FILE]
@@ -37,8 +38,10 @@ export function runtimeTexts(build) {
   return JSON.parse(result.stdout);
 }
 
+export const korgTexts = build => JSON.parse(readFileSync(`${root}data/lang/de/korg-${build}.json`, "utf8")).texts;
+
 /** The patch lang-de for `build` from the runtime's texts, the font facts and the German texts. */
-export function langPatch(build, runtime = runtimeTexts(build), texts = JSON.parse(readFileSync(`${root}data/lang/de/blech.json`, "utf8")).texts) {
+export function langPatch(build, runtime = runtimeTexts(build), texts = JSON.parse(readFileSync(`${root}data/lang/de/blech.json`, "utf8")).texts, korg = korgTexts(build)) {
   const glyphs = glyphChanges(readFacts(build), readArt(), LANG + HEADER);
   const blob = [];
   let cursor = glyphs.end;
@@ -49,7 +52,7 @@ export function langPatch(build, runtime = runtimeTexts(build), texts = JSON.par
     if (text === undefined) throw new Error(`${label} is numbered but has no German text`);
     german[label] = cursor;
     const bytes = Buffer.from(`${text}\0`, "latin1");
-    blob.push(bytes);
+    blob.push([cursor, bytes]);
     cursor += bytes.length;
   }
   cursor = Math.ceil(cursor / 4) * 4;
@@ -60,13 +63,23 @@ export function langPatch(build, runtime = runtimeTexts(build), texts = JSON.par
     copies[label] = cursor;
     cursor += 4 * names.length;
   }
+  const korgChanges = [];
+  const korgStart = cursor;
+  for (const entry of Object.values(korg)) {
+    if (typeof entry.text !== "string" || !entry.pointers?.length) continue;
+    const bytes = Buffer.from(`${entry.text}\0`, "latin1");
+    blob.push([cursor, bytes]);
+    const word = Buffer.alloc(4);
+    word.writeUInt32LE(cursor);
+    for (const p of entry.pointers) korgChanges.push({ file: fileOf(Number(p.at)), bytes: word.toString("hex"), expect: p.expect });
+    cursor += bytes.length;
+  }
   if (cursor > LANG_END) throw new Error(`lang-de ends at 0x${cursor.toString(16)}, past 0x${LANG_END.toString(16)}`);
   const address = name => german[name] ?? copies[name] ?? Number(runtime.strings[name]);
   const words = [...runtime.labels.map(address), ...Object.values(runtime.tables).flatMap(names => names.map(address))];
   if (words.some(w => !Number.isInteger(w))) throw new Error("a table names a string the runtime does not have");
   const tail = new Uint8Array(cursor - glyphs.end);
-  let o = 0;
-  for (const b of blob) { tail.set(b, o); o += b.length; }
+  for (const [at, b] of blob) tail.set(b, at - glyphs.end);
   const view = new DataView(tail.buffer);
   words.forEach((w, i) => view.setUint32(table - glyphs.end + 4 * i, w, true));
   const header = new Uint8Array(HEADER);
@@ -77,8 +90,10 @@ export function langPatch(build, runtime = runtimeTexts(build), texts = JSON.par
   const raw = (ram, bytes) => ({ file: fileOf(ram), bytes: Buffer.from(bytes).toString("hex"), expect: ff(bytes.length) });
   return {
     format: "gelumpe-patch", version: 1, id: "lang-de", name: "Menüs auf Deutsch", builds: [build],
-    changes: [raw(LANG, header), ...glyphs.changes, raw(glyphs.end, tail)],
-    startPhase: [...glyphs.startPhase, { file: fileOf(LANG), length: HEADER, why: "menu_arm_load reads the header of the text table at the start" }],
+    changes: [raw(LANG, header), ...glyphs.changes, raw(glyphs.end, tail), ...korgChanges],
+    startPhase: [...glyphs.startPhase, { file: fileOf(LANG), length: HEADER, why: "menu_arm_load reads the header of the text table at the start" },
+      ...(cursor > korgStart ? [{ file: fileOf(korgStart), length: cursor - korgStart, why: "Korg's start screens read some of their menu texts, now the German copies" }] : []),
+      ...korgChanges.map(c => ({ file: c.file, length: 4, why: "Korg's start screens read some pointer words of their menu texts" }))],
   };
 }
 

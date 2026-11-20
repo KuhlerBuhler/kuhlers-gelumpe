@@ -56,7 +56,7 @@ test("a word with a dot needs the abbreviation list, a sentence end and an ellip
   assert.deepEqual(unknownAbbreviations("Pattern gesperrt.", abbreviations), []);
   assert.deepEqual(unknownAbbreviations("Läuft...", abbreviations), []);
   assert.deepEqual(unknownAbbreviations("EINST.-EXPORT, kein e2sFx.all", abbreviations), []);
-  assert.deepEqual(unknownAbbreviations("Imp. Pattern", abbreviations), ["Imp."]);
+  assert.deepEqual(unknownAbbreviations("Ldg. Pattern", abbreviations), ["Ldg."]);
 });
 
 test("an entry has a text or a reason to stay English, and keeps the glossary", () => {
@@ -72,12 +72,18 @@ test("an entry has a text or a reason to stay English, and keeps the glossary", 
 
 test("a language file refuses English text, a wrong format and malformed Korg entries", () => {
   const korg = (texts, extra = {}) => ({ format: "gelumpe-lang-korg", version: 1, lang: "de", build: "hacktribe", texts, ...extra });
-  const good = { text: "Import", font: 3, expect: "a".repeat(64), pointers: [{ at: "0xc00c1000", expect: "b".repeat(64) }], space: 120, buffer: null };
+  const good = { text: "Import", fonts: [3], length: 6, expect: "a".repeat(64), pointers: [{ at: "0xc00c1000", expect: "b".repeat(64) }], space: 120, buffer: null };
   assert.deepEqual(langFileProblems("k", korg({ "0xc00a3010": good }), context), []);
   assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, en: "IMPORT" } }), context).join("\n"), /no English text/);
   assert.match(langFileProblems("k", korg({}, { english: {} }), context).join("\n"), /no English text/);
   assert.match(langFileProblems("k", korg({ "C00A3010": good }), context).join("\n"), /template address/);
-  assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, font: 2 } }), context).join("\n"), /font is one of/);
+  assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, fonts: [4] } }), context).join("\n"), /fonts lists/);
+  assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, text: "Lösch", fonts: [2] } }), context).join("\n"), /no umlauts/);
+  assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, text: "Importieren" } }), context).join("\n"), /longer than the old text/);
+  assert.deepEqual(langFileProblems("k", korg({ "0xc00a3010": { ...good, text: "Importieren", buffer: 32 } }), context), []);
+  assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, text: "Importieren", buffer: 8 } }), context).join("\n"), /buffer holds 7/);
+  assert.deepEqual(langFileProblems("k", korg({ "0xc00a3010": { ...good, text: "Importieren", buffer: "string" } }), context), []);
+  assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, buffer: "str" } }), context).join("\n"), /positive whole number/);
   assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, expect: "x" } }), context).join("\n"), /expect is the SHA-256/);
   assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, space: -1 } }), context).join("\n"), /space is a positive/);
   assert.match(langFileProblems("x", { format: "other", texts: {} }, context).join("\n"), /format is not/);

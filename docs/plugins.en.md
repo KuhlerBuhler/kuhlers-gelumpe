@@ -602,6 +602,10 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.display.take()` | take the display (way 2, see above); 1 on success, 0 if not (an app, another owner, not the main screen) | like `korg.led` |
 | `korg.display.release()` | give the display back | like `korg.led` |
 | `korg.display.popups = 0` | keeps the parameter window shut that `korg.seq.setPartValue` otherwise opens like the knob, and the write window of `korg.pattern.write`; only for this plugin's calls, 1 turns it back on. It is 1 after loading. `korg.knob` still opens the firmware's window, because it plays the knob itself. Read it with `korg.display.popups` or `korg.read.popups()`. From API version 24 | like `korg.led` |
+| `korg.display.popup.begin()` | starts a popup drawing for a background plugin; existing display calls then draw into its buffer with absolute coordinates. Apps cannot open plugin popups. From API version 40 | like `korg.led` |
+| `korg.display.popup.timeout(ms)` | sets the prepared popup's lifetime in milliseconds, 0 to 600000. The default is 2000 ms; 0 leaves it open until EXIT or another popup. From API version 40 | like `korg.led` |
+| `korg.display.popup.show()` | shows the prepared popup, replacing any previous firmware or plugin popup. EXIT closes it like a firmware popup. From API version 40 | like `korg.led` |
+
 | `korg.display.clear()` | clear the display; the drawing calls only work for the owner of the display (the open app, or whoever took it) | like `korg.led` |
 | `korg.display.text(text, x, y)` | text with its top left corner at `x`, `y` (0 to 127, 0 to 63) | like `korg.led` |
 | `korg.display.number(value, x, y)` | a number | like `korg.led` |
@@ -740,14 +744,25 @@ korg.onEvent("buttonPress", (key) => {
 ```
 
 **Display on the device:** the runtime keeps its own image of 1024 bytes (8 pages of 128 columns, bit 0 is
-the top row) and draws only into that. Coordinates past the edge are cut off, never wrapped. Only the owner
-of the display may draw (the open app, or a plugin that took it): the calls of any other plugin do
-nothing. While there is an owner, the frame hook copies the image over the firmware's display RAM every
-frame, after the firmware has drawn its widgets, but only while the main screen is open. Without an owner
+the top row) and draws only into that. Coordinates past the edge are cut off, never wrapped. Full-screen
+drawing belongs to the owner of the display (the open app, or a plugin that took it); the calls of any other
+plugin do nothing. While there is an owner, the frame hook copies the image over the firmware's display RAM
+every frame, after the firmware has drawn its widgets, but only while the main screen is open. Without an owner
 the runtime does not touch the display. Menus and windows are shown by the firmware as usual, a plugin
 does not see them. The font is a 5 by 7 font of our own with 6 pixels per character; the same table is used
 in the browser and on the device, and the output matches the browser model pixel for pixel (70 cases
 compared in the emulator). Text is at most 31 characters, numbers are drawn in decimal.
+
+**Popups for background plugins** (`korg.display.popup.*`): `begin()` prepares the drawing buffer, the existing
+text, number and pixel calls draw into it with absolute display coordinates, and `show()` displays it. The
+content is clipped to `x = 2..125`, `y = 14..47`; drawing outside it has no effect. The firmware outline is
+at `x = 1..126`, `y = 12..49`: top line at `y = 13`, sides at `x = 1` and `x = 126`, bottom line at `y = 48`,
+and a dotted shadow at `y = 49`. There is one shared popup; `show()` replaces the previous one, whether it
+came from firmware or another plugin. An open firmware popup is closed with EXIT first. EXIT also dismisses
+the plugin popup early. If no firmware window is open, the runtime runs the same native close path as the
+firmware so the main screen is redrawn on the device. An EXIT sent to replace a firmware popup stays with
+the firmware path. Apps cannot use these calls. The default lifetime is two seconds; `timeout(0)` disables
+the timer.
 
 **Images from arrays** (`korg.display.bitmap`): one slot of the array holds the 8 pixels of a column, the
 lowest bit is the top pixel (only the lower 8 bits count). This is the layout of the display RAM and of the
@@ -1598,7 +1613,7 @@ All of this ran in the real firmware (2.02 with Hacktribe) in the emulator with 
 Unicorn without firmware, **not on the device**.
 
 - Compiler, checker and reference VM in JavaScript (`src/script/`), the Plugins page with run, probe and
-  export, tests in `test/script-*.test.mjs`. Block format 2, API version 25.
+  export, tests in `test/script-*.test.mjs`. Block format 2, API version 26.
 - ARM VM (`tools/patch/script_vm.s`): all 34 opcodes, 506 comparison cases against the JS VM agree
   ([measurement](messungen/2026-10-14-skript-arm-vm.md)).
 - Input filter and frame hook (`tools/patch/script_hooks.s`): ring of 64 places, 25 Hz, a shared budget of

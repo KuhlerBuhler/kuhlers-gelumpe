@@ -66,6 +66,10 @@ input_power_no:
     cmp r0, #0
     ldr r0, [sp, #8]
     bne input_drop
+    push {r0, lr}
+    bl script_popup_input
+    pop {r0, lr}
+
     bl migrate_input
     cmp r0, #0
     ldr r0, [sp, #8]
@@ -812,7 +816,10 @@ frame_finish:
     mov r0, r4
     bl script_sim_input_guard
     mov r0, r4
+    bl script_popup_frame
+    mov r0, r4
     bl egg_frame
+
     mov r0, r4
     bl script_display_blit
     bl display_calibrate

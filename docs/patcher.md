@@ -642,6 +642,10 @@ benutzt, legt seine eigene `SYSTEM.VSB` ab; ausgeliefert wird nie eine fertige F
 - **Gerätename:** ein Häkchen in Schritt 2 legt den Patch `usb-name` in der Fassung für das Build der Datei dazu
   (`USB_NAME_URLS` in `src/patcher.mjs`), auch auf eine mitgebrachte `BLECH.patch`. Aus per Voreinstellung, weil
   DAW-Zuordnungen am alten Portnamen hängen. Ein anderes Häkchen macht eine neue Kopie, die alte Prüfung gilt dann nicht mehr.
+- **Sprache:** das Häkchen "Gerätemenüs auf Deutsch" in Schritt 2 legt den Patch `lang-de` in der Fassung für das Build
+  der Datei dazu (`LANG_DE_URLS` in `src/patcher.mjs`): das BLECH-Menü und Korgs Hauptmenüs zeigen Deutsch, aus per
+  Voreinstellung. Ein Update behält die Sprache der Datei. Deutsch gibt es nur über die App, die Dateien der
+  Release-Seite sind Englisch ([Firmware-Sprache](firmware-sprache.md)).
 - **Speichern:** in der App sucht Schritt 4 alle 2 s die eingesteckte Karte (macOS `/Volumes/*`, Windows die
   Laufwerksbuchstaben, Linux `/media/$USER/*` und `/run/media/$USER/*`) mit dem KORG-Ordner des Ziels
   (`runningFolder`/`folderOf`), zeigt den vollen Pfad und schreibt mit "Speichern" nur dorthin, legt `System/` an, wenn

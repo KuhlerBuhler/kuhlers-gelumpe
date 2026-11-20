@@ -630,6 +630,10 @@ La colonne d’autorisation s’applique aussi à la syntaxe de propriété équ
 | `korg.display.take()` | Demande l’écran hors application ; renvoie 1 si obtenu, 0 si application, autre propriétaire ou hors page principale | Comme `korg.led` |
 | `korg.display.release()` | Rend l’écran au firmware | Comme `korg.led` |
 | `korg.display.popups = 0` | Supprime la fenêtre de paramètre ouverte par `korg.seq.setPartValue` et la fenêtre d’écriture de `korg.pattern.write`, pour les appels de ce plugin uniquement ; 1 la réactive, valeur initiale après chargement. Appel équivalent : `korg.display.popups(on)`. `korg.knob` conserve la fenêtre car il simule le potentiomètre. Lecture par `korg.display.popups` ou `korg.read.popups()`. Depuis l’API 24 | Comme `korg.led` |
+| `korg.display.popup.begin()` | Prépare un dessin de popup pour un plugin d’arrière-plan ; les appels d’affichage existants dessinent ensuite dans ce tampon avec des coordonnées absolues. Les applications ne peuvent pas ouvrir de popup. Depuis l’API 40 | Comme `korg.led` |
+| `korg.display.popup.timeout(ms)` | Définit la durée du popup en millisecondes, de 0 à 600000. La valeur initiale est 2000 ms ; 0 le laisse ouvert jusqu’à EXIT ou un autre popup. Depuis l’API 40 | Comme `korg.led` |
+| `korg.display.popup.show()` | Affiche le popup préparé et remplace tout popup précédent du firmware ou d’un plugin. EXIT le ferme comme un popup du firmware. Depuis l’API 40 | Comme `korg.led` |
+
 | `korg.display.clear()` | Efface l’écran ; seuls les dessins du propriétaire, application ouverte ou plugin ayant pris l’écran, agissent | Comme `korg.led` |
 | `korg.display.text(text, x, y)` | Texte dont le coin supérieur gauche est à X de 0 à 127, Y de 0 à 63 | Comme `korg.led` |
 | `korg.display.number(value, x, y)` | Affiche un nombre | Comme `korg.led` |
@@ -825,14 +829,24 @@ korg.onEvent("buttonPress", (key) => {
 
 **Affichage sur l’appareil.** Le moteur maintient une image propre de 1024 octets, huit pages
 de 128 colonnes, bit 0 en haut. Les coordonnées hors écran sont coupées, jamais rebouclées.
-Seul le propriétaire dessine : application ouverte ou plugin ayant pris l’écran. En sa présence,
-le moteur copie son image dans la RAM écran du firmware après les widgets, une fois par trame,
-uniquement sur la page principale. Sans propriétaire, il ne touche pas à l’écran. Les menus
-et fenêtres restent dessinés par le firmware et invisibles au plugin.
+Le dessin plein écran appartient au propriétaire : application ouverte ou plugin ayant pris
+l’écran. En sa présence, le moteur copie son image dans la RAM écran du firmware après les
+widgets, une fois par trame, uniquement sur la page principale. Sans propriétaire, il ne touche
+pas à l’écran. Les menus et fenêtres restent dessinés par le firmware et invisibles au plugin.
 
 La police propre au projet mesure 5 × 7 pixels, avec 6 pixels par caractère. Le navigateur et
 l’appareil utilisent la même table ; 70 cas ont été comparés pixel par pixel dans l’émulateur.
 Le texte est limité à 31 caractères et les nombres sont affichés en décimal.
+
+**Popups des plugins d’arrière-plan** (`korg.display.popup.*`) : `begin()` prépare le tampon,
+les appels texte, nombre et pixel dessinent dedans en coordonnées absolues, puis `show()` l’affiche.
+Le contenu est limité à `x = 2..125`, `y = 14..47` ; les dessins hors de cette zone sont ignorés.
+Le cadre du firmware se trouve à `x = 1..126`, `y = 12..49` : ligne supérieure en `y = 13`,
+côtés en `x = 1` et `x = 126`, ligne inférieure en `y = 48`, ombre pointillée en `y = 49`.
+Il n’existe qu’un popup partagé ; `show()` remplace le précédent, qu’il vienne du firmware ou
+d’un autre plugin. Un popup ouvert du firmware est d’abord fermé par EXIT. EXIT ferme aussi
+un popup de plugin. Les applications ne peuvent pas utiliser ces appels. La durée initiale est
+de deux secondes ; `timeout(0)` désactive le minuteur.
 
 **Images depuis un tableau, `korg.display.bitmap`.** Chaque élément contient les huit pixels
 d’une colonne, bit faible en haut ; seuls les huit bits faibles comptent. Une bande de width
@@ -1613,7 +1627,7 @@ Les résultats suivants proviennent du firmware réel 2.02 avec Hacktribe dans l
 avec carte virtuelle, ou d’Unicorn sans firmware, **pas de l’appareil**.
 
 - Compilateur, vérificateur et VM JavaScript dans `src/script/`, page Plugins, exécution,
-  essai et export : tests `test/script-*.test.mjs`, format de bloc 2, API 25.
+  essai et export : tests `test/script-*.test.mjs`, format de bloc 2, API 26.
 - VM ARM `tools/patch/script_vm.s` : les 34 opcodes, 506 comparaisons identiques à la VM JS.
   [Mesure](messungen/2026-10-14-skript-arm-vm.md).
 - Filtre d’entrée et point d’interception des trames `tools/patch/script_hooks.s` :
