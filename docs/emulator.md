@@ -1038,6 +1038,18 @@ Hacktribe und rot `GELUMPE_DSP_REQUIRED`: dann plant `check.py` den Fall immer,
 und ohne Worker schlägt er fehl, statt zu fehlen. Ein Lauf dauert rund eine
 Minute je Firmware (gemessen am Mac, 20.11.).
 
+Lokal läuft der Fall wie in der CI, also mit den Ausnahmen des Patches für die
+Startphase:
+
+```sh
+GELUMPE_DSP_REQUIRED=1 node tools/verify-patches.mjs --shard 1/1 --cases blackfin_swap_cases --output /tmp/swap.json SYSTEM.VSB
+```
+
+`--output` geht nur mit `--shard`. Wer `check.py` direkt aufruft, nimmt den
+Befehl, den `tools/patch/apply.mjs` ausgibt: ohne dessen `--allow` und
+`--allow-code` meldet `start_phase` jede Änderung des Patches in der Startphase
+als Fehler, auch wenn alle `dspswap:*`-Prüfungen grün sind.
+
 Der QEMU-Worker rechnet die Befehle mit QEMU und lässt Geräte, Interrupts und
 Zeit beim GNU-Simulator. Er liefert in Registern, ASTAT, Speicher und Takten
 dieselben Ergebnisse wie GNU und ist schneller (Messung und Grenzen:
