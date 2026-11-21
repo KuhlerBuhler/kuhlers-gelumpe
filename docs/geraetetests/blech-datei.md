@@ -440,6 +440,23 @@ probieren, Ausgabe und Display notieren.
 
     Melden: ok je Schritt, sonst welcher Oszillator anders klingt oder stumm ist (mit Platznummer).
 
+24. **CATEGORY in SAMPLE EDIT (rot und Hacktribe, nicht blau).** Voraussetzung: der BLECH-Satz, Karte mit mindestens einem eigenen
+    Sample. Im Emulator gemessen sind Seiten, Zähler, Rad, Export und das Sample mit Slices
+    ([Messung](../messungen/2026-11-21-sample-kategorie.md)); nur normale Bedienung, nichts über den Rechner.
+
+    1. DATA UTILITY > SAMPLE EDIT, ein eigenes Sample wählen, EDIT rechts. Erwartet: Seite 3/11 heißt CATEGORY, der Wert ist
+       "[User]" (Hacktribe "[Wave]").
+    2. Rad auf "[Kick]", EXIT. Erwartet: das Part-Bild zeigt beim Sample "[Kick]".
+    3. SHIFT + OSC-Rad auf einem Part mit diesem Sample. Erwartet: es springt auf das Sample als eigene Kick-Folge (nicht zu den
+       Werks-Kicks).
+    4. RENAME, START POINT, DELETE SAMPLE durchgehen. Erwartet: wie vorher, der Zähler zählt bis 11/11 und läuft auf 1/11 um.
+    5. EXPORT ALL SAMPLE, aus- und einschalten. Erwartet: das Sample steht weiter auf "[Kick]".
+    6. Karte am Rechner in einem Sample-Werkzeug öffnen. Erwartet: das Sample hat die Kategorie Kick.
+    7. Ohne EXPORT ALL SAMPLE umstellen, aus- und einschalten. Erwartet (hergeleitet): die alte Kategorie ist zurück.
+    8. Mit EXIT beim Einschalten: SAMPLE EDIT hat Korgs 10 Seiten, keine CATEGORY.
+
+    Melden: ok je Schritt, sonst die Seite und was das Display zeigt.
+
 Nach dem Test das Ergebnis je Schritt notieren: ok, anders, nicht gelaufen.
 
 ## 7. Ergebnisse und Messungen

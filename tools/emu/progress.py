@@ -29,6 +29,7 @@ NAMES = {
     "migrate_cases": "Ordner übernehmen",
     "loadbar_cases": "Ladebalken",
     "sample_error_cases": "Sample-Fehler",
+    "sample_category_cases": "Sample-Kategorie",
     "synth_filter_cases": "Synth-Filter",
     "sysex_cases": "SysEx",
     "power_off_cases": "Ausschalten",

@@ -281,6 +281,9 @@
   "str_c_yellow": {
    "text": "GELB"
   },
+  "str_category": {
+   "text": "KATEGORIE"
+  },
   "str_color": {
    "text": "FARBE"
   },
@@ -550,6 +553,9 @@
   },
   "str_scripts": {
    "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_se_none": {
+   "keep": "Zeichen"
   },
   "str_sp": {
    "keep": "Fachwort oder Name bleibt Englisch"
