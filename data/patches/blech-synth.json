@@ -13,6 +13,7 @@
   "data/patches/fx-catalog.json",
   "data/patches/power-off-synth.json",
   "data/patches/last-pattern-synth.json",
+  "data/patches/tube-curve-synth.json",
   "data/patches/init-pattern-synth.json",
   "data/patches/beat-eighth-synth.json",
   "data/patches/touch-scale-zero-synth.json",

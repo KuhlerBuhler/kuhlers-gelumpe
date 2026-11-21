@@ -17,6 +17,12 @@
    "to": "0xC0078974",
    "kind": "code",
    "why": "the next instruction, ldr r3, [r4], in both: the firmware's pad light for a note (Sampler 0xC008870C, synth 0xC00788F0) has the same instructions at the same offsets, read in both (capstone)"
+  },
+  {
+   "from": "0xC008870C",
+   "to": "0xC00788F0",
+   "kind": "code",
+   "why": "the first instruction of the firmware's pad light for a note, push {r3, r4, r5, r6, r7, r8, sb, lr} in both (Sampler 0xC008870C, synth 0xC00788F0, read with capstone); data/synth-sites.mjs pairs the two"
   }
  ]
 }

@@ -626,6 +626,15 @@
   "str_tm": {
    "keep": "Fachwort oder Name bleibt Englisch"
   },
+  "str_tube": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_tube_asym": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_tube_drive": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
   "str_up": {
    "keep": "Pfeil"
   },
