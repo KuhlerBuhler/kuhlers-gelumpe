@@ -73,7 +73,7 @@ CARD_ERROR = 4                  # the loader's result for a read error of the ca
 # the state: counts, the first skipped sample, and what the two refusing places said
 S_COUNT, S_IDX, S_ORIG, S_REASON, S_VAL, S_FREASON, S_FVAL = 0, 4, 8, 12, 16, 20, 24
 S_TITLE, S_TEXT = 0x40, 0x60
-R_TAG, R_CHANNELS, R_BITS, R_CATEGORY, R_USE, R_BIG = 1, 2, 3, 4, 5, 6
+R_TAG, R_CHANNELS, R_BITS, R_WAVE, R_USE, R_BIG = 1, 2, 3, 4, 5, 6
 
 SOURCE = f"""
 .equ PANEL, {PANEL:#x}
@@ -103,7 +103,7 @@ SOURCE = f"""
 .equ R_TAG, {R_TAG}
 .equ R_CHANNELS, {R_CHANNELS}
 .equ R_BITS, {R_BITS}
-.equ R_CATEGORY, {R_CATEGORY}
+.equ R_WAVE, {R_WAVE}
 .equ R_USE, {R_USE}
 .equ R_BIG, {R_BIG}
 
@@ -204,8 +204,8 @@ refused_sample:
     ldr r1, =SAMPLE_FAIL
     b refused
 
-slot_category:                  ; the slot's category is not one a sample may have
-    mov r0, #R_CATEGORY
+slot_wave:                      ; the slot is an oscillator's: the record's wave number is 49 or less
+    mov r0, #R_WAVE
     mov r2, r3
     b refused_slot
 slot_use:                       ; the slot is in use
@@ -296,8 +296,8 @@ build_texts:
     ldreq r0, =t_channels
     cmp r2, #R_BITS
     ldreq r0, =t_bits
-    cmp r2, #R_CATEGORY
-    ldreq r0, =t_category
+    cmp r2, #R_WAVE
+    ldreq r0, =t_wave
     cmp r2, #R_USE
     ldreq r0, =t_use
     cmp r2, #R_BIG
@@ -363,7 +363,7 @@ t_channels:
     .asciz "# channels, max 2"
 t_bits:
     .asciz "# bit, use 16/24"
-t_category:
+t_wave:
     .asciz "slot not usable"
 t_use:
     .asciz "slot in use"
@@ -438,7 +438,7 @@ def build_patch(vsb):
         (SAMPLE_FORMAT[0], "fmt_tag", dict(goes_to=SAMPLE_FAIL), "the branch that refuses a format tag other than PCM goes to a stub that notes it", None),
         (SAMPLE_FORMAT[1], "fmt_channels", dict(goes_to=SAMPLE_FAIL), "the branch that refuses a channel count other than 1 or 2 goes to a stub that notes it", None),
         (SAMPLE_FORMAT[2], "fmt_bits", dict(goes_to=SAMPLE_FAIL), "the branch that refuses a bit depth other than 16 or 24 goes to a stub that notes it", None),
-        (SLOT_REFUSE[0], "slot_category", dict(goes_to=SLOT_FAIL), "the branch that refuses a slot of a category no sample may have goes to a stub that notes it", None),
+        (SLOT_REFUSE[0], "slot_wave", dict(goes_to=SLOT_FAIL), "the branch that refuses an oscillator slot (wave number up to 49) goes to a stub that notes it", None),
         (SLOT_REFUSE[1], "slot_use", dict(goes_to=SLOT_FAIL), "the branch that refuses a slot that is in use goes to a stub that notes it", None),
         (SLOT_REFUSE[2], "slot_big", dict(goes_to=SLOT_FAIL), "the branch that refuses a sample longer than the free memory goes to a stub that notes it", None),
         (RESULT, "result_hook", dict(original=0xE2504000), "the instruction after the sample function (subs r4, r0, #0) jumps to a stub that skips a result of 32 or 36", None),

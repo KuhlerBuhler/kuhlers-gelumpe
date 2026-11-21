@@ -14,7 +14,7 @@ Eingaben danach werden nicht mehr geladen. Das Fenster dazu ist `Error` mit eine
 |---|---|---|
 | 32 | die Kopfprüfung weist die Datei ab: kein RIFF/WAVE, kein `fmt ` oder `data`, Format nicht 1 (PCM), mehr als 2 Kanäle, Bits weder 16 noch 24 | "Format Error." |
 | 33 | das Sample ist länger als der freie DSP-Speicher | "Memory Full" |
-| 36 | die Funktion, die das Sample in seinen Platz einträgt (`0xC004EDF0`), lehnt ab: der Platz ist belegt, er hat eine Kategorie, die kein Sample tragen darf, oder das Sample ist länger als der freie Speicher | "Unknown Error." (alles über 35) |
+| 36 | die Funktion, die das Sample in seinen Platz einträgt (`0xC004EDF0`), lehnt ab: der Platz ist belegt, er ist ein Oszillator-Platz (Wave-Nummer bis 49, siehe 2026-11-17-sample-kategorie-wave.md), oder das Sample ist länger als der freie Speicher | "Unknown Error." (alles über 35) |
 | 4 | Lesefehler der Karte | "Card Error" |
 
 24 Bit nimmt der Lader (PCM, 1 oder 2 Kanäle, er wandelt auf 16 Bit); gemessen mit einem Sample von 24 Bit und eines
@@ -43,7 +43,7 @@ zwei Haken geben ihm unsere zwei Zeilen: die Überschrift nennt den Platz, die Z
 | | `not PCM, tag 3` | Formatnummer ungleich 1 (3 ist Fließkomma) |
 | | `3 channels, max 2` | mehr als 2 Kanäle |
 | | `slot in use` | der Platz ist belegt (die Firmware: 36) |
-| | `slot not usable` | der Platz hat keine Kategorie, die ein Sample tragen darf (36) |
+| | `slot not usable` | der Platz ist ein Oszillator-Platz, Wave-Nummer bis 49 (36) |
 | | `too big for memory` | länger als der freie Speicher (36) |
 | | `bad WAV file` | Kopf unlesbar (32 ohne genaueren Grund) |
 | | `cannot be loaded` | 36 ohne genaueren Grund |

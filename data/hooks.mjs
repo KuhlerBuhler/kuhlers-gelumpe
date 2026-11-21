@@ -126,6 +126,7 @@ export const CHAINS = {
     { id: "neighbours", sites: [0xC0064D84, 0xC0061880, 0xC0064430, 0xC0067754, 0xC0067720, 0xC0065B8C] },
   ],
   "data-util-screen": [{ id: "edit-slots", sites: [0xC00623C0, 0xC0062448] }],
+  "sample-edit-screen": [{ id: "edit-slots", sites: [0xC0069BB8, 0xC0069C88] }],
   "menu-top-level": [{ id: "screen-switch", sites: [0xC006E8D8, 0xC0061DDC] }],
   "menu-write": [{ id: "write-key", sites: [0xC006F094] }],
   "screen-switch": [{ id: "switch-post", sites: [0xC0083D7C, 0xC0074350] }],   // the second is the synth build's

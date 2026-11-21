@@ -222,6 +222,8 @@
 .equ M_LEVEL_PSUB, 6          ; level 6: the pages of one plugin, opened by ENTER on its page of MANAGE PLUGINS: ACTIVE, DESCRIPTION, its own pages, REMOVE
 .equ M_LEVEL_GLOBAL, 7        ; level 7: the page PLUGIN RUNTIME, shown as the last page of the firmware's GLOBAL PARAMETERS (screen 9)
 .equ M_LEVEL_DU, 8            ; level 8: our pages of DATA UTILITY, shown behind the firmware's last function (screen 15)
+.equ M_LEVEL_SE, 9            ; level 9: the page CATEGORY, shown as page 3 of the firmware's SAMPLE EDIT (screen 38), behind RENAME
+.equ SE_ENTRY, 37             ; SAMPLE EDIT's screen with "press [Enter]", where its EXIT goes
 .equ MENU_RING_TAIL, 1 + HAS_SYNC   ; the page of Blechy and SYNC GROUP are pages the firmware's ring does not have (BLECH is M_COUNT)
 .equ MENU_SYNC_AT, 15         ; the counter's index of SYNC GROUP: behind the 15 pages of the Pattern menu, the Part menu's pages move up by one
 .equ GLOBAL_PAGES, 20         ; the pages of GLOBAL PARAMETERS (screen 9) and its counter "n/20"; PLUGIN RUNTIME is one more
@@ -1887,6 +1889,8 @@ menu_counter_fix:
     cmp r2, #GLOBAL_PAGES
     addeq r2, r2, #1
     bxeq lr
+    cmp r2, #SE_PAGES
+    beq menu_counter_se
     cmp r2, #DU_PAGES
     beq menu_counter_du
     cmp r2, #MENU_RING_TOTAL
@@ -3291,6 +3295,9 @@ menu_tab_go:
     ldreq r1, =str_tab_global
     cmp r2, #M_LEVEL_DU
     ldreq r1, =str_tab_du
+    cmp r2, #M_LEVEL_SE         ; CATEGORY carries SAMPLE EDIT's own tab, the firmware's text
+    ldreq r1, =se_tab
+    ldreq r1, [r1]
     cmp r2, #M_LEVEL_SYNC       ; SYNC GROUP is a page of the pattern: its tab says so
     ldreq r1, =str_tab_pattern
     ldr r0, [r5, #M_TABW]
@@ -3407,6 +3414,8 @@ menu_texts_clear:
     cmpne r0, #65
     cmpne r0, #66
     beq menu_text_tube
+    cmp r0, #67
+    beq menu_text_se
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -4636,12 +4645,13 @@ menu_confirm_add:
 ; himself (the frame hook opens and closes him by this level). Level 4 (M_LEVEL_SYNC) is the page SYNC GROUP between the Pattern and
 ; the Part menu: a setting of the pattern in RAM, saved with WRITE as the Pattern menu's pages. Levels 7 (M_LEVEL_GLOBAL, PLUGIN
 ; RUNTIME) and 8 (M_LEVEL_DU, the exports and SET INIT PATTERN) look like pages of GLOBAL PARAMETERS and DATA UTILITY: EDIT moves
-; between them and the firmware's pages, EXIT goes where the firmware's EXIT goes there.
+; between them and the firmware's pages, EXIT goes where the firmware's EXIT goes there. Level 9 (M_LEVEL_SE, CATEGORY) looks like
+; page 3 of SAMPLE EDIT, behind RENAME (script_sample_edit.s): EDIT goes back to the firmware's pages, EXIT to its entry screen.
 ; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 3 EXPORT ALL PLUGINS, 2, 4 and 5 unused, 6 a page a plugin
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE, 61 GLIDE CHAIN, 62 GLIDE SWITCH, 63 BATTERY %, 64 TUBE, 65 TUBE DRIVE, 66 TUBE ASYM; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE, 61 GLIDE CHAIN, 62 GLIDE SWITCH, 63 BATTERY %, 64 TUBE, 65 TUBE DRIVE, 66 TUBE ASYM, 67 CATEGORY of level 9; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -4659,6 +4669,9 @@ menu_kind:
     beq menu_kind_done
     cmp r2, #M_LEVEL_DU
     beq menu_kind_du
+    cmp r2, #M_LEVEL_SE
+    moveq r0, #67
+    beq menu_kind_done
     cmp r2, #M_LEVEL_PLUGIN
     beq menu_kind_list
     cmp r2, #M_LEVEL_PSUB
@@ -4984,6 +4997,7 @@ menu_page_count:
     cmp r1, #M_LEVEL_BLECHY
     cmpne r1, #M_LEVEL_SYNC
     cmpne r1, #M_LEVEL_GLOBAL
+    cmpne r1, #M_LEVEL_SE
     cmpne r1, #0
     bne menu_count_level1
     mov r0, #1
@@ -5137,6 +5151,10 @@ menu_counter_args:
     cmp r1, #M_LEVEL_GLOBAL
     moveq r1, #GLOBAL_PAGES
     moveq r2, #GLOBAL_PAGES+1
+    popeq {pc}
+    cmp r1, #M_LEVEL_SE
+    moveq r1, #2
+    moveq r2, #SE_PAGES+1
     popeq {pc}
     cmp r1, #M_LEVEL_DU
     bne menu_counter_level
@@ -6552,6 +6570,9 @@ menu_slot_prev:
     beq menu_prev_global
     cmp r3, #M_LEVEL_DU
     beq menu_prev_du
+    cmp r3, #M_LEVEL_SE
+    moveq r1, #1
+    beq menu_se_page
     cmp r3, #0
     bne menu_prev_wrap
     pop {r4, lr}
@@ -6641,6 +6662,8 @@ menu_slot_next:
     cmp r3, #M_LEVEL_DU
     moveq r1, #0
     beq menu_du_function
+    cmp r3, #M_LEVEL_SE
+    beq menu_se_next
     cmp r3, #0
     beq menu_next_leave
     mov r1, #0
@@ -6728,6 +6751,8 @@ menu_slot_value:
     beq menu_value_idle
     cmp r0, #63
     beq menu_value_batt
+    cmp r0, #67
+    beq menu_value_se
     cmp r0, #61
     cmpne r0, #62
     beq menu_value_glide
@@ -7496,6 +7521,9 @@ menu_slot_exit:
     cmp r3, #M_LEVEL_DU
     moveq r0, #14
     beq menu_exit_screen
+    cmp r3, #M_LEVEL_SE
+    moveq r0, #SE_ENTRY
+    beq menu_exit_screen
     cmp r3, #M_LEVEL_PSUB
     beq menu_exit_psub
     cmp r3, #M_LEVEL_PLUGIN
@@ -7819,6 +7847,10 @@ str_idle:
     .asciz "IDLE SAVE"
 str_batt:
     .asciz "BATTERY %"
+str_category:
+    .asciz "CATEGORY"
+str_se_none:
+    .asciz "---"
 str_sp:
     .asciz "STEREO 1 PAD"
 str_us:
