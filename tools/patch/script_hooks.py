@@ -337,6 +337,9 @@ def runtime_profile(build):
                                               # the collection on the card (fx_card.s): which build it is for, and the modulation table this build reads
                                               FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC,
                                               BUILD_BASE=4 if build == 'stock' else 0,
+                                              # TUBE (script_menu.s): the host port write, the caller's P0.L halfword in the DSP boot stream in RAM and
+                                              # its value with the patch tube-curve (tools/patch/tube_curve.py; test_tube_curve.py checks both)
+                                              HW_DSP_WRITE=0xC0014284, TUBE_MARK=0xC0131F90, TUBE_MARK_ON=0x2186,
                                               # DATA UTILITY's list: its functions (counter "n/14"), and the bits of our pages there the build has (script_menu.s, menu_du_mask)
                                               DU_PAGES=14, DU_BUILT=7, US_STATE=0, FT_BACK=ft_at+4,
                                               # SAMPLE EDIT's pages (screen 38) and their counter "n/10"; CATEGORY is one more (script_menu.s)
@@ -383,6 +386,7 @@ def runtime_profile(build):
         # LCD_FLUSH_ALL (MG_LCD, 1): every page sent, also where it equals the copy last sent, as the display's start does (0xC00117F4)
         MG_WORK=0xC0190100, MG_MKDIR=0xC008B510, FS_UNLINK=0, MG_GETFREE=0xC008B3B4, MG_ALLOC=0xC0026240, MG_FREE=0xC0026248,
         MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, LCD_FLUSH_ALL=0xC001185C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=7, US_STATE=0xC0133000, FT_BACK=0xC0062F18, DEV_FLAG=0, SE_SCREEN=0, SE_PAGES=10,
+        HW_DSP_WRITE=0xC000FB44, TUBE_MARK=0xC01176D6, TUBE_MARK_ON=0x20F6,
         # the collection on the card (fx_card.s): Korg's red modulation table, at the synth's address (data/synth-map/preset-tables.json)
         FX_BUILD=3, FX_MODS=synthaddr.tr(0xC00D81EC), **KEY_PADS_SYNTH, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 

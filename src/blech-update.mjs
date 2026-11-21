@@ -80,7 +80,8 @@ function animationAt(bytes) {
  * hold written content and are otherwise fill; the user's loading animation is neither checked nor reset. Any other content, or no trace of BLECH at all, is a refusal.
  * @returns {Promise<{ok: true, bytes: Uint8Array, present: string[], options: object} | {ok: false, why: string}>}
  *   `bytes` is the file with the free areas reset to their fill, `present` the patch ids whose hook sites are in it,
- *   `options` goes to applyPatches: the hook sites the file holds count as expected, and an effect preset an older
+ *   `options` goes to applyPatches: the hook sites the file holds count as expected and must all be written again (a
+ *   branch left at a site the set no longer writes jumps into code that is gone), and an effect preset an older
  *   release wrote is written again, a preset of the user's own with the same name stays.
  */
 export async function recogniseBlech(bytes, known) {
@@ -104,9 +105,10 @@ export async function recogniseBlech(bytes, known) {
   if (!states.includes("new")) return { ok: false, why: "none" };
   const cleaned = Uint8Array.from(bytes);
   const present = new Set();
+  const held = [];
   regions.forEach(([file, length, id, fill], i) => {
     if (states[i] === "original" || (states[i] === "other" && fill < 0)) return;
-    if (fill < 0) { present.add(id); return; }
+    if (fill < 0) { present.add(id); held.push([file, length, id]); return; }
     const end = file + length;
     if (!own || end <= own[0] || file >= own[1]) cleaned.fill(fill, file, end);
     else {
@@ -123,6 +125,7 @@ export async function recogniseBlech(bytes, known) {
     options: {
       accept: (file, length, hash) => byKey.get(`${file}+${length}`)?.includes(short(hash)) ?? false,
       refresh: (kind, name, record) => catalog[`${kind}|${name}`]?.includes(recordHash(record)) ?? false,
+      held,
     },
   };
 }

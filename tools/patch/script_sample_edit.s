@@ -124,7 +124,7 @@ menu_se_page:
     mov r0, #SE_SCREEN
     b menu_leave
 .pool
-; CATEGORY (r0 = 64): the category of SAMPLE EDIT's sample in the firmware's own text, as the Part screen shows it; "---" where
+; CATEGORY (r0 = 67): the category of SAMPLE EDIT's sample in the firmware's own text, as the Part screen shows it; "---" where
 ; the slot holds no sample or an oscillator (wave number up to 49)
 menu_text_se:
     add r0, r5, #M_TITLE

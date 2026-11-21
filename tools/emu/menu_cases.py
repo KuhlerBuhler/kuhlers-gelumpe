@@ -93,11 +93,12 @@ def keep_awake(dev):
 def boot(payload, flash=None, held=0, files=None, adapter=False, card=True, seconds=1.2, idle=False):
     """A device booted to the main screen; with `adapter` on mains power (the bottom LEDs and the backlight show their normal state).
     Without `idle` IDLE POWER SAVE is held awake (keep_awake)."""
-    global INIT_PAGE, LAST_PAGE, STEREO_PAGE
+    global INIT_PAGE, LAST_PAGE, STEREO_PAGE, TUBE_PAGE
     for_build(payload)
     INIT_PAGE = payload[INIT_CODE - 0xC0000000:INIT_CODE - 0xC0000000 + 4] != b"\xff" * 4
     LAST_PAGE = payload[LAST_CODE - 0xC0000000:LAST_CODE - 0xC0000000 + 4] != b"\xff" * 4
     STEREO_PAGE = payload[STEREO_CODE - 0xC0000000:STEREO_CODE - 0xC0000000 + 4] != b"\xff" * 4
+    TUBE_PAGE = has_tube(payload)
     dev = Dev(payload, flash, held)
     dev.m.adapter = adapter
     if card:
@@ -166,6 +167,13 @@ LAST_CODE = 0xC014FE00                                               # the patch
 LAST_PAGE = False                                                     # set by boot(): whether the copy has the patch
 STEREO_CODE = 0xC014FF00                                             # the patch stereo-pad (tools/patch/stereo_pad.py); with it FEATURES ends with STEREO 1 PAD
 STEREO_PAGE = False                                                   # set by boot(): whether the copy has the patch
+TUBE_PAGE = False                                                     # set by boot(): whether the copy has the patch tube-curve (TUBE, TUBE DRIVE, TUBE ASYM before KEY PADS)
+
+
+def has_tube(payload):
+    """True when the caller's P0.L in the DSP boot stream holds the tube routine (script_hooks.py TUBE_MARK, TUBE_MARK_ON)."""
+    mark, on = (0xC01176D6, 0x20F6) if synthaddr.is_synth(payload) else (0xC0131F90, 0x2186)
+    return struct.unpack_from("<H", payload, mark - IMAGE)[0] == on
 
 
 VERSION_TEXT = 0xC014FCF0                                            # the patch blech-version (tools/patch/blech_version.mjs): the title of VERSION
@@ -184,9 +192,10 @@ def version_texts(payload):
 
 
 def feature_pages():
-    """The pages of FEATURES: the switches, LAST PATTERN and STEREO 1 PAD where the set has their patches, KEY PADS, FILTER
-    TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
-    return FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"] + GLIDE_PAGES
+    """The pages of FEATURES: the switches, LAST PATTERN, STEREO 1 PAD, TUBE, TUBE DRIVE and TUBE ASYM where the set has their patches,
+    KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    return (FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["TUBE", "TUBE DRIVE", "TUBE ASYM"] * TUBE_PAGE
+            + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"] + GLIDE_PAGES)
 
 
 GLIDE_PAGES = ["GLIDE CHAIN", "GLIDE SWITCH"]                          # BPM GLIDE (bpm_glide_cases.py), OFF by default
@@ -745,7 +754,7 @@ def list_cases(payload, flash=None):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, "OFF" if title in GLIDE_PAGES else "ON") for title in feature_pages()]
+    want = [(title, "OFF" if title in GLIDE_PAGES else {"TUBE": "OFF", "TUBE DRIVE": "5", "TUBE ASYM": "4"}.get(title, "ON")) for title in feature_pages()]   # the tube curve starts off, at its default DRIVE 5 and ASYM 4
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
@@ -1065,7 +1074,8 @@ def read_settings_full(image):
 
 def read_settings_look(image):
     """The valid settings files as {name: (generation, flags, trusted checksums, look)}, look None for version 1. Version 3 (BLECH
-    1.3.8) is version 2 with up to 64 checksums instead of 16; version 4 is version 3 with byte 7 as the second flag byte."""
+    1.3.8) is version 2 with up to 64 checksums instead of 16; version 4 is version 3 with byte 7 as the second flag byte; version 5 is
+    version 4 with TUBE ASYM in bits 5 to 7 of byte 4 (the version bits 0 to 4)."""
     volume = fat32.Volume(bytes(image))
     out = {}
     for path in SETTINGS_PATHS:
@@ -1075,9 +1085,10 @@ def read_settings_look(image):
             continue
         if len(raw) < 20 or raw[:4] != b"GSET":
             continue
-        version, extras, count = raw[4], raw[5], raw[6] if raw[4] == 4 else struct.unpack_from("<H", raw, 6)[0]
-        head = {1: 16, 2: 20, 3: 20, 4: 20}.get(version)
-        if head is None or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (once HT OSC OFF), bit 7 AUTO SAVE OFF
+        version, extras = raw[4] & 0x1F, raw[5]
+        count = raw[6] if version >= 4 else struct.unpack_from("<H", raw, 6)[0]
+        head = {1: 16, 2: 20, 3: 20, 4: 20, 5: 20}.get(version)
+        if head is None or (raw[4] >> 5 and version != 5) or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (once HT OSC OFF), bit 7 AUTO SAVE OFF
             continue
         size = head + 4 * count
         if count > (64 if version >= 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -3486,7 +3497,7 @@ FLASH_SET_A, FLASH_SET_B = 0x7FD000, 0x7FE000   # the two sectors of the setting
 def flash_record(image, at):
     """The settings copy in a flash image at `at` -> (generation, record) when it is whole (tag and CRC as menu_flash_check), else None."""
     raw = bytes(image[at:at + 0x120])
-    if raw[:4] != b"GSET" or raw[4] not in (3, 4):
+    if raw[:4] != b"GSET" or raw[4] & 0x1F not in (3, 4, 5):
         return None
     size = 24 + 4 * (raw[6] | (raw[7] << 8 if raw[4] == 3 else 0))
     if size > 24 + 4 * 64:
@@ -3877,12 +3888,15 @@ def flash_settings_cases(payload, flash=None):
 
 
 MX_FLAGS2 = STATE - 0x15               # byte 7 of a version 4 settings file in RAM (script_menu.s:MX_FLAGS2), 0 without one
-FLAGS2_KNOWN = 31                       # bit 0 LOAD METER, bit 1 IDLE POWER SAVE off, bits 2 and 3 GLIDE CHAIN and GLIDE SWITCH, bit 4 BATTERY % off
+FLAGS2_KNOWN = 0xFF                     # bit 0 LOAD METER, bit 1 IDLE POWER SAVE off, bits 2 and 3 GLIDE CHAIN and GLIDE SWITCH, bit 4 BATTERY % off, bits 5 to 7 TUBE (0 OFF, 1 to 7 TUBE DRIVE)
+FLAGS2_TUBE_1 = 0x20                    # TUBE ON at TUBE DRIVE 1
+M_TUBE_ASYM = 0x1C7                     # TUBE ASYM 0 to 7 xor 4 (its default) in RAM (script_menu.s), as bits 5 to 7 of byte 4 of a version 5 settings file
 
 
-def settings_file_v4(generation, flags, look, flags2, extras=0, trusted=(), bad_crc=False):
-    """A version 4 settings file: version 3 with byte 7 as the second flag byte, the checksum count in byte 6 alone."""
-    head = struct.pack("<IBBBBIII", 0x54455347, 4, extras, len(trusted), flags2, generation, flags, look) + struct.pack(f"<{len(trusted)}I", *trusted)
+def settings_file_v4(generation, flags, look, flags2, extras=0, trusted=(), bad_crc=False, version=4):
+    """A version 4 settings file: version 3 with byte 7 as the second flag byte, the checksum count in byte 6 alone. `version` is its
+    byte 4: 5 | TUBE ASYM << 5 makes a version 5 file."""
+    head = struct.pack("<IBBBBIII", 0x54455347, version, extras, len(trusted), flags2, generation, flags, look) + struct.pack(f"<{len(trusted)}I", *trusted)
     return head + struct.pack("<I", (zlib.crc32(head) & 0xFFFFFFFF) ^ (1 if bad_crc else 0))
 
 
@@ -3914,7 +3928,9 @@ def settings_v4_cases(payload, flash=None):
     """Settings version 4 (script_menu.s): byte 7 is the second flag byte (FLAGS2_*), the plugin count byte 6 alone. A version 3 file
     and a version 3 copy in the flash are read with byte 7 at 0 and written again as version 3; a version 4 file brings its bits
     (reserved ones dropped) and up to 64 checksums; WRITE keeps them as version 4 and falls back to version 3 when they are cleared;
-    a version 4 copy in the flash is read without a card; a version 3 file whose byte 7 is not 0 (a count past 64) stays refused."""
+    a version 4 copy in the flash is read without a card; a version 3 file whose byte 7 is not 0 (a count past 64) stays refused.
+    Version 5 (TUBE ASYM in bits 5 to 7 of byte 4): read from the card and the flash and written again as version 5; a version 3 or 4
+    file with those bits set is refused; TUBE ASYM cleared writes version 4 or 3 again."""
     out = []
 
     def add(name, ok, detail):
@@ -3930,6 +3946,9 @@ def settings_v4_cases(payload, flash=None):
     def flags2(dev):
         return dev.read(MX_FLAGS2, 1)[0]
 
+    def asym(dev):
+        return dev.read(STATE + M_TUBE_ASYM, 1)[0]
+
     def write(dev, value=None):
         """WRITE from the page TAP MOTION, MX_FLAGS2 set to `value` first -> the newest file on the card as (version, byte 7, generation,
         count, whole: length and CRC right as read_settings_look checks them)."""
@@ -3944,6 +3963,22 @@ def settings_v4_cases(payload, flash=None):
         whole = any(v[0] == gen for v in read_settings_look(dev.m.mmc.card.medium.data).values())
         return r[4], r[7], gen, r[6], whole
 
+    v5 = start(settings_file_v4(7, TM_OFF_BIT, look, FLAGS2_TUBE_1, trusted=(0x2001, 0x2002, 0x2003), version=5 | 3 << 5))
+    got5 = flags2(v5), asym(v5), state(v5, S_TM), state(v5, S_GEN)
+    w5 = write(v5)
+    v5.m.uc.mem_write(STATE + M_TUBE_ASYM, bytes([0]))
+    w5c = write(v5)
+    add("v5_read_and_written", got5 == (FLAGS2_TUBE_1, 3, 0, 7) and w5 == (5 | 3 << 5, FLAGS2_TUBE_1, 8, 3, True)
+        and w5c == (4, FLAGS2_TUBE_1, 9, 3, True) and not v5.m.asserts,
+        f"after the start (byte 7, TUBE ASYM, TAP MOTION, generation) {got5}, WRITE wrote {w5}, with TUBE ASYM 0 {w5c}")
+
+    raw3 = struct.pack("<IBBHIII", 0x54455347, 3 | 2 << 5, 0, 0, 3, TM_OFF_BIT, look)
+    bits = [start(settings_file_v4(3, TM_OFF_BIT, look, FLAGS2_TUBE_1, version=4 | 2 << 5)),
+            start(raw3 + struct.pack("<I", zlib.crc32(raw3) & 0xFFFFFFFF))]
+    got_bits = [(flags2(d), asym(d), state(d, S_TM)) for d in bits]
+    add("asym_bits_refused_before_v5", got_bits == [(0, 0, 1)] * 2 and not any(d.m.asserts for d in bits),
+        f"(byte 7, TUBE ASYM, TAP MOTION) for v4 and v3 with bits 5 to 7 of byte 4 set: {got_bits}")
+
     v3 = start(settings_file_v3(5, TM_OFF_BIT, look))
     got3 = flags2(v3), state(v3, S_TM), state(v3, S_GEN)
     w3 = write(v3)
@@ -3957,11 +3992,11 @@ def settings_v4_cases(payload, flash=None):
     add("v4_bits_and_count", got4 == (FLAGS2_KNOWN, 0, 9, 40) and w4 == (4, FLAGS2_KNOWN, 10, 40, True) and not v4.m.asserts,
         f"byte 7 0xFF with 40 checksums: after the start (byte 7, TAP MOTION, generation, count) {got4}, WRITE wrote {w4}")
 
-    cleared = start(settings_file_v4(3, 0, look, 2))
+    cleared = start(settings_file_v4(3, 0, look, FLAGS2_TUBE_1))
     got_c = flags2(cleared)
     wc = write(cleared, 0)
-    add("cleared_bits_write_v3", got_c == 2 and wc == (3, 0, 4, 0, True) and not cleared.m.asserts,
-        f"byte 7 2 read as {got_c}, cleared and WRITE wrote {wc}")
+    add("cleared_bits_write_v3", got_c == FLAGS2_TUBE_1 and wc == (3, 0, 4, 0, True) and not cleared.m.asserts,
+        f"byte 7 {FLAGS2_TUBE_1:#x} read as {got_c:#x}, cleared and WRITE wrote {wc}")
 
     torn = start(settings_file_v4(3, TM_OFF_BIT, look, 1, bad_crc=True))
     raw3 = struct.pack("<IBBBBIII", 0x54455347, 3, 0, 0, 1, 3, TM_OFF_BIT, look)
@@ -3972,26 +4007,38 @@ def settings_v4_cases(payload, flash=None):
         f"(byte 7, TAP MOTION) for v4 with a wrong CRC, v3 with byte 7 = 1, v4 with 65 checksums: {refused}")
 
     base = bytes(boot(payload, flash, adapter=True, card=False, seconds=wait).m.flash.mem)
-    rec4 = settings_file_v4(1, TM_OFF_BIT, look, 2)   # the whole file, its own CRC included
+    rec4 = settings_file_v4(1, TM_OFF_BIT, look, FLAGS2_TUBE_1)   # the whole file, its own CRC included
     from_flash = start(None, flash_with(base, rec4, 1), card=False)
     rec3 = settings_file_v3(1, TM_OFF_BIT, look)
     from_v3 = start(None, flash_with(base, rec3, 1), card=False)
-    add("flash_copies_read", (flags2(from_flash), state(from_flash, S_TM)) == (2, 0) and (flags2(from_v3), state(from_v3, S_TM)) == (0, 0)
+    add("flash_copies_read", (flags2(from_flash), state(from_flash, S_TM)) == (FLAGS2_TUBE_1, 0) and (flags2(from_v3), state(from_v3, S_TM)) == (0, 0)
         and not from_flash.m.asserts and not from_v3.m.asserts,
         f"v4 copy (byte 7, TAP MOTION) {(flags2(from_flash), state(from_flash, S_TM))}, v3 copy {(flags2(from_v3), state(from_v3, S_TM))}")
 
     # without a card WRITE goes to the flash: with a bit in byte 7 a version 4 copy, which the next start without a card reads
     bare = boot(payload, flash, adapter=True, card=False, seconds=wait)
     goto_group(bare, GROUP_FEATURES, FEAT_TM)
-    bare.m.uc.mem_write(MX_FLAGS2, bytes([FLAGS2_IDLE_OFF := 2]))
+    bare.m.uc.mem_write(MX_FLAGS2, bytes([FLAGS2_TUBE_1]))
     press(bare, "write", wait=0.6)
     bare.run(3.0)
     image = bytes(bare.m.flash.mem)
     rec = flash_record(image, FLASH_SET_A) or flash_record(image, FLASH_SET_B)
     back = start(None, image, card=False)
-    add("flash_write_v4_read_back", rec is not None and rec[1][4] == 4 and rec[1][7] == FLAGS2_IDLE_OFF and flags2(back) == FLAGS2_IDLE_OFF
+    add("flash_write_v4_read_back", rec is not None and rec[1][4] == 4 and rec[1][7] == FLAGS2_TUBE_1 and flags2(back) == FLAGS2_TUBE_1
         and not bare.m.asserts and not back.m.asserts,
         f"copy {None if rec is None else (rec[0], rec[1][4], rec[1][7])} (generation, version, byte 7), next start byte 7 {flags2(back)}")
+
+    # the same with TUBE ASYM: a version 5 copy in the flash, read back without a card
+    bare.m.uc.mem_write(STATE + M_TUBE_ASYM, bytes([6]))
+    press(bare, "write", wait=0.6)
+    bare.run(3.0)
+    image = bytes(bare.m.flash.mem)
+    recs = [r for r in (flash_record(image, FLASH_SET_A), flash_record(image, FLASH_SET_B)) if r]
+    rec = max(recs, key=lambda r: r[0]) if recs else None
+    back = start(None, image, card=False)
+    add("flash_write_v5_read_back", rec is not None and rec[1][4] == 5 | 6 << 5 and asym(back) == 6 and flags2(back) == FLAGS2_TUBE_1
+        and not bare.m.asserts and not back.m.asserts,
+        f"copy {None if rec is None else (rec[0], hex(rec[1][4]), rec[1][7])} (generation, byte 4, byte 7), next start TUBE ASYM {asym(back)}")
     return out
 
 
