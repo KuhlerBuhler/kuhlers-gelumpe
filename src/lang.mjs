@@ -103,6 +103,10 @@ export function langFileProblems(name, data, context) {
       const room = entry.buffer ? entry.buffer - 1 : entry.length;
       if (entry.text.length > room) problems.push(`${where}: ${entry.text.length} characters, ${entry.buffer ? `the buffer holds ${room}` : `longer than the old text (${room}) without a measured buffer`}`);
     }
+    if (entry.inPlace !== undefined) {
+      if (entry.inPlace !== true) problems.push(`${where}: inPlace is true or absent`);
+      else if (typeof entry.text !== "string" || entry.buffer != null || entry.pointers?.length) problems.push(`${where}: an inPlace entry has text, no buffer and no pointer words`);
+    }
   }
   return problems;
 }
