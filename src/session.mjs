@@ -19,7 +19,7 @@ import { withChannel, describeMessage } from "./protocol.mjs";
 import { isPassed } from "./rehearsal.mjs";
 import { SimDevice } from "./device.mjs";
 import { VsbImage } from "./image.mjs";
-import { sha256 } from "./firmware.mjs";
+import { hasStage2Memory, sha256 } from "./firmware.mjs";
 import KNOWN_DEVICES from "../data/devices.mjs";
 import { tableEntry, RAM_BASE } from "./map/address.mjs";
 import { BLOCKS } from "./map/index.mjs";
@@ -252,7 +252,8 @@ export class DeviceSession {
     if (this.twin && this.device) this.twin.channel = this.device.channel;
     // Code runs only in an emulator, or in a session that tries every edit in one first (plan 5.1).
     const rehearsed = this.port.emulator === true || !!this.rehearsal;
-    return { device: this.device, firmware: this.firmware, session: this.twin, units: this.units, profile: this.profile, blocked: this.blocked, rehearsed };
+    const stage2Memory = !this.firmwareBytes || hasStage2Memory(this.firmwareBytes);
+    return { device: this.device, firmware: this.firmware, session: this.twin, units: this.units, profile: this.profile, blocked: this.blocked, rehearsed, stage2Memory };
   }
 
   /** Plan and check without sending. */

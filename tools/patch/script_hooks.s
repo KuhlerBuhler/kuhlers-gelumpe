@@ -62,6 +62,14 @@ input_power_held:
 input_power_wait:
     b input_power_wait
 input_power_no:
+    bl idle_input                ; IDLE POWER SAVE: a touch keeps the device awake, the one that wakes it is swallowed
+    cmp r0, #0
+    ldr r0, [sp, #8]
+    bne input_drop
+    push {r0, lr}
+    bl script_popup_input
+    pop {r0, lr}
+
     bl migrate_input
     cmp r0, #0
     ldr r0, [sp, #8]
@@ -306,6 +314,143 @@ input_pass:
     pop {r0-r12, lr}
     ldrb r3, [r0, #0x18]
     ldr pc, =0xC0028380
+
+; IDLE POWER SAVE (script_idle.s): r0 = a panel message -> r0 = 1 to swallow it. Runs first, before the questions and menus
+; take the keys. A touch notes the time. The first press of a key or pad, a turn of the encoder or a touchpad touch while the
+; light is dimmed or dark (a stage shown and no touch since) wakes the device and is swallowed with all that belongs to it: the
+; repeats and the release of its key, the pressure and the release of its pad, the touchpad's positions until it is let go.
+; A press that went to the firmware while awake is down (IS_DOWN) until its release: all of it keeps going there, also past
+; stage 1, so the firmware never sees a key or pad held that is up. A knob is never swallowed: once it moved IDLE_KNOB_MOVE
+; from where it was last seen (or was not seen yet) it notes the time, which wakes the device, and goes on like any knob.
+; The power key notes the time. A message with PK_MARK (korg.pressKey, the remote) is left alone: rm_post_go noted it.
+; Clobbers r1 to r3 and r12.
+idle_input:
+    push {r4-r6, lr}
+    mov r5, r0
+    mov r0, #0
+    ldrb r1, [r5, #0x13]
+    cmp r1, #PK_MARK
+    beq idle_in_out
+    ldr r4, =IDLE
+    ldrb r1, [r4, #IS_STAGE]
+    cmp r1, #4
+    bhi idle_in_out              ; FF: menu_arm did not run (EXIT held at power-on)
+    ldr r12, =IDLE_TICKS
+    ldr r12, [r12]
+    mov r6, #0
+    cmp r1, #0
+    beq idle_in_kind
+    ldr r1, [r4, #IS_LAST]
+    sub r1, r12, r1
+    ldr r2, =IDLE_FIRST_MS
+    cmp r1, r2
+    movge r6, #1                 ; r6 = 1: asleep (signed, a touch noted after the tick was read is no time at all)
+idle_in_kind:
+    ldrb r1, [r5, #0x0c]
+    ldrb r2, [r5, #0x0d]
+    cmp r1, #0
+    beq idle_in_key
+    cmp r1, #1
+    beq idle_in_turn
+    cmp r1, #2
+    beq idle_in_knob
+    cmp r1, #4
+    beq idle_in_pad
+    cmp r1, #5
+    beq idle_in_pos
+    cmp r1, #6                   ; the power key: noted, never swallowed
+    bne idle_in_out
+    cmp r2, #1
+    beq idle_in_seen
+    b idle_in_out
+idle_in_key:
+    cmp r2, #64
+    bhs idle_in_out
+    mov r1, r2, lsr #5
+    add r3, r4, r1, lsl #2
+    add r3, r3, #IS_KEYS
+    and r2, r2, #31
+    mov r1, #1
+    mov r1, r1, lsl r2
+    ldrb r2, [r5, #0x0e]
+idle_in_bit:                     ; r1 = the bit of the key or pad, r3 = its word, r2 not 0 for a press
+    ldr r0, [r3]
+    tst r0, r1
+    beq idle_in_free
+    cmp r2, #0                   ; it woke the device: swallowed until its release, which is swallowed too
+    biceq r0, r0, r1
+    streq r0, [r3]
+    mov r0, #1
+    b idle_in_out
+idle_in_free:
+    ldr r0, [r3, #IS_DOWN]
+    cmp r2, #0
+    biceq r0, r0, r1             ; a release goes to the firmware and ends the press
+    beq idle_in_down
+    tst r0, r1
+    bne idle_in_seen             ; down: its repeats and pressure go on
+    cmp r6, #0
+    bne idle_in_swallow
+    orr r0, r0, r1
+idle_in_down:
+    str r0, [r3, #IS_DOWN]
+    b idle_in_seen
+idle_in_swallow:
+    ldr r0, [r3]
+    orr r0, r0, r1
+    str r0, [r3]
+idle_in_wake:
+    str r12, [r4, #IS_LAST]
+    mov r0, #1
+    b idle_in_out
+idle_in_seen:
+    str r12, [r4, #IS_LAST]
+    mov r0, #0
+idle_in_out:
+    pop {r4-r6, pc}
+idle_in_turn:                    ; the encoder
+    cmp r6, #0
+    bne idle_in_wake
+    b idle_in_seen
+idle_in_knob:
+    cmp r2, #IDLE_KNOBS
+    bhs idle_in_out
+    ldrb r1, [r5, #0x0f]
+    cmp r1, #0xFF
+    moveq r1, #0xFE              ; FF is "not seen yet"
+    add r3, r4, #IS_KNOBS
+    ldrb r0, [r3, r2]
+    cmp r0, #0xFF
+    beq idle_in_moved
+    subs r0, r1, r0
+    rsbmi r0, r0, #0
+    cmp r0, #IDLE_KNOB_MOVE      ; less is ADC noise: passes, no touch
+    movlo r0, #0
+    blo idle_in_out
+idle_in_moved:
+    strb r1, [r3, r2]
+    b idle_in_seen
+idle_in_pad:
+    cmp r2, #16
+    bhs idle_in_out
+    add r3, r4, #IS_PADS
+    mov r1, #1
+    mov r1, r1, lsl r2
+    ldrb r2, [r5, #0x10]
+    b idle_in_bit
+idle_in_pos:                     ; a touchpad position: swallowed while the touch that woke is held, goes on while it is down
+    ldr r0, [r4, #IS_KEYS+4]
+    tst r0, #1 << (IDLE_TOUCH_KEY-32)
+    movne r0, #1
+    bne idle_in_out
+    ldr r1, [r4, #IS_DOWN_KEYS+4]
+    tst r1, #1 << (IDLE_TOUCH_KEY-32)
+    bne idle_in_seen
+    cmp r6, #0
+    beq idle_in_seen
+    orr r0, r0, #1 << (IDLE_TOUCH_KEY-32)
+    str r0, [r4, #IS_KEYS+4]
+    b idle_in_wake
 script_input_pass_end:
 script_input_literals:
 .pool
@@ -454,6 +599,10 @@ frame_gate_open:
     bl shortcut_tick
     bl remote_tick
     bl script_press_key_tick
+    bl load_meter_frame          ; LOAD METER: the reading and the digits (script_load_meter.s)
+    bl idle_frame                ; IDLE POWER SAVE: the stage, the light and the LEDs (script_idle.s)
+    bl glide_frame               ; BPM GLIDE: GLIDE CHAIN and GLIDE SWITCH (script_glide.s)
+    bl battery_frame             ; BATTERY %: the percent next to the load meter (script_battery.s)
     ldr r1, =APP_STATE
     ldr r1, [r1]
     cmp r1, #0
@@ -488,6 +637,8 @@ frame_app_close:
 frame_app_ok:
     mov r1, #0
     str r1, [r4, #RT_PAUSED]
+    ldr r2, =CARD_CLOCK
+    str r1, [r2]
     mov r1, #1
     str r1, [r4, #RT_FRAME_ACTIVE]
     ldr r1, =SCRIPT_TIMER_ADDRESS
@@ -666,10 +817,17 @@ frame_finish:
     mov r0, r4
     bl script_sim_input_guard
     mov r0, r4
+    bl script_popup_frame
+    mov r0, r4
+    bl egg_frame
+
+    mov r0, r4
     bl script_display_blit
     bl display_calibrate
     mov r0, r4
     bl script_store_flush
+    mov r0, r4
+    bl script_data_flush
     mov r0, r4
     bl objects_write_flush
     bl script_seq_flush

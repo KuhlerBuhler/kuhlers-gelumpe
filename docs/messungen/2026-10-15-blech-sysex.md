@@ -23,7 +23,7 @@ außerhalb dessen, was Korg (`0x0E`, `0x10`, `0x11`, `0x1C`, `0x21` bis `0x26`, 
 
 | Funktion | Anfrage | Antwort | Nutzdaten der Antwort |
 |---|---|---|---|
-| `0x60` INFO | nichts | `0x68` | Status, Version (1), Flags (1 lesen, 2 schreiben, 4 CRC-32, 8 FLASH READ), größter Block, CRC-32 der Schutztabelle, größter Block von FLASH READ (4096) |
+| `0x60` INFO | nichts | `0x68` | Status, Version (1), Flags (1 lesen, 2 schreiben, 4 CRC-32, 8 FLASH READ, weitere bis 0x100; 0x200 DEV MODE eingebaut, 0x400 DEV MODE an, siehe `2026-11-14-dev-mode-sperrbereiche.md`), größter Block, CRC-32 der Schutztabelle, größter Block von FLASH READ (4096) |
 | `0x61` READ | Adresse, Länge | `0x69` | Status, Adresse, Länge, CRC-32, dann die Bytes |
 | `0x62` WRITE BEGIN | Adresse, Länge, CRC-32 der Bytes | `0x6A` | Status, Adresse, Länge |
 | `0x63` WRITE DATA | die Bytes, so viele wie BEGIN sagte | `0x6B` | Status, Adresse, Länge, CRC-32 des RAM nach dem Kopieren |
@@ -184,6 +184,9 @@ benutzt, die übrigen folgen aus derselben Reihenfolge:
 | 13 | `FR_NO_FILESYSTEM` | Karte ohne FAT, z. B. nicht formatiert | hergeleitet |
 | 0x80 | `FR_CARD_NEVER` (BLECH) | Gerät ohne Karte gestartet: kein Dateibefehl fasst eine Karte an, bis zum nächsten Start (siehe unten) | gemessen im Emulator (`sysex:file_no_card`, `file_card_after_start_without_one`) |
 | 0x81 | `FR_SHORT` (BLECH) | `f_write` hat weniger Bytes geschrieben als verlangt: Karte voll | offline gelesen |
+
+Am Gerät nach einem DSP-Absturz gesehen (rot, 14.11.): `usbfile.py` bekam Status 6 für `SYSTEM.VSB` und `ORIGINAL.BIN`,
+obwohl beide auf der Karte lagen. Aus und wieder Ein, ohne SOFTWARE UPDATE zu starten, brachte die Karte zurück (**gemessen**).
 
 Nach einem Start ohne Karte steht das Kartenwort des BLECH-Menüs (`M_CARD`, `MENU_STATE + 0x1B0`) auf `CARD_NEVER`. Eine danach
 gesteckte Karte kann Korgs SD-Init hängen lassen (#518). Darum prüfen alle Dateibefehle dieses Wort vor dem Öffnen oder Löschen

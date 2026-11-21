@@ -39,10 +39,12 @@ NAMES = {
     "ht_osc_cases": "Hacktribe-Oszillatoren",
     "beat_eighth_cases": "BEAT 8",
     "touch_scale_zero_cases": "Touch Scale 0",
+    "import_slots_cases": "Import auf Werks-Slots",
     "update_guard_cases": "Update-Schutz",
     "doom_loader_cases": "Doom-Lader",
     "card_error_cases": "Kartenfehler",
     "preset_cases": "Presets",
+    "dsp_cases": "DSP-Schnittstelle",
 }
 
 

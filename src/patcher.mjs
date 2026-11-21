@@ -1,7 +1,6 @@
 /** The Patcher page's logic without the page: what a dropped SYSTEM.VSB is, the BLECH patches, the state from drop to download. */
 import { buildOf, hardwareOf, identifyBase, sha256 } from "./firmware.mjs";
 import { applyPatches, buildsOf, patchesPresent, selectFor } from "./patch.mjs";
-import { loadingAnimPatch, LOADING_ANIM_ID } from "./loading-anim.mjs";
 import { applyBsdiff, parseBsdiff } from "./bsdiff.mjs";
 import { text, isText, TextError, number } from "./text.mjs";
 
@@ -69,18 +68,11 @@ export const BLECH_SYNTH_SET_URL = "data/patches/blech-synth.json";
  * for the red (Hacktribe and Korg's own) and one for the blue. Not part of a set, so a set alone never renames the device.
  */
 export const USB_NAME_URLS = ["data/patches/usb-name.json", "data/patches/usb-name-synth.json"];
-
 /**
- * A patched copy with the user's own loading animation on top, in a pass of its own: load-bar declares the slot as its
- * RAM, so in one list with load-bar the patch would collide with it. Written only when load-bar went on, since nothing
- * else reads the slot; no file (null) keeps the default Blechy. Throws on a file the firmware would reject.
+ * The optional patch lang-de (docs/firmware-sprache.md): the BLECH menu in German, one variant per build. Built with the
+ * runtime (tools/patch/ensure-runtime.mjs), whose text numbering its header has to match.
  */
-export async function withLoadingAnim(res, anim) {
-  if (!res.ok || !anim || !res.spans.some(s => s.patch === "load-bar")) return res;
-  const more = await applyPatches(res.bytes, [loadingAnimPatch(anim)]);
-  if (!more.ok) return { ...more, dependencies: res.dependencies };
-  return { ...more, dependencies: res.dependencies, spans: [...res.spans, ...more.spans], allow: [...res.allow, ...more.allow], allowCode: [...res.allowCode, ...more.allowCode] };
-}
+export const LANG_DE_URLS = ["data/patches/lang-de.json", "data/patches/lang-de-stock.json", "data/patches/lang-de-synth.json"];
 
 /** The variant of an optional patch (its variants parsed) for a firmware build, or null when none is made for it. */
 export const optionFor = (variants, build) => variants.find(p => buildsOf(p).includes(build)) ?? null;
@@ -100,7 +92,6 @@ const PATCH_LABELS = {
   "dice": "features.dice.title",
   "pad-colors": "features.colors.title",
   "load-bar": "features.loading.title",
-  [LOADING_ANIM_ID]: "patcher.patch.loadingAnim",
   "sample-errors": "features.sampleErrors.title",
   "script-runtime": "features.plugins.title",
   "splash": "patcher.patch.splash",
@@ -116,12 +107,15 @@ const PATCH_LABELS = {
   "ht-osc": "features.htOsc.title",
   "beat-eighth": "features.beatEighth.title",
   "touch-scale-zero": "features.touchScaleZero.title",
+  "import-slots": "features.importSlots.title",
+  "stage2-memory": "patcher.patch.stage2Memory",
   "update-guard": "patcher.patch.updateGuard",
   "blech-version": "patcher.patch.version",
   "doom-loader": "features.doom.title",
   "blech-sysex": { synth: "patcher.patch.sysexSynth", other: "patcher.patch.sysex" },
   "ifx-idle": "patcher.patch.ifxIdle",
   "usb-name": "patcher.usbName",
+  "lang-de": "patcher.langDe",
 };
 
 /** The label of a parsed patch for the page: a text of the tables, or the file's own name for a patch the page does not know. */
@@ -285,6 +279,10 @@ const CHECK_NAMES = {
   header: "patcher.checkName.header",
   dsp_stream: "patcher.checkName.dspStream",
   dsp_boot_once: "patcher.checkName.dspBootOnce",
+  "dsp:start_reaches_the_dsp": "patcher.checkName.dspStart",
+  "dsp:pad_opens_and_closes_a_voice": "patcher.checkName.dspPad",
+  "dsp:play_opens_and_closes_voices": "patcher.checkName.dspPlay",
+  "dsp:transfers_are_well_formed": "patcher.checkName.dspTransfers",
   "boot:normal": "patcher.checkName.bootNormal",
   "boot:normal_blank": "patcher.checkName.bootNormalBlank",
   update_offer: "patcher.checkName.updateOffer",

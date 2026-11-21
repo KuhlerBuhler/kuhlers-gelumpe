@@ -275,6 +275,24 @@
    "to": "0xC006C504",
    "kind": "code",
    "why": "pattern load entry, same prologue and argument moves before the matched held-pad cleanup getter at C006C51C"
+  },
+  {
+   "from": "0xC008463C",
+   "to": "0xC0074C10",
+   "kind": "code",
+   "why": "the tempo widget's setter: str r1, [r0, #0x48]; b format (0xC0074B78 = the Sampler's 0xC00845A4); measured in the emulator: TEMPO_SET with 1400 calls it with the status bar's widget and 1400, the widget then shows 140.0 (docs/messungen/2026-11-19-vorschau-bpm.md)"
+  },
+  {
+   "from": "0xC0084640",
+   "to": "0xC0074C14",
+   "kind": "code",
+   "why": "the setter's second instruction, b 0xC0074B78 (format the text, mark the redraw)"
+  },
+  {
+   "from": "0xC0691248",
+   "to": "0xC056B528",
+   "kind": "ram",
+   "why": "the pointer to the status bar: its +0x24 is the widget that draws 120.0 at x 50, y 0 (emulator: the text draw 0xC003A408 is called from the widget at [0xC056B528] + 0x24, as on the Sampler from [0xC0691248] + 0x24)"
   }
  ]
 }

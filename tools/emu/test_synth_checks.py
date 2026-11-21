@@ -64,12 +64,28 @@ class DspStream(unittest.TestCase):
         modified = bytearray(base)
         modified[0xDFC80] = 1
         with patch.object(check, 'is_synth', return_value=True):
-            self.assertFalse(check.same_dsp_program(base, modified))
+            self.assertFalse(check.same_dsp_program(base, modified)[0])
             modified[0xDFC80] = 0
             modified[0x1218F4] = 1
-            self.assertTrue(check.same_dsp_program(base, modified))
+            self.assertTrue(check.same_dsp_program(base, modified)[0])
         with patch.object(check, 'is_synth', return_value=False):
-            self.assertFalse(check.same_dsp_program(base, modified))
+            self.assertFalse(check.same_dsp_program(base, modified)[0])
+
+    def test_red_stream_takes_exactly_the_stage2_memory_instructions(self):
+        import check
+        import stage2_memory_check
+        base = bytearray(0x200100)
+        base[0x12A93C:0x12A93E] = b"\x06\x9e"
+        site = [(0x12A93C, b"\x06\x9e", b"\x00\x9e", "stage 2 SDRAM")]
+        with patch.object(check, 'is_synth', return_value=False), patch.object(stage2_memory_check.spec, 'sites', return_value=site):
+            patched = bytearray(base)
+            patched[0x12A93C] = 0
+            self.assertTrue(check.same_dsp_program(bytes(base), bytes(patched))[0])
+            patched[0x12A93E] = 1
+            self.assertFalse(check.same_dsp_program(bytes(base), bytes(patched))[0])
+            patched[0x12A93E] = 0
+            patched[0x12A93C] = 7
+            self.assertFalse(check.same_dsp_program(bytes(base), bytes(patched))[0])
 
     def test_a_known_dsp_patch_passes_only_whole_and_on_the_bytes_it_expects(self):
         import hashlib
@@ -88,18 +104,18 @@ class DspStream(unittest.TestCase):
                 patched = bytearray(base)
                 for a in at:
                     patched[a:a + 2] = b'\xaa\xbb'
-                self.assertTrue(check.same_dsp_program(base, patched))
+                self.assertTrue(check.same_dsp_program(base, patched)[0])
                 patched[0x100010] = 1     # one more byte than the patch writes
-                self.assertFalse(check.same_dsp_program(base, patched))
+                self.assertFalse(check.same_dsp_program(base, patched)[0])
                 patched[0x100010] = 0
                 patched[at[1]:at[1] + 2] = bytes(2)    # half the patch
-                self.assertFalse(check.same_dsp_program(base, patched))
+                self.assertFalse(check.same_dsp_program(base, patched)[0])
                 other = bytearray(base)
                 other[at[0]] = 1    # a build whose bytes the patch does not expect
                 patched = bytearray(other)
                 for a in at:
                     patched[a:a + 2] = b'\xaa\xbb'
-                self.assertFalse(check.same_dsp_program(bytes(other), patched))
+                self.assertFalse(check.same_dsp_program(bytes(other), patched)[0])
 
 
 class DiceFlash(unittest.TestCase):

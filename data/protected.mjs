@@ -21,7 +21,14 @@
  * Intervals are half open. RAM is the CPU address space, flash the offsets of
  * the Hacktribe flash read command. The two never mix: a RAM address is no
  * flash offset.
+ *
+ * `devOpen` marks the one region DEV MODE opens for writes (the firmware image,
+ * Sampler builds). Inside it `devClosed` stays closed even then, per build: our
+ * own SysEx code and data and the firmware code a SysEx write or a flash write
+ * runs through, generated from the constants and the emulator traces
+ * (data/dev-closed.mjs, docs/messungen/2026-11-14-dev-mode-sperrbereiche.md).
  */
+import DEV_CLOSED from "./dev-closed.mjs";
 
 export default {
   ram: {
@@ -37,7 +44,7 @@ export default {
   regions: [
     {
       id: "firmware-image", space: "ram", start: 0xc0000000, end: 0xc0200000, deny: "write", status: "measured",
-      except: ["table.ifx", "table.mfx", "preset.stock", "menu.ifxCount", "menu.mfxCount"],
+      except: ["table.ifx", "table.mfx", "preset.stock", "menu.ifxCount", "menu.mfxCount"], devOpen: true,
       what: "Firmware-Abbild",
       why: "Code und statische Daten der Firmware. Frei sind nur die erklärten Tabellen (Hacktribes und die Preset-Records von Korgs Build) und Menüzähler.",
       evidence: "measure:2026-10-08/systemspeicher-offline",
@@ -154,5 +161,6 @@ export default {
       why: "Gemessen nur FF und in allen Ständen gleich.",
       evidence: "measure:2026-10-09/flash-dump",
     },
-  ],
+  ],  /** Closed with DEV MODE on, by build (hacktribe: the ht traces, stock: the red ones). */
+  devClosed: { hacktribe: DEV_CLOSED.ht, stock: DEV_CLOSED.red },
 };

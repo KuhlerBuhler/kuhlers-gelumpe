@@ -15,13 +15,17 @@ from tools.patch.test_script_card import crash
 DISPLAY_RAM = 0xC031B310
 EXPECT = """
 import { readFileSync } from "node:fs";
-import { Display, drawFault } from "./src/script/display.mjs";
+import { Display, drawFault, popupDisplay } from "./src/script/display.mjs";
 const input = JSON.parse(readFileSync(0, "utf8"));
 const hex = d => Buffer.from(d.bytes).toString("hex");
 const out = input.scenarios.map(ops => {
   const d = new Display();
   for (const [name, ...args] of ops) {
     if (name === "fault") drawFault(d, ...args);
+    else if (name === "popup") {
+      d.bytes.set(args[0]);
+      return hex(popupDisplay(d, Uint8Array.from(args[1])));
+    }
     else d[name](...args);
   }
   return hex(d);
@@ -35,6 +39,7 @@ def expected(scenarios):
 
 GLUE = dict(clear='script_display_clear_glue',text='script_display_text_glue',number='script_display_number_glue',
             pixel='script_display_pixel_glue',rect='script_display_rect_glue',clearRect='script_display_clear_rect_glue',
+            popup='script_display_popup_blit',
             bitmap='script_display_bitmap_glue',textNumber='script_display_text_number_glue')
 
 def picture(rng, width, bands, spare=0):
@@ -122,6 +127,22 @@ class NativeDisplayTests(unittest.TestCase):
         for i,(ops,wanted) in enumerate(zip(cases,want)):
             with self.subTest(case=i):
                 self.assertEqual(self.run_ops(m,ops),wanted)
+
+    def test_popup_frame_matches_the_browser_model_and_preserves_pixels_outside_it(self):
+        m,built = self.machine()
+        content = bytearray(1024)
+        def set_pixel(x,y):
+            content[(y >> 3) * 128 + x] |= 1 << (y & 7)
+        for x,y in ((0,13),(2,14),(1,14),(125,47),(126,47),(64,48),(64,49),(127,49)):
+            set_pixel(x,y)
+        base = bytes((i * 37 + 11) & 255 for i in range(1024))
+        picture = built.symbols['popup_picture']
+        m.uc.mem_write(picture,bytes(content))
+        m.uc.mem_write(DISPLAY_RAM,base)
+        m.call(GLUE['popup'])
+        wanted = expected([[['popup',list(content),list(base)]]])[0]
+        self.assertEqual(bytes(m.uc.mem_read(DISPLAY_RAM,1024)),wanted)
+        self.assertEqual(bytes(m.uc.mem_read(DISPLAY_RAM,1024))[:128],base[:128],"the popup leaves page 0 alone")
 
     def test_the_fuel_of_a_bitmap_call_covers_its_instructions(self):
         # the contract charges `cost` units for the call and `perItem` for each slot, at 10 instructions to a unit

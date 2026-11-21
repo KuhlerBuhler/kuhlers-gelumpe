@@ -185,9 +185,10 @@ def case_without_patch(payload, flash):
     mc.boot(plain, flash, card=False, seconds=0.1)      # sets the build and the page flags of this copy for feature_pages()
     pages = mc.feature_pages()
     dev, log = started(plain, flash, image, wait_of(plain) + 1.0)
-    mc.goto_group(dev, mc.GROUP_FEATURES, len(pages) - 3)
+    kp = pages.index("KEY PADS")
+    mc.goto_group(dev, mc.GROUP_FEATURES, kp)
     shown = mc.texts_of(dev), mc.counter(dev)
-    return [entry("without_patch", not mc.TUBE_PAGE and "TUBE" not in pages and shown == (("KEY PADS", "ON", ""), (len(pages) - 3, len(pages)))
+    return [entry("without_patch", not mc.TUBE_PAGE and "TUBE" not in pages and shown == (("KEY PADS", "ON", ""), (kp, len(pages)))
                   and flags2(dev) == 5 << 5 and sent(log) == [] and not dev.m.asserts,
                   f"pages {pages}, {shown}, byte 7 {flags2(dev):#x}, writes {sent(log)}")]
 

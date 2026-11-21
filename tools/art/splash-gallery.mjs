@@ -89,7 +89,7 @@ const PICTURES = {
     return c;
   },
 
-  /** The sixteen pads as two rows of eight, a pattern lit, the playhead above the fifth step. */
+  /** The sixteen pads as two rows of eight, a pattern lit. */
   pads() {
     const c = canvas();
     c.rect(0, 0, W, H);
@@ -100,10 +100,8 @@ const PICTURES = {
       if (lit[i]) c.rect(x, y, 12, 12, 0);
       else { c.frame(x, y, 12, 12, 0); }
     }
-    c.rect(8 + 4 * 14 + 4, 2, 4, 3, 0);
     c.rect(8, 40, 112, 1, 0);
-    c.centred(45, "BLECHTRIBE", 1, 0);
-    c.centred(54, "16 STEPS", 1, 0);
+    c.centred(49, "BLECHTRIBE", 1, 0);
     return c;
   },
 

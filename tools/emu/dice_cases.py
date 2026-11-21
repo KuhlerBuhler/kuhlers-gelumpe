@@ -380,11 +380,15 @@ def case_leds(payload, flash):
     box.key("sequencer", 0.4)
     box.combo()
     recs = box.records(0)
-    lit = sorted(n for n, v in box.leds().items() if v[0] > 0)       # a step a tied note holds on is lit dimmer (pad_colors.py, the tail)
-    want = [s for s in range(16) if recs[s][0] == 1]
+    # A step that continues the note of the step before it (that one on with gate TIE, the same note) is a tail: pad_colors.py
+    # draws it dimmer, and under the cursor in the cursor's colour alone, without red. The roll is random, so tails are left
+    # out on both sides; pad_colors' own cases check them.
+    tail = {s for s in range(32) if recs[s][0] == 1 and recs[s - 1][0] == 1 and recs[s - 1][1] == 127 and recs[s - 1][4] == recs[s][4]}
+    lit = sorted(n for n, v in box.leds().items() if v[0] > 0 and n not in tail)
+    want = [s for s in range(16) if recs[s][0] == 1 and s not in tail]
     box.dev.press(0x1D, 0.3)
-    lit2 = sorted(n for n, v in box.leds().items() if v[0] > 0)
-    want2 = [s for s in range(16) if recs[16 + s][0] == 1]
+    lit2 = sorted(n for n, v in box.leds().items() if v[0] > 0 and 16 + n not in tail)
+    want2 = [s for s in range(16) if recs[16 + s][0] == 1 and 16 + s not in tail]
     return [entry("pad_leds_follow_the_roll", lit == want and lit2 == want2 and len(want) >= 3 and not box.m.asserts,
                   f"SEQUENCER mode, bar 1: lit pads {lit}, steps on {want}; after bar 2 {lit2}, steps on {want2}")]
 

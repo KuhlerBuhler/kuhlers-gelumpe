@@ -231,9 +231,10 @@ mg_blue_key:
     bleq mg_run
     ldr r0, [r4, #MG_ACTIVE]
     cmp r0, #0
-    ldreq r1, =UI_REDRAW        ; the firmware draws its own screen again
+    ldreq r1, =SCREEN_MANAGER   ; the firmware draws its own screen again
+    ldreq r1, [r1]
     moveq r2, #1
-    strbeq r2, [r1]
+    strbeq r2, [r1, #UI_REDRAW_AT]
     pop {r4, pc}
 
 ; The blue: the copy blocks the UI task, so the progress goes to the display here (MG_LCD, MG_FLUSH). Clobbers r0 to r3 and r12.

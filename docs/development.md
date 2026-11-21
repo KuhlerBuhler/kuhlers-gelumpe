@@ -129,19 +129,44 @@ in zwei, die Browsertests in vier Teilen nebeneinander (`--test-shard`), die Pr�
 Workflows, laufen nur die Einheitstests, die Dokumente lesen, und keine Browsertests (ausgenommen
 `DESIGN.md`, `docs/plugins*.md` und `third_party/`, die die Seite und die Tests lesen).
 
-Jeder lokale Testlauf (`npm test`, `test:e2e`, `test:all`, `test:emu`, `test:local`, `verify:patches`, `check.py`, `menu_cases.py` und die übrigen `*_cases.py`) prüft zuerst die Auslastung (`tools/load-gate.mjs`) und startet nicht, solange das 1-Minuten-Lastmittel mindestens 0,8 mal die Kernzahl beträgt oder weniger als 10 % Speicher frei sind. Er meldet das in einer Zeile, prüft alle 15 s neu und bricht nach 20 Minuten mit Fehlercode ab. `GELUMPE_LOAD_GATE=off` überspringt die Prüfung, `GELUMPE_LOAD_MAX` (Faktor der Kerne), `GELUMPE_LOAD_WAIT` (Sekunden) und `GELUMPE_LOAD_POLL` (Sekunden) stellen sie ein. In CI (`CI` gesetzt) entfällt sie, und verschachtelte Läufe warten nicht doppelt (`GELUMPE_LOAD_GATE_PASSED`). Direkt gestartetes `node --test` ist nicht abgesichert, dafür `node tools/load-gate.mjs node --test ...` voranstellen.
+Jeder lokale Testlauf (`npm test`, `test:e2e`, `test:all`, `test:emu`, `test:local`, `verify:patches`, `check.py`, `menu_cases.py` und die übrigen `*_cases.py`) prüft zuerst die Auslastung (`tools/load-gate.mjs`) und startet nicht, solange das 1-Minuten-Lastmittel mindestens 0,8 mal die Kernzahl beträgt oder weniger als 10 % Speicher frei sind. Er meldet das in einer Zeile, prüft alle 15 s neu und bricht nach 20 Minuten mit Fehlercode ab. `GELUMPE_LOAD_GATE=off` überspringt die Prüfung, `GELUMPE_LOAD_MAX` (Faktor der Kerne), `GELUMPE_LOAD_WAIT` (Sekunden) und `GELUMPE_LOAD_POLL` (Sekunden) stellen sie ein. In CI (`CI` gesetzt) entfällt sie, und verschachtelte Läufe warten nicht doppelt (`GELUMPE_LOAD_GATE_PASSED`). Direkt gestartetes `node --test` ist nicht abgesichert, dafür `node tools/load-gate.mjs node --test ...` voranstellen. Ebenso ungeschützt sind `cases()` eines Fallmoduls, aus Python aufgerufen (die Prüfung steht nur in seinem `main()`), und `python -m unittest tools/patch/test_*.py`: vorher `sysctl -n vm.loadavg` ansehen oder `node tools/load-gate.mjs` voranstellen.
+
+Auf macOS zählt das Lastmittel auch wartende Threads. Gemessen: Lastmittel 16,7 auf 10 Kernen, während `top` 56 % freie CPU
+zeigte; die Prüfung hielt so mehrere Läufe ohne Grund an. Für Zeitmessungen die freie CPU aus `top` ansehen (über etwa 70 %),
+den Wert zum Lauf notieren und dann `GELUMPE_LOAD_GATE=off` setzen. Lange Läufe brauchen einen wachen Rechner: schläft der Mac
+(Deckel zu), laufen Zeitgrenzen über die Schlafzeit ab und der Lauf bricht ohne Fehler im Code ab (gemessen, Ruhezustand im
+`pmset -g log`). Deckel offen lassen oder `caffeinate -i` voranstellen.
 
 Bei hoher Rechnerlast die Testdateien einzeln und die Python-Läufe begrenzt starten:
 
 ```bash
 GELUMPE_JOBS=2 node --test --test-concurrency=1 "test/*.test.mjs"
-node --test --test-concurrency=1 --test-timeout=180000 "test/e2e/*.e2e.mjs"
+node --test --test-concurrency=1 --test-timeout=300000 "test/e2e/*.e2e.mjs"
 ```
 
 Die Befehle nacheinander ausführen. `GELUMPE_JOBS` setzt sowohl die Python-Läufe je
 Testdatei als auch die Worker eines Emulator-Pools. Mit `1` laufen sie jeweils einzeln;
 ohne gültige positive ganze Zahl nutzt der Node-Teststarter die Hälfte der CPU-Kerne,
 mindestens zwei.
+
+`--test-timeout` gilt je Datei: `patcher.e2e.mjs` allein braucht in CI rund 160 s, deshalb 300 s.
+
+Die nativen Python-Tests bauen die Laufzeit einmal je Prozess (`hook_runtime()` in
+`tools/patch/test_script_hooks.py` ist gecacht). Ein Bau dauert rund 5 s; ein Test, der sie je
+Methode neu baut, bringt `script-runtime*.test.mjs` in CI über die 300 s je Datei.
+
+Scheitert ein `verify`-Teil in CI schon beim Herunterladen der Firmware-Originale
+(Zeitüberschreitung), ist das kein Fehler im Code: erst den Job neu starten, dann suchen.
+
+Die Python-Tests unter `tools/patch/` sind `unittest`, `pytest` ist nicht in der Umgebung:
+
+```bash
+cd tools/patch && PYTHONPATH=. ../emu/.venv/bin/python -m unittest test_script_hooks test_script_objects test_card_gate test_script_card
+```
+
+Die Unit-VM dieser Tests hat nur Code und RAM, keine GPIO-Seite und keinen Flash. Ruft die Laufzeit beim Start
+Firmware-Funktionen oder Register (Kartenschalter, `FLASH_GET` `0xC0029A40`, `FLASH_READ` `0xC0029A74`), braucht der
+Test eine gemappte Seite oder einen Stub (Beispiel `test_script_card.py`).
 
 Eigene Dateien:
 
@@ -171,6 +196,14 @@ Zwei Dokumentations-Tests halten das Repo sauber: `test/docs.test.mjs` prüft to
 Links, absolute Benutzerpfade, Namen und Gedankenstriche in `README*`, `AGENTS.md` und
 `docs/`. `test/map.test.mjs` prüft die Belege der Gerätekarte, auch dass jede Messung,
 auf die ein Eintrag zeigt, als Datei in `docs/messungen/` liegt.
+
+Zwei Tests zählen die Änderungen des Runtime-Patches fest: `test_public_patch_manifest` in
+`tools/patch/test_script_hooks.py` prüft die Zahl der Einträge in `startPhase`, und
+`test/script-runtime.test.mjs` prüft `runtime.changes.length` samt Kommentar. Jede neue
+Hakenstelle ändert beide Zahlen; sie gehören in denselben PR, sonst wird die Unit-CI rot.
+Liest BLECH-Code ein neues Hardware-Register, braucht `tools/patch/test_script_vm.py`
+dessen Seite in der Speicherliste (so wie `0x01C40000` für die MMC), sonst stürzen die
+nativen VM-Tests beim Lesen ab.
 
 ### Prozesse und Ordner eines Testlaufs
 
@@ -246,7 +279,7 @@ Python-Prozesse begrenzen:
 
 ```bash
 GELUMPE_JOBS=1 node --test --test-concurrency=2 --test-timeout=300000 "test/*.test.mjs"
-node --test --test-concurrency=2 --test-timeout=180000 "test/e2e/*.e2e.mjs"
+node --test --test-concurrency=2 --test-timeout=300000 "test/e2e/*.e2e.mjs"
 ```
 
 `GELUMPE_JOBS` gilt auch für die Pythonmodule der Assemblerprüfung. Die beiden Befehle
@@ -292,6 +325,11 @@ Der optionale ARM-Emulator ist ein eigenes Python-Werkzeug (`tools/emu/`, GPL-2.
 [NOTICE](../NOTICE)). Installation, Dienst, Karte und Flash stehen in
 [emulator.md](emulator.md).
 
+Code in einem Haken verschiebt die Phase aller späteren Bilder. Ein zeitkritischer Fall kann deshalb auf nur einem Build
+rot werden. Erst den Build ohne die Änderung prüfen: ist der grün und reicht eine etwas längere Wartezeit, die Wartezeit
+erweitern und begründen. LEDs, die sich bewegen (Regenbogen-Meter), mit `steady_leds()` lesen, nie mit einem einzelnen
+`leds()`.
+
 ## Patcher
 
 Der Patcher baut aus Patch-Dateien eine geänderte SYSTEM.VSB. Format, Haken, Prüfungen und
@@ -300,6 +338,9 @@ Notschalter stehen in [patcher.md](patcher.md). Von der Befehlszeile:
 ```bash
 node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB
 ```
+
+Der eigene Assembler `tools/patch/arm.py` kennt bei Speicherzugriffen nur `ldr`, `ldrb`, `str` und `strb`, kein
+`ldrh`/`strh`: Zustandsfelder der Laufzeit daher als Wort oder Byte anlegen.
 
 ## Werkzeuge nach Ordner
 
@@ -319,6 +360,29 @@ node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB
 
 Browser-Regel: alles in `src/` außer `node.mjs` läuft im Browser. Keine `node:`-Importe
 außerhalb von `src/node.mjs`, `bin/`, `tools/` und `test/`.
+
+## Startseite
+
+`site/app/start.mjs` entscheidet, welche der zwei Ansichten aus `index.html` die Startseite zeigt. Beide stehen
+fest im HTML (mit `data-i18n`) und werden per `hidden` umgeschaltet:
+
+- **Willkommen** (`#cee-start-welcome`) für einen ersten Besuch: was BLECHTRIBE ist, Installieren und Ausprobieren,
+  die Installationsschritte, Hilfe. Hängt eine Electribe ohne BLECHTRIBE dran, sagt eine Zeile das (rot oder blau,
+  Korg-Version).
+- **Schaltzentrale** (`#cee-start-hub`), sobald BLECHTRIBE auf dem Gerät ist, eine Firmware im Emulator liegt oder
+  der Merker `cee.start.done` in `localStorage` steht. Der Patcher setzt ihn beim Speichern oder Senden. Beim ersten
+  Start ohne Merker zählen Spuren aus 1.4.x einmal mit (`cee.area` außer `start`, `cee.changelog.seen`,
+  `cee.scripts.v1`).
+
+Die Schaltzentrale liest vom Gerät nur: erst die BLECHTRIBE-Version (16 Bytes RAM an `0xC014FCF0`, Patch
+`blech-version`), dann rot oder blau (Flash). Jeder Lesevorgang wartet höchstens `READ_WAIT` (8 s), danach steht
+"Version unbekannt". Die Version wird mit `RELEASE_NOTES[0].version` verglichen: älter gibt den Update-Hinweis und
+die Update-Karte zuerst, gleich "Aktuell", neuer "Neuer als diese App". "Neu in dieser Version" sind die ersten drei
+Punkte aus `RELEASE_NOTES[0]`. Die Installationsschritte gibt es nur einmal im DOM: in der Schaltzentrale wandern sie
+in die eingeklappte "Installationsanleitung".
+
+Tests: `test/start-view.test.mjs` (Entscheidung, Versionen, Merker), `test/e2e/start.e2e.mjs` (beide Ansichten,
+Gerät mit älterer, gleicher und neuerer Version).
 
 ## Die App
 
@@ -413,6 +477,30 @@ Die App prüft beim Start und alle paar Stunden das neueste Release und zeigt ob
 verfügbar", ein Klick öffnet die Release-Seite. Solange das Repo nicht öffentlich ist, bleibt der
 Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signaturschlüssel.
 
+### Android (Entwurf)
+
+Dieselbe Seite als APK, noch ohne MIDI und ohne Emulator. Der Rust-Teil startet dort aus der
+Bibliothek (`src-tauri/src/mobile.rs`), die Desktop-App bleibt das Binary (`src-tauri/src/desktop.rs`).
+Die Seite erkennt die App an `window.__GELUMPE_MOBILE`: MIDI gilt als nicht vorhanden, Speichern geht
+über den Speichern-Dialog des Systems (`file_save`, Plugin fs für die content-URI). Das Android-Projekt
+liegt in `src-tauri/gen/android/`, `src-tauri/tauri.android.conf.json` lässt den Sidecar weg.
+
+Bauen: Android SDK und NDK (zum Beispiel per Homebrew `android-commandlinetools`), JDK 17,
+`rustup target add aarch64-linux-android`, dann mit `ANDROID_HOME`, `NDK_HOME` und `JAVA_HOME`:
+
+```bash
+cargo tauri android build --debug --apk --target aarch64
+```
+
+Die APK liegt unter `src-tauri/gen/android/app/build/outputs/apk/universal/debug/`. Auf GitHub baut
+der Workflow "Build Android" (von Hand starten) dieselbe Debug-APK als Artefakt.
+
+Signieren für ein Release: ein eigener Keystore, der nie ins Repo kommt. Der Build liest
+`src-tauri/gen/android/keystore.properties` (in `.gitignore`) mit `storeFile`, `keyAlias` und
+`password`. Für CI gehören der Keystore (Base64) und das Passwort als Secrets ins Repo, der Workflow
+schreibt daraus die Datei, bevor er `cargo tauri android build --apk` ohne `--debug` startet. Das ist
+noch nicht eingebaut.
+
 ## Release
 
 **Der normale Weg läuft in GitHub** (Workflow "Release", `.github/workflows/release.yml`):
@@ -447,6 +535,10 @@ ein Test schlägt fehl, wenn es fehlt.
 | Funktionslisten in `README.md` und `README.en.md` (Plugins, Fallstricke, Rettung) | von Hand | nein |
 | [Fahrplan](fahrplan.md): die Version unter "Erschienen" eintragen, den Rest nachziehen | von Hand | nein |
 | Plugin-API-Version und neue Funktionen in [plugins.md](plugins.md) und `plugins.en.md` | mit dem Feature-PR | nein |
+
+`tools/known-releases.mjs` bricht derzeit schon bei `v1.3.3` ab: Haken 2 des Notenassistenten (`0xC008870C`) gehört
+nicht mehr zur Kette `pad-note` in `data/hooks.mjs` (gemessen 20.11.). Das Skript fängt immer mit einer leeren Datei an,
+alte Tags lassen sich also nicht einfach weglassen.
 
 **Format der Notizen** (`release-notes/X.Y.Z.md`): eine Datei, erst Deutsch, dann eine Zeile `## English` und darunter
 dieselben Notizen auf Englisch. Die Datei enthält nur die Notizen, keinen Download-Abschnitt und keine "Ohne App
@@ -515,9 +607,15 @@ Pull Request `develop` -> `main`, den du danach öffnest (`gh pr create --base m
 eigener Bump-PR ist nicht nötig. Der Workflow "Sync develop" holt den Merge-Commit danach nach `develop`
 zurück.
 
+Was die Workflows pushen, als Pull Request öffnen oder mergen, läuft über die GitHub App Blechy (Secrets
+`BLECHY_APP_ID` und `BLECHY_APP_KEY`; Rechte: Contents, Pull requests und Workflows schreiben, Actions und Checks
+lesen). Anders als mit `github.token` starten ihre Pushes und Pull Requests die Workflows, und sie tragen keinen
+Personennamen. In den Regeln für `develop` und `main` darf die App Pull Requests an den Regeln vorbei mergen
+(`--admin`), direkt pushen darf sie dort nicht.
+
 Nach jedem Push auf `main` oder einen `release/`-Branch holt der Workflow "Update pull requests" diesen Branch in
 **einen** offenen Pull Request, der auf ihm aufbaut und hinterherhängt: den nächsten in der Reihe, also den ältesten
-hinterherhängenden, Entwürfe ausgenommen (GitHubs "Update branch", mit `SYNC_TOKEN`, damit die Checks neu laufen).
+hinterherhängenden, Entwürfe ausgenommen (GitHubs "Update branch", mit dem Token der App Blechy, damit die Checks neu laufen).
 Welcher das ist, sagt `tools/ci/pr-queue.mjs`. So startet ein Merge nicht die vollen Checks aller offenen PRs auf
 einmal: der PR, der landet, lief gegen den Stand mit allen Merges davor, und sein Merge startet den Workflow erneut
 für den nächsten. Wer mehr als einen auf einmal nachziehen will, startet den Workflow von Hand mit `all`
@@ -538,7 +636,7 @@ mit dem Label `automerge` wird gemerged, sobald auf seinem Kopf-Commit `unit`, `
 und grün sind und kein anderer Check fehlgeschlagen ist. Ein abgeschlossener Prüfworkflow auf dem Branch eines PRs nach `develop`, ein neuer Push oder
 ein neues Label löst eine kurze Entscheidung aus (Läufe auf `main`, `develop`, `release/*`, Tags und Branches ohne
 PR nach `develop` starten nichts). Noch laufende oder fehlende Prüfungen lassen den PR offen;
-das nächste Ereignis prüft erneut. Dabei bleibt kein Runner wartend belegt. Gemerged wird mit `SYNC_TOKEN`,
+das nächste Ereignis prüft erneut. Dabei bleibt kein Runner wartend belegt. Gemerged wird mit dem Token von Blechy,
 `--admin` und `--match-head-commit`. Ohne Label bleibt der PR offen, etwa wenn er auf einen Test am Gerät wartet;
 Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht angefasst. Damit braucht es weder
 Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
@@ -576,8 +674,8 @@ zutrifft:
 
 Geprüft wird jedes Mal, wenn ein Workflow auf einem `release/*`-Branch fertig wird oder ein Review kommt (Läufe auf
 anderen Branches starten nichts); von Hand mit
-`gh workflow run release-merge.yml`. Gemerged wird mit `SYNC_TOKEN` und `--match-head-commit`, also nur der Commit,
-der geprüft wurde; mit dem eigenen Token des Workflows würde der Merge kein Release starten. Ohne das Secret wird
+`gh workflow run release-merge.yml`. Gemerged wird mit dem Token von Blechy und `--match-head-commit`, also nur der Commit,
+der geprüft wurde; mit dem eigenen Token des Workflows würde der Merge kein Release starten. Ohne die Secrets der App wird
 nichts gemerged. Was fehlt, steht im Log des Laufs. Lokal ohne Merge: `GITHUB_REPOSITORY=KuhlerBuhler/kuhlers-gelumpe
 node tools/release-merge.mjs --dry-run`. Der Auslöser `workflow_run` nimmt die Datei, wie sie auf `main` liegt: der
 Workflow merged also erst ab dem Release, das ihn nach `main` bringt.
@@ -638,7 +736,7 @@ dann läuft, hängt von der Basis ab:
   werden nur die Tasks, deren Eingaben oder benutzte Dateien sich geändert haben. Ein neuer develop-Stand
   ersetzt die noch laufenden Teilläufe des alten; der neueste Stand prüft wieder alle Fallmodule.
 
-Gepusht wird mit `SYNC_TOKEN`, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
+Gepusht wird mit dem Token von Blechy, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
 ersten Schritt. Ein neuer Push bricht den laufenden Check eines PRs ab. Pull Requests aus Forks haben keine Secrets:
 `patches` wird dort rot, ein Mensch merged sie. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
 
@@ -657,9 +755,9 @@ kommt aus derselben Workflowrevision.
 
 Er pusht dann auf diesen Branch; für `main` und `develop`, oder wenn der Push scheitert, öffnet er stattdessen einen
 Pull Request hinein. Dieser Ausweg kann scheitern: ein Branch `verified/...`, dessen Verlauf eine Workflow-Datei neu
-anlegt, wird mit dem eigenen Token des Workflows (`github.token`) abgelehnt, und der Workflow nimmt `SYNC_TOKEN ||
-github.token`. Ohne `SYNC_TOKEN` (oder wenn er den Geltungsbereich `workflow` nicht hat) kann der Pull Request also
-ausbleiben; ob `SYNC_TOKEN` hier reicht, ist nicht getestet. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
+anlegt, wird mit dem eigenen Token des Workflows (`github.token`) abgelehnt, deshalb nimmt der Workflow das Token
+von Blechy (Recht Workflows: write) und nur ohne die Secrets der App `github.token`; dann kann der Pull Request
+ausbleiben. Von Hand starten lässt er sich erst, wenn die Datei auf `main` liegt. Auch der Lauf des
 Release-Workflows hängt seinen frischen Eintrag je Datei als Artefakt `verified-<name>` an.
 Der gewählte Branch muss die gemeinsame Firmwareprüfung und ihre Werkzeuge enthalten. Ältere Releasebranches
 bekommen diese Dateien vor einer Prüfung über den neuen Workflow als eigenen Backport; der Lauf überlagert
@@ -727,6 +825,9 @@ Die Teilresultate enthalten Prüfergebnisse, Kennungen und Zeitmessungen, keine 
 RAM-Snapshots. Die Originaldatei wird pro Job erneut aus dem Secret geladen und über die feste
 Prüfsumme geprüft. Die besondere Startprüfung behält einen Worker und ihren abgeschalteten
 Cache. Vollständige Freigabeläufe laden keinen Ergebniscache.
+Ein roter Teil nennt im Log nur die Zahl der Fehler je Modul (etwa "1 fail in menu_cases") und lädt kein
+Artefakt hoch. Den Fall findet man, indem man die Aufgaben dieses Teils lokal auf demselben Original laufen lässt,
+ein Modul nach dem anderen mit `PYTHONPATH=tools/patch`, nach dem Blick auf die Last.
 Die Artefaktnamen enthalten auch die Teilezahl. Ein erneuter Lauf mit einer anderen Teilezahl
 liest dadurch keine übrig gebliebenen Ergebnisse des vorherigen Plans.
 

@@ -1,0 +1,1466 @@
+{
+ "format": "gelumpe-lang-korg",
+ "version": 1,
+ "lang": "de",
+ "build": "hacktribe",
+ "texts": {
+  "0xc00a577c": {
+   "buffer": 64,
+   "expect": "a57c9c60c8ba56714f15174626c1d11fd1ddbdb6f28b5d2590ec02e825d3a754",
+   "fonts": [
+    0
+   ],
+   "length": 7,
+   "pointers": [
+    {
+     "at": "0xc003ca6c",
+     "expect": "76b293573696e131e35651abbbf3bb7e547224682975128e19c84de2d37f1b56"
+    },
+    {
+     "at": "0xc00e32d8",
+     "expect": "76b293573696e131e35651abbbf3bb7e547224682975128e19c84de2d37f1b56"
+    }
+   ],
+   "text": "Keine Datei"
+  },
+  "0xc00a5a34": {
+   "expect": "21e914a98d4ae43e89e10fd468bfb709dd3018b00ec52c97c3fbb5ff5a846552",
+   "fonts": [
+    3
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc0061eb4",
+     "expect": "b1854c7b0d12005c0c64cc99a50f8b8ed074103dc9a645f670fde9ad608919df"
+    }
+   ],
+   "text": "PATTERN-EXPORT"
+  },
+  "0xc00a5a43": {
+   "expect": "cf848d1e6894f442a165b7ef24b9f667f3c3dbb54564a25b3f163c01dedd4cf7",
+   "fonts": [
+    3
+   ],
+   "length": 18,
+   "pointers": [
+    {
+     "at": "0xc0061eb8",
+     "expect": "704947d8a91c144679408fec9245e8e484827d319e70d3b3368c78218ec517a1"
+    }
+   ],
+   "text": "ALLE PATTERN EXP."
+  },
+  "0xc00a5a56": {
+   "expect": "a17e3e5834a8bacd7f7861d21be7c59174cd92e506ae0116845854465fc2e157",
+   "fonts": [
+    3
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc0061ec0",
+     "expect": "1dfaf4ba59442e099b2e1b277b3125a8435824454931db293d2d601a88572d21"
+    }
+   ],
+   "text": "PATTERN-IMPORT"
+  },
+  "0xc00a5a65": {
+   "expect": "6539182fdb22776661ee8977c2c1cad84eee938380a64a2a227e79bdadf90cda",
+   "fonts": [
+    3
+   ],
+   "length": 18,
+   "pointers": [
+    {
+     "at": "0xc0061ec4",
+     "expect": "8b61ba57553a8347abed35c0fd30a039176831033f5f130b1bc607eae2a7c2f3"
+    }
+   ],
+   "text": "ALLE PATTERN IMP."
+  },
+  "0xc00a5a78": {
+   "expect": "46089414020e2439f4571971c71e0a7647fecff2581fdeb5c7f2a6b20ee4c3dc",
+   "fonts": [
+    3
+   ],
+   "length": 18,
+   "pointers": [
+    {
+     "at": "0xc0061ec8",
+     "expect": "7dfbaf8f3f8ba0f88c6be4979af8641be1d410da0cdf472f12be809461d1488e"
+    }
+   ],
+   "text": "PATTERN LEEREN"
+  },
+  "0xc00a5acd": {
+   "expect": "0aa2a1f8767e69ed209ef871fda9322087a92aee73f24309f64a22d4018ed93b",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0061ed8",
+     "expect": "28615f83b69cefa7e1365b4e9fb2fbe40d2c70fce9bded37270cafb2f5dcffd4"
+    }
+   ],
+   "text": "AUDIO-EXPORT"
+  },
+  "0xc00a5b18": {
+   "expect": "4610cb4fa31df2765f241813dac325d2cf8fe05e5c1ec4e1bf02e782faa4b6ab",
+   "fonts": [
+    3
+   ],
+   "length": 18,
+   "pointers": [
+    {
+     "at": "0xc0061edc",
+     "expect": "f8e05ab17be0ebc46b8daf651d2e320f50d8afa367d9fe87d087a77e4da8dedd"
+    }
+   ],
+   "text": "EXPORT P.SET-AUDIO"
+  },
+  "0xc00a5b43": {
+   "expect": "ba3e99c7e6aaacef5e71ce9c94603b6fdf459f05612e96a68c6d0cc11df4d207",
+   "fonts": [
+    3
+   ],
+   "length": 18,
+   "pointers": [
+    {
+     "at": "0xc0061ee8",
+     "expect": "b0af69d539a8cad7267a8c13333d157e90f6edeae15b10aa1a5e4aa104337b86"
+    }
+   ],
+   "text": "EXPORT CHAIN-AUDIO"
+  },
+  "0xc00a5b56": {
+   "buffer": 32,
+   "expect": "8ffd1e27ac03673999a2c540f0b8e5ada5b711d194138ab36170cb56eb2f25f8",
+   "fonts": [
+    3
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc0061efc",
+     "expect": "23905cd128e5bec9cc3c4a24af422f851e36c51a721373ae84ef29e9f51652c6"
+    }
+   ],
+   "text": "KARTE FORMATIEREN"
+  },
+  "0xc00a5b62": {
+   "expect": "3978cc186bd79a7be9f493a35019238223b4c8a3cd2237c86bf6e6ea04f4e03e",
+   "fonts": [
+    3
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc0061f00",
+     "expect": "322a203753bcd8a7f311d6e60423910d81a15e166f6f5e85ad0f6c85e5ae0836"
+    }
+   ],
+   "text": "WERKSZUSTAND"
+  },
+  "0xc00a5b70": {
+   "expect": "69d3457baf04d3301422d71c7cd23b111f4aac3c43d342f85dbfaeea591f92ff",
+   "fonts": [
+    3
+   ],
+   "keep": "SOFTWARE UPDATE steht so in der Anleitung, Update ist eingeführt",
+   "length": 15,
+   "pointers": [
+    {
+     "at": "0xc0061f08",
+     "expect": "c0b76e2c0136be9e42c422762d2b16ccfb4abf9447c34ee7e1aa28c55ec4f0a4"
+    },
+    {
+     "at": "0xc006c638",
+     "expect": "c0b76e2c0136be9e42c422762d2b16ccfb4abf9447c34ee7e1aa28c55ec4f0a4"
+    },
+    {
+     "at": "0xc006ca90",
+     "expect": "c0b76e2c0136be9e42c422762d2b16ccfb4abf9447c34ee7e1aa28c55ec4f0a4"
+    }
+   ]
+  },
+  "0xc00a5b80": {
+   "expect": "486855b35e7062aaf9c4e22926f6452722d31a04ab3348d5aaedaf599eb59f59",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0061f0c",
+     "expect": "ecd95a1ae6d745d9a9ef7ca6b2b66c8a1584f42fab9954a4c97ee747c3ebb379"
+    }
+   ],
+   "text": "CHAIN-EXPORT"
+  },
+  "0xc00a5b8d": {
+   "expect": "31c75bbf02badf79b6f220704d019872e5ebe1602762511ef58d96e22c20cb48",
+   "fonts": [
+    3
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc0061f10",
+     "expect": "5dd0d8534ad851acf2d618fd86c88da31d32a56d7c8198d4081bde52b40ba90e"
+    },
+    {
+     "at": "0xc006a6d0",
+     "expect": "5dd0d8534ad851acf2d618fd86c88da31d32a56d7c8198d4081bde52b40ba90e"
+    }
+   ],
+   "text": "SAMPLE-IMPORT"
+  },
+  "0xc00a5b9b": {
+   "expect": "9ac5631258d0801bb350db2801f416211cdf69cc43e2bdc9c0a709a8fbb7ddf9",
+   "fonts": [
+    3
+   ],
+   "length": 17,
+   "pointers": [
+    {
+     "at": "0xc0061f14",
+     "expect": "c0ef6f065397c8fe289d862f588624ab7117cdab1ce29515cd37221a1bf0d176"
+    }
+   ],
+   "text": "ALLE SAMPLES EXP."
+  },
+  "0xc00a5bad": {
+   "expect": "09f0cbf65fbd624c015a67308fecf222970f8d47fd1ced968ef01799c4b992b6",
+   "fonts": [
+    3
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc0061f18",
+     "expect": "9743b0358589c9baf26cf82c8a64957db9b84165442bad04795713bbd82c972c"
+    }
+   ],
+   "text": "SAMPLE-EXPORT"
+  },
+  "0xc00a5bbb": {
+   "buffer": 28,
+   "expect": "cd88865111f9202671e932ab83a683cd1536b414c45d95e7cf8b1752f225c581",
+   "fonts": [
+    0
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc0061f1c",
+     "expect": "8fec2de8a6bf99dffbde3edad09bb92c2ca5e36b76de299b36bd0b68beda2789"
+    },
+    {
+     "at": "0xc0069f20",
+     "expect": "8fec2de8a6bf99dffbde3edad09bb92c2ca5e36b76de299b36bd0b68beda2789"
+    }
+   ],
+   "text": "Kein Sample"
+  },
+  "0xc00a5bc5": {
+   "expect": "589964ae3b58f382f90b5dead537f32fd0aa50c8a7ebb1eb18516eef4ac41b6c",
+   "fonts": [
+    3
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc0061f20",
+     "expect": "79a829aeb34a5f433fd321d5ef2e54295ac6772ad7455ccb06a45e55a4c12832"
+    },
+    {
+     "at": "0xc0069778",
+     "expect": "79a829aeb34a5f433fd321d5ef2e54295ac6772ad7455ccb06a45e55a4c12832"
+    }
+   ],
+   "text": "SAMPLE WÄHLEN"
+  },
+  "0xc00a5bf9": {
+   "buffer": 64,
+   "expect": "a746ad1592a339a1a0983400472240b79b09a69f7f4d4858a503d430862568c8",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0062c40",
+     "expect": "f7f6c264572a1ccf2c84af81f2069b60046b349d2215c42e986ca608a24a85ac"
+    }
+   ],
+   "text": "DATENVERWALTUNG"
+  },
+  "0xc00a5c0e": {
+   "buffer": 64,
+   "expect": "c87dccac936746fc2e49c15e770aa73817d2da4bed8f77bd98c13e8696c06e3e",
+   "fonts": [
+    0
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc00631e4",
+     "expect": "44c86d5df516c6c7b0764801f5789f8e23d7a44d51e4143d34e8202fe280f92b"
+    },
+    {
+     "at": "0xc00e32a4",
+     "expect": "44c86d5df516c6c7b0764801f5789f8e23d7a44d51e4143d34e8202fe280f92b"
+    },
+    {
+     "at": "0xc00e32e0",
+     "expect": "44c86d5df516c6c7b0764801f5789f8e23d7a44d51e4143d34e8202fe280f92b"
+    },
+    {
+     "at": "0xc00e32ec",
+     "expect": "44c86d5df516c6c7b0764801f5789f8e23d7a44d51e4143d34e8202fe280f92b"
+    },
+    {
+     "at": "0xc00e32f0",
+     "expect": "44c86d5df516c6c7b0764801f5789f8e23d7a44d51e4143d34e8202fe280f92b"
+    },
+    {
+     "at": "0xc00e3304",
+     "expect": "44c86d5df516c6c7b0764801f5789f8e23d7a44d51e4143d34e8202fe280f92b"
+    }
+   ],
+   "text": "Unbekannter Fehler."
+  },
+  "0xc00a5d94": {
+   "expect": "d6fda71eba4a02f547eaa883a05f5ea5cc6d43434273aef41ca6829d429d8c56",
+   "fonts": [
+    3
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc00638c4",
+     "expect": "3900f3cf02c1b7286a49531057997adf234add390c95da9cd28c6ee7308f6d02"
+    },
+    {
+     "at": "0xc0064344",
+     "expect": "3900f3cf02c1b7286a49531057997adf234add390c95da9cd28c6ee7308f6d02"
+    }
+   ],
+   "text": "EVENT-AUFNAHME"
+  },
+  "0xc00a5da3": {
+   "expect": "5a34cd68d6a2ba72d65355b06a591a5d69a9087ddecaca10dc9c9bc572c21e43",
+   "fonts": [
+    0
+   ],
+   "length": 25,
+   "pointers": [
+    {
+     "at": "0xc00638c8",
+     "expect": "0742f3324ed003dc73bfb77d920caf22413b6e9a7983afefd4b8a359752f1fbb"
+    }
+   ],
+   "text": "    [ Enter ] : Aufnahme"
+  },
+  "0xc00a5dd2": {
+   "buffer": 64,
+   "expect": "a37efdc41892c9daaf879b29b1e332ac92864b7fa5541b2139a0ae25b73a3661",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc00638d0",
+     "expect": "4b0b26b2028fe4850c7bfc0d45199a81c71c3e950fe20d503a4609c43bd94d71"
+    }
+   ],
+   "text": "EVENT-WIEDERGABE"
+  },
+  "0xc00a5ddf": {
+   "expect": "6b9fc503253c102f361307365f5418a7c9741bbee4d2c6fffcde79f9a5f0799f",
+   "fonts": [
+    0
+   ],
+   "length": 27,
+   "pointers": [
+    {
+     "at": "0xc00638d4",
+     "expect": "85ca71499a902e5dbe65086870749e6585ead5ee193441f246f75f5ea500a18b"
+    }
+   ],
+   "text": "    [ Enter ] : Öffnen"
+  },
+  "0xc00a5e8a": {
+   "buffer": 32,
+   "expect": "c42617ca0ab9fe0e1802f1bfe9d2bcece4000bb622c989de9a2bda854a6244c9",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0064b00",
+     "expect": "69ad5cc85ef57f9584938d821250aab16bfeec295615c7c3663b8f8e72fccb40"
+    }
+   ],
+   "text": "TRIGGER-MODUS"
+  },
+  "0xc00a5e97": {
+   "buffer": 32,
+   "expect": "950091312af9ea4b153e2fec22de8f810a910369c65623ca0de681314eea74e5",
+   "fonts": [
+    3
+   ],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc0064b04",
+     "expect": "dd8ff6b6312213bab300744c8731f380972420c42efb8e6aebe84db7fb31fd84"
+    }
+   ],
+   "text": "CLOCK-MODUS"
+  },
+  "0xc00a5ea2": {
+   "buffer": 32,
+   "expect": "3d1bf32db3237d02377d32ca3c9e4506f375715950f0c23769f50dd42fd2c906",
+   "fonts": [
+    3
+   ],
+   "length": 15,
+   "pointers": [
+    {
+     "at": "0xc0064b08",
+     "expect": "14c4537f00ae49996654ae15073f10f2bb9eba2902627d17b9d6abc14e1d2ba7"
+    }
+   ],
+   "text": "MIDI-KANAL GLOBAL"
+  },
+  "0xc00a5eb2": {
+   "expect": "6f7b4cbcd8b966835dea740238d9f14989d12c903f179f4f912290c334b13205",
+   "fonts": [
+    3
+   ],
+   "length": 19,
+   "pointers": [
+    {
+     "at": "0xc0064b0c",
+     "expect": "d7ad5234c7ef4cae3b55817ea632adf8a63963e5c18614e931f82c498464f777"
+    }
+   ],
+   "text": "MIDI-EMPFANGSFILTER"
+  },
+  "0xc00a5ec6": {
+   "expect": "3c04dfb1672c41cb5fa66d465ad66839f85028c341274ace7815d92932a0f27c",
+   "fonts": [
+    3
+   ],
+   "length": 16,
+   "pointers": [
+    {
+     "at": "0xc0064b10",
+     "expect": "e8682180d11bc5cf6067bd4260511d59aa5a042430f87662dcbd9499e50ba8fa"
+    }
+   ],
+   "text": "MIDI-SENDEFILTER"
+  },
+  "0xc00a5ed7": {
+   "expect": "ffd19911f82f3c9d8c938b2535c67f7900d32f832ae4e4563921e90cea5636fb",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc0064b14",
+     "expect": "0745a31597759e79ec928e09f41d6aef7a1c74cf05d8fe2a9ab51b3e83ad5f55"
+    }
+   ],
+   "text": "METRONOM"
+  },
+  "0xc00a5ee1": {
+   "buffer": 32,
+   "expect": "ecae4d8588486265cadc0649371fa59f25dcfdbb19be0effca65b476253c35cf",
+   "fonts": [
+    3
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc0064b18",
+     "expect": "7b3b643b3efb28dc131b575ae4ca467041e8f182a183995fcf31343cdf8181d7"
+    }
+   ],
+   "text": "SYNC-POLARITÄT"
+  },
+  "0xc00a5eef": {
+   "buffer": 32,
+   "expect": "cf273e4f00d61911e4a4b890132def05e05d01fcdb411672b6f5a1d270e7ed59",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc0064b1c",
+     "expect": "ea436e5839840db23665f365e088369acd60185752693dfec373f65b050d5774"
+    }
+   ],
+   "text": "SYNC-EINHEIT"
+  },
+  "0xc00a5ef9": {
+   "expect": "a462e150f4dbd86a271426cdbe83ecf4b2101129e93b3502335df6d51b0d2d23",
+   "fonts": [
+    3
+   ],
+   "keep": "Name der Buchse AUDIO IN, THRU ist eingeführt",
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc0064b20",
+     "expect": "9b3b565b4bfe8c5119590c88c0a88c5223f9c20982e6c607a9ae7aa0b100cb5a"
+    }
+   ]
+  },
+  "0xc00a5f07": {
+   "expect": "15f344c1f6d79e836c169327162488800ae975ca67173aa2b9d28fa957c27a38",
+   "fonts": [
+    3
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc0064b24",
+     "expect": "6734a9c9c461bae99603aa82ac607ef266574af7f7ee4a7738757a02749e41c9"
+    }
+   ],
+   "text": "VELOCITY-KURVE"
+  },
+  "0xc00a5f16": {
+   "buffer": 32,
+   "expect": "63cc8add6eebad195133c90011e3f70e9ea85cea3f8b7e25abb0c469dd8f7401",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc0064b28",
+     "expect": "b7065b69b599577dc3c664177f5788070818146562e6cb29fc0adf155a3c2022"
+    }
+   ],
+   "text": "REGLER-MODUS"
+  },
+  "0xc00a5f20": {
+   "expect": "e2f58cc47e024c4cddd0bc392d093717038a87640e30a5768819173143e91960",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0064b2c",
+     "expect": "e8fc82213e4b7b5c5e28f0fdaf0dd9551bbead6c033d1e30ad9ae78778c3db5a"
+    }
+   ],
+   "text": "BATTERIETYP"
+  },
+  "0xc00a5f2d": {
+   "buffer": 32,
+   "expect": "b57db709f3a0f1e4890833ebc36d42ef0cde41b0be1c6c6faac8cc2ae3ff5112",
+   "fonts": [
+    3
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc0064b30",
+     "expect": "1d2b92fb166371c172769e18b314efd6f7e005072699acd272b0bd996e120cb6"
+    }
+   ],
+   "text": "AUTO-ABSCHALTUNG"
+  },
+  "0xc00a5f3c": {
+   "expect": "73934de99234f8e1d711571368c8388f91d4923e32ca80733b5561f1db41e8a2",
+   "fonts": [
+    3
+   ],
+   "length": 15,
+   "pointers": [
+    {
+     "at": "0xc0064b34",
+     "expect": "df637aff5b23d75b0c69ab4152352fbd85948fabce5f274f2c0cfedbb079a100"
+    }
+   ],
+   "text": "STROMSPARMODUS"
+  },
+  "0xc00a5f4c": {
+   "buffer": 32,
+   "expect": "ba6d1255ebef805ecea21824d8461cc9bbe5ed3b9a07bf08958ab3fc0e7e51e2",
+   "fonts": [
+    3
+   ],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc0064b38",
+     "expect": "0e13503384ff8e68595850de3ac09752340bf2f59d233eef18ed8cdb4e13cd27"
+    }
+   ],
+   "text": "TEMPO-SPERRE"
+  },
+  "0xc00a5f57": {
+   "expect": "3b8945cad6f8171b43b07139a4dd49139f3ba5d615ae6e27103460c3c29c9ab9",
+   "fonts": [
+    3
+   ],
+   "length": 17,
+   "pointers": [
+    {
+     "at": "0xc0064b3c",
+     "expect": "dc5086a0a8272ce4434329a5c511b03e921a375282e352f956c2f3d85745b49e"
+    }
+   ],
+   "text": "TOUCH-SCALE-WEITE"
+  },
+  "0xc00a5f69": {
+   "expect": "66ec85b7fb066fd5e2b6f6e2a4907dd10bb3853493073e245f65f0192903721e",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0064b40",
+     "expect": "62f28a708d76c0235c4c7fae4999a6125ec3a6616d4ed2fb82fd372bf8456677"
+    }
+   ],
+   "text": "LCD-KONTRAST"
+  },
+  "0xc00a5f76": {
+   "expect": "63416abd1aab27a4afbad09559bd3c803748c9fa5577540c2b2e4b9581952a40",
+   "fonts": [
+    3
+   ],
+   "length": 16,
+   "pointers": [
+    {
+     "at": "0xc0064b44",
+     "expect": "39032bedd812b04bf00079079975f12fd98b79dfb4eb67942fafe20b44d1c342"
+    }
+   ],
+   "text": "PATTERN-SPERRE"
+  },
+  "0xc00a5f87": {
+   "buffer": 32,
+   "expect": "a915155bf5fcaace1265164e7fa47d26925b940e4f2b0c9967c2f2e3919b2357",
+   "fonts": [
+    3
+   ],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc0064b48",
+     "expect": "f5ed11d06b2e7e6abb1d218dcc7e56798026694aa52f133b3a4b934c0e8cb60e"
+    }
+   ],
+   "text": "CHAIN-MODUS"
+  },
+  "0xc00a5f92": {
+   "buffer": 32,
+   "expect": "01b02e00d5be3acf49b1c4c2e76ce49077e7eb27f3acf8c95571b21feffa3ea6",
+   "fonts": [
+    3
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc0064b4c",
+     "expect": "92a7636187deec0d09bf9d42661bfd71d7890c8a63d7d7bdc2db02f72c69bf30"
+    }
+   ],
+   "text": "XY-KALIBRIERUNG"
+  },
+  "0xc00a5fac": {
+   "expect": "8792c4f693fae0eb1fdeab410a1701f54bf2573307461bc793927ccff8f33277",
+   "fonts": [
+    3
+   ],
+   "length": 16,
+   "pointers": [
+    {
+     "at": "0xc0064f0c",
+     "expect": "848718c9edb9e17db218e26ad8ba5fceea3271410837bb931499ed0fa0f474dc"
+    }
+   ],
+   "text": "GLOBALE EINST."
+  },
+  "0xc00a5fcd": {
+   "expect": "6614e5197f55dd59d768fc0ab530f2d562569dc4d843ab9c8b946efa871e78af",
+   "fonts": [
+    0
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0065a20",
+     "expect": "4e594f3e13927d3f446c2dabf995243d35e77bddeeb1a223b0c612d52b92481e"
+    }
+   ],
+   "text": "Panel-Update"
+  },
+  "0xc00a5fda": {
+   "buffer": 64,
+   "expect": "6486bebf9ba66527a4354df2b55975939b0861331148d02c2791bacd2677d9d3",
+   "fonts": [
+    0
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc0065a24",
+     "expect": "57cd3d7452c079f40d5ebbba570f30e9f9f01c238542c7c0130198e552167ee3"
+    },
+    {
+     "at": "0xc00691a8",
+     "expect": "57cd3d7452c079f40d5ebbba570f30e9f9f01c238542c7c0130198e552167ee3"
+    },
+    {
+     "at": "0xc006cb6c",
+     "expect": "57cd3d7452c079f40d5ebbba570f30e9f9f01c238542c7c0130198e552167ee3"
+    },
+    {
+     "at": "0xc006cca4",
+     "expect": "57cd3d7452c079f40d5ebbba570f30e9f9f01c238542c7c0130198e552167ee3"
+    },
+    {
+     "at": "0xc006cfac",
+     "expect": "57cd3d7452c079f40d5ebbba570f30e9f9f01c238542c7c0130198e552167ee3"
+    },
+    {
+     "at": "0xc006d25c",
+     "expect": "57cd3d7452c079f40d5ebbba570f30e9f9f01c238542c7c0130198e552167ee3"
+    },
+    {
+     "at": "0xc006d8bc",
+     "expect": "57cd3d7452c079f40d5ebbba570f30e9f9f01c238542c7c0130198e552167ee3"
+    }
+   ],
+   "text": "Enter drücken"
+  },
+  "0xc00a5fe6": {
+   "buffer": 32,
+   "expect": "25c71a4555261f569f00f50d35590c2e41c47065e343bdc48bb20cd8180ed6c1",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc0065ca4",
+     "expect": "753695908e38adc01bad32ca6832ffd33e52cf1b78dc81ee99ab525c1e3cac2c"
+    }
+   ],
+   "text": "LETZTER STEP"
+  },
+  "0xc00a5ff0": {
+   "expect": "f7f0a23987c02d01371e6e4b3cc3c10282fc08268f964522e454fdeada0a8936",
+   "fonts": [
+    3
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc0065ca8",
+     "expect": "ee3765d3376ee4ac5412c6ba6a67a010c0656ba888e33d9f6a4d8ddccbe0061d"
+    }
+   ],
+   "text": "GROOVE-TYP"
+  },
+  "0xc00a5ffc": {
+   "expect": "68d434ab3079367295248badbf0430df853c8bae5b06da154c4ec787884842f4",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0065cac",
+     "expect": "310a744c226c876fe0a0c0f78a57e08a0f4ccf4ff7f33b2ea9c4676755764ba2"
+    }
+   ],
+   "text": "GROOVE-TIEFE"
+  },
+  "0xc00a6009": {
+   "buffer": 32,
+   "expect": "1821872f8d930c4319f136fb214b5b4f97f4dba9a7e44138ddee9cb935bae8c0",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0065cb0",
+     "expect": "50072af26b347ce5d00698c0346cd9cb6e8567724f6b9f479b20dd40a58c54f5"
+    }
+   ],
+   "text": "STIMMEN-MODUS"
+  },
+  "0xc00a6016": {
+   "buffer": 32,
+   "expect": "a7562c80cc561b9b3cb80c1bf4a30abed084f3ab254149f0dfd2fde8480d98c7",
+   "fonts": [
+    3
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc0065cb4",
+     "expect": "1821c259bbd3fba7f698400b1b8e6bfba53c3af8dd867e73760e86939bd48110"
+    }
+   ],
+   "text": "PART-PRIORITÄT"
+  },
+  "0xc00a6024": {
+   "expect": "5b349c15a4c72521cfd50096d797054a3c5c7bcf1bced1475854c1fad45f6939",
+   "fonts": [
+    3
+   ],
+   "keep": "MOTION SEQ: aufgedruckte Begriffe",
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc0065cb8",
+     "expect": "d19d1783eb695f991e85805f3e6472ad3417ba2f6b23a2d2f9c3b02a6bca0e23"
+    }
+   ]
+  },
+  "0xc00a6041": {
+   "buffer": 32,
+   "expect": "6c00f20299a69fc9b47f8df556d6eb3f121671bf939b0bd949978fba0a229f67",
+   "fonts": [
+    3
+   ],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc0065cc0",
+     "expect": "fac052195d3555c3e6bf85401c454c758ae23ee9e562596a080291e5265a8b12"
+    }
+   ],
+   "text": "SCALE-MODUS"
+  },
+  "0xc00a6055": {
+   "buffer": 32,
+   "expect": "c1504569721036b9b018ebd14180ec85bd39ee7203b62c84778e0d2121f5bc41",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc006658c",
+     "expect": "6035f8f0274e0a4b752a0c0a075fd796851401a6f50397cba61cff498e6642ee"
+    }
+   ],
+   "text": "PART-KOPIE"
+  },
+  "0xc00a6094": {
+   "buffer": 32,
+   "expect": "a1e04e5cdb14cf28a60f4c7a9987c4325e3c06296cd6e32ea13f548a63d24bac",
+   "fonts": [
+    3
+   ],
+   "length": 15,
+   "pointers": [
+    {
+     "at": "0xc00665a4",
+     "expect": "60506b87682dd8197f98bfa7fcdfab6c924b13c9869a4284f6fca7cd403a69e1"
+    }
+   ],
+   "text": "PART-SOUND-KOPIE"
+  },
+  "0xc00a60a4": {
+   "buffer": 32,
+   "expect": "4c9168e00cb4eaf1f1a262d06ed10f3aa45e1970ed7e73e24af416dce64bacb8",
+   "fonts": [
+    3
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc00665ac",
+     "expect": "e33aaac56c9c27ccf57a1a7dcc8bebb1041e387fa678976af0978d68a4eb50bc"
+    }
+   ],
+   "text": "SEQUENZ LÖSCHEN"
+  },
+  "0xc00a60b3": {
+   "buffer": 32,
+   "expect": "91e00a5b148658f1690443371e0d123c35adaefda7125ce945141f9b1a4cb452",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc00665b0",
+     "expect": "8279d5e0b3ee02b9b0a97b3bdce62b1fab8453451e099c32a21cb2b934f75013"
+    }
+   ],
+   "text": "MOTION LÖSCHEN"
+  },
+  "0xc00a60c0": {
+   "buffer": 64,
+   "expect": "05af13f415b57a1ef31fcdfffd67ecf537e85eab6fa7817f27c6991909c64246",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0067054",
+     "expect": "603a1658e114ee2a49fbb1c900fc762b1dcf4354743b574d8014c3620c934354"
+    }
+   ],
+   "text": "PART-VERWALTUNG"
+  },
+  "0xc00a60ed": {
+   "expect": "944753e54490befeabb34cb7960d9338e2ee1a87cd4f0d6d4099a2e3910257c3",
+   "fonts": [
+    3
+   ],
+   "length": 6,
+   "pointers": [
+    {
+     "at": "0xc006740c",
+     "expect": "5a914f12da750d22551e91029be100a24c4a4fb3ad440a67b6e8071e952f6baf"
+    }
+   ],
+   "text": "LÄNGE"
+  },
+  "0xc00a60f4": {
+   "expect": "68af1b8d942fcf2d53e5424501d1831add62fdbba53e2a943edbd2a9edf88b5c",
+   "fonts": [
+    3
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc0067410",
+     "expect": "1aa2e32dbd1fcf528e4b92767776450bc24d24d913e375870c022fade0284a92"
+    }
+   ],
+   "text": "PATTERN-PEGEL"
+  },
+  "0xc00a6102": {
+   "expect": "2f10cd84bc4b823f4988748d54fc45701128acd14a6a70ed4764117a5c40cf6f",
+   "fonts": [
+    3
+   ],
+   "length": 8,
+   "pointers": [
+    {
+     "at": "0xc0067414",
+     "expect": "004c772ee74c2c425f73a69b2bb5aec9d6567153086f02eb21786490c000d543"
+    }
+   ],
+   "text": "MFX-TYP"
+  },
+  "0xc00a610b": {
+   "buffer": 32,
+   "expect": "89290003a0bf419decf3b3167c198183a0b8a836ac60f62ab7bdfcc223821b6e",
+   "fonts": [
+    3
+   ],
+   "length": 16,
+   "pointers": [
+    {
+     "at": "0xc0067418",
+     "expect": "42cbefb8e29867639917412c987c64965cb5cef0a69495c754c51b7a7120ff06"
+    }
+   ],
+   "text": "MFX-MOTION LEEREN"
+  },
+  "0xc00a611c": {
+   "expect": "31e75d637935599b297cc9485a0fbb91edb48984d0150340e7b41fc24fcaa58c",
+   "fonts": [
+    3
+   ],
+   "length": 4,
+   "pointers": [
+    {
+     "at": "0xc0067420",
+     "expect": "97cc097fc4a4682a1902217adff2938b8b73f501ae4ffb51e47561435a54ab6a"
+    }
+   ],
+   "text": "TAKT"
+  },
+  "0xc00a612b": {
+   "buffer": 32,
+   "expect": "c2711a9ccce6f1cf15db50ca489acd83e0e5fcda156e20b42fae18e9532dd32d",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc006742c",
+     "expect": "67c3c6875c915a664497b1f52dad31d42ab25bb419d2fdfad97a1fe519ebf50d"
+    }
+   ],
+   "text": "AKKORD-SET"
+  },
+  "0xc00a6144": {
+   "expect": "d72e33b7ef78cfb8b51ce739a7d136deb5e6f2b7b6fa42f734c473b84133fc90",
+   "fonts": [
+    3
+   ],
+   "length": 15,
+   "pointers": [
+    {
+     "at": "0xc0067438",
+     "expect": "510f7ed20a9278d6508589faf32a63c254173899b558cac0f1bce57fb5ae4681"
+    }
+   ],
+   "text": "WECHSEL 13-14"
+  },
+  "0xc00a6154": {
+   "expect": "5f7a1f3922322df34f4a6fb4da0792bc1811bd0d284ab9cd2f3aae162c6a15e6",
+   "fonts": [
+    3
+   ],
+   "length": 15,
+   "pointers": [
+    {
+     "at": "0xc006743c",
+     "expect": "629ae41190d3c27fecf04f648b0fe4ed9e2cc5ffbd1f7e39c85a4e894f75368d"
+    }
+   ],
+   "text": "WECHSEL 15-16"
+  },
+  "0xc00a6164": {
+   "buffer": 32,
+   "expect": "7c91f8e7e45a25d8825a2b4dee665b568fd8a6ca6273936f497958476ef93ed4",
+   "fonts": [
+    3
+   ],
+   "length": 8,
+   "pointers": [
+    {
+     "at": "0xc0067440",
+     "expect": "82826ec263a46e72fe897e8708acd37c852df07d540832307bd8b3603aa95d8b"
+    }
+   ],
+   "text": "CHAIN NACH"
+  },
+  "0xc00a616d": {
+   "expect": "90694494b8755d0b122a0384747d35d882ba4380931755414d3911e987f78f56",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0067444",
+     "expect": "c2eca2b2901fab413bf1759cbd3116157413769102c6f89ee17cbbbf0b0b490b"
+    }
+   ],
+   "text": "CHAIN-WDH."
+  },
+  "0xc00a617a": {
+   "buffer": 64,
+   "expect": "8ea5d9f39455516e134398fc1de982ccb1e06e83328567ab5616bb5398edcb29",
+   "fonts": [
+    3
+   ],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc0068234",
+     "expect": "62601c96936a22397bb973d27f2d22f3def0cebc0e7c196e7b73395c68d6113b"
+    },
+    {
+     "at": "0xc00683e0",
+     "expect": "62601c96936a22397bb973d27f2d22f3def0cebc0e7c196e7b73395c68d6113b"
+    },
+    {
+     "at": "0xc0068964",
+     "expect": "62601c96936a22397bb973d27f2d22f3def0cebc0e7c196e7b73395c68d6113b"
+    },
+    {
+     "at": "0xc0068bf8",
+     "expect": "62601c96936a22397bb973d27f2d22f3def0cebc0e7c196e7b73395c68d6113b"
+    }
+   ],
+   "text": "NAME eingeben"
+  },
+  "0xc00a6185": {
+   "expect": "65eed7c82c7153ff709f40f74a6641317d8fed93b72fd6e72ed42a2de6e9f6ce",
+   "fonts": [
+    3
+   ],
+   "length": 18,
+   "pointers": [
+    {
+     "at": "0xc0068230",
+     "expect": "5b794ac75997a3391b9a5bd6552e7a5da29dfc80561034fddd38568a3c0a8639"
+    }
+   ],
+   "text": "ZIEL wählen"
+  },
+  "0xc00a61b2": {
+   "buffer": 64,
+   "expect": "1afeb25b5c38f066da6ace815a50bc24c9536fdcf6c16c842e55635a6755df84",
+   "fonts": [
+    0
+   ],
+   "length": 15,
+   "pointers": [
+    {
+     "at": "0xc0068fb8",
+     "expect": "68f5606be857048bcc4ffb27c44a18157fa71daad8bb90e453602070313bda30"
+    }
+   ],
+   "text": "Pattern-Verwaltung"
+  },
+  "0xc00a61c2": {
+   "buffer": 64,
+   "expect": "3c8d7a87efae8b00b74554cca104986888dd1a1fa39a248878ccd7f348ea96d5",
+   "fonts": [
+    0
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc0068fbc",
+     "expect": "515141dd1ca57f1be39fdb87e10ea815d2a9e208055769ecc8eb5cbb36ab2f16"
+    }
+   ],
+   "text": "Enter drücken"
+  },
+  "0xc00a61fa": {
+   "buffer": 64,
+   "expect": "f9eed5ef5b2ec75ca579a61dcca6caa30e827620a7713bbf6ba942f612ef4e4f",
+   "fonts": [
+    1
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc00692b0",
+     "expect": "1aa57a02059c87b4bd39ccf05e970f3a7cb6383ca997deeb520129bd3cda3740"
+    }
+   ],
+   "text": "Ausschalten"
+  },
+  "0xc00a6204": {
+   "buffer": 32,
+   "expect": "ce889d0593d86a2a4395f50276c99b3700f4f6198e97417c4ec103093ea0d225",
+   "fonts": [
+    3
+   ],
+   "length": 6,
+   "pointers": [
+    {
+     "at": "0xc006977c",
+     "expect": "0f1ab33391404b54dd5ffef0dcc133a03500df8f39a90753ca25dd00fc74eb31"
+    }
+   ],
+   "text": "UMBENENNEN"
+  },
+  "0xc00a620b": {
+   "expect": "f59334b787d3f4979ca7fb94b5b02f8f589b0569ad16d0b22daf90976960b158",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc0069784",
+     "expect": "34168d82b2358a47f3a5df6d43114663d0b65e5afa634162ca3673da4329f2a7"
+    }
+   ],
+   "text": "ENDPUNKT"
+  },
+  "0xc00a6215": {
+   "expect": "33ed67d51aac5d0a28434887a8c8ea200f481850310295a9154633ade0224e58",
+   "fonts": [
+    3
+   ],
+   "length": 16,
+   "pointers": [
+    {
+     "at": "0xc0069788",
+     "expect": "ff146b3b076fde0814e378ba92fc692e0aa1af0f74f9f858a51c0bc1a851f48b"
+    }
+   ],
+   "text": "LOOP-STARTPUNKT"
+  },
+  "0xc00a6226": {
+   "buffer": 32,
+   "expect": "8f2a1f534b87201dfcd7371bcc9e3a5206f7326b4356a0803bf492ce4292e55f",
+   "fonts": [
+    3
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc006978c",
+     "expect": "ce1ca007b44ecffba0540f7e0e433ca0eb785852d1d6183b72ae7a105c7ce7db"
+    }
+   ],
+   "text": "SAMPLE-STIMMUNG"
+  },
+  "0xc00a623d": {
+   "buffer": 32,
+   "expect": "1cb551762ed081743631668a8a4e347bc626ae4385aef2685bae568850d480b4",
+   "fonts": [
+    3
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc0069794",
+     "expect": "7754b58a76c2e1fd92b48c8503d3df7eeaacbd4b4b8b0d1d7aaa8af581f1fc24"
+    }
+   ],
+   "text": "SLICES LÖSCHEN"
+  },
+  "0xc00a6249": {
+   "buffer": 32,
+   "expect": "ef57eae9d142741ace6b3be092054928a1118043bd618ead43e29f2e27acc3e8",
+   "fonts": [
+    3
+   ],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc00697a0",
+     "expect": "c27e04d873da9408e776409cb5848bd13a7da4160500a3853a5848fe11871e36"
+    }
+   ],
+   "text": "WIEDERGABEPEGEL"
+  },
+  "0xc00a6254": {
+   "buffer": 32,
+   "expect": "92b2d2373566a02b5049801e4bf8844611245d593f31794bc33940f5a066ebdc",
+   "fonts": [
+    3
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc00697a4",
+     "expect": "bfbf2f68552a0f7725b24b1e6b834644c45e046a06830c02d2cee876c3721ba8"
+    }
+   ],
+   "text": "SAMPLE LÖSCHEN"
+  },
+  "0xc00a62c2": {
+   "buffer": 28,
+   "expect": "e0b73cc1734b3189e59f5970e63af38adea49d066d394ff52f568d230926d44f",
+   "fonts": [
+    0
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc006c4e0",
+     "expect": "661d8ead5cb7ee9abb65ddef9d731fa3181eac1d8b52e01e056f81a8db7444eb"
+    },
+    {
+     "at": "0xc006ca98",
+     "expect": "661d8ead5cb7ee9abb65ddef9d731fa3181eac1d8b52e01e056f81a8db7444eb"
+    }
+   ],
+   "text": "ENTER drücken"
+  },
+  "0xc00a6346": {
+   "buffer": 64,
+   "expect": "6bc4383808873392b0d7068f0f94e7ba244310835369cd3aa282e63ded38151c",
+   "fonts": [
+    0
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc006d128",
+     "expect": "ce28cc80e435b7709c7a178b6891dc2bf579118525c5502889ae56a6052c6a35"
+    }
+   ],
+   "text": "SD formatieren"
+  },
+  "0xc00a6354": {
+   "buffer": 64,
+   "expect": "c3a7609ee491a49f7e0917121f9a5888944bb3cbd33604aec68eefbbe05cb0d0",
+   "fonts": [
+    0
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc006d124",
+     "expect": "9d37d377916a7eb71fb03ae324ed9005b4f7432cd9c706a7aac5b1449f9741ae"
+    }
+   ],
+   "text": "Werkseinstellung"
+  },
+  "0xc00a636d": {
+   "expect": "4739f3939b764ce42c708c561ab6f8c630ae5f0098ba0d46de1217daaa508e9f",
+   "fonts": [
+    1
+   ],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc006d5e0",
+     "expect": "d2c11a8e3a7e95de9555cdc13c89722cd395770846a1a6b9ff679e2f7627e91b"
+    }
+   ],
+   "text": "Läuft..."
+  },
+  "0xc00a6378": {
+   "buffer": 64,
+   "expect": "cb1d58e14c3e0dd119f2a26fc22c51690e55fe12e61190d4044a907ce1d81e58",
+   "fonts": [
+    1
+   ],
+   "length": 5,
+   "pointers": [
+    {
+     "at": "0xc006d704",
+     "expect": "8f8bd4c8d88039c89c2a623724766b7cbfde624dffb37c099d06dad42292ef14"
+    }
+   ],
+   "text": "Rückgängig!"
+  },
+  "0xc00a6389": {
+   "buffer": 64,
+   "expect": "57ecec9ccba5d54d1c66aa6ab3a4c6fef91d800316f1636e48b82b57e8a85346",
+   "fonts": [
+    0
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc006d8b8",
+     "expect": "04bc630107d9c46055416cdfcd8acefedae5fb7cd5cbf619cf8e55e4582f1b5e"
+    }
+   ],
+   "text": "Alles speichern"
+  },
+  "0xc00a6de2": {
+   "expect": "34b97f273d5fa528378db081c106bdd5f5deb5b7c682fa69a9732291d33d2424",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc0078810",
+     "expect": "4bc9c060b4bd66a49b2f05fd65a4a40880f8ee66251c3811a663dd03363a44f7"
+    },
+    {
+     "at": "0xc008d2cc",
+     "expect": "4bc9c060b4bd66a49b2f05fd65a4a40880f8ee66251c3811a663dd03363a44f7"
+    }
+   ],
+   "text": "GATE-ZEIT"
+  },
+  "0xc00a6f63": {
+   "expect": "76119f769a8514f2fd41a88c5e71e3753fbc82798d3bf19ef7090057ed308a4c",
+   "fonts": [
+    1,
+    2
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc007e0f0",
+     "expect": "ce38f26cd741e4982eed78a58e6360e75701822042146713c1b1284a0a486fe9"
+    },
+    {
+     "at": "0xc007e354",
+     "expect": "ce38f26cd741e4982eed78a58e6360e75701822042146713c1b1284a0a486fe9"
+    }
+   ],
+   "text": "leer"
+  },
+  "0xc00a7196": {
+   "buffer": "string",
+   "expect": "f276f6729c4b3829d9604be55e5da3334ac3c08da221049b0e1d89ad1fe44bbd",
+   "fonts": [
+    2
+   ],
+   "length": 7,
+   "pointers": [
+    {
+     "at": "0xc0085e30",
+     "expect": "e61ea408b62e346fbe32a67138a5d4246fcf812f55213ab9413f80c9a2f39ac1"
+    }
+   ],
+   "text": "KEINE DATEI"
+  },
+  "0xc00a7381": {
+   "expect": "16d13028f190b445c39769f86eb0f10ea7a81641ea02eb6be753397551352ba5",
+   "fonts": [
+    0
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc008c774",
+     "expect": "93585e3e01396568b5034cf481f2e3da76d898c1687c917430e83931bbaa6c73"
+    }
+   ],
+   "text": "Sample-Modus"
+  },
+  "0xc00a738f": {
+   "expect": "8600596fafcf283f8904fa326ac190329d9620a9434852cb78e64778e8979cc9",
+   "fonts": [
+    0
+   ],
+   "length": 15,
+   "pointers": [
+    {
+     "at": "0xc008c778",
+     "expect": "e25037dd29d8a28275a163c0caa87da524c5c24ff264691ec309b1a82238d594"
+    }
+   ],
+   "text": "Sample-Quelle"
+  },
+  "0xc00a739f": {
+   "buffer": "string",
+   "expect": "2bc47da1cd10049e7130e2587b2b83aee859593a18b3c20fd6100393b5db5669",
+   "fonts": [
+    0
+   ],
+   "length": 6,
+   "pointers": [
+    {
+     "at": "0xc008c77c",
+     "expect": "830dc0c37a380f57cf81502d157f46afa8fb54fd033c8bc01884a0bb427f35c0"
+    }
+   ],
+   "text": "Speicher"
+  },
+  "0xc00a73b2": {
+   "expect": "1be4001a38adce8f010b52249e35e2a22c9f57ad21ceb274d73ce4dca6307f8e",
+   "fonts": [
+    3
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc008d2c4",
+     "expect": "916f203de22418fa1c7224ad5f911c523a9279c1552bca9f3f31fd74f844fce4"
+    }
+   ],
+   "text": "STEP-NUMMER"
+  }
+ }
+}

@@ -5,15 +5,13 @@
  "name": "Effekte aus dem Katalog",
  "builds": [
   "hacktribe",
-  "stock"
+  "stock",
+  "synth"
  ],
  "first": {
   "ifx": 39,
   "mfx": 33
  },
- "notNeededOn": [
-  "synth"
- ],
  "ram": [],
  "presets": [
   {

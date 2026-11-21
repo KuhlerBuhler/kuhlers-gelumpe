@@ -35,10 +35,10 @@ jobs:
     # The suites outgrew 10 minutes (browser 10:19 on PR 27); 20 leaves room before a run counts as hung.
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
       - run: npm ci
       # DESIGN.md against the design.md spec: a broken token reference or a failing contrast pair stops the run.
@@ -60,10 +60,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
       - run: npm ci
       # Some of the selected tests read the runtime patches, which are built, not committed (see unit-part).
@@ -96,10 +96,10 @@ jobs:
     # The suites outgrew 10 minutes (browser 10:19 on PR 27); 20 leaves room before a run counts as hung.
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
       - run: npm ci
       # The runner image ships Chrome and the tests drive that one (channel "chrome"),
@@ -128,7 +128,7 @@ jobs:
       suites: ${{ steps.filter.outputs.suites == 'true' || steps.documents.outputs.other == 'true' }}
     steps:
       # A file counts as "other" when it matches every pattern: outside Markdown, thoughts/ and .github/.
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: documents
         with:
           predicate-quantifier: every
@@ -138,7 +138,7 @@ jobs:
               - '!**/*.md'
               - '!thoughts/**'
               - '!.github/**'
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -179,7 +179,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # The runner's user is not UID 1000, the container's node user is: the folder has to let it write.
       - run: mkdir SD && chmod 777 SD
       - run: docker compose up --build --detach
@@ -215,12 +215,12 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable

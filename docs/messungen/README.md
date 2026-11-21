@@ -16,6 +16,11 @@ Speicheruntersuchung zusammen. Anleitungen zum Nachvollziehen am eigenen Gerät 
 [Gerätetests](../geraetetests/README.md).
 
 
+## Firmware-Platz
+
+- [Freier und reservierter Platz für ARM, DSP und Plugins, auf festen Quellständen gerechnet](2026-11-20-firmware-speicherbudget.md)
+- [DSP-SDRAM-Kandidaten: statische Besitzer, native Start-/Audioleerlaufläufe und Grenzen des Nachweises](2026-11-20-dsp-sdram-freiraum.md)
+
 ## Pattern, Parts und Global
 
 Felder des Pattern-Blocks, der Parts und der Global-Einstellungen, wie sie die Gerätekarte belegt.
@@ -58,7 +63,10 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [Effekte aus e2sFx.all beim Start an den DSP, Status unter VERSION, SPLASH IMPORT als Dateiliste, im Emulator](2026-11-05-effekte-start-splash-liste.md)
 - [SPLASH IMPORT: Name ohne Zeile darüber, lange Namen gekürzt, VERSION mit Effektstatus in einer Zeile, im Emulator](2026-11-08-splash-import-wertzeile.md)
 - [Eigene Insert- und Master-Effekte auf der blauen Electribe 2: was es kostet](2026-11-08-blau-eigene-effekte.md)
+- [Eigene Insert- und Master-Effekte auf der blauen Electribe 2: Katalog, e2sFx.all, Export und Editor, im Emulator](2026-11-08-blau-effekte-port.md)
+- [Effekte und Modulationen vom Gerät lesen, für den Export von e2sFx.all](2026-11-14-effekte-vom-geraet.md)
 - [Röhrenkurve statt Soft-Clipper am Ausgang, im QEMU-DSP-Kern und im Emulator](2026-11-20-roehrenkurve.md)
+
 
 ## SysEx und Transport
 
@@ -68,6 +76,9 @@ Wie das Gerät auf Nachrichten antwortet, Größen und Zeiten.
 - [Geräteprotokoll: Suche, RAM lesen und Pattern-Abfrage](2026-10-08-geraeteprotokoll.md)
 - [SysEx über die emulierte DIN-MIDI](2026-10-09-din-sysex.md)
 - [Doom über USB auf die Karte (Emulator)](2026-11-11-doom-usb.md)
+- [e2sFx.all über USB lesen (Emulator)](2026-11-14-fx-datei-lesen.md)
+- [DEV MODE: was im Firmware-Abbild gesperrt bleibt, Host-Tool hot_patch.py (Emulator)](2026-11-14-dev-mode-sperrbereiche.md)
+- [DEV MODE am Gerät: Testplan](2026-11-14-dev-mode-geraet.md)
 
 
 ## Speicher und Flash
@@ -81,6 +92,8 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Startinitialisierung, Interrupt-/Loader-Stacks und Patternbank](2026-10-08-boot-pattern-speicher.md)
 - [Task-Stacks, Heap und Arbeitsbuffer, offline gemessen](2026-10-08-systemspeicher-offline.md)
 - [DSP-Audiopfade und Ausführungsgrenzen, offline](2026-10-08-dsp-audiopfade.md)
+- [Natives Aufnehmen und Abspielen: Master-Abgriff im DSP, Kartenrate, RAM, blau, offline](2026-11-17-native-aufnahme.md)
+- [Time Stretch: offline auf dem ARM gemessen, live im DSP (Lesezeiger, Generatoren)](2026-11-17-time-stretch.md)
 - [USB-Sampleimport ohne SD: Offline-Machbarkeit](2026-10-08-usb-sample-import-offline.md)
 - [Ganzer Flash in einem Stand](2026-10-09-flash-dump.md)
 - [Menüzustand im RAM: welcher Bildschirm, welche Seite](2026-10-09-menuezustand.md)
@@ -92,11 +105,13 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 
 Startphase, Startmodi, Notschalter, Firmware als Datei und der Weg zurück.
 
+- [Laufzeit 1.4.0 auf einem fremden roten Gerät: Start-Haken, Redraw-Byte, Verlegen (Briefing Nat333)](2026-11-01-omnitribe-laufzeit-1.4.0.md)
 - [Startphase, Startmodi und Notschalter-Taste](2026-10-10-startphase.md)
 - [Firmware-Rückweg: geprüfte Quellen und getrennte Verfahren](2026-10-08-firmware-rueckweg.md)
 - [Geänderte Firmware als Datei, im Emulator gebootet](2026-10-09-firmware-export.md)
 - [Rückweg geübt: eigene Firmware hin, Original zurück](2026-10-10-rueckweg-geuebt.md)
 - [SOFTWARE UPDATE prüft die Dateigröße: eine abgeschnittene SYSTEM.VSB wird nicht geflasht, im Emulator](2026-11-13-update-schutz.md)
+- [Neustart über den Watchdog von Timer 1: Modell, 84-Byte-Stub über EXEC, im Emulator; Gerätetest offen](2026-11-16-watchdog-neustart.md)
 
 
 ## Emulator
@@ -111,6 +126,7 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 - [Emulator-Takt: 1000 Timer-Interrupts je Sekunde](2026-10-12-emulator-takt.md)
 - [Display-Helligkeit: die Firmware schaltet nur an und aus](2026-10-12-lcd-helligkeit.md)
 - [Emulator-Tempo: Zeit je Gerätesekunde](2026-10-13-emulator-tempo.md)
+- [QEMU-Port gegen GNU-Simulator: DSP-Funktionen bit-gleich, Tempo, was zum schnellen Kern fehlt, im Simulator](2026-11-16-qemu-bfin-vergleich.md)
 - [LED-Inventur am eigenen Gerät](2026-10-13-led-inventur.md)
 - [Emulator-LEDs: nur was die Firmware schickt, ein Druck allein leuchtet nicht](2026-10-31-emulator-leds.md)
 - [Korgs Original-Firmware 2.02 im Emulator](2026-10-14-stock-emulator.md)
@@ -119,6 +135,7 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 - [Preset-Tabellen: wo Korg sie ablegt, was Hacktribe verschiebt, der Patch für 128 Plätze](2026-10-15-preset-tabellen.md)
 - [Die blaue Electribe 2 (Synth) im Emulator: Hauptbild, Stellen, Flash-Kennung](2026-10-15-blaue-electribe.md)
 - [Samples auf der blauen Electribe 2: PCM-Wellen, Oszillator-Tabelle, Entwurf für BLECH](2026-10-15-synth-samples.md)
+- [Eigene Samples auf der blauen Electribe 2: wo im DSP-Speicher Platz ist](2026-11-12-blau-sample-import.md)
 - [Die PCM-Bank der blauen Electribe 2 aus WAV-Dateien nachgebaut und im Emulator geprüft](2026-10-15-synth-pcm-flash.md)
 
 
@@ -136,6 +153,7 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [22.10.2026: Gemeinsame CRC, Speicherfüllung und kombinierte Rechenbefehle](2026-10-22-patch-effizienz-helfer.md)
 - [20.10.2026: Laufzeit und Platz der BLECH-Patches](2026-10-20-patch-performance.md)
 - [8.11.2026: CPU-Last mit BLECH, was am Gerät zu sehen ist und was jeder Patch kostet, im Emulator](2026-11-08-cpu-last-blech.md)
+- [14.11.2026: Energie und Last, Befunde vor der Umsetzung: Lastmethode, Statusleiste, Panel, Leerlauf, DSP](2026-11-14-energie-befunde.md)
 
 - [Startbild-Editor im Menü Global (Idee 35): gebaut und im Emulator geprüft](2026-10-10-startbild-editor.md)
 - [MFX 2 auf TOUCH SCALE (Idee 44): gebaut und im Emulator geprüft](2026-10-10-mfx-umschalter.md)
@@ -143,13 +161,14 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [Patternwechsel erst nach Bestätigung (Idee 46): gebaut und im Emulator geprüft](2026-10-15-patternwechsel.md)
 - [Ladebalken im Startbild (Idee 41): gebaut und im Emulator geprüft](2026-10-15-ladebalken.md)
 - [Sample-Fehler: ein Sample überspringen und sagen, welches (und die Werksbank des leeren Flash)](2026-10-15-sample-fehler.md)
+- [IMPORT SAMPLE auf Werks-Slots: Zielwähler, welche Slots der Import annimmt, Speichern, im Emulator](2026-11-16-import-werks-slots.md)
 - [Startbild auf der Karte statt im Flash (Idee 35)](2026-10-15-startbild-karte.md)
 - [BLECH Menü: eigener Bildschirm 0x2D im Edit Ring](2026-10-14-blech-menue.md)
 - [BLECH Anpassung: untere LEDs und Display-Licht, Software-PWM](2026-10-14-blech-anpassung.md)
 - [Aussehen früh im Start: Zeitlinie und der früheste Punkt](2026-10-16-blech-look-frueh.md)
 - [Pad-LEDs: nur an oder aus, am Gerät gemessen](2026-10-16-pad-led-stufen.md) (am 18.10. widerlegt: Pulsieren pulsiert flüssig)
 - [Display: Schriften und Symbole der Firmware](2026-10-14-display-schriften.md)
-
+- [Firmware in einer anderen Sprache: Korgs Menütexte und ihre Zeiger, Umlaut-Glyphen, Breite, BLECH-Menü, Aufwand, im Emulator und offline](2026-11-19-firmware-sprache.md)
 
 ## Plugins
 
@@ -182,11 +201,30 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Plugin API 23: IFX ON, IFX TYPE, Sample und AMP EG schreibbar, LEDs der Part-Tasten, im Emulator](2026-11-07-plugin-api23-part-writes.md)
 - [Plugin API 24: MIDI-CC wie Regler und Tasten, Part-Edit auf blau, neue Part- und Pattern-Werte, Slices, Fensterschalter, im Emulator](2026-11-08-plugin-api24-part-cc.md)
 - [Plugin-Liste und SPLASH IMPORT als Dateibrowser der Firmware, Pixelvergleich mit IMPORT SAMPLE, im Emulator](2026-11-08-plugin-liste-browser.md)
+- [Spettro: Spektrum des gewählten Parts, Erfassung, FFT und Anzeige auf dem ARM, optionaler Zusatz für den roten Sampler (Hacktribe und Original), im Emulator und am Gerät](2026-11-07-spettro.md)
 - [Rad in der Plugin-Liste, Seite STATE, schnelles Drehen in SPLASH IMPORT wie IMPORT SAMPLE, im Emulator](2026-11-09-menue-liste-rad.md)
 - [Plugin API 25: Tasten, Pads, Encoder und Touchpad wie ein Finger, korg.knob gegen den Regler, im Emulator](2026-11-08-plugin-api25-panel-calls.md)
+- [Plugin API 26: Gerät, Version, Effekt- und Sample-Zahl lesen, im Emulator](2026-11-11-plugin-api26-device-info.md)
+- [Plugin API 27: MFX-2-Typ und Touchpad-Modus lesen und setzen, im Emulator](2026-11-11-plugin-api27-mfx2-touchpad.md)
+- [Plugin API 28: Motion-Spuren lesen, schreiben, löschen und Motion an/aus, im Emulator](2026-11-11-plugin-api28-motion.md)
+- [Plugin API 29: Pad-Modus, Takt, Bildschirm, WRITE-Ereignis, Pattern-Name und Zeichen aus Arrays, im Emulator](2026-11-11-plugin-api29-state-events.md)
+- [Plugin API 30: MIDI senden, midiIn und Typen halten, im Emulator](2026-11-11-plugin-api30-midi.md)
+- [Plugin API 31: Ausgangspegel wie die Pegelanzeige, im Emulator](2026-11-11-plugin-api31-audio-level.md)
+- [Plugin API 31: Spektrum und Wellenform mit dem Spettro-Worker von Luigi (#429), im Emulator](2026-11-12-plugin-api31-spektrum.md)
+- [Platz und Heap für den Spettro-Worker als Dienst der Laufzeit, nur gelesen](2026-11-11-spettro-worker-platz.md)
+- [Plugin API 32: eine Datendatei pro Plugin auf der Karte, im Emulator](2026-11-11-plugin-api32-data-file.md)
+- [Plugin API 33: Samples lesen, Pattern speichern, Part kopieren, im Emulator](2026-11-11-plugin-api33-samples.md)
+- [Plugin API 34: Netzteil oder Batterie, Ladestand, LEDs lesen, im Emulator](2026-11-11-plugin-api34-system.md)
+- [Plugin API 35: veraltete Aufrufe und ihr Ersatz](2026-11-12-plugin-api35-veraltet.md)
+- [Plugin API 37: Energiesparmodus und IDLE SAVE lesen, das Ereignis idle, die Schalter in Byte 7, im Emulator](2026-11-15-plugin-api37-energie.md)
+- [Plugin API 35: Touchpad-Y halten wie korg.touchLockX, im Emulator](2026-11-12-plugin-touch-lock-y.md)
+- [Plugin API 39: ein Ordner mit 16 Datendateien je Plugin, 32 KiB je Datei, Heap im Emulator gemessen](2026-11-17-plugin-daten-heap.md)
 - [Firmwarepfad fuer Part-Parameter, im Emulator geprueft](2026-11-06-part-param-refresh.md)
 - [DSP-Transport bei neuen Part-Bedienungen, im Emulator geprueft](2026-11-07-part-control-dsp-refresh.md)
 - [Part-Werte aus Plugins: Parametersetzer, Auffrischen, Filter-LEDs und MFX SEND wie die Bedienelemente, im Emulator](2026-11-09-plugin-part-dsp.md)
+- [DSP-Modell im Emulator für Prüfungen: Postfach-Nachrichten, Part-Schalter am DSP, Regressionsprüfung Part-Reset (#506)](2026-11-12-dsp-modell.md)
+- [Pegel-LEDs unten: Spitzenpegel des Stereo-Ausgangs aus dem DSP, nicht Velocity; Übersteuerung erkennbar](2026-11-12-pegel-leds.md)
+- [Echter DSP-Code im Blackfin-Simulator: Init und Audioschleife laufen, Noten bleiben still, Weg geparkt](2026-11-12-dsp-im-simulator.md)
 
 - [2026-10-15-doom-engine-build](2026-10-15-doom-engine-build.md)
 
@@ -243,10 +281,17 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [KEY PADS transponieren: Pads 13 bis 16 verschieben die Parts mit SCALE MODE ON und die Tastatur um -1 bis +2 Oktaven, im Emulator](2026-11-15-key-pads-transpose.md)
 - [FILTER TOGGLE fest eingebaut: SHIFT + Filtertaste schaltet das Filter aus und an, mit dem Fenster der Firmware, im Emulator](2026-11-08-filter-toggle-eingebaut.md)
 - [AUTO SAVE: GLOBAL PARAMETERS und BLECH-Einstellungen speichern sich beim Verlassen, nur mit Änderung, im Emulator](2026-11-09-auto-save.md)
+- [BPM GLIDE fest eingebaut: GLIDE CHAIN und GLIDE SWITCH in FEATURES, Tempo gleitet zum nächsten Pattern, im Emulator](2026-11-15-bpm-glide.md)
+- [BATTERY %: Ladestand in Prozent neben dem Batteriesymbol, Kartensymbol auf dem Hauptbildschirm bei 94, Panel-Nachricht 6 als Rohwert, Entladekurve am Gerät gemessen (oben geschätzt), im Emulator](2026-11-16-batterie-prozent.md)
+- [Hänger nach EXEC-Tastendrücken: der nächste Werkzeugstart nach EXEC bekommt keine Antwort, Ursache offen, am Gerät](2026-11-15-remote-exec-haenger.md)
 - [ORIG im BLECH-Menü wie auf den Seiten der Firmware; Spielhilfen mit einer erst nach dem Start eingesteckten Karte, im Emulator](2026-11-11-orig-und-karte-spaeter.md)
 - [Die später gesteckte Karte bringt ihre ganze Einstellungsdatei mit, auch beim Kartentausch, im Emulator](2026-11-12-karte-spaeter-einstellungen.md)
 - [Karte steckt, aber "No Card.": die Init-Sperre in Korgs SD-Treiber und das einmalige Neu-Lesen, am Gerät und im Emulator](2026-11-14-karte-init-sperre.md)
 - [BLECH-Einstellungen ohne Karte im Flash: zwei Sektoren im Wechsel, die Karte gewinnt beim Start, beim Einstecken fragt das Display SAVE TO FLASH?, im Emulator](2026-11-13-einstellungen-flash.md)
+- [Startbild-Editor auf der blauen: SPLASH IMPORT, DRAW und RESET, Bild im Flash-Sektor 0x7F0000, im Emulator](2026-11-13-startbild-editor-blau.md)
+- [Media-Ordner: Startbild und Ladeanimation von der Karte, Einstellung in Byte 14 der BLLA-Datei, im Emulator](2026-11-14-media-ordner.md)
+- [korg.file.picture: Polarität gegen Startbild und DISPLAY INVERT, Lesezeit gegen das Rahmenbudget, im Emulator](2026-11-16-media-polaritaet.md)
+- [Image Viewer: Handler, Kartenzeit je Bild und Rahmenzeit beim Abspielen auf Hacktribe, Korg rot und blau, im Emulator](2026-11-16-image-viewer-timing.md)
 - [KNOB LEDS: die LEDs hinter den Reglern aus, im Emulator](2026-11-12-knopf-leds.md)
 - [Poly-Steps mit mehreren Noten in Pink](2026-10-19-poly-pads-pink.md)
 - [Alten Kartenordner beim ersten Start übernehmen](2026-10-19-ordner-uebernehmen.md)
@@ -274,6 +319,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [MANAGE PLUGINS: 64 Dateien statt 16, REMOVE löscht die Datei, OFF behält sie](2026-10-30-plugin-liste-64-entfernen.md)
 - [Plugins schreiben Steps: korg.seq, im Emulator geprüft](2026-10-26-plugin-steps.md)
 - [Die Ansicht des nächsten Patterns: Pads und Info-Texte](2026-10-25-pattern-ansicht.md)
+- [Vorschau-BPM: die BPM oben zeigt beim Ansehen das Tempo des angesehenen Patterns, Tempo-Widget und Setter, im Emulator](2026-11-19-vorschau-bpm.md)
 - [Test-Modus und Fernbedienung aller Bedienelemente über die Warteschlange des Panels](2026-10-29-test-modus-fernsteuerung.md)
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)
 - [Karte im Betrieb getauscht: neue Karte wird mit 12,5 MHz identifiziert](2026-11-14-karte-tausch-takt.md)
@@ -285,6 +331,8 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Effekte aus dem Katalog fest in der Firmware](2026-10-23-fx-katalog-fest.md)
 - [Slap Delay und Long Delay im Insert](2026-10-25-ifx-delays.md)
 - [Neue Katalog-Effekte für Bass, Kick, Verzerrung und Mix: was der Emulator prüft und was nicht](2026-11-11-neue-effekte.md)
+- [Stufe 1 und Stufe 2 im DSP-Simulator: alle 400 Paare](2026-11-13-stufe2-simulation.md)
+- [Eigener Speicher für Stufe 2: Ursache der Abstürze und der Patch](2026-11-13-stufe2-speicher.md)
 - [Flash-Karte aus dem Code](2026-10-24-flash-karte.md)
 - [Der Stack bei 0xC274E000 und wer den RAM darüber nutzt](2026-10-24-ram-task-stack.md)
 - [USB: was das Gerät anbietet und was eine zweite Schnittstelle bräuchte](2026-10-24-usb.md)
@@ -312,7 +360,9 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Part-Werte schreiben wie ein Regler, Steps kopieren und speichern (API 14)](2026-11-02-part-werte-schreiben.md)
 - [Hacktribe und die Samples: Quellen, Befunde, offene Fragen](2026-11-06-hacktribe-samples.md)
 - [Hacktribe-Oszillatoren auf den freien Plätzen 422 bis 497 der roten Firmware](2026-11-08-ht-osc-freie-plaetze.md)
+- [Osterei auf der Seite VERSION, Freischaltung im Flash, Sample 500 offen](2026-11-09-osterei-version.md)
 - [Hacktribes Extra-Effekte, Grooves und Touch-Skalen auf der roten 2.02: was als Datenpatch geht](2026-11-10-hacktribe-extras-rot.md)
 - [Hacktribes Master-Effekte als Nachbau auf MFX 33 bis 36 der roten 2.02, Katalog ab 37, im Emulator](2026-11-17-hacktribe-master-rot.md)
+- [Patterns-Ordner: Export, Import-Browser, Laden beim Start, Globals](2026-11-14-patterns-ordner.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)

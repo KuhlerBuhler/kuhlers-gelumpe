@@ -57,8 +57,9 @@ class Caller(Dev):
     def call_clean(self, func, *args):
         import unicorn
         m, uc, arm = self.m, self.m.uc, self.m.A
+        func, tick = self.a(func), self.a(TICK)
         hit = []
-        hook = uc.hook_add(unicorn.UC_HOOK_CODE, lambda u, a, s, d: (hit.append(1), u.emu_stop()), begin=TICK, end=TICK)
+        hook = uc.hook_add(unicorn.UC_HOOK_CODE, lambda u, a, s, d: (hit.append(1), u.emu_stop()), begin=tick, end=tick)
         uc.ctl_flush_tb()
         end = m.time_ns / 1e9 + 2.0
         while not hit and m.time_ns / 1e9 < end:

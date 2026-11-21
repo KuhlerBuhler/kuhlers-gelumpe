@@ -37,6 +37,7 @@ zu einem Protokoll mit Sperren und Handshakes.
 | VSB-Zuordnung `[0xC0000000, 0xC0200000)` | **Gemessen am Abbild:** 2 MiB gemischter Programmcode und statischer Daten hinter 0x100 Byte Dateikopf | Keine pauschale Schreibfreigabe für das Abbild |
 | `FF`-Block im Abbild `[0xC01A2100, 0xC01FFFF0)` | **Gemessen am Gerät:** im RAM-Dump vollständig `0xFF`, 375 KiB am Stück ([Plugin-Laufzeit](hintergrund/skript-laufzeit.md)). Der Code des MFX-2-Patches ab `0xC01A5000` läuft dort am Gerät ([MFX 2 am Gerät](messungen/2026-10-13-mfx-umschalter-geraet.md)) | Keine Freigabe für Schreibzugriffe des Editors (`allowedRegions()`); Patches des Patchers legen dort ihren Code ab ([Patcher](patcher.md)) |
 | Analysefenster `[0xC0000000, 0xC00A3290)` | **Gemessen offline:** Kernel-/ARM-Routinen untersucht, darunter Dateiverarbeitung und DSP-Zugriff; keine lückenlose Trennung von Code, Literalen und Daten | Code/Literale grundsätzlich schützen; Grenze ist eine Analysegrenze, keine bewiesene letzte Codeadresse |
+| Sprachbereich `[0xC016C000, 0xC0170000)` | **Gemessen am Abbild:** in allen drei Builds `0xFF` (Teil von MORE3, `0xC015027C` bis `0xC0170000`), kein Patch und der Emulator schreiben ihn. Reserviert für den optionalen Patch `lang-de` (Texte, Texttabellen, Glyphen; [Firmware-Sprache](firmware-sprache.md)); der Code der Laufzeit endet davor (`script_hooks.py:LANG`) | Statische Bytes von `lang-de`, kein Zustand; keine Freigabe für Schreibzugriffe des Editors |
 | `[0xC0170540, 0xC0171FEC)` | **Gemessen offline:** untersuchter SysEx-Hook-/eingebetteter Loaderbereich mit Cache-/Startcode | Keine normalen Tabellenedits; keine Freigabe für Execute oder Bootloader |
 | IFX `[0xC00A80F0, 0xC00B4DA0)` | **Gemessen am Gerät:** 100 Records à 0x20C Byte | Bestehender FX-Plan plus Inhaltsprüfungen; unbekannte Recordbytes nicht neu erzeugen |
 | MFX `[0xC00B4F30, 0xC00C1BE0)` | **Gemessen am Gerät:** 100 Records à 0x20C Byte | Wie IFX; Indexgrenzen und Recordart prüfen |
@@ -193,7 +194,8 @@ weiter lesen, Sicherung und Prüfung brauchen das.
 
 | Id | Raum | Intervall | Ausnahme | Status |
 |---|---|---|---|---|
-| `firmware-image` | RAM | `[0xC0000000, 0xC0200000)` | FX-Tabellen, Menüzähler | gemessen |
+| `firmware-image` | RAM | `[0xC0000000, 0xC0200000)` | FX-Tabellen, Menüzähler | gemessen; mit DEV MODE offen bis auf `devClosed` |
+| `dev-closed-N` | RAM | 95 Bereiche im Abbild (`data/dev-closed.mjs`) | keine, auch mit DEV MODE gesperrt | gemessen (Emulator, `2026-11-14-dev-mode-sperrbereiche.md`) |
 | `sysex-hook` | RAM | `[0xC0170540, 0xC0171FEC)` | keine | gemessen |
 | `task-stacks` | RAM | `[0xC0200000, 0xC03167A8)` | keine | gemessen |
 | `task-control-blocks` | RAM | `[0xC06A24E4, 0xC06A2624)` | keine | gemessen |

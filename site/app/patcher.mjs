@@ -16,9 +16,7 @@ import { recogniseBlech } from "../../src/blech-update.mjs";
 import { t, tNodes } from "./i18n.mjs";
 import { number } from "../../src/text.mjs";
 import { isZip, unzipEntry } from "../../src/zip.mjs";
-import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, optionFor, patchLabel, withLoadingAnim, restoreOriginal, canRestore, runsHacktribe, runningFolder, goalsFor, goalMismatch, korgBlueForSampler } from "../../src/patcher.mjs";
-import { LOADING_ANIM_ID } from "../../src/loading-anim.mjs";
-import { storedAnimation } from "./loading-anim.mjs";
+import { wayOf, classify, convertStock, KORG_DOWNLOADS, withHead, headFor, folderOf, choosesDevice, hardwareOfFlow, sampleFolder, loadBlechSet, itemsFor, checkName, checkDetail, checkProgress, clock, newFlow, step, allowed, verifiedReport, VERIFIED_URL, BLECH_FOLDER, DOOM_FOLDER, DOOM_FILES, hasDoom, VSB_SIZE, HACKTRIBE_PATCH_URL, HACKTRIBE_PATCH_RAW, HACKTRIBE_SHA256, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS, LANG_DE_URLS, optionFor, patchLabel, restoreOriginal, canRestore, runsHacktribe, runningFolder, goalsFor, goalMismatch, korgBlueForSampler } from "../../src/patcher.mjs";
 import { testFailure } from "../../data/rescue.mjs";
 import { RESCUE_EVENT } from "./rescue.mjs";
 /** An error of this page opens Blechy at its topic (data/rescue.mjs). */
@@ -97,6 +95,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   let taking = 0;               // files being read and classified: Weiter must not load Korg's over the one that is on its way
   let downloadStarted = false;  // the browser started Korg's zip: the field for it opens
   let usbNames = null;          // the variants of the optional patch usb-name, once loaded
+  let langDes = null;           // the variants of the optional patch lang-de, once loaded
   let hint = null;
   let updating = null;          // the file already carries BLECH of a known release: { present, options }, the set goes over it (src/blech-update.mjs)
   let knownReleases;            // data/known-releases.json, loaded when a file with BLECH is taken; null when it cannot be had
@@ -220,10 +219,17 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   const usbName = el("input", { type: "checkbox", id: "cee-patch-usb-name" });
   usbName.addEventListener("change", () => { passed = null; dispatch({ type: "options" }); });
   const usbNameNote = el("p", { className: "muted", id: "cee-patch-usb-name-note", textContent: t("patcher.usbName.note") });
+  // German menus (docs/firmware-sprache.md)
+  const langDe = el("input", { type: "checkbox", id: "cee-patch-lang-de" });
+  langDe.addEventListener("change", () => { passed = null; dispatch({ type: "options" }); });
+  const langDeNote = el("p", { className: "muted", id: "cee-patch-lang-de-note", textContent: t("patcher.langDe.note") });
+  const langDeBox = el("label", { className: "cee-check", id: "cee-patch-lang-de-box" }, [langDe, el("span", { textContent: t("patcher.langDe") })]);
   const blechBox = el("section", { className: "cee-patch-choice", id: "cee-patch-blech" }, [
     blechDrop,
     el("label", { className: "cee-check", id: "cee-patch-usb-name-box" }, [usbName, el("span", { textContent: t("patcher.usbName") })]),
     usbNameNote,
+    langDeBox,
+    langDeNote,
   ]);
   const withHacktribe = el("input", { type: "checkbox", id: "cee-patch-hacktribe-use" });
   withHacktribe.addEventListener("change", () => chooseRoute(withHacktribe.checked ? "hacktribe" : "direct"));
@@ -597,21 +603,24 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     return blech;
   }
 
-  /** The variants of the optional patch usb-name, one per hardware. */
-  async function loadUsbNames() {
-    usbNames ??= await Promise.all(USB_NAME_URLS.map(async url => {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(t("patcher.loadFailed", { url }));
-      return res.json();
-    }));
-    return usbNames;
-  }
+  /** The variants of an optional patch, parsed. */
+  const loadVariants = urls => Promise.all(urls.map(async url => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(t("patcher.loadFailed", { url }));
+    return res.json();
+  }));
 
   /** The optional patches the user picked, in the variant for the input's build. */
   async function options() {
-    if (!usbName.checked || !input) return [];
-    const patch = optionFor(await loadUsbNames(), buildOf(input));
-    return patch ? [patch] : [];
+    if (!input) return [];
+    const picked = [];
+    if (usbName.checked) picked.push(optionFor(usbNames ??= await loadVariants(USB_NAME_URLS), buildOf(input)));
+    if (langDe.checked) {
+      const patch = optionFor(langDes ??= await loadVariants(LANG_DE_URLS), buildOf(input));
+      if (!patch) throw new Error(t("patcher.langDe.failed"));
+      picked.push(patch);
+    }
+    return picked.filter(Boolean);
   }
 
   /** The list of copies that passed already; without it every copy is checked. */
@@ -755,6 +764,9 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     const locked = !!updating?.present.includes("usb-name");
     usbName.disabled = can.busy || locked;
     usbNameNote.textContent = t(locked ? "patcher.update.locked" : "patcher.usbName.note");
+    const langLocked = !!updating?.present.includes("lang-de");
+    langDe.disabled = can.busy || langLocked;
+    langDeNote.textContent = t(langLocked ? "patcher.update.locked" : "patcher.langDe.note");
     blechInfo.textContent = ownPatch ? t(ownPatch.label) : "";
     blechDrop.toggleAttribute("data-filled", !!ownPatch);
     // The field says which file it holds and what it is; pick() empties the input, so ui.js cannot show the name.
@@ -842,11 +854,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
   /** What goes on the file: the set of this version for its build, or the patches of the BLECH.patch the user brought. */
   function planItems() {
     // one line per patch: the variant for this firmware (a BLECH.patch carries one per build)
-    const extra = usbName.checked && input ? [{ id: "usb-name", label: t("patcher.usbName") }] : [];
-    // the own loading animation from the Design page goes on only where load-bar does, which reads it
-    const withAnim = items => (storedAnimation() && items.some(p => p.id === "load-bar") ? [...items, { id: LOADING_ANIM_ID, label: t("patcher.patch.loadingAnim") }] : items);
-    if (ownPatch) return input ? [...withAnim(itemsOf(ownPatch, base(), patchLabel)), ...extra] : [];
-    return blech && input ? [...withAnim(itemsFor(blech, buildOf(input))), ...extra] : [];
+    const extra = !input ? [] : [
+      ...(usbName.checked ? [{ id: "usb-name", label: t("patcher.usbName") }] : []),
+      ...(langDe.checked ? [{ id: "lang-de", label: t("patcher.langDe") }] : []),
+    ];
+    if (ownPatch) return input ? [...itemsOf(ownPatch, base(), patchLabel), ...extra] : [];
+    return blech && input ? [...itemsFor(blech, buildOf(input)), ...extra] : [];
   }
 
   blechInput.addEventListener("change", async () => {
@@ -984,6 +997,7 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         kind = { kind: buildOf(bytes), size: bytes.length, sha256: kind.sha256, reasons: [], present: [], hardware: hardwareOf(bytes) };
         if (usb) usb = { fromOriginal: true };
         usbName.checked = usbName.checked || known.present.includes("usb-name");
+        langDe.checked = langDe.checked || known.present.includes("lang-de");
         toast(t("patcher.update.found"), "info");
       } else if (canRestore(bytes)) {
         restored = await restoreFromKorg(bytes);
@@ -1138,11 +1152,12 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
         const more = await applyPatches(res.bytes, extra);
         res = more.ok ? { ...more, spans: [...res.spans, ...more.spans], allow: [...res.allow, ...more.allow], allowCode: [...res.allowCode, ...more.allowCode] } : more;
       }
-      res = await withLoadingAnim(res, items.some(p => p.id === LOADING_ANIM_ID) ? storedAnimation() : null);
       if (!res.ok) {
         for (const p of items) {
           const own = res.reasons.filter(r => r.startsWith(`${p.id}:`)).map(r => r.slice(p.id.length + 2));
-          dispatch({ type: "patch", id: p.id, ok: false, detail: own.length ? own.join(" ") : t("patcher.patch.waiting") });
+          // lang-de's reasons are hashes of Korg's bytes; the user needs to hear that it fits only BLECH's own files
+          const detail = own.length && p.id === "lang-de" ? t("patcher.langDe.failed") : own.length ? own.join(" ") : t("patcher.patch.waiting");
+          dispatch({ type: "patch", id: p.id, ok: false, detail });
         }
         failure = { group: "patch" };
         throw new Error(t("patcher.patch.failed", { reasons: res.reasons.join(" ") }));
