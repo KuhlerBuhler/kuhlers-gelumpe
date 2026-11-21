@@ -118,7 +118,7 @@ const BOOT_CHECKS = ["boot:normal", "boot:normal_blank", "update_offer", "panel_
 export const TEST_AREAS = {
   menu: "rescue.area.menu", shortcut: "rescue.area.menu", meter_led: "rescue.area.menu", load_meter: "rescue.area.menu", idle_save: "rescue.area.menu", bpm_glide: "rescue.area.menu", battery_percent: "rescue.area.menu", lang: "rescue.area.menu",
   pswitch: "rescue.area.pattern", lastpattern: "rescue.area.pattern", initpattern: "rescue.area.pattern", patterns: "rescue.area.pattern",
-  "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples", "import-slots": "rescue.area.samples", "ht-osc": "rescue.area.samples", usersamples: "rescue.area.samples",
+  "sample-errors": "rescue.area.samples", "stereo-pad": "rescue.area.samples", "import-slots": "rescue.area.samples", "ht-osc": "rescue.area.samples", usersamples: "rescue.area.samples", samplecat: "rescue.area.samples",
   splash: "rescue.area.start", loadbar: "rescue.area.start", migrate: "rescue.area.start", updateguard: "rescue.area.start",
   fxcard: "rescue.area.card", cardfault: "rescue.area.card", presets: "rescue.area.card", power_off: "rescue.area.card",
   mfx: "rescue.area.sound", ifxidle: "rescue.area.sound", synthfilter: "rescue.area.sound",

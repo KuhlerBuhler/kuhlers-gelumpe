@@ -44,10 +44,11 @@ STEPS_AT = 1168                   # esli: the slice step count; with it a mono s
 
 
 def has_hooks(payload):
-    """True when both slots of screen 38 jump into our code (the Sampler's builds with the BLECH menu)."""
+    """True when both slots of screen 38 branch into our code (the Sampler's builds with the BLECH menu)."""
     if synthaddr.is_synth(payload):
         return False
-    return all(struct.unpack_from("<I", payload, at - IMAGE)[0] != FIRST_WORD for at in SITES)
+    words = [struct.unpack_from("<I", payload, at - IMAGE)[0] for at in SITES]
+    return all(w != FIRST_WORD and w >> 24 == 0xEA for w in words)
 
 
 def entry(name, ok, detail):
