@@ -103,6 +103,7 @@ const PATCH_LABELS = {
   "last-pattern": "features.lastPattern.title",
   "init-pattern": "features.initPattern.title",
   "stereo-pad": "features.stereoPad.title",
+  "tube-curve": "patcher.patch.tubeCurve",
   "ht-osc": "features.htOsc.title",
   "beat-eighth": "features.beatEighth.title",
   "touch-scale-zero": "features.touchScaleZero.title",

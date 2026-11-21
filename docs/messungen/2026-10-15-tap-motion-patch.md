@@ -83,6 +83,17 @@ geht also mit WRITE.
   halten dabei den letzten Wert (bei den Parts werden sie still), die Wiedergabe schreibt nichts mehr. TAP bei Schritt 24 im nächsten Lauf: ab Schritt 25 spielen sie wieder wie aufgenommen.
 - **Der Effekt geht aus (gemessen, `mfx_pad_let_go`).** Die dritte Spur ist der Schalter "MFX Pad An/Aus". Schaltet man mitten in der Geste aus, käme das Loslassen nie, der Effekt bliebe an. Der Patch lässt das Pad dann los
   (`0xC0057C28(0)`, sofern kein Finger auf dem Pad liegt): der Zustand steht ab dem Schritt des Eingriffs auf 0 und kommt beim Wiedereinschalten ab dem nächsten Schritt zurück.
+- **Und noch einmal danach (Gerät 20.11., Emulator `mfx_pad_let_go_again`).** Am Gerät blieb MFX 2 nach TOUCH SCALE + TAP mitten in einer Geste hörbar an, bis man das Pad
+  kurz berührte. Im Emulator geht das Pad auch dort los (Zustand 0, am DSP Code 0 des Master-FX-Felds auf 0, wie beim natürlichen Ende der Geste). Hergeleitet, nicht gemessen:
+  TOUCH SCALE (und MASTER FX aus MFX 2) wechselt den Effekttyp, die neue Einheit wird mit "Pad an" geladen (Feld 40, Code 0 = 0x100), und am Gerät
+  kommt dieses Laden nach dem Loslassen an; das DSP-Modell des Emulators lädt sofort und zeigt es nicht. Der Patch lässt das Pad deshalb beim Ausschalten immer los
+  (nicht nur, wenn der Zustand an sagt) und danach in jedem Bild der UI-Task noch einmal, 30 Bilder lang (etwa 1,1 s im Emulator), solange die Motion aus bleibt und kein
+  Finger auf dem Pad liegt (Byte `+0x40`). Am Gerät offen.
+- **Der Setter allein lässt den DSP angefasst (Gerät 20.11. abends, Emulator `touch_scale_looper_lets_go`).** Auch mit dem Loslassen oben spielte am Gerät der
+  Looper (MFX 2 auf TOUCH SCALE) nach TOUCH SCALE + TAP mitten in der Geste an der Stelle weiter. Nachgestellt mit dem DSP-Modell: `0xC0057C28(0)` setzt nur den
+  Pad-Zustand, Code 0 des Master-FX-Felds bleibt 0x100. Die Wiedergabe lässt das Pad anders los: sie ruft `0xC0058B98(Spur 0x11, Control 0x13, Wert, 1)`
+  (Aufrufer 0xC00593E8 und 0xC0059614), und erst dieser Weg schickt Code 0 = 0 an den DSP. Der Patch ruft beim Ausschalten und in den 30 Bildern danach beides.
+  Blau: 0xC004F98C (gleiche erste 20 Byte, Aufrufer 0xC0050214 prüft Spur 0x11 und Control 0x13 vor dem Pad-Setter 0xC004EA1C). Am Gerät offen.
 - **Das Part-Byte bleibt unberührt, die Lampe zeigt Master FX nur bei gehaltener Taste (gemessen, `mfx_leaves_the_part_alone`, `mfx_led_while_held`).**
 - **Aufnahme und Spielen von Hand bleiben (gemessen, `mfx_off_still_records_and_plays_live`).** Mit dem Byte auf 0 nimmt die Firmware eine Geste trotzdem auf (drei Spuren) und ein Griff ins Pad wirkt wie immer.
 
