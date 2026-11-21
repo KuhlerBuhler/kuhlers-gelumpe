@@ -162,6 +162,8 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [Ladebalken im Startbild (Idee 41): gebaut und im Emulator geprüft](2026-10-15-ladebalken.md)
 - [Sample-Fehler: ein Sample überspringen und sagen, welches (und die Werksbank des leeren Flash)](2026-10-15-sample-fehler.md)
 - [IMPORT SAMPLE auf Werks-Slots: Zielwähler, welche Slots der Import annimmt, Speichern, im Emulator](2026-11-16-import-werks-slots.md)
+- [Sample-Kategorie "Wave" auf Hacktribe: liest HT eine e2sSample.all ohne Wave-Sample, im Emulator](2026-11-17-sample-kategorie-wave.md)
+- [Sample-Kategorie in SAMPLE EDIT: Seite CATEGORY, Zähler, Export, Sample mit Slices, im Emulator](2026-11-21-sample-kategorie.md)
 - [Startbild auf der Karte statt im Flash (Idee 35)](2026-10-15-startbild-karte.md)
 - [BLECH Menü: eigener Bildschirm 0x2D im Edit Ring](2026-10-14-blech-menue.md)
 - [BLECH Anpassung: untere LEDs und Display-Licht, Software-PWM](2026-10-14-blech-anpassung.md)
