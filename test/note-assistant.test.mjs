@@ -18,6 +18,7 @@ const CODE = 0x189100;              // file offset of 0xC0189000
 const CODE_END = 0x189900;          // 0xC0189800
 // the replaced words: the first instruction of the keyboard's pad event, the one behind the KEY in the firmware's pad light, and the last one of the LED manager's tick
 const WORDS = [[0x44c3c, 0xc0044b3c], [0x8888c, 0xc008878c], [0x878d4, 0xc00877d4]];
+const OLD_LIGHT = 0x8880c;          // file offset of 0xC008870C
 
 const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIRED === "1";
 const vsb = process.env.E2_VSB;
@@ -43,9 +44,11 @@ test("the note assistant has the v1 format, says what it replaces and declares i
   assert.deepEqual(PATCH.ram.map(r => [r.at, r.length]), [["0xC0189F00", 64]]);
 });
 
-test("it is our code plus three replaced words, each branching into the code, and every hook is declared", () => {
-  assert.equal(PATCH.changes.length, 1 + WORDS.length);
+test("it is our code plus three replaced words, each branching into the code, every hook declared, and the old pad light site put back", () => {
+  assert.equal(PATCH.changes.length, 1 + WORDS.length + 1);
   const [code, ...words] = PATCH.changes;
+  const back = words.pop();
+  assert.deepEqual([back.file, back.bytes], [OLD_LIGHT, "f8432de9"], "1.4.6 hooked the pad light at 0xC008870C; its push {r3-r9, lr} is back");
   const n = fromHex(code.bytes).length;
   assert.ok(code.file === CODE && code.file + n <= CODE_END, `${n} bytes`);
   for (const [i, [file, address]] of WORDS.entries()) {

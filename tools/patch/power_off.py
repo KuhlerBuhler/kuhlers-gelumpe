@@ -209,8 +209,8 @@ def frame_bytes(grid):
 
 
 def write_png(path, grid, scale=4):
-    """The picture as the LCD shows it, for a look."""
-    paper, ink = (174, 183, 154), (27, 36, 20)
+    """The picture as the LCD shows it, for a look: a set pixel in ink, a clear one transparent (RGBA)."""
+    paper, ink = (0, 0, 0, 0), (27, 36, 20, 255)
     raw = bytearray()
     for row in grid:
         line = bytearray([0])
@@ -221,7 +221,7 @@ def write_png(path, grid, scale=4):
     def chunk(kind, body):
         return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
 
-    head = struct.pack(">IIBBBBB", 128 * scale, 64 * scale, 8, 2, 0, 0, 0)
+    head = struct.pack(">IIBBBBB", 128 * scale, 64 * scale, 8, 6, 0, 0, 0)
     Path(path).write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", head) + chunk(b"IDAT", zlib.compress(bytes(raw))) + chunk(b"IEND", b""))
 
 

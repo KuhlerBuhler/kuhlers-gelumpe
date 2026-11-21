@@ -25,10 +25,11 @@ e.g. Hacktribe on Korg's): it changes start code by nature and says nothing abou
 checked at all; every other check, the boots included, stays. While it runs, check.py writes one JSON line {"progress": ...} per finished task to stderr (progress.py); stdout is only the result. A copy that carries the splash editor's start
 hook also has to pass its storage and kill switch cases (splash_cases.py); one with the MFX 2
 switch's key hook has to pass its switch, DSP and kill switch cases (mfx_cases.py); one with the BLECH menu has to pass the menu, settings and look
-cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py), every copy with the BLECH menu the cases of the device from the computer, of the test mode, of the plugin timers, of the plugin edits, of the live write paths, of the touchpad and key calls and of the object tree (remote_cases.py, testmode_cases.py, timer_cases.py, plugin_edit_cases.py, live_write_cases.py, plugin_api15_cases.py, objects_cases.py, plugin_api18_cases.py, plugin_api19_cases.py, global_cases.py, pattern_parts_cases.py, plugin_api22_cases.py, plugin_api23_cases.py, plugin_api24_cases.py, plugin_api25_cases.py, plugin_catalog15_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py); one with the BEAT 8 table entry has to pass its step, clock, menu, WRITE, Gate Arp, export, slice and REC cases (beat_eighth_cases.py); one with TOUCH SCALE RANGE 0 has to pass its menu, note, octave, key, Gate Arp and power-on cases (touch_scale_zero_cases.py); one with the update guard has to refuse a cut short, an empty and a too long SYSTEM.VSB at each read and still update from a whole one (update_guard_cases.py); one with the Hacktribe oscillators has to pass its name, card, knob, voice, pattern, export, EXIT and FEATURES page cases (ht_osc_cases.py); every copy with the BLECH menu the cases of a card that stops answering, a locked card, an SDSC card, a card that damages data and a dead card at the start (card_error_cases.py).
+cases (menu_cases.py); one with the pattern switch has to pass its browse, confirm, EXIT, STOP, chain and stock cases (pswitch_cases.py); one with the TAP motion patch has to pass its toggle, memory, LED, stock, SHIFT, REC, pattern, Master FX and app cases (tap_motion_cases.py); one with the note assistant has to pass its hint, timing, new note, firmware, mode, stock, value and lock cases (note_assist_cases.py); one with the dice has to pass its roll, scale, length, play, LED, key, screen and stock cases (dice_cases.py); one with the idle insert effect has to pass its switch, screen and kill switch cases (ifx_idle_cases.py); a copy with the BLECH menu has to pass the save, reset and kill switch cases of the EXIT shortcuts (shortcut_cases.py) and the copy, skip, choice and no-question cases of the folder copy at the first start (migrate_cases.py), every copy with the BLECH menu the cases of the device from the computer, of the test mode, of the plugin timers, of the plugin edits, of the live write paths, of the touchpad and key calls and of the object tree (remote_cases.py, testmode_cases.py, timer_cases.py, plugin_edit_cases.py, live_write_cases.py, plugin_api15_cases.py, objects_cases.py, plugin_api18_cases.py, plugin_api19_cases.py, global_cases.py, pattern_parts_cases.py, plugin_api22_cases.py, plugin_api23_cases.py, plugin_api24_cases.py, plugin_api25_cases.py, plugin_catalog15_cases.py); one with the loading bar has to pass its overlay, rescue path and stock cases (loadbar_cases.py); one with the sample error patch has to pass its skip, reason, clean, kill switch and factory slot cases (sample_error_cases.py); one with the synth filters has to pass its key, name, LED, pattern load, round trip and EXIT-at-power-on cases (synth_filter_cases.py); one with the tube curve has to pass its page, live write, TUBE DRIVE, WRITE, start and no-patch cases (tube_cases.py); one with the power-off picture's hook has to pass the picture, kill switch and save cases (power_off_cases.py); one with BLECH's SysEx hooks has to pass the protocol, refusal, kill switch and other-SysEx cases (sysex_cases.py); one with the BEAT 8 table entry has to pass its step, clock, menu, WRITE, Gate Arp, export, slice and REC cases (beat_eighth_cases.py); one with TOUCH SCALE RANGE 0 has to pass its menu, note, octave, key, Gate Arp and power-on cases (touch_scale_zero_cases.py); one with the update guard has to refuse a cut short, an empty and a too long SYSTEM.VSB at each read and still update from a whole one (update_guard_cases.py); one with the Hacktribe oscillators has to pass its name, card, knob, voice, pattern, export, EXIT and FEATURES page cases (ht_osc_cases.py); every copy with the BLECH menu the cases of a card that stops answering, a locked card, an SDSC card, a card that damages data and a dead card at the start (card_error_cases.py).
 """
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -62,6 +63,7 @@ from last_pattern_cases import GROUPS as LASTPATTERN_GROUPS, has_hooks as has_la
 from card_error_cases import GROUPS as CARDERROR_GROUPS, has_hooks as has_carderror
 from init_pattern_cases import GROUPS as INITPATTERN_GROUPS, has_hooks as has_initpattern
 from stereo_pad_cases import GROUPS as STEREOPAD_GROUPS, has_hooks as has_stereopad
+from tube_cases import GROUPS as TUBE_GROUPS, has_hooks as has_tube
 from ht_osc_cases import GROUPS as HTOSC_GROUPS, has_hooks as has_htosc
 from beat_eighth_cases import GROUPS as BEATEIGHTH_GROUPS, has_hooks as has_beateighth
 from touch_scale_zero_cases import GROUPS as TOUCHZERO_GROUPS, has_hooks as has_touchzero
@@ -74,10 +76,30 @@ DSP_STREAM = slice(0xF9F10, 0x13C1B0)    # file offsets, RAM 0xC00F9E10..0xC013C
 SYNTH_DSP_STREAM = slice(0xDFC80, 0x1218F4)
 
 
+# DSP patches whose stream change is checked in the QEMU DSP core (tools/dsp/tube_qemu.py, docs/messungen/2026-11-20-roehrenkurve.md).
+DSP_PATCHES = ("tube-curve.json", "tube-curve-synth.json")
+ROOT = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2])   # the app's frozen service unpacks its data files here
+
+
+def known_dsp_changes(base, patched):
+    """The changes of a DSP_PATCHES file that `patched` carries in full on the bytes the patch expects in `base`."""
+    for name in DSP_PATCHES:
+        changes = [(c["file"], bytes.fromhex(c["bytes"]), c["expect"])
+                   for c in json.loads((ROOT / "data" / "patches" / name).read_text())["changes"]]
+        if all(hashlib.sha256(base[at:at + len(new)]).hexdigest() == expect and patched[at:at + len(new)] == new
+               for at, new, expect in changes):
+            yield from ((at, len(new)) for at, new, _ in changes)
+
+
 def same_dsp_program(base, patched):
-    """The complete DSP upload measured for this firmware build is unchanged."""
+    """The complete DSP upload measured for this firmware build is unchanged, apart from a whole DSP_PATCHES patch."""
     span = SYNTH_DSP_STREAM if is_synth(base[HEADER:]) else DSP_STREAM
-    return base[span] == patched[span]
+    if base[span] == patched[span]:
+        return True
+    undone = bytearray(patched)
+    for at, n in known_dsp_changes(base, patched):
+        undone[at:at + n] = base[at:at + n]
+    return base[span] == undone[span]
 
 
 def changed_runs(base, patched):
@@ -172,7 +194,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     add("header", base[:HEADER] == patched[:HEADER], "der Kopf der VSB ist unverändert")
     # The emulator stubs the DSP upload, so a changed DSP stream never shows up in a boot;
     # a broken block can hang the device before the rescue paths.
-    add("dsp_stream", same_dsp_program(base, patched), "der DSP-Strom des Firmware-Builds ist unverändert")
+    add("dsp_stream", same_dsp_program(base, patched), "der DSP-Strom des Firmware-Builds ist unverändert, bis auf einen geprüften DSP-Patch")
     runs = changed_runs(base[HEADER:], patched[HEADER:])
     payload = patched[HEADER:]
     want = lambda has: not quick and (cases is None or has.__module__ in cases) and has(payload)
@@ -219,6 +241,8 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
         tasks += [("init_pattern_cases", "cases_task", (i,)) for i in range(len(INITPATTERN_GROUPS))]
     if want(has_stereopad):
         tasks += [("stereo_pad_cases", "cases_task", (i,)) for i in range(len(STEREOPAD_GROUPS))]
+    if want(has_tube):
+        tasks += [("tube_cases", "cases_task", (i,)) for i in range(len(TUBE_GROUPS))]
     if want(has_htosc):
         tasks += [("ht_osc_cases", "cases_task", (i,)) for i in range(len(HTOSC_GROUPS))]
     if want(has_beateighth):
@@ -294,6 +318,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     carderror = [c for _ in range(len(CARDERROR_GROUPS) if want(has_carderror) else 0) for c in done.pop(0)]
     initpattern = [c for _ in range(len(INITPATTERN_GROUPS) if want(has_initpattern) else 0) for c in done.pop(0)]
     stereopad = [c for _ in range(len(STEREOPAD_GROUPS) if want(has_stereopad) else 0) for c in done.pop(0)]
+    tube = [c for _ in range(len(TUBE_GROUPS) if want(has_tube) else 0) for c in done.pop(0)]
     htosc = [c for _ in range(len(HTOSC_GROUPS) if want(has_htosc) else 0) for c in done.pop(0)]
     beateighth = [c for _ in range(len(BEATEIGHTH_GROUPS) if want(has_beateighth) else 0) for c in done.pop(0)]
     touchzero = [c for _ in range(len(TOUCHZERO_GROUPS) if want(has_touchzero) else 0) for c in done.pop(0)]
@@ -350,6 +375,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     checks.extend(carderror)
     checks.extend(initpattern)
     checks.extend(stereopad)
+    checks.extend(tube)
     checks.extend(htosc)
     checks.extend(beateighth)
     checks.extend(touchzero)
@@ -370,7 +396,7 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
 CASE_MODULES = ("mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases", "note_assist_cases",
                 "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
                 "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-                "init_pattern_cases", "stereo_pad_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases")
+                "init_pattern_cases", "stereo_pad_cases", "tube_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases")
 
 
 def case_list(text):

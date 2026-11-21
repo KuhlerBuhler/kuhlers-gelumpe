@@ -109,9 +109,10 @@ export function selectFor(patches, build) {
  * `dependencies` are hook dependencies between the patches, reported and not refused.
  * `refresh(kind, name, record)` says whether a preset an append patch names goes over the one of that name the file has, which an older release put there.
  * `accept(file, length, sha256)` may take a region as it is although it is not the one the patch expects (src/blech-update.mjs).
+ * `held` lists [file, length, patch id] of hook sites an older release wrote into the file; one the patches leave out is a refusal.
  * @returns {Promise<{ok: boolean, bytes?: Uint8Array, reasons: string[], dependencies: string[], spans: object[], allow: number[][], allowCode: number[][]}>}
  */
-export async function applyPatches(vsb, patchList, { accept, refresh = null } = {}) {
+export async function applyPatches(vsb, patchList, { accept, refresh = null, held = [] } = {}) {
   const reasons = [];
   const spans = [];
   const none = (why, dependencies = []) => ({ ok: false, reasons: why, dependencies, spans, allow: [], allowCode: [] });
@@ -150,6 +151,11 @@ export async function applyPatches(vsb, patchList, { accept, refresh = null } = 
       bytes.set(at.bytes, at.file);
       spans.push({ patch: patch.id, file: at.file, length: at.bytes.length, field: at.field ?? null });
     }
+  }
+  for (const [file, length, id] of held) {
+    const written = new Uint8Array(length);
+    for (const s of spans) for (let at = Math.max(file, s.file); at < Math.min(file + length, s.file + s.length); at++) written[at - file] = 1;
+    if (!written.every(Boolean)) reasons.push(`${id}: an 0x${file.toString(16)} steht noch ein Sprung einer älteren BLECH-Version, den dieser Satz nicht überschreibt`);
   }
   reasons.push(...checkRam(patches.filter(p => p?.format === PATCH_FORMAT && Array.isArray(p.changes)), { written: false }));
   if (reasons.length) return { ok: false, reasons, dependencies, spans, allow: [], allowCode: [] };

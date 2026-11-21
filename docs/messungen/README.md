@@ -58,7 +58,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [Effekte aus e2sFx.all beim Start an den DSP, Status unter VERSION, SPLASH IMPORT als Dateiliste, im Emulator](2026-11-05-effekte-start-splash-liste.md)
 - [SPLASH IMPORT: Name ohne Zeile darüber, lange Namen gekürzt, VERSION mit Effektstatus in einer Zeile, im Emulator](2026-11-08-splash-import-wertzeile.md)
 - [Eigene Insert- und Master-Effekte auf der blauen Electribe 2: was es kostet](2026-11-08-blau-eigene-effekte.md)
-
+- [Röhrenkurve statt Soft-Clipper am Ausgang, im QEMU-DSP-Kern und im Emulator](2026-11-20-roehrenkurve.md)
 
 ## SysEx und Transport
 
@@ -107,6 +107,7 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 - [Bedienfeld: Nummern der Tasten, Regler, Pads und LEDs](2026-10-08-panel-bedienung.md)
 - [LEDs selbst setzen: Execute, Caches, RGB](2026-10-08-led-execute.md)
 - [Hänger im Emulator erkennen](2026-10-10-haenger.md)
+- [Karte im laufenden Emulator gesteckt: "hängt" war ein Fehlalarm des Dienstes, kein Firmware-Hänger](2026-11-19-karte-stecken-emulator-haengt.md)
 - [Emulator-Takt: 1000 Timer-Interrupts je Sekunde](2026-10-12-emulator-takt.md)
 - [Display-Helligkeit: die Firmware schaltet nur an und aus](2026-10-12-lcd-helligkeit.md)
 - [Emulator-Tempo: Zeit je Gerätesekunde](2026-10-13-emulator-tempo.md)

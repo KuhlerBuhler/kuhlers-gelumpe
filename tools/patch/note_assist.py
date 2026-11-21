@@ -93,11 +93,13 @@ PAD_BODY = 0xC0044B40
 LIGHT_HOOK = 0xC008878C         # ldr r4, [pc, #0x94] (the keyboard object's pointer), behind the KEY taken off the note
 LIGHT_WORD = 0xE59F4094
 LIGHT_BODY = 0xC0088790
+OLD_LIGHT_HOOK = 0xC008870C     # push {r3, r4, r5, r6, r7, r8, sb, lr}: BLECH up to 1.4.6 hooked the pad light here
+OLD_LIGHT_WORD = 0xE92D43F8
 TICK_HOOK = 0xC00877D4          # pop {r4, r5, r6, pc}, the end of the LED manager's tick
 TICK_WORD = 0xE8BD8070
 
 
-FIRMWARE_PLACES = ["PAD_HOOK", "PAD_BODY", "LIGHT_HOOK", "LIGHT_BODY", "TICK_HOOK"]    # the .equ lines of SOURCE hold the other firmware places
+FIRMWARE_PLACES = ["PAD_HOOK", "PAD_BODY", "LIGHT_HOOK", "LIGHT_BODY", "OLD_LIGHT_HOOK", "TICK_HOOK"]    # the .equ lines of SOURCE hold the other firmware places
 BUILD = "hacktribe"
 
 
@@ -786,6 +788,7 @@ def build_patch(vsb, build="hacktribe"):
         (TICK_HOOK, TICK_WORD, "the LED manager's tick does not end with pop {r4, r5, r6, pc}"),
         (PAD_BODY, 0xE1A04000, "the keyboard's pad event does not go on with mov r4, r0"),
         (LIGHT_BODY, 0xE5943000, "the firmware's pad light does not go on with ldr r3, [r4]"),
+        (OLD_LIGHT_HOOK, OLD_LIGHT_WORD, "the firmware's pad light does not start with push {r3, r4, r5, r6, r7, r8, sb, lr}"),
     )
     for addr, want, why in expected:
         if word(addr) != want:
@@ -807,6 +810,8 @@ def build_patch(vsb, build="hacktribe"):
             hook(PAD_HOOK, "pad_hook", "first instruction of the keyboard's pad event jumps to the hook"),
             hook(LIGHT_HOOK, "light_hook", "the firmware's pad light jumps to the hook once the KEY is off the note"),
             hook(TICK_HOOK, "tick_hook", "last instruction of the LED manager's tick jumps to the hook"),
+            {"file": file_offset(OLD_LIGHT_HOOK), "bytes": struct.pack("<I", OLD_LIGHT_WORD).hex(), "expect": sha(was(OLD_LIGHT_HOOK, 4)),
+             "note": "the pad light's first instruction as the firmware has it: BLECH up to 1.4.6 jumped to its hook from here, and an update over such a file (src/blech-update.mjs) keeps a hook site the set does not write"},
         ],
         "hooks": [
             declare(PAD_HOOK, "pad-note", "remembers the note of a pad that goes down in KEYBOARD mode"),
