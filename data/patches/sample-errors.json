@@ -42,7 +42,7 @@
    "file": 323340,
    "bytes": "bdd0049a",
    "expect": "ecb67ff66d05c05974c537f258752406779dadcf52d1279396862d0b3909bcc1",
-   "note": "the branch that refuses a slot of a category no sample may have goes to a stub that notes it"
+   "note": "the branch that refuses an oscillator slot (wave number up to 49) goes to a stub that notes it"
   },
   {
    "file": 323408,
@@ -259,7 +259,7 @@
    "chain": "sample-errors",
    "position": "before",
    "swallow": false,
-   "note": "the branch that refuses a slot of a category no sample may have goes to a stub that notes it"
+   "note": "the branch that refuses an oscillator slot (wave number up to 49) goes to a stub that notes it"
   },
   {
    "site": "0xC004EE50",
