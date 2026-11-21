@@ -93,6 +93,7 @@ const PATCH_LABELS = {
   "pad-colors": "features.colors.title",
   "load-bar": "features.loading.title",
   "sample-errors": "features.sampleErrors.title",
+  "sample-swap": "features.moreSamples.title",
   "script-runtime": "features.plugins.title",
   "splash": "patcher.patch.splash",
   "blech-theme": "features.theme.title",

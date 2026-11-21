@@ -6,6 +6,12 @@ und Dateiausgabe wurden je Test ersetzt. Kein Geräteaufruf dieser Routinen.
 
 ## Lesen und Export
 
+Ergänzung vom 06.11.2026: Der WAV-Schreiber `0xC0039B2C` erhält den
+Dateizeiger in R1, den Deskriptor in R2, den DSP-Byteoffset in R3 und die
+PCM-Bytezahl auf dem Stack. Eingangs-R0 wird für die Pufferzuordnung nicht
+verwendet. Prolog und Aufrufer in beiden roten Originalen sind in der
+[neuen Pufferanalyse](2026-11-06-sample-ram-cacheprobe.md) nachverfolgt.
+
 - **Gemessen offline:** Wrapper 0xC004EDDC..0xC004EDEC einschließlich
   Tail-Branch: `(CPU-Zielpuffer, logischer DSP-Byteoffset, count16)`;
   Aufruf 0xC00141F8 → 0xC0014AFC → 0xC001488C, Breite 2.

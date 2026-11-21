@@ -5,6 +5,9 @@ says how it went. They work on Korg's original with BLECH too, which has none of
 they are written here from the protocol up, nothing of Hacktribe's code is used. The message is Korg's frame,
 F0 42 3n 00 01 24 <function> <7-bit packed words> F7, with n the global channel.
 
+RAM writes wholly inside the first KiB EXEC workspace clean their 32-byte D-cache lines when MMU and D-cache are on,
+then drain the write buffer before computing the readback CRC. Other destinations receive no cache maintenance.
+
     function  from the host                                      answer function
     0x60      INFO: nothing                                      0x68
     0x61      READ: address, length                              0x69  status, address, length, CRC-32, the bytes
@@ -751,9 +754,7 @@ do_data:
     mov r0, r8
     ldr r1, =BUF
     mov r2, r9
-{data_copy()}    mov r0, r8
-    mov r1, r9
-    bl crc32
+{data_copy()}    bl upload_crc
     mov r11, r0
     cmp r11, r10
     moveq r4, #{STATUS_OK}
@@ -1349,6 +1350,37 @@ fs_open:
 ; The sample file commands sit apart from the rest, in the free run behind the preset tables' second block, so that the code above
 ; keeps its room (the Sync Group's buffer of the pattern switch starts at 0xC0173000).
 .org {SAMPLE_AT:#x}
+; r8 = destination, r9 = length; returns the CRC in r0. Here for room: the code above is full.
+upload_crc:
+    cmp r9, #0
+    beq upload_crc_args
+    ldr r0, =EXEC_START
+    cmp r8, r0
+    blo upload_crc_args
+    adds r1, r8, r9
+    bcs upload_crc_args
+    ldr r0, =EXEC_END
+    cmp r1, r0
+    bhi upload_crc_args
+    .word 0xEE110F10
+    and r0, r0, #5
+    cmp r0, #5
+    bne upload_drain
+    bic r0, r8, #31
+upload_clean:
+    .word 0xEE070F3A
+    add r0, r0, #32
+    cmp r0, r1
+    blo upload_clean
+upload_drain:
+    mov r0, #0
+    .word 0xEE070F9A
+upload_crc_args:
+    mov r0, r8
+    mov r1, r9
+    b crc32
+.pool
+
 ; ---- the sample file ------------------------------------------------------------------------------------------------
 ; r0 = a FILE offset with its selector bits: r0 = 3 (Sample/e2sSample.all, bit 30 only) or 4 (Sample/e2sSample.tmp, bits 30 and 31),
 ; r1 = the offset; r0 = 0 when the word names no sample file. Touches r0 and r1.
@@ -1859,7 +1891,7 @@ def build_patch(vsb, table, build):
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
              "note": "BLECH SysEx: the two hooks, the CRC-32, the packing, the range check and the commands"},
             {"file": file_offset(SAMPLE_AT), "bytes": sample_code.hex(), "expect": free(SAMPLE_AT, len(sample_code)),
-             "note": "BLECH SysEx: FILE COPY, FILE DELETE and FILE CRC on the sample file, the paths of the FILE commands with the Doom files, and what they use"},
+             "note": "BLECH SysEx: FILE COPY, FILE DELETE and FILE CRC on the sample file, the paths of the FILE commands with the Doom files, and their helpers"},
             {"file": file_offset(TABLE_AT), "bytes": bytes(table).hex(), "expect": free(TABLE_AT, len(table)),
              "note": "the protection table, cut from data/protected.mjs by src/sysex-table.mjs"},
             {"file": file_offset(CLASSIFY_HOOK), "bytes": classify.hex(), "expect": sha(was(CLASSIFY_HOOK, 4)),

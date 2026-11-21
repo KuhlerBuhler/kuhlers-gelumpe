@@ -14,6 +14,16 @@ test("a normal run carries its status, its output and no signal", async () => {
   assert.equal(r.stderr.trim(), "careful");
 });
 
+test("input is delivered completely and ends before the child finishes", async () => {
+  const code = "const chunks=[];process.stdin.on('data',c=>chunks.push(c));process.stdin.on('end',()=>process.stdout.write(Buffer.concat(chunks)))";
+  for (const input of ["", "ä".repeat(150_000), Buffer.from([0, 1, 127, 255])]) {
+    const r = await run(process.execPath, ["-e", code], { input, timeout: 3000 });
+    assert.ifError(r.error);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, Buffer.from(input).toString("utf8"));
+  }
+});
+
 test("a run killed from outside names the signal that ended it", { skip: noSignals }, async () => {
   const r = await run(process.execPath, ["-e", "process.kill(process.pid, 'SIGKILL')"]);
   assert.equal(r.status, null);

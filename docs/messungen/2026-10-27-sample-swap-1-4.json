@@ -1,0 +1,480 @@
+{
+  "date": "2026-10-27",
+  "hardware_contact": false,
+  "dsp_model": "byte storage and tables, no audio or DMA",
+  "test_data": "Generated samples and part tables, own original firmware files kept outside the repository",
+  "arm_unittest_cases": 17,
+  "chain_subtest_combinations": 96,
+  "full_unit_suite": {
+    "pass": 1129,
+    "skip": 151,
+    "fail": 0
+  },
+  "full_browser_suite": {
+    "pass": 220,
+    "skip": 1,
+    "fail": 0,
+    "test_concurrency": 2
+  },
+  "new_firmware_cases": {
+    "stock": [
+      {
+        "id": "swap:a_failed_allocation_keeps_the_running_pattern",
+        "ok": true,
+        "detail": "Platz gescheitert True, laufendes Pattern 0, Ziel geladen False"
+      },
+      {
+        "id": "swap:a_latched_transport_fault_keeps_the_running_pattern",
+        "ok": true,
+        "detail": "Modus 2, laufendes Pattern 0, angefordert 2"
+      },
+      {
+        "id": "swap:one_session_drops_each_cache_before_foreign_writes",
+        "ok": true,
+        "detail": {
+          "modes": [
+            {
+              "mode": "sampling and resampling",
+              "filled": true,
+              "found": true,
+              "dropped": true,
+              "writes": 0
+            },
+            {
+              "mode": "export all pattern",
+              "filled": true,
+              "found": true,
+              "dropped": true,
+              "writes": 0
+            },
+            {
+              "mode": "import all pattern",
+              "filled": true,
+              "found": true,
+              "dropped": true,
+              "writes": 1041408
+            },
+            {
+              "mode": "import sample",
+              "filled": true,
+              "found": true,
+              "dropped": true,
+              "writes": 10432
+            },
+            {
+              "mode": "export all sample",
+              "filled": true,
+              "found": true,
+              "dropped": true,
+              "writes": 40000,
+              "source_bytes_after_export": 45328,
+              "source_slots_after_export": 1
+            }
+          ],
+          "writes": 1091840,
+          "early": []
+        }
+      },
+      {
+        "id": "swap:both_neighbours_and_the_chain_target_survive_a_new_choice",
+        "ok": true,
+        "detail": {
+          "prefetched": true,
+          "distant_not_prefetched": true,
+          "switched": true,
+          "shared_pcm_intact": true,
+          "target_pcm_equal": true,
+          "no_overlap": true
+        }
+      }
+    ],
+    "hacktribe": [
+      {
+        "id": "swap:a_failed_allocation_keeps_the_running_pattern",
+        "ok": true,
+        "detail": "Platz gescheitert True, laufendes Pattern 0, Ziel geladen False"
+      },
+      {
+        "id": "swap:a_latched_transport_fault_keeps_the_running_pattern",
+        "ok": true,
+        "detail": "Modus 2, laufendes Pattern 0, angefordert 2"
+      },
+      {
+        "id": "swap:one_session_drops_each_cache_before_foreign_writes",
+        "ok": true,
+        "detail": {
+          "modes": [
+            {
+              "mode": "sampling and resampling",
+              "filled": true,
+              "found": true,
+              "dropped": true,
+              "writes": 0
+            },
+            {
+              "mode": "export all pattern",
+              "filled": true,
+              "found": true,
+              "dropped": true,
+              "writes": 0
+            },
+            {
+              "mode": "import all pattern",
+              "filled": true,
+              "found": true,
+              "dropped": true,
+              "writes": 1041408
+            },
+            {
+              "mode": "import sample",
+              "filled": true,
+              "found": true,
+              "dropped": true,
+              "writes": 10432
+            },
+            {
+              "mode": "export all sample",
+              "filled": true,
+              "found": true,
+              "dropped": true,
+              "writes": 40000,
+              "source_bytes_after_export": 45328,
+              "source_slots_after_export": 1
+            }
+          ],
+          "writes": 1091840,
+          "early": []
+        }
+      },
+      {
+        "id": "swap:both_neighbours_and_the_chain_target_survive_a_new_choice",
+        "ok": true,
+        "detail": {
+          "prefetched": true,
+          "distant_not_prefetched": true,
+          "switched": true,
+          "shared_pcm_intact": true,
+          "target_pcm_equal": true,
+          "no_overlap": true
+        }
+      }
+    ]
+  },
+  "native_export": {
+    "source_slots_before": 6,
+    "source_bytes_before": 491488,
+    "source_slots_after": 1,
+    "source_bytes_after": 45328,
+    "test_dsp_budget_bytes": 262144,
+    "open_call_site": "0xC0039FB0",
+    "open_mode": 10,
+    "protection_installed": false,
+    "release_blocker": true,
+    "decision": "Pending: block export in active/faulted swap or implement full library export"
+  },
+  "full_patch_checks": {
+    "stock": {
+      "ok": true,
+      "checks": 586
+    },
+    "hacktribe": {
+      "ok": true,
+      "checks": 561
+    }
+  },
+  "hardware_release_checks": [
+    "Exact installed swap code and mode",
+    "Full sample transfer timings from card and RAM",
+    "Voice lifetime during slot reuse",
+    "Sampling and resampling with actual DMA"
+  ],
+  "release_ready": false,
+  "large_collection": {
+    "bytes": 50680384,
+    "swap_dsp_budget_bytes": 26214400,
+    "stock": "pass",
+    "hacktribe": "pass",
+    "resident_at_start": [
+      500
+    ],
+    "resident_after_switch": [
+      500,
+      501,
+      502
+    ],
+    "unused_large_samples_loaded": false
+  },
+  "preset_checker": {
+    "initial_full_hack_check_count": 561,
+    "initial_failed": "presets:knob_memory",
+    "same_mismatch_with_unchanged_feature_baseline": true,
+    "same_mismatch_cells": 222,
+    "reference_initialization_width": 49,
+    "reference_ifx_menu_count": 64,
+    "synthetic_checks_passed": 5,
+    "real_preset_checks_passed": 12,
+    "firmware_changed_for_this_fix": false,
+    "added_columns_always_require_default_64": true
+  },
+  "open_research": [
+    "Physical DSP memory boundary remains unknown; v1 uses the native 25 MiB user budget"
+  ],
+  "firmware_emulator_builds_for_new_cases": [
+    "stock",
+    "hacktribe"
+  ],
+  "repeated_slot_reuse": {
+    "stock": [
+      {
+        "id": "swap:the_dsp_holds_only_the_active_set",
+        "ok": true,
+        "detail": [
+          {
+            "pattern": 1,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              500,
+              501,
+              502,
+              503
+            ],
+            "top": "0x3b40c0"
+          },
+          {
+            "pattern": 2,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              500,
+              501,
+              502,
+              503,
+              504,
+              505
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 3,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              502,
+              503,
+              504,
+              505,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 0,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              500,
+              501,
+              504,
+              505,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 1,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              500,
+              501,
+              502,
+              503,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 2,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              502,
+              503,
+              504,
+              505,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 3,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              502,
+              503,
+              504,
+              505,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 0,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              500,
+              501,
+              504,
+              505,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          }
+        ]
+      }
+    ],
+    "hacktribe": [
+      {
+        "id": "swap:the_dsp_holds_only_the_active_set",
+        "ok": true,
+        "detail": [
+          {
+            "pattern": 1,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              500,
+              501,
+              502,
+              503
+            ],
+            "top": "0x3b40c0"
+          },
+          {
+            "pattern": 2,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              500,
+              501,
+              502,
+              503,
+              504,
+              505
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 3,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              502,
+              503,
+              504,
+              505,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 0,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              500,
+              501,
+              504,
+              505,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 1,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              500,
+              501,
+              502,
+              503,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 2,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              502,
+              503,
+              504,
+              505,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 3,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              502,
+              503,
+              504,
+              505,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          },
+          {
+            "pattern": 0,
+            "switched": true,
+            "live": true,
+            "pcm_equal": true,
+            "resident": [
+              500,
+              501,
+              504,
+              505,
+              506,
+              507
+            ],
+            "top": "0x3db1c0"
+          }
+        ]
+      }
+    ]
+  }
+}

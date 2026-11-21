@@ -68,6 +68,10 @@ tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM.VSB --patched BLECH.
 tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM.VSB --patched BLECH.VSB --cases menu_cases   # start scenarios plus these case modules
 ```
 
+Cases on the executed DSP code (`blackfin_swap_cases`, `blackfin_cases`) need a Blackfin worker built outside the
+repository (`tools/dsp/build_qemu.py ~/gelumpe-dsp/worker`); how to build, choose and run it is in
+[docs/emulator.md](docs/emulator.md), "Blackfin-Worker: QEMU oder GNU".
+
 The full `check.py` (all case modules) takes hours on a loaded machine. Locally run `--quick` and the
 case modules your change touches; CI runs the rest (see below). The blue Electribe uses
 `data/patches/blech-synth.json` and its own original. Stop a hanging run by its PID, never with

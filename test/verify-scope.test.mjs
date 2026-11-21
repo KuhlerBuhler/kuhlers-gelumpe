@@ -60,7 +60,7 @@ test("files the workflow does not run for add nothing, tests of the tools add no
 
 test("every emulator case file has a runner", () => {
   // research callers, run by hand only (their docstrings say so)
-  const research = ["macro_cases", "project_cases"];
+  const research = ["macro_cases", "project_cases", "sample_mmu_cases", "sample_pcm_cases", "sample_ram_cache_cases", "fx_level_cases"];
   const files = readdirSync(`${root}tools/emu`).filter(f => /^\w+_cases\.py$/.test(f) && !f.startsWith("test_")).map(f => f.slice(0, -3));
   const emu = readdirSync(`${root}tools/emu`).filter(f => f.endsWith(".py")).map(f => [f.slice(0, -3), read(`tools/emu/${f}`)]);
   const tests = readdirSync(`${root}test`).filter(f => f.endsWith(".mjs")).map(f => read(`test/${f}`)).join("\n");

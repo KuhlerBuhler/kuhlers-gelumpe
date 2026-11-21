@@ -42,6 +42,7 @@ on:
       - "src/script/**"
       - "src/units.mjs"
       - "tools/ci/verify-scope.mjs"
+      - "tools/dsp/**"
       - "tools/ci/firmware-matrix.mjs"
       - "tools/emu/**"
       - "tools/lang/**"
@@ -51,6 +52,7 @@ on:
       - ".github/workflows/verify-patches.yml"
       - ".github/workflows/firmware-check.yml"
       - ".github/actions/firmware-input/**"
+      - ".github/actions/dsp-worker/**"
   workflow_dispatch:
     inputs:
       branch:

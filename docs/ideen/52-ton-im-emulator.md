@@ -1,6 +1,6 @@
 # Idee 52: Ton im Emulator
 
-Stand: erster Versuch gemacht (24.10.), Empfehlung: erst DSP-Patches prüfen, dann offline rendern, nicht live; Aufwand für Klang in Wochen. Zurück zu den [Ideen](../ideen.md).
+Stand: der Emulator führt den echten DSP-Code aus (QEMU-Worker, Standard im Emulator), aber ohne Ton; auch QEMU ist langsamer als Echtzeit, also offline rendern, nicht live. Zurück zu den [Ideen](../ideen.md).
 
 Den echten DSP-Code im Blackfin-Simulator aus gdb laufen lassen, dazu Modelle für Host-Port, Audioausgang und DMA. Kein DSP-Patch, nur Emulation. Einzelne Rechenfunktionen laufen im Simulator schon ([DSP, erster Blick](../hintergrund/dsp-erster-blick.md)).
 
@@ -14,6 +14,14 @@ Ein Versuch von etwa einem Tag: eine Effekt-Schleife im Simulator laufen lassen 
 - Der QEMU-Port für Blackfin von Mike Frysinger (github vapier/qemu). Er übersetzt den Befehlskern des GNU-Simulators nach TCG, also mit Übersetzer statt Interpreter. Systememulation ist laut Autor unzuverlässig; wir bräuchten nur den Prozessor, wie Unicorn beim ARM.
 
 Im Versuch beides messen. Eine GPU hilft beim Emulieren nicht (eine Befehlskette, nicht parallel).
+
+## DSP-Kern im Emulator (17.11.)
+
+Der Blackfin-Worker, den `tools/emu` an den ARM-Emulator koppelt, rechnet die Befehle mit dem QEMU-Port und behält Geräte, Zeit und Protokoll aus dem GNU-Simulator im selben Prozess ([QEMU als DSP-Kern](../messungen/2026-11-16-qemu-dsp-kern.md)). Er rechnet bit-gleich mit dem GNU-Simulator: Worker-Tests, Fuzz, 38 DSP-Funktionen, 10000 Blöcke und die gekoppelten Fälle (gemessen). Ohne Wahl läuft er, GNU bleibt als Referenz und Rückfall ([Emulator](../emulator.md)).
+
+Tempo gegen Echtzeit (gemessen, Abschnitt 9 der Messung): der Worker allein spielt eine Hacktribe-Aufnahme von 14,84 s in 98,9 s ab, 6,7x langsamer als Echtzeit (GNU 62,9x). Gekoppelt mit dem ARM-Emulator braucht ein Start bis zum Hauptbild für 3 s Modellzeit 9 bis 15 s statt 65 bis 74 s mit GNU.
+
+Ton gibt es weiter nicht: es fehlt die Ausgabe der SPORT-Wörter als WAV und geprüfte Sample-Wiedergabe (Zeilen "Samples" und "Ausgabe" unten).
 
 ## Versuch vom 24.10.
 
@@ -61,7 +69,7 @@ Zusammen 3 bis 5 Wochen bis zu einer offline gerenderten WAV, ohne die Samples.
 
 ### Empfehlung
 
-- **Live:** nein. Der GNU-Simulator ist 56- bis 122-mal langsamer als der echte DSP. Der QEMU-Port rechnet mit dem Patch gleich, ist 2- bis 10-mal langsamer als der echte DSP und bräuchte Peripherie in C (HOSTDP, SPORT0, DMA), einen Befehlszähler und die Kopplung zweier Prozesse, geschätzt 4 bis 7 Arbeitstage ([QEMU gegen GNU-Simulator](../messungen/2026-11-16-qemu-bfin-vergleich.md)).
+- **Live:** nein. Der GNU-Simulator ist 56- bis 122-mal langsamer als der echte DSP. Der QEMU-Worker läuft mit Peripherie und Kopplung, ist aber allein 6,7x und gekoppelt rund 5x langsamer als Echtzeit ([QEMU als DSP-Kern](../messungen/2026-11-16-qemu-dsp-kern.md), gemessen).
 - **Offline rendern:** machbar mit dem GNU-Simulator, eine Sekunde Klang in 10 Sekunden (leichter Patch) bis 2 Minuten (voller Patch). Ein Pattern von 8 Sekunden mit allen Parts wäre in 10 bis 15 Minuten fertig. Das ist der Weg, wenn es Klang sein soll.
 - **Zuerst:** nur DSP-Patches prüfen. Mit `bfsim_bench.py` lässt sich eine geänderte Funktion gegen die originale stellen: gleiche Prüfsumme heißt gleiches Ergebnis, die Taktzahl zeigt, wie viel vom Budget sie kostet. Dazu die Prüfung des Boot-Stroms. Das kostet 1 bis 2 Tage und deckt das ab, was bei einem DSP-Patch am meisten weh tut.
 

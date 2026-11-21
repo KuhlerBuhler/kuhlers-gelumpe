@@ -4,6 +4,7 @@ PARSER = 0xC0035B10
 LSEEK = 0xC009E404
 SITES = (0xC0035C74, 0xC0035C94, 0xC0035D68, 0xC0035DCC, 0xC0035DFC, 0xC00363C0)
 FRAME = 0x4F0  # Nine saved registers and 0x4CC bytes of parser locals.
+ANCHOR_FRAME, ANCHOR_CALLER_LR, ANCHOR_RETURN = 24, 20, 32
 
 
 def parser_source(body, prefix='sample_anchor'):
