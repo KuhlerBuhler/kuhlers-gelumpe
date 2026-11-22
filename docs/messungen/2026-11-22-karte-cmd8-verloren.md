@@ -42,3 +42,31 @@ Treiber "present" und "init" (`0xC031BEC0` + 0x19 und + 0x1A), FatFs `fs_type` �
 | FILE-Befehle schreiben und lesen eine nach einem Start ohne Karte gesteckte Karte | `tools/emu/sysex_cases.py:file_cases`, `file_card_after_start_without_one`, HT/rot/blau | gemessen |
 | Gesperrte Karte: Strich durch das Kartensymbol; nach dem Tausch gegen eine Karte, die mountet, das Symbol ohne Strich | `stuck_card_symbol_struck`, HT/rot/blau | gemessen |
 | Am Gerät: ob der Neustart nach 500 Runden die Fälle vom Mac abdeckt, und ob die COM_CRC_ERROR-Antwort beim Stecken dieselbe Ursache hat | Gerätetest | offen |
+
+## Gerätetest mit dem Fix, zweite Ursache: die Karte schaltet sich ab (22.11. mittags)
+
+Test-VSB `test-cardinit-d8605420.VSB` (develop mit #725) auf ORIGINAL.BIN, Karte am Mac beschrieben, ausgeworfen, gesteckt.
+
+| Behauptung | Beleg | Marker |
+|---|---|---|
+| Der Start hängt weiter auf dem Startbild, nach etwa 15 s startet das Gerät ohne Karte, das Kartensymbol hat den Strich. Neustart mit derselben Karte: dasselbe | Pascal am Gerät | gemessen |
+| Karte im Betrieb gezogen und wieder gesteckt: mal mountet sie (Strich weg), mal kommt der Strich wieder. Nach ein paar Mal Ziehen mountet sie, der nächste Start lädt auch die Samples | Pascal am Gerät | gemessen |
+| Die 15 s sind die 4000 Runden von `SD_GIVE_UP`: die acht Neustarts mit CMD0 und CMD8 brachten die Karte nicht zurück, CMD8 allein war also nicht die Ursache | aus den Zeilen darüber | hergeleitet |
+| Korgs ACMD41 (`0xC001BE34`) schickt CMD55, dann ACMD41 mit `OCR \| 0x40000000` und schreibt danach die Antwortregister in die OCR, ohne zu prüfen, ob ACMD41 durchging. Nach einem fehlgeschlagenen ACMD41 steht dort noch das R1 von CMD55; der Wert 0x00800120 vom 22.11. morgens ist so ein R1 | Disassembly Hacktribe, blau 0x46D8 tiefer | offline gelesen |
+| Die nächste ACMD41 schickt dieses R1 als Spannungsfenster. Eine Karte, die ein Fenster ohne ihre Spannungen bekommt, geht in den Inactive State und antwortet bis zum nächsten Ausschalten ihrer Versorgung auf nichts, auch nicht auf CMD0 | SD-Spezifikation 4.2.3 | gelesen |
+| Korgs Aufrufe für Kartenstrom an und aus (`0xC001CA98`, `0xC001CAC0`) sind leere Funktionen: der Slot bleibt versorgt, auch wenn das Gerät aus ist. Nur Ziehen macht die Karte stromlos | Disassembly | offline gelesen |
+| Das passt zu allen Beobachtungen: Neustart hilft nicht, Ziehen schon, und beim Stecken (Kontakte prellen) kann es wieder passieren | aus den Zeilen darüber | hergeleitet |
+| Ob die Karte am Gerät wirklich im Inactive State war | nicht gemessen | offen |
+
+Fix: `acmd41_round_hook` setzt die OCR nach jeder Runde, deren ACMD41 nicht 0 zurückgab, auf 0. Die nächste ACMD41 fragt dann mit leerem
+Fenster, wie Korgs erste. Eine Karte, die schon inaktiv ist, braucht weiter einmal Ziehen. Das Kartenmodell des Emulators geht bei einem
+Fenster ohne Bits 15 bis 23 in den Inactive State und kommt erst beim Stecken (`power_on`) zurück.
+
+| Behauptung | Beleg | Marker |
+|---|---|---|
+| Ein verlorenes ACMD41 beim Start: mit dem Fix mountet die Karte im selben Init, ohne Fix wird sie inaktiv und die Sperre kommt | `tools/emu/menu_cases.py:card_later_cases`, `acmd41_lost_at_start_mounts` | siehe PR |
+| Dasselbe beim Stecken im Betrieb | `acmd41_lost_on_insert_mounts` | siehe PR |
+
+Grüner Bildschirm beim Start mit gesperrter Karte: ohne lesbare Karte gilt die Kopie im Flash. Kamen die Einstellungen beim Start von der
+Karte, schreibt BLECH den Flash erst bei der nächsten Änderung (#663, `FL_HOLD`). Eine Farbe, die nur auf der Karte steht, fehlt dann dem
+Flash. Hergeleitet, Flash am Gerät nicht gelesen.
