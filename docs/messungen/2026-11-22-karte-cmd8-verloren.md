@@ -49,8 +49,8 @@ Test-VSB `test-cardinit-d8605420.VSB` (develop mit #725) auf ORIGINAL.BIN, Karte
 
 | Behauptung | Beleg | Marker |
 |---|---|---|
-| Der Start hängt weiter auf dem Startbild, nach etwa 15 s startet das Gerät ohne Karte, das Kartensymbol hat den Strich. Neustart mit derselben Karte: dasselbe | Pascal am Gerät | gemessen |
-| Karte im Betrieb gezogen und wieder gesteckt: mal mountet sie (Strich weg), mal kommt der Strich wieder. Nach ein paar Mal Ziehen mountet sie, der nächste Start lädt auch die Samples | Pascal am Gerät | gemessen |
+| Der Start hängt weiter auf dem Startbild, nach etwa 15 s startet das Gerät ohne Karte, das Kartensymbol hat den Strich. Neustart mit derselben Karte: dasselbe | am Gerät (rot) | gemessen |
+| Karte im Betrieb gezogen und wieder gesteckt: mal mountet sie (Strich weg), mal kommt der Strich wieder. Nach ein paar Mal Ziehen mountet sie, der nächste Start lädt auch die Samples | am Gerät (rot) | gemessen |
 | Die 15 s sind die 4000 Runden von `SD_GIVE_UP`: die acht Neustarts mit CMD0 und CMD8 brachten die Karte nicht zurück, CMD8 allein war also nicht die Ursache | aus den Zeilen darüber | hergeleitet |
 | Korgs ACMD41 (`0xC001BE34`) schickt CMD55, dann ACMD41 mit `OCR \| 0x40000000` und schreibt danach die Antwortregister in die OCR, ohne zu prüfen, ob ACMD41 durchging. Nach einem fehlgeschlagenen ACMD41 steht dort noch das R1 von CMD55; der Wert 0x00800120 vom 22.11. morgens ist so ein R1 | Disassembly Hacktribe, blau 0x46D8 tiefer | offline gelesen |
 | Die nächste ACMD41 schickt dieses R1 als Spannungsfenster. Eine Karte, die ein Fenster ohne ihre Spannungen bekommt, geht in den Inactive State und antwortet bis zum nächsten Ausschalten ihrer Versorgung auf nichts, auch nicht auf CMD0 | SD-Spezifikation 4.2.3 | gelesen |
