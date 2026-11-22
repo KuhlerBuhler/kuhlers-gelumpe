@@ -8,7 +8,8 @@ Marker: **gemessen**, **offline gelesen** (Disassembly), **hergeleitet**, **offe
 
 - Steckte beim Einschalten eine Karte, liest `menu_card_watch` nach Ziehen und Stecken die Einstellungsdatei der neuen Karte, sobald
   der Kartenkontakt 8 Frames (320 ms) in Folge eine Karte zeigt, und wendet sie an wie der Start.
-- Steckte beim Einschalten keine Karte, liest BLECH bis zum nächsten Start keine Karte. Grund: siehe [Hänger](#hänger-bei-der-ersten-karte-nach-einem-start-ohne-karte).
+- Steckte beim Einschalten keine Karte, las BLECH bis zum nächsten Start keine Karte. Grund: siehe [Hänger](#hänger-bei-der-ersten-karte-nach-einem-start-ohne-karte).
+  Seit 22.11. liest BLECH die erste gesteckte Karte wie eine getauschte: [CMD8 geht verloren](2026-11-22-karte-cmd8-verloren.md).
 
 ## Belegtabelle
 

@@ -3093,7 +3093,7 @@ def card_later_cases(payload, flash=None):
     whole settings file is read as at the start, CUSTOMIZATION included (backlight, bottom LEDs, display polarity, pad colours),
     and every switch with it. Each step is compared with a device that started with that card. What the power-on runs with
     stays (the plugin runtime and MFX 2), a card without a settings file changes nothing, nothing is written to the card. After a start
-    without a card no card is read until the next start."""
+    without a card the first card put in is read the same way."""
     import pad_colors as PC
     out = []
 
@@ -3173,17 +3173,19 @@ def card_later_cases(payload, flash=None):
         and not moving.m.asserts, f"other card {look(moving)}, lock {moving.u32(SD_INIT_LOCK)}, card state {state(moving, S_CARD):#x}; "
         f"started with it {ref_b}")
 
-    # started without a card: the first card after such a start can hang the Korg SD init on the device, so none is read until the next start
+    # started without a card: the first card put in is read as a swapped one
     bare_dev = boot(payload, flash, adapter=True, card=False, seconds=wait)
     bare = look(bare_dev)
     bare_dev.m.insert_card(SDCard(MemoryMedium(card_image(files_a))))
-    bare_dev.run(1.0)
+    bare_dev.run(1.5)
     after_bare = look(bare_dev)
-    add("start_without_card_reads_none", bare != ref_a and after_bare == bare and not bare_dev.m.asserts, f"without card {bare}; card put in {after_bare}; started with it {ref_a}")
+    add("start_without_card_reads_the_first", bare != ref_a and after_bare == ref_a and bare_dev.u32(SD_INIT_LOCK) == 0
+        and not bare_dev.m.asserts, f"without card {bare}; card put in {after_bare}; started with it {ref_a}")
     # the service took that device for hung (PR #690): it sends the panel nothing then, so it must still reach its idle wait
     waits = bare_dev.m.idle_waits
     bare_dev.run(2.0)
     waits = bare_dev.m.idle_waits - waits
+    bare_dev.press("exit", 0.5)         # the card's settings ask SAVE TO FLASH?; EXIT keeps them in RAM
     bare_dev.press("menu", 0.5)
     screen = bare_dev.screen()["number"]
     add("card_put_in_keeps_running", waits > 1000 and screen not in (None, 1) and not bare_dev.m.asserts,
@@ -3200,6 +3202,11 @@ def card_later_cases(payload, flash=None):
 
     # a card still powering up when it is read: Korg's SD init runs out of ACMD41 rounds and locks every later init ("No Card.")
     # until a card interrupt (docs/messungen/2026-11-14-karte-init-sperre.md). The menu clears the lock and reads it once more.
+    def card_struck(d, x=109):
+        """(card symbol on the main screen at x, stroke through it): right edge full, the inner columns' rows 3 to 6 as card_stroke draws."""
+        cols = bytes(d.m.fb[0])[x:x + 6]
+        return cols[5] & 0xFE == 0xFE, [c & 0x78 for c in cols[1:5]] == [0x40, 0x20, 0x10, 0x08]
+
     def busy_card(d):
         d.m.eject_card()
         d.run(0.5)
@@ -3253,6 +3260,7 @@ def card_later_cases(payload, flash=None):
     stuck.run(5.0)
     add("busy_card_read_once_more_only", first == 0xFC and state(stuck, S_CARD) == 0xFC and stuck.u32(SD_INIT_LOCK) == 1
         and look(stuck) == ref_a and not stuck.m.asserts, f"card state {first:#x}, 5 s later {state(stuck, S_CARD):#x}, lock {stuck.u32(SD_INIT_LOCK)}")
+    struck = card_struck(stuck)
     stuck.m.eject_card()
     stuck.run(0.5)
     stuck.m.insert_card(SDCard(MemoryMedium(card_image(files_b))))
@@ -3272,6 +3280,41 @@ def card_later_cases(payload, flash=None):
     add("card_busy_at_start_read_after", at_start[0] == 1 and at_start[1] >= 0x100 and look(late) == ref_a and late.u32(SD_INIT_LOCK) == 0
         and not late.m.asserts, f"at the main screen lock {at_start[0]}, card state {at_start[1]:#x}; read after {look(late)}; started with it {ref_a}")
     add("stuck_card_swapped_reads",look(stuck) == ref_b and stuck.u32(SD_INIT_LOCK) == 0 and not stuck.m.asserts, f"other card {look(stuck)}; started with it {ref_b}")
+    press(stuck, "exit", wait=0.6)     # SAVE TO FLASH? covers the top row
+    add("stuck_card_symbol_struck", struck == (True, True) and card_struck(stuck) == (True, False) and not stuck.m.asserts,
+        f"(symbol, stroke) locked out {struck}, the other card read {card_struck(stuck)}")
+
+    # CMD8 lost while the card goes in: Korg drops CMD8's answer, and an SDHC card that missed it stays busy on ACMD41 for good
+    # (SD spec 4.2.3.1; docs/messungen/2026-11-22-karte-cmd8-verloren.md). acmd41_round_hook starts over with CMD0 and CMD8, so the
+    # card mounts in the same init: SD_INIT_LOCK is never set, at the start nor on a card put in later.
+    lost_cmd8 = lambda files: SDCard(MemoryMedium(card_image(files)), faults=[{"kind": "no_response", "cmds": [8], "count": 1}])
+    cold = Dev(payload, flash, 0)
+    cold.m.adapter = True
+    cold_card = lost_cmd8(files_a)
+    cold.m.insert_card(cold_card)
+    cold_lock = 0
+    for _ in range(300):
+        cold.run(0.1)
+        cold_lock |= cold.u32(SD_INIT_LOCK)
+        if cold.screen()["number"] == 1 and state(cold, S_CARD) == 0xFF:
+            break
+    cold.run(1.0)
+    add("cmd8_lost_at_start_mounts", cold_card.faults[0].hits == 1 and not cold_lock and state(cold, S_CARD) == 0xFF
+        and look(cold) == ref_a and not cold.m.asserts,
+        f"CMD8 dropped {cold_card.faults[0].hits}x, lock seen {cold_lock}, card state {state(cold, S_CARD):#x}; {look(cold)}, started with it {ref_a}")
+
+    hot = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    hot.m.eject_card()
+    hot.run(0.5)
+    hot_card = lost_cmd8(files_b)
+    hot.m.insert_card(hot_card)
+    hot_lock = 0
+    for _ in range(30):
+        hot.run(0.1)
+        hot_lock |= hot.u32(SD_INIT_LOCK)
+    add("cmd8_lost_on_insert_mounts", hot_card.faults[0].hits == 1 and not hot_lock and state(hot, S_CARD) == 0xFF
+        and look(hot) == ref_b and not hot.m.asserts,
+        f"CMD8 dropped {hot_card.faults[0].hits}x, lock seen {hot_lock}, card state {state(hot, S_CARD):#x} after 3 s; {look(hot)}, the card's {ref_b}")
 
     started = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
     gen = state(started, S_GEN)
@@ -3517,9 +3560,9 @@ def flash_settings_cases(payload, flash=None):
     """The BLECH settings in the flash, their main store (menu_flash_read, menu_flash_save, autosave_leave in
     tools/patch/script_menu.s): a change goes to the flash when the BLECH screen is left (AUTO SAVE, the default) or by
     WRITE, with a card in after the card's file (1.4.7), and the next start without a card reads it;
-    a card with a settings file wins at the start; after a start with a card, a card put in for the pulled one applies its
+    a card with a settings file wins at the start; after a start with a card, a card put in for the pulled one (or the first after a start without one) applies its
     settings at once and asks "SAVE TO FLASH?" (MENU writes them, EXIT keeps them in RAM only), pulled without saving the flash
-    copy runs again; after a start without a card no card is read (#518);
+    copy runs again;
     CUSTOMIZATION has no row SAVE TO FLASH; a torn copy falls back to the other one. The flash is only ever erased and written in the
     two sectors FLASH_SET_A and FLASH_SET_B."""
     out = []
