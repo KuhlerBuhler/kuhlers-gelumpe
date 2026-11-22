@@ -53,7 +53,9 @@
 .equ FLAGS2_GLIDE_SWITCH, 8    ; GLIDE SWITCH on (FEATURES, script_glide.s)
 .equ FLAGS2_GLIDE, 12
 .equ FLAGS2_BATT_OFF, 16       ; BATTERY % off (DISPLAY, script_battery.s); clear is on, the default, so a file with the default stays version 3
-.equ FLAGS2_KNOWN, 31          ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
+.equ FLAGS2_TUBE_SHIFT, 5     ; bits 5 to 7: TUBE (FEATURES, script_tube.s), 0 OFF (Korg's clipper), 1 to 7 ON at TUBE DRIVE 1 to 7
+.equ FLAGS2_TUBE, 0xE0
+.equ FLAGS2_KNOWN, 0xFF        ; the bits this firmware keeps: 0 to 4 and FLAGS2_TUBE; a bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
 .equ M_SPLASH_SEL, 0x100      ; the page SPLASH IMPORT: the place of the .bmp file it shows among those in KORG/blechtribe
@@ -125,6 +127,16 @@
 .equ FL_ASK, 0x20000          ; the question "SAVE TO FLASH?" of a card put in after the start is on the display (menu_ask_frame)
 .equ FL_SAVE, 0x40000         ; MENU answered the question and the flash write failed: menu_ask_frame writes again every CARD_RETRY_MS
 .equ M_FL_RETRY, 0xD8         ; FL_SAVE: the OS tick of the next try
+; TUBE: the patch tube-curve (tools/patch/tube_curve.py) puts a tube curve in place of Korg's clipper on the master output; its routine
+; reads the parameter block TUBE_PARAM, which tube_tick writes over the host port (HW_DSP_WRITE). The patch is there when the caller's
+; P0.L in the DSP boot stream in RAM (TUBE_MARK) holds the routine's address (TUBE_MARK_ON); both are per build (script_hooks.py)
+.equ M_TUBE_DRIVE, 0x1C5      ; byte: TUBE DRIVE 1 to 7, also while TUBE is OFF; 0 before a file with TUBE ON was read: TUBE_DEFAULT
+.equ M_TUBE_SENT, 0x1C6       ; byte: the TUBE field the DSP holds plus TUBE ASYM times 8 (0 OFF: the boot stream leaves the block zero)
+.equ M_TUBE_ASYM, 0x1C7       ; byte: TUBE ASYM 0 to 7 xor TUBE_ASYM_DEFAULT, as bits 5 to 7 of byte 4 of a version 5 settings file hold it (0 without one: the default)
+.equ TUBE_DEFAULT, 5
+.equ TUBE_ASYM_DEFAULT, 4    ; the TUBE ASYM a file without the field has; the field holds TUBE ASYM xor this, so the default writes no version 5
+.equ TUBE_PARAM, 0xFF803FD8   ; the 10 words the ARM writes (tools/dsp/tube_model.py PARAM): gp, then a TUBE DRIVE row of tube_rows
+.equ TUBE_ASYM_SHIFT, 5       ; byte 4 of a version 5 settings file: bits 0 to 4 the version, bits 5 to 7 TUBE ASYM
 .equ M_FL_KEY, 0x157          ; byte: the key that answered the question, set by menu_ask_input: 1 EXIT, 2 MENU
 .equ FLASH_SET_A, 0x7FD000
 .equ FLASH_SET_B, 0x7FE000
@@ -141,7 +153,7 @@
 .equ SETTINGS_SIZE, 24
 .equ SETTINGS_SIZE_V1, 20
 .equ SETTINGS_MAX, 24+4*MENU_MAX_TRUST    ; the size of each settings buffer, MENU_FILE_A and MENU_FILE_B
-.equ SETTINGS_VERSION, 4      ; the newest version read; written only when byte 7 is not 0, else version 3 (a BLECH up to 1.4.6 reads that)
+.equ SETTINGS_VERSION, 5      ; the newest version read; 5 written only when TUBE ASYM is not its default, else 4 when byte 7 is not 0, else 3 (a BLECH up to 1.4.6 reads that)
 .equ M_STATE_WORDS, 128
 .equ SWITCH_SCREEN, 0xC0083D28
 .equ PC_CODE, 0xC018B000        ; the patch pad-colors (tools/patch/pad_colors.py), FF where the set does not have it; its entries:
@@ -210,6 +222,8 @@
 .equ M_LEVEL_PSUB, 6          ; level 6: the pages of one plugin, opened by ENTER on its page of MANAGE PLUGINS: ACTIVE, DESCRIPTION, its own pages, REMOVE
 .equ M_LEVEL_GLOBAL, 7        ; level 7: the page PLUGIN RUNTIME, shown as the last page of the firmware's GLOBAL PARAMETERS (screen 9)
 .equ M_LEVEL_DU, 8            ; level 8: our pages of DATA UTILITY, shown behind the firmware's last function (screen 15)
+.equ M_LEVEL_SE, 9            ; level 9: the page CATEGORY, shown as page 3 of the firmware's SAMPLE EDIT (screen 38), behind RENAME
+.equ SE_ENTRY, 37             ; SAMPLE EDIT's screen with "press [Enter]", where its EXIT goes
 .equ MENU_RING_TAIL, 1 + HAS_SYNC   ; the page of Blechy and SYNC GROUP are pages the firmware's ring does not have (BLECH is M_COUNT)
 .equ MENU_SYNC_AT, 15         ; the counter's index of SYNC GROUP: behind the 15 pages of the Pattern menu, the Part menu's pages move up by one
 .equ GLOBAL_PAGES, 20         ; the pages of GLOBAL PARAMETERS (screen 9) and its counter "n/20"; PLUGIN RUNTIME is one more
@@ -535,8 +549,10 @@ acmd41_round:
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
 ; means the stock white, bit 28 the display inverted (no file or a version 1 file: inverted), bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes (both up to 16 checksums), version 3 24 to 280 bytes (up to
-; 64, MENU_MAX_TRUST), version 4 the same as 3. Written as version 3 while byte 7 is 0, as version 4 otherwise; versions 1 to 4 are
-; read. A BLECH up to 1.3.7 does not read version 3, one up to 1.4.6 not version 4 (it takes the other copy or the defaults).
+; 64, MENU_MAX_TRUST), version 4 the same as 3, version 5 the same as 4 with TUBE ASYM xor 4 (1 to 7) in bits 5 to 7 of byte 4 (the version is
+; bits 0 to 4). Written as version 5 while TUBE ASYM is not its default 4, else as version 4 while byte 7 is not 0, else as version 3; versions 1
+; to 5 are read. A BLECH up to 1.3.7 does not read version 3, one up to 1.4.6 not version 4, one up to 1.4.7 not version 5 (it takes
+; the other copy or the defaults).
 ; Called from the card hook wrapper after menu_arm, before the script loader reads M_EFF_RUN.
 menu_settings_load:
     push {r4-r8, lr}
@@ -605,6 +621,11 @@ menu_load_apply:
     movlo r1, #0
     and r1, r1, #FLAGS2_KNOWN
     strb r1, [r4, #MX_FLAGS2]
+    movs r1, r1, lsr #FLAGS2_TUBE_SHIFT   ; TUBE ON: its TUBE DRIVE; OFF keeps the one of this power-on
+    strbne r1, [r4, #M_TUBE_DRIVE]
+    ldrb r1, [r0, #4]           ; TUBE ASYM: bits 5 to 7 of byte 4 of version 5 (menu_record_check let only that version have them)
+    mov r1, r1, lsr #TUBE_ASYM_SHIFT
+    strb r1, [r4, #M_TUBE_ASYM]
     ldr r1, [r0, #12]
     and r2, r1, #1
     str r2, [r4, #M_SET_RUN]
@@ -857,17 +878,19 @@ menu_flash_read_take:
 menu_flash_read_out:
     pop {r6-r8, pc}
 
-; r0 = a copy of FLASH_SET_LEN bytes from the flash -> r0 = 0x10000 | its generation when it is a whole record of version 3 or 4
-; with tag and checksum, 0 otherwise (erased flash, a torn write). r5 = card scratch. Keeps r4 to r11.
+; r0 = a copy of FLASH_SET_LEN bytes from the flash -> r0 = 0x10000 | its generation when it is a whole record of version 3, 4 or
+; 5 with tag and checksum, 0 otherwise (erased flash, a torn write). r5 = card scratch. Keeps r4 to r11.
 menu_flash_check:
     push {r4, r6, r7, lr}
     mov r7, r0
     ldrb r0, [r7, #4]
+    and r0, r0, #0x1F           ; version 5: TUBE ASYM in bits 5 to 7 (menu_record_check checks them)
     sub r0, r0, #3
-    cmp r0, #1
+    cmp r0, #2
     bhi menu_flash_check_fail
-    ldrb r1, [r7, #7]           ; version 3: the high byte of the count; version 4: the second flag byte, the count is byte 6 alone
-    moveq r1, #0
+    ldrb r1, [r7, #7]           ; version 3: the high byte of the count; version 4 and 5: the second flag byte, the count is byte 6 alone
+    cmp r0, #0
+    movne r1, #0
     ldrb r0, [r7, #6]
     orr r0, r0, r1, lsl #8
     cmp r0, #MENU_MAX_TRUST
@@ -944,7 +967,11 @@ menu_record_body:
     ldrb r1, [r7, #5]
     bics r1, r1, #0xFF          ; byte 5: only bit 0 (LOUD RAINBOW), bit 1 (STILL OFF), bit 2 (STEREO 1 PAD OFF), bit 3 (LAST PATTERN OFF), bit 4 (KEY PADS OFF), bit 5 (FILTER TOGGLE OFF), bit 6 (KNOB LEDS OFF) and bit 7 (AUTO SAVE OFF) may be set
     bne menu_read_fail
-    sub r0, r0, #1              ; version 1, 2, 3 or 4
+    movs r1, r0, lsr #TUBE_ASYM_SHIFT   ; bits 5 to 7 of byte 4: TUBE ASYM, only in version 5
+    and r0, r0, #0x1F
+    cmpne r0, #5
+    bne menu_read_fail
+    sub r0, r0, #1              ; version 1, 2, 3, 4 or 5
     cmp r0, #SETTINGS_VERSION-1
     bhi menu_read_fail
     cmp r0, #0
@@ -954,7 +981,7 @@ menu_record_body:
     movhs r3, #MENU_MAX_TRUST
     movlo r3, #MENU_MAX_TRUST_V2
     ldrb r1, [r7, #7]
-    cmp r0, #3                  ; version 4: byte 7 is the second flag byte, the count is byte 6 alone
+    cmp r0, #3                  ; version 4 and 5: byte 7 is the second flag byte, the count is byte 6 alone
     movhs r1, #0
     ldrb r0, [r7, #6]
     orr r0, r0, r1, lsl #8
@@ -1065,6 +1092,10 @@ menu_save_sp_done:
     cmp r0, #0                  ; version 4 only with a bit in byte 7: without one the record is a version 3 file
     moveq r0, #3
     movne r0, #4
+    ldrb r1, [r4, #M_TUBE_ASYM] ; version 5 only with TUBE ASYM off its default: bits 5 to 7 of byte 4 (TUBE ASYM xor 4)
+    cmp r1, #0
+    movne r0, #5
+    orr r0, r0, r1, lsl #TUBE_ASYM_SHIFT
     strb r0, [r7, #4]
     ldr r8, [r4, #M_GEN]
     cmp r11, #0
@@ -1858,6 +1889,8 @@ menu_counter_fix:
     cmp r2, #GLOBAL_PAGES
     addeq r2, r2, #1
     bxeq lr
+    cmp r2, #SE_PAGES
+    beq menu_counter_se
     cmp r2, #DU_PAGES
     beq menu_counter_du
     cmp r2, #MENU_RING_TOTAL
@@ -2654,6 +2687,9 @@ menu_show:
 menu_orig_flag:
     push {r4, r5, lr}
     mov r4, r0
+    sub r0, r4, #64
+    cmp r0, #2
+    bls menu_orig_tube
     ldr r5, =orig_masks
 menu_orig_find:
     ldrb r0, [r5]
@@ -2693,6 +2729,40 @@ menu_orig_find:
     pop {r4, r5, pc}
 menu_orig_no:
     mov r0, #0
+    pop {r4, r5, pc}
+; TUBE (64): ON or OFF as stored; TUBE DRIVE (65): the step the page shows (M_TUBE_DRIVE, the default before one was set) as stored,
+; the default when the file holds TUBE OFF (a step set while OFF is not kept); TUBE ASYM (66): bits 5 to 7 of byte 4
+menu_orig_tube:
+    ldr r1, =MENU_FILE_B
+    cmp r4, #66
+    beq menu_orig_tube_asym
+    ldrb r3, [r1, #7]
+    movs r3, r3, lsr #FLAGS2_TUBE_SHIFT
+    cmp r4, #64
+    ldr r1, =MENU_STATE
+    beq menu_orig_tube_on
+    cmp r3, #0
+    moveq r3, #TUBE_DEFAULT
+    ldrb r2, [r1, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+    b menu_orig_tube_cmp
+menu_orig_tube_on:
+    ldrb r2, [r1, #MX_FLAGS2]
+    ands r2, r2, #FLAGS2_TUBE
+    movne r2, #1
+    cmp r3, #0
+    movne r3, #1
+    b menu_orig_tube_cmp
+menu_orig_tube_asym:
+    ldrb r3, [r1, #4]
+    mov r3, r3, lsr #TUBE_ASYM_SHIFT
+    ldr r1, =MENU_STATE
+    ldrb r2, [r1, #M_TUBE_ASYM]
+menu_orig_tube_cmp:
+    cmp r2, r3
+    moveq r0, #1
+    movne r0, #0
     pop {r4, r5, pc}
 .pool
 ; per kind (menu_texts_fill): the kind, the bits of byte 5, the bits of byte 7, then the bits of the flags word and of the look word of the settings record
@@ -3225,6 +3295,9 @@ menu_tab_go:
     ldreq r1, =str_tab_global
     cmp r2, #M_LEVEL_DU
     ldreq r1, =str_tab_du
+    cmp r2, #M_LEVEL_SE         ; CATEGORY carries SAMPLE EDIT's own tab, the firmware's text
+    ldreq r1, =se_tab
+    ldreq r1, [r1]
     cmp r2, #M_LEVEL_SYNC       ; SYNC GROUP is a page of the pattern: its tab says so
     ldreq r1, =str_tab_pattern
     ldr r0, [r5, #M_TABW]
@@ -3337,6 +3410,12 @@ menu_texts_clear:
     cmp r0, #57
     cmpne r0, #58
     beq menu_text_anim
+    cmp r0, #64
+    cmpne r0, #65
+    cmpne r0, #66
+    beq menu_text_tube
+    cmp r0, #67
+    beq menu_text_se
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -3868,6 +3947,42 @@ menu_text_ft:
     ldrne r1, =str_on
     add r0, r5, #M_VALUE
     bl menu_copy
+    b menu_text_look_line3
+; TUBE (r0 = 64): the tube curve of the patch tube-curve in place of Korg's clipper on the master output, bits 5 to 7 of byte 7
+; (MX_FLAGS2), 0 OFF; TUBE DRIVE (65): how hard the output drives the curve, 1 to 7, kept while TUBE is OFF (M_TUBE_DRIVE); TUBE ASYM
+; (66): how much softer the positive half is, 0 to 7 (M_TUBE_ASYM)
+menu_text_tube:
+    mov r6, r0
+    mov r0, #3
+    bl menu_title_prefix
+    cmp r6, #64
+    ldreq r1, =str_tube
+    ldrne r1, =str_tube_drive
+    cmp r6, #66
+    ldreq r1, =str_tube_asym
+    bl menu_copy
+    add r0, r5, #M_VALUE
+    ldrb r2, [r5, #MX_FLAGS2]
+    cmp r6, #66
+    ldrbeq r2, [r5, #M_TUBE_ASYM]
+    eoreq r2, r2, #TUBE_ASYM_DEFAULT
+    beq menu_text_tube_digit
+    cmp r6, #64
+    bne menu_text_tube_drive
+    ldr r1, =str_off
+    tst r2, #FLAGS2_TUBE
+    ldrne r1, =str_on
+    bl menu_copy
+    b menu_text_look_line3
+menu_text_tube_drive:
+    ldrb r2, [r5, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+menu_text_tube_digit:
+    add r2, r2, #0x30          ; '0'
+    strb r2, [r0]
+    mov r2, #0
+    strb r2, [r0, #1]
     b menu_text_look_line3
 ; KNOB LEDS: whether the LEDs behind the knobs light as the firmware wants (ON) or stay dark (OFF), in the patch pad-colors
 menu_text_knob:
@@ -4530,12 +4645,13 @@ menu_confirm_add:
 ; himself (the frame hook opens and closes him by this level). Level 4 (M_LEVEL_SYNC) is the page SYNC GROUP between the Pattern and
 ; the Part menu: a setting of the pattern in RAM, saved with WRITE as the Pattern menu's pages. Levels 7 (M_LEVEL_GLOBAL, PLUGIN
 ; RUNTIME) and 8 (M_LEVEL_DU, the exports and SET INIT PATTERN) look like pages of GLOBAL PARAMETERS and DATA UTILITY: EDIT moves
-; between them and the firmware's pages, EXIT goes where the firmware's EXIT goes there.
+; between them and the firmware's pages, EXIT goes where the firmware's EXIT goes there. Level 9 (M_LEVEL_SE, CATEGORY) looks like
+; page 3 of SAMPLE EDIT, behind RENAME (script_sample_edit.s): EDIT goes back to the firmware's pages, EXIT to its entry screen.
 ; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 3 EXPORT ALL PLUGINS, 2, 4 and 5 unused, 6 a page a plugin
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE, 61 GLIDE CHAIN, 62 GLIDE SWITCH, 63 BATTERY %; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE, 61 GLIDE CHAIN, 62 GLIDE SWITCH, 63 BATTERY %, 64 TUBE, 65 TUBE DRIVE, 66 TUBE ASYM, 67 CATEGORY of level 9; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -4553,6 +4669,9 @@ menu_kind:
     beq menu_kind_done
     cmp r2, #M_LEVEL_DU
     beq menu_kind_du
+    cmp r2, #M_LEVEL_SE
+    moveq r0, #67
+    beq menu_kind_done
     cmp r2, #M_LEVEL_PLUGIN
     beq menu_kind_list
     cmp r2, #M_LEVEL_PSUB
@@ -4634,7 +4753,7 @@ menu_kind_sub:
     mov r1, #0
     b menu_kind_done
 menu_kind_features:
-    bl menu_page_count          ; KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them
+    bl menu_page_count          ; KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them, and TUBE, TUBE DRIVE and TUBE ASYM right before them where it has tube-curve
     mov r1, #0
     sub r0, r0, #1
     cmp r5, r0
@@ -4656,6 +4775,22 @@ menu_kind_features:
     cmp r5, r0
     moveq r0, #48
     beq menu_kind_done
+    mov r2, r0
+    bl tube_patched
+    bne menu_kind_ft_head
+    sub r0, r2, #1
+    cmp r5, r0
+    moveq r0, #66
+    beq menu_kind_done
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #65
+    beq menu_kind_done
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #64
+    beq menu_kind_done
+menu_kind_ft_head:
     mov r0, #21
     cmp r5, #4
     moveq r0, #45               ; LAST PATTERN where the set has it, STEREO 1 PAD behind it (or at 4 without LAST PATTERN)
@@ -4719,6 +4854,92 @@ menu_kind_done:
     pop {r4, r5, pc}
 .pool
 
+; -> r0 = 1 and Z set when the set has the patch tube-curve (TUBE_MARK holds TUBE_MARK_ON), else r0 = 0 and Z clear. Keeps r1 to r12.
+tube_patched:
+    push {r1, lr}
+    ldr r1, =TUBE_MARK
+    ldrb r0, [r1]
+    ldrb r1, [r1, #1]
+    orr r0, r0, r1, lsl #8
+    ldr r1, =TUBE_MARK_ON
+    cmp r0, r1
+    moveq r0, #1
+    movne r0, #0
+    pop {r1, pc}
+; Called from the frame hook past the first main screen (UI task, from where Korg's part edits write the DSP over the host port as
+; well, the DSP runs by then): sends the parameter block of the TUBE field of byte 7 (MX_FLAGS2) and TUBE ASYM to TUBE_PARAM when
+; they are not the ones sent last (M_TUBE_SENT), so a page's change sounds the next frame and a start with TUBE ON sends its block
+; once. The block: gp (the gain of the positive half, g times the TUBE ASYM factor), then the row of tube_rows; all 0 for OFF.
+; Nothing without the patch tube-curve. Clobbers r0 to r3 and r12.
+tube_tick:
+    push {r4, lr}
+    ldr r4, =MENU_STATE
+    ldr r0, [r4, #M_ON]
+    cmp r0, #1
+    popne {r4, pc}
+    bl tube_patched
+    popne {r4, pc}
+    ldrb r1, [r4, #MX_FLAGS2]
+    mov r1, r1, lsr #FLAGS2_TUBE_SHIFT
+    ldrb r2, [r4, #M_TUBE_ASYM]
+    eor r2, r2, #TUBE_ASYM_DEFAULT
+    cmp r1, #0                  ; OFF sends the zero block whatever TUBE ASYM is: one key, so a start with TUBE OFF sends nothing
+    moveq r2, #0
+    orr r3, r1, r2, lsl #3
+    ldrb r0, [r4, #M_TUBE_SENT]
+    cmp r0, r3
+    popeq {r4, pc}
+    strb r3, [r4, #M_TUBE_SENT]
+    sub sp, sp, #40
+    mov r0, #0
+    mov r3, #40
+tube_tick_clear:
+    subs r3, r3, #4
+    str r0, [sp, r3]
+    bne tube_tick_clear
+    cmp r1, #0
+    beq tube_tick_send
+    ldr r3, =tube_asym
+    ldr r2, [r3, r2, lsl #2]    ; the TUBE ASYM factor, Q15
+    ldr r3, =tube_rows
+    sub r1, r1, #1
+    mov r0, #36
+    mla r3, r0, r1, r3          ; the row of this TUBE DRIVE
+    ldr r0, [r3, #4]            ; g, high half
+    mov r0, r0, lsr #16
+    mul r0, r2, r0
+    mov r0, r0, lsr #15
+    mov r0, r0, lsl #16
+    str r0, [sp]                ; gp
+    mov r1, #36
+tube_tick_copy:
+    subs r1, r1, #4
+    ldr r0, [r3, r1]
+    add r2, sp, #4
+    str r0, [r2, r1]
+    bne tube_tick_copy
+tube_tick_send:
+    ldr r0, =TUBE_PARAM         ; the DSP address, the source, 20 halfwords
+    mov r1, sp
+    mov r2, #20
+    ldr r12, =HW_DSP_WRITE
+    blx r12
+    add sp, sp, #40
+    pop {r4, pc}
+.pool
+; the row per TUBE DRIVE 1 to 7: a, g, shift, e, q7, q5, q3, q1, on (tools/dsp/tube_model.py row(); test_tube_curve.py compares)
+tube_rows:
+    .word 0x703D0000, 0x45300000, 0xFFFFFFFE, 0x00000004, 0x0E030000, 0xE58DFEE8, 0xF79763A9, 0x3B5D1D16, 0x00000001   ; TUBE DRIVE 1
+    .word 0x6B850000, 0x6EB40000, 0xFFFFFFFE, 0x00000003, 0x11990000, 0xDEC87B93, 0xF5703244, 0x4A907459, 0x00000001   ; TUBE DRIVE 2
+    .word 0x67140000, 0x59F20000, 0xFFFFFFFF, 0x00000002, 0x16060000, 0xD66FB35D, 0xF2C8C75D, 0x5D4D0AD5, 0x00000001   ; TUBE DRIVE 3
+    .word 0x61AC0000, 0x45300000, 0x00000000, 0x00000002, 0x0F150000, 0xE388B415, 0xF6F2E8D5, 0x3FE65112, 0x00000001   ; TUBE DRIVE 4
+    .word 0x5D6E0000, 0x6EB40000, 0x00000000, 0x00000001, 0x177D0000, 0xD3AAD57A, 0xF1E762A8, 0x6384494A, 0x00000001   ; TUBE DRIVE 5
+    .word 0x58980000, 0x567D0000, 0x00000001, 0x00000001, 0x17470000, 0xD4108689, 0xF207B835, 0x62A00305, 0x00000001   ; TUBE DRIVE 6
+    .word 0x53150000, 0x45300000, 0x00000002, 0x00000001, 0x17470000, 0xD4108689, 0xF207B835, 0x62A00305, 0x00000001   ; TUBE DRIVE 7
+; the TUBE ASYM factor of the positive half, 0 to 7, Q15 (tools/dsp/tube_model.py ASYM_K)
+tube_asym:
+    .word 0x8000, 0x7A3D, 0x747B, 0x6EB8, 0x68F6, 0x6333, 0x5D71, 0x57AE
+
 ; Our pages of DATA UTILITY, in this order where the build has them: EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS, EXPORT ALL
 ; EFFECTS (the Sampler builds, they have the effect collection), SET INIT PATTERN (where the set has the patch init-pattern).
 ; -> r0 = a mask, bit n set when the page of du_kinds[n] is there. Clobbers r1.
@@ -4776,6 +4997,7 @@ menu_page_count:
     cmp r1, #M_LEVEL_BLECHY
     cmpne r1, #M_LEVEL_SYNC
     cmpne r1, #M_LEVEL_GLOBAL
+    cmpne r1, #M_LEVEL_SE
     cmpne r1, #0
     bne menu_count_level1
     mov r0, #1
@@ -4851,7 +5073,11 @@ menu_count_led:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #9                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH, LAST PATTERN and STEREO 1 PAD where the set has their patches
+    mov r0, #9                  ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH, LAST PATTERN and STEREO 1 PAD where the set has their patches, TUBE, TUBE DRIVE and TUBE ASYM (before KEY PADS) where it has tube-curve
+    mov r1, r0
+    bl tube_patched
+    addeq r1, r1, #3
+    mov r0, r1
     ldr r1, =LP_CODE
     ldr r1, [r1]
     cmn r1, #1
@@ -4925,6 +5151,10 @@ menu_counter_args:
     cmp r1, #M_LEVEL_GLOBAL
     moveq r1, #GLOBAL_PAGES
     moveq r2, #GLOBAL_PAGES+1
+    popeq {pc}
+    cmp r1, #M_LEVEL_SE
+    moveq r1, #2
+    moveq r2, #SE_PAGES+1
     popeq {pc}
     cmp r1, #M_LEVEL_DU
     bne menu_counter_level
@@ -6340,6 +6570,9 @@ menu_slot_prev:
     beq menu_prev_global
     cmp r3, #M_LEVEL_DU
     beq menu_prev_du
+    cmp r3, #M_LEVEL_SE
+    moveq r1, #1
+    beq menu_se_page
     cmp r3, #0
     bne menu_prev_wrap
     pop {r4, lr}
@@ -6429,6 +6662,8 @@ menu_slot_next:
     cmp r3, #M_LEVEL_DU
     moveq r1, #0
     beq menu_du_function
+    cmp r3, #M_LEVEL_SE
+    beq menu_se_next
     cmp r3, #0
     beq menu_next_leave
     mov r1, #0
@@ -6516,6 +6751,8 @@ menu_slot_value:
     beq menu_value_idle
     cmp r0, #63
     beq menu_value_batt
+    cmp r0, #67
+    beq menu_value_se
     cmp r0, #61
     cmpne r0, #62
     beq menu_value_glide
@@ -6524,6 +6761,12 @@ menu_slot_value:
     cmp r0, #57
     cmpne r0, #58
     beq menu_value_anim
+    cmp r0, #64
+    beq menu_value_tube
+    cmp r0, #65
+    beq menu_value_tube_drive
+    cmp r0, #66
+    beq menu_value_tube_asym
     cmp r0, #24
     beq menu_value_colour
     cmp r0, #25
@@ -6771,6 +7014,23 @@ menu_value_lm:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
+; TUBE acts at once (tube_tick sends the block the next frame), WRITE keeps it: ON takes TUBE DRIVE, OFF keeps TUBE DRIVE
+menu_value_tube:
+    ldrb r1, [r6, #MX_FLAGS2]
+    bic r1, r1, #FLAGS2_TUBE
+    cmp r5, #0
+    ble menu_value_tube_store
+menu_value_tube_on:
+    ldrb r2, [r6, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+    strb r2, [r6, #M_TUBE_DRIVE]
+    orr r1, r1, r2, lsl #FLAGS2_TUBE_SHIFT
+menu_value_tube_store:
+    strb r1, [r6, #MX_FLAGS2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
 ; IDLE SAVE acts at once (OFF wakes at the next frame), WRITE keeps it: ON up, OFF down
 menu_value_idle:
     ldrb r1, [r6, #MX_FLAGS2]
@@ -6858,6 +7118,36 @@ menu_value_dev:
     ldrgt r2, =DEV_MAGIC
     mvnle r2, #0
     str r2, [r1]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; TUBE DRIVE: 1 to 7, at once while TUBE is ON, else for the next ON
+menu_value_tube_drive:
+    ldrb r2, [r6, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+    adds r2, r2, r5
+    movle r2, #1
+    cmp r2, #7
+    movgt r2, #7
+    strb r2, [r6, #M_TUBE_DRIVE]
+    ldrb r1, [r6, #MX_FLAGS2]
+    tst r1, #FLAGS2_TUBE
+    bic r1, r1, #FLAGS2_TUBE
+    bne menu_value_tube_on
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; TUBE ASYM: 0 to 7, tube_tick sends it the next frame (with TUBE ON)
+menu_value_tube_asym:
+    ldrb r2, [r6, #M_TUBE_ASYM]
+    eor r2, r2, #TUBE_ASYM_DEFAULT
+    adds r2, r2, r5
+    movmi r2, #0
+    cmp r2, #7
+    movgt r2, #7
+    eor r2, r2, #TUBE_ASYM_DEFAULT
+    strb r2, [r6, #M_TUBE_ASYM]
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
@@ -7231,6 +7521,9 @@ menu_slot_exit:
     cmp r3, #M_LEVEL_DU
     moveq r0, #14
     beq menu_exit_screen
+    cmp r3, #M_LEVEL_SE
+    moveq r0, #SE_ENTRY
+    beq menu_exit_screen
     cmp r3, #M_LEVEL_PSUB
     beq menu_exit_psub
     cmp r3, #M_LEVEL_PLUGIN
@@ -7534,6 +7827,12 @@ str_kp:
     .asciz "KEY PADS"
 str_ft:
     .asciz "FILTER TOGGLE"
+str_tube:
+    .asciz "TUBE"
+str_tube_drive:
+    .asciz "TUBE DRIVE"
+str_tube_asym:
+    .asciz "TUBE ASYM"
 str_as:
     .asciz "AUTO SAVE"
 str_knob:
@@ -7548,6 +7847,10 @@ str_idle:
     .asciz "IDLE SAVE"
 str_batt:
     .asciz "BATTERY %"
+str_category:
+    .asciz "CATEGORY"
+str_se_none:
+    .asciz "---"
 str_sp:
     .asciz "STEREO 1 PAD"
 str_us:

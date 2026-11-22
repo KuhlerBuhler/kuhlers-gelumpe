@@ -65,6 +65,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [Eigene Insert- und Master-Effekte auf der blauen Electribe 2: was es kostet](2026-11-08-blau-eigene-effekte.md)
 - [Eigene Insert- und Master-Effekte auf der blauen Electribe 2: Katalog, e2sFx.all, Export und Editor, im Emulator](2026-11-08-blau-effekte-port.md)
 - [Effekte und Modulationen vom Gerät lesen, für den Export von e2sFx.all](2026-11-14-effekte-vom-geraet.md)
+- [Röhrenkurve statt Soft-Clipper am Ausgang, im QEMU-DSP-Kern und im Emulator](2026-11-20-roehrenkurve.md)
 
 
 ## SysEx und Transport
@@ -161,6 +162,8 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [Ladebalken im Startbild (Idee 41): gebaut und im Emulator geprüft](2026-10-15-ladebalken.md)
 - [Sample-Fehler: ein Sample überspringen und sagen, welches (und die Werksbank des leeren Flash)](2026-10-15-sample-fehler.md)
 - [IMPORT SAMPLE auf Werks-Slots: Zielwähler, welche Slots der Import annimmt, Speichern, im Emulator](2026-11-16-import-werks-slots.md)
+- [Sample-Kategorie "Wave" auf Hacktribe: liest HT eine e2sSample.all ohne Wave-Sample, im Emulator](2026-11-17-sample-kategorie-wave.md)
+- [Sample-Kategorie in SAMPLE EDIT: Seite CATEGORY, Zähler, Export, Sample mit Slices, im Emulator](2026-11-21-sample-kategorie.md)
 - [Startbild auf der Karte statt im Flash (Idee 35)](2026-10-15-startbild-karte.md)
 - [BLECH Menü: eigener Bildschirm 0x2D im Edit Ring](2026-10-14-blech-menue.md)
 - [BLECH Anpassung: untere LEDs und Display-Licht, Software-PWM](2026-10-14-blech-anpassung.md)

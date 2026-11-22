@@ -2001,7 +2001,7 @@ dependencies = [
 
 [[package]]
 name = "kuhlers-gelumpe"
-version = "1.4.7"
+version = "1.4.8"
 dependencies = [
  "alsa",
  "coremidi",
