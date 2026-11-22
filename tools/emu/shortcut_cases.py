@@ -1332,8 +1332,101 @@ def case_filter_toggle(payload, flash):
     return out
 
 
+STOP = 0x01
+SILENCE = 0xC009B5D8            # (0): the firmware's silencing of all parts, what a pattern load calls before its copy
+
+
+def case_stop_hold(payload, flash):
+    """STOP held half a second silences every part (script_shortcuts.s sh_tick, docs/messungen/2026-11-22-stop-halten.md): the
+    runtime calls the firmware's silencing (SILENCE, r0 0) once, which switches the parts off at the DSP (dsp_model.py) and
+    closes their voices; the next note switches its part on again with its level. A short press (0.15 s) and one of 0.3 s are
+    the firmware's STOP: the sequencer stops at the press, nothing is silenced and no part switched off. Playing, and stopped
+    with pad 1 held; with EXIT held at power-on a long press is the firmware's too."""
+    from dsp_model import LEVEL, DspModel
+    out = []
+
+    def device(held=0):
+        box = VBox(payload, flash, held=held)
+        dsp = DspModel.attach(box.m)
+        calls = []
+        at = box.dev.a(SILENCE)
+        box.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: calls.append(uc.reg_read(UC_ARM_REG_R0)), begin=at, end=at)
+        box.m.uc.ctl_flush_tb()
+        box.steps(True)
+        return box, dsp, calls
+
+    def stop(box, seconds):
+        box.m.press(STOP, True)
+        box.run(0.05)
+        stopped = box.transport() == 0
+        box.run(seconds - 0.05)
+        box.m.press(STOP, False)
+        box.run(0.5)
+        return stopped
+
+    for seconds in (0.15, 0.3):
+        box, dsp, calls = device()
+        play(box)
+        box.run(1.0)
+        mark = dsp.mark()
+        on = dsp.part_on(0)
+        stopped = stop(box, seconds)
+        offs = dsp.parts_switched_off(mark)
+        out.append(entry(f"stop_{int(seconds * 1000)}ms_is_the_firmwares_stop", on and stopped and not calls and not offs
+                         and dsp.part_on(0) and not box.m.asserts,
+                         f"playing, part 1 on at the DSP {on}; STOP for {seconds} s: stopped at the press {stopped}, silencing "
+                         f"calls {calls or 'none'}, parts switched off {offs or 'none'}, part 1 still on {dsp.part_on(0)}"))
+
+    box, dsp, calls = device()
+    play(box)
+    box.run(1.0)
+    mark = dsp.mark()
+    stopped = stop(box, 0.8)
+    offs = dsp.parts_switched_off(mark)
+    silent = dsp.part_on(0) is False and not dsp.voices()
+    box.m.send([4, 0, 0, 100, 1])
+    box.run(0.1)
+    level = dsp.part_value(0, LEVEL)
+    again = dsp.part_on(0) and bool(dsp.voices()) and (level or 0) > 0
+    box.m.send([4, 0, 0, 0, 0])
+    box.run(0.3)
+    out.append(entry("stop_held_silences_every_part_playing", stopped and calls == [0] and 0 in offs and silent and again
+                     and not box.m.asserts,
+                     f"playing, STOP held 0.8 s: stopped at the press {stopped}, silencing calls {calls}, parts switched off "
+                     f"{offs}, part 1 off and no voice open {silent}; pad 1 then: part 1 on with a voice and level {again} "
+                     f"(level {level})"))
+
+    box, dsp, calls = device()
+    box.m.send([4, 0, 0, 100, 1])
+    box.run(0.2)
+    held = bool(dsp.voices())
+    mark = dsp.mark()
+    stop(box, 0.8)
+    offs = dsp.parts_switched_off(mark)
+    silent = dsp.part_on(0) is False and not dsp.voices()
+    box.m.send([4, 0, 0, 0, 0])
+    box.run(0.3)
+    box.m.send([4, 0, 0, 100, 1])
+    box.run(0.1)
+    again = dsp.part_on(0) and bool(dsp.voices()) and (dsp.part_value(0, LEVEL) or 0) > 0
+    box.m.send([4, 0, 0, 0, 0])
+    box.run(0.3)
+    out.append(entry("stop_held_silences_a_held_pad_stopped", held and calls == [0] and 0 in offs and silent and again
+                     and not box.m.asserts,
+                     f"stopped, pad 1 held (voice open {held}), STOP held 0.8 s: silencing calls {calls}, parts switched off {offs}, "
+                     f"part 1 off and no voice open {silent}; pad 1 released and pressed again: part 1 on with a voice and level {again}"))
+
+    box, dsp, calls = device(held=KILL)
+    play(box)
+    box.run(1.0)
+    stop(box, 0.8)
+    out.append(entry("stop_held_kill_is_the_firmwares", not calls and box.transport() == 0 and not box.m.asserts,
+                     f"EXIT held at power-on, playing, STOP held 0.8 s: silencing calls {calls or 'none'}, stopped {box.transport() == 0}"))
+    return out
+
+
 GROUPS = (case_save, case_reset, case_reset_modes, case_reset_voice, case_reset_dsp, case_meter_dsp, case_voices_dsp, case_part_values_dsp, case_effects_dsp, case_fx_map_dsp, case_cutoff_dsp, case_note_commands_dsp, case_sample_dsp, case_kill, case_unsaved, case_pad_state, case_key_pads, case_filter_toggle,
-          case_key_pads_transpose, case_reset_values_dsp)
+          case_key_pads_transpose, case_reset_values_dsp, case_stop_hold)
 
 
 def group_entries(payload, flash, i):
