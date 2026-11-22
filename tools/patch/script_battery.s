@@ -28,6 +28,7 @@
 battery_frame:
     push {r4-r8, lr}
     bl card_frame
+    bl card_stroke
     ldr r4, =BATT
     bl battery_model
     movs r5, r0
@@ -457,6 +458,76 @@ card_frame_keep:
     cmp r3, #6
     blo card_frame_keep
 card_frame_out:
+    pop {r4-r6, pc}
+
+; Once a frame, behind card_frame: a card whose mount stayed locked out (CARD_STUCK) gets a stroke through its symbol, one pixel
+; per inner column from the bottom left to the top right. Drawn only where the six columns hold the symbol (right edge full, inside
+; empty or already stroked), so a window, menu or app over that place is left alone. Keeps r4 to r11.
+card_stroke:
+    push {r4-r6, lr}
+    ldr r0, =MENU_STATE
+    ldr r1, [r0, #M_ON]
+    cmp r1, #1
+    ldreq r1, [r0, #M_CARD]
+    cmpeq r1, #CARD_STUCK
+    bne card_stroke_out
+    bl card_widget
+    cmp r0, #0
+    beq card_stroke_out
+    ldrb r1, [r0, #0x48]
+    cmp r1, #0
+    beq card_stroke_out
+    ldr r4, [r0, #4]
+    ldr r5, =MG_VRAM
+    add r5, r5, r4
+    ldrb r0, [r5, #5]
+    and r0, r0, #0xFE
+    cmp r0, #0xFE
+    bne card_stroke_out
+    mov r6, #0                  ; inner columns already stroked
+    mov r2, #0x40
+    mov r3, #1
+card_stroke_check:
+    ldrb r0, [r5, r3]
+    and r0, r0, #0x78
+    cmp r0, r2
+    addeq r6, r6, #1
+    cmpne r0, #0
+    bne card_stroke_out
+    mov r2, r2, lsr #1
+    add r3, r3, #1
+    cmp r3, #5
+    blo card_stroke_check
+    cmp r6, #4
+    beq card_stroke_out
+    mov r2, #0x40
+    mov r3, #1
+card_stroke_draw:
+    ldrb r0, [r5, r3]
+    orr r0, r0, r2
+    strb r0, [r5, r3]
+    mov r2, r2, lsr #1
+    add r3, r3, #1
+    cmp r3, #5
+    blo card_stroke_draw
+    mov r0, r4
+    mov r1, #0
+    add r2, r4, #5
+    mov r3, #7
+    ldr r12, =MG_MARK
+    blx r12
+    cmp r4, #CARD_X_MAIN        ; card_frame compares 94 with what it drew last: the stroke is part of it
+    bne card_stroke_out
+    ldr r1, =BATT+BP_CARD
+    mov r3, #0
+card_stroke_keep:
+    ldrb r0, [r5, r3]
+    bic r0, r0, #1
+    strb r0, [r1, r3]
+    add r3, r3, #1
+    cmp r3, #6
+    blo card_stroke_keep
+card_stroke_out:
     pop {r4-r6, pc}
 .pool
 .align 4

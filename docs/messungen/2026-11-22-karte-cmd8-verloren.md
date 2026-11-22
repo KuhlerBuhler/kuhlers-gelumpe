@@ -27,6 +27,9 @@ Treiber "present" und "init" (`0xC031BEC0` + 0x19 und + 0x1A), FatFs `fs_type` �
 - `CARD_NEVER` gibt es nicht mehr. Nach einem Start ohne Karte liest `menu_card_watch` die erste gesteckte Karte wie eine getauschte;
   der Grund f체r `CARD_NEVER` (#518, die erste Karte nach so einem Start h채ngte Korgs Init) ist dieselbe Schleife.
   Die FILE-Befehle von BLECH SysEx gehen mit so einer Karte wie mit jeder anderen um.
+- Bleibt eine Karte trotzdem gesperrt (`CARD_STUCK`), zeichnet `card_stroke` (`tools/patch/script_battery.s`) einen Strich durch
+  das Kartensymbol, vier Pixel schr채g durch sein Inneres, links unten nach rechts oben. Nur wo die Spalten das Symbol zeigen, ein
+  Fenster, Men체 oder eine App an der Stelle bleibt unber체hrt. Mit der n채chsten gelesenen Karte ist der Strich weg.
 - Das Kartenmodell des Emulators (`tools/emu/sdcard.py`) h채lt sich an die Regel aus der Spezifikation: eine SDHC-Karte ohne CMD8 seit dem
   letzten CMD0 bleibt busy.
 
@@ -37,4 +40,5 @@ Treiber "present" und "init" (`0xC031BEC0` + 0x19 und + 0x1A), FatFs `fs_type` �
 | Mit dem BLECH-Stand vor dem Fix scheitern beide F채lle: die Sperre wird gesetzt | dieselben F채lle gegen develop b35ccc39, HT und blau | gemessen |
 | Start ohne Karte, dann Karte gesteckt: ihre Einstellungen gelten, Sperre 0 | `start_without_card_reads_the_first`, HT/rot/blau | gemessen |
 | FILE-Befehle schreiben und lesen eine nach einem Start ohne Karte gesteckte Karte | `tools/emu/sysex_cases.py:file_cases`, `file_card_after_start_without_one`, HT/rot/blau | gemessen |
+| Gesperrte Karte: Strich durch das Kartensymbol; nach dem Tausch gegen eine Karte, die mountet, das Symbol ohne Strich | `stuck_card_symbol_struck`, HT/rot/blau | gemessen |
 | Am Ger채t: ob der Neustart nach 500 Runden die F채lle vom Mac abdeckt, und ob die COM_CRC_ERROR-Antwort beim Stecken dieselbe Ursache hat | Ger채tetest | offen |

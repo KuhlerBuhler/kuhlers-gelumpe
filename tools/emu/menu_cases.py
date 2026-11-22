@@ -3202,6 +3202,11 @@ def card_later_cases(payload, flash=None):
 
     # a card still powering up when it is read: Korg's SD init runs out of ACMD41 rounds and locks every later init ("No Card.")
     # until a card interrupt (docs/messungen/2026-11-14-karte-init-sperre.md). The menu clears the lock and reads it once more.
+    def card_struck(d, x=109):
+        """(card symbol on the main screen at x, stroke through it): right edge full, the inner columns' rows 3 to 6 as card_stroke draws."""
+        cols = bytes(d.m.fb[0])[x:x + 6]
+        return cols[5] & 0xFE == 0xFE, [c & 0x78 for c in cols[1:5]] == [0x40, 0x20, 0x10, 0x08]
+
     def busy_card(d):
         d.m.eject_card()
         d.run(0.5)
@@ -3255,6 +3260,7 @@ def card_later_cases(payload, flash=None):
     stuck.run(5.0)
     add("busy_card_read_once_more_only", first == 0xFC and state(stuck, S_CARD) == 0xFC and stuck.u32(SD_INIT_LOCK) == 1
         and look(stuck) == ref_a and not stuck.m.asserts, f"card state {first:#x}, 5 s later {state(stuck, S_CARD):#x}, lock {stuck.u32(SD_INIT_LOCK)}")
+    struck = card_struck(stuck)
     stuck.m.eject_card()
     stuck.run(0.5)
     stuck.m.insert_card(SDCard(MemoryMedium(card_image(files_b))))
@@ -3274,6 +3280,9 @@ def card_later_cases(payload, flash=None):
     add("card_busy_at_start_read_after", at_start[0] == 1 and at_start[1] >= 0x100 and look(late) == ref_a and late.u32(SD_INIT_LOCK) == 0
         and not late.m.asserts, f"at the main screen lock {at_start[0]}, card state {at_start[1]:#x}; read after {look(late)}; started with it {ref_a}")
     add("stuck_card_swapped_reads",look(stuck) == ref_b and stuck.u32(SD_INIT_LOCK) == 0 and not stuck.m.asserts, f"other card {look(stuck)}; started with it {ref_b}")
+    press(stuck, "exit", wait=0.6)     # SAVE TO FLASH? covers the top row
+    add("stuck_card_symbol_struck", struck == (True, True) and card_struck(stuck) == (True, False) and not stuck.m.asserts,
+        f"(symbol, stroke) locked out {struck}, the other card read {card_struck(stuck)}")
 
     # CMD8 lost while the card goes in: Korg drops CMD8's answer, and an SDHC card that missed it stays busy on ACMD41 for good
     # (SD spec 4.2.3.1; docs/messungen/2026-11-22-karte-cmd8-verloren.md). acmd41_round_hook starts over with CMD0 and CMD8, so the
