@@ -154,11 +154,14 @@ class RecordingCardGateTests(unittest.TestCase):
         m.uc.mem_map(m.symbols['LP_CODE'] & ~4095, 4096)
         m.write(m.symbols['LP_CODE'], 0xFFFFFFFF)
         m.write(m.symbols['SP_CODE'], 0xFFFFFFFF)
-        attempts = []
+        attempts, recording = [], [True]
         def firmware(uc, address, size, data):
             if address == m.symbols['menu_flash_save']:
-                self.fail('deferred SD requests must not fall back to flash')
-            if address == m.symbols['menu_pc_call']:
+                if recording[0]:
+                    self.fail('deferred SD requests must not fall back to flash')
+                attempts.append('flash')   # after the take the flash, the main store, may follow the card file
+                uc.reg_write(UC_ARM_REG_R0, 1)
+            elif address == m.symbols['menu_pc_call']:
                 uc.reg_write(UC_ARM_REG_R0, 0)
             else:
                 pointer = uc.reg_read(UC_ARM_REG_R1)
@@ -176,9 +179,11 @@ class RecordingCardGateTests(unittest.TestCase):
         m.call('nr_card_flush')
         self.assertFalse(attempts)
         self.stop(m)
+        recording[0] = False
         m.write(m.runtime + m.symbols['RT_ARMED'], 0)
         m.call('script_frame_run', m.runtime)
-        self.assertEqual(attempts, ['SD:KORG/blechtribe/settings.b.bin', 'SD:KORG/blechtribe/e2sCustom.all'])
+        self.assertEqual([a for a in attempts if a != 'flash'], ['SD:KORG/blechtribe/settings.b.bin', 'SD:KORG/blechtribe/e2sCustom.all'])
+        self.assertLessEqual(attempts.count('flash'), 1)
         self.assertEqual(m.read(m.symbols['NATIVE_RECORDING'] + m.symbols['NR_DEFERRED']), 0)
 
     def test_manual_card_actions_refuse_before_mutating_the_plugin_or_lists(self):

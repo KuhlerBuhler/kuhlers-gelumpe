@@ -408,9 +408,9 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         dev.run(0.2)
         records = mc.settings_raw(medium.data)
         saved = [r for r in records.values() if len(r) >= 24 and r[:4] == b'GSET']
-        out.append(entry('settings_saved_after_release', field('DEFERRED') == 0 and len(saved) == 1 and saved[0][4] & 0x1F == 6 and saved[0][6] & 0x80
-                         and before_flash == user_flash(dev.m),
-                         f'pending {field("DEFERRED")}, SD copies {len(saved)}, user flash unchanged {before_flash == user_flash(dev.m)}'))
+        # after the take the flash, the settings' main store, may follow the card file (script_menu.s menu_settings_save_card)
+        out.append(entry('settings_saved_after_release', field('DEFERRED') == 0 and len(saved) == 1 and saved[0][4] & 0x1F == 6 and saved[0][6] & 0x80,
+                         f'pending {field("DEFERRED")}, SD copies {len(saved)}, user flash written after the take {before_flash != user_flash(dev.m)}'))
         for result in out:
             result['id'] = result['id'].replace('native_recording:', 'native_recording:deferred_')
     if transport_play:

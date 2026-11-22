@@ -1098,6 +1098,8 @@ menu_settings_save_card:
     push {r4-r6, lr}
     mov r0, #0
     bl menu_settings_write
+    bl nr_card_busy             ; a native recording holds the card: the flash waits with the file (nr_card_flush), a flash write
+    popne {r4-r6, pc}           ; would stall the recording's reader
     ldr r4, =MENU_STATE
     ldr r5, [r4, #M_STATUS]
     ldr r0, [r4, #M_FL]
