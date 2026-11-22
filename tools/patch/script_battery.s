@@ -1,4 +1,4 @@
-; BATTERY % (CUSTOMIZATION > DISPLAY): the battery's charge in steps of 10 percent on the main screen's top row, right before
+; BATTERY % (CUSTOMIZATION > DISPLAY): the battery's charge in whole percent on the main screen's top row, right before
 ; the battery symbol (page 0, columns 101 to 116, rows 1 to 7: hundreds, tens, ones and '%', each 3 columns and a blank one).
 ; While the percent is wanted (battery_model) the card symbol moves to 94 to 99 on the main screen (card_place, card_frame);
 ; without it (mains, Ni-MH, the switch off) it goes back to Korg's 109, which every other screen keeps. LOAD METER sits at
@@ -7,11 +7,11 @@
 ; Ni-MH nothing is drawn. On by default: the stored bit FLAGS2_BATT_OFF means off, so a file with the default stays version 3.
 ; The reading is the battery model's (BATTERY_MODEL +0x320, from panel message 6). Empty is the last byte of its threshold
 ; table at +0x318, where the firmware switches off; full is BP_FULL, a little under fresh Alkali cells (162 to 163 measured),
-; because Korg's full threshold 127 is reached only after about an hour. It is smoothed: every BP_STEP_MS it moves an eighth of the way to the reading, and the percent shown
-; changes only when the new one is more than 8 percent away from it, so a short dip or noise around a step leaves it.
+; because Korg's full threshold 127 is reached only after about an hour. It is smoothed: every BP_STEP_MS it moves an eighth of the way to the reading,
+; so a reading that flips between two neighbours shows the value between them. The percent shown follows it in whole percent.
 .equ BP_AVG, 0                  ; the smoothed reading times 256
 .equ BP_TICK, 4                 ; the OS tick count (1 ms) at the last smoothing step
-.equ BP_SHOWN, 8                ; byte: the percent shown, 0 to 100 in steps of 10, 0xFF before the first one
+.equ BP_SHOWN, 8                ; byte: the percent shown, 0 to 100, 0xFF before the first one
 .equ BP_DRAWN, 9                ; byte: 1 while our digits may be on the display
 .equ BP_INIT, 12                ; 1 while a reading is held (0 while not wanted, FF at power-on)
 .equ BP_CARD, 16                ; 6 bytes: columns 94 to 99 of page 0 (row 0 left out) as card_frame last drew them
@@ -21,7 +21,6 @@
 .equ BP_PENDING_MS, 300         ; how long card_frame waits for the screen manager to show that screen
 .equ BP_COL, 101                ; the first column of the digits
 .equ BP_STEP_MS, 250            ; one smoothing step
-.equ BP_HOLD, 80                ; per mille: the percent shown changes only when the new one is further away than this
 .equ BP_FULL, 160               ; the reading shown as 100 percent
 
 ; Once a frame, behind glide_frame. Keeps r4 to r11.
@@ -109,21 +108,9 @@ batt_frame_value:
     bl egg_div
     add r7, r7, r0              ; the charge in per mille
 batt_frame_percent:
-    ldrb r0, [r4, #BP_SHOWN]
-    cmp r0, #0xFF
-    beq batt_frame_set
+    add r0, r7, #5
     mov r1, #10
-    mul r1, r0, r1
-    subs r1, r7, r1
-    rsblt r1, r1, #0
-    cmp r1, #BP_HOLD
-    bls batt_frame_draw
-batt_frame_set:
-    add r0, r7, #50
-    mov r1, #100
-    bl egg_div
-    mov r1, #10
-    mul r0, r1, r0
+    bl egg_div                  ; per mille to whole percent
     strb r0, [r4, #BP_SHOWN]
 batt_frame_draw:
     bl load_meter_shown

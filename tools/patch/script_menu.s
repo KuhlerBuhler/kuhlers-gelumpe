@@ -4025,7 +4025,7 @@ menu_text_idle:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
-; BATTERY %: the battery's charge in steps of 10 next to LOAD METER, on battery with Alkali (script_battery.s); bit 4 of byte 7
+; BATTERY %: the battery's charge in whole percent next to LOAD METER, on battery with Alkali (script_battery.s); bit 4 of byte 7
 ; (MX_FLAGS2) set is OFF, so ON, the default, keeps byte 7 at 0
 menu_text_batt:
     mov r0, #3

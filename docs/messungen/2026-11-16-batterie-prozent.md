@@ -45,9 +45,10 @@ Disassemblat), **hergeleitet**, **geschätzt**.
   Korgs volle Schwelle 127 taugt nicht als 100 %: frische Alkali-Zellen lesen 162 bis 163, und bis 127 vergeht über eine
   Stunde, die Anzeige stünde so lange auf 100 %. 160 liegt knapp unter frischen Zellen, damit auch etwas schwächere neue
   Zellen bei 100 % anfangen.
-- Daraus die Ladung über die Kurve `batt_curve` (11 Stützpunkte, dazwischen linear), auf 10 % gerundet.
-- Hysterese: der angezeigte Wert ändert sich erst, wenn die neue Ladung mehr als 8 % (80 Promille) von ihm weg ist. Ein
-  kurzer Einbruch oder Rauschen um eine Stufengrenze lässt ihn stehen.
+- Daraus die Ladung über die Kurve `batt_curve` (11 Stützpunkte, dazwischen linear), auf ganze Prozent gerundet.
+- Bis 22.11. war es auf 10 % gerundet, mit 8 % Hysterese. Beim Spieltest am 22.11. fiel die Anzeige dadurch schnell auf 10 % und
+  blieb dort sehr lange: mit der Hysterese wechselt 10 erst unter 2 % Ladung auf 0. Spannungswackler beim Spielen gibt es am
+  Gerät praktisch nicht, darum jetzt ganze Prozent ohne Hysterese; die Glättung (ein Achtel je 250 ms) bleibt.
 - Die elf Werte von `batt_curve` kommen aus zwei Entladungen am Gerät (Abschnitt Entladekurve). Davor war die Kurve eine
   Gerade zwischen Korgs Alkali-Schwellen 97 und 127, danach (#659) gemessen, aber noch mit 127 als voll.
 
@@ -173,8 +174,8 @@ nach dem Schließen 1. `load_meter_shown` verlangt jetzt zusätzlich eine offene
 |---|---|---|
 | Mit Ni-MH wird nichts gezeichnet | `battery_percent_cases.py:hidden_with_nimh` | gemessen |
 | Auf Batterie mit Alkali steht der Wert der Kurve, als Glyphen | `shown_on_alkali_battery` | gemessen |
-| Werte von knapp über leer bis über voll geben 0 bis 100 in Zehnerschritten | `steps_of_10` | gemessen |
-| Ein Einbruch für einen Schritt lässt den Wert stehen, ein dauerhafter Anstieg läuft in Stufen bis 100 | `smoothed` | gemessen |
+| Werte knapp über leer bis über voll geben einstellige Werte bis 100 in ganzen Prozent, nicht nur Zehner (leer selbst schaltet aus) | `whole_percent` | gemessen |
+| Ein Einbruch für einen Schritt bewegt den Wert höchstens ein Achtel und er kommt zurück, ein dauerhafter Anstieg läuft schrittweise bis 100 | `smoothed` | gemessen |
 | Am Netzteil sofort weg, zurück auf Batterie wieder da | `hidden_on_mains` | gemessen |
 | Mit LOAD METER ON und Karte behalten Zahl, Lastanzeige, Karte und Batteriesymbol ihre Spalten, 100 bleibt frei | `layout_with_load_meter_and_card` | gemessen |
 | Ohne Karte nichts bei 94 und 109, auch nicht nach BLECH-Menü und GLOBAL PARAMETERS | `card_none` | gemessen |
