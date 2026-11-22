@@ -89,7 +89,7 @@ Test-VSB `test-ocr-4f40ddfa` (auf ORIGINAL.BIN), vorher USB-Kabel neu gesteckt.
   nicht von selbst wieder. Der Ein/Aus-Schalter startet es normal; danach INFO `0xbff`, Stub nicht mehr im RAM.
 - Auch am Netzteil also: der Watchdog-Reset wirkt wie Ausschalten (hergeleitet: der Reset nimmt die Stromhaltung weg).
 
-Entscheidung (Pascal 22.11.): kein Menüpunkt RESTART. Aus/Ein am Schalter leistet dasselbe, ein Neustart ohne Chip-Reset
+Entscheidung (22.11.): kein Menüpunkt RESTART. Aus/Ein am Schalter leistet dasselbe, ein Neustart ohne Chip-Reset
 (Sprung in die Firmware) lohnt den Aufwand nicht. Ein späterer RESTART DSP (nur DSP neu booten, Pattern bleibt) ist
 davon getrennt. `tools/device/watchdog_restart.py` und das Emulator-Modell bleiben für Messungen.
 
