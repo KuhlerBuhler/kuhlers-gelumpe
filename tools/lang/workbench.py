@@ -107,19 +107,24 @@ def update_data(payload, build, areas, shown_fonts):
     path = data_path(build)
     data = json.loads(path.read_text("utf8"))
     texts = data["texts"]
-    found = {}
+    found, mine_at = {}, {}
     for span in areas.values():
         for address in strings(payload, *span):
-            found.setdefault(sha(text_bytes(payload, address)), address)
+            mine_at[address] = sha(text_bytes(payload, address))
+            found.setdefault(mine_at[address], address)
     notes = []
     if build != "hacktribe":
         for key, entry in load_german("hacktribe").items():
-            address = found.get(entry.get("expect"))
+            # The same text at the same address first; an effect record field (inPlace) only there.
+            if mine_at.get(int(key, 16)) == entry.get("expect"):
+                address = int(key, 16)
+            else:
+                address = None if entry.get("inPlace") else found.get(entry.get("expect"))
             if address is None:
                 notes.append(f"{key}: not in this build")
                 continue
             mine = texts.setdefault(f"0x{address:08x}", {})
-            for k in ("text", "keep", "glossar", "buffer"):
+            for k in ("text", "keep", "glossar", "buffer", "inPlace"):
                 if k in entry:
                     mine[k] = entry[k]
                 else:
@@ -137,7 +142,7 @@ def update_data(payload, build, areas, shown_fonts):
         entry["fonts"] = fonts or []
         entry.pop("font", None)
         entry["pointers"] = [{"at": f"0x{w:08x}", "expect": sha(struct.pack("<I", address))} for w in ptrs.get(address, [])]
-        if not entry["pointers"]:
+        if not entry["pointers"] and not entry.get("inPlace"):
             notes.append(f"{key}: no pointer word")
     data["texts"] = dict(sorted(texts.items()))
     path.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", "utf8")
