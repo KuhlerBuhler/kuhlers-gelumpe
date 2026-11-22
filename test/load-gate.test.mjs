@@ -1,21 +1,32 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { busyReason, waitForLoad } from "../tools/load-gate.mjs";
+import { busyReason, cpuBusyBetween, readMachine, waitForLoad } from "../tools/load-gate.mjs";
 
-test("busy when the 1 minute load reaches 0.8 x cores", () => {
-  assert.equal(busyReason({ load1: 7.9, cores: 10 }), null);
-  assert.match(busyReason({ load1: 8, cores: 10 }), /load 8\.0 on 10 cores, limit 8\.0/);
-  assert.notEqual(busyReason({ load1: 4, cores: 10, max: 0.3 }), null);
+test("busy when the CPUs are 80 % busy", () => {
+  assert.equal(busyReason({ cpuBusy: 0.79, cores: 10 }), null);
+  assert.match(busyReason({ cpuBusy: 0.8, cores: 10 }), /CPU 80% busy on 10 cores, limit 80%/);
+  assert.notEqual(busyReason({ cpuBusy: 0.4, cores: 10, max: 0.3 }), null);
+});
+
+test("the busy share counts every CPU time but idle, over all cores", () => {
+  const t = (user, idle) => ({ times: { user, nice: 0, sys: 0, idle, irq: 0 } });
+  assert.equal(cpuBusyBetween([t(0, 0), t(0, 0)], [t(100, 0), t(0, 100)]), 0.5);
+  assert.equal(cpuBusyBetween([t(5, 5)], [t(5, 5)]), null);
+});
+
+test("reads this machine", async () => {
+  const m = await readMachine({ sampleMs: 200 });
+  assert.ok(m && m.cpuBusy >= 0 && m.cpuBusy <= 1 && m.cores > 0, JSON.stringify(m));
 });
 
 test("busy when free memory is below the minimum, unknown memory does not block", () => {
-  assert.match(busyReason({ load1: 1, cores: 10, memoryFree: 5 }), /free memory 5%/);
-  assert.equal(busyReason({ load1: 1, cores: 10, memoryFree: 40 }), null);
-  assert.equal(busyReason({ load1: 1, cores: 10, memoryFree: null }), null);
+  assert.match(busyReason({ cpuBusy: 0.1, cores: 10, memoryFree: 5 }), /free memory 5%/);
+  assert.equal(busyReason({ cpuBusy: 0.1, cores: 10, memoryFree: 40 }), null);
+  assert.equal(busyReason({ cpuBusy: 0.1, cores: 10, memoryFree: null }), null);
 });
 
-const busy = { load1: 20, cores: 10, memoryFree: 50 };
-const quiet = { load1: 1, cores: 10, memoryFree: 50 };
+const busy = { cpuBusy: 0.95, cores: 10, memoryFree: 50 };
+const quiet = { cpuBusy: 0.1, cores: 10, memoryFree: 50 };
 const noSleep = async () => {};
 
 test("waits while busy, starts when quiet", async () => {
@@ -40,5 +51,5 @@ test("CI, the off switch and a passed outer gate skip it", async () => {
 });
 
 test("the threshold can be raised by env", async () => {
-  assert.equal(await waitForLoad({ env: { GELUMPE_LOAD_MAX: "3" }, read: () => busy, sleep: noSleep, log: () => {} }), true);
+  assert.equal(await waitForLoad({ env: { GELUMPE_LOAD_MAX: "1" }, read: () => busy, sleep: noSleep, log: () => {} }), true);
 });

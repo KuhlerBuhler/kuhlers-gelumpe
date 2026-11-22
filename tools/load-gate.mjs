@@ -4,7 +4,10 @@
  *
  *   node tools/load-gate.mjs [command ...]
  *
- * Env: GELUMPE_LOAD_GATE=off skips, GELUMPE_LOAD_MAX (0.8 x cores), GELUMPE_LOAD_WAIT (1200 s), GELUMPE_LOAD_POLL (15 s).
+ * Busy means the CPUs were at least GELUMPE_LOAD_MAX busy over a short sample, or free memory is low. Not the load average:
+ * on macOS it counts threads waiting on I/O and other blocked threads too, so it stays high on a machine with idle CPUs.
+ *
+ * Env: GELUMPE_LOAD_GATE=off skips, GELUMPE_LOAD_MAX (0.8 = 80 % CPU), GELUMPE_LOAD_WAIT (1200 s), GELUMPE_LOAD_POLL (15 s).
  * GELUMPE_LOAD_GATE_PASSED=1 is set after passing so nested gated runs do not wait twice.
  */
 import { spawn, spawnSync } from "node:child_process";
@@ -12,12 +15,12 @@ import { readFileSync } from "node:fs";
 import { cpus } from "node:os";
 import { fileURLToPath } from "node:url";
 
-export const DEFAULTS = { max: 0.8, memoryFreeMin: 10, waitSeconds: 1200, pollSeconds: 15 };
+export const DEFAULTS = { max: 0.8, memoryFreeMin: 10, waitSeconds: 1200, pollSeconds: 15, sampleMs: 2000 };
 
-/** Pure decision. `memoryFree` is a percentage or null when unknown. Returns null when quiet, else the reason. */
-export function busyReason({ load1, cores, max = DEFAULTS.max, memoryFree = null, memoryFreeMin = DEFAULTS.memoryFreeMin }) {
-  const limit = max * cores;
-  if (load1 >= limit) return `load ${load1.toFixed(1)} on ${cores} cores, limit ${limit.toFixed(1)} (${max} x cores)`;
+/** Pure decision. `cpuBusy` is the busy share of all CPUs (0 to 1), `memoryFree` a percentage or null when unknown.
+ * Returns null when quiet, else the reason. */
+export function busyReason({ cpuBusy, cores, max = DEFAULTS.max, memoryFree = null, memoryFreeMin = DEFAULTS.memoryFreeMin }) {
+  if (cpuBusy >= max) return `CPU ${Math.round(cpuBusy * 100)}% busy on ${cores} cores, limit ${Math.round(max * 100)}%`;
   if (memoryFree !== null && memoryFree < memoryFreeMin) return `free memory ${memoryFree}%, limit ${memoryFreeMin}%`;
   return null;
 }
@@ -27,19 +30,40 @@ function sysctl(name) {
   return run.status === 0 ? run.stdout.trim() : "";
 }
 
-/** { load1, cores, memoryFree } of this machine, or null when it cannot be read (then there is no gate). */
-export function readMachine() {
+/** Busy share of all CPUs between two os.cpus() snapshots, or null when no time passed. */
+export function cpuBusyBetween(before, after) {
+  let idle = 0, total = 0;
+  after.forEach((cpu, i) => {
+    const was = before[i]?.times;
+    if (!was) return;
+    for (const key of Object.keys(cpu.times)) total += cpu.times[key] - was[key];
+    idle += cpu.times.idle - was.idle;
+  });
+  return total > 0 ? 1 - idle / total : null;
+}
+
+function memoryFree() {
+  if (process.platform === "darwin") {
+    const free = Number(sysctl("kern.memorystatus_level"));
+    return free > 0 ? free : null;
+  }
+  const mem = readFileSync("/proc/meminfo", "utf8");
+  const total = Number(mem.match(/MemTotal:\s+(\d+)/)?.[1]);
+  const available = Number(mem.match(/MemAvailable:\s+(\d+)/)?.[1]);
+  return total > 0 && available >= 0 ? Math.round(100 * available / total) : null;
+}
+
+/** { cpuBusy, cores, memoryFree } of this machine over a sample of `sampleMs`, or null when it cannot be read (then there is no gate). */
+export async function readMachine({ sampleMs = DEFAULTS.sampleMs } = {}) {
   try {
-    if (process.platform === "darwin") {
-      const load1 = Number(sysctl("vm.loadavg").match(/[\d.]+/)?.[0]);
-      const free = Number(sysctl("kern.memorystatus_level"));
-      return Number.isFinite(load1) ? { load1, cores: Number(sysctl("hw.ncpu")) || cpus().length, memoryFree: free > 0 ? free : null } : null;
-    }
-    const load1 = Number(readFileSync("/proc/loadavg", "utf8").split(" ")[0]);
-    const mem = readFileSync("/proc/meminfo", "utf8");
-    const total = Number(mem.match(/MemTotal:\s+(\d+)/)?.[1]);
-    const available = Number(mem.match(/MemAvailable:\s+(\d+)/)?.[1]);
-    return Number.isFinite(load1) ? { load1, cores: cpus().length, memoryFree: total > 0 && available >= 0 ? Math.round(100 * available / total) : null } : null;
+    const before = cpus();
+    await new Promise(r => setTimeout(r, sampleMs));
+    const after = cpus();
+    const cpuBusy = cpuBusyBetween(before, after);
+    if (cpuBusy === null) return null;
+    let free = null;
+    try { free = memoryFree(); } catch {}
+    return { cpuBusy, cores: after.length, memoryFree: free };
   } catch {
     return null;
   }
@@ -55,7 +79,7 @@ export async function waitForLoad({ env = process.env, read = readMachine, sleep
   const pollMs = number(env.GELUMPE_LOAD_POLL, DEFAULTS.pollSeconds) * 1000;
   let waited = 0;
   for (;;) {
-    const machine = read();
+    const machine = await read();
     const reason = machine && busyReason({ ...machine, max });
     if (!reason) return true;
     if (waited >= waitMs) {

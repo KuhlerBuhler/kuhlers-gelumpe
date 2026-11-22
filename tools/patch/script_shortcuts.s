@@ -12,6 +12,14 @@
 ;                 (device test 11.11.). Then every knob value of the part goes to the firmware's parameter set and FILTER, MOD and
 ;                 IFX TYPE through the part edit, as their controls pass them (sc_push_values): the load alone left the sound
 ;                 engine on the values from before (device test 15.11.). Stopped and playing.
+; STOP held       every sound ends at once, without turning AMP EG or the level down (wish on Discord, 22.11.): once STOP has been
+;                 down for SH_FRAMES frames (half a second) with the sequencer stopped, the next tick calls the firmware's own
+;                 silencing of all parts (SC_SILENCE (0): per part the level ramped to 0 and the part switched off at the DSP, which
+;                 clears its output and its insert effect, then the voices reset), the call a pattern load, a SysEx dump and the
+;                 DATA UTILITY make before they change the sound (docs/messungen/2026-11-22-stop-halten.md). The next note switches
+;                 its part on again. The STOP key's messages pass unchanged, so a short press is the firmware's STOP; a press
+;                 while playing stops first and silences after the half second. The master effect's tail stays (its state is
+;                 not the part's).
 ; Not with EXIT held at power-on. On the synth too, with its places from data/synth-map/ (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md). The firmware addresses SC_LEDMGR (LED manager:
 ; +0xB58 pad mode, +0xB60 selected part), SC_PLAYER (returns the player, +0x318 the running number), SC_PATPTR (the pattern in RAM,
 ; its file at +4), SC_BANK (the pattern bank, 0x4000 each), SC_LOAD ((pattern, source, 1): the firmware's pattern load) and
@@ -24,6 +32,11 @@
 .equ SC_RESET, -0x02            ; 1 to 16: the part (plus 1) the next tick resets
 .equ SC_DIRTY, -0x01            ; 1 while the pattern in RAM differs from its place in the bank (sc_unsaved)
 .equ SC_KEY_EXIT, 0x0D
+.equ SC_KEY_STOP, 0x01
+.equ SH_STATE, KEY_HOLD+20      ; STOP held: 0 up, 1 to SH_FRAMES - 1 the frames it is down, SH_DONE silenced or given up until it
+                                ; goes up; the FF of the power-on counts as SH_DONE (the unused word of the korg.keyHold record)
+.equ SH_FRAMES, 13              ; 12 ticks of the frame hook (25 a second): half a second
+.equ SH_DONE, 0x80
 .equ SC_KEY_WRITE, 0x0E
 .equ SC_WINDOW, 18              ; the firmware's Write window (screen 0x12)
 .equ SC_WAIT, 25                ; one second
@@ -62,6 +75,14 @@ shortcut_input:
     bne sc_pass
     ldrb r1, [r4, #0x0d]
     ldrb r2, [r4, #0x0e]
+    cmp r1, #SC_KEY_STOP
+    bne sc_exit_key
+    cmp r2, #0
+    movne r2, #1
+    ldr r3, =SH_STATE
+    strb r2, [r3]
+    b sc_pass
+sc_exit_key:
     cmp r1, #SC_KEY_EXIT
     bne sc_write
     cmp r2, #0
@@ -214,8 +235,29 @@ sc_tick_copy:
     bl sc_push_values
 sc_tick_done:
     bl kp_tick
+    bl sh_tick
     bl sc_unsaved
     pop {r4-r6, pc}
+
+; From shortcut_tick: counts the frames STOP is down and silences every part once it was down SH_FRAMES frames, if the sequencer
+; stands then (it gives up otherwise, until STOP goes up). Clobbers r0 to r3 and r12.
+sh_tick:
+    ldr r1, =SH_STATE
+    ldrb r0, [r1]
+    sub r2, r0, #1
+    cmp r2, #SH_FRAMES-1
+    bxhs lr
+    add r0, r0, #1
+    cmp r0, #SH_FRAMES
+    movhs r0, #SH_DONE
+    strb r0, [r1]
+    bxlo lr
+    ldr r0, =HW_TRANSPORT
+    ldr r0, [r0]
+    cmp r0, #0
+    bxne lr
+    ldr r12, =SC_SILENCE
+    bx r12
 
 ; r0 = the part (0 to 15). Hands every knob value of the part in the pattern in RAM to the firmware's parameter set
 ; (HW_PARAM_SET: part + 1, the knob's id, the value, 1), the call a knob, the CUTOFF encoder and the IFX ON and MFX SEND keys

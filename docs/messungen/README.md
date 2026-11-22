@@ -45,6 +45,7 @@ Speicheruntersuchung zusammen. Anleitungen zum Nachvollziehen am eigenen Gerät 
 
 - [Freier und reservierter Platz für ARM, DSP und Plugins, auf festen Quellständen gerechnet](2026-11-20-firmware-speicherbudget.md)
 - [DSP-SDRAM-Kandidaten: statische Besitzer, native Start-/Audioleerlaufläufe und Grenzen des Nachweises](2026-11-20-dsp-sdram-freiraum.md)
+- [DSP-SDRAM am roten Gerät: zwei vollständige Lesevergleiche und geprüfte Wiederherstellung](2026-11-22-dsp-sdram-am-geraet.md)
 
 ## Pattern, Parts und Global
 
@@ -422,6 +423,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Hacktribes Extra-Effekte, Grooves und Touch-Skalen auf der roten 2.02: was als Datenpatch geht](2026-11-10-hacktribe-extras-rot.md)
 - [Hacktribes Master-Effekte als Nachbau auf MFX 33 bis 36 der roten 2.02, Katalog ab 37, im Emulator](2026-11-17-hacktribe-master-rot.md)
 - [Patterns-Ordner: Export, Import-Browser, Laden beim Start, Globals](2026-11-14-patterns-ordner.md)
+- [STOP halten: jeden Klang sofort beenden](2026-11-22-stop-halten.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)
 - [Blackfin: Kern und Host-Port als Prüfprototyp](2026-11-14-blackfin-boot-ruecklesen.md)
