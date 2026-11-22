@@ -409,6 +409,8 @@ class Machine:
 
     def insert_card(self, card):
         """Put an SDCard (sdcard.py) into the slot; GPIO 4.1 goes low. Call before running."""
+        if hasattr(card, "power_on"):
+            card.power_on()                 # the slot powers the card as it goes in
         self.mmc.card = card
         self.inputs[pin(4, 1)] = 0
 
