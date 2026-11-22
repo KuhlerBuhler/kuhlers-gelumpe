@@ -105,7 +105,7 @@ class Compiler {
     this.labelCount = 0;
     this.edges = [];
     this.apiSites = [];
-    this.leafSince = 0;   // the newest API version of the object tree leaves the plugin names (a leaf has its own `since`)
+    this.leafSince = 0;   // the newest API version of the object tree leaves the plugin names (a leaf has its own `since`) and of argument values (an argument's `since`)
     this.topIndex = 0;
     this.app = null;
     this.data = [];
@@ -531,6 +531,9 @@ class Compiler {
       const t = this.val(a, fn);
       const want = api.args[i].kind;
       if (t !== want) throw err(a, text("compile.api.argType", { arg: api.args[i].name, name, want: TYPE_NAME[want], got: TYPE_NAME[t] }));
+      // a value newer than the call (korg.audio.capture(25), API 41) raises the block when it is written as a number
+      const since = api.args[i].since?.[constValue(a)];
+      if (since) this.leafSince = Math.max(this.leafSince, since);
     });
     fn.line = n.line;
     this.emit(fn, "CALLAPI", api.id, api.args.length);

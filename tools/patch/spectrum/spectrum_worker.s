@@ -45,6 +45,14 @@ scope_service:
     ldreq r0, =0xFF90197C
     ldrne r0, =0xFF901A98
     add r8, r8, r0
+    ; BLECH: the Master (script_audio_service.s AU_CTX_MASTER) on an own capture, or on the native recording's, never started
+    ; or stopped here
+    ldr r0, [r4, #AU_CTX_MASTER]
+    cmp r0, #AU_SHARED
+    ldreq r8, =RR_CAPTURE
+    beq sp_poll
+    cmp r0, #AU_OWN
+    ldreq r8, =AU_MASTER_WORD
     ldr r0, [r4, #4]
     cmp r0, #1
     bne sp_begin
@@ -56,9 +64,15 @@ scope_service:
 sp_begin:
     bl sp_reset
     mov r0, r4
+    ldr r1, [r4, #AU_CTX_MASTER]
+    cmp r1, #AU_OWN
+    beq sp_begin_master
     mov r1, r6
     mov r2, r7
     bl scope_begin
+    b sp_return
+sp_begin_master:
+    bl scope_begin_master
     b sp_return
 sp_poll:
     add r0, r4, #SP_STREAM
@@ -68,6 +82,14 @@ sp_poll:
     beq sp_append
     cmp r0, #1
     beq sp_waiting
+    ; BLECH: the recording's capture not (yet) running is a wait for the shared Master
+    ldr r1, [r4, #AU_CTX_MASTER]
+    cmp r1, #AU_SHARED
+    cmpeq r0, #3
+    bne sp_poll_failed
+    bl sp_reset
+    b sp_waiting
+sp_poll_failed:
     cmp r0, #3
     moveq r1, #0
     streq r1, [r4, #4]

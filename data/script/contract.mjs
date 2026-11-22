@@ -24,7 +24,7 @@
 import { text } from "../../src/text.mjs";
 
 export const FORMAT_VERSION = 2;
-export const API_VERSION = 40;
+export const API_VERSION = 41;
 
 /** "GSCR" in the first four bytes of every blob. */
 export const MAGIC = 0x52435347;
@@ -349,10 +349,11 @@ export function dataFileName(name, file = 0) {
  * korg.audio.capture, spectrum and wave (API 31): what they return, and the sizes of what the service publishes. `columns` is the
  * number of log-spaced columns per range from 20 Hz (to 20 kHz, bass to 2 kHz), each in dB 0 to `top` (top = a full-scale sine,
  * 0 = 96 dB below it or quieter); `wave` the newest frames of the capture, -128 to 127. Sources: 1 to 16 a part, 17 to 24 the
- * part pairs 1/2 to 15/16.
+ * part pairs 1/2 to 15/16, 25 (`master`, API 41) the stereo Master; during a native recording only the Master runs, on the
+ * recording's own capture (tools/patch/script_audio_service.s).
  */
 export const AUDIO_STATUS = Object.freeze({ ok: 0, off: 1, busy: 2, wait: 3, gap: 4, noMemory: 5, unsupported: 6 });
-export const AUDIO_SPECTRUM = Object.freeze({ columns: 128, top: 96, wave: 256, sources: 24, parts: 16 });
+export const AUDIO_SPECTRUM = Object.freeze({ columns: 128, top: 96, wave: 256, sources: 25, parts: 16, master: 25 });
 
 /**
  * The values korg.read.sampleInfo reads from the sampler's tables (data/map/sample.mjs), by number. `start` is the start
@@ -464,8 +465,9 @@ const API_LIST = [
   // the output level as the meter of the bottom LEDs shows it (API 31), 0 to 254 per side
   [121, "korg.audio.level", [int("channel", 0, 1)], "int", ALL, 4, 31],
   // capture, spectrum and wave of a part or part pair through the native capture (API 31, Sampler only; the service is Spettro's,
-  // PR #429): status 0 ok, 1 off, 2 busy, 3 wait, 4 gap, 5 no memory, 6 not on this Electribe (AUDIO_STATUS)
-  [129, "korg.audio.capture", [int("source", -1, 24)], "int", UI, 6, 31],
+  // PR #429): status 0 ok, 1 off, 2 busy, 3 wait, 4 gap, 5 no memory, 6 not on this Electribe (AUDIO_STATUS). Source 25, the
+  // Master, came with API 41: `since` raises the block of a plugin that passes it as a number (an older runtime refuses 25)
+  [129, "korg.audio.capture", [{ ...int("source", -1, 25), since: Object.freeze({ 25: 41 }) }], "int", UI, 6, 31],
   [130, "korg.audio.spectrum", [arr("array"), int("bins", 1, 128), int("range", 0, 1)], "int", UI, 30, 31, 1],
   [131, "korg.audio.wave", [arr("array")], "int", UI, 30, 31, 1],
   // a plugin's data files (SCRIPT_DATA_FILE); API 39 added the file argument and the folder per plugin

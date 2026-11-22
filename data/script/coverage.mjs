@@ -63,6 +63,8 @@ export const COVERAGE = Object.freeze([
   row("sound", "Ausgangspegel wie die Pegelanzeige", "Output level as the level meter", "Niveau de sortie comme l'indicateur de niveau", ["korg.audio.level"]),
   row("sound", "Spektrum, Wellenform", "Spectrum, waveform", "Spectre, forme d'onde",
     ["korg.audio.capture", "korg.audio.spectrum", "korg.audio.wave"]),
+  row("sound", "Zustand der eingebauten Aufnahme", "State of the native recording", "État de l'enregistrement intégré",
+    ["korg.record.running", "korg.record.seconds", "korg.record.gaps"]),
   row("sound", "Eigene MIDI-Nachrichten senden, MIDI empfangen", "Sending own MIDI messages, receiving MIDI", "Envoyer ses propres messages MIDI, recevoir du MIDI",
     [], ["korg.midi.cc", "korg.midi.noteOn", "korg.midi.noteOff", "korg.midi.program", "korg.midi.hold"], ["midiIn"]),
   row("sound", "Name und Daten eines Samples", "Name and data of a sample", "Nom et données d'un échantillon", ["korg.read.sampleName", "korg.read.sampleInfo"]),

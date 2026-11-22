@@ -18,6 +18,7 @@
 .equ OBJ_BASE_FLAGS2, 9
 .equ OBJ_FLAGS2_INVERT, 0x100     ; FLAGS2_INVERT in data/script/objects.mjs
 .equ STATE_POWER_SAVE, 5          ; STATE_WORDS: the firmware's dim flag, then the stage of IDLE POWER SAVE
+.equ STATE_RECORD, 7              ; STATE_WORDS: recordRunning, recordSeconds, recordGaps of the native recording (API 41)
 .equ POWER_MODEL, 0xC03405C4       ; pointer to the power source model, +0x308 1 on the adapter (docs/messungen/2026-11-11-plugin-api34-system.md)
 .equ BATTERY_MODEL, 0xC03405C8     ; pointer to the battery model, +0x328 the level 0 to 4 its thresholds give
 .equ STATE_MODEL, 0xC0348884       ; pointer to the sequencer model, +0x344 the bar section (as dice.py MODEL)
@@ -125,6 +126,8 @@ objects_flags2_get:
 ; r0 = a state word (STATE_WORDS) -> r0 = the firmware's word, FFFFFFFF while its object does not exist (reads as the factory
 ; value). Clobbers r1, r2.
 objects_state_word:
+    cmp r0, #STATE_RECORD
+    bhs objects_state_record
     cmp r0, #STATE_POWER_SAVE
     bhs objects_state_own
     ldr r1, =objects_state_words
@@ -153,6 +156,36 @@ objects_state_stage:
     cmp r0, #4
     mvnhi r0, #0
     bx lr
+; korg.record.running (7): 1 while NR_PHASE is not idle, from the start until the file is closed; korg.record.seconds (8): the
+; frames written (NR_BYTES) in whole seconds at 48 kHz; korg.record.gaps (9): NR_GAPS, 1 when a gap ended the take. All 0 before
+; the recording's first use (no NR_MAGIC). Reads only the public state (tools/patch/recording_runtime.s), keeps r3 and r12.
+objects_state_record:
+    push {r3, r12, lr}
+    ldr r1, =NATIVE_RECORDING
+    ldr r2, [r1]
+    ldr r3, =NR_MAGIC
+    cmp r2, r3
+    movne r0, #0
+    bne objects_state_record_done
+    cmp r0, #STATE_RECORD
+    bne objects_state_record_seconds
+    ldr r0, [r1, #NR_PHASE]
+    cmp r0, #0
+    movne r0, #1
+    b objects_state_record_done
+objects_state_record_seconds:
+    cmp r0, #STATE_RECORD+1
+    ldrne r0, [r1, #NR_GAPS]
+    bne objects_state_record_done
+    ldr r0, [r1, #NR_BYTES]
+    mov r1, #RR_CHANNELS
+    cmp r1, #1
+    moveq r0, r0, lsr #1
+    movne r0, r0, lsr #2
+    ldr r1, =48000
+    bl glide_divide
+objects_state_record_done:
+    pop {r3, r12, pc}
 ; per state word: the pointer to the firmware's object, the offset of the word in it
 objects_state_words:
     .word HW_LED_MANAGER, 0xB58     ; padMode
