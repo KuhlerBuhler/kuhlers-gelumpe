@@ -1,8 +1,8 @@
-"""Emulator cases of BATTERY % (CUSTOMIZATION > DISPLAY, tools/patch/script_battery.s): the battery's charge in steps of 10
+"""Emulator cases of BATTERY % (CUSTOMIZATION > DISPLAY, tools/patch/script_battery.s): the battery's charge in whole
 percent on the main screen's top row, right before the battery symbol. Shown only on battery with Global BATTERY TYPE Alkali; on
 mains power and with Ni-MH nothing is drawn. The battery reading comes in as panel message 6 (machine.battery), mains or
-battery as message 7 (machine.power_source). The value is smoothed: a short dip leaves it, a lasting change walks there in
-steps. The page is ON by default, OFF takes the digits away at once, WRITE keeps OFF as bit 4 of byte 7 (version 4), ON writes
+battery as message 7 (machine.power_source). The value is smoothed: a short dip moves it only a little and it comes back, a lasting change walks
+there. The page is ON by default, OFF takes the digits away at once, WRITE keeps OFF as bit 4 of byte 7 (version 4), ON writes
 version 3, and the next start reads it. With LOAD METER on and a card in, the digits, the load meter, the card and the battery
 symbol each keep their own columns.
 
@@ -64,7 +64,7 @@ def digit(d):
 
 
 def glyphs(percent):
-    """The sixteen columns the frame draws for `percent` (0 to 100 in steps of 10), row 0 left out."""
+    """The sixteen columns the frame draws for `percent` (0 to 100), row 0 left out."""
     hundreds = 1 if percent == 100 else None
     tens = percent // 10 % 10 if percent >= 10 else None
     return digit(hundreds) + digit(tens) + digit(percent % 10) + PERCENT
@@ -149,12 +149,12 @@ class Battery:
 
     def expected(self, raw):
         """The step `batt_curve` gives for a steady reading, as the frame computes it: the place between the table's empty and
-        full threshold in per mille, the curve's segment and the place in it, rounded to 10."""
+        full threshold in per mille, the curve's segment and the place in it, rounded to whole percent."""
         full, empty = self.thresholds()
         place = max(0, min(1000, (raw - empty) * 1000 // (full - empty)))
         seg, rest = divmod(place, 100)
         charge = CURVE[seg] if seg == 10 else CURVE[seg] + (CURVE[seg + 1] - CURVE[seg]) * rest // 100
-        return (charge + 50) // 100 * 10
+        return (charge + 5) // 10
 
     def switch(self, on):
         flags = self.byte(mc.MX_FLAGS2)
@@ -205,34 +205,39 @@ def display_cases(payload, flash, png):
     if png:
         d.m.png(str(Path(png) / f"{build}-battery-shown.png"))
 
-    # steps of 10: every reading from just above empty to past full gives batt_curve's step, drawn as such
+    # whole percent: every reading from just above empty (empty itself switches the device off) to past full gives batt_curve's
+    # value, not rounded to 10, drawn as such
     steps, bad = [], []
-    for raw in sorted({empty + 1, empty + (full - empty) // 4, mid, full - 2, full, full + 20, 255}):
+    for raw in sorted({empty + 1, empty + 3, empty + (full - empty) // 4, mid, full - 2, full, full + 20, 255}):
         value, cols = b.fresh(raw)
         steps.append((raw, value))
-        if value != b.expected(raw) or value % 10 or cols != glyphs(value):
+        if value != b.expected(raw) or cols != glyphs(value):
             bad.append((raw, value, b.expected(raw), cols.hex()))
-    out.append(entry("steps_of_10", not bad and steps[0][1] == 0 and steps[-1][1] == 100 and not d.m.asserts,
+    out.append(entry("whole_percent", not bad and steps[0][1] < 10 and steps[-1][1] == 100
+                     and any(v % 10 for _, v in steps) and any(0 < v < 10 for _, v in steps) and not d.m.asserts,
                      f"build {build}: (reading, shown) {steps}, wrong {bad}"))
 
-    # smoothing: one dip of a smoothing step (to level 2, no warning) leaves the value, a lasting change walks there in steps
+    # smoothing: one dip of a smoothing step (to level 2, no warning) moves the value at most an eighth of the way and it comes
+    # back, a lasting change walks there in steps
     start, _ = b.fresh(mid)
-    d.m.battery(b.table()[2] + 1)
+    dip = b.table()[2] + 1
+    d.m.battery(dip)
     d.run(STEP_S)
     d.m.battery(mid)
-    d.run(2.0)
+    d.run(STEP_S / 2)
+    during = b.byte(BP_SHOWN)
+    d.run(10.0)
     after_dip = b.byte(BP_SHOWN)
     d.m.battery(full)
-    d.run(0.1)
-    right_after = b.byte(BP_SHOWN)
     walk = []
-    for _ in range(40):
+    for _ in range(60):
         d.run(STEP_S)
         if not walk or walk[-1] != b.byte(BP_SHOWN):
             walk.append(b.byte(BP_SHOWN))
-    out.append(entry("smoothed", after_dip == start and right_after == start and walk[-1] == 100 and len(walk) >= 3
-                     and walk == sorted(walk) and all(v % 10 == 0 for v in walk) and columns(d) == glyphs(100) and not d.m.asserts,
-                     f"build {build}: steady {start}, after one dip {after_dip}, 0.1 s after the reading went up {right_after}, "
+    step = (start - b.expected(dip)) / 8 + 1
+    out.append(entry("smoothed", abs(during - start) <= step and after_dip == start and walk[-1] == 100 and len(walk) >= 3
+                     and walk == sorted(walk) and columns(d) == glyphs(100) and not d.m.asserts,
+                     f"build {build}: steady {start}, in the dip {during} (at most {step:.1f} away), 10 s later {after_dip}, "
                      f"then {walk}"))
 
     # mains: gone at once, back on battery it comes again
