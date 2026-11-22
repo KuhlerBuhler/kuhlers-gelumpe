@@ -461,7 +461,7 @@ korg.onEvent("close", () => {
 });
 ```
 
-**Pages de BLECHTRIBE, API 17.** Toutes les pages de CUSTOMIZATION et FEATURES ont une feuille,
+**Pages de BLECHTRIBE, API 17.** Toutes les pages de CUSTOMIZATION et FEATURES sauf TUBE, TUBE DRIVE et TUBE ASYM (1.4.8) ont une feuille,
 ainsi que SET INIT PATTERN dans DATA UTILITY. Une telle feuille exige l’API 17. L’écriture
 appelle la fonction d’application de la page : réglages d’apparence pour l’écran, le rétroéclairage
 et les LED ; patch des couleurs de pads pour PAD COLOR, SELECT COLOR, OVERLAP et LED DIMMING ;
@@ -630,6 +630,10 @@ La colonne d’autorisation s’applique aussi à la syntaxe de propriété équ
 | `korg.display.take()` | Demande l’écran hors application ; renvoie 1 si obtenu, 0 si application, autre propriétaire ou hors page principale | Comme `korg.led` |
 | `korg.display.release()` | Rend l’écran au firmware | Comme `korg.led` |
 | `korg.display.popups = 0` | Supprime la fenêtre de paramètre ouverte par `korg.seq.setPartValue` et la fenêtre d’écriture de `korg.pattern.write`, pour les appels de ce plugin uniquement ; 1 la réactive, valeur initiale après chargement. Appel équivalent : `korg.display.popups(on)`. `korg.knob` conserve la fenêtre car il simule le potentiomètre. Lecture par `korg.display.popups` ou `korg.read.popups()`. Depuis l’API 24 | Comme `korg.led` |
+| `korg.display.popup.begin()` | Prépare un dessin de popup pour un plugin d’arrière-plan ; les appels d’affichage existants dessinent ensuite dans ce tampon avec des coordonnées absolues. Les applications ne peuvent pas ouvrir de popup. Depuis l’API 40 | Comme `korg.led` |
+| `korg.display.popup.timeout(ms)` | Définit la durée du popup en millisecondes, de 0 à 600000. La valeur initiale est 2000 ms ; 0 le laisse ouvert jusqu’à EXIT ou un autre popup. Depuis l’API 40 | Comme `korg.led` |
+| `korg.display.popup.show()` | Affiche le popup préparé et remplace tout popup précédent du firmware ou d’un plugin. EXIT le ferme comme un popup du firmware. Depuis l’API 40 | Comme `korg.led` |
+
 | `korg.display.clear()` | Efface l’écran ; seuls les dessins du propriétaire, application ouverte ou plugin ayant pris l’écran, agissent | Comme `korg.led` |
 | `korg.display.text(text, x, y)` | Texte dont le coin supérieur gauche est à X de 0 à 127, Y de 0 à 63 | Comme `korg.led` |
 | `korg.display.number(value, x, y)` | Affiche un nombre | Comme `korg.led` |
@@ -825,14 +829,24 @@ korg.onEvent("buttonPress", (key) => {
 
 **Affichage sur l’appareil.** Le moteur maintient une image propre de 1024 octets, huit pages
 de 128 colonnes, bit 0 en haut. Les coordonnées hors écran sont coupées, jamais rebouclées.
-Seul le propriétaire dessine : application ouverte ou plugin ayant pris l’écran. En sa présence,
-le moteur copie son image dans la RAM écran du firmware après les widgets, une fois par trame,
-uniquement sur la page principale. Sans propriétaire, il ne touche pas à l’écran. Les menus
-et fenêtres restent dessinés par le firmware et invisibles au plugin.
+Le dessin plein écran appartient au propriétaire : application ouverte ou plugin ayant pris
+l’écran. En sa présence, le moteur copie son image dans la RAM écran du firmware après les
+widgets, une fois par trame, uniquement sur la page principale. Sans propriétaire, il ne touche
+pas à l’écran. Les menus et fenêtres restent dessinés par le firmware et invisibles au plugin.
 
 La police propre au projet mesure 5 × 7 pixels, avec 6 pixels par caractère. Le navigateur et
 l’appareil utilisent la même table ; 70 cas ont été comparés pixel par pixel dans l’émulateur.
 Le texte est limité à 31 caractères et les nombres sont affichés en décimal.
+
+**Popups des plugins d’arrière-plan** (`korg.display.popup.*`) : `begin()` prépare le tampon,
+les appels texte, nombre et pixel dessinent dedans en coordonnées absolues, puis `show()` l’affiche.
+Le contenu est limité à `x = 2..125`, `y = 14..47` ; les dessins hors de cette zone sont ignorés.
+Le cadre du firmware se trouve à `x = 1..126`, `y = 12..49` : ligne supérieure en `y = 13`,
+côtés en `x = 1` et `x = 126`, ligne inférieure en `y = 48`, ombre pointillée en `y = 49`.
+Il n’existe qu’un popup partagé ; `show()` remplace le précédent, qu’il vienne du firmware ou
+d’un autre plugin. Un popup ouvert du firmware est d’abord fermé par EXIT. EXIT ferme aussi
+un popup de plugin. Les applications ne peuvent pas utiliser ces appels. La durée initiale est
+de deux secondes ; `timeout(0)` désactive le minuteur.
 
 **Images depuis un tableau, `korg.display.bitmap`.** Chaque élément contient les huit pixels
 d’une colonne, bit faible en haut ; seuls les huit bits faibles comptent. Une bande de width
@@ -1276,7 +1290,7 @@ Ordre des entrées : fonctions intégrées, plugins, personnalisation, groupes e
 
 | Entrée | Contenu |
 |---|---|
-| FEATURES | MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST ; LAST PATTERN si le patch last-pattern est présent ; STEREO 1 PAD avec stereo-pad sur rouge ; AUTO SAVE décrit plus bas |
+| FEATURES | MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST ; LAST PATTERN si le patch last-pattern est présent ; STEREO 1 PAD avec stereo-pad sur rouge ; TUBE, TUBE DRIVE et TUBE ASYM avec tube-curve ; AUTO SAVE décrit plus bas |
 | PLUGINS | Ouvre directement la liste MANAGE PLUGINS |
 | CUSTOMIZATION | DISPLAY, LED, puis PAD COLOR, POWER SAVE et SPLASH selon les patches présents |
 | GAMES | Une page par application inscrite ; absent sans application |
@@ -1304,11 +1318,11 @@ pages sont détaillées ci-dessous. ABOUT n’existe plus : il n’affichait que
 | DISPLAY, INTENSITY | 0 à 15, intensité commune sans modifier le mélange ; 0 éteint, 15 couleur pleine ; immédiat |
 | DISPLAY, DISPLAY INVERT | OFF/ON, échange pixels clairs et sombres ; commandes écran `0xA7` pour inverser et `0xA6` pour restaurer. Immédiat. ON par défaut pour réduire les traînées ; un fichier 1.2 sans ce bit conserve OFF |
 | DISPLAY, LOAD METER | OFF/ON, affiche sur l’écran principal, à gauche du symbole de carte, la charge du processeur principal en pour cent (0 à 99, une fois par seconde) : la part du temps où il ne dort pas dans sa boucle d’inactivité. Rien dans le menu, dans les fenêtres du firmware ou avec une app ouverte. Immédiat. OFF par défaut ; ON est gardé dans l’octet 7 du fichier de réglages (version 4) |
-| DISPLAY, BATTERY % | ON/OFF, affiche sur l’écran principal, juste à gauche du symbole de pile, la charge des piles par pas de 10 avec `%` (0 à 100 %), seulement sur piles et seulement avec BATTERY TYPE Alkali dans Global ; rien sur secteur ni avec Ni-MH. La valeur est lissée, une courte baisse ne la change pas. La conversion suit une courbe de décharge mesurée sur l’appareil (Alkali, POWER SAVE activé ; le haut de la courbe est estimé). Rien dans le menu, dans les fenêtres du firmware ou avec une app ouverte. Immédiat. ON par défaut ; OFF est gardé dans l’octet 7 du fichier de réglages (version 4). Sur l’écran principal, le symbole de carte passe à gauche du nombre (colonnes 94 à 99, LOAD METER devant), dans les menus il reste à sa place |
+| DISPLAY, BATTERY % | ON/OFF, affiche sur l’écran principal, juste à gauche du symbole de pile, la charge des piles en pour cent entiers avec `%` (0 à 100 %), seulement sur piles et seulement avec BATTERY TYPE Alkali dans Global ; rien sur secteur ni avec Ni-MH. La valeur est lissée, une courte baisse la change à peine. La conversion suit une courbe de décharge mesurée sur l’appareil (Alkali, POWER SAVE activé ; 100 % avec des piles neuves, une partie au milieu est estimée). Rien dans le menu, dans les fenêtres du firmware ou avec une app ouverte. Immédiat. ON par défaut ; OFF est gardé dans l’octet 7 du fichier de réglages (version 4). Tant que le nombre est affiché, le symbole de carte passe à sa gauche sur l’écran principal (colonnes 94 à 99, LOAD METER devant) ; sans le nombre (secteur, Ni-MH, OFF) et dans les menus il reste à sa place |
 | CUSTOMIZATION, POWER SAVE | ENTER ouvre les pages d’économie d’énergie (DISPLAY LIGHT et LED DIMMING sur piles seulement, IDLE SAVE aussi sur secteur) ; EXIT revient à POWER SAVE |
 | POWER SAVE, DISPLAY LIGHT | STOCK ou 1 à 15. STOCK utilise l’atténuation du firmware ; 1 à 15 règlent la couleur propre, avec 1 correspondant à 3/15 et 15 au maximum |
 | POWER SAVE, LED DIMMING | 0 à 100 % d’atténuation des LED de pads, boutons et encodeurs. 0 sans atténuation, 100 éteint, 75 par défaut laisse un quart de luminosité. Les LED d’encodeurs s’éteignent sauf à 0 %. Immédiat, conservé par WRITE |
-| POWER SAVE, IDLE SAVE | ON/OFF. Sans manipulation, la lumière de l’écran et les LED baissent à 75, 50 et 25 % après 2, 3 et 4 minutes et s’éteignent après 5, sur secteur comme sur batterie. Boutons, pads, potentiomètres, encodeur, touchpad, bouton power, notes et CC MIDI (pas l’horloge), PLAY et l’enregistrement (pas la pause), les commandes à distance, `korg.pressKey` et `korg.system.keepAwake()` gardent l’appareil éveillé. Le premier appui d’un bouton ou d’un pad, un cran d’encodeur ou un contact du touchpad en état atténué ou éteint ne fait que réveiller et est avalé entier (appui et relâchement, le touchpad jusqu’au relâchement) ; ce qui était déjà enfoncé continue d’arriver au firmware jusqu’au relâchement. Un potentiomètre réveille et agit aussitôt comme toujours (KNOB MODE décide). Jamais plus clair que l’économie d’énergie du firmware, le mode test passe avant. ON par défaut ; OFF est gardé dans l’octet 7 du fichier de réglages (version 4). Sur l’écran principal, le symbole de carte passe à gauche du nombre (colonnes 94 à 99, LOAD METER devant), dans les menus il reste à sa place |
+| POWER SAVE, IDLE SAVE | ON/OFF. Sans manipulation, la lumière de l’écran et les LED baissent à 75, 50 et 25 % après 2, 3 et 4 minutes et s’éteignent après 5, sur secteur comme sur batterie. Boutons, pads, potentiomètres, encodeur, touchpad, bouton power, notes et CC MIDI (pas l’horloge), PLAY et l’enregistrement (pas la pause), les commandes à distance, `korg.pressKey` et `korg.system.keepAwake()` gardent l’appareil éveillé. Le premier appui d’un bouton ou d’un pad, un cran d’encodeur ou un contact du touchpad en état atténué ou éteint ne fait que réveiller et est avalé entier (appui et relâchement, le touchpad jusqu’au relâchement) ; ce qui était déjà enfoncé continue d’arriver au firmware jusqu’au relâchement. Un potentiomètre réveille et agit aussitôt comme toujours (KNOB MODE décide). Jamais plus clair que l’économie d’énergie du firmware, le mode test passe avant. ON par défaut ; OFF est gardé dans l’octet 7 du fichier de réglages (version 4) |
 | CUSTOMIZATION, LED | ENTER ouvre les LED inférieures ; EXIT revient à LED |
 | LED, BOTTOM LEDS | METER vu-mètre, COLOR couleur fixe, OFF éteint ; immédiat sur les quatre LED RGB inférieures |
 | LED, LED HUE, SAT, BRIGHT | Même sélection de couleur que le rétroéclairage. En METER sans couleur de zone propre, le niveau pilote la luminosité de cette couleur. STOCK conserve les couleurs du firmware ; immédiat |
@@ -1329,6 +1343,9 @@ pages sont détaillées ci-dessous. ABOUT n’existe plus : il n’affichait que
 | FEATURES, NOTE ASSIST | ON : en KEYBOARD, après une note, les notes adaptées brillent légèrement en rose selon leur compatibilité : unisson/quinte, puis tierces/quarte/degré de gamme, puis sixtes. Restent à l’arrêt/pause, s’estompent en lecture, les plus faibles d’abord. En CHORD, avec gammes de sept notes, indique les accords qui s’enchaînent bien. OFF rend le comportement du firmware. Immédiat, ON par défaut ; OFF bit 4 des flags |
 | FEATURES, LAST PATTERN | ON démarre sur le dernier pattern sélectionné ; OFF sur 001, sans effacer le numéro mémorisé pour un futur ON. Effet au prochain allumage, WRITE conserve ; OFF bit 3 de l’octet 5 des réglages. ON sans fichier ; EXIT au démarrage force 001. Rouge et bleu avec last-pattern |
 | FEATURES, STEREO 1 PAD | ON : sample stéréo sur son seul pad et une voix, pad voisin indépendant. OFF : comportement Korg où un stéréo sur les pads 1, 3, etc. occupe aussi le suivant. Immédiat, WRITE conserve ; OFF bit 2 de l’octet 5 ; ON sans fichier. EXIT à l’allumage restaure Korg. Rouge avec stereo-pad. [Mesure](messungen/2026-10-29-stereo-ein-pad.md) |
+| FEATURES, TUBE | ON : une courbe à lampe (paire différentielle 12AX7 comme l’étage Valve Force des ESX/EMX, symétrique) remplace le soft clipper fixe de Korg sur la sortie master, avec un passe-bas doux (aigus plus doux, d’autant plus que TUBE DRIVE est haut : 16 à 8 kHz), enregistrement compris. OFF : le clipper de Korg bit pour bit. Immédiat, WRITE conserve ; bits 5 à 7 de l’octet 7 d’un fichier version 4 (0 OFF, 1 à 7 ON avec ce TUBE DRIVE) ; OFF sans fichier. Hacktribe, rouge et bleu avec tube-curve, vérifié dans l’émulateur et le cœur DSP QEMU, pas sur l’appareil. [Mesure](messungen/2026-11-20-roehrenkurve.md) |
+| FEATURES, TUBE DRIVE | 1 à 7 : force avec laquelle la sortie attaque la courbe (tension de grille à pleine échelle de 0,05 à 0,8 V), 5 par défaut ; la pleine échelle reste la pleine échelle. Immédiat ; réglable avec TUBE OFF, valable au prochain ON, sauvegardé seulement avec TUBE ON |
+| FEATURES, TUBE ASYM | 0 à 7 : à quel point la demi-onde positive attaque la courbe plus doucement (0 symétrique, 7 : 31,5 % de gain en moins) ; comme un vrai étage à lampe, harmoniques paires et petite composante continue selon le signal ; 4 par défaut. Immédiat, audible avec TUBE ON ; WRITE conserve dans les bits 5 à 7 de l’octet 4 d’un fichier version 5 (TUBE ASYM xor 4, la valeur par défaut 4 n’en a donc pas besoin), que BLECH jusqu’à 1.4.7 ne lit pas |
 | FEATURES, AUTO SAVE | ON : quitter GLOBAL PARAMETERS, ou PLUGIN RUNTIME après lui, après une modification envoie la même demande de sauvegarde Global que WRITE, avec Writing... environ une seconde. Quitter BLECH après modification écrit ses réglages comme WRITE. Sans changement, pas d’écriture. Les patterns restent soumis à WRITE. OFF : seule WRITE sauvegarde. Immédiat, ON par défaut ; OFF bit 7 de l’octet 5, fichier refusé par BLECHTRIBE antérieur à 1.5. La désactivation d’AUTO SAVE elle-même exige WRITE pour être conservée. [Mesure](messungen/2026-11-09-auto-save.md) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY ou 1 à 250 : modèle copié par INITIALIZE PATTERN ; FACTORY utilise celui du firmware. Immédiat et persistant après extinction, octet Global 247, sans WRITE. Rouge avec init-pattern. [Mesure](messungen/2026-10-28-init-pattern.md) |
 
@@ -1613,7 +1630,7 @@ Les résultats suivants proviennent du firmware réel 2.02 avec Hacktribe dans l
 avec carte virtuelle, ou d’Unicorn sans firmware, **pas de l’appareil**.
 
 - Compilateur, vérificateur et VM JavaScript dans `src/script/`, page Plugins, exécution,
-  essai et export : tests `test/script-*.test.mjs`, format de bloc 2, API 25.
+  essai et export : tests `test/script-*.test.mjs`, format de bloc 2, API 26.
 - VM ARM `tools/patch/script_vm.s` : les 34 opcodes, 506 comparaisons identiques à la VM JS.
   [Mesure](messungen/2026-10-14-skript-arm-vm.md).
 - Filtre d’entrée et point d’interception des trames `tools/patch/script_hooks.s` :

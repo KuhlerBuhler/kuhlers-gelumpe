@@ -11,22 +11,26 @@ Code: `tools/patch/script_egg.s`, Einstiege in `script_menu.s` (MENU, EXIT, Seit
 
 - BLECH, Liste, Zeile VERSION, fünfmal MENU hintereinander: die Show startet. Viermal tut nichts. Jede andere Taste dazwischen
   (EDIT, eine andere Zeile) zählt von vorn, MENU auf einer anderen Zeile zählt nicht.
-- Alle LEDs der Tasten, Encoder und Pads blinken: 250 ms an, 250 ms aus. Pads und die Tasten mit zwei LEDs (PLAY, die Takte 1
+- Alle LEDs der Tasten, Encoder und Pads blinken: 200 ms an, 200 ms aus (bis 20.11. 250 ms). Pads und die Tasten mit zwei LEDs (PLAY, die Takte 1
   bis 4) wechseln bei jedem An die Farbe: rot, blau, lila (beide), rot, ... Die unteren RGB-LEDs bleiben, wie sie sind.
 - Das Display-Licht läuft durch das Farbrad: ein Schritt von 96 alle 40 ms, eine Runde in 3,84 s, volle Sättigung und
   Helligkeit, über den Weg, den die Seiten DISPLAY nehmen (`look_hsv_rgb`, `menu_look_apply`).
 - Der Bildschirm zeigt im Sekundenwechsel AUTISM groß und das Startbild (Bild 13, also Blechys Augen oder das eigene Bild des
   Startbild-Editors).
-- EXIT: zurück auf VERSION, Licht und LEDs wie vorher. Beim ersten Mal steht zuerst zwei Sekunden NEW SAMPLE / Unlocked im
-  Seitentext, dann wieder VERSION. Spätere Male kommt die Meldung nicht.
+- EXIT: zurück auf VERSION, Licht und LEDs wie vorher. Beim ersten Mal steht zuerst zwei Sekunden NEW SAMPLE 500 / Unlocked im
+  Seitentext (500 = der Platz, auf dem das Sample liegen soll, siehe unten), dann wieder VERSION. Spätere Male kommt die Meldung nicht.
 - Wechselt die Firmware selbst den Bildschirm (eine ihrer Tasten), endet die Show wie mit EXIT, ohne Meldung.
 
 ## Lichtgrenze (Fotosensibilität)
 
-- **Hergeleitet:** 2 Blitze pro Sekunde (250 ms an, 250 ms aus). Die Grenze für Lichtblitze ist höchstens 3 pro Sekunde
+- **Hergeleitet:** 2,5 Blitze pro Sekunde (200 ms an, 200 ms aus). Die Grenze für Lichtblitze ist höchstens 3 pro Sekunde
   (WCAG 2.3.1, Three Flashes). Das Display-Licht blitzt nicht, es wechselt nur langsam den Farbton bei voller Helligkeit.
-- **Gemessen:** REC blinkt im Emulator mit 2,0 pro Sekunde (Fall `egg_leds_blink_at_most_3_a_second`, 4 s in 50-ms-Schritten).
-- **Offen:** Die LEDs gehen über die Warteschlange der Laufzeit, 16 Pakete pro Frame. 76 LEDs brauchen also 5 Frames pro Wechsel.
+- **Gemessen:** REC blinkt im Emulator mit 2,5 pro Sekunde (Fall `egg_leds_blink_at_most_3_a_second`, 4 s in 50-ms-Schritten,
+  20.11.; vorher 2,0 mit 250 ms).
+- **Gemessen (20.11.):** Mit 200 ms und dem normalen Budget von 16 LEDs pro Frame kam die Welle über alle 76 LEDs nicht
+  rechtzeitig an: REC blieb einzelne Schritte durchgehend an, Pad 1 übersprang Farben (Fall `egg_pads_red_blue_purple` rot).
+  Während der Show schickt `script_led_flush` deshalb bis zu 32 LEDs pro Frame, danach wieder 16.
+- **Offen:** Die LEDs gehen über die Warteschlange der Laufzeit, während der Show 32 Pakete pro Frame. 76 LEDs brauchen also 3 Frames pro Wechsel.
   Am Gerät ansehen, ob die Welle über das Panel stört.
 
 ## Wo die Freischaltung liegt
@@ -121,7 +125,7 @@ Ziel: nach der Freischaltung liegt auf Platz 500 (Index 499) ein Sample BLECH, a
 | `egg_pads_red_blue_purple` | Pad 1: rot, blau, lila, ... |
 | `egg_display_light_walks_the_wheel` | mindestens 20 Farben in 4 s, immer volle Helligkeit |
 | `egg_word_and_start_image_by_turns` | zwei Bilder im Sekundenwechsel |
-| `egg_exit_first_time_new_sample_message` | EXIT: NEW SAMPLE / Unlocked, nach 2,2 s wieder VERSION |
+| `egg_exit_first_time_new_sample_message` | EXIT: NEW SAMPLE 500 / Unlocked, nach 2,2 s wieder VERSION |
 | `egg_exit_gives_the_light_back` | danach steht alles still |
 | `egg_later_shows_skip_the_message` | zweites Mal ohne Meldung |
 | `egg_unlock_kept_in_the_flash` | `0x2300F7 = 0x5A` nach dem Ausschalten |

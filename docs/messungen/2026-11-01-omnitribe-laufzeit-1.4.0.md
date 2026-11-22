@@ -20,6 +20,8 @@ haben und was offen ist. Die Adressen gelten für 1.4.0; seitdem liegt der Code 
   wahrscheinlich nicht).
 - Sein Ausweg `late_arm`: im Rahmen-Haken ab 100 Rahmen, wenn der Hauptbildschirm steht und die
   Laufzeit nicht scharf ist, `menu_arm_load` versuchen, nie nach EXIT beim Start. Patch angefragt.
+- Stand 17.11.: `late_arm` ist nicht übernommen. Sein Patch dafür setzt auf 1.4.5 auf und legt eine feste Adresse
+  (`0xC019F800`) in einen Bereich, den kein Patch anmeldet. Sein zweiter Patch (Redraw-Zeiger) ist durch #622 erledigt.
 
 ## Redraw-Byte hing am Flash-Inhalt (behoben)
 

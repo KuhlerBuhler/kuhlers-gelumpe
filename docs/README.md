@@ -31,6 +31,7 @@ gelesen), **hergeleitet**, **offen**.
 | [geraetekarte.md](geraetekarte.md) | Das Format der Karte, Belege, Umrechnungen, Expertenmodus |
 | [linter.md](linter.md) | Der Linter, sein Wissen über Effekte, das simulierte Gerät, offene Punkte |
 | [speicherbereiche.md](speicherbereiche.md) | Vermessene Speicherbereiche, Schreibgrenzen, noch offene Bereiche |
+| [firmware-sprache.md](firmware-sprache.md) | Menüs auf Deutsch: Sprachdateien, Kürzungsregel, Umlaute, Werkbank |
 | [development.md](development.md) | Bauen, testen, die App bauen, Release |
 | [barrierefreiheit.md](barrierefreiheit.md) | Prüfung gegen WCAG 2.2 AA: Funde, Fixes, offene Entscheidungen |
 | [entscheidungen.md](entscheidungen.md) | Was entschieden ist |

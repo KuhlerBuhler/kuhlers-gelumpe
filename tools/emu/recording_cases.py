@@ -104,18 +104,21 @@ def feature_cases(payload, flash=None):
         return []
     import menu_cases as mc
     dev = mc.boot(payload, flash, files=mc.CARD_FOLDER, adapter=True)
+    from tools.patch.script_hooks import NATIVE_RECORDING
+    setting = NATIVE_RECORDING + 72   # script_menu.s:NR_SETTING, 1 is ON
     flags = dev.read(mc.MX_FLAGS2, 1)[0]
+    start = dev.read(setting, 1)[0]
     index = mc.feature_count() - 1
     mc.goto_group(dev, mc.GROUP_FEATURES, index)
     off = mc.texts_of(dev)
     dev.turn(1, wait=0.1)
-    enabled = mc.texts_of(dev), dev.read(mc.MX_FLAGS2, 1)[0]
+    enabled = mc.texts_of(dev), dev.read(setting, 1)[0], dev.read(mc.MX_FLAGS2, 1)[0]
     dev.turn(-1, wait=0.1)
-    disabled = mc.texts_of(dev), dev.read(mc.MX_FLAGS2, 1)[0]
-    return [entry('feature_default_off_and_last', not flags & 32 and off == ('NATIVE RECORDING', 'OFF', '')
-                  and mc.counter(dev) == (index, index + 1), f'page {index}, flags {flags}, text {off}'),
-            entry('feature_toggle_preserves_other_flags', enabled == (('NATIVE RECORDING', 'ON', ''), flags | 32)
-                  and disabled == (off, flags) and not dev.m.asserts, f'on {enabled}, off {disabled}, assertions {dev.m.asserts}')]
+    disabled = mc.texts_of(dev), dev.read(setting, 1)[0], dev.read(mc.MX_FLAGS2, 1)[0]
+    return [entry('feature_default_off_and_last', start != 1 and off == ('NATIVE RECORDING', 'OFF', '')
+                  and mc.counter(dev) == (index, index + 1), f'page {index}, setting {start}, text {off}'),
+            entry('feature_toggle_preserves_other_flags', enabled == (('NATIVE RECORDING', 'ON', ''), 1, flags)
+                  and disabled == (off, 0, flags) and not dev.m.asserts, f'on {enabled}, off {disabled}, assertions {dev.m.asserts}')]
 
 
 def blue_worker_cases(payload, flash=None):
@@ -252,7 +255,7 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
     before_flash = user_flash(dev.m)
     field = lambda name: dev.u32(script_hooks.NATIVE_RECORDING + recording_runtime.PUBLIC_FIELDS[name])
     out = []
-    dev.m.uc.mem_write(script_hooks.MENU_STATE - 0x15, b'\x20')
+    dev.m.uc.mem_write(script_hooks.NATIVE_RECORDING + 72, b'\x01')   # script_menu.s:NR_SETTING, NATIVE RECORDING ON
     dev.m.press(0x0A, True)
     dev.run(0.03)
     dev.press(0, 0.05)
@@ -405,7 +408,7 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         dev.run(0.2)
         records = mc.settings_raw(medium.data)
         saved = [r for r in records.values() if len(r) >= 24 and r[:4] == b'GSET']
-        out.append(entry('settings_saved_after_release', field('DEFERRED') == 0 and len(saved) == 1 and saved[0][7] & 32
+        out.append(entry('settings_saved_after_release', field('DEFERRED') == 0 and len(saved) == 1 and saved[0][4] & 0x1F == 6 and saved[0][6] & 0x80
                          and before_flash == user_flash(dev.m),
                          f'pending {field("DEFERRED")}, SD copies {len(saved)}, user flash unchanged {before_flash == user_flash(dev.m)}'))
         for result in out:
@@ -609,7 +612,7 @@ def status_dot_cases(payload, flash=None, png=None):
         dev.m.press(0x0A, False)
         dev.run(0.05)
 
-    dev.m.uc.mem_write(script_hooks.MENU_STATE - 0x15, b'\x20')
+    dev.m.uc.mem_write(script_hooks.NATIVE_RECORDING + 72, b'\x01')   # script_menu.s:NR_SETTING, NATIVE RECORDING ON
     before = columns()
     open_record()
     if not synth:

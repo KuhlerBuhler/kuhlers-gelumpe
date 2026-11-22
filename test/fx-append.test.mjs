@@ -26,9 +26,16 @@ test("an image whose preset tables are not known is refused, nothing is written"
 
 test("the catalog starts at the slot behind Korg's 2.02 presets, Hacktribe's own inserts first", () => {
   assert.deepEqual(patch.first, { ifx: 39, mfx: 33 });
-  const remakes = patch.presets.filter(p => p.hacktribe).map(p => p.name);
+  const remakes = patch.presets.filter(p => p.hacktribe && p.kind === "ifx").map(p => p.name);
   assert.deepEqual(remakes, ["Lag", "KP2 Comp", "LP Drive", "LP Drive Res", "HP Drive", "HP Res Drive", "BP Drive", "BP Drive Res", "9/32 Delay", "3/32 Delay", "1/12 Delay"]);
   assert.deepEqual(patch.presets.filter(p => p.kind === "ifx").slice(0, 11).map(p => p.name), remakes, "on slots 39 to 49, as on Hacktribe");
+});
+
+test("Hacktribe's own master effects come first in the catalog, on 33 to 36 of Korg's 2.02", () => {
+  const masters = patch.presets.filter(p => p.kind === "mfx");
+  assert.deepEqual(masters.slice(0, 4).map(p => [p.name, p.hacktribe, p.stages[0].unitName]),
+    [["Big Hall", true, "M_hall_reverb"], ["Plate Reverb", true, "M_wet_plate_reverb"], ["Tap Delay Sync", true, "M_tape_echo"], ["Tube Drive", true, "M_tubepre"]]);
+  assert.ok(masters.slice(4).every(p => !p.hacktribe), "the catalog's own master effects behind them, from 37");
 });
 
 describe("a fixed order (`first`)", () => {
@@ -56,5 +63,27 @@ describe("a fixed order (`first`)", () => {
     const res = appendPresets(own.bytes, pick(bytes, "Lag", "1/6 Delay"));
     assert.equal(res.ok, true, res.reasons.join(" "));
     assert.deepEqual([own.slot, own.slot + 1, own.slot + 2].map(s => name(res.bytes, s)), [own.name, "Lag", "1/6 Delay"]);
+  });
+});
+
+describe("Hacktribe's master effects on its own factory slots", () => {
+  const mfx = name => makeRecord("mfx", { name, devices: { mfx: 59 } });
+  const base = () => makeFirmwareWithArrays([{ kind: "ifx", slot: 1, record: makeRecord("ifx", { name: "Werk", devices: { ifx1: 24, ifx2: 0 } }) },
+    { kind: "mfx", slot: 1, record: mfx("Werk") }, { kind: "mfx", slot: 2, record: mfx("Big Hall") }], { patched: true });
+  const pick = (bytes, ...names) => ({ ...patch, first: { ifx: menuLength(bytes, "ifx").value + 1, mfx: menuLength(bytes, "mfx").value + 1 }, presets: names.map(n => patch.presets.find(p => p.name === n)) });
+  const name = (bytes, slot) => new FxRecord(bytes.slice(recordOf(bytes, "mfx", slot).file, recordOf(bytes, "mfx", slot).file + RECORD), "mfx").name;
+
+  test("Hacktribe keeps its own, takes no slot of the fixed order, and an update leaves the catalog where it is", async () => {
+    const bytes = await base();
+    const at = menuLength(bytes, "mfx").value + 1;
+    const fresh = appendPresets(bytes, pick(bytes, "Big Hall", "Short Delay", "Tri Ping Pong"));
+    assert.equal(fresh.ok, true, fresh.reasons.join(" "));
+    assert.equal(name(fresh.bytes, 2), "Big Hall");
+    assert.deepEqual([at, at + 1].map(s => name(fresh.bytes, s)), ["Short Delay", "Tri Ping Pong"], "the catalog right behind the factory slots");
+    const older = appendPresets(bytes, { ...pick(bytes, "Short Delay", "Tri Ping Pong"), first: undefined });
+    const updated = appendPresets(older.bytes, pick(bytes, "Big Hall", "Short Delay", "Tri Ping Pong"));
+    assert.equal(updated.ok, true, updated.reasons.join(" "));
+    assert.deepEqual(updated.bytes, fresh.bytes);
+    assert.deepEqual(updated.added, [], "nothing is written over");
   });
 });

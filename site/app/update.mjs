@@ -5,7 +5,7 @@
  * repository is private that answers 404, which is quietly no news. A click
  * downloads and installs it from inside the app (src-tauri/src/update.rs).
  */
-import { NEWS } from "../../data/news.mjs";
+import { RELEASE_NOTES } from "../../data/release-notes.mjs";
 import { t } from "./i18n.mjs";
 
 const REPO = "KuhlerBuhler/kuhlers-gelumpe";
@@ -85,8 +85,8 @@ export function watchForUpdate(link, app = window.__GELUMPE_APP, toast = () => {
   setInterval(check, EVERY_MS);
 }
 
-/** The news of every version after `seen` up to `current`, oldest first; with nothing seen, the news of `current` alone. */
-export function unseenNews(current, seen, news = NEWS) {
+/** The notes of every version after `seen` up to `current`, in the order of `news`; with nothing seen, the notes of `current` alone. */
+export function unseenNews(current, seen, news = RELEASE_NOTES) {
   return news.filter(n => !isNewer(n.version, current) && (seen ? isNewer(n.version, seen) : !isNewer(current, n.version)));
 }
 
@@ -97,6 +97,7 @@ export function showNews(toast, app = globalThis.window?.__GELUMPE_APP, storage 
     const fresh = unseenNews(app.version, storage.getItem(SEEN));
     storage.setItem(SEEN, app.version);
     if (!fresh.length) return;
-    toast(t("update.news", { version: fresh.at(-1).version.replace(/\.0$/, "") }), "info", { stay: true });
+    const newest = fresh.reduce((a, b) => (isNewer(b.version, a.version) ? b : a));
+    toast(t("update.news", { version: newest.version.replace(/\.0$/, "") }), "info", { stay: true });
   } catch { /* no storage: no news, the app works as before */ }
 }

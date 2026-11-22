@@ -55,6 +55,10 @@ Setter mit `(Pattern-Objekt, Wert, 1)`, Alternate mit `(Pattern-Objekt, welches,
 
 Das Menü schreibt Gate Arp auf Seite 11 (Index 10), Byte 49. Das Feld fehlte bisher in der Karte.
 
+Alternate 13-14 im Emulator (Hacktribe 2.02 und BLECH-Testfirmware, gemessen): ist es an und hat Part 14 auf demselben Schritt
+einen Step, startet der Sequenzer für Part 13 keine Stimme, auch wenn Part 14 stumm ist. Pad 13 im Stopp klingt. EXIT + Pad und
+Copy Part ändern Alternate nicht, es ist ein Byte des Patterns.
+
 ## Master-Effekt und Pad (gemessen)
 
 Setter mit `(Pattern-Objekt + 0x4004, Wert, 1)`. Gemessen mit MASTER FX an und dem Pad berührt, bewegt und losgelassen,

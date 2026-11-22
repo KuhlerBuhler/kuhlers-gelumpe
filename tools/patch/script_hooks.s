@@ -70,6 +70,10 @@ input_power_no:
     cmp r0, #0
     ldr r0, [sp, #8]
     bne input_drop
+    push {r0, lr}
+    bl script_popup_input
+    pop {r0, lr}
+
     bl migrate_input
     cmp r0, #0
     ldr r0, [sp, #8]
@@ -594,6 +598,7 @@ script_frame_guard_end:
     str r1, [r4, #RT_READY]
 frame_gate_open:
     bl menu_card_watch           ; only past the first main screen: the start phase reads the card at menu_arm_load
+    bl tube_tick                 ; the TUBE block to the DSP when it changed (script_menu.s)
     bl menu_ask_frame            ; the question of a card put in after the start
     bl blechy_follow
     bl shortcut_tick
@@ -818,7 +823,10 @@ frame_finish:
     mov r0, r4
     bl script_sim_input_guard
     mov r0, r4
+    bl script_popup_frame
+    mov r0, r4
     bl egg_frame
+
     mov r0, r4
     bl script_display_blit
     bl display_calibrate

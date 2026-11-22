@@ -10,7 +10,7 @@ class RecordingCardGateTests(unittest.TestCase):
     def machine(self):
         m = stores.NativeStoreTests().counter_machine()
         m.write(MENU_STATE, 1)
-        m.uc.mem_write((MENU_STATE + m.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
+        m.uc.mem_write(m.symbols['NATIVE_RECORDING'] + m.symbols['NR_SETTING'], b'\x01')   # NATIVE RECORDING ON
         m.write(SD_INPUT, 0)    # a card is in: recording may start
         return m
 
@@ -109,7 +109,7 @@ class RecordingCardGateTests(unittest.TestCase):
 
     def arm(self, m):
         m.write(MENU_STATE, 1)
-        m.uc.mem_write((MENU_STATE + m.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
+        m.uc.mem_write(m.symbols['NATIVE_RECORDING'] + m.symbols['NR_SETTING'], b'\x01')   # NATIVE RECORDING ON
         m.write(m.runtime + m.symbols['RT_ENTRY'], m.entry)
         m.write(SD_INPUT, 0)    # a card is in: recording may start
 
@@ -150,7 +150,7 @@ class RecordingCardGateTests(unittest.TestCase):
         m = self.machine()
         m.uc.mem_write(MENU_STATE - 32, bytes(544))
         m.write(MENU_STATE, 1)
-        m.uc.mem_write((MENU_STATE + m.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
+        m.uc.mem_write(m.symbols['NATIVE_RECORDING'] + m.symbols['NR_SETTING'], b'\x01')   # NATIVE RECORDING ON
         m.uc.mem_map(m.symbols['LP_CODE'] & ~4095, 4096)
         m.write(m.symbols['LP_CODE'], 0xFFFFFFFF)
         m.write(m.symbols['SP_CODE'], 0xFFFFFFFF)

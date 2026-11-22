@@ -1,7 +1,7 @@
 # BATTERY %: Ladestand in Prozent neben dem Batteriesymbol
 
 Stand 16.11.2026, Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Branches); die
-Entladekurve am 16./17.11. auf einem roten Gerät. Marker: **gemessen** (im Emulator, bei der Kurve am Gerät), **gelesen** (im
+Entladekurve in zwei Läufen am 16./17.11. auf einem roten Gerät. Marker: **gemessen** (im Emulator, bei der Kurve am Gerät), **gelesen** (im
 Disassemblat), **hergeleitet**, **geschätzt**.
 
 ## Was gebaut ist
@@ -40,21 +40,26 @@ Disassemblat), **hergeleitet**, **geschätzt**.
 
 - Glättung: der erste Wert gilt sofort; danach rückt der geglättete Wert (mal 256) alle 250 ms um ein Achtel des Abstands zum
   Rohwert vor, ab einem Abstand unter 8/256 springt er ganz hin.
-- Ort zwischen leer und voll in Promille: (geglättet - leer) * 1000 / (voll - leer), auf 0 bis 1000 begrenzt; voll ist
-  die erste, leer die letzte Schwelle der Tabelle, die die Firmware gerade nutzt.
-- Daraus die Ladung über die Kurve `batt_curve` (11 Stützpunkte, dazwischen linear), auf 10 % gerundet.
-- Hysterese: der angezeigte Wert ändert sich erst, wenn die neue Ladung mehr als 8 % (80 Promille) von ihm weg ist. Ein
-  kurzer Einbruch oder Rauschen um eine Stufengrenze lässt ihn stehen.
-- Die elf Werte von `batt_curve` kommen aus einer Entladung am Gerät (Abschnitt Entladekurve). Bis dahin war die Kurve eine
-  Gerade zwischen Korgs Alkali-Schwellen für leer und voll.
+- Ort zwischen leer und voll in Promille: (geglättet - leer) * 1000 / (voll - leer), auf 0 bis 1000 begrenzt; leer ist
+  die letzte Schwelle der Tabelle, die die Firmware gerade nutzt (97, dort schaltet sie aus), voll ist fest 160 (`BP_FULL`).
+  Korgs volle Schwelle 127 taugt nicht als 100 %: frische Alkali-Zellen lesen 162 bis 163, und bis 127 vergeht über eine
+  Stunde, die Anzeige stünde so lange auf 100 %. 160 liegt knapp unter frischen Zellen, damit auch etwas schwächere neue
+  Zellen bei 100 % anfangen.
+- Daraus die Ladung über die Kurve `batt_curve` (11 Stützpunkte, dazwischen linear), auf ganze Prozent gerundet.
+- Bis 22.11. war es auf 10 % gerundet, mit 8 % Hysterese. Beim Spieltest am 22.11. fiel die Anzeige dadurch schnell auf 10 % und
+  blieb dort sehr lange: mit der Hysterese wechselt 10 erst unter 2 % Ladung auf 0. Spannungswackler beim Spielen gibt es am
+  Gerät praktisch nicht, darum jetzt ganze Prozent ohne Hysterese; die Glättung (ein Achtel je 250 ms) bleibt.
+- Die elf Werte von `batt_curve` kommen aus zwei Entladungen am Gerät (Abschnitt Entladekurve). Davor war die Kurve eine
+  Gerade zwischen Korgs Alkali-Schwellen 97 und 127, danach (#659) gemessen, aber noch mit 127 als voll.
 
 ## Entladekurve
 
-Gemessen am 16./17.11.2026 auf einem roten Gerät (HT-Basis, BLECHTRIBE-Testbuild), vier Rubin Alkaline AA, nicht frisch (das
-Batteriesymbol zeigte schon einen Strich weniger). Global AUTO POWER OFF aus, POWER SAVE an, Hauptbildschirm, kein Abspielen,
-USB zum Auslesen gesteckt (das Gerät lief trotzdem auf Batterie, +0x308 war 0). Einmal pro Minute nur gelesen (BLECH READ):
-Rohwert +0x320 und Stufe +0x328 des Batterie-Modells. Mit anderer Last (Abspielen, Licht, POWER SAVE aus) läuft die Zeit
-anders, die Form der Kurve sollte ähnlich bleiben (hergeleitet).
+Zwei Läufe auf einem roten Gerät (HT-Basis, BLECHTRIBE-Testbuild), je vier Alkaline AA, Global AUTO POWER OFF aus, POWER
+SAVE an, USB zum Auslesen gesteckt (das Gerät lief trotzdem auf Batterie, +0x308 war 0). Einmal pro Minute nur gelesen (BLECH
+READ): Rohwert +0x320 und Stufe +0x328 des Batterie-Modells.
+
+**Lauf 1** (16./17.11.), Rubin Alkaline, nicht frisch (das Batteriesymbol zeigte schon einen Strich weniger), Hauptbildschirm,
+kein Abspielen, bis zum Ausschalten:
 
 | Minute | Rohwert | Stufe |
 |---|---|---|
@@ -69,23 +74,40 @@ anders, die Form der Kurve sollte ähnlich bleiben (hergeleitet).
 | 80 | 98 | 1 |
 | 81 bis 82 | | aus |
 
-(gemessen) Der letzte gelesene Rohwert vor dem Ausschalten war 98; ob 97 noch kurz anlag, zeigt das Minutenraster nicht. Die Warnung Low Battery kam etwa
-21 Minuten vor dem Ausschalten.
+(gemessen) Der letzte gelesene Rohwert vor dem Ausschalten war 98; ob 97 noch kurz anlag, zeigt das Minutenraster nicht. Die
+Warnung Low Battery kam etwa 21 Minuten vor dem Ausschalten.
 
-Daraus `batt_curve`: für jeden Stützpunkt (Rohwert 97, 100, ... 127, das sind 0, 10, ... 100 % des Wegs von leer nach voll)
-der Anteil der Laufzeit, der ab dem ersten Erreichen dieses Rohwerts noch bleibt, in Promille. Ende ist das Ausschalten bei
-Minute 82.
+**Lauf 2** (17.11. abends), frische Zellen, beim Einlegen 162 bis 163, dabei wurde gespielt und aufgenommen. Nach 94 Minuten
+endete der Lauf durch ein Firmware-Update, die Zellen wurden nicht leer gefahren:
 
-| Rohwert | 97 | 100 | 103 | 106 | 109 | 112 | 115 | 118 | 121 | 124 | 127 |
+| Minute | Rohwert | Stufe |
+|---|---|---|
+| 0 | 162 | 4 |
+| 2 | 160 | 4 |
+| 6 | 155 | 4 |
+| 14 | 150 | 4 |
+| 25 | 145 | 4 |
+| 47 | 140 | 4 |
+| 63 | 137 | 4 |
+| 75 | 135 | 4 |
+| 92 | 132 | 4 |
+
+(gemessen) Stufe 4 heißt über Korgs Schwelle 127, den Wechsel auf 3 hat der Lauf nicht mehr erreicht.
+
+Daraus `batt_curve`: für jeden Stützpunkt (Rohwert 97 + 6,3 pro Schritt bis 160, das sind 0, 10, ... 100 % des Wegs von leer
+nach voll) der Anteil der Laufzeit, der ab dem ersten Erreichen dieses Rohwerts noch bleibt, in Promille. Die Zeitachse ist
+zusammengesetzt: 160 bis 132 aus Lauf 2 (90 Minuten), 132 bis 123 **geschätzt** (22 Minuten, mit den zuletzt gemessenen
+0,4 pro Minute), 123 bis aus aus Lauf 1 (83 Minuten); zusammen etwa 195 Minuten (geschätzt).
+
+| Rohwert | 97 | 103 | 110 | 116 | 122 | 129 | 135 | 141 | 147 | 154 | 160 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Promille | 0 | 88 | 198 | 341 | 467 | 649 | 780 | 857 | 885 | 926 | 1000 |
+| Promille | 0 | 97 | 221 | 369 | 421 | 488 | 626 | 795 | 908 | 974 | 1000 |
 
-- 97 bis 121 gemessen (zwischen zwei Minuten linear eingesetzt).
-- 124 und 127 **geschätzt**: die Zellen waren nicht frisch, das Log begann bei 123. Angenommen ist, dass 127 bis 123 etwa 10 %
-  der Laufzeit ausmachen (9 Minuten), wie es für Alkali-Zellen am Anfang typisch ist; 124 liegt linear dazwischen. Mit
-  frischen Zellen nachmessen und die beiden Werte ersetzen.
-- Die gesamte Laufzeit ab voll ist damit etwa 91 Minuten (geschätzt), nur für diese Zellen und diese Last.
-
+- 97 bis 116 und 135 bis 160 gemessen, 122 und 129 liegen im geschätzten Stück oder an seinem Rand.
+- Die Läufe hatten verschiedene Last: oben mit Spielen, unten ohne. Ohne Spielen hält der untere Teil länger, er bekommt
+  dadurch etwas mehr Anteil, als er mit Spielen hätte. Die Anzeige ist unten eher zu großzügig (hergeleitet).
+- Unter Last sackt die Spannung, der Rohwert liest beim Spielen niedriger und erholt sich danach. Ausgeglichen wird das nur
+  durch Glättung und Hysterese, nicht herausgerechnet (das Gerät misst keinen Strom).
 
 ## Platz in der Statusleiste
 
@@ -102,7 +124,8 @@ Gemessen auf allen drei Builds, Seite 0 des Bildschirmspeichers (Zeilen 1 bis 7,
 Korrektur zur ersten Fassung: 75 bis 99 sind nicht "nie benutzt", das EDIT-Symbol belegt 84 bis 97 in den Menüs und löscht
 sie auf dem Hauptbildschirm. (gemessen)
 
-Belegung jetzt, auf dem Hauptbildschirm, gleich ob BATTERY % gerade gezeigt wird oder nicht:
+Belegung jetzt, auf dem Hauptbildschirm, solange BATTERY % gewollt ist (Batterie, Alkali, ON); ohne die Zahl steht das
+Kartensymbol wieder bei 109 und 94 bis 99 sind frei:
 
 | Spalten | Inhalt |
 |---|---|
@@ -125,7 +148,8 @@ sich geändert haben, und nur dann wird der Bereich als geändert markiert.
   bei x, y, wenn eine Karte drin ist. Es ist das dritte Objekt der Statusleiste: `[[SCREEN_MANAGER] + 0x4C]`. (gelesen)
 - `card_widget` holt es zur Laufzeit über diesen Zeiger, ohne feste Adresse pro Build, und nimmt es nur mit Breite 6, Höhe 8
   und x 109 oder 94.
-- `card_place` im Haken von SWITCH_SCREEN (`autosave_switch_hook`): für den Hauptbildschirm (1) x = 94, sonst 109. Ändert sich
+- `card_main_x`: auf dem Hauptbildschirm 94, solange `battery_model` die Zahl will (Batterie, Alkali, ON), sonst 109.
+- `card_place` im Haken von SWITCH_SCREEN (`autosave_switch_hook`): für den Hauptbildschirm (1) x aus `card_main_x`, sonst 109. Ändert sich
   x, wird +0x14 gesetzt und die alte Stelle gelöscht (GLOBAL PARAMETERS löscht sie selbst nicht).
 - Der Wechsel wird nur eingereiht, der Bildschirm-Manager zeigt ihn später. `card_frame` wartet darum bis zu 300 ms, bis der
   angekündigte Bildschirm da ist, und stellt sonst nichts um.
@@ -133,7 +157,9 @@ sich geändert haben, und nur dann wird der Bereich als geändert markiert.
   94 bis 99 nicht mehr so aussehen wie nach dem letzten Zeichnen (das Löschen durch EDIT) oder die Karte inzwischen gesteckt
   oder gezogen wurde. Letzteres braucht es auf blau: dort zeichnet das Stecken den Hauptbildschirm neu, das EDIT-Löschen nimmt
   die gerade gemalte Karte wieder weg, und die Spalten sehen danach aus wie vorher. Außerhalb des Hauptbildschirms stellt es
-  ein übrig gebliebenes x 94 auf 109 zurück (für einen Wechsel ohne SWITCH_SCREEN).
+  ein übrig gebliebenes x 94 auf 109 zurück (für einen Wechsel ohne SWITCH_SCREEN). Auf dem Hauptbildschirm folgt es
+  `card_main_x`: fällt die Zahl weg (Netzteil, Ni-MH, OFF), geht x auf 109, +0x14 wird gesetzt und 94 bis 99 gelöscht (nicht
+  unter einem Fenster oder einer App); kommt sie wieder, rückt die Karte zurück auf 94.
 - Beim Betreten des Hauptbildschirms ist die Karte für ein Bild weg (Firmware malt, EDIT löscht, `card_frame` malt neu). Im
   Emulator nicht sichtbar, am Gerät zu prüfen.
 
@@ -149,8 +175,8 @@ nach dem Schließen 1. `load_meter_shown` verlangt jetzt zusätzlich eine offene
 |---|---|---|
 | Mit Ni-MH wird nichts gezeichnet | `battery_percent_cases.py:hidden_with_nimh` | gemessen |
 | Auf Batterie mit Alkali steht der Wert der Kurve, als Glyphen | `shown_on_alkali_battery` | gemessen |
-| Werte von knapp über leer bis über voll geben 0 bis 100 in Zehnerschritten | `steps_of_10` | gemessen |
-| Ein Einbruch für einen Schritt lässt den Wert stehen, ein dauerhafter Anstieg läuft in Stufen bis 100 | `smoothed` | gemessen |
+| Werte knapp über leer bis über voll geben einstellige Werte bis 100 in ganzen Prozent, nicht nur Zehner (leer selbst schaltet aus) | `whole_percent` | gemessen |
+| Ein Einbruch für einen Schritt bewegt den Wert höchstens ein Achtel und er kommt zurück, ein dauerhafter Anstieg läuft schrittweise bis 100 | `smoothed` | gemessen |
 | Am Netzteil sofort weg, zurück auf Batterie wieder da | `hidden_on_mains` | gemessen |
 | Mit LOAD METER ON und Karte behalten Zahl, Lastanzeige, Karte und Batteriesymbol ihre Spalten, 100 bleibt frei | `layout_with_load_meter_and_card` | gemessen |
 | Ohne Karte nichts bei 94 und 109, auch nicht nach BLECH-Menü und GLOBAL PARAMETERS | `card_none` | gemessen |

@@ -43,10 +43,10 @@ nr_enabled:
     cmp r0, #1
     movne r0, #0
     bxne lr
-    ldrb r0, [r1, #MX_FLAGS2]
-    tst r0, #FLAGS2_NATIVE_RECORDING
-    moveq r0, #0
-    movne r0, #1
+    ldr r1, =NATIVE_RECORDING        ; NATIVE RECORDING (script_menu.s:NR_SETTING), only 1 is ON (FF at power-on)
+    ldrb r0, [r1, #NR_SETTING]
+    cmp r0, #1
+    movne r0, #0
     bx lr
 
 nr_busy:

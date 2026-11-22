@@ -450,7 +450,7 @@ korg.onEvent("close", () => {
 });
 ```
 
-**The pages of BLECHTRIBE (API 17).** Every page of CUSTOMIZATION and FEATURES has a leaf, and so has SET INIT
+**The pages of BLECHTRIBE (API 17).** Every page of CUSTOMIZATION and FEATURES but TUBE, TUBE DRIVE and TUBE ASYM (1.4.8) has a leaf, and so has SET INIT
 PATTERN from DATA UTILITY. A leaf of this group needs API 17. Each write calls the apply function the page takes: the look
 pages set light, LEDs and display again, PAD COLOR, SELECT COLOR, OVERLAP and LED DIMMING go through the patch of the pad
 colors, PATTERN CONFIRM, TAP MOTION and NOTE ASSIST also set the word their patch reads. The page then shows the new value.
@@ -602,6 +602,10 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | `korg.display.take()` | take the display (way 2, see above); 1 on success, 0 if not (an app, another owner, not the main screen) | like `korg.led` |
 | `korg.display.release()` | give the display back | like `korg.led` |
 | `korg.display.popups = 0` | keeps the parameter window shut that `korg.seq.setPartValue` otherwise opens like the knob, and the write window of `korg.pattern.write`; only for this plugin's calls, 1 turns it back on. It is 1 after loading. `korg.knob` still opens the firmware's window, because it plays the knob itself. Read it with `korg.display.popups` or `korg.read.popups()`. From API version 24 | like `korg.led` |
+| `korg.display.popup.begin()` | starts a popup drawing for a background plugin; existing display calls then draw into its buffer with absolute coordinates. Apps cannot open plugin popups. From API version 40 | like `korg.led` |
+| `korg.display.popup.timeout(ms)` | sets the prepared popup's lifetime in milliseconds, 0 to 600000. The default is 2000 ms; 0 leaves it open until EXIT or another popup. From API version 40 | like `korg.led` |
+| `korg.display.popup.show()` | shows the prepared popup, replacing any previous firmware or plugin popup. EXIT closes it like a firmware popup. From API version 40 | like `korg.led` |
+
 | `korg.display.clear()` | clear the display; the drawing calls only work for the owner of the display (the open app, or whoever took it) | like `korg.led` |
 | `korg.display.text(text, x, y)` | text with its top left corner at `x`, `y` (0 to 127, 0 to 63) | like `korg.led` |
 | `korg.display.number(value, x, y)` | a number | like `korg.led` |
@@ -740,14 +744,25 @@ korg.onEvent("buttonPress", (key) => {
 ```
 
 **Display on the device:** the runtime keeps its own image of 1024 bytes (8 pages of 128 columns, bit 0 is
-the top row) and draws only into that. Coordinates past the edge are cut off, never wrapped. Only the owner
-of the display may draw (the open app, or a plugin that took it): the calls of any other plugin do
-nothing. While there is an owner, the frame hook copies the image over the firmware's display RAM every
-frame, after the firmware has drawn its widgets, but only while the main screen is open. Without an owner
+the top row) and draws only into that. Coordinates past the edge are cut off, never wrapped. Full-screen
+drawing belongs to the owner of the display (the open app, or a plugin that took it); the calls of any other
+plugin do nothing. While there is an owner, the frame hook copies the image over the firmware's display RAM
+every frame, after the firmware has drawn its widgets, but only while the main screen is open. Without an owner
 the runtime does not touch the display. Menus and windows are shown by the firmware as usual, a plugin
 does not see them. The font is a 5 by 7 font of our own with 6 pixels per character; the same table is used
 in the browser and on the device, and the output matches the browser model pixel for pixel (70 cases
 compared in the emulator). Text is at most 31 characters, numbers are drawn in decimal.
+
+**Popups for background plugins** (`korg.display.popup.*`): `begin()` prepares the drawing buffer, the existing
+text, number and pixel calls draw into it with absolute display coordinates, and `show()` displays it. The
+content is clipped to `x = 2..125`, `y = 14..47`; drawing outside it has no effect. The firmware outline is
+at `x = 1..126`, `y = 12..49`: top line at `y = 13`, sides at `x = 1` and `x = 126`, bottom line at `y = 48`,
+and a dotted shadow at `y = 49`. There is one shared popup; `show()` replaces the previous one, whether it
+came from firmware or another plugin. An open firmware popup is closed with EXIT first. EXIT also dismisses
+the plugin popup early. If no firmware window is open, the runtime runs the same native close path as the
+firmware so the main screen is redrawn on the device. An EXIT sent to replace a firmware popup stays with
+the firmware path. Apps cannot use these calls. The default lifetime is two seconds; `timeout(0)` disables
+the timer.
 
 **Images from arrays** (`korg.display.bitmap`): one slot of the array holds the 8 pixels of a column, the
 lowest bit is the top pixel (only the lower 8 bits count). This is the layout of the display RAM and of the
@@ -1183,7 +1198,7 @@ page VERSION, which is no group:
 
 | Entry | What is behind it |
 |---|---|
-| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD, plus KEY PADS, FILTER TOGGLE and AUTO SAVE (table below) |
+| FEATURES | the switches of the built-in functions: MFX 2, PATTERN CONFIRM, TAP MOTION, NOTE ASSIST and, where the set has the patch last-pattern, LAST PATTERN, and where it has the patch stereo-pad (red), STEREO 1 PAD, and where it has the patch tube-curve, TUBE, TUBE DRIVE and TUBE ASYM, plus KEY PADS, FILTER TOGGLE and AUTO SAVE (table below) |
 | PLUGINS | ENTER opens the list of the plugins (MANAGE PLUGINS) straight away; see below |
 | CUSTOMIZATION | DISPLAY, LED, then PAD COLOR, POWER SAVE and SPLASH where the set has them; see below |
 | GAMES | one page per app; appears only if a plugin has registered an app in the group |
@@ -1200,6 +1215,9 @@ The pages of FEATURES (the tag names the group "Feature"), each with the value O
 | NOTE ASSIST | ON, OFF (see below) |
 | LAST PATTERN | ON, OFF (see below) |
 | STEREO 1 PAD | ON, OFF (see below, red only) |
+| TUBE | ON, OFF (see below) |
+| TUBE DRIVE | 1 to 7 (see below) |
+| TUBE ASYM | 0 to 7 (see below) |
 | KEY PADS | ON, OFF (see below) |
 | FILTER TOGGLE | ON, OFF (see below) |
 
@@ -1225,11 +1243,11 @@ The pages of the groups:
 | DISPLAY, INTENSITY | 0 to 15 | brightness of the display light over all three colours, the mix stays; 0 is no light, 15 the full colour; applies at once |
 | DISPLAY, DISPLAY INVERT | OFF, ON | inverts the display: light dots dark and dark dots light (command `0xA7` to the display chip, `0xA6` restores); applies at once; ON is the default (a light trail on a dark screen smears less than a dark one), a settings file from 1.2 without it keeps OFF |
 | DISPLAY, LOAD METER | OFF, ON | shows the main processor's load in percent on the main screen, left of the card symbol (0 to 99, once a second): the share of time it does not sleep in its idle loop. Not in the menu, in the firmware's windows or with an app open; applies at once; OFF is the default. ON is kept in byte 7 of the settings file (version 4), [measurement](messungen/2026-11-14-energie-befunde.md), German |
-| DISPLAY, BATTERY % | ON, OFF | shows the battery charge in steps of 10 with `%` (0 to 100 %) on the main screen, right before the battery symbol, only on battery and only with Global BATTERY TYPE Alkali; nothing on mains power or with Ni-MH. The value is smoothed, a short dip does not change it. The mapping follows a discharge curve measured on a device (Alkali, POWER SAVE on; the top part is estimated). Not in the menu, in the firmware's windows or with an app open; applies at once; ON is the default. OFF is kept in byte 7 of the settings file (version 4). On the main screen the card symbol moves left of the number for it (columns 94 to 99, LOAD METER before it), in the menus it stays where it was, [measurement](messungen/2026-11-16-batterie-prozent.md), German |
+| DISPLAY, BATTERY % | ON, OFF | shows the battery charge in whole percent with `%` (0 to 100 %) on the main screen, right before the battery symbol, only on battery and only with Global BATTERY TYPE Alkali; nothing on mains power or with Ni-MH. The value is smoothed, a short dip barely changes it. The mapping follows a discharge curve measured on a device (Alkali, POWER SAVE on; 100 % with fresh cells, a stretch in the middle is estimated). Not in the menu, in the firmware's windows or with an app open; applies at once; ON is the default. OFF is kept in byte 7 of the settings file (version 4). While the number is shown the card symbol moves left of it on the main screen (columns 94 to 99, LOAD METER before it); without the number (mains, Ni-MH, OFF) and in the menus it stays where it was, [measurement](messungen/2026-11-16-batterie-prozent.md), German |
 | CUSTOMIZATION, POWER SAVE | ENTER | opens the pages for power save (DISPLAY LIGHT and LED DIMMING act on battery only, IDLE SAVE on mains power too); EXIT goes back to POWER SAVE |
 | POWER SAVE, DISPLAY LIGHT | STOCK, 1 to 15 | the display light in power save: STOCK is the firmware's dimming, 1 to 15 the own colour, 1 lights at 3 of 15, 15 full |
 | POWER SAVE, LED DIMMING | 0 to 100 % | how much power save dims the pad, key and knob LEDs: 0 % not at all, 100 % off, 75 % (the default) a quarter of the brightness; the knob LEDs go out except at 0 %; applies at once, WRITE keeps it |
-| POWER SAVE, IDLE SAVE | ON, OFF | with no touch the display light and the LEDs dim to 75, 50 and 25 % after 2, 3 and 4 minutes and go dark after 5, on mains power and on battery. Keys, pads, knobs, the encoder, the touchpad, the power key, MIDI notes and CCs (not the clock), PLAY and recording (not pause), remote commands, `korg.pressKey` and `korg.system.keepAwake()` keep the device awake. The first press of a key or pad, an encoder step or a touchpad touch while dimmed or dark only wakes it and is swallowed whole (press and release, the touchpad until it is let go); what was already held keeps reaching the firmware until it is let go. A knob wakes and acts at once as always (KNOB MODE decides). Never brighter than the firmware's power save, the test mode goes first. ON is the default; OFF is kept in byte 7 of the settings file (version 4). On the main screen the card symbol moves left of the number for it (columns 94 to 99, LOAD METER before it), in the menus it stays where it was, [measurement](messungen/2026-11-14-energie-befunde.md), German |
+| POWER SAVE, IDLE SAVE | ON, OFF | with no touch the display light and the LEDs dim to 75, 50 and 25 % after 2, 3 and 4 minutes and go dark after 5, on mains power and on battery. Keys, pads, knobs, the encoder, the touchpad, the power key, MIDI notes and CCs (not the clock), PLAY and recording (not pause), remote commands, `korg.pressKey` and `korg.system.keepAwake()` keep the device awake. The first press of a key or pad, an encoder step or a touchpad touch while dimmed or dark only wakes it and is swallowed whole (press and release, the touchpad until it is let go); what was already held keeps reaching the firmware until it is let go. A knob wakes and acts at once as always (KNOB MODE decides). Never brighter than the firmware's power save, the test mode goes first. ON is the default; OFF is kept in byte 7 of the settings file (version 4). [measurement](messungen/2026-11-14-energie-befunde.md), German |
 | CUSTOMIZATION, LED | ENTER | opens the pages of the lower LEDs; EXIT goes back to LED |
 | LED, BOTTOM LEDS | METER, COLOR, OFF | the four lower RGB LEDs: METER is the level meter, COLOR a fixed colour, OFF dark; applies at once |
 | LED, LED HUE, SAT, BRIGHT | HUE 0 to 95, SAT and BRIGHT 0 to 15 | colour of the lower LEDs for COLOR, set like the display light; with METER the level sets the brightness of this colour while no meter colour is set; STOCK means the firmware's colours; applies at once |
@@ -1250,6 +1268,9 @@ The pages of the groups:
 | FEATURES, NOTE ASSIST | ON, OFF | ON: in KEYBOARD mode the pads of the notes that fit light up faintly pink after a note, the better they fit the brighter (unison and fifth, then thirds, fourth and a step of the scale, then sixths); stopped or paused they stay, while the pattern plays they fade, the dim ones first; in CHORD mode (scales of seven notes) the pads show the same way which chords follow well; OFF: the pads as in the firmware; applies at once, ON is the default (also without a file); OFF is bit 4 of the flags in the settings file |
 | FEATURES, LAST PATTERN | ON, OFF | ON: at power-on the Electribe opens the pattern that was selected before switching off; OFF: it starts with 001 as in the firmware, the kept number stays for a start with ON; applies from the next power-on, WRITE keeps it (bit 3 of byte 5 of the settings file means OFF); without a file ON; EXIT at power-on: 001; red and blue, where the set has the patch last-pattern |
 | FEATURES, STEREO 1 PAD | ON, OFF | ON: a stereo sample takes only its own pad and plays there on one voice, the pad next to it plays its own sample; OFF: as in the firmware, a stereo sample on pad 1, 3, ... also takes the next pad; applies at once, WRITE keeps it (bit 2 of byte 5 of the settings file means OFF); ON without a file; EXIT held at power-on: as in the firmware; only where the set has the patch stereo-pad (red) ([measurement](messungen/2026-10-29-stereo-ein-pad.md)) |
+| FEATURES, TUBE | ON, OFF | ON: a tube curve (a 12AX7 differential pair as in the Valve Force stage of the ESX/EMX, symmetric) replaces Korg's fixed soft clipper on the master output, with a gentle lowpass (softer highs, more at higher TUBE DRIVE: 16 to 8 kHz), also on the recording; OFF: Korg's clipper bit for bit; applies at once, WRITE keeps it (bits 5 to 7 of byte 7 of a version 4 settings file: 0 OFF, 1 to 7 ON at that TUBE DRIVE); OFF without a file; only where the set has the patch tube-curve (hacktribe, red, blue), checked in the emulator and the QEMU DSP core, not on the device ([measurement](messungen/2026-11-20-roehrenkurve.md), German) |
+| FEATURES, TUBE DRIVE | 1 to 7 | how hard the output drives the curve (grid voltage at full scale 0.05 to 0.8 V), default 5; full scale stays full scale; applies at once; can be set while TUBE is OFF and applies at the next ON, it is saved only with TUBE ON |
+| FEATURES, TUBE ASYM | 0 to 7 | how much softer the positive half meets the curve (0 symmetric, 7: 31.5 % less gain); like a real tube stage it adds even harmonics and a small signal-dependent DC offset; default 4; applies at once, audible with TUBE ON; WRITE keeps it in bits 5 to 7 of byte 4 of a version 5 settings file (TUBE ASYM xor 4, so the default 4 needs none), which BLECH up to 1.4.7 does not read |
 | FEATURES, KEY PADS | ON, OFF | ON: KEYBOARD held + pad sets the KEY (chromatic in pad order: pad 1 C to pad 12 B, pads 13 to 16 transpose the parts with SCALE MODE ON and the keyboard by -1, 0, +1 or +2 octaves, pad 14 is no shift as after power-on), the firmware's value window shows it; OFF: the pads as in the firmware (KEYBOARD + pad 13 silently selects part 13); applies at once, WRITE keeps it (bit 4 of byte 5 of the settings file means OFF); ON without a file; hacktribe, red and blue, checked in the emulator, not on the device ([measurement](messungen/2026-11-07-key-pads-eingebaut.md), [layout](messungen/2026-11-08-key-pads-chromatisch.md), German) |
 | FEATURES, FILTER TOGGLE | ON, OFF | ON: SHIFT + LPF, HPF or BPF turns the filter of the selected part off and on again, with the type the key had last; OFF: SHIFT + filter key as in the firmware; applies at once, WRITE keeps it (bit 5 of byte 5 of the settings file means OFF); ON without a file; hacktribe, red and blue, checked in the emulator, not on the device ([measurement](messungen/2026-11-08-filter-toggle-eingebaut.md), German) |
 | FEATURES, AUTO SAVE | ON, OFF | ON: leaving GLOBAL PARAMETERS (or PLUGIN RUNTIME behind it) after changing a value there saves the Global values with the same request WRITE sends there (the firmware shows its "Writing..." window for about a second, as after WRITE); leaving the BLECH menu after changing a setting writes the settings file as WRITE does; nothing changed means nothing is written, patterns stay with WRITE; OFF: only WRITE saves, as in the firmware; acts at once, ON is the default (also without a file); OFF is bit 7 of byte 5 of the settings file, a BLECHTRIBE before 1.5 rejects a file with that bit; switching AUTO SAVE itself off is kept by WRITE only ([measurement](messungen/2026-11-09-auto-save.md), German) |
@@ -1598,7 +1619,7 @@ All of this ran in the real firmware (2.02 with Hacktribe) in the emulator with 
 Unicorn without firmware, **not on the device**.
 
 - Compiler, checker and reference VM in JavaScript (`src/script/`), the Plugins page with run, probe and
-  export, tests in `test/script-*.test.mjs`. Block format 2, API version 25.
+  export, tests in `test/script-*.test.mjs`. Block format 2, API version 26.
 - ARM VM (`tools/patch/script_vm.s`): all 34 opcodes, 506 comparison cases against the JS VM agree
   ([measurement](messungen/2026-10-14-skript-arm-vm.md)).
 - Input filter and frame hook (`tools/patch/script_hooks.s`): ring of 64 places, 25 Hz, a shared budget of

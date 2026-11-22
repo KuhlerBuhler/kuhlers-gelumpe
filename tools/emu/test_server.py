@@ -45,6 +45,8 @@ class FakeMachine:
         self.powered = True
         self.panel_count = 0
         self.hang_after = None
+        self.idle_waits = 0
+        self.idles = False                   # waits for an interrupt every step: a quiet firmware, not a hung one
         self.boot_after = None               # steps until the main screen; None: there from the start
 
     @property
@@ -69,6 +71,8 @@ class FakeMachine:
         self.steps += 1
         if not self.hang_after or self.steps < self.hang_after:
             self.panel_count += 1
+        if self.idles:
+            self.idle_waits += 1
         self.fb[0][0] = self.steps & 0xFF
         self.leds = {7: 255} if self.steps > 1 else {}
         if self.assert_after and self.steps >= self.assert_after:
@@ -484,6 +488,17 @@ class ServiceTest(unittest.TestCase):
         self.machines[0].hang_after = None
         seen = self.events(lambda s: any(x["state"] == "running" for x in s.get("status", [])))
         self.assertTrue(any(x["state"] == "running" for x in seen["status"]), "back to running once it talks again")
+
+    def test_a_quiet_firmware_that_waits_for_interrupts_is_not_hung(self):
+        # an idle main screen sends the panel nothing since #595 (a card put in on PR #690 showed "hung")
+        self.emu.hang_s = 0.1
+        self.request("POST", "/firmware", body=bytes(VSB_SIZE))
+        self.request("POST", "/start", body=b"{}")
+        m = self.machines[0]
+        m.idles, m.hang_after = True, 3
+        while m.steps < 40:
+            time.sleep(0.01)
+        self.assertEqual(self.emu.status["state"], "running", "panel silent, but the CPU still reaches its idle wait")
 
     def test_a_firmware_assertion_stops_the_device_and_says_where(self):
         self.assert_after = 3

@@ -30,7 +30,7 @@ const SIZE = 0x200100;
 export const FONT_TABLE = 0xC00C2818;
 export const IMAGE_TABLE = 0xC00C1C2C;
 const SYNTH_OF_SAMPLER = new Map([...SAMPLER_OF_SYNTH].map(([synth, sampler]) => [sampler, synth]));
-const tableFor = (vsb, address) => {
+export const tableFor = (vsb, address) => {
   if (buildOf(vsb) !== "synth") return address;
   const target = SYNTH_OF_SAMPLER.get(address);
   if (target === undefined) throw new ArtError(`no measured synth table for 0x${address.toString(16)}`);

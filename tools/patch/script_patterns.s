@@ -114,7 +114,7 @@ pb_path:
 ; the flash at about 80 ms); one that differs and has its frame (PTST at 0, PTED at 15356) goes through the firmware's own pattern
 ; write 0xC004C28C, which copies it into the slot and writes its 16 KiB to the flash. A pattern that is the same writes nothing, so
 ; the file can stay on the card: the next start writes nothing again. A shorter file (fewer patterns) changes only the ones it has.
-; Not with EXIT held at power-on, not after a start without a card (CARD_NEVER), once a start: the early hook arms it (pat_boot_arm).
+; Not with EXIT held at power-on, not without a card at the start, once a start: the early hook arms it (pat_boot_arm).
 .equ PL_ARMED, 0xC2C            ; in MG_WORK, behind the folder copy's words: PL_ARM_WORD from the early hook until the card hook
 .equ PL_ARM_WORD, 0x4C544150    ; "PATL", so that RAM after power-on is not taken for it
 .equ PL_BLOCK, 0x4000
@@ -158,10 +158,10 @@ pat_boot_load:
     ldr r0, [r0, #0x18]
     tst r0, #KILL_MASK
     bne pl_out
-    ldr r0, =MENU_STATE
-    ldr r0, [r0, #M_CARD]
-    cmp r0, #CARD_NEVER
-    beq pl_out
+    ldr r0, =SD_INPUT
+    ldr r0, [r0]
+    tst r0, #SD_DETECT
+    bne pl_out
     ldr r5, =HOOK_CARD
     add r6, r5, #CARD_FIL
     mov r0, r6

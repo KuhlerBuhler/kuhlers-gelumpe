@@ -1,0 +1,4238 @@
+{
+ "format": "gelumpe-lang-korg",
+ "version": 1,
+ "lang": "de",
+ "build": "synth",
+ "texts": {
+  "0xc008e0f8": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "7a4e3071ca0b6d35caf86da46c2ade8c25d7607e016c75c9b4fd06167285ff3b",
+   "length": 7,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0049144",
+     "expect": "a2e1df6382c1683424f020699dc5ac7aaf05738e82e3a8b0ff3b929598b567ab"
+    },
+    {
+     "at": "0xc0049188",
+     "expect": "a2e1df6382c1683424f020699dc5ac7aaf05738e82e3a8b0ff3b929598b567ab"
+    },
+    {
+     "at": "0xc004aee0",
+     "expect": "a2e1df6382c1683424f020699dc5ac7aaf05738e82e3a8b0ff3b929598b567ab"
+    }
+   ]
+  },
+  "0xc008ed2a": {
+   "text": "Ein",
+   "expect": "4ae5ee5787bf81743d52462367c34f15b144f2d1671723553a62033ca2928cef",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0023d64",
+     "expect": "01a5c144abf208a14ef04daac48e3a9967d78c0deef3e60b3a4c944500c12a50"
+    },
+    {
+     "at": "0xc0023ef4",
+     "expect": "01a5c144abf208a14ef04daac48e3a9967d78c0deef3e60b3a4c944500c12a50"
+    },
+    {
+     "at": "0xc0023f70",
+     "expect": "01a5c144abf208a14ef04daac48e3a9967d78c0deef3e60b3a4c944500c12a50"
+    },
+    {
+     "at": "0xc0070d60",
+     "expect": "01a5c144abf208a14ef04daac48e3a9967d78c0deef3e60b3a4c944500c12a50"
+    }
+   ]
+  },
+  "0xc008ed31": {
+   "text": "Aus",
+   "expect": "6d9339371002cea2f3e433037beac6e025ed0b4ab6cb7e30902d2aa5f369f480",
+   "length": 7,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0023d68",
+     "expect": "e911b48767736b81d3dd0628e4f8f5cdfa6a975211c1e6ab7881dc66762b9859"
+    },
+    {
+     "at": "0xc0023ef0",
+     "expect": "e911b48767736b81d3dd0628e4f8f5cdfa6a975211c1e6ab7881dc66762b9859"
+    },
+    {
+     "at": "0xc0023f6c",
+     "expect": "e911b48767736b81d3dd0628e4f8f5cdfa6a975211c1e6ab7881dc66762b9859"
+    },
+    {
+     "at": "0xc0070d64",
+     "expect": "e911b48767736b81d3dd0628e4f8f5cdfa6a975211c1e6ab7881dc66762b9859"
+    }
+   ]
+  },
+  "0xc008eda5": {
+   "keep": "im Deutschen gleich",
+   "expect": "a49681e12ac3bd32f0ed66784c396ef2900a39e18e04b8f7371d5847076a5562",
+   "length": 6,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0023fe8",
+     "expect": "a5125a69fec54a5952bd151e141f73e021828b516b0b6d78fae725a83b2d6493"
+    },
+    {
+     "at": "0xc0070cf0",
+     "expect": "a5125a69fec54a5952bd151e141f73e021828b516b0b6d78fae725a83b2d6493"
+    },
+    {
+     "at": "0xc0071754",
+     "expect": "a5125a69fec54a5952bd151e141f73e021828b516b0b6d78fae725a83b2d6493"
+    }
+   ]
+  },
+  "0xc008f677": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "d7ac46e9e7c2ebac3187574e9db2860654749c5fe2782b3fb090893f5433b812",
+   "length": 5,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc002c240",
+     "expect": "209fe8cbbc64b7cac2a4de834c304e19826467034fc4edc5a9d66ff0a52efabf"
+    }
+   ]
+  },
+  "0xc009058a": {
+   "buffer": 64,
+   "expect": "a57c9c60c8ba56714f15174626c1d11fd1ddbdb6f28b5d2590ec02e825d3a754",
+   "fonts": [
+    0
+   ],
+   "length": 7,
+   "pointers": [
+    {
+     "at": "0xc00374a4",
+     "expect": "d11ed5dd99631afd058bbfd5c464eb2e6f0c7cfdcf02ff87c4d26a2747a86da4"
+    },
+    {
+     "at": "0xc00c9a88",
+     "expect": "d11ed5dd99631afd058bbfd5c464eb2e6f0c7cfdcf02ff87c4d26a2747a86da4"
+    }
+   ],
+   "text": "Keine Datei"
+  },
+  "0xc0090630": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "422b80009785a28f97f50278e1b11ed6c5fc5f7219e710b2cdee66ac6d706ba5",
+   "length": 9,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b08",
+     "expect": "9ba69e784a3b9cedcb5f2963687c291a3cf081bb7674ff117fc342abeafc4f8b"
+    }
+   ]
+  },
+  "0xc009063a": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "63e7ceb6f3fd6684d3cc72eff148bb742833376591d19d0e364961323766115c",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b0c",
+     "expect": "53710c0b73cef139a22969c67e9eb3f86c2a4363be7b23777c50f8a9ac26f583"
+    }
+   ]
+  },
+  "0xc0090641": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "fe8085d825ed5d02bd8d149d01d9976491e0f1097b82ecb74800a57260ad8a81",
+   "length": 6,
+   "fonts": [
+    0,
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc00c3b10",
+     "expect": "9fd6fe6909c908a832529c2fe94e686f77439aedc7721116c4400f8588968366"
+    }
+   ]
+  },
+  "0xc0090648": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "9b8d15ebbf231bbf18925cb174f957648ab357455bae3a5fc1f76389f5fe040e",
+   "length": 8,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b14",
+     "expect": "ff3a863c4fa31b090b9d4ba50db3b4effa5ca002674d49654eedf50d68ccb906"
+    }
+   ]
+  },
+  "0xc0090651": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "ab870703a3a9d21a26eae682ad73c3887a043959156c6d0a5a6800c71c380352",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b18",
+     "expect": "c46bb3d0e09c9e792ba462562aa3b0e7b18e68f002c6fd4c7259f4ea6c63f999"
+    }
+   ]
+  },
+  "0xc0090658": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "fd9365721297208809b4fe797c5be97454debf038b62719453364a9fbb5345a2",
+   "length": 10,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b1c",
+     "expect": "e0a8a1eeaf1748c568a0f90edb2b19dcfe28dad7787e373bed618f3c7c455cae"
+    }
+   ]
+  },
+  "0xc0090663": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "887fb45c0de1bd2d0ecb9a5a8bcd9dc1d72d0ead3e319b2251b1f5de5d55670d",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b20",
+     "expect": "8dbb69b92dabe77717f572b8528c97a2152cf8aba8d30cab04a2acd020075cea"
+    }
+   ]
+  },
+  "0xc009066b": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "a190a89b8b79de539f8ca62dc318a6814a3f6a0daac0513b95c92282aee818d5",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b24",
+     "expect": "4be2299d8ef48f08d7bfd76fde7de7607ed4b663e55c826b49ff01e6f18e8938"
+    }
+   ]
+  },
+  "0xc0090673": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "b5796465cc3f36423ae84617e18e89f91a60523a38ed62bb2de9e0dfcb163f3e",
+   "length": 10,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b28",
+     "expect": "3776e8a055cfd2dc206676bb1b3d98eb35223ec7cd66b7ffae402ffea88371f1"
+    }
+   ]
+  },
+  "0xc009067e": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "8d79d9dbec30cb2d0e1e032c05c3067cb15756acc183562eb91151dd96fb3898",
+   "length": 10,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b2c",
+     "expect": "a8e7f2b3424f02a727b9549165f71f8e1e05a085990bc6e8cae6abfb2d9dc5b5"
+    }
+   ]
+  },
+  "0xc0090689": {
+   "text": "Dur-Blues",
+   "expect": "77736c547b711f50f269c7e3c440f0c8519f20271fea1e77e7e028f850cfb75f",
+   "length": 11,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b30",
+     "expect": "382b954e2287a6a6f7e13256f048a87407a96113533d78ec2981d81e321b0cb2"
+    }
+   ]
+  },
+  "0xc0090695": {
+   "text": "Moll-Blues",
+   "expect": "b7d85a1df6ce38e71fb2eed8dcac8c44230f7666be5ccb703e2a05a56f876f4f",
+   "length": 11,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b34",
+     "expect": "7e507f2c45a3ccbea06394d7a1030f52542c2546b957d3119123fcbae9bb93c9"
+    }
+   ]
+  },
+  "0xc00906a1": {
+   "text": "Vermindert",
+   "expect": "ed4a43ecb7ef486b6e4707f84eeb44527652bd8e545edc0e8c19f5f2ef20e6d0",
+   "length": 10,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b38",
+     "expect": "cff84bdc879c0a43e012f69ad3994e39a6dd876a0afaeb525f5840f1e37e801f"
+    }
+   ]
+  },
+  "0xc00906ac": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "4b62f7482e619014ffa679485fa864719d69251aa97d7c2745bfd7f9eca0fe3b",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b3c",
+     "expect": "a0d5eb7bcbd021b5c5703245b0304515ff2d6ec338f87321a1926ce6356ee3e1"
+    }
+   ]
+  },
+  "0xc00906b4": {
+   "text": "Dur-Penta",
+   "expect": "c8f34d8c1bfafb1ccf93643369b882b18de9eb62f4fd31f76d0b1dec9f9b5499",
+   "length": 11,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b40",
+     "expect": "73be408561a92522647201591ccf2c9ce998cdd106b5deff507a7c087d0ef9f6"
+    }
+   ]
+  },
+  "0xc00906c0": {
+   "text": "Moll-Penta",
+   "expect": "23b97328f7acd2c90ad35cce1f992891b3229e4659f7611c07faeba40d08456a",
+   "length": 11,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b44",
+     "expect": "f4b8f77754ee8c0ba796e4dca2b37074cd3ea2117a0ffd6bb4e08e95ce67a2e2"
+    }
+   ]
+  },
+  "0xc00906cc": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "dedd57d8490a9c707bae5b6f93d3fd84c189bd1a0bad022df77305bd527b2e36",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b48",
+     "expect": "ce9591f405ff9319f99cf18a1088b7c4fe388e8b5fc8bbb742caa639fa326172"
+    }
+   ]
+  },
+  "0xc00906d3": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "8865d9cee5aa7c8a3bbeedc67a55441d68d32294dccc7a42e9f147c1a21c84aa",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b4c",
+     "expect": "25c9870c9bdd9bc92f39ca5fca4490a2f62ee6dfba4a420c22f63496bf6d6ea6"
+    }
+   ]
+  },
+  "0xc00906da": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "533f6adeda43174570c1376861c0aa7b27a78619feeeb182d93a8452b0815a6d",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b50",
+     "expect": "a81d5dba79f88c28e3da0e6dbaf77e5a17d6068b93a82b7e47eb9a75507b2dc1"
+    }
+   ]
+  },
+  "0xc00906e1": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "5d8a63fb0ae0622865aad8b4e4ec04424e1e235716832f858ae515938c68b97a",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b54",
+     "expect": "9f5468beceeeed7b4b47d21e8fa8cfe7477c135a81e1957312d24ab18de1746e"
+    }
+   ]
+  },
+  "0xc00906e8": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "5e698d00ee582de16832692a8d60a398b5de470629c348328af7de3f4ed45d8e",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b58",
+     "expect": "6f5709afbba64aa42fb8b6f3bac77fa6f74c0f53fec2066c2568279b93965d78"
+    }
+   ]
+  },
+  "0xc00906f0": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "d6c574e48bf372852ab7c9b30935e80bd606633a1cd0b9dabeaf9032bb8453b0",
+   "length": 5,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b5c",
+     "expect": "dd201a41e348c0f578cb029043b5e5677b6b233893802af8c0a0e242eaaf04fa"
+    }
+   ]
+  },
+  "0xc00906f6": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "1c326ce7682bdf8ee02f8f17916adb3980845ed30f92170548131cfea5812dd9",
+   "length": 8,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b60",
+     "expect": "b7baee6a252b272122fe94d5ea2c22a6390a488b57750c07ae12e192e241f180"
+    }
+   ]
+  },
+  "0xc00906ff": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "56b438cba93d6ef94ebb71d12ff3d6abd1688c828c41a43da374e9c84c9070be",
+   "length": 8,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b64",
+     "expect": "0544e07964a32f2d0bd494a209c5d99b558a18764cafb08e50408224a4ac87d9"
+    }
+   ]
+  },
+  "0xc0090708": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "3ee4725fdf335dbd609b8924d49c21fd0147e6c2452f974e6baec1b3e5be9603",
+   "length": 5,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b68",
+     "expect": "7f60d98fa6131a4c32e0d28d6c03a56b0c5388ceba34517d38f82c0a0d863ac3"
+    }
+   ]
+  },
+  "0xc009070e": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "3c6f633d9545c76338078f774832cdf80eb1ad52d2732da9b3a4c2d66c584f80",
+   "length": 8,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b6c",
+     "expect": "9fcdd4ba4a1a962883a8e4abc08bd6382d7e52fc093a7a1ba0d03fbb5ad9d2b6"
+    }
+   ]
+  },
+  "0xc0090717": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "2c5075a4cd114f5d813eba9883266b81c8598b59c7eb9b4471b0105cb75b8592",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b70",
+     "expect": "48047b8f3842b3ce35b0033ba0b9d6b0f870cb43e53da51098affd3b9129f65b"
+    }
+   ]
+  },
+  "0xc009071e": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "21fb82f54cb7ddd06798a5597a45b6ca9299f1773af06995523bc0da6974a683",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b74",
+     "expect": "9362d455c6c701a9557821488d27dd1d4eed87fdeb34969f387def7f9c45d1bb"
+    }
+   ]
+  },
+  "0xc0090726": {
+   "keep": "Skalenname, international gebräuchlich",
+   "expect": "3d3f15f7a30996d1b50644da62f711c0b6e027f9e20182d4aeb6b3b11f27386f",
+   "length": 9,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b78",
+     "expect": "eef93b5a4dc303eb6ece14be4e6ae0dd3c490ba584a0a7de1cba274ce1b0389c"
+    }
+   ]
+  },
+  "0xc0090730": {
+   "text": "Ganzton",
+   "expect": "60a1b64d71841353944ccdb694fa0c473093aec5c427d9336e0ec358d697ee7f",
+   "length": 10,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b7c",
+     "expect": "61339bfd15e70dc3b7e3c2cf69deb520656890b83c46902eca70531f0635adf2"
+    }
+   ]
+  },
+  "0xc009073b": {
+   "text": "Mollterz",
+   "expect": "2199bb63157bf956f2e9681e476a0d05ff574a76838eb2ddec3ca98ea25d210a",
+   "length": 9,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b80",
+     "expect": "48f3cd7e6f0a05f4c9d5f5c7ef880d9cd61621f766eabdd131a2db321e12473c"
+    }
+   ]
+  },
+  "0xc0090745": {
+   "text": "Durterz",
+   "expect": "4eab78e1801706a23b08a61ccd17d78b06047f506e4170da4144b1de8a128610",
+   "length": 9,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b84",
+     "expect": "089086136dc3103d9f58122737494054035e6f345eb0bb54f969eee88da39e5e"
+    }
+   ]
+  },
+  "0xc009074f": {
+   "text": "Quarten",
+   "expect": "d078cf8b8c5f85994b22c29aed86913da36c972eac0239954d9dd0c06cd9fc6e",
+   "length": 12,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b88",
+     "expect": "7e7e83e1d7dedd5d10d9ca8f55e9cc2538ce9cfe215d01c926339dc80980f000"
+    }
+   ]
+  },
+  "0xc009075c": {
+   "text": "Quinten",
+   "expect": "999ed2f5834c8b71b6cf2f7b729563de4c9daed9afc7a18ed9893a58e72b328f",
+   "length": 12,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b8c",
+     "expect": "331017a8aa43e5da0722015107f2aaf6dc33c0b4ee9830ebefb496e3bfaa7329"
+    }
+   ]
+  },
+  "0xc0090769": {
+   "text": "Oktave",
+   "expect": "a094b984c80c8ff564d4000470f714cd25273432c50d904c191049ddf0a263d2",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c3b90",
+     "expect": "857da8dbe9cacff1331b7ddcf65256b21f2e9ca436ea7762d5c5c69bf18c67f8"
+    }
+   ]
+  },
+  "0xc009085e": {
+   "keep": "kurzes Seitenkürzel, keine deutsche Form passt",
+   "expect": "b65a447fcfd698e455531e2e32ca6dc9dc1ed4478db79b581d72a32b51f0bd71",
+   "length": 9,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc005819c",
+     "expect": "4fb91d58ae9640af0b3e53280984ebee17786d10c06196afc2bb6052109f254e"
+    },
+    {
+     "at": "0xc00592d4",
+     "expect": "4fb91d58ae9640af0b3e53280984ebee17786d10c06196afc2bb6052109f254e"
+    },
+    {
+     "at": "0xc00594f0",
+     "expect": "4fb91d58ae9640af0b3e53280984ebee17786d10c06196afc2bb6052109f254e"
+    },
+    {
+     "at": "0xc005e210",
+     "expect": "4fb91d58ae9640af0b3e53280984ebee17786d10c06196afc2bb6052109f254e"
+    },
+    {
+     "at": "0xc005fcf8",
+     "expect": "4fb91d58ae9640af0b3e53280984ebee17786d10c06196afc2bb6052109f254e"
+    }
+   ]
+  },
+  "0xc0090868": {
+   "text": "Enter drücken",
+   "expect": "72c0735a362219c3cbda0350138a8aa354ececf0e7eb28fe2094c606ccf3815e",
+   "length": 16,
+   "fonts": [
+    0,
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc00582c8",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc005877c",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc00592d0",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc005a974",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc005aa70",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc005acc8",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc005afec",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc005b3e8",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc005ccf4",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc005d1f8",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc005d5fc",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc005f70c",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc0060000",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    },
+    {
+     "at": "0xc0070d80",
+     "expect": "265ff25059720fe91d85942cd9693ce3712ff344242f6f8ed34238236868130a"
+    }
+   ]
+  },
+  "0xc0090879": {
+   "text": "PATTERN-EXPORT",
+   "expect": "21e914a98d4ae43e89e10fd468bfb709dd3018b00ec52c97c3fbb5ff5a846552",
+   "length": 14,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc0058728",
+     "expect": "239edd595b5f3c5f4587c4131311c823805b6e6ec0e776bf3e134d4a2555f34e"
+    }
+   ]
+  },
+  "0xc0090888": {
+   "text": "ALLE PATTERN EXP.",
+   "expect": "cf848d1e6894f442a165b7ef24b9f667f3c3dbb54564a25b3f163c01dedd4cf7",
+   "length": 18,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005872c",
+     "expect": "6fd389102c50d181e7bb52d465d154dd0d91f7a4b2a398595d5a4d3492dbca79"
+    }
+   ]
+  },
+  "0xc009089b": {
+   "text": "PATTERN-IMPORT",
+   "expect": "a17e3e5834a8bacd7f7861d21be7c59174cd92e506ae0116845854465fc2e157",
+   "length": 14,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc0058730",
+     "expect": "bb0ceb07a66b5ffdf2147b12f42234cbf2eb40c5f993e6a8cb24a22ae50595c3"
+    }
+   ]
+  },
+  "0xc00908aa": {
+   "text": "ALLE PATTERN IMP.",
+   "expect": "6539182fdb22776661ee8977c2c1cad84eee938380a64a2a227e79bdadf90cda",
+   "length": 18,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc0058734",
+     "expect": "7ffaf43f9ed1d70d3e1ba7693c6f648fb418588af868cb6d11db7f5f54aef013"
+    }
+   ]
+  },
+  "0xc00908bd": {
+   "text": "PATTERN LEEREN",
+   "expect": "46089414020e2439f4571971c71e0a7647fecff2581fdeb5c7f2a6b20ee4c3dc",
+   "length": 18,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc0058738",
+     "expect": "cc2f35ed629a129639a0f2dbfe738d959999a069b2a0bda60748d32e592e6c00"
+    }
+   ]
+  },
+  "0xc00908d0": {
+   "text": "Ganz sicher?",
+   "expect": "d465a0261f257ae0e0b09ea0dc28dbc97fc4fc4057f95751aa8d2d2048345d7f",
+   "length": 14,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0058774",
+     "expect": "5f7b4f94617cefc87e5e15171d9506f51f6ed3ea56733c9e3a612cf679a99864"
+    },
+    {
+     "at": "0xc005f9ec",
+     "expect": "5f7b4f94617cefc87e5e15171d9506f51f6ed3ea56733c9e3a612cf679a99864"
+    }
+   ]
+  },
+  "0xc00908df": {
+   "text": "QUELLE WÄHLEN",
+   "expect": "c905acbe5c7ab85e116bc668a1c117f32cdc95abe35e240fd0bea849f37eedef",
+   "length": 13,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005873c",
+     "expect": "9b4437d15a3c1af1f102546a6b3eb821a0f6de9145661806b135aa1bae636a54"
+    }
+   ]
+  },
+  "0xc00908ed": {
+   "text": "[Enter] : Karte",
+   "expect": "f210baff9758471aac6d0ed40dc3767ed5e0360ba1945470b9be08f923a3b57e",
+   "length": 16,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0058740",
+     "expect": "3e9f74e5f98da3ef460bb944f7cf697c8e36d6155caa20887f557ff84ecf9ad9"
+    }
+   ]
+  },
+  "0xc00908fe": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "399028efc97ea77ad0f24c1609fe3a4b1115e6ca9ddb21ed2ef0c9a01cc682ab",
+   "length": 19,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0058744",
+     "expect": "8829960da70b5191484fcc42376b114f659de8abf631794b61fcade16cccb585"
+    }
+   ]
+  },
+  "0xc0090912": {
+   "text": "AUDIO-EXPORT",
+   "expect": "0aa2a1f8767e69ed209ef871fda9322087a92aee73f24309f64a22d4018ed93b",
+   "length": 12,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc0058748",
+     "expect": "9cf18440b627990c11760715c5f73f2c2099dc7bbde7508876f48fd5714fe2e6"
+    }
+   ]
+  },
+  "0xc009091f": {
+   "text": "Clock nicht intern",
+   "expect": "6726aedfb224bc59e3de62f2dcfbb64677bbdb387ecfd55c5f8011cb995f151e",
+   "length": 18,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005875c",
+     "expect": "40b1104df9e0b3cb0cc4cbacf22263ca1b25c10945ce464e5303a1ed26ef0eb8"
+    },
+    {
+     "at": "0xc005a970",
+     "expect": "40b1104df9e0b3cb0cc4cbacf22263ca1b25c10945ce464e5303a1ed26ef0eb8"
+    },
+    {
+     "at": "0xc005aa6c",
+     "expect": "40b1104df9e0b3cb0cc4cbacf22263ca1b25c10945ce464e5303a1ed26ef0eb8"
+    },
+    {
+     "at": "0xc005acd8",
+     "expect": "40b1104df9e0b3cb0cc4cbacf22263ca1b25c10945ce464e5303a1ed26ef0eb8"
+    }
+   ]
+  },
+  "0xc0090932": {
+   "text": "TYP WÄHLEN",
+   "expect": "7acc86569c9891e48496dd1dc0d2d54ceda4fe9e9d010d440f749d3899d2fb5b",
+   "length": 11,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0058760",
+     "expect": "e067588e704f315ac517eae1b30b50ec523864c4328098d027779429b4dff83d"
+    }
+   ]
+  },
+  "0xc009093e": {
+   "text": "Nur WAV-Datei",
+   "expect": "cf55436c53c88194f3b9232279717efe52267fb7c968522ed2031540f143c09b",
+   "length": 13,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0058764",
+     "expect": "ff6386f6acdee6fa4e6c45286ef31b4fff4261f85fb4db3b568c11cd7fb8ef68"
+    }
+   ]
+  },
+  "0xc009094c": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "181d2b61748b8de9923addc949186f6ea405630504f2fb010a299f6b7d426381",
+   "length": 16,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0058768",
+     "expect": "74dfa64f253b9984100cf2e3b28dbc8d699ebd93eb3d0fd68a5b6f9308fe0460"
+    }
+   ]
+  },
+  "0xc009095d": {
+   "text": "EXPORT P.SET-AUDIO",
+   "expect": "4610cb4fa31df2765f241813dac325d2cf8fe05e5c1ec4e1bf02e782faa4b6ab",
+   "length": 18,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005874c",
+     "expect": "115f79ce52013873f3600d2ba9b0e9a295376fb2da856500e5e41c459c661184"
+    }
+   ]
+  },
+  "0xc0090970": {
+   "text": "VON WÄHLEN",
+   "expect": "fbc7c3da1c0ef1c680d120136af78d2eaf2a8f9bac8fca40f2eb1ab663515cc3",
+   "length": 12,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0058750",
+     "expect": "8bb73b2e5d1459241fbaa6c6d7d92602a6fbad4b1ba80e26c38c00e61a362be4"
+    }
+   ]
+  },
+  "0xc009097d": {
+   "text": "BIS WÄHLEN",
+   "expect": "42324d5a4073e576a873499ffc2a3c6e0d87ca3706d54a14834c11a656b8e301",
+   "length": 10,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0058754",
+     "expect": "008f6ade23df22f5c329dfcde726163557e98fa67b35b77e42517abf770241d6"
+    }
+   ]
+  },
+  "0xc0090988": {
+   "text": "EXPORT CHAIN-AUDIO",
+   "expect": "ba3e99c7e6aaacef5e71ce9c94603b6fdf459f05612e96a68c6d0cc11df4d207",
+   "length": 18,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc0058758",
+     "expect": "c19e1e426e055845a0f104adc7210d742973d4f304d5c15eaccb5e974311d022"
+    }
+   ]
+  },
+  "0xc009099b": {
+   "buffer": 32,
+   "expect": "8ffd1e27ac03673999a2c540f0b8e5ada5b711d194138ab36170cb56eb2f25f8",
+   "fonts": [
+    3
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc005876c",
+     "expect": "a16b340add8299c2083a909d70ad138eedbcf9073a6d224441c37a70b704318a"
+    }
+   ],
+   "text": "KARTE FORMATIEREN"
+  },
+  "0xc00909a7": {
+   "text": "WERKSZUSTAND",
+   "expect": "3978cc186bd79a7be9f493a35019238223b4c8a3cd2237c86bf6e6ea04f4e03e",
+   "length": 13,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc0058770",
+     "expect": "0f71097bb1405ab72963f8d9c6912c7a261570552e5511acdec8f1f009670201"
+    }
+   ]
+  },
+  "0xc00909b5": {
+   "keep": "SOFTWARE UPDATE steht so in der Anleitung, Update ist eingeführt",
+   "expect": "69d3457baf04d3301422d71c7cd23b111f4aac3c43d342f85dbfaeea591f92ff",
+   "length": 15,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc0058778",
+     "expect": "5ac3f15ba0e97aa6bf954a17158b493647a6c36816ab1affd50bbe68c141cd4b"
+    },
+    {
+     "at": "0xc005fcfc",
+     "expect": "5ac3f15ba0e97aa6bf954a17158b493647a6c36816ab1affd50bbe68c141cd4b"
+    },
+    {
+     "at": "0xc0060154",
+     "expect": "5ac3f15ba0e97aa6bf954a17158b493647a6c36816ab1affd50bbe68c141cd4b"
+    }
+   ]
+  },
+  "0xc00909c5": {
+   "text": "CHAIN-EXPORT",
+   "expect": "486855b35e7062aaf9c4e22926f6452722d31a04ab3348d5aaedaf599eb59f59",
+   "length": 12,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc0058780",
+     "expect": "88231af6b29260b72dbd1f465b10090949e91607bcc37eb92564b04c948b995a"
+    }
+   ]
+  },
+  "0xc00909d2": {
+   "text": "Sequencer stoppen?",
+   "expect": "2dcfc8ed68bdd461bcd184498eb6f32947b0eaba74ddf41979583b41ca0f68e5",
+   "length": 19,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0058ccc",
+     "expect": "2c6abdb7cdebe85b966e7986c6ce9b5c4f87e7bbd82673f35384bc16acdab8ff"
+    },
+    {
+     "at": "0xc005aa24",
+     "expect": "2c6abdb7cdebe85b966e7986c6ce9b5c4f87e7bbd82673f35384bc16acdab8ff"
+    }
+   ]
+  },
+  "0xc00909e6": {
+   "buffer": 64,
+   "expect": "a746ad1592a339a1a0983400472240b79b09a69f7f4d4858a503d430862568c8",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc00592cc",
+     "expect": "dd9c72e2beb08e0e8d425be7145e04a3576cd0c3f2cb6396c2127705a7ae45bf"
+    }
+   ],
+   "text": "DATENVERWALTUNG"
+  },
+  "0xc00909f3": {
+   "text": "Warnung",
+   "expect": "64b3533595fef3dd0d13a8cc5d66fc9cadee7dac8b6b0aecd76255b70a890c74",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005969c",
+     "expect": "0a9e3f7dbd0a2615dc72c70f2018816e3b989cad6caf7b716c4644f258102ec9"
+    }
+   ]
+  },
+  "0xc00909fb": {
+   "buffer": 64,
+   "expect": "c87dccac936746fc2e49c15e770aa73817d2da4bed8f77bd98c13e8696c06e3e",
+   "fonts": [
+    0
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc00596a4",
+     "expect": "f62e60ab930ac9b822c47dacb1439651d95c130d8cc76e453f9d00eba46db8df"
+    },
+    {
+     "at": "0xc00c9a54",
+     "expect": "f62e60ab930ac9b822c47dacb1439651d95c130d8cc76e453f9d00eba46db8df"
+    },
+    {
+     "at": "0xc00c9a90",
+     "expect": "f62e60ab930ac9b822c47dacb1439651d95c130d8cc76e453f9d00eba46db8df"
+    },
+    {
+     "at": "0xc00c9a9c",
+     "expect": "f62e60ab930ac9b822c47dacb1439651d95c130d8cc76e453f9d00eba46db8df"
+    },
+    {
+     "at": "0xc00c9aa0",
+     "expect": "f62e60ab930ac9b822c47dacb1439651d95c130d8cc76e453f9d00eba46db8df"
+    }
+   ],
+   "text": "Unbekannter Fehler."
+  },
+  "0xc0090a0a": {
+   "text": "Abgebrochen",
+   "buffer": 64,
+   "expect": "a6f28c47358a3c94f2d1413cf55edec451da795b1c3af1b7ed9d06621a2300d9",
+   "length": 8,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a30",
+     "expect": "ec3f95cf42bf88aaf5fa09729a2a2dc7536ccc1e8fc97700007741c12695242d"
+    }
+   ]
+  },
+  "0xc0090a13": {
+   "text": "Keine Karte.",
+   "buffer": 64,
+   "expect": "1ca243656846cb076cefade981e3eb8d4712e31ee14444311544fc057820d087",
+   "length": 8,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a34",
+     "expect": "b0f721ea3e783678d9bceef18a1093964d12a1682845079fae7fc36faf5b3166"
+    }
+   ]
+  },
+  "0xc0090a1c": {
+   "text": "Schreibschutz an",
+   "buffer": 64,
+   "expect": "74e08bd1240827bf776e1aa921abd82f8e40627aea5452c31e591448df291abe",
+   "length": 20,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a38",
+     "expect": "62021fe40ae9f09e84194fc9a012b61653a9916d513fd8fa7405a2d499131236"
+    }
+   ]
+  },
+  "0xc0090a31": {
+   "text": "Karte: Fehler",
+   "buffer": 64,
+   "expect": "19938b52cc8d472137f3d725e1ad129085336ae580de88c38bd76664660b5c75",
+   "length": 10,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a3c",
+     "expect": "e84d3b3a08e8cba1987254e47da9ef591e0f193e9e6225c3e2d9432e511c6473"
+    }
+   ]
+  },
+  "0xc0090a3c": {
+   "text": "Karte: Prüffehler",
+   "buffer": 64,
+   "expect": "6d5852915c5b2c379735ca5b06ee1778753e4cada95416c2dba65e4dba6adecd",
+   "length": 17,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a40",
+     "expect": "d801b8614a3b55f774dcdf8b82b3e2453106516c805a765160921065f220ec06"
+    }
+   ]
+  },
+  "0xc0090a4e": {
+   "text": "Karte voll",
+   "buffer": 64,
+   "expect": "99d4e63d077f813c53d3118a7e80650d7bd0315256254e0a8ce6804bfbcb70d5",
+   "length": 9,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a44",
+     "expect": "894d73bf8b0314e58dfdfef2be81e2bbd9264fe1845e35f11d0ea469a103c2fe"
+    }
+   ]
+  },
+  "0xc0090a58": {
+   "text": "Größe unpassend",
+   "buffer": 64,
+   "expect": "5eaa54bdbc04b74068939666cdc86403a8219207ee535d645f49a5bcc37b0c7e",
+   "length": 18,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a48",
+     "expect": "f88456bc01137c3e7c44b226b49e07b0a681ce2be9597b461e885cd22e4a4886"
+    }
+   ]
+  },
+  "0xc0090a6b": {
+   "text": "Karte: Formatfehler",
+   "buffer": 64,
+   "expect": "1fe60e73d47f5f45b1cd8073d8570be84dc9ef3ee328a986dd6f7634cca38540",
+   "length": 17,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a4c",
+     "expect": "4d1526dce0e1c6cffa85f9592e91b43615bd55ff2d795588a6e2b0f2eb75d6ef"
+    }
+   ]
+  },
+  "0xc0090a7d": {
+   "text": "Datei: Fehler",
+   "buffer": 64,
+   "expect": "5ef0e2d85c12c9cc561bfccd027f3ab7deb48d86949b934109028e17803667df",
+   "length": 10,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a50",
+     "expect": "8cbef8cc025bda442fced1b54faf9b5372ed679ee2a4f249124b035d9d4c6045"
+    }
+   ]
+  },
+  "0xc0090a88": {
+   "text": "Fehler bei MIDI",
+   "buffer": 64,
+   "expect": "613ca19e82f76c08331df9053083719ec57ac751e1dfd8858d84d8ca25052127",
+   "length": 18,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a58",
+     "expect": "b4d1a9d374434524ef25eb95cc5efcfa18bc668bf166a767a42842e2d2f799fe"
+    }
+   ]
+  },
+  "0xc0090a9b": {
+   "text": "Empfangsfehler",
+   "buffer": 64,
+   "expect": "92d449a1b786c7dc6dcae7fd8f8fc088a9c79f822f475d7155ac13b43f7a4680",
+   "length": 13,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a5c",
+     "expect": "d3c526e8f5e8bd1b4589d583d2eda02e4bfdfbddf26945db49879757f981df3d"
+    }
+   ]
+  },
+  "0xc0090aa9": {
+   "text": "Zeitüberschreitung",
+   "buffer": 64,
+   "expect": "cc08701d3c8f9e6530e27acc147f6dd2f470f74f1d7054f533a131c45c54a778",
+   "length": 15,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a60",
+     "expect": "98d40be2e7d9c9819d9145e6d047456dbe060f789d660b564264b7fdf63f3295"
+    }
+   ]
+  },
+  "0xc0090ab9": {
+   "text": "Ungültige Daten",
+   "buffer": 64,
+   "expect": "ce81bb7fd008d883e5ab562a46f3bf6049b8e4723ca1a1dabaad6c9e81b423ed",
+   "length": 12,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a64",
+     "expect": "a3c45a1161d1637d34c9044a7c84ff7d606339af0e31cb8ba86c7043bab2ed27"
+    }
+   ]
+  },
+  "0xc0090ac6": {
+   "text": "Datei existiert",
+   "buffer": 64,
+   "expect": "971043736d910147358363a44a0b0ed6f7b8f8c10804f438ba74fda1579260b7",
+   "length": 15,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a68",
+     "expect": "1efdc8e20e9e272add690a61fc6e7a39bbad032e55b0d6711d4cad698d731d48"
+    }
+   ]
+  },
+  "0xc0090ad6": {
+   "text": "Keine Daten",
+   "buffer": 64,
+   "expect": "42f7c5d32976cabd2824a71e4829042e57eca1c69f36ec4aaf6b8b0c2ac622a1",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a6c",
+     "expect": "b9c4518eb42795f37bc374ad452f7f346c59f456dd0ec8eca2ac67370d6bd140"
+    }
+   ]
+  },
+  "0xc0090ade": {
+   "text": "Ungültige Datei",
+   "buffer": 64,
+   "expect": "0e3da09614366a283b419795ac34d4e6ef49aa4adb0babcbded036d64a315487",
+   "length": 17,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a70",
+     "expect": "faa8973a89bb1bb2955ef113ad783f0a1386bd802e5e7d474ca634b491de0e09"
+    },
+    {
+     "at": "0xc00c9a7c",
+     "expect": "faa8973a89bb1bb2955ef113ad783f0a1386bd802e5e7d474ca634b491de0e09"
+    }
+   ]
+  },
+  "0xc0090af0": {
+   "text": "Events voll",
+   "buffer": 64,
+   "expect": "4f567a9c2e469653cbbd7459339af8c824406f2bfd0549ca4afe0178f4633d46",
+   "length": 10,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a74",
+     "expect": "3e501cb8c03c713685f191ab42b452075852c0c77d5f196f5ff56eb119369b57"
+    }
+   ]
+  },
+  "0xc0090afb": {
+   "text": "Keine Eventdaten",
+   "buffer": 64,
+   "expect": "63f1d4a63b2471f462ab6a8741a13fb8381e612d490aa321ffe8727c73bf11d4",
+   "length": 13,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a78",
+     "expect": "5fd4d44f3db815a6ab0024a2ab4089a0ed4be31b9e17574ed150201f87e9749b"
+    }
+   ]
+  },
+  "0xc0090b09": {
+   "text": "Eventdateien voll",
+   "buffer": 64,
+   "expect": "da99d3d4f844914f855a867b062fb5165898e85c09b29184489d9effe5f1bdc0",
+   "length": 22,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a80",
+     "expect": "cf6cf82212f8001bdf6e36bea1c4382c4ffc0dda78de4f962174768cce20caf4"
+    }
+   ]
+  },
+  "0xc0090b20": {
+   "text": "Motion Seq voll",
+   "buffer": 64,
+   "expect": "54cdde604ecd8197cf79867c5b7ae4f9d7f5969cd76ad8acc606e989361e6ff9",
+   "length": 15,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a84",
+     "expect": "ca9b2aa041ad7f4a0dcd781ff43de277129a71e8dcbcf1279783dd46ec37be46"
+    }
+   ]
+  },
+  "0xc0090b30": {
+   "text": "Ungültige Datei",
+   "buffer": 64,
+   "expect": "7941a4713cc737f5ed101d3c54f1ae71324c543e0bd4e3f071272fb9f7bb1a88",
+   "length": 12,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a8c",
+     "expect": "488f6c3844522f58acd38e492eacb687618b335a92ac4c3255b21af3ee98b4dd"
+    }
+   ]
+  },
+  "0xc0090b3d": {
+   "text": "Batterie schwach",
+   "buffer": 64,
+   "expect": "b22d5bedf44b5d18a55d2b6f665f832dbb26a01d0120855ea1af4e44b0b199f9",
+   "length": 11,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a94",
+     "expect": "720876d03f91281e00b94677414c74a39d25d65a852de94a55c7f39ac4e97ea8"
+    }
+   ]
+  },
+  "0xc0090b49": {
+   "text": "Nicht rückgängig",
+   "buffer": 64,
+   "expect": "058602fcf4f616185b822d13a299313a2c41463443bd50fe7f009aaacac676ca",
+   "length": 11,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9a98",
+     "expect": "fa3de04a82d32a72c426b089cf58964b83497fcb009300e477d7e4193b63b8fa"
+    }
+   ]
+  },
+  "0xc0090b55": {
+   "text": "Pattern gesperrt.",
+   "buffer": 64,
+   "expect": "a1622108fdfa55bc1fc8f512fbb0ca5202db75d6f06bb747b32342b6440c4c6d",
+   "length": 18,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00c9aa4",
+     "expect": "479b87fb07d17e4a839dbcea1d43c6371a475dcf847c6ac08167559a804af617"
+    }
+   ]
+  },
+  "0xc0090b68": {
+   "text": "EVENT-AUFNAHME",
+   "expect": "d6fda71eba4a02f547eaa883a05f5ea5cc6d43434273aef41ca6829d429d8c56",
+   "length": 14,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc0059d80",
+     "expect": "f29ce0b821773d66dd3b092c85192c312c18c4e0320b90225f1560412e915376"
+    },
+    {
+     "at": "0xc005a800",
+     "expect": "f29ce0b821773d66dd3b092c85192c312c18c4e0320b90225f1560412e915376"
+    }
+   ]
+  },
+  "0xc0090b77": {
+   "text": "    [ Enter ] : Aufnahme",
+   "expect": "5a34cd68d6a2ba72d65355b06a591a5d69a9087ddecaca10dc9c9bc572c21e43",
+   "length": 25,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0059d84",
+     "expect": "20d7ed3a1b2a391d10338826953c3960041c98aa086c1495811dac6d56ba0392"
+    }
+   ]
+  },
+  "0xc0090b91": {
+   "text": "         Rec bereit!",
+   "expect": "3ba47112125f8051712ef87b41d2453f684a4fe618d6d106c185403eef777ac8",
+   "length": 20,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0059d88",
+     "expect": "e126ce7c421f589d27f9436e2dae622b0675a3655a143fd6f033e0cda209866f"
+    }
+   ]
+  },
+  "0xc0090ba6": {
+   "buffer": 64,
+   "expect": "a37efdc41892c9daaf879b29b1e332ac92864b7fa5541b2139a0ae25b73a3661",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc0059d8c",
+     "expect": "2ae31e19df6b2ba69136c8f820f03cfbe19c3964accc5d1dc2e3ab9ed208d072"
+    }
+   ],
+   "text": "EVENT-WIEDERGABE"
+  },
+  "0xc0090bb3": {
+   "text": "    [ Enter ] : Öffnen",
+   "expect": "6b9fc503253c102f361307365f5418a7c9741bbee4d2c6fffcde79f9a5f0799f",
+   "length": 27,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0059d90",
+     "expect": "32d0f07f48f5dfe1642ec911dff38f948e0172080c935fd2c45be1b53267df11"
+    }
+   ]
+  },
+  "0xc0090bcf": {
+   "text": " Rec abbrechen? [Enter]",
+   "expect": "19b5d319738a9f99a281842632e60b95de956b48e6e5ed8a4244c857e305b90a",
+   "length": 26,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0059d94",
+     "expect": "0665c21c767b9a8a57931369eb2cecd59241a2d31b9e89e3fa9bbbe678a590ac"
+    }
+   ]
+  },
+  "0xc0090bea": {
+   "text": "         Aufnahme...",
+   "expect": "6ed9b077e5a4af30e38dc4c2c4e92f83a6e518d44bc8618eed846249afbe6672",
+   "length": 21,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0059d98",
+     "expect": "c211bc3579217d42f5466139873bc6104c4866a267cc3fc748c0c7bf7ea21565"
+    }
+   ]
+  },
+  "0xc0090c00": {
+   "text": " Fertig",
+   "expect": "13b2243178d72e846e5f52178eef62136a4cbe9175329c0597f418d36babd145",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0059da0",
+     "expect": "a0535e6edafa2d0de3bb11827c598bef89cdac2a15882fb5bd922a530d6c5a4e"
+    }
+   ]
+  },
+  "0xc0090c08": {
+   "text": "   Enter: Wiedergabe",
+   "expect": "5ffc8d1e9dda8f3f22645c7e083745b118b859bf18fb1668dc9d29cc40aaf577",
+   "length": 21,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0059db0",
+     "expect": "47e7b82eeb1d32744982bb64805cb830a06ab5287e07cc15ebbcb97145735b72"
+    }
+   ]
+  },
+  "0xc0090c1e": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "05304ce8160e79d99c577e96de5c55557d34999684d7c729984a9d5581d70e48",
+   "length": 5,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc005a808",
+     "expect": "90f6b5379e55ca6864dadbddc8b443a9cfa3d1e269f1924750e7c1444ca05bd4"
+    },
+    {
+     "at": "0xc005accc",
+     "expect": "90f6b5379e55ca6864dadbddc8b443a9cfa3d1e269f1924750e7c1444ca05bd4"
+    }
+   ]
+  },
+  "0xc0090c24": {
+   "keep": "deutsche Form länger als die alte Kette, Puffer nicht gemessen",
+   "expect": "f4ca688d62927f68096a736130b99f1fe32754f51903f9ed554dd096ca3d1ec1",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005a978",
+     "expect": "83c073f0b435e1f0940291c030d07c229024ad9124a90bf54101e55c43fc9c22"
+    },
+    {
+     "at": "0xc005acd4",
+     "expect": "83c073f0b435e1f0940291c030d07c229024ad9124a90bf54101e55c43fc9c22"
+    }
+   ]
+  },
+  "0xc0090c2c": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "3e3585a46ae7e54525e67eb5220f392aa3836ec1e5fed82a27e86159464b7239",
+   "length": 16,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005acc4",
+     "expect": "66ad82519c7774c44bbaead9cfb997590fa24e74fe5be379f3a1899d1aad92e8"
+    }
+   ]
+  },
+  "0xc0090c3d": {
+   "text": "Export OK",
+   "expect": "fd28f46c09a99149c8c11256be0a8873e1d76032e2daac0dd3b1e45514cf97cd",
+   "length": 12,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005ada0",
+     "expect": "6c4dc14896f7e69499518666335384c9e5a423308335f1d024b017086ee59102"
+    }
+   ]
+  },
+  "0xc0090c4a": {
+   "text": "Fehler aufgetreten.",
+   "expect": "881c20a0b7c75aedfd4de5d78c790bf31aa88bbef999805fa4da7cf725e3a361",
+   "length": 19,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005ada4",
+     "expect": "ab1d07f3bf57e61c50ce46c84b7addaca27292a3104ad170e68ecb02b34d6929"
+    },
+    {
+     "at": "0xc005ed08",
+     "expect": "ab1d07f3bf57e61c50ce46c84b7addaca27292a3104ad170e68ecb02b34d6929"
+    },
+    {
+     "at": "0xc0060508",
+     "expect": "ab1d07f3bf57e61c50ce46c84b7addaca27292a3104ad170e68ecb02b34d6929"
+    }
+   ]
+  },
+  "0xc0090c5e": {
+   "buffer": 32,
+   "expect": "c42617ca0ab9fe0e1802f1bfe9d2bcece4000bb622c989de9a2bda854a6244c9",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc005af9c",
+     "expect": "05cac4c60ffeee4027c02174a48b330a078b85a475ccb557fa23a4b5b56f6ccf"
+    }
+   ],
+   "text": "TRIGGER-MODUS"
+  },
+  "0xc0090c6b": {
+   "buffer": 32,
+   "expect": "950091312af9ea4b153e2fec22de8f810a910369c65623ca0de681314eea74e5",
+   "fonts": [
+    3
+   ],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc005afa0",
+     "expect": "7b7458e731c76c962d32ed6107740ddf026b7ab3f7025986072b9c16d17d2396"
+    }
+   ],
+   "text": "CLOCK-MODUS"
+  },
+  "0xc0090c76": {
+   "buffer": 32,
+   "expect": "3d1bf32db3237d02377d32ca3c9e4506f375715950f0c23769f50dd42fd2c906",
+   "fonts": [
+    3
+   ],
+   "length": 15,
+   "pointers": [
+    {
+     "at": "0xc005afa4",
+     "expect": "04cbfdcdfe803546cc0b150e69616ce648a088db4bcb9bfc20a9e27b75391a77"
+    }
+   ],
+   "text": "MIDI-KANAL GLOBAL"
+  },
+  "0xc0090c86": {
+   "text": "MIDI-EMPFANGSFILTER",
+   "expect": "6f7b4cbcd8b966835dea740238d9f14989d12c903f179f4f912290c334b13205",
+   "length": 19,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005afa8",
+     "expect": "fd5658018a85706085e26f9230f6926fee489d85bda66b0dba4bac8e443eed8e"
+    }
+   ]
+  },
+  "0xc0090c9a": {
+   "text": "MIDI-SENDEFILTER",
+   "expect": "3c04dfb1672c41cb5fa66d465ad66839f85028c341274ace7815d92932a0f27c",
+   "length": 16,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005afac",
+     "expect": "d585bd9679d4691ae1ad6e1ade34b9d19cf50e5915ed512b3fbaff23c3032328"
+    }
+   ]
+  },
+  "0xc0090cab": {
+   "text": "METRONOM",
+   "expect": "ffd19911f82f3c9d8c938b2535c67f7900d32f832ae4e4563921e90cea5636fb",
+   "length": 9,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005afb0",
+     "expect": "f23df0392fc752423dfa9550faf305238b4c4d613e576b73ce4d394092efef90"
+    }
+   ]
+  },
+  "0xc0090cb5": {
+   "buffer": 32,
+   "expect": "ecae4d8588486265cadc0649371fa59f25dcfdbb19be0effca65b476253c35cf",
+   "fonts": [
+    3
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc005afb4",
+     "expect": "b83e07585c3de6ed423b9d07cb598186e4aafb09eb309bc9bf34cd21e5b23cfd"
+    }
+   ],
+   "text": "SYNC-POLARITÄT"
+  },
+  "0xc0090cc3": {
+   "buffer": 32,
+   "expect": "cf273e4f00d61911e4a4b890132def05e05d01fcdb411672b6f5a1d270e7ed59",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc005afb8",
+     "expect": "bc12348f9fcf567a1f019051b08b9eb3cd143a54d85398c5f02b714bac9f4ec3"
+    }
+   ],
+   "text": "SYNC-EINHEIT"
+  },
+  "0xc0090ccd": {
+   "keep": "Name der Buchse AUDIO IN, THRU ist eingeführt",
+   "expect": "a462e150f4dbd86a271426cdbe83ecf4b2101129e93b3502335df6d51b0d2d23",
+   "length": 13,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005afbc",
+     "expect": "6fcd879afe067734d7583aad1981cc36a8a4682fb399cdc9485d28b8495f815e"
+    }
+   ]
+  },
+  "0xc0090cdb": {
+   "text": "VELOCITY-KURVE",
+   "expect": "15f344c1f6d79e836c169327162488800ae975ca67173aa2b9d28fa957c27a38",
+   "length": 14,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005afc0",
+     "expect": "7f31472ed06a26b51f14777e795ac26bb0e9bc4440711087cbee5283c4b933d5"
+    }
+   ]
+  },
+  "0xc0090cea": {
+   "buffer": 32,
+   "expect": "63cc8add6eebad195133c90011e3f70e9ea85cea3f8b7e25abb0c469dd8f7401",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc005afc4",
+     "expect": "27a5790defe0f5e4d1de2afbcf94923986bd01ae9db7e316fea2731fc6b05fd8"
+    }
+   ],
+   "text": "REGLER-MODUS"
+  },
+  "0xc0090cf4": {
+   "text": "BATTERIETYP",
+   "expect": "e2f58cc47e024c4cddd0bc392d093717038a87640e30a5768819173143e91960",
+   "length": 12,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005afc8",
+     "expect": "ea8996818ef34c5b57ef2b10aa4832691bd398377861aa18a95a8ddc75dcd812"
+    }
+   ]
+  },
+  "0xc0090d01": {
+   "buffer": 32,
+   "expect": "b57db709f3a0f1e4890833ebc36d42ef0cde41b0be1c6c6faac8cc2ae3ff5112",
+   "fonts": [
+    3
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc005afcc",
+     "expect": "ba2c69890f17a3863ae35bc1ca41589d27a39c607635dcf42f925d079904471c"
+    }
+   ],
+   "text": "AUTO-ABSCHALTUNG"
+  },
+  "0xc0090d10": {
+   "text": "STROMSPARMODUS",
+   "expect": "73934de99234f8e1d711571368c8388f91d4923e32ca80733b5561f1db41e8a2",
+   "length": 15,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005afd0",
+     "expect": "d2ccf89d7cb2b7b6127d72c54e7ccc116d922bf09c4eec4a7150d42e1525b7ff"
+    }
+   ]
+  },
+  "0xc0090d20": {
+   "buffer": 32,
+   "expect": "ba6d1255ebef805ecea21824d8461cc9bbe5ed3b9a07bf08958ab3fc0e7e51e2",
+   "fonts": [
+    3
+   ],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc005afd4",
+     "expect": "13a45a13759ca79984cbf0cb1447700ddbad1d468a6558f1a9d2b46c2c0c7e10"
+    }
+   ],
+   "text": "TEMPO-SPERRE"
+  },
+  "0xc0090d2b": {
+   "text": "TOUCH-SCALE-WEITE",
+   "expect": "3b8945cad6f8171b43b07139a4dd49139f3ba5d615ae6e27103460c3c29c9ab9",
+   "length": 17,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005afd8",
+     "expect": "46124fcf6914b09f8d4eb178461a8782bcff13705a521cbcbb01f250d34d3bf0"
+    }
+   ]
+  },
+  "0xc0090d3d": {
+   "text": "LCD-KONTRAST",
+   "expect": "66ec85b7fb066fd5e2b6f6e2a4907dd10bb3853493073e245f65f0192903721e",
+   "length": 12,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005afdc",
+     "expect": "6b4cc8e75971f6f9f41c27179c8ca7b6da820cd77c4ba9d76d08dafaa243b016"
+    }
+   ]
+  },
+  "0xc0090d4a": {
+   "text": "PATTERN-SPERRE",
+   "expect": "63416abd1aab27a4afbad09559bd3c803748c9fa5577540c2b2e4b9581952a40",
+   "length": 16,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005afe0",
+     "expect": "f2efe0511557c2d6d0603b0a2884462474462328b34c8d6731f5d0f2ec74336d"
+    }
+   ]
+  },
+  "0xc0090d5b": {
+   "buffer": 32,
+   "expect": "a915155bf5fcaace1265164e7fa47d26925b940e4f2b0c9967c2f2e3919b2357",
+   "fonts": [
+    3
+   ],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc005afe4",
+     "expect": "d0dffe355cad329955f25e6a1fbf5c9adfebb0c897cd134dc80973cd1df087a5"
+    }
+   ],
+   "text": "CHAIN-MODUS"
+  },
+  "0xc0090d66": {
+   "buffer": 32,
+   "expect": "01b02e00d5be3acf49b1c4c2e76ce49077e7eb27f3acf8c95571b21feffa3ea6",
+   "fonts": [
+    3
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc005afe8",
+     "expect": "f3ee25363901e0005282f80897caf33d78eb91993bbb8c993a2487be1e4edb01"
+    }
+   ],
+   "text": "XY-KALIBRIERUNG"
+  },
+  "0xc0090d75": {
+   "keep": "im Deutschen gleich",
+   "expect": "8c3f9e43ed2add7412a7129a2cff074c857c07220be4090d0c552244fe5b5743",
+   "length": 3,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005aff0",
+     "expect": "83792a56334463cb679b0d19a39420bb036c35777347a6aa856017ab80177422"
+    },
+    {
+     "at": "0xc0070cf8",
+     "expect": "83792a56334463cb679b0d19a39420bb036c35777347a6aa856017ab80177422"
+    }
+   ]
+  },
+  "0xc0090d79": {
+   "keep": "im Deutschen gleich",
+   "expect": "bc2e2cc6027423b40ef9484ae7f357b2180a45e9b139e91e32f923f93fe6ab19",
+   "length": 6,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc005b1dc",
+     "expect": "add7af98c2bbcaf33f7dfe01d6e6f637172ff11f79db3d8347cb130264d6f37e"
+    },
+    {
+     "at": "0xc005b3ec",
+     "expect": "add7af98c2bbcaf33f7dfe01d6e6f637172ff11f79db3d8347cb130264d6f37e"
+    },
+    {
+     "at": "0xc0061218",
+     "expect": "add7af98c2bbcaf33f7dfe01d6e6f637172ff11f79db3d8347cb130264d6f37e"
+    }
+   ]
+  },
+  "0xc0090d80": {
+   "text": "GLOBALE EINST.",
+   "expect": "8792c4f693fae0eb1fdeab410a1701f54bf2573307461bc793927ccff8f33277",
+   "length": 16,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005b3e4",
+     "expect": "6c4e06987c7fef18a35b4a4b323e30d86d266b25e73fea96b7edcda2c9126fb0"
+    }
+   ]
+  },
+  "0xc0090d91": {
+   "keep": "im Deutschen gleich",
+   "expect": "64ee0787e6daaeb3d5bc9614a334675e3c198238bf5a2c925f84997f1d1932c6",
+   "length": 3,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005bb30",
+     "expect": "88ef9bec59519de9b3475b9ad32261c7c8874f6f5f27d12e39df06c52d4dee26"
+    },
+    {
+     "at": "0xc00606b4",
+     "expect": "88ef9bec59519de9b3475b9ad32261c7c8874f6f5f27d12e39df06c52d4dee26"
+    }
+   ]
+  },
+  "0xc0090d95": {
+   "text": "Update...",
+   "expect": "8b8b1e8888c073d1710e5a8eba729242ebfe6ef01702c755830b20961d95dd25",
+   "length": 11,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005bb6c",
+     "expect": "3fba1310b85ebdc18f8d048a7ee8bcdba1d876a01f2eb4bda07acfece250915d"
+    },
+    {
+     "at": "0xc005ed4c",
+     "expect": "3fba1310b85ebdc18f8d048a7ee8bcdba1d876a01f2eb4bda07acfece250915d"
+    },
+    {
+     "at": "0xc006053c",
+     "expect": "3fba1310b85ebdc18f8d048a7ee8bcdba1d876a01f2eb4bda07acfece250915d"
+    }
+   ]
+  },
+  "0xc0090da1": {
+   "text": "Panel-Update",
+   "expect": "6614e5197f55dd59d768fc0ab530f2d562569dc4d843ab9c8b946efa871e78af",
+   "length": 12,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc005bc98",
+     "expect": "8205913e71646b45cd93f5f2faeaddabd2619c3c7a3db8f7a1ab0bfe8dcd4769"
+    }
+   ]
+  },
+  "0xc0090dae": {
+   "buffer": 64,
+   "expect": "6486bebf9ba66527a4354df2b55975939b0861331148d02c2791bacd2677d9d3",
+   "fonts": [
+    0
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc005bc9c",
+     "expect": "a89328554445cfa75fe19ca92ffcddebdd4421d14a20bf41623b80855718115e"
+    },
+    {
+     "at": "0xc005ee78",
+     "expect": "a89328554445cfa75fe19ca92ffcddebdd4421d14a20bf41623b80855718115e"
+    },
+    {
+     "at": "0xc0060230",
+     "expect": "a89328554445cfa75fe19ca92ffcddebdd4421d14a20bf41623b80855718115e"
+    },
+    {
+     "at": "0xc0060368",
+     "expect": "a89328554445cfa75fe19ca92ffcddebdd4421d14a20bf41623b80855718115e"
+    },
+    {
+     "at": "0xc0060668",
+     "expect": "a89328554445cfa75fe19ca92ffcddebdd4421d14a20bf41623b80855718115e"
+    },
+    {
+     "at": "0xc0060918",
+     "expect": "a89328554445cfa75fe19ca92ffcddebdd4421d14a20bf41623b80855718115e"
+    }
+   ],
+   "text": "Enter drücken"
+  },
+  "0xc0090dba": {
+   "buffer": 32,
+   "expect": "25c71a4555261f569f00f50d35590c2e41c47065e343bdc48bb20cd8180ed6c1",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc005bf1c",
+     "expect": "8ab3cc6e9860b13d1dff933d886ecc52cbb27fcb480f424010c6117db5a2993f"
+    }
+   ],
+   "text": "LETZTER STEP"
+  },
+  "0xc0090dc4": {
+   "text": "GROOVE-TYP",
+   "expect": "f7f0a23987c02d01371e6e4b3cc3c10282fc08268f964522e454fdeada0a8936",
+   "length": 11,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005bf20",
+     "expect": "86a6e5767a2efbc0321cecfa679d8855f9e26d6968288e8f7a59109f09faec7e"
+    }
+   ]
+  },
+  "0xc0090dd0": {
+   "text": "GROOVE-TIEFE",
+   "expect": "68d434ab3079367295248badbf0430df853c8bae5b06da154c4ec787884842f4",
+   "length": 12,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005bf24",
+     "expect": "3042cc4a643b88f1f6b237c738fdb2fe50fa03c58e8e84914f180e00c63b0bdd"
+    }
+   ]
+  },
+  "0xc0090ddd": {
+   "buffer": 32,
+   "expect": "1821872f8d930c4319f136fb214b5b4f97f4dba9a7e44138ddee9cb935bae8c0",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc005bf28",
+     "expect": "740d6a99fba1ee76defbe1ebb0d86b015289f156510b9c385ba72a60eee2f192"
+    }
+   ],
+   "text": "STIMMEN-MODUS"
+  },
+  "0xc0090dea": {
+   "buffer": 32,
+   "expect": "a7562c80cc561b9b3cb80c1bf4a30abed084f3ab254149f0dfd2fde8480d98c7",
+   "fonts": [
+    3
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc005bf2c",
+     "expect": "0bf7539dcb0bc926e92599c8d70e3418ede9450e64ab42ae7a0abc09a39296e4"
+    }
+   ],
+   "text": "PART-PRIORITÄT"
+  },
+  "0xc0090df8": {
+   "keep": "MOTION SEQ: aufgedruckte Begriffe",
+   "expect": "5b349c15a4c72521cfd50096d797054a3c5c7bcf1bced1475854c1fad45f6939",
+   "length": 10,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005bf30",
+     "expect": "5f1f81fc9428234cac70c80a7168aec5a9db4a336c6712a5820e34e13589f38b"
+    }
+   ]
+  },
+  "0xc0090e03": {
+   "text": "PAD-ANSCHLAG",
+   "expect": "03d8f612d33b53571215418d48a8f6920a526818dc69d0eb1791642d1d301393",
+   "length": 17,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005bf34",
+     "expect": "f7c3548fd27c3fe54cc14cea50f9daebef1396c3455f37bd9cae87f8ac080a70"
+    }
+   ]
+  },
+  "0xc0090e15": {
+   "buffer": 32,
+   "expect": "6c00f20299a69fc9b47f8df556d6eb3f121671bf939b0bd949978fba0a229f67",
+   "fonts": [
+    3
+   ],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc005bf38",
+     "expect": "a9cd2f1e94011d0bef19ce2a5ef865fe1fcc88a55f0c550a6304a9e345e8cf51"
+    }
+   ],
+   "text": "SCALE-MODUS"
+  },
+  "0xc0090e20": {
+   "keep": "kurzes Seitenkürzel, keine deutsche Form passt",
+   "expect": "2bd6daacb7237393089742a86ee8f226aed33b6a11626e5c0e83cb41b9432ea4",
+   "length": 8,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc005c2bc",
+     "expect": "4f52b5c22b9169c4dd4e589d65685e87e26f9aa1084912cfe592c5713de1cc68"
+    }
+   ]
+  },
+  "0xc0090e29": {
+   "buffer": 32,
+   "expect": "c1504569721036b9b018ebd14180ec85bd39ee7203b62c84778e0d2121f5bc41",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc005ccec",
+     "expect": "29c0674d4974fd28dab10d0c4f07fc38b0cccb601b8b342112586b67ac6442fc"
+    }
+   ],
+   "text": "PART-KOPIE"
+  },
+  "0xc0090e33": {
+   "text": "Pattern wählen",
+   "expect": "d8c74f8e937a9b2d9c3f014714d597d505076bfd793be42f86ff5488b21b2e8b",
+   "length": 14,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005ccf8",
+     "expect": "0e7d043ca8b643fb69ef2afe8a2e20165a7d45157af8ccc8306fe6549fd79fe8"
+    }
+   ]
+  },
+  "0xc0090e42": {
+   "text": "Quell-Part wählen",
+   "expect": "61b470950ebe56e973cbd1e2bfc9ced8ec2afe6ab307332da76e8f95b8e43ed6",
+   "length": 18,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005cd08",
+     "expect": "bd2551411b01ab8710e894d9545d34d3e1590fcad2aa7b92967db287badacc93"
+    }
+   ]
+  },
+  "0xc0090e55": {
+   "text": "Ziel wählen",
+   "expect": "892746a985089a237ae69928edab8c6a69fb4e02f1d76747ddb8f376f0e4b8c0",
+   "length": 18,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005ccfc",
+     "expect": "390a2df56d30bf90850bc1cdb5ef637e4466b131d5ecf53b79f36c39d0be53af"
+    }
+   ]
+  },
+  "0xc0090e68": {
+   "buffer": 32,
+   "expect": "a1e04e5cdb14cf28a60f4c7a9987c4325e3c06296cd6e32ea13f548a63d24bac",
+   "fonts": [
+    3
+   ],
+   "length": 15,
+   "pointers": [
+    {
+     "at": "0xc005cd04",
+     "expect": "289a49d0ef40241dddf9d261d800d7963c0d98f5c570006374ed0ffc15e126d1"
+    }
+   ],
+   "text": "PART-SOUND-KOPIE"
+  },
+  "0xc0090e78": {
+   "buffer": 32,
+   "expect": "4c9168e00cb4eaf1f1a262d06ed10f3aa45e1970ed7e73e24af416dce64bacb8",
+   "fonts": [
+    3
+   ],
+   "length": 14,
+   "pointers": [
+    {
+     "at": "0xc005cd0c",
+     "expect": "d77120c4db311e3507eb4fdd42a5a302d6f64933cca0eadf21b3bbc6aac44365"
+    }
+   ],
+   "text": "SEQUENZ LÖSCHEN"
+  },
+  "0xc0090e87": {
+   "buffer": 32,
+   "expect": "91e00a5b148658f1690443371e0d123c35adaefda7125ce945141f9b1a4cb452",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc005cd10",
+     "expect": "972c2d9f8797bc800033ef36f3f179acdae128499746be0c521661fec1822492"
+    }
+   ],
+   "text": "MOTION LÖSCHEN"
+  },
+  "0xc0090e94": {
+   "buffer": 64,
+   "expect": "05af13f415b57a1ef31fcdfffd67ecf537e85eab6fa7817f27c6991909c64246",
+   "fonts": [
+    3
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc005d1f4",
+     "expect": "e594de2933fcb2bfb7aeb956bd1614d8cb4da5a52ff6c63d62dd2efe8b685176"
+    }
+   ],
+   "text": "PART-VERWALTUNG"
+  },
+  "0xc0090ea1": {
+   "text": "nicht möglich!",
+   "expect": "1fed46ec9c65de43dcfd1e7b8dc62c5c49f938ec77277a7b0b0abd4801d99ad4",
+   "length": 15,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005d1fc",
+     "expect": "4485072dcc9a0484e151bf61a9bdd4f61d3db0de45495d6f5f3e13628b71fa1f"
+    }
+   ]
+  },
+  "0xc0090eb1": {
+   "keep": "kurzes Seitenkürzel, keine deutsche Form passt",
+   "expect": "d352449e82fa87344b1e9a4a9f9f1d3127a4fac06a5b2f4c9400bde04bc2012a",
+   "length": 9,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d200",
+     "expect": "fa19adaee5252e6acfb49e5a5f5d1f3c66bd33eeac364a68041327c4aa6f1556"
+    },
+    {
+     "at": "0xc005d3f0",
+     "expect": "fa19adaee5252e6acfb49e5a5f5d1f3c66bd33eeac364a68041327c4aa6f1556"
+    }
+   ]
+  },
+  "0xc0090ebb": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "321367f06096ce96f62e335029f5e27004e82654c4bc199317eb09cbef006e13",
+   "length": 5,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d5e8",
+     "expect": "d6e6640eba80a4fe581c31309b98283bbcce38dab879c5b82f4af8ce4fea33b5"
+    }
+   ]
+  },
+  "0xc0090ec1": {
+   "text": "LÄNGE",
+   "expect": "944753e54490befeabb34cb7960d9338e2ee1a87cd4f0d6d4099a2e3910257c3",
+   "length": 6,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d5ec",
+     "expect": "db995e884788bfcf2002400c7230f3a5f6b76627879788d62f96778121f1b387"
+    }
+   ]
+  },
+  "0xc0090ec8": {
+   "text": "PATTERN-PEGEL",
+   "expect": "68af1b8d942fcf2d53e5424501d1831add62fdbba53e2a943edbd2a9edf88b5c",
+   "length": 13,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d5f0",
+     "expect": "a8b16af7c1ae6e3f19032e62dd042f3289023063b930a675ab63e1efb7012633"
+    }
+   ]
+  },
+  "0xc0090ed6": {
+   "text": "MFX-TYP",
+   "expect": "2f10cd84bc4b823f4988748d54fc45701128acd14a6a70ed4764117a5c40cf6f",
+   "length": 8,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d5f4",
+     "expect": "8a5c532550aaeb5a37016e09a52ef039227c95a021d19dae65d1ff996225ecbd"
+    }
+   ]
+  },
+  "0xc0090edf": {
+   "buffer": 32,
+   "expect": "89290003a0bf419decf3b3167c198183a0b8a836ac60f62ab7bdfcc223821b6e",
+   "fonts": [
+    3
+   ],
+   "length": 16,
+   "pointers": [
+    {
+     "at": "0xc005d5f8",
+     "expect": "1508f9ec8f5af95c114a922a8f695c37287a55cc8f81ebc04af51eb1351f41b1"
+    }
+   ],
+   "text": "MFX-MOTION LEEREN"
+  },
+  "0xc0090ef0": {
+   "text": "TAKT",
+   "expect": "31e75d637935599b297cc9485a0fbb91edb48984d0150340e7b41fc24fcaa58c",
+   "length": 4,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d600",
+     "expect": "8e6841f41658170ee91f962f93c1da422c8db212bc31b22297f6f9d1b6e5cbb1"
+    }
+   ]
+  },
+  "0xc0090ef5": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "9ca522def28ac5d2b01f43a9d2806ddd5f42fdeb51f482454f9755fcdcdc9f5b",
+   "length": 3,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d604",
+     "expect": "a4b47389f90b325c2b7e9109a089bd40e81c0504ca078f05d75a07d09f7bdd12"
+    }
+   ]
+  },
+  "0xc0090ef9": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "6adefbd6dc4b03c97a1e3074690ae26deea80f6eea884d19ba9fe74752ad420f",
+   "length": 5,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d608",
+     "expect": "61df4359e1c1e8cafca09e7ad51ec225ebf1e7b89a540fbb7d06c289d5c352c0"
+    }
+   ]
+  },
+  "0xc0090eff": {
+   "buffer": 32,
+   "expect": "c2711a9ccce6f1cf15db50ca489acd83e0e5fcda156e20b42fae18e9532dd32d",
+   "fonts": [
+    3
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc005d60c",
+     "expect": "e4178b8290c40ddeafcd5237b5326dfbe7b733041186cbd233ffe83cb2b66044"
+    }
+   ],
+   "text": "AKKORD-SET"
+  },
+  "0xc0090f09": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "7c0dbb271fa4259a6e9ba49c9ff3eb987f7c27cc9473208106bb6b6f8cb4591f",
+   "length": 8,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d610",
+     "expect": "f7fd0fff43a7957f05d4a5e2bb178bc613156abf4e77dcc3a9bab600d2a10dfd"
+    }
+   ]
+  },
+  "0xc0090f12": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "399eb17c3ca8a5335033b71c9925a44094f42695e044bba46a63bd3add652e3b",
+   "length": 5,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d614",
+     "expect": "aa3caf16b71c167595cd8abd66dc3aba500661ce5eacfb25d706aef44b5e4ab2"
+    }
+   ]
+  },
+  "0xc0090f18": {
+   "text": "WECHSEL 13-14",
+   "expect": "d72e33b7ef78cfb8b51ce739a7d136deb5e6f2b7b6fa42f734c473b84133fc90",
+   "length": 15,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d618",
+     "expect": "39754419cc50fbbcae6667489d40dd8ab8b7d8e84dbafb990756aaba34b7fba8"
+    }
+   ]
+  },
+  "0xc0090f28": {
+   "text": "WECHSEL 15-16",
+   "expect": "5f7a1f3922322df34f4a6fb4da0792bc1811bd0d284ab9cd2f3aae162c6a15e6",
+   "length": 15,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d61c",
+     "expect": "43af6ca2ad03f43228386945e3056eb56846d99c5ba28108d7825317946b2ecc"
+    }
+   ]
+  },
+  "0xc0090f38": {
+   "buffer": 32,
+   "expect": "7c91f8e7e45a25d8825a2b4dee665b568fd8a6ca6273936f497958476ef93ed4",
+   "fonts": [
+    3
+   ],
+   "length": 8,
+   "pointers": [
+    {
+     "at": "0xc005d620",
+     "expect": "bb1a99d0920c1f11f744549deb985feb776f4700fccb67d30af1d4c9182356ed"
+    }
+   ],
+   "text": "CHAIN NACH"
+  },
+  "0xc0090f41": {
+   "text": "CHAIN-WDH.",
+   "expect": "90694494b8755d0b122a0384747d35d882ba4380931755414d3911e987f78f56",
+   "length": 12,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005d624",
+     "expect": "21bfa8125ca71de639b19c100b01ccb0495db2c55ee80a4290f29edef33a0f83"
+    }
+   ]
+  },
+  "0xc0090f4e": {
+   "text": "ZIEL wählen",
+   "expect": "65eed7c82c7153ff709f40f74a6641317d8fed93b72fd6e72ed42a2de6e9f6ce",
+   "length": 18,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005e4ec",
+     "expect": "b90ee20e0e7fc1ab93c031ef6a71d81a4c09270f6f9ffa4f55798713ab8ea5f9"
+    }
+   ]
+  },
+  "0xc0090f61": {
+   "buffer": 64,
+   "expect": "8ea5d9f39455516e134398fc1de982ccb1e06e83328567ab5616bb5398edcb29",
+   "fonts": [],
+   "length": 10,
+   "pointers": [
+    {
+     "at": "0xc005e570",
+     "expect": "fb4facd8488180d24db62c46fb4d799e624201b93c44670babc4ecea4b9d278d"
+    },
+    {
+     "at": "0xc005e8c0",
+     "expect": "fb4facd8488180d24db62c46fb4d799e624201b93c44670babc4ecea4b9d278d"
+    }
+   ],
+   "text": "NAME eingeben"
+  },
+  "0xc0090f6c": {
+   "keep": "kurzes Seitenkürzel, keine deutsche Form passt",
+   "expect": "56f15168252a277dfa0ba50f8d165e98404623b3d422f0cb1a78171a8236a6ef",
+   "length": 11,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc005e9f8",
+     "expect": "513c311d4ca3d8ec515b4baaac0f1a2f7b43462e1677ae0380d346f501b3fe31"
+    }
+   ]
+  },
+  "0xc0090f78": {
+   "buffer": 64,
+   "expect": "1afeb25b5c38f066da6ace815a50bc24c9536fdcf6c16c842e55635a6755df84",
+   "fonts": [
+    0
+   ],
+   "length": 15,
+   "pointers": [
+    {
+     "at": "0xc005ec88",
+     "expect": "d65f6f754650ac9bc5119044fbafced0b633651fab82588ec6369d8abeaced0d"
+    }
+   ],
+   "text": "Pattern-Verwaltung"
+  },
+  "0xc0090f88": {
+   "buffer": 64,
+   "expect": "3c8d7a87efae8b00b74554cca104986888dd1a1fa39a248878ccd7f348ea96d5",
+   "fonts": [
+    0
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc005ec8c",
+     "expect": "c94b2f580d071e040e55e5c149acd5d7fe283b3a560cc4b82d5e086269c5b1f8"
+    }
+   ],
+   "text": "Enter drücken"
+  },
+  "0xc0090f94": {
+   "text": "OK, neu starten",
+   "expect": "2e500044d68216b26fc3940f1d4106a2644a34e95d8fb1de842729aae00a0dde",
+   "length": 18,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005ed04",
+     "expect": "5e118e58b997aedde38b2e0022fbf9e7378b98f5a15c957a84786d86c6dd4a84"
+    },
+    {
+     "at": "0xc005fa34",
+     "expect": "5e118e58b997aedde38b2e0022fbf9e7378b98f5a15c957a84786d86c6dd4a84"
+    },
+    {
+     "at": "0xc005fb2c",
+     "expect": "5e118e58b997aedde38b2e0022fbf9e7378b98f5a15c957a84786d86c6dd4a84"
+    },
+    {
+     "at": "0xc0060504",
+     "expect": "5e118e58b997aedde38b2e0022fbf9e7378b98f5a15c957a84786d86c6dd4a84"
+    }
+   ]
+  },
+  "0xc0090fa7": {
+   "keep": "deutsche Form länger als die alte Kette, Puffer nicht gemessen",
+   "expect": "1095d5cf6d9b8bbc7df6d47f69507fca2dea592a96c785a28f8a8e50fd5e2a39",
+   "length": 13,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005ed00",
+     "expect": "846ffb05db53c68da143425ffc79285d168ffcff4036f4116a0441eaf29f0753"
+    },
+    {
+     "at": "0xc005fb28",
+     "expect": "846ffb05db53c68da143425ffc79285d168ffcff4036f4116a0441eaf29f0753"
+    },
+    {
+     "at": "0xc0060500",
+     "expect": "846ffb05db53c68da143425ffc79285d168ffcff4036f4116a0441eaf29f0753"
+    }
+   ]
+  },
+  "0xc0090fb5": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "7a4416ea1c951e0b291eec436509ba6defc0f94894e5c2257b77a725408c22c7",
+   "length": 10,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc005ee74",
+     "expect": "2e79eacf64b5bbcb53dc81e8f53a646b786c13e63822a06b64a2ad19962fd228"
+    }
+   ]
+  },
+  "0xc0090fc0": {
+   "buffer": 64,
+   "expect": "f9eed5ef5b2ec75ca579a61dcca6caa30e827620a7713bbf6ba942f612ef4e4f",
+   "fonts": [
+    1
+   ],
+   "length": 9,
+   "pointers": [
+    {
+     "at": "0xc005ef80",
+     "expect": "f57e2089b6e8739b65e3d949a8eda80172af1b055a8e424d6b5694e997b764c6"
+    }
+   ],
+   "text": "Ausschalten"
+  },
+  "0xc0090fca": {
+   "keep": "kurzes Seitenkürzel, keine deutsche Form passt",
+   "expect": "111e61aa1e58b63e0f645dda99892b7cfa620a25bdc5ef89f2b6d571ccffbaab",
+   "length": 12,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc005f0a4",
+     "expect": "90381631fbbda348a614d9cffc9e4c419aee085f8e23f776235c771e1a5840eb"
+    }
+   ]
+  },
+  "0xc0090fd7": {
+   "text": "Neu starten",
+   "expect": "1fab3b0f39d8ae0ccf0ace0a55c74d1df5d1f0bbd718319843c35edfc0c59473",
+   "length": 13,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005f1dc",
+     "expect": "616d16b2c31eda28392f33a36111fb06c676c0576a84b9d266b3173cbf8fbda0"
+    }
+   ]
+  },
+  "0xc0090fe5": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "9bb4061345e04b3b6e57c0778658b0f89bb6df0d1224837c5fee0f1a1ad6a8c8",
+   "length": 9,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc005f708",
+     "expect": "71bbb95fa507e49ef1df3a663a94a2cce875236969a42331743c36c90f4feb1c"
+    }
+   ]
+  },
+  "0xc0090fef": {
+   "text": "Updatefehler.",
+   "expect": "96356055fb18c009853c9cc916fe3fbc08f3c84f8a14cf95078b5bbbbbcd52a9",
+   "length": 13,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005fb30",
+     "expect": "747b201171d9a8f731e127c2f6703e6ba9ffd47c969d8a3767410dbceb0fbecc"
+    }
+   ]
+  },
+  "0xc0090ffd": {
+   "buffer": 28,
+   "expect": "e0b73cc1734b3189e59f5970e63af38adea49d066d394ff52f568d230926d44f",
+   "fonts": [
+    0
+   ],
+   "length": 11,
+   "pointers": [
+    {
+     "at": "0xc005fba4",
+     "expect": "d299491e4cd16526632b653c05cc1b623dbc992f96ac9388031b2e97d7a15fee"
+    },
+    {
+     "at": "0xc006015c",
+     "expect": "d299491e4cd16526632b653c05cc1b623dbc992f96ac9388031b2e97d7a15fee"
+    }
+   ],
+   "text": "ENTER drücken"
+  },
+  "0xc0091009": {
+   "text": "Datei fehlt",
+   "expect": "b44ecd607eca6542575244024c2cc56a6476b6418ab54284a59a11081b9062ae",
+   "length": 14,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005ffec",
+     "expect": "a4612e79b5b23a6e1d037361be9324e5f8b5fa7ee2b359e00a71ac0664150bf5"
+    }
+   ]
+  },
+  "0xc0091018": {
+   "text": " Akt. Version: ",
+   "expect": "2462b4bcf473d5d912b610c7dadac6b6dbd851023fe630572d4c8fbe80dfbe08",
+   "length": 15,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005fff0",
+     "expect": "9e78d6e2a5a42e4d5002f7a65b9ba3ee968045aeb999cd8cd2852545fb0e78c8"
+    }
+   ]
+  },
+  "0xc0091028": {
+   "text": "Neue Version : ",
+   "expect": "eefff48573e100c0b9a6d5aef9dad25ce81193ddade52144ae31002b6a379e47",
+   "length": 15,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005fff8",
+     "expect": "96c8bad48e05a14255913d6dfd8c310d97793fc780edfae8befbfa56d018af83"
+    }
+   ]
+  },
+  "0xc0091038": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "be611cd7782d08fd17ac3b12e4a100ef49173a441664d60983c87275aaa7c9a0",
+   "length": 8,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc005fffc",
+     "expect": "dc1d204a6b5bbfe9fdf2590653b45459cedb836e18506b5976bfa6240f50d0ac"
+    }
+   ]
+  },
+  "0xc0091041": {
+   "keep": "Testmodus, nur für den Service",
+   "expect": "a97d14d66db19836a4bb68f44ff1ca2b7dd87844b47821042b9cb276afe98eda",
+   "length": 10,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc006022c",
+     "expect": "3af5a0fc7f2b82c7adae30f93f033bbbff183caf13492a997e1bf797b3d550fe"
+    }
+   ]
+  },
+  "0xc009104c": {
+   "keep": "Testmodus, nur für den Service",
+   "expect": "c1dfb624b5c355fe52f260ce1afc8a19facf5da6e7d7389362a50ce903b5accb",
+   "length": 13,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0060364",
+     "expect": "7338f9a20be2221c0b0144d74a87ca3098de4b9dd8e789468f30b960d73358de"
+    }
+   ]
+  },
+  "0xc009105a": {
+   "text": "Daten-Update",
+   "expect": "83f491156442b7f6ccc7e73ea877bc43533df3a727beaffc54af1d8a0a9840c8",
+   "length": 15,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0060664",
+     "expect": "ee699706ad0c10b48092d08d8f4c022cb90c019e57c32d7c90b3f9f811d3621e"
+    }
+   ]
+  },
+  "0xc009106a": {
+   "text": "Format läuft",
+   "expect": "9cc3644f46914d50b573fd77060c7c43aa785c2e1a2dbdf52d5b2d653b41241f",
+   "length": 13,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0060730",
+     "expect": "3c2f23087506cb4f9850248f3949b3ccfb1050fd6e801f7baee786912e128e0b"
+    }
+   ]
+  },
+  "0xc0091078": {
+   "keep": "deutsche Form länger als die alte Kette, Puffer nicht gemessen",
+   "expect": "20288fcf0435a54a3158b405f6e04bcd1c5ca2b55e088dc9f4ffee2f1ef27a84",
+   "length": 8,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0060734",
+     "expect": "725913a08a4a7489ea94691664356aebe5ed2bed368d860e92d39e695a8bd917"
+    }
+   ]
+  },
+  "0xc0091081": {
+   "buffer": 64,
+   "expect": "6bc4383808873392b0d7068f0f94e7ba244310835369cd3aa282e63ded38151c",
+   "fonts": [
+    0
+   ],
+   "length": 13,
+   "pointers": [
+    {
+     "at": "0xc00607e4",
+     "expect": "34d526a08839854186bffbbb497d56a4c456c0eb01b59361ec602a29fcd8bc86"
+    }
+   ],
+   "text": "SD formatieren"
+  },
+  "0xc009108f": {
+   "buffer": 64,
+   "expect": "c3a7609ee491a49f7e0917121f9a5888944bb3cbd33604aec68eefbbe05cb0d0",
+   "fonts": [
+    0
+   ],
+   "length": 12,
+   "pointers": [
+    {
+     "at": "0xc00607e0",
+     "expect": "d9d34db1452b4561a218a59e739669a8655ed84169e0a8a2d8d40a27349acbe1"
+    }
+   ],
+   "text": "Werkseinstellung"
+  },
+  "0xc009109c": {
+   "keep": "kurzes Seitenkürzel, keine deutsche Form passt",
+   "expect": "db1ffb803243ff0b22da323036a88dd7baafe72102982723f037c74ee499bf36",
+   "length": 11,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0060aa0",
+     "expect": "f362712185560a25ca9855348f45a5017481112014f7534c1eba89ce19e7a679"
+    }
+   ]
+  },
+  "0xc00910a8": {
+   "text": "Läuft...",
+   "expect": "4739f3939b764ce42c708c561ab6f8c630ae5f0098ba0d46de1217daaa508e9f",
+   "length": 10,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0060c9c",
+     "expect": "6ce8642be980e6f539b4bb0a7f13847108aeb9b6c38323024dc09f89b9369a11"
+    }
+   ]
+  },
+  "0xc00910b3": {
+   "buffer": 64,
+   "expect": "cb1d58e14c3e0dd119f2a26fc22c51690e55fe12e61190d4044a907ce1d81e58",
+   "fonts": [
+    1
+   ],
+   "length": 5,
+   "pointers": [
+    {
+     "at": "0xc0060dc0",
+     "expect": "599367ba341069b5d97c39c7b39f6812423c897f8e565b7f5399c1cdef1ea165"
+    }
+   ],
+   "text": "Rückgängig!"
+  },
+  "0xc00910b9": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "7c49f065ba80eac447334b5e42c028f58044ef20195c85a2d42c9ce854edeecc",
+   "length": 14,
+   "fonts": [
+    2
+   ],
+   "pointers": [
+    {
+     "at": "0xc0060eac",
+     "expect": "dce8b6709c2016036bbe8d36c8ca83f8e035715bb7896eebba621ff13dc44533"
+    }
+   ]
+  },
+  "0xc00910c8": {
+   "text": "Enter drücken",
+   "expect": "ed7407f5a6419bb3594b0d91843e8c624221e6f49c34bd9a0c5626b088b1b071",
+   "length": 13,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0060eb4",
+     "expect": "cbbefd9ca4d6e5256cd3316d6795d48f730968fcfc073d5d4b166ecbc70b171d"
+    }
+   ]
+  },
+  "0xc00910d6": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "16e3ed69e8987d307d2e6b741a1da12c6008c054ff2977af5a68bf4059f5478b",
+   "length": 14,
+   "fonts": [
+    2
+   ],
+   "pointers": [
+    {
+     "at": "0xc0060fd0",
+     "expect": "d59bcb3f64b420ba92bfb921b2caa5cb8f06cc132d8b9596989577c77917aad9"
+    },
+    {
+     "at": "0xc0061228",
+     "expect": "d59bcb3f64b420ba92bfb921b2caa5cb8f06cc132d8b9596989577c77917aad9"
+    }
+   ]
+  },
+  "0xc00910e5": {
+   "text": "2: oben rechts",
+   "expect": "76d1df1bca0e1e740e2af09aad47f375c0d7ce4bc9f27061bed73d08514b67f7",
+   "length": 20,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0060fd8",
+     "expect": "bfa5f82548f620c70a604ffe066494526acede61e51fcaec4e9a940a71098fc7"
+    }
+   ]
+  },
+  "0xc00910fa": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "a70fe3df7d5e3bc1b4b5caa96c3432da8406e4fc99fdc2c0251fbfdb7f11a7c8",
+   "length": 17,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0060fdc",
+     "expect": "47f4dd733b8056e2fb13187d29ebe8a371b7408528da654e13ffc212c7a47a1e"
+    }
+   ]
+  },
+  "0xc009110c": {
+   "keep": "deutsche Form länger als die alte Kette, Puffer nicht gemessen",
+   "expect": "72ff4b36f68a6af2b60b452e3bf327052aa69a5d0719d16d2bf900eae9a8094b",
+   "length": 11,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0060fe8",
+     "expect": "865e430171293e06034d7d1db6f01ed14eae1b2468d379fe121e459090335612"
+    }
+   ]
+  },
+  "0xc0091118": {
+   "text": "1: unten links",
+   "expect": "c0344b3e9b5221bad5eeaf2049c3b01df91be984a0719babcbf24e237b5aee93",
+   "length": 20,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc006121c",
+     "expect": "a96e86f9b6bafabe73e52d5588d0c45179170e259640bcdb8b88a7fd604bb5cc"
+    }
+   ]
+  },
+  "0xc0091142": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "0f28a0c017505efb05ca2fe94d04958f8dea3dbce9b10ce359d91ec11b3a0ef7",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0061594",
+     "expect": "2b4900e22e7ec2c2543a9480a00110c82913d63f36267dc2434e6eec1c725cf8"
+    }
+   ]
+  },
+  "0xc00912f7": {
+   "keep": "deutsche Form länger als die alte Kette, Puffer nicht gemessen",
+   "expect": "8882688380a5a2bcee52823e0e456a3038c19e518272a9b4fb61b7a323f9127d",
+   "length": 4,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0067a4c",
+     "expect": "569fd88b847c3c1e7e4cdc617bbfbd8f08857750480256b8237f0018fb486fa7"
+    }
+   ]
+  },
+  "0xc0091308": {
+   "text": "Ecke oben links",
+   "expect": "910d72b0556023f08c5c96eef69479f0a6fdd218955c08cccc48173d76a97e5b",
+   "length": 17,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0067a50",
+     "expect": "1fb115408ed2287df143fad4e0d1c09dbf1d71eb1b848067e9448d426cb785f3"
+    }
+   ]
+  },
+  "0xc009131a": {
+   "text": "Mitte",
+   "expect": "2d2373b718839f656ba13ec0b095ad94d7f78d8e00d9052b48c7393e76303d6a",
+   "length": 6,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0067a5c",
+     "expect": "94c41b538d99d2febc562382b09a538eeff7ad694efcb9e8d08234e833d1adff"
+    },
+    {
+     "at": "0xc006b724",
+     "expect": "94c41b538d99d2febc562382b09a538eeff7ad694efcb9e8d08234e833d1adff"
+    },
+    {
+     "at": "0xc0071380",
+     "expect": "94c41b538d99d2febc562382b09a538eeff7ad694efcb9e8d08234e833d1adff"
+    }
+   ]
+  },
+  "0xc0091321": {
+   "text": "Ecke unten rechts",
+   "expect": "019708a8c9f9ba0d0a0e15edd297152c03933789c00f759761c8afe9065f6e75",
+   "length": 18,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0067a60",
+     "expect": "fa27ca743fa24b20a3adc87332a19df69c760a9b3828c186deda5a4ab1d9dcea"
+    }
+   ]
+  },
+  "0xc0091334": {
+   "keep": "deutsche Form länger als die alte Kette, Puffer nicht gemessen",
+   "expect": "6feedc20e6f701a223710754955d12628f5bf4b03cbed2cce6cc381886cb2340",
+   "length": 3,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0067a64",
+     "expect": "ab1dddb1db7e14c88c38717e1bfd3d665f90278230b5b178e27a6f62e5b42d87"
+    }
+   ]
+  },
+  "0xc0091747": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "27dd43b2e62274272685b89a6608d031270f3ff70549550f62e00827f10a1277",
+   "length": 11,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00ca804",
+     "expect": "f9d21c72262c4c2816fc776e4cce324323e310548b6c1f2f2e5feb8a376748d6"
+    }
+   ]
+  },
+  "0xc0091753": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "b243001d08697ee763c2be551a37fa5ccb233ec1cd09087fd45252babdea21c2",
+   "length": 9,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc00ca814",
+     "expect": "75a099436ed83b36314e905eb715d0ed5c601eaf3d1c28a37a22979ec3858b3b"
+    }
+   ]
+  },
+  "0xc009175d": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "366504ffa32f0af8b4e2cbdcb565ebf642d6d16d7fcb51f371cdc1721f0b1661",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00ca81c",
+     "expect": "c94168d943603c6036e60f32ac904a4ac5fb49e8b60f91d5f5e3b4060fbe824f"
+    }
+   ]
+  },
+  "0xc0091764": {
+   "text": "Tiefe",
+   "expect": "1edca41d5406e784cd442d8bccbbe0a39bd6fe50d4f0e644af10ee1389095a76",
+   "length": 5,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc00ca824",
+     "expect": "6577caa916592b4b11f407480f06351c3ae2b2b9891f65a26a5eac2331dbe916"
+    }
+   ]
+  },
+  "0xc009176a": {
+   "text": "Tempo",
+   "expect": "4f96553dab9e7dc93594bab8fc9fec8ab52ba9bec248b247aedd517b84ac3a86",
+   "length": 5,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc00ca82c",
+     "expect": "03253abcb835dc8f4a42aeaf678180b798723311305e354f8cefd86474897c84"
+    }
+   ]
+  },
+  "0xc0091770": {
+   "text": "Pegel",
+   "expect": "c7a13143ac53f798a9ddc61c311b5756f9ee3a043bf184f81a0bef38384a56b2",
+   "length": 5,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc00ca834",
+     "expect": "d35ec14de75e753ce1916014513010dcf4a6b8e274d0028799938410d3497372"
+    }
+   ]
+  },
+  "0xc0091776": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "f6dea0cff1ff0fced804970998e07cd640f48b3f5e419eb060abe67ccf9bfc73",
+   "length": 6,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc00ca83c",
+     "expect": "469061ba730a02a801eae63187fd53c41df167c79fc8ec1ab04bcc4168b82ad0"
+    }
+   ]
+  },
+  "0xc009177d": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "9e4c53dc34669d8d27a1f8ac3a6d5bee0cc67aaadcc39c7328e1712f93085bdc",
+   "length": 3,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc00ca844",
+     "expect": "64a4ce43f4371ede4b60c22c8323a1f8265bf61232e1b2e7b532f49b400e918c"
+    }
+   ]
+  },
+  "0xc0091781": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "a06eb132b25b5608edbf49ccfd37c7d03ca002a9b9dc7b68c78733dfeb7ce79e",
+   "length": 13,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc00ca84c",
+     "expect": "af4e43feffc32decab5c1e68f79d8e45355174b167004df71fe0e01c224978f8"
+    }
+   ]
+  },
+  "0xc009178f": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "7c160d77859db40cb3f9d77b73ee234edd1f742662d5e6eaccb58b13665b952f",
+   "length": 8,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00ca854",
+     "expect": "873d620a865b6af3170bec64057eb14f479c11b1d3b34b701f56e08b0a5a3072"
+    }
+   ]
+  },
+  "0xc0091c2f": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "8b3cb038357b4f1324fda01838b2d00d89b0f771ad7fd16a84e086a65c8f3888",
+   "length": 7,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0070cf4",
+     "expect": "dd6f4fa035dd2a5b0fe9d98be0c3673fb608bfea8b84e19f676d81861c2dca94"
+    }
+   ]
+  },
+  "0xc0091c37": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "245e29f1604c2397ba1be4e9648db111b679f61ca670ff2017f7aee52b81bd73",
+   "length": 8,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0070cec",
+     "expect": "9cf84d26dcd6b65a813a4f6709a40ac15a6c93e118cf7a66dd4fe0bd91fcf961"
+    }
+   ]
+  },
+  "0xc0091c40": {
+   "keep": "im Deutschen gleich",
+   "expect": "b24c55ce575ef382dfb8cdf41a01bb00a89cd9a15ae729c2a8cb5ac48f126988",
+   "length": 4,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d68",
+     "expect": "914330dde146ceda22b61104344d03463815b9aa15ea744ad6cc2ce8533413cd"
+    }
+   ]
+  },
+  "0xc0091c45": {
+   "text": "Extern USB",
+   "expect": "d19be2aa0594832848926865422f595a25290a2dc77e25e9bc3da3c4553da6bf",
+   "length": 12,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d00",
+     "expect": "77c9c02019b6ea8a9c1f6c2aa47dac2025a1ca4011f7a583e380390bdf25fb15"
+    }
+   ]
+  },
+  "0xc0091c52": {
+   "text": "Extern MIDI",
+   "expect": "0892765a6402f963fe6350a3ae23b232762ff48bc4c5e238ad08b38087e604ec",
+   "length": 13,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d04",
+     "expect": "a6bbd2abe2f15cc3ff48ab0e99c81fd1959b1349669c04035c3183fe5e80e80d"
+    }
+   ]
+  },
+  "0xc0091c60": {
+   "text": "Extern Sync",
+   "expect": "6355ae3320daea701f82ef912bb7841e968f664d9e5003e3361c9caa523bcdf0",
+   "length": 13,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d08",
+     "expect": "1385ebcb882d7c3ef0edb54e8681d804c48058aba80688653b8c351de2ddbc42"
+    }
+   ]
+  },
+  "0xc0091c6e": {
+   "text": "Kurz",
+   "expect": "211d68c609dfb87a80307cd727ab46bb8e96423ac306d5622dc3304bea1aa22b",
+   "length": 5,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d10",
+     "expect": "8e99170d7122d32dda758397caff8a937d53c81132961e8773d8bf4667cbc171"
+    }
+   ]
+  },
+  "0xc0091c74": {
+   "text": "Kurz + Programm",
+   "expect": "207667931e39ace82cbe07511976726b4af5093beb1db18ecea4b40ddb195258",
+   "length": 15,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d0c",
+     "expect": "7546ea48059c23ff574c81e9104621d1510ccba33e36c2d87c872fa4cd5c9189"
+    }
+   ]
+  },
+  "0xc0091c84": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "11f9853837b3934c265f02bf5e68f5ec67c889e41c85334720495bc6f16a7a36",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d18",
+     "expect": "286f0f489aaf1a11ed50478f92efcecd9994643c8cc4ce524462264076f285ab"
+    }
+   ]
+  },
+  "0xc0091c8b": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "87dc58526e6707e12717f6c12f3b3d58683a2ffa60097d8ab06d9bcded3c035b",
+   "length": 7,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0070d14",
+     "expect": "530f0730fb2d407c09be1946676ab8e834cf96c4d3c6e01fd69caaeaa6eedf4e"
+    }
+   ]
+  },
+  "0xc0091c93": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "03fe4755c453174bab6a4643aa29345f8639d8f0dd8193bfdd104675860b278a",
+   "length": 5,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0070d20",
+     "expect": "b4eb7472190e19cba92a0fe872938710d8c81075d9936b0217b2c5970ec45056"
+    }
+   ]
+  },
+  "0xc0091c99": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "077099c40ef9b3ff05230ba53b42017ebc7793a91fb09e6a2b840f48677e8fb8",
+   "length": 5,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d24",
+     "expect": "2f7ab94cec487fc9ab548d0de9f9de5f1eed77f30a60c68ebf9925e623d7fac6"
+    }
+   ]
+  },
+  "0xc0091c9f": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "d6e44b922fb85e5213a8ecda3161f2dca941894da1787434c7b762d5bbf0b506",
+   "length": 5,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d28",
+     "expect": "c8bec88eb2c836298103f093491c0d46e670c1c358fe0900174ac6e97257010d"
+    }
+   ]
+  },
+  "0xc0091ca5": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "56ebfdeba985b005cba44fc2853f1080b4be09fefe37c1f3041dd87c9f1f3b8a",
+   "length": 2,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d34",
+     "expect": "ad676ac45ccb4f5b808466354921f2d08983c8a35af6ea0697eaf8b3c47e91ed"
+    }
+   ]
+  },
+  "0xc0091ca8": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "322f04faf0505c96d5165d9ae83a9a3e8c78c9c8d2340030ac96b26fc8b10498",
+   "length": 2,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d30",
+     "expect": "1c8e79aebe8fcacaf456e5dc958df418a2ba67d9ce56c735d3d56048ac9fff65"
+    }
+   ]
+  },
+  "0xc0091cab": {
+   "text": "Stark",
+   "expect": "63d7131a387f6e4196d6b012ae8aceb9b1bc7634a4be27c17bb585856c4d11ae",
+   "length": 5,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0070d38",
+     "expect": "396f4483dbf2108790af51dc66e36adb0021cbf2f834962a9b90063f29937259"
+    }
+   ]
+  },
+  "0xc0091cb1": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "c2974b5158257c7bfa74098639752365ee3e886c5d9dcd72ad8eb6a4547cfd5a",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d40",
+     "expect": "34abaeea9f1012426741f6e6d46261deed02fb7c9910dc6549edb3535e396326"
+    }
+   ]
+  },
+  "0xc0091cb9": {
+   "keep": "deutsche Form länger als die alte Kette, Puffer nicht gemessen",
+   "expect": "ada03a427e33fe136a13d5190f0e3ad674fe3841db5c743a3138ccb185d8f45e",
+   "length": 4,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0070d48",
+     "expect": "974cc597ab9c1bd0c70e3568dfb9a97b2585ed18101320e398b65f0cb85f9956"
+    }
+   ]
+  },
+  "0xc0091cbe": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "6906f8008e73053ca308b7dba947b8304597ceb51879cd0a447cefe4ac4343e4",
+   "length": 5,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d4c",
+     "expect": "609b44837ed77257c64a41918f56f5d47b26e52e3978266eb741403f72807791"
+    }
+   ]
+  },
+  "0xc0091cc4": {
+   "text": "Skaliert",
+   "expect": "0518c9fe6fa19604f9792fd0743eb98721fcba0f76a1deda68fa89e7405d3193",
+   "length": 11,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d44",
+     "expect": "5f6e18b3658a06f9c74a76a37b46a223a3c539f07eeaf3f726f3c46387c808f3"
+    }
+   ]
+  },
+  "0xc0091cd0": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "8227313941c375070b2627737c05b4f5adc577bd0213876edfc04080f1b2beba",
+   "length": 5,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0070d54",
+     "expect": "9ccf2f629b10294782e7b43e5ab0e0eba04b1fb503f9fc04f4cd0f77c06c68a1"
+    }
+   ]
+  },
+  "0xc0091cd6": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "9a3d1b1728ab6afe9d9c806fa3e46fe1247a89ee49bec2df5bc52ea99d23580e",
+   "length": 6,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0070d50",
+     "expect": "c1184d2ea19aa3b63f2149d176df139102341754ef3f8f03d757606a83b8ce53"
+    }
+   ]
+  },
+  "0xc0091cdd": {
+   "keep": "deutsche Form länger als die alte Kette, Puffer nicht gemessen",
+   "expect": "38ecf8dd2f156740f00f5aeeb191f668f19be718ebed261150ca1da1ffdd9ad3",
+   "length": 7,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0070d5c",
+     "expect": "ea2a6d17e1643eb403294bb07f80d60077da04c454f075f5b5931e4e30014af9"
+    }
+   ]
+  },
+  "0xc0091ce5": {
+   "text": " Okt",
+   "expect": "96608fec876db25087975758a2ab99eddf6a24cf656920e4f7b6b0996cde2002",
+   "length": 4,
+   "fonts": [
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0070d78",
+     "expect": "62fa18faa5321709d9d91f5a134edd308aa4532227d0f7b8daec9e85462c50f8"
+    }
+   ]
+  },
+  "0xc0091cea": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "50c1940f4562805d74d1b39877230cd1cd837bf9fcce6d5c520d63739a74aad0",
+   "length": 6,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc007106c",
+     "expect": "f1484712b76f3c08dc9455b7047bd35428f8b279b6724efb8a444b263f9e70ce"
+    }
+   ]
+  },
+  "0xc0091d59": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "9cf77009c751060ce89c8878e6e4f258312f67ef8a81a4bb1cb18955d39ca435",
+   "length": 5,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00716e8",
+     "expect": "25434fcd0a63ea924af304763c8e5b692fecf5765ff4f66e94ff099e1ee439d7"
+    }
+   ]
+  },
+  "0xc0091d5f": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "4b16e279704a5e3b4728bf96c9a9d9b96a756aeff70eace56e5a56698eeaf279",
+   "length": 5,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00716ec",
+     "expect": "e91619ea779c816c38f30e7140d27f2c68458ea560e86526e45c86f27f1580e3"
+    }
+   ]
+  },
+  "0xc0091d65": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "4e91793eedcfcd11ef6183a97af8567dadc6a6ff097dadbc5d16d86fbfec9ca0",
+   "length": 5,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00716f0",
+     "expect": "307d074b6eee9437176b1bb82d96f8e679f4afad2424d1de81e331466c3a4eeb"
+    }
+   ]
+  },
+  "0xc0091d6b": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "13ffb57f88b315fad6f701ada6e7ea8ebdca7402a0cbc81a210125bd4ef1f536",
+   "length": 5,
+   "fonts": [
+    0,
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc00716f4",
+     "expect": "8bb108b8eb801c85974f064fb08b24f0ad4d8a52fedbe4659bf28f873ad55f5f"
+    }
+   ]
+  },
+  "0xc0091d71": {
+   "text": "Weich",
+   "expect": "f367ac7c58fc4bda494e499a3c0f09f17697b558aae7f9889cc5eceaec14aefe",
+   "length": 6,
+   "fonts": [
+    0,
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc00717e4",
+     "expect": "4ece53ec518fc840480033fecdf801d7b4ca015ab70dacf3916b619092df2ece"
+    }
+   ]
+  },
+  "0xc0091d78": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "abb04611b6eb5edd83d812851ba389e0128d36b09c9099e000dd1caad625ed2b",
+   "length": 12,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc00717dc",
+     "expect": "3c3d008b899efa8f942c7b7ff603cb93bc1c0aad11b6ce6707b64c5529a56004"
+    }
+   ]
+  },
+  "0xc0091d97": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "1f5721512b5cb68279617a27adb7913c3caba0bd8c205acc385b06ee538c80f3",
+   "length": 3,
+   "fonts": [
+    0,
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc0071a44",
+     "expect": "6d61806b98ce212b5e07056827b7786fa64e679129feeb284ae0fe4146092234"
+    }
+   ]
+  },
+  "0xc0091d9b": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "60a6901acb53461ee4abc0d5830126b9be3a409286bc59e62ef49e9b95847dfc",
+   "length": 3,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0071a48",
+     "expect": "aa18189b0a5b5376147718bf2b5352f4235f509b64e7c607fd132466b45f0382"
+    }
+   ]
+  },
+  "0xc0091d9f": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "c3e36ae7c129b588e5ca5e44ba96d5a81926a0ff4e59cda040c9ad496fd95310",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0071a4c",
+     "expect": "ac62c9c497f606f00bbe1745a424b72a6621d34305f4ccf143b62b898eedc0dd"
+    }
+   ]
+  },
+  "0xc0091da7": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "9b4721c4d3a907d2cb5754f90fdfee37c48158029761695f40800fba8fcec29d",
+   "length": 7,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0071a50",
+     "expect": "f401218c790e63a7a7a4169e6c18b03cc9894d8bc21ad9d2bc1454498ed68c29"
+    }
+   ]
+  },
+  "0xc0091e35": {
+   "buffer": "string",
+   "expect": "f276f6729c4b3829d9604be55e5da3334ac3c08da221049b0e1d89ad1fe44bbd",
+   "fonts": [
+    2
+   ],
+   "length": 7,
+   "pointers": [
+    {
+     "at": "0xc0075f44",
+     "expect": "13e428f03196c70f5ac51577a38e75e34140011c8f08e5561164aebeea47d579"
+    }
+   ],
+   "text": "KEINE DATEI"
+  },
+  "0xc0091e3d": {
+   "text": "Ordner hoch",
+   "expect": "4a48e9a020a3a7b6dd169b5843ae68887b617972626821ec6e6dcdea59d42755",
+   "length": 12,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0075f48",
+     "expect": "0f644181dc28aa0c213de231829ee7d2027ecd750f985d99e50cc8ea099d5e6a"
+    }
+   ]
+  },
+  "0xc0091e4a": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "353956c5a5668adedf1818da96b0037a042672ab627be72b986c105c90b04ab1",
+   "length": 5,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d3c",
+     "expect": "cebb5761a9daa9708e720ef888818942d68c0f7d392e96bd317a7fe2fd2d1bc9"
+    }
+   ]
+  },
+  "0xc0091e50": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "c8703684d1c75ce0e297ac5b5158017db9e6aa43a0482705e96ec8d5c55b8f26",
+   "length": 6,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d40",
+     "expect": "14aff660e2de7e7c55b3f289ecc00b7130f692d5381e3dc369f02827dc076588"
+    }
+   ]
+  },
+  "0xc0091e57": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "2ce78470213456e57daae5227cd12e390a1ff43daeb0e6cc33e3fa08e5d56230",
+   "length": 6,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d44",
+     "expect": "fb4c5fca9663d84703e70e563f413d6bcd88b6a08bfb6c1ae82859d12961799a"
+    }
+   ]
+  },
+  "0xc0091e5e": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "aea1a1ffb7c8a009a569d1784ea44e7a95b21df68918c9dd4ce66f2b5710949c",
+   "length": 8,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d48",
+     "expect": "e53051d7074ad07665541d435d333eaf769ea11a1140acd0f0f444106af444a7"
+    }
+   ]
+  },
+  "0xc0091e67": {
+   "text": "Filtertyp:",
+   "expect": "ab2954f4f327ce7c417bfbcc486d8513a7c4671252c63a7b1ada37a027729d54",
+   "length": 10,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d4c",
+     "expect": "fa3ced2a3b4704651355a18b0d4b093dc4718139b04f815114d9678135cc9862"
+    }
+   ]
+  },
+  "0xc0091e72": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "668db2142aa91fcb18b8819bafdfd161ce809901d2e40761c6e8701caa8c129f",
+   "length": 7,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d50",
+     "expect": "10de97aee10a0569f5d345db447e8cb1a40d2e9d90343481554b4b36dbb4f169"
+    }
+   ]
+  },
+  "0xc0091e7a": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "5fe33c3563c6c5f5635797464a0a6c04641f638e2945c2c1991b286bf542be68",
+   "length": 10,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d54",
+     "expect": "48c41458179bd9e4b78a062167f878d41584b539d3720c2ed1a843718e6498f8"
+    }
+   ]
+  },
+  "0xc0091e85": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "a7d89cc6329ed7e48a3bbf973ea1c3b52f74a53233412783c6d6edc694ece056",
+   "length": 6,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d58",
+     "expect": "ba555dfdeb07c959d9da0ddeee9ce45278d8805bfcacc01ebd3927a542459e69"
+    }
+   ]
+  },
+  "0xc0091e8c": {
+   "text": "Mod-Typ: ",
+   "expect": "85e99fff515833616f3b38e3d0a10ac2f44fa28a55ff2ea90ecbeab2637ff72b",
+   "length": 9,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d5c",
+     "expect": "623ffe73ec5f0bb36c67ad78eda38211a4c81ec42757c1f4895a9443743323cd"
+    }
+   ]
+  },
+  "0xc0091e96": {
+   "text": "ModTiefe:",
+   "expect": "fcca2b783cdb24cbc50a54e18bd49c406be3b3fd0c7d30b228ecc798f5f5a84a",
+   "length": 9,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d60",
+     "expect": "849338ffd3dc2c9e3910b8df43b01335ebb872557a1f2be38714a8f98f743ac7"
+    }
+   ]
+  },
+  "0xc0091ea0": {
+   "text": "ModTempo:",
+   "expect": "e65308b0d63213e128ec436a8a6807e81cbbf7786c595958da6a2a6f79766440",
+   "length": 9,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d64",
+     "expect": "df717121e3eabf4e511c8d4decccaa70809ca4a309db922444745013dfab3da2"
+    }
+   ]
+  },
+  "0xc0091eaa": {
+   "text": "Pegel:",
+   "expect": "6633b5e1a3209049924ec146d7132afd937bab38632c5cc72d89e13284e1f1ad",
+   "length": 6,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d68",
+     "expect": "04e2319ddb8ce9f0097ece65e4ed826cb2785a7a87dbf89b2eaba46168b6112f"
+    }
+   ]
+  },
+  "0xc0091eb1": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "e79de3609a71ea3fb18e30426ebaea9d085a470481d4b378441c15f13ae8a6cc",
+   "length": 5,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d6c",
+     "expect": "d635cb571ad0679bc05aa55adc1c979a00aa5e8f97426e27987b44c5172ab5e9"
+    }
+   ]
+  },
+  "0xc0091eb7": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "7de49c4d9a8e5eb480c68d7b72cd101e3cd3d1004542ce73822e91caa3fb949d",
+   "length": 7,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d70",
+     "expect": "7138ccf91ff37913f210f885bd0ed24b4b8079041fa40c6315b239c3ea777fc8"
+    }
+   ]
+  },
+  "0xc0091ebf": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "4bdc23ab7bdb7fd02b506d06e284a233c7cfac3255610ae11de5c0695fda07a7",
+   "length": 14,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d74",
+     "expect": "79ae596521cb95a3690916557a3c992b5bfb7a046a4b6a428fea6dbcb60a24c2"
+    }
+   ]
+  },
+  "0xc0091ece": {
+   "text": "IFX-Typ: ",
+   "expect": "3260cb08fee9104a90a8a8920773e3e834e5cee147face1cb42a0901c83db8b2",
+   "length": 9,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d78",
+     "expect": "7d401dd235a4e0aa91638a7ef3731bff63b40b0f778feed5961e1e0f54b060fb"
+    }
+   ]
+  },
+  "0xc0091ed8": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "0cec0a259bdd9a9401278f222115c5b2f3b3d09324d5df89ba5d56339558ed2a",
+   "length": 8,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d7c",
+     "expect": "0f94af9d1f5e1d8ded79ee3352422a9af0900ad36851ead8f6f99d78b29e9955"
+    }
+   ]
+  },
+  "0xc0091ee1": {
+   "text": "Länge:",
+   "expect": "7e5dea5e889543a8393046fc740636122d98d6e3c81aeb7fbc7a4e5c9d24ec36",
+   "length": 7,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d80",
+     "expect": "1c8f182a470904a7a7e18c46869cab8450f2514cd18211449a878da70cdbe39b"
+    }
+   ]
+  },
+  "0xc0091ee9": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "a18897c4ceae2ea5c7525138d66b19bfde70132cc79a1d10e3276f04a446d4f3",
+   "length": 5,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d84",
+     "expect": "3e9a87ddc9c62db8ae06a1522db2cd2f9f65c5ec0aacae11d7f7f3ddde06126f"
+    }
+   ]
+  },
+  "0xc0091eef": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "d850c2e5f0d9bccc9f4df8870a294ebc5d1e81a1f6d26ab5f7e0813c7540a7d2",
+   "length": 5,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d88",
+     "expect": "db76e9d92f9166bfa956c8b887d6f6f96eca2312990b8de2d49309f2a7e37046"
+    }
+   ]
+  },
+  "0xc0091ef5": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "f871e59060043ebbe12cc565b5009abb864f0f6e9b4e22fca02d23e5f5a55827",
+   "length": 5,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d8c",
+     "expect": "0054d24ee3ca10753998c0cc34510520d8ed95a1819df61f957156550a9ea910"
+    }
+   ]
+  },
+  "0xc0091efb": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "7bd6da3cd67f972ad74e90129b7c325d04ee4154e4a6b25bcb1f82aaf2bcaead",
+   "length": 7,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d90",
+     "expect": "ed761c554dbc7a77dcf5f65fc2aa2bf74d97028a63408246a51382dd4978e556"
+    }
+   ]
+  },
+  "0xc0091f03": {
+   "text": "Akkorde:",
+   "expect": "e46237427a9ef75bb4c643528de807243bbb287bf81981cd58b37df0740d1884",
+   "length": 9,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d94",
+     "expect": "20fee006caa813555f8b4409b04010a330105fbef441e8610b526f3b3ca5a0ba"
+    }
+   ]
+  },
+  "0xc0091f0d": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "24493284885cde539ffef559e352129c85931c100086e622a343e2c32ccf3d34",
+   "length": 6,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d98",
+     "expect": "c4a9c6515ad948a686d1cfe35a8ffbbcc646625eba4c990aa056c4d352ee2051"
+    }
+   ]
+  },
+  "0xc0091f14": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "6cfc12b9c88e09bb5d4585e055b041d16e77c4aa5e4355811172e77bb0ed42fc",
+   "length": 10,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076d9c",
+     "expect": "e40939cdbd71166e0b50f1d1976c08ae842d7b6013445e94e511439b5f006560"
+    }
+   ]
+  },
+  "0xc0091f1f": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "bd1e57525a78142d7dcff78630715ba77b31edd51e34a8de76c1bc105a19093d",
+   "length": 10,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076da0",
+     "expect": "376b74bdcd38697c28e944d41c3744d785415e0f0a0f954a73e4404eba190a10"
+    }
+   ]
+  },
+  "0xc0091f2a": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "2cb21adfa35da42747031443a769b90e0d2cdf1fddef053f8924f38570a8ee94",
+   "length": 10,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076da4",
+     "expect": "005bf2f5eb6245329f5bd0e517e73b99b208d296c85929e4e355218ac870b102"
+    }
+   ]
+  },
+  "0xc0091f35": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "6b722d8a10c393ff1014970e1a3c8bd26d54a9a2cc1766dc0767102ece7a57e1",
+   "length": 8,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076da8",
+     "expect": "f1fd74c57cba933606ce184c0b36168bec8dbd5369d42bda3ada17fe114a0080"
+    }
+   ]
+  },
+  "0xc0091f3e": {
+   "text": "GrooveTiefe:",
+   "expect": "fdef87e329e5e9ea3e3aa2fa217fd74b6f4b5a2a6004d20a8c70b876c41881b5",
+   "length": 12,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076dac",
+     "expect": "02e138973f29cb1dcf6df3f3144907f7402cb0f7ba7da9eb0d0b81e5a4fb1a02"
+    }
+   ]
+  },
+  "0xc0091f4b": {
+   "text": "Stimme:",
+   "expect": "a5b09a5c1e9980b2d39033ad6eaa4e1a27dac4cf5ac97c38561c5fc5d890658c",
+   "length": 7,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076db0",
+     "expect": "c30f7677c6ec86aa72671bf00bee5413153284fecf1ef5485d21a6c0b7ad82b7"
+    }
+   ]
+  },
+  "0xc0091f53": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "7e3ba7568443ff7eff7f7cd86eb1e09adfdb96c29914a561516cd407768e23a8",
+   "length": 11,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076db4",
+     "expect": "efb410a41745d02171ccf945b0ab50d0b31dae4f93a8c17f84de3835d734896a"
+    }
+   ]
+  },
+  "0xc0091f5f": {
+   "text": "Pad-Anschlag:",
+   "expect": "9fa6567c13c7ca448372d1c8efbfd9c3b1b17157faae3af53d1010fd506d13eb",
+   "length": 14,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076db8",
+     "expect": "4a843108e0bbb950d5d022422aec7e3562d041d76d0e24f84de3c9f96fcada84"
+    }
+   ]
+  },
+  "0xc0091f6e": {
+   "text": "ScaleModus:",
+   "expect": "a771d12aeb62ab3a6578831d728cce780fa9b600ccabf89ceb11c7a69db9e56c",
+   "length": 11,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc0076dbc",
+     "expect": "ece82494baebe3cebaac23e780a3b5b3c0fa1a3d6ceea170d897eb7ec0105081"
+    }
+   ]
+  },
+  "0xc0091f7a": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "4f040e287bca81b9dc159c395a027d71aac71b9faff07459262928f2828ddfb6",
+   "length": 5,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc0076f60",
+     "expect": "7183b43f0465b486c7cc8ebe14db530eb7e4c44c355da05f9cfc9d748c1a5c1c"
+    }
+   ]
+  },
+  "0xc0091f80": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "09703be75e5e69ad75d171bd322741d3283e955d21a38f7b2602999f85c88d06",
+   "length": 6,
+   "fonts": [
+    0
+   ],
+   "pointers": []
+  },
+  "0xc0091f8d": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "18cab9f82a1c1ed8096303dbfdbe11d1fbec4bc7838080122d6fabcaa006e5f8",
+   "length": 9,
+   "fonts": [
+    0
+   ],
+   "pointers": [
+    {
+     "at": "0xc007a2c4",
+     "expect": "7522b2719fb6ec11bb28858330f5e81dcada0046505d64ec43233cfdc97f38dd"
+    }
+   ]
+  },
+  "0xc0091f9b": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "e71c15afe44e00cf42bd23f0c4b67a00274984312885920ff777c25a0d37dbc4",
+   "length": 3,
+   "fonts": [],
+   "pointers": [
+    {
+     "at": "0xc007bbc0",
+     "expect": "b741d3c8e90ba2129c030b78657661a3d0d65dfbf0692633594ca15219d16cc2"
+    }
+   ]
+  },
+  "0xc0091f9f": {
+   "text": "STEP-NUMMER",
+   "expect": "1be4001a38adce8f010b52249e35e2a22c9f57ad21ceb274d73ce4dca6307f8e",
+   "length": 11,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc007bcf0",
+     "expect": "57528ac91da962a8340e890e37e612fdeaa44e091bee9d158160fbe60d7aaa03"
+    }
+   ]
+  },
+  "0xc0091fab": {
+   "keep": "im Deutschen gleich",
+   "expect": "4a132e666d0750301d5540eba1813598904cc2239faf3a0d9ed51b932eb64336",
+   "length": 4,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc007bcf4",
+     "expect": "93a44665e4b1a261ab49eb535b71df04e26289c388582830a605c982148e3811"
+    }
+   ]
+  },
+  "0xc0091fb0": {
+   "text": "GATE-ZEIT",
+   "expect": "34b97f273d5fa528378db081c106bdd5f5deb5b7c682fa69a9732291d33d2424",
+   "length": 9,
+   "fonts": [
+    3
+   ],
+   "pointers": [
+    {
+     "at": "0xc007bcf8",
+     "expect": "fdd47188fd2d48ddf793d180f77bbd3c7cea3d7e63fc12c5fc714afd0c1d17c7"
+    }
+   ]
+  },
+  "0xc0091fba": {
+   "keep": "Name oder Format, kein Nutzertext",
+   "expect": "0d6d9107e9a13414ed2ca64165fcd85ee9ff598199f84fddf1cc80fc26627cab",
+   "length": 5,
+   "fonts": [
+    2
+   ],
+   "pointers": [
+    {
+     "at": "0xc007c06c",
+     "expect": "f8eb2097be07e657da475ddf33c231a5e14beddd7a5ba332d353968f04942bc6"
+    }
+   ]
+  },
+  "0xc0091fc0": {
+   "keep": "Fachwort, bleibt Englisch (Regel 1)",
+   "expect": "7acc4247ba5962d4c72cd62149ac396055c43423685e2f4bc5ac4d5b9d7034ae",
+   "length": 7,
+   "fonts": [
+    0,
+    1
+   ],
+   "pointers": [
+    {
+     "at": "0xc007c224",
+     "expect": "c6126789aba873c7afe50c39f61d5cb30f35757ceca91b96d9a605fdf25be819"
+    }
+   ]
+  }
+ }
+}

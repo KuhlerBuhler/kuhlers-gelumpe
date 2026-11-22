@@ -79,8 +79,22 @@ Was der Test entscheidet: Startet das Gerät selbst neu, wird RESTART im DEV MOD
 das Ausschalten und dann den Watchdog scharf macht. Geht es aus, bleibt nur "Aus", oder der Neustart muss die Stromhaltung
 anders überbrücken (offen).
 
+## Ergebnis am Gerät (22.11., rot, Netzteil)
+
+Test-VSB `test-ocr-4f40ddfa` (auf ORIGINAL.BIN), vorher USB-Kabel neu gesteckt.
+
+- Harmloser EXEC-Stub (`mov r0,#0x5A; bx lr`): Antwort `0x5a` in 5 ms, ein neuer Prozess danach liest normal.
+  Der EXEC-Weg selbst geht; der Hänger beim ersten `--arm`-Versuch kam vom offenen EXEC-Hänger, nicht vom Watchdog.
+- `--arm`: Stub antwortet `armed`, USB meldet sich ab. Das Gerät geht ganz aus (keine LED, kein Display) und kommt
+  nicht von selbst wieder. Der Ein/Aus-Schalter startet es normal; danach INFO `0xbff`, Stub nicht mehr im RAM.
+- Auch am Netzteil also: der Watchdog-Reset wirkt wie Ausschalten (hergeleitet: der Reset nimmt die Stromhaltung weg).
+
+Entscheidung (22.11.): kein Menüpunkt RESTART. Aus/Ein am Schalter leistet dasselbe, ein Neustart ohne Chip-Reset
+(Sprung in die Firmware) lohnt den Aufwand nicht. Ein späterer RESTART DSP (nur DSP neu booten, Pattern bleibt) ist
+davon getrennt. `tools/device/watchdog_restart.py` und das Emulator-Modell bleiben für Messungen.
+
 ## Offen
 
-- Verhalten am Gerät, auf Batterie und am Netzteil.
+- Verhalten auf Batterie (am Netzteil gemessen: aus).
 - Ob der Watchdog-Reset ein Merkmal hinterlässt, das der Start lesen kann (z. B. RSTYPE der PLLC), um nach einem Update
   direkt ins Update zu gehen. BLECH READ liest nur RAM, Register nicht.

@@ -14,6 +14,8 @@ const vsb = process.env.E2_VSB;
 const skip = !local ? "emulation only runs in test:local or test:emu" : !vsb ? "E2_VSB not set" : false;
 
 const MENU = 0x09, EDIT_LEFT = 0x08, EDIT_RIGHT = 0x0c;
+// MENU opens Pattern (1/32); DATA UTILITY (29/32) is the fourth page to the left, behind it come Event, BLECH and Blechy's page.
+const toDataUtility = Array(4).fill(EDIT_LEFT);
 const poll = ms => new Promise(r => setTimeout(r, ms));
 
 async function until(emu, what, fn, ms = 120_000) {
@@ -33,9 +35,13 @@ const front = emu => ({
     await emu.input({ kind: "button", index, down: false });
     await emu.settle(gap);
   },
-  /** DATA UTILITY, function n of 14: MENU, Edit left twice, MENU, then Edit right. */
+  async value(delta) {
+    await emu.input({ kind: "encoder", index: 0, delta });
+    await emu.settle(500);
+  },
+  /** DATA UTILITY, function n of 14: MENU, Edit left to DATA UTILITY, MENU, then Edit right. */
   async dataUtility(n) {
-    for (const b of [MENU, EDIT_LEFT, EDIT_LEFT, MENU]) await this.press(b);
+    for (const b of [MENU, ...toDataUtility, MENU]) await this.press(b);
     for (let i = 1; i < n; i++) await this.press(EDIT_RIGHT, 120, 250);
   },
 });
@@ -65,8 +71,14 @@ test("flash: patterns imported once are there after a restart of the emulator", 
   try {
     const panel = front(emu);
     await panel.dataUtility(4);
-    for (let i = 0; i < 3; i++) await panel.press(MENU, 150, 1500);   // function, the one file, confirm
-    await until(emu, "the flash file with the imported pattern", async () => existsSync(flashFile) && readFileSync(flashFile).includes("PERSIST6"), 90_000);
+    await panel.press(MENU, 150, 1500);                                // IMPORT ALL PATTERN: the browser lists KORG first
+    await panel.value(1);                                              // onto the backup
+    for (let i = 0; i < 2; i++) await panel.press(MENU, 150, 1500);   // the file, confirm
+    // Patterns sit in the flash at 0x240000, one 0x4000 block each, in the order of the backup. Stop only after the last
+    // one: power off in the middle leaves the pattern being written half old, half new.
+    const patterns = backup().subarray(0x10100);
+    await until(emu, "the flash to hold all imported patterns", async () => existsSync(flashFile) &&
+      readFileSync(flashFile).subarray(0x240000, 0x240000 + patterns.length).equals(patterns), 600_000);
     assert.equal(statSync(flashFile).size, 0x1000000);
     await emu.stop();
 
@@ -80,8 +92,9 @@ test("flash: patterns imported once are there after a restart of the emulator", 
       const where = join(sdDir, "card", "KORG");
       if (!existsSync(where)) return null;
       for (const folder of readdirSync(where)) {
-        const name = existsSync(join(where, folder)) && readdirSync(join(where, folder)).find(n => n.endsWith(".e2sallpat"));
-        if (name && statSync(join(where, folder, name)).size > 1_000_000) return join(where, folder, name);
+        const dir = join(where, folder, "Patterns");
+        const name = existsSync(dir) && readdirSync(dir).find(n => n.endsWith(".e2sallpat"));
+        if (name && statSync(join(dir, name)).size === backup().length) return join(dir, name);
       }
       return null;
     });

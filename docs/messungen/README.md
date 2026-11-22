@@ -16,6 +16,11 @@ Speicheruntersuchung zusammen. Anleitungen zum Nachvollziehen am eigenen Gerät 
 [Gerätetests](../geraetetests/README.md).
 
 
+## Firmware-Platz
+
+- [Freier und reservierter Platz für ARM, DSP und Plugins, auf festen Quellständen gerechnet](2026-11-20-firmware-speicherbudget.md)
+- [DSP-SDRAM-Kandidaten: statische Besitzer, native Start-/Audioleerlaufläufe und Grenzen des Nachweises](2026-11-20-dsp-sdram-freiraum.md)
+
 ## Pattern, Parts und Global
 
 Felder des Pattern-Blocks, der Parts und der Global-Einstellungen, wie sie die Gerätekarte belegt.
@@ -60,6 +65,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel, Parameterspannen.
 - [Eigene Insert- und Master-Effekte auf der blauen Electribe 2: was es kostet](2026-11-08-blau-eigene-effekte.md)
 - [Eigene Insert- und Master-Effekte auf der blauen Electribe 2: Katalog, e2sFx.all, Export und Editor, im Emulator](2026-11-08-blau-effekte-port.md)
 - [Effekte und Modulationen vom Gerät lesen, für den Export von e2sFx.all](2026-11-14-effekte-vom-geraet.md)
+- [Röhrenkurve statt Soft-Clipper am Ausgang, im QEMU-DSP-Kern und im Emulator](2026-11-20-roehrenkurve.md)
 
 
 ## SysEx und Transport
@@ -116,6 +122,7 @@ Boot, Bedienfeld, LEDs, Takt und Tempo des Emulators.
 - [Bedienfeld: Nummern der Tasten, Regler, Pads und LEDs](2026-10-08-panel-bedienung.md)
 - [LEDs selbst setzen: Execute, Caches, RGB](2026-10-08-led-execute.md)
 - [Hänger im Emulator erkennen](2026-10-10-haenger.md)
+- [Karte im laufenden Emulator gesteckt: "hängt" war ein Fehlalarm des Dienstes, kein Firmware-Hänger](2026-11-19-karte-stecken-emulator-haengt.md)
 - [Emulator-Takt: 1000 Timer-Interrupts je Sekunde](2026-10-12-emulator-takt.md)
 - [Display-Helligkeit: die Firmware schaltet nur an und aus](2026-10-12-lcd-helligkeit.md)
 - [Emulator-Tempo: Zeit je Gerätesekunde](2026-10-13-emulator-tempo.md)
@@ -155,13 +162,15 @@ Startbild-Editor, zweiter Master-Effekt (MFX 2), Patternwechsel mit Bestätigung
 - [Ladebalken im Startbild (Idee 41): gebaut und im Emulator geprüft](2026-10-15-ladebalken.md)
 - [Sample-Fehler: ein Sample überspringen und sagen, welches (und die Werksbank des leeren Flash)](2026-10-15-sample-fehler.md)
 - [IMPORT SAMPLE auf Werks-Slots: Zielwähler, welche Slots der Import annimmt, Speichern, im Emulator](2026-11-16-import-werks-slots.md)
+- [Sample-Kategorie "Wave" auf Hacktribe: liest HT eine e2sSample.all ohne Wave-Sample, im Emulator](2026-11-17-sample-kategorie-wave.md)
+- [Sample-Kategorie in SAMPLE EDIT: Seite CATEGORY, Zähler, Export, Sample mit Slices, im Emulator](2026-11-21-sample-kategorie.md)
 - [Startbild auf der Karte statt im Flash (Idee 35)](2026-10-15-startbild-karte.md)
 - [BLECH Menü: eigener Bildschirm 0x2D im Edit Ring](2026-10-14-blech-menue.md)
 - [BLECH Anpassung: untere LEDs und Display-Licht, Software-PWM](2026-10-14-blech-anpassung.md)
 - [Aussehen früh im Start: Zeitlinie und der früheste Punkt](2026-10-16-blech-look-frueh.md)
 - [Pad-LEDs: nur an oder aus, am Gerät gemessen](2026-10-16-pad-led-stufen.md) (am 18.10. widerlegt: Pulsieren pulsiert flüssig)
 - [Display: Schriften und Symbole der Firmware](2026-10-14-display-schriften.md)
-
+- [Firmware in einer anderen Sprache: Korgs Menütexte und ihre Zeiger, Umlaut-Glyphen, Breite, BLECH-Menü, Aufwand, im Emulator und offline](2026-11-19-firmware-sprache.md)
 
 ## Plugins
 
@@ -312,10 +321,12 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [MANAGE PLUGINS: 64 Dateien statt 16, REMOVE löscht die Datei, OFF behält sie](2026-10-30-plugin-liste-64-entfernen.md)
 - [Plugins schreiben Steps: korg.seq, im Emulator geprüft](2026-10-26-plugin-steps.md)
 - [Die Ansicht des nächsten Patterns: Pads und Info-Texte](2026-10-25-pattern-ansicht.md)
+- [Vorschau-BPM: die BPM oben zeigt beim Ansehen das Tempo des angesehenen Patterns, Tempo-Widget und Setter, im Emulator](2026-11-19-vorschau-bpm.md)
 - [Test-Modus und Fernbedienung aller Bedienelemente über die Warteschlange des Panels](2026-10-29-test-modus-fernsteuerung.md)
 - [SD-Karte mit 25 statt 12,5 MHz](2026-10-25-sd-takt.md)
 - [Karte im Betrieb getauscht: neue Karte wird mit 12,5 MHz identifiziert](2026-11-14-karte-tausch-takt.md)
 - [Karte im Betrieb wieder gesteckt: Lesen, solange die Karte noch rutscht](2026-11-15-karte-stecken-prellen.md)
+- [Karte vom Mac zurück, Start hängt oder "No Card.": CMD8 geht verloren, die Init fängt neu an, am Gerät und im Emulator](2026-11-22-karte-cmd8-verloren.md)
 - [Kartentausch: Hänger bei busy Karte, SAVE TO FLASH ging verloren, Knopf-LEDs folgen der Karte](2026-11-15-karte-tausch-haenger.md)
 - [Grundlagen für native Bedienmakros](2026-10-25-makro-grundlagen.md)
 - [Meter: RAINBOW mit LED-Farbe, LEDs nach einer 1 hängen](2026-10-22-meter-led-farbe.md)
@@ -354,6 +365,7 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Hacktribe-Oszillatoren auf den freien Plätzen 422 bis 497 der roten Firmware](2026-11-08-ht-osc-freie-plaetze.md)
 - [Osterei auf der Seite VERSION, Freischaltung im Flash, Sample 500 offen](2026-11-09-osterei-version.md)
 - [Hacktribes Extra-Effekte, Grooves und Touch-Skalen auf der roten 2.02: was als Datenpatch geht](2026-11-10-hacktribe-extras-rot.md)
+- [Hacktribes Master-Effekte als Nachbau auf MFX 33 bis 36 der roten 2.02, Katalog ab 37, im Emulator](2026-11-17-hacktribe-master-rot.md)
 - [Patterns-Ordner: Export, Import-Browser, Laden beim Start, Globals](2026-11-14-patterns-ordner.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)

@@ -75,6 +75,8 @@ export const CHAINS = {
   "stop-pending": [{ id: "apply-pending", sites: [0xC0081B5C] }],
   "pattern-label": [{ id: "next-view", sites: [0xC0086DC4] }],
   "info-line": [{ id: "label-flag", sites: [0xC008684C] }],
+  // pattern-switch: the setter of a tempo widget (the tempo signal's slot); the status bar's BPM shows a browsed pattern's tempo
+  "tempo-widget": [{ id: "setter-entry", sites: [0xC008463C] }],
   "part-mute-get": [{ id: "getter-entry", sites: [0xC0048CFC] }],
   "part-mute-pad": [{ id: "setter-call", sites: [0xC0060D34] }],
   "part-mute-shift": [{ id: "shift-read", sites: [0xC007042C] }],
@@ -124,6 +126,7 @@ export const CHAINS = {
     { id: "neighbours", sites: [0xC0064D84, 0xC0061880, 0xC0064430, 0xC0067754, 0xC0067720, 0xC0065B8C] },
   ],
   "data-util-screen": [{ id: "edit-slots", sites: [0xC00623C0, 0xC0062448] }],
+  "sample-edit-screen": [{ id: "edit-slots", sites: [0xC0069BB8, 0xC0069C88] }],
   "menu-top-level": [{ id: "screen-switch", sites: [0xC006E8D8, 0xC0061DDC] }],
   "menu-write": [{ id: "write-key", sites: [0xC006F094] }],
   "screen-switch": [{ id: "switch-post", sites: [0xC0083D7C, 0xC0074350] }],   // the second is the synth build's

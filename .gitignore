@@ -15,6 +15,7 @@ flash_*.bin
 dist/
 
 # Local tool state.
+.lang-work/
 .claude/
 .cortexignore
 thoughts/
@@ -38,3 +39,6 @@ ak-init.json
 
 # local design drafts, never committed
 entwuerfe/
+data/patches/lang-de.json
+data/patches/lang-de-stock.json
+data/patches/lang-de-synth.json

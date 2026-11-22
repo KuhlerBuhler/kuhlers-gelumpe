@@ -68,6 +68,7 @@ class HookTests(unittest.TestCase):
             machine.uc.mem_write(address,data)
         machine.symbols.update(built.symbols)
         machine.call('script_runtime_init',machine.runtime,machine.arena,131072)
+        machine.call('lang_arm')    # the menu's texts load through LANG_TEXTS, which the early hook sets on the device
         from tools.patch.script_hooks import MENU_STATE
         machine.uc.mem_write(MENU_STATE,b'\xff'*0x200)    # an unarmed menu reads FF, as in the image
         from tools.patch.script_hooks import KEY_PASS,SIM_INPUT_END
@@ -82,6 +83,7 @@ class HookTests(unittest.TestCase):
         machine.uc.mem_map(0xC0345000,4096)    # the LED manager's pointer (0xC0345A1C), 0: the unsaved WRITE LED stays out
         machine.uc.mem_map(0xC0310000,0x10000)
         machine.uc.mem_map(0x01E26000,4096)
+        machine.uc.mem_map(0xC0131000,4096)    # the DSP program's clipper call (TUBE_MARK 0xC0131F90), 0: no tube-curve patch, tube_tick sends nothing
         machine.write(0x01E26070,2)    # the card switch (GPIO 4.1) high: no card, menu_card_watch reads nothing
         for at,size in [(0xC0690000,0x2000),(0xC06A2000,0x1000),(0xC06B2000,0x5000),(0xC06BC000,0x1000),(0xC06C2000,0x1000)]: machine.uc.mem_map(at,size)   # 0xC06A292C the OS tick count the clock reads
         machine.write(0xC033E6F8,machine.input+0x1000)
@@ -985,7 +987,7 @@ class HookTests(unittest.TestCase):
             self.assertEqual(change['file'],address-RAM_BASE+0x100)
             self.assertEqual(change['expect'],hashlib.sha256(struct.pack('<I',word)).hexdigest())
             self.assertEqual(int.from_bytes(bytes.fromhex(change['bytes']),'little')>>24,0xea)
-        self.assertEqual(len(patch['hooks']),31)
+        self.assertEqual(len(patch['hooks']),33)
         self.assertEqual((patch['hooks'][3]['site'],patch['hooks'][3]['chain']),('0xC004C1B4','save'))
         self.assertEqual(patch['hooks'][0]['chain'],['key-dispatch','pattern-set'])
         self.assertEqual(patch['hooks'][0]['swallow'],True)
@@ -993,12 +995,13 @@ class HookTests(unittest.TestCase):
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
         card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('boot_light_hook','boot_light_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end'),('script_write_hook','script_write_hook_end')])
-        self.assertEqual(len(patch['startPhase']),83)
+        self.assertEqual(len(patch['startPhase']),101)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]
-        pairs+=[('blechy_boot','blechy_boot_end'),('menu_arm','menu_arm_end'),('menu_arm_load','menu_arm_load_end'),('menu_settings_load','menu_settings_end'),('menu_needs_confirm','menu_confirm'),('menu_recount','menu_recount_end'),('menu_event_right','menu_hooks_end'),('card_widget','card_frame'),('card_frame_out','batt_percent_glyph'),('led_meter_hook','look_hooks_end'),
-            ('shortcut_input','shortcut_tick'),('kp_input','kp_tick'),('shortcut_pool','shortcut_end'),('pat_boot_arm','pat_boot_end'),('migrate_start','migrate_end'),('fx_card_load','fx_card_load_end'),('remap_input','events_post'),('objects_row','objects_end'),('audio_command_hook','audio_columns'),('load_idle_hook','load_meter_frame')]
+        pairs+=[('blechy_boot','blechy_boot_end'),('menu_arm','menu_arm_end'),('menu_arm_load','menu_arm_load_end'),('menu_settings_load','menu_settings_end'),('menu_needs_confirm','menu_confirm'),('menu_recount','menu_recount_end'),('menu_event_right','menu_hooks_end'),('card_widget','card_frame'),('battery_model','battery_put'),('batt_put_pool','card_widget'),('card_frame_out','batt_percent_glyph'),('led_meter_hook','look_hooks_end'),
+            ('shortcut_input','shortcut_tick'),('kp_input','kp_tick'),('shortcut_pool','shortcut_end'),('pat_boot_arm','pat_boot_end'),('migrate_start','migrate_end'),('fx_card_load','fx_card_load_end'),('script_popup_input','script_popup_frame'),('remap_input','events_post'),('objects_row','objects_end'),('audio_command_hook','audio_columns'),('load_idle_hook','load_meter_frame'),('lang_arm','lang_end')]
+        pairs+=[('rec_writer_open','nr_runtime_end'),('nr_format','nr_format_end'),('nr_requires_capture','nr_capture_apps_end'),('audio_command_hook','nr_command_end'),('nr_setup_enter','nr_ui_end'),('nr_defer','nr_card_code_end'),('nr_frame','nr_frame_end')]   # native recording (recording_*.s)
         spans=sum(built.symbols[end]-built.symbols[start] for start,end in pairs)
         self.assertEqual(sum(span['length'] for span in patch['startPhase']),spans+len(SITES)*4+len(WORDS)*4+184+card+len(built.sections[-1][1])+len(built.sections[0][1]))
         size=lambda change: len(change['bytes'])//2 if 'bytes' in change else change['copy']['length']

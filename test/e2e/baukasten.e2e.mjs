@@ -36,7 +36,7 @@ test("Baukasten is open without firmware; five sub-pages; a card opens in the ed
   assert.equal(await page.getAttribute("#cee-tab-baukasten", "aria-disabled"), null, "no firmware needed");
   assert.deepEqual(await page.locator("#cee-baukasten-pages button").allTextContents(), ["Katalog", "Editor", "Meine Effekte", "Meine Modulationen", "Export"]);
   assert.deepEqual(await page.locator("#cee-bk-fx-catalog h3").allTextContents(), FX_CATALOG.map(c => c.name));
-  const first = page.locator("#cee-bk-fx-catalog li").first();
+  const first = page.locator("#cee-bk-fx-catalog li", { hasText: "Short Delay" });
   assert.equal(await first.locator(".cee-catalog-category").textContent(), "Echo", "the tag under the title");
   assert.equal(await first.locator(".cee-catalog-creator").textContent(), "von Kuhler Buhler", "and the creator at the bottom, as on a plugin's card");
   assert.equal(await first.locator(".cee-creator-link").getAttribute("href"), "https://www.instagram.com/kuhler_buhler/", "the creator's name links to their profile");

@@ -182,16 +182,18 @@ benutzt, die übrigen folgen aus derselben Reihenfolge:
 | 5 | `FR_NO_PATH` | Ordner fehlt; beim ersten Schreibblock legt BLECH ihn an und versucht es einmal neu | gemessen |
 | 7 | `FR_DENIED` | Karte oder Verzeichnis voll | hergeleitet |
 | 13 | `FR_NO_FILESYSTEM` | Karte ohne FAT, z. B. nicht formatiert | hergeleitet |
-| 0x80 | `FR_CARD_NEVER` (BLECH) | Gerät ohne Karte gestartet: kein Dateibefehl fasst eine Karte an, bis zum nächsten Start (siehe unten) | gemessen im Emulator (`sysex:file_no_card`, `file_card_after_start_without_one`) |
+| 0x80 | `FR_CARD_NEVER` (BLECH) | nur ältere Stände: Gerät ohne Karte gestartet, kein Dateibefehl fasste eine Karte an bis zum nächsten Start (siehe unten) | gemessen im Emulator an älteren Ständen |
 | 0x81 | `FR_SHORT` (BLECH) | `f_write` hat weniger Bytes geschrieben als verlangt: Karte voll | offline gelesen |
 
-Nach einem Start ohne Karte steht das Kartenwort des BLECH-Menüs (`M_CARD`, `MENU_STATE + 0x1B0`) auf `CARD_NEVER`. Eine danach
-gesteckte Karte kann Korgs SD-Init hängen lassen (#518). Darum prüfen alle Dateibefehle dieses Wort vor dem Öffnen oder Löschen
-(`fs_open`, `fs_unlink` in `tools/patch/blech_sysex.py`) und antworten mit 6 und Code 0x80, ohne die Karte anzusprechen. Im
-Emulator geht nach Stecken einer Karte kein einziger Befehl an sie (`file_card_after_start_without_one`, **gemessen**). Ob der
-Hänger am Gerät genau so entsteht, ist **hergeleitet**, nicht am Gerät gemessen.
+Am Gerät nach einem DSP-Absturz gesehen (rot, 14.11.): `usbfile.py` bekam Status 6 für `SYSTEM.VSB` und `ORIGINAL.BIN`,
+obwohl beide auf der Karte lagen. Aus und wieder Ein, ohne SOFTWARE UPDATE zu starten, brachte die Karte zurück (**gemessen**).
 
-Am Gerät heißt das: bei 0x80 neu starten, mit gesteckter Karte. Bei 3 prüfen, ob die Karte eingehängt ist (BLECH READ von
+Eine nach einem Start ohne Karte gesteckte Karte lesen und schreiben die Dateibefehle wie jede andere
+(`file_card_after_start_without_one`, **gemessen** im Emulator). Ältere Stände ließen so eine Karte in Ruhe und antworteten mit 6 und
+Code 0x80, weil die erste Karte nach so einem Start Korgs SD-Init hängen lassen konnte; die Ursache und der Fix stehen in
+[CMD8 geht verloren](2026-11-22-karte-cmd8-verloren.md).
+
+Am Gerät heißt das: bei 0x80 (ältere Stände) neu starten, mit gesteckter Karte. Bei 3 prüfen, ob die Karte eingehängt ist (BLECH READ von
 `fs_type`, siehe [Init-Sperre](2026-11-14-karte-init-sperre.md)), bei 4 und 5, ob Datei und Ordner da sind.
 
 ## Die blaue Electribe 2 (Synth)

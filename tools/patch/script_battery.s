@@ -1,16 +1,17 @@
-; BATTERY % (CUSTOMIZATION > DISPLAY): the battery's charge in steps of 10 percent on the main screen's top row, right before
+; BATTERY % (CUSTOMIZATION > DISPLAY): the battery's charge in whole percent on the main screen's top row, right before
 ; the battery symbol (page 0, columns 101 to 116, rows 1 to 7: hundreds, tens, ones and '%', each 3 columns and a blank one).
-; On the main screen the card symbol moves to 94 to 99 (card_place, card_frame) and LOAD METER sits at 86 to 93, in the same
-; places whether the percent is shown or not; every other screen keeps the card at Korg's 109
-; (docs/messungen/2026-11-16-batterie-prozent.md). Shown only on battery
+; While the percent is wanted (battery_model) the card symbol moves to 94 to 99 on the main screen (card_place, card_frame);
+; without it (mains, Ni-MH, the switch off) it goes back to Korg's 109, which every other screen keeps. LOAD METER sits at
+; 86 to 93 either way (docs/messungen/2026-11-16-batterie-prozent.md). Shown only on battery
 ; (POWER_MODEL +0x308 is 0) with Global BATTERY TYPE Alkali (byte 0x20 of the Global values is 1); on mains power and with
 ; Ni-MH nothing is drawn. On by default: the stored bit FLAGS2_BATT_OFF means off, so a file with the default stays version 3.
-; The reading is the battery model's (BATTERY_MODEL +0x320, from panel message 6), its thresholds the table at +0x318 (full
-; first, empty last). It is smoothed: every BP_STEP_MS it moves an eighth of the way to the reading, and the percent shown
-; changes only when the new one is more than 8 percent away from it, so a short dip or noise around a step leaves it.
+; The reading is the battery model's (BATTERY_MODEL +0x320, from panel message 6). Empty is the last byte of its threshold
+; table at +0x318, where the firmware switches off; full is BP_FULL, a little under fresh Alkali cells (162 to 163 measured),
+; because Korg's full threshold 127 is reached only after about an hour. It is smoothed: every BP_STEP_MS it moves an eighth of the way to the reading,
+; so a reading that flips between two neighbours shows the value between them. The percent shown follows it in whole percent.
 .equ BP_AVG, 0                  ; the smoothed reading times 256
 .equ BP_TICK, 4                 ; the OS tick count (1 ms) at the last smoothing step
-.equ BP_SHOWN, 8                ; byte: the percent shown, 0 to 100 in steps of 10, 0xFF before the first one
+.equ BP_SHOWN, 8                ; byte: the percent shown, 0 to 100, 0xFF before the first one
 .equ BP_DRAWN, 9                ; byte: 1 while our digits may be on the display
 .equ BP_INIT, 12                ; 1 while a reading is held (0 while not wanted, FF at power-on)
 .equ BP_CARD, 16                ; 6 bytes: columns 94 to 99 of page 0 (row 0 left out) as card_frame last drew them
@@ -20,12 +21,13 @@
 .equ BP_PENDING_MS, 300         ; how long card_frame waits for the screen manager to show that screen
 .equ BP_COL, 101                ; the first column of the digits
 .equ BP_STEP_MS, 250            ; one smoothing step
-.equ BP_HOLD, 80                ; per mille: the percent shown changes only when the new one is further away than this
+.equ BP_FULL, 160               ; the reading shown as 100 percent
 
 ; Once a frame, behind glide_frame. Keeps r4 to r11.
 battery_frame:
     push {r4-r8, lr}
     bl card_frame
+    bl card_stroke
     ldr r4, =BATT
     bl battery_model
     movs r5, r0
@@ -82,7 +84,7 @@ batt_frame_step:
 batt_frame_value:
     ldr r0, [r4, #BP_AVG]
     ldr r1, [r5, #0x318]
-    ldrb r7, [r1]               ; full
+    mov r7, #BP_FULL
     ldrb r8, [r1, #3]           ; empty
     sub r1, r7, r8
     subs r0, r0, r8, lsl #8
@@ -107,21 +109,9 @@ batt_frame_value:
     bl egg_div
     add r7, r7, r0              ; the charge in per mille
 batt_frame_percent:
-    ldrb r0, [r4, #BP_SHOWN]
-    cmp r0, #0xFF
-    beq batt_frame_set
+    add r0, r7, #5
     mov r1, #10
-    mul r1, r0, r1
-    subs r1, r7, r1
-    rsblt r1, r1, #0
-    cmp r1, #BP_HOLD
-    bls batt_frame_draw
-batt_frame_set:
-    add r0, r7, #50
-    mov r1, #100
-    bl egg_div
-    mov r1, #10
-    mul r0, r1, r0
+    bl egg_div                  ; per mille to whole percent
     strb r0, [r4, #BP_SHOWN]
 batt_frame_draw:
     bl load_meter_shown
@@ -240,6 +230,7 @@ batt_put_col:
     ldr r12, =MG_MARK
     blx r12
     pop {pc}
+batt_put_pool:
 .pool
 .align 4
 ; The card symbol: Korg's widget is the third of the status bar ([SCREEN_MANAGER] + 0x10, widgets at +0x34, +0x38, +0x3C), x at
@@ -278,26 +269,29 @@ card_widget_none:
 ; (not every screen clears the top row where the card was), and its byte to draw again, so the new screen draws it in its
 ; place. With the menu not armed nothing moves. Keeps r4 to r11.
 card_place:
-    push {r4, lr}
+    push {r4-r6, lr}
     mov r4, r0
     ldr r0, =MENU_STATE
     ldr r0, [r0, #M_ON]
     cmp r0, #1
-    popne {r4, pc}
+    popne {r4-r6, pc}
     bl card_widget
     cmp r0, #0
-    popeq {r4, pc}
+    popeq {r4-r6, pc}
+    mov r5, r0
     ldr r1, =BATT               ; the switch is posted, the screen manager shows the screen later: card_frame waits for it
     strb r4, [r1, #BP_TARGET]
     ldr r2, =LM_OS_TICKS
     ldr r2, [r2]
     str r2, [r1, #BP_SWITCH]
+    mov r0, #CARD_X_KORG
     cmp r4, #1
-    moveq r1, #CARD_X_MAIN
-    movne r1, #CARD_X_KORG
+    bleq card_main_x
+    mov r1, r0
+    mov r0, r5
     ldr r4, [r0, #4]
     cmp r4, r1
-    popeq {r4, pc}
+    popeq {r4-r6, pc}
     str r1, [r0, #4]
     mov r1, #1
     strb r1, [r0, #0x14]
@@ -306,7 +300,16 @@ card_place:
     strb r1, [r0]
     mov r0, r4
     bl card_clear
-    pop {r4, pc}
+    pop {r4-r6, pc}
+
+; -> r0 = the card's x on the main screen: 94 while the percent is wanted, else Korg's 109. Clobbers r1 to r3.
+card_main_x:
+    push {lr}
+    bl battery_model
+    cmp r0, #0
+    movne r0, #CARD_X_MAIN
+    moveq r0, #CARD_X_KORG
+    pop {pc}
 
 ; r0 = a column: the six columns of the card from there cleared in page 0, row 0 kept, and marked. Clobbers r0 to r3, r12.
 card_clear:
@@ -330,7 +333,7 @@ card_clear_col:
     blx r12
     pop {r4, pc}
 
-; Once a frame: on the main screen the card sits at 94; when its columns differ from what card_frame drew last (the main screen
+; Once a frame: on the main screen the card sits where card_main_x says; at 94, when its columns differ from what card_frame drew last (the main screen
 ; cleared them with its EDIT mark, or the card came or went) it is drawn again there, only with no window, app or question of
 ; ours over the screen. Any other screen gets Korg's 109 back (card_place does it before the screen is drawn; this is the
 ; fallback, as at the first start when the menu was armed behind the main screen). Keeps r4 to r11.
@@ -368,14 +371,28 @@ card_frame_screen:
     strb r2, [r4, #0x14]
     b card_frame_out
 card_frame_main:
+    bl card_main_x
     ldr r2, [r4, #4]
-    cmp r2, #CARD_X_KORG
-    bne card_frame_check
-    mov r2, #CARD_X_MAIN
-    str r2, [r4, #4]
+    cmp r2, r0
+    beq card_frame_same
+    str r0, [r4, #4]
+    cmp r0, #CARD_X_MAIN
+    bne card_frame_back
     mov r0, #CARD_X_KORG        ; the card drawn at 109 before the move
     bl card_clear
     b card_frame_draw_check
+card_frame_back:                ; the percent gone: Korg's widget draws the card at 109 again, ours at 94 cleared
+    mov r0, #1
+    strb r0, [r4, #0x14]
+    bl load_meter_shown
+    cmp r0, #0
+    beq card_frame_out          ; a window or app over the screen: the firmware draws the screen again when it goes
+    mov r0, #CARD_X_MAIN
+    bl card_clear
+    b card_frame_out
+card_frame_same:
+    cmp r0, #CARD_X_KORG
+    beq card_frame_out
 card_frame_check:
     ldrb r0, [r4, #0x14]
     cmp r0, #0
@@ -429,14 +446,84 @@ card_frame_keep:
     blo card_frame_keep
 card_frame_out:
     pop {r4-r6, pc}
+
+; Once a frame, behind card_frame: a card whose mount stayed locked out (CARD_STUCK) gets a stroke through its symbol, one pixel
+; per inner column from the bottom left to the top right. Drawn only where the six columns hold the symbol (right edge full, inside
+; empty or already stroked), so a window, menu or app over that place is left alone. Keeps r4 to r11.
+card_stroke:
+    push {r4-r6, lr}
+    ldr r0, =MENU_STATE
+    ldr r1, [r0, #M_ON]
+    cmp r1, #1
+    ldreq r1, [r0, #M_CARD]
+    cmpeq r1, #CARD_STUCK
+    bne card_stroke_out
+    bl card_widget
+    cmp r0, #0
+    beq card_stroke_out
+    ldrb r1, [r0, #0x48]
+    cmp r1, #0
+    beq card_stroke_out
+    ldr r4, [r0, #4]
+    ldr r5, =MG_VRAM
+    add r5, r5, r4
+    ldrb r0, [r5, #5]
+    and r0, r0, #0xFE
+    cmp r0, #0xFE
+    bne card_stroke_out
+    mov r6, #0                  ; inner columns already stroked
+    mov r2, #0x40
+    mov r3, #1
+card_stroke_check:
+    ldrb r0, [r5, r3]
+    and r0, r0, #0x78
+    cmp r0, r2
+    addeq r6, r6, #1
+    cmpne r0, #0
+    bne card_stroke_out
+    mov r2, r2, lsr #1
+    add r3, r3, #1
+    cmp r3, #5
+    blo card_stroke_check
+    cmp r6, #4
+    beq card_stroke_out
+    mov r2, #0x40
+    mov r3, #1
+card_stroke_draw:
+    ldrb r0, [r5, r3]
+    orr r0, r0, r2
+    strb r0, [r5, r3]
+    mov r2, r2, lsr #1
+    add r3, r3, #1
+    cmp r3, #5
+    blo card_stroke_draw
+    mov r0, r4
+    mov r1, #0
+    add r2, r4, #5
+    mov r3, #7
+    ldr r12, =MG_MARK
+    blx r12
+    cmp r4, #CARD_X_MAIN        ; card_frame compares 94 with what it drew last: the stroke is part of it
+    bne card_stroke_out
+    ldr r1, =BATT+BP_CARD
+    mov r3, #0
+card_stroke_keep:
+    ldrb r0, [r5, r3]
+    bic r0, r0, #1
+    strb r0, [r1, r3]
+    add r3, r3, #1
+    cmp r3, #6
+    blo card_stroke_keep
+card_stroke_out:
+    pop {r4-r6, pc}
 .pool
 .align 4
 batt_percent_glyph:             ; '%' in 3 x 7, as load_meter_font, and a blank column
     .byte 0x42, 0x38, 0x84, 0x00
-; The charge in per mille at 0, 10, ... 100 percent of the way from the empty to the full threshold of BATTERY TYPE's table.
-; The share of the running time left at each point, from one discharge measured on a red with Alkali AA cells and Power Save on
-; (docs/messungen/2026-11-16-batterie-prozent.md). Measured from reading 123 down to the switch-off at 98; above 123 estimated
-; (the cells were not fresh). They must rise.
+; The charge in per mille at 0, 10, ... 100 percent of the way from empty (the table's last byte) to BP_FULL.
+; The share of the running time left at each point (raw 97 + 6.3 per step up to BP_FULL), from two runs on a red with
+; Alkali AA cells and Power Save on (docs/messungen/2026-11-16-batterie-prozent.md): fresh cells 162 down to 132 while
+; playing, old cells 123 down to the switch-off at 98 without playing; 132 to 123 estimated. They must rise.
 batt_curve:
-    .word 0, 88, 198, 341, 467, 649, 780, 857, 885, 926, 1000
+    .word 0, 97, 221, 369, 421, 488, 626, 795, 908, 974, 1000
 .align 4

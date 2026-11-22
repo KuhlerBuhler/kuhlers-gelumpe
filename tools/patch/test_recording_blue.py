@@ -21,9 +21,8 @@ class BlueRecordingTests(unittest.TestCase):
             m.uc.mem_write(at, data)
         m.symbols.update(b.symbols)
         m.uc.mem_write(MENU_STATE, bytes(512))
-        m.uc.mem_write(NATIVE_RECORDING, b'\xff' * 72)
+        m.uc.mem_write(NATIVE_RECORDING, b'\xff' * 72 + bytes([1]))    # NR_SETTING: NATIVE RECORDING ON
         m.write(MENU_STATE + b.symbols['M_ON'], 1)
-        m.uc.mem_write(MENU_STATE - 0x15, bytes([32]))
         m.uc.mem_map(b.symbols['PANEL'] & ~4095, 4096)
         m.write(b.symbols['PANEL'], m.input + 4096)
         m.uc.mem_map(SD_INPUT & ~4095, 4096)    # 0: a card is in, recording may start
@@ -57,9 +56,9 @@ class BlueRecordingTests(unittest.TestCase):
         self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_REQUEST']), 0)
 
     def test_feature_off_passes_shift_record_to_the_firmware(self):
-        from tools.patch.script_hooks import MENU_STATE
+        from tools.patch.script_hooks import MENU_STATE, NATIVE_RECORDING
         m, b = self.machine()
-        m.uc.mem_write(MENU_STATE - 0x15, bytes([0]))
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_SETTING'], bytes([0]))
         m.uc.mem_write(MENU_STATE + b.symbols['KP_SHIFT'], bytes([1]))
         self.assertEqual(self.packet(m), 0)
 
@@ -70,7 +69,7 @@ class BlueRecordingTests(unittest.TestCase):
         for field, value in [('NR_PHASE', 1), ('NR_BYTES', 48000 * 2 * 61), ('NR_NUMBER', 42)]:
             m.write(NATIVE_RECORDING + b.symbols[field], value)
         m.write(MENU_STATE + b.symbols['M_LEVEL'], b.symbols['M_LEVEL_RECORD'])
-        self.assertEqual(m.call('menu_kind', 0)[0], 65)
+        self.assertEqual(m.call('menu_kind', 0)[0], 69)
         self.assertEqual(m.call('menu_page_count')[0], 1)
         m.call('menu_texts', 0)
         read = lambda name: bytes(m.uc.mem_read(MENU_STATE + b.symbols[name], 32)).split(b'\0')[0]

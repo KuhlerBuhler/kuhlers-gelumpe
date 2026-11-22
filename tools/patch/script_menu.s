@@ -6,7 +6,6 @@
 ; neighbours), shows one page at a time and keeps all of its state in MENU_STATE.
 ; Nothing here runs before the card hook has armed the menu (M_ON == 1) and EXIT
 ; at power-on keeps it unarmed, so the firmware stays as it was.
-.equ M_LEVEL_RECORD, 9
 .equ M_ON, 0
 .equ M_PAGE, 4
 .equ M_ENTER, 8
@@ -54,12 +53,13 @@
 .equ FLAGS2_GLIDE_SWITCH, 8    ; GLIDE SWITCH on (FEATURES, script_glide.s)
 .equ FLAGS2_GLIDE, 12
 .equ FLAGS2_BATT_OFF, 16       ; BATTERY % off (DISPLAY, script_battery.s); clear is on, the default, so a file with the default stays version 3
+.equ FLAGS2_TUBE_SHIFT, 5     ; bits 5 to 7: TUBE (FEATURES, script_tube.s), 0 OFF (Korg's clipper), 1 to 7 ON at TUBE DRIVE 1 to 7
+.equ FLAGS2_TUBE, 0xE0
+.equ FLAGS2_KNOWN, 0xFF        ; the bits this firmware keeps: 0 to 4 and FLAGS2_TUBE; a bit a newer one set is dropped at the next save
 .equ NR_DEFER_SETTINGS, 1
 .equ NR_DEFER_CUSTOM, 2
 .equ M_STATUS_RECORDING, 0x58
 .equ M_STATUS_CARD_BUSY, 0x59
-.equ FLAGS2_NATIVE_RECORDING, 32
-.equ FLAGS2_KNOWN, 63          ; the bits this firmware keeps; a reserved bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
 .equ M_SPLASH_SEL, 0x100      ; the page SPLASH IMPORT: the place of the .bmp file it shows among those in KORG/blechtribe
@@ -105,7 +105,6 @@
 .equ CARD_SETTLE_IN, 15       ; 15 frames of 40 ms: a card that is still going in is not read (its detect switch bounced 0.5 s after the
                               ; first contact on the device, and the card init 0.3 s after it failed: docs/messungen/2026-11-15-karte-stecken-prellen.md)
 .equ CARD_DONE, 0xFF
-.equ CARD_NEVER, 0xFE         ; started without a card: no card is read until the next start (the first card after such a start can hang the Korg SD init)
 .equ CARD_GONE, 0x80          ; CARD_GONE + n: the card read (CARD_DONE) has been out for n frames; out for CARD_SETTLE frames it is pulled
 .equ CARD_PULL, 0xFD          ; menu_settings_load from menu_card_watch for a pulled card: the copy in the flash, no card read
 .equ CARD_WAIT, 0x100        ; CARD_WAIT and above: a card in whose mount Korg's SD init locked out, read again at this OS tick (the bit set)
@@ -121,16 +120,26 @@
 .equ MMC_CTL, 0x01C40000      ; MMC0 control: bit 2 WIDTH (4-bit bus)
 .equ MMC_CLK, 0x01C40004      ; MMC0 clock: bit 9 DIV4, bit 8 on, bits 0-7 CLKRT; 150 MHz / ((DIV4 ? 4 : 2) * (CLKRT + 1))
 .equ MMC_CLK_IDENT, 0x25D     ; 0.4 MHz, the identification clock Korg sets once at power-on, before the first card init
-; The settings in the flash, for a device without a card (menu_flash_read, menu_flash_save; written when the BLECH screen is left, autosave_leave): the record of
+; The settings in the flash, the main store, with a card as well (menu_flash_read, menu_flash_save; written when the BLECH screen is left, autosave_leave): the record of
 ; settings.a.bin (version 3 or 4), behind it the word FLASH_TAG << 16 | generation and the CRC-32 of record and word, in one of two 4 KiB
 ; sectors by the parity of the generation (odd FLASH_SET_A, even FLASH_SET_B), so a torn write leaves the other copy whole.
 ; Both sectors have no writer in the firmware and lie outside every range an update writes (docs/messungen/2026-11-13-einstellungen-flash.md).
 .equ M_FL, 0x114              ; bits 0 to 15 the generation of the newest copy in the flash, bit 16 FL_HOLD
 .equ M_FL_CRC, 0x1B4          ; menu_settings_crc of what the flash holds (of the defaults at a start without a copy)
-.equ FL_HOLD, 0x10000         ; the settings came from a card: nothing goes to the flash by itself until MENU on SAVE TO FLASH?
+.equ FL_HOLD, 0x10000         ; the settings came from a card: the flash keeps its own until a save (menu_settings_save_card) or MENU on SAVE TO FLASH?
 .equ FL_ASK, 0x20000          ; the question "SAVE TO FLASH?" of a card put in after the start is on the display (menu_ask_frame)
 .equ FL_SAVE, 0x40000         ; MENU answered the question and the flash write failed: menu_ask_frame writes again every CARD_RETRY_MS
 .equ M_FL_RETRY, 0xD8         ; FL_SAVE: the OS tick of the next try
+; TUBE: the patch tube-curve (tools/patch/tube_curve.py) puts a tube curve in place of Korg's clipper on the master output; its routine
+; reads the parameter block TUBE_PARAM, which tube_tick writes over the host port (HW_DSP_WRITE). The patch is there when the caller's
+; P0.L in the DSP boot stream in RAM (TUBE_MARK) holds the routine's address (TUBE_MARK_ON); both are per build (script_hooks.py)
+.equ M_TUBE_DRIVE, 0x1C5      ; byte: TUBE DRIVE 1 to 7, also while TUBE is OFF; 0 before a file with TUBE ON was read: TUBE_DEFAULT
+.equ M_TUBE_SENT, 0x1C6       ; byte: the TUBE field the DSP holds plus TUBE ASYM times 8 (0 OFF: the boot stream leaves the block zero)
+.equ M_TUBE_ASYM, 0x1C7       ; byte: TUBE ASYM 0 to 7 xor TUBE_ASYM_DEFAULT, as bits 5 to 7 of byte 4 of a version 5 settings file hold it (0 without one: the default)
+.equ TUBE_DEFAULT, 5
+.equ TUBE_ASYM_DEFAULT, 4    ; the TUBE ASYM a file without the field has; the field holds TUBE ASYM xor this, so the default writes no version 5
+.equ TUBE_PARAM, 0xFF803FD8   ; the 10 words the ARM writes (tools/dsp/tube_model.py PARAM): gp, then a TUBE DRIVE row of tube_rows
+.equ TUBE_ASYM_SHIFT, 5       ; byte 4 of a version 5 settings file: bits 0 to 4 the version, bits 5 to 7 TUBE ASYM
 .equ M_FL_KEY, 0x157          ; byte: the key that answered the question, set by menu_ask_input: 1 EXIT, 2 MENU
 .equ FLASH_SET_A, 0x7FD000
 .equ FLASH_SET_B, 0x7FE000
@@ -147,7 +156,10 @@
 .equ SETTINGS_SIZE, 24
 .equ SETTINGS_SIZE_V1, 20
 .equ SETTINGS_MAX, 24+4*MENU_MAX_TRUST    ; the size of each settings buffer, MENU_FILE_A and MENU_FILE_B
-.equ SETTINGS_VERSION, 4      ; the newest version read; written only when byte 7 is not 0, else version 3 (a BLECH up to 1.4.6 reads that)
+.equ SETTINGS_VERSION, 6      ; the newest version read; 6 written only when NATIVE RECORDING is ON, else 5 when TUBE ASYM is not its default, else 4 when byte 7 is not 0, else 3 (a BLECH up to 1.4.6 reads that)
+.equ SETTINGS_COUNT, 0x7F      ; byte 6 of version 4 to 6: the count of the checksums (up to MENU_MAX_TRUST)
+.equ SETTINGS_NR_ON, 0x80      ; bit 7 of byte 6 of a version 6 settings file: NATIVE RECORDING ON (FEATURES, recording_runtime.s)
+.equ NR_SETTING, 72            ; byte behind the recording context at NATIVE_RECORDING (script_hooks.py): 1 NATIVE RECORDING ON, else OFF (FF at power-on)
 .equ M_STATE_WORDS, 128
 .equ SWITCH_SCREEN, 0xC0083D28
 .equ PC_CODE, 0xC018B000        ; the patch pad-colors (tools/patch/pad_colors.py), FF where the set does not have it; its entries:
@@ -216,6 +228,9 @@
 .equ M_LEVEL_PSUB, 6          ; level 6: the pages of one plugin, opened by ENTER on its page of MANAGE PLUGINS: ACTIVE, DESCRIPTION, its own pages, REMOVE
 .equ M_LEVEL_GLOBAL, 7        ; level 7: the page PLUGIN RUNTIME, shown as the last page of the firmware's GLOBAL PARAMETERS (screen 9)
 .equ M_LEVEL_DU, 8            ; level 8: our pages of DATA UTILITY, shown behind the firmware's last function (screen 15)
+.equ M_LEVEL_SE, 9            ; level 9: the page CATEGORY, shown as page 3 of the firmware's SAMPLE EDIT (screen 38), behind RENAME
+.equ M_LEVEL_RECORD, 10       ; level 10: the native recording screen (recording_ui.s), no settings page
+.equ SE_ENTRY, 37             ; SAMPLE EDIT's screen with "press [Enter]", where its EXIT goes
 .equ MENU_RING_TAIL, 1 + HAS_SYNC   ; the page of Blechy and SYNC GROUP are pages the firmware's ring does not have (BLECH is M_COUNT)
 .equ MENU_SYNC_AT, 15         ; the counter's index of SYNC GROUP: behind the 15 pages of the Pattern menu, the Part menu's pages move up by one
 .equ GLOBAL_PAGES, 20         ; the pages of GLOBAL PARAMETERS (screen 9) and its counter "n/20"; PLUGIN RUNTIME is one more
@@ -311,6 +326,7 @@ menu_arm_end:
 ; Arms the menu and reads the settings once. A subsequent startup call leaves an armed menu intact.
 menu_arm_load:
     push {lr}
+    bl lang_arm
     ldr r0, =MENU_STATE
     ldr r0, [r0, #M_ON]
     cmp r0, #1
@@ -323,7 +339,7 @@ menu_arm_load:
     ldr r2, =SD_INPUT
     ldr r2, [r2]
     tst r2, #SD_DETECT
-    movne r1, #CARD_NEVER       ; no card at the start: menu_card_watch reads none
+    movne r1, #0                ; no card at the start: menu_card_watch reads the first one put in, as a swapped card
     bne arm_card_store
     ldr r2, =SD_INIT_LOCK       ; a card in now is read; menu_card_watch reads the next one after it is pulled, and reads once
     ldr r2, [r2]                ; more one the start's init locked out (a card still busy at power-on)
@@ -341,11 +357,11 @@ arm_card_store:
 .pool
 menu_arm_load_end:
 
-; ---- another card for the one pulled (#479), after a start with a card: its settings file is read as at the start, so every
+; ---- another card for the one pulled (#479), or the first after a start without one: its settings file is read as at the start, so every
 ; setting and the look (backlight, bottom LEDs, pad colours, display polarity) switch at once. The card switch (GPIO 4.1, as
 ; tools/patch/card_gate.py reads it) must show the card for CARD_SETTLE_IN frames in a row first. What this power-on runs with stays:
 ; the plugin runtime and MFX 2 (M_EFF_RUN, M_EFF_MFX) take a new value only at the next start, as after a change on their pages.
-; A card without a valid settings file changes nothing (menu_load_none). Settings from a card stay out of the flash (FL_HOLD) and
+; A card without a valid settings file changes nothing (menu_load_none). Settings from a card stay out of the flash until a save (FL_HOLD) and
 ; the display asks "SAVE TO FLASH?" (menu_ask_frame): MENU writes them, EXIT keeps them for this power-on only. Before the card is
 ; read, the settings that ran without a card go to the flash when it does not hold them yet (menu_flash_sync). A card whose settings
 ; are held and that is out for CARD_SETTLE frames brings back the copy in the flash (CARD_PULL), what ran before the card came.
@@ -361,9 +377,6 @@ menu_card_watch:
     ldr r0, [r4, #M_ON]
     cmp r0, #1
     bne card_watch_out
-    ldr r0, [r4, #M_CARD]
-    cmp r0, #CARD_NEVER
-    beq card_watch_out
     ldr r0, =SD_INPUT
     ldr r0, [r0]
     tst r0, #SD_DETECT
@@ -514,8 +527,50 @@ card_watch_out:
 ; Korg's ACMD41 loop (0xC001AE80, in every card init) at its call that checks the card is still in, once a round. A card that stays
 ; busy held the task doing the init (the UI task when the menu reads) for all 50000 rounds, half a minute and more on the device
 ; (docs/messungen/2026-11-15-karte-tausch-haenger.md); after CARD_INIT_MS it takes Korg's own path for the last round instead:
-; -13 and SD_INIT_LOCK. Before the menu is armed (the start) the loop runs as Korg's. Clobbers r0 to r3 and r12, as the call does.
+; -13 and SD_INIT_LOCK. Clobbers r0 to r3, r12 and lr, as the call does.
+; Korg sends CMD8 once and drops its answer; an SDHC card that missed it (lost or garbled while the card goes in, seen on the
+; device: docs/messungen/2026-11-22-karte-cmd8-verloren.md) stays busy on ACMD41 for good. Every SD_RESTART busy rounds the
+; init starts over with CMD0, CMD8 and a zero OCR as Korg's own setup does, also at the start; after SD_GIVE_UP rounds it
+; takes the out-of-rounds path.
+; Korg's ACMD41 (0xC001BE34) keeps the answer registers as the OCR even when the command failed: they still hold CMD55's R1
+; (0x00800120 seen on the device), and the next ACMD41 sends that as its voltage window. A window with none of the card's
+; voltages sends the card to the inactive state (SD spec 4.2.3), out of which only a power cycle brings it; the slot stays powered
+; while the device is off (Korg's card power calls 0xC001CA98 and 0xC001CAC0 are empty), so only pulling the card helps. After a
+; failed round the OCR goes back to 0: the next ACMD41 asks with an empty window, as Korg's first does.
+.equ SD_RESTART, 500
+.equ SD_GIVE_UP, 4000
+.equ SD_OCR, 0xC031BEA4
 acmd41_round_hook:
+    ldr r0, [fp, #-8]           ; what this round's ACMD41 returned, 0 when it went through
+    cmp r0, #0
+    ldrne r0, =SD_OCR
+    movne r1, #0
+    strne r1, [r0]
+    ldr r0, [fp, #-0xc]         ; the round, counted from 1
+    ldr r1, =SD_GIVE_UP
+    cmp r0, r1
+    ldrhs pc, =0xC001AEA4
+    mov r2, #SD_RESTART
+acmd41_restart_at:
+    cmp r0, r2
+    beq acmd41_restart
+    add r2, r2, #SD_RESTART
+    cmp r2, r1
+    blo acmd41_restart_at
+    b acmd41_timed
+acmd41_restart:
+    ldr r12, =0xC001BDE4        ; CMD0
+    blx r12
+    ldr r0, =0x1AA
+    ldr r12, =0xC001C710        ; CMD8
+    blx r12
+    mov r0, #10
+    ldr r12, =0xC001CC28        ; Korg's delay behind CMD8
+    blx r12
+    ldr r0, =SD_OCR
+    mov r1, #0
+    str r1, [r0]
+acmd41_timed:
     ldr r3, =MENU_STATE
     ldr r2, [r3, #M_ON]
     cmp r2, #1
@@ -542,8 +597,11 @@ acmd41_round:
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
 ; means the stock white, bit 28 the display inverted (no file or a version 1 file: inverted), bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes (both up to 16 checksums), version 3 24 to 280 bytes (up to
-; 64, MENU_MAX_TRUST), version 4 the same as 3. Written as version 3 while byte 7 is 0, as version 4 otherwise; versions 1 to 4 are
-; read. A BLECH up to 1.3.7 does not read version 3, one up to 1.4.6 not version 4 (it takes the other copy or the defaults).
+; 64, MENU_MAX_TRUST), version 4 the same as 3, version 5 the same as 4 with TUBE ASYM xor 4 (1 to 7) in bits 5 to 7 of byte 4 (the version is
+; bits 0 to 4), version 6 the same as 5 with NATIVE RECORDING ON in bit 7 of byte 6 (the count is bits 0 to 6). Written as version 6 while
+; NATIVE RECORDING is ON, else as version 5 while TUBE ASYM is not its default 4, else as version 4 while byte 7 is not 0, else as version 3;
+; versions 1 to 6 are read. A BLECH up to 1.3.7 does not read version 3, one up to 1.4.6 not version 4, one up to 1.4.7 not version 5, one
+; up to 1.5 not version 6 (it takes the other copy or the defaults).
 ; Called from the card hook wrapper after menu_arm, before the script loader reads M_EFF_RUN.
 menu_settings_load:
     push {r4-r8, lr}
@@ -556,8 +614,15 @@ menu_settings_load:
     ldr r0, [r4, #M_CARD]       ; the start: the generation of the flash's copy is known even when the card wins, so a flash write
     cmp r0, #CARD_PULL          ; later overwrites the older copy
     beq menu_load_pulled
+    mov r1, #0                  ; r1: the flash's copy read (0 none), r2: the card generation it was written with
+    mov r2, #0
     cmp r0, #CARD_DONE
-    blne menu_flash_read
+    beq menu_load_cards
+    bl menu_flash_read
+    movs r1, r0
+    ldrne r2, [r0, #8]
+menu_load_cards:
+    push {r1, r2}
     ldr r0, =settings_path_a
     ldr r1, =MENU_FILE_A
     bl menu_file_read
@@ -571,18 +636,31 @@ menu_settings_load:
     beq menu_load_b
     mov r7, #1                  ; r7 = 1: the settings come from the card, 0 from the flash
     cmp r8, #0
-    beq menu_load_apply
+    beq menu_load_card_pick
     ldr r1, [r0, #8]
     ldr r3, =MENU_FILE_B
     ldr r2, [r3, #8]
     cmp r2, r1
     movhi r0, r3
-    b menu_load_apply
+    b menu_load_card_pick
 menu_load_b:
     cmp r8, #0
+    addeq sp, sp, #8
     beq menu_load_none
     mov r7, #1
     ldr r0, =MENU_FILE_B
+; The card wins at the start, unless its newest file has the card generation the flash's copy was written with: then the card
+; is that copy's card, only older (a change while it could not be written: a start without a card, #518), and the flash wins.
+; The next save writes the card again (the generation after it). A card written elsewhere has another generation and wins.
+menu_load_card_pick:
+    pop {r1, r2}
+    cmp r1, #0
+    beq menu_load_apply
+    ldr r3, [r0, #8]
+    cmp r3, r2
+    bne menu_load_apply
+    bl menu_flash_read          ; the flash's copy again (the card's files took its buffers)
+    mov r7, #0
 menu_load_apply:
     ldr r1, [r0, #8]
     str r1, [r4, #M_GEN]
@@ -592,6 +670,19 @@ menu_load_apply:
     movlo r1, #0
     and r1, r1, #FLAGS2_KNOWN
     strb r1, [r4, #MX_FLAGS2]
+    movs r1, r1, lsr #FLAGS2_TUBE_SHIFT   ; TUBE ON: its TUBE DRIVE; OFF keeps the one of this power-on
+    strbne r1, [r4, #M_TUBE_DRIVE]
+    ldrb r1, [r0, #4]           ; TUBE ASYM: bits 5 to 7 of byte 4 of version 5 and 6 (menu_record_check let only those versions have them)
+    mov r1, r1, lsr #TUBE_ASYM_SHIFT
+    strb r1, [r4, #M_TUBE_ASYM]
+    ldrb r1, [r0, #4]           ; NATIVE RECORDING: bit 7 of byte 6 of version 6, OFF in older versions
+    and r1, r1, #0x1F
+    cmp r1, #6
+    ldrbeq r1, [r0, #6]
+    movne r1, #0
+    mov r1, r1, lsr #7
+    ldr r2, =NATIVE_RECORDING
+    strb r1, [r2, #NR_SETTING]
     ldr r1, [r0, #12]
     and r2, r1, #1
     str r2, [r4, #M_SET_RUN]
@@ -719,6 +810,7 @@ menu_load_meter:
     bl menu_pc_call
     pop {r0-r3}
     ldrb r1, [r0, #6]
+    and r1, r1, #SETTINGS_COUNT ; version 6 keeps NATIVE RECORDING in bit 7
     str r1, [r4, #M_TRUST_N]
     ldr r2, =MENU_TRUST
     ldrb r3, [r0, #4]
@@ -844,18 +936,22 @@ menu_flash_read_take:
 menu_flash_read_out:
     pop {r6-r8, pc}
 
-; r0 = a copy of FLASH_SET_LEN bytes from the flash -> r0 = 0x10000 | its generation when it is a whole record of version 3 or 4
-; with tag and checksum, 0 otherwise (erased flash, a torn write). r5 = card scratch. Keeps r4 to r11.
+; r0 = a copy of FLASH_SET_LEN bytes from the flash -> r0 = 0x10000 | its generation when it is a whole record of version 3, 4 or
+; 5 with tag and checksum, 0 otherwise (erased flash, a torn write). r5 = card scratch. Keeps r4 to r11.
 menu_flash_check:
     push {r4, r6, r7, lr}
     mov r7, r0
     ldrb r0, [r7, #4]
+    and r0, r0, #0x1F           ; version 5 and 6: TUBE ASYM in bits 5 to 7 (menu_record_check checks them)
     sub r0, r0, #3
-    cmp r0, #1
+    cmp r0, #3
     bhi menu_flash_check_fail
-    ldrb r1, [r7, #7]           ; version 3: the high byte of the count; version 4: the second flag byte, the count is byte 6 alone
-    moveq r1, #0
+    ldrb r1, [r7, #7]           ; version 3: the high byte of the count; version 4 to 6: the second flag byte, the count is byte 6 alone
+    cmp r0, #0
+    movne r1, #0
+    cmp r0, #3                  ; version 6: bit 7 of byte 6 is NATIVE RECORDING
     ldrb r0, [r7, #6]
+    andeq r0, r0, #SETTINGS_COUNT
     orr r0, r0, r1, lsl #8
     cmp r0, #MENU_MAX_TRUST
     bhi menu_flash_check_fail
@@ -931,7 +1027,12 @@ menu_record_body:
     ldrb r1, [r7, #5]
     bics r1, r1, #0xFF          ; byte 5: only bit 0 (LOUD RAINBOW), bit 1 (STILL OFF), bit 2 (STEREO 1 PAD OFF), bit 3 (LAST PATTERN OFF), bit 4 (KEY PADS OFF), bit 5 (FILTER TOGGLE OFF), bit 6 (KNOB LEDS OFF) and bit 7 (AUTO SAVE OFF) may be set
     bne menu_read_fail
-    sub r0, r0, #1              ; version 1, 2, 3 or 4
+    movs r1, r0, lsr #TUBE_ASYM_SHIFT   ; bits 5 to 7 of byte 4: TUBE ASYM, only in version 5 and 6
+    and r0, r0, #0x1F
+    cmpne r0, #5
+    cmpne r0, #6
+    bne menu_read_fail
+    sub r0, r0, #1              ; version 1 to 6
     cmp r0, #SETTINGS_VERSION-1
     bhi menu_read_fail
     cmp r0, #0
@@ -941,9 +1042,11 @@ menu_record_body:
     movhs r3, #MENU_MAX_TRUST
     movlo r3, #MENU_MAX_TRUST_V2
     ldrb r1, [r7, #7]
-    cmp r0, #3                  ; version 4: byte 7 is the second flag byte, the count is byte 6 alone
+    cmp r0, #3                  ; version 4 to 6: byte 7 is the second flag byte, the count is byte 6 alone
     movhs r1, #0
+    cmp r0, #5                  ; version 6: bit 7 of byte 6 is NATIVE RECORDING
     ldrb r0, [r7, #6]
+    andeq r0, r0, #SETTINGS_COUNT
     orr r0, r0, r1, lsl #8
     cmp r0, r3
     bhi menu_read_fail
@@ -979,21 +1082,42 @@ menu_settings_save:
     bl nr_card_busy
     pop {lr}
     bne menu_settings_save_card
-    ldr r0, =SD_INPUT           ; no card: the flash takes them (M_STATUS 0x45 written, 0x46 not), unless they came from a card (FL_HOLD),
-    ldr r0, [r0]                ; then the card's error stays, only MENU on the question SAVE TO FLASH? takes them
+    ldr r0, =SD_INPUT           ; no card: the flash takes them (M_STATUS 0x45 written, 0x46 not); held settings of a pulled card try the
+    ldr r0, [r0]                ; card first, as with a card
     tst r0, #SD_DETECT
-    bne menu_save_no_card
-    ldr r0, =MENU_STATE
-    ldr r0, [r0, #M_CARD]
-    cmp r0, #CARD_NEVER         ; a card put in after a start without one is never touched (#518): the flash, as without a card
-    bne menu_settings_save_card
+    beq menu_settings_save_card
 menu_save_no_card:
     ldr r0, =MENU_STATE
     ldr r0, [r0, #M_FL]
     tst r0, #FL_HOLD
     beq menu_flash_save_status
+; With a card the file is written first, then the flash, the main store (the card is a copy to carry): only when what runs is not
+; what the flash holds (FL_HOLD, or a checksum other than M_FL_CRC), so a save without a change erases nothing. A flash write that
+; fails is tried again (FL_SAVE, menu_ask_frame). M_STATUS stays the card's, or the flash's when the card failed.
 menu_settings_save_card:
+    push {r4-r6, lr}
     mov r0, #0
+    bl menu_settings_write
+    ldr r4, =MENU_STATE
+    ldr r5, [r4, #M_STATUS]
+    ldr r0, [r4, #M_FL]
+    tst r0, #FL_HOLD
+    bne menu_save_card_flash
+    bl menu_settings_crc
+    ldr r1, [r4, #M_FL_CRC]
+    cmp r0, r1
+    popeq {r4-r6, pc}
+menu_save_card_flash:
+    bl menu_flash_save_status
+    ldr r0, [r4, #M_STATUS]
+    cmp r0, #0x46
+    ldreq r0, [r4, #M_FL]
+    orreq r0, r0, #FL_SAVE
+    streq r0, [r4, #M_FL]
+    cmp r5, #1
+    streq r5, [r4, #M_STATUS]
+    pop {r4-r6, pc}
+; r0 = 0: the settings file on the card, as above.
 ; r0 = 1: EXPORT ALL CUSTOMIZATIONS, the same record without the plugin checksums as KORG/blechtribe/e2sCustom.all; the
 ; generation stays, M_STATUS 0x53 when written. Nothing reads that file yet: copied over settings.a.bin it is read as settings.
 ; r0 = 2 (menu_settings_crc): writes nothing and returns the CRC of the record without generation and plugin checksums.
@@ -1045,6 +1169,17 @@ menu_save_sp_done:
     cmp r0, #0                  ; version 4 only with a bit in byte 7: without one the record is a version 3 file
     moveq r0, #3
     movne r0, #4
+    ldrb r1, [r4, #M_TUBE_ASYM] ; version 5 only with TUBE ASYM off its default: bits 5 to 7 of byte 4 (TUBE ASYM xor 4)
+    cmp r1, #0
+    movne r0, #5
+    ldr r2, =NATIVE_RECORDING   ; version 6 only with NATIVE RECORDING ON: bit 7 of byte 6
+    ldrb r2, [r2, #NR_SETTING]
+    cmp r2, #1
+    moveq r0, #6
+    ldrbeq r2, [r7, #6]
+    orreq r2, r2, #SETTINGS_NR_ON
+    strbeq r2, [r7, #6]
+    orr r0, r0, r1, lsl #TUBE_ASYM_SHIFT
     strb r0, [r7, #4]
     ldr r8, [r4, #M_GEN]
     cmp r11, #0
@@ -1838,6 +1973,8 @@ menu_counter_fix:
     cmp r2, #GLOBAL_PAGES
     addeq r2, r2, #1
     bxeq lr
+    cmp r2, #SE_PAGES
+    beq menu_counter_se
     cmp r2, #DU_PAGES
     beq menu_counter_du
     cmp r2, #MENU_RING_TOTAL
@@ -2634,6 +2771,11 @@ menu_show:
 menu_orig_flag:
     push {r4, r5, lr}
     mov r4, r0
+    sub r0, r4, #64
+    cmp r0, #2
+    bls menu_orig_tube
+    cmp r4, #68
+    beq menu_orig_nr
     ldr r5, =orig_masks
 menu_orig_find:
     ldrb r0, [r5]
@@ -2673,6 +2815,54 @@ menu_orig_find:
     pop {r4, r5, pc}
 menu_orig_no:
     mov r0, #0
+    pop {r4, r5, pc}
+; TUBE (64): ON or OFF as stored; TUBE DRIVE (65): the step the page shows (M_TUBE_DRIVE, the default before one was set) as stored,
+; the default when the file holds TUBE OFF (a step set while OFF is not kept); TUBE ASYM (66): bits 5 to 7 of byte 4
+menu_orig_tube:
+    ldr r1, =MENU_FILE_B
+    cmp r4, #66
+    beq menu_orig_tube_asym
+    ldrb r3, [r1, #7]
+    movs r3, r3, lsr #FLAGS2_TUBE_SHIFT
+    cmp r4, #64
+    ldr r1, =MENU_STATE
+    beq menu_orig_tube_on
+    cmp r3, #0
+    moveq r3, #TUBE_DEFAULT
+    ldrb r2, [r1, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+    b menu_orig_tube_cmp
+menu_orig_tube_on:
+    ldrb r2, [r1, #MX_FLAGS2]
+    ands r2, r2, #FLAGS2_TUBE
+    movne r2, #1
+    cmp r3, #0
+    movne r3, #1
+    b menu_orig_tube_cmp
+menu_orig_tube_asym:
+    ldrb r3, [r1, #4]
+    mov r3, r3, lsr #TUBE_ASYM_SHIFT
+    ldr r1, =MENU_STATE
+    ldrb r2, [r1, #M_TUBE_ASYM]
+    b menu_orig_tube_cmp
+; NATIVE RECORDING (68): NR_SETTING against bit 7 of byte 6 of a version 6 file
+menu_orig_nr:
+    ldr r1, =MENU_FILE_B
+    ldrb r3, [r1, #4]
+    and r3, r3, #0x1F
+    cmp r3, #6
+    ldrbeq r3, [r1, #6]
+    movne r3, #0
+    mov r3, r3, lsr #7
+    ldr r1, =NATIVE_RECORDING
+    ldrb r2, [r1, #NR_SETTING]
+    cmp r2, #1
+    movne r2, #0
+menu_orig_tube_cmp:
+    cmp r2, r3
+    moveq r0, #1
+    movne r0, #0
     pop {r4, r5, pc}
 .pool
 ; per kind (menu_texts_fill): the kind, the bits of byte 5, the bits of byte 7, then the bits of the flags word and of the look word of the settings record
@@ -2744,8 +2934,6 @@ orig_masks:
     .byte 62, 0, FLAGS2_GLIDE_SWITCH, 0 ; GLIDE SWITCH: bit 3 of byte 7
     .word 0, 0
     .byte 63, 0, FLAGS2_BATT_OFF, 0 ; BATTERY %: bit 4 of byte 7, set is OFF
-    .word 0, 0
-    .byte 64, 0, FLAGS2_NATIVE_RECORDING, 0
     .word 0, 0
     .byte 0xFF, 0, 0, 0
 
@@ -3207,6 +3395,9 @@ menu_tab_go:
     ldreq r1, =str_tab_global
     cmp r2, #M_LEVEL_DU
     ldreq r1, =str_tab_du
+    cmp r2, #M_LEVEL_SE         ; CATEGORY carries SAMPLE EDIT's own tab, the firmware's text
+    ldreq r1, =se_tab
+    ldreq r1, [r1]
     cmp r2, #M_LEVEL_SYNC       ; SYNC GROUP is a page of the pattern: its tab says so
     ldreq r1, =str_tab_pattern
     ldr r0, [r5, #M_TABW]
@@ -3225,7 +3416,7 @@ menu_texts_clear:
     subs r2, r2, #1
     bpl menu_texts_clear
     bl menu_kind
-    cmp r0, #65
+    cmp r0, #69
     beq nr_menu_text
     mov r7, r1
     cmp r0, #0
@@ -3317,11 +3508,18 @@ menu_texts_clear:
     beq menu_text_batt
     cmp r0, #61
     cmpne r0, #62
-    cmpne r0, #64
-    beq menu_text_flag2
+    beq menu_text_glide
+    cmp r0, #68
+    beq menu_text_nr
     cmp r0, #57
     cmpne r0, #58
     beq menu_text_anim
+    cmp r0, #64
+    cmpne r0, #65
+    cmpne r0, #66
+    beq menu_text_tube
+    cmp r0, #67
+    beq menu_text_se
     cmp r0, #7
     bhs menu_text_look
     pop {r4, r5, r6, r7, pc}
@@ -3854,6 +4052,42 @@ menu_text_ft:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
+; TUBE (r0 = 64): the tube curve of the patch tube-curve in place of Korg's clipper on the master output, bits 5 to 7 of byte 7
+; (MX_FLAGS2), 0 OFF; TUBE DRIVE (65): how hard the output drives the curve, 1 to 7, kept while TUBE is OFF (M_TUBE_DRIVE); TUBE ASYM
+; (66): how much softer the positive half is, 0 to 7 (M_TUBE_ASYM)
+menu_text_tube:
+    mov r6, r0
+    mov r0, #3
+    bl menu_title_prefix
+    cmp r6, #64
+    ldreq r1, =str_tube
+    ldrne r1, =str_tube_drive
+    cmp r6, #66
+    ldreq r1, =str_tube_asym
+    bl menu_copy
+    add r0, r5, #M_VALUE
+    ldrb r2, [r5, #MX_FLAGS2]
+    cmp r6, #66
+    ldrbeq r2, [r5, #M_TUBE_ASYM]
+    eoreq r2, r2, #TUBE_ASYM_DEFAULT
+    beq menu_text_tube_digit
+    cmp r6, #64
+    bne menu_text_tube_drive
+    ldr r1, =str_off
+    tst r2, #FLAGS2_TUBE
+    ldrne r1, =str_on
+    bl menu_copy
+    b menu_text_look_line3
+menu_text_tube_drive:
+    ldrb r2, [r5, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+menu_text_tube_digit:
+    add r2, r2, #0x30          ; '0'
+    strb r2, [r0]
+    mov r2, #0
+    strb r2, [r0, #1]
+    b menu_text_look_line3
 ; KNOB LEDS: whether the LEDs behind the knobs light as the firmware wants (ON) or stay dark (OFF), in the patch pad-colors
 menu_text_knob:
     mov r0, #3
@@ -3895,7 +4129,7 @@ menu_text_idle:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
-; BATTERY %: the battery's charge in steps of 10 next to LOAD METER, on battery with Alkali (script_battery.s); bit 4 of byte 7
+; BATTERY %: the battery's charge in whole percent next to LOAD METER, on battery with Alkali (script_battery.s); bit 4 of byte 7
 ; (MX_FLAGS2) set is OFF, so ON, the default, keeps byte 7 at 0
 menu_text_batt:
     mov r0, #3
@@ -3909,28 +4143,35 @@ menu_text_batt:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
-; FLAGS2 features whose set bit means ON: GLIDE CHAIN, GLIDE SWITCH and NATIVE RECORDING.
-menu_text_flag2:
+; GLIDE CHAIN (r0 = 61) and GLIDE SWITCH (62): the tempo glides to the next pattern's (script_glide.s), bits 2 and 3 of byte 7
+menu_text_glide:
     mov r6, r0
     mov r0, #3
     bl menu_title_prefix
     cmp r6, #61
     ldreq r1, =str_glide_chain
     ldrne r1, =str_glide_switch
-    cmp r6, #64
-    ldreq r1, =str_native_recording
-    cmp r6, #61
     moveq r6, #FLAGS2_GLIDE_CHAIN
-    beq menu_text_flag2_copy
-    cmp r6, #64
-    moveq r6, #FLAGS2_NATIVE_RECORDING
     movne r6, #FLAGS2_GLIDE_SWITCH
-menu_text_flag2_copy:
     bl menu_copy
     ldrb r2, [r5, #MX_FLAGS2]
     ldr r1, =str_off
     tst r2, r6
     ldrne r1, =str_on
+    add r0, r5, #M_VALUE
+    bl menu_copy
+    b menu_text_look_line3
+; NATIVE RECORDING (r0 = 68): SHIFT + REC offers RECORD (recording_ui.s), NR_SETTING, bit 7 of byte 6 of a version 6 file
+menu_text_nr:
+    mov r0, #3
+    bl menu_title_prefix
+    ldr r1, =str_native_recording
+    bl menu_copy
+    ldr r2, =NATIVE_RECORDING
+    ldrb r2, [r2, #NR_SETTING]
+    cmp r2, #1
+    ldrne r1, =str_off
+    ldreq r1, =str_on
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
@@ -4528,12 +4769,13 @@ menu_confirm_add:
 ; himself (the frame hook opens and closes him by this level). Level 4 (M_LEVEL_SYNC) is the page SYNC GROUP between the Pattern and
 ; the Part menu: a setting of the pattern in RAM, saved with WRITE as the Pattern menu's pages. Levels 7 (M_LEVEL_GLOBAL, PLUGIN
 ; RUNTIME) and 8 (M_LEVEL_DU, the exports and SET INIT PATTERN) look like pages of GLOBAL PARAMETERS and DATA UTILITY: EDIT moves
-; between them and the firmware's pages, EXIT goes where the firmware's EXIT goes there.
+; between them and the firmware's pages, EXIT goes where the firmware's EXIT goes there. Level 9 (M_LEVEL_SE, CATEGORY) looks like
+; page 3 of SAMPLE EDIT, behind RENAME (script_sample_edit.s): EDIT goes back to the firmware's pages, EXIT to its entry screen.
 ; r0 = page -> r0 = kind (0 plugins runtime setting, 1 MFX 2 setting, 3 EXPORT ALL PLUGINS, 2, 4 and 5 unused, 6 a page a plugin
 ; added, 7 bottom LED mode, 8 LED red, 9 green, 10 blue, 11 backlight red, 12 green, 13 blue, 14 display invert, 15 an app,
 ; 16 a group in the list of level 1, 17 the page BLECH of level 0, 18 pattern confirm, 19 the page of Blechy, 20 TAP MOTION, 21 NOTE ASSIST, 33 SYNC GROUP of level 4,
 ; 36 a plugin of MANAGE PLUGINS, 37 REMOVE, 38 MANAGE PLUGINS, 39 DESCRIPTION, 40 SET INIT PATTERN, 41 VERSION, 42 EXPORT ALL
-; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE, 61 GLIDE CHAIN, 62 GLIDE SWITCH, 63 BATTERY %; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
+; CUSTOMIZATIONS, 43 EXPORT ALL EFFECTS, 44 STEREO 1 PAD, 45 LAST PATTERN, 47 LIST FULL, 48 KEY PADS, 49 FILTER TOGGLE, 51 AUTO SAVE, 52 ACTIVE, 53 KNOB LEDS, 55 USER SAMPLES, 56 DEV MODE, 57 LOADING ANIM, 58 ANIM LOOP, 59 LOAD METER, 60 IDLE SAVE, 61 GLIDE CHAIN, 62 GLIDE SWITCH, 63 BATTERY %, 64 TUBE, 65 TUBE DRIVE, 66 TUBE ASYM, 67 CATEGORY of level 9; 50 was HT OSC, 54 the row SAVE TO FLASH (taken out, the flash takes the settings by itself), 46 the page OFF of a plugin), r1 = its index (the plugin, the page, the app's table index, the group). Keeps r4 to r8.
 menu_kind:
     push {r4, r5, lr}
     ldr r4, =MENU_STATE
@@ -4541,7 +4783,7 @@ menu_kind:
     mov r5, r0
     mov r1, #0
     cmp r2, #M_LEVEL_RECORD
-    moveq r0, #65
+    moveq r0, #69
     beq menu_kind_done
     cmp r2, #M_LEVEL_BLECHY
     moveq r0, #19
@@ -4554,6 +4796,9 @@ menu_kind:
     beq menu_kind_done
     cmp r2, #M_LEVEL_DU
     beq menu_kind_du
+    cmp r2, #M_LEVEL_SE
+    moveq r0, #67
+    beq menu_kind_done
     cmp r2, #M_LEVEL_PLUGIN
     beq menu_kind_list
     cmp r2, #M_LEVEL_PSUB
@@ -4635,14 +4880,14 @@ menu_kind_sub:
     mov r1, #0
     b menu_kind_done
 menu_kind_features:
-    bl menu_page_count          ; KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them
+    bl menu_page_count          ; KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH are the last pages, behind LAST PATTERN and STEREO 1 PAD where the set has them, and TUBE, TUBE DRIVE and TUBE ASYM right before them where it has tube-curve
     mov r1, #0
     mov r2, #NR_SUPPORTED
     cmp r2, #0
     beq menu_kind_glide
     sub r0, r0, #1
     cmp r5, r0
-    moveq r0, #64
+    moveq r0, #68
     beq menu_kind_done
 menu_kind_glide:
     sub r0, r0, #1
@@ -4665,6 +4910,22 @@ menu_kind_glide:
     cmp r5, r0
     moveq r0, #48
     beq menu_kind_done
+    mov r2, r0
+    bl tube_patched
+    bne menu_kind_ft_head
+    sub r0, r2, #1
+    cmp r5, r0
+    moveq r0, #66
+    beq menu_kind_done
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #65
+    beq menu_kind_done
+    sub r0, r0, #1
+    cmp r5, r0
+    moveq r0, #64
+    beq menu_kind_done
+menu_kind_ft_head:
     mov r0, #21
     cmp r5, #4
     moveq r0, #45               ; LAST PATTERN where the set has it, STEREO 1 PAD behind it (or at 4 without LAST PATTERN)
@@ -4728,6 +4989,92 @@ menu_kind_done:
     pop {r4, r5, pc}
 .pool
 
+; -> r0 = 1 and Z set when the set has the patch tube-curve (TUBE_MARK holds TUBE_MARK_ON), else r0 = 0 and Z clear. Keeps r1 to r12.
+tube_patched:
+    push {r1, lr}
+    ldr r1, =TUBE_MARK
+    ldrb r0, [r1]
+    ldrb r1, [r1, #1]
+    orr r0, r0, r1, lsl #8
+    ldr r1, =TUBE_MARK_ON
+    cmp r0, r1
+    moveq r0, #1
+    movne r0, #0
+    pop {r1, pc}
+; Called from the frame hook past the first main screen (UI task, from where Korg's part edits write the DSP over the host port as
+; well, the DSP runs by then): sends the parameter block of the TUBE field of byte 7 (MX_FLAGS2) and TUBE ASYM to TUBE_PARAM when
+; they are not the ones sent last (M_TUBE_SENT), so a page's change sounds the next frame and a start with TUBE ON sends its block
+; once. The block: gp (the gain of the positive half, g times the TUBE ASYM factor), then the row of tube_rows; all 0 for OFF.
+; Nothing without the patch tube-curve. Clobbers r0 to r3 and r12.
+tube_tick:
+    push {r4, lr}
+    ldr r4, =MENU_STATE
+    ldr r0, [r4, #M_ON]
+    cmp r0, #1
+    popne {r4, pc}
+    bl tube_patched
+    popne {r4, pc}
+    ldrb r1, [r4, #MX_FLAGS2]
+    mov r1, r1, lsr #FLAGS2_TUBE_SHIFT
+    ldrb r2, [r4, #M_TUBE_ASYM]
+    eor r2, r2, #TUBE_ASYM_DEFAULT
+    cmp r1, #0                  ; OFF sends the zero block whatever TUBE ASYM is: one key, so a start with TUBE OFF sends nothing
+    moveq r2, #0
+    orr r3, r1, r2, lsl #3
+    ldrb r0, [r4, #M_TUBE_SENT]
+    cmp r0, r3
+    popeq {r4, pc}
+    strb r3, [r4, #M_TUBE_SENT]
+    sub sp, sp, #40
+    mov r0, #0
+    mov r3, #40
+tube_tick_clear:
+    subs r3, r3, #4
+    str r0, [sp, r3]
+    bne tube_tick_clear
+    cmp r1, #0
+    beq tube_tick_send
+    ldr r3, =tube_asym
+    ldr r2, [r3, r2, lsl #2]    ; the TUBE ASYM factor, Q15
+    ldr r3, =tube_rows
+    sub r1, r1, #1
+    mov r0, #36
+    mla r3, r0, r1, r3          ; the row of this TUBE DRIVE
+    ldr r0, [r3, #4]            ; g, high half
+    mov r0, r0, lsr #16
+    mul r0, r2, r0
+    mov r0, r0, lsr #15
+    mov r0, r0, lsl #16
+    str r0, [sp]                ; gp
+    mov r1, #36
+tube_tick_copy:
+    subs r1, r1, #4
+    ldr r0, [r3, r1]
+    add r2, sp, #4
+    str r0, [r2, r1]
+    bne tube_tick_copy
+tube_tick_send:
+    ldr r0, =TUBE_PARAM         ; the DSP address, the source, 20 halfwords
+    mov r1, sp
+    mov r2, #20
+    ldr r12, =HW_DSP_WRITE
+    blx r12
+    add sp, sp, #40
+    pop {r4, pc}
+.pool
+; the row per TUBE DRIVE 1 to 7: a, g, shift, e, q7, q5, q3, q1, on (tools/dsp/tube_model.py row(); test_tube_curve.py compares)
+tube_rows:
+    .word 0x703D0000, 0x45300000, 0xFFFFFFFE, 0x00000004, 0x0E030000, 0xE58DFEE8, 0xF79763A9, 0x3B5D1D16, 0x00000001   ; TUBE DRIVE 1
+    .word 0x6B850000, 0x6EB40000, 0xFFFFFFFE, 0x00000003, 0x11990000, 0xDEC87B93, 0xF5703244, 0x4A907459, 0x00000001   ; TUBE DRIVE 2
+    .word 0x67140000, 0x59F20000, 0xFFFFFFFF, 0x00000002, 0x16060000, 0xD66FB35D, 0xF2C8C75D, 0x5D4D0AD5, 0x00000001   ; TUBE DRIVE 3
+    .word 0x61AC0000, 0x45300000, 0x00000000, 0x00000002, 0x0F150000, 0xE388B415, 0xF6F2E8D5, 0x3FE65112, 0x00000001   ; TUBE DRIVE 4
+    .word 0x5D6E0000, 0x6EB40000, 0x00000000, 0x00000001, 0x177D0000, 0xD3AAD57A, 0xF1E762A8, 0x6384494A, 0x00000001   ; TUBE DRIVE 5
+    .word 0x58980000, 0x567D0000, 0x00000001, 0x00000001, 0x17470000, 0xD4108689, 0xF207B835, 0x62A00305, 0x00000001   ; TUBE DRIVE 6
+    .word 0x53150000, 0x45300000, 0x00000002, 0x00000001, 0x17470000, 0xD4108689, 0xF207B835, 0x62A00305, 0x00000001   ; TUBE DRIVE 7
+; the TUBE ASYM factor of the positive half, 0 to 7, Q15 (tools/dsp/tube_model.py ASYM_K)
+tube_asym:
+    .word 0x8000, 0x7A3D, 0x747B, 0x6EB8, 0x68F6, 0x6333, 0x5D71, 0x57AE
+
 ; Our pages of DATA UTILITY, in this order where the build has them: EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS, EXPORT ALL
 ; EFFECTS (the Sampler builds, they have the effect collection), SET INIT PATTERN (where the set has the patch init-pattern).
 ; -> r0 = a mask, bit n set when the page of du_kinds[n] is there. Clobbers r1.
@@ -4785,6 +5132,7 @@ menu_page_count:
     cmp r1, #M_LEVEL_BLECHY
     cmpne r1, #M_LEVEL_SYNC
     cmpne r1, #M_LEVEL_GLOBAL
+    cmpne r1, #M_LEVEL_SE
     cmpne r1, #M_LEVEL_RECORD
     cmpne r1, #0
     bne menu_count_level1
@@ -4861,7 +5209,11 @@ menu_count_led:
 menu_count_list:
     cmp r1, #3
     bls menu_count_apps
-    mov r0, #9+NR_SUPPORTED     ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH, LAST PATTERN and STEREO 1 PAD where the set has their patches
+    mov r0, #9+NR_SUPPORTED     ; FEATURES: the four switches, KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH, NATIVE RECORDING where the runtime has it, LAST PATTERN and STEREO 1 PAD where the set has their patches, TUBE, TUBE DRIVE and TUBE ASYM (before KEY PADS) where it has tube-curve
+    mov r1, r0
+    bl tube_patched
+    addeq r1, r1, #3
+    mov r0, r1
     ldr r1, =LP_CODE
     ldr r1, [r1]
     cmn r1, #1
@@ -4935,6 +5287,10 @@ menu_counter_args:
     cmp r1, #M_LEVEL_GLOBAL
     moveq r1, #GLOBAL_PAGES
     moveq r2, #GLOBAL_PAGES+1
+    popeq {pc}
+    cmp r1, #M_LEVEL_SE
+    moveq r1, #2
+    moveq r2, #SE_PAGES+1
     popeq {pc}
     cmp r1, #M_LEVEL_DU
     bne menu_counter_level
@@ -6392,6 +6748,9 @@ menu_slot_prev:
     beq menu_prev_global
     cmp r3, #M_LEVEL_DU
     beq menu_prev_du
+    cmp r3, #M_LEVEL_SE
+    moveq r1, #1
+    beq menu_se_page
     cmp r3, #0
     bne menu_prev_wrap
     pop {r4, lr}
@@ -6481,6 +6840,8 @@ menu_slot_next:
     cmp r3, #M_LEVEL_DU
     moveq r1, #0
     beq menu_du_function
+    cmp r3, #M_LEVEL_SE
+    beq menu_se_next
     cmp r3, #0
     beq menu_next_leave
     mov r1, #0
@@ -6570,15 +6931,24 @@ menu_slot_value:
     beq menu_value_idle
     cmp r0, #63
     beq menu_value_batt
+    cmp r0, #67
+    beq menu_value_se
     cmp r0, #61
     cmpne r0, #62
-    cmpne r0, #64
-    beq menu_value_flag2
+    beq menu_value_glide
+    cmp r0, #68
+    beq menu_value_nr
     cmp r0, #56
     beq menu_value_dev
     cmp r0, #57
     cmpne r0, #58
     beq menu_value_anim
+    cmp r0, #64
+    beq menu_value_tube
+    cmp r0, #65
+    beq menu_value_tube_drive
+    cmp r0, #66
+    beq menu_value_tube_asym
     cmp r0, #24
     beq menu_value_colour
     cmp r0, #25
@@ -6826,6 +7196,23 @@ menu_value_lm:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
+; TUBE acts at once (tube_tick sends the block the next frame), WRITE keeps it: ON takes TUBE DRIVE, OFF keeps TUBE DRIVE
+menu_value_tube:
+    ldrb r1, [r6, #MX_FLAGS2]
+    bic r1, r1, #FLAGS2_TUBE
+    cmp r5, #0
+    ble menu_value_tube_store
+menu_value_tube_on:
+    ldrb r2, [r6, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+    strb r2, [r6, #M_TUBE_DRIVE]
+    orr r1, r1, r2, lsl #FLAGS2_TUBE_SHIFT
+menu_value_tube_store:
+    strb r1, [r6, #MX_FLAGS2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
 ; IDLE SAVE acts at once (OFF wakes at the next frame), WRITE keeps it: ON up, OFF down
 menu_value_idle:
     ldrb r1, [r6, #MX_FLAGS2]
@@ -6846,18 +7233,26 @@ menu_value_batt:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
-; FLAGS2 features: ON up, OFF down; WRITE keeps them.
-menu_value_flag2:
+; GLIDE CHAIN and GLIDE SWITCH act at once (the frame follows the switch), WRITE keeps them: ON up, OFF down
+menu_value_glide:
     cmp r0, #61
     moveq r2, #FLAGS2_GLIDE_CHAIN
     movne r2, #FLAGS2_GLIDE_SWITCH
-    cmp r0, #64
-    moveq r2, #FLAGS2_NATIVE_RECORDING
     ldrb r1, [r6, #MX_FLAGS2]
     cmp r5, #0
     orrgt r1, r1, r2
     bicle r1, r1, r2
     strb r1, [r6, #MX_FLAGS2]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; NATIVE RECORDING (68): ON up, OFF down, a start reads it (recording_runtime.s:nr_enabled); WRITE keeps it in bit 7 of byte 6 (version 6)
+menu_value_nr:
+    ldr r1, =NATIVE_RECORDING
+    cmp r5, #0
+    movgt r2, #1
+    movle r2, #0
+    strb r2, [r1, #NR_SETTING]
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
@@ -6917,6 +7312,36 @@ menu_value_dev:
     ldrgt r2, =DEV_MAGIC
     mvnle r2, #0
     str r2, [r1]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; TUBE DRIVE: 1 to 7, at once while TUBE is ON, else for the next ON
+menu_value_tube_drive:
+    ldrb r2, [r6, #M_TUBE_DRIVE]
+    cmp r2, #0
+    moveq r2, #TUBE_DEFAULT
+    adds r2, r2, r5
+    movle r2, #1
+    cmp r2, #7
+    movgt r2, #7
+    strb r2, [r6, #M_TUBE_DRIVE]
+    ldrb r1, [r6, #MX_FLAGS2]
+    tst r1, #FLAGS2_TUBE
+    bic r1, r1, #FLAGS2_TUBE
+    bne menu_value_tube_on
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; TUBE ASYM: 0 to 7, tube_tick sends it the next frame (with TUBE ON)
+menu_value_tube_asym:
+    ldrb r2, [r6, #M_TUBE_ASYM]
+    eor r2, r2, #TUBE_ASYM_DEFAULT
+    adds r2, r2, r5
+    movmi r2, #0
+    cmp r2, #7
+    movgt r2, #7
+    eor r2, r2, #TUBE_ASYM_DEFAULT
+    strb r2, [r6, #M_TUBE_ASYM]
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
@@ -7299,6 +7724,9 @@ menu_slot_exit:
     cmp r3, #M_LEVEL_DU
     moveq r0, #14
     beq menu_exit_screen
+    cmp r3, #M_LEVEL_SE
+    moveq r0, #SE_ENTRY
+    beq menu_exit_screen
     cmp r3, #M_LEVEL_PSUB
     beq menu_exit_psub
     cmp r3, #M_LEVEL_PLUGIN
@@ -7606,6 +8034,12 @@ str_kp:
     .asciz "KEY PADS"
 str_ft:
     .asciz "FILTER TOGGLE"
+str_tube:
+    .asciz "TUBE"
+str_tube_drive:
+    .asciz "TUBE DRIVE"
+str_tube_asym:
+    .asciz "TUBE ASYM"
 str_as:
     .asciz "AUTO SAVE"
 str_knob:
@@ -7622,6 +8056,10 @@ str_idle:
     .asciz "IDLE SAVE"
 str_batt:
     .asciz "BATTERY %"
+str_category:
+    .asciz "CATEGORY"
+str_se_none:
+    .asciz "---"
 str_sp:
     .asciz "STEREO 1 PAD"
 str_us:

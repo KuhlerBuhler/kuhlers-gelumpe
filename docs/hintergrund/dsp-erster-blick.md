@@ -81,6 +81,10 @@ nur Werkzeugquellen, sie enthalten keine Korg-Daten. Entpackt und gebaut belegt 
 605 MB, Extraktionen 935 MB). Offen: die Download-URL ist nicht protokolliert (GNU-Spiegel angenommen), die
 mitgelieferte Signatur von binutils wurde nicht gegen einen Schlüssel geprüft.
 
+Später auf macOS mit dem Xcode-27-SDK (gemessen): binutils 2.42 und gdb 15.2 scheitern an der mitgelieferten zlib (`fdopen`),
+`--with-system-zlib` behebt das. Für die Signaturen hing `gpg --import` des ganzen GNU-Schlüsselbunds fast eine Stunde;
+`gpgv` gegen den einen Schlüssel des Releases reicht.
+
 ### 1.2 Extraktion des DSP-Abbilds (gemessen)
 
 `dsp_extract.py SYSTEM.VSB OUTDIR` schreibt je Zielregion eine Datei, `blocks.txt` und `map.json`. Das Format
@@ -182,9 +186,9 @@ mitten im Block.
 
 Deskriptor je Effekttyp (66 Zeiger bei SDRAM `0x4C30`, je `0x34` Byte): Name, Parameterzahl (Byte `+4`),
 Speicherflags (Bytes `+5`, `+6`, nicht null: der Effekt braucht Platzspeicher), Parametertabelle (`+0x14`),
-Prozess-Funktion (`+0x18`), zweite Funktion (`+0x1C`), Init-Funktion (`+0x20`). Master-Typen tragen `0x10000`
+Codeanfang (`+0x18`), weiteres Codefeld (`+0x1C`), Init-Funktion (`+0x20`). Bei Flagbyte `+0x0A == 1` ist `+0x1C` die exklusive Code-Endadresse, kein zweiter Funktionsanfang. Master-Typen tragen `0x10000`
 in `+8`. Code liegt an drei Orten: L1-Instruktionen (`0xFFA0xxxx`), SDRAM unten (`0x0000xxxx`) und SDRAM
-`0x01C7xxxx`. Es gibt keinen parametrisierten Einheitseffekt, jeder Typ hat eigenen Code.
+`0x01C7xxxx`. Es gibt keinen parametrisierten Einheitseffekt, jeder Typ hat eigenen Code. Die [Nachprüfung vom 20. November](../messungen/2026-11-20-dsp-sdram-freiraum.md) verfolgt die Endadresse und die genaue Kopierlänge am Baustein `0x2E` in beiden Originalen.
 
 ### 2.3 Lader (Task 1, SDRAM `0x1859C`) (offline)
 
