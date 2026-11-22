@@ -368,5 +368,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Hacktribes Extra-Effekte, Grooves und Touch-Skalen auf der roten 2.02: was als Datenpatch geht](2026-11-10-hacktribe-extras-rot.md)
 - [Hacktribes Master-Effekte als Nachbau auf MFX 33 bis 36 der roten 2.02, Katalog ab 37, im Emulator](2026-11-17-hacktribe-master-rot.md)
 - [Patterns-Ordner: Export, Import-Browser, Laden beim Start, Globals](2026-11-14-patterns-ordner.md)
+- [STOP halten: jeden Klang sofort beenden](2026-11-22-stop-halten.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)
