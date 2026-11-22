@@ -522,10 +522,20 @@ card_watch_out:
 ; device: docs/messungen/2026-11-22-karte-cmd8-verloren.md) stays busy on ACMD41 for good. Every SD_RESTART busy rounds the
 ; init starts over with CMD0, CMD8 and a zero OCR as Korg's own setup does, also at the start; after SD_GIVE_UP rounds it
 ; takes the out-of-rounds path.
+; Korg's ACMD41 (0xC001BE34) keeps the answer registers as the OCR even when the command failed: they still hold CMD55's R1
+; (0x00800120 seen on the device), and the next ACMD41 sends that as its voltage window. A window with none of the card's
+; voltages sends the card to the inactive state (SD spec 4.2.3), out of which only a power cycle brings it; the slot stays powered
+; while the device is off (Korg's card power calls 0xC001CA98 and 0xC001CAC0 are empty), so only pulling the card helps. After a
+; failed round the OCR goes back to 0: the next ACMD41 asks with an empty window, as Korg's first does.
 .equ SD_RESTART, 500
 .equ SD_GIVE_UP, 4000
 .equ SD_OCR, 0xC031BEA4
 acmd41_round_hook:
+    ldr r0, [fp, #-8]           ; what this round's ACMD41 returned, 0 when it went through
+    cmp r0, #0
+    ldrne r0, =SD_OCR
+    movne r1, #0
+    strne r1, [r0]
     ldr r0, [fp, #-0xc]         ; the round, counted from 1
     ldr r1, =SD_GIVE_UP
     cmp r0, r1
