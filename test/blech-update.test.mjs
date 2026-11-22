@@ -2,7 +2,8 @@ import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
-import { applyPatches } from "../src/patch.mjs";
+import { applyPatches, selectFor } from "../src/patch.mjs";
+import { loadBlechSet, BLECH_SET_URL, BLECH_SYNTH_SET_URL, USB_NAME_URLS } from "../src/patcher.mjs";
 import { addRelease, emptyKnown, recogniseBlech, KNOWN_FORMAT } from "../src/blech-update.mjs";
 import { sha256 } from "../src/firmware.mjs";
 import { encodeAnimation, FRAME_BYTES, MAX_BYTES } from "../src/loading-anim.mjs";
@@ -12,6 +13,7 @@ import { asStock, makeFirmware } from "./helpers.mjs";
 // Releases of our own standing in for BLECH's: a hook site (a word of "Korg's code" that is rewritten) and two free areas.
 const HOOK = 0x2000;
 const HOOK2 = 0x2100;
+const HOOK3 = 0x2200;
 const AREA_A = 0x1a2100;
 const AREA_B = 0x1a2400;
 const hex = (...words) => words.map(w => w.toString(16).padStart(8, "0")).join("");
@@ -20,6 +22,7 @@ async function original() {
   const base = await makeFirmware();
   new DataView(base.buffer).setUint32(HOOK, 0xe1a01000, true);
   new DataView(base.buffer).setUint32(HOOK2, 0xe1a02000, true);
+  new DataView(base.buffer).setUint32(HOOK3, 0xe1a03000, true);
   return base;
 }
 
@@ -62,6 +65,21 @@ test("a file of an older release is updated to the current set, byte for byte as
   const direct = await applyPatches(base, now);
   assert.deepEqual(updated.bytes, direct.bytes);
   assert.equal(updated.bytes[AREA_A + 4], 0, "what the current set no longer writes is back to the fill");
+});
+
+test("a hook site an older release wrote and the current set leaves out is a refusal, unless the set writes it back", async () => {
+  const { base, old, now, known } = await setup();
+  const retired = [...old, await raw(base, "retired", HOOK3, hex(0xea000300))];
+  await addRelease(known, "0.9", "hacktribe", base, retired);
+  const rec = await recogniseBlech((await applyPatches(base, retired)).bytes, known);
+  assert.equal(rec.ok, true);
+  const left = await applyPatches(rec.bytes, now, rec.options);
+  assert.equal(left.ok, false);
+  assert.match(left.reasons.join(" "), /^retired: an 0x2200 steht noch ein Sprung/);
+  const back = { format: "gelumpe-patch", version: 1, id: "runtime-back", name: "runtime-back", changes: [{ file: HOOK3, bytes: hex(0xe1a03000), expect: await sha256(base.subarray(HOOK3, HOOK3 + 4)) }] };
+  const updated = await applyPatches(rec.bytes, [...now, back], { ...rec.options, accept: (file, length, hash) => file === HOOK3 || rec.options.accept(file, length, hash) });
+  assert.equal(updated.ok, true, updated.reasons.join(" "));
+  assert.deepEqual(updated.bytes, (await applyPatches(base, [...now, back])).bytes);
 });
 
 test("a file with only some of the old features, and one of the current release, is recognised too", async () => {
@@ -148,6 +166,25 @@ test("data/known-releases.json holds only hashes and offsets, for the three buil
     }
   }
   assert.ok(readFileSync(new URL("../data/known-releases.json", import.meta.url)).length < 200_000, "stays small");
+});
+
+test("every hook site a known release wrote is written by the current set of its build, so an update leaves no old branch", async () => {
+  const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
+  const known = read("data/known-releases.json");
+  const usbName = USB_NAME_URLS.map(read);
+  for (const [build, regions] of Object.entries(known.builds)) {
+    const set = await loadBlechSet(async url => read(url), build === "synth" ? BLECH_SYNTH_SET_URL : BLECH_SET_URL);
+    // usb-name is optional; the app ticks and locks it when the file holds it (site/app/patcher.mjs)
+    const { patches } = selectFor([...set.patches, ...usbName], build);
+    const written = new Set();
+    for (const p of patches) for (const c of p.changes ?? []) {
+      if (c.field !== undefined) continue;
+      const length = c.copy ? c.copy.length : c.bytes.length / 2;
+      for (let at = c.file; at < c.file + length; at++) written.add(at);
+    }
+    const left = regions.filter(([file, length, , fill]) => fill < 0 && !Array.from({ length }, (_, k) => file + k).every(at => written.has(at)));
+    assert.deepEqual(left.map(([file, length, id]) => `${id}@0x${file.toString(16)}+${length}`), [], build);
+  }
 });
 
 // A Hacktribe 2.02 file patched with a release's own set (from its git tag) must be found in data/known-releases.json.

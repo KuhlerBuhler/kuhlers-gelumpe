@@ -35,7 +35,8 @@ test("a changed case module runs itself and every case module that imports from 
 });
 
 test("assembly and patch files map to the cases that test them", () => {
-  assert.deepEqual(scope(["tools/patch/script_menu.s"]), ["dev_mode_cases", "ht_osc_cases", "init_pattern_cases", "last_pattern_cases", "menu_cases", "migrate_cases", "shortcut_cases", "stereo_pad_cases"]);
+  assert.deepEqual(scope(["tools/patch/script_menu.s"]), ["dev_mode_cases", "ht_osc_cases", "init_pattern_cases", "last_pattern_cases", "menu_cases", "migrate_cases", "sample_category_cases", "shortcut_cases", "stereo_pad_cases", "tube_cases"]);
+  assert.deepEqual(scope(["tools/patch/script_sample_edit.s", "tools/patch/script_sample_edit_none.s"]), ["sample_category_cases"]);
   assert.deepEqual(scope(["tools/patch/script_remote.s"]), ["remote_cases"]);
   assert.deepEqual(scope(["tools/patch/fx_card.s"]), ["fx_card_cases"]);
   assert.deepEqual(scope(["data/patches/dice.json", "data/patches/dice-synth.json"]), ["dice_cases"]);

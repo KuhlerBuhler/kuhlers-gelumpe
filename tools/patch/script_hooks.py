@@ -114,6 +114,9 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC0064C28,0xE3A01001,'menu_global_next'),
          (0xC00623C0,0xE92D4010,'menu_du_prev'),
          (0xC0062448,0xE92D4010,'menu_du_next'),
+         # CATEGORY (script_menu.s): slots 4 and 5 (EDIT left and right) of SAMPLE EDIT's pages, push {r4, r5, r6, lr}; the synth has none
+         (0xC0069BB8,0xE92D4070,'se_prev'),
+         (0xC0069C88,0xE92D4070,'se_next'),
          (0xC0038D34,0xE3A03000,'script_early_hook'),
          (0xC00289D8,0xE3500F49,'boot_light_hook'),
          # KEY PADS (script_shortcuts.s): the parameter window's draw function calls its title, value and mark functions here
@@ -334,14 +337,19 @@ def runtime_profile(build):
                                               # the collection on the card (fx_card.s): which build it is for, and the modulation table this build reads
                                               FX_BUILD=2 if build == 'stock' else 1, FX_MODS=0xC00D81EC if build == 'stock' else 0xC019FFFC,
                                               BUILD_BASE=4 if build == 'stock' else 0,
+                                              # TUBE (script_menu.s): the host port write, the caller's P0.L halfword in the DSP boot stream in RAM and
+                                              # its value with the patch tube-curve (tools/patch/tube_curve.py; test_tube_curve.py checks both)
+                                              HW_DSP_WRITE=0xC0014284, TUBE_MARK=0xC0131F90, TUBE_MARK_ON=0x2186,
                                               # DATA UTILITY's list: its functions (counter "n/14"), and the bits of our pages there the build has (script_menu.s, menu_du_mask)
                                               DU_PAGES=14, DU_BUILT=7, US_STATE=0, FT_BACK=ft_at+4,
+                                              # SAMPLE EDIT's pages (screen 38) and their counter "n/10"; CATEGORY is one more (script_menu.s)
+                                              SE_SCREEN=38, SE_PAGES=10,
                                               # DEV MODE: the word BLECH's SysEx code reads (tools/patch/blech_sysex.py DEV_FLAG); 0 where the build has no page
                                               DEV_FLAG=0xC01910FC, **KEY_PADS_SAMPLER, **pattern_setter_actions(build), **part_setter_actions(build)))   # the value of BLECH > VERSION, an offset into base_names
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
-        if name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook'):
+        if name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook', 'se_prev', 'se_next'):
             continue
         if name == 'boot_light_hook':
             address, expected = 0xC0025E48, 0xE1500003
@@ -377,7 +385,8 @@ def runtime_profile(build):
         # frame buffer, as Korg's PCM loader does for its bar (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md)
         # LCD_FLUSH_ALL (MG_LCD, 1): every page sent, also where it equals the copy last sent, as the display's start does (0xC00117F4)
         MG_WORK=0xC0190100, MG_MKDIR=0xC008B510, FS_UNLINK=0, MG_GETFREE=0xC008B3B4, MG_ALLOC=0xC0026240, MG_FREE=0xC0026248,
-        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, LCD_FLUSH_ALL=0xC001185C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=7, US_STATE=0xC0133000, FT_BACK=0xC0062F18, DEV_FLAG=0,
+        MG_VRAM=0xC031B310, MG_MARK=0xC0010BD8, MG_BLUE=1, MG_LCD=0xC031BB2C, MG_FLUSH=0xC001168C, LCD_FLUSH_ALL=0xC001185C, SYNC_GROUP_AT=0x3B80, BUILD_BASE=8, DU_PAGES=11, DU_BUILT=7, US_STATE=0xC0133000, FT_BACK=0xC0062F18, DEV_FLAG=0, SE_SCREEN=0, SE_PAGES=10,
+        HW_DSP_WRITE=0xC000FB44, TUBE_MARK=0xC01176D6, TUBE_MARK_ON=0x20F6,
         # the collection on the card (fx_card.s): Korg's red modulation table, at the synth's address (data/synth-map/preset-tables.json)
         FX_BUILD=3, FX_MODS=synthaddr.tr(0xC00D81EC), **KEY_PADS_SYNTH, **pattern_setter_actions(build), **part_setter_actions(build)))   # power hold is not measured on the synth; the EXIT shortcuts are (docs/messungen/2026-10-24-blau-shortcuts-akkorde.md)
 
@@ -474,6 +483,7 @@ class BuiltHooks:
             ('shortcut_pool','shortcut_end','Literale der EXIT-Shortcuts, von KEY PADS und FILTER TOGGLE.'),
             ('pat_boot_arm','pat_boot_end','Die Pattern-Sicherung in KORG/blechtribe/Patterns: der Haken vor dem Sample-Lader merkt sich nur den Start, der Kartenhaken prüft Panel, EXIT und Kartenstatus, liest die Datei und schreibt nur Patterns, die sich vom RAM unterscheiden, über das Pattern-Schreiben der Firmware; ohne Datei bleibt es bei einem f_open.'),
             ('migrate_start','migrate_end','Die Übernahme des alten Kartenordners: vor dem Sample-Lader prüft sie Panel und EXIT und die Ordner der Karte; nur wenn blechtribe keine e2sSample.all hat, aber ein hacktribe- oder electribe-sampler-Ordner, fragt sie auf dem Display (Eingangsfilter und Rahmenhaken lesen ihren Schalter) und kopiert auf MENU; nach dem Lader fragt sie so nach der Pattern-Sicherung (auf der blauen: blechtribe keine .e2allpat, aber KORG/electribe). Fehlende Unterordner von KORG/blechtribe legt sie auf der blauen hier an, auf der roten im ersten Rahmen auf dem Hauptbildschirm.'),
+            ('script_popup_input','script_popup_frame','Der Popup-Haken im Eingangsfilter: jede Panel-Meldung geht an ihm vorbei; er liest nur das Tastenereignis und kehrt ohne gehaltenes EXIT oder ohne offenes Popup sofort zurück.'),
             ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
             ('load_idle_hook','load_meter_frame','Die zwei Haken der Lastanzeige (Leerlaufschleife vor wfi, IRQ-Eingang) laufen vom ersten IRQ an: sie merken sich nur Timer3 und zählen den Schlaf, gezeichnet wird erst im Rahmenhaken mit dem Schalter.'),
             ('audio_command_hook','audio_columns','Der Haken an CommandTask ruft erst den ursprünglichen Befehlshandler und dann den Dienst von korg.audio; ohne Anfrage eines Plugins kehrt der Dienst ohne Firmware-Aufruf zurück.'),
@@ -490,7 +500,8 @@ class BuiltHooks:
             for address,chain,swallow in [
             (0xC006E8D8,'menu-top-level',False),(0xC006F094,'menu-write',True),(0xC008A83C,'menu-counter',False),(0xC008A8A8,'menu-counter',False),
             (0xC0064430,'menu-ring',False),(0xC0067754,'menu-ring',False),(0xC0067720,'menu-ring',False),(0xC0065B8C,'menu-ring',False),
-            (0xC0064C20,'global-screen',False),(0xC0064C28,'global-screen',False),(0xC00623C0,'data-util-screen',False),(0xC0062448,'data-util-screen',False)]]
+            (0xC0064C20,'global-screen',False),(0xC0064C28,'global-screen',False),(0xC00623C0,'data-util-screen',False),(0xC0062448,'data-util-screen',False),
+            (0xC0069BB8,'sample-edit-screen',False),(0xC0069C88,'sample-edit-screen',False)]]
         menu_hooks+=[dict(site='0xC0088284',kind='instruction',chain='led-meter',position='before',swallow=True)]
         menu_hooks+=[dict(site='0xC0087608',kind='instruction',chain='led-send',position='before',swallow=True)]
         menu_hooks+=[dict(site=f'0x{address:08X}',kind='instruction',chain='backlight',position='before',swallow=False)
@@ -651,9 +662,9 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
              'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_media.s','script_calibrate.s','script_egg.s','script_load_meter.s','script_idle.s','script_glide.s','script_battery.s']
     files.append('fx_card.s')
     if build != 'synth':
-        files += ['script_sample.s','script_audio_service.s','script_patterns.s']
+        files += ['script_sample.s','script_sample_edit.s','script_audio_service.s','script_patterns.s']
     else:
-        files += ['script_sample_none.s','script_audio_service_none.s']
+        files += ['script_sample_none.s','script_sample_edit_none.s','script_audio_service_none.s']
     files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_timer.s','script_led.s','script_motion.s','script_midi.s','script_audio.s','script_data.s']
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
     source = constants+'\n'+read(files)

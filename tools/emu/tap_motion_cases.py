@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import synthaddr  # noqa: E402
 import tap_motion as spec  # noqa: E402
+from dsp_model import DspModel  # noqa: E402
 from machine import load_flash  # noqa: E402
 from pswitch_cases import Box, card_image  # noqa: E402
 from splash_cases import Dev  # noqa: E402
@@ -118,6 +119,9 @@ class TBox(Box):
 
     def step(self):
         return self.u32(STEP)
+
+    def pad_state(self):
+        return synthaddr.tr(PAD_STATE) if self.dev.synth else PAD_STATE
 
     def out(self, i=0):
         at = synthaddr.tr(MOTION_OUT) if self.dev.synth else MOTION_OUT
@@ -466,7 +470,7 @@ def case_mfx(payload, flash):
     box = TBox(payload, flash)
     box.record_gesture()
     seen = box.script({(0, 18): down, (0, 20): tap, (0, 23): up, (1, 22): down, (1, 24): tap, (1, 27): up}, 2,
-                      sample=lambda x: (x.out(0), x.out(1), x.u32(PAD_STATE), x.mfx_mode(), x.mode(), x.leds()))
+                      sample=lambda x: (x.out(0), x.out(1), x.u32(x.pad_state()), x.mfx_mode(), x.mode(), x.leds()))
     # the outputs of these lanes keep their last value while the byte is 0 (a part's lane goes silent): what counts is that they stop moving
     xy = lambda loop, s: seen[(loop, s)][:2]
     frozen = {xy(0, s) for s in range(21, 32)} | {xy(1, s) for s in range(16, 25)}
@@ -476,6 +480,21 @@ def case_mfx(payload, flash):
                      f"TAP again at step 24 of the next run: from step 25 the lanes play as recorded again ({[xy(1, s) for s in range(25, 32)]}), pad state by step {[seen[(1, s)][2] for s in range(22, 34)]}"))
     pad = {s: seen[(0, s)][2] for s in range(16, 34)}
     out.append(entry("mfx_pad_let_go", all(pad[s] == 1 for s in range(16, 20)) and all(pad[s] == 0 for s in range(20, 34)), f"pad state by step with the gesture switched off at 20: {pad}"))
+
+    # TOUCH SCALE or MASTER FX with TAP changes the effect type, and the new unit can come with the pad on after the TAP (device
+    # 20.11.: MFX 2 stayed on until the pad was touched): the pad is let go again in the frames after, for about a second
+    again = TBox(payload, flash)
+    again.ensure_master_fx()
+    again.hold("master_fx", True)
+    again.tap(0.05)
+    again.hold("master_fx", False)
+    pads = []
+    for _ in range(30):
+        again.m.uc.mem_write(again.pad_state(), struct.pack("<I", 1))
+        again.run(0.05)
+        pads.append(again.u32(again.pad_state()))
+    out.append(entry("mfx_pad_let_go_again", again.mfx_mode() == 0 and all(v == 0 for v in pads[:15]) and all(v == 1 for v in pads[-5:]),
+                     f"the Master FX motion off, the pad state set on every 50 ms after: {pads} (0 let go again, 1 left alone once the window is over)"))
     # the LED is not compared here: with the gesture recorded and its motion on it blinks (case_mfx_blink)
     out.append(entry("mfx_leaves_the_part_alone", all(v[4] == (1, 1) for v in seen.values()) and box.mfx_mode() == 1,
                      f"the part's byte stayed {set(v[4] for v in seen.values())}, the Master FX byte ends {box.mfx_mode()}"))
@@ -591,6 +610,31 @@ def case_touch_scale(payload, flash):
     out.append(entry("touch_scale_led_shows_mfx", held_led == 255 and led_off == 0 and part_off == part,
                      f"LED while held {held_led}, after switching the lanes off {led_off} while the part stays {part_off}"))
     return out
+
+
+def case_touch_scale_looper(payload, flash):
+    """A gesture recorded on MFX 2 (TOUCH SCALE, the Looper by default) and switched off with TOUCH SCALE + TAP in the middle:
+    the effect lets go at the DSP too (device 20.11.: the Looper kept looping where it was). The pad setter alone changes
+    the pad state but leaves the DSP's touch code on; the patch also takes the way the motion playback lets the pad go."""
+    box = TBox(payload, flash)
+    dsp = DspModel.attach(box.m)
+    box.ensure_master_fx()
+    box.key("touch_scale", 0.3)
+    box.ensure_master_fx = lambda: None          # record on MFX 2, not back on MFX 1
+    box.record_gesture()
+
+    def touch(b):
+        return dsp.effects.get(0x20, {}).get("params", {}).get(0)
+
+    seen = box.script({(0, 18): lambda b: b.m.press(KEYS["touch_scale"], True), (0, 20): lambda b: b.press_in_script("tap"),
+                       (0, 23): lambda b: b.m.press(KEYS["touch_scale"], False)}, 1,
+                      sample=lambda b: (b.u32(b.pad_state()), touch(b), b.mfx_mode()))
+    on = [seen[(0, s)][1] for s in range(16, 20)]
+    off = [seen[(0, s)][1] for s in range(21, 32)]
+    return [entry("touch_scale_looper_lets_go", all(v and v > 0 for v in on) and all(v == 0 for v in off)
+                  and all(seen[(0, s)][0] == 0 and seen[(0, s)][2] == 0 for s in range(21, 32)),
+                  f"DSP touch code (Master FX field, code 0) steps 16-19 {on}, after TOUCH SCALE + TAP at 20: {off}; "
+                  f"pad state / Master FX byte {sorted({seen[(0, s)][0::2] for s in range(21, 32)})}")]
 
 
 def case_card_pulled(payload, flash):
@@ -725,7 +769,7 @@ def case_hold(payload, flash):
             entry("hold_with_master_fx", mfx_held != mfx_start and mfx_back == mfx_start, f"Master FX motion before {mfx_start}, held {mfx_held}, let go {mfx_back}")]
 
 
-GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app, case_once, case_touch_scale, case_card_pulled, case_card_inserted_late, case_mfx_blink, case_hold)
+GROUPS = (case_toggle, case_memory, case_stock, case_shift_tap, case_rec_and_pattern, case_mfx, case_app, case_once, case_touch_scale, case_card_pulled, case_card_inserted_late, case_mfx_blink, case_hold, case_touch_scale_looper)
 
 
 def group_entries(payload, flash, i):
