@@ -20,6 +20,7 @@ Speicheruntersuchung zusammen. Anleitungen zum Nachvollziehen am eigenen Gerät 
 
 - [Freier und reservierter Platz für ARM, DSP und Plugins, auf festen Quellständen gerechnet](2026-11-20-firmware-speicherbudget.md)
 - [DSP-SDRAM-Kandidaten: statische Besitzer, native Start-/Audioleerlaufläufe und Grenzen des Nachweises](2026-11-20-dsp-sdram-freiraum.md)
+- [DSP-SDRAM am roten Gerät: zwei vollständige Lesevergleiche und geprüfte Wiederherstellung](2026-11-22-dsp-sdram-am-geraet.md)
 
 ## Pattern, Parts und Global
 

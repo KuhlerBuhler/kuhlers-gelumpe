@@ -104,4 +104,8 @@ Das fast volle L1-Fenster bedeutet nicht, dass dem Gerät insgesamt nur acht Cod
 
 Die gespeicherte Firmware ist eine weitere Grenze: DSP-Code muss auch im VSB-Bootstrom oder über einen neuen Ladeweg untergebracht werden. Zusätzliches DSP-Programmpayload würde normalen Platz im Firmwareabbild mit ARM-Erweiterungen teilen. Ein per Füllbefehl initialisierter Datenpuffer braucht dagegen nicht seine ganze Laufzeitgröße als gespeichertes Payload. Aus 1,42 MiB modellgeprüftem DSP-RAM folgen deshalb nicht 1,42 MiB zusätzlich speicherbarer Programmcode im bestehenden Abbild.
 
+## Nachtrag vom 22. November: rotes Gerät gelesen
+
+Die [anschließende Gerätemessung](2026-11-22-dsp-sdram-am-geraet.md) hat beide roten Kandidatenfenster inzwischen zweimal vollständig aus dem laufenden DSP gelesen. Zwischen den Durchgängen unterscheiden sich null Byte. Die laufende Heap-Tabelle bestätigt außerdem die beiden bestehenden SDRAM-Heaps und den auf `0x1D20` verkleinerten L1-Heap. Der ARM-Arbeitsbuffer wurde vollständig wiederhergestellt und über eine neue Verbindung geprüft. Das ergänzt diesen Modellnachweis; es ersetzt keine fortlaufende Zugriffsaufzeichnung oder Volllastprüfung. Der tatsächliche Gerätestand ist in der neuen Messung separat über Prüfsummen zugeordnet.
+
 [ARM-Bilanz und bisherige DSP-Grenzen](2026-11-20-firmware-speicherbudget.md), [Stufe-2-Speicher](2026-11-13-stufe2-speicher.md), [DSP-Aufbau](../hintergrund/dsp-erster-blick.md), [vollständige Zahlen, Kontrollen und Hashes](2026-11-20-dsp-sdram-freiraum.json).
