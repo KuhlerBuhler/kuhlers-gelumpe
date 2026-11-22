@@ -95,6 +95,24 @@ class CardTest(unittest.TestCase):
         self.assertEqual((c_size + 1) * 512 * 1024, 128 * MIB)
         self.assertEqual(csd, self.card.csd(), "the register image is the CSD, byte for byte, CRC included")
 
+    def test_a_voltage_window_without_the_cards_voltages_sends_it_inactive_until_power_returns(self):
+        card = self.card
+        card.command(0, 0)
+        card.command(8, 0x1AA)
+        card.command(55, 0)
+        self.assertEqual(card.command(41, 0x40000120), ("timeout",), "CMD55's R1 as the window: the card leaves the bus")
+        self.assertTrue(card.inactive)
+        self.assertEqual(card.command(0, 0), ("timeout",), "CMD0 does not bring it back")
+        self.assertEqual(card.command(55, 0), ("timeout",))
+        card.power_on()
+        self.assertFalse(card.inactive)
+        card.command(8, 0x1AA)
+        card.command(55, 0)
+        self.assertEqual(card.command(41, 0x40000000)[0], "r3", "an empty window only asks")
+        card.command(55, 0)
+        self.assertEqual(card.command(41, 0x40800120)[0], "r3", "a window with one of its voltages is accepted")
+        self.assertFalse(card.inactive)
+
     def test_unknown_commands_are_not_answered(self):
         self.d.init()
         for idx in (5, 13, 17 + 40, 51):

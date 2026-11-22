@@ -3316,6 +3316,40 @@ def card_later_cases(payload, flash=None):
         and look(hot) == ref_b and not hot.m.asserts,
         f"CMD8 dropped {hot_card.faults[0].hits}x, lock seen {hot_lock}, card state {state(hot, S_CARD):#x} after 3 s; {look(hot)}, the card's {ref_b}")
 
+    # One ACMD41 lost: Korg keeps the answer registers as the OCR anyway, so the next ACMD41 sends CMD55's R1 as its voltage window, and
+    # a card that gets a window without its voltages goes inactive until it loses power (SD spec 4.2.3; the slot stays powered while the
+    # device is off). acmd41_round_hook sets the OCR back to 0 after a failed round: the card mounts in the same init.
+    lost_acmd41 = lambda files: SDCard(MemoryMedium(card_image(files)), faults=[{"kind": "no_response", "cmds": [41], "count": 1}])
+    cold = Dev(payload, flash, 0)
+    cold.m.adapter = True
+    cold_card = lost_acmd41(files_a)
+    cold.m.insert_card(cold_card)
+    cold_lock = 0
+    for _ in range(300):
+        cold.run(0.1)
+        cold_lock |= cold.u32(SD_INIT_LOCK)
+        if cold.screen()["number"] == 1 and state(cold, S_CARD) == 0xFF:
+            break
+    cold.run(1.0)
+    add("acmd41_lost_at_start_mounts", cold_card.faults[0].hits == 1 and not cold_card.inactive and not cold_lock
+        and state(cold, S_CARD) == 0xFF and look(cold) == ref_a and not cold.m.asserts,
+        f"ACMD41 dropped {cold_card.faults[0].hits}x, card inactive {cold_card.inactive}, lock seen {cold_lock}, card state {state(cold, S_CARD):#x}; "
+        f"{look(cold)}, started with it {ref_a}")
+
+    hot = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
+    hot.m.eject_card()
+    hot.run(0.5)
+    hot_card = lost_acmd41(files_b)
+    hot.m.insert_card(hot_card)
+    hot_lock = 0
+    for _ in range(30):
+        hot.run(0.1)
+        hot_lock |= hot.u32(SD_INIT_LOCK)
+    add("acmd41_lost_on_insert_mounts", hot_card.faults[0].hits == 1 and not hot_card.inactive and not hot_lock
+        and state(hot, S_CARD) == 0xFF and look(hot) == ref_b and not hot.m.asserts,
+        f"ACMD41 dropped {hot_card.faults[0].hits}x, card inactive {hot_card.inactive}, lock seen {hot_lock}, card state {state(hot, S_CARD):#x} "
+        f"after 3 s; {look(hot)}, the card's {ref_b}")
+
     started = boot(payload, flash, files=files_a, adapter=True, seconds=wait)
     gen = state(started, S_GEN)
     started.m.uc.mem_write(STATE + S_LED_R, struct.pack("<I", 3))
