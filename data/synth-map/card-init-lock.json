@@ -29,6 +29,30 @@
    "to": "0xC0018410",
    "kind": "code",
    "why": "Korg's ACMD41 loop of the card init (Sampler 0xC001AE80, synth 0xC00167A8): the same code read in both images, the synth's 0x46D8 lower; the card-present function it calls"
+  },
+  {
+   "from": "0xC001BDE4",
+   "to": "0xC001770C",
+   "kind": "code",
+   "why": "Korg's card init (Sampler 0xC001AE04, synth 0xC001672C): the same code read in both images, the synth's 0x46D8 lower; CMD0, the init's first call behind its setup (bl at Sampler 0xC001AE2C, synth 0xC0016754)"
+  },
+  {
+   "from": "0xC001C710",
+   "to": "0xC0018038",
+   "kind": "code",
+   "why": "Korg's card init (Sampler 0xC001AE04, synth 0xC001672C): the same code read in both images, the synth's 0x46D8 lower; CMD8 with the argument 0x1AA (literal 0x1AA in both), bl at Sampler 0xC001AE50, synth 0xC0016778"
+  },
+  {
+   "from": "0xC001CC28",
+   "to": "0xC0018550",
+   "kind": "code",
+   "why": "Korg's card init (Sampler 0xC001AE04, synth 0xC001672C): the same code read in both images, the synth's 0x46D8 lower; the delay called with 10 behind CMD8, bl at Sampler 0xC001AE5C, synth 0xC0016784"
+  },
+  {
+   "from": "0xC031BEA4",
+   "to": "0xC031BEA4",
+   "kind": "ram",
+   "why": "the OCR word of Korg's SD driver: ACMD41 sends it ORed with 0x40000000 and stores the answer there; the init zeroes it before its ACMD41 loop; the same literal in the Sampler (0xC001B174) and the synth (0xC0016A9C)"
   }
  ]
 }

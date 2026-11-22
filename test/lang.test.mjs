@@ -86,6 +86,11 @@ test("a language file refuses English text, a wrong format and malformed Korg en
   assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, buffer: "str" } }), context).join("\n"), /positive whole number/);
   assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, expect: "x" } }), context).join("\n"), /expect is the SHA-256/);
   assert.match(langFileProblems("k", korg({ "0xc00a3010": { ...good, space: -1 } }), context).join("\n"), /space is a positive/);
+  const field = { ...good, text: "Tempo", length: 5, pointers: [], inPlace: true };
+  assert.deepEqual(langFileProblems("k", korg({ "0xc011f0c0": field }), context), []);
+  assert.match(langFileProblems("k", korg({ "0xc011f0c0": { ...field, text: "Geschwindigkeit" } }), context).join("\n"), /longer than the old text/);
+  assert.match(langFileProblems("k", korg({ "0xc011f0c0": { ...field, pointers: good.pointers } }), context).join("\n"), /no pointer words/);
+  assert.match(langFileProblems("k", korg({ "0xc011f0c0": { ...field, inPlace: "yes" } }), context).join("\n"), /inPlace is true/);
   assert.match(langFileProblems("x", { format: "other", texts: {} }, context).join("\n"), /format is not/);
   const blech = { format: "gelumpe-lang-blech", version: 1, texts: { "str-bad": { text: "x" } } };
   assert.match(langFileProblems("b", blech, context).join("\n"), /label of the text/);

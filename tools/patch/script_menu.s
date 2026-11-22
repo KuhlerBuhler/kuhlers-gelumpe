@@ -101,7 +101,6 @@
 .equ CARD_SETTLE_IN, 15       ; 15 frames of 40 ms: a card that is still going in is not read (its detect switch bounced 0.5 s after the
                               ; first contact on the device, and the card init 0.3 s after it failed: docs/messungen/2026-11-15-karte-stecken-prellen.md)
 .equ CARD_DONE, 0xFF
-.equ CARD_NEVER, 0xFE         ; started without a card: no card is read until the next start (the first card after such a start can hang the Korg SD init)
 .equ CARD_GONE, 0x80          ; CARD_GONE + n: the card read (CARD_DONE) has been out for n frames; out for CARD_SETTLE frames it is pulled
 .equ CARD_PULL, 0xFD          ; menu_settings_load from menu_card_watch for a pulled card: the copy in the flash, no card read
 .equ CARD_WAIT, 0x100        ; CARD_WAIT and above: a card in whose mount Korg's SD init locked out, read again at this OS tick (the bit set)
@@ -332,7 +331,7 @@ menu_arm_load:
     ldr r2, =SD_INPUT
     ldr r2, [r2]
     tst r2, #SD_DETECT
-    movne r1, #CARD_NEVER       ; no card at the start: menu_card_watch reads none
+    movne r1, #0                ; no card at the start: menu_card_watch reads the first one put in, as a swapped card
     bne arm_card_store
     ldr r2, =SD_INIT_LOCK       ; a card in now is read; menu_card_watch reads the next one after it is pulled, and reads once
     ldr r2, [r2]                ; more one the start's init locked out (a card still busy at power-on)
@@ -350,7 +349,7 @@ arm_card_store:
 .pool
 menu_arm_load_end:
 
-; ---- another card for the one pulled (#479), after a start with a card: its settings file is read as at the start, so every
+; ---- another card for the one pulled (#479), or the first after a start without one: its settings file is read as at the start, so every
 ; setting and the look (backlight, bottom LEDs, pad colours, display polarity) switch at once. The card switch (GPIO 4.1, as
 ; tools/patch/card_gate.py reads it) must show the card for CARD_SETTLE_IN frames in a row first. What this power-on runs with stays:
 ; the plugin runtime and MFX 2 (M_EFF_RUN, M_EFF_MFX) take a new value only at the next start, as after a change on their pages.
@@ -370,9 +369,6 @@ menu_card_watch:
     ldr r0, [r4, #M_ON]
     cmp r0, #1
     bne card_watch_out
-    ldr r0, [r4, #M_CARD]
-    cmp r0, #CARD_NEVER
-    beq card_watch_out
     ldr r0, =SD_INPUT
     ldr r0, [r0]
     tst r0, #SD_DETECT
@@ -521,8 +517,40 @@ card_watch_out:
 ; Korg's ACMD41 loop (0xC001AE80, in every card init) at its call that checks the card is still in, once a round. A card that stays
 ; busy held the task doing the init (the UI task when the menu reads) for all 50000 rounds, half a minute and more on the device
 ; (docs/messungen/2026-11-15-karte-tausch-haenger.md); after CARD_INIT_MS it takes Korg's own path for the last round instead:
-; -13 and SD_INIT_LOCK. Before the menu is armed (the start) the loop runs as Korg's. Clobbers r0 to r3 and r12, as the call does.
+; -13 and SD_INIT_LOCK. Clobbers r0 to r3, r12 and lr, as the call does.
+; Korg sends CMD8 once and drops its answer; an SDHC card that missed it (lost or garbled while the card goes in, seen on the
+; device: docs/messungen/2026-11-22-karte-cmd8-verloren.md) stays busy on ACMD41 for good. Every SD_RESTART busy rounds the
+; init starts over with CMD0, CMD8 and a zero OCR as Korg's own setup does, also at the start; after SD_GIVE_UP rounds it
+; takes the out-of-rounds path.
+.equ SD_RESTART, 500
+.equ SD_GIVE_UP, 4000
+.equ SD_OCR, 0xC031BEA4
 acmd41_round_hook:
+    ldr r0, [fp, #-0xc]         ; the round, counted from 1
+    ldr r1, =SD_GIVE_UP
+    cmp r0, r1
+    ldrhs pc, =0xC001AEA4
+    mov r2, #SD_RESTART
+acmd41_restart_at:
+    cmp r0, r2
+    beq acmd41_restart
+    add r2, r2, #SD_RESTART
+    cmp r2, r1
+    blo acmd41_restart_at
+    b acmd41_timed
+acmd41_restart:
+    ldr r12, =0xC001BDE4        ; CMD0
+    blx r12
+    ldr r0, =0x1AA
+    ldr r12, =0xC001C710        ; CMD8
+    blx r12
+    mov r0, #10
+    ldr r12, =0xC001CC28        ; Korg's delay behind CMD8
+    blx r12
+    ldr r0, =SD_OCR
+    mov r1, #0
+    str r1, [r0]
+acmd41_timed:
     ldr r3, =MENU_STATE
     ldr r2, [r3, #M_ON]
     cmp r2, #1
@@ -1018,11 +1046,7 @@ menu_settings_save:
     ldr r0, =SD_INPUT           ; no card: the flash takes them (M_STATUS 0x45 written, 0x46 not); held settings of a pulled card try the
     ldr r0, [r0]                ; card first, as with a card
     tst r0, #SD_DETECT
-    bne menu_save_no_card
-    ldr r0, =MENU_STATE
-    ldr r0, [r0, #M_CARD]
-    cmp r0, #CARD_NEVER         ; a card put in after a start without one is never touched (#518): the flash, as without a card
-    bne menu_settings_save_card
+    beq menu_settings_save_card
 menu_save_no_card:
     ldr r0, =MENU_STATE
     ldr r0, [r0, #M_FL]
@@ -4025,7 +4049,7 @@ menu_text_idle:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
-; BATTERY %: the battery's charge in steps of 10 next to LOAD METER, on battery with Alkali (script_battery.s); bit 4 of byte 7
+; BATTERY %: the battery's charge in whole percent next to LOAD METER, on battery with Alkali (script_battery.s); bit 4 of byte 7
 ; (MX_FLAGS2) set is OFF, so ON, the default, keeps byte 7 at 0
 menu_text_batt:
     mov r0, #3

@@ -65,7 +65,14 @@ export function langPatch(build, runtime = runtimeTexts(build), texts = JSON.par
   }
   const korgChanges = [];
   const korgStart = cursor;
-  for (const entry of Object.values(korg)) {
+  const inPlace = [];
+  for (const [key, entry] of Object.entries(korg)) {
+    if (entry.inPlace && typeof entry.text === "string") {
+      const bytes = Buffer.alloc(entry.length + 1);
+      bytes.write(entry.text, "latin1");
+      inPlace.push({ file: fileOf(Number(key)), bytes: bytes.toString("hex"), expect: entry.expect });
+      continue;
+    }
     if (typeof entry.text !== "string" || !entry.pointers?.length) continue;
     const bytes = Buffer.from(`${entry.text}\0`, "latin1");
     blob.push([cursor, bytes]);
@@ -90,7 +97,7 @@ export function langPatch(build, runtime = runtimeTexts(build), texts = JSON.par
   const raw = (ram, bytes) => ({ file: fileOf(ram), bytes: Buffer.from(bytes).toString("hex"), expect: ff(bytes.length) });
   return {
     format: "gelumpe-patch", version: 1, id: "lang-de", name: "Menüs auf Deutsch", builds: [build],
-    changes: [raw(LANG, header), ...glyphs.changes, raw(glyphs.end, tail), ...korgChanges],
+    changes: [raw(LANG, header), ...glyphs.changes, raw(glyphs.end, tail), ...korgChanges, ...inPlace],
     startPhase: [...glyphs.startPhase, { file: fileOf(LANG), length: HEADER, why: "menu_arm_load reads the header of the text table at the start" },
       ...(cursor > korgStart ? [{ file: fileOf(korgStart), length: cursor - korgStart, why: "Korg's start screens read some of their menu texts, now the German copies" }] : []),
       ...korgChanges.map(c => ({ file: c.file, length: 4, why: "Korg's start screens read some pointer words of their menu texts" }))],

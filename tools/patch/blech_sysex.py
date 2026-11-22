@@ -121,10 +121,7 @@ SAMPLE_LIMIT = 0x10000000       # offset plus length of a FILE command on the sa
 COPY_MAX = 0x40000              # bytes one FILE COPY or FILE CRC works on
 COPY_CHUNK = 0x4000             # bytes the copy moves at once through BUF
 FILE_FIL2 = FILE_AREA + 0x400   # the second FatFs file object, for FILE COPY
-MENU_STATE = 0xC01D6E00         # the BLECH menu's state (tools/patch/script_hooks.py:MENU_STATE), read only here
-M_CARD = 0x1B0                  # its card word (tools/patch/script_menu.s:M_CARD)
-CARD_NEVER = 0xFE               # M_CARD after a start without a card: no card is touched until the next start (#518)
-FR_CARD_NEVER = 0x80            # not a FatFs code: a card put in after a start without one, which the FILE commands leave alone
+FR_CARD_NEVER = 0x80            # not a FatFs code: older releases answered it for a card put in after a start without one
 FR_SHORT = 0x81                 # not a FatFs code: f_write wrote fewer bytes than asked (the card is full)
 NAME_MAX = 16                   # characters of a plugin file's name (PLUGIN BEGIN)
 
@@ -299,9 +296,6 @@ def source():
 .equ FILE_PATH, {FILE_AREA + 0x280:#x}
 .equ FILE_NAME, {FILE_AREA + 0x300:#x}
 .equ FILE_FR, {FILE_AREA + 0x244:#x}
-.equ MENU_CARD, {MENU_STATE + M_CARD:#x}
-.equ CARD_NEVER, {CARD_NEVER:#x}
-.equ FR_CARD_NEVER, {FR_CARD_NEVER:#x}
 .equ FR_SHORT, {FR_SHORT:#x}
 .equ NAME_MAX, {NAME_MAX}
 .equ FILE_LIMIT, {FILE_LIMIT:#x}
@@ -837,7 +831,7 @@ data_file_fr:
     ldr r0, [r0]
 data_file_error:
     mov r4, #{STATUS_FILE}
-    mov r11, r0                 ; with status 6 the CRC word carries the FatFs result, or FR_CARD_NEVER or FR_SHORT
+    mov r11, r0                 ; with status 6 the CRC word carries the FatFs result, or FR_SHORT
 data_reply:
     add r0, r6, #S_RAW
     str r4, [r0]
@@ -1004,7 +998,7 @@ fread_failed:
     mov r3, #0
     str r3, [r11, #8]
     cmp r4, #{STATUS_FILE}
-    ldreq r3, =FILE_FR          ; with status 6 the CRC word carries the FatFs result, or FR_CARD_NEVER
+    ldreq r3, =FILE_FR          ; with status 6 the CRC word carries the FatFs result
     ldreq r3, [r3]
     str r3, [r11, #12]
     str r5, [r11, #16]
@@ -1327,25 +1321,12 @@ fx_name:
 
 ; f_unlink(r0 = path) of the firmware; the blue Electribe 2's image has none, there it fails with 1 (FR_DISK_ERR)
 fs_unlink:
-    ldr r12, =MENU_CARD
-    ldr r12, [r12]
-    cmp r12, #CARD_NEVER
-    moveq r0, #FR_CARD_NEVER
-    bxeq lr
 {unlink_body()}
 .pool
 
-; f_open(r0 = file object, r1 = path, r2 = mode) of the firmware, but not after a start without a card (M_CARD CARD_NEVER,
-; tools/patch/script_menu.s): mounting a card put in after such a start can hang in Korg's SD init (#518), so the FILE commands
-; get FR_CARD_NEVER instead, as the BLECH menu leaves such a card alone
+; f_open(r0 = file object, r1 = path, r2 = mode) of the firmware
 fs_open:
-    ldr r12, =MENU_CARD
-    ldr r12, [r12]
-    cmp r12, #CARD_NEVER
-    moveq r0, #FR_CARD_NEVER
-    bxeq lr
     b FS_OPEN
-.pool
 
 ; The sample file commands sit apart from the rest, in the free run behind the preset tables' second block, so that the code above
 ; keeps its room (the Sync Group's buffer of the pattern switch starts at 0xC0173000).
@@ -1911,9 +1892,6 @@ def build_patch(vsb, table, build):
             ramdecl.area(STATE, STATE_END - STATE, "run time state: the declared write, the request as decoded, the words and the packed bytes of a short reply", "tools/patch/blech_sysex.py:STATE"),
             ramdecl.area(BUF, BUF_END - BUF, "the buffer a message is decoded into and a reply is packed in, up to MAX_BLOCK bytes of data", "tools/patch/blech_sysex.py:BUF"),
             ramdecl.area(FILE_AREA, FILE_AREA_END - FILE_AREA, "the FatFs file object, the byte count, the FatFs result and the path of the FILE commands", "tools/patch/blech_sysex.py:FILE_AREA"),
-        ],
-        "shares": [
-            ramdecl.share(MENU_STATE + M_CARD, 4, "script-runtime", "read only: the BLECH menu's card word (M_CARD), a card after a start without one is left alone", "tools/patch/blech_sysex.py:MENU_STATE"),
         ],
     }
 

@@ -152,7 +152,8 @@ class SDCard:
     `kind` "sdsc" is an old standard-capacity card: it does not know CMD8 (no answer), reports no high-capacity bit
     in the OCR, has a version 1.0 CSD and takes byte addresses (Modellannahme: only multiples of 512, as the firmware
     sends them after CMD16 with 512). `write_protect` is the lock switch of the card, which the socket reports on
-    GPIO 4.0 (machine.py). `never_ready` is a card whose power-up never ends (ACMD41 stays busy). `slow_ident` is a card that
+    GPIO 4.0 (machine.py). An SDHC card that has not heard CMD8 since its last CMD0 takes the host for a version 1.x host
+    and stays busy on ACMD41 (SD spec 4.2.3.1). `never_ready` is a card whose power-up never ends (ACMD41 stays busy). `slow_ident` is a card that
     answers no command before it has an address (CMD3) unless the clock is the identification clock Korg sets at power-on
     (CLKRT 0x5D or slower; a card on the device ignored ACMD41 at 12.5 MHz, docs/messungen/2026-11-14-karte-tausch-takt.md). `faults` are armed
     from the start; `fail()` arms more at any time."""
@@ -221,9 +222,13 @@ class SDCard:
 
     def reset(self):
         self.state, self.rca, self.app, self.acmd41 = "idle", 0, False, 0
+        self.cmd8 = False
+
+    def ready(self):
+        return self.acmd41 >= 2 and not self.never_ready and (self.cmd8 or self.kind != "sdhc")
 
     def ocr(self):
-        ready = self.acmd41 >= 2 and not self.never_ready
+        ready = self.ready()
         return (0x40FF8000 if self.kind == "sdhc" else 0x00FF8000) | (0x80000000 if ready else 0)
 
     def cid(self):
@@ -310,13 +315,14 @@ class SDCard:
         if idx == 8:
             if self.kind == "sdsc":
                 return ("timeout",)                       # a version 1.x card does not know CMD8
+            self.cmd8 = True
             return self._answer("r1", 8, arg & 0xFFF)     # R7: the check pattern echoed
         if idx == 55:
             self.app = True
             return self._answer("r1", 55, self.r1() | 0x20)
         if app and idx == 41:
             self.acmd41 += 1
-            if self.acmd41 >= 2 and not self.never_ready:
+            if self.ready():
                 self.state = "ready"
             return ("r3", self.ocr())
         if app and idx == 6:
