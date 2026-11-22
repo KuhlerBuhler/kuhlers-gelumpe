@@ -14,25 +14,25 @@ class RecordingHookTests(unittest.TestCase):
 
     def test_default_off_and_exit_bypass_never_post_or_allocate(self):
         m, b = self.machine()
-        from tools.patch.script_hooks import MENU_STATE
-        for armed, flags in ((0xFFFFFFFF, 0xFF), (0, 32), (1, 0)):
+        from tools.patch.script_hooks import MENU_STATE, NATIVE_RECORDING
+        for armed, setting in ((0xFFFFFFFF, 0xFF), (0, 1), (1, 0), (1, 0xFF)):
             m.write(MENU_STATE, armed)
-            m.uc.mem_write((MENU_STATE + b.symbols['MX_FLAGS2']) & 0xFFFFFFFF, bytes([flags, 0xA5, 0xA5, 0xA5]))
+            m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_SETTING'], bytes([setting]))
             self.assertEqual(m.call('nr_enabled')[0], 0)
             self.assertEqual(m.call('nr_post', 1)[0], b.symbols['NR_DISABLED'])
             self.assertEqual(m.call('nr_service')[0], 0)
             self.assertEqual(m.call('nr_busy')[0], 0)
         m.write(MENU_STATE, 1)
-        m.uc.mem_write((MENU_STATE + b.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_SETTING'], b'\x01')   # NATIVE RECORDING ON
         self.assertEqual(m.call('nr_enabled')[0], 1)
         self.assertEqual(m.call('nr_post', 1)[0], 0)
         self.assertEqual(m.call('nr_busy')[0], 1)
 
     def test_recording_request_keeps_idle_timer_awake(self):
         m, b = self.machine()
-        from tools.patch.script_hooks import MENU_STATE, IDLE
+        from tools.patch.script_hooks import MENU_STATE, IDLE, NATIVE_RECORDING
         m.write(MENU_STATE, 1)
-        m.uc.mem_write((MENU_STATE + b.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_SETTING'], b'\x01')   # NATIVE RECORDING ON
         m.write(b.symbols['OS_TICKS'], 123456)
         m.write(b.symbols['APO_TIMER'], 0)
         m.call('nr_post', 1)
@@ -54,15 +54,14 @@ class RecordingHookTests(unittest.TestCase):
         m.uc.mem_write(0xC014F000, b'\xff' * 4096)
         count = m.call('menu_page_count')[0]
         kinds = [m.call('menu_kind', i)[0] for i in range(count)]
-        self.assertEqual(kinds[-3:], [61, 62, 64])
-        self.assertEqual(kinds.count(64), 1)
-        self.assertEqual(b.symbols['FLAGS2_KNOWN'] & 32, 32)
+        self.assertEqual(kinds[-3:], [61, 62, 68])
+        self.assertEqual(kinds.count(68), 1)
 
     def test_record_key_toggles_only_in_native_record_setup_and_swallows_its_release(self):
         m, b = self.machine()
         from tools.patch.script_hooks import MENU_STATE, NATIVE_RECORDING
         m.write(MENU_STATE, 1)
-        m.uc.mem_write((MENU_STATE + b.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_SETTING'], b'\x01')   # NATIVE RECORDING ON
         m.call('nr_init')
         packet = m.input + 0x5000
         m.uc.mem_write(packet, bytes(12) + bytes([0, 0, 1, 0]) + bytes(8))
@@ -92,7 +91,7 @@ class RecordingHookTests(unittest.TestCase):
         m, b = self.machine()
         from tools.patch.script_hooks import MENU_STATE, NATIVE_RECORDING
         m.write(MENU_STATE, 1)
-        m.uc.mem_write((MENU_STATE + b.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_SETTING'], b'\x01')   # NATIVE RECORDING ON
         obj, engine = m.input + 0x6000, m.input + 0x7000
         m.write(obj + 0x24, engine)
         m.write(engine + 0x708, 0)
@@ -112,9 +111,9 @@ class RecordingHookTests(unittest.TestCase):
 
     def test_capture_apps_are_unavailable_only_while_recording_is_busy(self):
         m, b = self.machine()
-        from tools.patch.script_hooks import MENU_STATE
+        from tools.patch.script_hooks import MENU_STATE, NATIVE_RECORDING
         m.write(MENU_STATE, 1)
-        m.uc.mem_write((MENU_STATE + b.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_SETTING'], b'\x01')   # NATIVE RECORDING ON
         entry, block = m.input + 0x6000, m.input + 0x7000
         m.write(entry + b.symbols['SCRIPT_ENTRY_BLOB'], block)
         for code, requires in (([1, 33, 1, 129, 0], 0), ([33, 121, 0, 0], 0), ([33, 129, 1, 0], 1), ([1, 0, 0, 33, 129, 1, 0], 1)):
@@ -153,10 +152,10 @@ class RecordingHookTests(unittest.TestCase):
         m, b = self.machine()
         from tools.patch.script_hooks import MENU_STATE, NATIVE_RECORDING
         m.write(MENU_STATE, 1)
-        m.uc.mem_write((MENU_STATE + b.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_SETTING'], b'\x01')   # NATIVE RECORDING ON
         m.call('nr_post', 1)
         m.write(NATIVE_RECORDING + b.symbols['NR_SETUP'], 1)
-        m.uc.mem_write((MENU_STATE + b.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\0')
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_SETTING'], b'\x00')   # NATIVE RECORDING OFF
         packet = m.input + 0x5000
         m.uc.mem_write(packet, bytes(12) + bytes([0, 0, 1, 0]) + bytes(8))
         self.assertEqual(m.call('nr_input', packet)[0], 1)
@@ -167,7 +166,7 @@ class RecordingHookTests(unittest.TestCase):
         m, b = self.machine()
         from tools.patch.script_hooks import MENU_STATE, NATIVE_RECORDING
         m.write(MENU_STATE, 1)
-        m.uc.mem_write((MENU_STATE + b.symbols['MX_FLAGS2']) & 0xFFFFFFFF, b'\x20')
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_SETTING'], b'\x01')   # NATIVE RECORDING ON
         m.call('nr_init')
         m.write(NATIVE_RECORDING + b.symbols['NR_SELECTED'], 1)
         m.call('nr_post', 1)

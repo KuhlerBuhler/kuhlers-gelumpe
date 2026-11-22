@@ -11,7 +11,7 @@ class Runtime(Recorder):
     def __init__(self):
         from tools.patch.recording_runtime import source
         from tools.patch.arm import assemble
-        constants = '.equ NATIVE_RECORDING, 0x210000\n.equ MENU_STATE, 0x211000\n.equ M_ON, 0\n.equ MX_FLAGS2, 4\n.equ FLAGS2_NATIVE_RECORDING, 32\n.equ MG_ALLOC, 0xC0028DCC\n.equ MG_FREE, 0xC0028DD4\n.equ OS_TICKS, 0xC06A292C\n'
+        constants = '.equ NATIVE_RECORDING, 0x210000\n.equ MENU_STATE, 0x211000\n.equ M_ON, 0\n.equ NR_SETTING, 72\n.equ MG_ALLOC, 0xC0028DCC\n.equ MG_FREE, 0xC0028DD4\n.equ OS_TICKS, 0xC06A292C\n'
         super().__init__(code=assemble(constants + source(), origin=0x100000))
         self.uc.mem_map(0x210000, 0x2000)
         self.uc.mem_write(0x210000, b'\xff' * 64)
@@ -40,7 +40,8 @@ class Runtime(Recorder):
         uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
 
     def enabled(self, flag):
-        self.uc.mem_write(0x211000, struct.pack('<II', 1, 32 if flag else 0))
+        self.uc.mem_write(0x211000, struct.pack('<I', 1))
+        self.uc.mem_write(0x210000 + 72, bytes([1 if flag else 0]))   # script_menu.s:NR_SETTING
 
     def public(self, field):
         return struct.unpack('<I', self.uc.mem_read(0x210000 + self.s(field), 4))[0]
