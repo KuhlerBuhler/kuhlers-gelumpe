@@ -164,9 +164,13 @@ KEY_PADS_SYNTH = dict(KP_TITLE_AT=0xC0079AD8, KP_TITLE_FN=0xC006B404, KP_VALUE_A
 KEY_PADS_SYNTH_WORDS = {'kp_title_hook': 0xEBFFC649, 'kp_value_hook': 0xEBFFC756, 'kp_check_hook': 0xEBFFC63C,
                         'kp_key_play_hook': 0xEBFFCD75, 'kp_key_live_hook': 0xEBFFCAC8, 'kp_key_rec_hook': 0xEBFFB488,
                         'kp_key_led_hook': 0xEBFF2EC6}
-# Words that change to a plain value instead of a branch: the screen factory's bound and its table literal.
+# Words that change to a plain value instead of a branch: the screen factory's bound and its table literal; then the page counter
+# of two DATA UTILITY windows, which Korg's firmware builds with a fixed index one below the function's place in the list: SOFTWARE
+# UPDATE (14) showed 13, FACTORY RESET's number, and IMPORT SAMPLE (9) showed 8 (docs/messungen/2026-11-23-data-utility-zaehler.md).
 WORDS = ((0xC006E664,0xE350002C,0xE350002D),
-         (0xC006E68C,0xC00F9CD8,MENU_TABLE))
+         (0xC006E68C,0xC00F9CD8,MENU_TABLE),
+         (0xC006C58C,0xE3A0100C,0xE3A0100D),
+         (0xC006AD64,0xE3A01007,0xE3A01008))
 # Vtable slots of the menu class that point into our code (offset in the table, symbol).
 VTABLE_OVER = ((8,'menu_slot_exit'),(12,'menu_slot_keys'),(16,'menu_slot_prev'),(20,'menu_slot_next'),(24,'menu_slot_enter'),(40,'menu_slot_value'))
 
@@ -369,7 +373,7 @@ def runtime_profile(build):
             address = synthaddr.tr(address)
         sites.append((address, expected, name))
     return RuntimeProfile(build, tuple(sites),
-        ((0xC0061B68,0xE3500024,0xE3500025), (0xC0061B90,0xC00DFA68,MENU_TABLE)),
+        ((0xC0061B68,0xE3500024,0xE3500025), (0xC0061B90,0xC00DFA68,MENU_TABLE), (0xC005FC50,0xE3A01007,0xE3A0100A)),   # the blue's SOFTWARE UPDATE (11) showed 8
         tuple((synthaddr.tr(address), synthaddr.tr(value)) for address, value in LITERALS),
         (0xC00DFA68,148,'a65f40522347f45bab9a10802914b4a69900ab66e455c279c57c8aa4f48368fd'),
         (0xC00C9BD8,72,'9890f118100188fed55d3f35b6cc98c22191484ac62c8e1b55fb0794c0089277'),
@@ -448,7 +452,7 @@ class BuiltHooks:
         spans=[(address,address+4,'Eingangs-, Rahmen-, Karten- oder Menüstelle verzweigt in den gesicherten Rückweg.')
                for address,_,_ in self.profile.sites]
         spans+=[(address,address+4,'Grenze und Tabellenverweis der Bildschirmfabrik, jeder Bildschirmwechsel liest sie.')
-                for address,_,_ in self.profile.words]
+                for address,_,_ in self.profile.words[:2]]   # the counter words run only in their windows, not in the start
         spans.append((MENU_TABLE,MENU_TABLE+self.profile.table[1]+4,'Kopie der Bildschirmtabelle mit einem Eintrag mehr, die Fabrik liest sie schon für den Hauptbildschirm.'))
         block=self.sections[-1]
         spans.append((block[0],block[0]+len(block[1]),'Der Block von Blechy, der eingebauten App, liegt im Abbild: der Lader prüft ihn (Prüfsumme, Befehle) und liest seine Konstanten, sobald das Menü scharf ist.'))
