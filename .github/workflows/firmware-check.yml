@@ -145,6 +145,8 @@ jobs:
 
   join:
     needs: [plan, shard]
+    # dsp-worker is skipped on most PRs; without this the skip spreads through shard to join.
+    if: ${{ !cancelled() && needs.shard.result == 'success' }}
     name: Complete ${{ matrix.firmware.name }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
