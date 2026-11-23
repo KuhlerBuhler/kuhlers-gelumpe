@@ -129,6 +129,9 @@ in zwei, die Browsertests in vier Teilen nebeneinander (`--test-shard`), die Pr�
 Workflows, laufen nur die Einheitstests, die Dokumente lesen, und keine Browsertests (ausgenommen
 `DESIGN.md`, `docs/plugins*.md` und `third_party/`, die die Seite und die Tests lesen).
 
+`npm run test:e2e` startet die Testdateien nacheinander, damit nicht
+für jeden CPU-Kern eine eigene Chrome-Instanz um denselben Rechner konkurriert.
+
 Jeder lokale Testlauf (`npm test`, `test:e2e`, `test:all`, `test:emu`, `test:local`, `verify:patches`, `check.py`, `menu_cases.py` und die übrigen `*_cases.py`) prüft zuerst die Auslastung (`tools/load-gate.mjs`) und startet nicht, solange die CPUs über eine Stichprobe von 2 s zu mindestens 80 % ausgelastet sind oder weniger als 10 % Speicher frei sind. Er meldet das in einer Zeile, prüft alle 15 s neu und bricht nach 20 Minuten mit Fehlercode ab. `GELUMPE_LOAD_GATE=off` überspringt die Prüfung, `GELUMPE_LOAD_MAX` (Anteil der CPU-Zeit, 0,8; ab 1 sperrt sie nie), `GELUMPE_LOAD_WAIT` (Sekunden) und `GELUMPE_LOAD_POLL` (Sekunden) stellen sie ein. In CI (`CI` gesetzt) entfällt sie, und verschachtelte Läufe warten nicht doppelt (`GELUMPE_LOAD_GATE_PASSED`). Direkt gestartetes `node --test` ist nicht abgesichert, dafür `node tools/load-gate.mjs node --test ...` voranstellen. Ebenso ungeschützt sind `cases()` eines Fallmoduls, aus Python aufgerufen (die Prüfung steht nur in seinem `main()`), und `python -m unittest tools/patch/test_*.py`: vorher die CPU-Auslastung ansehen oder `node tools/load-gate.mjs` voranstellen.
 
 Auf macOS zählt das Lastmittel auch wartende Threads. Gemessen: Lastmittel 16,7 auf 10 Kernen, während `top` 56 % freie CPU

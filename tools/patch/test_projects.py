@@ -261,13 +261,43 @@ for(const build of ['stock','hacktribe','synth']){
  ...patches.flatMap(p=>(p.ram??[]).map(r=>({start:Number(r.at),end:Number(r.at)+r.length,name:p.id})))];
 } console.log(JSON.stringify(result));"""
         cls.maps = json.loads(subprocess.check_output(["node", "--input-type=module", "-e", code], cwd=ROOT, text=True))
+        cls.cache_lenders = [dict(name="sample-swap", start=0xC276F000, end=0xC4000000)]
 
-    def test_candidate_above_native_owners_fits_declarations_only(self):
+    def test_candidate_requires_exclusive_borrowing_of_the_swap_cache(self):
         self.assertEqual(contract.RAM_START, self.maps["physicalStart"])
         self.assertEqual(contract.RAM_END - contract.RAM_START, self.maps["physicalBytes"])
         for build, owners in self.maps["owners"].items():
             with self.subTest(build=build):
-                self.assertEqual(contract.project_area_errors(0xC3000000, 13 * 1024 * 1024, owners), [])
+                required = ["sample-swap"] if build in ("stock", "hacktribe") else []
+                plan = contract.project_area_requirements(0xC3000000, 13 * 1024 * 1024, owners, borrowable=self.cache_lenders)
+                self.assertEqual(plan, dict(errors=[], requires_exclusive=required))
+                self.assertEqual(bool(contract.project_area_errors(0xC3000000, 13 * 1024 * 1024, owners)), bool(required))
+
+    def test_borrowing_does_not_hide_another_owner_or_the_swap_work_buffers(self):
+        owners = self.maps["owners"]["hacktribe"]
+        occupied = owners + [dict(start=0xC3000000, end=0xC3001000, name="another-owner")]
+        plan = contract.project_area_requirements(0xC3000000, 13 * 1024 * 1024, occupied, borrowable=self.cache_lenders)
+        self.assertEqual(plan["requires_exclusive"], ["sample-swap"])
+        self.assertTrue(any("another-owner" in reason for reason in plan["errors"]))
+        plan = contract.project_area_requirements(0xC274F000, 13 * 1024 * 1024, owners, borrowable=self.cache_lenders)
+        self.assertTrue(plan["errors"], "the collection header and file buffers cannot be borrowed")
+
+    def test_successful_recovery_releases_the_large_preimages(self):
+        operation = contract.ImportOperation()
+        operation.acquire(operation.confirmation())
+        original = bank("old")
+        operation.capture(flash=original, ram=original, editor=original[:BLOCK], selection=0, mfx=b"old-MFX")
+        operation.mark_attempt(0)
+        with self.assertRaises(ValueError):
+            operation.recovered(bank("wrong"))
+        self.assertTrue(operation.locked)
+        self.assertIsNotNone(operation.flash_before)
+        restored = operation.recovered(original)
+        self.assertEqual(restored["bank"], original)
+        self.assertFalse(operation.locked)
+        for field in ("flash_before", "ram_before", "editor_before", "mfx_before", "selection"):
+            self.assertTrue(getattr(operation, field) is None, field)
+        self.assertEqual(operation.touched, set())
 
     def test_sample_buffer_and_patch_owner_collisions_are_rejected(self):
         owners = self.maps["owners"]["hacktribe"]

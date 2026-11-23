@@ -314,6 +314,9 @@ class ImportOperation:
         at = self.selection * BLOCK_SIZE
         restored = dict(bank=self.flash_before, editor=self.flash_before[at:at + BLOCK_SIZE],
                         selection=self.selection, mfx=self.mfx_before)
+        self.flash_before = self.ram_before = self.editor_before = self.mfx_before = None
+        self.selection = None
+        self.touched.clear()
         self.locked = False
         return restored
 
@@ -331,3 +334,23 @@ def project_area_errors(start, length, owners):
         if start < owner["end"] and owner["start"] < end:
             errors.append(f"project area overlaps {owner['name']}")
     return errors
+
+
+def project_area_requirements(start, length, owners, *, borrowable=()):
+    """Plan an exclusive loan; this neither acquires RAM nor proves runtime quiescence."""
+    bounds = project_area_errors(start, length, [])
+    if bounds:
+        return dict(errors=bounds, requires_exclusive=[])
+    end = start + length
+    errors, required = [], set()
+    for owner in owners:
+        if start >= owner["end"] or owner["start"] >= end:
+            continue
+        if any(lender["name"] == owner["name"]
+               and lender["start"] <= start and end <= lender["end"]
+               and owner["start"] <= lender["start"] and lender["end"] <= owner["end"]
+               for lender in borrowable):
+            required.add(owner["name"])
+        else:
+            errors.append(f"project area overlaps {owner['name']}")
+    return dict(errors=errors, requires_exclusive=sorted(required))

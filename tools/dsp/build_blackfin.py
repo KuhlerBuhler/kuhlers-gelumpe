@@ -1,0 +1,475 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Build a private GNU 15.2 Blackfin worker outside the repository."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import shlex
+import shutil
+import subprocess
+import tarfile
+import urllib.request
+
+VERSION = '15.2'
+SHA256 = '83350ccd35b5b5a0cba6b334c41294ea968158c573940904f00b92f76345314d'
+URL = f'https://sourceware.org/pub/gdb/releases/gdb-{VERSION}.tar.xz'
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def patch_sources(source):
+    file = source / 'sim/bfin/bfin-sim.c'
+    text = file.read_text()
+    start = text.index('#define SIGNEXTEND(v, n)')
+    end = text.index('\n\n', start)
+    text = text[:start] + '#define SIGNEXTEND(v, n) (((bs32)((bu32)(v) << (32 - (n)))) >> (32 - (n)))' + text[end:]
+    for expression in ('add32 (cpu, DREG (src0), DREG (src1), 1, s)',
+                       'sub32 (cpu, DREG (src0), DREG (src1), 1, s, 0)'):
+        old = f'SET_DREG (dst0, {expression});'
+        new = f'STORE (DREG (dst0), {expression});'
+        if text.count(old) == 1:
+            text = text.replace(old, new)
+        elif text.count(new) != 1:
+            raise ValueError('unexpected GNU DSP32ALU arithmetic implementation')
+    for expression in ('signbits (sv1, 32)', 'signbits (sv1, 16)',
+                       'signbits (sv1 >> 16, 16)', 'signbits (acc, 40) & 0xFFFF'):
+        old = f'SET_DREG_L (dst0, {expression});'
+        new = f'STORE (DREG (dst0), REG_H_L (DREG (dst0), {expression}));'
+        if text.count(old) == 1:
+            text = text.replace(old, new)
+        elif text.count(new) != 1:
+            raise ValueError('unexpected GNU SIGNBITS implementation')
+    # A pointer load in the first multi-issue slot must not change its register before the second slot's
+    # store reads it ("R0 = [P0++] || [I1++] = R0" stores the old R0), like GNU's I-register and pmod loads.
+    for name in ('decode_LDST_0', 'decode_LDSTii_0'):
+        start = text.index(f'\n{name} (')
+        end = text.index('\n}\n', start)
+        body = text[start:end]
+        loads = body.count('SET_DREG (reg, ')
+        if loads not in (3, 5) and 'STORE (DREG (reg), ' not in body:
+            raise ValueError(f'unexpected GNU {name} implementation')
+        body = body.replace('SET_DREG (reg, ', 'STORE (DREG (reg), ')
+        if name == 'decode_LDST_0':
+            body = body.replace('SET_PREG (ptr, ', 'STORE (PREG (ptr), ')
+        text = text[:start] + body + text[end:]
+    # The same for the single-register DSP32ALU results a parallel store can read ("R1 = -R0 || [P2] = R1").
+    start = text.index('\ndecode_dsp32alu_0 (')
+    end = text.index('\n}\n', start)
+    body = text[start:end]
+    for old in ('SET_DREG (dst0, min32 (', 'SET_DREG (dst0, max32 (', 'SET_DREG (dst0, min2x16 (',
+                'SET_DREG (dst0, max2x16 (', 'SET_DREG (dst0, val);', 'SET_DREG (dst0, val0);',
+                'SET_DREG (dst1, val1);'):
+        new = old.replace('SET_DREG (dst0, ', 'STORE (DREG (dst0), ').replace('SET_DREG (dst1, ', 'STORE (DREG (dst1), ')
+        if old not in body and new not in body:
+            raise ValueError('unexpected GNU DSP32ALU single-register implementation')
+        body = body.replace(old, new)
+    text = text[:start] + body + text[end:]
+    file.write_text(text)
+    file = source / 'sim/bfin/dv-bfin_dmac.c'
+    text = file.read_text()
+    declaration = 'int blech_bfin_hostdp_dma_enabled (struct hw *);\n\n'
+    if declaration not in text:
+        text = text.replace('struct bfin_dmac\n', declaration + 'struct bfin_dmac\n', 1)
+    old = '      if (idx >= dmac->pmap_count)\n'
+    new = ('      if (idx == 1)\n'
+           '        {\n'
+           '          struct hw *host = hw_tree_find_device (me, "/core/bfin_hostdp");\n'
+           '          if (host && blech_bfin_hostdp_dma_enabled (host)) return host;\n'
+           '        }\n' + old)
+    if new not in text:
+        if text.count(old) != 1:
+            raise ValueError('unexpected GNU peripheral DMA lookup')
+        text = text.replace(old, new)
+    file.write_text(text)
+    file = source / 'sim/bfin/dv-bfin_sic.c'
+    text = file.read_text()
+    text = text.replace('  bu32 base;\n', '  bu32 base, system_lines;\n')
+    start = text.index('static void\nbfin_sic_52x_forward_interrupts (')
+    if 'static bu32\nblech_sic_levels (' in text:
+        start = text.index('static bu32\nblech_sic_levels (')
+    stop = text.index('\nstatic unsigned\nbfin_sic_52x_io_write_buffer', start)
+    text = text[:start] + (ROOT / 'tools/dsp/blackfin_sic.c.inc').read_text() + text[stop:]
+    old = '      bfin_sic_52x_forward_interrupts (me, sic);\n      *value32p = value;\n'
+    new = '      *value32p = value;\n      bfin_sic_52x_forward_interrupts (me, sic);\n'
+    if text.count(old) == 1:
+        text = text.replace(old, new)
+    elif new not in text:
+        raise ValueError('unexpected GNU BF52x interrupt mask implementation')
+    start = text.index('bfin_sic_52x_io_write_buffer (')
+    stop = text.index('\nstatic unsigned\nbfin_sic_52x_io_read_buffer', start)
+    region = text[start:stop].replace('      *value32p = value;\n      break;',
+                                     '      *value32p = value;\n      bfin_sic_52x_forward_interrupts (me, sic);\n      break;')
+    text = text[:start] + region + text[stop:]
+    file.write_text(text)
+    file = source / 'sim/bfin/dv-bfin_cec.c'
+    text = file.read_text()
+    text = text.replace('  bu32 evt_override, imask, ipend, ilat, iprio;\n',
+                        '  bu32 evt_override, imask, ipend, ilat, iprio;\n  bu32 system_lines;\n') if '  bu32 system_lines;\n' not in text else text
+    old = '  bfin_cec_check_pending (cec->me, cec);\n'
+    new = '  cec->ilat |= cec->system_lines & ~cec->ipend;\n' + old
+    if new not in text:
+        if text.count(old) != 1:
+            raise ValueError('unexpected GNU CEC pending interrupt implementation')
+        text = text.replace(old, new)
+    old = '  struct bfin_cec *cec = hw_data (me);\n  _cec_raise (cec->cpu, cec, my_port);\n'
+    new = ('  struct bfin_cec *cec = hw_data (me);\n'
+           '  if (my_port >= IVG7 && my_port <= IVG15)\n'
+           '    {\n'
+           '      if (level) cec->system_lines |= 1U << my_port;\n'
+           '      else cec->system_lines &= ~(1U << my_port);\n'
+           '      if (!level) return;\n'
+           '    }\n'
+           '  _cec_raise (cec->cpu, cec, my_port);\n')
+    if '  if (my_port >= IVG7 && my_port <= IVG15)\n' not in text:
+        if text.count(old) != 1:
+            raise ValueError('unexpected GNU CEC interrupt input implementation')
+        text = text.replace(old, new)
+    file.write_text(text)
+    file = source / 'sim/bfin/interp.c'
+    text = file.read_text()
+    begin, end = '/* BLECH_GUARD_BEGIN */\n', '/* BLECH_GUARD_END */\n'
+    guard = (begin + (ROOT / 'tools/dsp/blackfin_guard.c.inc').read_text() + '\n'
+             + (ROOT / 'tools/dsp/blackfin_memory.c.inc').read_text() + '\n' + end)
+    if begin in text:
+        a, b = text.index(begin), text.index(end) + len(end)
+        text = text[:a] + guard + text[b:]
+    else:
+        at = '\nvoid\nsim_engine_run ('
+        if text.count(at) != 1:
+            raise ValueError('unexpected GNU Blackfin execution engine')
+        text = text.replace(at, '\n' + guard + at)
+    start = text.index('void\nsim_engine_run (')
+    stop = text.index('/* Cover function of sim_state_free', start)
+    text = text[:start] + ('void\nsim_engine_run (SIM_DESC sd, int next_cpu_nr, int nr_cpus, int siggnal)\n'
+                          '{\n  blech_bfin_engine (sd, STATE_CPU (sd, 0));\n}\n\n') + text[stop:]
+    file.write_text(text)
+
+    file = source / 'sim/bfin/bfin-sim.h'
+    text = file.read_text()
+    old_declaration = 'void blech_bfin_memory_access (unsigned, bu32, unsigned, bu32, bu32);\n\n'
+    declaration = ('int blech_bfin_memory_window (bu32, bu32);\n'
+                   'void blech_bfin_memory_report (bu64 *, bu32 *);\n' + old_declaration)
+    if declaration not in text:
+        text = text.replace(old_declaration, declaration)
+    if declaration not in text:
+        text = text.replace('#define __PUT_MEM', declaration + '#define __PUT_MEM', 1)
+    text = text.replace('  blech_bfin_memory_access (1, __taddr, __bytes, PCREG, 0);',
+                        '  if (__cnt > 0) blech_bfin_memory_access (1, __taddr, __cnt, PCREG, 0);')
+    text = text.replace('  if (!inst) blech_bfin_memory_access (0, __taddr, __bytes, PCREG, 0);',
+                        '  if (!inst && __cnt > 0) blech_bfin_memory_access (0, __taddr, __cnt, PCREG, 0);')
+    for marker, call in (
+            ('  BFIN_TRACE_CORE (cpu, __taddr, __bytes, write_map, __v);',
+             '  if (__cnt > 0) blech_bfin_memory_access (1, __taddr, __cnt, PCREG, 0);'),
+            ('  BFIN_TRACE_CORE (cpu, __taddr, __bytes, map, __ret);',
+             '  if (!inst && __cnt > 0) blech_bfin_memory_access (0, __taddr, __cnt, PCREG, 0);')):
+        if call not in text:
+            if text.count(marker) != 1:
+                raise ValueError('unexpected GNU Blackfin CPU memory access implementation')
+            text = text.replace(marker, call + ' \\\n' + marker)
+    file.write_text(text)
+
+    file = source / 'sim/bfin/dv-bfin_dma.c'
+    text = file.read_text()
+    text = text.replace('dma->base, dma->curr_desc_ptr);',
+                        'dma->base, dma->active_desc_ptr);')
+    for indent, kind, operation in ((6, 3, 'write'), (6, 2, 'read'), (2, 2, 'read'), (2, 3, 'write')):
+        data = 'buf' if indent == 6 else 'dest' if operation == 'read' else 'source'
+        size = 'ret' if operation == 'write' and indent == 6 else 'nr_bytes'
+        marker = ' ' * indent + f'ret = sim_{operation} (hw_system (me), dma->curr_addr, {data}, {size});'
+        call = ' ' * indent + f'blech_bfin_memory_access ({kind}, dma->curr_addr, ret, dma->base, dma->active_desc_ptr);'
+        if '\n' + call + '\n' not in text:
+            if text.count('\n' + marker + '\n') != 1:
+                raise ValueError('unexpected GNU Blackfin DMA buffer access implementation')
+            text = text.replace('\n' + marker + '\n', '\n' + marker + '\n' + call + '\n')
+    file.write_text(text)
+    file = source / 'sim/bfin/bfin-sim.c'
+    text = file.read_text()
+    text = text.replace('static void\ncycles_inc (', 'void\ncycles_inc (')
+    text = text.replace('  cycles_inc (cpu, CYCLE_DELAY);', '')
+    start = text.index('      /* Timewarp !  */') if '      /* Timewarp !  */' in text else -1
+    if start >= 0:
+        stop = text.index('\n    }', start)
+        text = text[:start] + ('      if (STATE_ENVIRONMENT (sd) == OPERATING_ENVIRONMENT && cec_is_supervisor_mode (cpu))\n'
+                              '        blech_bfin_idle (sd);\n      CYCLE_DELAY = 1;') + text[stop:]
+    declaration = '\nextern void blech_bfin_idle (SIM_DESC);\n'
+    if declaration not in text:
+        at = text.index('\n', text.index('#include "sim-main.h"')) + 1
+        text = text[:at] + declaration + text[at:]
+    file.write_text(text)
+    file = source / 'sim/bfin/dv-bfin_sic.c'
+    text = file.read_text()
+    declaration = '\nextern void blech_bfin_wake_level (SIM_DESC, bool);\n'
+    if declaration not in text:
+        at = text.index('\n', text.index('#include "sim-main.h"')) + 1
+        text = text[:at] + declaration + text[at:]
+    wake = ('  blech_bfin_wake_level (hw_system (me),\n'
+            '    (sic->bf52x.isr0 & sic->bf52x.iwr0) || (sic->bf52x.isr1 & sic->bf52x.iwr1));\n')
+    at = text.index('bfin_sic_52x_forward_interrupts (struct hw *me, struct bfin_sic *sic)\n{')
+    if wake not in text[at:]:
+        end = text.index('  sic->system_lines = levels;', at)
+        text = text[:end] + wake + text[end:]
+    file.write_text(text)
+    file = source / 'sim/bfin/dv-bfin_cec.c'
+    text = file.read_text()
+    declaration = '\nextern void blech_bfin_wake (SIM_DESC);\n'
+    if declaration not in text:
+        at = text.index('\n', text.index('#include "sim-main.h"')) + 1
+        text = text[:at] + declaration + text[at:]
+    wake = '  if (level && my_port <= IVG_IVTMR) blech_bfin_wake (hw_system (me));\n'
+    at = text.index('bfin_cec_port_event (')
+    if wake not in text[at:]:
+        end = text.index('  _cec_raise (cec->cpu, cec, my_port);', at)
+        text = text[:end] + wake + text[end:]
+    file.write_text(text)
+    file = source / 'sim/bfin/machs.c'
+    text = file.read_text()
+    start = text.index('static const struct bfin_memory_layout bf52x_mem[] =')
+    stop = text.index('\n};', start)
+    region = text[start:stop]
+    region = region.replace('  LAYOUT (0xFFC00800, 0x60, read_write),\t/* SPORT0 stub */\n', '')
+    text = text[:start] + region + text[stop:]
+    for name in ('bf522_dev', 'bf526_dev'):
+        start = text.index(f'static const struct bfin_dev_layout {name}[] =\n{{\n')
+        stop = text.index('\n};', start)
+        region = text[start:stop]
+        if '"bfin_hostdp"' not in region:
+            at = text.index('{\n', start) + 2
+            text = text[:at] + '  DEVICE (0xFFC03400, 12, "bfin_hostdp"),\n' + text[at:]
+        stop = text.index('\n};', start)
+        if '"bfin_sport@0"' not in text[start:stop]:
+            at = text.index('{\n', start) + 2
+            text = text[:at] + '  DEVICE (0xFFC00800, 0x60, "bfin_sport@0"),\n' + text[at:]
+    old = 'if (bfrom->sirev == sirev)\n'
+    new = 'if (bfrom->sirev == sirev && bfrom->len != 0)\n'
+    if text.count(old) == 1:
+        text = text.replace(old, new)
+    elif text.count(new) != 1:
+        raise ValueError('unexpected GNU boot ROM mapping implementation')
+    file.write_text(text)
+    file = source / 'sim/Makefile.in'
+    text = file.read_text().replace(r'\1/;p}', r'\1/;p;}')
+    hostdp = '@SIM_ENABLE_ARCH_bfin_TRUE@\tbfin_hostdp \\\n'
+    if hostdp not in text:
+        anchor = '@SIM_ENABLE_ARCH_bfin_TRUE@\tbfin_gptimer \\\n'
+        if text.count(anchor) != 1:
+            raise ValueError('unexpected GNU Blackfin device list')
+        text = text.replace(anchor, anchor + hostdp)
+    file.write_text(text)
+    shutil.copyfile(ROOT / 'tools/dsp/blackfin_hostdp.c', source / 'sim/bfin/dv-bfin_hostdp.c')
+    file = source / 'sim/Makefile.in'
+    text = file.read_text()
+    sport = '@SIM_ENABLE_ARCH_bfin_TRUE@\tbfin_sport \\\n'
+    if sport not in text:
+        text = text.replace(hostdp, hostdp + sport)
+    file.write_text(text)
+    shutil.copyfile(ROOT / 'tools/dsp/blackfin_sport.c', source / 'sim/bfin/dv-bfin_sport.c')
+    file = source / 'sim/bfin/dv-bfin_dma.c'
+    text = file.read_text()
+    if '  struct hw *host_owner;\n' not in text:
+        text = text.replace('  struct hw *hw_peer;\n', '  struct hw *hw_peer;\n  struct hw *host_owner;\n', 1)
+    start = text.index('bfin_dma_io_write_buffer (')
+    stop = text.index('\nstatic unsigned\nbfin_dma_io_read_buffer', start)
+    region = text[start:stop]
+    ownership = ('  if (mmr_off != mmr_offset(irq_status)\n'
+                 '      && (!bfin_dma_running (dma) || mmr_off == mmr_offset(config)))\n'
+                 '    dma->host_owner = NULL;\n\n')
+    if ownership not in region:
+        region = region.replace('  switch (mmr_off)\n', ownership + '  switch (mmr_off)\n', 1)
+    text = text[:start] + region + text[stop:]
+    if '  bu32 active_desc_ptr;\n' not in text:
+        text = text.replace('  struct hw *host_owner;\n',
+                            '  struct hw *host_owner;\n  bu32 active_desc_ptr;\n', 1)
+    begin, end = '/* BLECH_DMA_DESCRIPTOR_BEGIN */', '/* BLECH_DMA_DESCRIPTOR_END */'
+    if begin in text:
+        start = text.index(begin)
+        stop = text.index(end, start) + len(end)
+    else:
+        start = text.index('static void\nbfin_dma_process_desc (')
+        stop = text.index('\nstatic int\nbfin_dma_finish_x', start)
+    descriptor = (ROOT / 'tools/dsp/blackfin_dma_desc.c.inc').read_text().rstrip()
+    text = text[:start] + begin + '\n' + descriptor + '\n' + end + '\n\n' + text[stop:].lstrip('\n')
+    old = '  if (dma->config & DI_EN)\n    hw_port_event (me, 0, 1);\n'
+    previous = '  dma->irq_status |= DMA_DONE;\n' + old
+    new = ('  if (!(dma->config & DMA2D) || (dma->config & DI_SEL) || dma->curr_y_count == 1)\n'
+           '    {\n'
+           '      dma->irq_status |= DMA_DONE;\n'
+           '      if (dma->config & DI_EN)\n'
+           '        hw_port_event (me, 0, 1);\n'
+           '    }\n')
+    if new not in text:
+        if text.count(previous) == 1:
+            text = text.replace(previous, new)
+        elif text.count(old) == 1:
+            text = text.replace(old, new)
+        else:
+            raise ValueError('unexpected GNU DMA completion implementation')
+    old = '      dv_w1c_2 (value16p, value, DMA_DONE | DMA_ERR);\n'
+    new = old + '      hw_port_event (me, 0, (dma->config & DI_EN) && (dma->irq_status & (DMA_DONE | DMA_ERR)));\n'
+    if new not in text:
+        if text.count(old) != 1:
+            raise ValueError('unexpected GNU DMA interrupt acknowledgment')
+        text = text.replace(old, new)
+    text = text.replace('(dma->config & DMA2D) && dma->curr_y_count > 1',
+                        '(dma->config & DMA2D) && dma->curr_y_count != 1')
+    declaration = ('static unsigned blech_bfin_dma_remaining (const struct bfin_dma *);\n'
+                   'static unsigned blech_bfin_dma_peer_bytes (struct hw *, struct bfin_dma *, unsigned, bool);\n\n')
+    if declaration not in text:
+        marker = 'static void bfin_dma_hw_event_callback (struct hw *, void *);'
+        if text.count(marker) != 1:
+            raise ValueError('unexpected GNU DMA callback declaration')
+        text = text.replace(marker, declaration + marker)
+    start = text.index('bfin_dma_hw_event_callback (struct hw *me, void *data)')
+    stop = text.index('\nstatic unsigned\nbfin_dma_io_write_buffer', start)
+    region = text[start:stop]
+    if '  if (!bfin_dma_running (dma))\n    return;' not in region:
+        region = region.replace('  dma->handler = NULL;\n',
+                                '  dma->handler = NULL;\n  if (!bfin_dma_running (dma))\n    return;\n', 1)
+    region = region.replace('dma->curr_x_count * dma->ele_size',
+                            'blech_bfin_dma_remaining (dma) * dma->ele_size')
+    region = region.replace('  unsigned ret, nr_bytes, ele_count;',
+                            '  unsigned ret, nr_bytes, ele_count, expected;')
+    if '      expected = ret;' not in region:
+        marker = '      ret = sim_write (hw_system (me), dma->curr_addr, buf, ret);'
+        if region.count(marker) != 1:
+            raise ValueError('unexpected GNU DMA destination write')
+        region = region.replace(marker, '      expected = ret;\n' + marker)
+    for kind, name, expected in ((3, 'write', 'expected'), (2, 'read', 'nr_bytes')):
+        marker = f'      blech_bfin_memory_access ({kind}, dma->curr_addr, ret, dma->base, dma->active_desc_ptr);'
+        check = (f'      if (ret != {expected})\n'
+                 f'        hw_abort (me, "DMA data {name} failed at %#x", dma->curr_addr);')
+        if check not in region:
+            if region.count(marker) != 1:
+                raise ValueError('unexpected GNU DMA data observation')
+            region = region.replace(marker, marker + '\n' + check)
+    text = text[:start] + region + text[stop:]
+    for name, read in (('read', 'true'), ('write', 'false')):
+        start = text.index(f'bfin_dma_dma_{name}_buffer (')
+        stop = text.index('\n  return ret;\n}', start) + len('\n  return ret;\n}')
+        region = text[start:stop]
+        region = region.replace('!bfin_dma_enabled (dma) && !bfin_dma_running (dma)',
+                                '!bfin_dma_enabled (dma) || !bfin_dma_running (dma)')
+        marker = f'  nr_bytes = blech_bfin_dma_peer_bytes (me, dma, nr_bytes, {read});'
+        if marker not in region:
+            old = '  /* XXX: handle x_modify ...  */'
+            if region.count(old) != 1:
+                raise ValueError('unexpected GNU DMA peer buffer implementation')
+            region = region.replace(old, marker + '\n  if (!nr_bytes)\n    return 0;')
+        kind = 2 if name == 'read' else 3
+        marker = f'  blech_bfin_memory_access ({kind}, dma->curr_addr, ret, dma->base, dma->active_desc_ptr);'
+        check = ('  if (ret != nr_bytes)\n'
+                 f'    hw_abort (me, "DMA data {name} failed at %#x", dma->curr_addr);')
+        if check not in region:
+            if region.count(marker) != 1:
+                raise ValueError('unexpected GNU DMA peer data observation')
+            region = region.replace(marker, marker + '\n' + check)
+        text = text[:start] + region + text[stop:]
+    begin, end = '/* BLECH_SPORT_DMA_BEGIN */\n', '/* BLECH_SPORT_DMA_END */\n'
+    extension = begin + (ROOT / 'tools/dsp/blackfin_dma.c.inc').read_text() + '\n' + end
+    if begin in text:
+        a, b = text.index(begin), text.index(end) + len(end)
+        text = text[:a] + extension + text[b:]
+    else:
+        text += '\n' + extension
+    file.write_text(text)
+
+
+LIBRARIES = ['sim/bfin/libsim.a', 'bfd/.libs/libbfd.a', 'opcodes/.libs/libopcodes.a',
+             'libiberty/libiberty.a', 'gnulib/import/libgnu.a']
+
+
+def system_libraries():
+    extra = ['-lz', '-lm']
+    if shutil.which('pkg-config'):
+        result = subprocess.run(['pkg-config', '--libs', 'libzstd'], capture_output=True, text=True)
+        if result.returncode == 0:
+            extra += shlex.split(result.stdout)
+    return extra
+
+
+def source_tree(directory):
+    """Downloads, checks and patches the GNU source in `directory`; returns its path."""
+    archive = directory / f'gdb-{VERSION}.tar.xz'
+    if not archive.exists():
+        with urllib.request.urlopen(URL, timeout=60) as response, archive.open('wb') as output:
+            shutil.copyfileobj(response, output)
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != SHA256:
+        raise ValueError('GNU source checksum mismatch')
+    source = directory / f'gdb-{VERSION}'
+    if not source.exists():
+        with tarfile.open(archive) as files:
+            for item in files.getmembers():
+                target = (directory / item.name).resolve()
+                if directory not in target.parents or item.issym() or item.islnk():
+                    raise ValueError('unsafe GNU source archive member')
+            files.extractall(directory)
+    patch_sources(source)
+    return source
+
+
+def compile_sim(directory, source, output, jobs, cflags='-O2 -std=gnu11'):
+    output.mkdir(exist_ok=True)
+
+    def run(args, name):
+        with (directory / name).open('ab') as log:
+            subprocess.run(args, cwd=output, stdout=log, stderr=subprocess.STDOUT, check=True)
+
+    run([str(source / 'configure'), '--target=bfin-elf', '--enable-sim', '--disable-gdb',
+         '--disable-gdbserver', '--disable-werror', '--disable-nls', '--without-guile',
+         '--without-python', '--with-system-zlib', f'CFLAGS={cflags}', 'MAKEINFO=true'],
+        'configure.log')
+    run(['make', f'-j{jobs}', 'all-sim', 'MAKEINFO=true'], 'build.log')
+    modules = (output / 'sim/bfin/modules.c').read_text()
+    if '  sim_install_hw,' not in modules:
+        raise RuntimeError('GNU simulator hardware module was not installed')
+
+
+def build(directory, jobs=4):
+    directory = directory.resolve()
+    if directory == ROOT or ROOT in directory.parents:
+        raise ValueError('the Blackfin SDK must be built outside the repository')
+    directory.mkdir(parents=True, exist_ok=True)
+    source = source_tree(directory)
+    output = directory / 'build'
+
+    def run(args, cwd=output, name='build.log'):
+        with (directory / name).open('ab') as log:
+            subprocess.run(args, cwd=cwd, stdout=log, stderr=subprocess.STDOUT, check=True)
+
+    compile_sim(directory, source, output, jobs)
+    worker = directory / 'blackfin-worker'
+    run([os.environ.get('CC', 'cc'), '-O2', '-include', str(output / 'bfd/config.h'),
+         '-I', str(output / 'bfd'), '-I', str(source / 'include'),
+         str(ROOT / 'tools/dsp/blackfin_worker.c'), str(ROOT / 'tools/dsp/blackfin_channel.c'),
+         *(str(output / f) for f in LIBRARIES),
+         *system_libraries(), '-o', str(worker)], name='worker-build.log')
+    manifest = dict(version=VERSION, url=URL, sourceSHA256=SHA256,
+                    patches=['32-bit SIGNEXTEND', 'BSD sed module generation',
+                             'deferred DSP32ALU add/sub result writes',
+                             'deferred SIGNBITS half-register writes',
+                             'deferred pointer-load register writes',
+                             'deferred single-register DSP32ALU results',
+                             'bounded execution inside the event loop',
+                             'persistent cycle slices, native IDLE and independent IWR wakeup',
+                             'BF52x HOSTDP registers and interrupt sources',
+                             'HOSTDP FIFO and DMA1 descriptor/data transport',
+                             'CPU and DMA data access observation windows',
+                             'MDMA row and descriptor bounds, signed strides and 65536-element counts',
+                             'DMA descriptor cursor, linked channel disable and explicit memory bus errors',
+                             'SPORT0 stereo DMA FIFOs and explicit test clock',
+                             'DMA completion status and interrupt acknowledgment',
+                             'BF52x SIC aggregate levels and CEC level-sensitive interrupts',
+                             'do not map empty built-in ROM images'],
+                    workerSHA256=hashlib.sha256(worker.read_bytes()).hexdigest(),
+                    bridgeSHA256=hashlib.sha256(b''.join((ROOT / 'tools/dsp' / name).read_bytes() for name in
+                                                         ('blackfin_worker.c', 'blackfin_channel.c'))).hexdigest())
+    (directory / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    return worker
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('directory', type=Path)
+    parser.add_argument('--jobs', type=int, choices=range(1, 33), default=4)
+    args = parser.parse_args()
+    print(build(args.directory, args.jobs))
