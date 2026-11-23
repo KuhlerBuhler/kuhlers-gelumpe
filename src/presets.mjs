@@ -141,7 +141,7 @@ export function menuLength(bytes, kind) {
 }
 
 /** Write the menu length, in every place it lives. The map's range (100) is the firmware's old one, the capacity here is the patch's. */
-function setMenuLength(bytes, kind, n) {
+export function setMenuLength(bytes, kind, n) {
   if (kind === "mfx") {
     const f = menuField(bytes, "mfx");
     const at = f.where.offset;

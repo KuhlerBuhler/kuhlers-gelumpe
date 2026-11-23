@@ -18,9 +18,15 @@ aus dem Katalog: dieselben Bausteine, dieselben Notenwerte, die übrigen Werte b
 Bytes kommen nicht ins Projekt), im Klang nah dran. Master-Effekte: Hacktribe hat keine über Korgs 32 hinaus, es tauscht nur
 vier Werksplätze (10 Big Hall, 11 Plate Reverb, 21 Tap Delay Sync, 32 Tube Drive). Ab 1.4.7 bekommt Korgs 2.02 diese vier als
 Nachbauten auf 33 bis 36, angehängt, kein Werkspreset wird ersetzt; der Katalog beginnt dort bei 37. Hacktribe behält seine
-vier auf den Werksplätzen, sein Katalog beginnt weiter bei 33. Ein Patch-Update einer schon gepatchten Datei
-ordnet die Katalog-Plätze genauso neu. Patterns, die einen Katalog-Effekt auf Korgs 2.02 nutzen, zeigen danach auf einen
-anderen Effekt; sie werden nicht umgeschrieben.
+vier auf den Werksplätzen, sein Katalog beginnt weiter bei 33. Das gilt für die Hacktribe-Datei mit 49 Inserts und 32
+Master-Effekten. Es gibt auch Hacktribe-Dateien mit mehr eigenen Plätzen, Inserts bis 64 und Master-Effekte bis 50; dort
+beginnt der Katalog bei 65 und 51.
+
+Ein Patch-Update einer schon gepatchten Datei gibt dieselben Plätze wie ein Patch der Originaldatei, egal von welcher
+Version: die App nimmt die Katalog-Plätze der älteren Version zuerst heraus und legt den Katalog neu an. Sie erkennt
+sie am Inhalt. Steht hinter dem Katalog ein eigenes Preset, bleibt es stehen, und mit ihm alles davor. Patterns, die einen
+Katalog-Effekt nutzen, zeigen nach einem Update, das die Plätze verschiebt, auf einen anderen Effekt; sie werden nicht
+umgeschrieben.
 
 | Name | Baustein | Woher die Werte kommen |
 |---|---|---|
