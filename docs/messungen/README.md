@@ -314,5 +314,6 @@ Die Laufzeit für Plugins: VM, Haken, Anzeige, LEDs, Speicher, Karte.
 - [Hacktribe-Oszillatoren auf den freien Plätzen 422 bis 497 der roten Firmware](2026-11-08-ht-osc-freie-plaetze.md)
 - [Hacktribes Extra-Effekte, Grooves und Touch-Skalen auf der roten 2.02: was als Datenpatch geht](2026-11-10-hacktribe-extras-rot.md)
 - [Hacktribes Master-Effekte als Nachbau auf MFX 33 bis 36 der roten 2.02, Katalog ab 37, im Emulator](2026-11-17-hacktribe-master-rot.md)
+- [DATA UTILITY: der Seitenzähler eines Fensters zeigt die Nummer der Funktion, Korgs Index um eins zu klein](2026-11-23-data-utility-zaehler.md)
 
 - [Gemeinsame automatische Leistungsprüfung](2026-10-22-patch-effizienz-gesamt.md)
