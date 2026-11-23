@@ -1775,12 +1775,12 @@ export const FX_CATALOG = Object.freeze([
     "params": {
      "dry_wet": 100,
      "envelope_select": 0,
-     "threshold": 52,
-     "attack": 0,
+     "threshold": 30,
+     "attack": 10,
      "release": 8,
      "hold_time": 8,
      "tube_sat": 50,
-     "output_gain": 54
+     "output_gain": 60
     }
    }
   ],
@@ -1803,8 +1803,8 @@ export const FX_CATALOG = Object.freeze([
     "source": 66,
     "chain": 2,
     "param": 2,
-    "low": 60,
-    "high": 44
+    "low": 36,
+    "high": 24
    }
   ],
   "creator": "Kuhler Buhler"
