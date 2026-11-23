@@ -204,3 +204,17 @@ for (const [tag, found] of [["v1.3.3", true], ["v1.3.7", true], ["v1.3.0", false
     assert.equal(k.ok, found, k.why);
   });
 }
+
+// The effect slots must not depend on the way a file got the current release: an update of a file of an older release
+// gives the same IFX and MFX slots as a build from the original, as the older catalog's slots are freed first.
+// E2_OLD_VSB is such a file, patched by the app of an older release from the original in E2_VSB.
+test("a Hacktribe file of an older release gets the same effect slots on update as a direct build", { skip: process.env.E2_VSB && process.env.E2_OLD_VSB ? false : "set E2_VSB and E2_OLD_VSB" }, async () => {
+  const read = path => JSON.parse(readFileSync(new URL(`../${path}`, import.meta.url), "utf8"));
+  const now = (await loadBlechSet(async url => read(url), BLECH_SET_URL)).patches;
+  const rec = await recogniseBlech(new Uint8Array(readFileSync(process.env.E2_OLD_VSB)), read("data/known-releases.json"));
+  assert.equal(rec.ok, true, rec.why);
+  const update = await applyPatches(rec.bytes, now, rec.options);
+  const direct = await applyPatches(new Uint8Array(readFileSync(process.env.E2_VSB)), now);
+  assert.equal(update.ok && direct.ok, true);
+  assert.deepEqual(update.bytes, direct.bytes);
+});

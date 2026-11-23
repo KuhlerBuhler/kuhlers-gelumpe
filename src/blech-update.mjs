@@ -8,6 +8,8 @@
  */
 import { applyPatches } from "./patch.mjs";
 import { APPEND_FORMAT, appendedRecords } from "./fx-append.mjs";
+import { locatePresets, menuLength, nameAt, recordOf, RECORD, RESERVE, setMenuLength } from "./presets.mjs";
+import { FxRecord } from "./record.mjs";
 import { buildOf, sha256 } from "./firmware.mjs";
 import { field } from "./map/index.mjs";
 import { MAX_BYTES, validateAnimation } from "./loading-anim.mjs";
@@ -50,14 +52,56 @@ export async function addRelease(known, release, build, base, patches) {
     else if (!found[5].includes(written)) found[5].push(written);
   }
   regions.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  addCatalog(known, build, base, res.bytes, patches);
+}
+
+/**
+ * Adds the hashes of the effect presets `patches` put into `patched` (made from `base`) to `known.catalog`. A preset the
+ * base has by name already is the firmware's own (Hacktribe's remakes, its Short Delay) and is left out. tools/known-releases.mjs
+ * also calls it alone for further Hacktribe files: their presets borrow units from the firmware's own records, so the
+ * records, and with them the hashes, differ between Hacktribe versions.
+ */
+export function addCatalog(known, build, base, patched, patches) {
   const catalog = (known.catalog[build] ??= {});
   for (const patch of patches.filter(p => p?.format === APPEND_FORMAT)) {
-    for (const { kind, name, record, hacktribe } of appendedRecords(res.bytes, patch)) {
-      if (hacktribe && build === "hacktribe") continue;
+    const own = new Set(appendedRecords(base, patch).map(r => `${r.kind}|${r.name}`));
+    for (const { kind, name, record } of appendedRecords(patched, patch)) {
+      if (own.has(`${kind}|${name}`)) continue;
       const hashes = (catalog[`${kind}|${name}`] ??= []);
       const hash = recordHash(record);
       if (!hashes.includes(hash)) hashes.push(hash);
     }
+  }
+}
+
+/**
+ * Takes the presets a release put behind the firmware's menu back out of `bytes` (in place), so the current set lays
+ * them out again as on a file straight from the original: a preset a later release dropped leaves no gap, and the slots
+ * come out the same however the file got here (docs/effekt-katalog.md). The records are found through `bytes`:
+ * preset-tables keeps its array in a free area, which `cleaned` has back at its fill. Only the run of slots at the end of a menu whose
+ * every record is one a release wrote (by its hash) goes; it stops at the first other record, so the firmware's own
+ * presets and the user's own behind ours stay, and then nothing behind them moves.
+ * least-code: a freed slot gets the record of Korg's last own slot (100), which is the empty one on Korg 2.02 and
+ * Hacktribe. A slot in the reserve of preset-tables (beyond 100) is never freed; a catalog that big needs the reserve's
+ * own empty record and its array entry put back.
+ */
+function dropCatalogTail(bytes, cleaned, catalog) {
+  if (!locatePresets(bytes)) return;
+  for (const kind of ["ifx", "mfx"]) {
+    const length = menuLength(bytes, kind).value;
+    let from = length + 1;
+    while (from > 1) {
+      const at = recordOf(bytes, kind, from - 1);
+      const record = bytes.slice(at.file, at.file + RECORD);
+      if (!catalog[`${kind}|${new FxRecord(record, kind).name}`]?.includes(recordHash(record))) break;
+      from--;
+    }
+    const last = RESERVE[kind].first - 1;
+    const empty = recordOf(bytes, kind, last);
+    if (from > length || length >= last || nameAt(bytes, empty.file)) continue;
+    const blank = bytes.slice(empty.file, empty.file + RECORD);
+    for (let slot = from; slot <= length; slot++) cleaned.set(blank, recordOf(bytes, kind, slot).file);
+    setMenuLength(cleaned, kind, from - 1);
   }
 }
 
@@ -118,6 +162,7 @@ export async function recogniseBlech(bytes, known) {
   });
   const byKey = new Map(regions.map(r => [`${r[0]}+${r[1]}`, r[5]]));
   const catalog = known.catalog?.[build] ?? {};
+  dropCatalogTail(bytes, cleaned, catalog);
   return {
     ok: true,
     bytes: cleaned,
