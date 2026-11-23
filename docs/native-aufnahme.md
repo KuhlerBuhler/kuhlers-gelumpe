@@ -55,6 +55,12 @@ zeigen währenddessen `recording`; ein wartendes Speichern zeigt `after recordin
 | Capture gap, Capture lost, Ring full | Die Erfassung konnte nicht lückenlos fortgesetzt werden. Die Aufnahme stoppt mit sichtbarem Zähler und einem benannten cue-Punkt am Ende des gültigen PCM-Anfangs. |
 | No memory | Für den Aufnahmering war kein ausreichender Speicherblock frei; die Aufnahme hat nicht begonnen. |
 
+Bricht eine Aufnahme ab, bevor sie ein Sample geschrieben hat, löscht der Sampler die leere WAV wieder und vergibt ihre
+Nummer neu. Der electribe sampler kann das; der electribe synth hat in seiner Firmware kein Löschen, dort bleibt die
+leere Datei liegen. Für die Fehlersuche hält der Zustand der Aufnahme den ersten Abbruch seit dem Einschalten und den
+letzten fest: welche Prüfung des Lesers fehlschlug, die DSP-Werte, die er dabei sah, und den Zeitpunkt
+(`recording_runtime.py`, Felder ab `FAULTS`). Ein einfaches READ liest sie aus.
+
 Der Schreiber sichert regelmäßig einen gültigen Zwischenstand. Bei Stromausfall oder Kartenentnahme können noch
 gepufferte Daten fehlen. Geprüft sind SD-Abbilder an den Grenzen der Dateiaufrufe, kein Stromausfall mitten in einem
 physischen Sektorschreibvorgang. Ein Fehler wird nicht durch eingefügte Stille verdeckt.

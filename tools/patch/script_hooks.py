@@ -76,7 +76,7 @@ BATT_END = BATT + 28             # whether a reading is held, the card symbol's 
 LANG_TEXTS = BATT_END           # the text table the BLECH menu reads its texts from (tools/patch/lang_texts.py:lang_arm): English, or
 LANG_TEXTS_END = LANG_TEXTS + 4  # lang-de's German table; set by menu_arm_load before any text is drawn
 NATIVE_RECORDING = LANG_TEXTS_END   # native recording (recording_runtime.s:NR_*): requests, phase, time, byte and gap counts, name, source
-NATIVE_RECORDING_END = NATIVE_RECORDING + 76   # 72 bytes of context (NR_SIZE), then NR_SETTING (script_menu.s), NR_PLAY_BOUND and NR_PLAY_INJECT (recording_runtime.s)
+NATIVE_RECORDING_END = NATIVE_RECORDING + 152  # 72 bytes of context (NR_SIZE), then NR_SETTING (script_menu.s), NR_PLAY_BOUND and NR_PLAY_INJECT (recording_runtime.s), then the reader faults from 76 (recording_runtime.py NR_FAULTS)
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 LANG = 0xC016C000                # the top 16 KiB of MORE3 hold the texts and glyphs of the optional patch lang-de (tools/lang/),
@@ -573,7 +573,7 @@ class BuiltHooks:
             area(CARD_CLOCK,CARD_CLOCK_END-CARD_CLOCK,'the card time left out of the frame budget in this frame (CARD_READS in data/script/contract.mjs)','tools/patch/script_media.s:card_timed'),
             area(BATT,BATT_END-BATT,'BATTERY %: the smoothed battery reading, the tick of its last step, the percent shown and the percent drawn, whether a reading is held, the card symbol\'s columns and card flag as last drawn on the main screen','tools/patch/script_battery.s:BP_AVG'),
             area(LANG_TEXTS,LANG_TEXTS_END-LANG_TEXTS,'the text table of the BLECH menu: the English one of the runtime or the German one of lang-de','tools/patch/lang_texts.py:lang_arm'),
-            area(NATIVE_RECORDING,NATIVE_RECORDING_END-NATIVE_RECORDING,'native recording: public requests, resource phase, elapsed time, byte and gap counts, filename and source selection','tools/patch/recording_runtime.s:NR_CONTEXT'),
+            area(NATIVE_RECORDING,NATIVE_RECORDING_END-NATIVE_RECORDING,'native recording: public requests, resource phase, elapsed time, byte and gap counts, filename and source selection, the setting and PLAY bytes, the reader faults','tools/patch/recording_runtime.s:NR_CONTEXT'),
             area(NATIVE_RECORDING_END,MORE_END-NATIVE_RECORDING_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:NATIVE_RECORDING_END'),
             area(SETTINGS_RAM,SETTINGS_RAM_END-SETTINGS_RAM,'the two buffers of the settings file of the BLECH menu and its checksum list (allowed plugins, plugins switched off)','tools/patch/script_hooks.py:SETTINGS_RAM'),
             area(LIST_WORK,LIST_WORK_END-LIST_WORK,'work area of the list of MANAGE PLUGINS: folder object, file info, long name, path, the place of each listed file in the folder, the flag of more files than the list holds','tools/patch/script_menu.s:LIST_WORK'),
@@ -712,7 +712,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     (first_at,first),=hooks.sections
     if first_at!=origin or origin+len(first)>LANG:
         raise ValueError(f'the code area runs over: {first_at:#x} + {len(first):#x} (limit {LANG:#x})')
-    if runtime_end>MENU_MORE or LANG_TEXTS_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
+    if runtime_end>MENU_MORE or NATIVE_RECORDING_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
         raise ValueError(f'script code, runtime or pool exceeds its reserved area: runtime end {runtime_end:#x} (limit {MENU_MORE:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
     if s['SETTINGS_MAX']>0x120 or SETTINGS_RAM+0x240+4*s['MENU_MAX_TRUST']>SETTINGS_RAM_END:

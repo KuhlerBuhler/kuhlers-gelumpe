@@ -11,7 +11,11 @@
 .equ RR_TEMP, 80
 .equ RR_MODE, 96
 .equ RR_RAW_TARGET, 100
-.equ RR_SIZE, 128
+.equ RR_FAULT, 104
+.equ RR_ACK, 128
+.equ RR_CHECK, 132
+.equ RR_STOP_ACK, 136
+.equ RR_SIZE, 140
 .equ RR_DSP_BYTES, 19200
 .equ RR_GUARD, 1024
 .equ RR_MAX_GAP, 80
@@ -24,6 +28,16 @@
 .equ RR_LOST, 5
 .equ RR_NO_PATCH, 6
 .equ RR_OVERFLOW, 7
+; The DSP takes command 0x37 in its own time and then sets the source back to the input (INFO+12), so the source pointer is
+; written only after INFO shows that, and a stop is judged only after it. RR_ACK and RR_STOP_ACK keep the ticks it took,
+; all ones when it never showed within the bounds.
+.equ RR_ACK_TICKS, 40
+.equ RR_ACK_POLLS, 4096
+; RR_FAULT holds the first failure of a take, (place << 4) | check, then INFO[0], +4, +8, +12 (the source pointer) and +40
+; as read when it failed. Places: 1 begin, 2 read before copying, 3 read after copying, 4 stop with a foreign capture,
+; 5 stop left pending. Checks 1 to 6 are rec_reader_validate's in order, 7 the deadline, 8 overflow, 9 pending stop.
+; The runtime marks a copied fault with RR_FAULT_SEEN.
+.equ RR_FAULT_SEEN, 0x100
 
 ; r0 zeroed context, r1 ARM ring, r2 power-of-two capacity (64 KiB to 2 MiB).
 rec_reader_prepare:
@@ -105,6 +119,9 @@ rec_reader_begin:
     blx r12
     mov r0, #2
     str r0, [r4, #RR_OWNED]
+    mov r0, #1
+    bl rec_reader_acknowledge
+    str r0, [r4, #RR_ACK]
     ldr r0, =RR_CAPTURE
     str r0, [r4, #RR_TEMP]
     ldr r0, =RR_SOURCE_POINTER
@@ -129,9 +146,14 @@ rec_reader_begin:
     mov r0, #RR_OK
     b rec_begin_status
 rec_begin_gap:
+    mov r0, #0x17
+    bl rec_reader_fault
     mov r0, #RR_GAP
     b rec_begin_abort
 rec_begin_lost:
+    ldr r0, [r4, #RR_CHECK]
+    orr r0, r0, #0x10
+    bl rec_reader_fault
     mov r0, #RR_LOST
 rec_begin_abort:
     str r0, [r4, #RR_STATUS]
@@ -155,6 +177,58 @@ rec_reader_info:
     pop {r3, pc}
 .pool
 
+; r0 the INFO[0] the command leaves (1 start, 0 stop); returns the ticks it took or all ones.
+rec_reader_acknowledge:
+    push {r5-r7, lr}
+    mov r7, r0
+    ldr r0, =RR_TICKS
+    ldr r5, [r0]
+    ldr r6, =RR_ACK_POLLS
+rec_ack_poll:
+    bl rec_reader_info
+    ldr r0, [r4, #RR_INFO]
+    cmp r0, r7
+    bne rec_ack_wait
+    ldr r0, [r4, #RR_INFO+12]
+    ldr r1, =RR_INPUT
+    cmp r0, r1
+    beq rec_ack_done
+rec_ack_wait:
+    ldr r0, =RR_TICKS
+    ldr r0, [r0]
+    sub r0, r0, r5
+    cmp r0, #RR_ACK_TICKS
+    bhs rec_ack_late
+    subs r6, r6, #1
+    bne rec_ack_poll
+rec_ack_late:
+    mvn r0, #0
+    pop {r5-r7, pc}
+rec_ack_done:
+    ldr r0, =RR_TICKS
+    ldr r0, [r0]
+    sub r0, r0, r5
+    pop {r5-r7, pc}
+.pool
+
+; r0 the fault code; only the first fault of a take is kept.
+rec_reader_fault:
+    ldr r1, [r4, #RR_FAULT]
+    cmp r1, #0
+    bxne lr
+    str r0, [r4, #RR_FAULT]
+    ldr r0, [r4, #RR_INFO]
+    str r0, [r4, #RR_FAULT+4]
+    ldr r0, [r4, #RR_INFO+4]
+    str r0, [r4, #RR_FAULT+8]
+    ldr r0, [r4, #RR_INFO+8]
+    str r0, [r4, #RR_FAULT+12]
+    ldr r0, [r4, #RR_INFO+12]
+    str r0, [r4, #RR_FAULT+16]
+    ldr r0, [r4, #RR_INFO+40]
+    str r0, [r4, #RR_FAULT+20]
+    bx lr
+
 rec_reader_sampling:
     mov r0, #RR_HAS_SAMPLING
     cmp r0, #0
@@ -165,22 +239,27 @@ rec_reader_sampling:
 rec_reader_validate:
     mov r12, r0
     rsb r1, r0, #1
+    mov r2, #1
     ldr r0, [r4, #RR_INFO]
     cmp r0, r1
     bne rec_info_no
+    mov r2, #2
     ldr r0, [r4, #RR_INFO+4]
     ldr r1, =RR_DSP_BYTES
     cmp r0, r1
     bne rec_info_no
+    mov r2, #3
     ldr r0, [r4, #RR_INFO+12]
     cmp r12, #0
     ldreq r1, =RR_CAPTURE
     ldrne r1, =RR_INPUT
     cmp r0, r1
     bne rec_info_no
+    mov r2, #4
     ldr r0, [r4, #RR_INFO+40]
     cmp r0, #0
     bne rec_info_no
+    mov r2, #5
     ldr r0, [r4, #RR_INFO+8]
     ldr r1, =RR_DSP_RING
     cmp r0, r1
@@ -188,11 +267,13 @@ rec_reader_validate:
     ldr r1, =RR_DSP_RING+RR_DSP_BYTES
     cmp r0, r1
     bhs rec_info_no
+    mov r2, #6
     tst r0, #3
     bne rec_info_no
     mov r0, #1
     bx lr
 rec_info_no:
+    str r2, [r4, #RR_CHECK]
     mov r0, #0
     bx lr
 .pool
@@ -213,12 +294,14 @@ rec_reader_read:
     bne rec_read_return
     bl rec_reader_deadline
     cmp r0, #0
+    movne r0, #0x27
     bne rec_read_gap
     mov r11, r1
     bl rec_reader_info
     ldr r0, [r4, #RR_MODE]
     bl rec_reader_validate
     cmp r0, #1
+    movne r0, #0x20
     bne rec_read_lost
     ldr r6, [r4, #RR_CURSOR]
     ldr r5, [r4, #RR_INFO+8]
@@ -323,9 +406,11 @@ rec_read_verify:
     ldr r0, [r4, #RR_MODE]
     bl rec_reader_validate
     cmp r0, #1
+    movne r0, #0x30
     bne rec_read_lost
     bl rec_reader_deadline
     cmp r0, #0
+    movne r0, #0x37
     bne rec_read_gap
     str r11, [r4, #RR_TICK]
     str r6, [r4, #RR_CURSOR]
@@ -333,12 +418,18 @@ rec_read_verify:
     mov r0, #RR_OK
     b rec_read_return
 rec_read_gap:
+    bl rec_reader_fault
     mov r0, #RR_GAP
     b rec_read_status
 rec_read_lost:
+    ldr r1, [r4, #RR_CHECK]
+    orr r0, r0, r1
+    bl rec_reader_fault
     mov r0, #RR_LOST
     b rec_read_status
 rec_read_overflow:
+    mov r0, #0x28
+    bl rec_reader_fault
     mov r0, #RR_OVERFLOW
 rec_read_status:
     str r0, [r4, #RR_STATUS]
@@ -389,6 +480,9 @@ rec_stop_info:
 rec_stop_native:
     ldr r12, =RR_FW_END
     blx r12
+    mov r0, #0
+    bl rec_reader_acknowledge
+    str r0, [r4, #RR_STOP_ACK]
     bl rec_reader_info
     ldr r0, [r4, #RR_INFO]
     cmp r0, #1
@@ -408,6 +502,9 @@ rec_stop_tail:
     bl rec_reader_read
     b rec_stop_clear
 rec_stop_foreign:
+    ldr r0, [r4, #RR_CHECK]
+    orr r0, r0, #0x40
+    bl rec_reader_fault
     ldr r0, [r4, #RR_STATUS]
     cmp r0, #0
     moveq r0, #RR_LOST
@@ -424,6 +521,8 @@ rec_stop_clear:
     ldr r0, [r4, #RR_STATUS]
     b rec_stop_return
 rec_stop_pending:
+    mov r0, #0x59
+    bl rec_reader_fault
     ldr r0, [r4, #RR_STATUS]
     cmp r0, #0
     moveq r0, #RR_LOST

@@ -58,6 +58,8 @@ class CaptureModel(DspModel):
         self.ring = 0x01371EC0 if self.synth else 0x01C722A0
         self.input = 0xFF802810 if self.synth else 0xFF802878
         self.active, self.started, self.frames = False, 0, 0
+        # The real DSP takes 0x37 in its own time: ack_delay (seconds) holds it back, drop_next loses the next one.
+        self.ack_delay, self.drop_next, self.pending = 0.0, False, None
         self.put(self.state, 0)
         self.put(self.state + 4, 19200)
         self.put(self.state + 8, self.ring)
@@ -67,6 +69,9 @@ class CaptureModel(DspModel):
         self.put(dsp_spec.MAGIC_ADDRESS, dsp_spec.MAGIC)
 
     def advance(self):
+        if self.pending and self.m.time_ns >= self.pending[0]:
+            words, self.pending = self.pending[1], None
+            self.command(words)
         if not self.active:
             return
         until = int((self.m.time_ns - self.started) * 48000 // 1_000_000_000)
@@ -89,13 +94,21 @@ class CaptureModel(DspModel):
     def message(self, words):
         super().message(words)
         if len(words) >= 4 and words[1] == 0x37:
-            self.advance()
-            self.active = bool(words[2])
-            self.put(self.state, int(self.active))
-            self.put(self.state + 12, self.input)
-            if self.active:
-                self.started, self.frames = self.m.time_ns, 0
-                self.put(self.state + 8, self.ring)
+            if self.drop_next:
+                self.drop_next = False
+            elif self.ack_delay:
+                self.pending = (self.m.time_ns + int(self.ack_delay * 1e9), list(words))
+            else:
+                self.command(words)
+
+    def command(self, words):
+        self.advance()
+        self.active = bool(words[2])
+        self.put(self.state, int(self.active))
+        self.put(self.state + 12, self.input)
+        if self.active:
+            self.started, self.frames = self.m.time_ns, 0
+            self.put(self.state + 8, self.ring)
 
 
 def entry(name, ok, detail):
@@ -452,6 +465,93 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
     return out
 
 
+def fault_cases(payload, flash=None):
+    """A DSP slow to take 0x37 still records; failed starts leave their fault in plain READ reach and no empty WAV."""
+    from tools.patch import synthaddr
+    synth = synthaddr.is_synth(payload)
+    site = (0xC0027898 if synth else 0xC006B694) - 0xC0000000
+    if not has_hooks(payload) or struct.unpack_from('<I', payload, site)[0] >> 24 != 0xEA:
+        return []
+    dev = Dev(payload, flash, adapter=True)
+    medium = MemoryMedium(card_image())
+    dev.m.insert_card(SDCard(medium))
+    dsp = CaptureModel.attach(dev.m)
+    dev.run(0.8)
+    base = script_hooks.NATIVE_RECORDING
+    field = lambda name: dev.u32(base + recording_runtime.PUBLIC_FIELDS[name])
+    fault = lambda name: [dev.u32(base + recording_runtime.PUBLIC_FIELDS[name] + 4 * n) for n in range(8)]
+    dev.m.uc.mem_write(base + 72, b'\x01')   # script_menu.s:NR_SETTING, NATIVE RECORDING ON
+
+    def take(during=0.05, spoil=False):
+        dev.m.press(0x0A, True)
+        dev.run(0.03)
+        dev.press(0, 0.05)
+        dev.m.press(0x0A, False)
+        dev.run(0.05)
+        if not synth and field('SELECTED') != 1:
+            dev.press(0x0C, 0.05)
+            dev.turn(1, 0.03)
+            dev.turn(1, 0.03)
+        for _ in range(20):
+            if field('SETUP') == 1:
+                break
+            dev.run(0.01)
+        dev.press(2, 0.01)
+        dev.run(during)
+        if spoil:                           # the source pointer goes back to the input mid-take, as a foreign 0x37 would do
+            dsp.put(dsp.state + 12, dsp.input)
+            dev.run(0.03)
+        dev.press(1, 0.02)
+        for _ in range(64):
+            if field('PHASE') == 0 and field('CONTEXT') == 0:
+                break
+            dev.run(0.01)
+
+    def files():
+        volume = fat32.Volume(bytes(medium.data))
+        found = {}
+        try:
+            for name in (f'REC{i:04d}.WAV' for i in range(1, 5)):
+                try:
+                    found[name] = len(volume.read('/Recordings/' + name))
+                except fat32.NotFound:
+                    pass
+        finally:
+            volume.close()
+        return found
+
+    out = []
+    dsp.ack_delay = 0.004
+    take()
+    ack = field('ACK')
+    out.append(entry('slow_dsp_ack_still_records', field('ERROR') == 0 and field('BYTES') > 0 and 0 < ack < 40 and 0 < field('STOP_ACK') < 40
+                     and field('FAULTS') == 0,
+                     f'DSP takes 0x37 after 4 ms: error {field("ERROR")}, bytes {field("BYTES")}, ack {ack} and {field("STOP_ACK")} ticks, faults {field("FAULTS")}'))
+    dsp.ack_delay, dsp.drop_next = 0.0, True
+    take()
+    first = fault('FIRST')
+    out.append(entry('failed_start_reports_fault', field('ERROR') == 21 and field('BYTES') == 0 and field('ACK') == 0xFFFFFFFF
+                     and field('FAULTS') == 1 and first[0] == 0x11 and first[1] == 0 and fault('LAST') == first and first[6] < 200,
+                     f'lost 0x37: error {field("ERROR")}, ack {field("ACK"):#x}, faults {field("FAULTS")}, first {[hex(v) for v in first]}'))
+    names = files()
+    if synth:                               # the synth's FatFs has no f_unlink: the empty take stays and counts
+        out.append(entry('failed_start_keeps_count_without_unlink', set(names) == {'REC0001.WAV', 'REC0002.WAV'} and field('NUMBER') == 2,
+                         f'files {names}, number {field("NUMBER")}'))
+    else:
+        out.append(entry('failed_start_leaves_no_wav', set(names) == {'REC0001.WAV'} and field('NUMBER') == 1,
+                         f'files {names}, number {field("NUMBER")}'))
+    take(spoil=True)
+    last = fault('LAST')
+    out.append(entry('lost_source_mid_take_reports_fault', field('ERROR') == 21 and field('FAULTS') == 2 and last[0] in (0x23, 0x33)
+                     and last[4] == dsp.input and fault('FIRST') == first and field('BYTES') > 0,
+                     f'error {field("ERROR")}, faults {field("FAULTS")}, last {[hex(v) for v in last]}, first kept {fault("FIRST") == first}'))
+    names = files()
+    kept = 'REC0003.WAV' if synth else 'REC0002.WAV'
+    out.append(entry('take_with_samples_keeps_wav', kept in names and names[kept] > 512 and not dev.m.asserts,
+                     f'files {names}, assertions {dev.m.asserts}'))
+    return out
+
+
 def checkpoint_cases(payload, flash=None, fail_sync=False):
     """Discard CPU/FatFs state at each checkpoint boundary and inspect only the SD image."""
     if not has_hooks(payload):
@@ -689,7 +789,7 @@ def cases(payload, flash=None, png=None):
     from tools.patch import synthaddr
     if synthaddr.is_synth(payload):
         return (feature_cases(payload, flash) + blue_worker_cases(payload, flash) + runtime_cases(payload, flash, png=png)
-                + runtime_cases(payload, flash, transport_play=True)
+                + runtime_cases(payload, flash, transport_play=True) + fault_cases(payload, flash)
                 + checkpoint_cases(payload, flash) + checkpoint_cases(payload, flash, fail_sync=True)
                 + status_dot_cases(payload, flash))
     return (feature_cases(payload, flash) + worker_cases(payload, flash) + runtime_cases(payload, flash)
@@ -697,7 +797,8 @@ def cases(payload, flash=None, png=None):
             + runtime_cases(payload, flash, defer_settings=True) + checkpoint_cases(payload, flash)
             + checkpoint_cases(payload, flash, fail_sync=True) + runtime_cases(payload, flash, remove_card=True)
             + full_card_cases(payload, flash) + rollover_cases(payload, flash)
-            + runtime_cases(payload, flash, transport_play=True) + status_dot_cases(payload, flash))
+            + runtime_cases(payload, flash, transport_play=True) + fault_cases(payload, flash)
+            + status_dot_cases(payload, flash))
 
 
 def cases_task():

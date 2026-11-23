@@ -1,5 +1,6 @@
 .equ NR_MAGIC, 0x3152434E
 .equ NR_SIZE, 72
+.equ NR_FAULT_END, 152             ; NR_FAULTS to NR_STOP_ACK (recording_runtime.py), zeroed with the context
 .equ NR_RING_BYTES, 2097152
 .equ NR_DISABLED, 32
 .equ NR_OOM, 33
@@ -32,6 +33,12 @@ nr_init_zero:
     str r0, [r2, r1]
     subs r1, r1, #4
     bne nr_init_zero
+    mov r1, #NR_FAULTS
+nr_init_faults:
+    str r0, [r2, r1]
+    add r1, r1, #4
+    cmp r1, #NR_FAULT_END
+    blo nr_init_faults
     ldr r0, =NR_MAGIC
     str r0, [r2]
 nr_init_done:
@@ -221,6 +228,7 @@ nr_service_pump:
     mov r0, r5
     bl recorder_pump
     str r0, [r4, #NR_ERROR]
+    bl nr_fault_publish
     ldr r0, [r5, #RC_FILE_BYTES]
     str r0, [r4, #NR_BYTES]
     ldr r0, [r5, #RC_DROPPED]
@@ -244,6 +252,7 @@ nr_service_pump:
     bl recorder_busy
     cmp r0, #0
     bne nr_service_return
+    bl nr_drop_empty
     mov r0, r5
     ldr r12, =MG_FREE
     blx r12
@@ -262,6 +271,90 @@ nr_service_clear:
 nr_service_return:
     ldr r0, [r4, #NR_ERROR]
     pop {r4-r8, pc}
+.pool
+
+; r4 public state, r5 recorder context of a finished take. A failed take without one sample leaves no WAV with only its
+; header: the file is deleted and its number given back, so the next take is named as this one was. Builds without
+; f_unlink (FS_UNLINK 0, the synth) keep the file and the count.
+nr_drop_empty:
+    push {r4, lr}
+    ldr r0, =FS_UNLINK
+    cmp r0, #0
+    ldrne r0, [r4, #NR_ERROR]
+    cmpne r0, #0
+    beq nr_drop_return
+    ldr r0, [r5, #RW_DATA_BYTES]
+    ldr r1, [r5, #RW_STATE]
+    orr r0, r0, r1
+    ldr r1, [r5, #RW_FS_ERROR]       ; a failed open or close: the name may not be this take's file
+    orrs r0, r0, r1
+    bne nr_drop_return
+    ldr r0, [r5, #RW_NUMBER]
+    ldr r1, [r4, #NR_NUMBER]
+    cmp r0, #0
+    cmpne r0, r1
+    bne nr_drop_return
+    ldrb r0, [r5, #RW_PATH]
+    cmp r0, #0
+    beq nr_drop_return
+    add r0, r5, #RW_PATH
+    ldr r12, =FS_UNLINK
+    blx r12
+    cmp r0, #0
+    bne nr_drop_return
+    ldr r0, [r4, #NR_NUMBER]
+    sub r0, r0, #1
+    str r0, [r4, #NR_NUMBER]
+nr_drop_return:
+    pop {r4, pc}
+.pool
+
+; r4 public state, r5 recorder context. Publishes the reader's first fault of this take once, plain READ can fetch it.
+nr_fault_publish:
+    push {r4, lr}
+    add r1, r5, #RC_READER
+    ldr r0, [r1, #RR_ACK]
+    str r0, [r4, #NR_ACK]
+    ldr r0, [r1, #RR_STOP_ACK]
+    str r0, [r4, #NR_STOP_ACK]
+    ldr r0, [r1, #RR_FAULT]
+    cmp r0, #0
+    beq nr_fault_return
+    tst r0, #RR_FAULT_SEEN
+    bne nr_fault_return
+    orr r0, r0, #RR_FAULT_SEEN
+    str r0, [r1, #RR_FAULT]
+    ldr r0, [r4, #NR_FAULTS]
+    add r0, r0, #1
+    str r0, [r4, #NR_FAULTS]
+    add r0, r4, #NR_LAST
+    bl nr_fault_copy
+    ldr r0, [r4, #NR_FIRST]
+    cmp r0, #0
+    addeq r0, r4, #NR_FIRST
+    bleq nr_fault_copy
+nr_fault_return:
+    pop {r4, pc}
+
+; r0 destination, r1 reader context; keeps r1 and r4.
+nr_fault_copy:
+    ldr r2, [r1, #RR_FAULT]
+    bic r2, r2, #RR_FAULT_SEEN
+    str r2, [r0], #4
+    add r12, r1, #RR_FAULT+4
+    mov r3, #5
+nr_fault_copy_word:
+    ldr r2, [r12], #4
+    str r2, [r0], #4
+    subs r3, r3, #1
+    bne nr_fault_copy_word
+    ldr r12, =OS_TICKS
+    ldr r12, [r12]
+    ldr r2, [r4, #NR_START]
+    sub r2, r12, r2
+    str r2, [r0], #4
+    str r12, [r0]
+    bx lr
 .pool
 
 nr_runtime_end:

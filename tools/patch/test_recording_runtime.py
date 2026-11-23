@@ -11,7 +11,7 @@ class Runtime(Recorder):
     def __init__(self):
         from tools.patch.recording_runtime import source
         from tools.patch.arm import assemble
-        constants = '.equ NATIVE_RECORDING, 0x210000\n.equ MENU_STATE, 0x211000\n.equ M_ON, 0\n.equ NR_SETTING, 72\n.equ MG_ALLOC, 0xC0028DCC\n.equ MG_FREE, 0xC0028DD4\n.equ OS_TICKS, 0xC06A292C\n'
+        constants = '.equ NATIVE_RECORDING, 0x210000\n.equ MENU_STATE, 0x211000\n.equ M_ON, 0\n.equ NR_SETTING, 72\n.equ MG_ALLOC, 0xC0028DCC\n.equ MG_FREE, 0xC0028DD4\n.equ OS_TICKS, 0xC06A292C\n.equ FS_UNLINK, 0xC0028DDC\n'
         super().__init__(code=assemble(constants + source(), origin=0x100000))
         self.uc.mem_map(0x210000, 0x2000)
         self.uc.mem_write(0x210000, b'\xff' * 64)
@@ -26,6 +26,9 @@ class Runtime(Recorder):
             address = self.s(name)
             self.uc.mem_write(address, struct.pack('<I', 0xE12FFF1E))
             self.uc.hook_add(UC_HOOK_CODE, self.alloc, begin=address, end=address)
+        self.unlinked = []
+        self.uc.mem_write(self.s('FS_UNLINK'), struct.pack('<I', 0xE12FFF1E))
+        self.uc.hook_add(UC_HOOK_CODE, self.unlink, begin=self.s('FS_UNLINK'), end=self.s('FS_UNLINK'))
         self.enabled(True)
 
     def alloc(self, uc, address, size, data):
@@ -37,6 +40,13 @@ class Runtime(Recorder):
         if self.on_alloc:
             self.on_alloc(name)
         uc.reg_write(UC_ARM_REG_R0, (0 if self.fail_alloc or value > self.max_alloc else 0x600000) if name == 'alloc' else 0)
+        uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
+
+    def unlink(self, uc, address, size, data):
+        assert uc.reg_read(UC_ARM_REG_SP) % 8 == 0
+        path = self.string(uc.reg_read(UC_ARM_REG_R0))
+        self.unlinked.append(path)
+        uc.reg_write(UC_ARM_REG_R0, 0 if self.files.pop(path, None) is not None else 4)
         uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
 
     def enabled(self, flag):
@@ -133,6 +143,42 @@ class RecordingRuntimeTests(unittest.TestCase):
         m.step()
         m.close()
         self.assertIn('SD:Recordings/REC0002.WAV', m.files)
+
+    def test_take_lost_before_any_sample_publishes_its_fault_and_gives_its_file_and_number_back(self):
+        m = Runtime()
+        m.post(1)
+        m.step()
+        m.capture([0x12345678] * 1000, elapsed=20)
+        m.step()
+        m.close()
+        self.assertEqual(m.public('NR_NUMBER'), 1)
+        self.assertEqual(m.public('NR_ACK'), 0)
+        self.assertEqual(m.public('NR_FAULTS'), 0)
+        m.after_read = lambda address: m.info(3, 0x5A5A5A58) if m.info(0) == 1 else None
+        m.post(1)
+        m.step()
+        m.after_read = None
+        m.close()
+        self.assertEqual(m.public('NR_ERROR'), m.s('RC_READER_ERROR') + m.s('RR_LOST'))
+        self.assertEqual(m.public('NR_BYTES'), 0)
+        self.assertEqual(m.unlinked, ['SD:Recordings/REC0002.WAV'])
+        self.assertNotIn('SD:Recordings/REC0002.WAV', m.files)
+        self.assertIn('SD:Recordings/REC0001.WAV', m.files)
+        self.assertEqual(m.public('NR_NUMBER'), 1)
+        self.assertEqual(m.public('NR_FAULTS'), 1)
+        first = [struct.unpack('<I', m.uc.mem_read(0x210000 + m.s('NR_FIRST') + 4 * n, 4))[0] for n in range(6)]
+        self.assertEqual(first, [0x23, 1, m.s('RR_DSP_BYTES'), first[3], 0x5A5A5A58, 0])
+        self.assertEqual(bytes(m.uc.mem_read(0x210000 + m.s('NR_LAST'), 32)), bytes(m.uc.mem_read(0x210000 + m.s('NR_FIRST'), 32)))
+        m.info(0, 0)                        # the foreign capture ends
+        m.info(3, m.s('RR_INPUT'))
+        m.post(1)
+        m.step()
+        m.capture([0x12345678] * 1000, elapsed=20)
+        m.step()
+        m.close()
+        self.assertEqual(m.public('NR_ERROR'), 0)
+        self.assertIn('SD:Recordings/REC0002.WAV', m.files)
+        self.assertEqual(m.public('NR_FAULTS'), 1)
 
     def test_no_memory_reports_error_without_touching_card_or_dsp(self):
         m = Runtime()
