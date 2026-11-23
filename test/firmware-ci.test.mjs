@@ -113,3 +113,9 @@ test("PR and publication use one shared firmware execution with mandatory joins 
   assert.equal([...shared.matchAll(/GELUMPE_NODE_RESULTS: \$\{\{ !inputs\.full && 'strict' \|\| '' \}\}/g)].length, 2);
   assert.doesNotMatch(shared, /path:.*(?:SYSTEM\.VSB|\/boot|\/power-on)/);
 });
+
+test("the shard join still runs when the optional DSP worker is skipped", () => {
+  const workflow = read(".github/workflows/firmware-check.yml");
+  const join = workflow.match(/\n  join:\n([\s\S]*?)\n  [a-z-]+:\n/)[1];
+  assert.match(join, /if: \$\{\{ !cancelled\(\) && needs\.shard\.result == 'success' \}\}/);
+});
