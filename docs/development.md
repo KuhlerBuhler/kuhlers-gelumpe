@@ -441,7 +441,7 @@ ein Test schlägt fehl, wenn es fehlt.
 | Version in `package.json`, `tauri.conf.json`, `Cargo.toml`, `Cargo.lock`, `blech-version` | `node tools/set-version.mjs X.Y.Z` | Skript, Test `blech-version` |
 | Notizen `release-notes/X.Y.Z.md` und `data/release-notes.mjs` | von Hand, dann `node tools/release-notes.mjs build` | Test, Prüfschritt "due" |
 | "Neueste Version von BLECHTRIBE" im Patcher | kommt aus den neuesten Notizen | ja, Test `blech-version` |
-| `data/known-releases.json`: Dateien mit älteren Versionen lassen sich ohne Original updaten | `node tools/known-releases.mjs --hacktribe H.VSB --stock RED.VSB --synth BLUE.VSB` mit allen Tags ab `v1.3.3` und `worktree`, die drei unveränderten 2.02-Dateien vom eigenen Rechner | Test `blech-version` meldet fehlende Versionen |
+| `data/known-releases.json`: Dateien mit älteren Versionen lassen sich ohne Original updaten | `node tools/known-releases.mjs --hacktribe H.VSB --stock RED.VSB --synth BLUE.VSB` mit allen Tags ab `v1.3.3` und `worktree`, die drei unveränderten 2.02-Dateien vom eigenen Rechner, dazu `--catalog F` für jede weitere Hacktribe-Datei (49/32 und 64/50 Effekte haben verschiedene Katalog-Hashes) | Test `blech-version` meldet fehlende Versionen |
 | `data/patches/verified.json` | der Workflow "Verify patches" committet sie | ja |
 | Neuigkeiten nach dem Update (`data/news.mjs`, Schlüssel `news.vXYZ.*` in allen Sprachen) | von Hand, nur bei Versionen mit Neuem für Nutzer | nein |
 | Funktionslisten in `README.md` und `README.en.md` (Plugins, Fallstricke, Rettung) | von Hand | nein |
