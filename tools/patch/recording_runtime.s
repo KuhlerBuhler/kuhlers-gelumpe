@@ -4,6 +4,17 @@
 .equ NR_DISABLED, 32
 .equ NR_OOM, 33
 .equ NR_NO_CARD, 34
+; A byte right behind NR_SETTING (script_menu.s), inside the 76 bytes of NATIVE_RECORDING (script_hooks.py): a take started by PLAY
+; in the setup (recording_ui.s) waits for the transport to run (1), then runs with it (2); STOP ends it (nr_transport_frame).
+; Any other value, FF at power-on included, binds nothing.
+.equ NR_PLAY_BOUND, 73
+.equ NR_PLAY_WAIT, 1
+.equ NR_PLAY_RUN, 2
+; The byte after it: 3 a PLAY the Sampler's setup took waits for the setup to close (recording_ui.s), 2 and 1 how many of its
+; packets (press, release), sent through the panel queue, still go past nr_input untouched. Other values, FF at power-on
+; included, mean none.
+.equ NR_PLAY_INJECT, 74
+.equ NR_PLAY_PENDING, 3
 
 ; Public state contains no pointers that the input or frame task dereferences.
 nr_init:

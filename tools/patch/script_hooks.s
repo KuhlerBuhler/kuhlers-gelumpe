@@ -858,6 +858,8 @@ nr_frame:
     push {r4, lr}
     bl nr_view_frame
     bl nr_ui_ack
+    bl nr_play_inject_frame
+    bl nr_transport_frame
     bl nr_busy
     cmp r0, #0
     beq nr_frame_idle
@@ -869,6 +871,59 @@ nr_frame_idle:
 nr_frame_done:
     pop {r4, pc}
 .pool
+; The PLAY the Sampler's setup took (recording_ui.s:nr_input) goes to the firmware once the setup closed, as a press of our own
+; (korg.pressKey's path, the release follows a frame later); the firmware then plays the pattern instead of sampling.
+nr_play_inject_frame:
+    ldr r1, =NATIVE_RECORDING
+    ldrb r0, [r1, #NR_PLAY_INJECT]
+    cmp r0, #NR_PLAY_PENDING
+    bxne lr
+    ldr r0, [r1, #NR_SETUP]
+    cmp r0, #0
+    bxne lr
+    push {r4, lr}
+    mov r0, #2
+    strb r0, [r1, #NR_PLAY_INJECT]
+    bl script_press_key_glue
+    pop {r4, pc}
+.pool
+; A take started by PLAY (NR_PLAY_BOUND) runs with the transport: once the transport ran (1 play, 2 pause, 3 and 4 with REC,
+; the firmware's word, measured in the emulator), its stop (0) stops the take. Pause and REC on or off during the take keep it,
+; so REC stays the firmware's pattern recording. A take that ended by itself (error, REC in the setup) unbinds.
+nr_transport_frame:
+    ldr r1, =NATIVE_RECORDING
+    ldrb r0, [r1, #NR_PLAY_BOUND]
+    cmp r0, #NR_PLAY_WAIT
+    cmpne r0, #NR_PLAY_RUN
+    bxne lr
+    push {r4, lr}
+    mov r4, r0
+    bl nr_busy
+    cmp r0, #0
+    beq nr_transport_unbind
+    ldr r0, =HW_TRANSPORT
+    ldr r0, [r0]
+    cmp r0, #0
+    beq nr_transport_stopped
+    cmp r0, #4
+    bhi nr_transport_done
+    mov r0, #NR_PLAY_RUN
+    ldr r1, =NATIVE_RECORDING
+    strb r0, [r1, #NR_PLAY_BOUND]
+    b nr_transport_done
+nr_transport_stopped:
+    cmp r4, #NR_PLAY_RUN
+    bne nr_transport_done
+    mov r0, #0
+    bl nr_post
+nr_transport_unbind:
+    mov r0, #0
+    ldr r1, =NATIVE_RECORDING
+    strb r0, [r1, #NR_PLAY_BOUND]
+nr_transport_done:
+    pop {r4, pc}
+.pool
+
 ; Preserves API arguments; NE means the recording worker still owns card resources.
 nr_card_busy:
     push {r0-r3, r4, lr}

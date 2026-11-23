@@ -57,33 +57,95 @@ class RecordingHookTests(unittest.TestCase):
         self.assertEqual(kinds[-3:], [61, 62, 68])
         self.assertEqual(kinds.count(68), 1)
 
-    def test_record_key_toggles_only_in_native_record_setup_and_swallows_its_release(self):
+    def test_play_in_record_setup_starts_once_and_record_stops_with_its_release_swallowed(self):
         m, b = self.machine()
         from tools.patch.script_hooks import MENU_STATE, NATIVE_RECORDING
         m.write(MENU_STATE, 1)
         m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_SETTING'], b'\x01')   # NATIVE RECORDING ON
         m.call('nr_init')
+        field = lambda name: m.read(NATIVE_RECORDING + b.symbols[name])
+        byte = lambda name: m.uc.mem_read(NATIVE_RECORDING + b.symbols[name], 1)[0]
         packet = m.input + 0x5000
-        m.uc.mem_write(packet, bytes(12) + bytes([0, 0, 1, 0]) + bytes(8))
+        send = lambda key, pressed=1: (m.uc.mem_write(packet, bytes(12) + bytes([0, key, pressed, 0]) + bytes(8)),
+                                       m.call('nr_input', packet)[0])[1]
         m.write(NATIVE_RECORDING + b.symbols['NR_SELECTED'], 1)
-        self.assertEqual(m.call('nr_input', packet)[0], 0)
+        self.assertEqual(send(0), 0)                            # outside the setup REC and PLAY stay the firmware's
+        self.assertEqual(send(2), 0)
+        self.assertEqual(field('NR_REQUEST'), 0)
         m.write(NATIVE_RECORDING + b.symbols['NR_SETUP'], 1)
-        self.assertEqual(m.call('nr_input', packet)[0], 1)
-        self.assertEqual(m.call('nr_busy')[0], 1)
-        self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_REQUEST']), 1)
+        self.assertEqual(send(0), 0)                            # REC in the setup, idle: the firmware closes it, no take
+        self.assertEqual(field('NR_REQUEST'), 0)
+        self.assertEqual(send(0, 0), 0)
+        self.assertEqual(send(2), 0)                            # PLAY: a take, and the firmware gets REC to close the setup
+        self.assertEqual(field('NR_REQUEST'), 1)
+        self.assertEqual(m.uc.mem_read(packet + 13, 1)[0], 0)
+        self.assertEqual(byte('NR_PLAY_BOUND'), b.symbols['NR_PLAY_WAIT'])
+        self.assertEqual(byte('NR_PLAY_INJECT'), b.symbols['NR_PLAY_PENDING'])
+        self.assertEqual(send(2, 0), 0)                         # its release goes on as REC's
+        self.assertEqual(m.uc.mem_read(packet + 13, 1)[0], 0)
+        self.assertEqual(field('NR_HELD'), 0)
+        self.assertEqual(send(2), 0)                            # busy: PLAY in the setup starts no second take
+        self.assertEqual(field('NR_REQUEST'), 1)
+        send(2, 0)
+        self.assertEqual(send(0), 1)                            # REC in the setup stops the take, its release is swallowed
+        self.assertEqual(field('NR_REQUEST'), 2)
         m.write(NATIVE_RECORDING + b.symbols['NR_SETUP'], 0)
-        m.uc.mem_write(packet + 14, b'\0')
-        self.assertEqual(m.call('nr_input', packet)[0], 1)
-        self.assertEqual(m.call('nr_input', packet)[0], 0)
-        m.write(NATIVE_RECORDING + b.symbols['NR_SETUP'], 1)
-        m.uc.mem_write(packet + 14, b'\1')
-        self.assertEqual(m.call('nr_input', packet)[0], 1)
-        self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_REQUEST']), 2)
+        self.assertEqual(send(0, 0), 1)
+        self.assertEqual(send(0, 0), 0)
         m.call('nr_service')
         self.assertEqual(m.call('nr_busy')[0], 0)
-        # PLAY and transport REC outside setup retain their native behavior.
-        m.uc.mem_write(packet + 13, b'\1')
-        self.assertEqual(m.call('nr_input', packet)[0], 0)
+
+    def test_play_taken_by_the_setup_reaches_the_firmware_after_it_closed(self):
+        m, b = self.machine()
+        from tools.patch.script_hooks import NATIVE_RECORDING
+        m.call('nr_init')
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_PLAY_INJECT'], bytes([b.symbols['NR_PLAY_PENDING']]))
+        m.write(NATIVE_RECORDING + b.symbols['NR_SETUP'], 1)
+        from unicorn import UC_HOOK_CODE
+        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_PC, UC_ARM_REG_LR
+        pressed = []
+        def press_key(uc, at, size, data):                      # korg.pressKey's path into the panel queue
+            pressed.append(uc.reg_read(UC_ARM_REG_R0))
+            uc.reg_write(UC_ARM_REG_PC, uc.reg_read(UC_ARM_REG_LR))
+        at = b.symbols['script_press_key_glue']
+        m.uc.hook_add(UC_HOOK_CODE, press_key, begin=at, end=at)
+        m.call('nr_play_inject_frame')
+        self.assertEqual(pressed, [])
+        m.write(NATIVE_RECORDING + b.symbols['NR_SETUP'], 0)
+        m.call('nr_play_inject_frame')
+        m.call('nr_play_inject_frame')
+        self.assertEqual(pressed, [2])
+        self.assertEqual(m.uc.mem_read(NATIVE_RECORDING + b.symbols['NR_PLAY_INJECT'], 1)[0], 2)
+        packet = m.input + 0x5000
+        m.write(NATIVE_RECORDING + b.symbols['NR_SETUP'], 1)    # even a setup still open lets our own PLAY through
+        for pressed, left in ((1, 1), (0, 0)):
+            m.uc.mem_write(packet, bytes(12) + bytes([0, 2, pressed, 0, 0, 0, 0, b.symbols['PK_MARK']]) + bytes(4))
+            self.assertEqual(m.call('nr_input', packet)[0], 0)
+            self.assertEqual(m.uc.mem_read(packet + 13, 1)[0], 2)
+            self.assertEqual(m.uc.mem_read(NATIVE_RECORDING + b.symbols['NR_PLAY_INJECT'], 1)[0], left)
+
+    def test_take_started_by_play_ends_with_the_transport_stop_only(self):
+        m, b = self.machine()
+        from tools.patch.script_hooks import NATIVE_RECORDING
+        m.call('nr_init')
+        transport = b.symbols['HW_TRANSPORT']
+        bound = lambda: m.uc.mem_read(NATIVE_RECORDING + b.symbols['NR_PLAY_BOUND'], 1)[0]
+        m.write(NATIVE_RECORDING + b.symbols['NR_REQUEST'], 1)
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_PLAY_BOUND'], bytes([b.symbols['NR_PLAY_WAIT']]))
+        m.write(transport, 0)
+        m.call('nr_transport_frame')                            # not playing yet: wait, no stop
+        self.assertEqual((bound(), m.read(NATIVE_RECORDING + b.symbols['NR_REQUEST'])), (1, 1))
+        for state in (1, 2, 4, 3, 11):                          # play, pause, REC on and off, the firmware's own states
+            m.write(transport, state)
+            m.call('nr_transport_frame')
+            self.assertEqual((bound(), m.read(NATIVE_RECORDING + b.symbols['NR_REQUEST'])), (2, 1), state)
+        m.write(transport, 0)
+        m.call('nr_transport_frame')
+        self.assertEqual((bound(), m.read(NATIVE_RECORDING + b.symbols['NR_REQUEST'])), (0, 2))
+        m.uc.mem_write(NATIVE_RECORDING + b.symbols['NR_PLAY_BOUND'], b'\xff')   # FF at power-on binds nothing
+        m.write(NATIVE_RECORDING + b.symbols['NR_REQUEST'], 1)
+        m.call('nr_transport_frame')
+        self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_REQUEST']), 1)
 
     def test_source_dial_has_three_choices_without_changing_native_boolean_schema(self):
         from unicorn import UC_HOOK_CODE

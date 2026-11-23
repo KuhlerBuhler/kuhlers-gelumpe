@@ -76,7 +76,7 @@ BATT_END = BATT + 28             # whether a reading is held, the card symbol's 
 LANG_TEXTS = BATT_END           # the text table the BLECH menu reads its texts from (tools/patch/lang_texts.py:lang_arm): English, or
 LANG_TEXTS_END = LANG_TEXTS + 4  # lang-de's German table; set by menu_arm_load before any text is drawn
 NATIVE_RECORDING = LANG_TEXTS_END   # native recording (recording_runtime.s:NR_*): requests, phase, time, byte and gap counts, name, source
-NATIVE_RECORDING_END = NATIVE_RECORDING + 76   # 72 bytes of context (NR_SIZE), then NR_SETTING (script_menu.s)
+NATIVE_RECORDING_END = NATIVE_RECORDING + 76   # 72 bytes of context (NR_SIZE), then NR_SETTING (script_menu.s), NR_PLAY_BOUND and NR_PLAY_INJECT (recording_runtime.s)
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 LANG = 0xC016C000                # the top 16 KiB of MORE3 hold the texts and glyphs of the optional patch lang-de (tools/lang/),
@@ -356,7 +356,7 @@ def runtime_profile(build):
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
-        if name.startswith('nr_') or name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook', 'se_prev', 'se_next'):
+        if name.startswith('nr_') or name in ('script_early_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook', 'se_prev', 'se_next'):
             continue
         if name == 'boot_light_hook':
             address, expected = 0xC0025E48, 0xE1500003
@@ -498,7 +498,7 @@ class BuiltHooks:
             ('rec_writer_open','nr_runtime_end','Der native Aufnahmedienst prüft seinen Schalter in CommandTask, besitzt Ring und Datei und veröffentlicht nur Zustand und Zähler.'),
             ('nr_format','nr_format_end','Der Aufnahmebildschirm liest Dateinummer, Laufzeit und Fehler aus dem öffentlichen Zustand.'),
             ('nr_requires_capture','nr_capture_apps_end','Plugins mit eigener Erfassung geben den Erfassungskanal während der Aufnahme frei.'),
-            ('nr_input','nr_blue_ui_end','Die blaue Electribe öffnet ihre Aufnahmeansicht über SHIFT und REC; REC startet und stoppt.'),
+            ('nr_input','nr_blue_ui_end','Die blaue Electribe öffnet ihre Aufnahmeansicht über SHIFT und REC; PLAY startet die Aufnahme mit dem Pattern, STOP beendet sie.'),
             ('audio_service','audio_service_end','Der leere Audio-Dienst auf dem Synth kehrt aus CommandTask ohne Erfassungsanfrage zurück.'),
             ('audio_command_hook','nr_command_end','CommandTask bedient die Erfassung und die Aufnahme nach dem ursprünglichen Befehlshandler.'),
             ('nr_setup_enter','nr_ui_end','Die native Aufnahmebedienung prüft Quelle und Aufnahmestatus; ohne Schalter läuft die ursprüngliche Sampling-Ansicht weiter.'),

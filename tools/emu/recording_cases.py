@@ -29,6 +29,9 @@ COMMAND_TICK = 0xC002A628
 DOT_VRAM, DOT_COL = 0xC031B310, 78
 DOT = bytes((0x38, 0x7C, 0x7C, 0x7C, 0x38))
 OS_TICKS = 0xC06A292C
+HW_TRANSPORT, HW_TRANSPORT_SYNTH = 0xC06BC318, 0xC0583C98   # the sequencer's state word (script_hooks.s:nr_transport_frame)
+NR_PLAY_BOUND = 73                  # recording_runtime.s: 1 a take PLAY started waits for the transport, 2 it runs with it
+REC_LED = 0x12
 
 
 def has_hooks(payload):
@@ -267,25 +270,57 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         dev.turn(1, 0.03)
     out.append(entry('native_gap_record_source' if expect_gap else 'native_record_source', field('SETUP') == 1 and field('SELECTED') == 1,
                      'SHIFT+REC opens RECORD directly on the synth; the sampler selects its third source'))
-    dev.press(1, 0.02)
-    out.append(entry('native_gap_play_does_not_record' if expect_gap else 'play_does_not_record', field('PHASE') == 0 and field('CONTEXT') == 0 and not dsp.active,
-                     f'PLAY: phase {field("PHASE")}, context {field("CONTEXT")}, capture {dsp.active}, setup {field("SETUP")}'))
-    dev.m.press(0x0A, True)
-    dev.run(0.03)
-    dev.press(0, 0.05)
-    dev.m.press(0x0A, False)
-    dev.run(0.03)
-    dev.press(0, 0.01)
-    started = field('PHASE') == 1 and field('CONTEXT') != 0
-    capacity = field('CAPACITY')
-    if remove_card:
-        dev.run(0.03)
-        dev.m.eject_card()
-        dev.press(0, 0.02)
-        for _ in range(100):
+    transport = lambda: dev.u32(HW_TRANSPORT_SYNTH if synth else HW_TRANSPORT)
+    bound = lambda: dev.m.uc.mem_read(script_hooks.NATIVE_RECORDING + NR_PLAY_BOUND, 1)[0]
+    prefix = 'native_gap_' if expect_gap else ''
+
+    def tap(key, hold=0.05, wait=0.01):
+        dev.m.press(key, True)
+        dev.run(hold)
+        dev.m.press(key, False)
+        dev.run(wait)
+
+    def open_view(hold=0.05):
+        dev.m.press(0x0A, True)
+        dev.run(0.03 if hold > 0.02 else 0.01)
+        tap(0, hold)
+        dev.m.press(0x0A, False)
+        dev.run(0.03 if hold > 0.02 else 0.01)
+
+    def stop():                             # the sequencer's STOP ends a take PLAY started
+        dev.press(1, 0.02)
+        for _ in range(64):
             if field('PHASE') == 0:
                 break
             dev.run(0.01)
+
+    dev.press(1, 0.02)                      # key 1 is STOP (key 2 is PLAY)
+    out.append(entry(prefix + 'stop_in_view_does_not_record', field('PHASE') == 0 and field('CONTEXT') == 0 and not dsp.active,
+                     f'STOP: phase {field("PHASE")}, context {field("CONTEXT")}, capture {dsp.active}, setup {field("SETUP")}'))
+    open_view()
+    dev.press(0, 0.05)
+    out.append(entry(prefix + 'rec_in_view_starts_nothing', field('PHASE') == 0 and field('CONTEXT') == 0 and not dsp.active
+                     and field('SETUP') == 0 and transport() == 0,
+                     f'REC closes the view as the firmware does: phase {field("PHASE")}, capture {dsp.active}, setup {field("SETUP")}, transport {transport()}'))
+    open_view()
+    dev.press(2, 0.01)                      # PLAY
+    started = field('PHASE') == 1 and field('CONTEXT') != 0
+    capacity = field('CAPACITY')
+    playing, leds, sampling = set(), set(), set()
+    for _ in range(5):
+        playing.add(transport())
+        leds.add(dev.m.leds[REC_LED])
+        dev.run(0.01)
+    out.append(entry(prefix + 'play_starts_take_and_pattern', started and playing == {1} and field('SETUP') == 0 and bound() == 2,
+                     f'PLAY in RECORD: phase {field("PHASE")}, context {field("CONTEXT")}, transport {sorted(playing)}, setup {field("SETUP")}, bound {bound()}'))
+    if not synth:
+        out.append(entry(prefix + 'play_starts_no_korg_sampling', 11 not in playing and dev.screen()['window'] == 0,
+                         f'transport {sorted(playing)} (11 is the firmware sampling), window {dev.screen()["window"]:#x}'))
+    out.append(entry(prefix + 'take_leaves_rec_led_dark', leds == {0}, f'REC LED during the take: {sorted(leds)}'))
+    if remove_card:
+        dev.run(0.03)
+        dev.m.eject_card()
+        stop()
         if png:
             dev.png(png)
         volume = fat32.Volume(bytes(medium.data))
@@ -305,14 +340,11 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         replacement = MemoryMedium(card_image())
         dev.m.insert_card(SDCard(replacement))
         dev.run(0.3)
-        dev.press(0, 0.01)
+        open_view()
+        dev.press(2, 0.01)
         restarted = field('PHASE') == 1 and field('CONTEXT') != 0
         dev.run(0.03)
-        dev.press(0, 0.02)
-        for _ in range(100):
-            if field('PHASE') == 0:
-                break
-            dev.run(0.01)
+        stop()
         volume = fat32.Volume(bytes(replacement.data))
         try:
             following = volume.read('/Recordings/REC0002.WAV')
@@ -331,7 +363,6 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
     if defer_settings:
         from splash_cases import SWITCH_SCREEN
         import menu_cases as mc
-        dev.press('exit', 0.01)
         dev.m.uc.mem_write(script_hooks.MENU_STATE + mc.S_LEVEL, struct.pack('<II', 2, mc.GROUP_FEATURES))
         dev.m.uc.mem_write(script_hooks.MENU_STATE + mc.S_ENTER, bytes(4))
         dev.call(SWITCH_SCREEN, 45, 0)
@@ -341,28 +372,30 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         out.append(entry('settings_wait_for_recording', field('DEFERRED') == 1 and untouched and field('PHASE') == 1,
                          f'WRITE: pending {field("DEFERRED")}, no settings file {untouched}, phase {field("PHASE")}, screen {dev.screen()}, texts {mc.texts_of(dev)}'))
         dev.press('exit', 0.01)
-        dev.m.press(0x0A, True)
-        dev.run(0.01)
-        dev.press(0, 0.01)
-        dev.m.press(0x0A, False)
-        dev.run(0.01)
     elif transport_play:
-        dev.press(1, 0.01)
-        out.append(entry('play_keeps_recording', field('PHASE') == 1 and dsp.active and field('SETUP') == (1 if synth else 0),
-                         f'PLAY during recording: phase {field("PHASE")}, capture {dsp.active}, setup {field("SETUP")}'))
-        dev.m.press(0x0A, True)
-        dev.run(0.01)
-        dev.press(0, 0.01)
-        dev.m.press(0x0A, False)
-        dev.run(0.01)
+        context = field('CONTEXT')
+        tap(2, 0.015)                       # PLAY again pauses the pattern; short presses keep the take inside the capture model
+        paused = transport()
+        tap(0, 0.015)                       # REC stays the firmware's pattern recording
+        armed = transport()
+        out.append(entry('pause_and_rec_keep_take', field('PHASE') == 1 and dsp.active and paused not in (0, 11) and armed not in (0, 11),
+                         f'PLAY and REC during the take: phase {field("PHASE")}, capture {dsp.active}, transport {paused} then {armed}'))
+        open_view(0.015)
+        for _ in range(20 if synth else 0): # the blue view says it is open one UI frame later, slower while the pattern plays
+            if field('SETUP') == 1:
+                break
+            dev.run(0.01)
+        tap(2, 0.015, 0.03 if synth else 0.01)   # the blue view leaves in the next UI frame
+        out.append(entry('no_second_take_while_busy', field('PHASE') == 1 and field('CONTEXT') == context and transport() not in (0, 11)
+                         and field('SETUP') == 0 and not dev.m.asserts,
+                         f'PLAY in RECORD during a take: phase {field("PHASE")}, same context {field("CONTEXT") == context}, transport {transport()}, setup {field("SETUP")}'))
     else:
         dev.run(0.4 if expect_gap else 0.1)
-    dev.press(0, 0.02)
-    for _ in range(64):
-        if field('PHASE') == 0:
-            break
-        dev.run(0.01)
+    stop()
+    out.append(entry(prefix + 'stop_ends_take', started and field('PHASE') == 0 and bound() == 0 and transport() == 0,
+                     f'STOP: phase {field("PHASE")}, bound {bound()}, transport {transport()}, error {field("ERROR")}'))
     if synth:
+        open_view()                         # the view shows how the take ended
         dev.run(0.12)
         import menu_cases as mc
         shown = mc.texts_of(dev)
@@ -624,8 +657,7 @@ def status_dot_cases(payload, flash=None, png=None):
         if 200 <= ticks() & 511 < 260:
             break
         dev.run(0.005)
-    dev.press(0, 0.02)
-    dev.press('exit', 0.05)
+    dev.press(2, 0.02)                      # PLAY starts the take and closes the view
     seen, wrong, frames = set(), 0, 0
     for _ in range(35):
         dev.run(0.01)
@@ -639,8 +671,7 @@ def status_dot_cases(payload, flash=None, png=None):
             dev.png(png)
         seen.add(state)
     running = frames >= 15                 # the capture model may end the take with a gap later; the dot only needs it running
-    open_record()
-    dev.press(0, 0.02)
+    dev.press(1, 0.02)                      # STOP ends it
     for _ in range(64):
         if field('PHASE') == 0:
             break

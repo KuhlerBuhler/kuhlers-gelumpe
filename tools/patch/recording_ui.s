@@ -25,55 +25,113 @@ nr_setup_leave:
     ldr pc, =0xC006B5A0
 .pool
 
-; r0 panel packet -> r0 1 swallowed, 0 native. REC is key 0; PLAY never enters this path.
+; r0 panel packet -> r0 1 swallowed, 0 native. Keys of class 0: REC 0, PLAY 2. NR_HELD holds the key number + 1 of a swallowed
+; press, so its release is swallowed too. In the sampling setup with RECORD chosen, PLAY starts a take bound to the transport
+; (nr_transport_frame ends it with STOP), closes the setup first and goes on to the firmware, which then plays the pattern on the
+; main screen instead of starting its own sampling (Korg's PLAY in the setup starts RESAMPLING, transport 11). The setup closes
+; as with the firmware's own REC: the PLAY press goes on as REC (NR_HELD_AS_REC, its release too) and a PLAY of our own follows
+; through the panel queue once the setup is gone (nr_play_inject_frame; NR_PLAY_INJECT lets it pass). While a take runs, PLAY in the setup does the
+; same: no second take, no native sampling. REC in the setup stops a running take; idle it is the firmware's (it closes the
+; setup, measured in the emulator). Outside the setup REC and PLAY stay the firmware's.
+.equ NR_HELD_AS_REC, 4
 nr_input:
-    push {r4-r6, lr}
+    push {r4-r7, lr}
     mov r4, r0
     ldrb r1, [r4, #12]
-    ldrb r2, [r4, #13]
-    orrs r1, r1, r2
+    cmp r1, #0
+    bne nr_input_pass
+    ldrb r7, [r4, #13]
+    cmp r7, #0
+    cmpne r7, #2
     bne nr_input_pass
     bl nr_init
     mov r5, r0
+    cmp r7, #2                       ; the PLAY handed on below goes to the firmware untouched
+    bne nr_input_own
+    ldrb r0, [r4, #0x13]
+    cmp r0, #PK_MARK
+    bne nr_input_own
+    ldrb r0, [r5, #NR_PLAY_INJECT]
+    sub r0, r0, #1
+    cmp r0, #1
+    strbls r0, [r5, #NR_PLAY_INJECT]
+    bls nr_input_pass
+nr_input_own:
     ldrb r0, [r4, #14]
     cmp r0, #0
     bne nr_input_press
     ldr r0, [r5, #NR_HELD]
-    mov r1, #0
-    str r1, [r5, #NR_HELD]
-    pop {r4-r6, pc}
+    cmp r0, #NR_HELD_AS_REC
+    cmpeq r7, #2
+    bne nr_input_release
+    mov r0, #0                       ; the release of a PLAY the firmware got as REC goes on as REC's
+    str r0, [r5, #NR_HELD]
+    strb r0, [r4, #13]
+    b nr_input_return
+nr_input_release:
+    sub r0, r0, #1
+    cmp r0, r7
+    movne r0, #0
+    bne nr_input_return
+    mov r0, #0
+    str r0, [r5, #NR_HELD]
+    mov r0, #1
+    b nr_input_return
 nr_input_press:
     ldr r0, [r5, #NR_HELD]
-    cmp r0, #0
-    bne nr_input_take
+    sub r0, r0, #1
+    cmp r0, r7
+    beq nr_input_take
     ldr r0, [r5, #NR_SETUP]
     cmp r0, #0
     beq nr_input_pass
     bl nr_busy
     mov r6, r0
-    bl nr_enabled
-    cmp r0, #0
-    bne nr_input_enabled
-    cmp r6, #0
-    bne nr_input_take
-    b nr_input_pass
-nr_input_enabled:
-    ldr r0, [r5, #NR_SELECTED]
-    cmp r0, #0
-    beq nr_input_sampling
-    eor r0, r6, #1
-    bl nr_post
-    b nr_input_take
-nr_input_sampling:
+    cmp r7, #2
+    beq nr_input_play
     cmp r6, #0
     beq nr_input_pass
-nr_input_take:
+    bl nr_enabled
+    cmp r0, #0
+    beq nr_input_take
+    ldr r0, [r5, #NR_SELECTED]
+    cmp r0, #0
+    beq nr_input_take
+    mov r0, #0
+    bl nr_post
+    b nr_input_take
+nr_input_play:
+    cmp r6, #0
+    bne nr_input_close
+    bl nr_enabled
+    cmp r0, #0
+    beq nr_input_pass
+    ldr r0, [r5, #NR_SELECTED]
+    cmp r0, #0
+    beq nr_input_pass
     mov r0, #1
+    bl nr_post
+    cmp r0, #0
+    bne nr_input_take                ; refused (no card): the setup stays and shows why
+    mov r0, #NR_PLAY_WAIT
+    strb r0, [r5, #NR_PLAY_BOUND]
+nr_input_close:
+    mov r0, #0                       ; the firmware gets REC, which leaves its setup the way its own REC does (closing the window
+    strb r0, [r4, #13]               ; from outside left the Sampler unable to open it again), and PLAY follows through the queue
+    mov r0, #NR_HELD_AS_REC
     str r0, [r5, #NR_HELD]
-    pop {r4-r6, pc}
+    mov r0, #NR_PLAY_PENDING         ; nr_play_inject_frame sends it once the setup is gone
+    strb r0, [r5, #NR_PLAY_INJECT]
+    b nr_input_pass
+nr_input_take:
+    add r0, r7, #1
+    str r0, [r5, #NR_HELD]
+    mov r0, #1
+    b nr_input_return
 nr_input_pass:
     mov r0, #0
-    pop {r4-r6, pc}
+nr_input_return:
+    pop {r4-r7, pc}
 .pool
 
 ; Logical choices 0 Audio In, 1 Resampling, 2 Record keep the native engine's source boolean valid.

@@ -29,7 +29,7 @@ class BlueRecordingTests(unittest.TestCase):
         return m, b
 
     def packet(self, m, key=0, pressed=1):
-        m.uc.mem_write(m.input, bytes(12) + bytes([key, 0, pressed, 0]))
+        m.uc.mem_write(m.input, bytes(12) + bytes([0, key, pressed, 0]))    # byte 12 the class (0: transport), 13 the key
         return m.call('nr_input', m.input)[0]
 
     def test_shift_record_posts_view_without_starting_or_calling_ui_from_input(self):
@@ -42,18 +42,29 @@ class BlueRecordingTests(unittest.TestCase):
         self.assertEqual(self.packet(m, pressed=0), 1)
         self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_HELD']), 0)
 
-    def test_plain_record_needs_view_and_play_never_posts_a_stop(self):
-        from tools.patch.script_hooks import MENU_STATE, NATIVE_RECORDING
+    def test_record_in_view_leaves_or_stops_and_play_starts_once(self):
+        from tools.patch.script_hooks import NATIVE_RECORDING
         m, b = self.machine()
-        self.assertEqual(self.packet(m), 0)
+        field = lambda name: m.read(NATIVE_RECORDING + b.symbols[name])
+        bound = lambda: m.uc.mem_read(NATIVE_RECORDING + b.symbols['NR_PLAY_BOUND'], 1)[0]
+        self.assertEqual(self.packet(m), 0)                     # REC outside the view stays the firmware's
+        self.assertEqual(self.packet(m, key=2), 0)              # and so does PLAY
+        self.assertEqual(field('NR_REQUEST'), 0)
         m.write(NATIVE_RECORDING + b.symbols['NR_SETUP'], 1)
-        self.assertEqual(self.packet(m), 1)
-        self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_VIEW_REQUEST']), 2)
-        self.packet(m, pressed=0)
-        self.assertEqual(self.packet(m, key=1), 0)
-        self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_VIEW_REQUEST']), 2)
-        self.assertEqual(self.packet(m), 1)
-        self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_REQUEST']), 0)
+        self.assertEqual(self.packet(m), 1)                     # REC in the view, idle: leave it, start nothing
+        self.assertEqual(field('NR_VIEW_REQUEST'), 4)
+        self.assertEqual(field('NR_REQUEST'), 0)
+        self.assertEqual(self.packet(m, pressed=0), 1)
+        self.assertEqual(self.packet(m, key=1), 0)              # STOP is never ours
+        self.assertEqual(self.packet(m, key=2), 0)              # PLAY in the view: start, leave, the firmware plays
+        self.assertEqual(field('NR_REQUEST'), 1)
+        self.assertEqual(field('NR_VIEW_REQUEST'), 4)
+        self.assertEqual(bound(), b.symbols['NR_PLAY_WAIT'])
+        self.assertEqual(self.packet(m, key=2, pressed=0), 0)
+        self.assertEqual(self.packet(m, key=2), 0)              # busy: no second take
+        self.assertEqual(field('NR_REQUEST'), 1)
+        self.assertEqual(self.packet(m), 1)                     # REC in the view stops the take
+        self.assertEqual(field('NR_VIEW_REQUEST'), 2)
 
     def test_feature_off_passes_shift_record_to_the_firmware(self):
         from tools.patch.script_hooks import MENU_STATE, NATIVE_RECORDING
@@ -112,9 +123,17 @@ class BlueRecordingTests(unittest.TestCase):
         self.assertEqual(m.read(MENU_STATE + b.symbols['M_LEVEL']), b.symbols['M_LEVEL_RECORD'])
         m.uc.mem_write(MENU_STATE + b.symbols['KP_SHIFT'], bytes([0]))
         self.packet(m, pressed=0)
+        calls.clear()
+        self.assertEqual(self.packet(m, key=2), 0)              # PLAY posts the take in the input, before the firmware plays
+        self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_REQUEST']), 1)
+        m.call('nr_view_frame')
+        self.assertEqual(calls, [('screen', 1, 0)])
+        self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_SETUP']), 0)
+        self.packet(m, key=2, pressed=0)
+        m.uc.mem_write(MENU_STATE + b.symbols['KP_SHIFT'], bytes([1]))
         self.packet(m)
         m.call('nr_view_frame')
-        self.assertEqual(m.read(NATIVE_RECORDING + b.symbols['NR_REQUEST']), 1)
+        m.uc.mem_write(MENU_STATE + b.symbols['KP_SHIFT'], bytes([0]))
         self.packet(m, pressed=0)
         self.packet(m)
         m.call('nr_view_frame')

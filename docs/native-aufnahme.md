@@ -18,12 +18,14 @@ Aufnahme-DSP-Prüfer. Ein bloßes Laden der Patch-Datei aktualisiert ihn nicht. 
 1. In Menü -> BLECH -> FEATURES -> NATIVE RECORDING auf ON stellen. Die Vorgabe ist OFF; WRITE behält die Einstellung.
 2. SHIFT+REC öffnet beim Sampler die Sampling-Ansicht. Mit EDIT rechts zur Quelle wechseln und RECORD wählen.
    Auf Korgs blauer Electribe öffnet SHIFT+REC direkt die eigene RECORD-Ansicht im BLECH-Menü.
-3. REC startet die Aufnahme. Die Anzeige nennt die Datei und ihre aufgenommene Dauer.
-4. REC beendet die Aufnahme und schließt die WAV. Vor dem Herausnehmen der Karte den Abschluss abwarten.
+3. PLAY startet das Pattern und die Aufnahme. Die Ansicht schließt sich, Korgs eigenes Sampling startet nicht.
+4. STOP beendet das Pattern und die Aufnahme und schließt die WAV. Vor dem Herausnehmen der Karte den Abschluss abwarten.
 
-PLAY steuert das Pattern unabhängig von der Aufnahme. PLAY startet keine Aufnahme und beendet eine laufende Aufnahme
-nicht. Schließt PLAY oder EXIT die Ansicht, öffne sie zum Stoppen wieder mit SHIFT+REC und drücke REC.
-REC außerhalb dieser Ansicht bleibt die normale Pattern-Aufnahme.
+Pause (PLAY während das Pattern läuft) und REC während der Aufnahme lassen sie weiterlaufen. REC bleibt dabei die normale
+Pattern- und Motion-Aufnahme, die REC-LED gehört ihr: die Aufnahme lässt die LED aus, ihr Zeichen ist der Punkt auf dem
+Bildschirm. REC in der Ansicht startet keine Aufnahme. Ohne laufende Aufnahme schließt REC die Ansicht wie bei Korg, mit
+laufender Aufnahme beendet REC in der Ansicht sie. PLAY in der Ansicht startet keine zweite Aufnahme.
+REC und PLAY außerhalb dieser Ansicht bleiben die normalen Tasten.
 
 Außerhalb der Ansicht blinkt während der Aufnahme ein Punkt oben auf dem Hauptbildschirm zwischen BPM und LOAD METER
 (Spalten 78 bis 82). Nach dem Abschluss verschwindet er. Im Emulator geprüft, am Gerät noch nicht.
@@ -72,10 +74,11 @@ Nur nach eigener Freigabe des Teststands am Gerät prüfen. Die bisherigen Fäll
 im Emulator. Sie belegen weder Schreibzeiten der Karte noch die tatsächliche DSP- und Task-Laufzeit.
 
 1. Mit NATIVE RECORDING OFF muss SHIFT+REC weiterhin das ursprüngliche Verhalten behalten.
-2. Auf ON stellen, mit SHIFT+REC die RECORD-Ansicht öffnen. PLAY allein darf keine WAV erzeugen.
-3. Mit REC starten, links und rechts gepannte Klänge sowie AUDIO IN/THRU spielen. Nach REC muss `Saved` erscheinen.
+2. Auf ON stellen, mit SHIFT+REC die RECORD-Ansicht öffnen. REC allein darf keine WAV erzeugen.
+3. Mit PLAY starten, links und rechts gepannte Klänge sowie AUDIO IN/THRU spielen. Die REC-LED bleibt aus. Mit STOP
+   beenden; SHIFT+REC zeigt dann `Saved`.
 4. Die WAV am Rechner prüfen: ein Kanal, 48 kHz, 16 Bit, hörbare linke und rechte Klänge, kein Metronom.
-5. Bei laufender Aufnahme PLAY und EXIT verwenden. Die Aufnahme muss weiterlaufen. Mit SHIFT+REC und REC beenden.
+5. Bei laufender Aufnahme PLAY (Pause), REC und EXIT verwenden. Die Aufnahme muss weiterlaufen. Mit STOP beenden.
 6. Gerätetyp, Firmware, Karte, Aufnahmedauer, angezeigte Fehler und hörbare Aussetzer in der
    [Messdatei](messungen/2026-11-17-native-aufnahme.md) festhalten. Einen langen Lauf erst nach den offenen
    Schreib- und Leserzeitmessungen bewerten.
