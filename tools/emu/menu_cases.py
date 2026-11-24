@@ -49,8 +49,9 @@ def has_menu(payload):
 
 
 def for_build(payload):
-    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT, LIST_DEV, LIST_VERSION, LIST_COUNT
+    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT, LIST_DEV, LIST_VERSION, LIST_COUNT, NATIVE_RECORDING_PAGE
     synth = synthaddr.is_synth(payload)
+    NATIVE_RECORDING_PAGE = b"NATIVE RECORDING\0" in payload and b"NCR1" in payload
     LIST_DEV = None if synth else len(LIST_PAGES)   # DEV MODE (BLECH's SysEx may write the image) is a Sampler row
     LIST_VERSION = len(LIST_PAGES) + (0 if synth else 1)
     LIST_COUNT = LIST_VERSION + 1
@@ -193,11 +194,12 @@ def version_texts(payload):
 
 def feature_pages():
     """The pages of FEATURES: the switches, LAST PATTERN, STEREO 1 PAD, TUBE, TUBE DRIVE and TUBE ASYM where the set has their patches,
-    KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN and GLIDE SWITCH last (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
+    KEY PADS, FILTER TOGGLE, AUTO SAVE, GLIDE CHAIN, GLIDE SWITCH and native recording last on builds that carry it (SYNC GROUP is a page of the ring, LEVEL_SYNC; SET INIT PATTERN is in DATA UTILITY)."""
     return (FEATURE_PAGES + ["LAST PATTERN"] * LAST_PAGE + ["STEREO 1 PAD"] * STEREO_PAGE + ["TUBE", "TUBE DRIVE", "TUBE ASYM"] * TUBE_PAGE
-            + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"] + GLIDE_PAGES)
+            + ["KEY PADS", "FILTER TOGGLE", "AUTO SAVE"] + GLIDE_PAGES + ["NATIVE RECORDING"] * NATIVE_RECORDING_PAGE)
 
 
+NATIVE_RECORDING_PAGE = True
 GLIDE_PAGES = ["GLIDE CHAIN", "GLIDE SWITCH"]                          # BPM GLIDE (bpm_glide_cases.py), OFF by default
 
 
@@ -754,7 +756,7 @@ def list_cases(payload, flash=None):
     goto_top(dev, LIST_FEATURES)
     press(dev, "menu")
     features = (state(dev, S_LEVEL), state(dev, S_GROUP), counter(dev), tab(dev), [])
-    want = [(title, "OFF" if title in GLIDE_PAGES else {"TUBE": "OFF", "TUBE DRIVE": "5", "TUBE ASYM": "4"}.get(title, "ON")) for title in feature_pages()]   # the tube curve starts off, at its default DRIVE 5 and ASYM 4
+    want = [(title, "OFF" if title in GLIDE_PAGES or title == "NATIVE RECORDING" else {"TUBE": "OFF", "TUBE DRIVE": "5", "TUBE ASYM": "4"}.get(title, "ON")) for title in feature_pages()]   # the tube curve starts off, at its default DRIVE 5 and ASYM 4
     for _ in want:
         features[4].append(texts_of(dev)[:2])
         press(dev, "edit_next")
@@ -1099,7 +1101,8 @@ def read_settings_full(image):
 def read_settings_look(image):
     """The valid settings files as {name: (generation, flags, trusted checksums, look)}, look None for version 1. Version 3 (BLECH
     1.3.8) is version 2 with up to 64 checksums instead of 16; version 4 is version 3 with byte 7 as the second flag byte; version 5 is
-    version 4 with TUBE ASYM in bits 5 to 7 of byte 4 (the version bits 0 to 4)."""
+    version 4 with TUBE ASYM in bits 5 to 7 of byte 4 (the version bits 0 to 4); version 6 is version 5 with NATIVE RECORDING ON in
+    bit 7 of byte 6 (the count bits 0 to 6)."""
     volume = fat32.Volume(bytes(image))
     out = {}
     for path in SETTINGS_PATHS:
@@ -1110,9 +1113,9 @@ def read_settings_look(image):
         if len(raw) < 20 or raw[:4] != b"GSET":
             continue
         version, extras = raw[4] & 0x1F, raw[5]
-        count = raw[6] if version >= 4 else struct.unpack_from("<H", raw, 6)[0]
-        head = {1: 16, 2: 20, 3: 20, 4: 20, 5: 20}.get(version)
-        if head is None or (raw[4] >> 5 and version != 5) or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (once HT OSC OFF), bit 7 AUTO SAVE OFF
+        count = (raw[6] & 0x7F if version == 6 else raw[6]) if version >= 4 else struct.unpack_from("<H", raw, 6)[0]
+        head = {1: 16, 2: 20, 3: 20, 4: 20, 5: 20, 6: 20}.get(version)
+        if head is None or (raw[4] >> 5 and version not in (5, 6)) or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (once HT OSC OFF), bit 7 AUTO SAVE OFF
             continue
         size = head + 4 * count
         if count > (64 if version >= 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -2716,7 +2719,7 @@ def switch_menu_cases(payload, flash, name, title, slot, bit, from_end):
     off = texts_of(dev), state(dev, slot)
     dev.turn(1, wait=0.3)
     back = texts_of(dev), state(dev, slot)
-    add("page", page == ((title, "ON", ""), (page_at, feature_count()), "Feature") and page_at == feature_count() - len(GLIDE_PAGES) - from_end, f"{page}")
+    add("page", page == ((title, "ON", ""), (page_at, feature_count()), "Feature") and page_at == feature_count() - len(GLIDE_PAGES) - NATIVE_RECORDING_PAGE - from_end, f"{page}")
     add("dial_acts_at_once", off == ((title, "OFF", ""), 0) and back == ((title, "ON", ""), 1) and not dev.m.asserts,
         f"{off}, back {back}")
 

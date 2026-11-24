@@ -1,0 +1,384 @@
+{
+  "planId": "2026-11-17-native-aufnahme-1.6",
+  "planPath": "docs/plaene/2026-11-17-native-aufnahme-1.6.md",
+  "createdAt": "2026-11-17T10:28:13Z",
+  "updatedAt": "2026-11-19T16:53:02.611946+00:00",
+  "revision": 2,
+  "supersedes": [],
+  "absorbs": {},
+  "phases": [
+    {
+      "id": "phase-0",
+      "name": "Phase 0: Belege am Gerät und Weg entscheiden (Spike, 1 bis 2 Tage)",
+      "status": "in_progress",
+      "tasks": [
+        {
+          "id": "0.1",
+          "name": "Nur lesend: während RESAMPLING die Zustandswörter `0xFF9031F8..0xFF90320C` lesen (Quelle = Master-Wort?), Ringzeiger `0xFF9031D8` bei laufendem Spettro lesen",
+          "status": "in_progress",
+          "owner": "Pascal",
+          "note": "Nov18 READ baseline through ssh linux, USB SOUND, channel10. Spectrum service uninitialized; Spettro is not installed on the device. Prepared a tested catalog plugin outside the repository; owner explicitly deferred installation and device measurements. No writes or device EXEC sent."
+        },
+        {
+          "id": "0.2",
+          "name": "Im DSP-Sim: Erfassung starten, Quellzeiger umbiegen, Ring gegen das gepackte Master-Wort vergleichen (bit-gleich); Stufe ab `0xFFA0189A` und `[P4+0x6C]/[P4+0x70]` benennen",
+          "status": "passed",
+          "verifiedAt": "2026-11-17T15:26:56.167998+00:00",
+          "note": "GNU Blackfin probe passes: 4 stereo/mono packing cases, capture start, 4803 frames, source changes and ring wrap. DMA descriptors validated; physical DMA and concurrent host-port timing remain untested."
+        },
+        {
+          "id": "0.2b",
+          "name": "AUDIO IN und Metronom im Master: Abgriff nach AUDIO IN, vor Metronom",
+          "status": "passed",
+          "verifiedAt": "2026-11-17T15:26:56.169397+00:00",
+          "note": "GNU Blackfin differential cases pass: independent left/right THRU, click, mixed input and click, muted click, and boundary before 0xFFA018E0. ARM call chain identifies the metronome trigger."
+        },
+        {
+          "id": "0.3",
+          "name": "Mit OK: Kartenschreibtest am Gerät (64-KiB-Blöcke, 60 s, 12,5 und 25 MHz): Rate, längste Schreibpause, Pausen beim Clusterwechsel; Testdatei danach löschen",
+          "status": "pending",
+          "owner": "Pascal",
+          "note": "Device measurement pending; no device writes or execution authorized in this implementation session."
+        },
+        {
+          "id": "0.4",
+          "name": "Mit OK: Laufabstand eines Lesers messen (CommandTask vs. eigene Task) während Pattern-Wechsel, WRITE (Flash-Löschen) und Sample-Swap-Laden; Ergebnis längste Lücke in ms",
+          "status": "pending",
+          "owner": "Pascal",
+          "note": "Device measurement pending; no device writes or execution authorized in this implementation session."
+        },
+        {
+          "id": "0.5",
+          "name": "Entscheidung A/B/C in die Messung schreiben: A, wenn die längste Leserlücke unter 80 ms bleibt; sonst C (DSP-Ring im Sample-Speicher) oder B",
+          "status": "in_progress",
+          "note": "Path A is the provisional implementation baseline. Its 80 ms deadline is an unverified design bound, not a measured reader gap. Final A/B/C decision awaits device measurements."
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-01",
+          "description": "Messdatei hat Zahlen zu Abgriff, Kartenschreiben, Leserluecke und Entscheidung A/B/C",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-1",
+      "name": "Phase 1: Master auf die Karte, ein Knopf (2 bis 3 Tage)",
+      "status": "in_progress",
+      "tasks": [
+        {
+          "id": "1.1",
+          "name": "Aufnahmedienst: Erfassung mit der gewählten Quelle, SAMPLING sperren; Spettro zeigt Master oder ist während der Aufnahme nicht wählbar; DSP-Ring lesen und R/L zu L/R drehen",
+          "status": "passed",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00",
+          "note": "Native tap, reader, source ownership and SAMPLING/capture-app interlocks implemented. Focused reader, runtime and hook tests pass; both complete sampler patch sets pass the native recording card cases."
+        },
+        {
+          "id": "1.1a",
+          "name": "DSP-Abgriff mit THRU und Ausgangsverstärkung, ohne Metronom; Ausgang bitgleich prüfen",
+          "status": "passed",
+          "verifiedAt": "2026-11-17T21:29:08.017954+00:00",
+          "note": "GNU DSP patch probe: 8 cases, audible output bit-exact, tap equals click-free output including THRU and saturation; marker and source fingerprints checked; boot/heap and RAM collision guards pass."
+        },
+        {
+          "id": "1.1b",
+          "name": "Nativer Ring-Leser mit Besitzprüfung, R/L-Konvertierung und sichtbaren Lückenfehlern",
+          "status": "passed",
+          "verifiedAt": "2026-11-17T21:29:08.018393+00:00",
+          "note": "13 native reader cases; locked exact-size DSP writes verified with native firmware in both sampler emulator profiles. Snapshot-age and stop ownership regressions pass."
+        },
+        {
+          "id": "1.2",
+          "name": "Schreiber in einer Task, die die Karte darf: WAV-Kopf 512 Byte (JUNK), Daten in 64-KiB-Blöcken anhängen, beim Stopp Längen setzen und schließen; Dateiname fortlaufend im Aufnahmeordner",
+          "status": "passed",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00",
+          "note": "Native WAV writer and task-owned service implemented; whole 64-KiB unit cases and the native deadline-abort card case pass. Physical write latency is not verified."
+        },
+        {
+          "id": "1.2a",
+          "name": "Nativer WAV-Schreiber: eigener FIL-Kontext, exklusive Dateinamen, Sektorkopf und Fehlerabschluss",
+          "status": "passed",
+          "verifiedAt": "2026-11-17T16:06:59.230260+00:00",
+          "note": "11 native Unicorn cases pass; writer remains a library until the recording service is connected."
+        },
+        {
+          "id": "1.2b",
+          "name": "WAV-Schreiber im Aufnahmedienst an die kartenzugriffsberechtigte Task anbinden",
+          "status": "passed",
+          "note": "Permanent CommandTask hook and dynamic heap controller verified through native panel-to-card cases on both sampler builds; allocations survive failed closes and are freed after finalization.",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00"
+        },
+        {
+          "id": "1.3",
+          "name": "SHIFT + REC um RECORD ergänzen; Start nur über RECORD, unabhängig von PLAY; Zeit, Karte voll und Schlafsperre",
+          "status": "passed",
+          "note": "Native SHIFT+REC third source, REC-only start/stop, filename/PCM time/error display and keep-awake verified by nine hook tests, native UI inspection and integrated sampler cases. PLAY leaves the native setup and does not record.",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00"
+        },
+        {
+          "id": "1.4",
+          "name": "Emulator: DSP-Modell/QEMU liefert ein bekanntes Signal im Master-Wort; Fall prüft die WAV auf der virtuellen Karte (Kopf gültig, Frames bit-gleich, Länge stimmt), Fall-Modul im Verify-Scope angemeldet",
+          "status": "passed",
+          "note": "recording_cases registered in check.py and verify-scope. Complete patch sets pass 15 recording checks each on Hacktribe and stock, including explicit 80 ms deadline failure. Four exact DSP-stream checks and eight scope checks pass.",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00"
+        },
+        {
+          "id": "1.5",
+          "name": "Patcher-Tabelle, Messung, Schalter unter FEATURES (aus = kein Verhalten)",
+          "status": "passed",
+          "note": "Default-off sampler FEATURES option, patcher labels in eleven languages, parent patch set and runtime RAM reservation implemented. All three runtime manifests rebuilt; targeted RAM and patcher table checks pass.",
+          "verifiedAt": "2026-11-17T22:29:10.862905+00:00"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-02",
+          "description": "Emulatorfall WAV auf virtueller Karte bit-gleich auf Hacktribe und rot",
+          "type": "manual",
+          "verify": "Fall-Modul im Verify-Scope, Lauf gruen",
+          "threshold": "human-approval",
+          "status": "pending"
+        },
+        {
+          "id": "SC-03",
+          "description": "RAM-Kollisionstest gruen",
+          "type": "command",
+          "verify": "node --test test/patch-ram.test.mjs",
+          "threshold": "exit-0",
+          "status": "pending"
+        },
+        {
+          "id": "SC-04",
+          "description": "Geraetetest mit Pascal",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        }
+      ],
+      "note": "Software tasks pass. Hardware acceptance and final path A/B/C selection remain pending; no long-set or device success is claimed."
+    },
+    {
+      "id": "phase-2",
+      "name": "Phase 2: Lange Sets ohne Lücke (1 bis 2 Tage)",
+      "status": "in_progress",
+      "tasks": [
+        {
+          "id": "2.1",
+          "name": "Lückenzähler: Leser erkennt überholten DSP-Ring und ARM-Ring-Überlauf; Anzeige und Marker (cue-Chunk oder Logdatei), nie stilles Verschlucken",
+          "status": "passed",
+          "note": "Terminal reader gaps, lost ownership and ARM overflow get a labelled cue in the reserved WAV sector header. Gap count is visible and persists after close. Writer/service/controller/UI tests and 17 complete-patch recording checks per sampler build pass; no lost-frame count is fabricated and no extra streaming write is added.",
+          "verifiedAt": "2026-11-18T00:51:59.804938+00:00"
+        },
+        {
+          "id": "2.2",
+          "name": "ARM-Ring nur während der Aufnahme dynamisch belegen, Größe nach Phase 0 bis 2 MiB; Speicherplan mit Sample Swap abstimmen",
+          "status": "passed",
+          "verifiedAt": "2026-11-18T00:51:59.804938+00:00",
+          "note": "Task-owned heap allocation attempts 2 MiB down to 128 KiB in powers of two and publishes actual capacity. Native full boots obtain 1 MiB in the general heap, separate from the Sample Swap reservation at 0xC274F000..0xC4000000. Allocation/failure/free-boundary cases pass; hardware capacity and path choice remain unmeasured."
+        },
+        {
+          "id": "2.3",
+          "name": "Andere Kartenschreiber (Einstellungen, Patterns, Plugins, Sample Swap) während der Aufnahme: warten lassen oder seriell, mit Fall",
+          "status": "in_progress",
+          "note": "UI writes/readers are gated; start waits for a UiTask boundary, including a preemption case during FS_OPEN. Thirty focused tests and native deferred WRITE cases pass on both sampler builds. Native pattern writes share CommandTask (253 FS_WRITE hits, same task as recorder hook). Sample Swap #166 is still open and cannot yet be integrated or verified."
+        },
+        {
+          "id": "2.3a",
+          "name": "UI-Kartenzugriffe sperren, gepufferte Änderungen nachholen und Start an UI-Grenze freigeben",
+          "status": "passed",
+          "verifiedAt": "2026-11-18T10:41:50.916459+00:00",
+          "note": "Thirty focused cases; complete sampler patch sets each pass 26 recording checks. Native WRITE queues settings without flash fallback; exact WAV PCM; input/frame task identity traced."
+        },
+        {
+          "id": "2.3b",
+          "name": "Native Pattern-Schreiber und Aufnahme in derselben CommandTask nachweisen",
+          "status": "passed",
+          "verifiedAt": "2026-11-18T10:41:50.916459+00:00",
+          "note": "Targeted native export and export-all cases pass. 253 FS_WRITE calls and 3034 recorder command-loop hits execute only task5; UI frame task4 is separate."
+        },
+        {
+          "id": "2.3c",
+          "name": "Sample-Swap-Kartenzugriffe nach Integration von #166 prüfen",
+          "status": "pending",
+          "note": "PR166 is still open against develop. No firmware work on that parallel branch; integration remains pending."
+        },
+        {
+          "id": "2.4",
+          "name": "Stromausfall: Längen regelmäßig nachtragen oder Reparatur beim Start (Länge aus Dateigröße), mit Fall",
+          "status": "passed",
+          "note": "Periodic data-before-header checkpoints implemented, including faulted finish. 38 focused core tests and 31 integrated recording checks pass on each sampler build. Native SD images at 12 healthy and six injected-sync-failure boundaries retain valid PCM prefixes. First card error remains visible; physical mid-sector power loss is not tested.",
+          "verifiedAt": "2026-11-18T11:02:04.727626+00:00"
+        },
+        {
+          "id": "2.5",
+          "name": "Karte voll, Karte gezogen, 4-GiB-Grenze: sauber beenden, ab 4 GiB neue Datei",
+          "status": "passed",
+          "note": "Private FIL releases on invalid object or removed card, preserving error; valid present-card close failures remain retryable. Whole frames continue into the next exclusive file at the 32-bit WAV limit, without an empty following file. Filename exhaustion stops visibly. 61 focused tests and38 integrated checks per sampler build pass. Native full card preserves896 exact frames; removal releases capture+heap; replacement card records2750 exact frames. Native rollover uses8KiB segments; actual 32-bit boundary arithmetic is separately unit-tested without allocating4GiB.",
+          "verifiedAt": "2026-11-18T11:29:02.038166+00:00"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-05",
+          "description": "Faelle Ueberlauf, Karte voll, Reparatur gruen",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        },
+        {
+          "id": "SC-06",
+          "description": "60 min Set am Geraet ohne Luecke",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "Phase 3: Plugin-API Master-Quelle (0,5 Tag, optional)",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "3.1",
+          "name": "`korg.audio.capture` bekommt die Quelle Master (neue Nummer am Listenende, API-Sprung), Spettro zeigt den Mix",
+          "status": "pending",
+          "note": "Optional plugin API extension was not requested. Existing capture apps remain unavailable during recording; no new API contract is introduced."
+        },
+        {
+          "id": "3.2",
+          "name": "Aufnahme-Status lesbar für Plugins (läuft, Zeit, Lücken), nur wenn Pascal will",
+          "status": "pending",
+          "note": "Optional plugin API extension was not requested. Existing capture apps remain unavailable during recording; no new API contract is introduced."
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-07",
+          "description": "Plugin-API-Fall gruen, Doku DE/EN",
+          "type": "command",
+          "verify": "node --test test/docs.test.mjs",
+          "threshold": "exit-0",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Phase 4: WAV abspielen (später, auf Sample Swap #166)",
+      "status": "pending",
+      "tasks": [
+        {
+          "id": "4.1",
+          "name": "DSP-Patch: Player nach MFX und Röhrenkurve addieren; eigenes Aufnahme-Wort für Summe einschließlich Player und AUDIO IN THRU, ohne Metronom; Capture 0x37 darauf umstellen; bit-genau prüfen",
+          "status": "pending",
+          "note": "Explicitly later; Sample Swap PR166 remains open against develop. Player implementation does not start before that dependency is merged."
+        },
+        {
+          "id": "4.2",
+          "name": "ARM: WAV wählen (Dateibrowser im Firmware-Look), Format prüfen (48 kHz, 16 Bit, mono/stereo, Rest ablehnen), Ring per Host-Port füllen, Start/Stopp, Pegel",
+          "status": "pending",
+          "note": "Explicitly later; Sample Swap PR166 remains open against develop. Player implementation does not start before that dependency is merged."
+        },
+        {
+          "id": "4.3",
+          "name": "Start mit PLAY koppeln (optional), Anzeige Zeit/Rest",
+          "status": "pending",
+          "note": "Explicitly later; Sample Swap PR166 remains open against develop. Player implementation does not start before that dependency is merged."
+        },
+        {
+          "id": "4.4",
+          "name": "Emulatorfall: WAV auf der Karte, Ausgang am DSP-Modell gleich der Datei",
+          "status": "pending",
+          "note": "Explicitly later; Sample Swap PR166 remains open against develop. Player implementation does not start before that dependency is merged."
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-08",
+          "description": "Wiedergabe-Fall gruen, DSP-Patch im QEMU-Kern bit-genau",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        },
+        {
+          "id": "SC-09",
+          "description": "Geraet 10 min Track ohne Aussetzer",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-5",
+      "name": "Phase 5: Blau (nur mit Tester)",
+      "status": "in_progress",
+      "tasks": [
+        {
+          "id": "5.1",
+          "name": "Start über eigenen ARM-Code (Postfach 0x37 auf blau), Mono-Summe im eigenen DSP-Wort",
+          "status": "passed",
+          "note": "Own blue37 start/stop adapter, Q31 mono DSP tap, in-place16-bit ring conversion and SHIFT+REC/REC view implemented. Native original-blue CommandTask/FatFs cases produce exact mono48kHz16-bit WAV and release ownership. Ten GNU differential DSP cases pass; no device writes or EXEC. Hardware acceptance pending. Full check.py runs pass against each original with exact startup declarations: synth52 checks/27 recording cases, each sampler73 checks/48 recording cases. 103 focused Python cases, four JS cases and17 Docs/Scope cases pass. Local checks gated; full suite left to CI.",
+          "verifiedAt": "2026-11-19T09:19:23.002365+00:00"
+        },
+        {
+          "id": "5.2",
+          "name": "Stereo auf blau entfällt (mono reicht, Pascal 17.11.); Wiedergabe über P2-Patch fürs blaue Programm",
+          "status": "pending",
+          "note": "Mono is implemented; stereo remains explicitly unnecessary. Blue playback belongs to deferred Phase4 and is not implemented here."
+        },
+        {
+          "id": "5.3",
+          "name": "Fälle auf blau, Gerätetest durch Tester",
+          "status": "in_progress",
+          "note": "27 integrated blue recording cases and all startup/DSP checks pass against the full patched original; blue reader/service/UI cases and ten GNU DSP differential cases pass. Tester confirmed available Nov19; physical report, timing and listening acceptance still pending."
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-10",
+          "description": "Faelle gruen auf blau, Testerbericht",
+          "type": "manual",
+          "verify": null,
+          "threshold": "human-approval",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-6",
+      "name": "Phase 6: Doku und Release",
+      "status": "in_progress",
+      "tasks": [
+        {
+          "id": "6.1",
+          "name": "Patcher-Doku, Plugin-Doku DE/EN (falls Phase 3), README-Zeile, 1.6-Notes DE/EN/FR",
+          "status": "passed",
+          "note": "German recording guide and German/English Patcher/README docs now include blue mono controls and explicit hardware limits. German/English/French1.6 drafts updated; no version bump or publication.",
+          "verifiedAt": "2026-11-19T09:19:23.002365+00:00"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "SC-11",
+          "description": "Docs-Test gruen",
+          "type": "command",
+          "verify": "node --test test/docs.test.mjs",
+          "threshold": "exit-0",
+          "status": "passed",
+          "verifiedAt": "2026-11-19T09:19:23.002365+00:00"
+        }
+      ]
+    }
+  ]
+}

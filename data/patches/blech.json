@@ -33,6 +33,7 @@
   "data/patches/beat-eighth.json",
   "data/patches/touch-scale-zero.json",
   "data/patches/stage2-memory.json",
+  "data/patches/native-recording-dsp.json",
   "data/patches/update-guard.json",
   "data/patches/blech-version.json",
   "data/patches/doom-loader.json",

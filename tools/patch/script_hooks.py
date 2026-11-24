@@ -75,6 +75,8 @@ BATT = CARD_CLOCK_END            # BATTERY % (script_battery.s:BP_*): the smooth
 BATT_END = BATT + 28             # whether a reading is held, the card symbol's columns and card flag last drawn; FF at power-on is no reading yet
 LANG_TEXTS = BATT_END           # the text table the BLECH menu reads its texts from (tools/patch/lang_texts.py:lang_arm): English, or
 LANG_TEXTS_END = LANG_TEXTS + 4  # lang-de's German table; set by menu_arm_load before any text is drawn
+NATIVE_RECORDING = LANG_TEXTS_END   # native recording (recording_runtime.s:NR_*): requests, phase, time, byte and gap counts, name, source
+NATIVE_RECORDING_END = NATIVE_RECORDING + 152  # 72 bytes of context (NR_SIZE), then NR_SETTING (script_menu.s), NR_PLAY_BOUND and NR_PLAY_INJECT (recording_runtime.s), then the reader faults from 76 (recording_runtime.py NR_FAULTS)
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 LANG = 0xC016C000                # the top 16 KiB of MORE3 hold the texts and glyphs of the optional patch lang-de (tools/lang/),
@@ -91,6 +93,11 @@ MENU_VTABLE = 0xC01ADFB8        # the class table (72 bytes) up to RUNTIME; they
 MENU_TABLE_SOURCE = (0xC00F9CD8, 180, 'e1e06a3d074b86a6f2a1e9421671a802a6532c0e6448a4fd2d38925cf755a538')
 MENU_VTABLE_SOURCE = (0xC00E3440, 72, '40898334ac0dd1700b7ae70e32534163b25bb80dd3737ad0a2062c10b4934823')
 SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
+         (0xC006B694,0xE59F3148,'nr_setup_enter'),
+         (0xC006B59C,0xE59F30BC,'nr_setup_leave'),
+         (0xC006B440,0xE92D4007,'nr_source_hook'),
+         (0xC008C2A0,0xE92D4013,'nr_source_label'),
+         (0xC008C2E4,0xE92D407F,'nr_view_draw'),
          (0xC00836FC,0xE59F000C,'script_frame_hook'),
          (0xC0038D68,0xE28D0004,'script_card_hook'),
          (0xC004C1B4,0xE92D4070,'script_save_hook'),
@@ -353,10 +360,12 @@ def runtime_profile(build):
     from . import synthaddr
     sites = []
     for address, expected, name in SITES:
-        if name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook', 'se_prev', 'se_next'):
+        if name.startswith('nr_') or name in ('script_early_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook', 'se_prev', 'se_next'):
             continue
         if name == 'boot_light_hook':
             address, expected = 0xC0025E48, 0xE1500003
+        elif name == 'audio_command_hook':
+            address, expected = 0xC0027898, 0xEB000C42
         elif name == 'script_card_hook':
             address, expected = 0xC0028170, 0xE5D43004
         elif name == 'menu_toplevel':
@@ -490,6 +499,15 @@ class BuiltHooks:
             ('script_popup_input','script_popup_frame','Der Popup-Haken im Eingangsfilter: jede Panel-Meldung geht an ihm vorbei; er liest nur das Tastenereignis und kehrt ohne gehaltenes EXIT oder ohne offenes Popup sofort zurück.'),
             ('remap_input','events_post','Die Tastenumleitung (korg.input.remap) im Eingangsfilter: jede Panel-Meldung geht an ihr vorbei; sie liest ihren Zustand im Arbeitsbereich der Karte und die Liste der Plugins und ändert höchstens den Tastencode einer Tastenmeldung, wenn ein laufendes Plugin eine Umleitung gesetzt hat.'),
             ('load_idle_hook','load_meter_frame','Die zwei Haken der Lastanzeige (Leerlaufschleife vor wfi, IRQ-Eingang) laufen vom ersten IRQ an: sie merken sich nur Timer3 und zählen den Schlaf, gezeichnet wird erst im Rahmenhaken mit dem Schalter.'),
+            ('rec_writer_open','nr_runtime_end','Der native Aufnahmedienst prüft seinen Schalter in CommandTask, besitzt Ring und Datei und veröffentlicht nur Zustand und Zähler.'),
+            ('nr_format','nr_format_end','Der Aufnahmebildschirm liest Dateinummer, Laufzeit und Fehler aus dem öffentlichen Zustand.'),
+            ('nr_requires_capture','nr_capture_apps_end','Plugins mit eigener Erfassung geben den Erfassungskanal während der Aufnahme frei.'),
+            ('nr_input','nr_blue_ui_end','Die blaue Electribe öffnet ihre Aufnahmeansicht über SHIFT und REC; PLAY startet die Aufnahme mit dem Pattern, STOP beendet sie.'),
+            ('audio_service','audio_service_end','Der leere Audio-Dienst auf dem Synth kehrt aus CommandTask ohne Erfassungsanfrage zurück.'),
+            ('audio_command_hook','nr_command_end','CommandTask bedient die Erfassung und die Aufnahme nach dem ursprünglichen Befehlshandler.'),
+            ('nr_setup_enter','nr_ui_end','Die native Aufnahmebedienung prüft Quelle und Aufnahmestatus; ohne Schalter läuft die ursprüngliche Sampling-Ansicht weiter.'),
+            ('nr_defer','nr_card_code_end','Der UI-Rahmen hält SD-Speicherwünsche bis zum Aufnahmeabschluss zurück; ein wartender Kartenwunsch bleibt ein Kartenwunsch.'),
+            ('nr_frame','nr_frame_end','Der Aufnahmezustand hält das Gerät während des Starts, der Aufnahme und des Abschlusses wach.'),
             ('audio_command_hook','audio_columns','Der Haken an CommandTask ruft erst den ursprünglichen Befehlshandler und dann den Dienst von korg.audio; ohne Anfrage eines Plugins kehrt der Dienst ohne Firmware-Aufruf zurück.'),
             ('menu_event_right','menu_hooks_end','Rücksprünge der Menüstellen: Nachbarn im Ring, Spitzenebene, WRITE, Seitenzähler und der Bildschirmwechsel (AUTO SAVE) laufen schon vor dem Hauptbildschirm vorbei und lassen die Firmware ohne scharfes Menü unverändert.'),
             ('card_widget','card_frame','Der Bildschirmwechsel setzt mit scharfem Menü schon beim ersten Wechsel zum Hauptbildschirm den Platz des Kartensymbols (BATTERY %): er sucht Korgs Widget, setzt x und dessen Neuzeichnen-Byte und leert die alten Spalten; ohne scharfes Menü kehrt er sofort zurück.'),
@@ -559,7 +577,8 @@ class BuiltHooks:
             area(CARD_CLOCK,CARD_CLOCK_END-CARD_CLOCK,'the card time left out of the frame budget in this frame (CARD_READS in data/script/contract.mjs)','tools/patch/script_media.s:card_timed'),
             area(BATT,BATT_END-BATT,'BATTERY %: the smoothed battery reading, the tick of its last step, the percent shown and the percent drawn, whether a reading is held, the card symbol\'s columns and card flag as last drawn on the main screen','tools/patch/script_battery.s:BP_AVG'),
             area(LANG_TEXTS,LANG_TEXTS_END-LANG_TEXTS,'the text table of the BLECH menu: the English one of the runtime or the German one of lang-de','tools/patch/lang_texts.py:lang_arm'),
-            area(LANG_TEXTS_END,MORE_END-LANG_TEXTS_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:LANG_TEXTS_END'),
+            area(NATIVE_RECORDING,NATIVE_RECORDING_END-NATIVE_RECORDING,'native recording: public requests, resource phase, elapsed time, byte and gap counts, filename and source selection, the setting and PLAY bytes, the reader faults','tools/patch/recording_runtime.s:NR_CONTEXT'),
+            area(NATIVE_RECORDING_END,MORE_END-NATIVE_RECORDING_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:NATIVE_RECORDING_END'),
             area(SETTINGS_RAM,SETTINGS_RAM_END-SETTINGS_RAM,'the two buffers of the settings file of the BLECH menu and its checksum list (allowed plugins, plugins switched off)','tools/patch/script_hooks.py:SETTINGS_RAM'),
             area(LIST_WORK,LIST_WORK_END-LIST_WORK,'work area of the list of MANAGE PLUGINS: folder object, file info, long name, path, the place of each listed file in the folder, the flag of more files than the list holds','tools/patch/script_menu.s:LIST_WORK'),
             area(KNOB_HOLD,KNOB_HOLD_END-KNOB_HOLD,'korg.knobHold: a bit per knob that reaches the firmware, folded from the plugins\' holds; the other two words are unused since API 19','tools/patch/script_hw.s:KH_FREE'),
@@ -654,26 +673,29 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants=include.split('.align 4',1)[0]
     constants += '\n'+ '\n'.join(f'.equ {key}, {value}' for key,value in vm.symbols.items() if key.startswith('RT_'))
     constants += '\n'+ '\n'.join(f'.equ VM_{name.upper()}, {vm.symbols[name]}' for name in ['script_run_event','script_runtime_init','script_load_block','script_load_block_ex'])
+    constants += f'\n.equ NR_OP_SIZE, {vm.symbols["script_op_size"]}'
     constants += f'\n.equ VM_CRC_UPDATE, {vm.symbols["crc_update"]}'
     constants += ''.join(f'\n.equ {name.upper()}, {vm.symbols[name]}' for name in ['script_font','script_error_names'])
     constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ METER_SENT, {METER_SENT}\n.equ LOAD_METER, {LOAD_METER}\n.equ IDLE, {IDLE}\n.equ GLIDE, {GLIDE}\n.equ MEDIA_LIST, {MEDIA_LIST}\n.equ MEDIA_WORK, {MEDIA_WORK}\n.equ MEDIA_BUF, {MEDIA_BUF}\n.equ MEDIA_BUF_BYTES, {MEDIA_BUF_BYTES}\n.equ MEDIA_TBUF, {MEDIA_TBUF}\n.equ MEDIA_TBUF_BYTES, {MEDIA_TBUF_BYTES}\n.equ MEDIA_STATE, {MEDIA_STATE}\n.equ CARD_CLOCK, {CARD_CLOCK}\n.equ BATT, {BATT}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
-    constants += f'\n.equ MENU_SCREEN, {profile.screen}\n.equ LANG, {LANG}\n.equ LANG_TEXTS, {LANG_TEXTS}\n'
+    constants += f'\n.equ MENU_SCREEN, {profile.screen}\n.equ LANG, {LANG}\n.equ LANG_TEXTS, {LANG_TEXTS}\n.equ NATIVE_RECORDING, {NATIVE_RECORDING}\n.equ NR_SUPPORTED, 1\n'
     # korg.system.device and korg.system.limits.samples (data/script/objects.mjs, INFO): the build this runtime is made for
     constants += f'.equ MFX2_ENTRY, {MFX2_ENTRY:#x}\n.equ MFX2_RECORD_ID, {MFX2_RECORD_ID:#x}\n.equ MFX2_TABLE, {MFX2_TABLE:#x}\n.equ MFX2_STATE, {MFX2_STATE:#x}\n'
     constants += f'.equ BUILD_DEVICE, {BUILD_DEVICES[build]}\n.equ BUILD_SAMPLES, {0 if build == "synth" else 1000}\n'
     constants += f'.equ MENU_RING_FIRST, {profile.ring_first}\n.equ MENU_RING_TOTAL, {profile.ring_total}\n'
     files = ['script_hooks.s','script_card.s','script_builtin.s','script_menu.s',
              'script_display.s','script_store.s','script_hw.s','script_events.s','script_app.s','script_shortcuts.s','script_remote.s','script_migrate.s','script_file.s','script_media.s','script_calibrate.s','script_egg.s','script_load_meter.s','script_idle.s','script_glide.s','script_battery.s']
-    files.append('fx_card.s')
+    files += ['fx_card.s', 'recording_card.s', 'recording_format.s', 'recording_capture_apps.s', 'recording_command.s']
     if build != 'synth':
-        files += ['script_sample.s','script_sample_edit.s','script_audio_service.s','script_patterns.s']
+        files += ['script_sample.s','script_sample_edit.s','script_audio_service.s','script_patterns.s','recording_ui.s']
     else:
-        files += ['script_sample_none.s','script_sample_edit_none.s','script_audio_service_none.s']
+        files += ['script_sample_none.s','script_sample_edit_none.s','script_audio_service_none.s','recording_ui_synth.s']
     files += ['script_hsv.s','script_seq.s','script_init.s','script_objects.s','script_timer.s','script_led.s','script_motion.s','script_midi.s','script_audio.s','script_data.s']
     read = lambda names: '\n'.join(Path(__file__).with_name(name).read_text() for name in names)
     source = constants+'\n'+read(files)
+    from . import recording_runtime
+    source += '\n' + recording_runtime.source(build, retarget=False)
     if build != 'synth':
-        source += '\n'+spectrum.source()
+        source += '\n' + spectrum.source()
     if build == 'synth':
         from . import synthaddr
         source = '\n'.join(line for line in source.splitlines() if not line.lstrip().startswith(';'))
@@ -694,7 +716,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     (first_at,first),=hooks.sections
     if first_at!=origin or origin+len(first)>LANG:
         raise ValueError(f'the code area runs over: {first_at:#x} + {len(first):#x} (limit {LANG:#x})')
-    if runtime_end>MENU_MORE or LANG_TEXTS_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
+    if runtime_end>MENU_MORE or NATIVE_RECORDING_END>MORE_END or MENU_STATE+0x200>POOL or pool_end>CARD:
         raise ValueError(f'script code, runtime or pool exceeds its reserved area: runtime end {runtime_end:#x} (limit {MENU_MORE:#x}), pool end {pool_end:#x} (limit {CARD:#x})')
     s=hooks.symbols
     if s['SETTINGS_MAX']>0x120 or SETTINGS_RAM+0x240+4*s['MENU_MAX_TRUST']>SETTINGS_RAM_END:

@@ -661,6 +661,84 @@
   },
   "str_writeerr": {
    "text": "Schreibfehler"
+  },
+  "str_native_recording": {
+   "text": "NATIVE AUFNAHME"
+  },
+  "str_record_busy": {
+   "text": "Aufnahme läuft"
+  },
+  "str_record_wait": {
+   "text": "nach der Aufnahme"
+  },
+  "nr_file_prefix": {
+   "keep": "Dateipfad"
+  },
+  "rec_directory": {
+   "keep": "Dateipfad"
+  },
+  "rec_path_template": {
+   "keep": "Dateipfad"
+  },
+  "rec_marker_gap": {
+   "keep": "Marker in der WAV-Datei"
+  },
+  "rec_marker_lost": {
+   "keep": "Marker in der WAV-Datei"
+  },
+  "rec_marker_overflow": {
+   "keep": "Marker in der WAV-Datei"
+  },
+  "nr_record_text": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "nr_source_text": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "nr_running_text": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "nr_busy_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_card_error_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_error_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_full_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_gap_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_limit_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_lost_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_no_card_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_oom_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_opening_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_overflow_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_patch_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_saved_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
+  },
+  "nr_saving_text": {
+   "keep": "Aufnahmebildschirm setzt die Zeile in einen festen Puffer, deutsche Fassung erst nach Messung der Länge"
   }
  }
 }

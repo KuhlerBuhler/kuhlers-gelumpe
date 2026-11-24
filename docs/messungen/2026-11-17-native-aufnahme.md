@@ -1,9 +1,9 @@
-# Natives Aufnehmen und Abspielen: Master-Abgriff, Kartenrate, RAM, offline
+# Natives Aufnehmen und Abspielen: Master-Abgriff, Kartenrate, RAM
 
-Stand 17. November 2026. Grundlage für das Hauptfeature von 1.6: den laufenden Mix ohne PC und Interface auf die Karte
+Stand 18. November 2026, Erststand vom 17. November. Grundlage für das Hauptfeature von 1.6: den laufenden Mix ohne PC und Interface auf die Karte
 aufnehmen und eine WAV von der Karte abspielen. Gelesen im DSP-Programm (Hacktribe 2.02, rot und blau 2.02, ausgepackt mit
-[`dsp_extract.py`](../../tools/dsp/dsp_extract.py), Blackfin-binutils 2.42) und im ARM-Code (capstone). Kein Gerätezugriff,
-kein Emulatorlauf. Marker: **gelesen** (Code gelesen), **gemessen** (aus einer anderen Messung übernommen, mit Link),
+[`dsp_extract.py`](../../tools/dsp/dsp_extract.py), Blackfin-binutils 2.42) und im ARM-Code (capstone). Ergänzt um Simulatorprüfungen und die späteren READ-Messungen aus Abschnitt 10. Marker: **gelesen** (Code gelesen),
+**gemessen** (am Gerät oder aus einer verlinkten Messung),
 **hergeleitet**, **offen**.
 
 Rot und Hacktribe haben dasselbe DSP-Programm ([DSP-Modell](2026-11-12-dsp-modell.md)), alles zu Hacktribe gilt dort.
@@ -12,7 +12,7 @@ Rot und Hacktribe haben dasselbe DSP-Programm ([DSP-Modell](2026-11-12-dsp-model
 
 | Frage | Antwort | Marker |
 |---|---|---|
-| Wo liegt der fertige Mix? | DSP-Wort `0xFF802888`: links (obere 16 Bit) und rechts (untere 16 Bit), nach dem Master-Effekt und einem Soft-Clipper, jedes Sample neu. Daneben `0xFF80288C`, die Mono-Summe | gelesen |
+| Wo liegt der Mix vor THRU und Metronom? | DSP-Wort `0xFF802888`: links (obere 16 Bit) und rechts (untere 16 Bit), nach dem Master-Effekt und einem Soft-Clipper, jedes Sample neu. Daneben `0xFF80288C`, die Mono-Summe | gelesen |
 | Wie nimmt Korg ihn auf? | RESAMPLING ist Postfach-Kommando `0x3B` mit Quelle 1: der DSP kopiert dieses Wort jedes Sample per DMA linear in den Sample-Speicher | gelesen |
 | Geht es mit `korg.audio.capture`? | Ja, mit einem Wort: die Erfassung (`0x37`) liest ihre Quelle über einen Zeiger in `0xFF9031DC`. Zeigt er auf `0xFF802888`, läuft der Master in den Ring. Der Ring fasst aber nur 4800 Frames, 100 ms | gelesen, hergeleitet |
 | Reicht die Karte? | Lesen 3,1 MiB/s (12,5 MHz) und 5,1 MiB/s (25 MHz) am Gerät. Aufnahme braucht 0,19 MB/s. Schreiben ist auf rund 3 MB/s geschätzt (Erfahrungswert des Besitzers); Schreibrate und Schreibpausen am Gerät sind nicht gemessen | gemessen (lesen), geschätzt (schreiben) |
@@ -32,7 +32,7 @@ schreibt dort `0xFF802870` hinein (`0x01F0C626`, `[P0 + 0xC] = R2` mit `P0 = 0xF
 |---|---|
 | `0xFFA016AC` | Aufruf des Master-Effekts, vorher wartet sie auf MDMA (`0xFFC00F28` Bit 3) |
 | `0xFFA016B6..0xFFA0171C` | Effektausgang mal Pegel plus trockener Anteil |
-| `0xFFA01720..0xFFA01734` | dazu `[P4 + 0x6C]`, `[P4 + 0x70]` (Bedeutung offen), mal 2 mit Sättigung |
+| `0xFFA01720..0xFFA01734` | dazu `[P4 + 0x6C]`, `[P4 + 0x70]` (Sammelbus, der MFX umgeht, hergeleitet), mal 2 mit Sättigung |
 | `0xFFA0174A` | `0xFFA0135C`, ein Soft-Clipper (kubisch über einer Schwelle `0x361962E9`), in place auf `[P4 + 0x10]`, `[P4 + 0x14]` |
 | `0xFFA01750..0xFFA01784` | ein Verstärkungsfaktor aus `[P5 + 0x144..0x150]`, einpolig geglättet (hergeleitet: Pegelrampe) |
 | `0xFFA0179A` | **`[P4 + 0x18]` = L obere 16 Bit, R untere 16 Bit**, also `0xFF802888` |
@@ -43,13 +43,12 @@ Der Soft-Clipper ist kein Effektbaustein: er hat keine Parameter, Schwelle und N
 Konstanten im Code, und er wird über eine fest geladene Adresse gerufen, nicht über die Effektliste (gelesen). Eine
 Ihn durch eine einstellbare Röhrenkurve zu ersetzen: [Idee 113](../ideen/113-roehrenkurve.md).
 | `0xFFA017EE..0xFFA0183C` | Aufnahme (`0x3B`, siehe unten) |
-| `0xFFA0189A..0xFFA0193A` | eine weitere Stufe addiert ein Mono-Signal mit eigener Hüllkurve (Bedeutung offen) und eine Verstärkung |
+| `0xFFA0189A..0xFFA0193A` | AUDIO IN THRU, danach Metronom mit eigener Hüllkurve und Ausgangsverstärkung (siehe Simulatorprüfung) |
 | `0xFFA01946..0xFFA01966` | Spitzenpegel `[P5 + 0x50]`, `[P5 + 0x54]` = `0xFF9030F4` ([Pegel-LEDs](2026-11-12-pegel-leds.md)) |
 | `0xFFA019C6` | Ausgang nach `[P4 + 0x10]`, `[P4 + 0x14]` |
 
 **Hergeleitet:** das aufgenommene Wort enthält den Mix nach dem Master-Effekt und dem Soft-Clipper, aber nicht die Stufe ab
-`0xFFA0189A`. Ob dort das Metronom, AUDIO IN THRU oder etwas anderes dazukommt, ist **offen**; das klärt ein Vergleich am
-Gerät (RESAMPLING mit und ohne Metronom).
+`0xFFA0189A`. Dort kommen AUDIO IN THRU und danach das Metronom dazu (gelesen und im Simulator geprüft, siehe Abschnitt 6).
 
 ### Korgs RESAMPLING: Kommando `0x3B`
 
@@ -90,8 +89,8 @@ Erfassung über `0xC0014368` (Postfach `0x37`, `(1, Art)`) und beendet sie über
 
 **Hergeleitet:** startet die CPU die Erfassung mit einer gültigen Art und schreibt danach `0xFF802888` nach `0xFF9031DC`
 (Host-Port-Schreiben `0xAB`, wie beim Postfach), dann landet der Master im Ring. Pro Frame ein 32-Bit-Wort, im Speicher
-erst R, dann L (die Hälften werden in diesem Weg nicht getauscht). Das ist ein Wort Schreiben, kein DSP-Patch. Nicht im
-Emulator und nicht am Gerät geprüft.
+erst R, dann L (die Hälften werden in diesem Weg nicht getauscht). Das ist ein Wort Schreiben, kein DSP-Patch. Quellzugriff und Deskriptoren im
+Simulator geprüft (Abschnitt 6), nicht am Gerät.
 
 **Gelesen:** Erfassung und Aufnahme teilen sich das Zwischenwort `0xFF80004C` und den DMA-Auftrag. Beide gleichzeitig
 gehen nicht; der Spettro-Dienst prüft das schon ([API 31](2026-11-12-plugin-api31-spektrum.md), Status 2). Aufnahme,
@@ -149,12 +148,22 @@ wahrscheinlich; das Risiko sind die Pausen, nicht die Rate. Der Treiber holt lau
    `fmt `), dann beginnen die Daten auf einer Sektorgrenze und volle Blöcke gehen ohne Umweg über den Fensterpuffer.
 2. Daten in Blöcken zu 64 KiB anhängen (Korgs eigener WAV-Export schreibt auch 65 536 Byte am Stück,
    [DSP-Audiopfade](2026-10-08-dsp-audiopfade.md)).
-3. Beim Stopp `f_lseek` auf 4 und 40 (RIFF- und data-Länge, beim aufgefüllten Kopf die Stelle des data-Kopfs), beide
-   überschreiben, `f_close`.
+3. Beim Zwischenstand zuerst `f_sync`: PCM und Verzeichnisgröße müssen stehen, bevor der Kopf mehr Daten verspricht.
+   Danach `f_lseek` auf 0, den 512-Byte-Kopf mit RIFF-Länge bei Byte 4 und data-Länge bei Byte 508 schreiben,
+   auf das PCM-Ende zurückspringen und erneut `f_sync`. Der Abschluss verwendet dieselbe Reihenfolge.
 
-Eine Datei schrumpft dabei nie. **Offen:** ein eigenes `f_sync` ist nicht gefunden ([Virtuelle SD](../hintergrund/virtuelle-sd.md)).
-Ohne Sync stehen Länge und FAT nach einem Stromausfall auf dem Stand des letzten `f_close`. Wege: alle paar Minuten
-schließen und wieder öffnen, oder beim nächsten Start eine Datei mit Platzhalterlängen aus der Dateigröße reparieren.
+**Am 18.11. im ARM-Emulator geprüft:** `f_sync` liegt bei `0xC009E2C8`; der native `f_close` ruft sie zuerst auf.
+Eine noch offene Datei hält nach dem Aufruf Verzeichnisgröße und 32 KiB exakte PCM-Daten auf der virtuellen SD.
+Auf blau liegt dieselbe Routine bei `0xC008AE20`: alle 69 Befehle bis zum folgenden `f_close` stimmen nach Maskieren
+von Sprungabständen überein. Ein isolierter Lauf im ursprünglichen blauen ARM-Emulator sichert ebenfalls 32 KiB
+exakte PCM-Daten. Er läuft an der zugeordneten UI-Rahmengrenze; der Sampler-CommandTask-Haken ist auf blau nicht
+zugeordnet. Das prüft den Dateischreiber, keinen blauen Aufnahmeweg und kein Gerät.
+
+Eine Datei schrumpft dabei nie. Die Aufnahme sichert nach ungefähr einer Sekunde neu geschriebener PCM-Daten einen
+Zwischenstand. Nach Wegfall von CPU- und FatFs-Zustand zeigen die geprüften SD-Abbilder vor und nach den einzelnen
+Sicherungsschritten jeweils einen gültigen PCM-Anfang. Auch nach einem fehlgeschlagenen Sync wird der Kopf erst
+vergrößert, wenn PCM und Verzeichnis erfolgreich gesichert sind. Die Fälle prüfen Aufrufgrenzen im Emulator,
+keinen Stromausfall mitten in einem physischen SD-Sektorschreibvorgang ([Virtuelle SD](../hintergrund/virtuelle-sd.md)).
 Grenze: FAT32 und RIFF erlauben 4 GiB, das sind 6,2 Stunden je Datei.
 
 **Offen:** ob andere Kartenzugriffe der Firmware während einer Aufnahme (Einstellungen, Patterns-Ordner, Sample Swap,
@@ -216,12 +225,286 @@ eigenen ARM-Code, der `0x37` ans Postfach schickt. Stereo braucht auf blau einen
 die Wiedergabe geht auf blau nur über P2, weil es dort keine User-Samples im Sample-Speicher gibt. Der Besitzer hat nur
 eine rote; blau braucht einen Tester.
 
+## 6. Simulatorprüfung am 17. November 2026
+
+**Im Simulator geprüft:** [`native_recording_probe.py`](../../tools/dsp/native_recording_probe.py) führt Abschnitte des
+originalen roten Blackfin-Programms mit synthetischen Signalen im GNU-Simulator aus. Die Firmwarebereiche werden aus einem
+externen Verzeichnis gelesen; ELF und Binärdateien entstehen nur im temporären Verzeichnis. Rücksprünge an den Grenzen
+isolieren die Abschnitte. Das ist kein vollständiger DSP-Boot und keine Messung am Gerät.
+
+Die Werkzeuge und das ausgepackte rote DSP-Programm werden beim Aufruf ausdrücklich übergeben:
+
+```sh
+node tools/load-gate.mjs python3 tools/dsp/native_recording_probe.py REGIONS \
+  --as BFIN_AS --objcopy BFIN_OBJCOPY --run BFIN_RUN
+```
+
+`REGIONS` kommt aus `tools/dsp/dsp_extract.py` und bleibt außerhalb des Repos. Die Adressen dieses Prüfers gelten für
+rot und Hacktribe, nicht für blau. Das DSP-Programm beider Sampler ist gleich (siehe DSP-Modell).
+
+### Erfassung und Ring
+
+Der Handler `0xFFA05620` startet die Erfassung. Danach wird der Quellzeiger vor jedem Frame zwischen dem Master-Wort und
+einem synthetischen zweiten Wort umgestellt. Für 4803 Frames werden Zwischenwort, DMA-Quelladresse, DMA-Zieladresse und
+nächster Ringzeiger geprüft. Die ersten 4800 Frames füllen einen Ring, die nächsten drei laufen wieder vom Anfang.
+Die Wörter bleiben bitgleich. Die Bytefolge ist R vor L; für eine Stereo-WAV muss der ARM die beiden 16-Bit-Hälften tauschen.
+
+**Grenze:** Die DMA-Register sind in diesem Lauf RAM. Der Prüfer bildet die Ringdaten aus den geprüften Deskriptoren nach.
+Das belegt den Quellzugriff, die Wortfolge und den Ringumlauf, keine echte MDMA-Übertragung oder deren Dauer. Schreibpausen
+und Leserabstände am Gerät bleiben offen. Gleichzeitiges Ändern des Zeigers durch einen Host-Port-Transfer ist nicht getestet.
+
+### AUDIO IN THRU und Metronom
+
+**Gelesen und im Simulator geprüft:** `0xFFA0189A..0xFFA018DC` glättet den THRU-Pegel und addiert die vorherigen linken und
+rechten Eingangswerte. Die aktuellen Werte aus `[P4]` und `[P4+4]` werden für den nächsten Frame gespeichert. Dieser Anteil
+steht noch nicht in `0xFF802888`.
+
+**Gelesen:** Der Sequencer liest über `0xC0046B8C` die Metronomeinstellung. Der Auslöser `0xC005EA3C` führt über
+`0xC003FC60` nach `0xC0014198`. Dort werden DSP-Parameter `0x4C55` und `0x4C56` beschrieben. Sie entsprechen den Wörtern
+`0xFF903154` und `0xFF903158`, also `[P5+0xB0]` und `[P5+0xB4]`. Der DSP verarbeitet sie bei
+`0xFFA018E0..0xFFA01906`: Mono-Klick links und rechts, Hüllkurve und Abklingen. Die Initialisierung setzt Abklingen 34 und
+Pegel `0x2000` über `0xC003FC48`.
+
+**Im Simulator geprüft:** Getrennte linke und rechte Eingangssignale erscheinen nur auf ihrem Kanal. Der isolierte Klick
+erscheint gleich auf beiden Kanälen; sein Pegel null entfernt ihn. Vor `0xFFA018E0` bleibt AUDIO IN erhalten und der Klick
+fehlt. Die Ausgangsverstärkung folgt bei `0xFFA0190A..0xFFA0193A`.
+
+**Hergeleitet:** Das eigene Aufnahme-Wort muss nach dem THRU-Anteil und der Player-Summe entstehen. Der Klick muss getrennt
+bleiben; die nachfolgende Ausgangsverstärkung ist auch auf den Aufnahmezweig anzuwenden. Der vorhandene Capture-Abschnitt
+läuft davor, daher muss auch die Reihenfolge oder der definierte Abstand von einem Frame berücksichtigt werden. Der Klick
+bleibt für den Ausgang eingeschaltet. Ein einfacher Wechsel des Quellzeigers auf `0xFF802888` erfüllt das Aufnahmeziel nicht.
+
+**Gelesen, hergeleitet:** `[P4+0x6C]` und `[P4+0x70]` sind die linken und rechten Sammelwerte, die MFX umgehen, aber vor dem
+Clipper zugemischt werden. Die Audioschleife sammelt Werte ab `[P4+0x20+2*Route]`, skaliert die vier Buswörter ab `+0x6C`
+bei `0xFFA0157C` und leert sie bei `0xFFA019CA`. `+0x74` und `+0x78` gehen durch den MFX-Zweig; `+0x6C` und `+0x70` kommen
+bei `0xFFA01720` dazu. Sie sind nicht der nachgelagerte THRU- oder Klickweg.
+
+### Ausstehende Gerätemessungen
+
+| Aufgabe | Messwerte | Stand |
+|---|---|---|
+| 0.1 | Quelle und Zustand während RESAMPLING; Ringzeiger bei Spettro | offen, Besitzer misst |
+| 0.3 | Schreibrate, längste Pause und Clusterwechsel bei 64-KiB-Blöcken, je 60 s mit 12,5 und 25 MHz | offen, Besitzer misst |
+| 0.4 | längste Leserlücke bei Pattern-Wechsel, WRITE und Sample Swap, CommandTask und eigener Task | offen, Besitzer misst |
+| 0.5 | A bei gemessener Leserlücke unter 80 ms, sonst C oder B | noch nicht entschieden |
+
+Simulatorgeschwindigkeit ersetzt keine dieser Zeitmessungen. Die Freigabe für lückenlose Aufnahmen wartet auf die Ringentscheidung.
+
+## 7. Eigener Aufnahmezweig und nativer Schreiber
+
+**Im Simulator geprüft:** Der eigene DSP-Code liegt ab `0x01F12000`, sein Zustand ab `0x01F12100`. Das gepackte
+Aufnahme-Wort steht bei `0x01F12108`, bei `0x01F1210C` das Wort, das der ARM beim Start auf 1 setzt (die Abgriffe lesen es
+seit Abschnitt 13 nicht mehr), ein Kennwort bei `0x01F12110`. Die beiden
+Umleitungen nach THRU und nach der Ausgangsverstärkung erhalten den hörbaren Ausgang in acht Vergleichsfällen bitgleich.
+Der Abgriff entspricht demselben Originallauf ohne Klick, auch mit Eingangssignal und Sättigung. Die Erfassung davor
+liest das Wort des vorigen Frames; beim Start wird der bisherige Ringinhalt verworfen.
+
+**Gelesen und geprüft:** Der Bootstrom erhält einen eigenen Block vor seinem abschließenden Start-Header. Seine Länge
+wird mit angepasst. Der Builder prüft freien Platz vor `0xC013C200`, die originalen Umleitungsstellen, vorhandene
+Ladeblöcke und die vier Heap-Einträge ab `0x01F02438`. Jeder Eintrag enthält Basis, gespeicherte Länge und ID. Der neue
+DSP-Bereich liegt außerhalb aller vier Heaps. Die Patch-Datei enthält eigenen Code und Prüfsummen, keine Originalbytes.
+
+**Im ARM-Emulator geprüft:** Der private WAV-Schreiber nutzt einen eigenen `0x240`-Byte-FIL-Kontext. Er legt
+`SD:Recordings/REC0001.WAV` mit FA_CREATE_NEW an und überspringt vorhandene Namen. Der Kopf umfasst 512 Byte: JUNK,
+PCM-Format und data-Header, danach ganze 64-KiB-Blöcke und beim Stop der Rest. Längen werden beim Abschluss gesetzt.
+Ein Teilwrite meldet einen Fehler; nur vollständige Frames stehen im data-Chunk. Ein fehlgeschlagenes Schließen behält
+seinen Dateikontext bis zum nächsten Abschlussversuch.
+
+**Gelesen und im ARM-Emulator geprüft:** `0xC0014284` schreibt keine Transfers unter 16 Wörtern. Kurze Host-Port-Writes
+laufen über `0xC00146B4` mit exakter Länge und Schritt 2. Der Port kommt aus `0xC0015C98`, davor und danach steht die
+native DSP-Sperre 1 (`0xC0000D80`/`0xC0000CA8`). Das verhindert das Überschreiben benachbarter Zustandswörter.
+
+**Im ARM-Emulator geprüft:** Auf rot und Hacktribe schreibt der Worker aus CommandTask mit den originalen FatFs- und
+SD-Routinen eine lesbare Stereo-WAV auf die virtuelle Karte. Ihre PCM-Daten stimmen mit dem synthetischen DSP-Signal
+überein. Benutzer-Flash bleibt unverändert; keine Assertions. Die Fälle nutzen Emulator-Arbeitsraum und beweisen noch
+keine Menüanbindung, keine Gerätezeiten und kein störungsfreies langes Set.
+
 ## Offen
 
-- Gerät, nur lesend: Quellzeiger und Ring während RESAMPLING und mit laufendem Spettro lesen, Bedeutung von
-  `[P4 + 0x6C]`/`[P4 + 0x70]` und der Stufe ab `0xFFA0189A`.
+- Gerät, nur lesend: Quellzeiger und Ring während RESAMPLING und mit laufendem Spettro lesen, Bestätigung des im
+  Simulator geprüften Abgriffs mit AUDIO IN THRU und Metronom.
 - Gerät, schreibend (nur mit Zustimmung): Schreibrate und längste Pause von `f_write` mit 64-KiB-Blöcken, mit 12,5 und 25 MHz.
 - Gerät: Laufabstand eines Lesers, wenn die CommandTask ein Pattern lädt oder WRITE den Flash löscht.
 - Ob Weg A ohne Lücke hält; sonst Weg B oder C.
 - Polarität: die Ausgangsstufe dreht beide Kanäle nach dem Abgriff um (`0xFFA0197E`); ob die Aufnahme gegen den Ausgang
   am Gerät invertiert ist, ist offen und für eine WAV egal.
+
+## 8. Native Bedienung und vorläufiger Dienst
+
+**Im ARM-Emulator geprüft:** SHIFT+REC öffnet die Sampling-Ansicht. RECORD ist eine eigene dritte Quellwahl; der native
+Quellwert bleibt 0 oder 1. Die Lebensdauer der Ansicht wird an Konstruktor und Destruktor erkannt, kein Ansichtszeiger
+bleibt im Aufnahmedienst. PLAY schließt die native Ansicht und startet keine Aufnahme. REC startet und stoppt in RECORD.
+Während des Starts und Abschlusses bleibt die Quelle gesperrt. Die Anzeige nennt Datei, Dauer aus PCM-Bytes und Fehler.
+
+**Im ARM-Emulator geprüft:** CommandTask besitzt den Aufnahmekontext und einen dynamischen Ring, nur solange Ressourcen
+belegt sind. Es wird der größte verfügbare Zweierpotenz-Block von 128 KiB bis 2 MiB versucht. Im vollständigen Startlauf
+waren 1 MiB möglich; das ist keine Zusage für das Gerät. Der Bereich liegt im allgemeinen Heap, nicht im reservierten
+Sample-Swap-Bereich. Spettro und andere Apps mit Erfassung sind während der Aufnahme nicht wählbar.
+
+**Im ARM-Emulator geprüft:** Mit dem ganzen Patch-Set bestehen je 15 Aufnahmeprüfungen auf rot und Hacktribe. Kurze Takes
+enthalten exakt das künstliche Signal. Ein voller 64-KiB-Write im aktuellen Karten-/CPU-Modell überschreitet die vorläufige
+80-ms-Frist: sichtbarer Lückenstatus, gültiger WAV-Kopf und zusammenhängender PCM-Anfang. Dieser Fall belegt den Abbruch,
+nicht lückenlose lange Aufnahmen, keine SD-Schreibrate und keine längste Pause am Gerät. 0.3 und 0.4 bleiben offen.
+Seit Abschnitt 14 wird der Block in 8-KiB-Stücken geschrieben; der Lückenfall hält dafür die Karte gezielt 150 ms fest.
+
+## 9. Dauerhafter Beleg eines Erfassungsfehlers
+
+**Im ARM-Emulator geprüft:** Ein terminaler Lückenfehler, verlorener Erfassungsbesitz oder ARM-Ring-Überlauf erhält einen
+cue-Marker am Ende des gültigen PCM-Anfangs. Die zugehörige LIST/adtl/labl-Beschriftung nennt den Grund. Ein Teil des
+JUNK-Bereichs im 512-Byte-Kopf wird dafür verwendet; PCM-Position, RIFF-Länge und Schreibanzahl bleiben gleich. Die Anzeige
+zeigt den Lückenzähler bis zum nächsten Start. Die unbekannte Zahl verlorener Frames wird nicht als Messwert ausgegeben.
+Beide vollständigen Sampler-Patchsets bestehen je 17 Aufnahmeprüfungen mit Dateimarker und sichtbarem Zähler.
+
+**Hergeleitet:** cue darf an beliebiger Stelle der WAV stehen; die Beschriftung verweist über ihre ID auf den cue-Punkt.
+Grundlage: [FADGI, Teil III, Seiten 22 und 23](https://www.digitizationguidelines.gov/audio-visual/documents/BWF_Embed_Guideline_v3_2021.pdf).
+
+## 10. Geräteprüfung am 18.11.2026, nur READ
+
+**Gemessen:** Verbindung über den Linux-Rechner und den USB-SOUND-Port, BLECH READ `0x61`, MIDI-Kanal 10.
+Es wurde kein WRITE, EXEC oder fernbedienter Tastendruck gesendet. Der bestehende DSP-Leser wäre EXEC-basiert und
+wird hier nicht verwendet. Stattdessen werden vorhandene ARM-Metadaten gelesen.
+
+**Gemessen, Ausgangszustand:** `0xC018D000..0xC018D00F` ist vollständig `0xFFFFFFFF`, also noch kein Kontext des
+Spektrumdienstes. Der native Samplerzeiger aus `0xC0345A08` zeigt auf `0xC06C42B8`. Stereo- und Quellwahl dort bei
+`+0x704` und `+0x708` sind beide 0, also mono und AUDIO IN. Das bestätigt noch keinen DSP-Abgriff und keine Ringbewegung.
+
+## 11. Kartenzugriffe und Dateigrenzen
+
+**Im ARM-Emulator geprüft, nicht am Gerät:** Der Eingangsfilter läuft in CsTask, native Tastenhandler und der
+Rahmenhaken in UiTask. Der Aufnahmestart setzt eine Anfrage und sperrt damit neue UI-Kartenzugriffe. CommandTask
+wartet auf die nächste UI-Rahmengrenze; ein schon laufender Dateizugriff ist dann zurückgekehrt. Ein gezielter Fall
+unterbricht einen Plugin-Dateizugriff bei f_open und erhält trotzdem den exakt gespeicherten Wert, bevor die Aufnahme
+starten darf. Ein Stop kann die Wartephase ohne Datei und ohne Erfassung abbrechen.
+
+Originale Pattern-Exporte sind seriell: 253 beobachtete f_write-Aufrufe liefen in derselben CommandTask wie der
+Aufnahmehaken; die UI-Rahmen liefen in einer anderen Task. Gepufferte Plugin-Daten, Einstellungen und Custom-Export
+warten während der Aufnahme. Manuelle Import- und Exportaktionen prüfen die Sperre vor einer Teiländerung.
+**Offen:** Sample Swap ist noch nicht integriert und deshalb hier nicht geprüft.
+
+**Offline gelesen und im Emulator geprüft:** Der native f_close besitzt keine Tabelle geteilter Datei-Handles;
+sein erfolgreicher Abschluss setzt den Dateisystemzeiger im FIL auf null. Ein bereits ungültiges privates Objekt
+(FR_INVALID_OBJECT) oder eine nachweislich entfernte Karte gibt den privaten Kontext mit erhaltenem Fehler frei.
+Bei vorhandener Karte und weiterhin gültigem Objekt bleibt ein Abschlussfehler wiederholbar.
+
+Der native Entnahmefall zeigt Card error, beendet die Erfassung und gibt den Heap frei. Der zuletzt gesicherte
+WAV-Anfang bleibt lesbar. Nach Einsetzen einer Ersatzkarte nimmt ein erneuter REC-Druck 2750 exakte Frames auf.
+Der Vollkartenfall endet mit Card full und 896 exakten Frames in einer gültigen 4096-Byte-Datei; Capture und Datei
+sind freigegeben. Das isolierte Vollkartenabbild besitzt die üblichen BLECH-Ordner bereits vor dem Füllen, damit
+keine noch laufende Startmigration gleichzeitig mit dem isolierten Worker auf die Karte zugreift. Der produktive
+Aufnahmestart verwendet dafür die UI-Freigabe.
+
+Die maximale PCM-Länge pro Datei beträgt `0xFFFFFDFC` Byte, mit 512-Byte-Kopf also `0xFFFFFFFC` Byte.
+Der Worker teilt davor auf ganze Frames und setzt verbleibende Daten in der nächsten freien REC-Datei fort.
+Ein exaktes Ende erzeugt keine leere Folgedatei. Gezielte Fälle prüfen die reale 32-Bit-Arithmetik ohne 4-GiB-Belegung;
+der native FatFs-Fall verkleinert die Segmentgrenze auf 8 KiB und erhält zwei PCM-exakte Teile mit 8192 und 2412 Byte.
+Das ist kein Gerätetest einer echten 4-GiB-Datei. Die Anzeige nennt Datei und Dauer des aktuellen Teils.
+
+PLAY während einer laufenden Aufnahme schließt die Ansicht, lässt die Erfassung aber weiterlaufen. SHIFT+REC öffnet
+sie wieder, REC beendet die Aufnahme. Beide Sampler erhalten dabei eine PCM-exakte WAV ohne Lücke. Diese Bedienung
+ist im Emulator geprüft, ebenso PLAY ohne vorherigen REC-Start, das keine Aufnahme anlegt.
+
+Die gezielten Karten- und Aufnahmekernprüfungen bestehen mit 61 Fällen. Die vollständigen Sampler-Patchsets bestehen
+je 38 Aufnahmefälle; die zusätzlichen PLAY-Prüfungen laufen auf denselben Builds. Die Fälle liegen in
+[`tools/emu/recording_cases.py`](../../tools/emu/recording_cases.py), die Fehler- und Grenzarithmetik in
+[`tools/patch/test_recording_writer.py`](../../tools/patch/test_recording_writer.py) und
+[`tools/patch/test_recording_service.py`](../../tools/patch/test_recording_service.py).
+
+
+## 12. Blaue Mono-Aufnahme, offline am 19.11.2026
+
+**Abgeleitet und im Simulator geprüft, nicht am Gerät gemessen.** Ein Tester für Korgs blaue Electribe 2 ist
+vorhanden; der Gerätebericht steht aus. Hacktribe verwendet auch auf blauer Hardware den Sampler-Code mit Stereo.
+
+Der ursprüngliche blaue DSP-Strom beginnt bei ARM `0xC00DFB80`, umfasst `0x41C74` Byte und endet mit dem
+Ladedeskriptor bei `0xC01217E4`. Der Längenwert des Uploaders steht bei `0xC000DD00`. Der neue eigene DSP-Block
+liegt wie beim Sampler bei `0x01F12000`, außerhalb der ursprünglichen Ladespannen und Heapbereiche.
+Der Abgriff liegt nach THRU bei `0xFFA0185A` und verwendet den Ausgangspegel bei `0xFFA018BA`. Beide ursprünglichen
+Ausgangskanäle bleiben im GNU-Blackfin-Simulator bitgenau. Zehn Differenzfälle prüfen unter anderem nur rechts
+gepanntes Audio, Gegenphase und Sättigung. Die Mono-Summe ist `(links >> 1) + (rechts >> 1)` mit vorzeichenbehafteten
+32-Bit-Werten. Sie enthält keinen Metronomanteil.
+
+Die Erfassung mit Befehl `0x37` schreibt auch auf blau ein 32-Bit-Wort je Frame. Der 100-ms-Ring beginnt bei
+`0x01371EC0`; Status und Zeiger stehen bei `0xFF9031C8`, der Quellenzeiger bei `0xFF9031D4`. Die ursprüngliche
+Eingangsquelle ist `0xFF802810`. Der eigene Patch setzt den Quellenzeiger auf sein eigenes Mono-Summenwort.
+Der zunächst im Plan genannte Abgriff `0xFF802818` wird nicht verwendet. Der ARM-Leser entnimmt die oberen
+16 Bit jedes Ringworts und verdichtet sie im eigenen ARM-Ring, auch bei Ringumlauf und einem Rest von zwei Byte.
+
+Die ursprünglichen blauen Host-Aufrufe sind Lesen `0xC000FAB4`, Rohschreiben `0xC000FF70`, Getter `0xC0011554`,
+Sperren `0xC0000BA8` und Entsperren `0xC0000AD0`. Der Halbwortsender `0xC000E484` nimmt Befehl und zwei Argumente.
+Seine Getter-Rückgabe ist eine Portadresse und kein Erfolgsstatus. Eigener ARM-Code sperrt den Port und sendet
+`0x37` mit Aktivargument 1 oder 0. Der native Start-/Stop-Fall erzeugt zwei Pakete mit je 16 Halbworten ohne Assertion.
+CommandTask läuft über `0xC0027898` und den ursprünglichen Handler `0xC002A9A8`; die neue Aufnahme wird danach bedient.
+Alle Zuordnungen beruhen auf Vergleichen der eigenen Originaldateien und stehen in der Übersetzungskarte.
+
+SHIFT+REC öffnet auf Korgs blauem Synth eine eigene RECORD-Ansicht im BLECH-Menü. CsTask stellt nur Anfragen.
+UiTask prüft beim Verarbeiten von REC den aktuellen Bildschirm, damit ein Tastendruck nach EXIT keine Aufnahme
+außerhalb der Ansicht auslöst. Dieser zuvor fehlschlagende Fall ist als Regression geprüft. Die Dateiarbeit bleibt
+in CommandTask. PLAY allein erzeugt keine WAV; PLAY während der Aufnahme beendet die Erfassung nicht.
+Im blauen nativen Fall entstehen 6878 PCM-exakte Mono-Frames mit 48 kHz und 16 Bit, anschließend `Saved`.
+Die eigene Datei, Erfassung und Heap werden freigegeben, es gibt keine Assertion und keine Flash-Schreibzugriffe.
+
+Die Hardwarefragen aus Phase 0 bleiben offen: Quell- und Ringverhalten am Gerät, Schreibrate und längste
+Schreibpause der Karte sowie maximale Leserlücke bei Pattern-Wechsel, WRITE und Sample Swap. Der blaue Emulatorfall
+ersetzt diese Messungen nicht. Die vorhandenen vollständigen Sampler-Patchsets bestehen nach der gemeinsamen
+Leser- und Anzeigeaufteilung je 48 gezielte Aufnahmeprüfungen einschließlich zweier FEATURE-Schalterfälle.
+Der vollständige blaue Build besteht 27 Aufnahmefälle; alle drei Builds bestehen auch die Startphasen- und
+DSP-Schnittstellenprüfung in `check.py --cases recording_cases`.
+
+## 13. Stille Aufnahme am Gerät, 24.11.2026
+
+**Am Gerät gemessen:** Ein Take auf der roten Electribe lief ohne Fehler (Status 0, 1221152 Byte, 6,5 s, keine Lücke,
+kein Fehlerwort, `0x37` sofort bestätigt), das Pattern war hörbar. `REC0005.WAV` ist eine gültige WAV mit 2 Kanälen,
+16 Bit und 48 kHz über 6,36 s, aber jedes Sample ist 0.
+
+**Gelesen** im eigenen `ORIGINAL.BIN` (Hacktribe): Der DSP richtet beim Start seine Daten-CPLBs aus der Tabelle bei
+`0xFF803724` ein (Routine `0xFFA095F0`, aufgerufen bei `0xFFA0007C`) und schaltet mit `DMEM_CONTROL` den Daten-Cache
+für Bank A ein. Die Einträge für `0x01E00000` und `0x01F00000` tragen die Flags `0x0002501D`: 1 MiB, gültig, cachebar,
+Write-through. `0x01C00000`, `0x01D00000`, der übrige SDRAM ab `0` und L1 sind nicht cachebar.
+
+**Hergeleitet, am Gerät noch nicht bestätigt:** Beide Abgriffe lasen bei jedem Frame die Freigabe bei `0x01F1210C`
+(`R7 = [P1 + 12]`) und sprangen bei 0 am Schreiben vorbei. Damit liegt diese Zeile ab dem ersten Frame im Daten-Cache
+des DSP. Der ARM schreibt die 1 über den Host-Port direkt in den Speicher; das macht die Cache-Zeile nicht ungültig. Der DSP
+sah also weiter 0, das Aufnahme-Wort bei `0x01F12108` blieb 0, und der Ring holte über den Quellenzeiger nur Nullen.
+Alles andere am Take (Zeit, Ring, INFO, Status) war richtig, das passt dazu.
+
+**Änderung:** Die Abgriffe lesen kein Wort mehr, das der ARM schreibt. Sie schreiben das Aufnahme-Wort bei jedem Frame;
+ob es aufgenommen wird, entscheidet nur der Quellenzeiger, den `0x37` und der Leser setzen. Programmgröße und Zustand bleiben
+gleich. `recording_dsp.host_word_loads` findet Ladebefehle `Rn = [P1 + 12]` im Programm; ein Test prüft, dass beide
+mitgelieferten Programme keinen enthalten.
+
+**Im Simulator geprüft:** Das Erfassungsmodell (`tools/emu/recording_cases.py`) nahm bisher die Freigabe so, wie der ARM
+sie schrieb, und sah die Stille deshalb nicht. Jetzt entscheidet das geladene DSP-Programm: mit einem Lesebefehl auf das
+ARM-Wort bleibt das Aufnahme-Wort 0. Mit dem alten Programm im sonst gleichen Abbild schlagen `worker_card_wav`,
+`transport_native_record_wav` und der neue Fall `transport_native_take_has_audio` fehl (10759 Frames, 0 Byte ungleich 0),
+genau das Bild vom Gerät. Mit dem neuen Programm bestehen sie (42878 Byte ungleich 0, PCM exakt).
+
+Bestätigt ist die Ursache erst, wenn ein Take mit dem neuen Programm am Gerät Ton enthält.
+
+## 14. Erfassungslücke am Gerät, 24.11.2026
+
+**Am Gerät gemessen** (Test-VSB von `784f7790`, rote Electribe): Der Take hat Ton (Spitze -14,6 dBFS), bricht aber mit
+Status 20 "Capture gap" ab. ELAPSED 1124 ms, BYTES 131360, also Kopf plus genau zwei 64-KiB-Blöcke (0,68 s Audio).
+GAPS 1, FAULTS 1, FIRST = LAST `0x27` (Frist vor dem Kopieren gerissen), INFO[0] 1, Ring 19200 Byte, Schreiber
+`0x1C765F0`, Quelle `0x1F12108`, Fehler bei 1088 ms. SETUP 1 heißt nur, dass die RECORD-Ansicht beim Auslesen offen
+war: `nr_setup_enter`/`nr_setup_leave` setzen das Feld mit der Ansicht, nicht mit dem Take.
+
+**Hergeleitet, am Gerät nicht gemessen:** Leser und Kartenschreiber liefen im selben Schritt der CommandTask. Ein Schritt
+schrieb einen ganzen 64-KiB-Block mit einem `f_write`; solange die Karte daran arbeitet, liest niemand den 100-ms-Ring.
+Der dritte Block wäre bei 1,02 s fällig gewesen, er steht nicht in der Datei; der Fehler kam also aus der Zeit, in der der
+zweite Block (ab 0,68 s) geschrieben wurde. Wie lange die Karte dafür brauchte, ist nicht gemessen (Aufgabe 0.3 bleibt
+offen); der Take REC0005 am 24.11. lief mit derselben Struktur 6,5 s ohne Lücke, die Dauer schwankt also.
+
+**Änderung:** `recorder_pump` schreibt einen fälligen Block jetzt in Stücken zu 8 KiB (`RC_PIECE`) und ruft zwischen den
+Stücken `rec_reader_poll` auf, solange der Take läuft. Die 512-Byte-Ausrichtung der Daten bleibt (Kopf 512 Byte). Eine
+Karte, die für ein einzelnes 8-KiB-Stück länger als die Frist braucht, reißt die Frist weiter; dagegen hilft nur Weg C
+(größerer Ring im DSP) oder ein Leser in einer eigenen Task.
+
+**Im Simulator geprüft:** Das Kartenmodell (`tools/emu/sdcard.py`) kennt jetzt eine Programmierzeit pro geschriebenem
+Block (Modellannahme: die Karte hält die Datenleitung belegt). Neuer Fall `slow_card_*` in `recording_cases.py`:
+1,5 ms pro Block, also 192 ms für 64 KiB und damit fast das Doppelte des Rings, 1,2 s Take. Mit 8-KiB-Stücken: Status
+0, PCM exakt, keine Lücke. Mit dem alten Ablauf (ein `f_write` pro 64 KiB, sonst gleiches Abbild): Status 20 nach
+16557 Frames (0,34 s), dasselbe Bild wie am Gerät. Der Lückenfall `native_gap_*` hält jetzt eine einzelne Karte 150 ms
+fest, länger als der Ring, und erwartet weiter Status 20 mit Marker. Im Unit-Test schreibt eine Karte 64 KiB in 240 ms:
+mit Stücken vollständig, mit einem Block Status 20.
+
+Bestätigt ist der Fix erst, wenn ein Take über mehrere Sekunden am Gerät ohne Lücke durchläuft.

@@ -240,6 +240,13 @@ test("the API version in the header is the newest entry the script uses", () => 
   assert.ok(API.every(a => a.since >= 1));
 });
 
+test("a newer argument value raises the API version: korg.audio.capture(25), the Master, needs API 41", () => {
+  const block = source => compile(`korg.onEvent("frame", () => { let s = ${source}; });\n`).info.apiVersion;
+  assert.equal(block("korg.audio.capture(1)"), 31);
+  assert.equal(block("korg.audio.capture(24)"), 31);
+  assert.equal(block("korg.audio.capture(25)"), 41);
+});
+
 // ---- compile errors: line, column, German message ----
 
 test("errors name line and column and say what to do", () => {

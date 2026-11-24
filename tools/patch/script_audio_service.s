@@ -2,39 +2,37 @@
 ; (tools/patch/spectrum/) come from Spettro by Luigi (GitHub reflectiveboi, PR #429). They run in CommandTask behind its call at
 ; AUDIO_COMMAND_AT, never in the frame hook; the calls only post a request and copy what the worker published
 ; (docs/messungen/2026-11-12-plugin-api31-spektrum.md).
-.equ AUDIO_COMMAND_AT, 0xC002A628    ; CommandTask's call of AUDIO_COMMAND_FN, replaced by a branch to audio_command_hook
-.equ AUDIO_COMMAND_FN, 0xC002D844
-.equ AU_REQUEST, 4                   ; from AUDIO_SERVICE: the source asked for, 1 to 24, anything else off (FF at power-on)
+.equ AU_REQUEST, 4                   ; from AUDIO_SERVICE: the source asked for, 1 to 25, anything else off (FF at power-on)
 .equ AU_LEASE_TICK, 8                ; the tick of the last call; a request older than AU_LEASE is dropped
 .equ AU_STATUS, 12                   ; the worker's last status (capture.s), FF before its first run
 .equ AU_LEASE, 2048                 ; ticks of 1 ms (docs/messungen/2026-10-29-plugin-timer.md)
 .equ AU_OOM, 7
 .equ AU_WAVE, 256
+.equ AU_SOURCES, 25                  ; AUDIO_SPECTRUM.sources: 1 to 16 a part, 17 to 24 a pair, 25 the Master (API 41)
+.equ AU_MASTER, 25                   ; AUDIO_SPECTRUM.master
+.equ AU_CTX_MASTER, 112              ; in the context: 0 a part or pair, AU_OWN or AU_SHARED (spectrum/spectrum_worker.s reads it)
+.equ AU_CTX_WORD, 116                ; in the context: the word scope_begin_master writes to the DSP
+.equ AU_OWN, 1                       ; the Master on a capture of the service's own
+.equ AU_SHARED, 2                    ; the Master on the native recording's capture, read only (recording_reader.s)
+.equ AU_MASTER_WORD, 0xFF802888      ; the mix after the Master FX and the clipper, L high, R low (docs/messungen/2026-11-17-native-aufnahme.md)
 .align 4
 
-; The replaced bl: the native call first, then the service with all registers and the condition flags kept.
-audio_command_hook:
-    ldr lr, =AUDIO_COMMAND_AT+4
-    push {r4, lr}
-    bl AUDIO_COMMAND_FN
-    pop {r4, lr}
-    push {r0-r12, lr}
-    .word 0xE10FC000                 ; mrs r12, cpsr
-    push {r12, lr}
-    bl audio_service
-    pop {r12, lr}
-    .word 0xE128F00C                 ; msr cpsr_f, r12
-    pop {r0-r12, lr}
-    bx lr
-.pool
-
 ; One step of the service: the context is taken from the heap on the first request and kept until power-off.
+; During a native recording only the Master runs: on the recording's capture, which the service then neither starts nor stops.
 audio_service:
     push {r4-r8, lr}
     ldr r4, =AUDIO_SERVICE
     ldr r5, [r4, #AU_REQUEST]
+    mov r8, #AU_OWN
+    bl nr_busy
+    cmp r0, #0
+    beq audio_service_asked
+    cmp r5, #AU_MASTER
+    bne audio_service_recording
+    mov r8, #AU_SHARED
+audio_service_asked:
     sub r6, r5, #1
-    cmp r6, #24
+    cmp r6, #AU_SOURCES
     bhs audio_service_off
     ldr r0, =OS_TICKS
     ldr r0, [r0]
@@ -61,9 +59,31 @@ audio_service_have:
     cmp r7, #0
     moveq r0, #AU_OOM
     beq audio_service_status
-    ; 1 to 16 a part (mono, the left word), 17 to 24 a part pair (both words, powers added)
+    ; 1 to 16 a part (mono, the left word), 17 to 24 a part pair (both words, powers added), 25 the Master (both words)
     mov r0, #1
     str r0, [r7, #36]
+    cmp r6, #AU_MASTER-1
+    movne r8, #0
+    bne audio_service_part
+    ldr r0, [r7, #AU_CTX_MASTER]
+    cmp r0, r8
+    beq audio_service_part
+    ; Master on another capture: the own one closes before the recording starts its reader in this pass, the window starts anew
+    cmp r8, #AU_SHARED
+    bne audio_service_switch
+    ldr r0, [r7, #4]
+    cmp r0, #1
+    moveq r0, r7
+    bleq scope_close
+audio_service_switch:
+    mov r0, #0
+    str r0, [r7, #56]
+    str r0, [r7, #120]
+    str r0, [r7, #124]
+    ldr r1, =SP_STREAM
+    str r0, [r7, r1]
+audio_service_part:
+    str r8, [r7, #AU_CTX_MASTER]
     cmp r6, #16
     movlo r1, r6
     movlo r2, #0
@@ -72,6 +92,8 @@ audio_service_have:
     movhs r1, r1, lsl #1
     movhs r2, #1
     movhs r3, #2
+    cmp r6, #AU_MASTER-1
+    moveq r1, #0
     str r1, [r7, #40]
     str r2, [r7, #44]
     str r3, [r7, #48]
@@ -82,6 +104,17 @@ audio_service_have:
     str r0, [r7, #108]
     mov r0, r7
     bl scope_service
+    b audio_service_status
+audio_service_recording:
+    mvn r0, #0
+    str r0, [r4, #AU_REQUEST]
+    ldr r0, [r4]
+    cmn r0, #1
+    beq audio_service_recording_status
+    cmp r0, #0
+    blne scope_close
+audio_service_recording_status:
+    mov r0, #BUSY
     b audio_service_status
 audio_service_expired:
     mvn r0, #0
@@ -103,6 +136,43 @@ audio_service_idle:
     mov r0, #OFF
 audio_service_status:
     str r0, [r4, #AU_STATUS]
+    pop {r4-r8, pc}
+.pool
+
+; scope_begin_master(ctx): as scope_begin, but starts the capture with the input (0) and then points its source at the Master
+; word, as the recording reader does with its tap (recording_reader.s rec_reader_begin). Status FILLING, or BUSY while another
+; capture or SAMPLING runs.
+scope_begin_master:
+    push {r4-r8, lr}
+    mov r4, r0
+    ldr r1, =MAGIC
+    str r1, [r4]
+    mov r0, #0
+    str r0, [r4, #4]
+    str r0, [r4, #24]
+    bl read_info
+    ldr r0, [r4, #INFO]
+    ldr r1, [r4, #INFO+40]
+    orrs r0, r0, r1
+    movne r0, #BUSY
+    bne scope_begin_master_status
+    mov r0, #0
+    bl FW_BEGIN
+    ldr r0, =AU_MASTER_WORD
+    str r0, [r4, #8]
+    str r0, [r4, #AU_CTX_WORD]
+    ldr r0, =RR_SOURCE_POINTER
+    add r1, r4, #AU_CTX_WORD
+    mov r2, #2
+    bl rec_reader_write
+    ldr r0, =OS_TICKS
+    ldr r0, [r0]
+    str r0, [r4, #12]
+    mov r0, #1
+    str r0, [r4, #4]
+    mov r0, #FILLING
+scope_begin_master_status:
+    str r0, [r4, #28]
     pop {r4-r8, pc}
 .pool
 
@@ -219,12 +289,21 @@ audio_status_api:
     .byte 0, 1, 2, 3, 4, 4, 1, 5
 .align 4
 
-; korg.audio.capture(source 1 to 16 part, 17 to 24 part pair, -1 or 0 off) -> status
+; korg.audio.capture(source 1 to 16 part, 17 to 24 part pair, 25 Master, -1 or 0 off) -> status; while recording only the Master
 script_audio_capture_glue:
     ldr r2, =AUDIO_SERVICE
     sub r1, r0, #1
-    cmp r1, #24
+    cmp r1, #AU_SOURCES
     bhs audio_capture_off
+    push {r0, lr}
+    bl nr_busy
+    cmp r0, #0
+    pop {r0, lr}
+    beq audio_capture_ask
+    cmp r0, #AU_MASTER
+    bne audio_capture_recording
+audio_capture_ask:
+    ldr r2, =AUDIO_SERVICE
     ldr r1, [r2, #AU_REQUEST]
     cmp r1, r0
     strne r0, [r2, #AU_REQUEST]
@@ -234,6 +313,10 @@ script_audio_capture_glue:
     ldr r3, [r3]
     str r3, [r2, #AU_LEASE_TICK]
     b audio_status
+audio_capture_recording:
+    mov r0, #2
+    mov r1, #ERR_OK
+    bx lr
 audio_capture_off:
     mvn r1, #0
     str r1, [r2, #AU_REQUEST]

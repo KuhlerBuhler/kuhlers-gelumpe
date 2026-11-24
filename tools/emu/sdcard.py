@@ -417,14 +417,19 @@ class MMCController:
         self.blocks_left = 0
         self.chunk = False              # a 64-byte chunk is ready (read) or has room (write) and has not raised the interrupt yet
         self.slow_card = None           # a CLKRT the card cannot keep up with: reads at it go unanswered (a card unfit for that clock)
+        # Programming time of each written block in ns, asked per block (Modellannahme: the card holds the data line
+        # busy, so the next block has no room and the last one is not done until then). None is an instant card;
+        # set with `clock`, the device time in ns, as recording_cases.py does for a slow card.
+        self.write_busy, self.clock, self.busy_until, self.done_pending = None, None, None, False
 
     # ---- registers -------------------------------------------------------------
     def read(self, off, size):
         if off == ST0:
+            self._settle()
             v = self.st0
             if self.rx:
                 v |= ST0_DRRDY
-            if self.tx_lba is not None and len(self.tx) < self._block():
+            if self.tx_lba is not None and self.busy_until is None and len(self.tx) < self._block():
                 v |= ST0_DXRDY
             self.st0 = 0
             return v
@@ -457,10 +462,11 @@ class MMCController:
         reads MMCST0, takes that command's answer away (the assertion at AM180xMMSDCardController.cpp line 228)."""
         if self.card is None:
             return False
+        self._settle()
         pend = self.st0
         if self.chunk and self.rx:
             pend |= ST0_DRRDY
-        if self.chunk and self.tx_lba is not None:
+        if self.chunk and self.tx_lba is not None and self.busy_until is None:
             pend |= ST0_DXRDY
         return bool(pend & self.regs.get(IM, 0))
 
@@ -507,9 +513,19 @@ class MMCController:
                 self.st0 |= ST0_DATDNE
         return int.from_bytes(chunk.ljust(n, b"\0"), "little")
 
+    def _settle(self):
+        """A busy card that has finished programming takes the next block and reports a write that is done."""
+        if self.busy_until is None or self.clock() < self.busy_until:
+            return
+        self.busy_until = None
+        if self.done_pending:
+            self.done_pending = False
+            self.st0 |= ST0_DATDNE
+        self._flush()
+
     def _flush(self):
         size = self._block()
-        while self.tx_lba is not None and len(self.tx) >= size:
+        while self.tx_lba is not None and self.busy_until is None and len(self.tx) >= size:
             block = bytes(self.tx[:size])
             del self.tx[:size]
             if not self.tx_drop:
@@ -518,9 +534,15 @@ class MMCController:
                     self.st0 |= ST0_CRCWR       # Modellannahme: a CRC status token other than "ok" shows as CRCWR
             self.tx_lba += 1
             self.blocks_left -= 1
+            busy = self.write_busy() if self.write_busy and self.clock else 0
+            if busy:
+                self.busy_until = self.clock() + busy
             if self.blocks_left <= 0:
                 self.tx_lba = None
-                self.st0 |= ST0_DATDNE
+                if busy:
+                    self.done_pending = True
+                else:
+                    self.st0 |= ST0_DATDNE
 
     # ---- commands --------------------------------------------------------------
     def _respond(self, kind, payload):
@@ -551,6 +573,7 @@ class MMCController:
             return
         if idx == 12:                      # stop: whatever is still moving is dropped
             self.rx, self.tx, self.tx_lba, self.blocks_left, self.chunk = bytearray(), bytearray(), None, 0, False
+            self.done_pending = False
         if kind == "none":
             self._respond("none", 0)
             self.st0 |= ST0_RSPDNE

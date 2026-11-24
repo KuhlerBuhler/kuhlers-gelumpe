@@ -167,6 +167,8 @@ test("the bases of the table are the ones script_objects.s knows by number", () 
   assert.equal(Number(objects.match(/^\.equ OBJ_FLAGS2_INVERT, (0x[0-9A-Fa-f]+)/m)[1]), FLAGS2_INVERT);
   assert.equal(Number(objects.match(/^\.equ STATE_POWER_SAVE, (\d+)/m)[1]), STATE_WORDS.powerSave);
   assert.equal(STATE_WORDS.idle, STATE_WORDS.powerSave + 1, "objects_state_own reads the stage for the word after powerSave");
+  assert.equal(Number(objects.match(/^\.equ STATE_RECORD, (\d+)/m)[1]), STATE_WORDS.recordRunning);
+  assert.deepEqual([STATE_WORDS.recordSeconds, STATE_WORDS.recordGaps], [STATE_WORDS.recordRunning + 1, STATE_WORDS.recordRunning + 2], "objects_state_record reads them in this order");
 });
 
 test("a plugin sets a page and the simulated device keeps it inside the range", () => {
@@ -441,4 +443,16 @@ test("the event idle carries the stage and needs API 37", () => {
   assert.equal(decodeBlob(build(`korg.onEvent("idle", (stage) => { korg.store.set(0, stage); });`)).header.apiVersion, 37);
   const events = readFileSync(new URL("../tools/patch/script_events.s", import.meta.url), "utf8");
   assert.match(events, /mov r0, #6\n    ldr r1, =objects_idle_last\n    mov r2, #EV_IDLE\n    bl events_state/);
+});
+
+test("korg.record.running, seconds and gaps need API 41, are read only and read the simulator's 0", () => {
+  const leaves = ["korg.record.running", "korg.record.seconds", "korg.record.gaps"].map(path => OBJECT_BY_PATH.get(path));
+  assert.deepEqual(leaves.map(o => [o.id, o.base, o.offset, o.factory, o.write, o.since]),
+    [[67, "state", 7, 0, false, 41], [68, "state", 8, 0, false, 41], [69, "state", 9, 0, false, 41]]);
+  for (const o of leaves) {
+    assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let v = ${o.path}; });`)).header.apiVersion, 41, o.path);
+    assert.match(refused(`korg.onEvent("ready", () => { ${o.path} = 1; });`), new RegExp(o.path.replace(/\./g, "\\.")));
+  }
+  const device = run(`korg.onEvent("ready", () => { korg.store.set(0, korg.record.running); korg.store.set(1, korg.record.seconds); korg.store.set(2, korg.record.gaps); });`);
+  assert.deepEqual([0, 1, 2].map(i => stored(device, i)), [0, 0, 0]);
 });

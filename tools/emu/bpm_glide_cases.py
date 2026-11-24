@@ -165,9 +165,9 @@ def switch_cases(payload, flash):
 
 
 def page_cases(payload, flash):
-    """The two pages are the last of FEATURES, OFF by default; the dial switches at once, WRITE keeps the bits (version 4)."""
+    """The two glide pages in FEATURES are OFF by default; the dial switches at once, WRITE keeps the bits (version 4)."""
     dev = mc.boot(payload, flash, files=mc.CARD_FOLDER, adapter=True, seconds=3.0)
-    last = mc.feature_count() - 1
+    last = mc.feature_pages().index("GLIDE SWITCH")
     mc.goto_group(dev, mc.GROUP_FEATURES, last - 1)
     chain_page = mc.texts_of(dev)[:2]
     dev.turn(1, wait=0.4)

@@ -62,6 +62,10 @@ input_power_held:
 input_power_wait:
     b input_power_wait
 input_power_no:
+    bl nr_input
+    cmp r0, #0
+    ldr r0, [sp, #8]
+    bne input_drop
     bl idle_input                ; IDLE POWER SAVE: a touch keeps the device awake, the one that wakes it is swallowed
     cmp r0, #0
     ldr r0, [sp, #8]
@@ -559,6 +563,7 @@ script_frame_run:
     push {r4-r11, lr}
     sub sp, sp, #4
     mov r4, r0
+    bl nr_frame
     bl migrate_frame
     mov r7, #0
     mov r8, #ERR_OK
@@ -603,6 +608,7 @@ frame_gate_open:
     bl idle_frame                ; IDLE POWER SAVE: the stage, the light and the LEDs (script_idle.s)
     bl glide_frame               ; BPM GLIDE: GLIDE CHAIN and GLIDE SWITCH (script_glide.s)
     bl battery_frame             ; BATTERY %: the percent next to the load meter (script_battery.s)
+    bl nr_status_frame           ; NATIVE RECORDING: the blinking dot while a recording runs
     ldr r1, =APP_STATE
     ldr r1, [r1]
     cmp r1, #0
@@ -846,3 +852,158 @@ frame_return:
     pop {r4-r11, pc}
 .pool
 script_frame_return_end:
+
+
+nr_frame:
+    push {r4, lr}
+    bl nr_view_frame
+    bl nr_ui_ack
+    bl nr_play_inject_frame
+    bl nr_transport_frame
+    bl nr_busy
+    cmp r0, #0
+    beq nr_frame_idle
+    bl testmode_keep_awake
+    bl nr_close_capture_app
+    b nr_frame_done
+nr_frame_idle:
+    bl nr_card_flush
+nr_frame_done:
+    pop {r4, pc}
+.pool
+; The PLAY the Sampler's setup took (recording_ui.s:nr_input) goes to the firmware once the setup closed, as a press of our own
+; (korg.pressKey's path, the release follows a frame later); the firmware then plays the pattern instead of sampling.
+nr_play_inject_frame:
+    ldr r1, =NATIVE_RECORDING
+    ldrb r0, [r1, #NR_PLAY_INJECT]
+    cmp r0, #NR_PLAY_PENDING
+    bxne lr
+    ldr r0, [r1, #NR_SETUP]
+    cmp r0, #0
+    bxne lr
+    push {r4, lr}
+    mov r0, #2
+    strb r0, [r1, #NR_PLAY_INJECT]
+    bl script_press_key_glue
+    pop {r4, pc}
+.pool
+; A take started by PLAY (NR_PLAY_BOUND) runs with the transport: once the transport ran (1 play, 2 pause, 3 and 4 with REC,
+; the firmware's word, measured in the emulator), its stop (0) stops the take. Pause and REC on or off during the take keep it,
+; so REC stays the firmware's pattern recording. A take that ended by itself (error, REC in the setup) unbinds.
+nr_transport_frame:
+    ldr r1, =NATIVE_RECORDING
+    ldrb r0, [r1, #NR_PLAY_BOUND]
+    cmp r0, #NR_PLAY_WAIT
+    cmpne r0, #NR_PLAY_RUN
+    bxne lr
+    push {r4, lr}
+    mov r4, r0
+    bl nr_busy
+    cmp r0, #0
+    beq nr_transport_unbind
+    ldr r0, =HW_TRANSPORT
+    ldr r0, [r0]
+    cmp r0, #0
+    beq nr_transport_stopped
+    cmp r0, #4
+    bhi nr_transport_done
+    mov r0, #NR_PLAY_RUN
+    ldr r1, =NATIVE_RECORDING
+    strb r0, [r1, #NR_PLAY_BOUND]
+    b nr_transport_done
+nr_transport_stopped:
+    cmp r4, #NR_PLAY_RUN
+    bne nr_transport_done
+    mov r0, #0
+    bl nr_post
+nr_transport_unbind:
+    mov r0, #0
+    ldr r1, =NATIVE_RECORDING
+    strb r0, [r1, #NR_PLAY_BOUND]
+nr_transport_done:
+    pop {r4, pc}
+.pool
+
+; Preserves API arguments; NE means the recording worker still owns card resources.
+nr_card_busy:
+    push {r0-r3, r4, lr}
+    bl nr_busy
+    cmp r0, #0
+    pop {r0-r3, r4, lr}
+    bx lr
+
+; Manual card actions leave their arguments and RAM state intact while busy.
+nr_card_action:
+    push {lr}
+    bl nr_card_busy
+    pushne {r0, r1}
+    ldrne r1, =MENU_STATE
+    movne r0, #M_STATUS_CARD_BUSY
+    strne r0, [r1, #M_STATUS]
+    popne {r0, r1}
+    pop {pc}
+.pool
+; NATIVE RECORDING: a blinking dot on the main screen's top row while a recording runs, so it shows outside the RECORD view
+; (page 0, columns 78 to 82, rows 2 to 6, in the columns 75 to 83 that are free on the main screen on all three builds,
+; docs/messungen/2026-11-16-batterie-prozent.md). Columns that hold exactly the dot are ours, so no flag is kept: when the
+; recording ends it is cleared there. Only changed bytes are written and marked. Keeps r4 to r11.
+.equ NR_DOT_COL, 78
+nr_status_frame:
+    push {r4-r6, lr}
+    bl load_meter_shown
+    cmp r0, #0
+    beq nr_status_out
+    bl nr_busy
+    mov r4, r0
+    ldr r5, =nr_dot
+    ldr r6, =MG_VRAM+NR_DOT_COL
+    mov r2, #1
+    mov r3, #0
+nr_status_cmp:
+    ldrb r0, [r6, r3]
+    bic r0, r0, #1
+    ldrb r1, [r5, r3]
+    cmp r0, r1
+    movne r2, #0
+    add r3, r3, #1
+    cmp r3, #5
+    blo nr_status_cmp
+    cmp r4, #0
+    beq nr_status_off
+    ldr r0, =LM_OS_TICKS
+    ldr r0, [r0]
+    tst r0, #512
+    bne nr_status_off
+    cmp r2, #1
+    beq nr_status_out
+    b nr_status_put
+nr_status_off:
+    cmp r2, #1
+    bne nr_status_out
+    add r5, r5, #8
+nr_status_put:
+    mov r3, #0
+nr_status_col:
+    ldrb r0, [r6, r3]
+    and r0, r0, #1
+    ldrb r1, [r5, r3]
+    orr r0, r0, r1
+    strb r0, [r6, r3]
+    add r3, r3, #1
+    cmp r3, #5
+    blo nr_status_col
+    mov r0, #NR_DOT_COL
+    mov r1, #0
+    mov r2, #NR_DOT_COL+4
+    mov r3, #7
+    ldr r12, =MG_MARK
+    blx r12
+nr_status_out:
+    pop {r4-r6, pc}
+.pool
+.align 2
+nr_dot:                          ; the dot, then five blank columns
+    .byte 0x38, 0x7C, 0x7C, 0x7C, 0x38, 0, 0, 0
+    .byte 0, 0, 0, 0, 0, 0, 0, 0
+.align 2
+nr_frame_end:

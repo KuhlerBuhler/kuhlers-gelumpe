@@ -1,0 +1,62 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "native-recording-dsp",
+ "name": "Aufnahme-Abgriff nach THRU ohne Metronom",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "changes": [
+  {
+   "file": 1253924,
+   "bytes": "49e1f10109e100205100",
+   "expect": "b2f2913f334c2d9ad238f3f9f58ea2379d99365228120290727692921a2532da",
+   "note": "DSP 0xffa018dc: recording tap redirect"
+  },
+  {
+   "file": 1254022,
+   "bytes": "49e1f10109e180205100",
+   "expect": "e6d7929a5d53d39578f86435ce9614d7afc01e4b90c4fef103b3251cccbb33a4",
+   "note": "DSP 0xffa0193e: recording tap redirect"
+  },
+  {
+   "file": 1294752,
+   "bytes": "010069ad0020f1011401000000000000",
+   "expect": "ad2a259a8db0e75bc7445faaaebd004527746869b0e7724bcb64baa085dc5a82",
+   "note": "load descriptor for the own recording DSP block"
+  },
+  {
+   "file": 1294768,
+   "bytes": "0bc43f0249e1f10109e10021089349b002900390079049e1a0ff09e1e618510000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000049e1f10109e1002128303130089149a010c0208683c688110bc43f0010c0218683c688110bc43f0200e1000082c6818341e10000085688b005300e3044e1000004e10100605749e1a0ff09e148195100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004e524543018073ad0000a0ff0000000000000000",
+   "expect": "08e9ada57327ffb9e4bcaed1be7d8ad94b085b2a99318313105c1531ac8d1539",
+   "note": "own recording DSP code, zeroed control words, marker and final boot header"
+  },
+  {
+   "file": 72624,
+   "bytes": "c4230400",
+   "expect": "1bdc72b966fe0f164b3f0eddd2c568d7517bfc67d903cd47f93c489315579c1b",
+   "note": "include the recording block in the DSP upload length"
+  }
+ ],
+ "startPhase": [
+  {
+   "file": 72624,
+   "length": 4,
+   "why": "Der DSP-Uploader liest beim Start die Ladel\u00e4nge einschlie\u00dflich des eigenen Aufnahmeblocks."
+  }
+ ],
+ "sources": {
+  "tools/patch/recording_dsp.py": "ef7fec2d8be5adab5abf5d8ef8a59f8c321b61820b5abf6a2725992501b0e051",
+  "tools/patch/recording_dsp.s": "be597378a3d444dab9d70f7befd16cc42babae13d58355ef5455de31cd260c4a"
+ },
+ "ram": [],
+ "dspMemory": [
+  {
+   "at": "0x01F12000",
+   "length": 276,
+   "what": "recording code, four control words and a program marker in DSP SDRAM",
+   "source": "tools/patch/recording_dsp.py:CODE"
+  }
+ ]
+}

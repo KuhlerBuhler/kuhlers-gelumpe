@@ -190,6 +190,10 @@ script_app_open:
     ldr r1, [r5, #SCRIPT_ENTRY_STATE]
     cmp r1, #SCRIPT_STATE_ARMED
     bne app_open_fail
+    mov r0, r5
+    bl nr_app_allowed
+    cmp r0, #0
+    beq app_open_fail
     str r5, [r4, #SCRIPT_APPS_OPEN]
     mov r0, #SCRIPT_APPS_OPEN_GRACE
     str r0, [r4, #SCRIPT_APPS_GRACE]

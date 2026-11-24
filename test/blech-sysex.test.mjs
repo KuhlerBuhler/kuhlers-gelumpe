@@ -233,19 +233,21 @@ describe("the patch", () => {
 
   test("the code and separate file workspace fit while the transfer buffer releases 19 KiB", () => {
     const ram = PATCH.ram.map(r => [Number(r.at), Number(r.at) + r.length]);
-    assert.deepEqual(ram, [[0xc0191000, 0xc0191100], [0xc0191100, 0xc019a400], [0xc019f000, 0xc01a0000]]);
+    assert.deepEqual(ram, [[0xc0191000, 0xc0191100], [0xc0191100, 0xc019a400], [0xc019f000, 0xc019f700]]);
     const code = PATCH.changes.find(c => c.file === CODE);
     assert.ok(0xc0172100 + code.bytes.length / 2 <= 0xc0173000, "code ends before the Sync Group's buffer");
     const sample = PATCH.changes.find(c => c.file === SAMPLE_CODE);
     assert.ok(sample && 0xc017b950 + sample.bytes.length / 2 <= 0xc017c000, "the sample file commands end before the preset tables' next change");
     assert.ok(0xc0173800 + PATCH.changes.find(c => c.file === TABLE).bytes.length / 2 <= 0xc0174000, "table");
+    const rec = PATCH.changes.find(c => c.file === 0xc019f700 - 0xc0000000 + 0x100);
+    assert.ok(rec && 0xc019f700 + rec.bytes.length / 2 <= 0xc01a0000, "the recordings' code stays in the file area, behind its declared RAM");
   });
 
   test("the constants of the builder are the ones of the editor", () => {
-    const run = spawnSync("python3", ["-c", "import sys, json; sys.path.insert(0, 'tools/patch'); import blech_sysex as b; print(json.dumps([b.FUNC_INFO, b.FUNC_READ, b.FUNC_BEGIN, b.FUNC_DATA, b.REPLY_INFO, b.REPLY_READ, b.REPLY_BEGIN, b.REPLY_DATA, b.STATUS_OK, b.STATUS_BAD_CRC, b.STATUS_REFUSED, b.STATUS_RANGE, b.STATUS_VERIFY, b.PROTOCOL_VERSION, b.MAX_BLOCK, b.FLAGS, b.FUNC_FLASH, b.REPLY_FLASH, b.STATUS_FLASH, b.FLASH_MAX, b.FLASH_LIMIT, b.FUNC_PBEGIN, b.NAME_MAX, b.FUNC_EXEC, b.REPLY_EXEC, b.EXEC_START, b.EXEC_END, b.FLAG_DOOM, b.FILE_DOOM, b.FILE_SAMPLE, b.SAMPLE_LIMIT, b.FILE_FX, b.FLAG_DEV, b.FLAG_DEV_ON, b.FLAG_FX_WRITE, b.FX_LIMIT]))"], { cwd: root, encoding: "utf8" });
+    const run = spawnSync("python3", ["-c", "import sys, json; sys.path.insert(0, 'tools/patch'); import blech_sysex as b; print(json.dumps([b.FUNC_INFO, b.FUNC_READ, b.FUNC_BEGIN, b.FUNC_DATA, b.REPLY_INFO, b.REPLY_READ, b.REPLY_BEGIN, b.REPLY_DATA, b.STATUS_OK, b.STATUS_BAD_CRC, b.STATUS_REFUSED, b.STATUS_RANGE, b.STATUS_VERIFY, b.PROTOCOL_VERSION, b.MAX_BLOCK, b.FLAGS, b.FUNC_FLASH, b.REPLY_FLASH, b.STATUS_FLASH, b.FLASH_MAX, b.FLASH_LIMIT, b.FUNC_PBEGIN, b.NAME_MAX, b.FUNC_EXEC, b.REPLY_EXEC, b.EXEC_START, b.EXEC_END, b.FLAG_DOOM, b.FILE_DOOM, b.FILE_SAMPLE, b.SAMPLE_LIMIT, b.FILE_FX, b.FLAG_DEV, b.FLAG_DEV_ON, b.FLAG_FX_WRITE, b.FX_LIMIT, b.FLAG_REC, b.FILE_REC, b.STATUS_BUSY]))"], { cwd: root, encoding: "utf8" });
     assert.equal(run.status, 0, run.stderr);
     const { STATUS } = BLECH;
-    assert.deepEqual(JSON.parse(run.stdout), [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, STATUS.OK, STATUS.BAD_CRC, STATUS.REFUSED, STATUS.RANGE, STATUS.VERIFY, BLECH.VERSION, 0x8000, 0xbff, BLECH.FLASH, BLECH.R_FLASH, STATUS.FLASH, 0x1000, 0x1000000, BLECH.PLUGIN_BEGIN, BLECH.NAME_MAX, BLECH.EXEC, BLECH.R_EXEC, EXEC.stubAt, EXEC.stubAt + EXEC.stubSize, BLECH.FLAG_DOOM, BLECH.FILE_DOOM, BLECH.FILE_SAMPLE, BLECH.SAMPLE_LIMIT, BLECH.FILE_FX, BLECH.FLAG_DEV, BLECH.FLAG_DEV_ON, BLECH.FLAG_FX_WRITE, BLECH.FX_LIMIT]);
+    assert.deepEqual(JSON.parse(run.stdout), [BLECH.INFO, BLECH.READ, BLECH.BEGIN, BLECH.DATA, BLECH.R_INFO, BLECH.R_READ, BLECH.R_BEGIN, BLECH.R_DATA, STATUS.OK, STATUS.BAD_CRC, STATUS.REFUSED, STATUS.RANGE, STATUS.VERIFY, BLECH.VERSION, 0x8000, 0x1bff, BLECH.FLASH, BLECH.R_FLASH, STATUS.FLASH, 0x1000, 0x1000000, BLECH.PLUGIN_BEGIN, BLECH.NAME_MAX, BLECH.EXEC, BLECH.R_EXEC, EXEC.stubAt, EXEC.stubAt + EXEC.stubSize, BLECH.FLAG_DOOM, BLECH.FILE_DOOM, BLECH.FILE_SAMPLE, BLECH.SAMPLE_LIMIT, BLECH.FILE_FX, BLECH.FLAG_DEV, BLECH.FLAG_DEV_ON, BLECH.FLAG_FX_WRITE, BLECH.FX_LIMIT, BLECH.FLAG_REC, BLECH.FILE_REC, STATUS.BUSY]);
   });
 
   test("the synth gets read commands with a table that refuses every RAM write, in its own set", () => {

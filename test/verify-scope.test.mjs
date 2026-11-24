@@ -35,7 +35,7 @@ test("a changed case module runs itself and every case module that imports from 
 });
 
 test("assembly and patch files map to the cases that test them", () => {
-  assert.deepEqual(scope(["tools/patch/script_menu.s"]), ["dev_mode_cases", "ht_osc_cases", "init_pattern_cases", "last_pattern_cases", "menu_cases", "migrate_cases", "sample_category_cases", "shortcut_cases", "stereo_pad_cases", "tube_cases"]);
+  assert.deepEqual(scope(["tools/patch/script_menu.s"]), ["dev_mode_cases", "ht_osc_cases", "init_pattern_cases", "last_pattern_cases", "menu_cases", "migrate_cases", "recording_cases", "sample_category_cases", "shortcut_cases", "stereo_pad_cases", "tube_cases"]);
   assert.deepEqual(scope(["tools/patch/script_sample_edit.s", "tools/patch/script_sample_edit_none.s"]), ["sample_category_cases"]);
   assert.deepEqual(scope(["tools/patch/script_remote.s"]), ["remote_cases"]);
   assert.deepEqual(scope(["tools/patch/fx_card.s"]), ["fx_card_cases"]);
@@ -70,4 +70,10 @@ test("every emulator case file has a runner", () => {
     || tests.includes(`tools/emu/${m}.py"`);
   const orphans = files.filter(m => !research.includes(m) && !runner(m));
   assert.deepEqual(orphans, []);
+});
+
+test("native recording runs for its ARM and DSP sources and its card cases", () => {
+  for (const path of ["tools/patch/recording_writer.s", "tools/patch/recording_reader.py", "tools/patch/recording_runtime.s", "tools/patch/recording_ui.s", "tools/patch/recording_dsp.py", "data/patches/native-recording-dsp.json", "data/patches/native-recording-dsp-synth.json", "tools/patch/recording_ui_synth.s", "tools/emu/recording_cases.py"]) {
+    assert.deepEqual(scope([path]), ["recording_cases"], path);
+  }
 });

@@ -110,10 +110,13 @@ class Run:
         return {led: v for led, v in self.dev.m.leds.items() if led not in METER}
 
     def steady(self):
-        """The lit LEDs that hold their brightness over 0.5 s (some blink with the tempo)."""
+        """The lit LEDs that hold their brightness over 0.5 s (some blink with the tempo). Three looks, the middle one off the
+        beat, so a blinking LED that happens to show the same value twice half a second apart is not taken as steady."""
         first = self.leds()
-        self.dev.run(0.5)
-        return {led: v for led, v in self.leds().items() if v and first.get(led) == v and led != WRITE_LED}
+        self.dev.run(0.17)
+        middle = self.leds()
+        self.dev.run(0.33)
+        return {led: v for led, v in self.leds().items() if v and first.get(led) == v and middle.get(led) == v and led != WRITE_LED}
 
     def send(self, msg, wait=0.05):
         """A panel message -> the messages of its kind the firmware got."""

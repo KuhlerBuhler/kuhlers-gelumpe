@@ -18,6 +18,10 @@
 ; r0 runtime. Reads the collection, loads every block that passes, runs the
 ; start bodies and arms the runtime. Any failure leaves the runtime unarmed.
 script_card_load:
+    push {lr}
+    bl nr_card_action
+    pop {lr}
+    bxne lr
     push {r4-r11, lr}
     sub sp, sp, #8
     mov r4, r0

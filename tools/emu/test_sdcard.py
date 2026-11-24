@@ -193,6 +193,25 @@ class CardTest(unittest.TestCase):
         self.d.cmd(12, busy=1)
         self.assertEqual((self.card.sectors_written, self.ctl.tx_lba), (2, None))
 
+    def test_a_busy_card_gives_no_room_and_no_done_until_it_has_programmed_the_block(self):
+        now = [0]
+        self.ctl.clock, self.ctl.write_busy = lambda: now[0], lambda: 2_000_000
+        self.d.init()
+        self.ctl.write(BLEN, 512, 4)
+        self.ctl.write(NBLK, 2, 4)
+        self.d.cmd(25, 100, extra=0x12000)
+        payload = blocks(2, 9)
+        self.d.write_block(payload[:512])
+        self.assertFalse(self.ctl.read(ST0, 4) & sdcard.ST0_DXRDY, "no room while the first block programs")
+        self.assertFalse(self.ctl.irq())
+        now[0] = 2_000_000
+        self.assertTrue(self.ctl.read(ST0, 4) & sdcard.ST0_DXRDY)
+        self.d.write_block(payload[512:])
+        self.assertEqual(self.data[100 * 512:102 * 512], payload)
+        self.assertFalse(self.ctl.read(ST0, 4) & sdcard.ST0_DATDNE, "the last block is not done before its time")
+        now[0] = 4_000_000
+        self.assertTrue(self.ctl.read(ST0, 4) & sdcard.ST0_DATDNE)
+
     def test_a_read_only_medium_swallows_writes(self):
         medium = sdcard.MemoryMedium(self.data, read_only=True)
         ctl = sdcard.MMCController(sdcard.SDCard(medium))

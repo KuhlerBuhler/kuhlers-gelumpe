@@ -33,9 +33,10 @@ import globalMap from "../map/global.mjs";
 export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info", "touchpad", "motion", "state", "flags2"]);
 /**
  * What a leaf of the base "state" reads, by its offset. powerSave and idle are bytes the runtime reads itself: the firmware's
- * dim flag of POWER SAVE and the stage of IDLE POWER SAVE (tools/patch/script_idle.s).
+ * dim flag of POWER SAVE and the stage of IDLE POWER SAVE (tools/patch/script_idle.s). recordRunning, recordSeconds and
+ * recordGaps read the public state of the native recording (tools/patch/recording_runtime.s, NR_PHASE, NR_BYTES and NR_GAPS).
  */
-export const STATE_WORDS = Object.freeze({ padMode: 0, bar: 1, screen: 2, power: 3, battery: 4, powerSave: 5, idle: 6 });
+export const STATE_WORDS = Object.freeze({ padMode: 0, bar: 1, screen: 2, power: 3, battery: 4, powerSave: 5, idle: 6, recordRunning: 7, recordSeconds: 8, recordGaps: 9 });
 /** Added to the mask of a leaf of the base "flags2" whose bit set reads 0. */
 export const FLAGS2_INVERT = 0x100;
 /**
@@ -312,6 +313,19 @@ export const OBJECTS = Object.freeze([
   leaf(66, "korg.menu.blech.features.glideSwitch", {
     base: "flags2", offset: 8, type: "u8", min: 0, max: 1, factory: 0, write: true, since: 37,
     unit: "0 off, 1 on", text: text("api.object.features.glideSwitch"),
+  }),
+  // API 41: the native recording, read only
+  leaf(67, "korg.record.running", {
+    base: "state", offset: STATE_WORDS.recordRunning, type: "u32", min: 0, max: 1, factory: 0, write: false, since: 41,
+    unit: "0 no, 1 yes", text: text("api.object.record.running"),
+  }),
+  leaf(68, "korg.record.seconds", {
+    base: "state", offset: STATE_WORDS.recordSeconds, type: "u32", min: 0, max: 2147483647, factory: 0, write: false, since: 41,
+    unit: "s", text: text("api.object.record.seconds"),
+  }),
+  leaf(69, "korg.record.gaps", {
+    base: "state", offset: STATE_WORDS.recordGaps, type: "u32", min: 0, max: 1, factory: 0, write: false, since: 41,
+    unit: "0 none, 1 one", text: text("api.object.record.gaps"),
   }),
 ]);
 

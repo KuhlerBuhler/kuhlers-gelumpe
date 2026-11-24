@@ -119,7 +119,7 @@ test("itemsFor: the items of a set that apply to a build, one per id", () => {
   const set = { items: [{ id: "a" }, { id: "f" }, { id: "f" }], patches: [{ id: "a", builds: ["hacktribe", "stock"] }, { id: "f", builds: ["hacktribe"] }, { id: "f", builds: ["stock"] }] };
   assert.deepEqual(itemsFor(set, "hacktribe"), [set.items[0], set.items[1]]);
   assert.deepEqual(itemsFor(set, "stock"), [set.items[0], set.items[2]]);
-  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "sample-swap", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "tube-curve", "ht-osc", "beat-eighth", "touch-scale-zero", "stage2-memory", "update-guard", "blech-version", "doom-loader", "import-slots", "blech-sysex"]);
+  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "sample-swap", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "tube-curve", "ht-osc", "beat-eighth", "touch-scale-zero", "stage2-memory", "native-recording-dsp", "update-guard", "blech-version", "doom-loader", "import-slots", "blech-sysex"]);
   assert.equal(itemsFor(BLECH_SET, "stock").length, itemsFor(BLECH_SET, "hacktribe").length + 2, "the synth filters and the Hacktribe oscillators are for Korg's build only");
 });
 
@@ -680,4 +680,8 @@ test("flow: back to the original passes Korg's own file without patches or test"
   const ht = step(newFlow(), { type: "input", input: hacktribe });
   assert.equal(step(ht, { type: "original" }), ht, "a Hacktribe file is no original");
   assert.equal(step(flow, { type: "options" }).original, false, "new options start over");
+});
+
+test("the mono recording patch shares the translated recording label", () => {
+  assert.equal(render(patchLabel({ id: "native-recording-dsp-synth", builds: ["synth"] })), "Native Aufnahme");
 });

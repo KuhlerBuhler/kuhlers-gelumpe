@@ -1,0 +1,193 @@
+"""Build the sampler and synth DSP recording taps from own Blackfin source.
+
+The user's VSB is only read to locate and authenticate the replaced ranges.
+The manifest contains own code and hashes. GNU Blackfin binutils assemble the
+new code in a temporary directory outside the repository.
+"""
+import argparse
+from functools import reduce
+import hashlib
+import json
+import os
+from pathlib import Path
+import struct
+import subprocess
+import tempfile
+
+from tools.dsp import dsp_extract
+from .ramdecl import area
+
+CODE = 0x01F12000
+STATE = CODE + 0x100
+CAPTURE = STATE + 8
+ENABLE = STATE + 12
+MAGIC_ADDRESS = STATE + 16
+MAGIC = 0x4345524E
+PROGRAM_SIZE = 0x114
+AFTER_INPUT = CODE
+AFTER_GAIN = CODE + 0x80
+FINAL_HEADER = 0xC013C0A0
+APPEND = FINAL_HEADER + 16
+RESERVE_END = 0xC013C200
+LENGTH_WORD = 0xC0011AB0
+HEAP_TABLE = 0x01F02438
+HOOK_HASHES = {
+    0xFFA018DC: 'b2f2913f334c2d9ad238f3f9f58ea2379d99365228120290727692921a2532da',
+    0xFFA0193E: 'e6d7929a5d53d39578f86435ce9614d7afc01e4b90c4fef103b3251cccbb33a4',
+}
+SYNTH_HOOK_HASHES = {0xFFA0185A: HOOK_HASHES[0xFFA018DC], 0xFFA018BA: HOOK_HASHES[0xFFA0193E]}
+
+
+def configuration(build='hacktribe'):
+    if build == 'synth':
+        return dict(stream=0xC00DFB80, length=0x41C74, final=0xC01217E4,
+                    length_word=0xC000DD00, reserve_end=0xC0121A00, hooks=SYNTH_HOOK_HASHES,
+                    channels=1, builds=['synth'], id='native-recording-dsp-synth')
+    if build not in ('hacktribe', 'stock'):
+        raise ValueError(f'unknown recording DSP build: {build}')
+    return dict(stream=dsp_extract.STREAM_RAM, length=dsp_extract.STREAM_LEN, final=FINAL_HEADER,
+                length_word=LENGTH_WORD, reserve_end=RESERVE_END, hooks=HOOK_HASHES,
+                channels=2, builds=['hacktribe', 'stock'], id='native-recording-dsp')
+
+
+def payload_offset(blocks, address):
+    for _, pos, flags, target, count, _, data in blocks:
+        if data and not flags & dsp_extract.F_IGNORE and target <= address < target + count:
+            return pos + 16 + address - target
+    return None
+
+
+def boot_header(flags, target, count=0, argument=0):
+    header = bytearray(struct.pack('<IIII', 0xAD000000 | flags, target, count, argument))
+    header[2] = reduce(int.__xor__, header, 0)
+    return bytes(header)
+
+
+def assemble_program(assembler, objcopy, build='hacktribe'):
+    config = configuration(build)
+    with tempfile.TemporaryDirectory(prefix='native-recording-bfin-') as directory:
+        work = Path(directory)
+
+        def assemble(text, name):
+            src, obj, binary = (work / (name + suffix) for suffix in ('.s', '.o', '.bin'))
+            src.write_text(text)
+            try:
+                subprocess.run([assembler, str(src), '-o', str(obj)], check=True, capture_output=True)
+                subprocess.run([objcopy, '-O', 'binary', '-j', '.text', str(obj), str(binary)], check=True, capture_output=True)
+            except subprocess.CalledProcessError as error:
+                raise ValueError(error.stderr.decode(errors='replace')) from error
+            return binary.read_bytes()
+
+        addresses = list(config['hooks'])
+        constants = (f'.equ RECORD_CHANNELS, {config["channels"]}\n'
+                     f'.equ RECORD_INPUT_RETURN, {addresses[0] + 10:#x}\n'
+                     f'.equ RECORD_GAIN_RETURN, {addresses[1] + 10:#x}\n')
+        code = assemble(constants + Path(__file__).with_suffix('.s').read_text(), 'recording')
+        if len(code) != PROGRAM_SIZE or struct.unpack_from('<I', code, MAGIC_ADDRESS - CODE)[0] != MAGIC:
+            raise ValueError('the recording program must end with its four state words')
+        hooks = []
+        for address, destination in zip(addresses, (AFTER_INPUT, AFTER_GAIN)):
+            hook = assemble(f'.text\nP1.H = {destination >> 16:#x}; P1.L = {destination & 65535:#x}; JUMP (P1);\n', f'hook_{address:x}')
+            # GNU pads a Blackfin text section to four bytes.
+            if len(hook) == 12 and hook[10:] == b'\0\0':
+                hook = hook[:10]
+            if len(hook) != 10:
+                raise ValueError('the DSP redirect must replace exactly 10 bytes')
+            hooks.append((address, hook))
+        return {'code': code, 'hooks': hooks}
+
+
+def host_word_loads(code):
+    """Offsets of `Rn = [P1 + 12]` (16-bit LDSTii) in the taps, P1 being STATE: a load of the word the ARM writes.
+
+    0x01F00000 is write-through cacheable in the DSP's data CPLB table, so a host-port write there does not reach a
+    line the DSP already holds, and a tap gated on it reads the stale value for good (silent takes, 2026-11-24)."""
+    return [i for i in range(0, min(len(code), STATE - CODE) - 1, 2)
+            if struct.unpack_from('<H', code, i)[0] & 0xFFF8 == 0xA0C8]
+
+
+def file_offset(address):
+    return address - 0xC0000000 + 0x100
+
+
+def build_patch(vsb, program, build='hacktribe'):
+    config = configuration(build)
+    if len(vsb) != 0x200100:
+        raise ValueError('a sampler VSB has 0x200100 bytes')
+    blocks = list(dsp_extract.parse(vsb, start=config['stream'], length=config['length']))
+    if blocks[-1][1] != file_offset(config['final']):
+        raise ValueError('the DSP boot stream has a different final header')
+    for _, _, flags, target, count, _, _ in blocks:
+        if not flags & dsp_extract.F_IGNORE and target < CODE + PROGRAM_SIZE and CODE < target + count:
+            raise ValueError('a DSP boot block already uses the recording program area')
+    for index in range(16):
+        offset = payload_offset(blocks, HEAP_TABLE + index * 12)
+        if offset is None:
+            raise ValueError('the DSP heap table is missing')
+        base, length, ident = struct.unpack_from('<III', vsb, offset)
+        if (base, length, ident) == (0, 0, 0):
+            break
+        # Include the terminal byte under either allocator length convention.
+        if base < CODE + PROGRAM_SIZE and CODE < base + length + 1:
+            raise ValueError('a DSP allocator heap overlaps the recording program area')
+    else:
+        raise ValueError('the DSP heap table has no terminator')
+    end_header = boot_header(0x8001, 0xFFA00000)
+    start = file_offset(config['final'])
+    if vsb[start:start + 16] != end_header:
+        raise ValueError('the final DSP header is not the sampler entry point')
+    payload = program['code']
+    if len(payload) != PROGRAM_SIZE:
+        raise ValueError('unexpected recording program size')
+    tail = boot_header(1, CODE, len(payload)) + payload + end_header
+    growth = len(tail) - 16
+    if config['final'] + 16 + growth > config['reserve_end']:
+        raise ValueError('the DSP boot append overlaps the preset table reserve')
+    if vsb[start + 16:start + len(tail)] != b'\xFF' * growth:
+        raise ValueError('the DSP boot append area is occupied')
+    length_at = file_offset(config['length_word'])
+    old_length = struct.unpack_from('<I', vsb, length_at)[0]
+    if old_length != config['length']:
+        raise ValueError('unexpected DSP upload length')
+    changes = []
+
+    def change(offset, data, note):
+        changes.append({'file': offset, 'bytes': data.hex(),
+                        'expect': hashlib.sha256(vsb[offset:offset + len(data)]).hexdigest(), 'note': note})
+
+    hooks = program['hooks']
+    if len(hooks) != 2 or {address for address, _ in hooks} != set(config['hooks']):
+        raise ValueError('the recording program needs both DSP redirects')
+    for address, data in hooks:
+        offset = payload_offset(blocks, address)
+        if offset is None or len(data) != 10 or hashlib.sha256(vsb[offset:offset + 10]).hexdigest() != config['hooks'][address]:
+            raise ValueError(f'the DSP instructions at {address:#x} do not match firmware 2.02')
+        change(offset, data, f'DSP {address:#x}: recording tap redirect')
+    change(start, tail[:16], 'load descriptor for the own recording DSP block')
+    change(start + 16, tail[16:], 'own recording DSP code, zeroed control words, marker and final boot header')
+    change(length_at, struct.pack('<I', old_length + growth), 'include the recording block in the DSP upload length')
+    return {'format': 'gelumpe-patch', 'version': 1, 'id': config['id'],
+            'name': 'Aufnahme-Abgriff nach THRU ohne Metronom', 'builds': config['builds'],
+            'changes': changes,
+            'startPhase': [dict(file=length_at, length=4, why='Der DSP-Uploader liest beim Start die Ladelänge einschließlich des eigenen Aufnahmeblocks.')],
+            'sources': {f'tools/patch/recording_dsp{suffix}': hashlib.sha256(Path(__file__).with_suffix(suffix).read_bytes()).hexdigest()
+                        for suffix in ('.py', '.s')},
+            'ram': [],
+            'dspMemory': [area(CODE, PROGRAM_SIZE, 'recording code, four control words and a program marker in DSP SDRAM',
+                               'tools/patch/recording_dsp.py:CODE')]}
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('--vsb', type=Path, required=True)
+    ap.add_argument('--build', choices=('hacktribe', 'stock', 'synth'), default='hacktribe')
+    ap.add_argument('--as', dest='assembler', default=os.environ.get('BFIN_AS', 'bfin-elf-as'))
+    ap.add_argument('--objcopy', default=os.environ.get('BFIN_OBJCOPY', 'bfin-elf-objcopy'))
+    ap.add_argument('--out', type=Path, required=True)
+    args = ap.parse_args()
+    program = assemble_program(args.assembler, args.objcopy, args.build)
+    args.out.write_text(json.dumps(build_patch(args.vsb.read_bytes(), program, args.build), indent=1) + '\n')
+
+
+if __name__ == '__main__':
+    main()

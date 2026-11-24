@@ -845,7 +845,8 @@ def doom_cases(payload, flash, part=None):
     loader opens. The real doom.bin of third_party/doom is written in blocks onto a card that has no Doom folder yet, read back over SysEx
     and compared byte for byte on the card image; doom.wad is written past the size limit of a VSB (the whole 28 MB file would take hours
     over the emulated DIN line, so the start of the real file and a block far behind it), read back, made anew by a block at 0. A write
-    and a read with bits 31, 30 and 29 (no file) are refused, so are offsets past the limit; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
+    with bits 31, 30 and 29 is refused, so are offsets past the limit; a read with them is FILE_REC (rec_read_cases), here the list of a
+    card without SD:Recordings; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
     import fat32
     from sdcard import MemoryMedium, SDCard
     BIN, WAD = spec.FILE_DOOM, spec.FILE_DOOM | spec.FILE_OTHER
@@ -931,8 +932,8 @@ def doom_cases(payload, flash, part=None):
     both_read = lk.file_read(spec.FILE_DOOM | spec.FILE_SAMPLE | spec.FILE_OTHER | 0, 0)
     beyond, _ = lk.file_write(BIN | (spec.SAMPLE_LIMIT - 5), b"x" * 10)
     statuses = [r and r["status"] for r in (both, both_read, beyond)]
-    out.append(entry("doom_refusals", statuses == [RANGE, RANGE, RANGE] and on_card(dev, vsb) == system and on_card(dev, "KORG/blechtribe/Sample/e2sSample.all") is None,
-                     f"bits 31, 30 and 29 written and read, past the limit: {statuses}; SYSTEM.VSB unchanged, no sample file made"))
+    out.append(entry("doom_refusals", statuses == [RANGE, spec.STATUS_FILE, RANGE] and on_card(dev, vsb) == system and on_card(dev, "KORG/blechtribe/Sample/e2sSample.all") is None,
+                     f"bits 31, 30 and 29 written, read (FILE_REC, no SD:Recordings), past the limit: {statuses}; SYSTEM.VSB unchanged, no sample file made"))
     if part in (None, "bin"):
         nocard, lk2 = device(card=False)
         r = lk2.file_read(BIN | 0, 0)
@@ -1044,6 +1045,67 @@ def fx_read_cases(payload, flash):
     return out
 
 
+def rec_read_cases(payload, flash, prefix="rec"):
+    """FILE READ with bits 31, 30 and 29: the native recording's takes in SD:Recordings, through the firmware's own FatFs. The list
+    (number 0) gives number and size of every REC####.WAV in 8 bytes, a take reads in blocks equal to the card, a missing folder
+    STATUS_FILE, and no other FILE command takes the selector, so the card keeps every take. STATUS_BUSY for the take being
+    written needs a running take's context (a forged one crashes the recorder): tools/patch/test_blech_sysex_buffer.py."""
+    import fat32
+    from sdcard import MemoryMedium, SDCard
+    REC = spec.FILE_REC
+    takes = {3: bytes((i * 29 ^ i >> 7) & 255 for i in range(spec.MAX_BLOCK + 4321)), 11: b"RIFF" + bytes(40)}
+    out = []
+
+    def device(files):
+        dev = Dev(payload, flash, 0)
+        img = fat32.format_image(64 * 1024 * 1024)
+        vol = fat32.Volume(img)
+        for name, body in files.items():
+            vol.write(name, body)
+        vol.close()
+        dev.m.insert_card(SDCard(MemoryMedium(bytearray(img))))
+        dev.run(1.0)
+        lk = Link(dev)
+        lk.find_channel()
+        return dev, lk
+
+    def read(lk, number, offset, n):
+        return lk.file_read(REC | offset // 8, number << 16 | n)
+
+    files = {f"Recordings/REC{n:04d}.WAV": body for n, body in takes.items()}
+    files["Recordings/NOTES.TXT"] = b"not a take"
+    dev, lk = device(files)
+    listing = read(lk, 0, 0, 64)
+    entries = listing and listing["status"] == OK and [struct.unpack_from("<II", listing["data"], i) for i in range(0, listing["length"], 8)]
+    want = sorted((n, len(body)) for n, body in takes.items())
+    out.append(entry(f"{prefix}_list", entries is not False and sorted(entries) == want and listing["size"] == 8 * len(takes) and listing["crc_ok"],
+                     f"list of SD:Recordings: {entries} (want {want}), size {listing and listing['size']}"))
+    data = takes[3]
+    size = read(lk, 3, 0, 0)
+    parts = [read(lk, 3, at, min(spec.MAX_BLOCK, len(data) - at)) for at in range(0, len(data), spec.MAX_BLOCK)]
+    back = b"".join(r["data"] for r in parts if r and r["status"] == OK and r["crc_ok"])
+    out.append(entry(f"{prefix}_read", size and size["status"] == OK and size["size"] == len(data) and back == data and not dev.m.asserts,
+                     f"REC0003.WAV of {len(data)} bytes: size {size and size['size']}, read back in {len(parts)} blocks equal: {back == data}"))
+    at = (len(data) - 100) & ~7   # the offset counts in 8 bytes
+    tail = read(lk, 3, at, 4096)
+    out.append(entry(f"{prefix}_tail", tail and tail["status"] == OK and tail["offset"] == at and tail["data"] == data[at:] and tail["crc_ok"],
+                     f"a read past the end gives the last {tail and tail['length']} bytes"))
+    missing = read(lk, 4, 0, 16)
+    out.append(entry(f"{prefix}_missing_take", missing and missing["status"] == spec.STATUS_FILE,
+                     f"REC0004.WAV is not on the card: status {missing and missing['status']}"))
+    b, _ = lk.file_write(REC | 0, b"x" * 10)
+    copy, delete, crc = lk.file_copy(REC, spec.FILE_SAMPLE, 16), lk.file_delete(REC), lk.file_crc(REC, 16)
+    after = fat32.Volume(dev.m.mmc.card.medium.data)
+    kept = all(after.read(f"Recordings/REC{n:04d}.WAV") == body for n, body in takes.items())
+    out.append(entry(f"{prefix}_read_only", b and b["status"] == RANGE and all(r and r["status"] != OK for r in (copy, delete, crc)) and kept,
+                     f"FILE BEGIN {b and b['status']}, COPY {copy and copy['status']}, DELETE {delete and delete['status']}, CRC {crc and crc['status']}; takes unchanged: {kept}"))
+    dev2, lk2 = device({})
+    none = read(lk2, 0, 0, 8)
+    out.append(entry(f"{prefix}_no_folder", none and none["status"] == spec.STATUS_FILE and not dev2.m.asserts,
+                     f"no SD:Recordings: status {none and none['status']}"))
+    return out
+
+
 def sample_kill_switch_cases(payload, flash):
     """sample_cases with EXIT held at power-on, a group of its own: each of its four requests waits 120 s for no answer."""
     return sample_cases(payload, flash, held_only=True)
@@ -1147,7 +1209,7 @@ def case_dev_mode(payload, flash, vectors=None):
 
 
 GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, file_cases, sample_cases, sample_kill_switch_cases,
-          case_stream, doom_bin_cases, doom_wad_cases, fx_read_cases, case_dev_mode)   # each its own task in check.py
+          case_stream, doom_bin_cases, doom_wad_cases, fx_read_cases, case_dev_mode, rec_read_cases)   # each its own task in check.py
 VECTOR_GROUPS = (case_protocol, case_dev_mode)
 
 
@@ -1192,6 +1254,7 @@ def synth_cases(payload, flash):
         out.extend(file_cases(payload, flash))
         out.extend(sample_cases(payload, flash))
         out.extend(case_stream(payload, flash))
+        out.extend(rec_read_cases(payload, flash, "synth_rec"))
         return out
     finally:
         MODEL = 0x24

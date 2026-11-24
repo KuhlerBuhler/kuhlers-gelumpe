@@ -1,8 +1,11 @@
-; The blue Electribe has no native capture start (docs/messungen/2026-11-07-spettro.md): korg.audio.capture, spectrum and wave
-; return 6 (not on this Electribe) and leave the array as it is.
+; Plugin capture, spectrum and wave are unavailable on the synth; native recording owns its separate 0x37 adapter.
 script_audio_capture_glue:
 script_audio_spectrum_glue:
 script_audio_wave_glue:
     mov r0, #6
     mov r1, #ERR_OK
     bx lr
+
+audio_service:
+    bx lr
+audio_service_end:

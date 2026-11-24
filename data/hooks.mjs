@@ -11,7 +11,7 @@
  * two built patches.
  */
 export const CHAINS = {
-  // korg.audio (tools/patch/script_audio_service.s): CommandTask's call of its command handler, the service runs after it
+  // Audio capture and recording (tools/patch/recording_command.s) run after the native CommandTask handler
   "command-task": [{ id: "task-service", sites: [0xC002A628] }],
   "start": [
     { id: "after-flash-mark", sites: [0xC00289D8, 0xC0025E48] },   // the second is the synth build's
