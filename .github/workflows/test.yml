@@ -118,6 +118,25 @@ jobs:
       - run: |
           [ "${{ needs.browser-part.result }}" = success ] || { [ "${{ needs.browser-part.result }}" = skipped ] && [ "${{ needs.changes.result }}" = success ] && [ "${{ needs.changes.outputs.suites }}" = false ]; }
 
+  # The Blackfin worker tests (tools/emu/test_blackfin_*.py) against the QEMU worker. Without a worker they skip
+  # themselves (test/blackfin-backend.test.mjs runs them that way), so only this job tests the executed DSP code;
+  # qemu_worker_tests.sh fails on a skip that tools/dsp/qemu_gnu_only.txt does not list. The worker comes from the
+  # cache of firmware-check.yml (key: tools/dsp/**) and is built here when the cache has none.
+  dsp:
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.dsp == 'true') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - run: python3 -m pip install -r tools/emu/requirements.txt
+      - id: worker
+        uses: ./.github/actions/dsp-worker
+        with:
+          build: "true"
+      - run: '[ "${{ steps.worker.outputs.found }}" = true ]'
+      - run: tools/dsp/qemu_worker_tests.sh alle
+
   # What a pull request touches. When this job fails, everything runs.
   changes:
     if: github.event_name == 'pull_request'
@@ -127,6 +146,7 @@ jobs:
       pull-requests: read
     outputs:
       native: ${{ steps.filter.outputs.native }}
+      dsp: ${{ steps.filter.outputs.dsp }}
       suites: ${{ steps.filter.outputs.suites == 'true' || steps.documents.outputs.other == 'true' }}
     steps:
       # A file counts as "other" when it matches every pattern: outside Markdown, thoughts/ and .github/.
@@ -171,6 +191,14 @@ jobs:
               - 'site/app/midi.mjs'
               - 'package.json'
               - 'package-lock.json'
+              - '.github/workflows/test.yml'
+            # what the Blackfin worker tests build or run (job dsp)
+            dsp:
+              - 'tools/dsp/**'
+              - 'tools/emu/blackfin_*.py'
+              - 'tools/emu/test_blackfin_*.py'
+              - 'tools/emu/requirements.txt'
+              - '.github/actions/dsp-worker/**'
               - '.github/workflows/test.yml'
 
   # native-midi is not a required check; a pull request that touches nothing it builds or runs skips it.
