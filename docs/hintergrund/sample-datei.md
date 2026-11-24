@@ -1,6 +1,6 @@
 # Die Sample-Datei `e2sSample.all` und die Seite Samples
 
-Stand 2026-10-25. Das Format ist aus dem Export der Firmware und aus eigenen Dateien im Emulator belegt
+Die Datei [`e2sSample.all`](../glossary.md#e2ssampleall) sammelt alle Samples der Karte. Das Format ist aus dem Export der Firmware und aus eigenen Dateien im Emulator belegt
 ([virtuelle-sd.md](virtuelle-sd.md), [Sample-Fehler](../messungen/2026-10-15-sample-fehler.md),
 [Metadaten](../messungen/2026-10-07-sample-metadaten-ram.md)). Die Samples in den Tests sind eine Formel, kein Korg-Sample.
 Der Code dazu steht in `src/sample-file.mjs`, die Seite in `site/app/sampleset.mjs` (`BLECHTRIBE -> Samples`).
@@ -60,10 +60,10 @@ Kartenleser läuft der Plan im Speicher (`applyPlan`).
 
 ## Der Weg übers Kabel (SysEx)
 
-**gemessen im Emulator** ([Messung](../messungen/2026-10-26-sample-datei-sysex.md)), am Gerät **nicht** gemessen. Die FILE-Befehle von
-BLECHTRIBE (`0x65` FILE READ, `0x66` FILE BEGIN, `tools/patch/blech_sysex.py`) erreichten vorher nur `SYSTEM.VSB` und `ORIGINAL.BIN` im
-Ordner der Firmware (Bit 31 des Offsets wählt), dazu `0x67` PLUGIN BEGIN eine Plugin-Datei, mit Offset plus Länge bis `0x200100`.
-`e2sSample.all` war in keinem der Ordner `electribe sampler`, `hacktribe` und `blechtribe` erreichbar. Jetzt gilt:
+**gemessen im Emulator** ([Messung](../messungen/2026-10-26-sample-datei-sysex.md)), am Gerät **nicht** gemessen. Die Seite erreicht
+die Datei über BLECHs [SysEx](../glossary.md#sysex)-Befehle (`tools/patch/blech_sysex.py`). `0x65` FILE READ und `0x66` FILE BEGIN
+erreichen `SYSTEM.VSB` und `ORIGINAL.BIN` im Ordner der Firmware (Bit 31 des Offsets wählt), `0x67` PLUGIN BEGIN eine
+Plugin-Datei, mit Offset plus Länge bis `0x200100`. Für die Sample-Datei gelten diese Erweiterungen:
 
 | Befehl | Was er tut |
 |---|---|

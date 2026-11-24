@@ -1,12 +1,11 @@
 # Sequencer-Timing: Auflösung, MIDI-Clock, Tempo
 
-Stand 2026-10-24, Entwurf. Hintergrund zur Frage, wie fein der Sequencer intern rechnet, wie die MIDI-Clock
-entsteht und wie genau sie ist, wie die Firmware einer externen Clock folgt und was ein Patch daran verbessern
-könnte. Alle Adressen gelten für Korg electribe sampler, Firmware 2.02 mit Hacktribe.
+Hintergrund zur Frage, wie fein der Sequencer intern rechnet, wie die MIDI-Clock
+entsteht und wie genau sie ist, wie die Firmware einer externen Clock folgt. Alle Adressen gelten für Korg electribe sampler, Firmware 2.02 mit Hacktribe.
 
 Grundlage: offline gelesener Code der eigenen `SYSTEM.VSB` (Disassembly nur im Scratch, nicht im Repository),
 der Emulator (`tools/emu`, Unicorn 2.1.4) mit dem eigenen Flash-Dump vom 9.10. und eine passive Messung am Gerät
-(USB-MIDI am Linux-Laptop, nur gelesen, nichts gesendet). Das Messskript ist
+(USB-MIDI, nur gelesen, nichts gesendet). Das Messskript ist
 [`tools/emu/seq_timing_probe.py`](../../tools/emu/seq_timing_probe.py); es schreibt nur in den RAM des Emulators.
 
 Markierungen: **gemessen** (im Emulator oder am Gerät ausgeführt und gesehen, dann steht "Gerät"), **offline**
@@ -14,7 +13,7 @@ Markierungen: **gemessen** (im Emulator oder am Gerät ausgeführt und gesehen, 
 
 Verwandt: [skript-laufzeit.md](skript-laufzeit.md) (Tasks, SeqTask, Haken), [patternwechsel.md](patternwechsel.md)
 (Clock über den Patternwechsel), [../messungen/2026-10-12-emulator-takt.md](../messungen/2026-10-12-emulator-takt.md)
-(`SLICE`).
+(Emulator-Takt).
 
 ## Kurzfassung
 
@@ -31,53 +30,14 @@ Verwandt: [skript-laufzeit.md](skript-laufzeit.md) (Tasks, SeqTask, Haken), [pat
   saubere 120-BPM-Clock wird zu 119,05 / 125,0 BPM von Puls zu Puls, 0,5 ms Eingangsjitter zu 113,6 bis
   125,1 BPM. Die Schritte bleiben trotzdem im Mittel synchron, weil Ticks je Puls freigegeben werden.
 - **Tempo**: Bedienung und Pattern in 0,1 BPM (20,0 bis 300,0), der Taktgeber intern in 0,01 BPM.
-- **Patch-Kandidaten** (alle nur hergeleitet): Clock-Eingang mit dem freilaufenden Timer zeitstempeln und
-  mitteln (größter Gewinn), F8 am Ring vorbei direkt senden, SeqTask oder Taktgeber feiner takten,
-  Mindest-Gate.
 
-## Belegtabelle
+## Messen
 
-Befehle relativ zum Repository, `P` steht für
-`tools/emu/.venv/bin/python tools/emu/seq_timing_probe.py --vsb hacktribe-original.VSB --flash flash_full_2026-10-09.bin`.
-
-| Aussage | Status | Beleg |
-|---|---|---|
-| 1-kHz-Interrupt kommt von Timer 0 (24 MHz, PRD 23999, INT 21) | gemessen (Emulator, Register) + offline | Register nach dem Boot; Handler `0xC0025798` |
-| Der Handler schiebt den Taktgeber `0xC0340380` um 10^9 ps je Interrupt und löst bis zu 21 fällige Ticks aus | offline | `0xC002BC80`, Prüfung `0xC002BB10` |
-| Ein Tick wird ausgelöst, sobald er vor dem nächsten Interrupt fällig wäre, also bis zu 1 ms zu früh; der Rest (auch negativ) wird mitgetragen | offline | `0xC002BB10` (Vergleich mit Periode minus 10^9 ps + 1) |
-| Periode je Tick = 2604166666600 / (BPM x 100) ps, ganzzahlig; 2604166666600 ist 60 x 10^12 x 100 / 2304 (gekürzt) | offline + gemessen | `0xC002BA7C`; `P clock --tempo 1200` liest 217013888 ps |
-| Damit 2304 Ticks je Viertel | hergeleitet + gemessen | SeqTask bekommt 6144 Einheiten/s bei 160 BPM (`P clock --tempo 1600`: 12 oder 13 je 2 ms) |
-| SeqTask läuft alle 2,00 ms (1,97 bis 2,03) in Task-Kontext, holt die Ticks über den Zähler `0xC0340370+4`, höchstens 96 je Aufruf, Rest wird nachgeholt | gemessen + offline | `P clock`: `interval_ms`, `mode` 19 (SYS), `units` 12/13/19; Poll `0xC005F2E8` |
-| Engine `0xC005E914` teilt durch 6 / 3 / 8 / 4 (Beat 16tel / 32tel / 8tel-Triole / 16tel-Triole) und zählt 96 Sequencer-Ticks je Step | offline | Tabelle `0xC00E2DDC`, Zähler `0xC068FC80` |
-| Noten der Engine liegen auf dem 2-ms-Raster der SeqTask: bei 133,3 BPM streuen sie gleichmäßig über 2 ms, bei 120 BPM abwechselnd -1,98 / -1,0 ms gegen das ideale Raster | gemessen | `P notes --tempo 1333`, `P notes --tempo 1200` |
-| Eine Note kommt 0,07 bis 0,1 ms oder 1,06 bis 1,09 ms nach der Clock ihres Steps | gemessen | `P notes`: `note_on_after_last_clock_ms` |
-| MIDI-Clock: alle 96 Ticks im Interrupt, `0xC0025DC0` -> `0xC0027EE0(…, 0xF8, 0)` an DIN und USB | offline | `0xC0025DC0` |
-| Clock-Abstände sind ganze Millisekunden: 120 BPM 20/21 ms (Mittel 20,834), 133,3 BPM 18/19, 160 BPM 15/16, 300 BPM 8/9, 20 BPM 125,0 | gemessen | `P clock --tempo 1200 / 1333 / 1600 / 3000 / 200 --seconds 8` |
-| Keine Drift: Abweichung von der idealen Clock bleibt über 8 s in einem 1-ms-Fenster (z. B. 0 bis 0,83 ms bei 120, -0,92 bis 0,08 bei 133,3) | gemessen | dieselben Läufe, `drift_ms_min_max` |
-| Rundungsfehler des Tempos höchstens 9,3 ns je 4/4-Takt (bei 25,3 BPM), über alle 2801 Tempi | hergeleitet | Rechnung mit der Formel aus `0xC002BA7C` (Python, im Scratch) |
-| Clock geht auch im Stopp raus | gemessen (Emulator und Gerät) | Emulator: 128 F8 in 2 s bei 160 BPM ohne PLAY; Gerät: USB-Clock ohne Bedienung |
-| DIN-Clock und Noten teilen sich einen Ringpuffer (`0xC033E5FC`), F8 wird hinten angehängt, kein Vorrang | offline | `0xC0024D04` (Echtzeit), `0xC0024BF4` (Nachrichten), beide auf `0xC033E5FC` |
-| In den gemessenen Pattern wurde keine Clock hinter Noten verzögert (Noten folgen der Clock im selben ms) | gemessen | `P notes --bank 221` (8 Parts): `late_clocks` 0; MIDI-Note bis 3,9 ms nach dem Engine-Aufruf |
-| Schlimmster Fall: ein F8 wartet hinter allen gepufferten Bytes, 0,32 ms je Byte (31250 Baud) | hergeleitet | aus dem Ringpuffer, nicht provoziert |
-| Gerät, USB, 160 BPM, gestoppt: Abstände in zwei Gruppen um 14,0 und 16,0 ms (19 % / 81 %), Mittel 15,62 ms | gemessen (Gerät) | passives Lesen von `/dev/snd/midiC2D0` auf dem Linux-Laptop, 385 Clocks |
-| Gerät gegen die Uhr des Laptops: +32 ppm (15,6255 ms statt 15,625), Restfehler -1,3 bis +2,8 ms | gemessen (Gerät) | 60 s, 3841 Clocks, Regression |
-| Woher das 2-ms-Raster auf USB kommt | offen | USB-Weg `0xC00251A8` (Ringpuffer `0xC034040C`), Treiber nicht gelesen |
-| Swing in 1/96 Step: +48 verschiebt ungerade Steps um 62,9 ms bei 120 BPM (ideal 62,5), +24 um 32,9, -48 um -61,1, +1 um 2,9 (2-ms-Raster) | gemessen | `P notes --swing 48 / 24 / -48 / 1` |
-| Swing dehnt den geraden Step und staucht den ungeraden, das Gate folgt der gedehnten Länge (Gate 48 bei Swing +48: 94 / 30 ms statt 62,5) | gemessen | `P notes --swing 48 --gate 48` |
-| Gate in 1/96 Step: Gate 48 = 61,96 / 63,93 ms bei 120 BPM (ideal 62,5); Gate 2 = 0,13 / 1,96 / 3,93 ms; Gate 1 = 0,01 / 1,93 ms | gemessen | `P notes --gate 48 / 2 / 1` |
-| Groove-Templates verschieben in 96 Einheiten je Step | hergeleitet | Karte `groove.offset` (derived) und Engine-Teiler 96 |
-| Motion Sequence: ein Wert je Step; wie "Smooth" zwischen den Steps interpoliert | offen (Werte je Step: korg-spec in der Karte) | nicht gemessen |
-| Tempo in Bedienung und Pattern 0,1 BPM, 20,0 bis 300,0; Taktgeber intern 0,01 BPM (nimmt 2000 bis 30000) | offline + Karte | `0xC002B988` (x10), `0xC002BA7C` (Bereich); `pattern.tempo` (measured) |
-| Clock-Modi 0 Internal, 1 Auto, 2 External USB, 3 External MIDI, 4 External Sync (Global-Byte +44) | hergeleitet | Verzweigungen in `0xC002BBA4`, `0xC0026BE8`, Menütexte |
-| F8-Empfang `0xC0026DDC` läuft in Task-Kontext, nicht im Interrupt | gemessen | `P ext`: `pulse_mode` 19 |
-| Folger `0xC002C1C4`: Pulsabstand aus der Zeit des Taktgebers (wächst nur in 1-ms-Schritten), Periode = Abstand / 96, kein Mittelwert; erster Puls nach START/CONTINUE setzt kein Tempo | offline | `0xC002C1C4`, Aufrufe in `0xC0026DDC` |
-| Grenzen im Folger: unter 10 BPM -> 120 BPM, 10 bis 20 -> 20, 300 bis 320 -> 300, 320 bis 1000 -> 120, über 1000 ignoriert | offline | Konstanten bei `0xC002C358` ff. |
-| Ticks werden je Puls um 96 freigegeben (`0xC002C138`), fehlende werden beim nächsten Puls nachgeholt | offline | `0xC002C310` ff. |
-| Externe Clock 120 BPM exakt -> Tempo je Puls 119,0 bis 125,0 (Mittel 120,05); 133,3 -> 131,5 bis 138,9; 300 -> 277,8 / 300,0; 120 mit ±0,5 ms Jitter -> 113,6 bis 125,1 | gemessen | `P ext --ext-bpm 120 / 133.3 / 300`, `P ext --ext-bpm 120 --jitter-us 500` |
-| Noten folgen der externen Clock 1 bis 2 ms nach dem Puls | gemessen | `P ext`: `note_after_nearest_in_clock_ms` |
-| Bei External MIDI geht keine Clock auf DIN raus | gemessen + offline | `P ext`: `clock_out` 0; `0xC002BBA4` Fall 2/3 ruft `0xC0025DC0` nicht |
-| Sync Out: Teiler im Interrupt (`0xC033E718`), Pulslänge als ms-Zähler | offline | `0xC0028FA0`, `0xC0028FEC`; Pulsbreite und Polarität offen |
-| Wie hörbar das 2-ms-Raster ist (Audio-Auslösung im DSP) | offen | DSP ist im Emulator eine Attrappe |
+`tools/emu/seq_timing_probe.py` fährt die Messungen im Emulator (es schreibt nur in dessen RAM): `clock` (Abstände der
+MIDI-Clock je Tempo), `notes` (Noten, Swing und Gate gegen das ideale Raster) und `ext` (externe Clock). Aufruf:
+`tools/emu/.venv/bin/python tools/emu/seq_timing_probe.py --vsb <VSB> --flash <Flash-Dump> clock --tempo 1200 --seconds 8`
+(Tempo in 0,1 BPM). Die Messung am Gerät lief passiv: USB-MIDI am Linux-Rechner, nur lesen, 160 BPM gestoppt, 385 Clocks,
+dann 60 s mit 3841 Clocks gegen die Uhr des Rechners.
 
 ## 1. Interne Auflösung
 
@@ -189,41 +149,3 @@ daraus 0,01 BPM, `0xC002BA7C` nimmt 2000 bis 30000 und setzt die Periode
 (24 MHz / 24000), der Rest im Taktgeber wird mitgetragen: über 8 s bleibt die Clock bei allen gemessenen Tempi
 in einem 1-ms-Fenster um die ideale Zeit (**gemessen**). Die wirkliche Genauigkeit bestimmt der Quarz: am Gerät
 +32 ppm gegen den Laptop, das sind 64 µs je Takt bei 120 BPM (**gemessen**, Gerät).
-
-## 4. Was ein Patch verbessern könnte
-
-Alles hier ist **hergeleitet**, nichts gebaut. Reihenfolge nach Nutzen.
-
-1. **Clock ein genau messen und glätten.** Den Pulszeitpunkt nicht aus dem 1-ms-Taktgeber nehmen, sondern aus
-   einem freilaufenden Zähler (Timer 0 zählt mit 24 MHz, der Timer bei `0x01F0D000` mit 150 MHz und 1 s
-   Periode, sein Interrupt ist aus; beides **gemessen** im Emulator) und die Periode über 24 Pulse mitteln oder
-   mit einer einfachen PLL nachführen. Das nimmt den Sprung 119/125 BPM weg (Raster 41 ns statt 1 ms). Eingriff:
-   der Folger `0xC002C1C4`, ein Haken.
-2. **F8 am Ring vorbei.** Ist der DIN-Sender frei, das F8 direkt ins Senderegister schreiben, sonst an den Anfang
-   des Rings. MIDI erlaubt Echtzeit-Bytes zwischen den Bytes einer Nachricht. Nimmt die Wartezeit hinter Noten
-   (0,32 ms je Byte) weg, nicht das 1-ms-Raster.
-3. **Feineres Raster für Ticks und Clock.** Den Taktgeber in einem eigenen, schnelleren Timer-Interrupt rechnen
-   (zum Beispiel 10 kHz, Zuwachs 10^8 ps), die übrigen Aufgaben im 1-kHz-Handler (Zähler, Sync-Pulslänge
-   und zwei weitere Aufrufe, nicht gelesen) unverändert lassen. Die Clock auf DIN käme dann auf 0,1 ms genau. Risiko: mehr Interruptlast,
-   und für Noten bringt es nichts, solange die SeqTask im 2-ms-Takt abholt.
-4. **SeqTask im 1-ms-Takt.** Halbiert den Notenjitter (2 ms -> 1 ms). Die SeqTask hängt am 500-Hz-Takt der
-   PeriodicTask; ein schnellerer Takt kostet CPU in einer Task mit Priorität 2 (siehe
-   [skript-laufzeit.md](skript-laufzeit.md)). Ob das hörbar besser ist, hängt davon ab, wann der DSP die Note
-   auslöst (**offen**).
-5. **Mindest-Gate.** Note-Off nicht im selben Durchlauf wie die Note-On schicken (Gate 1 und 2 werden heute zu
-   0,01 ms). Klein, in der Engine.
-
-Feinere Swing- oder Gate-Werte als 1/96 Step brauchen nichts davon, die Auflösung ist schon da; begrenzt wird
-alles vom 2-ms-Raster.
-
-## Messung am Gerät für später
-
-Ohne Bedienung möglich (die Clock läuft auch im Stopp), nur lesen:
-
-- **DIN-Clock:** ein USB-MIDI-Interface am Linux-Laptop an MIDI OUT, `/dev/snd/midiC<n>D0` lesen und die
-  F8-Abstände wie oben auswerten. Erwartung: ganze Millisekunden (15/16 ms bei 160 BPM), nicht 14/16 wie auf USB.
-- **Noten-Jitter:** braucht PLAY durch den Nutzer und ein Pattern mit Noten auf jedem Step; dann Note-On gegen
-  F8 auf DIN. Erwartung: 0 bis 2 ms Streuung.
-- **Clock ein:** braucht Clock Mode External MIDI (Einstellung durch den Nutzer); dann vom Laptop nur F8, FA, FC
-  schicken (zum Beispiel exakt 120 BPM) und das angezeigte Tempo beobachten. Erwartung: es springt zwischen
-  119,0 und 125,0.

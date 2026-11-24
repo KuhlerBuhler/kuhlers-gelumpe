@@ -1,39 +1,30 @@
 # Gerätetests: Anleitungen für Tester
 
-Stand 2026-10-14. Alles, was in diesem Projekt bisher an der Electribe läuft, ist
-zum größten Teil im Emulator gemessen. Diese Anleitungen sind für Leute, die es an
-ihrer eigenen Electribe nachvollziehen und das Ergebnis melden. Jede Anleitung sagt
-vorher, was am Ende belegt sein soll, und trennt "am Gerät bestätigt" von "nur im
-Emulator gemessen" und "offen".
+Das meiste, was dieses Projekt an der Electribe tut, ist im Emulator gemessen. Diese Anleitungen sind für Leute, die
+es an ihrer eigenen Electribe nachvollziehen und das Ergebnis melden. Jede Anleitung sagt vorher, was am Ende belegt
+sein soll, und trennt "am Gerät bestätigt" von "nur im Emulator gemessen" und "offen".
 
-**Das Gerät wird dabei verändert.** Der Kartentest schreibt Code in den RAM und eine
-Datei auf die SD-Karte, der Test der BLECH-Datei spielt eine geänderte Firmware auf.
-Jede Anleitung beginnt mit einer Warnung und beschreibt den Weg zurück, bevor die
-Schritte kommen. Lies beides, bevor du anfängst. Machst du es, dann auf eigenes
-Risiko und ohne Gewähr.
+**Das Gerät wird dabei verändert.** Beide Anleitungen spielen eine geänderte Firmware auf. Jede beginnt mit einer
+Warnung und beschreibt den Weg zurück, bevor die Schritte kommen. Lies beides, bevor du anfängst. Machst du es, dann
+auf eigenes Risiko und ohne Gewähr.
 
 ## Die Anleitungen
 
-Reihenfolge einhalten: erst die Karte, dann die BLECH-Datei.
+Reihenfolge einhalten: erst die BLECH-Datei, dann die Sprache.
 
 | Anleitung | Was sie prüft | Gerät wird verändert |
 |---|---|---|
-| [karte.md](karte.md) | Die Dateifunktionen der Firmware lesen und schreiben eine kleine Datei auf der SD-Karte. Gehört vor alles, was Plugins von der Karte lädt. | RAM (einmaliger Probe-Code) und eine Datei auf der Karte, keine Firmware |
-| [live.md](live.md) | Patternwechsel mit Bestätigung, Ladebalken und eigenes Startbild, an der Firmware mit dem BLECH-Satz (nach der BLECH-Datei). | nichts, nur Karte und Bedienen |
-| [blech-datei.md](blech-datei.md) | Die Firmware mit dem BLECH-Satz (Startbild-Editor, MFX 2, Plugins von der Karte, Menü BLECH) wird über SOFTWARE UPDATE aufgespielt und durchgespielt. | Firmware im Flash, Karte |
-| [firmware-sprache.md](firmware-sprache.md) | Gerätemenüs auf Deutsch (Patch `lang-de`, Häkchen in Schritt 2 des Patchers): alle Seiten, Dialoge und Meldungen am Display, Update behält die Sprache. | Firmware im Flash |
-
-Wer nur den Kartentest macht, ändert keine Firmware. Die BLECH-Datei setzt voraus,
-dass der Kartentest am Gerät bestanden ist.
+| [blech-datei.md](blech-datei.md) | Die Firmware mit dem BLECH-Satz über SOFTWARE UPDATE aufspielen, den Notschalter prüfen, dazu SysEx, FLASH READ, HT OSC und CATEGORY am Gerät. | Firmware im Flash, Karte |
+| [firmware-sprache.md](firmware-sprache.md) | Gerätemenüs auf Deutsch (Patch `lang-de`): alle Seiten, Dialoge und Meldungen am Display, ein Update behält die Sprache. | Firmware im Flash |
 
 ## Was für alle Tests gilt
 
 - **Gerät:** Electribe 2 Sampler mit Firmware 2.02 und
-  [Hacktribe](https://github.com/bangcorrupt/hacktribe). Die Werkzeuge sind nur an
+  [Hacktribe](../glossary.md#hacktribe) ([Quelle](https://github.com/bangcorrupt/hacktribe)). Die Werkzeuge sind nur an
   diesem Stand gemessen, die Adressen verschieben sich bei einem anderen Stand. Die
   Werkzeuge prüfen die Firmware vorab und brechen bei einer Abweichung ab, ohne zu
   schreiben.
-- **Eigene Firmwaredatei:** Die `SYSTEM.VSB` kommt von dir. Es wird keine Firmware
+- **Eigene Firmwaredatei:** Die [`SYSTEM.VSB`](../glossary.md#vsb) kommt von dir. Es wird keine Firmware
   mitgeliefert und nichts davon hochgeladen. Auch Flash-Dumps, Pattern-Sicherungen
   und Samples bleiben bei dir. Gemeldet werden nur Textausgaben und Prüfsummen.
 - **Netzteil**, kein Batteriebetrieb, bei jedem Test. Beim Update ist stabiler Strom
@@ -72,9 +63,6 @@ im Projekt (offen: derzeit kein festgelegter Meldeweg).
 
 - [Plugins](../plugins.md): Sprache, Ereignisse, Dateien für die Karte, Menü BLECH
 - [Patcher](../patcher.md): wie die Firmwaredatei gebaut und geprüft wird, Notschalter
+- [Rettung](../rettung.md): welche Datei in welchen Ordner gehört, wenn das Gerät nicht startet
 - [Speicherbereiche](../speicherbereiche.md): was am Gerät wie geschützt ist
 - [Tastenkombinationen](../tastenkombinationen.md): Startmodi und gehaltene Tasten
-
-- [Doom auf BLECH v21: manueller Gerätetest](doom-v21.md)
-
-- [BLECHTRIBE 1.3: aktueller Bedien- und Displaytest](blech-1.3.md)
