@@ -22,6 +22,8 @@ import touch_scale_zero as spec  # noqa: E402
 from machine import UART1, load_flash  # noqa: E402
 from mfx_cases import Box, blank_for, press_seq  # noqa: E402
 from splash_cases import go_to_global  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 IMAGE = 0xC0000000
 TOUCH = 0xC06911E4                  # the touch scale object: +0x14 the range, +0x18 the keyboard's octave (synth from data/synth-map/)
@@ -292,7 +294,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -301,7 +302,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

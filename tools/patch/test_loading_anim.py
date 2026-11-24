@@ -10,6 +10,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools/patch"))
 import loading_anim  # noqa: E402
+import load_bar as lb  # noqa: E402
 
 # Moving blocks as progress, a small spinner as loop; prints the file and the pictures as hex.
 SCRIPT = """
@@ -90,7 +91,6 @@ class DefaultBlechy(unittest.TestCase):
     (load_bar.compose_reference, checked against the renderer by tools/art/loading/firmware_assets.py)."""
 
     def test_every_percent_and_finale_picture(self):
-        import load_bar as lb
         blob = (ROOT / "assets/blechy/loading.blla").read_bytes()
         self.assertIsNone(loading_anim.validate(blob))
         self.assertEqual(loading_anim.loop_from(blob), lb.FINALE_AT)

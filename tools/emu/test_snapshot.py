@@ -11,6 +11,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import machine  # noqa: E402
+import bootcache  # noqa: E402
+import fat32  # noqa: E402
+import sdcard  # noqa: E402
 
 VSB = os.environ.get("E2_VSB")
 REQUIRED = os.environ.get("E2_EMU_REQUIRED") == "1"
@@ -35,8 +38,6 @@ def digest(m):
 
 
 def card(files=None):
-    import fat32
-    import sdcard
     clock, fat32.clock = fat32.clock, lambda: 1767225600.0     # the same image every time
     try:
         img = fat32.format_image(64 * 1024 * 1024)
@@ -88,7 +89,6 @@ class SnapshotTest(unittest.TestCase):
         self.assertEqual(digest(m), digest(self.straight()))
 
     def test_the_boot_cache_gives_the_same_machine_from_memory_and_from_its_file(self):
-        import bootcache
         with tempfile.TemporaryDirectory() as folder:
             old = os.environ.get("GELUMPE_CACHE_DIR")
             old_switch = os.environ.pop("GELUMPE_CACHE", None)      # this test is about the cache, so it runs with it on
@@ -141,7 +141,6 @@ class SnapshotTest(unittest.TestCase):
                 self.assertEqual(digest(restored), digest(straight))
 
     def test_power_on_gives_the_machine_a_run_from_power_on_gives(self):
-        import bootcache
         files = {"/KORG/blechtribe/Sample/placeholder": b"1"}
 
         def started():
@@ -188,7 +187,6 @@ class SnapshotTest(unittest.TestCase):
                     os.environ["GELUMPE_CACHE"] = old_switch
 
     def test_a_card_on_a_folder_of_the_host_cannot_be_snapshotted(self):
-        import sdcard
 
         class Folder(sdcard.MemoryMedium):
             pass

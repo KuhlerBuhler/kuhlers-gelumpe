@@ -1,11 +1,22 @@
 """Build-specific check dispatch, with synthetic images only."""
+import hashlib
+import json
 import struct
+import tempfile
 import unittest
+from collections import Counter
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import sysex_cases
 import synthaddr
+import check
+import stage2_memory_check
+import tap_motion_cases as cases
+from dice_cases import DBox
+from machine import Machine
+from mfx_cases import Box
 
 
 class SynthChecks(unittest.TestCase):
@@ -32,8 +43,6 @@ class SynthChecks(unittest.TestCase):
 
 class Loading(unittest.TestCase):
     def test_loading_screen_is_specific_to_each_firmware(self):
-        from types import SimpleNamespace
-        from machine import Machine
         for build, loading in [('stock', 46), ('synth', 38)]:
             dev = SimpleNamespace(profile=SimpleNamespace(build=build), screen=lambda: loading)
             self.assertTrue(Machine.loading(dev))
@@ -46,8 +55,6 @@ class Loading(unittest.TestCase):
         self.assertFalse(Machine.loading(dev))
 
     def test_periodic_boot_observation_remembers_loading_across_the_screen_gap(self):
-        from types import SimpleNamespace
-        from machine import Machine
         dev = SimpleNamespace(profile=SimpleNamespace(build='synth'), screen=lambda: 38,
                               booted=False, time_ns=300_000_000)
         Machine._look_booted(dev)
@@ -60,7 +67,6 @@ class Loading(unittest.TestCase):
 
 class DspStream(unittest.TestCase):
     def test_synth_integrity_covers_the_program_prefix_missing_from_the_sampler_range(self):
-        import check
         base = bytes(0x200100)
         modified = bytearray(base)
         modified[0xDFC80] = 1
@@ -73,8 +79,6 @@ class DspStream(unittest.TestCase):
             self.assertFalse(check.same_dsp_program(base, modified)[0])
 
     def test_red_stream_takes_exactly_the_stage2_memory_instructions(self):
-        import check
-        import stage2_memory_check
         base = bytearray(0x200100)
         base[0x12A93C:0x12A93E] = b"\x06\x9e"
         site = [(0x12A93C, b"\x06\x9e", b"\x00\x9e", "stage 2 SDRAM")]
@@ -89,11 +93,6 @@ class DspStream(unittest.TestCase):
             self.assertFalse(check.same_dsp_program(bytes(base), bytes(patched))[0])
 
     def test_a_known_dsp_patch_passes_only_whole_and_on_the_bytes_it_expects(self):
-        import hashlib
-        import json
-        import tempfile
-        from pathlib import Path
-        import check
         base = bytes(0x200100)
         at = (0x100000, 0x100100)
         with tempfile.TemporaryDirectory() as root:
@@ -121,9 +120,6 @@ class DspStream(unittest.TestCase):
 
 class DiceFlash(unittest.TestCase):
     def test_dice_tracks_write_commands_since_boot_even_if_the_image_stays_the_same(self):
-        from collections import Counter
-        from types import SimpleNamespace
-        from dice_cases import DBox
         box = object.__new__(DBox)
         box.m = SimpleNamespace(flash=SimpleNamespace(commands=Counter({0x20: 1, 0x02: 16}), dirty=True))
         before = box.flash_writes()
@@ -133,8 +129,6 @@ class DiceFlash(unittest.TestCase):
         self.assertNotEqual(box.flash_writes(), before)
 
     def test_dice_checks_every_flash_byte_including_the_firmware(self):
-        from types import SimpleNamespace
-        from dice_cases import DBox
         box = object.__new__(DBox)
         box.m = SimpleNamespace(flash=SimpleNamespace(mem=bytearray(0x1000000)))
         before = box.flash_sha()
@@ -144,7 +138,6 @@ class DiceFlash(unittest.TestCase):
 
 class MotionMeasurements(unittest.TestCase):
     def test_motion_output_maps_the_array_base_before_adding_a_lane(self):
-        import tap_motion_cases as cases
         box = object.__new__(cases.TBox)
         box.dev = SimpleNamespace(synth=True, u32=lambda addr: 0)
         read = Mock(return_value=struct.pack('<I', 123))
@@ -157,14 +150,12 @@ class MotionMeasurements(unittest.TestCase):
                 box.out()
 
     def test_app_capture_cases_require_the_runtime_input_hook(self):
-        import tap_motion_cases as cases
         with patch('menu_cases.has_menu', return_value=False):
             self.assertEqual(cases.case_app(b'not a firmware fixture', None), [])
 
 
 class MidiProgramChange(unittest.TestCase):
     def test_program_change_uses_the_channel_reported_by_the_firmware(self):
-        from mfx_cases import Box
         box = object.__new__(Box)
         box.dev = object()
         box.m = SimpleNamespace(midi=Mock())

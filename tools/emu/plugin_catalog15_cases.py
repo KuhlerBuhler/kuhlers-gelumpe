@@ -23,6 +23,7 @@ import remote_cases  # noqa: E402
 from plugin_api15_cases import SCALE_MODE, TOUCH_KEY  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 PRESETS = node_json.run(
     "import {PRESETS} from './data/script/presets.mjs';"
@@ -247,7 +248,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

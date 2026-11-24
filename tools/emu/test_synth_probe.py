@@ -13,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import synth_probe as S  # noqa: E402
+import machine  # noqa: E402
 
 BLUE = os.environ.get("E2_BLUE_VSB")
 REQUIRED = os.environ.get("E2_EMU_REQUIRED") == "1"
@@ -129,7 +130,6 @@ class Firmware(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import machine
         cls.machine = machine
         cls.payload = S.load_payload(BLUE)
         cls.waves = S.synthetic_waves()

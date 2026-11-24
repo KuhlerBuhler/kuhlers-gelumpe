@@ -23,11 +23,16 @@ GELUMPE_CACHE_DAYS days (default 7, 0 keeps everything): without it the unreacha
 
 import ast
 import hashlib
+import json
 import os
+import pickle
 import sys
 import tempfile
 import time
+import types
+from importlib.metadata import version
 from pathlib import Path
+import machine as emu
 
 HERE = Path(__file__).resolve().parent
 STAMP = "source-hash.txt"
@@ -145,7 +150,6 @@ def model_now(*modules):
 
 def _unicorn_version():
     try:
-        from importlib.metadata import version
         return version("unicorn")
     except Exception:
         return None
@@ -275,8 +279,6 @@ def booted(payload, flash=None, held=0, seconds=5.0, cls=None, observer=None, ho
     watches the machine from power-on, for example by wrapping a method; it is made before the boot and
     again after a restore, and its attributes (picklable) are kept with the snapshot and put back, so it has seen
     what a real boot would have shown it."""
-    import pickle
-    import machine as emu
     cls = cls or emu.Machine
     flash_part = hashlib.sha256(flash).hexdigest() if flash else "blank"
     model = (cls.__module__, *([observer.__module__] if observer else []))
@@ -297,8 +299,6 @@ def booted(payload, flash=None, held=0, seconds=5.0, cls=None, observer=None, ho
 
 
 def _boot(key, payload, flash, held, seconds, cls, observer, hold_power):
-    import pickle
-    import machine as emu
     m = cls(payload, flash)
     obj = observer(m) if observer else None
     m.held = held
@@ -315,9 +315,6 @@ def _boot(key, payload, flash, held, seconds, cls, observer, hold_power):
 def _power_on_key(m, how):
     """The key of a run of `m` from power-on, or None when it cannot be kept: `m` has run already, a hook or a wrapped
     method watches it (a restore would skip what they see), or its card is not an image in memory."""
-    import pickle
-    import types
-    import machine as emu
     if not enabled() or m.time_ns or m.insns or m.uc._callbacks:
         return None
     if any(isinstance(v, (types.FunctionType, types.MethodType)) for k, v in m.__dict__.items() if k not in emu.SNAP_SKIP):
@@ -349,7 +346,6 @@ def _ram(m):
     """What the RAM holds before the first run. Mostly just what the machine was made with (the payload at 0xC0000000,
     its first page at 0, zeros elsewhere): then the payload's hash stands for it, found by comparing, which is quicker
     than hashing 128 MiB. RAM that someone wrote to before the run is hashed whole."""
-    import machine as emu
     image = bytes(m.uc.mem_read(0xC0000000, m.image_size))
     plain = hashlib.sha256(image).digest() == m.image_sha and bytes(m.uc.mem_read(0, 0x1000)) == image[:0x1000]
     for base, size in emu.SNAP_REGIONS:
@@ -398,7 +394,6 @@ def cached_result(kind, parts, compute):
     """compute() -> a JSON-able result (a check that came to its end, whether it passed or not), for the
     inputs `parts` (bytes or reprs). It is kept per inputs and emulator source, so the same files give the
     same answer without booting again; a run that raises is not kept. GELUMPE_CACHE=off runs everything."""
-    import json
     key = digest("result-v1", kind, source_hash("patch"), *parts)
     hit = read("result", key)
     if hit is not None:

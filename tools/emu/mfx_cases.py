@@ -31,6 +31,9 @@ import synthaddr  # noqa: E402
 from firmware import USER_MARKS  # noqa: E402
 from machine import DSP_CTRL, DSP_DATA, DSP_SYNC, UART1, Machine, blank_flash, load_flash  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
+# sysex_cases is imported inside program_change: it imports this module (import cycle).
 
 IMAGE = 0xC0000000
 SCREENS = 0xC03404C0
@@ -443,7 +446,6 @@ def switch_cases(patched, flash=None):
 
 def switch_cases_task():
     """switch_cases in a worker (parallel.py)."""
-    import parallel
     return switch_cases(parallel.shared["payload"], parallel.shared["flash"])
 
 
@@ -812,7 +814,6 @@ LONGEST_FIRST = ("modes", "keys", "arp", "patterns", "flash", "buttons", "kill_m
 
 def run_section(name):
     """One section of `run` in a worker (parallel.py): its steps."""
-    import parallel
     c = _Run(parallel.shared["base"], parallel.shared["patched"], parallel.shared["flash"], parallel.shared["b_type"])
     globals()[f"_section_{name}"](c)
     return c.steps
@@ -820,7 +821,6 @@ def run_section(name):
 
 def run(base, patched, flash=None, b_type=7, jobs=None):
     """The scripted check against the unpatched firmware. Returns {ok, steps}."""
-    import parallel
     done = parallel.run_tasks([("mfx_cases", "run_section", (name,)) for name in LONGEST_FIRST],
                               {"base": base, "patched": patched, "flash": flash, "b_type": b_type}, jobs)
     by_name = dict(zip(LONGEST_FIRST, done))
@@ -830,7 +830,6 @@ def run(base, patched, flash=None, b_type=7, jobs=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()      # ends with the test run that started this, also when that is killed
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

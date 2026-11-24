@@ -30,6 +30,11 @@ from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
+import preset_cases  # noqa: E402
+import sysex_cases as sx  # noqa: E402
+from mfx_cases import DspLog, same_dsp  # noqa: E402
 
 PATH_IN_IMAGE = b"SD:KORG/blechtribe/Presets/e2sFx.all"
 CARD_FILE = "/KORG/blechtribe/Presets/e2sFx.all"
@@ -186,8 +191,6 @@ def case_exit(payload, flash):
 def case_boot_effects(payload, flash):
     """The pattern of the start set its effects before the loader ran: the loader sends them again, so the DSP plays the records
     of the file. The last transfers of the start are the ones selecting the same record on a start without the file sends."""
-    import preset_cases
-    from mfx_cases import DspLog, same_dsp
 
     class Box(preset_cases.Box):
         def __init__(self, files):
@@ -338,8 +341,6 @@ def case_grow(payload, flash):
     """A file that fills slots past the menu, up to 100, makes the menus that long in RAM: every site of the length agrees, the
     knob memory has a row of the new length for each part, the encoder walks all slots and the gaps between, the last slot
     plays its record, the flash stays as it is. Slot 101 is refused and the menus keep their length."""
-    import preset_cases
-    from mfx_cases import DspLog, same_dsp
 
     class Box(preset_cases.Box):
         def __init__(self, files):
@@ -404,7 +405,6 @@ def case_usb_write(payload, flash):
     collection longer than one block goes onto a card without the folder Presets in 4 KiB blocks, each read back with its CRC, and
     comes back byte for byte over FILE READ; a shorter one at offset 0 makes the file anew, and the next start with that card loads
     it. Bits 31, 30 and 29 and a write past FX_LIMIT stay refused; a start without a card answers the DATA with status 6."""
-    import sysex_cases as sx
     spec = sx.spec
     FX = spec.FILE_FX
     synth = build_of(payload) == "synth"
@@ -473,7 +473,6 @@ def group_entries(payload, flash, i):
 
 
 def cases_task(i):
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -482,7 +481,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

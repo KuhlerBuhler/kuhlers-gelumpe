@@ -12,7 +12,10 @@ one-shot tools and pool workers: they end at once. A tool is told who its parent
 GELUMPE_PARENT_PID, because it cannot know whether the process in between is a shell.
 """
 
+import ctypes
 import os
+import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -26,7 +29,6 @@ def alive(pid):
     """Whether process `pid` still runs. For the direct parent the question is whether this process was
     reparented, which cannot be fooled by a reused pid."""
     if sys.platform == "win32":
-        import ctypes
         handle = ctypes.windll.kernel32.OpenProcess(0x100000, False, pid)   # SYNCHRONIZE
         if not handle:
             return False
@@ -75,8 +77,6 @@ def exit_with_parent(pid=None):
 def load_gate():
     """Wait until the machine is quiet before a test run starts: runs tools/load-gate.mjs (the one place that knows the rule)
     and exits with its status when it gives up. Does nothing without node, or when the gate already passed above us."""
-    import shutil
-    import subprocess
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "load-gate.mjs")
     node = shutil.which("node")
     if os.environ.get("GELUMPE_LOAD_GATE_PASSED") == "1" or not node or not os.path.exists(script):

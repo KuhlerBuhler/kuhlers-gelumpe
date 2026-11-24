@@ -22,10 +22,19 @@ In a builder for the synth:
 Both refuse a firmware address that has no entry, naming it. A builder never guesses.
 """
 
+import argparse
+import bisect
 import json
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.append(str(Path(__file__).resolve().parents[1] / "emu"))   # firmware.py; last, so nothing of tools/emu shadows tools/patch
+
+import firmware  # noqa: E402
+import fwmap  # noqa: E402
+import synthfind  # noqa: E402
 
 ROOT = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2])
 MAP_DIR = ROOT / "data" / "synth-map"
@@ -114,8 +123,7 @@ def use(namespace, names, build):
 
 def is_synth(payload):
     """Whether an image (the whole VSB or the payload behind its head) is the blue Electribe 2's."""
-    from firmware import is_synth as check
-    return check(payload[0x100:] if len(payload) == 0x200100 else payload)
+    return firmware.is_synth(payload[0x100:] if len(payload) == 0x200100 else payload)
 
 
 def source(text, own=(), keep=()):
@@ -157,10 +165,7 @@ def write_js():
 
 
 def fuzzy(args):
-    import bisect
 
-    import fwmap
-    import synthfind
     ref, tgt = fwmap.load(args.ref), fwmap.load(args.vsb)
     fm = fwmap.FirmwareMap(ref, tgt, refine=True)
     md = synthfind.disassembler()
@@ -196,12 +201,10 @@ def fuzzy(args):
 
 def mapper(payload):
     """`tr` for a loaded image: the synth's table for the blue Electribe 2's image, the identity for the Sampler's."""
-    from firmware import is_synth
-    return tr if is_synth(payload[0x100:] if len(payload) == 0x200100 else payload) else (lambda address: address)
+    return tr if is_synth(payload) else (lambda address: address)
 
 
 def _auto(ref_path, vsb_path):
-    import fwmap
     fm = fwmap.FirmwareMap(fwmap.load(ref_path), fwmap.load(vsb_path), refine=True)
     wanted = set()
     skip = ("fwmap.py", "synthaddr.py", "arm.py")
@@ -230,7 +233,6 @@ def _auto(ref_path, vsb_path):
 
 
 def main():
-    import argparse
     sys.path.insert(0, str(Path(__file__).parent))
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = p.add_subparsers(dest="cmd", required=True)

@@ -34,6 +34,7 @@ from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
 from splash_cases import Dev  # noqa: E402
 from sdcard import SDCard, MemoryMedium  # noqa: E402
+import lifetime  # noqa: E402
 
 IDLE = script_hooks.IDLE
 IS_STAGE, IS_KEEP = IDLE + 4, IDLE + 5
@@ -517,7 +518,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

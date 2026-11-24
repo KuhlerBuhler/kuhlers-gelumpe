@@ -24,6 +24,10 @@ import blech_sysex as spec  # noqa: E402
 import menu_cases as mc  # noqa: E402
 import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
+from sysex_cases import Link, OK, REFUSED  # noqa: E402
+from tools.patch import script_hooks  # noqa: E402
 
 IMAGE = 0xC0000000
 FLASH_SETTINGS = (0x7FD000, 0x7FF000)   # the two sectors of the BLECH settings in the flash (#521)
@@ -59,7 +63,6 @@ def case_page(payload, flash):
     """The row in front of VERSION: OFF after the start, the dial up ON (magic, INFO bit), down OFF (FF); WRITE stores nothing."""
     if synthaddr.is_synth(payload) or not mc.has_menu(payload):
         return []
-    from sysex_cases import Link
     out = []
     dev = mc.boot(payload, flash)
     lk = Link(dev)
@@ -89,7 +92,6 @@ def case_absent(payload, flash):
     """The synth's list has no row DEV MODE and its runtime no DEV_FLAG."""
     if not synthaddr.is_synth(payload) or not mc.has_menu(payload):
         return []
-    from tools.patch import script_hooks
     dev = mc.boot(payload, flash)
     mc.goto_top(dev, 0)
     titles = []
@@ -105,7 +107,6 @@ def case_hottext(payload, flash):
     """ON via the dial, a BLECH WRITE of the page's title in the image: the LCD shows the new text; OFF, the same write is refused."""
     if synthaddr.is_synth(payload) or not mc.has_menu(payload):
         return []
-    from sysex_cases import Link, OK, REFUSED
     at = title_at(payload)
     if at is None:
         return [entry("hot_text", False, "no DEV MODE text in the image")]
@@ -138,7 +139,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -147,7 +147,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

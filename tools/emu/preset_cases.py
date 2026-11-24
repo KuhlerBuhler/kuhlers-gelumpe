@@ -22,7 +22,6 @@ catalog's master effects from 37; a copy of Hacktribe keeps its own on 10, 11, 2
 """
 
 import argparse
-import hashlib
 import json
 import struct
 import sys
@@ -35,8 +34,10 @@ import bootcache  # noqa: E402
 import preset_tables as spec  # noqa: E402
 import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
-from mfx_cases import DspLog, same_dsp  # noqa: E402
+from mfx_cases import Box as MfxBox, DspLog, blank_for, open_mfx_type_page, same_dsp  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 HEADER = 0x100
 IMAGE = 0xC0000000
@@ -261,7 +262,6 @@ def ht_mfx(base, new, add, flash, payload):
         sent[i + 1] = (len(new.dsp.changes()), new.mfx_type())
     add("ht_mfx_select", all(n > 0 and t == s - 1 for s, (n, t) in sent.items()) and not new.dev.m.asserts,
         f"selecting 33 to 36 sets the type and sends the DSP transfers, no assertion: {sent}")
-    from mfx_cases import Box as MfxBox, blank_for, open_mfx_type_page
     page = MfxBox(payload, flash if flash is not None else blank_for(payload))
     n = new.count("mfx")
     opened = open_mfx_type_page(page)
@@ -300,12 +300,10 @@ def compare_ht_mfx(patched, hacktribe):
 
 
 def cases_task():
-    import parallel
     return judge(parallel.shared["base"], parallel.shared["payload"], parallel.shared["flash"])
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

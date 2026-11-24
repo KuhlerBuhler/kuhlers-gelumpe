@@ -8,6 +8,8 @@ import http.client
 import io
 import json
 import os
+import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -24,6 +26,8 @@ from firmware import ProfileError  # noqa: E402
 from machine import SysexReader  # noqa: E402
 from cardstore import CardStore  # noqa: E402
 from fat32 import Volume  # noqa: E402
+from backlight import Backlight  # noqa: E402
+from panel_leds import PanelLeds  # noqa: E402
 
 ORIGIN = "http://127.0.0.1:8737"
 TOKEN = "test-token"
@@ -84,7 +88,6 @@ class LightMachine(FakeMachine):
 
     def __init__(self, payload, flash, assert_after=None):
         super().__init__(payload, flash, assert_after)
-        from backlight import Backlight
         self.backlight = Backlight()
 
     def run_until(self, seconds):
@@ -107,7 +110,6 @@ class FlickerMachine(FakeMachine):
 
     def __init__(self, payload, flash, assert_after=None):
         super().__init__(payload, flash, assert_after)
-        from panel_leds import PanelLeds
         self.panel_leds = PanelLeds()
 
     def run_until(self, seconds):
@@ -963,8 +965,6 @@ class AnnounceTest(unittest.TestCase):
     starts its own instead of showing this one (src-tauri/src/main.rs, fits)."""
 
     def announced(self, env):
-        import socket
-        import subprocess
         with tempfile.TemporaryDirectory() as tmp:
             with socket.socket() as s:
                 s.bind(("127.0.0.1", 0))

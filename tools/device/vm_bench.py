@@ -60,6 +60,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "patch"))
+from led_show import Device, emulator_ask, mido_ask
 
 try:
     import arm
@@ -652,7 +653,6 @@ class BareLink:
 
 def emulator_link(vsb):
     """Device over the emulated DIN-MIDI of the firmware, counting the stub's instructions."""
-    from led_show import Device, emulator_ask
     import unicorn
     ask, m = emulator_ask(vsb)
     dev = Device(ask)
@@ -1149,7 +1149,6 @@ def main():
     elif a.emu:
         dev, m = emulator_link(a.emu)
     else:
-        from led_show import Device, mido_ask
         dev = Device(mido_ask())
     results = run(dev, a)
     if m is not None:

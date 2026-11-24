@@ -29,7 +29,6 @@ the regions inside the firmware image that stay closed with DEV MODE on (data/pr
 import argparse
 import hashlib
 import json
-import struct
 import sys
 from pathlib import Path
 
@@ -39,6 +38,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import blech_sysex as spec  # noqa: E402
 import node_json  # noqa: E402
+import lifetime  # noqa: E402
+import machine  # noqa: E402
+import synthaddr  # noqa: E402
+# The case modules are imported inside the functions that use them: they import this module (import cycle).
 
 IMAGE, IMAGE_END = 0xC0000000, 0xC0200000
 GAP_CODE = 0x40                 # blocks closer than this are one range: a function's blocks the run did not take lie between
@@ -98,7 +101,6 @@ def idle(dev, blocks):
 
 
 def build_name(payload):
-    import synthaddr
     if synthaddr.is_synth(payload):
         return "blue"
     import sysex_cases
@@ -179,8 +181,6 @@ def trace_update(raw, flash=None):
     import synth_update_probe as sup
     payload = raw[0x100:]
     import hacktribe_blue_probe as hb
-    import machine
-    import synthaddr
     if flash is None:
         flash = bytes(machine.hardware_flash("blue" if synthaddr.is_synth(payload) else "red"))
     start = hb.device_flash(raw, flash)                      # a flash that holds the running image, as on the device
@@ -348,7 +348,6 @@ def main():
             return 0 if same else 1
         CLOSED_FILE.write_text(text)
         return 0
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

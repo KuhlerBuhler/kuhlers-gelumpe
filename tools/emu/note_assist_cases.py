@@ -27,9 +27,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 import note_assist as spec  # noqa: E402
 import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
+import pswitch_cases  # noqa: E402
 from pswitch_cases import Box  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 IMAGE = 0xC0000000
 PATTERN_PTR = 0xC033E6A4
@@ -91,8 +94,7 @@ class NBox(Box):
 
     @staticmethod
     def card_image():
-        from pswitch_cases import card_image
-        return card_image()
+        return pswitch_cases.card_image()
 
     def key(self, name, wait=0.3):
         self.dev.press(KEYS[name], wait)
@@ -738,7 +740,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -747,7 +748,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

@@ -23,6 +23,9 @@ import script_cases  # noqa: E402
 from highram_watch import plain_wav  # noqa: E402
 from machine import load_flash  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
+import lifetime  # noqa: E402
+import unicorn  # noqa: E402
+from unicorn import arm_const  # noqa: E402
 
 # Sampler places (2026-10-08-systemspeicher-offline.md); the blue's from its grow routine 0xC002A060 and data/synth-map/.
 CURSOR = 0xC03404AC
@@ -39,8 +42,6 @@ def node_requests():
 
 
 def measure(vsb, flash):
-    import unicorn
-    from unicorn import arm_const
     payload = vsb[0x100:]
     menu_cases.for_build(payload)
     dev = lp.boot(payload, flash, files={imp.WAV: plain_wav(48000)})
@@ -101,7 +102,6 @@ def measure(vsb, flash):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

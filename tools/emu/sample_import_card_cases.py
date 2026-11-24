@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import sample_import_menu_cases as menu
 import swap_cases as c
+import lifetime
 
 STEPS = [("menu", 1), ("turn1", 1), ("menu", 1), ("turn2", 1), ("menu", 3)]
 SAMPLES = {500: ("first", 1000), 501: ("second", 40000)}
@@ -280,7 +281,6 @@ def cases(payload, flash=None, faults=FAULTS):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     parser = argparse.ArgumentParser(description=__doc__)

@@ -91,6 +91,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import arm  # noqa: E402
 import ramdecl  # noqa: E402
+import fwmap  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
@@ -1791,7 +1792,6 @@ def use_build(build, ref=None, vsb=None):
         return {}
     if ref is None:
         raise SystemExit("the synth build needs --ref, the Sampler's SYSTEM.VSB, to find the places")
-    import fwmap
     globals()["MODEL"] = 0x23
     globals()["FOLDER_ID"] = 0x123           # the id the synth's update passes to its folder function (0xC0035304 loads it)
     globals()["FLAGS"] = FLAGS & ~FLAG_DOOM & ~FLAG_DEV

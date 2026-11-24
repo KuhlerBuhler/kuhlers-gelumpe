@@ -28,6 +28,10 @@ from machine import load_flash  # noqa: E402
 from pswitch_cases import Box, card_image  # noqa: E402
 from splash_cases import Dev  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
+import lifetime  # noqa: E402
+import menu_cases  # noqa: E402
+import parallel  # noqa: E402
+from mfx_cases import CTL  # noqa: E402
 
 IMAGE = 0xC0000000
 PATTERN_PTR = 0xC033E6A4
@@ -128,7 +132,6 @@ class TBox(Box):
         return struct.unpack("<I", self.m.uc.mem_read(at + 4 * i, 4))[0]
 
     def ensure_master_fx(self):
-        from mfx_cases import CTL
         control = self.dev.u32(CTL)
         mode = struct.unpack("<I", self.m.uc.mem_read(control + 0x334, 4))[0]
         if mode != 2:
@@ -540,8 +543,7 @@ def case_app(payload, flash):
     """A plugin or an app that owns the keys keeps TAP from the firmware: no toggle, no tap tempo. The capture mask is the plugin's way,
     an open app forces it for every key but the transport keys (tools/patch/script_hooks.s, input_mask_app). The state area of the runtime
     is zeroed first, the way an initialised runtime leaves it before a plugin is loaded (nothing open, nothing captured)."""
-    from menu_cases import has_menu
-    if not has_menu(payload):
+    if not menu_cases.has_menu(payload):
         return []
     size = runtime_size()
     rows = {}
@@ -665,7 +667,6 @@ def case_card_inserted_late(payload, flash):
     BLECH menu acts at once, before anything was saved. tools/patch/card_gate.py reads the card switch, not only the mounted volume
     (reported 11.11.: with the card in only after the start, a changed setting took effect only after saving). The volume type byte
     is only reported: the card watch reads the settings file once the card is in, so FatFs may have mounted the volume by then."""
-    import menu_cases
     menu_cases.for_build(payload)
     box = TBox(payload, flash, card=False)
     start = box.mode()
@@ -780,7 +781,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -789,7 +789,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

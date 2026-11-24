@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import swap_cases as c
+import lifetime
 
 IMPORT_CALL = 0xC0038DE0
 IMPORT_STATUS = 0xC0038DE4
@@ -274,7 +275,6 @@ def all_cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     parser = argparse.ArgumentParser(description=__doc__)

@@ -273,7 +273,6 @@ GROUPS = (pages_case, texts_case, pointers_case, dialogs_case, fx_names_case) + 
 
 def cases_task(i):
     """Group `i` of the cases in a worker (parallel.py)."""
-    import parallel
     return GROUPS[i](parallel.shared["payload"], parallel.shared["flash"])
 
 

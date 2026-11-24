@@ -32,8 +32,14 @@ import loading_anim  # noqa: E402
 import sampleset  # noqa: E402
 from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
-from splash_cases import DESC13, SPLASH, Dev, display_of  # noqa: E402
+from splash_cases import SPLASH, Dev, display_of  # noqa: E402
 from frame_match import matches_pages  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
+import power_off  # noqa: E402
+import synthaddr  # noqa: E402
+from machine import pin  # noqa: E402
+# The case modules that import this one are imported inside the functions that use them: at the top they would be an import cycle.
 
 IMAGE = 0xC0000000
 KILL = spec.KILL_SWITCH
@@ -395,8 +401,6 @@ def case_card_error(payload, flash):
     the firmware switches off at the end of the start."""
     import menu_cases
     from power_off_cases import POWER_KEY
-    from machine import pin
-    import power_off
     out = []
     dev = WatchedDev(bytes(payload), flash, 0)
     card = card_with(cardstore.card_folder(payload), 20, 4)
@@ -543,7 +547,6 @@ def case_look(payload, flash):
 
 
 def synthaddr_is_synth(payload):
-    import synthaddr
     return synthaddr.is_synth(payload)
 
 
@@ -551,7 +554,6 @@ def case_power_while_loading(payload, flash):
     """The power key while the samples load (device 25.10.: held 30 s, the device stayed on): the panel's report of the key does
     not come in this phase, so only the pin goes down here. Held 7 s the overlay lets the power go; let go after 3 s the device
     stays on and the load goes on."""
-    from machine import pin
     out = []
 
     def run(release):
@@ -804,7 +806,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -829,7 +830,6 @@ def shots(payload, flash, png_dir):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

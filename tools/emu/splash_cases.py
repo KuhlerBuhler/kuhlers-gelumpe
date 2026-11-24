@@ -24,10 +24,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patch"))
 import bootcache  # noqa: E402
 import splash_editor as spec  # noqa: E402
 import synthaddr  # noqa: E402
-from machine import FIRMWARE_AT, FLASH_SIZE, STOCK_BOOT_LIMIT_S, Machine, blank_flash, hardware_flash, load_flash  # noqa: E402
+from machine import FIRMWARE_AT, STOCK_BOOT_LIMIT_S, Machine, blank_flash, hardware_flash, load_flash  # noqa: E402
 
 PAYLOAD_SIZE = 0x200000
 from sdcard import MemoryMedium, SDCard  # noqa: E402
+import fat32  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 HEADER = 0x100
 IMAGE = 0xC0000000
@@ -329,7 +332,6 @@ def boot_case_entry(payload, flash, i):
 
 def boot_case_task(i):
     """boot_case_entry in a worker (parallel.py)."""
-    import parallel
     return boot_case_entry(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -615,7 +617,6 @@ def image_of(pixels):
 def import_steps(patched, flash):
     """KORG/blechtribe/splash.bmp through the import the BLECH menu calls: stored and shown from the next start, refused when it
     is no 128 x 64 BMP with 1 bit per pixel, reported when it is missing."""
-    import fat32
     steps = []
     pic = [[1 if (x // 8 + y // 8) % 2 == 0 or x == y else 0 for x in range(128)] for y in range(64)]
     files = {"bottom-up": (bmp(pic), 0), "top-down, black as index 1": (bmp(pic, top_down=True, ink=1), 0),
@@ -656,7 +657,6 @@ MEDIA_FILE = "/KORG/blechtribe/Media/splash.bmp"
 
 def card_file(img, path):
     """The bytes of a file on a card image, None when it is not there."""
-    import fat32
     try:
         return fat32.open_volume(img).read(path)
     except Exception:
@@ -689,7 +689,6 @@ def pixels_of(image):
 def media_steps(patched, flash):
     """Media/splash.bmp at start: a different image goes into the flash and is the start image from the next start on, the same
     image as shown writes nothing."""
-    import fat32
     steps = []
     pic = [[1 if (x * y) % 7 == 0 or y == 10 else 0 for x in range(128)] for y in range(64)]
     for name, data, want in (("a different image", bmp(pic), image_of(pic)), ("the image shown", bmp(pixels_of(vsb_image(patched))), None)):
@@ -725,7 +724,6 @@ def changed_sectors(after, before):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()      # ends with the test run that started this, also when that is killed
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -739,7 +737,6 @@ def main():
     flash = load_flash(a.flash) if a.flash else None
     if a.what == "cases":
         def compute():
-            import parallel
             checks = parallel.run_tasks([("splash_cases", "boot_case_task", (i,)) for i in range(BOOT_CASES)],
                                         {"payload": patched, "flash": flash})
             return {"ok": all(c["ok"] for c in checks), "checks": checks}

@@ -1,6 +1,7 @@
 """Persistent script values: glue, store file read and write, over a fake FatFs."""
 import json
 import pathlib
+import re
 import struct
 import subprocess
 import sys
@@ -10,6 +11,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from tools.patch.test_script_vm import contract_data, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
 from tools.patch.test_script_card import archive, FS_OPEN, FS_READ, FS_CLOSE
+from tools.patch.script_hooks import MENU_STATE
 if UNICORN_AVAILABLE:
     from unicorn import UC_HOOK_CODE
     from unicorn.arm_const import *
@@ -93,7 +95,6 @@ class NativeStoreTests(unittest.TestCase):
         m.uc.mem_write(0xC01F7000, b'\xff' * 0x1000)
         m.uc.mem_write(0xC01F8000, b'\xff' * 0x8000)
         if builtin:
-            from tools.patch.script_hooks import MENU_STATE
             m.uc.mem_write(MENU_STATE, bytes(0x200))
             for offset in (0, 16, 20, 24, 28): m.write(MENU_STATE + offset, 1)
             self.assertEqual(m.call('blechy_boot', m.runtime)[0], 1)
@@ -235,7 +236,6 @@ class NativeStoreTests(unittest.TestCase):
         self.assertEqual(m.call('script_store_get_glue', 0, 5), (5, 0))
 
     def test_the_store_paths_are_the_contract_paths(self):
-        import re
         source = (ROOT / 'tools/patch/script_store.s').read_text()
         paths = re.findall(r'\.asciz "([^"]+)"', source)
         self.assertEqual(paths, ['SD:KORG/blechtribe/Plugin/store.a.bin', 'SD:KORG/blechtribe/Plugin/store.b.bin'])

@@ -5,6 +5,7 @@ import swap_cases as c
 import native_dsp_acquire as acquire
 import native_dsp_scope as scope
 import sample_swap_io as io
+# native_dsp_scope_cases imports this module, so it is imported where it is used (import cycle).
 
 CODE, PEER, DATA = 0xC100B000, 0xC100C000, 0xC100D000
 

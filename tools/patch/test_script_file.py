@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from tools.patch.test_script_vm import UNICORN_AVAILABLE
 from tools.patch.test_script_card import archive, FS_OPEN, FS_READ, FS_CLOSE
 from tools.patch import test_script_hooks as hooks_tests
+from tools.patch.script_hooks import MEDIA_END, MEDIA_LIST, MENU_STATE
 if UNICORN_AVAILABLE:
     from unicorn import UC_HOOK_CODE
     from unicorn.arm_const import *
@@ -265,7 +266,6 @@ class NativeMediaTests(unittest.TestCase):
         cls.files = [(MEDIA + name, bytes.fromhex(h)) for name, h in got['files']]
 
     def machine(self, files, hidden=()):
-        from tools.patch.script_hooks import MEDIA_LIST, MEDIA_END
         m, built = hooks_tests.HookTests().machine()
         m.write(m.runtime + 96, 0xffffffff)
         m.fat = FakeCard(m, {'Plugin/e2sPlugin.all': archive([self.block]), **dict(files)}, hidden)
@@ -311,7 +311,6 @@ class NativeMediaTests(unittest.TestCase):
     def test_pictures_are_those_of_the_reference_in_any_order(self):
         """With the BLECH menu armed and DISPLAY INVERT ON (the display reversed) every bit comes turned, with it OFF or the menu
         not armed (EXIT held at power-on: the controller is never told 0xA7) not, as readMediaPicture's `reversed`."""
-        from tools.patch.script_hooks import MENU_STATE
         listed = media_node(list=[(path, data.hex()) for path, data in self.files])['lists']
         data = dict(self.files)
         queries = []

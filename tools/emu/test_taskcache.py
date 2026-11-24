@@ -4,6 +4,7 @@ parallel.run_tasks with `cache`). Runs without firmware and without Unicorn."""
 
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -109,7 +110,6 @@ class TaskCacheTest(unittest.TestCase):
 
     def test_what_the_main_script_imports_is_not_what_a_worker_used(self):
         # check.py imports every case module; a worker started by spawn would run it again and list them all
-        import subprocess
         here = Path(__file__).resolve().parent
         (self.code / "main.py").write_text(textwrap.dedent(f'''
             import sys

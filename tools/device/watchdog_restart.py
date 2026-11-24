@@ -21,6 +21,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "patch"))
+from led_show import mido_ask
+from remote_press import Blech, EXEC_FLAG, WRITE_FLAG
 
 STUB_AT = 0xC1000000
 TIMER1 = 0x01C21000
@@ -97,13 +99,11 @@ def arm(dev, ms):
 
 
 def check(dev):
-    from remote_press import EXEC_FLAG, WRITE_FLAG
     if dev.flags & (EXEC_FLAG | WRITE_FLAG) != EXEC_FLAG | WRITE_FLAG:
         raise SystemExit(f"BLECH flags {dev.flags:#x}: no WRITE or no EXEC (the blue Electribe); nothing written")
 
 
 def run_emu(vsb, ms, reboot, boot_s):
-    from remote_press import Blech
     ask, box = emu_ask(vsb)
     m = box["m"]
     dev = Blech(ask)
@@ -152,8 +152,6 @@ def main():
     if a.emu:
         print(json.dumps(run_emu(a.emu, a.ms, a.reboot, a.boot), indent=1))
         return 0
-    from led_show import mido_ask
-    from remote_press import Blech
     dev = Blech(mido_ask())
     if a.after:
         print(json.dumps(after(dev, a.ms), indent=1))

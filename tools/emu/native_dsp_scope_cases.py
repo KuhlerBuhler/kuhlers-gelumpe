@@ -10,6 +10,8 @@ import swap_cases as c
 import native_dsp_scope as scope
 import native_dsp_acquire as acquire
 import sample_swap_io as io
+import capture_fault
+# stereo_pad_cases and native_dsp_owner_cases import this module, so they are imported where they are used (import cycle).
 
 CODE, CALL = 0xC1005000, 0xC100A000
 POINTER = c.spec.NATIVE_SCOPE
@@ -128,7 +130,6 @@ def watch_resource(box, symbols):
 
 def session(payload, flow=None, trace_resource=False):
     """Run the native mode sequence with recovery code outside the work buffer."""
-    import capture_fault
 
     observations = []
 

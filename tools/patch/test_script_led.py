@@ -5,8 +5,9 @@ import sys
 import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
-from tools.patch.test_script_vm import BareMachine, contract_data, blob, UNICORN_AVAILABLE
+from tools.patch.test_script_vm import contract_data, blob, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
+from tools.patch.script_hooks import METER_SENT
 if UNICORN_AVAILABLE:
     from unicorn import UC_HOOK_CODE, UC_HOOK_MEM_WRITE
     from unicorn.arm_const import *
@@ -116,7 +117,6 @@ class NativeLedTests(unittest.TestCase):
     def test_meter_led_send_forgets_the_dedupe_word(self):
         """A plugin's LED sent to a meter LED (0x4C to 0x57) sets its word of meter_dedupe_hook to FF, so the firmware's next
         send of that LED goes out again and overwrites it, as before the dedupe; other LEDs (0x57 is the last a plugin can send) and a refused send leave it."""
-        from tools.patch.script_hooks import METER_SENT
         m,_=self.machine()
         word=lambda led:m.read(METER_SENT+4*(led-0x4C))
         for led in range(0x4C,0x58):m.write(METER_SENT+4*(led-0x4C),0x10164)

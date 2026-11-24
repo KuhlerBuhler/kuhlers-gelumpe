@@ -27,6 +27,8 @@ import script_cases  # noqa: E402
 import load_meter_cases as lm  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
+from tools.patch.test_script_vm import contract_data  # noqa: E402
 
 IDLE = script_hooks.IDLE
 IS_STAGE = IDLE + 4
@@ -219,7 +221,6 @@ def flag_cases(r):
 
 def version_cases(r):
     """A block of API 36 still loads and runs; the same block marked one newer than the runtime is refused (API_VERSION)."""
-    from tools.patch.test_script_vm import contract_data
     api = int(contract_data()["include"].split(".equ SCRIPT_API_VERSION, ", 1)[1].split()[0], 0)
     old = bytearray(bytes.fromhex(r.request["programs"]["old"]["blob"]))
     version = struct.unpack_from("<H", old, API_AT)[0]
@@ -245,7 +246,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

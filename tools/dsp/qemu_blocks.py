@@ -34,6 +34,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'emu'))
 import blackfin_backend  # noqa: E402
 from blackfin_backend import BlackfinBackend, BackendError, _ROMCall  # noqa: E402
 import blackfin_cases  # noqa: E402
+from blackfin_backend import BlackfinPort  # noqa: E402
+from blackfin_rom import SysControl  # noqa: E402
+from firmware import identify  # noqa: E402
+from machine import Machine, blank_flash  # noqa: E402
+from splash_cases import Dev  # noqa: E402
 
 CORE_HZ = 516096000
 RATE = 48000
@@ -142,11 +147,6 @@ def mfx_session(payload, worker, recorder, types, dwell=.4, boot_limit=6.0):
     """Boot, then switch the master effect to each of `types` with the firmware's own setter, hit pad 1 and let
     it play `dwell` seconds on noise input. A snapshot ends each type; the report keeps SPORT TX hash and
     SEQSTAT per type."""
-    from blackfin_backend import BlackfinPort
-    from blackfin_rom import SysControl
-    from firmware import identify
-    from machine import Machine, blank_flash
-    from splash_cases import Dev
     report = dict(types=[])
     with BlackfinPort(worker, operating=True, timeout=15, rom=SysControl(),
                       sport=dict(core_hz=CORE_HZ, input='lcg'), host_transport='fifo') as port:

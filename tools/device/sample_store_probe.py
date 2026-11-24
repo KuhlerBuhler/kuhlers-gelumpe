@@ -23,6 +23,7 @@ import sample_store
 import sampleset
 from sample_swap_paths import Link
 from sample_swap_probe import MAGIC, STUB, elapsed, SWAP_MODE, LEGACY_SWAP_MODE
+from blue_report import midi_ask, search
 
 CODE, SCRATCH, SOURCE = 0xC3F00000, 0xC3E00000, 0xC3D00000
 REGIONS = ((STUB, 1024), (CODE, 0xA000), (SCRATCH, 0x20000), (SOURCE, 0x20000))
@@ -366,7 +367,6 @@ def main(argv=None):
         outside_repo(a.backup_dir)
     if a.execute and a.backup_dir.exists():
         raise ValueError('use a new backup directory')
-    from blue_report import midi_ask, search
     ask, _ = midi_ask(None)
     device = search(ask)
     if device['model'] != 0x24 or device['version'] != '2.02':

@@ -22,6 +22,9 @@ import unicorn  # noqa: E402
 import fat32  # noqa: E402
 import menu_cases  # noqa: E402
 import synthaddr  # noqa: E402
+import cardstore  # noqa: E402
+import lifetime  # noqa: E402
+import sampleset  # noqa: E402
 
 DATA_UTIL = 14                  # the screen of the menu Data Util; MENU enters its list (screen 15) at EXPORT PATTERN
 FOLDER = "/KORG/blechtribe/Patterns"
@@ -193,8 +196,6 @@ def case_boot_progress(payload, flash):
     and the main screen ends it."""
     if not redirected(payload):
         return [entry("boot_progress_not_in_this_build", True, "the blue reads no backup at power-on")]
-    import cardstore
-    import sampleset
     menu_cases.for_build(payload)
     plain, _ = start(payload, menu_cases.CARD_FOLDER, seconds=1.2)
     bank = plain.read(BANK, 250 * BLOCK)
@@ -235,7 +236,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

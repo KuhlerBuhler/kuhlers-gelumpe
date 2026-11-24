@@ -25,6 +25,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 import user_samples as spec  # noqa: E402
 import synth_probe as sp  # noqa: E402
 from machine import load_flash  # noqa: E402
+import fat32  # noqa: E402
+import lifetime  # noqa: E402
+import machine  # noqa: E402
+import menu_cases as mc  # noqa: E402
+import parallel  # noqa: E402
+from sdcard import MemoryMedium, SDCard  # noqa: E402
+from splash_cases import Dev  # noqa: E402
+from tools.patch import script_hooks  # noqa: E402
 
 IMAGE = 0xC0000000
 KILL = 0x2000                    # EXIT held at power-on
@@ -75,8 +83,6 @@ def sample_file(wavs):
 
 def card(data):
     """A card with the file in both folders the firmware can use (the plain one and BLECH's)."""
-    import fat32
-    from sdcard import MemoryMedium, SDCard
     img = fat32.format_image(128 * 1024 * 1024)
     vol = fat32.Volume(img)
     if data is not None:
@@ -103,7 +109,6 @@ def averaged(left, right):
 # ---- a booted device
 def boot(payload, flash, data, held=0, seconds=4.0):
     if flash is None:
-        import machine
         flash = sp.blank_synth_flash(machine, sp.build_bank(sp.synthetic_waves()))
     probe = sp.Probe(payload, flash, card=card(data))
     probe.m.held = held
@@ -194,9 +199,6 @@ def case_off(payload, flash):
 def case_menu(payload, flash):
     """BLECH > USER SAMPLES, in front of VERSION: what the start loaded and left out; a bad file says so; without a file there is no
     row (menu_cases checks that list). Only where the copy has the BLECH menu."""
-    import menu_cases as mc
-    from splash_cases import Dev
-    from tools.patch import script_hooks
     if not mc.has_menu(payload):
         return []
     mc.for_build(payload)
@@ -227,8 +229,6 @@ PART_OSC = 0x80C                 # the object + this: part 1's oscillator, u16 (
 
 def saved_with_user_osc(payload, flash, data):
     """Part 1 on the first [User] oscillator, WRITE twice: the flash after the pattern is stored, and where the sample lies."""
-    from splash_cases import Dev
-    import menu_cases as mc
     p = boot(payload, flash, data)
     p.select_osc(spec.OSC_COUNT)
     p.run(2.0)       # the OSC value popup closes first; WRITE while it shows stores nothing
@@ -284,7 +284,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -293,7 +292,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

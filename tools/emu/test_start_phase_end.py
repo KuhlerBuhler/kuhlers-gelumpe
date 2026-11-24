@@ -10,6 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import bootmap  # noqa: E402
+from machine import load_flash  # noqa: E402
 
 VSB = os.environ.get("E2_VSB")
 REQUIRED = os.environ.get("E2_EMU_REQUIRED") == "1"
@@ -28,7 +29,6 @@ class StartPhaseEnd(unittest.TestCase):
             if REQUIRED:
                 raise
             self.skipTest("Unicorn not installed")
-        from machine import load_flash
         self.payload = Path(VSB).read_bytes()[0x100:]
         self.flash = load_flash(os.environ["E2_FLASH"].split(os.pathsep)) if os.environ.get("E2_FLASH") else None
 

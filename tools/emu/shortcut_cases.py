@@ -13,6 +13,7 @@ EXIT held at power-on both are the firmware's.
 
 import argparse
 import json
+import random
 import struct
 import sys
 from pathlib import Path
@@ -22,12 +23,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import menu_cases  # noqa: E402
-import synthaddr  # noqa: E402
 import unicorn  # noqa: E402
 from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1  # noqa: E402
 from machine import UART1, load_flash  # noqa: E402
 from pswitch_cases import Box, play  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
+import fat32  # noqa: E402
+import highram_watch as hw  # noqa: E402
+import ht_osc_cases as hc  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
+import plugin_api23_cases  # noqa: E402
+import sampleset  # noqa: E402
+from dsp_model import DspModel, FULL_SCALE, FX_IN, FX_OUT, IDLE, LEVEL, MASTER_FX, MUTE, PAN_LEFT, PAN_RIGHT, PARTS, RAMP, VOICE, VOICE_WORDS  # noqa: E402
+from filter_curve import FilterCurve  # noqa: E402
+from firmware import identify  # noqa: E402
+from mfx_cases import DspLog  # noqa: E402
+from plugin_api24_cases import CUTOFF_ENCODER, KNOBS, World  # noqa: E402
+from sdcard import MemoryMedium, SDCard  # noqa: E402
+from splash_cases import Dev, SWITCH_SCREEN  # noqa: E402
 
 PATPTR = 0xC033E6A4
 LEDMGR = 0xC0345A1C
@@ -218,7 +232,6 @@ class VBox(SBox):
 
     def __init__(self, payload, flash=None, held=0, dsp=False):
         super().__init__(payload, flash, held, dsp=dsp)
-        from mfx_cases import DspLog
         self.log = DspLog(self.m)
         self.notes = []
         self.part = self.dev.call(PART_OBJECT, 0)
@@ -334,7 +347,6 @@ def case_reset_dsp(payload, flash):
     changed. Asked on the DSP's side of the host port (dsp_model.py), so it holds whatever firmware routine a reset calls.
     Device test 11.11.: a reset that switched the part off left it silent until the SAMPLE knob was turned and the sequencer
     restarted (#506); the model cannot tell silence, only that the switch went to 0 (docs/messungen/2026-11-12-dsp-modell.md)."""
-    from dsp_model import DspModel
     out = []
     for playing in (False, True):
         slug, how = ("while_playing", "playing") if playing else ("stopped", "stopped")
@@ -363,7 +375,6 @@ def case_meter_dsp(payload, flash):
     """The bottom LEDs follow the output peak the DSP hands back (dsp_model.py, docs/messungen/2026-11-12-pegel-leds.md): the
     firmware reads 0xFF9030F4 every 40 ms into the meter object and sets it back to 0 at the DSP. Silent, full scale, silent
     again, on mains power (on battery the LEDs are off)."""
-    from dsp_model import FULL_SCALE, DspModel
     dev = menu_cases.boot(payload, flash, adapter=True)
     dsp = DspModel.attach(dev.m)
     seen = []
@@ -383,7 +394,6 @@ def case_meter_dsp(payload, flash):
 def case_voices_dsp(payload, flash):
     """The voices the DSP opens follow the sequencer (dsp_model.py voices): part 1 on every step, part 3 on every 4th, played
     1.5 s. Every note the firmware starts (NOTE_ON) opens one voice of its part at the DSP, and the note's end closes it."""
-    from dsp_model import DspModel
     box = VBox(payload, flash)
     dsp = DspModel.attach(box.m)
     for part in range(16):
@@ -413,8 +423,6 @@ def case_part_values_dsp(payload, flash):
     with the knob, PAN left keeps the left gain full and lowers the right one and PAN right the other way round, the level
     has its ramp rate, the cutoff falls with the encoder, and every voice holds note 60. The MFX SEND key switches the part's
     send at the DSP on and off again."""
-    from dsp_model import LEVEL, PAN_LEFT, PAN_RIGHT, RAMP, DspModel
-    from plugin_api24_cases import CUTOFF_ENCODER, KNOBS
     box = SBox(payload, flash)
     dsp = DspModel.attach(box.m)
 
@@ -470,8 +478,6 @@ def case_effects_dsp(payload, flash):
     no other field, muting part 1's field ahead of the load and unmuting it with the load (no field stays muted); IFX EDIT changes part 1's effect parameters; IFX ON switches
     part 1's insert effect on and off again; the touchpad in Master FX mode changes the master effect's parameters and opens
     its input gain only while touched; a part's effect starts at unity gain in and out."""
-    from dsp_model import FX_IN, FX_OUT, IDLE, MASTER_FX, MUTE, PARTS, DspModel
-    from plugin_api24_cases import KNOBS
     box = SBox(payload, flash, dsp=True)
     dsp = DspModel.attach(box.m)
     box.run(0.3)
@@ -594,8 +600,6 @@ def case_fx_map_dsp(payload, flash):
     Master: chain 2 is the master field, chain 7 param 5 its input gain (24) and param 1 its output gain (25); chain 10
     (and a chain 0 row) reach no code at the DSP. t from 0x41 touched, 0x42 X, 0x43 Y, 0x44/0x45 X and 0x46/0x47 Y above and
     below the middle. 0x4A is PLAY: t is 0 before the first PLAY and 1 once it plays. t comes from a 7-bit position (T7)."""
-    from dsp_model import FX_IN, FX_OUT, MASTER_FX, DspModel
-    from plugin_api24_cases import KNOBS, World
     w = World(bytes(0x100) + bytes(payload), flash)
     dsp = DspModel.attach(w.dev.m)
     w.dev.run(0.3)
@@ -680,10 +684,7 @@ def case_cutoff_dsp(payload, flash):
     RESONANCE as the firmware's own coefficient function computes them (filter_curve.py, run apart from the device): every type
     0 to 16 at two cutoffs and one resonance, set through the plugin's part setter, filter EG and MOD at 0, a MIDI note 60 after
     each. The LPF function is also computed in Python from its tables; OFF sends zeros, on blue no 0x30."""
-    from dsp_model import DspModel
-    from filter_curve import FilterCurve
-    from plugin_api23_cases import World
-    w = World(bytes(0x100) + bytes(payload), flash)
+    w = plugin_api23_cases.World(bytes(0x100) + bytes(payload), flash)
     dsp = DspModel.attach(w.dev.m)
     curve = FilterCurve(payload)
     w.set_part(0, "egInt", 0)
@@ -713,11 +714,6 @@ def case_cutoff_dsp(payload, flash):
 def import_wav(payload, flash, wav):
     """IMPORT SAMPLE (DATA UTILITY, the file browser on the card root, destination as offered) of `wav` as /a.wav, with the DSP
     model attached from the start -> (model, index into its uploads before the import, screen reached)."""
-    import fat32
-    import highram_watch as hw
-    from dsp_model import DspModel
-    from sdcard import MemoryMedium, SDCard
-    from splash_cases import SWITCH_SCREEN, Dev
     img = fat32.format_image(64 * 1024 * 1024)
     vol = fat32.Volume(img)
     vol.write("/a.wav", wav)
@@ -759,7 +755,6 @@ def import_wav(payload, flash, wav):
 
 def wav_file(channels, bits, frames):
     """(file, the 16-bit words the DSP should hold): random PCM, 24 bits cut to their upper 16, stereo interleaved."""
-    import random
     rnd = random.Random(channels * 100 + bits)
     values = [rnd.randint(-32768, 32767) for _ in range(frames * channels)]
     if bits == 16:
@@ -775,7 +770,6 @@ def case_sample_dsp(payload, flash):
     of 24 bits lands as its upper 16 bits, a stereo file of 16 bits as it is, left and right interleaved, at the allocation
     cursor (on an empty card the first user slot). Both checked word for word in the model's image of the DSP memory. The synth
     has no IMPORT SAMPLE (DATA UTILITY stays on screen 15), so the case is for the Sampler builds."""
-    from firmware import identify
     if identify(payload).build == "synth":
         return []
     out, seen = [], []
@@ -793,11 +787,6 @@ def case_sample_dsp(payload, flash):
 def export_dsp(payload, flash):
     """EXPORT ALL SAMPLE (DATA UTILITY) reads each sample back from the DSP (0xA9 on the sample memory): a sample loaded from
     the card at the start comes out of the export unchanged. Without the model's answer the export holds zeros."""
-    import fat32
-    import ht_osc_cases as hc
-    import sampleset
-    from dsp_model import DspModel
-    from splash_cases import SWITCH_SCREEN, Dev
     slot = sampleset.FIRST_USER
     source = sampleset.build({slot: ("A", 3000)})
     dev = Dev(payload, flash, 0)
@@ -833,9 +822,7 @@ def case_note_commands_dsp(payload, flash):
     """Part 1's OSC EDIT and amp envelope at the DSP (dsp_model.py command, part_value), set through the plugin's part setter,
     a MIDI note 60 after each: command 0x2D carries OSC EDIT * 258 for the sounding voice (OSC EDIT 10 and 110); with AMP EG on
     the level 30 ms into the note is lower with ATTACK 100 than with ATTACK 0, with AMP EG off it is the same."""
-    from dsp_model import LEVEL, VOICE, VOICE_WORDS, DspModel
-    from plugin_api23_cases import World
-    w = World(bytes(0x100) + bytes(payload), flash)
+    w = plugin_api23_cases.World(bytes(0x100) + bytes(payload), flash)
     dsp = DspModel.attach(w.dev.m)
 
     def note(ms=30):
@@ -874,8 +861,6 @@ def case_reset_values_dsp(payload, flash):
     new values. After EXIT + pad it holds the values it had before the turns: the PITCH offset of each voice, the cutoff, the
     level and the pan of the part and the unit of its insert effect; stopped (a MIDI note on channel 1) and while the sequencer
     plays part 1 (its voices of one second)."""
-    from dsp_model import LEVEL, PAN_LEFT, PAN_RIGHT, DspModel
-    from plugin_api24_cases import CUTOFF_ENCODER, KNOBS
     IFX_ENCODER = 4
     out = []
     for playing in (False, True):
@@ -1342,7 +1327,6 @@ def case_stop_hold(payload, flash):
     closes their voices; the next note switches its part on again with its level. A short press (0.15 s) and one of 0.3 s are
     the firmware's STOP: the sequencer stops at the press, nothing is silenced and no part switched off. Playing, and stopped
     with pad 1 held; with EXIT held at power-on a long press is the firmware's too."""
-    from dsp_model import LEVEL, DspModel
     out = []
 
     def device(held=0):
@@ -1436,7 +1420,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -1445,7 +1428,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

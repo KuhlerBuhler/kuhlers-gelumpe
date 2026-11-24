@@ -18,6 +18,7 @@ from machine import blank_flash
 import swap_cases
 from swap_cases import Box, DSP_MIN, wav_pcm
 import sample_swap as spec
+import parallel
 
 
 SAMPLES = {500: ('native500', 2000), 501: ('native501', 1000), 502: ('native502', 2000)}
@@ -165,7 +166,6 @@ def report_entries(report):
 
 
 def cases_task():
-    import parallel
     worker = blackfin_worker.find()
     if worker is None:
         return [{"id": "dspswap:worker", "ok": False,

@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patch"))
 import menu_cases  # noqa: E402
 from machine import load_flash  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
+import lifetime  # noqa: E402
 
 RUNTIME = 0xC01AE000
 IMAGE = 0xC0000000              # where the firmware image (the VSB after its 0x100 header) lies
@@ -319,7 +320,6 @@ def run(vsb, flash, request, png_dir):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", required=True, type=Path)

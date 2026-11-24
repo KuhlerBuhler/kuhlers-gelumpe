@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import menu_cases as mc  # noqa: E402
 import pswitch_cases as ps  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 HW_TEMPO, HW_STEP = 0xC0691518, 0xC06904B0         # the tempo in tenths of a BPM, part 1's step counter (script_hw.s)
 CHAIN, SWITCH = 4, 8                                # bits of byte 7 (script_menu.s FLAGS2_GLIDE_*)
@@ -197,7 +198,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

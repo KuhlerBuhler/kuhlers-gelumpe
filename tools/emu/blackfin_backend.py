@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 from types import MappingProxyType
+import native_build
 
 LIMIT = 1 << 20
 CHANNEL_SPIN_NS = 200000   # how long a wait for the worker spins before it sleeps on the pipe
@@ -43,7 +44,6 @@ def _channel_library():
     """blackfin_channel.c built by native_build, or None: no C compiler, or BLECH_WORKER_CHANNEL=pipe."""
     if os.environ.get('BLECH_WORKER_CHANNEL') == 'pipe':
         return None
-    import native_build
     lib = native_build.library(Path(__file__).resolve().parents[1] / 'dsp/blackfin_channel.c')
     if lib is not None and lib.blech_channel_size.restype is not ctypes.c_uint64:
         lib.blech_channel_size.restype = ctypes.c_uint64

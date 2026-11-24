@@ -22,6 +22,10 @@ import menu_cases  # noqa: E402
 from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
+import unicorn  # noqa: E402
+from unicorn import arm_const  # noqa: E402
 
 IMAGE = 0xC0000000
 POWER_KEY = [6, 1, 0, 0, 0]
@@ -49,8 +53,6 @@ def entry(name, ok, detail):
 def boot(payload, flash, held=0, files=None):
     """Booted to the main screen; every pattern selection's number is kept in dev.chosen (r5 two words behind the hooked site, where
     the selection passes it on as mov r1, r5)."""
-    import unicorn
-    from unicorn import arm_const
     for_build(payload)
     dev = Dev(payload, flash, held)
     dev.chosen = []
@@ -149,7 +151,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -158,7 +159,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

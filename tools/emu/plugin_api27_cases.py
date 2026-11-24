@@ -24,6 +24,7 @@ import plugin_edit_cases as edit  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 CTL, SEQ, PATTERN = 0xC06912E0, 0xC034029C, 0xC033E6A4   # Sampler places; Dev.a gives the synth's (data/synth-map/)
 TYPE_AT = 0x41                                # the MFX type in the pattern being edited, as enter_mfx2 reads it
@@ -200,7 +201,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

@@ -37,6 +37,7 @@ from flashstore import FlashError, FlashStore, default_dir as default_flash_dir 
 import lifetime  # noqa: E402
 from lcd import LcdResponse, taus  # noqa: E402
 from sdcard import SDCard  # noqa: E402
+from machine import Machine, hardware_flash  # noqa: E402
 
 MISSING_UNICORN = "Unicorn fehlt in diesem Python. Einmal npm run setup:emu ausführen, dann npm start neu starten."
 
@@ -73,7 +74,6 @@ def blank_for(hardware, payload):
     except for Sampler code on the blue, which needs the blue's user-data mark (docs/ideen/65-blech-hacktribe-blau.md)."""
     if hardware != "blue" or payload is None or is_synth(payload):
         return None
-    from machine import hardware_flash
     return bytes(hardware_flash("blue"))
 
 
@@ -125,12 +125,11 @@ def panel_message(cmd):
 
 
 def real_machine(payload, flash):
-    from machine import Machine
     return Machine(payload, flash)
 
 
 def real_check(base, patched, flash, allow, allow_code=(), boot_flash=None, progress=None, quick=False, foreign=False):
-    from check import check
+    from check import check   # lazy: loads every case module, 0.5 s more on each service start
     return check(base, patched, flash, allow, allow_code, progress=progress, quick=quick, boot_flash=boot_flash, foreign=foreign)
 
 

@@ -1,5 +1,6 @@
 """Boot loader for e2sPlugin.all over a fake FatFs."""
 import pathlib
+import re
 import struct
 import sys
 import unittest
@@ -8,6 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from tools.patch.test_script_vm import contract_data, blob, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
+from tools.patch.script_hooks import MENU_STATE
 if UNICORN_AVAILABLE:
     from unicorn import UC_HOOK_CODE, UcError
     from unicorn.arm_const import *
@@ -228,7 +230,6 @@ class NativeCardTests(unittest.TestCase):
 
     def booted(self, data, **fat):
         """The machine with the menu armed and Blechy loaded, as the card hook wrapper leaves it before the loader runs."""
-        from tools.patch.script_hooks import MENU_STATE
         m, built = self.machine(data, **fat)
         m.uc.mem_write(MENU_STATE, bytes(0x200))
         for offset in (0, 16, 20, 24, 28): m.write(MENU_STATE + offset, 1)
@@ -270,7 +271,6 @@ class NativeCardTests(unittest.TestCase):
         m, built = self.machine(None)
         self.assertEqual(built.layout['poolEnd'], 0xC01F7000)
         source = (ROOT / 'tools/patch/script_card.s').read_text()
-        import re
         path = re.search(r'\.asciz "([^"]+)"', source).group(1)
         self.assertEqual(path.encode(), PATH)
         self.assertLess(0xC01F7000 + 64 + 0x280, 0xC01F8000)

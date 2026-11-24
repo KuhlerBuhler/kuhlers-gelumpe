@@ -23,6 +23,8 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "patch"))
 
 import sample_swap  # noqa: E402
+import sample_swap_probe as old  # noqa: E402
+from led_show import mido_ask  # noqa: E402
 
 TIMER_HZ = 150_000_000
 SOURCES = {0: "card", 1: "ram"}
@@ -93,8 +95,6 @@ def main(argv=None):
         raise ValueError("--watch needs --vsb, the own original Sampler 2.02 file")
     if a.json and any(parent.joinpath(".git").exists() for parent in [a.json.resolve().parent, *a.json.resolve().parents]):
         raise ValueError("write the report outside the repository")
-    import sample_swap_probe as old
-    from led_show import mido_ask
     firmware, _ = old.own_firmware(a.vsb)
     ask = mido_ask()
     found = ask([0xF0, 0x42, 0x50, 0, 0, 0xF7])

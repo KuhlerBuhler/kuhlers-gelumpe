@@ -17,6 +17,7 @@ import plugin_edit_cases as edit  # noqa: E402
 import pswitch_cases as ps  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 PROGRAM = """let viewed = -9; let next = -9; let sel = -9;
 korg.onEvent("frame", () => { viewed = korg.viewedPattern; next = korg.nextPattern; sel = korg.selectedPattern; });"""
@@ -105,7 +106,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

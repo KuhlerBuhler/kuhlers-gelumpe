@@ -21,6 +21,7 @@ import node_json  # noqa: E402
 import plugin_edit_cases as edit  # noqa: E402
 import script_cases  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 FB = 0xC031B310                 # the LCD's 128x64 bytes, 8-pixel column strips, lowest bit on top
 OPEN_S = 0.3                    # from ENTER to the comparison of the start screen
@@ -116,7 +117,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

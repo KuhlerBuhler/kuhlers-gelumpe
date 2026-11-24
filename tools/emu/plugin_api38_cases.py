@@ -30,6 +30,8 @@ import plugin_edit_cases as edit  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
+import unicorn  # noqa: E402
 
 STATE_ARMED, STATE_DISABLED = 2, 3       # data/script/contract.mjs SCRIPT_STATE
 ERR_TIME = 7                             # data/script/contract.mjs ERRORS
@@ -250,7 +252,6 @@ class Probe:
     run of the runtime's frame hook (script_frame_hook, all plugins of one frame), in ns of the emulator's clock."""
 
     def __init__(self, dev, symbols):
-        import unicorn
         self.dev, self.reads, self.frames, self.mark = dev, [], [], "start"
         glue = {symbols[f"script_file_{n}_glue"]: n for n in ("count", "name", "picture", "frame", "read", "write")}
         timed, hook = symbols["card_timed"], symbols["script_frame_hook"]
@@ -320,7 +321,6 @@ def frame_memory(dev, symbols):
     """The display memory as the plugins' frame left it: copied behind the runtime's frame hook (script_frame_hook, behind
     bl script_frame_run) at the next frame. In between, Korg's screen tick (called before the hook) can draw its own widgets
     into the display memory for a moment; the panel never shows them, as the plugins' frame redraws before it goes out."""
-    import unicorn
     hook = symbols["script_frame_hook"] + 20
     seen = []
     handle = dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: seen or seen.append(bytes(uc.mem_read(FB, 1024))),
@@ -450,7 +450,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

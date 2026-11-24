@@ -10,7 +10,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from tools.patch.test_script_vm import contract_data, blob, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
-from tools.patch.test_script_card import crash
+from tools.patch.script_hooks import MENU_STATE, POOL
 
 DISPLAY_RAM = 0xC031B310
 EXPECT = """
@@ -224,7 +224,6 @@ class NativeDisplayTests(unittest.TestCase):
     def test_blechys_page_is_dark_with_display_invert_off_and_nothing_else_is(self):
         """The LCD clears a pixel slowly: his picture goes over complemented unless DISPLAY INVERT is ON (the controller
         then shows set bits light already). A plugin app, the main screen and the page DESCRIPTION stay as they are."""
-        from tools.patch.script_hooks import MENU_STATE, POOL
         m,built = self.machine()
         s = built.symbols
         m.call('script_display_rect_glue',0,0,128,8)

@@ -9,6 +9,7 @@ from unittest.mock import patch
 import unicorn
 from unicorn import arm_const as R
 import sample_ram_canary as p
+import blue_report
 
 
 class Canary(unittest.TestCase):
@@ -287,7 +288,6 @@ class Canary(unittest.TestCase):
         self.assertEqual(link.writes, [(p.STUB, 0x300), (p.RESULT, 32), (p.MAP, 224)])
 
     def test_a_refusal_report_confirms_successful_scratch_restoration(self):
-        import blue_report
         class Link:
             def read(self, address, size):
                 return bytes(size)

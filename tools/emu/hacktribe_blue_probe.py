@@ -26,6 +26,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import machine
+# synth_update_probe is imported where it is used: at the top it would be an import cycle through sysex_trace.
 
 HEADS = {"sampler": (0x53, 0x24), "blue": (0x00, 0x23)}   # bytes 0x12 and 0x2E (Hacktribe's e2-header.py)
 FIRMWARE = (0x20000, 0x220000)
@@ -102,7 +104,6 @@ def run(korg_blue, hacktribe, blech, flash, shots=None, only=None):
 
 
 def main():
-    import machine
     from synth_update_probe import inside_repo
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--korg-blue", required=True, type=Path)

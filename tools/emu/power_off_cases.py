@@ -29,6 +29,8 @@ import power_off as spec  # noqa: E402
 from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev, user_flash  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 HEADER = 0x100
 IMAGE = 0xC0000000
@@ -164,7 +166,6 @@ def run_case(payload, flash, name):
 
 def run_task(name):
     """run_case in a worker (parallel.py)."""
-    import parallel
     return run_case(parallel.shared["payload"], parallel.shared["flash"], name)
 
 
@@ -265,7 +266,6 @@ def shots(payload, flash, png_dir):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()      # ends with the test run that started this, also when that is killed
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -286,7 +286,6 @@ def main():
         return 0
 
     def compute():
-        import parallel
         tasks, combine = cases_tasks(payload)
         checks = combine(parallel.run_tasks(tasks, {"payload": payload, "flash": flash}))
         return {"ok": all(c["ok"] for c in checks), "checks": checks}

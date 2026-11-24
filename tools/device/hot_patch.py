@@ -36,6 +36,8 @@ ROOT = HERE.parents[1]
 for _p in (str(HERE), str(ROOT / "tools" / "patch")):
     if _p not in sys.path:
         sys.path.append(_p)
+from led_show import emulator_ask, mido_ask
+from remote_press import Blech
 
 IMAGE, IMAGE_SIZE, HEADER = 0xC0000000, 0x200000, 0x100
 DSP = (0xC00F9E10, 0xC013C0B0)          # the DSP's program, uploaded at the start (tools/emu/check.py DSP_STREAM)
@@ -425,15 +427,12 @@ def check_device(blech, emulator=False):
 
 
 def connect(emu=None, dev_on=True):
-    from remote_press import Blech
     if emu:
-        from led_show import emulator_ask
         ask, m = emulator_ask(emu)
         if dev_on:
             import blech_sysex as spec
             m.uc.mem_write(spec.DEV_FLAG, struct.pack("<I", spec.DEV_MAGIC))
         return Blech(ask), m
-    from led_show import mido_ask
     return Blech(mido_ask()), None
 
 

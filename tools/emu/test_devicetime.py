@@ -3,6 +3,7 @@
 (docs/messungen/2026-10-16-emulator-timing.md, mean of three device runs), by hand and with the live model
 (`Pace`) that machine.py charges its slices by."""
 
+import struct
 import sys
 import unittest
 from pathlib import Path
@@ -13,6 +14,12 @@ sys.path.insert(0, str(HERE.parent / "patch"))
 import arm  # noqa: E402
 import devicetime  # noqa: E402
 import machine  # noqa: E402
+
+try:                      # Decode and ByHand run without Unicorn, only Live needs it
+    import unicorn
+    from unicorn import arm_const as A
+except ImportError:
+    unicorn = None
 
 # measured per round on the device: alu 20.15 ns, mul 26.82, memh 47.88, mem 143.43, memu 234.1
 MEASURED = {"alu": 20.15, "mul": 26.82, "memh": 47.88, "mem": 143.43, "memu": 234.1}
@@ -64,20 +71,12 @@ class ByHand(unittest.TestCase):
         self.assertEqual(devicetime.estimate_device_ns(1234), 1234)
 
 
+@unittest.skipIf(unicorn is None, "Unicorn not installed")
 class Live(unittest.TestCase):
     """The loops run in a bare Unicorn, sliced as machine.run_slice slices: each slice is charged at the rate Pace gives
     for the pc it starts at. Device ns per round = charged time / rounds."""
 
-    def setUp(self):
-        try:
-            import unicorn  # noqa: F401
-        except ImportError:
-            self.skipTest("Unicorn not installed")
-
     def run_loop(self, name, rounds, at=0xC0040000, pace=None):
-        import struct
-        import unicorn
-        from unicorn import arm_const as A
         code = arm.assemble(f"loop: {LOOPS[name]}\ndone: b done", CODE_AT)
         uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
         uc.ctl_set_cpu_model(A.UC_CPU_ARM_926)

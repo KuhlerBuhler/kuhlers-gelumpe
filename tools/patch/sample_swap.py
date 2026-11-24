@@ -67,6 +67,8 @@ import native_dsp_scope  # noqa: E402
 import native_dsp_acquire  # noqa: E402
 import capture_fault  # noqa: E402
 import sample_export_fault  # noqa: E402
+sys.path.append(str(Path(__file__).parent.parent / 'emu'))
+import firmware  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
@@ -2583,8 +2585,6 @@ def sha(data):
 
 
 def screens_of(vsb):
-    sys.path.insert(0, str(Path(__file__).parent.parent / "emu"))
-    import firmware
     return firmware.identify(vsb[HEADER:]).screens
 
 

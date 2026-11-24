@@ -14,6 +14,7 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT), str(ROOT / "tools/emu"), str(ROOT / "tools/patch")]
 from artifacts import external_output
+import lifetime
 
 TAP_GROUPS = (0, 3, 6)
 
@@ -96,7 +97,6 @@ def main():
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     report_path = external_output(args.report or Path(tempfile.mkdtemp(prefix="gelumpe-doom-compat-")) / "report.json")
-    import lifetime
     lifetime.exit_with_parent()
     report = check(args.image, args.flash, args.sysex_cases)
     report_path.parent.mkdir(parents=True, exist_ok=True)

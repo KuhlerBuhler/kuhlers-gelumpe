@@ -15,6 +15,7 @@ ROOT = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2])
 sys.path.insert(0, str(ROOT / "tools" / "patch"))
 
 import stage2_memory as spec  # noqa: E402
+# check is imported inside main: at the top it would be an import cycle.
 
 
 def dsp_stream(base, patched, span):

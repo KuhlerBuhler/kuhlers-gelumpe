@@ -25,6 +25,7 @@ from tools.patch import script_hooks  # noqa: E402
 import menu_cases as mc  # noqa: E402
 import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 LM = script_hooks.LOAD_METER
 LM_VALUE, LM_DRAWN, LM_SLEEP, LM_ARMED = LM + 28, LM + 29, LM + 8, LM + 32
@@ -247,7 +248,6 @@ def cases(payload, flash=None, png=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

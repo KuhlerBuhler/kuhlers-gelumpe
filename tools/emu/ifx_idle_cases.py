@@ -24,6 +24,9 @@ import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
 from dsp_model import DspModel  # noqa: E402
 from pswitch_cases import Box  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
+from shortcut_cases import IFX_DEVICE, fx_table  # noqa: E402
 
 IMAGE = 0xC0000000
 PATPTR = 0xC033E6A4
@@ -108,7 +111,6 @@ class IBox(Box):
 
 def units(payload):
     """The DSP unit of insert stage 1 per preset index, from the firmware's preset list (shortcut_cases.fx_table)."""
-    from shortcut_cases import IFX_DEVICE, fx_table
     return [payload[r + IFX_DEVICE] for r in fx_table(payload, b"Punch", b"Overdrive")]
 
 
@@ -188,7 +190,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -197,7 +198,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

@@ -10,6 +10,7 @@ from .ramdecl import area, share
 from .script_vm import build as build_vm
 from . import spectrum
 from . import lang_texts
+from . import synthaddr
 
 BLECHY_BLOCK = 0xC0184000
 BLECHY_BLOCK_END = 0xC0186800
@@ -350,7 +351,6 @@ def runtime_profile(build):
                                               SE_SCREEN=38, SE_PAGES=10,
                                               # DEV MODE: the word BLECH's SysEx code reads (tools/patch/blech_sysex.py DEV_FLAG); 0 where the build has no page
                                               DEV_FLAG=0xC01910FC, **KEY_PADS_SAMPLER, **pattern_setter_actions(build), **part_setter_actions(build)))   # the value of BLECH > VERSION, an offset into base_names
-    from . import synthaddr
     sites = []
     for address, expected, name in SITES:
         if name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook', 'se_prev', 'se_next'):
@@ -675,7 +675,6 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     if build != 'synth':
         source += '\n'+spectrum.source()
     if build == 'synth':
-        from . import synthaddr
         source = '\n'.join(line for line in source.splitlines() if not line.lstrip().startswith(';'))
         source = synthaddr.source(source, own=[(synthaddr.FREE_FROM,0xC0200000)], keep=[0xC07FFC00,0xC07FFFF8])
     variant = 'synth' if build == 'synth' else 'sampler'

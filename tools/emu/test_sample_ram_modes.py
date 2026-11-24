@@ -1,16 +1,21 @@
 """Synthetic outcome checks for the native CPU mode observation."""
+import sys
 import unittest
-import sampleset
-import sample_ram_modes as modes
-import unicorn
-from unicorn import arm_const as R
-from highram_watch import HighWatch
+from pathlib import Path
+from types import SimpleNamespace
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patch"))
+import pattern_switch  # noqa: E402
+import sampleset  # noqa: E402
+import sample_ram_modes as modes  # noqa: E402
+import unicorn  # noqa: E402
+from unicorn import arm_const as R  # noqa: E402
+from highram_watch import HighWatch  # noqa: E402
 
 
 class Outcomes(unittest.TestCase):
     def pattern_switch(self, browse=None, apply=True, unrelated=False, premature=False, stale_view=False):
-        from types import SimpleNamespace
-        import pattern_switch
         events = []
         state = dict(current=0, chosen=0, playing=0, confirmed=False)
         flags = browse if browse is not None else (0xFFFFFFFF, 0xFFFFFFFF)
@@ -87,7 +92,6 @@ class Outcomes(unittest.TestCase):
         self.assertEqual(events, ['play', 'stop'])
 
     def test_export_rechecks_actual_file_after_returning_to_main(self):
-        from types import SimpleNamespace
         before = sampleset.build(sampleset.sized(3, 300))
         samples = sampleset.sized(3, 300);samples[500] = ('imp', 123)
         state = {'file': sampleset.build(samples)}
@@ -102,7 +106,6 @@ class Outcomes(unittest.TestCase):
             session.export_all(before, 246, 3)
 
     def test_target_observer_covers_primary_and_alias_without_workbuffer_callbacks(self):
-        from types import SimpleNamespace
         uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
         for at, size in ((0xC0000000, 0x400000), (0xC0D3A000, 4096),
                          (0xC273A000, 0x16000), (0xC674F000, 4096)):
@@ -137,7 +140,6 @@ class Outcomes(unittest.TestCase):
         self.assertEqual(events, ['main', 'phase', 'completion'])
 
     def data_utility(self, start=0, vtable=0xC00E31F8, list_screen=15, stalled=False, browser=True):
-        from types import SimpleNamespace
         state = dict(screen=1, index=start, moved=[], visited=[])
         events = []
         manager, screen = 0xC100, 0xC200

@@ -5,7 +5,6 @@
 Prints JSON: per part the DSP words at switch, ramp, level, IFX ON, pan L/R, MFX SEND; the peak words.
 """
 import argparse
-import hashlib
 import json
 import struct
 import sys
@@ -14,6 +13,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import remote_press as rp
+from led_show import mido_ask
+from remote_press import Blech
 
 STUB_AT = 0xC1000000
 PARAMS_AT = STUB_AT + 0x40
@@ -104,12 +106,10 @@ def main():
     ap.add_argument("--pad", action="store_true")
     a = ap.parse_args()
     EMU = a.emu_dir
-    from remote_press import Blech
     model = None
     if a.emu:
         ask, m, model = emu_ask(a.emu)
     else:
-        from led_show import mido_ask
         ask = mido_ask()
     dev = Blech(ask)
     ref = open(a.ref or a.emu, "rb").read()[0x100:] if (a.ref or a.emu) else None
@@ -171,7 +171,6 @@ def part0(dev):
 
 
 def press(dev, step):
-    import remote_press as rp
     mailbox, message_at, _, os_wait = rp.remote_of(dev)
     done = lambda: struct.unpack("<I", dev.read(mailbox + 8, 4))[0]
     for label, w, message in rp.command(step, rp.panel_names()):

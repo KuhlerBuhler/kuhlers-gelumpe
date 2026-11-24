@@ -6,7 +6,6 @@ The device information measurements are in docs/messungen/2026-11-11-plugin-api2
 """
 import argparse
 import json
-import struct
 
 import sys
 from pathlib import Path
@@ -25,6 +24,7 @@ import script_cases  # noqa: E402
 import synthaddr  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 VERSION_TEXT = 0xC014FCF0       # the patch blech-version: "BLECH x.y.z", NUL padded, FF where the set does not have it
 COUNT_IFX, COUNT_MFX = 0xC003EFDC, 0xC003EFE4
@@ -310,7 +310,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)
