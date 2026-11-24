@@ -42,6 +42,7 @@ on:
       - "src/script/**"
       - "src/units.mjs"
       - "tools/ci/verify-scope.mjs"
+      - "tools/device/**"
       - "tools/dsp/**"
       - "tools/ci/firmware-matrix.mjs"
       - "tools/emu/**"

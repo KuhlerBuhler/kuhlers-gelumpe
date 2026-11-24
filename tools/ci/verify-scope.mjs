@@ -25,11 +25,11 @@ export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch
 
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
-const MENU_USERS = ["menu_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
+const MENU_USERS = ["menu_cases", "update_guard_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
   "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "tube_cases", "beat_eighth_cases", "ht_osc_cases", "card_error_cases", "dev_mode_cases", "import_slots_cases", "lang_cases", "sample_category_cases", "sysex_cases", "ifx_idle_cases", "synth_filter_cases",
   "tap_motion_cases", "user_samples_cases"];
 const PSWITCH_USERS = ["pswitch_cases", "tap_motion_cases", "note_assist_cases", "ifx_idle_cases", "shortcut_cases",
-  "synth_filter_cases", "beat_eighth_cases"];
+  "synth_filter_cases", "beat_eighth_cases", "menu_cases", "remote_cases"];
 const MFX_USERS = [...new Set(["mfx_cases", "preset_cases", "stereo_pad_cases", "tube_cases", "touch_scale_zero_cases", "ht_osc_cases", "sample_category_cases",
   ...PSWITCH_USERS, ...MENU_USERS])];
 
@@ -44,30 +44,30 @@ export const TABLE = [
   [/^tools\/emu\/menu_cases\.py$/, MENU_USERS],
   [/^tools\/emu\/pswitch_cases\.py$/, PSWITCH_USERS],
   [/^tools\/emu\/mfx_cases\.py$/, MFX_USERS],
-  [/^tools\/emu\/swap_cases\.py$/, ["swap_cases", "sysex_cases", "blackfin_swap_cases", "dev_mode_cases", "fx_card_cases"]],
-  [/^tools\/emu\/sysex_cases\.py$/, ["sysex_cases", "dev_mode_cases", "fx_card_cases"]],
-  [/^tools\/emu\/shortcut_cases\.py$/, ["shortcut_cases", "ifx_idle_cases"]],
+  [/^tools\/emu\/swap_cases\.py$/, ["swap_cases", "sysex_cases", "blackfin_swap_cases", "dev_mode_cases", "fx_card_cases", "update_guard_cases"]],
+  [/^tools\/emu\/sysex_cases\.py$/, ["sysex_cases", "dev_mode_cases", "fx_card_cases", "update_guard_cases"]],   // update_guard_cases: through synth_update_probe
+  [/^tools\/emu\/shortcut_cases\.py$/, ["shortcut_cases", "ifx_idle_cases", "remote_cases"]],   // remote_cases: plugin_api33_cases imports it
   [/^tools\/emu\/preset_cases\.py$/, ["preset_cases", "fx_card_cases"]],
   // the Blackfin worker and the CI action that builds it: only the case that runs the executed DSP code
   [/^tools\/dsp\/|^\.github\/actions\/dsp-worker\//, ["blackfin_swap_cases"]],
   [/^tools\/emu\/sample_import_(card|menu)_cases\.py$/, ["swap_cases"]],
   [/^tools\/emu\/native_sample_persistence_cases\.py$/, ["swap_cases"]],
   [/^tools\/patch\/native_sample_persistence\.py$/, ["swap_cases"]],
-  [/^tools\/emu\/tap_motion_cases\.py$/, ["tap_motion_cases", "beat_eighth_cases"]],
+  [/^tools\/emu\/tap_motion_cases\.py$/, ["tap_motion_cases", "beat_eighth_cases", "remote_cases"]],
   [/^tools\/emu\/sample_error_cases\.py$/, ["sample_error_cases", "import_slots_cases"]],
-  [/^tools\/emu\/ht_osc_cases\.py$/, ["ht_osc_cases", "sample_category_cases", "shortcut_cases", "ifx_idle_cases"]],
+  [/^tools\/emu\/ht_osc_cases\.py$/, ["ht_osc_cases", "sample_category_cases", "shortcut_cases", "ifx_idle_cases", "remote_cases"]],
   ...CASE_MODULES.map(m => [new RegExp(`^tools/emu/${m}\\.py$`), [m]]),
   [/^tools\/emu\/testmode_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
   [/^tools\/emu\/timer_cases\.py$/, ["remote_cases"]],         // runs as a group of remote_cases
-  [/^tools\/emu\/plugin_edit_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_edit_cases\.py$/, ["remote_cases", "shortcut_cases", "ifx_idle_cases"]],   // a group of remote_cases; shortcut_cases imports it
   [/^tools\/emu\/plugin_api15_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api18_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api19_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/global_cases\.py$/, ["remote_cases"]],         // runs as a group of remote_cases
   [/^tools\/emu\/pattern_parts_cases\.py$/, ["remote_cases"]],  // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api22_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
-  [/^tools\/emu\/plugin_api23_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
-  [/^tools\/emu\/plugin_api24_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api23_cases\.py$/, ["remote_cases", "shortcut_cases", "ifx_idle_cases"]],   // a group of remote_cases; shortcut_cases imports it
+  [/^tools\/emu\/plugin_api24_cases\.py$/, ["remote_cases", "shortcut_cases", "ifx_idle_cases"]],   // a group of remote_cases; shortcut_cases imports it
   [/^tools\/emu\/plugin_api25_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api26_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api27_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
@@ -84,7 +84,7 @@ export const TABLE = [
   [/^tools\/emu\/plugin_api37_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api38_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/meter_led_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
-  [/^tools\/emu\/load_meter_cases\.py$/, ["menu_cases"]],   // runs as a look part of menu_cases
+  [/^tools\/emu\/load_meter_cases\.py$/, ["menu_cases", "remote_cases"]],   // a look part of menu_cases; a remote_cases group imports it
   [/^tools\/emu\/bpm_glide_cases\.py$/, ["menu_cases"]],    // runs as a look part of menu_cases
   [/^tools\/emu\/battery_percent_cases\.py$/, ["menu_cases"]],   // runs as a look part of menu_cases
   [/^tools\/emu\/plugin_catalog_api_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
@@ -92,11 +92,13 @@ export const TABLE = [
   [/^tools\/emu\/objects_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
   [/^tools\/emu\/catalog_app_cases\.py$/, ["remote_cases"]],  // runs as a group of remote_cases
   [/^tools\/emu\/plugin_catalog15_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
-  // what the case modules get from Node (node_json.py): only groups of remote_cases ask; the writer of the file checks nothing
-  [/^tools\/emu\/node_json\.py$|^data\/emu\/node-results\.json$/, ["remote_cases"]],
+  // what the case modules get from Node (node_json.py): groups of remote_cases, the modules that import them, and sysex_trace
+  [/^tools\/emu\/node_json\.py$|^data\/emu\/node-results\.json$/, ["remote_cases", "shortcut_cases", "ifx_idle_cases", "sysex_cases", "dev_mode_cases", "fx_card_cases", "update_guard_cases"]],
   [/^tools\/emu\/node_results\.py$/, []],
   // the DSP model (dsp_model.py): the case modules that ask it
-  [/^tools\/emu\/dsp_model\.py$/, ["shortcut_cases"]],
+  [/^tools\/emu\/dsp_model\.py$/, [...new Set([...PSWITCH_USERS, "shortcut_cases", "ht_osc_cases", "sample_category_cases", "ifx_idle_cases"])]],
+  // the device tools sysex_cases imports for its hot patch groups
+  [/^tools\/device\/(hot_patch|make_hot_fixtures|remote_press|flash_dump|screen_check)\.py$/, ["sysex_cases", "dev_mode_cases", "fx_card_cases", "update_guard_cases"]],
   // the DSP interface cases run with the start scenarios on every copy
   [/^tools\/emu\/dsp_cases\.py$/, []],
 
