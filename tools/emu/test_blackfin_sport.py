@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Generated SPORT0, DMA and interrupt programs; no audio fixtures."""
+import os
 import struct
 import tempfile
 import unittest
