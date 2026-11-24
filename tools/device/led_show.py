@@ -16,7 +16,6 @@ import struct
 import sys
 import time
 from pathlib import Path
-# The emulator (machine) is imported only in the function that runs it: the device path works without unicorn.
 
 STUB_AT = 0xC1000000
 PANEL_PTR = 0xC033E6FC

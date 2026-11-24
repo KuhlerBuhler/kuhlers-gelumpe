@@ -39,7 +39,6 @@ sys.path.insert(0, str(HERE.parent / "patch"))
 import arm  # noqa: E402
 import vm_bench as vb  # noqa: E402
 from led_show import Device, mido_ask  # noqa: E402
-# The emulator (machine) is imported only in the function that runs it: the device path works without unicorn.
 
 STUB_AT = vb.STUB_AT
 STUB_SIZE = vb.STUB_SIZE

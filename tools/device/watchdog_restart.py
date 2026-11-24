@@ -23,7 +23,6 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "patch"))
 from led_show import mido_ask
 from remote_press import Blech, EXEC_FLAG, WRITE_FLAG
-# The emulator (machine) is imported only in the function that runs it: the device path works without unicorn.
 
 STUB_AT = 0xC1000000
 TIMER1 = 0x01C21000
