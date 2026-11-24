@@ -28,6 +28,7 @@ import os
 import pickle
 import sys
 import sysconfig
+from importlib.metadata import version
 from pathlib import Path
 
 import bootcache
@@ -120,7 +121,6 @@ def used():
 
 def _unicorn():
     try:
-        from importlib.metadata import version
         return version("unicorn")
     except Exception:
         return None

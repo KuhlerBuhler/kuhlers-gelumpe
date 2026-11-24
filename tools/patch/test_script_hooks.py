@@ -13,6 +13,8 @@ ROOT=pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 
 from tools.patch.test_script_vm import BareMachine, contract_data, blob, UNICORN_AVAILABLE
+from tools.patch import load_bar, mfx_switch, script_hooks
+from tools.patch.script_hooks import BLECHY_BLOCK, KEY_HOLD, KEY_PASS, KNOB_HOLD, MENU_STATE, METER_SENT, PRESS_KEY, RAM_BASE, RUNTIME, SIM_INPUT, SIM_INPUT_END, SITES, TOUCH_LOCK, TOUCH_LOCK_Y, TOUCH_LOCK_Y_END, WORDS, build
 READY_SENT=next(f['offset'] for f in contract_data()['pool']['fields'] if f['name']=='readySent')
 try:
     from unicorn import UC_HOOK_CODE
@@ -23,21 +25,17 @@ except ModuleNotFoundError:
 @lru_cache(None)
 def hook_runtime():
     """One build per process: a build takes seconds and the machines of about 100 tests only read it."""
-    from tools.patch.script_hooks import build
     return build(contract_data()['include'])
 
 class SharedWordTests(unittest.TestCase):
     def test_load_bar_reads_the_app_picture_where_it_is(self):
         """tools/patch/load_bar.py leaves a frame equal to the open app's picture without the look; it names the address itself."""
-        from tools.patch.script_hooks import build, RUNTIME
-        from tools.patch import load_bar
         for name in ('hacktribe','stock'):
             built=build(contract_data()['include'],build=name)
             self.assertEqual(load_bar.APP_PICTURE,RUNTIME+built.symbols['RT_DISPLAY'],name)
 
     def test_mfx2_constants_match_the_patch_mfx_switch(self):
         """mfx2Type reads and writes the table of tools/patch/mfx_switch.py through its entry at CODE_AT: id, b table_load, default, b killed (file offsets count the 0x100 byte VSB header)."""
-        from tools.patch import script_hooks, mfx_switch
         self.assertEqual(script_hooks.MFX2_ENTRY,mfx_switch.CODE_AT)
         self.assertEqual(script_hooks.MFX2_RECORD_ID,mfx_switch.RECORD_ID)
         self.assertEqual(script_hooks.MFX2_TABLE,mfx_switch.RECBUF+8)
@@ -72,11 +70,8 @@ class HookTests(unittest.TestCase):
         machine.symbols.update(built.symbols)
         machine.call('script_runtime_init',machine.runtime,machine.arena,131072)
         machine.call('lang_arm')    # the menu's texts load through LANG_TEXTS, which the early hook sets on the device
-        from tools.patch.script_hooks import MENU_STATE
         machine.uc.mem_write(MENU_STATE,b'\xff'*0x200)    # an unarmed menu reads FF, as in the image
-        from tools.patch.script_hooks import KEY_PASS,SIM_INPUT_END
         machine.uc.mem_write(KEY_PASS,b'\xff'*(SIM_INPUT_END-KEY_PASS))    # FF as in the image: keys at their defaults, no lock, hold, press or key down
-        from tools.patch.script_hooks import TOUCH_LOCK_Y,TOUCH_LOCK_Y_END
         machine.uc.mem_write(TOUCH_LOCK_Y,b'\xff'*(TOUCH_LOCK_Y_END-TOUCH_LOCK_Y))    # no Y lock, FF as in the image
         machine.uc.mem_map(0xC0028000,4096)
         machine.uc.mem_map(0xC0083000,4096)
@@ -540,28 +535,27 @@ class HookTests(unittest.TestCase):
         entry=self.app_script(machine)
         self.declare(machine,built,[entry])
         machine.write(entry+12,2)
-        from tools.patch.script_hooks import KNOB_HOLD as hold
-        machine.write(hold,0xFFFFFFFF)    # FF at power-on: every knob free
+        machine.write(KNOB_HOLD,0xFFFFFFFF)    # FF at power-on: every knob free
         osc,level=[2,9,0,136,0],[2,0,0,40,0]
         self.assertEqual(self.input(machine,osc),0xC0028380,'without the hold the knob reaches the firmware')
         self.drain(machine)
         self.assertEqual(machine.call('script_knob_hold_glue',9,1),(0,0))
-        self.assertEqual(machine.read(hold),0xFFFFFFFF^1<<9)
+        self.assertEqual(machine.read(KNOB_HOLD),0xFFFFFFFF^1<<9)
         self.assertEqual(self.input(machine,osc),machine.stop,'held: the firmware does not get the knob')
         self.assertEqual(self.input(machine,level),0xC0028380,'the other knobs go through')
         self.assertEqual([e[:3] for e in self.drain(machine)],[(5,9,136),(5,0,40)],'the plugin still gets the held knob')
         self.assertEqual(machine.read(machine.runtime+built.symbols['RT_KNOBS']+9*4),136)
         machine.call('script_app_close',machine.runtime)
-        self.assertEqual(machine.read(hold),0xFFFFFFFF^1<<9,'closing an app keeps the hold')
+        self.assertEqual(machine.read(KNOB_HOLD),0xFFFFFFFF^1<<9,'closing an app keeps the hold')
         machine.call('holds_sync',machine.runtime,0)
-        self.assertEqual(machine.read(hold),0xFFFFFFFF^1<<9,'an armed owner keeps the hold')
+        self.assertEqual(machine.read(KNOB_HOLD),0xFFFFFFFF^1<<9,'an armed owner keeps the hold')
         self.assertEqual(machine.call('script_knob_hold_glue',9,0),(0,0))
-        self.assertEqual(machine.read(hold),0xFFFFFFFF)
+        self.assertEqual(machine.read(KNOB_HOLD),0xFFFFFFFF)
         self.assertEqual(self.input(machine,osc),0xC0028380)
         machine.call('script_knob_hold_glue',9,1)
         machine.write(entry+12,3)
         machine.call('holds_sync',machine.runtime,0)
-        self.assertEqual(machine.read(hold),0xFFFFFFFF,'a plugin that faulted lets the knobs go')
+        self.assertEqual(machine.read(KNOB_HOLD),0xFFFFFFFF,'a plugin that faulted lets the knobs go')
         # korg.knob calls the firmware's knob handler with the index and the value
         machine.uc.mem_map(0xC0040000,4096)
         machine.uc.mem_write(0xC0040A50,struct.pack('<I',0xE12FFF1E))
@@ -575,7 +569,6 @@ class HookTests(unittest.TestCase):
         entry=self.app_script(machine)
         self.declare(machine,built,[entry])
         machine.write(entry+12,2)
-        from tools.patch.script_hooks import KEY_PASS as record
         key=lambda code,down: [0,code,down,0,0]
         firmware=0xC0028380
         self.assertEqual(self.input(machine,key(10,1)),firmware,'no app open: every key reaches the firmware')
@@ -600,7 +593,7 @@ class HookTests(unittest.TestCase):
         machine.call('script_pass_keys_glue',2,1)
         self.assertEqual(self.input(machine,key(2,0)),firmware,'a key that passes now passes its release')
         self.assertEqual(self.input(machine,key(13,1)),firmware,'EXIT still closes the app')
-        self.assertEqual([machine.read(record),machine.read(record+4)],[0xFFFFFFFF,0xFFFFFFFF],'closing the app resets the keys')
+        self.assertEqual([machine.read(KEY_PASS),machine.read(KEY_PASS+4)],[0xFFFFFFFF,0xFFFFFFFF],'closing the app resets the keys')
         self.drain(machine)
 
     def test_touch_lock_x_gives_the_firmware_a_fixed_x_and_the_plugins_the_real_one(self):
@@ -608,15 +601,14 @@ class HookTests(unittest.TestCase):
         entry=self.app_script(machine)
         self.declare(machine,built,[entry])
         machine.write(entry+12,2)
-        from tools.patch.script_hooks import TOUCH_LOCK as lock
         firmware=0xC0028380
         touch=[5,1,144,1,144]                       # X 400, Y 400
         sent=lambda: bytes(machine.uc.mem_read(machine.input+0x3000+0x0d,2))
         self.assertEqual(self.input(machine,touch),firmware)
         self.assertEqual(sent(),bytes([1,144]),'no lock: the X of the finger')
         self.assertEqual(machine.call('script_touch_lock_x_glue',64),(0,0))
-        self.assertEqual(machine.read(lock),64<<3)
-        self.assertEqual(machine.read(lock+4),entry,'the plugin that locked')
+        self.assertEqual(machine.read(TOUCH_LOCK),64<<3)
+        self.assertEqual(machine.read(TOUCH_LOCK+4),entry,'the plugin that locked')
         self.assertEqual(self.input(machine,touch),firmware,'the touch still reaches the firmware')
         self.assertEqual(sent(),bytes([2,0]),'raw 512: (512 >> 4) * 2 = 64 in Master FX and Touch Scale, 512 >> 3 = 64 in Gate Arp')
         self.assertEqual(bytes(machine.uc.mem_read(machine.input+0x3000+0x0f,2)),bytes([1,144]),'Y stays that of the finger')
@@ -627,15 +619,15 @@ class HookTests(unittest.TestCase):
         self.input(machine,[0,4,1,0,0])
         self.assertEqual(bytes(machine.uc.mem_read(machine.input+0x3000+0x0d,2)),bytes([4,1]),'a key is not touched')
         machine.call('script_touch_lock_guard',machine.runtime)
-        self.assertNotEqual(machine.read(lock),0xFFFFFFFF,'an armed owner keeps the lock')
+        self.assertNotEqual(machine.read(TOUCH_LOCK),0xFFFFFFFF,'an armed owner keeps the lock')
         self.assertEqual(machine.call('script_touch_lock_x_glue',0xFFFFFFFF),(0,0))
-        self.assertEqual(machine.read(lock),0xFFFFFFFF)
+        self.assertEqual(machine.read(TOUCH_LOCK),0xFFFFFFFF)
         self.input(machine,touch)
         self.assertEqual(sent(),bytes([1,144]),'-1 lets go')
         machine.call('script_touch_lock_x_glue',10)
         machine.write(entry+12,3)
         machine.call('script_touch_lock_guard',machine.runtime)
-        self.assertEqual(machine.read(lock),0xFFFFFFFF,'a plugin that faulted lets go')
+        self.assertEqual(machine.read(TOUCH_LOCK),0xFFFFFFFF,'a plugin that faulted lets go')
         self.drain(machine)
 
     def test_touch_lock_y_gives_the_firmware_a_fixed_y_apart_from_the_x_lock(self):
@@ -643,14 +635,13 @@ class HookTests(unittest.TestCase):
         entry=self.app_script(machine)
         self.declare(machine,built,[entry])
         machine.write(entry+12,2)
-        from tools.patch.script_hooks import TOUCH_LOCK as lock_x, TOUCH_LOCK_Y as lock
         firmware=0xC0028380
         touch=[5,1,144,1,144]                       # X 400, Y 400
         at=lambda off: bytes(machine.uc.mem_read(machine.input+0x3000+off,2))
         self.assertEqual(machine.call('script_touch_lock_y_glue',64),(0,0))
-        self.assertEqual(machine.read(lock),64<<3)
-        self.assertEqual(machine.read(lock+4),entry,'the plugin that locked')
-        self.assertEqual(machine.read(lock_x),0xFFFFFFFF,'the X lock stays free')
+        self.assertEqual(machine.read(TOUCH_LOCK_Y),64<<3)
+        self.assertEqual(machine.read(TOUCH_LOCK_Y+4),entry,'the plugin that locked')
+        self.assertEqual(machine.read(TOUCH_LOCK),0xFFFFFFFF,'the X lock stays free')
         self.assertEqual(self.input(machine,touch),firmware,'the touch still reaches the firmware')
         self.assertEqual(at(0x0f),bytes([2,0]),'raw 512: Y 64')
         self.assertEqual(at(0x0d),bytes([1,144]),'X stays that of the finger')
@@ -663,16 +654,16 @@ class HookTests(unittest.TestCase):
         self.input(machine,[0,4,1,0,0])
         self.assertEqual(at(0x0f),bytes([0,0]),'a key is not touched')
         machine.call('script_touch_lock_guard',machine.runtime)
-        self.assertNotEqual(machine.read(lock),0xFFFFFFFF,'an armed owner keeps the lock')
+        self.assertNotEqual(machine.read(TOUCH_LOCK_Y),0xFFFFFFFF,'an armed owner keeps the lock')
         self.assertEqual(machine.call('script_touch_lock_y_glue',0xFFFFFFFF),(0,0))
-        self.assertEqual(machine.read(lock),0xFFFFFFFF)
+        self.assertEqual(machine.read(TOUCH_LOCK_Y),0xFFFFFFFF)
         self.input(machine,touch)
         self.assertEqual(at(0x0f),bytes([1,144]),'-1 lets go')
         machine.call('script_touch_lock_y_glue',10)
         machine.call('script_touch_lock_x_glue',10)
         machine.write(entry+12,3)
         machine.call('script_touch_lock_guard',machine.runtime)
-        self.assertEqual([machine.read(lock),machine.read(lock_x)],[0xFFFFFFFF]*2,'a plugin that faulted lets go of both')
+        self.assertEqual([machine.read(TOUCH_LOCK_Y),machine.read(TOUCH_LOCK)],[0xFFFFFFFF]*2,'a plugin that faulted lets go of both')
         self.drain(machine)
 
     def test_key_hold_keeps_a_key_from_the_firmware_without_an_app_and_pairs_its_release(self):
@@ -680,12 +671,11 @@ class HookTests(unittest.TestCase):
         entry=self.app_script(machine)
         self.declare(machine,built,[entry])
         machine.write(entry+12,2)
-        from tools.patch.script_hooks import KEY_HOLD as hold
         key=lambda code,down: [0,code,down,0,0]
         firmware=0xC0028380
         self.assertEqual(self.input(machine,key(2,1)),firmware,'PLAY down before the hold')
         self.assertEqual(machine.call('script_key_hold_glue',2,1),(0,0))
-        self.assertEqual(machine.read(hold),0xFFFFFFFF^1<<2)
+        self.assertEqual(machine.read(KEY_HOLD),0xFFFFFFFF^1<<2)
         self.assertEqual(self.input(machine,key(2,0)),firmware,'the firmware saw the press, so it gets the release')
         self.assertEqual(self.input(machine,key(2,1)),machine.stop,'held: no app open and still kept')
         self.assertEqual(self.input(machine,key(10,1)),firmware,'other keys pass')
@@ -695,17 +685,17 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.input(machine,key(2,1)),firmware)
         self.assertEqual(self.input(machine,key(2,0)),firmware)
         machine.call('script_key_hold_glue',33,1)
-        self.assertEqual(machine.read(hold+4),0xFFFFFFFF^1<<1,'a key of the second word')
+        self.assertEqual(machine.read(KEY_HOLD+4),0xFFFFFFFF^1<<1,'a key of the second word')
         self.assertEqual(self.input(machine,key(33,1)),machine.stop)
         self.assertEqual(self.input(machine,key(32,1)),firmware)
         error=contract_data()['error']['API_ARG']
         self.assertEqual(machine.call('script_key_hold_glue',13,1)[1],error,'EXIT is never held')
         self.assertEqual(self.input(machine,key(13,1)),firmware)
         machine.call('holds_sync',machine.runtime,0)
-        self.assertEqual(machine.read(hold+4),0xFFFFFFFF^1<<1,'an armed owner keeps the hold')
+        self.assertEqual(machine.read(KEY_HOLD+4),0xFFFFFFFF^1<<1,'an armed owner keeps the hold')
         machine.write(entry+12,3)
         machine.call('holds_sync',machine.runtime,0)
-        self.assertEqual([machine.read(hold),machine.read(hold+4)],[0xFFFFFFFF,0xFFFFFFFF],'a plugin that faulted lets the keys go')
+        self.assertEqual([machine.read(KEY_HOLD),machine.read(KEY_HOLD+4)],[0xFFFFFFFF,0xFFFFFFFF],'a plugin that faulted lets the keys go')
         self.assertEqual(self.input(machine,key(33,0)),machine.stop,'the kept press keeps its release')
         self.drain(machine)
 
@@ -714,11 +704,10 @@ class HookTests(unittest.TestCase):
         a=self.app_script(machine)
         b=self.app_script(machine)
         for entry in (a,b): machine.write(entry+12,2)
-        from tools.patch.script_hooks import KEY_HOLD as keys, KNOB_HOLD as knobs
-        for address in (keys,keys+4,knobs): machine.write(address,0xFFFFFFFF)
+        for address in (KEY_HOLD,KEY_HOLD+4,KNOB_HOLD): machine.write(address,0xFFFFFFFF)
         machine.write(machine.runtime+148,0x2)
         mask=lambda: machine.read(machine.runtime+148)
-        free=lambda: (machine.read(keys),machine.read(keys+4),machine.read(knobs))
+        free=lambda: (machine.read(KEY_HOLD),machine.read(KEY_HOLD+4),machine.read(KNOB_HOLD))
         as_plugin=lambda entry: machine.write(machine.runtime+built.symbols['RT_ENTRY'],entry)
         key=lambda code,down: [0,code,down,0,0]
         firmware=0xC0028380
@@ -757,15 +746,15 @@ class HookTests(unittest.TestCase):
         machine.call('script_knob_hold_glue',9,1)
         machine.call('script_knob_hold_glue',3,1)
         machine.call('script_pad_hold_glue',1)
-        self.assertEqual(machine.read(knobs),everything^(1<<9|1<<3))
+        self.assertEqual(machine.read(KNOB_HOLD),everything^(1<<9|1<<3))
         self.assertEqual(mask(),0x12)
         machine.call('script_knob_hold_glue',9,0)
         machine.call('script_pad_hold_glue',0)
-        self.assertEqual(machine.read(knobs),everything^(1<<9|1<<3),'a still holds knob 9')
+        self.assertEqual(machine.read(KNOB_HOLD),everything^(1<<9|1<<3),'a still holds knob 9')
         self.assertEqual(mask(),0x12,'a still holds the pads')
         machine.write(a+12,3)
         machine.call('holds_sync',machine.runtime,0)
-        self.assertEqual((machine.read(knobs),mask()),(everything^1<<3,0x2),'b holds knob 3, nobody the pads')
+        self.assertEqual((machine.read(KNOB_HOLD),mask()),(everything^1<<3,0x2),'b holds knob 3, nobody the pads')
         machine.write(a+12,2)
         as_plugin(a)
         machine.call('script_pad_hold_glue',1)
@@ -774,14 +763,13 @@ class HookTests(unittest.TestCase):
         machine.call('hold_pads_release',0)
         self.assertEqual(mask(),0x2,'an app closing gives the pads back from every plugin')
         self.assertEqual((machine.read(a+built.symbols['SCRIPT_ENTRY_HOLDS']+12),machine.read(b+built.symbols['SCRIPT_ENTRY_HOLDS']+12)),(0,0))
-        self.assertEqual(machine.read(knobs),everything^(1<<9|1<<3),'the knob holds stay')
+        self.assertEqual(machine.read(KNOB_HOLD),everything^(1<<9|1<<3),'the knob holds stay')
 
     def test_press_key_posts_a_marked_press_and_the_next_frame_its_release(self):
         machine,built=self.machine()
         entry=self.app_script(machine)
         self.declare(machine,built,[entry])
         machine.write(entry+12,2)
-        from tools.patch.script_hooks import PRESS_KEY as record, KEY_HOLD as hold
         posted,full=[],[False]
         def rm_post(uc,*_):
             posted.append((uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1)))
@@ -792,17 +780,17 @@ class HookTests(unittest.TestCase):
         mark=0xB7000000
         self.assertEqual(machine.call('script_press_key_glue',2),(0,0))
         self.assertEqual(posted,[(0x10200,mark)],'PLAY down, marked')
-        self.assertEqual(machine.read(record),0xFFFFFFFF^1<<2)
+        self.assertEqual(machine.read(PRESS_KEY),0xFFFFFFFF^1<<2)
         self.assertEqual(machine.call('script_press_key_glue',2),(0,0))
         self.assertEqual(len(posted),1,'pressed again before the release: not twice')
         full[0]=True
         machine.call('script_press_key_tick')
         self.assertEqual(posted[1:],[(0x200,mark)])
-        self.assertEqual(machine.read(record),0xFFFFFFFF^1<<2,'a full queue keeps the release for the next frame')
+        self.assertEqual(machine.read(PRESS_KEY),0xFFFFFFFF^1<<2,'a full queue keeps the release for the next frame')
         full[0]=False
         machine.call('script_frame_run',machine.runtime)
         self.assertEqual(posted[2:],[(0x200,mark)],'the frame hook sends it')
-        self.assertEqual(machine.read(record),0xFFFFFFFF)
+        self.assertEqual(machine.read(PRESS_KEY),0xFFFFFFFF)
         machine.call('script_press_key_tick')
         self.assertEqual(len(posted),3,'nothing pending: nothing sent')
         machine.call('script_press_key_glue',33)
@@ -826,7 +814,6 @@ class HookTests(unittest.TestCase):
         base=self.declare(machine,built,[entry])
         machine.write(entry+12,2)
         machine.write(machine.runtime+built.symbols['RT_ENTRY'],entry)
-        from tools.patch.script_hooks import SIM_INPUT as record
         posted,full,noted=[],[False],[]
         def rm_post(uc,*_):
             posted.append((uc.reg_read(UC_ARM_REG_R0),uc.reg_read(UC_ARM_REG_R1)))
@@ -837,14 +824,14 @@ class HookTests(unittest.TestCase):
         note=machine.symbols['rm_held_note']
         machine.uc.hook_add(UC_HOOK_CODE,lambda uc,*_: noted.append(1),begin=note,end=note)
         mark=0xB7000000
-        words=lambda: tuple(machine.read(record+4*i) for i in range(3))
+        words=lambda: tuple(machine.read(SIM_INPUT+4*i) for i in range(3))
         none=(0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF)
         self.assertEqual(words(),none,'FF: nothing down')
         self.assertEqual(machine.call('script_key_down_glue',10),(0,0))
         self.assertEqual(machine.call('script_key_down_glue',10),(0,0))
         self.assertEqual(posted,[(0x10A00,mark)],'SHIFT down once, marked')
         self.assertEqual(words()[0],0xFFFFFFFF^1<<10)
-        self.assertEqual((machine.read(record+12),machine.read(record+16)),(entry,machine.read(machine.read(entry+built.symbols['SCRIPT_ENTRY_BLOB'])+12)),'the plugin that holds it')
+        self.assertEqual((machine.read(SIM_INPUT+12),machine.read(SIM_INPUT+16)),(entry,machine.read(machine.read(entry+built.symbols['SCRIPT_ENTRY_BLOB'])+12)),'the plugin that holds it')
         machine.call('script_key_up_glue',10)
         machine.call('script_key_up_glue',10)
         self.assertEqual(posted[1:],[(0xA00,mark)],'up once')
@@ -936,7 +923,6 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.call_glue(machine,built,'','GAMES',0x3000),(0,error))
         self.assertEqual(self.call_glue(machine,built,'X','GAMESX',0x3000),(0,error),'the group is compared whole')
         for i in range(14): self.assertEqual(self.call_glue(machine,built,'A%d'%i,'TOOLS',0x4000+i)[0],2+i)
-        from tools.patch.script_hooks import MENU_STATE
         machine.write(MENU_STATE+36,0)
         self.assertEqual(self.call_glue(machine,built,'Late','GAMES',0x5000),(0xffffffff,0))
         self.assertEqual(machine.read(base+4),16)
@@ -975,7 +961,6 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.drain(machine),[(21,other,0,0)])
 
     def test_public_patch_manifest_has_only_own_changes_and_registered_hooks(self):
-        from tools.patch.script_hooks import build,SITES,WORDS,RAM_BASE
         built=build(contract_data()['include'])
         patch=built.patch_manifest()
         self.assertEqual((patch['format'],patch['version'],patch['id']),('gelumpe-patch',1,'script-runtime'))
@@ -1014,7 +999,6 @@ class HookTests(unittest.TestCase):
         self.assertNotIn('expected',str(patch))
 
     def test_builder_rejects_original_literal_and_area_changes(self):
-        from tools.patch.script_hooks import build,SITES,WORDS,RAM_BASE
         built=build(contract_data()['include'])
         base=bytearray(b'\xff'*0x200100)
         for address,value,_ in built.profile.sites:
@@ -1035,7 +1019,6 @@ class HookTests(unittest.TestCase):
 
     def arm_menu(self,machine,level=0):
         """The BLECH menu armed (EXIT was not held), at `level` of its screen."""
-        from tools.patch.script_hooks import MENU_STATE
         machine.uc.mem_write(MENU_STATE,bytes(0x200))
         machine.write(MENU_STATE,1)
         machine.write(MENU_STATE+0xE0,level)
@@ -1048,7 +1031,6 @@ class HookTests(unittest.TestCase):
         return machine.read(machine.runtime)
 
     def test_a_block_can_stay_outside_the_pool(self):
-        from tools.patch.script_hooks import BLECHY_BLOCK
         machine,built=self.machine()
         block=built.sections[-1][1]
         error,entry=machine.call('script_load_block_ex',machine.runtime,BLECHY_BLOCK,len(block),1)
@@ -1082,7 +1064,6 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.drain(machine),[],'booting posts nothing')
 
     def test_he_is_no_plugin_of_the_card_for_the_menu_the_store_and_the_leds(self):
-        from tools.patch.script_hooks import MENU_STATE
         machine,built=self.machine()
         him=self.booted(machine,built)
         self.assertEqual(machine.call('menu_entry',0)[0],0,'no page of the PLUGINS group is his')
@@ -1196,7 +1177,6 @@ class HookTests(unittest.TestCase):
         equal the last one returns from the send function, a change or a forced send goes the send path with r3 = LED + 9, any
         other LED, an unarmed menu and the loading screen go on at 0xC008760C with the flags of cmp r2, #0; the loading screen
         forgets the LED's word."""
-        from tools.patch.script_hooks import MENU_STATE, METER_SENT
         machine,_ = self.machine()
         machine.uc.mem_map(0xC0087000,4096)
         manager = machine.input+0x6000
@@ -1277,8 +1257,6 @@ class HookTests(unittest.TestCase):
 @unittest.skipUnless(UNICORN_AVAILABLE, 'Unicorn is required for native settings tests')
 class MenuSettingsTests(unittest.TestCase):
     def test_off_flags_survive_mixed_settings_and_pad_calls(self):
-        from tools.patch.script_hooks import build
-        from unicorn.arm_const import UC_ARM_REG_PC
         for build_name in ('hacktribe', 'stock', 'synth'):
             built = build(contract_data()['include'], build=build_name)
             machine = BareMachine(built.vm)

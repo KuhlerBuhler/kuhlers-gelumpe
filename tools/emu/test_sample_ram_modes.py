@@ -1,16 +1,21 @@
 """Synthetic outcome checks for the native CPU mode observation."""
+import sys
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
-import sampleset
-import sample_ram_modes as modes
-import unicorn
-from unicorn import arm_const as R
-from highram_watch import HighWatch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patch"))
+import pattern_switch  # noqa: E402
+import sampleset  # noqa: E402
+import sample_ram_modes as modes  # noqa: E402
+import unicorn  # noqa: E402
+from unicorn import arm_const as R  # noqa: E402
+from highram_watch import HighWatch  # noqa: E402
 
 
 class Outcomes(unittest.TestCase):
     def pattern_switch(self, browse=None, apply=True, unrelated=False, premature=False, stale_view=False):
-        import pattern_switch
         events = []
         state = dict(current=0, chosen=0, playing=0, confirmed=False)
         flags = browse if browse is not None else (0xFFFFFFFF, 0xFFFFFFFF)

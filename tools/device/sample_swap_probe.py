@@ -19,7 +19,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "patch"))
+sys.path.insert(0, str(HERE.parent / "emu"))
 import arm
+from firmware import identify
+from led_show import mido_ask
 
 STUB = 0xC1000000
 BACKUP, VERIFY = 0xC274F000, 0xC275F000
@@ -315,8 +318,6 @@ def make_wav(path, length):
 
 
 def own_firmware(path):
-    sys.path.insert(0, str(HERE.parent / "emu"))
-    from firmware import identify
     data = path.read_bytes()
     if len(data) != 0x200100:
         raise ValueError("expected the own 2.02 VSB including its 0x100-byte header")
@@ -423,7 +424,6 @@ def main(argv=None):
                               open=["real DSP throughput", "playback and note-on continuity", "physical DSP capacity"]), indent=2))
         return
     firmware, build = own_firmware(a.vsb)
-    from led_show import mido_ask
     ask = mido_ask()
     found = ask([0xF0, 0x42, 0x50, 0, 0, 0xF7])
     if len(found) < 8 or found[:4] != [0xF0, 0x42, 0x50, 1]:

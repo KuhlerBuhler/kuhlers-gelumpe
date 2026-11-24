@@ -28,6 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools" / "patch"))
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.append(str(ROOT / "tools" / "device"))   # hot_patch, remote_press; last, so tools/emu/backlight.py wins
 
 import blech_sysex as spec  # noqa: E402
 import synthaddr  # noqa: E402
@@ -35,6 +36,19 @@ from machine import load_flash  # noqa: E402
 from splash_cases import Dev  # noqa: E402
 from swap_cases import has_hooks as has_swap  # noqa: E402
 import sample_swap as swap  # noqa: E402
+import cardstore  # noqa: E402
+import fat32  # noqa: E402
+import hot_patch as hp  # noqa: E402
+import lifetime  # noqa: E402
+import machine  # noqa: E402
+import make_hot_fixtures  # noqa: E402
+import menu_cases as mc  # noqa: E402
+import parallel  # noqa: E402
+import sysex_trace  # noqa: E402
+import unicorn  # noqa: E402
+from remote_press import Blech  # noqa: E402
+from sdcard import MemoryMedium, SDCard  # noqa: E402
+from unicorn.arm_const import UC_ARM_REG_PC  # noqa: E402
 
 IMAGE = 0xC0000000
 KILL = spec.KILL_SWITCH
@@ -109,7 +123,6 @@ class Link:
         self.channel = 0
         self.log = []                # (what, device ms, wall seconds, bytes on the wire)
         self.read_permission = None
-        import unicorn
         free = [(spec.BUF_END, spec.FILE_AREA)]
         self.owned = []
         if has_swap(bytes(self.m.uc.mem_read(IMAGE, 0x200000))):
@@ -134,7 +147,6 @@ class Link:
         raise AssertionError(f'live swap code overwritten at {address:#x}+{size}')
 
     def owned_read(self, uc, _access, address, size, _value, _data):
-        from unicorn.arm_const import UC_ARM_REG_PC
         pc = uc.reg_read(UC_ARM_REG_PC)
         if any(lo <= pc < hi for lo, hi, _ in swap.AREAS):
             return
@@ -616,9 +628,6 @@ def file_cases(payload, flash):
     """FILE READ and FILE BEGIN: exactly the update file KORG/<folder>/System/SYSTEM.VSB, written in blocks that are read back from
     the card, a first block that makes the file anew, the size limit of a VSB, a card error without card or folder, silence with EXIT
     held at power-on. The file on the card image is compared byte for byte."""
-    import cardstore
-    import fat32
-    from sdcard import MemoryMedium, SDCard
     folder = cardstore.card_folder(bytes(payload))
     path = f"KORG/{folder}/System/SYSTEM.VSB"
     out = []
@@ -713,9 +722,6 @@ def sample_cases(payload, flash, held_only=False):
     in place without cutting the file, FILE COPY between the two, FILE CRC, FILE DELETE, and the whole way the editor takes to compact the
     file: the temp file complete and checked, the old file deleted, the temp file copied back, deleted. The card image is read back with the
     FAT reader after every step. Nothing else of the card may change: SYSTEM.VSB stays."""
-    import cardstore
-    import fat32
-    from sdcard import MemoryMedium, SDCard
     folder = cardstore.card_folder(bytes(payload))
     sample = f"KORG/{folder}/Sample/e2sSample.all"
     temp = f"KORG/{folder}/Sample/e2sSample.tmp"
@@ -848,8 +854,6 @@ def doom_cases(payload, flash, part=None):
     and compared byte for byte on the card image; doom.wad is written past the size limit of a VSB (the whole 28 MB file would take hours
     over the emulated DIN line, so the start of the real file and a block far behind it), read back, made anew by a block at 0. A write
     and a read with bits 31, 30 and 29 (no file) are refused, so are offsets past the limit; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
-    import fat32
-    from sdcard import MemoryMedium, SDCard
     BIN, WAD = spec.FILE_DOOM, spec.FILE_DOOM | spec.FILE_OTHER
     bin_path, wad_path = "KORG/blechtribe/Doom/doom.bin", "KORG/blechtribe/Doom/doom.wad"
     vsb = "KORG/blechtribe/System/SYSTEM.VSB"
@@ -1006,8 +1010,6 @@ def fx_read_cases(payload, flash):
     """FILE READ with bits 30 and 29: the effect collection SD:KORG/blechtribe/Presets/e2sFx.all, read in blocks and compared byte
     for byte with the card; a read past its end gives the rest. FILE BEGIN with bit 31 as well names no file and is refused, the
     file stays as it was (the write itself: fx_card_cases.case_usb_write); without the file the read says STATUS_FILE."""
-    import fat32
-    from sdcard import MemoryMedium, SDCard
     FX = spec.FILE_SAMPLE | spec.FILE_DOOM
     fx_path = "KORG/blechtribe/Presets/e2sFx.all"
     data = bytes((i * 131 ^ i >> 5) & 255 for i in range(spec.MAX_BLOCK * 2 + 777))
@@ -1072,7 +1074,6 @@ def case_dev_mode(payload, flash, vectors=None):
     """DEV MODE (the flag poked into RAM; the menu page has its own cases): off, a write into the image is refused; on, it
     passes, is read back and INFO says so, while every closed region, a write across a closed edge, the image's mirror and
     the rest of the table still refuse; a new start is off again."""
-    import sysex_trace
     out = []
     dev, lk = boot(payload, flash)
     build = sysex_trace.build_name(payload)
@@ -1208,7 +1209,6 @@ def group_entries(payload, flash, i, vectors=None):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i, parallel.shared.get("sysex_vectors"))
 
 
@@ -1239,11 +1239,6 @@ def speed(payload, flash=None, sizes=(16, 256, 1024, 4096, 8192, 16384, 24576, 3
 def hot_setup(payload, flash=None):
     """A booted Sampler with DEV MODE switched on at its page, tools/device/hot_patch.py's Blech over the DIN link, the context
     of the test images (cached under out/hot-patch) and the three images of make_hot_fixtures.py."""
-    sys.path.insert(0, str(ROOT / "tools" / "device"))
-    import hot_patch as hp
-    import make_hot_fixtures
-    import menu_cases as mc
-    from remote_press import Blech
     raw = bytes(0x100) + bytes(payload)
     images = make_hot_fixtures.fixtures(raw)
     dev = mc.boot(payload, flash)
@@ -1313,7 +1308,6 @@ def hotpatch_full_cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -1334,7 +1328,6 @@ def main():
         print(json.dumps(entries, indent=1))
         return 0 if all(e["ok"] for e in entries) else 1
     if a.what == "synth":
-        import machine
         entries = synth_cases(payload, flash or bytes(machine.blank_flash(b"KORGelec2USR")))
         print(json.dumps(entries, indent=1))
         return 0 if all(e["ok"] for e in entries) else 1

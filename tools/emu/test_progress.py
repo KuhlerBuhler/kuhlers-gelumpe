@@ -12,6 +12,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import parallel  # noqa: E402
 import progress  # noqa: E402
+import bootcache  # noqa: E402
+import check  # noqa: E402
+import parallel as p  # noqa: E402
 
 TASKS = [("menu_cases", "cases_task", ()), ("dice_cases", "cases_task", (0,)), ("dice_cases", "cases_task", (1,)), ("bootmap", "scenario_task", ("a",))]
 
@@ -83,9 +86,6 @@ class StderrLineTest(unittest.TestCase):
 
 class CheckEmitsTest(unittest.TestCase):
     def test_check_reports_every_task_it_runs_and_keeps_its_result(self):
-        import check
-        import bootcache
-        import parallel as p
         ran = []
         original = (p.run_tasks, bootcache.cached_result)
         try:

@@ -12,6 +12,7 @@ one-shot tools and pool workers: they end at once. A tool is told who its parent
 GELUMPE_PARENT_PID, because it cannot know whether the process in between is a shell.
 """
 
+import ctypes
 import os
 import shutil
 import subprocess
@@ -28,7 +29,6 @@ def alive(pid):
     """Whether process `pid` still runs. For the direct parent the question is whether this process was
     reparented, which cannot be fooled by a reused pid."""
     if sys.platform == "win32":
-        import ctypes
         handle = ctypes.windll.kernel32.OpenProcess(0x100000, False, pid)   # SYNCHRONIZE
         if not handle:
             return False

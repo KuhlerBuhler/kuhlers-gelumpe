@@ -18,6 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import menu_cases  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
+import unicorn  # noqa: E402
 
 PATTERN_PTR = 0xC033E6A4        # the pattern object; its block starts at +4
 GLOBALS_PTR = 0xC033E6A0        # the globals object; its block (GLST) starts at +4
@@ -170,7 +172,6 @@ def pattern_cases(payload, flash):
 
 def mfx_cases(payload, flash):
     """MASTER FX and the touchpad write touch, X and Y; MFX HOLD writes hold."""
-    import unicorn
     dev = boot(payload, flash)
     obj = dev.u32(PATTERN_PTR)
     block = lambda off: ram(dev, obj + 4 + off, 1)[0]   # noqa: E731
@@ -234,7 +235,6 @@ def page_cases(payload, flash):
 def part_input_cases(payload, flash):
     """Knob and encoders go through the part setter with their parameter number; the keys have setters of their own.
     Both fill the copy behind the block, so a plain byte write is not the same."""
-    import unicorn
     out = []
     dev = boot(payload, flash)
     obj = dev.u32(PATTERN_PTR)
@@ -295,7 +295,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

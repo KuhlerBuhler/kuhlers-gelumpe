@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sdcard  # noqa: E402
 from sdcard import ARG, BLEN, CMD, DRR, DXR, IM, NBLK, RSP01, RSP67, ST0  # noqa: E402
 from sdcard import ST0_CRCRD, ST0_CRCRS, ST0_CRCWR, ST0_DATDNE, ST0_RSPDNE, ST0_TOUTRD, ST0_TOUTRS  # noqa: E402
+import machine  # noqa: E402
 
 MIB = 1024 * 1024
 
@@ -497,7 +498,6 @@ class WriteProtect(unittest.TestCase):
     """The lock switch: the socket reports it on GPIO 4.0 and the firmware's disk status reads it (0xC0016DB8)."""
 
     def pin(self, card):
-        import machine
         m = types.SimpleNamespace(regs={}, gpio={}, inputs={machine.pin(4, 1): 0}, mmc=sdcard.MMCController(card), handshake=0)
         return machine.Machine.gpio_read(m, 0x10 + 2 * 0x28 + 0x10) & 1
 
