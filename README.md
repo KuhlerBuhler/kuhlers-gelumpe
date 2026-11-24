@@ -30,13 +30,13 @@
 
 - **Kostet das was?** Nein. Wenn du magst, freu ich mich über eine [Spende](https://www.paypal.me/kuhlerbuhler).
 - **Ist das sicher?** Die App prüft die neue Firmware zuerst im Emulator. Das fängt viele Fehler ab, garantiert aber nicht das Verhalten jedes echten Geräts. Sichere vorher deine Original-Firmware und deine Daten.
-  Der Notschalter: **EXIT beim Einschalten halten**, dann startet die Electribe ohne BLECHTRIBE, und du spielst dein Original wieder auf.
+  Der [Notschalter](docs/glossary.md#notschalter): **EXIT beim Einschalten halten**, dann startet die Electribe ohne BLECHTRIBE, und du spielst dein Original wieder auf.
 - **Brauch ich einen PC?** Ja, einmal zum Umbauen der Datei. Danach nicht mehr.
 - **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen Samples bleiben erhalten. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
 - **Geht das mit der blauen Electribe?** Ja, mit etwas weniger Funktionen, siehe Tabelle.
 - **Blaue Electribe: wo sind meine Exporte?** In `KORG/blechtribe/`, nicht mehr in `KORG/electribe/`. Beim ersten Start bietet die Electribe an, `KORG/electribe/` dorthin zu kopieren.
-- **Hab ich mit BLECHTRIBE noch Hacktribe?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf. Auf Korgs Original schaltet es die Hacktribe-Funktionen nicht frei.
-- **Wie kann ich eigene Effekte machen?** In der App im **Baukasten**. Da nimmst du einen fertigen Effekt oder baust einen aus Bausteinen, mit Namen und echten Einheiten. Über den Export kommen sie auf die SD-Karte, einzelne auch live per USB. Das geht auf der roten Electribe mit BLECHTRIBE.
+- **Hab ich mit BLECHTRIBE noch [Hacktribe](docs/glossary.md#hacktribe)?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf. Auf Korgs Original schaltet es die Hacktribe-Funktionen nicht frei.
+- **Wie kann ich eigene Effekte machen?** In der App im [**Baukasten**](docs/glossary.md#baukasten). Da nimmst du einen fertigen Effekt oder baust einen aus Bausteinen, mit Namen und echten Einheiten. Über den Export kommen sie auf die SD-Karte, einzelne auch live per USB. Das geht auf der roten Electribe mit BLECHTRIBE.
 - **Windows: Die App findet meine Electribe nicht, obwohl die MIDI-Ports da sind.** Dann ist wohl Korgs eigener USB-MIDI-Treiber drauf, über den kommen die Antworten der Electribe nicht an. Nimm ihn im Geräte-Manager raus (die Electribe, "Gerät deinstallieren", mit Treiber) und starte Windows neu, Windows' eigener Treiber reicht. Will das KORG Driver Setup Utility ihn danach wieder installieren, mach es einfach zu. Der MIDI-Bericht in den Einstellungen sagt das auch.
 - **Ich hab eine Idee für die App oder die Firmware.** Immer her damit: [Idee aufschreiben](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). Dafür brauchst du ein GitHub-Konto.
 
@@ -47,7 +47,7 @@ Du brauchst einen Rechner (Mac, Windows oder Linux) und einen SD-Kartenleser. Ei
 1. **App laden** über den Knopf oben. Auf der Seite ganz unten bei "Assets": `.dmg` für Mac, `.exe` für Windows, `.AppImage` oder `.deb` für Linux.
    Auf dem Mac blockiert das System die App beim ersten Öffnen, weil sie nicht von Apple signiert ist. Wie du sie freigibst, steht unter [Die App laden](#die-app-laden).
 2. **SD-Karte** aus der Electribe in den Rechner stecken.
-3. **App öffnen**, links auf **Firmware Patcher**, dann die Datei `SYSTEM.VSB` von deiner Karte reinziehen.
+3. **App öffnen**, links auf **Firmware Patcher**, dann die Datei [`SYSTEM.VSB`](docs/glossary.md#vsb) von deiner Karte reinziehen.
    Du findest sie im Ordner `KORG/electribe sampler/System/` (Original) oder `KORG/hacktribe/System/` (Hacktribe) oder `KORG/electribe/System/` (blaue Electribe).
    Hast du die Datei nicht, lädt die App Korgs Original selbst, wenn du Korgs Lizenz annimmst.
 4. **Warten**, bis die App fertig geprüft hat (ein paar Minuten), dann die neue Datei speichern.
@@ -72,10 +72,10 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Unveränderte Werks-Samplebank der roten Electribe nutzen | ✅ | ➖ | ❌ | ✅ | ➖ | ❌ |
 | Anpassbare Oberfläche (Startbild, Schrift, Ausschaltbild) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Ladeanimation mit Fortschritt | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
-| Startbild selbst malen | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Startbild selbst malen | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Synth-Filter (MS20, Acid, ...) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Effekte frei bearbeiten (App) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| 128 Plätze für eigene Effekte | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| 128 Plätze für eigene Effekte | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Zweiter Master-Effekt (MFX 2) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | BEAT 8: Steps als Achtel, Pattern doppelt so lang | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TOUCH SCALE RANGE 0: X spielt fest den Grundton | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -94,6 +94,8 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Notenassistent | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Würfeln (Zufallsmelodie) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Klare Meldung bei kaputten Samples | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
+| Röhrenkurve am Ausgang (TUBE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Gerätemenüs auf Deutsch (Häkchen im Patcher) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Update über USB aus der App | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 
@@ -148,8 +150,8 @@ Was BLECHTRIBE auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins
 LEDs, Patternwechsel erst nach Bestätigung, Sync-Gruppen, TAP Motion, den Notenassistenten im KEYBOARD-Modus, KEYBOARD + Pad setzt den KEY, SHIFT + Filtertaste schaltet das Filter aus und an, einen
 Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
 zurück (auch beim Abspielen), STOP halten beendet jeden Klang, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
-hacktribe- oder electribe-sampler-Ordners, Blechy als kleines Haustier, ein Startbild mit Ladebalken,
-verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten, die zwei Dateien schreibt die App per USB auf die Karte,
+hacktribe- oder electribe-sampler-Ordners, [Blechy](docs/glossary.md#blechy) als kleines Haustier, ein Startbild mit Ladebalken,
+verständliche Meldungen statt "Unknown Error" beim Sample-Laden, eine Röhrenkurve am Ausgang (BLECH > FEATURES > TUBE), Menüs auf Deutsch (Häkchen im Patcher) und Doom (SHIFT + TAP beim Einschalten, die zwei Dateien schreibt die App per USB auf die Karte,
 zur Lizenz siehe [docs/doom-lizenz.md](docs/doom-lizenz.md)).
 
 ## Für Bastler
@@ -185,11 +187,11 @@ blauen Synth (Korgs Original). Du kannst
   Electribe. Mit verbundenem Gerät schickt sie der Knopf "Aufs Gerät" per USB dorthin,
 - im **Baukasten** eigene Effekte und Modulationen bauen, mit echten Einheiten statt Bytes, und sie
   als `.e2fx`-Datei weitergeben oder als eine Datei für die Karte exportieren. Eine `.e2fx` öffnest du
-  unter BLECH -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", mit geladener Firmware auch unter
+  unter BLECHTRIBE -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", mit geladener Firmware auch unter
   BLECHTRIBE -> Presets -> "Preset-Datei laden",
 - Patterns bearbeiten und per Web MIDI ans Gerät schicken.
 
-Bevor irgendwas ans Gerät geht, schauen ein Linter mit Regeln, die ich am echten Gerät abgeglichen hab,
+Bevor irgendwas ans Gerät geht, schauen ein [Linter](docs/glossary.md#linter) mit Regeln, die ich am echten Gerät abgeglichen hab,
 und der Emulator drüber, ob die Electribe das voraussichtlich schluckt. Emulator, Patcher und Plugins
 laufen mit Korgs Original 2.02 und mit Hacktribe 2.02. Der Effekt-Editor und das Schreiben ins RAM über MIDI brauchen auf dem roten Sampler
 Hacktribe oder BLECHTRIBE mit seinen eigenen USB-Befehlen. Bei anderen Firmware-Ständen liegen die Adressen woanders, deshalb wird
@@ -241,7 +243,7 @@ npm start           # Seite und Emulator zusammen
 
 `npm start` zeigt die Adresse an (standardmäßig `http://127.0.0.1:8737/`), die öffnest du im Browser.
 Ohne Emulator reicht `npm run serve`, dann entfällt `setup:emu`. Für die Kommunikation mit dem Gerät
-brauchst du Chrome oder Edge auf einem Desktopcomputer, die Seite nutzt Web MIDI mit SysEx, das Safari
+brauchst du Chrome oder Edge auf einem Desktopcomputer, die Seite nutzt Web MIDI mit [SysEx](docs/glossary.md#sysex), das Safari
 nicht kann.
 
 **Im Container.** Ohne Node und Python auf dem Rechner läuft dasselbe Paar in Docker:
@@ -272,7 +274,7 @@ npm run app:build -- --bundles nsis           # Windows
 npm run app:build -- --bundles appimage,deb   # Linux
 ```
 
-Der Build baut die Seite, friert den Emulator-Dienst per PyInstaller zu einem Sidecar ein
+Der Build baut die Seite, friert den Emulator-Dienst per PyInstaller zu einem [Sidecar](docs/glossary.md#sidecar) ein
 (`npm run build:sidecar` macht nur das) und packt die App. Das Ergebnis liegt unter
 `src-tauri/target/release/bundle/`: `dmg/*.dmg` (macOS), `nsis/*-setup.exe` (Windows),
 `appimage/*.AppImage` und `deb/*.deb` (Linux). Gebaut wird auf dem jeweiligen System, quer geht
@@ -287,9 +289,10 @@ verbunden, geht es auch ohne Karte: im Bereich Plugins schreibt der Knopf "Aufs 
 dorthin, danach am Gerät Menü -> BLECH -> PLUGINS. Geschrieben wird in einer abgespeckten Form von JavaScript, der Editor
 übersetzt das in Bytecode für eine kleine VM in der Firmware. Wenn ein Plugin einen Fehler hat, wird
 nur das Plugin abgeschaltet, die Electribe läuft normal weiter. Sprache, Ereignisse und Funktionen:
-[docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: Set-Timer, BLECH Clicker,
-Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot, GIF Player, Image Viewer, BPM Glide,
-Momentary Mute, Gate Hold, Step Copy, Lauflicht, Pulsieren und STOP-Takt.
+[docs/plugins.md](docs/plugins.md). Im Katalog liegen schon fertige Plugins: BLECH Clicker, Set-Timer, Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot,
+GIF Player, Image Viewer, BPM Glide, Lauflicht, Pulsieren, STOP-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern,
+EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides, Pad Finger, Blechy Run, System Info, VU Meter, Spettro,
+MIDI Echo und Motion Clear.
 
 ## Der Emulator
 
@@ -314,14 +317,14 @@ Ein falscher Schreibzugriff oder eine fehlerhafte Firmware kann das Gerät häng
 - **Zurück zu Korgs Original, auch von der blauen:** Schritt für Schritt in
   [docs/original-zurueck.md](docs/original-zurueck.md) und als Fall auf der Seite Blechy.
 - **Wenn das Gerät nicht mehr startet:** die Seite "Blechy" im Editor fragt, was du siehst, und führt
-  dich den dokumentierten Weg zurück. Der Bootloader bleibt tabu, dahinter
-  hilft nur JTAG ([docs/rettung.md](docs/rettung.md)).
+  dich den dokumentierten Weg zurück. Der [Bootloader](docs/glossary.md#bootloader) bleibt tabu, dahinter
+  hilft nur [JTAG](docs/glossary.md#jtag) ([docs/rettung.md](docs/rettung.md)).
 - **Selbst testen:** die [Gerätetests](docs/geraetetests/README.md) beschreiben, wie du BLECHTRIBE und die
   Kartenfunktionen an deinem Gerät nachvollziehst, mit Warnung, Voraussetzungen, Sicherung und
   Rückweg.
 
 Der Linter prüft bekannte Speicherbereiche, das Nachrichtenformat und dokumentierte Fehlerfälle. Der
-Emulator führt den echten ARM-Code der Firmware aus, den DSP aber nur als Attrappe: er erzeugt keinen Ton,
+Emulator führt den echten ARM-Code der Firmware aus, den [DSP](docs/glossary.md#dsp) aber nur als Attrappe: er erzeugt keinen Ton,
 und das Bedienfeld und das Timing bildet er nur nach. Ob etwas gut klingt, sagt nur das Gehör. Vieles ist
 bisher nur im Emulator geprüft und am echten Gerät noch nicht. Details: [docs/linter.md](docs/linter.md),
 [docs/emulator.md](docs/emulator.md).
