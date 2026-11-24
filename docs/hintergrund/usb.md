@@ -6,7 +6,7 @@ Der Weg der Daten über [SysEx](../glossary.md#sysex) steht in [Sample-Datei](sa
 [development.md](../development.md).
 
 Die Rohmessung ist gelöscht und in der Git-Geschichte lesbar:
-`git show origin/develop:docs/messungen/2026-10-24-usb.md`.
+`git show 03c7827adc7b:docs/messungen/2026-10-24-usb.md`.
 
 Markierungen: **gemessen am Gerät**, **offline gelesen** (Abbild `hacktribe-original.VSB` gelesen), **hergeleitet**,
 **offen**.

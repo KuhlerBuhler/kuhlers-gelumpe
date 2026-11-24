@@ -369,7 +369,7 @@ Build 2.02 mit Hacktribe).
 ### Risiken fürs Dateisystem
 
 Was bei Dateizugriffen aus einem Stub schiefgehen kann und was dagegen hilft. **hergeleitet** aus den Messungen oben,
-am Gerät nicht ausgelöst. Quelle: die gelöschte Fassung dieser Seite, `git show origin/develop:docs/hintergrund/virtuelle-sd.md`.
+am Gerät nicht ausgelöst. Quelle: die gelöschte Fassung dieser Seite, `git show 03c7827adc7b:docs/hintergrund/virtuelle-sd.md`.
 
 | Risiko | Gegenmaßnahme |
 |---|---|

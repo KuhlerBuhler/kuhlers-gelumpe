@@ -3,7 +3,7 @@
 Befunde zum [DSP](../glossary.md#dsp) der Electribe, die beim Bau des Blackfin-Workers im [Emulator](../emulator.md)
 herauskamen: Start, Speicherzugriffe, DMA, Systemsteuerung, RTOS-ROM, Bindung der Sample-Bibliothek und die beiden Simulatoren.
 Alles lief im Simulator oder im Emulator mit erzeugten Programmen, nichts am Gerät. Die ursprünglichen Messnotizen stehen in
-der Git-Historie (`git show origin/develop:docs/messungen/<datei>`); die Seite nennt sie unter jedem Befund als Quelle.
+der Git-Historie (`git show 03c7827adc7b:docs/messungen/<datei>`); die Seite nennt sie unter jedem Befund als Quelle.
 
 Markierungen: **gemessen** (im Simulator oder Emulator beobachtet), **hergeleitet** (aus Handbuch, Header oder Befehlssatz),
 **offen**.

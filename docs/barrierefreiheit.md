@@ -48,4 +48,4 @@ Die Tests liegen in `test/e2e/support/a11y-suite.mjs` (Läufe `test/e2e/a11y-1.e
 | Links in neues Fenster | Links mit `target="_blank"` (zum Beispiel Spenden, Issue, Lizenzen) sagen nicht, dass sie ein neues Fenster öffnen (2.4.4) | **hergeleitet** aus `site/index.html` |
 | Osterei am Gerät | die Show auf der Seite VERSION blinkt mit 2,5 Blitzen je Sekunde, unter der Grenze von 3 (2.3.1); am Gerät nicht geprüft, Einzelheiten in [Firmware-Extras](hintergrund/firmware-extras.md#lichtgrenze) | **gemessen** im Emulator |
 
-Die Funde der ersten Prüfung stehen in der Git-Historie: `git show origin/develop:docs/barrierefreiheit.md`.
+Die Funde der ersten Prüfung stehen in der Git-Historie: `git show 03c7827adc7b:docs/barrierefreiheit.md`.

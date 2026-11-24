@@ -152,7 +152,7 @@ Panel kommt das nicht.
   (100 µs) oder die Ereignisteilung, was Last und LED-Matrix dazu sagen, ist offen. Touchpad ohne Achterschritte schon im
   Panel, oder kürzer warten als 12 Messungen.
 
-Quelle: `git show origin/develop:docs/hintergrund/panel-controller.md`, Abschnitt "Was ein Patch gewinnen könnte"
+Quelle: `git show 03c7827adc7b:docs/hintergrund/panel-controller.md`, Abschnitt "Was ein Patch gewinnen könnte"
 
 ## Risiko beim Ändern des Panel-Abbilds
 

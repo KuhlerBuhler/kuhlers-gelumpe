@@ -287,7 +287,7 @@ Plätze, passt das Modell `10 ms + n * Frame`. Bleibt sie bei gleichen Effekten,
 
 ## Frage 3: Pad-Druck am Wechsel und Pad X/Y
 
-Die Rohnotizen stehen in der Git-Historie: `git show origin/develop:docs/messungen/2026-10-25-sync-sample-und-pad-xy.md`.
+Die Rohnotizen stehen in der Git-Historie: `git show 03c7827adc7b:docs/messungen/2026-10-25-sync-sample-und-pad-xy.md`.
 
 ### 3.1 Ein Pad-Druck geht auf dem Wechsel verloren
 

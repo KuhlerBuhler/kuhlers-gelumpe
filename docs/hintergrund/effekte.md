@@ -3,7 +3,7 @@
 Wissensseite zu den Effekt-Funktionen und Klangfunktionen von BLECH, nach Themen geordnet: Effektdatei vom Gerät lesen, Effekte beim Start
 neu anwenden, Pegel und Röhrenkurve, TAP Motion einmal, Glide und CUTOFF auf allen Parts, Filter-Schnellschalter, Touch Scale Umfang 0,
 Spettro und der Start-Haken der blauen Electribe. Die Katalog-Effekte selbst stehen im [Effekt-Katalog](../effekt-katalog.md).
-Die rohen Messnotizen stehen in der Git-Historie (`git show origin/develop:docs/messungen/<Datei>`), die Quelle steht unter jedem Abschnitt.
+Die rohen Messnotizen stehen in der Git-Historie (`git show 03c7827adc7b:docs/messungen/<Datei>`), die Quelle steht unter jedem Abschnitt.
 
 Markierungen: **gemessen** (Emulator oder Gerät, steht dabei), **offline** (Code gelesen), **hergeleitet**, **offen**. Wo nichts anderes
 steht, ist am Gerät nichts geprüft.

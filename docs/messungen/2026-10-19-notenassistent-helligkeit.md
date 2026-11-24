@@ -4,7 +4,7 @@ Wunsch vom 16.10. und 19.10.: die am besten passenden Noten heller als die wenig
 oder pausiert bleiben die Hinweise stehen, beim Spielen blenden sie langsam aus, eine Note bei 0 verschwindet. So bleiben die
 passenderen Noten länger zu sehen. Rückmeldung am Gerät vom 22.10.: drei Stufen (hell, etwas hell, aus) reichen nicht, die am besten
 passende Note soll in voller Helligkeit leuchten, und die gespielte Note soll als Note erkennbar bleiben. Die rohen Notizen stehen
-in der Git-Historie (`git show origin/develop:docs/messungen/2026-10-22-notenassistent-stufen.md` und `...-spielende-note.md`).
+in der Git-Historie (`git show 03c7827adc7b:docs/messungen/2026-10-22-notenassistent-stufen.md` und `...-spielende-note.md`).
 
 ## Was gilt (`tools/patch/note_assist.py`)
 

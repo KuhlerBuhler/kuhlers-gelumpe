@@ -2,7 +2,7 @@
 
 Geräteschritte, die vorbereitet, aber am Gerät noch nicht gelaufen sind. Jeder Abschnitt nennt, was er klären soll,
 woher die Erwartung kommt, und die Schritte. Die Messnotizen, aus denen sie stammen, sind in der Git-Geschichte lesbar
-(`git show origin/develop:docs/messungen/<datei>`).
+(`git show 03c7827adc7b:docs/messungen/<datei>`).
 
 Für alle gilt [Was für alle Tests gilt](README.md#was-für-alle-tests-gilt): Netzteil, vorher sichern, Ergebnis je
 Schritt als "ok", "anders" oder "nicht gelaufen". Schritte, die den RAM schreiben (Abschnitt 2), sind eine Änderung am

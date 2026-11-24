@@ -3,7 +3,7 @@
 Was der Patch am Display und an den LEDs macht und was dazu gemessen ist: die Seite CALIBRATE DISPLAY, die Trägheit des
 LCD im Emulator, die Farben der Pegelanzeige, das Dimmen der LEDs im Energiesparmodus und der Name, unter dem sich das Gerät
 am Rechner zeigt. Die Rohnotizen stehen in der
-Git-Historie, zum Beispiel `git show origin/develop:docs/messungen/2026-10-21-display-kalibrierung.md`.
+Git-Historie, zum Beispiel `git show 03c7827adc7b:docs/messungen/2026-10-21-display-kalibrierung.md`.
 
 ## CALIBRATE DISPLAY auf der Seite LCD CONTRAST
 

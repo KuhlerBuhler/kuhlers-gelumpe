@@ -110,7 +110,7 @@ Die Delays rechnen mit Notenwert mal Faktor (hergeleitet aus der DSP-Tabelle ab 
 
 ## Wie der Katalog gebaut wird
 
-Die rohen Messnotizen stehen in der Git-Historie (`git show origin/develop:docs/messungen/<Datei>`).
+Die rohen Messnotizen stehen in der Git-Historie (`git show 03c7827adc7b:docs/messungen/<Datei>`).
 
 ### Anhängen (`fx-catalog`, `src/fx-append.mjs`)
 

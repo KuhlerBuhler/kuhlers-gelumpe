@@ -101,7 +101,7 @@ BLECH-Startbild blieb stehen, aus ging es nur mit Batterien raus. Für diesen Fa
   Antwort"). Der Ladebalken geht bei einem Fehlercode sofort weg (`loadbar:card_error_ends_the_overlay`).
   Wie der Start mit einer toten Karte heute weiterläuft: [Tote Karte beim Start](messungen/2026-11-10-tote-karte-beim-start.md).
 
-Quelle: Messung 2026-10-19/kartenfehler-beim-start (gelöscht, `git show origin/develop:docs/messungen/2026-10-19-kartenfehler-beim-start.md`)
+Quelle: Messung 2026-10-19/kartenfehler-beim-start (gelöscht, `git show 03c7827adc7b:docs/messungen/2026-10-19-kartenfehler-beim-start.md`)
 
 ## Die vier Fälle
 

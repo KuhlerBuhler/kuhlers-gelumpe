@@ -3,7 +3,7 @@
 Was über Platzbedarf und Rechenzeit der eigenen Patches feststeht, welche Optimierungen gebaut sind und welche Wege
 bewusst nicht gegangen werden. Alle Zahlen sind ARM-Befehle oder Bytes, **gemessen im Emulator**, keine Millisekunden
 am Gerät. Die Rohnotizen stehen in der Git-Historie, zum Beispiel
-`git show origin/develop:docs/messungen/2026-10-20-patch-performance.md`. Die Zahlenbasis liegt in
+`git show 03c7827adc7b:docs/messungen/2026-10-20-patch-performance.md`. Die Zahlenbasis liegt in
 [2026-10-21-patch-effizienz-basis-zahlen.json](../messungen/2026-10-21-patch-effizienz-basis-zahlen.json), weitere
 Einzelbefunde in [ARM-Optimierungen](../messungen/2026-10-20-arm-optimierungen.md), das Speicherbudget in
 [Firmware-Speicherbudget](../messungen/2026-11-20-firmware-speicherbudget.md).

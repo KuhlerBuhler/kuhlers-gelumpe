@@ -3,7 +3,7 @@
 Was über die blaue Electribe 2 (Synth) bekannt ist und wie BLECH auf ihr läuft. Eine blaue Electribe gab es für keine
 dieser Messungen: alles ist im [Emulator](../glossary.md#emulator) gemessen oder offline gelesen, am Gerät ist nichts
 davon bestätigt. Die Messnotizen, aus denen Abschnitte stammen, sind in der Git-Geschichte lesbar
-(`git show origin/develop:docs/<pfad>`).
+(`git show 03c7827adc7b:docs/<pfad>`).
 
 Weiter: [Emulator, blaue Electribe 2](../emulator.md#die-blaue-electribe-2-synth),
 [Die blaue Electribe 2 im Emulator](../messungen/2026-10-15-blaue-electribe.md),

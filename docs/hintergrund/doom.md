@@ -7,7 +7,7 @@ Emulator in [Doom im Firmwareemulator](../messungen/2026-10-15-doom-v21.md), die
 in [Rettung](../rettung.md#doom). Die Quellen liegen in `tools/doom/` ([Buildanleitung](../../tools/doom/README.md)).
 
 Die genannten Rohmessungen sind gelöscht und in der Git-Geschichte lesbar:
-`git show origin/develop:docs/messungen/<datei>.md`.
+`git show 03c7827adc7b:docs/messungen/<datei>.md`.
 
 Markierungen: **gemessen am Gerät**, **gemessen im Emulator**, **offline gelesen** (Code gelesen), **hergeleitet**, **offen**.
 

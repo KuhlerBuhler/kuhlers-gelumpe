@@ -3,7 +3,7 @@
 Hintergrund zu zwei Themen: Was Hacktribe gegenüber Korgs roter 2.02 zusätzlich mitbringt (Grooves, Touch-Skalen, Akkordtabellen,
 Akkord-Sets) und ob sich das als Tabelleneinträge auf Korgs eigenem Code nachbauen lässt wie die Oszillatoren von `ht-osc`. Dazu das
 Osterei auf der Seite VERSION und die Freischaltung im Flash. Die rohen Messnotizen stehen in der Git-Historie:
-`git show origin/develop:docs/messungen/2026-11-10-hacktribe-extras-rot.md` und `...2026-11-09-osterei-version.md`.
+`git show 03c7827adc7b:docs/messungen/2026-11-10-hacktribe-extras-rot.md` und `...2026-11-09-osterei-version.md`.
 
 Alle Adressen sind RAM-Adressen (Datei minus `0x100` plus `0xC0000000`). Grundlage: Emulator und Bytevergleich von Korgs Original
 2.02 (rot), [Hacktribe](../glossary.md#hacktribe) 2.02 und Korgs blauer 2.02. Es ist nichts davon gebaut und **am Gerät nichts geprüft**

@@ -2,7 +2,7 @@
 
 Hintergrund zum Patch `sample-swap` ([Sample-Swap](../glossary.md#sample-swap)): welche Regeln für Stimmen, Verdrängung, Warten, Namen und Speichern gelten und wie sie bekannt sind. Der Aufbau des Patches steht in [Sample-Swap: der Bau](../messungen/2026-10-26-sample-swap-bau.md), die Zeitgrenzen des Transports in [Sample-Swap: RAM-Besitz und Zeitgrenze](../messungen/2026-10-25-sample-swap-timeout.md), die Schutzfälle in [Sample-Swap: Schutz der Daten](../messungen/2026-10-30-sample-swap-schutz.md), das Speichern eines Slots in [Sample-Sammlung](../messungen/2026-10-27-sample-store.md).
 
-Die Rohmessungen hinter diesen Fakten sind aus dem Baum gelöscht. Sie bleiben in der Git-Historie lesbar: `git show origin/develop:docs/messungen/<datei>`. Jeder Abschnitt nennt seine Quelle.
+Die Rohmessungen hinter diesen Fakten sind aus dem Baum gelöscht. Sie bleiben in der Git-Historie lesbar: `git show 03c7827adc7b:docs/messungen/<datei>`. Jeder Abschnitt nennt seine Quelle.
 
 Beleg-Wörter: **gemessen am Gerät**, **gemessen im Emulator** (ARM-Emulator mit eigenen Firmwaredateien und selbst erzeugten Samples, der DSP ist dort eine Attrappe), **hergeleitet** (aus gelesenem ARM-Code), **offen** (nicht versucht).
 

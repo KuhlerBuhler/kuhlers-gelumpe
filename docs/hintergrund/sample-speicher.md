@@ -3,7 +3,7 @@
 Was am Gerät und im Emulator über den Speicher der Samples gemessen ist: das obere RAM, die Aufnahme, die Schreibwege auf
 den PCM-Speicher und ihr Schutz, der Besitz der Sample-Datei auf der Karte, das Journal und die Erstanlage. Das Format der Datei
 steht in [sample-datei.md](sample-datei.md), die Karte des Flash in [speicherbereiche.md](../speicherbereiche.md). Die Messnotizen
-dazu sind nicht mehr im Baum, sie stehen in der Git-Historie (`git show origin/develop:docs/messungen/<Datei>`). Weiter gelesen werden
+dazu sind nicht mehr im Baum, sie stehen in der Git-Historie (`git show 03c7827adc7b:docs/messungen/<Datei>`). Weiter gelesen werden
 kann in [Sample-Store](../messungen/2026-10-27-sample-store.md) und [Sample-Swap-Schutz](../messungen/2026-10-30-sample-swap-schutz.md).
 
 Markierungen wie sonst: **gemessen am Gerät**, **gemessen im Emulator**, **offline gelesen** (Disassembly), **hergeleitet**, **offen**.
