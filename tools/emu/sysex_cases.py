@@ -801,7 +801,8 @@ def doom_cases(payload, flash, part=None):
     loader opens. The real doom.bin of third_party/doom is written in blocks onto a card that has no Doom folder yet, read back over SysEx
     and compared byte for byte on the card image; doom.wad is written past the size limit of a VSB (the whole 28 MB file would take hours
     over the emulated DIN line, so the start of the real file and a block far behind it), read back, made anew by a block at 0. A write
-    and a read with bits 31, 30 and 29 (no file) are refused, so are offsets past the limit; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
+    with bits 31, 30 and 29 is refused, so are offsets past the limit; a read with them is FILE_REC (rec_read_cases), here the list of a
+    card without SD:Recordings; SYSTEM.VSB stays. `part` "bin" or "wad" runs one half (check.py runs both)."""
     import fat32
     from sdcard import MemoryMedium, SDCard
     BIN, WAD = spec.FILE_DOOM, spec.FILE_DOOM | spec.FILE_OTHER
@@ -887,8 +888,8 @@ def doom_cases(payload, flash, part=None):
     both_read = lk.file_read(spec.FILE_DOOM | spec.FILE_SAMPLE | spec.FILE_OTHER | 0, 0)
     beyond, _ = lk.file_write(BIN | (spec.SAMPLE_LIMIT - 5), b"x" * 10)
     statuses = [r and r["status"] for r in (both, both_read, beyond)]
-    out.append(entry("doom_refusals", statuses == [RANGE, RANGE, RANGE] and on_card(dev, vsb) == system and on_card(dev, "KORG/blechtribe/Sample/e2sSample.all") is None,
-                     f"bits 31, 30 and 29 written and read, past the limit: {statuses}; SYSTEM.VSB unchanged, no sample file made"))
+    out.append(entry("doom_refusals", statuses == [RANGE, spec.STATUS_FILE, RANGE] and on_card(dev, vsb) == system and on_card(dev, "KORG/blechtribe/Sample/e2sSample.all") is None,
+                     f"bits 31, 30 and 29 written, read (FILE_REC, no SD:Recordings), past the limit: {statuses}; SYSTEM.VSB unchanged, no sample file made"))
     if part in (None, "bin"):
         nocard, lk2 = device(card=False)
         r = lk2.file_read(BIN | 0, 0)
