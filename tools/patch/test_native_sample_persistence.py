@@ -8,13 +8,13 @@ from unicorn import arm_const as R
 import arm
 import sample_swap as p
 import test_sample_swap as support
-from tools.patch import script_hooks
 
 F, TRANSPORT, TRAP, word = support.F, support.TRANSPORT_OBJECT, support.TRAP, support.word
 
 
 class NativePersistence(unittest.TestCase):
     def test_blechy_compiler_cannot_grow_into_the_persistence_code(self):
+        from tools.patch import script_hooks
         self.assertLessEqual(script_hooks.BLECHY_BLOCK_END, p.PERSISTENCE_CODE)
 
     def setup(self, *, status=0, commit=True, deleting=False, transport=0):

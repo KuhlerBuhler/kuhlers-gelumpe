@@ -29,7 +29,6 @@ from unicorn import arm_const  # noqa: E402
 import cardstore  # noqa: E402
 import highram_watch as hw  # noqa: E402
 import lifetime  # noqa: E402
-import pad_colors  # noqa: E402
 import parallel  # noqa: E402
 import sampleset  # noqa: E402
 import splash_editor  # noqa: E402
@@ -1345,6 +1344,7 @@ def pins(dev):
 def custom_extra(dev):
     """The rows of CUSTOMIZATION behind DISPLAY and LED: PAD COLOR and POWER SAVE where the set has the pad colours, SPLASH where it
     also has the splash editor."""
+    import pad_colors
     if dev.u32(pad_colors.CODE_AT) == 0xFFFFFFFF:
         return 0
     return 2 if dev.u32(splash_editor.IMPORT_ENTRY) == 0xFFFFFFFF else 3
@@ -2043,6 +2043,7 @@ def splash_cases_display(image):
 def pad_colour_cases(payload, flash=None):
     """CUSTOMIZATION, PAD COLOR and SELECT COLOR (patch pad-colors): the pads take the chosen colours at once, both together take the
     colour that is left, the two pages never hold the same colour, WRITE keeps them for the next start, EXIT at power-on is stock."""
+    import pad_colors
     out = []
 
     def add(name, ok, detail):
@@ -2808,6 +2809,7 @@ def knob_leds_cases(payload, flash=None):
     knob LEDs 0 to 4 dark at once while the firmware keeps its own values, a knob turned on the main screen lights none of them, ON
     sends them again; WRITE keeps OFF as bit 6 of byte 5 next to the meter's bit 0, the next start has them dark, EXIT held at
     power-on lights them as stock. In power save ON shows them dimmed like every other LED and OFF dark, also from power-on."""
+    import pad_colors
     out = []
 
     def add(case, ok, detail):
@@ -3104,6 +3106,7 @@ def card_later_cases(payload, flash=None):
     and every switch with it. Each step is compared with a device that started with that card. What the power-on runs with
     stays (the plugin runtime and MFX 2), a card without a settings file changes nothing, nothing is written to the card. After a start
     without a card the first card put in is read the same way."""
+    import pad_colors
     out = []
 
     def add(name, ok, detail):

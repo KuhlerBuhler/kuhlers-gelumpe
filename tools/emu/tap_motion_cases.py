@@ -31,7 +31,6 @@ from sdcard import MemoryMedium, SDCard  # noqa: E402
 import lifetime  # noqa: E402
 import menu_cases  # noqa: E402
 import parallel  # noqa: E402
-from menu_cases import has_menu  # noqa: E402
 from mfx_cases import CTL  # noqa: E402
 
 IMAGE = 0xC0000000
@@ -544,7 +543,7 @@ def case_app(payload, flash):
     """A plugin or an app that owns the keys keeps TAP from the firmware: no toggle, no tap tempo. The capture mask is the plugin's way,
     an open app forces it for every key but the transport keys (tools/patch/script_hooks.s, input_mask_app). The state area of the runtime
     is zeroed first, the way an initialised runtime leaves it before a plugin is loaded (nothing open, nothing captured)."""
-    if not has_menu(payload):
+    if not menu_cases.has_menu(payload):
         return []
     size = runtime_size()
     rows = {}

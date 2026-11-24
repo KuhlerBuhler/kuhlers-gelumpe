@@ -12,7 +12,6 @@ the image, so only a write into a BLECH range counts as foreign
 import collections
 
 import unicorn
-from tools.patch import script_hooks
 
 IMAGE = (0xC0000000, 0xC0200000)
 ALIAS = 0x04000000                    # the RAM dump repeats the first 64 MiB (docs/messungen/2026-10-07-cpu-ram-fenster.md)
@@ -45,6 +44,7 @@ def diff_runs(base, patched, header=0x100, gap=8):
 def areas(layout):
     """The named parts of the free block, in address order, from the layout `script_hooks.build` reports
     and the fixed places of the older patches (tools/patch/splash_editor.py, mfx_switch.py)."""
+    from tools.patch import script_hooks
     out = [
         ("splash editor code", 0xC01A2100, 0xC01A3C00),
         ("splash editor vtable copy", 0xC01A3C00, 0xC01A4000),
