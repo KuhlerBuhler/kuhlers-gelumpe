@@ -22,6 +22,8 @@ import synthaddr  # noqa: E402
 import tap_motion_cases as tm  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
+import plugin_edit_cases as edit  # noqa: E402
 
 OWNER, DEST, VALUES = 0x104, 0x11C, 0x134      # RAM offsets in the pattern object (data/script/contract.mjs PATTERN_MOTION + 4)
 ENGINE, ENGINE_STRIDE = 0xC068DB0C, 0x24        # the motion engine's lane table, +0 in use, +0x10 output
@@ -34,14 +36,12 @@ def runtime_symbols(build):
     """The glue addresses of the runtime this build's set carries (the include does not change them: no program is needed)."""
     global INCLUDE
     if INCLUDE is None:
-        import plugin_edit_cases as edit
         INCLUDE = edit.compiled({"api28": "let x = 0;"})["include"]
     return script_hooks.build(INCLUDE, build=build).symbols
 
 
 def node_requests():
     """Every answer this module asks Node for (node_json.py); tools/emu/node_results.py keeps them in its file."""
-    import plugin_edit_cases as edit
     edit.compiled({"api28": "let x = 0;"})
 
 
@@ -203,7 +203,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

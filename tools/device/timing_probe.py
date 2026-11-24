@@ -38,6 +38,8 @@ sys.path.insert(0, str(HERE.parent / "patch"))
 
 import arm  # noqa: E402
 import vm_bench as vb  # noqa: E402
+from led_show import Device, mido_ask  # noqa: E402
+# The emulator's modules (machine and what it imports) load only on the emulator path: they need unicorn, and tools/emu/backlight.py has the name of a module here.
 
 STUB_AT = vb.STUB_AT
 STUB_SIZE = vb.STUB_SIZE
@@ -380,7 +382,6 @@ def main():
     if a.emu:
         dev, m = vb.emulator_link(a.emu)
     else:
-        from led_show import Device, mido_ask
         dev = Device(mido_ask())
     results = run(dev, a)
     if m is not None:

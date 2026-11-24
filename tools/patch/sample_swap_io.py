@@ -15,6 +15,8 @@ import sys
 
 import arm
 import ramdecl
+sys.path.append(str(Path(__file__).parent.parent / 'emu'))
+import firmware  # noqa: E402
 
 # Standalone default in the free tail of the loading bar's code room, clear of every area the BLECH set declares
 # (the set's own transport is sample_swap.py: TRANSPORT).
@@ -394,8 +396,6 @@ def validate_firmware(vsb):
         offset = file_offset(at)
         if hashlib.sha256(vsb[offset:offset+length]).hexdigest() != digest:
             raise ValueError(f'unmapped or modified Sampler code at {at:#x}')
-    sys.path.insert(0, str(Path(__file__).parent.parent / 'emu'))
-    import firmware
     return firmware.build_of(vsb[0x100:])
 
 

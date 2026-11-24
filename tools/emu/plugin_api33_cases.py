@@ -24,6 +24,9 @@ import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
 from shortcut_cases import PART, STEPS, STRIDE, WINDOW, SBox  # noqa: E402
+import lifetime  # noqa: E402
+import shortcut_cases  # noqa: E402
+import unicorn  # noqa: E402
 
 NAMES, PLAY, META, META_SIZE = 0xC047B08C, 0xC0362EE8, 0xC036AD88, 0x45C
 SLOT = 900                      # a slot the case fills with values of its own
@@ -122,8 +125,6 @@ def changed(r, pattern=0):
     """Chooses `pattern` with the wheel, keeps the places of the bank in r.bank before the program can save, changes three sound
     bytes of part 1 in RAM (shortcut_cases.edit) so the pattern differs from its place in the bank, and notes every screen the
     firmware switches to from then on (the number at +0x2C of the screen manager) in r.screens."""
-    import shortcut_cases
-    import unicorn
     if pattern:
         r.box.turn(pattern)
         r.box.run(1.0)
@@ -204,7 +205,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

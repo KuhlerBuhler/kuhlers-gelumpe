@@ -7,6 +7,10 @@ from types import SimpleNamespace
 
 from blackfin_backend import BlackfinBackend, BlackfinPort, BackendError
 import blackfin_worker
+import machine as machine_module
+from blackfin_cases import cases
+from machine import AINTC, Machine, hardware_of_flash
+from test_blackfin_backend import stream
 
 WORKER = blackfin_worker.find()
 
@@ -234,7 +238,6 @@ class BoundPort(unittest.TestCase):
         self.assertEqual(port.boot_report['clock_cycles'], 96)
 
     def test_gpio_reads_native_frdy_instead_of_toggling(self):
-        from machine import Machine
         machine = Machine.__new__(Machine)
         machine.gpio, machine.inputs = {}, {}
         machine.dsp_backend = Mock(host_transport='fifo', clock_bound=True)
@@ -248,8 +251,6 @@ class BoundPort(unittest.TestCase):
 
 class CoupledSetup(unittest.TestCase):
     def test_synth_case_uses_blue_hardware_markers(self):
-        from blackfin_cases import cases
-        from machine import hardware_of_flash
         profile = SimpleNamespace(build='synth')
         machine = Mock(time_ns=10000000, asserts=[], powered=True)
         with patch('blackfin_cases.identify', return_value=profile), \
@@ -264,8 +265,6 @@ class CoupledSetup(unittest.TestCase):
 @unittest.skipUnless(WORKER, 'build a Blackfin worker (tools/dsp/build_qemu.py) or set BFIN_WORKER')
 class ArmClock(unittest.TestCase):
     def test_default_slice_has_a_finite_boundary_when_arm_waits_without_events(self):
-        from machine import Machine, AINTC
-        from test_blackfin_backend import stream
         profile = SimpleNamespace(assert_handler=0xC0100000, flash_read=0xC0100004,
                                   dsp_upload=0xC0100008, tx_full=0xC010000C,
                                   user_mark=bytes(12))
@@ -306,8 +305,6 @@ class ArmClock(unittest.TestCase):
             self.assertEqual(machine.reg(machine.A.UC_ARM_REG_R0), 9)
 
     def test_generated_arm_instructions_and_gpio_share_the_dsp_clock(self):
-        from machine import Machine
-        from test_blackfin_backend import stream
         profile = SimpleNamespace(assert_handler=0xC0100000, flash_read=0xC0100004,
                                   dsp_upload=0xC0100008, tx_full=0xC010000C,
                                   user_mark=bytes(12))
@@ -326,8 +323,6 @@ class ArmClock(unittest.TestCase):
             self.assertEqual(machine.reg(machine.A.UC_ARM_REG_R0) & 2, 2)
 
     def test_native_and_python_instruction_clock_agree(self):
-        import machine as machine_module
-        from test_blackfin_backend import stream
         if machine_module._arm_tick_library() is None:
             self.skipTest('no C compiler for arm_tick.c')
         profile = SimpleNamespace(assert_handler=0xC0100000, flash_read=0xC0100004,
@@ -355,8 +350,6 @@ class ArmClock(unittest.TestCase):
 
     def test_a_computed_poll_loop_ends_exactly_like_reading_every_time(self):
         import unicorn
-        import machine as machine_module
-        from test_blackfin_backend import stream
         if machine_module._arm_tick_library() is None:
             self.skipTest('no C compiler for arm_tick.c')
         profile = SimpleNamespace(assert_handler=0xC0100000, flash_read=0xC0100004,

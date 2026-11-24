@@ -7,6 +7,8 @@ from pathlib import Path
 import swap_cases as c
 import arm
 import unicorn
+import sample_swap_io as io
+from unicorn import arm_const
 
 ADAPTER, SOURCE_PATH, LIB_PATH = 0xC1000000, 0xC1008000, 0xC1008100
 
@@ -153,8 +155,7 @@ def pcm_boot_cases(payload):
                 box.m.uc.mem_write(0xC100B000, bytes((i * 17 + 39) & 255 for i in range(64)))
 
                 def inject(uc, *_):
-                    from unicorn import arm_const as R
-                    destination = uc.reg_read(R.UC_ARM_REG_R1)
+                    destination = uc.reg_read(arm_const.UC_ARM_REG_R1)
                     if not c.DSP_MIN <= destination < c.spec.FIRMWARE['DSP_END']:
                         return
                     seen['writes'] += 1
@@ -177,7 +178,7 @@ def pcm_boot_cases(payload):
                     b 0xC00146B4
                     .pool"""
                     uc.mem_write(origin, arm.assemble(code, origin=origin).bytes)
-                    uc.reg_write(R.UC_ARM_REG_PC, origin)
+                    uc.reg_write(arm_const.UC_ARM_REG_PC, origin)
 
                 box.m.uc.hook_add(unicorn.UC_HOOK_CODE, inject, begin=0xC00146B4, end=0xC00146B4)
 
@@ -220,8 +221,6 @@ def pcm_boot_cases(payload):
 
 
 def pcm_edge_cases(payload):
-    from unicorn import arm_const as R
-    import sample_swap_io as io
     out = []
     for words in (16, 17, 0x10010):
         box = c.Box(payload, None, c.small(range(500, 506)), [500, 501],
@@ -279,7 +278,7 @@ def pcm_edge_cases(payload):
     seen = []
 
     def relocate(uc, *_):
-        sp = uc.reg_read(R.UC_ARM_REG_SP)
+        sp = uc.reg_read(arm_const.UC_ARM_REG_SP)
         if seen or box.u32(sp + 4) != 0xC00142D8:
             return
         seen.append(True)

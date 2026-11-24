@@ -17,6 +17,7 @@ import menu_cases  # noqa: E402
 import parallel  # noqa: E402
 from splash_cases import SWITCH_SCREEN  # noqa: E402
 from theme_screens import SCRATCH, SET_FONT, TEXT, TEXT_WIDTH, Caller, set_font  # noqa: E402
+import unicorn  # noqa: E402
 
 SCREENS = range(45)          # the screen manager's numbers 0 to 44 (docs/messungen/2026-10-14-display-schriften.md)
 TURNS = 32                   # wheel detents per screen
@@ -44,7 +45,6 @@ def walk(dev, screen):
 def shown_task(screen):
     """{"seen": [(text bytes as latin-1 str, font id)] drawn on one screen while it is shown, turned and stepped,
     "crashed": None or the emulator's error}."""
-    import unicorn
     payload, flash = parallel.shared["payload"], parallel.shared["flash"]
     dev = menu_cases.boot(payload, flash)
     dev = Caller(payload, flash, 0, machine=dev.m)
@@ -117,7 +117,6 @@ def layout_task(screen, german):
     display or whose pixels land on pixels another text drew and nothing cleared in between; `drawn`, every text drawn;
     `copies`, (source, bytes with NUL, return address) of each strcpy out of lang-de's area; `crashed`, None or the
     emulator's error."""
-    import unicorn
     payload, flash = parallel.shared["payload"], parallel.shared["flash"]
     dev = menu_cases.boot(payload, flash)
     dev = Caller(payload, flash, 0, machine=dev.m)

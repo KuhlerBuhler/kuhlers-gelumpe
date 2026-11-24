@@ -27,6 +27,7 @@ from highram_watch import KEYS, plain_wav  # noqa: E402
 from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import parallel  # noqa: E402
 
 IMAGE = 0xC0000000
 DEST = 0xC00F9CCC               # the destination selector's number (the slot plus one)
@@ -165,7 +166,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 

@@ -28,6 +28,38 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import menu_cases  # noqa: E402
 from machine import load_flash  # noqa: E402
 from tools.patch import script_hooks  # noqa: E402
+import catalog_app_cases  # noqa: E402
+import global_cases  # noqa: E402
+import lifetime  # noqa: E402
+import live_write_cases  # noqa: E402
+import meter_led_cases  # noqa: E402
+import objects_cases  # noqa: E402
+import parallel  # noqa: E402
+import pattern_parts_cases  # noqa: E402
+import plugin_api18_cases  # noqa: E402
+import plugin_api19_cases  # noqa: E402
+import plugin_api22_cases  # noqa: E402
+import plugin_api23_cases  # noqa: E402
+import plugin_api24_cases  # noqa: E402
+import plugin_api26_cases  # noqa: E402
+import plugin_api27_cases  # noqa: E402
+import plugin_api28_cases  # noqa: E402
+import plugin_api29_cases  # noqa: E402
+import plugin_api30_cases  # noqa: E402
+import plugin_api31_cases  # noqa: E402
+import plugin_api31_spectrum_cases  # noqa: E402
+import plugin_api32_cases  # noqa: E402
+import plugin_api33_cases  # noqa: E402
+import plugin_api34_cases  # noqa: E402
+import plugin_api36_cases  # noqa: E402
+import plugin_api37_cases  # noqa: E402
+import plugin_api38_cases  # noqa: E402
+import plugin_catalog_api_cases  # noqa: E402
+import plugin_edit_cases  # noqa: E402
+import testmode_cases  # noqa: E402
+import timer_cases  # noqa: E402
+import unicorn  # noqa: E402
+# The case modules that import this one are imported inside the functions that use them: at the top they would be an import cycle.
 
 MAILBOX = script_hooks.CARD + 0xFC0     # RM_AT in script_remote.s
 MESSAGE_AT = script_hooks.CARD + 0xFA0  # RM_MSG_AT
@@ -117,7 +149,6 @@ def cases(payload, flash=None):
 
 def watch_dispatch(dev):
     """Every message the dispatcher gets from now on, as its five bytes, in dev.dispatched."""
-    import unicorn
     dev.dispatched = []
     hook = lambda uc, address, size, data: dev.dispatched.append(list(uc.mem_read(uc.reg_read(unicorn.arm_const.UC_ARM_REG_R0) + 0xC, 5)))
     dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, hook, begin=dev.a(DISPATCH), end=dev.a(DISPATCH))
@@ -171,17 +202,14 @@ def release_cases(payload, flash=None):
 
 
 def testmode_group(payload, flash=None):
-    import testmode_cases
     return testmode_cases.cases(bytes(0x100) + payload, flash)
 
 
 def timer_group(payload, flash=None):
-    import timer_cases
     return timer_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_edit_group(payload, flash=None):
-    import plugin_edit_cases
     return plugin_edit_cases.cases(bytes(0x100) + payload, flash)
 
 
@@ -191,27 +219,22 @@ def plugin_api15_group(payload, flash=None):
 
 
 def global_group(payload, flash=None):
-    import global_cases
     return global_cases.cases(bytes(0x100) + payload, flash)
 
 
 def pattern_parts_group(payload, flash=None):
-    import pattern_parts_cases
     return pattern_parts_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api22_group(payload, flash=None):
-    import plugin_api22_cases
     return plugin_api22_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api23_group(payload, flash=None):
-    import plugin_api23_cases
     return plugin_api23_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api24_group(payload, flash=None):
-    import plugin_api24_cases
     return plugin_api24_cases.cases(bytes(0x100) + payload, flash)
 
 
@@ -221,52 +244,42 @@ def plugin_api25_group(payload, flash=None):
 
 
 def plugin_api26_group(payload, flash=None):
-    import plugin_api26_cases
     return plugin_api26_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api27_group(payload, flash=None):
-    import plugin_api27_cases
     return plugin_api27_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api28_group(payload, flash=None):
-    import plugin_api28_cases
     return plugin_api28_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api29_group(payload, flash=None):
-    import plugin_api29_cases
     return plugin_api29_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api30_group(payload, flash=None):
-    import plugin_api30_cases
     return plugin_api30_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api31_group(payload, flash=None):
-    import plugin_api31_cases
     return plugin_api31_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api31_spectrum_group(payload, flash=None):
-    import plugin_api31_spectrum_cases
     return plugin_api31_spectrum_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api32_group(payload, flash=None):
-    import plugin_api32_cases
     return plugin_api32_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api33_group(payload, flash=None):
-    import plugin_api33_cases
     return plugin_api33_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api34_group(payload, flash=None):
-    import plugin_api34_cases
     return plugin_api34_cases.cases(bytes(0x100) + payload, flash)
 
 
@@ -276,48 +289,39 @@ def plugin_api35_group(payload, flash=None):
 
 
 def plugin_api36_group(payload, flash=None):
-    import plugin_api36_cases
     return plugin_api36_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api37_group(payload, flash=None):
-    import plugin_api37_cases
     return plugin_api37_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api38_group(payload, flash=None):
-    import plugin_api38_cases
     return plugin_api38_cases.cases(bytes(0x100) + payload, flash)
 
 
 def meter_led_group(payload, flash=None):
-    import meter_led_cases
     return meter_led_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_catalog_api_group(payload, flash=None):
-    import plugin_catalog_api_cases
     return plugin_catalog_api_cases.cases(bytes(0x100) + payload, flash)
 
 
 
 def plugin_api19_group(payload, flash=None):
-    import plugin_api19_cases
     return plugin_api19_cases.cases(bytes(0x100) + payload, flash)
 
 
 def objects_group(payload, flash=None):
-    import objects_cases
     return objects_cases.cases(bytes(0x100) + payload, flash)
 
 
 def plugin_api18_group(payload, flash=None):
-    import plugin_api18_cases
     return plugin_api18_cases.cases(bytes(0x100) + payload, flash)
 
 
 def catalog_app_group(payload, flash=None):
-    import catalog_app_cases
     return catalog_app_cases.cases(bytes(0x100) + payload, flash)
 
 
@@ -327,7 +331,6 @@ def plugin_catalog15_group(payload, flash=None):
 
 
 def live_write_group(payload, flash=None):
-    import live_write_cases
     return live_write_cases.cases(bytes(0x100) + payload, flash)
 
 
@@ -337,12 +340,10 @@ GROUPS = (cases, message_cases, release_cases, testmode_group, timer_group, plug
 
 def cases_task(i):
     """One group in a worker (parallel.py)."""
-    import parallel
     return GROUPS[i](parallel.shared["payload"], parallel.shared["flash"])
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

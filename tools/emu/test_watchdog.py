@@ -17,6 +17,7 @@ sys.path.append(str(HERE.parent / "patch"))
 
 import machine  # noqa: E402
 from machine import WD_TIMER, WDTCR, WDEN  # noqa: E402
+import watchdog_restart  # noqa: E402
 
 VSB = os.environ.get("E2_VSB")
 REQUIRED = os.environ.get("E2_EMU_REQUIRED") == "1"
@@ -128,7 +129,6 @@ class WatchdogStubTest(unittest.TestCase):
 
     def setUp(self):
         unicorn_or_skip(self)
-        import watchdog_restart
         self.tool = watchdog_restart
 
     def test_the_stub_arms_the_watchdog_returns_and_the_chip_resets_after_100_ms(self):

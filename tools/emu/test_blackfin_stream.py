@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 
 from blackfin_backend import BackendError, BlackfinPort, boot_blocks
 from dsp_model import DspModel
+from machine import Machine
 
 
 def header(flags, address=0x1000, size=0, argument=0):
@@ -52,7 +53,6 @@ class Stream(unittest.TestCase):
         self.assertEqual(port.host_transport, 'fifo')
 
     def test_arm_cannot_accidentally_attach_fifo_mode_without_clock_coupling(self):
-        from machine import Machine
         with self.assertRaisesRegex(ValueError, 'clock'):
             Machine(bytes(32), dsp_backend=SimpleNamespace(host_transport='fifo'))
 
@@ -79,7 +79,6 @@ class Stream(unittest.TestCase):
             DspModel(machine)
 
     def test_boot_failure_does_not_publish_cpu_success(self):
-        from machine import Machine
         class Failed:
             def boot(self, _):
                 raise BackendError('DSP not ready')

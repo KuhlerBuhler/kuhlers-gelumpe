@@ -28,6 +28,12 @@ from machine import blank_flash
 from project_probe import pattern_file
 from sdcard import MemoryMedium, SDCard
 from splash_cases import Dev
+import lifetime
+from mfx_cases import DspLog
+from project_input_cases import probe as input_probe
+from project_mfx_cases import probe as mfx_probe
+from sample_full import FACTORY_END, LIMIT
+from synth_probe import build_bank, expected_dsp
 
 FLASH_BANK, RAM_BANK = 0x240000, 0xC08B2940
 ARENA, ARENA_BYTES = 0xC3000000, 13 * 1024 * 1024
@@ -53,7 +59,6 @@ def renamed(block, label):
 
 @lru_cache(maxsize=1)
 def synthetic_factory():
-    from synth_probe import build_bank, expected_dsp
     waves = [(f"Own{i:03}", [((i * 13 + j * 29) % 3001) - 1500 for j in range(16)]) for i in range(411)]
     return build_bank(waves), expected_dsp(waves)
 
@@ -271,7 +276,6 @@ class ResearchDevice:
 
 
 def full_sample_research(payload):
-    from sample_full import FACTORY_END, LIMIT
 
     path = "SD:KORG/blechtribe/Projects/FULL/e2sSample.all"
     frames = (LIMIT - FACTORY_END) // 2 - 32
@@ -396,7 +400,6 @@ def sample_research(payload, full=False):
     box.import_samples(a)
     before_no_card = box.flash_bank()
     box.m.eject_card()
-    from mfx_cases import DspLog
     dsp = DspLog(box.m)
     first_factory_call = len(box.factory_calls)
     event = box.import_samples(a)
@@ -549,11 +552,9 @@ def research(payload, include_mfx=True, full=False):
     checks.extend(samples.pop("checks"))
     mfx = None
     if include_mfx:
-        from project_mfx_cases import probe as mfx_probe
         mfx = mfx_probe(payload, box.m.profile.build)
         checks.extend(mfx.pop("checks"))
         gc.collect()
-    from project_input_cases import probe as input_probe
     inputs = input_probe(payload, ResearchDevice)
     checks.extend(inputs.pop("checks"))
     gc.collect()
@@ -573,7 +574,6 @@ def research(payload, include_mfx=True, full=False):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("command", choices=["research"])

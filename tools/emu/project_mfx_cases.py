@@ -22,6 +22,7 @@ from machine import blank_flash
 from mfx_cases import record_table
 from project_probe import pattern_file
 from splash_cases import Dev
+import lifetime
 
 ENQUEUE = 0xC002D5D8
 DISPATCH, COMMAND_END = 0xC002D684, 0xC002D81C
@@ -196,7 +197,6 @@ def probe(payload, build=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--base", type=Path, required=True)

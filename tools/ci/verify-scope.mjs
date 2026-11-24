@@ -26,11 +26,12 @@ export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
 const MENU_USERS = ["menu_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
-  "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "tube_cases", "beat_eighth_cases", "ht_osc_cases", "card_error_cases", "dev_mode_cases", "import_slots_cases", "lang_cases", "sample_category_cases", "sysex_cases"];
+  "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "tube_cases", "beat_eighth_cases", "ht_osc_cases", "card_error_cases", "dev_mode_cases", "import_slots_cases", "lang_cases", "sample_category_cases", "sysex_cases", "ifx_idle_cases", "synth_filter_cases",
+  "tap_motion_cases", "user_samples_cases"];
 const PSWITCH_USERS = ["pswitch_cases", "tap_motion_cases", "note_assist_cases", "ifx_idle_cases", "shortcut_cases",
   "synth_filter_cases", "beat_eighth_cases"];
-const MFX_USERS = ["mfx_cases", "preset_cases", "stereo_pad_cases", "tube_cases", "touch_scale_zero_cases", "ht_osc_cases", "sample_category_cases",
-  ...PSWITCH_USERS];
+const MFX_USERS = [...new Set(["mfx_cases", "preset_cases", "stereo_pad_cases", "tube_cases", "touch_scale_zero_cases", "ht_osc_cases", "sample_category_cases",
+  ...PSWITCH_USERS, ...MENU_USERS])];
 
 /** [pattern, modules or ALL], first match wins. Patterns are anchored; `[^/]*` stays inside one folder. */
 export const TABLE = [
@@ -43,7 +44,10 @@ export const TABLE = [
   [/^tools\/emu\/menu_cases\.py$/, MENU_USERS],
   [/^tools\/emu\/pswitch_cases\.py$/, PSWITCH_USERS],
   [/^tools\/emu\/mfx_cases\.py$/, MFX_USERS],
-  [/^tools\/emu\/swap_cases\.py$/, ["swap_cases", "sysex_cases", "blackfin_swap_cases"]],
+  [/^tools\/emu\/swap_cases\.py$/, ["swap_cases", "sysex_cases", "blackfin_swap_cases", "dev_mode_cases", "fx_card_cases"]],
+  [/^tools\/emu\/sysex_cases\.py$/, ["sysex_cases", "dev_mode_cases", "fx_card_cases"]],
+  [/^tools\/emu\/shortcut_cases\.py$/, ["shortcut_cases", "ifx_idle_cases"]],
+  [/^tools\/emu\/preset_cases\.py$/, ["preset_cases", "fx_card_cases"]],
   // the Blackfin worker and the CI action that builds it: only the case that runs the executed DSP code
   [/^tools\/dsp\/|^\.github\/actions\/dsp-worker\//, ["blackfin_swap_cases"]],
   [/^tools\/emu\/sample_import_(card|menu)_cases\.py$/, ["swap_cases"]],
@@ -51,7 +55,7 @@ export const TABLE = [
   [/^tools\/patch\/native_sample_persistence\.py$/, ["swap_cases"]],
   [/^tools\/emu\/tap_motion_cases\.py$/, ["tap_motion_cases", "beat_eighth_cases"]],
   [/^tools\/emu\/sample_error_cases\.py$/, ["sample_error_cases", "import_slots_cases"]],
-  [/^tools\/emu\/ht_osc_cases\.py$/, ["ht_osc_cases", "sample_category_cases", "shortcut_cases"]],
+  [/^tools\/emu\/ht_osc_cases\.py$/, ["ht_osc_cases", "sample_category_cases", "shortcut_cases", "ifx_idle_cases"]],
   ...CASE_MODULES.map(m => [new RegExp(`^tools/emu/${m}\\.py$`), [m]]),
   [/^tools\/emu\/testmode_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
   [/^tools\/emu\/timer_cases\.py$/, ["remote_cases"]],         // runs as a group of remote_cases

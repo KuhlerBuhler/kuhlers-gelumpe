@@ -25,6 +25,7 @@ import plugin_edit_cases as edit  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 UART1 = 0x01D0C000                              # DIN in and out (machine.py)
 GLOBAL, CHANNEL_AT, FILTER_AT = 0xC033E6A0, 0x2D, 0x2E
@@ -166,7 +167,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

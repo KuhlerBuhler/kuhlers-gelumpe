@@ -23,6 +23,8 @@ import plugin_edit_cases as edit  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
+import pad_colors as PC  # noqa: E402
 
 KNOB = "korg.menu.blech.customizations.led.knobLeds"
 LED_MANAGER, LED_WANTED = 0xC0345A1C, 0x4E      # + 8 * LED the brightness the firmware wants (menu_cases.knob_leds_cases)
@@ -88,7 +90,6 @@ class Run:
 def cases(vsb, flash=None):
     """Read 1 at start; set 0: sent [0] * 5 at once, the firmware still wants its values, reads 0, page OFF; set 1: sent the
     firmware's values again (VALUE, LED 0, is left out as in menu_cases: the firmware lights it only while it is turned), page ON."""
-    import pad_colors as PC
     menu_cases.for_build(vsb[0x100:])
     r = Run(vsb, flash)
     if r.dev.u32(PC.CODE_AT) == 0xFFFFFFFF:
@@ -115,7 +116,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

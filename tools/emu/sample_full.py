@@ -31,6 +31,9 @@ from machine import DSP_DATA, load_flash  # noqa: E402
 from script_cases import CARD_FILE, archive  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import SWITCH_SCREEN, Dev  # noqa: E402
+import menu_cases  # noqa: E402
+from script_cases import open_app  # noqa: E402
+import unicorn  # noqa: E402
 
 HEADER = 0x100
 SAMPLE_FILE = "/KORG/blechtribe/Sample/e2sSample.all"
@@ -234,8 +237,6 @@ def load_checks(s, loaded, total, slots_expected=499):
 
 def open_klicker(s):
     """The Klicker is an app under TOOLS: opened the way a user does, from the BLECH menu with ENTER."""
-    import menu_cases
-    from script_cases import open_app
     open_app(s.dev, menu_cases.GROUP_TOOLS)
 
 
@@ -266,9 +267,6 @@ def plugin_checks(s):
 
 def snake_checks(s):
     """Snake for 150 frames with the same inputs the browser model got; the display must be the model's."""
-    import unicorn
-    import menu_cases
-    from script_cases import open_app
     frames = lambda: s.word("FRAMES")
     s.until(lambda: s.word("READY") == 1, 30, 0.002)
     opened = []

@@ -28,6 +28,7 @@ import plugin_edit_cases as edit  # noqa: E402
 import remote_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import UART1, load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 COMMAND = 9                     # the stored pattern whose part 0 carries the command: filter type a counter, then op and arguments
 LEDMGR = 0xC0345A1C             # the LED manager; +0xB58 the pad mode: 0 PART MUTE, 3 TRIGGER, 4 SEQUENCER, 5 KEYBOARD
@@ -345,7 +346,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

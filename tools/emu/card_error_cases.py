@@ -27,6 +27,8 @@ import sampleset  # noqa: E402
 import synthaddr  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 SAMPLES = sampleset.build(sampleset.sized(3, 48000))
 CARD_ERROR, WRITE_PROTECTED, RESTING = 4, 3, 0x26     # the firmware's error box codes (its text table at 0xC00E3280), 0x26: no box
@@ -242,7 +244,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -251,7 +252,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

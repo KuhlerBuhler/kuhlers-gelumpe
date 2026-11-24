@@ -78,6 +78,9 @@ from touch_scale_zero_cases import GROUPS as TOUCHZERO_GROUPS, has_hooks as has_
 from stage2_memory_check import dsp_stream as stage2_dsp_stream
 from update_guard_cases import GROUPS as UPDATEGUARD_GROUPS, has_hooks as has_updateguard
 from doom_loader_cases import GROUPS as DOOM_GROUPS, has_hooks as has_doom
+import check_shards
+import lifetime
+import shard_weights
 
 HEADER = 0x100
 PAYLOAD = 0x200000
@@ -286,8 +289,6 @@ def _check(base, patched, flash, allow, allow_code, jobs, progress=None, quick=F
     tasks += [("bootmap", "scenario_task", (name,)) for name in names]
     data = {"payload": payload, "flash": flash, "boot_flash": boot, "base": base[HEADER:]}
     if shard is not None or reports is not None:
-        import check_shards
-        import shard_weights
         weights = shard_weights.weights_for(tasks)
         config = {"allow": sorted(map(tuple, allow)), "allow_code": sorted(map(tuple, allow_code)), "quick": quick, "cases": cases,
                   **({"foreign": True} if foreign else {}),
@@ -452,7 +453,6 @@ def span(text):
 
 
 def shard_number(text):
-    import check_shards
     try:
         index, count = map(int, text.split("/"))
         check_shards.indices(0, index, count)
@@ -462,7 +462,6 @@ def shard_number(text):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()      # ends with the test run that started this, also when that is killed
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

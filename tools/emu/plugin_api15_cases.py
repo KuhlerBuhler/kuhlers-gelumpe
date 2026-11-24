@@ -23,6 +23,7 @@ import plugin_edit_cases as edit  # noqa: E402
 import remote_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 TRANSPORT = 0xC06BC318
 COMMAND = 9                     # the pattern whose filter type byte of part 0 says which call to make
@@ -203,7 +204,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

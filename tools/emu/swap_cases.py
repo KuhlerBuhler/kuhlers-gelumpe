@@ -31,6 +31,8 @@ import sampleset  # noqa: E402
 from machine import DSP_DATA, Machine, load_flash, STOCK_BOOT_LIMIT_S  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import SWITCH_SCREEN, TICK as SCREEN_TICK, Dev  # noqa: E402
+import parallel  # noqa: E402
+# The case modules that import this one are imported inside the functions that use them: at the top they would be an import cycle.
 
 IMAGE, HEADER = 0xC0000000, 0x100
 NAMES, PLAYBACK, META = 0xC047B080, 0xC0362EE8, 0xC036AD88
@@ -1016,7 +1018,6 @@ def group_entries(payload, flash, i):
 
 
 def cases_task(i):
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 

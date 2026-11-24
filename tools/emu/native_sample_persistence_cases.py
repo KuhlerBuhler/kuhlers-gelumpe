@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import swap_cases as c
 import sample_import_menu_cases as menu
+# sample_snapshot_cases is imported where it is used: swap_cases, which it imports, imports this module (import cycle).
 
 SAMPLES = {500: ("edited", 1000), 501: ("other", 2000)}
 

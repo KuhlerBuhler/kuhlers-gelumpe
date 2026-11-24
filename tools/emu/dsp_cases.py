@@ -26,6 +26,7 @@ from menu_cases import card_image  # noqa: E402
 from pswitch_cases import KEYS  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import parallel  # noqa: E402
 
 
 def entry(name, ok, detail):
@@ -70,7 +71,6 @@ def cases(payload, flash=None):
 
 def cases_task():
     """cases in a worker (parallel.py)."""
-    import parallel
     return cases(parallel.shared["payload"], parallel.shared["flash"])
 
 

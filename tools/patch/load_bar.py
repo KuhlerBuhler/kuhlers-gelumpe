@@ -52,6 +52,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import arm  # noqa: E402
 import loading_anim  # noqa: E402
 import ramdecl  # noqa: E402
+import power_off  # noqa: E402
 
 HEADER = 0x100
 RAM = 0xC0000000
@@ -2270,7 +2271,6 @@ def anim():
 def card_frame(code):
     """The picture while the error box shows `code`: Blechy in terror and his line, as the power-off picture is made
     (tools/patch/power_off.py)."""
-    import power_off
     lines, top = CARD_TEXTS[code]
     return power_off.frame_bytes(power_off.frame_pixels(power_off.read_png(CARD_SPRITE), lines, top))
 

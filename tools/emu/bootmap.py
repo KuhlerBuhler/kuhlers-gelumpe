@@ -18,6 +18,8 @@ import sys
 from pathlib import Path
 
 from machine import FLASH_SIZE, STOCK_BOOT_LIMIT_S, Machine, blank_flash_like, load_flash
+import lifetime
+import parallel
 
 # The panel object (pointer found by firmware.py): +0x18 held buttons (64 bit), +0x20 start mode.
 # The user-data check (a place of firmware.py) looks at the mark at flash 0x220000.
@@ -137,7 +139,6 @@ def flash_for(kind, own):
 def scenario_task(name):
     """One scenario in a worker (parallel.py): what start_phase takes from it. Picklable. The own flash is `boot_flash`
     when the run has one (check.py: the cases there run on a blank flash), else `flash`."""
-    import parallel
     opts = dict(dict(scenarios())[name])
     m = run(parallel.shared["payload"], flash_for(opts.pop("flash"), parallel.shared.get("boot_flash", parallel.shared["flash"])), **opts)
     return {"blocks": m.blocks, "image_read": bytes(m.image_read), "events_ms": m.events, "panel": m.panel_state(),
@@ -182,14 +183,12 @@ def combine(results):
 def start_phase(payload, flash=None, jobs=None):
     """Code and data ranges of the start phase over all scenarios (RAM addresses,
     [start, end)), and a report per scenario. The scenarios are independent boots and run side by side."""
-    import parallel
     names = scenario_names(flash)
     out = parallel.run_tasks([("bootmap", "scenario_task", (n,)) for n in names], {"payload": payload, "flash": flash}, jobs)
     return combine(dict(zip(names, out)))
 
 
 def main():
-    import lifetime
     lifetime.exit_with_parent()      # ends with the test run that started this, also when that is killed
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

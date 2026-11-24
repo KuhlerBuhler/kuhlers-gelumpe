@@ -26,6 +26,10 @@ from backlight import Backlight, MASK as BACKLIGHT_PINS
 from firmware import HARDWARE_MARKS, SAMPLER_USER_MARK, identify
 from panel_leds import PanelLeds
 from sdcard import IRQ as MMC_IRQ, MMCController
+import lifetime
+import native_build
+from sdcard import MemoryMedium, SDCard
+# bootcache is imported inside main: it imports this module (import cycle).
 
 NS_PER_INSN = 5            # assumed: roughly 200 million instructions per second
 SLICE = 20_000             # upper bound of instructions between interrupt checks
@@ -93,7 +97,6 @@ ZERO_CHUNK = bytes(SNAP_CHUNK)
 
 def card_in_memory(card):
     """A card whose image is a bytearray in memory (sdcard.MemoryMedium), which a snapshot can hold."""
-    from sdcard import MemoryMedium
     return type(card.medium) is MemoryMedium and isinstance(card.medium.data, bytearray)
 
 
@@ -530,7 +533,6 @@ class Machine:
         m = cls(payload, flash)
         card = pickle.loads(snap).get("card")
         if card is not None:
-            from sdcard import MemoryMedium, SDCard
             m.insert_card(SDCard(MemoryMedium(bytearray(card["size"]))))
         m.restore(snap)
         return m
@@ -1414,7 +1416,6 @@ def _arm_tick_library():
     Python hook."""
     if os.environ.get('GELUMPE_ARM_TICK') == 'python':
         return None
-    import native_build
     return native_build.library(Path(__file__).with_name('arm_tick.c'))
 
 
@@ -1564,7 +1565,6 @@ def load_flash(paths):
 
 
 def main():
-    import lifetime
     lifetime.exit_with_parent()      # ends with the test run that started this, also when that is killed
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--vsb", required=True, type=Path)

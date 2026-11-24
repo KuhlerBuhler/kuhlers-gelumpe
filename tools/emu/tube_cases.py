@@ -30,6 +30,8 @@ from machine import load_flash  # noqa: E402
 from mfx_cases import DspLog  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 PARAM = tube_model.PARAM
 KORG_CALLER = {False: 0x135C, True: 0x1348}      # the caller's P0.L without the patch: Korg's clipper, red and blue
@@ -207,7 +209,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -216,7 +217,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

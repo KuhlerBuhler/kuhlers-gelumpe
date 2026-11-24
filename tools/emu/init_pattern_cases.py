@@ -19,6 +19,8 @@ import init_pattern as spec  # noqa: E402
 import synthaddr  # noqa: E402
 import menu_cases  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 IMAGE = 0xC0000000
 DATA_UTIL = 14                       # the screen number of the menu Data Util (docs/messungen/2026-10-09-menuezustand.md)
@@ -106,7 +108,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -115,7 +116,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

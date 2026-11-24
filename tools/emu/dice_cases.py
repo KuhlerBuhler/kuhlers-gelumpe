@@ -27,6 +27,8 @@ import synthaddr  # noqa: E402
 from machine import UART1, load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
 
 IMAGE = 0xC0000000
 MODEL_PTR = 0xC0348884                              # pointer to the sequencer model, +0x320 the selected part (the synth has its own place, data/synth-map/dice.json)
@@ -480,7 +482,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -489,7 +490,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     lifetime.exit_with_parent()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])

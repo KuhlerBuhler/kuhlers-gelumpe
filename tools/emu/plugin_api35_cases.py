@@ -22,6 +22,7 @@ import plugin_edit_cases as edit  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
 from plugin_api15_cases import COMMAND, MFX_TOUCH, SCALE_MODE, SHIFT, TOUCH_KEY, TOUCH_SCALE, command
+import lifetime  # noqa: E402
 
 GATE_ARP = 4
 RAW_X, RAW_Y = 400, 500
@@ -135,7 +136,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

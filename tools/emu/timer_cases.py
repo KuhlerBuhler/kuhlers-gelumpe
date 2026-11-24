@@ -23,6 +23,7 @@ import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
 
 # state: 1 once the timer is set, 2 once it ran; armed and fired are the plugin's own clock (korg.millis) at both moments
 AFTER = """let state = 0; let armed = 0; let fired = 0;
@@ -257,7 +258,6 @@ def playtakt_cases(payload, flash):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

@@ -38,6 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'emu'))
 import bfsim_bench  # noqa: E402
 import dsp_extract  # noqa: E402
 from blackfin_backend import BlackfinBackend, BackendError, REGISTER_NAMES, LIMIT  # noqa: E402
+import qemu_blocks  # noqa: E402
 
 FUNCTIONS = {
     0xFFA0383C: 'Filterkern electribe', 0xFFA03A1C: 'Filterkern OB', 0xFFA03C3C: 'Filterkern Acid',
@@ -312,7 +313,6 @@ def main():
     if args.blocks is not None:
         if args.vsb is None:
             parser.error('--blocks needs SYSTEM.VSB')
-        import qemu_blocks
         result = qemu_blocks.run(args.vsb, args.gnu, args.qemu, args.blocks)
         print(json.dumps(result, indent=2))
         sys.exit(0 if result['ok'] else 1)

@@ -34,6 +34,7 @@ from tools.patch import script_hooks  # noqa: E402
 import menu_cases as mc  # noqa: E402
 import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 BATT = script_hooks.BATT
 BP_SHOWN, BP_DRAWN = BATT + 8, BATT + 9
@@ -464,7 +465,6 @@ def cases(payload, flash=None, png=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

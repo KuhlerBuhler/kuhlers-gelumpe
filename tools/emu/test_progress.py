@@ -14,7 +14,6 @@ import parallel  # noqa: E402
 import progress  # noqa: E402
 import bootcache  # noqa: E402
 import check  # noqa: E402
-import parallel as p  # noqa: E402
 
 TASKS = [("menu_cases", "cases_task", ()), ("dice_cases", "cases_task", (0,)), ("dice_cases", "cases_task", (1,)), ("bootmap", "scenario_task", ("a",))]
 
@@ -87,10 +86,10 @@ class StderrLineTest(unittest.TestCase):
 class CheckEmitsTest(unittest.TestCase):
     def test_check_reports_every_task_it_runs_and_keeps_its_result(self):
         ran = []
-        original = (p.run_tasks, bootcache.cached_result)
+        original = (parallel.run_tasks, bootcache.cached_result)
         try:
             bootcache.cached_result = lambda kind, key, fn: fn()
-            p.run_tasks = lambda tasks, data, jobs=None, on_done=None, cache=None, on_queue=None: [on_done(i, {"asserts": []}) or {"asserts": [], "blocks": {}, "image_read": b"", "events_ms": {}, "panel": {}, "dsp_uploads_ms": []} for i, _ in enumerate(tasks)]
+            parallel.run_tasks = lambda tasks, data, jobs=None, on_done=None, cache=None, on_queue=None: [on_done(i, {"asserts": []}) or {"asserts": [], "blocks": {}, "image_read": b"", "events_ms": {}, "panel": {}, "dsp_uploads_ms": []} for i, _ in enumerate(tasks)]
             snapshots = []
             try:
                 check.check(bytes(0x200100), bytes(0x200100), progress=snapshots.append)
@@ -98,7 +97,7 @@ class CheckEmitsTest(unittest.TestCase):
                 pass          # the stand-in reports are too thin for the verdicts; the progress is what counts here
             ran = snapshots
         finally:
-            p.run_tasks, bootcache.cached_result = original
+            parallel.run_tasks, bootcache.cached_result = original
         self.assertGreater(len(ran), 1)
         self.assertEqual(ran[0]["done"], 0)
         self.assertEqual(ran[-1]["done"], ran[-1]["total"])

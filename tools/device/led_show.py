@@ -16,6 +16,7 @@ import struct
 import sys
 import time
 from pathlib import Path
+# The emulator's modules (machine and what it imports) load only on the emulator path: they need unicorn, and tools/emu/backlight.py has the name of a module here.
 
 STUB_AT = 0xC1000000
 PANEL_PTR = 0xC033E6FC

@@ -12,6 +12,7 @@ the image, so only a write into a BLECH range counts as foreign
 import collections
 
 import unicorn
+from tools.patch import script_hooks
 
 IMAGE = (0xC0000000, 0xC0200000)
 ALIAS = 0x04000000                    # the RAM dump repeats the first 64 MiB (docs/messungen/2026-10-07-cpu-ram-fenster.md)
@@ -44,20 +45,19 @@ def diff_runs(base, patched, header=0x100, gap=8):
 def areas(layout):
     """The named parts of the free block, in address order, from the layout `script_hooks.build` reports
     and the fixed places of the older patches (tools/patch/splash_editor.py, mfx_switch.py)."""
-    from tools.patch import script_hooks as h
     out = [
         ("splash editor code", 0xC01A2100, 0xC01A3C00),
         ("splash editor vtable copy", 0xC01A3C00, 0xC01A4000),
         ("splash editor state and buffers", 0xC0182000, 0xC0183000),
-        ("Blechy's block (read only, the app built into BLECH)", h.BLECHY_BLOCK, h.BLECHY_BLOCK + len(h.blechy_block())),
+        ("Blechy's block (read only, the app built into BLECH)", script_hooks.BLECHY_BLOCK, script_hooks.BLECHY_BLOCK + len(script_hooks.blechy_block())),
         ("power-off picture code and frame", 0xC01A4A00, 0xC01A5000),
         ("MFX 2 code", 0xC01A5000, 0xC01A5C00),
         ("MFX 2 state and record", 0xC01A5C00, 0xC01A5E20),
         ("runtime code (VM, hooks, card, menu)", layout["code"], layout["codeEnd"]),
-        ("menu screen table and class copy", h.MENU_TABLE, h.MENU_VTABLE + 72),
+        ("menu screen table and class copy", script_hooks.MENU_TABLE, script_hooks.MENU_VTABLE + 72),
         ("runtime state, ring, LED", layout["runtime"], layout["runtimeEnd"]),
-        ("menu items", h.MENU_ITEMS, h.MENU_ITEMS_END),
-        ("menu state and settings buffers", h.MENU_STATE, h.MENU_STATE + 0x200),
+        ("menu items", script_hooks.MENU_ITEMS, script_hooks.MENU_ITEMS_END),
+        ("menu state and settings buffers", script_hooks.MENU_STATE, script_hooks.MENU_STATE + 0x200),
         ("plugin pool", layout["pool"], layout["poolEnd"]),
         ("card work area (FIL, loader state)", layout["card"], layout["input"]),
         ("block buffer (file reads land here)", layout["input"], FREE_END),

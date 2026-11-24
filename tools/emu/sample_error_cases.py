@@ -25,6 +25,9 @@ import sampleset  # noqa: E402
 from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import lifetime  # noqa: E402
+import parallel  # noqa: E402
+import sample_seek_cases  # noqa: E402
 
 IMAGE = 0xC0000000
 HEADER = 0x100
@@ -168,7 +171,6 @@ def case_factory_slots(payload, flash):
 
 
 def case_seek_anchor(payload, flash):
-    import sample_seek_cases
     return sample_seek_cases.cases(payload, flash, folder(payload))
 
 
@@ -182,7 +184,6 @@ def group_entries(payload, flash, i):
 
 def cases_task(i):
     """group_entries in a worker (parallel.py)."""
-    import parallel
     return group_entries(parallel.shared["payload"], parallel.shared["flash"], i)
 
 
@@ -191,7 +192,6 @@ def cases(payload, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("command", choices=["cases"])

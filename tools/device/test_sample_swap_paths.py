@@ -9,6 +9,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import sample_swap_paths as p
+import sample_swap_io
 
 
 class Guards(unittest.TestCase):
@@ -138,7 +139,6 @@ class BusyRetry(unittest.TestCase):
 
 class MappingGuards(unittest.TestCase):
     def test_active_swap_owns_scratch_and_refuses_before_upload(self):
-        import sample_swap_io
         for at,mode,kind in ((at,mode,kind) for at in (p.old.LEGACY_SWAP_MODE,p.old.SWAP_MODE) for mode in (1,2) for kind in ('scan','probe')):
             link=self.link()
             link.seed(at,struct.pack('<I',mode))
@@ -148,7 +148,6 @@ class MappingGuards(unittest.TestCase):
             self.assertEqual(link.writes,[])
 
     def test_changed_native_mapping_pointer_is_refused_before_upload(self):
-        import sample_swap_io
         link=self.link()
         link.seed(0xc004edc4,struct.pack('<I',0xc0357390))
         with patch.object(sample_swap_io,'validate_firmware'),self.assertRaisesRegex(ValueError,'native routine differs'):
@@ -198,7 +197,6 @@ class MappingGuards(unittest.TestCase):
             p.assert_unused(link,645,{700})
 
     def test_alias_guard_restores_cpu_and_stops_before_any_dsp_call(self):
-        import sample_swap_io
         link=self.link()
         before={at:link.read(at,n) for at,n in p.REGIONS}
         base,stride,field=p.MAPPING_TABLES[2]
@@ -351,7 +349,6 @@ class ArmDrivers(unittest.TestCase):
 
 class HostPipeline(unittest.TestCase):
     def fixture(self):
-        import sample_swap_io
         class Memory:
             def __init__(self): self.mem={}; self.writes=[]
             def info(self): return 2048

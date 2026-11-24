@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import machine  # noqa: E402
 from machine import UART1, load_flash  # noqa: E402
 from pswitch_cases import Box, KEYS  # noqa: E402
+import unicorn  # noqa: E402
 
 FINE_SLICE = 2000
 
@@ -88,7 +89,6 @@ class Recorder:
     """Run the machine slice by slice and stamp DIN out bytes and probe points with device time."""
 
     def __init__(self, box):
-        import unicorn
         self.box, self.m = box, box.m
         self.tx = []            # (ns, byte)
         self.ticks = []         # (ns, units) at the SeqTask tick

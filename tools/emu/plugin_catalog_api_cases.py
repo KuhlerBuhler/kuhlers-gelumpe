@@ -24,6 +24,7 @@ from plugin_api31_cases import LEVELS, METER  # noqa: E402
 from tap_motion_cases import KEYS  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
 
 NAMES = ("sysinfo", "vumeter", "midiecho", "motionclear")
 PRESETS = node_json.run(
@@ -183,7 +184,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

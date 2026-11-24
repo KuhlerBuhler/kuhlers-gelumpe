@@ -27,6 +27,7 @@ import zipfile
 import zlib
 from datetime import datetime
 from pathlib import Path
+from led_show import emulator_ask
 
 RAM_START, FLASH_END = 0xC0000000, 0x1000000
 INFO, READ, FLASH = 0x60, 0x61, 0x64
@@ -159,7 +160,6 @@ def main():
         raise SystemExit("the lengths have to be above 0 and at most 0x1000000")
     if a.emu:
         sys.path.insert(0, str(Path(__file__).parent))
-        from led_show import emulator_ask
         ask, _ = emulator_ask(a.emu)
         port = "emulator"
     else:

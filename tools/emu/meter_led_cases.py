@@ -23,6 +23,8 @@ import plugin_edit_cases as edit  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
+import lifetime  # noqa: E402
+import unicorn  # noqa: E402
 
 LED_MANAGER, LED_SEND = 0xC0345A1C, 0xC00875F4   # (manager, led, force)
 METER_UPDATE = 0xC0088284                        # the firmware's meter, every 40 ms; paused while a case calls the send function
@@ -65,7 +67,6 @@ class Run:
 
     def pause_meter(self):
         """The firmware's meter returns at once from now on, so it writes no level into the table while a case sends."""
-        import unicorn
         uc, arm = self.dev.m.uc, self.dev.m.A
         uc.hook_add(unicorn.UC_HOOK_CODE, lambda u, *_: u.reg_write(arm.UC_ARM_REG_PC, u.reg_read(arm.UC_ARM_REG_LR)),
                     begin=self.dev.a(METER_UPDATE), end=self.dev.a(METER_UPDATE))
@@ -120,7 +121,6 @@ def cases(vsb, flash=None):
 
 
 def main():
-    import lifetime
     lifetime.load_gate()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--vsb", required=True, type=Path)

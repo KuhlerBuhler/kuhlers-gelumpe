@@ -18,6 +18,7 @@ from tools.emu.sdcard import MemoryMedium, SDCard
 from tools.doom.artifacts import external_output
 import unicorn
 import fat32
+from tools.doom.controls_scenario import ControlsScenario
 
 SHARED = json.loads((Path(__file__).parent / "layout.json").read_text())["shared"]
 ENGINE, END = 0xC1000000, 0xC1800000
@@ -136,7 +137,6 @@ def run(image, flash, program, wad, seconds=5.0, held=0x408, fault=None, output=
     controller=None
     if scenario=="controls":
         if not inspection: raise ValueError("Bedientest braucht Symbole und compilererzeugtes Layout")
-        from tools.doom.controls_scenario import ControlsScenario
         controller=ControlsScenario()
     began = time.monotonic()
     try:

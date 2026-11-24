@@ -29,6 +29,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patch"))
 
 from hacktribe_blue_probe import FIRMWARE, device_flash, with_head  # noqa: E402
+import machine  # noqa: E402
+import synth_probe as sp  # noqa: E402
+from synth_update_probe import Rig, boot_to_main, hexr, inside_repo, merge, probe_empty_card, ranges, run_update, update_folder  # noqa: E402
 
 BASE = 0xC0000000 - 0x100     # file offset = CPU address - BASE
 # The user-data mark check of Korg's blue 2.02 (0xC00270BC): `elec2USR` gives the literal 0x123 at 0xC0027128, `ele2sUSR` gives
@@ -56,13 +59,11 @@ def mark_fix(vsb):
 
 
 def changed(a, b, at=0):
-    from synth_update_probe import hexr, merge, ranges
     return hexr([[x + at, y + at] for x, y in merge(ranges(a, b))])
 
 
 def update(tag, running, flash, card, shots):
     """SOFTWARE UPDATE in the folder the running firmware asks for; returns a short report and the flash after."""
-    from synth_update_probe import probe_empty_card, run_update, update_folder
     folder = update_folder(probe_empty_card(running[0x100:], flash, shots)["opened"])
     report, after = run_update(tag, running[0x100:], flash, folder, card, shots, card[0x100:])
     return {"folder": f"KORG/{folder}/System/", "erases": report["erase_commands"]["count"],
@@ -73,7 +74,6 @@ def update(tag, running, flash, card, shots):
 
 def start(tag, vsb, flash, shots, files=None, seconds=5.0):
     """A start from `flash` with `vsb` in the firmware area: screen, flash reads, chip commands, PCM load, card files opened."""
-    from synth_update_probe import Rig, boot_to_main, hexr, merge
     mem = bytearray(flash)
     mem[FIRMWARE[0]:FIRMWARE[1]] = vsb[0x100:]
     rig = Rig(vsb[0x100:], bytes(mem), files or {}, shots, tag)
@@ -94,7 +94,6 @@ def start(tag, vsb, flash, shots, files=None, seconds=5.0):
 
 def from_the_stop(blue, blech, flash, shots):
     """Plain blue on a red flash stops at SOFTWARE UPDATE: ENTER with BLECH (Sampler head) in the Sampler's folder."""
-    from synth_update_probe import Rig
     card = with_head(blech, "sampler")
     rig = Rig(blue[0x100:], flash, {"/KORG/electribe sampler/System/SYSTEM.VSB": card}, shots, "2-stop")
     rig.run(6.0)
@@ -113,8 +112,6 @@ def from_the_stop(blue, blech, flash, shots):
 
 
 def run(blech, blue, flash, shots=None):
-    import synth_probe as sp
-    from synth_update_probe import Rig, boot_to_main
     fixed = mark_fix(blue)
     out = {}
     red = device_flash(blech, flash)
@@ -172,8 +169,6 @@ def verdict(r):
 
 
 def main():
-    import machine
-    from synth_update_probe import inside_repo
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--blech", required=True, type=Path, help="the BLECH + Hacktribe file of the red device (either head)")
     p.add_argument("--korg-blue", required=True, type=Path, help="Korg's blue 2.02, unchanged")

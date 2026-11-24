@@ -7,6 +7,7 @@ import json
 import struct
 import sys
 from pathlib import Path
+import lifetime
 
 IMAGE_BASE = 0xC0000000
 IMAGE_SIZE = 0x200000
@@ -110,7 +111,6 @@ def run(payload, digest):
 
 
 def main():
-    import lifetime
     lifetime.exit_with_parent()      # ends with the test run that started this, also when that is killed
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vsb", required=True, type=Path)

@@ -40,6 +40,7 @@ import sysex_cases  # noqa: E402
 import synth_probe as sp  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
+import unicorn  # noqa: E402
 
 FIRMWARE = (0x20000, 0x220000)          # where SOFTWARE UPDATE writes the firmware (the Sampler's measurement, docs/messungen/2026-10-13-globals-zurueckgesetzt.md)
 BANK = (0x800000, 0x1000000)
@@ -60,7 +61,6 @@ class Rig:
     build, or Sampler code (Hacktribe for the blue, hacktribe_blue_probe.py); the PCM load is only watched on the synth."""
 
     def __init__(self, payload, flash, files, shots=None, tag=""):
-        import unicorn
         self.dev = Dev(payload, flash)
         self.m = self.dev.m
         self.m.adapter = True

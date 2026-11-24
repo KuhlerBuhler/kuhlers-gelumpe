@@ -7,6 +7,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import sample_swap_probe as p  # noqa: E402
 try:
     import unicorn as uc
     from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_LR, UC_ARM_REG_SP, UC_ARM_REG_PC, UC_ARM_REG_CPSR
@@ -17,8 +18,7 @@ except ImportError:
 class Contract(unittest.TestCase):
     def setUp(self):
         self.assertTrue((HERE / "sample_swap_probe.py").is_file(), "sample swap probe is missing")
-        import sample_swap_probe as probe
-        self.p = probe
+        self.p = p
 
     def test_default_plan_never_imports_device_dependencies(self):
         result = subprocess.run([sys.executable, str(HERE / "sample_swap_probe.py")], capture_output=True, text=True)
@@ -173,7 +173,6 @@ class StubExecution(unittest.TestCase):
     def execute(self, length=1024, corrupt=False, read_error=False, timer=True, wrong_id=False,
                 write_error=False, partial_read=False, partial_verify=False, restore_read_error=False,
                 timer_mode=0x80):
-        import sample_swap_probe as p
         machine = uc.Uc(uc.UC_ARCH_ARM, uc.UC_MODE_ARM)
         for addr, size in ((p.STUB, 0x1000), (p.BACKUP, 0x20000), (0xC3000000, 0x10000),
                            (0xC004E000, 0x2000), (p.TIMER, 0x1000), (0xC3F00000, 0x1000), (0xC06A2000, 0x1000)):

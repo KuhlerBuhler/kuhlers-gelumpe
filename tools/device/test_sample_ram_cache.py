@@ -10,6 +10,7 @@ from unicorn import arm_const as R
 
 import sample_ram_canary as old
 import sample_ram_cache as p
+import sample_ram_mmu as mmu
 
 
 class CacheMachine:
@@ -159,7 +160,6 @@ class CacheProbe(unittest.TestCase):
         self.assertTrue(states[-1])
 
     def test_mapping_must_match_both_views_and_stable_cpu_registers(self):
-        import sample_ram_mmu as mmu
         table = bytearray(0x4000)
         for index in range(0xC00, 0xC40):
             struct.pack_into('<I', table, index * 4, index << 20 | 0xC1E)

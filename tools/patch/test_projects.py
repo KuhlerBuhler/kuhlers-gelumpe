@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import struct
 import unittest
+from tools.emu import sampleset
 
 try:
     contract = importlib.import_module("tools.patch.project_contract")
@@ -327,7 +328,6 @@ class NativeSampleReadPlanTests(ContractCase):
         self.assertTrue(callable(getattr(contract, "native_sample_read_ranges", None)),
                         "Metadata-derived native sample read planning is not implemented")
         self.read_plan = contract.native_sample_read_ranges
-        from tools.emu import sampleset
         self.samples = sampleset
 
     def file(self, frames=8192, kind="pcm16", slot=500):

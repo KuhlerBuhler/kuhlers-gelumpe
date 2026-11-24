@@ -20,6 +20,8 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / 'patch'))
 import arm
 import sample_swap_probe as old
+import sample_swap_io
+from led_show import mido_ask
 
 STUB, RESULT = old.STUB, old.STUB + 0x300
 IO_CODE, IO_STATE, MARKER = 0xC2760000, 0xC276F000, 0xC276EFFC
@@ -519,7 +521,6 @@ def target_span(meta,cursor,length):
 
 
 def validate_device(link,firmware):
-    import sample_swap_io
     sample_swap_io.validate_firmware(firmware)
     link.info()
     old.swap_off(link)
@@ -636,7 +637,6 @@ def main(argv=None):
                               limitation='native FatFs calls can still block; unknown EXEC completion sends no cleanup'),indent=2))
         return
     firmware,build=old.own_firmware(a.vsb)
-    from led_show import mido_ask
     ask=mido_ask()
     found=ask([0xF0,0x42,0x50,0,0,0xF7])
     if len(found)<8 or found[:4]!=[0xF0,0x42,0x50,1]: raise ValueError('no Electribe discovery reply')

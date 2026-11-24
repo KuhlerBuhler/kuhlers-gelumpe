@@ -9,6 +9,8 @@ from types import SimpleNamespace
 
 from blackfin_backend import BlackfinBackend, BlackfinPort, BackendError
 import blackfin_worker
+import blackfin_backend
+from machine import DSP_CTRL, DSP_DATA, DSP_SYNC, Machine
 
 WORKER = blackfin_worker.find()
 ENTRY, DATA = 0x1000, 0x100000
@@ -79,7 +81,6 @@ class Execution(unittest.TestCase):
         self.addCleanup(self.backend.close)
 
     def test_shared_memory_channel_carries_full_size_transfers_around_the_ring(self):
-        import blackfin_backend
         if os.environ.get('BLECH_WORKER_CHANNEL') == 'pipe' or blackfin_backend._channel_library() is None:
             self.skipTest('shared-memory channel not in use')
         self.assertIsNotNone(self.backend._channel)
@@ -381,7 +382,6 @@ class Execution(unittest.TestCase):
                     port.boot(data)
 
     def test_machine_dispatch_uses_the_executed_dsp_memory_and_rejects_snapshots(self):
-        from machine import Machine, DSP_DATA, DSP_CTRL, DSP_SYNC
         with BlackfinPort(WORKER, ready_address=DATA, boot_steps=100) as port:
             machine = Machine.__new__(Machine)
             machine.dsp_backend = port
@@ -396,7 +396,6 @@ class Execution(unittest.TestCase):
                 machine.restore(b'not a snapshot')
 
     def test_machine_upload_passes_the_actual_cpu_stream_to_the_backend(self):
-        from machine import Machine
         data = stream(program())
         registers = {0: 0, 1: 0xC0100000, 2: len(data), 14: 0xC0000100}
         machine = Machine.__new__(Machine)
