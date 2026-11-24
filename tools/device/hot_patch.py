@@ -38,7 +38,7 @@ for _p in (str(HERE), str(ROOT / "tools" / "patch")):
         sys.path.append(_p)
 from led_show import emulator_ask, mido_ask
 from remote_press import Blech
-# The emulator's modules (machine and what it imports) load only on the emulator path: they need unicorn, and tools/emu/backlight.py has the name of a module here.
+# The emulator (machine) is imported only in the function that runs it: the device path works without unicorn.
 
 IMAGE, IMAGE_SIZE, HEADER = 0xC0000000, 0x200000, 0x100
 DSP = (0xC00F9E10, 0xC013C0B0)          # the DSP's program, uploaded at the start (tools/emu/check.py DSP_STREAM)

@@ -16,7 +16,7 @@ sys.path.insert(0, str(HERE))
 import remote_press as rp
 from led_show import mido_ask
 from remote_press import Blech
-# The emulator's modules (machine and what it imports) load only on the emulator path: they need unicorn, and tools/emu/backlight.py has the name of a module here.
+# The emulator (machine) is imported only in the function that runs it: the device path works without unicorn.
 
 STUB_AT = 0xC1000000
 PARAMS_AT = STUB_AT + 0x40

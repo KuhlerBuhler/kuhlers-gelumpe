@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "patch"))
 from arm import assemble          # noqa: E402
 from led_show import Device, emulator_ask, mido_ask, ICACHE_INVALIDATE, STUB_AT   # noqa: E402
-# The emulator's modules (machine and what it imports) load only on the emulator path: they need unicorn, and tools/emu/backlight.py has the name of a module here.
+# The emulator (machine) is imported only in the function that runs it: the device path works without unicorn.
 
 FS_OPEN, FS_READ, FS_WRITE, FS_CLOSE = 0xC009DB60, 0xC009DD74, 0xC009DFB8, 0xC009E3DC
 SCRATCH, SCRATCH_SIZE = 0xC01F7000, 0x500       # results at +0, FIL at +0x100, buffer at +0x400
