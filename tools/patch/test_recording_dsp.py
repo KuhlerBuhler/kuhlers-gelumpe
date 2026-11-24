@@ -139,5 +139,19 @@ class RecordingDspTests(unittest.TestCase):
                     self.build(program=program)
 
 
+    def test_the_taps_never_load_the_word_the_arm_writes(self):
+        # 0x01F00000 is write-through cacheable for the DSP: a host-port write to STATE+12 stays behind the cached
+        # line, so a tap gated on it never fires and every take is silent.
+        gate = struct.pack('<HH', 0xE107, 0xA0CF)   # some instruction, then R7 = [P1 + 12]
+        self.assertEqual(rec.host_word_loads(gate), [2])
+        self.assertEqual(rec.host_word_loads(struct.pack('<H', 0xA0C8)), [0])
+        self.assertEqual(rec.host_word_loads(struct.pack('<H', 0xA08F)), [])   # R7 = [P1 + 8], the capture word
+        for name in ('native-recording-dsp.json', 'native-recording-dsp-synth.json'):
+            manifest = json.loads((ROOT / 'data' / 'patches' / name).read_text())
+            change = next(c for c in manifest['changes'] if c['note'].startswith('own recording DSP code'))
+            code = bytes.fromhex(change['bytes'])[:rec.PROGRAM_SIZE]
+            self.assertEqual(code[rec.MAGIC_ADDRESS - rec.CODE:rec.MAGIC_ADDRESS - rec.CODE + 4], struct.pack('<I', rec.MAGIC), name)
+            self.assertEqual(rec.host_word_loads(code), [], name)
+
 if __name__ == '__main__':
     unittest.main()

@@ -97,6 +97,15 @@ def assemble_program(assembler, objcopy, build='hacktribe'):
         return {'code': code, 'hooks': hooks}
 
 
+def host_word_loads(code):
+    """Offsets of `Rn = [P1 + 12]` (16-bit LDSTii) in the taps, P1 being STATE: a load of the word the ARM writes.
+
+    0x01F00000 is write-through cacheable in the DSP's data CPLB table, so a host-port write there does not reach a
+    line the DSP already holds, and a tap gated on it reads the stale value for good (silent takes, 2026-11-24)."""
+    return [i for i in range(0, min(len(code), STATE - CODE) - 1, 2)
+            if struct.unpack_from('<H', code, i)[0] & 0xFFF8 == 0xA0C8]
+
+
 def file_offset(address):
     return address - 0xC0000000 + 0x100
 

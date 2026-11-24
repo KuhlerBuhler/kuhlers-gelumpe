@@ -293,7 +293,8 @@ Simulatorgeschwindigkeit ersetzt keine dieser Zeitmessungen. Die Freigabe für l
 ## 7. Eigener Aufnahmezweig und nativer Schreiber
 
 **Im Simulator geprüft:** Der eigene DSP-Code liegt ab `0x01F12000`, sein Zustand ab `0x01F12100`. Das gepackte
-Aufnahme-Wort steht bei `0x01F12108`, die Freigabe bei `0x01F1210C`, ein Kennwort bei `0x01F12110`. Die beiden
+Aufnahme-Wort steht bei `0x01F12108`, bei `0x01F1210C` das Wort, das der ARM beim Start auf 1 setzt (die Abgriffe lesen es
+seit Abschnitt 13 nicht mehr), ein Kennwort bei `0x01F12110`. Die beiden
 Umleitungen nach THRU und nach der Ausgangsverstärkung erhalten den hörbaren Ausgang in acht Vergleichsfällen bitgleich.
 Der Abgriff entspricht demselben Originallauf ohne Klick, auch mit Eingangssignal und Sättigung. Die Erfassung davor
 liest das Wort des vorigen Frames; beim Start wird der bisherige Ringinhalt verworfen.
@@ -447,3 +448,33 @@ ersetzt diese Messungen nicht. Die vorhandenen vollständigen Sampler-Patchsets 
 Leser- und Anzeigeaufteilung je 48 gezielte Aufnahmeprüfungen einschließlich zweier FEATURE-Schalterfälle.
 Der vollständige blaue Build besteht 27 Aufnahmefälle; alle drei Builds bestehen auch die Startphasen- und
 DSP-Schnittstellenprüfung in `check.py --cases recording_cases`.
+
+## 13. Stille Aufnahme am Gerät, 24.11.2026
+
+**Am Gerät gemessen:** Ein Take auf der roten Electribe lief ohne Fehler (Status 0, 1221152 Byte, 6,5 s, keine Lücke,
+kein Fehlerwort, `0x37` sofort bestätigt), das Pattern war hörbar. `REC0005.WAV` ist eine gültige WAV mit 2 Kanälen,
+16 Bit und 48 kHz über 6,36 s, aber jedes Sample ist 0.
+
+**Gelesen** im eigenen `ORIGINAL.BIN` (Hacktribe): Der DSP richtet beim Start seine Daten-CPLBs aus der Tabelle bei
+`0xFF803724` ein (Routine `0xFFA095F0`, aufgerufen bei `0xFFA0007C`) und schaltet mit `DMEM_CONTROL` den Daten-Cache
+für Bank A ein. Die Einträge für `0x01E00000` und `0x01F00000` tragen die Flags `0x0002501D`: 1 MiB, gültig, cachebar,
+Write-through. `0x01C00000`, `0x01D00000`, der übrige SDRAM ab `0` und L1 sind nicht cachebar.
+
+**Hergeleitet, am Gerät noch nicht bestätigt:** Beide Abgriffe lasen bei jedem Frame die Freigabe bei `0x01F1210C`
+(`R7 = [P1 + 12]`) und sprangen bei 0 am Schreiben vorbei. Damit liegt diese Zeile ab dem ersten Frame im Daten-Cache
+des DSP. Der ARM schreibt die 1 über den Host-Port direkt in den Speicher; das macht die Cache-Zeile nicht ungültig. Der DSP
+sah also weiter 0, das Aufnahme-Wort bei `0x01F12108` blieb 0, und der Ring holte über den Quellenzeiger nur Nullen.
+Alles andere am Take (Zeit, Ring, INFO, Status) war richtig, das passt dazu.
+
+**Änderung:** Die Abgriffe lesen kein Wort mehr, das der ARM schreibt. Sie schreiben das Aufnahme-Wort bei jedem Frame;
+ob es aufgenommen wird, entscheidet nur der Quellenzeiger, den `0x37` und der Leser setzen. Programmgröße und Zustand bleiben
+gleich. `recording_dsp.host_word_loads` findet Ladebefehle `Rn = [P1 + 12]` im Programm; ein Test prüft, dass beide
+mitgelieferten Programme keinen enthalten.
+
+**Im Simulator geprüft:** Das Erfassungsmodell (`tools/emu/recording_cases.py`) nahm bisher die Freigabe so, wie der ARM
+sie schrieb, und sah die Stille deshalb nicht. Jetzt entscheidet das geladene DSP-Programm: mit einem Lesebefehl auf das
+ARM-Wort bleibt das Aufnahme-Wort 0. Mit dem alten Programm im sonst gleichen Abbild schlagen `worker_card_wav`,
+`transport_native_record_wav` und der neue Fall `transport_native_take_has_audio` fehl (10759 Frames, 0 Byte ungleich 0),
+genau das Bild vom Gerät. Mit dem neuen Programm bestehen sie (42878 Byte ungleich 0, PCM exakt).
+
+Bestätigt ist die Ursache erst, wenn ein Take mit dem neuen Programm am Gerät Ton enthält.

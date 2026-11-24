@@ -67,6 +67,11 @@ class CaptureModel(DspModel):
         if not self.synth:
             self.put(self.state + 40, 0)
         self.put(dsp_spec.MAGIC_ADDRESS, dsp_spec.MAGIC)
+        # The taps see only what the DSP itself wrote: a tap gated on the word the ARM writes at STATE+12 reads the
+        # stale cached line forever (recording_dsp.host_word_loads), so the loaded program decides, not the ARM.
+        config = dsp_spec.configuration('synth' if self.synth else 'hacktribe')
+        code = bytes(machine.uc.mem_read(config['final'] + 16, dsp_spec.PROGRAM_SIZE))
+        self.tap_live = not dsp_spec.host_word_loads(code)
 
     def advance(self):
         if self.pending and self.m.time_ns >= self.pending[0]:
@@ -77,7 +82,7 @@ class CaptureModel(DspModel):
         until = int((self.m.time_ns - self.started) * 48000 // 1_000_000_000)
         pointer = self.word(self.state + 8)
         for index in range(self.frames, until):
-            value = sample(index) if self.word(self.state + 12) == dsp_spec.CAPTURE and self.word(dsp_spec.ENABLE) else 0
+            value = sample(index) if self.word(self.state + 12) == dsp_spec.CAPTURE and self.tap_live else 0
             self.put(pointer, value)
             pointer = self.ring + (pointer - self.ring + 4) % 19200
         self.frames = until
@@ -438,6 +443,10 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
                   and field('CONTEXT') == 0 and field('BYTES') == count * channels * 2
                   and exact and tail and content[512:] == captured,
                   f'permanent CommandTask hook, {count} frames from {first}, ring {capacity} bytes; status {field("ERROR")}, expected {expected_status}; PCM exact {exact}'),
+            # REC0005 on the red (2026-11-24) was a valid WAV of zeros: the loaded taps gated on a word the DSP never sees.
+            entry('native_gap_take_has_audio' if expect_gap else 'native_take_has_audio',
+                  dsp.tap_live and count > 0 and any(captured),
+                  f'taps independent of host-written words {dsp.tap_live}, {count} frames, non-zero bytes {sum(1 for b in captured if b)}'),
             entry('native_gap_no_flash_write' if expect_gap else 'native_no_flash_write', before_flash == user_flash(dev.m), 'native RECORD leaves user flash unchanged'),
             entry('native_gap_no_assert' if expect_gap else 'native_no_assert', not dev.m.asserts and not dsp.faults,
                   f'assertions {dev.m.asserts}, DSP faults {dsp.faults[:3]}')]

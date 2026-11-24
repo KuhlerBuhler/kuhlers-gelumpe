@@ -1,12 +1,12 @@
 .text
-/* THRU has finished its right channel; the click starts at the return address. */
+/* THRU has finished its right channel; the click starts at the return address.
+   The taps run every frame and never read a word the ARM writes: 0x01F00000 is write-through cacheable in the DSP's
+   data CPLB table, so a host-port write there stays hidden behind the cached line, and a gate on the control word
+   at +12 read 0 for good (silent takes on the device, 2026-11-24). */
 record_after_input:
     R1 = (A0 += A1);
     P1.H = 0x01f1; P1.L = 0x2100;
-    R7 = [P1 + 12]; CC = R7 == 0;
-    IF CC JUMP record_input_return;
     [P1] = R0; [P1 + 4] = R1;
-record_input_return:
     R2 = [P0++]; R3 = [P0++]; R7 = [P0++];
     P1.H = RECORD_INPUT_RETURN; P1.L = RECORD_INPUT_RETURN;
     JUMP (P1);
@@ -15,8 +15,6 @@ record_input_return:
 /* The capture word uses the same smoothed output gain, with no click added. */
 record_after_gain:
     P1.H = 0x01f1; P1.L = 0x2100;
-    R7 = [P1 + 12]; CC = R7 == 0;
-    IF CC JUMP record_gain_return;
     R5 = R0; R6 = R1;
     R0 = [P1]; R1 = [P1 + 4];
     A1 = R4.H * R0.L (M), A0 = R4.H * R0.H;
@@ -36,7 +34,6 @@ record_after_gain:
 .endif
     [P1 + 8] = R0;
     R0 = R5; R1 = R6;
-record_gain_return:
     R4.H = 0; R4.L = 1;
     R5 = R0 | R4;
     P1.H = RECORD_GAIN_RETURN; P1.L = RECORD_GAIN_RETURN;
