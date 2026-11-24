@@ -21,6 +21,7 @@ Reihenfolge einhalten: erst die Karte, dann die BLECH-Datei.
 | [karte.md](karte.md) | Die Dateifunktionen der Firmware lesen und schreiben eine kleine Datei auf der SD-Karte. Gehört vor alles, was Plugins von der Karte lädt. | RAM (einmaliger Probe-Code) und eine Datei auf der Karte, keine Firmware |
 | [live.md](live.md) | Patternwechsel mit Bestätigung, Ladebalken und eigenes Startbild, an der Firmware mit dem BLECH-Satz (nach der BLECH-Datei). | nichts, nur Karte und Bedienen |
 | [blech-datei.md](blech-datei.md) | Die Firmware mit dem BLECH-Satz (Startbild-Editor, MFX 2, Plugins von der Karte, Menü BLECH) wird über SOFTWARE UPDATE aufgespielt und durchgespielt. | Firmware im Flash, Karte |
+| [firmware-sprache.md](firmware-sprache.md) | Gerätemenüs auf Deutsch (Patch `lang-de`, Häkchen in Schritt 2 des Patchers): alle Seiten, Dialoge und Meldungen am Display, Update behält die Sprache. | Firmware im Flash |
 
 Wer nur den Kartentest macht, ändert keine Firmware. Die BLECH-Datei setzt voraus,
 dass der Kartentest am Gerät bestanden ist.
