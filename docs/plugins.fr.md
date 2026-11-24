@@ -5,17 +5,17 @@ Version française | [Version anglaise](plugins.en.md) | [Version allemande](plu
 Cette page décrit le langage et l’API des plugins, leurs fichiers,
 le menu BLECH et leur utilisation dans l’éditeur. Les identifiants de code et les inscriptions
 de l’appareil restent inchangés. Les mesures détaillées citées sont en allemand.
-Les indications **mesuré dans l’[émulateur](glossary.md#emulator)**, **déduit** et **non vérifié sur l’appareil**
+Les indications **mesuré dans l’[émulateur](glossary.en.md#emulator)**, **déduit** et **non vérifié sur l’appareil**
 ne constituent pas une confirmation sur le matériel réel.
 
 Un plugin ajoute une fonction à l’Electribe : animation de LED, jeu à l’écran ou page de menu.
 Il se charge depuis la carte SD. Son code utilise un sous-ensemble de JavaScript, compilé
-par l’éditeur en [bytecode](glossary.md#bytecode) exécuté par une petite [machine virtuelle](glossary.md#vm) dans le firmware.
+par l’éditeur en [bytecode](glossary.en.md#bytecode) exécuté par une petite [machine virtuelle](glossary.en.md#vm) dans le firmware.
 Une erreur désactive le plugin et affiche un message dans BLECH ; l’Electribe continue de fonctionner.
 
 Les plugins se chargent et démarrent à l’allumage. Ceux qui commandent uniquement des LED
 ou réaffectent des boutons n’exigent aucune action dans le menu. L’écran appartient au firmware.
-Un plugin doté d’un écran est une [**application**](glossary.md#app), inscrite dans GAMES ou TOOLS : ENTER l’ouvre,
+Un plugin doté d’un écran est une [**application**](glossary.en.md#app), inscrite dans GAMES ou TOOLS : ENTER l’ouvre,
 EXIT la ferme toujours. Un plugin peut aussi demander temporairement l’écran avec
 `korg.display.take()`. Charger un plugin ne dessine jamais à l’écran.
 
@@ -50,7 +50,7 @@ actifs une fois le corps terminé sans erreur.
 ### Applications et écran
 
 Un plugin ne dessine que s’il possède l’écran. Il peut l’obtenir de deux façons, qui se terminent
-toutes deux avec EXIT. Le [filtre d’entrée](glossary.md#eingangsfilter) du firmware traite EXIT avant le plugin : celui-ci
+toutes deux avec EXIT. Le [filtre d’entrée](glossary.en.md#eingangsfilter) du firmware traite EXIT avant le plugin : celui-ci
 ne peut ni l’intercepter ni le bloquer. Les appels de dessin sans possession de l’écran sont
 ignorés sans message. Le chargement et l’import d’un plugin ne prennent jamais l’écran.
 
@@ -84,7 +84,7 @@ korg.onEvent("frame", () => { frames += 1; if (frames >= 3) { frames = 0; step()
 personne ne possède l’écran. La fonction renvoie 1 en cas de succès, sinon 0. Le plugin dessine
 jusqu’à `korg.display.release()` ou EXIT ; EXIT lui envoie `close`. Une application s’ouvre
 par le menu et n’utilise pas cette prise. Aucun écran n’est disponible dans le corps du plugin.
-Une touche maintenue quand `korg.display.take()` réussit reste au firmware : son relâchement lui parvient pendant que le plugin possède l’écran, donc SHIFT ou PART MUTE maintenus pendant la prise ne restent pas bloqués (mesuré dans l’émulateur sur [Hacktribe](glossary.md#hacktribe), rouge et bleu, `take_lets_key_releases_reach_the_firmware`). Contrairement à EXIT, `korg.display.release()` ne remet pas `korg.passKeys` et `korg.padHold` à leurs valeurs par défaut.
+Une touche maintenue quand `korg.display.take()` réussit reste au firmware : son relâchement lui parvient pendant que le plugin possède l’écran, donc SHIFT ou PART MUTE maintenus pendant la prise ne restent pas bloqués (mesuré dans l’émulateur sur [Hacktribe](glossary.en.md#hacktribe), rouge et bleu, `take_lets_key_releases_reach_the_firmware`). Contrairement à EXIT, `korg.display.release()` ne remet pas `korg.passKeys` et `korg.padHold` à leurs valeurs par défaut.
 
 ```js
 // Message à l’écran pendant le maintien de PLAY.
@@ -168,7 +168,7 @@ suivent la langue choisie dans l’application. Cette langue n’étend pas le j
 | `menu` | `id`, `value` | Rotation de la molette principale sur une page créée avec `korg.menu.add` |
 | `open`, `close` | | Réservés aux applications et aux plugins ayant pris l’écran : ouverture depuis le menu, fermeture par EXIT ou départ de la page principale. Ils ne sont transmis qu’au plugin concerné |
 
-À chaque trame, le [point d’interception](glossary.md#rahmenhaken) compare les états du firmware à ceux de la trame précédente :
+À chaque trame, le [point d’interception](glossary.en.md#rahmenhaken) compare les états du firmware à ceux de la trame précédente :
 transport, tempo, pattern, partie, pas de la partie 0 et états muets. Il met un événement en file
 pour chaque changement. La résolution est donc de 40 ms. À 300 BPM, soit 20 pas par seconde,
 chaque pas arrive encore. Plusieurs changements entre deux trames ne produisent qu’un changement
@@ -200,7 +200,7 @@ Un cycle transmet d’abord `ready` une fois par plugin, collecte les entrées e
 
 Tant que le menu BLECH est ouvert, les pads, touches et encodeurs vont
 directement au firmware et aucun plugin ne reçoit d’événement (seule la page de
-[Blechy](glossary.md#blechy) reçoit le touchpad et sa touche). Dans tous les menus du firmware
+[Blechy](glossary.en.md#blechy) reçoit le touchpad et sa touche). Dans tous les menus du firmware
 (Pattern, Global, Part Edit, Step Edit et les autres), les plugins reçoivent les
 entrées comme sur l’écran principal.
 
@@ -296,7 +296,7 @@ est interdite dans le corps.
 **Valeurs de pattern** (`korg.pattern.current.…`, `korg.current.…`, `korg.patterns[i].…`) :
 `tempo` en dixièmes de BPM, `swing` de -48 à 48, `length` de 1 à 4 mesures, `beat`
 (0 doubles croches, 1 triples croches, 2 triolets de croches, 3 triolets de doubles croches,
-4 croches avec [BLECHTRIBE](glossary.md#blechtribe)), `key` de 0 C à 11 B, `scale`, `chordSet`, `level`, `mfxType`,
+4 croches avec [BLECHTRIBE](glossary.en.md#blechtribe)), `key` de 0 C à 11 B, `scale`, `chordSet`, `level`, `mfxType`,
 `chainTo` (0 à 249, -1 sans enchaînement), `chainRepeat` (au moins 1), `gateArp` (page GATE ARP,
 0 désactivé), `syncGroup` (0 désactivé, 1 à 999, depuis l’API 21). Depuis l’API 24 :
 `alternate1314`, `alternate1516`, `mfxHold` (1 activé), `mfxPadX`, `mfxPadY`
@@ -320,7 +320,7 @@ La liste et l’origine des champs sont dans `data/script/contract.mjs`, sous `P
 et `PART_FIELDS` ; leurs positions mesurées sont dans `data/map/pattern.mjs`. Lecture depuis l’API 8.
 
 **Motion sequence activée ou désactivée** : `korg.parts[i].motionMode` est la page MOTION SEQ du menu Part,
-0 désactivé, 1 lissé, 2 maintien au déclenchement (depuis l’API 24). Un plugin coupe ainsi la [motion sequence](glossary.md#motion-sequence) d’une partie
+0 désactivé, 1 lissé, 2 maintien au déclenchement (depuis l’API 24). Un plugin coupe ainsi la [motion sequence](glossary.en.md#motion-sequence) d’une partie
 sans effacer le mouvement enregistré ; l’ancienne valeur la relance.
 
 ```js
@@ -604,7 +604,7 @@ korg.onEvent("play", () => { timer = korg.afterSteps(16, () => { korg.mute(0, 1)
 korg.onEvent("stop", () => { korg.cancel(timer); });
 ```
 
-Les temporisateurs et `korg.millis()` utilisent [Timer3](glossary.md#timer3) à 150 MHz, qui boucle chaque seconde.
+Les temporisateurs et `korg.millis()` utilisent [Timer3](glossary.en.md#timer3) à 150 MHz, qui boucle chaque seconde.
 Le moteur actualise son temps à chaque trame ; les secondes entières perdues entre deux appels,
 notamment avant la première trame, proviennent du compteur système à la milliseconde.
 Mesuré dans l’émulateur : trames toutes les 40 ms, au plus 46 ms, y compris lors d’un changement
@@ -1135,7 +1135,7 @@ du corps, avec `POOL_BUDGET` et le message de budget global insuffisant. La mém
 et les plugins chargés restent inchangés. Le compilateur vérifie seulement les déclarations,
 avec une limite par défaut de 32768 emplacements, déduite des 128 Kio divisés par quatre.
 Un bloc compilé peut donc être refusé au chargement. Les limites de format 65536/65535 ne
-promettent pas qu’un tel tableau tienne réellement dans le [pool](glossary.md#pool) de l’appareil.
+promettent pas qu’un tel tableau tienne réellement dans le [pool](glossary.en.md#pool) de l’appareil.
 
 Le pool occupe la zone FF de l’image entre `0xC01D7000` et `0xC01F7000`, soit 131072 octets.
 La lecture hors ligne des images personnelles y a trouvé FF ; cela prouve une zone libre dans
@@ -1159,10 +1159,10 @@ indique son nom, la ligne et l’erreur. Les autres continuent. Les codes sont d
 
 ### Fichiers de la carte
 
-Les plugins arrivent par la carte SD, jamais intégrés à la [VSB](glossary.md#vsb). Le dossier est
+Les plugins arrivent par la carte SD, jamais intégrés à la [VSB](glossary.en.md#vsb). Le dossier est
 `KORG/blechtribe/Plugin/`, au singulier, identique sur les modèles rouge et bleu.
 Prépare ce dossier pour une copie manuelle. Avec l’appareil connecté, la page Plugins peut
-aussi écrire le fichier par USB : commande [SysEx](glossary.md#sysex) BLECHTRIBE `0x67`, PLUGIN BEGIN, nom composé
+aussi écrire le fichier par USB : commande [SysEx](glossary.en.md#sysex) BLECHTRIBE `0x67`, PLUGIN BEGIN, nom composé
 de lettres, chiffres, `_`, `-`, avec 16 caractères maximum. Il est ensuite accessible dans
 BLECH > PLUGINS.
 
@@ -1179,7 +1179,7 @@ BLECH > PLUGINS.
   pas de `GDSC`. Le firmware affiche cette description sur DESCRIPTION ; l’éditeur récupère
   la source pour rouvrir le plugin.
 
-Le chargeur s’exécute une fois après [`e2sSample.all`](glossary.md#e2ssampleall). Avec EXIT maintenu à l’allumage, sans
+Le chargeur s’exécute une fois après [`e2sSample.all`](glossary.en.md#e2ssampleall). Avec EXIT maintenu à l’allumage, sans
 carte ou sans fichier, il ne fait rien et laisse le démarrage normal. En-tête, CRC ou fichier
 tronqué invalident la collection entière. Un seul bloc refusé, pour CRC, budget ou code,
 est ignoré sans bloquer les autres. Le corps `start` des plugins chargés est ensuite exécuté,
@@ -1201,7 +1201,7 @@ une autorisation sur l’appareil. C’est une indication, pas une protection : 
 deux octets nuls et 1024 octets d’écran. Octet `(y / 8) * 128 + x`, bit `y % 8`.
 `tools/gif/gif2e2g.py` convertit un GIF avec Pillow, ou plusieurs images, par exemple BMP,
 en une image par entrée dans l’ordre fourni. `src/script/gif.mjs` lit le format dans le navigateur.
-Chaque appel ouvre, cherche, lit et ferme le fichier avec [FatFs](glossary.md#fatfs), dont `f_lseek` à `0xC009E404`,
+Chaque appel ouvre, cherche, lit et ferme le fichier avec [FatFs](glossary.en.md#fatfs), dont `f_lseek` à `0xC009E404`,
 `0xC008AF5C` sur bleu, et l’objet fichier du chargeur. Lecture seulement sur l’écran principal.
 La durée de lecture de 1 Kio sur l’appareil n’est pas mesurée ; dans l’émulateur elle est de 7,5 ms, hors du budget de la trame.
 
@@ -1310,7 +1310,7 @@ pages sont détaillées ci-dessous.
 | Plugin, page `korg.menu.add` | Valeur numérique ; la molette modifie et transmet `menu` au plugin |
 | Plugin, REMOVE | ENTER demande Enter = remove ; second ENTER retire de `e2sPlugin.all` comme ACTIVE OFF puis supprime le `*.blech` par `f_unlink`. Résultat removed. Pour un fichier seul, seul le fichier est supprimé ; pour une entrée seule dans la collection, seule la collection est réécrite. Sur bleu, sans `f_unlink`, le fichier reste : file stays on card. Si le dossier a changé depuis l’ouverture, aucune suppression : folder changed. [Mesure](messungen/2026-10-30-plugin-liste-64-entfernen.md) |
 | DATA UTILITY, EXPORT ALL CUSTOMIZATIONS | Titre abrégé EXPORT ALL CUSTOM. ENTER ou WRITE enregistre `KORG/blechtribe/e2sCustom.all`, même structure que les réglages sans liste de CRC de plugins, puis exported. Aucun chargeur dédié ne le lit au démarrage ; le copier comme `settings.a.bin` restaure la personnalisation |
-| DATA UTILITY, EXPORT ALL EFFECTS | ENTER ou WRITE réécrit les presets IFX/MFX et modulations actuellement en RAM dans `KORG/blechtribe/Presets/e2sFx.all`, avec positions et textes `.e2fx` conservés, puis nouveau CRC. Sans collection, crée des entrées sans texte, que l’[Atelier](glossary.md#baukasten) ignore à l’import. Une collection existante doit avoir été chargée au démarrage : fichier remplacé ou invalide depuis lors, bad e2sFx.all et aucune écriture. Rouge et bleu (2.02 de Korg avec le jeu BLECH) |
+| DATA UTILITY, EXPORT ALL EFFECTS | ENTER ou WRITE réécrit les presets IFX/MFX et modulations actuellement en RAM dans `KORG/blechtribe/Presets/e2sFx.all`, avec positions et textes `.e2fx` conservés, puis nouveau CRC. Sans collection, crée des entrées sans texte, que l’[Atelier](glossary.en.md#baukasten) ignore à l’import. Une collection existante doit avoir été chargée au démarrage : fichier remplacé ou invalide depuis lors, bad e2sFx.all et aucune écriture. Rouge et bleu (2.02 de Korg avec le jeu BLECH) |
 | DATA UTILITY, EXPORT ALL PLUGINS | ENTER ou WRITE exporte tous les plugins chargés dans `e2sPlugin.all`, à l’octet près comme le navigateur, puis sauvegarde leurs réglages, y compris les désactivations |
 | GAMES ou TOOLS, application | ENTER=OPEN ; ENTER ou WRITE ouvre. Un plugin désactivé ou en erreur indique OFF ou FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER ouvre le rétroéclairage ; EXIT revient à DISPLAY |
@@ -1626,7 +1626,7 @@ Les mentions mesuré, déduit et ouvert ont le même sens que dans les mesures c
 ### Dans l’émulateur
 
 Les résultats suivants proviennent du firmware réel 2.02 avec Hacktribe dans l’émulateur
-avec carte virtuelle, ou d’[Unicorn](glossary.md#unicorn) sans firmware, **pas de l’appareil**.
+avec carte virtuelle, ou d’[Unicorn](glossary.en.md#unicorn) sans firmware, **pas de l’appareil**.
 
 - Compilateur, vérificateur et VM JavaScript dans `src/script/`, page Plugins, exécution,
   essai et export : tests `test/script-*.test.mjs`, format de bloc 2, API 40.

@@ -1,67 +1,64 @@
-# Documentation
+# Dokumentation
 
-Entry point for everything in `docs/`. Start with the [glossary](glossary.md) if a term is new to you: every page
-links the terms it uses on first use. Users start with the [README](../README.md) ([English](../README.en.md)).
+Deutsche Version | [English version](README.en.md)
 
-Language: most pages are written in German. English editions exist for [plugins](plugins.en.md),
-[patcher](patcher.en.md) and [original-zurueck](original-zurueck.en.md); the plugins page also exists in
-[French](plugins.fr.md). Everything measured holds for the Korg Electribe 2 Sampler with firmware 2.02 and
-Hacktribe, unless a page says otherwise. Facts carry a marker: **gemessen** (measured), **offline** (code or a dump
-was read), **hergeleitet** (derived), **offen** (open). Code in `tools/` has short READMEs of its own:
-[tools/emu/README.md](../tools/emu/README.md) and [tools/alsa-sysex.md](../tools/alsa-sysex.md). The origin of bundled
-parts is in [NOTICE](../NOTICE), the rules for agents and contributors in [AGENTS.md](../AGENTS.md).
+Einstieg in alles unter `docs/`. Fang mit dem [Glossar](glossary.md) an, wenn dir ein Begriff neu ist: Jede Seite verlinkt die Begriffe, die sie benutzt, bei der ersten Verwendung. Nutzer starten mit der [README](../README.md) ([English](../README.en.md)).
 
-## Use the firmware and the app
+Sprache: Die meisten Seiten sind auf Deutsch, das Deutsche ist die Referenz. Englische Fassungen gibt es für [plugins](plugins.en.md), [patcher](patcher.en.md), [original-zurueck](original-zurueck.en.md), diesen Index ([README.en.md](README.en.md)) und das [Glossar](glossary.en.md). Die Plugins-Seite gibt es außerdem auf [Französisch](plugins.fr.md).
 
-| Page | Content |
+Alles Gemessene gilt für den Korg Electribe 2 Sampler mit Firmware 2.02 und Hacktribe, sofern eine Seite nichts anderes sagt. Fakten tragen einen Marker: **gemessen**, **offline** (Code oder ein Dump wurde gelesen), **hergeleitet**, **offen**. Der Code in `tools/` hat eigene kurze READMEs: [tools/emu/README.md](../tools/emu/README.md) und [tools/alsa-sysex.md](../tools/alsa-sysex.md). Woher die mitgelieferten Teile stammen, steht in [NOTICE](../NOTICE), die Regeln für Agents und Mitwirkende in [AGENTS.md](../AGENTS.md).
+
+## Firmware und App benutzen
+
+| Seite | Inhalt |
 |---|---|
-| [faq.md](faq.md) | Frequent questions, from "will it break my device" to "Error, No File" |
-| [tastenkombinationen.md](tastenkombinationen.md) | Key combinations of the firmware: SHIFT, hold and power-on |
-| [test-modus.md](test-modus.md) | Test mode (the device looks switched off) and operating the device over USB |
-| [plugins.md](plugins.md) | Plugins: language, events, functions, card format, the BLECH menu, the editor page ([English](plugins.en.md), [French](plugins.fr.md)) |
-| [effekt-katalog.md](effekt-katalog.md) | The effects and modulations of the Baukasten catalog and what an effect cannot do |
-| [original-zurueck.md](original-zurueck.md) | Going back to Korg's original firmware, red and blue ([English](original-zurueck.en.md)) |
-| [rettung.md](rettung.md) | The Blechy page: the documented way back when a device does not start |
-| [doom-lizenz.md](doom-lizenz.md) | Doom on the card: parts, licences and what is missing for redistribution |
-| [geraetetests/](geraetetests/README.md) | Step-by-step guides to test BLECHTRIBE and the card functions on your own device |
+| [faq.md](faq.md) | Häufige Fragen, von "geht mein Gerät dabei kaputt" bis "Error, No File" |
+| [tastenkombinationen.md](tastenkombinationen.md) | Tastenkombinationen der Firmware: SHIFT, Halten und Einschalten |
+| [test-modus.md](test-modus.md) | Test-Modus (das Gerät sieht ausgeschaltet aus) und Bedienung des Geräts über USB |
+| [plugins.md](plugins.md) | Plugins: Sprache, Ereignisse, Funktionen, Kartenformat, das BLECH-Menü, die Editor-Seite ([English](plugins.en.md), [Französisch](plugins.fr.md)) |
+| [effekt-katalog.md](effekt-katalog.md) | Die Effekte und Modulationen des Baukasten-Katalogs und was ein Effekt nicht kann |
+| [original-zurueck.md](original-zurueck.md) | Zurück zu Korgs Original-Firmware, rot und blau ([English](original-zurueck.en.md)) |
+| [rettung.md](rettung.md) | Die Blechy-Seite: der dokumentierte Rückweg, wenn ein Gerät nicht startet |
+| [doom-lizenz.md](doom-lizenz.md) | Doom auf der Karte: Teile, Lizenzen und was für eine Weitergabe fehlt |
+| [geraetetests/](geraetetests/README.md) | Schritt-für-Schritt-Anleitungen, um BLECHTRIBE und die Kartenfunktionen am eigenen Gerät zu testen |
 
-## How it is built
+## Wie es gebaut ist
 
-| Page | Content |
+| Seite | Inhalt |
 |---|---|
-| [development.md](development.md) | Build, test, build the desktop app, release |
-| [architektur.md](architektur.md) | Gatekeeper, send path, rehearsal, terminal, error catalog, design |
-| [patcher.md](patcher.md) | Patching the firmware: patch format, hooks, rules, emergency switch, patch table ([English](patcher.en.md)) |
-| [emulator.md](emulator.md) | The emulator: installation, service, card and flash, boot, check runs |
-| [geraetekarte.md](geraetekarte.md) | The device map: format, evidence, conversions, expert mode |
-| [linter.md](linter.md) | The linter, its knowledge about effects, the simulated device, open points |
-| [speicherbereiche.md](speicherbereiche.md) | Measured memory areas, write limits, areas still open |
-| [firmware-sprache.md](firmware-sprache.md) | Device menus in German: language files, shortening rule, umlauts |
-| [barrierefreiheit.md](barrierefreiheit.md) | Accessibility: what is tested against WCAG 2.2 AA and what is open |
-| [entscheidungen.md](entscheidungen.md) | Decisions that are settled |
-| [fahrplan.md](fahrplan.md) | Roadmap: what is released, what 1.5 brings, what comes after |
+| [development.md](development.md) | Bauen, Testen, die Desktop-App bauen, Release |
+| [architektur.md](architektur.md) | Türsteher, Sendeweg, Probelauf, Terminal, Fehlerkatalog, Design |
+| [patcher.md](patcher.md) | Die Firmware patchen: Patch-Format, Haken, Regeln, Notschalter, Patch-Tabelle ([English](patcher.en.md)) |
+| [emulator.md](emulator.md) | Der Emulator: Installation, Dienst, Karte und Flash, Start, Prüfläufe |
+| [geraetekarte.md](geraetekarte.md) | Die Gerätekarte: Format, Belege, Umrechnungen, Expertenmodus |
+| [linter.md](linter.md) | Der Linter, sein Wissen über Effekte, das simulierte Gerät, offene Punkte |
+| [speicherbereiche.md](speicherbereiche.md) | Gemessene Speicherbereiche, Schreibgrenzen, noch offene Bereiche |
+| [firmware-sprache.md](firmware-sprache.md) | Gerätemenüs auf Deutsch: Sprachdateien, Kürzungsregel, Umlaute |
+| [barrierefreiheit.md](barrierefreiheit.md) | Barrierefreiheit: was gegen WCAG 2.2 AA getestet ist und was offen ist |
+| [entscheidungen.md](entscheidungen.md) | Entscheidungen, die feststehen |
+| [fahrplan.md](fahrplan.md) | Fahrplan: was veröffentlicht ist, was 1.5 bringt, was danach kommt |
 
-## Background
+## Hintergrund
 
-Deeper explanations of how the firmware works, used by the pages above.
+Tiefere Erklärungen dazu, wie die Firmware arbeitet. Die Seiten oben stützen sich darauf.
 
-| Page | Content |
+| Seite | Inhalt |
 |---|---|
-| [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) | Firmware tasks, hooks and memory as the base of the plugin runtime |
-| [hintergrund/virtuelle-sd.md](hintergrund/virtuelle-sd.md) | File functions of the firmware, FatFs, the sample loader, the virtual card |
-| [hintergrund/sample-datei.md](hintergrund/sample-datei.md) | The `e2sSample.all` format and the transfer over USB with a swap file |
-| [hintergrund/startbild-editor.md](hintergrund/startbild-editor.md) | The start image in flash and its editor |
-| [hintergrund/ladeanimation.md](hintergrund/ladeanimation.md) | The file format of the loading animation and the GIF import |
-| [hintergrund/blech-theme.md](hintergrund/blech-theme.md) | Own fonts and symbols for the display |
-| [hintergrund/dsp-erster-blick.md](hintergrund/dsp-erster-blick.md) | The DSP: program, effect switching, filters |
-| [hintergrund/panel-controller.md](hintergrund/panel-controller.md) | The microcontroller behind keys, knobs and LEDs |
-| [hintergrund/sequencer-timing.md](hintergrund/sequencer-timing.md) | Sequencer resolution, MIDI clock, tempo |
-| [hintergrund/patternwechsel.md](hintergrund/patternwechsel.md) | Confirming a pattern change and the gap that a change has |
+| [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) | Firmware-Tasks, Haken und Speicher als Grundlage der Plugin-Laufzeit |
+| [hintergrund/virtuelle-sd.md](hintergrund/virtuelle-sd.md) | Dateifunktionen der Firmware, FatFs, der Sample-Lader, die virtuelle Karte |
+| [hintergrund/sample-datei.md](hintergrund/sample-datei.md) | Das Format `e2sSample.all` und die Übertragung über USB mit einer Swap-Datei |
+| [hintergrund/startbild-editor.md](hintergrund/startbild-editor.md) | Das Startbild im Flash und sein Editor |
+| [hintergrund/ladeanimation.md](hintergrund/ladeanimation.md) | Das Dateiformat der Ladeanimation und der GIF-Import |
+| [hintergrund/blech-theme.md](hintergrund/blech-theme.md) | Eigene Schriften und Symbole für das Display |
+| [hintergrund/dsp-erster-blick.md](hintergrund/dsp-erster-blick.md) | Der DSP: Programm, Effekt-Umschaltung, Filter |
+| [hintergrund/panel-controller.md](hintergrund/panel-controller.md) | Der Mikrocontroller hinter Tasten, Reglern und LEDs |
+| [hintergrund/sequencer-timing.md](hintergrund/sequencer-timing.md) | Sequencer-Auflösung, MIDI-Clock, Tempo |
+| [hintergrund/patternwechsel.md](hintergrund/patternwechsel.md) | Einen Pattern-Wechsel bestätigen und die Lücke, die ein Wechsel hat |
 
-## Measurements and ideas
+## Messungen und Ideen
 
-| Page | Content |
+| Seite | Inhalt |
 |---|---|
-| [messungen/README.md](messungen/README.md) | All measurements by topic. They are the evidence for the device map, so their paths never change |
-| [ideen.md](ideen.md) | Ideas that are still open, with their detail pages in [ideen/](ideen/) |
-| [glossary.md](glossary.md) | Terms and repo-specific names |
+| [messungen/README.md](messungen/README.md) | Alle Messungen nach Thema. Sie sind der Beleg für die Gerätekarte, darum ändern sich ihre Pfade nie |
+| [ideen.md](ideen.md) | Ideen, die noch offen sind, mit ihren Detailseiten in [ideen/](ideen/) |
+| [glossary.md](glossary.md) | Begriffe und Namen aus diesem Repo ([English](glossary.en.md)) |

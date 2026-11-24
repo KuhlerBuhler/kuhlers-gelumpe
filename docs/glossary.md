@@ -1,423 +1,565 @@
-# Glossary
+# Glossar
 
-Terms used in these docs, repo-specific names included (the German ones are names that appear in the app and in the pages). Each doc links a term on its first use. Entries are sorted alphabetically.
+Deutsche Version | [English version](glossary.en.md)
+
+Begriffe, die in diesen Docs vorkommen, auch die Namen aus diesem Repo. Jede Seite verlinkt einen Begriff bei der ersten Verwendung. Die Einträge sind alphabetisch sortiert. Die englische Fassung ist [glossary.en.md](glossary.en.md), die Anker (`#hacktribe` und so weiter) sind in beiden Sprachen gleich.
+
+<a id="app"></a>
 
 ## App
 
-In the plugin docs, an app is a plugin that registers itself with `korg.app(name, group)` and has a screen of its own. It is opened from the BLECH menu under GAMES or TOOLS, owns the display while open, and EXIT always closes it.
+In den Plugin-Docs ist eine App ein Plugin, das sich mit `korg.app(name, group)` anmeldet und einen eigenen Bildschirm hat. Man öffnet sie im BLECH-Menü unter GAMES oder TOOLS, sie besitzt das Display, solange sie offen ist, und EXIT schließt sie immer.
 
-See: [plugins.md](plugins.md) ("Apps und das Display"), `data/script/contract.mjs` (SCRIPT_APPS)
+Siehe: [plugins.md](plugins.md) ("Apps und das Display"), `data/script/contract.mjs` (SCRIPT_APPS)
+
+<a id="arm"></a>
 
 ## ARM
 
-The main processor of the Electribe (TI AM180x). It runs the panel controller link, display, sequencer, menus, MIDI, SD card and flash, and sends commands and values to the DSP at run time.
+Der Hauptprozessor des Electribe (TI AM180x). Er betreibt die Verbindung zum Panel-Controller, Display, Sequencer, Menüs, MIDI, SD-Karte und Flash und schickt zur Laufzeit Befehle und Werte an den DSP.
 
-See: [patcher.md](patcher.md) ("Was in der VSB steckt")
+Siehe: [patcher.md](patcher.md) ("Was in der VSB steckt")
+
+<a id="baukasten"></a>
 
 ## Baukasten
 
-The editor area (`BLECHTRIBE -> Baukasten`) where effects and modulations are built from DSP units with real units and exported to the card or sent live over USB; it holds the effect catalog.
+Der Bereich im Editor (`BLECHTRIBE -> Baukasten`), in dem Effekte und Modulationen aus DSP-Bausteinen mit echten Einheiten gebaut, auf die Karte exportiert oder live per USB geschickt werden. Hier liegt auch der Effekt-Katalog.
 
-See: [effekt-katalog.md](effekt-katalog.md), `README.md`
+Siehe: [effekt-katalog.md](effekt-katalog.md), `README.md`
+
+<a id="blech"></a>
 
 ## BLECH
 
-Name of the patch set of this project (product name BLECHTRIBE): the changes built into the Electribe 2 firmware, such as menu, plugin runtime, sample loader and pattern switch. It builds on Hacktribe or on Korg's own firmware.
+Name des Patch-Satzes dieses Projekts (Produktname BLECHTRIBE): die Änderungen, die in die Firmware des Electribe 2 eingebaut werden, etwa Menü, Plugin-Laufzeit, Sample-Lader und Pattern-Wechsel. Er baut auf Hacktribe oder auf Korgs eigener Firmware auf.
 
-See: [patcher.md](patcher.md) (Patch-Satz BLECH), `README.md`
+Siehe: [patcher.md](patcher.md) (Patch-Satz BLECH), `README.md`
+
+<a id="blechtribe"></a>
 
 ## BLECHTRIBE
 
-This project's firmware mod for the Electribe 2, applied as a patch set to a VSB; it has its own SysEx commands 0x60 to 0x67 and 0x6F and a BLECH menu on the device.
+Die Firmware-Mod dieses Projekts für den Electribe 2. Sie wird als Patch-Satz auf eine VSB angewendet, hat eigene SysEx-Befehle 0x60 bis 0x67 und 0x6F und ein BLECH-Menü am Gerät.
 
-See: `src/protocol.mjs` (BLECH command table), [emulator.md](emulator.md)
+Siehe: `src/protocol.mjs` (BLECH-Befehlstabelle), [emulator.md](emulator.md)
+
+<a id="blechtribe-sysex"></a>
 
 ## BLECHTRIBE SysEx
 
-The extra SysEx commands that the patch `blech-sysex` adds: reading and writing RAM in blocks, reading flash, and reading and writing files on the card. They replace Hacktribe's commands `0x52` to `0x57`, which answer only with EXIT held at power-on. On the blue Electribe they only read.
+Die zusätzlichen SysEx-Befehle, die der Patch `blech-sysex` einbaut: RAM blockweise lesen und schreiben, Flash lesen, Dateien auf der Karte lesen und schreiben. Sie ersetzen Hacktribes Befehle `0x52` bis `0x57`, die nur mit gehaltenem EXIT beim Einschalten antworten. Auf dem blauen Electribe können sie nur lesen.
 
-See: [patcher.md](patcher.md) (patch table), `data/patches/blech-sysex.json`
+Siehe: [patcher.md](patcher.md) (Patch-Tabelle), `data/patches/blech-sysex.json`
+
+<a id="blechy"></a>
 
 ## Blechy
 
-The BLECHTRIBE mascot. As an app built into the firmware it is the last page of the EDIT ring and waves on power-off; as a page of the editor (`#rescue`) it is the assistant that leads through the way back when a device does not start right.
+Das Maskottchen von BLECHTRIBE. Als App in der Firmware ist es die letzte Seite des EDIT-Rings und winkt beim Ausschalten. Als Seite im Editor (`#rescue`) ist es der Assistent, der durch den Rückweg führt, wenn ein Gerät nicht richtig startet.
 
-See: [patcher.md](patcher.md) (patches `power-off`, `load-bar`), [rettung.md](rettung.md)
+Siehe: [patcher.md](patcher.md) (Patches `power-off`, `load-bar`), [rettung.md](rettung.md)
+
+<a id="bootloader"></a>
 
 ## Bootloader
 
-The boot program in flash `[0, 0x20000)`. It loads the firmware. The patcher and the editor never touch it.
+Das Startprogramm im Flash `[0, 0x20000)`. Es lädt die Firmware. Der Patcher und der Editor fassen es nie an.
 
-See: [rettung.md](rettung.md) ("Stoppschild"), [patcher.md](patcher.md)
+Siehe: [rettung.md](rettung.md) ("Stoppschild"), [patcher.md](patcher.md)
+
+<a id="bsdiff"></a>
 
 ## bsdiff
 
-Binary diff format (`BSDIFF40`). The release carries `BLECH-for-<hash>.bsdiff` files that turn exactly one known SYSTEM.VSB into the BLECHTRIBE version without the BLECHTRIBE app; here the diff block is only zeros, so no firmware bytes are in the file.
+Binäres Diff-Format (`BSDIFF40`). Der Release enthält `BLECH-for-<hash>.bsdiff`-Dateien, die genau eine bekannte SYSTEM.VSB in die BLECHTRIBE-Version ohne die BLECHTRIBE-App verwandeln. Der Diff-Block besteht dort nur aus Nullen, in der Datei stecken also keine Firmware-Bytes.
 
-See: [patcher.md](patcher.md) ("Patch-Datei und bsdiff"), `tools/patch/bsdiff.mjs`
+Siehe: [patcher.md](patcher.md) ("Patch-Datei und bsdiff"), `tools/patch/bsdiff.mjs`
+
+<a id="build"></a>
 
 ## Build
 
-The firmware build a patch is made for: `hacktribe` (Hacktribe 2.02), `stock` (Korg's red 2.02) and `synth` (Korg's blue 2.02). A patch lists them in `builds`; the base firmware picks the variant.
+Die Firmware-Ausgabe, für die ein Patch gemacht ist: `hacktribe` (Hacktribe 2.02), `stock` (Korgs rote 2.02) und `synth` (Korgs blaue 2.02). Ein Patch führt sie in `builds` auf, die Basis-Firmware wählt die Variante.
 
-See: [patcher.md](patcher.md) ("Welche Patches passen"), `src/patch.mjs` (`buildsOf`, `selectFor`)
+Siehe: [patcher.md](patcher.md) ("Welche Patches passen"), `src/patch.mjs` (`buildsOf`, `selectFor`)
+
+<a id="bytecode"></a>
 
 ## Bytecode
 
-The compact block the editor compiles a plugin into: block format 2 with a 52 byte header, signed 32-bit values and a checksum. The device loads this block, never the source text.
+Der kompakte Block, in den der Editor ein Plugin übersetzt: Blockformat 2 mit 52 Byte Header, vorzeichenbehafteten 32-Bit-Werten und einer Prüfsumme. Das Gerät lädt diesen Block, nie den Quelltext.
 
-See: `data/script/contract.mjs` (FORMAT_VERSION, HEADER)
+Siehe: `data/script/contract.mjs` (FORMAT_VERSION, HEADER)
+
+<a id="data-utility"></a>
 
 ## DATA UTILITY
 
-The device menu page for card and sample functions (IMPORT SAMPLE, EXPORT SAMPLE, EXPORT ALL PATTERN, CARD FORMAT).
+Die Menüseite des Geräts für Karten- und Sample-Funktionen (IMPORT SAMPLE, EXPORT SAMPLE, EXPORT ALL PATTERN, CARD FORMAT).
 
-See: [emulator.md](emulator.md) (section "Virtuelle SD-Karte")
+Siehe: [emulator.md](emulator.md) (Abschnitt "Virtuelle SD-Karte")
+
+<a id="dev-mode"></a>
 
 ## DEV MODE
 
-BLECH menu page that lets BLECH WRITE write into the firmware image in RAM (except locked areas). It is OFF after every power-on, is not saved, and does not exist on the blue Electribe.
+Seite im BLECH-Menü, mit der BLECH WRITE in das Firmware-Abbild im RAM schreiben darf (außer in gesperrte Bereiche). Nach jedem Einschalten ist sie AUS, sie wird nicht gespeichert und es gibt sie auf dem blauen Electribe nicht.
 
-See: [patcher.md](patcher.md) (patch `blech-sysex`), `data/dev-closed.mjs`
+Siehe: [patcher.md](patcher.md) (Patch `blech-sysex`), `data/dev-closed.mjs`
 
-## Doom loader
+<a id="doom-loader"></a>
 
-The `doom-loader` patch: on SHIFT + TAP at power-on it reads `KORG/blechtribe/Doom/doom.bin` from the card, checks length and SHA-256 and jumps into it.
+## Doom-Lader
 
-See: `tools/patch/doom_loader.py`
+Der Patch `doom-loader`: Bei SHIFT + TAP beim Einschalten liest er `KORG/blechtribe/Doom/doom.bin` von der Karte, prüft Länge und SHA-256 und springt hinein.
+
+Siehe: `tools/patch/doom_loader.py`
+
+<a id="dsp"></a>
 
 ## DSP
 
-The second processor (an Analog Devices Blackfin, exact model open). It computes the sound: samples, filters, insert effects, master effect. Its program is embedded in the VSB and loaded by the ARM at start.
+Der zweite Prozessor (ein Analog Devices Blackfin, genaues Modell offen). Er rechnet den Klang: Samples, Filter, Insert-Effekte, Master-Effekt. Sein Programm steckt in der VSB und wird beim Start vom ARM geladen.
 
-See: [patcher.md](patcher.md) ("Was in der VSB steckt"), [hintergrund/dsp-erster-blick.md](hintergrund/dsp-erster-blick.md)
+Siehe: [patcher.md](patcher.md) ("Was in der VSB steckt"), [hintergrund/dsp-erster-blick.md](hintergrund/dsp-erster-blick.md)
+
+<a id="e2sallpat"></a>
 
 ## e2sallpat
 
-The backup file of all 250 patterns (file ending .e2sallpat), made by the device's EXPORT ALL PATTERN and importable with IMPORT ALL PATTERN.
+Die Sicherungsdatei aller 250 Patterns (Endung .e2sallpat). Das Gerät erzeugt sie mit EXPORT ALL PATTERN, importieren geht mit IMPORT ALL PATTERN.
 
-See: [emulator.md](emulator.md), `src/map/address.mjs` (PATTERN_FILE)
+Siehe: [emulator.md](emulator.md), `src/map/address.mjs` (PATTERN_FILE)
+
+<a id="e2ssampleall"></a>
 
 ## e2sSample.all
 
-The sample collection file on the SD card (`Sample/e2sSample.all` in the card folder). The firmware loads it at start; the loader patches (`sample-errors`, `sample-swap`, `user-samples`) work on it.
+Die Sample-Sammeldatei auf der SD-Karte (`Sample/e2sSample.all` im Kartenordner). Die Firmware lädt sie beim Start, die Lader-Patches (`sample-errors`, `sample-swap`, `user-samples`) arbeiten an ihr.
 
-See: [patcher.md](patcher.md) (patch table), [hintergrund/sample-datei.md](hintergrund/sample-datei.md)
+Siehe: [patcher.md](patcher.md) (Patch-Tabelle), [hintergrund/sample-datei.md](hintergrund/sample-datei.md)
+
+<a id="eingangsfilter"></a>
 
 ## Eingangsfilter
 
-The code that BLECH puts in front of the panel messages (touch, buttons) so that plugins or patches can change what the firmware sees, for example the locked touch X and Y.
+Der Code, den BLECH vor die Panel-Nachrichten (Touch, Tasten) setzt, damit Plugins oder Patches ändern können, was die Firmware sieht, zum Beispiel das gesperrte Touch-X und -Y.
 
-See: [messungen/2026-11-12-plugin-touch-lock-y.md](messungen/2026-11-12-plugin-touch-lock-y.md), `tools/patch/script_hw.s` (touch_lock_input)
+Siehe: [messungen/2026-11-12-plugin-touch-lock-y.md](messungen/2026-11-12-plugin-touch-lock-y.md), `tools/patch/script_hw.s` (touch_lock_input)
+
+<a id="emulator"></a>
 
 ## Emulator
 
-The ARM emulator in `tools/emu/` that runs a copy of the firmware, so the patcher can check it before export. It plays no sound and models the DSP only at its interface.
+Der ARM-Emulator in `tools/emu/`, der eine Kopie der Firmware ausführt, damit der Patcher sie vor dem Export prüfen kann. Er spielt keinen Ton und bildet den DSP nur an seiner Schnittstelle nach.
 
-See: [patcher.md](patcher.md) ("Prüfungen vor dem Export"), [emulator.md](emulator.md)
+Siehe: [patcher.md](patcher.md) ("Prüfungen vor dem Export"), [emulator.md](emulator.md)
 
-## Evidence markers
+<a id="evidence-markers"></a>
 
-Labels on facts in the docs that say how a statement is backed: **gemessen** (measured on the device or in the emulator), **offline** (code or a dump was read, nothing was run), **hergeleitet** (derived from other facts) and **offen** (not checked yet).
+## Evidenz-Marker
 
-See: [messungen/README.md](messungen/README.md)
+Kennzeichen an Fakten in den Docs, die sagen, wie eine Aussage belegt ist: **gemessen** (am Gerät oder im Emulator gemessen), **offline** (Code oder ein Dump gelesen, nichts ausgeführt), **hergeleitet** (aus anderen Fakten abgeleitet) und **offen** (noch nicht geprüft).
+
+Siehe: [messungen/README.md](messungen/README.md)
+
+<a id="execute"></a>
 
 ## Execute
 
-Hacktribe's SysEx command 0x57, which makes the device jump to a given address, used to run a small stub from RAM (for example to set LEDs).
+Hacktribes SysEx-Befehl 0x57, der das Gerät an eine angegebene Adresse springen lässt. Damit wird ein kleiner Stub aus dem RAM ausgeführt, zum Beispiel um LEDs zu setzen.
 
-See: `src/protocol.mjs` (EXECUTE), [messungen/2026-10-08-led-execute.md](messungen/2026-10-08-led-execute.md)
+Siehe: `src/protocol.mjs` (EXECUTE), [messungen/2026-10-08-led-execute.md](messungen/2026-10-08-led-execute.md)
 
-## Execute stub
+<a id="execute-stub"></a>
 
-A small piece of ARM code uploaded over SysEx (0x53/0x54) into RAM and run once with Hacktribe's command 0x57; it must end with r0 = 1 to get an answer.
+## Execute-Stub
 
-See: [hintergrund/virtuelle-sd.md](hintergrund/virtuelle-sd.md) (section 6)
+Ein kleines Stück ARM-Code, das per SysEx (0x53/0x54) ins RAM geladen und einmal mit Hacktribes Befehl 0x57 ausgeführt wird. Es muss mit r0 = 1 enden, damit eine Antwort kommt.
+
+Siehe: [hintergrund/virtuelle-sd.md](hintergrund/virtuelle-sd.md) (Abschnitt 6)
+
+<a id="expertenmodus"></a>
 
 ## Expertenmodus
 
-Expert mode: unknown fields can be edited as raw numbers behind a switch; changes go the most volatile way first (RAM or pattern buffer) and need a second confirmation to become permanent.
+Unbekannte Felder lassen sich hinter einem Schalter als rohe Zahlen bearbeiten. Änderungen gehen zuerst den flüchtigsten Weg (RAM oder Pattern-Puffer) und brauchen eine zweite Bestätigung, um dauerhaft zu werden.
 
-See: [geraetekarte.md](geraetekarte.md) (section "Expertenmodus")
+Siehe: [geraetekarte.md](geraetekarte.md) (Abschnitt "Expertenmodus")
+
+<a id="fatfs"></a>
 
 ## FatFs
 
-The FAT file system library inside the firmware. It has no lock, so patches use only its file functions (`f_open`, `f_read`, `f_write`, `f_close`) and follow the card write rule.
+Die FAT-Dateisystem-Bibliothek in der Firmware. Sie hat kein Lock, darum benutzen Patches nur ihre Dateifunktionen (`f_open`, `f_read`, `f_write`, `f_close`) und halten die Schreibregel für die Karte ein.
 
-See: [patcher.md](patcher.md) ("Schreibregel für die Karte")
+Siehe: [patcher.md](patcher.md) ("Schreibregel für die Karte")
+
+<a id="fingerabdruck"></a>
 
 ## Fingerabdruck
 
-Fingerprint: the sha256 over all bytes of a VSB except the `userData` areas (FX tables, groove and modulation tables, start image, menu lengths). `BLECH.patch` checks it for input and output instead of the whole file.
+Der sha256 über alle Bytes einer VSB außer den `userData`-Bereichen (FX-Tabellen, Groove- und Modulationstabellen, Startbild, Menülängen). `BLECH.patch` prüft ihn für Ein- und Ausgabe statt der ganzen Datei.
 
-See: [patcher.md](patcher.md) ("Patch-Datei und bsdiff")
+Siehe: [patcher.md](patcher.md) ("Patch-Datei und bsdiff")
+
+<a id="firmware"></a>
 
 ## Firmware
 
-The software running on the Electribe 2's ARM CPU (SYSTEM.VSB 2.02: Korg's original or Hacktribe), which BLECH patches.
+Die Software auf der ARM-CPU des Electribe 2 (SYSTEM.VSB 2.02: Korgs Original oder Hacktribe), die BLECH patcht.
 
-See: `AGENTS.md`
+Siehe: `AGENTS.md`
 
-## Frame hook
+<a id="frame-hook"></a>
 
-The hook at 0xC00836FC in the UiTask that runs every 40 ms (25 Hz) after the firmware drew its widgets; plugin code drains the input ring and draws into the display buffer there.
+## Frame-Hook
 
-See: [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) (section 1.3)
+Der Haken bei 0xC00836FC im UiTask, der alle 40 ms (25 Hz) läuft, nachdem die Firmware ihre Widgets gezeichnet hat. Dort leert Plugin-Code den Eingabe-Ring und zeichnet in den Display-Puffer.
+
+Siehe: [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) (Abschnitt 1.3)
+
+<a id="fx-katalog"></a>
 
 ## FX-Katalog
 
-The set of ready-made effects (49 insert and master effects, 6 modulations) in `data/fx/catalog.mjs`; the patch `fx-catalog` appends them to the presets in the firmware.
+Die Menge fertiger Effekte (49 Insert- und Master-Effekte, 6 Modulationen) in `data/fx/catalog.mjs`. Der Patch `fx-catalog` hängt sie an die Presets in der Firmware an.
 
-See: [effekt-katalog.md](effekt-katalog.md), `data/fx/catalog.mjs`
+Siehe: [effekt-katalog.md](effekt-katalog.md), `data/fx/catalog.mjs`
 
-## Geraetekarte
+<a id="geraetekarte"></a>
 
-The device map: every editable field of the Electribe described once as data (id, label, where, type, transport, source, evidence). The UI, the linter and the docs are generated from it.
+## Gerätekarte
 
-See: [geraetekarte.md](geraetekarte.md), data/map/
+Die Gerätekarte: Jedes bearbeitbare Feld des Electribe ist einmal als Daten beschrieben (id, label, wo, Typ, Transport, Quelle, Beleg). UI, Linter und Docs werden daraus erzeugt.
+
+Siehe: [geraetekarte.md](geraetekarte.md), data/map/
+
+<a id="globals"></a>
 
 ## Globals
 
-The 256-byte block of device settings behind GLOBAL PARAMETERS (MIDI channel, clock mode, contrast, battery type and more). It lives in flash at 0x230000, begins with `GLST`, ends with `GLED`, and is saved on power-off and on WRITE.
+Der 256 Byte große Block der Geräteeinstellungen hinter GLOBAL PARAMETERS (MIDI-Kanal, Clock-Modus, Kontrast, Batterietyp und mehr). Er liegt im Flash bei 0x230000, beginnt mit `GLST`, endet mit `GLED` und wird beim Ausschalten und bei WRITE gespeichert.
 
-See: `data/map/global.mjs`, [messungen/2026-10-13-globals-zurueckgesetzt.md](messungen/2026-10-13-globals-zurueckgesetzt.md)
+Siehe: `data/map/global.mjs`, [messungen/2026-10-13-globals-zurueckgesetzt.md](messungen/2026-10-13-globals-zurueckgesetzt.md)
+
+<a id="gscr"></a>
 
 ## GSCR
 
-The four-byte tag at the start of a compiled plugin block (format 2, with its own size and CRC-32). A plugin file `e2sPlugin.all` is a header (`GSAL`) followed by such blocks.
+Die vier Byte lange Kennung am Anfang eines übersetzten Plugin-Blocks (Format 2, mit eigener Größe und CRC-32). Eine Plugin-Datei `e2sPlugin.all` besteht aus einem Header (`GSAL`) und solchen Blöcken.
 
-See: `data/script/contract.mjs`
+Siehe: `data/script/contract.mjs`
+
+<a id="hacktribe"></a>
 
 ## Hacktribe
 
-Third-party open-source firmware mod for the Electribe 2 sampler. It is built from Korg's 2.02 with Hacktribe's `hacktribe-2.patch` (not in this repository) and reads its own card folder `KORG/hacktribe/`. BLECHTRIBE builds on Hacktribe 2.02 or on Korg's original.
+Open-Source-Firmware-Mod eines Dritten für den Electribe 2 Sampler. Sie wird aus Korgs 2.02 mit Hacktribes `hacktribe-2.patch` gebaut (nicht in diesem Repo) und liest ihren eigenen Kartenordner `KORG/hacktribe/`. BLECHTRIBE baut auf Hacktribe 2.02 oder auf Korgs Original auf.
 
-See: [patcher.md](patcher.md) ("Original Korg 2.02 zu Hacktribe")
+Siehe: [patcher.md](patcher.md) ("Original Korg 2.02 zu Hacktribe")
+
+<a id="haken"></a>
 
 ## Haken
 
-Hook: a place where a patch redirects the firmware (a function start, a call site, or a table pointer), registered with its chain, position and swallow flag in the patch's `hooks` list.
+Eine Stelle, an der ein Patch die Firmware umlenkt (ein Funktionsanfang, eine Aufrufstelle oder ein Tabellenzeiger). Sie steht mit Kette, Position und Swallow-Flag in der `hooks`-Liste des Patches.
 
-See: [patcher.md](patcher.md) ("Einhaken", "Haken-Register"), `src/hooks.mjs`
+Siehe: [patcher.md](patcher.md) ("Einhaken", "Haken-Register"), `src/hooks.mjs`
+
+<a id="host-port"></a>
 
 ## Host-Port
 
-The memory port through which the ARM processor reads and writes the DSP's memory, for example to load sample audio into the DSP or to read it back. In the emulator it is modelled as a mailbox with control words such as 0xA9 and 0xAB.
+Der Speicher-Port, über den der ARM-Prozessor den Speicher des DSP liest und schreibt, zum Beispiel um Sample-Audio in den DSP zu laden oder zurückzulesen. Im Emulator ist er als Mailbox mit Steuerwörtern wie 0xA9 und 0xAB nachgebildet.
 
-See: [ideen/52-ton-im-emulator.md](ideen/52-ton-im-emulator.md), [ideen/59-sample-editor.md](ideen/59-sample-editor.md), [hintergrund/dsp-erster-blick.md](hintergrund/dsp-erster-blick.md)
+Siehe: [ideen/52-ton-im-emulator.md](ideen/52-ton-im-emulator.md), [ideen/59-sample-editor.md](ideen/59-sample-editor.md), [hintergrund/dsp-erster-blick.md](hintergrund/dsp-erster-blick.md)
+
+<a id="jtag"></a>
 
 ## JTAG
 
-Hardware debug interface. When the firmware hangs before its rescue paths, or the boot program is damaged, only a JTAG probe can recover the device.
+Hardware-Debug-Schnittstelle. Hängt die Firmware, bevor ihre Rettungswege greifen, oder ist das Startprogramm beschädigt, kann nur eine JTAG-Sonde das Gerät noch retten.
 
-See: [patcher.md](patcher.md) ("Startablauf", "Was kaputtgehen kann"), [rettung.md](rettung.md)
+Siehe: [patcher.md](patcher.md) ("Startablauf", "Was kaputtgehen kann"), [rettung.md](rettung.md)
+
+<a id="kurzpruefung"></a>
 
 ## Kurzprüfung
 
-The default emulator check of the patcher page: only start and rescue paths (`check.py --quick`), not the cases of the individual patches. "Voller Test" runs those too, "Kein Test" skips the check.
+Die Standard-Emulatorprüfung der Patcher-Seite: nur Start- und Rettungswege (`check.py --quick`), nicht die Fälle der einzelnen Patches. "Voller Test" prüft auch die, "Kein Test" überspringt die Prüfung.
 
-See: [patcher.md](patcher.md) ("Prüfumfang"), `tools/emu/check.py`
+Siehe: [patcher.md](patcher.md) ("Prüfumfang"), `tools/emu/check.py`
+
+<a id="lang-de"></a>
 
 ## lang-de
 
-Optional generated patch that shows the BLECH menu and Korg's main menus in German. Off by default, available only through the app.
+Optionaler, erzeugter Patch, der das BLECH-Menü und Korgs Hauptmenüs auf Deutsch zeigt. Standardmäßig aus, nur über die App verfügbar.
 
-See: [firmware-sprache.md](firmware-sprache.md), `src/patcher.mjs` (`LANG_DE_URLS`)
+Siehe: [firmware-sprache.md](firmware-sprache.md), `src/patcher.mjs` (`LANG_DE_URLS`)
+
+<a id="linter"></a>
 
 ## Linter
 
-The rule set (src/rules.mjs, data/findings.mjs) that checks effect presets and other fields against everything that has gone wrong before; severities fatal, silent, error, warn, note.
+Der Regelsatz (src/rules.mjs, data/findings.mjs), der Effekt-Presets und andere Felder gegen alles prüft, was früher schiefgegangen ist. Schweregrade: fatal, silent, error, warn, note.
 
-See: [linter.md](linter.md)
+Siehe: [linter.md](linter.md)
 
-## Loading animation
+<a id="loading-animation"></a>
 
-The file KORG/blechtribe/Media/loading.blla (format BLLA) that the firmware plays while it loads the samples; without a valid file Blechy plays.
+## Ladeanimation
 
-See: [hintergrund/ladeanimation.md](hintergrund/ladeanimation.md)
+Die Datei KORG/blechtribe/Media/loading.blla (Format BLLA), die die Firmware beim Laden der Samples abspielt. Ohne gültige Datei spielt Blechy.
+
+Siehe: [hintergrund/ladeanimation.md](hintergrund/ladeanimation.md)
+
+<a id="mailbox"></a>
 
 ## Mailbox
 
-The command channel from ARM to DSP: 64 word frames sent alternately to two mailbox addresses (0xFF900018, 0xFF900098); the ARM waits until the DSP clears bit 31 before the next frame.
+Der Befehlskanal vom ARM zum DSP: Rahmen aus 64 Wörtern, die abwechselnd an zwei Mailbox-Adressen gehen (0xFF900018, 0xFF900098). Der ARM wartet, bis der DSP Bit 31 löscht, bevor der nächste Rahmen kommt.
 
-See: [hintergrund/patternwechsel.md](hintergrund/patternwechsel.md) (section 2.4)
+Siehe: [hintergrund/patternwechsel.md](hintergrund/patternwechsel.md) (Abschnitt 2.4)
+
+<a id="mfx"></a>
 
 ## MFX
 
-Master effect: the one effect on the whole mix, chosen per pattern (page MFX TYPE). The MFX 2 patch makes TOUCH SCALE a second MASTER FX button with a second effect type per pattern slot.
+Master-Effekt: der eine Effekt auf dem ganzen Mix, pro Pattern gewählt (Seite MFX TYPE). Der Patch MFX 2 macht aus TOUCH SCALE eine zweite MASTER-FX-Taste mit einem zweiten Effekttyp pro Pattern-Slot.
 
-See: `tools/patch/mfx_switch.py`, [messungen/2026-10-10-mfx-umschalter.md](messungen/2026-10-10-mfx-umschalter.md)
+Siehe: `tools/patch/mfx_switch.py`, [messungen/2026-10-10-mfx-umschalter.md](messungen/2026-10-10-mfx-umschalter.md)
+
+<a id="motion-sequence"></a>
 
 ## Motion Sequence
 
-The Electribe's recorded knob movement per part. A part's mode is off (0), smooth (1) or trigger hold (2), set by the page MOTION SEQ of the Part menu or `korg.parts[i].motionMode`.
+Die aufgezeichnete Reglerbewegung des Electribe pro Part. Der Modus eines Parts ist aus (0), glatt (1) oder Trigger halten (2), eingestellt auf der Seite MOTION SEQ im Part-Menü oder mit `korg.parts[i].motionMode`.
 
-See: `data/script/contract.mjs` (PATTERN_MOTION, PART_FIELDS motionMode)
+Siehe: `data/script/contract.mjs` (PATTERN_MOTION, PART_FIELDS motionMode)
+
+<a id="notschalter"></a>
 
 ## Notschalter
 
-Emergency switch: holding EXIT while powering on makes every hooked-in patch skip its code, so the device runs like the unpatched firmware for this start only. Nothing is stored.
+Hält man beim Einschalten EXIT, überspringt jeder eingehakte Patch seinen Code, das Gerät läuft dann nur für diesen Start wie die ungepatchte Firmware. Es wird nichts gespeichert.
 
-See: [patcher.md](patcher.md) ("Notschalter")
+Siehe: [patcher.md](patcher.md) ("Notschalter")
 
-## Panel controller
+<a id="panel-controller"></a>
 
-The separate microcontroller (ARM Cortex-M3, FM3 family) behind keys, knobs, pads and LEDs, talking to the main ARM over UART0 in 5 byte messages; its firmware is stored in every VSB.
+## Panel-Controller
 
-See: [hintergrund/panel-controller.md](hintergrund/panel-controller.md)
+Der eigene Mikrocontroller (ARM Cortex-M3, FM3-Familie) hinter Tasten, Reglern, Pads und LEDs. Er spricht über UART0 in 5-Byte-Nachrichten mit dem Haupt-ARM, seine Firmware steckt in jeder VSB.
+
+Siehe: [hintergrund/panel-controller.md](hintergrund/panel-controller.md)
+
+<a id="patch"></a>
 
 ## Patch
 
-A set of byte changes applied to the user's own SYSTEM.VSB (JSON under data/patches/, built by tools/patch/); code patches hook into firmware functions, data patches only replace bytes.
+Eine Menge von Byte-Änderungen an der eigenen SYSTEM.VSB des Nutzers (JSON unter data/patches/, gebaut von tools/patch/). Code-Patches haken sich in Firmware-Funktionen ein, Daten-Patches ersetzen nur Bytes.
 
-See: [hintergrund/blech-theme.md](hintergrund/blech-theme.md), data/patches/
+Siehe: [hintergrund/blech-theme.md](hintergrund/blech-theme.md), data/patches/
+
+<a id="patcher"></a>
 
 ## Patcher
 
-The tool that builds a changed SYSTEM.VSB from patch files (ARM code and hooks); available in the app and as tools/patch/apply.mjs.
+Das Werkzeug, das aus Patch-Dateien (ARM-Code und Haken) eine geänderte SYSTEM.VSB baut. Es steckt in der App und ist als tools/patch/apply.mjs verfügbar.
 
-See: [development.md](development.md) (section "Patcher"), `tools/patch/apply.mjs`
+Siehe: [development.md](development.md) (Abschnitt "Patcher"), `tools/patch/apply.mjs`
+
+<a id="pattern-confirm"></a>
 
 ## Pattern confirm
 
-BLECH feature (menu BLECH > FEATURES > PATTERN CONFIRM, patch pattern-switch): turning the wheel while playing only browses (VIEW:), MENU confirms (NEXT:) and the change happens at the end of the sequence.
+BLECH-Funktion (Menü BLECH > FEATURES > PATTERN CONFIRM, Patch pattern-switch): Dreht man beim Spielen das Rad, wird nur geblättert (VIEW:), MENU bestätigt (NEXT:) und der Wechsel passiert am Ende der Sequenz.
 
-See: [hintergrund/patternwechsel.md](hintergrund/patternwechsel.md)
+Siehe: [hintergrund/patternwechsel.md](hintergrund/patternwechsel.md)
+
+<a id="plugin"></a>
 
 ## Plugin
 
-A small program in the repo's own script language that runs on the Electribe inside the BLECHTRIBE runtime (apps, games, tools, helpers), written in the editor on the Plugins page and tested in a simulator before it is sent.
+Ein kleines Programm in der eigenen Skriptsprache dieses Repos, das auf dem Electribe in der BLECHTRIBE-Laufzeit läuft (Apps, Spiele, Werkzeuge, Helfer). Man schreibt es im Editor auf der Plugins-Seite und testet es in einem Simulator, bevor man es schickt.
 
-See: [plugins.md](plugins.md)
+Siehe: [plugins.md](plugins.md)
+
+<a id="plugin-laufzeit"></a>
 
 ## Plugin-Laufzeit
 
-The runtime (patch `script-runtime`, generated, not in the repository) that runs plugins from the card and adds the BLECH menu and the built-in app Blechy to the device.
+Die Laufzeit (Patch `script-runtime`, erzeugt, nicht im Repo), die Plugins von der Karte ausführt und das BLECH-Menü und die eingebaute App Blechy auf das Gerät bringt.
 
-See: [patcher.md](patcher.md), [plugins.md](plugins.md)
+Siehe: [patcher.md](patcher.md), [plugins.md](plugins.md)
+
+<a id="pool"></a>
 
 ## Pool
 
-The shared 128 KiB memory area (0xC01D7000 to 0xC01F7000) in which the plugin blocks, their variables and their plugin entries live. A block that does not fit is rejected with POOL_BUDGET.
+Der gemeinsame 128 KiB große Speicherbereich (0xC01D7000 bis 0xC01F7000), in dem die Plugin-Blöcke, ihre Variablen und ihre Plugin-Einträge liegen. Ein Block, der nicht passt, wird mit POOL_BUDGET abgelehnt.
 
-See: `tools/patch/script_hooks.py` (POOL), `data/script/contract.mjs` (SCRIPT_POOL_BYTES, ERROR_LIST)
+Siehe: `tools/patch/script_hooks.py` (POOL), `data/script/contract.mjs` (SCRIPT_POOL_BYTES, ERROR_LIST)
+
+<a id="probelauf"></a>
 
 ## Probelauf
 
-Rehearsal: the simulated device is given exactly the byte stream that would go to the device and plays it through on a copy. Catches wrong channel, missing address messages and encoding errors.
+Das simulierte Gerät bekommt genau den Byte-Strom, der zum Gerät gehen würde, und spielt ihn auf einer Kopie durch. Das fängt falschen Kanal, fehlende Adressnachrichten und Kodierungsfehler.
 
-See: [architektur.md](architektur.md)
+Siehe: [architektur.md](architektur.md)
+
+<a id="rahmenhaken"></a>
 
 ## Rahmenhaken
 
-The routine hooked into the firmware's UI task that runs once per frame (every 40 ms, 25 times a second). It compares the firmware's state to create sequencer events, delivers the event ring, timers and frame events to the plugins, sends LED packets and copies the plugin display.
+Die Routine, die in den UI-Task der Firmware eingehakt ist und einmal pro Frame läuft (alle 40 ms, 25 mal pro Sekunde). Sie vergleicht den Zustand der Firmware, um Sequencer-Ereignisse zu erzeugen, liefert Ereignisring, Timer und Frame-Ereignisse an die Plugins, schickt LED-Pakete und kopiert das Plugin-Display.
 
-See: `tools/patch/script_hooks.s`, [plugins.md](plugins.md) ("Ereignisse")
+Siehe: `tools/patch/script_hooks.s`, [plugins.md](plugins.md) ("Ereignisse")
+
+<a id="sample-swap"></a>
 
 ## Sample-Swap
 
-Patch `sample-swap`: with a large `e2sSample.all`, start loads only the samples of the first pattern; further samples are loaded from the card or the RAM cache when a pattern needs them. Red Sampler only.
+Der Patch `sample-swap`: Bei einer großen `e2sSample.all` lädt der Start nur die Samples des ersten Patterns. Weitere Samples kommen von der Karte oder aus dem RAM-Cache, wenn ein Pattern sie braucht. Nur roter Sampler.
 
-See: [patcher.md](patcher.md) (patch table), `data/patches/sample-swap.json`
+Siehe: [patcher.md](patcher.md) (Patch-Tabelle), `data/patches/sample-swap.json`
+
+<a id="seqtask"></a>
 
 ## SeqTask
 
-The firmware task (priority 2) that runs the sequencer; it is woken every 2 ms and turns the timer ticks into sequencer steps, notes and MIDI.
+Der Firmware-Task (Priorität 2), der den Sequencer betreibt. Er wird alle 2 ms geweckt und macht aus den Timer-Ticks Sequencer-Schritte, Noten und MIDI.
 
-See: [hintergrund/sequencer-timing.md](hintergrund/sequencer-timing.md), [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) (section 1.1)
+Siehe: [hintergrund/sequencer-timing.md](hintergrund/sequencer-timing.md), [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) (Abschnitt 1.1)
+
+<a id="sidecar"></a>
 
 ## Sidecar
 
-The frozen (PyInstaller) emulator service that the desktop app starts next to the page.
+Der eingefrorene (PyInstaller) Emulator-Dienst, den die Desktop-App neben der Seite startet.
 
-See: [development.md](development.md) (section "Die App"), `tools/emu/build-sidecar.mjs`
+Siehe: [development.md](development.md) (Abschnitt "Die App"), `tools/emu/build-sidecar.mjs`
 
-## Splash screen
+<a id="splash-screen"></a>
 
-The 128 x 64 pixel start image; BLECH stores a user image in flash sector 0x7F0000 and mirrors it as KORG/blechtribe/Media/splash.bmp.
+## Startbild
 
-See: [hintergrund/startbild-editor.md](hintergrund/startbild-editor.md)
+Das Startbild mit 128 x 64 Pixeln. BLECH legt ein Nutzerbild im Flash-Sektor 0x7F0000 ab und spiegelt es als KORG/blechtribe/Media/splash.bmp.
+
+Siehe: [hintergrund/startbild-editor.md](hintergrund/startbild-editor.md)
+
+<a id="sprachbereich"></a>
 
 ## Sprachbereich
 
-The 16 KiB at `0xC016C000` to `0xC0170000` (top of the code area MORE3) where `lang-de` writes its texts, tables and glyphs.
+Die 16 KiB von `0xC016C000` bis `0xC0170000` (oberes Ende des Code-Bereichs MORE3), in die `lang-de` seine Texte, Tabellen und Glyphen schreibt.
 
-See: [firmware-sprache.md](firmware-sprache.md), `tools/patch/script_hooks.py` (`LANG`)
+Siehe: [firmware-sprache.md](firmware-sprache.md), `tools/patch/script_hooks.py` (`LANG`)
+
+<a id="startphase"></a>
 
 ## Startphase
 
-The firmware's start sequence before the main screen: boot program, panel exchange, key query at start, update prompt. Patches may not change code that runs there, because the rescue paths live there; listed exceptions are declared in a patch's `startPhase`.
+Der Startablauf der Firmware vor dem Hauptbildschirm: Startprogramm, Panel-Austausch, Tastenabfrage beim Start, Update-Abfrage. Patches dürfen Code, der dort läuft, nicht ändern, weil dort die Rettungswege liegen. Aufgeführte Ausnahmen stehen in `startPhase` des Patches.
 
-See: [patcher.md](patcher.md) ("Regeln", "Prüfungen vor dem Export")
+Siehe: [patcher.md](patcher.md) ("Regeln", "Prüfungen vor dem Export")
 
-## Swap file
+<a id="swap-file"></a>
 
-The temporary file e2sSample.tmp on the card used to shrink e2sSample.all, because the firmware's FatFs cannot truncate or rename.
+## Swap-Datei
 
-See: [hintergrund/sample-datei.md](hintergrund/sample-datei.md)
+Die temporäre Datei e2sSample.tmp auf der Karte, mit der e2sSample.all verkleinert wird, weil das FatFs der Firmware weder kürzen noch umbenennen kann.
+
+Siehe: [hintergrund/sample-datei.md](hintergrund/sample-datei.md)
+
+<a id="sync-group"></a>
 
 ## Sync Group
 
-A per-pattern setting (OFF or 1 to 999) added by BLECHTRIBE. Patterns of the same group switch at the end of the sequence without MENU confirmation, and live changes (pitch, modulation) carry over to the next pattern in RAM, so there is no jump.
+Eine Einstellung pro Pattern (OFF oder 1 bis 999), die BLECHTRIBE hinzufügt. Patterns derselben Gruppe wechseln am Ende der Sequenz ohne MENU-Bestätigung, und Live-Änderungen (Tonhöhe, Modulation) gehen im RAM ins nächste Pattern mit, es gibt also keinen Sprung.
 
-See: [messungen/2026-10-19-sync-groups.md](messungen/2026-10-19-sync-groups.md)
+Siehe: [messungen/2026-10-19-sync-groups.md](messungen/2026-10-19-sync-groups.md)
+
+<a id="sysex"></a>
 
 ## SysEx
 
-System Exclusive, the MIDI message type used over USB to talk to the device (reading and writing memory and files, remote control).
+System Exclusive, der MIDI-Nachrichtentyp, mit dem über USB mit dem Gerät gesprochen wird (Speicher und Dateien lesen und schreiben, Fernsteuerung).
 
-See: [test-modus.md](test-modus.md), [patcher.md](patcher.md)
+Siehe: [test-modus.md](test-modus.md), [patcher.md](patcher.md)
+
+<a id="test-modus"></a>
 
 ## Test-Modus
 
-State in which the device looks switched off (display, light and LEDs dark, Auto Power Off held) but keeps running. Only over USB, only in RAM; on a real device it is blocked after it froze one.
+Zustand, in dem das Gerät wie ausgeschaltet aussieht (Display, Licht und LEDs dunkel, Auto Power Off gehalten), aber weiterläuft. Nur über USB, nur im RAM. Auf einem echten Gerät ist er gesperrt, seit er eines eingefroren hat.
 
-See: [test-modus.md](test-modus.md)
+Siehe: [test-modus.md](test-modus.md)
+
+<a id="timer3"></a>
 
 ## Timer3
 
-The hardware timer that counts at 150 MHz and that the firmware runs with a period of one second. The plugin clock (`korg.millis`) and the timers are built on it.
+Der Hardware-Timer, der mit 150 MHz zählt und den die Firmware mit einer Periode von einer Sekunde betreibt. Die Plugin-Uhr (`korg.millis`) und die Timer bauen darauf auf.
 
-See: `data/script/contract.mjs` (TIMER3)
+Siehe: `data/script/contract.mjs` (TIMER3)
+
+<a id="touch-scale"></a>
 
 ## Touch Scale
 
-One of the three touchpad modes (Touch Scale alone, Gate Arp + Touch Scale, Gate Arp alone) selected by the TOUCH SCALE, GATE ARP and MASTER FX buttons; X on the pad plays the note of the scale.
+Einer der drei Touchpad-Modi (Touch Scale allein, Gate Arp + Touch Scale, Gate Arp allein), gewählt mit den Tasten TOUCH SCALE, GATE ARP und MASTER FX. X auf dem Pad spielt die Note der Skala.
 
-See: [tastenkombinationen.md](tastenkombinationen.md), [ideen/102-gate-arp-y-rhythmus.md](ideen/102-gate-arp-y-rhythmus.md)
+Siehe: [tastenkombinationen.md](tastenkombinationen.md), [ideen/102-gate-arp-y-rhythmus.md](ideen/102-gate-arp-y-rhythmus.md)
 
-## Tuersteher
+<a id="tuersteher"></a>
 
-The gatekeeper: every change passes the linter and a rehearsal in the simulated device before it is sent to the device. Errors block sending, warnings need confirmation.
+## Türsteher
 
-See: [architektur.md](architektur.md) (section "Der Türsteher"), `src/gate.mjs`
+Der Türsteher: Jede Änderung läuft durch den Linter und einen Probelauf im simulierten Gerät, bevor sie zum Gerät geht. Fehler blockieren das Senden, Warnungen brauchen eine Bestätigung.
+
+Siehe: [architektur.md](architektur.md) (Abschnitt "Der Türsteher"), `src/gate.mjs`
+
+<a id="uitask"></a>
 
 ## UiTask
 
-The firmware task that dispatches keys, draws the screens every 40 ms and is the only context where plugin handlers run.
+Der Firmware-Task, der Tasten verteilt, alle 40 ms die Bildschirme zeichnet und der einzige Kontext ist, in dem Plugin-Handler laufen.
 
-See: [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) (section 1.1)
+Siehe: [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) (Abschnitt 1.1)
+
+<a id="unicorn"></a>
 
 ## Unicorn
 
-The CPU emulation library the emulator tools use to execute ARM code, also for single routines without the whole firmware (for example to count the instructions of a display call).
+Die CPU-Emulationsbibliothek, mit der die Emulator-Werkzeuge ARM-Code ausführen, auch einzelne Routinen ohne die ganze Firmware (zum Beispiel um die Befehle eines Display-Aufrufs zu zählen).
 
-See: [plugins.md](plugins.md) ("Im Emulator"), `tools/patch/test_script_display.py`
+Siehe: [plugins.md](plugins.md) ("Im Emulator"), `tools/patch/test_script_display.py`
+
+<a id="vm"></a>
 
 ## VM
 
-The bytecode virtual machine of the plugin runtime (tools/patch/script_vm.s): a stack machine with bounds-checked variables, a fuel counter that stops endless loops and a fixed API table instead of firmware addresses.
+Die Bytecode-Maschine der Plugin-Laufzeit (tools/patch/script_vm.s): eine Stapelmaschine mit bereichsgeprüften Variablen, einem Treibstoff-Zähler, der Endlosschleifen stoppt, und einer festen API-Tabelle statt Firmware-Adressen.
 
-See: [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) (sections 2.2, 2.3)
+Siehe: [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) (Abschnitte 2.2, 2.3)
+
+<a id="vsb"></a>
 
 ## VSB
 
-The firmware file `SYSTEM.VSB` of the Electribe 2: 0x200100 bytes, a 256 byte header plus the 2 MiB image of the ARM processor (code, data, and the embedded DSP program). It is not encrypted. The device installs it from the SD card through DATA UTILITY, SOFTWARE UPDATE.
+Die Firmware-Datei `SYSTEM.VSB` des Electribe 2: 0x200100 Bytes, ein 256 Byte großer Header plus das 2-MiB-Abbild des ARM-Prozessors (Code, Daten und das eingebettete DSP-Programm). Sie ist nicht verschlüsselt. Das Gerät installiert sie von der SD-Karte über DATA UTILITY, SOFTWARE UPDATE.
 
-See: [patcher.md](patcher.md) ("Was in der VSB steckt")
+Siehe: [patcher.md](patcher.md) ("Was in der VSB steckt")
+
+<a id="wfi"></a>
 
 ## WFI
 
-The ARM instruction "wait for interrupt". A quiet firmware waits in it about 3000 times a second, one stuck in a loop never does, which the emulator uses to tell idle from hung.
+Der ARM-Befehl "wait for interrupt". Eine ruhige Firmware wartet darin etwa 3000 mal pro Sekunde, eine, die in einer Schleife hängt, nie. Der Emulator unterscheidet so Leerlauf von Hänger.
 
-See: `tools/emu/machine.py` (idle_waits), `tools/emu/server.py` (alive)
+Siehe: `tools/emu/machine.py` (idle_waits), `tools/emu/server.py` (alive)

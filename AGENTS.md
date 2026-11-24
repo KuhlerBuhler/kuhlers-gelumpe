@@ -127,13 +127,15 @@ case modules your change touches; CI runs the rest (see below). The blue Electri
 ## Docs
 
 Where things live: [docs/README.md](docs/README.md) is the index, [docs/glossary.md](docs/glossary.md) explains the
-terms. The knowledge itself stays in `docs/`, do not copy it into this file.
+terms. Both have English twins, [docs/README.en.md](docs/README.en.md) and [docs/glossary.en.md](docs/glossary.en.md). The knowledge itself stays in `docs/`, do not copy it into this file.
 
-The docs are written in the author's own voice, in German. README, `docs/plugins.en.md`,
-`docs/patcher.en.md` and `docs/original-zurueck.en.md` have English twins; change both. `docs/plugins.fr.md` is a
+The docs are written in the author's own voice, in German. README, `docs/README.md`, `docs/glossary.md`, `docs/plugins.md`,
+`docs/patcher.md` and `docs/original-zurueck.md` have English twins (`*.en.md`); change both. `docs/plugins.fr.md` is a
 French twin of the plugins page that no test pins; keep it in line when you change the plugins page.
-`docs/glossary.md` and `docs/README.md` are in English. Link a technical term to the glossary on its first use in a page
-(`[VSB](glossary.md#vsb)`), and add a term to the glossary when a new page needs one.
+Link a technical term to the glossary on its first use in a page (`[VSB](glossary.md#vsb)`; an English page links
+`glossary.en.md`), and add a term to both glossaries when a new page needs one. The anchor ids are the same in both
+languages, German headings carry an explicit `<a id="...">`, so keep the id when you rename a heading. The English
+index lists the `.en.md` twin where one exists, else the German page.
 They name no person other than in the sentence that explains the project name, and they carry no
 agent working vocabulary. No em or en dashes anywhere, no absolute personal paths, relative links only.
 `test/docs.test.mjs` fails on dead links, absolute user paths, those names and dashes, and on a

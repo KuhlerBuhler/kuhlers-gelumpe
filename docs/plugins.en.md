@@ -11,11 +11,11 @@ A plugin gives the Electribe a new function, such as a running light, a game on 
 page of your own. You put it on the device through the SD card, much like a plugin in music software. If
 you want, you write your own: the plugin code is a subset of JavaScript.
 
-The editor compiles a plugin into a block of [bytecode](glossary.md#bytecode) that a small [VM](glossary.md#vm) in the firmware runs. An error
+The editor compiles a plugin into a block of [bytecode](glossary.en.md#bytecode) that a small [VM](glossary.en.md#vm) in the firmware runs. An error
 switches the plugin off and shows a message in the BLECH menu. The Electribe keeps running.
 
 All plugins are loaded at start and run at once: a plugin that only sets LEDs or remaps keys needs no
-menu step. The **display** belongs to the device. A plugin with a screen of its own is an [**app**](glossary.md#app): it
+menu step. The **display** belongs to the device. A plugin with a screen of its own is an [**app**](glossary.en.md#app): it
 appears in the BLECH menu under GAMES or TOOLS, ENTER opens it and EXIT always closes it. If you really
 want to draw on the display directly, take it with `korg.display.take()` and give it back with EXIT.
 Loading a plugin never draws anything (section "Apps and the display").
@@ -23,7 +23,7 @@ Loading a plugin never draws anything (section "Apps and the display").
 The page has five parts: the language reference (structure, apps and display, language, events,
 functions, limits), the card with its file format, the BLECH menu on the device, the Plugins page in the
 editor, and the status section. What the language reference says holds for the language and its checks in
-the browser and in the [emulator](glossary.md#emulator). On the device the BLECH menu and the plugins of the card run; what
+the browser and in the [emulator](glossary.en.md#emulator). On the device the BLECH menu and the plugins of the card run; what
 exactly is tested there is in "Status".
 
 ## Language reference
@@ -55,7 +55,7 @@ delivers. Handlers become active once the body has run to its end without an err
 ### Apps and the display
 
 The display belongs to the firmware. A plugin draws into it only when it owns the display, which can
-happen in two ways. Both end with EXIT: the firmware handles EXIT in its [input filter](glossary.md#eingangsfilter) before a plugin
+happen in two ways. Both end with EXIT: the firmware handles EXIT in its [input filter](glossary.en.md#eingangsfilter) before a plugin
 sees the key, so a plugin can neither catch nor swallow EXIT. A plugin that does not own the display and
 draws anyway is ignored: the calls do nothing and report nothing. Loading or importing a plugin never
 takes the display.
@@ -92,7 +92,7 @@ display. The function returns 1 on success, otherwise 0. Then the plugin draws u
 display, it is opened from the menu. Not in the body: there is no display there.
 A key held when `korg.display.take()` succeeds stays with the firmware: its release reaches the firmware
 while the plugin owns the display, so SHIFT or PART MUTE held across a take does not stay stuck (measured in
-the emulator on [Hacktribe](glossary.md#hacktribe), red and blue, `take_lets_key_releases_reach_the_firmware`). Unlike EXIT,
+the emulator on [Hacktribe](glossary.en.md#hacktribe), red and blue, `take_lets_key_releases_reach_the_firmware`). Unlike EXIT,
 `korg.display.release()` does not put `korg.passKeys` and `korg.padHold` back to their defaults.
 
 ```js
@@ -174,7 +174,7 @@ A compile error names line and column and says what to do. The wording is German
 | `menu` | `id`, `value` | someone turned a page that the plugin created with `korg.menu.add` on the main dial |
 | `open`, `close` | | only for apps and for a plugin that took the display: `open` when the user opens the app in the menu, `close` when EXIT closes it (or the firmware leaves the main screen). They go only to this plugin and never come from outside |
 
-How the sequencer events arise: once per frame the firmware [hook](glossary.md#rahmenhaken) compares the firmware's state words
+How the sequencer events arise: once per frame the firmware [hook](glossary.en.md#rahmenhaken) compares the firmware's state words
 (transport, tempo, pattern, part, step of part 0, mutes) with those of the previous frame and queues one
 event for each change. The grid is therefore 40 ms. At the top tempo (300 BPM, 20 steps a second) every
 step still arrives. If something changes several times between two frames, a plugin sees one change. The
@@ -201,7 +201,7 @@ last. Inputs that arrive later wait in the ring for the next cycle. New plugins 
 the previous cycle is done.
 
 While the BLECH menu is open, pads, keys and encoders go straight to the
-firmware and no plugin gets an event (only [Blechy](glossary.md#blechy)'s page gets the touchpad and
+firmware and no plugin gets an event (only [Blechy](glossary.en.md#blechy)'s page gets the touchpad and
 its key). In all firmware menus (Pattern, Global, Part Edit, Step Edit and the
 rest) plugins get input as on the main screen.
 
@@ -294,7 +294,7 @@ like `korg.tempo(…)`, `korg.tempo = …` is not allowed in the body.
 | `korg.parts[i].cutoff` and the other part values below | part `i` (0 to 15) in the pattern that plays | yes (from API version 14; `voiceAssign` and `mfxSend` from 21; `sample`, `ifxOn`, `ifxType` and `ampEg` from 23; `lastStep` to `grooveDepth` from 24) | `korg.read.patternValue(-1, i, value)`, `korg.seq.setPartValue(i, value, x)` |
 
 **Values of a pattern** (`korg.pattern.current.…`, `korg.current.…`, `korg.patterns[i].…`): `tempo` (tenths of BPM), `swing` (-48 to 48), `length`
-(bars, 1 to 4), `beat` (0 16ths, 1 32nds, 2 8th triplets, 3 16th triplets, 4 8ths with [BLECHTRIBE](glossary.md#blechtribe)), `key` (0 C to 11 B), `scale`, `chordSet`,
+(bars, 1 to 4), `beat` (0 16ths, 1 32nds, 2 8th triplets, 3 16th triplets, 4 8ths with [BLECHTRIBE](glossary.en.md#blechtribe)), `key` (0 C to 11 B), `scale`, `chordSet`,
 `level`, `mfxType`, `chainTo` (the next pattern, 0 to 249, -1 without a chain), `chainRepeat` (at least 1), `gateArp` (the GATE ARP page, 0 off), `syncGroup` (0 off, 1 to 999; from API version 21), from API version 24
 `alternate1314` and `alternate1516` (1 on), `mfxHold` (1 on), `mfxPadX` and `mfxPadY` (the touchpad in MFX mode, 0 to 127), from API version 27 `mfx2Type` (the pattern's MFX 2 type from the patch
 mfx-switch, 0 to 99 as the display minus 1, 6 when the pattern has none of its own, -1 without the patch). Setting it only works while MFX 2
@@ -311,7 +311,7 @@ the details are under `korg.seq.setPartValue` and `korg.seq.setPatternValue`. Th
 `PART_FIELDS`); the places are measured in the device map `data/map/pattern.mjs`. From API version 8.
 
 **Motion sequence on and off**: `korg.parts[i].motionMode` is the MOTION SEQ page of the Part menu, 0 off, 1 smooth,
-2 trigger hold (from API version 24). A plugin switches a part's [motion sequence](glossary.md#motion-sequence) off with it without erasing the recorded
+2 trigger hold (from API version 24). A plugin switches a part's [motion sequence](glossary.en.md#motion-sequence) off with it without erasing the recorded
 movement; the old value plays it again.
 
 ```js
@@ -592,7 +592,7 @@ the places a call may be made from. "Like `korg.led`" means: in all events excep
 | Call | Effect | Allowed in |
 |---|---|---|
 | `korg.led(index, level)` | queue an LED job, `index` 0 to 87 (best a name such as `korg.led.TAP`), `level` 0 to 255 | all events except the body and `save` |
-| `korg.millis()` | milliseconds since the first call, from [Timer3](glossary.md#timer3) (150 MHz), which wraps every 150 million ticks; whole seconds between two calls from the operating system's tick count | everywhere |
+| `korg.millis()` | milliseconds since the first call, from [Timer3](glossary.en.md#timer3) (150 MHz), which wraps every 150 million ticks; whole seconds between two calls from the operating system's tick count | everywhere |
 | `korg.after(ms, fn)`, `korg.every(ms, fn)`, `korg.afterSteps(n, fn)`, `korg.cancel(number)` | timers, see above. From API version 11 | everywhere except `save` |
 | `korg.app(name, group)` | registers the plugin as an app: `name` 1 to 15 characters, `group` `"GAMES"` or `"TOOLS"`. Returns the number of the app, -1 if all 16 places are taken (the device then says "max 16 apps" on import; the plugin still shows in the plugin list and runs). As a statement of its own at the top, once per plugin (the compiler checks this) | body only |
 | `korg.file.frame(array, file, index)` | reads frame `index` (0 to 65535) of the file `GIFnn.E2G` (`file` 0 to 99 is nn) in `KORG/blechtribe/Gif/` into the array, one byte to a slot, which is exactly what `korg.display.bitmap(array, 0, 0, 128)` draws. The array needs at least 1024 slots. Returns the frame's delay in ms (at least 1), 0 past the last frame, -1 without a file, for a wrong or cut file and outside the main screen; after -1 the device may have changed the last quarter of the array. From API version 7 | like `korg.led` |
@@ -1053,7 +1053,7 @@ running its body (message "Plugin-Budget aller Plugins reicht nicht", code `POOL
 and loaded plugins stay unchanged. The compiler only pre-checks the number of variables at their
 declaration, with a default of 32768 slots (derived from 128 KiB divided by four). A block that compiled
 successfully can therefore still trigger `POOL_BUDGET` on load. The 65536 slots and 65535 array slots are
-format limits for the checker and the VM, not a promise that areas that large fit into the [pool](glossary.md#pool) on the
+format limits for the checker and the VM, not a promise that areas that large fit into the [pool](glossary.en.md#pool) on the
 device.
 
 The pool lies in the free FF area of the image, from `0xC01D7000` to `0xC01F7000` (131072 bytes). Measured
@@ -1076,10 +1076,10 @@ The error codes are in `data/script/contract.mjs`.
 
 ### Files for the card
 
-Plugins reach the device only through the SD card, never inside the [VSB](glossary.md#vsb). The folder is
+Plugins reach the device only through the SD card, never inside the [VSB](glossary.en.md#vsb). The folder is
 `KORG/blechtribe/Plugin/` (singular, not "Plugins"; the same on the red and the blue Electribe), which the
 firmware does not create itself. You create it. With the device connected, the Plugins page also writes a
-plugin there over USB (button "Aufs Gerät", BLECHTRIBE [SysEx](glossary.md#sysex) command `0x67` PLUGIN BEGIN, a name of letters,
+plugin there over USB (button "Aufs Gerät", BLECHTRIBE [SysEx](glossary.en.md#sysex) command `0x67` PLUGIN BEGIN, a name of letters,
 digits, `_` and `-`, at most 16 characters); then on the device BLECH, PLUGINS.
 
 - `e2sPlugin.all` is the collection file that the device reads at start. Header, 16 bytes, little endian:
@@ -1094,7 +1094,7 @@ digits, `_` and `-`, at most 16 characters); then on the device BLECH, PLUGINS.
   without such lines there is no `GDSC`. The device loads the block and shows the description on the plugin's page DESCRIPTION,
   the editor reads the source to open the plugin again.
 
-The loader runs once at start, right after the device has loaded [`e2sSample.all`](glossary.md#e2ssampleall). With EXIT held at
+The loader runs once at start, right after the device has loaded [`e2sSample.all`](glossary.en.md#e2ssampleall). With EXIT held at
 power-on, without a card or without the file it does nothing, and the Electribe starts as it would without
 it. A file with a wrong header, wrong checksum or truncated content is rejected as a whole. A single block
 that does not load (checksum, budget, invalid code) is skipped, the others run. Then the body (`start`) of
@@ -1115,7 +1115,7 @@ once (see "The BLECH menu on the device"). The bit is a hint, not protection, an
 version 1 (u16), number of frames (u16), then per frame its delay in ms (u16), two zero bytes and 1024 bytes of display
 memory (byte `(y / 8) * 128 + x`, bit `y % 8`). `tools/gif/gif2e2g.py` makes one from a GIF (Pillow), from several pictures (BMPs, say) one file with one frame per input in the order given, `src/script/gif.mjs`
 reads it in the browser. A call opens the file, seeks to the frame, reads it and closes the file again, through the
-firmware's [FatFs](glossary.md#fatfs) functions (also `f_lseek`, `0xC009E404`, on blue `0xC008AF5C`) with the card loader's file object. It
+firmware's [FatFs](glossary.en.md#fatfs) functions (also `f_lseek`, `0xC009E404`, on blue `0xC008AF5C`) with the card loader's file object. It
 reads only while the main screen is open. How long 1 KiB takes on the device is not
 measured; in the emulator it is 7.5 ms, which do not count against the frame budget.
 
@@ -1244,7 +1244,7 @@ The pages of the groups:
 | Plugin, one page per `korg.menu.add` | the number | the settings of this plugin: the main dial changes it, the plugin gets `menu` |
 | Plugin, REMOVE | `press  [ Enter ]` | ENTER asks ("Enter = remove"), a second ENTER takes it out of `e2sPlugin.all` like ACTIVE OFF and then deletes the plugin's `*.blech` from the card (the firmware's `f_unlink`): it is no longer listed, MANAGE PLUGINS reports "removed". For a plugin that is only a file only the file is deleted, for one only in `e2sPlugin.all` only that file is written again. The blue Electribe has no `f_unlink`: there the file stays and MANAGE PLUGINS reports "file stays on card". When the folder changed since the list was opened, nothing is deleted ("folder changed") ([measurement](messungen/2026-10-30-plugin-liste-64-entfernen.md)) |
 | DATA UTILITY, EXPORT ALL CUSTOMIZATIONS | (empty, `press  [ Enter ]`; the title reads "EXPORT ALL CUSTOM", the whole name does not fit the row) | ENTER or WRITE writes the customization as `KORG/blechtribe/e2sCustom.all`: the same record as the settings file, without the list of plugin checksums, and reports "exported". Nothing reads this file at start yet; copied over `settings.a.bin` the settings loader reads it and the customization is back |
-| DATA UTILITY, EXPORT ALL EFFECTS | (empty, `press  [ Enter ]`) | ENTER or WRITE writes the presets and modulation types as the firmware holds them in RAM now back into the collection `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX and modulation from the [Baukasten](glossary.md#baukasten)): every entry stays in its place with its `.e2fx` text, which the editor reads back; the checksum is made new. Without a collection file it makes one (entries without text, which the Baukasten skips on load). An existing file only when it was loaded at power-on: "bad e2sFx.all" when it is another or a broken one since, and then nothing is written. Red and blue (Korg's 2.02 with the BLECH set) |
+| DATA UTILITY, EXPORT ALL EFFECTS | (empty, `press  [ Enter ]`) | ENTER or WRITE writes the presets and modulation types as the firmware holds them in RAM now back into the collection `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX and modulation from the [Baukasten](glossary.en.md#baukasten)): every entry stays in its place with its `.e2fx` text, which the editor reads back; the checksum is made new. Without a collection file it makes one (entries without text, which the Baukasten skips on load). An existing file only when it was loaded at power-on: "bad e2sFx.all" when it is another or a broken one since, and then nothing is written. Red and blue (Korg's 2.02 with the BLECH set) |
 | DATA UTILITY, EXPORT ALL PLUGINS | (empty, `press  [ Enter ]`) | ENTER or WRITE writes all loaded plugins as `e2sPlugin.all`, byte for byte as the browser packs them, then saves the settings too (plugins switched off stay off) |
 | GAMES or TOOLS, one app per page | ENTER=OPEN | ENTER or WRITE opens the app ("Apps and the display"); if the plugin is OFF or has failed, the value shows OFF or FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | opens the pages of the display light; EXIT goes back to DISPLAY |
@@ -1621,7 +1621,7 @@ Markers as in the measurements: measured, derived, open.
 ### In the emulator
 
 All of this ran in the real firmware (2.02 with Hacktribe) in the emulator with a virtual card, or in
-[Unicorn](glossary.md#unicorn) without firmware, **not on the device**.
+[Unicorn](glossary.en.md#unicorn) without firmware, **not on the device**.
 
 - Compiler, checker and reference VM in JavaScript (`src/script/`), the Plugins page with run, probe and
   export, tests in `test/script-*.test.mjs`. Block format 2, API version 40.
