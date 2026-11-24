@@ -45,6 +45,7 @@ gelesen), **hergeleitet**, **offen**.
 | [hintergrund/skript-laufzeit.md](hintergrund/skript-laufzeit.md) | Firmware-Tasks, Haken und Speicher als Grundlage der Plugin-Laufzeit |
 | [hintergrund/virtuelle-sd.md](hintergrund/virtuelle-sd.md) | Datei-Funktionen der Firmware, FatFs, Sample-Lader, die virtuelle Karte |
 | [hintergrund/sample-datei.md](hintergrund/sample-datei.md) | Das Format der `e2sSample.all`, die Seite Samples, der Weg über USB mit Tauschdatei |
+| [hintergrund/aufnahmen-lesen.md](hintergrund/aufnahmen-lesen.md) | Die Aufnahmen in `SD:Recordings` über USB lesen und auflisten (FILE READ) |
 | [hintergrund/startbild-editor.md](hintergrund/startbild-editor.md) | Das Startbild im Flash und der Editor dafür |
 | [hintergrund/ladeanimation.md](hintergrund/ladeanimation.md) | Das Dateiformat der eigenen Ladeanimation, der GIF-Import |
 | [hintergrund/blech-theme.md](hintergrund/blech-theme.md) | Eigene Schriften und Symbole fürs Display, der Patch `blech-theme` |

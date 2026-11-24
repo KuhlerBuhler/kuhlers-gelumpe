@@ -60,12 +60,14 @@ class NativeSysex:
         self.uc.mem_write(self.code_at, self.code)
         sample_at, sample_code = b.build_sample_code()
         self.uc.mem_write(sample_at, sample_code)
+        self.rec_at, self.rec_code = b.build_rec_code()
         self.uc.mem_write(b.TABLE_AT, table if table is not None else protection(build))
         self.build = build
         self.message, self.panel, self.folder_at = 0xc0100000, 0xc0101000, 0xc0102000
         self.stack, self.stop = 0xc200f000, 0xc3fff000
         self.folder = 'SD:KORG/' + ('electribe/' if build == 'synth' else 'blechtribe/')
         self.files = {}
+        self.folders = set()
         self.open_name, self.position = None, 0
         self.port, self.locked = 1, False
         self.sent, self.io, self.trace = [], [], []
@@ -87,7 +89,8 @@ class NativeSysex:
         self.abi = {getattr(b, name): name for name in (
             'PORT_OF', 'TX_BEGIN', 'TX_SEND', 'TX_END', 'FLASH_OBJ', 'FLASH_READ',
             'FS_OPEN', 'FS_READ', 'FS_WRITE', 'FS_CLOSE', 'FS_LSEEK', 'FOLDER', 'STRING_FREE',
-            'CLASSIFY_BACK', 'PROCESS_BACK')}
+            'CLASSIFY_BACK', 'PROCESS_BACK', 'FS_OPENDIR', 'FS_READDIR', 'FS_CLOSEDIR')}
+        self.listing = None
         for address in self.abi:
             self.uc.hook_add(UC_HOOK_CODE, self.external, begin=address, end=address)
         self.uc.hook_add(UC_HOOK_BLOCK, self.block)
@@ -98,7 +101,8 @@ class NativeSysex:
     def reset(self):
         b = self.spec
         self.uc.mem_write(b.STATE, bytes(b.STATE_END - b.STATE))
-        self.uc.mem_write(b.FILE_AREA, bytes(b.FILE_AREA_END - b.FILE_AREA))
+        self.uc.mem_write(b.FILE_AREA, bytes(b.REC_AT - b.FILE_AREA))
+        self.uc.mem_write(self.rec_at, self.rec_code)
         self.uc.mem_write(b.BUF, bytes(min(b.BUF_END, min((a for a, g in self.guards if g and a >= b.BUF), default=b.BUF_END)) - b.BUF))
         self.uc.mem_write(SCRATCH - 16, b'\x91' * 16 + payload(b.MAX_BLOCK) + b'\x92' * 16)
         self.sent.clear()
@@ -222,6 +226,24 @@ class NativeSysex:
                     data[self.position:self.position + count] = uc.mem_read(pointer, count)
                 self.position += count
             self.write_word(count_at, count)
+        elif name == 'FS_OPENDIR':
+            path = self.cstring(args[1])
+            self.io.append([name, path])
+            prefix = path + '/'
+            result = self.failures.get(name, 0) or (0 if any(f.startswith(prefix) for f in self.files) or path in self.folders else 5)
+            self.listing = [f[len(prefix):] for f in self.files if f.startswith(prefix)] + ['SUBDIR'] if not result else None
+        elif name == 'FS_READDIR':
+            info = args[1]
+            if self.spec.FILE_FIL2 != info or self.read_word(info + 0x18) or self.read_word(info + 0x1C):
+                raise AssertionError('readdir needs FILE_FIL2 without a long name')
+            result = self.failures.get(name, 0)
+            if not result:
+                entry = self.listing.pop(0) if self.listing else ''
+                size = len(self.files.get(self.cstring(self.symbols['rec_folder']) + '/' + entry, b''))
+                uc.mem_write(info, struct.pack('<I', size) + bytes(5) + entry.encode()[:12].ljust(13, b'\0'))
+        elif name == 'FS_CLOSEDIR':
+            self.io.append([name])
+            self.listing = None
         elif name == 'FS_CLOSE':
             self.io.append([name])
             result = self.failures.get(name, 0)

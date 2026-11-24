@@ -1,9 +1,11 @@
 """BLECH's FILE READ and FILE BEGIN over USB (tools/patch/blech_sysex.py): the update file on the card, or ORIGINAL.BIN beside it,
-or the effect collection KORG/blechtribe/Presets/e2sFx.all.
+or the effect collection KORG/blechtribe/Presets/e2sFx.all, and the native recording's takes in SD:Recordings (read only).
 
     python3 usbfile.py sizes                          # SYSTEM.VSB and ORIGINAL.BIN on the card, in bytes
     python3 usbfile.py get FILE [--original | --fx]   # the file from the card into FILE
     python3 usbfile.py put FILE [--original | --fx]   # FILE onto the card, every block read back with its CRC, then all of it
+    python3 usbfile.py list-rec                       # the takes in SD:Recordings: number, size, "busy" for the one being written
+    python3 usbfile.py get-rec N FILE                 # take N (REC<N>.WAV) into FILE; refused while it is being written
 
 `put` writes the card: a broken SYSTEM.VSB is flashed by the next SOFTWARE UPDATE, so `get` a backup first. `--fx put` takes a
 collection only (src/fx-collection.mjs: magic GFXA, its size in the header, at most FX_LIMIT bytes) and only from a firmware whose
@@ -23,7 +25,9 @@ FX = 0x60000000                  # bits 30 and 29: KORG/blechtribe/Presets/e2sFx
 FLAG_FX_WRITE = 0x800            # INFO: FILE BEGIN takes e2sFx.all
 FX_LIMIT = 0x500000
 FX_MAGIC = 0x41584647            # "GFXA"
-STATUS = {1: "CRC wrong", 2: "refused", 3: "out of range", 5: "read back differs", 6: "card error"}
+REC = 0xE0000000                 # bits 31, 30 and 29 of FILE READ: a take; offset in 8 bytes, number in the length word's bits 16 up
+FLAG_REC = 0x1000                # INFO: FILE READ reads and lists the takes
+STATUS = {1: "CRC wrong", 2: "refused", 3: "out of range", 5: "read back differs", 6: "card error", 7: "the take is being written"}
 
 
 class Link:
@@ -81,6 +85,30 @@ def write(link, select, data, block=2048):
             print(f"  written {at + len(chunk)} of {len(data)}", flush=True)
 
 
+def rec_call(link, number, offset, n):
+    raw = link.call(FILE_READ, struct.pack("<II", REC | offset // 8, number << 16 | n), R_FILE_READ)
+    status, _, length, crc, total = struct.unpack_from("<5I", raw)
+    data = raw[20:20 + length]
+    if status or zlib.crc32(data) != crc:
+        what = "the list" if number == 0 else f"REC{number:04d}.WAV"
+        raise SystemExit(f"FILE READ of {what} at {offset}: {STATUS.get(status, status)} (code {crc:#x})")
+    return data, total
+
+
+def rec_read(link, number):
+    """Take `number` (0: the list of the folder, 8 bytes per take) whole, in blocks of a multiple of 8 bytes."""
+    if not link.flags & FLAG_REC:
+        raise SystemExit(f"INFO flags {link.flags:#x}: this firmware cannot read the recordings over USB")
+    _, total = rec_call(link, number, 0, 0)
+    out, block = bytearray(), link.block & ~7
+    while len(out) < total:
+        data, _ = rec_call(link, number, len(out), min(block, total - len(out)))
+        if not data:
+            raise SystemExit(f"FILE READ stopped at {len(out)} of {total} bytes")
+        out += data
+    return bytes(out)
+
+
 def collection_problem(data):
     if len(data) < 24 or struct.unpack_from("<I", data)[0] != FX_MAGIC:
         return "not an effect collection (no GFXA header)"
@@ -93,12 +121,26 @@ def collection_problem(data):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("what", choices=("sizes", "get", "put"))
-    p.add_argument("file", nargs="?")
+    p.add_argument("what", choices=("sizes", "get", "put", "list-rec", "get-rec"))
+    p.add_argument("file", nargs="?", help="FILE, or for get-rec the take's number")
+    p.add_argument("out", nargs="?", help="get-rec: the file to write")
     which = p.add_mutually_exclusive_group()
     which.add_argument("--original", action="store_true", help="ORIGINAL.BIN instead of SYSTEM.VSB")
     which.add_argument("--fx", action="store_true", help="KORG/blechtribe/Presets/e2sFx.all")
     a = p.parse_args()
+    if a.what == "get-rec":
+        if not (a.file and a.file.isdigit() and 1 <= int(a.file) <= 9999 and a.out):
+            p.error("get-rec needs N (1 to 9999) and FILE")
+        link = Link(mido_ask())
+        data = rec_read(link, int(a.file))
+        open(a.out, "wb").write(data)
+        print("read", len(data))
+        return
+    if a.what == "list-rec":
+        listing = rec_read(Link(mido_ask()), 0)
+        for number, total in sorted(struct.iter_unpack("<II", listing)):
+            print(f"REC{number & 0x7FFFFFFF:04d}.WAV {total}" + (" busy" if number >> 31 else ""))
+        return
     if a.what != "sizes" and not a.file:
         p.error("get and put need FILE")
     select = FX if a.fx else ORIGINAL if a.original else 0

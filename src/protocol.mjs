@@ -54,7 +54,7 @@ export const BLECH = {
   INFO: 0x60, READ: 0x61, BEGIN: 0x62, DATA: 0x63, FLASH: 0x64, FILE_READ: 0x65, FILE_BEGIN: 0x66, PLUGIN_BEGIN: 0x67, EXEC: 0x6f,
   R_INFO: 0x68, R_READ: 0x69, R_BEGIN: 0x6a, R_DATA: 0x6b, R_FLASH: 0x6c, R_FILE_READ: 0x6d, R_FILE_BEGIN: 0x6e, R_EXEC: 0x70,
   FILE_COPY: 0x71, FILE_DELETE: 0x72, FILE_CRC: 0x73, R_FILE_COPY: 0x79, R_FILE_DELETE: 0x7a, R_FILE_CRC: 0x7b,
-  STATUS: { OK: 0, BAD_CRC: 1, REFUSED: 2, RANGE: 3, FLASH: 4, VERIFY: 5, FILE: 6 },
+  STATUS: { OK: 0, BAD_CRC: 1, REFUSED: 2, RANGE: 3, FLASH: 4, VERIFY: 5, FILE: 6, BUSY: 7 },
   /** INFO flag: FLASH READ, in pieces of up to FLASH_MAX bytes */
   FLAG_FLASH: 0x08,
   FLASH_MAX: 0x1000,
@@ -80,6 +80,12 @@ export const BLECH = {
   FILE_FX: 0x60000000,
   /** INFO flag: FILE BEGIN takes e2sFx.all (bits 30 and 29), offset 0 makes the file anew and its folder when missing */
   FLAG_FX_WRITE: 0x800,
+  /** INFO flag: FILE READ reads the native recording's takes, SD:Recordings/REC0001.WAV to REC9999.WAV, and lists them (FILE_REC) */
+  FLAG_REC: 0x1000,
+  /** bits 31, 30 and 29 of a FILE READ offset: a take, read only. The rest of the offset counts in 8 bytes; the length word carries
+   *  the take's number in bits 16 and up (0 lists the folder, 8 bytes per take: number with bit 31 while written, size). STATUS.BUSY
+   *  for the take being written. docs/hintergrund/aufnahmen-lesen.md */
+  FILE_REC: 0xe0000000,
   /** the largest offset + length of a write of e2sFx.all (src/fx-collection.mjs MAX_FILE) */
   FX_LIMIT: 0x500000,
   /** the largest offset + length on a sample file */

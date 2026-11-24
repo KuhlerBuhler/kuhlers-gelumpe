@@ -62,10 +62,91 @@ class SysexBufferTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from('<I', failed)[0], b.STATUS_REFUSED)
         self.assertIsNone(m.request(b.FUNC_DATA, b'x'))
         for function in (b.FUNC_READ, b.FUNC_FLASH, b.FUNC_FREAD):
-            # bits 31 and 30 of a FILE offset select the sample file's temp file, whose limit is 256 MiB: 0xf8000000 is past it
-            for address, length in ((0xfffffff0, 32), (0xf8000000 if function == b.FUNC_FREAD else 0xc8000000, 1)):
+            # bits 31 and 30 of a FILE offset select the sample file's temp file, whose limit is 256 MiB: 0xd8000000 is past it
+            # (with bit 29 as well it is the recordings, which count the offset in 8 bytes, test_recordings_*)
+            for address, length in ((0xdffffff0 if function == b.FUNC_FREAD else 0xfffffff0, 32), (0xd8000000 if function == b.FUNC_FREAD else 0xc8000000, 1)):
                 reply = m.words(function, address, length)
                 self.assertEqual(struct.unpack_from('<I', reply)[0], b.STATUS_RANGE)
+        m.check_guards()
+
+    def test_recordings_use_the_recorders_own_state_and_folder(self):
+        import re
+        from tools.patch import blech_sysex as b, recording_runtime, script_hooks
+        self.assertEqual(b.NATIVE_RECORDING, script_hooks.NATIVE_RECORDING)
+        self.assertEqual((b.NR_CONTEXT, b.NR_NUMBER), (recording_runtime.PUBLIC_FIELDS['CONTEXT'], recording_runtime.PUBLIC_FIELDS['NUMBER']))
+        runtime = (ROOT / 'tools/patch/recording_runtime.s').read_text()
+        self.assertEqual(int(re.search(r'\.equ NR_MAGIC, (0x[0-9A-Fa-f]+)', runtime).group(1), 16), b.NR_MAGIC)
+        writer = (ROOT / 'tools/patch/recording_writer.s').read_text()
+        self.assertIn('"SD:Recordings"', writer)
+        self.assertIn('"SD:Recordings/REC0000.WAV"', writer)
+        self.assertIn(f'ldr r7, ={b.REC_MAX}', writer)
+        self.assertLessEqual(b.FILE_FIL2 + 0x224, b.REC_NUM)
+        self.assertLessEqual(b.REC_NUM + 4, b.REC_AT)
+
+    def test_recordings_read_list_busy_and_refusals(self):
+        m = NativeSysex()
+        b = m.spec
+        take = payload(3000)
+        m.files['SD:Recordings/REC0007.WAV'] = bytearray(take)
+        m.files['SD:Recordings/REC0012.WAV'] = bytearray(b'x' * 44)
+        m.files['SD:Recordings/REC0000.WAV'] = bytearray(b'zero')
+        m.files['SD:Recordings/NOTES.TXT'] = bytearray(b'no')
+        m.files['SD:Recordings/REC12AB.WAV'] = bytearray(b'no')
+
+        def fread(offset, number, length):
+            reply = m.words(b.FUNC_FREAD, b.FILE_REC | offset // 8, number << 16 | length)
+            return struct.unpack_from('<5I', reply), reply[20:]
+
+        # a take, by its number, from an offset in 8 bytes; the size alone with length 0
+        head, data = fread(16, 7, 100)
+        self.assertEqual(head, (0, 16, 100, zlib.crc32(take[16:116]), 3000))
+        self.assertEqual(data, take[16:116])
+        self.assertEqual(m.io[0], ['FS_OPEN', 'SD:Recordings/REC0007.WAV', 1])
+        self.assertEqual(fread(2992, 7, 0x100)[1], take[2992:])
+        self.assertEqual(fread(0, 7, 0)[0], (0, 0, 0, 0, 3000))
+        self.assertEqual(fread(0, 9999, 4)[0][0], b.STATUS_FILE)
+        self.assertEqual(fread(0, 10000, 4)[0][0], b.STATUS_RANGE)
+        self.assertEqual(fread(0, 7, b.MAX_BLOCK + 1)[0][0], b.STATUS_RANGE)
+        m.io.clear()
+        fread(0, 1234, 0)
+        self.assertEqual(m.io[0][1], 'SD:Recordings/REC1234.WAV')
+
+        # the list: number 0, 8 bytes per take in folder order, its size in the header; REC0000 and other names left out
+        head, data = fread(0, 0, 64)
+        self.assertEqual(head[0], 0)
+        self.assertEqual(head[4], 16)
+        self.assertEqual(struct.unpack('<4I', data), (7, 3000, 12, 44))
+        self.assertEqual(fread(8, 0, 8)[1], struct.pack('<II', 12, 44))
+        self.assertEqual(fread(16, 0, 8)[0][2], 0)
+        self.assertEqual(fread(0, 0, 12)[0][0], b.STATUS_RANGE)
+        self.assertEqual(m.io[-1], ['FS_CLOSEDIR'])
+
+        # the take being written is busy, older ones are not
+        m.write_word(b.NATIVE_RECORDING, b.NR_MAGIC)
+        m.write_word(b.NATIVE_RECORDING + b.NR_CONTEXT, 0x1234)
+        m.write_word(b.NATIVE_RECORDING + b.NR_NUMBER, 12)
+        self.assertEqual(fread(0, 12, 8)[0][0], b.STATUS_BUSY)
+        self.assertEqual(fread(0, 13, 8)[0][0], b.STATUS_BUSY)
+        self.assertEqual(fread(0, 7, 8)[0][0], 0)
+        self.assertEqual(struct.unpack('<4I', fread(0, 0, 16)[1]), (7, 3000, 12 | 1 << 31, 44))
+        m.write_word(b.NATIVE_RECORDING + b.NR_CONTEXT, 0)
+        self.assertEqual(fread(0, 12, 8)[0][0], 0)
+
+        # no folder: status 6 with the FatFs result
+        del m.files['SD:Recordings/REC0007.WAV'], m.files['SD:Recordings/REC0012.WAV']
+        for name in [f for f in m.files if f.startswith('SD:Recordings/')]:
+            del m.files[name]
+        self.assertEqual(fread(0, 0, 8)[0][:4], (b.STATUS_FILE, 0, 0, 5))
+
+        # read only: no other FILE command takes bit 29, so a take can not be written, copied, deleted or checked
+        before = dict(m.files)
+        m.files['SD:Recordings/REC0001.WAV'] = bytearray(b'keep')
+        for function, words in ((b.FUNC_FBEGIN, (b.FILE_REC | 0, 4, zlib.crc32(b'keep'))),
+                                (b.FUNC_COPY, (b.FILE_REC, b.FILE_SAMPLE, 4)), (b.FUNC_COPY, (b.FILE_SAMPLE, b.FILE_REC, 4)), (b.FUNC_DELETE, (b.FILE_REC,)), (b.FUNC_CRC, (b.FILE_REC, 4))):
+            reply = m.words(function, *words)
+            self.assertNotEqual(struct.unpack_from('<I', reply)[0], 0, hex(function))
+        self.assertEqual(m.files['SD:Recordings/REC0001.WAV'], b'keep')
+        self.assertTrue(set(before) <= set(m.files))
         m.check_guards()
 
     def test_file_eof_short_io_failures_and_names(self):

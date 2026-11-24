@@ -113,6 +113,13 @@ FILE_OTHER = 0x80000000         # bit 31 of a FILE offset: ORIGINAL.BIN instead 
 FILE_SAMPLE = 0x40000000        # bit 30 of a FILE offset: the sample file Sample/e2sSample.all, with bit 31 as well Sample/e2sSample.tmp
 FILE_FX = 0x60000000            # bits 30 and 29 of a FILE offset: the effect collection KORG/blechtribe/Presets/e2sFx.all
 FX_LIMIT = 0x500000             # offset plus length of a FILE write of e2sFx.all: 255 + 255 + 72 entries with their longest text (src/fx-collection.mjs MAX_FILE)
+FILE_REC = 0xE0000000           # bits 31, 30 and 29 of a FILE READ offset: a take in SD:Recordings (number in the length word), read only
+REC_AT = 0xC019F700             # the recordings' code: in the file area behind the second file object (FILE_FIL2 + 0x224), to its end
+REC_NUM = 0xC019F6F0            # the number of the take a FILE READ reads, for its path
+REC_MAX = 9999                  # REC0001.WAV to REC9999.WAV (tools/patch/recording_writer.s)
+NATIVE_RECORDING = 0xC018E9D0   # the native recording's public state (tools/patch/script_hooks.py, recording_runtime.py PUBLIC_FIELDS)
+NR_MAGIC, NR_CONTEXT, NR_NUMBER = 0x3152434E, 4, 28   # its marker, the context of a running take (0 when none), the number it writes
+FS_OPENDIR, FS_READDIR, FS_CLOSEDIR = 0xC009E660, 0xC009E740, 0xC009E728   # FatFs (docs/messungen/2026-10-19-ordner-uebernehmen.md)
 FILE_DOOM = 0x20000000          # bit 29 of a FILE offset: the Doom program KORG/blechtribe/Doom/doom.bin, with bit 31 as well doom.wad (with bit 30 e2sFx.all)
 SAMPLE_LIMIT = 0x10000000       # offset plus length of a FILE command on the sample file (256 MiB)
 COPY_MAX = 0x40000              # bytes one FILE COPY or FILE CRC works on
@@ -131,13 +138,14 @@ FUNC_INFO, FUNC_READ, FUNC_BEGIN, FUNC_DATA, FUNC_FLASH, FUNC_FREAD, FUNC_FBEGIN
 FUNC_COPY, FUNC_DELETE, FUNC_CRC = 0x71, 0x72, 0x73
 REPLY_INFO, REPLY_READ, REPLY_BEGIN, REPLY_DATA, REPLY_FLASH, REPLY_FREAD, REPLY_FBEGIN, REPLY_EXEC = 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x70
 REPLY_COPY, REPLY_DELETE, REPLY_CRC = 0x79, 0x7A, 0x7B
-STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY, STATUS_FILE = 0, 1, 2, 3, 4, 5, 6
+STATUS_OK, STATUS_BAD_CRC, STATUS_REFUSED, STATUS_RANGE, STATUS_FLASH, STATUS_VERIFY, STATUS_FILE, STATUS_BUSY = 0, 1, 2, 3, 4, 5, 6, 7
 PROTOCOL_VERSION = 1
-FLAGS = 0xBFF                   # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC), bit 8 the Doom files, bit 9 DEV MODE, bit 11 e2sFx.all is written (bit 10 is FLAG_DEV_ON)
+FLAGS = 0x1BFF                  # bit 0 read, bit 1 write, bit 2 CRC-32, bit 3 FLASH READ (read only, no flash write exists), bit 4 the update file, bit 5 plugin files, bit 6 EXEC, bit 7 the sample file (FILE COPY, DELETE, CRC), bit 8 the Doom files, bit 9 DEV MODE, bit 11 e2sFx.all is written, bit 12 the recordings are read (bit 10 is FLAG_DEV_ON)
 FLAG_DOOM = 0x100               # not on the blue Electribe 2: its set has no Doom loader (data/patches/blech-synth.json), so the files would do nothing there
 FLAG_DEV = 0x200                # the build has DEV MODE (the Sampler's BLECH menu); FLAG_DEV_ON, set in INFO at run time, says it is on
 FLAG_DEV_ON = 0x400
 FLAG_FX_WRITE = 0x800           # FILE BEGIN takes e2sFx.all; a firmware without it answers out of range
+FLAG_REC = 0x1000               # FILE READ reads the takes in SD:Recordings and lists them (FILE_REC)
 DEV = True                      # False on the blue Electribe 2: its menu has no DEV MODE page, so its code is left out
 DEV_FLAG = STATE + 0xFC         # DEV_MAGIC while DEV MODE is on; the image holds FF there, so every start begins with it off
 DEV_MAGIC = 0x4D564544          # "DEVM"
@@ -301,6 +309,15 @@ def source():
 .equ COPY_MAX, {COPY_MAX:#x}
 .equ COPY_CHUNK, {COPY_CHUNK:#x}
 .equ FILE_FIL2, {FILE_FIL2:#x}
+.equ REC_NUM, {REC_NUM:#x}
+.equ REC_MAX, {REC_MAX}
+.equ NATIVE_RECORDING, {NATIVE_RECORDING:#x}
+.equ NR_MAGIC, {NR_MAGIC:#x}
+.equ NR_CONTEXT, {NR_CONTEXT}
+.equ NR_NUMBER, {NR_NUMBER}
+.equ FS_OPENDIR, {FS_OPENDIR:#x}
+.equ FS_READDIR, {FS_READDIR:#x}
+.equ FS_CLOSEDIR, {FS_CLOSEDIR:#x}
 .equ S_MODE, {S_MODE}
 .equ FLASH_MAX, {FLASH_MAX:#x}
 .equ FLASH_LIMIT, {FLASH_LIMIT:#x}
@@ -947,6 +964,8 @@ do_fread:
     ldr r9, [r6, #S_REQ + 4]
     bl sel_file                 ; which file, the offset into r8
     mov r11, r5
+    cmp r11, #9
+    beq rec_fread               ; bits 31, 30 and 29: a take in SD:Recordings
     mov r4, #{STATUS_RANGE}
     mov r5, #0
     ldr r3, =MAX_BLOCK
@@ -959,10 +978,12 @@ do_fread:
     ldrhs r2, =SAMPLE_LIMIT
     cmp r3, r2
     bhi fread_failed
+fread_go:
     mov r0, r8
     mov r1, r9
     mov r2, r11
     bl file_read_back
+fread_back:
     mov r4, r0
     ldr r5, =FILE_FIL
     ldr r5, [r5, #FIL_SIZE]
@@ -1297,6 +1318,8 @@ window_no:
 ; file_path for 5, 6 and 8: the fixed paths of the Doom files and of e2sFx.all into FILE_PATH. Here because the sample section
 ; below is full (on the synth to the last byte).
 doom_path:
+    cmp r0, #9
+    beq rec_path
     ldr r1, =doom_bin_name
     cmp r0, #6
     ldreq r1, =doom_wad_name
@@ -1335,6 +1358,9 @@ fs_open:
 ; r1 = the offset; r0 = 0 when the word names no sample file. Touches r0 and r1.
 sel_decode:
     bic r1, r0, #0xC0000000
+    tst r0, #{FILE_DOOM}         ; with bit 29 it is e2sFx.all or a take, never a sample file
+    movne r0, #0
+    bxne lr
     tst r0, #{FILE_SAMPLE}
     moveq r0, #0
     bxeq lr
@@ -1649,7 +1675,7 @@ sel_file:
 ; "System/ORIGINAL.BIN" for 1, "Sample/e2sSample.all" for 3 and "Sample/e2sSample.tmp" for 4; for 2 the plugin file
 ; SD:KORG/blechtribe/Plugin/<FILE_NAME>.blech, for 5 and 6 the path the Doom loader opens, SD:/KORG/blechtribe/Doom/doom.bin and
 ; doom.wad (tools/doom/runtime_abi.h), for 8 the effect collection the start loads, SD:KORG/blechtribe/Presets/e2sFx.all
-; (tools/patch/fx_card.s). Keeps r4 to r11.
+; (tools/patch/fx_card.s), for 9 the take REC_NUM, SD:Recordings/REC<4 digits>.WAV (FILE READ only). Keeps r4 to r11.
 file_path:
     cmp r0, #2
     beq plugin_path
@@ -1742,12 +1768,206 @@ sample_tmp_name:
 .align 4
 .pool
 
+; The takes of the native recording, read only. A third section in the file area: the first two have no room left.
+.org {REC_AT:#x}
+; FILE READ with bits 31, 30 and 29 of the offset: the rest of the offset counts in 8 bytes (takes reach 4 GiB), the length word
+; carries the take's number in bits 16 and up. Number 1 to REC_MAX reads SD:Recordings/REC<number>.WAV like the update file, with
+; STATUS_BUSY for the take being written; number 0 reads the list of the folder instead, 8 bytes per take: its number (bit 31 set
+; while it is being written) and its size, offset and length in whole entries. The file size of the answer is the list's.
+rec_fread:
+    ldr r8, [r6, #S_REQ]
+    bic r8, r8, #0xE0000000
+    mov r8, r8, lsl #3
+    ldr r9, [r6, #S_REQ + 4]
+    mov r10, r9, lsr #16
+    bic r9, r9, #0xFF000000
+    bic r9, r9, #0x00FF0000
+    str r9, [r6, #S_REQ + 4]     ; the length alone, where the answer takes it from
+    mov r4, #{STATUS_RANGE}
+    mov r5, #0
+    ldr r3, =MAX_BLOCK
+    cmp r9, r3
+    bhi fread_failed
+    adds r3, r8, r9
+    bcs fread_failed
+    ldr r3, =REC_MAX
+    cmp r10, r3
+    bhi fread_failed
+    cmp r10, #0
+    beq rec_list
+    mov r0, r10
+    bl rec_busy
+    cmp r0, #0
+    movne r4, #{STATUS_BUSY}
+    bne fread_failed
+    ldr r0, =REC_NUM
+    str r10, [r0]
+    b fread_go
+
+; r0 = a take's number -> r0 = 1 while a take runs and the number is the one it writes or above (the writer counts up from the
+; published number, recording_writer.s rec_open_next), else 0. Clobbers r1 to r3.
+rec_busy:
+    ldr r1, =NATIVE_RECORDING
+    ldr r2, [r1]
+    ldr r3, =NR_MAGIC
+    cmp r2, r3
+    bne rb_idle
+    ldr r2, [r1, #NR_CONTEXT]
+    cmp r2, #0
+    beq rb_idle
+    ldr r2, [r1, #NR_NUMBER]
+    cmp r0, r2
+    movhs r0, #1
+    bxhs lr
+rb_idle:
+    mov r0, #0
+    bx lr
+
+; The list: SD:Recordings read with the firmware's f_opendir and f_readdir, the folder object in FILE_FIL, the file info in
+; FILE_FIL2 (short names: REC0001.WAV is one), every entry named REC<4 digits>.WAV but REC0000 counted.
+rec_list:
+    tst r9, #7
+    bne fread_failed
+    ldr r0, =FILE_FIL2
+    mov r1, #0
+    str r1, [r0, #0x18]          ; no long name
+    str r1, [r0, #0x1C]
+    ldr r0, =FILE_FIL
+    ldr r1, =rec_folder
+    ldr r12, =FS_OPENDIR
+    blx r12
+    cmp r0, #0
+    bne rl_failed
+    ldr r10, =BUF_END
+    sub r10, r10, r9
+    bic r10, r10, #3             ; where the answer takes the bytes from (do_fread)
+    mov r4, #0                   ; bytes of the list so far (r7 is the port)
+rl_next:
+    ldr r0, =FILE_FIL
+    ldr r1, =FILE_FIL2
+    ldr r12, =FS_READDIR
+    blx r12
+    cmp r0, #0
+    bne rl_close_failed
+    ldr r1, =FILE_FIL2
+    ldrb r0, [r1, #9]
+    cmp r0, #0
+    beq rl_end
+    add r1, r1, #9
+    ldr r2, =rec_pattern
+    mov r3, #0
+rl_char:
+    ldrb r12, [r2], #1
+    ldrb r0, [r1], #1
+    cmp r12, #0x23               ; "#": a digit
+    bne rl_fixed
+    sub r0, r0, #0x30
+    cmp r0, #9
+    bhi rl_next
+    add r3, r3, r3, lsl #2
+    add r3, r0, r3, lsl #1
+    b rl_char
+rl_fixed:
+    cmp r0, r12
+    bne rl_next
+    cmp r12, #0
+    bne rl_char
+    cmp r3, #0
+    beq rl_next
+    subs r5, r4, r8              ; its place in the window asked for
+    blo rl_count
+    cmp r5, r9
+    bhs rl_count
+    add r5, r10, r5
+    mov r11, r3
+    mov r0, r3
+    bl rec_busy
+    orr r0, r11, r0, lsl #31
+    ldr r1, =FILE_FIL2
+    ldr r1, [r1]                 ; the size in the file info
+    stmia r5, {{r0, r1}}
+rl_count:
+    add r4, r4, #8
+    b rl_next
+rl_end:
+    ldr r0, =FILE_FIL
+    ldr r12, =FS_CLOSEDIR
+    blx r12
+    subs r0, r4, r8
+    movlo r0, #0
+    cmp r0, r9
+    movhi r0, r9
+    ldr r1, =FILE_BR
+    str r0, [r1]
+    ldr r1, =FILE_FIL
+    str r4, [r1, #FIL_SIZE]
+    mov r0, #0
+    b fread_back
+rl_close_failed:
+    ldr r1, =FILE_FR
+    str r0, [r1]
+    ldr r0, =FILE_FIL
+    ldr r12, =FS_CLOSEDIR
+    blx r12
+    b rl_status
+rl_failed:
+    ldr r1, =FILE_FR
+    str r0, [r1]
+rl_status:
+    mov r4, #{STATUS_FILE}
+    mov r5, #0
+    b fread_failed
+
+; file_path for 9: SD:Recordings/REC<REC_NUM in four digits>.WAV, the path recording_writer.s gives a take. Keeps r4 to r11.
+rec_path:
+    ldr r0, =FILE_PATH
+    ldr r1, =rec_prefix
+rp_prefix:
+    ldrb r3, [r1], #1
+    cmp r3, #0
+    strbne r3, [r0], #1
+    bne rp_prefix
+    ldr r1, =REC_NUM
+    ldr r1, [r1]
+    ldr r2, =rec_places
+rp_place:
+    ldr r3, [r2], #4
+    mov r12, #0x30
+rp_digit:
+    cmp r1, r3
+    subhs r1, r1, r3
+    addhs r12, r12, #1
+    bhs rp_digit
+    strb r12, [r0], #1
+    cmp r3, #1
+    bne rp_place
+    ldr r1, =rec_suffix
+rp_suffix:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    cmp r3, #0
+    bne rp_suffix
+    bx lr
+.align 4
+rec_places:
+    .word 1000, 100, 10, 1
+rec_folder:
+    .asciz "SD:Recordings"
+rec_prefix:
+    .asciz "SD:Recordings/REC"
+rec_suffix:
+    .asciz ".WAV"
+rec_pattern:
+    .asciz "REC####.WAV"
+.align 4
+.pool
+
 """
 
 
 FIRMWARE_PLACES = ["CLASSIFY_HOOK", "CLASSIFY_BACK", "PROCESS_HOOK", "PROCESS_BACK", "PANEL", "DESC", "FLAG", "CHANNEL", "PORT_OF",
                    "TX_BEGIN", "TX_SEND", "TX_END", "FLASH_OBJ", "FLASH_READ", "FS_OPEN", "FS_READ", "FS_WRITE", "FS_CLOSE", "FS_LSEEK",
-                   "FS_MKDIR", "FOLDER", "STRING_FREE"]
+                   "FS_MKDIR", "FOLDER", "STRING_FREE", "FS_OPENDIR", "FS_READDIR", "FS_CLOSEDIR"]
 CODE_PLACES = ["CLASSIFY_HOOK", "PROCESS_HOOK", "TX_BEGIN", "TX_SEND", "TX_END", "FLASH_READ"]   # their 16 words must equal the Sampler's
 
 
@@ -1785,14 +2005,21 @@ def use_build(build, ref=None, vsb=None):
 
 def build_code():
     code = arm.assemble(source())
-    (at, data), _ = code.sections
+    (at, data), _, _ = code.sections
     return at, data, code.symbols
 
 
 def build_sample_code():
     """The second section: the sample file commands."""
     code = arm.assemble(source())
-    _, (at, data) = code.sections
+    _, (at, data), _ = code.sections
+    return at, data
+
+
+def build_rec_code():
+    """The third section: FILE READ of the takes in SD:Recordings."""
+    code = arm.assemble(source())
+    _, _, (at, data) = code.sections
     return at, data
 
 
@@ -1812,6 +2039,9 @@ def build_patch(vsb, table, build):
     sample_at, sample_code = build_sample_code()
     if sample_at != SAMPLE_AT or sample_at + len(sample_code) > SAMPLE_END:
         raise SystemExit(f"the sample file commands are {len(sample_code):#x} bytes, room for {SAMPLE_END - SAMPLE_AT:#x}")
+    rec_at, rec_code = build_rec_code()
+    if rec_at != REC_AT or rec_at + len(rec_code) > FILE_AREA_END:
+        raise SystemExit(f"the recordings' code is {len(rec_code):#x} bytes, room for {FILE_AREA_END - REC_AT:#x}")
     if len(table) % 4 or TABLE_AT + len(table) > TABLE_END:
         raise SystemExit(f"the table is {len(table)} bytes, room for {TABLE_END - TABLE_AT}")
     if BUF_END - BUF < BUFFER_REQUIRED:
@@ -1841,6 +2071,8 @@ def build_patch(vsb, table, build):
              "note": "BLECH SysEx: the two hooks, the CRC-32, the packing, the range check and the commands"},
             {"file": file_offset(SAMPLE_AT), "bytes": sample_code.hex(), "expect": free(SAMPLE_AT, len(sample_code)),
              "note": "BLECH SysEx: FILE COPY, FILE DELETE and FILE CRC on the sample file, the paths of the FILE commands with the Doom files, and what they use"},
+            {"file": file_offset(REC_AT), "bytes": rec_code.hex(), "expect": free(REC_AT, len(rec_code)),
+             "note": "BLECH SysEx: FILE READ of the takes in SD:Recordings and their list, read only"},
             {"file": file_offset(TABLE_AT), "bytes": bytes(table).hex(), "expect": free(TABLE_AT, len(table)),
              "note": "the protection table, cut from data/protected.mjs by src/sysex-table.mjs"},
             {"file": file_offset(CLASSIFY_HOOK), "bytes": classify.hex(), "expect": sha(was(CLASSIFY_HOOK, 4)),
@@ -1859,7 +2091,7 @@ def build_patch(vsb, table, build):
         "ram": [
             ramdecl.area(STATE, STATE_END - STATE, "run time state: the declared write, the request as decoded, the words and the packed bytes of a short reply", "tools/patch/blech_sysex.py:STATE"),
             ramdecl.area(BUF, BUF_END - BUF, "the buffer a message is decoded into and a reply is packed in, up to MAX_BLOCK bytes of data", "tools/patch/blech_sysex.py:BUF"),
-            ramdecl.area(FILE_AREA, FILE_AREA_END - FILE_AREA, "the FatFs file object, the byte count, the FatFs result and the path of the FILE commands", "tools/patch/blech_sysex.py:FILE_AREA"),
+            ramdecl.area(FILE_AREA, REC_AT - FILE_AREA, "the FatFs file object, the byte count, the FatFs result and the path of the FILE commands, the second file object, the number of the take read", "tools/patch/blech_sysex.py:FILE_AREA"),
         ],
     }
 
@@ -1886,6 +2118,8 @@ def main():
         print(f"section {at:#x} + {len(code):#x} bytes, room for {CODE_END - CODE_AT:#x}")
         sample_at, sample_code = build_sample_code()
         print(f"section {sample_at:#x} + {len(sample_code):#x} bytes, room for {SAMPLE_END - SAMPLE_AT:#x}")
+        rec_at, rec_code = build_rec_code()
+        print(f"section {rec_at:#x} + {len(rec_code):#x} bytes, room for {FILE_AREA_END - REC_AT:#x}")
         for name, addr in sorted(symbols.items(), key=lambda kv: kv[1]):
             print(f"  {addr:#010x} {name}")
     text = json.dumps(patch, indent=1) + "\n"
