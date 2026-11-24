@@ -1,4 +1,4 @@
-"""Native korg.display.* against the browser display model, without firmware bytes."""
+"""Native korg.display.* against the browser display model."""
 import json
 import pathlib
 import random

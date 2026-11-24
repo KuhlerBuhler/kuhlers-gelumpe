@@ -1,4 +1,4 @@
-"""Boot loader for e2sPlugin.all over a fake FatFs, without firmware bytes."""
+"""Boot loader for e2sPlugin.all over a fake FatFs."""
 import pathlib
 import re
 import struct

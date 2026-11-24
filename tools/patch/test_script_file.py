@@ -1,4 +1,4 @@
-"""korg.file.frame, count, name and picture on the device: the glue reads picture files over a fake FatFs, without firmware bytes."""
+"""korg.file.frame, count, name and picture on the device: the glue reads picture files over a fake FatFs."""
 import json
 import pathlib
 import struct

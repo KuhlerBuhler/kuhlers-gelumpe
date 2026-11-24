@@ -1,4 +1,4 @@
-"""Native clock and read-only views of the firmware's state, without firmware bytes."""
+"""Native clock and read-only views of the firmware's state."""
 import json
 import pathlib
 import subprocess
