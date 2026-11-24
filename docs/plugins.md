@@ -2,20 +2,18 @@
 
 Deutsche Version | [English version](plugins.en.md) | [Français](plugins.fr.md)
 
-Stand 2026-11-09.
-
 Ein Plugin gibt der Electribe eine neue Funktion, etwa ein Lauflicht, ein Spiel auf
 dem Display oder eine eigene Menüseite. Man lädt es über die SD-Karte aufs Gerät,
 wie ein Plugin in einem Musikprogramm. Wer will, schreibt eigene Plugins: der
 Plugin-Code ist eine Teilmenge von JavaScript.
 
-Der Editor übersetzt ein Plugin in einen Block aus Bytecode, den eine kleine VM in
+Der Editor übersetzt ein Plugin in einen Block aus [Bytecode](glossary.md#bytecode), den eine kleine [VM](glossary.md#vm) in
 der Firmware ausführt. Ein Fehler schaltet das Plugin ab und zeigt eine Meldung im
 Menü BLECH, die Electribe läuft weiter.
 
 Alle Plugins werden beim Start geladen und laufen sofort: ein Plugin, das nur LEDs
 setzt oder Tasten umbelegt, braucht keinen Menüschritt. Das **Display** gehört dem
-Gerät. Ein Plugin mit eigenem Bildschirm ist eine **App**: sie steht im Menü BLECH
+Gerät. Ein Plugin mit eigenem Bildschirm ist eine [**App**](glossary.md#app): sie steht im Menü BLECH
 unter GAMES oder TOOLS, erst ENTER öffnet sie, und EXIT schließt sie immer. Wer
 unbedingt direkt aufs Display will, nimmt es mit `korg.display.take()` und gibt es
 mit EXIT zurück. Das Laden eines Plugins zeichnet nie etwas (Abschnitt "Apps und das
@@ -24,7 +22,7 @@ Display").
 Die Seite hat fünf Teile: die Sprachreferenz (Aufbau, Apps und Display, Sprache,
 Ereignisse, Funktionen, Grenzen), die Karte mit dem Dateiformat, das Menü BLECH am Gerät, die
 Seite Plugins im Editor und den Abschnitt Stand. Was in der Sprachreferenz steht,
-gilt für die Sprache und ihre Prüfung im Browser und im Emulator. Am Gerät laufen das Menü BLECH
+gilt für die Sprache und ihre Prüfung im Browser und im [Emulator](glossary.md#emulator). Am Gerät laufen das Menü BLECH
 und die Plugins der Karte; was dort im Einzelnen geprüft ist, steht unter Stand.
 
 ## Sprachreferenz
@@ -59,7 +57,7 @@ werden aktiv, wenn der Rumpf ohne Fehler zu Ende gelaufen ist.
 
 Das Display der Electribe gehört der Firmware. Ein Plugin zeichnet nur dann hinein,
 wenn es das Display besitzt, und das kann auf zwei Wegen passieren. Beide enden mit
-EXIT: die Firmware wertet EXIT im Eingangsfilter aus, bevor ein Plugin die Taste
+EXIT: die Firmware wertet EXIT im [Eingangsfilter](glossary.md#eingangsfilter) aus, bevor ein Plugin die Taste
 sieht, ein Plugin kann EXIT nicht abfangen und nicht verschlucken. Ein Plugin, das
 kein Display besitzt und trotzdem zeichnet, wird übergangen: die Aufrufe tun nichts
 und melden nichts. Das Laden und Importieren eines Plugins besetzt das Display nie.
@@ -100,7 +98,7 @@ Nutzer EXIT drückt (das Plugin bekommt dann `close`). Eine App nimmt das Displa
 sie wird im Menü geöffnet. Nicht im Rumpf: dort gibt es kein Display.
 Eine Taste, die beim `korg.display.take()` gehalten ist, bleibt bei der Firmware: ihr
 Loslassen kommt dort an, während das Plugin das Display besitzt, SHIFT oder PART MUTE
-bleiben also nicht hängen (gemessen im Emulator auf Hacktribe, rot und blau,
+bleiben also nicht hängen (gemessen im Emulator auf [Hacktribe](glossary.md#hacktribe), rot und blau,
 `take_lets_key_releases_reach_the_firmware`). Anders als EXIT setzt
 `korg.display.release()` `korg.passKeys` und `korg.padHold` nicht auf die Vorgaben zurück.
 
@@ -192,7 +190,7 @@ zu tun ist.
 
 Die Sequencer-Ereignisse (`step`, `beat`, `play`, `stop`, `rec`, `patternChange`,
 `partChange`, `mute`, `tempo`) entstehen auf dem Gerät nicht in der SeqTask: der
-Rahmenhaken vergleicht einmal je Rahmen die Zustandswörter der Firmware (Transport,
+[Rahmenhaken](glossary.md#rahmenhaken) vergleicht einmal je Rahmen die Zustandswörter der Firmware (Transport,
 Tempo, Pattern, Part, Schritt von Part 0, Mutes) mit denen des vorigen Rahmens und
 legt für jede Änderung ein Ereignis in den Ring. Das Raster ist damit 40 ms: bei
 höchstem Tempo (300 BPM, 20 Schritte je Sekunde) kommt noch jeder Schritt, was
@@ -217,7 +215,7 @@ weder für die 5 ms noch für die Warnung, höchstens 50 ms davon je Rahmen; was
 (im Emulator gemessen: 9 ms für ein Bild je Rahmen, das Plugin bleibt an).
 Der Status hält die höchsten Kosten und den höchsten Zeitverbrauch getrennt
 für jeden Handler. In der JS Referenzlaufzeit nennt `maxMs` diese Zeiten in
-Millisekunden; der ARM Eintrag hält Timer3 Ticks je Ereignis.
+Millisekunden; der ARM Eintrag hält [Timer3](glossary.md#timer3) Ticks je Ereignis.
 
 Die Laufzeit verwendet einen gemeinsamen Rahmenanfang für alle Handler.
 Die VM prüft die Zeit vor dem ersten Befehl, bei erfolgreichem Ende und alle
@@ -239,12 +237,12 @@ diese Freigabe bestehen; `frame()` gibt sie standardmäßig frei. Das ist die
 Abbildung des Hauptbildschirmmerkers der ARM Laufzeit.
 
 Solange das Menü BLECH offen ist, gehen Pads, Tasten und Encoder direkt an die
-Firmware, und kein Plugin bekommt ein Ereignis (nur die Seite von Blechy bekommt
+Firmware, und kein Plugin bekommt ein Ereignis (nur die Seite von [Blechy](glossary.md#blechy) bekommt
 das Touchpad und ihre Taste). In allen Menüs der Firmware (Pattern, Global, Part
 Edit, Step Edit und die übrigen) bekommen Plugins die Eingaben wie auf dem
 Hauptbildschirm.
 
-### Was ein Plugin erreicht (API 38)
+### Was ein Plugin erreicht (API 40)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -311,7 +309,7 @@ Was die Electribe gerade tut, liest und setzt ein Plugin wie eine Variable: `kor
 `korg.tempo = 1280;` stellt es um, `korg.parts[3].muted = 1;` schaltet Part 4 stumm. Das sind keine
 Objekte der Sprache, die man in einer Variablen halten könnte. Der Übersetzer macht aus jedem Lesen und
 Setzen den Aufruf, der in der Tabelle unten daneben steht, und der Block ist derselbe. Darum läuft ein
-so geschriebenes Plugin auf jedem Gerät, auf dem diese Aufrufe laufen, auch mit BLECHTRIBE 1.2. Es gelten
+so geschriebenes Plugin auf jedem Gerät, auf dem diese Aufrufe laufen. Es gelten
 dieselben Grenzen und Ereignisse wie für den Aufruf: `korg.tempo = …` geht wie `korg.tempo(…)` nicht im
 Rumpf.
 
@@ -351,7 +349,7 @@ die Einzelheiten stehen bei `korg.seq.setPartValue` und `korg.seq.setPatternValu
 (`PATTERN_FIELDS`, `PART_FIELDS`), gemessen sind die Stellen in der Gerätekarte `data/map/pattern.mjs`. Ab API Version 8.
 
 **Motion Sequence an und aus**: `korg.parts[i].motionMode` ist die Seite MOTION SEQ des Part-Menüs, 0 aus, 1 smooth,
-2 trigger hold (ab API Version 24). Ein Plugin schaltet damit die Motion Sequence eines Parts aus, ohne die aufgenommene
+2 trigger hold (ab API Version 24). Ein Plugin schaltet damit die [Motion Sequence](glossary.md#motion-sequence) eines Parts aus, ohne die aufgenommene
 Bewegung zu löschen; mit dem alten Wert spielt sie wieder.
 
 ```js
@@ -395,7 +393,7 @@ korg.onEvent("buttonPress", (key) => {
 Die Aufrufe in der Tabelle unten bleiben gültig, ältere Plugins laufen unverändert weiter. Was eine
 Handlung ist, bleibt ein Aufruf: zeichnen, PLAY drücken, eine App anmelden, speichern.
 
-### Die Electribe als Objektbaum (API 10, BLECHTRIBE 1.3.8)
+### Die Electribe als Objektbaum (ab API 10)
 
 Ab API 10 hängen die Einstellungen der Electribe und des Menüs BLECH an langen Pfaden. Ein Pfad liest und
 setzt sich wie eine Eigenschaft oben, der Übersetzer macht daraus `korg.get` oder `korg.set` mit der Nummer
@@ -413,9 +411,9 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.menu.blech.customizations.display.intensity` | Helligkeit des Display-Lichts wie die Seite INTENSITY | ja, wirkt sofort; WRITE im Menü behält sie | 0 (aus) bis 15 (voll) |
 | `korg.system.repairs` | wie viele Werte seit dem Start geklemmt oder zurückgesetzt wurden | nein | 0 bis 2147483647 |
 | `korg.system.testMode` | ob der Test-Modus an ist: Display, Licht und alle LEDs dunkel, Auto Power Off angehalten | nein, nur über USB; nur im RAM, nach einem Neustart aus | 0 (aus) bis 1 (an) |
-| `korg.system.keepAwake()` | (ein Aufruf, kein Wert) | startet die 4 Stunden von Auto Power Off neu, wie eine Taste am Gerät; seit 1.5.0 startet er auch die Zeit von IDLE SAVE neu und weckt ein gedimmtes Gerät; `korg.pressKey`, `korg.keyDown`, `korg.keyUp`, `korg.padDown`, `korg.padUp`, `korg.encoder` und `korg.touch` halten ebenso wach | |
+| `korg.system.keepAwake()` | (ein Aufruf, kein Wert) | startet die 4 Stunden von Auto Power Off neu, wie eine Taste am Gerät; er startet auch die Zeit von IDLE SAVE neu und weckt ein gedimmtes Gerät; `korg.pressKey`, `korg.keyDown`, `korg.keyUp`, `korg.padDown`, `korg.padUp`, `korg.encoder` und `korg.touch` halten ebenso wach | |
 | `korg.system.device` | auf welchem Gerät das Plugin läuft: 0 Hacktribe, 1 roter Sampler (Korg), 2 blauer Synth (Korg) (ab API Version 26) | nein | 0 bis 2 |
-| `korg.system.version` | Version des BLECHTRIBE-Sets als Zahl, x * 10000 + y * 100 + z, 1.5.0 ist 10500; 0, wenn das Set keine Versionsangabe hat (im Simulator des Editors 0) | nein | 0 bis 999999 |
+| `korg.system.version` | Version des [BLECHTRIBE](glossary.md#blechtribe)-Sets als Zahl, x * 10000 + y * 100 + z, 1.5.0 ist 10500; 0, wenn das Set keine Versionsangabe hat (im Simulator des Editors 0) | nein | 0 bis 999999 |
 | `korg.system.limits.ifxTypes` | wie viele Insert-Effekte die Firmware hat, `ifxType` geht von 0 bis zu diesem Wert minus 1; die Firmware zählt sie beim Lesen, ein Effekt-Katalog erhöht sie | nein | 0 bis 255 |
 | `korg.system.limits.mfxTypes` | wie viele Master-Effekte die Firmware hat, `mfxType` geht von 0 bis zu diesem Wert minus 1; wie oben | nein | 0 bis 255 |
 | `korg.system.limits.samples` | wie viele Sample-Slots `sample` wählen kann: 1000 auf dem roten Sampler, 0 auf dem blauen Synth | nein | 0 bis 1000 |
@@ -491,7 +489,7 @@ korg.onEvent("close", () => {
 });
 ```
 
-**Die Seiten von BLECHTRIBE (API 17).** Alle Seiten von CUSTOMIZATION und FEATURES außer TUBE, TUBE DRIVE und TUBE ASYM (1.4.8) haben ein Blatt, dazu das
+**Die Seiten von BLECHTRIBE (API 17).** Alle Seiten von CUSTOMIZATION und FEATURES außer TUBE, TUBE DRIVE und TUBE ASYM haben ein Blatt, dazu das
 Blatt SET INIT PATTERN aus DATA UTILITY. Ein Blatt dieser Gruppe braucht API 17. Jede Schreibung ruft die Anwendefunktion, die
 auch die Seite nimmt: die Look-Seiten setzen Licht, LEDs und Display neu, PAD COLOR, SELECT COLOR, OVERLAP und LED DIMMING gehen
 durch den Patch der Pad-Farben, PATTERN CONFIRM, TAP MOTION und NOTE ASSIST setzen zusätzlich das Wort, das ihr Patch liest.
@@ -572,7 +570,7 @@ korg.onEvent("close", () => {
 `korg.pattern.current` ist der Name des laufenden Patterns im Objektbaum; `korg.current` meint dieselben
 Werte, ist aber seit API 35 veraltet (siehe [Veraltete Aufrufe](#veraltete-aufrufe-api-35)).
 
-### Timer (API 11, BLECHTRIBE 1.3.8)
+### Timer (ab API 11)
 
 Ein Plugin kann nicht warten: alle Handler eines Rahmens haben zusammen 5 ms, ein `wait(ms)` würde das Gerät
 anhalten. Stattdessen gibt es Timer. Man übergibt eine Funktion, die Laufzeit ruft sie später auf:
@@ -648,9 +646,8 @@ Plugin mit einem Fehler.
 | `korg.display.release()` | das Display zurückgeben | wie `korg.led` |
 | `korg.display.popups = 0` | hält das Parameterfenster zu, das `korg.seq.setPartValue` sonst wie der Regler öffnet, und das Schreibfenster von `korg.pattern.write`; nur für die Aufrufe dieses Plugins, 1 schaltet es wieder ein. Beim Laden steht es auf 1. `korg.knob` öffnet das Fenster der Firmware weiter, weil es den Regler selbst spielt. Lesen mit `korg.display.popups` oder `korg.read.popups()`. Ab API Version 24 | wie `korg.led` |
 | `korg.display.popup.begin()` | beginnt eine Popup-Zeichnung für ein Hintergrund-Plugin; danach zeichnen die bestehenden Display-Aufrufe absolut in den Popup-Puffer. Apps dürfen keine Plugin-Popups öffnen. Ab API Version 40 | wie `korg.led` |
-| `korg.display.popup.timeout(ms)` | setzt die Anzeigedauer des vorbereiteten Popups in Millisekunden, 0 bis 600000. Standard sind 2000 ms; 0 lässt es bis EXIT oder zum nächsten Popup offen. Ab API Version 40 | wie `korg.led` |
+| `korg.display.popup.timeout(ms)` | setzt die Anzeigedauer des vorbereiteten Popups in Millisekunden, 0 bis 86400000. Standard sind 2000 ms; 0 lässt es bis EXIT oder zum nächsten Popup offen. Ab API Version 40 | wie `korg.led` |
 | `korg.display.popup.show()` | zeigt das vorbereitete Popup und ersetzt ein vorheriges Firmware- oder Plugin-Popup. EXIT schließt es wie ein Firmware-Popup. Ab API Version 40 | wie `korg.led` |
-
 | `korg.display.clear()` | Display löschen; die Zeichenaufrufe wirken nur für den Besitzer des Displays (die offene App, oder wer es nahm) | wie `korg.led` |
 | `korg.display.text(text, x, y)` | Text mit der linken oberen Ecke bei `x`, `y` (0 bis 127, 0 bis 63) | wie `korg.led` |
 | `korg.display.number(wert, x, y)` | Zahl | wie `korg.led` |
@@ -681,7 +678,7 @@ Plugin mit einem Fehler.
 | `korg.part(part)` | Part wählen, 0 bis 15 | wie `korg.led` |
 | `korg.mute(part, stumm)` | Part stumm schalten (1) oder spielen lassen (0); die Firmware kennt nur Umschalten, die Laufzeit drückt das Pad nur, wenn der Zustand nicht schon stimmt | wie `korg.led` |
 | `korg.backlight(rot, gruen, blau)` | die drei Farben des Display Lichts ein (1) oder aus (0), über die GPIO Funktion der Firmware; auf Batterie mit Power Save "Auto" überschreibt die Dimm Routine der Firmware die Farbe laufend; hat der Nutzer im Menü eine Mischfarbe mit Pegeln zwischen 1 und 14 gewählt, überschreibt auch deren PWM die Farbe | wie `korg.led` |
-| `korg.menu.add(name, min, max, wert)` | legt eine Seite im Menü BLECH am Gerät an und gibt ihre Nummer zurück (-1, wenn alle 12 Plätze belegt sind). `name` höchstens 15 Zeichen, die Seite zeigt `wert` (in `min` bis `max` geklemmt, Betrag unter 100 Millionen) und den Plugin-Namen. Wird am Hauptrad gedreht, bekommt das Plugin `menu`(nummer, wert). Derselbe Name vom selben Plugin ist dieselbe Seite. `min` über `max` ist ein Argumentfehler | nur im Rumpf und in `ready` |
+| `korg.menu.add(name, min, max, wert)` | legt eine Seite im Menü BLECH am Gerät an und gibt ihre Nummer zurück (-1, wenn alle 12 Plätze belegt sind). `name` höchstens 15 Zeichen, die Seite zeigt `wert` (in `min` bis `max` geklemmt, Betrag bis 1000000) und den Plugin-Namen. Wird am Hauptrad gedreht, bekommt das Plugin `menu`(nummer, wert). Derselbe Name vom selben Plugin ist dieselbe Seite. `min` über `max` ist ein Argumentfehler | nur im Rumpf und in `ready` |
 | `korg.ledHold(an)` | 1 hält die Firmware davon ab, die Panel LEDs neu zu schreiben (Pads, Tasten, untere RGB LEDs zeigen dann, was das Plugin gesetzt hat), 0 gibt sie zurück und lässt die Firmware alle LEDs neu senden; fällt das letzte laufende Plugin aus, gibt die Laufzeit sie selbst zurück | wie `korg.led` |
 | `korg.padHold(an)` | 1 hält Pad-Anschläge von der Firmware fern: kein Klang, keine Änderung am Step, das Plugin bekommt `pad` aber weiter. Die Laufzeit setzt dafür das Pad-Bit der Maske, die der Eingangsfilter vor der Firmware liest. 0 nimmt den Halt dieses Plugins zurück; die Pads gehen erst an die Firmware zurück, wenn kein laufendes Plugin sie mehr hält (Abschnitt Eingaben fernhalten). Die Laufzeit gibt sie auch selbst zurück, wenn eine App schließt, und ein Plugin, das nicht mehr läuft, hält nichts mehr. Das Loslassen folgt immer seinem Anschlag: wurde der Anschlag zurückgehalten, bleibt auch das Loslassen bei den Plugins, sonst geht es an die Firmware. Ab API Version 12 | wie `korg.led` |
 | `korg.knobHold(index, an)` | 1 hält die Bewegungen des Reglers `index` (0 bis 10, die Indizes stehen unter Regler, OSC EDIT ist 9) von der Firmware fern: der Parameter bleibt stehen, das Plugin bekommt `knob` aber weiter, mit dem Rohwert. 0 nimmt den Halt dieses Plugins zurück; ein Regler bleibt der Firmware verborgen, solange irgendein laufendes Plugin ihn hält. Ein Plugin, das nicht mehr läuft, hält nichts mehr; eine App, die schließt, gibt die Regler nicht zurück, ein Filter läuft auch ohne App. Gilt außerhalb des Menüs BLECH. Ab API Version 13 | wie `korg.led` |
@@ -714,19 +711,19 @@ Plugin mit einem Fehler.
 | `korg.seq.getGate(part, step)` | liest das Gate-Byte des Steps so, wie es im Pattern steht, ohne Umrechnung: 0 bis 96 ist die Länge, die Step-Eingabe der Firmware schreibt 127 für TIE (das Display zeigt TIE für jeden Wert über 96). In Patterns steht auch 255, `getGate` gibt es unverändert zurück; der Sequencer spielt jedes Gate über 96 als TIE, 127 und 255 gleich (im Emulator auf Hacktribe gemessen). Ab API Version 22 | überall |
 | `korg.seq.getNote(part, step, platz)` | die MIDI-Note auf Notenplatz `platz` (0 bis 3) des Steps, -1 für einen leeren Platz (im Pattern steht Note + 1, 0 heißt leer). Ab API Version 22 | überall |
 | `korg.seq.getVelocity(part, step)` | liest das Velocity-Byte des Steps so, wie es im Pattern steht. Ab API Version 22 | überall |
-| `korg.seq.setPartValue(part, wert, x)` | setzt den Wert `wert` (Nummer in `PART_FIELDS`, wie bei `korg.read.patternValue`) von Part `part` auf `x`, in seinen Bereich geklemmt, über die Funktion der Firmware, die auch die Regler nehmen: Pattern im RAM und Klang ändern sich wie beim Drehen. Für den gewählten Part öffnet sich das Parameterfenster wie beim Regler. `voiceAssign` und `mfxSend` (ab API Version 21) gehen über die Funktion der Firmware, die auch die Seite VOICE ASSIGN im Part-Menü und die Taste MFX SEND rufen; sie schreiben Pattern und die Kopie der Klangerzeugung auf allen drei Firmwares, ohne Parameterfenster. Ab API Version 23 (im Emulator geprüft auf Hacktribe, rot und blau, [Messung](messungen/2026-11-07-plugin-api23-part-writes.md)): `ifxOn` und `ampEg` gehen den Weg der Tasten IFX ON und AMP EG, Pattern, Kopie der Klangerzeugung und die LED der Taste stehen danach wie nach der Taste; `mfxSend` schaltet jetzt auch seine LED. Die LED leuchtet nur für den gewählten Part, wie an der Taste. Ab API Version 24 schickt der Aufruf denselben MIDI-CC wie der Regler, der Encoder CUTOFF oder die Taste (IFX ON, MFX SEND), auf dem Kanal des Parts. `ifxType` geht wie der Encoder IFX über den Part-Edit und zeigt dasselbe Fenster; er hält bei der letzten Nummer der Firmware an (mit dem BLECHTRIBE-Satz 58 auf Hacktribe, 47 auf rot, 37 auf blau; die Grenze liest der Aufruf zur Laufzeit aus der Firmware, ein fx-Katalog mit mehr Typen hebt sie mit), statt umzuspringen. `sample` nimmt die ganze Slotnummer (0 bis 999) über den Part-Edit wie der Regler SAMPLE, aber nur einen Slot, bei dem der Regler stehen bleibt; einen leeren Slot schreibt der Aufruf nicht. Auf blau gibt es keine Samples, dort schreibt `sample` nichts. Jeder Wert geht außerdem so an die Klangerzeugung wie vom Bedienelement (im Emulator auf allen drei Firmwares geprüft, Befunde aus PR #401, [Messung](messungen/2026-11-09-plugin-part-dsp.md)): die Werte der Regler und CUTOFF danach an den Parametersetzer der Firmware wie der Regler, `sample`, `modType`, `ifxType` und `filterType` mit dem Auffrischen wie die Encoder und Filtertasten, `mfxSend` mit 127 statt 1 wie die Taste. `filterType` schaltet für den gewählten Part die LEDs LPF, HPF und BPF wie die Taste, `modType` zeigt das Fenster des Encoders MOD. Ab API Version 24 setzt `sample` auf einem Sample mit Slices auch den Slice wie der Regler SAMPLE, wenn er auf das Sample hochgedreht wird (im Emulator mit einem gestellten Slice-Sample geprüft, die Karte im Emulator hat keins). Lesbarer als `korg.parts[i].cutoff = x`. Ab API Version 24 geht der Aufruf auch auf der blauen Electribe über den Part-Edit der Regler, mit Fenster. Die Werte der Seiten LAST STEP bis SCALE MODE und GROOVE im Part-Menü (ab API Version 24) gehen über die Funktion dieser Seiten und landen wie nach dem Drehen im Menü. Im Emulator geprüft ([Messung](messungen/2026-11-06-plugin-api21-pattern-parts.md), [API 24](messungen/2026-11-08-plugin-api24-part-cc.md)), am Gerät nicht. Ab API Version 14 | wie `korg.led` |
+| `korg.seq.setPartValue(part, wert, x)` | setzt den Wert `wert` (Nummer in `PART_FIELDS`, wie bei `korg.read.patternValue`) von Part `part` auf `x`, in seinen Bereich geklemmt, über die Funktion der Firmware, die auch die Regler nehmen: Pattern im RAM und Klang ändern sich wie beim Drehen. Für den gewählten Part öffnet sich das Parameterfenster wie beim Regler. Lesbarer als `korg.parts[i].cutoff = x`. Einzelheiten stehen unter der Tabelle. Ab API Version 14 | wie `korg.led` |
 | `korg.seq.setPatternValue(wert, x)` | setzt den Wert `wert` (Nummer in `PATTERN_FIELDS`, wie bei `korg.read.patternValue` mit `part` -1) des Patterns, das läuft, auf `x`, in seinen Bereich geklemmt, über die Funktion der Firmware, die auch das Pattern-Menü nimmt: im Block steht danach dasselbe Byte wie nach dem Drehen im Menü. MFX TYPE geht auf blau nur bis 31. `syncGroup` (Wert 12, ab API Version 21) hat keine Funktion der Firmware, die Firmware kennt es nicht; der Aufruf schreibt es in den Block wie die Seite SYNC GROUP. Ab API Version 24: `alternate1314` und `alternate1516` gehen über die Funktion der Seiten ALTERNATE; `mfxHold` drückt die Taste MFX HOLD, wenn der Wert sich ändert, LED, Effekt und Touchpad stehen danach wie nach der Taste (der Wert steht erst nach dem nächsten Bild im Block); `mfxPadX` und `mfxPadY` setzen den Wert des Touchpads und schicken den MIDI-CC wie das Touchpad auf dem globalen Kanal. Der Name des Patterns lässt sich nicht setzen. Im Emulator geprüft auf Hacktribe, rot und blau ([Messung](messungen/2026-11-03-plugin-api15.md)), am Gerät noch nicht. Die Tabelle je Firmware steht in `tools/patch/script_hooks.py` (`PATTERN_SETTERS`). Ab API Version 15 | wie `korg.led` |
-| `korg.read.patternBytes(feld, pattern, offset)` | kopiert Bytes eines Patterns ins Feld, ein Byte je Platz: `pattern` -1 das im RAM, 0 bis 249 ein gespeichertes, ab `offset` (0 bis 16383) im Block von 16384 Byte, so viele wie das Feld Plätze hat und der Block reicht. Gibt die Zahl der Bytes zurück. Die Stellen stehen in `data/map/pattern.mjs`: Part `p` beginnt bei 2048 + 816 × `p`, sein Step `s` bei 48 + 12 × `s` darin. Ab API Version 14 | überall |
-| `korg.read.patternName(feld, pattern)` | kopiert die 16 Bytes des Pattern-Namens (Offset 16 im Block) ins Feld, ein Byte je Platz, wie `korg.read.patternBytes(feld, pattern, 16)` mit höchstens 16 Plätzen; `pattern` -1 das im RAM, 0 bis 249 ein gespeichertes. Gibt die Zahl der Bytes zurück. Anzeigen mit `korg.display.chars`. Ab API Version 29 | überall |
+| `korg.read.patternBytes(feld, pattern, offset)` | kopiert Bytes eines Patterns ins Feld, ein Byte je Platz: `pattern` -1 das im RAM, 0 bis 249 ein gespeichertes, ab `offset` (0 bis 16383) im Block von 16384 Byte, so viele wie das Feld Plätze hat und der Block reicht. Gibt die Zahl der Bytes zurück. Die Stellen stehen in `data/map/pattern.mjs`: Part `p` beginnt bei 2048 + 816 × `p`, sein Step `s` bei 48 + 12 × `s` darin. Ab API Version 14 | wie `korg.led` |
+| `korg.read.patternName(feld, pattern)` | kopiert die 16 Bytes des Pattern-Namens (Offset 16 im Block) ins Feld, ein Byte je Platz, wie `korg.read.patternBytes(feld, pattern, 16)` mit höchstens 16 Plätzen; `pattern` -1 das im RAM, 0 bis 249 ein gespeichertes. Gibt die Zahl der Bytes zurück. Anzeigen mit `korg.display.chars`. Ab API Version 29 | wie `korg.led` |
 | `korg.midi.cc(kanal, cc, wert)` | schickt einen Control Change über DIN und USB, über die Sendefunktion, die auch die Pads und Regler der Firmware nehmen: `kanal` 0 bis 15 für Kanal 1 bis 16, -1 der globale MIDI-Kanal (`korg.global.midiChannel`), `cc` und `wert` 0 bis 127. Der MIDI SEND FILTER gilt wie für die Nachrichten der Firmware: mit Short oder Short + Program geht nichts hinaus. Gibt 1 zurück, wenn gesendet, 0, wenn der Filter sie zurückhielt. Ab API Version 30 ([Messung](messungen/2026-11-11-plugin-api30-midi.md)) | wie `korg.led` |
 | `korg.midi.noteOn(kanal, note, velocity)` | schickt Note On, `velocity` 1 bis 127; Kanal und Filter wie `korg.midi.cc`. Ab API Version 30 | wie `korg.led` |
 | `korg.midi.noteOff(kanal, note)` | schickt Note Off mit Velocity 64, wie die Pads der Firmware; Kanal und Filter wie `korg.midi.cc`. Ab API Version 30 | wie `korg.led` |
 | `korg.midi.program(kanal, program)` | schickt einen Program Change, `program` 0 bis 127; nur der MIDI SEND FILTER Short + Program hält ihn zurück, wie den der Firmware. Gibt 1 oder 0 zurück wie `korg.midi.cc`. Ab API Version 30 | wie `korg.led` |
 | `korg.midi.hold(typ, an)` | hält einen Typ empfangener Nachrichten von der Firmware fern, solange `an` 1 ist: 0 Note Off, 1 Note On, 2 Poly Pressure, 3 Control Change, 4 Program Change, 5 Channel Pressure, 6 Pitch Bend. Die Plugins bekommen `midiIn` trotzdem. Wie `korg.keyHold` gilt der Typ als gehalten, solange irgendein laufendes Plugin ihn hält; ein Plugin, das endet, gibt seine frei. Ab API Version 30 | wie `korg.led` |
 | `korg.audio.level(kanal)` | der Ausgangspegel einer Seite der Pegelanzeige, `kanal` 0 oder 1, 0 bis 254: derselbe geglättete Wert, den die unteren LEDs zeigen (alle 40 ms neu), auch wenn die Anzeige aus ist oder ein Plugin die LEDs hält. Welche Seite links ist, ist am Gerät noch nicht geprüft. Ab API Version 31 ([Messung](messungen/2026-11-11-plugin-api31-audio-level.md)) | überall |
-| `korg.audio.capture(quelle)` | fordert den Ton einer Quelle an: `quelle` 1 bis 16 Part 1 bis 16, 17 bis 24 die Part-Paare 1+2 bis 15+16 (beide Seiten), -1 oder 0 hört auf. Die Firmware nimmt den Ton der Quelle am DSP ab und rechnet alle 50 ms ein Spektrum (FFT über 4096 Frames, 48 kHz), in ihrer eigenen Task, nicht im Plugin. Gibt den Status zurück (`AUDIO_STATUS` im Vertrag): 0 ok, 1 aus, 2 belegt, 3 warten (die ersten Daten kommen), 4 Lücke, 5 kein Speicher, 6 nicht auf dieser Electribe. Wer nicht mindestens alle 2 s `capture`, `spectrum` oder `wave` ruft, verliert die Aufnahme. Capture, FFT und Ring kommen aus Spettro von Luigi (GitHub reflectiveboi, PR #429). Nur Sampler (Hacktribe und rot), auf dem blauen Synth 6. Ab API Version 31 ([Messung](messungen/2026-11-12-plugin-api31-spektrum.md)) | überall |
-| `korg.audio.spectrum(feld, bins, bereich)` | füllt die ersten `bins` (1 bis 128) Plätze des Felds mit dem Spektrum der Quelle, dB 0 bis 96 je Band, 96 ist ein Sinus mit voller Aussteuerung; `bereich` 0 voll 20 Hz bis 20 kHz, 1 Bass 20 Hz bis 2 kHz, logarithmisch geteilt, je Platz das lauteste der 128 Bänder darin. Gibt den Status wie `korg.audio.capture` zurück; das Feld wird nur bei 0 beschrieben. Ab API Version 31 | überall |
-| `korg.audio.wave(feld)` | füllt das Feld mit den neuesten Frames der Quelle, -128 bis 127 (die oberen 8 Bit), höchstens 256, der letzte Platz am neuesten; bei einem Part-Paar der Mittelwert beider Seiten. Gibt den Status wie `korg.audio.capture` zurück. Ab API Version 31 | überall |
+| `korg.audio.capture(quelle)` | fordert den Ton einer Quelle an: `quelle` 1 bis 16 Part 1 bis 16, 17 bis 24 die Part-Paare 1+2 bis 15+16 (beide Seiten), -1 oder 0 hört auf. Die Firmware nimmt den Ton der Quelle am [DSP](glossary.md#dsp) ab und rechnet alle 50 ms ein Spektrum (FFT über 4096 Frames, 48 kHz), in ihrer eigenen Task, nicht im Plugin. Gibt den Status zurück (`AUDIO_STATUS` im Vertrag): 0 ok, 1 aus, 2 belegt, 3 warten (die ersten Daten kommen), 4 Lücke, 5 kein Speicher, 6 nicht auf dieser Electribe. Wer nicht mindestens alle 2 s `capture`, `spectrum` oder `wave` ruft, verliert die Aufnahme. Nur Sampler (Hacktribe und rot), auf dem blauen Synth 6. Ab API Version 31 ([Messung](messungen/2026-11-12-plugin-api31-spektrum.md)) | wie `korg.led` |
+| `korg.audio.spectrum(feld, bins, bereich)` | füllt die ersten `bins` (1 bis 128) Plätze des Felds mit dem Spektrum der Quelle, dB 0 bis 96 je Band, 96 ist ein Sinus mit voller Aussteuerung; `bereich` 0 voll 20 Hz bis 20 kHz, 1 Bass 20 Hz bis 2 kHz, logarithmisch geteilt, je Platz das lauteste der 128 Bänder darin. Gibt den Status wie `korg.audio.capture` zurück; das Feld wird nur bei 0 beschrieben. Ab API Version 31 | wie `korg.led` |
+| `korg.audio.wave(feld)` | füllt das Feld mit den neuesten Frames der Quelle, -128 bis 127 (die oberen 8 Bit), höchstens 256, der letzte Platz am neuesten; bei einem Part-Paar der Mittelwert beider Seiten. Gibt den Status wie `korg.audio.capture` zurück. Ab API Version 31 | wie `korg.led` |
 | `korg.file.read(feld, offset, datei)` | liest die Datendatei `datei` (0 bis 15) des Plugins (siehe [Datendatei](#datendatei)) ab Byte `offset` (0 bis 32767) ins Feld, ein Byte je Platz, so viele wie das Feld Plätze hat und die Datei reicht. Gibt die Zahl der Bytes zurück (0 ohne Datei), -1 außerhalb des Hauptbildschirms und des Menüs BLECH, ohne lesbare Karte oder solange eine andere Datei, auch eine eigene, noch auf das Schreiben wartet. Eine Nummer außerhalb 0 bis 15 hält das Plugin an (`API_ARG`). Ab API Version 39 ([Messung](messungen/2026-11-17-plugin-daten-heap.md)) | wie `korg.led` |
 | `korg.file.write(feld, offset, datei)` | schreibt das untere Byte jedes Platzes ab Byte `offset` in die Datendatei `datei` (0 bis 15) des Plugins, bis zum Ende des Felds oder der Grenze von 32768 Byte; eine Lücke hinter dem alten Ende liest sich als 0. Auf die Karte kommt die Datei wie bei `korg.store.save` erst im Hauptbildschirm oder im Menü BLECH und frühestens 2 s nach dem letzten Schreiben auf die Karte. Gibt die Zahl der Bytes zurück, -1 wie `korg.file.read`. Ab API Version 39 | wie `korg.led` |
 | `korg.read.sampleName(feld, slot)` | liest den Namen des Samples in Slot `slot` (0 bis 997, die Nummer am Display minus 1, wie der Part-Wert `sample`) ins Feld, ein Zeichen je Platz, bis zum ersten Nullbyte, 16 Zeichen oder dem Ende des Felds. Gibt die Zahl der Zeichen zurück (0 für einen leeren Slot), -1 auf dem blauen Synth. Ab API Version 33 ([Messung](messungen/2026-11-11-plugin-api33-samples.md)) | überall |
@@ -735,6 +732,32 @@ Plugin mit einem Fehler.
 | `korg.part.copy(pattern, von, nach)` | kopiert Part `von` (0 bis 15) aus Pattern `pattern` (0 bis 249) auf Part `nach` des laufenden Patterns, wie Part Util COPY PART: Klang, Steps und Motion, mit der Funktion der Firmware. Ist `pattern` das gewählte Pattern, kommt der Part aus dem Pattern im RAM (mit ungespeicherten Änderungen), sonst aus der Bank. Ab API Version 33 ([Messung](messungen/2026-10-30-vorschau-part-reinholen.md)) | wie `korg.led` |
 | `korg.read.led(index)` | die Helligkeit, die die Firmware zuletzt an die LED `index` (0 bis 87, Nummern wie bei `korg.led`) geschickt hat, 0 bis 255, aus der Kopie des LED-Managers. LEDs, die ein Plugin mit `korg.led` setzt, stehen nicht darin. Ab API Version 34 ([Messung](messungen/2026-10-14-led-zustand-ram.md)) | überall |
 | `korg.seq.writeSteps(feld, part, erster)` | schreibt Steps aus dem Feld in Part `part` des Patterns, das läuft, ab Step `erster` (0 bis 63): je 12 Plätze ein Step wie im Pattern (an, Gate, Velocity, Trigger, vier Notenplätze, vier Plätze, die die Laufzeit stehen lässt), so viele ganze Steps wie das Feld hat und bis Step 63. Jeder Wert wird geklemmt (an und Trigger 0 bis 1, Gate 0 bis 127, Velocity 1 bis 127, Noten 0 bis 128), das An-Byte kommt zuletzt. Gibt die Zahl der Steps zurück. Ab API Version 14 | wie `korg.led` |
+
+**Einzelheiten zu `korg.seq.setPartValue`** (im Emulator auf Hacktribe, rot und blau geprüft, am Gerät nicht;
+[API 21](messungen/2026-11-06-plugin-api21-pattern-parts.md), [API 23](messungen/2026-11-07-plugin-api23-part-writes.md),
+[API 24](messungen/2026-11-08-plugin-api24-part-cc.md), [Klangerzeugung](messungen/2026-11-09-plugin-part-dsp.md)):
+
+- **`voiceAssign`, `mfxSend`** (ab API Version 21): über die Funktion der Firmware, die auch die Seite VOICE ASSIGN im Part-Menü
+  und die Taste MFX SEND rufen, ohne Parameterfenster. Sie schreiben Pattern und die Kopie der Klangerzeugung auf allen drei
+  Firmwares. `mfxSend` schaltet auch seine LED, sie leuchtet nur für den gewählten Part wie an der Taste.
+- **`ifxOn`, `ampEg`** (ab API Version 23): gehen den Weg der Tasten IFX ON und AMP EG; Pattern, Kopie der Klangerzeugung und die
+  LED der Taste stehen danach wie nach der Taste.
+- **`ifxType`** (ab API Version 23): geht wie der Encoder IFX über den Part-Edit und zeigt dasselbe Fenster. Er hält bei der letzten
+  Nummer der Firmware an, statt umzuspringen (mit dem BLECHTRIBE-Satz 58 auf Hacktribe, 47 auf rot, 37 auf blau; die Grenze liest
+  der Aufruf zur Laufzeit aus der Firmware, ein fx-Katalog mit mehr Typen hebt sie mit).
+- **`sample`** (ab API Version 23): nimmt die ganze Slotnummer (0 bis 999) über den Part-Edit wie der Regler SAMPLE, aber nur einen
+  Slot, bei dem der Regler stehen bleibt; einen leeren Slot schreibt der Aufruf nicht. Auf blau gibt es keine Samples, dort
+  schreibt `sample` nichts. Ab API Version 24 setzt `sample` auf einem Sample mit Slices auch den Slice wie der Regler SAMPLE
+  (im Emulator mit einem gestellten Slice-Sample geprüft, die Karte im Emulator hat keins).
+- **LAST STEP bis SCALE MODE und GROOVE** (ab API Version 24): gehen über die Funktion der Menüseiten und landen wie nach dem
+  Drehen im Menü.
+- **MIDI-CC** (ab API Version 24): der Aufruf schickt denselben CC wie der Regler, der Encoder CUTOFF oder die Taste (IFX ON,
+  MFX SEND), auf dem Kanal des Parts. Auf der blauen Electribe geht er seit API Version 24 über den Part-Edit der Regler, mit
+  Fenster.
+- **Klangerzeugung:** jeder Wert geht so an die Klangerzeugung wie vom Bedienelement: die Werte der Regler und CUTOFF an den
+  Parametersetzer der Firmware, `sample`, `modType`, `ifxType` und `filterType` mit dem Auffrischen wie die Encoder und
+  Filtertasten, `mfxSend` mit 127 statt 1 wie die Taste. `filterType` schaltet für den gewählten Part die LEDs LPF, HPF und BPF,
+  `modType` zeigt das Fenster des Encoders MOD.
 
 **Steps schreiben** (`tools/patch/script_seq.s`, ab API Version 9): `korg.seq.*` schreibt in das Pattern im RAM,
 das gerade läuft oder bearbeitet wird, genau wie das Würfeln mit SHIFT + PART ERASE
@@ -801,8 +824,8 @@ solange der Hauptbildschirm offen ist. Ohne Besitzer rührt die Laufzeit das Dis
 nicht an. Menüs und Fenster zeigt die Firmware wie gewohnt, ein Plugin sieht sie nicht.
 Die Schrift ist eine eigene 5 mal 7 Schrift mit 6 Pixel Zeichenabstand
 (`data/script/font.mjs`), dieselbe Tabelle in Browser und Laufzeit; die Ausgabe
-ist Pixel für Pixel gleich dem Browsermodell (`src/script/display.mjs`, 70
-Fälle in `tools/patch/test_script_display.py`). Texte sind höchstens 31 Zeichen
+ist Pixel für Pixel gleich dem Browsermodell (`src/script/display.mjs`, geprüft in
+`tools/patch/test_script_display.py`). Texte sind höchstens 31 Zeichen
 (ein Textplatz), Zahlen werden dezimal gezeichnet.
 
 **Popups für Hintergrund-Plugins** (`korg.display.popup.*`): `begin()` bereitet
@@ -837,8 +860,8 @@ Als Feld kommt nur der Name eines globalen Felds in Frage (`const bild = [...]` 
 Länge in den oberen 16) und prüft, wenn `breite` eine feste Zahl ist, dass mindestens ein Streifen
 im Feld liegt; die VM prüft bei jedem Aufruf, dass das Feld im Variablenbereich liegt (sonst
 `BAD_VAR`). Nullen im Feldliteral kosten keinen Code, weil die Laufzeit jeden Variablenplatz beim
-Laden löscht. Ein Aufruf kostet 14 Einheiten und 3 für jeden Platz des Felds (ein Bild von 41 mal
-56 Pixeln mit 287 Plätzen also 875). Der Wert ist an den ARM Befehlszahlen gemessen: 63 Befehle für den
+Laden löscht. Ein Aufruf kostet 15 Einheiten und 3 für jeden Platz des Felds (ein Bild von 41 mal
+56 Pixeln mit 287 Plätzen also 876). Der Wert ist an den ARM Befehlszahlen gemessen: 68 Befehle für den
 Aufruf, höchstens 28 für einen gesetzten Platz, bei Bildern von einem Platz Breite rund 20 mehr für
 jeden Streifen, zu 10 Befehlen je Einheit (`tools/patch/test_script_display.py` prüft die Zahlen).
 Leere Plätze und Plätze außerhalb des Displays kosten weniger, als berechnet wird.
@@ -901,7 +924,7 @@ laufenden Plugins, die einen Handler dafür haben, und entscheidet danach, ob si
   laufendes Plugin sie hält. Lässt eines los, hält das andere weiter. Für Pads und Regler gilt dasselbe.
 - **Ein Plugin hört auf** (abgeschaltet, mit Fehler beendet, entfernt): seine Masken zählen ab dem Ende des nächsten Rahmens
   nicht mehr. Was nur dieses Plugin gehalten hat, geht an die Firmware zurück.
-- **Eine App schließt:** sie gibt die Pads aller Plugins zurück (wie bisher); Tasten und Regler bleiben gehalten.
+- **Eine App schließt:** sie gibt die Pads aller Plugins zurück; Tasten und Regler bleiben gehalten.
 - **Das Loslassen folgt dem Anschlag:** ein Anschlag, der der Firmware vorenthalten wurde, hält auch sein Loslassen von ihr
   fern, auch wenn der Halt dazwischen endet; ein Anschlag, der durchging, lässt sein Loslassen durch.
 - **EXIT** lässt sich nicht halten (`korg.keyHold` und `korg.keyMask` beenden das Plugin mit einem Fehler), Apps bleiben
@@ -1098,7 +1121,7 @@ die Vervollständigung des Editors alle Namen an (siehe „Die Seite Plugins im 
 
 ### Veraltete Aufrufe (API 35)
 
-Diese Aufrufe und Eigenschaften ersetzt ein neuerer. Sie laufen weiter wie bisher, der Block bleibt derselbe. Der Editor
+Diese Aufrufe und Eigenschaften ersetzt ein neuerer. Sie laufen weiter, der Block bleibt derselbe. Der Editor
 markiert sie als Warnung, nennt den Ersatz in der Fehlerliste und im Tooltip. Entfernt werden sie frühestens in einer späteren
 Version, das steht dann in den Release Notes. Die Liste steht in `data/script/contract.mjs` (`DEPRECATED`).
 
@@ -1127,12 +1150,13 @@ Wer ein Plugin auch für eine Firmware vor API 21 schreibt, bleibt bei der alten
 
 Die Laufzeit rechnet je Plugin die auf 4 Byte ausgerichtete Blockgröße
 `totalSize`, vier Byte je Variablenplatz und einen Plugin-Eintrag zusammen.
-Der Eintrag braucht derzeit 292 Byte: 48 Byte feste Felder einschließlich
+Der Eintrag braucht derzeit 460 Byte: 48 Byte feste Felder einschließlich
 des `ready` Merkers, je vier Byte für die höchsten Kosten und Zeiten der
-22 Ereignisse (der Rumpf `start` zählt mit) und 68 Byte für die dauerhaften
-Werte (Maske und 16 Plätze). Sein Aufbau steht im gemeinsamen
+29 Ereignisse (der Rumpf `start` zählt mit), 68 Byte für die dauerhaften
+Werte (Maske und 16 Plätze), 96 Byte für die 8 Timer und 16 Byte für die
+Masken der gehaltenen Eingaben. Sein Aufbau steht im gemeinsamen
 Vertrag `SCRIPT_ENTRY`, aus dem auch die ARM Konstanten entstehen. Stapel,
-Prüfpuffer, globaler Status und Ereignisring liegen außerhalb des Pools.
+Prüfpuffer, globaler Status und Ereignisring liegen außerhalb des [Pools](glossary.md#pool).
 Abgeschaltete Plugins behalten ihren Speicher und Fehlerstatus.
 
 Reicht der gemeinsame Speicher nicht, lehnt die Laufzeit den Block vor dem
@@ -1156,37 +1180,22 @@ Der Pool liegt im freien FF-Bereich des Abbilds, von `0xC01D7000` bis
 Bereich ist dort FF. Das belegt eine freie Abbildfläche, keine dauerhafte
 Nichtnutzung am Gerät ([Messung](messungen/2026-10-14-skript-haken.md)). Die
 Speicherbilanz des Bereichs steht in der
-[Recherche zur Laufzeit](hintergrund/skript-laufzeit.md), Abschnitt 3. Das
-gemeinsame 128 KiB Budget ersetzt ein älteres Modell mit 64 KiB nur für
-Variablen.
+[Recherche zur Laufzeit](hintergrund/skript-laufzeit.md), Abschnitt 3.
 
 ### Format 2 und die Kosten
 
-Blockformat 2 ist das einzige Format; ein Block aus Format 1 (nie
-ausgeliefert) wird mit der Versionsmeldung abgelehnt. Gegenüber Format 1 sind
-die Operanden von `LOAD`, `STORE`, `ALOAD` und `ASTORE` (Platz, Feldanfang,
-Feldlänge) 16 Bit breit, der Kopf wächst von 48 auf 52 Byte und nennt die
-Variablenzahl mit 32 Bit (ein voller Bereich von 65536 Plätzen passt nicht in
-16 Bit). Die Länge eines Felds ist ein 16-Bit-Operand und kann daher höchstens
-65535 sein; Feldanfang plus Länge muss in den Bereich des Plugins passen, und
-jeder Zugriff wird wie vorher gegen die Länge geprüft (Prüfer und VM,
-Fehlercodes unverändert `BAD_VAR` und `BOUNDS`).
+Blockformat 2 ist das einzige Format. `LOAD`, `STORE`, `ALOAD` und `ASTORE` tragen ihre Operanden (Platz, Feldanfang,
+Feldlänge) mit 16 Bit, der Kopf ist 52 Byte groß und nennt die Variablenzahl mit 32 Bit (ein voller Bereich von 65536 Plätzen
+passt nicht in 16 Bit). Die Länge eines Felds ist ein 16-Bit-Operand und kann daher höchstens 65535 sein; Feldanfang plus
+Länge muss in den Bereich des Plugins passen, und jeder Zugriff wird gegen die Länge geprüft (Prüfer und VM, Fehlercodes
+`BAD_VAR` und `BOUNDS`).
 
-Mehrkosten, hergeleitet und nicht gemessen:
-ein 16-Bit-Operand liegt hinter dem Opcode auf einer ungeraden Adresse, ein
-`ldrh` geht dort nicht; die VM liest zwei Bytes und fügt sie zusammen, das
-sind 2 Befehle mehr je Operand. `LOAD` und `STORE` kosten damit 11 statt 9
-Befehle (Dispatch inklusive, Messwert 9 aus der [Recherche](hintergrund/skript-laufzeit.md), Abschnitt 2.3),
-`ALOAD` und `ASTORE` mit zwei Operanden 4 mehr. Die Kosteneinheiten im
-Vertrag bleiben, sie sind ohnehin Schätzungen. Beim Lauf von Snake (300
-Rahmen mit Tastendrücken in der JS-VM, Operationen nach Art gezählt, mit den
-Messwerten der Recherche gewichtet) sind 30,4 % der Operationen `LOAD` oder
-`STORE` und 6,2 % `ALOAD` oder `ASTORE`: von 9,25 auf 10,11 Befehle je
-Operation, rund 9 %. Beim Klicker rund 6 %. Der Block wächst: Snake von 952 auf
-1080 Byte (davon 4 im Kopf), Klicker von 220 auf 232. Wird der Aufschlag auf
-dem Gerät zu teuer (die Zeit je Operation ist dort noch nicht gemessen), ist eine Kurzform mit
-8-Bit-Platz für die ersten 256 Variablen ein Zusatz-Opcode und kein
-Formatbruch.
+Kosten, **hergeleitet** und nicht gemessen: ein 16-Bit-Operand liegt hinter dem Opcode auf einer ungeraden Adresse, ein `ldrh`
+geht dort nicht; die VM liest zwei Bytes und fügt sie zusammen, das sind 2 Befehle mehr je Operand. `LOAD` und `STORE` kosten
+damit 11 Befehle (Dispatch inklusive, Messwert 9 für die 8-Bit-Form aus der
+[Recherche](hintergrund/skript-laufzeit.md), Abschnitt 2.3), `ALOAD` und `ASTORE` mit zwei Operanden 4 mehr. Die Kosteneinheiten
+im Vertrag sind Schätzungen und bleiben davon unberührt. Die Zeit je Operation am Gerät ist **offen**; wird der Aufschlag dort zu
+teuer, ist eine Kurzform mit 8-Bit-Platz für die ersten 256 Variablen ein Zusatz-Opcode und kein Formatbruch.
 
 ### Wenn etwas schiefgeht
 
@@ -1202,10 +1211,10 @@ Die Fehlercodes stehen in `data/script/contract.mjs`.
 
 ### Dateien für die Karte
 
-Plugins kommen nur über die SD-Karte aufs Gerät, nie in die VSB. Der Ordner ist
+Plugins kommen nur über die SD-Karte aufs Gerät, nie in die [VSB](glossary.md#vsb). Der Ordner ist
 `KORG/blechtribe/Plugin/` (Einzahl, nicht "Plugins"; bei der roten und der blauen Electribe derselbe), den die
 Firmware nicht selbst anlegt. Mit verbundenem Gerät legt die Seite Plugins
-sie auch über USB dorthin (Knopf "Aufs Gerät", BLECHTRIBE-SysEx-Befehl `0x67` PLUGIN BEGIN, Name aus Buchstaben,
+sie auch über USB dorthin (Knopf "Aufs Gerät", BLECHTRIBE-[SysEx](glossary.md#sysex)-Befehl `0x67` PLUGIN BEGIN, Name aus Buchstaben,
 Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, PLUGINS.
 
 - `e2sPlugin.all` ist die Sammeldatei, die das Gerät beim Start liest. Kopf, 16
@@ -1224,7 +1233,7 @@ Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, PLUGINS.
   Block und zeigt die Beschreibung auf der Seite DESCRIPTION des Plugins, der Editor liest den
   Quelltext, um das Plugin wieder zu öffnen.
 
-Der Lader läuft einmal beim Start direkt nach dem Laden der `e2sSample.all`
+Der Lader läuft einmal beim Start direkt nach dem Laden der [`e2sSample.all`](glossary.md#e2ssampleall)
 (Einhängestelle `0xC0038D68`, Kette `start`). Mit EXIT beim Einschalten, ohne
 Karte oder ohne Datei tut er nichts und die Electribe startet wie ohne ihn.
 Eine Datei mit falschem Kopf, falscher Prüfsumme oder abgeschnittenem Inhalt
@@ -1251,7 +1260,7 @@ ein Hinweis, kein Schutz, jeder kann es setzen.
 Kennung `GGIF`, Version 1 (u16), Zahl der Bilder (u16), dann je Bild die Dauer in ms (u16), zwei Nullbytes und 1024
 Byte Displayspeicher (Byte `(y / 8) * 128 + x`, Bit `y % 8`). `tools/gif/gif2e2g.py` macht so eine Datei aus einem GIF
 (Pillow), aus mehreren Bildern (etwa BMPs) eine Datei mit einem Bild je Eingabe in der genannten Reihenfolge, `src/script/gif.mjs` liest sie im Browser. Ein Aufruf öffnet die Datei, springt zum Bild, liest es und schließt
-sie wieder, über die FatFs-Funktionen der Firmware (auch `f_lseek`, `0xC009E404`, in Blau `0xC008AF5C`) und mit dem
+sie wieder, über die [FatFs](glossary.md#fatfs)-Funktionen der Firmware (auch `f_lseek`, `0xC009E404`, in Blau `0xC008AF5C`) und mit dem
 Dateiobjekt des Kartenladers. Er liest nur bei offenem Hauptbildschirm. Wie lange das
 Lesen von 1 KiB am Gerät dauert, ist nicht gemessen; im Emulator sind es 7,5 ms, die nicht für das Rahmenbudget zählen.
 
@@ -1336,7 +1345,7 @@ Data Util: gleiche Schrift, gleiche Plätze, dieselbe Zeile `press  [ Enter ]`.
   die Seiten der Firmware und gehören zum Bildschirm BLECH: EDIT blättert zwischen ihnen und den Seiten der Firmware in
   beide Richtungen, EXIT geht dorthin, wohin es von den Seiten der Firmware geht (Global, Data Util), die Zähler der
   Firmware zählen sie mit. Seiten in den Menüs der Firmware selbst anzulegen, hieße deren Tabellen und Zustandsmaschinen
-  zu ändern; so bleiben beide unberührt (Entscheidung vom 29.10., [Messung](messungen/2026-10-29-menue-anordnung.md)).
+  zu ändern; so bleiben beide unberührt ([Messung](messungen/2026-10-29-menue-anordnung.md)).
 - **ENTER auf der Seite BLECH** öffnet die Liste auf der Gruppe, aus der man zuletzt herauskam, auch nach
   einem Umweg durch die anderen Menüs.
 - **ENTER**, die Taste MENU, öffnet die Liste der Gruppen. Das Schild oben links nennt
@@ -1361,7 +1370,7 @@ VERSION, die keine Gruppe ist:
 | CUSTOMIZATION | DISPLAY, LED, dazu PAD COLOR, POWER SAVE und SPLASH, wo der Satz sie hat; siehe unten |
 | GAMES | je App eine Seite; erscheint nur, wenn ein Plugin eine App der Gruppe angemeldet hat |
 | TOOLS | wie GAMES |
-| VERSION | keine Gruppe: oben die Version des Satzes, mit dem die Firmware gepatcht wurde (`BLECH 1.3.7`, aus dem Patch `blech-version`), darunter die Firmware, für die das Menü gebaut ist (HACKTRIBE, KORG RED, KORG BLUE). Hinter der Firmware, was der Start mit `KORG/blechtribe/Presets/e2sFx.all` gemacht hat: "FX" (geladen, IFX und MFX der Parts gleich neu an den DSP geschickt, also z. B. "HACKTRIBE FX"), "FX off" (beim Start übersprungen), "FX fw?" (Datei für eine andere Firmware) oder "FX bad" (Datei kaputt); nichts ohne Datei. ENTER, WRITE und das Rad ändern nichts |
+| VERSION | keine Gruppe: oben die Version des Satzes, mit dem die Firmware gepatcht wurde (in der Form `BLECH x.y.z`, aus dem Patch `blech-version`), darunter die Firmware, für die das Menü gebaut ist (HACKTRIBE, KORG RED, KORG BLUE). Hinter der Firmware, was der Start mit `KORG/blechtribe/Presets/e2sFx.all` gemacht hat: "FX" (geladen, IFX und MFX der Parts gleich neu an den DSP geschickt, also z. B. "HACKTRIBE FX"), "FX off" (beim Start übersprungen), "FX fw?" (Datei für eine andere Firmware) oder "FX bad" (Datei kaputt); nichts ohne Datei. ENTER, WRITE und das Rad ändern nichts |
 
 Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem Wert ON oder OFF, das Hauptrad ändert ihn:
 
@@ -1379,25 +1388,25 @@ Die Seiten von FEATURES (das Schild nennt die Gruppe "Feature"), jede mit dem We
 | KEY PADS | ON, OFF (siehe unten) |
 | FILTER TOGGLE | ON, OFF (siehe unten) |
 
-Eine Gruppe ABOUT gibt es nicht mehr: sie zeigte nur die Zahl der geladenen Plugins und verwirrte.
+
 
 Die Seiten der Gruppen:
 
 | Gruppe, Seite | Wert | Wirkung |
 |---|---|---|
 | GLOBAL PARAMETERS, PLUGIN RUNTIME | ON, OFF | die Plugins der Karte an oder aus, gilt ab dem nächsten Start ("OFF, RESTART" zeigt, dass es noch nicht gilt); Blechy ist kein Plugin der Karte und bleibt. Die Seite 21/21 von GLOBAL PARAMETERS, WRITE speichert die Einstellungen des Menüs BLECH |
-| PLUGINS, MANAGE PLUGINS | ENTER auf PLUGINS führt ohne Zwischenseite hierher; die Seite MANAGE PLUGINS selbst (`press  [ Enter ]`) zeigt sich nur mit "No Plugin", wenn es nichts zu zeigen gibt, und nach REMOVE mit dessen Meldung, ENTER dort öffnet die Liste wieder | ENTER liest den Ordner `KORG/blechtribe/Plugin/` (bis 64 Plugin-Dateien; hat er mehr, steht hinter dem letzten Plugin die Seite LIST FULL mit "64 files shown", [Messung](messungen/2026-10-30-plugin-liste-64-entfernen.md)) und öffnet die Liste aller Plugins, eine Seite je Plugin (das Schild bleibt "Plugins", der Zähler zählt sie, EDIT blättert im Kreis wie in jedem anderen Menü). Seit 1.4.5 sieht die Liste aus wie der Dateibrowser von DATA UTILITY: drei Zeilen in großer Schrift mit Dateisymbol vor dem Namen, lange Namen mit "..", das Dreieck links am gezeigten Plugin, die Bildlaufleiste rechts ([Messung](messungen/2026-11-08-plugin-liste-browser.md)). Sie öffnet auf dem Plugin, das man zuletzt gesehen hat; EXIT führt zurück auf die Zeile PLUGINS (bis 1.4.5 gab es dazwischen die eine Seite MANAGE PLUGINS). In der Liste stehen zuerst die geladenen Plugins, dann die der `*.blech`-Dateien, die nicht geladen sind, jedes Plugin einmal (gleicher Name im Kopf der Datei und im geladenen Block heißt: dasselbe Plugin). Ein Plugin, das nur in `e2sPlugin.all` steht und zu dem es keine Datei gibt, steht als geladenes in der Liste und hat keine Beschreibung. Teile der Firmware (Blechy und was BLECHTRIBE selbst mitbringt) sind keine Plugins und stehen nie hier, ihre Schalter sind unter FEATURES |
+| PLUGINS, MANAGE PLUGINS | ENTER auf PLUGINS führt ohne Zwischenseite hierher; die Seite MANAGE PLUGINS selbst (`press  [ Enter ]`) zeigt sich nur mit "No Plugin", wenn es nichts zu zeigen gibt, und nach REMOVE mit dessen Meldung, ENTER dort öffnet die Liste wieder | ENTER liest den Ordner `KORG/blechtribe/Plugin/` (bis 64 Plugin-Dateien; hat er mehr, steht hinter dem letzten Plugin die Seite LIST FULL mit "64 files shown", [Messung](messungen/2026-10-30-plugin-liste-64-entfernen.md)) und öffnet die Liste aller Plugins, eine Seite je Plugin (das Schild bleibt "Plugins", der Zähler zählt sie, EDIT blättert im Kreis wie in jedem anderen Menü). Die Liste sieht aus wie der Dateibrowser von DATA UTILITY: drei Zeilen in großer Schrift mit Dateisymbol vor dem Namen, lange Namen mit "..", das Dreieck links am gezeigten Plugin, die Bildlaufleiste rechts ([Messung](messungen/2026-11-08-plugin-liste-browser.md)). Sie öffnet auf dem Plugin, das man zuletzt gesehen hat; EXIT führt zurück auf die Zeile PLUGINS. In der Liste stehen zuerst die geladenen Plugins, dann die der `*.blech`-Dateien, die nicht geladen sind, jedes Plugin einmal (gleicher Name im Kopf der Datei und im geladenen Block heißt: dasselbe Plugin). Ein Plugin, das nur in `e2sPlugin.all` steht und zu dem es keine Datei gibt, steht als geladenes in der Liste und hat keine Beschreibung. Teile der Firmware (Blechy und was BLECHTRIBE selbst mitbringt) sind keine Plugins und stehen nie hier, ihre Schalter sind unter FEATURES |
 | ein Plugin der Liste | seine Zeile: ein Blatt mit zwei Linien heißt ON, ein leeres Blatt OFF (auch nicht geladen oder mit Fehler); unter den Zeilen klein `DIV_ZERO L3`, WRITE=ALLOW oder was getan wurde | das Hauptrad blättert durch die Liste wie im Dateibrowser von IMPORT SAMPLE und bleibt am Anfang und am Ende stehen, EDIT auch, im Kreis ([Messung](messungen/2026-11-09-menue-liste-rad.md)). Geschaltet wird auf der Seite ACTIVE, der ersten Seite des Plugins: ENTER auf dem Plugin öffnet sie, das Hauptrad schaltet gleich, weder ENTER noch EDIT sind dafür nötig. Nach unten hält es das Plugin an und nimmt es aus `e2sPlugin.all` (die Datei wird ohne es neu geschrieben, auch leer, wenn es das letzte war), die `*.blech` im Ordner bleibt: die Seite bleibt offen und zeigt OFF, das Plugin steht als nicht geladenes in der Liste. Ein Plugin, zu dem es keine `*.blech` gibt (nur in `e2sPlugin.all`), hält nur an, sonst wäre es weg; WRITE behält diesen Stand über einen Neustart (es startet dann nicht, beim Einschalten läuft sein Start nach). Bei einem Fehler steht der Fehler mit der Zeile; ein fremdes Plugin wartet mit WRITE=ALLOW auf die Zustimmung (nur WRITE erlaubt es, das Rad nicht). Ein Plugin, das nicht geladen ist, zeigt OFF wie ein ausgeschaltetes: das Hauptrad nach oben auf ACTIVE lädt es aus der Datei, startet es und schreibt `e2sPlugin.all` mit ihm neu, so läuft es auch nach einem Neustart (ein fremdes wartet dann auf WRITE=ALLOW, ein kaputter Block meldet "rejected", ohne Plugins in der Laufzeit "runtime off"), nach unten tut das Rad nichts. ENTER öffnet die Seiten des Plugins: ACTIVE, DESCRIPTION, seine eigenen Seiten und REMOVE; EXIT führt zurück auf das Plugin in der Liste |
 | Plugin, ACTIVE (die erste Seite) | ON, OFF, `DIV_ZERO L3`, WRITE=ALLOW oder was getan wurde | der Zustand des Plugins wie unter seiner Zeile in der Liste: das Hauptrad schaltet es, WRITE speichert den Stand oder erlaubt ein fremdes Plugin, wie oben beschrieben |
 | Plugin, DESCRIPTION | der Zustand des Plugins unter der Beschreibung | die Beschreibung aus der `*.blech`-Datei des Plugins (die `//`-Zeilen ganz oben im Code), als Bild über den ganzen Bildschirm: oben der Name, darunter die Zeilen, unten der Stand. Das Hauptrad scrollt zeilenweise, `^` und `v` zeigen, dass es weitergeht; ENTER tut hier nichts. Ohne Datei oder ohne Beschreibung steht "no description" |
 | Plugin, je `korg.menu.add` eine Seite | die Zahl | die Einstellungen dieses Plugins: das Hauptrad ändert sie, das Plugin bekommt `menu` |
 | Plugin, REMOVE | `press  [ Enter ]` | ENTER fragt ("Enter = remove"), ein zweites ENTER nimmt es aus `e2sPlugin.all` wie ACTIVE OFF und löscht danach die `*.blech` des Plugins von der Karte (`f_unlink` der Firmware): es steht nicht mehr in der Liste, MANAGE PLUGINS meldet "removed". Bei einem Plugin, das nur eine Datei ist, wird nur die Datei gelöscht, bei einem nur in `e2sPlugin.all` nur diese neu geschrieben. Die blaue Electribe hat kein `f_unlink`: dort bleibt die Datei, MANAGE PLUGINS meldet "file stays on card". Hat sich der Ordner seit dem Öffnen der Liste geändert, wird nichts gelöscht ("folder changed") ([Messung](messungen/2026-10-30-plugin-liste-64-entfernen.md)) |
 | DATA UTILITY, EXPORT ALL CUSTOMIZATIONS | (leer, `press  [ Enter ]`; der Titel heißt "EXPORT ALL CUSTOM", der ganze Name passt nicht in die Zeile) | ENTER oder WRITE schreibt die Anpassung als `KORG/blechtribe/e2sCustom.all`: derselbe Satz wie die Einstellungsdatei, ohne die Liste der Prüfsummen der Plugins, und meldet "exported". Beim Start liest noch nichts diese Datei; kopiert über `settings.a.bin` liest sie der Einstellungslader, und die Anpassung ist zurück |
-| DATA UTILITY, EXPORT ALL EFFECTS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt die Presets und Modulationstypen, wie die Firmware sie gerade im RAM hält, zurück in die Sammeldatei `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX und Modulation aus dem Baukasten): jeder Eintrag bleibt an seinem Platz, mit seinem `.e2fx`-Text, den der Editor zurückliest; die Prüfsumme wird neu. Gibt es keine Sammeldatei, legt es eine an (Einträge ohne Text, die lässt der Baukasten beim Laden aus). Eine vorhandene Datei nur, wenn sie beim Einschalten geladen wurde: "bad e2sFx.all", wenn sie seitdem eine andere oder kaputt ist, dann wird nichts geschrieben. Rot und blau (Korgs 2.02 mit dem BLECH-Satz) |
+| DATA UTILITY, EXPORT ALL EFFECTS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt die Presets und Modulationstypen, wie die Firmware sie gerade im RAM hält, zurück in die Sammeldatei `KORG/blechtribe/Presets/e2sFx.all` (IFX, MFX und Modulation aus dem [Baukasten](glossary.md#baukasten)): jeder Eintrag bleibt an seinem Platz, mit seinem `.e2fx`-Text, den der Editor zurückliest; die Prüfsumme wird neu. Gibt es keine Sammeldatei, legt es eine an (Einträge ohne Text, die lässt der Baukasten beim Laden aus). Eine vorhandene Datei nur, wenn sie beim Einschalten geladen wurde: "bad e2sFx.all", wenn sie seitdem eine andere oder kaputt ist, dann wird nichts geschrieben. Rot und blau (Korgs 2.02 mit dem BLECH-Satz) |
 | DATA UTILITY, EXPORT ALL PLUGINS | (leer, `press  [ Enter ]`) | ENTER oder WRITE schreibt alle geladenen Plugins als `e2sPlugin.all`, Byte für Byte so, wie der Browser sie packt, und speichert danach die Einstellungen mit (ausgeschaltete Plugins bleiben aus) |
 | GAMES oder TOOLS, eine App je Seite | ENTER=OPEN | ENTER oder WRITE öffnet die App ("Apps und das Display"); steht das Plugin auf OFF oder ist es ausgefallen, zeigt der Wert OFF oder FAULT |
 | CUSTOMIZATION, DISPLAY | ENTER | öffnet die Seiten des Display-Lichts; EXIT führt zurück auf DISPLAY |
-| DISPLAY, BACKLIGHT HUE, SAT, BRIGHT | HUE 0 bis 95, SAT und BRIGHT 0 bis 15 | Farbe des Display-Lichts: HUE läuft einmal um den Farbkreis (16 Schritte je Rot, Gelb, Grün, Cyan, Blau, Magenta und der Weg dazwischen), SAT ist die Sättigung, BRIGHT die Helligkeit; gespeichert bleibt Rot, Grün, Blau zu je 0 bis 15, eine ältere Datei liest sich also wie vorher; ohne Einstellung steht STOCK da (das Weiß der Firmware), volle Helligkeit ohne Sättigung ist wieder STOCK; ein Schritt, der dieselbe Farbe ergäbe, springt zum nächsten, der sie ändert; gilt sofort; nach WRITE leuchtet das Display beim Einschalten in den Kanälen der Farbe (ein Kanal leuchtet dort, wenn er mindestens halb so stark ist wie der stärkste, Gelb statt Weiß bei HUE 15, SAT 13, BRIGHT 14), auf der roten schon vor dem Startbild, auf der blauen kurz nachdem es erscheint, Zwischenstufen erst, wenn das Menü geladen ist ([Messung](messungen/2026-10-29-hintergrundlicht-beim-start.md)) |
+| DISPLAY, BACKLIGHT HUE, SAT, BRIGHT | HUE 0 bis 95, SAT und BRIGHT 0 bis 15 | Farbe des Display-Lichts: HUE läuft einmal um den Farbkreis (16 Schritte je Rot, Gelb, Grün, Cyan, Blau, Magenta und der Weg dazwischen), SAT ist die Sättigung, BRIGHT die Helligkeit; gespeichert bleibt Rot, Grün, Blau zu je 0 bis 15; ohne Einstellung steht STOCK da (das Weiß der Firmware), volle Helligkeit ohne Sättigung ist wieder STOCK; ein Schritt, der dieselbe Farbe ergäbe, springt zum nächsten, der sie ändert; gilt sofort; nach WRITE leuchtet das Display beim Einschalten in den Kanälen der Farbe (ein Kanal leuchtet dort, wenn er mindestens halb so stark ist wie der stärkste, Gelb statt Weiß bei HUE 15, SAT 13, BRIGHT 14), auf der roten schon vor dem Startbild, auf der blauen kurz nachdem es erscheint, Zwischenstufen erst, wenn das Menü geladen ist ([Messung](messungen/2026-10-29-hintergrundlicht-beim-start.md)) |
 | DISPLAY, INTENSITY | 0 bis 15 | Helligkeit des Display-Lichts über alle drei Farben, die Mischung bleibt; 0 ist kein Licht, 15 die volle Farbe; gilt sofort |
 | DISPLAY, DISPLAY INVERT | OFF, ON | kehrt das Display um: helle Punkte dunkel und dunkle hell (Befehl `0xA7` an den Display-Baustein, `0xA6` stellt zurück); gilt sofort; ON ist die Vorgabe (eine helle Spur auf dunklem Grund schmiert weniger als eine dunkle), eine Einstellungsdatei aus 1.2 ohne das Bit bleibt bei OFF |
 | DISPLAY, LOAD METER | OFF, ON | zeigt auf dem Hauptbildschirm links neben dem Kartensymbol die Last des Hauptprozessors in Prozent (0 bis 99, einmal pro Sekunde): der Anteil der Zeit, in der er nicht in seiner Leerlaufschleife schläft. Nicht im Menü, in Fenstern der Firmware oder bei offener App; gilt sofort; OFF ist die Vorgabe. ON wird in Byte 7 der Einstellungsdatei gespeichert (Version 4), [Messung](messungen/2026-11-14-energie-befunde.md) |
@@ -1420,11 +1429,11 @@ Die Seiten der Gruppen:
 | SPLASH, SPLASH DRAW | ENTER | öffnet den Startbild-Editor (eine Seite des Global-Bildschirms, die nur von hier aus erreichbar ist): Rad bewegt den Cursor nach links und rechts, mit gehaltenem SHIFT hoch und runter, MENU kippt das Pixel, gehalten malt es dessen neue Farbe überall hin, wo der Cursor langläuft, WRITE speichert, EXIT verlässt den Editor. Nur wo der Satz den Startbild-Editor hat |
 | SPLASH, SPLASH RESET | ENTER | verwirft das gespeicherte Startbild (Import oder Editor), ab sofort und bei jedem weiteren Start kommt wieder das Startbild der Firmware; die Seite sagt "original back". Nur wo der Satz den Startbild-Editor hat |
 | FEATURES, PATTERN CONFIRM | ON, OFF | ON: ein anderes Pattern, das am Rad gewählt wird, wartet beim Spielen auf MENU (ENTER) und startet am Sequenzende; OFF: die Firmware wie ohne den Patch Patternwechsel; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 2 der Flags in der Einstellungsdatei Die Taste MENU zeigt, wo man drücken muss: sie blinkt, solange ein Pattern nur angesehen ist (VIEW:, auch gestoppt mit ungespeicherten Änderungen), und leuchtet, sobald es bestätigt ist (NEXT:), bis zum Wechsel; danach ist sie wieder so, wie die Firmware sie hatte. Dabei zeigen die Pads und, nach EDIT, die Info-Texte (OSC, Pitch und so weiter) das Pattern, das angesehen oder bestätigt ist ([Messung](messungen/2026-10-25-pattern-ansicht.md)). Die Pads gehören dann diesem Pattern und haben eine eigene Farbe: PART MUTE schaltet seine Mutes, die es beim Wechsel mitnimmt ([Messung](messungen/2026-10-29-vorschau-pads.md)). Der erste Druck auf ein Pad holt den Part mit Copy Part sofort ins laufende Pattern, nicht stumm, ohne Wechsel; danach schaltet sein Pad ihn dort ([Messung](messungen/2026-10-30-vorschau-part-reinholen.md)). |
-| Ring, SYNC GROUP | OFF, 1 bis 999 | eine eigene Seite im Ring (16/32), gleich hinter CHAIN REPEAT, der letzten Seite des Pattern Menüs, und vor dem Part Menü (EDIT rechts von dort, EDIT links von der ersten Seite des Part Menüs; das Schild sagt "Pattern"), auf beiden Electribes (auf der blauen seit 24.10., [Messung](messungen/2026-10-24-blau-sync-group.md)): die Sync Group des Patterns im RAM; das Hauptrad ändert sie, WRITE öffnet das Speichern des Patterns wie auf den Seiten des Pattern Menüs, gespeichert wird sie mit dem Pattern. Läuft ein Pattern, startet ein anderes Pattern derselben Gruppe am Rad ohne MENU am Sequenzende (unten NEXT:), eines außerhalb der Gruppe wartet wie immer auf MENU; gestoppt lädt das Rad ein Pattern der Gruppe auch dann sofort, wenn das Pattern ungespeicherte Änderungen hat ([Messung](messungen/2026-10-25-sync-ungespeichert.md)); beim Wechsel zwischen zwei Patterns einer Gruppe geht der Stand des Patterns mit, das gespielt hat, verändert oder nicht: Part-Mutes und Klang der Parts (Sample, Filter, Modulation, Pitch, Amp, IFX und die übrigen Part-Werte), Tempo, Swing, Lautstärke, das MFX-Pad mit HOLD, auch zurück; die Effekttypen MFX 1 und MFX 2 bleiben die des neuen Patterns; die Patterns einer Gruppe spielen wie eines (nur im RAM). Steps, Motion, Länge, Beat, Tonart, Tonleiter und Chord Set bleiben die des neuen Patterns. OFF (0) heißt keine Gruppe, kein Abgleich ([Messung](messungen/2026-10-19-sync-groups.md), [Stand vom 22.10.](messungen/2026-10-22-sync-und-menues.md)) |
+| Ring, SYNC GROUP | OFF, 1 bis 999 | eine eigene Seite im Ring (16/32), gleich hinter CHAIN REPEAT, der letzten Seite des Pattern Menüs, und vor dem Part Menü (EDIT rechts von dort, EDIT links von der ersten Seite des Part Menüs; das Schild sagt "Pattern"), auf beiden Electribes ([blau](messungen/2026-10-24-blau-sync-group.md)): die Sync Group des Patterns im RAM; das Hauptrad ändert sie, WRITE öffnet das Speichern des Patterns wie auf den Seiten des Pattern Menüs, gespeichert wird sie mit dem Pattern. Läuft ein Pattern, startet ein anderes Pattern derselben Gruppe am Rad ohne MENU am Sequenzende (unten NEXT:), eines außerhalb der Gruppe wartet wie immer auf MENU; gestoppt lädt das Rad ein Pattern der Gruppe auch dann sofort, wenn das Pattern ungespeicherte Änderungen hat ([Messung](messungen/2026-10-25-sync-ungespeichert.md)); beim Wechsel zwischen zwei Patterns einer Gruppe geht der Stand des Patterns mit, das gespielt hat, verändert oder nicht: Part-Mutes und Klang der Parts (Sample, Filter, Modulation, Pitch, Amp, IFX und die übrigen Part-Werte), Tempo, Swing, Lautstärke, das MFX-Pad mit HOLD, auch zurück; die Effekttypen MFX 1 und MFX 2 bleiben die des neuen Patterns; die Patterns einer Gruppe spielen wie eines (nur im RAM). Steps, Motion, Länge, Beat, Tonart, Tonleiter und Chord Set bleiben die des neuen Patterns. OFF (0) heißt keine Gruppe, kein Abgleich ([Messung](messungen/2026-10-19-sync-groups.md), [Menüs](messungen/2026-10-22-sync-und-menues.md)) |
 | Pattern Menü, BEAT | 16, 32, 8 Tri, 16 Tri, 8 | der fünfte Wert `8` macht jeden Step zur Achtel: das Pattern läuft doppelt so lang, bei 160 BPM wie BEAT 16 bei 80 BPM, MIDI Clock und TAP-LED bleiben beim echten Tempo, mit externer Clock 12 Pulse je Step; wird mit dem Pattern gespeichert; Gate Arp, Export und Slices folgen dem Step; auf Korgs Firmware ohne BLECHTRIBE läuft ein solches Pattern mit einem Step alle 2 ms; rot und blau ([Messung](messungen/2026-10-29-beat-achtel.md)) |
-| FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus (Idee 39), TAP länger als 0,3 s gehalten schaltet nur, solange es gehalten ist, beim Loslassen zurück; OFF: TAP ist wieder das Tap-Tempo der Firmware; ONCE (Wert 2 des Einstellungsworts): eine mit TAP eingeschaltete Bewegung spielt bis zum Ende des Patterns und geht dann aus; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 3, ONCE als Bit 5 der Flags in der Einstellungsdatei (Bit 3 gewinnt) |
+| FEATURES, TAP MOTION | OFF, ON, ONCE | ON: TAP schaltet die aufgenommene Motion Sequence des gewählten Parts an und aus, TAP länger als 0,3 s gehalten schaltet nur, solange es gehalten ist, beim Loslassen zurück; OFF: TAP ist wieder das Tap-Tempo der Firmware; ONCE (Wert 2 des Einstellungsworts): eine mit TAP eingeschaltete Bewegung spielt bis zum Ende des Patterns und geht dann aus; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 3, ONCE als Bit 5 der Flags in der Einstellungsdatei (Bit 3 gewinnt) |
 | FEATURES, NOTE ASSIST | ON, OFF | ON: im KEYBOARD-Modus leuchten nach einer Note die Pads der passenden Noten rosa, je besser sie passen, desto heller (Prim und Quinte, dann Terzen, Quarte und ein Tonleiterschritt, dann Sexten); gestoppt oder pausiert bleiben sie stehen, beim Spielen blenden sie aus, die schwachen zuerst; im CHORD-Modus (Skalen mit sieben Tönen) zeigen die Pads ebenso, welche Akkorde gut folgen ([Messung](messungen/2026-10-15-note-assistant.md), [Helligkeit und Ausblenden](messungen/2026-10-19-notenassistent-helligkeit.md)); OFF: die Pads wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 4 der Flags in der Einstellungsdatei |
-| FEATURES, LAST PATTERN | ON, OFF | ON: beim Einschalten öffnet die Electribe das Pattern, das vor dem Ausschalten gewählt war ([Idee 76](ideen/76-letztes-pattern.md)); OFF: sie startet wie in der Firmware mit 001, die gemerkte Nummer bleibt für einen Start mit ON; gilt ab dem nächsten Einschalten, WRITE behält es (Bit 3 von Byte 5 der Einstellungsdatei heißt OFF); ohne Datei ON; EXIT beim Einschalten: 001; rot und blau, wo der Satz den Patch last-pattern hat ([Messung](messungen/2026-10-29-letztes-pattern-schalter-doom-ohne-dateien.md)) |
+| FEATURES, LAST PATTERN | ON, OFF | ON: beim Einschalten öffnet die Electribe das Pattern, das vor dem Ausschalten gewählt war ; OFF: sie startet wie in der Firmware mit 001, die gemerkte Nummer bleibt für einen Start mit ON; gilt ab dem nächsten Einschalten, WRITE behält es (Bit 3 von Byte 5 der Einstellungsdatei heißt OFF); ohne Datei ON; EXIT beim Einschalten: 001; rot und blau, wo der Satz den Patch last-pattern hat ([Messung](messungen/2026-10-29-letztes-pattern-schalter-doom-ohne-dateien.md)) |
 | FEATURES, STEREO 1 PAD | ON, OFF | ON: ein Stereo-Sample belegt nur sein eigenes Pad und spielt dort auf einer Stimme, das Pad daneben spielt sein eigenes Sample; OFF: wie in der Firmware belegt ein Stereo-Sample auf Pad 1, 3, ... auch das nächste Pad; gilt sofort, WRITE behält es (Bit 2 von Byte 5 der Einstellungsdatei heißt OFF); ohne Datei ON; EXIT beim Einschalten: wie in der Firmware; nur wo der Satz den Patch stereo-pad hat (rot) ([Messung](messungen/2026-10-29-stereo-ein-pad.md)) |
 | FEATURES, TUBE | ON, OFF | ON: eine Röhrenkurve (12AX7-Differenzpaar wie in der Valve-Force-Stufe der ESX/EMX, symmetrisch) ersetzt Korgs festen Soft-Clipper am Master-Ausgang, mit sanftem Tiefpass (die Höhen weicher, je höher TUBE DRIVE, desto mehr: 16 bis 8 kHz), auch auf der Aufnahme; OFF: Korgs Clipper Bit für Bit; gilt sofort, WRITE behält es (Bits 5 bis 7 von Byte 7 einer Einstellungsdatei Version 4: 0 OFF, 1 bis 7 ON mit dieser TUBE DRIVE); ohne Datei OFF; nur wo der Satz den Patch tube-curve hat (Hacktribe, rot, blau), im Emulator und im QEMU-DSP-Kern geprüft, am Gerät nicht ([Messung](messungen/2026-11-20-roehrenkurve.md)) |
 | FEATURES, TUBE DRIVE | 1 bis 7 | wie stark der Ausgang die Kurve treibt (Gitterspannung bei Vollaussteuerung 0,05 bis 0,8 V), Vorgabe 5; Vollaussteuerung bleibt Vollaussteuerung; gilt sofort; bei TUBE OFF einstellbar, gilt beim nächsten ON, gespeichert wird sie nur mit TUBE ON |
@@ -1442,25 +1451,33 @@ benutzt sie deshalb nie. Was eine Seite sagt, steht im Wert, der rund 14 Zeichen
 Titel rund 18.
 
 Auf den Seiten PLUGIN RUNTIME, den Seiten von FEATURES, den Seiten von CUSTOMIZATION und bei der Zustimmung für fremde Plugins
-speichert WRITE (mit AUTO SAVE auch das Verlassen des Menüs nach einer Änderung) die Einstellungen in `KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die
-sich mit einer Generationsnummer abwechseln (24 bis 280 Byte: Kennung `GSET`, Version 3, mit LOAD METER ON, IDLE SAVE OFF oder BATTERY % OFF Version 4 (Byte 7 ist dann ein zweites Byte mit Schaltern, die Anzahl steht allein in Byte 6; ein BLECHTRIBE bis 1.4.6 liest Version 4 nicht, es nimmt die andere Kopie oder die Standardwerte), ein Byte mit METER LOUD RAINBOW in Bit 0 (ein BLECHTRIBE vor 1.3 verwirft eine Datei, in der es gesetzt ist), Anzahl
-erlaubter Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
-erlaubten fremden Blöcke, CRC-32; höchstens 64 Einträge (bis 1.3.7 Version 2 mit höchstens 16; ein BLECHTRIBE bis 1.3.7 liest Version 3 nicht, es nimmt dann eine ältere Datei der Version 2, die noch auf der Karte liegt, oder die Standardwerte);
-in derselben Liste steht für jedes ausgeschaltete Plugin seine Prüfsumme invertiert, ein älteres BLECHTRIBE liest sie als
-Prüfsumme, die nie passt, [Messung](messungen/2026-10-18-plugin-bleibt-aus.md); ist die Liste voll, fliegt zuerst der
-älteste Eintrag raus, der zu keinem geladenen Plugin gehört (ein Plugin, das nicht mehr auf der Karte liegt, oder eine ältere
-Fassung davon), sonst bei einer Zustimmung der älteste überhaupt; eine Markierung, für die dann kein Platz bleibt, fehlt, und das Plugin läuft nach dem Neustart wieder;
-Dateien der Version 2 und der Version 1 ohne das Wort werden weiter gelesen und beim nächsten WRITE als Version 3 geschrieben). Ohne Datei, Karte oder bei
-beschädigter Datei gelten die Voreinstellungen (alles an, die Anpassung auf den Werten der
-Firmware). Die Seite meldet "saved", "no card", "card protected", "folder missing" oder "write error".
-Es wird nichts in den Flash geschrieben.
+speichert WRITE (mit AUTO SAVE auch das Verlassen des Menüs nach einer Änderung) die Einstellungen in
+`KORG/blechtribe/settings.a.bin` und `settings.b.bin`, die sich mit einer Generationsnummer abwechseln. Es wird nichts in den
+Flash geschrieben. Aufbau, 24 bis 280 Byte:
+
+- Kennung `GSET`, Version, Anzahl der erlaubten Prüfsummen, Generation, Schalter, das Wort für die Anpassung, die Prüfsummen der
+  erlaubten fremden Blöcke, CRC-32. Ein Byte trägt METER LOUD RAINBOW in Bit 0 (ein BLECHTRIBE vor 1.3 verwirft eine Datei, in der
+  es gesetzt ist).
+- Version 3 ist die Grundform. Version 4 wird geschrieben, wenn LOAD METER ON, IDLE SAVE OFF oder BATTERY % OFF gesetzt ist
+  (Byte 7 ist dann ein zweites Byte mit Schaltern, die Anzahl steht allein in Byte 6), Version 5, wenn TUBE ASYM von seiner Vorgabe
+  abweicht. Ein BLECHTRIBE, das die Version nicht kennt, nimmt die andere Kopie oder die Standardwerte.
+- Die Liste der Prüfsummen hat höchstens 64 Einträge. Für jedes ausgeschaltete Plugin steht seine Prüfsumme invertiert darin, ein
+  älteres BLECHTRIBE liest sie als Prüfsumme, die nie passt ([Messung](messungen/2026-10-18-plugin-bleibt-aus.md)). Ist die Liste
+  voll, fliegt zuerst der älteste Eintrag raus, der zu keinem geladenen Plugin gehört (ein Plugin, das nicht mehr auf der Karte
+  liegt, oder eine ältere Fassung davon), sonst bei einer Zustimmung der älteste überhaupt; eine Markierung, für die dann kein
+  Platz bleibt, fehlt, und das Plugin läuft nach dem Neustart wieder.
+- Dateien der Version 2 (höchstens 16 Einträge) und der Version 1 ohne das Wort werden weiter gelesen und beim nächsten WRITE in
+  der neuen Form geschrieben.
+
+Ohne Datei, Karte oder bei beschädigter Datei gelten die Voreinstellungen (alles an, die Anpassung auf den Werten der Firmware).
+Die Seite meldet "saved", "no card", "card protected", "folder missing" oder "write error".
 
 **Anpassung (CUSTOMIZATION):** Was am Gerät sichtbar ist, gilt sofort beim Drehen, das Menü ist die
 Vorschau; erst WRITE merkt es sich für den nächsten Start. Die Firmware behält ihre eigenen Schalter:
 Power Save (die unteren LEDs aus, das Display-Licht gedimmt) bleibt, wie sie es macht, ein Plugin, das
 die LEDs sperrt (`korg.ledHold`), behält sie, und mit EXIT beim Einschalten ist alles wie im
-Original. Die Farben der Firmware sind der Vorgabewert. Gespeichert sind sie weiter als alle Pegel 0 (so lesen
-auch alte Dateien wie bisher, die Datei bekommt kein neues Bit), die Seiten zeigen diesen Zustand aber als 15 mit dem
+Original. Die Farben der Firmware sind der Vorgabewert. Gespeichert sind sie als alle Pegel 0 (die Datei
+braucht dafür kein eigenes Bit), die Seiten zeigen diesen Zustand aber als 15 mit dem
 Zusatz "stock", denn das Gerät leuchtet dann voll: der Wert, der "nichts eingestellt" heißt, ist die hellste Stufe.
 Das Hauptrad geht von dort nach unten (15 für alle drei, dann der gewählte Kanal tiefer), nach oben ändert es nichts; stellt
 man den letzten Kanal auf 0 zurück, ist wieder der Zustand der Firmware da und die Seiten zeigen wieder 15 "stock". Eine Datei
@@ -1502,28 +1519,25 @@ kein Untermenü, kein `press  [ Enter ]`, das ganze Display gehört ihm (die Sei
   ü). Die Wartezeiten, das Tempo des Gehens und die Texte sind eine Wahl, am Gerät nicht erprobt.
 - **PLAY.** Drückt man PLAY, geht er zügig (zwei Pixel alle 70 ms) in die Mitte, ein Stück links davon, damit neben ihm Platz
   für die Blase bleibt, sagt "ich hör mir das kurz an" (2,8 s), steht noch und tanzt dann, solange das Pattern spielt, ein Bild
-  je Achtel. Die Wartezeit von 12 s bis zum Tanz gibt es nicht mehr. STOP beendet den Tanz, er geht wieder; die Frage "wat
-  machst'n du da atze?" ist weg, sie passte nur auf den Hauptbildschirm.
-- **Sonst wie vorher:** ein Tipp des Touchpads nahe an ihm macht ihn wütend, Streicheln froh. Die Zahlen (Tempo, Spielzeit)
+  je Achtel. STOP beendet den Tanz, er geht wieder.
+- **Antippen und Streicheln:** ein Tipp des Touchpads nahe an ihm macht ihn wütend, Streicheln froh. Die Zahlen (Tempo, Spielzeit)
   leben nur im RAM und beginnen mit jedem Start neu.
 - **Kein Plugin der Karte:** er steht weder unter GAMES noch unter PLUGINS, wird nicht gezählt, nicht von EXPORT ALL PLUGINS
   geschrieben und lässt sich nicht ausschalten. Er braucht keine Karte und keine Datei `e2sPlugin.all` und läuft auch mit
   der Einstellung PLUGIN RUNTIME auf OFF. Mit EXIT beim Einschalten fehlt er (und mit ihm die Seite): der Ring ist der der Firmware.
 - **Eingaben:** auf seiner Seite sehen die Plugins der Karte nur das Touchpad (die Taste und die Lage), alles andere geht
   allein an die Firmware, und ein Plugin kann dort keine Taste abfangen: EDIT und EXIT funktionieren immer.
-- **Eingebaut heißt:** sein Block (15476 Byte, ein ganz normaler Plugin-Block der API 6, vom Editor übersetzt und im
+- **Eingebaut heißt:** sein Block (9940 Byte, ein ganz normaler Plugin-Block der API 6, vom Editor übersetzt und im
   Browser geprüft, `tools/blechy-build.mjs`) steht im Abbild der Firmware bei `0xC0184000` und bleibt dort. Der Lader
-  legt für ihn nur den Eintrag und seine Variablen in den Pool (15904 Byte von 128 KiB), den Block nicht. Beim Start
+  legt für ihn nur den Eintrag und seine Variablen in den Pool, den Block nicht. Beim Start
   lädt BLECHTRIBE ihn vor der Karte, meldet ihn als verborgene App an (Eintrag 0 der Tabelle, in einer Gruppe, die kein Menü
   zeigt) und lässt seinen Rumpf laufen. Öffnen und Schließen folgt der Seite: sobald die Firmware sie zeigt, bekommt er `open`
   und das Display, wenn sie etwas anderes zeigt, `close`. Die Quelle bleibt `data/script/blechy-source.mjs`, auch wenn er
-  kein Beispiel-Plugin mehr ist. Der Start kostet rund 5,4 Millionen Befehle (gezählt im Emulator; am Gerät sind das geschätzt
-  einige zehn Millisekunden), davon 70 % das byteweise Nullen der Laufzeit und der Prüftabellen (`mem_fill`), 8 % die
-  Prüfsumme des Blocks.
+  kein Beispiel-Plugin mehr ist. 
 
 ## Die Beispiel-Plugins
 
-Alle zehn Apps stehen im Katalog der Seite Plugins und in `data/script/presets.mjs`. Sie laufen im Emulator
+Der Katalog der Seite Plugins (Quelle `data/script/presets.mjs`) enthält Apps und Hintergrund-Plugins. Die Tabelle zeigt die ersten zehn Apps, die übrigen stehen darunter. Sie laufen im Emulator
 der Plugin-Laufzeit (Browser-VM), am Gerät ist von ihnen nichts geprüft. `test/script-plugins.test.mjs` spielt jede
 mit Eingaben durch. Die Kosten sind der teuerste Handler in Kosteneinheiten, gezählt in einem Lauf mit Eingaben
 (Tetris 3000 Rahmen, Mandelbrot mit vollständigen Bildern und Randansichten, Set-Timer 90 Sekunden). Die Zeit daneben ist **hergeleitet**: der Snake-Rahmen
@@ -1568,7 +1582,7 @@ Das sind Messungen der JavaScript-Referenz, keine Gerätezeiten. Die Arbeitsreih
 später sichtbar machen ([Messung](messungen/2026-10-19-mandelbrot-arbeitsliste.md)). Die Zoomstufe geht bis 7,
 tiefer reichen die 14 Bit nicht.
 
-**BPM Glide** (Idee: [KrImZoR](https://www.instagram.com/krimzor_live)) braucht API 18 und läuft im Hintergrund.
+**BPM Glide** braucht API 18 und läuft im Hintergrund.
 Es gleitet das Tempo zum gespeicherten Tempo des Patterns, das als nächstes kommt, so dass der Wechsel nicht springt. Zwei
 Seiten im Menü BLECH schalten die beiden Wege an (1) und aus (0), beide sind an, `korg.store` behält die Einstellung.
 GLIDE CHAIN: kettet das laufende Pattern weiter (Chain To, CHAIN MODE an), gleitet das Tempo vom Tempo beim Start zum
@@ -1584,11 +1598,11 @@ gleitet die Kette weiter, ohne Kette geht das Tempo auf den Stand vor der Bestä
 von vorn vom Tempo in dem Moment. STOP wendet ein bestätigtes Pattern wie die Firmware gleich an, mit seinem Tempo. Weil
 `korg.tempo` das Tempo des Patterns im RAM setzt, gilt es bis STOP als ungespeicherte Änderung. Im Simulator geprüft
 (`test/script-bpm-glide.test.mjs`), am Gerät nicht.
-Ab blechtribe 1.5 ist BPM Glide eingebaut: BLECH > FEATURES > GLIDE CHAIN und GLIDE SWITCH (Vorgabe OFF, gespeichert mit den
+In BLECHTRIBE 1.5 ist BPM Glide eingebaut: BLECH > FEATURES > GLIDE CHAIN und GLIDE SWITCH (Vorgabe OFF, gespeichert mit den
 BLECH-Einstellungen), gleiche Regeln, nur das Pattern zählt, das wirklich spielt. Das Plugin bleibt im Katalog für ältere
 Firmware; auf 1.5 nicht zusätzlich laufen lassen, sonst setzen beide das Tempo.
 
-**Momentary Mute** (Wunsch aus der Community nach dem Vorbild des Korg ESX, [Idee 91](ideen/91-moment-mute.md)) braucht
+**Momentary Mute** (nach dem Vorbild des Korg ESX) braucht
 API 15 und läuft im Hintergrund. Mutes ändern sich nur, solange PART MUTE gehalten wird: PART MUTE gehalten, schaltet ein
 Pad seinen Part stumm oder wieder an, und die Pads zeigen die Mutes. PART MUTE losgelassen, spielen die Pads wie im Modus
 TRIGGER und zeigen, was TRIGGER zeigt. Das macht alles die Firmware: PART MUTE schaltet ihren Pad-Modus schon beim Druck
@@ -1600,18 +1614,9 @@ MUTE bleibt ein Modus wie ohne das Plugin), `korg.store` behält die Einstellung
 (`test/script-moment-mute.test.mjs`) und im Emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, rot, blau)
 geprüft, am Gerät nicht.
 
-**Filter Toggle** ([Idee 81](ideen/81-filter-schnellschalter.md)) war bis 2026-11-08 ein Plugin dieses Katalogs (API 14).
-Seitdem ist es als FILTER TOGGLE fest in der Laufzeit des BLECH-Menüs eingebaut und braucht kein Plugin auf der Karte:
-SHIFT + LPF, HPF oder BPF schaltet das Filter des gewählten Parts aus, dieselbe Kombination wieder an mit dem Typ, den die
-Taste zuletzt hatte, SHIFT + eine andere Filtertaste gibt deren letzten Typ, je Part. Den Typ setzt die Firmware auf ihrem
-eigenen Weg, mit ihrem Fenster "FILTER TYPE", auch auf der blauen. Der Schalter liegt unter BLECH > FEATURES > FILTER
-TOGGLE ([Tastenkombinationen](tastenkombinationen.md), [Messung](messungen/2026-11-08-filter-toggle-eingebaut.md)). Im
-Katalog steht es nicht mehr. Wer das alte Plugin noch auf der Karte hat: bei geschlossener App setzt es im nächsten Rahmen
-denselben Typ, den FILTER TOGGLE schon gesetzt hat; bei offener App hält es SHIFT + Filtertaste von der Firmware fern, dann
-schaltet nur das Plugin, ohne Fenster (**hergeleitet** aus dem Quelltext des Plugins, nicht gemessen). Am besten das
-Plugin von der Karte nehmen oder FILTER TOGGLE ausschalten.
 
-**Gate Hold** ([Idee 72](ideen/72-gate-arp-note-halten.md)) braucht API 15 und läuft im Hintergrund. Im Modus Gate Arp
+
+**Gate Hold** braucht API 15 und läuft im Hintergrund. Im Modus Gate Arp
 bleibt die Note dort, wo der Finger das Touchpad zuerst berührt: `korg.touchLockX` hält das X fest, das die Firmware sieht,
 Y bleibt das des Fingers. Bewegt sich der Finger danach, wählt X von links nach rechts den Gate-Arp-Rhythmus des Patterns
 (die Seite GATE ARP im Pattern-Menü, 0 bis 49) mit `korg.seq.setPatternValue`. Finger weg setzt den Rhythmus zurück, den
@@ -1624,13 +1629,7 @@ in den ersten 40 ms nach dem Aufsetzen, kann die Firmware diese Bewegung noch se
 (`test/script-gate-hold.test.mjs`) und im Emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, rot, blau) geprüft,
 am Gerät nicht.
 
-**Key Pads** ([Idee 85](ideen/85-keyboard-tonart.md)) war bis 2026-11-07 ein Plugin dieses Katalogs (API 15). Seitdem ist
-es als KEY PADS fest in der Laufzeit des BLECH-Menüs eingebaut und braucht kein Plugin auf der Karte: KEYBOARD gehalten +
-Pad setzt den KEY (chromatisch in Pad-Reihenfolge: Pad 1 C, Pad 2 C# bis Pad 12 B, Pads 13 bis 16 transponieren die Parts mit SCALE MODE ON und die Tastatur um -1, 0, +1 oder +2 Oktaven, Pad 14 ist keine Verschiebung wie nach dem Start), das
-Wertefenster der Firmware zeigt ihn, der Schalter liegt unter BLECH > FEATURES > KEY PADS
-([Tastenkombinationen](tastenkombinationen.md), [Messung](messungen/2026-11-07-key-pads-eingebaut.md),
-[Belegung](messungen/2026-11-08-key-pads-chromatisch.md)). Im Katalog steht
-es nicht mehr.
+
 
 **Step Copy** braucht API 15 und läuft im Hintergrund. Es kopiert die Steps eines Takts (16 Steps) des Patterns, das läuft,
 in einen anderen Takt, damit eine Figur nicht noch einmal eingespielt werden muss. Ein Pattern ist 1 bis 4 Takte lang. Drei
@@ -1647,46 +1646,44 @@ kennt COPY PART (Part Util 1/4) und CLEAR SEQUENCE, aber kein Kopieren eines Tak
 (`test/script-step-copy.test.mjs`) und im Emulator (`tools/emu/plugin_catalog15_cases.py`, Hacktribe, rot, blau) geprüft,
 am Gerät nicht.
 
-**303Pattern** (von Crank, aus dem BLECH-Discord) ist eine App unter TOOLS. Sie erzeugt aus einer von 14 Skalen ein zufälliges
+**303Pattern** (aus der Community) ist eine App unter TOOLS. Sie erzeugt aus einer von 14 Skalen ein zufälliges
 16-Schritt-Pattern mit Accent-, Slide- und Tie-Steps (der Algorithmus des Pattern303 VST), leuchtet die Pads der Steps mit Note
 und schreibt das Pattern in den Sequencer. Steps lassen sich sperren, ein neues Pattern lässt sie dann in Ruhe; der Regler setzt
 die Gate-Länge, ein Menü in der App hält Skala, Grundton, Dichte, Slide, Tie und Accent. Im Simulator durch Kompilieren geprüft, nicht am Gerät.
 
-**EUCLID FLOW** (von SLTK023, aus dem BLECH-Discord) ist eine App unter TOOLS, ein euklidischer Rhythmusgenerator: Er verteilt
+**EUCLID FLOW** (aus der Community) ist eine App unter TOOLS, ein euklidischer Rhythmusgenerator: Er verteilt
 eine Zahl von Schlägen so gleichmäßig wie möglich auf die Steps des Patterns (16 bis 64, nach seiner Länge), verschiebt sie um
 die Rotation und schreibt sie mit TAP in den gewählten Part, auf dem Grundton des Patterns mit Velocity 100 und Gate 96. Vorher
 schaltet er alle Steps des Parts aus. Im Katalog reagieren die Tasten nur bei offener App: die Handler einer App laufen vom Start
 an, und TAP bei geschlossener App hätte sonst den Part überschrieben. Im Simulator geprüft (`test/script-community-catalog.test.mjs`), nicht am Gerät.
 
-**LIVE RELOAD** (von handst0n3, aus dem BLECH-Discord) ist eine App unter TOOLS. SHIFT + 1 setzt die Klangwerte aller 16 Parts
+**LIVE RELOAD** (aus der Community) ist eine App unter TOOLS. SHIFT + 1 setzt die Klangwerte aller 16 Parts
 auf den gespeicherten Stand des Patterns zurück, ohne die Wiedergabe anzuhalten, SHIFT + 2 blendet die Regler-Werte (Cutoff,
 Resonance, EG Int, Attack, Decay, Level, Pan) in drei Stufen dorthin. Gelesen wird mit `korg.read.patternValue`, geschrieben mit
 `korg.seq.setPartValue`. Sample, IFX an und Typ, Voice Assign und MFX Send bleiben, wie sie sind. Ein Patternwechsel bricht ab.
 Im Simulator geprüft, laut Autor am Gerät.
 
-**RANDOM SLOT** (von handst0n3, aus dem BLECH-Discord) ist eine App unter TOOLS: ein Zufallsgenerator mit Spielautomat für einen
+**RANDOM SLOT** (aus der Community) ist eine App unter TOOLS: ein Zufallsgenerator mit Spielautomat für einen
 Part. Die Pads wählen den Part (`korg.padHold`, solange die App offen ist), 1 würfelt Klangwerte, 2 eine Melodie über 64 Steps,
 3 und 4 ändern Klang oder Steps ein wenig. PART MUTE schaltet den Part solo und stellt die Mutes danach wieder her. Gespeichert
 wird nichts. Im Simulator geprüft, laut Autor am Gerät.
 
-**Better Accent** (von alarykko, aus dem BLECH-Discord, nach dem TD-3-MO) läuft im Hintergrund unter TOOLS. Ein Step mit
+**Better Accent** (aus der Community, nach dem TD-3-MO) läuft im Hintergrund unter TOOLS. Ein Step mit
 Velocity über 96 ist ein Accent: beim `step` schreibt es für diesen Part die Accent-Werte von EG INT, DECAY und LEVEL, bei
 einem Step darunter die normalen. SHIFT + EG INT, DECAY oder LEVEL setzt die Accent-Werte des gewählten Parts
 (`korg.knobHold` hält die drei Regler dann von der Firmware fern), ohne SHIFT merkt es sich die normalen Werte. STOP stellt
-die normalen Werte wieder her. Es wirkt auf alle 16 Parts (`maxParts = 15`), eine frühere Version
-hörte bei Part 7 auf, weil der Step-Handler in den Watchdog lief, die jetzige liest je Part nur Step, On und Velocity. Ein WRITE während eines Accents speichert die Accent-Werte. Im Simulator geprüft, laut Autor am Gerät.
+die normalen Werte wieder her. Es wirkt auf alle 16 Parts (`maxParts = 15`) und liest je Part nur Step, On und Velocity, damit der Step-Handler im Zeitbudget bleibt. Ein WRITE während eines Accents speichert die Accent-Werte. Im Simulator geprüft, laut Autor am Gerät.
 
-**Easy Slides** (von alarykko, aus dem BLECH-Discord) läuft im Hintergrund unter TOOLS: ein TIE-Step (Gate über 96) und der
+**Easy Slides** (aus der Community) läuft im Hintergrund unter TOOLS: ein TIE-Step (Gate über 96) und der
 Step danach bekommen 35 mehr Glide, die zwei Noten gleiten ineinander. SHIFT + PITCH/GLIDE setzt das Grund-Glide des
 gewählten Parts, STOP stellt es wieder her. Im Katalog wirkt es nur auf die Parts 1 bis 8, deren Glide es sich beim Start und
-bei einem Patternwechsel merkt (`maxParts = 8`): das Original schrieb bei jedem Step auch die Parts 9 bis 16 und setzte
-deren Glide auf 0. Im Simulator geprüft (`test/script-community-catalog.test.mjs`), laut Autor am Gerät.
+bei einem Patternwechsel merkt (`maxParts = 8`). Im Simulator geprüft (`test/script-community-catalog.test.mjs`), laut Autor am Gerät.
 
-**Pad Finger** (von nic0crank, aus dem BLECH-Discord, geschickt als Touch Pad Tester) ist eine App unter TOOLS und braucht
+**Pad Finger** (aus der Community, als Touch Pad Tester) ist eine App unter TOOLS und braucht
 API 15. Solange sie offen ist, zeigt sie oben links X und Y des Touchpads (Rohwerte 0 bis 1023) und ein Fadenkreuz, wo der
 Finger liegt. TAP schaltet zwischen LOCK (Vorgabe) und FREE, oben rechts angezeigt: mit LOCK hält `korg.touchLockX` das X,
 das die Firmware sieht, dort, wo der Finger aufsetzt, Y bleibt das des Fingers; Finger heben, FREE oder die App schließen
-lässt los. Code unverändert. Im Simulator geprüft (`test/script-community-catalog.test.mjs`), nicht am Gerät.
+lässt los. Im Simulator geprüft (`test/script-community-catalog.test.mjs`), nicht am Gerät.
 
 **Blechy Run** ist eine App unter GAMES und braucht API 6: ein Endlos-Läufer mit Blechy, dem Maskottchen, als kleines
 Bild (20 x 24 Pixel, aus den Sprites calm und walk in `assets/blechy/sprites`, beim Treffer mit Kreuzen als Augen). Von rechts
@@ -1696,11 +1693,31 @@ bleibt mit `korg.store` (Platz 0) auf der Karte und steht oben links als HI. Nac
 den nächsten Lauf, EXIT verlässt das Spiel. Die Pads spielen dabei weiter die Electribe. Im Simulator geprüft
 (`test/script-community-catalog.test.mjs`), nicht am Gerät.
 
+**System Info** ist eine App unter TOOLS: sie zeigt, auf welcher Electribe das Plugin läuft, die BLECHTRIBE-Version, wie viele
+Insert- und Master-Effekte und Sample-Slots die Firmware hat und ob das Gerät am Netzteil oder auf Batterie läuft, mit dem
+Ladestand wie das Symbol oben rechts. Alle Werte kommen aus dem Objektbaum (`korg.system.device`, `korg.system.version`, `korg.system.power`); das Bild wird einmal je Sekunde neu gezeichnet.
+
+**VU Meter** ist eine App unter TOOLS: zwei Balken zeigen den Ausgangspegel wie die Pegel-LEDs (`korg.audio.level`, alle 40 ms
+neu), jeder mit einer Marke, die seinen Spitzenwert eine Sekunde hält. Welche Seite links ist, ist am Gerät nicht geprüft, die
+Balken heißen darum 1 und 2.
+
+**Spettro** ist eine App unter TOOLS: das Spektrum des gewählten Parts, 64 Balken von 20 Hz bis 20 kHz (BAR 2: 20 Hz bis 2 kHz),
+0 bis 96 dB, über `korg.audio.capture` und `korg.audio.spectrum`. BAR 1 hält das Bild. Nur auf dem Sampler: auf der blauen
+Electribe sagt die App das.
+
+**MIDI Echo** läuft im Hintergrund: jeder Pad-Anschlag geht auch als MIDI-Note auf einem eigenen Kanal hinaus, Pad 1 als Note 36
+bis Pad 16 als Note 51, mit der Velocity des Pads, beim Loslassen folgt ein Note Off auf dem Kanal des Note On. Die Seite MIDI
+ECHO CH im Menü BLECH wählt den Kanal 1 bis 16, 0 schaltet es aus. Der MIDI SEND FILTER gilt wie für die Noten der Firmware.
+
+**Motion Clear** läuft im Hintergrund: löscht die Motion Sequence des gewählten Parts (bei allen Parts die aller Parts) mit
+`korg.motion.clearPart`, wie Part Util CLEAR MOTION. Die Seite CLEAR MOTION im Menü BLECH bestätigt beim Drehen auf 3, unter 3
+ist sie wieder scharf. Es ändert nur das Pattern im RAM, WRITE behält es.
+
 **STOP-Takt** braucht API 11 und läuft im Hintergrund. Solange der Sequencer läuft, blinkt die STOP-LED im Tempo des
 Patterns: das Ereignis `beat` macht sie auf jeder Viertel an, `korg.afterSteps(1, ...)` einen Schritt später aus, mit
 BEAT 8 also auf jeder halben Note kurz. Bei STOP und in der Pause ist sie aus; `korg.cancel` räumt dann den Timer ab. Die
 PLAY-LED fasst das Plugin nicht an, sie zeigt wie in der Firmware Spielen und Pause. Die Firmware schreibt die STOP-LED im
-Emulator nie. Die Kennung im Katalog bleibt `playtakt` (bis 1.4.5 hieß das Plugin PLAY-Takt und blinkte auf PLAY). Es ist
+Emulator nie. Die Kennung im Katalog bleibt `playtakt` . Es ist
 zugleich das Beispiel des Katalogs für die Timer. Im Simulator (`test/script-play-takt.test.mjs`) und im Emulator
 (`tools/emu/timer_cases.py`, Hacktribe, Rot und Blau, gegen denselben Ablauf ohne Plugin) geprüft, am Gerät nicht.
 
@@ -1709,9 +1726,8 @@ zugleich das Beispiel des Katalogs für die Timer. Im Simulator (`test/script-pl
 Der Eintrag Plugins hat vier Seiten: Katalog, Meine Plugins, Editor und Dokumentation. Der Titel in der
 Brotkrumenleiste führt immer zurück zum Katalog.
 
-**Katalog:** die Plugins der App als Karten (die Apps BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
-Mandelbrot und Blechy Run unter GAMES, Set-Timer, GIF Player und Image Viewer unter TOOLS, dazu Lauflicht, Pulsieren, STOP-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern, EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides und Pad Finger (TOOLS), Quelle
-`data/script/presets.mjs`). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
+**Katalog:** die Plugins der App als Karten (Apps unter GAMES und TOOLS und Hintergrund-Plugins, Quelle
+`data/script/presets.mjs`, die Liste steht unter "Die Beispiel-Plugins"). Jede Karte zeigt das Display des Plugins nach ein paar Rahmen, darunter Titel,
 Kategorie, Beschreibung und Ersteller. Die ganze Karte führt auf die Seite des Plugins: Bild oben links, daneben Titel, Beschreibung und die Details (Kategorie, Ersteller, Datum, Steuerung), dazu
 Herunterladen, Aufs Gerät und „Als eigenes Plugin öffnen“. Darunter schalten „Vorschau“ und „Code“ zwischen dem
 laufenden Plugin auf der Zeichnung der Electribe und seinem Quelltext. Ein neues Plugin kommt per Pull Request auf
@@ -1747,7 +1763,7 @@ die Lizenztexte liegen in `site/vendor/codemirror.LICENSE.txt`, siehe NOTICE). E
 - **Farben und Zeilennummern:** JavaScript-Wörter, Texte, Zahlen und Kommentare, `korg` und
   die Namen nach `korg.key.` und `korg.led.` abgesetzt (`src/script/highlight.mjs`, ein kleiner
   Tokenizer statt der JavaScript-Grammatik, das spart knapp 100 KiB). Die Farben sind die Tokens
-  des Designs. Die Zeilennummern zeigen wie bisher die Probe: grün gelaufen, gelb nie gelaufen,
+  des Designs. Die Zeilennummern zeigen die Probe: grün gelaufen, gelb nie gelaufen,
   rot Fehler. Ein Beispiel-Plugin ist schreibgeschützt (`aria-readonly`), man kann
   darin markieren und kopieren.
 - **Vervollständigung:** tippt man `korg.disp`, bietet der Editor alle Funktionen an, die so
@@ -1812,7 +1828,7 @@ Seite einmal nach und nennt sie. Ein Fehler in der Probe sperrt den Export.
 Vorschau; eine Zeile, die mit `korg.` beginnt (zum Beispiel
 `korg.display.text("Hi", 0, 0)`), läuft dort als Plugin-Code sofort einmal, als App
 „einzeiler“ in TOOLS, die die Vorschau öffnet.
-Alles andere ist wie bisher JavaScript mit `KORG` für den Emulator. Die Konsole spricht immer mit dem
+Alles andere ist JavaScript mit `KORG` für den Emulator. Die Konsole spricht immer mit dem
 Emulator, `start` schaltet ihn ein. Der Schalter „An echtes Gerät weiterleiten“ oben rechts lässt ein
 Skript nach bestandener Probe im Emulator an die verbundene Electribe gehen.
 
@@ -1823,13 +1839,13 @@ Marker wie in den Messungen: gemessen, hergeleitet, offen.
 ### Im Emulator
 
 Alles hier lief in der echten Firmware (2.02 mit Hacktribe) im Emulator mit
-virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
+virtueller Karte oder in [Unicorn](glossary.md#unicorn) ohne Firmware, nicht am Gerät.
 
 - Compiler, Prüfer und Referenz-VM in JavaScript (`src/script/`), die Seite
   Plugins mit Lauf, Probe und Export (`site/app/scripts.mjs`), Tests in
-  `test/script-*.test.mjs`. Blockformat 2, API Version 26
+  `test/script-*.test.mjs`. Blockformat 2, API Version 40
   (`data/script/contract.mjs`).
-- ARM-VM (`tools/patch/script_vm.s`): alle 34 Opcodes, 506 Vergleichsfälle gegen
+- ARM-VM (`tools/patch/script_vm.s`): alle 34 Opcodes, die Vergleichsfälle gegen
   die JS-VM stimmen ([Messung](messungen/2026-10-14-skript-arm-vm.md)).
 - Eingangsfilter (`0xC002837C`) und Rahmenhaken (`0xC00836FC`,
   `tools/patch/script_hooks.s`): Ring mit 64 Plätzen, 25 Hz, gemeinsames Budget von
@@ -1838,7 +1854,7 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
 - `korg.led` (`tools/patch/script_led.s`): im Firmwarelauf sendet `ready` den
   Nullwert einmal, ein Tastendruck 255 und 0 je ein Paket, alle 88 LEDs auf einmal
   ergeben 88 Pakete ([Messung](messungen/2026-10-14-skript-led.md)).
-- Display (`tools/patch/script_display.s`): 70 Fälle Byte für Byte gleich dem
+- Display (`tools/patch/script_display.s`): die Fälle Byte für Byte gleich dem
   Browsermodell, auch das Fehlerbild, Menüs der Firmware bleiben sichtbar
   ([Messung](messungen/2026-10-14-skript-display.md)).
 - Kartenlader (`tools/patch/script_card.s`): eine Datei mit zwei Blöcken lädt und
@@ -1881,21 +1897,19 @@ virtueller Karte oder in Unicorn ohne Firmware, nicht am Gerät.
 Der Platz im Abbild: VM und aller Code der Laufzeit ab `0xC0150300`, Laufzeit ab `0xC01AE000`, Pool
 `0xC01D7000` bis `0xC01F7000`, alles in dem Bereich, der in den eigenen Abbildern
 FF ist (offline gemessen). Der Block von Blechy liegt außerhalb davon bei `0xC0184000`
-(12668 Byte), im FF-Lauf `0xC01720B0` bis `0xC01A0000`, in dem auch der Patternwechsel und
+(9940 Byte), im FF-Lauf `0xC01720B0` bis `0xC01A0000`, in dem auch der Patternwechsel und
 der Ladebalken liegen; dort ist am Gerät noch nichts geprüft.
 
 ### Am Gerät
 
 Die Firmwaredatei mit der Laufzeit läuft am eigenen Gerät. Das Menü BLECH, das Laden aus
-PLUGIN EDIT, EXPORT ALL (bis 1.3.7 so benannt und unter PLUGINS, seit 1.3.8 MANAGE PLUGINS und EXPORT ALL PLUGINS
-in DATA UTILITY; die neue Anordnung ist am Gerät noch nicht bedient) und `korg.store` haben dort Dateien auf der Karte gelesen und geschrieben
+PLUGIN EDIT, EXPORT ALL und `korg.store` haben dort Dateien auf der Karte gelesen und geschrieben
 (`e2sPlugin.all`, `store.a.bin`, `store.b.bin`), die Anpassung, die Seiten von FEATURES und
-SPLASH IMPORT und DRAW sind am Gerät bedient. Die Wünsche aus diesen Tests stehen in den Messungen
-ab dem 18.10. ([Plugin bleibt aus](messungen/2026-10-18-plugin-bleibt-aus.md),
+SPLASH IMPORT und DRAW sind am Gerät bedient; die Anordnung mit MANAGE PLUGINS und EXPORT ALL PLUGINS in DATA UTILITY ist am Gerät **offen**. Die Wünsche aus diesen Tests stehen in den Messungen ([Plugin bleibt aus](messungen/2026-10-18-plugin-bleibt-aus.md),
 [Importliste](messungen/2026-10-19-plugin-import-liste.md),
 [Sync und Menüs](messungen/2026-10-22-sync-und-menues.md)). Was eine Messung nur im Emulator
-gespielt hat, sagt sie selbst. Die Schrittlisten für einen eigenen Test:
-[Kartentest](geraetetests/karte.md) und [Firmwaredatei](geraetetests/blech-datei.md).
+gespielt hat, sagt sie selbst. Die Schrittliste für einen eigenen Test:
+[Firmwaredatei](geraetetests/blech-datei.md).
 
 ### Offen
 
@@ -1912,8 +1926,7 @@ gespielt hat, sagt sie selbst. Die Schrittlisten für einen eigenen Test:
   `KORG/blechtribe/` auf der Karte fehlt, ist im Emulator nicht gespielt.
 - **Echte `e2sSample.all`:** der Kartenlader wird im Test nicht mit einer echten
   Datei gespielt, weil keine Korg-Daten im Repository liegen dürfen. Der Haken sitzt
-  an der Stelle, die ein früherer Prototyp mit einer echten Datei gemessen hat
-  ([Recherche zur virtuellen SD](hintergrund/virtuelle-sd.md)).
+  an der Stelle, die die [Recherche zur virtuellen SD](hintergrund/virtuelle-sd.md) beschreibt.
 - **LEDs:** die Grenze von 400 Paketen je Sekunde gilt nur bei etwa 25 Hz Aufrufen
   des Rahmens, ein dauerhaft abgelehnter Index blockiert die übrigen LEDs ohne
   Meldung, und das Ausschalten der Interrupts setzt einen privilegierten Modus
