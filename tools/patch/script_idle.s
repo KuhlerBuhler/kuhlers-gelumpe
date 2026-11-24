@@ -1,5 +1,8 @@
-; IDLE POWER SAVE (CUSTOMIZATION > POWER SAVE > IDLE SAVE, ON by default): with no touch for 2 minutes the backlight and the
-; LEDs dim to 75 percent, after 3 minutes to 50, after 4 to 25, after 5 they go dark. A touch (key, pad, knob, encoder, touchpad,
+; IDLE POWER SAVE (CUSTOMIZATION > POWER SAVE > IDLE SAVE, OFF, ON or BATTERY ONLY, M_IDLE): with no touch for 2 minutes the
+; backlight and the LEDs dim to 75 percent, after 3 minutes to 50, after 4 to 25, after 5 they go dark. ON does it on the adapter
+; and on battery; BATTERY ONLY (the default without a settings file, a file from before keeps ON or OFF) only on battery
+; (POWER_MODEL +0x308 is 0, as BATTERY % reads it): on the adapter the device stays awake, plugging it in wakes a dimmed one
+; at the next frame and pulling it starts the 2 minutes. A touch (key, pad, knob, encoder, touchpad,
 ; power key; idle_input in script_hooks.s), a MIDI note or CC (script_midi.s), PLAY or recording (not pause), a remote command,
 ; korg.pressKey and korg.system.keepAwake() (script_remote.s) start the time again. The first key, pad, encoder or touchpad touch
 ; while dimmed or dark wakes the device and is swallowed with all that belongs to it; a press that reached the firmware before
@@ -56,10 +59,22 @@ idle_frame:
     bl idle_keep_store
     b idle_frame_out
 idle_frame_mode:
-    ldrb r1, [r0, #MX_FLAGS2]
+    ldrb r1, [r0, #M_IDLE]
     mov r6, #0
-    tst r1, #FLAGS2_IDLE_OFF
+    cmp r1, #IDLE_OFF
+    beq idle_frame_stage
+    cmp r1, #IDLE_BATT          ; BATTERY ONLY: awake on the adapter, the time starts when it is pulled
+    bne idle_frame_time
+    ldr r1, =POWER_MODEL
+    ldr r1, [r1]
+    cmp r1, #0
+    cmnne r1, #1
+    beq idle_frame_time         ; no power model yet: as on battery
+    ldr r1, [r1, #0x308]
+    cmp r1, #0
+    strne r5, [r4, #IS_LAST]
     bne idle_frame_stage
+idle_frame_time:
     ldr r1, =HW_TRANSPORT       ; PLAY (1), REC armed (3) and recording (4) keep the device awake, pause (2) does not
     ldr r1, [r1]
     cmp r1, #0

@@ -85,12 +85,17 @@ def card_image(files=None):
 
 
 OS_TICKS = 0xC06A292C                   # the OS tick, 1 ms (script_hw.s:OS_TICKS)
+M_IDLE = 0x156                           # IDLE SAVE: 0 OFF, 1 ON, 2 BATTERY ONLY (script_menu.s:M_IDLE)
+IDLE_ON, IDLE_BATT = 1, 2
 
 
 def keep_awake(dev):
     """IDLE POWER SAVE never dims in a case that does not test it: the last touch (script_idle.s:IS_LAST) is set to now once a
     second of device time. RAM only, so the settings (byte 7, FLAGS2_IDLE_OFF) and their file version stay as they are and
-    idle_input still sees every message, it just never finds the device asleep."""
+    idle_input still sees every message, it just never finds the device asleep. IDLE SAVE BATTERY ONLY (the default without
+    a settings file) is set to ON once: a WRITE then gives the file version of the case's own field, not version 6."""
+    if dev.read(STATE + M_IDLE, 1)[0] == IDLE_BATT:
+        dev.m.uc.mem_write(STATE + M_IDLE, bytes([IDLE_ON]))
     m, ticks, last = dev.m, dev.a(OS_TICKS), [-1e18]
     run_slice = m.run_slice
 
@@ -1110,7 +1115,8 @@ def read_settings_full(image):
 def read_settings_look(image):
     """The valid settings files as {name: (generation, flags, trusted checksums, look)}, look None for version 1. Version 3 (BLECH
     1.3.8) is version 2 with up to 64 checksums instead of 16; version 4 is version 3 with byte 7 as the second flag byte; version 5 is
-    version 4 with TUBE ASYM in bits 5 to 7 of byte 4 (the version bits 0 to 4)."""
+    version 4 with TUBE ASYM in bits 5 to 7 of byte 4 (the version bits 0 to 4); version 6 is version 5 with IDLE SAVE BATTERY ONLY
+    in bit 7 of byte 6 (the count is bits 0 to 6)."""
     volume = fat32.Volume(bytes(image))
     out = {}
     for path in SETTINGS_PATHS:
@@ -1121,9 +1127,9 @@ def read_settings_look(image):
         if len(raw) < 20 or raw[:4] != b"GSET":
             continue
         version, extras = raw[4] & 0x1F, raw[5]
-        count = raw[6] if version >= 4 else struct.unpack_from("<H", raw, 6)[0]
-        head = {1: 16, 2: 20, 3: 20, 4: 20, 5: 20}.get(version)
-        if head is None or (raw[4] >> 5 and version != 5) or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (once HT OSC OFF), bit 7 AUTO SAVE OFF
+        count = (raw[6] & 0x7F if version == 6 else raw[6]) if version >= 4 else struct.unpack_from("<H", raw, 6)[0]
+        head = {1: 16, 2: 20, 3: 20, 4: 20, 5: 20, 6: 20}.get(version)
+        if head is None or (raw[4] >> 5 and version < 5) or extras & ~0xFF:   # byte 5: bit 0 is METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (once HT OSC OFF), bit 7 AUTO SAVE OFF
             continue
         size = head + 4 * count
         if count > (64 if version >= 3 else 16) or len(raw) != size + 4 or zlib.crc32(raw[:size]) & 0xFFFFFFFF != struct.unpack_from("<I", raw, size)[0]:
@@ -3584,9 +3590,9 @@ FLASH_SET_A, FLASH_SET_B = 0x7FD000, 0x7FE000   # the two sectors of the setting
 def flash_record(image, at):
     """The settings copy in a flash image at `at` -> (generation, record) when it is whole (tag and CRC as menu_flash_check), else None."""
     raw = bytes(image[at:at + 0x120])
-    if raw[:4] != b"GSET" or raw[4] & 0x1F not in (3, 4, 5):
+    if raw[:4] != b"GSET" or raw[4] & 0x1F not in (3, 4, 5, 6):
         return None
-    size = 24 + 4 * (raw[6] | (raw[7] << 8 if raw[4] == 3 else 0))
+    size = 24 + 4 * ((raw[6] & 0x7F if raw[4] & 0x1F == 6 else raw[6]) | (raw[7] << 8 if raw[4] == 3 else 0))
     if size > 24 + 4 * 64:
         return None
     word, crc = struct.unpack_from("<II", raw, size)

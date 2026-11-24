@@ -6,8 +6,11 @@ the touchpad until it is let go. A press that reached the firmware before goes o
 goes to the firmware (its parameter changes), ADC noise does neither wake nor count. A MIDI note or CC keeps the device awake,
 the clock does not, korg.system.keepAwake(), a remote key and the power key wake it. A plugin's light and LEDs are held and
 come back, a stopped plugin's light does not. The test mode goes first, Korg's power save and idle together are never brighter
-than the darker one, also with another LED DIMMING and with SAVE LIGHT set. The page switches it, WRITE keeps OFF as bit 1 of byte 7
-(version 4), ON (the default) writes version 3. With EXIT held at power-on nothing of it runs.
+than the darker one, also with another LED DIMMING and with SAVE LIGHT set. The page has OFF, ON and BATTERY ONLY (the default
+without a settings file): BATTERY ONLY dims on battery only, on the adapter the device stays awake, plugging it in wakes a dimmed
+device at the next frame and pulling it starts the 2 minutes again. WRITE keeps OFF as bit 1 of byte 7 (version 4), ON writes
+version 3, BATTERY ONLY version 6 with bit 7 of byte 6; an older file without that bit keeps ON or OFF. With EXIT held at
+power-on nothing of it runs. The cases that are not about the setting run with ON.
 
     python3 tools/emu/idle_save_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN]
 
@@ -38,6 +41,8 @@ import lifetime  # noqa: E402
 
 IDLE = script_hooks.IDLE
 IS_STAGE, IS_KEEP = IDLE + 4, IDLE + 5
+M_IDLE = mc.STATE + 0x156                # IDLE SAVE: 0 OFF, 1 ON, 2 BATTERY ONLY (script_menu.s:M_IDLE)
+IDLE_OFF, IDLE_ON, IDLE_BATT = 0, 1, 2
 TICKS = 0xC06A292C                       # the OS tick, 1 ms (script_hw.s:OS_TICKS)
 TRANSPORT = 0xC06BC318                   # 0 stop, 1 play, 2 pause, 3 REC armed, 4 recording (script_hw.s:HW_TRANSPORT)
 PATTERN_PTR = 0xC033E6A4                 # the pattern object, its block at +4; part 1's LEVEL at block + 0x800 + 24 (live_write_cases)
@@ -71,9 +76,10 @@ def entry(name, ok, detail):
 
 
 class Run:
-    """A device booted to its main screen, the backlight pins watched and every panel message the firmware gets logged."""
+    """A device booted to its main screen, the backlight pins watched and every panel message the firmware gets logged.
+    `mode` sets IDLE SAVE in RAM after the boot (ON by default); None keeps what the start read."""
 
-    def __init__(self, payload, flash, held=0, adapter=True, card=None):
+    def __init__(self, payload, flash, held=0, adapter=True, card=None, mode=IDLE_ON):
         self.payload = payload
         self.build = identify(payload).build
         self.wait = 10.0 if self.build == "synth" else 2.0
@@ -94,6 +100,11 @@ class Run:
         dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, seen, begin=dev.a(FIRMWARE_INPUT), end=dev.a(FIRMWARE_INPUT))
         dev.m.uc.ctl_flush_tb()
         dev.run(0.5)
+        if mode is not None:
+            dev.m.uc.mem_write(M_IDLE, bytes([mode]))
+
+    def mode(self):
+        return self.dev.read(M_IDLE, 1)[0]
 
     def stage(self):
         return self.dev.read(IS_STAGE, 1)[0], self.dev.read(IS_KEEP, 1)[0]
@@ -462,47 +473,100 @@ def plugin_cases(payload, flash):
     return out
 
 
+def battery_only_cases(payload, flash):
+    """BATTERY ONLY: on the adapter no stage, on battery the stages run; plugging in wakes a dimmed device at the next frame,
+    pulling the plug starts the 2 minutes again."""
+    r = Run(payload, flash, mode=None)
+    m = r.mode()
+    r.age(AGES[4], wait=0.4)
+    mains = r.stage(), r.light()
+    r.dev.m.power_source(False)
+    r.dev.run(0.3)
+    r.age(AGES[2], wait=0.4)
+    battery = r.stage()
+    r.age(AGES[4], wait=0.4)
+    dark = r.stage()[0]
+    r.dev.m.power_source(True)
+    r.dev.run(0.3)
+    plugged = r.stage(), r.light()
+    r.age(AGES[4], wait=0.4)
+    stays = r.stage()[0]
+    r.dev.m.power_source(False)
+    r.dev.run(0.3)
+    pulled = r.stage()[0]
+    r.dev.run(1.0)
+    still = r.stage()[0]
+    return [entry("battery_only_awake_on_the_adapter", m == IDLE_BATT and mains[0] == (0, 100) and near(mains[1], 1.0)
+                  and not r.dev.m.asserts,
+                  f"build {r.build}: IDLE SAVE {m} without a settings file, on the adapter 5 minutes on {mains}"),
+            entry("battery_only_dims_on_battery", battery == (2, 50) and dark == 4 and not r.dev.m.asserts,
+                  f"build {r.build}: plug pulled, 3 minutes on {battery}, 5 minutes on stage {dark}"),
+            entry("battery_only_plug_wakes", plugged[0] == (0, 100) and near(plugged[1], 1.0) and stays == 0 and not r.dev.m.asserts,
+                  f"build {r.build}: dark, plug in -> {plugged}, 5 minutes on with the plug stage {stays}"),
+            entry("battery_only_pull_starts_the_time", pulled == 0 and still == 0 and not r.dev.m.asserts,
+                  f"build {r.build}: after 5 minutes on the adapter the plug pulled: stage {pulled}, 1 s later {still}")]
+
+
 def setting_cases(payload, flash):
-    """The page: ON by default, OFF holds every stage away; WRITE with ON writes version 3, with OFF version 4 with bit 1 of byte
-    7, which the next start reads."""
-    r = Run(payload, flash)
+    """The page: BATTERY ONLY by default, OFF holds every stage away, ON dims on the adapter too. WRITE with BATTERY ONLY writes
+    version 6 with bit 7 of byte 6, with ON version 3, with OFF version 4 with bit 1 of byte 7; the next start reads each.
+    An older file (version 3 or 4) keeps ON or OFF."""
+    r = Run(payload, flash, mode=None)
     dev = r.dev
 
-    def write():
-        mc.goto_group(dev, mc.GROUP_FEATURES, mc.FEAT_TM)
-        mc.press(dev, "write", wait=0.6)
-        dev.run(3.0)
-        files = [f for f in mc.settings_raw(dev.m.mmc.card.medium.data).values() if len(f) >= 24 and f[:4] == b"GSET"]
+    def write(d):
+        mc.goto_group(d, mc.GROUP_FEATURES, mc.FEAT_TM)
+        mc.press(d, "write", wait=0.6)
+        d.run(3.0)
+        files = [f for f in mc.settings_raw(d.m.mmc.card.medium.data).values() if len(f) >= 24 and f[:4] == b"GSET"]
         f = max(files, key=lambda f: struct.unpack_from("<I", f, 8)[0])
-        return f[4], f[7]
+        return f[4] & 0x1F, f[6] & 0x80, f[7]
 
-    default = write()
+    default = write(dev)
     mc.goto_group(dev, mc.GROUP_PSAVE, 2)
     page = mc.texts_of(dev)
     dev.turn(-1, wait=0.3)
-    off = mc.texts_of(dev)[1], dev.read(mc.MX_FLAGS2, 1)[0]
+    on = mc.texts_of(dev)[1], r.mode()
+    r.age(AGES[3], wait=0.4)
+    dims = r.stage()[0]
+    r.age(0, wait=0.3)
+    dev.turn(-1, wait=0.3)
+    off = mc.texts_of(dev)[1], r.mode(), dev.read(mc.MX_FLAGS2, 1)[0]
     r.age(AGES[3], wait=0.4)
     held = r.stage()[0], r.light()
-    written = write()
-    back = Run(payload, flash, card=dev.m.mmc.card.medium.data)
-    read = back.dev.read(mc.MX_FLAGS2, 1)[0]
+    written = write(dev)
+    back = Run(payload, flash, card=dev.m.mmc.card.medium.data, mode=None)
+    read = back.mode(), back.dev.read(mc.MX_FLAGS2, 1)[0]
     back.age(AGES[3], wait=0.4)
     still = back.stage()[0]
     mc.goto_group(back.dev, mc.GROUP_PSAVE, 2)
     back.dev.turn(1, wait=0.3)
-    on = mc.texts_of(back.dev)[1]
-    back.age(AGES[3], wait=0.4)
-    dims = back.stage()[0]
+    on2 = mc.texts_of(back.dev)[1]
     back.age(0, wait=0.3)
-    dev = back.dev
-    again = write()
-    return [entry("default_on_writes_v3", page == ("IDLE SAVE", "ON", "") and default == (3, 0) and not r.dev.m.asserts,
-                  f"build {r.build}: page {page}, WRITE (version, byte 7) {default}"),
-            entry("off_holds_and_writes_v4", off == ("OFF", 2) and held[0] == 0 and near(held[1], 1.0) and written == (4, 2)
-                  and not r.dev.m.asserts, f"build {r.build}: OFF (value, byte 7) {off}, 4 minutes on {held}, WRITE {written}"),
-            entry("off_read_back_and_on_again", read == 2 and still == 0 and on == "ON" and dims == 3 and again == (3, 0)
-                  and not back.dev.m.asserts,
-                  f"build {r.build}: next start byte 7 {read}, 4 minutes on stage {still}, ON {on} then stage {dims}, WRITE {again}")]
+    v3 = write(back.dev)
+    on_back = Run(payload, flash, card=back.dev.m.mmc.card.medium.data, mode=None)
+    on_read = on_back.mode()
+    mc.goto_group(on_back.dev, mc.GROUP_PSAVE, 2)
+    on_back.dev.turn(1, wait=0.3)
+    batt = mc.texts_of(on_back.dev)[1], on_back.mode()
+    on_back.age(0, wait=0.3)
+    v6 = write(on_back.dev)
+    batt_back = Run(payload, flash, card=on_back.dev.m.mmc.card.medium.data, mode=None)
+    batt_read = batt_back.mode()
+    return [entry("default_battery_only_writes_v6", page == ("IDLE SAVE", "BATTERY ONLY", "") and default == (6, 0x80, 0)
+                  and not r.dev.m.asserts, f"build {r.build}: page {page}, WRITE (version, byte 6 bit 7, byte 7) {default}"),
+            entry("on_dims_on_the_adapter", on == ("ON", IDLE_ON) and dims == 3 and not r.dev.m.asserts,
+                  f"build {r.build}: one step down (value, M_IDLE) {on}, 4 minutes on the adapter stage {dims}"),
+            entry("off_holds_and_writes_v4", off == ("OFF", IDLE_OFF, 0) and held[0] == 0 and near(held[1], 1.0)
+                  and written == (4, 0, 2) and not r.dev.m.asserts,
+                  f"build {r.build}: OFF (value, M_IDLE, byte 7) {off}, 4 minutes on {held}, WRITE {written}"),
+            entry("old_files_keep_on_and_off", read == (IDLE_OFF, 0) and still == 0 and on2 == "ON" and v3 == (3, 0, 0)
+                  and on_read == IDLE_ON and not back.dev.m.asserts and not on_back.dev.m.asserts,
+                  f"build {r.build}: version 4 file (M_IDLE, byte 7 in RAM) {read}, 4 minutes on stage {still}; ON {on2} "
+                  f"writes {v3}, that version 3 file reads M_IDLE {on_read}"),
+            entry("battery_only_read_back", batt == ("BATTERY ONLY", IDLE_BATT) and v6 == (6, 0x80, 0) and batt_read == IDLE_BATT
+                  and not batt_back.dev.m.asserts,
+                  f"build {r.build}: one step up (value, M_IDLE) {batt}, WRITE {v6}, next start M_IDLE {batt_read}")]
 
 
 def cases(payload, flash=None):
@@ -512,7 +576,7 @@ def cases(payload, flash=None):
     out = []
     for part in (pwm_cases, step_cases, wake_cases, midi_cases, play_cases, testmode_cases_, korg_save_cases):
         out += part(r)
-    for part in (battery_cases, power_key_cases, kill_cases, plugin_cases, setting_cases):
+    for part in (battery_cases, battery_only_cases, power_key_cases, kill_cases, plugin_cases, setting_cases):
         out += part(payload, flash)
     return out
 

@@ -2363,7 +2363,7 @@ export default {
   "api.object.system.powerSave": "1 zolang de firmware licht en LEDs dimt voor zijn energiebesparing, anders 0. Alleen lezen.",
   "api.object.system.idle": "Stand van IDLE SAVE: 0 wakker, 1 tot 3 gedimd (na 2, 3, 4 minuten), 4 donker (na 5 minuten). Alleen lezen.",
   "api.object.display.loadMeter": "LOAD METER: of de belasting van de processor op het hoofdscherm staat (1) of niet (0). Werkt meteen.",
-  "api.object.powerSave.idleSave": "IDLE SAVE: of licht en LEDs zonder bediening dimmen (1) of niet (0). 0 wekt een gedimd apparaat, elk schrijven start de tijd opnieuw.",
+  "api.object.powerSave.idleSave": "IDLE SAVE: 0 uit, 1 aan (licht en LEDs dimmen zonder bediening, ook op de adapter), 2 alleen op batterij (standaard). 0 wekt een gedimd apparaat, 2 ook op de adapter; elk schrijven start de tijd opnieuw.",
   "api.object.features.glideChain": "GLIDE CHAIN: of het tempo in de keten naar het volgende pattern glijdt (1) of niet (0).",
   "api.object.features.glideSwitch": "GLIDE SWITCH: of het tempo naar een met MENU bevestigd pattern glijdt (1) of niet (0).",
   "api.object.padColor.part": "PAD COLOR, de kleur van de verlichte pads: 0 rood, 1 blauw, 2 roze. Nooit gelijk aan SELECT COLOR: een schrijfactie die ze gelijk zou maken wisselt ze om.",

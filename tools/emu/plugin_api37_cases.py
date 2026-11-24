@@ -1,7 +1,9 @@
 """Emulator cases of plugin API 37: korg.system.powerSave reads 1 while the firmware dims for its power save, korg.system.idle
 the stage of IDLE POWER SAVE (tools/patch/script_idle.s), and the event idle brings each new stage, also on waking. The four
-switches of byte 7 of the settings (MX_FLAGS2) are leaves: LOAD METER draws its digits at once, IDLE SAVE OFF wakes a dark
-device and ON starts the time again, GLIDE CHAIN and GLIDE SWITCH set their bits; the other bits, also a reserved one, stay.
+switches LOAD METER, GLIDE CHAIN and GLIDE SWITCH (bits of byte 7 of the settings, MX_FLAGS2) and IDLE SAVE (the menu byte
+M_IDLE: 0 OFF, 1 ON, 2 BATTERY ONLY) are leaves: LOAD METER draws its digits at once, IDLE SAVE OFF wakes a dark device, ON
+starts the time again, BATTERY ONLY on the adapter wakes it too, GLIDE CHAIN and GLIDE SWITCH set their bits; the other bits of
+byte 7, also a reserved one, stay.
 A block of API 36 still loads, one newer than the runtime is refused as before. The time is set ahead in RAM (the tick of the
 last touch, as idle_save_cases.py does), not run.
 
@@ -36,7 +38,8 @@ TICKS = 0xC06A292C                       # the OS tick, 1 ms (script_hw.s:OS_TIC
 POWER_CONNECT = menu_cases.POWER_CONNECT  # the firmware's switch of power save: 1 dims light and LEDs, 0 back
 DIM_FLAG = menu_cases.DIM_FLAG           # its flag, not 0 while it dims (script_menu.s:BL_DIM_FLAG)
 MX_FLAGS2 = menu_cases.STATE - 0x15      # byte 7 of the settings (script_menu.s:MX_FLAGS2)
-LOAD_METER, IDLE_OFF, GLIDE_CHAIN, GLIDE_SWITCH = 1, 2, 4, 8
+M_IDLE = menu_cases.STATE + 0x156      # IDLE SAVE: 0 OFF, 1 ON, 2 BATTERY ONLY (script_menu.s:M_IDLE)
+LOAD_METER, GLIDE_CHAIN, GLIDE_SWITCH = 1, 4, 8
 RESERVED = 0x40                          # a bit no firmware sets yet; a write of a leaf leaves it
 AGES = (0, 121_000, 181_000, 241_000, 301_000)   # ms since the last touch: stage 0 to 4
 EXIT = 0x0D
@@ -123,14 +126,19 @@ class Run:
     def flags2(self):
         return self.dev.read(MX_FLAGS2, 1)[0]
 
+    def idle_save(self):
+        return self.dev.read(M_IDLE, 1)[0]
+
 
 def read_cases(r):
     out = []
     v = r.vars()
     first = (v["ps"], v["st"], v["lm"], v["isv"], v["gc"], v["gs"])
-    out.append(entry("reads_at_start", first == (0, 0, 0, 1, 0, 0) and r.flags2() == 0 and r.log() == [] and not r.dev.m.asserts,
+    # no settings file: IDLE SAVE is BATTERY ONLY
+    out.append(entry("reads_at_start", first == (0, 0, 0, 2, 0, 0) and r.flags2() == 0 and r.idle_save() == 2 and r.log() == []
+                     and not r.dev.m.asserts,
                      f"build {r.build}: (powerSave, idle, loadMeter, idleSave, glideChain, glideSwitch) {first}, byte 7 "
-                     f"{r.flags2():#x}, events {r.log()}"))
+                     f"{r.flags2():#x}, M_IDLE {r.idle_save()}, events {r.log()}"))
     r.dev.call(POWER_CONNECT, 1)
     r.dev.run(0.4)
     on = r.vars()["ps"], r.dev.read(r.dev.a(DIM_FLAG), 1)[0]
@@ -143,8 +151,10 @@ def read_cases(r):
 
 
 def stage_cases(r):
-    """Stage 1 to 4 and awake again: the leaf reads each stage and the event brings each one, then 0."""
+    """Stage 1 to 4 and awake again: the leaf reads each stage and the event brings each one, then 0. IDLE SAVE ON, the
+    device runs on the adapter."""
     out = []
+    r.dev.m.uc.mem_write(M_IDLE, bytes([1]))
     r.age(0)
     r.clear_log()
     seen = []
@@ -185,16 +195,31 @@ def flag_cases(r):
     off = r.stage(), r.vars()["isv"], r.flags2(), r.log()
     r.age(AGES[4])
     held = r.stage(), r.vars()["st"]
-    out.append(entry("idle_save_off_wakes", dark == 4 and off == (0, 0, RESERVED | IDLE_OFF, [0]) and held == (0, 0)
+    off = off + (r.idle_save(),)
+    out.append(entry("idle_save_off_wakes", dark == 4 and off == (0, 0, RESERVED, [0], 0) and held == (0, 0)
                      and not r.dev.m.asserts,
-                     f"build {r.build}: dark {dark}, after the write (stage, leaf, byte 7, events) {off}, 5 minutes on (stage, leaf) {held}"))
+                     f"build {r.build}: dark {dark}, after the write (stage, leaf, byte 7, events, M_IDLE) {off}, "
+                     f"5 minutes on (stage, leaf) {held}"))
     # IDLE SAVE ON with the last touch long ago: the write starts the time again, the device stays awake
     r.set(1, 1)
-    on = r.stage(), r.vars()["isv"], r.flags2()
+    on = r.stage(), r.vars()["isv"], r.flags2(), r.idle_save()
     r.age(AGES[1])
     dims = r.stage()
-    out.append(entry("idle_save_on_starts_the_time", on == (0, 1, RESERVED) and dims == 1 and not r.dev.m.asserts,
-                     f"build {r.build}: after the write (stage, leaf, byte 7) {on}, 2 minutes on stage {dims}"))
+    out.append(entry("idle_save_on_starts_the_time", on == (0, 1, RESERVED, 1) and dims == 1 and not r.dev.m.asserts,
+                     f"build {r.build}: after the write (stage, leaf, byte 7, M_IDLE) {on}, 2 minutes on stage {dims}"))
+    # IDLE SAVE BATTERY ONLY while dark on the adapter: awake at the next frame, the time no longer counts
+    r.age(AGES[4])
+    r.clear_log()
+    dark = r.stage()
+    r.set(1, 2)
+    batt = r.stage(), r.vars()["isv"], r.flags2(), r.log(), r.idle_save()
+    r.age(AGES[4])
+    held = r.stage(), r.vars()["st"]
+    out.append(entry("idle_save_battery_only_wakes_on_the_adapter", dark == 4 and batt == (0, 2, RESERVED, [0], 2)
+                     and held == (0, 0) and not r.dev.m.asserts,
+                     f"build {r.build}: dark {dark}, after the write (stage, leaf, byte 7, events, M_IDLE) {batt}, "
+                     f"5 minutes on (stage, leaf) {held}"))
+    r.dev.m.uc.mem_write(M_IDLE, bytes([1]))
     r.age(0)
     # LOAD METER: the digits on the main screen at once, gone after 0
     before = lm.shown(r.dev)

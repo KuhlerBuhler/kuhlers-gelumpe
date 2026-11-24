@@ -239,6 +239,9 @@
   "str_batt": {
    "text": "BATTERIE %"
   },
+  "str_batt_only": {
+   "text": "NUR BATTERIE"
+  },
   "str_bl_blue": {
    "text": "LICHT HELLIGKEIT"
   },
