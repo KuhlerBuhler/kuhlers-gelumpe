@@ -955,6 +955,8 @@ class Machine:
         # far more often, and SOFTWARE UPDATE read SYSTEM.VSB at a third of the speed.
         if self.mmc.irq():
             at.append((self.time_ns // self.mmc_irq_ns + 1) * self.mmc_irq_ns)
+        if self.mmc.busy_until is not None:
+            at.append(max(self.mmc.busy_until, self.time_ns + 1))
         return min(at)
 
     def slice_length(self, in_isr):

@@ -345,6 +345,7 @@ Sample-Swap-Bereich. Spettro und andere Apps mit Erfassung sind während der Auf
 enthalten exakt das künstliche Signal. Ein voller 64-KiB-Write im aktuellen Karten-/CPU-Modell überschreitet die vorläufige
 80-ms-Frist: sichtbarer Lückenstatus, gültiger WAV-Kopf und zusammenhängender PCM-Anfang. Dieser Fall belegt den Abbruch,
 nicht lückenlose lange Aufnahmen, keine SD-Schreibrate und keine längste Pause am Gerät. 0.3 und 0.4 bleiben offen.
+Seit Abschnitt 14 wird der Block in 8-KiB-Stücken geschrieben; der Lückenfall hält dafür die Karte gezielt 150 ms fest.
 
 ## 9. Dauerhafter Beleg eines Erfassungsfehlers
 
@@ -478,3 +479,32 @@ ARM-Wort bleibt das Aufnahme-Wort 0. Mit dem alten Programm im sonst gleichen Ab
 genau das Bild vom Gerät. Mit dem neuen Programm bestehen sie (42878 Byte ungleich 0, PCM exakt).
 
 Bestätigt ist die Ursache erst, wenn ein Take mit dem neuen Programm am Gerät Ton enthält.
+
+## 14. Erfassungslücke am Gerät, 24.11.2026
+
+**Am Gerät gemessen** (Test-VSB von `784f7790`, rote Electribe): Der Take hat Ton (Spitze -14,6 dBFS), bricht aber mit
+Status 20 "Capture gap" ab. ELAPSED 1124 ms, BYTES 131360, also Kopf plus genau zwei 64-KiB-Blöcke (0,68 s Audio).
+GAPS 1, FAULTS 1, FIRST = LAST `0x27` (Frist vor dem Kopieren gerissen), INFO[0] 1, Ring 19200 Byte, Schreiber
+`0x1C765F0`, Quelle `0x1F12108`, Fehler bei 1088 ms. SETUP 1 heißt nur, dass die RECORD-Ansicht beim Auslesen offen
+war: `nr_setup_enter`/`nr_setup_leave` setzen das Feld mit der Ansicht, nicht mit dem Take.
+
+**Hergeleitet, am Gerät nicht gemessen:** Leser und Kartenschreiber liefen im selben Schritt der CommandTask. Ein Schritt
+schrieb einen ganzen 64-KiB-Block mit einem `f_write`; solange die Karte daran arbeitet, liest niemand den 100-ms-Ring.
+Der dritte Block wäre bei 1,02 s fällig gewesen, er steht nicht in der Datei; der Fehler kam also aus der Zeit, in der der
+zweite Block (ab 0,68 s) geschrieben wurde. Wie lange die Karte dafür brauchte, ist nicht gemessen (Aufgabe 0.3 bleibt
+offen); der Take REC0005 am 24.11. lief mit derselben Struktur 6,5 s ohne Lücke, die Dauer schwankt also.
+
+**Änderung:** `recorder_pump` schreibt einen fälligen Block jetzt in Stücken zu 8 KiB (`RC_PIECE`) und ruft zwischen den
+Stücken `rec_reader_poll` auf, solange der Take läuft. Die 512-Byte-Ausrichtung der Daten bleibt (Kopf 512 Byte). Eine
+Karte, die für ein einzelnes 8-KiB-Stück länger als die Frist braucht, reißt die Frist weiter; dagegen hilft nur Weg C
+(größerer Ring im DSP) oder ein Leser in einer eigenen Task.
+
+**Im Simulator geprüft:** Das Kartenmodell (`tools/emu/sdcard.py`) kennt jetzt eine Programmierzeit pro geschriebenem
+Block (Modellannahme: die Karte hält die Datenleitung belegt). Neuer Fall `slow_card_*` in `recording_cases.py`:
+1,5 ms pro Block, also 192 ms für 64 KiB und damit fast das Doppelte des Rings, 1,2 s Take. Mit 8-KiB-Stücken: Status
+0, PCM exakt, keine Lücke. Mit dem alten Ablauf (ein `f_write` pro 64 KiB, sonst gleiches Abbild): Status 20 nach
+16557 Frames (0,34 s), dasselbe Bild wie am Gerät. Der Lückenfall `native_gap_*` hält jetzt eine einzelne Karte 150 ms
+fest, länger als der Ring, und erwartet weiter Status 20 mit Marker. Im Unit-Test schreibt eine Karte 64 KiB in 240 ms:
+mit Stücken vollständig, mit einem Block Status 20.
+
+Bestätigt ist der Fix erst, wenn ein Take über mehrere Sekunden am Gerät ohne Lücke durchläuft.

@@ -261,7 +261,11 @@ def wav_marker(content):
     return offset, associated[16:12 + size].split(b'\0', 1)[0]
 
 
-def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_settings=False, remove_card=False, transport_play=False):
+def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_settings=False, remove_card=False, transport_play=False,
+                  slow_card=False):
+    """slow_card: every 512-byte block takes 1.5 ms to program, so one 64-KiB block holds the card 192 ms, about twice
+    the DSP ring; the take must still be complete. expect_gap: a single block stalls 150 ms, longer than the ring, and
+    the take must end with a visible gap (REC on the red, 24.11.2026: status 20 after 1.1 s)."""
     from tools.patch import synthaddr
     synth = synthaddr.is_synth(payload)
     channels = 1 if synth else 2
@@ -271,6 +275,7 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
     dev = Dev(payload, flash, adapter=True)
     medium = MemoryMedium(card_image())
     dev.m.insert_card(SDCard(medium))
+    dev.m.mmc.clock = lambda: dev.m.time_ns
     dsp = CaptureModel.attach(dev.m)
     dev.run(0.8)
     before_flash = user_flash(dev.m)
@@ -407,8 +412,23 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         out.append(entry('no_second_take_while_busy', field('PHASE') == 1 and field('CONTEXT') == context and transport() not in (0, 11)
                          and field('SETUP') == 0 and not dev.m.asserts,
                          f'PLAY in RECORD during a take: phase {field("PHASE")}, same context {field("CONTEXT") == context}, transport {transport()}, setup {field("SETUP")}'))
+    elif slow_card:
+        dev.m.mmc.write_busy = lambda: 1_500_000
+        dev.run(1.2)
+        dev.m.mmc.write_busy = None
+    elif expect_gap:
+        armed = dev.m.time_ns + 200_000_000
+        stalls = []
+        def stall():
+            if dev.m.time_ns < armed or stalls:
+                return 0
+            stalls.append(dev.m.time_ns)
+            return 150_000_000
+        dev.m.mmc.write_busy = stall
+        dev.run(0.6)
+        dev.m.mmc.write_busy = None
     else:
-        dev.run(0.4 if expect_gap else 0.1)
+        dev.run(0.1)
     stop()
     out.append(entry(prefix + 'stop_ends_take', started and field('PHASE') == 0 and bound() == 0 and transport() == 0,
                      f'STOP: phase {field("PHASE")}, bound {bound()}, transport {transport()}, error {field("ERROR")}'))
@@ -471,6 +491,9 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
     if transport_play:
         for result in out:
             result['id'] = result['id'].replace('native_recording:', 'native_recording:transport_')
+    if slow_card:
+        for result in out:
+            result['id'] = result['id'].replace('native_recording:', 'native_recording:slow_card_')
     return out
 
 
@@ -802,7 +825,7 @@ def cases(payload, flash=None, png=None):
                 + checkpoint_cases(payload, flash) + checkpoint_cases(payload, flash, fail_sync=True)
                 + status_dot_cases(payload, flash))
     return (feature_cases(payload, flash) + worker_cases(payload, flash) + runtime_cases(payload, flash)
-            + runtime_cases(payload, flash, png=png, expect_gap=True)
+            + runtime_cases(payload, flash, png=png, expect_gap=True) + runtime_cases(payload, flash, slow_card=True)
             + runtime_cases(payload, flash, defer_settings=True) + checkpoint_cases(payload, flash)
             + checkpoint_cases(payload, flash, fail_sync=True) + runtime_cases(payload, flash, remove_card=True)
             + full_card_cases(payload, flash) + rollover_cases(payload, flash)
@@ -820,10 +843,11 @@ def main():
     ap.add_argument('--vsb', type=Path, required=True)
     ap.add_argument('--runtime-only', action='store_true')
     ap.add_argument('--expect-gap', action='store_true')
+    ap.add_argument('--slow-card', action='store_true')
     ap.add_argument('--png', type=Path)
     args = ap.parse_args()
     payload = args.vsb.read_bytes()[0x100:]
-    result = runtime_cases(payload, png=args.png, expect_gap=args.expect_gap) if args.runtime_only else cases(payload, png=args.png)
+    result = runtime_cases(payload, png=args.png, expect_gap=args.expect_gap, slow_card=args.slow_card) if args.runtime_only else cases(payload, png=args.png)
     print(json.dumps(result, indent=1))
     return 0 if result and all(e['ok'] for e in result) else 1
 

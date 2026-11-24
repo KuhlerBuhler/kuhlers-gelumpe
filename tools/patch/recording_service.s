@@ -11,6 +11,7 @@
 .equ RC_CHECKPOINT, RC_REQUEST + 32
 .equ RC_SIZE, 1536
 .equ RC_READER_ERROR, 16
+.equ RC_PIECE, 8192
 
 ; r0 context, r1 1 start or 0 stop. No allocation, DSP call or card operation.
 recorder_command:
@@ -174,6 +175,13 @@ recorder_drain:
 recorder_full_block:
     mov r2, #65536
 recorder_write:
+    mov r10, r2
+; A card write can stall longer than the 100 ms DSP ring, so the block goes out
+; in pieces and the reader copies between them.
+recorder_piece:
+    mov r2, r10
+    cmp r2, #RC_PIECE
+    movhi r2, #RC_PIECE
     ldr r9, [r4, #RW_DATA_BYTES]
     ldr r0, =RW_MAX_DATA
     sub r0, r0, r9
@@ -197,9 +205,21 @@ recorder_write:
     add r7, r7, r0
     str r7, [r5, #RR_CONSUMED]
     cmp r6, #0
+    strne r6, [r4, #RW_STATUS]
+    movne r0, r6
+    bne recorder_writer_error
+    subs r10, r10, r0
     beq recorder_checkpoint
-    str r6, [r4, #RW_STATUS]
-    mov r0, r6
+    cmp r0, #0
+    beq recorder_checkpoint
+    ldr r0, [r4, #RC_ACTIVE]
+    cmp r0, #1
+    bne recorder_piece
+    add r0, r4, #RC_READER
+    bl rec_reader_poll
+    cmp r0, #0
+    beq recorder_piece
+    add r0, r0, #RC_READER_ERROR
     b recorder_writer_error
 recorder_rotate:
     mov r0, r4

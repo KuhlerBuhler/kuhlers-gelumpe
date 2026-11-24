@@ -166,8 +166,9 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertEqual(data[512:], pcm(captured))
         self.assertFalse(m.handles)
         writes = [e for e in m.events if e[0] == 'WRITE' and len(e) == 4]
-        self.assertTrue(any(e[2] == 65536 for e in writes))
-        self.assertTrue(all(e[2] <= 65536 for e in writes))
+        piece = m.s('RC_PIECE')
+        self.assertTrue(any(e[2] == piece for e in writes))
+        self.assertTrue(all(e[2] <= piece for e in writes))
 
     def test_worker_requires_space_for_two_storage_blocks(self):
         m = Recorder(capacity=65536)
@@ -260,6 +261,34 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertEqual(m.field('RC_ACTIVE'), 0)
         data = next(iter(m.files.values()))
         self.assertEqual(struct.unpack_from('<I', data, 508)[0], 4)
+
+    def test_slow_card_block_is_split_so_the_reader_keeps_its_deadline(self):
+        # 64 KiB take 240 ms on this card: over twice the DSP ring, 30 ms per piece.
+        m = Recorder()
+        self.assertEqual(m.command(1), 0)
+        self.assertEqual(m.pump(), 0)
+        captured, counter = [], [0]
+        def produce(milliseconds):
+            words = [((counter[0] + n) * 2654435761) & 0xFFFFFFFF for n in range(48 * milliseconds)]
+            counter[0] += len(words)
+            captured.extend(words)
+            m.capture(words, elapsed=milliseconds)
+        def slow(name):
+            event = m.events[-1]
+            if name == 'WRITE' and event[0] == 'WRITE' and len(event) == 4 and event[2] > 512:
+                produce(-(-event[2] * 240 // 65536))
+        m.on_fat = slow
+        for _ in range(60):
+            produce(40)
+            self.assertEqual(m.pump(), 0)
+        self.assertGreater(m.write_number, 16)
+        m.on_fat = None
+        self.assertEqual(m.finish(), 0)
+        self.assertEqual(m.field('RC_DROPPED'), 0)
+        data = bytes(m.files['SD:Recordings/REC0001.WAV'])
+        with wave.open(io.BytesIO(data)) as wav:
+            self.assertEqual(wav.getnframes(), len(captured))
+            self.assertEqual(wav.readframes(wav.getnframes()), pcm(captured))
 
     def test_slow_card_write_causes_a_visible_dsp_gap(self):
         m = Recorder()
