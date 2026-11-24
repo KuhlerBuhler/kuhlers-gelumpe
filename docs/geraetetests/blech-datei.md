@@ -175,6 +175,42 @@ Rad, Export und ein Sample mit Slices ([Messung](../messungen/2026-11-21-sample-
 
 Melden: ok je Schritt, sonst die Seite und was das Display zeigt.
 
+### 7.5 korg.menu.add
+
+Im Editor ein Plugin mit diesem Text anlegen, proben, exportieren, laden:
+
+```js
+korg.app("Speed", "TOOLS");
+let speed = 5;
+const page = korg.menu.add("Speed", 1, 10, 5);
+
+korg.onEvent("menu", (id, value) => {
+  if (id == page) { speed = value; }
+});
+
+korg.onEvent("frame", () => {
+  korg.display.clear();
+  korg.display.number(speed, 0, 16);
+});
+```
+
+Erwartet: im Menü, Gruppe PLUGINS, steht eine Seite "Speed" mit 5, das Hauptrad ändert die Zahl (1 bis 10).
+TOOLS > Speed, ENTER öffnet die App, sie zeigt die geänderte Zahl (hergeleitet, im Emulator gemessen ist nur, dass das
+Plugin das Ereignis bekommt). Melden: ok, sonst was die Seite und das Display zeigen.
+
+### 7.6 Display nehmen
+
+Im Editor ein Plugin mit diesem Text anlegen, proben, exportieren, laden:
+
+```js
+korg.onEvent("buttonPress", (key) => {
+  if (key == korg.key.PLAY && korg.display.take()) korg.display.text("PLAY aktiv", 0, 0);
+});
+```
+
+Erwartet: nach dem Laden bleibt das Display das der Firmware. PLAY zeigt "PLAY aktiv", EXIT bringt den normalen
+Hauptbildschirm zurück, auch wenn das Plugin die Taste nicht abfragt. Melden: ok, sonst was angezeigt wird.
+
 ## 8. Am Gerät bestätigt
 
 | Punkt | Stand |
