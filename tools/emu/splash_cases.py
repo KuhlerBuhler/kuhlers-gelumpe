@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "patch"))
 import bootcache  # noqa: E402
 import splash_editor as spec  # noqa: E402
 import synthaddr  # noqa: E402
-from machine import FIRMWARE_AT, FLASH_SIZE, STOCK_BOOT_LIMIT_S, Machine, blank_flash, hardware_flash, load_flash  # noqa: E402
+from machine import FIRMWARE_AT, STOCK_BOOT_LIMIT_S, Machine, blank_flash, hardware_flash, load_flash  # noqa: E402
 
 PAYLOAD_SIZE = 0x200000
 from sdcard import MemoryMedium, SDCard  # noqa: E402

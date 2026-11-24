@@ -5,7 +5,6 @@
 Prints JSON: per part the DSP words at switch, ramp, level, IFX ON, pan L/R, MFX SEND; the peak words.
 """
 import argparse
-import hashlib
 import json
 import struct
 import sys

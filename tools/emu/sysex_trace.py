@@ -29,7 +29,6 @@ the regions inside the firmware image that stay closed with DEV MODE on (data/pr
 import argparse
 import hashlib
 import json
-import struct
 import sys
 from pathlib import Path
 

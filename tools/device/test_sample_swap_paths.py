@@ -3,7 +3,6 @@ import struct
 import sys
 import unittest
 from unittest.mock import patch
-from types import SimpleNamespace
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent

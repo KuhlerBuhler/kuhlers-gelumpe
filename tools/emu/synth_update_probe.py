@@ -25,9 +25,7 @@ the screen number of the firmware and the number of lit pixels at each step.
 
 import argparse
 import json
-import struct
 import sys
-import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -393,7 +393,7 @@ class NativeHardwareTests(unittest.TestCase):
     def test_set_part_value_writes_a_sample_only_to_a_slot_the_sample_knob_stops_on(self):
         m,_ = self.machine()
         from unicorn import UC_HOOK_CODE
-        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
+        from unicorn.arm_const import UC_ARM_REG_R0, UC_ARM_REG_R1, UC_ARM_REG_R3, UC_ARM_REG_SP, UC_ARM_REG_LR, UC_ARM_REG_PC
         for page in (0xC0040000,0xC0048000,0xC004E000,0xC0070000): m.uc.mem_map(page,0x1000)
         m.uc.mem_map(0xC0348000,0x1000)
         m.write(0xC034886C,0xC0348100)

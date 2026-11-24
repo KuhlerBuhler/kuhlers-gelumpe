@@ -6,7 +6,6 @@ The device information measurements are in docs/messungen/2026-11-11-plugin-api2
 """
 import argparse
 import json
-import struct
 
 import sys
 from pathlib import Path

@@ -10,7 +10,6 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 from tools.patch.test_script_vm import contract_data, blob, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
-from tools.patch.test_script_card import crash
 from tools.patch.script_hooks import MENU_STATE, POOL
 
 DISPLAY_RAM = 0xC031B310

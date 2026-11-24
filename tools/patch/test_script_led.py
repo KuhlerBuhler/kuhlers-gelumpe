@@ -5,7 +5,7 @@ import sys
 import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
-from tools.patch.test_script_vm import BareMachine, contract_data, blob, UNICORN_AVAILABLE
+from tools.patch.test_script_vm import contract_data, blob, UNICORN_AVAILABLE
 from tools.patch import test_script_hooks as hooks_tests
 from tools.patch.script_hooks import METER_SENT
 if UNICORN_AVAILABLE:

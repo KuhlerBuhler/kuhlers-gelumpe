@@ -24,7 +24,6 @@ import plugin_edit_cases as edit  # noqa: E402
 import script_cases  # noqa: E402
 from firmware import identify  # noqa: E402
 from machine import load_flash  # noqa: E402
-from splash_cases import Dev, user_flash  # noqa: E402
 import lifetime  # noqa: E402
 
 GLOBALS_PTR = 0xC0691324        # the pointer to the Global settings object, its block (GLST) starts 4 bytes in (the same value as [0xC033E6A0])

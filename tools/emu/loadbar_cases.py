@@ -32,7 +32,7 @@ import loading_anim  # noqa: E402
 import sampleset  # noqa: E402
 from machine import load_flash  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
-from splash_cases import DESC13, SPLASH, Dev, display_of  # noqa: E402
+from splash_cases import SPLASH, Dev, display_of  # noqa: E402
 from frame_match import matches_pages  # noqa: E402
 import lifetime  # noqa: E402
 import parallel  # noqa: E402

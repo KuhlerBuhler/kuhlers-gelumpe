@@ -22,7 +22,6 @@ catalog's master effects from 37; a copy of Hacktribe keeps its own on 10, 11, 2
 """
 
 import argparse
-import hashlib
 import json
 import struct
 import sys
