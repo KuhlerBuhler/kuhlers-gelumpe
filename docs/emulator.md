@@ -563,7 +563,10 @@ unabhängige Boots auf Prozesse (`GELUMPE_JOBS`, Standard: Kerne minus einer, 2 
 sich das Ergebnis jedes Tasks mit den Dateien, die er benutzt hat (`taskcache.py`), so läuft
 nach einer Änderung nur neu, was sie berührt; `mfx_cases.py` und `splash_cases.py` merken sich
 ein beendetes Ergebnis je Eingabedateien und Emulator-Quelltext. `GELUMPE_CACHE=off` schaltet
-Snapshots und gemerkte Ergebnisse ab, wenn alles frisch laufen soll. `server.py --unthrottled`
+Snapshots und gemerkte Ergebnisse ab, wenn alles frisch laufen soll. Jede Datei ist nach einem
+Hash samt Emulator-Quelltext benannt, alte bleiben also unerreichbar liegen: `check.py` löscht
+höchstens einmal am Tag, was `GELUMPE_CACHE_DAYS` Tage (Standard 7, 0 behält alles) weder
+geschrieben noch gelesen wurde (`bootcache.prune`). `server.py --unthrottled`
 (nur für Tests) läuft ohne Echtzeit-Bremse und meldet die Gerätezeit alle 20 ms.
 Die Testlaufzeit steht in [development.md](development.md#tests).
 

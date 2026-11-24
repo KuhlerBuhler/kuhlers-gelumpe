@@ -47,6 +47,58 @@ class SourceHashTest(unittest.TestCase):
                 self.hash()
 
 
+class PruneTest(unittest.TestCase):
+    DAY = 86400
+
+    def setUp(self):
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        env = mock.patch.dict("os.environ", {"GELUMPE_CACHE_DIR": self.folder.name, "GELUMPE_CACHE": ""})
+        env.start()
+        self.addCleanup(env.stop)
+        mem = mock.patch.object(bootcache, "_memory", {})
+        mem.start()
+        self.addCleanup(mem.stop)
+        self.now = 100 * self.DAY
+
+    def file(self, kind, key, age_days):
+        path = bootcache.cache_dir(kind, key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x" * 10)
+        t = self.now - age_days * self.DAY
+        import os
+        os.utime(path, (t, t))
+        return path
+
+    def test_old_files_go_new_ones_stay(self):
+        old = self.file("task", "a", 8)
+        new = self.file("power-on", "b", 2)
+        self.assertEqual(bootcache.prune(7, now=self.now), 10)
+        self.assertFalse(old.exists())
+        self.assertTrue(new.exists())
+
+    def test_a_read_keeps_an_old_file(self):
+        path = self.file("boot", "c", 30)
+        self.assertEqual(bootcache.read("boot", "c"), b"x" * 10)
+        bootcache.prune(7)
+        self.assertTrue(path.exists(), "a file read today is in use")
+
+    def test_once_a_day(self):
+        self.file("task", "a", 8)
+        bootcache.prune(7, now=self.now)
+        late = self.file("task", "b", 8)
+        self.assertEqual(bootcache.prune(7, now=self.now + self.DAY / 2), 0)
+        self.assertTrue(late.exists())
+        self.assertEqual(bootcache.prune(7, now=self.now + self.DAY), 10)
+
+    def test_zero_days_or_cache_off_keeps_everything(self):
+        path = self.file("task", "a", 300)
+        self.assertEqual(bootcache.prune(0, now=self.now), 0)
+        with mock.patch.dict("os.environ", {"GELUMPE_CACHE": "off"}):
+            self.assertEqual(bootcache.prune(7, now=self.now), 0)
+        self.assertTrue(path.exists())
+
+
 class PowerOnTest(unittest.TestCase):
     def test_a_machine_with_the_dsp_model_boots_for_real(self):
         m = mock.Mock(time_ns=0, dsp_model=object())

@@ -260,6 +260,8 @@ gemessen auf einem Rechner mit 10 Kernen, ohne Gerätezugriff. Die Maßnahmen:
   und Quelltext aller `.py`-Dateien in `tools/emu` und `tools/patch`. Die Dateien liegen in
   `~/.cache/gelumpe` (`GELUMPE_CACHE_DIR`), sie enthalten Firmware-RAM und nie im Repo.
   **Alles frisch:** `GELUMPE_CACHE=off` schaltet Snapshots und gemerkte Ergebnisse ab.
+  `check.py` löscht höchstens einmal am Tag Dateien, die 7 Tage weder geschrieben noch gelesen
+  wurden (`GELUMPE_CACHE_DAYS`, 0 behält alles).
 - **Dienst ohne Echtzeit-Bremse** nur für Tests (`server.py --unthrottled`). Die Tests warten
   in Gerätezeit statt in Wanduhrzeit (`settle(ms)` in `test/support/emu.mjs`).
 - **Browsertests** laufen als je drei dünne Dateien um dieselbe Suite nebeneinander.

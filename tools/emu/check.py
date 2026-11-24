@@ -485,6 +485,7 @@ def main():
     mode.add_argument("--join", nargs="+", type=Path, metavar="RESULT", help="validate and combine every partition with these firmware inputs")
     p.add_argument("--report", type=Path, help="also write the result with the VSB's sha256 here (tools/device/hot_patch.py --checked)")
     a = p.parse_args()
+    bootcache.prune()
     flash = load_flash(a.flash) if a.flash else bytes(hardware_flash(a.hardware)) if a.hardware else None
     result = check(a.base.read_bytes(), a.patched.read_bytes(), flash, a.allow, a.allow_code,
                    progress=progress_lib.to_stderr, quick=a.quick, boot_flash=load_flash(a.boot_flash) if a.boot_flash else None,
