@@ -1,7 +1,7 @@
-# Alten Kartenordner beim ersten Start übernehmen, blaue Electribe (29.10.)
+# Alten Kartenordner beim ersten Start übernehmen, blaue Electribe
 
-Stand 2026-10-29. Alles im Emulator mit Korgs blauer 2.02 (`41fc5f1c`), Korgs roter (`1d0f0689`) und Hacktribe
-(`7cb4825c`), die Dateien außerhalb des Repositorys. **Am Gerät nichts.** Vorgeschichte: [rote Fassung](2026-10-19-ordner-uebernehmen.md),
+Alles im [Emulator](../glossary.md#emulator) mit Korgs blauer 2.02 (`41fc5f1c`), Korgs roter (`1d0f0689`) und [Hacktribe](../glossary.md#hacktribe)
+(`7cb4825c`), die Dateien außerhalb des Repositorys. **Am Gerät nichts.** Siehe auch: [rote Fassung](2026-10-19-ordner-uebernehmen.md),
 [Kartenordner der blauen](2026-10-26-blech-hacktribe-blau.md).
 
 Marker: **gemessen** (ausgeführt), **hergeleitet** (aus Code geschlossen).

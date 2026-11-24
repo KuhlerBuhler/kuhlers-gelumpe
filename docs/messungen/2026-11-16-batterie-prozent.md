@@ -1,6 +1,6 @@
 # BATTERY %: Ladestand in Prozent neben dem Batteriesymbol
 
-Stand 16.11.2026, Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Branches); die
+Stand 16.11.2026, [Emulator](../glossary.md#emulator) ([Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Branches); die
 Entladekurve in zwei Läufen am 16./17.11. auf einem roten Gerät. Marker: **gemessen** (im Emulator, bei der Kurve am Gerät), **gelesen** (im
 Disassemblat), **hergeleitet**, **geschätzt**.
 

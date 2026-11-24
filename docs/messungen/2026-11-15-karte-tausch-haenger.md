@@ -1,6 +1,6 @@
 # Kartentausch: Hänger, SAVE TO FLASH und Knopf-LEDs (15.11.)
 
-Rote Electribe, Test-VSB 599f7486 (release/1.4.6), Geräteliste `2026-11-14-geraetetest-1.4.6` Punkte 2.5, 2.6, 3.2, 5.2.
+Rote Electribe, Test-[VSB](../glossary.md#vsb) 599f7486 (release/1.4.6), Geräteliste `2026-11-14-geraetetest-1.4.6` Punkte 2.5, 2.6, 3.2, 5.2.
 
 ## 1. Hänger beim Stecken einer anderen Karte
 

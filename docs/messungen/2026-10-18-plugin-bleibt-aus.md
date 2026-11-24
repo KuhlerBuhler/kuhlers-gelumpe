@@ -10,7 +10,7 @@ beim Einschalten jedes erlaubte Plugin.
 **Neu.**
 
 - Die Prüfsummenliste der Einstellungsdatei hält neben den erlaubten fremden Blöcken für jedes ausgeschaltete Plugin
-  seine Blockprüfsumme invertiert (`mvn`). Das Format bleibt Version 2; ein älteres BLECH liest die Einträge als
+  seine Blockprüfsumme invertiert (`mvn`). Das Format bleibt Version 2; ein älteres [BLECH](../glossary.md#blech) liest die Einträge als
   erlaubte Prüfsummen, die nie passen. Die Liste teilt sich die 16 Plätze.
 - Vor jedem Speichern gleicht `menu_off_sync` die Marken mit den geladenen Plugins ab. EXPORT ALL speichert die
   Einstellungen nach einem gelungenen Export mit (ohne Plugins schreibt es weiter nichts, `menu:export_without_scripts`),

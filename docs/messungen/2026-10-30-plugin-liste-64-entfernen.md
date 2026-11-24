@@ -1,21 +1,19 @@
-# MANAGE PLUGINS: 64 Dateien statt 16, REMOVE löscht die Datei, OFF behält sie (30.10.)
+# MANAGE PLUGINS: 64 Dateien, REMOVE löscht die Datei, OFF behält sie
 
-Befund am Gerät (1.3.8 develop): mit 16 und mehr `*.blech` im Ordner `KORG/blechtribe/Plugin/` taucht ein neues Plugin in der Liste
-nicht auf, und REMOVE lässt die Datei liegen, das Plugin steht danach wieder als OFF in der Liste. Gewünscht: die Liste zeigt alle,
-REMOVE entfernt wirklich, OFF tut, was REMOVE bisher tat.
+Die Seite MANAGE PLUGINS im Menü BLECH ([Plugins](../glossary.md#plugin)) listet alle `*.blech` im Ordner `KORG/blechtribe/Plugin/`, REMOVE entfernt ein Plugin wirklich, OFF hält es nur an.
 
-Gebaut und im Emulator geprüft (Hacktribe, Korg rot, Korg blau; `tools/emu/script_cases.py`, `manage_cases` und `import_cases`). Am
+Im [Emulator](../glossary.md#emulator) geprüft ([Hacktribe](../glossary.md#hacktribe), Korg rot, Korg blau; `tools/emu/script_cases.py`, `manage_cases` und `import_cases`). Am
 Gerät **ungeprüft**.
 
-## Was jetzt gilt
+## Was gilt
 
 - **Die Liste hält 64 Dateien** (so viele, wie die Prüfsummenliste der Einstellungen seit Version 3 hält, `MENU_MAX_TRUST`). Hat der
   Ordner mehr Plugin-Dateien, steht hinter dem letzten Plugin die Seite LIST FULL mit "64 files shown"; nichts fehlt mehr still.
 - **OFF**, die Seite vor REMOVE: ENTER fragt ("Enter = off"), ein zweites ENTER hält das Plugin an und schreibt `e2sPlugin.all` ohne
   es; die `*.blech` bleibt, das Plugin steht beim nächsten ENTER auf MANAGE PLUGINS als OFF in der Liste. MANAGE PLUGINS meldet
-  "off, file kept". Das ist genau das REMOVE bis 1.3.8 develop.
+  "off, file kept".
 - **REMOVE**: ENTER fragt ("Enter = remove"), ein zweites ENTER tut, was OFF tut, und löscht danach die `*.blech` des Plugins von der
-  Karte; das Plugin ist aus der Liste. Ein Plugin, das nur eine Datei ist (nicht geladen), hat jetzt DESCRIPTION und REMOVE; REMOVE
+  Karte; das Plugin ist aus der Liste. Ein Plugin, das nur eine Datei ist (nicht geladen), hat DESCRIPTION und REMOVE; REMOVE
   löscht die Datei. Ein Plugin nur in `e2sPlugin.all` (ohne Datei) wird nur entfernt.
 - **Blaue Electribe 2:** ihr FatFs hat kein `f_unlink` (siehe unten). REMOVE entfernt das Plugin aus `e2sPlugin.all`, die Datei bleibt,
   MANAGE PLUGINS meldet "file stays on card".
@@ -32,8 +30,8 @@ Gerät **ungeprüft**.
 
 ## Wie die Liste ohne Namen auskommt
 
-Bis jetzt lagen je Datei der Dateiname (32 Byte) und der Plugin-Name (16 Byte) im Arbeitsbereich des Kartenladers (`HOOK_CARD`, 16 mal
-48 Byte). 64 mal 48 Byte passen dort nicht hin. Jetzt bleiben nur der Plugin-Name (64 mal 16 Byte ab `HOOK_CARD + 0x300`, wo vorher
+Je Datei ein Dateiname (32 Byte) und ein Plugin-Name (16 Byte) würden im Arbeitsbereich des Kartenladers (`HOOK_CARD`) bei 64 Dateien
+nicht passen. Darum bleiben nur der Plugin-Name (64 mal 16 Byte ab `HOOK_CARD + 0x300`, wo vorher
 Ordnerobjekt, Dateiinfo, langer Name, Pfad und die Dateinamen lagen) und ein Byte je Datei: ihre Stelle unter den Namen, die wie eine Plugin-Datei
 aussehen, in der Reihenfolge des Ordners (`LIST_ORD`). Ordnerobjekt, Dateiinfo, langer Name, Pfad, die Stellen und das Zeichen für
 LIST FULL liegen in `LIST_WORK`, 0x150 Byte hinter der Prüfsummenliste in der Reserve MORE2 (`0xC0188D40`, FF in allen drei Abbildern,

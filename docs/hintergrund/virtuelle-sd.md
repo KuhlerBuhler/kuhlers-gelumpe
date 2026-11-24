@@ -1,70 +1,29 @@
-# Virtuelle SD-Karte im Emulator und Dateien übers Kabel
+# Virtuelle SD-Karte im Emulator und die Datei-Funktionen der Firmware
 
-Stand 2026-10-10.
+Wie die Firmware mit der SD-Karte umgeht, wie der Emulator eine Karte aus einer Abbilddatei nachbildet und wie sich die
+Datei-Funktionen der Firmware über das USB-Kabel aufrufen lassen. Der Emulator selbst steht in
+[emulator.md](../emulator.md), Messungen zur Karte am Gerät unter [messungen/](../messungen/).
 
-Wie die Firmware mit der SD-Karte umgeht, wie der Emulator eine Karte aus einer
-Abbilddatei nachbildet und wie sich die Datei-Funktionen der Firmware übers
-USB-Kabel aufrufen lassen. Der Emulator selbst steht in
-[../emulator.md](../emulator.md), Messungen zur Karte am Gerät unter
-[../messungen/](../messungen/), zum Beispiel
-[Gerätetest Karte](../geraetetests/karte.md).
+Alle Adressen gelten für Firmware 2.02 mit [Hacktribe](../glossary.md#hacktribe) (die eigene
+[`SYSTEM.VSB`](../glossary.md#vsb)) und den eigenen Flash-Dump. Alles wurde im Emulator beobachtet
+(`tools/emu/machine.py`, Unicorn), nicht mit einer echten Karte. Dieses Dokument enthält keine Firmwarebytes, nur
+Adressen, Größen und Verhalten.
 
-Alle Adressen gelten für Firmware 2.02 mit Hacktribe (die eigene `SYSTEM.VSB`,
-die auf dem Gerät läuft) und den eigenen Flash-Dump vom 9.10. Alles wurde im
-Emulator beobachtet (`tools/emu/machine.py`, Unicorn 2.1.4), nicht am Gerät
-und nicht mit einer echten Karte. Dieses Dokument enthält keine Firmwarebytes,
-nur Adressen, Größen und Verhalten.
+Markierungen: **gemessen** = im Emulator ausgeführt und beobachtet, **offline gelesen** = Disassembly gelesen,
+**hergeleitet** = Schluss aus beidem, **geschätzt** = Annahme mit genannten Voraussetzungen, **offen** = nicht geprüft.
 
-Markierungen: **gemessen** = im Emulator ausgeführt und beobachtet,
-**offline gelesen** = Disassembly gelesen, nicht ausgeführt,
-**hergeleitet** = Schluss aus beidem, **geschätzt** = Annahme mit genannten
-Voraussetzungen, **offen** = nicht geprüft.
+## Überblick
 
-## Kurzfassung
-
-- Eine virtuelle Karte aus einer Abbilddatei reicht aus. Die Firmware erkennt
-  sie, mountet sie, liest Verzeichnisse und Dateien, schreibt Dateien und
-  Verzeichnisse und ist danach dateisystemkonsistent (`fsck_msdos` auf dem
-  Abbild nach den Firmware-Schreibzugriffen: ohne Fehler). **gemessen**
-- Alles läuft über einen einzigen kleinen Controller-Block (MMC0,
-  Polling-FIFO, ein Interrupt). Kein EDMA, kein Datenpfad außerhalb der
-  MMC-Register. **gemessen**
-- DATA UTILITY mit Karte funktioniert im Emulator durchgehend: SOFTWARE UPDATE
-  findet die VSB und schreibt sie in den (emulierten) Flash, IMPORT SAMPLE
-  liest eine WAV, EXPORT SAMPLE und EXPORT ALL SAMPLE schreiben auf die Karte,
-  der Neustart lädt `e2sSample.all` zurück in die Slots. **gemessen**
-- Übers Kabel (Hacktribe 0x53/0x54/0x52/0x57) lässt sich die Datei-API der
-  Firmware aus einem Execute-Stub aufrufen: Datei anlegen und schreiben, lesen,
-  löschen, dazu der Sample-Importer und der Einzel-Export. Der Weg Host, Karte,
-  Sample, Karte, Host ist im Emulator durchgespielt. **gemessen**
-- Karten bis 1 GiB mounten, wenn die CSD-Antwort richtig aufgebaut ist.
-  CARD FORMAT lehnt Karten von 128 bis 512 MiB ab ("Not Supported Size") und
-  formatiert 1 GiB als FAT16. **gemessen**
-- Die Firmware importiert beim Start keine einzelnen WAVs, nur `e2sSample.all`.
-  Ein automatischer Import beim Start braucht Code in der Firmware; als
-  Haken im Emulator gemessen. **gemessen**
-- Nicht belegt, weil der DSP ein Platzhalter ist: dass die PCM-Daten eines
-  importierten Samples beim Export wieder herauskommen. Im Emulator kommen die
-  Metadaten zurück, das PCM nicht. Am Gerät **offen**.
-
-## Belegtabelle
-
-| Aussage | Status | Beleg |
-|---|---|---|
-| Karte vorhanden = GPIO 4.1 auf 0 | gemessen | Eingang 0: Init und Befehle; Eingang 1: in 6 s kein MMC-Befehl. Kartensymbol in der Statuszeile nur mit Karte. |
-| Init-Folge CMD0, CMD8, ACMD41, CMD2, CMD3, CMD9, CMD10, CMD7, CMD16, ACMD6 | gemessen | Befehlslog des Modells, Zeiten 75 bis 87 ms |
-| Daten per Polling-FIFO, Interrupt 16, kein EDMA | gemessen | keine EDMA3-Schreibzugriffe nach CMD18 (120 ms beobachtet); Lesefunktion `0xC00180F0` holt 64 Byte je Interrupt |
-| Dateisystem ist ChaN FatFs mit Long File Names | offline gelesen + gemessen | `0xAA55`-Prüfung und "FAT"-Vergleich bei 54/82 in `0xC009C038`; Ordnernamen mit 9 Zeichen werden über LFN gefunden |
-| MBR oder Superfloppy beides ok | gemessen | beide Abbilder mounten |
-| UPDATE schreibt Flash `[0x20000, 0x220000)` und sonst nichts | gemessen | 512 Erase-Befehle zu 4 KiB, 8192 Seiten; mit anderer VSB: Flash-Inhalt dort gleich Nutzlast, außerhalb nichts geändert |
-| IMPORT/EXPORT/Neustart-Laden von Samples | gemessen | siehe Abschnitte 5 und 6 |
-| Execute-Stub ruft Datei-API | gemessen | Abschnitt 6 |
-| Durchsatz über USB-MIDI | geschätzt | Abschnitt 6, Durchsatz |
-| Karten bis 1 GiB mounten | gemessen | Abschnitt 7 |
-| `KORG/hacktribe` lässt sich als Datenpatch umbenennen (21 Byte) | gemessen | Abschnitt 9 |
-| Kein WAV-Import beim Start | gemessen | Abschnitt 10 |
-| SDSC (Byte-Adressierung), Schreibschutz-Schalter | gemessen (Emulator) | [Fehlerfälle der Karte](../emulator.md#fehlerfälle-der-karte) |
-| Karten über 1 GiB | offen | nicht geprüft |
+- Eine virtuelle Karte aus einer Abbilddatei reicht aus. Die Firmware erkennt sie, mountet sie, liest und schreibt
+  Dateien und Verzeichnisse und ist danach dateisystemkonsistent (`fsck_msdos` ohne Fehler). **gemessen**
+- Das Dateisystem der Firmware ist [FatFs](../glossary.md#fatfs). Alles läuft über einen kleinen Controller-Block (MMC0, Polling-FIFO, ein Interrupt), ohne EDMA. **gemessen**
+- DATA UTILITY (das Dateimenü der Firmware) funktioniert mit der Karte durchgehend: SOFTWARE UPDATE findet die VSB und schreibt sie in den Flash,
+  IMPORT SAMPLE liest eine WAV, EXPORT SAMPLE und EXPORT ALL SAMPLE schreiben auf die Karte, der Neustart lädt
+  [`e2sSample.all`](../glossary.md#e2ssampleall) zurück in die Slots. **gemessen**
+- Über das Kabel lässt sich die Datei-API der Firmware aus einem Execute-Stub aufrufen (Abschnitt 6).
+- Die Firmware importiert beim Start keine einzelnen WAVs, nur `e2sSample.all` (Abschnitt 10).
+- Nicht belegt, weil der DSP im Emulator ein Platzhalter ist: dass die PCM-Daten eines importierten Samples beim Export
+  wieder herauskommen. Am Gerät **offen**.
 
 ## 1. Der SD-Pfad in der Firmware
 
@@ -335,14 +294,10 @@ PATTERN, 5 INITIALIZE PATTERN, 6 EXPORT AUDIO, 7 EXPORT P.SET AUDIO,
   (`0xC0030B40`) deutet auf einen Satz mehrerer VSBs hin; der Test hatte nur
   eine Datei. Ohne `System`-Ordner an der Wurzel kommt "Error, No File".
 
-## 6. Dateien und Samples übers Kabel auf die Karte
+## 6. Datei-Funktionen der Firmware übers Kabel
 
-Ziel: Samples und andere Dateien über das USB-Kabel auf die **echte** Karte
-bekommen, ohne sie zu ziehen. Gewählt: (1) WAV über das Kabel auf die Karte
-schreiben und von DATA UTILITY importieren lassen, (2) Export: das Gerät
-schreibt ein Sample als WAV, die Datei wird über das Kabel von der Karte
-gelesen. Alles hier ist im Emulator mit der virtuellen Karte durchgespielt; am
-Gerät ist nichts davon geprüft.
+Die Funktionen lassen sich aus einem Execute-Stub aufrufen (Hacktribes [SysEx](../glossary.md#sysex)-Befehle `0x53`/`0x54`/`0x52`/`0x57`); die
+BLECH-eigenen Dateibefehle in `tools/patch/blech_sysex.py` benutzen dieselben Funktionen.
 
 ### Die Datei-API der Firmware, aufgerufen aus einem Execute-Stub
 
@@ -411,6 +366,25 @@ Build 2.02 mit Hacktribe).
   (Import-Handler `0xC0038D80`, Export-Handler `0xC003A108`, Methoden eines
   Befehlsobjekts, das die UI-Task anlegt).
 
+### Risiken fürs Dateisystem
+
+Was bei Dateizugriffen aus einem Stub schiefgehen kann und was dagegen hilft. **hergeleitet** aus den Messungen oben,
+am Gerät nicht ausgelöst. Quelle: die gelöschte Fassung dieser Seite, `git show 03c7827adc7b:docs/hintergrund/virtuelle-sd.md`.
+
+| Risiko | Gegenmaßnahme |
+|---|---|
+| Stub-Zugriff gleichzeitig mit einer Datei-Aktion der Oberfläche (kein Mutex gefunden, siehe oben) | nur im Hauptbildschirm, Bildschirm- und Menüzustand vorher prüfen, währenddessen keine Bedienung |
+| Abbruch mitten in `f_write` (Kabel gezogen, Strom aus) | die FAT ist erst nach `f_close` vollständig: Karte vorher sichern, nie `e2sSample.all` überschreiben, sondern eine neue Datei in einem neuen Ordner anlegen |
+| Die Firmware legt Dateien mit kurzen Namen in Großbuchstaben an | Namen mit höchstens 8 Zeichen oder bewusst mit LFN |
+| Modus `0xA` legt neu an und überschreibt eine vorhandene Datei | vorher mit `f_open(…, 1)` prüfen, ob die Datei existiert, nur neue Namen |
+| Falsche Argumente (Pfad ohne `/`, Zeiger außerhalb des Hook-Bereichs) | Prüfsummen der aufgerufenen Funktionen vor jedem Lauf prüfen wie im LED-Execute-Muster, Adressen nur für das vermessene Build |
+| Die Execute-Task blockiert lange (langsame Karte) | Zeitlimit im Hostprogramm, die Antwort `0x21` abwarten, kein neuer Befehl davor |
+| Datenverlust durch die Firmware selbst | Karte zuerst vollständig sichern, Zielordner nur neu anlegen, nach dem Schreiben zurücklesen (`0x52` nach `f_read`) und mit dem Rechner vergleichen, erst dann importieren |
+| Samplespeicher oder Karte voll | vor dem Import Platz prüfen (die Texte "Memory Full" und "Card Full" gibt es), einen leeren Slot wählen |
+
+Vor dem ersten Lauf am Gerät: Trockenlauf mit dem Prüfsummenvergleich der aufgerufenen Funktionen, dann nur eine kleine
+Datei in einen neuen Ordner schreiben und zurücklesen, dann importieren, dann exportieren, jeden Schritt einzeln.
+
 ### Importweg und Weg zu `e2sSample.all`
 
 **WAV auf die Karte und IMPORT SAMPLE**
@@ -469,98 +443,6 @@ Build 2.02 mit Hacktribe).
   `e2sSample.all`" hat keinen Direktaufruf; er müsste über Importer und die
   UI-Aktion gehen oder die Datei selbst im Hostformat bauen (Layout nur aus einem
   Beispiel bekannt, nicht nachgeprüft). **offen**
-
-### Durchspiel im Emulator mit der virtuellen Karte
-
-Alle Schritte aus einem Hostprogramm, nur über SysEx (UART1) und
-Panel-Nachrichten; das Display wurde per PNG geprüft.
-
-1. **WAV über die Firmware-Datei-API auf die Karte.** Stub: Befehlsblock
-   `{Op, Pfad, Puffer, Länge}`, `f_open(SD:/test_api.wav, 0xA)`, `f_write`,
-   `f_close`. Daten in 1-KiB-Stücken per 0x53/0x54 hochgeladen, der Stub zuletzt.
-   Ergebnisse (Stub-Rückgaben): Öffnen 0, Schreiben 0 mit 9644 Byte, Schließen 0.
-   Host liest das Abbild: Datei vorhanden, Inhalt **gleich**.
-2. **Import ohne Knopf:** `0xC003644C(SD:/test_api.wav, 500)`, dann
-   `0xC009A0A8(500)`, beide 0, Gerätezeit rund 1,1 s. Slotdaten gesetzt (Rate
-   48000, Aktiv-Byte 1). DATA UTILITY zeigt "SELECT SAMPLE 501".
-3. **Export:** zweimal geprüft. Über die Oberfläche (MENU, Edit◄ zweimal, MENU,
-   Edit► bis Seite 10, MENU, MENU): "EXPORT ONE SAMPLE, OK", Datei
-   `KORG/hacktribe/Sample/501_tst_root.wav` (10832 Byte: 44 Byte Kopf, PCM, dazu
-   1180 Byte `korg`-Chunk mit Name, Rate und Loopdaten). Und aus einem Stub mit
-   `0xC0039CC4(Ersatzobjekt, Slot-1)`, wobei hier ein mit Nullen gefülltes
-   Objekt von 256 Byte ausreicht: Datei `501_test_api.wav`. Die WAV-Metadaten
-   (Rate 48000, Mono, 16 bit, Name) stimmen. Auf einer Karte ohne `Sample`-Ordner
-   legt die Firmware ihn selbst an. **PCM:** im Emulator nicht bitgleich, weil die
-   DSP-Seite fehlt (Zahlenwerte kommen aus einem nicht nachgebildeten Speicher);
-   das ist **kein** Befund über das echte Gerät.
-4. **Lesen übers Kabel:** Stub liest die exportierte Datei mit `f_open(…, 1)` und
-   `f_read` in `0xC1010000`, danach 0x52 in 1-KiB-Stücken. Ergebnis 10832 Byte,
-   **gleich** dem Hostlesen des Abbilds.
-5. **Löschen:** `0xC009E9B8(SD:/TEST_API.WAV)` gab 0, Datei weg, `fsck_msdos`
-   ohne Befund.
-6. **Weiter bis zum Neustart:** EXPORT ALL SAMPLE über die Oberfläche
-   (14928 Byte), neue Maschine mit diesem Abbild: Slot 501 identisch, Aktiv-Byte
-   1. Boot lädt innerhalb von rund 40 ms Gerätezeit.
-
-Aufgerufene Adressen (Build 2.02 mit Hacktribe): `0xC009DB60`, `0xC009DFB8`,
-`0xC009DD74`, `0xC009E3DC`, `0xC009E9B8`, `0xC003644C`, `0xC009A0A8`,
-`0xC0039CC4`, dazu `0xC00016A4` (Befehlscache leeren) vor dem ersten Stub. Der
-Stub ist ein einfacher Befehlsblock-Interpreter in unter 200 Byte ARM; er
-braucht außer der Antwort r0 = 1 und dem letzten Upload nichts über das Muster
-der Execute-Stubs hinaus.
-
-### Durchsatz
-
-- **gemessen, Emulator, DIN-MIDI 31250 Baud:** Schreiben 1,5 bis 2,1 KB/s je
-  nach Stückgröße (256, 1024, 4096 Byte), Lesen mit 1-KiB-Stücken 1,7 KB/s. Hier
-  ist die serielle Leitung die Grenze (rund 2,7 KB/s Nutzdaten nach der
-  7-Bit-Verpackung).
-- **geschätzt, USB-MIDI am Gerät:** Der Kanal trägt je 4-Byte-Ereignis 3
-  Nutzbytes; mit 7-Bit-Verpackung (8 von 7) und der Quittung je Nachricht sind
-  rund **50 bis 200 KB/s** plausibel, also 1 MiB in grob 5 bis 20 s. Annahmen:
-  1-KiB-Nachrichten, Antwort der Firmware innerhalb weniger ms, Hostlatenz im
-  ms-Bereich. **Nicht gemessen**; die untere Grenze ist eher realistisch, weil
-  jedes RAM-Schreiben "Working..." einblendet und die Oberfläche Zeit braucht
-  ([2026-10-10-startphase.md](../messungen/2026-10-10-startphase.md)).
-- **hergeleitet:** Ein WAV von 1 MiB wäre dann in unter einer halben Minute
-  übertragen; die wahrscheinlich teurere Zeit ist die Karte selbst und der
-  Importer (im Emulator 1 bis 6 s für 9,6 KB, weil der DSP-Platzhalter langsam
-  rechnet, am Gerät sicher schneller).
-- Zum Messen am Gerät eignet sich ein Skript, das 64 KiB in RAM schreibt und
-  zurückliest und dabei die Zeit nimmt: ohne Kartenbezug und gefahrlos.
-
-### Risiken fürs Dateisystem und Gegenmaßnahmen
-
-| Risiko | Gegenmaßnahme |
-|---|---|
-| Stub-Zugriff gleichzeitig mit einer Datei-Aktion der Oberfläche (kein Mutex gefunden) | nur im Hauptbildschirm und bei laufender Leere; vor dem Start Bildschirm- und Menüzustand prüfen; währenddessen keine Bedienung |
-| Abbruch (Kabel gezogen, Strom aus) mitten in `f_write` | Die FAT ist erst nach `f_close` vollständig. Immer zuerst die Karte sichern, nie `e2sSample.all` überschreiben, sondern eine neue Datei in einem neuen Ordner anlegen |
-| Die Firmware legt Dateien mit kurzen Namen in Großbuchstaben an | Namen mit Ziffernpräfix und höchstens 8 Zeichen oder bewusst mit LFN |
-| Überschreiben vorhandener Dateien mit Modus `0xA` (neu anlegen) | vorher mit `f_open(…, 1)` prüfen, ob die Datei existiert; nur neue Namen |
-| Falsche Argumente (Pfad ohne `/`, Zeiger außerhalb Hook-Bereich) | Prüfsummen der aufgerufenen Funktionen vor jedem Lauf prüfen wie im LED-Execute-Muster; Adressen nur für das vermessene Build |
-| Lange Blockierung der Execute-Task (Karte langsam) | Zeitlimit im Hostprogramm; nach dem Execute die Antwort `0x21` abwarten, kein neues Kommando davor |
-| Datenverlust auf der Karte durch die Firmware selbst | **Karte zuerst vollständig sichern**, dann Zielordner nur neu anlegen, nach dem Schreiben **zurücklesen** (0x52 nach `f_read`) und gegen den Host vergleichen, dann erst importieren |
-| Importer und Samplespeicher voll | vor dem Import Platz prüfen (Texte "Memory Full" und "Card Full" existieren), Slot vorher leer wählen |
-
-Vor dem ersten Lauf am Gerät: Trockenlauf mit dem Prüfsummenvergleich der
-aufgerufenen Funktionen, dann nur Schreiben einer kleinen Datei in einen neuen
-Ordner (Zurücklesen), dann Import, dann Export; jeder Schritt einzeln.
-
-### Zusammengefasst
-
-- **Datei-API:** `0xC009DB60` / `DFB8` / `DD74` / `E3DC` / `E404` / `E9B8` (open,
-  write, read, close, seek, unlink), FatFs-Konvention, Pfade mit `SD:`. Aus einem
-  Execute-Stub aufrufbar (Task-Kontext, IRQ an), kein Mutex zu sehen.
-- **Ablageort der Dateien:** Import: beliebiger Ort, Auswahl im Dateibrowser ab
-  der Kartenwurzel. Export: `KORG/hacktribe/Sample/<Slot>_<Name>.wav`;
-  `e2sSample.all` im selben Ordner; Pattern und andere über `KORG/hacktribe/...`
-  (nicht alle geprüft).
-- **Import ohne Knopf:** ja, `0xC003644C(Pfad, Slot-1)` und `0xC009A0A8(Slot-1)`.
-  **Export ohne Knopf:** ja für ein Sample (`0xC0039CC4(Ersatzobjekt, Slot-1)`),
-  nicht für alles (`0xC0039E68` braucht das echte Befehlsobjekt). SOFTWARE UPDATE
-  wurde nur über die Oberfläche geprüft, nicht aus einem Stub.
-- **Durchgängig im Emulator:** WAV schreiben, importieren, exportieren,
-  zurücklesen, löschen, `e2sSample.all` schreiben lassen, Neustart.
 
 ## 7. Kartengrößen: die R2-Antwort war im Modell verdreht
 
@@ -696,28 +578,6 @@ Dateiname), `e2sSample.all`, `Sample/`, `System`, `PatternSet`, `e2spat`,
   Kartenwurzel. Nur das, was die Firmware selbst an festem Ort sucht, wandert:
   `e2sSample.all` beim Start, das Update-Image, die Ziele der Exporte.
 
-### Empfehlung
-
-1. **Nicht umbenennen, wenn der Grund Optik ist.** Es kostet keinen Code, aber es
-   trennt das Gerät von jeder Karte, jedem Werkzeug und jeder Anleitung, die
-   `KORG/hacktribe` kennen, und es macht den Rückweg zu einer Handarbeit auf der
-   Karte.
-2. **Wenn doch:** als reiner Datenpatch (21 Byte, `--allow 0xa5778:17`), und nie
-   ohne den Schritt auf der Karte: `KORG/hacktribe` zu `KORG/blechtribe`
-   umbenennen (am besten kopieren, das Original behalten), bevor die neue
-   Firmware das erste Mal startet. Für die virtuelle Karte kann der Dienst das
-   anbieten; für die echte Karte ist es ein Rechner mit Kartenleser. Der Patcher
-   sollte die Warnung selbst ausgeben ("Samples und Updates liegen danach unter
-   KORG/blechtribe").
-3. **Nicht verwechseln mit dem Wunsch nach einem eigenen Eingabeverzeichnis:**
-   dafür braucht es keine Umbenennung, ein zusätzlicher Ordner (zum Beispiel
-   `KORG/hacktribe/Import`) lässt den Rest unberührt, siehe Abschnitt 10.
-
-**offen:** Ob der Patch am Gerät genauso läuft (die Zeichenketten werden dort vom
-selben Code gelesen; nicht am Gerät gemessen), ob etwas außerhalb dieses
-ARM-Abbilds (Bootloader: keine SD-Strings, offline gelesen) den Namen kennt, und
-wie sich das Gerät bei Karten verhält, auf denen beide Ordner liegen.
-
 ## 10. Importiert die Firmware beim Start einzelne WAVs?
 
 ### Nein, nur `e2sSample.all` (gemessen)
@@ -741,96 +601,11 @@ wie sich das Gerät bei Karten verhält, auf denen beide Ordner liegen.
 - **offen:** Ob ein anderer Anlass (Kartenwechsel im Betrieb, Menü) WAVs liest;
   IMPORT SAMPLE ist der Weg dafür.
 
-### Was ein automatischer Import beim Start braucht
+## Offen
 
-Es braucht Code in der Firmware. Der Weg ohne Code wäre, `e2sSample.all` auf dem
-Rechner selbst zu bauen; das Format ist nur aus Kopf und Beispielen bekannt
-(4096 + je Sample 1232 Metadaten + PCM, Größe bestätigt: 36592 bei drei Samples),
-die Metadaten sind **offen**.
-
-Mit Code, im Emulator als Haken gebaut und gemessen (456 Byte ARM, nur Adressen
-und eigener Code, keine geflashte Datei):
-
-1. **Haken:** der Befehl bei `0xC0038D68` (`add r0, sp, #4`, gleich nach dem Laden
-   der `e2sSample.all` in der Methode `0xC0038D34`) wird ein Sprung in den freien
-   Block des Abbilds ab `0xC01A2100`; der verdrängte Befehl läuft dort als
-   Erstes, am Ende geht es nach `0xC0038D6C` zurück. Das ist "An einer
-   Aufrufstelle" aus [../patcher.md](../patcher.md).
-2. **Danach, nicht davor:** Der Haken liegt hinter allen Rettungswegen
-   (Panel-Version `0xC0028940`, Startmodi `0xC002882C`, Update-Abfrage
-   `0xC0029D78`, Startbild) und hinter dem Laden der eigenen Samples, die Slots
-   der `e2sSample.all` bleiben also, die Importe belegen freie.
-3. **Notschalter zuerst:** Der Code liest `*(0xC033E6F8) + 0x18` und tut nichts,
-   wenn Bit 13 (`0x2000`, EXIT) gehalten wird.
-4. **Nur Funktionen der Firmware:** `f_opendir` `0xC009E660`, `f_readdir`
-   `0xC009E740`, `f_closedir` `0xC009E728` (FILINFO: Attribut `+8`, Kurzname
-   `+9`, Zeiger auf den langen Namen `+0x18`, dessen Größe `+0x1C`), die Suche
-   nach einem freien Slot `0xC004EF94` (liefert 500 bis 998 oder -1) und der
-   Importer des Menüs `0xC003644C(Pfad, Slot)` gefolgt von `0xC009A0A8(Slot)`.
-   Ablauf: Ordner `SD:/KORG/hacktribe/Import` öffnen, Einträge lesen, Ordner und
-   Dateien ohne Endung `.wav` (Schreibung egal) überspringen, Pfad aus Ordner,
-   `/` und Name bilden, freien Slot suchen, importieren und freischalten, am Ende
-   den Ordner schließen. Pfade für lange Namen kommen aus dem LFN-Puffer
-   (256 Zeichen).
-- **gemessen, sechs Läufe** (Karte jeweils frisch, 8 s Gerätezeit, keine
-  Assertion):
-  1. Originalfirmware, drei WAVs in `KORG/hacktribe/Import`: Slots leer, die
-     Boot-Methode ist bei 349,0 ms durch.
-  2. Mit dem Haken: Slots 501 bis 503 belegt, die Methode ist bei 431,2 ms durch,
-     also **82 ms später** (Emulator-Zeit, DSP-Platzhalter; je Datei rund 27 ms
-     bei 9,6 KB). DATA UTILITY zeigt "501 kick one", "502 Snare 02", "503 UPPER":
-     die Namen kommen aus den Dateinamen. EXPORT ALL SAMPLE danach schreibt
-     `e2sSample.all` mit 36592 Byte, das Abbild ist `fsck`-sauber. Der
-     Hauptbildschirm ist nach dem Start bitgleich dem der Originalfirmware.
-  3. Mit dem Haken und EXIT beim Einschalten gehalten: nichts wird importiert,
-     Zeit wie ohne Haken (349,0 ms).
-  4. Mit dem Haken, Karte ohne Import-Ordner: nichts, Boot unverändert.
-  5. Mit dem Haken, ganz ohne Karte: nichts, Boot unverändert.
-  6. Mit dem Haken, `e2sSample.all` (Slot 501) und drei WAVs: 501 aus der Datei,
-     die WAVs in 502 bis 504. Nichts wird überschrieben.
-- **gemessen, `tools/emu/check.py`:** Alle 17 Startwege kommen am Hauptbildschirm
-  an, auch die Notschalter-Prüfung besteht; allein `start_phase` schlägt an: Code
-  und Daten bei `0x38E68` (der Haken) und `0x1A2200` ff. (der Block) liegen im
-  Start, weil der Haken in jedem normalen Start läuft, auch ohne Karte. Das ist
-  erwartet: laut [../patcher.md](../patcher.md) erzeugt der Patcher Sprung und
-  Notschalterabfrage selbst. `check.py --allow-code FILE:LEN` (Ausnahme für Code
-  im Start, im Patch unter `startPhase` begründet) ist dafür vorgesehen; die zwei
-  Spannen wären `0x38E68:4` und der Block ab `0x1A2200`. Damit nicht erprobt,
-  **offen**.
-
-### Was damit noch nicht geklärt ist
-
-- **Jeder Start importiert wieder (hergeleitet):** Die Importe liegen nur im RAM.
-  Wird nie exportiert, ist das gewollt und stabil (immer dieselben Slots). Wird
-  `e2sSample.all` mit ihnen gespeichert, lädt der nächste Start sie aus der Datei
-  und importiert dieselben WAVs noch einmal: Doppelte. Abhilfe braucht eine
-  Entscheidung: Datei nach dem Import umbenennen oder löschen (ändert die Karte),
-  oder Namen schon belegter Slots überspringen (Slotnamen lesen), oder nur
-  importieren, wenn keine `e2sSample.all` da ist.
-- **Stapel (offen):** Der Code läuft auf dem Stapel der Befehls-Aufgabe, mit
-  `0x300` Byte eigenem Platz plus dem Importer (`0x828`) und FatFs. Der Lader, der
-  dort ohnehin läuft, braucht `0x844`; die Größe des Stapels ist nicht gemessen.
-  Im Emulator ohne Folgen, am Gerät ungeprüft.
-- **Zeit am Gerät (offen):** 27 ms je Datei sind Emulator-Zeit mit
-  DSP-Platzhalter. Große WAVs (Megabyte) brauchen am Gerät mehr; die Karte liest im
-  Emulator rund 640 KB/s (0,8 ms je Sektor). "Memory Full" und "Card Full" sind
-  nicht durchgespielt (Rückgabe des Importers ungleich 0: der Haken überspringt).
-- **Am Gerät nichts davon geprüft.** Erst mit Trockenlauf und Rückweg wie in
-  [../patcher.md](../patcher.md).
-
-## Offen (Sammlung)
-
-- SDSC-Adressierung (Byte statt Block) und Kartengrößen über 1 GiB.
-- Einstecken und Ziehen im Betrieb (Eingang 4.1 umschalten), "Card Inserted
-  Error", Reaktion auf ein Ziehen während eines Schreibens.
-- Fehlerfälle beim Update (kaputte VSB, Abbruch).
-- Warum "Invalid File" beim Update beim Start mit einer einzelnen VSB; ob `USER`,
-  `PCM`, `SLICE` nötig sind.
-- Format der `e2sSample.all` jenseits von Kopf (4096 Byte) und je Sample 1232 Byte
-  Metadaten plus PCM: die Datei aus "EXPORT ALL SAMPLE" mit einem Sample hat
-  4096 + 1232 + 9600 = 14928 Byte. Die Layout-Details wurden nicht nachgeprüft.
-- Ob PCM beim Export am echten Gerät wieder herauskommt (im Emulator nicht
-  prüfbar, DSP ist ein Platzhalter).
-- Alle Aussagen zu Stub-Aufrufen, Update und Start-Import am Gerät.
-
-Weiterführend: [Plugins](../plugins.md), [Patcher](../patcher.md).
+- Einstecken und Ziehen im Betrieb (Eingang 4.1 umschalten), "Card Inserted Error", Reaktion auf ein Ziehen während
+  eines Schreibens.
+- Fehlerfälle beim Update (kaputte VSB, Abbruch). Warum "Invalid File" beim Update beim Start mit einer einzelnen VSB
+  kommt und ob `USER`, `PCM`, `SLICE` nötig sind.
+- Karten über 1 GiB.
+- Ob PCM beim Export am echten Gerät wieder herauskommt.

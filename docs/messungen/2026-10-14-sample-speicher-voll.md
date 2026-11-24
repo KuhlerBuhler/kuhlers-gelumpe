@@ -1,6 +1,6 @@
 # Voller Samplespeicher: schreibt die Firmware in BLECHs RAM?
 
-Stand 2026-10-14. Alles im Emulator gemessen (Firmware 2.02 mit Hacktribe, eigener Flash-Dump vom
+Alles im [Emulator](../glossary.md#emulator) gemessen (Firmware 2.02 mit [Hacktribe](../glossary.md#hacktribe), eigener Flash-Dump vom
 9.10., virtuelle Karte), am Gerät nichts geprüft. Markierungen: **gemessen** (im Emulator ausgeführt
 und gesehen), **hergeleitet**, **offen**. Der Emulator hat keinen Klang und keinen DMA, der DSP ist
 eine Attrappe ([Emulator](../emulator.md)). Die Samples sind selbstgebaut, die Audiodaten eine
@@ -28,11 +28,11 @@ freien Block des Abbilds, Laufzeitzustand, Plugin-Pool, LED-Zustand, Einstellung
 
 ## Aufbau
 
-- **Dateien:** eigene `SYSTEM.VSB` (Hacktribe 2.02) mit dem BLECH-Satz (`apply.mjs --set
-  data/patches/blech.json`, sha256 `f4f6ead6...`), eigener Flash-Dump vom 9.10., virtuelle Karte mit
+- **Dateien:** eigene [`SYSTEM.VSB`](../glossary.md#vsb) (Hacktribe 2.02) mit dem BLECH-Satz (`apply.mjs --set
+  data/patches/blech.json`), eigener Flash-Dump vom 9.10., virtuelle Karte mit
   `KORG/blechtribe/Sample/e2sSample.all` und `KORG/blechtribe/Plugin/e2sPlugin.all` (Klicker oder
   Snake).
-- **Die `e2sSample.all`** baut `tools/emu/sampleset.py`. Format (gemessen am Export der Firmware und
+- **Die [`e2sSample.all`](../glossary.md#e2ssampleall)** baut `tools/emu/sampleset.py`. Format (gemessen am Export der Firmware und
   an einer eigenen Datei, nur die Struktur): 16 Byte `e2s sample all`, `0x1A`, `0`; 1020
   Little-Endian-Offsets, einer je Slot (0 = leer), zusammen 4096 Byte Kopf; danach je Sample eine
   RIFF/WAVE-Datei mit `fmt`, `data` und dem Block `korg` (1180 Byte, darin `esli` mit Name, Schleife,
@@ -58,7 +58,7 @@ freien Block des Abbilds, Laufzeitzustand, Plugin-Pool, LED-Zustand, Einstellung
 
 ## Die RAM-Karte
 
-Adressen halb offen. "Wache" heißt: gemessen mit dem Haken auf die Schreibzugriffe, "Seiten": Vergleich
+Die BLECH-Bereiche sind der Stand zum Zeitpunkt der Messung; die Wache zählt den ganzen freien Block ab `0xC01A2100` als BLECH. Adressen halb offen. "Wache" heißt: gemessen mit dem Haken auf die Schreibzugriffe, "Seiten": Vergleich
 der nicht leeren 4-KiB-Seiten nach einem Start ohne Samples mit einem Start mit vollem Speicher, beide
 Male nach dem Spielen eines Musters.
 
@@ -159,7 +159,7 @@ von BLECH gleich der Datei (36 Bereiche, 37.176 Byte).
 BLECH-Satz aus der eigenen Firmware, lässt `tools/emu/sample_full.py --scenario regression` laufen
 (ganz voller Speicher, Klicker, Muster, Menü) und verlangt: alle 499 Plätze belegt, der DSP-Zeiger auf
 `0x1C65EC0`, kein fremder Schreibzugriff in einen BLECH-Bereich, keiner über den Spiegel, Code und
-Tabellen von BLECH unverändert. Der Lauf dauerte 566 s (171 s Gerätezeit nur fürs Laden) und bestand.
+Tabellen von BLECH unverändert.
 
 ## Grenzen und Offenes
 

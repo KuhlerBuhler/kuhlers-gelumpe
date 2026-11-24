@@ -1,6 +1,6 @@
 # Plugins schreiben Steps: korg.seq
 
-Stand 2026-10-26. Kein Gerätezugriff, alles im Emulator (Firmware 2.02 mit Hacktribe, Korgs eigene 2.02 und die blaue
+Stand 2026-10-26. Kein Gerätezugriff, alles im Emulator (Firmware 2.02 mit [Hacktribe](../glossary.md#hacktribe), Korgs eigene 2.02 und die blaue
 Electribe 2.02, eigene `SYSTEM.VSB`, ohne eigenen Flash). Am Gerät ist nichts gehört. Marker: **gemessen** (im Emulator),
 **hergeleitet**, **offen**.
 

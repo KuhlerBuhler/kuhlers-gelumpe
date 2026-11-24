@@ -1,7 +1,7 @@
 # Energie und Last: Befunde vor der Umsetzung
 
-Stand 2026-11-14. Nur gelesen und im Emulator gemessen, kein Patch, kein Gerät. Basis: develop `5e6227a5` mit PR #577.
-Grundlage für den Bindungs-Cache der Pad-Farben ([2026-10-20-patch-performance.md](2026-10-20-patch-performance.md)), eine
+Stand 2026-11-14. Nur gelesen und im [Emulator](../glossary.md#emulator) gemessen, kein Patch, kein Gerät. Basis: develop `5e6227a5` mit PR #577.
+Grundlage für den Bindungs-Cache der Pad-Farben, eine
 Lastanzeige, Einstellungen Version 4 und Idle Power Save. "Nicht selbst nachgelesen" heißt: aus einer Codeauswertung
 übernommen, Adressen nicht einzeln geprüft.
 

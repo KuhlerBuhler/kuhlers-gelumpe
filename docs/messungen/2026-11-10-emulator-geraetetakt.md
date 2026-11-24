@@ -1,6 +1,6 @@
 # Gerätetakt im Emulator: Cache und Multiply in der laufenden Zeit
 
-Stand 10. November 2026. **Gemessen** im Emulator auf dem Mac, Hacktribe 2.02 (eigene Datei) mit und ohne BLECH-Satz.
+Stand 10. November 2026. **Gemessen** im [Emulator](../glossary.md#emulator) auf dem Mac, [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei) mit und ohne BLECH-Satz.
 Code: `tools/emu/devicetime.py` (`Pace`), `tools/emu/machine.py` (`device_rate`, `run_slice`), Test
 `tools/emu/test_devicetime.py`. Markierungen: **gemessen**, **hergeleitet**, **Modellannahme**, **offen**. **Am Gerät nicht
 neu gemessen**, die Zuschläge sind die vom 16.10. ([Emulator-Zeit gegen Gerätezeit](2026-10-16-emulator-timing.md)).

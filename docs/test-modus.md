@@ -39,7 +39,7 @@ das ihn beim Start einschaltet, ließe das Gerät bei jedem Einschalten dunkel.
 
 ## Fernbedienung
 
-`tools/device/remote_press.py` spricht BLECHTRIBEs eigene SysEx-Befehle (READ, WRITE, EXEC). Ein kleiner Code-Schnipsel im
+`tools/device/remote_press.py` spricht BLECHTRIBEs eigene [SysEx](glossary.md#sysex)-Befehle (READ, WRITE, EXEC). Ein kleiner Code-Schnipsel im
 EXEC-Puffer legt einen Befehl in den Arbeitsbereich der Laufzeit; die Laufzeit gibt ihn im nächsten Bild (40 ms) als
 Nachricht des Panels in die Warteschlange der Firmware. Die Firmware nimmt ihn also genau so wie einen Druck am Gerät, mit
 allem, was daran hängt (Plugins, EXIT-Kurzbefehle, Tastenumleitung). Nur RAM, nichts im Flash, der Puffer bekommt nach dem

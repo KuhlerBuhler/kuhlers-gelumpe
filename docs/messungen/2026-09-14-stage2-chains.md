@@ -1,6 +1,8 @@
 # Zweistufige Insert-Ketten, Handversuche
 
-Gemessen 2026-09-14 über RAM, am Gerät gehört.
+Gemessen 2026-09-14 über RAM, am Gerät gehört, ohne den Patch `stage2-memory`
+(eigener Speicher für Stufe 2, [Patcher](../patcher.md)); mit ihm laufen die Paare in der
+Simulation ohne Absturz ([Messung](2026-11-13-stufe2-speicher.md)).
 
 | Stufe 1 | Stufe 2 | Ergebnis |
 |---|---|---|

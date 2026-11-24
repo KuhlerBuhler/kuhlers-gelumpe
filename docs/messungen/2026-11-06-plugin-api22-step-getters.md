@@ -1,9 +1,8 @@
 # Plugin API 22: Steps lesen
 
-Stand 6. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
-mit dem BLECH-Satz (blau mit `blech-synth.json`). Fälle: `tools/emu/plugin_api22_cases.py` (läuft als Gruppe von
-`remote_cases`). **Am Gerät nicht geprüft.** Die Idee und die Mirror-Messung kommen aus PR #379, hier ist nur der Teil zum Lesen
-übernommen.
+**Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+mit dem [BLECH](../glossary.md#blech)-Satz (blau mit `blech-synth.json`). Fälle: `tools/emu/plugin_api22_cases.py` (läuft als Gruppe von
+`remote_cases`). **Am Gerät nicht geprüft.**
 
 ## Frage
 
@@ -56,7 +55,7 @@ Die Getter geben das Gate-Byte unverändert zurück. Was die Werte bedeuten, ste
 - **Gemessen** im Emulator (Hacktribe 2.02, Note-on und Note-off der Engine): die Step-Wiedergabe (`0xC005FC40`) setzt bei
   Gate über 96 die Restdauer auf -1, also TIE; 127 und 255 spielen gleich. Folgt ein Step mit derselben Note und Trigger 0,
   läuft die Note ohne neuen Anschlag weiter, mit Trigger 1 schlägt sie neu an. In der Werksbank des Samplers stehen nur
-  0 bis 96, 127 (300 mal) und 255 (6447 mal). PR #379 nennt 255 als TIE, das passt.
+  0 bis 96, 127 (300 mal) und 255 (6447 mal).
 
 ## Offen
 

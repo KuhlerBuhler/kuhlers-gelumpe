@@ -1,8 +1,8 @@
 # Startphase, Startmodi und Notschalter-Taste
 
-Stand 2026-10-10. Gemessen im Emulator (`tools/emu/machine.py`,
-`tools/emu/bootmap.py`) mit der eigenen SYSTEM.VSB (Sampler 2.02 mit
-Hacktribe), mit dem eigenen Flash-Dump vom 9.10. und mit leerem Flash;
+Stand 2026-10-10. Gemessen im [Emulator](../glossary.md#emulator) (`tools/emu/machine.py`,
+`tools/emu/bootmap.py`) mit der eigenen [SYSTEM.VSB](../glossary.md#vsb) (Sampler 2.02 mit
+[Hacktribe](../glossary.md#hacktribe)), mit dem eigenen Flash-Dump vom 9.10. und mit leerem Flash;
 Code offline gelesen. Am Gerät nicht gegengeprüft. Zeiten sind Emulator-Zeit
 (angenommene 5 ns pro Befehl): die Reihenfolge gilt, die Millisekunden
 nicht genau.
@@ -22,7 +22,7 @@ nicht genau.
   Spalten, Bit 7 ist die oberste Zeile einer Seite (das Display hat Bit 0
   oben). So gelesen gleicht es Pixel für Pixel dem Display bei 200 ms.
 - **Gemessen:** Das Startbild kommt vor allen drei Rettungswegen
-  (Panel-Update, Startmodi, Update-Abfrage). Code, der das Startbild
+  (Panel-Update, Startmodi, Update-Abfrage; siehe [Rettung](../rettung.md)). Code, der das Startbild
   zeichnet oder lädt, läuft also auch dann, wenn das Gerät gerettet werden
   soll.
 
@@ -95,6 +95,8 @@ nicht genau.
 
 ## Startmodi
 
+Beim Einschalten gehaltene Tasten wählen einen Startmodus (Servicewege der Firmware).
+
 Tabelle bei `0xC002882C`: es zählt nur die genaue Maske, das obere Wort
 muss 0 sein. Jede Maske im Emulator gebootet (`machine.py --held`).
 
@@ -125,7 +127,7 @@ muss 0 sein. Jede Maske im Emulator gebootet (`machine.py --held`).
 
 ## Startphase als Adressbereiche
 
-`bootmap.py` bootet 17 Wege (normal mit eigenem und mit leerem Flash,
+`bootmap.py` bootet alle Wege (normal mit eigenem und mit leerem Flash,
 Update-Abfrage, Panel-Update, jeder Startmodus, die Notschalter-Taste) und
 sammelt jeden Code-Block, der läuft, und jedes Byte des Abbilds, das
 gelesen wird, bis Bildschirm 1 erscheint. Wege, die Bildschirm 1 nie
@@ -134,12 +136,11 @@ und ändert sich bis 4 s nicht mehr.
 
 - **Gemessen:** 157 072 Byte Code in 1931 Bereichen und 47 962 gelesene
   Byte in 2424 Bereichen (Tabellen, Konstanten, das Startbild). Ein
-  normaler Start allein: 148 136 Byte Code. Ein Lauf über alle Wege dauert
-  rund 80 s. Darin stecken auch Treiber und Hilfsfunktionen, die
+  normaler Start allein: 148 136 Byte Code. Darin stecken auch Treiber und Hilfsfunktionen, die
   später weiterlaufen (Display, Flash, Interrupts).
 - **Gemessen:** Die Blöcke kommen aus dem Übersetzungs-Hook von Unicorn
   (`UC_HOOK_EDGE_GENERATED`, einmal pro Block); ein Hook auf jede Ausführung
-  findet einen Block mehr (7016 statt 7015) und braucht elfmal so lange.
+  findet kaum einen Block mehr und braucht ein Vielfaches an Zeit.
 
 ## Notschalter-Taste
 

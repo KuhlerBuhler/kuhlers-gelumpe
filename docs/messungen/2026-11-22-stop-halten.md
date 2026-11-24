@@ -3,7 +3,7 @@
 Wunsch aus dem Discord: STOP länger halten soll alles beenden, was noch klingt, damit man nicht den AMP EG oder den Level
 herunterdrehen muss. Nach dem STOP der Firmware klingen Noten mit langem Release, gehaltene Pads und die Insert-Effekte weiter.
 
-Markierungen: **gemessen** (Emulator mit DSP-Modell, `tools/emu/shortcut_cases.py`, Gruppe `case_stop_hold`),
+Markierungen: **gemessen** ([Emulator](../glossary.md#emulator) mit [DSP](../glossary.md#dsp)-Modell, `tools/emu/shortcut_cases.py`, Gruppe `case_stop_hold`),
 **hergeleitet** (Disassembly), **offen** (noch nicht am Gerät geprüft).
 
 ## Was die Firmware schon kann (Hacktribe 2.02, rot; blau über `data/synth-map/`)

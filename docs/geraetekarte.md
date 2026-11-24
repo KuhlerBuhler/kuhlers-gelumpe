@@ -6,7 +6,7 @@ Doku auch. Eine neue Messung heißt: ein Eintrag mehr oder ein Eintrag genauer,
 und das Feld ist sofort im Editor.
 
 Gemessen ist alles an einer Korg Electribe 2 Sampler mit Firmware 2.02 und
-Hacktribe. Bei einem anderen Stand verschieben sich die Adressen.
+[Hacktribe](glossary.md#hacktribe). Bei einem anderen Stand verschieben sich die Adressen.
 
 ## Ein Eintrag
 
@@ -47,7 +47,7 @@ Abbilds ist (die drei Sample-Tabellen), trägt `meta.table` mit Adresse, Abstand
 | `sites` | statt `where`, wenn ein Wert an mehreren Stellen steht |
 | `repeat` | Ebenen für wiederholte Felder, je mit Anzahl, Abstand und Namen. Eine Step-Note ist Part mal Step mal Note: drei Ebenen. |
 | `type` | `u8`, `s8`, `u16le`, `latin1:16`, `bytes:4` und so weiter |
-| `transport` | auf welchen Wegen das Feld aufs Gerät kommt |
+| `transport` | auf welchen Wegen das Feld aufs Gerät kommt (`pattern-sysex`: Pattern senden per [SysEx](glossary.md#sysex), `e2sallpat`: die [Backup-Datei](glossary.md#e2sallpat)) |
 | `firmware` | für welchen Firmware-Stand die Adresse gilt, Pflicht bei allem, was in der Firmware liegt |
 | `convert` | benannte Umrechnung zwischen Byte und Klartext |
 | `edit` | `readonly` oder `expert` für Felder, die nicht frei bearbeitbar sind |
@@ -103,8 +103,7 @@ Der Kartentest prüft außerdem: jede `id` ist eindeutig, jede `convert` gibt es
 über `when`).
 
 **Eine Behauptung prüfen, bevor sie in die Karte kommt.** Vier Presets sind
-keine Messung. Mehrere Aussagen aus frühen Notizen waren falsch, als sie gegen
-die Werks-Presets derselben Einheit gehalten wurden. Darum wird eine Aussage vor
+keine Messung. Darum wird eine Aussage vor
 dem Eintrag gegen die Werks-Presets geprüft, und das Ergebnis ist der Beleg: eine
 Prüfung in `test/factory-checks.mjs`, die lokal mit eigenen Dateien läuft:
 
@@ -144,7 +143,7 @@ Fälle in `tools/emu/live_write_cases.py` messen jeden Eintrag im Emulator nach.
 ## Umrechnungen
 
 Umrechnungen sind eine kleine Bibliothek mit Namen (`src/map/convert.mjs`), keine
-Formeln in der Karte.
+Formeln in der Karte. Die Tabelle zeigt die wichtigsten, alle stehen in der Datei.
 
 | Name | Was | Grundlage |
 |---|---|---|
@@ -177,12 +176,12 @@ Umrechnung neu geschrieben.
 | Motion Sequences | wie oben | Korg-Spec, am Gerät nicht geprüft |
 | IFX- und MFX-Presets | live ins RAM (Hacktribe), Firmware (beide Builds, über die Zeigerfelder) | weitgehend, 23 von 28 Map-Bytes unbekannt; bei Korgs Build nur aus der Datei, mit dem Patch `preset-tables` bis 128 Plätze je Art |
 | 72 Modulationsarten | Firmware | Name, Ziel, Vorgabe-Tiefe, Vorgabe-Speed und Kurve editierbar (Seite Modulationen), Wellenform, Sync, Polarität bekannt, Felder ab `+0x29` offen |
-| 32 Tonleitern | Firmware | dekodiert |
+| 32 Tonleitern | Firmware | dekodiert. Touch-Skalen und Akkordtabellen je Skala, rot gegen Hacktribe: [Hacktribe-Extras](hintergrund/firmware-extras.md#touch-skalen) |
 | Groove-Templates | live ins RAM, Firmware | Format aus hacktribe-editor, am Gerät nicht geprüft |
-| Global-Einstellungen | Global-SysEx | Korg-Spec, Menüseiten gemessen (siehe `data/map/global.mjs`) |
+| Global-Einstellungen | Global-SysEx | Korg-Spec, Menüseiten gemessen (siehe `data/map/global.mjs`). Die Bytes 44 bis 251 ändert kein Menü der Firmware; BLECH legt dort eigene Werte ab, etwa die Freischaltung des Ostereis in Byte 251 ([Hacktribe-Extras](hintergrund/firmware-extras.md)). Die Seite LCD CONTRAST zeigt mit BLECH eine Kalibrierhilfe ([Display](hintergrund/display.md)) |
 | Startbild | Firmware | belegt, 128 mal 64, ein Bit je Pixel |
 | Menülängen | live ins RAM, Firmware | belegt |
-| Samples: Name und Tune | live ins RAM | am Gerät geschrieben ([Namen](messungen/2026-10-07-sample-name-ram.md), [Metadaten](messungen/2026-10-07-sample-metadaten-ram.md)), editierbar auf der Seite Samples |
+| Samples: Name und Tune | live ins RAM | am Gerät geschrieben ([Namen](messungen/2026-10-07-sample-name-ram.md), [Metadaten](messungen/2026-10-07-sample-metadaten-ram.md)), editierbar auf der Seite Samples (nicht in der Navigation, nur mit `?labs`, siehe [Entscheidungen](entscheidungen.md)) |
 | Samples: Kategorie, Import-Nummer, Samplerate, PCM-Länge, Stereo, Start, Loop, Ende, One-Shot, Slices, Steps | RAM, nur lesen | gemessen durch Bytevergleich mit der Sample-Datei, was ein Schreiben bewirkt ist nicht gemessen. Die Einheit von Start, Loop und Ende und die Skala von Tune sind offen |
 
 "Alles" heißt: alles, was entschlüsselt ist. Unbekanntes gibt es im Expertenmodus.
@@ -228,15 +227,17 @@ Das Format hat bangcorrupt im
 | `+0x30` | 64 Steps zu je 4 Byte: Versatz, Velocity, Gate, `0xFF` |
 | letzte 4 Byte | Kennung `GVED` |
 
-Ein Record ist `0x140` Byte, die Tabelle liegt bei `0xC0143B00`. Geschrieben wird
+Ein Record ist `0x140` Byte. Bei Hacktribe liegt die Tabelle mit 62 Einträgen im Abbild bei `0xC0143B00` (Datei
+`0x143C00`). Korgs rote Firmware hat keine Tabelle im Abbild: sie baut ihre 25 Vorlagen beim Start in den RAM ab
+`0xC068A03C` (gemessen, [Hacktribe-Extras](hintergrund/firmware-extras.md#grooves)). Geschrieben wird
 per RAM-Befehl, es gibt keinen eigenen Groove-Befehl. Nach dem Beispielskript
 dort ist ein Versatz von 48 ein halber Step, ein Step hat also 96 Einheiten, und
 Gate 96 heißt gebunden.
 
-Offen, bevor es in Klartext editierbar wird:
+**Offen**, bevor es in Klartext editierbar wird:
 
-- 96 oder 128 Plätze? hacktribe-editor lässt nur die Plätze 0 bis 95 zu, bis das
-  geklärt ist, gilt die kleinere Zahl.
+- Die Zahl der Plätze: der Setter `0xC0049DA4` nimmt auf Hacktribe 0 bis 61, auf rot 0 bis 24, darüber setzt er 0
+  (gemessen, [Hacktribe-Extras](hintergrund/firmware-extras.md#grooves)). hacktribe-editor lässt die Plätze 0 bis 95 zu.
 - Ob Velocity absolut oder relativ ist. Neu angelegt steht sie auf 96, das Beispiel
   ändert sie um -32. Das spricht für einen Ruhewert in der Mitte, ist aber nicht
   gemessen.
@@ -247,7 +248,7 @@ Offen, bevor es in Klartext editierbar wird:
 
 ## Expertenmodus
 
-Unbekannte Felder sind hinter einem Schalter als Zahl bearbeitbar. Dafür gelten
+Der Expertenmodus ([Glossar](glossary.md#expertenmodus)): unbekannte Felder sind hinter einem Schalter als Zahl bearbeitbar. Dafür gelten
 eigene Regeln:
 
 1. Jedes unbekannte Feld ist markiert, mit dem Hinweis, dass seine Wirkung

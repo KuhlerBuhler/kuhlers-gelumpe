@@ -1,9 +1,9 @@
-# Ladebalken im Startbild (Idee 41): gebaut und im Emulator geprüft
+# Ladebalken im Startbild: gebaut und im Emulator geprüft
 
 Stand 2026-10-15. Alles im Emulator (`tools/emu`, Unicorn 2.1.4) mit der eigenen `SYSTEM.VSB`
 (Hacktribe 2.02), Code offline mit Capstone gelesen. Karte: eine virtuelle mit einer
 `e2sSample.all` aus `tools/emu/sampleset.py` (20 Samples, 392 304 Byte, eigene Testdaten, kein Korg-Material).
-**Am Gerät nichts geprüft.** Idee: [Idee 41](../ideen/41-startbild-ausbauen.md). Markierungen:
+**Am Gerät nichts geprüft.** Markierungen:
 **gemessen**, **offline**, **hergeleitet**, **offen**.
 
 ## Was beim Laden passiert (Firmware ohne Patch)

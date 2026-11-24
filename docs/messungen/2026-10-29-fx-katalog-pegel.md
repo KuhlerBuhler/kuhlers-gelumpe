@@ -1,10 +1,10 @@
-# FX-Katalog: Pegel gegen die Werkspresets (29.10.)
+# FX-Katalog: Pegel gegen die Werkspresets
 
-Rückmeldung zu 1.3.7: die Effekte aus dem Katalog des Baukastens (`data/fx/catalog.mjs`) sind viel zu laut, genannt waren
+Rückmeldung zu 1.3.7: die Effekte aus dem Katalog des [Baukastens](../glossary.md#baukasten) (`data/fx/catalog.mjs`) sind viel zu laut, genannt waren
 MFX, Short Delay, alle Delays und Loud Distortion. Grundlage hier: alle Presets aus Hacktribe 2.02 (81) und Korgs Original
 2.02 rot (70), offline gelesen, und die Katalog-Records, wie `src/fx-append.mjs` sie in beide Dateien schreibt.
-**Nichts davon ist am Gerät gehört.** Der Emulator rechnet kein Audio, den DSP-Code emuliert nichts
-([2026-10-09-mfx-dsp.md](2026-10-09-mfx-dsp.md)). Die neuen Werte sind hergeleitet, die Hörprobe steht aus.
+**Nichts davon ist am Gerät gehört.** Der Emulator rechnet kein Audio, den [DSP](../glossary.md#dsp)-Code emuliert nichts
+([2026-10-09-mfx-dsp.md](2026-10-09-mfx-dsp.md)). Die Werte in Abschnitt 2 sind hergeleitet.
 
 ## 1. Steuerzeilen tragen ihr Von/Bis-Paar sechsmal (gemessen)
 
@@ -27,118 +27,56 @@ Damit ist die Frage für die eigenen Records egal.
 
 ## 2. Werte gegen die Werkspresets derselben Einheit
 
-"Werk" heißt: die Presets beider Firmwares mit derselben Einheit an derselben Stelle. Gelesen mit einem Skript über
-`src/presets.mjs` und `src/fx-v2.mjs` (`fxFromRecord`), Werte als Klartext, keine Bytes im Repository.
+"Werk" heißt: die Presets beider Firmwares mit derselben Einheit an derselben Stelle (gelesen über `src/presets.mjs` und
+`src/fx-v2.mjs`). Die Katalogwerte stehen in `data/fx/catalog.mjs`, die Obergrenzen in `test/fx-v2.test.mjs` (`LEVEL_CAPS`).
+Befunde (**hergeleitet**, Werkswerte offline gelesen):
 
-| Effekt | Parameter | bisher | Werk | neu |
-|---|---|---|---|---|
-| Loud Distortion (`I_distortion`) | `output_level` | 40 | 11 (Distortion), Regler 13 bis 10 | 14 |
-| Fuzz (`I_distortion`) | `output_level` | 30 | 11 | 12 |
-| Crunch (`I_distortion`) | `output_level` | 35 | 11 | 16 |
-| Hot Overdrive (`I_acid_driver`) | `output_level` | 40, fest bei Drive bis 100 | 65 bei Drive 0 (Overdrive, Regler nimmt den Pegel bis 13 zurück), 22 bei Drive 91, 11 bei Drive 127 | 22, neue Reglerzeile `output_level` 34 bis 14 |
-| 1/6, 1/24, 5/32 Delay (`I_short_delay`) | `fb_depth` | 70, 60, 65 | 25 (Delay 1/4, 3/16, 1/8, 1/16), Regler links 28 bis 9 | 30, Regler ab 30 |
-| 3/64 Delay | `fb_depth`, `wet_level`, Regler rechts | 80, 90, bis 88 | 25, 120 | 45, 70, bis 70 |
-| Slap Delay | `fb_depth` | 35 | 25 bis 30 | 20 |
-| Long Delay | `fb_depth` | 70 | 25 | 40 |
-| Short Delay (`M_mod_delay`) | `dry_wet`, `input_trim`, `delay_lag` | 122, 95, 30 | 100, 80 bis 109, 0 bis 17 | 111, 95, 30 |
-| Short Delay | Y auf `fb_depth` | 0 bis 127 | Mod Delay 44 bis 123 | 0 bis 127 |
-| Short Delay | Touchpad auf `dry_wet` | 45 bis 122 | | 45 bis 122 |
-| Tri Ping Pong (`M_mod_delay`) | Touchpad auf Eingangspegel | 0 bis 127 | Mod Delay 0 bis 88 | 0 bis 88 |
-| Dub Echo (`M_tape_echo`) | `feedback`, `saturation` | 85, 80 | 70, 47 | 70, 55 |
-| Dub Echo | Y auf `feedback` | 50 bis 88 | Tape Delay 29 bis 72 | 40 bis 72 |
-| Master Pumper (`M_level_mod`) | `output_gain_adjust` | 30 | 24 (Slicer, Auto Pan) | 24 |
+- Distortion (`I_distortion`): `output_level` im Werk 11, Regler 13 bis 10; der Katalog lag bei 30 bis 40.
+- Acid Driver (`I_acid_driver`): `output_level` 65 bei Drive 0, 22 bei Drive 91, 11 bei Drive 127; ein fester Wert von 40 ist bei
+  hoher Verzerrung viel zu laut, der Pegel gehört an den Regler.
+- Short Delay (`I_short_delay`): `fb_depth` im Werk 25 bis 30 (nur Hacktribes 9/32, 3/32 und 1/12 Delay gehen auf 82 bis 123).
+- Mod Delay, Tape Delay, Level Mod: Werkswerte `dry_wet` 100, Tape-Rückkopplung 70, `output_gain_adjust` 24.
 
-Der Short Delay ist ein eigener, am Gerät eingestellter Effekt. Er bleibt, wie er war, nur `dry_wet` geht von 122 auf 111.
+Warum die Delays laut wurden: die Wiederholungen summieren sich. Bei Rückkopplung 25 von 127 bleibt die Summe nahe am Einzelecho,
+bei 60 bis 80 verdoppelt sie sich grob, beim sehr kurzen 3/64 Delay schaukelt sie sich zu einem Kammfilter auf.
 
-Unverändert, weil im Werksbereich oder ohne Werkspreset: Tremolo 1/8, Wah 1/8 (wie Touch Wah bis auf Sync und Tempo),
-Small Plate, Master Limiter (`output_gain` 54, Vorgabe der Einheit 72). Die Notenwerte der Delays bleiben, sie machen nichts
-lauter.
+Der Short Delay (MFX) ist ein eigener, am Gerät eingestellter Effekt und bleibt bei seinen Werten.
 
-Warum die Delays laut wurden (hergeleitet): Die Wiederholungen summieren sich. Bei Rückkopplung 25 von 127 bleibt die
-Summe nahe am Einzelecho, bei 60 bis 80 verdoppelt sie sich grob, beim sehr kurzen 3/64 Delay schaukelt sie sich zu einem
-Kammfilter auf. Korgs eigene Short-Delay-Presets stehen alle auf 25 bis 30; nur Hacktribes 9/32, 3/32 und 1/12 Delay gehen
-auf 82 bis 123.
-
-**Widerspruch:** [2026-09-21-loudness.md](2026-09-21-loudness.md) nennt Ausgangspegel 38 bis 60 als spielbar. Für die
-Distortion stimmt das nach der neuen Rückmeldung nicht, der Werkswert ist 11. Der Linter nimmt 38 bis 60 als brauchbar
-(`usableLevel` in `data/findings.mjs`) und hat die alten Katalogwerte deshalb nicht gemeldet. Welche Einheit damals gehört
-wurde, steht dort nicht.
+**Widerspruch:** [2026-09-21-loudness.md](2026-09-21-loudness.md) nennt Ausgangspegel 38 bis 60 als spielbar. Für die Distortion
+stimmt das nicht, der Werkswert ist 11. Der Linter nimmt 38 bis 60 als brauchbar (`usableLevel` in `data/findings.mjs`) und meldet
+zu hohe Katalogwerte deshalb nicht.
 
 ## 3. Was geprüft ist
 
-- `factory-check:map-row-copies` gegen beide Firmwares: grün (siehe Tabelle oben).
-- Alle 18 Einträge bauen gegen Hacktribe und Korg rot ohne Fehler (`appendPresets`), die gebauten Steuerzeilen tragen
+- `factory-check:map-row-copies` gegen beide Firmwares: grün (Tabelle in Abschnitt 1).
+- Alle Katalogeinträge bauen gegen Hacktribe und Korg rot ohne Fehler (`appendPresets`), die gebauten Steuerzeilen tragen
   sechs gleiche Paare.
-- Der Linter meldet für alte und neue Katalogwerte dieselben Warnungen (Notenwerte, `low_damp`, Effekt schon vor dem
-  Regler hörbar), keine zum Pegel.
-- `test/fx-v2.test.mjs` hält die Pegelgrenzen fest: kein Katalogeffekt steht oder fährt über den Werkswert seiner Einheit
-  (ohne den Mod Delay, siehe Short Delay oben).
+- `test/fx-v2.test.mjs` hält die Pegelgrenzen fest: kein Katalogeffekt steht oder fährt über den Werkswert seiner Einheit,
+  mit den dort genannten Ausnahmen (Distortion, Master Pumper, Level Mod), die nach Hörtests am Gerät höher liegen.
 
-Nicht geprüft: Klang und Lautstärke am Gerät.
+## 4. Hörtest am Gerät (31.10.)
 
-## 4. Nach dem Hörtest am Gerät (31.10.)
+Die auf Werk gesenkten Effekte waren "ein bisschen zu leise" und wurden um etwa ein Viertel des Wegs zurück angehoben
+(**nicht nachgehört**). Rückkopplung und Wiederholungen blieben.
 
-Rückmeldung nach dem Hörtest am Gerät: die gesenkten Effekte sind jetzt "ein bisschen zu leise". Darum etwas angehoben,
-etwa ein Viertel des Wegs von neu zurück zu bisher, höchstens aber 25 % vom neuen Wert, auf ganze Zahlen gerundet.
-Rückkopplung und Wiederholungen bleiben, das ist keine Lautstärke. **Nach dem Hörtest am Gerät 31.10.: etwas angehoben,
-nicht nachgehört.**
+## 5. Gerätetests 14. und 15.11.: Insert- und Level-Mod-Effekte
 
-| Effekt | Parameter | bisher (1.3.7) | Werk | gesenkt (29.10.) | jetzt |
-|---|---|---|---|---|---|
-| Loud Distortion | `output_level` | 40 | 11 | 14 | 18 |
-| Fuzz | `output_level` | 30 | 11 | 12 | 15 |
-| Crunch | `output_level` | 35 | 11 | 16 | 20 |
-| Hot Overdrive | `output_level` | 40 | 22 bei Drive 91 | 22 | 27 |
-| Hot Overdrive | Regler auf `output_level` | fest 40 | | 34 bis 14 | 39 bis 19 |
-| Master Pumper | `output_gain_adjust` | 30 | 24 | 24 | 26 |
-| Tri Ping Pong | Touchpad auf Eingangspegel, bis | 127 | 88 | 88 | 98 |
-| Short Delay (MFX) | `dry_wet` | 122 | 100 | 111 | 114 |
+Loud Distortion war etwa doppelt so laut wie der Rest (das LEVEL des Samples dämpft sie nicht, der Verzerrer sättigt und sein
+Ausgang hängt an `output_level`); Bounce Gate, Warm Drive, Bit Grinder und Glue Comp waren zu leise. Die Werte sind danach angepasst,
+wo es ging nach den Werkspresets derselben Einheit, sonst geschätzt (**nicht nachgehört**).
 
-Die Pegelgrenzen in `test/fx-v2.test.mjs` liegen dafür für die Distortion (20) und den Master Pumper (26) knapp über
-Werk. Die Reglerzeile des Hot Overdrive bleibt unter der Grenze der Einheit (65), der Mod Delay hat keine Grenze.
+## 6. Master-Effekte
 
-## 5. Nach den Gerätetests 14. und 15.11.
-
-Rückmeldung vom Gerät: Loud Distortion ist etwa doppelt so laut wie der Rest, das LEVEL des Samples dämpft es nicht (der
-Verzerrer sättigt, sein Ausgang hängt an `output_level`). Bounce Gate, Warm Drive, Bit Grinder und Glue Comp sind zu leise.
-Die neuen Werte kommen, wo es geht, aus den Werkspresets derselben Einheit (Korg rot und Hacktribe 2.02, offline gelesen
-mit `firmwarePresets` aus `src/fx-collection.mjs`). **Nicht nachgehört.**
-
-| Effekt | Parameter | bisher | Werk | jetzt | Herleitung |
-|---|---|---|---|---|---|
-| Loud Distortion | `output_level` | 20 | 11 | 15 | geschätzt: unter 18 (31.10. angehoben, weil 14 "ein bisschen zu leise" war), über Werk |
-| Bit Grinder | `output_level`, Regler | 90, 90 bis 75 | Decimator und Bit Crusher 127 | 127, 127 bis 106 | Werkspegel des Decimators; der Regler nimmt wie bisher ein Sechstel zurück |
-| Alias Crush | `output_level` | 90 | 127 | 127 | wie Bit Grinder, gleiche Einheit |
-| Warm Drive | `output_level`, Regler | 42, 50 bis 27 | Acid Drive 65 bei Drive 0, 22 bei Drive 91, 11 bei Drive 127 | 46, 56 bis 32 | die Werkskurve, linear zwischen Drive 0 und 91 gelesen: Drive 40 gibt 46, Drive 20 gibt 56, Drive 70 gibt 32 |
-| Glue Comp | Kompressor `output_gain`, Regler | 52, 50 bis 58 | kein Werkspreset mit dem SR1-Kompressor | 60, 58 bis 66 | geschätzt, wie am 31.10. um etwa ein Sechstel |
-| Glue Comp | Limiter `output_gain` | 48 | Limiter 48 (der Regler des Werkspresets fährt die Schwelle, nicht den Ausgang) | 60 | geschätzt; ohne den Limiter höher bliebe der Kompressor an ihm hängen |
-| Bounce Gate 16, 8 | `output_gain` | 36 | Off Beater, Pumper, Repeater 36, Slicer 32 | 45 | geschätzt, ein Viertel über Werk: das Gate schneidet jeder Note das Ende ab, es bleibt weniger Energie als bei den Werkspresets |
-
-`test/fx-v2.test.mjs` lässt den Level Mod (`0x15`) dafür bis 45 zu, knapp über Werk wie die Distortion und der Master Pumper.
-Die Master-Effekte aus dem Gerätetest 15.11. (Pumper, Multitap, Wow Tape, Dub Delay, Ping Pong zu leise, Letter Drive zu laut)
-sind bis auf den Pumper Hacktribes eigene Presets (Plätze 37 bis 49: Ping Pong, Dub Delay, Wow Tape, Ladder Drive, Ring Crush,
-Multi Tap). Werkspresets bleiben, wie sie sind.
-
-## 6. Master-Effekte nach dem Gerätetest 15.11.
-
-Angepasst sind nur die eigenen Master-Effekte. **Nicht nachgehört.**
-
-| Effekt | Parameter | bisher | jetzt | Herleitung |
-|---|---|---|---|---|
-| Master Pumper | `output_gain_adjust` | 26 | 32 | geschätzt: Werk 24; das Pumpen nimmt der Summe Energie wie das Bounce Gate, das ein Viertel über Werk steht |
-| Master Limiter | `threshold`, Regler | 48, 52 bis 30 | 64, 64 bis 40 | Urteil: er drückte so stark, dass er kurz aussetzte wie ein leichter Slicer |
-| Master Limiter | `release` | 8 | 20 | Urteil; Korgs Preset "Limiter" (Platz 26, Einheit SR1-Kompressor, nicht `M_limiter`) hat 12 |
-| Master Limiter | `hold_time` | 8 | 17 | wie Korgs Preset "Limiter" |
-
-Master Tilt und Master Warmth sind aus dem Katalog genommen: am Gerät hörbar wirkungslos und nicht gebraucht. Master
-Glue bleibt.
+Master Pumper zu leise, Master Limiter setzte aus; beide sind angepasst. Master Tilt und Master Warmth sind aus dem Katalog genommen
+(am Gerät wirkungslos). Multi Tap, Wow Tape, Dub Delay, Ping Pong, Ladder Drive und Ring Crush sind Hacktribes eigene Presets
+(Plätze 37 bis 49), nicht Teil des Katalogs, und bleiben wie sie sind.
 
 ## 7. Nachmessung im DSP-Simulator (17.11.)
 
-Gemessen mit Korgs DSP-Code im GNU-bfin-Simulator, Fall `tools/emu/fx_level_cases.py` (noch nicht in diesem Branch).
+Gemessen mit Korgs DSP-Code im GNU-bfin-Simulator, Fall `tools/emu/fx_level_cases.py`.
 Testsignal, Fenster und Kennzahlen wie dort: 1-kHz-Sinus mit -12 dBFS Spitze, danach ein Rauschstoß, Touchpad in der Mitte.
 Alle Werte in dB gegen trocken im selben Lauf, `einbr.` zählt 2-ms-Blöcke im Sinus unter der halben Medianleistung.
-Firmware: Patcher dieses Branches auf Hacktribe 163d1d8d (HT) und Korgs rot 2.02. **Nicht nachgehört.**
+Firmware: der Patcher auf Hacktribe 163d1d8d (HT) und Korgs rot 2.02. **Nicht nachgehört.**
 
 ### Ursachen (gemessen)
 
@@ -154,7 +92,7 @@ Firmware: Patcher dieses Branches auf Hacktribe 163d1d8d (HT) und Korgs rot 2.02
 - **Master Glue.** Die Ratio ändert nichts (2 bis 18), die Schwelle schon. Mit Schwelle 42 greift er bei diesem Pegel nicht.
 - **Master Pumper.** `output_gain_adjust` 38 statt 32 hebt ihn um 2,9 dB, 42 wäre 2 dB über trocken.
 
-### Änderungen
+### Änderungen (Stand der Messung, aktuelle Werte: `data/fx/catalog.mjs`)
 
 | Effekt | Parameter | bisher | jetzt | Herleitung |
 |---|---|---|---|---|

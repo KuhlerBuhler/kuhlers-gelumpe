@@ -1,6 +1,6 @@
 # Fehlende Unterordner in KORG/blechtribe, rote fragt auch nach der Pattern-Sicherung (9.11.)
 
-Stand 2026-11-09. Alles im Emulator mit Korgs roter 2.02 (`1d0f0689`), Hacktribe (`7cb4825c`) und Korgs blauer 2.02
+Stand 2026-11-09. Alles im [Emulator](../glossary.md#emulator) mit Korgs roter 2.02 (`1d0f0689`), [Hacktribe](../glossary.md#hacktribe) (`7cb4825c`) und Korgs blauer 2.02
 (`41fc5f1c`), die Dateien außerhalb des Repositorys. **Am Gerät nichts.** Vorher:
 [Ordner beim ersten Start, Sicherung der blauen](2026-11-09-blechtribe-ordner.md).
 

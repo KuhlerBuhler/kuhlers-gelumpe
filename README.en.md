@@ -29,13 +29,13 @@
 ## Frequently asked questions
 
 - **Does it cost anything?** No. If you like it, a [donation](https://www.paypal.me/kuhlerbuhler) is welcome.
-- **Is it safe?** The app checks the new firmware in the emulator before making it available. That catches many errors, but it cannot guarantee the result on every real device. Back up your original firmware and your data first. Hold **EXIT while powering on** to start without BLECHTRIBE and reinstall your original firmware.
+- **Is it safe?** The app checks the new firmware in the emulator before making it available. That catches many errors, but it cannot guarantee the result on every real device. Back up your original firmware and your data first. Hold **EXIT while powering on** (the [emergency switch](docs/glossary.en.md#notschalter)) to start without BLECHTRIBE and reinstall your original firmware.
 - **Do I need a computer?** Yes, once to patch the file. You can use the Electribe without the computer afterwards.
 - **Are samples included?** No. BLECHTRIBE contains no samples. Your own samples stay on your card. On the first start, the Electribe offers to take over your existing sample folder.
 - **Does it work on the blue Electribe?** Yes, with fewer features. See the table below.
 - **Blue Electribe: where are my exports?** In `KORG/blechtribe/`, no longer in `KORG/electribe/`. On the first start, the Electribe offers to copy `KORG/electribe/` there.
-- **Do I keep Hacktribe?** Yes, when you start with a Hacktribe firmware file. BLECHTRIBE adds its features on top. Patching Korg's original firmware does not add Hacktribe's features.
-- **How do I make my own effects?** Open the **Baukasten** in the app. Take a ready effect or build one from blocks, with names and real units. The export puts them on the SD card, single ones also go live over USB. This works on the red sampler with BLECHTRIBE. An `.e2fx` file opens under BLECHTRIBE -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", or with a loaded firmware under BLECHTRIBE -> Presets -> "Preset-Datei laden".
+- **Do I keep [Hacktribe](docs/glossary.en.md#hacktribe)?** Yes, when you start with a Hacktribe firmware file. BLECHTRIBE adds its features on top. Patching Korg's original firmware does not add Hacktribe's features.
+- **How do I make my own effects?** Open the [**Baukasten**](docs/glossary.en.md#baukasten) in the app. Take a ready effect or build one from blocks, with names and real units. The export puts them on the SD card, single ones also go live over USB. This works on the red sampler with BLECHTRIBE. An `.e2fx` file opens under BLECHTRIBE -> Baukasten -> Meine Effekte -> ".e2fx-Datei öffnen", or with a loaded firmware under BLECHTRIBE -> Presets -> "Preset-Datei laden".
 - **Windows: the app does not find my Electribe, although its MIDI ports are listed.** Korg's own USB-MIDI driver is probably installed; the Electribe's replies do not come through it. Remove it in Device Manager (the Electribe, "Uninstall device", with the driver) and restart Windows. Windows' own driver is enough. If the KORG Driver Setup Utility then offers to reinstall it, close it. The MIDI report in the settings says so too.
 - **I have an idea for the app or firmware.** [Write it down here](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). You need a GitHub account.
 
@@ -45,7 +45,7 @@ You need a computer (Mac, Windows or Linux) and an SD card reader, once for a fe
 
 1. **Download the app** with the button above. On the release page, find "Assets": `.dmg` for Mac, `.exe` for Windows, `.AppImage` or `.deb` for Linux. macOS blocks the downloaded app at first because it is not signed by Apple. See [Get the app](#get-the-app) for how to allow it.
 2. **Put the Electribe's SD card in your computer.**
-3. **Open the app**, choose **Firmware Patcher** and drop your `SYSTEM.VSB` from the card onto the page. It is in `KORG/electribe sampler/System/` (original sampler), `KORG/hacktribe/System/` (Hacktribe) or `KORG/electribe/System/` (blue Electribe). Without the file, the app downloads Korg's original itself once you accept Korg's licence.
+3. **Open the app**, choose **Firmware Patcher** and drop your [`SYSTEM.VSB`](docs/glossary.en.md#vsb) from the card onto the page. It is in `KORG/electribe sampler/System/` (original sampler), `KORG/hacktribe/System/` (Hacktribe) or `KORG/electribe/System/` (blue Electribe). Without the file, the app downloads Korg's original itself once you accept Korg's licence.
 4. **Wait for the checks to finish**, then save the new file. The app tells you where to put it on the card.
 5. **Put the card back in the Electribe**, turn it on and start the firmware update. The app shows you which buttons to press.
 
@@ -67,10 +67,10 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Use the red sampler's unchanged factory sample bank | ✅ | ➖ | ❌ | ✅ | ➖ | ❌ |
 | Custom start image, fonts and shutdown image | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Loading animation with progress | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
-| Draw your own start image on the device | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Draw your own start image on the device | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Synth filters (MS20, Acid, ...) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Edit effects freely in the app | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| 128 slots for custom effects | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| 128 slots for custom effects | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Second master effect (MFX 2) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | BEAT 8: eighth-note steps, patterns twice as long | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | TOUCH SCALE RANGE 0: X plays the key note only | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -89,6 +89,8 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Note assistant | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Dice (random melodies) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Clear messages for broken samples | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
+| Tube curve on the output (TUBE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Device menus in German (checkbox in the patcher) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Update over USB from the app | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 
@@ -122,7 +124,7 @@ The normal Electribe is on the left, BLECHTRIBE on the right. The animations use
 
 Open **Firmware Patcher**, drop your own `SYSTEM.VSB` (Korg's original 2.02 for sampler or synth, or Hacktribe 2.02; without your own file the app downloads Korg's original after you accept Korg's licence) onto the page and choose the patches. Before downloading, the emulator boots the result and checks the main screen, update prompt, start modes and emergency switch. This takes a few minutes; the page shows which group is running. It then explains how to install the file on the device. All patches and their limits are in [docs/patcher.en.md](docs/patcher.en.md). To patch without the app, use `BLECH.patch` or the matching `.bsdiff` from the release as described there.
 
-On the sampler, BLECHTRIBE includes the BLECH menu, plugins, display and LED colours, pattern confirmation, sync groups, TAP Motion, a note assistant in KEYBOARD mode, KEYBOARD + Pad to set the KEY, SHIFT + filter key to turn the filter off and on, random melodies (SHIFT + PART ERASE), EXIT + WRITE to save, EXIT + Pad to reset a part's sound (also while playing), STOP held to end every sound, pink chord steps, migration of your existing sample folder, Blechy, loading progress, clearer sample errors and Doom (SHIFT + TAP at power-on, the app writes both files to the card over USB; [licence](docs/doom-lizenz.md), German).
+On the sampler, BLECHTRIBE includes the BLECH menu, plugins, display and LED colours, pattern confirmation, sync groups, TAP Motion, a note assistant in KEYBOARD mode, KEYBOARD + Pad to set the KEY, SHIFT + filter key to turn the filter off and on, random melodies (SHIFT + PART ERASE), EXIT + WRITE to save, EXIT + Pad to reset a part's sound (also while playing), STOP held to end every sound, pink chord steps, migration of your existing sample folder, [Blechy](docs/glossary.en.md#blechy), loading progress, clearer sample errors, a tube curve on the output (BLECH > FEATURES > TUBE), menus in German (checkbox in the patcher) and Doom (SHIFT + TAP at power-on, the app writes both files to the card over USB; [licence](docs/doom-lizenz.md), German).
 
 ## For tinkerers
 
@@ -181,7 +183,7 @@ npm start           # page and emulator together
 
 `npm start` prints the address (by default `http://127.0.0.1:8737/`), open it in your browser. Without
 the emulator `npm run serve` is enough and `setup:emu` is not needed. To talk to the device you need
-Chrome or Edge on a desktop computer: the page uses Web MIDI with SysEx, which Safari does not have.
+Chrome or Edge on a desktop computer: the page uses Web MIDI with [SysEx](docs/glossary.en.md#sysex), which Safari does not have.
 
 **In a container.** Without Node and Python on the machine the same pair runs in Docker:
 
@@ -210,7 +212,7 @@ npm run app:build -- --bundles nsis           # Windows
 npm run app:build -- --bundles appimage,deb   # Linux
 ```
 
-The build compiles the page, freezes the emulator service into a sidecar with PyInstaller
+The build compiles the page, freezes the emulator service into a [sidecar](docs/glossary.en.md#sidecar) with PyInstaller
 (`npm run build:sidecar` does just that) and packs the app. The result lands in
 `src-tauri/target/release/bundle/`: `dmg/*.dmg` (macOS), `nsis/*-setup.exe` (Windows),
 `appimage/*.AppImage` and `deb/*.deb` (Linux). Each system builds its own, cross-building does not
@@ -225,9 +227,10 @@ the card: in the Plugins area the button "Aufs Gerät" writes the plugin there o
 Menü -> BLECH -> PLUGINS. The code is a subset of JavaScript, the editor compiles it to bytecode for a
 small VM in the firmware, and an error switches the plugin off without disturbing the Electribe.
 Language, events and functions: [docs/plugins.en.md](docs/plugins.en.md).
-The catalog has ready plugins: Set-Timer, BLECH Clicker, Snake, Tetris, Game of Life, Pong, Simon,
-Mandelbrot, GIF Player, Image Viewer, BPM Glide, Momentary Mute, Gate Hold, Step Copy,
-Lauflicht, Pulsieren and STOP-Takt.
+The catalog has ready plugins: BLECH Clicker, Set-Timer, Snake, Tetris, Game of Life, Pong, Simon, Mandelbrot,
+GIF Player, Image Viewer, BPM Glide, Lauflicht, Pulsieren, STOP-Takt, Momentary Mute, Gate Hold, Step Copy, 303Pattern,
+EUCLID FLOW, LIVE RELOAD, RANDOM SLOT, Better Accent, Easy Slides, Pad Finger, Blechy Run, System Info, VU Meter, Spettro,
+MIDI Echo and Motion Clear.
 
 ## The emulator
 
@@ -250,13 +253,13 @@ A wrong write or a faulty firmware can hang the device. So:
 - **Back to Korg's original, also from the blue:** step by step in
   [docs/original-zurueck.en.md](docs/original-zurueck.en.md) and as a case on the Blechy page.
 - **If the device no longer starts:** the "Blechy" page in the editor asks what you see and
-  walks you back along the documented recovery. The bootloader is never
-  touched, beyond it only JTAG helps ([docs/rettung.md](docs/rettung.md)).
+  walks you back along the documented recovery. The [bootloader](docs/glossary.en.md#bootloader) is never
+  touched, beyond it only [JTAG](docs/glossary.en.md#jtag) helps ([docs/rettung.md](docs/rettung.md)).
 - **Test it yourself:** the [device tests](docs/geraetetests/README.md) describe how to repeat BLECHTRIBE and
   the card functions on your own device, with a warning, prerequisites, a backup and the way back.
 
-The linter checks known memory regions, message format and documented failure cases. The emulator runs
-the firmware's real ARM code, but the DSP only as a stand-in: it makes no sound, and it only imitates the
+The [linter](docs/glossary.en.md#linter) checks known memory regions, message format and documented failure cases. The emulator runs
+the firmware's real ARM code, but the [DSP](docs/glossary.en.md#dsp) only as a stand-in: it makes no sound, and it only imitates the
 panel and the timing. Whether something sounds good, only your ears can say. Much is so far checked in
 the emulator only, not yet on a real device. Details: [docs/linter.md](docs/linter.md),
 [docs/emulator.md](docs/emulator.md) (German).

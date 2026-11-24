@@ -1,6 +1,6 @@
 # Gerätetest: Gerätemenüs auf Deutsch
 
-Stand 2026-11-23. Anleitung für Tester. Gebaut und im Emulator geprüft (Hacktribe, Korgs rote 2.02, blaue
+Anleitung für Tester. Gebaut und im Emulator geprüft (Hacktribe, Korgs rote 2.02, blaue
 Electribe), am Gerät noch nicht. Siehe auch die [Übersicht](README.md) und [Firmware-Sprache](../firmware-sprache.md).
 
 ## 1. Worum es geht
@@ -28,7 +28,7 @@ Meldungen, Fehler), passen auch, und ein Update behält die Sprache.
 ## 2. Warnung
 
 **Das Gerät wird verändert.** SOFTWARE UPDATE schreibt eine neue Firmware in den Flash. Du machst das auf eigenes
-Risiko, ohne Gewähr. Der Weg zurück: die vorher gesicherte `SYSTEM.VSB` wieder aufspielen. Mehr in [blech-datei.md](blech-datei.md) Abschnitt 2.
+Risiko, ohne Gewähr. Der Weg zurück: die vorher gesicherte [`SYSTEM.VSB`](../glossary.md#vsb) wieder aufspielen. Mehr in [blech-datei.md](blech-datei.md) Abschnitt 2.
 
 In diesem Test nichts bestätigen, was Daten löscht: FACTORY RESET, FORMAT und Löschdialoge nur öffnen, lesen und
 mit EXIT abbrechen.
@@ -36,7 +36,7 @@ mit EXIT abbrechen.
 ## 3. Voraussetzungen
 
 - Electribe 2 Sampler (rot), Netzteil, SD-Karte.
-- Die App mit dem Häkchen. **1.4.8 hat es noch nicht**, es kommt mit 1.5. Bis dahin die App aus `develop` starten
+- Die App mit dem Häkchen. Es ist ab 1.5 dabei, 1.4.8 hat es noch nicht. Bis zum Release die App aus `develop` starten
   (`npm start`, Seite Patcher) oder einen App-Build von `develop` aus der CI nehmen.
 - Ausgangsdatei: die unveränderte `ORIGINAL.BIN` von der Karte (Hacktribe), nicht eine schon gepatchte Datei.
   `lang-de` passt nur auf BLECHs eigene Dateien; auf einer fremden Datei sagt die App das in der Planzeile.

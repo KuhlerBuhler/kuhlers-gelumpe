@@ -1,8 +1,8 @@
 # TAP Motion: der Patch, im Emulator geprüft
 
 Stand 2026-10-15. Kein Gerätezugriff, alles im Emulator (Firmware 2.02 mit Hacktribe, eigene `SYSTEM.VSB`, eigener Flash-Dump), am Gerät ist nichts bestätigt.
-Baut auf der [Recherche](2026-10-15-tap-motion.md) auf und setzt Idee 39 als Firmware-Patch um, nicht als Plugin
-([Idee 39](../ideen/39-automationen-tap.md), [Idee 34](../ideen/34-tap-shortcut.md)). Die Prüfungen sind `tools/emu/tap_motion_cases.py`
+Baut auf der [Recherche](2026-10-15-tap-motion.md) auf und setzt TAP Motion als Firmware-Patch um, nicht als Plugin
+(Hintergrund: [Idee 34](../ideen/34-tap-shortcut.md)). Die Prüfungen sind `tools/emu/tap_motion_cases.py`
 (läuft in `tools/emu/check.py` mit, Namen in Klammern), der Patch ist `data/patches/tap-motion.json`, gebaut von `tools/patch/tap_motion.py`.
 Marker: **gemessen**, **hergeleitet**, **offen** (am Gerät zu prüfen).
 

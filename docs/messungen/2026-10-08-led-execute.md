@@ -1,7 +1,7 @@
 # LEDs selbst setzen: Execute, Caches, RGB
 
-Stand 2026-10-08. Eigenes Gerät, nur RAM, mit Rücksicherung. Gemessen im
-Emulator (`tools/emu/machine.py`) und am Gerät über die emulierte DIN-MIDI
+Eigenes Gerät, nur RAM, mit Rücksicherung. Gemessen im
+[Emulator](../glossary.md#emulator) (`tools/emu/machine.py`) und am Gerät über die emulierte DIN-MIDI
 (SysEx-Weg der Firmware). Skript: `tools/device/led_show.py`. Keine
 Firmware-Bytes im Repo, nur Adressen und Prüfsummen.
 
@@ -13,7 +13,7 @@ Firmware-Bytes im Repo, nur Adressen und Prüfsummen.
   eigener Code die Setz-Funktion aufruft, und überschreibt fremde Werte beim
   nächsten Moduswechsel.
 - **Gemessen:** Deshalb ruft man die Setz-Funktion der Firmware selbst auf.
-  Von außen geht das nur über Hacktribes Execute-Befehl (`0x57`,
+  Von außen geht das nur über den [Execute](../glossary.md#execute)-Befehl von [Hacktribe](../glossary.md#hacktribe) (`0x57`,
   `docs/messungen/2026-10-08-dsp-audiopfade.md`), der an eine übermittelte
   Adresse springt.
 

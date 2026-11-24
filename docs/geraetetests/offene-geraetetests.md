@@ -1,0 +1,203 @@
+# Offene Gerätetests
+
+Geräteschritte, die vorbereitet, aber am Gerät noch nicht gelaufen sind. Jeder Abschnitt nennt, was er klären soll,
+woher die Erwartung kommt, und die Schritte. Die Messnotizen, aus denen sie stammen, sind in der Git-Geschichte lesbar
+(`git show 03c7827adc7b:docs/messungen/<datei>`).
+
+Für alle gilt [Was für alle Tests gilt](README.md#was-für-alle-tests-gilt): Netzteil, vorher sichern, Ergebnis je
+Schritt als "ok", "anders" oder "nicht gelaufen". Schritte, die den RAM schreiben (Abschnitt 2), sind eine Änderung am
+laufenden Gerät und brauchen vorher eine ausdrückliche Freigabe.
+
+## 1. MFX 2: GATE ARP, laufende Sequenz, MFX HOLD
+
+Die Schritte 1 bis 6 des MFX-2-Tests liefen am 13.10. am Gerät ([blech-datei.md](blech-datei.md), Abschnitt 8). Diese
+drei fehlen. Voraussetzung: Firmware mit dem BLECH-Satz, MFX 2 an (BLECH > FEATURES > MFX 2), ein Pattern mit eigenem
+Master-Effekt.
+
+1. GATE ARP drücken, einmal aus Master FX, einmal aus MFX 2, einmal aus Touch Scale. **Erwartet:** nur die
+   GATE-ARP-LED leuchtet, TOUCH SCALE und MASTER FX sind dunkel. Ein kurzes Aufblitzen der TOUCH-SCALE-LED beim Druck
+   ist ein Befund (der Patch löscht sie im selben Tastenereignis). Bei laufender Sequenz ein Trigger-Pad halten und das
+   Touchpad berühren: das Pad wird je Schritt ausgelöst, dazu ein Skalenton, wie bei Gate Arp + Touch Scale der
+   Firmware. Noch einmal GATE ARP: nichts ändert sich. MFX 2 geht mit GATE ARP aus, der eigene Effekt kommt zurück.
+   SHIFT + TOUCH SCALE: Touch Scale allein (TOUCH-SCALE-LED an), MFX 2 geht dabei aus.
+2. Alles aus Schritt 1 und das Umschalten zwischen MASTER FX und TOUCH SCALE bei laufender Sequenz, auf Knackser
+   hören. MFX HOLD bei MFX 2 ausprobieren.
+3. Wenn etwas hängt: ausschalten, EXIT beim Einschalten halten, Original zurück ([blech-datei.md](blech-datei.md),
+   Abschnitt 5).
+
+Im Emulator gemessen: bei GATE ARP unterscheidet sich nur das LED-Byte `0x1b` von der Firmware, die MIDI-Bytes sind
+gleich. Ob es knackt, zeigt nur das Gerät.
+
+Quelle: Messung 2026-10-10/mfx-umschalter
+
+## 2. Effekt-Bausteine im DSP (Hörproben)
+
+Alle Schritte setzen einen Effekt-Record im RAM und hören auf einem Part mit Ton. Grundlage sind die gelesenen
+DSP-Deskriptoren und der Lader ([Effekt-Katalog](../effekt-katalog.md)). Nach jedem Absturz neu starten, nichts mit
+WRITE speichern. Einige dieser Fragen kann ein späterer Sweep schon beantwortet haben (Messung 2026-09-21/stage2-sweep);
+das vor dem Test nachsehen.
+
+### 2.1 Lücke in der Insert-Liste ist ein Durchreicher
+
+Hergeleitet: die Nummern `0x0B` bis `0x0E` und `0x17` zeigen im DSP auf denselben Deskriptor wie `0x00` ("[I]
+NoFx(Thru)"). Ob der ARM sie annimmt, ist nicht gelesen.
+
+1. Einen Insert-Record im RAM auf `0x0B` setzen, auf einem Part mit Ton hören.
+
+**Erwartet:** klingt wie `0x00`, kein Absturz. Ein Ausfall widerlegt die Herleitung.
+
+### 2.2 Stufe 2: die sechs ungemessenen Bausteine
+
+Gemessen sind 13 von 19 Insert-Bausteinen in Stufe 2. Offen: `0x0F` Distortion, `0x11` Chorus, `0x12` Flanger, `0x13`
+Phaser, `0x14` Tremolo, `0x15` Level Mod. Hergeleitet aus dem Lader: Stufe 2 bekommt keinen Platzspeicher, also fallen
+`0x11` und `0x12` wahrscheinlich aus.
+
+1. Stufe 1 fest auf Filter `0x0A`.
+2. Stufe 2 nacheinander auf `0x0F`, `0x13`, `0x14`, `0x15`, zuletzt `0x11` und `0x12` (die wahrscheinlich hängenden).
+3. Je Kette drei Sekunden Rauschen, Pegel aufnehmen.
+
+### 2.3 Decimator mit zweiter Stufe
+
+Gemessen: `0x09 -> 0x0A` und `0x0A -> 0x09` stürzen ab. Der Decimator braucht keinen Platzspeicher, die Ursache ist
+offen.
+
+1. `0x09 -> 0x10` und `0x09 -> 0x06` (die beiden Stufe-2-Bausteine, die Korg selbst nutzt).
+2. `0x09 -> 0x04` (Punch, im DSP ein Durchreicher).
+
+**Erwartet (Deutung):** läuft Punch nicht, stört die Anwesenheit einer zweiten Stufe, nicht deren Rechnung.
+
+### 2.4 Stufe 1 durchprobieren
+
+Gemessen: `0x15 -> 0x0A` läuft, `0x02 -> 0x10` läuft, `0x15 -> 0x18` hängt, `0x09 -> 0x0A` stürzt ab, `0x16 -> alles`
+ist stumm.
+
+1. Stufe 2 fest auf Filter `0x0A`.
+2. Stufe 1 nacheinander auf die 19 Bausteine, je drei Sekunden Rauschen, das Gefährliche zuletzt: `0x01` bis `0x08`,
+   `0x0F`, `0x10` bis `0x15`, dann `0x16`, `0x18`, `0x09`.
+
+### 2.5 Drei Kompressoren
+
+Hergeleitet: `0x01` mKP2 Comp, `0x02` SR1 Comp und `0x03` Cheap Comp sind drei getrennte Algorithmen mit nicht
+vergleichbaren Reglern. Offen ist die Parameterzahl von Cheap Comp (4 oder 6).
+
+1. Ein Loop aus Kick und Hihat.
+2. Nacheinander `0x01`, `0x02`, `0x03` mit Vorgaben, Ausgangspegel auf gleiche Lautheit, nach Gehör vergleichen.
+3. Bei `0x03` die Regler 5 und 6 (Sens, Output) bewegen.
+
+**Erwartet (Deutung):** reagiert bei Schritt 3 etwas, hat der Baustein 6 Parameter.
+
+### 2.6 `lfo_reset`
+
+Hergeleitet: `lfo_reset` ist im DSP ein Einmal-Auslöser, 1 setzt die Phase auf 0, 2 und 3 lesen Zeiger neben der
+Tabelle und verschieben die Phase einmal. Der ARM sendet nur geänderte Parameter.
+
+1. Level Mod `0x15`, Sync an, Note 1/4, ein Part mit gleichmäßigem Ton.
+2. `lfo_reset` im RAM nacheinander auf 0, 1, 0, 2, 0, 3 schreiben (jedes Mal zurück auf 0, sonst ist es keine
+   Änderung und der ARM sendet nichts).
+3. `lfo_speed` verändern.
+
+**Erwartet:** bei 1 springt das Pumpen auf den Beginn, bei 2 und 3 ein einmaliger Sprung auf einen anderen Stand,
+danach läuft es durch. Bei Schritt 3 hören, ob das Pumpen aus dem Takt gerät.
+
+### 2.7 Sync-Notenwerte
+
+Hergeleitet: alle LFO-Bausteine teilen eine Tabelle bei DSP `0x97A0`, Index 6 ist 1/4, Index 8 ist 1/16. Offen ist,
+ob die Einheit eine ganze Note oder eine Viertel ist (Faktor 4).
+
+1. Tremolo `0x14` oder Level Mod `0x15`, Sync an, Tempo 120.
+2. `SyncNote` auf 6, dann auf 8.
+3. Tempo mit der Stoppuhr oder per Aufnahme auszählen.
+
+**Erwartet:** bei 6 Viertel (2 Schläge je Sekunde), bei 8 Sechzehntel.
+
+Quelle: Messung 2026-10-14/offene-fragen
+
+## 3. Rote Electribe mit blauer Firmware
+
+Die rote läuft mit Korgs blauer 2.02, um die Firmware der blauen ohne blaues Gerät zu prüfen (Hintergrund:
+[Die blaue Electribe](../hintergrund/blau.md)). Getestet werden nur Effekte und Menüs. Im Emulator gemessen
+(`red_as_blue_probe.py`), am Gerät nicht gelaufen.
+
+### Go oder No-Go
+
+**Go** nur, wenn alles steht:
+
+- die Sicherungen unten liegen auf dem Rechner, und die Flash-Sicherung hat beide Durchgänge bestanden;
+- die blaue Datei trägt das Wort und den Sampler-Kopf und ist vorher mit dem eigenen Flash-Dump durch
+  `red_as_blue_probe.py` gelaufen (Ergebnis 0);
+- auf der blauen wird nichts gespeichert, was bleiben soll (WRITE, GLOBAL, FACTORY RESET, PCM-Update).
+
+**No-Go** für alles darüber hinaus: die Datei nicht weitergeben (sie enthält Korgs Firmware), kein Knopf im Patcher
+daraus, keine Tests, die Patterns auf der blauen speichern müssen.
+
+### Vorher sichern
+
+1. **Ganzer Flash**, solange BLECH läuft:
+   `python3 tools/device/blech_flash_dump.py --out ~/electribe-flash-vor-blau.bin` (nur Lesen, außerhalb jedes
+   Repositorys). Nur diese Sicherung bringt Patterns und Globals Byte für Byte zurück.
+2. **Alle Patterns** als `.e2sallpat`: DATA UTILITY, EXPORT ALL PATTERN, Datei vom Gerät kopieren.
+3. **Alle Samples**: `KORG/blechtribe/Sample/e2sSample.all`.
+4. **Die ganze Karte**, besonders `KORG/blechtribe/` (Einstellungen, Plugins, `ORIGINAL.BIN`).
+5. **Die Dateien für den Rückweg** fertig auf dem Rechner: BLECH auf der eigenen Hacktribe (Prüfsumme der
+   `ORIGINAL.BIN` vergleichen), einmal mit Sampler-Kopf und einmal mit blauem Kopf.
+
+### Die blaue Datei bauen
+
+Korgs blaue 2.02, das Wort an `0xC0027114` (Datei `0x27214`) auf `0x059F000C`, dazu der Sampler-Kopf (`0x12 = 0x53`,
+`0x2E = 0x24`). `red_as_blue_probe.mark_fix` und `hacktribe_blue_probe.with_head` machen genau das. Vorher mit
+`red_as_blue_probe.py` und dem eigenen Flash-Dump im Emulator laufen lassen:
+
+```
+node tools/patch/apply.mjs --vsb HACKTRIBE-163d1d8d.VSB --set data/patches/blech.json --out BLECH.VSB
+tools/emu/.venv/bin/python tools/emu/red_as_blue_probe.py --blech BLECH.VSB --korg-blue BLAU.VSB --flash FLASH-ROT.bin --shots BILDER/
+```
+
+### Hin
+
+1. Netzteil dran. Die blaue Datei als `KORG/blechtribe/System/SYSTEM.VSB`, sonst keine `.VSB` in dem Ordner.
+2. DATA UTILITY, SOFTWARE UPDATE, durchlaufen lassen, aus und wieder an.
+3. **Erwartet:** Hauptbild der blauen mit "001" und den Pattern-Namen der roten.
+4. Testen: Pattern wechseln, spielen, IFX und MFX laden. **Kein WRITE** auf einem Pattern, das bleiben soll (wenn
+   nötig auf einem freien Platz), **kein GLOBAL ändern**, **kein FACTORY RESET**, **kein PCM-, USER- oder
+   BOOT-Update**.
+
+### Zurück
+
+1. BLECH mit blauem Kopf als `KORG/electribe/System/SYSTEM.VSB`, sonst keine `.VSB` darin.
+2. DATA UTILITY, SOFTWARE UPDATE, durchlaufen lassen, aus und wieder an.
+3. **Erwartet:** BLECH startet.
+4. Patterns zurück: die Datei aus Sicherung 2 nach `KORG/blechtribe/`, DATA UTILITY, IMPORT ALL PATTERN, Datei wählen,
+   durchlaufen lassen. Im Emulator stehen danach alle 250 Patterns wie in der Datei.
+5. Samples zurück: `e2sSample.all` aus Sicherung 3 nach `KORG/blechtribe/Sample/`, aus und an. BLECH lädt sie beim
+   Start.
+
+### Wenn etwas nicht wie erwartet ist
+
+- **"SOFTWARE UPDATE / press ENTER" beim Start der blauen** (Datei ohne das Wort): BLECH mit Sampler-Kopf als
+  `KORG/electribe sampler/System/SYSTEM.VSB`, ENTER, durchlaufen lassen, aus und an. Im Emulator gemessen.
+- **"Error / Invalid File" auf dem Rückweg:** falscher Kopf. Die blaue nimmt nur den blauen Kopf, der Updater lehnt vor
+  dem ersten Schreibbefehl ab, es ist nichts kaputt.
+- **Patterns nach dem Import falsch:** Import wiederholen. Globals und alles andere bringt nur die Flash-Sicherung 1
+  zurück, und für das Zurückschreiben gibt es im Editor keinen Weg (kein Flash-Schreibbefehl).
+- Alles Weitere nach [Rettung](../rettung.md).
+
+### Was der Test klären soll
+
+Ob das DSP-Programm der blauen auf der roten Platine läuft und klingt, wie die Werks-Samples als Oszillatoren klingen
+(die blaue nimmt die Werks-Samplebank der roten, ihre 361 PCM-Oszillatoren spielen dann Werks-Samples), ob das
+Hintergrundlicht stimmt, und ob die Patterns nach dem Rückweg am Gerät so sind wie im Emulator.
+
+Quelle: Messung 2026-11-08/rot-als-blau
+
+## 4. Gerätename über USB
+
+Der Patch `usb-name` ändert den USB-Gerätenamen auf "Electribe 3" (nicht im BLECH-Satz, ein Häkchen im Patcher). Im
+Emulator gibt es kein USB, geprüft sind nur die Bytes (`test/usb-name.test.mjs`). Rot und blau:
+
+1. Den Namen ansehen: unter Linux `amidi -l` und `aconnect -l`, unter macOS im Audio-MIDI-Setup, unter Windows mit dem
+   Klassentreiber und mit Korgs Treiber.
+2. Die App verbindet sich, SysEx geht in beide Richtungen.
+3. Korgs Editoren finden das Gerät.
+4. Windows: zeigt es nach dem Umstecken den neuen Namen, oder erst nach dem Entfernen im Geräte-Manager?
+
+Quelle: Idee 69

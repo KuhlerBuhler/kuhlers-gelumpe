@@ -1,7 +1,7 @@
 # Presets und Modulationen von der Karte (e2sFx.all)
 
 Stand 22. Oktober 2026. Gemessen im Emulator (`tools/emu/fx_card_cases.py`, `test/emulator-fxcard.test.mjs`) mit der
-eigenen Hacktribe-2.02-Datei und Korgs Original 2.02 (rot), jeweils mit dem BLECH-Satz. **Am Gerät nicht geprüft.**
+eigenen [Hacktribe](../glossary.md#hacktribe)-2.02-Datei und Korgs Original 2.02 (rot), jeweils mit dem [BLECH](../glossary.md#blech)-Satz. **Am Gerät nicht geprüft.**
 
 ## Was gebaut ist
 
@@ -43,7 +43,7 @@ erst 101 bis 128 zeigen auf Eintrag 0). Jetzt:
   (`c7, c10, 1`), Schreibpuffer leeren, I-Cache leeren, dann Knopf-Speicher neu (`0xC00980AC`) und je Part der Wert
   zurück (`0xC009816C`), danach wie bisher `fx_reapply`. Im Flash ändert sich nichts, nach dem Ausschalten liest der Start
   die Datei wieder.
-- Am Gerät noch nicht gemessen (Cache-Befehle laufen am Gerät im Doom-Lader, `2026-10-22-doom-am-geraet.md`).
+- Am Gerät noch nicht gemessen.
 | Vom Editor gebaute Datei (Master 1, Modulation 6) lädt Byte für Byte | ja | ja |
 
 ## Offen

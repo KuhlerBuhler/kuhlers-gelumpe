@@ -1,6 +1,6 @@
 # Vorschau-BPM: die BPM oben zeigt beim Ansehen das Tempo des angesehenen Patterns
 
-Stand 20.11.2026, Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je nur mit dem Patch `pattern-switch`). Marker:
+Stand 20.11.2026, [Emulator](../glossary.md#emulator) ([Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau, je nur mit dem Patch `pattern-switch`). Marker:
 **gemessen** (im Emulator), **gelesen** (im Disassemblat), **hergeleitet**. Am Gerät ungeprüft.
 
 ## Was gebaut ist (Entscheidung 20.11.)

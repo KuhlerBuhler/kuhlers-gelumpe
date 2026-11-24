@@ -1,8 +1,7 @@
 # LED-Inventur am eigenen Gerät
 
-Stand 2026-10-13. Eigenes Gerät, eigene Testfirmware (Fingerabdrücke von
-`tools/device/led_inventory.py --identify` gleich der Datei), nur RAM über Hacktribes
-Execute, Originalbytes danach zurück. Die LEDs wurden am Gerät beobachtet.
+Eigenes Gerät, nur RAM über [Hacktribes](../glossary.md#hacktribe)
+[Execute](../glossary.md#execute), Originalbytes danach zurück (`tools/device/led_inventory.py --identify` prüft vorher die Firmware). Die LEDs wurden am Gerät beobachtet.
 Markierungen: **gemessen**, **hergeleitet**, **offen**.
 
 ## Ablauf

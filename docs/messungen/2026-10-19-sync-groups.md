@@ -1,9 +1,9 @@
 # Sync Groups: Patterns verketten, Live-Änderungen mitnehmen (19.10.)
 
-Wunsch: Patterns bekommen eine Sync Group (OFF, 1 bis 999). Patterns derselben Gruppe wechseln ohne MENU-Bestätigung am Ende
+Wunsch: Patterns bekommen eine [Sync Group](../glossary.md#sync-group) (OFF, 1 bis 999). Patterns derselben Gruppe wechseln ohne MENU-Bestätigung am Ende
 der Sequenz, und was live verändert wurde, geht beim Wechsel mit (nur im RAM): wer eine Melodie hochpitcht oder die Modulation
 dreht und dann wechselt, hört keinen Sprung. Zuerst als Mute Group gebaut (nur die Part-Mutes), am selben Tag erweitert und
-umbenannt. Gebaut und im Emulator geprüft (Hacktribe und rot), am Gerät nicht. Auf der blauen seit 24.10. ([Messung](2026-10-24-blau-sync-group.md)); bis dahin nicht, weil dort das Laden eines
+umbenannt. Gebaut und im Emulator geprüft ([Hacktribe](../glossary.md#hacktribe) und rot), am Gerät nicht. Auf der blauen seit 24.10. ([Messung](2026-10-24-blau-sync-group.md)); bis dahin nicht, weil dort das Laden eines
 Patterns nicht gemessen.
 
 ## Wo die Gruppe steht

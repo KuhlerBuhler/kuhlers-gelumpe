@@ -1,6 +1,6 @@
 # Apps und Display der Plugins
 
-Stand 2026-10-14. Alles im Emulator gemessen (Firmware 2.02 mit Hacktribe, virtuelle Karte),
+Stand 2026-10-14. Alles im Emulator gemessen (Firmware 2.02 mit [Hacktribe](../glossary.md#hacktribe), virtuelle Karte),
 am Gerät nichts geprüft. Markierungen: **gemessen**, **hergeleitet**, **offen**.
 Code: `tools/patch/script_app.s`, `tools/patch/script_hooks.s` (Eingangsfilter und
 Rahmenhaken), `tools/patch/script_display.s`; Prüfungen: `tools/emu/script_cases.py`

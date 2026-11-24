@@ -1,6 +1,6 @@
 # Die PCM-Bank der blauen Electribe 2 aus WAV-Dateien nachgebaut
 
-Stand 2026-10-15. Im Emulator, kein Gerät. Eingabe: die `SYSTEM.VSB` 2.02 der blauen Electribe 2 (Synth) und eine Zip-Datei mit
+Im [Emulator](../glossary.md#emulator), kein Gerät. Eingabe: die [`SYSTEM.VSB`](../glossary.md#vsb) 2.02 der blauen Electribe 2 (Synth) und eine Zip-Datei mit
 408 WAV-Dateien in Kategorie-Ordnern (kick, snare, instrument und so weiter, eine Datei je Oszillator, der Dateiname beginnt mit
 der Nummer). Beides sind Korg-Daten und liegen nicht im Repository, die Zip wird an Ort und Stelle gelesen und das Image
 außerhalb des Repositorys geschrieben (das Werkzeug lehnt einen Pfad darin ab). Hier stehen nur Zahlen und Aufbau. Markierungen:
@@ -15,7 +15,7 @@ tools/emu/.venv/bin/python tools/emu/synth_pcm_flash.py --zip SAMPLES.zip --vsb 
 
 Es baut ein 16-MiB-Flash-Image: die PCM-Bank bei `0x800000` im Format, das die Firmware beim Start liest, und die Kennung
 `KORGelec2USR` bei `0x220000`, die die Firmware des Synths prüft. Danach bootet es die blaue Firmware auf diesem Image und
-vergleicht, was sie liest und an den DSP schickt (Abschnitt "Prüfung").
+vergleicht, was sie liest und an den [DSP](../glossary.md#dsp) schickt (Abschnitt "Prüfung").
 
 ## Kurzfassung
 
@@ -79,13 +79,12 @@ Ein Lauf des Werkzeugs bootet die blaue Firmware auf dem Image und liest, was si
 | Stimmen über das Bedienfeld | drei Oszillatoren gewählt und ein Pad gedrückt (Nummer 325 Oldie, 311 BrassHit2, 400 E.Guitar1): die Firmware schickt an den DSP die erwartete Wellen-Nummer, als Start die Adresse aus der Kette, und dort liegt die Welle; Schleifenlänge 0 |
 
 Nicht geprüft werden kann im Emulator, ob der DSP die Wellen so spielt (er hat keinen DSP-Speicher und keinen Klang), und wie die Töne
-klingen. Ein erster Lauf hatte alle Oszillatoren als falsch gemeldet: das war ein Fehler der Prüfung (die Startadresse in der `SMPR`-Zeile
-im RAM ist schon die DSP-Adresse, sie enthält den Wellenanfang `0x365B00`), nicht der Bank. Die Prüfung rechnet seitdem so.
+klingen. Die Startadresse in der `SMPR`-Zeile im RAM ist schon die DSP-Adresse (sie enthält den Wellenanfang `0x365B00`); die Prüfung rechnet so.
 
-## Entscheidungen, die ohne Rückfrage fielen
+## Entscheidungen
 
 1. Eine gemeinsame Verstärkung statt eines Pegels je Welle. Der Weg über das Pegelwort der Zone (`0x8000` ist 1,0, nach oben begrenzt) ginge nur
    abschwächend und ist nicht gemessen.
 2. Kürzen der längsten Wellen statt Weglassen ganzer Wellen: so bleibt jeder Oszillator belegt.
 3. Rate 44100 Hz, keine Umrechnung: die Firmware gleicht die Rate über das Tonhöhenwort aus.
-4. Ablageort des Images außerhalb des Repositorys, Vorgabe der Ordner `electribe-flash` auf dem Schreibtisch, Dateiname `blue-pcm-from-wavs.bin`.
+4. Das Image wird außerhalb des Repositorys geschrieben (Vorgabe `--out`, siehe `--help`).

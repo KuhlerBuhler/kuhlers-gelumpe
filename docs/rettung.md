@@ -1,6 +1,6 @@
 # Rettung
 
-Stand: 9. November 2026. Die Seite "Blechy" im Editor (früher "Rettung", Adresse weiter `#rescue`) führt
+Die Seite [Blechy](glossary.md#blechy) im Editor (Adresse `#rescue`) führt
 durch den Weg zurück, wenn das Gerät nach einem Update oder Patch nicht mehr richtig startet. Blechy fragt in
 Sprechblasen, was los ist. Die erste Antwort schreibst du in ein Feld, die passenden Fälle stehen beim Tippen
 darüber (Stichwörter in allen elf Sprachen, `src/blechy-match.mjs`, ohne Netz); danach sind die Antworten
@@ -8,14 +8,14 @@ Knöpfe. Jeder Fall läuft Schritt für Schritt, das Stoppschild steht
 bei dem Fall, der es braucht. Sie sagt nur, was die Messungen und
 die Dokumentation belegen. Jeder Schritt trägt einen Marker: **gemessen** (am Gerät gesehen),
 **offline** (Code oder Emulator gelesen), **hergeleitet**, **offen** (nicht geprüft). Der Inhalt steht
-in `data/rescue.mjs`, die Seite in `site/app/rescue.mjs`, der Test in `test/e2e/rescue.e2e.mjs`.
+in `data/rescue.mjs`, die Seite in `site/app/rescue.mjs`, die Tests in `test/rescue.test.mjs` und `test/e2e/rescue*.e2e.mjs`.
 
 ## Stoppschild
 
-Der Bootloader (Flash `[0, 0x20000)`) wird nie angefasst: der Editor sperrt ihn
+Der [Bootloader](glossary.md#bootloader) (Flash `[0, 0x20000)`) wird nie angefasst: der Editor sperrt ihn
 ([Sperrliste](speicherbereiche.md#die-sperrliste-als-maschinenregel)) und kennt keinen Befehl, der
-Flash beschreibt. Hängt das Gerät, bevor eine Update-Abfrage kommt, beschreibt Hacktribe nur
-JTAG/OpenOCD als Weg, ein defekter Secondary Bootloader braucht eine eigene Wiederherstellung
+Flash beschreibt. Hängt das Gerät, bevor eine Update-Abfrage kommt, beschreibt [Hacktribe](glossary.md#hacktribe) nur
+[JTAG](glossary.md#jtag)/OpenOCD als Weg, ein defekter Secondary Bootloader braucht eine eigene Wiederherstellung
 ([Quellenprüfung](messungen/2026-10-08-firmware-rueckweg.md)). Dann wird nichts weiter ausprobiert.
 
 ## Welche Datei in welchen Ordner
@@ -72,11 +72,41 @@ und mit `doom.bin` unter `KORG/blechtribe/Doom/`, per Kartenleser oder auf der S
   an). Netzteil ziehen oder Batterien raus, wieder einschalten ohne SHIFT + TAP. Die Karte nicht während des Zugriffs ziehen.
 - Der Bootloader und die Update-Wege bleiben unberührt. Das Update der Firmware geht wie sonst über den
   Ordner oben, auch mit dem Lader darin.
+- Was die Anzeigen und Fehlercodes bedeuten (`00000100`: Karte beim Start des Laders nicht eingehängt), steht in
+  [Doom auf der Electribe](hintergrund/doom.md#anzeigen-und-fehlercodes).
+
+## Ein/Aus, wenn der Start hängt
+
+Ist die Karte beim Start nicht lesbar, kann der Start hängen bleiben. Am Gerät gesehen (18.10.): kein "Card error", das
+BLECH-Startbild blieb stehen, aus ging es nur mit Batterien raus. Für diesen Fall schaltet BLECHTRIBE beim Start selbst aus:
+
+- **Während des Starts:** Solange noch kein Bildschirm oder Bildschirm 0 da ist, liest BLECHTRIBE nach der Meldung `06 01`
+  den Pin der Taste (GPIO 7.15) alle 50 ms. Ist Ein/Aus 5 s lang gedrückt, lässt BLECHTRIBE den Haltepin der
+  Stromversorgung los (GPIO 7.11). Vorher losgelassen, verwirft BLECHTRIBE die Meldung, das Gerät bleibt dann auch am Ende
+  des Starts an. Nicht mit EXIT beim Einschalten, nicht auf der blauen (dort ist der Pin nicht gemessen). Gemessen im
+  Emulator (`loadbar:power_key_during_the_start`).
+- **Während der Ladeanimation der Samples:** Dort kommt die Meldung des Bedienfelds am Gerät nicht (25.10.: 30 s gehalten,
+  das Gerät blieb an). Die [Ladeanimation](glossary.md#ladeanimation) liest den Pin darum in jedem Bild selbst: 7 s ohne
+  Unterbrechung gehalten (wie die Firmware: 2 s bis zur Meldung, dann 5 s), geht die Stromhaltung aus, nach 3 s
+  losgelassen bleibt das Gerät an. Gemessen im Emulator auf Hacktribe und Korgs Original
+  (`loadbar_cases.case_power_while_loading`: aus nach 7,1 s), am Gerät **offen**.
+- **Ohne BLECHTRIBE (offline, Emulator):** Die Firmware nimmt die Taste während des Starts an, schaltet aber erst am Ende
+  des Starts aus, auch bei kurzem Druck. Der [Eingangsfilter](glossary.md#eingangsfilter) `0xC002837C` sieht `06 01`, die
+  Ausschaltmeldung `0x18` geht sofort hinaus (`0xC0028C18`), ihr Handler `0xC0038A54` läuft erst nach dem Start. Hängt der
+  Start, kommt er nie dran. Die Taste liest der Power-Manager an GPIO 7.15 (`0xC00172D0`, IN_DATA67 Bit 31, low =
+  gedrückt).
+- **Emulator, Karte ohne Antwort ab 0,5 s:** Der Lader meldet 4 (Card Error) nach 4,5 s, der Hauptbildschirm kommt ohne
+  BLECHTRIBE nach 4,6 s, mit BLECHTRIBE nach 8,6 s. Die 4 s mehr sind die eigenen Kartenzugriffe (Plugins, Einstellungen),
+  die auf die Karte warten; am Gerät dauert dieses Warten länger (hergeleitet: der Emulator antwortet sofort mit "keine
+  Antwort"). Der Ladebalken geht bei einem Fehlercode sofort weg (`loadbar:card_error_ends_the_overlay`).
+  Wie der Start mit einer toten Karte heute weiterläuft: [Tote Karte beim Start](messungen/2026-11-10-tote-karte-beim-start.md).
+
+Quelle: Messung 2026-10-19/kartenfehler-beim-start (gelöscht, `git show 03c7827adc7b:docs/messungen/2026-10-19-kartenfehler-beim-start.md`)
 
 ## Die vier Fälle
 
 1. **Das Gerät startet, aber etwas stimmt nicht.** EXIT, notfalls aus und mit gehaltenem EXIT wieder
-   an (Notschalter, am Gerät nur für den MFX-2-Patch bestätigt). Hilft EXIT, gilt das nur für diesen einen
+   an ([Notschalter](glossary.md#notschalter), am Gerät nur für den MFX-2-Patch bestätigt). Hilft EXIT, gilt das nur für diesen einen
    Start. Die Seite fragt dann weiter: einmal ohne Karte normal einschalten (ohne Karte lädt der Plugin-Lader nichts
    und die Einstellungen stehen auf den Vorgaben, siehe [Plugins](plugins.md)). Läuft sie so, `Plugin/e2sPlugin.all`
    und `settings.a.bin`/`settings.b.bin` unter `KORG/blechtribe` umbenennen; das hält auch bei normalem Start.
@@ -118,31 +148,9 @@ und mit `doom.bin` unter `KORG/blechtribe/Doom/`, per Kartenleser oder auf der S
 
 ## Welche Themen die Startseite zuerst zeigt
 
-Die Startseite zeigt neun Themen vor dem Rest (`FIRST_CASES` in `data/rescue.mjs`), geordnet nach dem, was im Discord
-am häufigsten gefragt wird. Grundlage: die Nachrichten von 96 Personen aus hilfe, fehler-melden, e2-people, es2-people,
-general, blechy-chat, plugins und effekte-basteln vom 25.10. bis 10.11.2026, nur gelesen. Gezählt sind Personen je
-Thema nach Stichwörtern, nicht von Hand sortiert: **geschätzt**, die Reihenfolge ist belastbarer als die Zahlen.
+Die Startseite zeigt wenige Themen vor dem Rest (`FIRST_CASES` in `data/rescue.mjs`: Hacktribe, "No File", "Invalid File", Installation, Test im Patcher), geordnet nach dem, was im Discord am häufigsten gefragt wird. Fragen zur Bedienung der App stehen darunter und kommen beim Tippen oder unter "Alle Themen zeigen": Installation und Patcher, Hacktribe, Plugins, Spiele wie Tetris, eigene Effekte, Emulator, eigene Samples (WAV), Updates, Einstellungen speichern (WRITE) und das Startbild.
 
-| Thema im Discord | Personen | Thema auf der Startseite |
-|---|---|---|
-| Hacktribe, rot oder blau, Reihenfolge, was geht verloren | 36 | Hacktribe, rot oder blau |
-| Einstieg, Installation, SD-Karte, Ordner | 14 | Wie installiere ich BLECHTRIBE |
-| "No File" beim Update | 11 | Da steht Error und No File |
-| Test im Patcher rot oder abgestürzt | 10 | Der Test im Patcher wird rot |
-| "Invalid File" beim Update | 8 | Da steht Error und Invalid File |
-| Plugins und Effekte aufs Gerät | 8 | Wie funktionieren Plugins |
-| Hängt in der Startphase | 8 | Gar nichts: dunkel oder hängt am Logo |
-| App findet die Electribe nicht, MIDI | 7 | Die App findet meine Electribe nicht |
-| Samples weg nach Hacktribe | 5 | Meine Samples fehlen |
-
-Fragen zur Bedienung der App stehen darunter und kommen beim Tippen oder unter "Alle Themen zeigen": Installation und
-Patcher, Hacktribe, Plugins, Spiele wie Tetris, eigene Effekte, Emulator, eigene Samples (WAV), Updates, Einstellungen
-speichern (WRITE) und das Startbild. Weitere Zahlen derselben Auswertung: Emulator 10 Personen, WAV und Samples laden
-10, Update per USB oder SD 6, Einstellungen speichern 5, Spiele 5.
-
-Ein Fehler der App selbst öffnet Blechy bei dem Thema seiner Seite: der Emulator bei "Der Emulator läuft nicht", die
-Seiten Plugins, Baukasten, Samples, Design und der Patcher bei ihrem Thema, die Update-Meldung beim Thema Updates
-(`toastFor` in `site/app/toast.mjs`). Alles andere landet bei der allgemeinen Frage, was in der App hakt.
+Ein Fehler der App selbst öffnet Blechy bei dem Thema seiner Seite: der Emulator bei "Der Emulator läuft nicht", die Seiten Plugins, Baukasten, Samples, Design und der Patcher bei ihrem Thema, die Update-Meldung beim Thema Updates (`toastFor` in `site/app/toast.mjs`). Alles andere landet bei der allgemeinen Frage, was in der App hakt.
 
 ## Ablauf der Seite
 
@@ -177,8 +185,7 @@ weil sich eine blaue mit Hacktribe vielleicht als rote meldet (offen).
   (`e2Keys` in `site/app/e2-art.mjs`, Lage der sechs Tasten aus `panel.mjs` umgerechnet, `test/rescue.test.mjs` prüft beides).
 - **Der Chat folgt.** Jede neue Nachricht von Blechy scrollt mit ihren Antworten ins Bild, so weit beides passt; der Anfang
   einer langen Nachricht bleibt unter der Leiste oben. Mit "Bewegung reduzieren" im System springt die Seite statt zu gleiten. Bei Korgs Datei zeigt ein Bildschirmfoto von Korgs
-  Seite die Zeile "System Updater 2.02" ganz unten, die zur ZIP-Datei führt (`site/img/rescue/`, aufgenommen am 08.11.2026;
-  ändert Korg die Seite, stimmt das Bild nicht mehr).
+  Seite die Zeile "System Updater 2.02" ganz unten, die zur ZIP-Datei führt (`site/img/rescue/`; ändert Korg die Seite, stimmt das Bild nicht mehr).
 - **Patterns und Samples** werden vor jedem Schreiben genannt: das Update schreibt nur die Firmware, Patterns im Gerät
   blieben im Emulator erhalten (am Gerät offen), dazu der Link zur Pattern-Sicherung der App.
 - **Kein Ende ohne Hilfe.** "Gar nichts" nennt zuerst Netzteil und EXIT beim Einschalten (das hält BLECHTRIBEs Patches
@@ -189,20 +196,6 @@ weil sich eine blaue mit Hacktribe vielleicht als rote meldet (offen).
   erreichen. Ohne Hacktribe geht es zurück zur Prüfung der Firmware.
 
 Die Texte zu "No File" und "Invalid File" sagen zuerst, dass das Gerät heil ist und nur auf eine passende Datei wartet.
-
-## Fälle aus dem Hilfekanal nach dem 28.10.
-
-Gelesen bis 8.11., Stand der Meldungen, nichts davon am Gerät nachgestellt.
-
-- **Blau mit Hacktribe will BLECHTRIBE** (30.10., 3. bis 5.11.): erst "No File", dann "Invalid File", teils tagelang offen.
-  Der Weg: Karte, Firmware "Hacktribe" oder "BLECH", Korgs Datei mit dem Sampler-Kopf über das Upload-Feld.
-- **Invalid File war nach dem Neukopieren weg** (30.10.): jetzt der erste Schritt bei Invalid File.
-- **Alle vier Ordner ausprobiert, immer "No File"** (1. bis 7.11.): die Nutzer kennen den Ordner der Startabfrage nicht.
-  Die Seite nennt je Farbe einen Ordner als Baum und erklärt, dass er nach der laufenden Firmware heißt.
-- **EXIT hilft nicht, "Update-Bootloop"** (7.11.): kein Bootloop, "No File" heißt, es liegt keine Datei im Ordner.
-- **Samples nach BLECHTRIBE weg** (30.10., 6.11.): Hacktribe war mit angehakt; der Weg "Samples fehlen" fragt danach.
-- **Ordner `System` fehlt** (26. und 28.10.): steht in jedem Kartenschritt ("fehlende Ordner legst du einfach an").
-- **USB-Update schlägt fehl** (29.10. bis 5.11.): kein Fall der Rettung; der Weg über die Karte bleibt der Normalweg.
 
 ## Hacktribe aus Versehen, Samples weg
 
@@ -240,7 +233,7 @@ Patchen und Speichern nicht.
 ## Meldungen beim Update und Ärger mit der App
 
 Neben den vier Fällen fragt die Seite nach "Error, Invalid File", "Error, No File" und nach Ärger mit der App. Die
-Fälle kommen aus dem Discord (25. bis 28.10.); dort ist auch der erste Gerätefall zu "Invalid File" beschrieben.
+Fälle kommen aus dem Discord; dort ist auch der erste Gerätefall zu "Invalid File" beschrieben.
 
 **Error, Invalid File.** Die Firmware hat eine Datei gefunden, die nicht passt, und schreibt nichts (offline, Emulator,
 siehe oben). Die Seite fragt, wann die Meldung kommt:
@@ -312,7 +305,7 @@ Kann die Seite nichts lesen (Web MIDI noch nicht erlaubt), fragt sie nach dem Mo
 **Export oder Import zeigt alte Patterns.** Kein Fehler in BLECHTRIBE ([Messung](messungen/2026-10-28-pattern-export.md)):
 EXPORT PATTERN schreibt das gespeicherte Pattern, also erst WRITE; Exporte liegen ab 1.5 in `KORG/blechtribe/Patterns/`
 (blau direkt in `KORG/blechtribe/`), der alte Ordner bleibt nach der Übernahme mit den alten Kopien stehen, auf der blauen
-gibt es keine Übernahme und `KORG/electribe/` bleibt; Gerätedateien tragen immer den 01.01.2014. Liegt
+bleibt `KORG/electribe/` unberührt; Gerätedateien tragen immer den 01.01.2014. Liegt
 `Patterns/electribe_sampler_allpattern.e2sallpat` auf der Karte, schreibt jeder Start deren geänderte Patterns in den
 Flash: was nur mit WRITE gespeichert und nicht exportiert wurde, ist danach wieder der Stand der Datei.
 
@@ -329,8 +322,7 @@ meldet, in fünf Gruppen (`testGroup` und `testFailure` in `data/rescue.mjs`, di
 
 Bei den ersten vier ist der Rat derselbe: als Eingabe eine normale Firmware nehmen, Korgs Original 2.02 oder Hacktribe
 2.02, und den Test wiederholen. Der Patcher meldet seinen letzten roten Test an die Seite (`onTest`), Blechy markiert
-dann die passende Gruppe mit "Sagt die App". Bleibt eine Funktion mit normaler Firmware rot, geht es weiter wie früher
-bei der vollen Prüfung: Vor App 1.3.7 scheitern die Fälle der Patches an Patterns, die im Emulator gespeichert sind; ab
+dann die passende Gruppe mit "Sagt die App". Bleibt eine Funktion mit normaler Firmware rot: Vor App 1.3.7 scheitern die Fälle der Patches an Patterns, die im Emulator gespeichert sind; ab
 1.3.7 laufen sie auf einem leeren Flash (`tools/emu/check.py`, `test/emulator-check-flash.test.mjs`). Die Seite liest die
 Version der App: darunter, oder im Browser ohne Version, nennt sie `~/.gelumpe/flash/flash.bin` zum Umbenennen; sonst und
 danach bittet sie um `~/.gelumpe/emu.log`.
@@ -351,5 +343,5 @@ in Alltagssprache, nur die Antworten. Belege stehen hier in der Doku, auf der Se
 folgt nach einer Sekunde von selbst; Knöpfe gibt es nur, wo man etwas tun oder beantworten muss.
 
 Alle Rettungswege liegen in der Firmware selbst. Eine Firmware, die vor ihnen hängt, ist ohne JTAG
-nicht zu retten ([Patcher](patcher.md), "Startablauf und warum er tabu ist"). Offen bleibt die
-Rettung am Gerät ([Offene Messungen](ideen/offene-messungen.md)).
+nicht zu retten ([Patcher](patcher.md#startablauf-und-warum-er-tabu-ist)). Offen bleibt die
+Rettung am Gerät.

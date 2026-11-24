@@ -1,14 +1,13 @@
 # Offene Fragen: was sich mit Emulator und DSP-Tabellen beantworten lässt
 
-Stand 2026-10-14. Offline, Firmware 2.02 mit Hacktribe, eigene `SYSTEM.VSB` und eigener Flash im
-ARM-Emulator (`tools/emu`), dazu der DSP-Strom mit Blackfin-Disassembler und -Simulator aus
+Offline, Firmware 2.02 mit [Hacktribe](../glossary.md#hacktribe), eigene [`SYSTEM.VSB`](../glossary.md#vsb) und eigener Flash im
+ARM-[Emulator](../glossary.md#emulator) (`tools/emu`), dazu der [DSP](../glossary.md#dsp)-Strom mit Blackfin-Disassembler und -Simulator aus
 [`../hintergrund/dsp-erster-blick.md`](../hintergrund/dsp-erster-blick.md) und die Tabellen aus
-`2026-10-14-fx-tabellen.md`. Kein Gerät. Die Fragen stammen aus der Liste vom 15.09.2026, als es nur den
+[`2026-10-14-fx-tabellen.md`](2026-10-14-fx-tabellen.md). Kein Gerät. Die Fragen stammen aus der Zeit, als es nur den
 Preset-Editor gab.
 
 Markierungen: **gemessen** (ausgeführt, Befehl genannt), **hergeleitet** (aus Code oder Daten geschlossen,
-nicht ausgeführt), **offen**. Alle Skripte lagen im Scratchpad. Im Repository liegen nur dieses Dokument und eine
-Korrektur in `data/map/firmware.mjs`. Keine Firmwarebytes, keine Namen aus dem DSP-Strom.
+nicht ausgeführt), **offen**. Keine Firmwarebytes, keine Namen aus dem DSP-Strom.
 
 ## Kurzfassung
 
@@ -16,14 +15,14 @@ Korrektur in `data/map/firmware.mjs`. Keine Firmwarebytes, keine Namen aus dem D
 |---|---|---|
 | Decimator mit zweiter Stufe | teilweise | Der ARM schickt beide Stufen gleich und prüft keine Bausteinnummer; der Absturz liegt im DSP. Ursache offen, die Regel aus Frage 2 erklärt ihn nicht. |
 | Restliche Stufe-2-Liste | teilweise | 13 von 19 gemessen. Der Lader gibt Stufe 2 nie Platzspeicher; wer welchen braucht, steht in der Deskriptortabelle (`0x11`, `0x12`, `0x16`, `0x18`). Offen sind `0x0F`, `0x11` bis `0x15`. |
-| Stufe 1 durchprobieren | braucht Gerät | Stufe 1 bekommt Speicher, ob alles dort läuft, hört man nur. Kurzer Versuch unten. |
+| Stufe 1 durchprobieren | braucht Gerät | Stufe 1 bekommt Speicher, ob alles dort läuft, hört man nur. |
 | Drei Kompressoren, drei Ergebnisse | teilweise | Es sind drei getrennte Implementierungen mit verschiedenen Reglern, kein Wunder. Ob der Klang gleichwertig einstellbar ist, braucht Gehör. |
 | `mfx_device 0x30`, `ifx_device 0x0B` bis `0x0E` und `0x17` | beantwortet | Im DSP leere Plätze: `0x30` ist ein zweiter Index der Mute-Einheit, die übrigen sind `NoFx(Thru)`. |
 | Sieben ungenutzte MFX-Bausteine | beantwortet | Vorgaben und Spannen aller Parameter stehen in der DSP-Tabelle und stimmen mit `units.json` überein (Tabelle unten). |
-| Slicer und Repeater laufen aus dem Takt | braucht Gerät | Mechanismus geklärt: `lfo_reset` ist ein Einmal-Auslöser, der nur bei einem Wertwechsel feuert. Hörversuch unten. |
+| Slicer und Repeater laufen aus dem Takt | braucht Gerät | Mechanismus geklärt: `lfo_reset` ist ein Einmal-Auslöser, der nur bei einem Wertwechsel feuert. |
 | `lfo_reset` 2 und 3 | teilweise | Außerhalb der Spanne `[0, 1]`, aber nicht gesperrt: ein Phasensprung einmal, danach läuft alles weiter. Kein Dauer-Resync. Hörbare Wirkung braucht Gerät. |
 | Sync-Notenwerte je Baustein | teilweise | Alle LFO-Bausteine teilen eine Tabelle mit 42 Verhältnissen (unten). Die Delays haben eigene, nicht gelesen. |
-| Modulationstabelle ab `+0x29` | teilweise | Lesestellen und Aufbau der Slots bestimmt, Wirkung am Wert gemessen. Ein Fehler der Karte korrigiert (Vorgabe-Speed und -Tiefe), ein zweiter vermerkt (die Firmware liest eine zweite Kopie der Tabelle). |
+| Modulationstabelle ab `+0x29` | teilweise | Lesestellen und Aufbau der Slots bestimmt, Wirkung am Wert gemessen. Vorgabe-Speed und -Tiefe stehen in der Gerätekarte, und die Firmware liest eine zweite Kopie der Tabelle (Abschnitt 9). |
 | SQEZ beim Schreiben | beantwortet | Die Kennung kommt nur in lesendem Code vor; die Firmware kann das Format lesen, schreibt es nach allem Lesbaren nicht. |
 
 ## Belegtabelle
@@ -67,9 +66,6 @@ Option.
 Nebenbefund: der Insert-Baustein `0x04` (Punch) hat im DSP keinen Parameter und dieselben Funktionen wie der
 Durchreicher. Das passt zu Korgs Hinweis, IFX 01 Punch kostet keine Last (`data/findings.mjs`, `heavyIfx`).
 
-**Kürzester Test am Gerät:** einen Insert-Record im RAM auf `0x0B` stellen, Hörprobe auf einem Part mit Ton.
-Erwartung: gleich wie `0x00`, kein Absturz. Ein Ausfall widerlegt die Herleitung.
-
 ## 2. Stufe 2: Deskriptoren und Lader
 
 **Gemessen** sind im Stand der Befunde 13 von 19 Insert-Bausteinen (`0x01` bis `0x0A`, `0x10`, `0x16`, `0x18`).
@@ -93,10 +89,6 @@ haben keinen Speicherbedarf; ob sie laufen, entscheidet der Versuch. Ein Muster 
 liefen nur `0x05` und `0x07` (Namensteil "[I/Dbl]" im Deskriptor). Was "Dbl" bedeutet, ist nicht gelesen; die
 Beobachtung ist ein Hinweis, kein Beleg.
 
-**Kürzester Test am Gerät:** Stufe 1 fest Filter `0x0A`, Stufe 2 nacheinander `0x0F`, `0x13`, `0x14`, `0x15`,
-zuletzt `0x11`, `0x12` (diese sind die wahrscheinlich hängenden). Je Kette drei Sekunden Rauschen, Pegel
-aufnehmen, nach jedem Absturz Neustart.
-
 ## 3. Decimator mit zweiter Stufe
 
 **Der ARM-Teil.** Der ARM sendet beide Stufen mit derselben Routine ohne Bausteinprüfung
@@ -107,18 +99,11 @@ oder im Lader. Im Emulator lässt er sich nicht nachstellen, denn er hat keinen 
 aus, der Decimator braucht keinen Speicher. Die Messung: Absturz in beiden Richtungen, `0x09 -> 0x0A` und
 `0x0A -> 0x09`.
 
-**Test am Gerät:** `0x09 -> 0x10` und `0x09 -> 0x06` (die beiden Stufe-2-Bausteine, die Korg selbst nutzt),
-dazu `0x09 -> 0x04` (Punch, im DSP ein Durchreicher). Läuft Punch, ist es die Anwesenheit einer zweiten Stufe,
-nicht deren Rechnung.
-
 ## 4. Stufe 1 durchprobieren
 
 Braucht Gerät. Aus dem Lader: Stufe 1 bekommt Speicher, also sind `0x11`, `0x12`, `0x16`, `0x18` dort
 möglich. Gemessen ist bisher `0x15 -> 0x0A` (läuft), `0x02 -> 0x10` (läuft), `0x15 -> 0x18` (hängt), `0x09 ->
 0x0A` (Absturz), `0x16 -> alles` (stumm).
-
-**Kürzester Test:** Stufe 2 fest Filter `0x0A`, Stufe 1 nacheinander die 19 Bausteine, je drei Sekunden Rauschen. In
-dieser Reihenfolge, das Gefährliche zuletzt: `0x01` bis `0x08`, `0x0F`, `0x10` bis `0x15`, dann `0x16`, `0x18`, `0x09`.
 
 ## 5. Drei Kompressoren
 
@@ -135,9 +120,7 @@ sind verschiedene Dinge, und der SR1 hat einen Schwellwert, der mKP2 keinen. Ver
 gleichem Namen sind erwartet.
 
 **Offen:** ob die Vorgaben klanglich vergleichbar sind, und die Parameterzahl von Cheap Comp (4 oder 6,
-siehe `2026-10-14-fx-tabellen.md`). **Kürzester Test:** ein Kick-und-Hihat-Loop, nacheinander `0x01`, `0x02`,
-`0x03` mit Vorgaben, Ausgangspegel auf gleiche Lautheit, dann nach Gehör vergleichen; dazu bei `0x03` die Regler
-5 und 6 (Sens, Output) bewegen: reagiert etwas, hat der Baustein 6 Parameter.
+siehe `2026-10-14-fx-tabellen.md`).
 
 ## 6. Sieben ungenutzte MFX-Bausteine
 
@@ -190,12 +173,6 @@ neuen Auslöser, der LFO läuft mit dem alten Phasenversatz weiter, und erst Sto
 Das ist eine Herleitung, kein Befund am Klang. Welche Parameteränderungen die Phase selbst verschieben,
 ist nicht gelesen.
 
-**Test am Gerät (kürzester):** Level Mod `0x15`, Sync an, Note 1/4, ein Part mit gleichmäßigem Ton.
-`lfo_reset` im RAM nacheinander 0, 1, 0, 2, 0, 3 schreiben (jeweils auf 0 zurück, sonst ist es keine Änderung
-und der ARM sendet nichts). Hören: bei 1 springt das Pumpen auf den Beginn, bei 2 und 3 ein einmaliger Sprung
-auf anderen Stand, danach läuft es durch. Dazu `lfo_speed` verändern und hören, ob das Pumpen aus dem
-Takt gerät.
-
 ## 8. Sync-Notenwerte
 
 **Hergeleitet (Code gelesen):** Alle 13 LFO-Bausteine (`0x11` bis `0x16`, `0x2C`, `0x2D`, `0x31` bis `0x35`)
@@ -219,12 +196,8 @@ Verhältnisse nach Index (Zähler / Nenner):
 Index 6 gleich 1/4, die langsamen Chorus, Flanger, Phaser und Ring Mod auf Index 1 bis 5 (8 Takte bis ein halber). **Offen:** ob
 die Einheit "Takt" (ganze Note) oder "Viertel" ist (Faktor 4), und wie Korgs Namen (1/4, 1/8T, 1/4D) auf die Indizes
 fallen; das entscheidet eine Hörprobe oder Korgs Liste. Die Gruppen 13 bis 25 und 34 bis 41 sehen nach Varianten
-(punktiert, Triolen) der ersten aus, die Gruppierung im Menü ist nicht geprüft. Die Karte bekommt keine Namen, bis
+(punktiert, Triolen) der ersten aus, die Gruppierung im Menü ist nicht geprüft. Namen für die Werte sind nicht eingetragen, bis
 das geklärt ist.
-
-**Kürzester Test:** Tremolo `0x14` oder Level Mod `0x15`, Sync an, Tempo 120, `SyncNote` auf 6 (erwartet
-Viertel, 2 Schläge je Sekunde) und auf 8 (erwartet Sechzehntel), Tempo mit der Stoppuhr oder per Aufnahme
-auszählen.
 
 ## 9. Modulationstabelle ab `+0x29`
 
@@ -239,19 +212,20 @@ Einschalten und über Boot, Hauptbild, Drehen von MOD. TYPE, MOD. DEPTH, MOD. SP
 - Lesezugriffe auf die Kopie bei `0x1A00FC`: tausende, aus `0xC0098xxx` und `0xC009946C`. Der Code nimmt
   `0xC01A0000` als Anfang der Namen (`0xC0098D3C`).
 
-Wer die Tabelle in einer gepatchten `SYSTEM.VSB` ändert, muss die Kopie bei `0x1A00FC` ändern (und
-sinnvollerweise beide). Die Karte bleibt bei `0xD82EC`; die Notiz an `table.modType` nennt jetzt die zweite Kopie.
-Ob bei einem anderen Pfad (zum Beispiel Laden eines Pattern) die erste Kopie benutzt wird, ist nicht gezeigt.
+Hacktribes Firmware liest also die Kopie bei `0x1A00FC`; die bei `0xD82EC` ist die, die Korgs Original liest, und bleibt im
+Hacktribe-Abbild toter Bestand (`data/map/firmware.mjs`: `table.modType` und `table.modTypeStock`). Wer die Tabelle in einer
+gepatchten `SYSTEM.VSB` ändert, muss die Kopie ändern, die das Abbild liest. Ob bei einem anderen Pfad (zum Beispiel Laden
+eines Pattern) die erste Kopie benutzt wird, ist nicht gezeigt.
 
 ### 9.2 Vorgabe-Speed und Vorgabe-Tiefe
 
-**Gemessen.** Die Karte nannte `+27` "Vorgabetiefe". Im Emulator (Skript 2): bei jedem Drehen von MOD. TYPE setzt
+**Gemessen** im Emulator (Skript 2): bei jedem Drehen von MOD. TYPE setzt
 die Firmware Speed und Tiefe des Parts. Die Werte:
 
 - **Tiefe gleich Byte `+0x1A` des Eintrags**, **Speed gleich Byte `+0x1B`**, bei 71 von 72 Arten. Die eine
   Ausnahme ist die Art, mit der das Init-Pattern startet (Art 3): sie zeigt 127 und 127. Das passt zur Herkunft,
   der Wert kommt aus dem Speicher je Part und Art (nächster Abschnitt).
-- Der Karteneintrag `modType.depth` lag auf `+27`. Korrigiert: Tiefe auf `+26`, Speed neu auf `+27`.
+- In der Gerätekarte liegt die Tiefe auf `+26` und der Speed auf `+27` (`data/map/firmware.mjs`).
 
 ### 9.3 Woher die Vorgaben kommen
 
@@ -330,34 +304,16 @@ Ausgänge bei `0xC06924DD` zu verfolgen.
 Packprogramm plus Flash-Schreiben, und dort gilt die Sperre aus `../speicherbereiche.md`. Ein Lauf im
 Emulator mit WRITE im Hauptbild schrieb gar nichts in den Flash (auch das Pattern nicht), er sagt dazu nichts.
 
-## Skripte
+## Methoden
 
-Alle liefen im Scratchpad. Die Kerne zum Nachbauen:
+Die Messskripte liegen nicht im Repository, hier nur, was sie taten.
 
-**Skript 1, Deskriptoren.** Mit der Ladefunktion aus `tools/fx-tables.py` (`load_sdram`, `DESCRIPTORS`,
-`UNITS`): je Index `i` Deskriptor `d` gleich Wort bei `DESCRIPTORS + 4 i`, Name gleich Zeichenkette bei Wort `d`,
-Parameterzahl Byte `d + 4`, Bytes `d + 5` bis `d + 8` (Speicherflags), Funktionen Worte `d + 0x18`, `d + 0x1C`,
-`d + 0x20`; Parameter aus Liste bei `d + 0x14` (Name, Vorgabe `+5`, Minimum `+6`, Maximum `+8`). Aufruf:
-`python3 -I skript1.py SYSTEM.VSB`.
-
-**Skript 2, Vorgaben beim Drehen.** Boot mit `bootcache.booted(VSB[0x100:], Flash, 0, 5.0)`, `Dev` aus
-`tools/emu/splash_cases.py`. Das bearbeitete Pattern liegt bei `*0xC033E6A4 + 4`; Part `p` bei `+0x800 + 0x330 p`,
-Art, Speed und Tiefe auf `+16`, `+17`, `+18`. Dann 80 mal `m.send([1, 3, 0, 1, 0])` (MOD. TYPE, +1) mit
-`dev.run(0.25)` dazwischen, nach jedem Schritt die drei Bytes lesen und gegen `+0x1B` und `+0x1A` des Eintrags
-vergleichen. Ergebnis: 71 von 72.
-
-**Skript 3, Lesehaken und Gedächtnis.** Lesehaken (`UC_HOOK_MEM_READ`) auf beide Kopien von Einschalten an; zweiter
-Lauf mit Schreiben von `(0x22, 0x11)` auf `0xC069256D + 2 * 12` und Drehen auf Art 12.
-
-**Skript 4, Slotbytes.** Art 12, Gedächtnis auf Tiefe 21, 50, 100 setzen, Art 13 und zurück auf 12, Stärke lesen
-bei `0xC06924DD + 3`; dann `0xC019FFFC + 12 * 0x58 + 0x2F` auf `F6 14` und wiederholen.
-
-Die Messungen im Emulator waren je wenige Sekunden Gerätezeit, mit dem eigenen Flash.
-
-## Was im Repository neu ist
-
-- Dieses Dokument.
-- `data/map/firmware.mjs`: Tiefe der Modulationsart auf `+26` verlegt, Speed als neues Feld auf `+27`,
-  Evidenz `measure:2026-10-14/offene-fragen`; die Notiz an `table.modType` nennt die zweite Kopie.
-
-Nicht geändert, weil nicht gemessen: Notennamen der Sync-Werte, Einheiten der Effektparameter, `findings.mjs`.
+- **Skript 1, Deskriptoren:** mit der Ladefunktion aus `tools/fx-tables.py` je Index den Deskriptor des DSP gelesen (Name,
+  Parameterzahl, Speicherflags in den Bytes `+5` bis `+8`, Funktionszeiger, Parameterliste mit Vorgabe, Minimum, Maximum).
+- **Skript 2, Vorgaben beim Drehen:** Boot im Emulator, 80 mal MOD. TYPE um 1 gedreht, nach jedem Schritt Art, Speed und
+  Tiefe des Parts (Pattern bei `*0xC033E6A4 + 4`, Part `p` bei `+0x800 + 0x330 p`, Bytes `+16` bis `+18`) gegen `+0x1B` und
+  `+0x1A` des Eintrags verglichen.
+- **Skript 3, Lesehaken und Gedächtnis:** Lesehaken (`UC_HOOK_MEM_READ`) auf beide Kopien der Tabelle; zweiter Lauf mit Schreiben von
+  Tiefe und Speed auf `0xC069256D + 2 * 12` und Drehen auf Art 12.
+- **Skript 4, Slotbytes:** Art 12, Gedächtnis auf Tiefe 21, 50, 100, Art 13 und zurück, Stärke bei `0xC06924DD + 3` gelesen; dann
+  die Slotbytes der gelesenen Kopie geändert und wiederholt.

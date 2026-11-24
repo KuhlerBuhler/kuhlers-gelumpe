@@ -1,7 +1,7 @@
 # Hacktribes Flash-Schreibbefehl und die Pattern-Schreibvorgänge (24.10.)
 
-Frage: Was machen Hacktribes SysEx-Befehle `0x53` bis `0x56` mit dem Flash, und hält BLECH `0x56` auf? Gemessen im Emulator
-mit dem eigenen Flash-Abbild vom 9.10., Hacktribe 2.02 ohne und mit BLECH. Am Gerät nicht geprüft.
+Frage: Was machen Hacktribes [SysEx](../glossary.md#sysex)-Befehle `0x53` bis `0x56` mit dem Flash, und hält [BLECH](../glossary.md#blech) `0x56` auf? Gemessen im Emulator
+mit dem eigenen Flash-Abbild vom 9.10., [Hacktribe](../glossary.md#hacktribe) 2.02 ohne und mit BLECH. Am Gerät nicht geprüft.
 
 ## Aufbau
 

@@ -1,7 +1,7 @@
 # Patterns-Ordner: Export, Import-Browser, Laden beim Start (14.11.)
 
-Zu `tools/patch/script_patterns.s` und `tools/patch/load_bar.py` (Release 1.5, rot und Hacktribe). Alles hier ist
-**gemessen im Emulator** (eigene Dateien Hacktribe und Korg rot 2.02), nicht am Gerät, wo nicht anders gesagt.
+Zu `tools/patch/script_patterns.s` und `tools/patch/load_bar.py` (Release 1.5, rot und [Hacktribe](../glossary.md#hacktribe)). Alles hier ist
+**gemessen im [Emulator](../glossary.md#emulator)** (eigene Dateien Hacktribe und Korg rot 2.02), nicht am Gerät, wo nicht anders gesagt.
 
 ## Datei
 

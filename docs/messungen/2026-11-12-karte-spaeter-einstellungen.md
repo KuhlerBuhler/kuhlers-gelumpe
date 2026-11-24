@@ -1,7 +1,7 @@
 # Kartentausch bringt die ganze Einstellungsdatei mit (12.11.)
 
-Stand 12.11.2026, Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Stands) und Gerät
-(Hacktribe 2.02, nur READ über BLECH SysEx). Ziel: Karte tauschen, und die Electribe hat sofort das Setup und das Aussehen dieser Karte.
+Stand 12.11.2026, [Emulator](../glossary.md#emulator) ([Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Stands) und Gerät
+(Hacktribe 2.02, nur READ über BLECH [SysEx](../glossary.md#sysex)). Ziel: Karte tauschen, und die Electribe hat sofort das Setup und das Aussehen dieser Karte.
 Marker: **gemessen**, **offline gelesen** (Disassembly), **hergeleitet**, **offen**.
 
 ## Verhalten

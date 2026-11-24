@@ -1,12 +1,12 @@
 # Display: Schriften und Symbole der Firmware
 
-Stand 2026-10-14. Basis ist eine eigene SYSTEM.VSB (Sampler 2.02 mit Hacktribe). Alles lief im
-Emulator (`tools/emu/`, Unicorn) oder wurde offline gelesen; am Gerät ist nichts geprüft. Marker:
+Basis ist eine eigene [SYSTEM.VSB](../glossary.md#vsb) (Sampler 2.02 mit [Hacktribe](../glossary.md#hacktribe)). Alles lief im
+[Emulator](../glossary.md#emulator) (`tools/emu/`, Unicorn) oder wurde offline gelesen; am Gerät ist nichts geprüft. Marker:
 **gemessen** (im Emulator ausgeführt und beobachtet), **offline** (Code oder Tabellen gelesen),
 **hergeleitet**, **offen**. Adressen sind RAM-Adressen, Datei-Offset in der VSB = RAM - `0xC0000000` + `0x100`.
 
 Diese Seite hält nur Aufbau, Adressen, Formate und Maße fest, keine Glyph- und keine Symbolbytes.
-Sie ist die Grundlage für das [BLECH Theme](../hintergrund/blech-theme.md) (Patch `blech-theme`).
+Sie ist die Grundlage für das [BLECH Theme](../hintergrund/blech-theme.md) ([Patch](../glossary.md#patch) `blech-theme`).
 
 ## Wie die Firmware Text und Symbole zeichnet
 
@@ -129,7 +129,7 @@ sind die Löcher. Alles, was nicht in dieser Tabelle liegt (Balken, Pegelanzeige
 
 ## Was beim Start gelesen wird
 
-Die Startphase (alle Bytes, die auf den 17 Startwegen vor dem Hauptbildschirm gelesen werden,
+Die Startphase (alle Bytes, die auf allen Startwegen vor dem Hauptbildschirm gelesen werden,
 `tools/emu/bootmap.py`, [Startphase](2026-10-10-startphase.md)) berührt diese Daten:
 
 | Bereich | Gelesen im Start |

@@ -1,7 +1,7 @@
 # Test-Modus und Fernbedienung aller Bedienelemente
 
-Stand 29. Oktober 2026. Gemessen im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
-mit dem BLECH-Satz. Fälle: `tools/emu/remote_cases.py`, `tools/emu/testmode_cases.py`. **Am Gerät nicht geprüft.**
+Gemessen im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+mit dem [BLECH](../glossary.md#blech)-Satz. Fälle: `tools/emu/remote_cases.py`, `tools/emu/testmode_cases.py`. **Am Gerät nicht geprüft.**
 Beschreibung für Nutzer: [Test-Modus](../test-modus.md).
 
 ## Der Weg der Nachricht

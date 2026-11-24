@@ -1,6 +1,6 @@
 # KEY PADS: Pads 13 bis 16 transponieren um Oktaven (15.11.)
 
-Stand 15.11.2026, Emulator mit Hacktribe 2.02 (163d1d8d), Korgs rotem 2.02 und Korgs blauem 2.02, jeweils mit BLECH
+Stand 15.11.2026, [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (163d1d8d), Korgs rotem 2.02 und Korgs blauem 2.02, jeweils mit BLECH
 (release/1.4.6). Anlass: Gerätetest 1.4.6, Punkt 5.3. Pads 13 bis 16 setzten seit
 [2026-11-12](2026-11-12-key-pads-oktave.md) nur die Oktave der Tastatur, das können die Takt-Tasten schon. Gewünscht war, dass
 die Oktave die gespielte Melodie und die Sequenz verschiebt. Entschieden: Weg A, Verschiebung dort, wo die Firmware den KEY

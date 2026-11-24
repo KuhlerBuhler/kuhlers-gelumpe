@@ -1,8 +1,8 @@
 # Synth-Filter auf Korgs Original: der Patch, im Emulator geprüft
 
-Stand 2026-10-15. Kein Gerätezugriff, alles im Emulator (Korgs Original 2.02 und Firmware 2.02 mit Hacktribe, eigene `SYSTEM.VSB`-Dateien, eigener Flash-Dump), am Gerät ist nichts bestätigt.
-Setzt die [Korrektur zu den Filtertypen](../hintergrund/dsp-erster-blick.md) um: Korgs Oberfläche bietet nur OFF und die drei electribe-Filter an, obwohl alle 16 Typen mit Namen, Tabellen und
-DSP-Code in der Firmware stehen. Die Prüfungen sind `tools/emu/synth_filter_cases.py` (läuft in `tools/emu/check.py` mit, Namen in Klammern), der Patch ist `data/patches/synth-filters.json`,
+Kein Gerätezugriff, alles im [Emulator](../glossary.md#emulator) (Korgs Original 2.02 und Firmware 2.02 mit [Hacktribe](../glossary.md#hacktribe), eigene `SYSTEM.VSB`-Dateien, eigener Flash-Dump), am Gerät ist nichts bestätigt.
+Setzt die [Korrektur zu den Filtertypen](../hintergrund/dsp-erster-blick.md) um (siehe auch [DSP](../glossary.md#dsp)): Korgs Oberfläche bietet nur OFF und die drei electribe-Filter an, obwohl alle 16 Typen mit Namen, Tabellen und
+DSP-Code in der Firmware stehen. Die Prüfungen sind `tools/emu/synth_filter_cases.py` (läuft in `tools/emu/check.py` mit, Namen in Klammern), der [Patch](../glossary.md#patch) ist `data/patches/synth-filters.json`,
 gebaut von `tools/patch/synth_filters.py`. Marker: **gemessen**, **hergeleitet**, **offen** (am Gerät zu prüfen).
 
 ## Was der Patch tut
@@ -28,7 +28,7 @@ Der Weg einer Filtertaste in Korgs Build, mit einem Schreib-Hook auf das Part-By
 - Taste `0x12`, `0x14`, `0x16` kommt in `0xC006FC80` an (der Sprung bei `0xC00702C0` geht in Korgs Build dorthin, in Hacktribes Build auf neuen Code bei `0xC0150000`). Die Funktion holt den aktuellen Typ des Parts über den Getter `0xC0048E18` (nach `r5`, die Taste liegt in `r4`), wählt den neuen Typ und erzeugt mit `0xC007BFDC` ein Befehlsobjekt.
 - **Die Auswahl** sind drei Sprungtabellen ab `0xC006FCE8`: sie kennen die Typen 0 bis 12 und geben nur 0, 1, 7 oder 12 zurück. LPF macht aus 0, 7, 12 den Typ 1 und aus 1 den Typ 0, HPF aus 0, 1, 12 den Typ 7 und aus 7 den Typ 0, BPF aus 0, 1, 7 den Typ 12 und aus 12 den Typ 0, alles andere ergibt 0.
 - Das Befehlsobjekt wird über `0xC007C028` ausgeführt und ruft den **Setter** `0xC00495B8`. Der schreibt das Byte (`strb` bei `0xC0049618`, Objekt + `0x330` je Part + `0x810`, im gespeicherten Pattern liegt es bei `0x80C`) und meldet die Änderung (`0xC004B208`, Parameter 29, danach `0xC0030CF4` und `0xC003BA38`).
-- **Der Setter faltet.** Vor dem Schreiben macht er aus den Typen 2 bis 6 die 1, aus 8 bis 11 die 7, aus 13 bis 16 die 12 (Bitmasken `0x1F`, `0x3C0`, `0x7800` über `Typ - 2`), aus allem über 16 die 1. Ein bedingter Sprung (`0xC00495DC`) überspringt das Falten für 0 und 1. Das war die offene Frage der Korrektur: **dieser Sprung ist der Schalter**, nicht die Taste allein. Ein Patch nur an der Taste hätte Typ 2 bis 16 zwar angezeigt, aber als electribe-Filter gespeichert.
+- **Der Setter faltet.** Vor dem Schreiben macht er aus den Typen 2 bis 6 die 1, aus 8 bis 11 die 7, aus 13 bis 16 die 12 (Bitmasken `0x1F`, `0x3C0`, `0x7800` über `Typ - 2`), aus allem über 16 die 1. Ein bedingter Sprung (`0xC00495DC`) überspringt das Falten für 0 und 1. **Dieser Sprung ist der Schalter**, nicht die Taste allein. Ein Patch nur an der Taste hätte Typ 2 bis 16 zwar angezeigt, aber als electribe-Filter gespeichert.
 - **Hergeleitet:** Hacktribe unterscheidet sich im Setter in genau diesem einen Sprung, er ist dort unbedingt (`0xC00495DF`, ein Byte), und leitet die Tastenfunktion über `0xC00702C0` auf eigenen Code um. Die DSP-Daten sind in beiden VSBs byte-gleich (Datei `0xF9F10` bis `0x13C1B0`, gemessen). Die übrigen etwa 130 geänderten Bytes unterhalb `0xC0099000` sind die FX-Tabellen und Zähler (Effektanzahlen `0x26` auf `0x3B`, Grenzen und Umleitungen), nicht die Filter.
 
 ## Die Reihenfolge von Hacktribe (gemessen)
@@ -55,10 +55,10 @@ die Tabelle im Patch kommt daraus, die Prüfung `table` hält sie gegen die geme
 | `0xC006FCE8` | der Vergleich der Taste mit `0x14` wird ein Sprung in `select` (Code bei `0xC0190000`, 191 Byte mit der Tabelle) | `select` liest den neuen Typ aus der Tabelle (Zeile = Taste, Spalte = aktueller Typ) und kehrt bei `0xC006FDDC` zurück, wo die Firmware den Typ mit dem aktuellen vergleicht und ihr eigenes Befehlsobjekt baut |
 | `0xC00495DC` | der bedingte Sprung über das Falten wird ein Sprung in `store` | `store` überspringt das Falten für jeden Typ |
 
-Mit EXIT beim Einschalten (Bit 13 des Wortes bei Panelobjekt + `0x18`) führen beide Stellen die ursprünglichen Befehle aus: `select_original` den Vergleich und den Rücksprung hinter ihn, `store_fold` den Weg ins Falten.
+Mit EXIT beim Einschalten ([Notschalter](../glossary.md#notschalter), Bit 13 des Wortes bei Panelobjekt + `0x18`) führen beide Stellen die ursprünglichen Befehle aus: `select_original` den Vergleich und den Rücksprung hinter ihn, `store_fold` den Weg ins Falten.
 Der Code liest nur das Panelobjekt und schreibt nichts außer `r0` bis `r4` (die Firmware setzt `r3` direkt dahinter neu). Kein RAM, nichts auf dem Flash oder der Karte, kein Menüpunkt. Der Patch trägt keine Bytes der Firmware.
 
-**Startphase.** Der Setter läuft schon beim Start (die 16 Parts des ersten Patterns, etwa 310 ms nach dem Einschalten, lange nach den Rettungswegen bei 57 bis 60 ms), die Taste nicht. Der Patch nennt das Wort und seinen Code
+**[Startphase](../glossary.md#startphase).** Der Setter läuft schon beim Start (die 16 Parts des ersten Patterns, etwa 310 ms nach dem Einschalten, lange nach den Rettungswegen bei 57 bis 60 ms), die Taste nicht. Der Patch nennt das Wort und seinen Code
 in `startPhase`, dort schaut `store` nur ins Panelobjekt und auf die Kill-Taste. Der Platz `0xC0190000` bis `0xC0190100` ist in Korgs Abbild frei (FF) und liegt zwischen den Bereichen des Patternwechsels und
 der Plugin-Laufzeit; Hacktribes Code bei `0xC0150000` und ab `0xC0170000` ist auf Korgs Build leer und wird nicht benutzt.
 
@@ -77,7 +77,7 @@ der Plugin-Laufzeit; Hacktribes Code bei `0xC0150000` und ab `0xC0170000` ist au
 ### DSP
 
 **Gemessen:** der DSP-Strom ist in beiden Builds byte-gleich, die Kerne und Tabellen sind also dieselben. Was der Emulator vom Typ an den DSP gibt, ist die Parameter-Meldung der Firmware (`0xC004B208`, Part, Parameter 29,
-Wert = Typ), und sie ist bei jedem Typ auf beiden Builds gleich (Druck für Druck und beim Laden). Die Übertragungen über den Host-Port (`0x60000000`) zeigen beim Tastendruck, beim Pad und beim Abspielen in beiden Builds
+Wert = Typ), und sie ist bei jedem Typ auf beiden Builds gleich (Druck für Druck und beim Laden). Die Übertragungen über den [Host-Port](../glossary.md#host-port) (`0x60000000`) zeigen beim Tastendruck, beim Pad und beim Abspielen in beiden Builds
 nichts, was vom Typ abhängt: die DSP-Attrappe nimmt keine Stimmen an. **Offen:** ob die Klänge am Gerät so klingen wie bei Hacktribe. Dass der DSP-Strom gleich ist und das Part-Byte gleich ankommt, ist die Herleitung, kein Hörtest.
 
 ## Ohne den Patch (EXIT beim Einschalten, oder Korgs Firmware wie geliefert)
@@ -92,9 +92,8 @@ nichts, was vom Typ abhängt: die DSP-Attrappe nimmt keine Stimmen an. **Offen:*
 
 1. **Reihenfolge von Hacktribe**, nicht eine eigene (siehe oben): Muster, Anleitungen und Gewohnheit gelten auf beiden Builds.
 2. **Der Setter ändert sich mit.** Eine Auswahl nur an der Taste reicht nicht, weil der Setter faltet. Beide Stellen laufen nur, wenn EXIT beim Einschalten nicht gehalten wurde.
-3. **Kein Merker, kein Menüpunkt.** Der Patch ist an, wenn er in der Firmware ist, und aus mit EXIT beim Einschalten, wie die anderen Patches des Satzes. Eine Menüseite (wie TAP MOTION) wäre nachrüstbar, ist nicht verlangt.
+3. **Kein Merker, kein Menüpunkt.** Der Patch ist an, wenn er in der Firmware ist, und aus mit EXIT beim Einschalten, wie die anderen Patches des Satzes.
 4. **Nur Korgs Build** (`builds: ["stock"]`, `notNeededOn: ["hacktribe"]`). Hacktribes Build hat das. Die Samples und ihre Namen bleiben unberührt: die Oszillatornamen der Slots 19 bis etwa 260, die Hacktribe in die Werks-Sample-Namen schreibt, gehören nicht zu diesem Patch und kommen nicht mit.
-5. **Platz `0xC0190000`** bis `0xC0190100`, ohne RAM.
 
 ## Offen
 

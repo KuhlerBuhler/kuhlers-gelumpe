@@ -1,6 +1,6 @@
 # Plugin API 33: Samples lesen, Pattern speichern, Part kopieren
 
-Stand 11. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+Stand 11. November 2026. **Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
 mit dem BLECH-Satz (`data/patches/blech.json`, für blau `blech-synth.json`). Fälle: `tools/emu/plugin_api33_cases.py` (läuft
 als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.** Teil 8 des Plans.
 

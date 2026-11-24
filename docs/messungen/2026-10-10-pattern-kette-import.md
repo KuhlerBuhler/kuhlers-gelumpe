@@ -1,7 +1,7 @@
 # Pattern-Kette und Pattern-Import von der Karte, im Emulator gemessen
 
-Stand 2026-10-10. Alles im Emulator (`tools/emu`, virtuelle SD-Karte in einem
-temporären Ordner), Firmware `SYSTEM.VSB`, Flash: eigener Dump vom 9.10. Die
+Stand 2026-10-10. Alles im [Emulator](../glossary.md#emulator) (`tools/emu`, virtuelle SD-Karte in einem
+temporären Ordner), Firmware [`SYSTEM.VSB`](../glossary.md#vsb), Flash: eigener Dump vom 9.10. Die
 eigene Pattern-Sicherung (`electribe_sampler_allpattern.e2sallpat`, gleich dem
 Flash-Dump) diente als Vergleich und lag nie auf einer Karte. Die Einzeldatei
 (`.e2spat`) wurde aus einem Pattern dieser Sicherung gebaut. **Am Gerät nichts
@@ -31,7 +31,7 @@ exportierten Sicherung gesehen), **hergeleitet**.
 
 ## IMPORT PATTERN (DATA UTILITY 3/14)
 
-- **gemessen:** DATA UTILITY, Funktion 3: erst "SELECT SOURCE / Enter : Card",
+- **gemessen:** [DATA UTILITY](../glossary.md#data-utility), Funktion 3: erst "SELECT SOURCE / Enter : Card",
   dann der Dateibrowser ab der Kartenwurzel. Ordner stehen oben, dann nur
   Dateien mit der Endung `.e2spat` (eine `.txt` fehlt in der Liste); die Endung
   wird nicht angezeigt. Ordner lassen sich öffnen ("Upper Folder" ganz oben),

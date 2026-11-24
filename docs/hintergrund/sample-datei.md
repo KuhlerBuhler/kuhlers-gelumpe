@@ -1,6 +1,6 @@
 # Die Sample-Datei `e2sSample.all` und die Seite Samples
 
-Stand 2026-10-25. Das Format ist aus dem Export der Firmware und aus eigenen Dateien im Emulator belegt
+Die Datei [`e2sSample.all`](../glossary.md#e2ssampleall) sammelt alle Samples der Karte. Das Format ist aus dem Export der Firmware und aus eigenen Dateien im Emulator belegt
 ([virtuelle-sd.md](virtuelle-sd.md), [Sample-Fehler](../messungen/2026-10-15-sample-fehler.md),
 [Metadaten](../messungen/2026-10-07-sample-metadaten-ram.md)). Die Samples in den Tests sind eine Formel, kein Korg-Sample.
 Der Code dazu steht in `src/sample-file.mjs`, die Seite in `site/app/sampleset.mjs` (`BLECHTRIBE -> Samples`).
@@ -60,20 +60,21 @@ Kartenleser läuft der Plan im Speicher (`applyPlan`).
 
 ## Der Weg übers Kabel (SysEx)
 
-**gemessen im Emulator** ([Messung](../messungen/2026-10-26-sample-datei-sysex.md)), am Gerät **nicht** gemessen. Die FILE-Befehle von
-BLECHTRIBE (`0x65` FILE READ, `0x66` FILE BEGIN, `tools/patch/blech_sysex.py`) erreichten vorher nur `SYSTEM.VSB` und `ORIGINAL.BIN` im
-Ordner der Firmware (Bit 31 des Offsets wählt), dazu `0x67` PLUGIN BEGIN eine Plugin-Datei, mit Offset plus Länge bis `0x200100`.
-`e2sSample.all` war in keinem der Ordner `electribe sampler`, `hacktribe` und `blechtribe` erreichbar. Jetzt gilt:
+**gemessen im Emulator** ([Messung](../messungen/2026-10-26-sample-datei-sysex.md)), am Gerät **nicht** gemessen. Die Seite erreicht
+die Datei über BLECHs [SysEx](../glossary.md#sysex)-Befehle (`tools/patch/blech_sysex.py`). `0x65` FILE READ und `0x66` FILE BEGIN
+erreichen `SYSTEM.VSB` und `ORIGINAL.BIN` im Ordner der Firmware (Bit 31 des Offsets wählt), `0x67` PLUGIN BEGIN eine
+Plugin-Datei, mit Offset plus Länge bis `0x200100`. Für die Sample-Datei gelten diese Erweiterungen:
 
 | Befehl | Was er tut |
 |---|---|
 | Bit 30 im Offset von FILE READ und FILE BEGIN | `KORG/<Ordner>/Sample/e2sSample.all`; mit Bit 31 dazu die Tauschdatei `e2sSample.tmp` daneben. Der Ordner ist der, den das Update nimmt (die eigene Funktion der Firmware), Offset plus Länge bis 256 MiB |
+| Bit 29 im Offset von FILE READ und FILE BEGIN | Doom-Dateien: `KORG/blechtribe/Doom/doom.bin`; mit Bit 31 dazu `doom.wad`. Die Pfade sind die aus `tools/doom/runtime_abi.h`, die der [Doom-Lader](../glossary.md#doom-lader) liest. Grenze 256 MiB, ein Block bei Offset 0 macht die Datei neu, fehlt der Ordner, legt die Firmware ihn an. Bits 30 und 29 zusammen nennen keine Datei: Status 3 (READ liest damit `e2sFx.all`) |
 | `0x71` FILE COPY, Antwort `0x79` | Quelle, Ziel (je Selektor und Offset, die zwei Sample-Dateien, nicht dieselbe) und Länge 1 bis 256 KiB: kopiert auf der Karte in Stücken von 16 KiB, beide Dateien offen. Antwort: Status, kopierte Bytes, CRC-32 davon. Ist die Quelle kürzer als verlangt, wird abgelehnt, bevor das Ziel angelegt wird |
 | `0x72` FILE DELETE, Antwort `0x7A` | löscht eine der beiden Sample-Dateien mit `f_unlink` der Firmware. SYSTEM.VSB, ORIGINAL.BIN und Plugins sind abgelehnt |
 | `0x73` FILE CRC, Antwort `0x7B` | liest bis 256 KiB einer Sample-Datei von der Karte und schickt nur Status, Offset, Länge und CRC-32 |
 
 Ein Block bei Offset 0 schneidet `e2sSample.all` nicht ab (er schreibt den Kopf an Ort und Stelle, `FA_OPEN_ALWAYS`), bei der Tauschdatei
-macht er sie neu. INFO meldet Bit 7 der Flags, wenn die Befehle da sind. Auf der blauen Electribe 2 fehlt `f_unlink` im Abbild, dort
+macht er sie neu. INFO meldet Bit 7 der Flags, wenn die Befehle da sind, und Bit 8 (`FLAGS` `0x1ff`) für die Doom-Dateien. Die blaue Electribe 2 hat keinen Doom-Lader, ihr Build meldet Bit 8 nicht und die App schreibt dort nichts; ob sie Bit 29 trotzdem annimmt, ist nicht geprüft. Auf der blauen Electribe 2 fehlt `f_unlink` im Abbild, dort
 macht DELETE die Datei neu und schließt sie, sie bleibt also leer (Größe 0, die die Seite wie eine fehlende liest); der Tausch unten
 läuft so auch auf der blauen, nur bleibt eine leere `e2sSample.tmp` liegen. Der Code liegt in einem zweiten Abschnitt bei `0xC017B950` (1116 Byte), weil der
 erste bis `0xC0173000` reicht, wo der Puffer der Sync Group anfängt.
@@ -104,3 +105,11 @@ zurück, die niemand listet, nie einen Kopf ohne seine Samples.
 Sie liest den Kopf und von jedem Sample die ersten 44 Byte und den Namen im Satz hinter dem Audio, nicht das Audio. Ein Eintrag mit
 anderem Aufbau als fmt, data, korg steht mit seiner Länge aus dem RIFF-Kopf und dem Vermerk `Aufbau nicht erkannt` da und lässt sich
 entfernen. Fehlt die Datei, ist die Liste leer, und ein erstes Sample legt sie an.
+
+Doom über das Kabel (offline gelesen, Fälle `doom_*` in `tools/emu/sysex_cases.py` im Emulator grün auf Hacktribe und Korgs Original):
+Der Code der Doom-Befehle liegt im zweiten Bereich bei den Sample-Befehlen (Hauptbereich `0xd5c` von `0xf00` Byte, zweiter Bereich
+`0x68c` von `0x840`). Ohne Karte antwortet READ und DATA mit Status 6, ohne `doom.bin` auf der Karte ebenfalls. Die echte `doom.bin`
+(453.380 Byte, 14 Blöcke) liegt nach dem Schreiben gleich der in `third_party/doom/`. **Offen** am Gerät: die Zeit für die 28 MB `doom.wad`
+(geschätzt aus 150 bis 200 KiB/s beim Lesen: 2,5 bis 3 Minuten, Schreiben nicht gemessen). Quelle: Messung 2026-11-11/doom-usb.
+
+Mehr zu Speicher, Schreibwegen, Dateibesitz und Journal der Sample-Datei auf der Karte: [sample-speicher.md](sample-speicher.md).

@@ -1,7 +1,7 @@
-# Hänger nach EXEC-Tastendrücken (rot, 15.11.)
+# Hänger nach EXEC-Tastendrücken (rot)
 
-Gerät: rote Electribe mit 1.4.6-Testfirmware, USB an einem Linux-Rechner, Werkzeug
-`tools/device/remote_press.py`. Ursache offen.
+Gerät: rote Electribe mit [BLECH](../glossary.md#blech)-Testfirmware, USB an einem Linux-Rechner, Werkzeug
+`tools/device/remote_press.py`. EXEC führt Code aus dem Stub-Puffer aus ([SysEx](../glossary.md#sysex)-Befehl von BLECH). Ursache **offen**.
 
 | Befund | Status |
 |---|---|
@@ -15,14 +15,12 @@ Gerät: rote Electribe mit 1.4.6-Testfirmware, USB an einem Linux-Rechner, Werkz
 | Ohne die Blechy-Seite (nur BPM/SWING) hängt es genauso | gemessen |
 | USB-Kabel neu stecken bringt eine tote SysEx-Leitung zurück, solange das Gerät selbst läuft; ein Hänger braucht Aus/Ein | gemessen |
 
-Nächste Schritte, jeder kann einen Neustart kosten: mehrere Prozesse, die den Stub nur
-nach `0xC1000000` schreiben und zurückschreiben, ohne EXEC; dann mehrere Prozesse mit
-EXEC ohne Rückschreiben. Das trennt "Schreiben nach `0xC1000000`" von "EXEC". Vor einem
-Update per USB nach solchen Tests das Kabel neu stecken und ein READ prüfen.
+Offen ist, ob "Schreiben nach `0xC1000000`" oder "EXEC" den Hänger auslöst. Vor einem Update per USB nach solchen Tests das Kabel
+neu stecken und ein READ prüfen.
 
 ## DSP lesen per EXEC (14. und 15.11.)
 
-Die Werkzeuge in `tools/device` (`dsp_peek.py`, `l1_dump.py`, `region_peek.py`) lesen den DSP über die Host-Port-Lesefunktion
+Die Werkzeuge in `tools/device` (`dsp_peek.py`, `l1_dump.py`, `region_peek.py`) lesen den [DSP](../glossary.md#dsp) über die [Host-Port](../glossary.md#host-port)-Lesefunktion
 der Firmware `0xC00141F8`, gestartet per EXEC. Die Funktion nimmt Sperre 1 und wartet ohne Zeitgrenze auf den Host-Port
 (hergeleitet aus dem Code). Bleibt die Antwort aus, hängt jedes DSP-Kommando und damit das Gerät.
 

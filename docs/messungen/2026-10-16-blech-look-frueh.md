@@ -1,6 +1,6 @@
 # Aussehen früh im Start: Zeitlinie und der früheste Punkt
 
-Stand 2026-10-16. Alles im Emulator (`tools/emu`, Unicorn), eigene `SYSTEM.VSB` (Hacktribe 2.02), virtuelle Karte mit
+Stand 2026-10-16. Alles im Emulator (`tools/emu`, Unicorn), eigene `SYSTEM.VSB` ([Hacktribe](../glossary.md#hacktribe) 2.02), virtuelle Karte mit
 einer `e2sSample.all` (20 Samples, 4 s), die Zeiten sind Emulatorzeit ab dem Einsprung in die Firmware. **Am Gerät nichts
 geprüft.** Was vor dem Einsprung läuft (Bootloader, Entpacken) ist im Emulator nicht abgebildet und wurde nicht gemessen.
 Markierungen: **gemessen**, **hergeleitet**, **offen**.
@@ -22,8 +22,8 @@ Markierungen: **gemessen**, **hergeleitet**, **offen**.
 
 Das Display ist also von 52,5 bis 122,9 ms leer bei eingeschaltetem Licht, das sind rund 70 ms, in denen es weiß leuchtet;
 davor läuft nichts, das wir erreichen. Der Startbild-Editor zeichnet das Bild absichtlich erst nach der Kartenfrage (er
-braucht die Karte für ein gespeichertes Bild, [Startbild auf der Karte](2026-10-15-startbild-karte.md)); das Bild der
-Firmware käme ohne ihn bei etwa 53 ms ([gleiche Messung](2026-10-15-startbild-karte.md): 65 ms gegen 95 bis 100 ms mit Karte).
+braucht die Karte für ein gespeichertes Bild, gespeichertes Startbild auf der Karte); das Bild der
+Firmware käme ohne ihn bei etwa 53 ms (65 ms gegen 95 bis 100 ms mit Karte).
 **Offen** (Entscheidung des Besitzers): das VSB-Bild schon bei 53 ms zeichnen und ein gespeichertes Bild später darüberlegen
 brächte das Bild rund 50 ms früher, ein Nutzer mit eigenem Startbild sähe aber erst kurz das Standardbild.
 

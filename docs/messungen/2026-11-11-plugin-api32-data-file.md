@@ -1,6 +1,6 @@
 # Plugin API 32: eine Datendatei pro Plugin auf der Karte
 
-Stand 11. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+Stand 11. November 2026. **Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
 mit dem BLECH-Satz (`data/patches/blech.json`, für blau `blech-synth.json`). Fälle: `tools/emu/plugin_api32_cases.py` (läuft
 als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.** Teil 7 des Plans.
 
@@ -38,7 +38,7 @@ Speichern zu stören?
 | Datei mit 5 Byte: ab 0 gibt 5, ab 2 gibt 3, ab 9 gibt 0; Plätze hinter dem Ende bleiben 0 | gemessen |
 | `write` an Offset 10 auf die 5-Byte-Datei: auf der Karte 12 Byte, die Lücke 5 bis 9 ist 0 | gemessen |
 | Gleiche Zahlen auf Hacktribe, rot und blau | gemessen |
-| 4 KiB plus 16 Byte aus dem Heap sind 0,2 % der freien 1,9 MB nach dem Start | hergeleitet (`2026-11-11-spettro-worker-platz.md`) |
+| 4 KiB plus 16 Byte aus dem Heap sind 0,2 % der freien 1,9 MB nach dem Start | hergeleitet (Heap-Pool: [Systemspeicher offline](2026-10-08-systemspeicher-offline.md)) |
 
 ## Offen
 

@@ -1,7 +1,7 @@
 # Live-Schreibwege: Pattern, Parts und Global
 
-Stand 3. November 2026. Gemessen im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau,
-jeweils mit dem BLECH-Satz. Fälle: `tools/emu/live_write_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät
+Gemessen im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau,
+jeweils mit dem [BLECH](../glossary.md#blech)-Satz. Fälle: `tools/emu/live_write_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät
 nicht geprüft.** Die Ergebnisse stehen je Feld als `live` in der [Gerätekarte](../geraetekarte.md).
 
 ## Frage
@@ -29,8 +29,7 @@ die Anzeige)?
 Das Pattern-Objekt steht in `[0xC033E6A4]`, sein Block ab +4. Offsets unten sind Block-Offsets. Hinter dem Block
 (Block-Offset 0x4000 und höher) liegt die Kopie, die die Klangerzeugung liest; der Schreiber dafür ist `0xC004B208`
 (blau `0xC0045120`) mit `(Objekt + 0x401C, x, Parameter, Wert)`. Er ist ein Verteiler: mit einer 1 als erstem Wert auf dem
-Stack ruft er danach den Weg des Parameters zur Klangerzeugung (Befund aus PR #401,
-[Messung](2026-11-09-plugin-part-dsp.md)). Das Global-Objekt steht in `[0xC033E6A0]`, sein Block
+Stack ruft er danach den Weg des Parameters zur Klangerzeugung ([Messung](2026-11-09-plugin-part-dsp.md)). Das Global-Objekt steht in `[0xC033E6A0]`, sein Block
 ab +4. Rot hat dieselben Adressen wie Hacktribe; die blauen stehen in `data/synth-map/live-write.json`.
 
 ## Pattern (gemessen)
@@ -53,9 +52,9 @@ Setter mit `(Pattern-Objekt, Wert, 1)`, Alternate mit `(Pattern-Objekt, welches,
 | Chain To | 15104, u16 | `0xC004A5B0` | `0xC0044690` | ja | nur die Meldung |
 | Chain Repeat | 15106 | `0xC004A5D4` | `0xC00446B4` | ja | nur die Meldung |
 
-Das Menü schreibt Gate Arp auf Seite 11 (Index 10), Byte 49. Das Feld fehlte bisher in der Karte.
+Das Menü schreibt Gate Arp auf Seite 11 (Index 10), Byte 49.
 
-Alternate 13-14 im Emulator (Hacktribe 2.02 und BLECH-Testfirmware, gemessen): ist es an und hat Part 14 auf demselben Schritt
+Alternate 13-14 im Emulator (Hacktribe 2.02 und BLECH-Firmware, gemessen): ist es an und hat Part 14 auf demselben Schritt
 einen Step, startet der Sequenzer für Part 13 keine Stimme, auch wenn Part 14 stumm ist. Pad 13 im Stopp klingt. EXIT + Pad und
 Copy Part ändern Alternate nicht, es ist ein Byte des Patterns.
 
@@ -72,8 +71,7 @@ dann MFX HOLD zweimal.
 | Pad Y | 63 | `0xC0048984` | `0xC0042BDC` | nein | Kopie, Parameter 5 |
 | Hold | 65 | `0xC00489E4` | `0xC0042C3C` | nein | Kopie, Parameter 6; setzt auch Byte 60 |
 
-Byte 60 ist 1, solange das Pad im Master-FX-Modus berührt ist, und geht beim Loslassen auf 0. Auch dieses Feld fehlte
-in der Karte.
+Byte 60 ist 1, solange das Pad im Master-FX-Modus berührt ist, und geht beim Loslassen auf 0.
 
 TOUCH SCALE und GATE ARP als Tasten und eine Berührung in diesen Modi schreiben nichts ins Pattern. Ein Lesezugriff auf
 die Bytes 44 bis 59 kam in keinem Lauf vor (Menüs, Tasten, Regler, Pad). Der Umfang von Touch Scale steht in den
@@ -109,7 +107,7 @@ Die Seiten des Part-Menüs schreiben in dieser Reihenfolge: Last Step, Groove, G
 Motion Sequence, Pad Velocity, Scale Mode; die neunte Seite schreibt nichts. Auf allen drei Firmwares gleich.
 
 Last Step: Das Menü geht von 0 bis 15, das Display zeigt 0 als 16 und 1 bis 15 wie sie sind (Bild des Displays
-gelesen). Bisher stand das Feld als unbekannt in der Karte.
+gelesen).
 
 ## Global (gemessen)
 
@@ -158,20 +156,3 @@ Pattern, bis ihn die Firmware das nächste Mal liest.
 - **Motion und Samples**: nicht untersucht.
 - **Am Gerät**: keine Zeile ist am Gerät geprüft. Eine Zwillingsprobe im Emulator zeigt, was die Firmware im RAM tut,
   nicht ob die Klangerzeugung zwischendurch einen alten Wert hört.
-
-## Vergleich mit einem anderen Pattern-Editor
-
-Ein anderer Editor für Electribe-Patterns, dessen Quelltext wir gelesen haben, kennt im Pattern den Namen, Tempo (34), Swing (36), Länge (37), Beat (38, 0 bis 3), Key (39), Scale (40,
-0 bis 34), je Part Last Step (0), Mute (1) und Sample (8), dazu die Steps (ab 0x30, 12 Byte, An, Gate, Velocity,
-Trigger, Noten 4 bis 7). Alle diese Offsets stimmen mit der Karte überein.
-
-Unterschiede:
-
-- **Last Step**: der Editor nennt 0 als 64 und 1 bis 63 wie sie sind. Im Emulator geht das Menü nur bis 15, und 0
-  zeigt 16. Ob die Firmware Werte über 15 aus einer Datei annimmt, ist nicht geprüft.
-- **Beat**: die Karte erlaubt 4 (Achtel, nur mit BLECH), der Editor nur 0 bis 3.
-- Der Editor kennt Chord Set, Play Level, Gate Arp, Alternate, Chain, Groove, die Master-Effekt-Bytes und alle Werte
-  von Part-Byte 2 an nicht.
-
-Er beschreibt nur Bytes in Dateien, keinen Schreibweg im laufenden Gerät. Für `live` gibt es dort nichts zu
-vergleichen.

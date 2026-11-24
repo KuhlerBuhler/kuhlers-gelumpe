@@ -5,8 +5,7 @@
 - **Gemessen am Gerät, 7. Oktober 2026:** `[0x800000, 0x1000000)` in
   512 Blöcken à 0x4000 Byte vollständig gelesen, letzter Start 0xFFC000.
   8.388.608 Byte in 40,757 Sekunden, keine fehlende Antwort. Kanal aus
-  Device Search. Leser vorher gegen SimDevice auf Kanal 9 geprüft;
-  Timeoutfall stoppt beim ersten fehlenden Reply. Kein Zugriff ab 0x1000000.
+  Device Search ([SysEx](../glossary.md#sysex)). Kein Zugriff ab 0x1000000.
 - **Gemessen:** SHA256 nach Lesen und Transfer:
   `f0fe0ef0ccdd3227cfa5dd3436a9415f64dfd9ba4ac2ddba5d44c982afc68e38`.
 - **Gemessen am alten Dump vom 14. September:** Kennungen bei 0x000000

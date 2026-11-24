@@ -1,8 +1,8 @@
 # Pattern-Export unter BLECH: wohin, und was in der Datei steht
 
-Stand 28.10.2026, Emulator mit dem vollen BLECH-Satz auf vier Basen: Korgs Original rot, Hacktribe rot, Hacktribe auf
-der blauen, Korgs Original blau (Synth-Satz). Anlass: zwei Meldungen im Discord, der Export komme nicht auf der Karte an
-und der Import zeige nur alte Patterns. Die Prüfskripte lagen außerhalb des Repos und sind nicht eingecheckt.
+[Emulator](../glossary.md#emulator) mit dem vollen [BLECH](../glossary.md#blech)-Satz auf vier Basen: Korgs Original rot, [Hacktribe](../glossary.md#hacktribe) rot, Hacktribe auf
+der blauen, Korgs Original blau (Synth-Satz). Anlass: zwei Nutzermeldungen, der Export komme nicht auf der Karte an
+und der Import zeige nur alte Patterns.
 
 | Befund | Marker |
 |---|---|

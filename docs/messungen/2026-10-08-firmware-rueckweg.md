@@ -1,6 +1,6 @@
 # Firmware-Rückweg: geprüfte Quellen und getrennte Verfahren
 
-Stand: 8. Oktober 2026. **Quellen geprüft**, keine Firmware aufgespielt.
+**Quellen geprüft**, keine Firmware aufgespielt. Die Firmware-Datei heißt [VSB](../glossary.md#vsb).
 
 ## Normaler Updateweg bei laufender Firmware
 
@@ -30,7 +30,7 @@ Synth gilt `KORG/electribe/System/SYSTEM.VSB`.
 Das ist vom Hacktribe-Menüpfad zu unterscheiden.
 
 **Hacktribe-Dokumentation:** Bleibt das Gerät ohne passende Updateabfrage
-beim Start hängen, beschreibt der Hersteller von Hacktribe JTAG/OpenOCD als
+beim Start hängen, beschreibt der Hersteller von [Hacktribe](../glossary.md#hacktribe) [JTAG](../glossary.md#jtag)/OpenOCD als
 Reparaturweg. Ein defekter Secondary Bootloader benötigt dessen separate
 Wiederherstellung. Die Anleitung nennt keinen universellen USB-/SD-Modus,
 der ohne weitere Voraussetzung jede fehlerhafte Anwendung repariert.
@@ -46,7 +46,4 @@ Hin-/Rück-Updateversuch schreibt Flash und ist ein eigener Versuch; er wurde
 bei dieser Untersuchung nicht ausgeführt. Eine absichtlich defekte Firmware
 ist kein notwendiger Schritt dieser Quellenprüfung.
 
-Die Quellenprüfung erfüllt den ersten Schritt der Vorbedingung im Konzept, den
-Rückweg vor dem Firmware-Schreiben zu erproben.
-Sie ersetzt weder einen tatsächlich durchgeführten Hin-/Rück-Updateversuch
-noch eine Bestätigung des Reparaturwegs durch eine zweite Person.
+Der geübte Rückweg steht in [2026-10-10-rueckweg-geuebt.md](2026-10-10-rueckweg-geuebt.md).

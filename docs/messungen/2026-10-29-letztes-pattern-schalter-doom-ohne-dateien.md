@@ -1,6 +1,6 @@
 # Schalter LAST PATTERN und Doom ohne Dateien
 
-Stand 29.10.2026, nur Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau), kein Gerät. Zu
+Nur [Emulator](../glossary.md#emulator) ([Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau), kein Gerät. Zu
 [Letztes Pattern beim Einschalten](2026-10-28-letztes-pattern.md) und dem Doom-Lader
 (`data/patches/doom-loader.json`, `tools/doom/bootstrap.c`).
 
@@ -32,22 +32,9 @@ BLECH-Satz auf Hacktribe 2.02, Karte mit `KORG/blechtribe`, Zeit seit dem Einsch
 - Die Seite in BLECH > FEATURES, WRITE, Neustart und EXIT beim Einschalten: `tools/emu/menu_cases.py`,
   `last_pattern_menu_cases`. **gemessen (Emulator)**
 
-## Doom ohne Dateien, vor der Änderung
+## Doom ohne Dateien
 
-SHIFT + TAP beim Einschalten, BLECH-Satz vom 29.10. (develop):
-
-| Karte | Was passierte | Marker |
-|---|---|---|
-| ohne `KORG/blechtribe/Doom` | `DOOM BOOT`, sechs Versuche `doom.bin` zu öffnen im Abstand von 0,5 s, dann `DOOM ERROR`, `POWER OFF`, Code `00000205`; das Gerät bleibt dort stehen, nur Ein/Aus führt heraus | gemessen (Emulator) |
-| nur `doom.bin` | der Lader springt in Doom, nach 2 s steht der Zustand auf Fehler (Stufe `0x80000000`), kein Sampler | gemessen (Emulator) |
-| keine Karte | sofort `DOOM ERROR`, Code `00000100` | gemessen (Emulator) |
-
-Vor dem Lesen schaltete der Lader den Systemtakt für Doom um (`0xC0025754(1)`, `0xC00005A0(8)`,
-`0xC0025A14(1)`, `0xC003FD20()`); danach startet kein Sampler mehr.
-
-## Doom ohne Dateien, nach der Änderung
-
-Der Lader öffnet `doom.wad` und `doom.bin` jetzt vor diesen Aufrufen. Die Karte ist an der Stelle schon lesbar
+SHIFT + TAP beim Einschalten startet den Doom-Lader. Er öffnet `doom.wad` und `doom.bin`, bevor er den Systemtakt für Doom umschaltet (`0xC0025754(1)`, `0xC00005A0(8)`, `0xC0025A14(1)`, `0xC003FD20()`); danach startet kein Sampler mehr. Die Karte ist an der Stelle schon lesbar
 (siehe 73 ms und 99 ms oben). Antwortet FatFs mit "keine Datei", "kein Pfad", "kein Laufwerk" oder "kein
 Dateisystem" (4, 5, 11, 13), oder ist keine Karte angemeldet, kehrt der Lader zurück und der Start läuft weiter wie
 ohne SHIFT + TAP. Andere Fehler (Karte noch nicht bereit) gehen den alten Weg mit sechs Versuchen und `DOOM ERROR`.

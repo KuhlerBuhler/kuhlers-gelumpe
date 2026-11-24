@@ -1,14 +1,13 @@
 # Plugin API 24: Schreibwege wie Regler, Tasten und Menüseiten, MIDI-CC, Fensterschalter
 
-Stand 8. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
-mit dem BLECH-Satz. Fälle: `tools/emu/plugin_api24_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.**
+**Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+mit dem [BLECH](../glossary.md#blech)-Satz. Fälle: `tools/emu/plugin_api24_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.**
 
 ## Frage
 
-Für 1.4.5 soll jeder Wert, den ein Regler, Drehgeber oder eine Taste am Gerät setzt, über die Plugin-API setzbar sein und sich
-dabei verhalten wie die Bedienung am Gerät. Nach API 23 ([Messung](2026-11-07-plugin-api23-part-writes.md)) fehlten: der MIDI-CC
-der Regler und Tasten, der Part-Edit auf blau, sieben Part-Werte, fünf Pattern-Werte und die Slices beim Sample. Dazu soll ein
-Plugin das Parameterfenster abschalten können.
+Jeder Wert, den ein Regler, Drehgeber oder eine Taste am Gerät setzt, ist über die [Plugin](../glossary.md#plugin)-API setzbar und verhält sich dabei wie die
+Bedienung am Gerät, mit MIDI-CC, Part-Edit auf blau, Part- und Pattern-Werten, Slices beim Sample und einem Schalter für das
+Parameterfenster. Grundlage: [API 23](2026-11-07-plugin-api23-part-writes.md).
 
 ## Weg
 

@@ -1,12 +1,12 @@
 # Modulationsarten, Stufe 2: was die übrigen Bytes eines Eintrags tun
 
-Stand 2026-10-15. Kein Gerätezugriff. Alles ist im Emulator gemessen (Firmware 2.02 mit Hacktribe, eigene
-`SYSTEM.VSB`, eigener Flash-Dump), nichts am Gerät. [`tools/emu/modtable_probe.py`](../../tools/emu/modtable_probe.py)
+Kein Gerätezugriff. Alles ist im [Emulator](../glossary.md#emulator) gemessen (Firmware 2.02 mit [Hacktribe](../glossary.md#hacktribe), eigene
+[`SYSTEM.VSB`](../glossary.md#vsb), eigener Flash-Dump), nichts am Gerät. [`tools/emu/modtable_probe.py`](../../tools/emu/modtable_probe.py)
 wiederholt jede Messung (`E2_VSB=... E2_FLASH=... tools/emu/.venv/bin/python tools/emu/modtable_probe.py`, rund zehn
 Minuten auf vier Prozessen), die Namen der Prüfungen stehen in Klammern. Marker: **gemessen (Emulator)**, **offline** (Code
 gelesen, nicht ausgeführt), **hergeleitet**, **offen**.
 
-Stufe 1 machte Name, Ziel, Vorgabetiefe, Vorgabe-Speed und Kurve der 72 Arten bearbeitbar
+Name, Ziel, Vorgabetiefe, Vorgabe-Speed und Kurve der 72 Arten sind bearbeitbar
 ([Stufe 1](2026-10-14-offene-fragen.md), Abschnitt 9). Hier geht es um alles ab Byte `+0x14` eines Eintrags: was die
 Firmware davon liest, was es tut, was nichts liest. Eine Messung verändert die Tabelle, die die Firmware liest (RAM
 `0xC019FFFC`, live) oder eine gebootete Kopie der Firmware-Datei, wählt eine Art mit MOD. TYPE, stellt MOD. DEPTH und
@@ -15,7 +15,7 @@ MOD. SPEED, spielt eine Note auf Part 1 und sieht an drei Stellen nach:
 - am **Zustand je Part im RAM**: neun Byte je Part (`0xC06924DD`, drei Ausgänge für die Geschwindigkeit und sechs
   Slot-Stärken) und, bei jedem Aufruf der Modulations-Engine, was sie je Ziel aufsummiert (elf Wörter bei `0xC069FEC8`);
 - am **Display** (Prüfsumme des Bildspeichers nach der Wahl der Art und nach dem Stellen der Regler);
-- an dem, was der **ARM dem DSP über das Postfach** schickt (die Pakete an `0xFF900A34`, je Befehl und Wort
+- an dem, was der **ARM dem [DSP](../glossary.md#dsp) über das Postfach** schickt (die Pakete an `0xFF900A34`, je Befehl und Wort
   verglichen, siehe [dsp-erster-blick.md](../hintergrund/dsp-erster-blick.md), Abschnitt 2).
 
 **Offsets** sind die der [Gerätekarte](../geraetekarte.md) (`table.modType`, Fenster ab Dateioffset `0x1A00FC`). Das Fenster
@@ -39,7 +39,6 @@ Oszillatoren (`layout.record_start`, `layout.record_end`).
 | Was ist `+0x1D`? | Phase-Reset: mit gesetztem Merker springt die LFO-Phase bei manchen Anschlägen auf 0 | gemessen (Emulator), Bedingung offen |
 | Was bleibt? | 30 Byte je Eintrag, die nichts liest, und die Zwischenwerte `+0x1F`, `+0x25` und je Slot `+2` (nachgerechnet, nie gelesen) | gemessen (Emulator) |
 | Was kommt am DSP an? | nicht die Tabelle: die Engine rechnet im ARM, am DSP kommen ihre Ergebnisse als Wörter in den Paketen für Pitch, OSC, Filter, Level und Pan an | gemessen (Emulator) |
-| Was ließe sich als Nächstes bearbeiten? | Wellenform, die Slots (Ziel, Stärke, Tiefe folgt), die Geschwindigkeitsbereiche, Phase-Reset; Tempo-Sync nur zusammen mit dem passenden Bereich | Abschnitt 11 |
 
 ## 1. Der Eintrag Byte für Byte
 
@@ -292,37 +291,7 @@ Engine, der Speicher je Part und die Pakete zum DSP sind gleich und unterscheide
 Was die Firmware erst beim Einschalten liest (die Vorgaben), wirkt nach einem Neustart mit der neuen Datei; alles andere liest
 sie bei jedem Aufruf.
 
-## 11. Vorschlag: was sich als Nächstes bearbeiten ließe
-
-Nur Felder mit klarer, harmloser Wirkung. Die Oberfläche ist hier nicht gebaut. Jedes Feld schreibt wie in Stufe 1 in die Kopie
-der Tabelle, die die Firmware liest, und geht durch die Prüfung im Emulator.
-
-| Reihenfolge | Feld | Form in der Oberfläche | Grenzen |
-|---|---|---|---|
-| 1 | Kurve `+0x1C` (Stufe 1 hat sie schon) | Auswahl der sieben Wellenformen statt 0 bis 255 | 0 bis 6; 7 ist doppelt, ab 8 liest die Firmware hinter eine Tabelle. Wirkt nur bei Slots mit Quelle LFO |
-| 2 | Slots 0 bis 4: Ziel, Stärke von und bis, Tiefe folgt | je Slot eine Zeile: Ziel (Aus, Pitch, OSC, Filter, Level, Pan, IFX), Stärke als zwei Zahlen, ein Schalter | Ziele 0, 1, 2, 3, 8, 9, 10; Stärke -63 bis 63, positiv als "von kleiner als bis", negativ gespiegelt; die Quelle nicht einzeln, sie gehört zur Art (Hüllkurve oder LFO). So bekommt eine Art mehrere Ziele, etwa Pitch und Filter zugleich |
-| 3 | Geschwindigkeit `+0x20`, `+0x21`, `+0x28`, `+0x29` | zwei Zahlen "MOD. SPEED läuft von ... bis ..." je Art | 0 bis 127 bei freier Rate, 1 bis 16 bei Notenschritten; "von größer als bis" dreht den Regler um |
-| 4 | Phase-Reset `+0x1D` | ein Schalter | 0 oder 1 |
-| 5 | Tempo-Sync `+0x1E`, `+0x24` | nur als Umschalter "frei oder Tempo", der das Paar mitsetzt (0 bis 127 oder 1 bis 16) | ein Merker allein ohne das Paar macht den LFO oder die Hüllkurve viel zu langsam oder schnell |
-
-Nicht vorschlagen: die 30 unbenutzten Bytes und die Zwischenwerte (nichts liest sie), die Zielcodes 4 bis 7 (Wirkung am Klang
-offen), den sechsten Slot (er liegt halb im nächsten Fenster), das Byte "Ziel" `+0x19` (nur ein Etikett; die Seite sagt es
-schon). Das Feld "Ziel" der Seite ließe sich durch die Slot-Ziele ersetzen. Die Hinweise der Seite zu Ziel und Kurve nennen
-noch den Stand von Stufe 1. Namen mit 16 Zeichen gehen, "bis zu 16 Zeichen" auf der Seite stimmt.
-
-## 12. Berichtigungen zu Stufe 1 und was offen bleibt
-
-Berichtigt gegenüber [Stufe 1](2026-10-14-offene-fragen.md), Abschnitt 9.4:
-
-- `+0x24` ("BPM") ist nicht bei allen Arten mit Tempo 1, sondern nur bei den zwölf Hüllkurven mit Tempo. Die 36 LFOs mit
-  Tempo laufen über `+0x1E` (ihr `+0x24` ist 0).
-- Der sechste Slot ist nicht abgeschnitten: seine Bytes hinter dem Fenster sind die letzten vier Byte desselben
-  Datensatzes (das Fenster der Karte liegt vier Byte vor dem Datensatz) und wirken, wenn sie gesetzt sind.
-- Was in Stufe 1 offen blieb: `+0x1D` ist der Phase-Reset, `+0x2C` die Quelle des Slots (0 Hüllkurve, 1 LFO), `+0x2E` ein nie
-  gelesener Zwischenwert (wie `+0x1F` und `+0x25`).
-- Die Kurve ist eine Wellenform mit den sinnvollen Werten 0 bis 6; der Bereich 0 bis 255 der Karte ist zu weit.
-
-Offen:
+## 11. Offen
 
 - Warum der Phase-Reset nicht bei jedem Anschlag eintritt (Abschnitt 6).
 - Was die Zielcodes 4 bis 7 am Klang tun und was die Pakete zu IFX (10) und zu den Codes 6 und 7 am DSP ändern.
@@ -336,13 +305,3 @@ Offen:
 `table`, `model`, `slots`, `targets`, `curve`, `speed`, `flags`, `unread`, `scratch` und `copy` laufen einzeln (`--only`),
 `--json` schreibt die Zahlen dahinter. Die Läufe nutzen vier Prozesse (`GELUMPE_JOBS`), jeder startet die Firmware aus einem
 Schnappschuss des Boots. Die Prüfungen verändern die Tabelle im RAM des Emulators oder eine Kopie der Datei, nie die Datei selbst.
-
-## Was im Repository neu ist
-
-- Dieses Dokument.
-- `tools/emu/modtable_probe.py`.
-- `data/map/firmware.mjs`: die Felder ab `+0x14` einzeln statt des Blocks `modType.unknown`, Evidenz
-  `measure:2026-10-15/modulation-stufe2`; sie haben keinen Transportweg, die bearbeitbaren sind im Expertenmodus. Notizen an
-  `modType.target` und `modType.curve`.
-- `data/findings.mjs`: die Befunde dieser Datei.
-- `test/modtable.test.mjs`: jedes Byte ab `+0x14` hat ein Feld.

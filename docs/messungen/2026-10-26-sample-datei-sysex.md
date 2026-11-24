@@ -1,10 +1,10 @@
 # Die Sample-Datei über SysEx, 2026-10-26
 
-Stand 2026-10-26. Alles im Emulator, mit Hacktribe 2.02, Korgs Original 2.02 und der blauen Electribe 2 (Synth), jeweils mit dem BLECH-Satz.
+Stand 2026-10-26. Alles im Emulator, mit [Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 und der blauen Electribe 2 (Synth), jeweils mit dem [BLECH](../glossary.md#blech)-Satz.
 Die Dateien der Karte sind aus einer Formel gebaut, nichts ist von Korg. **Am Gerät ist nichts gemessen.** Markierungen: **gemessen**
 (im Emulator ausgeführt), **offline** (Code gelesen), **offen**.
 
-Frage: Kann der Editor `KORG/<Ordner>/Sample/e2sSample.all` über BLECHs SysEx-Befehle lesen, ändern, kürzen und Samples hinzufügen, ohne
+Frage: Kann der Editor `KORG/<Ordner>/Sample/e2sSample.all` über BLECHs [SysEx](../glossary.md#sysex)-Befehle lesen, ändern, kürzen und Samples hinzufügen, ohne
 mehr als den Kopf und die neuen Samples zu übertragen, und ohne die Karte zu gefährden?
 
 ## Befund

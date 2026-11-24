@@ -2,7 +2,7 @@
 
 Stand 2026-10-17. Gemessen per SSH auf einem Windows-PC, auf dem die App 1.0.0 den Fehler
 "Der Emulator auf Port N antwortet nicht" zeigte: Intel Core i7-7700K, Windows 10 Home
-22H2 (Build 19045). Firmware: eine eigene `SYSTEM.VSB` mit BLECH auf Hacktribe.
+22H2 (Build 19045). Firmware: eine eigene `SYSTEM.VSB` mit [BLECH](../glossary.md#blech) auf [Hacktribe](../glossary.md#hacktribe).
 Markierungen: **gemessen**, **hergeleitet**.
 
 - **Gemessen:** Der Dienst startet und antwortet. Beim Start der Firmware verschwindet der

@@ -1,11 +1,10 @@
-# Vorschau: ein gedrückter Part kommt ins laufende Pattern (30.10.)
+# Vorschau: ein gedrückter Part kommt ins laufende Pattern
 
-Entschieden am 30.10. ([Idee 82](../ideen/82-vorschau-part-reinholen.md)): Wird in der Vorschau (`VIEW:` oder `NEXT:`,
-[Vorschau-Pads](2026-10-29-vorschau-pads.md)) ein Pad im Modus PART MUTE zum ersten Mal gedrückt (seit dem Test am Gerät
-am 30.10. auch bei einem Part, der in B nicht stumm ist), kopiert die Firmware-eigene Funktion Copy
+Wird in der Vorschau (`VIEW:` oder `NEXT:`,
+[Vorschau-Pads](2026-10-29-vorschau-pads.md)) ein Pad im Modus PART MUTE zum ersten Mal gedrückt (auch bei einem Part, der in B nicht stumm ist), kopiert die Firmware-eigene Funktion Copy
 Part diesen Part des angesehenen Patterns in das laufende Pattern, und er spielt sofort, ohne Patternwechsel.
 
-Gebaut in `tools/patch/pattern_switch.py`, im Emulator geprüft mit Hacktribe, Korgs Original rot und blau. Am Gerät noch nicht
+Gebaut in `tools/patch/pattern_switch.py` ([Patch](../glossary.md#patch)), im [Emulator](../glossary.md#emulator) geprüft mit [Hacktribe](../glossary.md#hacktribe), Korgs Original rot und blau. Am Gerät noch nicht
 geprüft.
 
 ## Copy Part in der Firmware (gemessen, Emulator)
@@ -33,8 +32,6 @@ Part im RAM gleicht dem der Bank Byte für Byte, beide Banken unverändert. Das 
   in `V_PEND` und `V_COPY` (hinter `VIEW_W`, `+0x5C` und `+0x60`, je Part ein Bit) und geht weiter an die Firmware, egal ob der Part
   in der Bank stumm ist. Ein Part in `V_COPY` geht mit jedem weiteren Druck weiter: die Firmware schaltet sein Mute im laufenden
   Pattern, die Ansicht kippt ihres mit, beide bleiben gleich.
-- Bis zum Test am Gerät (30.10.) schaltete der erste Druck auf einen Part, der in B nicht stumm ist, ihn nur in der Ansicht stumm, das
-  Pad ging aus. Gemeldet als Fehler: ein leuchtender Part in B soll beim Druck auch im laufenden Pattern angehen.
 - `view_copy` am Aufruf des Setters (`0xC0060D34`): steht der Part (oder bei einem Stereo-Paar der rechts daneben) in `V_PEND`, ruft
   der Patch Copy Part mit Quelle angesehenes Pattern und Part, Ziel derselbe Part, dann den Setter mit "nicht stumm". Copy Part liest
   die Quelle aus dem RAM, wenn sie die gewählte Nummer ist, und das ist in der Ansicht die angesehene: für den Aufruf steht dort die
@@ -43,9 +40,9 @@ Part im RAM gleicht dem der Bank Byte für Byte, beide Banken unverändert. Das 
 - Jede neue Ansicht und ihr Ende ohne Wechsel löschen `V_PEND` und `V_COPY`. Der kopierte Part bleibt im laufenden Pattern bis zum
   nächsten Laden. Nichts geht in die Bank, auf die Karte oder ins Flash.
 
-## SHIFT + PART MUTE: die Pads zwischen B und A umschalten (30.10.)
+## SHIFT + PART MUTE: die Pads zwischen B und A umschalten
 
-Entschieden am 30.10.: in der Vorschau schaltet SHIFT + PART MUTE, wem die Pads gehören. Die Vorschau beginnt beim angesehenen
+In der Vorschau schaltet SHIFT + PART MUTE, wem die Pads gehören. Die Vorschau beginnt beim angesehenen
 Pattern B (alles oben). Nach SHIFT + PART MUTE zeigen und schalten die Pads die Mutes des laufenden Patterns A, wie ohne Vorschau.
 Noch einmal, und sie gehören wieder B.
 
@@ -62,13 +59,15 @@ Was die Firmware damit tut (gemessen, Emulator, alle drei Builds, Fälle unten):
 Was der Patch tut:
 
 - `view_shift` am Lesen von SHIFT: ohne SHIFT oder ohne Vorschau weiter wie die Firmware. Mit SHIFT und Vorschau kippt er `V_SIDE`
-  (hinter `VIEW_W`, `+0x64`, 1 heißt Seite A), löscht `V_PEND` und `V_COPY`, setzt den Zeiger der Pad-LEDs (`0xC0691388`) auf das
+  (hinter `VIEW_W`, `+0x64`, 1 heißt Seite A), behält in `V_COPY` die geholten Parts (auch die, deren eigener Part in `V_BACK` noch
+  wartet), nimmt die nur vorgemerkten aus `V_PEND` heraus, löscht `V_PEND` und `V_BACK`, setzt den Zeiger der Pad-LEDs (`0xC0691388`) auf das
   Pattern im RAM (Seite A) oder auf die Ansicht (Seite B), zeichnet die Pads neu und springt dorthin, wo beide Wege der Firmware enden.
   Die Mutes aufheben fällt in der Vorschau also weg.
 - Seite A: `view_pad` gibt jeden Druck an die Firmware, wie ohne Vorschau (auch im SEQUENCER, dann schalten die Pads die Steps von A).
   Die Farbe der Pads ist die normale, weil der Zeiger auf das Pattern im RAM zeigt. Die Infotexte der Edit-Zeile bleiben bei B.
-- Zurück auf B: weil `V_COPY` leer ist, holt der erste Druck einen Part wieder, auch einen, der vorher schon geholt war. Die auf B
-  gesetzten Mutes bleiben und gehen beim Wechsel mit.
+- Zurück auf B: ein geholter Part bleibt geholt, sein Pad leuchtet fest, ein Druck schaltet ihn aus. Ein auf A zurückgegebener Part
+  blinkt wieder und wird mit einem Druck neu geholt. Die auf B gesetzten Mutes bleiben und gehen beim Wechsel mit (`vn_end` in
+  `tools/patch/pattern_switch.py`).
 - Das Rad innerhalb der Vorschau behält die Seite (`pc_view_cells` lässt auf Seite A den Zeiger der Pads beim Pattern im RAM). Endet
   die Vorschau, auch wenn das Rad auf das laufende Pattern zurückgeht, setzt `view_new` die Seite auf B.
 - Neuer Zustand: `VIEW_W` hat jetzt 0x68 Byte. Der Code liegt weiter zwischen `0xC0173480` und `0xC0173800`.

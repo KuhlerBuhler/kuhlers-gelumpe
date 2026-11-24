@@ -1,44 +1,25 @@
 # Panel-Controller: eigener Mikrocontroller hinter Tasten, Reglern und LEDs
 
-Stand 2026-10-24. Nur offline: VSB gelesen, Panel-Firmware disassembliert, Panel-Update im Emulator
+Nur offline: VSB gelesen, Panel-Firmware disassembliert, Panel-Update im Emulator
 gegen ein nachgebautes Boot-ROM gefahren. Am Gerät nichts. Marker: **gemessen** (im Emulator oder
 an den Bytes der VSB), **hergeleitet** (aus gelesenem Code, nicht laufen gesehen), **offen**.
 Keine Bytes, keine Listings von Korg im Repo; `tools/emu/panel_mcu.py` liest alles aus der eigenen VSB.
 
-Das Bedienfeld ist ein eigener Rechner an UART0 (5-Byte-Nachrichten, siehe
+Das Bedienfeld (Panel) ist ein eigener Rechner an UART0 (5-Byte-Nachrichten, siehe
 [Panel-Bedienung](../messungen/2026-10-08-panel-bedienung.md)). Seine Firmware steckt in jeder
-`SYSTEM.VSB`, und die ARM-Firmware schreibt sie neu, wenn das Panel nicht `0x96` meldet.
+[`SYSTEM.VSB`](../glossary.md#vsb), und die ARM-Firmware schreibt sie neu, wenn das Panel nicht `0x96` meldet.
 
-## Belegtabelle
+## Der Chip
 
-| Aussage | Status | Beleg |
-|---|---|---|
-| Panel-Abbild in der VSB: Hacktribe und Stock ab VSB `0xC6138` (RAM `0xC00C6038`), `0x9700` Byte; Synth ab VSB `0xB0B10` | gemessen | `panel_mcu.py --vsb X.VSB` |
-| RAM-Lader dazu, `0x400` Byte, direkt hinter seinem Längenwort (Hacktribe VSB `0xCF864`) | gemessen | `panel_mcu.py` |
-| Abbild und Lader sind in Stock, Hacktribe und Synth gleich (SHA-256 `f3ba3b25…`, Lader `9fe8a5cb…`) | gemessen | `panel_mcu.py` je VSB |
-| CPU ist ein ARM Cortex-M3: Vektortabelle mit Stack `0x20004000`, Reset `0x60DD` (Thumb), Thumb-2-Code | gemessen | `panel_mcu.py`, `objdump -M force-thumb` |
-| Familie Fujitsu/Spansion FM3 (heute Infineon): Watchdog-Schlüssel `0x1ACCE551` an `0x40011C00`, Takt `0x40010000`, GPIO `0x40033000`, Base Timer `0x40025000`, zwei ADC `0x40027000`/`0x40027100`, UART (MFS) `0x40038000`, SRAM `0x1FFFC000` bis `0x20003FFF` | hergeleitet | Panel-Code im Unicorn bis zur Hauptschleife, Registerzugriffe mitgeschrieben |
-| Genaues Bauteil, Flashgröße | offen | |
-| Version `0x96` steht fest im Panel-Code (Antwort auf `0x80`) | hergeleitet | Panel-Code `0x2E1C` |
-| Panel-Takt 40 MHz: UART-Teiler 346 ergibt 115200 Baud nur bei 40 MHz | hergeleitet | Schreibzugriff `0x4003800C = 0x15A` |
-| Update läuft in 12 Zuständen, Ablauf siehe unten, gegen das Boot-ROM-Modell vollständig bis „Please Reboot“ | gemessen | `panel_mcu.py --simulate` |
-| Fehler beim Zurücklesen: „Error / Unknown Error.“, kein Reset des Panels | gemessen (Anzeige), hergeleitet (Reset) | `panel_mcu.py --simulate --corrupt 3`, `0xC0036DD8` |
-| Das Zurücklesen prüft nur 150 der 151 Seiten | gemessen | `--simulate`: nach Seite 150 kein `0xC8` mehr |
-| Ohne gültige Antwort auf `0x80` (Wert 0) zeigt das Gerät „Working…“ und startet das Update nach rund 8,7 s | gemessen | Emulator, `panel_version = 0` |
-| Ohne Antwort des Panels wartet der Update-Schritt unbegrenzt und zeigt „00“ | gemessen | Emulator 60 s, Version `0x95`, keine Boot-ROM-Antwort |
-| ADC-Werte nimmt das Panel als 10 Bit (Bits 11..2 des 12-Bit-Ergebnisses) | hergeleitet | Panel-Code `0x3D98` |
-| Regler gehen als 0..255 ans ARM, nicht 0..1023 | hergeleitet | Panel-Code `0x309C`, `0x3180` |
-| Touchpad geht als 0..1023 ans ARM, im Normalbetrieb auf Achterschritte gerundet | hergeleitet | Panel-Code `0x3780`, `0x4044` |
-| ARM teilt Touchpad durch 8 (`asr #3`) | hergeleitet | `0xC00458D8`, `0xC00458E4` |
-| Kalibrierung aus Flash `0x7FF000` geht als `85`/`86` ans Panel und wird dort angewandt | gemessen (Nachrichten), hergeleitet (Rechnung) | Emulator-Mitschnitt: `85 00 69 03 72`, `86 00 9c 03 2f`; Panel-Code `0x3EEC` |
-| Pads, Regler-LEDs, REC, PLAY, die blauen LEDs von 1 bis 4 und `0x4C` bis `0x57` bekommen im Panel einen PWM-Wert aus dem Byte 0..255 | hergeleitet | Panel-Code `0x4EBC`, Matrix `0x8460` Spalten 0 bis 6, `panel_mcu.py --leds` |
-| Die übrigen 32 Tasten-LEDs (Spalten 7 bis 10) kennen nur an oder aus: jeder Wert ab 1 leuchtet voll | hergeleitet | Scan `0x4F28` prüft dort nur `wert != 0` (`0x513A` bis `0x516E`), GPIO-Bit-Band `0x5310` bis `0x53A2`, `panel_mcu.py --leds` |
-| PWM-Periode im Timer: 4999 (Zählschritte 0 bis 4999), Tabelle `0x1FFFCB00` je Kanal, beim Booten gesetzt | gemessen im Emulator | `panel_mcu.py --vsb X.VSB --duty` |
-| Tastgrad-Wort je Wert 0..255: `4999 - floor(wert * 4999 / 255)`, bei 0 also 4999, bei 128 2490, bei 255 1; linear, für Pads und WRITE gleich gerechnet, auf Hacktribe, red und blue gleich | gemessen im Emulator | `panel_mcu.py --vsb X.VSB --duty`, LED `0x2D` und `0x0B` |
-| Beim Schreiben ins Register wird ein Wort ab der Periode auf Periode - 1 begrenzt (Wert 0 ergibt 4998) | hergeleitet | Panel-Code `0x7464`, Registerzeiger `0x86D4` |
-| Leuchtanteil etwa wert / 255, dazu ein Achtel durch die 8 Zeilen | hergeleitet | Polarität der Ausgänge nicht gemessen |
-| Pad-LEDs dimmen am Gerät | offen | nicht am Gerät geprüft |
-| Abtastrate je Regler, Pad, Touchpad | offen | nur der Grundtakt ist bekannt |
+- **Gemessen:** Abbild und Lader sind in Korgs Original, Hacktribe und Synth gleich (`panel_mcu.py --vsb X.VSB` nennt
+  Lage, Größen und Hashes). Das Panel-Abbild liegt in Hacktribe und Original ab VSB `0xC6138`, im Synth ab VSB `0xB0B10`.
+- **Gemessen:** Die CPU ist ein ARM Cortex-M3 (Vektortabelle mit Stack `0x20004000`, Reset `0x60DD`, Thumb-2-Code).
+- **Hergeleitet** (Panel-Code im Unicorn bis zur Hauptschleife, Registerzugriffe mitgeschrieben): Familie Fujitsu/Spansion
+  FM3 (heute Infineon): Watchdog-Schlüssel `0x1ACCE551` an `0x40011C00`, Takt `0x40010000`, GPIO `0x40033000`, Base Timer
+  `0x40025000`, zwei ADC `0x40027000` und `0x40027100`, UART (MFS) `0x40038000`, SRAM `0x1FFFC000` bis `0x20003FFF`.
+  Der Panel-Takt ist 40 MHz (UART-Teiler 346 ergibt 115200 Baud nur dort). Die Version `0x96` steht fest im Panel-Code
+  (Antwort auf `0x80`, Code `0x2E1C`).
+- **Offen:** genaues Bauteil, Flashgröße.
 
 ## Wo das Abbild liegt
 
@@ -146,8 +127,7 @@ gehaltene Tasten, `A0`/`A1` Kennung. Vom ARM (`0x2CB8`): `00` LED, `01 nn` (`0x2
   vermutlich die unteren RGB-LEDs, offen).
 - Nur an oder aus: alle übrigen Tasten-LEDs, auch STOP, TAP und die roten LEDs von 1 bis 4 (Liste
   `LED_ON_OFF` in `data/panel.mjs`). Power Save dimmt sie darum nicht, solange ihr Wert nicht 0 wird.
-- Ob die Pads am Gerät sichtbar dimmen: Pulsieren pulsiert flüssig (18.10.), die Messung vom 16.10.
-  sah alle Werte gleich hell, das ist offen.
+- **Offen:** ob die Pads am Gerät sichtbar dimmen.
 
 ## Auflösung: wo Bits verloren gehen
 
@@ -157,30 +137,24 @@ gehaltene Tasten, `A0`/`A1` Kennung. Vom ARM (`0x2CB8`): `00` LED, `01 nn` (`0x2
 | Touchpad | 12 Bit | 0..1023, aber normal in Achterschritten (128 Stufen) | 7 Bit (`>> 3`) |
 | Pads | offen | 16-Bit-Feld | offen |
 
-Die Angabe „Panel-Wert 0..1023“ für Regler in der Skript-Laufzeit passt nicht zum Panel-Code: das
-Panel schickt höchstens 255. Mit `02 nn 03 FF` lässt sich die ARM-Seite trotzdem füttern (gemessen in
-der [Panel-Bedienung](../messungen/2026-10-08-panel-bedienung.md)), vom echten Panel kommt das nicht.
+Im Emulator kommen Reglerwerte 0..1023 an, das echte Panel schickt höchstens 255. Mit `02 nn 03 FF` lässt sich die
+ARM-Seite trotzdem füttern (gemessen in der [Panel-Bedienung](../messungen/2026-10-08-panel-bedienung.md)), vom echten
+Panel kommt das nicht.
 
-## Was ein Patch gewinnen könnte
+**Was ein Patch an Auflösung gewinnen könnte** (hergeleitet, nichts davon gebaut):
 
-**ARM-Patch, Panel unverändert (geringes Risiko):**
+- ARM-Patch, Panel unverändert (geringes Risiko): Regler 1 Bit mehr (256 statt 128 Stufen), wenn die Firmware das
+  `>> 1` nicht macht. Mehr gibt das Panel nicht her, und die meisten Parameter sind 0..127. Touchpad: `83 01` beim Start
+  senden und das `>> 3` weglassen, dann kommen 0..1023 aus einem Rohbereich von rund 713 x 595 Schritten (mit der eigenen
+  Kalibrierung 105..882 und 156..815). Wie viel davon Rauschen ist, ist offen.
+- Panel-Patch (mittleres Risiko, nächster Abschnitt): Regler mit 10 Bit senden, das Format hat `hi lo`, nur das `>> 2` in
+  `0x309C`/`0x3180` fällt weg; 12 Bit gingen, wenn das Totband von 3 mitwächst. Schneller abtasten über den Grundtakt
+  (100 µs) oder die Ereignisteilung, was Last und LED-Matrix dazu sagen, ist offen. Touchpad ohne Achterschritte schon im
+  Panel, oder kürzer warten als 12 Messungen.
 
-- Regler: 1 Bit mehr (256 statt 128 Stufen), wenn die Firmware das `>> 1` nicht macht. Mehr gibt das
-  Panel nicht her. Die Parameter selbst sind meist 0..127, der Gewinn wirkt nur dort, wo ein Wert
-  feiner sein kann.
-- Touchpad: `83 01` beim Start senden und das `>> 3` weglassen. Dann kommen 0..1023 aus einem
-  Rohbereich von rund 713 x 595 Schritten (mit der eigenen Kalibrierung 105..882 und 156..815,
-  hergeleitet). Wie viel davon Rauschen ist, ist offen.
+Quelle: `git show 03c7827adc7b:docs/hintergrund/panel-controller.md`, Abschnitt "Was ein Patch gewinnen könnte"
 
-**Panel-Patch (mittleres Risiko, siehe unten):**
-
-- Regler mit 10 Bit senden: das Format hat `hi lo`, nur das `>> 2` in `0x309C`/`0x3180` fällt weg.
-  12 Bit wären möglich, das Totband von 3 müsste dann mitwachsen.
-- Schnelleres Abtasten über den Grundtakt (100 µs) oder die Ereignisteilung; was dabei die Last und
-  die LED-Matrix macht, ist offen.
-- Touchpad ohne Achterschritte schon im Panel, oder eine kürzere Wartezeit als 12 Messungen.
-
-## Risiko eines Panel-Patches
+## Risiko beim Ändern des Panel-Abbilds
 
 - **Wie geschrieben wird:** Das ARM schaltet das Panel per GPIO in den Boot-Modus seines ROMs und
   schreibt das ganze Abbild neu. Das ROM-Bootprogramm liegt im Chip, ein kaputtes Panel-Abbild

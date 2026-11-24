@@ -1,12 +1,12 @@
 # Hacktribe und die Samples: was die Quellen sagen, was gemessen ist
 
-Stand 2026-11-06. Anlass: Wer BLECHTRIBE installiert und im Patcher Hacktribe mit ankreuzt, meldet danach, die Samples seien
+Anlass: Wer BLECHTRIBE installiert und im Patcher [Hacktribe](../glossary.md#hacktribe) mit ankreuzt, meldet danach, die Samples seien
 weg. Diese Seite trennt, was dazu **gemessen**, **hergeleitet** oder nur ein **Urteil** ist. Am Gerät wurde dafür nichts
 ausgeführt; die Aussagen zu Hacktribe stammen aus dessen Doku, die zu BLECH aus dem Code und dem Emulator.
 
 ## Quellen
 
-- Hacktribe, Wiki, Seite "How To" (am 2026-11-06 gelesen, `https://github.com/bangcorrupt/hacktribe/wiki/How-To`): Schritte
+- Hacktribe, Wiki, Seite "How To" (gelesen am 2026-11-06): Schritte
   "Install patched firmware", "Add factory samples from e2 sampler" und "Revert to factory firmware".
 - Hacktribe, Wiki, Seite "FAQ": Importieren heißt, die `e2sSample.all` so zu bearbeiten, dass das erste Sample auf Platz 501
   liegt, abgelegt unter `KORG/hacktribe/Sample/e2sSample.all`.

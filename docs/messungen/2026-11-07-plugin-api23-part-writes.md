@@ -1,7 +1,7 @@
 # Plugin API 23: IFX ON, IFX TYPE, Sample und AMP EG schreibbar
 
-Stand 7. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
-mit dem BLECH-Satz. Fälle: `tools/emu/plugin_api23_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.**
+**Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+mit dem [BLECH](../glossary.md#blech)-Satz. Fälle: `tools/emu/plugin_api23_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.**
 
 ## Frage
 

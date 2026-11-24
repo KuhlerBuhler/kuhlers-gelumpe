@@ -1,7 +1,7 @@
 # Firmware-Sprache: Menüs auf Deutsch
 
 Deutsch als zweite Sprache der Menüs (das BLECH-Menü und Korgs Menüs) kommt über den optionalen Patch `lang-de`, eine
-Fassung je Build (Hacktribe, Korgs rote 2.02, blaue Electribe). Ohne `lang-de` bleibt alles Englisch. Diese Seite
+Fassung je Build ([Hacktribe](glossary.md#hacktribe), Korgs rote 2.02, blaue Electribe). Ohne `lang-de` bleibt alles Englisch. Diese Seite
 beschreibt die Daten, die Regeln für die Texte und die Werkzeuge. Stand: das BLECH-Menü und Korgs Hauptmenüs
 (GLOBAL PARAMETER, DATA UTILITY, Pattern- und Part-Seiten) sind übersetzt, dazu Dialoge, Meldungen, Skalennamen und die Namen der Effektparameter.
 
@@ -76,7 +76,7 @@ Glyphen mehr und ein neues Feld, in dem die Umlaute mit ihren negativen Codes vo
 dahinter; das Wort der Schrift in der Schrifttabelle (`0xC00C2818`, blau über `data/synth-map/`) zeigt auf die Kopie.
 Korgs Glyphen bleiben unverändert. Abstand und Grundlinie nimmt ein Umlaut von seinem Grundbuchstaben (`ß` von `b`).
 Der Startbildschirm zeichnet schon Text, darum sind das Tabellenwort und die Kopie jeder Schrift als `startPhase`
-ausgewiesen.
+ausgewiesen (siehe [Startphase](glossary.md#startphase) und [Patcher](patcher.md#regeln)).
 
 Gemessen im Emulator auf allen drei Builds: jeder Umlaut hat Breite und Pixel, alle ASCII-Zeichen haben dieselbe
 Breite wie ohne die Kopie, keine Zusicherung.
