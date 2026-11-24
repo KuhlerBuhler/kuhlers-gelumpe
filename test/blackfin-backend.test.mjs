@@ -6,7 +6,8 @@ import { emuPython } from "./support/emu.mjs";
 test("the experimental Blackfin backend bounds worker failures and checks generated programs", () => {
   const result = spawnSync(emuPython(), ["-m", "unittest", "discover", "-s", "tools/emu", "-p", "test_blackfin_*.py"], {
     encoding: "utf8", timeout: 60_000,
-    // Worker tests run in tools/dsp/qemu_worker_tests.sh; here no worker is found, as in CI.
+    // Here no worker is found: the worker tests skip and only the worker-free ones run. The job dsp of
+    // .github/workflows/test.yml runs them all against the QEMU worker (tools/dsp/qemu_worker_tests.sh).
     env: { ...process.env, BFIN_WORKER: "", GELUMPE_DSP: "/nonexistent" },
   });
   assert.ifError(result.error);
