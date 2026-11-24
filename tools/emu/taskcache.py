@@ -23,6 +23,7 @@ GELUMPE_CACHE=off runs every task.
 """
 
 import hashlib
+import json
 import os
 import pickle
 import sys
@@ -158,7 +159,6 @@ def lookup(k):
 def durations():
     """Seconds each task took when it last ran, by task: parallel.run_tasks starts the longest first, so that the
     longest does not start last and keep everyone waiting."""
-    import json
     blob = bootcache.read("task-time", "times")
     try:
         return json.loads(blob) if blob else {}
@@ -167,7 +167,6 @@ def durations():
 
 
 def note_durations(seconds):
-    import json
     if seconds:
         bootcache.write("task-time", "times", json.dumps({**durations(), **seconds}, sort_keys=True).encode())
 

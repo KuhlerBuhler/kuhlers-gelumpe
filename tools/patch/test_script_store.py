@@ -1,6 +1,7 @@
 """Persistent script values: glue, store file read and write, over a fake FatFs without firmware bytes."""
 import json
 import pathlib
+import re
 import struct
 import subprocess
 import sys
@@ -235,7 +236,6 @@ class NativeStoreTests(unittest.TestCase):
         self.assertEqual(m.call('script_store_get_glue', 0, 5), (5, 0))
 
     def test_the_store_paths_are_the_contract_paths(self):
-        import re
         source = (ROOT / 'tools/patch/script_store.s').read_text()
         paths = re.findall(r'\.asciz "([^"]+)"', source)
         self.assertEqual(paths, ['SD:KORG/blechtribe/Plugin/store.a.bin', 'SD:KORG/blechtribe/Plugin/store.b.bin'])

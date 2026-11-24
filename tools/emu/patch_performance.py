@@ -12,10 +12,11 @@ import hashlib
 import inspect
 import json
 import math
-from pathlib import Path
 import statistics
+import struct
 import subprocess
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BUILDS = ('hacktribe', 'stock', 'synth')
@@ -283,7 +284,6 @@ def compare(baseline, candidate, phase, inherited=None):
 
 def capture_worker(folder, build, variant):
     sys.path[:0] = [str(ROOT), str(ROOT / 'tools/emu'), str(ROOT / 'tools/patch')]
-    import struct
     import unicorn
     from tools.patch import script_hooks, dice
     from menu_cases import boot, SWITCH_SCREEN

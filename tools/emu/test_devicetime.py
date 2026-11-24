@@ -3,6 +3,7 @@
 (docs/messungen/2026-10-16-emulator-timing.md, mean of three device runs), by hand and with the live model
 (`Pace`) that machine.py charges its slices by."""
 
+import struct
 import sys
 import unittest
 from pathlib import Path
@@ -75,7 +76,6 @@ class Live(unittest.TestCase):
             self.skipTest("Unicorn not installed")
 
     def run_loop(self, name, rounds, at=0xC0040000, pace=None):
-        import struct
         import unicorn
         from unicorn import arm_const as A
         code = arm.assemble(f"loop: {LOOPS[name]}\ndone: b done", CODE_AT)

@@ -14,6 +14,7 @@ at power-on: no hook of the patch does anything then (the patch's first test).
 
 import argparse
 import json
+import re
 import struct
 import sys
 from pathlib import Path
@@ -939,7 +940,6 @@ def case_sync_unsaved(payload, flash):
 def case_view(payload, flash):
     """While a pattern is browsed or confirmed (VIEW:, NEXT:) the pads and the Edit info texts show that pattern, from the pattern bank, and
     go back when the browse or the confirmation ends; the pattern in RAM and the sound stay on what plays."""
-    import re
     out = []
     CELL_W, CELL_O = 0xC0691388, 0xC069136C            # the Sampler's addresses, the device translates them for the synth
     STEP, PITCH = 0x800 + 0x30, 0x800 + 0x24

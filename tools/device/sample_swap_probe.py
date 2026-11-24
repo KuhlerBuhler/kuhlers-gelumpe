@@ -13,6 +13,7 @@ import secrets
 import struct
 import sys
 import time
+import wave
 import zlib
 from pathlib import Path
 
@@ -304,7 +305,6 @@ def arguments(argv=None):
 
 
 def make_wav(path, length):
-    import wave
     output = path.resolve()
     if any((parent / ".git").exists() for parent in output.parents):
         raise ValueError("write the generated test WAV outside every repository")

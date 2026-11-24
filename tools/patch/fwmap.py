@@ -20,6 +20,7 @@ How an address is found:
 
 import argparse
 import bisect
+import difflib
 import struct
 import sys
 from collections import Counter, defaultdict
@@ -118,7 +119,6 @@ class FirmwareMap:
 
     def _refined(self, runs):
         """The runs plus the blocks of at least `REFINE_MIN` equal words that an alignment finds inside the gaps between them."""
-        import difflib
         out = []
         edges = [(0, 0, 0), *runs, (len(self.m_ref), len(self.m_tgt), 0)]
         for (a1, b1, n1), (a2, b2, _) in zip(edges, edges[1:]):

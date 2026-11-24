@@ -8,6 +8,8 @@ import http.client
 import io
 import json
 import os
+import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -963,8 +965,6 @@ class AnnounceTest(unittest.TestCase):
     starts its own instead of showing this one (src-tauri/src/main.rs, fits)."""
 
     def announced(self, env):
-        import socket
-        import subprocess
         with tempfile.TemporaryDirectory() as tmp:
             with socket.socket() as s:
                 s.bind(("127.0.0.1", 0))

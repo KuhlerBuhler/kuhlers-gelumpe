@@ -1,8 +1,12 @@
 """Native input and frame hooks over synthetic RAM only."""
-import struct
-import unittest
+import hashlib
+import itertools
+import json
 import pathlib
+import struct
 import sys
+import unittest
+import zlib
 from functools import lru_cache
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
@@ -33,7 +37,6 @@ class SharedWordTests(unittest.TestCase):
 
     def test_mfx2_constants_match_the_patch_mfx_switch(self):
         """mfx2Type reads and writes the table of tools/patch/mfx_switch.py through its entry at CODE_AT: id, b table_load, default, b killed (file offsets count the 0x100 byte VSB header)."""
-        import json
         from tools.patch import script_hooks, mfx_switch
         self.assertEqual(script_hooks.MFX2_ENTRY,mfx_switch.CODE_AT)
         self.assertEqual(script_hooks.MFX2_RECORD_ID,mfx_switch.RECORD_ID)
@@ -972,7 +975,6 @@ class HookTests(unittest.TestCase):
         self.assertEqual(self.drain(machine),[(21,other,0,0)])
 
     def test_public_patch_manifest_has_only_own_changes_and_registered_hooks(self):
-        import hashlib
         from tools.patch.script_hooks import build,SITES,WORDS,RAM_BASE
         built=build(contract_data()['include'])
         patch=built.patch_manifest()
@@ -1275,8 +1277,6 @@ class HookTests(unittest.TestCase):
 @unittest.skipUnless(UNICORN_AVAILABLE, 'Unicorn is required for native settings tests')
 class MenuSettingsTests(unittest.TestCase):
     def test_off_flags_survive_mixed_settings_and_pad_calls(self):
-        import itertools
-        import zlib
         from tools.patch.script_hooks import build
         from unicorn.arm_const import UC_ARM_REG_PC
         for build_name in ('hacktribe', 'stock', 'synth'):

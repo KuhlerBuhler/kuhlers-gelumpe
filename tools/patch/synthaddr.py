@@ -22,6 +22,8 @@ In a builder for the synth:
 Both refuse a firmware address that has no entry, naming it. A builder never guesses.
 """
 
+import argparse
+import bisect
 import json
 import re
 import sys
@@ -157,7 +159,6 @@ def write_js():
 
 
 def fuzzy(args):
-    import bisect
 
     import fwmap
     import synthfind
@@ -230,7 +231,6 @@ def _auto(ref_path, vsb_path):
 
 
 def main():
-    import argparse
     sys.path.insert(0, str(Path(__file__).parent))
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = p.add_subparsers(dest="cmd", required=True)

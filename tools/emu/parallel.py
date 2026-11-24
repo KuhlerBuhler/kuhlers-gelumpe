@@ -24,7 +24,10 @@ import importlib
 import math
 import multiprocessing
 import os
+import pickle
 import sys
+import time
+import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from concurrent.futures.process import BrokenProcessPool
 from pathlib import Path
@@ -77,7 +80,6 @@ ENTRY_ONE = {"boot_case_task"}
 
 
 def crashed(module, name, args, error):
-    import traceback
     frame = traceback.extract_tb(error.__traceback__)[-1]
     where = f"{Path(frame.filename).name}:{frame.lineno}"
     group = f" {args[0]}" if args else ""
@@ -86,7 +88,6 @@ def crashed(module, name, args, error):
 
 
 def _picklable(error):
-    import pickle
     try:
         pickle.loads(pickle.dumps(error))
         return True
@@ -122,7 +123,6 @@ def _call(module, name, args):
 
 def _tracked(module, name, args):
     """(result, what the process used, seconds) for taskcache.py; None for a task that stopped with an exception."""
-    import time
     import taskcache
     start = time.perf_counter()
     result, finished = _run(module, name, args)
@@ -130,7 +130,6 @@ def _tracked(module, name, args):
 
 
 def _timed(module, name, args):
-    import time
     start = time.perf_counter()
     return _call(module, name, args), time.perf_counter() - start
 

@@ -1,5 +1,6 @@
 """Boot loader for e2sPlugin.all over a fake FatFs, without firmware bytes."""
 import pathlib
+import re
 import struct
 import sys
 import unittest
@@ -270,7 +271,6 @@ class NativeCardTests(unittest.TestCase):
         m, built = self.machine(None)
         self.assertEqual(built.layout['poolEnd'], 0xC01F7000)
         source = (ROOT / 'tools/patch/script_card.s').read_text()
-        import re
         path = re.search(r'\.asciz "([^"]+)"', source).group(1)
         self.assertEqual(path.encode(), PATH)
         self.assertLess(0xC01F7000 + 64 + 0x280, 0xC01F8000)

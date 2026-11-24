@@ -8,6 +8,7 @@ Addresses are the Sampler's; dev.a() gives the synth's from data/synth-map/live-
 """
 import argparse
 import json
+import struct
 import sys
 from pathlib import Path
 
@@ -233,7 +234,6 @@ def page_cases(payload, flash):
 def part_input_cases(payload, flash):
     """Knob and encoders go through the part setter with their parameter number; the keys have setters of their own.
     Both fill the copy behind the block, so a plain byte write is not the same."""
-    import struct
     import unicorn
     out = []
     dev = boot(payload, flash)
