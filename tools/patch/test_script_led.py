@@ -1,4 +1,4 @@
-"""Native LED requests and atomic UART FIFO transport, without firmware bytes."""
+"""Native LED requests and atomic UART FIFO transport."""
 import pathlib
 import struct
 import sys

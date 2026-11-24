@@ -1,4 +1,4 @@
-"""Bare ARM script runtime tests; inputs contain no firmware bytes."""
+"""Bare ARM script runtime tests."""
 import json
 import re
 import pathlib
