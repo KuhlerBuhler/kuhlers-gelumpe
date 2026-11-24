@@ -2,8 +2,8 @@
 
 [Deutsche Version](patcher.md) | English version
 
-As of 2026-11-09. This page is the English edition of [patcher.md](patcher.md). The German page is the
-reference and carries the developer detail: the hook registry, the start sequence, the memory map and
+This page is the English edition of [patcher.md](patcher.md). The German page is the
+reference and carries the developer detail: the full patch table, the hook registry, the start sequence and
 the measurements. This page covers what a user needs and links to the German page for the rest. The
 editor is in German, so button labels appear here in German with a translation. Evidence lives in
 [`docs/messungen/`](messungen/README.md) (German); what is only derived is marked as such.
@@ -59,11 +59,11 @@ There are three kinds of patch:
 |---|---|---|---|
 | Data | presets, menu lengths, the start image, texts and themes | yes | low, partly built |
 | ARM code | keys, menu entries, LEDs, touchpad routing, bug fixes, games | yes, the emulator runs the ARM | medium |
-| DSP code | new effect slots, new algorithms, a third effect over everything | no, the DSP is a dummy in the emulator | high |
+| DSP code | `tube-curve`, `stage2-memory`; new effects or algorithms | only through the DSP model of the check, not as sound | high |
 
 ## The BLECHTRIBE set and its patches
 
-The set is `data/patches/blech.json`. It holds a patch per feature (some per firmware build); the base ones are:
+The set is `data/patches/blech.json` (for Korg's blue 2.02: `blech-synth.json`). It holds a patch per feature, some in one variant per firmware build. The full table with every patch, its builds and its measurement is in [patcher.md](patcher.md#der-patch-satz) (German). The base ones are:
 
 | Patch | What it does |
 |---|---|
@@ -190,7 +190,7 @@ probe, even if nobody touched the bootloader.
    through the firmware's LED manager.
 5. **Patches do not write to the flash**, except through the firmware's normal storage paths.
 6. **DSP patches** are a class of their own without a safety net: the DSP program is loaded at start, the
-   emergency switch cannot reach it and the emulator does not check it. None is built.
+   emergency switch cannot reach it and the emulator plays no sound. Two exist, `tube-curve` and `stage2-memory`.
 
 ### The emergency switch
 
@@ -219,46 +219,32 @@ controller. FatFs has no lock, so everything the runtime writes follows these ru
 3. A file is written whole in one go and never replaced in place: two files take turns with a generation
    number and a CRC-32, so after an abort (power loss, card pulled) the previous generation stays readable.
 4. A failure is counted and not repeated, and the firmware keeps running.
-5. No file is deleted or renamed and no folder is created; you create `KORG/blechtribe/Plugin/` yourself.
+5. No file is deleted or renamed. Only the start creates folders: `KORG/blechtribe` and the subfolders BLECHTRIBE needs in it, where they are missing.
 
-Writing through FatFs is **not yet tested on the device** (steps in [geraetetests/karte.md](geraetetests/karte.md),
-German).
+Writing through FatFs is **not yet tested on the device**.
 
 ### RAM of the patches
 
 The patcher checks changes to the file: two patches that write the same bytes are refused. What a patch keeps in RAM
-at run time on top of that (state words, buffers, file buffers, a pool, the menu state) is not in the file, so it
-went unnoticed once: the start image editor kept its state and buffers at `0xC01A4000` to `0xC01A5000`, over the
-code and the picture of the power-off patch at `0xC01A4A00`. It was found by comparing addresses, not by a test.
-
-Every patch now names that RAM next to `changes` (fields in `src/patch.mjs`):
+at run time on top of that (state words, buffers, file buffers, a pool, the menu state) is not in the file, so every
+patch names it next to `changes` (fields in `src/patch.mjs`):
 
 - `ram`: memory of the patch itself, each entry `at`, `length`, `what` and `source`. `source` says where the size comes
   from, `<file>:<SYMBOL>` in the tool that builds the patch; the tools write the entries from their own constants.
   A patch without RAM of its own says `"ram": []`.
 - `shares`: a word inside another patch's area that this one reads or writes (`with` is the owner's id). It has to lie
   wholly in an area the owner lists in `ram`; without the owner (the patch is applied alone) it only has to stay clear of
-  other areas and written bytes. There are two: `PS_SETTING` (`0xC0180F10`, the BLECH menu writes it into
-  the pattern switch's state) and `BLECH_MFX` (`0xC01D6E1C`, MFX 2 reads the setting from the plugin runtime's menu
-  state).
+  other areas and written bytes. Today `mfx-switch` and `load-bar` share words of the plugin runtime's menu state.
 
 The block of Blechy at `0xC0184000` is not in `ram`: it is among the bytes the file writes (`changes`), and the runtime only reads it.
-
 What a patch writes into firmware objects it does not own (the display buffer, the ring to the panel) is not
 declared. Flash locations are not RAM either.
 
 `test/patch-ram.test.mjs` fails when two patches of the set overlap in written bytes or declared RAM on either build
 (Hacktribe, Korg's own), when an area reaches into the bytes another patch writes, when a `shares` lies in no area of
 its owner, or when an area does not lie wholly in a free `FF` run of the image (`data/patch-ram.mjs`); outside the
-image the message names the protected region of `data/protected.mjs` it hits. The start image editor at its old
-address is a test of its own, and `applyPatches` refuses such a set too. With `E2_VSB` (and `E2_STOCK_VSB`) another
-test checks that every declared area in the image is `FF` in your firmware; the Korg case has not been run here.
-
-Collecting the areas turned up a second overlap: the plugin store's two images (`script_store.s`) read up to 0x4000
-bytes each, so the second one, at `0xC01FC000`, ran 16 bytes past the end of the block buffer (`0xC01FFFF0`) into the
-last bytes of the image, which are not ours. Only a file over 0x3FF0 bytes does that; one we wrote is at most
-16 + 194 * 84. The read size is now 0x3FF0 and the build of the plugin runtime fails when the images leave the block
-buffer. The change has not been run in the emulator (only the literal of the read size changes, two bytes).
+image the message names the protected region of `data/protected.mjs` it hits. `applyPatches` refuses such a set too.
+With `E2_VSB` (and `E2_STOCK_VSB`) another test checks that every declared area in the image is `FF` in your firmware.
 
 ## The check in the emulator
 
@@ -270,16 +256,17 @@ minutes. It requires that
 3. the start modes with held keys are reachable, the emergency switch included,
 4. with a wrong panel version the panel update path appears,
 5. the patched functions run through fixed operating sequences without an assertion,
-6. no change lies in a locked area.
+6. no change lies in a locked area,
+7. the interface to the DSP holds: the start loads an effect into every part and the master, no field stays silent.
 
-Built today: points 1 to 4 and 6 as `tools/emu/check.py` on the page Patcher; point 5 is built for the start
-image editor, MFX 2 and the BLECH menu (their cases run when the copy carries the matching hook). The
+Points 1 to 4 and 6 are `tools/emu/check.py` on the page Patcher; point 7 is `tools/emu/dsp_cases.py` and runs for every copy. Point 5 is built for
+most patches (their cases in `tools/emu/*_cases.py` run when the copy carries the matching hook). The
 plugin runtime has its own cases in `tools/emu/script_cases.py`, which `check.py` does not call. The check
 also passes with an empty flash, which is what most users have, and with a full flash image of your own
-device. Korg's original needs a few allowances (it shows a loading bar over the start image and takes longer
+device. A copy whose input and output SHA-256 are in `data/patches/verified.json` needs no run; otherwise the quick check
+(start and rescue paths only) is the default and the full test is optional. Korg's original needs a few allowances (it shows a loading bar over the start image and takes longer
 to start), which the check handles without weakening it for Hacktribe's file
-([details, German](patcher.md#prüfung-gegen-korgs-build)). With Korg's original as the base and the patched
-copy, `check.py` passed 88 of 88 checks with an empty flash and 89 of 89 with the own flash image.
+([details, German](patcher.md#prüfung-gegen-korgs-build)).
 
 The emulator runs ARM code but does not play sound, and it does not run the DSP. Whether something sounds
 good, only your ears can say.
@@ -431,11 +418,10 @@ Planned and not built:
 - Code as source text, to which the patcher assigns a place so that two patches cannot overwrite each other.
   Today every patch fixes its own addresses.
 - The jump and the emergency-switch query generated by the patcher instead of by each patch.
-- DSP patches and a DSP check in the emulator.
+- A sound check of DSP patches in the emulator (the DSP model only checks the interface).
 - A boot menu and a fallback firmware (a small menu of our own before Korg's first instruction, with an
   unchanged firmware in free flash). Not built, and no code for it exists in the repository.
-- Point 5 of the checks before the export for all patches, not only for the start image editor, MFX 2, the
-  BLECH menu, pattern change and the load bar.
+- Point 5 of the checks before the export for all patches.
 
 Open measurements:
 
@@ -450,4 +436,4 @@ Open measurements:
 - DSP: the exact model and the layout of the master path (the load format is measured, see
   [DSP, first look](hintergrund/dsp-erster-blick.md), German).
 
-For the full list, the memory map and the start sequence, see [patcher.md](patcher.md).
+For the full patch table, the start sequence and the memory rules, see [patcher.md](patcher.md); the memory map is in [speicherbereiche.md](speicherbereiche.md) (German).

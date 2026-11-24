@@ -6,7 +6,7 @@ Doku auch. Eine neue Messung heißt: ein Eintrag mehr oder ein Eintrag genauer,
 und das Feld ist sofort im Editor.
 
 Gemessen ist alles an einer Korg Electribe 2 Sampler mit Firmware 2.02 und
-Hacktribe. Bei einem anderen Stand verschieben sich die Adressen.
+[Hacktribe](glossary.md#hacktribe). Bei einem anderen Stand verschieben sich die Adressen.
 
 ## Ein Eintrag
 
@@ -47,7 +47,7 @@ Abbilds ist (die drei Sample-Tabellen), trägt `meta.table` mit Adresse, Abstand
 | `sites` | statt `where`, wenn ein Wert an mehreren Stellen steht |
 | `repeat` | Ebenen für wiederholte Felder, je mit Anzahl, Abstand und Namen. Eine Step-Note ist Part mal Step mal Note: drei Ebenen. |
 | `type` | `u8`, `s8`, `u16le`, `latin1:16`, `bytes:4` und so weiter |
-| `transport` | auf welchen Wegen das Feld aufs Gerät kommt |
+| `transport` | auf welchen Wegen das Feld aufs Gerät kommt (`pattern-sysex`: Pattern senden per [SysEx](glossary.md#sysex), `e2sallpat`: die [Backup-Datei](glossary.md#e2sallpat)) |
 | `firmware` | für welchen Firmware-Stand die Adresse gilt, Pflicht bei allem, was in der Firmware liegt |
 | `convert` | benannte Umrechnung zwischen Byte und Klartext |
 | `edit` | `readonly` oder `expert` für Felder, die nicht frei bearbeitbar sind |
@@ -103,8 +103,7 @@ Der Kartentest prüft außerdem: jede `id` ist eindeutig, jede `convert` gibt es
 über `when`).
 
 **Eine Behauptung prüfen, bevor sie in die Karte kommt.** Vier Presets sind
-keine Messung. Mehrere Aussagen aus frühen Notizen waren falsch, als sie gegen
-die Werks-Presets derselben Einheit gehalten wurden. Darum wird eine Aussage vor
+keine Messung. Darum wird eine Aussage vor
 dem Eintrag gegen die Werks-Presets geprüft, und das Ergebnis ist der Beleg: eine
 Prüfung in `test/factory-checks.mjs`, die lokal mit eigenen Dateien läuft:
 
@@ -144,7 +143,7 @@ Fälle in `tools/emu/live_write_cases.py` messen jeden Eintrag im Emulator nach.
 ## Umrechnungen
 
 Umrechnungen sind eine kleine Bibliothek mit Namen (`src/map/convert.mjs`), keine
-Formeln in der Karte.
+Formeln in der Karte. Die Tabelle zeigt die wichtigsten, alle stehen in der Datei.
 
 | Name | Was | Grundlage |
 |---|---|---|
@@ -182,7 +181,7 @@ Umrechnung neu geschrieben.
 | Global-Einstellungen | Global-SysEx | Korg-Spec, Menüseiten gemessen (siehe `data/map/global.mjs`) |
 | Startbild | Firmware | belegt, 128 mal 64, ein Bit je Pixel |
 | Menülängen | live ins RAM, Firmware | belegt |
-| Samples: Name und Tune | live ins RAM | am Gerät geschrieben ([Namen](messungen/2026-10-07-sample-name-ram.md), [Metadaten](messungen/2026-10-07-sample-metadaten-ram.md)), editierbar auf der Seite Samples |
+| Samples: Name und Tune | live ins RAM | am Gerät geschrieben ([Namen](messungen/2026-10-07-sample-name-ram.md), [Metadaten](messungen/2026-10-07-sample-metadaten-ram.md)), editierbar auf der Seite Samples (nicht in der Navigation, nur mit `?labs`, siehe [Entscheidungen](entscheidungen.md)) |
 | Samples: Kategorie, Import-Nummer, Samplerate, PCM-Länge, Stereo, Start, Loop, Ende, One-Shot, Slices, Steps | RAM, nur lesen | gemessen durch Bytevergleich mit der Sample-Datei, was ein Schreiben bewirkt ist nicht gemessen. Die Einheit von Start, Loop und Ende und die Skala von Tune sind offen |
 
 "Alles" heißt: alles, was entschlüsselt ist. Unbekanntes gibt es im Expertenmodus.
@@ -233,7 +232,7 @@ per RAM-Befehl, es gibt keinen eigenen Groove-Befehl. Nach dem Beispielskript
 dort ist ein Versatz von 48 ein halber Step, ein Step hat also 96 Einheiten, und
 Gate 96 heißt gebunden.
 
-Offen, bevor es in Klartext editierbar wird:
+**Offen**, bevor es in Klartext editierbar wird:
 
 - 96 oder 128 Plätze? hacktribe-editor lässt nur die Plätze 0 bis 95 zu, bis das
   geklärt ist, gilt die kleinere Zahl.
@@ -247,7 +246,7 @@ Offen, bevor es in Klartext editierbar wird:
 
 ## Expertenmodus
 
-Unbekannte Felder sind hinter einem Schalter als Zahl bearbeitbar. Dafür gelten
+Der Expertenmodus ([Glossar](glossary.md#expertenmodus)): unbekannte Felder sind hinter einem Schalter als Zahl bearbeitbar. Dafür gelten
 eigene Regeln:
 
 1. Jedes unbekannte Feld ist markiert, mit dem Hinweis, dass seine Wirkung

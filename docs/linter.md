@@ -1,20 +1,20 @@
 # Linter und simuliertes Gerät
 
-Bevor Daten ans Gerät gehen, prüfen der Linter und das simulierte Gerät, ob das
-Gerät sie voraussichtlich annimmt. Wie beide im Ablauf sitzen, steht in
+Bevor Daten ans Gerät gehen, prüfen der Linter und das simulierte Gerät (`SimDevice`), ob das
+Gerät sie voraussichtlich annimmt. Beide sind Teil des [Türstehers](glossary.md#tuersteher). Wie beide im Ablauf sitzen, steht in
 [architektur.md](architektur.md).
 
 ## Die Befehlszeile
 
 ```bash
-node bin/e2.mjs ls      /pfad/SYSTEM.VSB
+node bin/e2.mjs ls      /pfad/SYSTEM.VSB [mfx|ifx]
 node bin/e2.mjs show    /pfad/SYSTEM.VSB mfx 12
 node bin/e2.mjs profile /pfad/SYSTEM.VSB     # Wertebereiche der Werksdaten ermitteln
-node bin/e2.mjs lint    /pfad/SYSTEM.VSB
+node bin/e2.mjs lint    /pfad/SYSTEM.VSB [mfx|ifx] [slot]
 node bin/e2.mjs selftest /pfad/SYSTEM.VSB    # das simulierte Gerät ansteuern, Ablehnungen zeigen
 ```
 
-`profile` liest die von Korg mitgelieferten Presets und schreibt die daraus
+Die Befehle lesen eine [VSB](glossary.md#vsb), die Firmware-Datei, die du selbst mitbringst. `profile` liest die von Korg mitgelieferten Presets und schreibt die daraus
 ermittelten Wertebereiche nach `.e2/factory-profile.json`. Die Datei wird von Git
 ignoriert, weil sie aus der eigenen Firmware abgeleitet ist. Der Linter verwendet sie,
 wenn sie vorhanden ist, und weist andernfalls darauf hin. Die Firmware-Datei bleibt, wo
@@ -33,7 +33,7 @@ sie ist, nichts schreibt hinein.
 ## Was der Linter weiß
 
 Die Regeln stehen in `src/rules.mjs`, das Wissen dahinter in `data/findings.mjs`, mit
-Beleg. Alles ist am Gerät abgeglichen:
+Beleg. Das Wissen kommt aus Messungen am Gerät und im [Emulator](emulator.md):
 
 - Welche Einheiten in der zweiten Insert-Stufe laufen und **wie die anderen
   scheitern**. Neun Einheiten wurden in einem automatisierten Durchlauf zweimal
@@ -57,11 +57,11 @@ Beleg. Alles ist am Gerät abgeglichen:
   der brauchbaren Pegel, und 90 meldet `output-above-usable`, dass dort nichts gehört wurde.
   Erreichen die Werks-Presets desselben Bausteins den Wert selbst (der Decimator steht ab
   Werk auf 127), schweigt der Linter, sobald ein Werksprofil da ist. Die Pegel eines
-  Patterns zeigt und skaliert die Pegel-Ansicht im Bereich Presets ([Idee 31](ideen/31-gain-staging.md)).
+  Patterns zeigt und skaliert die Pegel-Ansicht im Bereich Presets.
 - Manche Felder wählen Einträge aus einer Liste statt Werte aus einem Bereich. Erlaubte
   Werte werden aus Werks-Presets abgeleitet und nicht fest einprogrammiert.
 - Short Delay (`0x18`) in Stufe 2 schaltet den Ton geräteweit ab (`stage2-fatal`, Befund
-  `stage2.18`). Der Vorschlag "Pseudo Reverb" ([Idee 28](ideen/28-pseudo-reverb.md)) setzt
+  `stage2.18`). Der Vorschlag "Pseudo Reverb" setzt
   nur Parameter eines Short-Delay-Datensatzes in Stufe 1 und lehnt Stufe 2 ab; die Regel
   war schon da und ein Test hält sie fest.
 - Eine Master-Einheit innerhalb einer Insert-Kette lässt das Gerät hängen.
@@ -148,7 +148,7 @@ Die Firmware selbst läuft im [Emulator](emulator.md), der ebenfalls keinen Ton 
 
 ## Offene Punkte
 
-Stand der Liste: September 2026, nicht erneut geprüft.
+Alles hier ist **offen**, nicht belegt.
 
 - Drei Werks-Presets von Korg werden vom Linter beanstandet. Das deutet eher auf Lücken
   im Verständnis als auf Fehler von Korg hin: **IFX 7 Sustainer** weist Parameter 5 einer

@@ -1,13 +1,12 @@
 # Tastenkombinationen: SHIFT, Halten, Einschalten
 
 Zweck: welche Tastenkombinationen der electribe sampler (Firmware 2.02 mit Hacktribe) kennt,
-was sie bewirken und woher die Angabe stammt. Stand 2026-10-10.
+was sie bewirken und woher die Angabe stammt. Eine eigene Tabelle zeigt, was BLECHTRIBE dazugibt (Abschnitt 4).
 
-So wurden die Angaben gewonnen: Alles, was mit "gemessen" markiert ist, lief im Emulator
-(`tools/emu/machine.py`, Unicorn 2.1.4) mit einer unveränderten eigenen `SYSTEM.VSB` und
-dem eigenen Flash-Dump vom 9.10. Die geprüfte VSB wird am Anfang ihres SHA-256 erkannt
-(`b0890899cbe5951d`). **Am Gerät wurde nur die Ein/Aus-Taste geprüft** (Abschnitt 4), sonst
-nichts.
+So wurden die Angaben gewonnen: Alles, was mit "gemessen" markiert ist, lief im
+[Emulator](glossary.md#emulator) (`tools/emu/machine.py`) mit einer unveränderten eigenen
+[`SYSTEM.VSB`](glossary.md#vsb) und einem eigenen Flash-Dump. **Am Gerät wurde nur die Ein/Aus-Taste
+geprüft** (Abschnitt 4), sonst nichts.
 
 Markierungen:
 
@@ -17,7 +16,7 @@ Markierungen:
   Die Seitenzahl zeigt nur, wo es steht, der Text ist nicht übernommen.
 - **offline**: im Firmware-Code gelesen (Adressen im Abbild, `0xC0...`).
 - **Hacktribe**: Das Hacktribe-Wiki dokumentiert keine eigenen Kürzel, und im Tasten-Code
-  ist nichts Hacktribe-Typisches aufgefallen. Ein Vergleich mit der unveränderten
+  ist nichts [Hacktribe](glossary.md#hacktribe)-Typisches aufgefallen. Ein Vergleich mit der unveränderten
   Korg-Firmware war nicht möglich (liegt hier nicht vor), die Aussage "alles Stock" ist
   also **hergeleitet**, nicht gemessen. Die Startmodi gelten laut Wiki für jede
   electribe 2, mit oder ohne Hacktribe.
@@ -150,12 +149,12 @@ Pattern-Daten und (bei Pad und Touchpad als zweitem Element) der MIDI-Ausgang es
 | Ein/Aus-Taste 2 s halten | ausschalten | gemessen am Gerät am 8.10. (`docs/messungen/2026-10-08-panel-bedienung.md`) |
 | Pad **halten** + Regler, Taste oder Drehgeber | nur der übliche Part-Wechsel durch das Pad, sonst nichts | gemessen (985 Läufe je Zustand) |
 
-**Mit BLECHTRIBE** (nicht mit EXIT beim Einschalten, nicht auf der blauen):
+**Mit BLECHTRIBE** (nicht mit EXIT beim Einschalten, siehe [Notschalter](glossary.md#notschalter)):
 
 | Kombination | Wirkung | Beleg |
 |---|---|---|
-| EXIT **halten** + WRITE | speichert das Pattern sofort an seinen eigenen Platz (ohne das Zielwahl-Fenster zu bestätigen) | gemessen, `docs/messungen/2026-10-19-exit-shortcuts.md` |
-| EXIT **halten** + Pad | setzt den Klang eines Parts auf die gespeicherten Werte zurück, die Steps bleiben, auch das Sample, das die Stimmen spielen; gestoppt und beim Abspielen; SEQUENCER und STEP JUMP: der gewählte Part, sonst der Part des Pads | gemessen, ebenda |
+| EXIT **halten** + WRITE | speichert das Pattern sofort an seinen eigenen Platz (ohne das Zielwahl-Fenster zu bestätigen) | gemessen, [Messung](messungen/2026-10-19-exit-shortcuts.md) |
+| EXIT **halten** + Pad | setzt den Klang eines Parts auf die gespeicherten Werte zurück, die Steps bleiben, auch das Sample, das die Stimmen spielen; gestoppt und beim Abspielen; SEQUENCER und STEP JUMP: der gewählte Part, sonst der Part des Pads | gemessen, ebenda; auch auf der blauen ([Messung](messungen/2026-10-24-blau-shortcuts-akkorde.md)) |
 | STOP **halten** (eine halbe Sekunde) | beendet jeden Klang sofort: alle Parts am DSP aus, Stimmen zurückgesetzt, Insert-Effekte gelöscht; der Nachhall des Master-Effekts bleibt. STOP kurz bleibt das STOP der Firmware, beim Abspielen stoppt es wie immer beim Drücken. Die nächste Note klingt normal. Auch auf der blauen | gemessen (Emulator mit DSP-Modell), `docs/messungen/2026-11-22-stop-halten.md` |
 | KEYBOARD **halten** + Pad (Hauptbildschirm) | KEY PADS: setzt den KEY des Patterns auf den Ton des Pads, chromatisch in Pad-Reihenfolge: Pad 1 C, Pad 2 C#, Pad 3 D bis Pad 12 B; Pads 13 bis 16 transponieren die Parts mit SCALE MODE ON (Sequenz) und die Tastatur um -1, 0 (wie nach dem Start), +1 und +2 Oktaven, wie KEY nicht im Pattern gespeichert; das Wertefenster der Firmware zeigt "KEY" und den Ton. KEYBOARD kurz allein schaltet wie immer den Modus, SHIFT + KEYBOARD bleibt bei der Firmware. Mit BLECH > FEATURES > KEY PADS OFF wählt die Kombination wie ohne BLECHTRIBE den Part still. Auch auf der blauen | gemessen, `docs/messungen/2026-11-07-key-pads-eingebaut.md`, Belegung `docs/messungen/2026-11-08-key-pads-chromatisch.md`, Oktave `docs/messungen/2026-11-12-key-pads-oktave.md`, Transponieren `docs/messungen/2026-11-15-key-pads-transpose.md` |
 | SHIFT **halten** + LPF, HPF oder BPF | FILTER TOGGLE: schaltet das Filter des gewählten Parts aus (Typ OFF), dieselbe Kombination wieder an mit dem Typ, den die Taste zuletzt hatte; SHIFT + eine andere Filtertaste gibt deren letzten Typ, ohne Speicher deren ersten (LPF electribe, HPF electribe, BPF electribe). Je Part ein eigener Speicher bis zum Ausschalten. Das Fenster "FILTER TYPE" der Firmware zeigt den Typ, die LEDs folgen. Die Taste allein dreht wie immer weiter. Mit BLECH > FEATURES > FILTER TOGGLE OFF oder EXIT beim Einschalten wie ohne BLECHTRIBE. Auch auf der blauen | gemessen (Emulator), `docs/messungen/2026-11-08-filter-toggle-eingebaut.md` |
@@ -186,7 +185,8 @@ stützt sie. Quelle der Tabelle: `docs/messungen/2026-10-10-startphase.md`.
 | PATTERN SET + STEP JUMP | `0x0A000000` | "XY TEST, Step 1" | gemessen, offline, Wiki (XY-Test) |
 | LPF + HPF | `0x00140000` | Data Util 1/3, IMPORT PATTERN (Karten-Import) | gemessen, offline, **nicht im Wiki** |
 | SHIFT | `0x00000400` | normaler Start, die Firmware merkt sich SHIFT. Im Emulator kein sichtbarer Unterschied; im Code wählt ein Ereignis (Bildschirm 0x1d, Wert 0x1c) dann Fenster-Ereignis `0x1c` statt `4`, und `4` ist das Fenster "Working...". Wirkung am Gerät offen. | gemessen (Start), offline (`0xC006B9F4`), Deutung hergeleitet |
-| EXIT | `0x00002000` | normaler Start, kein Modus. Der MFX-Patch nutzt es als Notschalter. | gemessen, `docs/messungen/2026-10-10-mfx-umschalter.md` |
+| EXIT | `0x00002000` | normaler Start, kein Modus. BLECHTRIBE nutzt es als Notschalter (BLECHTRIBE aus für diesen Start). | gemessen, `docs/messungen/2026-10-10-mfx-umschalter.md` |
+| SHIFT + TAP (nur mit BLECHTRIBE, rot) | | Doom vom SD-Lader, wenn `KORG/blechtribe/Doom/doom.bin` und `doom.wad` da sind, sonst normaler Start ([Patcher](patcher.md#der-patch-satz)) | [Messung](messungen/2026-10-29-letztes-pattern-schalter-doom-ohne-dateien.md) |
 | eine zusätzliche Taste zu einer der Masken | | normaler Start, kein Testmodus | gemessen (PATTERN SET + 1 plus AMP EG, EXIT oder Part<), offline |
 | beliebige andere Taste oder Kombination | | normaler Start | offline (Tabelle kennt nur die genannten Masken) |
 
@@ -214,68 +214,22 @@ am Gerät also nicht ausprobieren, ohne nachzulesen.
 
 ## 7. Offline: wo die Firmware SHIFT liest
 
-- **Tasten-Verteiler** `0xC00700D8(Objekt, Taste, gedrückt)` (jede Taste kommt dort vorbei, gemessen in
-  `docs/messungen/2026-10-10-mfx-umschalter.md`; Taste 0x23 wird verworfen). Aus dem Code gelesen: Tasten 0 bis 3
-  gehen an die Transport-Funktion `0xC006F638`, 4 bis 6 (GATE ARP, TOUCH SCALE, MASTER FX) an `0xC006FF94`,
-  0x0e (WRITE) an `0xC006F094`, 0x10 (PART MUTE) in einen eigenen SHIFT-Zweig ab `0xC0070428`, die Modus-Tasten
-  im Bereich 0x11 bis 0x1b an `0xC006FEDC`, 0x1c bis 0x1f (Schritt-Tasten) an `0xC006F968`.
-- **Das SHIFT-Wort** liegt im Tasten-Zustandsobjekt, das `0xC0040F04()` liefert, bei `+0x358`
-  (Zustand der Taste 10: `0x308 + 8 * 10`), im laufenden Gerät bei `0xC06BCAC0`. Es steht auf 0 (los),
-  geht beim Drücken auf 1 und bei gehaltener Taste über einen Takt-Zähler (`0xC00825E8`) weiter auf 2 und 3.
-  Es wird nur auf Nicht-Null geprüft. Geschrieben wird es von `0xC00824AC`.
-- Das gilt für alle Tasten: Zustand der Taste k bei `+0x308 + 8 * k`. Code, der den Zustand einer anderen
-  Taste als SHIFT liest, ließ sich über den Zugriff auf dieses Objekt finden: die Pad-Funktion `0xC0043F10`
-  fragt TRIGGER (19), SEQUENCER (21), KEYBOARD (23) und CHORD (24) ab. Das ist die Stelle hinter
-  "Halten + Pad wählt still". Weitere Stellen, die einen Tastenzustand außer SHIFT lesen, wurden so nicht
-  gefunden (nur Aufrufe, die das Objekt über `0xC0040F04` holen, sind erfasst).
-- **Zur Laufzeit** (Hook auf die Speicherstelle, in allen rund 17 000 Läufen und den Step-Edit-Versuchen) lasen
-  34 verschiedene Befehle das SHIFT-Wort. Je Bedienelement die lesende Stelle: Spalte "Beleg" in den
-  Tabellen oben. Die Lesestelle `0xC008258C` ist nur der Takt-Zähler, kein Tasten-Code.
-- **Aus dem Code gelesen, aber im Emulator nicht ausgelöst** (Aufrufe über `0xC0040F04`): `0xC0043604` (Nebenzweig
-  der Pad-Funktion `0xC0043580`), `0xC0065CEC` (Tastenfunktion `0xC0065CD8`, Sprungtabelle für die Tasten 6 bis 10
-  nur mit SHIFT), `0xC0067604` (Seiten-Funktion der Menü-Klasse Pattern, mit SHIFT Schrittweite mal 10),
-  `0xC00686EC` (kleine Funktion neben `0xC006865C` und `0xC006869C`, die bei SHIFT + WRITE im WRITE-Fenster
-  getroffen wurden), `0xC006FC20` (Zuordnung der Modus-Tasten, Zweig von PART MUTE, über den Tasten-Verteiler
-  nicht erreichbar). `0xC0066314` (CHAIN TO) ist der Code hinter einem gemessenen Fall, die Stelle selbst wurde dort
-  nicht aufgezeichnet. Ob diese Reste weitere SHIFT-Kürzel tragen, ist offen. Die rund 50 weiteren
-  Befehle mit `ldr rX, [rY, #0x358]` im Abbild sind in der Regel andere Felder oder Literal-Pool-Zugriffe,
-  kein SHIFT.
+- **Tasten-Verteiler** `0xC00700D8(Objekt, Taste, gedrückt)`: jede Taste kommt dort vorbei (gemessen, [Messung](messungen/2026-10-10-mfx-umschalter.md); Taste 0x23 wird verworfen). Tasten 0 bis 3 gehen an die Transport-Funktion `0xC006F638`, 4 bis 6 (GATE ARP, TOUCH SCALE, MASTER FX) an `0xC006FF94`, 0x0e (WRITE) an `0xC006F094`, 0x10 (PART MUTE) in einen eigenen SHIFT-Zweig ab `0xC0070428`, die Modus-Tasten 0x11 bis 0x1b an `0xC006FEDC`, die Schritt-Tasten 0x1c bis 0x1f an `0xC006F968`.
+- **Das SHIFT-Wort** liegt im Tasten-Zustandsobjekt, das `0xC0040F04()` liefert, bei `+0x358` (Zustand der Taste k bei `+0x308 + 8 * k`, SHIFT ist Taste 10). Es steht auf 0 (los), geht beim Drücken auf 1 und bei gehaltener Taste über einen Takt-Zähler weiter auf 2 und 3; geprüft wird nur auf Nicht-Null.
+- Den Zustand einer anderen Taste liest die Pad-Funktion `0xC0043F10`: TRIGGER (19), SEQUENCER (21), KEYBOARD (23) und CHORD (24). Das ist die Stelle hinter "Halten + Pad wählt still".
+- **Offen:** einige Stellen, die das Objekt über `0xC0040F04` holen, löste der Emulator nicht aus (`0xC0043604`, `0xC0065CEC`, `0xC0067604`, `0xC00686EC`, `0xC006FC20`). Ob sie weitere SHIFT-Kürzel tragen, ist nicht geklärt.
 
 ## 8. Grenzen und Offenes
 
-- **Am Gerät nur die Ein/Aus-Taste geprüft.** Der DSP ist im Emulator eine Attrappe: ob etwas klingt, ist nicht
-  gemessen, nur MIDI-Ausgang, Display, LEDs und RAM.
-- Zustände, die der Emulator nicht erreicht: Time Slice (braucht ein Sample), die Untermenüs von Global und
-  Data Util, Sample-Bearbeitung. Dort gelten nur die Handbuch-Angaben.
-- **Nur auf der Hauptebene des Menüs** je Gruppe wurde SHIFT + VALUE getestet (erste Seite). Innerhalb der
-  Untermenüs von Global und Data Util kann es weitere Unterschiede geben.
-- Das Handbuch dokumentiert keine SHIFT-Kombination für STOP, MENU, EXIT, Part </>, PART ERASE, STEP JUMP, MFX HOLD,
-  die Tasten 1 bis 4, Filtertasten, MFX SEND, AMP EG, IFX ON und die meisten Regler. Der Emulator bestätigt
-  für alle: kein Unterschied (außer den in Abschnitt 1 und 2 genannten, nicht dokumentierten Fällen).
-- Die Zuordnung der gehaltenen Tasten beim Einschalten zu Panel-Nummern ist hergeleitet, nicht am Gerät geprüft;
-  siehe `docs/messungen/2026-10-10-startphase.md`.
+- **Am Gerät nur die Ein/Aus-Taste geprüft.** Der Emulator spielt keinen Klang: gemessen sind nur MIDI-Ausgang, Display, LEDs und RAM.
+- Zustände, die der Emulator nicht erreicht: Time Slice (braucht ein Sample), die Untermenüs von Global und Data Util, Sample-Bearbeitung. Dort gelten nur die Handbuch-Angaben.
+- **Nur auf der Hauptebene des Menüs** je Gruppe wurde SHIFT + VALUE getestet (erste Seite). Innerhalb der Untermenüs von Global und Data Util kann es weitere Unterschiede geben.
+- Das Handbuch dokumentiert keine SHIFT-Kombination für STOP, MENU, EXIT, Part </>, PART ERASE, STEP JUMP, MFX HOLD, die Tasten 1 bis 4, Filtertasten, MFX SEND, AMP EG, IFX ON und die meisten Regler. Der Emulator bestätigt für alle: kein Unterschied (außer den in Abschnitt 1 und 2 genannten, nicht dokumentierten Fällen).
+- Die Zuordnung der gehaltenen Tasten beim Einschalten zu Panel-Nummern ist hergeleitet, nicht am Gerät geprüft; siehe [Messung](messungen/2026-10-10-startphase.md).
 
 ## 9. Messaufbau
 
-Aufbau und Zahlen, damit es nachvollziehbar bleibt:
-
-- Eine Firmware-Instanz wird 5 s gebootet (Hauptbildschirm, Pattern 1 aus dem Flash-Dump), dann je Lauf
-  per `fork` kopiert. Ein Lauf drückt Tasten, dreht Drehgeber, stellt Regler, drückt Pads und das Touchpad
-  mit Panel-Nachrichten (`00 Taste 1|0`, `01 Nr 00 Delta`, `02 Nr hi lo`, `04 Nr 00 Velocity an`,
-  `05 xh xl yh yl`) und liest danach Bildschirm-Nummer (`*0xC03404C0`), Display, LED-Befehle, das
-  Pattern (16 KiB ab `*0xC033E6A4`), 38 MiB Heap-Unterschiede und den MIDI-Ausgang.
-- Zustände: Stand, Abspielen, SEQUENCER, KEYBOARD, TRIGGER, PART MUTE, CHORD, STEP JUMP, PATTERN SET,
-  SEQUENCER und Abspielen, GATE ARP, Menü (Seite 0, 1, 2), WRITE-Fenster, SHIFT + WRITE, SHIFT + REC,
-  SHIFT + Pad 12 bis 16.
-- Rund 17 000 Läufe: 2 595 "Taste gehalten + zweites Element" je für Stand und Abspielen, 2 487 "angetippt + zweites Element"
-  je für Stand und Abspielen, 985 "Pad gehalten + zweites Element" für drei Zustände, 181 "SHIFT +
-  alles" je weiterem Zustand. Dazu rund 20 Einzelversuche (SHIFT + PLAY, Undo, PART ERASE, STEP JUMP,
-  Gate Arp, MIDI-Ausgang, Einschalt-Masken).
-- Ohne Unterschiede im Anzeige-Pfad bleiben Audio-Wirkungen unsichtbar, außer sie erscheinen im
-  MIDI-Ausgang. Deshalb wurden alle Halten-Paare mit Pad und Touchpad zusätzlich auf den MIDI-Ausgang
-  verglichen.
-- Die Messskripte liegen nicht im Repo (Wegwerf-Werkzeuge). Ein Kürzel ist mit dem vorhandenen
-  Werkzeug einzeln nachstellbar, zum Beispiel SHIFT + TAP:
+Eine Firmware-Instanz bootet 5 s bis zum Hauptbildschirm und wird je Lauf kopiert; ein Lauf drückt Tasten, dreht Drehgeber, stellt Regler und drückt Pads und Touchpad mit Panel-Nachrichten (`00 Taste 1|0`, `01 Nr 00 Delta`, `02 Nr hi lo`, `04 Nr 00 Velocity an`, `05 xh xl yh yl`) und liest danach Bildschirm-Nummer (`*0xC03404C0`), Display, LED-Befehle, Pattern und MIDI-Ausgang. Ohne Unterschied im Anzeige-Pfad bleiben Audio-Wirkungen unsichtbar, außer sie erscheinen im MIDI-Ausgang; darum wurden alle Halten-Paare mit Pad und Touchpad zusätzlich auf den MIDI-Ausgang verglichen. Die Messskripte liegen nicht im Repository. Ein Kürzel ist mit dem vorhandenen Werkzeug einzeln nachstellbar, zum Beispiel SHIFT + TAP:
 
 ```sh
 tools/emu/.venv/bin/python tools/emu/machine.py --vsb SYSTEM.VSB --flash flash_full.bin --seconds 7 \

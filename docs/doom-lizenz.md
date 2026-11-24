@@ -1,7 +1,7 @@
 # Doom: Lizenzen und Weitergabe
 
-Stand 15. Oktober 2026. Die Dateien liegen in [`third_party/doom/`](../third_party/doom/README.md). Das ist
-meine Lesung der Lizenztexte und keine Rechtsberatung. Marker: **gemessen** (nachgezählt oder
+Die Dateien liegen in [`third_party/doom/`](../third_party/doom/README.md). Das ist
+die Lesung der Lizenztexte durch die Maintainer und keine Rechtsberatung. Marker: **gemessen** (nachgezählt oder
 nachgebaut), **hergeleitet** (aus den Texten gefolgert), **offen**.
 
 ## Was ausgeliefert wird
@@ -13,7 +13,7 @@ nachgebaut), **hergeleitet** (aus den Texten gefolgert), **offen**.
 | Engine doomgeneric, Revision `e257a095...` | in `doom.bin`, Quelle im Archiv | je Datei GPL-2.0-or-later, `sha1.c` GPL-3.0-or-later | gemessen: 77 von 80 gewählten Dateien nennen Version 2 oder später, `sha1.c` Version 3 oder später |
 | newlib 4.4.0 (126 Objekte) und libgcc (24 Objekte) | in `doom.bin` | newlib: gemischt, meist BSD; libgcc: GPL-3.0-or-later mit GCC Runtime Library Exception | gemessen: die Objektliste steht in `third_party/doom/linked-objects.txt`; hergeleitet: die Lizenz je Objekt |
 | Spieldaten Freedoom 0.13.0, Phase 1 | `doom.wad` | BSD, drei Klauseln | gemessen: `doom.wad` ist `freedoom1.wad` ohne Änderung (gleiche SHA-256) |
-| Korg-Daten | nirgends | | gemessen: Der Lader ruft Firmware-Funktionen über feste Adressen auf, er enthält keinen Korg-Code und keine Korg-Daten; `test/release-audit.test.mjs` lässt in `third_party/doom/` nur die drei Dateien mit ihrem Hash durch |
+| Korg-Daten | nirgends | | gemessen: Der Lader ruft Firmware-Funktionen über feste Adressen auf, er enthält keinen Korg-Code und keine Korg-Daten; die Dateien von `doom.bin` samt Hashes stehen in `third_party/doom/sources.json`, `test/doom-sources.test.mjs` prüft das Inventar |
 
 ## Wie die Lizenzen zusammenpassen
 

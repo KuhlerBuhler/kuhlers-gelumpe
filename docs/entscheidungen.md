@@ -15,13 +15,13 @@ Was entschieden ist und warum. Gilt, bis hier etwas anderes steht.
 | Sprache der Oberfläche | Klartext und echte Einheiten, keine Bytes. |
 | Design | Eigenes Design in `site/design/`, unter AGPL veröffentlicht. Der Editor bekommt keine Design-System-Seite. |
 | Eigene Patterns und Dateien | Der Editor hat keinen eigenständigen Datei- oder Pattern-Editor. Patterns kommen über die Karte in die Firmware und werden an der emulierten Electribe bedient. Parser und Datenprüfungen bleiben im Kern. |
-| Pattern-Werkzeuge | Die Seite Pattern-Werkzeuge ist kein Pattern-Editor: sie würfelt einen Part in eine Kopie eines vorhandenen Patterns und gibt sie als Datei, als Kopie einer Sicherung oder durch Türsteher und Bestätigung ans Gerät. Sie liest dafür eine Sicherung oder Einzeldatei, die der Nutzer auswählt, und verändert sie nie ([Idee 29](ideen/29-wuerfeln.md#bedienung-im-editor)). Der Übergangs-Generator, der hier auch lag, ist entfernt. Der Bereich Patterns bleibt aus der Navigation. |
+| Pattern-Werkzeuge | Die Seite Pattern-Werkzeuge ist kein Pattern-Editor: sie würfelt einen Part in eine Kopie eines vorhandenen Patterns und gibt sie als Datei, als Kopie einer Sicherung oder durch den Türsteher (der Schutz vor falschen Schreibzugriffen, siehe [Glossar](glossary.md#tuersteher)) und Bestätigung ans Gerät. Sie liest dafür eine Sicherung oder Einzeldatei, die der Nutzer auswählt, und verändert sie nie. Der Bereich Patterns bleibt aus der Navigation. |
 
 ## Navigation
 
 | Frage | Entscheidung |
 |---|---|
-| Pattern-Werkzeuge und Samples | Beide Seiten stehen nicht in der Navigation und sind auch über `#ptools` und `#samples` nicht zu erreichen. Code und Tests bleiben. Nur mit `?labs` an der Adresse erscheinen die Tabs wieder, so laufen die Browser-Tests. Warum: das Würfeln soll in die Firmware ([Idee 29](ideen/29-wuerfeln.md)). Samples umbenennen und stimmen taugt erst etwas, wenn gemessen ist, ob es dauerhaft bleibt. |
+| Pattern-Werkzeuge und Samples | Beide Seiten stehen nicht in der Navigation und sind auch über `#ptools` und `#samples` nicht zu erreichen. Code und Tests bleiben. Nur mit `?labs` an der Adresse erscheinen die Tabs wieder, so laufen die Browser-Tests. Warum: das Würfeln soll in die Firmware. Samples umbenennen und stimmen taugt erst etwas, wenn gemessen ist, ob es dauerhaft bleibt. |
 | Sichtbare Seiten | Start, Emulator, Patcher, Presets, Modulationen, Plugins, Blechy. |
 
 ## Release und App
@@ -40,25 +40,22 @@ Was entschieden ist und warum. Gilt, bis hier etwas anderes steht.
 | Frage | Entscheidung |
 |---|---|
 | Umbenennung `hacktribe` zu `blechtribe` | Als Patch gebaut. Die Karte zieht mit um, der Emulator hat dafür einen Knopf. |
-| Startbild-Editor | Wird mit dem aktuellen MFX-2-Stand gebaut. |
 | Gate Arp allein | Mit dem Patch nur noch mit EXIT beim Start erreichbar. GATE ARP allein soll sich wie GATE ARP plus TOUCH SCALE verhalten. |
 | Regler beim Einschalten | Sie bleiben in der Aus-Stellung, bis einer gedreht wird. Der Regler bestimmt den Wert, nicht umgekehrt. |
 | Rand der Pads | Bei leuchtendem Pad nimmt der Rand die LED-Farbe an. |
 | Patterns laden | Die `.e2sallpat` liegt auf der Karte, im Emulator geht IMPORT ALL PATTERN. Die Seite legt die Datei nicht auf die Karte. |
-| LEDs im Modus "Echtes Gerät" | Ihr Zustand im RAM wird gesucht ([Messung](messungen/2026-10-14-led-zustand-ram.md)). |
+| LEDs im Modus "Echtes Gerät" | **offen:** wo die Firmware den LED-Zustand im RAM hält, ist nur im Emulator gemessen ([Messung](messungen/2026-10-14-led-zustand-ram.md)). |
 
 ## Plugins
 
 | Frage | Entscheidung |
 |---|---|
-| Weg aufs Gerät | Plugins werden von der Karte geladen, mit Import und Export in eine `.all`-Datei. Nicht in die VSB. Wer vor dem Sample-Laden laufen muss, läuft erst beim nächsten Start. |
+| Weg aufs Gerät | Plugins werden von der Karte geladen, mit Import und Export in eine `.all`-Datei. Nicht in die [VSB](glossary.md#vsb). Wer vor dem Sample-Laden laufen muss, läuft erst beim nächsten Start. |
 | Ordner auf der Karte | `KORG/blechtribe/Plugin/` neben `Sample` |
 | Dateiendung | `.blech` für eigene Plugins |
 | Grenzen | Kein Limit für die Zahl der Plugins, 128 KiB Gesamtgröße |
 | Fremde Plugins | Beim ersten Laden am Gerät einmalig bestätigen |
 | Dauerhafte Werte | Pro Plugin über den Plugin-Namen getrennt |
-| Terminal | Bleibt, soll Plugins auch ausführen können (Pfad angeben) |
 | Gerätetest | Dateien lesen und schreiben werden vor dem Bau am Gerät getestet ([Gerätetests](geraetetests/README.md)) |
-| Patches als Plugins | Nicht vorgezogen. Die Sprache wird erst vollständig umgesetzt. |
 
 Siehe [Plugins](plugins.md).

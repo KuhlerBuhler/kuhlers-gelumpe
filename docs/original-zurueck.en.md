@@ -1,7 +1,7 @@
 # Back to Korg's original
 
-As of 6 November 2026. [Deutsch](original-zurueck.md) (the German page carries the evidence table with all sources). For everyone who
-wants BLECHTRIBE (or Hacktribe) off their Electribe, with the blue one in focus. Markers: **measured** (on a device or in the
+[Deutsch](original-zurueck.md) (the German page carries the evidence table with all sources). For everyone who
+wants BLECHTRIBE (or [Hacktribe](glossary.md#hacktribe)) off their Electribe, with the blue one in focus. Markers: **measured** (on a device or in the
 emulator), **derived**, **open**. The way has not been walked on a real blue device yet, everything for the blue is measured in the emulator.
 
 ## Is it possible?
@@ -20,7 +20,7 @@ is the same thing again with Korg's unchanged file.
 
 ## Which firmware runs?
 
-The page Blechy in the editor asks for you: `Blechy -> I want to go back to Korg's original`. By hand:
+The page [Blechy](glossary.md#blechy) in the editor asks for you: `Blechy -> I want to go back to Korg's original`. By hand:
 
 - **Red, BLECHTRIBE:** Korg's red file in `KORG/blechtribe/System/`.
 - **Blue, BLECHTRIBE without Hacktribe:** Korg's blue file, **unchanged**, in `KORG/blechtribe/System/`.
