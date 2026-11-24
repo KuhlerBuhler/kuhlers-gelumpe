@@ -1,7 +1,7 @@
 # Blechy beim Ausschalten: Bild statt "Power Off"
 
 Stand 2026-10-15. Kein Gerätezugriff, alles im Emulator gemessen (Hacktribe 2.02 und Korgs Original 2.02, beide mit dem eigenen
-Flash-Abbild und einer virtuellen Karte). Zu [Idee 45](../ideen/45-blechy-ein-aus.md), ohne den Ton: Plugins
+Flash-Abbild und einer virtuellen Karte). Ohne den Ton: Plugins
 und Patches spielen keine Samples.
 
 ## Wo die Firmware das Fenster zeichnet

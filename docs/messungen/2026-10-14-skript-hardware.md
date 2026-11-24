@@ -1,27 +1,25 @@
 # Plugin Hardware: Uhr, Lesen, Handeln, Ereignisse
 
-Stand 2026-10-14. Kein Gerätezugriff. Alles im
-Emulator gemessen oder aus dem Code hergeleitet. Zur Herkunft der Adressen siehe
+Kein Gerätezugriff. Alles zur [Plugin](../glossary.md#plugin)-Hardware-API im
+[Emulator](../glossary.md#emulator) gemessen oder aus dem Code hergeleitet. Zur Herkunft der Adressen siehe
 [`../hintergrund/skript-laufzeit.md`](../hintergrund/skript-laufzeit.md).
 
-## Timer3 läuft mit einer Sekunde Periode (Fehler behoben)
+## Timer 3 läuft mit einer Sekunde Periode
 
 Der Zähler `0x01F0D010` zählt mit 150 MHz, aber das Periodenregister (`+0x18`)
 steht auf `0x8F0D17F`: er läuft alle 150 000 000 Ticks (eine Sekunde) wieder bei
 null los, nicht erst bei 2^32. Gemessen im Emulator (PRD gelesen, Zähler in 5 ms
 Schritten 750 029 Ticks weiter). Die Zeitprüfungen der VM und des Rahmenhakens
-rechneten bisher mit einer Differenz modulo 2^32. Fiel ein Überlauf in ein Handler
-Fenster, sah die Laufzeit eine riesige Zeit und schaltete das Plugin mit `TIME` ab,
-hergeleitet etwa alle 3 Minuten bei einer Last von 0,2 ms je Rahmen. Behoben an
-den fünf Rechenstellen (Zeitprüfung im Lauf, Ende des Laufs, Höchstzeit, Rahmen
-Kandidat und Rahmen nach Handler): ist der Zähler kleiner als der Start, kommt die
-Periode dazu (`SCRIPT_TIMER_PERIOD`, Vertrag `TIMER3.period`). Die Unit Tests laufen
-jetzt mit Start 149 999 984 und Überlauf bei der Periode. Am Gerät ist die Periode
-nicht gelesen.
+rechnen deshalb an fünf Stellen (Zeitprüfung im Lauf, Ende des Laufs, Höchstzeit, Rahmen
+Kandidat und Rahmen nach Handler) mit Überlauf: ist der Zähler kleiner als der Start, kommt die
+Periode dazu (`SCRIPT_TIMER_PERIOD`, Vertrag `TIMER3.period`). Ohne das sähe die Laufzeit bei einem Überlauf
+im Handler-Fenster eine riesige Zeit und schaltete das Plugin mit `TIME` ab (hergeleitet etwa alle 3 Minuten bei einer
+Last von 0,2 ms je Rahmen). Die Unit Tests laufen mit Start 149 999 984 und Überlauf bei der Periode. Am Gerät ist
+die Periode nicht gelesen.
 
 ## Uhr und Lesen
 
-- `korg.millis()` zählt aus Timer3 mit dem Rest je Tick, nach jedem Rahmen
+- `korg.millis()` zählt aus Timer 3 mit dem Rest je Tick, nach jedem Rahmen
   nachgeführt, damit zwischen zwei Aufrufen nie mehr als eine Periode liegt. Im
   Emulator 1241 ms Pluginzeit gegen 1250 ms Emulatorzeit (gemessen, `hw-uhr`).
 - Lesen: Transport `0xC06BC318`, Tempo `0xC0691518` (32 Bit, Zehntel BPM, 1600 im
@@ -32,12 +30,12 @@ nicht gelesen.
   Transport 0, Tempo 1600, Pattern 0, Part 0, Schritt 0; nach PLAY Transport 1 und
   Schritt 13 nach 1,2 s; Regler 3 mit Rohwert 500 (Nachricht `[2, 3, 1, 244, 0]`)
   wird als 500 gelesen.
-- API Version 3 (`since` 3) für alle Lesefunktionen; `korg.millis` bleibt 1.
+- Die Lesefunktionen gelten ab API Version 3 (`since` 3), `korg.millis` ab 1.
 
 ## Handeln
 
 Die Aktionen rufen die Funktionen der Firmware aus dem Rahmenhaken, also aus der
-UiTask, in der die Recherche sie als sicher gemessen hat:
+UiTask, in der sie sich als sicher erwiesen haben:
 `korg.play` und `korg.stop` drücken und lösen die Taste über `0xC0042BB8`,
 `korg.pattern` ruft `0xC0081F50(MODEL, index, 1)`, `korg.tempo`
 `0xC004A80C(Patternobjekt, Zehntel BPM, 1)`, `korg.part` `0xC0081BB4(MODEL, part)`,
@@ -46,8 +44,7 @@ Bereiche (Pattern 0 bis 249, Tempo 100 bis 3000, Part 0 bis 15), die Glue Funkti
 prüft sie noch einmal.
 
 **Befund, gemessen im Emulator:** `0xC0060C74` mit Flag 1 schaltet den Mute eines
-Parts **um**, Flag 0 (Loslassen) tut nichts. Die Recherche beschrieb Flag 1 als
-"stumm" und 0 als "spielt"; das stimmt nicht (Part 4: 0 gleich 1 mit Flag 1, Part 2:
+Parts **um**, Flag 0 (Loslassen) tut nichts. Flag 1 heißt also nicht "stumm" und 0 nicht "spielt" (Part 4: 0 gleich 1 mit Flag 1, Part 2:
 1 gleich 0 mit Flag 1, Flag 0 ohne Wirkung). `korg.mute(part, stumm)` liest deshalb
 den Zustand (`0xC06B2F9D + 0x330 * part`) und drückt das Pad nur, wenn er vom
 gewünschten abweicht.
@@ -60,7 +57,7 @@ Firmwareadressen prüfen die Argumente.
 ## Ereignisse
 
 Statt Haken in der SeqTask vergleicht der Rahmenhaken die Zustandswörter von Frame zu
-Frame (`script_events_poll`, Beschreibung in `docs/plugins.md`). Das erspart fünf
+Frame (`script_events_poll`, Beschreibung in [`plugins.md`](../plugins.md)). Das erspart fünf
 Haken an Stellen, die die Musik verschieben können, und kostet 40 ms Raster. Nur
 `save` hat einen Haken (`0xC004C1B4`, erster Befehl `push {r4, r5, r6, lr}`, CommandTask),
 der nur in den Ring schreibt und den verdrängten Befehl selbst ausführt.
@@ -82,7 +79,7 @@ Flash), seine Wirkung ist nur im Unit Test geprüft.
   `tools/device/backlight.py` am Gerät benutzt hat. Gemessen im Emulator: die drei
   Aufrufe mit den Werten des Plugins kommen an. Die Firmware ruft dieselbe Funktion
   im Emulator rund 1500 Mal in 2 s selbst (Dimm Routine); wie lange die Farbe sichtbar
-  bleibt, ist wie in der Recherche auf Batterie mit Power Save "Auto" offen und
+  bleibt, ist auf Batterie mit Power Save "Auto" offen und
   am Gerät nicht geprüft.
 - `korg.ledHold(an)` setzt das Byte `LM + 0xB98` (LM aus `0xC0345A1C`), das
   `0xC00875F4` und alle Firmware LED Wege prüfen. Gemessen im Emulator: mit gesetztem Byte
@@ -91,4 +88,4 @@ Flash), seine Wirkung ist nur im Unit Test geprüft.
   Eine Schutzprüfung im Rahmenhaken gibt die LEDs zurück, wenn kein Plugin mehr läuft.
   Ohne die Sperre überschreibt die Firmware die unteren RGB LEDs `0x4C` bis `0x57`
   alle 40 ms mit der Pegelanzeige; mit ihr bleiben die Pluginwerte stehen
-  (Recherche, am Gerät nicht geprüft).
+  (am Gerät nicht geprüft).

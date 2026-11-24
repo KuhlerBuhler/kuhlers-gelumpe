@@ -1,7 +1,7 @@
 # Sync Group auf der blauen Electribe (24.10.)
 
 Bisher nur rot, weil auf der blauen das Laden eines Patterns nicht gemessen war. Gemessen im Emulator mit Korgs Synth-Firmware
-2.02 und dem BLECH-Satz für Blau. **Am Gerät nicht geprüft.**
+2.02 und dem [BLECH](../glossary.md#blech)-Satz für Blau. **Am Gerät nicht geprüft.**
 
 ## Das Laden eines Patterns
 

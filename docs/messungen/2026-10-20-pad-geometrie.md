@@ -1,7 +1,7 @@
 # Gebundene Noten auf den Pads schneller auswerten
 
 Gemessen im ARM-Emulator mit selbst erzeugten Steps. Keine Gerätemessung.
-Untersucht werden Hacktribe, der rote Korg-Sampler und die blaue Electribe 2.
+Untersucht werden [Hacktribe](../glossary.md#hacktribe), der rote Korg-Sampler und die blaue Electribe 2.
 
 ## Berechnung und Speicher
 

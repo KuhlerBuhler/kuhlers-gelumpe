@@ -1,9 +1,8 @@
-# Patternwechsel erst nach Bestätigung (Idee 46): gebaut und im Emulator geprüft
+# Patternwechsel erst nach Bestätigung: gebaut und im Emulator geprüft
 
 Stand 2026-10-15. Alles im Emulator (`tools/emu`, Unicorn 2.1.4) mit der eigenen `SYSTEM.VSB`
 (Hacktribe 2.02) und dem eigenen Flash-Dump vom 9.10., Code offline mit Capstone gelesen.
-**Am Gerät nichts geprüft.** Recherche und Entwurf: [Patternwechsel](../hintergrund/patternwechsel.md),
-Idee: [Idee 46](../ideen/46-patternwechsel-bestaetigung.md). Markierungen: **gemessen**,
+**Am Gerät nichts geprüft.** Recherche und Entwurf: [Patternwechsel](../hintergrund/patternwechsel.md). Markierungen: **gemessen**,
 **hergeleitet**, **offen**.
 
 ## Was gebaut ist

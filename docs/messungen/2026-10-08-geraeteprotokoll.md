@@ -1,7 +1,7 @@
 # Geräteprotokoll: Suche, RAM lesen und Pattern-Abfrage
 
 **Gemessen am Gerät, 8. Oktober 2026:** Electribe 2 Sampler 2.02 mit
-Hacktribe, USB an einem Linux-Rechner, ALSA/RtMidi via Python mido. Kanal aus der
+[Hacktribe](../glossary.md#hacktribe), USB an einem Linux-Rechner, ALSA/RtMidi via Python mido. Kanal aus der
 Suchantwort, keine Annahme im Messskript. Neue Nachrichten und Decoder
 zuerst gegen tatsächliches SimDevice, Kanal 9, mit dem vorhandenen
 Simulationsabbild geprüft; auch sofortiger Abbruch bei Timeout getestet.

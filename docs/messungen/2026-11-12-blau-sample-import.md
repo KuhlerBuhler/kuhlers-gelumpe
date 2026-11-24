@@ -1,35 +1,22 @@
 # Eigene Samples auf der blauen Electribe 2: wo im DSP-Speicher Platz ist
 
-Stand 12. November 2026. Korgs blaue Firmware 2.02 (Synth), zum Vergleich Korgs rote 2.02. Frage für 1.5: wohin mit
-eigenem PCM auf der blauen, die kein IMPORT SAMPLE hat, und wie viel Platz ist dort. Baut auf
-[Samples auf der blauen Electribe 2](2026-10-15-synth-samples.md) (Oszillator-Tabelle, Lader, Entwurf) und
-[Die PCM-Bank der blauen aus WAV-Dateien](2026-10-15-synth-pcm-flash.md) auf. Markierungen: **gemessen**, **gelesen**
-(Code oder Bytes), **hergeleitet**, **Urteil**, **offen**.
+Korgs blaue Firmware 2.02 (Synth), zum Vergleich Korgs rote 2.02. Frage: wohin mit eigenem PCM auf der blauen, die kein
+IMPORT SAMPLE hat, und wie viel Platz ist dort. Baut auf [Samples auf der blauen Electribe 2](2026-10-15-synth-samples.md)
+(Oszillator-Tabelle, Lader) und [Die PCM-Bank der blauen aus WAV-Dateien](2026-10-15-synth-pcm-flash.md) auf. Markierungen:
+**gemessen**, **gelesen** (Code oder Bytes), **hergeleitet**, **Urteil**, **offen**. Der [DSP](../glossary.md#dsp) ist der Blackfin-Chip, dessen
+Speicher (SDRAM) die Wellen hält; der ARM schreibt sie beim Start über den [Host-Port](../glossary.md#host-port).
 
 ## Kurzfassung
 
 1. Das DSP-Programm der blauen reserviert für PCM **genau 16 MiB**: `0x365AE0` bis `0x1365AE0`. Direkt dahinter legt der
    DSP seine Effektpuffer an. Die rote reserviert an derselben Stelle 25 MiB (`0x365EC0` bis `0x1C65EC0`).
 2. Die Werkswellen der blauen füllen davon rund 11 MB. **Frei im Fenster bleiben rund 5,4 MiB** (etwa 56 s mono bei
-   48 kHz), nicht 9 MB.
+   48 kHz).
 3. Hinter allem, was der DSP lädt oder adressiert, liegen noch rund 11,5 MiB SDRAM ohne bekannten Nutzer
    (`0x1381354` bis `0x1F00000`). Ob eine Stimme von dort spielt, sagt der Code nicht eindeutig; das klärt nur das Gerät.
 4. Der Weg für eigene Samples ist derselbe wie für die Werkswellen: der ARM schreibt PCM beim Start über den Host-Port in
    den DSP, eine Stimme bekommt nur Startadresse, Schleife und Tonhöhe. Das ist im Emulator schon gezeigt
-   ([Entwurf](2026-10-15-synth-samples.md#entwurf-blech-samples-vom-kartenordner-als-oszillatoren)).
-
-## Die Zahl 9 MB
-
-Die Angabe "rund 9 MB frei im DSP-Speicher der blauen" stammt aus einem anderen Projekt (Omnitribe, eine Erweiterung auf
-Hacktribe-Basis). Dessen Quelltext ist nicht mehr erreichbar (Repository und Konto liefern 404, 12.11., kein Archiv), also
-ließ sich nicht nachlesen, wie die Zahl entstand. **offen**
-
-Hergeleitet: Omnitribe baut laut seiner Beschreibung auf Hacktribe, also auf dem roten Programm, das auf der blauen läuft.
-Dort gilt das 25-MiB-Fenster der roten und es gibt keine blauen Werkswellen im DSP. Für Korgs blaue Firmware gilt die Zahl
-nicht unverändert.
-
-Unsere eigene frühere Schätzung von 9,15 MiB ([2026-10-15](2026-10-15-synth-samples.md#4-platz-und-karte)) nahm die
-Obergrenze der roten (`0x1C65EC0`). Die blaue hat eine eigene, tiefere Grenze (unten). Die Schätzung ist damit überholt.
+   ([Umsetzung](2026-10-15-synth-samples.md#umsetzung)).
 
 ## Belegtabelle
 
@@ -54,19 +41,17 @@ Obergrenze der roten (`0x1C65EC0`). Die blaue hat eine eigene, tiefere Grenze (u
 
 - **Sicherer Platz:** im PCM-Fenster hinter den Werkswellen, rund 5,4 MiB. Dort liegen auch die Werkswellen, der DSP spielt
   von dort. **Urteil**
-- **Möglicher Zusatzplatz:** `0x1381354` bis `0x1F00000`, rund 11,5 MiB. Erst im DSP-Modell des Emulators (#508)
-  prüfen, sobald es Sample-Daten aus dem SDRAM liest: eine Welle hinter den Werkswellen und eine bei `0x1400000`, beide
-  Stimmen lesen ihre Daten, die Effektpuffer ab `0x1365AE0` (Delay, Reverb, Looper) bleiben unberührt; danach einmal am
-  Gerät gegenhören (Tester mit blauer). **Urteil**
+- **Möglicher Zusatzplatz:** `0x1381354` bis `0x1F00000`, rund 11,5 MiB. Erst im DSP-Modell des [Emulators](../glossary.md#emulator)
+  prüfen, sobald es Sample-Daten aus dem SDRAM liest, danach einmal am Gerät gegenhören (Tester mit blauer). **Urteil**
 - Zusammen wären das knapp 17 MiB, etwa 2:50 min mono bei 48 kHz. **hergeleitet**
 - Der DSP-Speicher ist flüchtig. Eigene Samples müssen bei jedem Start von der Karte neu geladen werden. **hergeleitet**
 
 ## Umsetzung: Samples von der Karte als Oszillatoren
 
-Patch `data/patches/user-samples-synth.json` (Code `tools/patch/user_samples.py`, Fälle `tools/emu/user_samples_cases.py`), im Satz
+[Patch](../glossary.md#patch) `data/patches/user-samples-synth.json` (Code `tools/patch/user_samples.py`, Fälle `tools/emu/user_samples_cases.py`), im Satz
 der blauen. Er nutzt nur das belegte Fenster bis `0x1365AE0`; der Zusatzbereich bleibt bis zu dieser Prüfung zu.
 
-- Haken am Ende der PCM-Ladung (`0xC00473D0`): der Lader liest `Sample/e2sSample.all` aus dem Ordner der Firmware in Blöcken von
+- Haken am Ende der PCM-Ladung (`0xC00473D0`): der Lader liest [`Sample/e2sSample.all`](../glossary.md#e2ssampleall) aus dem Ordner der Firmware in Blöcken von
   16 KiB und schreibt die Werte über den Host-Port des DSP hinter die letzte Werkswelle (größtes `SMPR`-Ende, auf 32 Byte), 64 Byte
   Nullen dahinter. Jedes WAV wird ein Eintrag in `SMPR`, `MSRL`, `MSPR` und `MSVS` und ein Oszillator in der Gruppe `[User]`. **gemessen (Emulator)**
 - Oszillator-Liste: Tabelle (409 auf 473 Einträge) und Part-Array (A, B, Flag je Oszillator) ziehen in freien Platz um, die Grenze
@@ -74,7 +59,7 @@ der blauen. Er nutzt nur das belegte Fenster bis `0x1365AE0`; der Zusatzbereich 
 - Tonhöhe: `256 * (60 + 12 * log2(48000 / Rate))`, Wurzeltaste C4. Im Emulator weicht das Wort höchstens um 1 vom genauen Wert ab. **gemessen (Emulator)**
 - Fälle im Emulator (Korgs blaue 2.02 allein und im ganzen Satz): Werte im DSP bitgleich, Stereo gemittelt, Schleife aus `esli`,
   ohne `esli` One-Shot, Pad spielt die Startadresse des Samples, zu groß und 8 Bit werden übersprungen und gezählt, EXIT beim
-  Einschalten und keine Datei lassen Tabellen und Liste wie bei Korg; die Startphase von `check.py --quick` ist grün. **gemessen (Emulator)**
+  Einschalten ([Notschalter](../glossary.md#notschalter)) und keine Datei lassen Tabellen und Liste wie bei Korg; die Startphase von `check.py --quick` ist grün. **gemessen (Emulator)**
 - Zähler im Menü: die Runtime liest den Zustand des Laders (`0xC0133000`: geladen, übersprungen, Ergebnis) und zeigt ihn als Zeile
   USER SAMPLES vor VERSION in der BLECH-Liste, nur wenn beim Start eine Datei da war. Fälle `usersamples:menu_*` (zwei geladen, eins
   übersprungen; alle geladen; kaputte Datei; dieselbe Adresse in Patch und Runtime), dazu ohne Datei vier Zeilen wie bisher. **gemessen (Emulator)**
@@ -91,10 +76,9 @@ der blauen. Er nutzt nur das belegte Fenster bis `0x1365AE0`; der Zusatzbereich 
 
 ## Offen
 
-- Wie Omnitribe auf 9 MB kam.
 - Ob eine Stimme der blauen außerhalb des 16-MiB-Fensters spielt.
 - Größe der echten Werksbank der blauen (Ende der Werkswellen am Gerät).
 
-## Nachprüfung der Kandidatenfläche am 20. November
+## Nachprüfung der Kandidatenfläche
 
-Die [aktuelle DSP-SDRAM-Prüfung](2026-11-20-dsp-sdram-freiraum.md) bestätigt inzwischen auch im blauen Original die beiden SDRAM-Heaps bei `0x01D00000` und `0x01E00000`. Die ältere rund 11,5-MiB-Spanne darf deshalb nicht als einheitlich frei gelten. Ohne diese Heaps und auf 4 KiB gerundet sind 10,421875 MiB in zwei Fenstern statisch und für die beschriebenen nativen Start-/Audioleerläufe sowie die benannten gekoppelten Ein-Stimmen-Fälle geprüft. Die aktuelle Sample-Importgrenze bleibt bei 16 MiB PCM; eine allgemeine Geräte- oder Volllastfreigabe ist damit noch nicht gegeben.
+Die [DSP-SDRAM-Prüfung](2026-11-20-dsp-sdram-freiraum.md) bestätigt auch im blauen Original die beiden SDRAM-Heaps bei `0x01D00000` und `0x01E00000`. Die ältere rund 11,5-MiB-Spanne darf deshalb nicht als einheitlich frei gelten. Ohne diese Heaps und auf 4 KiB gerundet sind 10,421875 MiB in zwei Fenstern statisch und für die beschriebenen nativen Start-/Audioleerläufe sowie die benannten gekoppelten Ein-Stimmen-Fälle geprüft. Die aktuelle Sample-Importgrenze bleibt bei 16 MiB PCM; eine allgemeine Geräte- oder Volllastfreigabe ist damit noch nicht gegeben.

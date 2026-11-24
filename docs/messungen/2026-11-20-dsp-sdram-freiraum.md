@@ -1,6 +1,6 @@
 # DSP-SDRAM: Belegung, Grenzprüfung und geprüfte Kandidaten
 
-Stand 20. November 2026. **Offline und im nativen DSP-Modell geprüft**, kein Gerätezugriff. Firmwarequellen: develop `ba814034c43a879890c96a21e1a530823692b499`. Für alle drei Originale wurden die bekannten SHA-256 geprüft. Rohdaten, extrahierte Programme und Disassemblierungen blieben außerhalb des Repositorys. Die [Ergebnisdatei](2026-11-20-dsp-sdram-freiraum.json) enthält nur Messwerte, Bereiche und Prüfsummen.
+Stand 20. November 2026. **Offline und im nativen [DSP](../glossary.md#dsp)-Modell geprüft**, kein Gerätezugriff. Firmwarequellen: develop `ba814034c43a879890c96a21e1a530823692b499`. Für alle drei Originale wurden die bekannten SHA-256 geprüft. Rohdaten, extrahierte Programme und Disassemblierungen blieben außerhalb des Repositorys. Die [Ergebnisdatei](2026-11-20-dsp-sdram-freiraum.json) enthält nur Messwerte, Bereiche und Prüfsummen.
 
 ## Ergebnis und Geltungsbereich
 

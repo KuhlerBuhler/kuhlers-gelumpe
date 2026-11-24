@@ -1,11 +1,11 @@
 # DEV MODE: was im Firmware-Abbild gesperrt bleibt
 
-Stand 14. November 2026. Hacktribe 2.02 und Korg rot 2.02 im Emulator, blau (Synth) nur als Gegenprobe.
+Stand 14. November 2026. [Hacktribe](../glossary.md#hacktribe) 2.02 und Korg rot 2.02 im Emulator, blau (Synth) nur als Gegenprobe.
 **Am Gerät nicht gemessen.**
 
-DEV MODE ist ein Schalter im BLECH-Menü (Seite `DEV MODE`, nur auf dem Sampler). Ist er an, darf BLECH WRITE das
+[DEV MODE](../glossary.md#dev-mode) ist ein Schalter im BLECH-Menü (Seite `DEV MODE`, nur auf dem Sampler). Ist er an, darf BLECH WRITE das
 Firmware-Abbild im RAM (`0xC0000000..0xC0200000`) beschreiben, damit ein Host-Tool geänderte Bereiche eines Patches ohne
-SOFTWARE UPDATE einspielen kann. Gesperrt bleiben die Bereiche, die der SysEx-Weg selbst und das Flashen brauchen: wer die
+SOFTWARE UPDATE einspielen kann. Gesperrt bleiben die Bereiche, die der [SysEx](../glossary.md#sysex)-Weg selbst und das Flashen brauchen: wer die
 überschreibt, verliert die Verbindung oder bricht ein Update ab.
 
 ## Schalter

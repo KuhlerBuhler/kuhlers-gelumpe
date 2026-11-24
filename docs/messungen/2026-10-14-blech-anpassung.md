@@ -1,27 +1,17 @@
 # BLECH Anpassung: untere LEDs und Display-Licht
 
-Stand 2026-10-14. Alles im Emulator gemessen oder aus dem Maschinencode gelesen (Firmware 2.02 mit
-Hacktribe, eigene `SYSTEM.VSB`, virtuelle Karte, Netzteil eingesteckt), am Gerät nichts geprüft.
+Alles im [Emulator](../glossary.md#emulator) gemessen oder aus dem Maschinencode gelesen (Firmware 2.02 mit
+[Hacktribe](../glossary.md#hacktribe), eigene `SYSTEM.VSB`, virtuelle Karte, Netzteil eingesteckt), am Gerät nichts geprüft.
 Markierungen: **gemessen** (Lauf im Emulator), **hergeleitet** (aus dem Code), **offen**.
 Code: `tools/patch/script_menu.s` (Haken und Seiten, Teil des Patches `script-runtime`), Prüfungen:
-`tools/emu/menu_cases.py` (`look_cases`), Anwendersicht: `docs/plugins.md`, "Das Menü BLECH am Gerät".
+`tools/emu/menu_cases.py` (`look_cases`), Anwendersicht und alle Seiten der Gruppe CUSTOMIZATION:
+[`plugins.md`](../plugins.md), "Das Menü BLECH am Gerät".
 
-## Was angepasst werden kann
-
-Die Gruppe CUSTOMIZATION im BLECH Menü (neun Seiten):
-
-| Seite | Wert | Wirkung |
-|---|---|---|
-| CUSTOMIZATION | Titelseite | sagt, dass WRITE speichert |
-| BOTTOM LEDS | METER, COLOR, OFF | Pegelanzeige, feste Farbe, dunkel |
-| LED RED, GREEN, BLUE | 0 bis 15 | Farbe für METER und COLOR; 0 0 0 ist die Farbe der Firmware |
-| BACKLIGHT RED, GREEN, BLUE | 0 bis 15 | Farbe des Display-Lichts; 0 0 0 ist das Weiß der Firmware |
-| DISPLAY INVERT | OFF, ON | Display umkehren, siehe unten (Stand 15.10.) |
-| PATTERN CONFIRM | ON, OFF | der Patternwechsel wartet auf MENU, siehe [Patternwechsel](2026-10-15-patternwechsel.md) (Stand 15.10.) |
-
-Alles gilt sofort beim Drehen. WRITE legt es in `settings.a/b.bin` auf die Karte (Version 2 der Datei,
-24 bis 88 Byte, das Wort `look` hinter den Schaltern). Es wird nichts in den Flash geschrieben.
-Ohne Karte oder Datei gelten die Werte der Firmware.
+Die Gruppe CUSTOMIZATION im BLECH-Menü stellt die unteren RGB-LEDs (BOTTOM LEDS: METER, COLOR, OFF; Farbe
+LED RED, GREEN, BLUE je 0 bis 15, alle drei 0 ist die Farbe der Firmware), das Display-Licht (je Farbe 0 bis 15,
+alle drei 0 ist das Weiß der Firmware) und DISPLAY INVERT ein. Alles gilt sofort beim Drehen. WRITE legt es in
+`settings.a.bin` oder `settings.b.bin` auf die Karte (Version 2 der Datei, das Wort `look` hinter den Schaltern);
+es wird nichts in den Flash geschrieben. Ohne Karte oder Datei gelten die Vorgaben.
 
 ## Untere LEDs
 
@@ -68,7 +58,7 @@ Ohne Karte oder Datei gelten die Werte der Firmware.
   Der Absturzbildschirm (`0xC00299D8`) setzt sie ebenfalls.
 - **Power Save** (gemessen, unverändert): das Flag `0xC00F9310` (Wert aus `0xC0028AB4`) schaltet die
   Dimm-Routine `0xC00289F4` im 2-kHz-Timer-Interrupt ein; sie setzt Rot oder Grün je 2 von 18 Takten, im
-  Wechsel, Blau nie. Gemessen mit und ohne unseren Patch: Rot 3,7 Prozent, Grün 3,7 Prozent, Blau 0.
+  Wechsel, Blau nie. Gemessen mit und ohne unseren [Patch](../glossary.md#patch): Rot 3,7 Prozent, Grün 3,7 Prozent, Blau 0.
   Solange das Flag gesetzt ist, tun unsere Haken nichts: Power Save bleibt genau, wie die Firmware es macht.
 - **Haken:** die drei Setzer fangen den Aufruf mit 1 ab und machen einen Kanal, dessen Pegel 0 ist, zu 0
   (nur wenn das Menü scharf ist und die Firmware nicht dimmt). Beim Drehen und beim Start setzt das Menü
@@ -85,7 +75,7 @@ Ohne Karte oder Datei gelten die Werte der Firmware.
   Kanälen kostet etwa 54 000 plus 20 000 Befehle je Sekunde, bei 2000 Takten je Sekunde. Auf dem Prozessor
   (hergeleitet, 300 MHz, im Emulator gezählt) sind das weit unter einem Promille der Zeit. Der Interrupt
   läuft je Takt höchstens 110 Befehle länger, gegen 500 Mikrosekunden Takt.
-- **Grenze, ehrlich:** 125 Hz Software-PWM ist von der Art der Firmware selbst (111 Hz beim Dimmen), das
+- **Grenze:** 125 Hz Software-PWM ist von der Art der Firmware selbst (111 Hz beim Dimmen), das
   Flimmern sieht man aber erst am Gerät. Bleibt es sichtbar (Kamera, schnelle Augenbewegung), ist die
   Abhilfe, nur die Pegel 0 und 15 anzubieten (acht Farben, keine PWM, kein Haken am Interrupt). Die PWM
   läuft nur bei Pegeln zwischen 1 und 14, die Vorgabe und die acht Farben der Pegel 0 und 15 berühren
@@ -96,7 +86,7 @@ Ohne Karte oder Datei gelten die Werte der Firmware.
 - **Offen:** Flimmern am Gerät, Wirkung auf das Netzteil und die Batterie, ob Blau bei Pegel 1 noch
   sichtbar ist.
 
-## Display umkehren (15.10.)
+## Display umkehren
 
 - **Hergeleitet** (`0xC0015DD0` und die Seitenschreiber `0xC001613C`, `0xC00160C4`): das Display hängt an SPI0, die Datenleitung
   (GPIO 8.1) unterscheidet Befehl und Daten. Die Firmware schickt dem Baustein nur `0xB0` bis `0xB7` (Seite), `0x00`/`0x10`
@@ -114,19 +104,18 @@ Ohne Karte oder Datei gelten die Werte der Firmware.
 - **Haken** `lcd_invert_hook` an `0xC00161A4` (Kette `lcd-invert`, `data/hooks.mjs`): in der Seitenschreib-Funktion der Firmware nach den
   vier Befehlen für Seite und Spalte, die Datenleitung ist noch auf Befehl. Das Menü merkt sich, was es dem Baustein zuletzt
   schickte (`M_INV_HW`). Weicht der Wunsch (`M_INV`) davon ab, geht einmal `0xA7` (ON) oder `0xA6` (OFF) hinaus, sonst nichts. Mit
-  OFF und ohne Datei (und Karte) wird dem Baustein nie ein Befehl geschickt, mit EXIT beim Einschalten ebenfalls nicht (der
-  Haken prüft zuerst, ob das Menü scharf ist). Kein Flash, die Einstellung liegt in der Einstellungsdatei der Karte.
-- **Datei:** Bit 28 des Worts `look` (siehe oben). Ältere Dateien (Version 1, oder Version 2 ohne das Bit) lesen sich als OFF, die
-  Dateigröße bleibt. Wirkung: nach dem Lesen beim Start und beim Drehen sofort, mit dem nächsten geschriebenen Seitenstück des Displays
-  (Seiten schreibt die Firmware nur, wenn sie sich ändern, beim Drehen ändert sich die Seite sofort).
+  EXIT beim Einschalten wird dem Baustein nie ein Befehl geschickt (der Haken prüft zuerst, ob das Menü scharf ist). Kein Flash,
+  die Einstellung liegt in der Einstellungsdatei der Karte.
+- **Datei:** Bit 28 des Worts `look`. ON ist die Vorgabe (keine Karte, keine Datei, Version 1, beschädigte Datei); eine Datei der
+  Version 2 ohne das Bit liest sich als OFF. Wirkung: nach dem Lesen beim Start und beim Drehen sofort, mit dem nächsten
+  geschriebenen Seitenstück des Displays (Seiten schreibt die Firmware nur, wenn sie sich ändern, beim Drehen ändert sich die Seite sofort).
 - **Emulator:** `tools/emu/machine.py` nimmt `0xA6` und `0xA7` (`lcd_reverse`, `shown()` ist das Bild des Bausteins, im Speicher
   `fb` bleibt das Bild der Firmware), `tools/emu/lcd.py` rechnet mit der umgekehrten Anzeige weiter (die Punkte folgen mit ihrer
   Trägheit), der Dienst veröffentlicht und die Seite zeigt das umgekehrte Bild.
-- **Gemessen** (`menu:look_invert_*`): Vorgabe OFF mit und ohne Karte, kein Befehl an den Baustein; die Seite ("DISPLAY INVERT",
-  "Custom 8/9"); ON schickt genau einen `0xA7` und kehrt Menü und Hauptbildschirm um (jedes Bit des Bildes ist das Gegenteil des
-  Speichers); OFF schickt `0xA6`; WRITE legt Bit 28 in die Datei; der nächste Start liest es und zeigt das Bild umgekehrt;
-  Dateien ohne das Bit und beschädigte bleiben OFF; EXIT beim Einschalten: kein Befehl, Bild normal, auch wenn die Datei ON sagt.
-  Bilder: `docs/images/blech-menue-v14/` (20 bis 24 und 28, nur lokal).
+- **Gemessen** (`menu:look_invert_*`): Vorgabe ON mit und ohne Karte; der Baustein bekommt je Änderung genau einen `0xA7` (ON) oder
+  `0xA6` (OFF), ON kehrt Menü und Hauptbildschirm um (jedes Bit des Bildes ist das Gegenteil des Speichers); WRITE legt Bit 28 in die
+  Datei; der nächste Start liest es; Dateien der Version 1 und beschädigte Dateien geben die Vorgabe; EXIT beim Einschalten: kein
+  Befehl, Bild normal, auch wenn die Datei ON sagt.
 
 ## Wo die Prüfung steht
 

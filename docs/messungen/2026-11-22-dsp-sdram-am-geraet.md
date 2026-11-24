@@ -1,6 +1,6 @@
 # DSP-SDRAM am roten Gerät: zwei vollständige Lesevergleiche
 
-Stand 22. November 2026. **Am Gerät gemessen:** Electribe 2 Sampler, Hacktribe 2.02 mit Versionsmarker BLECH 1.4.8, über USB-MIDI am Linux-Rechner. Die [Ergebnisdatei](2026-11-22-dsp-sdram-am-geraet.json) enthält ausschließlich Bereiche, Prüfsummen, Zähler und Zeitangaben. Kein Firmware- oder Sampleinhalt ist enthalten.
+Stand 22. November 2026. **Am Gerät gemessen:** Electribe 2 Sampler, [Hacktribe](../glossary.md#hacktribe) 2.02 mit Versionsmarker BLECH 1.4.8, über USB-MIDI am Linux-Rechner. Die [Ergebnisdatei](2026-11-22-dsp-sdram-am-geraet.json) enthält ausschließlich Bereiche, Prüfsummen, Zähler und Zeitangaben. Kein Firmware- oder Sampleinhalt ist enthalten.
 
 ## Ergebnis
 

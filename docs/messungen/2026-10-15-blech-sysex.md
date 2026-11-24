@@ -1,6 +1,6 @@
 # BLECH SysEx: RAM lesen und schreiben in großen Blöcken
 
-Stand 2026-10-15. Kein Gerätezugriff, alles im Emulator gemessen (Hacktribe 2.02 und Korgs Original 2.02, beide mit
+Stand 2026-10-15. Kein Gerätezugriff, alles im Emulator gemessen ([Hacktribe](../glossary.md#hacktribe) 2.02 und Korgs Original 2.02, beide mit
 BLECH, mit dem eigenen Flash-Abbild), über die emulierte DIN-MIDI wie in [DIN-MIDI und SysEx](2026-10-09-din-sysex.md).
 Markierungen: **gemessen** (ausgeführt), **offline** (Code gelesen), **hergeleitet**, **offen**. Der Patch ist
 `data/patches/blech-sysex.json`, gebaut von `tools/patch/blech_sysex.py`, die Prüffälle stehen in
@@ -169,7 +169,7 @@ nur die 6.
 | `0x65` FILE READ | `f_open` (nur lesen), `f_lseek`, `f_read` oder `f_close` scheitert (`file_read_back`, Sprungziel `frb_error`) | offline gelesen |
 | `0x63` WRITE DATA in eine Datei | `f_open` (auch nach dem Anlegen fehlender Ordner), `f_lseek`, `f_write`, `f_close` scheitert, weniger Bytes geschrieben als verlangt, oder das Zurücklesen scheitert (`data_file_error`) | offline gelesen |
 | `0x71` FILE COPY, `0x72` FILE DELETE, `0x73` FILE CRC | Öffnen, Lesen, Schreiben oder Löschen auf der Karte scheitert | offline gelesen |
-| alle Dateibefehle | ohne Karte, und wenn die Datei fehlt | gemessen im Emulator (`sysex:file_*`, `doom_no_card`, `doom_missing`, [Doom per USB](2026-11-11-doom-usb.md)) |
+| alle Dateibefehle | ohne Karte, und wenn die Datei fehlt | gemessen im Emulator (`sysex:file_*`, `doom_no_card`, `doom_missing`) |
 
 Was hinter einer 6 stecken kann. Die Nummern sind FatFs' `FRESULT`; 1, 4 und 5 sind in dieser Firmware gemessen bzw. im Code
 benutzt, die übrigen folgen aus derselben Reihenfolge:

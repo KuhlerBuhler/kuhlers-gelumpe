@@ -5,9 +5,9 @@ Frage: Am Gerät änderte sich beim normalen Spielen oberhalb von `0xC1010000` n
 in den Arbeitspuffer `[0xC0D3A940, 0xC273AA40)` und in alles darüber, bei Start, Spielen, Pattern-Wechsel,
 Import/Export und Ausschalten? Ist der Arbeitspuffer nach Import/Export wieder frei?
 
-Gemessen im Emulator und am Abbild, nicht am Gerät. Firmware 2.02 mit Hacktribe (`hacktribe-original.VSB`,
+Gemessen im Emulator und am Abbild, nicht am Gerät. Firmware 2.02 mit [Hacktribe](../glossary.md#hacktribe) (`hacktribe-original.VSB`,
 unverändert), eigener Flash-Dump vom 9.10., virtuelle Karte mit eigener `e2sSample.all` (40 Samples à 40.000 Byte
-aus `sampleset.py`) und einer eigenen WAV. Start, Spielen, Pattern-Wechsel und Ausschalten auch mit dem BLECH-Satz
+aus `sampleset.py`) und einer eigenen WAV. Start, Spielen, Pattern-Wechsel und Ausschalten auch mit dem [BLECH](../glossary.md#blech)-Satz
 (`SYSTEM-hacktribe.VSB`).
 
 ## Aufbau

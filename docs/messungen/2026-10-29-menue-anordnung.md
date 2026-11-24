@@ -1,8 +1,8 @@
-# Menü-Anordnung 1.3.8: SYNC GROUP, GLOBAL PARAMETERS, DATA UTILITY (29.10.)
+# Menü-Anordnung: SYNC GROUP, GLOBAL PARAMETERS, DATA UTILITY
 
-Wunsch vom 29.10.: SYNC GROUP hinter CHAIN REPEAT (16), PLUGIN RUNTIME in GLOBAL PARAMETERS, EXPORT ALL PLUGINS und
+Anordnung: SYNC GROUP hinter CHAIN REPEAT (16), PLUGIN RUNTIME in GLOBAL PARAMETERS, EXPORT ALL PLUGINS und
 SET INIT PATTERN in DATA UTILITY, BLECH als vorletzte (31) und Blechy als letzte Seite (32) des Rings, unter PLUGINS die
-Liste MANAGE PLUGINS. Gebaut und im Emulator geprüft (Hacktribe, rot, blau), am Gerät nicht.
+Liste MANAGE PLUGINS. Im [Emulator](../glossary.md#emulator) geprüft ([Hacktribe](../glossary.md#hacktribe), rot, blau), am Gerät nicht.
 
 ## Die Stellen (gelesen in beiden Firmwares, im Emulator gespielt)
 

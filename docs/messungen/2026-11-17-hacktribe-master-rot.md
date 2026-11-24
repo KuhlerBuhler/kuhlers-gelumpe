@@ -1,9 +1,9 @@
 # Hacktribes Master-Effekte auf der roten 2.02 (17.11.)
 
-Stand 17.11.2026, Emulator, Korgs Original 2.02 rot (sha256 `1d0f0689...`) und Hacktribe 2.02 (`7cb4825c...`).
+Stand 17.11.2026, [Emulator](../glossary.md#emulator), Korgs Original 2.02 rot (sha256 `1d0f0689...`) und [Hacktribe](../glossary.md#hacktribe) 2.02 (`7cb4825c...`).
 Frage: kommen die vier Nachbauten von Hacktribes Master-Effekten (Big Hall, Plate Reverb, Tap Delay Sync, Tube Drive)
-sauber auf die Plätze 33 bis 36 der roten 2.02, und schicken sie dem DSP dieselben Bausteine wie Hacktribes eigene?
-Vorarbeit: [Hacktribes Extras auf rot](2026-11-10-hacktribe-extras-rot.md). Am Gerät nicht gehört.
+sauber auf die Plätze 33 bis 36 der roten 2.02, und schicken sie dem [DSP](../glossary.md#dsp) dieselben Bausteine wie Hacktribes eigene?
+Am Gerät nicht gehört.
 
 Marker: **gemessen** (im Emulator ausgeführt), **hergeleitet**, **offen**.
 

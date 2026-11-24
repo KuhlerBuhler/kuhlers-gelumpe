@@ -1,6 +1,5 @@
 # QEMU als DSP-Kern: Hybrid-Worker hinter BFIN9
 
-Fortsetzung von [QEMU-Port gegen GNU-Simulator](2026-11-16-qemu-bfin-vergleich.md).
 Alles lief im Simulator auf dem Mac. Kein Gerät wurde angesprochen.
 
 Marker: **gemessen** (Befehl lief, Zahl abgelesen), **gelesen** (Quelltext),

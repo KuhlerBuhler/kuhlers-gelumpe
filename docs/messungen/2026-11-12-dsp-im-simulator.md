@@ -1,7 +1,7 @@
 # Echter DSP-Code im Simulator: Stand und Grenze
 
-Stand 12. November 2026. Hacktribe 2.02. Versuch aus [Ton im Emulator](../ideen/52-ton-im-emulator.md): das DSP-Programm der
-Firmware im Blackfin-Simulator aus gdb laufen lassen und mit dem Verkehr füttern, den der Emulator am Host-Port aufzeichnet, um echte
+Stand 12. November 2026. [Hacktribe](../glossary.md#hacktribe) 2.02. Versuch aus [Ton im Emulator](../ideen/52-ton-im-emulator.md): das [DSP](../glossary.md#dsp)-Programm der
+Firmware im Blackfin-Simulator aus gdb laufen lassen und mit dem Verkehr füttern, den der Emulator am [Host-Port](../glossary.md#host-port) aufzeichnet, um echte
 Ausgangspegel zu bekommen. **Ergebnis: Der Weg ist vorerst geparkt.** Init, Postfach und Audioschleife laufen, aber Noten bleiben
 still, und wo der DSP Samples abspielt, ist nicht gefunden. Das [DSP-Modell](2026-11-12-dsp-modell.md) bleibt der Weg für Prüfungen.
 

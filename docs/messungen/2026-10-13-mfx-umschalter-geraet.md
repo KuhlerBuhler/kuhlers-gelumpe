@@ -1,8 +1,8 @@
 # MFX 2 am Gerät: erster Code-Patch auf der echten Electribe
 
-Stand 2026-10-13. Eigenes Gerät, Firmware: MFX-2-Variante der Testfirmware
-(sha256 `5de4b584…`, MFX 2 auf TOUCH SCALE plus Blech-Startbild als Datenpatch), über
-die SD-Karte und DATA UTILITY → SOFTWARE UPDATE eingespielt. Bedient und beobachtet wurde
+Eigenes Gerät, Firmware: Testfirmware mit dem MFX-2-[Patch](../glossary.md#patch) (MFX 2 auf TOUCH SCALE, siehe
+[MFX 2 im Emulator](2026-10-10-mfx-umschalter.md)) plus Blech-Startbild als Datenpatch, über
+die SD-Karte und [DATA UTILITY](../glossary.md#data-utility) → SOFTWARE UPDATE eingespielt. Bedient und beobachtet wurde
 am Gerät; vom Rechner aus wurde das Gerät nur gelesen.
 Markierungen: **gemessen**, **hergeleitet**, **offen**.
 
@@ -10,7 +10,7 @@ Markierungen: **gemessen**, **hergeleitet**, **offen**.
 
 - **Gemessen:** Das Update lief durch. Die Fingerabdrücke im RAM
   (`tools/device/led_inventory.py --identify`) gleichen der Datei: MFX-2-Haken an
-  `0xC00700D8` `90bc9d50…`, Startbild `70323aae…`.
+  `0xC00700D8` und das Startbild.
 - **Gemessen:** Start mit gehaltenem EXIT: das Blech-Startbild erscheint (Datenpatch, wirkt
   vor der Tastenabfrage), das Gerät startet normal, TOUCH SCALE verhält sich wie im
   Original. Der Notschalter schaltet den Code-Patch ab.

@@ -1,16 +1,17 @@
 # Globals auf Werkseinstellung zurückgefallen: Ursache gesucht
 
-Stand 2026-10-13. Emulator (`tools/emu/machine.py` mit dem Flash-Dump vom 9.10., virtuelle SD-Karte
-für SOFTWARE UPDATE) und Firmware offline gelesen. Am Gerät nichts getan, außer den Messungen, die
+Globals sind die Geräteeinstellungen des Global-Menüs, in einem eigenen Flash-Block (`0x230000`, 256 Byte,
+siehe [Globals](../glossary.md#globals)). Gemessen im [Emulator](../glossary.md#emulator) (`tools/emu/machine.py` mit dem Flash-Dump vom 9.10., virtuelle SD-Karte
+für [SOFTWARE UPDATE](../glossary.md#data-utility)) und Firmware offline gelesen. Am Gerät nichts getan, außer den Messungen, die
 unten als "am Gerät" markiert sind. Markierungen: **gemessen** (Emulator oder
 Gerät), **offline** (Code gelesen), **hergeleitet**, **offen**.
 
 ## Befund am Gerät
 
 - **Gemessen:** Der Globals-Block im Flash bei `0x230000` ist heute Byte für Byte gleich der
-  Vorgabetabelle der Firmware bei `0xC00CFE58` (VSB-Offset `0xCFF58`, in allen vier geprüften VSB
-  gleich: eigene Testfirmware, MFX-2-Variante, Startbild-Variante und `SYSTEM.VSB`; SHA-256 beginnt `dddd58cb`).
-- **Gemessen:** Im Dump vom 9.10. wich der Block in fünf Bytes ab: `0x14` Audio In Thru (1),
+  Vorgabetabelle der Firmware bei `0xC00CFE58` (VSB-Offset `0xCFF58`, in allen vier geprüften
+  [VSB](../glossary.md#vsb)-Dateien gleich).
+- **Gemessen:** Im Flash-Dump vom 9.10. wich der Block in fünf Bytes ab: `0x14` Audio In Thru (1),
   `0x1f` (1), `0x20` Batterietyp (1), `0x25` Stromsparen (1), `0x29` globaler MIDI-Kanal (9 = Kanal 10).
   Heute alle 0. Der Rest des Sektors (`0x230100` bis `0x230FFF`) ist weiter `FF`.
 
@@ -35,9 +36,7 @@ Alle Seiten, gemessen im Emulator (Seitenindex ab 0, Anzeige "n/20" ist Index + 
 | 5 | `0x2a` | 12 | `0x1e` | 19 | keine Änderung am Block |
 | 6 | `0x11` | 13 | `0x14` Audio In Thru | | |
 
-`data/map/global.mjs` kennt `0x1f` noch nicht (und `0x21` steht als Auto Power Off drin, passt).
-Eintrag dafür ist ein Vorschlag, nicht gemacht: Evidenz `measure:2026-10-13/globals-zurueckgesetzt`
-wäre diese Datei.
+`data/map/global.mjs` führt `0x1f` als `chainMode` (Seite 19), `0x21` als Auto Power Off.
 
 ## Wie die Firmware lädt und speichert
 
@@ -84,11 +83,10 @@ wäre diese Datei.
     (das Pattern). Sonst nichts. Der Eintrag bei `0x7E8000` ist danach gültig.
   - Patternwechsel, Moduswechsel: keine Flash-Zugriffe.
   - Ausschalten: nur `0x230000`, mit dem RAM-Inhalt; Globals danach gleich dem Block vom 9.10.
-- **Offline:** Der Patch hält `STATE` und `RECBUF` bei `0xC01A5C00` und `0xC01A5D00` (freier Bereich
+- **Offline:** Der MFX-2-[Patch](../glossary.md#patch) hält `STATE` und `RECBUF` bei `0xC01A5C00` und `0xC01A5D00` (freier Bereich
   im Abbild), der Globals-Puffer liegt bei `0xC08A2940`: keine Überlappung. Er ruft `0xC0029AB8` nur
   mit `0x7E8000`.
-- **Ergebnis:** Der Patch berührt den Globals-Sektor nicht und speichert keine Globals. Nichts an
-  `tools/patch/mfx_switch.py` oder `tools/emu/mfx_cases.py` zu ändern, kein Regressionsfall nötig.
+- **Ergebnis:** Der Patch berührt den Globals-Sektor nicht und speichert keine Globals.
 
 ## Frage 3: Was sonst die Vorgabe schreibt
 
@@ -154,14 +152,3 @@ gültigen Datensatz tragen. Dann ist nur der Globals-Sektor betroffen gewesen.
   danach von Hand setzen.
 - Vor dem Menüpunkt SOFTWARE UPDATE kommt FACTORY RESET (13/14): nach dem Bestätigen sind Patterns
   und Globals weg. Nicht mit EDIT links/rechts über zwei Seiten scrollen, ohne auf das Display zu sehen.
-
-## Belege (Befehle, im Repo-Ordner)
-
-| Aussage | Prüfung |
-|---|---|
-| Vorgabetabelle gleich heutigem Block | `dd if=SYSTEM*.VSB bs=1 skip=$((0xCFF58)) count=256 \| cmp - globals-now.bin` |
-| Prüfung nur `GLED` | `0xC004718C` disassembliert (`ldr r0,[r1,#0xfc]; cmp 0x44454C47`) |
-| Update schreibt nur `0x020000` bis `0x220000` | Emulator, Flash-Befehle `0x20` und `0x02` mit Adresse mitgeschrieben |
-| MFX-2-WRITE berührt `0x230000` nicht | wie oben, Lauf `mfxwrite` mit `Box` aus `tools/emu/mfx_cases.py` |
-| Rückfall bei zerstörtem Sektor | Emulator, vier Varianten der Tabelle in "Frage 3" |
-| Seite 19/20 ist `0x1f` | Emulator, VALUE je Seite, lebendes Objekt verglichen |

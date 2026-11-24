@@ -1,6 +1,6 @@
 # Emulator-Zeit gegen Gerätezeit: vier kleine Schleifen
 
-Stand 2026-10-16. Eigenes Gerät (Electribe 2 Sampler, BLECH v21 auf Hacktribe-2.02-Basis), nur RAM, und der
+Stand 2026-10-16. Eigenes Gerät (Electribe 2 Sampler, [BLECH](../glossary.md#blech) v21 auf [Hacktribe](../glossary.md#hacktribe)-2.02-Basis), nur RAM, und der
 Emulator (`tools/emu/machine.py`, Unicorn) mit derselben Firmware (`SYSTEM-blech-v21.VSB`, Flash-Dump vom
 9.10.). Grob gemeint, nicht taktgenau. Skript: `tools/device/timing_probe.py`. Markierungen: **gemessen**,
 **hergeleitet**, **offen**.

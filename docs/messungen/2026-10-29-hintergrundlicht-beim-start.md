@@ -1,7 +1,7 @@
 # Farbe des Hintergrundlichts schon beim Einschalten
 
-Stand 2026-10-29. Emulator (`tools/emu`, Unicorn) mit Hacktribe 2.02, Korgs roter und Korgs blauer 2.02, jeweils mit dem
-Satz BLECH, Karte im Speicher, Netzteil. Zeiten sind Emulatorzeit ab dem Einsprung in die Firmware. **Am Gerät nichts
+[Emulator](../glossary.md#emulator) (`tools/emu`, Unicorn) mit [Hacktribe](../glossary.md#hacktribe) 2.02, Korgs roter und Korgs blauer 2.02, jeweils mit dem
+Satz [BLECH](../glossary.md#blech), Karte im Speicher, Netzteil. Zeiten sind Emulatorzeit ab dem Einsprung in die Firmware. **Am Gerät nichts
 geprüft.** Markierungen: **gemessen**, **offline** (Code gelesen), **hergeleitet**, **offen**.
 
 Wunsch: das Display soll beim Einschalten schon in der eigenen Farbe leuchten, bevor das Startbild kommt, nicht erst, wenn
@@ -93,7 +93,7 @@ steht statt des zweiten Falls `colour_while_the_start_image` (Abschnitt Blau), K
 
 ## Gerätebericht 2026-10-30: Start blieb weiß
 
-Rote Electribe, Hacktribe, Entwicklungsstand 1.3.8: HUE 15, SAT 13, BRIGHT 14, INTENSITY 15, DISPLAY INVERT an; das Licht blieb beim
+Rote Electribe, Hacktribe, Stand 1.3.8: HUE 15, SAT 13, BRIGHT 14, INTENSITY 15, DISPLAY INVERT an; das Licht blieb beim
 Startbild weiß, auch nach WRITE auf Global und im BLECH-Menü und nach dem Ausschalten.
 
 - **Gemessen** (Emulator, Hacktribe 2.02 mit BLECH): die Seiten HUE 15, SAT 13, BRIGHT 14 speichern Rot, Grün, Blau = 14, 13, 2

@@ -24,7 +24,7 @@ passenderen Noten länger zu sehen.
 - Eine neue Note ersetzt die Stufen sofort. Ein anderer Pad-Modus, ein anderer Bildschirm, eine andere Oktave, Tonart oder Skala
   beendet sie wie bisher. Ist das letzte Pad dunkel, bekommt das Pad des gewählten Parts das Blau der Firmware zurück.
 
-## CHORD (19.10., Vorschlag 5)
+## CHORD (19.10.)
 
 Im CHORD-Modus (Pad-Modus 6) zeigen die Pads nach einem Akkord, welche Akkorde gut folgen, nach dem Abstand der Grundtöne:
 Quarte und Quinte (IV, V) hell, Sekunde, kleine Terz und große Sexte (ii, vi und zurück) mittel, derselbe Akkord, große Terz,

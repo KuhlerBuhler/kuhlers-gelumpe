@@ -1,15 +1,14 @@
 # CPU-Last mit BLECH: was es am Gerät zu sehen gibt und was BLECH kostet
 
-Stand 8. November 2026, develop `46ae7a61`. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei) und Korgs Original 2.02 rot,
-jeweils ohne und mit dem ganzen BLECH-Satz (`data/patches/blech.json`). **Offline gelesen** an denselben Dateien. **Am Gerät nicht
+Stand develop `46ae7a61`. **Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei) und Korgs Original 2.02 rot,
+jeweils ohne und mit dem ganzen [BLECH](../glossary.md#blech)-Satz (`data/patches/blech.json`). **Offline gelesen** an denselben Dateien. **Am Gerät nicht
 geprüft.** Werkzeug: [arm_load.py](../../tools/emu/arm_load.py), Vorarbeiten: [CPU-Last und Laden](2026-10-18-cpu-last-und-laden.md),
-[Laufzeit und Platz der Patches](2026-10-20-patch-performance.md), [Vergleichsbasis](2026-10-21-patch-effizienz-basis.md).
+[Vergleichsbasis](2026-10-21-patch-effizienz-basis.md).
 
 ## Frage
 
-Es kam die Meldung, die CPU-Last stehe mit BLECH dauerhaft auf 100 % und die Firmware tauge nicht für live. Gespielt wurde damit
-aber schon live ohne Probleme. Drei Fragen: welche Anzeige sieht man da überhaupt, wie misst man die Last verlässlich, und wenn
-BLECH Last zufügt, welcher Patch wie viel.
+Anlass war die Meldung, die CPU-Last stehe mit BLECH dauerhaft auf 100 %. Drei Fragen: welche Anzeige sieht man da überhaupt, wie misst man die
+Last verlässlich, und wenn BLECH Last zufügt, welcher Patch wie viel.
 
 ## 1. Welche Anzeige?
 
@@ -65,7 +64,6 @@ Bindungen über 64 Steps im SEQUENCER, der teuerste bekannte Fall der Pad-Farben
 |---|---|
 | Eine Lastanzeige am Gerät gibt es nicht, auch nicht über SysEx | offline gelesen |
 | Das Leerlaufwort `0xC06A2894` über BLECH-SysEx READ (0x61) abfragen: zeigt immer 0, denn die Antwort entsteht in der CommandTask, also während die CPU arbeitet. Taugt nicht | hergeleitet |
-| Ein kleiner Haken im Zeitgeber-Interrupt, der bei jedem Tick zählt, ob das Leerlaufwort auf 1 steht, und zwei Zähler (Ticks, davon im Leerlauf) in eigenem RAM. Die App liest beide über SysEx READ und zeigt Last = 1 minus Leerlaufanteil, ein Plugin könnte sie über einen neuen Lesewert zeigen. Ein Interrupt im Schlaf trifft das Wort auf 1, also ist das eine Stichprobe der echten ARM-Last | hergeleitet, nicht gebaut |
 | Die DSP-Last (der Klang, die Stimmen, die Effekte) ist damit nicht zu sehen. Dafür ist im DSP-Programm kein Zähler bekannt | offen |
 
 ## 3. Was BLECH kostet
@@ -113,24 +111,13 @@ Arbeit der Firmware ein, die ein Haken anstößt (zum Beispiel LED-Nachrichten),
 | `note-assistant` kostet in KEYBOARD zehnmal mehr, als in seinem eigenen Code läuft (0,26 gegen 0,02): die Arbeit liegt in der Firmware, die er anstößt | gemessen |
 | Laufende Plugins kommen dazu: die Hintergrundszene der Vergleichsbasis (acht Apps geladen, dazu `lauflicht`, `pulsieren`, `bpmglide`, `taktblinker` laut `patch_performance.py`) liegt rund 0,7 Prozentpunkte über dem Stand mit BLECH (19,2 gegen 16,5 Millionen Befehle in 2 s, umgerechnet). Offene Apps wie Mandelbrot rechnen in jedem Frame mit Budget | hergeleitet |
 
-## Optionen zum Senken (für 1.5, nicht 1.4.5)
-
-| Option | Wirkung | Aufwand (geschätzt) |
-|---|---|---|
-| Rückfrage an die Meldenden: Bildschirmfoto der 100 %, Gerät oder Rechner, welches Pattern | klärt Frage 1 | keiner |
-| App: Emulator anhalten, wenn er nicht zu sehen ist (Seite gewechselt, Fenster verborgen), und in der App sagen, wenn er langsamer als das Gerät läuft (das Verhältnis `speed` liefert `server.py` schon) | nimmt die Rechnerlast weg, die als 100 % auffällt | klein, rund ein halber Tag mit Browsertest |
-| Lastmesser in der Firmware: Haken im Zeitgeber-Interrupt mit zwei Zählern, Anzeige in der App über SysEx READ, optional als Plugin-Lesewert | macht die ARM-Last am Gerät messbar | rund ein Tag mit Emulatorfall, dazu ein Gerätetest mit Zustimmung |
-| `pad-colors`: Bindungen einmal je LED-Update berechnen statt je gesendeter LED | bis 0,5 Prozentpunkte und die Spitze von 29 auf 23 im Bindungsfall | mittel, zwei Tage mit Fällen auf allen drei Builds |
-| `note-assistant`: in KEYBOARD nur bei geänderten Hinweisen LEDs schicken | bis 0,25 Prozentpunkte in KEYBOARD | klein bis mittel, ein Tag |
-| `script-runtime`: den Pattern-Vergleich über die Frames verteilen statt alle acht Frames am Stück | glättet die 2-Punkte-Spitze im Stand, der Mittelwert bleibt | klein, ein halber Tag |
-
-Die Firmware-Optionen sparen zusammen unter einem Prozentpunkt des Modells. Für das, was am Gerät hörbar wäre (Aussetzer, gestohlene
+Die Firmware-Patches sparen zusammen unter einem Prozentpunkt des Modells. Für das, was am Gerät hörbar wäre (Aussetzer, gestohlene
 Stimmen), ist der DSP zuständig, und den ändert BLECH nicht. Ein Vergleich am Gerät mit demselben vollen Pattern auf Hacktribe
 ohne und mit BLECH bleibt der einzige Beleg dafür.
 
 ## Offen
 
 - **Am Gerät**: keine Zeile. Ladezeit, DSP-Last, Aussetzer und die echte ARM-Last sind dort nicht gemessen.
-- **Welche Anzeige** die Meldung meint.
+- **Welche Anzeige** die Meldung meint (Rückfrage mit Bildschirmfoto steht aus).
 - **Blau** (Synth) ist in dieser Messung nicht dabei; dort laufen weniger Patches (12 statt 18), die alten Zahlen in der
   [Vergleichsbasis](2026-10-21-patch-effizienz-basis.md) zeigen dasselbe Bild.

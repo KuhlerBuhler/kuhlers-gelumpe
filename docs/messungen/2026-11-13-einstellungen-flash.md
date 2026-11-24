@@ -1,6 +1,6 @@
 # BLECH-Einstellungen ohne Karte im Flash (13.11.)
 
-Stand 13.11.2026 auf `release/1.4.6` (mit #518), nur Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Stands), am Gerät
+Stand 13.11.2026 auf `release/1.4.6` (mit #518), nur [Emulator](../glossary.md#emulator) ([Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau, je mit dem BLECH-Satz dieses Stands), am Gerät
 nichts geprüft. Ziel: eine Electribe ohne SD-Karte (vor allem die blaue) behält ihre BLECH-Einstellungen über den Neustart.
 Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergeleitet**, **offen**.
 
@@ -68,7 +68,7 @@ der Flash blieb leer oder alt, ein Start ohne Karte hatte dann die alten Werte.
 | Karte ziehen und eine andere stecken (#505, [Messung](2026-11-12-karte-spaeter-einstellungen.md)) mit leerem Flash: beim Ziehen bleiben die Werte der ersten Karte (keine Kopie im Flash), die zweite wird ganz gelesen | `card_later_cases`, `swap_reads_the_other_card` (unverändert) | gemessen |
 | CUSTOMIZATION hat keine Zeile SAVE TO FLASH, nach einem Start mit Karte schreibt das Durchblättern nichts in den Flash | `no_save_to_flash_row` | gemessen |
 | WRITE ohne Karte zeigt `saved in flash` und legt einen gültigen Satz in `0x7FD000` | `settings_cases`, `menu:settings_without_card` | gemessen |
-| Rot und Hacktribe: `[0x7F0000, 0x7FF000)` hat keinen Schreiber in der Firmware und liegt in keinem Bereich, den ein Update schreibt | [Flash-Karte](2026-10-24-flash-karte.md) | offline gelesen |
+| Rot und Hacktribe: `[0x7F0000, 0x7FF000)` hat keinen Schreiber in der Firmware und liegt in keinem Bereich, den ein Update schreibt | [Speicherbereiche](../speicherbereiche.md) | offline gelesen |
 | Blau (Korg 2.02, sha256 `41fc5f1c...`): alle Aufrufer der Schreibfunktion `0xC0026E24` schreiben `0x230000` (Globals), `0x240000 + n * 0x4000` (Pattern), `0x7EF000`, `0x7FF000` und über `0xC0027000` die Update-Bereiche 0 (bis `0x20000`), 2 (bis `0x200000`), `0x22` (bis Bereich `0x7E`, also unter `0x7E0000`) und `0x80` (genau `0x800000`); der Sektorschreiber `0xC0019EA4` wird nur aus `0xC0026E24` gerufen. `0x7FD000` und `0x7FE000` schreibt nichts davon | Disassembly mit capstone, jeder `bl`/`b` auf beide Adressen mit den Befehlen davor | offline gelesen |
 | Die Schreibfunktion der blauen hat dieselbe Belegung wie die rote (`r0` Objekt, `r1` Adresse, `r2` Länge, `r3` Quelle) | dieselbe Disassembly (Aufrufer bei `0xC0027304`, `0xC0027384`), danach alle Fälle auf blau grün | offline gelesen, gemessen |
 

@@ -3,9 +3,9 @@
 Gemessen 2026-09-14 und danach mehrfach wiederholt.
 
 - Die Master-Tabelle liegt bei RAM `0xC00B4F30`, die Insert-Tabelle bei
-  `0xC00A80F0`. Je 100 Plätze à `0x20C` Byte. In der Firmware-Datei liegen sie
+  `0xC00A80F0`. Je 100 Plätze à `0x20C` Byte. In der Firmware-Datei ([VSB](../glossary.md#vsb)) liegen sie
   bei `RAM - 0xC0000000 + 0x100`.
-- Ein Preset wurde per `0x53`/`0x54` in zwei Hälften geschrieben,
+- Ein Preset wurde per [SysEx](../glossary.md#sysex) `0x53`/`0x54` in zwei Hälften geschrieben,
   zurückgelesen und war identisch. Das Menü zeigte es sofort, ohne Neustart.
 - Die Länge des Master-Menüs steht in einem Byte bei RAM `0xC003EFE4`.
 - Die Länge des Insert-Menüs steht an dreizehn Stellen der Datei: sieben

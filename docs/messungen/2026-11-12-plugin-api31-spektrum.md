@@ -1,14 +1,12 @@
 # Plugin API 31: Spektrum und Wellenform, im Emulator
 
 `korg.audio.capture`, `korg.audio.spectrum` und `korg.audio.wave` laufen auf den
-Sampler-Firmwares (Hacktribe, Korg rot) über einen Dienst in der Laufzeit.
-Erfassung, Ring-Leser, FFT und Spaltentabellen stammen aus Spettro von Luigi
-(GitHub reflectiveboi, PR #429). Er wollte den Worker von Anfang an als
-Schnittstelle der Firmware haben, in 1.5 ist er das.
+Sampler-Firmwares ([Hacktribe](../glossary.md#hacktribe), Korg rot) über einen Dienst in der Laufzeit.
+Erfassung, Ring-Leser, FFT und Spaltentabellen stammen aus dem Plugin Spettro (PR #429). Der Worker ist seit 1.5 Teil der Schnittstelle der Firmware.
 Spettro selbst ist jetzt ein Plugin im Katalog, das auf diesen Aufrufen sitzt.
 
 Grundlage für Adressen und native Routinen: [Spettro](2026-11-07-spettro.md)
-aus #429, Platz und Heap: [Spettro-Worker als Dienst](2026-11-11-spettro-worker-platz.md).
+aus #429.
 
 ## Aufbau
 

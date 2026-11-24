@@ -1,20 +1,19 @@
 # Sample-Swap: der Bau
 
-Stand: 26.10.2026. Dritter Teil zu [Mehr Sample-Speicher](../ideen/25-mehr-sample-speicher.md), nach dem
-[Ladepfad](2026-10-25-sample-swap.md) und dem [RAM-Besitz](2026-10-25-sample-swap-timeout.md).
+Stand: 26.10.2026. Dritter Teil zum [Sample-Swap](../glossary.md#sample-swap), nach der Untersuchung des Ladepfads und dem [RAM-Besitz](2026-10-25-sample-swap-timeout.md).
 Beleg: `measure:2026-10-26/sample-swap-bau`.
 
-Nachtrag vom 27.10.: Die [Fehlerpfade für 1.4](2026-10-27-sample-swap-1-4.md)
+Nachtrag vom 27.10.: Die Fehlerpfade für 1.4
 korrigieren die unten beschriebenen Wechsel trotz Platz- oder Ladefehlern
 und sichern die Cache-Generation über laufende Aufträge hinweg ab.
 
-**Gemessen** heißt hier im ARM-Emulator mit eigenen Firmwaredateien (Hacktribe und Korgs Original, 2.02) und
+**Gemessen** heißt hier im ARM-Emulator mit eigenen Firmwaredateien ([Hacktribe](../glossary.md#hacktribe) und Korgs Original, 2.02) und
 selbst erzeugten Samples, oder in Unicorn mit selbst gebauten Tabellen. **Hergeleitet** heißt aus dem gelesenen
 ARM-Code geschlossen. **Offen** heißt: am Gerät nicht versucht. Kein Gerät wurde angesprochen.
 
 ## Was der Patch tut
 
-Builder: [sample_swap.py](../../tools/patch/sample_swap.py), Patch `data/patches/sample-swap.json`, im BLECH-Satz
+Builder: [sample_swap.py](../../tools/patch/sample_swap.py), Patch `data/patches/sample-swap.json`, im [BLECH](../glossary.md#blech)-Satz
 für beide roten Builds. Der blaue Synth wird verweigert, seine Adressen sind für diese Wege nicht kartiert.
 
 | Teil | Verhalten |
@@ -118,9 +117,9 @@ Entfernen nur ungeschützter Samples, der Geber-Haken.
 
 | Punkt | Stand |
 |---|---|
-| Ladezeiten am Gerät, RAM zu DSP gegen Karte zu DSP, mit dem Patch selbst | offen, Werkzeug vorbereitet (unten) |
+| Ladezeiten am Gerät, RAM zu DSP gegen Karte zu DSP, mit dem Patch selbst | offen |
 | Klang beim Entfernen: eine noch ausklingende Stimme eines entfernten Samples kann Fremdes lesen | offen; entfernt wird nur, was weder laufendes noch kommendes Pattern benutzt |
-| Namen nicht geladener Samples | damals Platzhalter `SampleNNN`; die [Namenserweiterung](2026-11-06-sample-swap-namen.md) liest inzwischen Metadaten vorab und prüft die native Namensabfrage im Emulator |
+| Namen nicht geladener Samples | damals Platzhalter `SampleNNN`; die Namenserweiterung liest inzwischen Metadaten vorab und prüft die native Namensabfrage im Emulator |
 | Patternwechsel bei gestoppter Wiedergabe | lädt wie immer sofort, die Samples kommen danach in einigen Sekunden; keine Sperre |
 | Ein Pattern, das mit dem laufenden zusammen nicht ins Budget passt | der Platz scheitert, der Wechsel kommt ohne die fehlenden Samples, die nach dem Wechsel nachgeladen werden |
 | Last der Command-Task beim Laden während des Spielens | hergeleitet höchstens 15 ms je UI-Bild (40 ms); ob Pattern-Laden oder Stimmen das hören, ist offen |
@@ -129,29 +128,3 @@ Entfernen nur ungeschützter Samples, der Geber-Haken.
 | High Speed (50 MHz) | aus; erst nach einem Versuch mit einer entbehrlichen microSD |
 | DMA | aus |
 
-## Gerätemessung vorbereitet
-
-Werkzeug: [sample_swap_stats.py](../../tools/device/sample_swap_stats.py). Es sendet nur BLECH INFO und READ,
-vergleicht den Code des Swaps im Gerät mit dem Bau für die eigene Originaldatei und meldet danach jedes fertig
-geladene Sample mit Quelle (Karte oder RAM), PCM-Bytes, den Timer-3-Takten des Patches und MiB/s. Ohne `--watch`
-entsteht nur ein Plan.
-
-```bash
-PYTHON=tools/emu/.venv/bin/python
-"$PYTHON" tools/device/sample_swap_stats.py --plan
-"$PYTHON" tools/device/sample_swap_stats.py --watch 300 --vsb "$OWN_VSB" --json "$HOME/swap-stats.jsonl"
-```
-
-Ablauf am Gerät: eine `e2sSample.all` über 25 MiB auf die Karte, starten, ein Pattern spielen. Für Karte zu DSP
-ein Pattern wählen, dessen Samples weder im DSP noch im Cache liegen (weit weg, kein Nachbar, kein Kettenziel);
-für RAM zu DSP auf einen Nachbarn wechseln, nachdem er einige Sekunden lang vorgeladen wurde. Dabei hören, ob die
-laufenden Stimmen beim Laden aussetzen. Die älteren Werkzeuge `sample_swap_probe.py` und `sample_swap_paths.py`
-verweigern, solange der Swap an ist: ihr Arbeits-RAM liegt in seinem Zwischenpuffer.
-
-## Prüfbefehle
-
-```bash
-node --test test/sample-swap.test.mjs test/patch-ram.test.mjs test/sample-swap-paths.test.mjs
-E2_VSB="$OWN_VSB" E2_STOCK_VSB="$OWN_STOCK_VSB" E2_EMU_REQUIRED=1 node --test test/sample-swap.test.mjs
-tools/emu/.venv/bin/python tools/emu/swap_cases.py cases --patched "$PATCHED_VSB"
-```

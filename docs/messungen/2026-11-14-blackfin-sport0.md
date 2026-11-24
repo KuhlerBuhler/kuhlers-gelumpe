@@ -2,7 +2,6 @@
 
 Fortsetzung: [HOSTDP-FIFO und DMA1](2026-11-14-blackfin-host-fifo.md).
 
-Fortsetzung der [HOSTDP-Prüfung](2026-11-14-blackfin-hostdp.md).
 
 ## Hergeleitet
 

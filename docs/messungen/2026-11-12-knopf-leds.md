@@ -1,6 +1,6 @@
 # KNOB LEDS: Regler-LEDs ausschalten
 
-Stand 12.11.2026, nur Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau), kein Gerät. Marker: **gemessen** (im
+Stand 12.11.2026, nur [Emulator](../glossary.md#emulator) ([Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau), kein Gerät. Marker: **gemessen** (im
 Emulator), **offline gelesen** (Disassembly, Quelltext), **hergeleitet**, **offen**.
 
 ## Was es tut

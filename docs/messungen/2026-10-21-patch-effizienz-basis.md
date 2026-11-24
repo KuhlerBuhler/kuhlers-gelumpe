@@ -3,8 +3,7 @@
 Stand 21.10.2026. **Im Emulator gemessen.** Diese Basis enthält die bereits in
 develop integrierten Optimierungen für Pad-Geometrie, Plugin-Prüfung und native
 Multiplikation. Hier wird kein weiterer Geschwindigkeitsgewinn beansprucht.
-Die [ältere Ausgangsmessung](2026-10-20-patch-effizienz-ausgang.md) bleibt ein
-Nachweis ihres damaligen Stands und wird nicht mit diesen Profilen vermischt.
+Ältere Messungen vor dieser Basis gehören zu ihrem damaligen Stand und werden nicht mit diesen Profilen vermischt.
 
 Die Firmwarequellen stammen aus `21cf0ceaada9ff6410c48b85022ad98c8bc8b939`,
 nach dem Rebase auf develop `23461a04c9a26ef4366e6d5355d579dfb9e195ca`.

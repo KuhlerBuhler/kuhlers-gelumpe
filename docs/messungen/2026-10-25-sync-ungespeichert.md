@@ -1,9 +1,9 @@
 # Sync Group: gestoppt mit ungespeicherten Änderungen ohne Rückfrage (25.10.)
 
-Wunsch vom Gerät, im Emulator gebaut und geprüft (Hacktribe, Korgs Original und blau). Am Gerät noch nicht geprüft.
+Wunsch vom Gerät, im Emulator gebaut und geprüft ([Hacktribe](../glossary.md#hacktribe), Korgs Original und blau). Am Gerät noch nicht geprüft.
 
-Gestoppt und mit ungespeicherten Änderungen blätterte das Rad nur (VIEW:), MENU lud, EXIT blieb ([Idee 57](../ideen/57-ungespeichert-warnen.md)).
-Das galt auch beim Wechsel innerhalb einer Sync Group, und ein schnelles Durchschalten durch die Patterns einer Gruppe blieb an dieser
+Gestoppt und mit ungespeicherten Änderungen blätterte das Rad nur (VIEW:), MENU lud, EXIT blieb.
+Das galt auch beim Wechsel innerhalb einer [Sync Group](../glossary.md#sync-group), und ein schnelles Durchschalten durch die Patterns einer Gruppe blieb an dieser
 Rückfrage hängen.
 
 ## Was jetzt gilt

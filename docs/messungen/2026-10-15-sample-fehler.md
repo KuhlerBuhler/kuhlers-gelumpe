@@ -1,11 +1,11 @@
 # Sample-Fehler: ein Sample überspringen und sagen, welches
 
-Stand 2026-10-15. Kein Gerätezugriff, alles im Emulator, mit Korgs Original 2.02 und mit Hacktribe, jeweils mit dem
+Kein Gerätezugriff, alles im [Emulator](../glossary.md#emulator), mit Korgs Original 2.02 und mit [Hacktribe](../glossary.md#hacktribe), jeweils mit dem
 eigenen Flash-Abbild. Die Samples sind eine Formel (`tools/emu/sampleset.py`), kein Korg-Sample.
 
 ## Was die Firmware tut
 
-Beim Start liest sie `e2sSample.all` und lädt Sample für Sample. Die Schleife des Laders (`0xC00364F0`, beide Builds
+Beim Start liest sie [`e2sSample.all`](../glossary.md#e2ssampleall) und lädt Sample für Sample. Die Schleife des Laders (`0xC00364F0`, beide Builds
 gleich) fragt je Eintrag der Tabelle die Sample-Funktion (`0xC0035B10`), und bei einem Ergebnis ungleich 0 endet sie. Die
 Eingaben danach werden nicht mehr geladen. Das Fenster dazu ist `Error` mit einer Zeile, die die Fensterklasse
 (`0xC0063068`) aus einer Tabelle von 35 Texten holt, sonst "Unknown Error.". **gemessen** (Disassembler, Emulator)
@@ -14,7 +14,7 @@ Eingaben danach werden nicht mehr geladen. Das Fenster dazu ist `Error` mit eine
 |---|---|---|
 | 32 | die Kopfprüfung weist die Datei ab: kein RIFF/WAVE, kein `fmt ` oder `data`, Format nicht 1 (PCM), mehr als 2 Kanäle, Bits weder 16 noch 24 | "Format Error." |
 | 33 | das Sample ist länger als der freie DSP-Speicher | "Memory Full" |
-| 36 | die Funktion, die das Sample in seinen Platz einträgt (`0xC004EDF0`), lehnt ab: der Platz ist belegt, er ist ein Oszillator-Platz (Wave-Nummer bis 49, siehe 2026-11-17-sample-kategorie-wave.md), oder das Sample ist länger als der freie Speicher | "Unknown Error." (alles über 35) |
+| 36 | die Funktion, die das Sample in seinen Platz einträgt (`0xC004EDF0`), lehnt ab: der Platz ist belegt, er ist ein Oszillator-Platz (Wave-Nummer bis 49, siehe [Sample-Kategorie](2026-11-21-sample-kategorie.md)), oder das Sample ist länger als der freie Speicher | "Unknown Error." (alles über 35) |
 | 4 | Lesefehler der Karte | "Card Error" |
 
 24 Bit nimmt der Lader (PCM, 1 oder 2 Kanäle, er wandelt auf 16 Bit); gemessen mit einem Sample von 24 Bit und eines
@@ -26,7 +26,7 @@ nutzbar, zu lang für den freien Speicher), kein Bitformat. Welcher der drei es 
 Der Lader hat eine zweite Aufrufstelle (`0xC0038E0C`). Die Haken sitzen im Lader selbst und gelten dort ebenso; im Emulator ist nur der
 Weg beim Start geprüft.
 
-## Der Patch `sample-errors`
+## Der [Patch](../glossary.md#patch) `sample-errors`
 
 `tools/patch/sample_errors.py`, `data/patches/sample-errors.json`, beide Builds (die Stellen sind Byte für Byte gleich).
 Statt auf dem ersten Sample zu enden, überspringt der Lader eines, das er mit **32 oder 36** abweist, und lädt das nächste.
@@ -52,13 +52,13 @@ Die Nummer ist die Stelle in der Tabelle der Datei plus eins, so wie sie im Ger�
 übersprungene Sample, die Zahl der weiteren steht nirgends. Das Fenster ist das der Firmware, es bleibt, bis EXIT es schließt.
 Die Texte sind englisch wie alle Fenster der Firmware; die zweite Zeile hat Platz für rund 18 Zeichen.
 
-Die elf Haken: Der Anfang des Laders (`0xC00364F0`, leert den Zustand), drei Verzweigungen der Sample-Funktion,
+Die elf Haken: Der Anfang des Laders (`0xC00364F0`, leert den Zustand und stellt den Kartentakt, siehe [SD-Takt](2026-10-25-sd-takt.md)), drei Verzweigungen der Sample-Funktion,
 die ein Format abweisen (`0xC0035FB4`, `0xC0035FC4`, `0xC0035FD4`: merken Art und Zahl), drei der Eintragsfunktion
 (`0xC004EE0C`, `0xC004EE50`, `0xC004EE68`), der Befehl hinter dem Aufruf der Sample-Funktion (`0xC0036700`: zählt und geht
 weiter), das Ende der Schleife (`0xC0036714`: baut die Zeilen, gibt `0x40` zurück) und die zwei Aufrufe, die die Textobjekte des
 Fensters bauen (`0xC00630F0`, `0xC0063144`). Die Kette heißt `sample-errors` (`data/hooks.mjs`). Code `0xC0183000` bis
 `0xC0183700` (852 Byte belegt), Zustand und die zwei Zeilen `0xC0183800` bis `0xC0183900`, nur RAM, im freien Block vor
-Blechys Block. Mit EXIT beim Einschalten springt jeder Haken sofort zum Original. Der Code läuft in der Startphase
+Blechys Block. Mit EXIT beim Einschalten ([Notschalter](../glossary.md#notschalter)) springt jeder Haken sofort zum Original. Der Code läuft in der [Startphase](../glossary.md#startphase)
 (`startPhase` nennt jede Stelle).
 
 ## Im Emulator geprüft
@@ -71,7 +71,7 @@ Blechys Block. Mit EXIT beim Einschalten springt jeder Haken sofort zum Original
 - **Gründe:** Fließkomma ("not PCM, tag 3"), ein Platz, den zwei Einträge beanspruchen ("slot in use"), eine Datei, die keine
   WAV ist ("bad WAV file"), jeweils mit dem Sample dahinter geladen;
 - **sauber:** 16 Bit, 24 Bit und Stereo: kein Fenster, nichts gezählt;
-- **EXIT beim Einschalten:** wie vorher, das Laden endet beim ersten schlechten Sample, nichts gezählt, die Zustandswörter
+- **EXIT beim Einschalten:** das Laden endet beim ersten schlechten Sample wie bei der Firmware, nichts gezählt, die Zustandswörter
   bleiben unbeschrieben;
 - **Werksplätze, leerer Flash:** siehe unten (nur Korgs Build).
 
@@ -80,9 +80,9 @@ Blechys Block. Mit EXIT beim Einschalten springt jeder Haken sofort zum Original
 
 ## Der leere Flash des Emulators bekommt eine Werksbank
 
-Mit einem gelöschten Flash zeigten alle Werksplätze auf denselben Eintrag der Tabelle (Index 0), das zweite Sample für einen
-Werksplatz wurde als "slot in use" abgelehnt, also mit "Unknown Error." (Samples auf den Plätzen 150, 250 und 350: nur eines
-lud). Mit dem Flash-Abbild laden alle, jedes in seinen Eintrag (140, 240, 340). **gemessen**
+In einem gelöschten Flash ohne Werksbank zeigen alle Werksplätze auf denselben Eintrag der Tabelle (Index 0): das zweite Sample für
+einen Werksplatz wird als "slot in use" abgelehnt, also mit "Unknown Error." (Samples auf den Plätzen 150, 250 und 350: nur
+eines lädt). Mit dem Flash-Abbild laden alle, jedes in seinen Eintrag (140, 240, 340). **gemessen**
 
 Was die Firmware dafür braucht, ist die Werksbank bei Flash `0x800000` ([Struktur](2026-10-07-werks-sample-flash.md)):
 die Tabellen, nicht das Audio. Eingrenzung im Emulator (Teile des Abbilds in einen leeren Flash kopiert, nur zur Messung,

@@ -3,7 +3,7 @@
 Bericht am Gerät: in DATA UTILITY steht SOFTWARE UPDATE an Platz 14. Nach ENTER zeigt die Leiste oben 13, die Nummer von
 FACTORY RESET. Wer das sieht, glaubt, er hat das Falsche gewählt.
 
-Markierungen: **gemessen** (Emulator, Haken am Zähler-Konstruktor), **hergeleitet** (Disassembly), **offen** (nicht am Gerät).
+Markierungen: **gemessen** ([Emulator](../glossary.md#emulator), Haken am Zähler-Konstruktor), **hergeleitet** (Disassembly), **offen** (nicht am Gerät).
 
 ## Ursache: Korgs Firmware, nicht BLECH
 

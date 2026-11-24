@@ -1,6 +1,6 @@
 # Alten Kartenordner beim ersten Start übernehmen (19.10.)
 
-Wunsch vom 19.10.: wer BLECH frisch installiert und auf der Karte einen Ordner `KORG/hacktribe` oder
+Wunsch vom 19.10.: wer [BLECH](../glossary.md#blech) frisch installiert und auf der Karte einen Ordner `KORG/hacktribe` oder
 `KORG/electribe sampler` hat, aber keinen `KORG/blechtribe`, soll vor dem Laden gefragt werden, ob der Ordner kopiert
 werden soll, damit die Samples weiter da sind. Wählen zwischen beiden Ordnern, oder EXIT, dann startet es normal.
 
@@ -30,7 +30,7 @@ werden soll, damit die Samples weiter da sind. Wählen zwischen beiden Ordnern, 
 - Nicht mit EXIT beim Einschalten. Die blaue fragt nach `KORG/electribe` ([eigene Messung](2026-10-29-blau-ordner-uebernehmen.md)). Arbeitsbereich 0xF00 Byte bei `0xC0190100` (hinter der Tabelle der Synth-Filter, FF in allen drei
   Abbildern).
 
-## Platz prüfen (19.10., Vorschlag 2)
+## Platz prüfen (19.10.)
 
 Vor dem Kopieren zählt ein Probelauf über denselben Baum die nötigen Cluster (jede Datei auf ganze Cluster aufgerundet, ein
 Cluster je Ordner) und vergleicht mit den freien Clustern von `f_getfree` (`0xC009E85C`, offline: zählt die freien Einträge der

@@ -1,9 +1,9 @@
 # Grundlagen für native Bedienmakros (25.10.)
 
-Gemessen im Emulator mit den eigenen Originaldateien von Hacktribe, rotem Sampler und blauem Synth, jeweils 2.02.
+Gemessen im Emulator mit den eigenen Originaldateien von [Hacktribe](../glossary.md#hacktribe), rotem Sampler und blauem Synth, jeweils 2.02.
 Keine Verbindung zum Gerät. Die Makrofunktion mit Übersicht, Aufnahme und Wiedergabe ist noch nicht eingebaut.
 Der Versuch prüft den Eingangsweg, einen weckbaren Aufrufweg, das Tempo und einen festen Speicherbereich für
-[Idee 61](../ideen/61-makros.md).
+die Makrofunktion.
 
 Die [Messmetadaten](2026-10-25-makro-grundlagen.json) enthalten nur Prüfsummen, Adressen, Zustandswerte und
 Zeitmessungen. Firmware, Pattern und Event-Dateien werden nicht gespeichert. Die virtuelle Karte und der
@@ -11,7 +11,7 @@ Recorder-Vergleich bleiben im Arbeitsspeicher des Messprogramms.
 
 ## Reproduzieren
 
-`tools/emu/macro_cases.py` nimmt unveränderte eigene VSB-Dateien. Für neue Synth-Adressen vergleicht es den
+`tools/emu/macro_cases.py` nimmt unveränderte eigene [VSB](../glossary.md#vsb)-Dateien. Für neue Synth-Adressen vergleicht es den
 roten und blauen Code mit `fwmap`; bekannte Adressen kommen weiterhin aus `synthaddr`. Neue Zuordnungen
 stehen zunächst nur als Messbefund in den Metadaten, nicht als ungeprüfte Ergänzung der Gerätetabelle.
 

@@ -1,14 +1,14 @@
 # EXIT-Shortcuts und Akkorde in Pink auf der blauen Electribe (24.10.)
 
 Beide gab es bisher nur auf der roten, weil die Stellen in der Firmware der blauen nicht gemessen waren. Gemessen im Emulator mit
-Korgs Synth-Firmware 2.02 und dem BLECH-Satz für Blau. **Am Gerät nicht geprüft.**
+Korgs Synth-Firmware 2.02 und dem [BLECH](../glossary.md#blech)-Satz für Blau. **Am Gerät nicht geprüft.**
 
 ## Die Stellen
 
 - Die meisten Stellen hatten schon Einträge in `data/synth-map/`: LED-Manager, Player, Pattern im RAM, Pattern-Bank,
   LED-Sender, Sequencer-Modell.
 - Neu ist das Pattern-Laden der Firmware für EXIT + Pad: rot `0xC004AB84`, blau `0xC0044C64`, dieselbe Funktion, 16 Wörter
-  gleich (`tools/patch/fwmap.py` gegen Hacktribe 2.02), eingetragen in `data/synth-map/shortcuts.json`.
+  gleich (`tools/patch/fwmap.py` gegen [Hacktribe](../glossary.md#hacktribe) 2.02), eingetragen in `data/synth-map/shortcuts.json`.
 - Ein Part liegt auf der blauen wie auf der roten: ab Byte `0x800` der Datei, alle `0x330` Byte, die Steps ab `0x30`, 12 Byte
   je Step.
 - **Voice Assign ist auch auf der blauen Byte 2 des Parts.** Gemessen auf der Seite VOICE ASSIGN im MENU (Edit ► bis Seite 18):

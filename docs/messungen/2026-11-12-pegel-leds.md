@@ -1,9 +1,9 @@
 # Pegel-LEDs unten: Spitzenpegel des Ausgangs, nicht Velocity
 
-Stand 12. November 2026. Hacktribe 2.02 (CPU-Code und DSP-Programm aus der Firmware gelesen, DSP-Programm ab
+Stand 12. November 2026. [Hacktribe](../glossary.md#hacktribe) 2.02 (CPU-Code und [DSP](../glossary.md#dsp)-Programm aus der Firmware gelesen, DSP-Programm ab
 `0xC00F9E10` entpackt mit `tools/dsp/dsp_extract.py`, disassembliert mit einem selbst gebauten `bfin-objdump`), dazu
 Emulatorläufe. **Am Gerät nicht gemessen.** Der DSP-Code ist nur auf Hacktribe gelesen; die Kette CPU -> Meter-Objekt -> LEDs
-ist im Emulator auf Hacktribe, rot und blau gemessen.
+ist im [Emulator](../glossary.md#emulator) auf Hacktribe, rot und blau gemessen.
 
 Anschluss an die Messung Audio-Pegel für korg.audio.level (`2026-11-11-plugin-api31-audio-level.md`, auf dem Branch der Plugin-API 1.5): Die LED-Funktion `0xC0088284`
 (blau `0xC0078468`) liest alle 40 ms aus dem Objekt `[0xC033E4F4]` das Byte `+0x13` und das oberste Byte von `+0x14`.

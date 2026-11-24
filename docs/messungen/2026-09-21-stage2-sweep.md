@@ -5,8 +5,9 @@
 festgehalten; sie lief zwischen dem 2026-09-14 und dem 2026-09-21.
 
 Aufbau: Filter `0x0a` fest in Stufe 1, Stufe 2 nacheinander mit jedem
-Baustein, Aufnahme und Pegelmessung je Kette (`fxlab.py sweep stage2`). Zwei
-unabhängige Läufe, gleiches Ergebnis.
+Baustein, Aufnahme und Pegelmessung je Kette. Zwei unabhängige Läufe, gleiches
+Ergebnis. Gemessen ohne den Patch `stage2-memory`
+([Messung](2026-11-13-stufe2-speicher.md)).
 
 | Stufe 2 | Ergebnis |
 |---|---|

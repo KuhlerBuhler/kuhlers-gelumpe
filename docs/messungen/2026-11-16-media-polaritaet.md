@@ -1,6 +1,6 @@
 # korg.file.picture: Polarität und Lesezeit
 
-16.11.2026, Hacktribe (`ORIGINAL.BIN`, sha 163d1d8d) mit `data/patches/blech.json`, **gemessen im Emulator**
+16.11.2026, [Hacktribe](../glossary.md#hacktribe) (`ORIGINAL.BIN`, sha 163d1d8d) mit `data/patches/blech.json`, **gemessen im [Emulator](../glossary.md#emulator)**
 (`tools/emu`, `Machine.shown()`: gesetztes Bit = dunkler Punkt, nach `0xA7` das Komplement des Display-RAM).
 Am Gerät nicht gemessen. Code: `tools/patch/script_media.s` (`media_reversed`), Referenz `src/script/media.mjs`
 (`readMediaPicture`, Argument `reversed`).
