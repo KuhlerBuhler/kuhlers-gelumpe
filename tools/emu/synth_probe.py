@@ -28,7 +28,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fat32
 import machine
-import ramwatch
 from sdcard import MemoryMedium, SDCard
 
 BASE = 0xC0000000
@@ -573,6 +572,7 @@ class Probe:
 
     def ram_runs(self, low=0xC0200000, high=0xC8000000):
         """Runs of 4 KiB pages above the image that hold anything but zeros, joined across gaps of 16 pages."""
+        import ramwatch
         return [{"start": hex(a), "end": hex(b), "kib": (b - a) // 1024} for a, b in ramwatch.page_runs(ramwatch.non_zero_pages(self.m, low, high), gap=16)]
 
 
