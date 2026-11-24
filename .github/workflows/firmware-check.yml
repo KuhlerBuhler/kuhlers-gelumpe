@@ -47,8 +47,22 @@ jobs:
           CASES: ${{ inputs.cases }}
         run: node tools/ci/firmware-matrix.mjs "$SHARDS" "$FULL" "$CASES" >> "$GITHUB_OUTPUT"
 
+  # The QEMU Blackfin worker of blackfin_swap_cases, built once per tools/dsp/ state and kept in the cache for the shards.
+  dsp-worker:
+    if: (inputs.full || inputs.cases == 'all' || contains(format(',{0},', inputs.cases), ',blackfin_swap_cases,'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: ./.github/actions/dsp-worker
+        with:
+          build: "true"
+
   shard:
-    needs: plan
+    needs: [plan, dsp-worker]
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
     name: ${{ matrix.firmware.name }} (${{ matrix.part }}/${{ inputs.shards }})
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -67,6 +81,11 @@ jobs:
           url: ${{ secrets[matrix.firmware.secret] }}
           sha256: ${{ matrix.firmware.sha256 }}
           blue-head: ${{ matrix.firmware.blue_head }}
+      # A red copy with the sample swap runs the swap on the executed DSP code too. GELUMPE_DSP_REQUIRED makes check.py plan
+      # that case with or without a worker (the shards and the join have to plan the same tasks); without one it fails.
+      - id: dsp
+        if: (matrix.firmware.name == 'hacktribe' || matrix.firmware.name == 'red') && (inputs.full || inputs.cases == 'all' || contains(format(',{0},', inputs.cases), ',blackfin_swap_cases,'))
+        uses: ./.github/actions/dsp-worker
       - name: Develop task results
         if: ${{ !inputs.full }}
         uses: actions/cache/restore@v6
@@ -102,6 +121,7 @@ jobs:
           CASES: ${{ inputs.cases }}
           PART: ${{ matrix.part }}/${{ inputs.shards }}
           GELUMPE_NODE_RESULTS: ${{ !inputs.full && 'strict' || '' }}
+          GELUMPE_DSP_REQUIRED: ${{ (matrix.firmware.name == 'hacktribe' || matrix.firmware.name == 'red') && (inputs.full || inputs.cases == 'all' || contains(format(',{0},', inputs.cases), ',blackfin_swap_cases,')) && '1' || '' }}
         run: |
           args=(--shard "$PART" --output "$RUNNER_TEMP/shard.json")
           if [ "$FULL" != true ]; then args+=(--cases "$CASES"); fi
@@ -125,6 +145,8 @@ jobs:
 
   join:
     needs: [plan, shard]
+    # dsp-worker is skipped on most PRs; without this the skip spreads through shard to join.
+    if: ${{ !cancelled() && needs.shard.result == 'success' }}
     name: Complete ${{ matrix.firmware.name }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -150,6 +172,7 @@ jobs:
           FULL: ${{ inputs.full }}
           CASES: ${{ inputs.cases }}
           GELUMPE_NODE_RESULTS: ${{ !inputs.full && 'strict' || '' }}
+          GELUMPE_DSP_REQUIRED: ${{ (matrix.firmware.name == 'hacktribe' || matrix.firmware.name == 'red') && (inputs.full || inputs.cases == 'all' || contains(format(',{0},', inputs.cases), ',blackfin_swap_cases,')) && '1' || '' }}
         run: |
           args=(--join-shards "$RUNNER_TEMP/shards")
           if [ "$FULL" != true ]; then args+=(--cases "$CASES"); fi

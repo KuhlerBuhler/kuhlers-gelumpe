@@ -53,8 +53,8 @@ E2_VSB=/path/SYSTEM.VSB E2_PATTERNS=/path/backup.e2sallpat npm run test:local   
 node --test test/docs.test.mjs   # after a change to README*, AGENTS.md or docs/
 ```
 
-Every local test entry point first waits until the machine is quiet (`tools/load-gate.mjs`, 1-minute load below
-0.8 x cores) and gives up after 20 minutes; `GELUMPE_LOAD_GATE=off` skips it, see [docs/development.md](docs/development.md).
+Every local test entry point first waits until the machine is quiet (`tools/load-gate.mjs`, CPUs below 80 % busy
+over a 2 s sample, not the load average) and gives up after 20 minutes; `GELUMPE_LOAD_GATE=off` skips it, see [docs/development.md](docs/development.md).
 
 Run `npm test` and `npm run test:e2e` before you call something done. Never mark a fix as
 done without a failing test that now passes or a check in the browser or emulator. On a loaded
@@ -67,6 +67,10 @@ node tools/patch/apply.mjs --vsb SYSTEM.VSB --set data/patches/blech.json --out 
 tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM.VSB --patched BLECH.VSB --quick   # start scenarios only, minutes
 tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM.VSB --patched BLECH.VSB --cases menu_cases   # start scenarios plus these case modules
 ```
+
+Cases on the executed DSP code (`blackfin_swap_cases`, `blackfin_cases`) need a Blackfin worker built outside the
+repository (`tools/dsp/build_qemu.py ~/gelumpe-dsp/worker`); how to build, choose and run it is in
+[docs/emulator.md](docs/emulator.md), "Blackfin-Worker: QEMU oder GNU".
 
 The full `check.py` (all case modules) takes hours on a loaded machine. Locally run `--quick` and the
 case modules your change touches; CI runs the rest (see below). The blue Electribe uses

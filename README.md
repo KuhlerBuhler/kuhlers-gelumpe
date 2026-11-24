@@ -87,6 +87,7 @@ Für 1.6 ist die [native Aufnahme des Mastermixes auf SD](docs/native-aufnahme.m
 | Patternwechsel erst nach Bestätigung | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Sync-Gruppen (Patterns spielen wie eins) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Schnell speichern (EXIT + WRITE), Part zurücksetzen (EXIT + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Jeden Klang beenden (STOP halten) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | KEY über die Pads (KEYBOARD + Pad) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Filter an und aus (SHIFT + Filtertaste) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Einstellungen speichern sich beim Verlassen des Menüs (AUTO SAVE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
@@ -148,7 +149,7 @@ Danach zeigt dir die Seite, wie du die Datei aufs Gerät bekommst. Alle Patches 
 Was BLECHTRIBE auf dem Sampler so mitbringt: ein eigenes Menü BLECH mit Plugins, Farben für Display und
 LEDs, Patternwechsel erst nach Bestätigung, Sync-Gruppen, TAP Motion, den Notenassistenten im KEYBOARD-Modus, KEYBOARD + Pad setzt den KEY, SHIFT + Filtertaste schaltet das Filter aus und an, einen
 Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
-zurück (auch beim Abspielen), Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
+zurück (auch beim Abspielen), STOP halten beendet jeden Klang, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
 hacktribe- oder electribe-sampler-Ordners, Blechy als kleines Haustier, ein Startbild mit Ladebalken,
 verständliche Meldungen statt "Unknown Error" beim Sample-Laden und Doom (SHIFT + TAP beim Einschalten, die zwei Dateien schreibt die App per USB auf die Karte,
 zur Lizenz siehe [docs/doom-lizenz.md](docs/doom-lizenz.md)).

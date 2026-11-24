@@ -316,6 +316,26 @@ def viewer_step(dev, op, value, seconds):
         dev.run(seconds)
 
 
+def frame_memory(dev, symbols):
+    """The display memory as the plugins' frame left it: copied behind the runtime's frame hook (script_frame_hook, behind
+    bl script_frame_run) at the next frame. In between, Korg's screen tick (called before the hook) can draw its own widgets
+    into the display memory for a moment; the panel never shows them, as the plugins' frame redraws before it goes out."""
+    import unicorn
+    hook = symbols["script_frame_hook"] + 20
+    seen = []
+    handle = dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: seen or seen.append(bytes(uc.mem_read(FB, 1024))),
+                               begin=hook, end=hook)
+    dev.m.uc.ctl_remove_cache(hook, hook + 4)
+    try:
+        for _ in range(40):
+            if seen:
+                break
+            dev.run(0.005)
+    finally:
+        dev.m.uc.hook_del(handle)
+    return seen[0] if seen else bytes(dev.read(FB, 1024))
+
+
 def viewer_run(vsb, flash, request, built, card, invert, steps, check, prefix, probe=False):
     """Runs the steps on the emulator and checks every named one against the simulator; returns the device, its plugin entry
     and the probe (or None)."""
@@ -334,7 +354,8 @@ def viewer_run(vsb, flash, request, built, card, invert, steps, check, prefix, p
         if not name:
             continue
         want = ref["steps"][name]
-        ram, panel = bytes(dev.read(FB, 1024)), dev.m.shown()
+        panel = dev.m.shown()
+        ram = frame_memory(dev, built.symbols)
         got = script_cases.variables(dev, at, program)
         wrong = {k: (got.get(k), want["vars"].get(k)) for k in COMPARED if got.get(k) != want["vars"].get(k)}
         ram_diff = sum(a != b for a, b in zip(ram, bytes.fromhex(want["display"])))

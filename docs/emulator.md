@@ -12,6 +12,16 @@ Gerät und keine zusätzliche Schreibfreigabe.
 
 ## Zweck und Grenzen
 
+Ein ausdrücklich gewählter Blackfin-Prüfprototyp kann zusätzlich echte
+DSP-Instruktionen ausführen und deren Speicher über den Host-Port lesen.
+Mit ausdrücklich gesetztem SPORT-Prüftakt erreicht die rote Originalfirmware
+ihre native Audioverarbeitung. Aufbau und Grenzen:
+[Blackfin: SPORT0 und der native Audiotakt](messungen/2026-11-14-blackfin-sport0.md).
+Ein eigener [HOSTDP-FIFO-Prüfpfad](messungen/2026-11-14-blackfin-host-fifo.md)
+überträgt Daten über DMA1 und die originalen DSP-Interrupt-Handler.
+Die ausdrücklich gewählte [gemeinsame Modellzeit mit GPIO-Kopplung](messungen/2026-11-14-blackfin-modellzeit.md)
+verbindet diesen Pfad mit dem ARM-Verkehr. Die bisherige Kompatibilitätsauswahl bleibt Vorgabe.
+
 Der Emulator ist ein eigenständiges Python-Programm. Er führt die Firmware der
 Electribe, also eine eigene `SYSTEM.VSB`, mit Unicorn aus und bildet dazu
 Display, Panel, MIDI, Flash und SD-Karte nach. Damit lässt sich:
@@ -689,7 +699,7 @@ beschriebenen gültigen Objekte und kontrollierten Zustand.
 | `0xC004EDDC` | DSP lesen, R0 Ziel*, R1 Byteoffset, R2 count16 | synthetische PCM-Wörter exakt | [DSP](messungen/2026-10-08-dsp-audiopfade.md) |
 | `0xC004EF28` | DSP schreiben, R0 Quelle*, R1 Byteoffset, R2 count16 | PCM und unveränderte Nachbarbytes | [DSP](messungen/2026-10-08-dsp-audiopfade.md) |
 | `0xC0035B10` | WAV importieren, R0 FILE*, R1 Metadaten*, R2 Slot, R3 Pfad* | Status 0 / 0x21 / 4 wie unten | [Import](messungen/2026-10-08-usb-sample-import-offline.md) |
-| `0xC0039B2C` | WAV schreiben, R0 Dateiobjekt*, R1 zusätzlicher Kontext*, R2 ESLI*, R3 DSP-Offset, fünftes Argument Bytezahl auf Stack | RIFF/PCM exakt, 64-KiB-Blöcke | [DSP](messungen/2026-10-08-dsp-audiopfade.md) |
+| `0xC0039B2C` | WAV schreiben, R1 FILE*, R2 ESLI*, R3 DSP-Offset, fünftes Argument Bytezahl auf Stack; Eingangs-R0 für die Pufferzuordnung unbenutzt | RIFF/PCM exakt, 64-KiB-Blöcke | [DSP](messungen/2026-11-06-sample-ram-cacheprobe.md) |
 | `0xC0027D84` | SysEx-Leseantwort, R0 Antwortkontext*, R1 Kanal, R2 Funktion, R3 CPU-Daten*; Stack: Länge, 2, 0x52 | gepackte Antwort exakt, Quellbuffer unverändert | [DSP](messungen/2026-10-08-dsp-audiopfade.md) |
 
 Nachverfolgte Aufrufketten, keine zusätzliche direkte Einstiegsschnittstelle:
@@ -698,8 +708,8 @@ Wachstum über `0xC000A3B0`; DSP-Lesen über `0xC00141F8`, `0xC0014AFC`,
 `0xC001488C`; Schreiben über `0xC0014284`, `0xC0014C34`, `0xC00146B4`.
 Einzel-/Gesamtexport `0xC0039CC4`/`0xC0039E68` wurden als Aufrufer des
 WAV-Schreibers identifiziert; ohne vollständig initialisierte Objektzustände
-nicht als VSB-Test-Einstiege anbieten. Die interne Bedeutung des zweiten
-WAV-Schreiber-Kontextes ist nicht abschließend benannt.
+nicht als VSB-Test-Einstiege anbieten. Die Zuordnung des Dateizeigers zu R1
+ist durch Prolog und `f_write`-Aufrufe bestätigt, siehe [Pufferanalyse](messungen/2026-11-06-sample-ram-cacheprobe.md).
 
 ### Stubs für SD und DSP: WAV ohne Karte
 
@@ -996,6 +1006,57 @@ und `E2_PATTERNS`. Für die Boot-Tests die Flash-Teile in `E2_FLASH` angeben
 (`test_server.py`, `test_fat32.py`, `test_sdcard.py`, `test_cardstore.py`,
 `test_lcd.py` und weitere) laufen in `npm test`; `test_timer.py` und
 `test_snapshot.py` brauchen die Firmware.
+
+### Blackfin-Worker: QEMU oder GNU
+
+Die Blackfin-Prüfungen brauchen einen gebauten Worker außerhalb des
+Repositorys. Es gibt zwei, beide sprechen dasselbe Protokoll (BFIN9) und nehmen
+dieselben Argumente:
+
+```sh
+tools/emu/.venv/bin/python tools/dsp/build_qemu.py ~/gelumpe-dsp/worker    # QEMU-Kern: qemu-bfin-worker
+tools/emu/.venv/bin/python tools/dsp/build_blackfin.py ~/gelumpe-dsp/gnu   # GNU-Simulator: blackfin-worker
+```
+
+Standard ist der QEMU-Worker. Gewählt wird an einer Stelle,
+`tools/emu/blackfin_worker.py`:
+
+1. ausdrücklich: `--worker` bei `blackfin_cases.py` und `blackfin_swap_cases.py`,
+   sonst `BFIN_WORKER` (Tests `tools/emu/test_blackfin_*.py` und
+   `tools/dsp/qemu_worker_tests.sh`), jeweils der Pfad eines Workers;
+2. sonst `qemu-bfin-worker` unter `GELUMPE_DSP` (Vorgabe `~/gelumpe-dsp`) in
+   `worker/`;
+3. sonst der GNU-Worker in `gnu/`, mit der Meldung, dass kein QEMU-Build da ist.
+
+Ohne Worker werden die Tests übersprungen. `npm test` sucht keinen Worker; die
+Worker-Tests laufen mit `tools/dsp/qemu_worker_tests.sh alle`.
+
+`check.py` nimmt `blackfin_swap_cases.py` bei einer roten Kopie mit Sample-Swap
+mit, sobald ein Worker gefunden wird. Die CI baut den QEMU-Worker dafür einmal je
+Stand von `tools/dsp/` (`.github/actions/dsp-worker`, im Cache) und setzt für
+Hacktribe und rot `GELUMPE_DSP_REQUIRED`: dann plant `check.py` den Fall immer,
+und ohne Worker schlägt er fehl, statt zu fehlen. Ein Lauf dauert rund eine
+Minute je Firmware (gemessen am Mac, 20.11.).
+
+Lokal läuft der Fall wie in der CI, also mit den Ausnahmen des Patches für die
+Startphase:
+
+```sh
+GELUMPE_DSP_REQUIRED=1 node tools/verify-patches.mjs --shard 1/1 --cases blackfin_swap_cases --output /tmp/swap.json SYSTEM.VSB
+```
+
+`--output` geht nur mit `--shard`. Wer `check.py` direkt aufruft, nimmt den
+Befehl, den `tools/patch/apply.mjs` ausgibt: ohne dessen `--allow` und
+`--allow-code` meldet `start_phase` jede Änderung des Patches in der Startphase
+als Fehler, auch wenn alle `dspswap:*`-Prüfungen grün sind.
+
+Der QEMU-Worker rechnet die Befehle mit QEMU und lässt Geräte, Interrupts und
+Zeit beim GNU-Simulator. Er liefert in Registern, ASTAT, Speicher und Takten
+dieselben Ergebnisse wie GNU und ist schneller (Messung und Grenzen:
+[QEMU als DSP-Kern](messungen/2026-11-16-qemu-dsp-kern.md)). Der GNU-Worker
+bleibt Referenz für Vergleiche und Rückfall: `BFIN_WORKER=~/gelumpe-dsp/gnu/blackfin-worker`.
+Auf Windows läuft der GNU-Worker nur in WSL2; den QEMU-Worker dort hat noch
+niemand gebaut.
 
 Emulatorergebnisse sind keine Messung am Gerät. Als Beleg für die Gerätekarte
 taugt allenfalls `derived:` mit dokumentierter Herleitung, sichtbar als

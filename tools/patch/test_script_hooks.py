@@ -1003,7 +1003,7 @@ class HookTests(unittest.TestCase):
             ('shortcut_input','shortcut_tick'),('kp_input','kp_tick'),('shortcut_pool','shortcut_end'),('pat_boot_arm','pat_boot_end'),('migrate_start','migrate_end'),('fx_card_load','fx_card_load_end'),('script_popup_input','script_popup_frame'),('remap_input','events_post'),('objects_row','objects_end'),('audio_command_hook','audio_columns'),('load_idle_hook','load_meter_frame'),('lang_arm','lang_end')]
         pairs+=[('rec_writer_open','nr_runtime_end'),('nr_format','nr_format_end'),('nr_requires_capture','nr_capture_apps_end'),('audio_command_hook','nr_command_end'),('nr_setup_enter','nr_ui_end'),('nr_defer','nr_card_code_end'),('nr_frame','nr_frame_end')]   # native recording (recording_*.s)
         spans=sum(built.symbols[end]-built.symbols[start] for start,end in pairs)
-        self.assertEqual(sum(span['length'] for span in patch['startPhase']),spans+len(SITES)*4+len(WORDS)*4+184+card+len(built.sections[-1][1])+len(built.sections[0][1]))
+        self.assertEqual(sum(span['length'] for span in patch['startPhase']),spans+len(SITES)*4+2*4+184+card+len(built.sections[-1][1])+len(built.sections[0][1]))
         size=lambda change: len(change['bytes'])//2 if 'bytes' in change else change['copy']['length']
         written=set()
         for change in patch['changes']: written.update(range(change['file'],change['file']+size(change)))

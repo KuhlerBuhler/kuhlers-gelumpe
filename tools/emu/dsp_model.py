@@ -123,6 +123,8 @@ class DspModel:
     """What the CPU told the DSP over the host port, and the DSP's answer to the reads the model knows."""
 
     def __init__(self, machine):
+        if getattr(machine, 'dsp_backend', None) is not None:
+            raise ValueError('a DSP model cannot replace Blackfin backend responses')
         from machine import DSP_CTRL, DSP_DATA, DSP_SYNC
         self.m = machine
         self.synth = machine.profile.build == "synth"

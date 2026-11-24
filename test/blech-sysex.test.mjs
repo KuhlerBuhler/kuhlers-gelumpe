@@ -237,7 +237,7 @@ describe("the patch", () => {
     const code = PATCH.changes.find(c => c.file === CODE);
     assert.ok(0xc0172100 + code.bytes.length / 2 <= 0xc0173000, "code ends before the Sync Group's buffer");
     const sample = PATCH.changes.find(c => c.file === SAMPLE_CODE);
-    assert.ok(sample && 0xc017b950 + sample.bytes.length / 2 <= 0xc017c190, "the sample file commands end before the preset tables' next change");
+    assert.ok(sample && 0xc017b950 + sample.bytes.length / 2 <= 0xc017c000, "the sample file commands end before the preset tables' next change");
     assert.ok(0xc0173800 + PATCH.changes.find(c => c.file === TABLE).bytes.length / 2 <= 0xc0174000, "table");
     const rec = PATCH.changes.find(c => c.file === 0xc019f700 - 0xc0000000 + 0x100);
     assert.ok(rec && 0xc019f700 + rec.bytes.length / 2 <= 0xc01a0000, "the recordings' code stays in the file area, behind its declared RAM");

@@ -13,6 +13,7 @@
   "data/patches/pad-colors.json",
   "data/patches/load-bar.json",
   "data/patches/sample-errors.json",
+  "data/patches/sample-swap.json",
   "data/patches/script-runtime.json",
   "data/patches/script-runtime-stock.json",
   "data/patches/blechtribe.json",

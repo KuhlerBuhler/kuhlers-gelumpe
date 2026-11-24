@@ -1011,8 +1011,32 @@ def egg_part(payload, flash=None):
     return egg_cases.cases(payload, flash)
 
 
+def du_window_counter_part(payload, flash=None):
+    """The page counter of a DATA UTILITY window shows the function's place in the list: Korg's firmware built SOFTWARE UPDATE (14) as
+    13 and IMPORT SAMPLE (9) as 8, the blue's SOFTWARE UPDATE (11) as 8 (script_hooks.WORDS, docs/messungen/2026-11-23-data-utility-zaehler.md).
+    The window's counter is read where it is made, at the counter constructor (r1 the index, r2 the total)."""
+    import unicorn
+    synth = synthaddr.is_synth(payload)
+    make = 0xC007A110 if synth else 0xC008A83C
+    out = []
+    for index, name in ((10, "software_update"),) if synth else ((8, "import_sample"), (13, "software_update")):
+        dev = boot(payload, flash, adapter=True)
+        made = []
+        dev.m.uc.hook_add(unicorn.UC_HOOK_CODE, lambda uc, *_: made.append((uc.reg_read(arm_const.UC_ARM_REG_R1), uc.reg_read(arm_const.UC_ARM_REG_R2))),
+                          begin=make, end=make)
+        go(dev, 14)
+        press(dev, "menu", wait=0.5)
+        for _ in range(index):
+            press(dev, "edit_next", wait=0.5)
+        made.clear()
+        press(dev, "menu", wait=1.0)
+        out.append({"id": f"menu:du_window_counter_{name}", "ok": made[:1] == [(index, DU_FUNCS)] and not dev.m.asserts,
+                    "detail": f"function {index + 1} of {DU_FUNCS}, its window made the counter {made}"})
+    return out
+
+
 # What cases_task(i) runs, in the order of cases(). Each boots its own device, so they run side by side.
-CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases, orig_cases, egg_part)
+CASES_PARTS = (ring_cases, blechy_ring_part, list_cases, page_cases, exit_held_cases, orig_cases, egg_part, du_window_counter_part)
 
 
 def cases(payload, flash=None, settings=True):

@@ -47,6 +47,7 @@ PC_IDLE = 0xC018BF8C                     # the patch pad-colors' S_IDLE byte (sc
 FIRMWARE_INPUT = 0xC0028380              # where a panel message the input hook lets through goes on (script_hooks.s:input_pass)
 POWER_CONNECT = mc.POWER_CONNECT         # the firmware's switch of power save: 1 dims light and LEDs, 0 back
 METER = range(0x4C, 0x58)                # the bottom LEDs follow the meter, left out of the LED checks
+WRITE_LED = 0x0B                         # breathes (period ~1.2 s) while the pattern is unsaved; two looks 0.5 s apart can match
 KEEPS = (100, 75, 50, 25, 0)
 AGES = (0, 121_000, 181_000, 241_000, 301_000)   # ms since the last touch: stage 0 to 4
 LIGHT = (1.0, 12 / 16, 8 / 16, 4 / 16, 0.0)      # white at INTENSITY 15 scaled by the stage, rounded up
@@ -115,7 +116,7 @@ class Run:
         self.dev.run(0.17)
         middle = self.leds()
         self.dev.run(0.33)
-        return {led: v for led, v in self.leds().items() if v and first.get(led) == v and middle.get(led) == v}
+        return {led: v for led, v in self.leds().items() if v and first.get(led) == v and middle.get(led) == v and led != WRITE_LED}
 
     def send(self, msg, wait=0.05):
         """A panel message -> the messages of its kind the firmware got."""

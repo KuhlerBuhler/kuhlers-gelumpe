@@ -289,8 +289,10 @@ class ServiceTest(unittest.TestCase):
 
         self.emu.factory = factory
         self.request("POST", "/firmware", body=bytes(VSB_SIZE))
-        self.request("POST", "/start", body=b"{}")
-        seen = self.events(lambda s: sum(len(e["changes"]) for e in s.get("ledtrace", [])) >= 3)
+        seen = self.events(
+            lambda s: sum(len(e["changes"]) for e in s.get("ledtrace", [])) >= 3,
+            then=lambda: self.assertEqual(self.request("POST", "/start", body=b"{}")[0].status, 200),
+        )
         changes = [c for e in seen["ledtrace"] for c in e["changes"]]
         self.assertEqual([(led, v) for _, _, led, v in changes], [(0x2C, 255), (0x2C, 0), (0x2C, 255)])
         step = int(server_module.STEP_S * 1e6)

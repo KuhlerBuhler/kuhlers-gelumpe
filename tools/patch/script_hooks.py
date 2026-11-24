@@ -12,7 +12,7 @@ from . import spectrum
 from . import lang_texts
 
 BLECHY_BLOCK = 0xC0184000
-BLECHY_BLOCK_END = 0xC0188000
+BLECHY_BLOCK_END = 0xC0186800
 BLECHY_FILE = Path(getattr(sys, '_MEIPASS', '') or Path(__file__).resolve().parents[2]) / 'data' / 'script' / 'blechy-block.hex'   # frozen: unpacked next to the code
 CODE_START = 0xC01A6000         # the first code area, now a reserve: only the menu copies at its end (MENU_TABLE) are written; on
                                 # the Sampler the loading animation (tools/patch/load_bar.py:ANIM_SLOT) uses it up to MENU_TABLE
@@ -42,7 +42,7 @@ KEY_PASS = KNOB_HOLD_END         # korg.passKeys (script_hw.s:KP_PASS): the keys
 KEY_PASS_END = KEY_PASS + 16     # the keys whose press did; FF at power-on is the defaults
 TOUCH_LOCK = KEY_PASS_END        # korg.touchLockX (script_hw.s:TL_RAW): the X written into touch messages, the plugin that locks and its
 TOUCH_LOCK_END = TOUCH_LOCK + 12 # checksum; FF at power-on is no lock
-KEY_HOLD = TOUCH_LOCK_END        # korg.keyHold (script_hw.s:KY_FREE): the free keys, the keys whose press was kept, the free MIDI types, a word unused;
+KEY_HOLD = TOUCH_LOCK_END        # korg.keyHold (script_hw.s:KY_FREE): the free keys, the keys whose press was kept, the free MIDI types, STOP held;
 KEY_HOLD_END = KEY_HOLD + 24     # FF at power-on is all keys free
 PRESS_KEY = KEY_HOLD_END         # korg.pressKey (script_hw.s:PK_UP): the keys whose release goes out in the next frame, inverted, so
 PRESS_KEY_END = PRESS_KEY + 8    # FF at power-on is none
@@ -171,9 +171,13 @@ KEY_PADS_SYNTH = dict(KP_TITLE_AT=0xC0079AD8, KP_TITLE_FN=0xC006B404, KP_VALUE_A
 KEY_PADS_SYNTH_WORDS = {'kp_title_hook': 0xEBFFC649, 'kp_value_hook': 0xEBFFC756, 'kp_check_hook': 0xEBFFC63C,
                         'kp_key_play_hook': 0xEBFFCD75, 'kp_key_live_hook': 0xEBFFCAC8, 'kp_key_rec_hook': 0xEBFFB488,
                         'kp_key_led_hook': 0xEBFF2EC6}
-# Words that change to a plain value instead of a branch: the screen factory's bound and its table literal.
+# Words that change to a plain value instead of a branch: the screen factory's bound and its table literal; then the page counter
+# of two DATA UTILITY windows, which Korg's firmware builds with a fixed index one below the function's place in the list: SOFTWARE
+# UPDATE (14) showed 13, FACTORY RESET's number, and IMPORT SAMPLE (9) showed 8 (docs/messungen/2026-11-23-data-utility-zaehler.md).
 WORDS = ((0xC006E664,0xE350002C,0xE350002D),
-         (0xC006E68C,0xC00F9CD8,MENU_TABLE))
+         (0xC006E68C,0xC00F9CD8,MENU_TABLE),
+         (0xC006C58C,0xE3A0100C,0xE3A0100D),
+         (0xC006AD64,0xE3A01007,0xE3A01008))
 # Vtable slots of the menu class that point into our code (offset in the table, symbol).
 VTABLE_OVER = ((8,'menu_slot_exit'),(12,'menu_slot_keys'),(16,'menu_slot_prev'),(20,'menu_slot_next'),(24,'menu_slot_enter'),(40,'menu_slot_value'))
 
@@ -338,7 +342,7 @@ def runtime_profile(build):
                                               HW_MUTE_OBJECT=0xC06CA798 if build == 'stock' else 0xC06CA760,
                                               POWER_HOLD_MASK=0x08000000, SHORTCUTS=1, REMOTE=1, HW_ENCODER=0xC00419B4,
                                               SC_LEDMGR=0xC0345A1C, SC_PLAYER=0xC002FAFC, SC_PLAYER_PTR=0xC034029C, SC_PATPTR=0xC033E6A4,
-                                              SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84, SC_PART_OBJ=0xC009AF20, SC_PART_SOUND=0xC0099FFC, SC_LEDSEND=0xC00875F4,
+                                              SC_BANK=0xC08B2940, SC_LOAD=0xC004AB84, SC_PART_OBJ=0xC009AF20, SC_PART_SOUND=0xC0099FFC, SC_SILENCE=0xC009B5D8, SC_LEDSEND=0xC00875F4,
                                               MG_WORK=0xC0190100, MG_MKDIR=0xC009EB00, FS_UNLINK=0xC009E9B8, MG_GETFREE=0xC009E85C, MG_ALLOC=0xC0028DCC, MG_FREE=0xC0028DD4,
                                               MG_VRAM=0xC031B310, MG_MARK=0xC001531C, MG_BLUE=0, MG_LCD=0, MG_FLUSH=0, LCD_FLUSH_ALL=0, SYNC_GROUP_AT=0x3B80,
                                               # the collection on the card (fx_card.s): which build it is for, and the modulation table this build reads
@@ -378,7 +382,7 @@ def runtime_profile(build):
             address = synthaddr.tr(address)
         sites.append((address, expected, name))
     return RuntimeProfile(build, tuple(sites),
-        ((0xC0061B68,0xE3500024,0xE3500025), (0xC0061B90,0xC00DFA68,MENU_TABLE)),
+        ((0xC0061B68,0xE3500024,0xE3500025), (0xC0061B90,0xC00DFA68,MENU_TABLE), (0xC005FC50,0xE3A01007,0xE3A0100A)),   # the blue's SOFTWARE UPDATE (11) showed 8
         tuple((synthaddr.tr(address), synthaddr.tr(value)) for address, value in LITERALS),
         (0xC00DFA68,148,'a65f40522347f45bab9a10802914b4a69900ab66e455c279c57c8aa4f48368fd'),
         (0xC00C9BD8,72,'9890f118100188fed55d3f35b6cc98c22191484ac62c8e1b55fb0794c0089277'),
@@ -388,7 +392,7 @@ def runtime_profile(build):
         HW_PART_EDIT=0xC0042700, HW_PART_EDITOR=0xC0348570, HW_PARAM_WINDOW=0xC0348500,
         POWER_HOLD_MASK=0, SHORTCUTS=1, REMOTE=1, HW_ENCODER=0,
         SC_LEDMGR=synthaddr.tr(0xC0345A1C), SC_PLAYER=synthaddr.tr(0xC002FAFC), SC_PLAYER_PTR=synthaddr.tr(0xC034029C), SC_PATPTR=synthaddr.tr(0xC033E6A4),
-        SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_PART_OBJ=synthaddr.tr(0xC009AF20), SC_PART_SOUND=synthaddr.tr(0xC0099FFC), SC_LEDSEND=synthaddr.tr(0xC00875F4),
+        SC_BANK=synthaddr.tr(0xC08B2940), SC_LOAD=synthaddr.tr(0xC004AB84), SC_PART_OBJ=synthaddr.tr(0xC009AF20), SC_PART_SOUND=synthaddr.tr(0xC0099FFC), SC_SILENCE=synthaddr.tr(0xC009B5D8), SC_LEDSEND=synthaddr.tr(0xC00875F4),
         # the folder copy of the first start: f_mkdir, f_getfree, new, delete and the mark of a changed region are the Sampler's
         # functions, 16 masked words equal (fwmap); the frame buffer has the same address; MG_FLUSH (MG_LCD, 2 or 3, 0) sends the
         # frame buffer, as Korg's PCM loader does for its bar (docs/messungen/2026-10-29-blau-ordner-uebernehmen.md)
@@ -457,7 +461,7 @@ class BuiltHooks:
         spans=[(address,address+4,'Eingangs-, Rahmen-, Karten- oder Menüstelle verzweigt in den gesicherten Rückweg.')
                for address,_,_ in self.profile.sites]
         spans+=[(address,address+4,'Grenze und Tabellenverweis der Bildschirmfabrik, jeder Bildschirmwechsel liest sie.')
-                for address,_,_ in self.profile.words]
+                for address,_,_ in self.profile.words[:2]]   # the counter words run only in their windows, not in the start
         spans.append((MENU_TABLE,MENU_TABLE+self.profile.table[1]+4,'Kopie der Bildschirmtabelle mit einem Eintrag mehr, die Fabrik liest sie schon für den Hauptbildschirm.'))
         block=self.sections[-1]
         spans.append((block[0],block[0]+len(block[1]),'Der Block von Blechy, der eingebauten App, liegt im Abbild: der Lader prüft ihn (Prüfsumme, Befehle) und liest seine Konstanten, sobald das Menü scharf ist.'))
@@ -580,7 +584,7 @@ class BuiltHooks:
             area(KNOB_HOLD,KNOB_HOLD_END-KNOB_HOLD,'korg.knobHold: a bit per knob that reaches the firmware, folded from the plugins\' holds; the other two words are unused since API 19','tools/patch/script_hw.s:KH_FREE'),
             area(KEY_PASS,KEY_PASS_END-KEY_PASS,'korg.passKeys: a bit per key that reaches the firmware while an app is open, and a bit per key whose press did','tools/patch/script_hw.s:KP_PASS'),
             area(TOUCH_LOCK,TOUCH_LOCK_END-TOUCH_LOCK,'korg.touchLockX: the X the input filter writes into touch messages, the plugin that locks it and the checksum of its block','tools/patch/script_hw.s:TL_RAW'),
-            area(KEY_HOLD,KEY_HOLD_END-KEY_HOLD,'korg.keyHold and korg.keyMask: a bit per key that reaches the firmware, folded from the plugins\' holds, a bit per key whose press was kept, a bit per MIDI message type that reaches the firmware (korg.midi.hold, script_midi.s:MIDI_FREE); the last word is unused since API 19','tools/patch/script_hw.s:KY_FREE'),
+            area(KEY_HOLD,KEY_HOLD_END-KEY_HOLD,'korg.keyHold and korg.keyMask: a bit per key that reaches the firmware, folded from the plugins\' holds, a bit per key whose press was kept, a bit per MIDI message type that reaches the firmware (korg.midi.hold, script_midi.s:MIDI_FREE); the low byte of the last word counts the frames STOP is held (script_shortcuts.s:SH_STATE)','tools/patch/script_hw.s:KY_FREE'),
             area(PRESS_KEY,PRESS_KEY_END-PRESS_KEY,'korg.pressKey: a bit per key whose release goes to the firmware in the next frame','tools/patch/script_hw.s:PK_UP'),
             area(SIM_INPUT,SIM_INPUT_END-SIM_INPUT,'korg.keyDown, korg.padDown and korg.touch: a bit per key, the touchpad and a bit per pad a plugin holds down, the plugin that holds them and the checksum of its block','tools/patch/script_hw.s:SI_UP'),
             area(EGG_WORK,EGG_WORK_END-EGG_WORK,'the egg on the page VERSION: its state bytes, the milliseconds it started at, the blink step last sent, the menu screen object','tools/patch/script_egg.s:M_EGG')]+(

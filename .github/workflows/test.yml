@@ -66,6 +66,8 @@ jobs:
           node-version: 26
           cache: npm
       - run: npm ci
+      # Some of the selected tests run the emulator's Python tests (test/sample-swap.test.mjs needs unicorn).
+      - run: python3 -m pip install -r tools/emu/requirements.txt
       # Some of the selected tests read the runtime patches, which are built, not committed (see unit-part).
       - run: node tools/patch/ensure-runtime.mjs
       # Every test file that names a document; the files a test reads through a helper are not Markdown (docs/messungen/*.json, images).

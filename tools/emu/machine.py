@@ -267,9 +267,13 @@ class Flash:
 
 
 class Machine:
-    def __init__(self, payload, flash=None, profile=None):
+    def __init__(self, payload, flash=None, profile=None, *, dsp_backend=None):
         """`profile` is the build's Profile (firmware.py); without it the payload is looked at, and a payload that
         is not a Sampler 2.02 build the emulator knows raises firmware.ProfileError."""
+        self._dsp_clocked = getattr(dsp_backend, 'host_transport', None) == 'fifo'
+        if self._dsp_clocked and not callable(getattr(dsp_backend, 'bind_clock', None)):
+            raise ValueError('native HOSTDP FIFO transport requires ARM/DSP clock coupling')
+        self.dsp_backend = dsp_backend
         self.profile = profile or identify(payload)
         p = self.profile
         self.ENTRIES = (p.assert_handler, p.flash_read, p.dsp_upload, p.tx_full)
@@ -301,6 +305,11 @@ class Machine:
         self.regs = {}
         self.recent = collections.deque(maxlen=3000)
         self.time_ns = 0
+        self._dsp_arm_fraction = 0
+        self._dsp_arm_count = 0
+        self._dsp_arm_idle = False
+        if self._dsp_clocked:
+            dsp_backend.bind_clock(0)
         self.insns = 0
         self.pace = PACE           # charge slices at the device's pace (devicetime.Pace), not NS_PER_INSN flat
         self._pace = devicetime.Pace()   # its decoded code is made again after a restore ...
@@ -370,6 +379,56 @@ class Machine:
         # An exit address costs nothing while the code runs; the run stops in front of it.
         uc.ctl_exits_enabled(True)
         uc.ctl_set_exits(list(self.ENTRIES))
+        if self._dsp_clocked:
+            library = _arm_tick_library()
+            if library is None:
+                uc.hook_add(unicorn.UC_HOOK_CODE, self._dsp_arm_tick)
+            else:
+                self._native_clock(library)
+
+    def _native_clock(self, library):
+        """Run _dsp_arm_tick in C (arm_tick.c): the clock fields move into the struct the C hook updates,
+        read and written through _NativeClockMachine's properties, so MMIO handlers and other hooks see
+        the time of the instruction that runs, as with the Python hook."""
+        from unicorn.unicorn_py3 import unicorn as u
+        state = {name: self.__dict__.pop(name) for name in _NativeClockMachine.CLOCK}
+        self._tick = _ArmTick(budget=NO_BUDGET, stop=ctypes.cast(u.uclib.uc_emu_stop, ctypes.c_void_p).value)
+        self._tick_epoch = 0
+        self.__class__ = _NativeClockMachine
+        for name, value in state.items():
+            setattr(self, name, value)
+        handle = u.uc_hook_h()
+        status = u.uclib.uc_hook_add(self._uch, ctypes.byref(handle), u.uc.UC_HOOK_CODE,
+                                     ctypes.cast(library.blech_arm_tick, ctypes.c_void_p),
+                                     ctypes.c_void_p(ctypes.addressof(self._tick)), ctypes.c_uint64(1),
+                                     ctypes.c_uint64(0))
+        if status:
+            raise u.UcError(status)
+        self._tick_hook = (library, handle)
+        self._tick_library, self._foreign_hooks = library, {}
+        self._poll_seen, self._poll_skip, self._replay, self._scratch = {}, {}, collections.deque(), None
+        add, remove = self.uc.hook_add, self.uc.hook_del
+
+        def hook_add(kind, callback, user_data=None, begin=1, end=0, *args, **kwargs):
+            handle = add(kind, callback, user_data, begin, end, *args, **kwargs)
+            self._foreign_hooks[handle] = (kind, begin, end)
+            return handle
+
+        def hook_del(handle):
+            self._foreign_hooks.pop(handle, None)
+            return remove(handle)
+
+        self.uc.hook_add, self.uc.hook_del = hook_add, hook_del
+
+    def _dsp_arm_tick(self, uc, address, size, data):
+        elapsed = self._dsp_arm_fraction + self.ns_per_insn
+        self.time_ns += int(elapsed)
+        self._dsp_arm_fraction = elapsed - int(elapsed)
+        self._dsp_arm_count += 1
+
+    def _dsp_sync(self):
+        if getattr(self, '_dsp_clocked', False):
+            self.dsp_backend.advance_to(int(self.time_ns))
 
     def reg(self, reg_id):
         """A 32-bit register, read straight through the library: Unicorn's reg_read costs about
@@ -426,6 +485,8 @@ class Machine:
         differ from `card_base` (the image as it was when the machine started, bootcache.py) or, without it, from
         an empty card. A card on a folder of the host (cardstore.py) is the host's and cannot be kept. Without
         instance methods that someone wrapped around the model (their owner puts them back after restoring)."""
+        if self.dsp_backend is not None:
+            raise ValueError('Blackfin backend sessions cannot be snapshotted')
         card = self.mmc.card
         if card is not None and not card_in_memory(card):
             raise ValueError("a card on a folder of the host cannot be snapshotted")
@@ -479,6 +540,8 @@ class Machine:
         flash and not have run, and a card in its slot has to be the image the snapshot's `card_base` was (an empty
         one without). The objects the caller may hold stay the same: the machine, its flash, the card and its
         image, and the dicts, lists and sets of the model."""
+        if self.dsp_backend is not None:
+            raise ValueError('Blackfin backend sessions cannot restore snapshots')
         blob = pickle.loads(snap)
         uc = self.uc
         if blob["flash_mem"] is not None:
@@ -547,7 +610,9 @@ class Machine:
             return self.timer_count(*timer)
         if a == WDTCR:                               # WDKEY reads 0
             return WDEN if self.wd_state != "off" else 0
-        if a == DSP_CTRL: return 0x85                # assumption: DSP always ready; bit 2 is the one Korg's own build waits for before a host-port write
+        if a == DSP_CTRL:
+            self._dsp_sync()
+            return self.dsp_backend.status() if self.dsp_backend is not None else 0x85
         if a == DSP_DATA: return self.dsp_read()
         if a in (SPI0 + 0x40, SPI1 + 0x40):          # SPIBUF, RXEMPTY once read
             s = self.spi[a - 0x40]
@@ -591,6 +656,13 @@ class Machine:
     def write(self, a, v):
         if a == WDTCR:
             self.watchdog_write(v)
+            return True
+        if self.dsp_backend is not None and a in (DSP_CTRL, DSP_DATA):
+            self._dsp_sync()
+            if a == DSP_CTRL:
+                self.dsp_backend.control(v)
+            else:
+                self.dsp_backend.write_word(v)
             return True
         if a == DSP_CTRL:
             if not self.dsp_ctl and v & 0xFFFF == DSP_SYNC:      # Korg's build writes a lone sync word between frames
@@ -675,9 +747,13 @@ class Machine:
                 if p == pair: w = (w | bit) if level else (w & ~bit)
             if pair == 2:                # GPIO 4.0, the lock switch of the card: high = write protected (the firmware's disk status, 0xC0016DB8)
                 w = (w | 1) if getattr(self.mmc.card, "write_protect", False) else (w & ~1)
-            if pair == 3:                # GPIO 6.1, DSP handshake: toggles (assumption)
-                self.handshake ^= 2
-                w = (w & ~2) | self.handshake
+            if pair == 3:
+                if getattr(self.dsp_backend, 'host_transport', None) == 'fifo':
+                    self._dsp_sync()
+                    w = (w & ~2) | (self.dsp_backend.frdy() << 1)
+                else:
+                    self.handshake ^= 2
+                    w = (w & ~2) | self.handshake
             return w
         return self.regs.get(GPIO + off, 0)
 
@@ -708,6 +784,9 @@ class Machine:
 
     # ---- DSP host port -------------------------------------------------------
     def dsp_read(self):
+        if self.dsp_backend is not None:
+            self._dsp_sync()
+            return self.dsp_backend.read_word()
         # Transfers start with 7 control words [0xA9 read | 0xAB write, address low,
         # address high, count of 16-bit words, 2, 0, 0]. Unmodelled words read 0,
         # which leaves bit 31 of the DSP outboxes clear, so the CPU stops waiting.
@@ -968,7 +1047,10 @@ class Machine:
         by then is taken first every time (the 1 kHz tick starved behind TIMER64P2 with long slices)."""
         self.deadline = self.next_event()
         left = self.deadline - self.time_ns
-        short = in_isr or self.nest_level < GNLR_NONE
+        # Also short while IRQs are masked with a line pending: the scheduler's exit path after a handler runs in SVC with
+        # IRQs off, and a long slice from there let TIMER64P2 come again first every time (1 kHz tick starved, 2026-11-18).
+        masked = self.reg(self.A.UC_ARM_REG_CPSR) & 0x80 and self.raw & self.enabled
+        short = in_isr or self.nest_level < GNLR_NONE or masked
         return max(1, min(ISR_STEP if short else SLICE, math.ceil(left / self.ns_per_insn) if left < math.inf else SLICE))
 
     def device_rate(self, cpsr):
@@ -1025,11 +1107,17 @@ class Machine:
                 self.raw.add(MMC_IRQ)
                 self.mmc.raised()
 
+    def _irq_line(self):
+        return bool(self.regs.get(AINTC + 0x10, 0) & 1
+                    and self.regs.get(AINTC + 0x1500, 0) & 2
+                    and not self.highest() & 0x80000000)
+
     def irq(self):
         uc, A = self.uc, self.A
         cpsr = self.reg(A.UC_ARM_REG_CPSR)
-        if cpsr & 0x80 or not self.regs.get(AINTC + 0x10, 0) & 1: return
-        if not self.regs.get(AINTC + 0x1500, 0) & 2 or self.highest() & 0x80000000: return
+        if cpsr & 0x80 or not self._irq_line(): return
+        if getattr(self, '_dsp_clocked', False):
+            self._dsp_arm_idle = False
         pc = self.reg(A.UC_ARM_REG_PC)
         uc.reg_write(A.UC_ARM_REG_CPSR, (cpsr & ~0x3F) | 0x92)
         uc.reg_write(A.UC_ARM_REG_SPSR, cpsr)
@@ -1097,9 +1185,14 @@ class Machine:
         return True
 
     def _dsp_upload(self):
-        # The DSP is a stand-in, so its program has nowhere to go; sending it
-        # byte by byte took most of the boot.
         uc = self.uc
+        if self.dsp_backend is not None:
+            self._dsp_sync()
+            address = uc.reg_read(self.A.UC_ARM_REG_R1)
+            count = uc.reg_read(self.A.UC_ARM_REG_R2)
+            if not 0 < count <= 1 << 20:
+                raise ValueError('invalid Blackfin boot stream length')
+            self.dsp_backend.boot(bytes(uc.mem_read(address, count)))
         self.dsp_uploads.append(round(self.time_ns / 1e6, 2))
         uc.reg_write(self.A.UC_ARM_REG_R0, 1)
         uc.reg_write(self.A.UC_ARM_REG_PC, uc.reg_read(self.A.UC_ARM_REG_LR))
@@ -1108,25 +1201,51 @@ class Machine:
         """Run the CPU for one slice and let device time pass, an idle CPU up to the next event
         but not past limit (ns). Returns the time the slice began."""
         uc, A = self.uc, self.A
+        if self._dsp_clocked:
+            limit = min(limit, self.time_ns + 1000000)
+            if self._dsp_arm_idle:
+                if not self._irq_line():
+                    start = self.time_ns
+                    self.time_ns = max(self.time_ns, min(self.next_event(), limit))
+                    self._dsp_sync()
+                    return start
+                self._dsp_arm_idle = False
         cpsr = self.reg(A.UC_ARM_REG_CPSR)
         in_isr = cpsr & 0x1F == 0x12
         in_handler = in_isr or self.nest_level < GNLR_NONE   # Korg's handlers run in SVC behind the dispatcher (GNLR set)
         count = self.slice_length(in_isr)
+        if self._dsp_clocked and limit < math.inf:
+            count = min(count, max(1, math.ceil((limit - self.time_ns) / self.ns_per_insn)))
+        self._dsp_arm_count = 0
         start, self.poll_stop, self.tx_idle = self.time_ns, False, False
         ran = False
         if not (self.reg(A.UC_ARM_REG_PC) in self.ENTRIES and self.service()):
             pc = self.reg(A.UC_ARM_REG_PC)
-            uc.emu_start(pc | (1 if cpsr & 0x20 else 0), 0, count=count)
+            if self._dsp_clocked and hasattr(self, '_tick'):
+                self._tick.budget = count            # arm_tick.c ends the slice, not emu_start's count
+                try:
+                    uc.emu_start(pc | (1 if cpsr & 0x20 else 0), 0)
+                finally:
+                    self._tick.budget = NO_BUDGET
+            else:
+                uc.emu_start(pc | (1 if cpsr & 0x20 else 0), 0, count=count)
             ran = True
-        self.insns += count
+        self.insns += self._dsp_arm_count if self._dsp_clocked else count
         pc = self.reg(A.UC_ARM_REG_PC)
         wait = self.waiting(pc)
         if wait and not self.tx_idle:
             self.idle_waits += 1
-        if wait and self.highest() & 0x80000000:
+        asleep = not self._irq_line() if self._dsp_clocked else bool(self.highest() & 0x80000000)
+        if wait and asleep:
+            if self._dsp_clocked:
+                self._dsp_arm_idle = True
             self.time_ns = max(self.time_ns, min(self.next_event(), limit))
+        elif self._dsp_clocked:
+            if not self._dsp_arm_count and not self.poll_stop:
+                self.time_ns += max(1, round(self.ns_per_insn))
         elif not self.poll_stop:        # a stopped poll loop has already spent its time on the reads
             self.time_ns += round(count * self.ns_per_insn)
+        self._dsp_sync()
         # Where a slice that ran its instructions stopped is a sample of the code that runs; it sets the rate of the next
         # slice. Not where a slice starts, nor where a wait, a poll or a modelled routine stopped it: those are the
         # interrupt vector, a register read or a routine's address more often than not. Nor in a handler: its slices
@@ -1188,6 +1307,243 @@ class Machine:
             self._saw_loading = True
         if not self.booted and screen == MAIN_SCREEN:
             self.booted, self.boot_ms = True, round(self.time_ns / 1e6, 1)
+
+
+NO_BUDGET = (1 << 64) - 1
+
+
+class _ArmTick(ctypes.Structure):
+    _fields_ = [('time_ns', ctypes.c_double), ('fraction', ctypes.c_double),
+                ('ns_per_insn', ctypes.c_double), ('count', ctypes.c_uint64),
+                ('budget', ctypes.c_uint64), ('stop', ctypes.c_void_p)]
+
+
+class _PollScratch:
+    """A second Unicorn for Machine._poll_ahead: it runs the loop once from a copy of the machine's state
+    (registers, SCTLR, the memory pages it touches, copied as it touches them) with DSP_CTRL reading a fixed
+    status. run() returns the instructions of one run, the instruction number (from 1) of each DSP_CTRL read in
+    it and the read's address, or None when the run is not one that repeats unchanged."""
+    RAM = ((0xC0000000, 0x08000000), (0xFFFF0000, 0x10000), (0x80000000, 0x20000), (0, 0x1000))
+    REGISTERS = tuple(range(66, 79)) + (12, 10)        # R0-R12, SP, LR (unicorn arm_const ids)
+
+    def __init__(self, machine):
+        import unicorn
+        A = machine.A
+        self.machine, self.A = machine, A
+        uc = self.uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_ARM)
+        uc.ctl_set_cpu_model(A.UC_CPU_ARM_926)
+        uc.mmio_map(DSP_DATA & ~0xFFF, 0x1000, self._read, None, self._write, None)
+        uc.hook_add(unicorn.UC_HOOK_MEM_UNMAPPED, self._unmapped)
+        uc.hook_add(unicorn.UC_HOOK_CODE, self._code)
+        uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, self._stored)
+        uc.hook_add(unicorn.UC_HOOK_INTR, self._interrupt)
+        self.pages = set()
+
+    def _unmapped(self, uc, access, address, size, value, data):
+        page = address & ~0xFFF
+        if self.bad or not any(base <= page < base + size for base, size in self.RAM):
+            self.bad = True
+            return False
+        uc.mem_map(page, 0x1000)
+        uc.mem_write(page, bytes(self.machine.uc.mem_read(page, 0x1000)))
+        self.pages.add(page)
+        return True
+
+    def _read(self, uc, offset, size, data):
+        if (DSP_DATA & ~0xFFF) + offset != DSP_CTRL or size != 2:
+            self.bad = True
+            uc.emu_stop()
+            return 0
+        self.reads.append((self.count, uc.reg_read(self.A.UC_ARM_REG_PC)))
+        return self.status
+
+    def _write(self, uc, offset, size, value, data):
+        self.bad = True
+        uc.emu_stop()
+
+    def _code(self, uc, address, size, data):
+        if address == self.pc and self.count:
+            self.done = True
+            uc.emu_stop()
+            return
+        self.count += 1
+        if address in self.machine.ENTRIES or any(begin <= address <= end for _, begin, end in self.hooks):
+            self.bad = True
+            uc.emu_stop()
+
+    def _stored(self, uc, access, address, size, value, data):
+        self.stored.add((address, size))
+
+    def _interrupt(self, uc, number, data):
+        self.bad = True
+        uc.emu_stop()
+
+    def run(self, pc, status, limit):
+        m, A, uc = self.machine, self.A, self.uc
+        sctlr = m.uc.reg_read(A.UC_ARM_REG_CP_REG, (15, 0, 0, 1, 0, 0, 0))
+        if sctlr & 1:                                  # MMU on: the copy would not translate addresses alike
+            return None
+        self.hooks = [(kind, begin, end) for kind, begin, end in m._foreign_hooks.values()]
+        if any(kind != 4 or begin > end for kind, begin, end in self.hooks):    # 4: UC_HOOK_CODE with a range
+            return None
+        for page in self.pages:
+            uc.mem_unmap(page, 0x1000)
+        self.pages = set()
+        uc.ctl_flush_tb()
+        self.pc, self.status, self.count, self.reads, self.stored = pc, status, 0, [], set()
+        self.bad = self.done = False
+        cpsr = m.reg(A.UC_ARM_REG_CPSR)
+        before = [m.reg(r) for r in self.REGISTERS]
+        uc.reg_write(A.UC_ARM_REG_CP_REG, (15, 0, 0, 1, 0, 0, 0, sctlr))
+        uc.reg_write(A.UC_ARM_REG_CPSR, cpsr)
+        for r, value in zip(self.REGISTERS, before):
+            uc.reg_write(r, value)
+        try:
+            uc.emu_start(pc | (1 if cpsr & 0x20 else 0), 0, count=limit + 1)
+        except Exception:
+            return None
+        if (self.bad or not self.done or not self.reads or self.reads[0] != (1, pc)
+                or uc.reg_read(A.UC_ARM_REG_CPSR) != cpsr or [uc.reg_read(r) for r in self.REGISTERS] != before):
+            return None
+        for address, size in self.stored:              # memory as it was: the next run starts alike
+            if uc.mem_read(address, size) != m.uc.mem_read(address, size):
+                return None
+        return self.count, [n for n, _ in self.reads], [a for _, a in self.reads]
+
+
+def _arm_tick_library():
+    """arm_tick.c built by native_build, or None: no C compiler, or GELUMPE_ARM_TICK=python to keep the
+    Python hook."""
+    if os.environ.get('GELUMPE_ARM_TICK') == 'python':
+        return None
+    import native_build
+    return native_build.library(Path(__file__).with_name('arm_tick.c'))
+
+
+class _NativeClockMachine(Machine):
+    """A clocked Machine whose per-instruction clock runs in C; see Machine._native_clock."""
+    CLOCK = ('time_ns', '_dsp_arm_fraction', '_dsp_arm_count', 'ns_per_insn')
+
+    @property
+    def time_ns(self):
+        value = self._tick.time_ns
+        return int(value) if self._time_is_int else value
+
+    @time_ns.setter
+    def time_ns(self, value):
+        self._tick.time_ns = value
+        self._time_is_int = type(value) is int
+
+    @property
+    def _dsp_arm_fraction(self):
+        return self._tick.fraction
+
+    @_dsp_arm_fraction.setter
+    def _dsp_arm_fraction(self, value):
+        self._tick.fraction = value
+
+    @property
+    def _dsp_arm_count(self):
+        return self._tick.count
+
+    @_dsp_arm_count.setter
+    def _dsp_arm_count(self, value):
+        self._tick.count = value
+        self._tick_epoch += 1                 # a new slice: reads of the last tell nothing about this one
+        if getattr(self, '_replay', None):
+            raise RuntimeError('a slice ended inside a computed poll loop')
+
+    def read(self, a):
+        if a == DSP_CTRL and self.dsp_backend is not None:
+            if self._replay:
+                return self._replayed()
+            return self._poll_ahead(Machine.read(self, a))
+        return Machine.read(self, a)
+
+    # A firmware loop that only polls DSP_CTRL. When a read comes from an instruction that read the same status
+    # a short while before, one run of the loop from the current state is computed in a scratch Unicorn
+    # (_PollScratch). If that run reads no device but DSP_CTRL, ends at this instruction with the same
+    # registers and leaves memory as it found it, every further run is the same until the status changes. The
+    # DSP is then moved on in one request (blackfin_worker op 20), advanced at each read of the runs as
+    # advance_to would, up to the read that sees a new status or the end of the slice. The ARM skips the whole
+    # runs, its clock counted as arm_tick.c would; the reads of the last part run gets the statuses the DSP
+    # gave (_replay). Same results as running every read.
+    POLL_READS = 4096
+    POLL_PERIOD = 512
+
+    def _replayed(self):
+        pc, time, status = self._replay.popleft()
+        if self._tick.time_ns != time or self.reg(self.A.UC_ARM_REG_PC) != pc:
+            raise RuntimeError(f'poll loop left its computed path at 0x{self.reg(self.A.UC_ARM_REG_PC):08x}')
+        return status
+
+    def _poll_ahead(self, status):
+        tick, port = self._tick, self.dsp_backend
+        if (tick.budget == NO_BUDGET or self.POLL_READS < 1 or not getattr(port, 'clock_bound', False)
+                or not port.loaded):
+            return status
+        count, epoch, pc = tick.count, self._tick_epoch, self.reg(self.A.UC_ARM_REG_PC)
+        last = self._poll_seen.get(pc)
+        self._poll_seen[pc] = (epoch, count, status)
+        if last is None or last[0] != epoch or last[2] != status or not 0 < count - last[1] <= self.POLL_PERIOD:
+            return status
+        skip = self._poll_skip.get(pc)
+        if skip and skip[0]:
+            skip[0] -= 1
+            return status
+        if self._scratch is None:
+            self._scratch = _PollScratch(self)
+        loop = self._scratch.run(pc, status, self.POLL_PERIOD)
+        if loop is None:
+            self._back_off(pc)
+            return status
+        period, offsets, pcs = loop
+        m = len(offsets)
+        gaps = (ctypes.c_uint32 * m)(*[offsets[j + 1] - offsets[j] for j in range(m - 1)],
+                                     period - offsets[-1] + offsets[0])
+        n = min(self.POLL_READS // m, (tick.budget - count) // period) * m
+        if n < 1:
+            return status
+        steps, times, fractions = (ctypes.c_uint32 * n)(), (ctypes.c_double * n)(), (ctypes.c_double * n)()
+        self._tick_library.blech_arm_ahead(ctypes.byref(tick), gaps, ctypes.c_uint32(m), ctypes.c_uint32(n),
+                                           ctypes.c_int64(port._clock_origin_ns), ctypes.c_int64(port._clock_hz),
+                                           ctypes.c_int64(port._clock_cycles), steps, times, fractions)
+        steps = list(steps)
+        for i, step in enumerate(steps):
+            if step > 1000000:                # advance_to would split it; leave such reads to it
+                n = i
+                break
+        if n < 1:
+            return status
+        done, changed = port.ahead(status, steps[:n], [int(t) for t in times[:n]])
+        if done < 32:
+            self._back_off(pc)
+        else:
+            self._poll_skip.pop(pc, None)
+        runs = done // m                      # whole runs: the ARM is at this read again after them
+        if runs:
+            r = runs * m
+            tick.time_ns, tick.fraction = times[r - 1], fractions[r - 1]
+            tick.count = count + runs * period
+            self.recent.extend([DSP_CTRL] * min(r, self.recent.maxlen))
+            self._poll_seen[pc] = (epoch, tick.count, status)
+        for r in range(runs * m + 1, done + 1):
+            self._replay.append((pcs[r % m], times[r - 1], changed if r == done else status))
+        return changed if runs and runs * m == done else status
+
+    def _back_off(self, pc):
+        skip = self._poll_skip.setdefault(pc, [0, 1])
+        skip[1] = min(skip[1] * 2, 4096)
+        skip[0] = skip[1]
+
+    @property
+    def ns_per_insn(self):
+        return self._ns_per_insn
+
+    @ns_per_insn.setter
+    def ns_per_insn(self, value):
+        self._ns_per_insn = value
+        self._tick.ns_per_insn = value
 
 
 # The card symbol's two places in page 0 of a frame (8 pages of 128 columns): Korg's 109 to 114 and the main screen's 94 to

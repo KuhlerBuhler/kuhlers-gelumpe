@@ -44,7 +44,13 @@ export async function setUp(routes = () => [], { realDevices = false, emu = null
     const origin = publicOrigin === true ? `http://127.0.0.1:${port}` : publicOrigin;
     try { server = await startServer(port, { extra, emu, publicOrigin: origin }); } catch (error) { if (attempt >= 20 || error.code !== "EADDRINUSE") throw error; }
   }
-  const browser = await chromium.launch({ channel: process.env.E2E_CHANNEL || "chrome" });
+  let browser;
+  try {
+    browser = await chromium.launch({ channel: process.env.E2E_CHANNEL || "chrome" });
+  } catch (error) {
+    server.close();
+    throw error;
+  }
   return {
     url: `http://127.0.0.1:${port}/`,
     browser,
