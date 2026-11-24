@@ -1,3 +1,4 @@
+pub mod blech_card;
 pub mod card;
 pub mod korg;
 pub mod midi;

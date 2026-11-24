@@ -27,7 +27,7 @@ import { Workspace, sourceKey, validName } from "../../src/script/workspace.mjs"
 import { SimDevice, probe as runProbe, thumbnail, FRAME_MS } from "../../src/script/sim.mjs";
 import { exportGate } from "../../src/script/gate.mjs";
 import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
-import { storePlugin } from "../../src/usb-update.mjs";
+import { chooseTarget, sendPlugin } from "./target.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { pixelsOf } from "./splash.mjs";
 import { drawFeature } from "./features.mjs";
@@ -86,14 +86,15 @@ const confirmed = async options => (window.ui?.confirm ? window.ui.confirm(optio
 export function scriptsPanel(root, { storage = null, sub = null, session = () => null, onRun = () => {}, trail: setTrail = () => {}, navbar = () => {} } = {}) {
   // The title in the breadcrumb leads to the catalog, the start of the page.
   const trail = parts => setTrail(parts, () => page("catalog"));
-  /** A packed .blech onto the connected device's card; MANAGE PLUGINS in the BLECH menu then lists it. */
+  /** A packed .blech onto the card, over USB with a device connected, else straight onto the card in the computer; MANAGE PLUGINS then lists it. */
   async function toDevice(bytes, id, button) {
-    const s = session();
-    if (!s) { toast(t("console.forwardFirst"), "error"); return; }
     button.disabled = true;
     try {
-      const name = await storePlugin(s, id, bytes);
-      toast(t("plugins.onCard", { name }), "ok");
+      const target = await chooseTarget({ session: session() });
+      if (target.kind === "cancelled") return;
+      if (target.kind === "none") { toast(t(target.why, { list: target.cards?.join(", ") ?? "", name: target.name ?? "" }), "error"); return; }
+      const name = await sendPlugin(target, id, bytes);
+      toast(t(target.kind === "card" ? "plugins.onSdCard" : "plugins.onCard", { name, card: target.card?.name ?? "" }), "ok");
     } catch (e) {
       toast(e.message, "error");
     } finally {
