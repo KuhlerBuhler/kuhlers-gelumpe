@@ -1,23 +1,21 @@
 # Eigene Insert- und Master-Effekte auf der blauen Electribe 2: was es kostet
 
-Stand 2026-11-08. Im Emulator und offline, kein Gerät, nichts gebaut außer einer Messprobe. Eingaben: Korgs `SYSTEM.VSB`
+Im [Emulator](../glossary.md#emulator) und offline, kein Gerät. Eingaben: Korgs `SYSTEM.VSB`
 2.02 der blauen (sha256 `41fc5f1c...`), Korgs rotes Original 2.02 (`1d0f0689...`), die blaue Datei mit dem Satz
 `blech-synth.json` (Stand develop `e5509017`). Markierungen: **gemessen** (ausgeführt, Befehl genannt), **hergeleitet**,
-**geschätzt**, **offen**. Davor: [Preset-Tabellen](2026-10-15-preset-tabellen.md), [FX-Tabellen](2026-10-14-fx-tabellen.md),
-[Katalog fest](2026-10-23-fx-katalog-fest.md), [Sammeldatei](2026-10-22-sammeldatei-karte.md), [Blaue Electribe](2026-10-15-blaue-electribe.md).
+**offen**. Siehe auch: [Preset-Tabellen](2026-10-15-preset-tabellen.md), [FX-Tabellen](2026-10-14-fx-tabellen.md),
+[Sammeldatei](2026-10-22-sammeldatei-karte.md), [Blaue Electribe](2026-10-15-blaue-electribe.md).
 
 ## Kurzfassung
 
 1. **Die Effekte der blauen sind die des roten Korg-Originals.** Getter, Zeigerfelder, Recordgröße `0x20C`, alle 200
    Records (100 Insert, 100 Master) sind Platz für Platz byte-gleich, nur an anderen Adressen. Die DSP-Bausteine sind
-   dieselben 66, mit gleichen Namen, Parametern, Vorgaben und Spannen. Der Satz "die blaue hat andere Bausteine" in
-   [Katalog fest](2026-10-23-fx-katalog-fest.md) stimmt nicht; anders ist das DSP-Programm als Ganzes, nicht die
-   Schnittstelle der Effekte.
+   dieselben 66, mit gleichen Namen, Parametern, Vorgaben und Spannen. Anders ist das [DSP](../glossary.md#dsp)-Programm als Ganzes, nicht die Schnittstelle der Effekte.
 2. **Ein Katalog-Record, in einen Platz der blauen gelegt, bootet und wird gespielt**: Menüs 48 und 40, der INSERT-Regler
    läuft durch und springt zurück, jeder der 18 Plätze schickt dem DSP dieselben Übertragungen wie auf dem roten Original,
    keine Assertion. Auch mit dem Satz `blech-synth.json`.
-3. **Fast alles ist Adressarbeit.** Neu zu messen ist nur, was die Gerätekarte heute als Dateiabstand des Samplers führt
-   (Menülängen, Getter), und der Klang am Gerät. Schätzung gesamt: 4 bis 5 Arbeitstage ohne Gerätetest.
+3. **Fast alles ist Adressarbeit.** Neu zu messen ist nur, was die Gerätekarte als Dateiabstand des Samplers führt
+   (Menülängen, Getter), und der Klang am Gerät.
 
 ## Belegtabelle
 
@@ -38,26 +36,10 @@ Stand 2026-11-08. Im Emulator und offline, kein Gerät, nichts gebaut außer ein
 | Von den 15 Stellen der Menülängen hat `data/synth-map/` nur die zwei bei `0xC0039BFC` und `0xC0039C04`; die übrigen 12 und die Zeilenlänge findet `fwmap.py` (11 mit gleichem Code, 2 nur am Ort; ebenso das fünfte Reglerliteral) | gemessen | `fwmap.py --ref ROT --vsb BLAU ...`, jede Stelle trägt das erwartete Byte (38, 37, 32) |
 | Port von `preset-tables` und Katalog auf Korgs blaue: Menüs 48 und 40, INSERT-Regler läuft durch und springt zurück, Namen der neuen Plätze aus den Gettern, je Insert-Platz 14 und je Master-Platz 11 Übertragungen, gleich der roten Datei mit denselben Schritten (`same_dsp`), keine Assertion | gemessen | `tools/emu/blue_fx_probe.py --vsb BLAU --records blau.json --compare ROT rot.json` |
 | Dasselbe auf der blauen mit `blech-synth.json` | gemessen | `blue_fx_probe.py --vsb BLAU-BLECH --records ...`, gleiche Zahlen, keine Assertion |
-| Die App lehnt die blaue für den Katalog ab ("Preset-Tabellen nicht erkannt") | gemessen | `appendPresets` auf der blauen Datei |
 
 `same_dsp` vergleicht Befehl, Wortzahl und Daten und lässt eine durchgehende Verschiebung der Zieladressen zu
 ([MFX-Fälle](2026-10-10-mfx-umschalter.md)). Gleiche Übertragungen heißen also: dieselben Werte an dieselben Stellen
 des Effekts, nicht derselbe Klang.
-
-## Was es braucht, je Stück
-
-| Stück | Art | Status | Aufwand (geschätzt) |
-|---|---|---|---|
-| `preset-tables` für die blaue: Builder bekommt `--build synth`, 11 Orte (2 Getterliterale, 4 Klemmbefehle, 5 Reglerliterale) über `synthaddr`, dazu neue Einträge in `data/synth-map/` für die Orte, die `fwmap` findet; `preset_cases.py` auf die blaue | nur Adressen | in der Probe gemessen | 0,5 Tag |
-| Gerätekarte und `src/presets.mjs` je Build: Getter, Klemme, 13 Stellen der Insert-Menülänge, Zeilenlänge, Master-Stelle für die blaue; danach findet `locatePresets` die Felder und `fx-append.mjs` arbeitet ohne Änderung | nur Adressen, aber die Karte kennt heute nur Dateiabstände des Samplers | hergeleitet | 1 Tag mit Tests |
-| `fx-catalog` und `preset-tables-synth` in `blech-synth.json` | Satz | hergeleitet | in den beiden oben |
-| Sammeldatei `e2sFx.all` laden (`fx_card.s`): Getter und Zähler sind in der Karte, `FS_*` und die Orte von `fx_reapply` (Pattern, Part-Bearbeitung, [Effekte beim Start](2026-11-05-effekte-start-splash-liste.md)) hat die Laufzeit der blauen schon; neu sind `FX_BUILD` für die blaue, `FX_MODS` `0xC00C1E64` als Eintrag, `fx_card.s` statt `script_fx_none.s`; `src/fx-collection.mjs` bekommt den Build und die Lage der Modulationstabelle | nur Adressen | Adressen gemessen, Lader nicht gelaufen | 1 Tag mit `fx_card_cases.py` auf der blauen |
-| EXPORT ALL EFFECTS: steht in `fx_card.s` (`menu_export_fx`), kommt mit dem Lader; dazu das Bit der Seite in `DU_BUILT` der blauen (heute 3, die Effekte fehlen) | nur Adressen | hergeleitet | in dem Tag oben |
-| Effekt-Editor der App: der Weg für Korgs rotes Original (über die Zeigerfelder) trägt die blaue, sobald `locatePresets` sie findet; Freigabe in `FEATURES.synth` und der Seite, Browser-Tests | wenig neu | hergeleitet | 1 bis 2 Tage |
-| Klang am Gerät, Live-Bearbeitung über SysEx (die blaue hat keine Befehle `0x52` bis `0x57` von Hacktribe) | Gerätetest, Live-Weg neue Arbeit | offen | Gerätetest offen; Live-Weg nicht geschätzt |
-
-Kein Stück braucht neue DSP-Arbeit oder neue Bausteine: die Bausteine sind dieselben, und die Records des Katalogs
-entstehen aus Werks-Records, die in beiden Firmwares gleich sind.
 
 ## Was die Probe tut
 
@@ -75,3 +57,4 @@ Firmware ins Repository, die Records bleiben im Arbeitsordner.
 - Ob das DSP-Programm der blauen die Bausteine gleich rechnet: gleiche Deskriptoren und Übertragungen sprechen dafür, ein
   Beweis ist es nicht.
 - Der Lader `fx_card.s` und EXPORT ALL EFFECTS sind auf der blauen nicht gelaufen; nur ihre Adressen sind gefunden.
+- Live-Bearbeitung der Effekte über SysEx: die blaue hat die Befehle `0x52` bis `0x57` von Hacktribe nicht.

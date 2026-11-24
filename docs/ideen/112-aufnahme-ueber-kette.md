@@ -1,12 +1,11 @@
 # 112. Aufnahme läuft über eine Kette in einer Sync Group weiter
 
-Wunsch vom 10.11.: eine Melodie über mehrere Patterns aufnehmen. Heute geht eine Aufnahme nur in einem Pattern; für das
+Wunsch: eine Melodie über mehrere Patterns aufnehmen. Heute geht eine Aufnahme nur in einem Pattern; für das
 nächste Pattern einer Sync Group muss man wechseln und neu aufnehmen. Gewünscht: läuft eine Aufnahme und das Pattern ist
-gekettet (CHAIN TO) **und** in einer Sync Group, wechselt es am Ende wie beim Abspielen ins nächste Pattern, und die
+gekettet (CHAIN TO) **und** in einer [Sync Group](../glossary.md#sync-group), wechselt es am Ende wie beim Abspielen ins nächste Pattern, und die
 Aufnahme läuft dort weiter. Das vorige Pattern soll sich das Aufgenommene merken, ohne dass man beim Wechsel WRITE drückt.
 
-Stand 2026-11-10: **aufgeschrieben, nichts gebaut, nichts gemessen.** Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
-Zurück zu den [Ideen](../ideen.md).
+Status: offen, nichts gebaut. Marker: **gemessen**, **hergeleitet**, **ungeprüft**. Zurück zu den [Ideen](../ideen.md).
 
 ## Wann es gilt
 
@@ -37,7 +36,7 @@ Zurück zu den [Ideen](../ideen.md).
 
 - **Verlust ohne Warnung:** nach dem Zurückkopieren gleicht der Platz dem Live-Stand, `pc_dirty` sähe das vorige Pattern
   als gespeichert, obwohl es nur im RAM ist. Ausschalten heißt dann weg. Die Merkliste muss in `pc_dirty` und in die
-  Rückfrage vor dem Wechsel (Idee 57) mit hinein.
+  Rückfrage vor dem Wechsel ([Patternwechsel](../hintergrund/patternwechsel.md)) mit hinein.
 - **Wie es ins Flash kommt:** WRITE am Ende speichert alle markierten Plätze, oder eine Frage beim Stoppen der Aufnahme,
   oder AUTO SAVE. Noch nicht entschieden.
 - **Ob die Firmware die Aufnahme beim Wechsel abbricht** und an welcher Stelle (Wechsel am Sequenzende, CHAIN TO, Zustand

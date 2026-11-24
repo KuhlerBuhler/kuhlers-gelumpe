@@ -1,6 +1,6 @@
 # Plugin API 39: ein Ordner mit 16 Datendateien je Plugin, 32 KiB je Datei
 
-Stand 17. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02, Korgs Original 2.02 rot und blau, jeweils mit dem
+Stand 17. November 2026. **Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau, jeweils mit dem
 BLECH-Satz. Fälle: `tools/emu/plugin_api32_cases.py` (Name aus API 32 behalten, Gruppe `plugin_api32`). Heap:
 `tools/emu/heap_headroom.py`. **Am Gerät nicht geprüft.** Ersetzt das Layout aus
 [API 32](2026-11-11-plugin-api32-data-file.md); 1.5 ist noch nicht erschienen, darum ohne Übernahme alter Dateien.
@@ -71,7 +71,7 @@ Alle 8 Fälle von `plugin_api32_cases.py` bestehen auf Hacktribe, rot und blau. 
 |---|---|
 | 16 Dateien je Plugin, höchstens 32 768 Byte je Datei; der Block im Heap ist 32 788 Byte | Urteil |
 | Der Block sind rund 1,7 % des nach dem Start freien Heaps (gut 1,9 MB) | hergeleitet aus den Zahlen oben |
-| Mit dem Spettro-Dienst (103 424 Byte, wenn ein Plugin Spektrum oder Wellenform nutzt) bleiben über 1,75 MB frei | hergeleitet (`2026-11-11-spettro-worker-platz.md`) |
+| Mit dem Spettro-Dienst (103 424 Byte, wenn ein Plugin Spektrum oder Wellenform nutzt) bleiben über 1,75 MB frei | hergeleitet (Heap-Pool: [Systemspeicher offline](2026-10-08-systemspeicher-offline.md)) |
 | Kurze Blöcke der Firmware: Pattern-Liste 16 KiB, Migration 32 KiB; sie kommen und gehen, der Block bleibt bis zum Ausschalten | gelesen |
 | Mehr als 32 KiB bringt einem Plugin wenig: alle Variablen eines Plugins zusammen sind 128 KiB, also 32 768 Plätze | Urteil |
 | Eine größere Datei braucht beim ersten Lesen und beim Schreiben länger; wie lange auf einer echten Karte, ist nicht gemessen | Urteil |

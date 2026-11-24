@@ -1,7 +1,7 @@
-# Letztes Pattern beim Einschalten (Idee 76)
+# Letztes Pattern beim Einschalten
 
-Stand 28.10.2026, Emulator mit Hacktribe 2.02 und Korgs Original 2.02 (rot). Am Gerät gelesen (nur lesend, BLECH READ):
-die Globals im RAM. Zu [Idee 76](../ideen/76-letztes-pattern.md), Patch `data/patches/last-pattern.json`.
+[Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 und Korgs Original 2.02 (rot). Am Gerät gelesen (nur lesend, BLECH READ):
+die Globals im RAM. [Patch](../glossary.md#patch) `data/patches/last-pattern.json`.
 
 ## Wo die Firmware beim Start Pattern 001 nimmt
 

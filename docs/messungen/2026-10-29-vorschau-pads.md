@@ -1,20 +1,18 @@
-# Vorschau: die Pads gehören dem angesehenen Pattern (29.10.)
+# Vorschau: die Pads gehören dem angesehenen Pattern
 
-Entschieden am 29.10.: Solange ein anderes Pattern angesehen wird (`VIEW:` oder `NEXT:`, [Ansicht](2026-10-25-pattern-ansicht.md)),
+Solange ein anderes Pattern angesehen wird (`VIEW:` oder `NEXT:`, [Ansicht](2026-10-25-pattern-ansicht.md)),
 
 - lassen sich die Pads des laufenden Patterns nicht mehr schalten,
-- schalten die Pads im Modus PART MUTE die Mutes des angesehenen Patterns,
-- übernimmt das angesehene Pattern beim Wechsel diese Mutes,
+- zeigen die Pads im Modus PART MUTE die Mutes des angesehenen Patterns; der erste Druck auf ein Pad holt den Part ins
+  laufende Pattern ([Part reinholen](2026-10-30-vorschau-part-reinholen.md)), weitere Drücke schalten sein Mute,
 - haben die Pads des angesehenen Patterns eine eigene Farbe.
 
-Gebaut in `tools/patch/pattern_switch.py` und `tools/patch/pad_colors.py`, im Emulator geprüft mit Hacktribe, Korgs Original rot und blau.
-Am Gerät noch nicht geprüft.
+Gebaut in `tools/patch/pattern_switch.py` und `tools/patch/pad_colors.py` ([Patch](../glossary.md#patch)), im [Emulator](../glossary.md#emulator) geprüft mit
+[Hacktribe](../glossary.md#hacktribe), Korgs Original rot und blau. Am Gerät noch nicht geprüft. Die Fälle unten sind der Stand der
+ersten Fassung, in der der erste Druck das Mute nur in der Ansicht kippte; seitdem holt er den Part (`case_view_pads`
+misst das neu, siehe Part reinholen).
 
-Seit 30.10. holt der erste Druck auf ein Pad den Part ins laufende Pattern, nicht stumm, auch wenn er in der Bank nicht stumm ist
-([Part reinholen](2026-10-30-vorschau-part-reinholen.md)). Stummschalten nur in der Ansicht gibt es damit nicht mehr, die Tabelle
-unten ist der Stand vom 29.10.
-
-## Was vorher war (gemessen, Emulator, Hacktribe)
+## Die Firmware ohne den Patch (gemessen, Emulator, Hacktribe)
 
 - Ein Pad im Modus PART MUTE schaltet beim Drücken das Mute im Pattern im RAM: Byte 1 des Parts (Block `+0x801 + 0x330 * Part`, 1 heißt
   stumm), geschrieben bei `0xC0049354`, aufgerufen von `0xC0060D38`. Das Loslassen schreibt nichts.

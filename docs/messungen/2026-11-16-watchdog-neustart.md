@@ -2,7 +2,7 @@
 
 Vorbereitung für einen Menüpunkt RESTART auf der Seite `Menü -> BLECH -> DEV MODE` (Idee
 [77 Neustart](../ideen/77-neustart.md)). Die blaue Electribe hat keine DEV-MODE-Seite und kein EXEC, sie bleibt außen vor.
-Stand: Emulator und Stub fertig, **am Gerät noch nicht probiert**.
+Stand: [Emulator](../glossary.md#emulator) und Stub fertig, **am Gerät noch nicht probiert**.
 
 | Befund | Status |
 |---|---|

@@ -1,10 +1,10 @@
 # Time Stretch: offline auf dem ARM, live im DSP
 
-Stand 17. November 2026. Frage aus [Idee 60](https://github.com/KuhlerBuhler/kuhlers-gelumpe/pull/668): geht Tempo
+Stand 17. November 2026. Frage: geht Tempo
 ändern ohne Tonhöhe auf dem Electribe 2 Sampler mit blechtribe? Zwei getrennte Stufen: offline (Sample einmal neu
 rechnen, Faktor rund 85 bis 115 %) und live (Stretch im Blackfin beim Abspielen, per Regler oder BPM).
 
-Grundlage: DSP-Programm aus Hacktribe 2.02 (sha256 `7cb4825c184a7e3f…`), ausgepackt mit
+Grundlage: [DSP](../glossary.md#dsp)-Programm aus [Hacktribe](../glossary.md#hacktribe) 2.02 (sha256 `7cb4825c184a7e3f…`), ausgepackt mit
 [`dsp_extract.py`](../../tools/dsp/dsp_extract.py), disassembliert mit Blackfin-binutils 2.42. ARM-Messung in Unicorn
 mit den Gerätekosten aus [Emulator-Timing](2026-10-16-emulator-timing.md). Kein Gerätezugriff, kein gekoppelter
 DSP-Lauf.
@@ -163,16 +163,6 @@ hergeleitet). Der zweite Kopf braucht einen zweiten MDMA-Deskriptor oder direkte
 Slice-Modus: 64 Slices pro Sample stehen in den Metadaten (gelesen). Slices im Tempo neu getriggert ändern das Tempo
 ohne Tonhöhe, ganz ohne Stretch (Urteil). Für Drum-Loops reicht das oft.
 
-## Nächste Schritte
-
-1. **Offline-Prototyp**: WSOLA aus dieser Messung als ARM-Patch, Ziel ein freier Sample-Platz über die Sample-Swap-Wege;
-   im Emulator Länge, Loop und Abspielen prüfen, dann am Gerät hören.
-2. **Live, zuerst messen**: im gekoppelten QEMU-Worker (`advance()` liefert ausgeführte und Leerlauf-Zyklen,
-   `clock_status()` Zyklen und Leerlauf) ein volles Pattern laufen lassen und die freien DSP-Zyklen pro Sample zählen.
-   Erst bei über rund 2000 freien Zyklen weiter (Urteil).
-3. **Live, dann bauen**: neuer Generatortyp nach `0xFFA0314E` in freiem L1-Code, Typnummer in die Tabelle bei
-   `0xFFB00010` eintragen, erst im Simulator gegen den Sample-Player (`0xFFA02EDE`) vergleichen.
-
 ## Belege
 
 | Behauptung | Wie belegt |
@@ -182,5 +172,5 @@ ohne Tonhöhe, ganz ohne Stretch (Urteil). Für Drum-Loops reicht das oft.
 | Generatoren `0xFFA02EDE`, `0xFFA0314E`, Stimmenschleife | `objdump -D -b binary -m bfin --adjust-vma=0xFFA00000` auf den ausgepackten L1-Code |
 | Setter `0x2B` → `0xFFA068C8`/`0xFFA07394` | dieselbe Disassemblierung, ROM-Region `0x01F00000` für die Typtabelle |
 | Postfach, Host-Port, Tempo `0x20` | [DSP-Modell](2026-11-12-dsp-modell.md), [DSP im Simulator](2026-11-12-dsp-im-simulator.md) |
-| DSP-Budget voll | [Idee 52](../ideen/52-ton-im-emulator.md) |
+| DSP-Budget voll | [DSP-Modell](2026-11-12-dsp-modell.md), [SDRAM-Freiraum](2026-11-20-dsp-sdram-freiraum.md) |
 | ARM frei | [CPU-Last](2026-11-08-cpu-last-blech.md), [RAM frei](2026-10-22-ram-frei.md) |

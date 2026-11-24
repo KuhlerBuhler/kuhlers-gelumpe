@@ -1,6 +1,6 @@
 # Karte vom Mac zurück, Start hängt oder "No Card.": CMD8 geht verloren (22.11.)
 
-Stand 22.11.2026. Gerät: rote Electribe mit Hacktribe 2.02 + BLECH (Firmware f53fd5b9, develop), nur READ über BLECH SysEx. Emulator:
+Stand 22.11.2026. Gerät: rote Electribe mit [Hacktribe](../glossary.md#hacktribe) 2.02 + BLECH (Firmware f53fd5b9, develop), nur READ über BLECH [SysEx](../glossary.md#sysex). [Emulator](../glossary.md#emulator):
 Hacktribe 2.02, Korgs Original 2.02 rot und blau. Marker: **gemessen**, **offline gelesen** (Disassembly), **hergeleitet**, **offen**.
 
 ## Befund am Gerät

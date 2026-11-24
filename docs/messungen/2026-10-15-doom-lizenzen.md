@@ -1,7 +1,7 @@
 # Doom: Quellen und Lizenzbefund
 
-Stand 15.10.2026. Gelesener Lizenzbefund und lokale Paketprüfung,
-keine Veröffentlichung oder Geräteaktion.
+Gelesener Lizenzbefund und lokale Paketprüfung der Doom-Engine
+([Zusammenfassung](../doom-lizenz.md)), keine Veröffentlichung oder Geräteaktion.
 
 ## Gepinnte Engine
 
@@ -40,9 +40,8 @@ Quelländerungen während des Builds führen zum Abbruch.
 Gemessen: `node --test test/doom-sources.test.mjs` besteht. Der Test
 verlangt die Ablehnung eines nachträglich veränderten Adapters,
 einer veränderten Binärdatei und eines veränderten Quellarchivs.
-Ein tatsächlicher ARM926-Build mit dem vorhandenen Arm GNU 14.2.Rel1
-hat das Quellenarchiv außerhalb des Repos erzeugt. Ein kompletter
-Weitergabebundle wurde nicht erzeugt.
+Das Quellenarchiv entsteht aus einem ARM926-Build mit Arm GNU 14.2.Rel1
+(`tools/doom/README.md`). Ein kompletter Weitergabebundle wird nicht erzeugt.
 
 ## Offene Distributionsprüfung
 
@@ -67,4 +66,4 @@ Vor einer Weitergabe müssen GPLv3-Text, AGPL-Text, erhaltene Urheberhinweise,
 passende Laufzeitlizenzen und vollständige korrespondierende Quellen
 beziehungsweise eine konkret geprüfte Ausnahme zusammen bereitstehen.
 Bei beigepacktem Freedoom kommen dessen Lizenz und Credits dazu.
-Dieser Stand erlaubt lokale Tests; die Binärweitergabe bleibt offen.
+Das erlaubt lokale Tests; die Binärweitergabe bleibt offen.

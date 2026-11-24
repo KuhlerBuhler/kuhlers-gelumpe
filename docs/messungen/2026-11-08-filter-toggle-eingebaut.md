@@ -1,8 +1,7 @@
 # FILTER TOGGLE fest eingebaut
 
-Stand 08.11.2026, nur Emulator (Hacktribe 2.02, Korgs Original 2.02 rot und blau), kein Gerät. Zu
-[Idee 81](../ideen/81-filter-schnellschalter.md). Vorher gab es das als Plugin Filter Toggle im Katalog (API 14); das
-Plugin ist aus dem Katalog genommen. Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergeleitet**.
+Nur [Emulator](../glossary.md#emulator) ([Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau), kein Gerät. Die Funktion ist im
+[BLECH](../glossary.md#blech)-Satz eingebaut. Marker: **gemessen** (im Emulator), **offline gelesen** (Disassembly), **hergeleitet**.
 
 ## Was es tut
 
@@ -50,19 +49,6 @@ einen Druck der echten Filtertaste gestellt, von dem Typ aus, dessen Schritt der
 | Seite FILTER TOGGLE: ON ohne Datei, das Rad schaltet sofort, WRITE schreibt Bit 5, der nächste Start liest OFF und ON | wie erwartet | gemessen |
 | Am Gerät | Am Gerät nicht geprüft | offen |
 
-## Wer das alte Plugin noch auf der Karte hat
-
-Das Plugin Filter Toggle (`.blech` auf der Karte) läuft weiter, beide zusammen sind aber unnötig:
-
-- **App geschlossen:** die Firmware sieht SHIFT + Filtertaste, FILTER TOGGLE setzt den Typ. Das Plugin rechnet im nächsten
-  Rahmen aus dem Typ beim Druck auf SHIFT denselben Wechsel und setzt denselben Typ noch einmal (hergeleitet aus dem
-  Quelltext des Plugins, nicht gemessen).
-- **App offen:** das Plugin hält mit `korg.passKeys` die Filtertasten zurück, solange SHIFT gehalten ist. Die Firmware und
-  damit FILTER TOGGLE sehen die Kombination nicht, nur das Plugin schaltet, ohne Fenster (hergeleitet).
-- Auf der blauen schreibt das Plugin nichts (`korg.seq.setPartValue`), dort wirkt nur FILTER TOGGLE.
-
-Empfehlung: das Plugin von der Karte nehmen oder FILTER TOGGLE ausschalten.
-
 ## Grenzen
 
 - Ein BLECH vor dieser Version lehnt eine Einstellungsdatei mit Bit 5 in Byte 5 ab und startet mit den Vorgaben, wie bei
@@ -70,4 +56,3 @@ Empfehlung: das Plugin von der Karte nehmen oder FILTER TOGGLE ausschalten.
 - Ob der Weg mit `mov r0, #8` auch von etwas anderem als der Filtertaste erreicht wird (etwa vom Rad auf der Seite FILTER
   TYPE), ist nicht geprüft. Ohne vorherigen Druck mit SHIFT steht `FT_KEY` auf 0, dann bleibt der Typ der Firmware und wird
   nur gemerkt (hergeleitet).
-- Im Objektbaum der Plugin-API (`korg.object`) gibt es noch keinen Eintrag für FILTER TOGGLE.

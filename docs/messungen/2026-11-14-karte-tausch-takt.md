@@ -1,7 +1,7 @@
 # Karte im Betrieb getauscht: neue Karte wird mit 12,5 MHz identifiziert (14.11.)
 
-Stand 14.11.2026. Gerät: rote Electribe, Firmware 93073c42 (release/1.4.6 785fc2a8, Basis Hacktribe 163d1d8d), nur READ über BLECH
-SysEx. Emulator: Hacktribe 2.02, Korgs Original 2.02 rot und blau. Marker: **gemessen**, **offline gelesen** (Disassembly),
+Stand 14.11.2026. Gerät: rote Electribe, Firmware 93073c42 (release/1.4.6 785fc2a8, Basis [Hacktribe](../glossary.md#hacktribe) 163d1d8d), nur READ über BLECH
+[SysEx](../glossary.md#sysex). [Emulator](../glossary.md#emulator): Hacktribe 2.02, Korgs Original 2.02 rot und blau. Marker: **gemessen**, **offline gelesen** (Disassembly),
 **hergeleitet**, **offen**.
 
 ## Befund

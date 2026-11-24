@@ -1,14 +1,14 @@
 # Plugin-Liste und SPLASH IMPORT als Dateibrowser
 
-Stand 8. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
-mit dem BLECH-Satz. Code: `tools/patch/script_menu.s` (`menu_brw_fill`, `menu_brw_draw`). Fälle: `menu:splash_browser_empty` und
+**Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+mit dem [BLECH](../glossary.md#blech)-Satz. Code: `tools/patch/script_menu.s` (`menu_brw_fill`, `menu_brw_draw`). Fälle: `menu:splash_browser_empty` und
 `menu:splash_browser_like_import_sample` in `tools/emu/menu_cases.py`, die Plugin-Liste in `tools/emu/script_cases.py`. **Am Gerät nicht geprüft.**
 
 ## Frage
 
-Die Liste von BLECH > PLUGINS zeigte ein Plugin je Seite (Name, darunter ON, OFF oder der Fehler), SPLASH IMPORT eine Datei je
-Seite. Lassen sich beide so zeichnen wie der Dateibrowser der Firmware (DATA UTILITY, IMPORT SAMPLE), mit den Zeichenfunktionen
-der Firmware selbst, ohne dass sich an Tasten, Rad und Zustand etwas ändert?
+Die Liste von BLECH > PLUGINS und SPLASH IMPORT (Startbild von der Karte wählen) sind wie der Dateibrowser der Firmware gezeichnet (DATA UTILITY,
+IMPORT SAMPLE), mit den Zeichenfunktionen der Firmware selbst. Stimmt das Bild Pixel für Pixel, und bleiben Tasten, Rad und
+Zustand wie sie sind?
 
 ## Weg
 
@@ -35,9 +35,9 @@ Seite sagt. Verglichen wurde Pixel für Pixel: IMPORT SAMPLE mit fünf `.wav` un
 
 ## Zustand eines Plugins
 
-ON und OFF standen vorher als Wort in der zweiten Zeile. Im Browser ist dafür kein Platz, darum zeigt es das Symbol: ein Blatt mit
+Im Browser ist kein Platz für ein Wort ON oder OFF, darum zeigt das Symbol den Zustand: ein Blatt mit
 zwei Linien heißt, das Plugin läuft, ein leeres Blatt heißt, es läuft nicht (ausgeschaltet, nicht geladen oder mit Fehler). Was die
-Zeile darüber hinaus sagte (`DIV_ZERO L3`, WRITE=ALLOW, was getan wurde), steht für das gewählte Plugin klein unter den drei Zeilen.
+Zeile darüber hinaus sagt (`DIV_ZERO L3`, WRITE=ALLOW, was getan wurde), steht für das gewählte Plugin klein unter den drei Zeilen.
 
 ![Plugin-Liste](../images/preview/plugin-browser.png)
 
@@ -46,7 +46,7 @@ Zeile darüber hinaus sagte (`DIV_ZERO L3`, WRITE=ALLOW, was getan wurde), steht
 ## Speicher
 
 Der Browser liegt in MENU_STATE ab 0x118 (Zeilen, Zahl, Auswahl, oberste Zeile, an/aus) und 0x160 bis 0x1AF (Vtable des Widgets,
-Zeile unter den Zeilen). Key Pads belegt 0x108 bis 0x113; eine erste Fassung lag dort und rief das Fenster KEY der Firmware auf.
+Zeile unter den Zeilen). Key Pads belegt 0x108 bis 0x113.
 
 ## Offen
 

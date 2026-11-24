@@ -1,13 +1,13 @@
 # Plugin Display: native Zeichenfunktionen und Fehlermeldung
 
-Stand 2026-10-14. Kein Gerätezugriff. Alles im
-Emulator und in Unicorn ohne Firmware gemessen. Markierungen: **gemessen**, **hergeleitet**.
+Kein Gerätezugriff. Alles im
+[Emulator](../glossary.md#emulator) und in Unicorn ohne Firmware gemessen. Markierungen: **gemessen**, **hergeleitet**.
 Hintergrund: [`../hintergrund/skript-laufzeit.md`](../hintergrund/skript-laufzeit.md).
 
 ## Umsetzung
 
-- **Zeichnen** (`tools/patch/script_display.s`): `clear`, `text`, `number`,
-  `pixel`, `rect`, `clearRect` zeichnen in ein eigenes Bild der Laufzeit
+- **Zeichnen** (`tools/patch/script_display.s`): `korg.display.clear`, `text`, `number`,
+  `pixel`, `rect`, `clearRect` ([Plugin](../glossary.md#plugin)-API) zeichnen in ein eigenes Bild der Laufzeit
   (1024 Byte hinter dem LED Zustand, Anfang `RT_DISPLAY`). Rechtecke werden
   spaltenweise mit Seitenmasken gefüllt, Text zeichnet nur gesetzte Pixel, Zahlen
   werden mit Zehnerpotenzen ohne Division in Ziffern zerlegt. Ränder schneiden ab,
@@ -29,7 +29,7 @@ Hintergrund: [`../hintergrund/skript-laufzeit.md`](../hintergrund/skript-laufzei
   (Befehle): `clear` 782, `pixel` 27, `rect` 8x8 166 und Vollbild 11941, `text` 5
   Zeichen 2209 und 31 Zeichen 13203, `number` 6194. Eine Kosteneinheit entspricht
   etwa 10 Befehlen (hergeleitet aus 9 bis 10 Befehlen je VM Operation, siehe
-  `docs/plugins.md`). Die Einträge gelten für kurze Aufrufe; ein Vollbild oder ein
+  [`plugins.md`](../plugins.md)). Die Einträge gelten für kurze Aufrufe; ein Vollbild oder ein
   langer Text kostet in Echtzeit mehr, begrenzt wird das vom 5 ms Rahmenbudget.
 
 ## Prüfungen (gemessen)
@@ -42,13 +42,11 @@ Hintergrund: [`../hintergrund/skript-laufzeit.md`](../hintergrund/skript-laufzei
 | Firmware im Emulator, Karte mit Klicker: Anzeige nach `ready` gleich dem Browsermodell, TAP zählt (Anzeige und LED 20), MENU zeigt das Menü der Firmware, EXIT bringt das Klickerbild zurück | bestanden |
 | Fehler beim Tastendruck: Fehlerbild gleich dem Modell, Firmware bedienbar | bestanden |
 | Fehler im Rumpf: Fehlerbild mit dem ersten Rahmen | bestanden |
-| `check.py` auf Startbild, MFX 2 und Laufzeit | 37 von 37 |
-| `E2_ARM_REQUIRED=1 npm test` | 460 Tests, 419 bestanden, 41 ohne Firmware übersprungen, 0 Fehler |
 
 ## Grenzen
 
 - Am Gerät ist nichts geprüft. Das Display RAM bei `0xC031B310` ist am Gerät
-  gelesen (`2026-10-09-menuezustand.md`), dass das Schreiben dort ins Display geht,
+  gelesen ([`2026-10-09-menuezustand.md`](2026-10-09-menuezustand.md)), dass das Schreiben dort ins Display geht,
   ist dort nur im Emulator belegt.
 - Die Schrift sieht anders aus als die der Firmware.
 - Der Statusblock hält die höchste Zeit je Handler; eine Warnung bei mehr als

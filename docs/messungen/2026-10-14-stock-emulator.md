@@ -1,7 +1,7 @@
 # Korgs Original-Firmware 2.02 im Emulator
 
-Stand 2026-10-14. Offline und im Emulator, kein Gerät. Eingaben: Korgs `SYSTEM.VSB` aus dem
-Systemupdate 2.02 (sha256 `1d0f0689...`), Hacktribes offizielle 2.02 aus dem SD-Paket (`7cb4825c...`)
+Offline und im [Emulator](../glossary.md#emulator), kein Gerät. Eingaben: Korgs [`SYSTEM.VSB`](../glossary.md#vsb) aus dem
+Systemupdate 2.02 (sha256 `1d0f0689...`), [Hacktribes](../glossary.md#hacktribe) offizielle 2.02 aus dem SD-Paket (`7cb4825c...`)
 und eine eigene, bearbeitete Hacktribe-Datei (`b0890899...`). Markierungen: **gemessen** (ausgeführt,
 Befehl genannt), **offline** (Code oder Daten gelesen), **hergeleitet**, **offen**. Die Dateien liegen
 nicht im Repository, nur Ergebnisse und Hashes.
@@ -46,8 +46,7 @@ nicht im Repository, nur Ergebnisse und Hashes.
 - Wie Korgs Build seine Presets ablegt (Format, Ort), ist nicht entschlüsselt.
 - Warum Korgs Build bis zum Hauptbild 200 ms länger braucht (mehr Flash-Lesen: 24 gegen 6 Aufrufe).
 - Die Fälle der Patch-Prüfung (`splash_cases.py`, `mfx_cases.py`, `menu_cases.py`, `script_cases.py`) sind
-  für Hacktribe geschrieben und rechnen mit dessen Adressen für Pattern, Sequenzer und Menü. Stand 2026-10-14,
-  später am Tag: gegen eine gepatchte Kopie des Originals laufen die Fälle von `check.py`, siehe
-  [BLECH auf Korgs Original 2.02](2026-10-14-stock-blech.md).
+  für Hacktribe geschrieben und rechnen mit dessen Adressen für Pattern, Sequenzer und Menü. Gegen eine gepatchte
+  Kopie des Originals laufen die Fälle von `check.py`, siehe [BLECH auf Korgs Original 2.02](2026-10-14-stock-blech.md).
 - Der Update-Ablauf selbst (Schreiben in den Flash, Neustart) mit Korgs Datei als Ziel: nicht geprüft,
   nur das Finden der Datei.

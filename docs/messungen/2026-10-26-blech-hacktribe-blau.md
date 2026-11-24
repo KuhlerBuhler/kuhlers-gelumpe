@@ -1,8 +1,7 @@
 # BLECH mit Hacktribe auf der blauen Electribe 2, im Emulator
 
-Stand 2026-10-26. Alles hier lief im Emulator mit den eigenen Dateien des Besitzers (Korg rot `1d0f0689`, Hacktribe
+Stand 2026-10-26. Alles hier lief im Emulator mit den eigenen Dateien des Besitzers (Korg rot `1d0f0689`, [Hacktribe](../glossary.md#hacktribe)
 `7cb4825c`, Korg blau `41fc5f1c`), außerhalb des Repositorys. **Am Gerät nichts.** Keine Firmware-Bytes im Repository.
-Vorgeschichte und offene Risiken: [Idee 65](../ideen/65-blech-hacktribe-blau.md).
 
 Marker: **gemessen** (ausgeführt, Befehl unten), **hergeleitet** (aus Code geschlossen).
 

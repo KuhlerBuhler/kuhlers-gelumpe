@@ -1,11 +1,11 @@
 # Stufe 1 und Stufe 2 im DSP-Simulator: alle Paare
 
-Stand 2026-11-13. Hergeleitet, nicht am Gerät gemessen.
+**Hergeleitet**, nicht am Gerät gemessen (außer den im Abgleich genannten Paaren).
 
 ## Aufbau
 
-Der DSP-Code der Firmware (Hacktribe, rote) läuft im Blackfin-Simulator von GNU gdb 15.2 mit Init, Postfach-Handlern und
-Frame-Funktion ([DSP im Simulator](2026-11-12-dsp-im-simulator.md)). Je Paar nimmt der Emulator den Verkehr zwischen CPU und
+Der [DSP](../glossary.md#dsp)-Code der Firmware ([Hacktribe](../glossary.md#hacktribe), rote) läuft im Blackfin-Simulator von GNU gdb 15.2 mit Init, Postfach-Handlern und
+Frame-Funktion ([DSP im Simulator](2026-11-12-dsp-im-simulator.md)). Je Paar nimmt der [Emulator](../glossary.md#emulator) den Verkehr zwischen CPU und
 DSP auf: Insert-Effekt mit Baustein A in Stufe 1 und B in Stufe 2 auf jedem Part, Pad 1 spielt eine Note. Der Simulator spielt
 den Verkehr nach, mit Rauschen als Eingang, und läuft 560 ms über die Note hinaus.
 
@@ -16,7 +16,7 @@ Bewertet wird je Paar:
   Argumente, des Stacks und (nur Stufe 1, die als einzige Speicher bekommt) seines SDRAM-Bereichs.
 - **Läuft (.):** weder noch.
 
-20 Bausteine (`0x00` thru, `0x01` bis `0x0a`, `0x0f` bis `0x16`, `0x18`), 400 Paare, etwa 20 s je Paar.
+20 Bausteine (`0x00`, `0x01` bis `0x0a`, `0x0f` bis `0x16`, `0x18`), 400 Paare, etwa 20 s je Paar.
 
 ## Abgleich mit dem Gerät
 
@@ -28,11 +28,10 @@ Bewertet wird je Paar:
 | `0x0a` vor `0x16` | stumm | fremder Speicher |
 | `0x0a` vor `0x01`, `0x0a` vor `0x08` | läuft, kein Ton | Absturz |
 | `0x0a` vor `0x02` | Absturz | **läuft** |
-| `0x07` vor `0x05`, `0x0f` vor `0x05` | Störgeräusche, Gerät gerät aus dem Tritt (Nutzerbericht 13.11.) | Absturz |
+| `0x07` vor `0x05`, `0x0f` vor `0x05` | Störgeräusche, Gerät gerät aus dem Tritt (Nutzerbericht) | Absturz |
 | `0x0a` vor `0x03` bis `0x07`, `0x0a`, `0x10`; `0x15` vor `0x0a`; `0x10` vor `0x06`; `0x02` vor `0x10`; `0x09` vor `0x00` | läuft | läuft |
 
-Die zwei Paare mit dem Limiter kamen nach der Simulation als Nutzerbericht vom Gerät (1.4.6 aus develop, Katalog-Effekte
-Bass Enhancer und Hardtekk Kick). Sie stehen in `data/findings.mjs` deshalb als gemessen, mit Verweis auf dieses Dokument.
+Die zwei Paare mit dem Limiter kamen nach der Simulation als Nutzerbericht vom Gerät (Katalog-Effekte Bass Enhancer und Hardtekk Kick). Sie stehen in `data/findings.mjs` deshalb als gemessen, mit Verweis auf dieses Dokument.
 
 Ein Paar am Gerät wird nicht erkannt (`0x0a` vor `0x02`). "Fremder Speicher" heißt am Gerät mal Absturz, mal kein Ton. Was
 die Simulation durchlässt, ist also nicht sicher, nur nicht auffällig.
@@ -71,17 +70,15 @@ die Simulation durchlässt, ist also nicht sicher, nur nicht auffällig.
 
 ## Im Baukasten
 
-`data/findings.mjs` führt die Paare, die die Gerätemessungen noch offen lassen, als `stage2Pair` (96 Paare). Bausteine, die in
-Stufe 2 schon gemessen abstürzen oder stumm bleiben (`0x01`, `0x02`, `0x08`, `0x09`, `0x16`, `0x18`), und Stufe 1 `0x09` und
-`0x16` stehen dort schon. Der Baukasten sperrt die Paare wie die gemessenen, der Türsteher meldet sie (`stage2-pair`).
+`data/findings.mjs` führt 96 Paare als `stage2Pair` (94 hergeleitet, zwei gemessen); Bausteine, die in Stufe 2 schon gemessen
+abstürzen oder stumm bleiben (`0x01`, `0x02`, `0x08`, `0x09`, `0x16`, `0x18`), und Stufe 1 `0x09` und `0x16` stehen als eigene
+Befunde dort. Der [Baukasten](../glossary.md#baukasten) sperrt die Paare wie die gemessenen, der [Türsteher](../glossary.md#tuersteher)
+meldet sie (`stage2-pair`, `src/rules.mjs`).
 
 Zwei Katalog-Effekte fielen darunter: Bass Enhancer (`0x07` vor `0x05`) und Hardtekk Kick (`0x0f` vor `0x05`). Beide
-glitchten am Gerät und sind in 1.4.6 umgebaut, ebenso ULTRA LOUD (`0x0f` vor `0x05`), siehe
-[Neue Effekte, Nachtrag](2026-11-11-neue-effekte.md).
+glitchten am Gerät; sie und ULTRA LOUD (`0x0f` vor `0x05`) sind umgebaut, siehe [Neue Effekte, Nachtrag](2026-11-11-neue-effekte.md).
 
-## Am Gerät zu prüfen
+## Am Gerät offen
 
-1. Die umgebauten Bass Enhancer, Hardtekk Kick und ULTRA LOUD (laufen erwartet).
-2. `0x01` vor `0x0a`, `0x18` vor `0x0a` (Absturz erwartet).
-3. `0x0a` vor `0x11`, `0x0a` vor `0x13`, `0x0a` vor `0x15` (Absturz oder kein Ton erwartet).
-4. `0x0a` vor `0x14`, `0x0a` vor `0x0f`, `0x03` vor `0x05` (laufen erwartet).
+Nicht am Gerät geprüft sind die umgebauten Effekte (Lauf erwartet) und alle Paare mit Ergebnis "Absturz" oder "fremder Speicher"
+außer den im Abgleich genannten.

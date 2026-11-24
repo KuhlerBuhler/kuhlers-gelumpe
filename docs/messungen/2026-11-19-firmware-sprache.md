@@ -1,9 +1,9 @@
 # Firmware in einer anderen Sprache: Texte, Verweise, Schriften, Aufwand
 
-Stand 2026-11-19. Frage: lassen sich die Menüs der Firmware (Sampler 2.02 mit Hacktribe, dazu das BLECH-Menü)
+Stand 2026-11-19. Frage: lassen sich die Menüs der Firmware (Sampler 2.02 mit [Hacktribe](../glossary.md#hacktribe), dazu das BLECH-Menü)
 auf Deutsch umstellen, gewählt beim Installieren in App und Patcher? Nur Recherche, keine Firmware gebaut, am Gerät
 nichts gemacht. Basis ist die eigene Hacktribe-Datei (`ORIGINAL.BIN`, SHA-256 `163d1d8d…`) und zum Vergleich Korgs rote
-2.02. Marker: **gemessen** (im Emulator ausgeführt), **offline** (Code oder Daten gelesen), **hergeleitet**,
+2.02. Marker: **gemessen** (im [Emulator](../glossary.md#emulator) ausgeführt), **offline** (Code oder Daten gelesen), **hergeleitet**,
 **geschätzt**, **offen**. Adressen sind RAM-Adressen, Datei-Offset = RAM - `0xC0000000` + `0x100`. Hier stehen keine
 Firmware-Bytes, nur Zahlen und Adressen; die Skripte liefen außerhalb des Repos.
 

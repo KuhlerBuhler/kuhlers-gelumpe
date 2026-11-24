@@ -1,7 +1,7 @@
-# Stereo auf einem Pad (29.10.)
+# Stereo auf einem Pad
 
-Stand 29.10.2026, Emulator mit Korgs Original 2.02 (rot) und Hacktribe 2.02, beide mit denselben Adressen. Wunsch: ein
-Stereo-Sample auf Pad 1 belegt nur Pad 1, Pad 2 bleibt frei. Patch `data/patches/stereo-pad.json`. Am Gerät nicht geprüft.
+[Emulator](../glossary.md#emulator) mit Korgs Original 2.02 (rot) und [Hacktribe](../glossary.md#hacktribe) 2.02, beide mit denselben Adressen. Wunsch: ein
+Stereo-Sample auf Pad 1 belegt nur Pad 1, Pad 2 bleibt frei. [Patch](../glossary.md#patch) `data/patches/stereo-pad.json`. Am Gerät nicht geprüft.
 
 ## Wie die Firmware Stereo-Samples spielt
 

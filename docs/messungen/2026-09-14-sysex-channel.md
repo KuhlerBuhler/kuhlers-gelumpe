@@ -2,7 +2,7 @@
 
 Gemessen 2026-09-14.
 
-**Kanal.** Die erweiterten Befehle von Hacktribe (`0x52` RAM lesen, `0x53`
+**Kanal.** Die erweiterten [SysEx](../glossary.md#sysex)-Befehle von [Hacktribe](../glossary.md#hacktribe) (`0x52` RAM lesen, `0x53`
 und `0x54` RAM schreiben, `0x55` Flash lesen) und Korgs eigene Befehle
 (`0x0E` Global-Dump) antworten nur, wenn der Kopf `42 3n 00 01 24` den
 globalen Kanal des Geräts trägt. Das Gerät stand auf Kanal 9 (0-basiert). Auf

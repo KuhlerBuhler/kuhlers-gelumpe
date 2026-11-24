@@ -1,6 +1,6 @@
 # IMPORT SAMPLE auf Werks-Slots
 
-16.11.2026, Firmware 2.02 rot (Korg) und Hacktribe, **gemessen im Emulator** und **offline** aus
+16.11.2026, Firmware 2.02 rot (Korg) und [Hacktribe](../glossary.md#hacktribe), **gemessen im [Emulator](../glossary.md#emulator)** und **offline** aus
 dem Code gelesen. Am Gerät nicht gemessen. Patch: `tools/patch/import_slots.py`, Fälle:
 `tools/emu/import_slots_cases.py`.
 

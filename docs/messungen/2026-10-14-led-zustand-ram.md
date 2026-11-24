@@ -1,9 +1,8 @@
 # LED-Zustand im RAM: wo die Firmware merkt, was leuchtet
 
-Stand 2026-10-14. **Nur im Emulator gemessen** (`tools/emu/machine.py`, eigene
-`SYSTEM.VSB`, SHA-256 `b0890899cbe5951d0709724c46d38350a35a6134a4a01d3a5bad63e51ac22ae7`,
-leerer Flash), kein Zugriff aufs Gerät. Gilt nur für diesen Firmware-Build (2.02 mit
-Hacktribe); ein anderer verschiebt alle Adressen. Markierungen: **gemessen** (Lauf im
+**Nur im [Emulator](../glossary.md#emulator) gemessen** (`tools/emu/machine.py`, eigene
+[`SYSTEM.VSB`](../glossary.md#vsb), leerer Flash), kein Zugriff aufs Gerät. Gilt nur für diesen Firmware-Build (2.02 mit
+[Hacktribe](../glossary.md#hacktribe)); ein anderer verschiebt alle Adressen. Markierungen: **gemessen** (Lauf im
 Emulator), **hergeleitet** (aus dem Maschinencode gelesen), **offen**. Keine Firmware-Bytes
 im Repo, nur Adressen.
 
@@ -35,7 +34,7 @@ die UART ging (Messreihen unten).
 2. Die Funktion vergleicht Sollwert und Kopie. Sind sie gleich, ist nichts zu tun. Sonst kopiert
    sie den 8-Byte-Eintrag in die Kopie, baut die Nachricht `{LED, Flag, Helligkeit}` bei
    Manager `+ 0xB4C` und ruft `0xC0087578`.
-3. `0xC0087578` ruft den LED-Setzer `0xC0028600` (`docs/messungen/2026-10-08-led-execute.md`),
+3. `0xC0087578` ruft den LED-Setzer `0xC0028600` ([`2026-10-08-led-execute.md`](2026-10-08-led-execute.md)),
    der `00 LED Helligkeit` in die Sendequeue `0xC0024BF4` des Bedienfelds stellt.
 
 Der LED-Setzer ist in der unveränderten Firmware nur über `0xC0087578` erreichbar (die einzige
@@ -63,10 +62,8 @@ mit Sperrbyte, auf dem der Setzer arbeitet.
   600 Abtastungen eine LED laut Kopie schon geändert, aber noch nicht gesendet; sie zog nach.
   Gesehene Werte: 0, 192, 255 und die Zehnerstufen 5 bis 245 (die VALUE-LED blendet aus).
 - **Gemessen:** Mit der eigenen Testfirmware (400 Schritte) dieselbe Adresse und
-  dasselbe Ergebnis. Mit der MFX-2-Variante der Testfirmware weichen `0x1b` und `0x1c` ab: der MFX-2-Haken
-  setzt sie direkt über `0xC0028600` (`2026-10-10-mfx-umschalter.md`), am Manager vorbei. Die
-  Kopie zeigt dort TOUCH SCALE aus und MASTER FX an, das Bedienfeld das Gegenteil (behoben in der
-  fünften Fassung des Patches, Abschnitt "Der MFX-2-Haken über den Weg der Firmware").
+  dasselbe Ergebnis. Setzt ein Haken LEDs direkt über `0xC0028600`, am Manager vorbei, stimmt die Kopie nicht
+  mehr mit dem Bedienfeld überein; der MFX-2-[Patch](../glossary.md#patch) geht darum über den Weg der Firmware (letzter Abschnitt).
 
 ## Aktualisierungsrate
 
@@ -97,25 +94,21 @@ der Standardwert 120. Ob und wann es am Gerät 0 wird (Pegelanzeige, `0xC0088380
   MFX-2-Patch belegt (er liest `*0xC0345A1C + 8 * LED + 0x4e`), die Kopie bei `+ 0x88c`
   nicht. Erster Test am Gerät: ein einziges Lesen, es verändert nichts.
 - LEDs, die Code direkt über `0xC0028600` setzt (die Execute-Stubs von
-  `tools/device/led_show.py`), tauchen in der Kopie nicht auf. Der MFX-2-Haken setzt `0x1b` und
-  `0x1c` seit der fünften Fassung nicht mehr so (Abschnitt unten).
-- **Behoben im MFX-2-Patch (14.10., im Emulator gemessen):** Der Haken schreibt den gewollten
-  Wert in den Sollwert des Managers (`+ 0x4c + 8 * LED + 2`) und ruft `0xC00875F4(Manager, LED, 0)`,
-  den Weg der Firmware selbst. Kopie und Bedienfeld stimmen danach überein. Den Weg über
-  `0xC0087710` gibt es auch (Modus setzen, Helligkeit 0 oder 255 aus dem Modus), die Modus-LEDs
-  setzt die Firmware aber nicht darüber, siehe unten.
+  `tools/device/led_show.py`), tauchen in der Kopie nicht auf.
 
-## Der MFX-2-Haken über den Weg der Firmware (fünfte Fassung)
+## Der MFX-2-Haken geht über den Weg der Firmware
 
-**Vorher gemessen** (Patch vor der Korrektur, Emulator): TOUCH SCALE bei MFX 2: UART `0x1b` = 255,
-`0x1c` = 0, Kopie `0x1b` = 0, `0x1c` = 255. GATE ARP (Modus 3): UART TOUCH SCALE 0, Kopie 255. Der
-Gerätemodus der Seite hätte beide vertauscht gezeigt.
+Setzt der MFX-2-Haken TOUCH SCALE und MASTER FX direkt über `0xC0028600`, zeigt die Kopie sie vertauscht (**gemessen**:
+UART `0x1b` = 255, `0x1c` = 0, Kopie `0x1b` = 0, `0x1c` = 255; im Modus 3 UART TOUCH SCALE 0, Kopie 255) und der
+Gerätemodus der Seite würde beide vertauscht zeigen. Darum schreibt der Haken den gewollten Wert in den Sollwert des
+Managers (`+ 0x4c + 8 * LED + 2`) und ruft `0xC00875F4(Manager, LED, 0)`, den Weg der Firmware selbst. Kopie und
+Bedienfeld stimmen danach überein.
 
 **Gelesen** (Maschinencode, offline):
 
 | Adresse | Was |
 |---|---|
-| `0xC00875F4(Manager, LED, 0)` | Vergleich Sollwert und Kopie, kopiert den Eintrag, reiht die Nachricht ein. Im Vergleich steht Kopie Byte 2 gegen Sollwert Byte 1 (Modus, nicht Helligkeit); bei diesen LEDs (Modus 1, Helligkeit 0 oder 255) ist das nie gleich, also sendet der Aufruf immer. |
+| `0xC00875F4(Manager, LED, 0)` | Vergleich Sollwert und Kopie, kopiert den Eintrag, reiht die Nachricht ein. Im Vergleich steht Kopie Byte 2 gegen Sollwert Byte 1 (Modus, nicht Helligkeit); bei diesen LEDs (Modus 1, Helligkeit 0 oder 255) ist das nie gleich, also sendet der Aufruf immer. Ausnahme: nach Helligkeit 1 sendet er für diese LED nichts mehr, siehe [Display und LEDs](../hintergrund/display.md). |
 | `0xC0088118(Manager, Touch-Pad-Modus)` | die Firmware setzt GATE ARP, TOUCH SCALE, MASTER FX für einen Modus: Tabelle bei `0xC00E5030`, 3 Byte je Modus (`01 00 00`, `00 01 00`, `00 00 01`, `01 01 00`), LED-Nummern `1a 1b 1c` bei `0xC00E50FF`, je Sollwert Byte 2 = 0 oder 255, dann `0xC00875F4`. Gemessen als Schreiber von `0x4e` der drei Einträge bei einem Tastendruck (Schreib-Hook im Emulator). Aufrufer (hergeleitet): ein Zweig bei `0xC00896EC`, der bei einem Moduswechsel läuft, und ein Auffrischen bei `0xC0089A3C`, das den aktuellen Modus liest. |
 
 **Patch:** `led_assert` (MFX 2: TOUCH SCALE 255, MASTER FX 0) schreibt die beiden Sollwerte und ruft
@@ -125,13 +118,12 @@ der Firmware statt einer kopierten Tabelle. Für Modus 3 setzt er GATE ARP 255, 
 MASTER FX 0 auf demselben Weg. Der Sollwert der Firmware ist damit nach MFX 2 nicht mehr "Modus 2",
 sondern was angezeigt wird; beim nächsten Moduswechsel schreibt `0xC0088118` alle drei neu.
 
-**Nachher gemessen** (Emulator, `mfx_cases.py`, `SYSTEM.VSB` + Startbild-Editor + MFX 2 + Blech-Startbild):
+**Gemessen** (Emulator, `mfx_cases.py`, `SYSTEM.VSB` mit Startbild-Editor, MFX 2 und Blech-Startbild):
 
 - Prüfung `mfx:led_copy` (in `check.py`): Folge TOUCH SCALE, TOUCH SCALE, MASTER FX, TOUCH SCALE,
   GATE ARP, TOUCH SCALE, SHIFT + TOUCH SCALE, GATE ARP, Rad, TOUCH SCALE, Rad, MASTER FX: nach
   jedem Schritt ist die Kopie für `0x1a` bis `0x1d` gleich dem, was zuletzt an die UART ging,
-  und jeder Eintrag beginnt mit seiner Nummer. Im Modus 3 steht nur GATE ARP an. Gegen die alte
-  Fassung schlägt dieselbe Prüfung fehl.
+  und jeder Eintrag beginnt mit seiner Nummer. Im Modus 3 steht nur GATE ARP an.
 - Alle 64 Dreierfolgen aus GATE ARP, TOUCH SCALE, SHIFT + TOUCH SCALE, MASTER FX und die neun
   Zweierfolgen mit EXIT gehalten: Kopie gleich UART in jedem Schritt (Schritt in `mfx_cases.py run`).
 - **Nebenwirkung:** nach GATE ARP geht jetzt eine Nachricht mehr an das Bedienfeld (drei statt zwei
@@ -140,5 +132,3 @@ sondern was angezeigt wird; beim nächsten Moduswechsel schreibt `0xC0088118` al
   Emulator, 0,43 ms je Nachricht), kein sichtbarer Unterschied.
 - **Offen:** am Gerät nicht geprüft, auch nicht, ob die Seite im Gerätemodus die LEDs jetzt richtig
   zeigt.
-- Hätte die Firmware keinen Zustand geführt, wäre die Alternative gewesen, die LED-Nachrichten
-  in einen festen RAM-Bereich zu spiegeln (ebenfalls Patchsatz). Das ist hier nicht nötig.

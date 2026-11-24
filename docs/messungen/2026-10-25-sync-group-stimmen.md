@@ -137,4 +137,3 @@ können unabhängig von der Stimmenabschaltung eine Neuinitialisierung auslösen
 - [Eigene ARM-Gegenproben](../../tools/patch/test_sync_voices.py)
 - [Gegenproben der erlaubten Bereiche](../../tools/emu/test_allowed_spans.py)
 - [Bisheriger Hintergrund zum Patternwechsel](../hintergrund/patternwechsel.md)
-- [Sample-Übernahme und Pad-Eingaben](2026-10-25-sync-sample-und-pad-xy.md)

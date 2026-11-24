@@ -1,10 +1,10 @@
 # Menüzustand im RAM: welcher Bildschirm, welche Seite
 
-Stand 2026-10-09. Gemessen im Emulator (`tools/emu/machine.py`) mit der
+Gemessen im [Emulator](../glossary.md#emulator) (`tools/emu/machine.py`) mit der
 eigenen SYSTEM.VSB (Sampler 2.02 mit Hacktribe) und dem eigenen Flash
 (`2026-10-09-flash-dump.md`); Bedienung über Panel-Nachrichten
-(`data/panel.mjs`). Am Gerät noch nicht gegengeprüft; dafür liest
-`tools/device/screen_check.py` dieselben Stellen nur lesend aus.
+(`data/panel.mjs`). Am Gerät gegengeprüft (letzter Abschnitt) mit
+`tools/device/screen_check.py`, das dieselben Stellen nur lesend ausliest.
 
 ## Weg
 
@@ -96,9 +96,6 @@ Seiten im Menü Part: 0 LAST STEP, 1 GROOVE TYPE, 2 GROOVE DEPTH,
   stehen beim nächsten Zeitschritt auf dem Display und bleiben dort (nach
   3 s unverändert), bis die Firmware selbst neu zeichnet (nach MENU war es
   weg). Dieselben Bytes ab `0xC031B710` ändern das Display nicht.
-- **Nicht gemessen:** dass das Bild am Gerät an derselben Adresse liegt.
-  Die Seite sagt das neben dem Spiegel; liest sie dort Muster statt eines
-  Bildschirms, ist es nicht dieselbe Adresse.
 
 ## Gegenprobe am Gerät
 

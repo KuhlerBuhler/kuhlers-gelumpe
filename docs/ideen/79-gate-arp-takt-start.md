@@ -1,13 +1,14 @@
 # 79. Gate Arp: Start auf dem Raster
 
-Meldung (Community, 30.10., blaue Electribe): Mit Gate Arp auf 2 oder 4 Steps startet der Kick genau in dem Moment, in dem das
-Pad berührt wird, nicht auf dem Schlag. Wunsch: der Start soll auf dem Raster liegen, auch wenn man daneben tippt. Stand
-2026-10-30: **aufgeschrieben, nichts gebaut, nichts gemessen.** Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
+Meldung aus der Community (blaue Electribe): Mit Gate Arp auf 2 oder 4 Steps startet der Kick genau in dem Moment, in dem das
+Pad berührt wird, nicht auf dem Schlag. Wunsch: der Start soll auf dem Raster liegen, auch wenn man daneben tippt.
+
+Status: offen, nichts gebaut, nichts gemessen. Marker: **gemessen**, **hergeleitet**, **ungeprüft**. Zurück zu den [Ideen](../ideen.md).
 
 ## Was es schon gibt
 
 - Gate Arp ist heute ein Muster aus 50 Einträgen (Pattern-Byte `+0x35`), gespielt ab dem Moment der Berührung. (gemessen,
-  [Idee 72](72-gate-arp-note-halten.md))
+  Plugin Gate Hold, [Plugins](../plugins.md))
 - Ob die Firmware die Phase des Arps auf den Sequencer-Takt legt oder auf den Berührungszeitpunkt, steht nirgends. Die Meldung
   sagt Berührungszeitpunkt. (ungeprüft, nur die Meldung)
 - Plugins sehen das Touchpad (`touch`, Ereignis bis zu 40 ms verspätet) und können Noten auslösen (`0xC005AD44`). Ein Takt-Ereignis
@@ -24,6 +25,6 @@ Pad berührt wird, nicht auf dem Schlag. Wunsch: der Start soll auf dem Raster l
 ## Plan (grob, hergeleitet)
 
 1. Im Emulator messen: Berührung zwischen zwei Steps, Zeit bis zur ersten Note, mit und ohne Play.
-2. Die Stelle suchen, an der die Firmware den Arp startet (Idee 72 hat die Note-Auslösung schon kartiert).
+2. Die Stelle suchen, an der die Firmware den Arp startet (das Plugin Gate Hold hat die Note-Auslösung schon kartiert).
 3. Start bis zum nächsten Step zurückhalten (Warteschlange im Bild-Hook oder Patch in der Firmware).
 4. Als Schalter im BLECH-Menü, Standard aus.

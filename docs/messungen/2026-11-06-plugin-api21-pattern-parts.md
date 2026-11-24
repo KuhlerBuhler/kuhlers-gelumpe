@@ -1,11 +1,11 @@
 # Plugin API 21: Pattern und Parts schreibbar
 
-Stand 6. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
-mit dem BLECH-Satz. Fälle: `tools/emu/pattern_parts_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.**
+**Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+mit dem [BLECH](../glossary.md#blech)-Satz. Fälle: `tools/emu/pattern_parts_cases.py` (läuft als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.**
 
 ## Frage
 
-Plan Phase 7: welche Werte des laufenden Patterns und seiner Parts kann ein Plugin so setzen, dass sie ohne Neustart wirken und das
+Welche Werte des laufenden Patterns und seiner Parts kann ein Plugin so setzen, dass sie ohne Neustart wirken und das
 Menü sie zeigt wie nach dem eigenen Drehen? Wo gibt es einen Setter der Firmware, wo bleibt ein Wert nur lesbar und warum?
 
 ## Weg

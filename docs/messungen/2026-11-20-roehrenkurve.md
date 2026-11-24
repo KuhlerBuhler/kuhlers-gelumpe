@@ -1,7 +1,7 @@
 # Röhrenkurve statt Soft-Clipper am Ausgang, im QEMU-DSP-Kern und im Emulator
 
-Belegt: DSP-Patch `tube-curve` (rot, Hacktribe und Korgs 2.02) und `tube-curve-synth` (blau) im QEMU-DSP-Kern,
-BLECH > FEATURES > TUBE, TUBE DRIVE und TUBE ASYM im Emulator. **Keine Gerätemessung**, der Klang am Gerät ist **offen**.
+Belegt: [DSP](../glossary.md#dsp)-Patch `tube-curve` (rot, [Hacktribe](../glossary.md#hacktribe) und Korgs 2.02) und `tube-curve-synth` (blau) im QEMU-DSP-Kern,
+BLECH > FEATURES > TUBE, TUBE DRIVE und TUBE ASYM im [Emulator](../glossary.md#emulator). **Keine Gerätemessung**, der Klang am Gerät ist **offen**.
 
 ## Was der Patch tut
 

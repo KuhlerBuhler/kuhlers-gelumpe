@@ -1,6 +1,6 @@
 # Zurück zu Korgs Original
 
-Stand: 6. November 2026. [English](original-zurueck.en.md). Die Anleitung für alle, die BLECHTRIBE (oder Hacktribe) wieder von
+[English](original-zurueck.en.md). Die Anleitung für alle, die BLECHTRIBE (oder [Hacktribe](glossary.md#hacktribe)) wieder von
 ihrer Electribe haben wollen, mit Schwerpunkt auf der blauen. Marker wie überall: **gemessen** (am Gerät oder im Emulator,
 die Messung ist genannt), **hergeleitet**, **offen**. Am Gerät ist der Weg für die blaue noch nicht gegangen worden, alles
 dazu ist im Emulator gemessen.
@@ -8,7 +8,7 @@ dazu ist im Emulator gemessen.
 ## Geht das?
 
 **Ja, auch auf der blauen.** BLECHTRIBE ersetzt Korgs Firmware wie ein Update von Korg, über SOFTWARE UPDATE von der
-SD-Karte. Der Rückweg ist dasselbe noch einmal mit Korgs unveränderter Datei. Dafür sorgt, was die Installation am Gerät ändert:
+SD-Karte. Der Rückweg ist dasselbe noch einmal mit Korgs unveränderter Datei. Dafür sorgt, was die Installation am Gerät ändert (die [VSB](glossary.md#vsb) ist die Firmware-Datei):
 
 | Behauptung | Marker | Beleg |
 |---|---|---|
@@ -27,7 +27,7 @@ mehr (anderer Code, Sampler-Firmware auf blauer Hardware), aber auch dort schrei
 
 ## Welche Firmware läuft gerade?
 
-Die Seite Blechy im Editor fragt das für dich: `Blechy -> Ich will zurück zu Korgs Original`. Von Hand:
+Die Seite [Blechy](glossary.md#blechy) im Editor fragt das für dich: `Blechy -> Ich will zurück zu Korgs Original`. Von Hand:
 
 - **Rot, BLECHTRIBE:** Korgs rote Datei (Sampler) in `KORG/blechtribe/System/`.
 - **Blau, BLECHTRIBE ohne Hacktribe** (im Patcher mit Korgs blauer Datei gebaut): Korgs blaue Datei, **unverändert**, in `KORG/blechtribe/System/`.
@@ -61,7 +61,7 @@ Rechner. Dann Schritte 1 und 3 bis 6 von oben, mit dem Ordner der laufenden Firm
 ## Wenn es hängt
 
 Fehlermeldungen und die Fälle "Startabfrage", "00" und "nichts" stehen in [Rettung](rettung.md) und im Editor bei Blechy.
-Der Bootloader bleibt unberührt, deshalb endet ein Update, das nicht durchläuft, in der Regel in der Startabfrage von Korgs Firmware und nicht
+Der [Bootloader](glossary.md#bootloader) bleibt unberührt, deshalb endet ein Update, das nicht durchläuft, in der Regel in der Startabfrage von Korgs Firmware und nicht
 im toten Gerät. Ganz ausschließen kann das niemand ([FAQ](faq.md)).
 
 ## Offen, braucht ein Gerät

@@ -1,7 +1,7 @@
 # DSP-Modell im Emulator, für Prüfungen
 
-Stand 12. November 2026. DSP-Programm aus der Firmware gelesen (Blackfin-Code ab `0xC00F9E10`, entpackt mit
-`tools/dsp/dsp_extract.py`, disassembliert mit einem selbst gebauten `bfin-objdump`). **Gemessen** im Emulator mit Hacktribe 2.02, Korgs Original 2.02 rot und blau (eigene Dateien), jeweils
+Stand 12. November 2026. [DSP](../glossary.md#dsp)-Programm aus der Firmware gelesen (Blackfin-Code ab `0xC00F9E10`, entpackt mit
+`tools/dsp/dsp_extract.py`, disassembliert mit einem selbst gebauten `bfin-objdump`). **Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02, Korgs Original 2.02 rot und blau (eigene Dateien), jeweils
 mit dem BLECH-Satz von develop und mit dem Stand von #506. **Am Gerät nicht geprüft.** Kein Ton: das Modell hält, was die CPU dem DSP sagt, und
 beantwortet die Lesezugriffe, deren Bedeutung gelesen ist.
 

@@ -1,7 +1,7 @@
 # IMPORT PLUGIN als Liste mit Namen und Beschreibung (19.10.)
 
 Wunsch: statt der Dateinamen eine Liste mit den Namen der Plugins, ENTER zeigt die Beschreibung (das Rad scrollt sie), ENTER
-schaltet das Plugin ON oder OFF, darunter steht der Stand. Gebaut und im Emulator geprüft (Hacktribe, rote und blaue Firmware),
+schaltet das Plugin ON oder OFF, darunter steht der Stand. Gebaut und im Emulator geprüft ([Hacktribe](../glossary.md#hacktribe), rote und blaue Firmware),
 am Gerät nicht.
 
 ## Die Beschreibung in der Datei
@@ -11,7 +11,7 @@ am Gerät nicht.
 - Der Text sind die `//`-Zeilen ganz oben im Plugin-Code, umgebrochen auf 20 Zeichen (die Schrift des Displays ist 6 Pixel
   breit, rechts bleibt Platz für die Pfeile), Umlaute als ae, oe, ue, ss, höchstens 2047 Byte. Alle Vorlagen haben so einen
   Kopfkommentar und damit eine Beschreibung.
-- Ein älteres BLECH lädt die neue Datei wie vorher: es liest nur den Block, alles dahinter ignoriert es.
+- Ein älteres [BLECH](../glossary.md#blech) lädt die neue Datei wie vorher: es liest nur den Block, alles dahinter ignoriert es.
 
 ## Am Gerät (`tools/patch/script_menu.s`)
 

@@ -1,7 +1,7 @@
 # Step-Trigger (Byte 3): wann er zählt, mit Voice Assign, im Emulator
 
-Stand 2026-11-06. Anlass: die Frage, ob ein Step mit Trigger 0 klingt und ob Voice Assign dabei eine Rolle spielt.
-Gemessen im Emulator auf Hacktribe 2.02 (rot). Am Gerät nichts ausgeführt, die blaue nicht geprüft.
+Frage: klingt ein Step mit Trigger 0, und spielt Voice Assign dabei eine Rolle?
+Gemessen im [Emulator](../glossary.md#emulator) auf [Hacktribe](../glossary.md#hacktribe) 2.02 (rot). Am Gerät nichts ausgeführt, die blaue nicht geprüft.
 
 ## Aufbau
 
@@ -42,8 +42,8 @@ Gemessen im Emulator auf Hacktribe 2.02 (rot). Am Gerät nichts ausgeführt, die
 
 ## Folgen
 
-- Die Warnung "Step an ohne Trigger klingt nicht" im Linter war falsch und ist entfernt ([Linter](../linter.md)).
-- Der Step-Editor zeigt Trigger 0 nur noch als Hinweis, wenn der Step davor ein TIE ist.
+- Der [Linter](../linter.md) warnt nicht vor "Step an ohne Trigger", Trigger 0 hinter einem normalen Step klingt.
+- Der Step-Editor zeigt Trigger 0 nur als Hinweis, wenn der Step davor ein TIE ist.
 
 ## Offen
 

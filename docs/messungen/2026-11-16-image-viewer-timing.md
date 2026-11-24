@@ -1,6 +1,6 @@
 # Image Viewer: Zeiten auf Hacktribe, Korg rot und blau
 
-16.11.2026, **gemessen im Emulator** (`tools/emu`), am Gerät nicht. Firmware: Hacktribe 2.02, Korg 2.02 rot (Sampler)
+16.11.2026, **gemessen im [Emulator](../glossary.md#emulator)** (`tools/emu`), am Gerät nicht. Firmware: [Hacktribe](../glossary.md#hacktribe) 2.02, Korg 2.02 rot (Sampler)
 und Korg 2.02 blau (Synth), jeweils mit dem BLECH-Satz gepatcht wie die Seite (`applyPatches`, `data/patches/blech.json`
 bzw. `blech-synth.json`), Laufzeit aus Commit `c1a71017`. Uhr: die Emulator-Zeit (`Machine.time_ns`), Timer3 150 MHz.
 

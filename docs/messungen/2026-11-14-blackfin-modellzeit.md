@@ -1,7 +1,8 @@
 # Blackfin: gemeinsame ARM-/DSP-Modellzeit und GPIO
 
-Fortsetzung von [HOSTDP-FIFO und DMA1](2026-11-14-blackfin-host-fifo.md).
-Alle folgenden Ausführungen fanden im Simulator statt. Kein Gerät wurde angesprochen.
+Aufbauend auf [HOSTDP-FIFO und DMA1](2026-11-14-blackfin-host-fifo.md).
+Alle Ausführungen fanden im Simulator und im [Emulator](../glossary.md#emulator) statt. Kein Gerät wurde angesprochen. [DSP](../glossary.md#dsp)
+und ARM laufen dabei auf einer gemeinsamen Modellzeit, der DSP-Prüftakt ist gewählt (nicht gemessen).
 
 ## Hergeleitet
 
@@ -24,7 +25,7 @@ eine konsistente Reihenfolge, keinen Nachweis echter BUSY- oder Buslaufzeiten.
 
 ## Gemessen mit erzeugten Programmen
 
-Der Worker `BFIN7` kann bis zu einer vorgegebenen Taktgrenze laufen. Ein
+Der Worker kann bis zu einer vorgegebenen Taktgrenze laufen. Ein
 Aufruf umfasst höchstens eine Million Takte. Befehlsrestzyklen bleiben über
 Aufrufe hinweg erhalten. Die Ereigniszeit läuft unabhängig vom einschaltbaren
 `CYCLES`-Register. Bei aktiviertem Zähler werden nur tatsächlich abgearbeitete
@@ -36,9 +37,8 @@ Konfigurationsänderungen an `SIC_IWR` berücksichtigen bereits anstehende
 Quellen. Unbekannte ROM-Aufrufe bleiben auch im Taktbetrieb Fehler mit
 PC, Aufrufer und Registern.
 
-126 gezielte Modulprüfungen bestehen, darunter 22 Zeit-, GPIO- und
-Startaufbauprüfungen. Eine unabhängige Nachprüfung bestätigt den Stand.
-Abgedeckt sind insbesondere:
+Gezielte Modulprüfungen (darunter Zeit-, GPIO- und
+Startaufbauprüfungen) decken ab:
 
 - Teilung eines mehrzykligen Befehls ohne verlorene oder doppelte Restzyklen.
 - Gleiche Register und Ereigniszeit bei einem ganzen oder vielen geteilten Aufrufen.
@@ -63,20 +63,13 @@ ohne einen vorgezogenen, getrennten Startlauf. Vor einem Host-Port- oder
 GPIO-Zugriff und am Ende eines ARM-Abschnitts erreicht der DSP dessen Zeit.
 GPIO 6.1 liest dann den nativen FRDY-Zustand.
 
-Die erste gekoppelte Gegenprobe bleibt nach einem bereits bestätigten
-Schreibauftrag stehen: Der FIFO ist leer, `HOST_STATUS` zeigt `0x018C`,
-aber das Modell hält FRDY weiterhin aktiv. Die Gegenprobe für das beendete
-Datenfenster schlägt mit diesem Modell fehl. Nach ihrer Korrektur kommt der
-ARM ohne künstlichen GPIO-Wechsel weiter.
-
 Die rote Originalfirmware 2.02 erreicht in drei Modellsekunden die Hauptseite.
 Alle sieben Prüfbedingungen bestehen: gemeinsame Zeit, native Initialisierung,
 Verkehr in beiden Richtungen, keine ARM-Assertion, keine DSP-Ausnahme,
 eingeschaltetes Gerät und erreichte Hauptseite. Erfasst werden 5558
 Steuerzugriffe, 13072 geschriebene und 4128 gelesene Datenwörter.
 
-Die abschließende Wiederholung des aktuellen Stands über jeweils eine
-Modellsekunde besteht auf allen drei Originalfassungen:
+Über jeweils eine Modellsekunde besteht der Startfall auf allen drei Originalfassungen:
 
 | Fassung | Steuerzugriffe | Daten geschrieben | Daten gelesen | Ergebnis |
 |---|---:|---:|---:|---|
@@ -85,11 +78,9 @@ Modellsekunde besteht auf allen drei Originalfassungen:
 | Blau | 2646 | 7232 | 2512 | bestanden |
 
 Der blaue Aufbau verwendet die erzeugte Flash-Kennung der blauen Hardware.
-Ein erster Lauf mit roter Kennung wird wegen fehlendem Host-Verkehr und
-nicht erreichter Hauptseite als Fehlschlag erfasst. Die Gegenprobe für die
-Kennung schlägt vor ihrer Korrektur fehl.
+Mit roter Kennung auf blauer Firmware gibt es keinen Host-Verkehr und die Hauptseite wird nicht erreicht (Fehlschlag).
 
-Auch der vollständige BLECH-Patchsatz dieses Zweigs besteht denselben
+Auch der vollständige [BLECH](../glossary.md#blech)-Patchsatz besteht denselben
 Startfall über eine Modellsekunde auf allen drei Grundlagen:
 
 | Grundlage | Steuerzugriffe | Daten geschrieben | Daten gelesen | Ergebnis |
@@ -136,11 +127,6 @@ tools/emu/.venv/bin/python tools/emu/blackfin_cases.py \
 
 Die bisherige Kompatibilitätsauswahl bleibt ausdrücklich als Vorgabe erhalten.
 Sie ist kein automatischer Rückfall des nativen Prüffalls.
-
-## Abschließende Projektprüfungen
-
-- Der vollständige Unitlauf besteht mit 1616 bestandenen und 166 ausgelassenen Prüfungen.
-- Der abschließende Browserlauf besteht mit 353 bestandenen und einer ausgelassenen Prüfung. Ein erster Gesamtlauf enthielt zwei Timeouts der Versionsanzeige; die betroffene Datei bestand danach isoliert und der vollständige Wiederholungslauf ebenfalls. Die Ursache der ersten Timeouts bleibt offen.
 
 ## Offen
 

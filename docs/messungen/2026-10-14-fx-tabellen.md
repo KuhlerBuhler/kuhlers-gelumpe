@@ -6,7 +6,7 @@ genannt), **hergeleitet** (aus Code oder Daten geschlossen), **offen**. Die Mess
 im Repository; dort liegen nur `tools/fx-tables.py` und das, was es schreibt (Zahlen, keine Namen,
 keine Firmwarebytes).
 
-Vorgeschichte: [2026-10-14-fx-einheiten.md](2026-10-14-fx-einheiten.md) fand null Lesezugriffe auf
+Eine erste Messung fand null Lesezugriffe auf
 `0xC011F000` bis `0xC0124000` und schloss, die CPU-Seite benutze die Namenstabellen nicht. Das stimmt, und hier
 steht der Grund.
 

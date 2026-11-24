@@ -1,12 +1,12 @@
 # BLECHTRIBE Theme: eigene Schriften und Symbole fürs Display
 
-Stand 2026-10-14. Gebaut und im Emulator geprüft, am Gerät nichts. Marker: **gemessen** (im
+Gebaut und im Emulator geprüft, am Gerät nichts. Marker: **gemessen** (im
 Emulator), **hergeleitet**, **offen**. Der Aufbau von Schriften und Bildern in der Firmware steht in
 [Display: Schriften und Symbole der Firmware](../messungen/2026-10-14-display-schriften.md).
 
 ## Was es ist
 
-Der Patch `blech-theme` (`data/patches/blech-theme.json`, Teil des Satzes BLECHTRIBE) tauscht die Bitmaps der
+Der Patch `blech-theme` (`data/patches/blech-theme.json`, Teil des Satzes BLECHTRIBE, [Patch](../glossary.md#patch)) tauscht die Bitmaps der
 vier Schriften und von 17 Symbolen gegen eigene Zeichnungen. Es ist ein reiner Datenpatch, kein Code:
 Zeichencodes, Vorschubweiten, Tabellen und Zeiger bleiben, deshalb verschiebt sich kein Text und kein
 Layout. Die Zeichnungen stehen als Text in `tools/patch/blech_theme_art/` (`font0.mjs` bis `font3.mjs`,
@@ -56,16 +56,16 @@ Unberührt bleiben das Leerzeichen und der Backslash (ein Pixel, Trenner der Sta
 (Schrift 0: 0, 127, 160; Schrift 2: 0 bis 31 und 160 bis 255), das Startbild (Bild 13, das der Patch `splash` setzt) und
 Bild 0. In Schrift 3 ist `~` der Pfeil nach rechts, er bleibt einer.
 
-## Startphase, EXIT beim Einschalten
+## Startphase und Notschalter
 
 Das Theme ändert Bytes, die schon beim Start gelesen werden: der Hauptbildschirm und die Rettungsbildschirme (Update-Abfrage,
 Startmodi, Panel-Update) zeichnen mit denselben Schriften, die Batterie und das Schildchen `EDIT` mit den Symbolen
 ([Messung](../messungen/2026-10-14-display-schriften.md), Abschnitt "Was beim Start gelesen wird"). Der Patch nennt
 deshalb unter `startPhase` diese Bereiche, mit Begründung, und `check.py` lässt genau sie zu (vier Schriften, ein Symbolbereich).
-**Gemessen:** der Satz BLECHTRIBE mit Theme besteht alle 68 Prüfungen von `tools/emu/check.py` (Start auf allen Wegen, Update-Abfrage,
+**Gemessen:** der Satz BLECHTRIBE mit Theme besteht alle Prüfungen von `tools/emu/check.py` (Start auf allen Wegen, Update-Abfrage,
 Startmodi, Panel-Update, Notschalter, DSP-Strom).
 
-Die Notschalter-Regel (EXIT beim Einschalten) schaltet nur Code ab. Das Theme ist Daten und bleibt bei gehaltenem
+Der [Notschalter](../glossary.md#notschalter) (EXIT beim Einschalten) schaltet nur Code ab. Das Theme ist Daten und bleibt bei gehaltenem
 EXIT sichtbar (**gemessen** im Emulator: auch mit gehaltenem EXIT unterscheidet sich das Display einer Kopie mit Theme von dem
 einer Kopie ohne). Das ist gewollt. Die Rettungswege bleiben lesbar, weil
 jede Schrift Maße, Vorschub und alle Zeichen der Firmware behält; ein fehlerhaftes Zeichen kann das Aussehen stören, aber

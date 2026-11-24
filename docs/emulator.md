@@ -1,12 +1,12 @@
 # Emulator
 
-Stand: 15. Oktober 2026. Für Sampler 2.02, mit dem untersuchten
-Hacktribe-Build und mit Korgs Original (siehe
+Für Sampler 2.02, mit dem untersuchten
+[Hacktribe](glossary.md#hacktribe)-Build und mit Korgs Original (siehe
 [Original-Firmware und Hacktribe](#original-firmware-und-hacktribe)); die
 blaue Electribe 2 läuft ebenfalls ([Synth](#die-blaue-electribe-2-synth)). Code und Werkzeuge
 liegen in `tools/emu/`, die Seite dazu in `site/app/`.
 
-**Emuliert** heißt Ausführung von ARM-Code. **Modellannahme** heißt: im
+**Emuliert** heißt Ausführung von ARM-Code (die Electribe hat einen ARM-Prozessor und einen [DSP](glossary.md#dsp) für den Klang). **Modellannahme** heißt: im
 Emulator gesetzter Zustand oder ersetztes Verhalten. Das ist kein Nachweis am
 Gerät und keine zusätzliche Schreibfreigabe.
 
@@ -20,10 +20,10 @@ ihre native Audioverarbeitung. Aufbau und Grenzen:
 Ein eigener [HOSTDP-FIFO-Prüfpfad](messungen/2026-11-14-blackfin-host-fifo.md)
 überträgt Daten über DMA1 und die originalen DSP-Interrupt-Handler.
 Die ausdrücklich gewählte [gemeinsame Modellzeit mit GPIO-Kopplung](messungen/2026-11-14-blackfin-modellzeit.md)
-verbindet diesen Pfad mit dem ARM-Verkehr. Die bisherige Kompatibilitätsauswahl bleibt Vorgabe.
+verbindet diesen Pfad mit dem ARM-Verkehr. Ohne ausdrückliche Wahl läuft die Kompatibilitätsauswahl.
 
 Der Emulator ist ein eigenständiges Python-Programm. Er führt die Firmware der
-Electribe, also eine eigene `SYSTEM.VSB`, mit Unicorn aus und bildet dazu
+Electribe, also eine eigene `SYSTEM.VSB` (die [VSB](glossary.md#vsb)), mit Unicorn aus und bildet dazu
 Display, Panel, MIDI, Flash und SD-Karte nach. Damit lässt sich:
 
 - die Firmware in Gerätezeit starten und das Display live in der Seite sehen,
@@ -164,11 +164,11 @@ Electribe aus wie am Gerät; ein weiterer Druck startet sie neu.
 
 Läuft die Firmware, verbindet "Mit Emulator verbinden" im Bereich "Gerät"
 den Editor mit ihr wie mit einer echten Electribe: Gerätesuche, RAM lesen
-und schreiben, Türsteher und Rücklesen laufen über die emulierte DIN-MIDI
+und schreiben, [Türsteher](glossary.md#tuersteher) und Rücklesen laufen über die emulierte DIN-MIDI
 (`POST /midi`, Antworten als Ereignis `midi`). Das braucht kein Web MIDI.
 Gemessen in [DIN-MIDI und SysEx](messungen/2026-10-09-din-sysex.md).
 
-MIDI, das ankommt, bevor die Firmware den Hauptbildschirm gezeigt hat, wird
+MIDI (auch [SysEx](glossary.md#sysex)), das ankommt, bevor die Firmware den Hauptbildschirm gezeigt hat, wird
 verworfen, nicht aufgehoben: am Gerät kann vor dem Start niemand etwas senden,
 und die Firmware bricht darauf mit der Assertion in `MidiHandler.cpp` Zeile 85
 ab (gemessen: SysEx bei 40 ms Gerätezeit; der Hauptbildschirm kommt bei rund
@@ -195,14 +195,14 @@ im Bericht unter `midi_out`.
 Der Kartenschacht der Electribe ist nachgebildet: ein SD-Controller (MMC0,
 `sdcard.py`) und eine SDHC-Karte, deren Medium eine Abbilddatei ist. Die
 Firmware erkennt sie (Kartensymbol), mountet sie, liest und schreibt Dateien.
-DATA UTILITY funktioniert damit: IMPORT SAMPLE liest eine WAV von der Karte,
+[DATA UTILITY](glossary.md#data-utility) funktioniert damit: IMPORT SAMPLE liest eine WAV von der Karte,
 EXPORT SAMPLE schreibt `KORG/hacktribe/Sample/<Slot>_<Name>.wav`, EXPORT ALL
 SAMPLE die `e2sSample.all` in denselben Ordner, EXPORT ALL PATTERN die Datei
 `KORG/hacktribe/electribe_sampler_allpattern.e2sallpat`. Beim Start lädt die
 Firmware nur die `e2sSample.all`, keine einzelnen WAVs. Gemessen in
 [virtuelle SD-Karte](hintergrund/virtuelle-sd.md).
 
-Mit BLECH öffnet MENU die Seite Pattern (1/32); DATA UTILITY (29/32) liegt vier Seiten links davon, dahinter Event, BLECH
+Mit BLECH ([BLECHTRIBE](glossary.md#blechtribe), die Firmware-Erweiterung) öffnet MENU die Seite Pattern (1/32); DATA UTILITY (29/32) liegt vier Seiten links davon, dahinter Event, BLECH
 und Blechys Seite. Korgs ungepatchte Firmware braucht zwei. Tests, die den Weg fest drücken, brechen, sobald eine Menüseite
 dazukommt (`toDataUtility` in `test/emulator-card.test.mjs`).
 
@@ -330,8 +330,7 @@ FR_WRITE_PROTECTED; **offline gelesen**).
 - Die CRC16 ist eine über die 512 Byte; ein 4-Bit-Bus hat eine je Datenleitung.
 - Eine SDSC-Adresse, die kein ganzer Block ist, gibt ADDRESS_ERROR und keine Daten.
 - Ohne Antwort auf einen Lesebefehl **beim Einhängen** bleibt die Firmware im
-  Treiber stehen (Startbild). Das deckt sich mit der Rückmeldung vom 18.10.,
-  ist aber am Gerät nicht gemessen.
+  Treiber stehen (Startbild). Das ist am Gerät nicht gemessen.
 
 **Offen:** Mit BLECH hängt der Start im Emulator bei einer Karte ohne
 Dateisystem (leere Karte ohne FAT) und bei einer Karte, die auf nichts
@@ -374,9 +373,7 @@ wurde ([Messung](messungen/2026-10-15-sample-fehler.md)). Die Seite bietet keine
 wird nicht angefasst, der Start meldet das. Test: `test/emulator-flash.test.mjs`
 (`npm run test:emu`) importiert eine selbstgebaute Sicherung, startet den Dienst neu und
 findet das Pattern im neuen Export.
-Der Test wartet, bis alle 250 Patterns im Flash ab `0x240000` der Sicherung gleichen. Auf das erste sichtbare Pattern zu
-warten war zu früh (5 oder 6 von 250 geschrieben, ein halb geschriebenes zeigte nach dem Neustart Init Pattern), und eine
-gleich bleibende Dateigröße sagt nichts (die Datei hat immer 16 MiB).
+Der Test wartet, bis alle 250 Patterns im Flash ab `0x240000` der Sicherung gleichen: eine gleich bleibende Dateigröße sagt nichts (die Datei hat immer 16 MiB).
 
 Löschen und Seitenschreiben halten den Chip beschäftigt (Statusbit WIP), solange nimmt er nur das Lesen des Status an.
 Die Zeiten (`FLASH_BUSY_NS` in `tools/emu/machine.py`: 45 ms je 4 KiB, 150 ms je 32 KiB, 200 ms je 64 KiB, 0,7 ms je
@@ -399,8 +396,7 @@ und kein Wechseln zwischen zwei Bildern. Was am Gerät gedimmt aussieht (etwa de
 Name des wartenden Patterns, den die Firmware alle 280 ms ein- und ausblendet),
 ist die Trägheit der Flüssigkristalle. `lcd.py` bildet sie nach, ein Verzögerungsglied
 je Bildpunkt, getrennt für das Dunkelwerden (`TAU_ON`, 0,040 s, aus einem Zeitlupenvideo)
-und das Hellwerden (`TAU_OFF`, 0,17 s, **geschätzt**: mit bloßem Auge am Gerät am 27.10.,
-am 29.10. von 0,30 auf 0,20 s und am 10.11. auf 0,17 s gesenkt, weil es im Emulator zu träge wirkte; keine Messung; die 0,028 s aus dem Video waren zu niedrig, siehe
+und das Hellwerden (`TAU_OFF`, 0,17 s, **geschätzt** nach Augenmaß am Gerät, keine Messung; die 0,028 s aus dem Video waren zu niedrig, siehe
 [LCD-Helligkeit](messungen/2026-10-12-lcd-helligkeit.md)). Die Werte stehen nur in
 `lcd.py`.
 
@@ -425,7 +421,7 @@ Die Firmware treibt das Licht über drei GPIO-Pins, GPIO 6.3, 6.4 und 6.5 für
 Rot, Grün und Blau (BLECH-Menü BACKLIGHT, Plugins mit `korg.backlight` und
 `display.red/green/blue`; alles endet an diesen Pins). Stufe 0 oder 15
 ist ein fester Pin, eine Stufe dazwischen eine Software-PWM aus 16 Takten zu
-0,5 ms, also 8 ms je Periode (**offline**, 10.11.: Rot auf 5 steigt alle 8000 µs
+0,5 ms, also 8 ms je Periode (**offline**: Rot auf 5 steigt alle 8000 µs
 und bleibt 2500 µs an). Energiesparen lässt Rot und Grün abwechselnd je einmal
 in 27 ms aufleuchten. `backlight.py` rechnet je Pin den Anteil der Zeit, die er in
 seiner letzten vollen Periode an war (von steigender Flanke zu steigender Flanke),
@@ -453,17 +449,12 @@ Die Firmware schickt jede LED als Nachricht `00 LED Wert` über UART0 ans Bedien
 Gerätezeit mit (`tools/emu/panel_leds.py`, `Machine.panel_leds`): wann das Panel das letzte Byte hatte und wann die LED danach
 leuchtet. Eine Nachricht, die nur den alten Wert wiederholt, zählt dort mit, ist aber keine Änderung.
 
-Bis 1.4.5 gingen kurze Wechsel unterwegs verloren (hergeleitet aus dem Code):
-
-- `Machine.leds` hält nur den letzten Wert je LED, `panel_log` die Nachrichten ohne Zeit.
-- Der Dienst sah nach jedem Schritt von 20 ms Gerätezeit auf diese Tabelle. Ein Pad, das 14 ms dunkel war, kam nie an.
-- Die Seite setzte jede Tabelle sofort, ohne Zeit, und zeigte Pads nur an oder aus.
-
-Jetzt schickt der Dienst nach jedem Schritt das Ereignis `ledtrace` mit allen Änderungen des Schritts, je
+Kurze Wechsel gehen nicht verloren: Nach jedem Schritt von 20 ms Gerätezeit schickt der Dienst das Ereignis `ledtrace` mit allen Änderungen des Schritts, je
 `[Gerätezeit µs, leuchtet ab µs, LED, Wert]`. Kommt eine Seite nicht hinterher und verliert ein Ereignis, bekommt sie vor dem
 nächsten die ganze Tabelle (`leds`). Die Seite (`site/app/led-trace.mjs`) spielt die Änderungen 60 ms nach ihrer Gerätezeit in
 den Abständen des Geräts ab. Jedes gezeichnete Bild zeigt eine LED als Mittel ihrer Werte über das Bild, so wie das Auge eine
-PWM-LED sieht: 5 ms dunkel in einem Bild von 17 ms ist ein sichtbar dunkleres Bild.
+PWM-LED sieht: 5 ms dunkel in einem Bild von 17 ms ist ein sichtbar dunkleres Bild. Pads zeigt die Seite gestuft wie die anderen LEDs
+([Pad-LED-Stufen](messungen/2026-10-16-pad-led-stufen.md)).
 
 Das Bedienfeld selbst, nach [Panel-Controller](hintergrund/panel-controller.md):
 
@@ -471,14 +462,13 @@ Das Bedienfeld selbst, nach [Panel-Controller](hintergrund/panel-controller.md):
 |---|---|---|
 | 88 LEDs in 8 Zeilen mal 11 Spalten, Spalten 0 bis 6 mit PWM, 7 bis 10 nur an oder aus | Tabelle `0x8460` im Panel-Code, `panel_mcu.py --leds` | hergeleitet |
 | PWM rund 2 kHz (5000 Schritte bei 10 MHz), Takt des Panels 100 µs | Panel-Code | hergeleitet |
-| Helligkeit linear: Wert mal Periode durch 255, auch die Pads; die 32 Tasten-LEDs ohne PWM (`LED_ON_OFF`) zeigt die Seite ab 1 voll | Panel-Code `0x4EBC`; Pulsieren am 18.10. am Gerät flüssig | hergeleitet |
+| Helligkeit linear: Wert mal Periode durch 255, auch die Pads; die 32 Tasten-LEDs ohne PWM (`LED_ON_OFF`) zeigt die Seite ab 1 voll | Panel-Code `0x4EBC` | hergeleitet |
 | Eine Nachricht wirkt einen Takt nach ihrem letzten Byte, die Zeilen leuchten reihum je eine PWM-Periode, ein neuer Wert ab der nächsten Runde (4 ms) | | Modellannahme |
 | Ein Wert, der vor seiner Runde schon ersetzt ist, leuchtet nie | folgt aus der Annahme darüber | Modellannahme |
 | Die Seite zeigt den Tastgrad linear als Deckkraft; wie hell das Auge eine Stufe am Gerät sieht | nicht gemessen | Modellannahme |
 | `02 b` von der Firmware wirkt auf die LEDs | offen, das Modell übergeht es | offen |
 
-Pads zeigt die Seite jetzt gestuft wie die anderen LEDs; die Messung vom 16.10. (nur an oder aus) ist am 18.10. teils widerlegt
-([Pad-LED-Stufen](messungen/2026-10-16-pad-led-stufen.md)). Power Save dimmt in der Firmware, nicht im Panel: BLECH schickt auf
+Power Save dimmt in der Firmware, nicht im Panel: BLECH schickt auf
 Batterie ein Viertel ([Energiesparen](messungen/2026-10-18-energiesparen-leds.md)), das Modell bekommt also schon die gedimmten Werte.
 
 ### Pad-Flackern beim schnellen Drehen
@@ -486,18 +476,17 @@ Batterie ein Viertel ([Energiesparen](messungen/2026-10-18-energiesparen-leds.md
 `pswitch:pad_flicker_playing` und `pswitch:pad_flicker_stopped_unsaved` (`tools/emu/pswitch_cases.py`, `case_pad_flicker`): 20
 Klicks am Rad im Abstand von 30 ms, abspielend und gestoppt mit ungespeicherter Änderung. Gezählt werden dunkle Lücken eines Pads bis
 50 ms, so wie das Bedienfeld sie zeigt. Erlaubt sind die der Firmware (EXIT beim Einschalten) plus die zwei Neuzeichnungen, die
-der Fix lässt: die erste sofort und die nach dem Stillstand.
+BLECH lässt: die erste sofort und die nach dem Stillstand.
 
-Gemessen im Emulator (Hacktribe 2.02 mit dem BLECH-Satz, 10.11.):
+Gemessen im Emulator (Hacktribe 2.02 mit dem BLECH-Satz):
 
-| Stand | abspielend | gestoppt, ungespeichert | Ergebnis |
-|---|---|---|---|
-| Firmware (EXIT gehalten) | 0 | 1 | |
-| vor dem Fix (`c2ba48fd^`) | 20, je Klick einmal | 18 | rot |
-| mit dem Fix (`c2ba48fd`) | 2 | 2 | grün |
+| Stand | abspielend | gestoppt, ungespeichert |
+|---|---|---|
+| Firmware (EXIT gehalten) | 0 | 1 |
+| BLECH-Satz | 2 | 2 |
 
 Jede Neuzeichnung der Vorschau schickt die blaue LED von Pad 1 (`0x2d`) erst 0 und rund 14 ms später wieder 255; am Bedienfeld
-sind das 11 bis 16,5 ms dunkel. Die zwei Neuzeichnungen, die der Fix lässt, flackern so noch je einmal (gemessen). Am Gerät nicht
+sind das 11 bis 16,5 ms dunkel. Die zwei Neuzeichnungen, die BLECH lässt, flackern so noch je einmal (gemessen). Am Gerät nicht
 geprüft.
 
 ## Zeit und Takt
@@ -543,7 +532,9 @@ Messung kommen damit auf die Gerätewerte (`test_devicetime.py`). `GELUMPE_PACE=
 - Der erste Blick auf einen Durchlauf zählt als Treffer. Eine Kopie, die kürzer als eine Scheibe läuft, rechnet
   der Emulator deshalb zu schnell. Ein Lauf über 256 KiB kommt auf 126 statt 143 ns je Runde.
 - Ein Interrupt-Handler läuft im Preis des Codes, den er unterbricht. Seine Scheiben (`ISR_STEP`) enden jedes
-  Mal an denselben Stellen und wären keine Stichprobe.
+  Mal an denselben Stellen und wären keine Stichprobe. `ISR_STEP = 256` ist Teil des Modells: ein Versuch, nur dann in
+  256-Befehl-Scheiben zu laufen, wenn ein anderer Interrupt wartet, hätte rund 50 % der Scheiben gespart, aber die Firmware
+  bleibt dann beim Boot hängen (26 Mio. Befehle, 108 Panel-Nachrichten; gemessen, verworfen). Quelle: Messung 2026-10-13/emulator-tempo.
 
 Gegen die Plugin-VM geprüft ([Gerätetakt im Emulator](messungen/2026-11-10-emulator-geraetetakt.md)): am
 Gerät 7 bis 8 ns je Emulator-Befehl, mit dem Modell 5,7 bis 6,1, flach 5. Das Modell rechnet also näher am
@@ -551,24 +542,42 @@ Gerät, aber noch zu schnell für einen Interpreter.
 
 ### Tempo der Prüfungen
 
-Ein Boot bis zum Hauptbild kostet rund zwei CPU-Sekunden; `bootcache.py` bootet je
-Firmware, Flash, gehaltene Tasten und Gerätezeit einmal und startet danach aus einem
-Snapshot (`Machine.snapshot`, bit-identisch zum durchgelaufenen Gerät, `test_snapshot.py`).
-Das gilt auch mit Karte im Schlitz, wenn sie ein Abbild im Speicher ist: der erste Lauf eines
-Falls ab dem Einschalten wird samt Karte gemerkt (`bootcache.power_on`, `Dev.run`).
-Die Dateien liegen in `~/.cache/gelumpe` (`GELUMPE_CACHE_DIR`), enthalten Firmware-RAM und
-gehören nicht ins Repository. `check.py`, `mfx_cases.py` und `splash_cases.py` verteilen
-unabhängige Boots auf Prozesse (`GELUMPE_JOBS`, Standard: Kerne minus einer, 2 bei
-1-Minuten-Load über der Kernzahl, 1 bei Load über der doppelten Kernzahl). `check.py` merkt
-sich das Ergebnis jedes Tasks mit den Dateien, die er benutzt hat (`taskcache.py`), so läuft
-nach einer Änderung nur neu, was sie berührt; `mfx_cases.py` und `splash_cases.py` merken sich
-ein beendetes Ergebnis je Eingabedateien und Emulator-Quelltext. `GELUMPE_CACHE=off` schaltet
-Snapshots und gemerkte Ergebnisse ab, wenn alles frisch laufen soll. Jede Datei ist nach einem
-Hash samt Emulator-Quelltext benannt, alte bleiben also unerreichbar liegen: `check.py` löscht
-höchstens einmal am Tag, was `GELUMPE_CACHE_DAYS` Tage (Standard 7, 0 behält alles) weder
-geschrieben noch gelesen wurde (`bootcache.prune`). `server.py --unthrottled`
-(nur für Tests) läuft ohne Echtzeit-Bremse und meldet die Gerätezeit alle 20 ms.
-Die Testlaufzeit steht in [development.md](development.md#tests).
+Snapshots, gemerkte Ergebnisse, parallele Boots (`GELUMPE_JOBS`) und `GELUMPE_CACHE=off` stehen in [development.md](development.md#laufzeit-der-tests). `server.py --unthrottled` (nur für Tests) läuft ohne Echtzeit-Bremse und meldet die Gerätezeit alle 20 ms.
+
+### Tempo des Emulators
+
+Der Karten-Import liest rund 1000 Sektoren je Gerätesekunde. Die ganze Datei (44000 Sektoren) braucht rund 44 s Gerätezeit; schneller
+als diese 44 s wird es nur, wenn die Firmware weniger rechnet.
+
+**Warum der Emulator langsam war (gemessen).**
+
+- Code-Hooks mit Python-Rückruf (Assertion, Flash lesen, DSP laden, UART voll) ließen Unicorn für jeden Befehl den Hook-Verteiler
+  aufrufen und den JIT-Schreibschutz umschalten (`pthread_jit_write_protect_np`): 24 ns je Befehl mit Hooks, 1,9 ns mit `count`
+  allein, 0,5 ns mit beidem aus.
+- Die Firmware greift beim Karten-Import rund 450000-mal je Gerätesekunde auf Register zu (128 Wörter je Sektor aus dem
+  Karten-FIFO, dazu rund 260 Zeitgeber-Lesezugriffe je Sektor in Warteschleifen, 475 Zugriffe je Sektor insgesamt).
+- Der SD-Kartenteil selbst kostet fast nichts (0,3 µs je Wort); Spiegeln und Bildschirm-Aufbereitung liegen unter 2 %.
+
+**Was das Tempo bringt (Stand im Code).** Die vier Einsprungstellen sind Exit-Adressen (`ctl_set_exits`) statt Code-Hooks,
+`Machine.service` erledigt das Modell und läuft weiter. Ein Python-Frame je Registerzugriff (eigener `mmio_map` über ctypes),
+Zeitgeber-Zähler aus einer Tabelle, Prozessorregister direkt über `reg_read` (1,7 µs), Zeitgeber-Konfiguration zwischengespeichert.
+Anzeige-Hash, Panel-Nachrichten, Flash-Befehle, DSP-Ladungen und Gerätezeit bleiben dabei gleich. Ein neuer Code-Hook (`Dev.call`)
+braucht `ctl_flush_tb`, sonst feuert er nicht; mit gesetzten Exit-Adressen gilt `until` bei `uc.emu_start` nicht.
+Quelle: Messung 2026-10-13/emulator-tempo.
+
+**Poll-Vorlauf für den DSP-Worker.** Die Firmware wartet in `0xC001462C` auf den DSP und liest `DSP_CTRL` zweimal je Durchlauf.
+Der Vorlauf (`POLL_READS = 4096`, `POLL_READS = 0` schaltet ihn ab) überspringt gleichförmige Durchläufe, Beschreibung in
+[Blackfin](hintergrund/blackfin.md#die-beiden-simulatoren). Gemessen für 0,3 s Modellzeit ab Reset mit
+`clock-blech-hacktribe.VSB` (DSP 516,096 MHz, Host-Port über FIFO, SPORT-Eingang Stille):
+
+| Rechner | Vorlauf an | aus |
+|---|---:|---:|
+| Mac M5, Last um 44 | 7,3 s | 16,3 s |
+| Linux x86, i7-10510U, `powersave`, Last um 1 | 14,9 s | 25,3 s |
+
+Alle vier Läufe enden im selben Zustand: 55078105 ARM-Befehle, 123533003 DSP-Zyklen, 300000001 ns Modellzeit. Der Vorlauf überspringt
+1374304 der rund 1,38 Mio. `DSP_CTRL`-Lesezugriffe; danach liegen etwa 5,8 der 7,3 s im DSP-Simulator, die ARM-Seite braucht rund 5 %.
+Quelle: Messung 2026-11-16/dsp-sim-tempo.
 
 ## Boot
 
@@ -636,176 +645,16 @@ gehen. Firmware und Daten-RAM haben getrennte Ausführ-/Schreibrechte.
 Unbekannte Zugriffe scheitern statt automatisch weitere Seiten anzulegen.
 Dieses Profil kann keine ganze Firmware booten.
 
-### Speicher für die größeren Untersuchungen
+### Weitere Untersuchungen
 
-Frühere Import-, Export-, Kernel- und Cache-Untersuchungen liefen zusätzlich auf
-einem eigenen, zeitlich zusammengesetzten RAM-Abbild. Ihre Stubs und
-Aufrufkonventionen sind hier festgehalten; sie sind noch keine aus der VSB
-reproduzierbaren Tests. Eine daraus abgeleitete Binärfixture liegt nicht im
-Repository.
-
-Dieses Abbild lag in `[0xC0000000, 0xC8000000)`. Die damaligen Skripte legten
-Hilfsobjekte oft ab `0xC1000000` an und den Stack bei `0xC2700000` oder
-`0xC2740000`. **Diese Adressen liegen im echten Arbeitspuffer und sind keine
-freigegebenen Helferadressen.** Für eine Portierung Hilfsobjekte in einen
-eigenen, künstlichen Emulatorbereich legen.
-
-- **Tasks:** VSB-Tabelle ab `0xC00A37A8`, zehn Deskriptoren à 32 Byte.
-  +4 Startargument, +8 Einstieg, +12 Priorität, +16 Größe, +20 Stackbasis.
-  Zehn TCBs ab `0xC06A24E4` zunächst Null; +8 Konfigurationszeiger und
-  Prioritätsbyte +13 setzen. 16 Ready-Queue-Köpfe bei `0xC06A28A4+i*8`
-  als doppelte Selbstverweise initialisieren. Globals `0xC06A2924=0`,
-  `0xC06A2898=0`, `0xC06A2928=1`. Dann `0xC00003D8(TCB*)` aufrufen:
-  Ende-4 Einstieg, Ende-8 Startargument, TCB+24 Ende-8. Keine Tasks starten.
-- **Boot:** `0xC00296B0` bis `0xC002984C` ausführen, vor Hardwareinitialisierung
-  stoppen. Originalcode löscht `[0xC0200000, 0xC08A2940)` und füllt Stacks.
-  Das initialisiert nicht automatisch alle späteren Dienste.
-- **Heap:** Vollständige New/Delete-Aufrufe benötigen zusätzliche Verwaltung
-  ab `0xC00F8D70`/`0xC00F8E60`. Bisher aus Snapshot; der Prüflauf führt
-  nur die davon unabhängige Wachstumsroutine aus. Lock-Enable bei
-  `0xC03404B0=0` war historisch eine Modellannahme. Für VSB-New/Delete erst
-  den ursprünglichen Initialisierungspfad reproduzieren, keine Freilisten
-  aus einem Dump als Konstanten übernehmen.
-- **Loader:** Für den gesonderten Lauf `[0xFFFF0000, 0x100000000)` als
-  64-KiB-Seite mappen und mit selbst erzeugtem `0xAD` füllen. Originalkopie
-  `0xC01705DC..0xC01705F8` überträgt `0xD70` Byte von `0xC017127C`.
-  Anschließend `0xC0171280..0xC0171304` initialisiert Daten und Modus-SPs;
-  Hardwareaufruf davor überspringen. Kein fertiges Loaderabbild speichern.
-  Gemessen: Null `[0xFFFF0D70, 0xFFFF1158)`, eigenes Füllwort DEADC0DE
-  `[0xFFFF115C, 0xFFFF125C)`. Undefined/Abort/FIQ/IRQ/SVC/System-SP:
-  `0xFFFF1258/1250/1248/1240/1200/11C0`.
-- **Arbeitspuffer:** `[0xC0D3A940, 0xC273AA40)`, Null plus synthetische
-  Transferdaten; Größe `0x01A00100`. Kein PCM-RAM der CPU.
-- **IRQ:** Originalroutine bis `0xC00015B0`, vor MMIO stoppen. SVC-SP vor
-  Wechsel zu IRQ-CPSR `0xD2` setzen; IRQ-Tiefenzähler `0xC06A2894=0/1`.
-  Sonst arbeitet der bankierte SVC-SP uninitialisiert. Nicht in den Scheduler
-  oder eine unendliche Wartefunktion laufen lassen.
-
-### Firmware-Einstiege
-
-Die folgenden Aufrufe liefen offline; nur die ersten beiden sind direkt aus der
-VSB reproduzierbar (`runner.py`). Pointerargumente benötigen immer die
-beschriebenen gültigen Objekte und kontrollierten Zustand.
-
-| Einstieg | Aufgabe / Argumente | Erwartetes Ergebnis | Beleg |
-|---|---|---|---|
-| `0xC002CEFC` | Heap wachsen, R0 signierter Schritt | alter Cursor oder 0; Cursorprüfung, fünf Fälle | [Systemspeicher](messungen/2026-10-08-systemspeicher-offline.md) |
-| `0xC00369F0` | Arbeitspuffer, R0 Kapazitätsausgabe* | R0 `0xC0D3A940`, Ausgabe `0x01A00100` | [Systemspeicher](messungen/2026-10-08-systemspeicher-offline.md) |
-| `0xC00003D8` | Taskinitialisierung, R0 TCB* | initialer SP Ende-8, Einreihung | [Systemspeicher](messungen/2026-10-08-systemspeicher-offline.md) |
-| `0xC0028DCC` / `0xC0028DD4` | New R0 Bytezahl / Delete R0 Pointer | sechs Größen im Pool, Rückkehr nach Freigabe; Snapshot-Verwaltung | [Systemspeicher](messungen/2026-10-08-systemspeicher-offline.md) |
-| `0xC00296B0` | Boot-Speicherinit, bis `0xC002984C`, SVC-SP `0xC274AA40` | Löschbereich und Stackfüllungen | [Boot/Patterns](messungen/2026-10-08-boot-pattern-speicher.md) |
-| `0xC0001560` | IRQ-Eintritt, bankierter SVC-SP, Tiefe 0/1; Stop `0xC00015B0` | äußerer IRQ wechselt Stack, verschachtelter nicht | [Boot/Patterns](messungen/2026-10-08-boot-pattern-speicher.md) |
-| `0xC004A350` | Patternresolver, R1 Index | 0..249: `0xC08A2940+(Index+4)*0x4000`; ungültig: 0 | [Boot/Patterns](messungen/2026-10-08-boot-pattern-speicher.md) |
-| `0xC01705DC` | Loaderkopie, Stop `0xC01705F8` | 0xD70 Byte zur hohen Seite | [Boot/Patterns](messungen/2026-10-08-boot-pattern-speicher.md) |
-| `0xC0171280` | Loaderinitialisierung, Stop `0xC0171304` | Datenfüllungen und sechs Modus-SPs | [Boot/Patterns](messungen/2026-10-08-boot-pattern-speicher.md) |
-| `0xC004F340` | Sample-Info-Cache bauen/restore; Cachekennung und Live-Tabellen als Zustand | sechs Tabellen exakt gesichert/wiederhergestellt | [Boot/Patterns](messungen/2026-10-08-boot-pattern-speicher.md) |
-| `0xC004EDDC` | DSP lesen, R0 Ziel*, R1 Byteoffset, R2 count16 | synthetische PCM-Wörter exakt | [DSP](messungen/2026-10-08-dsp-audiopfade.md) |
-| `0xC004EF28` | DSP schreiben, R0 Quelle*, R1 Byteoffset, R2 count16 | PCM und unveränderte Nachbarbytes | [DSP](messungen/2026-10-08-dsp-audiopfade.md) |
-| `0xC0035B10` | WAV importieren, R0 FILE*, R1 Metadaten*, R2 Slot, R3 Pfad* | Status 0 / 0x21 / 4 wie unten | [Import](messungen/2026-10-08-usb-sample-import-offline.md) |
-| `0xC0039B2C` | WAV schreiben, R1 FILE*, R2 ESLI*, R3 DSP-Offset, fünftes Argument Bytezahl auf Stack; Eingangs-R0 für die Pufferzuordnung unbenutzt | RIFF/PCM exakt, 64-KiB-Blöcke | [DSP](messungen/2026-11-06-sample-ram-cacheprobe.md) |
-| `0xC0027D84` | SysEx-Leseantwort, R0 Antwortkontext*, R1 Kanal, R2 Funktion, R3 CPU-Daten*; Stack: Länge, 2, 0x52 | gepackte Antwort exakt, Quellbuffer unverändert | [DSP](messungen/2026-10-08-dsp-audiopfade.md) |
-
-Nachverfolgte Aufrufketten, keine zusätzliche direkte Einstiegsschnittstelle:
-New → `0xC0008F30` → `0xC0008F70`; Delete → `0xC0008F50` → `0xC000EE6C`;
-Wachstum über `0xC000A3B0`; DSP-Lesen über `0xC00141F8`, `0xC0014AFC`,
-`0xC001488C`; Schreiben über `0xC0014284`, `0xC0014C34`, `0xC00146B4`.
-Einzel-/Gesamtexport `0xC0039CC4`/`0xC0039E68` wurden als Aufrufer des
-WAV-Schreibers identifiziert; ohne vollständig initialisierte Objektzustände
-nicht als VSB-Test-Einstiege anbieten. Die Zuordnung des Dateizeigers zu R1
-ist durch Prolog und `f_write`-Aufrufe bestätigt, siehe [Pufferanalyse](messungen/2026-11-06-sample-ram-cacheprobe.md).
-
-### Stubs für SD und DSP: WAV ohne Karte
-
-Für den Importtest entstehen WAVs zur Laufzeit mit `wave`/`io.BytesIO`:
-PCM etwa `37*i-400` als 16-Bit-LE-Werte, Mono/Stereo und 44.100/48.000 Hz.
-Die Testdaten sind eigene Formeln, keine Ausschnitte eines echten Samples.
-Geprüft werden mindestens sechs Audio-Byte und ein Transfer über 65.536 Byte.
-
-Das synthetische FILE-Objekt ist kein Betriebssystem-Dateihandle:
-vier u32-Wörter, +8 Position, +12 WAV-Größe. Namenspfad NUL-terminiert;
-Metadatenpuffer `0x494` Byte. Speicherfile, Puffer und Pfad im künstlichen
-Emulatorbereich. R0-R3 des Importers: FILE*, Metadaten*, Zielindex, Pfad*.
-Der historische Testindex 742 beweist keinen freien Geräteslot.
-
-`UC_HOOK_CODE` setzt am Eintritt expliziter Stubs R0 auf Status und PC auf LR:
-
-| Adresse | ABI und Ersatz |
-|---|---|
-| `0xC009DD74` Lesen | R0 FILE*, R1 Ziel*, R2 Bytezahl, R3 Istzahl*. WAV ab FILE+8 kopieren, Istzahl und Position aktualisieren, R0=0. Fehlerfall beim PCM-Start ab Byte 44: R0=1, ohne Kopie. Grenzen aller Pointer prüfen. |
-| `0xC009E404` Seek | R0 FILE*, R1 absoluter Byteoffset. Offset gegen WAV-Länge prüfen, FILE+8 setzen, R0=0. |
-| `0xC0035AD8` Managerbezug | Künstlichen Managerzeiger zurückgeben; kein Gerätedienst. |
-| `0xC007DE7C` Kapazität | `0x01C65EC0 - initialer DSP-Cursor` oder absichtlich 0 zurückgeben. |
-| `0xC007E990` Managerabfrage | Historischer Stub R0=`0xFFFFFFFF`; Bedeutung dieses Rückgabewertes nicht als Gerätebeobachtung behaupten. |
-| `0xC0014284` DSP-Schreiben, API-Modell | R0 DSP-Byteoffset, R1 CPU-Quelle*, R2 Anzahl 16-Bit-Wörter. In separate synthetische DSP-Byteablage kopieren, R0=0. |
-| `0xC00141F8` DSP-Lesen, API-Modell | R0 Offset, R1 CPU-Ziel*, R2 count16, R3=2. Aus DSP-Ablage lesen, fehlende eigene Testbytes mit 0xA5 modellieren, R0=0. |
-
-`0xC004EDF0` nur beobachten: Originalreservierung weiter ausführen,
-Metadatenlänge bei +60 protokollieren. DSP-Cursor `0xC00F9C80` und
-Live-Sampletabellen davor/danach prüfen. Der historische Importtest setzte
-die Aktivmarkierung `0xC036AD88 + 742*1116 + 11` auf 0. Das ist kontrollierter
-Testzustand, kein Backup oder sichere Slotreservierung am Gerät.
-
-Im Importtest sofort abbrechen bei unerwartetem Schreiben `0xC009DFB8`, Löschen
-`0xC009E9B8`, Assertion `0xC00298BC` und Schedulerpfad `0xC0001D14`. Beim Export
-darf einzig der ausdrücklich installierte Schreibstub
-`0xC009DFB8(FILE*, Quelle*, Länge, Istzahl*)` Daten in ein Python-bytearray
-übernehmen und Status 0 liefern. Niemals Hostdateien aus Firmwarepfaden öffnen.
-
-**Erwartete Ergebnisse:** fünf positive Importfälle liefern Status 0,
-PCM exakt, Name, Länge, Rate und aktive Markierung korrekt. Platzmangel
-liefert `0x21` vor Reservierung. PCM-Lesefehler liefert 4 nach Reservierung,
-aber aktive Markierung und erhöhter Cursor bleiben zurück: fehlender Rollback
-ist ein erwarteter Befund, kein bestandener sicherer Import.
-
-### DSP-Portmodell und Haken
-
-Der Test für den originalen ARM-Transfer läuft getrennt von den beiden
-DSP-API-Stubs: Page `[0x60000000, 0x60001000)` mappen, zunächst Null. Eigene
-DSP-Bytes außerhalb des CPU-RAM in einer Python-Ablage halten; Nachbarbytes
-0xA5. `UC_HOOK_MEM_READ`/`WRITE` am Datenport `0x60000000` und Steuer-/Statusport
-`0x60000002`, ausschließlich 16-Bit-Zugriffe akzeptieren.
-
-- Statuslesen: vor der Instruktion `0x85` bereitstellen (**Modellannahme**). Bit 7 und Bit 0 waren es schon,
-  Bit 2 kam dazu: Korgs Build wartet darauf, bevor es mit einem benutzten Flash seine Daten lädt, und blieb mit `0x81`
-  für immer in der Warteschleife (`0xC0014E0C`). Hacktribes Boot ändert sich damit nicht (gemessen: Anzeige und
-  Bildschirmnummer alle 50 ms gleich, mit und ohne eigenen Flash).
-- Ein Steuerwort `0x2C` allein, wo kein Transfer beginnen kann (Steuerwort 1 eines Rahmens ist immer `A9` oder
-  `AB`), ist ein Gleichlaufwort und gehört zu keinem Rahmen. Korgs Build schreibt es einmal früh im Start; ohne
-  diese Regel lagen alle späteren Rahmen um ein Wort verschoben, und die Abfragen der Pegel erschienen im Protokoll
-  der MFX-Fälle als andere Adressen. Hacktribe schreibt es nicht, die Regel greift dort nie (gemessen: 9051 Steuerwörter in 8 s mit eigenem Flash,
-  das sind genau 1293 Rahmen zu 7 Wörtern).
-- Sieben Steuerwörter sammeln: `[A9 oder AB, offset_low, offset_high,
-  count16, 2, 0, 0]`. Offset in Byte, Länge in 16-Bit-Wörtern. Unvollständige
-  Frames, falsche Breite und Transfers außerhalb der Testablage scheitern.
-- A9: Datenlesen stellt vor jedem Zugriff das nächste LE-Wort bereit.
-  AB: Datenschreiben übernimmt genau das nächste LE-Wort.
-- Freie Sperre/normalen Task modellieren: `0xC06A2894=0`,
-  `0xC06A2928=1`, `0xC06A2480=1`. Am Hook `0xC00145F0` historisch R0=1
-  für LR `0xC0014814`/`0xC0014A34`, sonst 0. GPIO-Verhalten ist simuliert.
-- Originalcode von `0xC004EF28` bzw. `0xC004EDDC` bis zur LR-Stopadresse
-  ausführen; Assertions/Scheduler nicht als erfolgreiche Rückkehr ersetzen.
-
-Prüfen: 3, 16, 17, 32, 33 Wörter, PCM bytegenau, sämtliche benachbarten
-Bytes unverändert, Semaphore wieder frei. Kurze Schreibvorgänge nutzen
-Read/Modify/Write von 16 Wörtern; bei 17 sind zwei überlappende Transfers
-ab Offset und Offset+2 Byte erwartet. Das Modell beweist weder reales
-DSP-Timing noch Klang, Cachekohärenz oder parallele Aufnahme/Wiedergabe.
-API-Modell und Portmodell getrennt benennen; kein ungetesteter Gesamtpfad.
-
-### Reihenfolge für die vollständige Portierung
-
-1. Originale Kernel-/Allocatorinitialisierung aus VSB reproduzieren;
-   unerwartete MMIO-Zugriffe stoppen. Keine Snapshot-Pointer konservieren.
-2. Synthetische Sampletabellen und Objekte initialisieren, Besitzer und
-   zulässige Schreibziele protokollieren; Import mit Speicherfile und DSP-API.
-3. Die sieben Importfälle inklusive des fehlenden Fehler-Rollbacks prüfen.
-4. DSP-Portmodell separat mit fünf Wortlängen prüfen, erst dann kombinieren.
-5. Export mit synthetischen Metadaten, Schreibstub und mehreren Blöcken;
-   Fehler-/IRQ-/Semaphorefälle ergänzen.
-
-Die fehlende VSB-Initialisierung bleibt sichtbar; sie wird nicht durch erfundene,
-als gemessen ausgegebene Daten ersetzt. Gerätepfade, Execute, Flashschreiben und
-Türsteherintegration sind eigene Aufgaben.
+Import, Export, Kernel, Cache und den DSP-Port haben einzelne Untersuchungen offline an Firmware-Einstiegen gemessen (Heap-Wachstum
+`0xC002CEFC`, Arbeitspufferergeber `0xC00369F0`, Taskinitialisierung `0xC00003D8`, Patternresolver `0xC004A350`, Sample-Info-Cache
+`0xC004F340`, DSP-Lesen und -Schreiben `0xC004EDDC` und `0xC004EF28`, WAV-Import `0xC0035B10`, WAV-Schreiben `0xC0039B2C`).
+Aufrufkonventionen, Stubs und Ergebnisse stehen in den Messungen
+[Systemspeicher](messungen/2026-10-08-systemspeicher-offline.md), [Boot und Patterns](messungen/2026-10-08-boot-pattern-speicher.md),
+[DSP-Pfade](messungen/2026-10-08-dsp-audiopfade.md) und [USB-Sampleimport](messungen/2026-10-08-usb-sample-import-offline.md).
+Sie sind keine Tests aus der VSB und keine Freigabe für Gerätezugriffe. Hilfsobjekte der Untersuchungen lagen im echten
+Arbeitspuffer (ab `0xC1000000`, Stack `0xC2700000`); diese Adressen sind keine freigegebenen Helferadressen.
 
 ## Original-Firmware und Hacktribe
 
@@ -900,7 +749,7 @@ ist nur verschoben. Messung und Belege:
 
 ### Hacktribe auf der blauen
 
-Hacktribe für die blaue ist Sampler-Code auf der blauen Hardware ([Idee 65](ideen/65-blech-hacktribe-blau.md)). Welche
+Hacktribe für die blaue ist Sampler-Code auf der blauen Hardware. Welche
 Hardware der Emulator spielt, steht in der Kennung im Flash: die blaue `KORGelec2USR`, die rote `KORGele2sUSR`
 (`firmware.HARDWARE_MARKS`).
 
@@ -977,9 +826,7 @@ Drei Stolpersteine, die wie ein Fehler im Code aussehen:
   jeder Task neu, nicht nur die Starts ([Entwicklung](development.md)).
 - **Jedes Fallmodul mit eigenem `Dev` ruft `menu_cases.for_build(payload)`** (oder `menu_cases.boot`). Die Vorgaben von
   `menu_cases` sind die der Hacktribe (MENU 45, BASE_RING 29); ein Modul, das sein Gerät selbst baut und das nicht tut,
-  steuert die blaue mit den Bildschirmnummern der roten an und stürzt ab (`UC_ERR_READ_UNMAPPED`). Früher fiel das nicht
-  auf, weil ein vorheriger Task im selben Prozess den Build schon gesetzt hatte; seit jeder Task einen eigenen Prozess
-  bekommt, schon. Beispiel: `power_off_cases.for_build`.
+  steuert die blaue mit den Bildschirmnummern der roten an und stürzt ab (`UC_ERR_READ_UNMAPPED`). Beispiel: `power_off_cases.for_build`.
 - **Eine Test-VSB, die vor einer Änderung gepatcht wurde, trägt die alte Laufzeit.** Ein Fallmodul, das man von Hand mit
   `cases --patched Datei.VSB` startet, nimmt genau diese Datei. Nach einer Änderung an `tools/patch/script_*.s` und
   `node tools/patch/script_runtime.mjs --build ...` bricht das Laden eines Plugins dann mit Fehlercode 19 ab, oder die Fälle
@@ -1031,6 +878,10 @@ Standard ist der QEMU-Worker. Gewählt wird an einer Stelle,
    `worker/`;
 3. sonst der GNU-Worker in `gnu/`, mit der Meldung, dass kein QEMU-Build da ist.
 
+Der Upload ist vom DSP-Start getrennt: `0xC0011AB8` bestätigt nur die SPI-Übertragung, ein kaputter Strom oder Workerfehler
+meldet keinen Upload-Erfolg, die Bereitschaft prüft eine eigene begrenzte Diagnose ([Blackfin](hintergrund/blackfin.md#start-des-dsp)).
+Der Bau des GNU-Workers auf macOS braucht die portable `sed`-Schreibweise und die System-zlib (ebenda, "Die beiden Simulatoren").
+
 Ohne Worker werden die Tests übersprungen. `npm test` sucht keinen Worker; die
 Worker-Tests laufen mit `tools/dsp/qemu_worker_tests.sh alle`.
 
@@ -1039,7 +890,7 @@ mit, sobald ein Worker gefunden wird. Die CI baut den QEMU-Worker dafür einmal 
 Stand von `tools/dsp/` (`.github/actions/dsp-worker`, im Cache) und setzt für
 Hacktribe und rot `GELUMPE_DSP_REQUIRED`: dann plant `check.py` den Fall immer,
 und ohne Worker schlägt er fehl, statt zu fehlen. Ein Lauf dauert rund eine
-Minute je Firmware (gemessen am Mac, 20.11.).
+Minute je Firmware.
 
 Lokal läuft der Fall wie in der CI, also mit den Ausnahmen des Patches für die
 Startphase:

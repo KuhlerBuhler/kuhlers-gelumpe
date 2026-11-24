@@ -1,7 +1,9 @@
 # Sample-Swap: Schutz der Daten im DSP und auf der Karte
 
-Stand 30.10.2026. Alles hier ist im Emulator gemessen, mit erzeugten Samples und Patterns
-(`tools/emu/sampleset.py`), mit Hacktribe 2.02 und Korgs roter 2.02. Kein Gerät wurde
+[Sample-Swap](../glossary.md#sample-swap) lädt nur die gerade gebrauchten Samples in den [DSP](../glossary.md#dsp)-Speicher.
+
+Alles hier ist im [Emulator](../glossary.md#emulator) gemessen, mit erzeugten Samples und Patterns
+(`tools/emu/sampleset.py`), mit [Hacktribe](../glossary.md#hacktribe) 2.02 und Korgs roter 2.02. Kein Gerät wurde
 angesprochen. Jeder Fall lief zuerst gegen den Swap ohne diese Korrektur und danach mit ihr.
 
 ## Gemessen: EXPORT ALL SAMPLE kürzte die Sammlung
@@ -33,8 +35,7 @@ die Patterns 1, 2, 3 und 0. Budget 384 KiB, damit beim Wechsel auf 3 ein Sample 
 | mit Korrektur | im DSP | imp | 40000 |
 
 Ohne Korrektur verdrängte der Swap den importierten Slot und lud später die alte Fassung von der
-Karte. Der Import war verloren, denn er schreibt nur in den DSP
-([Speichergrenzen](2026-10-30-sample-speichergrenzen.md)).
+Karte. Der Import war verloren, denn er schreibt nur in den DSP.
 
 Mit Korrektur merkt sich der Swap für jede Zeile, die der Lader beim Start oder der Swap selbst in
 den DSP gebracht hat, eine Prüfsumme über die Metadatenzeile und den Namen. Verdrängt wird nur eine
@@ -93,6 +94,3 @@ danach noch einmal und wartete ein zweites Mal auf die Karte (`loadbar_cases`,
 
 - Die 100-ms-Frist und echte Übertragungszeiten am Gerät.
 - Aufnahme und Resampling als echter Ablauf, Klang und Stimmenausklang.
-- Die Sammlung wird weiter nur durch Verdrängungsschutz gesichert, nicht gespeichert: ein
-  importiertes Sample ist nach einem Neustart weg, solange Import und WRITE nicht auf die Karte
-  schreiben.

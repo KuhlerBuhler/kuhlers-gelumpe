@@ -1,6 +1,6 @@
 # Eigener Speicher für Stufe 2: warum Paare abstürzen und der Patch dagegen
 
-Stand 2026-11-13. Hergeleitet im DSP-Simulator, nicht am Gerät gemessen. Gilt für die roten Builds (Hacktribe und Korg 2.02).
+Stand 2026-11-13. Hergeleitet im [DSP](../glossary.md#dsp)-Simulator, nicht am Gerät gemessen. Gilt für die roten Builds ([Hacktribe](../glossary.md#hacktribe) und Korg 2.02).
 
 ## Ursache
 

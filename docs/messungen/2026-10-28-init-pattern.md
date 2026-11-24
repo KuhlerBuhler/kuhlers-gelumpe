@@ -1,8 +1,8 @@
-# Eigenes Init-Pattern (Set Init Pattern, 28.10.)
+# Eigenes Init-Pattern (Set Init Pattern)
 
-Stand 28.10.2026, Emulator mit Hacktribe 2.02 und Korgs Original 2.02 (rot). Wunsch: wie bei Hacktribe ein Pattern wählen,
-das DATA UTILITY > 5 INITIALIZE PATTERN als Vorlage nimmt. Patch `data/patches/init-pattern.json`, Seite INIT PATTERN unter
-BLECH > FEATURES. Am Gerät nicht geprüft.
+Emulator ([Emulator](../glossary.md#emulator)) mit [Hacktribe](../glossary.md#hacktribe) 2.02 und Korgs Original 2.02 (rot). Wunsch: wie bei Hacktribe ein Pattern wählen,
+das DATA UTILITY > 5 INITIALIZE PATTERN als Vorlage nimmt. [Patch](../glossary.md#patch) `data/patches/init-pattern.json`, Seite INIT PATTERN unter
+[BLECH](../glossary.md#blech) > FEATURES. Am Gerät nicht geprüft.
 
 ## Wie die Firmware initialisiert
 
@@ -22,7 +22,7 @@ BLECH > FEATURES. Am Gerät nicht geprüft.
 - Die Seite INIT PATTERN (Art 40 in `tools/patch/script_menu.s`, Code in `tools/patch/script_init.s` im dritten Code-Bereich):
   FACTORY oder 1 bis 250, das Hauptrad schreibt Global-Byte 247 sofort. Die Firmware speichert die Globals beim Ausschalten mit.
   Die Seite gibt es nur, wo der Satz den Patch hat (erstes Wort bei `0xC014FD00` nicht `FF`), also nicht auf der blauen.
-- CLEAR PATTERN ergibt sich daraus: ein ganz leeres Pattern (wie Pascals Pattern 250) als INIT PATTERN wählen.
+- CLEAR PATTERN ergibt sich daraus: ein ganz leeres Pattern (etwa Pattern 250) als INIT PATTERN wählen.
 
 ## Fälle (`tools/emu/init_pattern_cases.py`, BLECH-Satz Hacktribe)
 

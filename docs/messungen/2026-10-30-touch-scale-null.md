@@ -1,8 +1,8 @@
-# TOUCH SCALE RANGE 0: X spielt nur den Grundton (30.10.)
+# TOUCH SCALE RANGE 0: X spielt nur den Grundton
 
-Stand 30.10.2026, Emulator mit Hacktribe 2.02, Korgs rotem 2.02 und Korgs blauem 2.02, jeweils ohne und mit BLECH. Wunsch: ein
+[Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02, Korgs rotem 2.02 und Korgs blauem 2.02, jeweils ohne und mit BLECH. Wunsch: ein
 Wert 0 auf der Seite TOUCH SCALE RANGE; dann spielt X auf dem Touchpad überall den Grundton des Patterns (Vorgabe C4), die Oktave
-der Tastatur (KEYBOARD + 1 oder 4) gilt weiter, Y bleibt wie es ist, mit Touch Scale allein und mit Gate Arp + Touch Scale. Patch
+der Tastatur (KEYBOARD + 1 oder 4) gilt weiter, Y bleibt wie es ist, mit Touch Scale allein und mit Gate Arp + Touch Scale. [Patch](../glossary.md#patch)
 `data/patches/touch-scale-zero.json` (rot) und `data/patches/touch-scale-zero-synth.json` (blau), Bauer
 `tools/patch/touch_scale_zero.py`, Fälle `tools/emu/touch_scale_zero_cases.py`. Am Gerät nichts getan.
 

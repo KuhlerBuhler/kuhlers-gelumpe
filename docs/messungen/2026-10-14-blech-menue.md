@@ -1,6 +1,6 @@
 # BLECH Menü: eigener Bildschirm 0x2D im Edit Ring
 
-Stand 2026-10-15. Alles im Emulator gemessen (Firmware 2.02 mit Hacktribe, virtuelle Karte),
+Stand 2026-10-15. Alles im Emulator gemessen (Firmware 2.02 mit [Hacktribe](../glossary.md#hacktribe), virtuelle Karte),
 am Gerät nichts geprüft. Markierungen: **gemessen**, **hergeleitet**, **offen**.
 Code: `tools/patch/script_menu.s` (Teil des Patches `script-runtime`), Prüfungen:
 `tools/emu/menu_cases.py`, `tools/emu/script_cases.py` (`menu-*`, `fremd-*`, `import-*`),

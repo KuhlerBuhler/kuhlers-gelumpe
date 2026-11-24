@@ -1,7 +1,7 @@
 # KEY PADS: Pads 13 bis 16 setzen die Oktave (12.11.)
 
-Stand 12.11.2026, Emulator mit Hacktribe 2.02 (163d1d8d), Korgs rotem 2.02 und Korgs blauem 2.02, jeweils mit BLECH. Wunsch
-(Idee 85): KEYBOARD gehalten + Pad 13 bis 16 wählt die Oktave der Tastatur, Pad 14 ist die nach dem Start. Code
+Stand 12.11.2026, [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (163d1d8d), Korgs rotem 2.02 und Korgs blauem 2.02, jeweils mit BLECH. Wunsch
+KEYBOARD gehalten + Pad 13 bis 16 wählt die Oktave der Tastatur, Pad 14 ist die nach dem Start. Code
 `tools/patch/script_shortcuts.s` (`kp_notes`, `kp_tick_octave`), Adressen `tools/patch/script_hooks.py` (`KP_OCT_SET`,
 `KP_OCT_OBJ`), Fälle `tools/emu/shortcut_cases.py` (`case_key_pads`). Am Gerät nichts getan.
 

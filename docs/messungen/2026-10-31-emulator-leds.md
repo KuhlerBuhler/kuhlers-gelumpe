@@ -1,22 +1,20 @@
 # Emulator-LEDs: nur was die Firmware schickt
 
-Stand 2026-10-31. **Nur im Emulator gemessen** (`tools/emu/machine.py`, leerer Flash, Netzteil), kein
+**Nur im [Emulator](../glossary.md#emulator) gemessen** (`tools/emu/machine.py`, leerer Flash, Netzteil), kein
 Zugriff aufs Gerät. Drei eigene Firmware-Dateien, je 2.02:
 
 | Datei | Build | SHA-256 (Anfang) |
 |---|---|---|
-| Hacktribe | hacktribe | `7cb4825c184a7e3f` |
+| [Hacktribe](../glossary.md#hacktribe) | hacktribe | `7cb4825c184a7e3f` |
 | Korg rot | stock | `1d0f0689d5a12c8a` |
 | Korg blau | synth | `41fc5f1c33209ef3` |
 
 Markierungen: **gemessen** (Lauf im Emulator), **hergeleitet** (aus dem Code gelesen), **offen**. Keine
 Firmware-Bytes im Repo, nur Adressen und Zahlen.
 
-## Anlass
+## Grundsatz
 
-Ein Plugin mit `korg.padHold` (API 12) sah im Emulator anders aus als am Gerät. Grund: Die Zeichnung des
-Geräts in der App (`site/app/panel.mjs`) hat ein gedrücktes Pad selbst rot gemalt, egal was die Firmware
-an die Pad-LEDs schickte. Am Gerät leuchtet ein Pad nur, wenn die Firmware es einschaltet; hält ein Plugin
+Die Zeichnung des Geräts in der App (`site/app/panel.mjs`) zeigt nur LEDs, die die Firmware schickt. Am Gerät leuchtet ein Pad nur, wenn die Firmware es einschaltet; hält ein Plugin
 den Anschlag von der Firmware fern, bleibt es dunkel.
 
 ## Weg einer LED bis in die Seite
@@ -31,7 +29,7 @@ den Anschlag von der Firmware fern, bleibt es dunkel.
    Tabelle als Ereignis `leds`, wenn sie sich geändert hat; beim Ausschalten eine leere.
 4. **Hergeleitet** (`site/app/emulator.mjs`): Die Seite gibt das Ereignis an `showLeds(..., true)` weiter.
    Jede LED, die nicht in der Tabelle steht, wird dunkel.
-5. Die Zeichnung (`site/app/panel.mjs`) malt Tasten und Pads nur noch aus diesen Werten. Ein Druck
+5. Die Zeichnung (`site/app/panel.mjs`) malt Tasten und Pads nur aus diesen Werten. Ein Druck
    färbt nur den Rand eines Pads, wie schon bei den Tasten; das ist keine LED.
 
 ## Messung: Tabelle gleich gesendeter Nachricht
@@ -65,7 +63,7 @@ geändert: es ändert nicht, ob ein Pad leuchtet.
 
 `test/e2e/support/emulator-suite.mjs`, Test "buttons and pads show only the firmware's LEDs": Ein Druck
 auf ein Pad ohne LED-Nachricht lässt es dunkel, ein blaues Pad bleibt beim Druck blau, und WRITE folgt
-der Helligkeit 64 so, wie sie kommt. Mit der alten Zeichnung schlägt der Test fehl.
+der Helligkeit 64 so, wie sie kommt.
 
 **Gemessen** im Browser mit `npm start` und Hacktribe 2.02 im Emulator: Die Seite zeigt genau die LEDs der
 Tabelle aus dem Ereignis `leds` (Pad 1 blau, Tasten mit LED 12, 15, 27, 34 und 40/22). Pad 2 gedrückt:

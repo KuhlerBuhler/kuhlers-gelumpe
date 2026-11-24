@@ -1,6 +1,6 @@
 # Effekte und Modulationen vom Gerät lesen
 
-Stand 14. November 2026. **Gemessen** an der roten Electribe 2 Sampler mit Hacktribe und BLECHTRIBE samt Kartenlader,
+Stand 14. November 2026. **Gemessen** an der roten Electribe 2 Sampler mit [Hacktribe](../glossary.md#hacktribe) und BLECHTRIBE samt Kartenlader,
 über `ssh linux`, nur mit BLECH READ (0x61). Kein WRITE, kein EXEC. Code: `src/device-fx.mjs` (`readDeviceFx`),
 `src/presets.mjs` (`readPresetsLive`), Leser auf dem Linux-Rechner `~/gelumpe-probe/fx_read.py`. Tests:
 `test/device-fx.test.mjs`, `test/e2e/fx-device.e2e.mjs`.
@@ -51,7 +51,7 @@ RAM. Datei-Offset = RAM - 0xC0000000 + 0x100, wie überall.
 
 ## e2sFx.all von der Karte
 
-Kann die Firmware e2sFx.all über FILE READ lesen (Bits 30 und 29, siehe [e2sFx.all über USB lesen](2026-11-14-fx-datei-lesen.md)),
+Kann die Firmware e2sFx.all über FILE READ lesen (Bits 30 und 29),
 holt die App die Datei mit und legt ihre Einträge auf die Plätze, wie beim Reinziehen der Datei. Eine Firmware ohne Doom-Flag
 fragt sie gar nicht erst, eine ältere, die außerhalb des Bereichs antwortet, wird übersprungen.
 

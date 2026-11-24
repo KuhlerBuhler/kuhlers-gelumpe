@@ -1,6 +1,6 @@
 # Update über USB (18.10.)
 
-Wunsch vom 18.10.: Kabel ran, GELUMPE holt die Firmware-Datei von der Karte, patcht sie mit dem neuesten BLECH und legt
+Wunsch vom 18.10.: Kabel ran, GELUMPE holt die Firmware-Datei von der Karte, patcht sie mit dem neuesten [BLECH](../glossary.md#blech) und legt
 sie zurück, ohne die Karte umzustecken.
 
 ## Weg

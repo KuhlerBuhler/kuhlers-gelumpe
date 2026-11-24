@@ -1,7 +1,7 @@
 # Rückweg geübt: eigene Firmware hin, Original zurück
 
-Stand 2026-10-10 abends. Eigenes Gerät, Firmware über die SD-Karte und
-DATA UTILITY → SOFTWARE UPDATE, am Netzteil. Am Gerät bedient und
+Stand 2026-10-10 abends. Eigenes Gerät, Firmware (als [VSB](../glossary.md#vsb)-Datei) über die SD-Karte und
+[DATA UTILITY](../glossary.md#data-utility) → SOFTWARE UPDATE, am Netzteil. Am Gerät bedient und
 beobachtet; Karte am Rechner kopiert und geprüft, Gerät per USB nur
 gelesen. Das ist der zweite Schritt des Rückweg-Versuchs: den
 Rückweg einmal durchspielen.

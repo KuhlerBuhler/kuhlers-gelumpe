@@ -1,9 +1,9 @@
 # Sample-Sammlung: einen Slot dauerhaft speichern
 
-Stand: 27.10.2026. Fortsetzung der [Swap-Prüfung](2026-10-27-sample-swap-1-4.md).
+Stand: 27.10.2026. Fortsetzung des Sample-Swaps.
 Beleg: `measure:2026-10-27/sample-store`.
 
-Ziel ist das [Speichern jedes geänderten Slots](../plans/2026-10-27-sample-store.md)
+Ziel ist das Speichern jedes geänderten Slots
 ohne Gesamtexport. Die Emulatorversuche benutzen selbst erzeugte Samples
 und eigene Firmwaredateien. Der freigegebene Kartentest vom 28.10. ist
 getrennt weiter unten beschrieben.
@@ -223,7 +223,7 @@ dem Part-Record nach Partobjekt `+0x34`. Im Modell ändert sich dieser
 tatsächliche Wert erst beim Aktualisieren von 500 auf den noch fehlenden
 Slot 501. Ein alleiniger Haken bei `0xC0099FFC` erfasst nicht alle Wege:
 `0xC0098BF8` und `0xC0098C70` rufen die Kopierfunktion direkt auf.
-Der spätere [Part-Versuch](2026-10-28-sample-swap-stimmen.md) sichert
+Der spätere Part-Versuch sichert
 beide Eingänge und aktualisiert den Part erst nach vollständigem Nachladen.
 Die Versionsverwaltung beim dauerhaften Ersetzen bleibt offen.
 
@@ -385,23 +385,6 @@ der Zuordnung begrenzen sich jetzt auf 999 Einträge. Die insgesamt 32
 ARM-Tests bestehen; der Builder prüft den nativen Grenzwert vor dem Bau.
 Größe und Offsetfelder des 4096-Byte-Dateikopfs bleiben unverändert.
 
-## Am Gerät gemessen: installierter Stand
-
-Am 27.10. antwortet der rote Sampler über den Linux-Laptop auf Gerätesuche,
-BLECH INFO und CRC-geprüftes RAM-Lesen. Die Gerätesuche meldet Korg 2.02.
-Der Haken bei `0xC0036510` stimmt mit dem unveränderten Original überein;
-der vorgesehene Speicherbereich ab `0xC019A400` enthält weiterhin den
-Originalinhalt. Der Swap-Zustand beginnt mit vier uninitialisierten Wörtern.
-Dieser entwickelte Speicherpatch ist damit nicht auf dem Gerät installiert.
-Die BLECH-Produktversion wurde durch diese Protokollabfrage nicht bestimmt.
-Es wurden keine RAM-, DSP-, Karten- oder Flash-Schreibbefehle ausgeführt.
-
-Am 28.10. stimmt eine zusätzliche CRC-geprüfte 64-Byte-Leseprobe bei
-`0xC0170000` mit dem Code der eigenen Hacktribe-Referenz überein. Die
-eigene Stock-Referenz ist dort gelöscht. Damit ist der erwartete
-Hacktribe-Code nach dem gemeldeten Neustart bestätigt; die
-BLECH-Produktversion wird daraus weiterhin nicht abgeleitet.
-
 ## Am Gerät gemessen: eigener Kartentest am 28.10.
 
 Nach dem erneuten Start mit BLECH und Hacktribe stimmen die geprüften
@@ -456,55 +439,6 @@ vorhandenen Lücken. Er ist deshalb noch nicht der neue Slot-Schreibweg.
 Ebenso schützt die exklusive Sitzung eines USB-Clients nicht gegen einen
 anderen Schreiber in der Firmware. Import, Bearbeitung, Aufnahme, Swap
 und USB brauchen denselben geräteseitigen Besitzer des Dateizugriffs.
-
-## Offen
-
-- Nativen Importdienst an die Bedienung anbinden, Zielslot aus der
-  Kartenbelegung wählen und erst nach dem Kartenabschluss nachladen.
-- Abschlussstellen von SAMPLE EDIT, Löschen und echter Aufnahme kartieren
-  und an denselben Weg anschließen.
-- Alte USB-Schreibwege, Index-Cache und offene Handles gemeinsam koordinieren.
-- `EXPORT ALL SAMPLE` erst nach geprüftem Ersatz aller Speicherwege entfernen.
-- Große echte Dateien, volle Karte und Stromunterbrechungen am Gerät prüfen.
-
-Die bestandenen Swap-Prüfungen aus der vorigen Runde bleiben Belege für
-deren Stand, nicht für eine bereits eingebaute automatische Speicherung.
-
-## Vorbereiteter Gerätetest für den Schreibkern
-
-`tools/device/sample_store_probe.py` prüft den eigenen ARM-Schreibkern unabhängig
-vom installierten Swap-Patch. Ohne Schalter stellt es nur den Ablauf dar.
-`--preflight` mit der eigenen VSB liest Gerätekennung, Protokollfähigkeiten,
-Dateifunktionen und den aktuellen Zustand. Dabei werden keine RAM-, DSP-,
-Karten- oder Flash-Schreibbefehle gesendet.
-
-Der ausführende Modus verlangt `--execute`, `--card-write-confirmed`, eine eigene
-VSB sowie Bericht und ein neues Backup-Verzeichnis außerhalb des Repos. Der Test
-benutzt ausschließlich einen zufälligen Namen `BTxxxxxx.all` im Wurzelverzeichnis und
-dessen Journal. Eine vorhandene Datei oder ein Schließfehler bei der Vorprüfung
-wird verweigert. Danach werden zwei selbst erzeugte Einträge angelegt, einer
-ersetzt und einer im Index gelöscht. Nach jedem Schritt wird die vollständige
-Testdatei zurückgelesen. Am Ende wird nur die eigene Testdatei entfernt und der
-benutzte RAM wiederhergestellt und verglichen.
-
-Der eigene Code, Puffer und Quelle liegen oberhalb des Task-Stacks. Der übliche
-EXEC-Einstieg ist 1024 Byte groß. Für die weiter entfernten Dateifunktionen benutzt
-der Test eigene Sprungbrücken. Bei unbestätigter Ausführung oder einem Fehler der
-Kommunikation folgen keine weiteren Schreibversuche oder automatische Bereinigung.
-Vor und während des Tests müssen Hauptseite, STOP und ein freier MIDI-Port bestehen.
-
-Zehn Modellfälle prüfen Ablauf, Namenskollision, Schließfehler, Bereichsgrenzen,
-fehlende Bestätigung und Wiederherstellung. Derselbe Ablauf besteht zusätzlich mit
-den tatsächlichen Dateifunktionen beider roten Original-Builds im Emulator. Die
-aktive, erzeugte Sammlung bleibt dabei bytegleich. Das beweist noch keinen
-Stromausfall und keine Wiedergabe auf dem Gerät.
-
-Die erste lesende Vorprüfung am 27.10. hielt bei Bildschirm 3 ohne Fenster an,
-weil der Test die Hauptseite 1 verlangt. Nach dem Neustart am 28.10. bestanden
-Vorprüfung und freigegebener Kartentest, siehe den Abschnitt zum eigenen
-Kartentest oben. Die Testdatei und ihr Journal sind entfernt, der Arbeits-RAM
-ist wiederhergestellt und vollständig geprüft. Ein freier MIDI-Port bei der
-Vorprüfung verhindert nicht, dass später ein anderer Client dazukommt.
 
 ## Hergeleitet: USB-Aufträge und Dateibesitz
 

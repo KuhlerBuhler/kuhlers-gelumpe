@@ -1,9 +1,9 @@
 # Die Ansicht des nächsten Patterns: Pads und Info-Texte (25.10.)
 
 Wunsch: Ist ein Patternwechsel vorgemerkt (die untere Zeile sagt `VIEW:` oder `NEXT:`), sollen die Pads und die Info-Texte der Edit-Zeile
-(`OSC:`, `Pitch:` und so weiter) das nächste Pattern zeigen. Gebaut und im Emulator geprüft (Hacktribe, Korgs Original und blau). Am Gerät
-noch nicht geprüft. "Ansicht" ist kein Begriff der Firmware; gemeint ist der Zustand des Patternwechsels ([Idee 46](../ideen/46-patternwechsel-bestaetigung.md)),
-also solange `S_BROWSE` oder `S_ARMED` gilt (auch gestoppt mit ungespeicherten Änderungen, [Idee 57](../ideen/57-ungespeichert-warnen.md)).
+(`OSC:`, `Pitch:` und so weiter) das nächste Pattern zeigen. Gebaut und im Emulator geprüft ([Hacktribe](../glossary.md#hacktribe), Korgs Original und blau). Am Gerät
+noch nicht geprüft. "Ansicht" ist kein Begriff der Firmware; gemeint ist der Zustand des Patternwechsels,
+also solange `S_BROWSE` oder `S_ARMED` gilt (auch gestoppt mit ungespeicherten Änderungen).
 
 ## Wie die Firmware die Daten liest (gemessen, Hacktribe, Emulator)
 

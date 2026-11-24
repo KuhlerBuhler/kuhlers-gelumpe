@@ -1,6 +1,6 @@
 # Pad-Farben: Part und Auswahl in Rot, Blau oder Pink
 
-Stand 2026-10-17. Im Emulator (`tools/emu/menu_cases.py`, `pad_colour_cases`) mit BLECH auf Hacktribe (eigene `SYSTEM.VSB`) und offline
+Stand 2026-10-17. Im Emulator (`tools/emu/menu_cases.py`, `pad_colour_cases`) mit [BLECH](../glossary.md#blech) auf [Hacktribe](../glossary.md#hacktribe) (eigene `SYSTEM.VSB`) und offline
 mit Capstone. Am Gerät ist nichts geprüft. Markierungen: **gemessen**, **offline**, **hergeleitet**, **offen**.
 
 ## Was der Patch tut

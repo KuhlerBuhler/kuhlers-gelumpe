@@ -1,6 +1,6 @@
 # Startinitialisierung, Interrupt-/Loader-Stacks und Patternbank
 
-Stand: 8. Oktober 2026. **Gemessen offline** an den originalen ARM-Routinen
+**Gemessen offline** an den originalen [ARM](../glossary.md#arm)-Routinen
 im vorhandenen RAM-Dump, SHA256
 `c114f10457b1dabc3ad6f8694aa3af9be63c5429da627c6358490ce781e0f26a`.
 Keine Gerätebefehle. Intervalle sind halb offen.
@@ -64,7 +64,7 @@ Er richtet die folgenden bankierten Stackzeiger ein:
 | Supervisor (0x13) | `0xFFFF1200` |
 | System (0x1F) | `0xFFFF11C0` |
 
-Alle sechs Zuweisungen und sämtliche Füllbytes wurden in Unicorn geprüft.
+Alle sechs Zuweisungen und sämtliche Füllbytes wurden in [Unicorn](../glossary.md#unicorn) geprüft.
 Der Test überspringt die vorgeschaltete Peripherieinitialisierung und endet
 vor dem Loader-Hauptprogramm. **Schutzvorschlag:** Den vollständigen Bereich
 `[0xFFFF0000, 0xFFFF125C)` sperren, einschließlich des Zwischenwortes.

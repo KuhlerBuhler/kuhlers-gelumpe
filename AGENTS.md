@@ -54,7 +54,7 @@ node --test test/docs.test.mjs   # after a change to README*, AGENTS.md or docs/
 ```
 
 Every local test entry point first waits until the machine is quiet (`tools/load-gate.mjs`, CPUs below 80 % busy
-over a 2 s sample, not the load average) and gives up after 20 minutes; `GELUMPE_LOAD_GATE=off` skips it, see [docs/development.md](docs/development.md).
+over a 2 s sample and at least 10 % memory free, not the load average) and gives up after 20 minutes; `GELUMPE_LOAD_GATE=off` skips it, see [docs/development.md](docs/development.md).
 
 Run `npm test` and `npm run test:e2e` before you call something done. Never mark a fix as
 done without a failing test that now passes or a check in the browser or emulator. On a loaded
@@ -126,18 +126,24 @@ case modules your change touches; CI runs the rest (see below). The blue Electri
 
 ## Docs
 
-Where things live: [docs/README.md](docs/README.md) is the index. The knowledge itself stays in
-`docs/`, do not copy it into this file.
+Where things live: [docs/README.md](docs/README.md) is the index, [docs/glossary.md](docs/glossary.md) explains the
+terms. Both have English twins, [docs/README.en.md](docs/README.en.md) and [docs/glossary.en.md](docs/glossary.en.md). The knowledge itself stays in `docs/`, do not copy it into this file.
 
-The docs are written in the author's own voice, in German. README, `docs/plugins.en.md`,
-`docs/patcher.en.md` and `docs/original-zurueck.en.md` have English twins; change both.
+The docs are written in the author's own voice, in German. README, `docs/README.md`, `docs/glossary.md`, `docs/plugins.md`,
+`docs/patcher.md` and `docs/original-zurueck.md` have English twins (`*.en.md`); change both. `docs/plugins.fr.md` is a
+French twin of the plugins page that no test pins; keep it in line when you change the plugins page.
+Link a technical term to the glossary on its first use in a page (`[VSB](glossary.md#vsb)`; an English page links
+`glossary.en.md`), and add a term to both glossaries when a new page needs one. The anchor ids are the same in both
+languages, German headings carry an explicit `<a id="...">`, so keep the id when you rename a heading. The English
+index lists the `.en.md` twin where one exists, else the German page.
 They name no person other than in the sentence that explains the project name, and they carry no
 agent working vocabulary. No em or en dashes anywhere, no absolute personal paths, relative links only.
 `test/docs.test.mjs` fails on dead links, absolute user paths, those names and dashes, and on a
 `korg.*` call that `docs/plugins.md` names but `docs/plugins.en.md` does not.
 Mark facts as measured, derived or open, and keep measurement files at their paths, because
-`data/` and `test/` point at them. A new file in `docs/messungen/` gets a line in its README.
-Docs state what holds now; before and after belong in commits and release notes.
+`data/` and `test/` point at them. A new file in `docs/messungen/` gets a line in its README, under its topic.
+Docs state what holds now; before and after belong in commits and release notes. Ideas that are not built go to
+`docs/ideen.md`, not into the feature pages.
 
 ## Firmware patches
 

@@ -12,7 +12,7 @@ das ein Pad auf seine ursprünglichen Werte zurücksetzt. EXIT hat auf dem Haupt
 - **Pattern laden** ist `0xC004AB84(Pattern, Quelle, 1)` (CommandTask, gerufen von `0xC0079C04`): 0x4000 Byte von der Quelle
   ins Pattern im RAM (`[0xC033E6A4] + 4`), danach wendet die Firmware das Pattern an (Kopf-Setter, Parts, Effekte). Mit der
   eigenen Kopie als Quelle wendet sie das Pattern im RAM auf sich selbst an.
-- Regler ändern nur die Bytes im Pattern, der DSP bekommt dabei nichts (6 Regler, 0 Übertragungen); das Laden schickt die
+- Regler ändern nur die Bytes im Pattern, der [DSP](../glossary.md#dsp) bekommt dabei nichts (6 Regler, 0 Übertragungen); das Laden schickt die
   Effekte neu.
 - Pad-Modus beim LED-Manager `[0xC0345A1C] + 0xB58`: 0 PART MUTE, 2 PART ERASE, 3 TRIGGER, 4 SEQUENCER, 5 KEYBOARD, 6 CHORD,
   7 STEP JUMP, 9 PATTERN SET (gemessen nach dem Druck auf die Taste, 30.10.); `+0xB60` der gewählte Part.
@@ -112,7 +112,7 @@ von vor dem Drehen (PITCH je Stimme, Cutoff, Effekteinheit, gestoppt auch LEVEL 
 Fälle schlagen fehl (Cutoff und Effekteinheit bleiben gedreht). Am Gerät noch nicht gehört; dass PITCH am Gerät hängen blieb, im
 Emulator aber nicht, ist offen.
 
-## Ungespeichert anzeigen (19.10., Vorschlag 1)
+## Ungespeichert anzeigen (19.10.)
 
 Die WRITE-LED (`0x0B`) atmet, solange das Pattern im RAM von seinem Platz in der Bank abweicht: alle 8 Frames vergleicht BLECH
 beide Wort für Wort, die LED läuft in 32 Frames (1,3 s) von 1 bis 61 und zurück, nur ungerade Werte. Ein Wert der Firmware (gerade
@@ -147,7 +147,6 @@ Auf Korgs Original sind `0xC004AB84` und `0xC000985C` Byte für Byte gleich.
 
 ## Offen
 
-- Am Gerät nicht geprüft.
 - `0xC004AB84` läuft sonst in der CommandTask, hier im UiTask-Takt. Im Emulator ohne Fehler (auch beim Abspielen), eine
   Kollision mit einem gleichzeitigen Laden der CommandTask ist nicht ausgeschlossen.
 - "Speichern" heißt das Pattern. Die Globals speichert weiter WRITE im Global-Menü.

@@ -66,7 +66,7 @@ und löst sie aus. Der Haken merkt sich Note und Pad, wenn ein Pad runtergeht, s
 
 **Am Gerät inzwischen beantwortet (16.10., siehe oben):** die Pad-LEDs zeigen Zwischenstufen, wenn sie über den LED-Manager gesetzt werden. **Offen** bleibt, wie ein Wert wie 21 aussieht (die Rückmeldung nennt rosa). Der Emulator hat kein Bedienfeld, er sieht nur das Byte, das die Firmware
 schickt. Der Patch schreibt **rot 21 und blau 13 von 255** (8 und 5 Prozent), beides ungerade Zahlen unter dem kleinsten Wert der Firmware. Warum diese Werte: Blau wirkt bei gleichem Strom meist heller als Rot, also
-bekommt Blau weniger; die Zahlen sind eine Schätzung, kein Messwert. Ob das am Gerät rosa und schwach wirkt, ist das Erste, was der Gerätetest klärt ([Gerätetest](../geraetetests/live.md), Punkt 5.1).
+bekommt Blau weniger; die Zahlen sind eine Schätzung, kein Messwert. Ob das am Gerät rosa und schwach wirkt, ist das Erste, was der Gerätetest klärt (Gerätetest, Punkt 5.1).
 Zeigt das Bedienfeld nur an und aus, wären die Hinweise so hell wie das gedrückte Pad; dann ist die Abhilfe nur das Blau (Abstand zum Rot der Firmware) oder ein anderer Weg, und der Patch ist neu zu bauen:
 die Werte stehen als `HINT_RED` und `HINT_BLUE` in `tools/patch/note_assist.py`, nirgends sonst.
 

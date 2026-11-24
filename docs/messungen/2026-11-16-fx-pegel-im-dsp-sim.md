@@ -1,6 +1,6 @@
 # FX-Pegel im DSP-Sim (16.11.2026)
 
-Ersetzt die Hörtests aus 1.4.7 durch Messungen mit Korgs echtem DSP-Code im
+Ersetzt die Hörtests aus 1.4.7 durch Messungen mit Korgs echtem [DSP](../glossary.md#dsp)-Code im
 GNU-bfin-Sim (`tools/dsp/blackfin_worker.c`, Backend `tools/emu/blackfin_backend.py`).
 Fall: `tools/emu/fx_level_cases.py`, Rechenteil getestet in
 `tools/emu/test_fx_level_cases.py`.

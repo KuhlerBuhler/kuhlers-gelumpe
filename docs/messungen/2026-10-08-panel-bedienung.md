@@ -1,9 +1,9 @@
 # Bedienfeld: Nummern der Tasten, Regler, Pads und LEDs
 
-Stand 2026-10-08. Gemessen im Emulator (`tools/emu/machine.py`) mit der
+Gemessen im [Emulator](../glossary.md#emulator) (`tools/emu/machine.py`) mit der
 eigenen VSB und leerem Flash: nach 3 s Gerätezeit (Hauptbildschirm) je eine
 Panel-Nachricht schicken, dann Display und LED-Befehle der Firmware ansehen.
-Kein Gerät angeschlossen. Die Tabelle steht in `data/panel.mjs`.
+Die Tabelle steht in `data/panel.mjs`. Der Abschnitt "Am Gerät beobachtet" ist am Gerät gemessen.
 
 ## Nachrichten vom Panel an die CPU (5 Byte)
 
@@ -133,8 +133,7 @@ blau (kein Grün), echtes RGB nur die vier unteren Lichter.
 - Start: rund 1 s weißes Display, 4 s Startbild, kurzes Aufblitzen, dann
   Laden; dabei leuchtet kurz die Energiesparanzeige (Energiesparen auf
   Auto), danach Samples von der Karte oder ohne Karte gleich das Pattern.
-  Der Emulator braucht rund 1 s bis zum Pattern, weil er das Flash-Lesen
-  abkürzt und das DSP-Programm nicht hochlädt.
+ 
 
 ## UART-Sendezeit
 

@@ -1,21 +1,15 @@
 # Sample-Metadaten im RAM, 2026-10-07
 
-- **Gemessen:** Das neue Leseskript wurde vor Gerätezugriff gegen SimDevice,
-  Kanal 9, mit der eigenen SYSTEM.VSB und einer transienten Metadaten-Fixture
-  aus dem vorherigen Dump geprüft: 18 Anfragen, korrekte Dekodierung und
-  vollständige SHA-256-Übereinstimmung der Antworten, keine Simulationsfehler.
-  Die Fixture enthält kein Audio und prüft keine Wirkung von Parameteränderungen.
 - **Gemessen:** Am Gerät beantwortet: 18 reine RAM-Leseanfragen, zusammen
   6.984 Byte, für die nullbasierten Indizes 500, 503, 652, 654, 711 und 723.
-  Keine Schreib-, Execute- oder DSP-Portbefehle; kein Timeout.
-- **Gemessen:** Referenz ist das geprüfte SD-Backup von 03:08:27,
-  SHA-256 `38f8575c1f1032f038e80a7cd281cf9979366a86ee80f04d286ccb35d9cd4586`.
-  Die SD-Karte war bei dieser Prüfung nicht mehr am Mac eingehängt.
+  Keine Schreib-, [Execute](../glossary.md#execute)- oder DSP-Portbefehle; kein Timeout.
+- **Gemessen:** Referenz ist ein SD-Backup der Sample-Datei
+  [`e2sSample.all`](../glossary.md#e2ssampleall).
 
 ## Feldzuordnung
 
 Jede Zuordnung in der Tabelle ist **gemessen durch Bytevergleich** mit
-`esli` der SD-Datei. `i` ist der nullbasierte Sample-Index. Die Audio-Offsets
+`esli` (Sample-Eintrag der Datei). `i` ist der nullbasierte Sample-Index. Die Audio-Offsets
 sind keine bestätigten CPU-RAM-Adressen.
 
 | Tabelle und Eintragsadresse | Offset im Eintrag | Wert / SD-Entsprechung |
@@ -69,7 +63,7 @@ sind keine bestätigten CPU-RAM-Adressen.
 - **Vermutet:** Die Tabellen liefern die vom Sampler verwendeten Metadaten.
   Struktur und aktueller Inhalt sind lesend bestätigt; eine kausale Wirkung
   von Änderungen auf Wiedergabe oder Anzeige ist für diese Parameter noch
-  nicht geprüft. Der frühere Namensversuch bestätigt nur das Namensfeld.
+  nicht geprüft. Der Namensversuch ([Sample-Namen](2026-10-07-sample-name-ram.md)) bestätigt nur das Namensfeld.
 - **Vermutet:** Start/Loop/Ende beziehen sich intern auf Byte-Offsets. Einheiten
   und Umrechnung zur Geräteanzeige sind hier noch nicht unabhängig geprüft.
   Die Slice-Feldnamen stammen aus dem Dateiformat; ihre Wirkung im Gerät
@@ -77,13 +71,8 @@ sind keine bestätigten CPU-RAM-Adressen.
 
 Keine Firmware-, Pattern- oder Sample-Audiodaten sind in diesem Dokument enthalten.
 
-## Tune-Schreibtest, ausdrücklich freigegeben am 2026-10-07
+## Tune-Schreibtest am Gerät, 2026-10-07
 
-- **Gemessen:** Der begrenzte Test wurde zuvor mit SimDevice, Kanal 9,
-  eigener SYSTEM.VSB und transienter Fixture der zuletzt gelesenen
-  Metadateneinträge geprüft. Tune 0 → -12 → 0 ändert nur ein Byte;
-  doppelte Wiederherstellung wird vor einem Schreibheader abgewiesen,
-  ein falscher Header-ACK stoppt vor dem Datenpaket. Keine Simulationsfehler.
 - **Gemessen:** Bei Sample 653, nullbasierter Index 652, Blech, liegt Tune
   bei `0xC041C7ED`, Metadateneintrag `0xC041C7D8 + 21`. Originalwert 0
   wurde zusammen mit dem vollständigen 1.116-Byte-Eintrag und dem

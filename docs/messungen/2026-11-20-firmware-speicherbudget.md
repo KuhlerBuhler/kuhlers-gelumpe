@@ -1,6 +1,6 @@
 # Platz für weitere ARM- und DSP-Funktionen
 
-Stand 20. November 2026. **Offline neu gerechnet:** vollständige BLECH-Sätze auf develop `d4a401e87b4ebcd423f28b45d7e9850f5aaaaa4f`, Vergleich main `3b207cf8cfecd43af93e3657ff12b9867694ccb1`. Die Laufzeitpatches aller drei Builds wurden jeweils aus diesem Quellstand neu gebaut. Keine Originalfirmware gelesen, kein neuer Geräteversuch. Die DSP-Grenzen stammen aus den unten genannten früheren Messungen und dem aktuellen Patchcode.
+Stand 20. November 2026. **Offline neu gerechnet:** vollständige BLECH-Sätze auf develop `d4a401e87b4ebcd423f28b45d7e9850f5aaaaa4f`, Vergleich main `3b207cf8cfecd43af93e3657ff12b9867694ccb1`. Die Laufzeitpatches aller drei Builds wurden jeweils aus diesem Quellstand neu gebaut. Keine Originalfirmware gelesen, kein neuer Geräteversuch. Die [DSP](../glossary.md#dsp)-Grenzen stammen aus den unten genannten früheren Messungen und dem aktuellen Patchcode.
 
 ## Kurzfassung
 
@@ -66,7 +66,7 @@ Codeplatz und Arbeitsdaten sind getrennte Grenzen. Ein kurzer neuer Handler kann
 | Datei-/Store-Puffer | 32.752 Byte | Bereits zugeordnet |
 | Kleine Zustandsfläche `[0xC0188A00, 0xC0188F00)` | 1.280 Byte | Vollständig zugeordnet |
 
-Der native Heap ist separat. Dokumentiert sind 2.097.152 Byte Gesamtpool. Eine ältere Emulatormessung sah nach Start noch 1.927.488 Byte bis zur Obergrenze. Das ist keine aktuelle Freiliste nach beliebigem Betrieb: Fragmentierung, späteres Wachstum und weitere Verbraucher sind offen. Der Audio-Dienst hält nach erster Nutzung 103.424 Byte, der Dateidatendienst kann weitere 32.788 Byte halten. Siehe [Worker-Platz](2026-11-11-spettro-worker-platz.md) und [Dateidatendienst](../../tools/patch/script_data.s).
+Der native Heap ist separat. Dokumentiert sind 2.097.152 Byte Gesamtpool. Eine ältere Emulatormessung sah nach Start noch 1.927.488 Byte bis zur Obergrenze. Das ist keine aktuelle Freiliste nach beliebigem Betrieb: Fragmentierung, späteres Wachstum und weitere Verbraucher sind offen. Der Audio-Dienst hält nach erster Nutzung 103.424 Byte, der Dateidatendienst kann weitere 32.788 Byte halten. Siehe [Dateidatendienst](../../tools/patch/script_data.s).
 
 ## DSP: gespeicherter Strom und laufender Speicher
 

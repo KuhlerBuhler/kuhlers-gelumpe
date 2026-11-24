@@ -6,9 +6,9 @@ anlegen. Was der Editor tut und wie er prüft, steht in
 
 Voraussetzung ist Node.js 20 oder neuer. Kern, Unit-Tests und Server haben keine
 Abhängigkeiten. Die Browsertests brauchen Playwright mit dem installierten Chrome, der
-Emulator Python 3.10 oder neuer mit Unicorn. Die Desktop-App verwendet auf macOS und Linux
+[Emulator](glossary.md#emulator) Python 3.10 oder neuer mit Unicorn. Die Desktop-App verwendet auf macOS und Linux
 einen nativen MIDI-Dienst. Beim Start mit `npm start` ist Chrome oder Edge auf einem
-Desktopcomputer nötig (Web MIDI mit SysEx, Safari kann das nicht). Unter Windows bleibt
+Desktopcomputer nötig (Web MIDI mit [SysEx](glossary.md#sysex), Safari kann das nicht). Unter Windows bleibt
 die App vorerst bei Web MIDI.
 
 Agenten arbeiten nach [AGENTS.md](../AGENTS.md), dort stehen die harten Regeln des Repos.
@@ -23,13 +23,18 @@ npm run setup:emu    # einmalig: Python-Umgebung mit Unicorn für den Emulator
 npm run build:site   # dist/ für die App erzeugen
 npm run build:codemirror   # site/vendor/codemirror.mjs neu bauen, nur nach einer Änderung an tools/codemirror-entry.mjs
 npm run build:blech-patch   # BLECH-Patchdateien für ein Release bauen (siehe unten)
+npm run build:sidecar   # den Emulator-Dienst für die App einfrieren (siehe "Die App")
 npm run verify:patches -- VSB...   # die Kopien des Patchers einmal prüfen, ihre Prüfsummen nach data/patches/verified.json (siehe unten)
 
-npm test             # alle Tests, die ohne Hardware und ohne Korg-Daten laufen
+npm test             # alle Tests, die ohne Hardware und ohne Korg-Daten laufen (Einheitstests)
+npm run test:ci      # was die CI als Einheits- und Browserprüfung startet, siehe tools/test-runner.mjs
 npm run test:e2e     # die Seite in Chrome gegen das simulierte Gerät
 npm run test:emu     # Emulator-Tests, brauchen E2_VSB
 npm run test:local   # Werksprüfungen mit eigenen Dateien, brauchen E2_VSB und E2_PATTERNS
 npm run test:all     # Unit- und Browsertests nebeneinander, mit E2_VSB auch Emulator
+npm run app:dev      # die Desktop-App im Entwicklungsmodus (siehe "Die App")
+npm run app:build    # die Desktop-App bauen
+npm run release      # ein Release anlegen (siehe "Release")
 ```
 
 In VS Code startet F5 `npm start` und öffnet den Editor unter http://127.0.0.1:8737 in Chrome
@@ -43,7 +48,7 @@ http://localhost:8737/ und verbindet sich selbst mit dem Emulator auf 8740. Die
 beiden Ports behalten ihre Zahlen, sonst findet die Seite den Emulator nicht.
 Das Abbild setzt `GELUMPE_HOST=0.0.0.0`, weil ein veröffentlichter Port den
 Container an seiner eigenen Adresse erreicht und nie an 127.0.0.1 darin; ohne
-die Variable bleibt es beim bisherigen 127.0.0.1. Die Karte des Emulators liegt
+die Variable lauscht der Dienst nur auf 127.0.0.1. Die Karte des Emulators liegt
 im Ordner `SD` neben `docker-compose.yaml` (im Container `/SD`, die Dateien unter
 `SD/card/KORG/...`), der Flash im Volume `gelumpe`; ein neuer Container behält beide.
 Den Ordner vor dem ersten Start selbst anlegen (`mkdir SD`): legt ihn Docker an,
@@ -59,9 +64,7 @@ einschaltet.
 
 Ein Release legt dasselbe Abbild auch in GitHubs Paketregister ab, für linux/amd64
 und linux/arm64 (`.github/workflows/docker-image.yml`, von `release.yml`
-aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Seit
-dem Release 1.4.0 liegt es dort, unter beiden Architekturen; frühere Versionen
-gibt es im Paketregister nicht, das erste Abbild kam mit diesem Release. Den Namen
+aufgerufen): `ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z` und dazu `:latest`. Den Namen
 trägt `docker-compose.yaml` schon bei `image`, deshalb reichen
 `docker compose pull` und danach `docker compose up`, ohne dass du selbst baust.
 `docker compose up --build` baut auch dann aus diesem Ordner, wenn das Abbild
@@ -70,7 +73,7 @@ ersetzt es. Der Ordner `SD` bleibt in beiden Fällen nötig, denn die Karte lieg
 keinem Abbild.
 
 Eine bestimmte Version statt `:latest` nimmt `GELUMPE_IMAGE`, etwa
-`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:1.4.0 docker compose pull`. Die
+`GELUMPE_IMAGE=ghcr.io/kuhlerbuhler/kuhlers-gelumpe:X.Y.Z docker compose pull`. Die
 Variable gilt für `pull` und `up`; in einer `.env` neben `docker-compose.yaml`
 steht sie für beide. Von Hand (Actions, "Container image", mit einem Tag) lässt
 sich ein Abbild neu bauen; `:latest` wandert dabei nur mit, wenn "latest"
@@ -119,7 +122,7 @@ damit unberührte Bytes auffallen, dazu Backup-Datei und Pattern-Puffer.
 |---|---|---|
 | Einheit, Karte, Umrechnungen, Regeln, Patcher, Plugin-Compiler | gebaute Testdaten | `npm test` |
 | Oberfläche bis zum Senden | statische Seite mit Web-MIDI-Ersatz, Playwright | `npm run test:e2e` |
-| Emulator, Patches, virtuelle Karte | eigene Firmware (`E2_VSB`) | `npm run test:emu` |
+| Emulator, Patches, virtuelle Karte | eigene Firmware, eine [VSB](glossary.md#vsb) (`E2_VSB`) | `npm run test:emu` |
 | Werksprüfungen | eigene Dateien (`E2_VSB`, `E2_PATTERNS`) | `npm run test:local` |
 | am Gerät | Anleitungen in [geraetetests/](geraetetests/README.md) | von Hand |
 
@@ -134,8 +137,7 @@ für jeden CPU-Kern eine eigene Chrome-Instanz um denselben Rechner konkurriert.
 
 Jeder lokale Testlauf (`npm test`, `test:e2e`, `test:all`, `test:emu`, `test:local`, `verify:patches`, `check.py`, `menu_cases.py` und die übrigen `*_cases.py`) prüft zuerst die Auslastung (`tools/load-gate.mjs`) und startet nicht, solange die CPUs über eine Stichprobe von 2 s zu mindestens 80 % ausgelastet sind oder weniger als 10 % Speicher frei sind. Er meldet das in einer Zeile, prüft alle 15 s neu und bricht nach 20 Minuten mit Fehlercode ab. `GELUMPE_LOAD_GATE=off` überspringt die Prüfung, `GELUMPE_LOAD_MAX` (Anteil der CPU-Zeit, 0,8; ab 1 sperrt sie nie), `GELUMPE_LOAD_WAIT` (Sekunden) und `GELUMPE_LOAD_POLL` (Sekunden) stellen sie ein. In CI (`CI` gesetzt) entfällt sie, und verschachtelte Läufe warten nicht doppelt (`GELUMPE_LOAD_GATE_PASSED`). Direkt gestartetes `node --test` ist nicht abgesichert, dafür `node tools/load-gate.mjs node --test ...` voranstellen. Ebenso ungeschützt sind `cases()` eines Fallmoduls, aus Python aufgerufen (die Prüfung steht nur in seinem `main()`), und `python -m unittest tools/patch/test_*.py`: vorher die CPU-Auslastung ansehen oder `node tools/load-gate.mjs` voranstellen.
 
-Auf macOS zählt das Lastmittel auch wartende Threads. Gemessen: Lastmittel 16,7 auf 10 Kernen, während `top` 56 % freie CPU
-zeigte; die frühere Prüfung auf das Lastmittel hielt so mehrere Läufe ohne Grund an, darum misst sie die CPU-Zeit (`os.cpus()`). Für Zeitmessungen die freie CPU aus `top` ansehen (über etwa 70 %),
+Auf macOS zählt das Lastmittel auch wartende Threads und kann hoch sein, obwohl `top` viel freie CPU zeigt. Darum misst die Prüfung die CPU-Zeit (`os.cpus()`). Für Zeitmessungen die freie CPU aus `top` ansehen (über etwa 70 %),
 den Wert zum Lauf notieren und dann `GELUMPE_LOAD_GATE=off` setzen. Lange Läufe brauchen einen wachen Rechner: schläft der Mac
 (Deckel zu), laufen Zeitgrenzen über die Schlafzeit ab und der Lauf bricht ohne Fehler im Code ab (gemessen, Ruhezustand im
 `pmset -g log`). Deckel offen lassen oder `caffeinate -i` voranstellen.
@@ -222,113 +224,48 @@ für einen Test selbst anlegt, läuft mit `--ephemeral` und verschwindet dann eb
 
 ### Laufzeit der Tests
 
-Ein kompletter Lauf mit eigener Firmware (`test:local`, rund 420 Tests) dauerte früher
-20 bis 35 Minuten, ein kalter Lauf heute rund 6, ein warmer Lauf unter einer Minute. Das ist
-gemessen auf einem Rechner mit 10 Kernen, ohne Gerätezugriff. Die Maßnahmen:
+Ein kompletter Lauf mit eigener Firmware (`test:local`) dauert kalt einige Minuten, warm unter einer Minute. Das tragen diese Mechanismen:
 
-- **Boot-Snapshot.** Ein Boot der Firmware bis zum Hauptbild kostet rund 2 CPU-Sekunden und
-  kam in den Tests immer wieder vor. `Machine.snapshot` und `from_snapshot`
-  (`tools/emu/bootcache.py`) halten CPU-Kontext, nicht leere RAM-Seiten und Modellzustand.
-  Der Schlüssel besteht aus Firmware, Flash, gehaltenen Tasten, Gerätezeit und dem Quelltext
-  des Modells (`machine.py` und was es importiert, nicht die Fälle). Wiederherstellen kostet
-  0,06 s statt 2,1 s, das Verhalten ist bit-identisch (`test_snapshot.py` vergleicht CPU, die
-  128 MB RAM, Flash, Tabellen, Display und Karte mit einem durchgelaufenen Gerät).
-- **Snapshot mit Karte.** Fast jeder Fall baut ein Gerät, steckt eine Karte ein und lässt es
-  laufen (`Dev.run` in `splash_cases.py`). `bootcache.power_on` merkt sich diesen ersten Lauf
-  ab dem Einschalten samt Karte, Netzteil und allem, was der Fall vorher gesetzt hat, und
-  startet jeden gleichen Lauf danach aus ihm: 0,2 s statt 2,1 s. Ein Fall, der vorher einen
-  Haken setzt oder eine Methode umhängt, läuft frisch. Damit eine Karte bei jedem Lauf gleich
-  aussieht, steht die Uhr, mit der `fat32` Dateien und Volume-ID datiert, während eines Tasks
-  auf dem 1. Januar 2026 (`parallel.CARD_CLOCK`).
-- **Nebeneinander.** `tools/emu/parallel.py` verteilt unabhängige Boots auf Prozesse.
-  Standard: Kerne minus einer (mindestens 1), 2 bei einem Lastmittel über der Kernzahl, 1
-  bei über der doppelten Kernzahl. `GELUMPE_JOBS` überschreibt das, im eingefrorenen Dienst
-  läuft ein Prozess. Die Emulator-Tests starten ihre Python-Läufe über
-  `test/support/spawn.mjs`, ohne den Event-Loop zu blockieren. JSON-Eingaben werden darüber
-  asynchron geschrieben und der Eingabestrom danach geschlossen.
-- **Gemerkte Ergebnisse je Task.** `check.py` und `menu_cases.py cases` merken sich das
-  Ergebnis jedes Tasks (eine Gruppe von Fällen oder ein Boot) mit den Dateien, die er benutzt
-  hat (`tools/emu/taskcache.py`): den Quelltext jedes geladenen Moduls und jede geöffnete
-  Datei, auch `data/synth-map/*.json`. Ein späterer Lauf nimmt es nur bei gleicher Firmware,
-  gleichem Flash und gleicher Basis und solange jede dieser Dateien noch denselben Inhalt hat.
-  Nach einem Merge von `develop`, der nur `pswitch_cases.py` ändert, laufen nur die Fälle des
-  Pattern-Schalters neu. Eine geänderte Firmware ist eine andere Eingabe, dann läuft alles.
-  Jeder Task, der läuft, bekommt dafür einen eigenen Prozess, und die längsten starten zuerst
-  (Dauer vom letzten Lauf). **Das ändert, was ein grüner Lauf bedeutet:** für unveränderte
-  Eingaben und Dateien wird die Antwort des letzten echten Laufs wiederverwendet.
-  `mfx_cases.py` und `splash_cases.py` merken sich ihr Ergebnis wie bisher je Eingabedateien
-  und Quelltext aller `.py`-Dateien in `tools/emu` und `tools/patch`. Die Dateien liegen in
-  `~/.cache/gelumpe` (`GELUMPE_CACHE_DIR`), sie enthalten Firmware-RAM und nie im Repo.
-  **Alles frisch:** `GELUMPE_CACHE=off` schaltet Snapshots und gemerkte Ergebnisse ab.
-  `check.py` löscht höchstens einmal am Tag Dateien, die 7 Tage weder geschrieben noch gelesen
-  wurden (`GELUMPE_CACHE_DAYS`, 0 behält alles).
-- **Dienst ohne Echtzeit-Bremse** nur für Tests (`server.py --unthrottled`). Die Tests warten
-  in Gerätezeit statt in Wanduhrzeit (`settle(ms)` in `test/support/emu.mjs`).
-- **Browsertests** laufen als je drei dünne Dateien um dieselbe Suite nebeneinander.
+- **Boot-Snapshot.** Ein Boot der Firmware bis zum Hauptbild kostet rund 2 CPU-Sekunden. `Machine.snapshot` und `from_snapshot`
+  (`tools/emu/bootcache.py`) halten CPU-Kontext, nicht leere RAM-Seiten und Modellzustand und stellen ihn in 0,06 s wieder her,
+  bit-identisch (`test_snapshot.py`). Der Schlüssel besteht aus Firmware, Flash, gehaltenen Tasten, Gerätezeit und dem Quelltext
+  des Modells (`machine.py` und was es importiert, nicht die Fälle).
+- **Snapshot mit Karte.** `bootcache.power_on` merkt sich den ersten Lauf ab dem Einschalten samt Karte, Netzteil und allem,
+  was der Fall vorher gesetzt hat, und startet jeden gleichen Lauf daraus. Ein Fall, der vorher einen Haken setzt oder eine
+  Methode umhängt, läuft frisch. Damit eine Karte bei jedem Lauf gleich aussieht, steht die Uhr, mit der `fat32` Dateien und
+  Volume-ID datiert, während eines Tasks auf dem 1. Januar 2026 (`parallel.CARD_CLOCK`).
+- **Nebeneinander.** `tools/emu/parallel.py` verteilt unabhängige Boots auf Prozesse. Standard: Kerne minus einer (mindestens 1),
+  2 bei einem Lastmittel über der Kernzahl, 1 bei über der doppelten Kernzahl. `GELUMPE_JOBS` überschreibt das, im
+  eingefrorenen Dienst läuft ein Prozess. Die Emulator-Tests starten ihre Python-Läufe über `test/support/spawn.mjs`, ohne den
+  Event-Loop zu blockieren.
+- **Gemerkte Ergebnisse je Task.** `check.py` und `menu_cases.py cases` merken sich das Ergebnis jedes Tasks (eine Gruppe von
+  Fällen oder ein Boot) mit den Dateien, die er benutzt hat (`tools/emu/taskcache.py`): den Quelltext jedes geladenen Moduls und
+  jede geöffnete Datei, auch `data/synth-map/*.json`. Ein späterer Lauf nimmt es nur bei gleicher Firmware, gleichem Flash und
+  gleicher Basis und solange jede dieser Dateien noch denselben Inhalt hat. Eine geänderte Firmware ist eine andere Eingabe,
+  dann läuft alles. Die längsten Tasks starten zuerst (Dauer vom letzten Lauf). **Das ändert, was ein grüner Lauf bedeutet:** für
+  unveränderte Eingaben und Dateien wird die Antwort des letzten echten Laufs wiederverwendet. `mfx_cases.py` und
+  `splash_cases.py` merken sich ihr Ergebnis je Eingabedateien und Quelltext aller `.py`-Dateien in `tools/emu` und
+  `tools/patch`. Die Dateien liegen in `~/.cache/gelumpe` (`GELUMPE_CACHE_DIR`), enthalten Firmware-RAM und nie im Repo.
+  **Alles frisch:** `GELUMPE_CACHE=off` schaltet Snapshots und gemerkte Ergebnisse ab. `check.py` löscht höchstens einmal am Tag
+  Dateien, die 7 Tage weder geschrieben noch gelesen wurden (`GELUMPE_CACHE_DAYS`, 0 behält alles).
+- **Dienst ohne Echtzeit-Bremse** nur für Tests (`server.py --unthrottled`). Die Tests warten in Gerätezeit statt in
+  Wanduhrzeit (`settle(ms)` in `test/support/emu.mjs`).
+- **Browsertests und Rettungsfälle** laufen als je drei dünne Dateien um dieselbe Suite nebeneinander.
 
-Die normalen Testbefehle benutzen `tools/test-runner.mjs`. Es laufen höchstens zwei Testdateien
-gleichzeitig; Python-Prozesse und deren Worker teilen sich den verfügbaren Kernanteil. Ein
-ausdrücklich gesetztes `GELUMPE_JOBS=1` bleibt bei einem Prozess. Höhere Werte werden auf das
-Budget begrenzt. `test:all` teilt das Budget zwischen Unit- und Browserprüfungen und führt sie
-auf einem Rechner mit nur einem Kern nacheinander aus.
+Die normalen Testbefehle benutzen `tools/test-runner.mjs`. Es laufen höchstens zwei Testdateien gleichzeitig; Python-Prozesse und
+deren Worker teilen sich den verfügbaren Kernanteil. Ein ausdrücklich gesetztes `GELUMPE_JOBS=1` bleibt bei einem Prozess. Höhere
+Werte werden auf das Budget begrenzt. `test:all` teilt das Budget zwischen Unit- und Browserprüfungen und führt sie auf einem
+Rechner mit nur einem Kern nacheinander aus.
 
-Die 36 Rettungsfälle liegen ebenfalls in drei dünnen Testdateien um eine gemeinsame Suite.
-Zusammen mit den fünf bereits getrennten Kartenfällen bestanden alle 41 Fälle in der lokalen
-Auswahl nach rund 110 Sekunden. Die bisherige einzelne Rettungsdatei erreichte das Zeitlimit
-von 180 Sekunden; im abschließenden Volltest brauchten ihre drei Teile jeweils ungefähr 56,
-66 und 63 Sekunden. Das Zeitlimit und die Prüfungen wurden dafür nicht verändert. Das sind
-lokale Messungen bei laufenden weiteren Aufgaben, keine Messung der CI-Gesamtdauer.
-
-Für einen Rechner, auf dem schon andere Tests laufen, lässt sich die Zahl der Testdateien und
-Python-Prozesse begrenzen:
-
-```bash
-GELUMPE_JOBS=1 node --test --test-concurrency=2 --test-timeout=300000 "test/*.test.mjs"
-node --test --test-concurrency=2 --test-timeout=300000 "test/e2e/*.e2e.mjs"
-```
-
-`GELUMPE_JOBS` gilt auch für die Pythonmodule der Assemblerprüfung. Die beiden Befehle
-nacheinander ausführen, wenn der Rechner bereits ausgelastet ist. Sie wählen keine Tests ab.
-
-| Lauf (niedrige Last) | vorher | nachher |
-|---|---|---|
-| `npm run test:local` | 1329 s | 344 s kalt, 37 s warm |
-| `npm test` ohne Firmware | 56 s | 22 s |
-| `npm run test:e2e` | 142 s | 31 s |
-
-Der kalte Lauf bleibt bei etwa 6 Minuten. Flaschenhälse sind dann die Kette der
-Startbild-Fälle (30 Schritte) und die Startwege in `check.py` (Probe-Haken auf jedem
-Lesezugriff).
-
-Der volle Check einer BLECHTRIBE-Kopie (`check.py` ohne `--quick`, 553 Prüfungen) und die
-Menüfälle (`menu_cases.py cases`, 164 Fälle), gemessen am 28.10.2026 mit Hacktribe,
-`GELUMPE_JOBS=6`, auf einem Rechner mit 10 Kernen und Last von anderen Läufen (Lastmittel 8
-bis 24, die Zeiten schwanken entsprechend):
-
-| Lauf | vorher | nachher |
-|---|---|---|
-| `check.py`, erster Lauf ohne Cache | 1192 s | 792 s |
-| `check.py`, Firmware geändert, Laufzeiten vom letzten Lauf bekannt | 1192 s | 485 s |
-| `check.py`, nur `pswitch_cases.py` geändert | 1192 s | 158 s |
-| `check.py`, nichts geändert | gemerkt (nicht gemessen) | 3 s |
-| `menu_cases.py cases`, ohne Cache | 794 s | 368 s |
-| `menu_cases.py cases`, nichts geändert | 794 s (merkte sich nichts) | 0,2 s |
-| `check.py --quick` ohne Cache, Hacktribe / Korg rot / Korg blau | 32 / 187 / 162 s | 63 / 161 / 146 s |
-| `check.py --quick`, nichts geändert | wie ohne Cache | 5 / 3 / 2 s |
-
-Der erste `--quick`-Lauf legt die Snapshots erst an und startet jeden Task in einem eigenen
-Prozess, bei Hacktribe kostet das mehr als es spart. Ab dem zweiten Lauf zählt nur noch, was
-sich geändert hat.
-
-"Vorher" galt für `check.py` nach jeder Änderung an irgendeiner `.py`-Datei in `tools/`, also
-nach jedem Merge von `develop`. Die längste Gruppe ist dann `sysex_cases` mit den Dateien und
-Samples über die DIN-Leitung (rund 430 s, Gerätezeit bei 3,1 KB/s).
+Der volle Check einer BLECHTRIBE-Kopie (`check.py` ohne `--quick`) ist mit Abstand der längste Lauf. Die längste Gruppe darin
+ist `sysex_cases` mit den Dateien und Samples über die DIN-Leitung (Gerätezeit bei 3,1 KB/s).
 
 ## Emulator
 
 Der optionale ARM-Emulator ist ein eigenes Python-Werkzeug (`tools/emu/`, GPL-2.0, siehe
 [NOTICE](../NOTICE)). Installation, Dienst, Karte und Flash stehen in
-[emulator.md](emulator.md).
+[emulator.md](emulator.md). Warum er schnell genug läuft und wie der DSP-Worker beschleunigt wird:
+[Tempo des Emulators](emulator.md#tempo-des-emulators). Befunde zum DSP-Worker: [Blackfin](hintergrund/blackfin.md).
 
 Code in einem Haken verschiebt die Phase aller späteren Bilder. Ein zeitkritischer Fall kann deshalb auf nur einem Build
 rot werden. Erst den Build ohne die Änderung prüfen: ist der grün und reicht eine etwas längere Wartezeit, die Wartezeit
@@ -344,7 +281,7 @@ Notschalter stehen in [patcher.md](patcher.md). Von der Befehlszeile:
 node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB
 ```
 
-Der eigene Assembler `tools/patch/arm.py` kennt bei Speicherzugriffen nur `ldr`, `ldrb`, `str` und `strb`, kein
+Der eigene Assembler `tools/patch/arm.py` (der [Patcher](glossary.md#patcher) baut damit die Patches) kennt bei Speicherzugriffen nur `ldr`, `ldrb`, `str` und `strb`, kein
 `ldrh`/`strh`: Zustandsfelder der Laufzeit daher als Wort oder Byte anlegen.
 
 ## Werkzeuge nach Ordner
@@ -469,18 +406,10 @@ und ein x86_64-Python 3.10+ (zum Beispiel `uv python install cpython-3.12-macos-
 `uv python find cpython-3.12-macos-x86_64`). Das Sidecar wird mit diesem Python in einer eigenen
 venv (`tools/emu/.venv-x64`) eingefroren und unter Rosetta ausgeführt.
 
-**Windows in einer VM auf Apple Silicon** (nicht getestet): die VM ist ARM, die App soll x64
-werden und läuft dort emuliert. Alles x64 installieren: Node, Python (python.org "Windows installer
-(64-bit)"), Visual Studio Build Tools mit "Desktop development with C++" und den x64-Tools, Rust mit
-`rustup default stable-x86_64-pc-windows-msvc`. WebView2 ist in Windows 11 dabei, NSIS lädt Tauri
-selbst. Die `-setup.exe` enthält den Offline-Installer von WebView2 (`webviewInstallMode` in
-`src-tauri/tauri.conf.json`, etwa 130 MB mehr): ohne ihn blieb das Fenster unter Windows 10 ohne
-WebView2 weiß, wenn das Nachladen beim Installieren scheiterte. Bleibt der Rust-Host ARM, `--target x86_64-pc-windows-msvc` anhängen, die Datei liegt dann
-unter `target/x86_64-pc-windows-msvc/release/bundle/nsis/`.
-
 Die App prüft beim Start und alle paar Stunden das neueste Release und zeigt oben "Neue Version
-verfügbar", ein Klick öffnet die Release-Seite. Solange das Repo nicht öffentlich ist, bleibt der
-Knopf weg. Ein Selbst-Update bräuchte den Tauri-Updater mit eigenem Signaturschlüssel.
+verfügbar". Ein Klick lädt die passende Datei in den Downloads-Ordner und startet die Installation
+(`src-tauri/src/update.rs`); scheitert das, öffnet die Seite die Release-Seite. Die App ersetzt sich nicht selbst im
+Hintergrund, das bräuchte den Tauri-Updater mit eigenem Signaturschlüssel.
 
 ### Android (Entwurf)
 
@@ -538,12 +467,8 @@ ein Test schlägt fehl, wenn es fehlt.
 | `data/patches/verified.json` | der Workflow "Verify patches" committet sie | ja |
 | Neuigkeiten nach dem Update (`data/news.mjs`, Schlüssel `news.vXYZ.*` in allen Sprachen) | von Hand, nur bei Versionen mit Neuem für Nutzer | nein |
 | Funktionslisten in `README.md` und `README.en.md` (Plugins, Fallstricke, Rettung) | von Hand | nein |
-| [Fahrplan](fahrplan.md): die Version unter "Erschienen" eintragen, den Rest nachziehen | von Hand | nein |
+| [Fahrplan](fahrplan.md): zuletzt erschienene Version und "In Arbeit" nachziehen | von Hand | nein |
 | Plugin-API-Version und neue Funktionen in [plugins.md](plugins.md) und `plugins.en.md` | mit dem Feature-PR | nein |
-
-`tools/known-releases.mjs` bricht derzeit schon bei `v1.3.3` ab: Haken 2 des Notenassistenten (`0xC008870C`) gehört
-nicht mehr zur Kette `pad-note` in `data/hooks.mjs` (gemessen 20.11.). Das Skript fängt immer mit einer leeren Datei an,
-alte Tags lassen sich also nicht einfach weglassen.
 
 **Format der Notizen** (`release-notes/X.Y.Z.md`): eine Datei, erst Deutsch, dann eine Zeile `## English` und darunter
 dieselben Notizen auf Englisch. Die Datei enthält nur die Notizen, keinen Download-Abschnitt und keine "Ohne App
@@ -647,10 +572,7 @@ Label wieder abnehmen hält den Merge an. Drafts und PRs aus Forks werden nicht 
 Watcher-Skripte noch eine Session, die auf die CI wartet: `gh pr create ... --label automerge` reicht.
 
 Die Entscheidung liest den Code von `develop`, nicht vom PR: dort liegt nur gemergter Code, und es ist der Stand,
-in den die PRs gemergt werden. Vorher las sie `main`; dort fehlte `tools/automerge.mjs` bis zum nächsten Release, und
-jeder Lauf brach mit "Cannot find module" ab. Die Auslöser `workflow_run` und `check_run` nehmen die Workflow-Datei
-aber vom Standardbranch `main`. Solange dort die alte Datei liegt (bis 1.4.5), entscheidet nur `pull_request` (neuer
-Push, neues Label); der kommt meist, bevor die Prüfungen fertig sind, und der PR bleibt dann offen.
+in den die PRs gemergt werden. Die Auslöser `workflow_run` und `check_run` nehmen die Workflow-Datei vom Standardbranch `main`, `pull_request` die vom PR. Läuft auf `main` eine ältere Fassung der Datei, entscheidet nur `pull_request` (neuer Push, neues Label); der kommt meist, bevor die Prüfungen fertig sind, und der PR bleibt dann offen.
 
 **Gemergte Branches verschwinden** (Workflow "Delete merged branch", `.github/workflows/branch-autodelete.yml`): nach
 dem Merge eines PRs aus diesem Repo löscht der Workflow dessen Branch. Nie gelöscht werden `main`, `develop`,
@@ -789,8 +711,6 @@ beziehungsweise desselben Push-Branches. PR- und Push-Ereignisse haben getrennte
 Andere PRs, manuell gestartete Prüfungen und manuell wiederholte Läufe bleiben unabhängig.
 Der aufrufende Workflow steuert den Abbruch des gesamten Laufs; die gemeinsamen
 Firmwarejobs haben keine zusätzlichen Abbruchgruppen.
-Die Regel greift ab der Workflowfassung, die sie enthält; bereits vorher gestartete Läufe
-werden dadurch nicht nachträglich beendet.
 Pro Rechenjob gelten vier Python-Worker. Die besondere Startprüfung läuft daneben auf drei
 eigenen Jobs für Hacktribe, rot und blau. Die Editor-Effektsammlung bekommt zwei weitere Jobs
 für Hacktribe und rot, wenn sie zur gewählten Fallauswahl gehört. So warten diese Prüfungen
@@ -853,15 +773,6 @@ tools/emu/.venv/bin/python tools/emu/shard_weights.py --source "$QUELLSTAND" \
 Das Werkzeug ignoriert Cachetreffer, verwendet den Median je Modul, Funktion und Argumenten
 und schreibt die Einträge in fester Reihenfolge. Eine Profiländerung gehört wie eine Änderung
 der Verteilung in die Prüfung. Sie ändert keine Testauswahl und keine bestehenden Task-Ergebnisse.
-
-Gemessen am 12. und 13. November 2026 auf einem festen Quellstand: Drei kalte vollständige
-Firmwarepipelines mit acht parallelen Teilen dauerten 25:49, 27:58 und 26:49 Minuten.
-Ein [kalter Pilotlauf mit 16 parallelen Teilen](https://github.com/KuhlerBuhler/kuhlers-gelumpe/actions/runs/43392968102)
-bestand in 15:45 Minuten, mit denselben 4276 Prüfungen, Eingaben und Ausgaben und ohne
-Ergebniscachetreffer. Diese Firmwarepipeline umfasst alle vier Varianten, die fünf Zusatzjobs
-und den strengen Abschluss. Die allgemeine Unit- und Browserpipeline läuft getrennt.
-Die Werte beschreiben diesen festen Prüfstand mit einem einzelnen Pilotlauf. Ein Laufzeitlimit
-für spätere Änderungen oder mehrere gleichzeitig offene PRs lässt sich daraus nicht ableiten.
 
 ## Keine öffentliche Seite
 

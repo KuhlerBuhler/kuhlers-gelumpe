@@ -1,6 +1,6 @@
 # Karte steckt, aber "No Card.": die Init-Sperre in Korgs SD-Treiber (14.11.)
 
-Stand 14.11.2026. Gerät: rote Electribe mit Hacktribe 2.02 + BLECH (Firmware ffc395bd), nur READ über BLECH SysEx. Emulator: Hacktribe 2.02,
+Stand 14.11.2026. Gerät: rote Electribe mit [Hacktribe](../glossary.md#hacktribe) 2.02 + BLECH (Firmware ffc395bd), nur READ über BLECH [SysEx](../glossary.md#sysex). [Emulator](../glossary.md#emulator): Hacktribe 2.02,
 Korgs Original 2.02 rot und blau. Marker: **gemessen**, **offline gelesen** (Disassembly), **hergeleitet**, **offen**.
 
 ## Befund

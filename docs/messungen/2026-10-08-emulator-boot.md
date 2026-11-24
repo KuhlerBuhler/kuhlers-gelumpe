@@ -1,6 +1,6 @@
 # Firmware im Emulator booten
 
-Stand: 8. Oktober 2026. Sampler 2.02 mit Hacktribe, eigene `SYSTEM.VSB`,
+Stand: 8. Oktober 2026. Sampler 2.02 mit [Hacktribe](../glossary.md#hacktribe), eigene [`SYSTEM.VSB`](../glossary.md#vsb),
 eigene Flash-Dumps (0 bis 16 MiB) als Flash-Inhalt. Werkzeug:
 `tools/emu/machine.py` (Unicorn 2.1.4, ARM926). **Offline** heißt: im
 Emulator am Originalcode beobachtet. **Modellannahme** heißt: von uns

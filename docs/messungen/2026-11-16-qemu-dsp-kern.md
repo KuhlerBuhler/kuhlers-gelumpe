@@ -1,6 +1,5 @@
 # QEMU als DSP-Kern: Hybrid-Worker hinter BFIN9
 
-Fortsetzung von [QEMU-Port gegen GNU-Simulator](2026-11-16-qemu-bfin-vergleich.md).
 Alles lief im Simulator auf dem Mac. Kein Gerät wurde angesprochen.
 
 Marker: **gemessen** (Befehl lief, Zahl abgelesen), **gelesen** (Quelltext),
@@ -324,7 +323,8 @@ ARM-Emulator, Last 6,7 bis 8 (**gemessen**):
 
 Im Fallauf mit ARM-Emulator braucht QEMU für 3 s Modellzeit 12 bis 21 s
 bei Last 2 bis 4 (Abschnitt Fälle), also 4 bis 7x Echtzeit; dort läuft der DSP
-oft im Leerlauf, den GNU in einem Schritt überspringt (**hergeleitet**).
+nie in `IDLE`: Korg lässt den Leerlauf als Dauerschleife laufen
+([Blackfin](../hintergrund/blackfin.md#die-beiden-simulatoren), **gemessen**).
 Gegenüber den DSP-Kernen allein (7,7 bis 9,7x, Abschnitt 6) gewinnt QEMU
 hier nur 2,1x: 2,1 Mio. Anfragen kosten je etwa 0,17 ms, und jede läuft
 durch den GNU-Simulator (Ereignisse, Geräte, Protokoll), siehe Abschnitt 4

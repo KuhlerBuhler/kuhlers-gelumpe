@@ -1,6 +1,8 @@
 # Blackfin: HOSTDP-FIFO und DMA1
 
-Fortsetzung von [SPORT0 und dem nativen Audiotakt](2026-11-14-blackfin-sport0.md).
+Aufbauend auf [SPORT0 und dem nativen Audiotakt](2026-11-14-blackfin-sport0.md). Alle Läufe fanden im [Emulator](../glossary.md#emulator)
+und im Blackfin-Simulator statt, kein Gerät wurde angesprochen. Der Host-Port ist die Verbindung, über die der ARM den
+[DSP](../glossary.md#dsp) lädt und liest ([Host-Port](../glossary.md#host-port)).
 
 ## Hergeleitet
 
@@ -23,13 +25,13 @@ nach dem letzten abgeholten FIFO-Wort anstehen. `0x2C` ist der Steuerbefehl
 `DMA FINISH`. Die im Handbuch ausdrücklich ignorierten Steuerbefehle
 ab `0x3C` bleiben wirkungslos.
 
-## Gemessen an ARM-Code und bisherigem Modell
+## Gemessen an ARM-Code und Kompatibilitätsmodell
 
 Die rote Originalfirmware 2.02 liest für ihre Bereitabfrage das Bit eins
 bei GPIO-Basis `0x01E26000` plus `0x98`. Das entspricht GPIO 6.1.
 Die Abfrage bei `0xC001716C`, aufgerufen über `0xC00145F0`, invertiert
-dieses Bit. Der bisherige ARM-Emulator schaltet es bei jeder Abfrage um.
-Sein fester Host-Status `0x85` und dieses Umschalten sind Modellannahmen.
+dieses Bit. Der ARM-Emulator schaltet es bei jeder Abfrage um.
+Sein fester Host-Status `0x85` und dieses Umschalten sind Modellannahmen der Kompatibilitätsauswahl.
 
 Ein Mitschnitt der originalen ARM-Anweisungen über eine Modellsekunde
 mit erzeugtem leerem Flash erfasst 585 vollständige Deskriptoren:
@@ -44,23 +46,19 @@ mit erzeugtem leerem Flash erfasst 585 vollständige Deskriptoren:
 | X-Schrittweite | immer zwei |
 | Y-Anzahl und Y-Schrittweite | immer null |
 
-Dieser Mitschnitt benutzt noch den bisherigen DSP-Ersatz. Er belegt die
+Dieser Mitschnitt benutzt den DSP-Ersatz des Emulators. Er belegt die
 vom ARM ausgegebenen Rahmen, keine tatsächlich ausgeführten DSP-Transfers.
 Die Arbeitskopie und alle Rohspuren liegen außerhalb des Repositorys.
 
 ## Gemessen mit erzeugten Gegenproben
 
-Der neue Buszugang erreicht das HOSTDP-Hardwaregerät im GNU-Kern.
+Der Buszugang erreicht das HOSTDP-Hardwaregerät im GNU-Kern.
 Steuerwörter und Datenzugriffe haben getrennte Eingänge. Der Port hält
 einen begrenzten FIFO und übergibt den vollständigen Auftrag an DMA1.
 Der DMA-Kanal führt den Speichertransport aus. Der Port kopiert seine
 Nutzdaten nicht direkt in den Ziel-RAM.
 
-104 gezielte Modulprüfungen bestehen. Die ersten 16 FIFO-Gegenproben
-schlagen vor dem Busanschluss fehl. Weitere Gegenproben zeigen vor ihrer
-Korrektur veraltete Kanalbesitzer, unerlaubte Moduswechsel und das Verlieren
-eines wartenden Deskriptors.
-
+104 gezielte Modulprüfungen bestehen. 
 Geprüft werden insbesondere:
 
 - Vor Wort sieben beginnt kein DMA; vor seinem Lauf ändern FIFO-Schreibwörter keinen Ziel-RAM.
@@ -113,19 +111,7 @@ tools/emu/.venv/bin/python tools/dsp/blackfin_probe.py \
 
 Dabei werden 32 Bytes der eigenen DSP-Emulatorsitzung als Prüfbereich
 überschrieben. Ein fehlender nativer Abschluss oder falsche Daten sind
-ein Fehler. Der Worker verwendet die Versionskennung `BFIN6`.
-
-## Abschließende Prüfungen
-
-`npm test` besteht mit 1615 bestandenen und 166 ausgelassenen Prüfungen,
-ohne Fehler. `npm run test:e2e` besteht mit 353 bestandenen und einer
-ausgelassenen Prüfung, ebenfalls ohne Fehler. Die 104 gezielten Modulprüfungen
-wurden zusätzlich mit dem neu gebauten Worker ausgeführt.
-
-Beide vollständigen Läufe liefen nacheinander. Wegen der hohen Rechnerlast
-benutzte der Unitlauf die dokumentierte serielle Ausführung mit
-`GELUMPE_LOAD_GATE=off GELUMPE_JOBS=1 npm test -- --test-concurrency=1`.
-Die Testauswahl blieb vollständig.
+ein Fehler.
 
 ## Kompatibilitätsauswahl
 
@@ -135,14 +121,11 @@ bisherigen direkten Speichertransport und den angenommenen Status `0x85`.
 Die Auswahl `fifo` verwendet ausschließlich den neuen Buszugang. Ein
 Fehler führt zum Abbruch, nicht zum Wechsel in die Kompatibilitätsauswahl.
 
-Ohne gemeinsame Modellzeit ist `fifo` ein eigenständiger DSP-Prüfpfad.
-Im hier geprüften FIFO-Zwischenstand verweigert `Machine` seinen ARM-Anschluss ausdrücklich. Damit
-können die alte GPIO-Annahme und der neue Datenpfad nicht versehentlich
-als vollständige native Kopplung gelten.
+Ohne gemeinsame Modellzeit ist `fifo` ein eigenständiger DSP-Prüfpfad. Die Kopplung an den ARM beschreibt
+[gemeinsame ARM-/DSP-Modellzeit](2026-11-14-blackfin-modellzeit.md).
 
 ## Offen
 
-- Gemeinsame ARM-/DSP-Modellzeit, unterbrochenes `IDLE` und die tatsächliche GPIO-/FRDY-Kopplung folgen gesondert.
 - Die Kompatibilitätsvorgabe bleibt erhalten, bis gekoppelte Fälle auf Hacktribe, roter und blauer Originalfirmware bestehen.
 - Unterstützt sind zunächst 16 Bit, Little Endian, lineare A9/AB-Aufträge und Vielfache von 16 Wörtern bei Schrittweite zwei.
 - Aktives lesendes `DMA FINISH`, Burst-Timing, aktiviertes Bus-Timeout und andere Datenformate werden ausdrücklich abgewiesen.

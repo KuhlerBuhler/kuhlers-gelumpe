@@ -2,7 +2,7 @@
 
 - **Gemessen am Gerät:** 8.192 Blöcke à 0x4000 Byte, insgesamt 134.217.728
   Byte, von 0xC0000000 bis einschließlich 0xC7FFFFFF. Alle beantwortet,
-  ausschließlich RAM-Lesen. Vorher SimDevice-Kanal-9-Prüfung des Lesers.
+  ausschließlich RAM-Lesen per [SysEx](../glossary.md#sysex) von [Hacktribe](../glossary.md#hacktribe).
 - **Gemessen:** Zeitlich zusammengesetzt aus 89,28125 MiB und späteren
   38,71875 MiB. Kein atomarer Zustand. SHA256:
   `c114f10457b1dabc3ad6f8694aa3af9be63c5429da627c6358490ce781e0f26a`.
@@ -21,7 +21,7 @@
   keine geprüften Sampletreffer. Die vom blauen Synth bekannte Zuordnung
   darf nicht auf den Sampler übertragen werden.
 - **Vermutet/offen:** Laufende Sampledaten sind im geprüften CPU-Dump nicht
-  lokalisiert. Der [DSP-Pfad](2026-10-08-dsp-audiopfade.md) beschreibt einen
+  lokalisiert. Der [DSP](../glossary.md#dsp)-[Pfad](2026-10-08-dsp-audiopfade.md) beschreibt einen
   anderen Adressraum und einen CPU-Arbeitspuffer, keine direkte PCM-Basis.
 
 Rohdumps und Referenz-Sampledateien bleiben außerhalb des Repositories.

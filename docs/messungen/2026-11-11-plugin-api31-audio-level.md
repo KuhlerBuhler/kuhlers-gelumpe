@@ -1,6 +1,6 @@
 # Plugin API 31: Ausgangspegel wie die Pegelanzeige
 
-Stand 11. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+Stand 11. November 2026. **Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
 mit dem BLECH-Satz (`data/patches/blech.json`, für blau `blech-synth.json`). Fälle: `tools/emu/plugin_api31_cases.py` (läuft
 als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.** Teil 6.2 des Plans; 6.1, 6.3 und 6.4 (Spettro, Capture, Spektrum)
 warten auf die Entscheidung des Besitzers.

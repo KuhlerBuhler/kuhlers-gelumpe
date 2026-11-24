@@ -1,6 +1,6 @@
 # Plugin API 37: Energiesparmodus und IDLE SAVE lesen, das Ereignis idle, die Schalter in Byte 7
 
-Stand 15. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
+Stand 15. November 2026. **Gemessen** im [Emulator](../glossary.md#emulator) mit [Hacktribe](../glossary.md#hacktribe) 2.02 (eigene Datei), Korgs Original 2.02 rot und blau, jeweils
 mit dem BLECH-Satz (`data/patches/blech.json`, für blau `blech-synth.json`). Fälle: `tools/emu/plugin_api37_cases.py` (läuft
 als Gruppe von `remote_cases`). **Am Gerät nicht geprüft.**
 

@@ -1,6 +1,6 @@
 # Startbild-Editor auf der blauen, im Emulator
 
-Stand 13.11.2026 auf `develop` (`65b94ded`), nur Emulator (Korgs Original 2.02 blau), am Gerät nichts
+Stand 13.11.2026 auf `develop` (`65b94ded`), nur [Emulator](../glossary.md#emulator) (Korgs Original 2.02 blau), am Gerät nichts
 geprüft. Ziel für 1.5: SPLASH IMPORT, SPLASH DRAW und SPLASH RESET im BLECH-Menü auch auf der blauen,
 das Bild im Flash, damit es wie auf der roten ab dem ersten Bild beim Start steht.
 

@@ -1,7 +1,7 @@
 # Speicherbereiche und Schutzgrenzen
 
-Stand: 15. Oktober 2026. Electribe 2 Sampler, Firmware 2.02 mit dem untersuchten
-Hacktribe-Build. Adressen sind versionsgebunden. Dies ist eine Karte der
+Electribe 2 Sampler, Firmware 2.02 mit dem untersuchten
+[Hacktribe](glossary.md#hacktribe)-Build. Adressen sind versionsgebunden. Dies ist eine Karte der
 bekannten Bereiche, keine vollständige Zuordnung jedes Speicherbytes.
 
 **Gemessen am Gerät** bedeutet gelesen, zurückgelesen oder dort beobachtet.
@@ -19,9 +19,9 @@ Die Dokumentation enthält Ergebnisse, keine Firmware-, Pattern- oder Audiodaten
 |---|---|---|
 | CPU-RAM | z. B. `0xC0000000` | **Gemessen am Gerät:** Fenster `[0xC0000000, 0xC8000000)` vollständig lesbar; keine Bestätigung von 128 MiB physischem RAM. [RAM-Messung](messungen/2026-10-07-cpu-ram-fenster.md) |
 | Flash | Offsets ab `0x000000`, Befehl `0x55` | **Gemessen am Gerät:** Dumps decken `[0, 0x1000000)` ab, zu verschiedenen Zeitpunkten. Eine Anfrage ab `0x1000000` ließ das Gerät hängen. Kein Beleg für die physische Flashgröße. [Flash-Messung](messungen/2026-10-07-werks-sample-flash.md) |
-| Logischer DSP-Audiospeicher | Byteoffset aus Metadaten | **Gemessen offline:** ARM-Routinen geben den Offset über Ports an den DSP. Kein direkt mit `read_cpu_ram` lesbarer CPU-Zeiger. [DSP-Pfad](messungen/2026-10-08-dsp-audiopfade.md) |
+| Logischer [DSP](glossary.md#dsp)-Audiospeicher | Byteoffset aus Metadaten | **Gemessen offline:** ARM-Routinen geben den Offset über Ports an den DSP. Kein direkt mit `read_cpu_ram` lesbarer CPU-Zeiger. [DSP-Pfad](messungen/2026-10-08-dsp-audiopfade.md) |
 
-**Gemessen am Dateiformat:** Für das hier verwendete VSB-Abbild gilt
+**Gemessen am Dateiformat:** Für das hier verwendete [VSB](glossary.md#vsb)-Abbild gilt
 `Dateioffset = CPU-Adresse - 0xC0000000 + 0x100`. Das gilt für dessen
 2-MiB-Nutzlast, nicht für beliebige RAM-Adressen, Flash-Dumps oder DSP-Offsets.
 
@@ -37,12 +37,12 @@ zu einem Protokoll mit Sperren und Handshakes.
 | VSB-Zuordnung `[0xC0000000, 0xC0200000)` | **Gemessen am Abbild:** 2 MiB gemischter Programmcode und statischer Daten hinter 0x100 Byte Dateikopf | Keine pauschale Schreibfreigabe für das Abbild |
 | `FF`-Block im Abbild `[0xC01A2100, 0xC01FFFF0)` | **Gemessen am Gerät:** im RAM-Dump vollständig `0xFF`, 375 KiB am Stück ([Plugin-Laufzeit](hintergrund/skript-laufzeit.md)). Der Code des MFX-2-Patches ab `0xC01A5000` läuft dort am Gerät ([MFX 2 am Gerät](messungen/2026-10-13-mfx-umschalter-geraet.md)) | Keine Freigabe für Schreibzugriffe des Editors (`allowedRegions()`); Patches des Patchers legen dort ihren Code ab ([Patcher](patcher.md)) |
 | Analysefenster `[0xC0000000, 0xC00A3290)` | **Gemessen offline:** Kernel-/ARM-Routinen untersucht, darunter Dateiverarbeitung und DSP-Zugriff; keine lückenlose Trennung von Code, Literalen und Daten | Code/Literale grundsätzlich schützen; Grenze ist eine Analysegrenze, keine bewiesene letzte Codeadresse |
-| Sprachbereich `[0xC016C000, 0xC0170000)` | **Gemessen am Abbild:** in allen drei Builds `0xFF` (Teil von MORE3, `0xC015027C` bis `0xC0170000`), kein Patch und der Emulator schreiben ihn. Reserviert für den optionalen Patch `lang-de` (Texte, Texttabellen, Glyphen; [Firmware-Sprache](firmware-sprache.md)); der Code der Laufzeit endet davor (`script_hooks.py:LANG`) | Statische Bytes von `lang-de`, kein Zustand; keine Freigabe für Schreibzugriffe des Editors |
+| Sprachbereich `[0xC016C000, 0xC0170000)` | **Gemessen am Abbild:** in allen drei Builds `0xFF` (Teil von MORE3, `0xC015027C` bis `0xC0170000`), kein Patch und der Emulator schreiben ihn. Reserviert für den optionalen Patch `lang-de` (Texte, Texttabellen, Glyphen; [Firmware-Sprache](firmware-sprache.md)); der Code der Laufzeit endet davor (`tools/patch/script_hooks.py:LANG`) | Statische Bytes von `lang-de`, kein Zustand; keine Freigabe für Schreibzugriffe des Editors |
 | `[0xC0170540, 0xC0171FEC)` | **Gemessen offline:** untersuchter SysEx-Hook-/eingebetteter Loaderbereich mit Cache-/Startcode | Keine normalen Tabellenedits; keine Freigabe für Execute oder Bootloader |
 | IFX `[0xC00A80F0, 0xC00B4DA0)` | **Gemessen am Gerät:** 100 Records à 0x20C Byte | Bestehender FX-Plan plus Inhaltsprüfungen; unbekannte Recordbytes nicht neu erzeugen |
 | MFX `[0xC00B4F30, 0xC00C1BE0)` | **Gemessen am Gerät:** 100 Records à 0x20C Byte | Wie IFX; Indexgrenzen und Recordart prüfen |
 | Modulationen ab `0xC00D81EC` | **Gemessen am Abbild:** 72 Records à 0x58 Byte, aus Dateioffset 0xD82EC | Live-Schreibwirkung ungeprüft; daraus keine Freigabe ableiten |
-| Name `0xC047B080 + i * 0x20` | **Gemessen am Gerät:** Name bei +12, Länge 16; Kategorie +28, Importnummer +30 | Begrenzter Namenstest belegt; keine pauschale Freigabe des ganzen Records oder aller Indizes. Der Editor schreibt nur das Namensfeld (+12, 16 Byte) der Indizes 0 bis 997, alles andere sperrt der Türsteher (Seite Samples) |
+| Name `0xC047B080 + i * 0x20` | **Gemessen am Gerät:** Name bei +12, Länge 16; Kategorie +28, Importnummer +30 | Begrenzter Namenstest belegt; keine pauschale Freigabe des ganzen Records oder aller Indizes. Der Editor schreibt nur das Namensfeld (+12, 16 Byte) der Indizes 0 bis 997, alles andere sperrt der [Türsteher](glossary.md#tuersteher) (Seite Samples, nicht in der Navigation, siehe [Entscheidungen](entscheidungen.md)) |
 | Playback `0xC0362EE8 + i * 0x10` | **Gemessen am Gerät/offline:** Start/Loop/Ende und One-Shot zugeordnet | Zeiger/Längen gemeinsam konsistent halten; keine direkte Editor-Freigabe |
 | Metadaten `0xC036AD88 + i * 0x45C` | **Gemessen am Gerät/offline:** Offset, PCM-Länge, Rate, Tune, Slice-Daten zugeordnet | Einzelner Tune-Test belegt; nicht alle Felder damit schreibgeprüft. Der Editor schreibt nur das Tune-Byte (+21) der Indizes 0 bis 997. Index 998 ist ausgelassen: bei 0x45C Byte je Eintrag ragt sein Eintrag 12 Byte in die Namenstabelle (hergeleitet aus den Adressen, die Tabellengröße ist nicht gemessen) |
 | Allocatorzustand bei `0xC00F9C80` | **Gemessen offline:** aktueller logischer DSP-Allokationszeiger | Kein roher Parameter; nur geprüfte Reservierungs-/Rollback-Operation |
@@ -125,16 +125,42 @@ ist Vorschlag.
 | `0x630000` | **Gemessen am alten Dump:** Werks-Globals | Gegen Schreiben sperren |
 | `[0x640000, 0x660017)` | **Gemessen offline:** SQEZ/LH5-Werks-Patternbank, 0x20017 Byte | Gegen Schreiben sperren |
 | `[0x660017, 0x6B0000)`, `[0x7C0002, 0x7DFFFE)`, `[0xE5F013, 0x1000000)` | **Gemessen am Dump (2026-10-09):** nur `FF`, in allen verglichenen Ständen gleich. Dass die Firmware sie nie beschreibt, ist nicht gemessen ([Flash-Dump](messungen/2026-10-09-flash-dump.md)) | Nicht als freier Speicher behandeln; keine Freigabe |
-| alte PCM-Markierung `0x6B0000` | **Vermutet/offen:** als PCM-Start nicht belegt | Nicht als Audio-Freigabe verwenden |
+| `[0x6B0000, 0x750000)` (640 KiB) | **Offline gelesen:** Sample-Info-Sicherung, gleiche Größe wie der SIST/SIED-Cache im RAM. Lesen `0xC004C0E0` nach `0xC002A1E8` (Länge `0xA0000`; Aufrufer Start `0xC002AB7C`, Sample-Import `0xC0038D80`, Werkszustand `0xC0031234`), Schreiben `0xC004C3D4` nach `0xC002A218` (Aufrufer `0xC004FB6C` nach Import oder Löschen, `0xC004FDB8` Werkszustand). Im Startlauf des Emulators nicht gelesen. Quelle: Messung 2026-10-24/flash-karte | Sperren; ein neuer Kartenschreiber darf diesen Weg nicht benutzen ([Sample-Speicher](hintergrund/sample-speicher.md)) |
+| `[0x750000, 0x7E0000)` (576 KiB) | **Offline gelesen:** SLICE-Daten der Werks-Samples (Region `0x75` bis `0x7E`). Lesen `0xC004F494` nach `0xC002A1B8`, die Infoseite liest 2 Byte bei `0x7C0000` (`0xC0029E98`), `SLICE.VSB` schreibt bis `0x90000` über `0xC003A388`. Nur 2 Byte bei `0x7C0000` und 2 Byte bei `0x7DFFFE` sind Daten, der Rest `FF`; die Bedeutung von `0x7DFFFE` ist offen. Quelle: Messung 2026-10-24/flash-karte | Gegen Schreiben sperren |
 | `0x800000` | **Gemessen:** KORGelec2PCM-Werksbank, Tabellen und dekodiertes Audio | Gegen Schreiben sperren; kein sicherer Werksbank-Schreibweg nachgewiesen |
 | `[0x807500, 0xE5F013)` | **Gemessen offline:** vollständiger SMPL-Blockstrom dieses Dumps | Bekannte Kodierung bedeutet keine sichere Schreibbarkeit |
 | ab `0x1000000` | **Gemessen am Gerät:** erste fehlende Flash-Antwort / Hänger | Nicht erneut abtasten; bei erster fehlender Antwort stoppen |
 
 **Gemessen im Editor-Code:** Die alte Konstante `src/layout.mjs:FLASH.pcm`
-trägt weiterhin `0x6B0000`. Dieser Wert ist keine aktuelle PCM-Zuordnung.
+trägt `0x6B0000`. Das ist der Anfang der Sample-Info-Sicherung und keine PCM-Zuordnung.
 Diese Doku korrigiert die Wissenslage, ändert aber keine Konstanten oder
 Geräteoperationen. Auch `FLASH.codeEnd` ist keine vollständige
 Schutzkarte. [Belege und Prüfsummen](messungen/2026-10-07-werks-sample-flash.md).
+
+Aus dem Code der Firmware gelesen: Jedes Schreiben löscht den ganzen 4-KiB-Sektor und programmiert ihn in 16 Seiten zu 256 Byte neu (Treiber `SerialFlash.cpp`, Funktion `Flash::write` bei `0xC0029AB8`). `USER.VSB`, `SLICE.VSB`, `PCM.VSB`, `BOOT.VSB` und `SYSTEM.VSB` überschreiben beim Update ganze Bereiche, auch solche, die im Dump `FF` sind. Frei vom Code der Firmware sind nur `[0x7E0000, 0x7EF000)` und `[0x7F0000, 0x7FF000)` (hergeleitet); die Sektoren `0x7EF000` (Panel-Kennung) und `0x7FF000` (Touchpad-Kalibrierung) tragen Nutzdaten der Firmware. Der Hacktribe-Befehl SysEx `0x56` schreibt jeden Bereich, den Adresse und Länge treffen.
+
+**Flash-Zugriff (offline gelesen, Quelle: Messung 2026-10-24/flash-karte):** Der Treiber `SerialFlash.cpp` nutzt SPI1 `0x01F0E000`, Chip-Select GPIO 2.14. Lesen `0xC001E4AC` (`0x03`), Sektorschreiben `0xC001E57C`, Seitenprogramm `0xC001E6B0` (`0x02`, 256 Byte), Sektorlöschen `0xC001E7BC` (`0x20`), Status `0xC001E9CC` (`0x05`), Write Enable/Disable `0xC001EA70`/`0xC001EAF4`, Adresse `0xC001E894`. Singleton `0xC034028C` (Getter `0xC0029A40`), Lesen `0xC0029A74`, Schreiben `0xC0029AB8` unter Sperre `0xC0000D80(2)` mit 4-KiB-Puffer `0xC033F28C`, Region(id) = id << 16 bei `0xC0029C14`, `writeVerify` `0xC0029CBC` in 64-KiB-Stücken. Funktionstabelle je Bereich `0xC0029D78..0xC002A244`: Nutzer-Check, Globals `0xC002A0F8`/`0xC002A128`, Patterns `0xC002A090`/`0xC002A0C4`, Werks-Globals `0xC002A158`, Werks-Patterns `0xC002A188`, Panel-ID `0xC0029F90`/`0xC0029FD0`, Touchpad `0xC002A010`/`0xC002A050`.
+
+Die Firmware sendet an den Flash nur `0x03`, `0x02`, `0x20`, `0x05`, `0x06`, `0x04`: keine ID-Abfrage `0x9F`, kein 32/64-KiB-Blocklöschen, kein Chip-Erase. Die logische Größe 16 MiB ist geprüft (Adresse `< 0x1000000`); Chiptyp und physische Größe sind unbekannt (die ID `01 20 18` im Emulator ist erfunden).
+
+Update-Bereiche: `USER.VSB` schreibt ab `0x220000` bis `0x490000` Byte (bis `0x6B0000`) und lädt danach die Globals neu, `BOOT.VSB` höchstens `0x20000`, `SYSTEM.VSB` höchstens `0x200000` (`0xC0029C44`), `SLICE.VSB` Region `0x75` höchstens `0x90000`, `PCM.VSB` Region `0x80` höchstens `0x800000`. FF-Lücken darin (etwa 530 KiB im Nutzerbereich, etwa 140 KiB im SLICE-Bereich, 104 KiB bei `0x6000..0x20000`) sind nicht frei.
+
+Freier Platz hinter dem Firmware-Code: 2 x 60 KiB = 120 KiB (30 Sektoren). Eine zweite Patternbank (4000 KiB) passt nicht, das 1,6-MiB-Ende verschwindet bei einer längeren `PCM.VSB`. Ein Stromausfall beim Löschen lässt einen halb leeren Sektor, eigene Daten gehören darum nie in die Sektoren `0x7EF000` und `0x7FF000`. Das Löschen hält die Sperre `0xC0000D80(2)` bis zu 4.000.000 Statusabfragen lang und gehört in den CommandTask. Die NOR-Haltbarkeit (etwa 100.000 Zyklen) ist nicht geprüft.
+
+**Offen:** ob der Bootloader außerhalb von `[0x20000, 0x220000)` liest oder schreibt; ob DSP oder DMA den Flash hinter dem Rücken der Firmware lesen (SPI1-Getter `0xC0016684`/`0xC00166B4` liefern `0x01F0E000`, auch für den DSP-Upload benutzt); die 2 Byte bei `0x1FFFE`.
+
+Startlesen im Emulator (Hacktribe 2.02, Karte mit 20 und mit 0 Samples, bis 10 s): `0x220000`+16, `0x7FF000`+8, `0x230000`+256, `0x240000`+`0x3E8000`, `0x7EF000`+8; kein Löschen, kein Programmieren, kein Lesen von `0x6B0000`, `0x750000` oder `0x800000`.
+
+Am Gerät gemessen (Hacktribe, Sample-Swap): Der DSP-Host-Port nimmt 64 KiB in 5,4 bis 6,3 ms (rund 11,5 MiB/s) auch bei laufender Wiedergabe; die SD-Karte liest die Firmware mit 12,5 MHz rund 3,1 MiB/s ([SD-Takt](messungen/2026-10-25-sd-takt.md)).
+
+## Oberes RAM und Speicher der Sample-Schutzlogik
+
+`0xC274F000` bis `0xC4000000` (Ende ausgeschlossen, 24,69 MiB, 6321 Seiten) ist **am Gerät gemessen** im Leerlauf, bei 1 MiB USB-Lesen, bei
+einem Sample-Import, bei Aufnahmen und beim Verwerfen einer SAMPLE-EDIT-Änderung unverändert geblieben (Muster `Adresse XOR Wort`, 0 abweichende Seiten,
+Steuerregister `0x0005107D`). Das beweist keinen Besitz und keine Freigabe als Cache. Einzelheiten und Grenzen: [Sample-Speicher](hintergrund/sample-speicher.md).
+
+Schutzlogik der Samples: Code im FF-Bereich `0xC019C400..0xC019E000`; 160 Byte Zustand bei `0xC276CE80..0xC276CF20` hinter den 1000 Cache-Indexsätzen
+vor LIST `0xC276D000`; Routinen des Speicherns ab `0xC0186800` bis vor `0xC0188000`; der DSP-Messbereich `0xC019E000` bleibt frei.
 
 ## Was der Editor bereits prüft
 
@@ -194,8 +220,8 @@ weiter lesen, Sicherung und Prüfung brauchen das.
 
 | Id | Raum | Intervall | Ausnahme | Status |
 |---|---|---|---|---|
-| `firmware-image` | RAM | `[0xC0000000, 0xC0200000)` | FX-Tabellen, Menüzähler | gemessen; mit DEV MODE offen bis auf `devClosed` |
-| `dev-closed-N` | RAM | 95 Bereiche im Abbild (`data/dev-closed.mjs`) | keine, auch mit DEV MODE gesperrt | gemessen (Emulator, `2026-11-14-dev-mode-sperrbereiche.md`) |
+| `firmware-image` | RAM | `[0xC0000000, 0xC0200000)` | FX-Tabellen, Menüzähler | gemessen; mit [DEV MODE](glossary.md#dev-mode) offen bis auf `devClosed` |
+| `dev-closed-N` | RAM | Bereiche im Abbild, je Build verschieden (`data/dev-closed.mjs`) | keine, auch mit DEV MODE gesperrt | gemessen (Emulator, `2026-11-14-dev-mode-sperrbereiche.md`) |
 | `sysex-hook` | RAM | `[0xC0170540, 0xC0171FEC)` | keine | gemessen |
 | `task-stacks` | RAM | `[0xC0200000, 0xC03167A8)` | keine | gemessen |
 | `task-control-blocks` | RAM | `[0xC06A24E4, 0xC06A2624)` | keine | gemessen |
@@ -253,8 +279,7 @@ Bereich geschützt ist: Auch ein aufgerufener Speicher-/Flash-Treiber kann
 persistente Daten verändern.
 
 **Vermutet/offen:** Ein künftiges `electribe.ram.MFX_Presets[0].parameter.level`
-kann auf der Gerätekarte und dem bestehenden Plan/Gate aufbauen (Idee 8 in
-[ideen.md](ideen.md)). Explizites
+kann auf der Gerätekarte und dem bestehenden Plan/Gate aufbauen. Explizites
 Anwenden beziehungsweise eine Transaktion ermöglicht gemeinsame Validierung,
 Sicherung und Rücksetzung. `flash` sollte keine live ins RAM schreibende API
 bezeichnen. Diese Objekt-API und die zusätzlichen Schutzregeln sind Vorschläge.
@@ -278,5 +303,10 @@ bezeichnen. Diese Objekt-API und die zusätzlichen Schutzregeln sind Vorschläge
   Dateiroutinen; noch kein geprüfter Host-Dateizugriff;
 - **Vermutet/offen:** RAM nach Leeren/Neuladen: freigegebene Samplebytes
   können liegen bleiben. Ein Differenzdump allein beweist keine Schreibbarkeit.
+
+Wie viel Platz für weiteren ARM- und DSP-Code frei ist, steht in
+[Platz für weitere ARM- und DSP-Funktionen](messungen/2026-11-20-firmware-speicherbudget.md);
+der Lesevergleich des DSP-SDRAM am roten Gerät in
+[DSP-SDRAM am Gerät](messungen/2026-11-22-dsp-sdram-am-geraet.md).
 
 Diese Grenzen bleiben offen, bis neue Messungen sie klären.

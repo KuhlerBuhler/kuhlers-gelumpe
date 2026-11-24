@@ -1,6 +1,6 @@
-# Vorschau: die Pads der Parts, die im angesehenen Pattern an sind, blinken (02.11.)
+# Vorschau: die Pads der Parts, die im angesehenen Pattern an sind, blinken
 
-Entschieden am 02.11.: In der Vorschau (`VIEW:` oder `NEXT:`, Modus PART MUTE, die Pads gehören dem angesehenen Pattern) blinken
+In der Vorschau (`VIEW:` oder `NEXT:`, Modus PART MUTE, die Pads gehören dem angesehenen Pattern) blinken
 die Pads der Parts, die im angesehenen Pattern an sind.
 
 - Ein Druck auf so ein Pad holt den Part ins laufende Pattern ([Part reinholen](2026-10-30-vorschau-part-reinholen.md)), das Pad
@@ -12,7 +12,7 @@ die Pads der Parts, die im angesehenen Pattern an sind.
 - Auf der Seite des laufenden Patterns (SHIFT + PART MUTE), im SEQUENCER, nach EXIT, nach dem Wechsel und mit EXIT beim Einschalten
   blinkt nichts.
 
-Gebaut in `tools/patch/pattern_switch.py`, im Emulator geprüft mit Hacktribe, Korgs Original rot und blau. Am Gerät noch nicht geprüft.
+Gebaut in `tools/patch/pattern_switch.py` ([Patch](../glossary.md#patch)), im [Emulator](../glossary.md#emulator) geprüft mit [Hacktribe](../glossary.md#hacktribe), Korgs Original rot und blau. Am Gerät noch nicht geprüft.
 
 ## Der LED-Manager (gelesen, Hacktribe und rot gleich)
 

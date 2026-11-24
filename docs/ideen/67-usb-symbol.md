@@ -1,9 +1,9 @@
 # 67. USB-Symbol auf dem Display
 
-Idee (26.10.): solange die Electribe per USB an einem Rechner hängt, zeigt der Hauptbildschirm ein kleines Symbol.
+Solange die Electribe per USB an einem Rechner hängt, zeigt der Hauptbildschirm ein kleines Symbol.
 
-Stand 2026-10-27: **nur untersucht und aufgeschrieben, nichts gebaut, am Gerät nichts.** Marker: **gemessen**,
-**hergeleitet**, **ungeprüft**.
+Status: offen, nur untersucht, nichts gebaut, am Gerät nichts. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
+Zurück zu den [Ideen](../ideen.md).
 
 ## Befund
 

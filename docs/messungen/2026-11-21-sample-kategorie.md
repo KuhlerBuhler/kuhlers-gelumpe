@@ -1,6 +1,6 @@
 # Sample-Kategorie in SAMPLE EDIT
 
-21.11.2026, Firmware 2.02 rot (Korg) und Hacktribe, jeweils mit dem BLECH-Satz, **gemessen im Emulator** und **offline** aus
+21.11.2026, Firmware 2.02 rot (Korg) und [Hacktribe](../glossary.md#hacktribe), jeweils mit dem BLECH-Satz, **gemessen im [Emulator](../glossary.md#emulator)** und **offline** aus
 dem Code gelesen. Am Gerät nicht gemessen, der Gerätetest steht in [blech-datei.md](../geraetetests/blech-datei.md) Schritt 24.
 Code: `tools/patch/script_sample_edit.s`, Fälle: `tools/emu/sample_category_cases.py`.
 
@@ -46,6 +46,6 @@ Alle Fälle grün auf beiden Builds: `PYTHONPATH=tools/patch tools/emu/.venv/bin
 
 ## Davor
 
-Die Frage, ob Hacktribe eine `e2sSample.all` ohne Sample der Kategorie 17 ("Wave") liest:
-[2026-11-17-sample-kategorie-wave.md](2026-11-17-sample-kategorie-wave.md). Ergebnis: ja, darum gibt es keine Sperre für das
+Die Frage, ob Hacktribe eine `e2sSample.all` ohne Sample der Kategorie 17 ("Wave") liest, ist im Emulator
+geprüft (Hacktribe und Korg rot, ohne BLECH-Patch): ja, es liest, exportiert und lädt sie wieder, darum gibt es keine Sperre für das
 letzte Wave-Sample.

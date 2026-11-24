@@ -1,9 +1,11 @@
 # 80. Meldung: Klang verzögert auf einer blauen Electribe
 
-Meldung (Community, 30.10., derselbe Nutzer wie Idee 79): Auf seiner blauen Electribe kommt der Klang verzögert, auch am
+Meldung aus der Community: Auf seiner blauen Electribe kommt der Klang verzögert, auch am
 Kopfhörer direkt am Gerät. Die rote hatte das nicht. Gleich mit Korgs Firmware, mit Hacktribe und mit BLECH, er vermutet die
-Hardware. Stand 2026-10-30: **nur Meldung, nichts gemessen, nichts untersucht.** Marker: **gemessen**, **hergeleitet**,
-**ungeprüft**.
+Hardware.
+
+Status: offen, nur Meldung, nichts gemessen. Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
+Zurück zu den [Ideen](../ideen.md).
 
 ## Was wir wissen
 
@@ -12,7 +14,7 @@ Hardware. Stand 2026-10-30: **nur Meldung, nichts gemessen, nichts untersucht.**
 - Ob sie bei allen Klangquellen auftritt (Synth, Sample, Pad, Sequencer, MIDI) oder nur bei einer, ist **unbekannt**.
 - Zum Audiopfad der blauen Einheit steht in den Docs nichts über Codec oder Ausgabepuffer. Es gibt nur die DSP-Pfade für
   Sample-Export ([DSP-Audiopfade](../messungen/2026-10-08-dsp-audiopfade.md)). Der Emulator macht keinen Ton in echter Zeit
-  (Idee 52), eine Latenz lässt sich dort nicht messen. (aus der Suche in `docs/`, nicht jede Datei gelesen)
+  ([Idee 52](52-ton-im-emulator.md)), eine Latenz lässt sich dort nicht messen. (aus der Suche in `docs/`, nicht jede Datei gelesen)
 - Die eigene Verzögerung der Plugin-Ereignisse (bis 40 ms) betrifft nur Plugins und war hier nicht im Spiel.
 
 ## Rückfragen an den Nutzer

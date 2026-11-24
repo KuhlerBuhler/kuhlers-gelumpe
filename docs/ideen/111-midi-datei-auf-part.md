@@ -1,10 +1,9 @@
 # 111. Noten aus einer MIDI-Datei auf einen Part
 
-Wunsch (Discussion #337, auch in #296): die Noten einer `.mid`-Datei als Steps in einen Part schreiben, damit der Part die
+Wunsch aus der Community: die Noten einer `.mid`-Datei als Steps in einen Part schreiben, damit der Part die
 Melodie im Pattern spielt, ohne sie vorher als Loop zu sampeln oder über KEYBOARD einzuspielen.
 
-Stand 2026-11-10: **aufgeschrieben, nichts gebaut, nichts gemessen.** Marker: **gemessen**, **hergeleitet**, **ungeprüft**.
-Zurück zu den [Ideen](../ideen.md).
+Status: offen, nichts gebaut. Marker: **gemessen**, **hergeleitet**, **ungeprüft**. Zurück zu den [Ideen](../ideen.md).
 
 ## Was es schon gibt
 

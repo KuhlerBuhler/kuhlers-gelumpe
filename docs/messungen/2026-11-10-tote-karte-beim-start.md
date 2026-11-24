@@ -2,7 +2,7 @@
 
 Gefunden mit dem Fehlermodell der Karte (`tools/emu/sdcard.py`): mit BLECH blieb der Start beim BLECH-Startbild stehen, wenn
 die Karte kein Dateisystem hat (alles Nullen) oder auf keinen Befehl antwortet. Ohne BLECH läuft das Gerät mit beiden weiter.
-Alles hier ist **gemessen im Emulator**, nicht am Gerät.
+Alles hier ist **gemessen im [Emulator](../glossary.md#emulator)**, nicht am Gerät.
 
 ## Gemessen (Emulator, eigene Dateien: Hacktribe, Korgs rot und blau, 2.02)
 
@@ -22,8 +22,7 @@ hat den Ladebalken nicht und hing nie.
 ## Ursache
 
 Der Ladebalken hängt an der Frage nach `e2sSample.all` (`0xC002AE60`). Bisher fragte er nach, wenn die Karte steckt, ihr
-Volume danach aber nicht gemountet ist: bis zu drei Mal, mit dem Schlaf des Betriebssystems (`0xC0000B78`, 500 ms) dazwischen
-([Kartenfehler beim Start](2026-10-19-kartenfehler-beim-start.md)).
+Volume danach aber nicht gemountet ist: bis zu drei Mal, mit dem Schlaf des Betriebssystems (`0xC0000B78`, 500 ms) dazwischen.
 
 Der Schlaf endet nie. Der Takt des Betriebssystems läuft an dieser Stelle noch nicht:
 
