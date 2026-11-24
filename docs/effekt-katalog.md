@@ -108,6 +108,87 @@ die Zeit der Hüllkurve (MOD. SPEED) kommt vom Platz, den du überschreibst.
 
 Die Delays rechnen mit Notenwert mal Faktor (hergeleitet aus der DSP-Tabelle ab DSP `0x9470`, Records zu 6 Byte): Notenwert 0 bis 13 ist 1/64, 1/32, 1/24, 1/16, 1/12, 1/8, 1/6, 3/16, 1/4, 1/3, 3/8, 1/2, 3/4, 1; der Zeitfaktor 0 bis 13 ist 1/8, 1/6, 1/4, 1/3, 1/2, 2/3, 3/4, 1, 5/4, 4/3, 3/2, 2, 5/2, 3. Alle Delay-Presets beider Firmwares passen auf diese Tabellen. Offen: ob "1" ein Takt oder eine Viertel ist. Am Gerät gemessen (21.09.): Der Insert-Distortion-Baustein ist mit `output_level` 124 unspielbar laut, spielbar waren 38 bis 60, darum stehen die Verzerrer hier auf Ausgangspegel 30 bis 40.
 
+## Wie der Katalog gebaut wird
+
+Die rohen Messnotizen stehen in der Git-Historie (`git show origin/develop:docs/messungen/<Datei>`).
+
+### Anhängen (`fx-catalog`, `src/fx-append.mjs`)
+
+- Jeder neue Platz ist eine Kopie von Preset 1 derselben Firmware, darin der Effekt (`fxToRecord`, wie bei der Sammeldatei). Sie hängen
+  hinter dem letzten Preset jedes Menüs, die Menülängen gehen um die Zahl der Einträge hoch.
+- Ein Effekt, dessen Name im Menü schon steht, wird ausgelassen. Zweimal angewendet kommt nichts dazu.
+- Die Plätze hängen davon ab, wie viele Presets die Firmware schon hat. Was der Katalog schreibt, bleibt deshalb Nutzerdaten der
+  Patch-Datei (`src/patchfile.mjs`), ihre Fingerabdrücke hängen nicht davon ab.
+- Nur rot (Hacktribe und Korgs Original). Die blaue hat dieselben Bausteine und Records, der Karte fehlen nur ihre Orte
+  ([eigene Effekte auf der blauen](messungen/2026-11-08-blau-eigene-effekte.md)). Short Delay sitzt auf demselben Basis-Record wie der
+  ESX-Aufbau, der am Gerät gehört wurde.
+
+Quelle: Messung 2026-10-23/fx-katalog-fest
+
+### Stufenblock und unbenutzte Bausteine
+
+Sieben Master-Bausteine stehen in Hacktribe in keinem Preset: mKP2 Comp, Limiter, 4 Band EQ, Wah, Tremolo, Level Mod, Dry Plate Reverb.
+Wah und Level Mod hat Korgs Original in Presets, die übrigen fünf stehen in keiner der beiden Firmwares in einem Preset.
+
+- **Gemessen (offline):** der Stufenblock (74 Byte ab dem Baustein-Byte) ist in allen Werkspresets beider Firmwares an jeder Stelle gleich, bis
+  auf das Baustein-Byte, das Byte danach (meist `0x40`) und die Parameterwerte. Die ungeraden Bytes zwischen den Parametern und die 15 Bytes
+  dahinter sind überall null. Geprüft mit `factory-check:stage-block-shared` (Hacktribe: Master 32, Insert Stufe 1 49, Stufe 2 8 Presets;
+  Korg rot: 32, 38, 2).
+- Darum nimmt `fxToRecord` für einen Baustein, den kein Preset trägt, den Stufenblock, den die meisten Presets an dieser Stelle teilen, und
+  ändert nur das Baustein-Byte.
+- **Offen:** ob die sieben Bausteine am Gerät so klingen wie gedacht.
+
+Quelle: Messung 2026-10-22/fx-katalog-neu
+
+### Notenwerttabellen der Delays
+
+Im DSP-Strom liegt ab DSP `0x9470` eine Folge von Records zu 6 Byte (Zähler und Nenner als 16-Bit-Zahlen und eine Null, hergeleitet):
+
+- Records 8 bis 71: **Notenwert** (`on_syncnote` im Short Delay, `on_l_syncnote` und `on_r_syncnote` im Mod Delay, Spanne 0 bis 63).
+- Records 72 bis 135: **Zeitfaktor** (`on_time_ratio`, Spanne 0 bis 63). Die Verzögerung ist Notenwert mal Faktor.
+- Die LFO-Tabelle (Records 136 bis 177) folgt bei `0x97A0` (`0x9470 + 136 * 6`).
+- Ab Wert 14 wiederholen sich die Notenwerte in kürzeren Gruppen (14 bis 23: 1/64, 1/32, 1/16, 1/8, 1/6, 3/16, 1/4, 3/8, 1/2, 1; 24 bis 31:
+  1/64, 1/32, 1/16, 1/8, 1/6, 3/16, 1/4, 1/2; und so weiter), die Faktoren ebenso (35 ist 1, 62 ist 3/2).
+- Alle Delay-Presets beider Firmwares passen: Korg Delay 1/4, 3/16, 1/8, 1/16 und Roller 1/32 (Notenwert 20, 19, 17, 16, 15, Faktor 35);
+  Hacktribe 1/12 Delay (4, 35), 9/32 Delay (7, 62), 3/32 Delay (60, 62); Korg High Pass Delay (Mod Delay, 17 und 19, Faktor 35).
+- **Offen:** wie lang ein Delay höchstens sein darf, bevor der Puffer endet (die Insert-Presets reichen bis 9/32). Tape Echo (`s_note1`,
+  `time_ratio`) passt mit seinem Werkspreset nicht auf diese Tabellen, der Katalog ändert dort keinen Notenwert.
+
+Quelle: Messung 2026-10-22/fx-katalog-neu
+
+### Slap Delay und Long Delay (Insert, `I_short_delay`, `0x18`)
+
+Hergeleitet (Spannen in `data/map/fx-params.mjs`, Beleg `derived:vsb-table/0xC00FED74`):
+
+| Parameter | Spanne | Bedeutung |
+|---|---|---|
+| `tempo_sync` | 0 bis 1 | 1: Zeit aus Notenwert mal Faktor, 0: `off_delay_time` mal `off_time_ratio` |
+| `on_syncnote` | 0 bis 63 | Notenwert, 1 ist 1/32, 3 ist 1/16, 10 ist 3/8, 11 ist 1/2 |
+| `on_time_ratio` | 0 bis 63 | Faktor, 35 ist 1 |
+| `off_delay_time` | 0 bis 74 | Zeit ohne Sync, Einheit offen |
+| `fb_depth`, `high_damp`, `low_damp` | 0 bis 127 | Wiederholungen und Filter in der Rückkopplung |
+
+Eine eigene Typkennung für "Long" gibt es im Insert nicht, beide sind Presets des einen Bausteins.
+
+| Name | Sync | Zeit | Feedback | Dämpfung hoch, tief | Wet |
+|---|---|---|---|---|---|
+| Slap Delay | an | 1/32 mal 1 | 35 | 60, 15 | 100 |
+| Long Delay | an | 3/8 mal 1 | 70 | 50, 25 | 90 |
+
+Regler 1 mischt das Echo dazu, beide Regler stellen das Feedback, das Feedback bleibt unter 90. **Offen:** Klang am Gerät, besonders ob 3/8 beim
+Long Delay in den Puffer passt (die Insert-Werkspresets gehen nur bis 9/32 = 0,28, 3/8 ist 0,375, Obergrenze nicht gemessen; reicht der Puffer
+nicht, ist Notenwert 9 = 1/3 der Ausweg). Die Einheit von `off_delay_time` und ob "1" ein Takt oder eine Viertel ist.
+
+Quelle: Messung 2026-10-25/ifx-delays
+
+### Pseudo-Reverb (Vorschlag im Presets-Bereich)
+
+Ein Vorschlag, keine Preset-Datei (`data/suggestions.mjs`, Linter: [Linter](linter.md)). Werte auf `I_short_delay`: `tempo_sync` 0,
+`off_delay_time` 19, `fb_depth` 64, `high_damp` 72, `low_damp` 8, `wet_level` 56. Sie liegen innerhalb dessen, was die Werkspresets des
+Bausteins nutzen, das Feedback unter 90. **Nicht gehört.** Es gibt keinen Insert-Hall, nur Master-FX. Ein eigener Name ist nicht gesetzt.
+
+Quelle: Idee 28
+
 ## Was nicht geht
 
 - **Kein Falten, keine neue Verzerrer-Art.** Die Firmware hat im Insert zwei Verzerrer (Distortion, Acid Drive) und den Decimator, im

@@ -80,8 +80,40 @@ B=`0x40000000` die abgeleiteten Wörter `0x001A5A95` und `0xC008C8DD`.
 
 Grenze: Funktionen, die das geschützte Schreiben `0x1F0E54C` benutzen (Frame-Handler, Lader), hängen im
 Simulator, weil Warteschlange und Gate-Wörter nach dem Boot-Code anders stehen als im rohen Abbild. Die
-Aussagen zu 0x30/0x31/0x32 sind deshalb **offline**, nicht gemessen. Peripherie (SPORT, DMA, HOSTDP) fehlt
-ganz, es gibt keine Zeitmessung.
+Aussagen zu 0x30/0x31/0x32 sind deshalb **offline**, nicht gemessen. Im GNU-Simulator aus gdb allein fehlt die Peripherie
+(SPORT, DMA, HOSTDP) und es gibt keine Zeitmessung; der Blackfin-Worker des Emulators ergänzt sie
+([Blackfin](blackfin.md)). Das Hängen geht auf einen Fehler im Makro `SIGNEXTEND` zurück: `sim/bfin/bfin-sim.c` schiebt einen
+32-Bit-Wert um `64 - n` Bit, clang auf arm64 faltet das weg, `R1 = 7 (X)` setzte R1 nicht auf 7 (gemessen mit `R1 = 7 (X); [P1] = R1;`,
+Rückgabe 0 statt 7, nach der Korrektur 7). Nach der Korrektur läuft `0x1F0E54C` 63-mal durch (152 Takte) und bricht erst ab, wenn die
+Warteschlange voll ist und der Code fehlende Peripherie anfasst. Der QEMU-Port hat dasselbe Makro, beide sind korrigiert.
+
+### 1.5 Audioschleife, Takt und Rechenbudget
+
+- **Eine Effekt-Schleife rechnet pro Sample (offline gelesen, Disassembly `0xFFA001B0` bis `0xFFA00236`).** Die Audioschleife
+  `0xFFA0010C` wartet auf ein Semaphor, liest 4 Frames zu je 16 Byte aus dem DMA-Puffer und ruft für jeden Frame einmal `0xFFA0141A`
+  (alle Stimmen, alle Parts, Master). Insert- und Master-Effekte rechnen je Aufruf ein Sample. Ein DSP-Block hat damit 4 Samples,
+  83 µs bei 48 kHz (rund 43 700 DSP-Takte), nicht 64 oder 128. Die Rechnung in 2.6 nimmt Blöcke von 64 bis 128 Samples an; bei 4
+  Samples stimmt die Herleitung der 100 ms über "ein Frame je Audioblock" nicht mehr, wie oft der Frame-Task Rechenzeit bekommt, ist offen.
+- **Takt (hergeleitet).** Der Stufe-1-Code ruft `bfrom_SysControl` mit PLL_CTL `0x2A00` (MSEL 21) und PLL_DIV 5, danach 4: 525 MHz Kern
+  und 131 MHz Bus bei 25 MHz Quarz, 516 MHz bei 24,576 MHz. Budget rund 10 900 Takte je Sample (Quarz offen).
+- **Kosten je Sample (gemessen im Simulator, synthetischer Kontext, ohne Cache- und SDRAM-Wartezeit).** Insert-Effekte 129 bis 206
+  Takte (Filter 129, Limiter 158, Short Delay 190, Chorus 182, Phaser 200, Distortion 201, Flanger 206), Filterkern electribe-Familie 149,
+  Master-Effekte 374 bis 444 (Chorus 374, Mod.Delay 391, Room Reverb 431, Hall Reverb 444). Geprüft ist nur, dass die Funktionen
+  sauber zurückkehren und von Aufruf zu Aufruf gleich viele Takte brauchen; für den echten Kontext **offen**.
+- **Ganzer Patch (hergeleitet aus gezählten Befehlen).** `0xFFA0141A` kostet 66 + 393 Takte fest, 313 je Part, 58 je Stimme. Mit den
+  gemessenen Kernen sind das 10 000 bis 15 000 Takte je Sample bei 16 Parts plus Master, also ungefähr das ganze Budget. Die Kosten der
+  Stimmen sind offen.
+- **Tempo der Simulatoren (gemessen mit `tools/dsp/bfsim_bench.py`).** GNU-Simulator 4 bis 9 Mio. DSP-Takte je Sekunde, 56- bis
+  122-mal langsamer als der DSP; QEMU-Port ohne Korrekturen 320 bis 460 Mio., mit den Korrekturen für richtiges Rechnen 55 bis 230 Mio.
+  Eine Sekunde Klang eines vollen Patches braucht im GNU-Simulator 1 bis 2 Minuten, ein leichter Patch (ein Part, ein Insert, Hall, rund
+  1800 Takte je Sample) 10 bis 20 Sekunden (geschätzt). Der Worker im Emulator ist 6,7-mal langsamer als Echtzeit
+  ([QEMU als DSP-Kern](../messungen/2026-11-16-qemu-dsp-kern.md)).
+- **QEMU-Port bauen (gemessen).** `vapier/qemu`, Zweig `bfin`, Stand Januar 2024, auf QEMU 8.2: rund 10 Minuten auf dem Mac (ohne Audio,
+  vmnet und Cocoa, Objective-C-Compiler ausdrücklich angeben). Nur das Board BF537 ist vorhanden, für den reinen Prozessor reicht es.
+  Es fehlte `ASHIFT ... BY Rx.L (S)`, das 5 von 13 Effekten brauchen (Abbruch "unhandled exception type=33" bei `0x12BD2`, `0xFFA0923A`,
+  `0xFFA07936`, `0xFFA08780`, `0x1C79C0E`). `CYCLES` zählt im QEMU-Port Nanosekunden, keine Takte.
+
+Quelle: Idee 52 (Versuch vom 24.10.), Messung 2026-11-16/dsp-sim-tempo, Messung 2026-11-16/qemu-bfin-vergleich.
 
 ---
 

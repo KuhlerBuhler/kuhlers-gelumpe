@@ -264,7 +264,8 @@ ist `sysex_cases` mit den Dateien und Samples über die DIN-Leitung (Gerätezeit
 
 Der optionale ARM-Emulator ist ein eigenes Python-Werkzeug (`tools/emu/`, GPL-2.0, siehe
 [NOTICE](../NOTICE)). Installation, Dienst, Karte und Flash stehen in
-[emulator.md](emulator.md).
+[emulator.md](emulator.md). Warum er schnell genug läuft und wie der DSP-Worker beschleunigt wird:
+[Tempo des Emulators](emulator.md#tempo-des-emulators). Befunde zum DSP-Worker: [Blackfin](hintergrund/blackfin.md).
 
 Code in einem Haken verschiebt die Phase aller späteren Bilder. Ein zeitkritischer Fall kann deshalb auf nur einem Build
 rot werden. Erst den Build ohne die Änderung prüfen: ist der grün und reicht eine etwas längere Wartezeit, die Wartezeit

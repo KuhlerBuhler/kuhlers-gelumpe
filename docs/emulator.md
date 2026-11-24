@@ -532,7 +532,9 @@ Messung kommen damit auf die Gerätewerte (`test_devicetime.py`). `GELUMPE_PACE=
 - Der erste Blick auf einen Durchlauf zählt als Treffer. Eine Kopie, die kürzer als eine Scheibe läuft, rechnet
   der Emulator deshalb zu schnell. Ein Lauf über 256 KiB kommt auf 126 statt 143 ns je Runde.
 - Ein Interrupt-Handler läuft im Preis des Codes, den er unterbricht. Seine Scheiben (`ISR_STEP`) enden jedes
-  Mal an denselben Stellen und wären keine Stichprobe.
+  Mal an denselben Stellen und wären keine Stichprobe. `ISR_STEP = 256` ist Teil des Modells: ein Versuch, nur dann in
+  256-Befehl-Scheiben zu laufen, wenn ein anderer Interrupt wartet, hätte rund 50 % der Scheiben gespart, aber die Firmware
+  bleibt dann beim Boot hängen (26 Mio. Befehle, 108 Panel-Nachrichten; gemessen, verworfen). Quelle: Messung 2026-10-13/emulator-tempo.
 
 Gegen die Plugin-VM geprüft ([Gerätetakt im Emulator](messungen/2026-11-10-emulator-geraetetakt.md)): am
 Gerät 7 bis 8 ns je Emulator-Befehl, mit dem Modell 5,7 bis 6,1, flach 5. Das Modell rechnet also näher am
@@ -541,6 +543,41 @@ Gerät, aber noch zu schnell für einen Interpreter.
 ### Tempo der Prüfungen
 
 Snapshots, gemerkte Ergebnisse, parallele Boots (`GELUMPE_JOBS`) und `GELUMPE_CACHE=off` stehen in [development.md](development.md#laufzeit-der-tests). `server.py --unthrottled` (nur für Tests) läuft ohne Echtzeit-Bremse und meldet die Gerätezeit alle 20 ms.
+
+### Tempo des Emulators
+
+Der Karten-Import liest rund 1000 Sektoren je Gerätesekunde. Die ganze Datei (44000 Sektoren) braucht rund 44 s Gerätezeit; schneller
+als diese 44 s wird es nur, wenn die Firmware weniger rechnet.
+
+**Warum der Emulator langsam war (gemessen).**
+
+- Code-Hooks mit Python-Rückruf (Assertion, Flash lesen, DSP laden, UART voll) ließen Unicorn für jeden Befehl den Hook-Verteiler
+  aufrufen und den JIT-Schreibschutz umschalten (`pthread_jit_write_protect_np`): 24 ns je Befehl mit Hooks, 1,9 ns mit `count`
+  allein, 0,5 ns mit beidem aus.
+- Die Firmware greift beim Karten-Import rund 450000-mal je Gerätesekunde auf Register zu (128 Wörter je Sektor aus dem
+  Karten-FIFO, dazu rund 260 Zeitgeber-Lesezugriffe je Sektor in Warteschleifen, 475 Zugriffe je Sektor insgesamt).
+- Der SD-Kartenteil selbst kostet fast nichts (0,3 µs je Wort); Spiegeln und Bildschirm-Aufbereitung liegen unter 2 %.
+
+**Was das Tempo bringt (Stand im Code).** Die vier Einsprungstellen sind Exit-Adressen (`ctl_set_exits`) statt Code-Hooks,
+`Machine.service` erledigt das Modell und läuft weiter. Ein Python-Frame je Registerzugriff (eigener `mmio_map` über ctypes),
+Zeitgeber-Zähler aus einer Tabelle, Prozessorregister direkt über `reg_read` (1,7 µs), Zeitgeber-Konfiguration zwischengespeichert.
+Anzeige-Hash, Panel-Nachrichten, Flash-Befehle, DSP-Ladungen und Gerätezeit bleiben dabei gleich. Ein neuer Code-Hook (`Dev.call`)
+braucht `ctl_flush_tb`, sonst feuert er nicht; mit gesetzten Exit-Adressen gilt `until` bei `uc.emu_start` nicht.
+Quelle: Messung 2026-10-13/emulator-tempo.
+
+**Poll-Vorlauf für den DSP-Worker.** Die Firmware wartet in `0xC001462C` auf den DSP und liest `DSP_CTRL` zweimal je Durchlauf.
+Der Vorlauf (`POLL_READS = 4096`, `POLL_READS = 0` schaltet ihn ab) überspringt gleichförmige Durchläufe, Beschreibung in
+[Blackfin](hintergrund/blackfin.md#die-beiden-simulatoren). Gemessen für 0,3 s Modellzeit ab Reset mit
+`clock-blech-hacktribe.VSB` (DSP 516,096 MHz, Host-Port über FIFO, SPORT-Eingang Stille):
+
+| Rechner | Vorlauf an | aus |
+|---|---:|---:|
+| Mac M5, Last um 44 | 7,3 s | 16,3 s |
+| Linux x86, i7-10510U, `powersave`, Last um 1 | 14,9 s | 25,3 s |
+
+Alle vier Läufe enden im selben Zustand: 55078105 ARM-Befehle, 123533003 DSP-Zyklen, 300000001 ns Modellzeit. Der Vorlauf überspringt
+1374304 der rund 1,38 Mio. `DSP_CTRL`-Lesezugriffe; danach liegen etwa 5,8 der 7,3 s im DSP-Simulator, die ARM-Seite braucht rund 5 %.
+Quelle: Messung 2026-11-16/dsp-sim-tempo.
 
 ## Boot
 
@@ -840,6 +877,10 @@ Standard ist der QEMU-Worker. Gewählt wird an einer Stelle,
 2. sonst `qemu-bfin-worker` unter `GELUMPE_DSP` (Vorgabe `~/gelumpe-dsp`) in
    `worker/`;
 3. sonst der GNU-Worker in `gnu/`, mit der Meldung, dass kein QEMU-Build da ist.
+
+Der Upload ist vom DSP-Start getrennt: `0xC0011AB8` bestätigt nur die SPI-Übertragung, ein kaputter Strom oder Workerfehler
+meldet keinen Upload-Erfolg, die Bereitschaft prüft eine eigene begrenzte Diagnose ([Blackfin](hintergrund/blackfin.md#start-des-dsp)).
+Der Bau des GNU-Workers auf macOS braucht die portable `sed`-Schreibweise und die System-zlib (ebenda, "Die beiden Simulatoren").
 
 Ohne Worker werden die Tests übersprungen. `npm test` sucht keinen Worker; die
 Worker-Tests laufen mit `tools/dsp/qemu_worker_tests.sh alle`.

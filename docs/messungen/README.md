@@ -124,6 +124,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel und der DSP selbst.
 - [FX-Pegel im DSP-Sim (16.11.2026)](2026-11-16-fx-pegel-im-dsp-sim.md)
 - [QEMU als DSP-Kern: Hybrid-Worker hinter BFIN9](2026-11-16-qemu-dsp-kern.md)
 - [Hacktribes Master-Effekte auf der roten 2.02 (17.11.)](2026-11-17-hacktribe-master-rot.md)
+- [Natives Aufnehmen und Abspielen: Master-Abgriff im DSP, Kartenrate, RAM, blau, offline](2026-11-17-native-aufnahme.md)
 - [Time Stretch: offline auf dem ARM, live im DSP](2026-11-17-time-stretch.md)
 - [DSP-SDRAM: Belegung, Grenzprüfung und geprüfte Kandidaten](2026-11-20-dsp-sdram-freiraum.md)
 - [Röhrenkurve statt Soft-Clipper am Ausgang, im QEMU-DSP-Kern und im Emulator](2026-11-20-roehrenkurve.md)

@@ -55,7 +55,7 @@ verlangt hat.
 
 | Bereich | Inhalt | Status |
 |---|---|---|
-| `0xC01A2FD0`, `0xC018A4C0`, `0xC0189760`, `0xC018BF40` | Code, 4908 Byte in vier FF-Läufen beider Builds, die kein anderer Patch des Satzes nutzt | gemessen am Abbild |
+| `0xC01A2FE0`, `0xC018A4C0`, `0xC0189760`, `0xC018BF40` | Code, 4908 Byte in vier FF-Läufen beider Builds, die kein anderer Patch des Satzes nutzt; der erste Lauf beginnt bei `0xC01A2FE0`, weil der Splash-Editor bis `0xC01A2FD4` reicht (Näheres und die Adressen der späteren Basen in [Sample-Swap, Hintergrund](../hintergrund/sample-swap.md#verdrängen-und-veröffentlichen)) | gemessen am Abbild |
 | `0xC0188530` bis `0xC0188730` | Zustand: Modus, Cache-Generation, laufender Auftrag, gescheiterte Plätze, Dateipfad | gemessen am Abbild |
 | `0xC274F000` bis `0xC276F000` | 96 KiB Zwischenpuffer, Dateiobjekt, zwei Deskriptoren, Dateikopf, Cache-Verzeichnis | in keiner gemessenen Phase von der Firmware benutzt ([RAM frei](2026-10-22-ram-frei.md)) |
 | `0xC276F000` bis `0xC4000000` | oberer Cache, rund 24,5 MiB | wie oben |
@@ -119,7 +119,7 @@ Entfernen nur ungeschützter Samples, der Geber-Haken.
 |---|---|
 | Ladezeiten am Gerät, RAM zu DSP gegen Karte zu DSP, mit dem Patch selbst | offen |
 | Klang beim Entfernen: eine noch ausklingende Stimme eines entfernten Samples kann Fremdes lesen | offen; entfernt wird nur, was weder laufendes noch kommendes Pattern benutzt |
-| Namen nicht geladener Samples | damals Platzhalter `SampleNNN`; die Namenserweiterung liest inzwischen Metadaten vorab und prüft die native Namensabfrage im Emulator |
+| Namen nicht geladener Samples | die Namenserweiterung liest Metadaten vorab, die native Namensabfrage liefert die Namen (im Emulator geprüft, [Hintergrund](../hintergrund/sample-swap.md#namen-vor-dem-laden)); ohne sie zeigt die Abfrage Platzhalter `SampleNNN` |
 | Patternwechsel bei gestoppter Wiedergabe | lädt wie immer sofort, die Samples kommen danach in einigen Sekunden; keine Sperre |
 | Ein Pattern, das mit dem laufenden zusammen nicht ins Budget passt | der Platz scheitert, der Wechsel kommt ohne die fehlenden Samples, die nach dem Wechsel nachgeladen werden |
 | Last der Command-Task beim Laden während des Spielens | hergeleitet höchstens 15 ms je UI-Bild (40 ms); ob Pattern-Laden oder Stimmen das hören, ist offen |

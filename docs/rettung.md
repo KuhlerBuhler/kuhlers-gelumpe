@@ -72,6 +72,36 @@ und mit `doom.bin` unter `KORG/blechtribe/Doom/`, per Kartenleser oder auf der S
   an). Netzteil ziehen oder Batterien raus, wieder einschalten ohne SHIFT + TAP. Die Karte nicht während des Zugriffs ziehen.
 - Der Bootloader und die Update-Wege bleiben unberührt. Das Update der Firmware geht wie sonst über den
   Ordner oben, auch mit dem Lader darin.
+- Was die Anzeigen und Fehlercodes bedeuten (`00000100`: Karte beim Start des Laders nicht eingehängt), steht in
+  [Doom auf der Electribe](hintergrund/doom.md#anzeigen-und-fehlercodes).
+
+## Ein/Aus, wenn der Start hängt
+
+Ist die Karte beim Start nicht lesbar, kann der Start hängen bleiben. Am Gerät gesehen (18.10.): kein "Card error", das
+BLECH-Startbild blieb stehen, aus ging es nur mit Batterien raus. Für diesen Fall schaltet BLECHTRIBE beim Start selbst aus:
+
+- **Während des Starts:** Solange noch kein Bildschirm oder Bildschirm 0 da ist, liest BLECHTRIBE nach der Meldung `06 01`
+  den Pin der Taste (GPIO 7.15) alle 50 ms. Ist Ein/Aus 5 s lang gedrückt, lässt BLECHTRIBE den Haltepin der
+  Stromversorgung los (GPIO 7.11). Vorher losgelassen, verwirft BLECHTRIBE die Meldung, das Gerät bleibt dann auch am Ende
+  des Starts an. Nicht mit EXIT beim Einschalten, nicht auf der blauen (dort ist der Pin nicht gemessen). Gemessen im
+  Emulator (`loadbar:power_key_during_the_start`).
+- **Während der Ladeanimation der Samples:** Dort kommt die Meldung des Bedienfelds am Gerät nicht (25.10.: 30 s gehalten,
+  das Gerät blieb an). Die [Ladeanimation](glossary.md#ladeanimation) liest den Pin darum in jedem Bild selbst: 7 s ohne
+  Unterbrechung gehalten (wie die Firmware: 2 s bis zur Meldung, dann 5 s), geht die Stromhaltung aus, nach 3 s
+  losgelassen bleibt das Gerät an. Gemessen im Emulator auf Hacktribe und Korgs Original
+  (`loadbar_cases.case_power_while_loading`: aus nach 7,1 s), am Gerät **offen**.
+- **Ohne BLECHTRIBE (offline, Emulator):** Die Firmware nimmt die Taste während des Starts an, schaltet aber erst am Ende
+  des Starts aus, auch bei kurzem Druck. Der [Eingangsfilter](glossary.md#eingangsfilter) `0xC002837C` sieht `06 01`, die
+  Ausschaltmeldung `0x18` geht sofort hinaus (`0xC0028C18`), ihr Handler `0xC0038A54` läuft erst nach dem Start. Hängt der
+  Start, kommt er nie dran. Die Taste liest der Power-Manager an GPIO 7.15 (`0xC00172D0`, IN_DATA67 Bit 31, low =
+  gedrückt).
+- **Emulator, Karte ohne Antwort ab 0,5 s:** Der Lader meldet 4 (Card Error) nach 4,5 s, der Hauptbildschirm kommt ohne
+  BLECHTRIBE nach 4,6 s, mit BLECHTRIBE nach 8,6 s. Die 4 s mehr sind die eigenen Kartenzugriffe (Plugins, Einstellungen),
+  die auf die Karte warten; am Gerät dauert dieses Warten länger (hergeleitet: der Emulator antwortet sofort mit "keine
+  Antwort"). Der Ladebalken geht bei einem Fehlercode sofort weg (`loadbar:card_error_ends_the_overlay`).
+  Wie der Start mit einer toten Karte heute weiterläuft: [Tote Karte beim Start](messungen/2026-11-10-tote-karte-beim-start.md).
+
+Quelle: Messung 2026-10-19/kartenfehler-beim-start (gelöscht, `git show origin/develop:docs/messungen/2026-10-19-kartenfehler-beim-start.md`)
 
 ## Die vier Fälle
 

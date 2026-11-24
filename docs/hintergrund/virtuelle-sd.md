@@ -366,6 +366,25 @@ Build 2.02 mit Hacktribe).
   (Import-Handler `0xC0038D80`, Export-Handler `0xC003A108`, Methoden eines
   Befehlsobjekts, das die UI-Task anlegt).
 
+### Risiken fürs Dateisystem
+
+Was bei Dateizugriffen aus einem Stub schiefgehen kann und was dagegen hilft. **hergeleitet** aus den Messungen oben,
+am Gerät nicht ausgelöst. Quelle: die gelöschte Fassung dieser Seite, `git show origin/develop:docs/hintergrund/virtuelle-sd.md`.
+
+| Risiko | Gegenmaßnahme |
+|---|---|
+| Stub-Zugriff gleichzeitig mit einer Datei-Aktion der Oberfläche (kein Mutex gefunden, siehe oben) | nur im Hauptbildschirm, Bildschirm- und Menüzustand vorher prüfen, währenddessen keine Bedienung |
+| Abbruch mitten in `f_write` (Kabel gezogen, Strom aus) | die FAT ist erst nach `f_close` vollständig: Karte vorher sichern, nie `e2sSample.all` überschreiben, sondern eine neue Datei in einem neuen Ordner anlegen |
+| Die Firmware legt Dateien mit kurzen Namen in Großbuchstaben an | Namen mit höchstens 8 Zeichen oder bewusst mit LFN |
+| Modus `0xA` legt neu an und überschreibt eine vorhandene Datei | vorher mit `f_open(…, 1)` prüfen, ob die Datei existiert, nur neue Namen |
+| Falsche Argumente (Pfad ohne `/`, Zeiger außerhalb des Hook-Bereichs) | Prüfsummen der aufgerufenen Funktionen vor jedem Lauf prüfen wie im LED-Execute-Muster, Adressen nur für das vermessene Build |
+| Die Execute-Task blockiert lange (langsame Karte) | Zeitlimit im Hostprogramm, die Antwort `0x21` abwarten, kein neuer Befehl davor |
+| Datenverlust durch die Firmware selbst | Karte zuerst vollständig sichern, Zielordner nur neu anlegen, nach dem Schreiben zurücklesen (`0x52` nach `f_read`) und mit dem Rechner vergleichen, erst dann importieren |
+| Samplespeicher oder Karte voll | vor dem Import Platz prüfen (die Texte "Memory Full" und "Card Full" gibt es), einen leeren Slot wählen |
+
+Vor dem ersten Lauf am Gerät: Trockenlauf mit dem Prüfsummenvergleich der aufgerufenen Funktionen, dann nur eine kleine
+Datei in einen neuen Ordner schreiben und zurücklesen, dann importieren, dann exportieren, jeden Schritt einzeln.
+
 ### Importweg und Weg zu `e2sSample.all`
 
 **WAV auf die Karte und IMPORT SAMPLE**

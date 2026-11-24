@@ -4,18 +4,26 @@ Das meiste, was dieses Projekt an der Electribe tut, ist im Emulator gemessen. D
 es an ihrer eigenen Electribe nachvollziehen und das Ergebnis melden. Jede Anleitung sagt vorher, was am Ende belegt
 sein soll, und trennt "am Gerät bestätigt" von "nur im Emulator gemessen" und "offen".
 
-**Das Gerät wird dabei verändert.** Beide Anleitungen spielen eine geänderte Firmware auf. Jede beginnt mit einer
-Warnung und beschreibt den Weg zurück, bevor die Schritte kommen. Lies beides, bevor du anfängst. Machst du es, dann
-auf eigenes Risiko und ohne Gewähr.
+**Das Gerät wird dabei verändert.** Der Kartentest schreibt Code in den RAM und eine Datei auf die SD-Karte, die
+übrigen Anleitungen spielen eine geänderte Firmware auf oder setzen sie voraus. Jede beginnt mit einer Warnung und
+beschreibt den Weg zurück, bevor die Schritte kommen. Lies beides, bevor du anfängst. Machst du es, dann auf eigenes
+Risiko und ohne Gewähr.
 
 ## Die Anleitungen
 
-Reihenfolge einhalten: erst die BLECH-Datei, dann die Sprache.
+Reihenfolge einhalten: erst die Karte, dann die BLECH-Datei, dann die übrigen.
 
 | Anleitung | Was sie prüft | Gerät wird verändert |
 |---|---|---|
-| [blech-datei.md](blech-datei.md) | Die Firmware mit dem BLECH-Satz über SOFTWARE UPDATE aufspielen, den Notschalter prüfen, dazu SysEx, FLASH READ, HT OSC und CATEGORY am Gerät. | Firmware im Flash, Karte |
+| [karte.md](karte.md) | Die Dateifunktionen der Firmware lesen und schreiben eine kleine Datei auf der SD-Karte. | RAM (einmaliger Probe-Code) und eine Datei auf der Karte, keine Firmware |
+| [blech-datei.md](blech-datei.md) | Die Firmware mit dem BLECH-Satz über SOFTWARE UPDATE aufspielen, den Notschalter prüfen, dazu SysEx, FLASH READ, HT OSC, CATEGORY, das Menü BLECH, Anpassung, Plugins und Blechy am Gerät. | Firmware im Flash, Karte |
+| [live.md](live.md) | Ladebalken, eigenes Startbild, Patternwechsel mit Bestätigung, TAP Motion und Notenassistent, an der Firmware mit dem BLECH-Satz. | nichts, nur Karte und Bedienen |
+| [blech-1.3.md](blech-1.3.md) | Bedien- und Displaytest von BLECHTRIBE 1.3: Start, Blechy, PATTERN CONFIRM, Synth-Filter, SPLASH DRAW, CALIBRATE DISPLAY, Doom. | Einstellungen, nur mit Sicherung |
+| [doom-v21.md](doom-v21.md) | BLECH v21 mit Doom-Lader aufspielen, Doom mit SHIFT + TAP starten, spielen, beenden. | Firmware im Flash, Karte |
 | [firmware-sprache.md](firmware-sprache.md) | Gerätemenüs auf Deutsch (Patch `lang-de`): alle Seiten, Dialoge und Meldungen am Display, ein Update behält die Sprache. | Firmware im Flash |
+| [offene-geraetetests.md](offene-geraetetests.md) | Vorbereitete, noch nicht gelaufene Tests: MFX 2 mit GATE ARP, Effekt-Bausteine im DSP, die rote mit blauer Firmware, Gerätename über USB. | je nach Test RAM oder Firmware im Flash |
+
+Die Messung der MIDI-Clock am Gerät steht in [Sequencer-Timing](../hintergrund/sequencer-timing.md#5-am-gerät-messen-offen).
 
 ## Was für alle Tests gilt
 

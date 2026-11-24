@@ -39,6 +39,7 @@ Was entschieden ist und warum. Gilt, bis hier etwas anderes steht.
 
 | Frage | Entscheidung |
 |---|---|
+| MFX 2 über die Modus-Tabelle | Nicht über das Datenbyte für Modus 3 in der Tabelle `0xC00E5030` (`01 00 00`) lösen. Warum: das Byte gilt auch mit EXIT beim Einschalten, dann würde etwas vom Patch wirken, obwohl der Notschalter verspricht, dass nichts wirkt. Quelle: Messung 2026-10-10/mfx-umschalter. |
 | Umbenennung `hacktribe` zu `blechtribe` | Als Patch gebaut. Die Karte zieht mit um, der Emulator hat dafür einen Knopf. |
 | Gate Arp allein | Mit dem Patch nur noch mit EXIT beim Start erreichbar. GATE ARP allein soll sich wie GATE ARP plus TOUCH SCALE verhalten. |
 | Regler beim Einschalten | Sie bleiben in der Aus-Stellung, bis einer gedreht wird. Der Regler bestimmt den Wert, nicht umgekehrt. |

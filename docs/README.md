@@ -54,6 +54,16 @@ Tiefere Erklärungen dazu, wie die Firmware arbeitet. Die Seiten oben stützen s
 | [hintergrund/panel-controller.md](hintergrund/panel-controller.md) | Der Mikrocontroller hinter Tasten, Reglern und LEDs |
 | [hintergrund/sequencer-timing.md](hintergrund/sequencer-timing.md) | Sequencer-Auflösung, MIDI-Clock, Tempo |
 | [hintergrund/patternwechsel.md](hintergrund/patternwechsel.md) | Einen Pattern-Wechsel bestätigen und die Lücke, die ein Wechsel hat |
+| [hintergrund/sample-swap.md](hintergrund/sample-swap.md) | Sample Swap: Stimmen, DSP-Anfragen, Verdrängen, Warten, Prüfungen |
+| [hintergrund/sample-speicher.md](hintergrund/sample-speicher.md) | Sample-Speicher: oberes RAM, Import, PCM-Schreibwege und Schutz, Dateibesitz, Journal |
+| [hintergrund/doom.md](hintergrund/doom.md) | Doom auf dem Gerät: Start, Bild, Pads, Ton, Laufzeit |
+| [hintergrund/usb.md](hintergrund/usb.md) | USB: Deskriptor, Endpoints, Treiber, Engpass SysEx |
+| [hintergrund/blackfin.md](hintergrund/blackfin.md) | Der Blackfin-DSP: Boot, Speicherzugriffe, DMA, RTOS, QEMU und Simulator |
+| [hintergrund/effekte.md](hintergrund/effekte.md) | Effekte: Effektdatei, Pegel, Röhrenkurve, TAP Motion, Glide, Synth-Start |
+| [hintergrund/firmware-extras.md](hintergrund/firmware-extras.md) | Hacktribe-Extras auf rot: Grooves, Skalen, Akkorde, Easter Egg |
+| [hintergrund/blau.md](hintergrund/blau.md) | Die blaue Electribe: Kennung, Update, Effekt-Port, rot als blau |
+| [hintergrund/display.md](hintergrund/display.md) | Display und LEDs: Kalibrierung, Helligkeit, Meter, Energiesparen, Gerätename |
+| [hintergrund/patch-effizienz.md](hintergrund/patch-effizienz.md) | Patch-Effizienz: Plugin-Prüfung, Decoder, Arbeitsbereiche, SysEx-Puffer |
 
 ## Messungen und Ideen
 

@@ -913,6 +913,19 @@ vorausgesetzt. Das eigenständige Hostmodell wird ausdrücklich über
 `ScriptRuntime` und dessen `api["korg.led"]` verbunden; es gibt keine
 versteckte globale Warteschlange.
 
+**Woher `viewedPattern` und `nextPattern` lesen** (gemessen im Emulator, Hacktribe, rot und blau mit BLECH,
+`tools/emu/plugin_api18_cases.py`; am Gerät nicht):
+
+- `korg.read.viewedPattern()` liest die Zeigerzelle der Pad-LEDs (`0xC0691388`, blau `0xC056B624`), bei `+4` des
+  Zugriffsobjekts das Pattern. Liegt der Zeiger im Bankbereich, ist die Nummer `(Zeiger + 4 - Bank) >> 14`, sonst die Nummer
+  des laufenden Patterns (`+0x318`). Ohne den Patch des Patternwechsels steht in der Zelle `FFFFFFFF` (hergeleitet), dann
+  gibt `korg.read.nextPattern()` -1 und `korg.read.viewedPattern()` das laufende Pattern.
+- `korg.read.nextPattern()` liest den Zustand des Patternwechsels in eigenem RAM, auf allen drei Firmwares gleich:
+  `0xC0180F04` bestätigt (1), `0xC0180F08` die Nummer, dazu das Wartend-Flag der Auswahl bei `+0x341` (`0xC06B2108`, blau
+  `0xC0582F78`, dasselbe Objekt, dessen `+0x318` `korg.read.pattern()` liest).
+
+Quelle: Messung 2026-11-05/plugin-api18
+
 ### Eingaben fernhalten (API 19)
 
 Ein Plugin nimmt der Firmware Tasten, Pads und Regler weg, damit sie nur das Plugin bekommt: `korg.keyMask` und
@@ -931,6 +944,10 @@ laufenden Plugins, die einen Handler dafür haben, und entscheidet danach, ob si
   schließbar.
 - **Gemessen:** im Emulator auf Hacktribe, rot und blau mit zwei Plugins (`tools/emu/plugin_api19_cases.py`); am Gerät nicht.
   Das Beispiel-Plugin Gate Hold läuft unverändert weiter.
+
+Warum Masken und kein Rückgabewert des Handlers: ein Handler läuft erst im nächsten 40-ms-Rahmen, dann hat die Firmware das
+Ereignis schon verarbeitet. Ein Rückgabewert "nicht an die Firmware" ginge nur, wenn der Filter jedes Ereignis zurückhielte,
+bis der Handler entschieden hat. Darum sagt das Plugin vorher mit einer Maske, was es haben will (Quelle: Idee 74).
 
 ### Bedienen wie ein Finger (API 25)
 
@@ -1443,6 +1460,36 @@ Die Seiten der Gruppen:
 | FEATURES, AUTO SAVE | ON, OFF | ON: wer GLOBAL PARAMETERS (oder PLUGIN RUNTIME dahinter) verlässt und dort einen Wert geändert hat, dem speichert BLECHTRIBE die Global-Werte mit demselben Auftrag wie WRITE dort (die Firmware zeigt rund eine Sekunde ihr Fenster "Writing...", wie nach WRITE); wer das BLECH-Menü verlässt und eine Einstellung geändert hat, dem schreibt es die Einstellungsdatei wie WRITE; ohne Änderung wird nichts geschrieben, Patterns bleiben bei WRITE; OFF: nur WRITE speichert, wie in der Firmware; gilt sofort, ON ist die Vorgabe (auch ohne Datei); OFF steht als Bit 7 von Byte 5 der Einstellungsdatei, ein BLECHTRIBE vor 1.5 verwirft eine Datei mit diesem Bit; das Ausschalten von AUTO SAVE selbst behält erst WRITE ([Messung](messungen/2026-11-09-auto-save.md)) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY, 1 bis 250 | das Pattern, das DATA UTILITY > INITIALIZE PATTERN als Vorlage nimmt; FACTORY ist die Vorlage der Firmware; gilt sofort und bleibt über das Ausschalten (Global-Byte 247, kein WRITE nötig); nur wo der Satz den Patch init-pattern hat (rot) ([Messung](messungen/2026-10-28-init-pattern.md)) |
 
+**TAP MOTION ONCE:** wie der Patch das Ende des Patterns erkennt und warum der Haken in der UiTask sitzt, steht in
+[Effekte](hintergrund/effekte.md#tap-motion-einmal-abspielen-once).
+
+**PATTERN CONFIRM, gestoppt mit ungespeicherten Änderungen.** Ist PATTERN CONFIRM an, das Pattern bearbeitet und nicht
+gespeichert und spielt nichts, lädt das Rad nicht sofort, sondern blättert wie beim Spielen: `VIEW:` blinkt, MENU (ENTER)
+lädt das gewählte Pattern (mit Program Change über MIDI), EXIT stellt die Nummer im RAM wieder ein und behält die Änderung.
+STOP und PLAY beenden das Blättern ohne zu laden, PLAY spielt dann das bearbeitete Pattern. Pad-Auswahl und MIDI Program
+Change wechseln weiter direkt. Solange etwas vorgemerkt ist, ignoriert die Firmware WRITE; nach EXIT speichert WRITE die
+Änderung an ihren eigenen Platz. Ohne Änderung lädt ein Klick sofort wie bei Korg, ebenso mit PATTERN CONFIRM OFF.
+Gemessen im Emulator (`pswitch:unsaved_*`, Hacktribe mit BLECH, Flash-Abbild vom 09.10.), am Gerät nicht geprüft.
+
+- "Ungespeichert" heißt: das Pattern im RAM (Zeiger `0xC033E6A4`, ab `+4`, 0x4000 Byte) unterscheidet sich von seinem
+  Platz in der RAM-Bank (`0xC08B2940 + Nummer * 0x4000`, blau `0xC0783D00`). Gemessen: nach dem Start sind beide gleich, ein
+  Dreh an einem Regler ändert ein Byte (`+2072`), nach WRITE sind beide wieder gleich. Keine falschen Treffer nach Start,
+  Abspielen, Stoppen, Raddrehen ohne Änderung, Pad spielen und TOUCH SCALE.
+- Das Rad setzt die gewählte Nummer und das Vormerk-Flag (`+0x318`, `+0x341`) und meldet es der Anzeige wie `SET_NUMBER`
+  beim Spielen (`0xC0070688`), lädt aber nichts. STOP und PLAY laden nicht, weil der Neulade-Zweig von `SET_NUMBER` die
+  Änderung verwerfen würde.
+- Im Stand lädt `0xC0081E18` (blau `0xC0072810`) laufend die gewählte Nummer, wenn sie nicht die laufende ist (gemessen:
+  ohne Haken 50 ms nach dem Drehen geladen, Schreiber der laufenden Nummer `0xC0079ACC`, gerufen von `0xC0081E54`). Der Haken
+  der Kette `stopped-sync` lässt sie während des Blätterns nichts tun. Die Funktion ist ein Beobachter, den die Firmware über
+  einen Methodenzeiger (Literal `0xC00821F0`) oft und schon beim Start ruft.
+- Falle: ein Haken an dieser Stelle darf nur sein eigenes Wort lesen und nur `r12` berühren. Eine Fassung, die bei jedem
+  Aufruf die Ein-Prüfung des Patches rief, verschluckte im Emulator die Antwort auf ein BLECH READ nach einem großen WRITE
+  (`sysex:write_random`, Blöcke 6 und 42). Warum genau, ist nicht verfolgt.
+- Offen: ob auch die Pad-Auswahl vor dem Verwerfen fragen soll (Vorschlag aus Idee 57: Pad ja, MIDI Program Change nein,
+  weil dort ein Rechner fernsteuert).
+
+Quelle: Messung 2026-10-18/ungespeichert-blaettern, Idee 57
+
 Rückmeldungen ("saved", "no card", "imported", "2 exported" und so weiter) ersetzen den
 Wert der Seite, bis man das Hauptrad dreht oder die Seite wechselt. Die dritte Zeile der
 Firmware (die Einheit hinter einem Wert) beginnt bei jedem Bildschirm in Spalte 28 der
@@ -1942,8 +1989,18 @@ gespielt hat, sagt sie selbst. Die Schrittliste für einen eigenen Test:
   ([Messung](messungen/2026-10-14-blech-menue.md), Abschnitt "DATA UTILITY").
   `e2sCustom.all` von EXPORT ALL CUSTOMIZATIONS liest beim Start noch nichts; einen Lader dafür gibt es nicht.
 - **Apps am Gerät:** das Öffnen und Schließen, der Neuzeichner des Hauptbildschirms
-  (Byte `+0x5C` im Bildschirm-Manager hinter `0xC03404C0`, auf unseren Karten `0xC06C226C`; auf einer
-  anderen roten mit anderem Flash-Inhalt liegt der Manager woanders) und die Tasten der offenen App sind nur im Emulator gespielt.
+  (Byte `[SCREEN_MANAGER] + 0x10 + 0x4C`, der Bildschirm-Manager hinter `0xC03404C0`; eine feste Adresse geht nicht, weil die
+  Heap-Objekte mit dem Flash-Inhalt wandern, auf einer fremden roten um 0x3320) und die Tasten der offenen App sind nur im
+  Emulator gespielt.
+- **Start-Haken auf einem fremden Gerät:** ein Fremdbericht (Laufzeit 1.4.0 in fremden ROMs, gemessen auf einem roten
+  Sampler per Stub-Peek, nicht von uns) sah `script_early_hook` (`0xC0038D34`) und `script_card_hook` (`0xC0038D68`) nie
+  laufen, Rahmen-, Eingangs- und Licht-Haken schon: kein `menu_arm`, kein BLECH im Ring, keine Plugins. `0xC0038D34` ist
+  Slot 2 der Klasse mit Vtable `0xC00A7B38`, gerufen aus der Nachrichtenpumpe der Bildschirmverwaltung (`0xC002D79C`), also
+  ein Nachrichten-Handler des Lade-Bildschirms, kein fester Startbefehl. Gemessen wurde nur beim Start über DFU und GDB,
+  nicht beim Kaltstart. Auf unserem roten Gerät laufen die Plugins nach dem Kaltstart (hergeleitet: betrifft uns
+  wahrscheinlich nicht). Der vorgeschlagene Ausweg `late_arm` (im Rahmen-Haken nach 100 Rahmen scharf schalten, wenn der
+  Hauptbildschirm steht, nie nach EXIT beim Start) ist nicht übernommen; sein Patch setzt auf 1.4.5 auf und belegt
+  `0xC019F800`, das kein Patch anmeldet. Quelle: Messung 2026-11-01/omnitribe-laufzeit-1.4.0
 - **Format 2:** der Aufschlag der 16-Bit-Operanden ist hergeleitet (Abschnitt
   "Format 2 und die Kosten"), in den genannten Messungen nicht gesondert
   nachgemessen.

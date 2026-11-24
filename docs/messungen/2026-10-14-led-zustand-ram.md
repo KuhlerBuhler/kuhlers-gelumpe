@@ -108,7 +108,7 @@ Bedienfeld stimmen danach überein.
 
 | Adresse | Was |
 |---|---|
-| `0xC00875F4(Manager, LED, 0)` | Vergleich Sollwert und Kopie, kopiert den Eintrag, reiht die Nachricht ein. Im Vergleich steht Kopie Byte 2 gegen Sollwert Byte 1 (Modus, nicht Helligkeit); bei diesen LEDs (Modus 1, Helligkeit 0 oder 255) ist das nie gleich, also sendet der Aufruf immer. |
+| `0xC00875F4(Manager, LED, 0)` | Vergleich Sollwert und Kopie, kopiert den Eintrag, reiht die Nachricht ein. Im Vergleich steht Kopie Byte 2 gegen Sollwert Byte 1 (Modus, nicht Helligkeit); bei diesen LEDs (Modus 1, Helligkeit 0 oder 255) ist das nie gleich, also sendet der Aufruf immer. Ausnahme: nach Helligkeit 1 sendet er für diese LED nichts mehr, siehe [Display und LEDs](../hintergrund/display.md). |
 | `0xC0088118(Manager, Touch-Pad-Modus)` | die Firmware setzt GATE ARP, TOUCH SCALE, MASTER FX für einen Modus: Tabelle bei `0xC00E5030`, 3 Byte je Modus (`01 00 00`, `00 01 00`, `00 00 01`, `01 01 00`), LED-Nummern `1a 1b 1c` bei `0xC00E50FF`, je Sollwert Byte 2 = 0 oder 255, dann `0xC00875F4`. Gemessen als Schreiber von `0x4e` der drei Einträge bei einem Tastendruck (Schreib-Hook im Emulator). Aufrufer (hergeleitet): ein Zweig bei `0xC00896EC`, der bei einem Moduswechsel läuft, und ein Auffrischen bei `0xC0089A3C`, das den aktuellen Modus liest. |
 
 **Patch:** `led_assert` (MFX 2: TOUCH SCALE 255, MASTER FX 0) schreibt die beiden Sollwerte und ruft

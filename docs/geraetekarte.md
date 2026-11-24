@@ -176,9 +176,9 @@ Umrechnung neu geschrieben.
 | Motion Sequences | wie oben | Korg-Spec, am Gerät nicht geprüft |
 | IFX- und MFX-Presets | live ins RAM (Hacktribe), Firmware (beide Builds, über die Zeigerfelder) | weitgehend, 23 von 28 Map-Bytes unbekannt; bei Korgs Build nur aus der Datei, mit dem Patch `preset-tables` bis 128 Plätze je Art |
 | 72 Modulationsarten | Firmware | Name, Ziel, Vorgabe-Tiefe, Vorgabe-Speed und Kurve editierbar (Seite Modulationen), Wellenform, Sync, Polarität bekannt, Felder ab `+0x29` offen |
-| 32 Tonleitern | Firmware | dekodiert |
+| 32 Tonleitern | Firmware | dekodiert. Touch-Skalen und Akkordtabellen je Skala, rot gegen Hacktribe: [Hacktribe-Extras](hintergrund/firmware-extras.md#touch-skalen) |
 | Groove-Templates | live ins RAM, Firmware | Format aus hacktribe-editor, am Gerät nicht geprüft |
-| Global-Einstellungen | Global-SysEx | Korg-Spec, Menüseiten gemessen (siehe `data/map/global.mjs`) |
+| Global-Einstellungen | Global-SysEx | Korg-Spec, Menüseiten gemessen (siehe `data/map/global.mjs`). Die Bytes 44 bis 251 ändert kein Menü der Firmware; BLECH legt dort eigene Werte ab, etwa die Freischaltung des Ostereis in Byte 251 ([Hacktribe-Extras](hintergrund/firmware-extras.md)). Die Seite LCD CONTRAST zeigt mit BLECH eine Kalibrierhilfe ([Display](hintergrund/display.md)) |
 | Startbild | Firmware | belegt, 128 mal 64, ein Bit je Pixel |
 | Menülängen | live ins RAM, Firmware | belegt |
 | Samples: Name und Tune | live ins RAM | am Gerät geschrieben ([Namen](messungen/2026-10-07-sample-name-ram.md), [Metadaten](messungen/2026-10-07-sample-metadaten-ram.md)), editierbar auf der Seite Samples (nicht in der Navigation, nur mit `?labs`, siehe [Entscheidungen](entscheidungen.md)) |
@@ -227,15 +227,17 @@ Das Format hat bangcorrupt im
 | `+0x30` | 64 Steps zu je 4 Byte: Versatz, Velocity, Gate, `0xFF` |
 | letzte 4 Byte | Kennung `GVED` |
 
-Ein Record ist `0x140` Byte, die Tabelle liegt bei `0xC0143B00`. Geschrieben wird
+Ein Record ist `0x140` Byte. Bei Hacktribe liegt die Tabelle mit 62 Einträgen im Abbild bei `0xC0143B00` (Datei
+`0x143C00`). Korgs rote Firmware hat keine Tabelle im Abbild: sie baut ihre 25 Vorlagen beim Start in den RAM ab
+`0xC068A03C` (gemessen, [Hacktribe-Extras](hintergrund/firmware-extras.md#grooves)). Geschrieben wird
 per RAM-Befehl, es gibt keinen eigenen Groove-Befehl. Nach dem Beispielskript
 dort ist ein Versatz von 48 ein halber Step, ein Step hat also 96 Einheiten, und
 Gate 96 heißt gebunden.
 
 **Offen**, bevor es in Klartext editierbar wird:
 
-- 96 oder 128 Plätze? hacktribe-editor lässt nur die Plätze 0 bis 95 zu, bis das
-  geklärt ist, gilt die kleinere Zahl.
+- Die Zahl der Plätze: der Setter `0xC0049DA4` nimmt auf Hacktribe 0 bis 61, auf rot 0 bis 24, darüber setzt er 0
+  (gemessen, [Hacktribe-Extras](hintergrund/firmware-extras.md#grooves)). hacktribe-editor lässt die Plätze 0 bis 95 zu.
 - Ob Velocity absolut oder relativ ist. Neu angelegt steht sie auf 96, das Beispiel
   ändert sie um -32. Das spricht für einen Ruhewert in der Mitte, ist aber nicht
   gemessen.

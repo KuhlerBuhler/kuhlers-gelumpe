@@ -63,8 +63,8 @@ der Haken zum Original weiter. Mit EXIT beim Einschalten tut keiner der beiden e
 genommen, das Gerät schweigt dazu wie Korgs Original. Kein Haken in der Startphase.
 
 Der Code (1760 Byte) liegt bei `0xC0172100`, die Tabelle bei `0xC0173800`, der Zustand bei `0xC0191000` und der Puffer
-bei `0xC0191100` bis `0xC01A0000` (61184 Byte, genug für einen Block von 32768 Byte, dessen Antwort 37 KiB packt: die
-Antwort wird von hinten im selben Puffer gepackt, ohne zweite Kopie). Das ist der freie Lauf hinter dem Code der
+ab `0xC0191100` (37632 Byte, genug für einen Block von 32768 Byte samt gepackter Antwort: die Antwort wird vorwärts im selben
+Puffer gepackt, ohne zweite Kopie, Herleitung in [Patch-Effizienz](../hintergrund/patch-effizienz.md)). Das ist der freie Lauf hinter dem Code der
 Synth-Filter, in beiden Builds `FF`. Zuerst lagen Zustand und Puffer bei `0xC0174000` bis `0xC0180000`; dort liegen
 seit den Preset-Tabellen deren Plätze für weitere Presets (`0xC0174000` bis `0xC017CC00`), also zogen Zustand und Puffer um.
 

@@ -19,6 +19,7 @@ geprüft](../messungen/2026-10-10-startbild-editor.md). Am Gerät ist von den Me
   den Flash (`save_image`), zu sehen ist es ab dem Start danach. SPLASH IMPORT liest ein BMP (128 x 64, 1 Bit,
   unkomprimiert), WRITE im Editor schreibt auch die Karte.
 - Im Editor bewegt das Hauptrad einen blinkenden Cursor, MENU kippt das Pixel darunter, WRITE speichert, EXIT verlässt.
+  Mit SHIFT gehalten springt das Rad zeilenweise, mit MENU gehalten malt es (Abschnitt 7).
 
 Basis der Messungen: eine eigene `SYSTEM.VSB` (Sampler 2.02) und ein eigener Flash-Dump, im Emulator
 (`tools/emu/machine.py`) oder offline mit Capstone gelesen. Markierungen: **gemessen**, **offline** (Code gelesen),
@@ -241,6 +242,31 @@ Zeitachse des Starts (gemessen, Emulator-ms): Startbild der VSB gezeichnet bei 5
   nicht lesbar.
 - EXIT ist Bit 13: beim Start gehalten `0x2000`, Startmodus 0, am Gerät gemessen
   ([Rückweg geübt](../messungen/2026-10-10-rueckweg-geuebt.md), Punkt 6).
+
+## 7. Bedienung im Editor: SHIFT, Malen, Rad
+
+Alles **gemessen im Emulator** (`tools/emu/splash_cases.py run`, BLECH auf einer eigenen Hacktribe-Datei mit dem
+Flash-Abbild vom 09.10.), am Gerät nicht geprüft, außer wo es dabeisteht.
+
+- **SHIFT gehalten:** ein Schritt des Rads ist eine ganze Zeile (128 Pixel), mit Umlauf über die 8192 Pixel. Erkannt
+  über das Tastenwort von SHIFT (Taste `0x0A`, Wort `0xC06BCA70 + 8 * 0x0A` nicht 0). Gemessen: zwei Schritte von
+  Pixel 3 nach 259, drei zurück nach 8067 (Umlauf), einer vor nach 3, das Bild bleibt unverändert.
+- **MENU gehalten malt:** MENU kippt das Pixel und merkt sich die neue Farbe (`S_PAINT`, `STATE + 0x30`). Solange MENU
+  (Taste `0x09`) gehalten ist, geht der Cursor Schritt für Schritt, und jedes Pixel, auf dem er landet, bekommt diese
+  Farbe. Ein schneller Dreh mit mehreren Schritten in einer Nachricht lässt also keine Lücke. Gemessen: vier Schritte
+  in einer Nachricht, die Bytes 3 bis 7 tragen die Farbe des Kippens, Byte 8 bleibt.
+- **Das Bild bleibt beim Drehen stehen:** nach VALUE setzt die Firmware am Bildschirm-Manager das Flag "alles neu
+  zeichnen" (`+0x5C`, gesetzt bei `0xC006F00C`, im nächsten Takt gelöscht bei `0xC006F1B8`). Der Takt malt dann die
+  Widgets der Seite über das Bild. Ein Neuzeichnen des Bilds erst im nächsten Takt reicht nicht: am Gerät blitzte die
+  Menüseite kurz auf (Rückmeldung vom Gerät 17.10.), das Display überträgt schon dazwischen. Darum gilt: solange der
+  Editor offen ist, sieht der Takt nur das Widget des Editors. Der Widget-Vektor der Seite wird gegen einen mit nur
+  diesem Widget getauscht und beim Verlassen und beim Abbau zurückgegeben, und der Takt-Haken löscht den Wunsch, alles
+  neu zu zeichnen. Gemessen: Schreibzugriffe in den Displaypuffer nach einem Rad-Klick 3 (nur der Cursor) statt 1606
+  zum Leeren plus 8061 Pixel.
+- **Offen:** ob die Firmware SHIFT mit dem Rad auf der Global-Seite selbst noch anders nutzt. Im Emulator kam der
+  Schritt unverändert im Slot an.
+
+Quelle: Messung 2026-10-18/startbild-malen, Messung 2026-10-17/startbild-import
 
 ## Aufbau des Patches
 

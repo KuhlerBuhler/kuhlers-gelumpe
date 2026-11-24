@@ -1,7 +1,8 @@
 # Nativer Doom-SD-Lader
 
-Wie der [Patch](../glossary.md#patch) `doom-loader` Doom von der Karte startet. Gemessen im Firmwareemulator, am Gerät
-ist nur der Notschalter bestätigt (siehe [Doom auf BLECH v21](2026-10-15-doom-v21.md) und [Rettung](../rettung.md)).
+Wie der [Patch](../glossary.md#patch) `doom-loader` Doom von der Karte startet. Gemessen im Firmwareemulator. Am Gerät
+startet Doom und zeigt ein erkennbares Spielbild (Rückmeldung 23.10.), der Cache-Befehl unten ist am Gerät gemessen
+(siehe [Doom auf der Electribe](../hintergrund/doom.md), [Doom auf BLECH v21](2026-10-15-doom-v21.md) und [Rettung](../rettung.md)).
 Der Quelltext steht in `tools/doom/` ([Buildanleitung](../../tools/doom/README.md)), der Patch in `tools/patch/doom_loader.py`.
 
 ## Aufbau
@@ -26,6 +27,6 @@ Der Quelltext steht in `tools/doom/` ([Buildanleitung](../../tools/doom/README.m
 
 - **Hergeleitet:** Die Fläche der Engine liegt im sonstigen Arbeitspuffer des Samplers. Ihre Freiheit folgt daraus, dass
   der Samplerstart im Doom-Zweig ausgelassen wird, keine allgemeine Reservierung.
-- **Offen:** Wirkung der Cache-Befehle und Zeit bis zum ersten Bild am Gerät, Ton, weitere WADs.
+- **Offen:** Zeit bis zum ersten Bild am Gerät, Ton, weitere WADs.
 - Der Lader ist für genau eine `doom.bin` gebaut. Ändert sich die Datei, ändert sich ihr eingebauter Hash, und der Patch
   muss neu gebaut werden.

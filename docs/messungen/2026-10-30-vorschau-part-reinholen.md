@@ -59,13 +59,15 @@ Was die Firmware damit tut (gemessen, Emulator, alle drei Builds, Fälle unten):
 Was der Patch tut:
 
 - `view_shift` am Lesen von SHIFT: ohne SHIFT oder ohne Vorschau weiter wie die Firmware. Mit SHIFT und Vorschau kippt er `V_SIDE`
-  (hinter `VIEW_W`, `+0x64`, 1 heißt Seite A), löscht `V_PEND` und `V_COPY`, setzt den Zeiger der Pad-LEDs (`0xC0691388`) auf das
+  (hinter `VIEW_W`, `+0x64`, 1 heißt Seite A), behält in `V_COPY` die geholten Parts (auch die, deren eigener Part in `V_BACK` noch
+  wartet), nimmt die nur vorgemerkten aus `V_PEND` heraus, löscht `V_PEND` und `V_BACK`, setzt den Zeiger der Pad-LEDs (`0xC0691388`) auf das
   Pattern im RAM (Seite A) oder auf die Ansicht (Seite B), zeichnet die Pads neu und springt dorthin, wo beide Wege der Firmware enden.
   Die Mutes aufheben fällt in der Vorschau also weg.
 - Seite A: `view_pad` gibt jeden Druck an die Firmware, wie ohne Vorschau (auch im SEQUENCER, dann schalten die Pads die Steps von A).
   Die Farbe der Pads ist die normale, weil der Zeiger auf das Pattern im RAM zeigt. Die Infotexte der Edit-Zeile bleiben bei B.
-- Zurück auf B: weil `V_COPY` leer ist, holt der erste Druck einen Part wieder, auch einen, der vorher schon geholt war. Die auf B
-  gesetzten Mutes bleiben und gehen beim Wechsel mit.
+- Zurück auf B: ein geholter Part bleibt geholt, sein Pad leuchtet fest, ein Druck schaltet ihn aus. Ein auf A zurückgegebener Part
+  blinkt wieder und wird mit einem Druck neu geholt. Die auf B gesetzten Mutes bleiben und gehen beim Wechsel mit (`vn_end` in
+  `tools/patch/pattern_switch.py`).
 - Das Rad innerhalb der Vorschau behält die Seite (`pc_view_cells` lässt auf Seite A den Zeiger der Pads beim Pattern im RAM). Endet
   die Vorschau, auch wenn das Rad auf das laufende Pattern zurückgeht, setzt `view_new` die Seite auf B.
 - Neuer Zustand: `VIEW_W` hat jetzt 0x68 Byte. Der Code liegt weiter zwischen `0xC0173480` und `0xC0173800`.

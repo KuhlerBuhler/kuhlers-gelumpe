@@ -836,6 +836,10 @@ plugins that have a handler for it, and then decides whether the firmware sees i
 - **Measured:** in the emulator on hacktribe, red and blue with two plugins (`tools/emu/plugin_api19_cases.py`); not on
   the device. The example plugin Gate Hold keeps working unchanged.
 
+Why masks and not a return value from the handler: a handler runs only in the next 40 ms frame, by then the firmware has
+already processed the event. A return value "keep it from the firmware" would only work if the filter held back every
+event until the handler decided. So a plugin says beforehand, with a mask, what it wants.
+
 ### Working the device like a finger (API 25)
 
 `korg.keyDown` and `korg.keyUp`, `korg.padDown` and `korg.padUp`, `korg.encoder` and `korg.touch` give the firmware the
@@ -1285,6 +1289,14 @@ The pages of the groups:
 | FEATURES, AUTO SAVE | ON, OFF | ON: leaving GLOBAL PARAMETERS (or PLUGIN RUNTIME behind it) after changing a value there saves the Global values with the same request WRITE sends there (the firmware shows its "Writing..." window for about a second, as after WRITE); leaving the BLECH menu after changing a setting writes the settings file as WRITE does; nothing changed means nothing is written, patterns stay with WRITE; OFF: only WRITE saves, as in the firmware; acts at once, ON is the default (also without a file); OFF is bit 7 of byte 5 of the settings file, a BLECHTRIBE before 1.5 rejects a file with that bit; switching AUTO SAVE itself off is kept by WRITE only ([measurement](messungen/2026-11-09-auto-save.md), German) |
 | DATA UTILITY, SET INIT PATTERN | FACTORY, 1 to 250 | the pattern DATA UTILITY > INITIALIZE PATTERN takes as its template; FACTORY is the firmware's template; applies at once and stays after switching off (Global byte 247, no WRITE needed); only where the set has the patch init-pattern (red) ([measurement](messungen/2026-10-28-init-pattern.md)) |
 
+**PATTERN CONFIRM, stopped with unsaved changes.** With PATTERN CONFIRM on, the pattern edited and not saved, and nothing
+playing, the dial does not load at once but browses as during play: `VIEW:` blinks, MENU (ENTER) loads the chosen pattern
+(with a MIDI program change), EXIT sets the number in RAM back and keeps the edit. STOP and PLAY end browsing without
+loading, PLAY then plays the edited pattern. Pad select and MIDI program change still switch directly. While something is
+pending the firmware ignores WRITE; after EXIT, WRITE saves the edit to its own slot. Without an edit one click loads at
+once as in Korg's firmware, and so does PATTERN CONFIRM OFF. "Unsaved" means the pattern in RAM differs from its slot in
+the RAM bank. Measured in the emulator, not on the device (details in the German page).
+
 Feedback ("saved", "no card", "imported", "2 exported" and so on) replaces the value of the page until you
 turn the main dial or change the page. The firmware's third line (the unit behind a value) starts in
 column 28 of the value line on every screen, so any value wider than one or two characters runs into it.
@@ -1703,8 +1715,11 @@ emulator, it says itself. Step list for an own test:
   a state machine with a jump table of 40 states in a single function (`0xC0061A24`); pages inside it would be states of
   their own, a job of its own ([measurement](messungen/2026-10-14-blech-menue.md), section "DATA UTILITY").
   Nothing reads the `e2sCustom.all` of EXPORT ALL CUSTOMIZATIONS at start yet; there is no loader for it.
-- **Apps on the device:** opening and closing, the redraw of the main screen and the keys of the open app
-  were played only in the emulator.
+- **Apps on the device:** opening and closing, the redraw of the main screen (byte `[SCREEN_MANAGER] + 0x10 + 0x4C`; no
+  fixed address, heap objects move with the flash content) and the keys of the open app were played only in the emulator.
+- **Start hooks on another device:** a third-party report (runtime 1.4.0 in other ROMs, started over DFU and GDB, not a cold
+  start) saw the two start hooks never run, so no BLECH menu and no plugins. On our red device plugins run after a cold
+  start. Details in the German page.
 - **Format 2:** the extra cost of the 16-bit operands is derived, not measured separately.
 
 ### Source code

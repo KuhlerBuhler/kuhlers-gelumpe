@@ -149,3 +149,41 @@ daraus 0,01 BPM, `0xC002BA7C` nimmt 2000 bis 30000 und setzt die Periode
 (24 MHz / 24000), der Rest im Taktgeber wird mitgetragen: über 8 s bleibt die Clock bei allen gemessenen Tempi
 in einem 1-ms-Fenster um die ideale Zeit (**gemessen**). Die wirkliche Genauigkeit bestimmt der Quarz: am Gerät
 +32 ppm gegen den Laptop, das sind 64 µs je Takt bei 120 BPM (**gemessen**, Gerät).
+
+## 4. Was ein Patch verbessern könnte
+
+Alles hier ist **hergeleitet**, nichts gebaut. Reihenfolge nach Nutzen.
+
+1. **Clock ein genau messen und glätten.** Den Pulszeitpunkt nicht aus dem 1-ms-Taktgeber nehmen, sondern aus
+   einem freilaufenden Zähler (Timer 0 zählt mit 24 MHz, der Timer bei `0x01F0D000` mit 150 MHz und 1 s
+   Periode, sein Interrupt ist aus; beides **gemessen** im Emulator) und die Periode über 24 Pulse mitteln oder
+   mit einer einfachen PLL nachführen. Das nimmt den Sprung 119/125 BPM weg (Raster 41 ns statt 1 ms). Eingriff:
+   der Folger `0xC002C1C4`, ein Haken.
+2. **F8 am Ring vorbei.** Ist der DIN-Sender frei, das F8 direkt ins Senderegister schreiben, sonst an den Anfang
+   des Rings. MIDI erlaubt Echtzeit-Bytes zwischen den Bytes einer Nachricht. Nimmt die Wartezeit hinter Noten
+   (0,32 ms je Byte) weg, nicht das 1-ms-Raster.
+3. **Feineres Raster für Ticks und Clock.** Den Taktgeber in einem eigenen, schnelleren Timer-Interrupt rechnen
+   (zum Beispiel 10 kHz, Zuwachs 10^8 ps), die übrigen Aufgaben im 1-kHz-Handler (Zähler, Sync-Pulslänge
+   und zwei weitere Aufrufe, nicht gelesen) unverändert lassen. Die Clock auf DIN käme dann auf 0,1 ms genau. Risiko: mehr Interruptlast,
+   und für Noten bringt es nichts, solange die SeqTask im 2-ms-Takt abholt.
+4. **SeqTask im 1-ms-Takt.** Halbiert den Notenjitter (2 ms -> 1 ms). Die SeqTask hängt am 500-Hz-Takt der
+   PeriodicTask; ein schnellerer Takt kostet CPU in einer Task mit Priorität 2 (siehe
+   [skript-laufzeit.md](skript-laufzeit.md)). Ob das hörbar besser ist, hängt davon ab, wann der DSP die Note
+   auslöst (**offen**).
+5. **Mindest-Gate.** Note-Off nicht im selben Durchlauf wie die Note-On schicken (Gate 1 und 2 werden zu
+   0,01 ms). Klein, in der Engine.
+
+Feinere Swing- oder Gate-Werte als 1/96 Step brauchen nichts davon, die Auflösung ist schon da; begrenzt wird
+alles vom 2-ms-Raster.
+
+## 5. Am Gerät messen (offen)
+
+Diese Schritte sind am Gerät noch nicht gelaufen. Die DIN-Clock geht ohne Bedienung (die Clock läuft auch im Stopp), nur lesen:
+
+1. **DIN-Clock:** ein USB-MIDI-Interface am Linux-Laptop an MIDI OUT, `/dev/snd/midiC<n>D0` lesen und die
+   F8-Abstände wie oben auswerten. Erwartung: ganze Millisekunden (15/16 ms bei 160 BPM), nicht 14/16 wie auf USB.
+2. **Noten-Jitter:** braucht PLAY durch den Nutzer und ein Pattern mit Noten auf jedem Step; dann Note-On gegen
+   F8 auf DIN. Erwartung: 0 bis 2 ms Streuung.
+3. **Clock ein:** braucht Clock Mode External MIDI (Einstellung durch den Nutzer); dann vom Laptop nur F8, FA, FC
+   schicken (zum Beispiel exakt 120 BPM) und das angezeigte Tempo beobachten. Erwartung: es springt zwischen
+   119,0 und 125,0.

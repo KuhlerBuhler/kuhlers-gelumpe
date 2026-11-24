@@ -70,6 +70,7 @@ teilweise gelesen ([DSP, erster Blick](hintergrund/dsp-erster-blick.md)).
 | **Neustart ohne Ausschalten,** auch nach dem Firmware-Update. | Watchdog-Stub und Emulator, Gerät offen ([Idee 77](ideen/77-neustart.md)) |
 | **Eigene Schrift** pixeln und beim Patchen einbauen; **UI-Themes** mit eigenen Strings und Bitmaps (Invertieren braucht wohl Code). | untersucht ([Idee 73](ideen/73-schrift-editor.md), [LCD](messungen/2026-10-12-lcd-helligkeit.md)) |
 | **Bekannte Firmware-Bugs fixen,** die Korg nicht fixt. | offen, konkrete Bugs sammeln |
+| **Vor dem Verwerfen ungespeicherter Änderungen fragen,** auch bei der Pad-Auswahl (MIDI Program Change nicht, dort steuert ein Rechner). | das Rad blättert gestoppt mit ungespeicherten Änderungen schon, statt zu laden ([PATTERN CONFIRM](plugins.md#das-menü-blech-am-gerät)); Pad offen (Idee 57) |
 
 ## Firmware-Grundlagen
 

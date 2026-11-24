@@ -206,7 +206,7 @@ Zwischenstücke (Füllen, Bitmap, Text, Linie).
 | weitere FF-Läufe im Abbild | `0xC01720B0` bis `0xC01A0000` 183 KiB, `0xC015027C` bis `0xC0170000` 127 KiB, `0xC0148880` bis `0xC0150000` 29 KiB, fünf kleine (2 bis 14 KiB) | Hacktribe-Code liegt direkt davor (`0xC0150000`, `0xC0170000`) | möglich, aber der große Block reicht |
 | Heap `0xC06A2940` bis `0xC08A2940` (2 MiB) | | Allokator der Firmware | nein |
 | Arbeitspuffer `0xC0D3A940` bis `0xC273AA40` (27 MB) | | Import und Export, Hacktribe nutzt darin `0xC1000000` (SysEx-Upload) und `0xC2000000` (Flash-Lesen) | nein: Nutzung zeitlich nicht getrennt belegt |
-| `0xC274F000` bis `0xC4000000` (24 MB) | | niemand bekannt | **offen:** im RAM-Dump vom Gerät 6318 von 6321 Seiten (4 KiB) nicht null, also nicht geleert (Boot löscht nur `0xC0200000` bis `0xC08A2940`); ob die Firmware dort liest oder schreibt, ist nicht belegt |
+| `0xC274F000` bis `0xC4000000` (24 MB) | | niemand bekannt | im RAM-Dump vom Gerät 6318 von 6321 Seiten (4 KiB) nicht null, also nicht geleert (Boot löscht nur `0xC0200000` bis `0xC08A2940`). **Gemessen am Gerät:** ein Muster darin bleibt im Leerlauf, bei USB-Lesen, Import, Aufnahme und SAMPLE EDIT unverändert (0 abweichende Seiten); ein Besitzer ist damit nicht bewiesen und eine Freigabe als Cache nicht erteilt ([Sample-Speicher](sample-speicher.md)) |
 
 - **Physischer RAM:** im RAM-Dump vom Gerät unterscheiden sich `0xC0200000` bis `0xC4000000` und dieselben Adressen 64 MiB höher nur in 31 von 15872 Seiten (4 KiB): Spiegelung bei 64 MiB, also hergeleitet 64 MiB physisch
   (am Gerät gemessen, aber zeitlich zusammengesetzter Dump). Der zweite Lader programmiert den DDR-Controller (Register `0xB0000008` = `(alt und 0xF0000000) oder 0x0813CA22`, `0xB0000010`, `0xB0000014`); der Wert ist nicht dekodiert.
@@ -382,5 +382,5 @@ gemessen: EXIT, MENU kehrt zurück), WRITE (Erstbefehl-Haken auf `0xC006F094`: o
 - Weitere Quellen für Note an (Keyboard, Chord, Gate Arp, Touchpad).
 - Auto Power Off: 4 Stunden folgen aus 2,0 ms im Emulator; drei weitere Absender der Ausschaltmeldung `0x18` und drei
   weitere Aufrufer von `0xC004C1B4` wurden nicht ausgelöst.
-- Ob `0xC274F000` bis `0xC4000000` (24 MB, im Gerät-Dump nicht leer) von der Firmware gelesen oder beschrieben wird;
-  das DDR-Register `0xB0000008` (Wert `0x0813CA22`) ist nicht dekodiert.
+- Ob `0xC274F000` bis `0xC4000000` (24 MB) einen Besitzer hat, den das Muster nicht gesehen hat (Leerlauf, USB-Lesen, Import, Aufnahme und
+  SAMPLE EDIT änderten es am Gerät nicht, [Sample-Speicher](sample-speicher.md)); das DDR-Register `0xB0000008` (Wert `0x0813CA22`) ist nicht dekodiert.

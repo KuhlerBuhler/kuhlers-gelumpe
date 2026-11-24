@@ -141,6 +141,19 @@ Im Emulator kommen Reglerwerte 0..1023 an, das echte Panel schickt höchstens 25
 ARM-Seite trotzdem füttern (gemessen in der [Panel-Bedienung](../messungen/2026-10-08-panel-bedienung.md)), vom echten
 Panel kommt das nicht.
 
+**Was ein Patch an Auflösung gewinnen könnte** (hergeleitet, nichts davon gebaut):
+
+- ARM-Patch, Panel unverändert (geringes Risiko): Regler 1 Bit mehr (256 statt 128 Stufen), wenn die Firmware das
+  `>> 1` nicht macht. Mehr gibt das Panel nicht her, und die meisten Parameter sind 0..127. Touchpad: `83 01` beim Start
+  senden und das `>> 3` weglassen, dann kommen 0..1023 aus einem Rohbereich von rund 713 x 595 Schritten (mit der eigenen
+  Kalibrierung 105..882 und 156..815). Wie viel davon Rauschen ist, ist offen.
+- Panel-Patch (mittleres Risiko, nächster Abschnitt): Regler mit 10 Bit senden, das Format hat `hi lo`, nur das `>> 2` in
+  `0x309C`/`0x3180` fällt weg; 12 Bit gingen, wenn das Totband von 3 mitwächst. Schneller abtasten über den Grundtakt
+  (100 µs) oder die Ereignisteilung, was Last und LED-Matrix dazu sagen, ist offen. Touchpad ohne Achterschritte schon im
+  Panel, oder kürzer warten als 12 Messungen.
+
+Quelle: `git show origin/develop:docs/hintergrund/panel-controller.md`, Abschnitt "Was ein Patch gewinnen könnte"
+
 ## Risiko beim Ändern des Panel-Abbilds
 
 - **Wie geschrieben wird:** Das ARM schaltet das Panel per GPIO in den Boot-Modus seines ROMs und

@@ -285,6 +285,44 @@ Plätze, passt das Modell `10 ms + n * Frame`. Bleibt sie bei gleichen Effekten,
 
 ---
 
+## Frage 3: Pad-Druck am Wechsel und Pad X/Y
+
+Die Rohnotizen stehen in der Git-Historie: `git show origin/develop:docs/messungen/2026-10-25-sync-sample-und-pad-xy.md`.
+
+### 3.1 Ein Pad-Druck geht auf dem Wechsel verloren
+
+Am Gerät berichtet: wer genau auf dem Wechsel ein Pad drückt (etwa in PART MUTE die Kick), dem geht der Druck manchmal verloren.
+
+- **gemessen (Emulator, Hacktribe, Flash vom 09.10.):** Pad 1 in PART MUTE in 1-ms-Schritten um den Wechsel einer Sync Group gedrückt.
+  Drücke von 1 ms vor bis 4 ms nach dem Wechsel kamen nicht an, mit Patch und mit EXIT beim Einschalten (Firmware allein) gleich.
+  Die Bytes vom Panel kamen dabei an, nur das Pad-Ereignis (Typ 4) erreichte die Oberfläche nie.
+- **offline und gemessen, warum:** der Pad-Handler `0xC0044874` (Pad, gedrückt, Velocity, Quelle) fragt `0xC002D634`, ob der
+  Befehlsausführer gerade arbeitet (Byte `+0x10` des Objekts hinter `0xC034057C`). Ist er beschäftigt und das Pad gedrückt,
+  verwirft der Handler es (`bne 0xC004499C`). Loslassen geht durch. Der Ausführer `0xC002D684` setzt das Byte vor jedem Befehl und
+  löscht es bei `0xC002D81C`. Beim Laden des Patterns stand es im Emulator von 0,8 ms vor bis 3,6 ms nach dem Wechsel.
+- **Fix im Patch** (`pad_gate`, `pad_replay` in `tools/patch/pattern_switch.py`): statt zu verwerfen merkt er sich den Druck (bis zu vier,
+  mit allem, was danach kommt, auch dem Loslassen) und gibt ihn dem Handler in derselben Reihenfolge, sobald der Ausführer das Byte
+  gelöscht hat. Blau: Handler `0xC003EB60`, Löschen `0xC002A980` (`data/synth-map/pattern-switch.json`).
+- **gemessen nach dem Fix:** alle Drücke von 4 ms vor bis 8 ms nach dem Wechsel kommen an. Fälle `pswitch:pad_during_the_load_is_kept`
+  (Hacktribe und blau grün).
+- **Offen:** wie lange das Byte am Gerät steht. Am Gerät nicht geprüft.
+
+Quelle: Messung 2026-10-25/sync-sample-und-pad-xy
+
+### 3.2 Pad X und Y zählen nicht als ungespeicherte Änderung
+
+Ein Druck aufs MFX-Pad schreibt dessen X und Y (Byte `0x3E` und `0x3F`, [Pattern-Block](../messungen/2026-09-16-pattern-diff.md)).
+Damit galt das Pattern als ungespeichert: gestoppt blätterte das Rad nur noch (`VIEW:`), statt zu laden. Beide Vergleiche lassen jetzt im
+Wort bei `0x3C` alles außer dem MFX-Typ (`0x3D`) aus: `pc_dirty` des Patternwechsels und `sc_unsaved` der WRITE-LED
+(`tools/patch/script_shortcuts.s`).
+
+- **gemessen (Emulator):** Fälle `pswitch:pad_xy_is_not_an_edit` (Hacktribe und blau) und `shortcut:pad_xy_is_not_an_edit` (WRITE-LED
+  bleibt dunkel, Hacktribe). Nachgestellt durch Schreiben ins RAM, nicht durch einen Druck aufs Pad im Emulator.
+
+Quelle: Messung 2026-10-25/sync-sample-und-pad-xy
+
+---
+
 ## Offen
 
 Im Ladepfad sind zwei globale Abschaltungen der Stimmenverwaltung
@@ -299,4 +337,5 @@ Das ist ein eigener Befund neben der Effekt-Neuinitialisierung.
 - Part-spezifisches Last Step: ob es das Sequenzende verschiebt.
 - Was `0xC005CDE4` mit dem Wartend-Flag macht (nicht gebraucht, nur wegen langem Blättern).
 - Wechsel ohne Effektunterschied: gibt es dort trotzdem eine Lücke (Stimmen, DSP-Parameter)?
+- Wie lange das Ausführer-Byte `+0x10` am Gerät steht (3.1).
 - Verhalten des Wechsels nach Bestätigung beim Bearbeiten (Fenster 0x1B) und in Song-Modi.

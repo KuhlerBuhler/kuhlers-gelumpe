@@ -61,6 +61,16 @@ Deeper explanations of how the firmware works, used by the pages above.
 | [hintergrund/panel-controller.md](hintergrund/panel-controller.md) | The microcontroller behind keys, knobs and LEDs |
 | [hintergrund/sequencer-timing.md](hintergrund/sequencer-timing.md) | Sequencer resolution, MIDI clock, tempo |
 | [hintergrund/patternwechsel.md](hintergrund/patternwechsel.md) | Confirming a pattern change and the gap that a change has |
+| [hintergrund/sample-swap.md](hintergrund/sample-swap.md) | Sample Swap: voices, DSP requests, eviction, waits, checks |
+| [hintergrund/sample-speicher.md](hintergrund/sample-speicher.md) | Sample memory: upper RAM, import, PCM write paths and protection, file ownership, journal |
+| [hintergrund/doom.md](hintergrund/doom.md) | Doom on the device: start, picture, pads, sound, runtime |
+| [hintergrund/usb.md](hintergrund/usb.md) | USB: descriptor, endpoints, drivers, SysEx bottleneck |
+| [hintergrund/blackfin.md](hintergrund/blackfin.md) | The Blackfin DSP: boot, memory access, DMA, RTOS, QEMU and simulator |
+| [hintergrund/effekte.md](hintergrund/effekte.md) | Effects: effect file, levels, tube curve, TAP Motion, glide, synth start |
+| [hintergrund/firmware-extras.md](hintergrund/firmware-extras.md) | Hacktribe extras on red: grooves, scales, chords, Easter egg |
+| [hintergrund/blau.md](hintergrund/blau.md) | The blue Electribe: ID, update, effect port, red as blue |
+| [hintergrund/display.md](hintergrund/display.md) | Display and LEDs: calibration, brightness, meter, power saving, device name |
+| [hintergrund/patch-effizienz.md](hintergrund/patch-effizienz.md) | Patch efficiency: plugin check, decoder, work areas, SysEx buffer |
 
 ## Measurements and ideas
 
