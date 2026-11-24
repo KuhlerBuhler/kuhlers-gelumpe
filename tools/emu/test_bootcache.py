@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """The caches are keyed on the emulator's source, from the .py files or, frozen, from the stamp of the build (bootcache.py)."""
 
+import os
 import sys
 import tempfile
 import unittest
@@ -66,7 +67,6 @@ class PruneTest(unittest.TestCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"x" * 10)
         t = self.now - age_days * self.DAY
-        import os
         os.utime(path, (t, t))
         return path
 
