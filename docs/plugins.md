@@ -1232,7 +1232,9 @@ Plugins kommen nur über die SD-Karte aufs Gerät, nie in die [VSB](glossary.md#
 `KORG/blechtribe/Plugin/` (Einzahl, nicht "Plugins"; bei der roten und der blauen Electribe derselbe), den die
 Firmware nicht selbst anlegt. Mit verbundenem Gerät legt die Seite Plugins
 sie auch über USB dorthin (Knopf "Aufs Gerät", BLECHTRIBE-[SysEx](glossary.md#sysex)-Befehl `0x67` PLUGIN BEGIN, Name aus Buchstaben,
-Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, PLUGINS.
+Ziffern, `_` und `-`, höchstens 16 Zeichen); danach am Gerät BLECH, PLUGINS. Ist kein Gerät verbunden, aber die Karte
+steckt im Rechner, schreibt derselbe Knopf die Datei direkt in den Ordner auf der Karte und legt ihn an, wenn er fehlt: die
+App findet die Karte selbst (ein Laufwerk mit Ordner `KORG`), Chrome und Edge fragen nach dem obersten Ordner der Karte.
 
 - `e2sPlugin.all` ist die Sammeldatei, die das Gerät beim Start liest. Kopf, 16
   Byte, little endian: Kennung `GSAL`, Dateiversion 1 (u16), Anzahl Blöcke
