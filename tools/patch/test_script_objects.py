@@ -1,6 +1,8 @@
 """The object tree of API 10 (tools/patch/script_objects.s): get, set, clamp, wrong leaves and the repair at start."""
+import json
 import pathlib
 import struct
+import subprocess
 import sys
 import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -195,7 +197,6 @@ class NativeObjectTests(unittest.TestCase):
         self.assertEqual(self.repairs(m,s),2,'METRONOME and LCD CONTRAST')
 
     def test_the_setters_are_those_the_map_lists_for_each_field(self):
-        import json, subprocess
         from tools.patch.script_hooks import GLOBAL_SETTERS
         code = ("import m from './data/map/global.mjs';"
                 "process.stdout.write(JSON.stringify(m.fields.filter(f => f.live).map(f => [f.where.offset, f.live.setter.hacktribe, f.live.setter.red, f.live.setter.blue])))")

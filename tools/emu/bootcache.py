@@ -23,10 +23,13 @@ GELUMPE_CACHE_DAYS days (default 7, 0 keeps everything): without it the unreacha
 
 import ast
 import hashlib
+import json
 import os
+import pickle
 import sys
 import tempfile
 import time
+import types
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -275,7 +278,6 @@ def booted(payload, flash=None, held=0, seconds=5.0, cls=None, observer=None, ho
     watches the machine from power-on, for example by wrapping a method; it is made before the boot and
     again after a restore, and its attributes (picklable) are kept with the snapshot and put back, so it has seen
     what a real boot would have shown it."""
-    import pickle
     import machine as emu
     cls = cls or emu.Machine
     flash_part = hashlib.sha256(flash).hexdigest() if flash else "blank"
@@ -297,7 +299,6 @@ def booted(payload, flash=None, held=0, seconds=5.0, cls=None, observer=None, ho
 
 
 def _boot(key, payload, flash, held, seconds, cls, observer, hold_power):
-    import pickle
     import machine as emu
     m = cls(payload, flash)
     obj = observer(m) if observer else None
@@ -315,8 +316,6 @@ def _boot(key, payload, flash, held, seconds, cls, observer, hold_power):
 def _power_on_key(m, how):
     """The key of a run of `m` from power-on, or None when it cannot be kept: `m` has run already, a hook or a wrapped
     method watches it (a restore would skip what they see), or its card is not an image in memory."""
-    import pickle
-    import types
     import machine as emu
     if not enabled() or m.time_ns or m.insns or m.uc._callbacks:
         return None
@@ -398,7 +397,6 @@ def cached_result(kind, parts, compute):
     """compute() -> a JSON-able result (a check that came to its end, whether it passed or not), for the
     inputs `parts` (bytes or reprs). It is kept per inputs and emulator source, so the same files give the
     same answer without booting again; a run that raises is not kept. GELUMPE_CACHE=off runs everything."""
-    import json
     key = digest("result-v1", kind, source_hash("patch"), *parts)
     hit = read("result", key)
     if hit is not None:

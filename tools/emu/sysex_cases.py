@@ -15,10 +15,12 @@ SysEx and the panel unaffected, and with EXIT held at power-on no answer at all.
 """
 
 import argparse
+import hashlib
 import json
 import random
 import struct
 import sys
+import tempfile
 import time
 import zlib
 from pathlib import Path
@@ -1259,13 +1261,11 @@ def hot_setup(payload, flash=None):
 
 def hotpatch_report(raw):
     """What check.py --report says of a test image; the cases build their images themselves and check only the hot patch."""
-    import hashlib
     return {"vsb_sha256": hashlib.sha256(raw).hexdigest(), "ok": True, "quick": False, "partial": False}
 
 
 def hotpatch_cases(payload, flash=None):
     """hot_patch.py against the emulator: the title of DEV MODE written hot shows on the LCD, --revert brings the base back."""
-    import tempfile
     hp, mc, dev, blech, raw, images = hot_setup(payload, flash)
     new = images["ht-text.VSB"]
     out = []
@@ -1293,7 +1293,6 @@ def hotpatch_cases(payload, flash=None):
 
 def hotpatch_full_cases(payload, flash=None):
     """hot_patch.py against the emulator: a start-phase byte and a DSP byte are reported full update, nothing is written."""
-    import tempfile
     hp, mc, dev, blech, raw, images = hot_setup(payload, flash)
     out, writes = [], []
     real_write = blech.write

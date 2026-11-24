@@ -1,5 +1,10 @@
 """Rejected candidates cannot be used, and failed retargeting leaves addresses intact."""
+import json
+import subprocess
+import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import synthaddr
@@ -22,11 +27,6 @@ class Addresses(unittest.TestCase):
         self.assertEqual(namespace['SECOND'], 0xC0003000)
 
     def test_frozen_runtime_reads_its_bundled_address_maps(self):
-        import tempfile
-        import subprocess
-        import sys
-        import json
-        from pathlib import Path
         with tempfile.TemporaryDirectory() as folder:
             maps = Path(folder) / 'data/synth-map'
             maps.mkdir(parents=True)

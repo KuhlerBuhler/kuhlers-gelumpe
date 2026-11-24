@@ -13,6 +13,7 @@ EXIT held at power-on both are the firmware's.
 
 import argparse
 import json
+import random
 import struct
 import sys
 from pathlib import Path
@@ -759,7 +760,6 @@ def import_wav(payload, flash, wav):
 
 def wav_file(channels, bits, frames):
     """(file, the 16-bit words the DSP should hold): random PCM, 24 bits cut to their upper 16, stereo interleaved."""
-    import random
     rnd = random.Random(channels * 100 + bits)
     values = [rnd.randint(-32768, 32767) for _ in range(frames * channels)]
     if bits == 16:

@@ -3,6 +3,7 @@
 
 import io
 import json
+import os
 import sys
 import unittest
 from contextlib import redirect_stderr
@@ -65,7 +66,6 @@ class RunTasksCallbackTest(unittest.TestCase):
             self.assertEqual(sorted(heard), [(0, 6), (1, 24), (2, 120)])
 
     def test_default_jobs_leave_one_core_free(self):
-        import os
         cores = os.cpu_count() or 1
         self.assertLessEqual(parallel.default_jobs(), max(1, cores - 1))
 
