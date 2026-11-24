@@ -493,7 +493,6 @@ def main():
                    metrics=lambda event: print(json.dumps({"metrics": event}), file=sys.stderr, flush=True), foreign=a.foreign)
     print(json.dumps(result, indent=1, ensure_ascii=False))
     if a.report:
-        import hashlib
         a.report.write_text(json.dumps({"vsb_sha256": hashlib.sha256(a.patched.read_bytes()).hexdigest(), "ok": bool(result.get("ok")),
                                         "quick": bool(a.quick), "partial": bool(a.cases or a.shard), "result": result}, indent=1, ensure_ascii=False))
     return 0 if (result["passed"] if a.shard else result["ok"]) else 1

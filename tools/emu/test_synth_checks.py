@@ -1,7 +1,8 @@
 """Build-specific check dispatch, with synthetic images only."""
 import struct
 import unittest
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import sysex_cases
 import synthaddr
@@ -143,9 +144,6 @@ class DiceFlash(unittest.TestCase):
 
 class MotionMeasurements(unittest.TestCase):
     def test_motion_output_maps_the_array_base_before_adding_a_lane(self):
-        from types import SimpleNamespace
-        from unittest.mock import Mock
-        import struct
         import tap_motion_cases as cases
         box = object.__new__(cases.TBox)
         box.dev = SimpleNamespace(synth=True, u32=lambda addr: 0)
@@ -166,8 +164,6 @@ class MotionMeasurements(unittest.TestCase):
 
 class MidiProgramChange(unittest.TestCase):
     def test_program_change_uses_the_channel_reported_by_the_firmware(self):
-        from types import SimpleNamespace
-        from unittest.mock import Mock
         from mfx_cases import Box
         box = object.__new__(Box)
         box.dev = object()

@@ -77,7 +77,6 @@ def load_gate():
     and exits with its status when it gives up. Does nothing without node, or when the gate already passed above us."""
     import shutil
     import subprocess
-    import sys
     script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "load-gate.mjs")
     node = shutil.which("node")
     if os.environ.get("GELUMPE_LOAD_GATE_PASSED") == "1" or not node or not os.path.exists(script):
