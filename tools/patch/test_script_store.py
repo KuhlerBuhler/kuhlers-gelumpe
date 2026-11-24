@@ -1,4 +1,4 @@
-"""Persistent script values: glue, store file read and write, over a fake FatFs without firmware bytes."""
+"""Persistent script values: glue, store file read and write, over a fake FatFs."""
 import json
 import pathlib
 import struct

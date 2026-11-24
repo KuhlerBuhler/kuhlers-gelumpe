@@ -1,4 +1,4 @@
-"""Recovery from generated FP-based void calls, without firmware bytes."""
+"""Recovery from generated FP-based void calls."""
 import struct
 import unittest
 
