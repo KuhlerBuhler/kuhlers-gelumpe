@@ -1084,7 +1084,9 @@ Plugins reach the device only through the SD card, never inside the [VSB](glossa
 `KORG/blechtribe/Plugin/` (singular, not "Plugins"; the same on the red and the blue Electribe), which the
 firmware does not create itself. You create it. With the device connected, the Plugins page also writes a
 plugin there over USB (button "Aufs Gerät", BLECHTRIBE [SysEx](glossary.en.md#sysex) command `0x67` PLUGIN BEGIN, a name of letters,
-digits, `_` and `-`, at most 16 characters); then on the device BLECH, PLUGINS.
+digits, `_` and `-`, at most 16 characters); then on the device BLECH, PLUGINS. With no device connected but the card in the
+computer, the button reads "Auf die Karte" and writes the file straight into that folder on the card and creates the folder when it is missing:
+the app finds the card itself (a drive with a `KORG` folder). With neither device nor card only Herunterladen stays; in the browser the button is there with the device only.
 
 - `e2sPlugin.all` is the collection file that the device reads at start. Header, 16 bytes, little endian:
   the tag `GSAL`, file version 1 (u16), number of blocks (u16), total size (u32), CRC-32 over everything
