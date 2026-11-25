@@ -1164,7 +1164,10 @@ Les plugins arrivent par la carte SD, jamais intégrés à la [VSB](glossary.en.
 Prépare ce dossier pour une copie manuelle. Avec l’appareil connecté, la page Plugins peut
 aussi écrire le fichier par USB : commande [SysEx](glossary.en.md#sysex) BLECHTRIBE `0x67`, PLUGIN BEGIN, nom composé
 de lettres, chiffres, `_`, `-`, avec 16 caractères maximum. Il est ensuite accessible dans
-BLECH > PLUGINS.
+BLECH > PLUGINS. Sans appareil connecté mais avec la carte dans l’ordinateur, le bouton devient « Vers la carte » et écrit
+le fichier directement dans ce dossier de la carte, en le créant s’il manque : l’app trouve la carte toute seule (un
+lecteur avec un dossier `KORG`). Sans appareil ni carte, seul Télécharger reste ; dans le navigateur, le bouton n’existe
+qu’avec l’appareil.
 
 - `e2sPlugin.all` est la collection lue au démarrage. En-tête little endian de 16 octets :
   marqueur `GSAL`, version de fichier 1 en u16, nombre de blocs en u16, taille totale en u32,

@@ -95,7 +95,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       const name = await sendPlugin(target, id, bytes);
       toast(t(target.kind === "card" ? "plugins.onSdCard" : "plugins.onCard", { name, card: target.card?.name ?? "" }), "ok");
     } catch (e) {
-      toast(e.message, "error");
+      toast(e?.message ?? String(e), "error");
     } finally {
       button.disabled = false;
     }
