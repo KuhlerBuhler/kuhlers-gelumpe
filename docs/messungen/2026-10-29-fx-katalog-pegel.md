@@ -85,6 +85,10 @@ Firmware: der Patcher auf Hacktribe 163d1d8d (HT) und Korgs rot 2.02. **Nicht na
   waren es null. Längere Release- oder Hold-Werte machen im Simulator Einbrüche: `release` 14 gibt 14, `release` 12 mit `hold_time` 17
   gibt 6. Die Gerätemeldung "setzt aus wie ein leichter Slicer" kam auf 1.4.6 (Schwelle 48, Release und Hold 8); im Simulator
   macht diese Einstellung keine Einbrüche (Urteil: die Meldung bleibt für 1.4.6 offen).
+  Gemessen am 23.11. im Blackfin-Simulator mit einer Drumloop: mit `attack` 0 wirkt `M_limiter` wie ein schnelles Gate
+  (164 Pegelsprünge über 3 dB/s, bis 27 dB), und Schwelle 52 erreicht das Signal nie. Korgs `attack` 10 mit Schwelle 30,
+  `output_gain` 60 und X von 36 bis 24 nimmt die Sprünge weg und begrenzt wirklich (#735). Die Limiter-Werte der Tabelle
+  unten sind damit überholt.
 - **Glue Comp.** Der Limiter in Stufe 2 (`I_limiter`) macht leise Signale um bis zu 30 dB leiser, auch hinter Korgs eigenem
   Kompressor. Ohne ihn ist der SR1-Kompressor in Stufe 1 ein fester Pegel (+6,5 dB bei -12 und -3 dBFS, `threshold` 20 und
   28 gleich), Ratio 0, 14 und 18 (Hacktribes Preset "SR1 Comp") geben Stille. Korgs Kompressor-Baustein (`I_cheap_comp`,
@@ -96,7 +100,7 @@ Firmware: der Patcher auf Hacktribe 163d1d8d (HT) und Korgs rot 2.02. **Nicht na
 
 | Effekt | Parameter | bisher | jetzt | Herleitung |
 |---|---|---|---|---|
-| Master Limiter | `threshold`, Regler | 64, 64 bis 40 | 52, 60 bis 44 | gemessen: im Bereich der Einheit, Mitte 52 |
+| Master Limiter | `threshold`, Regler | 64, 64 bis 40 | 52, 60 bis 44 | gemessen: im Bereich der Einheit, Mitte 52; überholt, seit #735 30, 36 bis 24 mit `attack` 10 |
 | Master Limiter | `release`, `hold_time` | 20, 17 | 8, 8 | gemessen: wie 1.4.6, keine Einbrüche |
 | Master Pumper | `output_gain_adjust` | 32 | 38 | gemessen |
 | Glue Comp | Stufe 1, Stufe 2 | SR1-Kompressor, Limiter | `I_cheap_comp` wie Sustainer, keine | gemessen; Regler wie Sustainer auf `env_bit_shift_amount` 35 bis 0 |

@@ -394,6 +394,10 @@ Datei in einen neuen Ordner schreiben und zurücklesen, dann importieren, dann e
   `.wav`-Dateien ohne Endung. Die Datei darf **überall** auf der Karte liegen.
   Mit dem Drehgeber VALUE (Panel-Nachricht `01 00 00 delta`) wählen, ENTER (MENU)
   öffnet Ordner oder die Datei.
+- **gemessen im Emulator:** Auf Korgs 2.02 öffnet auch der Dateibrowser von
+  IMPORT ALL PATTERN an der Kartenwurzel, wenn dort eine WAV liegt, und der
+  Import läuft nicht. Fälle, die IMPORT ALL PATTERN bedienen, legen darum keine
+  WAV in die Wurzel (`tools/emu/swap_cases.py`, `flow_task`).
 - **gemessen:** Danach "Select Destination, 501" (Vorschlag: erster freier
   Slot der Nutzerbank), ENTER, dann "IMPORT SAMPLE, OK" nach rund 1 bis 6 s
   Gerätezeit. Gelesen werden die Sektoren der Datei (19 für eine WAV von

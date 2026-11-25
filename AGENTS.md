@@ -70,7 +70,8 @@ tools/emu/.venv/bin/python tools/emu/check.py --base SYSTEM.VSB --patched BLECH.
 
 Cases on the executed DSP code (`blackfin_swap_cases`, `blackfin_cases`) need a Blackfin worker built outside the
 repository (`tools/dsp/build_qemu.py ~/gelumpe-dsp/worker`); how to build, choose and run it is in
-[docs/emulator.md](docs/emulator.md), "Blackfin-Worker: QEMU oder GNU".
+[docs/emulator.md](docs/emulator.md), "Blackfin-Worker: QEMU oder GNU". A worker test that fails locally but
+not in CI usually means a worker built from older `tools/dsp/` sources: rebuild it before you look for a bug.
 
 The full `check.py` (all case modules) takes hours on a loaded machine. Locally run `--quick` and the
 case modules your change touches; CI runs the rest (see below). The blue Electribe uses
@@ -157,6 +158,14 @@ Docs state what holds now; before and after belong in commits and release notes.
   measurement in `docs/messungen/`. Add the case module to `tools/ci/verify-scope.mjs`;
   `test/verify-scope.test.mjs` fails otherwise. Give the case module's id prefix an area in
   `TEST_AREAS` (`data/rescue.mjs`); `test/rescue.test.mjs` fails otherwise.
+  When you register the case module in `tools/emu/check.py`, also collect its result into the report
+  (`done.pop(0)` and `checks.extend`): a started group whose result is never collected shifts the result list,
+  and the start evaluation fails with `KeyError: 'blocks'` in `bootmap.combine`.
+- A patch that changes the DSP boot stream fails the start check `dsp_stream` unless its JSON is listed in
+  `DSP_PATCHES` in `tools/emu/check.py`. List it only after the QEMU DSP core shows the patch's OFF setting
+  bit-identical (`tools/dsp/tube_qemu.py`).
+- `tools/patch/arm.py` has no character literals: `#'0'` is read as the number 0 (`#'7'` as 7), not as ASCII,
+  and without an error. Write `#0x30`. It also has no `.hword`; use `.word` or `.byte`.
 - The runtime patches (`data/patches/script-runtime*.json`) are built, not committed: `npm test`,
   `npm start`, `npm run serve`, `build:site`, `build:sidecar`, `check_sets.mjs` and `verify-patches.mjs`
   build what is missing or older than the sources (`tools/patch/ensure-runtime.mjs`); by hand
@@ -167,6 +176,9 @@ Docs state what holds now; before and after belong in commits and release notes.
   same RAM. A word inside a block that is already in use collides silently, check the block first.
 - An address on the blue Electribe goes through `tools/patch/synthaddr.py`; an emulator case that pokes
   firmware RAM has to translate its address the same way.
+- Runtime code that uses red or Hacktribe addresses with no blue twin goes into its own `tools/patch/script_*.s`
+  with a `script_*_none.s` stub for the synth build (file list in `tools/patch/script_hooks.py`). In a shared
+  file the synth build stops with "the synth build has no entry for".
 - `data/patches/verified.json` holds the checksums of patched copies that passed the full check. Do not
   edit it by hand: the workflow Verify patches writes it on the release pull request. Locally
   `node tools/verify-patches.mjs <stock> <synth> <hacktribe>` does the same with the original files.

@@ -282,7 +282,9 @@ node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB
 ```
 
 Der eigene Assembler `tools/patch/arm.py` (der [Patcher](glossary.md#patcher) baut damit die Patches) kennt bei Speicherzugriffen nur `ldr`, `ldrb`, `str` und `strb`, kein
-`ldrh`/`strh`: Zustandsfelder der Laufzeit daher als Wort oder Byte anlegen.
+`ldrh`/`strh`: Zustandsfelder der Laufzeit daher als Wort oder Byte anlegen. Zeichenliterale kennt er nicht: `#'0'`
+wird ohne Fehler zur Zahl 0 (`#'7'` zu 7), nicht zum ASCII-Code; `#0x30` schreiben. Auch `.hword` fehlt, dafür `.word`
+oder `.byte`.
 
 ## Werkzeuge nach Ordner
 

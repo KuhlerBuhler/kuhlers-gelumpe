@@ -3,7 +3,7 @@
 Deutsch als zweite Sprache der Menüs (das BLECH-Menü und Korgs Menüs) kommt über den optionalen Patch `lang-de`, eine
 Fassung je Build ([Hacktribe](glossary.md#hacktribe), Korgs rote 2.02, blaue Electribe). Ohne `lang-de` bleibt alles Englisch. Diese Seite
 beschreibt die Daten, die Regeln für die Texte und die Werkzeuge. Stand: das BLECH-Menü und Korgs Hauptmenüs
-(GLOBAL PARAMETER, DATA UTILITY, Pattern- und Part-Seiten) sind übersetzt, dazu Dialoge, Meldungen, Skalennamen und die Namen der Effektparameter.
+(GLOBAL PARAMETER, DATA UTILITY, Pattern- und Part-Seiten) sind übersetzt, dazu Dialoge, Meldungen, Skalennamen und die Namen der Effektparameter (nicht auf der blauen Electribe).
 
 ## Was nicht ins Repository kommt
 
@@ -41,6 +41,13 @@ Ein Eintrag hat entweder `text` (Deutsch) oder `keep` (Grund, warum die Zeile En
 | `buffer` | Größe des Puffers, in den die Firmware die Kette kopiert, mit Null; `"string"`, wenn jeder Leser sie in einen wachsenden C++-String kopiert |
 | `space` | optional: Platz der Zeile in Pixeln |
 | `inPlace` | `true` bei einem Namensfeld eines Effektparameters: ohne Zeigerwort, der Text steht an Ort und Stelle, mit Null bis zur alten Länge aufgefüllt |
+
+`inPlace` gibt es nur auf Hacktribe und rot (je 52 Felder). Auf der blauen Electribe sind die Datensätze der
+Effektparameter noch nicht gefunden, ihre Namen bleiben dort Englisch. Die Namensfelder liegen zwischen `0xC011F000`
+und `0xC0124000` und damit im DSP-Strom, den der ARM zum Blackfin hochlädt
+([FX-Tabellen](messungen/2026-10-14-fx-tabellen.md)): ein `inPlace`-Eintrag ändert DSP-Daten. Der Emulator lädt den
+Strom nicht hoch, wie der DSP die Namen benutzt, prüft darum nur Punkt 11 des
+[Gerätetests](geraetetests/firmware-sprache.md).
 
 `expect`, `length`, `fonts` und `pointers` schreibt die Werkbank (`--update`), `text`, `keep` und `buffer` kommen von
 Hand. Ein deutscher Text länger als `length` braucht ein gemessenes `buffer`, sonst lehnt der Unit-Test ihn ab.
@@ -155,6 +162,9 @@ Puffer. Die Texte, die diese Bildschirme nicht erreichen (Dialoge, Meldungen, Fe
 in Schrift 0 und 1 auf die 128 Pixel oder sind nicht breiter als die englische Kette, und ein Dialogtext (Puffer 64)
 behält ein Leerzeichen oder eine Unterlänge, wo die englische Kette eine hat; die Namensfelder der Effektparameter (`inPlace`) stehen deutsch und gleich lang im Datensatz. Ohne `lang-de` ist
 jedes Zeigerwort und jedes Namensfeld das alte. Die Texte ohne `fonts` prüft erst der Gerätedurchgang am Bildschirm. `check.py` führt die Fälle für jede Datei mit BLECH-Menü aus.
+Auf einigen Bildschirmen stürzt der Emulator mit und ohne `lang-de` ab (rot 23 und 24, blau 23 und 37 bis 44,
+gemessen); die Fälle nennen diese Bildschirme im Ergebnis, statt zu scheitern. Stürzt er nur mit `lang-de` ab, ist
+das ein Fehler.
 
 Die Werkbank liest die eigene Firmware, zeigt im Emulator alle Bildschirme 0 bis 44, dreht auf jedem 32 Raststufen und
 blättert 32 Mal mit EDIT und notiert dabei jeden gezeichneten Text mit Schrift. Daraus sucht sie Korgs Vorlagen (Ketten,
