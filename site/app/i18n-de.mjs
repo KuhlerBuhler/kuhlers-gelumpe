@@ -1635,7 +1635,7 @@ export default {
   "patcher.usbName": "Gerätename: Electribe 3",
   "patcher.usbName.note": "Der Rechner zeigt die Electribe dann als Electribe 3. DAW-Zuordnungen, die am alten Portnamen hängen, musst du neu verknüpfen. Windows kann den alten Namen behalten, bis du das Gerät einmal im Geräte-Manager entfernst.",
   "patcher.langDe": "Gerätemenüs auf Deutsch",
-  "patcher.langDe.note": "Das BLECH-Menü und Korgs Hauptmenüs am Gerät zeigen dann deutsche Texte. Einige Meldungen und Effektnamen bleiben vorerst Englisch. Für eine andere Sprache installierst du neu.",
+  "patcher.langDe.note": "Das BLECH-Menü und Korgs Hauptmenüs am Gerät zeigen dann deutsche Texte. Einige Meldungen bleiben vorerst Englisch. Für eine andere Sprache installierst du neu.",
   "patcher.langDe.failed": "Deutsches Menü: passt nur auf BLECHs eigene Dateien für Hacktribe, Korgs rote 2.02 und Korgs blaue 2.02. Nimm deine unveränderte SYSTEM.VSB.",
   "patcher.blech.wrong": "{file} lässt sich nicht als Patch lesen: {error}",
   "patcher.source.ask": "Welche Basis willst du verwenden?",
