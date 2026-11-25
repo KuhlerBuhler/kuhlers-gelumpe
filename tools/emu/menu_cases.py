@@ -1238,6 +1238,8 @@ def settings_cases(payload, flash=None):
 
     prot.m.uc.hook_add(unicorn.UC_HOOK_CODE, refuse, begin=prot.a(FS_OPEN), end=prot.a(FS_OPEN))
     prot.m.uc.ctl_flush_tb()
+    # back to the default keep_awake changed: unchanged settings, so the refused card stays the last word (no flash save after it)
+    prot.m.uc.mem_write(STATE + M_IDLE, bytes([IDLE_BATT]))
     goto_group(prot, GROUP_FEATURES, FEAT_MFX)
     press(prot, "write", wait=0.6)
     add("settings_protected_card", text(prot, S_VALUE) == "card protected" and bytes(prot.m.mmc.card.medium.data) == before and not prot.m.asserts,
@@ -4073,10 +4075,11 @@ def settings_v4_cases(payload, flash=None):
 
     trusted = tuple(0x1000 + i for i in range(40))
     v4 = start(settings_file_v4(9, TM_OFF_BIT, look, 0xFF, trusted=trusted))
-    got4 = flags2(v4), state(v4, S_TM), state(v4, S_GEN), state(v4, 44)
+    # bit 1 (IDLE SAVE OFF) lives in M_IDLE in RAM, byte 7 keeps it clear there and WRITE puts it back
+    got4 = flags2(v4), v4.m.uc.mem_read(STATE + M_IDLE, 1)[0], state(v4, S_TM), state(v4, S_GEN), state(v4, 44)
     w4 = write(v4)
-    add("v4_bits_and_count", got4 == (FLAGS2_KNOWN, 0, 9, 40) and w4 == (4, FLAGS2_KNOWN, 10, 40, True) and not v4.m.asserts,
-        f"byte 7 0xFF with 40 checksums: after the start (byte 7, TAP MOTION, generation, count) {got4}, WRITE wrote {w4}")
+    add("v4_bits_and_count", got4 == (FLAGS2_KNOWN & ~2, 0, 0, 9, 40) and w4 == (4, FLAGS2_KNOWN, 10, 40, True) and not v4.m.asserts,
+        f"byte 7 0xFF with 40 checksums: after the start (byte 7, IDLE SAVE, TAP MOTION, generation, count) {got4}, WRITE wrote {w4}")
 
     cleared = start(settings_file_v4(3, 0, look, FLAGS2_TUBE_1))
     got_c = flags2(cleared)
