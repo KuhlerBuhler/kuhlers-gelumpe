@@ -105,6 +105,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel und der DSP selbst.
 - [Was ein Master-Preset an den DSP schickt](2026-10-09-mfx-dsp.md)
 - [MFX 2 auf TOUCH SCALE: gebaut und im Emulator geprüft](2026-10-10-mfx-umschalter.md)
 - [MFX 2 am Gerät: erster Code-Patch auf der echten Electribe](2026-10-13-mfx-umschalter-geraet.md)
+- [MFX HOLD je Effekt: MFX 1 und MFX 2 merken sich Halten, X und Y getrennt, im Emulator](2026-11-25-mfx-hold-je-effekt.md)
 - [FX-Tabellen: Parameterspannen und Wahlnamen aus dem DSP-Strom](2026-10-14-fx-tabellen.md)
 - [Offene Fragen: was sich mit Emulator und DSP-Tabellen beantworten lässt](2026-10-14-offene-fragen.md)
 - [Effekt-Editor auf Korgs Original: Records live lesen und schreiben](2026-10-15-effekt-editor-original.md)

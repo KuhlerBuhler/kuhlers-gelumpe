@@ -44,7 +44,8 @@ Effekt, MFX 2 ist ein schneller Typwechsel pro Pattern.
   erreichbar** (die Firmware erreicht ihn nur mit GATE ARP aus 2 oder 3). Was dieser Modus
   tut, steht im Abschnitt „Reihenfolge der Modi“; die Taste dafür, SHIFT + GATE ARP, ist der
   Sprung auf die Seite GATE ARP des Pattern-Menüs und bleibt.
-- **MFX HOLD:** unverändert. Ein gehaltener Effekt bei MFX 2 ist einfach MFX 2.
+- **MFX HOLD:** seit dem 25.11.2026 hat jeder der beiden sein eigenes Halten, siehe
+  [MFX HOLD je Effekt](2026-11-25-mfx-hold-je-effekt.md). Vorher blieb der gehaltene Zustand beim Wechsel stehen.
 - **SHIFT + MASTER FX** (Firmware: Sprung auf die Seite MFX TYPE) bleibt, auch bei
   MFX 2. Die Seite zeigt dann MFX 2.
 - **WRITE speichert immer den eigenen Typ (MFX 1)**, nie MFX 2.
@@ -302,7 +303,8 @@ sichtbar ist, ist nicht gemessen.
   Kennung, halb geschrieben, oder ein Eintrag außerhalb von 1 bis 100: Vorgabe. Geändert sind
   nur der Slot des Patterns und der Tabellen-Sektor. Ohne MFX 2 ändert die Seite MFX TYPE
   den Typ wie in der Firmware und berührt die Tabelle nicht.
-- **MFX HOLD:** der gehaltene Zustand (Pattern-Byte 65) bleibt beim Wechsel unverändert.
+- **MFX HOLD:** bis zum 25.11.2026 blieb der gehaltene Zustand (Pattern-Byte 65) beim Wechsel unverändert.
+  Jetzt merkt sich jeder der beiden sein Halten ([MFX HOLD je Effekt](2026-11-25-mfx-hold-je-effekt.md)).
 - **Seite MFX TYPE:** nach dem Druck steht der neue Name sofort da (gleiches Bild wie nach
   erneutem Aufbau); zehn schnelle Paare auf der Seite ohne Assertion.
 - **Der Typ des Patterns ist schon MFX 2:** TOUCH SCALE schaltet den Modus ein, ohne Effektwechsel.
