@@ -112,7 +112,7 @@ objects_state_get:
     ldr r0, [r4]
     bl objects_state_word
     b objects_get_done
-; LOAD METER, IDLE SAVE, GLIDE CHAIN and GLIDE SWITCH: r5 = the mask, 1 when the bit is set (0 with OBJ_FLAGS2_INVERT)
+; LOAD METER, GLIDE CHAIN and GLIDE SWITCH (IDLE SAVE is the byte M_IDLE, base menu): r5 = the mask, 1 when the bit is set (0 with OBJ_FLAGS2_INVERT)
 objects_flags2_get:
     ldr r5, [r4]
     ldr r1, =MENU_STATE
@@ -305,7 +305,7 @@ objects_pad_call:
     bl menu_pc_call
     b objects_set_done
 ; r0 = the value, r4 = the row: sets or clears the leaf's bit of byte 7 as its page does, the other bits (also the reserved ones)
-; stay. The frame acts on it (LOAD METER draws or takes its digits away, IDLE SAVE OFF wakes); IDLE SAVE starts its time again.
+; stay. The frame acts on it (LOAD METER draws or takes its digits away).
 objects_flags2_set:
     ldr r5, [r4]
     tst r5, #OBJ_FLAGS2_INVERT

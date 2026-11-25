@@ -2367,7 +2367,7 @@ export default {
   "api.object.system.powerSave": "1 while the firmware dims the light and the LEDs for its power save, else 0. Read only.",
   "api.object.system.idle": "Stage of IDLE SAVE: 0 awake, 1 to 3 dimmed (after 2, 3, 4 minutes), 4 dark (after 5 minutes). Read only.",
   "api.object.display.loadMeter": "LOAD METER: whether the processor's load shows on the main screen (1) or not (0). Acts at once.",
-  "api.object.powerSave.idleSave": "IDLE SAVE: whether the light and the LEDs dim without a touch (1) or not (0). 0 wakes a dimmed device, every write starts the time again.",
+  "api.object.powerSave.idleSave": "IDLE SAVE: 0 off, 1 on (the light and the LEDs dim without a touch, on the adapter too), 2 battery only (the default). 0 wakes a dimmed device, so does 2 on the adapter; every write starts the time again.",
   "api.object.features.glideChain": "GLIDE CHAIN: whether the tempo glides to the next pattern in the chain (1) or not (0).",
   "api.object.features.glideSwitch": "GLIDE SWITCH: whether the tempo glides to a pattern MENU confirmed (1) or not (0).",
   "api.object.padColor.part": "PAD COLOR, the color of the lit pads: 0 red, 1 blue, 2 pink. It is never the same as SELECT COLOR: a write that would make them equal swaps the two.",

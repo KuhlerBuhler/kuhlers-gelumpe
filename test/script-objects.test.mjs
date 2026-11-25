@@ -398,7 +398,6 @@ test("korg.menu.blech.customizations.led.knobLeds needs API 36, starts on, reads
 // tools/patch/script_objects.s objects_flags2_get and objects_flags2_set) and the event idle.
 const FLAGS2 = {
   "korg.menu.blech.customizations.display.loadMeter": ["FLAGS2_LOAD_METER", false, 0],
-  "korg.menu.blech.customizations.powerSave.idleSave": ["FLAGS2_IDLE_OFF", true, 1],
   "korg.menu.blech.features.glideChain": ["FLAGS2_GLIDE_CHAIN", false, 0],
   "korg.menu.blech.features.glideSwitch": ["FLAGS2_GLIDE_SWITCH", false, 0],
 };
@@ -416,25 +415,35 @@ test("korg.system.powerSave and korg.system.idle need API 37, are read only and 
   assert.deepEqual([0, 1].map(i => stored(device, i)), [0, 0]);
 });
 
-test("the switches of byte 7 are leaves of the base flags2 with the menu's masks, IDLE SAVE inverted", () => {
+test("the switches of byte 7 are leaves of the base flags2 with the menu's masks", () => {
   for (const [path, [mask, invert, factory]] of Object.entries(FLAGS2)) {
     const o = OBJECT_BY_PATH.get(path);
     assert.deepEqual([o.base, o.offset, o.min, o.max, o.factory, o.write, o.stored, o.since],
       ["flags2", signed(mask) + (invert ? FLAGS2_INVERT : 0), 0, 1, factory, true, false, 37], path);
     assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let v = ${path}; });`)).header.apiVersion, 37, path);
   }
-  assert.deepEqual(Object.keys(FLAGS2).map(path => OBJECT_BY_PATH.get(path).id), [63, 64, 65, 66]);
-  assert.equal(OBJECT_BY_PATH.get("korg.menu.blech.customizations.powerSave.idleSave").apply, "keepAwake", "a write starts the time again like the dial");
-  const known = signed("FLAGS2_KNOWN") & ~signed("FLAGS2_BATT_OFF") & ~signed("FLAGS2_TUBE");   // BATTERY % and TUBE have no leaf yet, they would need an API version
+  assert.deepEqual(Object.keys(FLAGS2).map(path => OBJECT_BY_PATH.get(path).id), [63, 65, 66]);
+  // BATTERY % and TUBE have no leaf yet, they would need an API version; IDLE SAVE is the byte M_IDLE (its own test)
+  const known = signed("FLAGS2_KNOWN") & ~signed("FLAGS2_BATT_OFF") & ~signed("FLAGS2_TUBE") & ~signed("FLAGS2_IDLE_OFF");
   assert.equal(Object.values(FLAGS2).reduce((all, [mask]) => all | signed(mask), 0), known, "one leaf per known bit");
 });
 
-test("a plugin switches the four bits and the simulated device keeps them inside the range", () => {
-  const [lm, idle, chain, sw] = Object.keys(FLAGS2);
+test("IDLE SAVE is the menu byte M_IDLE with OFF, ON and BATTERY ONLY, BATTERY ONLY without a settings file", () => {
+  const o = OBJECT_BY_PATH.get("korg.menu.blech.customizations.powerSave.idleSave");
+  assert.deepEqual([o.id, o.base, o.offset, o.type, o.min, o.max, o.factory, o.write, o.stored, o.since],
+    [64, "menu", signed("M_IDLE"), "u8", 0, 2, 2, true, false, 37]);
+  assert.deepEqual(["IDLE_OFF", "IDLE_ON", "IDLE_BATT"].map(signed), [0, 1, 2]);
+  assert.equal(o.apply, "keepAwake", "a write starts the time again like the dial");
+  assert.equal(decodeBlob(build(`korg.onEvent("ready", () => { let v = ${o.path}; });`)).header.apiVersion, 37);
+});
+
+test("a plugin switches the three bits and IDLE SAVE and the simulated device keeps them inside the range", () => {
+  const [lm, chain, sw] = Object.keys(FLAGS2);
+  const idle = "korg.menu.blech.customizations.powerSave.idleSave";
   const device = run(`let v = 7; korg.onEvent("ready", () => { korg.store.set(0, ${lm}); korg.store.set(1, ${idle});
   ${lm} = 1; ${idle} = 0; ${chain} = v; ${sw} = 1;
   korg.store.set(2, ${lm}); korg.store.set(3, ${idle}); korg.store.set(4, ${chain}); korg.store.set(5, ${sw}); korg.store.set(6, korg.system.repairs); });`);
-  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => stored(device, i)), [0, 1, 1, 0, 1, 1, 1]);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(i => stored(device, i)), [0, 2, 1, 0, 1, 1, 1]);
 });
 
 test("the event idle carries the stage and needs API 37", () => {

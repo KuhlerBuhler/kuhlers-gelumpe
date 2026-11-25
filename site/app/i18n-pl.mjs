@@ -2367,7 +2367,7 @@ export default {
   "api.object.system.powerSave": "1, dopóki firmware przyciemnia światło i diody dla oszczędzania energii, inaczej 0. Tylko odczyt.",
   "api.object.system.idle": "Stopień IDLE SAVE: 0 aktywne, 1 do 3 przyciemnione (po 2, 3, 4 minutach), 4 ciemne (po 5 minutach). Tylko odczyt.",
   "api.object.display.loadMeter": "LOAD METER: czy obciążenie procesora widać na ekranie głównym (1), czy nie (0). Działa od razu.",
-  "api.object.powerSave.idleSave": "IDLE SAVE: czy światło i diody przyciemniają się bez obsługi (1), czy nie (0). 0 budzi przyciemnione urządzenie, każdy zapis liczy czas od nowa.",
+  "api.object.powerSave.idleSave": "IDLE SAVE: 0 wyłączone, 1 włączone (światło i diody przyciemniają się bez obsługi, także na zasilaczu), 2 tylko na baterii (domyślnie). 0 budzi przyciemnione urządzenie, 2 także na zasilaczu; każdy zapis liczy czas od nowa.",
   "api.object.features.glideChain": "GLIDE CHAIN: czy tempo w łańcuchu płynnie przechodzi do następnego patternu (1), czy nie (0).",
   "api.object.features.glideSwitch": "GLIDE SWITCH: czy tempo płynnie przechodzi do patternu potwierdzonego przez MENU (1), czy nie (0).",
   "api.object.padColor.part": "PAD COLOR, kolor zapalonych padów: 0 czerwony, 1 niebieski, 2 różowy. Nigdy taki sam jak SELECT COLOR: zapis, który by je zrównał, zamienia je miejscami.",

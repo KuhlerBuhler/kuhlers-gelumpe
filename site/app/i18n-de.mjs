@@ -2415,7 +2415,7 @@ export default {
   "api.object.system.powerSave": "1, solange die Firmware Licht und LEDs für ihren Energiesparmodus dimmt, sonst 0. Nur lesen.",
   "api.object.system.idle": "Stufe von IDLE SAVE: 0 wach, 1 bis 3 gedimmt (nach 2, 3, 4 Minuten), 4 dunkel (nach 5 Minuten). Nur lesen.",
   "api.object.display.loadMeter": "LOAD METER: ob die Last des Prozessors auf dem Hauptbildschirm steht (1) oder nicht (0). Wirkt sofort.",
-  "api.object.powerSave.idleSave": "IDLE SAVE: ob Licht und LEDs ohne Bedienung dimmen (1) oder nicht (0). 0 weckt ein gedimmtes Gerät, jedes Schreiben startet die Zeit neu.",
+  "api.object.powerSave.idleSave": "IDLE SAVE: 0 aus, 1 an (Licht und LEDs dimmen ohne Bedienung, auch am Netzteil), 2 nur auf Batterie (die Vorgabe). 0 weckt ein gedimmtes Gerät, 2 am Netzteil auch; jedes Schreiben startet die Zeit neu.",
   "api.object.features.glideChain": "GLIDE CHAIN: ob das Tempo in der Kette zum nächsten Pattern gleitet (1) oder nicht (0).",
   "api.object.features.glideSwitch": "GLIDE SWITCH: ob das Tempo zu einem mit MENU bestätigten Pattern gleitet (1) oder nicht (0).",
   "api.object.padColor.part": "PAD COLOR, die Farbe der leuchtenden Pads: 0 rot, 1 blau, 2 rosa. Sie ist nie gleich SELECT COLOR: ein Schreiben, das beide gleich machen würde, vertauscht sie.",

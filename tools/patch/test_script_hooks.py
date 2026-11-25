@@ -1292,6 +1292,7 @@ class MenuSettingsTests(unittest.TestCase):
             for run, mfx, pc, na, tm in itertools.product(range(2), range(2), range(2), range(2), range(3)):
                 with self.subTest(build=build_name, run=run, mfx=mfx, pc=pc, na=na, tm=tm):
                     machine.uc.mem_write(state - 32, bytes(544))
+                    machine.uc.mem_write(state + symbols['M_IDLE'], bytes([1]))   # IDLE SAVE ON: no bit in byte 7
                     for name, value in [('M_SET_RUN', run), ('M_SET_MFX', mfx), ('M_PC', pc), ('M_NA', na), ('M_TM', tm), ('M_KP', 1), ('M_FT', 1), ('M_AS', 1)]:
                         machine.write(state + symbols[name], value)
                     for name, value in [('MX_INTENS', 9), ('MX_SAVE', 5)]:

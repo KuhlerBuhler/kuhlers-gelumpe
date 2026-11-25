@@ -71,6 +71,7 @@ The set is `data/patches/blech.json` (for Korg's blue 2.02: `blech-synth.json`).
 | Start image editor | edit the start image and store it in the flash (the storage place is derived; whether it works on the device is open) |
 | MFX 2 | a second master effect on TOUCH SCALE, switched on or off on the BLECH menu page MFX 2 (applies from the next start) |
 | Plugin runtime with BLECH menu | runs plugins from the card and adds the "BLECH" screen to the EDIT ring ([plugins](plugins.en.md)); also carries Blechy, the app built into BLECHTRIBE, as the last page of the ring: his block lies in the image at `0xC0184000` and is loaded at start before the card, with or without a card, and with EXIT held at power-on he is absent |
+| IDLE SAVE | BLECH menu CUSTOMIZATION > POWER SAVE > IDLE SAVE dims the display light and the LEDs after 2, 3 and 4 minutes without a touch, after 5 they go dark. OFF, ON or BATTERY ONLY (the default): with BATTERY ONLY the device stays awake on the adapter and plugging it in wakes it at once. BATTERY ONLY writes the settings as version 6, which BLECHTRIBE up to 1.4.8 refuses; from 1.5 |
 | Card folder `blechtribe` | the device reads `KORG/blechtribe/` instead of `KORG/hacktribe/` (or `KORG/electribe sampler/` on Korg's original) |
 | BLECHTRIBE start image | the BLECHTRIBE splash screen |
 | Theme | own fonts and symbols for the display ([background, German](hintergrund/blech-theme.md)); a data-only patch |

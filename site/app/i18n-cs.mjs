@@ -2367,7 +2367,7 @@ export default {
   "api.object.system.powerSave": "1, dokud firmware tlumí světlo a LED kvůli úspoře energie, jinak 0. Jen ke čtení.",
   "api.object.system.idle": "Stupeň IDLE SAVE: 0 vzhůru, 1 až 3 ztlumeno (po 2, 3, 4 minutách), 4 tma (po 5 minutách). Jen ke čtení.",
   "api.object.display.loadMeter": "LOAD METER: zda se zátěž procesoru ukazuje na hlavní obrazovce (1) nebo ne (0). Platí hned.",
-  "api.object.powerSave.idleSave": "IDLE SAVE: zda se světlo a LED bez obsluhy tlumí (1) nebo ne (0). 0 probudí ztlumený přístroj, každý zápis spustí čas znovu.",
+  "api.object.powerSave.idleSave": "IDLE SAVE: 0 vypnuto, 1 zapnuto (světlo a LED se bez obsluhy tlumí, i na adaptéru), 2 jen na baterie (výchozí). 0 probudí ztlumený přístroj, 2 i na adaptéru; každý zápis spustí čas znovu.",
   "api.object.features.glideChain": "GLIDE CHAIN: zda tempo v řetězci klouže k dalšímu patternu (1) nebo ne (0).",
   "api.object.features.glideSwitch": "GLIDE SWITCH: zda tempo klouže k patternu potvrzenému tlačítkem MENU (1) nebo ne (0).",
   "api.object.padColor.part": "PAD COLOR, barva rozsvícených padů: 0 červená, 1 modrá, 2 růžová. Nikdy není stejná jako SELECT COLOR: zápis, který by je vyrovnal, je vymění.",

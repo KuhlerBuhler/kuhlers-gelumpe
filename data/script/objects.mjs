@@ -14,7 +14,7 @@
  *            "motion" no address: whether the selected part plays its motion, set with one TAP press of the patch tap-motion
  *            "state" no address, read only: `offset` picks a firmware state word read behind its pointer (STATE_WORDS)
  *            "flags2" a bit of byte 7 of the settings (MX_FLAGS2 in tools/patch/script_menu.s): `offset` is the bit's mask,
- *            FLAGS2_INVERT on top where a set bit reads 0 (IDLE SAVE: set is OFF); the other bits stay as they are
+ *            FLAGS2_INVERT on top where a set bit reads 0 (no leaf uses it now); the other bits stay as they are
  *   type     "u8" one byte, "u32" one word
  *   min, max the valid range; a set outside it is clamped and counted, so is a stored value found outside it at start
  *   factory  the value when the menu starts without a settings file
@@ -301,9 +301,11 @@ export const OBJECTS = Object.freeze([
     base: "flags2", offset: 1, type: "u8", min: 0, max: 1, factory: 0, write: true, since: 37,
     unit: "0 off, 1 on", text: text("api.object.display.loadMeter"),
   }),
+  // IDLE SAVE is the byte M_IDLE of MENU_STATE (0x156): three values, not a bit of byte 7 (the settings file keeps OFF there and
+  // BATTERY ONLY in bit 7 of byte 6 of a version 6 file)
   leaf(64, "korg.menu.blech.customizations.powerSave.idleSave", {
-    base: "flags2", offset: 2 + FLAGS2_INVERT, type: "u8", min: 0, max: 1, factory: 1, write: true, apply: "keepAwake", since: 37,
-    unit: "0 off, 1 on", text: text("api.object.powerSave.idleSave"),
+    base: "menu", offset: 0x156, type: "u8", min: 0, max: 2, factory: 2, write: true, apply: "keepAwake", since: 37,
+    unit: "0 off, 1 on, 2 battery only", text: text("api.object.powerSave.idleSave"),
   }),
   leaf(65, "korg.menu.blech.features.glideChain", {
     base: "flags2", offset: 4, type: "u8", min: 0, max: 1, factory: 0, write: true, since: 37,

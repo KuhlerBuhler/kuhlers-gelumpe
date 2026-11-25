@@ -48,7 +48,7 @@
 .equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
 .equ MX_FLAGS2, -0x15          ; byte, byte 7 of a version 4 settings file (FLAGS2_*), 0 without one
 .equ FLAGS2_LOAD_METER, 1      ; LOAD METER on (CUSTOMIZATION)
-.equ FLAGS2_IDLE_OFF, 2        ; IDLE POWER SAVE off (POWER SAVE); clear is on, the default, so a file with the default stays version 3
+.equ FLAGS2_IDLE_OFF, 2        ; IDLE POWER SAVE OFF in the file (POWER SAVE); clear is ON or BATTERY ONLY; in RAM M_IDLE holds the page and this bit stays clear
 .equ FLAGS2_GLIDE_CHAIN, 4     ; GLIDE CHAIN on (FEATURES, script_glide.s)
 .equ FLAGS2_GLIDE_SWITCH, 8    ; GLIDE SWITCH on (FEATURES, script_glide.s)
 .equ FLAGS2_GLIDE, 12
@@ -136,6 +136,11 @@
 .equ TUBE_ASYM_DEFAULT, 4    ; the TUBE ASYM a file without the field has; the field holds TUBE ASYM xor this, so the default writes no version 5
 .equ TUBE_PARAM, 0xFF803FD8   ; the 10 words the ARM writes (tools/dsp/tube_model.py PARAM): gp, then a TUBE DRIVE row of tube_rows
 .equ TUBE_ASYM_SHIFT, 5       ; byte 4 of a version 5 settings file: bits 0 to 4 the version, bits 5 to 7 TUBE ASYM
+.equ M_IDLE, 0x156           ; byte: the page IDLE SAVE, IDLE_OFF, IDLE_ON or IDLE_BATT (the default without a settings file); script_idle.s reads it
+.equ IDLE_OFF, 0
+.equ IDLE_ON, 1
+.equ IDLE_BATT, 2
+.equ IDLE_BATT_BIT, 0x80      ; byte 6 of a version 6 settings file: bit 7 IDLE SAVE BATTERY ONLY (the count is bits 0 to 6, at most 64)
 .equ M_FL_KEY, 0x157          ; byte: the key that answered the question, set by menu_ask_input: 1 EXIT, 2 MENU
 .equ FLASH_SET_A, 0x7FD000
 .equ FLASH_SET_B, 0x7FE000
@@ -152,7 +157,7 @@
 .equ SETTINGS_SIZE, 24
 .equ SETTINGS_SIZE_V1, 20
 .equ SETTINGS_MAX, 24+4*MENU_MAX_TRUST    ; the size of each settings buffer, MENU_FILE_A and MENU_FILE_B
-.equ SETTINGS_VERSION, 5      ; the newest version read; 5 written only when TUBE ASYM is not its default, else 4 when byte 7 is not 0, else 3 (a BLECH up to 1.4.6 reads that)
+.equ SETTINGS_VERSION, 6      ; the newest version read; 6 written only with IDLE SAVE BATTERY ONLY, else 5 when TUBE ASYM is not its default, else 4 when byte 7 is not 0, else 3 (a BLECH up to 1.4.6 reads that)
 .equ M_STATE_WORDS, 128
 .equ SWITCH_SCREEN, 0xC0083D28
 .equ PC_CODE, 0xC018B000        ; the patch pad-colors (tools/patch/pad_colors.py), FF where the set does not have it; its entries:
@@ -295,6 +300,8 @@ menu_arm_zero:
     str r0, [r4, #M_FT]
     str r0, [r4, #M_AS]
     str r0, [r4, #M_INV]        ; DISPLAY INVERT is ON without a settings file: a light trail on dark smears less
+    mov r0, #IDLE_BATT          ; IDLE SAVE is BATTERY ONLY without a settings file; a file from before keeps ON or OFF
+    strb r0, [r4, #M_IDLE]
     mvn r0, #0
     str r0, [r4, #M_INV_HW]     ; -1 until the settings are read: a page written while the card is read sends no polarity (menu_arm_load sets 0)
     mov r0, #0x38
@@ -582,15 +589,16 @@ acmd41_round:
 .pool
 
 ; ---- settings file: settings.a.bin and settings.b.bin alternate, the newer valid one is read.
-; magic, version u16 (1, 2, 3 or 4), count u16 (version 4: byte 6 alone, byte 7 the second flag byte FLAGS2_*; the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
+; magic, version u16 (1 to 6), count u16 (version 4 to 6: byte 6 alone, version 6 with bit 7 IDLE SAVE BATTERY ONLY, byte 7 the second flag byte FLAGS2_*; the checksums of the foreign scripts the user allowed), generation u32, flags u32 (bit 0 scripts,
 ; bit 1 MFX 2, bit 2 the pattern confirmation is OFF, bit 3 TAP MOTION is OFF, bit 5 TAP MOTION is ONCE (only when bit 3 is clear), bit 4 NOTE ASSIST is OFF: a file without the bit, or no file, means ON; byte 5: bit 0 METER LOUD RAINBOW, bit 1 METER STILL OFF, bit 2 STEREO 1 PAD OFF, bit 3 LAST PATTERN OFF, bit 4 KEY PADS OFF, bit 5 FILTER TOGGLE OFF, bit 6 KNOB LEDS OFF (it was HT OSC OFF on develop for half a day before 1.4.5, no release wrote it), bit 7 AUTO SAVE OFF), version 2 to 4 only: look u32 (bits 0 to 1 bottom LED mode 0 METER 1 COLOR 2 OFF, bits 4 to 15 LED red, green, blue
 ; level 0 to 15 each, all zero means the stock colours, bits 16 to 27 backlight red, green, blue level 0 to 15 each, all zero
 ; means the stock white, bit 28 the display inverted (no file or a version 1 file: inverted), bits 2 to 3 and 29 to 30 the pad colours (tools/patch/pad_colors.py); the pages show an all-zero triple as 15 each: a missing file or a zero word is the stock state, which is what the device shows, full light), count checksums u32, CRC-32 of
 ; everything before it: version 1 20 to 84 bytes, version 2 24 to 88 bytes (both up to 16 checksums), version 3 24 to 280 bytes (up to
 ; 64, MENU_MAX_TRUST), version 4 the same as 3, version 5 the same as 4 with TUBE ASYM xor 4 (1 to 7) in bits 5 to 7 of byte 4 (the version is
-; bits 0 to 4). Written as version 5 while TUBE ASYM is not its default 4, else as version 4 while byte 7 is not 0, else as version 3; versions 1
-; to 5 are read. A BLECH up to 1.3.7 does not read version 3, one up to 1.4.6 not version 4, one up to 1.4.7 not version 5 (it takes
-; the other copy or the defaults).
+; bits 0 to 4), version 6 the same as 5 with IDLE SAVE BATTERY ONLY in bit 7 of byte 6. Written as version 6 with BATTERY ONLY, else as
+; version 5 while TUBE ASYM is not its default 4, else as version 4 while byte 7 is not 0, else as version 3; versions 1 to 6 are read. A
+; BLECH up to 1.3.7 does not read version 3, one up to 1.4.6 not version 4, one up to 1.4.7 not version 5, one up to 1.4.8 not version 6
+; (it takes the other copy or the defaults). IDLE SAVE in a file without the bits of version 6 is ON or OFF: a file from before keeps it.
 ; Called from the card hook wrapper after menu_arm, before the script loader reads M_EFF_RUN.
 menu_settings_load:
     push {r4-r8, lr}
@@ -658,6 +666,19 @@ menu_load_apply:
     ldrbhs r1, [r0, #7]
     movlo r1, #0
     and r1, r1, #FLAGS2_KNOWN
+    mov r2, #IDLE_ON            ; IDLE SAVE: OFF is bit 1 of byte 7, BATTERY ONLY bit 7 of byte 6 of version 6, else ON
+    ldrb r3, [r0, #4]
+    and r3, r3, #0x1F
+    cmp r3, #6
+    bne menu_load_idle
+    ldrb r3, [r0, #6]
+    tst r3, #IDLE_BATT_BIT
+    movne r2, #IDLE_BATT
+menu_load_idle:
+    tst r1, #FLAGS2_IDLE_OFF
+    movne r2, #IDLE_OFF
+    strb r2, [r4, #M_IDLE]
+    bic r1, r1, #FLAGS2_IDLE_OFF  ; in RAM M_IDLE alone says it
     strb r1, [r4, #MX_FLAGS2]
     movs r1, r1, lsr #FLAGS2_TUBE_SHIFT   ; TUBE ON: its TUBE DRIVE; OFF keeps the one of this power-on
     strbne r1, [r4, #M_TUBE_DRIVE]
@@ -791,6 +812,7 @@ menu_load_meter:
     bl menu_pc_call
     pop {r0-r3}
     ldrb r1, [r0, #6]
+    and r1, r1, #0x7F           ; bit 7 of a version 6 file is IDLE SAVE BATTERY ONLY, the count is at most 64
     str r1, [r4, #M_TRUST_N]
     ldr r2, =MENU_TRUST
     ldrb r3, [r0, #4]
@@ -916,21 +938,23 @@ menu_flash_read_take:
 menu_flash_read_out:
     pop {r6-r8, pc}
 
-; r0 = a copy of FLASH_SET_LEN bytes from the flash -> r0 = 0x10000 | its generation when it is a whole record of version 3, 4 or
-; 5 with tag and checksum, 0 otherwise (erased flash, a torn write). r5 = card scratch. Keeps r4 to r11.
+; r0 = a copy of FLASH_SET_LEN bytes from the flash -> r0 = 0x10000 | its generation when it is a whole record of version 3 to 6
+; with tag and checksum, 0 otherwise (erased flash, a torn write). r5 = card scratch. Keeps r4 to r11.
 menu_flash_check:
     push {r4, r6, r7, lr}
     mov r7, r0
     ldrb r0, [r7, #4]
-    and r0, r0, #0x1F           ; version 5: TUBE ASYM in bits 5 to 7 (menu_record_check checks them)
+    and r0, r0, #0x1F           ; version 5 and 6: TUBE ASYM in bits 5 to 7 (menu_record_check checks them)
     sub r0, r0, #3
-    cmp r0, #2
+    cmp r0, #3
     bhi menu_flash_check_fail
-    ldrb r1, [r7, #7]           ; version 3: the high byte of the count; version 4 and 5: the second flag byte, the count is byte 6 alone
+    ldrb r1, [r7, #7]           ; version 3: the high byte of the count; version 4 to 6: the second flag byte, the count is byte 6 alone
+    ldrb r2, [r7, #6]
+    cmp r0, #3                  ; version 6: bit 7 of byte 6 is IDLE SAVE BATTERY ONLY
+    andeq r2, r2, #0x7F
     cmp r0, #0
     movne r1, #0
-    ldrb r0, [r7, #6]
-    orr r0, r0, r1, lsl #8
+    orr r0, r2, r1, lsl #8
     cmp r0, #MENU_MAX_TRUST
     bhi menu_flash_check_fail
     mov r6, #SETTINGS_SIZE
@@ -1005,23 +1029,27 @@ menu_record_body:
     ldrb r1, [r7, #5]
     bics r1, r1, #0xFF          ; byte 5: only bit 0 (LOUD RAINBOW), bit 1 (STILL OFF), bit 2 (STEREO 1 PAD OFF), bit 3 (LAST PATTERN OFF), bit 4 (KEY PADS OFF), bit 5 (FILTER TOGGLE OFF), bit 6 (KNOB LEDS OFF) and bit 7 (AUTO SAVE OFF) may be set
     bne menu_read_fail
-    movs r1, r0, lsr #TUBE_ASYM_SHIFT   ; bits 5 to 7 of byte 4: TUBE ASYM, only in version 5
+    movs r1, r0, lsr #TUBE_ASYM_SHIFT   ; bits 5 to 7 of byte 4: TUBE ASYM, only in version 5 and 6
     and r0, r0, #0x1F
-    cmpne r0, #5
-    bne menu_read_fail
-    sub r0, r0, #1              ; version 1, 2, 3, 4 or 5
+    beq menu_record_version
+    cmp r0, #5
+    blo menu_read_fail
+menu_record_version:
+    sub r0, r0, #1              ; version 1 to 6
     cmp r0, #SETTINGS_VERSION-1
     bhi menu_read_fail
     cmp r0, #0
     moveq r2, #SETTINGS_SIZE_V1
     movne r2, #SETTINGS_SIZE
-    cmp r0, #2                  ; version 3 and 4: up to 64 checksums
+    cmp r0, #2                  ; version 3 to 6: up to 64 checksums
     movhs r3, #MENU_MAX_TRUST
     movlo r3, #MENU_MAX_TRUST_V2
     ldrb r1, [r7, #7]
-    cmp r0, #3                  ; version 4 and 5: byte 7 is the second flag byte, the count is byte 6 alone
+    cmp r0, #3                  ; version 4 to 6: byte 7 is the second flag byte, the count is byte 6 alone
     movhs r1, #0
+    cmp r0, #5                  ; version 6: bit 7 of byte 6 is IDLE SAVE BATTERY ONLY (IDLE_BATT_BIT)
     ldrb r0, [r7, #6]
+    andeq r0, r0, #0x7F
     orr r0, r0, r1, lsl #8
     cmp r0, r3
     bhi menu_read_fail
@@ -1120,8 +1148,14 @@ menu_save_sp_done:
     cmp r11, #1
     cmpne r11, #2
     moveq r9, #0
-    strb r9, [r7, #6]
+    ldrb r12, [r4, #M_IDLE]     ; IDLE SAVE: OFF is bit 1 of byte 7, BATTERY ONLY bit 7 of byte 6 of a version 6 file, ON neither
+    mov r0, r9
+    cmp r12, #IDLE_BATT
+    orreq r0, r0, #IDLE_BATT_BIT
+    strb r0, [r7, #6]
     ldrb r0, [r4, #MX_FLAGS2]
+    cmp r12, #IDLE_OFF
+    orreq r0, r0, #FLAGS2_IDLE_OFF
     strb r0, [r7, #7]
     cmp r0, #0                  ; version 4 only with a bit in byte 7: without one the record is a version 3 file
     moveq r0, #3
@@ -1129,6 +1163,8 @@ menu_save_sp_done:
     ldrb r1, [r4, #M_TUBE_ASYM] ; version 5 only with TUBE ASYM off its default: bits 5 to 7 of byte 4 (TUBE ASYM xor 4)
     cmp r1, #0
     movne r0, #5
+    cmp r12, #IDLE_BATT         ; version 6 only with BATTERY ONLY (a BLECH up to 1.4.8 does not read it)
+    moveq r0, #6
     orr r0, r0, r1, lsl #TUBE_ASYM_SHIFT
     strb r0, [r7, #4]
     ldr r8, [r4, #M_GEN]
@@ -2717,7 +2753,7 @@ menu_show:
 
 ; r0 = the kind of a page -> r0 = 1 when the setting the page shows is the one the file holds (menu_orig_snap), 0 when it was changed
 ; or the page shows no setting. Builds the record of the settings as they are (menu_settings_crc leaves it in MENU_FILE_A) and
-; compares the bits of orig_masks for that kind: byte 5, byte 7, the flags word and the look word of the record.
+; compares the bits of orig_masks for that kind: byte 5, byte 7, byte 6, the flags word and the look word of the record.
 menu_orig_flag:
     push {r4, r5, lr}
     mov r4, r0
@@ -2745,6 +2781,12 @@ menu_orig_find:
     ldrb r3, [r1, #7]
     eor r2, r2, r3
     ldrb r3, [r5, #2]
+    ands r2, r2, r3
+    bne menu_orig_no
+    ldrb r2, [r0, #6]
+    ldrb r3, [r1, #6]
+    eor r2, r2, r3
+    ldrb r3, [r5, #3]
     ands r2, r2, r3
     bne menu_orig_no
     ldr r2, [r0, #12]
@@ -2799,7 +2841,7 @@ menu_orig_tube_cmp:
     movne r0, #0
     pop {r4, r5, pc}
 .pool
-; per kind (menu_texts_fill): the kind, the bits of byte 5, the bits of byte 7, then the bits of the flags word and of the look word of the settings record
+; per kind (menu_texts_fill): the kind, the bits of byte 5, the bits of byte 7, the bits of byte 6, then the bits of the flags word and of the look word of the settings record
 orig_masks:
     .byte 0, 0, 0, 0                  ; PLUGIN RUNTIME: bit 0 of the flags
     .word 0x00000001, 0
@@ -2861,7 +2903,7 @@ orig_masks:
     .word 0, 0
     .byte 59, 0, FLAGS2_LOAD_METER, 0 ; LOAD METER: bit 0 of byte 7
     .word 0, 0
-    .byte 60, 0, FLAGS2_IDLE_OFF, 0 ; IDLE SAVE: bit 1 of byte 7, set is OFF
+    .byte 60, 0, FLAGS2_IDLE_OFF, IDLE_BATT_BIT ; IDLE SAVE: bit 1 of byte 7 OFF, bit 7 of byte 6 BATTERY ONLY
     .word 0, 0
     .byte 61, 0, FLAGS2_GLIDE_CHAIN, 0 ; GLIDE CHAIN: bit 2 of byte 7
     .word 0, 0
@@ -4045,17 +4087,19 @@ menu_text_lm:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
-; IDLE SAVE: the light and the LEDs dim after 2, 3 and 4 minutes without a touch and go dark after 5 (script_idle.s); bit 1 of
-; byte 7 (MX_FLAGS2) set is OFF, so ON, the default, keeps byte 7 at 0
+; IDLE SAVE: the light and the LEDs dim after 2, 3 and 4 minutes without a touch and go dark after 5 (script_idle.s); OFF, ON
+; (on the adapter too) or BATTERY ONLY (the default: on the adapter the device stays awake), M_IDLE
 menu_text_idle:
     mov r0, #3
     bl menu_title_prefix
     ldr r1, =str_idle
     bl menu_copy
-    ldrb r2, [r5, #MX_FLAGS2]
-    ldr r1, =str_on
-    tst r2, #FLAGS2_IDLE_OFF
-    ldrne r1, =str_off
+    ldrb r2, [r5, #M_IDLE]
+    ldr r1, =str_off
+    cmp r2, #IDLE_ON
+    ldreq r1, =str_on
+    cmp r2, #IDLE_BATT
+    ldreq r1, =str_batt_only
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
@@ -7065,13 +7109,17 @@ menu_value_tube_store:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
-; IDLE SAVE acts at once (OFF wakes at the next frame), WRITE keeps it: ON up, OFF down
+; IDLE SAVE acts at once (OFF, and BATTERY ONLY on the adapter, wake at the next frame), WRITE keeps it: OFF, ON, BATTERY ONLY
 menu_value_idle:
-    ldrb r1, [r6, #MX_FLAGS2]
+    ldrb r1, [r6, #M_IDLE]
     cmp r5, #0
-    bicgt r1, r1, #FLAGS2_IDLE_OFF
-    orrle r1, r1, #FLAGS2_IDLE_OFF
-    strb r1, [r6, #MX_FLAGS2]
+    addgt r1, r1, #1
+    sublt r1, r1, #1
+    cmp r1, #IDLE_OFF
+    movlt r1, #IDLE_OFF
+    cmp r1, #IDLE_BATT
+    movgt r1, #IDLE_BATT
+    strb r1, [r6, #M_IDLE]
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
@@ -7945,6 +7993,8 @@ look_titles:
     .word str_led_red, str_led_green, str_led_blue, str_bl_red, str_bl_green, str_bl_blue
 str_once:
     .asciz "ONCE"
+str_batt_only:
+    .asciz "BATTERY ONLY"
 str_on:
     .asciz "ON"
 str_off:

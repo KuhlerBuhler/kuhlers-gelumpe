@@ -2366,7 +2366,7 @@ export default {
   "api.object.system.powerSave": "1 mientras el firmware atenúa la luz y los LED para su ahorro de energía, si no 0. Solo lectura.",
   "api.object.system.idle": "Nivel de IDLE SAVE: 0 despierto, 1 a 3 atenuado (tras 2, 3, 4 minutos), 4 apagado (tras 5 minutos). Solo lectura.",
   "api.object.display.loadMeter": "LOAD METER: si la carga del procesador se muestra en la pantalla principal (1) o no (0). Actúa al instante.",
-  "api.object.powerSave.idleSave": "IDLE SAVE: si la luz y los LED se atenúan sin uso (1) o no (0). 0 despierta un equipo atenuado, cada escritura reinicia el tiempo.",
+  "api.object.powerSave.idleSave": "IDLE SAVE: 0 apagado, 1 encendido (la luz y los LED se atenúan sin uso, también con el adaptador), 2 solo con batería (por defecto). 0 despierta un equipo atenuado, 2 también con el adaptador; cada escritura reinicia el tiempo.",
   "api.object.features.glideChain": "GLIDE CHAIN: si el tempo se desliza al siguiente pattern de la cadena (1) o no (0).",
   "api.object.features.glideSwitch": "GLIDE SWITCH: si el tempo se desliza a un pattern confirmado con MENU (1) o no (0).",
   "api.object.padColor.part": "PAD COLOR, el color de los pads encendidos: 0 rojo, 1 azul, 2 rosa. Nunca es igual a SELECT COLOR: una escritura que los igualaría los intercambia.",

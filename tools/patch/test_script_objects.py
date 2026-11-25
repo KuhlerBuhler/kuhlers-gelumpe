@@ -205,16 +205,23 @@ class NativeObjectTests(unittest.TestCase):
         self.assertIn(f'{GLOBAL_SETTERS[16][1]:#x}',object_rows(include,'synth'))
         self.assertNotIn(f'{GLOBAL_SETTERS[16][0]:#x}',object_rows(include,'synth'))
 
-    # API 37: the bits of byte 7 of the settings (base flags2) and the two bytes the runtime reads itself (base state 5 and 6)
+    # API 37: the bits of byte 7 of the settings (base flags2), IDLE SAVE's menu byte M_IDLE (base menu) and the two bytes the
+    # runtime reads itself (base state 5 and 6)
     def flags2(self,m,s,value=None):
         at = (MENU_STATE + s['MX_FLAGS2']) & 0xffffffff
         if value is not None: m.uc.mem_write(at,bytes([value]))
         return m.uc.mem_read(at,1)[0]
 
-    def test_a_flag_leaf_reads_its_bit_and_idle_save_reads_1_while_its_bit_is_clear(self):
+    def idle_save(self,m,s,value=None):
+        at = (MENU_STATE + s['M_IDLE']) & 0xffffffff
+        if value is not None: m.uc.mem_write(at,bytes([value]))
+        return m.uc.mem_read(at,1)[0]
+
+    def test_a_flag_leaf_reads_its_bit_and_idle_save_reads_its_byte(self):
         m,s = self.machine()
-        for byte,want in ((0x00,[0,1,0,0]),(0x0F,[1,0,1,1]),(0x05,[1,1,1,0]),(0xF2,[0,0,0,0])):
+        for byte,mode,want in ((0x00,1,[0,1,0,0]),(0x0F,0,[1,0,1,1]),(0x05,2,[1,2,1,0]),(0xF2,1,[0,1,0,0])):
             self.flags2(m,s,byte)
+            self.idle_save(m,s,mode)
             got = [m.call('script_object_get_glue',leaf,-1 & 0xffffffff) for leaf in (LOAD_METER,IDLE_SAVE,GLIDE_CHAIN,GLIDE_SWITCH)]
             self.assertEqual(got,[(w,ERR_OK) for w in want],hex(byte))
 
@@ -226,12 +233,14 @@ class NativeObjectTests(unittest.TestCase):
             uc.reg_write(UC_ARM_REG_PC,uc.reg_read(UC_ARM_REG_LR))
         m.uc.hook_add(UC_HOOK_CODE,keep,begin=s['testmode_keep_awake'],end=s['testmode_keep_awake'])
         self.flags2(m,s,0xA0)
-        for leaf,value,byte in ((LOAD_METER,1,0xA1),(IDLE_SAVE,0,0xA3),(GLIDE_CHAIN,1,0xA7),(GLIDE_SWITCH,1,0xAF),
-                                (LOAD_METER,0,0xAE),(IDLE_SAVE,1,0xAC),(GLIDE_CHAIN,5,0xAC),(GLIDE_SWITCH,0,0xA4)):
+        self.idle_save(m,s,1)
+        for leaf,value,byte,mode in ((LOAD_METER,1,0xA1,1),(IDLE_SAVE,0,0xA1,0),(GLIDE_CHAIN,1,0xA5,0),(GLIDE_SWITCH,1,0xAD,0),
+                                     (LOAD_METER,0,0xAC,0),(IDLE_SAVE,2,0xAC,2),(IDLE_SAVE,1,0xAC,1),(GLIDE_CHAIN,5,0xAC,1),
+                                     (IDLE_SAVE,7,0xAC,2),(GLIDE_SWITCH,0,0xA4,2)):
             self.assertEqual(m.call('script_object_set_glue',leaf,-1 & 0xffffffff,value)[1],ERR_OK)
-            self.assertEqual(self.flags2(m,s),byte,(leaf,value))
-        self.assertEqual(self.repairs(m,s),1,'5 is clamped to 1 and counted')
-        self.assertEqual(woke,[1,1],'IDLE SAVE starts its time again, the other three do not')
+            self.assertEqual((self.flags2(m,s),self.idle_save(m,s)),(byte,mode),(leaf,value))
+        self.assertEqual(self.repairs(m,s),2,'5 is clamped to 1 and 7 to 2, both counted')
+        self.assertEqual(woke,[1,1,1,1],'each IDLE SAVE write starts its time again, the other three do not')
         self.assertEqual(self.applied,[])
 
     def test_power_save_reads_the_firmware_dim_flag_as_0_or_1(self):
