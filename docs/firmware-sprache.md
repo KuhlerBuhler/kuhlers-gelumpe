@@ -3,7 +3,7 @@
 Deutsch als zweite Sprache der Menüs (das BLECH-Menü und Korgs Menüs) kommt über den optionalen Patch `lang-de`, eine
 Fassung je Build ([Hacktribe](glossary.md#hacktribe), Korgs rote 2.02, blaue Electribe). Ohne `lang-de` bleibt alles Englisch. Diese Seite
 beschreibt die Daten, die Regeln für die Texte und die Werkzeuge. Stand: das BLECH-Menü und Korgs Hauptmenüs
-(GLOBAL PARAMETER, DATA UTILITY, Pattern- und Part-Seiten) sind übersetzt, dazu Dialoge, Meldungen, Skalennamen und die Namen der Effektparameter (nicht auf der blauen Electribe).
+(GLOBAL PARAMETER, DATA UTILITY, Pattern- und Part-Seiten) sind übersetzt, dazu Dialoge, Meldungen, Skalennamen und die Namen der Effektparameter.
 
 ## Was nicht ins Repository kommt
 
@@ -42,9 +42,8 @@ Ein Eintrag hat entweder `text` (Deutsch) oder `keep` (Grund, warum die Zeile En
 | `space` | optional: Platz der Zeile in Pixeln |
 | `inPlace` | `true` bei einem Namensfeld eines Effektparameters: ohne Zeigerwort, der Text steht an Ort und Stelle, mit Null bis zur alten Länge aufgefüllt |
 
-`inPlace` gibt es nur auf Hacktribe und rot (je 52 Felder). Auf der blauen Electribe sind die Datensätze der
-Effektparameter noch nicht gefunden, ihre Namen bleiben dort Englisch. Die Namensfelder liegen zwischen `0xC011F000`
-und `0xC0124000` und damit im DSP-Strom, den der ARM zum Blackfin hochlädt
+`inPlace` gibt es auf allen drei Builds (je 52 Felder, auf blau an tieferen Adressen, Abschnitt Korgs Menüs). Die
+Namensfelder liegen auf Hacktribe und rot zwischen `0xC011F000` und `0xC0124000` und damit im DSP-Strom, den der ARM zum Blackfin hochlädt
 ([FX-Tabellen](messungen/2026-10-14-fx-tabellen.md)): ein `inPlace`-Eintrag ändert DSP-Daten. Der Emulator lädt den
 Strom nicht hoch, wie der DSP die Namen benutzt, prüft darum nur Punkt 11 des
 [Gerätetests](geraetetests/firmware-sprache.md).
@@ -53,7 +52,8 @@ Strom nicht hoch, wie der DSP die Namen benutzt, prüft darum nur Punkt 11 des
 Hand. Ein deutscher Text länger als `length` braucht ein gemessenes `buffer`, sonst lehnt der Unit-Test ihn ab.
 `korg-stock.json` und `korg-synth.json` übernehmen Text, `keep`, `buffer` und `inPlace` aus `korg-hacktribe.json`, wo die
 alte Kette gleich ist (gleicher SHA-256): zuerst an derselben Adresse, sonst an der ersten mit gleicher Kette. Ein
-`inPlace`-Eintrag geht nur an dieselbe Adresse, denn gleicher Text heißt dort nicht gleiches Feld.
+`inPlace`-Eintrag geht nur an dieselbe Adresse, denn gleicher Text heißt dort nicht gleiches Feld. Die blauen
+`inPlace`-Einträge stehen darum mit ihren eigenen Adressen in `korg-synth.json`.
 
 ## Kürzungsregel
 
