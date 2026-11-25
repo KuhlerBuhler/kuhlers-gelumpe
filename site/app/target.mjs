@@ -66,6 +66,11 @@ export async function chooseTarget({ session = null, scope = globalThis } = {}) 
   return { kind: "card", card: pickedCard(root) };
 }
 
+/** The text key for the button that sends a file: "Aufs Gerät" with a device connected, else "Auf die Karte" (the Android app has no card). */
+export function targetLabel(session, scope = globalThis) {
+  return session || scope.__GELUMPE_MOBILE ? "plugins.toDevice" : "plugins.toCard";
+}
+
 /** A packed .blech onto `target` (one chooseTarget gave): the name it has there, as MANAGE PLUGINS lists it. */
 export async function sendPlugin(target, id, bytes) {
   if (target.kind === "device") return storePlugin(target.session, id, bytes);

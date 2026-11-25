@@ -1125,6 +1125,7 @@ export default {
   "plugins.clearInputs": "Effacer l'enregistrement",
   "plugins.download": "Télécharger",
   "plugins.toDevice": "Vers l'appareil",
+  "plugins.toCard": "Vers la carte",
   "plugins.saveAll": "Tout enregistrer",
   "plugins.saveAll.title": "Enregistrer tous les plugins sous {file}",
   "plugins.compileFailed": "La compilation a échoué.",

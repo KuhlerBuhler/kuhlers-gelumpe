@@ -1125,6 +1125,7 @@ export default {
   "plugins.clearInputs": "Apagar gravação",
   "plugins.download": "Descarregar",
   "plugins.toDevice": "Para o aparelho",
+  "plugins.toCard": "Para o cartão",
   "plugins.saveAll": "Guardar todos",
   "plugins.saveAll.title": "Guardar todos os plugins como {file}",
   "plugins.compileFailed": "A tradução falhou.",

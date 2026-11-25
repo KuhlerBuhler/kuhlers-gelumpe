@@ -1125,6 +1125,7 @@ export default {
   "plugins.clearInputs": "Opname wissen",
   "plugins.download": "Downloaden",
   "plugins.toDevice": "Naar het apparaat",
+  "plugins.toCard": "Naar de kaart",
   "plugins.saveAll": "Alles opslaan",
   "plugins.saveAll.title": "Alle plugins opslaan als {file}",
   "plugins.compileFailed": "Vertalen mislukt.",

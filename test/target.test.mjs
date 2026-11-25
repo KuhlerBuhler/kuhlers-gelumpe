@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, readdirSync, existsSync, writeFil
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chooseTarget, sendPlugin, PLUGIN_FOLDER } from "../site/app/target.mjs";
+import { chooseTarget, sendPlugin, targetLabel, PLUGIN_FOLDER } from "../site/app/target.mjs";
 import { ARCHIVE } from "../data/script/contract.mjs";
 
 const bytes = Uint8Array.of(0x42, 0x4c, 0x45, 0x43);
@@ -121,4 +121,10 @@ test("a picked folder without KORG is not the card, a closed dialog is no error"
   assert.deepEqual(await chooseTarget({ scope: { showDirectoryPicker: async () => { throw abort; } } }), { kind: "cancelled" });
   const refused = Object.assign(new Error("no click"), { name: "SecurityError" });
   assert.deepEqual(await chooseTarget({ scope: { showDirectoryPicker: async () => { throw refused; } } }), { kind: "none", why: "target.none" });
+});
+
+test("the send button says Aufs Gerät with a device, Auf die Karte without; the Android app has no card", () => {
+  assert.equal(targetLabel({ device: { model: 0x24 } }, {}), "plugins.toDevice");
+  assert.equal(targetLabel(null, {}), "plugins.toCard");
+  assert.equal(targetLabel(null, { __GELUMPE_MOBILE: { platform: "android" } }), "plugins.toDevice");
 });

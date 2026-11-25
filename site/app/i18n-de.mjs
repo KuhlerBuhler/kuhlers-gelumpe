@@ -1165,6 +1165,7 @@ export default {
   "plugins.clearInputs": "Aufnahme löschen",
   "plugins.download": "Herunterladen",
   "plugins.toDevice": "Aufs Gerät",
+  "plugins.toCard": "Auf die Karte",
   "plugins.saveAll": "Alle speichern",
   "plugins.saveAll.title": "Alle Plugins als {file} speichern",
   "plugins.compileFailed": "Übersetzen fehlgeschlagen.",

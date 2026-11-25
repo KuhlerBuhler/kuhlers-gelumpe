@@ -1124,6 +1124,7 @@ export default {
   "plugins.clearInputs": "Borrar grabación",
   "plugins.download": "Descargar",
   "plugins.toDevice": "Al dispositivo",
+  "plugins.toCard": "A la tarjeta",
   "plugins.saveAll": "Guardar todos",
   "plugins.saveAll.title": "Guardar todos los plugins como {file}",
   "plugins.compileFailed": "Falló la compilación.",

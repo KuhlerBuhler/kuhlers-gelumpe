@@ -1124,6 +1124,7 @@ export default {
   "plugins.clearInputs": "Cancella registrazione",
   "plugins.download": "Scarica",
   "plugins.toDevice": "Sul dispositivo",
+  "plugins.toCard": "Sulla scheda",
   "plugins.saveAll": "Salva tutti",
   "plugins.saveAll.title": "Salva tutti i plugin come {file}",
   "plugins.compileFailed": "Compilazione fallita.",

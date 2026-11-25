@@ -1125,6 +1125,7 @@ export default {
   "plugins.clearInputs": "Smazat nahrávku",
   "plugins.download": "Stáhnout",
   "plugins.toDevice": "Na zařízení",
+  "plugins.toCard": "Na kartu",
   "plugins.saveAll": "Uložit všechny",
   "plugins.saveAll.title": "Uložit všechny pluginy jako {file}",
   "plugins.compileFailed": "Překlad selhal.",

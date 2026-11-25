@@ -1125,6 +1125,7 @@ export default {
   "plugins.clearInputs": "Стереть запись",
   "plugins.download": "Скачать",
   "plugins.toDevice": "На устройство",
+  "plugins.toCard": "На карту",
   "plugins.saveAll": "Сохранить все",
   "plugins.saveAll.title": "Сохранить все плагины как {file}",
   "plugins.compileFailed": "Компиляция не удалась.",

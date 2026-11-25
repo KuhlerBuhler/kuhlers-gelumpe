@@ -27,7 +27,7 @@ import { Workspace, sourceKey, validName } from "../../src/script/workspace.mjs"
 import { SimDevice, probe as runProbe, thumbnail, FRAME_MS } from "../../src/script/sim.mjs";
 import { exportGate } from "../../src/script/gate.mjs";
 import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
-import { chooseTarget, sendPlugin } from "./target.mjs";
+import { chooseTarget, sendPlugin, targetLabel } from "./target.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { pixelsOf } from "./splash.mjs";
 import { drawFeature } from "./features.mjs";
@@ -102,6 +102,19 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     }
   }
 
+  /** The buttons that send a plugin, each with whether it shows its words; their words follow the connection (relabel). */
+  const sendButtons = new Map();
+  const sendLabel = () => t(targetLabel(session()));
+  function relabel() {
+    const label = sendLabel();
+    for (const [b, text] of sendButtons) {
+      if (!b.isConnected && b !== usbButton) { sendButtons.delete(b); continue; }
+      b.title = label;
+      if (text) b.lastChild.textContent = label;
+      else b.setAttribute("aria-label", label);
+    }
+  }
+
   const workspace = new Workspace(storage);
   const saved = new Map();
   const values = { load: name => saved.get(name) ?? null, save: records => records.forEach(r => saved.set(r.name, r)) };
@@ -138,7 +151,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   const recordButton = button("cee-script-record", t("plugins.record"), () => toggleRecording(), "sm");
   const clearInputs = button("cee-script-clear-inputs", t("plugins.clearInputs"), () => dropInputs(), "sm");
   const exportButton = button("cee-script-export", t("plugins.download"), () => exportOne(), "");
-  const usbButton = button("cee-script-usb", t("plugins.toDevice"), () => exportOne(usbButton), "");
+  const usbButton = button("cee-script-usb", sendLabel(), () => exportOne(usbButton), "");
+  sendButtons.set(usbButton, true);
   const exportAll = button("cee-script-export-all", t("plugins.saveAll"), () => exportCollection(), "sm");
   exportAll.title = t("plugins.saveAll.title", { file: ARCHIVE.file });
   const open = el("input", { type: "file", className: "cee-visually-hidden", id: "cee-script-open", accept: ".blech" });
@@ -907,10 +921,11 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       const bytes = pack();
       if (bytes) saveFile(bytes, `${preset.id}.blech`, { note: t("plugins.copyTo", { folder: ARCHIVE.folder }) });
     });
-    const usb = make("usb", t("plugins.toDevice"), () => {
+    const usb = make("usb", sendLabel(), () => {
       const bytes = pack();
       if (bytes) toDevice(bytes, preset.id, usb);
     }, true);
+    sendButtons.set(usb, text);
     return { get, usb };
   }
 
@@ -962,6 +977,8 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     },
     stop,
     page,
+    /** A device came or went: the send buttons say Aufs Gerät or Auf die Karte. */
+    sessionChanged: relabel,
     get running() { return !!live; },
   };
 }
