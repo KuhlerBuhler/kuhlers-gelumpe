@@ -194,7 +194,11 @@ mod tests {
         let roots = [card.clone()];
         let root = card.display().to_string();
         let path = write(&roots, &root, "Plugin", "Echo_1.blech", b"one").unwrap();
-        let file = card.join("KORG/blechtribe/Plugin/Echo_1.blech");
+        let file = card
+            .join("KORG")
+            .join("blechtribe")
+            .join("Plugin")
+            .join("Echo_1.blech");
         assert_eq!(path, file.display().to_string());
         assert_eq!(fs::read(&file).unwrap(), b"one");
         // the folder in other letters is used, and the file replaced
