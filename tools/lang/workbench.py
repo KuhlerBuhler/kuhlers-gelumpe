@@ -31,10 +31,10 @@ from firmware import build_of, identify  # noqa: E402
 RAM = 0xC0000000
 HEADER = 0x100
 # Korg's menu texts and the effect parameter records (docs/messungen/2026-11-19-firmware-sprache.md). The blue
-# Electribe keeps its menu texts lower (string density per 4 KiB page, measured on Korg's blue 2.02); its effect
-# records are not located yet.
+# Electribe keeps its menu texts lower (string density per 4 KiB page, measured on Korg's blue 2.02) and its effect
+# records 0x1A628 lower, 0x1A664 from about 0xC0121C00 on (the same record bytes, compared with Hacktribe 2.02).
 AREAS = {"menu": (0xC00A3000, 0xC00A8000), "fx": (0xC011F000, 0xC0124000)}
-AREAS_SYNTH = {"menu": (0xC008E000, 0xC0093000)}
+AREAS_SYNTH = {"menu": (0xC008E000, 0xC0093000), "fx": (0xC011F000 - 0x1A628, 0xC0124000 - 0x1A664)}
 PLACEHOLDER = re.compile(r"%[-+ #0]*\d*(?:\.\d+)?[hlL]?[diouxXcsfeEgG%]")
 MIN_PART = 3
 # For a width estimate before the glyphs exist, an umlaut counts as its base letter and ß as b.

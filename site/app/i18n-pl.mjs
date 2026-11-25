@@ -1592,7 +1592,7 @@ export default {
   "patcher.usbName": "Nazwa urządzenia: Electribe 3",
   "patcher.usbName.note": "Komputer pokaże wtedy Electribe jako Electribe 3. Przypisania w DAW powiązane ze starą nazwą portu trzeba połączyć na nowo. Windows może zachować starą nazwę, dopóki raz nie usuniesz urządzenia w Menedżerze urządzeń.",
   "patcher.langDe": "Menu urządzenia po niemiecku",
-  "patcher.langDe.note": "Menu BLECH i główne menu Korga na urządzeniu pokazują wtedy niemieckie teksty. Niektóre komunikaty i nazwy efektów na razie zostają po angielsku. Aby zmienić język, zainstaluj ponownie.",
+  "patcher.langDe.note": "Menu BLECH i główne menu Korga na urządzeniu pokazują wtedy niemieckie teksty. Niektóre komunikaty na razie zostają po angielsku. Aby zmienić język, zainstaluj ponownie.",
   "patcher.langDe.failed": "Menu po niemiecku: pasuje tylko do własnych plików BLECH dla Hacktribe, czerwonej 2.02 Korga i niebieskiej 2.02 Korga. Zacznij od niezmienionego SYSTEM.VSB.",
   "patcher.blech.wrong": "{file} nie da się odczytać jako patcha: {error}",
   "patcher.source.ask": "Jakiej bazy chcesz użyć?",

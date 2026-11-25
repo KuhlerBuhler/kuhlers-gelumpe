@@ -1592,7 +1592,7 @@ export default {
   "patcher.usbName": "Nome do dispositivo: Electribe 3",
   "patcher.usbName.note": "O computador passa a mostrar a Electribe como Electribe 3. As atribuições da DAW ligadas ao nome de porta antigo têm de ser ligadas de novo. O Windows pode manter o nome antigo até removeres o dispositivo uma vez no Gestor de dispositivos.",
   "patcher.langDe": "Menus do aparelho em alemão",
-  "patcher.langDe.note": "O menu BLECH e os menus principais da Korg no aparelho mostram então textos em alemão. Algumas mensagens e nomes de efeitos ficam em inglês por agora. Para mudar de idioma, instala de novo.",
+  "patcher.langDe.note": "O menu BLECH e os menus principais da Korg no aparelho mostram então textos em alemão. Algumas mensagens ficam em inglês por agora. Para mudar de idioma, instala de novo.",
   "patcher.langDe.failed": "Menu em alemão: só serve para os ficheiros próprios do BLECH para Hacktribe, a 2.02 vermelha da Korg e a 2.02 azul da Korg. Começa do teu SYSTEM.VSB sem alterações.",
   "patcher.blech.wrong": "{file} não pode ser lido como patch: {error}",
   "patcher.source.ask": "Que base queres usar?",
