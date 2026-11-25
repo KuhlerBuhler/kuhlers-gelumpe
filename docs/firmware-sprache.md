@@ -97,7 +97,9 @@ nicht in `script_menu.s` stehen (Startbild-Titel, Fehlertexte der Samples, Pad-F
 ## Korgs Menüs
 
 Jeder Text auf Korgs Seiten ist eine Vorlage im Code (Hacktribe und rot `0xC00A3000` bis `0xC00A8000`, blau
-`0xC008E000` bis `0xC0093000`), die die Firmware über ein Zeigerwort lädt und zeichnet oder in ein Widget kopiert.
+`0xC008E000` bis `0xC0093000`), die die Firmware über ein Zeigerwort lädt und zeichnet oder in ein Widget kopiert. Die Datensätze der Effektparameter
+liegen auf Hacktribe und rot bei `0xC011F000` bis `0xC0124000`, auf blau mit denselben Bytes `0x1A628` tiefer, ab
+`0xC0121C00` (Hacktribe-Adresse) `0x1A664` tiefer; `lang-de` schreibt auf allen drei Builds dieselben 52 Namensfelder.
 `lang-de` legt die deutsche Kette in den Sprachbereich und biegt jedes Zeigerwort dorthin (`expect` = SHA-256 des alten
 Worts); die englische Vorlage bleibt unverändert.
 
