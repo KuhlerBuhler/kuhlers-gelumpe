@@ -1106,8 +1106,6 @@ export default {
   "plugins.onSdCard": "{name}.blech leží na kartě {card} v KORG › blechtribe › Plugin. Kartu vysuň, vlož ji do Electribe, pak Menu -> BLECH -> PLUGINS -> MANAGE PLUGINS, MENU, pak ho na jeho stránce zapni kolečkem.",
   "target.none": "Není připojená žádná Electribe a žádná karta se nenašla. Připoj Electribe přes USB nebo vlož její SD kartu do počítače.",
   "target.several": "Našlo se víc karet se složkou KORG ({list}). Nech v počítači jen kartu z Electribe a zkus to znovu.",
-  "target.noCardHere": "Není připojená žádná Electribe. Připoj ji přes USB. Zapisovat přímo na kartu v počítači jde v aplikaci nebo v Chrome a Edge.",
-  "target.notCard": "V {name} chybí složka KORG. Vyber nejvyšší složku karty z Electribe.",
   "plugins.code": "Kód pluginu",
   "plugins.names.filter": "Filtr, například TAP nebo Pad 3",
   "plugins.names.filterLabel": "Filtrovat názvy",

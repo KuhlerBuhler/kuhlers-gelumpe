@@ -1106,8 +1106,6 @@ export default {
   "plugins.onSdCard": "{name}.blech is on the card {card} in KORG › blechtribe › Plugin. Eject the card, put it in the Electribe, then Menu -> BLECH -> PLUGINS -> MANAGE PLUGINS, MENU, then switch it on with the dial on its page.",
   "target.none": "No Electribe connected and no card found. Connect the Electribe over USB or put its SD card into the computer.",
   "target.several": "Found several cards with a KORG folder ({list}). Leave only the Electribe's card in and try again.",
-  "target.noCardHere": "No Electribe connected. Connect it over USB. Writing straight to a card in the computer works in the app or in Chrome and Edge.",
-  "target.notCard": "{name} has no KORG folder. Pick the top folder of the Electribe's card.",
   "plugins.code": "Plugin code",
   "plugins.names.filter": "Filter, for example TAP or Pad 3",
   "plugins.names.filterLabel": "Filter names",

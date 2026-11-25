@@ -1106,8 +1106,6 @@ export default {
   "plugins.onSdCard": "{name}.blech лежит на карте {card} в KORG › blechtribe › Plugin. Извлеки карту, вставь её в Electribe, потом Меню -> BLECH -> PLUGINS -> MANAGE PLUGINS, MENU, потом включи его колесом на его странице.",
   "target.none": "Electribe не подключена, и карта не найдена. Подключи Electribe по USB или вставь её SD-карту в компьютер.",
   "target.several": "Найдено несколько карт с папкой KORG ({list}). Оставь только карту Electribe и попробуй снова.",
-  "target.noCardHere": "Electribe не подключена. Подключи её по USB. Писать прямо на карту в компьютере можно в приложении или в Chrome и Edge.",
-  "target.notCard": "В {name} нет папки KORG. Выбери верхнюю папку карты Electribe.",
   "plugins.code": "Код плагина",
   "plugins.names.filter": "Фильтр, например TAP или Pad 3",
   "plugins.names.filterLabel": "Фильтровать имена",

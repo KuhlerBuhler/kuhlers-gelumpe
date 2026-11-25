@@ -27,7 +27,7 @@ import { Workspace, sourceKey, validName } from "../../src/script/workspace.mjs"
 import { SimDevice, probe as runProbe, thumbnail, FRAME_MS } from "../../src/script/sim.mjs";
 import { exportGate } from "../../src/script/gate.mjs";
 import { packAll, packBlech, parseBlech } from "../../src/script/archive.mjs";
-import { chooseTarget, sendPlugin, targetLabel } from "./target.mjs";
+import { chooseTarget, sendPlugin, targetLabel, findCards } from "./target.mjs";
 import { creatorLine, creatorName, metaFields, metaProblem } from "./creator.mjs";
 import { pixelsOf } from "./splash.mjs";
 import { drawFeature } from "./features.mjs";
@@ -90,8 +90,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
   async function toDevice(bytes, id, button) {
     button.disabled = true;
     try {
-      const target = await chooseTarget({ session: session() });
-      if (target.kind === "cancelled") return;
+      const target = await chooseTarget({ session: linked() });
       if (target.kind === "none") { toast(t(target.why, { list: target.cards?.join(", ") ?? "", name: target.name ?? "" }), "error"); return; }
       const name = await sendPlugin(target, id, bytes);
       toast(t(target.kind === "card" ? "plugins.onSdCard" : "plugins.onCard", { name, card: target.card?.name ?? "" }), "ok");
@@ -102,18 +101,37 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     }
   }
 
-  /** The buttons that send a plugin, each with whether it shows its words; their words follow the connection (relabel). */
+  /** The buttons that send a plugin, each with whether it shows its words. They say Aufs Gerät or Auf die Karte and hide with neither. */
   const sendButtons = new Map();
-  const sendLabel = () => t(targetLabel(session()));
+  // an unplugged device keeps its session until the next connect, marked disconnected
+  const linked = () => { const s = session(); return s && !s.sender?.disconnected ? s : null; };
+  let cards = [];
+  const sendKey = () => targetLabel(linked(), cards);
+  const sendLabel = () => t(sendKey() ?? "plugins.toDevice");
   function relabel() {
+    const shown = !!sendKey();
     const label = sendLabel();
     for (const [b, text] of sendButtons) {
       if (!b.isConnected && b !== usbButton) { sendButtons.delete(b); continue; }
+      b.hidden = !shown || (b === usbButton && exportButton.hidden);
       b.title = label;
       if (text) b.lastChild.textContent = label;
       else b.setAttribute("aria-label", label);
     }
   }
+  // A card put in or taken out shows by itself: about every 2 s while the page is up and no device is connected.
+  let scanning = false;
+  async function scanCards() {
+    if (scanning || linked() || !root.getClientRects().length) return;
+    scanning = true;
+    let found;
+    try { found = await findCards(); } catch { found = []; } finally { scanning = false; }
+    if (found.map(c => c.root).join("\n") === cards.map(c => c.root).join("\n")) return;
+    cards = found;
+    relabel();
+  }
+  setInterval(scanCards, 2000);
+  scanCards();
 
   const workspace = new Workspace(storage);
   const saved = new Map();
@@ -269,7 +287,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     recordButton.textContent = recording ? t("plugins.recordStop") : t("plugins.record");
     clearInputs.hidden = !isOwn || !mine?.inputs?.length;
     exportButton.hidden = !isOwn;
-    usbButton.hidden = !isOwn;
+    usbButton.hidden = !isOwn || !sendKey();
     exportAll.disabled = workspace.list().length === 0;
     const n = mine?.inputs?.length ?? 0;
     inputsInfo.textContent = isOwn ? (n ? t("plugins.inputs", { count: n, frame: mine.inputs.at(-1).frame }) : t("plugins.noInputs")) : "";
@@ -926,6 +944,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
       if (bytes) toDevice(bytes, preset.id, usb);
     }, true);
     sendButtons.set(usb, text);
+    usb.hidden = !sendKey();
     return { get, usb };
   }
 
@@ -978,7 +997,7 @@ export function scriptsPanel(root, { storage = null, sub = null, session = () =>
     stop,
     page,
     /** A device came or went: the send buttons say Aufs Gerät or Auf die Karte. */
-    sessionChanged: relabel,
+    sessionChanged() { relabel(); scanCards(); },
     get running() { return !!live; },
   };
 }
