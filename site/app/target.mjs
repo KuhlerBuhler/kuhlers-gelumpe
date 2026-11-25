@@ -9,11 +9,16 @@ import { ARCHIVE } from "../../data/script/contract.mjs";
 /** The folder below KORG/blechtribe/ the plugin files lie in. */
 export const PLUGIN_FOLDER = ARCHIVE.folder.split("/").at(-1);
 
+/** The app's command `name`; Tauri rejects with the Rust error string, here it becomes an Error with that text. */
+async function call(invoke, name, args) {
+  try { return await invoke(name, args); } catch (e) { throw e instanceof Error ? e : new Error(String(e)); }
+}
+
 /** The mounted cards with a KORG folder, as `{ root, volume }`; none outside the desktop app (the Android app sees no card paths). */
 export async function findCards(scope = globalThis) {
   const invoke = scope.__TAURI__?.core?.invoke;
   if (!invoke || scope.__GELUMPE_MOBILE) return [];
-  return invoke("blech_cards");
+  return call(invoke, "blech_cards");
 }
 
 /**
@@ -29,7 +34,7 @@ export function targetLabel(session, cards = []) {
 function appCard(invoke, found) {
   return {
     name: found.volume,
-    write: (folder, file, bytes) => invoke("blech_card_write", { root: found.root, folder, name: file, bytes: Array.from(bytes) }),
+    write: (folder, file, bytes) => call(invoke, "blech_card_write", { root: found.root, folder, name: file, bytes: Array.from(bytes) }),
   };
 }
 

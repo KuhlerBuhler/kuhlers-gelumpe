@@ -72,3 +72,11 @@ test("the send button: Aufs Gerät with a device, Auf die Karte with a card, gon
   assert.equal(targetLabel(null, card), "plugins.toCard");
   assert.equal(targetLabel(null, []), null);
 });
+
+test("a card the app cannot write to gives an Error with the app's words", async () => {
+  const scope = app({ blech_cards: [{ root: "/Volumes/E2", volume: "E2" }], blech_card_write: () => Promise.reject("Diese Karte ist nicht mehr da.") });
+  const target = await chooseTarget({ scope });
+  await assert.rejects(sendPlugin(target, "Echo", bytes), { message: "Diese Karte ist nicht mehr da." });
+  const gone = app({ blech_cards: () => Promise.reject("kein Zugriff") });
+  await assert.rejects(chooseTarget({ scope: gone }), { message: "kein Zugriff" });
+});
