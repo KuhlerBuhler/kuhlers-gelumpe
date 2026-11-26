@@ -109,7 +109,7 @@ GLYPH_PIXEL = 0xC003F278     # the return address of the glyph function's pixel 
 PUT = (0xC0015824, 0xC0015900)  # the function that writes the frame buffer for one pixel
 FB = 0xC031B310              # the frame buffer, 128 x 64, 8-pixel column strips
 STRCPY = 0xC000AA64          # the copy Korg's text setters call (title, value, line 3, dialog text)
-LANG = (0xC016C000, 0xC0170000)  # lang-de's area (script_hooks.LANG)
+LANG = (0xC016D000, 0xC0170000)  # lang-de's area (script_hooks.LANG)
 
 
 def layout_task(screen, german):

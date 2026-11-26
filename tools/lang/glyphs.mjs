@@ -17,7 +17,7 @@ import { FONT_TABLE, parseGlyph, readFonts, tableFor } from "../patch/blech_them
 
 const RAM = 0xC0000000;
 const HEADER = 0x100;
-export const LANG = 0xC016C000;   // tools/patch/script_hooks.py:LANG
+export const LANG = 0xC016D000;   // tools/patch/script_hooks.py:LANG
 export const LANG_END = 0xC0170000;
 export const FONTS = [0, 1, 3];
 /** Latin-1 code of each letter as the firmware's ldrsb sees it. */
