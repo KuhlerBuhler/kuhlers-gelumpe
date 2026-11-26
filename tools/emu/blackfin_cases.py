@@ -15,7 +15,7 @@ from firmware import identify
 from machine import Machine, DSP_CTRL, DSP_DATA, blank_flash, hardware_flash
 
 
-def cases(payload, worker, *, core_hz, seconds=1, input='silence', wall_timeout=600):
+def cases(payload, worker, *, core_hz, seconds=1, input='lcg', wall_timeout=600):
     if not isinstance(seconds, (int, float)) or not math.isfinite(seconds) or not .01 <= seconds <= 30:
         raise ValueError('a bounded ARM/DSP session between .01 and 30 seconds is required')
     if not isinstance(wall_timeout, (int, float)) or not math.isfinite(wall_timeout) or not 1 <= wall_timeout <= 1800:
@@ -81,7 +81,8 @@ def main():
     parser.add_argument('--core-hz', type=int, required=True)
     parser.add_argument('--seconds', type=float, default=1)
     parser.add_argument('--wall-timeout', type=float, default=600)
-    parser.add_argument('--input', choices=('silence', 'lcg', 'file'), default='silence')
+    parser.add_argument('--input', choices=('silence', 'lcg', 'file'), default='lcg',
+                        help='silence never boots: the DSP seeds a random value from the ADC and waits for a nonzero sample')
     args = parser.parse_args()
     try:
         worker = blackfin_worker.find(args.worker)

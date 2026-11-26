@@ -131,7 +131,8 @@ def record(vsb, worker, trace, blocks, block):
         recorder = Recorder(out, blocks, block)
         recorder.install()
         try:
-            report = blackfin_cases.cases(raw[0x100:], worker, core_hz=CORE_HZ, seconds=seconds, wall_timeout=1800)
+            report = blackfin_cases.cases(raw[0x100:], worker, core_hz=CORE_HZ, seconds=seconds, input='silence',
+                                          wall_timeout=1800)
             recorder.inside = True
             recorder.done = max(recorder.done, recorder.blocks)
             recorder.marker(2)

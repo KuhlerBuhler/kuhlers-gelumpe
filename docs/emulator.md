@@ -579,6 +579,13 @@ Alle vier Läufe enden im selben Zustand: 55078105 ARM-Befehle, 123533003 DSP-Zy
 1374304 der rund 1,38 Mio. `DSP_CTRL`-Lesezugriffe; danach liegen etwa 5,8 der 7,3 s im DSP-Simulator, die ARM-Seite braucht rund 5 %.
 Quelle: Messung 2026-11-16/dsp-sim-tempo.
 
+**Gekoppelter Boot braucht Rauschen am Eingang.** Die zweite Mailbox-Nachricht des ARM beim Start (Befehl `0x21`) holt sich
+im DSP einen Zufallswert aus dem linken ADC-Sample (`0xFF802870`) und wartet in `0xFFA050FC`, bis es ungleich 0 ist. Am Gerät
+rauscht der Eingang immer. Mit SPORT-Eingang Stille bleibt das Sample genau 0: der DSP quittiert die Nachricht nie, `HOST_STATUS`
+behält `HANDSHAKE` (0x19C) und der ARM wartet in `0xC001462C` ohne Ende, der Hauptbildschirm kommt nie. Darum ist `lcg` der
+Standard von `blackfin_cases.py`; mit `lcg` ist der Hacktribe-Build nach 1,7 s Modellzeit gebootet.
+Quelle: Messung 2026-11-26/dsp-boot-stille.
+
 ## Boot
 
 ### Die ganze Firmware starten
