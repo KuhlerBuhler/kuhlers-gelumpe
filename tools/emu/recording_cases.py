@@ -261,11 +261,12 @@ def wav_marker(content):
     return offset, associated[16:12 + size].split(b'\0', 1)[0]
 
 
-def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_settings=False, remove_card=False, transport_play=False,
+def runtime_cases(payload, flash=None, png=None, card_stall=False, defer_settings=False, remove_card=False, transport_play=False,
                   slow_card=False):
     """slow_card: every 512-byte block takes 1.5 ms to program, so one 64-KiB block holds the card 192 ms, about twice
-    the DSP ring; the take must still be complete. expect_gap: a single block stalls 150 ms, longer than the ring, and
-    the take must end with a visible gap (REC on the red, 24.11.2026: status 20 after 1.1 s)."""
+    the DSP ring; the take must still be complete. card_stall: a single block stalls 400 ms, four times the DSP ring and
+    longer than the 250 ms an SD card may stay busy on a write. The UiTask frame reads the ring while CommandTask waits on the
+    card, so the take must still be complete (before it ended with a gap: REC on the red, 24.11.2026, status 20 after 1.1 s)."""
     from tools.patch import synthaddr
     synth = synthaddr.is_synth(payload)
     channels = 1 if synth else 2
@@ -291,11 +292,11 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         dev.press(0x0C, 0.05)
         dev.turn(1, 0.03)
         dev.turn(1, 0.03)
-    out.append(entry('native_gap_record_source' if expect_gap else 'native_record_source', field('SETUP') == 1 and field('SELECTED') == 1,
+    out.append(entry('native_stall_record_source' if card_stall else 'native_record_source', field('SETUP') == 1 and field('SELECTED') == 1,
                      'SHIFT+REC opens RECORD directly on the synth; the sampler selects its third source'))
     transport = lambda: dev.u32(HW_TRANSPORT_SYNTH if synth else HW_TRANSPORT)
     bound = lambda: dev.m.uc.mem_read(script_hooks.NATIVE_RECORDING + NR_PLAY_BOUND, 1)[0]
-    prefix = 'native_gap_' if expect_gap else ''
+    prefix = 'native_stall_' if card_stall else ''
 
     def tap(key, hold=0.05, wait=0.01):
         dev.m.press(key, True)
@@ -383,6 +384,7 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
                          and count > 0 and captured == pcm(0, count) and not dsp.active and not dev.m.asserts,
                          f'started {restarted}, phase {field("PHASE")}, error {field("ERROR")}, {count} frames, exact {captured == pcm(0, count)}, assertions {dev.m.asserts}'))
         return out
+    stalls = []
     if defer_settings:
         from splash_cases import SWITCH_SCREEN
         import menu_cases as mc
@@ -416,14 +418,13 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         dev.m.mmc.write_busy = lambda: 1_500_000
         dev.run(1.2)
         dev.m.mmc.write_busy = None
-    elif expect_gap:
+    elif card_stall:
         armed = dev.m.time_ns + 200_000_000
-        stalls = []
         def stall():
             if dev.m.time_ns < armed or stalls:
                 return 0
             stalls.append(dev.m.time_ns)
-            return 150_000_000
+            return 400_000_000
         dev.m.mmc.write_busy = stall
         dev.run(0.6)
         dev.m.mmc.write_busy = None
@@ -453,32 +454,28 @@ def runtime_cases(payload, flash=None, png=None, expect_gap=False, defer_setting
         count, shape = wav.getnframes(), (wav.getnchannels(), wav.getframerate(), wav.getsampwidth())
         captured = wav.readframes(count)
     first = ((struct.unpack_from('<H', captured)[0] - 1234) * pow(17, -1, 65536)) & 65535
-    expected_status = 20 if expect_gap else 0
-    outcome = 'native_gap_is_reported' if expect_gap else 'native_record_wav'
+    expected_status = 0
+    outcome = 'native_stall_take_complete' if card_stall else 'native_record_wav'
     expected_pcm = (b''.join(struct.pack('<H', sample(i) >> 16) for i in range(first, first + count))
                     if synth else pcm(first, count))
     exact = shape == (channels, 48000, 2) and count > 0 and first < 4800 and captured == expected_pcm
-    tail = first + count <= dsp.frames if expect_gap else first + count == dsp.frames
+    tail = first + count == dsp.frames
     out += [entry(outcome, started and field('PHASE') == 0 and field('ERROR') == expected_status
                   and field('CONTEXT') == 0 and field('BYTES') == count * channels * 2
                   and exact and tail and content[512:] == captured,
                   f'permanent CommandTask hook, {count} frames from {first}, ring {capacity} bytes; status {field("ERROR")}, expected {expected_status}; PCM exact {exact}'),
             # REC0005 on the red (2026-11-24) was a valid WAV of zeros: the loaded taps gated on a word the DSP never sees.
-            entry('native_gap_take_has_audio' if expect_gap else 'native_take_has_audio',
+            entry('native_stall_take_has_audio' if card_stall else 'native_take_has_audio',
                   dsp.tap_live and count > 0 and any(captured),
                   f'taps independent of host-written words {dsp.tap_live}, {count} frames, non-zero bytes {sum(1 for b in captured if b)}'),
-            entry('native_gap_no_flash_write' if expect_gap else 'native_no_flash_write', before_flash == user_flash(dev.m), 'native RECORD leaves user flash unchanged'),
-            entry('native_gap_no_assert' if expect_gap else 'native_no_assert', not dev.m.asserts and not dsp.faults,
+            entry('native_stall_no_flash_write' if card_stall else 'native_no_flash_write', before_flash == user_flash(dev.m), 'native RECORD leaves user flash unchanged'),
+            entry('native_stall_no_assert' if card_stall else 'native_no_assert', not dev.m.asserts and not dsp.faults,
                   f'assertions {dev.m.asserts}, DSP faults {dsp.faults[:3]}')]
-    if expect_gap:
-        marker = wav_marker(content)
-        out.append(entry('native_gap_evidence', field('GAPS') == 1 and marker == (count, b'Capture gap'),
-                         f'gap counter {field("GAPS")}, WAV marker {marker}, PCM ends at frame {count}'))
-    else:
-        out.append(entry('native_clean_take_has_no_gap', field('GAPS') == 0 and wav_marker(content) is None,
-                         'no gap counter or marker on a complete take'))
+    out.append(entry('native_stall_take_has_no_gap' if card_stall else 'native_clean_take_has_no_gap',
+                     field('GAPS') == 0 and wav_marker(content) is None and len(stalls) == card_stall,
+                     f'no gap counter or marker on a complete take, card stalls {len(stalls)}'))
     dev.press('exit', 0.03)
-    out.append(entry('native_gap_setup_closed' if expect_gap else 'native_setup_closed', field('SETUP') == 0, 'EXIT ends the setup lifetime without retaining its view'))
+    out.append(entry('native_stall_setup_closed' if card_stall else 'native_setup_closed', field('SETUP') == 0, 'EXIT ends the setup lifetime without retaining its view'))
     if defer_settings:
         dev.run(0.2)
         records = mc.settings_raw(medium.data)
@@ -825,7 +822,7 @@ def cases(payload, flash=None, png=None):
                 + checkpoint_cases(payload, flash) + checkpoint_cases(payload, flash, fail_sync=True)
                 + status_dot_cases(payload, flash))
     return (feature_cases(payload, flash) + worker_cases(payload, flash) + runtime_cases(payload, flash)
-            + runtime_cases(payload, flash, png=png, expect_gap=True) + runtime_cases(payload, flash, slow_card=True)
+            + runtime_cases(payload, flash, png=png, card_stall=True) + runtime_cases(payload, flash, slow_card=True)
             + runtime_cases(payload, flash, defer_settings=True) + checkpoint_cases(payload, flash)
             + checkpoint_cases(payload, flash, fail_sync=True) + runtime_cases(payload, flash, remove_card=True)
             + full_card_cases(payload, flash) + rollover_cases(payload, flash)
@@ -842,12 +839,12 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--vsb', type=Path, required=True)
     ap.add_argument('--runtime-only', action='store_true')
-    ap.add_argument('--expect-gap', action='store_true')
+    ap.add_argument('--card-stall', action='store_true')
     ap.add_argument('--slow-card', action='store_true')
     ap.add_argument('--png', type=Path)
     args = ap.parse_args()
     payload = args.vsb.read_bytes()[0x100:]
-    result = runtime_cases(payload, png=args.png, expect_gap=args.expect_gap, slow_card=args.slow_card) if args.runtime_only else cases(payload, png=args.png)
+    result = runtime_cases(payload, png=args.png, card_stall=args.card_stall, slow_card=args.slow_card) if args.runtime_only else cases(payload, png=args.png)
     print(json.dumps(result, indent=1))
     return 0 if result and all(e['ok'] for e in result) else 1
 

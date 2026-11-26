@@ -503,8 +503,16 @@ Karte, die für ein einzelnes 8-KiB-Stück länger als die Frist braucht, reißt
 Block (Modellannahme: die Karte hält die Datenleitung belegt). Neuer Fall `slow_card_*` in `recording_cases.py`:
 1,5 ms pro Block, also 192 ms für 64 KiB und damit fast das Doppelte des Rings, 1,2 s Take. Mit 8-KiB-Stücken: Status
 0, PCM exakt, keine Lücke. Mit dem alten Ablauf (ein `f_write` pro 64 KiB, sonst gleiches Abbild): Status 20 nach
-16557 Frames (0,34 s), dasselbe Bild wie am Gerät. Der Lückenfall `native_gap_*` hält jetzt eine einzelne Karte 150 ms
-fest, länger als der Ring, und erwartet weiter Status 20 mit Marker. Im Unit-Test schreibt eine Karte 64 KiB in 240 ms:
+16557 Frames (0,34 s), dasselbe Bild wie am Gerät. Im Unit-Test schreibt eine Karte 64 KiB in 240 ms:
 mit Stücken vollständig, mit einem Block Status 20.
+
+**Leser auch im UI-Rahmen (26.11.):** Auch ein einzelnes 8-KiB-Stück kann die CommandTask länger blockieren als der Ring
+reicht, denn sie wartet währenddessen auf den Kartentreiber und liest nicht (Emulator: Lücken bis 41 bis 44 ms, ganz im
+Rekorder-Schritt). Darum liest jetzt auch der UI-Rahmen (`nr_reader_frame`, UiTask, alle ~40 ms, Priorität über der
+CommandTask und der Kartentask) den DSP-Ring. Ein Anspruchswort (`RC_POLLER`) hält die beiden Leser auseinander, ein Stopp
+wartet, bis ein laufendes Lesen fertig ist. Gemessen im Emulator (altes Timing, 6 Parts, 3 s): längste Lücke HT 41 -> 28 ms,
+rot 43 -> 33 ms, blau 39 -> 32 ms, Befehle gleich. Der frühere Lückenfall heißt jetzt `native_stall_*`: eine Karte hängt
+400 ms (länger als die 250 ms, die eine SD-Karte laut Spezifikation beim Schreiben belegt sein darf, und viermal der Ring);
+neu Status 0 und PCM vollständig, vorher Status 20 nach 16597 Frames. Die Lückenmarkierung prüfen weiter die Unit-Tests.
 
 Bestätigt ist der Fix erst, wenn ein Take über mehrere Sekunden am Gerät ohne Lücke durchläuft.

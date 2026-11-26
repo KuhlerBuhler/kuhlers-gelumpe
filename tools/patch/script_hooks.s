@@ -856,6 +856,7 @@ script_frame_return_end:
 
 nr_frame:
     push {r4, lr}
+    bl nr_reader_frame
     bl nr_view_frame
     bl nr_ui_ack
     bl nr_play_inject_frame

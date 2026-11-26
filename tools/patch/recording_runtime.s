@@ -357,4 +357,16 @@ nr_fault_copy_word:
     bx lr
 .pool
 
+; UiTask frame (every ~40 ms, priority above CommandTask and the card task): reads the DSP ring while CommandTask waits on a
+; card write. NR_PHASE is 1 only while the context is live (CommandTask publishes 2 before it frees it), and nothing here
+; blocks before recorder_poll claims the reader, so the lower CommandTask cannot free the context in between.
+nr_reader_frame:
+    ldr r1, =NATIVE_RECORDING
+    ldr r0, [r1, #NR_PHASE]
+    cmp r0, #1
+    bxne lr
+    ldr r0, [r1, #NR_CONTEXT]
+    b recorder_poll
+.pool
+
 nr_runtime_end:

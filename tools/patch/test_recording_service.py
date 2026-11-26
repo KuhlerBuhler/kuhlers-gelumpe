@@ -310,6 +310,37 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertEqual(m.rr('RR_OWNED'), 0)
         self.assertFalse(m.handles)
 
+    def test_second_reader_shares_the_ring_and_stop_waits_for_it(self):
+        # The UiTask frame (nr_reader_frame) reads through recorder_poll too, so a card write that blocks CommandTask
+        # longer than the DSP ring no longer starves the reader. One claim word keeps the two readers apart.
+        m = Recorder()
+        self.assertEqual(m.command(1), 0)
+        self.assertEqual(m.pump(), 0)
+        captured = [0x11110000 + n for n in range(2000)]
+        m.capture(captured, elapsed=20)
+        before = m.rr('RR_PRODUCED')
+        self.assertEqual(m.call('recorder_poll'), 0)
+        self.assertGreater(m.rr('RR_PRODUCED'), before)
+        self.assertEqual(m.field('RC_POLLER'), 0)
+        m.write(m.s('RC_POLLER'), 1)                     # the other task is reading now
+        more = [0x22220000 + n for n in range(2000)]
+        captured += more
+        m.capture(more, elapsed=20)
+        before = m.rr('RR_PRODUCED')
+        self.assertEqual(m.call('recorder_poll'), 0)
+        self.assertEqual(m.rr('RR_PRODUCED'), before)
+        m.assert_command_stop()
+        for _ in range(3):
+            m.pump()
+            self.assertEqual((m.field('RC_ACTIVE'), m.rr('RR_OWNED')), (2, 1))
+            self.assertEqual(m.call('recorder_poll'), 0)  # no new read once the stop is posted
+            self.assertEqual(m.rr('RR_PRODUCED'), before)
+        m.write(m.s('RC_POLLER'), 0)
+        self.assertEqual(m.finish(), 0)
+        with wave.open(io.BytesIO(bytes(m.files['SD:Recordings/REC0001.WAV']))) as wav:
+            self.assertEqual(wav.readframes(wav.getnframes()), pcm(captured))
+        self.assertFalse(m.handles)
+
     def test_close_and_capture_stop_failures_remain_busy_until_retried(self):
         for failure in ('file', 'capture'):
             with self.subTest(failure=failure):

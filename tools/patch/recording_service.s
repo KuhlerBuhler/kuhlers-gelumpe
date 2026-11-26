@@ -9,6 +9,9 @@
 .equ RC_DROPPED, RC_REQUEST + 24
 .equ RC_FILE_BYTES, RC_REQUEST + 28
 .equ RC_CHECKPOINT, RC_REQUEST + 32
+; 1 while one task runs rec_reader_poll. CommandTask and the UiTask frame (nr_reader_frame) both read the DSP ring, so a
+; card write that blocks CommandTask longer than the ring lasts no longer starves the reader.
+.equ RC_POLLER, RC_REQUEST + 36
 .equ RC_SIZE, 1536
 .equ RC_READER_ERROR, 16
 .equ RC_PIECE, 8192
@@ -120,8 +123,8 @@ recorder_active:
     ldr r0, [r4, #RC_REQUEST]
     cmp r0, #2
     beq recorder_stop_request
-    add r0, r4, #RC_READER
-    bl rec_reader_poll
+    mov r0, r4
+    bl recorder_poll
     cmp r0, #0
     beq recorder_drain
     add r0, r0, #RC_READER_ERROR
@@ -141,6 +144,9 @@ recorder_stop_request:
     mov r0, #2
     str r0, [r4, #RC_ACTIVE]
 recorder_stop:
+    ldr r0, [r4, #RC_POLLER]         ; RC_ACTIVE is no longer 1, so no new read starts; one still running ends first
+    cmp r0, #0
+    bne recorder_return
     ldr r0, [r4, #RC_READER+RR_OWNED]
     cmp r0, #0
     beq recorder_drain
@@ -215,8 +221,8 @@ recorder_piece:
     ldr r0, [r4, #RC_ACTIVE]
     cmp r0, #1
     bne recorder_piece
-    add r0, r4, #RC_READER
-    bl rec_reader_poll
+    mov r0, r4
+    bl recorder_poll
     cmp r0, #0
     beq recorder_piece
     add r0, r0, #RC_READER_ERROR
@@ -295,6 +301,31 @@ recorder_return:
     ldr r0, [r4, #RC_ERROR]
     pop {r4-r10, pc}
 .pool
+
+; r0 context. Reads the DSP ring unless another task reads it now or the take is not running (RC_ACTIVE 1 claims under the
+; interrupt mask, so a stop that sets RC_ACTIVE first sees every read still running). Returns the reader's status, also when
+; it skipped.
+recorder_poll:
+    push {r4, r5, r6, lr}
+    mov r4, r0
+    .word 0xE10F5000                 ; mrs r5, cpsr
+    orr r1, r5, #0xC0
+    .word 0xE121F001                 ; msr cpsr_c, r1
+    ldr r0, [r4, #RC_POLLER]
+    ldr r1, [r4, #RC_ACTIVE]
+    cmp r1, #1
+    cmpeq r0, #0
+    moveq r0, #1
+    streq r0, [r4, #RC_POLLER]
+    .word 0xE121F005                 ; msr cpsr_c, r5 (flags kept)
+    ldrne r0, [r4, #RC_READER+RR_STATUS]
+    bne recorder_poll_return
+    add r0, r4, #RC_READER
+    bl rec_reader_poll
+    mov r1, #0
+    str r1, [r4, #RC_POLLER]
+recorder_poll_return:
+    pop {r4, r5, r6, pc}
 
 recorder_error:
     ldr r1, [r4, #RC_ERROR]
