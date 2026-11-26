@@ -14,6 +14,7 @@ import sample_swap_io as io
 CODE, CALL = 0xC1005000, 0xC100A000
 POINTER = c.spec.NATIVE_SCOPE
 RESOURCE_SITES = scope.RESOURCE_SITES
+RECORDING_LENGTH_WORD, DSP_STREAM_LEN = 0xC0011AB0, 0x422A0
 TARGETS = dict(command=c.spec.FIRMWARE['PART_UPDATE'], stereo=c.spec.FIRMWARE['PART_UPDATE'],
                read=0xC00141F8, write=0xC0014284,
                **{'0xc0012758': 0xC0012758, '0xc001430c': 0xC001430C, '0xc00143e4': 0xC00143E4})
@@ -48,6 +49,9 @@ def validation_image(payload):
         for site, original, target, _, _, _, _ in c.spec.SITES:
             word = original if original is not None else c.spec.redirect(0xEB000000, site, target)
             struct.pack_into('<I', reference, site - c.IMAGE, word)
+    # Native recording appends to the DSP stream and rewrites its length word inside the hashed wrappers
+    # (recording_dsp.LENGTH_WORD, dsp_extract.STREAM_LEN; copied so the app bundle needs neither module).
+    struct.pack_into('<I', reference, RECORDING_LENGTH_WORD - c.IMAGE, DSP_STREAM_LEN)
     image = bytes(256) + reference
     scope.validate_firmware(image)
     return image
