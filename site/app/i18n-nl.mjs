@@ -2369,7 +2369,7 @@ export default {
   "api.object.features.glideSwitch": "GLIDE SWITCH: of het tempo naar een met MENU bevestigd pattern glijdt (1) of niet (0).",
   "api.object.record.running": "Native opname: 1 vanaf de start tot het WAV-bestand gesloten is, anders 0. Alleen lezen.",
   "api.object.record.seconds": "Lengte van de lopende of laatste native opname in hele seconden, uit de geschreven bytes. Alleen lezen.",
-  "api.object.record.gaps": "Native opname: 1 als een gat in de opname de take beëindigde (het bestand stopt daar), anders 0. Alleen lezen.",
+  "api.object.record.gaps": "Native opname: hoe vaak de opname geluid verloor. Elk gat wordt met stilte gevuld en de take loopt door; 1 meer als een fout de take beëindigde. Alleen lezen.",
   "api.object.padColor.part": "PAD COLOR, de kleur van de verlichte pads: 0 rood, 1 blauw, 2 roze. Nooit gelijk aan SELECT COLOR: een schrijfactie die ze gelijk zou maken wisselt ze om.",
   "api.object.padColor.select": "SELECT COLOR, de kleur van de gekozen pad: 0 rood, 1 blauw, 2 roze. Nooit gelijk aan PAD COLOR: een schrijfactie die ze gelijk zou maken wisselt ze om.",
   "api.object.padColor.overlap": "OVERLAP, de kleur van een pad die brandt en gekozen is: 0 de kleur die overblijft, 1 rood, 2 blauw, 3 roze.",

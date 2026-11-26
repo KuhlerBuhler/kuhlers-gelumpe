@@ -324,8 +324,8 @@ export const OBJECTS = Object.freeze([
     unit: "s", text: text("api.object.record.seconds"),
   }),
   leaf(69, "korg.record.gaps", {
-    base: "state", offset: STATE_WORDS.recordGaps, type: "u32", min: 0, max: 1, factory: 0, write: false, since: 41,
-    unit: "0 none, 1 one", text: text("api.object.record.gaps"),
+    base: "state", offset: STATE_WORDS.recordGaps, type: "u32", min: 0, max: 2147483647, factory: 0, write: false, since: 41,
+    unit: "count", text: text("api.object.record.gaps"),
   }),
 ]);
 

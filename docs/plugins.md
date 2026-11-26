@@ -460,7 +460,7 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.menu.blech.features.glideSwitch` | GLIDE SWITCH: das Tempo gleitet zum Tempo eines mit MENU bestätigten Patterns (1) (ab API Version 37) | ja, wirkt sofort wie die Seite | 0 bis 1 |
 | `korg.record.running` | 1, solange die eingebaute Aufnahme (SHIFT+REC, RECORD) läuft oder ihre Datei schreibt, sonst 0 (ab API Version 41) | nein | 0 bis 1 |
 | `korg.record.seconds` | Länge der laufenden Aufnahme in ganzen Sekunden; behält die Länge der letzten Aufnahme, bis die nächste beginnt (ab API Version 41) | nein | 0 bis 2147483647 |
-| `korg.record.gaps` | wie oft der Aufnahme Ton verloren ging: jede Lücke ist mit Stille gefüllt und die Aufnahme läuft weiter; 1 mehr, wenn ein Fehler die Aufnahme beendet hat (ab API Version 41) | nein | ab 0 |
+| `korg.record.gaps` | wie oft der Aufnahme Ton verloren ging: jede Lücke ist mit Stille gefüllt und die Aufnahme läuft weiter; 1 mehr, wenn ein Fehler die Aufnahme beendet hat (ab API Version 41) | nein | 0 bis 2147483647 |
 | `korg.menu.blech.write()` | (ein Aufruf, kein Wert) | schreibt die Einstellungen des Menüs BLECH auf die Karte wie WRITE auf einer Seite, siehe unten | |
 | `korg.global.triggerMode` | Seite TRIGGER MODE von GLOBAL PARAMETERS: 0 Normal, 1 Seq 1st, 2 Seq Play | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
 | `korg.global.velocityCurve` | Seite VELOCITY CURVE von GLOBAL PARAMETERS: 0 Heavy, 1 Normal, 2 Light, 3 Const96 | ja, wie das Menü, über die Funktion der Firmware | 0 bis 3 |

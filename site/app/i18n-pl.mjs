@@ -2369,7 +2369,7 @@ export default {
   "api.object.features.glideSwitch": "GLIDE SWITCH: czy tempo płynnie przechodzi do patternu potwierdzonego przez MENU (1), czy nie (0).",
   "api.object.record.running": "Nagrywanie natywne: 1 od startu do zamknięcia pliku WAV, inaczej 0. Tylko odczyt.",
   "api.object.record.seconds": "Długość bieżącego lub ostatniego nagrania natywnego w pełnych sekundach, z zapisanych bajtów. Tylko odczyt.",
-  "api.object.record.gaps": "Nagrywanie natywne: 1, gdy przerwa w przechwytywaniu zakończyła nagranie (plik kończy się tam), inaczej 0. Tylko odczyt.",
+  "api.object.record.gaps": "Nagrywanie natywne: ile razy nagranie straciło dźwięk. Każda przerwa jest wypełniona ciszą, a nagranie trwa dalej; o 1 więcej, gdy błąd zakończył nagranie. Tylko odczyt.",
   "api.object.padColor.part": "PAD COLOR, kolor zapalonych padów: 0 czerwony, 1 niebieski, 2 różowy. Nigdy taki sam jak SELECT COLOR: zapis, który by je zrównał, zamienia je miejscami.",
   "api.object.padColor.select": "SELECT COLOR, kolor wybranego pada: 0 czerwony, 1 niebieski, 2 różowy. Nigdy taki sam jak PAD COLOR: zapis, który by je zrównał, zamienia je miejscami.",
   "api.object.padColor.overlap": "OVERLAP, kolor pada zapalonego i wybranego: 0 kolor, który zostaje, 1 czerwony, 2 niebieski, 3 różowy.",
