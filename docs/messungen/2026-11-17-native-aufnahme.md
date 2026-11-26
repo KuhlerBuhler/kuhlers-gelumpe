@@ -513,6 +513,17 @@ CommandTask und der Kartentask) den DSP-Ring. Ein Anspruchswort (`RC_POLLER`) h�
 wartet, bis ein laufendes Lesen fertig ist. Gemessen im Emulator (altes Timing, 6 Parts, 3 s): längste Lücke HT 41 -> 28 ms,
 rot 43 -> 33 ms, blau 39 -> 32 ms, Befehle gleich. Der frühere Lückenfall heißt jetzt `native_stall_*`: eine Karte hängt
 400 ms (länger als die 250 ms, die eine SD-Karte laut Spezifikation beim Schreiben belegt sein darf, und viermal der Ring);
-neu Status 0 und PCM vollständig, vorher Status 20 nach 16597 Frames. Die Lückenmarkierung prüfen weiter die Unit-Tests.
+neu Status 0 und PCM vollständig, vorher Status 20 nach 16597 Frames.
+
+**Frist aus dem Füllstand, Lücke als Stille (26.11.):** Statt fester 80 Ticks rechnet der Leser jetzt, wann der DSP den
+Cursor wirklich einholt: die ungelesenen Bytes beim letzten Lesen (`RR_BACKLOG`) plus 192 Byte je Tick (48 kHz Stereo)
+dürfen den Ring weniger 1024 Byte Rand nicht erreichen. Nach einem normalen Lesen sind das gut 89 ms statt 80 ms. Kommt
+ein Lesen trotzdem zu spät, endet die Aufnahme nicht mehr: der Cursor springt einen halben Ring hinter den Schreibzeiger
+des DSP, die übersprungene Zeit kommt als Stille in die Datei (geschätzt aus Ticks und Rückstand, auf die Millisekunde
+genau), und `RR_GAPS` zählt mit. Die Anzeige zeigt die Zahl hinter der Zeit (`REC 00:01:23 #2`), `korg.record.gaps`
+liefert sie. Ein cue-Marker steht nur noch bei einem Abbruch (verlorene Erfassung, ARM-Ring voll). **Im ARM-Emulator
+geprüft:** Unit-Tests für Stille, Weiterlaufen, die neue Frist und einen fast vollen ARM-Ring; die Aufnahmefälle bleiben
+HT 93/93, rot 93/93, blau 45/45. Platz dafür: der Sprachbereich von `lang-de` beginnt jetzt bei `0xC016D000` statt
+`0xC016C000` (lang-de endet bei etwa `0xC016EB57`).
 
 Bestätigt ist der Fix erst, wenn ein Take über mehrere Sekunden am Gerät ohne Lücke durchläuft.

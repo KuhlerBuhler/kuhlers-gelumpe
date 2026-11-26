@@ -236,6 +236,8 @@ nr_service_pump:
     ldr r0, [r5, #RW_MARKER]
     cmp r0, #0
     movne r0, #1
+    ldr r1, [r5, #RC_READER+RR_GAPS]
+    add r0, r0, r1
     str r0, [r4, #NR_GAPS]
     ldr r0, [r5, #RW_NUMBER]
     str r0, [r4, #NR_NUMBER]

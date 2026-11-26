@@ -157,7 +157,7 @@ objects_state_stage:
     mvnhi r0, #0
     bx lr
 ; korg.record.running (7): 1 while NR_PHASE is not idle, from the start until the file is closed; korg.record.seconds (8): the
-; frames written (NR_BYTES) in whole seconds at 48 kHz; korg.record.gaps (9): NR_GAPS, 1 when a gap ended the take. All 0 before
+; frames written (NR_BYTES) in whole seconds at 48 kHz; korg.record.gaps (9): NR_GAPS, the gaps filled with silence plus 1 when an error ended the take. All 0 before
 ; the recording's first use (no NR_MAGIC). Reads only the public state (tools/patch/recording_runtime.s), keeps r3 and r12.
 objects_state_record:
     push {r3, r12, lr}

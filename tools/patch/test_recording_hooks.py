@@ -251,6 +251,20 @@ class RecordingHookTests(unittest.TestCase):
         m.call('nr_format', title, value)
         self.assertEqual(bytes(m.uc.mem_read(title, 32)).split(b'\0', 1)[0], b'Capture gap #1')
 
+    def test_filled_gaps_show_beside_the_running_time(self):
+        m, b = self.machine()
+        from tools.patch.script_hooks import NATIVE_RECORDING
+        m.call('nr_init')
+        title, value = m.input + 0x6000, m.input + 0x6040
+        for phase, gaps, shown in ((1, 0, b'REC 00:00:01'), (1, 2, b'REC 00:00:01 #2'), (0, 12, b'Saved 00:00:01 #12'),
+                                   (1, 150, b'REC 00:00:01 #99')):
+            m.write(NATIVE_RECORDING + b.symbols['NR_PHASE'], phase)
+            m.write(NATIVE_RECORDING + b.symbols['NR_NUMBER'], 1)
+            m.write(NATIVE_RECORDING + b.symbols['NR_BYTES'], 48000 * (2 if b.symbols.get('RR_CHANNELS', 2) == 1 else 4))
+            m.write(NATIVE_RECORDING + b.symbols['NR_GAPS'], gaps)
+            m.call('nr_format', title, value)
+            self.assertEqual(bytes(m.uc.mem_read(title, 32)).split(b'\0', 1)[0], shown)
+
     def test_emulator_menu_model_includes_the_sampler_recording_feature(self):
         from tools.emu import menu_cases as menu
         from unittest.mock import patch

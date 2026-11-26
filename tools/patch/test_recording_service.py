@@ -290,7 +290,7 @@ class RecordingServiceTests(unittest.TestCase):
             self.assertEqual(wav.getnframes(), len(captured))
             self.assertEqual(wav.readframes(wav.getnframes()), pcm(captured))
 
-    def test_slow_card_write_causes_a_visible_dsp_gap(self):
+    def test_slow_card_write_leaves_a_counted_silent_gap_and_the_take_goes_on(self):
         m = Recorder()
         self.assertEqual(m.command(1), 0)
         self.assertEqual(m.pump(), 0)
@@ -303,12 +303,10 @@ class RecordingServiceTests(unittest.TestCase):
             m.pump()
             if m.write_number >= 2:
                 break
-        self.assertEqual(m.pump(), m.s('RC_READER_ERROR') + m.s('RR_GAP'))
         for _ in range(4):
-            m.pump()
-        self.assertEqual(m.field('RC_ACTIVE'), 0)
-        self.assertEqual(m.rr('RR_OWNED'), 0)
-        self.assertFalse(m.handles)
+            m.capture([0x12345678] * 2000, elapsed=40)
+            self.assertEqual(m.pump(), 0)
+        self.assertEqual((m.rr('RR_GAPS'), m.field('RC_ERROR'), m.field('RC_ACTIVE'), m.rr('RR_OWNED')), (1, 0, 1, 1))
 
     def test_second_reader_shares_the_ring_and_stop_waits_for_it(self):
         # The UiTask frame (nr_reader_frame) reads through recorder_poll too, so a card write that blocks CommandTask
@@ -388,16 +386,13 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertEqual(len(m.files), 2)
 
     def test_terminal_capture_faults_write_a_labelled_cue_without_inventing_lost_pcm(self):
-        for failure, reason, label in (('late', 1, b'Capture gap'), ('foreign', 2, b'Capture lost')):
+        for failure, reason, label in (('foreign', 2, b'Capture lost'),):   # a late read is no longer terminal
             m = Recorder()
             m.command(1)
             m.pump()
             m.capture([0x12345678] * 1000, elapsed=20)
             m.pump()
-            if failure == 'late':
-                m.tick(m.tick() + 100)
-            else:
-                m.info(3, m.s('RR_INPUT'))
+            m.info(3, m.s('RR_INPUT'))
             for _ in range(8):
                 m.pump()
                 if not m.field('RC_ACTIVE'):

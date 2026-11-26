@@ -52,7 +52,8 @@ zeigen währenddessen `recording`; ein wartendes Speichern zeigt `after recordin
 | No card | Es steckt keine Karte. Die Aufnahme startet nicht. |
 | Card full | Die Karte ist voll. Hat die Aufnahme bereits begonnen, bleibt ihr gültiger Anfang als WAV erhalten. |
 | Card error | Ein Kartenzugriff ist fehlgeschlagen oder die Karte wurde entfernt. Der letzte gesicherte Zwischenstand bleibt erhalten. |
-| Capture gap, Capture lost, Ring full | Die Erfassung konnte nicht lückenlos fortgesetzt werden. Die Aufnahme stoppt mit sichtbarem Zähler und einem benannten cue-Punkt am Ende des gültigen PCM-Anfangs. |
+| `REC 00:01:23 #2` | Zweimal kam der Ton nicht rechtzeitig vom DSP. Die fehlende Zeit ist als Stille in der Datei, die Aufnahme läuft weiter. Die Zahl bleibt nach dem Speichern stehen (`Saved 00:01:30 #2`). |
+| Capture gap, Capture lost, Ring full | Die Erfassung konnte nicht fortgesetzt werden. Die Aufnahme stoppt mit sichtbarem Zähler und einem benannten cue-Punkt am Ende des gültigen PCM-Anfangs. |
 | No memory | Für den Aufnahmering war kein ausreichender Speicherblock frei; die Aufnahme hat nicht begonnen. |
 
 Bricht eine Aufnahme ab, bevor sie ein Sample geschrieben hat, löscht der Sampler die leere WAV wieder und vergibt ihre
