@@ -366,7 +366,11 @@ def runtime_cases(payload, flash=None, png=None, card_stall=False, defer_setting
         dev.run(0.3)
         open_view()
         dev.press(2, 0.01)
-        restarted = field('PHASE') == 1 and field('CONTEXT') != 0
+        for _ in range(5):                  # the take may start one UI frame after the press
+            restarted = field('PHASE') == 1 and field('CONTEXT') != 0
+            if restarted:
+                break
+            dev.run(0.01)
         dev.run(0.03)
         stop()
         volume = fat32.Volume(bytes(replacement.data))

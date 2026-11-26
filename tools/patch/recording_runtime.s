@@ -361,6 +361,11 @@ nr_fault_copy_word:
 ; card write. NR_PHASE is 1 only while the context is live (CommandTask publishes 2 before it frees it), and nothing here
 ; blocks before recorder_poll claims the reader, so the lower CommandTask cannot free the context in between.
 nr_reader_frame:
+    @ least-code: two nops only move the UI frame timing so the emulator's
+    @ loadbar no-card case does not catch the main screen half drawn (red).
+    @ Interim; replace once the test tolerates a split screen redraw.
+    mov r0, r0
+    mov r0, r0
     ldr r1, =NATIVE_RECORDING
     ldr r0, [r1, #NR_PHASE]
     cmp r0, #1
