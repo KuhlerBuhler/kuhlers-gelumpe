@@ -42,11 +42,18 @@ Ein Eintrag hat entweder `text` (Deutsch) oder `keep` (Grund, warum die Zeile En
 | `space` | optional: Platz der Zeile in Pixeln |
 | `inPlace` | `true` bei einem Namensfeld eines Effektparameters: ohne Zeigerwort, der Text steht an Ort und Stelle, mit Null bis zur alten Länge aufgefüllt |
 
+`inPlace` gibt es auf allen drei Builds (je 52 Felder, auf blau an tieferen Adressen, Abschnitt Korgs Menüs). Die
+Namensfelder liegen auf Hacktribe und rot zwischen `0xC011F000` und `0xC0124000` und damit im DSP-Strom, den der ARM zum Blackfin hochlädt
+([FX-Tabellen](messungen/2026-10-14-fx-tabellen.md)): ein `inPlace`-Eintrag ändert DSP-Daten. Der Emulator lädt den
+Strom nicht hoch, wie der DSP die Namen benutzt, prüft darum nur Punkt 11 des
+[Gerätetests](geraetetests/firmware-sprache.md).
+
 `expect`, `length`, `fonts` und `pointers` schreibt die Werkbank (`--update`), `text`, `keep` und `buffer` kommen von
 Hand. Ein deutscher Text länger als `length` braucht ein gemessenes `buffer`, sonst lehnt der Unit-Test ihn ab.
 `korg-stock.json` und `korg-synth.json` übernehmen Text, `keep`, `buffer` und `inPlace` aus `korg-hacktribe.json`, wo die
 alte Kette gleich ist (gleicher SHA-256): zuerst an derselben Adresse, sonst an der ersten mit gleicher Kette. Ein
-`inPlace`-Eintrag geht nur an dieselbe Adresse, denn gleicher Text heißt dort nicht gleiches Feld.
+`inPlace`-Eintrag geht nur an dieselbe Adresse, denn gleicher Text heißt dort nicht gleiches Feld. Die blauen
+`inPlace`-Einträge stehen darum mit ihren eigenen Adressen in `korg-synth.json`.
 
 ## Kürzungsregel
 
@@ -157,6 +164,9 @@ Puffer. Die Texte, die diese Bildschirme nicht erreichen (Dialoge, Meldungen, Fe
 in Schrift 0 und 1 auf die 128 Pixel oder sind nicht breiter als die englische Kette, und ein Dialogtext (Puffer 64)
 behält ein Leerzeichen oder eine Unterlänge, wo die englische Kette eine hat; die Namensfelder der Effektparameter (`inPlace`) stehen deutsch und gleich lang im Datensatz. Ohne `lang-de` ist
 jedes Zeigerwort und jedes Namensfeld das alte. Die Texte ohne `fonts` prüft erst der Gerätedurchgang am Bildschirm. `check.py` führt die Fälle für jede Datei mit BLECH-Menü aus.
+Auf einigen Bildschirmen stürzt der Emulator mit und ohne `lang-de` ab (rot 23 und 24, blau 23 und 37 bis 44,
+gemessen); die Fälle nennen diese Bildschirme im Ergebnis, statt zu scheitern. Stürzt er nur mit `lang-de` ab, ist
+das ein Fehler.
 
 Die Werkbank liest die eigene Firmware, zeigt im Emulator alle Bildschirme 0 bis 44, dreht auf jedem 32 Raststufen und
 blättert 32 Mal mit EDIT und notiert dabei jeden gezeichneten Text mit Schrift. Daraus sucht sie Korgs Vorlagen (Ketten,

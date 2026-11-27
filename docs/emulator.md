@@ -504,6 +504,12 @@ Abfrageschleife die Antwort weg (ST0 löscht beim Lesen, Assertion Zeile 228).
 `migrate_cases.py` prüft das mit einem Blick alle 2 µs. Messung:
 [Emulator-Takt](messungen/2026-10-12-emulator-takt.md).
 
+Der 1-kHz-Timer (Leitung 21) und TIMER64P2 (Leitung 68) zählen beide ab Zeit 0, ihre Flanken fallen also immer
+zusammen. Nach dem Handler von Leitung 68 läuft der Ausgang des Schedulers mit gesperrten IRQs. Eine lange Scheibe
+von dort endet an der nächsten Flanke von Leitung 68, Leitung 21 kommt nie dran, der Timer-Task schläft und der
+Bildschirm-Takt bleibt stehen. Darum ist eine Scheibe auch kurz (`ISR_STEP`), solange IRQs gesperrt sind und eine
+freigegebene Leitung wartet (`slice_length`; Test `tools/emu/test_aintc_nesting.py`). Quelle: Messung (IRQ-Traces).
+
 ### Gerätetakt
 
 Gegen das Gerät verglichen ([Emulator-Zeit gegen Gerätezeit](messungen/2026-10-16-emulator-timing.md),
@@ -890,7 +896,17 @@ meldet keinen Upload-Erfolg, die Bereitschaft prüft eine eigene begrenzte Diagn
 Der Bau des GNU-Workers auf macOS braucht die portable `sed`-Schreibweise und die System-zlib (ebenda, "Die beiden Simulatoren").
 
 Ohne Worker werden die Tests übersprungen. `npm test` sucht keinen Worker; die
-Worker-Tests laufen mit `tools/dsp/qemu_worker_tests.sh alle`.
+Worker-Tests laufen mit `tools/dsp/qemu_worker_tests.sh alle`. In der CI macht das
+der Job `dsp` in `test.yml`, bei jedem Push auf `main` und `develop` und bei einem
+Pull Request, der `tools/dsp/**`, `tools/emu/blackfin_*.py`,
+`tools/emu/test_blackfin_*.py` oder die Action `dsp-worker` ändert. Ein
+übersprungener Test, den `tools/dsp/qemu_gnu_only.txt` nicht nennt, lässt den Job
+scheitern.
+
+Scheitert ein Worker-Test lokal mit Status 1, in der CI aber nicht, zuerst den
+lokalen Worker neu bauen: ein Worker aus älteren Quellen in `tools/dsp/` kennt
+neuere Modi nicht (gemessen: ein Worker ohne SPORT-Eingang aus Datei gab bei
+`configure_sport(input='file')` Status 1, neu gebaut grün).
 
 `check.py` nimmt `blackfin_swap_cases.py` bei einer roten Kopie mit Sample-Swap
 mit, sobald ein Worker gefunden wird. Die CI baut den QEMU-Worker dafür einmal je
@@ -909,7 +925,9 @@ GELUMPE_DSP_REQUIRED=1 node tools/verify-patches.mjs --shard 1/1 --cases blackfi
 `--output` geht nur mit `--shard`. Wer `check.py` direkt aufruft, nimmt den
 Befehl, den `tools/patch/apply.mjs` ausgibt: ohne dessen `--allow` und
 `--allow-code` meldet `start_phase` jede Änderung des Patches in der Startphase
-als Fehler, auch wenn alle `dspswap:*`-Prüfungen grün sind.
+als Fehler, auch wenn alle `dspswap:*`-Prüfungen grün sind. Der Befehl endet mit
+dem Platzhalter `[--flash dump.bin]`: weglassen oder ohne Klammern mit einem echten
+Flash-Dump angeben, die Klammern sind keine Shell-Syntax.
 
 Der QEMU-Worker rechnet die Befehle mit QEMU und lässt Geräte, Interrupts und
 Zeit beim GNU-Simulator. Er liefert in Registern, ASTAT, Speicher und Takten
