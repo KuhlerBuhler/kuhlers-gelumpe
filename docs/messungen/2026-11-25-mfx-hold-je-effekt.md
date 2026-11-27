@@ -2,7 +2,8 @@
 
 Stand 25. November 2026. **Gemessen** im Emulator mit Hacktribe 2.02 (eigene Datei) und dem BLECH-Satz von `develop`.
 **Am Gerät:** Sampler mit Hacktribe 2.02, 25. November 2026, Rückmeldung des Besitzers: das Halten je Effekt
-funktioniert. Blau: der Patch ist für die blaue Electribe nicht neu gebaut, siehe "Offen".
+funktioniert. Blau: `data/patches/mfx-switch-synth.json` ist aus derselben Quelle gebaut (27. November 2026), im
+Emulator mit Korg Blau 2.02 bestehen alle Fälle von `mfx_cases.py cases`, auch `mfx:hold_each`; am Gerät offen.
 Marker: **gemessen**, **offline gelesen**, **hergeleitet**, **offen**.
 
 ## Frage
@@ -63,6 +64,5 @@ langen Laufs.
 - **Am Gerät:** die Rückmeldung nennt keine Einzelheiten. Offen bleibt, ob beim Lösen und erneuten Halten
   etwas zu hören ist (Knacken, kurzer Effekt), und ob das Zurückholen von X und Y ohne Halten hörbar ist.
   Der Emulator rechnet keinen DSP.
-- **Blau:** `data/patches/mfx-switch-synth.json` ist mit dieser Quelle nicht neu gebaut. Die beiden Setter
-  haben dort Einträge in `data/synth-map/`, gemessen ist auf blau nichts davon.
+- **Blau am Gerät:** im Emulator gemessen (Korg Blau 2.02, alle Fälle grün), an einer blauen Electribe noch nicht.
 - Das Halten von MFX 2 überlebt keinen Patternwechsel und kein Ausschalten.
