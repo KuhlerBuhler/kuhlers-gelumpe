@@ -18,3 +18,6 @@ menu_keys_se:
     b menu_keys_done
 se_tab:
     .word str_tab_du
+declick_frame:
+se_leave:
+    bx lr

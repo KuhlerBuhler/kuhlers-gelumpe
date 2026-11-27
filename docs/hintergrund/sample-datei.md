@@ -89,7 +89,8 @@ die beiden Seiten nicht. Die Seiten zeigt nur das Profil synth; rot und Hacktrib
 
 ### ONE SHOT in SAMPLE EDIT (rot und Hacktribe, ab 1.5)
 
-SAMPLE EDIT hat hinter PLAY LEVEL eine Seite ONE SHOT, dazu die Seite CATEGORY hinter RENAME, also 12 Seiten. Quelle: Messung im
+SAMPLE EDIT hat hinter PLAY LEVEL eine Seite ONE SHOT, dazu die Seite CATEGORY hinter RENAME und DECLICK hinter ONE SHOT, also 13
+Seiten (ONE SHOT 11/13). Quelle: Messung im
 Emulator (`tools/emu/sample_category_cases.py` `case_one_shot`).
 
 - Korgs One-Shot ist kein eigenes Feld, das man setzt: die Firmware nennt ein Sample one-shot, wenn sein LOOP START auf dem END
@@ -106,7 +107,7 @@ Emulator (`tools/emu/sample_category_cases.py` `case_one_shot`).
 
 ### TURN MONO in SAMPLE EDIT (rot und Hacktribe, ab 1.5)
 
-Ein Stereo-Sample hat hinter PLAY LEVEL eine Seite TURN MONO (Zähler 12/13, ONE SHOT rückt auf 11/13), ein Mono-Sample hat sie
+Ein Stereo-Sample hat hinter DECLICK eine Seite TURN MONO (Zähler 13/14, DELETE 14/14), ein Mono-Sample hat sie
 nicht. Quelle: Messung im Emulator (`tools/emu/sample_category_cases.py` `case_turn_mono`, rot und Hacktribe).
 
 - Der Wert zeigt `Stereo` oder `Mono` (Korgs eigene Texte `0xC00A733C` und `0xC00A7337`). ENTER oder WRITE fragt mit Korgs
@@ -119,7 +120,7 @@ nicht. Quelle: Messung im Emulator (`tools/emu/sample_category_cases.py` `case_t
 - Liegt das Sample als letztes im DSP-Speicher (Ende = Zeiger `0xC00F9C80`), rückt der Zeiger um die halbe Länge zurück, so wie
   DELETE ihn zurücksetzt. Sonst bleibt die zweite Hälfte bis zum nächsten Start ungenutzt.
 - Danach wird der Schnappschuss neu genommen (`0xC0039514`), sonst holte EXIT ohne WRITE die alten Stereo-Werte zurück. Mono
-  bleibt also auch ohne WRITE. Der Seitenring zählt danach wieder 12.
+  bleibt also auch ohne WRITE. Der Seitenring zählt danach wieder 13.
 - Solange der Sequencer läuft (`0xC06BC318` ungleich 0), wandelt ENTER nicht und die Seite zeigt `stop PLAY`. Solange
   `0xC0345EC4` belegt ist, auch nicht.
 - Auf die Karte kommt es wie die Punkte mit EXPORT ALL SAMPLE: ein Mono-WAV mit halber Datenlänge. Korgs Export schneidet jedes
@@ -129,6 +130,37 @@ nicht. Quelle: Messung im Emulator (`tools/emu/sample_category_cases.py` `case_t
   Dauer der Wandlung Fremdes spielen. Nur im Emulator geprüft, am Gerät offen (`docs/geraetetests/offene-geraetetests.md` 3.3).
 - Die blaue braucht die Seite nicht: ihr IMPORT SAMPLE und die App (`src/sample-file.mjs` `entryFromWav` mit `blue`) schreiben
   mono, und Stereo-Daten in der Datei mittelt ihr Lader beim Start. Im DSP liegt dort jedes Sample schon mono.
+
+### DECLICK in SAMPLE EDIT (rot und Hacktribe, ab 1.5)
+
+SAMPLE EDIT hat hinter ONE SHOT eine Seite DECLICK (12/13 mono, 12/14 stereo), Wert OFF oder ON. Mit ON spielt das Sample von
+START POINT, LOOP START und END POINT, die zur nächsten ruhigen Stelle verschoben sind. Nichts am Sample wird geändert. Quelle:
+Messung im Emulator (`tools/emu/sample_category_cases.py` `case_declick`, rot und Hacktribe).
+
+- Gespeichert wird ein Bit: Bit 0 von Byte 15 der Spieltabelle (`0xC0362EE8` + Zeile × 16), im `esli` Byte 53. Korg kopiert das
+  Byte nur durch (Import `0xC004EDF0`, Export `0xC004EBD4`, Sicherung von SAMPLE EDIT `+0x35` bei `0xC004EFF4`), Werksdaten haben
+  0. Die Aufnahme (`0xC004F128`) schreibt es nicht. Die Seite wirkt wie ONE SHOT: WRITE gibt `0x25` aus (`saved`), EXIT ohne WRITE
+  holt den alten Wert zurück. Dazu setzt die Seite bei jeder Änderung Korgs Byte `0xC0345A20` ("geändert"). Korgs EXIT auf den
+  eigenen SAMPLE-EDIT-Seiten ruft `0xC0039420`, das bei gesetztem Byte aus der Sicherung zurückholt (`0xC004EFF4`); EXIT auf den
+  BLECH-Seiten (CATEGORY, ONE SHOT, DECLICK, TURN MONO) ruft es jetzt genauso, vorher sprang es nur auf Bildschirm 37 und ließ
+  ungeschriebene Änderungen stehen. CATEGORY bleibt dabei wie bisher auch ohne WRITE stehen (sie wird mit den Einstellungen
+  gespeichert). `0xC0039420` gibt außerdem Part 1 seinen eigenen Oszillator zurück, über den SAMPLE EDIT das Sample abspielt.
+  Auf die Karte kommt es mit EXPORT ALL SAMPLE.
+- Ruhige Stelle: im Fenster von 128 Frames vor und hinter dem Punkt der nächste Frame, an dem alle Kanäle die Null kreuzen (Wert
+  0 oder Vorzeichenwechsel zum Frame davor). Haben links und rechts dort keinen gemeinsamen Nulldurchgang, der Frame mit dem
+  kleinsten |L| + |R|, bei Gleichstand der nähere. Keine Blende, auch bei Stereo nicht.
+- START bleibt zwischen Samplebeginn und END, END zwischen neuem START und Samplende, LOOP zwischen beiden. Steht LOOP auf START
+  oder END (Korgs One-Shot), folgt er dem verschobenen Punkt, damit ONE SHOT bleibt.
+- Die verschobenen Punkte rechnet der UI-Takt (`declick_frame` im Frame-Haken, bis 256 Zeilen je Frame, ein Sample je Frame) über
+  Korgs DSP-Lesen (`0xC004EDDC`, mit Sperre wie das Schreiben der Note) in einen eigenen Puffer, nicht in Korgs Arbeitspuffer. Sie
+  stehen in einer Tabelle für 64 Samples in der Laufzeitreserve `0xC018E9D0` (3104 Byte, nur Sampler-Builds). Ein Eintrag gilt,
+  solange Start, Loop, Ende und PCM-Länge noch passen. Wer einen Punkt auf Korgs Seiten verschiebt, TURN MONO oder ein anderes
+  Sample in den Platz lädt, hört bis zur neuen Rechnung die gespeicherten Punkte.
+- Gespielt wird über einen Haken im Stimmenstart (`0xC0099A40`, Stelle `0xC0099BC8`): Start, Loop und Ende aus der Spieltabelle
+  werden für diese Note durch die verschobenen ersetzt. Korgs Seiten zeigen und exportieren weiter die gespeicherten Punkte, OFF
+  spielt sie wieder. Slices (Modus 1 und 2) verschiebt DECLICK nicht.
+- Grenze: mehr als 64 Samples mit ON spielen ab dem 65. die gespeicherten Punkte. Oszillatoren und leere Plätze zeigen `---`.
+- Nur im Emulator geprüft, am Gerät offen (`docs/geraetetests/offene-geraetetests.md` 3.4).
 
 ## Der Plan einer Änderung
 
