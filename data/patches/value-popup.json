@@ -1,0 +1,25 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "value-popup",
+ "name": "Keys close the value window",
+ "builds": [
+  "hacktribe",
+  "stock"
+ ],
+ "changes": [
+  {
+   "file": 415036,
+   "bytes": "70402de90140a0e10250a0e1123041e2040053e3010013930400001a000052e37080bd18060000ea0000a0e10000a0e16f7a00eb0400a0e10510a0e17040bde85b7900ea0c309fe50010a0e1000093e57040bde8bc7400ea4c1269c0",
+   "expect": "f1984b051814b7735b5ce7a977b7cd8e9757167a8f56fe6e548f7f8eb396c103",
+   "note": "value window 0x17: a key press closes the window and runs the key; the filter keys keep it"
+  },
+  {
+   "file": 415128,
+   "bytes": "70402de90140a0e10250a0e1123041e2040053e3010013930400001a000052e37080bd18060000ea0000a0e10000a0e1587a00eb0400a0e10510a0e17040bde8447900ea0c309fe50010a0e1000093e57040bde8a57400ea4c1269c0",
+   "expect": "9e552952d32cb24cc46541781e3d8f2491ebd67e2dada87ed84200d0985e4df4",
+   "note": "value window 0x18: a key press closes the window and runs the key; the filter keys keep it"
+  }
+ ],
+ "ram": []
+}

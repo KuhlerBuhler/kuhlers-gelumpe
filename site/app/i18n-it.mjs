@@ -1584,6 +1584,7 @@ export default {
   "patcher.patch.sysex": "BLECHTRIBE SysEx: leggere e scrivere la RAM",
   "patcher.patch.sysexSynth": "BLECHTRIBE SysEx: leggere RAM e flash",
   "patcher.patch.ifxIdle": "Effetto insert a riposo",
+  "patcher.patch.valuePopup": "I tasti chiudono la finestra del valore",
   "patcher.patch.stage2Memory": "Memoria propria per lo stadio 2 degli effetti insert",
   "patcher.patch.tubeCurve": "Curva valvolare in uscita",
   "patcher.patch.version": "Versione di BLECHTRIBE nel menu (BLECH > VERSION)",
