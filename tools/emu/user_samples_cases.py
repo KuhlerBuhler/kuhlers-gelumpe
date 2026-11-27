@@ -220,6 +220,8 @@ def case_menu(payload, flash):
         out.append(entry(name, ok, f"row {row}, after ENTER, WRITE and the dial {after}, the next row {version}"))
     same = script_hooks.runtime_profile("synth").actions["US_STATE"] == spec.STATE
     out.append(entry("menu_state_address", same, f"the runtime reads {script_hooks.runtime_profile('synth').actions['US_STATE']:#x}, the patch writes {spec.STATE:#x}"))
+    api = script_hooks.runtime_profile("synth").actions["US_API"]
+    out.append(entry("menu_api_address", api == spec.CODE2, f"the runtime calls {api:#x}, the patch's vector is at {spec.CODE2:#x}"))
     return out
 
 
@@ -471,7 +473,146 @@ def case_edit(payload, flash):
     return out
 
 
-GROUPS = (case_load, case_play, case_reject, case_off, case_menu, case_pattern, case_import, case_import_new_file, case_edit)
+def case_import_menu(payload, flash):
+    """DATA UTILITY > IMPORT SAMPLE, the blue's last page there: the firmware's file browser lists the .wav files of the Sample
+    folder, ENTER picks one and asks for the number, the dial walks [User] 1 up to one past the last (an existing one shows its
+    name, a new one "(new)"), ENTER imports and says so; EXIT on the number goes back to the list. Without a .wav file the page
+    says so and ENTER changes nothing."""
+    if not mc.has_menu(payload):
+        return []
+    mc.for_build(payload)
+    mc.INIT_PAGE = payload[mc.INIT_CODE - IMAGE:mc.INIT_CODE - IMAGE + 4] != b"\xff" * 4     # as mc.boot() sets it
+    if not mc.US_PAGE:
+        return [entry("import_menu_page", False, "no IMPORT SAMPLE page in a copy with the user samples")]
+    first = wav(SINE, 48000, 1, ("FIRST", 0, 0, 7998, 0))
+    src, want = wav_raw(1, 44100, 16, 1200)
+    img = card_image({SAMPLE_PATH + "e2sSample.all": sample_file([first]), SAMPLE_PATH + "Kick.wav": src,
+                      SAMPLE_PATH + "notes.txt": b"x"})
+    p = boot_image(payload, flash, img)
+    dev = Dev(payload, machine=p.m)
+    page = mc.du_pages().index("IMPORT SAMPLE")
+    mc.goto_du(dev, page)
+    listed = mc.texts_of(dev)
+    mc.press(dev, "menu", wait=0.6)
+    target = mc.texts_of(dev)
+    dev.turn(-1, wait=0.3)
+    existing = mc.texts_of(dev)
+    dev.turn(-1, wait=0.3)
+    floor = mc.texts_of(dev)
+    dev.turn(3, wait=0.3)
+    ceiling = mc.texts_of(dev)
+    mc.press(dev, "exit", wait=0.6)
+    back = (mc.state(dev, mc.S_LEVEL), mc.texts_of(dev))
+    mc.press(dev, "menu", wait=0.6)
+    mc.press(dev, "menu", wait=3.0)
+    done = mc.texts_of(dev)
+    s, rec = state(p), record(p, spec.OSC_COUNT + 1)
+    e = entry_of(card_file(img, SAMPLE_PATH + "e2sSample.all"), 501)
+    out = [
+        entry("import_menu_lists_wav", listed[:2] == ("IMPORT SAMPLE", "Kick.wav") and not dev.m.asserts, listed),
+        entry("import_menu_number", target == ("IMPORT SAMPLE", "[User] 2", "(new)") and existing == ("IMPORT SAMPLE", "[User] 1", "FIRST")
+              and floor == existing and ceiling == target and not dev.m.asserts, f"{target}, {existing}, at 1 {floor}, up {ceiling}"),
+        entry("import_menu_exit_to_list", back == (mc.LEVEL_DU, listed), back),
+        entry("import_menu_imports", done[:2] == ("IMPORT SAMPLE", "imported") and s["loaded"] == 2 and rec["name"] == "Kick"
+              and e is not None and e["pcm"] == want and not dev.m.asserts, f"{done}, state {s}, record {rec}, file entry {e is not None}"),
+    ]
+    mc.press(dev, "menu", wait=0.6)
+    again = mc.texts_of(dev)
+    out.append(entry("import_menu_next_number", again == ("IMPORT SAMPLE", "[User] 3", "(new)"), again))
+    bare_img = card_image({SAMPLE_PATH + "e2sSample.all": sample_file([first])})
+    bare = Dev(payload, machine=boot_image(payload, flash, bare_img).m)
+    mc.goto_du(bare, page)
+    empty = mc.texts_of(bare)
+    mc.press(bare, "menu", wait=0.6)
+    after = (mc.texts_of(bare), mc.state(bare, mc.S_LEVEL))
+    out.append(entry("import_menu_no_file", empty[:2] == ("IMPORT SAMPLE", "no .wav file") and after == (("IMPORT SAMPLE", "no .wav file", ""), mc.LEVEL_DU)
+                     and card_file(bare_img, SAMPLE_PATH + "e2sSample.all") == sample_file([first]) and not bare.m.asserts, f"{empty}, ENTER {after}"))
+    return out
+
+
+def case_edit_menu(payload, flash):
+    """DATA UTILITY > SAMPLE EDIT, behind IMPORT SAMPLE: ENTER opens its seven pages (counter n/7, the tab says Sample) on SELECT
+    SAMPLE; the dial picks the [User] sample, EDIT walks START POINT, LOOP START, END POINT, SAMPLE TUNE, PLAY LEVEL and REVERSE
+    and wraps. The points play at once and stay in order, TUNE stops at -63, REVERSE turns the values at once; EXIT writes the
+    points and TUNE into the file and goes back to the page, a new start has them. Without a [User] sample ENTER says so."""
+    if not mc.has_menu(payload):
+        return []
+    mc.for_build(payload)
+    mc.INIT_PAGE = payload[mc.INIT_CODE - IMAGE:mc.INIT_CODE - IMAGE + 4] != b"\xff" * 4     # as mc.boot() sets it
+    if not mc.US_PAGE:
+        return [entry("edit_menu_page", False, "no SAMPLE EDIT page in a copy with the user samples")]
+    loud = SINE[:4000]
+    files = [wav(loud, 48000, 1, ("FIRST", 0, 0, 7998, 0)), wav(SINE[:2000], 48000, 1, ("SECOND", 0, 0, 3998, 0))]
+    img = card_image({SAMPLE_PATH + "e2sSample.all": sample_file(files)})
+    p = boot_image(payload, flash, img)
+    dev = Dev(payload, machine=p.m)
+    page = mc.du_pages().index("SAMPLE EDIT")
+    mc.goto_du(dev, page)
+    start_page = mc.texts_of(dev)
+    mc.press(dev, "menu", wait=0.6)
+    select = (mc.texts_of(dev), mc.counter(dev), mc.tab(dev), mc.state(dev, mc.S_LEVEL))
+    picks = []
+    for step in (1, 1, -1):
+        dev.turn(step)
+        picks.append(mc.texts_of(dev)[1:])
+    walk = []
+    for _ in range(6):
+        mc.press(dev, "edit_next", wait=0.4)
+        walk.append((mc.counter(dev)[0], mc.texts_of(dev)[:2]))
+    mc.press(dev, "edit_next", wait=0.4)
+    wrapped = (mc.counter(dev)[0], mc.texts_of(dev)[0])
+    mc.press(dev, "edit_next", wait=0.4)
+    dev.turn(1)
+    dev.turn(3)
+    moved = mc.texts_of(dev)[1]
+    u = user(p, 1)
+    rec = record(p, spec.OSC_COUNT)
+    live = p.chain(rec["wave"])["smpr"][0]
+    mc.press(dev, "edit_next", wait=0.4)
+    loop = mc.texts_of(dev)[1]
+    for _ in range(2):
+        mc.press(dev, "edit_next", wait=0.4)
+    dev.turn(5)
+    tune_up = mc.texts_of(dev)[1]
+    dev.turn(-80)
+    tune_floor = mc.texts_of(dev)[1]
+    for _ in range(2):
+        mc.press(dev, "edit_next", wait=0.4)
+    dev.turn(1, wait=3.0)
+    reverse = (mc.texts_of(dev)[1], user(p, 1)["flags"] & 0xFF)
+    rev = last_dsp(p, u["base"], len(loud) * 2)
+    mc.press(dev, "exit", wait=3.0)
+    back = (mc.state(dev, mc.S_LEVEL), mc.texts_of(dev))
+    esli = entry_of(card_file(img, SAMPLE_PATH + "e2sSample.all"), 500)["esli"]
+    stored = (struct.unpack_from("<I", esli, 40)[0], struct.unpack_from("b", esli, 77)[0], esli[54] & 1)
+    out = [
+        entry("edit_menu_opens", start_page == ("SAMPLE EDIT", "", mc.PRESS)
+              and select == (("SELECT SAMPLE", "FIRST", "[User] 1"), (0, 7), "Sample", 10) and not dev.m.asserts, f"{start_page}, {select}"),
+        entry("edit_menu_select", picks == [("SECOND", "[User] 2"), ("SECOND", "[User] 2"), ("FIRST", "[User] 1")], picks),
+        entry("edit_menu_pages", [w[0] for w in walk] == list(range(1, 7)) and [w[1][0] for w in walk]
+              == ["START POINT", "LOOP START", "END POINT", "SAMPLE TUNE", "PLAY LEVEL", "REVERSE"]
+              and [w[1][1] for w in walk] == ["0", "0", "3999", "0", "+0dB", "OFF"] and wrapped == (0, "SELECT SAMPLE"), f"{walk}, wrap {wrapped}"),
+        entry("edit_menu_start_live", moved == "10" and u["start"] == 20 and live == u["base"] + 20 and loop == "10",
+              f"START {moved}, record {u['start']}, voice start {live:#x} (base {u['base']:#x}), LOOP START {loop}"),
+        entry("edit_menu_tune", tune_up == "5" and tune_floor == "-63", f"{tune_up}, {tune_floor}"),
+        entry("edit_menu_reverse", reverse == ("ON", 1) and rev == mono(loud[::-1]), f"{reverse}, {'reversed' if rev == mono(loud[::-1]) else rev and rev[:16].hex()}"),
+        entry("edit_menu_exit_stores", back == (mc.LEVEL_DU, ("SAMPLE EDIT", "", mc.PRESS)) and stored == (20, -63, 1) and not dev.m.asserts,
+              f"{back}, file start {stored[0]}, tune {stored[1]}, reverse {stored[2]}"),
+    ]
+    again = boot_image(payload, flash, bytearray(img))
+    a = user(again, 1)
+    out.append(entry("edit_menu_after_restart", a["start"] == 20 and again.chain(record(again, spec.OSC_COUNT)["wave"])["smpr"][0] == a["base"] + 20,
+                     f"record {a}"))
+    bare = Dev(payload, machine=boot_image(payload, flash, card_image({})).m)
+    mc.goto_du(bare, page)
+    mc.press(bare, "menu", wait=0.6)
+    none = (mc.state(bare, mc.S_LEVEL), mc.texts_of(bare)[:2])
+    out.append(entry("edit_menu_no_sample", none == (mc.LEVEL_DU, ("SAMPLE EDIT", "no user sample")) and not bare.m.asserts, none))
+    return out
+
+
+GROUPS = (case_load, case_play, case_reject, case_off, case_menu, case_pattern, case_import, case_import_new_file, case_edit,
+          case_import_menu, case_edit_menu)
 
 
 def group_entries(payload, flash, i):

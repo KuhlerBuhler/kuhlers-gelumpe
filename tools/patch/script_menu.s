@@ -58,6 +58,12 @@
 .equ FLAGS2_KNOWN, 0xFF        ; the bits this firmware keeps: 0 to 4 and FLAGS2_TUBE; a bit a newer one set is dropped at the next save
 .equ M_PC, 0x158              ; a word between where the two settings buffers were up to 1.3.7 (now at MENU_FILE_A, MENU_FILE_B)
 .equ PS_SETTING, 0xC0180F10
+.equ M_IS_STEP, 0xDC          ; byte: IMPORT SAMPLE (kind 68, the blue): 0 the browser of the .wav files, 1 the [User] number the file goes to
+.equ M_IS_K, 0xDD             ; byte: that number, 1 to one behind the last [User] sample (at most US_MAX)
+.equ M_UE, 0xDF              ; byte: SAMPLE EDIT (kind 69, the blue): bits 0 to 6 the [User] sample it edits, bit 7 set while a point or TUNE changed since the file has it
+.equ M_BRW_WAV, 0xDE          ; byte: 1 while SPLASH IMPORT's browser lists the .wav files of IMPORT SAMPLE (menu_brw_mode)
+.equ US_MAX, 64               ; the [User] group's records (tools/patch/user_samples.py USER_MAX)
+.equ US_MAGIC, 0x53554C42     ; "BLUS" behind the three branches at US_API
 .equ M_SPLASH_SEL, 0x100      ; the page SPLASH IMPORT: the place of the .bmp file it shows among those in KORG/blechtribe
 .equ M_TM, 0x15C              ; the other word of that gap: the page TAP MOTION, 1 on (the default), 0 off, 2 once
 .equ TM_SETTING, 0xC0188F00   ; the setting word of the patch tap-motion: never written (FFFFFFFF) or 1 is on, 0 is off, 2 is once
@@ -227,6 +233,8 @@
 .equ M_LEVEL_GLOBAL, 7        ; level 7: the page PLUGIN RUNTIME, shown as the last page of the firmware's GLOBAL PARAMETERS (screen 9)
 .equ M_LEVEL_DU, 8            ; level 8: our pages of DATA UTILITY, shown behind the firmware's last function (screen 15)
 .equ M_LEVEL_SE, 9            ; level 9: the page CATEGORY, shown as page 3 of the firmware's SAMPLE EDIT (screen 38), behind RENAME
+.equ M_LEVEL_UE, 10           ; level 10: the pages of the blue's SAMPLE EDIT, opened by ENTER on its page of DATA UTILITY
+.equ UE_PAGES, 7              ; SELECT SAMPLE, START POINT, LOOP START, END POINT, SAMPLE TUNE, PLAY LEVEL, REVERSE
 .equ SE_ENTRY, 37             ; SAMPLE EDIT's screen with "press [Enter]", where its EXIT goes
 .equ MENU_RING_TAIL, 1 + HAS_SYNC   ; the page of Blechy and SYNC GROUP are pages the firmware's ring does not have (BLECH is M_COUNT)
 .equ MENU_SYNC_AT, 15         ; the counter's index of SYNC GROUP: behind the 15 pages of the Pattern menu, the Part menu's pages move up by one
@@ -2936,6 +2944,12 @@ menu_brw_fill:
     bl menu_kind
     cmp r0, #22
     beq menu_brw_splash
+    cmp r0, #68                 ; IMPORT SAMPLE while it lists the .wav files
+    bne menu_brw_off
+    ldrb r0, [r5, #M_IS_STEP]
+    cmp r0, #0
+    beq menu_brw_splash
+menu_brw_off:
     mov r0, #0
     strb r0, [r5, #M_SPLASH_CACHE]
     strb r0, [r5, #M_BRW_ON]
@@ -3166,7 +3180,10 @@ menu_brw_draw:
     str r0, [sp]
     mov r0, #0x40
     str r0, [sp, #4]
-    ldr r0, =str_brw_empty
+    ldrb r0, [r4, #M_BRW_WAV]
+    cmp r0, #0
+    ldreq r0, =str_brw_empty
+    ldrne r0, =str_brw_empty_wav
     mov r1, sp
     add r2, sp, #4
     bl 0xC003F904
@@ -3329,6 +3346,8 @@ menu_brw_colour:
 .pool
 str_brw_empty:
     .asciz "NO .BMP FILE"
+str_brw_empty_wav:
+    .asciz "NO .WAV FILE"
 str_brw_none:
     .byte 0
     .align 4
@@ -3374,6 +3393,8 @@ menu_tab_go:
     cmp r2, #M_LEVEL_SE         ; CATEGORY carries SAMPLE EDIT's own tab, the firmware's text
     ldreq r1, =se_tab
     ldreq r1, [r1]
+    cmp r2, #M_LEVEL_UE         ; the blue's SAMPLE EDIT, as the red's says Sample
+    ldreq r1, =str_tab_sample
     cmp r2, #M_LEVEL_SYNC       ; SYNC GROUP is a page of the pattern: its tab says so
     ldreq r1, =str_tab_pattern
     ldr r0, [r5, #M_TABW]
@@ -3419,6 +3440,12 @@ menu_texts_clear:
     beq menu_text_splash
     cmp r0, #23
     beq menu_text_splash
+    cmp r0, #68
+    beq menu_text_is
+    cmp r0, #69
+    beq menu_text_ue_entry
+    cmp r0, #70
+    beq menu_text_ue
     cmp r0, #24
     beq menu_text_colour
     cmp r0, #25
@@ -3597,6 +3624,53 @@ menu_us_on:
     cmpne r0, #US_BAD
     moveq r0, #1
     movne r0, #0
+    bx lr
+; -> r0 = the vector of user-samples' run time code (US_API from the build profile: +0 IMPORT, +4 SET, +8 STORE, +12 US_MAGIC,
+; +16 INFO), 0 where the build has none or the set left it out (FF there). Clobbers r1.
+menu_us_api:
+    ldr r0, =US_API
+    cmp r0, #0
+    bxeq lr
+    ldr r1, [r0, #12]
+    push {r2}
+    ldr r2, =US_MAGIC
+    cmp r1, r2
+    movne r0, #0
+    pop {r2}
+    bx lr
+; r0 = a [User] number -> r0 = its name or 0 when there is no such sample, r1 = how many [User] samples there are, r2 = its record
+; of the run time table; 0, 0 and 0 without the run time code. Clobbers r3 and r12.
+menu_us_info:
+    push {r4, lr}
+    mov r4, r0
+    bl menu_us_api
+    movs r12, r0
+    moveq r1, #0
+    moveq r2, #0
+    popeq {r4, pc}
+    mov r0, r4
+    add r12, r12, #16
+    blx r12
+    pop {r4, pc}
+; r0 = 1 for the .wav files of IMPORT SAMPLE, 0 for the .bmp files of SPLASH IMPORT: what the browser lists (splash_open, splash_pick,
+; splash_cache); a change drops the names kept. Clobbers r1.
+menu_brw_mode:
+    ldr r1, =MENU_STATE
+    push {r2}
+    ldrb r2, [r1, #M_BRW_WAV]
+    cmp r2, r0
+    strbne r0, [r1, #M_BRW_WAV]
+    movne r2, #0
+    strbne r2, [r1, #M_SPLASH_CACHE]
+    pop {r2}
+    bx lr
+; -> r0 = the suffix the browser lists (menu_brw_mode). Clobbers r1.
+menu_brw_suffix:
+    ldr r1, =MENU_STATE
+    ldrb r0, [r1, #M_BRW_WAV]
+    cmp r0, #0
+    ldreq r0, =str_bmp
+    ldrne r0, =str_wav
     bx lr
 .pool
 ; the page BLECH in the ring and the groups of the list look like Data Util: the name as the title, "press  [ Enter ]" under it
@@ -3904,7 +3978,10 @@ menu_text_splash:
     ldreq r1, =str_splash_reset
     bl menu_copy
     cmp r6, #22
-    beq menu_text_splash_pick
+    bne menu_text_splash_status
+    mov r0, #0                  ; the browser lists the .bmp files
+    bl menu_brw_mode
+    b menu_text_splash_pick
 menu_text_splash_status:
     ldr r1, [r5, #M_STATUS]
     cmp r1, #0
@@ -3928,7 +4005,10 @@ menu_text_splash_pick:          ; the name of the file the dial is on, or that t
     b menu_text_splash_value
 menu_text_splash_none:
     add r0, r5, #M_VALUE
-    ldr r1, =str_splash_nofile
+    ldrb r1, [r5, #M_BRW_WAV]
+    cmp r1, #0
+    ldreq r1, =str_splash_nofile
+    ldrne r1, =str_is_nofile
     bl menu_copy
     b menu_text_splash_value
 menu_text_splash_card:
@@ -3956,6 +4036,98 @@ menu_text_splash_value:
     cmp r1, #0
     bne menu_text_status_value
     pop {r4, r5, r6, r7, pc}
+; IMPORT SAMPLE (68, the blue): first the .wav files of KORG/blechtribe/Sample as SPLASH IMPORT shows its .bmp files, ENTER then
+; asks for the [User] number the file goes to: "[User] n", under it the sample there now or that the number is new
+menu_text_is:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_import_sample
+    bl menu_copy
+    ldrb r0, [r5, #M_IS_STEP]
+    cmp r0, #0
+    bne menu_text_is_k
+    mov r0, #1
+    bl menu_brw_mode
+    b menu_text_splash_pick
+menu_text_is_k:
+    add r0, r5, #M_VALUE
+    ldr r1, =str_is_user
+    bl menu_copy
+    ldrb r1, [r5, #M_IS_K]
+    bl menu_dec
+    ldrb r0, [r5, #M_IS_K]
+    bl menu_us_info
+    movs r1, r0
+    ldreq r1, =str_is_new
+    add r0, r5, #M_LINE3
+    bl menu_copy16
+    pop {r4, r5, r6, r7, pc}
+; SAMPLE EDIT (69, the blue): "press  [ Enter ]", or that there is no [User] sample to edit, or what the file said at EXIT
+menu_text_ue_entry:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_sample_edit
+    bl menu_copy
+    ldr r1, [r5, #M_STATUS]
+    cmp r1, #0
+    bne menu_text_status_value
+    b menu_text_press
+; SAMPLE EDIT's pages (70, r7 the page): SELECT SAMPLE shows the name, "[User] n" under it; the points in sample frames, SAMPLE TUNE
+; -63 to 63, PLAY LEVEL +0dB or +12dB, REVERSE OFF or ON; what user-samples said in place of the value
+menu_text_ue:
+    add r0, r5, #M_TITLE
+    ldr r1, =ue_titles
+    ldr r1, [r1, r7, lsl #2]
+    bl menu_copy
+    ldr r1, [r5, #M_STATUS]
+    cmp r1, #0
+    bne menu_text_status_value
+    ldrb r0, [r5, #M_UE]
+    and r0, r0, #0x7F
+    bl menu_us_info
+    cmp r2, #0
+    popeq {r4, r5, r6, r7, pc}
+    cmp r7, #0
+    bne menu_text_ue_field
+    mov r1, r0
+    add r0, r5, #M_VALUE
+    bl menu_copy16
+    add r0, r5, #M_LINE3
+    ldr r1, =str_is_user
+    bl menu_copy
+    ldrb r1, [r5, #M_UE]
+    and r1, r1, #0x7F
+    bl menu_dec
+    pop {r4, r5, r6, r7, pc}
+menu_text_ue_field:
+    add r0, r5, #M_VALUE
+    sub r3, r7, #1              ; the field: F_START, F_LOOP, F_END, F_TUNE, F_LEVEL, F_REVERSE
+    cmp r3, #3
+    bhs menu_text_ue_flag
+    add r2, r2, #0x1C           ; U_START, U_LOOP, U_END: byte offsets of 16-bit values
+    ldr r1, [r2, r3, lsl #2]
+    mov r1, r1, lsr #1
+    bl menu_dec
+    pop {r4, r5, r6, r7, pc}
+menu_text_ue_flag:
+    add r2, r2, #0x2C           ; U_FLAGS: REVERSE, PLAY LEVEL, TUNE, one-shot
+    cmp r3, #3
+    bne menu_text_ue_switch
+    ldrsb r1, [r2, #2]
+    bl menu_dec
+    pop {r4, r5, r6, r7, pc}
+menu_text_ue_switch:
+    rsb r3, r3, #5
+    ldrb r3, [r2, r3]
+    cmp r7, #5
+    beq menu_text_ue_level
+    cmp r3, #0
+    ldreq r1, =str_off
+    ldrne r1, =str_on
+    b menu_text_status_go
+menu_text_ue_level:
+    cmp r3, #0
+    ldreq r1, =str_ue_0db
+    ldrne r1, =str_ue_12db
+    b menu_text_status_go
 
 ; PATTERN CONFIRM: whether the pattern change waits for a second press (the patch pattern-switch reads the word PS_SETTING)
 menu_text_pc:
@@ -4332,6 +4504,17 @@ menu_text_status_more:
     cmp r1, #0x24
     ldreq r1, =str_nofolder
     beq menu_text_status_go
+    cmp r1, #0x5F
+    ldreq r1, =str_is_nofile
+    beq menu_text_status_go
+    cmp r1, #0x5E
+    ldreq r1, =str_ue_none
+    beq menu_text_status_go
+    sub r2, r1, #0x60           ; IMPORT SAMPLE: user-samples' result
+    cmp r2, #8
+    ldrls r3, =is_texts
+    ldrls r1, [r3, r2, lsl #2]
+    bls menu_text_status_go
     cmp r1, #0x40
     ldreq r1, =str_splash_saved
     beq menu_text_status_go
@@ -4750,6 +4933,10 @@ menu_kind:
     cmp r2, #M_LEVEL_SE
     moveq r0, #67
     beq menu_kind_done
+    cmp r2, #M_LEVEL_UE          ; the blue's SAMPLE EDIT: one kind, r1 the page
+    moveq r0, #70
+    moveq r1, r5
+    beq menu_kind_done
     cmp r2, #M_LEVEL_PLUGIN
     beq menu_kind_list
     cmp r2, #M_LEVEL_PSUB
@@ -5019,15 +5206,20 @@ tube_asym:
     .word 0x8000, 0x7A3D, 0x747B, 0x6EB8, 0x68F6, 0x6333, 0x5D71, 0x57AE
 
 ; Our pages of DATA UTILITY, in this order where the build has them: EXPORT ALL CUSTOMIZATIONS, EXPORT ALL PLUGINS, EXPORT ALL
-; EFFECTS (the Sampler builds, they have the effect collection), SET INIT PATTERN (where the set has the patch init-pattern).
+; EFFECTS (the Sampler builds, they have the effect collection), SET INIT PATTERN (where the set has the patch init-pattern),
+; IMPORT SAMPLE and SAMPLE EDIT (the blue, where the set has user-samples' run time code).
 ; -> r0 = a mask, bit n set when the page of du_kinds[n] is there. Clobbers r1.
 menu_du_mask:
-    mov r0, #DU_BUILT
+    push {lr}
+    bl menu_us_api              ; IMPORT SAMPLE and SAMPLE EDIT where the set has the run time code of user-samples (the blue)
+    cmp r0, #0
+    movne r0, #48
+    orr r0, r0, #DU_BUILT
     ldr r1, =INIT_CODE
     ldr r1, [r1]
     cmn r1, #1
     orrne r0, r0, #8
-    bx lr
+    pop {pc}
 ; -> r0 = how many of our pages DATA UTILITY has. Clobbers r1 and r2.
 menu_du_count:
     push {lr}
@@ -5066,6 +5258,9 @@ menu_page_count:
     push {r4, lr}
     ldr r4, =MENU_STATE
     ldr r1, [r4, #M_LEVEL]
+    cmp r1, #M_LEVEL_UE
+    moveq r0, #UE_PAGES
+    popeq {r4, pc}
     cmp r1, #M_LEVEL_PSUB
     beq menu_count_plugin
     cmp r1, #M_LEVEL_PLUGIN
@@ -5193,6 +5388,7 @@ menu_enter_page:
     mov r0, #0
     str r0, [r3, #M_LISTED]
     str r0, [r3, #M_STATUS]
+    strb r0, [r3, #M_IS_STEP]
     bl menu_page_count
     ldr r3, =MENU_STATE
     ldr r1, [r3, #M_ENTER]
@@ -5717,6 +5913,12 @@ splash_media_prefix:
 .equ SPLASH_SHOW, 11            ; characters of a name SPLASH IMPORT shows: 11 of the widest letter (m) end at column 124 (emulator)
 import_folder:
     .asciz "SD:KORG/blechtribe/Plugin"
+str_wav:
+    .asciz ".wav"
+sample_folder:
+    .asciz "SD:KORG/blechtribe/Sample"
+sample_prefix:
+    .asciz "SD:KORG/blechtribe/Sample/"
 import_prefix:
     .asciz "SD:KORG/blechtribe/Plugin/"
 .align 4
@@ -5803,6 +6005,15 @@ menu_dir_next_end:
 ; or KORG/blechtribe when there is no Media folder (cards from before 1.5). Clobbers r2, r3 and r12.
 splash_open:
     push {lr}
+    ldr r0, =MENU_STATE
+    ldrb r0, [r0, #M_BRW_WAV]
+    cmp r0, #0
+    beq splash_open_bmp
+    ldr r0, =sample_folder      ; IMPORT SAMPLE: KORG/blechtribe/Sample
+    bl menu_dir_open
+    ldr r1, =sample_prefix
+    pop {pc}
+splash_open_bmp:
     ldr r0, =splash_media
     bl menu_dir_open
     cmp r0, #0
@@ -5829,7 +6040,7 @@ splash_pick:
     cmp r1, #0
     bne splash_pick_out
 splash_pick_next:
-    ldr r0, =str_bmp
+    bl menu_brw_suffix
     bl menu_dir_next
     cmp r0, #0
     beq splash_pick_close
@@ -5870,7 +6081,7 @@ splash_cache:
     cmp r0, #0
     bne splash_cache_done
 splash_cache_next:
-    ldr r0, =str_bmp
+    bl menu_brw_suffix
     bl menu_dir_next
     cmp r0, #0
     beq splash_cache_close
@@ -6807,6 +7018,10 @@ menu_slot_value:
     beq menu_value_script
     cmp r0, #22
     beq menu_value_splash
+    cmp r0, #68
+    beq menu_value_is
+    cmp r0, #70
+    beq menu_value_ue
     cmp r0, #20
     beq menu_value_tm
     cmp r0, #21
@@ -7026,6 +7241,137 @@ menu_value_splash:
     mov r3, #0
     str r3, [r6, #M_STATUS]
     b menu_value_done
+; IMPORT SAMPLE: the browser as SPLASH IMPORT; the number from 1 to one behind the last [User] sample, at most US_MAX
+menu_value_is:
+    ldrb r0, [r6, #M_IS_STEP]
+    cmp r0, #0
+    beq menu_value_splash
+    bl menu_is_last
+    mov r1, r0
+    ldrb r0, [r6, #M_IS_K]
+    adds r0, r0, r5
+    movle r0, #1
+    cmp r0, r1
+    movhi r0, r1
+    strb r0, [r6, #M_IS_K]
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    b menu_value_done
+; SAMPLE EDIT's pages. SELECT SAMPLE: 1 to the last [User] sample, what the dial changed on the one before goes into the file first.
+; The points: a step of the dial moves delta * |delta| times 1/8192 of the sample (at least one frame), so a fast turn goes far;
+; user-samples keeps them within the sample and in order. TUNE -63 to 63. Points and TUNE play at once and go into the file at
+; EXIT or the next SELECT SAMPLE; PLAY LEVEL and REVERSE (the dial up ON, down OFF) store and load the sample again at once.
+menu_value_ue:
+    mov r3, #0
+    str r3, [r6, #M_STATUS]
+    ldr r0, [r6, #M_PAGE]
+    cmp r0, #0
+    bne menu_value_ue_field
+    bl menu_ue_save
+    str r0, [r6, #M_STATUS]
+    mov r0, #0
+    bl menu_us_info             ; r1 = how many [User] samples
+    ldrb r0, [r6, #M_UE]
+    adds r0, r0, r5
+    movle r0, #1
+    cmp r0, r1
+    movhi r0, r1
+    strb r0, [r6, #M_UE]
+    b menu_value_done
+menu_value_ue_field:
+    sub r0, r0, #1
+    push {r0}
+    ldrb r0, [r6, #M_UE]
+    and r0, r0, #0x7F
+    bl menu_us_info             ; r2 = its record of the run time table
+    pop {r1}
+    cmp r2, #0
+    beq menu_value_done
+    cmp r1, #3
+    bhs menu_value_ue_flag
+    add r3, r2, #0x1C
+    ldr r0, [r3, r1, lsl #2]
+    ldr r3, [r2, #0x14]         ; U_BYTES
+    mov r3, r3, lsr #13
+    bic r3, r3, #1
+    cmp r3, #2
+    movlo r3, #2
+    mul r12, r5, r5
+    cmp r5, #0
+    rsblt r12, r12, #0
+    mul r12, r3, r12
+    adds r0, r0, r12
+    movmi r0, #0
+    b menu_value_ue_dirty
+menu_value_ue_flag:
+    add r3, r2, #0x2C
+    cmp r1, #3
+    bne menu_value_ue_switch
+    ldrsb r0, [r3, #2]
+    add r0, r0, r5
+    cmn r0, #63
+    mvnlt r0, #62
+    cmp r0, #63
+    movgt r0, #63
+menu_value_ue_dirty:
+    mov r2, r0
+    ldrb r0, [r6, #M_UE]
+    orr r3, r0, #0x80
+    strb r3, [r6, #M_UE]
+    and r0, r0, #0x7F
+    b menu_value_ue_set
+menu_value_ue_switch:
+    rsb r12, r1, #5
+    ldrb r0, [r3, r12]
+    cmp r5, #0
+    movgt r2, #1
+    movle r2, #0
+    cmp r0, r2
+    beq menu_value_done
+    ldrb r0, [r6, #M_UE]
+    and r0, r0, #0x7F
+menu_value_ue_set:              ; r0 = [User] number, r1 = field, r2 = value: user-samples' SET; what went wrong stands as the value
+    push {r0, r1, r2}
+    bl menu_us_api
+    mov r12, r0
+    pop {r0, r1, r2}
+    cmp r12, #0
+    beq menu_value_done
+    add r12, r12, #4
+    blx r12
+    cmp r0, #0
+    addne r0, r0, #0x60
+    str r0, [r6, #M_STATUS]
+    b menu_value_done
+; -> r0 = 0, or 0x60 + what user-samples' STORE said when it failed: the points and TUNE of SAMPLE EDIT's sample go into the file
+; when they changed since (M_UE bit 7). Clobbers r1 to r3 and r12.
+menu_ue_save:
+    push {r4, lr}
+    ldr r4, =MENU_STATE
+    ldrb r0, [r4, #M_UE]
+    tst r0, #0x80
+    moveq r0, #0
+    popeq {r4, pc}
+    and r0, r0, #0x7F
+    strb r0, [r4, #M_UE]
+    bl menu_us_api
+    movs r12, r0
+    popeq {r4, pc}
+    ldrb r0, [r4, #M_UE]
+    add r12, r12, #8
+    blx r12
+    cmp r0, #0
+    addne r0, r0, #0x60
+    pop {r4, pc}
+; -> r0 = the highest number IMPORT SAMPLE offers: one behind the last [User] sample, at most US_MAX. Clobbers r1 to r3 and r12.
+menu_is_last:
+    push {lr}
+    mov r0, #0
+    bl menu_us_info
+    add r0, r1, #1
+    cmp r0, #US_MAX
+    movhi r0, #US_MAX
+    pop {pc}
 ; TAP MOTION acts at once as well: the word of the patch tap-motion follows, WRITE keeps it
 menu_value_tm:
     ldr r1, [r6, #M_TM]
@@ -7404,6 +7750,12 @@ menu_slot_keys:
     beq menu_keys_done
     cmp r0, #22
     beq menu_keys_splash_import
+    cmp r0, #68
+    beq menu_keys_is
+    cmp r0, #69
+    beq menu_keys_ue
+    cmp r0, #70
+    beq menu_keys_done
     cmp r0, #23
     beq menu_keys_splash_draw
     cmp r0, #35
@@ -7552,6 +7904,74 @@ menu_keys_splash_said:
     ldr r1, =MENU_STATE
     str r0, [r1, #M_STATUS]
     b menu_keys_done
+; IMPORT SAMPLE: ENTER on a file asks for the number (the next free one first), ENTER on the number imports the file there (it waits
+; for the card and the DSP); what it did stands over the file's name. 0x5F no .wav file, 0x60 + user-samples' result (E_OK to E_K).
+menu_keys_is:
+    cmp r6, #0x09
+    bne menu_keys_done
+    ldr r5, =MENU_STATE
+    mov r0, #1
+    bl menu_brw_mode
+    ldr r0, [r5, #M_SPLASH_SEL]
+    bl splash_pick              ; r0 = how many files, LIST_PATH the path of the one chosen
+    ldrb r1, [r5, #M_IS_STEP]
+    cmp r1, #0
+    bne menu_keys_is_go
+    cmp r0, #0
+    moveq r0, #0x5F
+    streq r0, [r5, #M_STATUS]
+    beq menu_keys_done
+    bl menu_is_last
+    strb r0, [r5, #M_IS_K]
+    mov r0, #1
+    strb r0, [r5, #M_IS_STEP]
+    mov r0, #0
+    str r0, [r5, #M_STATUS]
+    b menu_keys_done
+menu_keys_is_go:
+    cmp r0, #0
+    moveq r0, #2                ; E_SRC: the file went
+    beq menu_keys_is_said
+    bl menu_us_api
+    movs r12, r0
+    moveq r0, #1                ; E_OFF
+    beq menu_keys_is_said
+    ldr r0, =LIST_PATH
+    ldrb r1, [r5, #M_IS_K]
+    blx r12
+menu_keys_is_said:
+    add r0, r0, #0x60
+    str r0, [r5, #M_STATUS]
+    mov r0, #0
+    strb r0, [r5, #M_IS_STEP]
+    b menu_keys_done
+; SAMPLE EDIT: ENTER opens its pages on SELECT SAMPLE with the sample edited last (the first one the first time); 0x5E when there is
+; no [User] sample
+menu_keys_ue:
+    cmp r6, #0x09
+    bne menu_keys_done
+    ldr r5, =MENU_STATE
+    mov r0, #0
+    bl menu_us_info             ; r1 = how many [User] samples
+    cmp r1, #0
+    moveq r0, #0x5E
+    streq r0, [r5, #M_STATUS]
+    beq menu_keys_done
+    ldrb r0, [r5, #M_UE]
+    and r0, r0, #0x7F
+    cmp r0, r1
+    movhi r0, r1
+    cmp r0, #0
+    moveq r0, #1
+    strb r0, [r5, #M_UE]
+    mov r0, #M_LEVEL_UE
+    str r0, [r5, #M_LEVEL]
+    mov r0, #0
+    str r0, [r5, #M_PAGE]
+    str r0, [r5, #M_ENTER]
+    str r0, [r5, #M_STATUS]
+    str r0, [r5, #M_LISTED]
+    b menu_keys_done
 menu_keys_splash_reset:
     cmp r6, #0x09
     bne menu_keys_done
@@ -7600,9 +8020,19 @@ menu_slot_exit:
     cmp r3, #M_LEVEL_GLOBAL
     moveq r0, #8
     beq menu_exit_screen
+    cmp r3, #M_LEVEL_UE
+    beq menu_exit_ue
     cmp r3, #M_LEVEL_DU
+    bne menu_exit_se
+    ldrb r12, [r2, #M_IS_STEP]  ; IMPORT SAMPLE on the number: back to the files
+    cmp r12, #0
     moveq r0, #14
     beq menu_exit_screen
+    mov r12, #0
+    strb r12, [r2, #M_IS_STEP]
+    str r12, [r2, #M_STATUS]
+    b menu_exit_show
+menu_exit_se:
     cmp r3, #M_LEVEL_SE
     moveq r0, #SE_ENTRY
     beq menu_exit_screen
@@ -7633,6 +8063,20 @@ menu_exit_show:
     mov r0, r4
     bl menu_show
     pop {r1, r2, r4, pc}
+menu_exit_ue:                    ; out of SAMPLE EDIT's pages: what the dial changed goes into the file, back to its page of DATA UTILITY
+    bl menu_ue_save
+    ldr r2, =MENU_STATE
+    str r0, [r2, #M_STATUS]
+    mov r3, #0
+    str r3, [r2, #M_LISTED]
+    mov r3, #M_LEVEL_DU
+    str r3, [r2, #M_LEVEL]
+    bl menu_du_count
+    sub r0, r0, #1              ; SAMPLE EDIT is the last of our pages there
+    ldr r2, =MENU_STATE
+    str r0, [r2, #M_PAGE]
+    str r0, [r2, #M_ENTER]
+    b menu_exit_show
 menu_exit_plugin:                ; out of the list of the plugins: back to the row PLUGINS of level 1, as out of the group
     mov r3, #2
     b menu_exit_up
@@ -7899,6 +8343,58 @@ str_splash_nofile:
     .asciz "no .bmp file"
 str_splash_format:
     .asciz "not 128x64 1 bit"
+str_import_sample:
+    .asciz "IMPORT SAMPLE"
+str_is_user:
+    .asciz "[User] "
+str_is_new:
+    .asciz "(new)"
+str_is_nofile:
+    .asciz "no .wav file"
+str_is_done:
+    .asciz "imported"
+str_is_off:
+    .asciz "not ready"
+str_is_src:
+    .asciz "file not found"
+str_is_fmt:
+    .asciz "not supported"
+str_is_room:
+    .asciz "memory full"
+str_is_card:
+    .asciz "card error"
+str_is_k:
+    .asciz "bad number"
+.align 4
+str_sample_edit:
+    .asciz "SAMPLE EDIT"
+str_ue_select:
+    .asciz "SELECT SAMPLE"
+str_ue_start:
+    .asciz "START POINT"
+str_ue_loop:
+    .asciz "LOOP START"
+str_ue_end:
+    .asciz "END POINT"
+str_ue_tune:
+    .asciz "SAMPLE TUNE"
+str_ue_level:
+    .asciz "PLAY LEVEL"
+str_ue_reverse:
+    .asciz "REVERSE"
+str_ue_0db:
+    .asciz "+0dB"
+str_ue_12db:
+    .asciz "+12dB"
+str_ue_none:
+    .asciz "no user sample"
+str_tab_sample:
+    .asciz "Sample"
+.align 4
+ue_titles:                      ; SAMPLE EDIT's pages (level 10), as user-samples' fields F_START to F_REVERSE behind SELECT SAMPLE
+    .word str_ue_select, str_ue_start, str_ue_loop, str_ue_end, str_ue_tune, str_ue_level, str_ue_reverse
+is_texts:                       ; IMPORT SAMPLE, by user-samples' result E_OK, E_OFF, E_SRC, E_FMT, E_ROOM, E_FILE, E_CARD, E_FULL, E_K
+    .word str_is_done, str_is_off, str_is_src, str_is_fmt, str_is_room, str_us_bad, str_is_card, str_is_room, str_is_k
 str_pc:
     .asciz "PATTERN CONFIRM"
 str_tm:
@@ -7964,8 +8460,8 @@ tab_names:
     .word str_blech, str_tab_plugins, str_tab_games, str_tab_tools, str_tab_custom, str_tab_features, str_tab_display, str_tab_led, str_tab_pads, str_tab_psave, str_tab_splash
 group_names:
     .word str_scripts, str_group_games, str_group_tools, str_custom, str_features, str_display, str_tab_led, str_pads, str_psave, str_splash
-du_kinds:                       ; our pages of DATA UTILITY (menu_du_mask): EXPORT ALL CUSTOMIZATIONS, PLUGINS, EFFECTS, SET INIT PATTERN
-    .byte 42, 3, 43, 40
+du_kinds:                       ; our pages of DATA UTILITY (menu_du_mask): EXPORT ALL CUSTOMIZATIONS, PLUGINS, EFFECTS, SET INIT PATTERN, IMPORT SAMPLE, SAMPLE EDIT
+    .byte 42, 3, 43, 40, 68, 69
 custom_kinds:                   ; the rows of CUSTOMIZATION: DISPLAY, LED, PAD COLOR, POWER SAVE, SPLASH (groups 5 to 9)
     .byte 16, 16, 16, 16, 16
 .align 4
