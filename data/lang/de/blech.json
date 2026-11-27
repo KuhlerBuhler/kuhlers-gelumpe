@@ -602,8 +602,14 @@
   "str_scripts": {
    "keep": "Fachwort oder Name bleibt Englisch"
   },
+  "str_se_mono": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
   "str_se_none": {
    "keep": "Zeichen"
+  },
+  "str_se_play": {
+   "text": "PLAY stoppen"
   },
   "str_sp": {
    "keep": "Fachwort oder Name bleibt Englisch"

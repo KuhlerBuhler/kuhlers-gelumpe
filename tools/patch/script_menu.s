@@ -242,6 +242,9 @@
 .equ M_LEVEL_UE, 10           ; level 10: the pages of the blue's SAMPLE EDIT, opened by ENTER on its page of DATA UTILITY
 .equ UE_PAGES, 8              ; SELECT SAMPLE, START POINT, END POINT, LOOP START, SAMPLE TUNE, PLAY LEVEL, ONE SHOT, REVERSE
 .equ SE_ENTRY, 37             ; SAMPLE EDIT's screen with "press [Enter]", where its EXIT goes
+.equ SE_ASK, 0x58             ; M_STATUS on TURN MONO (level 9, script_sample_edit.s): "Are You Sure ?", the next ENTER or WRITE converts
+.equ SE_DONE, 0x59            ; M_STATUS on TURN MONO: converted, the page stays until EDIT or EXIT leaves it
+.equ SE_PLAYING, 0x5A         ; M_STATUS on TURN MONO: refused while the sequencer runs
 .equ MENU_RING_TAIL, 1 + HAS_SYNC   ; the page of Blechy and SYNC GROUP are pages the firmware's ring does not have (BLECH is M_COUNT)
 .equ MENU_SYNC_AT, 15         ; the counter's index of SYNC GROUP: behind the 15 pages of the Pattern menu, the Part menu's pages move up by one
 .equ GLOBAL_PAGES, 20         ; the pages of GLOBAL PARAMETERS (screen 9) and its counter "n/20"; PLUGIN RUNTIME is one more
@@ -8295,8 +8298,15 @@ menu_slot_exit:
     b menu_exit_show
 menu_exit_se:
     cmp r3, #M_LEVEL_SE
-    moveq r0, #SE_ENTRY
-    beq menu_exit_screen
+    bne menu_exit_se_not
+    ldr r12, [r2, #M_STATUS]    ; TURN MONO asking "Are You Sure ?": EXIT only takes the question back, as on DELETE SAMPLE
+    cmp r12, #SE_ASK
+    moveq r12, #0
+    streq r12, [r2, #M_STATUS]
+    beq menu_exit_show
+    mov r0, #SE_ENTRY
+    b menu_exit_screen
+menu_exit_se_not:
     cmp r3, #M_LEVEL_PSUB
     beq menu_exit_psub
     cmp r3, #M_LEVEL_PLUGIN
