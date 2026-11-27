@@ -75,7 +75,7 @@ The set is `data/patches/blech.json` (for Korg's blue 2.02: `blech-synth.json`).
 | Sample category | DATA UTILITY > SAMPLE EDIT gets a CATEGORY page (category 0 to 17), saved with EXPORT ALL SAMPLE. Red only, checked in the emulator; from 1.5 |
 | ONE SHOT | DATA UTILITY > SAMPLE EDIT gets a ONE SHOT page after PLAY LEVEL: ON puts LOOP START on END POINT, WRITE keeps it, EXIT without WRITE drops it. Red, checked in the emulator; from 1.5 |
 | Import onto factory slots | the target selector of IMPORT SAMPLE starts at the first slot the firmware accepts (19 on Korg's red, 275 with Hacktribe) and runs to 999, so a factory sample can be replaced. Red only; from 1.5 |
-| User samples on the blue | the card's `Sample/e2sSample.all` is loaded at power-on as oscillators in the group `[User]` on the blue, up to 64 samples, plus DATA UTILITY > IMPORT SAMPLE and SAMPLE EDIT with ONE SHOT and REVERSE. From 1.5, no device test |
+| User samples on the blue | the card's `Sample/e2sSample.all` is loaded at power-on as oscillators in the group `[User]` on the blue, up to 64 samples, plus DATA UTILITY > IMPORT SAMPLE (folders like Korg's browser) and SAMPLE EDIT with ONE SHOT and REVERSE. From 1.5, no device test |
 | KNOB LEDS | BLECH menu CUSTOMIZATION > LED > KNOB LEDS turns off the LEDs behind the knobs. |
 | Patterns folder | EXPORT/IMPORT PATTERN and ALL PATTERN work in `KORG/blechtribe/Patterns/`; at start the device compares the backup `electribe_sampler_allpattern.e2sallpat` with its patterns and writes only the changed ones. Red, from 1.5, no device test |
 | Media folder | the loading animation `Media/loading.blla` is read from `KORG/blechtribe/Media/` at start, so changing it no longer needs a new `SYSTEM.VSB`. Red; from 1.5 |

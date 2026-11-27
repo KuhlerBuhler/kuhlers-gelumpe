@@ -145,7 +145,8 @@ RT_FRAME, RT_RATE, RT_M, RT_BLOCKB, RT_ENTRY, RT_SLOT, RT_LOADED, RT_REJ = 0x20,
 RT_NEXT, RT_CHUNK, RT_FMT, RT_WAV = 0x40, 0x48, 0x50, 0x60     # 8, 16 and 44 bytes
 SRC_FIL = 0xC013F100            # the FatFs file object of the WAV being imported, 0x400
 ESLI_BUF = 0xC013F500           # the korg chunk being written or the head of one being changed, 0x4A4
-RUN_END = 0xC013FA00
+WAV_DIR = 0xC013FA00            # IMPORT SAMPLE's browser (the BLECH menu): its folder, 0x80, then the chosen file's path, 0x80
+RUN_END = 0xC013FB00
 E_OK, E_OFF, E_SRC, E_FMT, E_ROOM, E_FILE, E_CARD, E_FULL, E_K = range(9)
 F_START, F_LOOP, F_END, F_TUNE, F_LEVEL, F_REVERSE, F_ONESHOT = range(7)
 
@@ -796,13 +797,15 @@ user_group:
 
 ; ===================================================== run time: IMPORT SAMPLE and SAMPLE EDIT, and what the load shares with them
 .org {CODE2:#x}
-; The vector the BLECH menu calls (fixed places): us_import, us_set, us_store, then a mark that the code is there.
+; The vector the BLECH menu calls (fixed places): us_import, us_set, us_store, then a mark that the code is there, us_info and
+; where the browser of IMPORT SAMPLE keeps its folder.
 us_api:
     b us_import
     b us_set
     b us_store
     .word 0x53554C42            ; "BLUS"
     b us_info
+    .word {WAV_DIR:#x}
 
 ; r4 = the address of a table's count, ip = the place in STATE of the record's index -> r4 = the record's index. Appending
 ; (S_MODE 0) takes the count, raises it and keeps the index there; S_MODE 1 takes the index kept. Keeps r0 to r3.
@@ -1354,6 +1357,7 @@ ui_name:
 un_find:
     ldrb r2, [r0], #1
     cmp r2, #0x2F
+    cmpne r2, #0x3A             ; a file in the card's root: "SD:name.wav"
     moveq r1, r0
     cmp r2, #0
     bne un_find
@@ -2010,7 +2014,8 @@ def build_patch(vsb):
             {"at": hex_addr(UT), "length": USER_MAX * 64, "what": "per [User] sample: slot, table records, file places, DSP start, points, rate, REVERSE, PLAY LEVEL, TUNE", "source": "tools/patch/user_samples.py:UT"},
             {"at": hex_addr(RT), "length": 0x100, "what": "run time state of IMPORT SAMPLE and SAMPLE EDIT", "source": "tools/patch/user_samples.py:RT"},
             {"at": hex_addr(SRC_FIL), "length": 0x400, "what": "the FatFs file object of the WAV being imported", "source": "tools/patch/user_samples.py:SRC_FIL"},
-            {"at": hex_addr(ESLI_BUF), "length": RUN_END - ESLI_BUF, "what": "the korg chunk being written, or the head of an esli record being changed", "source": "tools/patch/user_samples.py:ESLI_BUF"},
+            {"at": hex_addr(ESLI_BUF), "length": WAV_DIR - ESLI_BUF, "what": "the korg chunk being written, or the head of an esli record being changed", "source": "tools/patch/user_samples.py:ESLI_BUF"},
+            {"at": hex_addr(WAV_DIR), "length": RUN_END - WAV_DIR, "what": "IMPORT SAMPLE's browser: the folder it shows and the path of the file chosen", "source": "tools/patch/user_samples.py:WAV_DIR"},
         ],
     }
 

@@ -274,7 +274,7 @@ def case_pattern(payload, flash):
 
 
 # ---- IMPORT SAMPLE and SAMPLE EDIT at run time (the vector at spec.CODE2; the BLECH menu calls it)
-SCRATCH = 0xC013FA00             # free image RAM behind the patch's run time areas: the path the cases pass
+SCRATCH = spec.RUN_END            # free image RAM behind the patch's run time areas: the path the cases pass
 US_IMPORT, US_SET, US_STORE = spec.CODE2, spec.CODE2 + 4, spec.CODE2 + 8
 
 
@@ -474,10 +474,10 @@ def case_edit(payload, flash):
 
 
 def case_import_menu(payload, flash):
-    """DATA UTILITY > IMPORT SAMPLE, the blue's last page there: the firmware's file browser lists the .wav files of the Sample
-    folder, ENTER picks one and asks for the number, the dial walks [User] 1 up to one past the last (an existing one shows its
-    name, a new one "(new)"), ENTER imports and says so; EXIT on the number goes back to the list. Without a .wav file the page
-    says so and ENTER changes nothing."""
+    """DATA UTILITY > IMPORT SAMPLE, the blue's last page there: the firmware's file browser, opened down to the Sample folder,
+    lists its .wav files, ENTER picks one and asks for the number, the dial walks [User] 1 up to one past the last (an existing one shows its
+    name, a new one "(new)"), ENTER imports and says so; EXIT on the number goes back to the list. A folder without a .wav file
+    shows only Upper Folder."""
     if not mc.has_menu(payload):
         return []
     mc.for_build(payload)
@@ -492,6 +492,8 @@ def case_import_menu(payload, flash):
     dev = Dev(payload, machine=p.m)
     page = mc.du_pages().index("IMPORT SAMPLE")
     mc.goto_du(dev, page)
+    browse(dev, "KORG", "blechtribe", "Sample")
+    turn_to(dev, "Kick.wav")
     listed = mc.texts_of(dev)
     mc.press(dev, "menu", wait=0.6)
     target = mc.texts_of(dev)
@@ -522,11 +524,90 @@ def case_import_menu(payload, flash):
     bare_img = card_image({SAMPLE_PATH + "e2sSample.all": sample_file([first])})
     bare = Dev(payload, machine=boot_image(payload, flash, bare_img).m)
     mc.goto_du(bare, page)
-    empty = mc.texts_of(bare)
-    mc.press(bare, "menu", wait=0.6)
-    after = (mc.texts_of(bare), mc.state(bare, mc.S_LEVEL))
-    out.append(entry("import_menu_no_file", empty[:2] == ("IMPORT SAMPLE", "no .wav file") and after == (("IMPORT SAMPLE", "no .wav file", ""), mc.LEVEL_DU)
-                     and card_file(bare_img, SAMPLE_PATH + "e2sSample.all") == sample_file([first]) and not bare.m.asserts, f"{empty}, ENTER {after}"))
+    browse(bare, "KORG", "blechtribe", "Sample")
+    bare.turn(1, wait=0.3)
+    empty = (mc.texts_of(bare)[1], brw_rows(bare))
+    out.append(entry("import_menu_no_file", empty == ("Upper Folde", [(7, "Upper Folder"), (0, ""), (0, "")])
+                     and card_file(bare_img, SAMPLE_PATH + "e2sSample.all") == sample_file([first]) and not bare.m.asserts, empty))
+    return out
+
+
+def browse(dev, *folders):
+    """In IMPORT SAMPLE's list, from the root: the dial onto each folder in turn and ENTER into it."""
+    for name in folders:
+        turn_to(dev, name)
+        mc.press(dev, "menu", wait=0.6)
+
+
+def turn_to(dev, name, steps=12):
+    """The dial up until the list's entry (the value line) is `name`; -> whether it got there."""
+    for _ in range(steps):
+        if mc.texts_of(dev)[1] == name:
+            return True
+        dev.turn(1, wait=0.3)
+    return mc.texts_of(dev)[1] == name
+
+
+def brw_rows(dev):
+    """The three rows the browser shows: (icon byte, name) each, (0, '') for an empty one."""
+    raw = dev.read(mc.STATE + 0x118, 48)
+    return [(raw[i * 16], raw[i * 16 + 1:i * 16 + 16].split(b"\0")[0].decode("latin-1")) for i in range(3)]
+
+
+def case_import_folders(payload, flash):
+    """IMPORT SAMPLE browses the card like the firmware's own browser: it starts at the root, folders come first (folder icon 9),
+    then the .wav files (file icon 8, without ".wav"), other files and hidden folders not at all. ENTER on a folder opens it with
+    Upper Folder (icon 7) on top and the cursor there, ENTER on Upper Folder goes back up. A .wav from a subfolder and one from the
+    root import with their names. The folder stays when the page is left and opened again."""
+    if not mc.has_menu(payload):
+        return []
+    mc.for_build(payload)
+    mc.INIT_PAGE = payload[mc.INIT_CODE - IMAGE:mc.INIT_CODE - IMAGE + 4] != b"\xff" * 4
+    if not mc.US_PAGE:
+        return [entry("import_folders_page", False, "no IMPORT SAMPLE page in a copy with the user samples")]
+    first = wav(SINE, 48000, 1, ("FIRST", 0, 0, 7998, 0))
+    kick, kick_want = wav_raw(1, 44100, 16, 900)
+    snare, snare_want = wav_raw(2, 48000, 16, 700)
+    img = card_image({SAMPLE_PATH + "e2sSample.all": sample_file([first]), "/Drums/Kick.wav": kick, "/Drums/Sub/Hat.wav": kick,
+                      "/Drums/notes.txt": b"x", "/Snare.wav": snare, "/.trash/Old.wav": kick})
+    p = boot_image(payload, flash, img)
+    dev = Dev(payload, machine=p.m)
+    page = mc.du_pages().index("IMPORT SAMPLE")
+    mc.goto_du(dev, page)
+    root = (mc.texts_of(dev)[1], brw_rows(dev))
+    want_root = ("KORG", [(9, "KORG"), (9, "Drums"), (8 + 0x40, "Snare")])
+    out = [entry("import_folders_root", root == want_root and mc.state(dev, mc.S_LEVEL) == mc.LEVEL_DU and not dev.m.asserts,
+                 f"{root}, want {want_root}")]
+    turn_to(dev, "Drums")
+    mc.press(dev, "menu", wait=0.6)
+    inside = (mc.texts_of(dev)[1], brw_rows(dev))
+    want_inside = ("Upper Folde", [(7, "Upper Folder"), (9, "Sub"), (8 + 0x40, "Kick")])
+    out.append(entry("import_folders_open", inside == want_inside and not dev.m.asserts, f"{inside}, want {want_inside}"))
+    mc.goto_du(dev, page)                       # left and opened again: still in Drums
+    kept = (mc.texts_of(dev)[1], brw_rows(dev)[0])
+    out.append(entry("import_folders_kept", kept == ("Upper Folde", (7, "Upper Folder")), kept))
+    turn_to(dev, "Kick.wav")
+    mc.press(dev, "menu", wait=0.6)
+    target = mc.texts_of(dev)
+    mc.press(dev, "menu", wait=3.0)
+    done = mc.texts_of(dev)
+    rec = record(p, spec.OSC_COUNT + 1)
+    e = entry_of(card_file(img, SAMPLE_PATH + "e2sSample.all"), 501)
+    out.append(entry("import_folders_sub_wav", target == ("IMPORT SAMPLE", "[User] 2", "(new)") and done[:2] == ("IMPORT SAMPLE", "imported")
+                     and rec["name"] == "Kick" and e is not None and e["pcm"] == kick_want and not dev.m.asserts,
+                     f"{target}, {done}, record {rec}, file entry {e is not None}"))
+    dev.turn(-5, wait=0.3)                      # back on Upper Folder, ENTER: the root again
+    mc.press(dev, "menu", wait=0.6)
+    up = (mc.texts_of(dev)[1], brw_rows(dev))
+    out.append(entry("import_folders_upper", up == want_root and not dev.m.asserts, f"{up}, want {want_root}"))
+    turn_to(dev, "Snare.wav")
+    mc.press(dev, "menu", wait=0.6)
+    mc.press(dev, "menu", wait=3.0)
+    done = mc.texts_of(dev)
+    rec = record(p, spec.OSC_COUNT + 2)
+    e = entry_of(card_file(img, SAMPLE_PATH + "e2sSample.all"), 502)
+    out.append(entry("import_folders_root_wav", done[:2] == ("IMPORT SAMPLE", "imported") and rec["name"] == "Snare"
+                     and e is not None and e["pcm"] == snare_want and not dev.m.asserts, f"{done}, record {rec}, file entry {e is not None}"))
     return out
 
 
@@ -620,7 +701,7 @@ def case_edit_menu(payload, flash):
 
 
 GROUPS = (case_load, case_play, case_reject, case_off, case_menu, case_pattern, case_import, case_import_new_file, case_edit,
-          case_import_menu, case_edit_menu)
+          case_import_menu, case_edit_menu, case_import_folders)
 
 
 def group_entries(payload, flash, i):

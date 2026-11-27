@@ -54,11 +54,18 @@ einen Schalter rot/blau. Er stellt sich auf das angeschlossene Gerät (Modellbyt
 ### IMPORT SAMPLE und SAMPLE EDIT am Gerät (blau, ab 1.5)
 
 Die Laufzeit des Patches liegt an `0xC013A000` mit einem festen Sprungvektor, den das BLECH-Menü ruft: `+0` `us_import(Pfad, k)`,
-`+4` `us_set(k, Feld, Wert)`, `+8` `us_store(k)`, `+12` die Marke `BLUS`, `+16` `us_info(k)`. Fehlt die Marke, zeigt DATA UTILITY
+`+4` `us_set(k, Feld, Wert)`, `+8` `us_store(k)`, `+12` die Marke `BLUS`, `+16` `us_info(k)`, `+20` die Adresse des Ordners,
+den der Browser von IMPORT SAMPLE zeigt (`0xC013FA00`: 0x80 Bytes Ordner, dahinter 0x80 Bytes Pfad der gewählten Zeile). Fehlt die Marke, zeigt DATA UTILITY
 die beiden Seiten nicht. Die Seiten zeigt nur das Profil synth; rot und Hacktribe bauen sich byte-gleich wie vorher.
 
-- **IMPORT SAMPLE** listet die `.wav` im Ordner der Sample-Datei (fester Ordner, keine Unterordner), dann wählt das Rad `[User]` 1
-  bis eins hinter dem letzten. Ein vorhandenes Sample wird ersetzt, sonst kommt ein neues dazu. Die WAV wird wie in der App 16 Bit
+- **IMPORT SAMPLE** zeigt die Karte wie Korgs Dateibrowser: beim ersten Mal die Kartenwurzel (`SD:`), oben Upper Folder (nicht in
+  der Wurzel), dann die Ordner, dann die `.wav` ohne Endung, jeweils in der Reihenfolge des Ordners. Andere Dateien, versteckte
+  Ordner und Namen über 31 Zeichen fehlen. ENTER auf einem Ordner öffnet ihn mit dem Cursor auf Upper Folder, ENTER auf Upper
+  Folder geht eine Ebene hoch. Der Ordner bleibt bis zum Ausschalten; lässt er sich nicht mehr öffnen (andere Karte), zeigt der
+  Browser die Wurzel. Ein Ordner mit mehr als 95 Zeichen Pfad öffnet nicht. Die Icons sind die Glyphen der Firmware wie in Korgs
+  Liste: 7 Upper Folder (Pfeil), 9 Ordner (ein Pixel tiefer als die Datei), 8 Datei (Quelle: Messung, Korgs Liste der roten bei
+  `0xC0085BB4` gelesen und im Emulator gezeichnet, `tools/emu/user_samples_cases.py` `import_folders_*`). ENTER auf einer WAV,
+  dann wählt das Rad `[User]` 1 bis eins hinter dem letzten. Ein vorhandenes Sample wird ersetzt, sonst kommt ein neues dazu. Die WAV wird wie in der App 16 Bit
   mono (`fmt` darf hinter `LIST` stehen, 24 Bit behält die oberen 16, Stereo gemittelt), der Eintrag kommt mit einem frischen
   `esli`-Satz ans Ende der Datei, der Kopf bekommt den Offset. Der alte Eintrag bleibt als toter Platz, bis die App die Datei das
   nächste Mal schreibt. Die Datei wird nur mit Lesen/Schreiben geöffnet, nie mit `FA_CREATE_ALWAYS` (das kürzt auf 0); fehlt sie,
