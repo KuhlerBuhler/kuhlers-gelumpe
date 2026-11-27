@@ -70,8 +70,8 @@ die beiden Seiten nicht. Die Seiten zeigt nur das Profil synth; rot und Hacktrib
   `esli`-Satz ans Ende der Datei, der Kopf bekommt den Offset. Der alte Eintrag bleibt als toter Platz, bis die App die Datei das
   nächste Mal schreibt. Die Datei wird nur mit Lesen/Schreiben geöffnet, nie mit `FA_CREATE_ALWAYS` (das kürzt auf 0); fehlt sie,
   legt der Import Datei und Ordner an. Danach gehen PCM und Tabellen sofort in den DSP und den RAM.
-- **SAMPLE EDIT** hat 8 Seiten: SELECT SAMPLE, START POINT, LOOP START, END POINT, SAMPLE TUNE (-63 bis 63), PLAY LEVEL
-  (`+0dB`/`+12dB`), ONE SHOT (OFF/ON), REVERSE (OFF/ON). Punkte stehen in Werten (Byte / 2) wie auf der roten. Punkte und TUNE gehen in die
+- **SAMPLE EDIT** hat 9 Seiten: SELECT SAMPLE, START POINT, LOOP START, END POINT, SAMPLE TUNE (-63 bis 63), PLAY LEVEL
+  (`+0dB`/`+12dB`), ONE SHOT (OFF/ON), REVERSE (OFF/ON), DECLICK (OFF/ON, Abschnitt "DECLICK auf der blauen"). Punkte stehen in Werten (Byte / 2) wie auf der roten. Punkte und TUNE gehen in die
   RAM-Tabellen und wirken ab der nächsten Note; in den `esli`-Satz kommen sie mit EXIT oder beim Wechsel auf ein anderes Sample.
   PLAY LEVEL und REVERSE schreiben den Satz sofort und laden das Sample an seinem Platz neu.
 - **REVERSE** ist `esli[54]` Bit 0. Die Punkte bleiben vorwärts gespeichert; der Lader schreibt die PCM umgedreht in den DSP und
@@ -161,6 +161,24 @@ Messung im Emulator (`tools/emu/sample_category_cases.py` `case_declick`, rot un
   spielt sie wieder. Slices (Modus 1 und 2) verschiebt DECLICK nicht.
 - Grenze: mehr als 64 Samples mit ON spielen ab dem 65. die gespeicherten Punkte. Oszillatoren und leere Plätze zeigen `---`.
 - Nur im Emulator geprüft, am Gerät offen (`docs/geraetetests/offene-geraetetests.md` 3.4).
+
+### DECLICK auf der blauen (ab 1.5)
+
+Dieselbe Regel wie auf der roten, in der Laufzeit des Patches `user-samples` (`tools/patch/user_samples.py`). Die blaue hat
+nur Mono im DSP, also zählt der eine Kanal. Quelle: Messung im Emulator (`tools/emu/user_samples_cases.py` `case_declick`, mit
+dem DSP-Modell; die Punkte gegen eine Rechnung in Python aus der PCM im DSP).
+
+- Gespeichert wird `esli[53]` Bit 0 wie auf der roten, im RAM das Byte `+0x30` des Satzes je `[User]`-Sample (`0xC013E000` +
+  (k - 1) × 64). Die Seite DECLICK ist Seite 9 von SAMPLE EDIT und schreibt den Satz sofort, wie ONE SHOT (`us_set` Feld 7).
+- Die verschobenen Punkte kommen nur in den SMPR-Satz, den die Stimme spielt (`smpr_put`); der Satz je Sample, die Anzeige und
+  die Datei behalten die eingestellten. Gerechnet wird beim Laden (nach dem Schreiben der PCM, über Korgs DSP-Lesen am Port des
+  Laders, `0xC00103B8`), bei jeder Änderung eines Punkts und beim Umschalten (zur Laufzeit unter Korgs Sperre, `0xC000FAB4`,
+  dem Gegenstück der roten `0xC00141F8`). REVERSE und PLAY LEVEL laden das Sample neu, die Punkte werden dann auf den neuen
+  Werten gerechnet. Fenster im RAM: `0xC013FB00`, 0x300 Bytes.
+- Ohne Nulldurchgang im Fenster der Frame mit dem kleinsten |Wert|, bei Gleichstand der nähere (gemessen mit einer Welle, die nie
+  die Null kreuzt).
+- Keine Grenze bei 64 wie auf der roten: jedes `[User]`-Sample hat seinen Satz.
+- Nur im Emulator geprüft, am Gerät offen (`docs/geraetetests/offene-geraetetests.md` 3.1, Schritt 7).
 
 ## Der Plan einer Änderung
 
