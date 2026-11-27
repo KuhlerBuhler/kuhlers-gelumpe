@@ -10,7 +10,7 @@ editions exist for [plugins](plugins.en.md), [patcher](patcher.en.md), [original
 this index and the [glossary](glossary.en.md); the plugins page also exists in [French](plugins.fr.md). The
 page names in the links are German, the descriptions here are English.
 
-Everything measured holds for the Korg Electribe 2 Sampler with firmware 2.02 and Hacktribe, unless a page says otherwise. Facts carry a marker: **gemessen** (measured), **offline** (code or a dump
+Everything measured holds for the Korg Electribe 2 Sampler with firmware 2.02, with and without Hacktribe, unless a page says otherwise. Facts carry a marker: **gemessen** (measured), **offline** (code or a dump
 was read), **hergeleitet** (derived), **offen** (open). Code in `tools/` has short READMEs of its own:
 [tools/emu/README.md](../tools/emu/README.md) and [tools/alsa-sysex.md](../tools/alsa-sysex.md). The origin of bundled
 parts is in [NOTICE](../NOTICE), the rules for agents and contributors in [AGENTS.md](../AGENTS.md).

@@ -53,7 +53,7 @@ Am Gerät geprüft sind zwei Dinge: der Weg mit einem Datenpatch (Startbild) hin
 | `init-pattern` | DATA UTILITY > SET INIT PATTERN legt fest, was INITIALIZE PATTERN kopiert | rot, blau | [Messung](messungen/2026-10-28-init-pattern.md) |
 | `stereo-pad` | ein Stereo-Sample belegt nur seinen Part; BLECH > FEATURES > STEREO 1 PAD | rot | [Messung](messungen/2026-10-29-stereo-ein-pad.md) |
 | `tube-curve` | Röhrenkurve statt Korgs Soft-Clipper am Ausgang (DSP-Bootstrom); BLECH > FEATURES > TUBE und TUBE DRIVE | rot, blau | [Messung](messungen/2026-11-20-roehrenkurve.md) |
-| `ht-osc` | 76 Hacktribe-Oszillatoren (DUAL, OCT, CHIP, RING, X-SAW bis VPM-SINE) auf den freien Plätzen 421 bis 496; nur Korgs rotes Build (`notNeededOn` Hacktribe) | rot (stock) | [Messung](messungen/2026-11-08-ht-osc-freie-plaetze.md) |
+| `ht-osc` | 76 Hacktribe-Oszillatoren (DUAL, OCT, CHIP, RING, X-SAW bis VPM-SINE) auf den freien Plätzen 421 bis 496 (Anzeige 422 bis 497); nur Korgs rotes Build (`notNeededOn` Hacktribe) | rot (stock) | [Messung](messungen/2026-11-08-ht-osc-freie-plaetze.md) |
 | `beat-eighth` | die Seite BEAT im Pattern Menü bekommt einen fünften Wert `8` (Achtel) | rot, blau | [Messung](messungen/2026-10-29-beat-achtel.md) |
 | `touch-scale-zero` | TOUCH SCALE RANGE geht bis 0: X spielt überall den Grundton | rot, blau | [Messung](messungen/2026-10-30-touch-scale-null.md) |
 | `import-slots` | der Zielwähler von DATA UTILITY > IMPORT SAMPLE läuft ab der ersten annehmbaren Nummer bis 999 | rot | [Messung](messungen/2026-11-16-import-werks-slots.md) |
@@ -109,7 +109,7 @@ Die Electribe hat zwei Prozessoren:
 
 Die SYSTEM.VSB ist `0x200100` Byte: 256 Byte Kopf plus das 2-MiB-Abbild des ARM, mit Code, Daten (Presets, Texte, Startbild, Tabellen) und dem eingebetteten DSP-Programm ab `0xC00F9E10` (rund 270 KB), das der ARM beim Start über SPI in den DSP lädt. Zur Laufzeit schickt der ARM dem DSP nur Befehle und Werte über den Host-Port ([Messung](messungen/2026-10-09-mfx-dsp.md)). Mehr zum DSP: [DSP, erster Blick](hintergrund/dsp-erster-blick.md).
 
-Die VSB ist unverschlüsselt. Der Hacktribe-Satz setzt auf Korgs 2.02 mit Hacktribe auf; FX-Presets, Menülängen und Startbild darin dürfen vom Original abweichen. Der Editor erkennt die Firmware an Fingerabdrücken (`data/devices.mjs`, `src/firmware.mjs`).
+Die VSB ist unverschlüsselt. Das Build `hacktribe` setzt auf Korgs 2.02 mit Hacktribe auf; FX-Presets, Menülängen und Startbild darin dürfen vom Original abweichen. Der Editor erkennt die Firmware an Fingerabdrücken (`data/devices.mjs`, `src/firmware.mjs`).
 
 Drei Arten von Patches:
 
@@ -190,7 +190,7 @@ npm run build:blech-patch -- --vsb <SYSTEM.VSB> --version 1.0.1
 
 | Datei | Wofür | Anwenden |
 |---|---|---|
-| `BLECH.patch` | der ganze Satz in unserem Format: alle Patches mit Haken, Prüfsummen und Startphase-Ausnahmen. Passt auf jede Hacktribe 2.02, deren Code und feste Daten stimmen, auch mit dem Kopf der blauen; mit `--stock` auf Korgs rote 2.02 und mit `--synth` auf Korgs blaue 2.02 (eigene Fingerabdrücke, die blaue mit ihrem eigenen Satz `blech-synth.json`). Das Release baut sie mit allen drei Dateien | `node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`, oder `applyPatchFile` in `src/patchfile.mjs` |
+| `BLECH.patch` | der ganze Satz in unserem Format: alle Patches mit Haken, Prüfsummen und Startphase-Ausnahmen. Passt mit `--stock` auf Korgs rote 2.02, mit `--synth` auf Korgs blaue 2.02 (eigene Fingerabdrücke, die blaue mit ihrem eigenen Satz `blech-synth.json`) und ohne Schalter auf jede Hacktribe 2.02, deren Code und feste Daten stimmen, auch mit dem Kopf der blauen. Das Release baut sie mit allen drei Dateien | `node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`, oder `applyPatchFile` in `src/patchfile.mjs` |
 | `BLECH-for-7cb4825c.bsdiff`, `BLECH-for-2b2e1c2f.bsdiff` (Hacktribe mit blauem Kopf), mit `--stock` `BLECH-for-1d0f0689.bsdiff`, mit `--synth` `BLECH-for-41fc5f1c.bsdiff` | genau diese Datei zu BLECHTRIBE als bsdiff 4 (`BSDIFF40`, wie Hacktribes Patch). Der Name trägt den Anfang des sha256 der Eingabe. Die für `2b2e1c2f` gibt die Kopie mit dem Kopf des Samplers, den Hacktribe auf der blauen beim Update nimmt | `bspatch SYSTEM.VSB BLECH.VSB BLECH-for-7cb4825c.bsdiff`, ohne unsere App, nur mit der Datei mit diesem Hash |
 
 **Welche VSB passt.** Hacktribes Datei und eine bearbeitete VSB unterscheiden sich nur in Daten, die Nutzer ändern: FX-Presets, die Menülängen (14 einzelne Bytes in Code-Literalen) und das Startbild, an einer eigenen Datei gemessen 2317 Byte in 1331 Folgen, kein Code, kein DSP-Programm. `BLECH.patch` prüft deshalb nicht die ganze Datei, sondern einen **Fingerabdruck**: sha256 über alle Bytes außer den `userData`-Bereichen (FX-Tabellen, Groove- und Modulationstabelle, Startbild, Menülängen; aus der Gerätekarte abgeleitet, `userDataRanges()`). Jede Änderung des Patches prüft außerdem einzeln die Bytes, die sie ersetzt (`expect`). Der Fingerabdruck der Ausgabe lässt nur die `userData`-Bytes aus, die der Patch nicht schreibt, prüft also auch, was der Patch geschrieben hat.

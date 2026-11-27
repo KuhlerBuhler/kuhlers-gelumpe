@@ -7,6 +7,8 @@
 
 <h3 align="center">BLECHTRIBE: neue Firmware für deine Electribe 2. Kostenlos.</h3>
 
+<p align="center">BLECHTRIBE ist ein eigenes Firmware-Upgrade für die Electribe 2. Es läuft direkt auf Korgs Original-Firmware 2.02 und ist keine Hacktribe-Variante. Du brauchst kein Hacktribe. Hacktribe ist ein anderes Projekt, du kannst es zusätzlich nutzen, musst es aber nicht.</p>
+
 <p align="center">
   <a href="https://github.com/KuhlerBuhler/kuhlers-gelumpe/releases/latest"><img alt="App herunterladen" src="https://img.shields.io/badge/%E2%AC%87%20App%20herunterladen-Mac%20%7C%20Windows%20%7C%20Linux-2d6579?style=for-the-badge" height="56"></a>
 </p>
@@ -18,6 +20,7 @@
 - [Häufige Fragen](#häufige-fragen)
 - [So kommt BLECHTRIBE auf deine Electribe](#so-kommt-blechtribe-auf-deine-electribe)
 - [Was kann was?](#was-kann-was)
+- [Was BLECHTRIBE kann](#was-blechtribe-kann)
 - [Vorher und nachher](#vorher-und-nachher)
 - [Die Firmware patchen](#die-firmware-patchen)
 - [Die App laden](#die-app-laden)
@@ -35,8 +38,8 @@
 - **Sind Samples dabei?** Nein. BLECHTRIBE bringt keine Samples mit, deine eigenen Samples bleiben erhalten. Beim ersten Start bietet die Electribe an, deinen Sample-Ordner zu übernehmen.
 - **Geht das mit der blauen Electribe?** Ja, mit etwas weniger Funktionen, siehe Tabelle.
 - **Blaue Electribe: wo sind meine Exporte?** In `KORG/blechtribe/`, nicht mehr in `KORG/electribe/`. Beim ersten Start bietet die Electribe an, `KORG/electribe/` dorthin zu kopieren.
-- **Hab ich mit BLECHTRIBE noch [Hacktribe](docs/glossary.md#hacktribe)?** Ja, wenn du eine Hacktribe-Datei reinziehst. BLECHTRIBE kommt dann obendrauf. Auf Korgs Original schaltet es die Hacktribe-Funktionen nicht frei.
-- **Wie kann ich eigene Effekte machen?** In der App im [**Baukasten**](docs/glossary.md#baukasten). Da nimmst du einen fertigen Effekt oder baust einen aus Bausteinen, mit Namen und echten Einheiten. Über den Export kommen sie auf die SD-Karte, einzelne auch live per USB. Das geht auf der roten Electribe mit BLECHTRIBE.
+- **Brauche ich [Hacktribe](docs/glossary.md#hacktribe)?** Nein. BLECHTRIBE läuft direkt auf Korgs Original. Wenn du schon Hacktribe hast, kannst du BLECHTRIBE darauf installieren, dann bleiben Hacktribes eigene Funktionen erhalten. Auf Korgs Original schaltet BLECHTRIBE die Hacktribe-Funktionen nicht frei.
+- **Wie kann ich eigene Effekte machen?** In der App im [**Baukasten**](docs/glossary.md#baukasten). Da nimmst du einen fertigen Effekt oder baust einen aus Bausteinen, mit Namen und echten Einheiten. Über den Export kommen sie auf die SD-Karte (rot und blau), einzelne auch live per USB (nur rot). Beides mit BLECHTRIBE. Auf der blauen ist das bisher nur im Emulator geprüft.
 - **Windows: Die App findet meine Electribe nicht, obwohl die MIDI-Ports da sind.** Dann ist wohl Korgs eigener USB-MIDI-Treiber drauf, über den kommen die Antworten der Electribe nicht an. Nimm ihn im Geräte-Manager raus (die Electribe, "Gerät deinstallieren", mit Treiber) und starte Windows neu, Windows' eigener Treiber reicht. Will das KORG Driver Setup Utility ihn danach wieder installieren, mach es einfach zu. Der MIDI-Bericht in den Einstellungen sagt das auch.
 - **Ich hab eine Idee für die App oder die Firmware.** Immer her damit: [Idee aufschreiben](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). Dafür brauchst du ein GitHub-Konto.
 
@@ -48,7 +51,7 @@ Du brauchst einen Rechner (Mac, Windows oder Linux) und einen SD-Kartenleser. Ei
    Auf dem Mac blockiert das System die App beim ersten Öffnen, weil sie nicht von Apple signiert ist. Wie du sie freigibst, steht unter [Die App laden](#die-app-laden).
 2. **SD-Karte** aus der Electribe in den Rechner stecken.
 3. **App öffnen**, links auf **Firmware Patcher**, dann die Datei [`SYSTEM.VSB`](docs/glossary.md#vsb) von deiner Karte reinziehen.
-   Du findest sie im Ordner `KORG/electribe sampler/System/` (Original) oder `KORG/hacktribe/System/` (Hacktribe) oder `KORG/electribe/System/` (blaue Electribe).
+   Du findest sie im Ordner `KORG/electribe sampler/System/` (rotes Original) oder `KORG/electribe/System/` (blaue Electribe). Nur wenn du Hacktribe benutzt, liegt sie in `KORG/hacktribe/System/`.
    Hast du die Datei nicht, lädt die App Korgs Original selbst, wenn du Korgs Lizenz annimmst.
 4. **Warten**, bis die App fertig geprüft hat (ein paar Minuten), dann die neue Datei speichern.
    Die App sagt dir, wohin sie auf der Karte muss.
@@ -60,15 +63,16 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 
 | | Sampler (rot) Original | Synth (blau) Original | Sampler mit Hacktribe | **BLECHTRIBE** rot | **BLECHTRIBE** blau | **BLECHTRIBE** mit Hacktribe |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
-| Eigene Samples aufnehmen und laden | ✅ | ➖ | ✅ | ✅ | ➖ | ✅ |
-| Erweiterte Hacktribe-Oszillatorbank (Dual, Oct, Chip, ...) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Hacktribe-Inserts (Lag, KP2 Comp, Drive-Filter, Delays) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Hacktribe-MFX (Big Hall, Plate Reverb, Tap Delay Sync, Tube Drive) | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Eigene Samples aufnehmen | ✅ | ➖ | ✅ | ✅ | ➖ | ✅ |
+| Eigene Samples laden (blau: aus der Sample-Datei als Gruppe `[User]`, bis 64) | ✅ | ➖ | ✅ | ✅ | ✅ | ✅ |
+| Oszillatoren wie bei Hacktribe (Dual, Oct, Chip, ...), bei BLECHTRIBE als Nachbau | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Inserts wie bei Hacktribe (Lag, KP2 Comp, Drive-Filter, Delays), bei BLECHTRIBE als Nachbau | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| Master-Effekte wie bei Hacktribe (Big Hall, Plate Reverb, Tap Delay Sync, Tube Drive), bei BLECHTRIBE als Nachbau | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Zusätzliche Hacktribe-Grooves und Skalen | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | FX und Grooves über die Hacktribe-Menüs importieren/exportieren | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Eigenes INIT-Pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Hacktribe-SysEx (für den Hacktribe-Editor) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Eigene USB-Befehle für die App (RAM, Karte, Plugins) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Eigene USB-Befehle für die App (Karte, Plugins, RAM; auf der blauen RAM nur lesen) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Unveränderte Werks-Samplebank der roten Electribe nutzen | ✅ | ➖ | ❌ | ✅ | ➖ | ❌ |
 | Anpassbare Oberfläche (Startbild, Schrift, Ausschaltbild) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Ladeanimation mit Fortschritt | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
@@ -93,33 +97,71 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Motion Sequences ein- und ausschalten | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Notenassistent | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Würfeln (Zufallsmelodie) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Klare Meldung bei kaputten Samples | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
+| Klare Meldung bei kaputten Samples | ❌ | ➖ | ❌ | ✅ | ✅ | ✅ |
 | Röhrenkurve am Ausgang (TUBE) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| Gerätemenüs auf Deutsch (Häkchen im Patcher) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Gerätemenüs auf Deutsch (nur mit Häkchen im Patcher der App, nicht in den fertigen Dateien im Release) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Doom | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
 | Update über USB aus der App | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 
-➖ heißt: gibt es auf dem Synth nicht, weil er keine Samples lädt.
+➖ heißt: gibt es auf dem Synth nicht, weil er nichts aufnimmt und keine Werks-Samples hat.
 
-Hacktribe ist eine eigene Firmwarebasis. BLECHTRIBE ergänzt sie; es schaltet diese
-Hacktribe-Funktionen auf einem Korg-Original nicht automatisch frei. Ausnahme sind die Hacktribe-Oszillatoren
-auf den freien Plätzen 422 bis 497 der roten BLECHTRIBE, immer an, ohne Schalter, die 11 Hacktribe-Inserts
-als Nachbau auf den IFX-Plätzen 39 bis 49 und die 4 Hacktribe-MFX als Nachbau auf den MFX-Plätzen 33 bis 36 der roten BLECHTRIBE. Die blaue BLECHTRIBE-Spalte
+Hacktribe ist ein eigenes, fremdes Projekt. BLECHTRIBE braucht es nicht, kann aber auch auf einer Hacktribe-Datei installiert werden. Auf Korgs Original
+schaltet BLECHTRIBE die Hacktribe-Funktionen nicht frei. Ausnahme sind drei Nachbauten, die auf der roten BLECHTRIBE ohne Hacktribe laufen: die Hacktribe-ähnlichen Oszillatoren
+auf den freien Anzeige-Plätzen 422 bis 497, immer an, ohne Schalter, die 11 Inserts
+auf den IFX-Plätzen 39 bis 49 und die 4 Master-Effekte auf den MFX-Plätzen 33 bis 36. Die Spalten "BLECHTRIBE rot" und "BLECHTRIBE mit Hacktribe" sind dasselbe Produkt, nur die Basisdatei ist eine andere. Die blaue BLECHTRIBE-Spalte
 meint den Synth-Satz auf Korg 2.02. Hacktribe selbst unterstützt laut Projekt beide Hardwaretypen.
 
 **Was du bei Hacktribe abwägen musst:**
 
 | Nachteil | Was das für dich heißt |
 |---|---|
-| Die Werks-Samplebank wird durch Oszillatoren ersetzt | Die eigenen Samples liegen auf 501 bis 999. Werks-Samples müssen für Hacktribe umgewandelt und in die eigene Bank geladen werden. |
+| Die Werks-Samplebank wird durch Oszillatoren ersetzt | Die eigenen Samples liegen auf 501 bis 999. Werks-Samples müssen für Hacktribe umgewandelt und in die eigene Bank geladen werden. Erst BLECHTRIBE 1.5 lässt mit Hacktribe auch einen Import ab Slot 275 zu. |
 | Deine Samples sind danach nicht mehr da | Hacktribe liest einen eigenen Ordner, und seine Anleitung sagt, `e2sSample.all` zu löschen. Sichere vorher den `Sample`-Ordner deiner jetzigen Firmware (`KORG/electribe sampler/` oder `KORG/blechtribe/`), die App fragt das mit einem Häkchen ab. Schon passiert? Die Seite Blechy hat den Fall "Ich hab aus Versehen Hacktribe installiert". |
 | Alte Patterns können anders klingen | Oszillator- und Effektzuordnungen ändern sich. Nach dem Umstieg die eigenen Patterns durchhören und bei Bedarf neu zuordnen. |
-| Zusätzlicher Firmwarewechsel | Wer Korgs Original nutzt, braucht zuerst eine passende Hacktribe-Datei. BLECHTRIBE kann auch direkt auf dem Original bleiben. |
+| Zusätzlicher Firmwarewechsel | Wer Korgs Original nutzt, braucht zuerst eine passende Hacktribe-Datei. BLECHTRIBE läuft auch direkt auf dem Original, das ist der Normalfall. |
 
 Funktionen und Umstieg: [Hacktribe](https://github.com/bangcorrupt/hacktribe),
 [Oszillatorbank](https://github.com/bangcorrupt/hacktribe/wiki/Features#oscillators),
 [Werks-Samples](https://github.com/bangcorrupt/hacktribe/wiki/How-To#factory-samples) und
 [FAQ](https://github.com/bangcorrupt/hacktribe/wiki/FAQ).
+
+## Was BLECHTRIBE kann
+
+Das Wichtigste in einem Satz je Sache. Welche Electribe was kann, zeigt die Tabelle oben. "Nur im Emulator geprüft" heißt: am echten Gerät noch nicht.
+
+**Samples**
+
+- **Sample Swap (neu in 1.5, rot):** Sehr große Sample-Sammlungen (über 25 MB) passen auf die rote Electribe, weil nur die Samples im Speicher liegen, die das spielende Pattern braucht, der Rest bleibt auf der Karte und wird beim Patternwechsel nachgeladen. Im Emulator geprüft, am Gerät erst teilweise.
+- **Sample-Kategorie (neu in 1.5, rot):** In DATA UTILITY > SAMPLE EDIT stellst du für jedes Sample eine von 18 Kategorien ein (Kick, Snare ...), so findest du es mit SHIFT + OSC-Rad wieder. Die Kategorie landet mit EXPORT ALL SAMPLE auf der Karte. Nur im Emulator geprüft.
+- **Samples auf Werks-Plätzen (neu in 1.5, rot):** IMPORT SAMPLE kann jetzt auch ein Werks-Sample ersetzen: als Ziel geht jede Nummer ab 19 (mit Hacktribe ab 275), nicht mehr nur 501 bis 999.
+- **Eigene Samples auf der blauen (neu in 1.5):** Die blaue Electribe lädt deine Samples beim Einschalten aus der Sample-Datei auf der Karte, sie erscheinen als Oszillatorgruppe `[User]`. Bis zu 64 Samples, zusammen etwa eine Minute. Du legst sie in der App auf der Seite Samples auf die Karte (Schalter auf blau). Nur im Emulator geprüft.
+- **Stereo-Samples:** Ein Stereo-Sample belegt nur noch ein Pad, das Pad daneben spielt wieder sein eigenes Sample (rot, abschaltbar unter BLECH > FEATURES > STEREO 1 PAD).
+- **Samples in der App:** Auf der Seite Samples siehst du die Samples deiner Electribe, fügst WAV-Dateien hinzu und entfernst Samples, per Kartenleser oder direkt über das USB-Kabel.
+
+**Patterns**
+
+- **Sync-Gruppen:** Mehrere Patterns mit derselben Gruppennummer spielen als eins, für mehr als 128 Steps. Lange Samples klingen beim Wechsel weiter, und Live-Änderungen wie Tonhöhe oder Modulation gehen ins nächste Pattern mit.
+- **Pattern ansehen, während eins läuft:** Drehst du beim Spielen am Rad, siehst du das nächste Pattern samt Tempo. Du kannst es anspielen und einzelne Parts ins laufende Pattern holen, bevor du mit MENU wechselst.
+- **Patterns-Ordner (neu in 1.5, rot):** Patterns exportierst und importierst du im Ordner `KORG/blechtribe/Patterns/`. Liegt dort die Sicherung `electribe_sampler_allpattern.e2sallpat`, lädt die Electribe sie bei jedem Start. Speicherst du am Gerät, exportiere danach wieder, sonst gilt beim nächsten Start der Stand der Datei. Nur im Emulator geprüft.
+- **MFX 2:** Jeder der beiden Master-Effekte merkt sich sein eigenes MFX HOLD und seine Pad-Position (neu in 1.5, rot).
+
+**Effekte**
+
+- **Fertige Effekte:** Im Baukasten liegen fertige Effekte, zum Beispiel Bounce Gate, Hardtekk Kick, Warm Drive, Bit Grinder, Glue Comp und ULTRA LOUD, dazu Modulationen wie Kick Drop. Die Liste steht in [docs/effekt-katalog.md](docs/effekt-katalog.md).
+- **Eigene Effekte auf der blauen (neu in 1.5):** Auch die blaue Electribe bekommt den Effekt-Katalog, 128 Plätze für eigene Effekte und den Export auf die Karte. Live per USB bearbeiten geht dort noch nicht. Nur im Emulator geprüft.
+
+**Anzeige und Strom**
+
+- **IDLE SAVE (neu in 1.5):** Dimmt Display und LEDs, wenn keiner spielt (Standard: nur auf Batterie).
+- **BATTERY % (neu in 1.5):** Zeigt den Ladestand als Zahl, wenn du mit Batterie spielst und in den Global-Einstellungen BATTERY TYPE auf Alkali steht.
+- **LOAD METER:** Zeigt die Prozessorlast oben im Display (standardmäßig aus).
+- **KNOB LEDS:** Schaltet die Lichter hinter den Reglern aus.
+- **Startbild und Ladeanimation (neu in 1.5, rot):** Du legst sie als Datei in `KORG/blechtribe/Media/` auf die Karte, ohne die Firmware neu zu bauen. Die App Image Viewer zeigt alle Bilder dort.
+
+**App und Plugins**
+
+- **App:** Die App gibt es in 11 Sprachen. Sie verbindet sich selbst mit der Electribe, speichert die fertige Firmware auf Wunsch direkt auf die SD-Karte, und die Seite Blechy beantwortet Fragen zur Bedienung und führt dich zurück, wenn das Gerät nicht startet.
+- **Plugins:** Plugins können Steps schreiben, MIDI senden, den Ausgangspegel lesen, Pads und Tasten abfangen, Timer nutzen und je 16 Dateien auf der Karte speichern.
 
 ## Vorher und nachher
 
@@ -151,7 +193,7 @@ LEDs, Patternwechsel erst nach Bestätigung, Sync-Gruppen, TAP Motion, den Noten
 Melodie-Generator (SHIFT + PART ERASE), EXIT + WRITE zum Speichern (die WRITE-LED atmet, solange etwas ungespeichert ist), EXIT + Pad setzt den Klang eines Parts
 zurück (auch beim Abspielen), STOP halten beendet jeden Klang, Akkord-Steps von Poly-Parts in Pink, beim ersten Start die Übernahme deines
 hacktribe- oder electribe-sampler-Ordners, [Blechy](docs/glossary.md#blechy) als kleines Haustier, ein Startbild mit Ladebalken,
-verständliche Meldungen statt "Unknown Error" beim Sample-Laden, eine Röhrenkurve am Ausgang (BLECH > FEATURES > TUBE), Menüs auf Deutsch (Häkchen im Patcher) und Doom (SHIFT + TAP beim Einschalten, die zwei Dateien schreibt die App per USB auf die Karte,
+verständliche Meldungen statt "Unknown Error" beim Sample-Laden, eine Röhrenkurve am Ausgang (BLECH > FEATURES > TUBE), Menüs auf Deutsch (Häkchen im Patcher der App) und Doom (SHIFT + TAP beim Einschalten, die zwei Dateien schreibt die App per USB auf die Karte,
 zur Lizenz siehe [docs/doom-lizenz.md](docs/doom-lizenz.md)).
 
 ## Für Bastler
@@ -163,7 +205,7 @@ GELUMPE ist das Programm dahinter: deine Electribe 2 auslesen und umbauen, mit e
 
 Ich bin Kuhler Buhler, aka Pascal, arbeite als Softwareentwickler und bin ein Live Act. Als ich Hacktribe installiert hab,
 ist mir aufgefallen, dass man die MFX- und IFX-Presets ja selbst bearbeiten kann. Tja, und dann war ich
-ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen.
+ein paar Monate in einer Entwicklungspsychose, und das hier ist dabei rausgekommen. BLECHTRIBE ist dabei ein eigener Patch auf Korgs Original geworden, kein Hacktribe-Ableger.
 
 Warum das Ganze? Mich nervt, was Korg aus der Electribe 2 gemacht hat, nämlich nix. Da ist so viel mehr
 drin, als Korg jemals rausgeholt hat. Mit BLECHTRIBE hab ich mir praktisch die Electribe 3 gebaut, die es
@@ -174,8 +216,8 @@ Wenn dir das was bringt, freu ich mich über eine [Spende per PayPal](https://ww
 ## Was du damit machen kannst
 
 GELUMPE läuft als App oder im Browser und funktioniert mit der Electribe 2 mit Firmware 2.02, dem
-roten Sampler (Korgs Original oder [Hacktribe](https://github.com/bangcorrupt/hacktribe)) und der
-blauen Synth (Korgs Original). Du kannst
+roten Sampler (Korgs Original, optional auch [Hacktribe](https://github.com/bangcorrupt/hacktribe)) und der
+blauen Synth (Korgs Original). Du brauchst Hacktribe nicht. Du kannst
 
 - die Firmware deiner Electribe im **Emulator** starten und bedienen, mit Display, Tasten, Reglern
   und LEDs, ohne dass irgendwas an dein Gerät geht,
@@ -194,7 +236,7 @@ blauen Synth (Korgs Original). Du kannst
 Bevor irgendwas ans Gerät geht, schauen ein [Linter](docs/glossary.md#linter) mit Regeln, die ich am echten Gerät abgeglichen hab,
 und der Emulator drüber, ob die Electribe das voraussichtlich schluckt. Emulator, Patcher und Plugins
 laufen mit Korgs Original 2.02 und mit Hacktribe 2.02. Der Effekt-Editor und das Schreiben ins RAM über MIDI brauchen auf dem roten Sampler
-Hacktribe oder BLECHTRIBE mit seinen eigenen USB-Befehlen. Bei anderen Firmware-Ständen liegen die Adressen woanders, deshalb wird
+BLECHTRIBE mit seinen eigenen USB-Befehlen (oder Hacktribe). Bei anderen Firmware-Ständen liegen die Adressen woanders, deshalb wird
 ein unbekanntes Gerät oder eine unbekannte Datei nur gelesen und nie beschrieben.
 
 **Firmware ist nicht dabei.** Du lädst deine eigene `SYSTEM.VSB`, und die bleibt auf deinem Rechner.

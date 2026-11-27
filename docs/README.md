@@ -6,7 +6,7 @@ Einstieg in alles unter `docs/`. Fang mit dem [Glossar](glossary.md) an, wenn di
 
 Sprache: Die meisten Seiten sind auf Deutsch, das Deutsche ist die Referenz. Englische Fassungen gibt es für [plugins](plugins.en.md), [patcher](patcher.en.md), [original-zurueck](original-zurueck.en.md), diesen Index ([README.en.md](README.en.md)) und das [Glossar](glossary.en.md). Die Plugins-Seite gibt es außerdem auf [Französisch](plugins.fr.md).
 
-Alles Gemessene gilt für den Korg Electribe 2 Sampler mit Firmware 2.02 und Hacktribe, sofern eine Seite nichts anderes sagt. Fakten tragen einen Marker: **gemessen**, **offline** (Code oder ein Dump wurde gelesen), **hergeleitet**, **offen**. Der Code in `tools/` hat eigene kurze READMEs: [tools/emu/README.md](../tools/emu/README.md) und [tools/alsa-sysex.md](../tools/alsa-sysex.md). Woher die mitgelieferten Teile stammen, steht in [NOTICE](../NOTICE), die Regeln für Agents und Mitwirkende in [AGENTS.md](../AGENTS.md).
+Alles Gemessene gilt für den Korg Electribe 2 Sampler mit Firmware 2.02, mit und ohne Hacktribe, sofern eine Seite nichts anderes sagt. Fakten tragen einen Marker: **gemessen**, **offline** (Code oder ein Dump wurde gelesen), **hergeleitet**, **offen**. Der Code in `tools/` hat eigene kurze READMEs: [tools/emu/README.md](../tools/emu/README.md) und [tools/alsa-sysex.md](../tools/alsa-sysex.md). Woher die mitgelieferten Teile stammen, steht in [NOTICE](../NOTICE), die Regeln für Agents und Mitwirkende in [AGENTS.md](../AGENTS.md).
 
 ## Firmware und App benutzen
 
