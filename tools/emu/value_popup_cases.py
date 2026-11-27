@@ -4,7 +4,8 @@ pressed while the value window of a knob is on the screen closes the window and 
 
 Every case compares two runs of the same input from the same start: one right after a knob turn (the window is open), one after
 the window has gone. Both have to end in the same state (screen, chosen and running pattern, transport, the live pattern, the
-selected part). A key that reaches the window closes it; the filter keys and a further knob turn keep it. The part keys,
+selected part). A key that reaches the window closes it; the filter keys and a further knob turn keep it. The main dial
+closes it too, on the home screen and in a menu, and changes the value as without the window. The part keys,
 TRIGGER, SEQUENCER, KEYBOARD, CHORD, PATTERN SET and the pads are taken by the firmware before the window: they act, and
 the window stays until it times out, as in Korg's firmware.
 
@@ -211,7 +212,25 @@ def case_sample(payload):
             compare(payload, "sample_write", lambda b: tap(b, WRITE), open_with=sample)]
 
 
-GROUPS = (case_menu_write, case_keys_a, case_keys_b, case_shift, case_filters, case_knobs, case_pads_dial, case_sample)
+def case_menu_dial(payload):
+    """In a menu page the main dial right after a knob closes the window and changes the menu value, LEFT and RIGHT move the
+    cursor, as without the window."""
+    def in_menu(b):
+        tap(b, MENU)
+        tap(b, RIGHT)
+        knob(b)
+
+    def turn(step):
+        def act(b):
+            b.m.send([1, 0, 0, step, 0])
+            b.run(WAIT)
+        return act
+    return [compare(payload, "menu_dial_up", turn(1), open_with=in_menu), compare(payload, "menu_dial_down", turn(0xFF), open_with=in_menu),
+            compare(payload, "menu_left", lambda b: tap(b, LEFT), open_with=in_menu),
+            compare(payload, "menu_right", lambda b: tap(b, RIGHT), open_with=in_menu)]
+
+
+GROUPS = (case_menu_write, case_keys_a, case_keys_b, case_shift, case_filters, case_knobs, case_pads_dial, case_sample, case_menu_dial)
 
 
 def group_entries(payload, flash, i):
