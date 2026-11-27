@@ -62,16 +62,18 @@ leere Datei liegen. Für die Fehlersuche hält der Zustand der Aufnahme den erst
 letzten fest: welche Prüfung des Lesers fehlschlug, die DSP-Werte, die er dabei sah, und den Zeitpunkt
 (`recording_runtime.py`, Felder ab `FAULTS`). Ein einfaches READ liest sie aus.
 
-Der Schreiber sichert regelmäßig einen gültigen Zwischenstand. Bei Stromausfall oder Kartenentnahme können noch
+Der Schreiber sichert alle fünf Sekunden Aufnahme einen gültigen Zwischenstand. Bei Stromausfall oder Kartenentnahme können noch
 gepufferte Daten fehlen. Geprüft sind SD-Abbilder an den Grenzen der Dateiaufrufe, kein Stromausfall mitten in einem
-physischen Sektorschreibvorgang. Ein Fehler wird nicht durch eingefügte Stille verdeckt.
+physischen Sektorschreibvorgang. Kommt der Ton zu spät vom DSP, steht die fehlende Zeit als Stille in der Datei und der
+Zähler hinter `#` zeigt es an; die Stille verdeckt den Fehler also nicht.
 
 ## Was noch fehlt
 
-Die endgültige Ringwahl wartet auf die Schreib- und Laufzeitmessungen am Gerät. Das aktuelle Emulatormodell überschreitet
-bei einem vollen 64-KiB-Schreibblock die vorläufige Leserfrist; dieser Fall prüft den sichtbaren Abbruch, kein langes Set.
-Die Kartenzugriffe von Sample Swap werden nach dessen Integration geprüft. Die optionale Plugin-API und der spätere
-WAV-Player gehören nicht zu diesem Aufnahmestand. Die geplante neue Röhrenkurve ist ebenfalls noch nicht enthalten.
+Die endgültige Ringwahl wartet auf die Schreib- und Laufzeitmessungen am Gerät. Der Schreiber schreibt in Stücken von
+8 KiB, und neben dem CommandTask liest auch der UI-Frame den DSP-Ring; im Emulator übersteht eine Aufnahme so eine Karte,
+die 400 ms hängt (`native_stall_*`). Am Gerät ist das noch nicht geprüft. Die Kartenzugriffe von Sample Swap werden nach
+dessen Integration geprüft. Plugins lesen den Stand der Aufnahme über `korg.record` (läuft, Sekunden, Lücken, API 41);
+starten oder stoppen können sie sie nicht. Der spätere WAV-Player gehört nicht zu diesem Aufnahmestand. Die geplante neue Röhrenkurve ist ebenfalls noch nicht enthalten.
 
 Belege und offene Messwerte: [native Aufnahme](messungen/2026-11-17-native-aufnahme.md).
 

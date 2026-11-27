@@ -17,7 +17,7 @@
 .equ NR_PLAY_INJECT, 74
 .equ NR_PLAY_PENDING, 3
 
-; Public state contains no pointers that the input or frame task dereferences.
+; Public state holds one pointer a frame task dereferences: NR_CONTEXT, read by nr_reader_frame only while NR_PHASE is 1.
 nr_init:
     .word 0xE10F3000                 ; mrs r3, cpsr
     orr r1, r3, #0xC0
