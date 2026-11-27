@@ -57,7 +57,9 @@ HEADER = 0x100
 RAM = 0xC0000000
 
 CODE_AT = 0xC01A5000            # free (FF) run, clear of the splash editor (ends 0xC01A4A00)
-CODE_END = 0xC01A5C00
+CODE_END = 0xC01A5800            # the power-off picture's code follows (tools/patch/power_off.py)
+CODE2_AT = 0xC01A5E20           # a second free (FF) run behind the record: MFX HOLD of each of the two
+CODE2_END = 0xC01A6000          # the loading bar's RAM follows (tools/patch/load_bar.py)
 STATE = 0xC01A5C00              # run time state, in RAM only; FF there means "MFX 2 off"
 STATE_END = 0xC01A5C40
 RECBUF = 0xC01A5D00             # the record as stored, 268 bytes; the table starts at +8
@@ -122,6 +124,11 @@ SOURCE = """
 .equ S_DIRTY, 24                ; 1 when the table differs from flash
 .equ S_TICK, 28
 .equ S_BOOT, 32                 ; 1 once the start mode was applied
+.equ S_DISP, 36                 ; the key dispatcher's object, as the last key brought it (FF: no key yet)
+.equ S_HA, 40                   ; MFX HOLD of MFX 1 while MFX 2 is on: hold, X << 8, Y << 16, 1 << 24 when set
+.equ S_HB, 44                   ; MFX HOLD of MFX 2 as it was left, the same way; not set means released
+.equ PAD_X, 0xC0048924          ; (type setter's object, X, 1): the touch pad's X in master effect mode
+.equ PAD_Y, 0xC0048984          ; (the same, Y, 1)
 .equ RECBUF, {recbuf:#x}
 .equ TABLE, RECBUF+8
 .equ FLASH_ADDR, {flash:#x}
@@ -156,6 +163,8 @@ key_hook:
     bl killed
     cmp r0, #0
     bne call_orig
+    ldr r0, =STATE
+    str r4, [r0, #S_DISP]
     cmp r6, #1
     bne call_orig
     cmp r5, #5
@@ -228,6 +237,8 @@ k_gate:
     bl shift_held
     cmp r0, #0
     bne call_orig
+    bl mfx2_sync
+    bl leave_mfx2               ; while the pad still is in master effect mode, so MFX HOLD goes back to MFX 1's
     mov r7, #2
 g_next:
     bl pad_mode
@@ -319,8 +330,12 @@ enter_mfx2:
     str r1, [r4, #S_PEND]
     mov r1, #1
     str r1, [r4, #S_MODE]
+    mov r0, #S_HA
+    bl hold_leave
     ldr r1, [r4, #S_B]
     bl set_type
+    mov r0, #S_HB
+    bl hold_enter
     bl refresh_page
     bl led_assert
 en_out:
@@ -333,10 +348,14 @@ leave_mfx2:
     ldr r0, [r4, #S_MODE]
     cmp r0, #1
     bne lv_out
+    mov r0, #S_HB
+    bl hold_leave
     mov r0, #0
     str r0, [r4, #S_MODE]
     ldr r1, [r4, #S_A]
     bl set_type
+    mov r0, #S_HA
+    bl hold_enter
     bl refresh_page
 lv_out:
     pop {{r4, pc}}
@@ -391,6 +410,8 @@ mfx2_sync:
     bl pad_mode
     cmp r0, #2
     beq ms_mode
+    bl hold_read                ; the pad left master effect mode another way: remember, press nothing there
+    str r0, [r4, #S_HB]
     mov r0, #0
     str r0, [r4, #S_MODE]
     ldr r1, [r4, #S_A]
@@ -420,10 +441,13 @@ ms_mode:
     bl led_assert
     b ms_out
 ; another pattern (or the same one loaded again): its own type came in with the load, apply its MFX 2
+; MFX HOLD came in with the load as well and is MFX 1's: MFX 2 starts the pattern released
 ms_re:
     mov r0, #0
     str r0, [r4, #S_PEND]
     str r5, [r4, #S_IDX]
+    mov r0, #S_HA
+    bl hold_leave
     mov r0, r5
     bl get_b
     str r0, [r4, #S_B]
@@ -494,6 +518,8 @@ set_hook:
     cmp r0, #0
     bne sh_orig
     ldr r3, =STATE
+    cmp r6, #0
+    streq r6, [r3, #S_HB]       ; a pattern was loaded: MFX 2's remembered hold belonged to the one before
     ldr r0, [r3, #S_MODE]
     cmp r0, #1
     bne sh_orig
@@ -541,6 +567,7 @@ write_hook:
     bne wh_dirty
     ldr r0, [r3, #S_A]
     strb r0, [r4, #61]
+    bl hold_write               ; keeps r3
 wh_dirty:
     ldr r0, [r3, #S_DIRTY]
     cmp r0, #1
@@ -738,6 +765,103 @@ refresh_page:
     pop {{r4, pc}}
 lit_pool:
 .pool
+code_end:
+
+.org {code2_at:#x}
+; ===================================================== MFX HOLD of each of the two
+; There is one master effect, so one hold in the pattern (byte 65, with the pad's X and Y in 62 and 63). Each of
+; MFX 1 and MFX 2 keeps its own: leaving one remembers its hold and lets a held effect go, entering the other
+; puts its X, Y and hold back. The hold changes as its key changes it (LED, effect, touch pad), through the
+; dispatcher; X and Y through the firmware's setters.
+
+; r0 = the hold of the pattern in RAM: hold, X << 8, Y << 16, 1 << 24; 0 without a pattern
+hold_read:
+    ldr r1, =PATTERN
+    ldr r1, [r1]
+    cmp r1, #0
+    moveq r0, #0
+    bxeq lr
+    ldrb r0, [r1, #0x45]
+    cmp r0, #0
+    movne r0, #1
+    ldrb r2, [r1, #0x42]
+    orr r0, r0, r2, lsl #8
+    ldrb r2, [r1, #0x43]
+    orr r0, r0, r2, lsl #16
+    orr r0, r0, #0x01000000
+    bx lr
+
+; MFX HOLD pressed, as the key
+hold_press:
+    push {{lr}}
+    ldr r0, =STATE
+    ldr r0, [r0, #S_DISP]
+    cmn r0, #1
+    popeq {{pc}}
+    cmp r0, #0
+    popeq {{pc}}
+    mov r1, #7
+    mov r2, #1
+    bl call_fw
+    pop {{pc}}
+
+; r0 = S_HA or S_HB: remember the hold there, a held effect is let go
+hold_leave:
+    push {{r4, r5, lr}}
+    ldr r4, =STATE
+    mov r5, r0
+    bl hold_read
+    str r0, [r4, r5]
+    tst r0, #1
+    blne hold_press
+    pop {{r4, r5, pc}}
+
+; r0 = S_HA or S_HB: X and Y remembered there are put back, and its hold; nothing remembered stays released
+hold_enter:
+    push {{r4, r5, lr}}
+    ldr r4, =STATE
+    ldr r5, [r4, r0]
+    mov r1, r5, lsr #24
+    cmp r1, #1
+    bne he_out
+    ldr r4, =GLOBALS
+    ldr r4, [r4]
+    cmp r4, #0
+    beq he_out
+    add r4, r4, #0x4000
+    add r4, r4, #4
+    mov r0, r4
+    mov r1, r5, lsr #8
+    and r1, r1, #0xFF
+    mov r2, #1
+    bl PAD_X
+    mov r0, r4
+    mov r1, r5, lsr #16
+    and r1, r1, #0xFF
+    mov r2, #1
+    bl PAD_Y
+    tst r5, #1
+    blne hold_press
+he_out:
+    pop {{r4, r5, pc}}
+
+; r4 = staging copy of the pattern, MFX 2 is on: the pattern gets MFX 1's hold, X and Y (bytes 65, 62, 63; 60 with a hold), not MFX 2's
+hold_write:
+    ldr r0, =STATE
+    ldr r0, [r0, #S_HA]
+    mov r1, r0, lsr #24
+    cmp r1, #1
+    bxne lr
+    ands r1, r0, #1
+    strb r1, [r4, #65]
+    strbne r1, [r4, #60]        ; a held pad counts as touched (byte 60), as the firmware stores it
+    mov r1, r0, lsr #8
+    strb r1, [r4, #62]
+    mov r1, r0, lsr #16
+    strb r1, [r4, #63]
+    bx lr
+hold_pool:
+.pool
 """
 
 
@@ -772,17 +896,18 @@ def source(default_type=DEFAULT_TYPE):
         lock_equ=LOCK_EQU.format(locked=LOCKED) if synth else "", lock_test=LOCK_TEST if synth else "",
         kill=KILL_SWITCH, led_gate=LED_GATE, led_on=LED_ON, led_off=LED_OFF, default=default_type, state=STATE, recbuf=RECBUF, blech_mfx=BLECH_MFX,
         flash=FLASH_RECORD, rec_len=RECORD_SIZE, record_id=RECORD_ID, record_ver_len=RECORD_VERSION | (TABLE_BYTES << 16),
-        code_at=CODE_AT, body=sampler_address("KEY_BODY"), set_body=sampler_address("SET_BODY"), tick_func=sampler_address("TICK_FUNC"),
+        code_at=CODE_AT, code2_at=CODE2_AT, body=sampler_address("KEY_BODY"), set_body=sampler_address("SET_BODY"), tick_func=sampler_address("TICK_FUNC"),
         copy_func=sampler_address("COPY_FUNC"))
     if BUILD == "synth":
-        text = synthaddr.source(text, own=[(CODE_AT, CODE_END), (STATE, STATE_END), (RECBUF, RECBUF_END)], keep=[BLECH_MFX])
+        text = synthaddr.source(text, own=[(CODE_AT, CODE_END), (CODE2_AT, CODE2_END), (STATE, STATE_END), (RECBUF, RECBUF_END)], keep=[BLECH_MFX])
     return text
 
 
 def build_code(default_type=DEFAULT_TYPE):
+    """The first section (address, bytes), the symbols, and the second section (address, bytes)."""
     code = arm.assemble(source(default_type))
-    (at, data), = code.sections
-    return at, data, code.symbols
+    (at, data), second = code.sections
+    return at, data, code.symbols, second
 
 
 def file_offset(addr):
@@ -802,9 +927,11 @@ def build_patch(vsb, default_type=DEFAULT_TYPE, build="hacktribe"):
     use_build(build)
     if not 1 <= default_type <= 100:
         raise SystemExit("--b-type is the number the display shows, 1 to 100")
-    at, code, symbols = build_code(default_type)
+    at, code, symbols, (at2, code2) = build_code(default_type)
     if at != CODE_AT or at + len(code) > CODE_END:
         raise SystemExit(f"code is {len(code):#x} bytes, room for {CODE_END - CODE_AT:#x}")
+    if at2 != CODE2_AT or at2 + len(code2) > CODE2_END:
+        raise SystemExit(f"the second section is {len(code2):#x} bytes, room for {CODE2_END - CODE2_AT:#x}")
 
     def was(addr, n):
         return vsb[file_offset(addr):file_offset(addr) + n]
@@ -845,6 +972,8 @@ def build_patch(vsb, default_type=DEFAULT_TYPE, build="hacktribe"):
         "changes": [
             {"file": file_offset(CODE_AT), "bytes": code.hex(), "expect": free(CODE_AT, len(code)),
              "note": "MFX 2: key, tick, type setter and pattern write hooks, flash table"},
+            {"file": file_offset(CODE2_AT), "bytes": code2.hex(), "expect": free(CODE2_AT, len(code2)),
+             "note": "MFX 2: MFX HOLD of each of the two"},
             hook(KEY_HOOK, "key_hook", False, "first instruction of the key dispatcher jumps to the hook"),
             hook(TICK_CALL, "tick_hook", True, "the screen tick call goes through the hook"),
             hook(SET_HOOK, "set_hook", False, "first instruction of the type setter jumps to the hook"),
@@ -887,8 +1016,8 @@ def main():
     use_build(a.build)
     patch = build_patch(raw, a.b_type, a.build)
     if a.listing:
-        at, code, symbols = build_code(a.b_type)
-        print(f"section {at:#x} + {len(code):#x} bytes")
+        at, code, symbols, (at2, code2) = build_code(a.b_type)
+        print(f"section {at:#x} + {len(code):#x} bytes, section {at2:#x} + {len(code2):#x} bytes")
         for name, addr in sorted(symbols.items(), key=lambda kv: kv[1]):
             print(f"  {addr:#010x} {name}")
     text = json.dumps(patch, indent=1) + "\n"

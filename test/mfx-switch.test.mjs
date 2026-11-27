@@ -13,7 +13,9 @@ import { identify } from "../src/firmware.mjs";
 const PATCH = JSON.parse(readFileSync(new URL("../data/patches/mfx-switch.json", import.meta.url), "utf8"));
 const SPLASH = JSON.parse(readFileSync(new URL("../data/patches/splash-editor.json", import.meta.url), "utf8"));
 const CODE = 0x1a5100;               // file offset of 0xC01A5000
-const CODE_END = 0x1a5d00;           // 0xC01A5C00
+const CODE_END = 0x1a5900;           // 0xC01A5800, where the power-off picture's code starts
+const CODE2 = 0x1a5f20;              // file offset of 0xC01A5E20, the second section: MFX HOLD of each of the two
+const CODE2_END = 0x1a6100;          // 0xC01A6000
 // file offset of each hooked word: the key dispatcher's first instruction, the screen tick call, the type setter's first instruction, the pattern copy call
 const HOOKS = [[0x701d8, 0xea, 0xc00700d8], [0x837f8, 0xeb, 0xc00836f8], [0x48b64, 0xea, 0xc0048a64], [0x4c3bc, 0xeb, 0xc004c2bc]];
 
@@ -54,11 +56,13 @@ test("the spans it asks to run at start are inside its changes, small, and leave
   assert.ok(codeChange.bytes.length / 2 > code);
 });
 
-test("the patch is our code in the free run plus four hooked words, each a branch into it", () => {
-  assert.equal(PATCH.changes.length, 1 + HOOKS.length);
-  const [code, ...hooks] = PATCH.changes;
+test("the patch is our code in two free runs plus four hooked words, each a branch into the first", () => {
+  assert.equal(PATCH.changes.length, 2 + HOOKS.length);
+  const [code, second, ...hooks] = PATCH.changes;
   const n = fromHex(code.bytes).length;
   assert.ok(code.file === CODE && code.file + n <= CODE_END, `${n} bytes`);
+  const m = fromHex(second.bytes).length;
+  assert.ok(second.file === CODE2 && second.file + m <= CODE2_END, `${m} bytes in the second section`);
   assert.equal(hooks.length, HOOKS.length);
   for (const [i, [file, opcode, address]] of HOOKS.entries()) {
     assert.equal(hooks[i].file, file);
@@ -103,7 +107,7 @@ test("applied to the own firmware it changes only what it names, and the splash 
   assert.equal(res.ok, true, res.reasons.join(" "));
   assert.equal((await identify(res.bytes)).known, true);
   const named = PATCH.changes.map(c => [c.file, c.bytes.length / 2]);
-  assert.ok(named.slice(1).every(([, n]) => n === 4));
+  assert.ok(named.slice(2).every(([, n]) => n === 4));
   for (let i = 0; i < original.length; i++) {
     if (original[i] !== res.bytes[i]) assert.ok(named.some(([at, n]) => i >= at && i < at + n), `0x${i.toString(16)} changed without being named`);
   }
