@@ -104,6 +104,32 @@ Emulator (`tools/emu/sample_category_cases.py` `case_one_shot`).
   EDIT verhält sich Korgs eigener LOOP START genauso.
 - Oszillatoren und leere Plätze zeigen `---`. Auf die Karte kommt ONE SHOT wie die Punkte mit EXPORT ALL SAMPLE.
 
+### TURN MONO in SAMPLE EDIT (rot und Hacktribe, ab 1.5)
+
+Ein Stereo-Sample hat hinter PLAY LEVEL eine Seite TURN MONO (Zähler 12/13, ONE SHOT rückt auf 11/13), ein Mono-Sample hat sie
+nicht. Quelle: Messung im Emulator (`tools/emu/sample_category_cases.py` `case_turn_mono`, rot und Hacktribe).
+
+- Der Wert zeigt `Stereo` oder `Mono` (Korgs eigene Texte `0xC00A733C` und `0xC00A7337`). ENTER oder WRITE fragt mit Korgs
+  `Are You Sure ?` (`0xC00A5A8B`), ein zweites ENTER oder WRITE wandelt um, EXIT nimmt die Frage zurück.
+- Die Wandlung läuft im DSP-Speicher: Blöcke bis `0x10000` Byte lesen (`0xC004EDDC`), je Frame (L + R) / 2 abgerundet, ohne
+  Clipping, in die erste Hälfte des Samples zurückschreiben (`0xC004EF28`). Puffer ist Korgs Arbeitspuffer (`0xC00369F0`, frei
+  mit `0xC0036A08`). 20000 Frames: 0 von 20000 weichen von (L + R) / 2 ab.
+- Danach Metadaten (`0xC036AD88` + Zeile × `0x45C`): Byte 4 halbe Länge, Byte 9 = 0 (mono). Die Spieltabelle (`0xC0362EE8` +
+  Zeile × 16) bekommt Start, Loop und Ende in Byte halbiert, die Punkte bleiben auf demselben Frame.
+- Liegt das Sample als letztes im DSP-Speicher (Ende = Zeiger `0xC00F9C80`), rückt der Zeiger um die halbe Länge zurück, so wie
+  DELETE ihn zurücksetzt. Sonst bleibt die zweite Hälfte bis zum nächsten Start ungenutzt.
+- Danach wird der Schnappschuss neu genommen (`0xC0039514`), sonst holte EXIT ohne WRITE die alten Stereo-Werte zurück. Mono
+  bleibt also auch ohne WRITE. Der Seitenring zählt danach wieder 12.
+- Solange der Sequencer läuft (`0xC06BC318` ungleich 0), wandelt ENTER nicht und die Seite zeigt `stop PLAY`. Solange
+  `0xC0345EC4` belegt ist, auch nicht.
+- Auf die Karte kommt es wie die Punkte mit EXPORT ALL SAMPLE: ein Mono-WAV mit halber Datenlänge. Korgs Export schneidet jedes
+  Sample auf START POINT bis END POINT zu, START steht im Satz dann auf 0, Loop und Ende relativ dazu. Ohne Export lädt der nächste
+  Start wieder das Stereo-Sample von der Karte.
+- Grenze: eine Stimme, die das Sample gerade spielt (Pad in SAMPLE EDIT gedrückt), wird nicht vorher beendet. Sie kann für die
+  Dauer der Wandlung Fremdes spielen. Nur im Emulator geprüft, am Gerät offen (`docs/geraetetests/offene-geraetetests.md` 3.3).
+- Die blaue braucht die Seite nicht: ihr IMPORT SAMPLE und die App (`src/sample-file.mjs` `entryFromWav` mit `blue`) schreiben
+  mono, und Stereo-Daten in der Datei mittelt ihr Lader beim Start. Im DSP liegt dort jedes Sample schon mono.
+
 ## Der Plan einer Änderung
 
 `planChange` gibt zurück, was die Datei ändert, so wenig wie nötig: den neuen Kopf, die Einträge, die bleiben und wohin sie

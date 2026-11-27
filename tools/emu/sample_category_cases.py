@@ -10,7 +10,9 @@ writes it; the dial sets
 the category byte of the sample's name entry, stops at 0 and 17 and shows the firmware's own texts; EXPORT ALL SAMPLE writes the
 category into e2sSample.all; a factory slot with a sample from the card has the page as well; without any sample the page shows
 "---" and the dial changes nothing; EXIT goes back to the entry screen (37); with EXIT held at power-on SAMPLE EDIT is Korg's 10
-pages. The synth has no SAMPLE EDIT and no hooks for it.
+pages. A stereo sample also gets TURN MONO behind PLAY LEVEL (12 of 13): after "Are You Sure ?" it is mixed in the DSP's
+memory to (L + R) / 2 with the points on the same frame (case_turn_mono, with the DSP model). The synth has no SAMPLE EDIT and
+no hooks for it.
 
     tools/emu/.venv/bin/python tools/emu/sample_category_cases.py --vsb PATCHED.VSB [--flash FLASH.BIN] [--only case_page,...]
 """
@@ -32,6 +34,7 @@ import synthaddr  # noqa: E402
 from machine import load_flash  # noqa: E402
 from splash_cases import SWITCH_SCREEN  # noqa: E402
 import lifetime  # noqa: E402
+import sampleset  # noqa: E402
 import parallel  # noqa: E402
 from dsp_model import DspModel  # noqa: E402
 
@@ -49,6 +52,8 @@ USER, FACTORY = 500, 100          # display 501, and a factory slot (101) a card
 STEPS_AT = 1168                   # esli: the slice step count; with it a mono sample skips START POINT to LOOP START in SAMPLE EDIT
 LOOP_AT, END_AT, ONE_SHOT_AT = 44, 48, 52   # esli: loop start, end (frames), the one-shot byte
 PLAY = 0xC0362EE8                 # the firmware's play table, 16 bytes a sample index: +14 one-shot
+TRANSPORT = 0xC06BC318            # the firmware's transport word, 0 stopped (script_hw.s:HW_TRANSPORT)
+META, FREE = 0xC036AD88, 0xC00F9C80   # its metadata (0x45C a physical index: +0 DSP offset, +4 PCM bytes, +9 stereo), its DSP allocation pointer
 SAMPLE_INDEX, START_SET, END_SET, LOOP_SET, ONE_SHOT_GET = 0xC004E4EC, 0xC004E63C, 0xC004E710, 0xC004E7E8, 0xC004EA38
 
 
@@ -95,12 +100,20 @@ def sliced(data, slot):
 class Edit:
     """A device with a card, on SAMPLE EDIT's first page."""
 
-    def __init__(self, payload, flash, slots=(USER,), data=None, held=0):
+    def __init__(self, payload, flash, slots=(USER,), data=None, held=0, dsp=False):
         mc.for_build(payload)
         self.payload = payload
         if data is None and slots:
             data = hc.bank(list(slots))
-        self.box = hc.Box(payload, flash, held=held, data=data, seconds=12)
+        if dsp:                   # the model of the DSP listens from power-on, so it holds the PCM the start loads
+            self.box = hc.Box.__new__(hc.Box)
+            self.box.dev = hc.Dev(payload, flash, held)
+            self.box.dev.m.adapter = True
+            self.dsp = DspModel.attach(self.box.dev.m)
+            self.box.dev.m.insert_card(hc.card(payload, data))
+            self.box.dev.run(12)
+        else:
+            self.box = hc.Box(payload, flash, held=held, data=data, seconds=12)
         self.dev = self.box.dev
         self.dev.call(SWITCH_SCREEN, ENTRY, 0)
         self.dev.run(0.5)
@@ -315,6 +328,97 @@ def case_one_shot(payload, flash):
             entry("one_shot_oscillator_dashes", guard and not g.asserts(), dict(value=value, shown=g.shown()))]
 
 
+def stereo_bank(frames, start=40, loop=400):
+    """e2sSample.all with one stereo sample on USER whose left and right differ, start and loop start inside it (bytes of
+    both channels, as the esli record keeps them for stereo). -> (file, left, right)."""
+    data = bytearray(sampleset.build({USER: (hc.name_of(USER), frames, 48000, "stereo16")}))
+    left = [(37 * i) % 20001 - 10000 for i in range(frames)]
+    right = [(-91 * i + 5000) % 30001 - 15000 for i in range(frames)]
+    at = data.index(b"data", struct.unpack_from("<I", data, 16 + USER * 4)[0]) + 8
+    for i in range(frames):
+        struct.pack_into("<hh", data, at + 4 * i, left[i], right[i])
+    esli = esli_of(data, USER)
+    struct.pack_into("<II", data, esli + 40, start, loop)
+    data[esli + ONE_SHOT_AT] = 0
+    return bytes(data), left, right
+
+
+def case_turn_mono(payload, flash):
+    """TURN MONO, behind ONE SHOT for a stereo sample only. ENTER asks the firmware's "Are You Sure ?", EXIT takes it back,
+    the second ENTER mixes the sample in the DSP's memory to (L+R)/2 rounded down (two blocks of the firmware's DSP read), the
+    points stay on the same frame, the metadata says mono with half the bytes and the allocation pointer of the last sample
+    moves back. EXIT without WRITE keeps it (the snapshot is taken again), EXPORT ALL SAMPLE writes a mono file. While the
+    sequencer runs ENTER only says "stop PLAY". A mono sample has no TURN MONO (case_one_shot counts 12 pages)."""
+    frames = 20000                # 80000 bytes: one full block of 0x10000 and a part one
+    data, left, right = stereo_bank(frames)
+    e = Edit(payload, flash, data=data, dsp=True)
+    e.box.set_sample(USER)
+    index = e.dev.call(SAMPLE_INDEX, e.slot()) & 0xFFFF
+    phys = e.dev.call(0xC004E2F0, index) & 0xFFFF
+    meta = META + phys * 0x45C
+    base, size = struct.unpack("<II", e.dev.read(meta, 8))
+    free = e.dev.u32(FREE)
+    before = (e.points(), e.dev.read(meta + 9, 1)[0], size, base + size == free)
+    words = e.dsp.samples(base, 2 * frames)
+    ok_loaded = words == [v for pair in zip(left, right) for v in pair]
+    delete = e.key("edit_prev")
+    page = e.key("edit_prev")
+    shot = e.key("edit_prev")
+    again = e.key("edit_next")
+    ask = e.key("menu")
+    back = e.key("exit")
+    e.key("menu")
+    e.dev.run(0.3)
+    done = e.key("menu")
+    e.dev.run(1)
+    done = e.shown()
+    meta_after = struct.unpack("<II", e.dev.read(meta, 8)) + (e.dev.read(meta + 9, 1)[0],)
+    mono = e.dsp.samples(base, frames)
+    want = [(a + b) >> 1 for a, b in zip(left, right)]
+    wrong = sum(1 for a, b in zip(mono, want) if a != b)
+    after = (e.points(), e.dev.u32(FREE))
+    nxt = e.key("edit_next")
+    prev = e.key("edit_prev")
+    out = e.key("exit")
+    kept = (struct.unpack("<II", e.dev.read(meta, 8)) + (e.dev.read(meta + 9, 1)[0],), e.points())
+    gate = e.gate()
+    written = e.export()
+    at = esli_of(written, USER) if written else 0
+    riff = struct.unpack_from("<I", written, 16 + USER * 4)[0] if written else 0
+    channels = struct.unpack_from("<H", written, written.index(b"fmt ", riff) + 10)[0] if written else None
+    dat = written.index(b"data", riff) if written else 0
+    pcm = list(struct.unpack_from(f"<{struct.unpack_from('<I', written, dat + 4)[0] // 2}h", written, dat + 8)) if written else []
+    record = (struct.unpack_from("<III", written, at + 40), struct.unpack_from("<I", written, at + 60)[0], written[at + 65]) if at else None
+    ok_ring = (delete[:2] == (PAGES_SCREEN, (13, 13)) and page[:3] == (MENU, (12, 13), ("TURN MONO", "Stereo"))
+               and shot[:3] == (MENU, (11, 13), ("ONE SHOT", "OFF")) and again[:3] == page[:3])
+    ok_ask = ask[2] == ("TURN MONO", "Are You Sure ?") and back[:3] == page[:3]
+    ok_mix = (done[2] == ("TURN MONO", "Mono") and meta_after == (base, size // 2, 0) and wrong == 0 and after[0] == before[0]
+              and after[1] == base + size // 2)
+    ok_leave = (nxt[:2] == (PAGES_SCREEN, (12, 12)) and prev[:3] == (MENU, (11, 12), ("ONE SHOT", "OFF")) and out[0] == ENTRY
+                and kept == (meta_after, before[0]) and gate == [1, 0])
+    first, end, loop = before[0][:3]   # the export starts the file at START POINT, as the firmware's EXPORT ALL SAMPLE always does
+    ok_file = (channels == 1 and pcm == want[first:end + 1] and record is not None and record[1] == 2 * (end - first + 1)
+               and record[2] == 0 and record[0] == (0, 2 * (loop - first), 2 * (end - first)))
+    p = Edit(payload, flash, data=data, dsp=True)
+    p.box.set_sample(USER)
+    p.key("edit_prev")
+    p.key("edit_prev")
+    p.dev.m.uc.mem_write(TRANSPORT, struct.pack("<I", 1))   # the sequencer runs (PLAY itself does not start it on SAMPLE EDIT's screens)
+    play = p.key("menu")
+    p.dev.m.uc.mem_write(TRANSPORT, struct.pack("<I", 0))
+    still = p.dev.read(META + (p.dev.call(0xC004E2F0, p.dev.call(SAMPLE_INDEX, p.slot()) & 0xFFFF) & 0xFFFF) * 0x45C + 9, 1)[0]
+    ok_play = play[2] == ("TURN MONO", "stop PLAY") and still == 1
+    return [entry("turn_mono_page_for_stereo_only", ok_loaded and ok_ring and before[1] == 1 and before[3] and not e.asserts(),
+                  dict(before=before, loaded=ok_loaded, delete=delete, page=page, shot=shot, again=again)),
+            entry("turn_mono_asks_and_exit_takes_it_back", ok_ask and not e.asserts(), dict(ask=ask, back=back)),
+            entry("turn_mono_mixes_in_the_dsp", ok_mix and not e.asserts(),
+                  dict(done=done, meta=meta_after, size=size, differing=wrong, points=(before[0], after[0]), free=(free, after[1]))),
+            entry("turn_mono_kept_without_write", ok_leave and not e.asserts(), dict(next=nxt, prev=prev, exit=out, kept=kept, gate=gate)),
+            entry("turn_mono_export_writes_mono", ok_file and not e.asserts(),
+                  dict(channels=channels, record=record, pcm_differing=sum(1 for a, b in zip(pcm, want[first:]) if a != b))),
+            entry("turn_mono_refused_while_playing", ok_play and not p.asserts(), dict(play=play, stereo=still))]
+
+
 def case_factory_slot(payload, flash):
     """A card sample on a factory slot (the Sampler: 101) has the page; on Hacktribe that slot is an oscillator the loader refuses."""
     e = Edit(payload, flash, slots=(FACTORY, USER))
@@ -360,7 +464,7 @@ def case_without(payload, flash):
     return [entry("exit_held_is_stock", ok and not e.asserts(), dict(first=first, rename=rename, start=start))]
 
 
-GROUPS = (case_page, case_wheel, case_export, case_sliced, case_one_shot, case_factory_slot, case_no_sample, case_without)
+GROUPS = (case_page, case_wheel, case_export, case_sliced, case_one_shot, case_factory_slot, case_no_sample, case_without, case_turn_mono)
 
 
 def group_entries(payload, flash, i):
