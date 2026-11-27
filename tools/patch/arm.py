@@ -306,7 +306,7 @@ class _Assembler:
                             | (base == "ldm") << 20 | rn << 16 | self.reglist(ops[1]))
         # load / store
         sm = self.split_mnemonic(head, ["ldrsh", "ldrsb", "ldrh", "strh"])
-        if sm:
+        if sm and sm[2] == 0:                # ldrhs/strhs are ldr/str with cond HS
             return self.halfword(sm[0], sm[1], ops)
         sm = self.split_mnemonic(head, ["ldrb", "strb", "ldr", "str"])
         if sm and sm[2] == 0:
