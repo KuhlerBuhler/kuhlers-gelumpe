@@ -17,7 +17,8 @@
 .equ RR_STOP_ACK, 136
 .equ RR_BACKLOG, 140
 .equ RR_GAPS, 144
-.equ RR_SIZE, 148
+.equ RR_STOP_TICK, 148
+.equ RR_SIZE, 152
 .equ RR_DSP_BYTES, 19200
 .equ RR_GUARD, 1024
 ; The DSP writes 192 bytes per tick (48 kHz stereo, 1 ms ticks). RR_BACKLOG keeps the unread bytes behind the DSP's
@@ -41,9 +42,13 @@
 ; all ones when it never showed within the bounds.
 .equ RR_ACK_TICKS, 40
 .equ RR_ACK_POLLS, 4096
+; A stop the DSP still has not taken after RR_STOP_LIMIT ticks of retries is given up: the source goes back to the input,
+; the tap is switched off and the take ends, so a DSP that never answers cannot hold the recorder forever.
+.equ RR_STOP_LIMIT, 1000
 ; RR_FAULT holds the first failure of a take, (place << 4) | check, then INFO[0], +4, +8, +12 (the source pointer) and +40
 ; as read when it failed. Places: 1 begin, 2 read before copying, 3 read after copying, 4 stop with a foreign capture,
-; 5 stop left pending, 6 resync after a late read. Checks 1 to 6 are rec_reader_validate's in order, 7 the deadline, 8 overflow, 9 pending stop.
+; 5 stop left pending, 6 resync after a late read. Checks 1 to 6 are rec_reader_validate's in order, 7 the deadline, 8 overflow, 9 pending stop,
+; 10 a stop given up.
 ; The runtime marks a copied fault with RR_FAULT_SEEN.
 .equ RR_FAULT_SEEN, 0x100
 
@@ -591,6 +596,7 @@ rec_stop_foreign:
     str r0, [r4, #RR_STATUS]
 rec_stop_clear:
     mov r0, #0
+    str r0, [r4, #RR_STOP_TICK]
     str r0, [r4, #RR_TEMP]
     ldr r0, =RR_ENABLE
     add r1, r4, #RR_TEMP
@@ -601,15 +607,50 @@ rec_stop_clear:
     ldr r0, [r4, #RR_STATUS]
     b rec_stop_return
 rec_stop_pending:
+    ldr r0, =RR_TICKS
+    ldr r0, [r0]
+    ldr r1, [r4, #RR_STOP_TICK]
+    cmp r1, #0
+    beq rec_stop_first
+    sub r0, r0, r1
+    ldr r1, =RR_STOP_LIMIT
+    cmp r0, r1
+    bhs rec_stop_give_up
+    b rec_stop_wait
+rec_stop_first:
+    cmp r0, #0
+    moveq r0, #1
+    str r0, [r4, #RR_STOP_TICK]
+rec_stop_wait:
     mov r0, #0x59
     bl rec_reader_fault
+    bl rec_stop_lost
+    b rec_stop_return
+rec_stop_give_up:
+    mov r0, #0x5A
+    bl rec_reader_fault
+    bl rec_stop_lost
+    ldr r0, [r4, #RR_INFO+12]
+    ldr r1, =RR_CAPTURE
+    cmp r0, r1
+    bne rec_stop_clear
+    ldr r0, =RR_INPUT
+    str r0, [r4, #RR_TEMP]
+    ldr r0, =RR_SOURCE_POINTER
+    add r1, r4, #RR_TEMP
+    mov r2, #2
+    bl rec_reader_write
+    b rec_stop_clear
+rec_stop_return:
+    pop {r4-r8, pc}
+.pool
+
+rec_stop_lost:
     ldr r0, [r4, #RR_STATUS]
     cmp r0, #0
     moveq r0, #RR_LOST
     str r0, [r4, #RR_STATUS]
-rec_stop_return:
-    pop {r4-r8, pc}
-.pool
+    bx lr
 
 ; Exact host-port writes under the firmware's DSP lock.
 rec_reader_write:

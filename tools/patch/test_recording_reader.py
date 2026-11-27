@@ -359,6 +359,24 @@ class RecordingReaderTests(unittest.TestCase):
         self.assertEqual(m.field('RR_OWNED'), 0)
         self.assertEqual(m.get(m.s('RR_ENABLE'), 4), bytes(4))
 
+    def test_a_stop_the_dsp_never_takes_is_given_up_after_the_limit(self):
+        m = Reader()
+        self.assertEqual(m.call('begin', m.ring, 65536), 0)
+        m.end_failures = 1 << 30
+        m.tick(0xFFFFFF00)
+        self.assertEqual(m.call('finish'), m.s('RR_LOST'))
+        self.assertEqual(m.field('RR_OWNED'), 1)
+        m.tick(m.tick() + m.s('RR_STOP_LIMIT') - 1)
+        self.assertEqual(m.call('finish'), m.s('RR_LOST'))
+        self.assertEqual(m.field('RR_OWNED'), 1)
+        self.assertEqual(m.info(3), m.s('RR_CAPTURE'))
+        m.tick(m.tick() + 1)
+        self.assertEqual(m.call('finish'), m.s('RR_LOST'))
+        self.assertEqual((m.field('RR_OWNED'), m.field('RR_STOP_TICK')), (0, 0))
+        self.assertEqual(m.info(3), m.s('RR_INPUT'))
+        self.assertEqual(m.get(m.s('RR_ENABLE'), 4), bytes(4))
+        self.assertEqual(m.field('RR_FAULT') & 0xFF, 0x59)
+
     def test_monotonic_byte_counters_cross_uint32_without_losing_ring_position(self):
         m = Reader()
         self.assertEqual(m.call('begin', m.ring, 65536), 0)
