@@ -50,7 +50,7 @@ KEYS ={"rec": 0, "stop": 1, "play": 2, "gate_arp": 4, "touch_scale": 5, "master_
         "menu": 9, "edit_prev": 8, "edit_next": 0x0C, "exit": 0x0D, "write": 0x0E, "pattern_set": 0x1B}
 TEMPO_LED = 0x14                        # TAP blinks with the tempo, so its last value depends on the moment
 POLL = (0xFF900A34, 0xFF9030EC, 0xFF9030F4)     # the DSP level polling, always there
-S_MODE, S_A, S_B, S_IDX, S_PEND, S_LOADED, S_DIRTY, S_TICK, S_BOOT = (4 * i for i in range(9))
+S_MODE, S_A, S_B, S_IDX, S_PEND, S_LOADED, S_DIRTY, S_TICK, S_BOOT, S_DISP, S_HA, S_HB = (4 * i for i in range(12))
 
 
 def for_build(payload):
@@ -230,6 +230,22 @@ class Box:
 
     def hold(self):
         return self.raw(self.pattern() + 4 + 65, 1)[0]
+
+    def held(self):
+        """MFX HOLD as the pattern in RAM has it and as its LED shows it, and the touch pad's X and Y: (hold, LED, X, Y)."""
+        x, y = self.raw(self.pattern() + 4 + 62, 2)
+        return (self.hold(), self.leds()[3], x, y)
+
+    def touch(self, x, y, wait=0.3):
+        """A finger on the touch pad at panel values x and y (0 to 255 here), then lifted."""
+        self.m.send([0, 0x22, 1, 0, 0])
+        self.dev.run(0.1)
+        self.m.send([5, 1, x, 0, x])
+        self.dev.run(0.1)
+        self.m.send([5, 2, y, 0, y])
+        self.dev.run(0.2)
+        self.m.send([0, 0x22, 0, 0, 0])
+        self.dev.run(wait)
 
     def firmware_set(self, value):
         """The firmware's own type change, the call the MFX TYPE page makes."""
@@ -438,6 +454,20 @@ def switch_cases(patched, flash=None):
     add("led_copy", not bad and seen[2][2] == (0, 255, 0, 0) and len(only_gate) == 3 and all(s[3] == (255, 0, 0, 0) for s in only_gate) and not c.m.asserts,
         f"after every key of a sequence through MFX 2, MASTER FX, GATE ARP (mode 3) and a pattern change, the firmware's LED copy (manager + 0x88c, what a device read shows) equals what went out on the panel UART for GATE ARP, TOUCH SCALE, MASTER FX and MFX HOLD; "
         f"mode 3 shows only GATE ARP; differences: {bad}")
+    h, seen = Box(patched, flash), []
+    h.touch(0x40, 0x80)
+    for name in ("mfx_hold", "touch_scale", "touch", "master_fx", "mfx_hold", "touch_scale", "mfx_hold", "master_fx", "touch_scale", "gate_arp", "master_fx", "touch_scale"):
+        if name == "touch":
+            h.touch(0xC0, 0x30)
+        else:
+            press_seq(h, name)
+        seen.append((name,) + h.held())
+    one, two = seen[0][3:], seen[2][3:]            # where the finger was last in MFX 1 and in MFX 2
+    want = [(1, 255) + one, (0, 0) + one, (0, 0) + two, (1, 255) + one, (0, 0) + one, (0, 0) + two, (1, 255) + two, (0, 0) + one, (1, 255) + two,
+            (0, 0) + one, (0, 0) + one, (1, 255) + two]
+    add("hold_each", [s[1:] for s in seen] == want and one != two and not h.m.asserts,
+        "MFX HOLD belongs to each of MFX 1 and MFX 2: held in MFX 1, TOUCH SCALE lets it go and MASTER FX holds it again at MFX 1's X and Y; held in MFX 2 and "
+        f"released in MFX 1, each switch brings back its own, GATE ARP from MFX 2 leaves MFX 1's; (key, hold, LED, X, Y): {seen}")
     k0 = Box(patched, flash, held=spec.KILL_SWITCH)
     add("exit_held_boot_mode", k0.mode() == 1 and k0.leds() == (0, 255, 0, 0) and k0.state(S_BOOT) != 1 and k0.screen() == 1 and not k0.m.asserts,
         "with EXIT held at power-on the touch pad starts in Touch Scale mode, TOUCH SCALE lit, as in the stock firmware")
@@ -708,6 +738,18 @@ def _section_write(c):
     step("WRITE without a changed table leaves the table sector alone", d.flash_record() == b"\xff" * spec.RECORD_SIZE)
     d.key("master_fx", 1.0)
     step("after WRITE, MASTER FX: the pattern's own type", d.mfx() == own)
+    d, r = patched_box(), stock_box()
+    n = d.number()
+    for box in (d, r):
+        box.touch(0x40, 0x80)
+        box.key("mfx_hold", 0.5)
+    r.write_pattern()
+    d.key("touch_scale", 1.0)
+    d.touch(0xC0, 0x30)
+    d.write_pattern()
+    got, ref = d.flash_pattern(n), r.flash_pattern(n)
+    step("WRITE while MFX 2 is on: the stored pattern has MFX 1's hold, X and Y, byte for byte the stock one", got == ref and got[65] == 1 and d.held()[:2] == (0, 0),
+         (got[60:66].hex(), ref[60:66].hex(), d.held()))
 
 
 def _section_flash(c):
@@ -770,11 +812,20 @@ def _section_hold(c):
     # ---- MFX HOLD, the page, equal types
     d = patched_box()
     d.key("mfx_hold", 0.5)
-    h = d.hold()
+    h = d.held()
     d.key("touch_scale", 1.0)
-    held_on = d.hold() == h and d.mfx() == bval
+    let_go = d.held()[:2] == (0, 0) and d.mfx() == bval
     d.key("master_fx", 1.0)
-    step("MFX HOLD: the held state is untouched by the switch", held_on and d.hold() == h and d.mfx() == own, h)
+    step("MFX HOLD: MFX 2 starts released, MASTER FX brings MFX 1's hold back", h[:2] == (1, 255) and let_go and d.held() == h and d.mfx() == own, h)
+    d.key("touch_scale", 1.0)
+    d.key("mfx_hold", 0.5)
+    d.turn(1, 0.8)
+    after_load = d.held()[:2]
+    d.key("master_fx", 1.0)
+    stock = stock_box()
+    stock.turn(1, 0.8)
+    step("MFX HOLD: a pattern change while MFX 2 is held lets it go, MASTER FX then has the new pattern's own hold",
+         after_load == (0, 0) and d.hold() == stock.hold() and not d.m.asserts, (after_load, d.hold(), stock.hold()))
     d = patched_box()
     open_mfx_type_page(d)
     before = hashlib.sha1(d.dev.fb()).hexdigest()
