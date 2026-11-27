@@ -258,6 +258,24 @@ kommt nichts ohne EXPORT ALL SAMPLE. Trotzdem vorher Patterns und Karte sichern 
 
 Quelle: Messung 2026-11-27 (Emulator, `sample_category_cases.py` `case_one_shot`)
 
+### 3.3 TURN MONO in SAMPLE EDIT der roten
+
+BLECHTRIBE der roten (Hacktribe-Basis `ORIGINAL.BIN`), am Gerät nicht gelaufen. Ändert das Sample im DSP-Speicher, auf die Karte
+kommt nichts ohne EXPORT ALL SAMPLE, ein Neustart lädt das Stereo-Sample wieder. Trotzdem vorher Patterns und Karte sichern
+(Abschnitt 3).
+
+1. Ein Mono-Sample wählen, DATA UTILITY > SAMPLE EDIT, ENTER, mit EDIT links von SELECT SAMPLE: DELETE 12/12, keine Seite TURN
+   MONO.
+2. Ein eigenes Stereo-Sample wählen: EDIT links zeigt DELETE 13/13, dann TURN MONO 12/13 mit Wert `Stereo`.
+3. PLAY starten, ENTER: `stop PLAY`, nichts ändert sich. PLAY stoppen.
+4. ENTER: `Are You Sure ?`, EXIT: wieder `Stereo`.
+5. ENTER, ENTER: `Mono`. Pad: klingt wie vorher, nur ohne Stereobild, kein Knacken, Start, Loop und Ende an derselben Stelle.
+6. EXIT ohne WRITE, Pad: bleibt mono. SAMPLE EDIT wieder öffnen: DELETE 12/12, keine Seite TURN MONO mehr.
+7. EXPORT ALL SAMPLE, aus und an: das Sample ist mono, die Datei auf der Karte kleiner.
+8. Pad in SAMPLE EDIT gedrückt halten und dabei umwandeln: hört man etwas Fremdes?
+
+Quelle: Messung 2026-11-27 (Emulator, `sample_category_cases.py` `case_turn_mono`)
+
 ## 4. Gerätename über USB
 
 Der Patch `usb-name` ändert den USB-Gerätenamen auf "Electribe 3" (nicht im BLECH-Satz, ein Häkchen im Patcher). Im
