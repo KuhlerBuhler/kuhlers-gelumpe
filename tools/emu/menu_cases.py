@@ -3402,9 +3402,12 @@ def early_look_cases(payload, flash=None):
     # here from its entry to its return, plus 8 ms for the emulator's noise (the loader starts 4 to 5 ms after the hook in both copies; a
     # copy without the hook was 17.2 ms earlier on the main screen after the dead card change, 5.6 ms before it). The fixed 25 ms broke
     # once the hook took 22.8 ms (develop 15e90ad6, red: the main screen 27.4 ms later).
+    # The main screen also comes in whole steps: #756 added well under 1 us to the start (the same 578 blocks of its code ran, only
+    # moved) and the main screen with the hook came 10.0 ms later on red (1576.5 -> 1586.5 ms, without the hook 1557.5 both times).
+    # So the main screen gets one such step of 10 ms on top.
     hook = early.get("hook_out_ms", 0) - early.get("hook_in_ms", 0)
     add("loader_starts_at_the_same_time", abs(early["loader_ms"] - late["loader_ms"]) < hook + 8, f"loader {early['loader_ms']:.1f} ms with the hook, {late['loader_ms']:.1f} ms without (the settings are read first now, not afterwards), the hook {hook:.1f} ms")
-    add("main_screen_not_later", 0 < hook < 60 and early["main_ms"] <= late["main_ms"] + hook + 8 and not early["asserts"], f"main screen at {early['main_ms']:.1f} ms with the hook, {late['main_ms']:.1f} ms without, the hook {hook:.1f} ms")
+    add("main_screen_not_later", 0 < hook < 60 and early["main_ms"] <= late["main_ms"] + hook + 8 + 10 and not early["asserts"], f"main screen at {early['main_ms']:.1f} ms with the hook, {late['main_ms']:.1f} ms without, the hook {hook:.1f} ms")
     held = early_run(payload, flash, files, held=KILL)
     add("exit_held_stays_stock", held.get("on") != 1 and held.get("pins") == GPIO_PINS and not held["asserts"], f"armed {held.get('on'):#x}, light pins {held.get('pins'):#x}")
     return out + boot_light_cases(payload, flash)
