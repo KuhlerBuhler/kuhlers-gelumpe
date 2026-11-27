@@ -419,7 +419,7 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.menu.blech.features.glideSwitch` | GLIDE SWITCH: the tempo glides to the tempo of a pattern MENU confirmed (1) (from API version 37) | yes, acts at once like the page | 0 to 1 |
 | `korg.record.running` | 1 while the native recording (SHIFT+REC, RECORD) runs or saves its file, else 0 (from API version 41) | no | 0 to 1 |
 | `korg.record.seconds` | length of the running take in whole seconds; keeps the length of the last take until the next one starts (from API version 41) | no | 0 to 2147483647 |
-| `korg.record.gaps` | 1 when the recording lost audio, the take then ends there (from API version 41) | no | 0 to 1 |
+| `korg.record.gaps` | how often the recording lost audio: each gap is filled with silence and the take goes on; 1 more when an error ended the take (from API version 41) | no | 0 to 2147483647 |
 | `korg.menu.blech.write()` | (a call, not a value) | writes the settings of the menu BLECH to the card as WRITE does on a page, see below | |
 | `korg.global.triggerMode` | page TRIGGER MODE of GLOBAL PARAMETERS: 0 Normal, 1 Seq 1st, 2 Seq Play | yes, as the menu does, through the firmware's own function | 0 to 2 |
 | `korg.global.velocityCurve` | page VELOCITY CURVE of GLOBAL PARAMETERS: 0 Heavy, 1 Normal, 2 Light, 3 Const96 | yes, as the menu does, through the firmware's own function | 0 to 3 |

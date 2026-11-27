@@ -15,10 +15,19 @@
 .equ RR_ACK, 128
 .equ RR_CHECK, 132
 .equ RR_STOP_ACK, 136
-.equ RR_SIZE, 140
+.equ RR_BACKLOG, 140
+.equ RR_GAPS, 144
+.equ RR_STOP_TICK, 148
+.equ RR_SIZE, 152
 .equ RR_DSP_BYTES, 19200
 .equ RR_GUARD, 1024
-.equ RR_MAX_GAP, 80
+; The DSP writes 192 bytes per tick (48 kHz stereo, 1 ms ticks). RR_BACKLOG keeps the unread bytes behind the DSP's
+; pointer at the last good read; a read is too late once those plus 192 per tick since then could reach the cursor
+; (RR_DSP_BYTES less RR_GUARD as margin). A late read does not end the take: the cursor jumps to half a ring behind the
+; DSP's pointer, the bytes skipped go in as silence (so the time stays right) and RR_GAPS counts it.
+.equ RR_RATE, 192
+.equ RR_LATE, RR_DSP_BYTES-RR_GUARD
+.equ RR_RESYNC, RR_DSP_BYTES/2
 .equ RR_MAX_READ, 4096
 .equ RR_OK, 0
 .equ RR_BAD_STATE, 1
@@ -33,9 +42,14 @@
 ; all ones when it never showed within the bounds.
 .equ RR_ACK_TICKS, 40
 .equ RR_ACK_POLLS, 4096
+; A stop the DSP still has not taken after RR_STOP_LIMIT ticks of retries is given up: the source goes back to the input,
+; the capture word INFO[0] is cleared, the tap is switched off and the take ends, so a DSP that never answers cannot
+; hold the recorder forever and the next take can start.
+.equ RR_STOP_LIMIT, 1000
 ; RR_FAULT holds the first failure of a take, (place << 4) | check, then INFO[0], +4, +8, +12 (the source pointer) and +40
 ; as read when it failed. Places: 1 begin, 2 read before copying, 3 read after copying, 4 stop with a foreign capture,
-; 5 stop left pending. Checks 1 to 6 are rec_reader_validate's in order, 7 the deadline, 8 overflow, 9 pending stop.
+; 5 stop left pending, 6 resync after a late read. Checks 1 to 6 are rec_reader_validate's in order, 7 the deadline, 8 overflow, 9 pending stop,
+; 10 a stop given up.
 ; The runtime marks a copied fault with RR_FAULT_SEEN.
 .equ RR_FAULT_SEEN, 0x100
 
@@ -105,6 +119,8 @@ rec_reader_begin:
     str r0, [r4, #RR_STATUS]
     str r0, [r4, #RR_PRODUCED]
     str r0, [r4, #RR_CONSUMED]
+    str r0, [r4, #RR_BACKLOG]
+    str r0, [r4, #RR_GAPS]
     str r0, [r4, #RR_TEMP]
     str r0, [r4, #RR_TEMP+4]
     str r0, [r4, #RR_TEMP+8]
@@ -412,15 +428,78 @@ rec_read_verify:
     cmp r0, #0
     movne r0, #0x37
     bne rec_read_gap
+    ldr r0, [r4, #RR_INFO+8]
+    subs r0, r0, r6
+    addlo r0, r0, #RR_DSP_BYTES
+    str r0, [r4, #RR_BACKLOG]
+rec_read_commit:
     str r11, [r4, #RR_TICK]
     str r6, [r4, #RR_CURSOR]
     str r7, [r4, #RR_PRODUCED]
     mov r0, #RR_OK
     b rec_read_return
+; Late: drop what this call copied, estimate the bytes the DSP wrote past the old cursor, fill all of them but the half
+; ring still unread with silence, as far as the ARM ring has room, and go on from there. The ticks are capped at 0xFFFF
+; only to keep the product in 32 bits; that much silence never fits the largest ring (2 MiB) anyway.
 rec_read_gap:
     bl rec_reader_fault
-    mov r0, #RR_GAP
-    b rec_read_status
+    ldr r0, [r4, #RR_GAPS]
+    add r0, r0, #1
+    str r0, [r4, #RR_GAPS]
+    ldr r0, =RR_TICKS
+    ldr r11, [r0]
+    ldr r1, [r4, #RR_TICK]
+    sub r0, r11, r1
+    ldr r1, =0xFFFF
+    cmp r0, r1
+    movhi r0, r1
+    mov r1, #RR_RATE
+    mul r5, r0, r1
+    ldr r0, [r4, #RR_BACKLOG]
+    add r5, r5, r0
+    ldr r0, =RR_RESYNC
+    subs r5, r5, r0
+    movlo r5, #0
+    bic r5, r5, #3
+    bl rec_reader_info
+    ldr r0, [r4, #RR_MODE]
+    bl rec_reader_validate
+    cmp r0, #1
+    movne r0, #0x60
+    bne rec_read_lost
+    ldr r6, [r4, #RR_INFO+8]
+    ldr r0, =RR_RESYNC
+    sub r6, r6, r0
+    ldr r0, =RR_DSP_RING
+    cmp r6, r0
+    addlo r6, r6, #RR_DSP_BYTES
+    ldr r7, [r4, #RR_PRODUCED]
+    ldr r8, [r4, #RR_CAPACITY]
+    ldr r9, [r4, #RR_ARM_RING]
+    ldr r0, [r4, #RR_CONSUMED]
+    sub r0, r7, r0
+    sub r10, r8, r0
+    mov r0, #RR_CHANNELS
+    cmp r0, #1
+    moveq r5, r5, lsr #1
+    cmp r5, r10
+    movhi r5, r10
+    bic r5, r5, #1
+    sub r1, r8, #1
+    mov r2, #0
+rec_read_silence:
+    subs r5, r5, #2
+    bmi rec_read_resynced
+    and r0, r7, r1
+    add r3, r9, r0
+    strb r2, [r3]
+    strb r2, [r3, #1]
+    add r7, r7, #2
+    b rec_read_silence
+rec_read_resynced:
+    ldr r0, =RR_RESYNC
+    str r0, [r4, #RR_BACKLOG]
+    b rec_read_commit
 rec_read_lost:
     ldr r1, [r4, #RR_CHECK]
     orr r0, r0, r1
@@ -438,12 +517,21 @@ rec_read_return:
     pop {r4-r11, pc}
 .pool
 
+; -> r0 1 when late, r1 the tick it read; keeps r4 to r12.
 rec_reader_deadline:
     ldr r0, =RR_TICKS
     ldr r1, [r0]
     ldr r0, [r4, #RR_TICK]
     sub r0, r1, r0
-    cmp r0, #RR_MAX_GAP
+    cmp r0, #RR_DSP_BYTES/RR_RATE
+    movhs r0, #1
+    bxhs lr
+    mov r2, #RR_RATE
+    mul r3, r0, r2
+    ldr r2, [r4, #RR_BACKLOG]
+    add r3, r3, r2
+    ldr r2, =RR_LATE
+    cmp r3, r2
     movlo r0, #0
     movhs r0, #1
     bx lr
@@ -511,6 +599,7 @@ rec_stop_foreign:
     str r0, [r4, #RR_STATUS]
 rec_stop_clear:
     mov r0, #0
+    str r0, [r4, #RR_STOP_TICK]
     str r0, [r4, #RR_TEMP]
     ldr r0, =RR_ENABLE
     add r1, r4, #RR_TEMP
@@ -521,15 +610,57 @@ rec_stop_clear:
     ldr r0, [r4, #RR_STATUS]
     b rec_stop_return
 rec_stop_pending:
+    ldr r0, =RR_TICKS
+    ldr r0, [r0]
+    ldr r1, [r4, #RR_STOP_TICK]
+    cmp r1, #0
+    beq rec_stop_first
+    sub r0, r0, r1
+    ldr r1, =RR_STOP_LIMIT
+    cmp r0, r1
+    bhs rec_stop_give_up
+    b rec_stop_wait
+rec_stop_first:
+    cmp r0, #0
+    moveq r0, #1
+    str r0, [r4, #RR_STOP_TICK]
+rec_stop_wait:
     mov r0, #0x59
     bl rec_reader_fault
+    bl rec_stop_lost
+    b rec_stop_return
+rec_stop_give_up:
+    mov r0, #0x5A
+    bl rec_reader_fault
+    bl rec_stop_lost
+    ldr r0, [r4, #RR_INFO+12]
+    ldr r1, =RR_CAPTURE
+    cmp r0, r1
+    bne rec_stop_release
+    ldr r0, =RR_INPUT
+    str r0, [r4, #RR_TEMP]
+    ldr r0, =RR_SOURCE_POINTER
+    add r1, r4, #RR_TEMP
+    mov r2, #2
+    bl rec_reader_write
+rec_stop_release:
+    mov r0, #0
+    str r0, [r4, #RR_TEMP]
+    ldr r0, =RR_DSP_STATE
+    add r1, r4, #RR_TEMP
+    mov r2, #2
+    bl rec_reader_write
+    b rec_stop_clear
+rec_stop_return:
+    pop {r4-r8, pc}
+.pool
+
+rec_stop_lost:
     ldr r0, [r4, #RR_STATUS]
     cmp r0, #0
     moveq r0, #RR_LOST
     str r0, [r4, #RR_STATUS]
-rec_stop_return:
-    pop {r4-r8, pc}
-.pool
+    bx lr
 
 ; Exact host-port writes under the firmware's DSP lock.
 rec_reader_write:

@@ -14,7 +14,7 @@ jeden Schlüssel `en` oder `english` in `data/lang/` ab.
 
 ## Speicher
 
-`lang-de` schreibt seine Texte, Tabellen und Glyphen in den Sprachbereich `[0xC016C000, 0xC0170000)`, die oberen 16 KiB
+`lang-de` schreibt seine Texte, Tabellen und Glyphen in den Sprachbereich `[0xC016D000, 0xC0170000)`, die oberen 12 KiB
 der Code-Fläche MORE3. Der Bereich ist in allen drei Builds `0xFF`; der Code der Laufzeit endet davor
 (`tools/patch/script_hooks.py:LANG`, [Speicherbereiche](speicherbereiche.md)). Die Glyphen belegen davon 1824 Byte
 (gemessen mit `tools/lang/glyphs.mjs` auf allen drei Builds).

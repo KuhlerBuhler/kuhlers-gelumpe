@@ -218,15 +218,49 @@ class RecordingReaderTests(unittest.TestCase):
             received += m.uc.mem_read(m.ring + (position & 65535), 4)
         self.assertEqual(received, pcm(captured))
 
-    def test_a_late_reader_reports_a_gap_before_copying_aliased_dsp_data(self):
+    def silence(self, m, start, end):
+        self.assertEqual(bytes(m.uc.mem_read(m.ring + start, end - start)), bytes(end - start))
+
+    def test_a_late_reader_fills_the_lost_time_with_silence_and_keeps_the_take(self):
         m = Reader()
         self.assertEqual(m.call('begin', m.ring, 65536), 0)
-        m.capture([0x12345678] * 5000, elapsed=110)
-        self.assertEqual(m.call('poll'), m.s('RR_GAP'))
-        self.assertEqual(m.field('RR_PRODUCED'), 0)
-        self.assertEqual(m.call('finish'), m.s('RR_GAP'))
+        m.uc.mem_write(m.ring, b'\xa5' * 65536)
+        words = [(i * 104729) & 0xFFFFFFFF for i in range(5000)]
+        m.capture(words, elapsed=110)
+        self.assertEqual(m.call('poll'), 0)
+        lost = 110 * 192 - m.s('RR_RESYNC')
+        self.assertEqual((m.field('RR_GAPS'), m.field('RR_STATUS'), m.field('RR_PRODUCED')), (1, 0, lost))
+        self.silence(m, 0, lost)
+        self.assertEqual(m.call('finish'), 0)
+        self.assertEqual(m.field('RR_PRODUCED'), lost + m.s('RR_RESYNC'))
+        self.assertEqual(bytes(m.uc.mem_read(m.ring + lost, m.s('RR_RESYNC'))), pcm(words[-m.s('RR_RESYNC') // 4:]))
         self.assertIn(('END',), m.events)
         self.assertEqual(m.field('RR_OWNED'), 0)
+
+    def test_the_deadline_follows_the_ring_fill_not_a_fixed_time(self):
+        m = Reader()
+        self.assertEqual(m.call('begin', m.ring, 65536), 0)
+        m.capture([0x12345678] * 85 * 48, elapsed=85)
+        self.assertEqual(m.call('poll'), 0)
+        self.assertEqual((m.field('RR_GAPS'), m.field('RR_PRODUCED')), (0, 85 * 192 - m.s('RR_GUARD')))
+        self.assertEqual(m.field('RR_BACKLOG'), m.s('RR_GUARD'))
+        m.capture([0x12345678] * 88 * 48, elapsed=88)    # 88 ms plus the guard left unread still fit, 90 do not
+        self.assertEqual(m.call('poll'), 0)
+        self.assertEqual(m.field('RR_GAPS'), 0)
+        m.capture([0x12345678] * 90 * 48, elapsed=90)
+        self.assertEqual(m.call('poll'), 0)
+        self.assertEqual(m.field('RR_GAPS'), 1)
+
+    def test_silence_never_overwrites_unconsumed_pcm(self):
+        m = Reader()
+        self.assertEqual(m.call('begin', m.ring, 65536), 0)
+        m.uc.mem_write(m.ring, b'\xa5' * 65536)
+        m.field('RR_PRODUCED', 65536 - 1000)
+        m.capture([0x12345678] * 5000, elapsed=500)
+        self.assertEqual(m.call('poll'), 0)
+        self.assertEqual((m.field('RR_GAPS'), m.field('RR_PRODUCED')), (1, 65536))
+        self.silence(m, 65536 - 1000, 65536)
+        self.assertEqual(bytes(m.uc.mem_read(m.ring, 4)), b'\xa5' * 4)
 
     def test_arm_ring_overflow_is_visible_and_copies_no_partial_batch(self):
         m = Reader()
@@ -274,8 +308,9 @@ class RecordingReaderTests(unittest.TestCase):
             if m.s('RR_DSP_RING') <= address < m.s('RR_DSP_RING') + m.s('RR_DSP_BYTES'):
                 m.tick(100)
         m.after_read = stall
-        self.assertEqual(m.call('poll'), m.s('RR_GAP'))
-        self.assertEqual(m.field('RR_PRODUCED'), 0)
+        self.assertEqual(m.call('poll'), 0)
+        self.assertEqual((m.field('RR_GAPS'), m.field('RR_PRODUCED')), (1, 100 * 192 - m.s('RR_RESYNC')))
+        self.silence(m, 0, m.field('RR_PRODUCED'))
 
     def test_transfer_completion_cannot_reset_the_age_of_the_snapshot(self):
         m = Reader()
@@ -292,8 +327,10 @@ class RecordingReaderTests(unittest.TestCase):
         before = m.field('RR_PRODUCED')
         m.after_read = None
         m.capture([0xDEADBEEF] * 3360, elapsed=70)
-        self.assertEqual(m.call('poll'), m.s('RR_GAP'))
-        self.assertEqual(m.field('RR_PRODUCED'), before)
+        self.assertEqual(m.call('poll'), 0)
+        self.assertEqual(m.field('RR_GAPS'), 1)
+        self.assertGreater(m.field('RR_PRODUCED'), before)
+        self.silence(m, before, m.field('RR_PRODUCED'))
 
     def test_start_snapshot_keeps_the_tick_before_its_info_transfer(self):
         m = Reader()
@@ -307,8 +344,9 @@ class RecordingReaderTests(unittest.TestCase):
         self.assertEqual(m.call('begin', m.ring, 65536), 0)
         m.after_read = None
         m.capture([0xAABBCCDD] * 3360, elapsed=70)
-        self.assertEqual(m.call('poll'), m.s('RR_GAP'))
-        self.assertEqual(m.field('RR_PRODUCED'), 0)
+        self.assertEqual(m.call('poll'), 0)
+        self.assertEqual((m.field('RR_GAPS'), m.field('RR_PRODUCED')), (1, 115 * 192 - m.s('RR_RESYNC')))
+        self.silence(m, 0, m.field('RR_PRODUCED'))
 
     def test_failed_stop_retains_ownership_until_retry(self):
         m = Reader()
@@ -320,6 +358,37 @@ class RecordingReaderTests(unittest.TestCase):
         self.assertEqual(m.call('finish'), m.s('RR_LOST'))
         self.assertEqual(m.field('RR_OWNED'), 0)
         self.assertEqual(m.get(m.s('RR_ENABLE'), 4), bytes(4))
+
+    def test_a_stop_the_dsp_never_takes_is_given_up_after_the_limit(self):
+        m = Reader()
+        self.assertEqual(m.call('begin', m.ring, 65536), 0)
+        m.end_failures = 1 << 30
+        m.tick(0xFFFFFF00)
+        self.assertEqual(m.call('finish'), m.s('RR_LOST'))
+        self.assertEqual(m.field('RR_OWNED'), 1)
+        m.tick(m.tick() + m.s('RR_STOP_LIMIT') - 1)
+        self.assertEqual(m.call('finish'), m.s('RR_LOST'))
+        self.assertEqual(m.field('RR_OWNED'), 1)
+        self.assertEqual(m.info(3), m.s('RR_CAPTURE'))
+        m.tick(m.tick() + 1)
+        self.assertEqual(m.call('finish'), m.s('RR_LOST'))
+        self.assertEqual((m.field('RR_OWNED'), m.field('RR_STOP_TICK')), (0, 0))
+        self.assertEqual(m.info(3), m.s('RR_INPUT'))
+        self.assertEqual(m.get(m.s('RR_ENABLE'), 4), bytes(4))
+        self.assertEqual(m.field('RR_FAULT') & 0xFF, 0x59)
+        self.assertEqual(m.info(0), 0)
+        self.assertEqual(m.call('prepare', m.ring, 65536), 0)
+        m.end_failures = 0
+        self.assertEqual(m.call('begin', m.ring, 65536), 0)
+
+    def test_a_gap_longer_than_two_seconds_keeps_its_whole_time_when_the_ring_has_room(self):
+        m = Reader()
+        big = 0x600000
+        m.uc.mem_map(big, 1 << 20)
+        self.assertEqual(m.call('begin', big, 1 << 20), 0)
+        m.capture([0x12345678] * 1000, elapsed=2400)
+        self.assertEqual(m.call('poll'), 0)
+        self.assertEqual((m.field('RR_GAPS'), m.field('RR_PRODUCED')), (1, 2400 * 192 - m.s('RR_RESYNC')))
 
     def test_monotonic_byte_counters_cross_uint32_without_losing_ring_position(self):
         m = Reader()

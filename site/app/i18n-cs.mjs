@@ -2369,7 +2369,7 @@ export default {
   "api.object.features.glideSwitch": "GLIDE SWITCH: zda tempo klouže k patternu potvrzenému tlačítkem MENU (1) nebo ne (0).",
   "api.object.record.running": "Nativní nahrávání: 1 od startu do zavření souboru WAV, jinak 0. Jen ke čtení.",
   "api.object.record.seconds": "Délka probíhajícího nebo posledního nativního nahrávání v celých sekundách, podle zapsaných bajtů. Jen ke čtení.",
-  "api.object.record.gaps": "Nativní nahrávání: 1, když mezera v záznamu ukončila nahrávku (soubor tam končí), jinak 0. Jen ke čtení.",
+  "api.object.record.gaps": "Nativní nahrávání: kolikrát nahrávka ztratila zvuk. Každá mezera je vyplněna tichem a nahrávka pokračuje; o 1 víc, když chyba nahrávku ukončila. Jen ke čtení.",
   "api.object.padColor.part": "PAD COLOR, barva rozsvícených padů: 0 červená, 1 modrá, 2 růžová. Nikdy není stejná jako SELECT COLOR: zápis, který by je vyrovnal, je vymění.",
   "api.object.padColor.select": "SELECT COLOR, barva vybraného padu: 0 červená, 1 modrá, 2 růžová. Nikdy není stejná jako PAD COLOR: zápis, který by je vyrovnal, je vymění.",
   "api.object.padColor.overlap": "OVERLAP, barva padu, který svítí a je vybraný: 0 barva, která zbude, 1 červená, 2 modrá, 3 růžová.",

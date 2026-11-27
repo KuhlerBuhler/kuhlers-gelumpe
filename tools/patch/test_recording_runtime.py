@@ -261,15 +261,18 @@ class RecordingRuntimeTests(unittest.TestCase):
         m.step()
         m.capture([0x12345678] * 1000, elapsed=20)
         m.step()
-        m.tick(m.tick() + 100)
+        m.tick(m.tick() + 100)                     # late: the gap is filled with silence and the take goes on
+        for _ in range(3):
+            m.step()
+            self.assertEqual((m.public('NR_GAPS'), m.public('NR_PHASE'), m.public('NR_ERROR')), (1, 1, 0))
+        m.post(0)
         for _ in range(8):
             m.step()
             if not m.public('NR_PHASE'):
                 break
+        self.assertEqual((m.public('NR_GAPS'), m.public('NR_PHASE'), m.public('NR_ERROR')), (1, 0, 0))
+        m.step()
         self.assertEqual(m.public('NR_GAPS'), 1)
-        for _ in range(3):
-            m.step()
-            self.assertEqual(m.public('NR_GAPS'), 1)
         m.post(1)
         m.step()
         self.assertEqual(m.public('NR_GAPS'), 0)

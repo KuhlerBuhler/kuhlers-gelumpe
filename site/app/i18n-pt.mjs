@@ -2369,7 +2369,7 @@ export default {
   "api.object.features.glideSwitch": "GLIDE SWITCH: se o tempo desliza para um pattern confirmado com MENU (1) ou não (0).",
   "api.object.record.running": "Gravação nativa: 1 desde o início até o arquivo WAV ser fechado, senão 0. Só leitura.",
   "api.object.record.seconds": "Duração da gravação nativa atual ou da última, em segundos inteiros, pelos bytes escritos. Só leitura.",
-  "api.object.record.gaps": "Gravação nativa: 1 quando uma lacuna da captura encerrou a tomada (o arquivo termina ali), senão 0. Só leitura.",
+  "api.object.record.gaps": "Gravação nativa: quantas vezes a tomada perdeu áudio. Cada lacuna é preenchida com silêncio e a tomada continua; 1 a mais quando um erro encerrou a tomada. Só leitura.",
   "api.object.padColor.part": "PAD COLOR, a cor dos pads acesos: 0 vermelho, 1 azul, 2 rosa. Nunca é igual a SELECT COLOR: uma escrita que as igualaria troca as duas.",
   "api.object.padColor.select": "SELECT COLOR, a cor do pad escolhido: 0 vermelho, 1 azul, 2 rosa. Nunca é igual a PAD COLOR: uma escrita que as igualaria troca as duas.",
   "api.object.padColor.overlap": "OVERLAP, a cor de um pad aceso e escolhido: 0 a cor que sobra, 1 vermelho, 2 azul, 3 rosa.",

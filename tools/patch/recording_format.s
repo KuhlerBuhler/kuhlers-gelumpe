@@ -81,8 +81,7 @@ nr_format_time:
     mul r1, r6, r2
     sub r1, r7, r1
     bl nr_pair
-    mov r1, #0
-    strb r1, [r0]
+    bl nr_gaps
     pop {r4-r8, pc}
 nr_format_error:
     ldr r1, =nr_error_text
@@ -111,20 +110,32 @@ nr_format_copy:
     bl nr_text_copy
     ldr r1, [r6, #NR_ERROR]
     cmp r1, #0
-    beq nr_format_done
-    ldr r1, [r6, #NR_GAPS]
+    blne nr_gaps
+    pop {r4-r8, pc}
+.pool
+
+; r0 the end of a title: appends " #n" while the take has gaps (n up to 99) and the terminating zero.
+nr_gaps:
+    push {r4, lr}
+    ldr r1, =NATIVE_RECORDING
+    ldr r1, [r1, #NR_GAPS]
     cmp r1, #0
-    beq nr_format_done
+    beq nr_gaps_end
+    cmp r1, #99
+    movhi r1, #99
     mov r2, #32
     strb r2, [r0], #1
     mov r2, #35
     strb r2, [r0], #1
+    cmp r1, #10
+    movhs r2, #10
+    blhs nr_digit
     mov r2, #1
     bl nr_digit
+nr_gaps_end:
     mov r1, #0
     strb r1, [r0]
-nr_format_done:
-    pop {r4-r8, pc}
+    pop {r4, pc}
 .pool
 
 ; r0 destination, r1 text -> r0 points to the terminating zero.

@@ -126,7 +126,7 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertEqual(m.pump(), 0)
         m.sync_fault = (2, 3)
         result = 0
-        for _ in range(30):
+        for _ in range(130):
             m.capture([0x12345678] * 2000, elapsed=40)
             result = m.pump()
             if result:
@@ -138,6 +138,17 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertEqual(m.field('RC_ACTIVE'), 0)
         self.assertFalse(m.handles)
 
+    def test_the_longest_card_write_and_checkpoint_are_kept_in_ticks(self):
+        m = Recorder()
+        m.command(1)
+        self.assertEqual(m.pump(), 0)
+        m.on_fat = lambda name: m.tick(m.tick() + {'WRITE': 3, 'SYNC': 50}.get(name, 0))
+        for _ in range(130):
+            m.capture([0x12345678] * 2000, elapsed=40)
+            self.assertEqual(m.pump(), 0)
+        self.assertGreater(m.field('RC_CHECKPOINT'), 0)
+        self.assertEqual((m.field('RC_PIECE_TICKS'), m.field('RC_CHECK_TICKS')), (3, 103))
+
     def test_commands_only_post_requests_and_the_worker_writes_exact_pcm(self):
         m = Recorder()
         self.assertEqual(m.command(1), 0)
@@ -146,7 +157,7 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertEqual(m.pump(), 0)
         self.assertEqual(m.field('RC_ACTIVE'), 1)
         captured = []
-        for step in range(30):
+        for step in range(130):
             words = [((step * 2000 + n) * 104729) & 0xFFFFFFFF for n in range(2000)]
             captured += words
             m.capture(words, elapsed=40)
@@ -154,7 +165,7 @@ class RecordingServiceTests(unittest.TestCase):
         saved = m.durable['SD:Recordings/REC0001.WAV']
         with wave.open(io.BytesIO(saved)) as wav:
             count = wav.getnframes()
-            self.assertGreaterEqual(count, 48000)
+            self.assertGreaterEqual(count, m.s('RC_CHECK_BYTES') // 2)
             self.assertLess(count, len(captured))
             self.assertEqual(wav.readframes(count), pcm(captured[:count]))
         self.assertEqual(m.finish(), 0)
@@ -290,7 +301,7 @@ class RecordingServiceTests(unittest.TestCase):
             self.assertEqual(wav.getnframes(), len(captured))
             self.assertEqual(wav.readframes(wav.getnframes()), pcm(captured))
 
-    def test_slow_card_write_causes_a_visible_dsp_gap(self):
+    def test_slow_card_write_leaves_a_counted_silent_gap_and_the_take_goes_on(self):
         m = Recorder()
         self.assertEqual(m.command(1), 0)
         self.assertEqual(m.pump(), 0)
@@ -303,11 +314,40 @@ class RecordingServiceTests(unittest.TestCase):
             m.pump()
             if m.write_number >= 2:
                 break
-        self.assertEqual(m.pump(), m.s('RC_READER_ERROR') + m.s('RR_GAP'))
         for _ in range(4):
+            m.capture([0x12345678] * 2000, elapsed=40)
+            self.assertEqual(m.pump(), 0)
+        self.assertEqual((m.rr('RR_GAPS'), m.field('RC_ERROR'), m.field('RC_ACTIVE'), m.rr('RR_OWNED')), (1, 0, 1, 1))
+
+    def test_second_reader_shares_the_ring_and_stop_waits_for_it(self):
+        # The UiTask frame (nr_reader_frame) reads through recorder_poll too, so a card write that blocks CommandTask
+        # longer than the DSP ring no longer starves the reader. One claim word keeps the two readers apart.
+        m = Recorder()
+        self.assertEqual(m.command(1), 0)
+        self.assertEqual(m.pump(), 0)
+        captured = [0x11110000 + n for n in range(2000)]
+        m.capture(captured, elapsed=20)
+        before = m.rr('RR_PRODUCED')
+        self.assertEqual(m.call('recorder_poll'), 0)
+        self.assertGreater(m.rr('RR_PRODUCED'), before)
+        self.assertEqual(m.field('RC_POLLER'), 0)
+        m.write(m.s('RC_POLLER'), 1)                     # the other task is reading now
+        more = [0x22220000 + n for n in range(2000)]
+        captured += more
+        m.capture(more, elapsed=20)
+        before = m.rr('RR_PRODUCED')
+        self.assertEqual(m.call('recorder_poll'), 0)
+        self.assertEqual(m.rr('RR_PRODUCED'), before)
+        m.assert_command_stop()
+        for _ in range(3):
             m.pump()
-        self.assertEqual(m.field('RC_ACTIVE'), 0)
-        self.assertEqual(m.rr('RR_OWNED'), 0)
+            self.assertEqual((m.field('RC_ACTIVE'), m.rr('RR_OWNED')), (2, 1))
+            self.assertEqual(m.call('recorder_poll'), 0)  # no new read once the stop is posted
+            self.assertEqual(m.rr('RR_PRODUCED'), before)
+        m.write(m.s('RC_POLLER'), 0)
+        self.assertEqual(m.finish(), 0)
+        with wave.open(io.BytesIO(bytes(m.files['SD:Recordings/REC0001.WAV']))) as wav:
+            self.assertEqual(wav.readframes(wav.getnframes()), pcm(captured))
         self.assertFalse(m.handles)
 
     def test_close_and_capture_stop_failures_remain_busy_until_retried(self):
@@ -357,16 +397,13 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertEqual(len(m.files), 2)
 
     def test_terminal_capture_faults_write_a_labelled_cue_without_inventing_lost_pcm(self):
-        for failure, reason, label in (('late', 1, b'Capture gap'), ('foreign', 2, b'Capture lost')):
+        for failure, reason, label in (('foreign', 2, b'Capture lost'),):   # a late read is no longer terminal
             m = Recorder()
             m.command(1)
             m.pump()
             m.capture([0x12345678] * 1000, elapsed=20)
             m.pump()
-            if failure == 'late':
-                m.tick(m.tick() + 100)
-            else:
-                m.info(3, m.s('RR_INPUT'))
+            m.info(3, m.s('RR_INPUT'))
             for _ in range(8):
                 m.pump()
                 if not m.field('RC_ACTIVE'):

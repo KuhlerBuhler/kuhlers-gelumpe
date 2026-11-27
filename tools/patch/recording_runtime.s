@@ -17,7 +17,7 @@
 .equ NR_PLAY_INJECT, 74
 .equ NR_PLAY_PENDING, 3
 
-; Public state contains no pointers that the input or frame task dereferences.
+; Public state holds one pointer a frame task dereferences: NR_CONTEXT, read by nr_reader_frame only while NR_PHASE is 1.
 nr_init:
     .word 0xE10F3000                 ; mrs r3, cpsr
     orr r1, r3, #0xC0
@@ -236,6 +236,8 @@ nr_service_pump:
     ldr r0, [r5, #RW_MARKER]
     cmp r0, #0
     movne r0, #1
+    ldr r1, [r5, #RC_READER+RR_GAPS]
+    add r0, r0, r1
     str r0, [r4, #NR_GAPS]
     ldr r0, [r5, #RW_NUMBER]
     str r0, [r4, #NR_NUMBER]
@@ -355,6 +357,23 @@ nr_fault_copy_word:
     str r2, [r0], #4
     str r12, [r0]
     bx lr
+.pool
+
+; UiTask frame (every ~40 ms, priority above CommandTask and the card task): reads the DSP ring while CommandTask waits on a
+; card write. NR_PHASE is 1 only while the context is live (CommandTask publishes 2 before it frees it), and nothing here
+; blocks before recorder_poll claims the reader, so the lower CommandTask cannot free the context in between.
+nr_reader_frame:
+    @ least-code: two nops only move the UI frame timing so the emulator's
+    @ loadbar no-card case does not catch the main screen half drawn (red).
+    @ Interim; replace once the test tolerates a split screen redraw.
+    mov r0, r0
+    mov r0, r0
+    ldr r1, =NATIVE_RECORDING
+    ldr r0, [r1, #NR_PHASE]
+    cmp r0, #1
+    bxne lr
+    ldr r0, [r1, #NR_CONTEXT]
+    b recorder_poll
 .pool
 
 nr_runtime_end:

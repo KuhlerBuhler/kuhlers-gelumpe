@@ -430,7 +430,7 @@ les valeurs stockées invalides sont limitées ou réinitialisées à la valeur 
 | `korg.menu.blech.features.glideSwitch` | GLIDE SWITCH, le tempo glisse vers celui d’un pattern confirmé avec MENU (1) (depuis l’API 37) | Oui, comme la page | 0 à 1 |
 | `korg.record.running` | 1 tant que l’enregistrement intégré (SHIFT+REC, RECORD) tourne ou écrit son fichier, sinon 0 (depuis l’API 41) | non | 0 à 1 |
 | `korg.record.seconds` | durée de la prise en cours en secondes entières ; garde la durée de la dernière prise jusqu’au début de la suivante (depuis l’API 41) | non | 0 à 2147483647 |
-| `korg.record.gaps` | 1 quand l’enregistrement a perdu du son, la prise s’arrête alors là (depuis l’API 41) | non | 0 à 1 |
+| `korg.record.gaps` | combien de fois l’enregistrement a perdu du son : chaque trou est rempli de silence et la prise continue ; 1 de plus quand une erreur a arrêté la prise (depuis l’API 41) | non | 0 à 2147483647 |
 | `korg.menu.blech.write()` | Appel, pas une valeur | Demande l’enregistrement des réglages BLECH sur la carte, comme WRITE ; voir ci-dessous | |
 | `korg.global.triggerMode` | GLOBAL PARAMETERS > TRIGGER MODE : 0 Normal, 1 Seq 1st, 2 Seq Play | Oui, par la fonction du menu | 0 à 2 |
 | `korg.global.velocityCurve` | VELOCITY CURVE : 0 Heavy, 1 Normal, 2 Light, 3 Const96 | Oui, par la fonction du menu | 0 à 3 |
