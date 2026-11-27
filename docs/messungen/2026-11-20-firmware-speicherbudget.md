@@ -45,7 +45,7 @@ Die bekannten freien Flächen sind eine konservative Auswahl. Nicht vermessene F
 | Synth `[0xC01217F4, 0xC0128000)` | 26.636 Byte | Weitere unbeanspruchte Lücke der Synth-Rechnung |
 | Stock/Hacktribe `[0xC0168494, 0xC016C000)` | **15.212 Byte** | Bereits der Laufzeit zugeordnete Code-Wachstumsreserve |
 | Synth `[0xC016695C, 0xC016C000)` | **22.180 Byte** | Bereits der Laufzeit zugeordnete Code-Wachstumsreserve |
-| `[0xC018E9D0, 0xC018FF00)` | 5.424 Byte | Weitere bereits zugeordnete Laufzeitreserve, nicht Teil der unbeanspruchten Gesamtsumme |
+| `[0xC018E9D0, 0xC018FF00)` | 5.424 Byte | Weitere bereits zugeordnete Laufzeitreserve, nicht Teil der unbeanspruchten Gesamtsumme. Seit 1.5 belegt DECLICK auf Stock/Hacktribe die ersten 3.104 Byte (`0xC018E9D0` bis `0xC018F5F0`), Reserve dort 2.320 Byte; Synth unverändert |
 | Synth `[0xC01A6000, 0xC01ADF00)` | 32.512 Byte | Bereits zugeordnete alte Laufzeitfläche; beim Sampler liegt dort unter anderem die Ladeanimation |
 | `[0xC016C000, 0xC0170000)` | 16.384 Byte | Sprachslot, auch ohne aktivierte deutsche Oberfläche freigehalten |
 
