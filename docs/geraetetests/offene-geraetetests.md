@@ -250,7 +250,7 @@ BLECHTRIBE der roten (Hacktribe-Basis `ORIGINAL.BIN`), am Gerät nicht gelaufen.
 kommt nichts ohne EXPORT ALL SAMPLE. Trotzdem vorher Patterns und Karte sichern (Abschnitt 3).
 
 1. Ein Sample mit Loop wählen (Werksbank), DATA UTILITY > SAMPLE EDIT, ENTER, mit EDIT rechts bis hinter PLAY LEVEL: Seite
-   ONE SHOT, Zähler 11/13, Wert OFF.
+   ONE SHOT, Zähler 11/14, Wert OFF.
 2. Rad hoch: ON, WRITE: dritte Zeile `saved`. EXIT bis zum Part, Pad kurz antippen: spielt bis zum Ende.
 3. Zurück zu ONE SHOT, Rad runter: OFF, EXIT ohne WRITE: der Wert ist wieder ON.
 4. OFF, WRITE, EXIT: das Sample endet mit dem Loslassen des Pads, LOOP START steht auf START POINT.
@@ -264,13 +264,13 @@ BLECHTRIBE der roten (Hacktribe-Basis `ORIGINAL.BIN`), am Gerät nicht gelaufen.
 kommt nichts ohne EXPORT ALL SAMPLE, ein Neustart lädt das Stereo-Sample wieder. Trotzdem vorher Patterns und Karte sichern
 (Abschnitt 3).
 
-1. Ein Mono-Sample wählen, DATA UTILITY > SAMPLE EDIT, ENTER, mit EDIT links von SELECT SAMPLE: DELETE 13/13, keine Seite TURN
+1. Ein Mono-Sample wählen, DATA UTILITY > SAMPLE EDIT, ENTER, mit EDIT links von SELECT SAMPLE: DELETE 14/14, keine Seite TURN
    MONO.
-2. Ein eigenes Stereo-Sample wählen: EDIT links zeigt DELETE 14/14, dann TURN MONO 13/14 mit Wert `Stereo`.
+2. Ein eigenes Stereo-Sample wählen: EDIT links zeigt DELETE 15/15, dann TURN MONO 14/15 mit Wert `Stereo`.
 3. PLAY starten, ENTER: `stop PLAY`, nichts ändert sich. PLAY stoppen.
 4. ENTER: `Are You Sure ?`, EXIT: wieder `Stereo`.
 5. ENTER, ENTER: `Mono`. Pad: klingt wie vorher, nur ohne Stereobild, kein Knacken, Start, Loop und Ende an derselben Stelle.
-6. EXIT ohne WRITE, Pad: bleibt mono. SAMPLE EDIT wieder öffnen: DELETE 13/13, keine Seite TURN MONO mehr.
+6. EXIT ohne WRITE, Pad: bleibt mono. SAMPLE EDIT wieder öffnen: DELETE 14/14, keine Seite TURN MONO mehr.
 7. EXPORT ALL SAMPLE, aus und an: das Sample ist mono, die Datei auf der Karte kleiner.
 8. Pad in SAMPLE EDIT gedrückt halten und dabei umwandeln: hört man etwas Fremdes?
 
@@ -282,7 +282,7 @@ BLECHTRIBE der roten (Hacktribe-Basis `ORIGINAL.BIN`), am Gerät nicht gelaufen.
 kommt es erst mit EXPORT ALL SAMPLE. Trotzdem vorher Patterns und Karte sichern (Abschnitt 3).
 
 1. Ein eigenes Sample, das am Anfang oder Ende knackt (START POINT mitten in die Welle), DATA UTILITY > SAMPLE EDIT, ENTER, mit
-   EDIT rechts bis hinter ONE SHOT: DECLICK, Zähler 12/13 (stereo 12/14), Wert OFF.
+   EDIT rechts bis hinter REVERSE: DECLICK, Zähler 13/14 (stereo 13/15), Wert OFF.
 2. Rad hoch: ON, WRITE: `saved`. EXIT bis zum Part, Pad: das Knacken am Anfang ist weg oder leiser, Länge fast gleich.
 3. Zurück zu SAMPLE EDIT: START POINT zeigt denselben Wert wie vorher (der Punkt wird nur beim Spielen verschoben).
 4. Ein geloopter Klang mit Knacken am Loop: mit ON knackt der Loop weniger.
@@ -292,6 +292,23 @@ kommt es erst mit EXPORT ALL SAMPLE. Trotzdem vorher Patterns und Karte sichern 
 8. ON, WRITE, EXPORT ALL SAMPLE, aus und an: DECLICK steht weiter auf ON.
 
 Quelle: Messung 2026-11-27 (Emulator, `sample_category_cases.py` `case_declick`)
+
+### 3.5 REVERSE in SAMPLE EDIT der roten
+
+BLECHTRIBE der roten (Hacktribe-Basis `ORIGINAL.BIN`), am Gerät nicht gelaufen. Dreht das Sample im DSP-Speicher um, auf die Karte
+kommt es erst mit EXPORT ALL SAMPLE. Trotzdem vorher Patterns und Karte sichern (Abschnitt 3).
+
+1. Ein eigenes Sample mit deutlichem Anschlag, DATA UTILITY > SAMPLE EDIT, ENTER, mit EDIT rechts bis hinter ONE SHOT: REVERSE,
+   Zähler 12/14 (stereo 12/15), Wert OFF.
+2. Rad hoch: ON. Pad: spielt rückwärts, der Anschlag kommt am Ende. Kein Knacken, kein Aussetzer.
+3. Ein Stereo-Sample: rückwärts, links und rechts nicht vertauscht.
+4. Rad runter: OFF. Pad: wieder vorwärts, klingt genau wie vorher.
+5. ON, EXIT ohne WRITE, Pad: bleibt rückwärts. SAMPLE EDIT wieder öffnen: REVERSE zeigt ON.
+6. EXPORT ALL SAMPLE, aus und an: spielt rückwärts, REVERSE zeigt ON. OFF, EXPORT ALL SAMPLE: wieder vorwärts.
+7. Ein langes Sample (über 10 s): wie lange zeigt die Seite nichts an, bevor ON steht?
+8. Ein Oszillator (Wave bis 49): REVERSE zeigt `---`, das Rad ändert nichts.
+
+Quelle: Messung 2026-11-27 (Emulator, `sample_category_cases.py` `case_reverse`)
 
 ## 4. Gerätename über USB
 

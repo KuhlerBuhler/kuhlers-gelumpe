@@ -74,23 +74,23 @@ die beiden Seiten nicht. Die Seiten zeigt nur das Profil synth; rot und Hacktrib
   (`+0dB`/`+12dB`), ONE SHOT (OFF/ON), REVERSE (OFF/ON). Punkte stehen in Werten (Byte / 2) wie auf der roten. Punkte und TUNE gehen in die
   RAM-Tabellen und wirken ab der nächsten Note; in den `esli`-Satz kommen sie mit EXIT oder beim Wechsel auf ein anderes Sample.
   PLAY LEVEL und REVERSE schreiben den Satz sofort und laden das Sample an seinem Platz neu.
-- **REVERSE** ist `esli[54]` Bit 0. Die Punkte bleiben vorwärts gespeichert; der Lader schreibt die PCM umgedreht in den DSP und
-  spiegelt die Punkte. Die rote liest Byte 54 nicht und spielt vorwärts; ihr EXPORT ALL SAMPLE schreibt das Byte als 0 (gemessen
+- **REVERSE** ist `esli[54]` Bit 0. Die Punkte bleiben vorwärts gespeichert; der Lader schreibt die PCM umgedreht in den DSP, die
+  Punkte spiegelt er nicht: sie zählen auf der umgedrehten PCM. Die rote liest Byte 54 nicht und spielt vorwärts; ihr EXPORT ALL SAMPLE schreibt das Byte als 0 (gemessen
   im Emulator). Byte 76 wäre frei gewesen, die rote schickt es aber bei jeder Note an den DSP, deshalb nicht.
 - **ONE SHOT** ist `esli[52]` wie auf der roten. Die blaue behält den gespeicherten LOOP START und setzt nur im DSP-Satz den Loop
   auf das Ende (Flag `0x10000`), OFF gibt den alten Loop zurück. Die Seite schreibt den Satz sofort, der Lader liest das Byte beim
   Start (gemessen im Emulator, `tools/emu/user_samples_cases.py` `edit_menu_one_shot`).
 - **TUNE** ist eine Stufe pro Halbton auf dem Pitch-Wort der Stimme (hergeleitet, nicht am Gerät gehört).
-- **REVERSE auf der roten** ginge auf demselben Weg: das Flag lesen, die PCM umgedreht in den DSP schreiben, Punkte spiegeln. Die
-  rote lädt ihre Samples aber mit Korgs eigenem Lader, das wäre eigener Code dort, und ihr EXPORT ALL SAMPLE müsste das Byte
-  behalten (hergeleitet, nicht gebaut).
+- **REVERSE auf der roten** hat ein eigenes Bit (Byte 53 Bit 1, siehe unten). Die rote schreibt die PCM umgedreht in die Datei, die
+  blaue spielt so ein Sample also auch rückwärts (ihre Seite REVERSE zeigt OFF). Ein Sample mit REVERSE von der blauen spielt die
+  rote vorwärts, dort liegt die PCM vorwärts in der Datei (hergeleitet aus beiden Ladern).
 - Die App behält den ganzen `esli`-Satz, also auch REVERSE, PLAY LEVEL und TUNE, wenn sie die Datei neu schreibt
   (`test/sample-file.test.mjs`).
 
 ### ONE SHOT in SAMPLE EDIT (rot und Hacktribe, ab 1.5)
 
-SAMPLE EDIT hat hinter PLAY LEVEL eine Seite ONE SHOT, dazu die Seite CATEGORY hinter RENAME und DECLICK hinter ONE SHOT, also 13
-Seiten (ONE SHOT 11/13). Quelle: Messung im
+SAMPLE EDIT hat hinter PLAY LEVEL eine Seite ONE SHOT, dazu die Seite CATEGORY hinter RENAME, REVERSE und DECLICK hinter ONE SHOT,
+also 14 Seiten (ONE SHOT 11/14). Quelle: Messung im
 Emulator (`tools/emu/sample_category_cases.py` `case_one_shot`).
 
 - Korgs One-Shot ist kein eigenes Feld, das man setzt: die Firmware nennt ein Sample one-shot, wenn sein LOOP START auf dem END
@@ -107,7 +107,7 @@ Emulator (`tools/emu/sample_category_cases.py` `case_one_shot`).
 
 ### TURN MONO in SAMPLE EDIT (rot und Hacktribe, ab 1.5)
 
-Ein Stereo-Sample hat hinter DECLICK eine Seite TURN MONO (Zähler 13/14, DELETE 14/14), ein Mono-Sample hat sie
+Ein Stereo-Sample hat hinter DECLICK eine Seite TURN MONO (Zähler 14/15, DELETE 15/15), ein Mono-Sample hat sie
 nicht. Quelle: Messung im Emulator (`tools/emu/sample_category_cases.py` `case_turn_mono`, rot und Hacktribe).
 
 - Der Wert zeigt `Stereo` oder `Mono` (Korgs eigene Texte `0xC00A733C` und `0xC00A7337`). ENTER oder WRITE fragt mit Korgs
@@ -120,7 +120,7 @@ nicht. Quelle: Messung im Emulator (`tools/emu/sample_category_cases.py` `case_t
 - Liegt das Sample als letztes im DSP-Speicher (Ende = Zeiger `0xC00F9C80`), rückt der Zeiger um die halbe Länge zurück, so wie
   DELETE ihn zurücksetzt. Sonst bleibt die zweite Hälfte bis zum nächsten Start ungenutzt.
 - Danach wird der Schnappschuss neu genommen (`0xC0039514`), sonst holte EXIT ohne WRITE die alten Stereo-Werte zurück. Mono
-  bleibt also auch ohne WRITE. Der Seitenring zählt danach wieder 13.
+  bleibt also auch ohne WRITE. Der Seitenring zählt danach wieder 14.
 - Solange der Sequencer läuft (`0xC06BC318` ungleich 0), wandelt ENTER nicht und die Seite zeigt `stop PLAY`. Solange
   `0xC0345EC4` belegt ist, auch nicht.
 - Auf die Karte kommt es wie die Punkte mit EXPORT ALL SAMPLE: ein Mono-WAV mit halber Datenlänge. Korgs Export schneidet jedes
@@ -133,7 +133,7 @@ nicht. Quelle: Messung im Emulator (`tools/emu/sample_category_cases.py` `case_t
 
 ### DECLICK in SAMPLE EDIT (rot und Hacktribe, ab 1.5)
 
-SAMPLE EDIT hat hinter ONE SHOT eine Seite DECLICK (12/13 mono, 12/14 stereo), Wert OFF oder ON. Mit ON spielt das Sample von
+SAMPLE EDIT hat hinter REVERSE eine Seite DECLICK (13/14 mono, 13/15 stereo), Wert OFF oder ON. Mit ON spielt das Sample von
 START POINT, LOOP START und END POINT, die zur nächsten ruhigen Stelle verschoben sind. Nichts am Sample wird geändert. Quelle:
 Messung im Emulator (`tools/emu/sample_category_cases.py` `case_declick`, rot und Hacktribe).
 
@@ -155,12 +155,35 @@ Messung im Emulator (`tools/emu/sample_category_cases.py` `case_declick`, rot un
   Korgs DSP-Lesen (`0xC004EDDC`, mit Sperre wie das Schreiben der Note) in einen eigenen Puffer, nicht in Korgs Arbeitspuffer. Sie
   stehen in einer Tabelle für 64 Samples in der Laufzeitreserve `0xC018E9D0` (3104 Byte, nur Sampler-Builds). Ein Eintrag gilt,
   solange Start, Loop, Ende und PCM-Länge noch passen. Wer einen Punkt auf Korgs Seiten verschiebt, TURN MONO oder ein anderes
-  Sample in den Platz lädt, hört bis zur neuen Rechnung die gespeicherten Punkte.
+  Sample in den Platz lädt, hört bis zur neuen Rechnung die gespeicherten Punkte. REVERSE löscht den Eintrag des Samples, die
+  nächste Rechnung nimmt die umgedrehte PCM.
 - Gespielt wird über einen Haken im Stimmenstart (`0xC0099A40`, Stelle `0xC0099BC8`): Start, Loop und Ende aus der Spieltabelle
   werden für diese Note durch die verschobenen ersetzt. Korgs Seiten zeigen und exportieren weiter die gespeicherten Punkte, OFF
   spielt sie wieder. Slices (Modus 1 und 2) verschiebt DECLICK nicht.
 - Grenze: mehr als 64 Samples mit ON spielen ab dem 65. die gespeicherten Punkte. Oszillatoren und leere Plätze zeigen `---`.
 - Nur im Emulator geprüft, am Gerät offen (`docs/geraetetests/offene-geraetetests.md` 3.4).
+
+### REVERSE in SAMPLE EDIT (rot und Hacktribe, ab 1.5)
+
+SAMPLE EDIT hat hinter ONE SHOT eine Seite REVERSE (12/14 mono, 12/15 stereo), Wert OFF oder ON. ON dreht die PCM des Samples im
+DSP-Speicher um, OFF dreht sie zurück. Quelle: Messung im Emulator (`tools/emu/sample_category_cases.py` `case_reverse`, rot und
+Hacktribe).
+
+- Gespeichert wird Bit 1 von Byte 15 der Spieltabelle (`0xC0362EE8` + Zeile × 16), im `esli` Byte 53, dasselbe Byte wie DECLICK
+  (Bit 0). Das Bit heißt: die PCM liegt umgedreht. Korgs Lader liest die PCM so, wie sie in der Datei steht, ein Neustart spielt
+  also weiter rückwärts, ohne eigenen Code im Lader.
+- Die Umkehr läuft wie TURN MONO im DSP-Speicher über Korgs Lesen (`0xC004EDDC`) und Schreiben (`0xC004EF28`) mit Korgs
+  Arbeitspuffer (`0xC00369F0`), in Blöcken bis `0x10000` Byte: je ein Block vom Anfang und vom Ende werden gelesen, frameweise
+  umgedreht und vertauscht zurückgeschrieben, der Rest in der Mitte in einem Stück. Ein Stereo-Frame behält L vor R. OFF ergibt
+  die PCM Bit für Bit wie vorher (70001 Frames mono, 40001 Frames stereo).
+- Die Punkte bleiben stehen und zählen auf der umgedrehten PCM, wie auf der blauen. Wer genau den alten Abschnitt rückwärts hören
+  will, stellt die Punkte danach neu.
+- Die Seite wirkt sofort, auch ohne WRITE: Korgs Sicherung von SAMPLE EDIT (`0xC0345A2C`, Byte 15 bei `0xC0345A61`) bekommt das
+  neue Bit mit, sonst holte EXIT ohne WRITE das alte Bit zur umgedrehten PCM zurück. Auf die Karte kommt es mit EXPORT ALL SAMPLE:
+  die umgedrehte PCM und das Bit.
+- Solange `0xC0345EC4` belegt ist, dreht die Seite nicht. Oszillatoren und leere Plätze zeigen `---`.
+- Grenze wie bei TURN MONO: eine Stimme, die das Sample gerade spielt, wird nicht vorher beendet. Nur im Emulator geprüft, am Gerät
+  offen (`docs/geraetetests/offene-geraetetests.md` 3.5).
 
 ## Der Plan einer Änderung
 
