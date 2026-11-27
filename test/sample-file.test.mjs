@@ -187,6 +187,14 @@ test("a stereo esli the WAV brings loses its stereo flag when the sample becomes
   assert.equal(red[red.length - ESLI + 65], 1, "the red keeps it");
 });
 
+test("the settings SAMPLE EDIT of the blue keeps in the esli (REVERSE, PLAY LEVEL, TUNE) stay when the app moves the sample", () => {
+  const esli = new Uint8Array(ESLI);
+  esli[54] = 1; esli[66] = 1; esli[77] = 0xc1;                     // REVERSE on, PLAY LEVEL +12dB, TUNE -63
+  const entry = entryFromWav(wav({ esli }), 520, "Rev", { blue: true });
+  const at = entry.length - ESLI;
+  assert.deepEqual([entry[at + 54], entry[at + 66], entry[at + 77]], [1, 1, 0xc1]);
+});
+
 test("what the blue loads: slot order, 16 bit only, as many as fit, at most 64", () => {
   const s = (slot, o = {}) => ({ slot, problem: null, tagNo: 1, layout: true, bits: 16, channels: 1, rate: 48000, frames: 1000, dataSize: 2000, ...o });
   const r = blueLoad([s(502), s(500, { bits: 24, dataSize: 3000 }), s(501, { channels: 2, dataSize: 4000 }), s(503, { layout: false }), s(504, { problem: "kaputt" })]);

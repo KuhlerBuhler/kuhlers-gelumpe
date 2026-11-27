@@ -161,6 +161,12 @@
   "pl_path": {
    "keep": "Dateipfad"
   },
+  "sample_folder": {
+   "keep": "Dateipfad"
+  },
+  "sample_prefix": {
+   "keep": "Dateipfad"
+  },
   "settings_path_a": {
    "keep": "Dateipfad"
   },
@@ -259,6 +265,9 @@
   },
   "str_brw_empty": {
    "text": "KEINE .BMP-DATEI"
+  },
+  "str_brw_empty_wav": {
+   "text": "KEINE .WAV-DATEI"
   },
   "str_c_blue": {
    "text": "BLAU"
@@ -386,6 +395,9 @@
   "str_idle": {
    "text": "RUHEMODUS"
   },
+  "str_import_sample": {
+   "text": "SAMPLE IMPORT"
+  },
   "str_intens": {
    "text": "INTENSITÄT"
   },
@@ -394,6 +406,36 @@
   },
   "str_ip": {
    "text": "ALS INIT-PATTERN"
+  },
+  "str_is_card": {
+   "text": "Kartenfehler"
+  },
+  "str_is_done": {
+   "text": "importiert"
+  },
+  "str_is_fmt": {
+   "text": "nicht unterstützt"
+  },
+  "str_is_k": {
+   "text": "falsche Nummer"
+  },
+  "str_is_new": {
+   "text": "(neu)"
+  },
+  "str_is_nofile": {
+   "text": "keine .wav-Datei"
+  },
+  "str_is_off": {
+   "text": "nicht bereit"
+  },
+  "str_is_room": {
+   "text": "Speicher voll"
+  },
+  "str_is_src": {
+   "text": "Datei fehlt"
+  },
+  "str_is_user": {
+   "keep": "Name der Korg-Gruppe"
   },
   "str_knob": {
    "text": "REGLER-LEDS"
@@ -545,6 +587,9 @@
   "str_runtime_off": {
    "text": "Plugins aus"
   },
+  "str_sample_edit": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
   "str_save": {
    "text": "DISPLAYLICHT"
   },
@@ -626,6 +671,9 @@
   "str_tab_psave": {
    "text": "Strom"
   },
+  "str_tab_sample": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
   "str_tab_splash": {
    "text": "Start"
   },
@@ -642,6 +690,36 @@
    "keep": "Fachwort oder Name bleibt Englisch"
   },
   "str_tube_drive": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_ue_0db": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_ue_12db": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_ue_end": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_ue_level": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_ue_loop": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_ue_none": {
+   "text": "kein User-Sample"
+  },
+  "str_ue_reverse": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_ue_select": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_ue_start": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
+  "str_ue_tune": {
    "keep": "Fachwort oder Name bleibt Englisch"
   },
   "str_up": {
@@ -661,6 +739,9 @@
   },
   "str_us_skipped": {
    "text": " AUSGELASSEN"
+  },
+  "str_wav": {
+   "keep": "Dateipfad"
   },
   "str_writeerr": {
    "text": "Schreibfehler"

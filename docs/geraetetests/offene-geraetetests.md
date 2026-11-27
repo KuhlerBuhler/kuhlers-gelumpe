@@ -189,6 +189,56 @@ Hintergrundlicht stimmt, und ob die Patterns nach dem Rückweg am Gerät so sind
 
 Quelle: Messung 2026-11-08/rot-als-blau
 
+### 3.1 IMPORT SAMPLE und SAMPLE EDIT der blauen auf der roten
+
+Dieselbe Reise wie oben, aber mit BLECHTRIBE der blauen statt Korgs blauer, um IMPORT SAMPLE und SAMPLE EDIT der blauen
+ohne blaues Gerät zu prüfen. Am Gerät nicht gelaufen. Jeder Schritt, der schreibt (Datei auf die Karte, SOFTWARE UPDATE),
+nur mit OK des Gerätebesitzers.
+
+**Was im Emulator gemessen ist** (BLECHTRIBE blau mit dem Wort, Pascals Flash-Dump vom 9.10., `user_samples_cases.py`
+Gruppen 0, 6, 7, 8 mit 14 s Start):
+
+- Die blaue startet mit der Werksbank der roten länger: der Lader der `[User]`-Samples läuft erst nach etwa 10 s
+  (Emulator), auf der blauen nach etwa 4 s. gemessen
+- Die eigenen Samples kommen hinter die Werksbank der roten ab DSP-Adresse `0x133F5C0`, Fensterende `0x1365AE0`: zusammen
+  nur **etwa 157 KB**, rund 1,6 Sekunden mono bei 48 kHz. Für den Test also nur kurze WAV nehmen. gemessen
+- Laden beim Start, IMPORT SAMPLE (neu, ersetzen, neue Datei mit Ordner, abgelehnte Nummer und fehlende Datei),
+  SAMPLE EDIT (Punkte und TUNE live und gespeichert, REVERSE und PLAY LEVEL über einen Neustart) verhalten sich wie auf
+  dem blauen Flash. gemessen
+- Ob ein Pad dann das `[User]`-Sample spielt, prüft der Fall nur ab einem neuen Pattern (Oszillator SAW); mit Pattern 001
+  der roten trifft er einen anderen Oszillator. Am Gerät einen `[User]`-Oszillator im Part von Hand wählen. hergeleitet
+
+**Die Sample-Datei auf der Karte:** die blaue liest und schreibt dieselbe `KORG/blechtribe/Sample/e2sSample.all` wie
+BLECH auf der roten. Mit der eigenen großen Datei lädt sie nur, was in die 157 KB passt, und ein Import hängt an diese
+Datei an (hergeleitet, mit der eigenen Datei nicht gemessen). Deshalb die eigene Datei für den Test wegnehmen:
+
+1. Sicherungen 1 bis 5 aus Abschnitt 3, dazu `KORG/blechtribe/Sample/e2sSample.all` ein zweites Mal extra.
+2. Den Ordner `KORG/blechtribe/Sample/` auf der Karte umbenennen (zum Beispiel `Sample-rot`). Ein Import legt dann eine
+   neue, kleine Datei an (gemessen).
+3. Zwei bis drei kurze WAV (unter 1 s, mono oder stereo, 16 oder 24 Bit) in einen neuen Ordner `KORG/blechtribe/Sample/`.
+
+**Die Testdatei bauen:** BLECHTRIBE der blauen auf Korgs blauer 2.02 (`data/patches/blech-synth.json`), dann das Wort und
+der Sampler-Kopf wie oben (`red_as_blue_probe.mark_fix`, `hacktribe_blue_probe.with_head`). Die Datei enthält Korgs
+Firmware und wird nicht weitergegeben. Vorher im Emulator mit dem eigenen Flash-Dump starten lassen.
+
+**Schritte am Gerät** (nach "Hin" aus Abschnitt 3, mit dieser Datei):
+
+1. DATA UTILITY bis IMPORT SAMPLE, ENTER: die WAV aus Schritt 3 stehen in der Liste.
+2. Eine wählen, ENTER: `[User] 1 (new)`. ENTER: "imported". Im Part den Oszillator auf `[User]` 1 stellen, Pad: das
+   Sample klingt, ohne Neustart.
+3. Noch eine WAV auf `[User] 2`, dann eine dritte auf `[User] 1` (ersetzt): beide klingen richtig.
+4. DATA UTILITY bis SAMPLE EDIT, ENTER: Seite SELECT SAMPLE zeigt Namen und `[User] 1`. Mit den Seitentasten START POINT,
+   LOOP START, END POINT, SAMPLE TUNE ändern, nach jeder Änderung Pad: hörbar ab der nächsten Note.
+5. PLAY LEVEL `+12dB`: lauter. REVERSE ON: rückwärts. Wieder OFF: vorwärts.
+6. EXIT, aus und wieder an: alle Werte aus 4 und 5 sind noch da.
+7. Ohne Karte starten, dann mit EXIT beim Einschalten: keine `[User]`-Samples, nichts hängt.
+
+**Zurück:** wie in Abschnitt 3, dann den Test-Ordner `KORG/blechtribe/Sample/` löschen und `Sample-rot` wieder
+`Sample` nennen (oder die Datei aus Sicherung 3 zurück). BLECH der roten (auf `ORIGINAL.BIN`, Hacktribe `163d1d8d`)
+lädt die eigene Datei beim nächsten Start wie vorher.
+
+Quelle: Messung 2026-11-27 (Emulator, `user_samples_cases.py` mit Pascals Flash-Dump)
+
 ## 4. Gerätename über USB
 
 Der Patch `usb-name` ändert den USB-Gerätenamen auf "Electribe 3" (nicht im BLECH-Satz, ein Häkchen im Patcher). Im

@@ -305,6 +305,9 @@ class _Assembler:
                     return (COND[cond_text] << 28 | 0b100 << 25 | p << 24 | u << 23 | wb << 21
                             | (base == "ldm") << 20 | rn << 16 | self.reglist(ops[1]))
         # load / store
+        sm = self.split_mnemonic(head, ["ldrsh", "ldrsb", "ldrh", "strh"])
+        if sm and sm[2] == 0:                # ldrhs/strhs are ldr/str with cond HS
+            return self.halfword(sm[0], sm[1], ops)
         sm = self.split_mnemonic(head, ["ldrb", "strb", "ldr", "str"])
         if sm and sm[2] == 0:
             return self.memory(sm[0], sm[1], ops, pc)
@@ -381,6 +384,39 @@ class _Assembler:
             return cond << 28 | 1 << 25 | op << 21 | s << 20 | rn << 16 | rd << 12 | enc[0] << 8 | enc[1]
         i, o2 = self.operand2(rest)
         return cond << 28 | i << 25 | op << 21 | s << 20 | rn << 16 | rd << 12 | o2
+
+    def halfword(self, base, cond, ops):
+        """ldrh, strh, ldrsh, ldrsb: [rn, #imm8] or [rn, rm], pre-indexed with ! or post-indexed."""
+        rd = self.reg(ops[0])
+        m = re.match(r"^\[(.*)\](!?)\s*(?:,\s*(.*))?$", ", ".join(ops[1:]))
+        if not m:
+            raise AsmError("memory operand in brackets")
+        inner, bang, post = _split(m.group(1)), m.group(2) == "!", m.group(3)
+        rn = self.reg(inner[0])
+        pre = post is None
+        spec = inner[1:] if pre else _split(post)
+        up, imm, low = 1, 1, 0
+        high = 0
+        if spec:
+            first = spec[0].strip()
+            if first.startswith("#"):
+                offset = self.imm(first)
+                if offset >= 1 << 31:
+                    offset -= 1 << 32
+                if offset < 0:
+                    up, offset = 0, -offset
+                if offset > 0xFF:
+                    raise AsmError(f"offset {offset} does not fit 8 bits")
+                high, low = offset >> 4, offset & 0xF
+            else:
+                if first.startswith("-"):
+                    up, first = 0, first[1:]
+                imm, low = 0, self.reg(first.lstrip("+"))
+        load = base != "strh"
+        sh = {"ldrh": 0xB0, "strh": 0xB0, "ldrsb": 0xD0, "ldrsh": 0xF0}[base]
+        p, w = (1, 1 if bang else 0) if pre else (0, 0)
+        return (cond << 28 | p << 24 | up << 23 | imm << 22 | w << 21 | load << 20 | rn << 16 | rd << 12
+                | high << 8 | sh | low)
 
     def memory(self, base, cond, ops, pc):
         load = base.startswith("ldr")

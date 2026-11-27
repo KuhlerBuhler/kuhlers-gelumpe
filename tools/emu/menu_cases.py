@@ -62,8 +62,9 @@ def has_menu(payload):
 
 
 def for_build(payload):
-    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT, LIST_DEV, LIST_VERSION, LIST_COUNT
+    global MENU, RING, BASE_RING, SYNC_GROUP, DU_FUNCS, FX_EXPORT, US_PAGE, LIST_DEV, LIST_VERSION, LIST_COUNT
     synth = synthaddr.is_synth(payload)
+    US_PAGE = synth and payload[US_MAGIC_AT - IMAGE:US_MAGIC_AT - IMAGE + 4] == b"BLUS"   # IMPORT SAMPLE comes with the user samples (user_samples.py)
     LIST_DEV = None if synth else len(LIST_PAGES)   # DEV MODE (BLECH's SysEx may write the image) is a Sampler row
     LIST_VERSION = len(LIST_PAGES) + (0 if synth else 1)
     LIST_COUNT = LIST_VERSION + 1
@@ -224,12 +225,14 @@ def feature_count():
 
 
 FX_EXPORT = True
+US_PAGE = False                                                       # set by for_build(): the blue's IMPORT SAMPLE, where the user samples are in the image
+US_MAGIC_AT = 0xC013A00C                                              # user_samples.py: the vector at CODE2, its magic "BLUS" at +12
 
 
 def du_pages():
     """Our pages of DATA UTILITY, behind the firmware's functions: EXPORT ALL CUSTOMIZATIONS (its title is cut to fit), EXPORT ALL
     PLUGINS, EXPORT ALL EFFECTS where the runtime has the collection on the card, and SET INIT PATTERN where the set has the patch."""
-    return ["EXPORT ALL CUSTOM", "EXPORT ALL PLUGINS"] + ["EXPORT ALL EFFECTS"] * FX_EXPORT + ["SET INIT PATTERN"] * INIT_PAGE
+    return ["EXPORT ALL CUSTOM", "EXPORT ALL PLUGINS"] + ["EXPORT ALL EFFECTS"] * FX_EXPORT + ["SET INIT PATTERN"] * INIT_PAGE + ["IMPORT SAMPLE", "SAMPLE EDIT"] * US_PAGE
 TAB_LABELS = ["BLECH", "Plugins", "Games", "Tools", "Custom", "Feature", "Display", "LED", "Pads", "Power", "Splash", "Pattern", "Global"]
 FIRMWARE_TAB = "Data Util"                                            # the firmware's own label, already at the edge of its box: ours has to look the same, not have room to spare
 RING = 32                                                             # the total of the page counter with the page BLECH, the page of Blechy and SYNC GROUP in the ring
@@ -388,7 +391,7 @@ def page_overlap(dev):
     shown = frame(dev)
     wrong = []
     if dev.read(STATE + S_BRW_ON, 1)[0]:
-        problem = label_problem(dev, tab(dev))
+        problem = label_problem(dev, tab(dev)) if tab(dev) != FIRMWARE_TAB else None   # IMPORT SAMPLE's browser keeps Data Util's tab
         return [problem] if problem else None
     if line3 and (line3 != PRESS or value):
         wrong.append(f"third line {line3!r} beside value {value!r}")
