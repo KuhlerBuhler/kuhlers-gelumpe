@@ -85,6 +85,12 @@
 .equ BRW_NOEXT, 0x40          ; the name without its extension,
 .equ BRW_HOLLOW, 0x80         ; the page icon without its lines (a plugin that is not running)
 .equ BRW_FILE, 8
+.equ BRW_FOLDER, 9            ; the firmware's folder icon (one pixel lower than the file icon) and its Upper Folder icon
+.equ BRW_UPPER, 7
+.equ TITLE_FOLDER, 0x80       ; in the last byte of an entry of LIST_TITLES (IMPORT SAMPLE): the name is a folder's,
+.equ TITLE_UPPER, 0x40        ; or Upper Folder; the low six bits are the length
+.equ WAV_FILE, 0x80           ; IMPORT SAMPLE's browser (US_API +20): its folder at +0, the path of the entry taken at +WAV_FILE
+.equ WAV_DIR_MAX, 95          ; a folder is opened only up to this length, so a name of 31 behind it still fits WAV_FILE
 .equ BRW_NOTE_Y, 54
 .equ M_KP, 0x104              ; the page KEY PADS, 1 on (the default), 0 off (script_shortcuts.s reads it); bit 4 of byte 5 of the settings file is OFF
 .equ M_FT, 0x1C0              ; the page FILTER TOGGLE, 1 on (the default), 0 off (script_shortcuts.s reads it); bit 5 of byte 5 of the settings file is OFF
@@ -3042,7 +3048,16 @@ menu_brw_row_bmp:
     cmp r0, #SPLASH_CACHED
     bhs menu_brw_row_card
     mov r1, r0
-    mov r2, #BRW_FILE+BRW_NOEXT
+    ldr r2, =HOOK_CARD+LIST_TITLES
+    add r2, r2, r0, lsl #4
+    ldrb r2, [r2, #15]
+    tst r2, #TITLE_UPPER
+    movne r2, #BRW_UPPER
+    bne menu_brw_row_icon
+    tst r2, #TITLE_FOLDER
+    movne r2, #BRW_FOLDER
+    moveq r2, #BRW_FILE+BRW_NOEXT
+menu_brw_row_icon:
     strb r2, [r11]
     add r0, r11, #1
     mov r2, #1
@@ -3051,7 +3066,9 @@ menu_brw_row_bmp:
 menu_brw_row_card:              ; behind the names kept: read from the folder
     bl splash_pick
     mov r1, r2
-    mov r2, #BRW_FILE+BRW_NOEXT
+    cmp r3, #1
+    moveq r2, #BRW_FOLDER
+    movne r2, #BRW_FILE+BRW_NOEXT
 menu_brw_row_name:
     strb r2, [r11]
     add r0, r11, #1
@@ -3212,9 +3229,12 @@ menu_brw_draw_row:              ; as the firmware: colour and font again for eac
     ands r0, r7, #BRW_GLYPH
     beq menu_brw_draw_next
     str r0, [sp]
+    cmp r0, #BRW_FOLDER
+    addeq r0, r6, #1
+    movne r0, r6
+    str r0, [sp, #8]
     mov r0, #10
     str r0, [sp, #4]
-    str r6, [sp, #8]
     mov r0, sp
     add r1, sp, #4
     add r2, sp, #8
@@ -3348,6 +3368,8 @@ str_brw_empty:
     .asciz "NO .BMP FILE"
 str_brw_empty_wav:
     .asciz "NO .WAV FILE"
+str_upper_folder:
+    .asciz "Upper Folder"
 str_brw_none:
     .byte 0
     .align 4
@@ -5941,7 +5963,8 @@ menu_dir_open:
 
 ; r0 = a suffix in lower case (".blech", ".bmp") -> r0 = the next entry of the folder open at LIST_DIR that may be such a file: no folder,
 ; not hidden or system, not starting with a dot, up to 31 characters that end in the suffix (any case) behind at least one more
-; (LIST_LFN, or the short name in LIST_INFO); 0 at the end of the folder or when it cannot be read. Clobbers r1 to r3 and r12.
+; (LIST_LFN, or the short name in LIST_INFO); 0 at the end of the folder or when it cannot be read. r0 = 0 instead: the next folder,
+; with the same rules but the suffix. Clobbers r1 to r3 and r12.
 menu_dir_next:
     push {r4-r7, lr}
     mov r7, r0
@@ -5960,6 +5983,9 @@ menu_dir_next_entry:
     cmp r0, #0
     beq menu_dir_next_end
     ldrb r0, [r4, #8]
+    cmp r7, #0                  ; folders: 0x10 set, hidden and system clear
+    andeq r0, r0, #0x16
+    eoreq r0, r0, #0x10
     tst r0, #0x16
     bne menu_dir_next_entry
     ldrb r0, [r6]
@@ -5974,6 +6000,8 @@ menu_dir_next_len:
     cmp r0, #0
     addne r5, r5, #1
     bne menu_dir_next_len
+    cmp r7, #0
+    beq menu_dir_next_folder
     mov r3, #0
 menu_dir_next_suffix_len:
     ldrb r0, [r7, r3]
@@ -5995,6 +6023,11 @@ menu_dir_next_suffix:
     bne menu_dir_next_entry
     subs r3, r3, #1
     bne menu_dir_next_suffix
+    mov r0, r6
+    pop {r4-r7, pc}
+menu_dir_next_folder:
+    cmp r5, #31
+    bhi menu_dir_next_entry
     mov r0, r6
     pop {r4-r7, pc}
 menu_dir_next_end:
@@ -6026,9 +6059,13 @@ splash_open_bmp:
     pop {pc}
 
 ; r0 = a place among the .bmp files of SPLASH IMPORT's folder (splash_open), in the order of the folder -> r0 = how many there are,
-; r1 = the place taken (the last file where r0 is past it, 0 without files), r2 = the name in LIST_PATH, the path of that file.
-; Clobbers r3 and r12.
+; r1 = the place taken (the last file where r0 is past it, 0 without files), r2 = the name in LIST_PATH, the path of that file,
+; r3 = 0. For IMPORT SAMPLE (M_BRW_WAV) it is wav_walk's list: folders and .wav files. Clobbers r12.
 splash_pick:
+    ldr r12, =MENU_STATE
+    ldrb r12, [r12, #M_BRW_WAV]
+    cmp r12, #0
+    bne wav_walk
     push {r4, r5, r6, lr}
     mov r4, r0
     mov r5, #0
@@ -6062,6 +6099,7 @@ splash_pick_out:
     cmp r4, r1
     movlo r1, r4
     mov r2, r6
+    mov r3, #0
     pop {r4, r5, r6, pc}
 .pool
 
@@ -6077,6 +6115,13 @@ splash_cache:
     cmp r0, #0
     ldrne r0, [r4, #M_BRW_N]
     popne {r4, r5, pc}
+    ldrb r0, [r4, #M_BRW_WAV]
+    cmp r0, #0
+    beq splash_cache_bmp
+    bl wav_walk                 ; r0 = 0: the first entry's path, the one ENTER would take on an empty list
+    mov r5, r0
+    b splash_cache_done
+splash_cache_bmp:
     mov r5, #0
     bl splash_open
     cmp r0, #0
@@ -6122,6 +6167,9 @@ splash_cached_text:
     ldr r3, =HOOK_CARD+LIST_TITLES
     add r1, r3, r1, lsl #4
     ldrb r3, [r1, #15]
+    tst r3, #TITLE_FOLDER+TITLE_UPPER
+    and r3, r3, #0x3F
+    bne splash_cached_folder
     cmp r2, #0
     bne splash_cached_row
     cmp r3, #SPLASH_SHOW
@@ -6135,6 +6183,17 @@ splash_cached_row:
     cmp r3, #14
     movhi r3, #12
     movls r2, #0
+    b splash_cached_copy
+splash_cached_folder:           ; a folder's name stays whole: up to SPLASH_SHOW, as a row up to 14, a longer one 12 and ".."
+    cmp r2, #0
+    beq splash_cached_folder_value
+    cmp r3, #14
+    movhi r3, #12
+    movls r2, #0
+    b splash_cached_copy
+splash_cached_folder_value:
+    cmp r3, #SPLASH_SHOW
+    movhi r3, #SPLASH_SHOW
 splash_cached_copy:
     subs r3, r3, #1
     ldrbpl r12, [r1], #1
@@ -6147,6 +6206,193 @@ splash_cached_copy:
     mov r12, #0
     strb r12, [r0]
     bx lr
+.pool
+
+; -> r0 = the folder IMPORT SAMPLE's browser shows ("SD:" the card's root, "SD:KORG/blechtribe" and so on; set to the root the first
+; time), the path of the entry taken at r0 + WAV_FILE; 0 without user-samples' run time code. Clobbers r1.
+menu_wav_dir:
+    push {lr}
+    bl menu_us_api
+    cmp r0, #0
+    popeq {pc}
+    ldr r0, [r0, #20]
+    ldrb r1, [r0]
+    cmp r1, #0x53               ; 'S': set before; RAM from the VSB is FF
+    popeq {pc}
+    mov r1, #0x53
+    strb r1, [r0]
+    mov r1, #0x44
+    strb r1, [r0, #1]
+    mov r1, #0x3A
+    strb r1, [r0, #2]
+    mov r1, #0
+    strb r1, [r0, #3]
+    pop {pc}
+
+; IMPORT SAMPLE's list, as the firmware's browser shows a folder: Upper Folder first when it is not the root, then the folders, then
+; the .wav files, each in the order of the folder. r0 = a place in it -> r0 = how many entries, r1 = the place taken (the last where
+; r0 is past it), r2 = its name, r3 = what it is: 0 a file, 1 a folder, 2 Upper Folder; for a file or folder its path at
+; menu_wav_dir + WAV_FILE. The first SPLASH_CACHED names go to LIST_TITLES as splash_cache keeps them, with TITLE_FOLDER or
+; TITLE_UPPER. A folder that cannot be opened (the card changed) turns into the root. Clobbers r12.
+wav_walk:
+    push {r4-r9, lr}
+    mov r4, r0
+    mov r5, #0
+    mov r7, #0
+    mov r9, #0
+    bl menu_wav_dir
+    movs r8, r0
+    beq wav_walk_out
+wav_walk_open:
+    mov r0, r8
+    bl menu_dir_open
+    cmp r0, #0
+    beq wav_walk_opened
+    ldrb r0, [r8, #3]
+    cmp r0, #0
+    beq wav_walk_out
+    mov r0, #0
+    strb r0, [r8, #3]
+    b wav_walk_open
+wav_walk_opened:
+    ldrb r0, [r8, #3]
+    cmp r0, #0
+    beq wav_walk_folders
+    ldr r1, =str_upper_folder
+    mov r2, #2
+    bl wav_walk_one
+wav_walk_folders:
+    mov r6, #0
+wav_walk_next:
+    cmp r6, #0
+    moveq r0, #0
+    ldrne r0, =str_wav
+    bl menu_dir_next
+    cmp r0, #0
+    beq wav_walk_pass
+    mov r1, r0
+    rsb r2, r6, #1
+    bl wav_walk_one
+    b wav_walk_next
+wav_walk_pass:                  ; the folders, then the folder once more for the files
+    ldr r0, =LIST_DIR
+    ldr r12, =FS_CLOSEDIR
+    blx r12
+    cmp r6, #0
+    bne wav_walk_out
+    mov r6, #1
+    mov r0, r8
+    bl menu_dir_open
+    cmp r0, #0
+    beq wav_walk_next
+wav_walk_out:
+    mov r0, r5
+    subs r1, r5, #1
+    movmi r1, #0
+    cmp r4, r1
+    movlo r1, r4
+    mov r2, r9
+    mov r3, r7
+    pop {r4-r9, pc}
+
+; wav_walk's entry r5 (r1 its name, r2 what it is): into LIST_TITLES while there is room, and when it is not past the place asked for
+; (r4) the one taken: r7 what it is, r9 its name, its path at r8 + WAV_FILE. r5 one more. Clobbers r0 to r3 and r12.
+wav_walk_one:
+    push {lr}
+    cmp r5, #SPLASH_CACHED
+    bhs wav_walk_one_taken
+    ldr r0, =HOOK_CARD+LIST_TITLES
+    add r0, r0, r5, lsl #4
+    mov r3, #0
+wav_walk_one_copy:
+    ldrb r12, [r1, r3]
+    cmp r12, #0
+    beq wav_walk_one_len
+    cmp r3, #15
+    strblo r12, [r0, r3]
+    add r3, r3, #1
+    b wav_walk_one_copy
+wav_walk_one_len:
+    cmp r2, #1
+    orreq r3, r3, #TITLE_FOLDER
+    cmp r2, #2
+    orreq r3, r3, #TITLE_UPPER
+    strb r3, [r0, #15]
+wav_walk_one_taken:
+    cmp r5, r4
+    bhi wav_walk_one_out
+    mov r7, r2
+    mov r9, r1
+    cmp r2, #2
+    beq wav_walk_one_out
+    add r0, r8, #WAV_FILE       ; the folder, a slash unless it is the root, the name
+    mov r3, r8
+wav_walk_one_dir:
+    ldrb r12, [r3], #1
+    strb r12, [r0], #1
+    cmp r12, #0
+    bne wav_walk_one_dir
+    sub r0, r0, #1
+    ldrb r12, [r0, #-1]
+    cmp r12, #0x3A
+    movne r12, #0x2F
+    strbne r12, [r0], #1
+    mov r9, r0
+wav_walk_one_name:
+    ldrb r12, [r1], #1
+    strb r12, [r0], #1
+    cmp r12, #0
+    bne wav_walk_one_name
+wav_walk_one_out:
+    add r5, r5, #1
+    pop {pc}
+.pool
+
+; r0 = what ENTER is on in IMPORT SAMPLE's list (wav_walk's r3): a folder (1, its path at WAV_FILE) is opened, unless it is longer
+; than WAV_DIR_MAX; Upper Folder (2) goes one folder up. The list starts again on its first entry. Clobbers r0 to r3.
+wav_enter:
+    push {r4, lr}
+    mov r4, r0
+    bl menu_wav_dir
+    cmp r0, #0
+    popeq {r4, pc}
+    cmp r4, #2
+    beq wav_enter_up
+    add r1, r0, #WAV_FILE
+    mov r2, #0
+wav_enter_len:
+    ldrb r3, [r1, r2]
+    cmp r3, #0
+    addne r2, r2, #1
+    bne wav_enter_len
+    cmp r2, #WAV_DIR_MAX        ; least-code: a deeper folder does not open, without a word; paths of 95 characters are rare
+    pophi {r4, pc}
+wav_enter_copy:
+    ldrb r3, [r1], #1
+    strb r3, [r0], #1
+    cmp r3, #0
+    bne wav_enter_copy
+    b wav_enter_fresh
+wav_enter_up:                   ; the last slash ends the path; without one the root, "SD:"
+    mov r1, #0
+    mov r2, r0
+wav_enter_slash:
+    ldrb r3, [r2], #1
+    cmp r3, #0x2F
+    subeq r1, r2, #1
+    cmp r3, #0
+    bne wav_enter_slash
+    cmp r1, #0
+    addeq r1, r0, #3
+    strb r3, [r1]
+wav_enter_fresh:
+    ldr r1, =MENU_STATE
+    mov r0, #0
+    strb r0, [r1, #M_SPLASH_CACHE]
+    str r0, [r1, #M_SPLASH_SEL]
+    str r0, [r1, #M_BRW_TOP]
+    str r0, [r1, #M_STATUS]
+    pop {r4, pc}
 .pool
 
 ; r0 = a file's index in the list -> r0 = its name, read again from the folder at its place (LIST_ORD), with LIST_PATH its path; 0 when
@@ -7919,7 +8165,7 @@ menu_keys_is:
     mov r0, #1
     bl menu_brw_mode
     ldr r0, [r5, #M_SPLASH_SEL]
-    bl splash_pick              ; r0 = how many files, LIST_PATH the path of the one chosen
+    bl splash_pick              ; r0 = how many entries, r3 = what the one chosen is, its path at menu_wav_dir + WAV_FILE
     ldrb r1, [r5, #M_IS_STEP]
     cmp r1, #0
     bne menu_keys_is_go
@@ -7927,6 +8173,12 @@ menu_keys_is:
     moveq r0, #0x5F
     streq r0, [r5, #M_STATUS]
     beq menu_keys_done
+    cmp r3, #0                  ; a folder or Upper Folder: the list of that folder
+    beq menu_keys_is_file
+    mov r0, r3
+    bl wav_enter
+    b menu_keys_done
+menu_keys_is_file:
     bl menu_is_last
     strb r0, [r5, #M_IS_K]
     mov r0, #1
@@ -7936,13 +8188,16 @@ menu_keys_is:
     b menu_keys_done
 menu_keys_is_go:
     cmp r0, #0
-    moveq r0, #2                ; E_SRC: the file went
-    beq menu_keys_is_said
+    moveq r3, #1
+    cmp r3, #0
+    movne r0, #2                ; E_SRC: the file went (or a folder is in its place now)
+    bne menu_keys_is_said
     bl menu_us_api
     movs r12, r0
     moveq r0, #1                ; E_OFF
     beq menu_keys_is_said
-    ldr r0, =LIST_PATH
+    ldr r0, [r12, #20]
+    add r0, r0, #WAV_FILE
     ldrb r1, [r5, #M_IS_K]
     blx r12
 menu_keys_is_said:
