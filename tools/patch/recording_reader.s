@@ -43,7 +43,8 @@
 .equ RR_ACK_TICKS, 40
 .equ RR_ACK_POLLS, 4096
 ; A stop the DSP still has not taken after RR_STOP_LIMIT ticks of retries is given up: the source goes back to the input,
-; the tap is switched off and the take ends, so a DSP that never answers cannot hold the recorder forever.
+; the capture word INFO[0] is cleared, the tap is switched off and the take ends, so a DSP that never answers cannot
+; hold the recorder forever and the next take can start.
 .equ RR_STOP_LIMIT, 1000
 ; RR_FAULT holds the first failure of a take, (place << 4) | check, then INFO[0], +4, +8, +12 (the source pointer) and +40
 ; as read when it failed. Places: 1 begin, 2 read before copying, 3 read after copying, 4 stop with a foreign capture,
@@ -437,8 +438,9 @@ rec_read_commit:
     str r7, [r4, #RR_PRODUCED]
     mov r0, #RR_OK
     b rec_read_return
-; Late: drop what this call copied, estimate the bytes the DSP wrote past the old cursor (capped at 2 s), fill all of
-; them but the half ring still unread with silence, as far as the ARM ring has room, and go on from there.
+; Late: drop what this call copied, estimate the bytes the DSP wrote past the old cursor, fill all of them but the half
+; ring still unread with silence, as far as the ARM ring has room, and go on from there. The ticks are capped at 0xFFFF
+; only to keep the product in 32 bits; that much silence never fits the largest ring (2 MiB) anyway.
 rec_read_gap:
     bl rec_reader_fault
     ldr r0, [r4, #RR_GAPS]
@@ -448,8 +450,9 @@ rec_read_gap:
     ldr r11, [r0]
     ldr r1, [r4, #RR_TICK]
     sub r0, r11, r1
-    cmp r0, #2000
-    movhi r0, #2000
+    ldr r1, =0xFFFF
+    cmp r0, r1
+    movhi r0, r1
     mov r1, #RR_RATE
     mul r5, r0, r1
     ldr r0, [r4, #RR_BACKLOG]
@@ -633,10 +636,17 @@ rec_stop_give_up:
     ldr r0, [r4, #RR_INFO+12]
     ldr r1, =RR_CAPTURE
     cmp r0, r1
-    bne rec_stop_clear
+    bne rec_stop_release
     ldr r0, =RR_INPUT
     str r0, [r4, #RR_TEMP]
     ldr r0, =RR_SOURCE_POINTER
+    add r1, r4, #RR_TEMP
+    mov r2, #2
+    bl rec_reader_write
+rec_stop_release:
+    mov r0, #0
+    str r0, [r4, #RR_TEMP]
+    ldr r0, =RR_DSP_STATE
     add r1, r4, #RR_TEMP
     mov r2, #2
     bl rec_reader_write

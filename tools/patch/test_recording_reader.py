@@ -376,6 +376,19 @@ class RecordingReaderTests(unittest.TestCase):
         self.assertEqual(m.info(3), m.s('RR_INPUT'))
         self.assertEqual(m.get(m.s('RR_ENABLE'), 4), bytes(4))
         self.assertEqual(m.field('RR_FAULT') & 0xFF, 0x59)
+        self.assertEqual(m.info(0), 0)
+        self.assertEqual(m.call('prepare', m.ring, 65536), 0)
+        m.end_failures = 0
+        self.assertEqual(m.call('begin', m.ring, 65536), 0)
+
+    def test_a_gap_longer_than_two_seconds_keeps_its_whole_time_when_the_ring_has_room(self):
+        m = Reader()
+        big = 0x600000
+        m.uc.mem_map(big, 1 << 20)
+        self.assertEqual(m.call('begin', big, 1 << 20), 0)
+        m.capture([0x12345678] * 1000, elapsed=2400)
+        self.assertEqual(m.call('poll'), 0)
+        self.assertEqual((m.field('RR_GAPS'), m.field('RR_PRODUCED')), (1, 2400 * 192 - m.s('RR_RESYNC')))
 
     def test_monotonic_byte_counters_cross_uint32_without_losing_ring_position(self):
         m = Reader()
