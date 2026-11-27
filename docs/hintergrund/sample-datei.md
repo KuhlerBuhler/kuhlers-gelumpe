@@ -49,7 +49,33 @@ einen Schalter rot/blau. Er stellt sich auf das angeschlossene Gerät (Modellbyt
 - Die Zusammenfassung zeigt den freien Platz in MB und in Sekunden mono bei 48 kHz. Der Platz ist **geschätzt**: Fensterende
   `0x1365AE0` minus `0xE03E60`, wo die Werkswellen im Emulator enden (5 643 392 Byte). Am Gerät rechnet der Lader ihn aus den
   eigenen Tabellen. Ein Sample braucht seine Werte, 64 Byte Nullen und das auf 32 Byte aufgerundet.
-- Neue Samples spielt die blaue erst nach einem Neustart, wie die rote.
+- Samples aus der App spielt die blaue erst nach einem Neustart, wie die rote. Ein Import am Gerät (unten) spielt sofort.
+
+### IMPORT SAMPLE und SAMPLE EDIT am Gerät (blau, ab 1.5)
+
+Die Laufzeit des Patches liegt an `0xC013A000` mit einem festen Sprungvektor, den das BLECH-Menü ruft: `+0` `us_import(Pfad, k)`,
+`+4` `us_set(k, Feld, Wert)`, `+8` `us_store(k)`, `+12` die Marke `BLUS`, `+16` `us_info(k)`. Fehlt die Marke, zeigt DATA UTILITY
+die beiden Seiten nicht. Die Seiten zeigt nur das Profil synth; rot und Hacktribe bauen sich byte-gleich wie vorher.
+
+- **IMPORT SAMPLE** listet die `.wav` im Ordner der Sample-Datei (fester Ordner, keine Unterordner), dann wählt das Rad `[User]` 1
+  bis eins hinter dem letzten. Ein vorhandenes Sample wird ersetzt, sonst kommt ein neues dazu. Die WAV wird wie in der App 16 Bit
+  mono (`fmt` darf hinter `LIST` stehen, 24 Bit behält die oberen 16, Stereo gemittelt), der Eintrag kommt mit einem frischen
+  `esli`-Satz ans Ende der Datei, der Kopf bekommt den Offset. Der alte Eintrag bleibt als toter Platz, bis die App die Datei das
+  nächste Mal schreibt. Die Datei wird nur mit Lesen/Schreiben geöffnet, nie mit `FA_CREATE_ALWAYS` (das kürzt auf 0); fehlt sie,
+  legt der Import Datei und Ordner an. Danach gehen PCM und Tabellen sofort in den DSP und den RAM.
+- **SAMPLE EDIT** hat 7 Seiten: SELECT SAMPLE, START POINT, LOOP START, END POINT, SAMPLE TUNE (-63 bis 63), PLAY LEVEL
+  (`+0dB`/`+12dB`), REVERSE (OFF/ON). Punkte stehen in Werten (Byte / 2) wie auf der roten. Punkte und TUNE gehen in die
+  RAM-Tabellen und wirken ab der nächsten Note; in den `esli`-Satz kommen sie mit EXIT oder beim Wechsel auf ein anderes Sample.
+  PLAY LEVEL und REVERSE schreiben den Satz sofort und laden das Sample an seinem Platz neu.
+- **REVERSE** ist `esli[54]` Bit 0. Die Punkte bleiben vorwärts gespeichert; der Lader schreibt die PCM umgedreht in den DSP und
+  spiegelt die Punkte. Die rote liest Byte 54 nicht und spielt vorwärts; ihr EXPORT ALL SAMPLE schreibt das Byte als 0 (gemessen
+  im Emulator). Byte 76 wäre frei gewesen, die rote schickt es aber bei jeder Note an den DSP, deshalb nicht.
+- **TUNE** ist eine Stufe pro Halbton auf dem Pitch-Wort der Stimme (hergeleitet, nicht am Gerät gehört).
+- **REVERSE auf der roten** ginge auf demselben Weg: das Flag lesen, die PCM umgedreht in den DSP schreiben, Punkte spiegeln. Die
+  rote lädt ihre Samples aber mit Korgs eigenem Lader, das wäre eigener Code dort, und ihr EXPORT ALL SAMPLE müsste das Byte
+  behalten (hergeleitet, nicht gebaut).
+- Die App behält den ganzen `esli`-Satz, also auch REVERSE, PLAY LEVEL und TUNE, wenn sie die Datei neu schreibt
+  (`test/sample-file.test.mjs`).
 
 ## Der Plan einer Änderung
 
