@@ -63,7 +63,7 @@ Am Gerät geprüft sind zwei Dinge: der Weg mit einem Datenpatch (Startbild) hin
 | `blech-version` | BLECH > VERSION zeigt die Version und die Firmware, für die das Menü gebaut ist; `node tools/set-version.mjs` baut die Dateien neu | rot, blau | |
 | `doom-loader` | Doom vom SD-Lader (SHIFT + TAP beim Einschalten, `KORG/blechtribe/Doom/doom.bin`); Engine und Lizenzen in `third_party/doom/` ([Lizenz](doom-lizenz.md)) | rot | [Messung](messungen/2026-10-15-doom-im-patcher.md) |
 | `blech-sysex` | [BLECHTRIBE SysEx](glossary.md#blechtribe-sysex): eigene [SysEx](glossary.md#sysex)-Befehle ab `0x60` zum Lesen und Schreiben von RAM, Flash und Dateien auf der Karte (auf blau nur lesend), dazu [DEV MODE](glossary.md#dev-mode) (nicht auf blau) | rot, blau | [Messung](messungen/2026-10-15-blech-sysex.md), [DEV MODE](messungen/2026-11-14-dev-mode-sperrbereiche.md) |
-| `user-samples` | eigene Samples (`Sample/e2sSample.all`) als Oszillatoren in der Gruppe `[User]` auf der blauen, dazu DATA UTILITY > IMPORT SAMPLE und SAMPLE EDIT mit REVERSE; 1.5, ohne Gerätetest | blau | [Messung](messungen/2026-11-12-blau-sample-import.md) |
+| `user-samples` | eigene Samples (`Sample/e2sSample.all`) als Oszillatoren in der Gruppe `[User]` auf der blauen, dazu DATA UTILITY > IMPORT SAMPLE und SAMPLE EDIT mit ONE SHOT und REVERSE; 1.5, ohne Gerätetest | blau | [Messung](messungen/2026-11-12-blau-sample-import.md) |
 
 ### Patches, die in keinem Satz stehen
 
@@ -92,6 +92,7 @@ Diese Funktionen haben keinen eigenen Patch, sie sind Code der `script-runtime` 
 | Ordner übernehmen | fehlt in `KORG/blechtribe` die `Sample/e2sSample.all` oder die Pattern-Sicherung, fragt das Display beim Start, ob der alte Ordner (`KORG/hacktribe`, `KORG/electribe sampler`, auf blau `KORG/electribe`) kopiert werden soll; es wird nichts gelöscht oder überschrieben | [Messung](messungen/2026-10-19-ordner-uebernehmen.md), [blau](messungen/2026-10-29-blau-ordner-uebernehmen.md), [Ordner und Sicherung](messungen/2026-11-09-blechtribe-ordner.md) |
 | Patterns-Ordner (rot, 1.5, ohne Gerätetest) | EXPORT/IMPORT PATTERN und ALL PATTERN arbeiten in `KORG/blechtribe/Patterns/`; beim Start gleicht der Card-Haken `electribe_sampler_allpattern.e2sallpat` mit dem RAM ab und schreibt nur geänderte Patterns | `tools/patch/script_patterns.s` |
 | Sample-Kategorie (rot) | Seite CATEGORY in SAMPLE EDIT (Kategorie 0 bis 17, gespeichert mit EXPORT ALL SAMPLE) | [Messung](messungen/2026-11-21-sample-kategorie.md) |
+| ONE SHOT (rot) | Seite ONE SHOT in SAMPLE EDIT hinter PLAY LEVEL: ON stellt LOOP START auf END POINT, WRITE behält es, EXIT ohne WRITE verwirft; 1.5, ohne Gerätetest | [Sample-Datei](hintergrund/sample-datei.md#one-shot-in-sample-edit-rot-und-hacktribe-ab-15) |
 | Presets von der Karte | `KORG/blechtribe/Presets/e2sFx.all` wird beim Start geprüft und in die Preset- und Modulationstabellen geladen, nie in den Flash | [Messung](messungen/2026-10-22-sammeldatei-karte.md) |
 | Das Gerät vom Rechner | der Frame-Haken nimmt Befehle, die `KORG.exec` hinterlegt; Tasten, Regler, Pads und Touchpad gehen so ans Gerät, dazu der [Test-Modus](test-modus.md) | [Messung](messungen/2026-10-29-test-modus-fernsteuerung.md) |
 

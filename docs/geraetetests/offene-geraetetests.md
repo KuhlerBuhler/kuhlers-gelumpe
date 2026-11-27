@@ -230,14 +230,29 @@ Firmware und wird nicht weitergegeben. Vorher im Emulator mit dem eigenen Flash-
 4. DATA UTILITY bis SAMPLE EDIT, ENTER: Seite SELECT SAMPLE zeigt Namen und `[User] 1`. Mit den Seitentasten START POINT,
    LOOP START, END POINT, SAMPLE TUNE ändern, nach jeder Änderung Pad: hörbar ab der nächsten Note.
 5. PLAY LEVEL `+12dB`: lauter. REVERSE ON: rückwärts. Wieder OFF: vorwärts.
-6. EXIT, aus und wieder an: alle Werte aus 4 und 5 sind noch da.
-7. Ohne Karte starten, dann mit EXIT beim Einschalten: keine `[User]`-Samples, nichts hängt.
+6. ONE SHOT ON: Pad kurz antippen, das Sample spielt bis zum Ende. Wieder OFF: es endet mit dem Loslassen des Pads.
+7. EXIT, aus und wieder an: alle Werte aus 4 bis 6 sind noch da.
+8. Ohne Karte starten, dann mit EXIT beim Einschalten: keine `[User]`-Samples, nichts hängt.
 
 **Zurück:** wie in Abschnitt 3, dann den Test-Ordner `KORG/blechtribe/Sample/` löschen und `Sample-rot` wieder
 `Sample` nennen (oder die Datei aus Sicherung 3 zurück). BLECH der roten (auf `ORIGINAL.BIN`, Hacktribe `163d1d8d`)
 lädt die eigene Datei beim nächsten Start wie vorher.
 
 Quelle: Messung 2026-11-27 (Emulator, `user_samples_cases.py` mit Pascals Flash-Dump)
+
+### 3.2 ONE SHOT in SAMPLE EDIT der roten
+
+BLECHTRIBE der roten (Hacktribe-Basis `ORIGINAL.BIN`), am Gerät nicht gelaufen. Ändert nur RAM bis zu WRITE, auf die Karte
+kommt nichts ohne EXPORT ALL SAMPLE. Trotzdem vorher Patterns und Karte sichern (Abschnitt 3).
+
+1. Ein Sample mit Loop wählen (Werksbank), DATA UTILITY > SAMPLE EDIT, ENTER, mit EDIT rechts bis hinter PLAY LEVEL: Seite
+   ONE SHOT, Zähler 11/12, Wert OFF.
+2. Rad hoch: ON, WRITE: dritte Zeile `saved`. EXIT bis zum Part, Pad kurz antippen: spielt bis zum Ende.
+3. Zurück zu ONE SHOT, Rad runter: OFF, EXIT ohne WRITE: der Wert ist wieder ON.
+4. OFF, WRITE, EXIT: das Sample endet mit dem Loslassen des Pads, LOOP START steht auf START POINT.
+5. Ein Oszillator (Wave bis 49): ONE SHOT zeigt `---`, das Rad ändert nichts.
+
+Quelle: Messung 2026-11-27 (Emulator, `sample_category_cases.py` `case_one_shot`)
 
 ## 4. Gerätename über USB
 
