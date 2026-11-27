@@ -63,19 +63,39 @@ die beiden Seiten nicht. Die Seiten zeigt nur das Profil synth; rot und Hacktrib
   `esli`-Satz ans Ende der Datei, der Kopf bekommt den Offset. Der alte Eintrag bleibt als toter Platz, bis die App die Datei das
   nächste Mal schreibt. Die Datei wird nur mit Lesen/Schreiben geöffnet, nie mit `FA_CREATE_ALWAYS` (das kürzt auf 0); fehlt sie,
   legt der Import Datei und Ordner an. Danach gehen PCM und Tabellen sofort in den DSP und den RAM.
-- **SAMPLE EDIT** hat 7 Seiten: SELECT SAMPLE, START POINT, LOOP START, END POINT, SAMPLE TUNE (-63 bis 63), PLAY LEVEL
-  (`+0dB`/`+12dB`), REVERSE (OFF/ON). Punkte stehen in Werten (Byte / 2) wie auf der roten. Punkte und TUNE gehen in die
+- **SAMPLE EDIT** hat 8 Seiten: SELECT SAMPLE, START POINT, LOOP START, END POINT, SAMPLE TUNE (-63 bis 63), PLAY LEVEL
+  (`+0dB`/`+12dB`), ONE SHOT (OFF/ON), REVERSE (OFF/ON). Punkte stehen in Werten (Byte / 2) wie auf der roten. Punkte und TUNE gehen in die
   RAM-Tabellen und wirken ab der nächsten Note; in den `esli`-Satz kommen sie mit EXIT oder beim Wechsel auf ein anderes Sample.
   PLAY LEVEL und REVERSE schreiben den Satz sofort und laden das Sample an seinem Platz neu.
 - **REVERSE** ist `esli[54]` Bit 0. Die Punkte bleiben vorwärts gespeichert; der Lader schreibt die PCM umgedreht in den DSP und
   spiegelt die Punkte. Die rote liest Byte 54 nicht und spielt vorwärts; ihr EXPORT ALL SAMPLE schreibt das Byte als 0 (gemessen
   im Emulator). Byte 76 wäre frei gewesen, die rote schickt es aber bei jeder Note an den DSP, deshalb nicht.
+- **ONE SHOT** ist `esli[52]` wie auf der roten. Die blaue behält den gespeicherten LOOP START und setzt nur im DSP-Satz den Loop
+  auf das Ende (Flag `0x10000`), OFF gibt den alten Loop zurück. Die Seite schreibt den Satz sofort, der Lader liest das Byte beim
+  Start (gemessen im Emulator, `tools/emu/user_samples_cases.py` `edit_menu_one_shot`).
 - **TUNE** ist eine Stufe pro Halbton auf dem Pitch-Wort der Stimme (hergeleitet, nicht am Gerät gehört).
 - **REVERSE auf der roten** ginge auf demselben Weg: das Flag lesen, die PCM umgedreht in den DSP schreiben, Punkte spiegeln. Die
   rote lädt ihre Samples aber mit Korgs eigenem Lader, das wäre eigener Code dort, und ihr EXPORT ALL SAMPLE müsste das Byte
   behalten (hergeleitet, nicht gebaut).
 - Die App behält den ganzen `esli`-Satz, also auch REVERSE, PLAY LEVEL und TUNE, wenn sie die Datei neu schreibt
   (`test/sample-file.test.mjs`).
+
+### ONE SHOT in SAMPLE EDIT (rot und Hacktribe, ab 1.5)
+
+SAMPLE EDIT hat hinter PLAY LEVEL eine Seite ONE SHOT, dazu die Seite CATEGORY hinter RENAME, also 12 Seiten. Quelle: Messung im
+Emulator (`tools/emu/sample_category_cases.py` `case_one_shot`).
+
+- Korgs One-Shot ist kein eigenes Feld, das man setzt: die Firmware nennt ein Sample one-shot, wenn sein LOOP START auf dem END
+  POINT steht (Spieltabelle `0xC0362EE8` + Index × 16, Byte 14; Getter `0xC004EA38`). Im `esli` ist es Byte 52, Loop und Ende
+  stehen dann gleich (Byte 44 und 48, in Byte, also Frames × 2 bei mono).
+- ON stellt LOOP START über Korgs eigene Funktion (`0xC007F630`) auf END POINT, OFF auf START POINT. Den Loop von vorher merkt
+  sich die rote nicht, anders als die blaue.
+- Wie bei Korgs eigenen Seiten ist das erst eine Vorschau. WRITE gibt Kommando `0x25` aus (nicht, solange `0xC0345EC4` belegt
+  ist), die dritte Zeile zeigt `saved`. EXIT ohne WRITE holt die alten Werte aus der Sicherung `0xC0345A2C` zurück. Für 1 bis 3 s
+  nach WRITE nimmt die Firmware keine Tasten.
+- Das Gate (Note hält, solange das Pad gedrückt ist) folgt der Änderung erst, wenn SAMPLE EDIT verlassen ist. Innerhalb von SAMPLE
+  EDIT verhält sich Korgs eigener LOOP START genauso.
+- Oszillatoren und leere Plätze zeigen `---`. Auf die Karte kommt ONE SHOT wie die Punkte mit EXPORT ALL SAMPLE.
 
 ## Der Plan einer Änderung
 

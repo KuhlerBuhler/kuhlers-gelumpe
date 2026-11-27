@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-only
 """Emulator cases of CATEGORY in SAMPLE EDIT (tools/patch/script_sample_edit.s, docs/messungen/2026-11-21-sample-kategorie.md).
 
-SAMPLE EDIT (screen 38) gets the page CATEGORY behind RENAME: a page of the BLECH menu (level 9) that shows itself as page 3 of
-11. Checked: the counter of every page (1/11 to 11/11), also right after coming back from CATEGORY; EDIT left and right between
-RENAME, CATEGORY and START POINT, and LOOP START for a sliced mono sample, which the firmware steps to from RENAME; the dial sets
+SAMPLE EDIT (screen 38) gets the page CATEGORY behind RENAME and the page ONE SHOT behind PLAY LEVEL: pages of the BLECH menu
+(level 9) that show themselves as pages 3 and 11 of 12. Checked: the counter of every page (1/12 to 12/12), also right after
+coming back from CATEGORY; EDIT left and right between RENAME, CATEGORY and START POINT, and LOOP START for a sliced mono sample,
+which the firmware steps to from RENAME; ONE SHOT between PLAY LEVEL and DELETE SAMPLE, its dial sets LOOP START to END POINT
+(ON) or to START POINT (OFF) through the firmware's own LOOP START, a one-shot note leaves the gate open, EXPORT ALL SAMPLE
+writes it; the dial sets
 the category byte of the sample's name entry, stops at 0 and 17 and shows the firmware's own texts; EXPORT ALL SAMPLE writes the
 category into e2sSample.all; a factory slot with a sample from the card has the page as well; without any sample the page shows
 "---" and the dial changes nothing; EXIT goes back to the entry screen (37); with EXIT held at power-on SAMPLE EDIT is Korg's 10
@@ -30,6 +33,7 @@ from machine import load_flash  # noqa: E402
 from splash_cases import SWITCH_SCREEN  # noqa: E402
 import lifetime  # noqa: E402
 import parallel  # noqa: E402
+from dsp_model import DspModel  # noqa: E402
 
 IMAGE = 0xC0000000
 SITES = (0xC0069BB8, 0xC0069C88)  # slots 4 and 5 of screen 38 (EDIT left and right), `push {r4, r5, r6, lr}` in the firmware
@@ -43,6 +47,9 @@ CATEGORY_TEXTS = (0xC00A6E06, 0xC00A6E0F, 0xC00A6E1A, 0xC00A6E21, 0xC00A6E29, 0x
                   0xC00A6E50, 0xC00A6E58, 0xC00A6E5D, 0xC00A6E62, 0xC00A6E68, 0xC00A6E70, 0xC00A6E79, 0xC00A6E80, 0xC00A6E86)
 USER, FACTORY = 500, 100          # display 501, and a factory slot (101) a card sample can take on the Sampler (not on Hacktribe)
 STEPS_AT = 1168                   # esli: the slice step count; with it a mono sample skips START POINT to LOOP START in SAMPLE EDIT
+LOOP_AT, END_AT, ONE_SHOT_AT = 44, 48, 52   # esli: loop start, end (frames), the one-shot byte
+PLAY = 0xC0362EE8                 # the firmware's play table, 16 bytes a sample index: +14 one-shot
+SAMPLE_INDEX, START_SET, END_SET, LOOP_SET, ONE_SHOT_GET = 0xC004E4EC, 0xC004E63C, 0xC004E710, 0xC004E7E8, 0xC004EA38
 
 
 def has_hooks(payload):
@@ -62,6 +69,20 @@ def text_at(payload, address):
     return raw.split(b"\0")[0].decode("latin-1")
 
 
+def esli_of(data, slot):
+    """The offset of `slot`'s esli record in e2sSample.all."""
+    return data.index(b"esli", struct.unpack_from("<I", data, 16 + slot * 4)[0]) + 8
+
+
+def looped(data, slot, loop=100):
+    """e2sSample.all with `slot` looped: loop start before the end, the one-shot byte 0."""
+    out = bytearray(data)
+    at = esli_of(out, slot)
+    struct.pack_into("<I", out, at + LOOP_AT, loop)
+    out[at + ONE_SHOT_AT] = 0
+    return bytes(out)
+
+
 def sliced(data, slot):
     """e2sSample.all with a slice step count on `slot`'s record."""
     out = bytearray(data)
@@ -76,6 +97,7 @@ class Edit:
 
     def __init__(self, payload, flash, slots=(USER,), data=None, held=0):
         mc.for_build(payload)
+        self.payload = payload
         if data is None and slots:
             data = hc.bank(list(slots))
         self.box = hc.Box(payload, flash, held=held, data=data, seconds=12)
@@ -120,6 +142,40 @@ class Edit:
     def asserts(self):
         return self.dev.m.asserts
 
+    def points(self):
+        """(start, end, loop start, one-shot) of SAMPLE EDIT's sample from the firmware's getters, and its play table byte."""
+        index = self.dev.call(SAMPLE_INDEX, self.slot()) & 0xFFFF
+        signed = [v - (1 << 32) if v & 0x80000000 else v for v in (self.dev.call(f, index, 0) for f in (START_SET, END_SET, LOOP_SET))]
+        return (*signed, self.dev.call(ONE_SHOT_GET, index), self.dev.read(PLAY + index * 16 + 14, 1)[0])
+
+    def gate(self):
+        """The gate values the DSP gets for one pad note on part 0: [1, 0] for a looped sample, [1] for a one-shot one."""
+        dsp = DspModel.attach(self.dev.m)
+        first = len(dsp.gates)
+        self.dev.m.send([0x04, 0, 0, 100, 1])
+        self.dev.run(0.2)
+        self.dev.m.send([0x04, 0, 0, 0, 0])
+        self.dev.run(0.5)
+        return [g[3] for g in dsp.gates[first:]]
+
+    def export(self):
+        """EXIT, then EXPORT ALL SAMPLE in DATA UTILITY: e2sSample.all as it is on the card after it."""
+        dev = self.dev
+        dev.press("exit", 0.5)
+        dev.call(SWITCH_SCREEN, 14, 0)
+        dev.run(0.4)
+        mc.press(dev, "menu")
+        for _ in range(10):
+            mc.press(dev, "edit_next")
+        mc.press(dev, "menu", wait=1.0)
+        mc.press(dev, "menu", wait=1.0)
+        dev.run(30)
+        volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
+        try:
+            return volume.read(f"/KORG/{hc.folder(self.payload)}/e2sSample.all")
+        finally:
+            volume.close()
+
 
 def case_page(payload, flash):
     """The counter of every page, EDIT left and right around CATEGORY, EXIT to the entry screen."""
@@ -130,19 +186,19 @@ def case_page(payload, flash):
     start = e.key("edit_next")
     back = e.key("edit_prev")
     rename_again = (e.key("edit_prev"), e.key("edit_next"))
-    walk = [e.key("edit_next")[1] for _ in range(8)]
+    walk = [e.key("edit_next")[1] for _ in range(9)]
     last = e.shown()
     wrap = e.key("edit_next")
     out = e.key("exit")
     again = e.key("menu")
-    ok_counter = (first[:2] == (PAGES_SCREEN, (1, 11)) and rename[:2] == (PAGES_SCREEN, (2, 11)) and category[1] == (3, 11)
-                  and start[:2] == (PAGES_SCREEN, (4, 11)) and back[1] == (3, 11) and rename_again[0][:2] == (PAGES_SCREEN, (2, 11)))
+    ok_counter = (first[:2] == (PAGES_SCREEN, (1, 12)) and rename[:2] == (PAGES_SCREEN, (2, 12)) and category[1] == (3, 12)
+                  and start[:2] == (PAGES_SCREEN, (4, 12)) and back[1] == (3, 12) and rename_again[0][:2] == (PAGES_SCREEN, (2, 12)))
     ok_menu = category[0] == MENU and category[2][0] == "CATEGORY" and back[0] == MENU and rename_again[1][0] == MENU
-    ok_walk = walk == [(4, 11), (5, 11), (6, 11), (7, 11), (8, 11), (9, 11), (10, 11), (11, 11)] and last[1] == (11, 11)
+    ok_walk = walk == [(4, 12), (5, 12), (6, 12), (7, 12), (8, 12), (9, 12), (10, 12), (11, 12), (12, 12)] and last[1] == (12, 12)
     return [entry("counter_and_steps", ok_counter and ok_menu and not e.asserts(),
                   dict(first=first, rename=rename, category=category, start=start, back=back, rename_again=rename_again)),
-            entry("pages_4_to_11", ok_walk and wrap[:2] == (PAGES_SCREEN, (1, 11)) and not e.asserts(), dict(walk=walk, last=last, wrap=wrap)),
-            entry("exit_to_entry", out[0] == ENTRY and again[:2] == (PAGES_SCREEN, (1, 11)) and not e.asserts(), dict(exit=out, again=again))]
+            entry("pages_4_to_12", ok_walk and wrap[:2] == (PAGES_SCREEN, (1, 12)) and not e.asserts(), dict(walk=walk, last=last, wrap=wrap)),
+            entry("exit_to_entry", out[0] == ENTRY and again[:2] == (PAGES_SCREEN, (1, 12)) and not e.asserts(), dict(exit=out, again=again))]
 
 
 def case_wheel(payload, flash):
@@ -171,21 +227,7 @@ def case_export(payload, flash):
     e.key("edit_next")
     e.turn(5)
     set_to = e.category()[0]
-    e.key("exit")
-    dev = e.dev
-    dev.call(SWITCH_SCREEN, 14, 0)
-    dev.run(0.4)
-    mc.press(dev, "menu")
-    for _ in range(10):
-        mc.press(dev, "edit_next")
-    mc.press(dev, "menu", wait=1.0)
-    mc.press(dev, "menu", wait=1.0)
-    dev.run(30)
-    volume = fat32.Volume(bytes(dev.m.mmc.card.medium.data))
-    try:
-        data = volume.read(f"/KORG/{hc.folder(payload)}/e2sSample.all")
-    finally:
-        volume.close()
+    data = e.export()
     at = struct.unpack_from("<I", data, 16 + USER * 4)[0] if data else 0
     written = None
     if at:
@@ -203,9 +245,74 @@ def case_sliced(payload, flash):
     loop = (e.key("edit_next"), e.page())
     back = e.key("edit_prev")
     back2 = (e.key("edit_prev"), e.page())
-    ok = (sliced_now and rename[1] == (2, 11) and category[0] == MENU and category[1] == (3, 11) and loop[1] == 5
-          and loop[0][:2] == (PAGES_SCREEN, (7, 11)) and back[0] == MENU and back2[1] == 1 and back2[0][1] == (2, 11))
+    ok = (sliced_now and rename[1] == (2, 12) and category[0] == MENU and category[1] == (3, 12) and loop[1] == 5
+          and loop[0][:2] == (PAGES_SCREEN, (7, 12)) and back[0] == MENU and back2[1] == 1 and back2[0][1] == (2, 12))
     return [entry("sliced_skips_to_loop_start", ok and not e.asserts(), dict(sliced=sliced_now, rename=rename, category=category, loop=loop, back=back, back2=back2))]
+
+
+def case_one_shot(payload, flash):
+    """ONE SHOT between PLAY LEVEL and DELETE SAMPLE. ON sets LOOP START to END POINT, OFF to START POINT, both through the
+    firmware's own LOOP START, which derives one-shot from loop start == end; the play table follows. As on the firmware's own
+    pages the dial is heard at once, WRITE keeps it and EXIT without WRITE gives the old points back; EXPORT ALL SAMPLE writes
+    what WRITE kept. A one-shot note leaves the gate open; a looped one closes it, once SAMPLE EDIT is left (the firmware's own
+    LOOP START does the same). An oscillator slot shows "---" and the dial changes nothing."""
+    e = Edit(payload, flash, data=looped(hc.bank([USER]), USER))
+    e.box.set_sample(USER)
+    before = (e.points(), e.gate())
+    delete = e.key("edit_prev")
+    page = e.key("edit_prev")
+    level = e.key("edit_prev")
+    again = e.key("edit_next")
+    on = (e.turn(1), e.points(), e.gate())
+    kept = (e.turn(1), e.points())
+    off = (e.turn(-1), e.points())
+    e.turn(1)
+    write = e.key("write")
+    e.dev.run(3)                  # the firmware's WRITE takes the keys again once it is done
+    e.turn(-1)
+    nxt = e.key("edit_next")
+    out = e.key("exit")
+    after = e.points()
+    data = e.export()
+    at = esli_of(data, USER) if data else 0
+    written = struct.unpack_from("<II", data, at + LOOP_AT) + (data[at + ONE_SHOT_AT],) if at else None
+    start, end = before[0][0], before[0][1]
+    ok_before = before[0][2] < end and before[0][3:] == (0, 0) and before[1] == [1, 0]
+    ok_ring = (delete[1] == (12, 12) and page[:3] == (MENU, (11, 12), ("ONE SHOT", "OFF")) and level[:2] == (PAGES_SCREEN, (10, 12))
+               and again[:2] == (MENU, (11, 12)) and nxt[:2] == (PAGES_SCREEN, (12, 12)))
+    ok_on = on[0] == "ON" and on[1][:3] == (start, end, end) and on[1][3:] == (1, 1) and on[2] == [1]
+    ok_kept = kept[0] == "ON" and kept[1] == on[1]
+    ok_off = off[0] == "OFF" and off[1][2] == start and off[1][3:] == (0, 0)
+    ok_write = write[0] == MENU and write[2] == ("ONE SHOT", "saved") and out[0] == ENTRY and after == on[1]
+    ok_written = written is not None and written[0] == written[1] == 2 * end and written[2] != 0
+    g = Edit(payload, flash)
+    g.box.set_sample(USER)
+    g.key("edit_prev")
+    shown_on = g.key("edit_prev")
+    g.turn(-1)
+    g.key("write")
+    g.dev.run(3)
+    g.key("exit")
+    g.dev.press("exit", 0.5)
+    left = (g.screen(), g.points(), g.gate())
+    g.dev.call(SWITCH_SCREEN, ENTRY, 0)
+    g.dev.run(0.5)
+    g.key("menu")
+    g.key("edit_prev")
+    g.key("edit_prev")
+    g.dev.m.uc.mem_write(g.dev.u32(MODEL) + 0x3FC, struct.pack("<I", 0))
+    g.dev.run(0.3)
+    plays = g.dev.read(PLAY, 1000 * 16)
+    value = g.turn(1)
+    guard = value == "---" and g.shown()[2] == ("ONE SHOT", "---") and g.dev.read(PLAY, 1000 * 16) == plays
+    ok_left = (shown_on[2] == ("ONE SHOT", "ON") and left[0] not in (ENTRY, PAGES_SCREEN, MENU) and left[1][2] == left[1][0]
+               and left[1][3:] == (0, 0) and left[2] == [1, 0])
+    return [entry("one_shot_page_in_the_ring", ok_ring and not e.asserts(), dict(delete=delete, page=page, level=level, again=again, next=nxt)),
+            entry("one_shot_on_off", ok_before and ok_on and ok_kept and ok_off and not e.asserts(), dict(before=before, on=on, kept=kept, off=off)),
+            entry("one_shot_write_keeps_exit_drops", ok_write and ok_written and not e.asserts(),
+                  dict(write=write, exit=out, after=after, written=written, end=end)),
+            entry("one_shot_off_closes_the_gate", ok_left and not g.asserts(), dict(shown=shown_on, left=left)),
+            entry("one_shot_oscillator_dashes", guard and not g.asserts(), dict(value=value, shown=g.shown()))]
 
 
 def case_factory_slot(payload, flash):
@@ -253,7 +360,7 @@ def case_without(payload, flash):
     return [entry("exit_held_is_stock", ok and not e.asserts(), dict(first=first, rename=rename, start=start))]
 
 
-GROUPS = (case_page, case_wheel, case_export, case_sliced, case_factory_slot, case_no_sample, case_without)
+GROUPS = (case_page, case_wheel, case_export, case_sliced, case_one_shot, case_factory_slot, case_no_sample, case_without)
 
 
 def group_entries(payload, flash, i):

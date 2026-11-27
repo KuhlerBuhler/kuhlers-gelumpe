@@ -234,7 +234,7 @@
 .equ M_LEVEL_DU, 8            ; level 8: our pages of DATA UTILITY, shown behind the firmware's last function (screen 15)
 .equ M_LEVEL_SE, 9            ; level 9: the page CATEGORY, shown as page 3 of the firmware's SAMPLE EDIT (screen 38), behind RENAME
 .equ M_LEVEL_UE, 10           ; level 10: the pages of the blue's SAMPLE EDIT, opened by ENTER on its page of DATA UTILITY
-.equ UE_PAGES, 7              ; SELECT SAMPLE, START POINT, LOOP START, END POINT, SAMPLE TUNE, PLAY LEVEL, REVERSE
+.equ UE_PAGES, 8              ; SELECT SAMPLE, START POINT, END POINT, LOOP START, SAMPLE TUNE, PLAY LEVEL, ONE SHOT, REVERSE
 .equ SE_ENTRY, 37             ; SAMPLE EDIT's screen with "press [Enter]", where its EXIT goes
 .equ MENU_RING_TAIL, 1 + HAS_SYNC   ; the page of Blechy and SYNC GROUP are pages the firmware's ring does not have (BLECH is M_COUNT)
 .equ MENU_SYNC_AT, 15         ; the counter's index of SYNC GROUP: behind the 15 pages of the Pattern menu, the Part menu's pages move up by one
@@ -4071,7 +4071,7 @@ menu_text_ue_entry:
     bne menu_text_status_value
     b menu_text_press
 ; SAMPLE EDIT's pages (70, r7 the page): SELECT SAMPLE shows the name, "[User] n" under it; the points in sample frames, SAMPLE TUNE
-; -63 to 63, PLAY LEVEL +0dB or +12dB, REVERSE OFF or ON; what user-samples said in place of the value
+; -63 to 63, PLAY LEVEL +0dB or +12dB, ONE SHOT and REVERSE OFF or ON; what user-samples said in place of the value
 menu_text_ue:
     add r0, r5, #M_TITLE
     ldr r1, =ue_titles
@@ -4099,7 +4099,8 @@ menu_text_ue:
     pop {r4, r5, r6, r7, pc}
 menu_text_ue_field:
     add r0, r5, #M_VALUE
-    sub r3, r7, #1              ; the field: F_START, F_LOOP, F_END, F_TUNE, F_LEVEL, F_REVERSE
+    ldr r3, =ue_fields          ; the field: F_START, F_LOOP, F_END, F_TUNE, F_LEVEL, F_REVERSE, F_ONESHOT
+    ldrb r3, [r3, r7]
     cmp r3, #3
     bhs menu_text_ue_flag
     add r2, r2, #0x1C           ; U_START, U_LOOP, U_END: byte offsets of 16-bit values
@@ -4115,9 +4116,10 @@ menu_text_ue_flag:
     bl menu_dec
     pop {r4, r5, r6, r7, pc}
 menu_text_ue_switch:
-    rsb r3, r3, #5
-    ldrb r3, [r2, r3]
-    cmp r7, #5
+    ldr r12, =ue_flag_at
+    ldrb r12, [r12, r3]
+    cmp r3, #4                  ; F_LEVEL
+    ldrb r3, [r2, r12]
     beq menu_text_ue_level
     cmp r3, #0
     ldreq r1, =str_off
@@ -5267,10 +5269,11 @@ menu_page_count:
     beq menu_count_list_plugins
     cmp r1, #M_LEVEL_DU
     beq menu_count_du
+    cmp r1, #M_LEVEL_SE
+    beq menu_count_se
     cmp r1, #M_LEVEL_BLECHY
     cmpne r1, #M_LEVEL_SYNC
     cmpne r1, #M_LEVEL_GLOBAL
-    cmpne r1, #M_LEVEL_SE
     cmpne r1, #0
     bne menu_count_level1
     mov r0, #1
@@ -5427,9 +5430,7 @@ menu_counter_args:
     moveq r2, #GLOBAL_PAGES+1
     popeq {pc}
     cmp r1, #M_LEVEL_SE
-    moveq r1, #2
-    moveq r2, #SE_PAGES+1
-    popeq {pc}
+    beq menu_counter_se_level
     cmp r1, #M_LEVEL_DU
     bne menu_counter_level
     bl menu_du_count
@@ -6848,6 +6849,9 @@ menu_slot_prev:
     mov r4, r0
     ldr r2, =MENU_STATE
     ldr r1, [r2, #M_PAGE]
+    ldr r3, [r2, #M_LEVEL]
+    cmp r3, #M_LEVEL_SE
+    beq menu_se_prev
     cmp r1, #0
     bne menu_prev_step
     ldr r3, [r2, #M_LEVEL]
@@ -6859,9 +6863,6 @@ menu_slot_prev:
     beq menu_prev_global
     cmp r3, #M_LEVEL_DU
     beq menu_prev_du
-    cmp r3, #M_LEVEL_SE
-    moveq r1, #1
-    beq menu_se_page
     cmp r3, #0
     bne menu_prev_wrap
     pop {r4, lr}
@@ -6936,6 +6937,9 @@ menu_slot_next:
     mov r4, r0
     bl menu_page_count
     ldr r2, =MENU_STATE
+    ldr r3, [r2, #M_LEVEL]
+    cmp r3, #M_LEVEL_SE         ; CATEGORY and ONE SHOT are apart in SAMPLE EDIT: menu_se_next picks the next page
+    beq menu_se_next
     ldr r1, [r2, #M_PAGE]
     add r1, r1, #1
     cmp r1, r0
@@ -6951,8 +6955,6 @@ menu_slot_next:
     cmp r3, #M_LEVEL_DU
     moveq r1, #0
     beq menu_du_function
-    cmp r3, #M_LEVEL_SE
-    beq menu_se_next
     cmp r3, #0
     beq menu_next_leave
     mov r1, #0
@@ -7260,7 +7262,7 @@ menu_value_is:
 ; SAMPLE EDIT's pages. SELECT SAMPLE: 1 to the last [User] sample, what the dial changed on the one before goes into the file first.
 ; The points: a step of the dial moves delta * |delta| times 1/8192 of the sample (at least one frame), so a fast turn goes far;
 ; user-samples keeps them within the sample and in order. TUNE -63 to 63. Points and TUNE play at once and go into the file at
-; EXIT or the next SELECT SAMPLE; PLAY LEVEL and REVERSE (the dial up ON, down OFF) store and load the sample again at once.
+; EXIT or the next SELECT SAMPLE; ONE SHOT, PLAY LEVEL and REVERSE (the dial up ON, down OFF) store at once.
 menu_value_ue:
     mov r3, #0
     str r3, [r6, #M_STATUS]
@@ -7279,7 +7281,8 @@ menu_value_ue:
     strb r0, [r6, #M_UE]
     b menu_value_done
 menu_value_ue_field:
-    sub r0, r0, #1
+    ldr r1, =ue_fields
+    ldrb r0, [r1, r0]
     push {r0}
     ldrb r0, [r6, #M_UE]
     and r0, r0, #0x7F
@@ -7321,7 +7324,8 @@ menu_value_ue_dirty:
     and r0, r0, #0x7F
     b menu_value_ue_set
 menu_value_ue_switch:
-    rsb r12, r1, #5
+    ldr r12, =ue_flag_at
+    ldrb r12, [r12, r1]
     ldrb r0, [r3, r12]
     cmp r5, #0
     movgt r2, #1
@@ -7775,6 +7779,8 @@ menu_slot_keys:
     cmp r0, #36
     cmpeq r6, #0x09
     beq menu_keys_psub
+    cmp r0, #67                 ; SAMPLE EDIT's pages of level 9 (script_sample_edit.s)
+    beq menu_keys_se
     cmp r6, #0x09
     beq menu_keys_done
     cmp r0, #36
@@ -8382,6 +8388,8 @@ str_ue_level:
     .asciz "PLAY LEVEL"
 str_ue_reverse:
     .asciz "REVERSE"
+str_ue_oneshot:
+    .asciz "ONE SHOT"
 str_ue_0db:
     .asciz "+0dB"
 str_ue_12db:
@@ -8391,8 +8399,13 @@ str_ue_none:
 str_tab_sample:
     .asciz "Sample"
 .align 4
-ue_titles:                      ; SAMPLE EDIT's pages (level 10), as user-samples' fields F_START to F_REVERSE behind SELECT SAMPLE
-    .word str_ue_select, str_ue_start, str_ue_loop, str_ue_end, str_ue_tune, str_ue_level, str_ue_reverse
+ue_titles:                      ; SAMPLE EDIT's pages (level 10), in the red's order
+    .word str_ue_select, str_ue_start, str_ue_end, str_ue_loop, str_ue_tune, str_ue_level, str_ue_oneshot, str_ue_reverse
+ue_fields:                      ; the page's field of user-samples' SET (F_START 0 .. F_ONESHOT 6), none for SELECT SAMPLE
+    .byte 0xFF, 0, 2, 1, 3, 4, 6, 5
+ue_flag_at:                     ; by field: the byte of U_FLAGS a switch is in (F_LEVEL 1, F_REVERSE 0, F_ONESHOT 3)
+    .byte 0, 0, 0, 2, 1, 0, 3, 0
+.align 4
 is_texts:                       ; IMPORT SAMPLE, by user-samples' result E_OK, E_OFF, E_SRC, E_FMT, E_ROOM, E_FILE, E_CARD, E_FULL, E_K
     .word str_is_done, str_is_off, str_is_src, str_is_fmt, str_is_room, str_us_bad, str_is_card, str_is_room, str_is_k
 str_pc:

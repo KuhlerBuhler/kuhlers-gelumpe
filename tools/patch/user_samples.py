@@ -147,7 +147,7 @@ SRC_FIL = 0xC013F100            # the FatFs file object of the WAV being importe
 ESLI_BUF = 0xC013F500           # the korg chunk being written or the head of one being changed, 0x4A4
 RUN_END = 0xC013FA00
 E_OK, E_OFF, E_SRC, E_FMT, E_ROOM, E_FILE, E_CARD, E_FULL, E_K = range(9)
-F_START, F_LOOP, F_END, F_TUNE, F_LEVEL, F_REVERSE = range(6)
+F_START, F_LOOP, F_END, F_TUNE, F_LEVEL, F_REVERSE, F_ONESHOT = range(7)
 
 
 def sha(data):
@@ -1607,8 +1607,9 @@ reload:
 
 ; ----------------------------------------------------- SAMPLE EDIT
 ; r0 = [User] number, r1 = F_START, F_LOOP, F_END (byte offsets of a value), F_TUNE (-63 to 63), F_LEVEL (0, 1: +12 dB),
-; F_REVERSE (0, 1), r2 = the value -> r0 = E_OK or what stopped it. Points and TUNE take effect at the next note and are kept
-; in RAM until us_store; PLAY LEVEL and REVERSE store the sample's record and load its values again, in their place.
+; F_REVERSE (0, 1), F_ONESHOT (0, 1), r2 = the value -> r0 = E_OK or what stopped it. Points and TUNE take effect at the next note
+; and are kept in RAM until us_store; ONE SHOT plays from the next note and stores the record at once; PLAY LEVEL and REVERSE
+; store the sample's record and load its values again, in their place.
 us_set:
     push {{r4, r5, r6, r7, r8, r9, r10, r11, lr}}
     ldr r11, =STATE
@@ -1629,6 +1630,8 @@ us_set:
     cmp r1, #{F_TUNE}
     blo ss_point
     beq ss_tune
+    cmp r1, #{F_ONESHOT}
+    beq ss_oneshot
     cmp r1, #{F_LEVEL}
     moveq r1, #1
     movne r1, #0
@@ -1683,6 +1686,13 @@ ss_tune:
     strb r2, [r4, #{U_FLAGS} + 2]
     bl msrl_put
     mov r0, #0
+    b ss_out
+ss_oneshot:                     ; one-shot: the SMPR record's loop is its end (smpr_put), the file keeps the loop point
+    cmp r2, #0
+    movne r2, #1
+    strb r2, [r4, #{U_FLAGS} + 3]
+    bl smpr_put
+    bl store_one
 ss_out:
     pop {{r4, r5, r6, r7, r8, r9, r10, r11, pc}}
 
@@ -1742,7 +1752,7 @@ msrl_put:
     strb r0, [r2, #5]
     pop {{pc}}
 
-; r0 = [User] number: its points, PLAY LEVEL, REVERSE and TUNE into its esli record in the file -> r0 = E_OK or what stopped it
+; r0 = [User] number: its points, ONE SHOT, PLAY LEVEL, REVERSE and TUNE into its esli record in the file -> r0 = E_OK or what stopped it
 us_store:
     push {{r4, r5, r6, r7, r8, r9, r10, r11, lr}}
     ldr r11, =STATE
@@ -1824,6 +1834,13 @@ store_one:
     strb r0, [r5, #66]
     ldrb r0, [r4, #{U_FLAGS} + 2]
     strb r0, [r5, #77]
+    ldrb r0, [r5, #52]          ; one-shot: 0 off; on keeps a nonzero byte the file had
+    ldrb r1, [r4, #{U_FLAGS} + 3]
+    cmp r1, #0
+    moveq r0, #0
+    cmpne r0, #0
+    moveq r0, r1
+    strb r0, [r5, #52]
     ldr r0, [r4, #{U_ESLI}]
     sub r0, r0, #16
     ldr r1, =ESLI_BUF

@@ -6,10 +6,14 @@
 .equ SE_RESUME, 0xC0691280    ; byte: 1 makes screen 38 open on SE_PAGE, as after RENAME; 0 makes it start over
 .equ SE_NAMES, 0xC047B08C     ; the name table, 32 bytes a slot: +0x10 the category (0 to 17), +0x12 the wave number (u16)
 .equ SE_CATEGORIES, 18        ; the categories the firmware has texts for (se_cat_texts)
+.equ SE_TAIL, 1               ; our pages behind PLAY LEVEL (SE_PAGE SE_LEVEL), before DELETE SAMPLE (SE_DELETE): ONE SHOT
+.equ SE_LEVEL, 8
+.equ SE_DELETE, 9
 .align 4
 ; 0xC0069BB8 and 0xC0069C88, slots 4 and 5 (EDIT left and right) of SAMPLE EDIT's pages (screen 38): both start with
 ; `push {r4, r5, r6, lr}`. With the menu armed EDIT right on RENAME (page 1) and EDIT left on START POINT (page 2) go to the page
 ; CATEGORY (level 9); a sliced sample skips START POINT to LOOP START (page 5) in the firmware, so there EDIT left on page 5 does.
+; EDIT right on PLAY LEVEL (page 8) and EDIT left on DELETE SAMPLE (page 9) go to ONE SHOT (level 9, pages 1 to SE_TAIL).
 ; Every other page and the windows above page 9 stay the firmware's.
 se_prev:
     ldr r2, =MENU_STATE
@@ -20,6 +24,9 @@ se_prev:
     ldr r3, [r3]
     cmp r3, #2
     beq se_out
+    cmp r3, #SE_DELETE
+    moveq r1, #SE_TAIL
+    beq se_out_page
     cmp r3, #5
     bne se_prev_go
     push {r0, lr}
@@ -40,16 +47,21 @@ se_next:
     ldr r3, [r3]
     cmp r3, #1
     beq se_out
+    cmp r3, #SE_LEVEL
+    moveq r1, #1
+    beq se_out_page
 se_next_go:
     push {r4, r5, r6, lr}
     ldr pc, =0xC0069C8C
 se_out:
+    mov r1, #0
+se_out_page:                    ; r1 = the page of level 9: 0 CATEGORY, 1 to SE_TAIL behind PLAY LEVEL
     ldr r2, =MENU_STATE
     mov r3, #M_LEVEL_SE
     str r3, [r2, #M_LEVEL]
+    str r1, [r2, #M_PAGE]
+    str r1, [r2, #M_ENTER]          ; the menu opens on M_ENTER
     mov r3, #0
-    str r3, [r2, #M_PAGE]
-    str r3, [r2, #M_ENTER]
     str r3, [r2, #M_STATUS]
     mov r0, #MENU_SCREEN
     mov r1, #0
@@ -84,8 +96,20 @@ se_slot:
     cmp r2, #49
     movls r0, #0
     pop {r4, pc}
+; -> r0 = the index of SAMPLE EDIT's sample that the firmware's point functions take (0xC004E4EC of the slot). Clobbers r1 to r3, r12.
+se_index:
+    push {r4, lr}
+    bl 0xC0035AD8
+    ldr r0, [r0, #0x3FC]
+    mov r0, r0, lsl #16
+    mov r0, r0, lsr #16
+    bl 0xC004E4EC
+    mov r0, r0, lsl #16
+    mov r0, r0, lsr #16
+    pop {r4, pc}
 .pool
-; SAMPLE EDIT's "n/10" (only on its screen 38, other screens count to 10 as well): CATEGORY is page 3, the pages behind it move up.
+; SAMPLE EDIT's "n/10" (only on its screen 38, other screens count to 10 as well): CATEGORY is page 3, ONE SHOT the page behind
+; PLAY LEVEL, the pages behind them move up.
 ; Coming back from CATEGORY, screen 38's constructor sets the counter while the menu is still the screen shown: that case is
 ; the menu screen with the level CATEGORY (the menu's own counter there counts to 11, never to 10).
 menu_counter_se:
@@ -103,13 +127,45 @@ menu_counter_se:
     moveq r0, #SE_SCREEN
     cmp r0, #SE_SCREEN
     bxne lr
-    add r2, r2, #1
+    add r2, r2, #1+SE_TAIL
     cmp r1, #2
     addge r1, r1, #1
+    cmp r1, #SE_DELETE+1
+    addge r1, r1, #SE_TAIL
     bx lr
+; the counter on level 9 (r3 = MENU_STATE): CATEGORY page 3, ONE SHOT behind PLAY LEVEL (menu_counter_args)
+menu_counter_se_level:
+    ldr r1, [r3, #M_PAGE]
+    cmp r1, #0
+    moveq r1, #2
+    addne r1, r1, #SE_LEVEL+1
+    mov r2, #SE_PAGES+1+SE_TAIL
+    pop {pc}
+; level 9 has CATEGORY and the SE_TAIL pages behind PLAY LEVEL (menu_page_count)
+menu_count_se:
+    mov r0, #1+SE_TAIL
+    pop {r4, pc}
 .pool
-; CATEGORY, EDIT right: START POINT, or LOOP START for a sliced sample, as the firmware steps from RENAME
+; level 9, EDIT left (r1 = M_PAGE, r2 = MENU_STATE): CATEGORY to RENAME, the first page behind PLAY LEVEL to it, a later one to the
+; page before it
+menu_se_prev:
+    cmp r1, #1
+    bhi menu_prev_step
+    moveq r1, #SE_LEVEL
+    movne r1, #1
+    b menu_se_page
+; level 9, EDIT right (r2 = MENU_STATE): the last page behind PLAY LEVEL to DELETE SAMPLE, the others to the page behind them;
+; CATEGORY to START POINT, or LOOP START for a sliced sample, as the firmware steps from RENAME
 menu_se_next:
+    ldr r1, [r2, #M_PAGE]
+    cmp r1, #0
+    beq menu_se_start
+    cmp r1, #SE_TAIL
+    addlo r1, r1, #1
+    blo menu_next_step
+    mov r1, #SE_DELETE
+    b menu_se_page
+menu_se_start:
     bl se_sliced
     cmp r0, #0
     movne r1, #5
@@ -127,6 +183,9 @@ menu_se_page:
 ; CATEGORY (r0 = 67): the category of SAMPLE EDIT's sample in the firmware's own text, as the Part screen shows it; "---" where
 ; the slot holds no sample or an oscillator (wave number up to 49)
 menu_text_se:
+    ldr r0, [r5, #M_PAGE]
+    cmp r0, #0
+    bne menu_text_se_oneshot
     add r0, r5, #M_TITLE
     ldr r1, =str_category
     bl menu_copy
@@ -142,9 +201,28 @@ menu_text_se_put:
     add r0, r5, #M_VALUE
     bl menu_copy
     b menu_text_look_line3
+; ONE SHOT: ON when the sample's LOOP START POINT is its END POINT, the firmware's one-shot (play table +14, set by its point
+; functions): the note plays to the end of the sample, a pad released early does not stop it. "---" as on CATEGORY
+menu_text_se_oneshot:
+    add r0, r5, #M_TITLE
+    ldr r1, =str_ue_oneshot
+    bl menu_copy
+    bl se_slot
+    ldr r1, =str_se_none
+    cmp r0, #0
+    beq menu_text_se_put
+    bl se_index
+    bl 0xC004EA38               ; (index) -> the one-shot byte
+    cmp r0, #0
+    ldreq r1, =str_off
+    ldrne r1, =str_on
+    b menu_text_se_put
 ; CATEGORY: the dial steps the category byte in the name table, 0 to 17, and stops at the ends; the slot keeps it in RAM, EXPORT
 ; ALL SAMPLE writes it to e2sSample.all as RENAME's name. Nothing for a slot without a sample or an oscillator.
 menu_value_se:
+    ldr r0, [r6, #M_PAGE]
+    cmp r0, #0
+    bne menu_value_se_oneshot
     bl se_slot
     cmp r0, #0
     beq menu_value_done
@@ -158,6 +236,73 @@ menu_value_se:
     mov r1, #0
     strb r1, [r0, #0x11]
     b menu_value_done
+; ONE SHOT, the dial: up ON, LOOP START POINT to END POINT; down OFF, LOOP START POINT to START POINT. Through the firmware's own
+; LOOP START POINT (0xC007F630 with the model and a value object of frames): its undo, the parts that play the sample, the screen.
+; The loop point before ON is not kept.
+menu_value_se_oneshot:
+    bl se_slot
+    cmp r0, #0
+    beq menu_value_done
+    push {r7, r8}
+    bl se_index
+    mov r8, r0
+    bl 0xC004EA38               ; (index) -> the one-shot byte
+    cmp r0, #0
+    movne r0, #1
+    cmp r5, #0
+    movgt r1, #1
+    movle r1, #0
+    cmp r0, r1
+    beq menu_value_se_kept
+    mov r0, r8
+    mov r1, #0
+    cmp r5, #0
+    ble menu_value_se_start
+    bl 0xC004E710               ; (index, frames to add) -> END POINT in frames
+    b menu_value_se_loop
+menu_value_se_start:
+    bl 0xC004E63C               ; (index, frames to add) -> START POINT in frames
+menu_value_se_loop:
+    ldr r1, =MENU_STATE
+    mov r2, #0
+    str r2, [r1, #M_STATUS]
+    sub sp, sp, #16
+    str r0, [sp, #12]
+    add r1, sp, #8
+    str r1, [sp]
+    bl 0xC0035AD8
+    mov r1, sp
+    mov r2, #0
+    bl 0xC007F630
+    add sp, sp, #16
+menu_value_se_kept:
+    pop {r7, r8}
+    b menu_value_done
+; level 9, a key (r6, menu_slot_keys): WRITE on ONE SHOT does what WRITE does on SAMPLE EDIT's own pages (0xC006F094 on screens
+; 37 to 39): it posts the firmware's command 0x25, which keeps the points; EXIT without it gives the old ones back. Not while the
+; firmware's byte 0xC0345EC4 says it is busy, as there. WRITE on CATEGORY saves the settings as before.
+menu_keys_se:
+    cmp r6, #0x0E
+    bne menu_keys_done
+    ldr r0, =MENU_STATE
+    ldr r0, [r0, #M_PAGE]
+    cmp r0, #0
+    beq menu_keys_save
+    bl se_slot
+    cmp r0, #0
+    beq menu_keys_done
+    ldr r0, =0xC0345EC4
+    ldrb r0, [r0]
+    cmp r0, #0
+    bne menu_keys_done
+    mov r0, #0x25
+    mov r1, #0
+    mov r2, #0
+    bl POST_COMMAND
+    ldr r0, =MENU_STATE             ; "saved" in the third line until the dial moves
+    mov r1, #1
+    str r1, [r0, #M_STATUS]
+    b menu_keys_done
 .pool
 se_tab:                         ; the firmware's tab text of SAMPLE EDIT, "Sample"
     .word 0xC00A5BBE

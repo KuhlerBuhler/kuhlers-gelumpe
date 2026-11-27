@@ -710,6 +710,9 @@
   "str_ue_none": {
    "text": "kein User-Sample"
   },
+  "str_ue_oneshot": {
+   "keep": "Fachwort oder Name bleibt Englisch"
+  },
   "str_ue_reverse": {
    "keep": "Fachwort oder Name bleibt Englisch"
   },
