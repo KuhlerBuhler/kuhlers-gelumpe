@@ -531,10 +531,11 @@ def case_import_menu(payload, flash):
 
 
 def case_edit_menu(payload, flash):
-    """DATA UTILITY > SAMPLE EDIT, behind IMPORT SAMPLE: ENTER opens its seven pages (counter n/7, the tab says Sample) on SELECT
-    SAMPLE; the dial picks the [User] sample, EDIT walks START POINT, LOOP START, END POINT, SAMPLE TUNE, PLAY LEVEL and REVERSE
-    and wraps. The points play at once and stay in order, TUNE stops at -63, REVERSE turns the values at once; EXIT writes the
-    points and TUNE into the file and goes back to the page, a new start has them. Without a [User] sample ENTER says so."""
+    """DATA UTILITY > SAMPLE EDIT, behind IMPORT SAMPLE: ENTER opens its eight pages (counter n/8, the tab says Sample) on SELECT
+    SAMPLE; the dial picks the [User] sample, EDIT walks START POINT, END POINT, LOOP START, SAMPLE TUNE, PLAY LEVEL, ONE SHOT and
+    REVERSE (the red's order) and wraps. The points play at once and stay in order, TUNE stops at -63, ONE SHOT keeps the loop
+    point and is stored at once, REVERSE turns the values at once; EXIT writes the points and TUNE into the file and goes back to
+    the page, a new start has them. Without a [User] sample ENTER says so."""
     if not mc.has_menu(payload):
         return []
     mc.for_build(payload)
@@ -556,7 +557,7 @@ def case_edit_menu(payload, flash):
         dev.turn(step)
         picks.append(mc.texts_of(dev)[1:])
     walk = []
-    for _ in range(6):
+    for _ in range(7):
         mc.press(dev, "edit_next", wait=0.4)
         walk.append((mc.counter(dev)[0], mc.texts_of(dev)[:2]))
     mc.press(dev, "edit_next", wait=0.4)
@@ -568,16 +569,22 @@ def case_edit_menu(payload, flash):
     u = user(p, 1)
     rec = record(p, spec.OSC_COUNT)
     live = p.chain(rec["wave"])["smpr"][0]
-    mc.press(dev, "edit_next", wait=0.4)
-    loop = mc.texts_of(dev)[1]
     for _ in range(2):
         mc.press(dev, "edit_next", wait=0.4)
+    loop = mc.texts_of(dev)[1]
+    mc.press(dev, "edit_next", wait=0.4)
     dev.turn(5)
     tune_up = mc.texts_of(dev)[1]
     dev.turn(-80)
     tune_floor = mc.texts_of(dev)[1]
     for _ in range(2):
         mc.press(dev, "edit_next", wait=0.4)
+    loop_before = user(p, 1)["loop"]
+    dev.turn(1, wait=3.0)
+    smpr = p.chain(rec["wave"])["smpr"]
+    one_shot = (mc.texts_of(dev)[:2], user(p, 1)["flags"] >> 24, user(p, 1)["loop"] == loop_before,
+                entry_of(card_file(img, SAMPLE_PATH + "e2sSample.all"), 500)["esli"][52], smpr[1] == smpr[2], bool(smpr[3] & spec.ONE_SHOT))
+    mc.press(dev, "edit_next", wait=0.4)
     dev.turn(1, wait=3.0)
     reverse = (mc.texts_of(dev)[1], user(p, 1)["flags"] & 0xFF)
     rev = last_dsp(p, u["base"], len(loud) * 2)
@@ -587,14 +594,15 @@ def case_edit_menu(payload, flash):
     stored = (struct.unpack_from("<I", esli, 40)[0], struct.unpack_from("b", esli, 77)[0], esli[54] & 1)
     out = [
         entry("edit_menu_opens", start_page == ("SAMPLE EDIT", "", mc.PRESS)
-              and select == (("SELECT SAMPLE", "FIRST", "[User] 1"), (0, 7), "Sample", 10) and not dev.m.asserts, f"{start_page}, {select}"),
+              and select == (("SELECT SAMPLE", "FIRST", "[User] 1"), (0, 8), "Sample", 10) and not dev.m.asserts, f"{start_page}, {select}"),
         entry("edit_menu_select", picks == [("SECOND", "[User] 2"), ("SECOND", "[User] 2"), ("FIRST", "[User] 1")], picks),
-        entry("edit_menu_pages", [w[0] for w in walk] == list(range(1, 7)) and [w[1][0] for w in walk]
-              == ["START POINT", "LOOP START", "END POINT", "SAMPLE TUNE", "PLAY LEVEL", "REVERSE"]
-              and [w[1][1] for w in walk] == ["0", "0", "3999", "0", "+0dB", "OFF"] and wrapped == (0, "SELECT SAMPLE"), f"{walk}, wrap {wrapped}"),
+        entry("edit_menu_pages", [w[0] for w in walk] == list(range(1, 8)) and [w[1][0] for w in walk]
+              == ["START POINT", "END POINT", "LOOP START", "SAMPLE TUNE", "PLAY LEVEL", "ONE SHOT", "REVERSE"]
+              and [w[1][1] for w in walk] == ["0", "3999", "0", "0", "+0dB", "OFF", "OFF"] and wrapped == (0, "SELECT SAMPLE"), f"{walk}, wrap {wrapped}"),
         entry("edit_menu_start_live", moved == "10" and u["start"] == 20 and live == u["base"] + 20 and loop == "10",
               f"START {moved}, record {u['start']}, voice start {live:#x} (base {u['base']:#x}), LOOP START {loop}"),
         entry("edit_menu_tune", tune_up == "5" and tune_floor == "-63", f"{tune_up}, {tune_floor}"),
+        entry("edit_menu_one_shot", one_shot == (("ONE SHOT", "ON"), 1, True, 1, True, True), one_shot),
         entry("edit_menu_reverse", reverse == ("ON", 1) and rev == mono(loud[::-1]), f"{reverse}, {'reversed' if rev == mono(loud[::-1]) else rev and rev[:16].hex()}"),
         entry("edit_menu_exit_stores", back == (mc.LEVEL_DU, ("SAMPLE EDIT", "", mc.PRESS)) and stored == (20, -63, 1) and not dev.m.asserts,
               f"{back}, file start {stored[0]}, tune {stored[1]}, reverse {stored[2]}"),
