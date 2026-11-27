@@ -240,7 +240,7 @@
 .equ M_LEVEL_DU, 8            ; level 8: our pages of DATA UTILITY, shown behind the firmware's last function (screen 15)
 .equ M_LEVEL_SE, 9            ; level 9: the page CATEGORY, shown as page 3 of the firmware's SAMPLE EDIT (screen 38), behind RENAME
 .equ M_LEVEL_UE, 10           ; level 10: the pages of the blue's SAMPLE EDIT, opened by ENTER on its page of DATA UTILITY
-.equ UE_PAGES, 8              ; SELECT SAMPLE, START POINT, END POINT, LOOP START, SAMPLE TUNE, PLAY LEVEL, ONE SHOT, REVERSE
+.equ UE_PAGES, 9              ; SELECT SAMPLE, START POINT, END POINT, LOOP START, SAMPLE TUNE, PLAY LEVEL, ONE SHOT, REVERSE, DECLICK
 .equ SE_ENTRY, 37             ; SAMPLE EDIT's screen with "press [Enter]", where its EXIT goes
 .equ SE_ASK, 0x58             ; M_STATUS on TURN MONO (level 9, script_sample_edit.s): "Are You Sure ?", the next ENTER or WRITE converts
 .equ SE_DONE, 0x59            ; M_STATUS on TURN MONO: converted, the page stays until EDIT or EXIT leaves it
@@ -4096,7 +4096,7 @@ menu_text_ue_entry:
     bne menu_text_status_value
     b menu_text_press
 ; SAMPLE EDIT's pages (70, r7 the page): SELECT SAMPLE shows the name, "[User] n" under it; the points in sample frames, SAMPLE TUNE
-; -63 to 63, PLAY LEVEL +0dB or +12dB, ONE SHOT and REVERSE OFF or ON; what user-samples said in place of the value
+; -63 to 63, PLAY LEVEL +0dB or +12dB, ONE SHOT, REVERSE and DECLICK OFF or ON; what user-samples said in place of the value
 menu_text_ue:
     add r0, r5, #M_TITLE
     ldr r1, =ue_titles
@@ -4124,7 +4124,7 @@ menu_text_ue:
     pop {r4, r5, r6, r7, pc}
 menu_text_ue_field:
     add r0, r5, #M_VALUE
-    ldr r3, =ue_fields          ; the field: F_START, F_LOOP, F_END, F_TUNE, F_LEVEL, F_REVERSE, F_ONESHOT
+    ldr r3, =ue_fields          ; the field: F_START, F_LOOP, F_END, F_TUNE, F_LEVEL, F_REVERSE, F_ONESHOT, F_DECLICK
     ldrb r3, [r3, r7]
     cmp r3, #3
     bhs menu_text_ue_flag
@@ -7511,7 +7511,7 @@ menu_value_is:
 ; SAMPLE EDIT's pages. SELECT SAMPLE: 1 to the last [User] sample, what the dial changed on the one before goes into the file first.
 ; The points: a step of the dial moves delta * |delta| times 1/8192 of the sample (at least one frame), so a fast turn goes far;
 ; user-samples keeps them within the sample and in order. TUNE -63 to 63. Points and TUNE play at once and go into the file at
-; EXIT or the next SELECT SAMPLE; ONE SHOT, PLAY LEVEL and REVERSE (the dial up ON, down OFF) store at once.
+; EXIT or the next SELECT SAMPLE; ONE SHOT, PLAY LEVEL, REVERSE and DECLICK (the dial up ON, down OFF) store at once.
 menu_value_ue:
     mov r3, #0
     str r3, [r6, #M_STATUS]
@@ -8656,6 +8656,8 @@ str_ue_reverse:
     .asciz "REVERSE"
 str_ue_oneshot:
     .asciz "ONE SHOT"
+str_ue_declick:
+    .asciz "DECLICK"
 str_ue_0db:
     .asciz "+0dB"
 str_ue_12db:
@@ -8666,11 +8668,11 @@ str_tab_sample:
     .asciz "Sample"
 .align 4
 ue_titles:                      ; SAMPLE EDIT's pages (level 10), in the red's order
-    .word str_ue_select, str_ue_start, str_ue_end, str_ue_loop, str_ue_tune, str_ue_level, str_ue_oneshot, str_ue_reverse
-ue_fields:                      ; the page's field of user-samples' SET (F_START 0 .. F_ONESHOT 6), none for SELECT SAMPLE
-    .byte 0xFF, 0, 2, 1, 3, 4, 6, 5
-ue_flag_at:                     ; by field: the byte of U_FLAGS a switch is in (F_LEVEL 1, F_REVERSE 0, F_ONESHOT 3)
-    .byte 0, 0, 0, 2, 1, 0, 3, 0
+    .word str_ue_select, str_ue_start, str_ue_end, str_ue_loop, str_ue_tune, str_ue_level, str_ue_oneshot, str_ue_reverse, str_ue_declick
+ue_fields:                      ; the page's field of user-samples' SET (F_START 0 .. F_DECLICK 7), none for SELECT SAMPLE
+    .byte 0xFF, 0, 2, 1, 3, 4, 6, 5, 7
+ue_flag_at:                     ; by field: the byte behind U_FLAGS a switch is in (F_LEVEL 1, F_REVERSE 0, F_ONESHOT 3, F_DECLICK 4: U_DECLICK)
+    .byte 0, 0, 0, 2, 1, 0, 3, 4
 .align 4
 is_texts:                       ; IMPORT SAMPLE, by user-samples' result E_OK, E_OFF, E_SRC, E_FMT, E_ROOM, E_FILE, E_CARD, E_FULL, E_K
     .word str_is_done, str_is_off, str_is_src, str_is_fmt, str_is_room, str_us_bad, str_is_card, str_is_room, str_is_k

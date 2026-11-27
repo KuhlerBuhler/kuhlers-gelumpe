@@ -121,10 +121,13 @@ S_NAME = 0xC0                   # 16 bytes
 S_MODE = 0xD0                   # 0: a sample's table records are appended; 1: they are written over those at S_IX
 S_IX = 0xD4                     # u16 each: the SMPR, MSRL, MSPR and instrument record of the sample being loaded
 S_FLAGS = 0xDC                  # byte 0 bit 0 REVERSE (esli[54]), byte 1 PLAY LEVEL +12 dB (esli[66]), byte 2 TUNE (esli[77], i8)
+S_DECLICK = 0xE0                # byte: DECLICK (esli[53] bit 0)
 ST_NOBANK, ST_EXIT, ST_NOFILE, ST_NOTALL, ST_OK = 1, 2, 3, 4, 5
 
 # ---- IMPORT SAMPLE and SAMPLE EDIT at run time (the BLECH menu calls them through the vector at CODE2)
 HW_DSP_WRITE = 0xC000FB44       # (DSP byte address, source, count of 16-bit words): DSP_WRITE under the firmware's lock, for tasks
+DSP_READ = 0xC00103B8           # (port, DSP byte address, destination, count of 16-bit words, [sp] 2): the red's 0xC0014AFC
+HW_DSP_READ = 0xC000FAB4        # (DSP byte address, destination, count of 16-bit words, 2): DSP_READ under the lock (red 0xC00141F8)
 F_WRITE, F_MKDIR = 0xC008AB10, 0xC008B510
 FIL_SIZE = 0x0C                 # the file size in a FatFs file object
 FA_READ_WRITE, FA_OPEN_ALWAYS = 0x03, 0x10
@@ -139,6 +142,7 @@ CODE2_END = 0xC013E000
 UT = 0xC013E000                 # per [User] sample 64 bytes, USER_MAX of them
 U_SLOT, U_CH, U_IX, U_ENTRY, U_ESLI, U_BYTES, U_BASE = 0x00, 0x02, 0x04, 0x0C, 0x10, 0x14, 0x18
 U_START, U_LOOP, U_END, U_RATE, U_FLAGS = 0x1C, 0x20, 0x24, 0x28, 0x2C   # U_FLAGS: S_FLAGS, byte 3 one-shot
+U_DECLICK = 0x30                # byte: DECLICK, the points it plays are moved to a quiet frame (U_FLAGS + 4 for the menu)
 RT = 0xC013F000                 # run time state, 0x100
 RT_RUN, RT_SRC, RT_K, RT_BR, RT_DATA, RT_DSIZE, RT_CH, RT_BYTES = 0x00, 0x04, 0x08, 0x0C, 0x10, 0x14, 0x18, 0x1C
 RT_FRAME, RT_RATE, RT_M, RT_BLOCKB, RT_ENTRY, RT_SLOT, RT_LOADED, RT_REJ = 0x20, 0x24, 0x28, 0x2C, 0x30, 0x34, 0x38, 0x3C
@@ -146,9 +150,11 @@ RT_NEXT, RT_CHUNK, RT_FMT, RT_WAV = 0x40, 0x48, 0x50, 0x60     # 8, 16 and 44 by
 SRC_FIL = 0xC013F100            # the FatFs file object of the WAV being imported, 0x400
 ESLI_BUF = 0xC013F500           # the korg chunk being written or the head of one being changed, 0x4A4
 WAV_DIR = 0xC013FA00            # IMPORT SAMPLE's browser (the BLECH menu): its folder, 0x80, then the chosen file's path, 0x80
-RUN_END = 0xC013FB00
+DC_BUF = 0xC013FB00             # DECLICK's window read from the DSP: the frame before it, then 257 frames, 0x210 bytes
+DC_SPAN = 2 << 7                # DECLICK looks 128 frames (2 bytes each) before and after a point, as on the red
+RUN_END = 0xC013FE00
 E_OK, E_OFF, E_SRC, E_FMT, E_ROOM, E_FILE, E_CARD, E_FULL, E_K = range(9)
-F_START, F_LOOP, F_END, F_TUNE, F_LEVEL, F_REVERSE, F_ONESHOT = range(7)
+F_START, F_LOOP, F_END, F_TUNE, F_LEVEL, F_REVERSE, F_ONESHOT, F_DECLICK = range(8)
 
 
 def sha(data):
@@ -409,6 +415,7 @@ load_one:
     mov r0, #0
     str r0, [r11, #{S_START}]
     str r0, [r11, #{S_FLAGS}]
+    strb r0, [r11, #{S_DECLICK}]
     mov r0, #1
     str r0, [r11, #{S_ONESHOT}]
     ldr r0, =0x52455355         ; "USER"
@@ -443,6 +450,9 @@ load_one:
     ldrb r1, [r5, #77]
     orr r0, r0, r1, lsl #16
     str r0, [r11, #{S_FLAGS}]
+    ldrb r0, [r5, #53]          ; DECLICK
+    and r0, r0, #1
+    strb r0, [r11, #{S_DECLICK}]
     add r0, r5, #2
     add r1, r11, #{S_NAME}
     mov r2, #15
@@ -584,6 +594,7 @@ lo_write:
     bne lo_block
     bl add_tables
     bl note_user
+    bl dc_load
     str r5, [r11, #{S_NEXT}]
     ldr r0, [r11, #{S_LOADED}]
     add r0, r0, #1
@@ -920,7 +931,23 @@ note_user:
     cmp r2, #0
     orrne r0, r0, #0x01000000
     str r0, [r1, #{U_FLAGS}]
+    ldrb r0, [r11, #{S_DECLICK}]
+    strb r0, [r1, #{U_DECLICK}]
     bx lr
+
+; behind note_user: a sample with DECLICK gets the moved points into its SMPR record (add_tables wrote the stored ones). Keeps r4 to r11.
+dc_load:
+    ldr r0, [r11, #{S_LOADED}]
+    cmp r0, #{USER_MAX}
+    bxhs lr
+    ldrb r1, [r11, #{S_DECLICK}]
+    cmp r1, #0
+    bxeq lr
+    push {{r4, lr}}
+    ldr r4, =UT
+    add r4, r4, r0, lsl #6
+    bl smpr_put
+    pop {{r4, pc}}
 
 ; ----------------------------------------------------- IMPORT SAMPLE
 ; r0 = the path of a WAV file, r1 = the [User] number it goes to: 1 to the samples loaded + 1, at most USER_MAX. A number
@@ -1583,6 +1610,7 @@ ui_live:
     ldr r10, [r10, #{RT_SLOT}]
     bl reload
     pop {{r4, r5, r6, r7, r8, r9, r10, pc}}
+.pool
 
 ; load_one at run time: r4 = the entry, r10 = its slot, S_LOADED = k - 1, S_MODE and S_IX set; S_LOADED, S_REJECTED
 ; and S_MODE as they were before, S_LOADED one up for a new number, S_LAST behind it -> r0 = 0 or E_FULL. Clobbers r4 to r10.
@@ -1636,6 +1664,8 @@ us_set:
     beq ss_tune
     cmp r1, #{F_ONESHOT}
     beq ss_oneshot
+    cmp r1, #{F_DECLICK}
+    beq ss_declick
     cmp r1, #{F_LEVEL}
     moveq r1, #1
     movne r1, #0
@@ -1697,10 +1727,18 @@ ss_oneshot:                     ; one-shot: the SMPR record's loop is its end (s
     strb r2, [r4, #{U_FLAGS} + 3]
     bl smpr_put
     bl store_one
+    b ss_out
+ss_declick:                     ; DECLICK: the moved points from the next note, the record stored at once
+    cmp r2, #0
+    movne r2, #1
+    strb r2, [r4, #{U_DECLICK}]
+    bl smpr_put
+    bl store_one
 ss_out:
     pop {{r4, r5, r6, r7, r8, r9, r10, r11, pc}}
 
-; r4 = a UT record: its points kept within the sample and written to its SMPR record (as add_tables does)
+; r4 = a UT record: its points kept within the sample and written to its SMPR record (as add_tables does); with DECLICK the
+; record gets the moved points, the UT record and the file keep the ones set
 smpr_put:
     push {{r5, lr}}
     ldr r2, [r4, #{U_END}]
@@ -1722,6 +1760,9 @@ smpr_put:
     str r0, [r4, #{U_START}]
     str r1, [r4, #{U_LOOP}]
     str r2, [r4, #{U_END}]
+    ldrb r3, [r4, #{U_DECLICK}]
+    cmp r3, #0
+    blne dc_points
     ldrb r3, [r4, #{U_FLAGS} + 3]
     cmp r3, #0
     movne r1, r2
@@ -1740,6 +1781,143 @@ smpr_put:
     str r2, [ip, #8]
     str r3, [ip, #12]
     pop {{r5, pc}}
+
+; DECLICK. r4 = a UT record, r0, r1, r2 = start, loop, end (byte offsets in the sample, in order) -> the moved ones. START
+; between the sample's first frame and END, END between the moved start and the last frame, LOOP START between the two moved
+; ones; a loop on the start or the end follows it. Keeps r4 to r11.
+dc_points:
+    push {{r4, r5, r6, r7, r8, r9, r10, lr}}
+    ldr r5, [r4, #{U_BASE}]
+    ldr r6, [r4, #{U_BYTES}]
+    add r6, r6, r5
+    sub r6, r6, #2              ; r6 = the last frame
+    add r7, r5, r0              ; r7, r8, r9 = start, loop, end in the DSP
+    add r8, r5, r1
+    add r9, r5, r2
+    mov r0, r7
+    mov r1, r5
+    mov r2, r9
+    bl dc_snap
+    mov r10, r0                 ; r10 = the moved start
+    mov r0, r9
+    mov r1, r10
+    mov r2, r6
+    bl dc_snap
+    mov r6, r0                  ; r6 = the moved end
+    cmp r8, r7
+    moveq r0, r10
+    beq dc_points_loop
+    cmp r8, r9
+    moveq r0, r6
+    beq dc_points_loop
+    mov r0, r8
+    mov r1, r10
+    mov r2, r6
+    bl dc_snap
+dc_points_loop:
+    sub r1, r0, r5
+    sub r0, r10, r5
+    sub r2, r6, r5
+    pop {{r4, r5, r6, r7, r8, r9, r10, pc}}
+
+; r0 = a point (DSP bytes), r1 the lowest and r2 the highest frame it may move to -> r0 the frame it moves to: within 128 frames
+; the nearest one where the wave crosses zero (0, or the sign changed from the frame before), ties to the earlier one; without a
+; crossing the frame of the smallest |value|, ties to the nearer one. The red's rule (script_sample_edit.s dc_snap), mono.
+dc_snap:
+    push {{r4, r5, r6, r7, r8, r9, r10, r11, lr}}
+    sub sp, sp, #8
+    mov r4, r0
+    sub r5, r4, #{DC_SPAN:#x}  ; r5 = the window's first frame
+    cmp r5, r1
+    movlt r5, r1
+    add r6, r4, #{DC_SPAN:#x}  ; r6 = its last
+    cmp r6, r2
+    movgt r6, r2
+    cmp r5, r6
+    bgt dc_snap_keep
+    cmp r5, r1                  ; r7: read from the frame before the window, unless that is outside the sample
+    subgt r7, r5, #2
+    movle r7, r5
+    ldr r8, =DC_BUF + 4
+    sub r1, r8, r5
+    add r1, r1, r7
+    mov r0, r7
+    add r2, r6, #2
+    sub r2, r2, r7
+    mov r2, r2, lsr #1
+    bl dc_read
+    cmp r7, r5                  ; no frame before: the first frame stands for it, no sign change there
+    ldrheq r0, [r8]
+    strheq r0, [r8, #-2]
+    mov r7, r8                  ; r7 the frame in the buffer, r5 its DSP address
+    mvn r9, #0                  ; r9 the distance of the nearest crossing, r8 its frame
+    mvn r10, #0                 ; r10 the smallest level, [sp] its frame, [sp, #4] its distance
+    str r4, [sp]
+    str r9, [sp, #4]
+dc_snap_frame:
+    ldrsh r0, [r7]
+    ldrsh r1, [r7, #-2]
+    eor r1, r1, r0              ; negative: the sign changed from the frame before, or the frame is 0
+    cmp r0, #0
+    mvneq r1, #0
+    subs r12, r5, r4
+    rsblt r12, r12, #0
+    cmp r1, #0
+    bge dc_snap_level
+    cmp r12, r9
+    movlo r9, r12
+    movlo r8, r5
+dc_snap_level:
+    cmp r0, #0
+    rsblt r0, r0, #0
+    cmp r0, r10
+    bhi dc_snap_next
+    blo dc_snap_quiet
+    ldr r1, [sp, #4]
+    cmp r12, r1
+    bhs dc_snap_next
+dc_snap_quiet:
+    mov r10, r0
+    str r5, [sp]
+    str r12, [sp, #4]
+dc_snap_next:
+    add r5, r5, #2
+    add r7, r7, #2
+    cmp r5, r6
+    ble dc_snap_frame
+    cmn r9, #1
+    movne r0, r8
+    ldreq r0, [sp]
+    add sp, sp, #8
+    pop {{r4, r5, r6, r7, r8, r9, r10, r11, pc}}
+dc_snap_keep:
+    mov r0, r4
+    add sp, sp, #8
+    pop {{r4, r5, r6, r7, r8, r9, r10, r11, pc}}
+
+; r0 = DSP byte address, r1 = destination, r2 = 16-bit words: at start the firmware's reader on the load's port, at run time
+; (RT_RUN 1) the one under the firmware's lock, as dsp_put
+dc_read:
+    push {{r4, lr}}
+    sub sp, sp, #8
+    mov r3, #2
+    ldr ip, =RT
+    ldr ip, [ip, #{RT_RUN}]
+    cmp ip, #1
+    bne dc_read_start
+    bl {HW_DSP_READ:#x}
+    b dc_read_out
+dc_read_start:
+    str r3, [sp]
+    mov r3, r2
+    mov r2, r1
+    mov r1, r0
+    ldr r0, =STATE
+    ldr r0, [r0, #{S_PORT}]
+    bl {DSP_READ:#x}
+dc_read_out:
+    add sp, sp, #8
+    pop {{r4, pc}}
 
 ; r4 = a UT record: the pitch word of its rate and TUNE into its MSRL record
 msrl_put:
@@ -1838,6 +2016,11 @@ store_one:
     strb r0, [r5, #66]
     ldrb r0, [r4, #{U_FLAGS} + 2]
     strb r0, [r5, #77]
+    ldrb r0, [r5, #53]          ; DECLICK in bit 0, the other bits as the file had them
+    bic r0, r0, #1
+    ldrb r1, [r4, #{U_DECLICK}]
+    orr r0, r0, r1
+    strb r0, [r5, #53]
     ldrb r0, [r5, #52]          ; one-shot: 0 off; on keeps a nonzero byte the file had
     ldrb r1, [r4, #{U_FLAGS} + 3]
     cmp r1, #0
@@ -1870,7 +2053,7 @@ head_magic:
 """
 
 EQUS = ["STATE", "PATH", "FIL", "HDR", "BUF", "PANEL", "OSC_TABLE", "MSVS", "MSPR", "MSRL", "SMPR",
-        "COUNT_INST", "COUNT_MSPR", "COUNT_MSRL", "COUNT_SMPR", "UT", "RT", "SRC_FIL", "ESLI_BUF"]
+        "COUNT_INST", "COUNT_MSPR", "COUNT_MSRL", "COUNT_SMPR", "UT", "RT", "SRC_FIL", "ESLI_BUF", "DC_BUF"]
 
 
 def source():
@@ -2015,7 +2198,8 @@ def build_patch(vsb):
             {"at": hex_addr(RT), "length": 0x100, "what": "run time state of IMPORT SAMPLE and SAMPLE EDIT", "source": "tools/patch/user_samples.py:RT"},
             {"at": hex_addr(SRC_FIL), "length": 0x400, "what": "the FatFs file object of the WAV being imported", "source": "tools/patch/user_samples.py:SRC_FIL"},
             {"at": hex_addr(ESLI_BUF), "length": WAV_DIR - ESLI_BUF, "what": "the korg chunk being written, or the head of an esli record being changed", "source": "tools/patch/user_samples.py:ESLI_BUF"},
-            {"at": hex_addr(WAV_DIR), "length": RUN_END - WAV_DIR, "what": "IMPORT SAMPLE's browser: the folder it shows and the path of the file chosen", "source": "tools/patch/user_samples.py:WAV_DIR"},
+            {"at": hex_addr(WAV_DIR), "length": DC_BUF - WAV_DIR, "what": "IMPORT SAMPLE's browser: the folder it shows and the path of the file chosen", "source": "tools/patch/user_samples.py:WAV_DIR"},
+            {"at": hex_addr(DC_BUF), "length": RUN_END - DC_BUF, "what": "DECLICK: the window around a point, read from the DSP", "source": "tools/patch/user_samples.py:DC_BUF"},
         ],
     }
 
