@@ -8,6 +8,18 @@
  ],
  "changes": [
   {
+   "file": 375152,
+   "bytes": "e36200ea",
+   "expect": "fe8d65ae913df24877f27645b6abefd01c7d55d06183491a9a5cb0579724f022",
+   "note": "value window 0x18: the callback closes the window as before, not through the EXIT method"
+  },
+  {
+   "file": 375216,
+   "bytes": "ffffffea",
+   "expect": "88098631b0b05b4e3cfe81e4fdf6d9813ebdf89256141b304d8bb6e4d8b2f263",
+   "note": "value window 0x18: EXIT closes the window and runs EXIT"
+  },
+  {
    "file": 375220,
    "bytes": "70402de90140a0e10250a0e1123041e2040053e3010013930400001a000052e37080bd18060000ea0000a0e10000a0e1c66200eb0400a0e10510a0e17040bde8bc6100ea0c309fe50010a0e1000093e57040bde8c05d00ea2cb556c0",
    "expect": "3986dffcf13fe6f7b893b76ae1839c64657e7628c842ede3671cade3da3ca65a",

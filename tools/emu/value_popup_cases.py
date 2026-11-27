@@ -5,7 +5,8 @@ pressed while the value window of a knob is on the screen closes the window and 
 Every case compares two runs of the same input from the same start: one right after a knob turn (the window is open), one after
 the window has gone. Both have to end in the same state (screen, chosen and running pattern, transport, the live pattern, the
 selected part). A key that reaches the window closes it; the filter keys and a further knob turn keep it. The main dial
-closes it too, on the home screen and in a menu, and changes the value as without the window. The part keys,
+closes it too, on the home screen and in a menu, and changes the value as without the window; EXIT in a menu closes it
+and leaves the menu. The part keys,
 TRIGGER, SEQUENCER, KEYBOARD, CHORD, PATTERN SET and the pads are taken by the firmware before the window: they act, and
 the window stays until it times out, as in Korg's firmware.
 
@@ -213,8 +214,8 @@ def case_sample(payload):
 
 
 def case_menu_dial(payload):
-    """In a menu page the main dial right after a knob closes the window and changes the menu value, LEFT and RIGHT move the
-    cursor, as without the window."""
+    """In a menu page the main dial right after a knob closes the window and changes the menu value, EXIT leaves the menu,
+    LEFT and RIGHT move the cursor, as without the window."""
     def in_menu(b):
         tap(b, MENU)
         tap(b, RIGHT)
@@ -226,6 +227,8 @@ def case_menu_dial(payload):
             b.run(WAIT)
         return act
     return [compare(payload, "menu_dial_up", turn(1), open_with=in_menu), compare(payload, "menu_dial_down", turn(0xFF), open_with=in_menu),
+            compare(payload, "menu_exit", lambda b: tap(b, EXIT), open_with=in_menu),
+            compare(payload, "menu_exit_playing", lambda b: tap(b, EXIT), playing=True, open_with=in_menu),
             compare(payload, "menu_left", lambda b: tap(b, LEFT), open_with=in_menu),
             compare(payload, "menu_right", lambda b: tap(b, RIGHT), open_with=in_menu)]
 

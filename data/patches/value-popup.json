@@ -9,6 +9,30 @@
  ],
  "changes": [
   {
+   "file": 414904,
+   "bytes": "9c7a00ea",
+   "expect": "fe8d65ae913df24877f27645b6abefd01c7d55d06183491a9a5cb0579724f022",
+   "note": "value window 0x17: the callback closes the window as before, not through the EXIT method"
+  },
+  {
+   "file": 414924,
+   "bytes": "977a00ea",
+   "expect": "fe8d65ae913df24877f27645b6abefd01c7d55d06183491a9a5cb0579724f022",
+   "note": "value window 0x18: the callback closes the window as before, not through the EXIT method"
+  },
+  {
+   "file": 415028,
+   "bytes": "000000ea",
+   "expect": "6bdf5b8199d2dbba8ff426ade689429457583d3a8f21a8b12c4f474b55321a3c",
+   "note": "value window 0x17: EXIT closes the window and runs EXIT"
+  },
+  {
+   "file": 415032,
+   "bytes": "160000ea",
+   "expect": "ca8bf6864acd65dc638d9917b41be455e0ba9a9d037197601b7212db78a3c3c6",
+   "note": "value window 0x18: EXIT closes the window and runs EXIT"
+  },
+  {
    "file": 415036,
    "bytes": "70402de90140a0e10250a0e1123041e2040053e3010013930400001a000052e37080bd18060000ea0000a0e10000a0e16f7a00eb0400a0e10510a0e17040bde85b7900ea0c309fe50010a0e1000093e57040bde8bc7400ea4c1269c0",
    "expect": "f1984b051814b7735b5ce7a977b7cd8e9757167a8f56fe6e548f7f8eb396c103",
