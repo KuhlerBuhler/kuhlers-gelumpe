@@ -21,14 +21,14 @@ export const ALL = "all";
 export const CASE_MODULES = ["mfx_cases", "splash_cases", "menu_cases", "pswitch_cases", "tap_motion_cases",
   "note_assist_cases", "dice_cases", "ifx_idle_cases", "shortcut_cases", "migrate_cases", "fx_card_cases",
   "remote_cases", "loadbar_cases", "sample_error_cases", "synth_filter_cases", "sysex_cases", "last_pattern_cases",
-  "init_pattern_cases", "stereo_pad_cases", "tube_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases"];
+  "init_pattern_cases", "stereo_pad_cases", "tube_cases", "ht_osc_cases", "beat_eighth_cases", "touch_scale_zero_cases", "value_popup_cases", "update_guard_cases", "power_off_cases", "preset_cases", "doom_loader_cases", "card_error_cases"];
 
 // The case modules other case modules import helpers from: a change there runs the importers too
 // (test/verify-scope.test.mjs reads the imports and fails when one is missing).
 const MENU_USERS = ["menu_cases", "shortcut_cases", "migrate_cases", "fx_card_cases", "remote_cases",
   "last_pattern_cases", "init_pattern_cases", "power_off_cases", "doom_loader_cases", "stereo_pad_cases", "tube_cases", "beat_eighth_cases", "ht_osc_cases", "card_error_cases"];
 const PSWITCH_USERS = ["pswitch_cases", "tap_motion_cases", "note_assist_cases", "ifx_idle_cases", "shortcut_cases",
-  "synth_filter_cases", "beat_eighth_cases"];
+  "synth_filter_cases", "beat_eighth_cases", "value_popup_cases"];
 const MFX_USERS = ["mfx_cases", "ifx_idle_cases", "preset_cases", "stereo_pad_cases", "tube_cases", "touch_scale_zero_cases", "ht_osc_cases"];
 
 /** [pattern, modules or ALL], first match wins. Patterns are anchored; `[^/]*` stays inside one folder. */
@@ -89,6 +89,7 @@ export const TABLE = [
   [/^tools\/patch\/ht_osc\.py$|^data\/patches\/ht-osc[^/]*\.json$/, ["ht_osc_cases"]],
   [/^tools\/patch\/beat_eighth\.py$|^data\/patches\/beat-eighth[^/]*\.json$/, ["beat_eighth_cases"]],
   [/^tools\/patch\/touch_scale_zero\.py$|^data\/patches\/touch-scale-zero[^/]*\.json$/, ["touch_scale_zero_cases"]],
+  [/^tools\/patch\/value_popup\.py$|^data\/patches\/value-popup[^/]*\.json$|^data\/synth-map\/value-popup\.json$/, ["value_popup_cases"]],
   [/^tools\/patch\/update_guard\.py$|^data\/patches\/update-guard[^/]*\.json$|^data\/synth-map\/update-guard\.json$/, ["update_guard_cases"]],
   [/^tools\/patch\/doom_loader\.py$|^data\/patches\/doom-loader\.json$/, ["doom_loader_cases"]],
   [/^tools\/patch\/power_off\.py$|^data\/patches\/power-off[^/]*\.json$/, ["power_off_cases"]],

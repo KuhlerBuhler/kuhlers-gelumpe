@@ -122,7 +122,7 @@ export const TEST_AREAS = {
   splash: "rescue.area.start", loadbar: "rescue.area.start", migrate: "rescue.area.start", updateguard: "rescue.area.start",
   fxcard: "rescue.area.card", cardfault: "rescue.area.card", presets: "rescue.area.card", power_off: "rescue.area.card",
   mfx: "rescue.area.sound", ifxidle: "rescue.area.sound", synthfilter: "rescue.area.sound", tube: "rescue.area.sound",
-  tapmotion: "rescue.area.play", noteassist: "rescue.area.play", dice: "rescue.area.play", beateighth: "rescue.area.play", touchscalezero: "rescue.area.play",
+  tapmotion: "rescue.area.play", noteassist: "rescue.area.play", dice: "rescue.area.play", beateighth: "rescue.area.play", touchscalezero: "rescue.area.play", valuepopup: "rescue.area.play",
   remote: "rescue.area.midi", sysex: "rescue.area.midi",
   plugin_edit: "rescue.area.plugin", plugin_api15: "rescue.area.plugin", plugin_api18: "rescue.area.plugin", plugin_api19: "rescue.area.plugin", plugin_api22: "rescue.area.plugin", plugin_api23: "rescue.area.plugin", plugin_api24: "rescue.area.plugin", plugin_api25: "rescue.area.plugin", plugin_catalog15: "rescue.area.plugin", catalog_app: "rescue.area.plugin", timers: "rescue.area.plugin", objects: "rescue.area.plugin", live_write: "rescue.area.plugin", global: "rescue.area.plugin", pattern_parts: "rescue.area.plugin", testmode: "rescue.area.plugin",
   doom: "rescue.area.doom",

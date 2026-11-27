@@ -1485,6 +1485,7 @@ export default {
   "patcher.patch.sysex": "BLECHTRIBE SysEx: чтение и запись RAM",
   "patcher.patch.sysexSynth": "BLECHTRIBE SysEx: чтение RAM и flash",
   "patcher.patch.ifxIdle": "Insert-эффект в покое",
+  "patcher.patch.valuePopup": "Кнопки закрывают окно значения",
   "patcher.patch.tubeCurve": "Ламповая кривая на выходе",
   "patcher.patch.loadingAnim": "Своя анимация загрузки",
   "patcher.patch.version": "Версия BLECHTRIBE в меню (BLECH > VERSION)",
