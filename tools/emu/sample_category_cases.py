@@ -577,7 +577,8 @@ def case_reverse(payload, flash):
     """REVERSE, behind ONE SHOT (12 of 14, stereo 12 of 15). ON turns the sample's PCM round in the DSP frame by frame (a stereo
     frame keeps L before R; more than two blocks of the firmware's DSP read, so block pairs swap and a rest turns in the middle)
     and sets bit 1 of the play table's byte 15; the points stay. OFF gives the PCM back bit for bit. With DECLICK on, the next
-    note plays the points worked out on the reversed PCM. EXIT without WRITE keeps it (the snapshot's byte follows), EXPORT ALL
+    note plays the points worked out on the reversed PCM. EXIT without WRITE keeps REVERSE (the snapshot's byte follows) and takes
+    the unwritten DECLICK back, EXPORT ALL
     SAMPLE writes the reversed PCM and the bit (esli byte 53). An oscillator shows "---"."""
     out = []
     for stereo, frames in ((False, 70001), (True, 40001)):
@@ -631,7 +632,7 @@ def case_reverse(payload, flash):
                  and kept == ("ON", True))
         ok_declick = stereo or (played == want and want != stored)
         ok_off = off == ("OFF", bit, True)
-        ok_exit = left[0] == ENTRY and after == (2 | bit, True)
+        ok_exit = left[0] == ENTRY and after == (2, True)    # DECLICK without WRITE goes back with EXIT, REVERSE stays
         out += [entry(f"reverse_{name}_page", ok_page and not e.asserts(), dict(delete=delete, declick=declick, page=page)),
                 entry(f"reverse_{name}_turns_the_pcm", ok_on and ok_declick and not e.asserts(),
                       dict(on=on, differing=sum(1 for a, b in zip(now, turned) if a != b), points=(stored, points), kept=kept,
@@ -645,7 +646,7 @@ def case_reverse(payload, flash):
         riff = struct.unpack_from("<I", written, 16 + USER * 4)[0] if written else 0
         dat = written.index(b"data", riff) if written else 0
         pcm_file = list(struct.unpack_from(f"<{struct.unpack_from('<I', written, dat + 4)[0] // 2}h", written, dat + 8)) if written else []
-        out.append(entry("reverse_export_writes_pcm_and_bit", at and written[at + DECLICK_AT] == 3 and pcm_file == turned
+        out.append(entry("reverse_export_writes_pcm_and_bit", at and written[at + DECLICK_AT] == 2 and pcm_file == turned
                          and not e.asserts(), dict(byte=written[at + DECLICK_AT] if at else None,
                                                    differing=sum(1 for a, b in zip(pcm_file, turned) if a != b), size=len(pcm_file))))
         g = Edit(payload, flash, data=data, dsp=True)
