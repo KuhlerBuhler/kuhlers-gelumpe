@@ -666,8 +666,22 @@ dann läuft, hängt von der Basis ab:
   ersetzt die noch laufenden Teilläufe des alten; der neueste Stand prüft wieder alle Fallmodule.
 
 Gepusht wird mit dem Token von Blechy, damit der neue Commit seine Tests bekommt; ein Lauf auf diesem Commit endet nach dem
-ersten Schritt. Ein neuer Push bricht den laufenden Check eines PRs ab. Pull Requests aus Forks haben keine Secrets:
-`patches` wird dort rot, ein Mensch merged sie. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
+ersten Schritt. Ein neuer Push bricht den laufenden Check eines PRs ab. Die Liste der Pfade hält `test/verify-patches.test.mjs` vollständig.
+
+**Pull Requests aus Forks** haben keine Secrets, ihr eigener Check `patches` wird rot. Nach dem Lesen des ganzen Diffs
+setzt ein Maintainer das Label `safe-to-test`. Der Workflow "Fork firmware check" (`.github/workflows/fork-check.yml`,
+`pull_request_target` in der Fassung der Basis) prüft dann genau den Head-Commit, auf dem das Label gesetzt wurde: wie ein
+PR nach `develop` (Startszenarien und die Case-Module aus `verify-scope.mjs`), mit nur den drei Firmware-Downloads als
+Secrets und ohne Cache zu schreiben. Das Ergebnis steht als neuer Check `patches` auf diesem Commit. Ein neuer Push
+entfernt das Label und bricht den laufenden Check ab; für den neuen Stand braucht es das Label wieder. Nicht gestartet
+wird bei einem Label von jemandem ohne Schreibrecht und bei einem PR, der `.github/` ändert (dessen Actions bekämen die
+Downloads): der wird von Hand geprüft. Der Code des Forks läuft dabei neben Korgs Firmware und hat Netz: das Label
+setzt nur, wer den Code auch so laufen lassen würde. Gemergt werden Fork-PRs weiter von Hand, "Automerge" nimmt keine.
+
+*English:* a fork pull request gets the firmware check when a maintainer, after reading the whole diff, adds the label
+`safe-to-test`. "Fork firmware check" then checks exactly the labelled head commit with only the three firmware
+downloads, writes no cache and reports the check `patches` on that commit. A new push removes the label. Pull requests
+that change `.github/` are not run; they are checked by hand.
 
 Von Hand, für einen beliebigen Branch:
 

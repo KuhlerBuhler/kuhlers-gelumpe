@@ -173,6 +173,7 @@ jobs:
               - '.github/workflows/test.yml'
               - '.github/workflows/firmware-check.yml'
               - '.github/workflows/verify-patches.yml'
+              - '.github/workflows/fork-check.yml'
               - '.github/workflows/release.yml'
               - '.github/workflows/automerge.yml'
               - '.github/workflows/release-merge.yml'
