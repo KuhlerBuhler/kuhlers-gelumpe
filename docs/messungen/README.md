@@ -130,6 +130,7 @@ Insert- und Master-Effekte, zweite Stufe, Pegel und der DSP selbst.
 - [DSP-SDRAM: Belegung, Grenzprüfung und geprüfte Kandidaten](2026-11-20-dsp-sdram-freiraum.md)
 - [Röhrenkurve statt Soft-Clipper am Ausgang, im QEMU-DSP-Kern und im Emulator](2026-11-20-roehrenkurve.md)
 - [DSP-SDRAM am roten Gerät: zwei vollständige Lesevergleiche](2026-11-22-dsp-sdram-am-geraet.md)
+- [Looper: erster Griff nach dem MFX-Wechsel macht stumm, im Emulator nicht nachgestellt](2026-11-27-looper-erster-griff.md)
 
 ## SysEx, USB und Transport
 
