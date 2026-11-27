@@ -1,0 +1,154 @@
+# The firmware check for a pull request from a fork. Its own run of Verify patches has no secrets, so its check
+# `patches` fails. A maintainer reads the whole diff and adds the label safe-to-test: this workflow, in its version on
+# the base branch, then checks exactly the head commit the label was added on, with the three firmware downloads and
+# no other secret, and writes the result as the check `patches` on that commit. A new push removes the label again.
+# The checked code runs next to Korg's firmware with network access: the label stands for "I read it and would run it".
+name: Fork firmware check
+
+on:
+  pull_request_target:
+    types: [labeled, synchronize, reopened]
+
+permissions:
+  contents: read
+
+# One group per fork pull request: a new push cancels the check of the old head. Other labels and pull requests from
+# this repository get a group of their own, so they cancel nothing.
+concurrency:
+  group: >-
+    fork-check-${{
+      (github.event.pull_request.head.repo.full_name != github.repository &&
+       (github.event.action != 'labeled' || github.event.label.name == 'safe-to-test')) &&
+      github.event.pull_request.number || format('other-{0}', github.run_id)
+    }}
+  cancel-in-progress: true
+
+jobs:
+  # A new head was not reviewed: the label goes.
+  unlabel:
+    if: >-
+      github.event.action != 'labeled' &&
+      github.event.pull_request.head.repo.full_name != github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'safe-to-test')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/$PR/labels/safe-to-test" --silent
+          echo "::notice::new commits on pull request $PR: the label safe-to-test is removed, the next check needs it again."
+
+  # Reads only data of the pull request (its file list, never its code) and opens the check on the head commit.
+  start:
+    if: >-
+      github.event.action == 'labeled' && github.event.label.name == 'safe-to-test' &&
+      github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: write
+    outputs:
+      sha: ${{ steps.scope.outputs.sha }}
+      run: ${{ steps.scope.outputs.run }}
+      cases: ${{ steps.scope.outputs.cases }}
+      check: ${{ steps.check.outputs.id }}
+    steps:
+      # the base branch, this workflow's own commit: verify-scope.mjs from here, not from the fork
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          SENDER: ${{ github.event.sender.login }}
+        run: |
+          role=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$SENDER/permission" --jq .role_name)
+          case "$role" in
+            admin|maintain|write) ;;
+            *) echo "::error::$SENDER ($role) may not start the check; it needs write access."; exit 1 ;;
+          esac
+          head=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" --jq 'select(.state == "open") | .head.sha')
+          if [ "$head" != "$SHA" ]; then
+            echo "::error::the pull request is at ${head:-closed} now, not at the labelled $SHA: read the new commits and add the label again."
+            exit 1
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed.txt"
+          if [ "$(wc -l < "$RUNNER_TEMP/changed.txt")" -ge 3000 ]; then
+            echo "::error::the API lists at most 3000 files; a pull request this large is checked by hand."
+            exit 1
+          fi
+          # The firmware check runs the actions under .github/ from the checked commit, and they get the downloads.
+          if grep -q '^\.github/' "$RUNNER_TEMP/changed.txt"; then
+            echo "::error::the pull request changes .github/, whose actions would get the secrets: it is checked by hand."
+            exit 1
+          fi
+          n=$(node --input-type=module -e 'import { readFileSync } from "node:fs"; import { workflowPaths } from "./tools/ci/verify-scope.mjs"; console.log(readFileSync(0, "utf8").split("\n").filter(Boolean).filter(workflowPaths()).length)' < "$RUNNER_TEMP/changed.txt")
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          if [ "$n" = 0 ]; then
+            echo "::notice::the pull request changes nothing the check is made of, nothing to check."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          cases=$(node tools/ci/verify-scope.mjs < "$RUNNER_TEMP/changed.txt")
+          echo "::notice::$SHA, labelled by $SENDER: start scenarios and cases '${cases:-none}'."
+          echo "run=true" >> "$GITHUB_OUTPUT"
+          echo "cases=$cases" >> "$GITHUB_OUTPUT"
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.scope.outputs.sha }}
+          RUN: ${{ steps.scope.outputs.run }}
+          URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$RUN" = false ]; then state=(-f status=completed -f conclusion=success -f "output[title]=Nothing to check");
+          else state=(-f status=in_progress -f "output[title]=Firmware check running"); fi
+          id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" -f name=patches -f head_sha="$SHA" "${state[@]}" \
+            -f "output[summary]=Fork firmware check: $URL" --jq .id)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  verify:
+    needs: start
+    if: needs.start.outputs.run == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/firmware-check.yml
+    with:
+      ref: ${{ needs.start.outputs.sha }}
+      branch: pull/${{ github.event.pull_request.number }}
+      full: false
+      cases: ${{ needs.start.outputs.cases }}
+      shards: ${{ fromJSON(vars.FIRMWARE_SHARDS || '4') }}
+      save-cache: false
+    secrets:
+      E2_VSB_URL: ${{ secrets.E2_VSB_URL }}
+      E2_VSB_STOCK_URL: ${{ secrets.E2_VSB_STOCK_URL }}
+      E2_VSB_SYNTH_URL: ${{ secrets.E2_VSB_SYNTH_URL }}
+
+  # Closes the check, also when the run fails or a new push cancels it.
+  report:
+    needs: [start, verify]
+    if: always() && needs.start.outputs.check != '' && needs.start.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      checks: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          CHECK: ${{ needs.start.outputs.check }}
+          VERIFY: ${{ needs.verify.result }}
+          URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "$VERIFY" in success) c=success ;; cancelled) c=cancelled ;; *) c=failure ;; esac
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK" -f status=completed -f conclusion="$c" \
+            -f "output[title]=Firmware check: $c" -f "output[summary]=Fork firmware check: $URL" --silent
+          [ "$c" = success ]

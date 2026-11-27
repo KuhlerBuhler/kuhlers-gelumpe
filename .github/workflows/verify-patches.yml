@@ -157,7 +157,8 @@ jobs:
     secrets: inherit
 
   # One check for the four firmware jobs, which automerge.yml waits for: the check passed, or there was nothing to
-  # check. A fork's pull request that needs the check (no secrets to run it) fails it.
+  # check. A fork's pull request that needs the check (no secrets to run it) fails it; after a review the label
+  # safe-to-test runs it in fork-check.yml, which writes its own check `patches` on the head commit.
   patches:
     needs: [ref, verify]
     if: ${{ !cancelled() }}
@@ -170,7 +171,7 @@ jobs:
         run: |
           [ "$REF" = success ] || { echo "::error::the first job did not pass"; exit 1; }
           if [ "$RUN" = false ]; then echo "nothing to check"; exit 0; fi
-          [ "$VERIFY" != skipped ] || { echo "::error::no check ran (a pull request from a fork has no secrets): a person checks and merges it."; exit 1; }
+          [ "$VERIFY" != skipped ] || { echo "::error::no check ran (a pull request from a fork has no secrets): a maintainer reads the diff and adds the label safe-to-test (workflow Fork firmware check)."; exit 1; }
           [ "$VERIFY" = success ]
 
   join:
