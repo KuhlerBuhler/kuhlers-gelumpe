@@ -40,6 +40,7 @@ NAMES = {
     "ht_osc_cases": "Hacktribe-Oszillatoren",
     "beat_eighth_cases": "BEAT 8",
     "touch_scale_zero_cases": "Touch Scale 0",
+    "value_popup_cases": "Value window keys",
     "import_slots_cases": "Import auf Werks-Slots",
     "update_guard_cases": "Update-Schutz",
     "doom_loader_cases": "Doom-Lader",

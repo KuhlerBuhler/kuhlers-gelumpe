@@ -1,0 +1,5 @@
+{
+ "entries": [
+  {"from": "0xC0065498", "to": "0xC005B8B4", "kind": "code", "why": "key handler of the value window (cmp r2, #0; popne; LPF/HPF/BPF to the filter, else close and post the key again), referenced from the window's vtable at 0xC00C9C94; fwmap maps it and the 92 bytes are equal masked. The synth has no second such handler: the place of 0xC006543C is in no run"}
+ ]
+}
