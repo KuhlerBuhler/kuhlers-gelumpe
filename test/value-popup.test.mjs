@@ -51,9 +51,10 @@ function head(code, key, down) {
   throw new Error("the head does not end");
 }
 
-for (const [name, patch, builds, places] of [
-  ["red", RED, ["hacktribe", "stock"], [[0xc006543c, 0xc0083e30, 0xc00839f0, 0xc0082788, 0xc069124c], [0xc0065498, 0xc0083e30, 0xc00839f0, 0xc0082788, 0xc069124c]]],
-  ["blue", BLUE, ["synth"], [[0xc005b8b4, 0xc0074404, 0xc0073fec, 0xc0073010, 0xc056b52c]]],
+for (const [name, patch, builds, dial, places, exits, callbacks] of [
+  ["red", RED, ["hacktribe", "stock"], [0xc006eb90, 39, 0xc0083e30, 0xc0087d5c], [[0xc006543c, 0xc0083e30, 0xc00839f0, 0xc0082788, 0xc069124c], [0xc0065498, 0xc0083e30, 0xc00839f0, 0xc0082788, 0xc069124c]],
+    [[0xc0065434, 0xc006543c], [0xc0065438, 0xc0065498]], [0xc00653b8, 0xc00653cc]],
+  ["blue", BLUE, ["synth"], [0xc0062030, 38, 0xc0074404, 0xc0077e50], [[0xc005b8b4, 0xc0074404, 0xc0073fec, 0xc0073010, 0xc056b52c]], [[0xc005b8b0, 0xc005b8b4]], [0xc005b870]],
 ]) {
   test(`the ${name} patch rewrites each key handler of the value window in place, with no hook, no start phase and no RAM`, () => {
     assert.equal(patch.format, PATCH_FORMAT);
@@ -62,7 +63,38 @@ for (const [name, patch, builds, places] of [
     assert.equal(patch.hooks, undefined);
     assert.equal(patch.startPhase, undefined);
     assert.deepEqual(patch.ram, []);
-    assert.deepEqual(patch.changes.map(c => c.file), places.map(([at]) => file(at)));
+    assert.deepEqual(patch.changes.map(c => c.file), [...places, ...exits, dial, ...callbacks.map(at => [at])].map(([at]) => file(at)).sort((a, b) => a - b));
+  });
+
+  for (const [at, keys] of exits) {
+    test(`the ${name} EXIT method of the value window at ${at.toString(16)} goes to the window's key handler`, () => {
+      const code = words(patch.changes.find(c => c.file === file(at)).bytes);
+      assert.equal(code.length, 1);
+      assert.equal(code[0] >>> 24, 0xea, "b");
+      assert.equal(branch(at, code[0]), keys);
+    });
+  }
+
+  for (const at of callbacks) {
+    test(`the ${name} callback of the value window at ${at.toString(16)} closes the window with Korg's close, as its EXIT method did`, () => {
+      const code = words(patch.changes.find(c => c.file === file(at)).bytes);
+      assert.equal(code.length, 1);
+      assert.equal(code[0] >>> 24, 0xea, "b");
+      assert.equal(branch(at, code[0]), dial[2]);
+    });
+  }
+
+  test(`the ${name} encoder handler: the main dial closes a value window with Korg's close and goes to the screen`, () => {
+    const [at, length, close, after] = dial;
+    const code = words(patch.changes.find(c => c.file === file(at)).bytes);
+    assert.equal(code.length, length, "same length as Korg's handler");
+    assert.deepEqual(code.slice(0, 5), [0xe3510000, 0xe92d4038, 0xe5d03019, 0xe1a04000, 0xe1a05002], "Korg's entry");
+    const placed = code.map((w, i) => [w, at + 4 * i]);
+    const calls = placed.filter(([w]) => ((w >>> 24) & 15) === 0xb);
+    assert.equal(calls.length, 1, "one call: the close");
+    assert.equal(branch(calls[0][1], calls[0][0]), close);
+    assert.ok(placed.some(([w, a]) => w >>> 24 === 0xea && branch(a, w) === after), "the screen's dial ends in Korg's tail");
+    assert.ok(code.includes(0xe59cf01c), "the other encoders: ldr pc, [ip, #0x1c] to the window or the screen");
   });
 
   for (const [at, close, post, filter, object] of places) {
