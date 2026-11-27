@@ -100,6 +100,7 @@ CODE_AT = 0xC0128000
 CODE_END = 0xC0128F00
 GROUP_NAMES = 0xC0128F00        # 15 pointers
 OSC_TABLE = 0xC0129000          # (409 + USER_MAX) x 32 bytes, to 0xC012CB20
+USER_OSC = OSC_TABLE + OSC_COUNT * OSC_STRIDE   # the record of [User] 1
 AB_ARRAY = 0xC012D000           # 16 x (409 + USER_MAX) x 3 bytes, to 0xC01328B0
 AB_STRIDE = (OSC_COUNT + USER_MAX) * 3
 STATE = 0xC0133000              # run time state, 0x100
@@ -801,6 +802,7 @@ us_api:
     b us_set
     b us_store
     .word 0x53554C42            ; "BLUS"
+    b us_info
 
 ; r4 = the address of a table's count, ip = the place in STATE of the record's index -> r4 = the record's index. Appending
 ; (S_MODE 0) takes the count, raises it and keeps the index there; S_MODE 1 takes the index kept. Keeps r0 to r3.
@@ -1755,6 +1757,22 @@ us_store:
     bl store_one
 st_out:
     pop {{r4, r5, r6, r7, r8, r9, r10, r11, pc}}
+
+; r0 = [User] number -> r0 = its name in the oscillator list (16 bytes) or 0 when the list has no such number, r1 = how many the
+; list has, r2 = its UT record or 0. Keeps r4 to r11.
+us_info:
+    ldr r3, =STATE
+    ldr r1, [r3, #{S_LOADED}]
+    sub r0, r0, #1
+    cmp r0, r1
+    movhs r0, #0
+    movhs r2, #0
+    bxhs lr
+    ldr r2, =UT
+    add r2, r2, r0, lsl #6
+    ldr r3, ={USER_OSC:#x}
+    add r0, r3, r0, lsl #5      ; OSC_STRIDE
+    bx lr
 
 ; r4 = a UT record -> r0 = E_OK, E_FILE (no file, or no esli record where the load found one) or E_CARD
 store_one:
