@@ -18,6 +18,19 @@ on:
       shards:
         type: number
         default: 4
+      # false for code that is not merged yet (fork-check.yml): no cache is written, so nothing it builds reaches the
+      # runs of develop. The Blackfin worker is then built in each job that needs it when the cache has none.
+      save-cache:
+        type: boolean
+        default: true
+    # Callers with `secrets: inherit` pass these too; fork-check.yml passes only these, so its jobs hold no other secret.
+    secrets:
+      E2_VSB_URL:
+        required: false
+      E2_VSB_STOCK_URL:
+        required: false
+      E2_VSB_SYNTH_URL:
+        required: false
 
 permissions:
   contents: read
@@ -60,6 +73,7 @@ jobs:
       - uses: ./.github/actions/dsp-worker
         with:
           build: "true"
+          save: ${{ inputs.save-cache }}
 
   # The tube curve patches in the QEMU DSP core: off gives Korg's clipper bit for bit, every drive step gives
   # tools/dsp/tube_model.py (tools/dsp/tube_qemu.py). The synth build carries its own patch.
@@ -82,8 +96,12 @@ jobs:
           url: ${{ secrets[matrix.firmware.secret] }}
           sha256: ${{ matrix.firmware.sha256 }}
           blue-head: ${{ matrix.firmware.blue_head }}
+          save-cache: ${{ inputs.save-cache }}
       - id: worker
         uses: ./.github/actions/dsp-worker
+        with:
+          build: ${{ !inputs.save-cache }}
+          save: ${{ inputs.save-cache }}
       - run: '[ "${{ steps.worker.outputs.found }}" = true ]'
       - env:
           PATCH: data/patches/${{ matrix.firmware.name == 'blue' && 'tube-curve-synth.json' || 'tube-curve.json' }}
@@ -110,11 +128,15 @@ jobs:
           url: ${{ secrets[matrix.firmware.secret] }}
           sha256: ${{ matrix.firmware.sha256 }}
           blue-head: ${{ matrix.firmware.blue_head }}
+          save-cache: ${{ inputs.save-cache }}
       # A red copy with the sample swap runs the swap on the executed DSP code too. GELUMPE_DSP_REQUIRED makes check.py plan
       # that case with or without a worker (the shards and the join have to plan the same tasks); without one it fails.
       - id: dsp
         if: (matrix.firmware.name == 'hacktribe' || matrix.firmware.name == 'red') && (inputs.full || inputs.cases == 'all' || contains(format(',{0},', inputs.cases), ',blackfin_swap_cases,'))
         uses: ./.github/actions/dsp-worker
+        with:
+          build: ${{ !inputs.save-cache }}
+          save: ${{ inputs.save-cache }}
       - name: Develop task results
         if: ${{ !inputs.full }}
         uses: actions/cache/restore@v6
@@ -164,7 +186,7 @@ jobs:
           retention-days: 3
       - if: ${{ always() && !inputs.full }}
         run: find ~/.cache/gelumpe/task -type f -mtime +14 -delete 2>/dev/null || true
-      - if: ${{ always() && !inputs.full }}
+      - if: ${{ always() && !inputs.full && inputs.save-cache }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -192,6 +214,7 @@ jobs:
           url: ${{ secrets[matrix.firmware.secret] }}
           sha256: ${{ matrix.firmware.sha256 }}
           blue-head: ${{ matrix.firmware.blue_head }}
+          save-cache: ${{ inputs.save-cache }}
       - uses: actions/download-artifact@v8
         with:
           pattern: ${{ matrix.firmware.artifact }}-*
@@ -233,6 +256,7 @@ jobs:
           url: ${{ secrets[matrix.firmware.secret] }}
           sha256: ${{ matrix.firmware.sha256 }}
           blue-head: ${{ matrix.firmware.blue_head }}
+          save-cache: ${{ inputs.save-cache }}
       # Both tests load blech.json, which names the runtime patches; they are built, not committed
       # (tools/patch/ensure-runtime.mjs), and node --test alone does not build them.
       - run: node tools/patch/ensure-runtime.mjs

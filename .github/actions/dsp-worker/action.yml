@@ -6,6 +6,9 @@ inputs:
   build:
     description: build and save the worker when the cache has none ("false" only restores)
     default: "false"
+  save:
+    description: '"false" builds without writing the cache (code that is not merged yet)'
+    default: "true"
 outputs:
   found:
     description: '"true" when the worker is there after this step'
@@ -32,7 +35,7 @@ runs:
         elif [ -x ~/gelumpe-dsp/worker/qemu-bfin-worker ]; then
           sudo apt-get install -y -qq libglib2.0-0t64 libpixman-1-0 >/dev/null
         fi
-    - if: inputs.build == 'true' && steps.cache.outputs.cache-hit != 'true'
+    - if: inputs.build == 'true' && inputs.save == 'true' && steps.cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v6
       with:
         path: |
