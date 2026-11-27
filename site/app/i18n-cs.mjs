@@ -1485,6 +1485,7 @@ export default {
   "patcher.patch.sysex": "BLECHTRIBE SysEx: čtení a zápis RAM",
   "patcher.patch.sysexSynth": "BLECHTRIBE SysEx: čtení RAM a flash",
   "patcher.patch.ifxIdle": "Klidový insert efekt",
+  "patcher.patch.valuePopup": "Tlačítka zavřou okno hodnoty",
   "patcher.patch.tubeCurve": "Elektronková křivka na výstupu",
   "patcher.patch.loadingAnim": "Vlastní animace načítání",
   "patcher.patch.version": "Verze BLECHTRIBE v menu (BLECH > VERSION)",

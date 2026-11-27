@@ -133,7 +133,6 @@ def case_save(payload, flash):
                      f"other places untouched {[box.saved(n) for n in (1, 2)] == others}"))
     plain = SBox(payload, flash)
     nudge(plain)
-    plain.dev.press(WRITE, 0.3)
     plain.dev.press(WRITE, 1.5)
     out.append(entry("write_alone_is_stock", plain.screen() == WINDOW and plain.live() != plain.saved() and not plain.m.asserts,
                      f"WRITE without EXIT: screen {plain.screen()} (the Write window waits), unsaved {plain.live() != plain.saved()}"))
