@@ -603,6 +603,7 @@ frame_gate_open:
     bl idle_frame                ; IDLE POWER SAVE: the stage, the light and the LEDs (script_idle.s)
     bl glide_frame               ; BPM GLIDE: GLIDE CHAIN and GLIDE SWITCH (script_glide.s)
     bl battery_frame             ; BATTERY %: the percent next to the load meter (script_battery.s)
+    bl declick_frame             ; DECLICK: the moved points of a sample (script_sample_edit.s)
     ldr r1, =APP_STATE
     ldr r1, [r1]
     cmp r1, #0

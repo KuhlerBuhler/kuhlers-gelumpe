@@ -76,6 +76,8 @@ BATT = CARD_CLOCK_END            # BATTERY % (script_battery.s:BP_*): the smooth
 BATT_END = BATT + 28             # whether a reading is held, the card symbol's columns and card flag last drawn; FF at power-on is no reading yet
 LANG_TEXTS = BATT_END           # the text table the BLECH menu reads its texts from (tools/patch/lang_texts.py:lang_arm): English, or
 LANG_TEXTS_END = LANG_TEXTS + 4  # lang-de's German table; set by menu_arm_load before any text is drawn
+DECLICK = LANG_TEXTS_END         # DECLICK (script_sample_edit.s:DC_ENTRIES): the next play table row to look at, 64 entries of the moved
+DECLICK_END = DECLICK + 16 + 64 * 32 + 1040   # points, the window as read; FF at power-on is no entry. The Sampler's builds only
 MORE3_START = 0xC0150300         # the code area of the runtime: the VM and all our code; 0xC015027C to 0xC0170000 is FF in all three images,
 MORE3_END = 0xC0170000           # no patch touches it and the emulator never writes it (measured 2026-10-28)
 LANG = 0xC016C000                # the top 16 KiB of MORE3 hold the texts and glyphs of the optional patch lang-de (tools/lang/),
@@ -150,7 +152,9 @@ SITES = ((0xC002837C,0xE5D03018,'script_input_hook'),
          (0xC000159C,0xE5820000,'load_irq_hook'),
          (0xC0001820,0xE5863000,'load_wake_hook'),
          # card init (script_menu.s): the call in Korg's ACMD41 loop that checks the card is still in, bl 0xC001CAE8
-         (0xC001AEB4,0xEB00070B,'acmd41_round_hook'))
+         (0xC001AEB4,0xEB00070B,'acmd41_round_hook'),
+         # DECLICK (script_sample_edit.s): the voice start's sub r0, r0, #1 behind its read of the play table row; the synth has none
+         (0xC0099BC8,0xE2400001,'dc_note_hook'))
 FILTER_TOGGLE_HACKTRIBE = 0xC01501F0
 # The parameter window per build: the three calls above and the functions they call, and the observers of the window that a
 # message {code, value} opens with (docs/messungen/2026-11-07-key-pads-eingebaut.md). Red has the Sampler's addresses.
@@ -353,7 +357,7 @@ def runtime_profile(build):
                                               DEV_FLAG=0xC01910FC, **KEY_PADS_SAMPLER, **pattern_setter_actions(build), **part_setter_actions(build)))   # the value of BLECH > VERSION, an offset into base_names
     sites = []
     for address, expected, name in SITES:
-        if name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook', 'se_prev', 'se_next'):
+        if name in ('script_early_hook', 'audio_command_hook', 'pat_export_hook', 'pat_export_all_hook', 'pat_browse_hook', 'se_prev', 'se_next', 'dc_note_hook'):
             continue
         if name == 'boot_light_hook':
             address, expected = 0xC0025E48, 0xE1500003
@@ -559,7 +563,9 @@ class BuiltHooks:
             area(CARD_CLOCK,CARD_CLOCK_END-CARD_CLOCK,'the card time left out of the frame budget in this frame (CARD_READS in data/script/contract.mjs)','tools/patch/script_media.s:card_timed'),
             area(BATT,BATT_END-BATT,'BATTERY %: the smoothed battery reading, the tick of its last step, the percent shown and the percent drawn, whether a reading is held, the card symbol\'s columns and card flag as last drawn on the main screen','tools/patch/script_battery.s:BP_AVG'),
             area(LANG_TEXTS,LANG_TEXTS_END-LANG_TEXTS,'the text table of the BLECH menu: the English one of the runtime or the German one of lang-de','tools/patch/lang_texts.py:lang_arm'),
-            area(LANG_TEXTS_END,MORE_END-LANG_TEXTS_END,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:LANG_TEXTS_END'),
+            *([area(DECLICK,DECLICK_END-DECLICK,'DECLICK: the next play table row to look at, 64 entries of a sample\'s points and the points it plays at, the window of the sample read from the DSP','tools/patch/script_sample_edit.s:DC_ENTRIES')]
+              if self.profile.build != 'synth' else []),
+            area(reserve:=(LANG_TEXTS_END if self.profile.build == 'synth' else DECLICK_END),MORE_END-reserve,'the second code area of the runtime, empty since its code moved to MORE3_START, kept free as a reserve','tools/patch/script_hooks.py:LANG_TEXTS_END'),
             area(SETTINGS_RAM,SETTINGS_RAM_END-SETTINGS_RAM,'the two buffers of the settings file of the BLECH menu and its checksum list (allowed plugins, plugins switched off)','tools/patch/script_hooks.py:SETTINGS_RAM'),
             area(LIST_WORK,LIST_WORK_END-LIST_WORK,'work area of the list of MANAGE PLUGINS: folder object, file info, long name, path, the place of each listed file in the folder, the flag of more files than the list holds','tools/patch/script_menu.s:LIST_WORK'),
             area(KNOB_HOLD,KNOB_HOLD_END-KNOB_HOLD,'korg.knobHold: a bit per knob that reaches the firmware, folded from the plugins\' holds; the other two words are unused since API 19','tools/patch/script_hw.s:KH_FREE'),
@@ -656,7 +662,7 @@ def build(include, glue=None, blechy=None, build='hacktribe'):
     constants += '\n'+ '\n'.join(f'.equ VM_{name.upper()}, {vm.symbols[name]}' for name in ['script_run_event','script_runtime_init','script_load_block','script_load_block_ex'])
     constants += f'\n.equ VM_CRC_UPDATE, {vm.symbols["crc_update"]}'
     constants += ''.join(f'\n.equ {name.upper()}, {vm.symbols[name]}' for name in ['script_font','script_error_names'])
-    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ METER_SENT, {METER_SENT}\n.equ LOAD_METER, {LOAD_METER}\n.equ IDLE, {IDLE}\n.equ GLIDE, {GLIDE}\n.equ MEDIA_LIST, {MEDIA_LIST}\n.equ MEDIA_WORK, {MEDIA_WORK}\n.equ MEDIA_BUF, {MEDIA_BUF}\n.equ MEDIA_BUF_BYTES, {MEDIA_BUF_BYTES}\n.equ MEDIA_TBUF, {MEDIA_TBUF}\n.equ MEDIA_TBUF_BYTES, {MEDIA_TBUF_BYTES}\n.equ MEDIA_STATE, {MEDIA_STATE}\n.equ CARD_CLOCK, {CARD_CLOCK}\n.equ BATT, {BATT}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
+    constants += f'\n.equ MENU_ITEMS, {MENU_ITEMS}\n.equ MENU_STATE, {MENU_STATE}\n.equ MENU_FILE_A, {SETTINGS_RAM}\n.equ MENU_FILE_B, {SETTINGS_RAM+0x120}\n.equ MENU_TRUST, {SETTINGS_RAM+0x240}\n.equ LIST_WORK, {LIST_WORK}\n.equ KNOB_HOLD, {KNOB_HOLD}\n.equ KEY_PASS, {KEY_PASS}\n.equ TOUCH_LOCK, {TOUCH_LOCK}\n.equ TOUCH_LOCK_Y, {TOUCH_LOCK_Y}\n.equ KEY_HOLD, {KEY_HOLD}\n.equ PRESS_KEY, {PRESS_KEY}\n.equ SIM_INPUT, {SIM_INPUT}\n.equ EGG_WORK, {EGG_WORK}\n.equ DATA_FILE, {DATA_FILE}\n.equ METER_SENT, {METER_SENT}\n.equ LOAD_METER, {LOAD_METER}\n.equ IDLE, {IDLE}\n.equ GLIDE, {GLIDE}\n.equ MEDIA_LIST, {MEDIA_LIST}\n.equ MEDIA_WORK, {MEDIA_WORK}\n.equ MEDIA_BUF, {MEDIA_BUF}\n.equ MEDIA_BUF_BYTES, {MEDIA_BUF_BYTES}\n.equ MEDIA_TBUF, {MEDIA_TBUF}\n.equ MEDIA_TBUF_BYTES, {MEDIA_TBUF_BYTES}\n.equ MEDIA_STATE, {MEDIA_STATE}\n.equ CARD_CLOCK, {CARD_CLOCK}\n.equ BATT, {BATT}\n.equ DECLICK, {DECLICK}\n.equ AUDIO_SERVICE, {AUDIO_SERVICE}\n.equ MENU_TABLE, {MENU_TABLE}\n.equ MENU_VTABLE, {MENU_VTABLE}\n.equ HOOK_RUNTIME, {RUNTIME}\n.equ HOOK_POOL, {POOL}\n.equ HOOK_CARD, {CARD}\n.equ HOOK_INPUT, {INPUT}\n.equ PANEL, 0xC033E6F8\n.equ SCREEN_MANAGER, 0xC03404C0\n.equ BLECHY_BLOCK, {BLECHY_BLOCK}\n.equ BLECHY_SIZE, {len(block)}\n'
     constants += f'\n.equ MENU_SCREEN, {profile.screen}\n.equ LANG, {LANG}\n.equ LANG_TEXTS, {LANG_TEXTS}\n'
     # korg.system.device and korg.system.limits.samples (data/script/objects.mjs, INFO): the build this runtime is made for
     constants += f'.equ MFX2_ENTRY, {MFX2_ENTRY:#x}\n.equ MFX2_RECORD_ID, {MFX2_RECORD_ID:#x}\n.equ MFX2_TABLE, {MFX2_TABLE:#x}\n.equ MFX2_STATE, {MFX2_STATE:#x}\n'

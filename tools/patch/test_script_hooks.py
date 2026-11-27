@@ -82,6 +82,7 @@ class HookTests(unittest.TestCase):
         machine.uc.mem_map(0xC0310000,0x10000)
         machine.uc.mem_map(0x01E26000,4096)
         machine.uc.mem_map(0xC0131000,4096)    # the DSP program's clipper call (TUBE_MARK 0xC0131F90), 0: no tube-curve patch, tube_tick sends nothing
+        machine.uc.mem_map(0xC0362000,0x5000)    # the play table (0xC0362EE8, 999 rows of 16), 0: no sample with DECLICK, declick_frame computes nothing
         machine.write(0x01E26070,2)    # the card switch (GPIO 4.1) high: no card, menu_card_watch reads nothing
         for at,size in [(0xC0690000,0x2000),(0xC06A2000,0x1000),(0xC06B2000,0x5000),(0xC06BC000,0x1000),(0xC06C2000,0x1000)]: machine.uc.mem_map(at,size)   # 0xC06A292C the OS tick count the clock reads
         machine.write(0xC033E6F8,machine.input+0x1000)
@@ -982,7 +983,7 @@ class HookTests(unittest.TestCase):
         self.assertEqual(patch['hooks'][1]['position'],'after')
         self.assertEqual((patch['hooks'][2]['site'],patch['hooks'][2]['chain']),('0xC0038D68','start'))
         card=sum(built.symbols[end]-built.symbols[start] for start,end in [('script_early_hook','script_early_end'),('boot_light_hook','boot_light_end'),('script_card_hook','script_card_wrapper_end'),('script_card_load','script_card_load_end'),('script_save_hook','script_save_hook_end'),('script_write_hook','script_write_hook_end')])
-        self.assertEqual(len(patch['startPhase']),89)
+        self.assertEqual(len(patch['startPhase']),90)
         pairs=[('script_input_hook','script_input_pass_end'),('script_input_literals','script_input_literals_end'),
             ('script_frame_hook','script_frame_wrapper_end'),('script_frame_run','frame_gate_open'),('frame_return','script_frame_return_end'),
             ('script_ring_post','script_frame_hook'),('script_clock_update','script_play_glue'),('script_app_glue','script_display_take_glue')]

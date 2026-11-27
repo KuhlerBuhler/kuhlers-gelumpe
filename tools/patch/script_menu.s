@@ -8304,6 +8304,7 @@ menu_exit_se:
     moveq r12, #0
     streq r12, [r2, #M_STATUS]
     beq menu_exit_show
+    bl se_leave                 ; what the firmware's EXIT on its SAMPLE EDIT pages runs: undo what was not written
     mov r0, #SE_ENTRY
     b menu_exit_screen
 menu_exit_se_not:
