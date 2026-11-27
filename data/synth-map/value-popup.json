@@ -1,6 +1,8 @@
 {
  "entries": [
   {"from": "0xC0065498", "to": "0xC005B8B4", "kind": "code", "why": "key handler of the value window (cmp r2, #0; popne; LPF/HPF/BPF to the filter, else close and post the key again), referenced from the window's vtable at 0xC00C9C94; fwmap maps it and the 92 bytes are equal masked. The synth has no second such handler: the place of 0xC006543C is in no run"},
-  {"from": "0xC006EB90", "to": "0xC0062030", "kind": "code", "why": "encoder handler of the screen manager (cmp r1, #0; ldrb r3, [r0, #0x19]; the dial to the screen, else to the window), found by its head words; the synth's has no window 0x2a and checks the lock twice, value_popup.py checks both forms word by word"}
+  {"from": "0xC006EB90", "to": "0xC0062030", "kind": "code", "why": "encoder handler of the screen manager (cmp r1, #0; ldrb r3, [r0, #0x19]; the dial to the screen, else to the window), found by its head words; the synth's has no window 0x2a and checks the lock twice, value_popup.py checks both forms word by word"},
+  {"from": "0xC0065438", "to": "0xC005B8B0", "kind": "code", "why": "EXIT method of the value window (b close, vtable slot 2 at 0xC00C9C90), the word right before the key handler 0xC005B8B4; value_popup.py checks that it branches to the close the key handler calls"},
+  {"from": "0xC00653CC", "to": "0xC005B870", "kind": "code", "why": "callback of the value window that calls its EXIT method (push {r3, lr}; ldr r3, [r0]; ldr r3, [r3, #8]; blx r3; pop {r3, pc}), registered next to the timeout's b close in the window's constructor (literal at 0xC005BA98); value_popup.py checks the five words"}
  ]
 }

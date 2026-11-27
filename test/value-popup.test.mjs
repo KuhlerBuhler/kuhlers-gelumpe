@@ -51,9 +51,10 @@ function head(code, key, down) {
   throw new Error("the head does not end");
 }
 
-for (const [name, patch, builds, dial, places] of [
-  ["red", RED, ["hacktribe", "stock"], [0xc006eb90, 39, 0xc0083e30, 0xc0087d5c], [[0xc006543c, 0xc0083e30, 0xc00839f0, 0xc0082788, 0xc069124c], [0xc0065498, 0xc0083e30, 0xc00839f0, 0xc0082788, 0xc069124c]]],
-  ["blue", BLUE, ["synth"], [0xc0062030, 38, 0xc0074404, 0xc0077e50], [[0xc005b8b4, 0xc0074404, 0xc0073fec, 0xc0073010, 0xc056b52c]]],
+for (const [name, patch, builds, dial, places, exits, callbacks] of [
+  ["red", RED, ["hacktribe", "stock"], [0xc006eb90, 39, 0xc0083e30, 0xc0087d5c], [[0xc006543c, 0xc0083e30, 0xc00839f0, 0xc0082788, 0xc069124c], [0xc0065498, 0xc0083e30, 0xc00839f0, 0xc0082788, 0xc069124c]],
+    [[0xc0065434, 0xc006543c], [0xc0065438, 0xc0065498]], [0xc00653b8, 0xc00653cc]],
+  ["blue", BLUE, ["synth"], [0xc0062030, 38, 0xc0074404, 0xc0077e50], [[0xc005b8b4, 0xc0074404, 0xc0073fec, 0xc0073010, 0xc056b52c]], [[0xc005b8b0, 0xc005b8b4]], [0xc005b870]],
 ]) {
   test(`the ${name} patch rewrites each key handler of the value window in place, with no hook, no start phase and no RAM`, () => {
     assert.equal(patch.format, PATCH_FORMAT);
@@ -62,8 +63,26 @@ for (const [name, patch, builds, dial, places] of [
     assert.equal(patch.hooks, undefined);
     assert.equal(patch.startPhase, undefined);
     assert.deepEqual(patch.ram, []);
-    assert.deepEqual(patch.changes.map(c => c.file), [...places.map(([at]) => file(at)), file(dial[0])]);
+    assert.deepEqual(patch.changes.map(c => c.file), [...places, ...exits, dial, ...callbacks.map(at => [at])].map(([at]) => file(at)).sort((a, b) => a - b));
   });
+
+  for (const [at, keys] of exits) {
+    test(`the ${name} EXIT method of the value window at ${at.toString(16)} goes to the window's key handler`, () => {
+      const code = words(patch.changes.find(c => c.file === file(at)).bytes);
+      assert.equal(code.length, 1);
+      assert.equal(code[0] >>> 24, 0xea, "b");
+      assert.equal(branch(at, code[0]), keys);
+    });
+  }
+
+  for (const at of callbacks) {
+    test(`the ${name} callback of the value window at ${at.toString(16)} closes the window with Korg's close, as its EXIT method did`, () => {
+      const code = words(patch.changes.find(c => c.file === file(at)).bytes);
+      assert.equal(code.length, 1);
+      assert.equal(code[0] >>> 24, 0xea, "b");
+      assert.equal(branch(at, code[0]), dial[2]);
+    });
+  }
 
   test(`the ${name} encoder handler: the main dial closes a value window with Korg's close and goes to the screen`, () => {
     const [at, length, close, after] = dial;
