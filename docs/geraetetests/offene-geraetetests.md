@@ -215,7 +215,8 @@ Datei an (hergeleitet, mit der eigenen Datei nicht gemessen). Deshalb die eigene
 1. Sicherungen 1 bis 5 aus Abschnitt 3, dazu `KORG/blechtribe/Sample/e2sSample.all` ein zweites Mal extra.
 2. Den Ordner `KORG/blechtribe/Sample/` auf der Karte umbenennen (zum Beispiel `Sample-rot`). Ein Import legt dann eine
    neue, kleine Datei an (gemessen).
-3. Zwei bis drei kurze WAV (unter 1 s, mono oder stereo, 16 oder 24 Bit) in einen neuen Ordner `KORG/blechtribe/Sample/`.
+3. Zwei bis drei kurze WAV (unter 1 s, mono oder stereo, 16 oder 24 Bit) in einen neuen Ordner `KORG/blechtribe/Sample/`,
+   eine weitere WAV direkt in die Kartenwurzel.
 
 **Die Testdatei bauen:** BLECHTRIBE der blauen auf Korgs blauer 2.02 (`data/patches/blech-synth.json`), dann das Wort und
 der Sampler-Kopf wie oben (`red_as_blue_probe.mark_fix`, `hacktribe_blue_probe.with_head`). Die Datei enthält Korgs
@@ -223,10 +224,13 @@ Firmware und wird nicht weitergegeben. Vorher im Emulator mit dem eigenen Flash-
 
 **Schritte am Gerät** (nach "Hin" aus Abschnitt 3, mit dieser Datei):
 
-1. DATA UTILITY bis IMPORT SAMPLE, ENTER: die WAV aus Schritt 3 stehen in der Liste.
+1. DATA UTILITY bis IMPORT SAMPLE, ENTER: die Liste zeigt die Kartenwurzel, erst die Ordner mit Ordner-Icon, dann die WAV aus
+   der Wurzel ohne `.wav`. `KORG`, `blechtribe`, `Sample` je mit ENTER öffnen: oben steht Upper Folder mit Pfeil, darunter die
+   WAV aus Schritt 3. ENTER auf Upper Folder geht eine Ebene hoch.
 2. Eine wählen, ENTER: `[User] 1 (new)`. ENTER: "imported". Im Part den Oszillator auf `[User]` 1 stellen, Pad: das
    Sample klingt, ohne Neustart.
-3. Noch eine WAV auf `[User] 2`, dann eine dritte auf `[User] 1` (ersetzt): beide klingen richtig.
+3. Noch eine WAV auf `[User] 2`, dann eine dritte auf `[User] 1` (ersetzt): beide klingen richtig. Die WAV aus der Wurzel auf
+   `[User] 3`: klingt, der Name stimmt.
 4. DATA UTILITY bis SAMPLE EDIT, ENTER: Seite SELECT SAMPLE zeigt Namen und `[User] 1`. Mit den Seitentasten START POINT,
    LOOP START, END POINT, SAMPLE TUNE ändern, nach jeder Änderung Pad: hörbar ab der nächsten Note.
 5. PLAY LEVEL `+12dB`: lauter. REVERSE ON: rückwärts. Wieder OFF: vorwärts.

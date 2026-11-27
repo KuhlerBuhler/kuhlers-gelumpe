@@ -63,7 +63,7 @@ Am Gerät geprüft sind zwei Dinge: der Weg mit einem Datenpatch (Startbild) hin
 | `blech-version` | BLECH > VERSION zeigt die Version und die Firmware, für die das Menü gebaut ist; `node tools/set-version.mjs` baut die Dateien neu | rot, blau | |
 | `doom-loader` | Doom vom SD-Lader (SHIFT + TAP beim Einschalten, `KORG/blechtribe/Doom/doom.bin`); Engine und Lizenzen in `third_party/doom/` ([Lizenz](doom-lizenz.md)) | rot | [Messung](messungen/2026-10-15-doom-im-patcher.md) |
 | `blech-sysex` | [BLECHTRIBE SysEx](glossary.md#blechtribe-sysex): eigene [SysEx](glossary.md#sysex)-Befehle ab `0x60` zum Lesen und Schreiben von RAM, Flash und Dateien auf der Karte (auf blau nur lesend), dazu [DEV MODE](glossary.md#dev-mode) (nicht auf blau) | rot, blau | [Messung](messungen/2026-10-15-blech-sysex.md), [DEV MODE](messungen/2026-11-14-dev-mode-sperrbereiche.md) |
-| `user-samples` | eigene Samples (`Sample/e2sSample.all`) als Oszillatoren in der Gruppe `[User]` auf der blauen, dazu DATA UTILITY > IMPORT SAMPLE und SAMPLE EDIT mit ONE SHOT und REVERSE; 1.5, ohne Gerätetest | blau | [Messung](messungen/2026-11-12-blau-sample-import.md) |
+| `user-samples` | eigene Samples (`Sample/e2sSample.all`) als Oszillatoren in der Gruppe `[User]` auf der blauen, dazu DATA UTILITY > IMPORT SAMPLE (Ordner wie Korgs Browser) und SAMPLE EDIT mit ONE SHOT und REVERSE; 1.5, ohne Gerätetest | blau | [Messung](messungen/2026-11-12-blau-sample-import.md) |
 
 ### Patches, die in keinem Satz stehen
 
