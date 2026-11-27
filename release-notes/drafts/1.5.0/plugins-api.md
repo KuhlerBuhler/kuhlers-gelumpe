@@ -5,7 +5,7 @@
 - Spettro: Spektrum des gewählten Parts als App unter TOOLS, nur Sampler-Firmware. Der Spektrum-Worker dahinter ist jetzt Teil der Firmware. Danke an Luigi (GitHub reflectiveboi, PR #429), der Spettro und den Worker gebaut hat.
 
 **Neu für Entwickler**
-- Plugin-API 25 auf 35. Jeder neue Aufruf mit der API-Version, ab der er da ist:
+- Plugin-API 25 auf 40. Jeder neue Aufruf mit der API-Version, ab der er da ist:
   - API 26: `korg.system.device`, `korg.system.version`, `korg.system.limits.*`
   - API 27: `mfx2Type` (Pattern), `korg.touchpad.mode`, Ereignis `touchpadMode`
   - API 28: `korg.motion.lane`, `.destination`, `.value`, `.setValue`, `.clearLane`, `.clearPart`, `.clearMfx`, `.output`, `korg.motion.enabled`
@@ -16,6 +16,11 @@
   - API 33: `korg.read.sampleName`, `korg.read.sampleInfo`, `korg.pattern.write`, `korg.part.copy`
   - API 34: `korg.system.power`, `korg.system.battery`, `korg.read.led`
   - API 35: `korg.touchLockY`, Warnungen für veraltete Aufrufe im Editor und beim Kompilieren
+  - API 36: der Wert `korg.menu.blech.customizations.led.knobLeds` (KNOB LEDS)
+  - API 37: Ereignis `idle` (IDLE SAVE, Stufen des Dimmens)
+  - API 38: `korg.file.count`, `korg.file.name`, `korg.file.picture` (Bilder und Ladeanimationen aus `KORG/blechtribe/Media/`)
+  - API 39: `korg.file.read` und `korg.file.write` bekommen ein Dateiargument 0 bis 15: jedes Plugin hat einen eigenen Ordner `Plugin/Data/<name>/` mit bis zu 16 Dateien zu je 32 KiB (vorher eine Datei mit 4096 Byte)
+  - API 40: `korg.display.popup.begin`, `.timeout`, `.show` (Popup-Zeichnung für Hintergrund-Plugins)
 - Veraltet seit API 35, fallen in einer späteren Version weg: `korg.read.chainMode()` und `korg.chainMode` (Ersatz `korg.global.chainMode`), `korg.current.*` (Ersatz `korg.pattern.current.*`). Plugins damit laufen weiter.
 
 ## English
@@ -25,7 +30,7 @@
 - Spettro: spectrum of the selected part as an app under TOOLS, Sampler firmware only. The spectrum worker behind it is now part of the firmware. Thanks to Luigi (GitHub reflectiveboi, PR #429), who built Spettro and the worker.
 
 **New for developers**
-- Plugin API 25 to 35. Every new call with the API version that brings it:
+- Plugin API 25 to 40. Every new call with the API version that brings it:
   - API 26: `korg.system.device`, `korg.system.version`, `korg.system.limits.*`
   - API 27: `mfx2Type` (pattern), `korg.touchpad.mode`, event `touchpadMode`
   - API 28: `korg.motion.lane`, `.destination`, `.value`, `.setValue`, `.clearLane`, `.clearPart`, `.clearMfx`, `.output`, `korg.motion.enabled`
@@ -36,4 +41,9 @@
   - API 33: `korg.read.sampleName`, `korg.read.sampleInfo`, `korg.pattern.write`, `korg.part.copy`
   - API 34: `korg.system.power`, `korg.system.battery`, `korg.read.led`
   - API 35: `korg.touchLockY`, warnings for deprecated calls in the editor and the compiler
+  - API 36: the value `korg.menu.blech.customizations.led.knobLeds` (KNOB LEDS)
+  - API 37: event `idle` (IDLE SAVE, dimming stages)
+  - API 38: `korg.file.count`, `korg.file.name`, `korg.file.picture` (pictures and loading animations from `KORG/blechtribe/Media/`)
+  - API 39: `korg.file.read` and `korg.file.write` take a file argument 0 to 15: every plugin has its own folder `Plugin/Data/<name>/` with up to 16 files of 32 KiB each (before: one file of 4096 bytes)
+  - API 40: `korg.display.popup.begin`, `.timeout`, `.show` (popup drawing for background plugins)
 - Deprecated since API 35, removed in a later version: `korg.read.chainMode()` and `korg.chainMode` (use `korg.global.chainMode`), `korg.current.*` (use `korg.pattern.current.*`). Plugins using them keep working.
