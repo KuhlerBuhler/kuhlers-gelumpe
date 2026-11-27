@@ -32,7 +32,7 @@ Siehe: [effekt-katalog.md](effekt-katalog.md), `README.md`
 
 ## BLECH
 
-Name des Patch-Satzes dieses Projekts (Produktname BLECHTRIBE): die Änderungen, die in die Firmware des Electribe 2 eingebaut werden, etwa Menü, Plugin-Laufzeit, Sample-Lader und Pattern-Wechsel. Er baut auf Hacktribe oder auf Korgs eigener Firmware auf.
+Name des Patch-Satzes dieses Projekts (Produktname BLECHTRIBE): die Änderungen, die in die Firmware des Electribe 2 eingebaut werden, etwa Menü, Plugin-Laufzeit, Sample-Lader und Pattern-Wechsel. Er läuft direkt auf Korgs Original 2.02 und optional auch auf einer Hacktribe-Datei. Er ist keine Hacktribe-Variante.
 
 Siehe: [patcher.md](patcher.md) (Patch-Satz BLECH), `README.md`
 
@@ -256,7 +256,7 @@ Siehe: `data/script/contract.mjs`
 
 ## Hacktribe
 
-Open-Source-Firmware-Mod eines Dritten für den Electribe 2 Sampler. Sie wird aus Korgs 2.02 mit Hacktribes `hacktribe-2.patch` gebaut (nicht in diesem Repo) und liest ihren eigenen Kartenordner `KORG/hacktribe/`. BLECHTRIBE baut auf Hacktribe 2.02 oder auf Korgs Original auf.
+Open-Source-Firmware-Mod eines Dritten für den Electribe 2 Sampler. Sie wird aus Korgs 2.02 mit Hacktribes `hacktribe-2.patch` gebaut (nicht in diesem Repo) und liest ihren eigenen Kartenordner `KORG/hacktribe/`. BLECHTRIBE läuft direkt auf Korgs Original 2.02 und braucht Hacktribe nicht. Optional lässt es sich auch auf eine Hacktribe-Datei setzen.
 
 Siehe: [patcher.md](patcher.md) ("Original Korg 2.02 zu Hacktribe")
 

@@ -1,6 +1,6 @@
 # Tastenkombinationen: SHIFT, Halten, Einschalten
 
-Zweck: welche Tastenkombinationen der electribe sampler (Firmware 2.02 mit Hacktribe) kennt,
+Zweck: welche Tastenkombinationen der electribe sampler (Firmware 2.02, Korgs Original und Hacktribe) kennt,
 was sie bewirken und woher die Angabe stammt. Eine eigene Tabelle zeigt, was BLECHTRIBE dazugibt (Abschnitt 4).
 
 So wurden die Angaben gewonnen: Alles, was mit "gemessen" markiert ist, lief im

@@ -26,7 +26,7 @@ See: [effekt-katalog.md](effekt-katalog.md), `README.md`
 
 ## BLECH
 
-Name of the patch set of this project (product name BLECHTRIBE): the changes built into the Electribe 2 firmware, such as menu, plugin runtime, sample loader and pattern switch. It builds on Hacktribe or on Korg's own firmware.
+Name of the patch set of this project (product name BLECHTRIBE): the changes built into the Electribe 2 firmware, such as menu, plugin runtime, sample loader and pattern switch. It runs directly on Korg's original 2.02 and, optionally, on a Hacktribe file. It is not a Hacktribe variant.
 
 See: [patcher.md](patcher.md) (Patch-Satz BLECH), `README.md`
 
@@ -194,7 +194,7 @@ See: `data/script/contract.mjs`
 
 ## Hacktribe
 
-Third-party open-source firmware mod for the Electribe 2 sampler. It is built from Korg's 2.02 with Hacktribe's `hacktribe-2.patch` (not in this repository) and reads its own card folder `KORG/hacktribe/`. BLECHTRIBE builds on Hacktribe 2.02 or on Korg's original.
+Third-party open-source firmware mod for the Electribe 2 sampler. It is built from Korg's 2.02 with Hacktribe's `hacktribe-2.patch` (not in this repository) and reads its own card folder `KORG/hacktribe/`. BLECHTRIBE runs directly on Korg's original 2.02 and does not need Hacktribe. Optionally it can also be put on a Hacktribe file.
 
 See: [patcher.md](patcher.md) ("Original Korg 2.02 zu Hacktribe")
 

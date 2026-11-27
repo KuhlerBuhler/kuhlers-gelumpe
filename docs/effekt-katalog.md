@@ -119,8 +119,8 @@ Die rohen Messnotizen stehen in der Git-Historie (`git show 03c7827adc7b:docs/me
 - Ein Effekt, dessen Name im Menü schon steht, wird ausgelassen. Zweimal angewendet kommt nichts dazu.
 - Die Plätze hängen davon ab, wie viele Presets die Firmware schon hat. Was der Katalog schreibt, bleibt deshalb Nutzerdaten der
   Patch-Datei (`src/patchfile.mjs`), ihre Fingerabdrücke hängen nicht davon ab.
-- Nur rot (Hacktribe und Korgs Original). Die blaue hat dieselben Bausteine und Records, der Karte fehlen nur ihre Orte
-  ([eigene Effekte auf der blauen](messungen/2026-11-08-blau-eigene-effekte.md)). Short Delay sitzt auf demselben Basis-Record wie der
+- Rot (Hacktribe und Korgs Original) und blau (Korgs Synth 2.02, `blech-synth.json`). Die blaue hat dieselben Bausteine und Records an anderen Orten
+  ([eigene Effekte auf der blauen](messungen/2026-11-08-blau-eigene-effekte.md)); dort nur im Emulator geprüft. Short Delay sitzt auf demselben Basis-Record wie der
   ESX-Aufbau, der am Gerät gehört wurde.
 
 Quelle: Messung 2026-10-23/fx-katalog-fest

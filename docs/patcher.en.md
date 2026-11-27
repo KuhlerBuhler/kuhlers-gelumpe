@@ -72,6 +72,12 @@ The set is `data/patches/blech.json` (for Korg's blue 2.02: `blech-synth.json`).
 | MFX 2 | a second master effect on TOUCH SCALE, switched on or off on the BLECH menu page MFX 2 (applies from the next start) |
 | Plugin runtime with BLECH menu | runs plugins from the card and adds the "BLECH" screen to the EDIT ring ([plugins](plugins.en.md)); also carries Blechy, the app built into BLECHTRIBE, as the last page of the ring: his block lies in the image at `0xC0184000` and is loaded at start before the card, with or without a card, and with EXIT held at power-on he is absent |
 | IDLE SAVE | BLECH menu CUSTOMIZATION > POWER SAVE > IDLE SAVE dims the display light and the LEDs after 2, 3 and 4 minutes without a touch, after 5 they go dark. OFF, ON or BATTERY ONLY (the default): with BATTERY ONLY the device stays awake on the adapter and plugging it in wakes it at once. BATTERY ONLY writes the settings as version 6, which BLECHTRIBE up to 1.4.8 refuses; from 1.5 |
+| Sample category | DATA UTILITY > SAMPLE EDIT gets a CATEGORY page (category 0 to 17), saved with EXPORT ALL SAMPLE. Red only, checked in the emulator; from 1.5 |
+| Import onto factory slots | the target selector of IMPORT SAMPLE starts at the first slot the firmware accepts (19 on Korg's red, 275 with Hacktribe) and runs to 999, so a factory sample can be replaced. Red only; from 1.5 |
+| User samples on the blue | the card's `Sample/e2sSample.all` is loaded at power-on as oscillators in the group `[User]` on the blue, up to 64 samples. From 1.5, no device test |
+| KNOB LEDS | BLECH menu CUSTOMIZATION > LED > KNOB LEDS turns off the LEDs behind the knobs. |
+| Patterns folder | EXPORT/IMPORT PATTERN and ALL PATTERN work in `KORG/blechtribe/Patterns/`; at start the device compares the backup `electribe_sampler_allpattern.e2sallpat` with its patterns and writes only the changed ones. Red, from 1.5, no device test |
+| Media folder | the loading animation `Media/loading.blla` is read from `KORG/blechtribe/Media/` at start, so changing it no longer needs a new `SYSTEM.VSB`. Red; from 1.5 |
 | Card folder `blechtribe` | the device reads `KORG/blechtribe/` instead of `KORG/hacktribe/` (or `KORG/electribe sampler/` on Korg's original) |
 | BLECHTRIBE start image | the BLECHTRIBE splash screen |
 | Theme | own fonts and symbols for the display ([background, German](hintergrund/blech-theme.md)); a data-only patch |
@@ -88,7 +94,7 @@ field for the file from the card, otherwise Korg's file for the right Electribe 
 the field. The choice sets the route on Korg's original and the Electribe for the head; an Electribe on the cable wins.
 Dropping a file right away skips the questions and shows everything as before. Every step has a back button.
 
-- **Hacktribe 2.02** (the file from Hacktribe's package, sha256 `7cb4825c...`): the normal case.
+- **Hacktribe 2.02** (the file from Hacktribe's package, sha256 `7cb4825c...`): optional, for those who already use Hacktribe.
 - **Korg's original 2.02** (sha256 `1d0f0689...`, the value Hacktribe's own patch script checks): the page
   offers two ways.
   - **"BLECHTRIBE direkt (kein Hacktribe-Patch nötig)"**, BLECHTRIBE direct, the default: the patches go straight onto
@@ -362,7 +368,7 @@ npm run build:blech-patch -- --vsb <SYSTEM.VSB> --version 1.0.1
 
 | File | What for | How to apply |
 |---|---|---|
-| `BLECH.patch` | the whole set in our format: all patches with hooks, checksums and start-phase exceptions. Fits any Hacktribe 2.02 whose code and fixed data match, also with the blue Electribe's head; with `--stock` Korg's red 2.02 and with `--synth` Korg's blue 2.02 (fingerprints of their own, the blue with its own set). The release builds it with all three files | `node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`, or `applyPatchFile` in `src/patchfile.mjs` |
+| `BLECH.patch` | the whole set in our format: all patches with hooks, checksums and start-phase exceptions. Fits with `--stock` Korg's red 2.02 and with `--synth` Korg's blue 2.02 (fingerprints of their own, the blue with its own set), and without a switch any Hacktribe 2.02 whose code and fixed data match, also with the blue Electribe's head. The release builds it with all three files | `node tools/patch/apply.mjs --vsb SYSTEM.VSB --patch BLECH.patch --out BLECH.VSB`, or `applyPatchFile` in `src/patchfile.mjs` |
 | `BLECH-for-7cb4825c.bsdiff`, `BLECH-for-2b2e1c2f.bsdiff` (Hacktribe with the blue head, gives the Sampler head its updater takes), with `--stock` `BLECH-for-1d0f0689.bsdiff`, with `--synth` `BLECH-for-41fc5f1c.bsdiff` | exactly this file to BLECHTRIBE as a bsdiff 4 (`BSDIFF40`, like Hacktribe's patch). The name carries the start of the sha256 of the input | `bspatch SYSTEM.VSB BLECH.VSB BLECH-for-7cb4825c.bsdiff`, without our app, only with the file that has this hash |
 
 **Which VSB fits.** Hacktribe's file and an edited VSB differ only in data that users change. Measured on one

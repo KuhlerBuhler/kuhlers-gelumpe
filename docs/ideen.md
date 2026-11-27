@@ -96,6 +96,6 @@ teilweise gelesen ([DSP, erster Blick](hintergrund/dsp-erster-blick.md)).
 - **Makros für die ganze Bedienung:** TAP MOTION deckt das Nötige ab.
 - **Übergangs-Patterns aus zwei Patterns erzeugen:** Generator, Seite und Doku sind wieder entfernt.
 - **128 Steps statt 64:** als Patch praktisch ausgeschlossen (Step, Slot und Bank sind fest); gelöst über SYNC GROUP, zwei
-  Patterns einer Gruppe spielen wie eines (nur rot).
+  Patterns einer Gruppe spielen wie eines (rot und blau).
 - **Leere Sample- und Patternbank laden,** um Unbekanntes im RAM zu erkennen: das Ausblenden in der RAM-Suche geht ohne das
   Gerät zu leeren.
