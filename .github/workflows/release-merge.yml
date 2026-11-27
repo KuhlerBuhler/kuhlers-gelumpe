@@ -14,7 +14,7 @@ name: Release merge
 
 on:
   workflow_run:
-    workflows: [Test, Verify patches, Korg data guard, Build apps, Update pull requests, Automerge]
+    workflows: [Test, Verify patches, Korg data guard, Build apps, Update pull requests, Automerge, Fork firmware check]
     types: [completed]
     branches: ["release/**"]
   pull_request_review:
