@@ -12,6 +12,14 @@
 ; 1 while one task runs rec_reader_poll. CommandTask and the UiTask frame (nr_reader_frame) both read the DSP ring, so a
 ; card write that blocks CommandTask longer than the ring lasts no longer starves the reader.
 .equ RC_POLLER, RC_REQUEST + 36
+; The longest checkpoint and the longest single card write of the take in ticks (plain READ via the public CONTEXT), and
+; the tick a timed call started.
+.equ RC_CHECK_TICKS, RC_REQUEST + 40
+.equ RC_PIECE_TICKS, RC_REQUEST + 44
+.equ RC_STAMP, RC_REQUEST + 48
+; A checkpoint (sync, header at the file start, back to the end, sync) jumps around on the card, so it runs every five
+; seconds of PCM: a power cut loses at most that much.
+.equ RC_CHECK_BYTES, 480000
 .equ RC_SIZE, 1536
 .equ RC_READER_ERROR, 16
 .equ RC_PIECE, 8192
@@ -90,6 +98,8 @@ recorder_claim_loaded:
     str r0, [r4, #RC_DROPPED]
     str r0, [r4, #RC_FILE_BYTES]
     str r0, [r4, #RC_CHECKPOINT]
+    str r0, [r4, #RC_CHECK_TICKS]
+    str r0, [r4, #RC_PIECE_TICKS]
     ldr r0, [r4, #RC_CHANNELS]
     cmp r0, #RR_CHANNELS
     movne r0, #RW_BAD_ARG
@@ -202,9 +212,12 @@ recorder_piece:
     movhi r2, r1
     ldr r1, [r4, #RC_RING]
     add r1, r1, r0
+    bl recorder_mark
     mov r0, r4
     bl rec_writer_append
     mov r6, r0
+    ldr r1, =RC_PIECE_TICKS
+    bl recorder_measure
     ldr r0, [r4, #RW_DATA_BYTES]
     str r0, [r4, #RC_FILE_BYTES]
     sub r0, r0, r9
@@ -249,13 +262,16 @@ recorder_checkpoint:
     ldr r0, [r4, #RW_DATA_BYTES]
     ldr r1, [r4, #RC_CHECKPOINT]
     sub r0, r0, r1
-    ldr r2, =96000
+    ldr r2, =RC_CHECK_BYTES
     ldr r3, [r4, #RC_CHANNELS]
     mul r2, r3, r2
     cmp r0, r2
     blo recorder_return
+    bl recorder_mark
     mov r0, r4
     bl rec_writer_checkpoint
+    ldr r1, =RC_CHECK_TICKS
+    bl recorder_measure
     cmp r0, #0
     bne recorder_writer_error
     ldr r0, [r4, #RW_DATA_BYTES]
@@ -326,6 +342,24 @@ recorder_poll:
     str r1, [r4, #RC_POLLER]
 recorder_poll_return:
     pop {r4, r5, r6, pc}
+
+; r4 context. recorder_mark keeps r1 to r3, recorder_measure (r1 the field's offset) keeps r0.
+recorder_mark:
+    ldr r0, =RR_TICKS
+    ldr r0, [r0]
+    str r0, [r4, #RC_STAMP]
+    bx lr
+
+recorder_measure:
+    add r1, r4, r1
+    ldr r2, =RR_TICKS
+    ldr r2, [r2]
+    ldr r3, [r4, #RC_STAMP]
+    sub r2, r2, r3
+    ldr r3, [r1]
+    cmp r2, r3
+    strhi r2, [r1]
+    bx lr
 
 recorder_error:
     ldr r1, [r4, #RC_ERROR]

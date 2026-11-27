@@ -126,7 +126,7 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertEqual(m.pump(), 0)
         m.sync_fault = (2, 3)
         result = 0
-        for _ in range(30):
+        for _ in range(130):
             m.capture([0x12345678] * 2000, elapsed=40)
             result = m.pump()
             if result:
@@ -138,6 +138,17 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertEqual(m.field('RC_ACTIVE'), 0)
         self.assertFalse(m.handles)
 
+    def test_the_longest_card_write_and_checkpoint_are_kept_in_ticks(self):
+        m = Recorder()
+        m.command(1)
+        self.assertEqual(m.pump(), 0)
+        m.on_fat = lambda name: m.tick(m.tick() + {'WRITE': 3, 'SYNC': 50}.get(name, 0))
+        for _ in range(130):
+            m.capture([0x12345678] * 2000, elapsed=40)
+            self.assertEqual(m.pump(), 0)
+        self.assertGreater(m.field('RC_CHECKPOINT'), 0)
+        self.assertEqual((m.field('RC_PIECE_TICKS'), m.field('RC_CHECK_TICKS')), (3, 103))
+
     def test_commands_only_post_requests_and_the_worker_writes_exact_pcm(self):
         m = Recorder()
         self.assertEqual(m.command(1), 0)
@@ -146,7 +157,7 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertEqual(m.pump(), 0)
         self.assertEqual(m.field('RC_ACTIVE'), 1)
         captured = []
-        for step in range(30):
+        for step in range(130):
             words = [((step * 2000 + n) * 104729) & 0xFFFFFFFF for n in range(2000)]
             captured += words
             m.capture(words, elapsed=40)
@@ -154,7 +165,7 @@ class RecordingServiceTests(unittest.TestCase):
         saved = m.durable['SD:Recordings/REC0001.WAV']
         with wave.open(io.BytesIO(saved)) as wav:
             count = wav.getnframes()
-            self.assertGreaterEqual(count, 48000)
+            self.assertGreaterEqual(count, m.s('RC_CHECK_BYTES') // 2)
             self.assertLess(count, len(captured))
             self.assertEqual(wav.readframes(count), pcm(captured[:count]))
         self.assertEqual(m.finish(), 0)
