@@ -1,0 +1,18 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "value-popup",
+ "name": "Keys close the value window",
+ "builds": [
+  "synth"
+ ],
+ "changes": [
+  {
+   "file": 375220,
+   "bytes": "70402de90140a0e10250a0e1123041e2040053e3010013930400001a000052e37080bd18060000ea0000a0e10000a0e1c66200eb0400a0e10510a0e17040bde8bc6100ea0c309fe50010a0e1000093e57040bde8c05d00ea2cb556c0",
+   "expect": "3986dffcf13fe6f7b893b76ae1839c64657e7628c842ede3671cade3da3ca65a",
+   "note": "value window 0x18: a key press closes the window and runs the key; the filter keys keep it"
+  }
+ ],
+ "ram": []
+}
