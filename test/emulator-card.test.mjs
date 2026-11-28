@@ -13,7 +13,7 @@ const local = process.env.E2_LOCAL_REQUIRED === "1" || process.env.E2_EMU_REQUIR
 const vsb = process.env.E2_VSB;
 const skip = !local ? "emulation only runs in test:local or test:emu" : !vsb ? "E2_VSB not set" : false;
 
-const MENU = 0x09, EDIT_LEFT = 0x08, EDIT_RIGHT = 0x0c, EXIT = 0x0d;
+const MENU = 0x09, EDIT_LEFT = 0x08, EDIT_RIGHT = 0x0c, EXIT = 0x0d, WRITE = 0x0e;
 // MENU opens Pattern (1/32); DATA UTILITY (29/32) is the fourth page to the left, behind it come Event, BLECH and Blechy's page.
 const toDataUtility = Array(4).fill(EDIT_LEFT);
 const poll = ms => new Promise(r => setTimeout(r, ms));
@@ -50,6 +50,15 @@ const front = emu => ({
   async value(delta) {
     await emu.input({ kind: "encoder", index: 0, delta });
     await emu.settle(500);
+  },
+  /** The import opened SAMPLE EDIT on the sample as a preview: WRITE and its confirmation keep it, EXIT goes back to the browser. */
+  async keep(emu) {
+    await this.press(WRITE);
+    await emu.settle(1000);
+    await this.press(WRITE);
+    await emu.settle(3000);
+    await this.press(EXIT);
+    await emu.settle(1000);
   },
   /** DATA UTILITY, function n of 14: MENU, Edit left DATA_UTILITY_LEFT times, MENU, then Edit right. */
   async dataUtility(n) {
@@ -99,6 +108,7 @@ describe("virtual card", { concurrency: slots }, () => {
       await emu.settle(1000);
       await panel.press(MENU);
       await emu.settle(8000);
+      await panel.keep(emu);
 
       // EXPORT SAMPLE: the exported file, in the folder the firmware names, is the proof that the import worked.
       await panel.press(EXIT);
@@ -169,6 +179,7 @@ describe("virtual card", { concurrency: slots }, () => {
       await emu.settle(1000);
       await panel.press(MENU);
       await emu.settle(8000);
+      await panel.keep(emu);
       await panel.press(EXIT);
       await panel.press(EDIT_RIGHT, 120, 300);
       await panel.press(MENU);
@@ -218,6 +229,7 @@ describe("virtual card", { concurrency: slots }, () => {
       await panel.press(MENU, 150, 1000);
       await panel.press(MENU);
       await emu.settle(8000);
+      await panel.keep(emu);
       await panel.press(EXIT);
       await panel.press(EDIT_RIGHT, 120, 300);   // EXPORT SAMPLE: the exported file proves the import
       await panel.press(MENU);
