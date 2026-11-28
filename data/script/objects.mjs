@@ -15,6 +15,8 @@
  *            "state" no address, read only: `offset` picks a firmware state word read behind its pointer (STATE_WORDS)
  *            "flags2" a bit of byte 7 of the settings (MX_FLAGS2 in tools/patch/script_menu.s): `offset` is the bit's mask,
  *            FLAGS2_INVERT on top where a set bit reads 0 (no leaf uses it now); the other bits stay as they are
+ *            "tube" no address: `offset` picks a page of the patch tube-curve (TUBE), read and set as the page does; without the
+ *            patch TUBE reads 0 and a write changes nothing
  *   type     "u8" one byte, "u32" one word
  *   min, max the valid range; a set outside it is clamped and counted, so is a stored value found outside it at start
  *   factory  the value when the menu starts without a settings file
@@ -30,12 +32,17 @@
 import { text } from "../../src/text.mjs";
 import globalMap from "../map/global.mjs";
 
-export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info", "touchpad", "motion", "state", "flags2"]);
+export const OBJECT_BASES = Object.freeze(["menu", "runtime", "abs", "global", "pad", "info", "touchpad", "motion", "state", "flags2", "tube"]);
 /**
  * What a leaf of the base "state" reads, by its offset. powerSave and idle are bytes the runtime reads itself: the firmware's
  * dim flag of POWER SAVE and the stage of IDLE POWER SAVE (tools/patch/script_idle.s).
  */
 export const STATE_WORDS = Object.freeze({ padMode: 0, bar: 1, screen: 2, power: 3, battery: 4, powerSave: 5, idle: 6 });
+/**
+ * What a leaf of the base "tube" reads, by its offset (tools/patch/script_objects.s, objects_tube_get): TUBE 0 OFF or 1 ON (the
+ * field of bits 5 to 7 of byte 7 is not 0), TUBE DRIVE 1 to 7 (also while TUBE is OFF), TUBE ASYM 0 to 7.
+ */
+export const TUBE = Object.freeze({ on: 0, drive: 1, asym: 2 });
 /** Added to the mask of a leaf of the base "flags2" whose bit set reads 0. */
 export const FLAGS2_INVERT = 0x100;
 /**
@@ -314,6 +321,21 @@ export const OBJECTS = Object.freeze([
   leaf(66, "korg.menu.blech.features.glideSwitch", {
     base: "flags2", offset: 8, type: "u8", min: 0, max: 1, factory: 0, write: true, since: 37,
     unit: "0 off, 1 on", text: text("api.object.features.glideSwitch"),
+  }),
+
+  // API 41: the pages TUBE, TUBE DRIVE and TUBE ASYM of the patch tube-curve. Like the pages they sound the next frame and stay in
+  // RAM until WRITE; ON takes TUBE DRIVE, a new TUBE DRIVE while ON sounds at once
+  leaf(67, "korg.menu.blech.features.tube", {
+    base: "tube", offset: TUBE.on, type: "u8", min: 0, max: 1, factory: 0, write: true, since: 41,
+    unit: "0 off, 1 on", text: text("api.object.features.tube"),
+  }),
+  leaf(68, "korg.menu.blech.features.tubeDrive", {
+    base: "tube", offset: TUBE.drive, type: "u8", min: 1, max: 7, factory: 5, write: true, since: 41,
+    unit: "1 soft to 7 hard", text: text("api.object.features.tubeDrive"),
+  }),
+  leaf(69, "korg.menu.blech.features.tubeAsym", {
+    base: "tube", offset: TUBE.asym, type: "u8", min: 0, max: 7, factory: 4, write: true, since: 41,
+    unit: "0 even to 7 the most uneven", text: text("api.object.features.tubeAsym"),
   }),
 ]);
 

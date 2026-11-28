@@ -56,6 +56,7 @@ export const TABLE = [
   [/^tools\/emu\/tap_motion_cases\.py$/, ["tap_motion_cases", "beat_eighth_cases", "remote_cases"]],
   [/^tools\/emu\/sample_error_cases\.py$/, ["sample_error_cases", "import_slots_cases"]],
   [/^tools\/emu\/ht_osc_cases\.py$/, ["ht_osc_cases", "sample_category_cases", "shortcut_cases", "ifx_idle_cases", "remote_cases"]],
+  [/^tools\/emu\/tube_cases\.py$/, ["tube_cases", "remote_cases"]],   // remote_cases: plugin_api41_cases imports it
   ...CASE_MODULES.map(m => [new RegExp(`^tools/emu/${m}\\.py$`), [m]]),
   [/^tools\/emu\/testmode_cases\.py$/, ["remote_cases"]],      // runs as a group of remote_cases
   [/^tools\/emu\/timer_cases\.py$/, ["remote_cases"]],         // runs as a group of remote_cases
@@ -82,6 +83,7 @@ export const TABLE = [
   [/^tools\/emu\/plugin_api35_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api36_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api37_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
+  [/^tools\/emu\/plugin_api41_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/plugin_api38_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/meter_led_cases\.py$/, ["remote_cases"]],   // runs as a group of remote_cases
   [/^tools\/emu\/load_meter_cases\.py$/, ["menu_cases", "remote_cases"]],   // a look part of menu_cases; a remote_cases group imports it

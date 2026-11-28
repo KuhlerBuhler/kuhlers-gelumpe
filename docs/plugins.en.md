@@ -205,7 +205,7 @@ firmware and no plugin gets an event (only [Blechy](glossary.en.md#blechy)'s pag
 its key). In all firmware menus (Pattern, Global, Part Edit, Step Edit and the
 rest) plugins get input as on the main screen.
 
-### What a plugin reaches (API 40)
+### What a plugin reaches (API 41)
 
 The table shows, for every control and state of the Electribe, how a plugin reads it, sets it and hears about it. "no"
 means it cannot be done today; keys a plugin cannot set as a value it presses with `korg.keyDown` like a finger (API 25).
@@ -416,6 +416,9 @@ wherever an invalid value comes from, and clamps it or resets it to the factory 
 | `korg.menu.blech.features.initPattern` | SET INIT PATTERN: the pattern INITIALIZE PATTERN copies; 0 the firmware's template | yes, acts at once like the page | 0 to 250 |
 | `korg.menu.blech.features.glideChain` | GLIDE CHAIN: in the chain the tempo glides to the next pattern's tempo (1) (from API version 37) | yes, acts at once like the page | 0 to 1 |
 | `korg.menu.blech.features.glideSwitch` | GLIDE SWITCH: the tempo glides to the tempo of a pattern MENU confirmed (1) (from API version 37) | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.features.tube` | TUBE: the tube sound at the output is on (1); on takes the strength of TUBE DRIVE; without the patch tube-curve in the set it reads 0 and a write does nothing (from API version 41) | yes, acts at once like the page | 0 to 1 |
+| `korg.menu.blech.features.tubeDrive` | TUBE DRIVE: strength of the tube sound, 1 soft to 7 hard, kept while TUBE is off (from API version 41) | yes, acts at once like the page | 1 to 7 |
+| `korg.menu.blech.features.tubeAsym` | TUBE ASYM: how unevenly the curve shapes the two halves of the wave, 0 even to 7 the most uneven (from API version 41) | yes, acts at once like the page | 0 to 7 |
 | `korg.menu.blech.write()` | (a call, not a value) | writes the settings of the menu BLECH to the card as WRITE does on a page, see below | |
 | `korg.global.triggerMode` | page TRIGGER MODE of GLOBAL PARAMETERS: 0 Normal, 1 Seq 1st, 2 Seq Play | yes, as the menu does, through the firmware's own function | 0 to 2 |
 | `korg.global.velocityCurve` | page VELOCITY CURVE of GLOBAL PARAMETERS: 0 Heavy, 1 Normal, 2 Light, 3 Const96 | yes, as the menu does, through the firmware's own function | 0 to 3 |
@@ -1638,7 +1641,7 @@ All of this ran in the real firmware (2.02 with Hacktribe) in the emulator with 
 [Unicorn](glossary.en.md#unicorn) without firmware, **not on the device**.
 
 - Compiler, checker and reference VM in JavaScript (`src/script/`), the Plugins page with run, probe and
-  export, tests in `test/script-*.test.mjs`. Block format 2, API version 40.
+  export, tests in `test/script-*.test.mjs`. Block format 2, API version 41.
 - ARM VM (`tools/patch/script_vm.s`): all 34 opcodes, the comparison cases against the JS VM agree
   ([measurement](messungen/2026-10-14-skript-arm-vm.md)).
 - Input filter and frame hook (`tools/patch/script_hooks.s`): ring of 64 places, 25 Hz, a shared budget of

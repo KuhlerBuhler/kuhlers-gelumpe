@@ -7,7 +7,8 @@
 ; 6 no address: the touch pad mode, read from the firmware's touch pad object and the patch mfx-switch, set with the panel's keys,
 ; 7 no address: the motion switch of the selected part, set with one TAP of the patch tap-motion,
 ; 8 no address, read only: offset picks a state word of the firmware (STATE_WORDS in data/script/objects.mjs),
-; 9 a bit of byte 7 of the settings (MX_FLAGS2): offset is its mask, OBJ_FLAGS2_INVERT on top where a set bit reads 0.
+; 9 a bit of byte 7 of the settings (MX_FLAGS2): offset is its mask, OBJ_FLAGS2_INVERT on top where a set bit reads 0,
+; 10 no address: offset picks a page of the patch tube-curve (TUBE in data/script/objects.mjs: 0 TUBE, 1 TUBE DRIVE, 2 TUBE ASYM).
 .equ OBJ_BASE_ABS, 2
 .equ OBJ_BASE_GLOBAL, 3
 .equ OBJ_BASE_PAD, 4
@@ -16,6 +17,7 @@
 .equ OBJ_BASE_MOTION, 7
 .equ OBJ_BASE_STATE, 8
 .equ OBJ_BASE_FLAGS2, 9
+.equ OBJ_BASE_TUBE, 10
 .equ OBJ_FLAGS2_INVERT, 0x100     ; FLAGS2_INVERT in data/script/objects.mjs
 .equ STATE_POWER_SAVE, 5          ; STATE_WORDS: the firmware's dim flag, then the stage of IDLE POWER SAVE
 .equ POWER_MODEL, 0xC03405C4       ; pointer to the power source model, +0x308 1 on the adapter (docs/messungen/2026-11-11-plugin-api34-system.md)
@@ -55,6 +57,8 @@ script_object_get_glue:
     beq objects_state_get
     cmp r1, #OBJ_BASE_FLAGS2
     beq objects_flags2_get
+    cmp r1, #OBJ_BASE_TUBE
+    beq objects_tube_get
     ldrb r1, [r4, #17]
     cmp r1, #0
     ldrbeq r0, [r0]
@@ -121,6 +125,29 @@ objects_flags2_get:
     movne r0, #1
     tst r5, #OBJ_FLAGS2_INVERT
     eorne r0, r0, #1
+    b objects_get_done
+; TUBE, TUBE DRIVE and TUBE ASYM as their pages show them (menu_text_tube): r5 = the page; TUBE reads 0 without the patch tube-curve
+objects_tube_get:
+    ldr r5, [r4]
+    ldr r1, =MENU_STATE
+    cmp r5, #1
+    beq objects_tube_drive_get
+    bhi objects_tube_asym_get
+    bl tube_patched                 ; keeps r1
+    movne r0, #0
+    bne objects_get_done
+    ldrb r0, [r1, #MX_FLAGS2]
+    ands r0, r0, #FLAGS2_TUBE
+    movne r0, #1
+    b objects_get_done
+objects_tube_drive_get:
+    ldrb r0, [r1, #M_TUBE_DRIVE]
+    cmp r0, #0
+    moveq r0, #TUBE_DEFAULT
+    b objects_get_done
+objects_tube_asym_get:
+    ldrb r0, [r1, #M_TUBE_ASYM]
+    eor r0, r0, #TUBE_ASYM_DEFAULT
     b objects_get_done
 ; r0 = a state word (STATE_WORDS) -> r0 = the firmware's word, FFFFFFFF while its object does not exist (reads as the factory
 ; value). Clobbers r1, r2.
@@ -243,6 +270,8 @@ script_object_set_glue:
     beq objects_motion_set
     cmp r1, #OBJ_BASE_FLAGS2
     beq objects_flags2_set
+    cmp r1, #OBJ_BASE_TUBE
+    beq objects_tube_set
     ldr r12, [r4, #OBJ_SETTER_AT]   ; a Global setting goes through the firmware's own setter (Global object, value, 1), as the menu calls it
     cmp r12, #0
     bne objects_set_through
@@ -319,6 +348,42 @@ objects_flags2_set:
     strb r2, [r1, #MX_FLAGS2]
     bl objects_apply
     b objects_set_done
+; r0 = the value, r4 = the row: as the pages TUBE, TUBE DRIVE and TUBE ASYM set it (menu_value_tube and the two after it), tube_tick
+; sends the block the next frame. ON takes TUBE DRIVE, a TUBE DRIVE while ON goes into the field at once. Without the patch tube-curve
+; the set has no such pages and nothing changes.
+objects_tube_set:
+    mov r6, r0
+    bl tube_patched
+    bne objects_set_done
+    ldr r5, [r4]
+    ldr r1, =MENU_STATE
+    cmp r5, #1
+    beq objects_tube_drive_set
+    bhi objects_tube_asym_set
+    ldrb r2, [r1, #MX_FLAGS2]
+    bic r2, r2, #FLAGS2_TUBE
+    cmp r6, #0
+    beq objects_tube_store
+objects_tube_on:
+    ldrb r3, [r1, #M_TUBE_DRIVE]
+    cmp r3, #0
+    moveq r3, #TUBE_DEFAULT
+    strb r3, [r1, #M_TUBE_DRIVE]
+    orr r2, r2, r3, lsl #FLAGS2_TUBE_SHIFT
+objects_tube_store:
+    strb r2, [r1, #MX_FLAGS2]
+    b objects_set_done
+objects_tube_drive_set:
+    strb r6, [r1, #M_TUBE_DRIVE]
+    ldrb r2, [r1, #MX_FLAGS2]
+    tst r2, #FLAGS2_TUBE
+    beq objects_set_done
+    bic r2, r2, #FLAGS2_TUBE
+    b objects_tube_on
+objects_tube_asym_set:
+    eor r6, r6, #TUBE_ASYM_DEFAULT
+    strb r6, [r1, #M_TUBE_ASYM]
+    b objects_set_done
 
 ; korg.touchpad.mode = r0: one press of the key that leads from the current mode to r0, as a finger would, so LEDs and effect
 ; end up as after the key (korg.pressKey). The firmware's table is objects_touchpad_keys; with the patch mfx-switch on, GATE ARP
@@ -391,7 +456,7 @@ objects_motion_set:
     mov r0, #KEY_TAP
     b objects_touchpad_press
 
-; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; bases 4 to 9 have none)
+; r0 = leaf -> r4 = its row (0: no such leaf), r0 = the address of its value (bases 0 to 3; bases 4 to 10 have none)
 objects_row:
     mov r4, #0
     cmp r0, #OBJ_COUNT
@@ -414,6 +479,8 @@ objects_row:
     cmp r1, #OBJ_BASE_STATE
     bxeq lr
     cmp r1, #OBJ_BASE_FLAGS2
+    bxeq lr
+    cmp r1, #OBJ_BASE_TUBE
     bxeq lr
     cmp r1, #OBJ_BASE_GLOBAL
     beq objects_row_global

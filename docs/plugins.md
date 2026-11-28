@@ -242,7 +242,7 @@ das Touchpad und ihre Taste). In allen Menüs der Firmware (Pattern, Global, Par
 Edit, Step Edit und die übrigen) bekommen Plugins die Eingaben wie auf dem
 Hauptbildschirm.
 
-### Was ein Plugin erreicht (API 40)
+### Was ein Plugin erreicht (API 41)
 
 Die Tabelle zeigt für jedes Bedienelement und jeden Zustand der Electribe, womit ein Plugin ihn liest, setzt und von ihm
 erfährt. „nein“ heißt: das geht heute nicht; Tasten, die ein Plugin nicht als Wert setzen kann, drückt es mit
@@ -455,6 +455,9 @@ setzt ihn auf den Werkswert zurück; auch das zählt `korg.system.repairs`.
 | `korg.menu.blech.features.initPattern` | SET INIT PATTERN: das Pattern, das INITIALIZE PATTERN kopiert; 0 die Vorlage der Firmware | ja, wirkt sofort wie die Seite | 0 bis 250 |
 | `korg.menu.blech.features.glideChain` | GLIDE CHAIN: das Tempo gleitet in der Kette zum Tempo des nächsten Patterns (1) (ab API Version 37) | ja, wirkt sofort wie die Seite | 0 bis 1 |
 | `korg.menu.blech.features.glideSwitch` | GLIDE SWITCH: das Tempo gleitet zum Tempo eines mit MENU bestätigten Patterns (1) (ab API Version 37) | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.features.tube` | TUBE: der Röhrenklang am Ausgang ist an (1); an nimmt die Stärke von TUBE DRIVE; ohne den Patch tube-curve im Satz liest es 0 und Schreiben tut nichts (ab API Version 41) | ja, wirkt sofort wie die Seite | 0 bis 1 |
+| `korg.menu.blech.features.tubeDrive` | TUBE DRIVE: Stärke des Röhrenklangs, 1 weich bis 7 hart, bleibt erhalten, solange TUBE aus ist (ab API Version 41) | ja, wirkt sofort wie die Seite | 1 bis 7 |
+| `korg.menu.blech.features.tubeAsym` | TUBE ASYM: wie ungleich die Kurve die beiden Hälften der Welle formt, 0 gleich bis 7 am ungleichsten (ab API Version 41) | ja, wirkt sofort wie die Seite | 0 bis 7 |
 | `korg.menu.blech.write()` | (ein Aufruf, kein Wert) | schreibt die Einstellungen des Menüs BLECH auf die Karte wie WRITE auf einer Seite, siehe unten | |
 | `korg.global.triggerMode` | Seite TRIGGER MODE von GLOBAL PARAMETERS: 0 Normal, 1 Seq 1st, 2 Seq Play | ja, wie das Menü, über die Funktion der Firmware | 0 bis 2 |
 | `korg.global.velocityCurve` | Seite VELOCITY CURVE von GLOBAL PARAMETERS: 0 Heavy, 1 Normal, 2 Light, 3 Const96 | ja, wie das Menü, über die Funktion der Firmware | 0 bis 3 |
@@ -1892,7 +1895,7 @@ virtueller Karte oder in [Unicorn](glossary.md#unicorn) ohne Firmware, nicht am 
 
 - Compiler, Prüfer und Referenz-VM in JavaScript (`src/script/`), die Seite
   Plugins mit Lauf, Probe und Export (`site/app/scripts.mjs`), Tests in
-  `test/script-*.test.mjs`. Blockformat 2, API Version 40
+  `test/script-*.test.mjs`. Blockformat 2, API Version 41
   (`data/script/contract.mjs`).
 - ARM-VM (`tools/patch/script_vm.s`): alle 34 Opcodes, die Vergleichsfälle gegen
   die JS-VM stimmen ([Messung](messungen/2026-10-14-skript-arm-vm.md)).

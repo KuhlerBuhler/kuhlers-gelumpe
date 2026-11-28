@@ -253,6 +253,18 @@ const ART = {
     p.text("19 ... 999", 64, 42, { align: "center" });
     p.text("FACTORY SLOT", 64, 53, { align: "center" });
   },
+  // the TUBE DRIVE page above the tube curve: soft at the top, the positive half rounder than the negative one (TUBE ASYM)
+  tube: p => {
+    p.text("TUBE DRIVE", 4, 3);
+    p.text("5", 124, 3, { align: "right" });
+    p.fill(0, 13, W, 1);
+    p.fill(8, 40, 112, 1);
+    p.fill(64, 18, 1, 44);
+    for (let x = -56; x <= 56; x++) {
+      const v = x / 56, y = v >= 0 ? 0.85 * Math.tanh(2.2 * v) / Math.tanh(2.2) : Math.tanh(3 * v) / Math.tanh(3);
+      p.fill(64 + x, Math.round(40 - y * 20) - 1, 1, 2);
+    }
+  },
   "exit-pad": p => {
     p.frame(0, 12, 52, 26, 2);
     p.text("EXIT", 26, 18, { s: 2, align: "center" });
