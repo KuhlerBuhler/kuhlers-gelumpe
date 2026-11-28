@@ -84,6 +84,7 @@ PERSISTENCE_CODE, PERSISTENCE_CODE_END = 0xC0186800, 0xC0187800
 STATE, STATE_END = 0xC0188800, 0xC0188A00
 FILE_OWNER, BOOT_LEASE = STATE + 0x1E4, STATE + 0x1F4
 IMPORT_LOCK = BOOT_LEASE + 4
+PREVIEW = IMPORT_LOCK + 4         # the sample import's preview (native_sample_import.PREVIEW_SOURCE)
 # RAM above the interrupt stack, never touched by the firmware in any measured phase (docs/messungen/2026-10-22-ram-frei.md).
 HIGH, HIGH_END = 0xC274F000, 0xC4000000
 STAGE = HIGH                    # 96 KiB of file bytes for one chunk, then 16-bit PCM
@@ -165,8 +166,8 @@ SITES = [
      "the sample parser returns with the descriptor when the swap reads a slot for itself"),
     (0xC00369F0, 0xE59F3008, None, "ss_giver", False, True,
      "the work buffer giver drops the swap's cache before it hands the buffer out"),
-    (0xC00836F4, 0xE1A00004, None, "ss_frame", True, True,
-     "the UI frame drops the cache off the main screen and posts the swap's step"),
+    (0xC00836F4, 0xE1A00004, None, "preview_frame", True, True,
+     "the UI frame opens and ends an import's preview, drops the cache off the main screen and posts the swap's step"),
     (0xC002D684, 0xE3A03001, None, "ss_cmd", False, True,
      "the command task's dispatch runs the swap's step for its own command number"),
     (0xC005F1D4, None, 0xC0079AA8, "ss_gate_seq", True, False,
@@ -250,7 +251,7 @@ def equs(screens):
              "LAST_USER": LAST_USER, "SAMPLE_COUNT": SAMPLE_COUNT, "CAP_DEFAULT": CAP_DEFAULT,
              "DSP_GUARD": DSP_GUARD,
              "BUSY": sample_swap_io.BUSY, "STALE": sample_swap_io.STALE, "FILE_OWNER": FILE_OWNER, "BOOT_LEASE": BOOT_LEASE,
-             "NATIVE_SCOPE": NATIVE_SCOPE,
+             "NATIVE_SCOPE": NATIVE_SCOPE, "PREVIEW": PREVIEW,
              "FILE_READ": sample_owner.READ, "FILE_RECOVER": sample_owner.RECOVER, **OFF}
     return "".join(f".equ {k}, {v:#x}\n" for k, v in names.items())
 
@@ -1117,7 +1118,7 @@ arp_next:
 ss_cmd:
     ldrb r12, [r1, #4]
     cmp r12, #MSG
-    beq ss_step
+    beq ss_msg
     mov r3, #1
     b 0xC002D688
 
@@ -2563,7 +2564,7 @@ def source(screens):
                                         gate=STATE + OFF['INSTEP'], session=STATE + OFF['SESSION'],
                                         owner=FILE_OWNER, gate_owner=STATE + OFF['INSTEP_TASK'])
     guards = capture_fault.source(STATE + OFF["TSTATE"], admit_import=True, protect_publication=True, card_slot=True) + sample_export_fault.source(STATE + OFF["TSTATE"])
-    main = SOURCE.replace(".org CODE2", IMPORT_COMPLETION + "\n.org CODE2")
+    main = SOURCE.replace(".org CODE2", IMPORT_COMPLETION + native_sample_import.PREVIEW_SOURCE + "\n.org CODE2")
     main = main.replace(".org CODE3", sample_store.publication_source() + "\n.org CODE3")
     body = main + "\n.org STORE_CODE\n" + sample_store.source(STAGE, defer_short=True, defer_publish=True) + importer + sample_owner.source(FILE_OWNER) + native + guards
     body += "\n.pool\n" + FIRST_FIT
@@ -2678,7 +2679,8 @@ def build_patch(vsb, build=None):
                       why='file ownership exists before the early collection loader begins recovery'))
     ram = [ramdecl.area(STATE, FILE_OWNER - STATE, "run time state of the sample swap: mode, cache generation, the running job, failed slots, the file's path", "tools/patch/sample_swap.py:STATE"),
            ramdecl.area(HIGH, HIGH_END - HIGH, "staging buffer, file object, descriptors, header, cache index and the upper cache of the sample swap", "tools/patch/sample_swap.py:HIGH"),
-           ramdecl.area(IMPORT_LOCK + 4, STATE_END - IMPORT_LOCK - 4, "unused sample state room", "tools/patch/sample_swap.py:STATE_END")]
+           ramdecl.area(PREVIEW, 4, "the sample import's preview: its slot, the SAMPLE EDIT slot before it, its phase", "tools/patch/sample_swap.py:PREVIEW")]
+    assert PREVIEW + 4 == STATE_END
     for lo, hi, name in AREAS:
         end = max(at + len(data) for at, data in sections if lo <= at < hi)
         if end < hi:

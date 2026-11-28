@@ -1,5 +1,6 @@
-"""WAV import from the native command handler on both red builds: a user slot is written to the card library, then
-Korg's import loads it into the DSP; a factory slot (below 500) goes to Korg's import alone."""
+"""WAV import from the native command handler on both red builds: Korg's import loads a user slot into the DSP alone and
+SAMPLE EDIT opens on it as a preview, WRITE there keeps it in the card library and EXIT discards it; with no room in the
+DSP the card library takes it at once. A factory slot (below 500) goes to Korg's import alone."""
 
 import hashlib
 
@@ -117,6 +118,11 @@ ni_path:
 ni_path_end:
     cmp r0, #0
     beq ni_error
+    ldr r0, =PREVIEW
+    ldr r0, [r0]
+    sub r0, r0, #0x01000000
+    cmp r0, #0x03000000
+    blo ni_error
     mov r0, #1
     bl sample_admit
     cmp r0, #0
@@ -150,35 +156,44 @@ ni_begin:
     bne ni_busy
     mov r6, r1
     mov r7, r3
+    mov r8, #0
     cmp r2, #0
-    beq ni_new
+    beq ni_checked
     mov r0, r5
     bl indexed
     cmp r0, #0
-    movne r0, #4
-    mvnne r5, #0
-    bne ni_complete
-ni_new:
+    movne r8, #4
+ni_checked:
+    mov r0, r6
+    mov r1, r8
+    mov r3, r7
+    bl catalogue_end_update
+    cmp r0, #0
+    bne ni_left
+; Korg's import puts the sample into the DSP alone, above the swap's cursor; preview_frame opens SAMPLE EDIT on it.
+    mov r0, r4
+    mov r1, r5
+    bl NI_NATIVE
+    cmp r0, #0
+    ldreq r1, =PREVIEW
+    orreq r2, r5, #0x01000000
+    streq r2, [r1]
+    beq ni_left
+; No room in the DSP: the card library takes the sample and the swap loads it on selection.
+    bl catalogue_begin_import
+    cmp r0, #0
+    bne ni_left
+    mov r6, r1
+    mov r7, r3
     mov r0, r4
     mov r1, r5
     ldr r2, =ST + PATH
     bl store_import_new
-ni_complete:
     mov r1, r0
     mov r0, r6
     mov r2, r5
     mov r3, r7
     bl catalogue_end_import
-; The sample is in the card library; Korg's import also puts it into the DSP now, above the swap's cursor.
-    cmp r0, #0
-    bne ni_left
-    cmn r5, #1
-    beq ni_left
-    mov r8, r0
-    mov r0, r4
-    mov r1, r5
-    bl NI_NATIVE
-    mov r0, r8
 ni_left:
     bl sample_leave
     pop {r4-r8, r11, r12, pc}
@@ -212,5 +227,127 @@ capture_start_admitted:
 capture_start_resume:
     push {r3-r7, lr}
     b 0xC0082F20
+.pool
+"""
+
+
+PREVIEW_SOURCE = r"""
+; ------------------------------------------------------------- UI task: the preview of an imported sample
+; PREVIEW: bits 0-9 the slot, 10-19 SAMPLE EDIT's slot before it, bit 20 set while that is held, bits 24-31 the phase:
+; 1 imported, 2 SAMPLE EDIT open on it, 3 left, the command task discards it. Any other phase is no preview.
+; Runs before ss_frame at the frame hook (r4 the frame's object), keeps r0 to r3 and r12 for it.
+.equ PV_ENTRY, 37
+.equ PV_EDIT, 38
+.equ PV_BROWSER, 39
+.equ PV_MENU, 45
+.equ PV_SWITCH, 0xC0083D28
+.equ PV_MODEL, 0xC0035AD8
+preview_frame:
+    push {r0-r7, r12, lr}
+    ldr r4, =PREVIEW
+    ldr r5, [r4]
+    mov r6, r5, lsr #24
+    sub r6, r6, #1
+    cmp r6, #1
+    bhi pf_out
+    ldr r1, =SCREENS
+    ldr r1, [r1]
+    cmp r1, #0
+    beq pf_out
+    ldr r2, [r1, #0x24]
+    cmp r2, #0
+    bne pf_out
+    ldr r7, [r1, #0x2c]
+    cmp r7, #PV_EDIT
+    beq pf_editing
+    cmp r6, #0
+    bne pf_open
+    cmp r7, #PV_BROWSER
+    bne pf_end
+; SAMPLE EDIT plays its slot on all 16 parts and lights the pads (command 0x20 from screen 38's constructor).
+    bl PV_MODEL
+    tst r5, #0x100000
+    ldreq r1, [r0, #0x3FC]
+    ldreq r2, =0x3FF
+    andeq r1, r1, r2
+    orreq r5, r5, r1, lsl #10
+    orreq r5, r5, #0x100000
+    streq r5, [r4]
+    mov r1, r5, lsl #22
+    mov r1, r1, lsr #22
+    str r1, [r0, #0x3FC]
+    mov r0, #PV_EDIT
+    mov r1, #0
+    bl PV_SWITCH
+    b pf_out
+pf_editing:
+    bic r5, r5, #0xFF000000
+    orr r5, r5, #0x02000000
+    str r5, [r4]
+    b pf_out
+pf_open:
+    cmp r7, #PV_MENU
+    beq pf_out
+pf_end:
+    tst r5, #0x100000
+    beq pf_discard
+    bl PV_MODEL
+    mov r1, r5, lsl #12
+    mov r1, r1, lsr #22
+    str r1, [r0, #0x3FC]
+    bic r5, r5, #0x100000
+pf_discard:
+    bic r5, r5, #0xFF000000
+    orr r5, r5, #0x03000000
+    str r5, [r4]
+    mov r0, #MSG
+    mov r1, #0
+    mov r2, #0
+    bl POST
+    cmp r7, #PV_ENTRY
+    moveq r0, #PV_BROWSER
+    moveq r1, #0
+    bleq PV_SWITCH
+pf_out:
+    pop {r0-r7, r12, lr}
+    b ss_frame
+
+; ------------------------------------------------------------- command task: the preview's end
+; In order after SAMPLE EDIT's own EXIT (0x21 gives the parts back) and a WRITE: a slot WRITE put into the card library stays.
+ss_msg:
+    ldr r12, =PREVIEW
+    ldr r12, [r12]
+    mov r12, r12, lsr #24
+    cmp r12, #3
+    bne ss_step
+    push {r0-r4, lr}
+    bl preview_discard
+    pop {r0-r4, lr}
+    b ss_step
+
+preview_discard:
+    push {r4-r10, r11, r12, lr}
+    ldr r4, =PREVIEW
+    ldr r4, [r4]
+    mov r4, r4, lsl #22
+    mov r4, r4, lsr #22
+    mov r0, r4
+    bl persist_enter
+    ldr r1, =PREVIEW
+    cmp r0, #0
+    ldrne r0, [r1]
+    bicne r0, r0, #0xFF000000
+    orrne r0, r0, #0x02000000
+    strne r0, [r1]
+    popne {r4-r10, r11, r12, pc}
+    mvn r0, #0
+    str r0, [r1]
+    mov r5, #0
+    mov r0, r4
+    bl indexed
+    cmp r0, #0
+    beq persist_delete_row
+    bl sample_leave
+    pop {r4-r10, r11, r12, pc}
 .pool
 """
