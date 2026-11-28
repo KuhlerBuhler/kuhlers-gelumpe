@@ -35,7 +35,7 @@
 .equ M_BL_ON, 0xC4
 .equ M_BL_PWM, 0xC8
 .equ M_BL_N, 0xCC
-.equ M_BL_CLR, 0xD0
+.equ M_BL_CLR, 0xD0            ; 4 bytes: per channel (red, green, blue) the PWM tick its pin goes off, 1 to 14, 0 a plain pin
 .equ MX_INTENS, -0x20          ; the 32 bytes in front of MENU_STATE: byte, INTENSITY of the backlight 0 to 15
 .equ MX_SAVE, -0x1F            ; byte, SAVE LIGHT: 0 the firmware's own dim in power save, 1 to 15 the backlight at that intensity
 .equ MX_OVER, -0x1E            ; byte, OVERLAP of the pad colours (0 the colour that is left)
@@ -45,7 +45,7 @@
 .equ MX_LOUD_PHASE, -0x17      ; 2 bytes (low, high), the hue of METER LOUD RAINBOW in 1/256 steps, a round a bar at the tempo
 .equ METER_OFF, 9              ; METER STILL only: the still meter stays dark (bit 1 of byte 5 of the settings file)
 .equ METER_RAINBOW, 8          ; METER STILL and LOUD: the colours turn round the wheel (STILL bit 30 of the settings flags, LOUD bit 0 of byte 5)
-.equ MX_SAVE_CLR, -0x14        ; 16 bytes, the pins the PWM clears at tick n in power save
+.equ MX_SAVE_CLR, -0x14        ; 4 bytes, as M_BL_CLR for power save; -0x10 to -0x05 behind them are free (the table was 16 bytes)
 .equ MX_FLAGS2, -0x15          ; byte, byte 7 of a version 4 settings file (FLAGS2_*), 0 without one
 .equ FLAGS2_LOAD_METER, 1      ; LOAD METER on (CUSTOMIZATION)
 .equ FLAGS2_IDLE_OFF, 2        ; IDLE POWER SAVE OFF in the file (POWER SAVE); clear is ON or BATTERY ONLY; in RAM M_IDLE holds the page and this bit stays clear
@@ -1697,16 +1697,14 @@ look_led_kind:
     bl menu_backlight_now
     pop {r4-r8, pc}
 
-; r1 = intensity 0 to 15, r5 = a table of 16 bytes, the three levels of the colour at sp (the caller's push): the levels scaled
-; by the intensity go into the table -> r12 = the pins that light, r6 = 1 when a level needs the PWM. Clobbers r0 to r3.
+; r1 = intensity 0 to 15, r5 = a table of 4 bytes, the three levels of the colour at sp (the caller's push): per channel the level
+; scaled by the intensity, when it needs the PWM, goes into the table -> r12 = the pins that light, r6 = 1 when a level needs the PWM.
+; The table was 16 bytes (the pins per tick) and ran over M_SD_T0, M_FL_RETRY and the bytes of IMPORT SAMPLE and SAMPLE EDIT. Clobbers r0 to r3.
 look_triple:
     push {r7, lr}
     mov r7, r1
     mov r3, #0
     str r3, [r5]
-    str r3, [r5, #4]
-    str r3, [r5, #8]
-    str r3, [r5, #12]
     mov r12, #0
     mov r6, #0
     ldr r0, [sp, #8]
@@ -1734,7 +1732,7 @@ look_scale:
     bx lr
 
 ; r0 = level 0 to 15, r3 = the pin of the channel, r12 = pins that may light, r6 = 1 when a level needs the PWM,
-; r5 = the table of the pins the PWM clears at tick n
+; r5 = the table of the tick each channel's pin goes off (the pin 0x08, 0x10, 0x20 >> 4 is the channel's byte)
 look_channel:
     cmp r0, #0
     bxeq lr
@@ -1742,9 +1740,8 @@ look_channel:
     cmp r0, #15
     bxhs lr
     mov r6, #1
-    ldrb r2, [r5, r0]
-    orr r2, r2, r3
-    strb r2, [r5, r0]
+    mov r2, r3, lsr #4
+    strb r0, [r5, r2]
     bx lr
 ; r1 = an intensity 0 to 15 -> r1 scaled by the stage of IDLE POWER SAVE (script_idle.s): 4, 3, 2, 1 or 0 of 4 parts, rounded up,
 ; so a lit light stays lit until the stage goes dark. FF (before menu_arm) is no stage. Clobbers r2 and r3.
@@ -2437,7 +2434,7 @@ bl_blue_go:
 .pool
 ; 0xC00289F4, the firmware's dim routine, called from the 2 kHz timer interrupt (0xC0025B60): `push {r4, r5, r6, lr}`.
 ; A backlight colour with a level between 1 and 14 is a software PWM of 16 ticks (8 ms, 125 Hz): at tick 0 the pins of all
-; lit channels go on, the pin of a channel goes off at the tick that equals its level (M_BL_CLR). Levels 0 and 15 and
+; lit channels go on, the pin of a channel goes off at the tick that equals its level (M_BL_CLR, a byte per channel). Levels 0 and 15 and
 ; the stock white need no PWM (M_BL_PWM is 0, nothing here runs). Not while the firmware dims.
 bl_pwm_hook:
     ldr r2, =objects_test_mode      ; the test mode keeps the light off: no dimming, no PWM
@@ -2485,8 +2482,18 @@ bl_pwm_run:
     mov r2, #3
     mov r3, r6
     bl GPIO_WRITE
+    b bl_pwm_done               ; no pin goes off at tick 0 (a level is 1 to 14; a byte of 0 is a channel without PWM)
 bl_pwm_clear:
-    ldrb r3, [r7, r4]
+    mov r3, #0
+    ldrb r2, [r7]
+    cmp r2, r4
+    orreq r3, r3, #0x08
+    ldrb r2, [r7, #1]
+    cmp r2, r4
+    orreq r3, r3, #0x10
+    ldrb r2, [r7, #2]
+    cmp r2, r4
+    orreq r3, r3, #0x20
     cmp r3, #0
     beq bl_pwm_done
     ldr r0, =GPIO_BASE
