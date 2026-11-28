@@ -98,8 +98,16 @@ Adressen der blauen selbst: Insert-Feld `0xC009898C`, Master-Feld `0xC0099D88` (
 `synth`), Reglergedächtnis `0xC056C3A0` (`tools/patch/preset_tables.py`). Die Flächen des Patches (`0xC0174000` bis
 `0xC017CC00`) sind in der blauen frei wie in der roten.
 
-**Offen:** Live-Bearbeitung der Effekte über SysEx auf der blauen (`stockReady` verlangt den Build `stock`), der Klang
-am Gerät.
+**Live-Bearbeitung:** BLECH WRITE schreibt auf der blauen nur in die 200 Effekt-Records, in drei Blöcken zu je `0x20C`
+Byte: 47 ab `0xC0092958`, 9 ab `0xC0098B1C`, 144 ab `0xC0099F18`. Die Tabelle des Patches erlaubt genau diese Fenster,
+alles andere im RAM bleibt gesperrt, auch die Zeigerfelder und der Spiegel. Die App erkennt die blaue an Modell `0x23`
+und drei Fingerabdrücken und schickt jeden BLECH-Befehl mit diesem Modellbyte. Der Effekt-Tab bearbeitet dann die
+Presets live wie auf der roten; Display, LEDs und andere Schreibwege bleiben aus.
+
+Quelle: Messung (Emulator, `tools/emu/sysex_cases.py` `synth_records_written` und `synth_records_only`; die alte
+Tabelle verweigert den Record, die neue schreibt ihn)
+
+**Offen:** der Klang am Gerät, ein Gerätetest an einer blauen.
 
 Quelle: Messung 2026-11-08/blau-effekte-port
 

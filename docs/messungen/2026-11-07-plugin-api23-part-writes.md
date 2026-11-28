@@ -40,7 +40,7 @@ den CC, `0xC0059720` setzt den Wert in der Klangerzeugung (die 127 in der Kopie)
 | Fenstercode 13: von 0 bis 47 durchprobiert, nur 13 gibt dasselbe Bild wie der Drehgeber | gemessen |
 | `ifxType` Grenze: der Setter prüft mit `cmp r2, #top` bei `0xC0049EF0` (blau `0xC004400C`) und setzt Werte darüber auf 0. Der Aufruf liest dieses Byte zur Laufzeit und klemmt darauf: 58 auf Hacktribe (59 Typen), 47 auf rot, 37 auf blau. 200 ergibt die letzte Nummer, -5 ergibt 0. Steht dort kein solcher Befehl, schreibt der Aufruf nichts | gemessen |
 | Der fx-Katalog von BLECH hebt dieses Byte (Hacktribe ohne BLECH 0x30), darum steht die Grenze nicht als Zahl in der Laufzeit | gemessen |
-| `ifxType` auf blau: über den direkten Setter, weil der Part-Edit dort nicht vermessen ist. Objekt gleich wie nach dem Drehgeber, das Fenster des Drehgebers fehlt | gemessen |
+| `ifxType` auf blau: über den direkten Setter, weil der Part-Edit dort nicht vermessen ist. Objekt gleich wie nach dem Drehgeber, das Fenster des Drehgebers fehlt. Seit API 24 geht der Aufruf über den Part-Edit der blauen, mit Fenster ([API 24](2026-11-08-plugin-api24-part-cc.md)) | gemessen |
 | `sample`: der Part-Edit mit Parameter 8 und der ganzen Slotnummer als Wort (der Weg von API 14 hatte auf ein Byte gekürzt). Objekt und Bildschirm gleich wie nach dem Regler SAMPLE, auf Hacktribe und rot | gemessen |
 | Leerer Slot: der Regler überspringt ihn über `0xC0040D50(Slot, Richtung)`, das den nächsten belegten Slot liefert. Der Aufruf schreibt einen Slot nur, wenn diese Funktion ihn selbst zurückgibt; sonst bleibt alles, wie es war. Im Emulator ohne Flash sind 0 bis 273 belegt, 999 und 5000 (auf 999 geklemmt) schreiben nichts | gemessen |
 | `sample` auf blau: keine Samples, der Aufruf schreibt nichts | gemessen |
@@ -57,4 +57,4 @@ ab API 23.
 - **Am Gerät**: keine Zeile.
 - **Slices**: ist ein Sample in Slices geteilt, setzt die Firmware beim Wählen noch den Slice (Parameter 0x1E, `0xC0041068`). Nicht gemessen; der Aufruf setzt nur den Slot.
 - **MIDI**: ob `ifxOn` den CC wie die Taste schicken soll, ist eine Entscheidung, keine Messung. Die anderen Schreibwege schicken nichts.
-- **IFX TYPE auf blau** ohne Fenster, solange der Part-Edit dort nicht vermessen ist.
+- **IFX TYPE auf blau**: erledigt mit API 24. Nachgemessen auf Korgs blauer 2.02 mit BLECH (Stand develop): `ifxType_like_the_encoder` grün, Bildschirm, Objekt und DSP-Befehle gleich wie nach dem Drehgeber.
