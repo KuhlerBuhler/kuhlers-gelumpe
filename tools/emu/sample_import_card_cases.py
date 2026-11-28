@@ -1,4 +1,5 @@
-"""Native WAV menu and power-cut checkpoints with a generated FAT32 card."""
+"""Native WAV menu and power-cut checkpoints with a generated FAT32 card. The import goes to the card library at once only
+with a full DSP (with room it is a preview first, sample_import_menu_cases.py), so every import here models a full DSP."""
 import argparse
 import json
 import struct
@@ -78,6 +79,7 @@ def reboot(payload, flash, image, path, key):
             retry_status.append(uc.reg_read(box.m.A.UC_ARM_REG_R0))
 
         box.m.uc.hook_add(c.unicorn.UC_HOOK_CODE, outcome, begin=menu.IMPORT_STATUS, end=menu.IMPORT_STATUS)
+        menu.full_dsp(box)
         found = c.steps_on(box, "import sample", STEPS)
         retry_data, retry_journal = card_state(box, path)
         retry_state = examine(retry_data, new=True, before=data)
@@ -85,7 +87,7 @@ def reboot(payload, flash, image, path, key):
         named = (name == c.NAMES + menu.TARGET * 32 + 12
                  and bytes(box.m.uc.mem_read(name, 4)) == b"imp\0")
         retry_safe = (found and retry_status == [0] and valid(retry_state, new=True, append_offset=len(data))
-                      and retry_journal == 0 and box.resident(menu.TARGET) and named)
+                      and retry_journal == 0 and not box.resident(menu.TARGET) and named)
         retry_state.update(name_visible=named, journal_bytes=retry_journal, old_file_bytes=len(data),
                            resident=box.resident(menu.TARGET))
     return dict(**state, ok=(started and valid(state, new=new) and old_pcm and new_pcm == new and retry_safe
@@ -99,6 +101,7 @@ def card_case(payload, flash, fault):
     box = c.Box(payload, flash, SAMPLES, [500, 501], extra={"/imp.wav": WAV.hex()},
                 before_boot=full_card if fault == "full" else None, record_dsp=True)
     started = menu.ready(box)
+    menu.full_dsp(box)
     statuses, injected, reserve = [], [], []
     images, snapshots = {}, {}
     importing = False
@@ -160,8 +163,8 @@ def card_case(payload, flash, fault):
     pcm_before = dict(box.dsp)
     found = c.steps_on(box, "import sample", STEPS)
     no_upload = not reserve and box.dsp == pcm_before and not box.resident(menu.TARGET)
-    # a stored import is loaded into the DSP at once; a refused one leaves the DSP alone
-    dsp_ok = box.resident(menu.TARGET) if statuses == [0] else no_upload
+    # the swap loads a stored import on selection; a refused one leaves the DSP alone too
+    dsp_ok = no_upload
     final, remaining = card_state(box, path)
     new_final = fault in ("cuts", "short_index", "unlink")
     final_state = examine(final, new=new_final)
@@ -220,6 +223,7 @@ def publication_case(payload, flash, fault):
             status.append(uc.reg_read(box.m.A.UC_ARM_REG_R0))
 
         box.m.uc.hook_add(c.unicorn.UC_HOOK_CODE, done, begin=menu.IMPORT_STATUS, end=menu.IMPORT_STATUS)
+        menu.full_dsp(box)
         return c.steps_on(box, "import sample", STEPS), status
 
     extra = {"/imp.wav": WAV.hex()}
@@ -268,7 +272,7 @@ def publication_case(payload, flash, fault):
              and valid(examine(data, new=True, before=before), new=True, append_offset=len(before)))
     ok = (started and first_menu == (True, [4]) and cut == {"bytes": sent, "marker": True, "previous_bytes": True}
           and ready and preserved and clean and old_pcm and retry == (True, [0]) and exact
-          and txn is None and witness is None and reboot.resident(menu.TARGET)
+          and txn is None and witness is None and not reboot.resident(menu.TARGET)
           and not box.m.asserts and not reboot.m.asserts)
     return c.entry("wav_import_publication_" + fault, ok,
                    dict(cut=cut, first_menu=first_menu, boot_ready=ready, previous_bytes=preserved,
