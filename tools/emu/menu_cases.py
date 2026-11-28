@@ -1701,6 +1701,20 @@ def look_cases(payload, flash=None, rest=True):
     drawn = lambda got, want: got is not None and all(abs(g - w * 255) <= 3 for g, w in zip(got, want))
     add("backlight_colour_reaches_the_page", drawn(lights["green"], (0, 1, 0)) and drawn(lights["red5"], (5 / 16, 0, 0))
         and drawn(lights["mix"], (3 / 16, 8 / 16, 12 / 16)) and drawn(lights["one_of_16"], (1 / 16, 14 / 16, 0)), f"{lights}")
+    # the PWM table sits in front of the card init's tick (M_SD_T0, 0xD4), the flash save's next try (M_FL_RETRY, 0xD8) and the
+    # bytes of IMPORT SAMPLE and SAMPLE EDIT (0xDC to 0xDF): those may hold anything, the light stays as set, and setting the look keeps them
+    # (M_IS_STEP at 0xDC stays 0: menu_enter_page clears it on every page the look walks through)
+    kept = mix.read(STATE + 0xD4, 12)
+    noise = bytes([0xFF, 0x7F, 0x3F, 0x38, 0x12, 0x34, 0x56, 0x78, 0x00, 0x38, 0x18, 0x28])
+    set_look(mix, backlight=(3, 8, 12))
+    mix.m.uc.mem_write(STATE + 0xD4, noise)
+    mix.run(0.3)
+    beside = duty(mix, 1.0)
+    set_look(mix, backlight=(5, 0, 0))
+    after = mix.read(STATE + 0xD4, 12)
+    mix.m.uc.mem_write(STATE + 0xD4, kept)
+    add("backlight_pwm_leaves_its_neighbours", near(beside[0], {"R": 3 / 16, "G": 8 / 16, "B": 12 / 16}) and after == noise and not mix.m.asserts,
+        f"duty with the neighbours set {beside[0]}, the neighbours after a new look {after.hex()} (want {noise.hex()})")
     # power save: the firmware's own dimming, as without our patch (red and green for 2 of 18 ticks in turn, never blue)
     set_look(mix, backlight=(0, 0, 12))
     mix.call(POWER_CONNECT, 1)
