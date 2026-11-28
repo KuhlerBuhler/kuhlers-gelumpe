@@ -119,8 +119,8 @@ test("itemsFor: the items of a set that apply to a build, one per id", () => {
   const set = { items: [{ id: "a" }, { id: "f" }, { id: "f" }], patches: [{ id: "a", builds: ["hacktribe", "stock"] }, { id: "f", builds: ["hacktribe"] }, { id: "f", builds: ["stock"] }] };
   assert.deepEqual(itemsFor(set, "hacktribe"), [set.items[0], set.items[1]]);
   assert.deepEqual(itemsFor(set, "stock"), [set.items[0], set.items[2]]);
-  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "sample-swap", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "tube-curve", "ht-osc", "beat-eighth", "touch-scale-zero", "value-popup", "stage2-memory", "update-guard", "blech-version", "doom-loader", "import-slots", "blech-sysex"]);
-  assert.equal(itemsFor(BLECH_SET, "stock").length, itemsFor(BLECH_SET, "hacktribe").length + 2, "the synth filters and the Hacktribe oscillators are for Korg's build only");
+  assert.deepEqual(itemsFor(BLECH_SET, "stock").map(p => p.id), ["splash-editor", "mfx-switch", "pattern-switch", "tap-motion", "note-assistant", "dice", "pad-colors", "load-bar", "sample-errors", "sample-swap", "script-runtime", "blechtribe", "splash", "blech-theme", "preset-tables", "fx-catalog", "synth-filters", "power-off", "last-pattern", "init-pattern", "stereo-pad", "tube-curve", "ht-osc", "grooves-scales", "beat-eighth", "touch-scale-zero", "value-popup", "stage2-memory", "update-guard", "blech-version", "doom-loader", "import-slots", "blech-sysex"]);
+  assert.equal(itemsFor(BLECH_SET, "stock").length, itemsFor(BLECH_SET, "hacktribe").length + 3, "the synth filters, the Hacktribe oscillators and the grooves and scales are for Korg's build only");
 });
 
 test("BLECH is the set data/patches/blech.json: every patch it lists, in its order, with its id and a label from the app's tables", async () => {

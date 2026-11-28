@@ -106,6 +106,7 @@ const PATCH_LABELS = {
   "stereo-pad": "features.stereoPad.title",
   "tube-curve": "patcher.patch.tubeCurve",
   "ht-osc": "features.htOsc.title",
+  "grooves-scales": "features.groovesScales.title",
   "beat-eighth": "features.beatEighth.title",
   "touch-scale-zero": "features.touchScaleZero.title",
   "value-popup": "patcher.patch.valuePopup",
