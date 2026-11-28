@@ -1703,8 +1703,9 @@ def look_cases(payload, flash=None, rest=True):
         and drawn(lights["mix"], (3 / 16, 8 / 16, 12 / 16)) and drawn(lights["one_of_16"], (1 / 16, 14 / 16, 0)), f"{lights}")
     # the PWM table sits in front of the card init's tick (M_SD_T0, 0xD4), the flash save's next try (M_FL_RETRY, 0xD8) and the
     # bytes of IMPORT SAMPLE and SAMPLE EDIT (0xDC to 0xDF): those may hold anything, the light stays as set, and setting the look keeps them
+    # (M_IS_STEP at 0xDC stays 0: menu_enter_page clears it on every page the look walks through)
     kept = mix.read(STATE + 0xD4, 12)
-    noise = bytes([0xFF, 0x7F, 0x3F, 0x38, 0x12, 0x34, 0x56, 0x78, 0xFF, 0x38, 0x18, 0x28])
+    noise = bytes([0xFF, 0x7F, 0x3F, 0x38, 0x12, 0x34, 0x56, 0x78, 0x00, 0x38, 0x18, 0x28])
     set_look(mix, backlight=(3, 8, 12))
     mix.m.uc.mem_write(STATE + 0xD4, noise)
     mix.run(0.3)
