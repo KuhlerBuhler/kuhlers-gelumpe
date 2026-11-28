@@ -179,6 +179,7 @@ Adressräume, Stacks, Flash-Aufbau, Samples und der Zustand im RAM.
 - [Sample-RAM: CPU-Register und Speicherabbildung](2026-11-06-sample-ram-mmu.md)
 - [Updatepfad der laufenden BLECH-Firmware: KORG/blechtribe/System/SYSTEM.VSB](2026-11-06-sample-ram-vorpruefung.md)
 - [Hacktribe-Oszillatoren auf den freien Plätzen](2026-11-08-ht-osc-freie-plaetze.md)
+- [Grooves und Skalen auf der roten Firmware](2026-11-28-grooves-skalen-rot.md)
 - [ORIG im BLECH-Menü und die später eingesteckte Karte (11.11.)](2026-11-11-orig-und-karte-spaeter.md)
 - [Plugin API 33: Samples lesen, Pattern speichern, Part kopieren](2026-11-11-plugin-api33-samples.md)
 - [Eigene Samples auf der blauen Electribe 2: wo im DSP-Speicher Platz ist](2026-11-12-blau-sample-import.md)

@@ -63,7 +63,7 @@ If something goes wrong, the app tells you what happened. If you are still stuck
 | Oscillators as in Hacktribe (Dual, Oct, Chip, ...), rebuilt in BLECHTRIBE | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Inserts as in Hacktribe (Lag, KP2 Comp, drive filters, delays), rebuilt in BLECHTRIBE | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Master effects as in Hacktribe (Big Hall, Plate Reverb, Tap Delay Sync, Tube Drive), rebuilt in BLECHTRIBE | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Extra Hacktribe grooves and scales | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Extra grooves and scales as in Hacktribe (62 grooves, 70 scales), in BLECHTRIBE with its own grooves and chords | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Import/export effects and grooves through Hacktribe menus | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Custom INIT pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Hacktribe SysEx (for the Hacktribe editor) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |

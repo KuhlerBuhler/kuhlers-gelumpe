@@ -68,7 +68,7 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | Oszillatoren wie bei Hacktribe (Dual, Oct, Chip, ...), bei BLECHTRIBE als Nachbau | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Inserts wie bei Hacktribe (Lag, KP2 Comp, Drive-Filter, Delays), bei BLECHTRIBE als Nachbau | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | Master-Effekte wie bei Hacktribe (Big Hall, Plate Reverb, Tap Delay Sync, Tube Drive), bei BLECHTRIBE als Nachbau | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Zusätzliche Hacktribe-Grooves und Skalen | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Zusätzliche Grooves und Skalen wie bei Hacktribe (62 Grooves, 70 Skalen), bei BLECHTRIBE mit eigenen Grooves und Akkorden | ❌ | ❌ | ✅ | ✅ | ❌ | ✅ |
 | FX und Grooves über die Hacktribe-Menüs importieren/exportieren | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Eigenes INIT-Pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Hacktribe-SysEx (für den Hacktribe-Editor) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
