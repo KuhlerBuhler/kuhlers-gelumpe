@@ -38,6 +38,7 @@ NAMES = {
     "stereo_pad_cases": "Stereo auf einem Pad",
     "tube_cases": "Röhrenkurve",
     "ht_osc_cases": "Hacktribe-Oszillatoren",
+    "grooves_scales_cases": "Grooves und Skalen",
     "beat_eighth_cases": "BEAT 8",
     "touch_scale_zero_cases": "Touch Scale 0",
     "value_popup_cases": "Value window keys",
