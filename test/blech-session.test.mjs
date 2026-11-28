@@ -6,7 +6,7 @@ import { BLECH, head, crc32 } from "../src/protocol.mjs";
 import { syxEnc, u32le } from "../src/bytes.mjs";
 import { BLOCKS } from "../src/map/index.mjs";
 import { readUnits } from "../src/node.mjs";
-import { simPort, makeStockLikeFirmware, makeFirmwareWithArrays, makeRecord } from "./helpers.mjs";
+import { simPort, makeStockLikeFirmware, makeFirmwareWithArrays, makeSynthLikeFirmware, makeRecord } from "./helpers.mjs";
 import { VsbImage } from "../src/image.mjs";
 import { buildProfile, STOCK_SLOTS } from "../src/profile.mjs";
 import { recordOf, pointersMatch, RECORD } from "../src/presets.mjs";
@@ -22,10 +22,13 @@ const FAST = { search: 200, read: 200, ack: 200, pattern: 400, global: 200, info
 const bytes = new Uint8Array(0x200100);
 const ZERO = await sha256(new Uint8Array(16));
 const FIVES = await sha256(new Uint8Array(16).fill(0x55));
-// Hacktribe's signature matches the zeroed image, Korg's does not; the second profile is the other way round.
+const SEVENS = await sha256(new Uint8Array(16).fill(0x77));
+// Hacktribe's signature matches the zeroed image, Korg's does not; the second profile is the other way round. The third is
+// Korg's blue, asked only of a device that answers as model 0x23.
 const KNOWN = [
   { version: [2, 2], fingerprints: [{ addr: 0xc0000040, length: 16, sha256: ZERO }] },
   { version: [2, 2], build: "stock", fingerprints: [{ addr: 0xc0000040, length: 16, sha256: FIVES }] },
+  { version: [2, 2], build: "synth", fingerprints: [{ addr: 0xc0000040, length: 16, sha256: SEVENS }] },
 ];
 const DISPLAY = BLOCKS.get("display").meta.ram;
 
@@ -287,4 +290,55 @@ test("Hacktribe with BLECH: its record goes through BLECH by the table of its bu
   const res = await session.apply({ kind: "fxRecord", table: "ifx", slot: 50, bytes: after, before }, { confirmed: true });
   assert.equal(res.ok, true, res.error?.message ?? JSON.stringify(res.gate?.reasons));
   await assert.rejects(session.sender.blechWrite(0xc00a7f60 + 0x20c, new Uint8Array(0x20c)), e2 => e2.kind === "protected", "Korg's second record lies across two of Hacktribe's");
+});
+
+/** A blue Electribe 2 on Korg's firmware with BLECH (model 0x23), its records where the map says, and a session with the same file loaded. */
+async function blueWithRecords() {
+  const file = await makeSynthLikeFirmware([makeRecord("ifx", { name: "Blue One", devices: { ifx1: 0x0a }, params: { ifx1: [0, 64, 64, 64] } })]);
+  const device = Uint8Array.from(file).fill(0x77, 0xc0000040 - 0xc0000000 + 0x100, 0xc0000040 - 0xc0000000 + 0x110);
+  const rig = await simPort({ bytes: device, hacktribe: false, blech: true, model: 0x23, name: "electribe2" });
+  const session = new DeviceSession({ port: rig.port, known: KNOWN, timeouts: FAST });
+  await session.connect();
+  session.useFirmware(file, { known: false, build: "synth", reasons: [] }, { units, profile: null });
+  return { ...rig, session, file };
+}
+
+test("Korg's blue original with BLECH: told by model 0x23 and its own signatures, every BLECH frame with that model byte", async () => {
+  const { session, sent } = await blueWithRecords();
+  const d = session.device;
+  assert.deepEqual([d.model, d.sampler, d.ram, d.build, d.hacktribe, d.versionKnown], [0x23, false, "blech", "synth", false, true]);
+  assert.equal(d.blech.tableMatches, true, "the table of the synth's patch");
+  const blech = sent.filter(m => m[1] === 0x42 && m[2] !== 0x50);
+  assert.ok(blech.some(m => func(m) === BLECH.INFO) && blech.some(m => func(m) === BLECH.READ));
+  assert.ok(blech.every(m => m[5] === 0x23), "INFO and READ carry the blue's model byte");
+});
+
+test("Korg's blue original with BLECH: an effect record is written where the file's array puts it, and taken back", async () => {
+  const { session, sim, file } = await blueWithRecords();
+  const { ram } = recordOf(file, "ifx", 1);
+  assert.equal(ram, 0xc0092958, "the first record of the blue's first run");
+  const before = Uint8Array.from(await session.readRamBlock(ram, RECORD));
+  const after = Uint8Array.from(before);
+  after[0x135 + 2] = 99;
+  const edit = { kind: "fxRecord", table: "ifx", slot: 1, bytes: after, before, ram };
+  const res = await session.apply(edit, { confirmed: true });
+  assert.equal(res.ok, true, res.error?.message ?? JSON.stringify(res.gate?.reasons));
+  assert.equal(sim.peek(ram + 0x135 + 2, 1)[0], 99);
+  const back = await session.undo();
+  assert.equal(back.ok, true, back.error?.message);
+  assert.deepEqual(Uint8Array.from(await session.readRamBlock(ram, RECORD)), before);
+  assert.deepEqual(sim.faults, []);
+});
+
+test("Korg's blue original with BLECH: nothing but its effect records, neither by the gate nor by the device", async () => {
+  const { session, file } = await blueWithRecords();
+  const screen = await session.check({ kind: "screenWrite", bytes: new Uint8Array(1024) });
+  assert.equal(screen.verdict, "blocked");
+  assert.ok(screen.reasons.some(r => r.code === "synth-records-only"), JSON.stringify(screen.reasons));
+  const record = Uint8Array.from(file.subarray(0x100, 0x100 + RECORD));
+  const red = await session.check({ kind: "fxRecord", table: "ifx", slot: 1, bytes: record, ram: 0xc00a7f60 });
+  assert.equal(red.verdict, "blocked", "a record on the red grid");
+  await assert.rejects(session.sender.blechWrite(0xc009898c, new Uint8Array(16)), e => e.kind === "protected", "the array of insert pointers");
+  await assert.rejects(session.sender.blechWrite(0xc0092958 + RECORD - 8, new Uint8Array(16)), e => e.kind === "protected", "across two records");
+  await assert.rejects(session.sender.blechWrite(DISPLAY, new Uint8Array(16)), e => e.kind === "protected", "the red display buffer");
 });

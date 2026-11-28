@@ -1154,9 +1154,37 @@ GROUPS = (case_protocol, case_kill_switch, case_other_sysex, case_flash, file_ca
 VECTOR_GROUPS = (case_protocol, case_dev_mode)
 
 
+# The blue Electribe 2's effect records, three runs of 0x20C bytes (data/map/firmware.mjs, `records` of the synth's arrays).
+SYNTH_RECORDS = ((0xC0092958, 47), (0xC0098B1C, 9), (0xC0099F18, 144))
+
+
+def synth_record_cases(dev, lk):
+    """The only RAM the synth's table opens: its own effect records, whole, for the live editing of the presets page."""
+    out, refused = [], []
+    for name, addr in (("the first record", SYNTH_RECORDS[0][0]), ("a record of the second run", SYNTH_RECORDS[1][0] + 524),
+                       ("a record of the third run", SYNTH_RECORDS[2][0] + 3 * 524), ("the last record", SYNTH_RECORDS[2][0] + 143 * 524)):
+        data = bytes((i * 7 + 3) & 0xFF for i in range(524))
+        before = mem(dev, addr, 524)
+        begin, done = lk.write(addr, data)
+        if not (begin and begin["status"] == OK and done and done["status"] == OK and done["crc"] == zlib.crc32(data) and mem(dev, addr, 524) == data):
+            refused.append((name, begin and begin["status"], done and done["status"]))
+        lk.write(addr, before)
+    out.append(entry("synth_records_written", not refused, "a whole effect record of each of the synth's three runs is written and read back" if not refused else f"refused: {refused}"))
+    bad = []
+    for name, addr, n in (("across two records", SYNTH_RECORDS[0][0] + 524 - 8, 16), ("the insert pointer array", 0xC009898C, 16),
+                          ("a record of the red grid", 0xC00A7F60, 524), ("past the last record", SYNTH_RECORDS[2][0] + 144 * 524, 16),
+                          ("the mirror of a record", SYNTH_RECORDS[0][0] + spec.MIRROR, 16), ("firmware code", 0xC0100000, 16)):
+        before = mem(dev, addr, n)
+        begin, _ = lk.write(addr, bytes(n), send_data=False)
+        if not begin or begin["status"] != REFUSED or mem(dev, addr, n) != before:
+            bad.append((name, begin and begin["status"]))
+    out.append(entry("synth_records_only", not bad, "a write across two records, into the pointer array, on the red grid, past the last record, into a record's mirror or the code is refused" if not bad else f"not refused: {bad}"))
+    return out
+
+
 def synth_cases(payload, flash):
-    """A smoke check of the patch on the blue Electribe 2 (the synth): INFO, RAM read, writes refused (its RAM map is not
-    measured, so the table refuses every write), FLASH READ with its limits and no flash write, EXIT at power-on, Korg's own
+    """A smoke check of the patch on the blue Electribe 2 (the synth): INFO, RAM read, writes refused but into its own effect
+    records (its RAM map is not measured, so the table opens nothing else), FLASH READ with its limits and no flash write, EXIT at power-on, Korg's own
     SysEx and no assertion. `payload` is the patched synth's 0x200000 bytes behind the head."""
     global MODEL
     MODEL = 0x23
@@ -1179,7 +1207,8 @@ def synth_cases(payload, flash):
         begin, _ = lk.write(SCRATCH, bytes(range(64)), send_data=False)
         again = lk.info()
         out.append(entry("synth_writes_refused", begin and begin["status"] == REFUSED and mem(dev, SCRATCH, 64) == before and again and again["status"] == OK,
-                         "a write is refused already at BEGIN, because the synth's RAM map is not measured; the RAM stays"))
+                         "a write outside the effect records is refused already at BEGIN, because the synth's RAM map is not measured; the RAM stays"))
+        out.extend(synth_record_cases(dev, lk))
         r, _ = lk.ask(spec.FUNC_EXEC, struct.pack("<II", spec.EXEC_START, 0), reply=spec.REPLY_EXEC)
         words = struct.unpack_from("<3I", r["words"]) if r else None
         dev_on(dev)

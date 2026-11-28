@@ -52,19 +52,21 @@ function runsOf(list) {
 /**
  * @param {object} [o]
  * @param {object} [o.protectedData] data/protected.mjs
- * @param {"hacktribe"|"stock"} [o.build] the build the table is for: the records it keeps its presets in differ (src/plan.mjs)
+ * @param {"hacktribe"|"stock"|"synth"} [o.build] the build the table is for: the records it keeps its presets in differ (src/plan.mjs)
  * @param {{start: number, end: number, what: string}[]} [o.declared] the regions the editor writes
  * @returns {{bytes: Uint8Array, crc: number, regions: object[], windows: object[]}}
  */
-export function protectTable({ protectedData = PROTECTED, build, declared = build === "synth" ? [] : allowedRegions({ build }) } = {}) {
-  // The synth's RAM map (heap, stacks, patterns) is not measured, so for its firmware the whole window is one region
-  // with no exception: every write is refused, reading works. Flash reading has its own range check in the firmware.
+export function protectTable({ protectedData = PROTECTED, build, declared = allowedRegions({ build }) } = {}) {
+  // The synth's RAM map (heap, stacks, patterns) is not measured, so for its firmware the window is closed but for its
+  // effect records: the lower half takes them as exceptions, the upper half (with a gap where the records' mirror lies,
+  // which the mirror pass still closes) takes none. Reading works. Flash reading has its own range check in the firmware.
   if (build === "synth") {
-    const words = [1, 0, 0xc0000000, 0xc8000000, 0];
-    const bytes = new Uint8Array(words.length * 4);
-    const view = new DataView(bytes.buffer);
-    words.forEach((w, i) => view.setUint32(i * 4, w >>> 0, true));
-    return { bytes, crc: crc32(bytes), regions: [{ start: 0xc0000000, end: 0xc8000000, flags: 0, id: "synth-ram" }], windows: [] };
+    const windows = runsOf(declared).map(run => ({ ...run, cls: 1 }));
+    const table = [
+      { start: 0xc0000000, end: 0xc4000000, flags: 1, id: "synth-ram" },
+      { start: 0xc4200000, end: 0xc8000000, flags: 0, id: "synth-ram-high" },
+    ];
+    return encode(table, windows);
   }
   const regions = protectedData.regions.filter(r => r.space === "ram");
   const classes = new Map();
@@ -84,6 +86,10 @@ export function protectTable({ protectedData = PROTECTED, build, declared = buil
     ...regions.map(r => ({ start: r.start, end: r.end, flags: (classes.get(r.id) ?? 0) | (r.deny === "any" ? 0x100 : 0) | (r.devOpen ? DEV_OPEN : 0), id: r.id })),
     ...(protectedData.devClosed?.[build ?? "hacktribe"] ?? []).map((r, i) => ({ start: r.start, end: r.end, flags: 0, id: `dev-closed-${i}` })),
   ];
+  return encode(table, windows);
+}
+
+function encode(table, windows) {
   const words = [table.length, windows.length];
   for (const r of table) words.push(r.start, r.end, r.flags);
   for (const w of windows) words.push(w.start, w.width, w.stride, w.count, w.cls);

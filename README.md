@@ -39,7 +39,7 @@
 - **Geht das mit der blauen Electribe?** Ja, mit etwas weniger Funktionen, siehe Tabelle.
 - **Blaue Electribe: wo sind meine Exporte?** In `KORG/blechtribe/`, nicht mehr in `KORG/electribe/`. Beim ersten Start bietet die Electribe an, `KORG/electribe/` dorthin zu kopieren.
 - **Brauche ich [Hacktribe](docs/glossary.md#hacktribe)?** Nein. BLECHTRIBE läuft direkt auf Korgs Original. Wenn du schon Hacktribe hast, kannst du BLECHTRIBE darauf installieren, dann bleiben Hacktribes eigene Funktionen erhalten. Auf Korgs Original schaltet BLECHTRIBE die Hacktribe-Funktionen nicht frei.
-- **Wie kann ich eigene Effekte machen?** In der App im [**Baukasten**](docs/glossary.md#baukasten). Da nimmst du einen fertigen Effekt oder baust einen aus Bausteinen, mit Namen und echten Einheiten. Über den Export kommen sie auf die SD-Karte (rot und blau), einzelne auch live per USB (nur rot). Beides mit BLECHTRIBE. Auf der blauen ist das bisher nur im Emulator geprüft.
+- **Wie kann ich eigene Effekte machen?** In der App im [**Baukasten**](docs/glossary.md#baukasten). Da nimmst du einen fertigen Effekt oder baust einen aus Bausteinen, mit Namen und echten Einheiten. Über den Export kommen sie auf die SD-Karte (rot und blau), einzelne auch live per USB (rot und blau). Beides mit BLECHTRIBE. Auf der blauen ist das bisher nur im Emulator geprüft.
 - **Windows: Die App findet meine Electribe nicht, obwohl die MIDI-Ports da sind.** Dann ist wohl Korgs eigener USB-MIDI-Treiber drauf, über den kommen die Antworten der Electribe nicht an. Nimm ihn im Geräte-Manager raus (die Electribe, "Gerät deinstallieren", mit Treiber) und starte Windows neu, Windows' eigener Treiber reicht. Will das KORG Driver Setup Utility ihn danach wieder installieren, mach es einfach zu. Der MIDI-Bericht in den Einstellungen sagt das auch.
 - **Ich hab eine Idee für die App oder die Firmware.** Immer her damit: [Idee aufschreiben](https://github.com/KuhlerBuhler/kuhlers-gelumpe/issues/new?template=idea.yml). Dafür brauchst du ein GitHub-Konto.
 
@@ -72,7 +72,7 @@ Klappt etwas nicht? Die App sagt dir, was los ist. Wenn du trotzdem nicht weiter
 | FX und Grooves über die Hacktribe-Menüs importieren/exportieren | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | Eigenes INIT-Pattern | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Hacktribe-SysEx (für den Hacktribe-Editor) | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
-| Eigene USB-Befehle für die App (Karte, Plugins, RAM; auf der blauen RAM nur lesen) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Eigene USB-Befehle für die App (Karte, Plugins, RAM; auf der blauen schreiben sie im RAM nur die Effekt-Presets) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Unveränderte Werks-Samplebank der roten Electribe nutzen | ✅ | ➖ | ❌ | ✅ | ➖ | ❌ |
 | Anpassbare Oberfläche (Startbild, Schrift, Ausschaltbild) | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Ladeanimation mit Fortschritt | ❌ | ➖ | ❌ | ✅ | ➖ | ✅ |
@@ -148,7 +148,7 @@ Das Wichtigste in einem Satz je Sache. Welche Electribe was kann, zeigt die Tabe
 **Effekte**
 
 - **Fertige Effekte:** Im Baukasten liegen fertige Effekte, zum Beispiel Bounce Gate, Hardtekk Kick, Warm Drive, Bit Grinder, Glue Comp und ULTRA LOUD, dazu Modulationen wie Kick Drop. Die Liste steht in [docs/effekt-katalog.md](docs/effekt-katalog.md).
-- **Eigene Effekte auf der blauen (neu in 1.5):** Auch die blaue Electribe bekommt den Effekt-Katalog, 128 Plätze für eigene Effekte und den Export auf die Karte. Live per USB bearbeiten geht dort noch nicht. Nur im Emulator geprüft.
+- **Eigene Effekte auf der blauen (neu in 1.5):** Auch die blaue Electribe bekommt den Effekt-Katalog, 128 Plätze für eigene Effekte und den Export auf die Karte. Die Effekte lassen sich dort auch live per USB bearbeiten. Nur im Emulator geprüft.
 
 **Anzeige und Strom**
 

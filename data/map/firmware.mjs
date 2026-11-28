@@ -76,7 +76,9 @@ const firmware = {
         { build: "stock", ram: 0xc00adf94, count: 100, firmware: FIRMWARE_STOCK,
           records: [{ ram: 0xc00a7f60, count: 47 }, { ram: 0xc00ae124, count: 9 }, { ram: 0xc00af520, count: 144 }] },
         { build: "hacktribe", ram: 0xc00a7f60, count: 100, firmware: FIRMWARE },
-        { build: "synth", ram: 0xc009898c, count: 100, firmware: FIRMWARE_SYNTH, evidence: BLUE_FX },
+        // The blue Electribe 2 keeps them in three runs of the same lengths, at its own addresses (read through its arrays).
+        { build: "synth", ram: 0xc009898c, count: 100, firmware: FIRMWARE_SYNTH, evidence: BLUE_FX,
+          records: [{ ram: 0xc0092958, count: 47 }, { ram: 0xc0098b1c, count: 9 }, { ram: 0xc0099f18, count: 144 }] },
         { build: "blech", ram: 0xc017c000, count: 128, firmware: "sampler-2.02 + BLECH preset-tables" },
       ],
       reserve: { ram: 0xc0174000, slots: 28, first: 101 },

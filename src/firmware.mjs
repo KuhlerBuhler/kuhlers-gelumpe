@@ -78,7 +78,7 @@ export const FEATURES = {
 /** The two hooks of BLECH's SysEx commands (tools/patch/blech_sysex.py): a branch into the patch's code, which lies in 0xC0172100 to 0xC0173800. */
 const BLECH_SYSEX_HOOKS = [0xc0026a8c, 0xc0026418];
 /** The same hooks in the blue Electribe 2's firmware (data/patches/blech-sysex-synth.json). */
-const BLECH_SYSEX_HOOKS_SYNTH = [0xc002240c, 0xc0021d70];
+export const BLECH_SYSEX_HOOKS_SYNTH = [0xc002240c, 0xc0021d70];
 
 /** Whether a VSB carries BLECH's own SysEx commands: both hooks are branches into the patch's code. */
 export function hasBlechSysex(bytes, hooks = BLECH_SYSEX_HOOKS) {
@@ -120,7 +120,8 @@ export const STOCK_REASON = stockReason();
 
 /** Why a function of Hacktribe's is not offered for this build, or null when the build has it. */
 export function lackOf(build, what = "sysex", { blech = false } = {}) {
-  if (build === "stock" && what === "sysex" && blech) return null;
+  // BLECH's commands on Korg's builds, red or blue: on the blue they read and write its effect records alone.
+  if ((build === "stock" || build === "synth") && what === "sysex" && blech) return null;
   if (build === "stock") return stockReason();
   if (build === "synth") return FEATURES.synth[what] ? null : synthReason();
   return FEATURES[build]?.[what] ? null : say("vsb.unknown");
