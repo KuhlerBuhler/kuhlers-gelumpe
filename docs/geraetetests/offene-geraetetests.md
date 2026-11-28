@@ -235,8 +235,10 @@ Firmware und wird nicht weitergegeben. Vorher im Emulator mit dem eigenen Flash-
    LOOP START, END POINT, SAMPLE TUNE ändern, nach jeder Änderung Pad: hörbar ab der nächsten Note.
 5. PLAY LEVEL `+12dB`: lauter. REVERSE ON: rückwärts. Wieder OFF: vorwärts.
 6. ONE SHOT ON: Pad kurz antippen, das Sample spielt bis zum Ende. Wieder OFF: es endet mit dem Loslassen des Pads.
-7. EXIT, aus und wieder an: alle Werte aus 4 bis 6 sind noch da.
-8. Ohne Karte starten, dann mit EXIT beim Einschalten: keine `[User]`-Samples, nichts hängt.
+7. START POINT mitten in die Welle, bis es am Anfang knackt. Seite DECLICK (9/9) ON: das Knacken ist weg oder leiser, START
+   POINT zeigt denselben Wert. Wieder OFF: das Knacken ist wieder da.
+8. EXIT, aus und wieder an: alle Werte aus 4 bis 7 sind noch da.
+9. Ohne Karte starten, dann mit EXIT beim Einschalten: keine `[User]`-Samples, nichts hängt.
 
 **Zurück:** wie in Abschnitt 3, dann den Test-Ordner `KORG/blechtribe/Sample/` löschen und `Sample-rot` wieder
 `Sample` nennen (oder die Datei aus Sicherung 3 zurück). BLECH der roten (auf `ORIGINAL.BIN`, Hacktribe `163d1d8d`)

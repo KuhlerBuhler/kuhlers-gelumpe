@@ -96,7 +96,7 @@ export const TABLE = [
   [/^tools\/emu\/node_json\.py$|^data\/emu\/node-results\.json$/, ["remote_cases", "shortcut_cases", "ifx_idle_cases", "sysex_cases", "dev_mode_cases", "fx_card_cases", "update_guard_cases"]],
   [/^tools\/emu\/node_results\.py$/, []],
   // the DSP model (dsp_model.py): the case modules that ask it
-  [/^tools\/emu\/dsp_model\.py$/, [...new Set([...PSWITCH_USERS, "shortcut_cases", "ht_osc_cases", "sample_category_cases", "ifx_idle_cases"])]],
+  [/^tools\/emu\/dsp_model\.py$/, [...new Set([...PSWITCH_USERS, "shortcut_cases", "ht_osc_cases", "sample_category_cases", "ifx_idle_cases", "user_samples_cases"])]],
   // the device tools sysex_cases imports for its hot patch groups
   [/^tools\/device\/(hot_patch|make_hot_fixtures|remote_press|flash_dump|screen_check)\.py$/, ["sysex_cases", "dev_mode_cases", "fx_card_cases", "update_guard_cases"]],
   // the DSP interface cases run with the start scenarios on every copy

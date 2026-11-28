@@ -29,6 +29,7 @@ import fat32  # noqa: E402
 import lifetime  # noqa: E402
 import machine  # noqa: E402
 import menu_cases as mc  # noqa: E402
+from dsp_model import DspModel  # noqa: E402
 import parallel  # noqa: E402
 from sdcard import MemoryMedium, SDCard  # noqa: E402
 from splash_cases import Dev  # noqa: E402
@@ -305,10 +306,13 @@ def card_image(files):
     return img
 
 
-def boot_image(payload, flash, img, seconds=4.0):
+def boot_image(payload, flash, img, seconds=4.0, dsp=False):
+    """`dsp` attaches the DSP model before the start, so reads of the sample memory return what the start wrote."""
     if flash is None:
         flash = sp.blank_synth_flash(machine, sp.build_bank(sp.synthetic_waves()))
     probe = sp.Probe(payload, flash, card=SDCard(MemoryMedium(img)))
+    if dsp:
+        DspModel.attach(probe.m)
     probe.run_to(seconds)
     return probe
 
@@ -473,6 +477,91 @@ def case_edit(payload, flash):
     return out
 
 
+def with_esli_byte(w, index, value):
+    """The WAV `w` with byte `index` of its esli record set."""
+    at = w.index(b"esli") + 8 + index
+    return w[:at] + bytes([value]) + w[at + 1:]
+
+
+def ref_snap(values, point, low, high, win=128):
+    """DECLICK's rule in frames (mono): within `win` frames of `point`, between `low` and `high`, the nearest frame where the
+    wave crosses zero (0, or a sign change from the frame before; none on `low`, its frame before is not read), ties to the earlier one;
+    without one the frame of the smallest |value|, ties to the nearer one."""
+    first, last = max(point - win, low), min(point + win, high)
+    if first > last:
+        return point
+    cross, quiet = None, None
+    for f in range(first, last + 1):
+        before = values[f - 1] if f > low else values[f]
+        crossing = values[f] == 0 or (values[f] < 0) != (before < 0)
+        d = abs(f - point)
+        if crossing and (cross is None or d < cross[0]):
+            cross = (d, f)
+        level = (abs(values[f]), d)
+        if quiet is None or level < quiet[0]:
+            quiet = (level, f)
+    return cross[1] if cross else quiet[1]
+
+
+def ref_points(values, start, loop, end):
+    """(start, loop, end) in frames -> the moved ones, as dc_points: END from the moved start, a loop on START or END follows it."""
+    s = ref_snap(values, start, 0, end)
+    e = ref_snap(values, end, s, len(values) - 1)
+    lp = s if loop == start else e if loop == end else ref_snap(values, loop, s, e)
+    return s, lp, e
+
+
+def smpr_frames(p, k):
+    """(start, loop, end) of [User] k's SMPR record in frames of its sample."""
+    u = user(p, k)
+    start, loop, end, _ = p.chain(record(p, spec.OSC_COUNT + k - 1)["wave"])["smpr"]
+    s = (start - u["base"]) // 2
+    return s, s + loop // 2, s + end // 2
+
+
+def case_declick(payload, flash):
+    """DECLICK (esli[53] bit 0): a sample with it plays from points moved to the nearest zero crossing within 128 frames (the
+    SMPR record, worked out against the values the start wrote into the DSP), the shown points and the file keep the ones set.
+    Without a crossing in the window the quietest frame. SET switches it at once and stores it; a moved START moves at once;
+    REVERSE writes the values again and the points are worked out on the turned ones; a new start reads it from the file."""
+    lifted = [5000 + int(3000 * math.sin(2 * math.pi * i / 70)) for i in range(3000)]    # never crosses zero
+    one = with_esli_byte(wav(SINE, 48000, 1, ("WAVE", 2 * 1030, 2 * 2020, 2 * 3970, 0)), 53, 1)
+    two = with_esli_byte(wav(lifted, 48000, 1, ("LIFTED", 2 * 1000, 2 * 1500, 2 * 2900, 0)), 53, 1)
+    img = card_image({SAMPLE_PATH + "e2sSample.all": sample_file([one, two])})
+    p = boot_image(payload, flash, img, dsp=True)
+    u1, u2 = user(p, 1), user(p, 2)
+    want1, want2 = ref_points(SINE, 1030, 2020, 3970), ref_points(lifted, 1000, 1500, 2900)
+    got1, got2 = smpr_frames(p, 1), smpr_frames(p, 2)
+    out = [
+        entry("declick_load", got1 == want1 and want1 != (1030, 2020, 3970) and (u1["start"], u1["loop"], u1["end"]) == (2060, 4040, 7940)
+              and p.read(spec.UT + spec.U_DECLICK, 1) == b"\1",
+              f"SMPR {got1}, reference {want1}, record {u1['start'] // 2, u1['loop'] // 2, u1['end'] // 2}"),
+        entry("declick_quiet", got2 == want2 and want2 != (1000, 1500, 2900), f"SMPR {got2}, reference {want2}"),
+    ]
+    off = p.call(US_SET, 1, spec.F_DECLICK, 0, limit_s=30.0)
+    got_off = smpr_frames(p, 1)
+    bit_off = entry_of(card_file(img, SAMPLE_PATH + "e2sSample.all"), 500)["esli"][53]
+    on = p.call(US_SET, 1, spec.F_DECLICK, 1, limit_s=30.0)
+    got_on = smpr_frames(p, 1)
+    bit_on = entry_of(card_file(img, SAMPLE_PATH + "e2sSample.all"), 500)["esli"][53]
+    out.append(entry("declick_switch", (off, on) == (0, 0) and got_off == (1030, 2020, 3970) and bit_off == 0 and got_on == want1
+                     and bit_on == 1, f"results {off, on}, OFF {got_off} esli[53] {bit_off}, ON {got_on} esli[53] {bit_on}"))
+    moved = p.call(US_SET, 1, spec.F_START, 2 * 1130, limit_s=30.0)
+    got_moved = smpr_frames(p, 1)
+    want_moved = ref_points(SINE, 1130, 2020, 3970)
+    out.append(entry("declick_live", moved == 0 and got_moved == want_moved and user(p, 1)["start"] == 2260,
+                     f"result {moved}, SMPR {got_moved}, reference {want_moved}, record {user(p, 1)['start'] // 2}"))
+    again = boot_image(payload, flash, bytearray(img), dsp=True)
+    got_again = smpr_frames(again, 1)
+    out.append(entry("declick_after_restart", got_again == want1, f"SMPR {got_again}, reference {want1}"))
+    rev = p.call(US_SET, 2, spec.F_REVERSE, 1, limit_s=30.0)
+    got_rev = smpr_frames(p, 2)
+    want_rev = ref_points(lifted[::-1], 1000, 1500, 2900)
+    out.append(entry("declick_reverse", rev == 0 and got_rev == want_rev and want_rev != want2,
+                     f"result {rev}, SMPR {got_rev}, reference {want_rev}"))
+    return out
+
+
 def case_import_menu(payload, flash):
     """DATA UTILITY > IMPORT SAMPLE, the blue's last page there: the firmware's file browser, opened down to the Sample folder,
     lists its .wav files, ENTER picks one and asks for the number, the dial walks [User] 1 up to one past the last (an existing one shows its
@@ -612,9 +701,9 @@ def case_import_folders(payload, flash):
 
 
 def case_edit_menu(payload, flash):
-    """DATA UTILITY > SAMPLE EDIT, behind IMPORT SAMPLE: ENTER opens its eight pages (counter n/8, the tab says Sample) on SELECT
-    SAMPLE; the dial picks the [User] sample, EDIT walks START POINT, END POINT, LOOP START, SAMPLE TUNE, PLAY LEVEL, ONE SHOT and
-    REVERSE (the red's order) and wraps. The points play at once and stay in order, TUNE stops at -63, ONE SHOT keeps the loop
+    """DATA UTILITY > SAMPLE EDIT, behind IMPORT SAMPLE: ENTER opens its nine pages (counter n/9, the tab says Sample) on SELECT
+    SAMPLE; the dial picks the [User] sample, EDIT walks START POINT, END POINT, LOOP START, SAMPLE TUNE, PLAY LEVEL, ONE SHOT,
+    REVERSE and DECLICK and wraps. The points play at once and stay in order, TUNE stops at -63, ONE SHOT keeps the loop
     point and is stored at once, REVERSE turns the values at once; EXIT writes the points and TUNE into the file and goes back to
     the page, a new start has them. Without a [User] sample ENTER says so."""
     if not mc.has_menu(payload):
@@ -638,7 +727,7 @@ def case_edit_menu(payload, flash):
         dev.turn(step)
         picks.append(mc.texts_of(dev)[1:])
     walk = []
-    for _ in range(7):
+    for _ in range(8):
         mc.press(dev, "edit_next", wait=0.4)
         walk.append((mc.counter(dev)[0], mc.texts_of(dev)[:2]))
     mc.press(dev, "edit_next", wait=0.4)
@@ -675,11 +764,11 @@ def case_edit_menu(payload, flash):
     stored = (struct.unpack_from("<I", esli, 40)[0], struct.unpack_from("b", esli, 77)[0], esli[54] & 1)
     out = [
         entry("edit_menu_opens", start_page == ("SAMPLE EDIT", "", mc.PRESS)
-              and select == (("SELECT SAMPLE", "FIRST", "[User] 1"), (0, 8), "Sample", 10) and not dev.m.asserts, f"{start_page}, {select}"),
+              and select == (("SELECT SAMPLE", "FIRST", "[User] 1"), (0, 9), "Sample", 10) and not dev.m.asserts, f"{start_page}, {select}"),
         entry("edit_menu_select", picks == [("SECOND", "[User] 2"), ("SECOND", "[User] 2"), ("FIRST", "[User] 1")], picks),
-        entry("edit_menu_pages", [w[0] for w in walk] == list(range(1, 8)) and [w[1][0] for w in walk]
-              == ["START POINT", "END POINT", "LOOP START", "SAMPLE TUNE", "PLAY LEVEL", "ONE SHOT", "REVERSE"]
-              and [w[1][1] for w in walk] == ["0", "3999", "0", "0", "+0dB", "OFF", "OFF"] and wrapped == (0, "SELECT SAMPLE"), f"{walk}, wrap {wrapped}"),
+        entry("edit_menu_pages", [w[0] for w in walk] == list(range(1, 9)) and [w[1][0] for w in walk]
+              == ["START POINT", "END POINT", "LOOP START", "SAMPLE TUNE", "PLAY LEVEL", "ONE SHOT", "REVERSE", "DECLICK"]
+              and [w[1][1] for w in walk] == ["0", "3999", "0", "0", "+0dB", "OFF", "OFF", "OFF"] and wrapped == (0, "SELECT SAMPLE"), f"{walk}, wrap {wrapped}"),
         entry("edit_menu_start_live", moved == "10" and u["start"] == 20 and live == u["base"] + 20 and loop == "10",
               f"START {moved}, record {u['start']}, voice start {live:#x} (base {u['base']:#x}), LOOP START {loop}"),
         entry("edit_menu_tune", tune_up == "5" and tune_floor == "-63", f"{tune_up}, {tune_floor}"),
@@ -701,7 +790,7 @@ def case_edit_menu(payload, flash):
 
 
 GROUPS = (case_load, case_play, case_reject, case_off, case_menu, case_pattern, case_import, case_import_new_file, case_edit,
-          case_import_menu, case_edit_menu, case_import_folders)
+          case_import_menu, case_edit_menu, case_import_folders, case_declick)
 
 
 def group_entries(payload, flash, i):
