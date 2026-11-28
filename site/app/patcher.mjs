@@ -741,6 +741,8 @@ export function patcherPage(root, { emulator, show = () => {}, session = () => n
     dropHint.textContent = korgOnly ? t("patcher.drop.hint.korg", { device: t(`patcher.device.${korgDevice()}`) })
       : isUpdate() && !pending ? t("patcher.drop.hint.update") : t("patcher.drop.hint");
     for (const c of korgCards) c.li.hidden = (patching() || isOriginal()) && c.device !== korgDevice();
+    // the licence is that of the Korg file Weiter loads: the blue's for the blue synth, the red's for the red and for Hacktribe
+    for (const a of korg.querySelectorAll("#cee-patch-korg-licence-note-link, #cee-patch-korg-licence-link")) a.href = KORG_DOWNLOADS[korgDevice()]?.page ?? KORG_DOWNLOADS.red.page;
     fetchHtBox.hidden = !wantsHt() || isUpdate();
     korgLead.hidden = ask && patching();
     korgLead.replaceChildren(...(isOriginal()

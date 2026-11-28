@@ -1385,7 +1385,7 @@ export default {
   "bk.export.which": "Какие места",
   "bk.export.none": "Сначала задай внизу хотя бы одно место.",
   "bk.device": "Прошивка на твоей Electribe",
-  "bk.device.hacktribe": "Hacktribe (красный сэмплер)",
+  "bk.device.hacktribe": "Hacktribe (красный сэмплер или синий синтезатор)",
   "bk.device.stock": "Оригинал Korg 2.02 (красный сэмплер)",
   "bk.device.synth": "Оригинал Korg 2.02 (синий синтезатор)",
   "bk.device.help": "Файл подходит только к прошивке, которая работает на твоей Electribe, а не к той, что в эмуляторе. Приложение само скачивает прошивку Korg и для Hacktribe делает из неё Hacktribe с помощью hacktribe-2.patch, как патчер. Экспортируя, ты принимаешь {link} Korg. В браузере перетащи ZIP Korg или свой SYSTEM.VSB в поле.",

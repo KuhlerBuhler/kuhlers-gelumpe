@@ -868,7 +868,7 @@ export function baukastenPage(root, { presets = null, device = null, sub = null,
   const firmwareCache = new Map();   // target -> bytes the app loaded or made
   const native = () => globalThis.__TAURI__?.core?.invoke;
   const firmwareTabs = FIRMWARES.map(id => {
-    const input = el("input", { type: "radio", name: "cee-bk-firmware", value: id, checked: id === deviceFirmware, onchange: () => { deviceFirmware = id; writeDeviceFirmware(id); } });
+    const input = el("input", { type: "radio", name: "cee-bk-firmware", value: id, checked: id === deviceFirmware, onchange: () => { deviceFirmware = id; writeDeviceFirmware(id); licenceLink.href = licenceOf(id); } });
     return el("label", { className: "ui-segmented-option", id: `cee-bk-firmware-${id}` }, [input, el("span", { textContent: t(DEVICE_NAME[id]) })]);
   });
   const firmwareSwitch = el("div", { className: "ui-segmented cee-bk-firmware-switch", role: "radiogroup", id: "cee-bk-firmware" }, firmwareTabs);
@@ -890,9 +890,10 @@ export function baukastenPage(root, { presets = null, device = null, sub = null,
     firmwareFiles.textContent = file.name;
   });
   const firmwareZone = dropzoneClear(firmwareInput, () => { firmwareFile = null; firmwareCache.clear(); }).node;
-  const firmwareHelp = el("p", { className: "muted", id: "cee-bk-firmware-help" }, tNodes("bk.device.help", {
-    link: el("a", { className: "cee-text-link", href: KORG_DOWNLOADS.red.page, target: window.__GELUMPE_APP ? "_self" : "_blank", rel: "noopener noreferrer", textContent: t("patcher.korg.licence.link") }),
-  }));
+  // The licence is that of the Korg firmware the target is made from: the blue's for its synth, the red's for the rest.
+  const licenceOf = id => KORG_DOWNLOADS[targetHardware(id)]?.page ?? KORG_DOWNLOADS.red.page;
+  const licenceLink = el("a", { className: "cee-text-link", id: "cee-bk-firmware-licence", href: licenceOf(deviceFirmware), target: window.__GELUMPE_APP ? "_self" : "_blank", rel: "noopener noreferrer", textContent: t("patcher.korg.licence.link") });
+  const firmwareHelp = el("p", { className: "muted", id: "cee-bk-firmware-help" }, tNodes("bk.device.help", { link: licenceLink }));
   const hacktribePatch = async () => {
     const res = await fetch(HACKTRIBE_PATCH_RAW);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -941,6 +942,7 @@ export function baukastenPage(root, { presets = null, device = null, sub = null,
       deviceFirmware = got.build;
       writeDeviceFirmware(got.build);
       for (const tab of firmwareTabs) { const input = tab.querySelector("input"); input.checked = input.value === got.build; }
+      licenceLink.href = licenceOf(got.build);
       const lines = [t("bk.live.state", { build: t(DEVICE_NAME[got.build]), ifx: got.counts.ifx, mfx: got.counts.mfx })];
       if (got.card) lines.push(t(CARD_TEXT[got.card.status], { count: got.card.loaded }));
       if (got.file && !got.file.present) lines.push(t("bk.live.file.none"));

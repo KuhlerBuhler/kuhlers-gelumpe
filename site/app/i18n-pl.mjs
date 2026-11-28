@@ -1385,7 +1385,7 @@ export default {
   "bk.export.which": "Które miejsca",
   "bk.export.none": "Najpierw ustal na dole co najmniej jedno miejsce.",
   "bk.device": "Firmware w twojej Electribe",
-  "bk.device.hacktribe": "Hacktribe (czerwony sampler)",
+  "bk.device.hacktribe": "Hacktribe (czerwony sampler lub niebieski syntezator)",
   "bk.device.stock": "Oryginał Korga 2.02 (czerwony sampler)",
   "bk.device.synth": "Oryginał Korga 2.02 (niebieski syntezator)",
   "bk.device.help": "Plik pasuje tylko do firmware, który działa w twojej Electribe, nie do tego w emulatorze. Aplikacja sama pobiera firmware Korga i dla Hacktribe robi z niego Hacktribe przez hacktribe-2.patch, jak patcher. Eksportując akceptujesz {link} Korga. W przeglądarce przeciągnij ZIP Korga albo swój SYSTEM.VSB do pola.",

@@ -1385,7 +1385,7 @@ export default {
   "bk.export.which": "Welke plekken",
   "bk.export.none": "Bepaal eerst hieronder minstens een plek.",
   "bk.device": "Firmware op je Electribe",
-  "bk.device.hacktribe": "Hacktribe (rode sampler)",
+  "bk.device.hacktribe": "Hacktribe (rode sampler of blauwe synth)",
   "bk.device.stock": "Korgs origineel 2.02 (rode sampler)",
   "bk.device.synth": "Korgs origineel 2.02 (blauwe synth)",
   "bk.device.help": "Het bestand past alleen bij de firmware die op je Electribe draait, niet bij die in de emulator. De app downloadt Korgs firmware zelf en maakt er voor Hacktribe Hacktribe van met hacktribe-2.patch, zoals de patcher. Met exporteren accepteer je Korgs {link}. Sleep in de browser Korgs ZIP of je SYSTEM.VSB naar het veld.",

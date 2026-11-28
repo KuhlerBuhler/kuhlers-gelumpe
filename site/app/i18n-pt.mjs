@@ -1385,7 +1385,7 @@ export default {
   "bk.export.which": "Que lugares",
   "bk.export.none": "Define primeiro, em baixo, pelo menos um lugar.",
   "bk.device": "Firmware da tua Electribe",
-  "bk.device.hacktribe": "Hacktribe (sampler vermelho)",
+  "bk.device.hacktribe": "Hacktribe (sampler vermelho ou sintetizador azul)",
   "bk.device.stock": "Original da Korg 2.02 (sampler vermelho)",
   "bk.device.synth": "Original da Korg 2.02 (sintetizador azul)",
   "bk.device.help": "O ficheiro só serve para o firmware que corre na tua Electribe, não para o do emulador. A app descarrega o firmware da Korg sozinha e, para Hacktribe, transforma-o em Hacktribe com hacktribe-2.patch, como o patcher. Ao exportar aceitas o {link} da Korg. No navegador, arrasta o ZIP da Korg ou o teu SYSTEM.VSB para o campo.",

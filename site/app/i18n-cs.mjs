@@ -1385,7 +1385,7 @@ export default {
   "bk.export.which": "Která místa",
   "bk.export.none": "Nejdřív dole urči aspoň jedno místo.",
   "bk.device": "Firmware ve tvé Electribe",
-  "bk.device.hacktribe": "Hacktribe (červený sampler)",
+  "bk.device.hacktribe": "Hacktribe (červený sampler nebo modrý synth)",
   "bk.device.stock": "Původní Korg 2.02 (červený sampler)",
   "bk.device.synth": "Původní Korg 2.02 (modrý synth)",
   "bk.device.help": "Soubor sedí jen k firmwaru, který běží ve tvé Electribe, ne k tomu v emulátoru. Aplikace si Korgův firmware stáhne sama a pro Hacktribe z něj udělá Hacktribe pomocí hacktribe-2.patch, stejně jako patcher. Exportem přijímáš Korgovu {link}. V prohlížeči přetáhni Korgův ZIP nebo svůj SYSTEM.VSB do pole.",
