@@ -111,6 +111,12 @@ Hilfsroutinen: `0xC004E208` liefert den nächsten freien Offset, `0xC004E218` di
 
 Quelle: Messung 2026-10-25/sample-swap
 
+Die Verdrängungen des Swaps lassen solche Lücken unter dem Frei-Zeiger zurück, `first_fit` belegt sie bei späteren Ladungen wieder.
+Korgs freie Bytes (`0xC004E218`) sehen sie nicht. Für die Speicheranzeige im Sampling-Fenster zählt deshalb `ss_free`
+(`tools/patch/sample_free.py`) bei eingeschaltetem Swap das Budget von `first_fit` minus der aktiven Samples darin. Im Emulator
+blieben nach drei Patternwechseln (Budget 512 KiB) 40.000 Byte Lücke unter dem Zeiger, die Korgs Zahl nicht enthielt und die Anzeige
+jetzt mitzählt. Quelle: Emulatorfall `swap:the_memory_line_counts_the_gaps_the_swap_left_below_the_cursor`.
+
 ## Verdrängen und Veröffentlichen
 
 Regeln (hergeleitet, im Emulator und im ARM-Modell geprüft):

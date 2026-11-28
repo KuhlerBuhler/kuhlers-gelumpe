@@ -67,6 +67,7 @@ import native_dsp_scope  # noqa: E402
 import native_dsp_acquire  # noqa: E402
 import capture_fault  # noqa: E402
 import sample_export_fault  # noqa: E402
+import sample_free  # noqa: E402
 sys.path.append(str(Path(__file__).parent.parent / 'emu'))
 import firmware  # noqa: E402
 
@@ -198,6 +199,7 @@ SITES += [(site, original, None, label, False, True, 'physical sample mutation p
           for site, original, label, *_ in sample_protection.MUTATIONS + sample_protection.STORES]
 SITES += [(site, original, None, label, False, True, 'native PCM operation failure propagation')
           for site, original, label in sample_pcm.HOOKS]
+SITES += [(site, None, calls, stub, True, False, note) for site, calls, stub, note in sample_free.HOOKS]
 
 # Native calls and the layouts they read, compared byte for byte in both red builds.
 CALLED = (
@@ -221,7 +223,7 @@ CALLED = (
     (0xC0099D88, 0x320, "part sample binding and update"),
     (0xC0081F50, 0x11C, "accepted pattern selection"),
     (0xC0039FA0, 0x2C, "full sample export: default path, f_open and its error return"),
-)
+) + sample_free.CALLED
 
 
 def halfword(source):
@@ -2563,7 +2565,7 @@ def source(screens):
                                         gate=STATE + OFF['INSTEP'], session=STATE + OFF['SESSION'],
                                         owner=FILE_OWNER, gate_owner=STATE + OFF['INSTEP_TASK'])
     guards = capture_fault.source(STATE + OFF["TSTATE"], admit_import=True, protect_publication=True, card_slot=True) + sample_export_fault.source(STATE + OFF["TSTATE"])
-    main = SOURCE.replace(".org CODE2", IMPORT_COMPLETION + "\n.org CODE2")
+    main = SOURCE.replace(".org CODE2", IMPORT_COMPLETION + sample_free.source() + "\n.org CODE2")
     main = main.replace(".org CODE3", sample_store.publication_source() + "\n.org CODE3")
     body = main + "\n.org STORE_CODE\n" + sample_store.source(STAGE, defer_short=True, defer_publish=True) + importer + sample_owner.source(FILE_OWNER) + native + guards
     body += "\n.pool\n" + FIRST_FIT
@@ -2668,7 +2670,7 @@ def build_patch(vsb, build=None):
         selection = stub == 'ss_selection'
         chain = "sample-swap-native-dsp" if native else "sample-swap-native-sample" if guard else "sample-swap-mutations" if mutation else "pattern-set" if selection else "sample-swap"
         hooks.append({"site": f"0x{site:08X}", "kind": "instruction", "chain": chain, "position": "after" if selection else "before",
-                      "swallow": native or guard or mutation or stub in ("native_save_command", "native_delete_command", "native_wav_import", "ss_skip", "ss_parse", "ss_cmd", "ss_gate_chain"), "note": note})
+                      "swallow": native or guard or mutation or stub in ("native_save_command", "native_delete_command", "native_wav_import", "ss_skip", "ss_parse", "ss_cmd", "ss_gate_chain") or stub.startswith("ss_mem_"), "note": note})
     initial = sample_owner.INITIAL + bytes(8)
     if was(FILE_OWNER, len(initial)) != bytes([255]) * len(initial):
         raise SystemExit('the file ownership state is not free in this VSB')
@@ -2716,6 +2718,7 @@ CALLED_SHA = {
     0xC0081F50: "23bad452aa63f8f3f1e16b4e055bef0de6aee7a82db9ad13e29a45912796f11e",
     0xC0039FA0: "68ef62c99f868a959b7e10e1e499c0e156dbf05af0596caa805038b250a141bd",
 }
+CALLED_SHA.update(sample_free.CALLED_SHA)
 
 
 def main():

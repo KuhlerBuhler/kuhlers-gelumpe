@@ -58,6 +58,7 @@ export const CHAINS = {
     { id: "export-all-open", sites: [0xC0039FB0] },
     { id: "metadata-read", sites: [0xC0035B3C, 0xC0035BA4, 0xC0035C08, 0xC0035CF8, 0xC0035DA8,
       0xC0035DE8, 0xC0035E18] },
+    { id: "memory-line", sites: [0xC008C698, 0xC008C6AC, 0xC008C6C4] },
   ],
   "sample-swap-mutations": [
     { id: "delete", sites: [0xC004E558] },

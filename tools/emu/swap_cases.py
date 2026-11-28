@@ -490,6 +490,72 @@ def case_alias_eviction(payload, flash):
                   dict(address=hex(refused), alias_kept=protected))]
 
 
+def memory_line(box):
+    """(free bytes the Memory line got, its text): the sampling window's Memory line, two pages right, in resampling."""
+    got = {}
+
+    def value(uc, *_):
+        got['bytes'] = uc.reg_read(unicorn.arm_const.UC_ARM_REG_R1)
+
+    def text(uc, *_):
+        sp = uc.reg_read(unicorn.arm_const.UC_ARM_REG_SP)
+        got['text'] = bytes(uc.mem_read(struct.unpack('<I', uc.mem_read(sp, 4))[0], 24)).split(b'\0')[0].decode('latin-1')
+    hooks = [box.m.uc.hook_add(unicorn.UC_HOOK_CODE, value, begin=0xC008C6AC, end=0xC008C6AC),
+             box.m.uc.hook_add(unicorn.UC_HOOK_CODE, text, begin=0xC008C6D0, end=0xC008C6D0)]
+    box.dev.call(0xC0083DB0, 42, 0)
+    box.run(0.3)
+    window = box.u32(box.u32(box.m.profile.screens) + 0x24)
+    box.dev.call(0xC006B440, window, 1)
+    box.run(0.3)
+    box.key('right')
+    box.key('right')
+    box.tap('exit', 0.5)
+    for h in hooks:
+        box.m.uc.hook_del(h)
+    return got.get('bytes'), got.get('text')
+
+
+def mb_text(free):
+    tenths = free * 10 >> 20
+    return f"{tenths // 10}.{tenths % 10} [MB]"
+
+
+def case_memory_line(payload, flash):
+    """The Memory line shows free sample memory in MB; with the swap on the gaps its evictions leave count too."""
+    out = []
+    box = Box(payload, flash, small(range(500, 504)), [500, 501])
+    native = box.dev.call(0xC004E218)
+    got, text = memory_line(box)
+    out.append(entry('the_memory_line_shows_korgs_free_memory_in_mb_while_the_swap_is_off',
+                     box.state('MODE') != 1 and got == native and text == mb_text(native) and not box.m.asserts,
+                     dict(mode=box.state('MODE'), native=native, got=got, text=text)))
+    cap = 0x80000
+    bank = {0: [500, 501], 1: [502, 503], 2: [504, 505], 3: [506, 507]}
+    samples = small(range(500, 508))
+    samples[506] = ("s506", 20000)
+    samples[507] = ("s507", 20000)
+    box = Box(payload, flash, samples, [500, 501], bank=bank, cap=cap)
+    box.key("play", 0.2)
+    lo = DSP_MIN + spec.DSP_GUARD
+    for n in (1, 2, 3):
+        box.choose(n)
+        box.until(lambda: box.running() == n, 20.0)
+        box.run(0.5)
+    box.key("stop", 0.3)
+    clean, extents = box.no_overlap()
+    used = sum(min(e, lo + cap) - max(b, lo) for b, e in extents if e > lo)
+    cursor = box.u32(CURSOR)
+    gaps = (cursor - lo) - used
+    expected = cap - used
+    got, text = memory_line(box)
+    row = dict(mode=box.state('MODE'), resident=box.residents(), cursor=hex(cursor), gaps_below_cursor=gaps,
+               korg_view=lo + cap - cursor, expected=expected, got=got, text=text)
+    out.append(entry('the_memory_line_counts_the_gaps_the_swap_left_below_the_cursor',
+                     box.state('MODE') == 1 and clean and gaps > 0 and got == expected
+                     and got == (lo + cap - cursor) + gaps and text == mb_text(expected) and not box.m.asserts, row))
+    return out
+
+
 # ------------------------------------------------------------------ cache
 def case_cache(payload, flash):
     out = []
@@ -1002,7 +1068,7 @@ def case_native_persist_capture_failures(payload, flash):
             p.capture_case(payload, small_alias=True, flash=flash)]
 
 
-GROUPS = (case_start, case_long_set, case_gate, case_chain, case_eviction, case_part_change, case_cache, case_checksum,
+GROUPS = (case_start, case_long_set, case_gate, case_chain, case_eviction, case_part_change, case_memory_line, case_cache, case_checksum,
           case_equal, *[(lambda i: lambda payload, flash: flow_task(payload, flash, i))(i) for i in range(len(FLOWS))],
           case_failure_gates, case_full_session, case_prefetch_targets, case_alias_eviction, case_voice_residency, case_store,
           case_file_owner, case_integrity, case_native_dsp, case_native_sample_faults, case_osc_choice,
