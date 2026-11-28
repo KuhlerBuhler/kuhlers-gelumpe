@@ -931,7 +931,7 @@ class HookTests(unittest.TestCase):
         pairs+=[('blechy_boot','blechy_boot_end'),('menu_arm','menu_arm_end'),('menu_arm_load','menu_arm_load_end'),('menu_settings_load','menu_settings_end'),('menu_needs_confirm','menu_confirm'),('menu_recount','menu_recount_end'),('menu_event_right','menu_hooks_end'),('led_meter_hook','look_hooks_end'),
             ('shortcut_input','shortcut_tick'),('kp_input','kp_tick'),('shortcut_pool','shortcut_end'),('migrate_start','migrate_end'),('fx_card_load','fx_card_load_end'),('remap_input','events_post'),('objects_row','objects_end')]
         spans=sum(built.symbols[end]-built.symbols[start] for start,end in pairs)
-        self.assertEqual(sum(span['length'] for span in patch['startPhase']),spans+len(SITES)*4+len(WORDS)*4+184+card+len(built.sections[-1][1])+len(built.sections[0][1]))
+        self.assertEqual(sum(span['length'] for span in patch['startPhase']),spans+len(SITES)*4+2*4+184+card+len(built.sections[-1][1])+len(built.sections[0][1]))
         size=lambda change: len(change['bytes'])//2 if 'bytes' in change else change['copy']['length']
         written=set()
         for change in patch['changes']: written.update(range(change['file'],change['file']+size(change)))

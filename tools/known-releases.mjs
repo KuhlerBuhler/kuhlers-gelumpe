@@ -7,12 +7,15 @@
  *
  *   node tools/known-releases.mjs --hacktribe H.VSB --stock RED.VSB --synth BLUE.VSB v1.3.4 v1.3.5 v1.3.6 v1.3.7 worktree
  *
- * `worktree` stands for the patch files as they are on disk now.
+ * `worktree` stands for the patch files as they are on disk now. `--catalog F` (repeatable) adds the effect catalog
+ * hashes for another original of a build, e.g. a second Hacktribe file: its presets borrow units from its own records,
+ * so the hashes differ per original, and an update only frees our catalog slots when it knows them.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { addRelease, emptyKnown } from "../src/blech-update.mjs";
+import { addCatalog, addRelease, emptyKnown } from "../src/blech-update.mjs";
+import { APPEND_FORMAT, appendPresets } from "../src/fx-append.mjs";
 import { buildOf } from "../src/firmware.mjs";
 import { USB_NAME_URLS } from "../src/patcher.mjs";
 import { ensureRuntimePatches } from "./patch/ensure-runtime.mjs";
@@ -21,10 +24,12 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const args = process.argv.slice(2);
 const takeFlag = name => { const i = args.indexOf(name); return i < 0 ? null : args.splice(i, 2)[1]; };
 const bases = { hacktribe: takeFlag("--hacktribe"), stock: takeFlag("--stock"), synth: takeFlag("--synth") };
+const catalogs = [];
+for (let file; (file = takeFlag("--catalog")); ) catalogs.push(file);
 const out = takeFlag("--out") ?? `${root}data/known-releases.json`;
 const refs = args;
 if (!refs.length || !Object.values(bases).every(Boolean)) {
-  process.stderr.write("usage: known-releases.mjs --hacktribe F --stock F --synth F [--out F] <tag|worktree>...\n");
+  process.stderr.write("usage: known-releases.mjs --hacktribe F --stock F --synth F [--catalog F]... [--out F] <tag|worktree>...\n");
   process.exit(2);
 }
 
@@ -53,6 +58,18 @@ for (const ref of refs) {
     await addRelease(known, release, build, base, patches);
     const names = USB_NAME_URLS.map(u => show(ref, u)).filter(Boolean);
     if (names.length) await addRelease(known, release, build, base, names);
+  }
+  for (const file of catalogs) {
+    const base = new Uint8Array(readFileSync(file));
+    const build = buildOf(base);
+    const set = (setOf(ref, build === "synth" ? "data/patches/blech-synth.json" : "data/patches/blech.json") ?? []).filter(p => p.format === APPEND_FORMAT);
+    let bytes = base;
+    for (const patch of set) {
+      const res = appendPresets(bytes, patch);
+      if (!res.ok) throw new Error(`${ref} on ${file}: ${res.reasons.join(" ")}`);
+      bytes = res.bytes;
+    }
+    addCatalog(known, build, base, bytes, set);
   }
 }
 writeFileSync(out, JSON.stringify(known) + "\n");

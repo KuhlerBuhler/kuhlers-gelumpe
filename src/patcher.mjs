@@ -116,6 +116,7 @@ const PATCH_LABELS = {
   "ht-osc": "features.htOsc.title",
   "beat-eighth": "features.beatEighth.title",
   "touch-scale-zero": "features.touchScaleZero.title",
+  "value-popup": "patcher.patch.valuePopup",
   "update-guard": "patcher.patch.updateGuard",
   "blech-version": "patcher.patch.version",
   "doom-loader": "features.doom.title",

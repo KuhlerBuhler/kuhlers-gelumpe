@@ -1,0 +1,36 @@
+{
+ "format": "gelumpe-patch",
+ "version": 1,
+ "id": "value-popup",
+ "name": "Keys close the value window",
+ "builds": [
+  "synth"
+ ],
+ "changes": [
+  {
+   "file": 375152,
+   "bytes": "e36200ea",
+   "expect": "fe8d65ae913df24877f27645b6abefd01c7d55d06183491a9a5cb0579724f022",
+   "note": "value window 0x18: the callback closes the window as before, not through the EXIT method"
+  },
+  {
+   "file": 375216,
+   "bytes": "ffffffea",
+   "expect": "88098631b0b05b4e3cfe81e4fdf6d9813ebdf89256141b304d8bb6e4d8b2f263",
+   "note": "value window 0x18: EXIT closes the window and runs EXIT"
+  },
+  {
+   "file": 375220,
+   "bytes": "70402de90140a0e10250a0e1123041e2040053e3010013930400001a000052e37080bd18060000ea0000a0e10000a0e1c66200eb0400a0e10510a0e17040bde8bc6100ea0c309fe50010a0e1000093e57040bde8c05d00ea2cb556c0",
+   "expect": "3986dffcf13fe6f7b893b76ae1839c64657e7628c842ede3671cade3da3ca65a",
+   "note": "value window 0x18: a key press closes the window and runs the key; the filter keys keep it"
+  },
+  {
+   "file": 401712,
+   "bytes": "000051e338402de91930d0e50040a0e10250a0e11300001a000053e320c0940517c0a01317005ce31c309415010053133880bd1817005ce3e548000b1830d4e5000053e33880bd18100094e50510a0e1003090e5283093e533ff2fe1300094e53840bde86d5700ea000053e3140094050300000a1830d4e5000053e33880bd18100094e500c090e53840bde81cf09ce50000a0e10000a0e1",
+   "expect": "9c1a717e90f59e5ce58f4dee329c9044379abe39bb352c71ab6e92b4c5f617fa",
+   "note": "encoder handler: the main dial closes a value window and goes to the screen (a menu among them)"
+  }
+ ],
+ "ram": []
+}
