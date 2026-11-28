@@ -51,9 +51,11 @@ GROOVE_CLAMPS = {                       # address: (original word, new word)
     0xC007BB94: (0xC2422019, 0xC242203E),   # subgt r2, r2, #25 -> #62, menu wrap above the last
 }
 SCALE_STEPS, SCALE_SNAP, SCALE_NAMES, SCALE_OBJECTS = 0xC00DCF70, 0xC00DD148, 0xC00DD330, 0xC00DDB18
+SCALE_PADS = 0xC00C5DB8                 # KEYBOARD: 16 notes per scale, read by the layout builder 0xC0044D28
 SCALE_LITERALS = {
     0xC005423C: SCALE_STEPS, 0xC0054508: SCALE_SNAP, 0xC00545BC: SCALE_NAMES,
     0xC0055360: SCALE_OBJECTS, 0xC005537C: SCALE_OBJECTS, 0xC00553BC: SCALE_OBJECTS,
+    0xC0044DA4: SCALE_PADS,
 }
 SCALE_CLAMPS = {
     0xC007CF24: (0xE3510022, 0xE3510045),   # cmp r1, #34 -> #69, the menu
@@ -66,7 +68,7 @@ IONIAN_DTOR, IONIAN_DELETE = 0xC0054928, 0xC0054DA8    # the vtable of Korg's Io
 # ---- sizes ----
 KORG_GROOVES, GROOVES_TOTAL, TEMPLATE = 25, 62, 0x140
 KORG_SCALES, SCALES_TOTAL = 35, 70
-STEP_ENTRY, SNAP_ENTRY = 13, 12
+STEP_ENTRY, SNAP_ENTRY, PAD_ENTRY = 13, 12, 16
 ROW, VARIANTS = 64, 8
 
 # ---- our layout, erased image space of the red build ----
@@ -299,6 +301,14 @@ def chord_table(steps):
     return bytes(table)
 
 
+def pad_notes(steps):
+    """The 16 KEYBOARD notes of a scale, Korg's rule: the lower row is the first 8 notes of the scale from the root
+    up, the upper row the same an octave higher (table order: lower row first)."""
+    n = len(steps)
+    row = [12 * (d // n) + steps[d % n] for d in range(8)]
+    return bytes(row + [12 + x for x in row])
+
+
 def scale_steps(steps):
     return bytes([len(steps)] + steps + [0] * (12 - len(steps)))
 
@@ -343,6 +353,7 @@ def layout():
     take("objs", len(SCALES) * 16)
     take("chords", sum(len(s) for _, s in SCALES) * ROW)
     take("strings", sum(len(n) + 1 for n, _ in SCALES))
+    take("pads", SCALES_TOTAL * PAD_ENTRY)
     if at > AREA_END:
         raise ValueError(f"the scale data ends at {at:#x}, beyond {AREA_END:#x}")
     return place, at
@@ -354,6 +365,7 @@ def ours():
     blobs = []
     blobs.append((GROOVES + KORG_GROOVES * TEMPLATE, b"".join(template(n, s) for n, s in GROOVE_LIST)))
     blobs.append((place["steps"] + KORG_SCALES * STEP_ENTRY, b"".join(scale_steps(s) for _, s in SCALES)))
+    blobs.append((place["pads"] + KORG_SCALES * PAD_ENTRY, b"".join(pad_notes(s) for _, s in SCALES)))
     blobs.append((place["snap"] + KORG_SCALES * SNAP_ENTRY, b"".join(bytes(v & 0xFF for v in snap(s)) for _, s in SCALES)))
     strings, names, at = b"", [], place["strings"]
     for name, _ in SCALES:
@@ -408,12 +420,13 @@ def build_patch(raw):
     put(GROOVE_NAME_LITERAL, struct.pack("<I", GROOVES + 0x10), "groove names")
     for at, (_, new) in GROOVE_CLAMPS.items():
         put(at, struct.pack("<I", new), "62 grooves")
-    targets = {SCALE_STEPS: place["steps"], SCALE_SNAP: place["snap"], SCALE_NAMES: place["names"], SCALE_OBJECTS: place["objects"]}
+    targets = {SCALE_STEPS: place["steps"], SCALE_SNAP: place["snap"], SCALE_NAMES: place["names"], SCALE_OBJECTS: place["objects"],
+               SCALE_PADS: place["pads"]}
     for at, table in SCALE_LITERALS.items():
         put(at, struct.pack("<I", targets[table]), "scale table")
     for at, (_, new) in SCALE_CLAMPS.items():
         put(at, struct.pack("<I", new), "70 scales")
-    for old, size in ((SCALE_STEPS, STEP_ENTRY), (SCALE_SNAP, SNAP_ENTRY), (SCALE_NAMES, 4), (SCALE_OBJECTS, 4)):
+    for old, size in ((SCALE_STEPS, STEP_ENTRY), (SCALE_SNAP, SNAP_ENTRY), (SCALE_NAMES, 4), (SCALE_OBJECTS, 4), (SCALE_PADS, PAD_ENTRY)):
         length = KORG_SCALES * size
         source = raw[off(old):off(old) + length]
         changes.append({"file": off(targets[old]), "expect": erased(length),
@@ -424,7 +437,15 @@ def build_patch(raw):
     start_phase = [{"file": off(GROOVE_BUILDER_LITERAL), "length": 4,
                     "why": "the firmware builds its 25 groove templates at start, at the address of this literal"},
                    {"file": off(GROOVES), "length": KORG_GROOVES * TEMPLATE,
-                    "why": "the firmware writes its 25 groove templates here at start"}]
+                    "why": "the firmware writes its 25 groove templates here at start"},
+                   {"file": off(0xC0049DA4), "length": 4,
+                    "why": "the start sets each part's groove through the setter, whose limit is now 61"},
+                   {"file": off(0xC005423C), "length": 4,
+                    "why": "the start sets the pattern's scale, which takes its steps through this literal"},
+                   {"file": off(0xC005537C), "length": 4,
+                    "why": "the start asks for the chord object of the pattern's scale through this literal"},
+                   {"file": off(place["objects"]), "length": KORG_SCALES * 4,
+                    "why": "the start reads the chord object of the pattern's scale from the moved table"}]
     return {
         "format": "gelumpe-patch", "version": 1, "id": "grooves-scales",
         "name": "Grooves und Skalen: 62 Grooves, 70 Skalen",

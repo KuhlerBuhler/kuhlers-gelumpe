@@ -134,8 +134,10 @@ def case_factory_grooves(payload, flash):
     marks = all(korg[i * spec.TEMPLATE:i * spec.TEMPLATE + 4] == b"GVST" for i in range(spec.KORG_GROOVES))
     place, _ = spec.layout()
     same = []
-    for table, size in ((spec.SCALE_STEPS, spec.STEP_ENTRY), (spec.SCALE_SNAP, spec.SNAP_ENTRY), (spec.SCALE_NAMES, 4), (spec.SCALE_OBJECTS, 4)):
-        key = {spec.SCALE_STEPS: "steps", spec.SCALE_SNAP: "snap", spec.SCALE_NAMES: "names", spec.SCALE_OBJECTS: "objects"}[table]
+    for table, size in ((spec.SCALE_STEPS, spec.STEP_ENTRY), (spec.SCALE_SNAP, spec.SNAP_ENTRY), (spec.SCALE_NAMES, 4), (spec.SCALE_OBJECTS, 4),
+                        (spec.SCALE_PADS, spec.PAD_ENTRY)):
+        key = {spec.SCALE_STEPS: "steps", spec.SCALE_SNAP: "snap", spec.SCALE_NAMES: "names", spec.SCALE_OBJECTS: "objects",
+               spec.SCALE_PADS: "pads"}[table]
         n = spec.KORG_SCALES * size
         same.append(box.raw(place[key], n) == plain.raw(table, n))
     return [
@@ -228,7 +230,8 @@ def case_scales(payload, flash):
     box.run(0.3)
     box.dev.press(KEYBOARD, 0.4)
     layouts = {s: [n[0] if n else None for n in pads(box, s)] for s in (35, 44, 69)}
-    play_ok = all(None not in n and {x % 12 for x in n} == set(spec.SCALES[s - spec.KORG_SCALES][1]) and n == sorted(n)
+    # pads 8 to 15 are the lower row, the first half of the table (0xC0044B04)
+    play_ok = all(None not in n and [x - n[8] for x in n[8:] + n[:8]] == list(spec.pad_notes(spec.SCALES[s - spec.KORG_SCALES][1]))
                   for s, n in layouts.items())
     box.dev.press(CHORD, 0.4)
     chords, chord_ok = {}, True
